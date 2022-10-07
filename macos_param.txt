@@ -1,0 +1,48 @@
+&macos_param128
+mElt=100, mpts=128, bRay=441, mWF=3, 
+mIntSrf=10, mDP=255, mDrawRay=65, mObs=20, 
+mWavelen=25, mStarType=7, mSegMirs=3, mGridSrf=100,
+mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32, 
+mUDScoef=4000/
+
+&macos_param256
+mElt=210, mpts=128, bRay=500, mWF=3, 
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20, 
+mWavelen=25, mStarType=7, mSegMirs=2, mGridSrf=200,
+mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32, 
+mUDScoef=4000/
+
+&macos_param512
+mElt=100, mpts=255, bRay=500, mWF=3, 
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20, 
+mWavelen=25, mStarType=7, mSegMirs=2, mGridSrf=100,
+mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32, 
+mUDScoef=4000/
+
+&macos_param1024
+mElt=210, mpts=1024, bRay=500, mWF=3, 
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20, 
+mWavelen=10, mStarType=7, mSegMirs=2, mGridSrf=200,
+mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32, 
+mUDScoef=4000/
+
+&macos_param2048
+mElt=100, mpts=1024, bRay=500, mWF=3, 
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20, 
+mWavelen=10, mStarType=7, mSegMirs=2, mGridSrf=100,
+mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32, 
+mUDScoef=4000/
+
+&macos_param4096
+mElt=100, mpts=2048, bRay=500, mWF=3,
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20,
+mWavelen=10, mStarType=7, mSegMirs=2, mGridSrf=100,
+mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32,
+mUDScoef=4000/
+
+&macos_param8192
+mElt=100, mpts=4096, bRay=500, mWF=3,
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20,
+mWavelen=10, mStarType=7, mSegMirs=2, mGridSrf=100,
+mGridMat=256, mGlass=250, mCplxObs=2, mObsMat=32,
+mUDScoef=4000/
