@@ -1164,7 +1164,7 @@ C  Run parameters
                   END IF
                 !ELSE IF (iElt.GT.0) THEN   ! Perturb elements
                 ELSE IF (iElt.GE.0) THEN   ! Perturb elements including src
-                  DARG=prb(k+1:k+6)
+                  DARG(1:6)=prb(k+1:k+6)
                   k=k+6
                   command='PERTURB'
 	          If (iElt==9999) Then
@@ -1180,7 +1180,7 @@ C  Run parameters
 
 	      ELSE IF (EltGrp(0,abs(iElt))>0) THEN
                 ! Group elements perturb
-                DARG=prb(k+1:k+6)
+                DARG(1:6)=prb(k+1:k+6)
 	        !print*,'prb(k+1:k+6) =',prb(k+1:k+6)
 	        print*,'*** GPER on iElt =',abs(iElt)
                 k=k+6
