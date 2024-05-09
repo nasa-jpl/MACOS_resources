@@ -9,15 +9,7 @@
 
 
 # MACOS_DIR should be the source directory for macos_f90   ---> UPDATE !!!!!!
-#MACOS_DIR = ../macos_varGridMat-05-25-2013
-#MACOS_DIR := /proj/jwst/jzlou/tst_malfoy/MACOS_BUILD/macos-save-05-07-2013
-#MACOS_DIR := /proj/jwst/jzlou/tst_malfoy/MACOS_BUILD/macos-save-09-27-2014
-#MACOS_DIR := /proj/jwst/jzlou/tst_malfoy/MACOS_BUILD/macos-save-09-27-2014_for126
-#MACOS_DIR := /proj/jwst/jzlou/tst_malfoy/MACOS_BUILD/macos-save-04-30-2016_for126
-##MACOS_DIR := /proj/jwst/jzlou/tst_malfoy/MACOS_BUILD/test/macos-save-04-30-2016_for126
-#MACOS_DIR := /proj/jwst/jzlou/tst_millipede/MACOS_BUILD/tstCmp_macos_on_millipede
-MACOS_DIR := /proj/jwst/jzlou/tst_millipede/MACOS_BUILD/tstCmp_macos_on_millipede_v2
-%MACOS_DIR := /proj/jwst/jzlou/tst_millipede/MACOS_BUILD/tstCmp_macos_on_millipede_v2/work_add_steward_platform
+MACOS_DIR := $(macossrc_dir)
 GMI_DIR = $(shell pwd)
 
 #MEX = mex  -largeArrayDims      # Mex Compiler
@@ -61,7 +53,7 @@ endif
 ifeq ($(MATLAB_VERSION),81) # --> R2013a
     # '-largeArrayDims' flag causes runtime memeory problem in GMIG.F -jzlou 04/2020
     #MEX = /usr/local/matlab-8.1/bin/mex -largeArrayDims -f $(GMI_DIR)/mexopts.sh_$(MATLAB_VERSION) 
-    MEX = /usr/local/matlab-8.1/bin/mex -f $(GMI_DIR)/mexopts.sh_$(MATLAB_VERSION)
+    MEX = /usr/local/MATLAB/8.1/bin/mex -f $(GMI_DIR)/mexopts.sh_$(MATLAB_VERSION)
     SUFFIX := _$(MATLAB_VERSION)
 endif
 
