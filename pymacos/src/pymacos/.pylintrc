@@ -1,0 +1,3 @@
+[MASTER]
+disable=
+    W0105,  # W0105:pointless-string-statement
