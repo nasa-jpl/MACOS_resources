@@ -18,6 +18,7 @@ __pycache__/
 *.so
 *.dylib
 *.dll
+*.pyd
 
 # Compiled Static libraries
 *.lai
@@ -132,6 +133,7 @@ ENV/
 env.bak/
 venv.bak/
 
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -190,3 +192,6 @@ dmypy.json
 
 # Editor
 *.bak
+
+# cmake
+build/
