@@ -1,0 +1,3 @@
+[submodule "pymacos/src/macos"]
+	path = pymacos/src/macos
+	url = git@github.com:nasa-jpl/macos.git

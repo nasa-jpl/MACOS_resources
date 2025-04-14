@@ -1,0 +1,58 @@
+[ ] pymacos Compilation for Win
+
+    [ ] Require: - Intel Fortran IFX Compiler
+                 - Visual Studio 2022
+                 - Python >= 3.13.x  with at latest: Numpy, scipy, matplotlib
+
+    [ ] clone github repo MACOS_API
+
+    [ ] Anaconda, Standalone Python, UV Package Manager, ...
+        [ ] MACOS/SMACOS
+            [ ] open a cmd window
+            [ ] activate Python 3.13 and initialise Intel Compiler with MS Visual
+                e.g.:
+
+                  [ ] activate py313            (Anaconda: if Python Env. is "py313")
+                  [ ] .venv\Scripts\activate    (Python Virtual Environment)
+
+                  [ ] Intel:
+                     C:\"Program Files (x86)"\Intel\oneAPI\setvars intel64 vs2022
+
+
+            [ ] Compile MACOS to create ".\libs" & ".\mod"
+                cd [PATH TO MACOS_API Git Repo]\MACOS_API\pymacos\src\macos\cmake
+                mkdir build
+                cd build
+                cmake -G "NMake Makefiles" -S ..
+                nmake
+
+                => this will create folders: ".\libs" & ".\mod"
+
+        [ ] compile pymacos
+            [ ] open a cmd window
+            [ ] activate Python 3.13 and initialise Intel Compiler
+
+            [ ] compile to create Python DLL
+                cd [PATH TO MACOS_API Git Repo]\MACOS_API\pymacos\src\cmake   <<< need to update path
+                mkdir build
+                cd build
+                cmake -G "NMake Makefiles" -S ..
+                nmake
+
+                => this will place the DLL (pymacosf90.cp313-win_amd64.pyd) into the pymacos folder
+                => ensure that the DLL is not being used in an open Python session
+
+    [ ] Anaconda
+        [ ] Anaconda contains DLLs from MS Windows and Intel
+            ==> no link to re-distributable DLLs needed
+
+    [ ] Standard Python (with/out uv package manager)
+        [ ] No re-distributable DLLs from Intel or Windows
+            [ ] => install re-distributable Binaries from MS Windows and Intel
+            [ ] => update __init__.py in the pymacos folder:
+
+                import os
+                os.add_dll_directory("C:\\Program Files (x86)\\Intel\\oneAPI\\2025.0\\bin")
+
+                The path is system dependent => please update according to your installs
+
