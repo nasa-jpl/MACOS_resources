@@ -20,7 +20,8 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/..)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/..)
+# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/..)  # dump pyd file to upper
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/../pymacos)  # dump pyd file to pymacos
 # add_subdirectory(${PROJECT_SOURCE_DIR}/source)
 
 
@@ -119,8 +120,8 @@ set(f2py_module_c        "${f2py_module_name}module.c")
 set(f2py_wrapper_pyf     "${CMAKE_CURRENT_BINARY_DIR}/${f2py_module_name}.pyf")
 set(f2py_wrapper_f90     "${CMAKE_CURRENT_BINARY_DIR}/${f2py_module_name}-f2pywrappers2.f90")
 
-set(macos_mod_dir "${CMAKE_SOURCE_DIR}/../../../../../macos_open_source/cmake/build/mod")
-set(macos_lib_dir "${CMAKE_SOURCE_DIR}/../../../../../macos_open_source/cmake/build/libs")
+set(macos_mod_dir "${CMAKE_SOURCE_DIR}/../macos/cmake/build/mod")
+set(macos_lib_dir "${CMAKE_SOURCE_DIR}/../macos/cmake/build/libs")
 
 set_source_files_properties(
   ${fortran_src_file}
