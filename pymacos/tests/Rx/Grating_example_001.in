@@ -1,0 +1,102 @@
+  BaseUnits= mm
+  WaveUnits= mm
+
+ChfRayDir=  0d0  0d0  1d0
+ChfRayPos=  0d0  0d0 -4d0
+ zSource=   1d22
+  IndRef=   1d0
+  Extinc=   0d0
+ Wavelen=   600-06
+    Flux=   1d0
+GridType=   Circular
+Aperture=   10d0
+Obscratn=   0d0
+nGridpts=   128
+   xGrid=   1d0  0d0  0d0
+   yGrid=   0d0  1d0  0d0
+    nElt=    4
+
+% --------------------------------
+    iElt=    1
+ EltName= GratingOnMirror
+ Element= Grating
+ Surface= Conic
+   KrElt=  -6d0
+   KcElt=   0d0
+  psiElt=   0d0  0d0 -1d0
+  VptElt=   0d0  0d0  0d0
+  RptElt=   0d0  0d0  0d0
+  IndRef=   1d0
+  Extinc=   1d22
+
+   h1HOE=   1d0  0d0  0d0
+ OrderHOE=  1
+RuleWidth=  0.001d0
+
+    nObs=    0
+  ApType=   None
+    zElt=   1d22
+PropType=   Geometric
+ nECoord=   -6
+
+% --------------------------------
+    iElt=    2
+ EltName= Return1
+ Element= Return
+ Surface= Conic
+   KrElt=  -1d22
+   KcElt=   0d0
+  psiElt=   0d0  0d0  1d0
+  VptElt=   0d0  0d0 -3d0
+  RptElt=   0d0  0d0  0d0
+  IndRef=   1d0
+  Extinc=   0d0
+    nObs=    0
+  ApType=   None
+    zElt=   1d22
+PropType=   Geometric
+ nECoord=   -6
+
+% --------------------------------
+    iElt=    3
+ EltName= ExitPupil
+ Element= Return
+ Surface= Conic
+   KrElt=  -1d16
+   KcElt=   0d0
+  psiElt=   0d0  0d0  1d0
+  VptElt=   0d0  0d0 -3d0
+  RptElt=   0d0  0d0  0d0
+  IndRef=   1d0
+  Extinc=   1d22
+    nObs=    0
+  ApType=   None
+    zElt=   1d22
+PropType=   FarField
+ nECoord=   -6
+
+% --------------------------------
+    iElt=    4
+ EltName= FP
+ Element= FocalPlane
+ Surface= Flat
+   KrElt=  -1d22
+   KcElt=   0d0
+  psiElt=   0d0  0d0  1d0
+  VptElt=   0d0  0d0 -3d0
+  RptElt=   0d0  0d0  0d0
+  IndRef=   1d0
+  Extinc=   0d0
+    nObs=    0
+  ApType=   None
+    zElt=   1d22
+PropType=   Geometric
+ nECoord=   -6
+
+nOutCord=    5
+    Tout=   1d0  0d0  0d0  0d0  0d0  0d0  0d0
+            0d0  1d0  0d0  0d0  0d0  0d0  0d0
+            0d0  0d0  0d0  1d0  0d0  0d0  0d0
+            0d0  0d0  0d0  0d0  1d0  0d0  0d0
+            0d0  0d0  0d0  0d0  0d0  0d0  1d0
+
