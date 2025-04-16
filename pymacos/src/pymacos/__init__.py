@@ -3,7 +3,7 @@
 MACOS via Python
 ==============================
 
-A module for analyzing / designing optical systems.
+A Module for Analyzing complex Controlled Optical Systems.
 
 """
 from __future__ import absolute_import
