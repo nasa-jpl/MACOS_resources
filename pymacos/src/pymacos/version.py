@@ -1,5 +1,5 @@
 """
 pyMACOS version
 """
-version = "2.2.2"
+version = "1.0.0"
 __version__ = version

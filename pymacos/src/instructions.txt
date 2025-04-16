@@ -46,6 +46,21 @@
         [ ] Anaconda contains DLLs from MS Windows and Intel
             ==> no link to re-distributable DLLs needed
 
+        [ ] test:
+            [ ] check if DLL can be loaded
+                Win cmd windowow:
+                  activate py313       activate Conda environment:
+                  cd [PATH to MACOS_API Git Repo]\MACOS_API\pymacos\src\pymacos
+                  python -c "import pymacosf90"
+
+            [ ] check if pymacos can be loaded
+                Win cmd windowow:
+                  activate py313       activate Conda environment:
+                  cd [PATH to MACOS_API Git Repo]\MACOS_API\pymacos\src
+                  python -c "import pymacos"
+
+
+
     [ ] Standard Python (with/out uv package manager)
         [ ] No re-distributable DLLs from Intel or Windows
             [ ] => install re-distributable Binaries from MS Windows and Intel
