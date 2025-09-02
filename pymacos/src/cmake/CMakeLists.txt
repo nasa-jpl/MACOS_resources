@@ -1,53 +1,91 @@
 # ------------------------------------------------------------------
+#   => set up Intel oneAPI Env
+#   => activate Python >3.13 with Numpy
+#
 # Windows:
 #   cd build
 #   cmake -G "NMake Makefiles" -S ..
 #   nmake
+#
+# Linux:
+#   cd build
+#   rm -r *; cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DCMAKE_Fortran_COMPILER=ifx -S ..
+#   make
+#   
 # ------------------------------------------------------------------
-# python -c "import numpy as np; import pymacosf90 as f; "
+# Test:  python -c "import pymacosf90"
 # ------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.31) # Needed to avoid requiring embedded Python libs too
+cmake_minimum_required(VERSION 3.31)
+include(CMakePrintHelpers)
 
 project(pymacosf90
-  VERSION 1.0
+  VERSION 1.00.00
   DESCRIPTION "Python Interface"
   LANGUAGES Fortran C CXX
 )
 enable_language(Fortran C CXX)
 
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/..)
-# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/..)  # dump pyd file to upper
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/../pymacos)  # dump pyd file to pymacos
-# add_subdirectory(${PROJECT_SOURCE_DIR}/source)
-
-
-# Release or Debug: set to Release
-# Set the Build type to Release
-# if(NOT CMAKE_BUILD_TYPE)   # default is Debug
-  set(CMAKE_BUILD_TYPE Release CACHE STRING " " FORCE)
-# endif()
-# Set the Build type to Release
-# set(CMAKE_BUILD_TYPE Release)
-message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-
-
-# set(CMAKE_C_COMPILER "cl")  # Visual C compiler
-# set(CMAKE_F_COMPILER "ifx")  # Intel Fortran compiler
-
-
-
+# ---------------------------------------------
 # Safety net
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
-  message(
-    FATAL_ERROR
+  message(FATAL_ERROR
       "In-source builds not allowed. Please make a new directory (called a build directory) and run CMake from there.\n"
   )
 endif()
 
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/../macos")
+  message(FATAL_ERROR
+    "MACOS submodule not found. Run: git submodule update --init --recursive")
+endif()
+
+# --------------------------------------------- Module dir
+set(mod_dir "${CMAKE_BINARY_DIR}/mod")
+make_directory(${mod_dir})
+set(CMAKE_Fortran_MODULE_DIRECTORY ${mod_dir})
+
+# --------------------------------------------- OS Definition
+if(WIN32)
+  message("-------------------------------\nWindows x64 Settings\n-------------------------------")
+  set(WINx64 TRUE)
+  set(LINUX64 FALSE)
+
+else() # if(CMAKE_SYSTEM_NAME STREQUAL "Linux")  # (CMAKE_HOST_UNIX)
+  message("-------------------------------\nLinux Settings\n-------------------------------")
+  set(WINx64 FALSE)
+  set(LINUX64 TRUE)
+endif()
+
+# ------------------------------------------------------- Compiler
+if (LINUX64)
+  set(CMAKE_C_COMPILER icx)          # Intel oneAPI
+  set(CMAKE_CXX_COMPILER icpx)       # Intel oneAPI
+  set(CMAKE_Fortran_COMPILER ifx)    # Intel oneAPI
+else()
+  set(CMAKE_Fortran_COMPILER ifx)    # Intel oneAPI
+  set(CMAKE_C_COMPILER cl)           # MS VC
+  set(CMAKE_CXX_COMPILER cl)         # MS VC
+endif()
+
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
+
+
+# ------------------------------------------------------- Export
+# note: it will fail to create when pymacos DLL is still in use
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/../pymacos)  # dump pyd file to pymacos
+
+
+# ------------------------------------------------------- Build Type
+# Set the Build type to Release  (Default is Debug)
+set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Release CACHE STRING " " FORCE)     # cache may require upd.
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+
+
+# ------------------------------------------------------- Python > 3.13  (requires numpy > 2.2)
 # Grab Python, 3.13 or newer
 find_package(Python 3.13 REQUIRED
   COMPONENTS Interpreter Development.Module NumPy)
@@ -62,83 +100,82 @@ execute_process(
 )
 string(REPLACE "\\" "/" F2PY_INCLUDE_DIR  "${F2PY_INCLUDE_DIR}")  # Fix path formatting for Win
 
-# set(PYTHON_LIBRARIES Python3::Python)
-# if (MSVC)
-#     set(PYTHON_LIBRARIES ${PYTHON_LIBRARIES} ${PYTHON_LIBRARIES}/python312.lib)
-#     # set(PYTHON_LIBRARIES ${PYTHON_LIBRARIES} python312.lib)
-#     # set_target_properties(fibby PROPERTIES DEBUG_POSTFIX "_d")
-# endif()
-# Python3_EXECUTABLE_RELEASE
+
+# ------------------------------------------------------- Fortran Pre-Processing
+set_source_files_properties(PROPERTIES Fortran_PREPROCESS ON)
 
 
-# -------------------------------------------
-# Fortran: Compiler options for all
-# -------------------------------------------
-set(CMAKE_Fortran_COMPILER "ifx")
-# get_filename_component(Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
+# ------------------------------------------------------- Common definitions
+set(f2py_module_name      ${PROJECT_NAME})
+set(pymacos_src_dir      "${CMAKE_SOURCE_DIR}/source")
 
-# update Fortran Flags: default: /nologo /fpp
-# => initialised by "FFLAGS" Environment settings
-# set(CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS} " /free /names:uppercase /assume:underscore")
-# set(CMAKE_Fortran_FLAGS "/nologo /fpp /free /names:uppercase /assume:nounderscore")
-set(CMAKE_Fortran_FLAGS "/nologo /fpp /Qparallel /free /O2 /gen-interfaces /fp:strict /names:uppercase /assume:nounderscore")
-# /Qm64 /Qmkl /Qopt-mem-layout-trans:0
-# add_compile_definitions($<COMPILE_LANGUAGE:Fortran>: "/free")
-message(STATUS "CMAKE_Fortran_FLAGS: ${CMAKE_Fortran_FLAGS}\n")
-# set(CMAKE_F_COMPILER "C:/Program Files (x86)/Intel/oneAPI/compiler/latest/bin")
-
-
-
-# Print out the discovered paths -- for debugging
-include(CMakePrintHelpers)
-# cmake_print_variables(Python_INCLUDE_DIRS)
-# cmake_print_variables(F2PY_INCLUDE_DIR)
-# cmake_print_variables(Python_NumPy_INCLUDE_DIRS)
-# cmake_print_variables(WIN32)
-# cmake_print_variables(PYTHON_LIBRARIES)
-# cmake_print_variables(Python_EXECUTABLE)
-# cmake_print_variables(Python_INTERPRETER)
-# cmake_print_variables(Python_Interpreter_FOUND)
-# cmake_print_variables(Python_FOUND)
-# cmake_print_variables(Python_EXTENSION_MODULE_SUFFIX)
-# cmake_print_variables(CMAKE_F_COMPILER)
-# cmake_print_variables(CMAKE_Fortran_FLAGS)
-# cmake_print_variables(F2PY_FCOMPILER)
-# cmake_print_variables(F2PY_SUFFIX)
-# cmake_print_variables(_fcompiler_opts)
-# cmake_print_variables(PROJECT_NAME)
-
-
-
-# Common variables
-set(f2py_module_name ${PROJECT_NAME})
-set(pymacos_src_dir "${CMAKE_SOURCE_DIR}/source")
-
-set(fortran_src_file     ${pymacos_src_dir}/pymacos.f90)
-set(fortran_src_file_fpp ${CMAKE_CURRENT_BINARY_DIR}/pymacos.i90)
+set(fortran_src_file      ${pymacos_src_dir}/pymacos.f90)
+set(fortran_src_file_fpp  ${CMAKE_CURRENT_BINARY_DIR}/pymacos.i90)
 set(f2py_module_c        "${f2py_module_name}module.c")
 set(f2py_wrapper_pyf     "${CMAKE_CURRENT_BINARY_DIR}/${f2py_module_name}.pyf")
 set(f2py_wrapper_f90     "${CMAKE_CURRENT_BINARY_DIR}/${f2py_module_name}-f2pywrappers2.f90")
 
-set(macos_mod_dir "${CMAKE_SOURCE_DIR}/../macos/cmake/build/mod")
-set(macos_lib_dir "${CMAKE_SOURCE_DIR}/../macos/cmake/build/libs")
+cmake_path(GET CMAKE_SOURCE_DIR PARENT_PATH cmake_source_parent_dir)
+set(macos_mod_dir "${cmake_source_parent_dir}/macos/cmake/build/mod")
+set(macos_lib_dir "${cmake_source_parent_dir}/macos/cmake/build/libs")
+
+# set(macos_mod_dir  "${CMAKE_SOURCE_DIR}/../macos/cmake/build/mod")
+# set(macos_lib_dir  "${CMAKE_SOURCE_DIR}/../macos/cmake/build/libs")
+
+
+# ------------------------------------------------------- SMACOS dependent libs
+if(WINx64)
+  set(SMACOS_Libs
+        ${macos_lib_dir}/blaslib.lib
+        ${macos_lib_dir}/lapacklib.lib
+        ${macos_lib_dir}/npsol.lib
+        ${macos_lib_dir}/smacos.lib)
+else()
+  set(SMACOS_Libs
+        ${macos_lib_dir}/libsmacos.a
+        ${macos_lib_dir}/libnpsol.a
+        ${macos_lib_dir}/libblaslib.a
+        ${macos_lib_dir}/liblapacklib.a)
+endif()
+
+# ------------------------------------------------------- Fortran Flags
+if(WINx64)
+  set(FFlags            "/nologo /fpp /Qparallel /free /O2 /gen-interfaces")
+  set(FFlags  "${FFlags} /fp:strict /Qfp-speculation:strict")
+  set(FFlags  "${FFlags} /Qm64 /Qmkl /Qparallel /Qopt-mem-layout-trans /QxHost")
+  set(FFlags  "${FFlags} /traceback")
+  set(FFlags  "${FFlags} /names:uppercase /assume:nounderscore")
+else()
+  set(FFlags            "-nologo -free -align -O2 -fpp -fPIC -gen-interfaces ")
+  set(FFlags  "${FFlags} -fp-model=strict -fp-speculation=strict")
+  set(FFlags  "${FFlags} -xHost -m64 -qmkl -qopt-matmul -qopt-mem-layout-trans")
+  # set(FFlags  "${FFlags} -traceback -check bounds -check stack")
+  set(FFlags  "${FFlags} -names lowercase -assume underscore")
+endif()
+# set(Fortran_FLAGS_Lib "${FFlags}")
+set(CMAKE_Fortran_FLAGS "${FFlags}")
+
 
 set_source_files_properties(
   ${fortran_src_file}
   PROPERTIES Fortran_PREPROCESS ON)
 
-
+# ------------------------------------------------------- Fortran Pre-processing
 add_custom_command(
   OUTPUT   ${fortran_src_file_fpp}
-  COMMAND "ifx" /P  ${fortran_src_file}
+  COMMAND ${CMAKE_Fortran_COMPILER} -P  ${fortran_src_file}
   DEPENDS ${fortran_src_file}
 )
 # -------------------------------------------------------
+if(WINx64)
+  set(f2py_flag "--no-lower")
+else()
+  set(f2py_flag "--lower")
+endif()
 
 
 # Generate sources
-add_custom_target(
-  genpyf
+add_custom_target(genpyf
   DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${f2py_module_c}"
   ${f2py_wrapper_pyf}
 )
@@ -148,15 +185,16 @@ add_custom_command(
   OUTPUT ${f2py_wrapper_pyf}
 
   COMMAND ${Python_EXECUTABLE}  -m "numpy.f2py" -h ${f2py_wrapper_pyf}
-            -m ${PROJECT_NAME} ${fortran_src_file_fpp}
-            --no-lower --overwrite-signature --verbose  --skip-empty-wrappers
+            -m ${PROJECT_NAME}
+               ${fortran_src_file_fpp}
+               ${f2py_flag}  # --no-/lower
+               --overwrite-signature
+               --verbose
+               --skip-empty-wrappers
 
   DEPENDS ${fortran_src_file_fpp}
-
   VERBATIM
 )
-
-
 
 add_custom_command(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${f2py_module_c}"
@@ -165,11 +203,10 @@ add_custom_command(
   COMMAND ${Python_EXECUTABLE}  -m "numpy.f2py"
                 -m ${f2py_module_name}
                    ${fortran_src_file_fpp}
-                   --no-lower # Important for Win -- Linux may differ
+                   ${f2py_flag}  # --no-/lower
                    --verbose
                    --skip-empty-wrappers
   DEPENDS ${fortran_src_file_fpp} ${f2py_wrapper_pyf}  # Fortran source
-
   VERBATIM
 )
 
@@ -182,7 +219,9 @@ Python_add_library(${CMAKE_PROJECT_NAME} MODULE  WITH_SOABI  # SOABI (Shared Obj
   "${fortran_src_file}"                   # Fortran source(s)
 )
 
-target_compile_options(${CMAKE_PROJECT_NAME} PUBLIC -DNO_APPEND_FORTRAN -DUPPERCASE_FORTRAN)
+if(WINx64)
+  target_compile_options(${CMAKE_PROJECT_NAME} PUBLIC -DNO_APPEND_FORTRAN -DUPPERCASE_FORTRAN)
+endif()
 
 target_include_directories(${CMAKE_PROJECT_NAME}
         PRIVATE
@@ -198,10 +237,7 @@ target_include_directories(${CMAKE_PROJECT_NAME}
 target_link_libraries(${CMAKE_PROJECT_NAME}
         PRIVATE
         Python::NumPy
-        ${macos_lib_dir}/blaslib.lib
-        ${macos_lib_dir}/lapacklib.lib
-        ${macos_lib_dir}/npsol.lib
-        ${macos_lib_dir}/smacos.lib
+        ${SMACOS_Libs}
 )
 
 add_dependencies(${CMAKE_PROJECT_NAME} genpyf)

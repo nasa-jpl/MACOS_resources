@@ -370,7 +370,7 @@ def load(macos_rx: Path | str) -> int:
     #                    ==> otherwise we exercise a MACOS Bug (endless loop)
 
     _NELT, _isRx = np.nan, False   # reset
-    ok, n_srf = lib.api.load(macos_rx_str)
+    ok, n_srf = lib.api.load_rx(macos_rx_str)
 
     if (not ok) or n_srf == 0:
         raise Exception('MACOS was unable to load Rx')
@@ -414,7 +414,7 @@ def save(rx: Path | str,
     if len(str(rx)) > 128:
         raise ValueError("Path + FileName greater than >128 (MACOS))")
 
-    if not lib.api.SAVE_(str(rx)):
+    if not lib.api.save_rx(str(rx)):
         raise Exception("MACOS threw an Exception")
 
 
@@ -438,7 +438,7 @@ def num_elt() -> int:
     """
     _chk_macos_and_rx_loaded()  # pymacos & Rx loaded
 
-    return lib.api.nElt_()
+    return lib.api.n_elt()
 
 
 def rx_modified():
@@ -456,7 +456,7 @@ def rx_modified():
     """
     _chk_macos_and_rx_loaded()  # pymacos & Rx loaded
 
-    if not lib.api.modifiedRx():
+    if not lib.api.modified_rx():
         raise Exception("failed to reset MACOS status")
 
 
@@ -525,7 +525,7 @@ def src_info() -> Tuple:
     _chk_macos_and_rx_loaded()
 
     (ok, src_dist, src_pos, src_dir, is_finite, wl, src_ape,
-     src_obs, BaseUnitID, WaveUnitID) = lib.api.SrcInfo()
+     src_obs, BaseUnitID, WaveUnitID) = lib.api.src_info()
 
     if not ok:
         raise Exception("MACOS failed to retrieve Source Information")
@@ -571,7 +571,7 @@ def src_sampling(n_gridpts: int | np.int32 | None = None) -> None | np.int32:
     _chk_macos_and_rx_loaded()
 
     if n_gridpts is None:
-        ok, n_gridpts = lib.api.getSrcSampling()
+        ok, n_gridpts = lib.api.get_src_sampling()
         if not ok:
             raise Exception("failure occurred in 'src_sampling'")
         return int(n_gridpts)
@@ -583,11 +583,11 @@ def src_sampling(n_gridpts: int | np.int32 | None = None) -> None | np.int32:
     if (n_gridpts < 3) or (n_gridpts > _MODELSIZE):
         raise ValueError("'nGridPts' must be an integer within range [3, ... , {_MODELSIZE}]")
 
-    elif not lib.api.setSrcSampling(n_gridpts):
+    elif not lib.api.set_src_sampling(n_gridpts):
         raise Exception("MACOS: exception arose")
 
     else:
-        n_gridpts_ = lib.api.getSrcSampling()[1]
+        n_gridpts_ = lib.api.get_src_sampling()[1]
         if n_gridpts_ != n_gridpts:
             warnings.warn(f"\n => 'nGridPts' was set to {n_gridpts_}")
 
@@ -628,7 +628,7 @@ def src_size(ape: None | Parameter = None,
     if ape is None and obs is None:
         ape = np.array(0e0)
         obs = np.array(0e0)
-        if not lib.api.SrcSize_(ape, obs, 0):
+        if not lib.api.src_size(ape, obs, 0):
             raise Exception("MACOS: Communication failed")
         return ape, obs
 
@@ -652,7 +652,7 @@ def src_size(ape: None | Parameter = None,
         if obs < 0e0:
             raise ValueError("'Obscuration' is less than 0")
 
-        if not lib.api.SrcSize_(ape, obs, 1):
+        if not lib.api.src_size(ape, obs, 1):
             raise Exception("MACOS: Communication failed")
 
 
@@ -710,10 +710,10 @@ def src_csys(x_dir: None | Direction = None,
     _chk_macos_and_rx_loaded()
 
     if x_dir is None and y_dir is None:
-        ok, xDir, yDir, zDir = lib.api.getSrcCFrame()
+        ok, xDir, yDir, zDir = lib.api.get_src_csys()
 
         if not ok:
-            raise Exception("MACOS: failed to get Source Coord. Frame value using 'getSrcCFrame'")
+            raise Exception("MACOS: failed to get Source Coord. Frame value using 'get_src_csys'")
         else:
             return xDir.reshape((3,1)), yDir.reshape((3,1)), zDir.reshape((3,1))
 
@@ -727,10 +727,10 @@ def src_csys(x_dir: None | Direction = None,
         z_rot = np.asarray_chkfinite(z_rot, dtype=np.float64)
 
         if not isinstance(threshold, bool):
-            raise ValueError("'setSrcCFrame' requires param 'threshold' to be boolean")
+            raise ValueError("'set_src_csys' requires param 'threshold' to be boolean")
 
         # calling Fortran f90 function
-        ok, x_dir, y_dir, z_dir = lib.api.setSrcCFrame(axis, is_x_axis, z_rot, threshold)
+        ok, x_dir, y_dir, z_dir = lib.api.set_src_csys(axis, is_x_axis, z_rot, threshold)
 
         if not ok:
             raise Exception("failed to set Source Coordinate Frame value")
@@ -755,7 +755,7 @@ def src_wvl(wvl: float | None = None) -> None | float:
 
     if wvl is None:
         wvl_ = np.array(0, dtype=float)
-        if not lib.api.SrcWVL_(wvl_, 0):
+        if not lib.api.src_wvl(wvl_, 0):
             raise Exception("MACOS: failed to set wavelength")
         return wvl_
 
@@ -768,7 +768,7 @@ def src_wvl(wvl: float | None = None) -> None | float:
     if wvl_ <= 0:
         raise ValueError("'wavelength' must be real, > 0 and finite")
 
-    if not lib.api.SrcWVL_(wvl_, 1):
+    if not lib.api.src_wvl(wvl_, 1):
         raise Exception("failed to set wavelength")
 
 
@@ -816,10 +816,10 @@ def src_fov(src_pos: np.ndarray | None = None,
     _chk_macos_and_rx_loaded()
 
     if (src_pos is None) and (src_dir is None) and (src_dist is None):
-        ok, src_dist, src_pos, src_dir, src_finite = lib.api.getSrcFoV()
+        ok, src_dist, src_pos, src_dir, src_finite = lib.api.get_src_fov()
 
         if not ok:
-            raise Exception("failed to get FoV values using 'getSrcFoV'")
+            raise Exception("failed to get FoV values using 'get_src_fov'")
         else:
             return src_dist, src_pos.ravel(), src_dir.ravel(), src_finite > 0
 
@@ -835,7 +835,7 @@ def src_fov(src_pos: np.ndarray | None = None,
         src_dir = np.asarray_chkfinite(src_dir, dtype=float)
         src_dir /= np.linalg.norm(src_dir)
 
-        if not lib.api.setSrcFoV(src_dist, src_pos, src_dir):
+        if not lib.api.set_src_fov(src_dist, src_pos, src_dir):
             raise Exception("MACOS execution error")
 
 
@@ -862,7 +862,7 @@ def src_finite() -> bool:
         bool: True if Pt. Source is finite
     """
 
-    ok, src_finite = lib.api.IsSourceFinite()
+    ok, src_finite = lib.api.src_finite()
     if not ok:
         raise Exception("MACOS: failed executing 'is_src_finite'")
     return src_finite
@@ -878,7 +878,7 @@ def sys_units() -> Tuple[str, str]:
         list[str, str]: BaseUnits, WaveUnits
     """
 
-    ok, base_unit_id, wave_unit_id = lib.api.SysUnits()
+    ok, base_unit_id, wave_unit_id = lib.api.sys_units()
     if not ok:
         raise Exception("MACOS: failed executing 'sys_units'")
 
@@ -928,7 +928,7 @@ def elt_vpt(srf: Surface, vpt: None | Position = None) -> None | Position:
 
     if vpt is None:
         vpt_ = np.zeros((3, len(srf)), dtype=float, order='F')
-        if not lib.api.VptElt_(srf, vpt_, 0):
+        if not lib.api.elt_vpt(srf, vpt_, 0):
             raise Exception("MACOS: failed to get VptElt values")
         return vpt_
 
@@ -937,7 +937,7 @@ def elt_vpt(srf: Surface, vpt: None | Position = None) -> None | Position:
     if vpt_.shape != (3, len(srf)):
         raise ValueError("vpt shape is invalid")
 
-    if not lib.api.VptElt_(srf, vpt_, 1):
+    if not lib.api.elt_vpt(srf, vpt_, 1):
         raise Exception("MACOS: failed to set VptElt values")
 
 
@@ -971,7 +971,7 @@ def elt_rpt(srf:Surface, rpt: None | Position = None) -> None | Position:
 
     if rpt is None:
         rpt_ = np.zeros((3, len(srf)), dtype=float, order='F')
-        if not lib.api.RptElt_(srf, rpt_, 0):
+        if not lib.api.elt_rpt(srf, rpt_, 0):
             raise Exception("MACOS: failed to get RptElt values")
         return rpt_
 
@@ -980,7 +980,7 @@ def elt_rpt(srf:Surface, rpt: None | Position = None) -> None | Position:
     if rpt_.shape != (3, len(srf)):
         raise ValueError("Rotation Point shape is invalid: must be 3xN")
 
-    if not lib.api.RptElt_(srf, rpt_, 1):
+    if not lib.api.elt_rpt(srf, rpt_, 1):
         raise Exception("MACOS: failed to set RptElt values")
 
 
@@ -1020,7 +1020,7 @@ def elt_psi(srf: Surface, psi: None | Direction = None) -> None | Direction:
     if psi is None:
         # retrieve param values of the defined elements
         psi_ = np.zeros((3, len(srf)), dtype=float, order='F')
-        if not lib.api.PsiElt_(srf, psi_, 0):
+        if not lib.api.elt_psi(srf, psi_, 0):
             raise Exception("MACOS: failed to get PsiElt values")
         return psi_
 
@@ -1030,7 +1030,7 @@ def elt_psi(srf: Surface, psi: None | Direction = None) -> None | Direction:
     if psi_.shape != (3, len(srf)):
         raise ValueError("Psi shape is invalid")
 
-    if not lib.api.PsiElt_(srf, psi_, 1):
+    if not lib.api.elt_psi(srf, psi_, 1):
         raise Exception("MACOS: failed to set PsiElt values")
 
 
@@ -1039,7 +1039,8 @@ def elt_csys(srf: Surface,
              ydir: None | Direction = None,
              zdir: None | Direction = None,
              upd: bool = True,
-             glb: bool = False) -> None | tuple[np.ndarray, bool, bool]:
+             glb: bool = False
+             ) -> None | tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     """Set, Get or Delete Local Coordinate System (LCS) Information (Rx:TElt)
 
@@ -1111,22 +1112,28 @@ def elt_csys(srf: Surface,
 
     if glb:
         # Delete LCS on defined surfaces
-        if not lib.api.rmEltCFrame(srf):
+        if not lib.api.elt_csys_rm(srf):
             raise Exception("elt_csys: MACOS API execution failed")
 
     elif np.all(np.logical_not(axes)):
         # LCS state extraction
 
         # csys == TElt
-        ok, csys, csys_lcs, csys_upd = lib.api.getEltCFrame(srf)
-
-        if (not ok) or (csys.ndim != 3) or (csys.shape != (6, 6, n_srf)) or \
-           (csys_lcs.size != n_srf) or (csys_upd.size != n_srf):
+        csys = np.zeros((6, 6, n_srf), dtype=float, order='F')
+        csys_lcs = np.zeros(n_srf, dtype=np.int32)
+        csys_upd = np.zeros(n_srf, dtype=np.int32)
+        if not lib.api.elt_csys_get(srf, csys, csys_lcs, csys_upd):
             raise Exception("elt_csys: MACOS API execution failed")
 
-        csys_lcs.shape = (1, -1)     # note: other option: np.atleast_2d()
-        csys_upd.shape = (1, -1)
-        return csys, csys_upd > 0, csys_lcs > 0
+        # print(f"=====> {csys_lcs=}")
+        # print(f"=====> {csys_lcs>0=}")
+        # if (not ok) or (csys.ndim != 3) or (csys.shape != (6, 6, n_srf)) or \
+        #    (csys_lcs.size != n_srf) or (csys_upd.size != n_srf):
+        #     raise Exception("elt_csys: MACOS API execution failed")
+
+        # csys_lcs.shape = (1, -1)     # note: other option: np.atleast_2d()
+        # csys_upd.shape = (1, -1)
+        return csys, csys_lcs > 0, csys_upd > 0
 
     else:
         # LCS definition
@@ -1175,7 +1182,7 @@ def elt_csys(srf: Surface,
         # ToDo: check type size -- or let Python handle it
         upd = np.asarray(upd, dtype=np.int32)
 
-        if not lib.api.setEltCFrame(srf, xdir.T, ydir.T, zdir.T, upd):
+        if not lib.api.elt_csys_set(srf, xdir.T, ydir.T, zdir.T, upd):
             raise Exception("elt_csys: MACOS API execution failed")
 
 
@@ -1199,10 +1206,10 @@ def elt_csys(srf: Surface,
     ! [ ] Local CSYS (TElt)
     !     [ ] set/get/rm  EltCFrame
     !
-    ! [Srf. Shape] setEltSrfCFrame   : set Srf. Coordinate Frame
+    ! [Srf. Shape] elt_srf_csys      : set Srf. Coordinate Frame
     ! [Srf. Shape] getEltGridInfo    : get Grid Srf. Settings
     ! [Srf. Shape] setEltGrid        : set element surface grid data
-    !  [Pos/Shape] setXP             : set XP parameters (Kr, Psi, Vpt, Rpt & zElt)
+    !  [Pos/Shape] xp_set            : set XP parameters (Kr, Psi, Vpt, Rpt & zElt)
     !=============================================================================================
 """
 
@@ -1235,14 +1242,14 @@ def elt_kc(srf: Surface,
 
     if conic_constant is None:
         conic_constant_ = np.zeros_like(srf, dtype=float)
-        if not lib.api.KcElt_(srf, conic_constant_, 0):
+        if not lib.api.elt_kc(srf, conic_constant_, 0):
             raise Exception("failed to get Conic Constant 'KcElt' values")
         return conic_constant_
 
     # define conic values
     conic_constant_ = np.asarray_chkfinite(conic_constant)
 
-    if not lib.api.KcElt_(srf, conic_constant_, 1):
+    if not lib.api.elt_kc(srf, conic_constant_, 1):
         raise Exception('KcElt threw an exception')
 
 
@@ -1283,7 +1290,7 @@ def elt_kr(srf: Surface,
     # retrieve radii values of the defined elements
     if radii is None:
         radii_ = np.zeros_like(srf, dtype=float)
-        if not lib.api.KrElt_(srf, radii_, 0):
+        if not lib.api.elt_kr(srf, radii_, 0):
             raise Exception("failed to get Radius of Curvature 'KrElt' values")
         return radii_
 
@@ -1293,7 +1300,7 @@ def elt_kr(srf: Surface,
     if np.any(np.abs(radii_) <= np.finfo(float).eps):
         raise ValueError("Radius cannot be Zero")
 
-    if not lib.api.KrElt_(srf, radii_, 1):
+    if not lib.api.elt_kr(srf, radii_, 1):
         raise Exception('MACOS raised an error')
 
 
@@ -1346,7 +1353,7 @@ def elt_srf_csys(srf: Surface,
         ydir = np.zeros_like(origin, dtype=float)
         zdir = np.zeros_like(origin, dtype=float)
 
-        if not lib.api.EltSrfCFrame_(origin, xdir, ydir, zdir, srf, 0):
+        if not lib.api.elt_srf_csys(origin, xdir, ydir, zdir, srf, 0):
             raise Exception("MACOS API execution failed")
         return origin, xdir, ydir, zdir
 
@@ -1400,16 +1407,16 @@ def elt_srf_csys(srf: Surface,
 
         # only pMon is to be updated
         if pmon and not all(axes):
-            if not lib.api.EltSrfCFramePos_(origin, srf, 1):
+            if not lib.api.elt_srf_csys_pos(origin, srf, 1):
                 raise Exception("MACOS API execution failed")
 
         # only axes are to be updated
         elif not pmon:
-            if not lib.api.EltSrfCFrameDir_(xdir, ydir, zdir, srf, 1):
+            if not lib.api.elt_srf_csys_dir(xdir, ydir, zdir, srf, 1):
                 raise Exception("MACOS API execution failed")
 
         else:
-            if not lib.api.EltSrfCFrame_(origin, xdir, ydir, zdir, srf, 1):
+            if not lib.api.elt_srf_csys(origin, xdir, ydir, zdir, srf, 1):
                 raise Exception("MACOS API execution failed")
 
 
@@ -1440,7 +1447,7 @@ def elt_grating_any() -> bool:
     """
 
     _chk_macos_and_rx_loaded()
-    return bool(lib.api.EltWithGrating_Any())
+    return bool(lib.api.elt_srf_grating_any())
 
 
 def elt_grating_fnd(srf: None | Surface = None
@@ -1468,16 +1475,16 @@ def elt_grating_fnd(srf: None | Surface = None
     """
     _chk_macos_and_rx_loaded()
 
-    if lib.api.EltWithGrating_Any() == 0:
+    if lib.api.elt_srf_grating_any() == 0:
         return None
 
     if srf is None:
-        n_elt = lib.api.nElt_()
+        n_elt = lib.api.n_elt()
         srf_ = np.arange(1, n_elt+1, dtype=np.int32)
     else:
         srf_ = np.asarray_chkfinite(srf)
 
-    ok, elt_grating = lib.api.EltWithGrating_Fnd(srf_)
+    ok, elt_grating = lib.api.elt_srf_grating_fnd(srf_)
     if not ok:
         raise Exception('MACOS threw an error')
 
@@ -1548,7 +1555,7 @@ def elt_grating_params(srf: Surface, *,
         diff_order = np.array(0, dtype=np.int32)
         rule_dir = np.zeros(3, dtype=float)
 
-        if not lib.api.EltWithGrating_Params(srf, rule_width, diff_order,
+        if not lib.api.elt_srf_grating_params(srf, rule_width, diff_order,
                                              rule_dir, refl, 0):
             raise Exception('MACOS threw an exception')
         return refl == 1, rule_width.item(), diff_order.item(), rule_dir
@@ -1573,7 +1580,7 @@ def elt_grating_params(srf: Surface, *,
 
     # write all
     if all([v is not None for v in params]):
-        if not lib.api.EltWithGrating_Params(srf, rule_width_, diff_order_,
+        if not lib.api.elt_srf_grating_params(srf, rule_width_, diff_order_,
                                              rule_dir_, reflective_, 1):
             raise Exception('MACOS threw an exception')
 
@@ -1627,13 +1634,13 @@ def elt_grating_type(srf: Surface,
     # read
     if reflective is None:
         refl = np.array(True, dtype=bool)
-        if not lib.api.EltWithGrating_Type(srf, refl, 0):
+        if not lib.api.elt_srf_grating_type(srf, refl, 0):
             raise Exception('MACOS threw an exception')
         return refl.item() == 1
 
     # write
     reflective_ = np.asarray_chkfinite(reflective, dtype=bool)
-    if not lib.api.EltWithGrating_Type(srf, reflective_, 1):
+    if not lib.api.elt_srf_grating_type(srf, reflective_, 1):
         raise Exception('MACOS threw an exception')
 
 
@@ -1666,13 +1673,12 @@ def elt_grating_order(srf: Integers,
 
     _chk_macos_and_rx_loaded()
     srf = _map_Elt(srf)
-    print(f"{srf=}")
 
     # read
     if diff_order is None:
         # diff_order = np.array(0, dtype=np.int32)
         diff_order_ = np.zeros_like(srf, dtype=np.int32)
-        if not lib.api.EltWithGrating_Order(srf, diff_order_, 0):
+        if not lib.api.elt_srf_grating_order(srf, diff_order_, 0):
             raise Exception('MACOS threw an exception')
         return diff_order_
 
@@ -1681,7 +1687,7 @@ def elt_grating_order(srf: Integers,
     # print(f"{diff_order_=}, {len(diff_order_)=}")
     # if abs(diff_order_) > 5:
     #     raise ValueError("limit |Diffraction Order| < 6")
-    if not lib.api.EltWithGrating_Order(srf, diff_order_, 1):
+    if not lib.api.elt_srf_grating_order(srf, diff_order_, 1):
         raise Exception('MACOS threw an exception')
 
 
@@ -1722,19 +1728,19 @@ def elt_grating_rulewidth(srf: Surface,
     # read
     if rule_width is None:
         rule_width = np.array(0, dtype=float)
-        if not lib.api.EltWithGrating_RuleWidth(srf, rule_width, 0):
+        if not lib.api.elt_srf_grating_rule_width(srf, rule_width, 0):
             raise Exception('MACOS threw an exception')
         return rule_width.item()
 
     # write
     rule_width_ = np.asarray_chkfinite(rule_width, dtype=float)
-    if not lib.api.EltWithGrating_RuleWidth(srf, rule_width_, 1):
+    if not lib.api.elt_srf_grating_rule_width(srf, rule_width_, 1):
         raise Exception('MACOS threw an exception')
 
 
 def elt_grating_dir(srf: Surface,
                     rule_dir: Vector | None = None
-                    ) -> Vector:
+                    ) -> Vector | None:
 
     """set/get the Grating Direction on existing Grating Element
 
@@ -1769,14 +1775,14 @@ def elt_grating_dir(srf: Surface,
     # read
     if rule_dir is None:
         rule_dir = np.zeros(3, dtype=float)
-        if not lib.api.EltWithGrating_h1HOE(srf, rule_dir, 0):
+        if not lib.api.elt_srf_grating_rule_dir(srf, rule_dir, 0):
             raise Exception('MACOS threw an exception')
         return rule_dir
 
     # write
     rule_dir_ = np.asarray_chkfinite(rule_dir, dtype=float)
     rule_dir_ /= np.linalg.norm(rule_dir_)
-    if not lib.api.EltWithGrating_h1HOE(srf, rule_dir_, 1):
+    if not lib.api.elt_srf_grating_rule_dir(srf, rule_dir_, 1):
         raise Exception('MACOS threw an exception')
 
 
@@ -1796,7 +1802,7 @@ def elt_grating_dir(srf: Surface,
 #     elt_zrn                   True/False if it is a Zernike Srf
 #     getEltSrfZern
 #     setEltSrfZern
-#     setEltSrfZernMode
+#     elt_srf_zrn_mode_set
 # ----------------------------------------------------------------------------
 
 
@@ -1833,7 +1839,7 @@ def elt_zrn_norm_rad(srf: int | np.int32,
     if norm_rad is None:
         # return Zernike Norm Radius
         norm_rad = np.array(0, dtype=np.float64)
-        if not lib.api.EltSrfZernNormRadius(srf, norm_rad, 0):
+        if not lib.api.elt_srf_zrn_norm_radius(srf, norm_rad, 0):
             raise Exception("MACOS threw an exception")
         return norm_rad.item() if norm_rad > 0 else np.nan
 
@@ -1842,7 +1848,7 @@ def elt_zrn_norm_rad(srf: int | np.int32,
     if norm_rad <= 0.:
         raise ValueError("Zernike Norm. Radius cannot be less equal to zero")
 
-    if not lib.api.EltSrfZernNormRadius(srf, norm_rad, 1):
+    if not lib.api.elt_srf_zrn_norm_radius(srf, norm_rad, 1):
         raise Exception("MACOS threw an exception")
 
 
@@ -1889,13 +1895,13 @@ def elt_zrn_coef(srf: int | np.int32,
         # extract Zernike Coefficients
         # mode = np.asarray_chkfinite(mode, dtype=np.int32)
         coefs = np.zeros_like(mode, dtype=float)
-        if not lib.api.EltSrfZernCoef(srf, mode, coefs, 0, 0):
+        if not lib.api.elt_srf_zrn_coef(srf, mode, coefs, 0, 0):
             raise Exception("'elt_zrn_coef' threw an exception")
         return coefs
 
     # write
     coefs = np.asarray_chkfinite(coefs, dtype=float)
-    if not lib.api.EltSrfZernCoef(srf, mode, coefs, 1, reset):
+    if not lib.api.elt_srf_zrn_coef(srf, mode, coefs, 1, reset):
         raise Exception("'elt_zrn_coef' threw an exception")
 
 
@@ -1911,7 +1917,7 @@ def elt_zrn_any() -> bool:
     """
 
     _chk_macos_and_rx_loaded()
-    return bool(lib.api.EltSrfZrnAny())
+    return bool(lib.api.elt_srf_zrn_any())
 
 
 def elt_zrn_fnd(srf: None | Surface = None) -> Tuple[int]:
@@ -1936,17 +1942,17 @@ def elt_zrn_fnd(srf: None | Surface = None) -> Tuple[int]:
     """
     _chk_macos_and_rx_loaded()
 
-    if lib.api.EltSrfZrnAny() == 0:
+    if lib.api.elt_srf_zrn_any() == 0:
         return []
 
     # find elements where Grps. are defined
     if srf is None:
-        n_elt = lib.api.nElt_()
+        n_elt = lib.api.n_elt()
         srf_ = np.arange(1, n_elt+1, dtype=np.int32)
     else:
         srf_ = np.asarray_chkfinite(srf)
 
-    ok, n_elt_zrn = lib.api.EltSrfZrnFnd(srf_)
+    ok, n_elt_zrn = lib.api.elt_srf_zrn_fnd(srf_)
     if not ok:
         raise Exception('MACOS threw an error')
 
@@ -1993,7 +1999,7 @@ def elt_zrn_type(srf: int | np.int32,
     if zrn_type is None:
         # return Zernike Type
         zrn_type = np.array(0, dtype=np.int32)
-        if not lib.api.EltSrfZernType(srf, zrn_type, 0, 0):
+        if not lib.api.elt_srf_zrn_type(srf, zrn_type, 0, 0):
             raise Exception("MACOS threw an exception")
         return int(zrn_type)
 
@@ -2002,7 +2008,7 @@ def elt_zrn_type(srf: int | np.int32,
     if (zrn_type < 1) or (zrn_type > 11):
         raise ValueError("Zernike Type outside valid range")
 
-    if not lib.api.EltSrfZernType(srf, zrn_type, 1, reset):
+    if not lib.api.elt_srf_zrn_type(srf, zrn_type, 1, reset):
         raise Exception("'elt_zrn_coef' threw an exception")
 
 
@@ -2020,7 +2026,7 @@ def getEltSrfZern(iElt):
     :return  ZernAnnularRatio:   [1xN,D]: = inner/outer radius ratio (0,...,1)
                                             only important for ZernType = NormAnnularNoll (9)
 
-    Note: ZCF => Zernike Coord. Frame: retrieved via getEltSrfCFrame(...)
+    Note: ZCF => Zernike Coord. Frame: retrieved via elt_srf_csys(...)
     """
 
     _chk_macos_and_rx_loaded()       # pymacos & Rx loaded
@@ -2051,7 +2057,7 @@ def setEltSrfZern(iElt, lMon, zernType, zernMode=45, zernCoef=np.zeros(45), zern
                   ZernCoef         [1xN,D]: = zeros(1,45)
                   ZernAnnularRatio [1x1,D]: = 0           <= only for ZernType = NormAnnularNoll (9)
 
-       Note     : ZCF => Zernike Coord. Frame: defined via calling setEltSrfCFrame(...)
+       Note     : ZCF => Zernike Coord. Frame: defined via calling elt_srf_csys(...)
                   M of iElt defines identical elements, e.g., iElt = [1;-5]
                      => Element [1;nElt-5] have the same Zernike settings:
     """
@@ -2078,8 +2084,8 @@ def setEltSrfZern(iElt, lMon, zernType, zernMode=45, zernCoef=np.zeros(45), zern
     if zernAnnularRatio < 0e0 or zernAnnularRatio > 1e0:
         raise ValueError("Expecting: 0 < ZernAnnularRatio <= 1")
 
-    if not lib.api.setEltSrfZern(iElt, lMon, zernType, zernMode, zernCoef, zernAnnularRatio):
-        raise Exception("'setEltSrfZern' threw an exception")
+    if not lib.api.elt_srf_zrn_set(iElt, lMon, zernType, zernMode, zernCoef, zernAnnularRatio):
+        raise Exception("'elt_srf_zrn_set' threw an exception")
 
 
 def setEltSrfZernMode(iElt, izernMode=None, zernCoef=None) -> None:
@@ -2088,14 +2094,14 @@ def setEltSrfZernMode(iElt, izernMode=None, zernCoef=None) -> None:
     iElt = _map_Elt(iElt)            # iElt check
 
     if izernMode is None or zernCoef is None:
-        raise ValueError("'setEltSrfZernMode' undefined input")
+        raise ValueError("'elt_srf_zrn_mode_set' undefined input")
 
     zernMode = _chk_values_1d(izernMode, -1, row=False).flatten()   # vector
     if np.any(zernMode<1) or np.any(zernMode>45):
-        raise ValueError("'setEltSrfZernMode 'Expecting: 0 < ZernMode values <= 45")
+        raise ValueError("'elt_srf_zrn_mode_set 'Expecting: 0 < ZernMode values <= 45")
 
-    if not lib.api.setEltSrfZernMode(iElt, zernMode, zernCoef):
-        raise Exception("'setEltSrfZernMode' threw an exception")
+    if not lib.api.elt_srf_zrn_mode_set(iElt, zernMode, zernCoef):
+        raise Exception("'elt_srf_zrn_mode_set' threw an exception")
 
 
 # ----------------------------------------------------------------------------
@@ -2155,7 +2161,7 @@ def elt_grid(srf: int,
         npts = elt_grid_npts(srf).squeeze()
         grid_dz = np.zeros((npts, npts), dtype=float, order='F')
         sampling_spacing = np.array(0, dtype=float)
-        if not lib.api.EltSrfGridData(srf, sampling_spacing, grid_dz, 0):
+        if not lib.api.elt_srf_grid_data(srf, sampling_spacing, grid_dz, 0):
             raise Exception("MACOS threw an exception")
         return sampling_spacing, grid_dz
 
@@ -2172,10 +2178,10 @@ def elt_grid(srf: int,
             raise ValueError("'grid_dz' must be a 2D numpy ndarray")
         if grid_dz.shape[0] != grid_dz.shape[1]:
             raise ValueError("'grid_dz' must be a square ndarray")
-        if (grid_dz.shape[0] < 3) or (grid_dz.shape[0] > lib.api.EltSrfGridSizeMax()):
+        if (grid_dz.shape[0] < 3) or (grid_dz.shape[0] > lib.api.elt_srf_grid_size_max()):
             raise ValueError("'grid_dz' size must be at least a [3x3] array")
 
-        if not lib.api.EltSrfGridData(srf, sampling_spacing, grid_dz, 1):
+        if not lib.api.elt_srf_grid_data(srf, sampling_spacing, grid_dz, 1):
             raise Exception("mACOS threw an exception")
 
     else:
@@ -2207,7 +2213,7 @@ def elt_grid_add(srf: int | np.int32,
     srf = _map_Elt(srf, max_rows=1).squeeze()  # Srf. check
 
     # write
-    ok, npts = lib.api.EltSrfGridSize(srf)
+    ok, npts = lib.api.elt_srf_grid_size(srf)
     if not ok:
         raise Exception("MACOS threw an exception")
 
@@ -2220,7 +2226,7 @@ def elt_grid_add(srf: int | np.int32,
     if grid_dz.shape[0] != npts:
         raise ValueError("'grid_dz' size not equal to current defined size")
 
-    if not lib.api.EltSrfGridDataAdd(srf, grid_dz):
+    if not lib.api.elt_srf_grid_data_add(srf, grid_dz):
         raise Exception("mACOS threw an exception")
 
 
@@ -2247,7 +2253,7 @@ def elt_grid_scale(srf: Surface, scalar: Parameter) -> None:
 
     scalar = np.asarray_chkfinite(scalar, dtype=np.float64)
 
-    if not lib.api.EltSrfGridDataScale(srf, scalar):
+    if not lib.api.elt_srf_grid_data_scale(srf, scalar):
         raise Exception("MACOS threw an exception")
 
 
@@ -2265,7 +2271,7 @@ def elt_grid_npts_max() -> int:
     if not _SYSINIT:
         raise Exception('MACOS is not yet initialised')
 
-    return lib.api.EltSrfGridSizeMax()
+    return lib.api.elt_srf_grid_size_max()
 
 
 def elt_grid_npts(srf: Surface) -> Index:
@@ -2290,7 +2296,7 @@ def elt_grid_npts(srf: Surface) -> Index:
     _chk_macos_and_rx_loaded()              # pymacos & Rx loaded
     srf = _map_Elt(srf, max_rows=1)         # Srf. check
 
-    ok, npts = lib.api.EltSrfGridSize(srf)
+    ok, npts = lib.api.elt_srf_grid_size(srf)
     if not ok:
         raise Exception("MACOS threw an exception")
     return npts
@@ -2327,7 +2333,7 @@ def elt_grid_dx(srf: Surface,
     # read
     if sampling_spacing is None:
         sampling_spacing_ = np.zeros_like(srf, dtype=float)
-        if not lib.api.EltSrfGridSpacing(srf, sampling_spacing_, 0):
+        if not lib.api.elt_srf_grid_spacing(srf, sampling_spacing_, 0):
             raise Exception("MACOS threw an exception")
         return sampling_spacing_
 
@@ -2336,7 +2342,7 @@ def elt_grid_dx(srf: Surface,
     if np.any(sampling_spacing <= 0):
         raise ValueError("Srf. Grid Sampling Spacing must be greater than zero")
 
-    if not lib.api.EltSrfGridSpacing(srf, sampling_spacing, 1):
+    if not lib.api.elt_srf_grid_spacing(srf, sampling_spacing, 1):
         raise Exception("MACOS threw an exception")
 
 
@@ -2352,7 +2358,7 @@ def elt_grid_any() -> bool:
     """
 
     _chk_macos_and_rx_loaded()
-    return bool(lib.api.EltSrfGridAny())
+    return bool(lib.api.elt_srf_grid_any())
 
 
 def elt_grid_fnd(srf: None | Surface = None,
@@ -2382,20 +2388,20 @@ def elt_grid_fnd(srf: None | Surface = None,
     """
     _chk_macos_and_rx_loaded()
 
-    if lib.api.EltSrfGridAny() == 0:
+    if lib.api.elt_srf_grid_any() == 0:
         return []
 
     # find elements where Grps. are defined
     if srf is None:
-        n_elt = lib.api.nElt_()
+        n_elt = lib.api.n_elt()
         srf_ = np.arange(1, n_elt+1, dtype=np.int32)
     else:
         srf_ = np.asarray_chkfinite(srf)
 
     if grid_srf_type is None:
-        ok, n_elt_grid = lib.api.EltSrfGridFnd(srf_)
+        ok, n_elt_grid = lib.api.elt_srf_grid_fnd(srf_)
     else:
-        ok, n_elt_grid = lib.api.EltSrfGridTypeFnd(srf_, grid_srf_type)
+        ok, n_elt_grid = lib.api.elt_srf_grid_fnd_type(srf_, grid_srf_type)
 
     if not ok:
         raise Exception('MACOS threw an error')
@@ -2424,7 +2430,7 @@ def elt_grp_max_size(srf=None) -> np.int32:
     else:
         srf = np.asarray_chkfinite(srf)
 
-    ok, elt_grp_max = lib.api.EltGrpMax(srf)
+    ok, elt_grp_max = lib.api.elt_grp_max(srf)
     if not ok:
         raise Exception('MACOS threw an error')
     return elt_grp_max
@@ -2439,7 +2445,7 @@ def elt_grp_any() -> bool:
     Returns:
         bool: True if Rx is loaded and Elt. Grp. is defined
     """
-    return lib.api.EltGrpAny() == 1
+    return lib.api.elt_grp_any() == 1
 
 
 def elt_grp_fnd(srf: None | Surface = None
@@ -2466,16 +2472,16 @@ def elt_grp_fnd(srf: None | Surface = None
     _chk_macos_and_rx_loaded()
 
     # quick check
-    if lib.api.EltGrpAny() == 0:
+    if lib.api.elt_grp_any() == 0:
         return None
 
     # find elements where Grps. are defined
     if srf is None:
-        srf = np.arange(lib.api.nElt_(), dtype=np.int32)+1
+        srf = np.arange(lib.api.n_elt(), dtype=np.int32)+1
     else:
         srf = np.asarray_chkfinite(srf)
 
-    ok, n_elt_grp = lib.api.EltGrpFnd(srf)
+    ok, n_elt_grp = lib.api.elt_grp_fnd(srf)
     if not ok:
         raise Exception('MACOS threw an error')
 
@@ -2519,8 +2525,8 @@ def elt_grp(srf: Surface,
     # retrieve Ele. Grp. information
     if srfs_in_grp is None:
 
-        n_elt_grp_max = lib.api.EltGrpMaxSrfsAll()
-        ok, grp_srfs, n_grp_srfs = lib.api.getEltGrp(srf, n_elt_grp_max)
+        n_elt_grp_max = lib.api.elt_grp_max_all()
+        ok, grp_srfs, n_grp_srfs = lib.api.elt_grp_get(srf, n_elt_grp_max)
 
         if not ok :
             raise Exception("MACOS threw an exception")
@@ -2536,7 +2542,7 @@ def elt_grp(srf: Surface,
     if len(srfs_in_grp) != len(set(srfs_in_grp)):
         raise ValueError("Cannot define same surface multiple times")
 
-    if not lib.api.setEltGrp(srf[0], srfs_in_grp):
+    if not lib.api.elt_grp_set(srf[0], srfs_in_grp):
         raise Exception("MACOS threw an exception")
 
 
@@ -2555,7 +2561,7 @@ def elt_grp_rm(srf: Surface) -> None:
     _chk_macos_and_rx_loaded()
     srf = _map_Elt(srf)
 
-    if not lib.api.delEltGrp(srf):
+    if not lib.api.elt_grp_del(srf):
         raise Exception("MACOS threw an exception")
 
 
@@ -2563,7 +2569,7 @@ def elt_grp_wipe() -> None:
     """Wipes out all Element-Grp. Settings from Rx
     """
     _chk_macos_and_rx_loaded()
-    if not lib.api.delEltGrpAll():
+    if not lib.api.elt_grp_del_all():
         raise Exception("MACOS threw an exception")
 
 
@@ -2627,7 +2633,7 @@ def prb_elt(srf: Surface,
     # if _METROLOGY_NODES is not None:
     #     _perturbElt_METROLOGY_NODES(srf, prb, glb_csys.ravel(), n_srf)
 
-    if not lib.api.prbElt(srf, prb, glb_csys):
+    if not lib.api.prb_elt(srf, prb, glb_csys):
         raise Exception("MACOS threw an exception")
 
 
@@ -2636,7 +2642,7 @@ def prb_elt(srf: Surface,
 # Optical System Analysis
 # ------------------------------------------------------------------------------
 # [ ] TraceWavefront
-# [ ] getRayInfo
+# [ ] ray_info_get
 # [ ] setRayInfo
 # ------------------------------------------------------------------------------
 @_chk_if_macos_and_rx_loaded
@@ -2687,14 +2693,14 @@ def prb_grp(srf: Surface,
     # if _METROLOGY_NODES is not None:
     #     _perturbEltGrp_METROLOGY_NODES(srf, prb, glb_csys.flatten())
 
-    if not lib.api.prbEltGrp(srf, prb, glb_csys):
+    if not lib.api.prb_elt_grp(srf, prb, glb_csys):
         raise Exception("'SMACOS' threw an exception")
 
 
 # ------------------------------------------------------------------------------
 # [ ] System requests / queries / Analysis / Tools / ...
 #     --------------------------------------------------------------------------
-#     [x] trace_rays  Trace all rays from Src. to Srf at current grid sampling.
+#     [x] getRayInfo  Trace all rays from Src. to Srf at current grid sampling.
 #     [x] modify      reset ray-trace state to trace from source
 #     [x] opd         Get OPD at last ray-traced state.
 #
@@ -2708,11 +2714,11 @@ def getRayInfo(nRays):   # ToDo -- testing
     """
     Retrieve Ray-Trace Data (Pos & Dir) from previous call to traceWavefront(...)
 
-    :param    nRays: [1x1,I]: Number of traced rays (obtained via pymacos.traceWavefront(...) )
+    :param    nRays: [1x1,I]: Number of traced rays (obtained via pymacos.trace_rays(...) )
 
     :return  rayPos:   [3xnRays,D]: = [[x1,y1,z1],...] Ray-Srf. Intersection Point
     :return  rayDir:   [3xnRays,D]: = [[L1,M1,N1],...] Ray Direction before surface
-    :return     opl:   [1xnRays,D]: Optical Path Length from Src. Srf to last traced Srf. (traceWavefront)
+    :return     opl:   [1xnRays,D]: Optical Path Length from Src. Srf to last traced Srf. (trace_rays)
     :return   rayOK:   [1xnRays,L]: (True=1) if valid ray; otherwise, (False=0)
     :return   RayPass: [1xnRays,L]: (True) if ray is not blocked; (False) otherwise
     """
@@ -2725,7 +2731,7 @@ def getRayInfo(nRays):   # ToDo -- testing
     elif nRays < 0:
         raise ValueError("Number of rays must be greater than zero")
 
-    ok, rayPos, rayDir, opl, rayOK, rayPass = lib.api.getRayInfo(np.int32(nRays))
+    ok, rayPos, rayDir, opl, rayOK, rayPass = lib.api.ray_info_get(np.int32(nRays))
 
     if not ok:
         raise Exception("'getRayInfo' threw an exception")
@@ -2739,7 +2745,7 @@ def setRayInfo(rayPos, rayDir, opl, rayOK):
 
     :param  rayPos:  [3xK,D]: = [[x1,y1,z1],...] Ray-Srf. Intersection Point
     :param  rayDir:  [3xK,D]: = [[L1,M1,N1],...] Ray Direction before surface
-    :param     opl:  [1xK,D]: Optical Path Length from Src. Srf to last traced Srf. (traceWavefront)
+    :param     opl:  [1xK,D]: Optical Path Length from Src. Srf to last traced Srf. (trace_rays)
     :param   rayOK:  [1xK,I]: (True=1) if valid ray; otherwise, (False=0)
                         where  K => # of rays to be traced
 
@@ -2756,7 +2762,7 @@ def setRayInfo(rayPos, rayDir, opl, rayOK):
     _chk_values_2d(rayPos, 3, K)
     _chk_values_2d(rayDir, 3, K)
 
-    if not lib.api.setRayInfo(rayPos, rayDir, opl, rayOK):
+    if not lib.api.ray_info_set(rayPos, rayDir, opl, rayOK):
         raise Exception("'setRayInfo' threw an exception")
 
 
@@ -2791,7 +2797,7 @@ def trace_rays(srf: int | Tuple[int] | np.int32
     _chk_macos_and_rx_loaded()
     srf = _map_Elt(srf).squeeze()
 
-    ok, rms_wfe, n_rays, n_pts = lib.api.traceWavefront(srf)
+    ok, rms_wfe, n_rays, n_pts = lib.api.trace_rays(srf)
     if not ok:
         raise Exception('MACOS" trace_rays failure')
 
@@ -2809,11 +2815,11 @@ def modify() -> None:
     """
     _chk_macos_and_rx_loaded()  # pymacos & Rx loaded
 
-    if not lib.api.modifiedRx():
+    if not lib.api.modified_rx():
         raise Exception("failed to reset MACOS status")
 
 
-def getOPD(nGridPts) -> Matrix[np.float64]:
+def opd_val(nGridPts) -> Matrix[np.float64]:
     return opd()
 
 
@@ -2838,8 +2844,8 @@ def opd() -> Matrix[np.float64]:
     _chk_macos_and_rx_loaded()
 
     # OPD map
-    npts = lib.api.getSrcSampling()[1]   # == nGridPts
-    ok, opd = lib.api.getOPD(npts)
+    npts = lib.api.get_src_sampling()[1]   # == nGridPts
+    ok, opd = lib.api.opd_val(npts)
 
     if not ok:
         raise Exception("MACOS: 'opd' threw an exception")
@@ -2899,12 +2905,12 @@ def spot(srf: int | Tuple[int] | np.int32,
     """
     _chk_macos_and_rx_loaded()
 
-    ok, npts = lib.api.SPOTcmd(_map_Elt(srf).squeeze(),
-                               np.int32(vpt_center),
-                               np.int32(beam_csys),
-                               np.int32(reset_trace))
+    ok, npts = lib.api.spot_cmd(_map_Elt(srf).squeeze(),
+                                np.int32(vpt_center),
+                                np.int32(beam_csys),
+                                np.int32(reset_trace))
 
-    ok, pts, shift, centre, csys = lib.api.getSPOT(npts)
+    ok, pts, shift, centre, csys = lib.api.spot_get(npts)
     if not ok:
         raise Exception('MACOS threw an exeption')
 
@@ -2940,10 +2946,10 @@ def fex(mode=1) -> Tuple[np.float64, Vector[np.float64], Vector[np.float64]]:
     """
     _chk_macos_and_rx_loaded()
 
-    if lib.api.nElt_() <= 3:
+    if lib.api.n_elt() <= 3:
         raise Exception("'fex': not more than 3 surfaces defined")
 
-    ok, xp = lib.api.findXP(np.int32(mode))
+    ok, xp = lib.api.xp_fnd(np.int32(mode))
 
     if not ok:
         raise Exception("'fex' threw an exception - stop set?")
@@ -2986,7 +2992,7 @@ def xp(vpt=None, psi=None, ref_rad=None) -> None | Tuple:
     # read XP parameters
     params = vpt is None and psi is None and ref_rad is None
     if (params):
-        ok, vpt, psi, rad = lib.api.getXP()
+        ok, vpt, psi, rad = lib.api.xp_get()
         if not ok:
             raise ValueError("MACOS threw an exception")
         return vpt, psi, rad
@@ -2998,7 +3004,7 @@ def xp(vpt=None, psi=None, ref_rad=None) -> None | Tuple:
         psi /= np.linalg.norm(psi)
         ref_rad = np.asarray_chkfinite(ref_rad)
 
-        if not lib.api.setXP(vpt, psi, ref_rad):
+        if not lib.api.xp_set(vpt, psi, ref_rad):
             raise ValueError("MACOS threw an exception")
 
     # invalid input
@@ -3045,7 +3051,7 @@ def stop(srf: None | int | Tuple[int] | np.int32 = None,
 
     # read stop information
     if srf is None:
-        ok, srf, offset = lib.api.getStop()
+        ok, srf, offset = lib.api.stop_info_get()
         if not ok:
             raise Exception('MACOS threw an Exception')
         return srf, offset
@@ -3055,7 +3061,7 @@ def stop(srf: None | int | Tuple[int] | np.int32 = None,
         srf = _map_Elt(srf).squeeze()
         offset = np.array((0., 0.), dtype=float) if offset is None \
                              else np.asarray_chkfinite(offset, order='F')
-        if not lib.api.setStop(srf, offset):
+        if not lib.api.stop_info_set(srf, offset):
             raise Exception('MACOS threw an Exception')
 
 
