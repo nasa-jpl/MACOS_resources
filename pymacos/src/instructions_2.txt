@@ -1,0 +1,129 @@
+[ ] ToDo
+    [ ] re-structure tree
+    [ ] Single Compilation,
+        => right now, first compile SMACOS Libs then Python Lib
+
+[ ] Required Tools
+    [ ] Win x64
+        [ ] cmake > 4.00
+        [ ] Intel oneAPI
+            [ ] Compilers  (Fortran / C / C++)
+            [ ] Intel oneAPI Redistributables
+        [ ] Visual Studio 2022
+        [ ] Python >= 3.13.x
+            [ ] Packages: Numpy, SciPy, matplotlib, pytest
+
+    [ ] Linux:
+        [ ] cmake > 4.00
+        [ ] Intel oneAPI
+            [ ] Compilers  (Fortran / C / C++)
+            [ ] Intel oneAPI Redistributables
+        [ ] Python >= 3.13.x
+            [ ] Packages: Numpy, SciPy, matplotlib, pytest
+
+
+[ ] Repo: MACOS_API from GitHub.com
+
+
+[ ] Compilation:
+
+        ---------------------------------
+    [ ] SMACOS libs
+        ---------------------------------
+
+        [ ] Win x64
+            => cmd. window
+
+            [ ] "build" directory: (create if not exist)
+                cd [path]\macos_api\pymacos\src\macos\cmake\build
+
+            [ ] set up Intel oneAPI tools with MS Visual Studio
+                C:\"Program Files (x86)"\Intel\oneAPI\setvars intel64 vs2022
+
+            [ ] set up make files
+                in "build" dir:
+
+                cmake -G "NMake Makefiles" -S ..
+                nmake
+
+        [ ] Linux
+            => bash shell
+
+            [ ] "build" directory: (create if not exists)
+                cd [path]/macos_api/pymacos/src/macos/cmake/build
+
+            [ ] set up Intel oneAPI tools
+                source [path to oneapi]/setvars.sh intel64
+
+                e.g.: on "macos1": source /opt/intel-14.0.0/oneapi/setvars.sh intel64
+
+            [ ] set up make files
+                in "build" dir:
+
+                rm -r *; cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DCMAKE_Fortran_COMPILER=ifx -S ..
+                make
+
+
+        ---------------------------------
+    [ ] Python pymacos DLL
+        ---------------------------------
+
+        [ ] Win x64
+            => cmd. window
+
+            [ ] "build" directory: (create if not exist)
+                cd [path]\macos_api\pymacos\src\macos\cmake\build
+
+            [ ] set up Intel oneAPI tools with MS Visual Studio
+                C:\"Program Files (x86)"\Intel\oneAPI\setvars intel64 vs2022
+
+            [ ] set up make files
+                in "build" dir:
+
+                cmake -G "NMake Makefiles" -S ..
+                nmake
+
+        [ ] Linux
+            => bash shell  (assume a new shell)
+
+            [ ] "build" directory: (create if not exist)
+                cd [path]/macos_api/pymacos/src/cmake/build
+
+            [ ] set up Intel oneAPI tools
+                source [path to oneapi]/setvars.sh intel64
+
+                e.g.: on "macos1":
+                source /opt/intel-14.0.0/oneapi/setvars.sh intel64
+
+            [ ] activate Python
+                e.g.: using virtual env:
+                source [path]/.venv/bin/activate
+
+            [ ] compilation
+                in "build" dir:
+
+                rm -r *; cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DCMAKE_Fortran_COMPILER=ifx -S ..
+                make
+
+            [ ] pymacosf90 DLL location and quick test
+
+                [ ] Test 1: using the SAME shell as for compilation
+
+                    cd [path]/macos_api/pymacos/src/pymacos
+                    python -c "import pymacosf90 as f; print(f.__doc__)"
+
+                    it should show a list of available API
+
+                [ ] Test 2: new bash shell
+                    cd [path]/macos_api/pymacos/src/pymacos
+
+                    => activate python
+                    source [path]/.venv/bin/activate
+
+                    => load pymacos
+                    python -c "import pymacosf90 as f; print(f.__doc__)"
+
+                    if it cannot load it:
+                      1) redistributables are not yet installed
+                      2) include paths to libs
+

@@ -15,11 +15,11 @@ from __future__ import absolute_import
 #  => must be placed before importing the macos API
 #
 # import os
-# os.add_dll_directory("C:\\Program Files (x86)\\Intel\\oneAPI\\2025.0\\bin")
+# os.add_dll_directory("C:\\Program Files (x86)\\Intel\\oneAPI\\2025.2\\bin")
 # -------------------
 
 from .macos import *
 from .version import __version__
 
-# Note: Python's MACOS DLL (pymacosf90.cp313-win_amd64.pyd) is to placed in
-#       this folder.
+# Note: Python's MACOS DLL (pymacosf90.cp313-win_amd64.pyd) is 
+#       to be placed in this folder.
