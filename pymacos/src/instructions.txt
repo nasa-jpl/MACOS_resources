@@ -34,6 +34,7 @@
         [ ] compile pymacos
             [ ] open a cmd window
             [ ] activate Python 3.13 and initialise Intel Compiler
+                => C:\"Program Files (x86)"\Intel\oneAPI\setvars intel64 vs2022
 
             [ ] compile to create Python DLL
                 cd [PATH TO MACOS_API Git Repo]\MACOS_API\pymacos\src\cmake   <<< need to update path
