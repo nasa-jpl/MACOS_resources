@@ -524,7 +524,7 @@
       !-------------------------------------------------------------------------------------------------------------
       ! Retrieve active source Field-of-View (FoV) Position & Direction
       !------------------------------------------------------------------------------------------------------------
-      subroutine get_src_foV(OK, zSrc, SrcPos, SrcDir, IsPtSrc)
+      subroutine get_src_fov(OK, zSrc, SrcPos, SrcDir, IsPtSrc)
         use sourcsub_mod, only: SourcePos
         use dopt_mod
 
@@ -560,7 +560,7 @@
         else
         	 IsPtSrc = FAIL
         end if
-      end subroutine get_src_foV
+      end subroutine get_src_fov
 
 
       !---------------------------------------------------------------------------------------------
@@ -686,7 +686,7 @@
 
       !---------------------------------------------------------------------------------------------
       ! Purpose: Define active source Field-of-View (FoV) Position
-      ! Call   : CALL set_src_foV(OK,zSrc,SrcPos,SrcDir)
+      ! Call   : CALL set_src_fov(OK,zSrc,SrcPos,SrcDir)
       ! Input  : zSrc   [1x1,D]: Distance from wavefront position to Src. Pos. (= zSource)
       !          SrcPos [1x3,D]: Src. Position:  if Col.Src, SrcPos = ChfRayPos
       !          SrcDir [1x3,D]: Centre Beam Direction (= ChfRayDir) -> will be normalized
@@ -700,7 +700,7 @@
       !            - ChfRayDir <= SrcDir
       !            - ChfRayPos <= SrcPos - zSource*SrcDir
       !---------------------------------------------------------------------------------------------
-      subroutine set_src_foV(OK,zSrc,SrcPos,SrcDir)
+      subroutine set_src_fov(OK,zSrc,SrcPos,SrcDir)
         use Constants, only: EPS
 
         implicit none
@@ -732,7 +732,7 @@
         ! return
         OK = PASS
 
-      end subroutine set_src_foV
+      end subroutine set_src_fov
 
 
       !---------------------------------------------------------------------------------------------
