@@ -1090,7 +1090,7 @@ def elt_csys(srf: Surface,
             ToDo
 
     Examples:
-       csys, csys_upd, csys_lcs = elt_csys(srf):
+       csys, csys_lcs, csys_upd = elt_csys(srf):
             Get LCS information at defined surfaces
 
        elt_csys(srf, glb=True):
@@ -2678,14 +2678,14 @@ def prb_grp(srf: Surface,
         ValueError: if prb is not a [6xN] array that is finite
         Exception:  MACOS Triggered and/or not init. or Rx loaded
     """
-    srf = _map_Elt(srf)
+    srf = _map_Elt(srf)  # iElt check => 1D array
     n_srf = len(srf)
 
     prb = np.asarray_chkfinite(prb, dtype=float)
     if prb.shape != (6, n_srf):
         raise ValueError("'prb array' must be a [6 x N] array")
 
-    glb_csys = np.asarray_chkfinite(glb_csys, dtype=float).reshape((1,-1))
+    glb_csys = np.asarray_chkfinite(glb_csys, dtype=np.int32).reshape(1, -1)
     if glb_csys.shape != (1, n_srf):
         raise ValueError("'glb_csys array' must be a [1 x N] array")
 
