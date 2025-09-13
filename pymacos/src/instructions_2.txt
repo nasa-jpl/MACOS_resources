@@ -72,7 +72,7 @@
             => cmd. window
 
             [ ] "build" directory: (create if not exist)
-                cd [path]\macos_api\pymacos\src\macos\cmake\build
+                cd [path]\macos_api\pymacos\src\cmake\build
 
             [ ] set up Intel oneAPI tools with MS Visual Studio
                 C:\"Program Files (x86)"\Intel\oneAPI\setvars intel64 vs2022
@@ -112,7 +112,7 @@
                     cd [path]/macos_api/pymacos/src/pymacos
                     python -c "import pymacosf90 as f; print(f.__doc__)"
 
-                    it should show a list of available API
+                    it should show a list of available APIs
 
                 [ ] Test 2: new bash shell
                     cd [path]/macos_api/pymacos/src/pymacos
