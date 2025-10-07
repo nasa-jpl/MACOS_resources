@@ -272,6 +272,9 @@ lcl num ^add_MACOS_Srfs ^e ^e1 ^e2
 lcl str ^labels(20) ^split(3) ^shapes(4) ^label ^str! aperture
 lcl num ^shapeID(20) ^n_obs ^n_clr ^n_hol ^id ^row ^i ^k
 
+lcl num ^rad2deg ^xi ^yi ^zi ^Li ^Mi ^Ni ^rsr
+lcl str ^s_xp
+
 
 rfd 1 1 1 1 'macosfile.in' 0 0
 
@@ -295,7 +298,7 @@ rfd 1 1 1 1 'macosfile.in' 0 0
 ^flux            == 1e0
 ^gridtype        ==   1
 ^obscuration     == 0e0
-^ngridpts        == 128
+^ngridpts        == 512
 ^prop_type       ==   1
 ^n_ecoord        ==   6   ! new value on 9/17/2013
 !
@@ -343,6 +346,36 @@ goto skipread
    wri Q"Code V dimension is 'c'" (dim)
    wri""
 lbl skipread
+
+! add Image Return & Exit Pupil Surfaces
+if ^add_MACOS_Srfs>0
+  ^rad2deg == 180/^pi
+
+  ins si; slb 'img_return'
+  ^s_xp == 'XP'
+  ins si; slb ^s_xp; dar
+  ^rsr == (rsr z^zoom_pos f^field_pos)
+  rdy s^s_xp ^rsr
+
+  ! position
+  ^xi == (x r1 si z^zoom_pos f^field_pos)
+  ^yi == (y r1 si z^zoom_pos f^field_pos)
+  ^zi == (z r1 si z^zoom_pos f^field_pos)
+
+  ^Li == (L r1 si z^zoom_pos f^field_pos)
+  ^Mi == (M r1 si z^zoom_pos f^field_pos)
+  ^Ni == (N r1 si z^zoom_pos f^field_pos)
+
+  xde s^s_xp (^xi-(^rsr)*^Li)
+  yde s^s_xp (^yi-(^rsr)*^Mi)
+  zde s^s_xp (^zi-(^rsr)*^Ni)
+
+  ! orientation (codev sign)
+  bde s^s_xp ^rad2deg*(-asinf(^Li))
+  ade s^s_xp ^rad2deg*(-atanf(-^Mi/^Ni))
+
+end if
+
 
 
 if (buf.emp b70)=0; buf del b70; end if
@@ -498,7 +531,7 @@ end for
 wri  "% -------------------------"
 wri  "%   Wavelength(s):"
 for ^f 1 (num w)
-  wri  "%"
+  ! wri  "%"
   wri Q"%     WL 'dd': '5d.4d' nm" ^f (WL W^f)
 end for
 wri  ^linestr
@@ -510,42 +543,49 @@ wri Q"%   Field Position   (#3): 'dd'" #3
 wri Q"%   Wave  Position   (#4): 'dd'" #4
 wri  "%   MACOS File Name  (#5): "     #5
 wri Q"%   Incl. Dummy Srfs (#6):  'd'" #6
+wri Q"%   add_MACOS_Srfs   (#7):  'd'  (when set, it added XP and img Rtn Srf to Rx before conversion)" #7>0
 wri  ^linestr
 wri  "% cv2macos version: " ^script_version
 wri  "% Date            : " (Dat)
 wri  ^linestr
 wri
-wri  "  BaseUnits=   " ^baseunits
-wri  "  WaveUnits=   " ^waveunits
+wri  "      BaseUnits=   " ^baseunits
+wri  "      WaveUnits=   " ^waveunits
 wri
-wri ^linestr
 
 ! --------------------------------------------------------
 ! Export Source Information
 ! --------------------------------------------------------
 
-wri Q"  ChfRayDir= '2e.20e' '3e.20e' '3e.20e'" ^l_chief  ^m_chief  ^n_chief
-wri Q"  ChfRayPos= '2e.20e' '3e.20e' '3e.20e'" ^x_chief  ^y_chief  ^z_chief
-wri Q"    zSource= '2e.20e'" ^z_source
+wri ^linestr
+wri "% Source Definition"
+wri ^linestr
 wri
-wri Q"     IndRef= '2e.20e'" ^obj_index
-wri Q"     Extinc= '2e.20e'" ^ext_coef
+wri Q"      ChfRayDir= '2e.20e' '3e.20e' '3e.20e'" ^l_chief  ^m_chief  ^n_chief
+wri Q"      ChfRayPos= '2e.20e' '3e.20e' '3e.20e'" ^x_chief  ^y_chief  ^z_chief
+wri Q"        zSource= '2e.20e'" ^z_source
 wri
-wri Q"    Wavelen= '2e.20e'" ^wavelength
-wri Q"       Flux= '2e.20e'" ^flux
-wri Q"   Aperture= '2e.20e'" ^aperture
-wri Q"   Obscratn= '2e.20e'" ^obscuration
+wri Q"         IndRef= '2e.20e'" ^obj_index
+wri Q"         Extinc= '2e.20e'" ^ext_coef
 wri
-wri Q"   nGridpts=  'd'" ^ngridpts
+wri Q"        Wavelen= '2e.20e'" ^wavelength
+wri Q"           Flux= '2e.20e'" ^flux
+wri Q"       Aperture= '2e.20e'" ^aperture
+wri Q"       Obscratn= '2e.20e'" ^obscuration
+wri
+wri Q"       nGridpts=  'd'" ^ngridpts
 if ^gridtype=1
-	wri  "   GridType=   Circular"
+	wri  "       GridType=   Circular"
 els
-	wri Q"   GridType=    '2d'" ^gridtype
+	wri Q"       GridType=    '2d'" ^gridtype
 end if
-wri Q"      xGrid= '3e.20e' '3e.20e' '3e.20e'" ^L_xGrid ^M_xGrid ^N_xGrid
-wri Q"      yGrid= '3e.20e' '3e.20e' '3e.20e'" ^L_yGrid ^M_yGrid ^N_yGrid
+wri Q"          xGrid= '3e.20e' '3e.20e' '3e.20e'" ^L_xGrid ^M_xGrid ^N_xGrid
+wri Q"          yGrid= '3e.20e' '3e.20e' '3e.20e'" ^L_yGrid ^M_yGrid ^N_yGrid
 wri
 wri ^linestr
+wri "% Optical System"
+wri ^linestr
+wri
 
 
 ! New on 9/17/2013: Because NElt is written at the start of the printout,
@@ -573,18 +613,18 @@ if not ^incl_dummy
   ^num_real_surfaces ==  ^num_real_surfaces+3
 end if
 
-wri Q"      nElt=  '3d'" ^num_real_surfaces
+wri Q"           nElt=  '3d'" ^num_real_surfaces
 
 ! ------------------------------------------------------------------------------------------------------------
 wri""
 !
 !  FORMAT SURFACE VARIABLES
 !
-^format22  =="   KcElt=  '3e.20e'"
-^format22b =="   KcElt=  '3e.20e'"
-^format29  =="PropType=    '1d'"
-^format31  =="   ApVec=  '2e.15e' '2e.15e' '2e.15e'"
-^format32  =="   ApVec=  '2e.15e' '2e.15e' '2e.15e' '2e.15e'"
+^format22  == "          KcElt=  '3e.20e'"
+^format22b == "          KcElt=  '3e.20e'"
+^format29  == "       PropType=    '1d'"
+^format31  == "          ApVec=  '2e.15e' '2e.15e' '2e.15e'"
+^format32  == "          ApVec=  '2e.15e' '2e.15e' '2e.15e' '2e.15e'"
 
 
 ! ----------------------------------------------------------------------------------------------
@@ -700,6 +740,7 @@ els if (rmd s^s z^zoom_pos)='REFR'	! refractive surface
     ! Surface: Spherical
     ! ----------------------------------
     if (typ sur s^s)='SPH'
+
         if (^s=(num s))and(^a_flat_surf)
             ^elt_type == 3	 ! Focal plane (if the image plane is curved
         els if (^an_index_match) !   it will not be defined as a focal plane.)
@@ -712,6 +753,7 @@ els if (rmd s^s z^zoom_pos)='REFR'	! refractive surface
     ! Surface: Conical
     ! ----------------------------------
     els if (typ sur s^s)='CON'
+
         if (^an_index_match)
             ^elt_type == 4	! reference surface
         els
@@ -776,7 +818,7 @@ lbl skip_surfaceshape_check
 if (typ sur s^s) = 'SPH'
     ^conic_const == 0.000
     if (^a_flat_surf)
-        ^Kr_elt == -^infinity
+        ^Kr_elt == ^infinity
     els
         if (rdy s^s z^zoom_pos) >= 0
             ^Kr_elt == -(rdy s^s z^zoom_pos)
@@ -793,7 +835,7 @@ els if ((typ sur s^s)='ASP') or &
       ^conic_const == (k s^s z^zoom_pos)
       if ^conic_const > 0		! oblate ellipsoid
       	if (^a_flat_surf)
-          ^Kr_elt == -^infinity
+          ^Kr_elt == ^infinity
       	els
           if (rdy s^s z^zoom_pos) >= 0
             ^Kr_elt == -(rdy s^s z^zoom_pos)
@@ -806,7 +848,7 @@ els if ((typ sur s^s)='ASP') or &
         end if
       els
         if (^a_flat_surf)
-          ^Kr_elt == -^infinity
+          ^Kr_elt == ^infinity
         els
           if (rdy s^s z^zoom_pos) >= 0
             ^Kr_elt == -(rdy s^s z^zoom_pos)
@@ -857,16 +899,16 @@ end if
       ^z_RptElt == (z r1 f1 s^s g^global_sur z1)
 !
 ! Write out the current number of real surfaces, excluding dummy surfaces.
-    wri Q"     iElt=  '3d'" ^iRealElt
+    wri Q"           iElt=  '3d'" ^iRealElt
     if lenstr((sll s^s))=0
-      wri Q"  EltName=   Elt_'d'" ^s
+      wri Q"        EltName=   Elt_'d'" ^s
     else
-      wri Q"  EltName=   '32c'" (sll s^s)
+      wri Q"        EltName=   '32c'" (sll s^s)
     end if
 
 ! if stop srf => add stop info
     if ^s = (slb ss)
-      wri "   ApStop=   0d0 0d0"
+      wri "         ApStop=   0d0 0d0"
     end if
 
 
@@ -877,12 +919,12 @@ end if
     ^conic_const == 0
     ^cuy == (cuy s^s)
     if (^cuy = 0)
-       ^kr_elt == -^infinity
+       ^kr_elt == ^infinity
     els
        ^kr_elt == -(rdy s^s)
     end if
-    wri  "Element=   Return"
-    wri  "Surface=   Flat"
+    wri  "        Element=   Return"
+    wri  "        Surface=   Flat"
     ! wri q"  KrElt=  '3e.20e' " ^kr_elt
     ! wri q"  KcElt=  '3e.20e'" 0
     goto skipwriteshape
@@ -892,12 +934,12 @@ end if
     ^conic_const == 0
     ^cuy == (cuy s^s)
     if (^cuy = 0)
-       ^kr_elt == -^infinity
+       ^kr_elt == ^infinity
     els
        ^kr_elt == -(rdy s^s)
     end if
-    wri  "Element=  Return"
-    wri  "Surface=  Conic"
+    wri  "        Element=  Return"
+    wri  "        Surface=  Conic"
     ! wri q"  KrElt=  '3e.20e' " ^kr_elt
     ! wri q"  KcElt=  '3e.20e'" 0
     goto skipwriteshape
@@ -908,12 +950,12 @@ end if
     ^conic_const == 0
     ^cuy == (cuy s^s)
     if (^cuy = 0)
-       ^kr_elt == -^infinity
+       ^kr_elt ==  ^infinity
     els
        ^kr_elt == -(rdy s^s)
     end if
-    wri  "Element=  FocalPlane"
-    wri  "Surface=  Flat"
+    wri  "        Element=  FocalPlane"
+    wri  "        Surface=  Flat"
     ! wri q"  KrElt=  '3e.20e' " ^kr_elt
     ! wri q"  KcElt=  '3e.20e'" 0
     goto skipwriteshape
@@ -922,39 +964,39 @@ end if
 
 
 	if ^elt_type = 1
-		wri"  Element=   Reflector"
-		wri"  Surface=   Conic"
+		wri"        Element=   Reflector"
+		wri"        Surface=   Conic"
 
 	els if ^elt_type = 2
-		wri"  Element=   Reflector"
-		wri"  Surface=   Flat"
+		wri"        Element=   Reflector"
+		wri"        Surface=   Flat"
 
 	els if ^elt_type = 3
-		wri"  Element=   FocalPlane"
-		wri"  Surface=   Flat"
+		wri"        Element=   FocalPlane"
+		wri"        Surface=   Flat"
 
     els if ^elt_type = 4
-		wri"  Element=   Reference"
-		wri"  Surface=   Conic"
+		wri"        Element=   Reference"
+		wri"        Surface=   Conic"
 
     els if ^elt_type = 8
-		wri"  Element=   Refractor"
-		wri"  Surface=   Conic"
+		wri"        Element=   Refractor"
+		wri"        Surface=   Conic"
 
     els if ^elt_type = 12             ! Aspheric Reflector
-        wri"  Element=   Reflector"
-        wri"  Surface=   Aspheric"
+        wri"        Element=   Reflector"
+        wri"        Surface=   Aspheric"
 
     els if ^elt_type = 14             ! Zernike Reflector
-        wri"  Element=   Reflector"
-        wri"  Surface=   Zernike"
+        wri"        Element=   Reflector"
+        wri"        Surface=   Zernike"
 
     els if ^elt_type = 21             ! Zernike Refractor
-        wri"  Element=   Refractor"
-        wri"  Surface=   Zernike"
+        wri"        Element=   Refractor"
+        wri"        Surface=   Zernike"
 
     els
-        wri Q" EltType=  '3d'" ^elt_type    ! y toroid refractor
+        wri Q"       EltType=  '3d'" ^elt_type    ! y toroid refractor
     end if
 
     lbl skipwriteshape
@@ -962,28 +1004,28 @@ end if
     ! ------------------------------------------
     ! Basic Surface Parameters
     ! ------------------------------------------
-    wri Q"    KrElt= '3e.20e'" ^Kr_elt
-    wri Q"    KcElt= '3e.20e'" ^conic_const
+    wri Q"          KrElt= '3e.20e'" ^Kr_elt
+    wri Q"          KcElt= '3e.20e'" ^conic_const
 
 
     ! ------------------------------------------
     ! Element Pose
     ! ------------------------------------------
     if (rdy s^s z^zoom_pos) >= 0
-        wri Q"   psiElt= '3e.20e' '3e.20e' '3e.20e'" ^l_sur ^m_sur ^n_sur
+        wri Q"         psiElt= '3e.20e' '3e.20e' '3e.20e'" ^l_sur ^m_sur ^n_sur
     els
-        wri Q"   psiElt= '3e.20e' '3e.20e' '3e.20e'" -(^l_sur) -(^m_sur) -(^n_sur)   ! psiElt
+        wri Q"         psiElt= '3e.20e' '3e.20e' '3e.20e'" -(^l_sur) -(^m_sur) -(^n_sur)   ! psiElt
     end if
 
-    wri Q"   VptElt= '3e.20e' '3e.20e' '3e.20e'" ^x_sur ^y_sur ^z_sur           ! parent vertex  VptElt
-    wri Q"   RptElt= '3e.20e' '3e.20e' '3e.20e'" ^x_RptElt ^y_RptElt ^z_RptElt  ! pivot point vertex RptElt (intersection with ray R1 F1).  New on 9/17/13
+    wri Q"         VptElt= '3e.20e' '3e.20e' '3e.20e'" ^x_sur ^y_sur ^z_sur           ! parent vertex  VptElt
+    wri Q"         RptElt= '3e.20e' '3e.20e' '3e.20e'" ^x_RptElt ^y_RptElt ^z_RptElt  ! pivot point vertex RptElt (intersection with ray R1 F1).  New on 9/17/13
 
 
     ! ---------------------------
     ! Aspheric Surface
     ! ---------------------------
     ! Aspheric Surface: 4 Coefficients per line
-    if (^elt_type = 12)OR(^elt_type = 20)
+    if ((^elt_type = 12) OR (^elt_type = 20))
 
       ! get max AsphCoef idx
       ^nAsphCoef == 0
@@ -995,21 +1037,21 @@ end if
 
       ! dump data
       if ^nAsphCoef = 0
-        write "nAsphCoef=   1"
-        write " AsphCoef=   0e0"
+        write "      nAsphCoef=   1"
+        write "       AsphCoef=   0e0"
       else
         ^Grp == 4
         buf ins b70 i1
         if ^nAsphCoef <= ^Grp
           ! all Coefs are zero
-          write Q"nAsphCoef=   'd'" ^nAsphCoef
+          write Q"      nAsphCoef=   'd'" ^nAsphCoef
           for ^iZ 1 ^nAsphCoef
             buf put B70 i1 j^iZ ^AsphCoef(^iZ)
           end for
           buf fmt b70 i1 j1..L '3e.20e'
-          wri " AsphCoef="  (buf.txt b70 i1)
+          wri "       AsphCoef="  (buf.txt b70 i1)
         else
-          write Q"nAsphCoef=   'd'" ^nAsphCoef
+          write Q"      nAsphCoef=   'd'" ^nAsphCoef
           ^k == 0
           for ^iZ 1 ^nAsphCoef
             ^k == ^k+1
@@ -1017,9 +1059,9 @@ end if
             if ^k=^Grp
               buf fmt b70 i1 j1..^Grp '3e.20e'
               if ^iZ<=^Grp
-                wri " AsphCoef=" (buf.txt b70 i1)
+                wri "       AsphCoef=" (buf.txt b70 i1)
               else
-                wri "          " (buf.txt b70 i1)
+                wri "                " (buf.txt b70 i1)
               end if
               buf del b70 i1
               ^k == 0
@@ -1028,7 +1070,7 @@ end if
 
           if modf(^nAsphCoef,^Grp)>0
             buf fmt b70 i1 j1..L '3e.20e'
-            wri "          " (buf.txt b70 i1)
+            wri "                " (buf.txt b70 i1)
           end if
         end if
       end if
@@ -1125,9 +1167,9 @@ end if
         ! ***** Currently using psiElt for zMon *****
 
         if ^nZrnCoef=0
-            wri  " ZernType=  " ^ZrnTypeStr
-            wri  "nZernCoef=    1"
-            wri  " ZernCoef=    0e0"
+            wri  "       ZernType=  " ^ZrnTypeStr
+            wri  "      nZernCoef=    1"
+            wri  "       ZernCoef=    0e0"
         else
 
           for ^iZ 1 ^nZrnCoef
@@ -1135,9 +1177,9 @@ end if
           end for
           buf fmt b70 i1 j1..L 'd'
 
-          wri   " ZernType=  " ^ZrnTypeStr
-          wri  Q"nZernCoef=   'dd'" ^nZrnCoef
-          wri   "ZernModes=  " (buf.txt B70 i1)
+          wri   "       ZernType=  " ^ZrnTypeStr
+          wri  Q"      nZernCoef=   'dd'" ^nZrnCoef
+          wri   "      ZernModes=  " (buf.txt B70 i1)
 
           ^Grp == 6
           buf del b70 i1
@@ -1146,7 +1188,7 @@ end if
               buf put B70 i1 j^iZ ^ZrnMode(^iZ)
             end for
             buf fmt b70 i1 j1..L '3e.20e'
-            wri "ZernCoef="  (buf.txt b70 i1)
+            wri "       ZernCoef="  (buf.txt b70 i1)
           else
             ^k == 0
             for ^iZ 1 ^nZrnCoef
@@ -1155,7 +1197,7 @@ end if
               if ^k=^Grp
                 buf fmt b70 i1 j1..^Grp '3e.20e'
                 if ^iZ<=^Grp
-                  wri " ZernCoef=" (buf.txt b70 i1)
+                  wri "       ZernCoef=" (buf.txt b70 i1)
                 else
                   wri "          " (buf.txt b70 i1)
                 end if
@@ -1165,7 +1207,7 @@ end if
             end for
             if modf(^nZrnCoef,^Grp)>0
               buf fmt b70 i1 j1..L '3e.20e'
-              wri "          " (buf.txt b70 i1)
+              wri "                " (buf.txt b70 i1)
             end if
           end if
 
@@ -1176,11 +1218,11 @@ end if
       ! -------------------------------------------------
       ^e == transform(^s, ^global_sur, ^zoom_pos, ^data)
 
-      wri Q"    lMon=  '3e.20e'" ^lMr                                              ! Zernike Normalisation Radius
-      wri Q"    pMon=  '3e.20e' '3e.20e' '3e.20e'" ^data( 1) ^data( 2) ^data( 3)   ! P (x,y,z) == VptElt
-      wri Q"    xMon=  '3e.20e' '3e.20e' '3e.20e'" ^data( 4) ^data( 5) ^data( 6)   ! rx
-      wri Q"    yMon=  '3e.20e' '3e.20e' '3e.20e'" ^data( 7) ^data( 8) ^data( 9)   ! ry
-      wri Q"    zMon=  '3e.20e' '3e.20e' '3e.20e'" ^data(10) ^data(11) ^data(12)   ! rz
+      wri Q"           lMon=  '3e.20e'" ^lMr                                              ! Zernike Normalisation Radius
+      wri Q"           pMon=  '3e.20e' '3e.20e' '3e.20e'" ^data( 1) ^data( 2) ^data( 3)   ! P (x,y,z) == VptElt
+      wri Q"           xMon=  '3e.20e' '3e.20e' '3e.20e'" ^data( 4) ^data( 5) ^data( 6)   ! rx
+      wri Q"           yMon=  '3e.20e' '3e.20e' '3e.20e'" ^data( 7) ^data( 8) ^data( 9)   ! ry
+      wri Q"           zMon=  '3e.20e' '3e.20e' '3e.20e'" ^data(10) ^data(11) ^data(12)   ! rz
 
     end if  ! end of if-branch for Zernikes.
 
@@ -1188,8 +1230,8 @@ end if
     ! ------------------------------------------
     ! Material After Element
     ! ------------------------------------------
-    wri Q"   IndRef= '3e.20e'" absf(^current_n)
-    wri Q"   Extinc= '3e.20e'" ^ext_coef
+    wri Q"         IndRef= '3e.20e'" absf(^current_n)
+    wri Q"         Extinc= '3e.20e'" ^ext_coef
 
     ! ------------------------------------------
     ! Local Coordinate Frame w.r.t. Gblobal Ref.
@@ -1332,34 +1374,36 @@ end if
 ! xObs is the direction cosine of the x axis of the aperture.
 
 if (^ape_type = 1) ! (circular aperture)
-   wri  "   ApType=   Circular"
-   wri q"    ApVec= '3e.20e' '3e.20e' '3e.20e' " ^cir ^adx ^ady
+   wri  "         ApType=   Circular"
+   wri q"          ApVec= '3e.20e' '3e.20e' '3e.20e' " ^cir ^adx ^ady
 !   wri q"     xObs= '3e.20e' '3e.20e' '3e.20e' " ^L_LocalXaxis*^xobs_scale ^M_LocalXaxis*^xobs_scale ^N_LocalXaxis*^xobs_scale
 
 els if (^ape_type = 2) ! (rectangular aperture: xmin, xmax, ymin, ymax)
-   wri  "   ApType=   Rectangular"
-   wri q"    ApVec= '3e.20e' '3e.20e' '3e.20e' '3e.20e' " ^adx-^rex ^adx+^rex ^ady-^rey ^ady+^rey
+   wri  "         ApType=   Rectangular"
+   wri q"          ApVec= '3e.20e' '3e.20e' '3e.20e' '3e.20e' " ^adx-^rex ^adx+^rex ^ady-^rey ^ady+^rey
 !   wri q"     xObs= '3e.20e' '3e.20e' '3e.20e' " ^L_LocalXaxis*^xobs_scale ^M_LocalXaxis*^xobs_scale ^N_LocalXaxis*^xobs_scale
 else
-  wri   "   ApType=   None"
+  wri   "         ApType=   None"
 end if
 
+! NS--debug testing
 if ((^n_obs>0) or (^n_clr>0) or (^n_hol>0))
   if (rdy s^s z^zoom_pos) <= 0   ! PsiElt*zAxis (TElt) -- Srf. Normal <=> Local CSYS
     ^xobs_scale == -1
   else
     ^xobs_scale == +1
   end if
+! NS--debug
 
-  wri q"     xObs= '3e.20e' '3e.20e' '3e.20e' " ^L_LocalXaxis*^xobs_scale ^M_LocalXaxis*^xobs_scale ^N_LocalXaxis*^xobs_scale
+  wri q"           xObs= '3e.20e' '3e.20e' '3e.20e' " ^L_LocalXaxis*^xobs_scale ^M_LocalXaxis*^xobs_scale ^N_LocalXaxis*^xobs_scale
 end if
 
 
 ! Now write out the obscuration data, if any. ----------------------------------
 if (^n_obs+^n_hol = 0)
-  wri  "     nObs=   0"
+  wri  "           nObs=   0"
 else
-  wri  "     nObs=  " num_to_str(^n_obs+^n_hol)
+  wri  "           nObs=  " num_to_str(^n_obs+^n_hol)
 
   ! Obscurations
   for ^k 1 ^n_obs
@@ -1372,22 +1416,22 @@ else
 
     if (^shapeID(^k)=1)
       ! (1) Circular
-      wri  "  ObsType=   Circular"
-      wri q"   ObsVec=  '3e.20e' '3e.20e' '3e.20e' " (cir obs s^s L^label) ^adxobs ^adyobs
+      wri  "        ObsType=   Circular"
+      wri q"         ObsVec=  '3e.20e' '3e.20e' '3e.20e' " (cir obs s^s L^label) ^adxobs ^adyobs
 
     else if (^shapeID(^k)=2)
       ! (2) Rectangular
       ^rexobs == (rex obs s^s L^label)
       ^reyobs == (rey obs s^s L^label)
-      wri  "  ObsType=   Rectangular"
-      wri q"   ObsVec=  '3e.20e' '3e.20e' '3e.20e' '3e.20e' " ^adxobs-^rexobs ^adxobs+^rexobs ^adyobs-^reyobs ^adyobs+^reyobs
+      wri  "        ObsType=   Rectangular"
+      wri q"         ObsVec=  '3e.20e' '3e.20e' '3e.20e' '3e.20e' " ^adxobs-^rexobs ^adxobs+^rexobs ^adyobs-^reyobs ^adyobs+^reyobs
 
     else
       ! (3) Elliptical
       ^rexobs == (elx obs s^s L^label)
       ^reyobs == (ely obs s^s L^label)
-      wri  "  ObsType=   Elliptical"   ! a, b, xc, yc
-      wri q"   ObsVec=  '3e.20e' '3e.20e' '3e.20e' '3e.20e'" ^rexobs ^reyobs ^adxobs ^adyobs
+      wri  "        ObsType=   Elliptical"   ! a, b, xc, yc
+      wri q"         ObsVec=  '3e.20e' '3e.20e' '3e.20e' '3e.20e'" ^rexobs ^reyobs ^adxobs ^adyobs
     end if
 
   end for
@@ -1428,13 +1472,13 @@ end if
 ! End of 9/17/2013 section for apertures and obscurations. ======================================================================
 
 ! Write Zelt
-	wri Q"     zElt= '3e.20e'" -^Kr_elt   ! Zelt
+	wri Q"           zElt= '3e.20e'" -^Kr_elt   ! Zelt
 
 ! New Sept 2013: Prop Type.
 	if (^s = ^exitpupil)
-		wri " PropType=   FarField"
+		wri "       PropType=   FarField"
    els
-		wri " PropType=   Geometric"
+		wri "       PropType=   Geometric"
 	end if
 
 
@@ -1443,16 +1487,15 @@ end if
 ! Upper right and lower left 3x3 quadrants are zeros. The upper left and lower right quadrants
 ! have the x,y,z axis direction cosines arranged in columns.
 
-      ^fmt == "     '5c' '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e' "
+  ^fmt  == "        '8c' '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e' "
 
-      wri Q"  nECoord=  '2d'" ^n_ecoord
-      wri Q^fmt "TElt=" ^L_LocalXaxis ^L_LocalYaxis ^L_LocalZaxis 0             0             0
-      wri Q^fmt "     " ^M_LocalXaxis ^M_LocalYaxis ^M_LocalZaxis 0             0             0
-      wri Q^fmt "     " ^N_LocalXaxis ^N_LocalYaxis ^N_LocalZaxis 0             0             0
-      wri Q^fmt "     " 0             0             0           ^L_LocalXaxis ^L_LocalYaxis ^L_LocalZaxis
-      wri Q^fmt "     " 0             0             0           ^M_LocalXaxis ^M_LocalYaxis ^M_LocalZaxis
-      wri Q^fmt "     " 0             0             0           ^N_LocalXaxis ^N_LocalYaxis ^N_LocalZaxis
-
+      wri Q"        nECoord=  '2d'" ^n_ecoord
+      wri Q^fmt "   TElt=" ^L_LocalXaxis ^L_LocalYaxis ^L_LocalZaxis 0             0             0
+      wri Q^fmt "        " ^M_LocalXaxis ^M_LocalYaxis ^M_LocalZaxis 0             0             0
+      wri Q^fmt "        " ^N_LocalXaxis ^N_LocalYaxis ^N_LocalZaxis 0             0             0
+      wri Q^fmt "        " 0             0             0           ^L_LocalXaxis ^L_LocalYaxis ^L_LocalZaxis
+      wri Q^fmt "        " 0             0             0           ^M_LocalXaxis ^M_LocalYaxis ^M_LocalZaxis
+      wri Q^fmt "        " 0             0             0           ^N_LocalXaxis ^N_LocalYaxis ^N_LocalZaxis
       wri " "
 
 ! --- END OF 6x6 matrix creation.
@@ -1521,11 +1564,16 @@ yde si 1		! displace image plane to calc. y-dir
 ^msc_y == ^final_y - ^initial_y		! global m-dircosine
 ^nsc_y == ^final_z - ^initial_z		! global n-dircosine
 !
-!
+
 ^format2a== " nOutCord=    5"
 ^format2 == "     Tout= '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e'"
 ^format3 == "           '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e' '3e.20e'"
 !
+wri
+wri ^linestr
+wri "% Finalize"
+wri ^linestr
+wri
 wri Q^format2a
 wri Q^format2 ^lsc_x ^msc_x ^nsc_x ^zero ^zero ^zero ^zero
 wri Q^format3 ^lsc_y ^msc_y ^nsc_y ^zero ^zero ^zero ^zero
