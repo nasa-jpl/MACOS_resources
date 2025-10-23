@@ -1,4 +1,4 @@
-RDM;LEN       "VERSION: 2025.03       LENS VERSION: 92       Creation Date: 18-Oct-2025"
+RDM;LEN       "VERSION: 2025.03       LENS VERSION: 92       Creation Date: 23-Oct-2025"
 TITLE 'Prolate Ellipse'
 NAO   0.05
 DIM   M
@@ -21,7 +21,7 @@ S     0.0 0.0
   STO
   SLB "stop"
   DAR
-  XDE 0.0; YDE 0.0; ZDE 100.0
+  XDE 0.0; YDE 0.0; ZDE -100.0
 S     0.0 200.0
   XDE 0.0; YDE 0.0; ZDE 0.0
 S     -400.0 -200.0 REFL
