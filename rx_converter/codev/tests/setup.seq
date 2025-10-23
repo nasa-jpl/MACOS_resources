@@ -1,0 +1,8 @@
+! "C:\Prj\Prj_(Sync)\Prj-MACOS-OS\MACOS_resources\rx_converter\codev\tests"
+
+pth seq app ".\cv_scripts"     ! tools
+pth seq app ".\Rx"
+pth seq app ".."               ! cv2macos
+
+! pth int app ".\"
+rtn

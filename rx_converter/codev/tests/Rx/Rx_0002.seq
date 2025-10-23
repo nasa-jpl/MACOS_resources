@@ -1,0 +1,42 @@
+RDM;LEN       "VERSION: 2025.03       LENS VERSION: 92       Creation Date:  9-Oct-2025"
+TITLE 'Rx_0001'
+EPD   20.0
+DIM   M
+WL    500.0
+REF   1
+WTW   1
+INI   '   '
+CA    APE
+XAN   0.0 0.0
+YAN   0.0 1.0
+WTF   1.0 1.0
+VUX   0.0 0.0
+VLX   0.0 0.0
+VUY   0.0 0.0
+VLY   0.0 0.0
+DOR   1.15 1.05 1.1
+SO    0.0 200000000100.0
+S     0.0 5.0
+  SLB "SrcSrf"
+S     -500.0 -10.0 REFL
+  CIR 15.0
+  ADX 0.0
+S     400.0 10.0 REFL
+  CIR 15.0
+  ADX 0.0
+S     -50.0 -19.96336996336996 REFL
+  STO
+  SLB "origin"
+  CIR 15.0
+  ADX 0.0
+  CON
+  K   -1.0
+SI    0.0 0.0
+  SLB "RefSrf"
+UID   S0 "a74b8b7b-9a54-4a29-aac1-1cc8f379d4f3"
+UID   S1 "8f2d6985-699d-4ccc-b314-3b913e4b9e21"
+UID   S2 "eaaec0f0-930b-473c-bc4f-c7c3418dad25"
+UID   S3 "0d682313-4ff0-4477-95a2-ff62da9ec91c"
+UID   S4 "3c2db920-8657-4113-aaa2-07ff98612116"
+UID   S5 "7e612b4f-c336-405e-9260-745812396e13"
+GO 
