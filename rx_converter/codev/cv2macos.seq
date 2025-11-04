@@ -404,18 +404,19 @@ if ^add_MACOS_Srfs>0
 
     else
 
-      ! position
+      ! position @ Detector
       ^xi == (x r1 si z^zoom_pos f^field_pos)
       ^yi == (y r1 si z^zoom_pos f^field_pos)
       ^zi == (z r1 si z^zoom_pos f^field_pos)
 
-      ^Li == (L r1 si z^zoom_pos f^field_pos)
-      ^Mi == (M r1 si z^zoom_pos f^field_pos)
-      ^Ni == (N r1 si z^zoom_pos f^field_pos)
+      ^Li == (L r1 si z^zoom_pos f^field_pos)/(ind si-1 z^zoom_pos)
+      ^Mi == (M r1 si z^zoom_pos f^field_pos)/(ind si-1 z^zoom_pos)
+      ^Ni == (N r1 si z^zoom_pos f^field_pos)/(ind si-1 z^zoom_pos)
 
-      xde s^s_xp (^xi+^rsr*^Li)
-      yde s^s_xp (^yi+^rsr*^Mi)
-      zde s^s_xp (^zi+^rsr*^Ni)
+      ! XP pose
+      xde s^s_xp (^xi-^rsr*^Li)
+      yde s^s_xp (^yi-^rsr*^Mi)
+      zde s^s_xp (^zi-^rsr*^Ni)
 
       ! orientation (codev sign convention)
       bde s^s_xp ^rad2deg*(-asinf(^Li))
@@ -1611,17 +1612,20 @@ end if
 !   wri q"           xObs= '2e.20e' '2e.20e' '2e.20e' " ^L_LocalXaxis*^xobs_scale ^M_LocalXaxis*^xobs_scale ^N_LocalXaxis*^xobs_scale
 ! end if
 
- ! works only with non-rot apertures
+  ! need to export xObs before any Aperture definitions (PolyApVec; for example, requires it first)
   ^xObs_flip == (^psi(1)*^L_LocalZaxis+^psi(2)*^M_LocalZaxis+^psi(3)*^N_LocalZaxis)<0
   if ^xObs_flip
     ^xObs(1) == -^L_LocalXaxis; ^xObs(2) == -^M_LocalXaxis; ^xObs(3) == -^N_LocalXaxis
   else
     ^xObs(1) == +^L_LocalXaxis; ^xObs(2) == +^M_LocalXaxis; ^xObs(3) == +^N_LocalXaxis
   end if
+  wri q"           xObs= '2e.20e' '2e.20e' '2e.20e' " ^xObs(1) ^xObs(2) ^xObs(3)
 
 
-
-if (^ape_type = 1) ! (circular aperture)
+if (^ape_type = 1) 
+   !
+   ! (circular aperture)
+   !
    ^par(1) == ^cir; ^par(2) == ^adx; ^par(3) == ^ady
    if ^xObs_flip
      ^par(2) == -^par(2)
@@ -1630,8 +1634,10 @@ if (^ape_type = 1) ! (circular aperture)
    wri  "         ApType=  Circular"
    wri q"          ApVec= '2e.20e' '2e.20e' '2e.20e'" ^par(1) ^par(2) ^par(3)
 
-els if (^ape_type = 2) ! (rectangular aperture: xmin, xmax, ymin, ymax)
-
+els if (^ape_type = 2) 
+  !
+  ! (rectangular aperture: xmin, xmax, ymin, ymax)
+  !
   if ^xObs_flip
      ^par(1) == -^adx-^rex  ! xmin
      ^par(2) == -^adx+^rex  ! xmax
@@ -1645,8 +1651,10 @@ els if (^ape_type = 2) ! (rectangular aperture: xmin, xmax, ymin, ymax)
    wri  "         ApType=  Rectangular"
    wri q"          ApVec= '2e.20e' '2e.20e' '2e.20e' '2e.20e'"  ^par(1) ^par(2) ^par(3) ^par(4)
 
-els if (^ape_type = 3) ! (Elliptical aperture: a, b, xc, yc)
-
+els if (^ape_type = 3) 
+  !
+  ! (Elliptical aperture: a, b, xc, yc)
+  !
    ^par(1) == ^rex
    ^par(2) == ^rey
   if ^xObs_flip
@@ -1659,11 +1667,9 @@ els if (^ape_type = 3) ! (Elliptical aperture: a, b, xc, yc)
    wri  "         ApType=  Elliptical"
    wri q"          ApVec= '2e.20e' '2e.20e' '2e.20e' '2e.20e'"  ^par(1) ^par(2) ^par(3) ^par(4)
 
-
 else
   wri   "         ApType=  None"
 end if
-  wri q"           xObs= '2e.20e' '2e.20e' '2e.20e' " ^xObs(1) ^xObs(2) ^xObs(3)
 
 
 ! Now write out the obscuration data, if any. ----------------------------------
@@ -1679,12 +1685,19 @@ else
     ^label  == ^labels(^k)
     ^adxobs == (adx obs s^s L^label)  ! shift in x-dir
     ^adyobs == (ady obs s^s L^label)  ! shift in y-dir
-    if ((aro obs s^s L^label) <> 0)
-      ^e == cvwarning("Obscuration is rotated -- not yet implemented in MACOS", 0)
-    end if
+    ! if ((aro obs s^s L^label) <> 0)
+    !   ^e == cvwarning("Obscuration is rotated -- not yet implemented in MACOS", 0)
+    ! end if
+! wri "% ---------------------------"
+! wri "%" ^s ">" ^label "<" ^adxobs ^adyobs
+! wri "%" (rex obs s^s L^label)
+! wri "%" (rey obs s^s L^label)
+! wri "% ---------------------------"
 
     if (^shapeID(^k)=1)
+      !
       ! (1) Circular
+      !
       ^par(1) == (cir obs s^s L^label); ^par(2) == +^adxobs; ^par(3) == +^adyobs
       if ^xObs_flip
         ^par(2) == -^adxobs
@@ -1693,23 +1706,77 @@ else
       wri q"         ObsVec=  '2e.20e' '2e.20e' '2e.20e' " ^par(1) ^par(2) ^par(3)
 
     else if (^shapeID(^k)=2)
+      !
       ! (2) Rectangular
+      !
       ^rexobs == (rex obs s^s L^label)
       ^reyobs == (rey obs s^s L^label)
-      wri  "        ObsType=   Rectangular"
-      wri q"         ObsVec=  '2e.20e' '2e.20e' '2e.20e' '2e.20e' " ^adxobs-^rexobs ^adxobs+^rexobs ^adyobs-^reyobs ^adyobs+^reyobs
 
+      if ((aro obs s^s L^label) <> 0)
+        ! RotRectangular with  W H DX DY Rot_Angle [radian]
+        ^par(1) == 2*^rexobs                       ! Width
+        ^par(2) == 2*^reyobs                       ! Height
+        ^par(3) == ^adxobs                         ! shift in x
+        ^par(4) == ^adyobs                         ! shift in y
+        ^par(5) == (aro obs s^s L^label)/^rad2deg  ! rotation angle [rad]
+
+        if ^xObs_flip
+          ^par(3) == -^par(3)
+          ^par(5) == -^par(5)
+        end if
+
+        wri  "        ObsType=   RotRectangular"
+        wri q"         ObsVec=  '2e.20e' '2e.20e' '2e.20e' '2e.20e' '2e.20e'" ^par(1) ^par(2) ^par(3) ^par(4) ^par(5)
+      else
+        !
+        ! Rectangular (xmin, xmax, ymin, ymax)
+        !
+        if ^xObs_flip
+          ^par(1) == -^adxobs-^rexobs  ! xmin
+          ^par(2) == -^adxobs+^rexobs  ! xmax
+        else
+          ^par(1) == ^adxobs-^rexobs  ! xmin
+          ^par(2) == ^adxobs+^rexobs  ! xmax
+        end if
+        ^par(3) == ^adyobs-^reyobs  ! ymin
+        ^par(4) == ^adyobs+^reyobs  ! ymax
+
+        wri  "        ObsType=   Rectangular"
+        wri q"         ObsVec=  '2e.20e' '2e.20e' '2e.20e' '2e.20e' " ^par(1) ^par(2) ^par(3) ^par(4)
+      end if
+    ! --------------------------------------------------
     else
+      !
       ! (3) Elliptical
-      ^rexobs == (elx obs s^s L^label)
-      ^reyobs == (ely obs s^s L^label)
-      wri  "        ObsType=   Elliptical"   ! a, b, xc, yc
-      wri q"         ObsVec=  '2e.20e' '2e.20e' '2e.20e' '2e.20e'" ^rexobs ^reyobs ^adxobs ^adyobs
+      !
+      ^par(1) == (elx obs s^s L^label)  ! A:  half-major  axis length
+      ^par(2) == (ely obs s^s L^label)  ! B:  half-mainor axis length
+      ^par(3) == ^adxobs                ! DX: shift in x
+      ^par(4) == ^adyobs                ! DY: shift in y
+      ^par(5) == (aro obs s^s L^label)  ! w:  rotation angle [rad]
+
+      if ^xObs_flip
+        ^par(3) == -^par(3)
+        ^par(5) == -^par(5)
+      end if
+
+      if (^par(5) <> 0)
+        ! RotEllipse (A B DX DY Rot_Angle)
+        wri  "        ObsType=   RotEllipse"
+        wri q"         ObsVec=  '2e.20e' '2e.20e' '2e.20e' '2e.20e' '2e.20e'" ^par(1) ^par(2) ^par(3) ^par(4) ^par(5)
+      else
+        ! Elliptical (a, b, xc, yc)
+        wri  "        ObsType=   Elliptical"   !
+        wri q"         ObsVec=  '2e.20e' '2e.20e' '2e.20e' '2e.20e'" ^par(1) ^par(2) ^par(3) ^par(4)
+      end if
+
     end if
 
   end for
 
+  !
   ! Neg. Obscurations (Holes)
+  !
   for ^k ^n_obs+1 (^n_obs+^n_hol)
     ^label  == ^labels(^k)
     ^adxobs == (adx hol s^s L^label)  ! shift in x-dir
