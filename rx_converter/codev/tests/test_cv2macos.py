@@ -4,7 +4,6 @@
 # https://dev.to/codemouse92/dead-simple-python-project-structure-and-imports-38c6
 import os
 import sys
-
 # from functools import partial
 from itertools import chain  # to flatten lists
 from pathlib import Path
@@ -12,8 +11,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 import win32com.client
-from context import PRJ_PATH, TOL, cv_setup, rmTTP
+from context import PRJ_PATH, TOL, cv_setup
 from context import pymacos as _lib
+from context import rmTTP
 
 
 @pytest.fixture(scope="module",  # session, module, class, function,
@@ -57,11 +57,42 @@ def ape_circle(r, xc, yc, srf=2, tag='CLR') -> str:
             "ca ape;")
 
 
+def obs_rot_rectangular(rdy, a, b, xc, yc, phi=0, srf=2, tag='OBS') -> str:
+    """codev cmd: rectangular obscuration with a clear circ. ape"""
+    return (f"CIR CLR s{srf} {rdy};"
+            f"REX s{srf} {tag} {a};REY s{srf} {tag} {b};"
+            f"ADX s{srf} {tag} {xc};ADY s{srf} {tag} {yc};"
+            f"ARO s{srf} {tag} {phi};"
+            "ca ape;")
+
+def obs_rot_ellipse(rdy, a, b, xc, yc, phi=0, srf=2, tag='OBS') -> str:
+    """codev cmd: elliptical obscuration with a clear circ. ape"""
+    return (f"CIR CLR s{srf} {rdy};"
+            f"ELX s{srf} {tag} {a};ELY s{srf} {tag} {b};"
+            f"ADX s{srf} {tag} {xc};ADY s{srf} {tag} {yc};"
+            f"ARO s{srf} {tag} {phi};"
+            "ca ape;")
+
+def obs_circle(rdy, r, xc, yc, srf=2, tag='CLR') -> str:
+    """compose codev cmd for defining a circular obscuration"""
+    return (f"CIR CLR s{srf} {rdy};"
+            f"CIR s{srf} {tag} {r};"
+            f"ADX s{srf} {tag} {xc};ADY s{srf} {tag} {yc};"
+            "ca ape;")
+
 def ape_sweep(rx, n_sample, iwl, fct, par, dr, n_phi, srf=2, tag='CLR'):
     phi = np.linspace(0, 2*np.pi, num=n_phi, endpoint=False)
     return [(rx, n_sample, iwl, fct(*par, np.round(np.cos(w)*dr, 2).item(),
                                           np.round(np.sin(w)*dr, 2).item(),
                                           srf=srf, tag=tag))
+           for w in phi]
+
+
+def ape_sweep2(rx, n_sample, iwl, fct, par, dr, n_phi, **kwargs):
+    phi = np.linspace(0, 2*np.pi, num=n_phi, endpoint=False)
+    return [(rx, n_sample, iwl, fct(*par, np.round(np.cos(w)*dr, 2).item(),
+                                          np.round(np.sin(w)*dr, 2).item(),
+                                          **kwargs))
            for w in phi]
 
 
@@ -249,9 +280,48 @@ class TestMasks:
                              )
            for tag in ('CLR', 'OBS')])
 
+    masks_obs_rect_parabola = chain.from_iterable([[
+        (rx, 31, 1, obs_rot_rectangular(rdy=10, a=1, b=3, xc=5, yc=0, phi=-10, srf=srf, tag='OBS')),
+        *ape_sweep2(rx, 13, 1, obs_rot_rectangular, (10, 1.5, 3), 5.0, 12, phi=phi, srf=srf, tag='OBS'),
+        ] for phi in np.arange(-6, 360, 36)
+          for (rx, srf) in (('Rx_0000', 2),
+                            ('Rx_0001', 3),
+                            ('Rx_0001', 2),
+                            ('Rx_0002', 2),
+                            ('Rx_0002', 3),
+                             )
+        ])
+
+    masks_obs_ellipse_parabola = chain.from_iterable([[
+        (rx, 31, 1, obs_rot_ellipse(rdy=10, a=1.75, b=3, xc=5, yc=0, phi=-12, srf=srf, tag='OBS')),
+        *ape_sweep2(rx, 13, 1, obs_rot_ellipse, (10, 1.75, 3), 5.0, 12, phi=phi, srf=srf, tag='OBS'),
+        ] for phi in np.arange(-6, 360, 36)
+          for (rx, srf) in (('Rx_0000', 2),
+                            ('Rx_0001', 3),
+                            ('Rx_0001', 2),
+                            ('Rx_0002', 2),
+                            ('Rx_0002', 3),
+                             )
+        ])
+
+    masks_obs_circular_parabola = chain.from_iterable([[
+        (rx, 21, 1, obs_circle(rdy=10, r=9.0, xc=0, yc=0, srf=srf, tag='OBS')),
+        (rx, 13, 1, obs_circle(rdy=10, r=4.0, xc=0, yc=0, srf=srf, tag='OBS')),
+        *ape_sweep(rx, 13, 1, obs_circle, (10, 3.0, ), 5.0, 12, srf=srf, tag='OBS'),
+         ] for (rx, srf) in (('Rx_0000', 2),
+                             ('Rx_0001', 3),
+                             ('Rx_0001', 2),
+                             ('Rx_0002', 2),
+                             ('Rx_0002', 3),
+                             )])
+
+
     rx_set = (*masks_circular_parabola,
               *masks_rectangular_parabola,
               *masks_elliptical_parabola,
+              *masks_obs_rect_parabola,
+              *masks_obs_ellipse_parabola,
+              *masks_obs_circular_parabola,
               )
 
     @pytest.mark.parametrize("rx, n_sampling, i_wl, cmd", rx_set)
@@ -265,6 +335,7 @@ class TestMasks:
         # CODE V: trace rays
         # -------------------------------------------------------
         cv_setup.cmd(f"in {rx}")
+        # cv_setup.cmd("thi si 5")   # for testing
         if len(cmd) > 0:
             cv_setup.cmd(cmd)
         rx_data = cv_setup.test_ray_trace("", n_sampling, i_wl, i_fov, i_zoo)
@@ -375,7 +446,7 @@ class TestMasks:
                 dp = (p_macos)[:, :2]
                 # dp = dp[np.abs(dp[:,] < 1e-6]
                 fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
-                plt.plot(dp[:, 0], dp[:, 1], '.')
+                plt.plot(dp[:, 0], dp[:, 1], '.', ms=2)
                 plt.show()
                 print(p_cv.shape, p_macos.shape)
 
@@ -465,7 +536,7 @@ class TestSrc:
 
 class TestXP:
 
-    # ------------------------------------- Exit Pupil
+    # ------------------------------------- Exit Pupil & Surfaces
     #
     # Note: ensure that XP location is in front of Image Plane
     #       => modifying the XP location (zde ss ...)
@@ -475,7 +546,9 @@ class TestXP:
          ('Rx_0014_TMA', 21, 1, "", 0.02, 1),
          ('Rx_0015_Yolo_5M', 21, 1, "", 0.003, 1),
          ('Rx_0015_Yolo_5M', 21, 1, "", 0.011, 2),
-         ('Rx_0015_Yolo_5M', 21, 1, "", 0.010, 3),
+         ('Rx_0015_Yolo_5M', 21, 1, "", 0.010, 3),         # Anamorphic (no Kc_x, Kc_y)
+         ('Rx_0015_Yolo_3M', 21, 1, "", 0.017, 1),             # Anamorphic (no Kc_x, Kc_y)
+         ('Rx_0016_Pressmann_Camichel', 21, 1, "", 0.035, 1),  # Conical
          ],
         # ------------ prolate Ellipse
         [('Rx_0010', 13, 1, f"zde ss 800;nao 0.05;ade s3 {ade};cde s3 {cde}", 1e-10, 1)
@@ -533,33 +606,15 @@ class TestXP:
 
         pts = _lib.spot(img, vpt_center=True, beam_csys=3, reset_trace=True)[0]
         cxy = np.sum(pts, axis=0)/pts.shape[0]
-        # print(np.abs(pts[:, 0]).max())
-        # print(np.abs(pts[:, 1]).max())
-        # print("======================", cxy)
+
         pts -= cxy
         rad = np.linalg.norm(pts, axis=1).max()
-        # pts_ref = np.zeros_like(pts[:, 0], dtype=float)
 
         # -------------------------------------------------------
         # data comparisons: perfect conjugate point-point imaging
         # -------------------------------------------------------
-        # tol = TOL['P']
-        # tol = (1e-3, 1e-3)
-        # print(pts.shape)
-        # print(np.abs(pts[:, 0]).max())
-        # print(np.abs(pts[:, 1]).max())
-        # print(np.abs(rad))
-
         assert np.abs(pts[:, 0]).max() < tol
         assert np.abs(pts[:, 1]).max() < tol
         assert np.abs(rad) < tol
-
-        # np.testing.assert_allclose(pts[:, 0], pts_ref, *tol,
-        #                            err_msg="pos comparisons failed")
-
-        # np.testing.assert_allclose(pts[:, 1], pts_ref, *tol,
-        #                            err_msg="pos comparisons failed")
-
-        # assert np.all(rad < tol[0])
 
         print(session_dir)
