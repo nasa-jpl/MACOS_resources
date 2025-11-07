@@ -26,12 +26,12 @@ try:
 except ImportError:
 
     # ONLY on Windows  (can be ignored with Anaconda Environments)
-    dll_path = "C:\\Program Files (x86)\\Intel\\oneAPI\\2025.2\\bin"
+    dll_path = "C:\\Program Files (x86)\\Intel\\oneAPI\\2025.3\\bin"
     shared_libs = r"C:\Program Files (x86)\Common Files\Intel\Shared Libraries\bin"
 
     import os
     if hasattr(os, 'add_dll_directory'):  # only on Win OS
-        if not dll_path.strip() and os.path.exists(dll_path):
+        if dll_path.strip() and os.path.exists(dll_path):
             os.add_dll_directory(dll_path)
         else:
             if os.path.exists(shared_libs):
