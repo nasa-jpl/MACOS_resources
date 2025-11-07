@@ -1420,19 +1420,17 @@ def elt_srf_csys(srf: Surface,
                 raise Exception("MACOS API execution failed")
 
 
-"""
-  ----------------------------------------------------------------------------
-  [ ] Element Surface Properties: Grating
-  ----------------------------------------------------------------------------
-  [x] elt_grating_any       Checks if any Grating Srfs. are defined in Rx
-  [x] elt_grating_fnd       Find all elements with Grating Srfs. attached
-  [x] elt_grating_params    Grating (h1HOE, RuleWidth, Trans. or Refl.)
-  [x] elt_grating_type      Transmission or Reflective Grating
-  [x] elt_grating_order     Grating Order (Param: OrderHOE)
-  [x] elt_grating_rulewidth Rule Width
-  [x] elt_grating_dir       h1HOE vector prpdicular. to the ruling dir and psiElt.
-  ----------------------------------------------------------------------------
-"""
+#  ----------------------------------------------------------------------------
+#  [ ] Element Surface Properties: Grating
+#  ----------------------------------------------------------------------------
+#  [x] elt_grating_any       Checks if any Grating Srfs. are defined in Rx
+#  [x] elt_grating_fnd       Find all elements with Grating Srfs. attached
+#  [x] elt_grating_params    Grating (h1HOE, RuleWidth, Trans. or Refl.)
+#  [x] elt_grating_type      Transmission or Reflective Grating
+#  [x] elt_grating_order     Grating Order (Param: OrderHOE)
+#  [x] elt_grating_rulewidth Rule Width
+#  [x] elt_grating_dir       h1HOE vector prpdicular. to the ruling dir and psiElt.
+#  ----------------------------------------------------------------------------
 
 
 def elt_grating_any() -> bool:
@@ -1442,8 +1440,7 @@ def elt_grating_any() -> bool:
         Exception: MACOS and/or Rx not loaded
 
     Returns:
-      found (bool):
-        True if Grating are defined in Rx; otherwise, False
+        bool: True if Grating are defined in Rx; otherwise, False
     """
 
     _chk_macos_and_rx_loaded()
@@ -1460,18 +1457,19 @@ def elt_grating_fnd(srf: None | Surface = None
            Neg. values are referenced with respect to the last surface
            where -1 (== # of Elements) is the last surface, i.e., Img. Srf.
 
-           When 'None' is defined, it uses all surfaces in Rx
+           When srf is not defined, it uses all surfaces in Rx
 
     Raises:
         Exception: MACOS Triggered error
 
     Returns:
-        ([]):
+        None:
             Empty list when no Grating def. is defined
-        (List[Integers]):
-            List[0]: Surfaces IDs where Grating def. are defined
-            List[1]: Grating ID: (=1) Reflection   Grating
-                                 (=2) Transmission Grating
+
+        (List[Integers], List[Integers]):
+            Tuple[0]: Surfaces IDs where Grating def. are defined
+            Tuple[1]: Grating ID: (=1) Reflection   Grating
+                                  (=2) Transmission Grating
     """
     _chk_macos_and_rx_loaded()
 
@@ -1527,7 +1525,6 @@ def elt_grating_params(srf: Surface, *,
 
         When ALL optional params are "None", the values at Ele. "srf" are
         returned.
-
 
     Raises:
         Exception: MACOS Triggered error
