@@ -274,7 +274,7 @@ lcl num ^add_MACOS_Srfs ^e ^e1 ^e2
 lcl str ^labels(20) ^split(3) ^shapes(4) ^label ^str! aperture
 lcl num ^shapeID(20) ^n_obs ^n_clr ^n_hol ^id ^row ^i ^k
 
-lcl num ^rad2deg ^xi ^yi ^zi ^Li ^Mi ^Ni ^rsr
+lcl num ^rad2deg ^xi ^yi ^zi ^Li ^Mi ^Ni ^rsr ^dz_src
 lcl str ^s_xp
 
 lcl num ^op_r1 ^op_max1 ^op_max2 ^r
@@ -289,7 +289,7 @@ lcl str ^surface_type  ! Conic, Flat, Asphere, ...
 rfd 1 1 1 1 'macosfile.in' 0 0
 
 ! implementation Version
-^script_version == "2.04.00"
+^script_version == "2.05.00"
 
 !
 ! CONSTANTS
@@ -483,20 +483,28 @@ if (absf((thi so z^zoom_pos)) >= (^Finite_distance))
     ^z_source == 1e22
     ^aperture ==(epd)
     !
-    ! Locate CR 100 units before s1.
+    ! Locate CR 100 units before s1 (incl. sag)
+    !  => simple implementation (not robust) to avoid neg. rays in MACOS
     !
-    ^x_chief ==(^x_s1-(100*^l_chief))
-    ^y_chief ==(^y_s1-(100*^m_chief))
-    ^z_chief ==(^z_s1-(100*^n_chief))
+    ^dz_src == 0
+    for ^r 1 5
+      ^dz_src == maxf(^dz_src, absf(sagf(1, ^zoom_pos, 0, (y r^r f^field_pos s1 z^zoom_pos))))
+      ^dz_src == maxf(^dz_src, absf(sagf(1, ^zoom_pos, (x r^r f^field_pos s1 z^zoom_pos), 0)))
+    end for
+    ^dz_src == roundf(^dz_src)+100
+
+    ^x_chief ==(^x_s1-(^dz_src*^l_chief))
+    ^y_chief ==(^y_s1-(^dz_src*^m_chief))
+    ^z_chief ==(^z_s1-(^dz_src*^n_chief))
 
     for ^f 1 (num f)
       ^fov_r(^f,1) == (l r1 so w^wave_pos g^global_sur f^f z^zoom_pos)/absf(^obj_index)
       ^fov_r(^f,2) == (m r1 so w^wave_pos g^global_sur f^f z^zoom_pos)/absf(^obj_index)
       ^fov_r(^f,3) == (n r1 so w^wave_pos g^global_sur f^f z^zoom_pos)/absf(^obj_index)
 
-      ^fov_p(^f,1) == ((x r1 s1 w^wave_pos g^global_sur f^f z^zoom_pos)-(100*^fov_r(^f,1)))
-      ^fov_p(^f,2) == ((y r1 s1 w^wave_pos g^global_sur f^f z^zoom_pos)-(100*^fov_r(^f,2)))
-      ^fov_p(^f,3) == ((z r1 s1 w^wave_pos g^global_sur f^f z^zoom_pos)-(100*^fov_r(^f,3)))
+      ^fov_p(^f,1) == ((x r1 s1 w^wave_pos g^global_sur f^f z^zoom_pos)-(^dz_src*^fov_r(^f,1)))
+      ^fov_p(^f,2) == ((y r1 s1 w^wave_pos g^global_sur f^f z^zoom_pos)-(^dz_src*^fov_r(^f,2)))
+      ^fov_p(^f,3) == ((z r1 s1 w^wave_pos g^global_sur f^f z^zoom_pos)-(^dz_src*^fov_r(^f,3)))
     end for
 
 els
@@ -1622,7 +1630,7 @@ end if
   wri q"           xObs= '2e.20e' '2e.20e' '2e.20e' " ^xObs(1) ^xObs(2) ^xObs(3)
 
 
-if (^ape_type = 1) 
+if (^ape_type = 1)
    !
    ! (circular aperture)
    !
@@ -1634,7 +1642,7 @@ if (^ape_type = 1)
    wri  "         ApType=  Circular"
    wri q"          ApVec= '2e.20e' '2e.20e' '2e.20e'" ^par(1) ^par(2) ^par(3)
 
-els if (^ape_type = 2) 
+els if (^ape_type = 2)
   !
   ! (rectangular aperture: xmin, xmax, ymin, ymax)
   !
@@ -1651,7 +1659,7 @@ els if (^ape_type = 2)
    wri  "         ApType=  Rectangular"
    wri q"          ApVec= '2e.20e' '2e.20e' '2e.20e' '2e.20e'"  ^par(1) ^par(2) ^par(3) ^par(4)
 
-els if (^ape_type = 3) 
+els if (^ape_type = 3)
   !
   ! (Elliptical aperture: a, b, xc, yc)
   !
