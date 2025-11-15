@@ -1372,9 +1372,9 @@ end if
         ! ***** Currently using psiElt for zMon *****
 
         if ^nZrnCoef=0
-            wri  "       ZernType=  " ^ZrnTypeStr
-            wri  "      nZernCoef=    1"
-            wri  "       ZernCoef=    0e0"
+            wri  "       ZernType= " ^ZrnTypeStr
+            wri  "      nZernCoef=   1"
+            wri  "       ZernCoef=   0e0"
         else
 
           for ^iZ 1 ^nZrnCoef
@@ -1382,9 +1382,9 @@ end if
           end for
           buf fmt b70 i1 j1..L 'd'
 
-          wri   "       ZernType=  " ^ZrnTypeStr
-          wri  Q"      nZernCoef=   'dd'" ^nZrnCoef
-          wri   "      ZernModes=  " (buf.txt B70 i1)
+          wri   "       ZernType= " ^ZrnTypeStr
+          wri  Q"      nZernCoef=  'dd'" ^nZrnCoef
+          wri   "      ZernModes= " (buf.txt B70 i1)
 
           ^Grp == 6
           buf del b70 i1
@@ -1393,7 +1393,7 @@ end if
               buf put B70 i1 j^iZ ^ZrnMode(^iZ)
             end for
             buf fmt b70 i1 j1..L '2e.20e'
-            wri "       ZernCoef="  (buf.txt b70 i1)
+            wri "       ZernCoef=" (buf.txt b70 i1)
           else
             ^k == 0
             for ^iZ 1 ^nZrnCoef
@@ -1404,7 +1404,7 @@ end if
                 if ^iZ<=^Grp
                   wri "       ZernCoef=" (buf.txt b70 i1)
                 else
-                  wri "          " (buf.txt b70 i1)
+                  wri "                " (buf.txt b70 i1)
                 end if
                 buf del b70 i1
                 ^k == 0
@@ -1421,7 +1421,7 @@ end if
         ! -------------------------------------------------
         ! Zernike Normalisation Radius
         ! -------------------------------------------------
-        wri Q"           lMon=  '2e.20e'" ^lMr
+        wri Q"           lMon= '2e.20e'" ^lMr
 
       ! ^e == transform(^s, ^global_sur, ^zoom_pos, ^data)
 
