@@ -6,8 +6,10 @@
 """
 
 from dataclasses import dataclass
-from itertools import chain  # to flatten lists
-from itertools import combinations
+from itertools import (
+    chain,  # to flatten lists
+    combinations,
+)
 from pathlib import Path
 
 import numpy as np
@@ -37,13 +39,71 @@ class SrfInfo:
     line_id_obs: int  # line # where in Element Rx "nObs" is defined
 
 RX_PARAMS = {"parabola": (rx_path("Rx_Mask_Parabolas.in"),
-                            {2: SrfInfo(-1, 99-1, 101-1),      # xObs= -1e0  0e0  0e0
-                             4: SrfInfo(+1, 148-1, 150-1)}),   # xObs= +1e0  0e0  0e0
+                            {2: SrfInfo(-1, 100-1, 101-1),     # ApVec, nObs (xObs= -1e0  0e0  0e0)
+                             4: SrfInfo(+1, 149-1, 150-1)}),   # ApVec, nObs (xObs= +1e0  0e0  0e0)
              # ---------------------
              "parabola_glb": (rx_path("Rx_Mask_Parabolas_glb.in"),
                             {3: SrfInfo(-1, 124-1, 125-1),     # xObs= -1e0  0e0  0e0
                              5: SrfInfo(+1, 173-1, 174-1)}),   # xObs= +1e0  0e0  0e0
             }
+
+
+def rectangular_polygon(wx:float, wy:float, dx:float=0, dy:float=0) -> np.ndarray:
+    """defines vertices for a rectangular polygon"""
+    hx, hy = wx/2, wy/2
+    v = np.array([[hx, hy], [-hx, hy], [-hx, -hy], [hx, -hy]], dtype=float)
+    return v+np.array([dx, dy], dtype=float)
+
+
+def hexagon(s:float, dx:float=0, dy:float=0) -> np.ndarray:
+    """Top-flat"""
+    h = np.sqrt(3)/2*s
+    v = np.array([[+s, 0], [+s/2, +h], [-s/2, +h],
+                    [-s, 0], [-s/2, -h], [+s/2, -h]], dtype=float)
+    return v+np.array([dx, dy], dtype=float)
+
+
+def poly_lines(vertices: np.ndarray):
+    """returns lin. equations for polygon testing Ax+By+C=0"""
+    n = vertices.shape[0]
+
+    def abc(v1, v2):
+        tol = 3e-16
+        if np.abs(v2[1]-v1[1]) <= tol:
+            a, b, c = 0, 1, -v1[1]
+        else:
+            if np.abs(v2[0]-v1[0]) <= tol:
+                a, b, c = 1, 0, -v1[0]
+            else:
+                m = (v2[1]-v1[1])/(v2[0]-v1[0])
+                a, b, c = -m, 1, v1[0]*m-v1[1]
+        return a, b, c
+
+    bounds = np.zeros((n, 3), dtype=float)
+    for i, __ in enumerate(vertices):
+        v1 = vertices[i, :]
+        v2 = vertices[i-1, :]  # if i>0 else vertices[-1, :]
+        bounds[i, :] = abc(v1, v2)
+    return bounds
+
+
+def chk_polygon_pts(pts, bounds):
+    dx, dy = 0, 0
+    states_all = np.empty(pts.shape[0], dtype=bool)
+    for i, bound in enumerate(bounds):
+        pts_ = pts[:, 0] * bound[0] + pts[:, 1] * bound[1] + bound[2]
+
+        pt_ref_ge = dx * bound[0] + dy * bound[1] + bound[2] >= 0
+        pt_ref_le = dx * bound[0] + dy * bound[1] + bound[2] <= 0
+
+        state = np.logical_or(np.logical_and(pt_ref_ge, (pts_ < 0)),
+                              np.logical_and(pt_ref_le, (pts_ > 0)))
+        states_all = state if i == 0 else np.logical_or(states_all, state)
+
+    inside = np.all(np.logical_not(states_all))
+    outside = np.all(states_all)
+    return inside, outside
+
 
 
 def ray_pos_at_srf_in_tangent_plane(fid_macos: Path, lines, srf):
@@ -59,7 +119,7 @@ def ray_pos_at_srf_in_tangent_plane(fid_macos: Path, lines, srf):
     n_rays = _lib.traceWavefront(-3)[1]
     ray_pos, ray_dir, opl, ok_trace, ok_pass = _lib.getRayInfo(n_rays)
 
-    # extract invalid ray index
+    # extract invalid ray indexchk_polygon_pts
     ray_pass = np.logical_and(ok_trace, ok_pass)
 
     # trace to surface with mask
@@ -260,56 +320,10 @@ class TestApeMasksPolygon:
             => get ray-surface intersection points
             => check that all valid rays are inside aperture
     """
-    @staticmethod
-    def poly_lines(vertices: np.ndarray):
-        """returns lin. equations for testing"""
-        n = vertices.shape[0]
 
-        def abc(v1, v2):
-            tol = 3e-16
-            if np.abs(v2[1]-v1[1]) <= tol:
-                a, b, c = 0, 1, -v1[1]
-            else:
-                if np.abs(v2[0]-v1[0]) <= tol:
-                    a, b, c = 1, 0, -v1[0]
-                else:
-                    m = (v2[1]-v1[1])/(v2[0]-v1[0])
-                    a, b, c = -m, 1, v1[0]*m-v1[1]
-            return a, b, c
-
-        bounds = np.zeros((n, 3), dtype=float)
-        for i, __ in enumerate(vertices):
-            v1 = vertices[i, :]
-            v2 = vertices[i-1, :]  # if i>0 else vertices[-1, :]
-            bounds[i, :] = abc(v1, v2)
-        return bounds
-
-    @staticmethod
-    def chk_pts(pts, dx, dy, bounds):
-        state = False
-        ref = np.zeros(2, dtype=float)
-        x = pts[:, 0] - dx
-        y = pts[:, 1] - dy
-        for bound in bounds:
-            pt_ref = ref[0]*bound[0] + ref[1]*bound[1] + bound[2]
-            pts_ = x*bound[0] + y*bound[1] + bound[2]
-
-            state_a = np.logical_and(pt_ref>=0, np.any(pts_ < 0))
-            state_b = np.logical_and(pt_ref<=0, np.any(pts_ > 0))
-            state =  not np.logical_or(state_a, state_b)
-            if not state:
-                return state
-        return state
-
-    # ----------------------------------------------------- hexagon via polygon
-
-    @staticmethod
-    def hexagon(s:float, dx:float=0, dy:float=0) -> np.ndarray:
-        """Top-flat"""
-        h = np.sqrt(3)/2*s
-        v = np.array([[+s, 0], [+s/2, +h], [-s/2, +h],
-                      [-s, 0], [-s/2, -h], [+s/2, -h]], dtype=float)
-        return v+np.array([dx, dy], dtype=float)
+    # ----------------------------------------------------- 
+    # hexagon via polygon
+    # ----------------------------------------------------- 
 
     mask_sets = chain.from_iterable([[
                 #   (2, 5, 0,  0),
@@ -324,7 +338,7 @@ class TestApeMasksPolygon:
                                              (3, "parabola_glb"),
                                              (5, "parabola_glb"),))
     @pytest.mark.parametrize("side, dx, dy", mask_sets)
-    def test_hexagon(self, macos_setup, session_dir, side, dx, dy, srf, rx_tag):
+    def test_ape_hexagon(self, macos_setup, session_dir, side, dx, dy, srf, rx_tag):
 
         rx_src, info = RX_PARAMS[rx_tag]
         dx_fact, line_id = info[srf].dx_fact, info[srf].line_id
@@ -332,12 +346,14 @@ class TestApeMasksPolygon:
         with open(rx_src, 'r') as fid:
             lines = fid.readlines()
 
+        # ------------------------------------ Mask Update
+
         # update mask parameters:  ApeVec = dx dy nVertices
         #                                   x1 y1
         #                                   ...
         #                                   xn yn
-        v = self.hexagon(side,dx=0, dy=0)  # vertices
-        bounds = self.poly_lines(v)        # boundary lines
+        v = hexagon(side,dx=0, dy=0)  # vertices
+        bounds = poly_lines(v)        # boundary lines
 
         lines[line_id-1] = f"ApType=  Polygonal\n"
         lines[line_id]   = (f" ApVec=  {dx*dx_fact:3.21e} {dy:3.21e} 6\n"
@@ -348,38 +364,15 @@ class TestApeMasksPolygon:
                             f"         {v[4, 0]:3.21e} {v[4, 1]:3.21e}\n"
                             f"         {v[5, 0]:3.21e} {v[5, 1]:3.21e}\n"
                            )
-        # print(lines[line_id])
+        # ------------------------------------
 
         # create modified Rx & load
         fid_macos = session_dir / "tempo.in"
-        with open(fid_macos, 'w') as fid:
-            for item in lines:
-                fid.write(f"{item}")
-        img = _lib.load(fid_macos)
+        pts = ray_pos_at_srf_in_tangent_plane(fid_macos, lines, srf)
 
-        # trace to img. srf (rtn srf)
-        n_rays = _lib.traceWavefront(-3)[1]
-        ray_pos, ray_dir, opl, ok_trace, ok_pass = _lib.getRayInfo(n_rays)
-
-        # extract valid ray index
-        ray_pass = np.logical_and(ok_trace, ok_pass)
-
-        # trace to surface with mask
-        n_rays = _lib.traceWavefront(srf)[1]
-        ray_pos, ray_dir, opl, ok_trace, ok_pass = _lib.getRayInfo(n_rays)
-        pts = ray_pos[:2, ray_pass].T
-
-        # mapping information
-        vpt = _lib.elt_vpt(srf)  # ray_pos are given in glb
-        csys = _lib.elt_csys(srf)[0][:3, :3, 0]  # csys, csys_lcs, csys_upd
-        dp_glb2loc = np.dot(csys.T, vpt)
-
-        # map pts into local CSYS
-        pts = ray_pos[:, ray_pass].T - vpt[:, 0]
-        pts = ((np.dot(csys.T, pts.T) + dp_glb2loc.reshape(-1, 1))[:2, :]).T
-
-        # check ray sets if they are within bounds
-        assert self.chk_pts(pts, dx, dy, bounds)
+        # check:
+        inside, outside = chk_polygon_pts(pts - np.array([dx, dy]), bounds)
+        assert inside and not outside
 
         # print(session_dir)
 
@@ -390,14 +383,9 @@ class TestApeMasksPolygon:
         # plt.axis('equal')
         # plt.show()
 
-    # ----------------------------------------------------- rectangular via polygon
-
-    @staticmethod
-    def rectangular(wx:float, wy:float, dx:float=0, dy:float=0) -> np.ndarray:
-        hx, hy = wx/2, wy/2
-        v = np.array([[hx, hy], [-hx, hy], [-hx, -hy], [hx, -hy]], dtype=float)
-        return v+np.array([dx, dy], dtype=float)
-
+    # ----------------------------------------------------- 
+    # rectangular via polygon
+    # ----------------------------------------------------- 
 
     mask_sets = chain.from_iterable([[
                 #   (4, 5, 0,  0),
@@ -411,7 +399,7 @@ class TestApeMasksPolygon:
                                              (3, "parabola_glb"),
                                              (5, "parabola_glb"),))
     @pytest.mark.parametrize("wx, wy, dx, dy", mask_sets)
-    def test_poly_rect(self, macos_setup, session_dir, wx, wy, dx, dy, srf, rx_tag):
+    def test_ape_poly_rect(self, macos_setup, session_dir, wx, wy, dx, dy, srf, rx_tag):
 
         rx_src, info = RX_PARAMS[rx_tag]
         dx_fact, line_id = info[srf].dx_fact, info[srf].line_id
@@ -419,12 +407,14 @@ class TestApeMasksPolygon:
         with open(rx_src, 'r') as fid:
             lines = fid.readlines()
 
+        # ------------------------------------ Mask Update
+
         # update mask parameters:  ApeVec = dx dy nVertices
         #                                   x1 y1
         #                                   ...
         #                                   xn yn
-        v = self.rectangular(wx, wy, dx=0, dy=0)  # vertices
-        bounds = self.poly_lines(v)        # boundary lines
+        v = rectangular_polygon(wx, wy)  # vertices  (unshifted)
+        bounds = poly_lines(v)      # boundary lines
 
         lines[line_id-1] = f"ApType=  Polygonal\n"
         lines[line_id]   = (f" ApVec=  {dx*dx_fact:3.21e} {dy:3.21e} 4\n"
@@ -433,37 +423,15 @@ class TestApeMasksPolygon:
                             f"         {v[2, 0]:3.21e} {v[2, 1]:3.21e}\n"
                             f"         {v[3, 0]:3.21e} {v[3, 1]:3.21e}\n"
                            )
+        # ------------------------------------
 
         # create modified Rx & load
         fid_macos = session_dir / "tempo.in"
-        with open(fid_macos, 'w') as fid:
-            for item in lines:
-                fid.write(f"{item}")
-        img = _lib.load(fid_macos)
+        pts = ray_pos_at_srf_in_tangent_plane(fid_macos, lines, srf)
 
-        # trace to img. srf (rtn srf)
-        n_rays = _lib.traceWavefront(-3)[1]
-        ray_pos, ray_dir, opl, ok_trace, ok_pass = _lib.getRayInfo(n_rays)
-
-        # extract valid ray index
-        ray_pass = np.logical_and(ok_trace, ok_pass)
-
-        # trace to surface with mask
-        n_rays = _lib.traceWavefront(srf)[1]
-        ray_pos, ray_dir, opl, ok_trace, ok_pass = _lib.getRayInfo(n_rays)
-        pts = ray_pos[:2, ray_pass].T
-
-        # mapping information
-        vpt = _lib.elt_vpt(srf)  # ray_pos are given in glb
-        csys = _lib.elt_csys(srf)[0][:3, :3, 0]  # csys, csys_lcs, csys_upd
-        dp_glb2loc = np.dot(csys.T, vpt)
-
-        # map pts into local CSYS
-        pts = ray_pos[:, ray_pass].T - vpt[:, 0]
-        pts = ((np.dot(csys.T, pts.T) + dp_glb2loc.reshape(-1, 1))[:2, :]).T
-
-        # check ray sets if they are within bounds
-        assert self.chk_pts(pts, dx, dy, bounds)
+        # check:
+        inside, outside = chk_polygon_pts(pts - np.array([dx, dy]), bounds)
+        assert inside and not outside
 
         # print(session_dir)
 
@@ -475,7 +443,10 @@ class TestApeMasksPolygon:
         # plt.show()
 
 
-    # ----------------------------------------------------- polygon via PolyApVec
+    # ----------------------------------------------------- 
+    # polygon via PolyApVec
+    # ----------------------------------------------------- 
+    # Taken from Lou-update notes
     #
     # 4.2) This is an extension to 4.1). Now polygon aperture vertices
     #      in global coords can be entered directly into MACOS prescription.
@@ -490,23 +461,6 @@ class TestApeMasksPolygon:
     #
     #      MACOS will internally convert the global coords of vertices into
     #      their x and y coords in the aperture frame.
-
-    # @staticmethod
-    # def map_pts(pts, ctm):
-    #     """
-    #     pts: np.ndarray shape is [n_pts x 3]
-    #     ctm: np.ndarray Coordinate Transformation Matrix: 3 x 4
-    #     """
-    #     cs, po = ctm[:, :3], ctm[:, -1, None]
-    #     return (np.dot(cs, pts.T) + po).T
-
-    # @staticmethod
-    # def hexagon_3d(s:float, vpt: np.ndarray, dx:float=0, dy:float=0) -> np.ndarray:
-    #     """Top-flat"""
-    #     h = np.sqrt(3)/2*s
-    #     v = np.array([[+s, 0, 0], [+s/2, +h, 0], [-s/2, +h, 0],
-    #                   [-s, 0, 0], [-s/2, -h, 0], [+s/2, -h, 0]], dtype=float)
-    #    return v+np.array([dx, dy], dtype=float)
 
     mask_sets = chain.from_iterable([[
                   (7, 0,  0),
@@ -523,7 +477,7 @@ class TestApeMasksPolygon:
                                              (5, "parabola_glb"),
                                              ))
     @pytest.mark.parametrize("side, dx, dy", mask_sets)
-    def test_hexagon_glb(self, macos_setup, session_dir, side, dx, dy, srf, rx_tag, vertixes_dz):
+    def test_ape_hexagon_glb(self, macos_setup, session_dir, side, dx, dy, srf, rx_tag, vertixes_dz):
 
         rx_src, info = RX_PARAMS[rx_tag]
         dx_fact, line_id = info[srf].dx_fact, info[srf].line_id
@@ -537,56 +491,38 @@ class TestApeMasksPolygon:
         with open(rx_src, 'r') as fid:
             lines = fid.readlines()
 
-        if 1==0:
-            # update mask parameters:  ApeVec = dx dy nVertices
-            #                                   x1 y1
-            #                                   ...
-            #                                   xn yn
-            v = self.hexagon(side,dx=0, dy=0)  # vertices
-            bounds = self.poly_lines(v)        # boundary lines
+        # ------------------------------------ Mask Update
+        #
+        #      PolyApVec= nVertex
+        #                 v1_x  v1_y  v1_z   <== in glb CSYS
+        #                 v2_x  v2_y  v2_z
+        #                 ...
 
-            lines[line_id-1] = f"ApType=  Polygonal\n"
-            lines[line_id]   = (f" ApVec=  {dx*dx_fact:23.16e} {dy:23.16e} 6\n"
-                                f"         {v[0, 0]:23.16e} {v[0, 1]:23.16e}\n"
-                                f"         {v[1, 0]:23.16e} {v[1, 1]:23.16e}\n"
-                                f"         {v[2, 0]:23.16e} {v[2, 1]:23.16e}\n"
-                                f"         {v[3, 0]:23.16e} {v[3, 1]:23.16e}\n"
-                                f"         {v[4, 0]:23.16e} {v[4, 1]:23.16e}\n"
-                                f"         {v[5, 0]:23.16e} {v[5, 1]:23.16e}\n"
+        v = hexagon(side, dx=0, dy=0)  # vertices (in tangent plane)
+        bounds = poly_lines(v)        # boundary lines
+
+        # Map mask from Local CSYS to Glb. CSYS
+        shift = np.array([dx*dx_fact, dy, 0]).reshape(-1, 1)  # in Local CSYS
+        vs = np.dot(csys, shift + np.c_[v, [vertixes_dz, ]*6].T).T + vpt.T
+
+        lines[line_id-1] =  f"      ApType=  Polygonal\n"
+        lines[line_id]   = (f"   PolyApVec=  6\n"
+                            f"              {vs[0, 0]:23.16e} {vs[0, 1]:23.16e} {vs[0, 2]:23.16e}\n"
+                            f"              {vs[1, 0]:23.16e} {vs[1, 1]:23.16e} {vs[1, 2]:23.16e}\n"
+                            f"              {vs[2, 0]:23.16e} {vs[2, 1]:23.16e} {vs[2, 2]:23.16e}\n"
+                            f"              {vs[3, 0]:23.16e} {vs[3, 1]:23.16e} {vs[3, 2]:23.16e}\n"
+                            f"              {vs[4, 0]:23.16e} {vs[4, 1]:23.16e} {vs[4, 2]:23.16e}\n"
+                            f"              {vs[5, 0]:23.16e} {vs[5, 1]:23.16e} {vs[5, 2]:23.16e}\n"
                             )
-
-        else:
-            # update mask parameters:
-            #
-            #      PolyApVec= nVertex
-            #                 v1_x  v1_y  v1_z   <== in glb CSYS
-            #                 v2_x  v2_y  v2_z
-            #                 ...
-
-            v = self.hexagon(side, dx=0, dy=0)  # vertices (in tangent plane)
-            bounds = self.poly_lines(v)        # boundary lines
-
-            # Map mask from Local CSYS to Glb. CSYS
-            shift = np.array([dx*dx_fact, dy, 0]).reshape(-1, 1)  # in Local CSYS
-            vs = np.dot(csys, shift + np.c_[v, [vertixes_dz, ]*6].T).T + vpt.T
-
-            lines[line_id-1] =  f"      ApType=  Polygonal\n"
-            lines[line_id]   = (f"   PolyApVec=  6\n"
-                                f"              {vs[0, 0]:23.16e} {vs[0, 1]:23.16e} {vs[0, 2]:23.16e}\n"
-                                f"              {vs[1, 0]:23.16e} {vs[1, 1]:23.16e} {vs[1, 2]:23.16e}\n"
-                                f"              {vs[2, 0]:23.16e} {vs[2, 1]:23.16e} {vs[2, 2]:23.16e}\n"
-                                f"              {vs[3, 0]:23.16e} {vs[3, 1]:23.16e} {vs[3, 2]:23.16e}\n"
-                                f"              {vs[4, 0]:23.16e} {vs[4, 1]:23.16e} {vs[4, 2]:23.16e}\n"
-                                f"              {vs[5, 0]:23.16e} {vs[5, 1]:23.16e} {vs[5, 2]:23.16e}\n"
-                               )
-
+        # ------------------------------------
 
         # create modified Rx & load
         fid_macos = session_dir / "tempo.in"
         pts = ray_pos_at_srf_in_tangent_plane(fid_macos, lines, srf)
 
-        # check ray sets if they are within bounds
-        assert self.chk_pts(pts, shift[0, 0], shift[1, 0], bounds)
+        # check:
+        inside, outside = chk_polygon_pts(pts -np.array([shift[0,0], shift[1,0]]), bounds)
+        assert inside and not outside
 
         # print(session_dir)
 
@@ -661,6 +597,10 @@ class TestObsMasksCirc:
 class TestObsMasksEllipse:
     """Check Elliptical Aperture Masks
     """
+
+    # ----------------------------------------------------- 
+    # Obs: Ellipse
+    # ----------------------------------------------------- 
     mask_sets = chain.from_iterable([[
                  (2, 4, 0, 0),
                  *[(1.5*side, side, dx_, dy_)
@@ -714,6 +654,10 @@ class TestObsMasksEllipse:
         # plt.plot(x_, y_, 'k', lw=0.2)
         # plt.axis('equal')
         # plt.show()
+
+    # ----------------------------------------------------- 
+    # Obs: Rotated Ellipse
+    # ----------------------------------------------------- 
 
     mask_sets = chain.from_iterable([[
                  (2, 4, 0, 0, 30),
@@ -782,6 +726,11 @@ class TestObsMasksEllipse:
 class TestObsMasksRect:
     """Check Rectangular Aperture Masks
     """
+
+    # ----------------------------------------------------- 
+    # Rectangular Obs Mask
+    # ----------------------------------------------------- 
+
     mask_sets = chain.from_iterable([[
                  (7, 7, 0, 0),
                  *[(1.5*side, side, dx_, dy_)
@@ -850,6 +799,9 @@ class TestObsMasksRect:
         # plt.axis('equal')
         # plt.show()
 
+    # ----------------------------------------------------- 
+    # Rot. Rectangular Obs Mask
+    # ----------------------------------------------------- 
 
     mask_sets = chain.from_iterable([[
                  (5, 9, 0, 0, 0),
@@ -925,3 +877,248 @@ class TestObsMasksRect:
         # # plt.plot(x_, y_, 'k', lw=0.2)
         # plt.axis('equal')
         # plt.show()
+
+
+class TestObsMasksPolygon:
+    """Check Polygon Obscuration Masks
+       [ ] Approach
+            => correct aperture shift when xObs(L) < 0
+            => trace rays to image plane
+            => get valid rays
+            => trace to surface with mask
+            => get ray-surface intersection points
+            => check that all valid rays are inside aperture
+    """
+
+    # ----------------------------------------------------- 
+    # hexagon via polygon
+    # ----------------------------------------------------- 
+
+    # @staticmethod
+    # def hexagon(s:float, dx:float=0, dy:float=0) -> np.ndarray:
+    #     """Top-flat"""
+    #     h = np.sqrt(3)/2*s
+    #     v = np.array([[+s, 0], [+s/2, +h], [-s/2, +h],
+    #                   [-s, 0], [-s/2, -h], [+s/2, -h]], dtype=float)
+    #     return v+np.array([dx, dy], dtype=float)
+
+    mask_sets = chain.from_iterable([[
+                  (5, 4,  0),
+                 *[(side, dx_, dy_) for dx_ in (-1, 0, 1)
+                                    for dy_ in (-1, 0, 1)
+                                    for side in (2, 4, 6, 8)],
+                 *[(5, np.cos(w)*4.75, np.sin(w)*4.75)
+                     for w in np.linspace(0, 2*np.pi, num=12, endpoint=False)],
+                ]])
+    @pytest.mark.parametrize("srf, rx_tag", ((2, "parabola"),
+                                             (4, "parabola"),
+                                             (3, "parabola_glb"),
+                                             (5, "parabola_glb"),
+                                             ))
+    @pytest.mark.parametrize("side, dx, dy", mask_sets)
+    def test_obs_hexagon(self, macos_setup, session_dir, side, dx, dy, srf, rx_tag):
+
+        rx_src, info = RX_PARAMS[rx_tag]
+        info = info[srf]
+        dx_fact, ln_ape, ln_obs = info.dx_fact, info.line_id, info.line_id_obs
+
+        with open(rx_src, 'r') as fid:
+            lines = fid.readlines()
+
+        # ------------------------------------ Mask Update
+        # no aperture mask (limited by beam size)
+        lines[ln_ape-1] = f"ApType=  None\n"
+        lines[ln_ape]   = f"\n"
+
+        # update mask parameters:  ObsVec = dx dy nVertices
+        #                                   x1 y1
+        #                                   ...
+        #                                   xn yn
+        v = hexagon(side, dx=0, dy=0)  # vertices (unshifted)
+        bounds = poly_lines(v)         # boundary lines for testing
+
+        lines[ln_obs] = ( "   nObs=  1\n"
+                          "ObsType=  Polygonal\n"
+                         f" ObsVec=  {dx*dx_fact:3.21e} {dy:3.21e} 6\n"
+                         f"          {v[0, 0]:3.21e} {v[0, 1]:3.21e}\n"
+                         f"          {v[1, 0]:3.21e} {v[1, 1]:3.21e}\n"
+                         f"          {v[2, 0]:3.21e} {v[2, 1]:3.21e}\n"
+                         f"          {v[3, 0]:3.21e} {v[3, 1]:3.21e}\n"
+                         f"          {v[4, 0]:3.21e} {v[4, 1]:3.21e}\n"
+                         f"          {v[5, 0]:3.21e} {v[5, 1]:3.21e}\n"
+                          )
+        # ------------------------------------
+
+        # create modified Rx & load
+        fid_macos = session_dir / "tempo.in"
+        pts = ray_pos_at_srf_in_tangent_plane(fid_macos, lines, srf)
+
+        # check:
+        inside, outside = chk_polygon_pts(pts - np.array([dx, dy]), bounds)
+        assert outside and not inside
+
+    # ----------------------------------------------------- 
+    # rectangular via polygon
+    # ----------------------------------------------------- 
+
+    mask_sets = chain.from_iterable([[
+                #   (4, 5, 0,  0),
+                 *[(wx, wy, dx_, dy_) for dx_ in (-1, 0, 1)
+                                      for dy_ in (-1, 0, 1)
+                                      for wx in (2, 4, 6)
+                                      for wy in (3, 5, 7)],
+                 *[(3, 5, np.cos(w)*4.75, np.sin(w)*4.75)
+                     for w in np.linspace(0, 2*np.pi, num=12, endpoint=False)],
+                ]])
+    @pytest.mark.parametrize("srf, rx_tag", ((2, "parabola"),
+                                             (4, "parabola"),
+                                             (3, "parabola_glb"),
+                                             (5, "parabola_glb"),
+                                             ))
+    @pytest.mark.parametrize("wx, wy, dx, dy", mask_sets)
+    def test_obs_rect_poly(self, macos_setup, session_dir, wx, wy, dx, dy, srf, rx_tag):
+
+        rx_src, info = RX_PARAMS[rx_tag]
+        info = info[srf]
+        dx_fact, ln_ape, ln_obs = info.dx_fact, info.line_id, info.line_id_obs
+
+        with open(rx_src, 'r') as fid:
+            lines = fid.readlines()
+
+        # ------------------------------------ Mask Update
+        # no aperture mask (limited by beam size)
+        lines[ln_ape-1] = f"ApType=  None\n"
+        lines[ln_ape]   = f"\n"
+
+        # update mask parameters:  ObsVec = dx dy nVertices
+        #                                   x1 y1
+        #                                   ...
+        #                                   xn yn
+        v = rectangular_polygon(wx, wy, dx=0, dy=0)  # vertices (unshifted)
+        bounds = poly_lines(v)                       # boundary lines
+
+        lines[ln_obs] = ( "   nObs=  1\n"
+                          "ObsType=  Polygonal\n"
+                         f" ObsVec=  {dx*dx_fact:3.21e} {dy:3.21e} 4\n"
+                         f"          {v[0, 0]:3.21e} {v[0, 1]:3.21e}\n"
+                         f"          {v[1, 0]:3.21e} {v[1, 1]:3.21e}\n"
+                         f"          {v[2, 0]:3.21e} {v[2, 1]:3.21e}\n"
+                         f"          {v[3, 0]:3.21e} {v[3, 1]:3.21e}\n"
+                         )
+        # ------------------------------------
+
+        # create modified Rx & load
+        fid_macos = session_dir / "tempo.in"
+        pts = ray_pos_at_srf_in_tangent_plane(fid_macos, lines, srf)
+
+        # check:
+        inside, outside = chk_polygon_pts(pts - np.array([dx, dy]), bounds)
+        assert outside and not inside
+
+
+        # print(session_dir)
+
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots()
+        # plt.plot(pts[:,0], pts[:,1], 'r.', ms=1)
+        # plt.plot(v[:, 0]+dx*dx_fact, v[:, 1]+dy)
+        # plt.axis('equal')
+        # plt.show()
+
+
+    # ----------------------------------------------------- 
+    # polygon via PolyObsVec
+    # ----------------------------------------------------- 
+    #
+    # 4.2) This is an extension to 4.1). Now polygon aperture vertices
+    #      in global coords can be entered directly into MACOS prescription.
+    #      Here is the syntax
+    #
+    #      ...
+    #      ApType= Polygonal
+    #      PolyApVec= ctr_x ctr_y ctr_z nVertex  % optional, aperture "center" coords and # vertices
+    #                 v1_x  v1_y  v1_z
+    #                 v2_x  v2_y  v2_z
+    #                 ...
+    #
+    #      MACOS will internally convert the global coords of vertices into
+    #      their x and y coords in the aperture frame.
+
+    mask_sets = chain.from_iterable([[
+                  (7, 0,  0),
+                 *[(side, dx_, dy_) for dx_ in (-1, 0, 1)
+                                    for dy_ in (-1, 0, 1)
+                                    for side in (2, 4, 6, 8)],
+                 *[(5, np.cos(w)*4.75, np.sin(w)*4.75)
+                     for w in np.linspace(0, 2*np.pi, num=12, endpoint=False)],
+                ]])
+    @pytest.mark.parametrize("vertixes_dz", (0, 75, )) #75, -75))
+    @pytest.mark.parametrize("srf, rx_tag", ((2, "parabola"),  # Rx is not loaded in this case
+                                             (4, "parabola"),
+                                             (3, "parabola_glb"),
+                                             (5, "parabola_glb"),
+                                             ))
+    @pytest.mark.parametrize("side, dx, dy", mask_sets)
+    def test_obs_hexagon_glb(self, macos_setup, session_dir, side, dx, dy, srf, rx_tag, vertixes_dz):
+
+        rx_src, info = RX_PARAMS[rx_tag]
+        info = info[srf]
+        dx_fact, ln_ape, ln_obs = info.dx_fact, info.line_id, info.line_id_obs
+
+        with open(rx_src, 'r') as fid:
+            lines = fid.readlines()
+
+        # ------------------------------------ Mask Update
+        # no aperture mask (limited by beam size)
+        lines[ln_ape-1] = f"ApType=  None\n"
+        lines[ln_ape]   = f"\n"
+
+        # update mask parameters:
+        #
+        #      PolyObsVec= nVertex
+        #                  v1_x  v1_y  v1_z   <== in glb CSYS
+        #                  v2_x  v2_y  v2_z
+        #                  ...
+
+        v = hexagon(side, dx=0, dy=0)  # vertices (in tangent plane)
+        bounds = poly_lines(v)        # boundary lines
+
+        # Map mask from Local CSYS to Glb. CSYS
+        _lib.load(rx_src)
+        vpt = _lib.elt_vpt(srf)                  # ray_pos are given in glb
+        csys = _lib.elt_csys(srf)[0][:3, :3, 0]  # csys, csys_lcs, csys_upd
+
+        shift = np.array([dx*dx_fact, dy, 0]).reshape(-1, 1)  # in Local CSYS
+        vs = np.dot(csys, shift + np.c_[v, [vertixes_dz, ]*6].T).T + vpt.T
+
+        lines[ln_obs] = ( "        nObs=  1\n"
+                          "     ObsType=  Polygonal\n"
+                         f"  PolyObsVec=  6\n"
+                         f"              {vs[0, 0]:23.16e} {vs[0, 1]:23.16e} {vs[0, 2]:23.16e}\n"
+                         f"              {vs[1, 0]:23.16e} {vs[1, 1]:23.16e} {vs[1, 2]:23.16e}\n"
+                         f"              {vs[2, 0]:23.16e} {vs[2, 1]:23.16e} {vs[2, 2]:23.16e}\n"
+                         f"              {vs[3, 0]:23.16e} {vs[3, 1]:23.16e} {vs[3, 2]:23.16e}\n"
+                         f"              {vs[4, 0]:23.16e} {vs[4, 1]:23.16e} {vs[4, 2]:23.16e}\n"
+                         f"              {vs[5, 0]:23.16e} {vs[5, 1]:23.16e} {vs[5, 2]:23.16e}\n"
+                          )
+        # ------------------------------------
+
+        # create modified Rx & load
+        fid_macos = session_dir / "tempo.in"
+        pts = ray_pos_at_srf_in_tangent_plane(fid_macos, lines, srf)
+
+        # check ray sets if they are within bounds
+        inside, outside = chk_polygon_pts(pts - np.array([shift[0,0], shift[1,0]]), bounds)
+        assert outside and not inside
+
+        # print(session_dir)
+
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots()
+        # plt.plot(pts[:,0]-shift[0,0], pts[:,1]-shift[1,0], 'r.', ms=1)
+        # # plt.plot(v[:, 0]+shift[0,0], v[:, 1]+shift[1,0])
+        # plt.plot(v[:, 0], v[:, 1])
+        # plt.axis('equal')
+        # plt.show()
+
+
