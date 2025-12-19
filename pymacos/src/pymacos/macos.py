@@ -2169,7 +2169,7 @@ def elt_grid(srf: int,
         if np.any(sampling_spacing <= 0):
             raise ValueError("Srf. Grid Sampling Spacing must be greater than zero")
 
-        grid_dz = np.asarray_chkfinite(grid_dz, dtype=np.float64)
+        grid_dz = np.asarray_chkfinite(grid_dz, dtype=np.float64, order='F')
 
         if grid_dz.ndim != 2:
             raise ValueError("'grid_dz' must be a 2D numpy ndarray")
@@ -2214,7 +2214,7 @@ def elt_grid_add(srf: int | np.int32,
     if not ok:
         raise Exception("MACOS threw an exception")
 
-    grid_dz = np.asarray_chkfinite(grid_dz, dtype=np.float64)
+    grid_dz = np.asarray_chkfinite(grid_dz, dtype=np.float64, order='F')
 
     if grid_dz.ndim != 2:
         raise ValueError("'grid_dz' must be a 2D numpy ndarray")
