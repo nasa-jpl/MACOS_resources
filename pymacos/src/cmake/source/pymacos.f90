@@ -1505,12 +1505,10 @@
         ! SMACOS and Rx status & range chk: 0 < iElt <= nElt
         if (.not. StatusChk1(iElt)) return
 
-        ! check if EltType require a Srf. Coord. Frame
-        if (.not.any( SrfType(iElt) == SrfType_RequireSrfCSYS)) return
-
-        ! if (any( SrfType(iElt(:)) /= SrfType_Monomial .and. &    ! Monomial
-        !          SrfType(iElt(:)) /= SrfType_Zernike  .and. &    ! Zernike
-        !          SrfType(iElt(:)) /= SrfType_GridData)) return   ! GridData
+        ! check if SrfType require a Srf. Coord. Frame
+        do j=1,N
+          if (.not. any(SrfType(iElt(j)) == SrfType_RequireSrfCSYS)) return
+        end do
 
         if (setter == PASS) then
 
@@ -1573,6 +1571,8 @@
         integer,                  intent(in)   :: setter
         integer,                  intent(in)   :: N
         !f2py integer intent(hide),depend(iElt) :: N=len(iElt)    ! check(shape(pMon_,0)==3, shape(pMon_,1)==len(iElt))
+
+        integer :: i
         ! ------------------------------------------------------
         ok = FAIL
         if (setter==FAIL) pMon_ = 0e0_pr
@@ -1580,8 +1580,10 @@
         ! SMACOS and Rx status & range chk: 0 < iElt <= nElt
         if (.not. StatusChk1(iElt)) return
 
-        ! check if EltType =  Monomial (#4), Zernike (#8), GridData (#9), ...
-        if (.not.any(SrfType(iElt) == SrfType_RequireSrfCSYS)) return
+        ! check if SrfType = Monomial (#4), Zernike (#8), GridData (#9), ...
+        do i=1,N
+          if (.not. any(SrfType(iElt(i)) == SrfType_RequireSrfCSYS)) return
+        end do
 
         ! check shape: 3 x N
         if (size(pMon_,1) /= 3 .or. size(pMon_,2) /= N) return
@@ -1627,8 +1629,10 @@
         ! SMACOS and Rx status & range chk: 0 < iElt <= nElt
         if (.not. StatusChk1(iElt)) return
 
-        ! check if EltType require a Srf. Coord. Frame
-        if (.not.any( SrfType(iElt) == SrfType_RequireSrfCSYS)) return
+        ! check if SrfType require a Srf. Coord. Frame
+        do j=1,N
+          if (.not. any(SrfType(iElt(j)) == SrfType_RequireSrfCSYS)) return
+        end do
 
         ! check shape: 3 x N
         if (size(xMon_,1) /= 3 .or. size(xMon_,2) /= N .or.  &
@@ -1698,16 +1702,16 @@
       !            -- will orthonormalize if not: zMon <= cross(xMon,yMon)
       !                                           yMon <= cross(zMon,xMon)
       !---------------------------------------------------------------------------------------------
-      subroutine elt_srf_csys_set(ok,iElt,pMon_,xMon_,yMon_,zMon_,m)
+      subroutine elt_srf_csys_set(ok,iElt,pMon_,xMon_,yMon_,zMon_,N)
         use Constants, only: EPS
         use  math_mod, only: dorthoganalize
 
         implicit none
         logical,                intent(out):: ok
-        integer,  dimension(m), intent(in) :: iElt
+        integer,  dimension(N), intent(in) :: iElt
         real(8),  dimension(3), intent(in) :: pMon_,xMon_,yMon_,zMon_
-        integer,                intent(in) :: m
-        !f2py  integer intent(hide), depend(iElt) :: m=len(iElt)
+        integer,                intent(in) :: N
+        !f2py  integer intent(hide), depend(iElt) :: N=len(iElt)
 
         integer :: j
         real(8) :: A(3,3)
@@ -1719,10 +1723,10 @@
         ! if (.not. StatusChk1(iElt) .or. any(iElt>(nElt-3))) return
         if (.not. StatusChk1(iElt)) return
 
-          ! check if EltType =  Monomial (#4), Zernike (#8), GridData (#9)
-        if (any( SrfType(iElt(:)) /= SrfType_Monomial .and. &    ! Monomial
-                  SrfType(iElt(:)) /= SrfType_Zernike  .and. &    ! Zernike
-                  SrfType(iElt(:)) /= SrfType_GridData)) return   ! GridData
+        ! check if SrfType =  Monomial (#4), Zernike (#8), GridData (#9)
+        do j=1,N
+          if (.not. any(SrfType(iElt(j)) == SrfType_RequireSrfCSYS)) return
+        end do
 
         ! check for null-vector
         A(:,1) = xMon_
@@ -1737,7 +1741,7 @@
             call dorthoganalize(A(:,1),A(:,2),A(:,3))
 
         ! Set Position values (loop over identical elements)
-        do concurrent (j=1:m)
+        do concurrent (j=1:N)
             xMon(:,iElt(j)) = A(:,1)
             yMon(:,iElt(j)) = A(:,2)
             zMon(:,iElt(j)) = A(:,3)
@@ -1788,10 +1792,10 @@
         ! SMACOS and Rx status & range chk: 0 < iElt <= nElt
         if (.not. StatusChk1(iElt)) return
 
-        ! check if EltType =  Monomial (#4), Zernike (#8), GridData (#9)
-        if (any( SrfType(iElt(:)) /= SrfType_Monomial .and. &    ! Monomial
-                 SrfType(iElt(:)) /= SrfType_Zernike  .and. &    ! Zernike
-                 SrfType(iElt(:)) /= SrfType_GridData)) return   ! GridData
+        ! check if SrfType =  Monomial (#4), Zernike (#8), GridData (#9)
+        do j=1,N
+          if (.not. any(SrfType(iElt(j)) == SrfType_RequireSrfCSYS)) return
+        end do
 
         do concurrent (j=1:N)
             xMon_(:,j) = xMon(:,iElt(j))
