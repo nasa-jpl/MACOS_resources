@@ -2135,17 +2135,18 @@ def elt_grid(srf: int,
            default: None
 
         grid_dz (None | Matrix[np.float64])
-           defines the displacement at the grid nodes for a [N x N] grid
-           along the z-axis.
+           defines the displacement at the grid nodes for a [Ny x Nx] grid
+           along the z-axis with Nx==Ny.
            default: None
+           Note: grid_dz[y-axis, x-axis] from -Y to +Y and -X to +X
 
     Raises:
         Exception: when input constrains are not satisfied within MACOS or
                    not a Grid Surface
 
     Returns:
-            (None)      when defining the Grid surface
-        (dx,grid_dz): (Parameter, Matrix[np.float64]) when extracting the Grid Data
+        None: when defining the Grid surface
+        (dx, grid_dz): (Parameter, Matrix[np.float64]) when extracting the Grid Data
 
     """
 
@@ -2160,7 +2161,7 @@ def elt_grid(srf: int,
         sampling_spacing = np.array(0, dtype=float)
         if not lib.api.elt_srf_grid_data(srf, sampling_spacing, grid_dz, 0):
             raise Exception("MACOS threw an exception")
-        return sampling_spacing, grid_dz
+        return sampling_spacing, grid_dz.T
 
     # write
     if sampling_spacing is not None and grid_dz is not None:
@@ -2169,7 +2170,7 @@ def elt_grid(srf: int,
         if np.any(sampling_spacing <= 0):
             raise ValueError("Srf. Grid Sampling Spacing must be greater than zero")
 
-        grid_dz = np.asarray_chkfinite(grid_dz, dtype=np.float64, order='F')
+        grid_dz = np.asarray_chkfinite(grid_dz.T, dtype=np.float64, order='F')
 
         if grid_dz.ndim != 2:
             raise ValueError("'grid_dz' must be a 2D numpy ndarray")
@@ -2198,7 +2199,9 @@ def elt_grid_add(srf: int | np.int32,
 
         grid_dz (Matrix[np.float64])
            Adds displacement to the grid nodes for a [N x N] grid
-           along the z-axis.
+           along the z-axis. with Nx==Ny.
+
+           Note: grid_dz[y-axis, x-axis] from -Y to +Y and -X to +X
 
     Raises:
         Exception: when input constrains are not satisfied within MACOS or
@@ -2214,7 +2217,7 @@ def elt_grid_add(srf: int | np.int32,
     if not ok:
         raise Exception("MACOS threw an exception")
 
-    grid_dz = np.asarray_chkfinite(grid_dz, dtype=np.float64, order='F')
+    grid_dz = np.asarray_chkfinite(grid_dz.T, dtype=np.float64, order='F')
 
     if grid_dz.ndim != 2:
         raise ValueError("'grid_dz' must be a 2D numpy ndarray")
