@@ -2909,10 +2909,12 @@ def spot(srf: int | Tuple[int] | np.int32,
                                 np.int32(vpt_center),
                                 np.int32(beam_csys),
                                 np.int32(reset_trace))
+    if not ok:
+        raise Exception('MACOS threw an exception')
 
     ok, pts, shift, centre, csys = lib.api.spot_get(npts)
     if not ok:
-        raise Exception('MACOS threw an exeption')
+        raise Exception('MACOS threw an exception')
 
     return pts, centre, shift[2:] if vpt_center else shift[:2], csys
 
