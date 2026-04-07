@@ -226,9 +226,9 @@ lcl num ^num_sur
 lcl num ^initial_x ^final_x ^lsc_x ^lsc_y
 lcl num ^initial_y ^final_y ^msc_x ^msc_y
 lcl num ^initial_z ^final_z ^nsc_x ^nsc_y
-lcl num ^elt_type ^Kr_elt ^prop_type ^n_ecoord
-lcl num ^ape_type ^ape_1 ^ape_2 ^ape_3 ^ape_4
-lcl num ^obs_type ^obs_1 ^obs_2 ^obs_3 ^obs_4
+lcl num ^Kr_elt ^prop_type ^n_ecoord
+lcl num ^ape_type
+lcl num ^obs_type
 lcl num ^n ^m ^f              ! Counters
 lcl num ^z(1..66)             ! Zernike Coefficient Array
 lcl num ^ascr ^bscr ^cscr     ! Surface Coordinate Angles [radians]
@@ -272,16 +272,20 @@ lcl str ^Srf ^linestr
 lcl num ^add_MACOS_Srfs ^e ^e1 ^e2
 
 lcl str ^labels(20) ^split(3) ^shapes(4) ^label ^str! aperture
-lcl num ^shapeID(20) ^n_obs ^n_clr ^n_hol ^id ^row ^i ^k
+lcl num ^shapeID(20) ^n_obs ^n_clr ^n_hol ^id ^row ^i ^k ^j
 
 lcl num ^rad2deg ^xi ^yi ^zi ^Li ^Mi ^Ni ^rsr ^dz_src
 lcl str ^s_xp
 
 lcl num ^op_r1 ^op_max1 ^op_max2 ^r
+lcl num ^adx1 ^adx2 ^ady1 ^ady2 ^ia ^ok ^nApe ^nApe_
+lcl num ^tmp
 
 lcl str ^srf_type      ! CV Srf Type
 lcl str ^element_type  ! Reflective, Refractive, HOE, Grating, ...
 lcl str ^surface_type  ! Conic, Flat, Asphere, ...
+
+lcl str ^fid ^fil ! Temp File
 
 ! lcl str ^tmpFile ^fil
 ! lcl num ^fld(2) ^xp_par(7) ^df
@@ -289,7 +293,7 @@ lcl str ^surface_type  ! Conic, Flat, Asphere, ...
 rfd 1 1 1 1 'macosfile.in' 0 0
 
 ! implementation Version
-^script_version == "2.05.00"
+^script_version == "2.06.00"
 
 !
 ! CONSTANTS
@@ -338,12 +342,6 @@ els if (^wave_pos<1) or (^wave_pos>(num w))
 end if
 
 
-! create a Temp File containing original version
-! ^tmpFile == 'cv2macos_Tmp.len'
-! ^fil == (fil)
-! sav ^tmpFile
-
-
 ! 9/17/2013 JMR. Skip the interactive reads.
 goto skipread
    ver all no
@@ -363,7 +361,6 @@ goto skipread
    wri Q"Code V dimension is 'c'" (dim)
    wri""
 lbl skipread
-
 
 ! --------------------------------------------------------
 ! Field Type
@@ -451,6 +448,13 @@ if ^add_MACOS_Srfs>0
     end if ! RSR val chk
 end if
 
+! --------------------------------------------------------
+! create a tmp file: foo_[date].len -- to be delete afterwards
+! --------------------------------------------------------
+! create a Temp File containing the working version
+  ^fid == concat(concat("foo_",(Dat)),".len")
+  ^fil == (fil)
+  fvr n; sav ^fid; fvr y
 
 
 if (buf.emp b70)=0; buf del b70; end if
@@ -537,9 +541,43 @@ els
 end if  ! END OF FINITE- VERSUS INFINITE-CONJUGATE CHECK IF LOOP.
 
 
-!  WRITE OTHER INITIAL PARAMETERS
-!
-!   Next, convert CODE V wavelength which is in nanometers, to System Dimensions
+! --------------------------------------------------------
+! Source: Grid Orientation: 
+! --------------------------------------------------------
+^e == transform(0, ^global_sur, ^zoom_pos, ^data)  ! get orientation of Source at Vertex
+
+! check sign and flip if needed
+if ((^l_chief*^data(10) + ^m_chief*^data(11) + ^n_chief*^data(12)) < 0)
+  for ^i 4 12
+    ^data(^i) = -^data(^i)
+  end for
+end if
+
+! orthogonalize w.r.t. chief ray dir
+^L_zGrid == ^l_chief
+^M_zGrid == ^m_chief
+^N_zGrid == ^n_chief
+
+^L_yGrid == ^data( 7); ^M_yGrid == ^data( 8); ^N_yGrid == ^data( 9);  ! initial guess
+
+! a x b => (a2*b3-a3*b2, a3*b1-a1*b3, a1*b2-a2*b1)
+^L_xGrid == (^M_yGrid*^N_zGrid-^N_yGrid*^M_zGrid)
+^M_xGrid == (^N_yGrid*^L_zGrid-^L_yGrid*^N_zGrid)
+^N_xGrid == (^L_yGrid*^M_zGrid-^M_yGrid*^L_zGrid)
+^mag == sqrtf(^L_xGrid*^L_xGrid + ^M_xGrid*^M_xGrid + ^N_xGrid*^N_xGrid)
+^L_xGrid == ^L_xGrid/^mag
+^M_xGrid == ^M_xGrid/^mag
+^N_xGrid == ^N_xGrid/^mag
+
+! a x b => (a2*b3-a3*b2, a3*b1-a1*b3, a1*b2-a2*b1)
+^L_yGrid == (^M_zGrid*^N_xGrid-^N_zGrid*^M_xGrid)
+^M_yGrid == (^N_zGrid*^L_xGrid-^L_zGrid*^N_xGrid)
+^N_yGrid == (^L_zGrid*^M_xGrid-^M_zGrid*^L_xGrid)
+^mag == sqrtf(^L_yGrid*^L_yGrid + ^M_yGrid*^M_yGrid + ^N_yGrid*^N_yGrid)
+^L_yGrid == ^L_yGrid/^mag
+^M_yGrid == ^M_yGrid/^mag
+^N_yGrid == ^N_yGrid/^mag
+
 
 ! --------------------------------------------------------
 ! Source: Units & Wavelength
@@ -554,31 +592,6 @@ end if  ! END OF FINITE- VERSUS INFINITE-CONJUGATE CHECK IF LOOP.
   els
     ^baseunits  == 'mm'
   end if
-
-! --------------------------------------------------------
-! Source: Grid Orientation: non-special cases
-! --------------------------------------------------------
-
-  ^L_zGrid == (L r1 f^field_pos s0 z^zoom_pos)
-  ^M_zGrid == (M r1 f^field_pos s0 z^zoom_pos)
-  ^N_zGrid == (N r1 f^field_pos s0 z^zoom_pos)
-
-  ^mag == sqrtf(^L_zGrid**2 + ^M_zGrid**2 + ^N_zGrid**2)
-  ^L_zGrid == ^L_zGrid/^mag
-  ^M_zGrid == ^M_zGrid/^mag
-  ^N_zGrid == ^N_zGrid/^mag
-
-  ! x-axis <== [0,1,0] cross z-axis & normalisation
-  ^mag == sqrtf(^L_zGrid**2 + ^N_zGrid**2)
-  ^L_xGrid == +^N_zGrid/^mag
-  ^M_xGrid ==  0
-  ^N_xGrid == -^L_zGrid/^mag
-
-  ! y-axis <== z-axis  cross x-axis & normalisation
-  ^L_yGrid == -^L_zGrid*^M_zGrid/^mag
-  ^M_yGrid == ^mag
-  ^N_yGrid == -^M_zGrid*^N_zGrid/^mag
-
 
 
 ! --------------------------------------------------------
@@ -751,7 +764,6 @@ for ^s 1 (num s)
 ! to be the dummy FPA and the exit pupil respectively.  Store data appropriate to these surfaces and then
 ! bypass the surface shape check commands.
   if ((^s = ^dummyfpa) or (^s = ^exitpupil))
-    ^elt_type == 4
     goto skip_surfaceshape_check
   end if
 
@@ -762,144 +774,21 @@ for ^s 1 (num s)
                     (^srf_type = 'SPS ZFR') or &    ! Zernike Fringe
                     (^srf_type = 'SPS ZFE')         ! Zernike Ext. Fringe
 
-if (rmd s^s z^zoom_pos)='REFL'			! mirror
-  ^element_type == "Reflector"
+! if (rmd s^s z^zoom_pos)='REFL'			! mirror
+!   ^element_type == "Reflector"
+! !
+! ! End of if-branch for checking shapes of reflective surfaces.  Next: refractive.
+! !
+! els if (rmd s^s z^zoom_pos)='REFR'	! refractive surface
+!     ^previous_n == (ind s^s-1 z^zoom_pos w^wave_pos)
+!     ^an_index_match == (^previous_n=^current_n)
 
-  if ^srf_type='SPH'
-    if (^a_flat_surf)
-      ^elt_type == 2		! flat reflector
-    els
-      ^elt_type == 1		! conic relector
-    end if
-
-  els if ^srf_type='CON'
-    ^elt_type == 1			! conic relector
-
-  else if ^srf_type='XTO'     ! y-toroid set to Anamorphic
-    ^elt_type == 10
-
-  else if ^srf_type='YTO'     ! y-toroid set to Anamorphic
-    ^elt_type == 11
-
-  els if ^srf_type='ASP'   ! aspheric reflector or
-    ^elt_type == 12
-
-    ! ^AsphCoef(1) == (a s^s z^zoom_pos) ! r^4
-    ! ^AsphCoef(2) == (b s^s z^zoom_pos) ! r^6
-    ! ^AsphCoef(3) == (c s^s z^zoom_pos) ! r^8
-    ! ^AsphCoef(4) == (d s^s z^zoom_pos) ! r^10
-    ! ^AsphCoef(5) == (e s^s z^zoom_pos) ! r^12
-    ! ^AsphCoef(6) == (f s^s z^zoom_pos) ! r^14
-    ! ^AsphCoef(7) == (g s^s z^zoom_pos) ! r^16
-    ! ^AsphCoef(8) == (h s^s z^zoom_pos) ! r^18
-    ! ^AsphCoef(9) == (j s^s z^zoom_pos) ! r^20
-
-    ! if (rdy s^s z^zoom_pos)< 0
-    !   for ^iZ 1 9
-    !     ^AsphCoef(^iZ) == -^AsphCoef(^iZ)
-    !   end for
-    ! end if
-
-  els if ^SrfType_Zernike
-    ^elt_type == 14
-
-  ! els
-  !   wri""
-  !   wri"This macro does not incorporate this reflective element type."
-  !   wri"Surface data not included here."
-  !   wri""
-  !   goto label_100
-
-  end if
-!
-!     End of if-branch for checking shapes of reflective surfaces.  Next: refractive.
-!
-els if (rmd s^s z^zoom_pos)='REFR'	! refractive surface
-    ^previous_n == (ind s^s-1 z^zoom_pos w^wave_pos)
-    ^an_index_match == (^previous_n=^current_n)
-
-    if (^an_index_match)
-      ^element_type == "Reference"
-    else
-      ^element_type == "Refractor"
-    end if
-
-    ! ----------------------------------
-    ! Surface: Spherical
-    ! ----------------------------------
-    if ^srf_type='SPH'
-
-        if (^s=(num s))and(^a_flat_surf)
-            ^elt_type == 3	 ! Focal plane (if the image plane is curved
-        els if (^an_index_match) !   it will not be defined as a focal plane.)
-            ^elt_type == 4	! reference surface
-        els
-            ^elt_type == 8	! conic refractor
-        end if
-
-    ! ----------------------------------
-    ! Surface: Conical
-    ! ----------------------------------
-    els if ^srf_type='CON'
-
-        if (^an_index_match)
-            ^elt_type == 4	! reference surface
-        els
-            ^elt_type == 8	! conic refractor   *** Why was this commented out? ***
-        end if
-
-    else if ^srf_type='YTO'     ! y-toroid set to Anamorphic
-      ^elt_type == 19
-
-    ! ----------------------------------
-    ! Surface: Asphere
-    ! ----------------------------------
-    els if (^srf_type='ASP')or(^srf_type='YTO') ! aspheric refractor or
-        ^elt_type == 20
-
-        ! ^AsphCoef(1) == (a s^s z^zoom_pos) ! r^4
-        ! ^AsphCoef(2) == (b s^s z^zoom_pos) ! r^6
-        ! ^AsphCoef(3) == (c s^s z^zoom_pos) ! r^8
-        ! ^AsphCoef(4) == (d s^s z^zoom_pos) ! r^10
-        ! ^AsphCoef(5) == (e s^s z^zoom_pos) ! r^12
-        ! ^AsphCoef(6) == (f s^s z^zoom_pos) ! r^14
-        ! ^AsphCoef(7) == (g s^s z^zoom_pos) ! r^16
-        ! ^AsphCoef(8) == (h s^s z^zoom_pos) ! r^18
-        ! ^AsphCoef(9) == (j s^s z^zoom_pos) ! r^20
-
-        ! if (rdy s^s z^zoom_pos)<0
-        !   for ^iZ 1 9
-        !     ^AsphCoef(^iZ) == -^AsphCoef(^iZ)
-        !   end for
-        ! end if
-
-    ! ----------------------------------
-    ! Surface: Zernike
-    ! ----------------------------------
-    els if ^SrfType_Zernike
-            ^elt_type == 21
-
-    ! ----------------------------------
-    ! Surface: not implemented
-    ! ----------------------------------
-    ! els
-
-    !      wri""
-    !      wri"This macro does not incorporate this refractive element type."
-    !      wri"Surface data not included here."
-    !      wri""
-    !      goto label_100
-
-    end if
-! els
-!     wri""
-!     wri"This macro does not incorporate this element type."
-!     wri"Surface data not included here."
-!     wri""
-
-!     goto label_100
-
-end if    ! END OF CHECKING SURFACE SHAPE TYPE
+!     if (^an_index_match)
+!       ^element_type == "Reference"
+!     else
+!       ^element_type == "Refractor"
+!     end if
+! end if    ! END OF CHECKING SURFACE SHAPE TYPE
 
 lbl skip_surfaceshape_check
 
@@ -982,27 +871,27 @@ end if
 ! end if
 !
 
-! GLOBAL SURFACE COORDINATES OF SURFACE VERTEX.
-    ^x_sur == (xsc s^s g^global_sur z^zoom_pos)
-    ^y_sur == (ysc s^s g^global_sur z^zoom_pos)
-    ^z_sur == (zsc s^s g^global_sur z^zoom_pos)
-    ^l_sur == (lsc s^s g^global_sur z^zoom_pos)
-    ^m_sur == (msc s^s g^global_sur z^zoom_pos)
-    ^n_sur == (nsc s^s g^global_sur z^zoom_pos)
+! ! GLOBAL SURFACE COORDINATES OF SURFACE VERTEX.
+!     ^x_sur == (xsc s^s g^global_sur z^zoom_pos)
+!     ^y_sur == (ysc s^s g^global_sur z^zoom_pos)
+!     ^z_sur == (zsc s^s g^global_sur z^zoom_pos)
+!     ^l_sur == (lsc s^s g^global_sur z^zoom_pos)
+!     ^m_sur == (msc s^s g^global_sur z^zoom_pos)
+!     ^n_sur == (nsc s^s g^global_sur z^zoom_pos)
 
-! 9/17/2013: GLOBAL COORDINATES OF PIVOT POINT (RpElt).
-! Assume it is always the intersection with ray R1 F1 Z1.
-! This means that for Macos creation of different field angles,
-! F1 Z1 must be the same, for consistency.
+! ! 9/17/2013: GLOBAL COORDINATES OF PIVOT POINT (RpElt).
+! ! Assume it is always the intersection with ray R1 F1 Z1.
+! ! This means that for Macos creation of different field angles,
+! ! F1 Z1 must be the same, for consistency.
 
-!ToDo: if F1 is not the optical axis ray then it will be off
-!      with segmented optics, it is not defined
-!      need to define it at the centre of the aperture if defined otherwise at the VptElt
-!      Z1 => z^zoom_pos
+! !ToDo: if F1 is not the optical axis ray then it will be off
+! !      with segmented optics, it is not defined
+! !      need to define it at the centre of the aperture if defined otherwise at the VptElt
+! !      Z1 => z^zoom_pos
 
-      ^x_RptElt == (x r1 f1 s^s g^global_sur z1)
-      ^y_RptElt == (y r1 f1 s^s g^global_sur z1)
-      ^z_RptElt == (z r1 f1 s^s g^global_sur z1)
+!     ^x_RptElt == (x r1 f1 s^s g^global_sur z1)
+!     ^y_RptElt == (y r1 f1 s^s g^global_sur z1)
+!     ^z_RptElt == (z r1 f1 s^s g^global_sur z1)
 !
 ! Write out the current number of real surfaces, excluding dummy surfaces.
     wri Q"           iElt=  '3d'" ^iRealElt
@@ -1104,22 +993,110 @@ end if
 
   end if
 
+
+  if (rmd s^s z^zoom_pos)='REFL'			! mirror
+    ^element_type == "Reflector"
+
+  els if (rmd s^s z^zoom_pos)='REFR'	! refractive surface
+    ^previous_n == (ind s^s-1 z^zoom_pos w^wave_pos)
+    ^an_index_match == (^previous_n=^current_n)
+
+    if (^an_index_match)
+      ^element_type == "Reference"
+    else
+      ^element_type == "Refractor"
+    end if
+  end if
+
+
   wri q"        Element=  '18c'" ^element_type
   wri q"        Surface=  '18c'" ^surface_type
 
 
   lbl skipwriteshape
 
-    ! ------------------------------------------
+    ! ------------------------------------------------------------------------------------
     ! Basic Surface Parameters
-    ! ------------------------------------------
+    ! ------------------------------------------------------------------------------------
     wri Q"          KrElt= '2e.20e'" ^Kr_elt
     wri Q"          KcElt= '2e.20e'" ^conic_const
 
 
-    ! ------------------------------------------
+    ! ------------------------------------------------------------------------------------
     ! Element Pose
-    ! ------------------------------------------
+    ! ------------------------------------------------------------------------------------
+    ! GLOBAL SURFACE COORDINATES OF SURFACE VERTEX.
+    ^x_sur == (xsc s^s g^global_sur z^zoom_pos)
+    ^y_sur == (ysc s^s g^global_sur z^zoom_pos)
+    ^z_sur == (zsc s^s g^global_sur z^zoom_pos)
+    ^l_sur == (lsc s^s g^global_sur z^zoom_pos)
+    ^m_sur == (msc s^s g^global_sur z^zoom_pos)
+    ^n_sur == (nsc s^s g^global_sur z^zoom_pos)
+
+    ! If a Clear Aperture is defined, the RptElt will be set at the centre of the CLA.
+    ! otherwise at the Vertex location
+    ^x_RptElt == ^x_sur
+    ^y_RptElt == ^y_sur
+    ^z_RptElt == ^z_sur
+
+    ^nApe  == (num ape s^s CLR)
+    ^nApe_ == (num ape s^s all)  
+
+    if (^nApe=0)
+      ! Mo aperture => place at vertex
+
+    else if (^nApe>1)
+      ! Check if all CLR apertures have the same off-axis position: yes => set Rpt there
+      if (^nApe_ <> ^nApe)
+        del ape s^s edg
+        del ape s^s hol
+        del ape s^s obs
+      end if
+
+      ^adx1 == (ape s^s A1 z^zoom_pos adx)
+      ^ady1 == (ape s^s A1 z^zoom_pos ady)
+      ^ok   == 1
+      for ^ia 2 ^nApe
+        ^adx2 == (ape s^s A^ia z^zoom_pos adx)
+        ^ady2 == (ape s^s A^ia z^zoom_pos ady)
+        ^ok == ^ok and (absf(absf(^adx1)-absf(^adx2))<1e-3) and (absf(absf(^ady1)-absf(^ady2))<1e-3)
+      end for
+
+      if (^nApe_ <> ^nApe)
+        out n;res ^fid; out y
+      end if
+
+      if (^ok)
+        ^x_RptElt == ^x_RptElt+^adx1
+        ^y_RptElt == ^y_RptElt+^ady1
+        ^z_RptElt == ^z_RptElt+sagf(^s, ^zoom_pos, ^adx1, ^ady1)
+      end if
+
+    else
+      ! ^nApe=1
+      if (^nApe_ <> ^nApe)
+        del ape s^s edg
+        del ape s^s hol
+        del ape s^s obs
+      end if
+
+      ^adx1 == (ape s^s A1 z^zoom_pos adx)
+      ^ady1 == (ape s^s A1 z^zoom_pos ady)
+
+      ^x_RptElt == ^x_RptElt+^adx1
+      ^y_RptElt == ^y_RptElt+^ady1
+      ^z_RptElt == ^z_RptElt+sagf(^s, ^zoom_pos, ^adx1, ^ady1)
+
+      if (^nApe_ <> ^nApe)
+        out n;res ^fid; out y
+      end if
+
+    end if
+
+    ! ^x_RptElt == (x r1 f1 s^s g^global_sur z1)
+    ! ^y_RptElt == (y r1 f1 s^s g^global_sur z1)
+    ! ^z_RptElt == (z r1 f1 s^s g^global_sur z1)
+
     if (rdy s^s z^zoom_pos) >= 0
         ^psi(1) == +^l_sur; ^psi(2) == +^m_sur; ^psi(3) == +^n_sur
     else
@@ -1285,7 +1262,7 @@ end if
     ! ---------------------------
     ! Zernike Surface
     ! ---------------------------
-    if ^SrfType_Zernike  ! (^elt_type = 14)OR(^elt_type = 21)
+    if ^SrfType_Zernike
 
         ! Zernike Standard B&W
         if (^srf_type='SPS ZRN')
@@ -1469,132 +1446,131 @@ end if
 ! 9/17/2013.  New commands to evaluate aperture data, easier than trying to understand and modify the original commands
 ! which had been commented out anyway.
 
-! Determine shape of clear aperture. -- note: ToDo: uses ONLY 1st listed aperture
-  ^ape_type == 0
-  ^n_clr    == (num ape s^s clr)
-  if ^n_clr>0
-    out no
-    buf del b0
-    ca n
-    buf y
-    ape s^s clr
-    buf n
-    out yes
-    buf mov b0 i1 j1
+    ! Determine shape of clear aperture. -- note: ToDo: uses ONLY 1st listed aperture
+      ^ape_type == 0
+      ^n_clr    == (num ape s^s clr)
+      if ^n_clr>0
+        out no
+        buf del b0
+        ca n
+        buf y
+        ape s^s clr
+        buf n
+        out yes
+        buf mov b0 i1 j1
 
-    buf fnd "APERTURE DATA"
-    if (buf.fnd) = 1
-      ^apestr == (buf.str b0 iC+1 j1)
-      ^shape  == substr(^apestr,1,3)
-      if ((^shape = 'REX') or (^shape = 'CIR') or  (^shape = 'ELX'))
+        buf fnd "APERTURE DATA"
+        if (buf.fnd) = 1
+          ^apestr == (buf.str b0 iC+1 j1)
+          ^shape  == substr(^apestr,1,3)
+          if ((^shape = 'REX') or (^shape = 'CIR') or  (^shape = 'ELX'))
 
-        ^label  == (buf.str b0 iC+1 j2)
-        if substr(^label,1,1) = 'L'
-          ^label == substr(^label, 3, lenstr(^label)-3)
-        else
-          ^label == ''
-        end if
+            ^label  == (buf.str b0 iC+1 j2)
+            if substr(^label,1,1) = 'L'
+              ^label == substr(^label, 3, lenstr(^label)-3)
+            else
+              ^label == ''
+            end if
 
-        IF (^shape = 'CIR')
-          ^Ape_type == 1
-          ^cir == (cir s^s L^label)
-          ^adx == (adx s^s L^label)
-          ^ady == (ady s^s L^label)
+            IF (^shape = 'CIR')
+              ^Ape_type == 1
+              ^cir == (cir s^s L^label)
+              ^adx == (adx s^s L^label)
+              ^ady == (ady s^s L^label)
 
-        ELS IF (^shape = 'REX')
-          ^ape_type == 2
-          ^rex == (rex s^s L^label)
-          ^rey == (rey s^s L^label)
-          ^adx == (adx s^s L^label)
-          ^ady == (ady s^s L^label)
+            ELS IF (^shape = 'REX')
+              ^ape_type == 2
+              ^rex == (rex s^s L^label)
+              ^rey == (rey s^s L^label)
+              ^adx == (adx s^s L^label)
+              ^ady == (ady s^s L^label)
 
-        ELS IF (^shape = 'ELX')
-          ^ape_type == 3
-          ^rex == (elx s^s L^label)
-          ^rey == (ely s^s L^label)
-          ^adx == (adx s^s L^label)
-          ^ady == (ady s^s L^label)
+            ELS IF (^shape = 'ELX')
+              ^ape_type == 3
+              ^rex == (elx s^s L^label)
+              ^rey == (ely s^s L^label)
+              ^adx == (adx s^s L^label)
+              ^ady == (ady s^s L^label)
 
-          END IF
-      end if
-    end if
-  end if
-
-! Determine shape of obscuration. -- note: ToDo: uses ONLY 1st listed aperture
-  ^k == 0
-  ^n_obs    == (num ape s^s obs)
-  if ^n_obs>0
-    out no
-    buf del b0
-    ca n
-    buf y
-    ape s^s obs
-    buf n
-    out yes
-
-    buf mov b0 i1 j1
-    buf fnd "APERTURE DATA"
-    buf mov b0 iC j1
-    for ^row (buf.I B0) (buf.lst b0)
-      ^str == (buf.str b0 i^row j1)       ! 'REX s4'
-      ^str == substr(^str,1,3)            ! 'REX'
-      ^id == find_str_arr(^str, ^shapes)  ! (0) invalid, (1) Circular, (2) Rectangular, (3) Elliptical
-      if ^id>0
-        ^k == ^k+1
-        ^shapeID(^k) == ^id
-
-        ^label  == (buf.str b0 i^row j2)  ! e.g.: "OBS L'A1'"
-        if (split(^label, "'", ^split)>1)
-          ^labels(^k) == ^split(2)
-        else
-          ^labels(^k) == ''
+              END IF
+          end if
         end if
       end if
-    end for
 
-    if (^n_obs <> ^k)
-      ^e == cverror("Obscurations mis-match",0)
-    end if
+    ! Determine shape of obscuration. -- note: ToDo: uses ONLY 1st listed aperture
+      ^k == 0
+      ^n_obs    == (num ape s^s obs)
+      if ^n_obs>0
+        out no
+        buf del b0
+        ca n
+        buf y
+        ape s^s obs
+        buf n
+        out yes
 
-  end if
+        buf mov b0 i1 j1
+        buf fnd "APERTURE DATA"
+        buf mov b0 iC j1
+        for ^row (buf.I B0) (buf.lst b0)
+          ^str == (buf.str b0 i^row j1)       ! 'REX s4'
+          ^str == substr(^str,1,3)            ! 'REX'
+          ^id == find_str_arr(^str, ^shapes)  ! (0) invalid, (1) Circular, (2) Rectangular, (3) Elliptical
+          if ^id>0
+            ^k == ^k+1
+            ^shapeID(^k) == ^id
 
-! Determine shape of Holes  (neg. apertures)
-  ^n_hol == (num ape s^s hol)
-  if ^n_hol>0
-    out no
-    buf del b0
-    ca n
-    buf y
-    ape s^s hol
-    buf n
-    out yes
+            ^label  == (buf.str b0 i^row j2)  ! e.g.: "OBS L'A1'"
+            if (split(^label, "'", ^split)>1)
+              ^labels(^k) == ^split(2)
+            else
+              ^labels(^k) == ''
+            end if
+          end if
+        end for
 
-    buf mov b0 i1 j1
-    buf fnd "APERTURE DATA"
-    buf mov b0 iC j1
-    for ^row (buf.I B0) (buf.lst b0)
-      ^str == (buf.str b0 i^row j1)       ! 'REX s4'
-      ^str == substr(^str,1,3)            ! 'REX'
-      ^id == find_str_arr(^str, ^shapes)  ! (0) invalid, (1) Circular, (2) Rectangular, (3) Elliptical
-      if ^id>0
-        ^k == ^k+1
-        ^shapeID(^k) == ^id
-
-        ^label  == (buf.str b0 i^row j2)  ! e.g.: "HOL L'A1'"
-        if (split(^label, "'", ^split)>1)
-          ^labels(^k) == ^split(2)
-        else
-          ^labels(^k) == ''
+        if (^n_obs <> ^k)
+          ^e == cverror("Obscurations mis-match",0)
         end if
+
       end if
-    end for
 
-    if (^n_hol <> ^k-^n_obs)
-      ^e == cverror("Aperture 'Hole'-Definition mis-match",0)
-    end if
+    ! Determine shape of Holes  (neg. apertures)
+      ^n_hol == (num ape s^s hol)
+      if ^n_hol>0
+        out no
+        buf del b0
+        ca n
+        buf y
+        ape s^s hol
+        buf n
+        out yes
 
-  end if
+        buf mov b0 i1 j1
+        buf fnd "APERTURE DATA"
+        buf mov b0 iC j1
+        for ^row (buf.I B0) (buf.lst b0)
+          ^str == (buf.str b0 i^row j1)       ! 'REX s4'
+          ^str == substr(^str,1,3)            ! 'REX'
+          ^id == find_str_arr(^str, ^shapes)  ! (0) invalid, (1) Circular, (2) Rectangular, (3) Elliptical
+          if ^id>0
+            ^k == ^k+1
+            ^shapeID(^k) == ^id
 
+            ^label  == (buf.str b0 i^row j2)  ! e.g.: "HOL L'A1'"
+            if (split(^label, "'", ^split)>1)
+              ^labels(^k) == ^split(2)
+            else
+              ^labels(^k) == ''
+            end if
+          end if
+        end for
+
+        if (^n_hol <> ^k-^n_obs)
+          ^e == cverror("Aperture 'Hole'-Definition mis-match",0)
+        end if
+
+      end if
 
   ! ============================================ end of aperture determination -=--------------------------
 
@@ -1837,6 +1813,7 @@ end if
 
   ^fmt  == "        '8c' '2e.20e' '2e.20e' '2e.20e' '2e.20e' '2e.20e' '2e.20e' "
 
+      wri Q"     UpdateTElt=  Y"
       wri Q"        nECoord=  '2d'" ^n_ecoord
       wri Q^fmt "   TElt=" ^L_LocalXaxis ^L_LocalYaxis ^L_LocalZaxis 0             0             0
       wri Q^fmt "        " ^M_LocalXaxis ^M_LocalYaxis ^M_LocalZaxis 0             0             0
@@ -1963,13 +1940,13 @@ ver all no; chk no
 ! 9/17/13  undo the y decenter of si
 yde si 0
 
-! restore original lens file
-! res ^tmpFile
+! restore working lens file
+! res ^fid
 ! rfn ^fil
 
-! lib
-!   pur ^tmpFile
-!   del ^tmpFile
-! go
+lib
+  pur ^fid
+  del $fid
+go
 
 rtn
