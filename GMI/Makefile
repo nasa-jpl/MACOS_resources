@@ -1,133 +1,91 @@
 
 ##--------------------------------------
-# Makefile for GMI, with MACOS v3.34
+# Makefile for GMI (current: ifx + MATLAB R2025b)
 ##--------------------------------------
 
 #####################################
-# Typical User Configurable Options #
+# User Configurable Options         #
 #####################################
 
-
-# MACOS_DIR should be the source directory for macos_f90   ---> UPDATE !!!!!!
+# MACOS source directory (set by makealldcr.sh / makeGMIdcr.sh, or override here)
 MACOS_DIR := $(macossrc_dir)
-GMI_DIR = $(shell pwd)
+GMI_DIR    := $(shell pwd)
 
-#MEX = mex  -largeArrayDims      # Mex Compiler
-#MEX = /usr/local/matlab714/bin/mex       # Mex Compiler
-MEX = /usr/local/matlab81/bin/mex       # Mex Compiler
+# Fortran compiler
+FC := ifx
 
-# Choose your compiler: lf95 or gfortran:
-#FC  = gfortran  # Fortran Compiler
-FC  = ifort      # Fortran Compiler
+# MATLAB installation
+MATLAB_DIR := /usr/local/MATLAB/R2025b
 
-# Choose your Matlab version: 
-# (leave blank for system default version)
-MATLAB_VERSION := 81
+# Intel oneAPI paths
+INTEL_LIB  := /opt/intel/oneapi/compiler/latest/lib
+MKL_LIB    := /opt/intel/oneapi/mkl/latest/lib
 
-SUFFIX :=
-ifeq ($(MATLAB_VERSION),704)
-    MEX = /usr/local/matlab704/bin/mex -f $(GMI_DIR)/mexopts.sh_$(MATLAB_VERSION)
-    SUFFIX := _$(MATLAB_VERSION)
+# Architecture / MEX extension
+OS       := $(shell uname -s)
+PLATFORM := $(shell uname -i)
+ifeq ($(PLATFORM),x86_64)
+    ARCH    := Linux-x86_64
+    MEXTAG  := mexa64
 endif
 
-ifeq ($(MATLAB_VERSION),790)
-    MEX = /usr/local/matlab790/bin/mex -f mexopts.sh_$(MATLAB_VERSION)
-    SUFFIX := _$(MATLAB_VERSION)
-endif
-
-ifeq ($(MATLAB_VERSION),711)  # --> will be default v2010b
-    MEX = /usr/local/matlab711/bin/mex -f mexopts.sh_$(MATLAB_VERSION)
-    SUFFIX := _$(MATLAB_VERSION)
-endif
-
-ifeq ($(MATLAB_VERSION),712)  # --> will be default v2010b
-    MEX = /usr/local/matlab712/bin/mex -f mexopts.sh_$(MATLAB_VERSION)
-    SUFFIX := _$(MATLAB_VERSION)
-endif
-
-ifeq ($(MATLAB_VERSION),714)  
-    MEX = /usr/local/matlab-7.14/bin/mex -f $(GMI_DIR)/mexopts.sh_$(MATLAB_VERSION)
-    SUFFIX := _$(MATLAB_VERSION)
-endif
-
-ifeq ($(MATLAB_VERSION),81) # --> R2013a
-    # '-largeArrayDims' flag causes runtime memeory problem in GMIG.F -jzlou 04/2020
-    #MEX = /usr/local/matlab-8.1/bin/mex -largeArrayDims -f $(GMI_DIR)/mexopts.sh_$(MATLAB_VERSION) 
-    MEX = /usr/local/MATLAB/8.1/bin/mex -f $(GMI_DIR)/mexopts.sh_$(MATLAB_VERSION)
-    SUFFIX := _$(MATLAB_VERSION)
-endif
-
-# Directory to find SMACOS object files for the specific architecture
-export SMACOS_OBJS = $(MACOS_DIR)/SMACOS_OBJS/$(ARCH)
-# SMACOS library
-export SMACOS_LIBS = $(SMACOS_OBJS)/smacos_lib.a
-
-# For setting/modifying libraries and compile options, see mexopts.sh
+SMACOS_OBJS := $(MACOS_DIR)/SMACOS_OBJS/$(ARCH)
+SMACOS_LIBS := $(SMACOS_OBJS)/smacos_lib.a
 
 ######################################################
-# Hopefully, there will be no (or little) need for a #
-# typical user to edit below here.                   #
+# No user edits needed below here
 ######################################################
 
-# Current Revision:
-#$export GMI_SVN_REV := $(shell svn info | awk '/Rev:/{print $$4}')
-
-# Current date
-export GMI_DATE := $(shell date '+%Y-%m-%d')
-
-OS := $(shell uname -s)
-ifeq ($(OS),Darwin)
-    PLATFORM := $(shell uname -p)
-    ARCH     := $(OS)-$(PLATFORM)
-    FC       := gfortran
-else
-    PLATFORM := $(shell uname -i)
-    ifeq ($(PLATFORM),x86_64)
-	ARCH   := Linux-x86_64
-	MEXTAG := mexa64
-    endif
-    ifeq ($(PLATFORM),i386)
-	ARCH   := Linux-i386
-	MEXTAG := mexglx
-    endif
-
-    ifeq ($(findstring SUNW,$(PLATFORM)),SUNW)
-	ARCH := SUNW-$(shell uname -p)
-    endif
-endif
-
-#BKBKFMEX = $(MEX) -fortran FC=$(FC)
-FMEX = $(MEX)
+GMI_DATE := $(shell date '+%Y-%m-%d')
 
 APP      := GMI
-MEX_NAME := $(APP)$(SUFFIX)
+MEX_NAME := $(APP)
+
+# Compiler flags (shared between GMI.F and GMIG.F)
+FFLAGS := -check all -traceback -fstack-protector \
+          -fPIC -fpp -132 -gen-interfaces -fp-model strict \
+          -fno-omit-frame-pointer -nologo \
+          -O2 -xHOST \
+          -DMX_COMPAT_32 \
+          -I$(MACOS_DIR) -I$(MATLAB_DIR)/extern/include \
+          -module $(SMACOS_OBJS)
+
+# Linker flags — embed Intel RPATH so MATLAB can load without setvars.sh
+LDFLAGS := -check all -traceback -fstack-protector \
+           -O -shared-intel -shared \
+           -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
+           -Wl,--no-undefined \
+           -Wl,-rpath-link,$(MATLAB_DIR)/bin/glnxa64 \
+           -L$(MATLAB_DIR)/bin/glnxa64 -l:libmx.so -l:libmex.so -lmat \
+           -L$(INTEL_LIB) \
+           -Wl,-rpath,$(INTEL_LIB) \
+           -Wl,-rpath,$(MKL_LIB) \
+           -Wl,--disable-new-dtags \
+           -lirc -lm -lstdc++
 
 default: $(MEX_NAME).$(MEXTAG)
 
-##-------------------------------------------------
+$(MEX_NAME).$(MEXTAG): GMI.o GMIG.o $(SMACOS_LIBS)
+	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS)
 
-MOD_SRCS = $(MACOS_DIR)/param_mod.F $(MACOS_DIR)/elt_mod.F \
-           $(MACOS_DIR)/src_mod.F $(MACOS_DIR)/cfiles_mod.F
+GMI.o: GMI.F
+	$(FC) $(FFLAGS) -c GMI.F
 
-SCOMP_$(APP)= $(APP).o $(APP)G.o $(SMACOS_OBJS)/smacos_lib.a
+GMIG.o: GMIG.F
+	$(FC) $(FFLAGS) -c GMIG.F
 
-SRCS=$(APP).F $(APP)G.F
-
-$(MEX_NAME).$(MEXTAG): $(SRCS) $(SMACOS_LIBS) mexopts.sh
-	$(FMEX) -v $(SRCS) -I$(MACOS_DIR) -output $(MEX_NAME)
-#	rm -f macos_param.txt
-#	cp -p $(MACOS_DIR)/macos_param.txt .
-	mv $(MEX_NAME).$(MEXTAG) $(APP).$(MEXTAG)
-
-# Executable
-GMImain: $(SCOMP_$(APP)) GMImain.o
-	$(FC) -o $@ $(APP).o $(SMACOS_OBJS)/smacos_lib.a GMImain.o
 clean:
-	-rm -rf *.o *.out *.plot *.trace *.mod core $(MEX_NAME).$(MEXTAG) $(APP).$(MEXTAG)
+	-rm -f *.o *.mod $(MEX_NAME).$(MEXTAG)
 
 # begin fortran depends
-GMIG.o: GMIG.F param_mod.mod $(MOD_SRCS)
-GMI.o: GMI.F $(MOD_SRCS)
-GMImain.o: GMImain.F $(MOD_SRCS)
+GMIG.o: GMIG.F
+GMI.o:  GMI.F
 # end fortran depends
 
+##--------------------------------------
+# Legacy mex-compiler approach (kept for reference — no longer used)
+#
+# MEX = /usr/local/MATLAB/8.1/bin/mex -f $(GMI_DIR)/mexopts.sh_81
+# $(MEX_NAME).$(MEXTAG): $(SRCS) $(SMACOS_LIBS) mexopts.sh
+#     $(MEX) -v $(SRCS) -I$(MACOS_DIR) -output $(MEX_NAME)
+##--------------------------------------
