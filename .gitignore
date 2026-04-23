@@ -1,0 +1,16 @@
+# Build artifacts
+*.o
+*.mod
+*.mexa64
+*.mexa64.dSYM/
+
+# CMake build trees
+build_*/
+build_debug/
+build_release/
+
+# Fortran runtime scratch
+fort.*
+
+# macOS metadata
+.DS_Store

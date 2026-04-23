@@ -1,0 +1,49 @@
+% Minimal FreeForm parent for SegMirMaker regression (axis-aligned +z).
+% Real FF term: 16 Born-Wolf Zernike modes (copied from tst_SegMirMaker elt 1)
+% scaled down for small f=18 paraboloid.  nGridMat=0 (pure FF, no grid).
+
+        ChfRayDir=  0.0D+00  0.0D+00 -1.0D+00
+        ChfRayPos=  0.0D+00  0.0D+00  1.0D+04
+          zSource=  1.0D+22
+        BaseUnits=  mm
+        WaveUnits=  mm
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+          Wavelen=  6.328D-04
+             Flux=  1.0D+00
+         Aperture=  1.0D+01
+         Obscratn=  0.0D+00
+         GridType=  Circular
+         nGridpts=  11
+            xGrid=  1.0D+00  0.0D+00  0.0D+00
+            yGrid=  0.0D+00  1.0D+00  0.0D+00
+
+             nElt=  1
+
+             iElt=  1
+          EltName=  M1
+          Element=  Reflector
+          Surface=  FreeForm
+            KrElt= -1.800000000000000D+01
+            KcElt=  0.000000000000000D+00
+           psiElt=  0.000000000000000D+00  0.000000000000000D+00  1.000000000000000D+00
+           VptElt=  0.000000000000000D+00  0.000000000000000D+00  0.000000000000000D+00
+           RptElt=  0.000000000000000D+00  0.000000000000000D+00  0.000000000000000D+00
+       FFZernType=  BornWolf
+      nFFZernCoef=   3
+      FFZernModes=  4  9 11
+       FFZernCoef=  1.0D-03  5.0D-04  2.0D-04
+              lFF=  5.0D+00
+              pFF=  0.0D+00  0.0D+00  0.0D+00
+              xFF=  1.0D+00  0.0D+00  0.0D+00
+              yFF=  0.0D+00  1.0D+00  0.0D+00
+              zFF=  0.0D+00  0.0D+00  1.0D+00
+             lMon=  0.0D+00
+           IndRef=  1.0D+00
+           Extinc=  1.0D+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.0D+22
+          nECoord= -6
