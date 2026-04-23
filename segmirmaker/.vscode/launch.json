@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug SegMirMaker",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_debug_ifx/SegMirMaker",
+      "args": [],
+      "cwd": "${workspaceFolder}/test_in",
+      "stopAtEntry": false,
+      "MIMode": "gdb",
+      "preLaunchTask": "CMake Build (Debug)",
+      "environment": [
+        {
+          "name": "LD_LIBRARY_PATH",
+          "value": "/opt/intel/oneapi/compiler/latest/lib:/opt/intel/oneapi/mkl/latest/lib"
+        }
+      ],
+      "setupCommands": [
+        {
+          "text": "set print pretty on"
+        },
+        {
+          "text": "set print elements 0"
+        }
+      ]
+    }
+  ]
+}
