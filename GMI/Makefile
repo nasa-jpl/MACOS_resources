@@ -35,8 +35,20 @@ ifeq ($(PLATFORM),x86_64)
     MEXTAG  := mexa64
 endif
 
-SMACOS_OBJS := $(MACOS_DIR)/SMACOS_OBJS/$(ARCH)
-SMACOS_LIBS := $(SMACOS_OBJS)/smacos_lib.a
+# Optional: path to a CMake build tree (build_release_giza, etc.).
+# When set, module files and smacos library are taken from there instead
+# of the legacy MACOS_OBJS/Linux-x86_64 layout.
+# Set via command line: make MACOS_BUILD_DIR=~/dev/macos/build_release_giza
+MACOS_BUILD_DIR :=
+
+ifneq ($(MACOS_BUILD_DIR),)
+  SMACOS_OBJS := $(MACOS_BUILD_DIR)/mod_smacos
+  SMACOS_LIBS := $(MACOS_BUILD_DIR)/lib/libsmacos.a \
+                 $(MACOS_BUILD_DIR)/lib/libnpsol.a
+else
+  SMACOS_OBJS := $(MACOS_DIR)/SMACOS_OBJS/$(ARCH)
+  SMACOS_LIBS := $(SMACOS_OBJS)/smacos_lib.a
+endif
 
 ######################################################
 # No user edits needed below here
