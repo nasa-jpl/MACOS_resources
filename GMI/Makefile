@@ -1,6 +1,6 @@
 
 ##--------------------------------------
-# Makefile for GMI (current: ifx + MATLAB R2025b)
+# Makefile for GMI (ifx + auto-detected MATLAB)
 ##--------------------------------------
 
 #####################################
@@ -14,8 +14,14 @@ GMI_DIR    := $(shell pwd)
 # Fortran compiler
 FC := ifx
 
-# MATLAB installation
-MATLAB_DIR := /usr/local/MATLAB/R2025b
+# MATLAB installation — pick the lexicographically latest R20XXx under /usr/local/MATLAB.
+# Override on the command line: make MATLAB_DIR=/usr/local/MATLAB/R2023a
+MATLAB_BASE := /usr/local/MATLAB
+MATLAB_DIR  := $(shell ls -1d $(MATLAB_BASE)/R[0-9]*[ab] 2>/dev/null | sort -V | tail -1)
+ifeq ($(MATLAB_DIR),)
+  $(error No MATLAB installation found under $(MATLAB_BASE). \
+    Install MATLAB or set MATLAB_DIR on the command line.)
+endif
 
 # Intel oneAPI paths
 INTEL_LIB  := /opt/intel/oneapi/compiler/latest/lib
