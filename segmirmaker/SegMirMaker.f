@@ -1,5 +1,5 @@
 
-C       SegMirMaker.f          SegMirMaker Version 0.5            2026
+C       SegMirMaker.f          SegMirMaker Version 0.6            2026
 C       (Modernized from SMPGe.for, SMPG v0.4, dcr 5/7/92)
 
 C	dFile generator: 3DOF/6DOF prescriptions, conic or FreeForm parent
@@ -38,6 +38,36 @@ C***********************************************************************
 	  REAL*8  :: pData_p(3), xData_p(3), yData_p(3), zData_p(3)
 	  REAL*8, ALLOCATABLE :: GridMat_p(:,:)
 	  CHARACTER*24 :: GridFile_p
+
+	CONTAINS
+
+C***********************************************************************
+C  FmtD -- format a REAL*8 with up to 16 significant digits, compact.
+C  Writes 1P,ES23.15 then trims trailing zeros from the mantissa, so
+C  1.2d0  -> '1.2E+00', 0.02d0 -> '2.0E-02', 1.234567890123456d0
+C  keeps all 16 digits.
+C***********************************************************************
+	FUNCTION FmtD(x) RESULT(s)
+	  IMPLICIT NONE
+	  REAL*8, INTENT(IN) :: x
+	  CHARACTER(LEN=24) :: s
+	  CHARACTER(LEN=24) :: buf
+	  INTEGER :: ie, i
+	  WRITE(buf,'(1P,ES23.15E2)') x
+	  buf = ADJUSTL(buf)
+	  ie = INDEX(buf,'E')
+	  IF (ie.EQ.0) THEN
+	    s = TRIM(buf)
+	    RETURN
+	  END IF
+	  i = ie - 1
+	  DO WHILE (i.GT.1 .AND. buf(i:i).EQ.'0')
+	    i = i - 1
+	  END DO
+	  IF (buf(i:i).EQ.'.') i = i + 1
+	  s = buf(1:i) // buf(ie:LEN_TRIM(buf))
+	END FUNCTION FmtD
+
 	END MODULE segmir_parent_mod
 
 C***********************************************************************
@@ -81,7 +111,7 @@ C	 mMeas = 6 x mSeg
      &  pr(3),rhat(3),L,rho(3),th,PI,ds,rs,qs,ps,ths,D1(100),D2(100),
      &  D3(3,3),D4(3,3),S1,DOT,MAG,TElt(6,6),xSi,xSim1,ySi,ySim1,
      &  dx,dy,twodx,SIN60,COS60,Hw1(6),Hw2(6),
-     &	SegYgrid(3),xs(3),ys(3),zs(3),standoff
+     &	SegYgrid(3),xs(3),ys(3),zs(3),standoff,gap
 
 C  SMACOS call buffers + parent-prescription state
 C  (SMACOS signature uses CHARACTER(len=256) for command/CARG; mirror it
@@ -92,6 +122,9 @@ C  here so this .f file needs no CPP.)
 	LOGICAL :: smLARG
 	INTEGER :: modelSize
 	CHARACTER(len=256) :: parentPresc
+	CHARACTER(len=256) :: smLine,fchk
+	LOGICAL :: parentFileExists
+	INTEGER :: lp
 
 C  OPDMat / RaySpot / PixArray live in macos_mod only when CMACOS is
 C  defined.  The smacos library is built without CMACOS, so we declare
@@ -118,6 +151,9 @@ C  Formats
  512	FORMAT(' Hx(',i6,',',i6,':',i6,')=[',3d17.9,'];')
  511	FORMAT(' Hw(',i6,',',i6,':',i6,')=[',6d17.9,'];')
  510	FORMAT(' MeasToSeg(1:2,',i6,')=[',i6,';',i6,'];')
+ 570	FORMAT('             nSeg=  ',i0)
+ 574	FORMAT('         SegCoord=',3(2x,i3))
+ 575	FORMAT(18x,3(2x,i3))
 
  901	format('   iSeg=',i4,' jSeg=',i4/1P,'     pi=',3d17.9/
      &	'     pj=',3d17.9/'     pr=',3d17.9/'   rhoi=',3d17.9/
@@ -162,15 +198,31 @@ C  sentinels).  Non-blank = load MACOS .in file and extract parent.
 	IF (LEN_TRIM(parentPresc).GT.0 .AND.
      &	    parentPresc(1:4).NE.'none' .AND.
      &	    parentPresc(1:4).NE.'NONE') THEN
-	  smCommand='OLD'
-	  smCARG(1)=parentPresc
-	  CALL SMACOS(smCommand,smCARG,smDARG,smIARG,smLARG,smRARG,
-     &	              OPDMat,RaySpot,smRMSWFE,PixArray)
-	  parentEltDef(1) = 1
-	  CALL IACCEPT(parentEltIn,parentEltDef,1,
-     &	    'Enter parent element number:')
-	  parentElt = parentEltIn(1)
-	  CALL LoadParent(parentElt)
+C  Strip a trailing .in / .IN if the user typed it -- SMACOS OLD
+C  appends .in internally, so leaving it produces foo.in.in.
+	  lp = LEN_TRIM(parentPresc)
+	  IF (lp.GT.3 .AND. (parentPresc(lp-2:lp).EQ.'.in'
+     &	             .OR.parentPresc(lp-2:lp).EQ.'.IN')) THEN
+	    parentPresc(lp-2:lp) = '   '
+	  END IF
+C  Verify the .in file exists before calling SMACOS; otherwise OLD
+C  fails silently and LoadParent would copy zeroed parent data.
+	  fchk = TRIM(parentPresc)//'.in'
+	  INQUIRE(FILE=TRIM(fchk), EXIST=parentFileExists)
+	  IF (.NOT.parentFileExists) THEN
+	    WRITE(*,*) ' SegMirMaker: parent file ',TRIM(fchk),
+     &	      ' not found; using legacy conic dialog.'
+	  ELSE
+	    smCommand='OLD'
+	    smCARG(1)=parentPresc
+	    CALL SMACOS(smCommand,smCARG,smDARG,smIARG,smLARG,smRARG,
+     &	                OPDMat,RaySpot,smRMSWFE,PixArray)
+	    parentEltDef(1) = 1
+	    CALL IACCEPT(parentEltIn,parentEltDef,1,
+     &	      'Enter parent element number:')
+	    parentElt = parentEltIn(1)
+	    CALL LoadParent(parentElt)
+	  END IF
 	END IF
 
 	CALL SetOutFile
@@ -203,7 +255,16 @@ C  Dialog for parameters of base mirror
 	  e = 0d0
 	END IF
 
-	CALL DACCEPT(psi,D1,3,
+C  Sync _p from working defaults so they serve as DACCEPT defaults.
+C  In the no-parent case this also gives _p the canonical values.
+	Kc_p = -e*e
+	Kr_p = -(1d0+e)*f
+	f_p  = f
+	e_p  = e
+	CALL EQUATE(pv_p,pv,3)
+	CALL EQUATE(psi_p,D1,3)
+
+	CALL DACCEPT(psi,psi_p,3,
      &	'Enter mirror principal axis direction (x,y,z):')
 	D1(1)=1d0; D1(2)=0d0; D1(3)=0d0
 	CALL DACCEPT(SegXgrid,D1,3,
@@ -219,10 +280,10 @@ C  Passing (psi, SegXgrid, ys) keeps psi's direction.
 	ihat(2)=-psi(2)
 	ihat(3)=-psi(3)
 
-	S1=f
-	CALL DACCEPT(f,S1,1,'Enter mirror focal length:')
-	S1=e
-	CALL DACCEPT(e,S1,1,'Enter mirror eccentricity:')
+	CALL DACCEPT(f,f_p,1,'Enter mirror focal length:')
+	CALL DACCEPT(e,e_p,1,'Enter mirror eccentricity:')
+	S1=0d0
+	CALL DACCEPT(gap,S1,1,'Enter inter-segment gap:')
 	parentEltDef(1) = 1
 	S1=f/2d0
 	CALL DACCEPT(standoff,S1,1,
@@ -232,16 +293,13 @@ C  Passing (psi, SegXgrid, ys) keeps psi's direction.
      &	  'Enter measurement configuration (1=inner, 2=all):')
 	iMeasConfig = parentEltIn(1)
 
-C  If parent was loaded, propagate user's (possibly adjusted) f,e into
-C  parent_mod so SurfCoordFF and segment output see consistent values.
-	IF (parentIsFF) THEN
-	  Kc_p = -e*e
-	  Kr_p = -(1d0+e)*f
-	  f_p  = f
-	  e_p  = e
-	  CALL EQUATE(pv_p,pv,3)
-	  CALL EQUATE(psi_p,psi,3)
-	END IF
+C  Write user's (possibly adjusted) values back to _p for SurfCoordFF.
+	Kc_p = -e*e
+	Kr_p = -(1d0+e)*f
+	f_p  = f
+	e_p  = e
+	CALL EQUATE(pv_p,pv,3)
+	CALL EQUATE(psi_p,psi,3)
 
 C  Enter mirror size parameters
 
@@ -284,7 +342,12 @@ c	    MirApDiam=DSQRT((FLOAT(2*nRing+1)*width)**2+(S2*S2/4d0))
 	  GO TO 21
 	END IF
 
-C  Compute segment coordinates 
+C  Compute segment coordinates
+C  Segment blocks are emitted to a scratch unit first so the source-
+C  section header (nSeg, width, gap, SegXgrid, SegCoord) can precede
+C  them in the final .presc file.
+
+	OPEN(8, STATUS='SCRATCH')
 
 	iElt=0
 	iPrt=iEltPrt-1
@@ -390,18 +453,33 @@ C - Find surface normal and local coordinates
   1	    CONTINUE
 
 	    CALL IntToChar(Cinteger,jSeg,i)
-	    CALL WriteSegBlock(2,iPrt,Cinteger,f,e,psi,pv,pr,iDOF,TElt,
+	    CALL WriteSegBlock(8,iPrt,Cinteger,f,e,psi,pv,pr,iDOF,TElt,
      &	                       xhat,yhat,zhat)
   3	  CONTINUE
   4	CONTINUE
 
 	nElt=iElt
-	WRITE(9,503)(SegCoord(i,1),i=1,3)
-	WRITE(2,503)(SegCoord(i,1),i=1,3)
+
+C  Write source-section header (matches SegDemo3.in layout) to unit 2,
+C  then copy the buffered segment blocks from the scratch file.
+	WRITE(2,570) nElt
+	WRITE(2,'(12x,"width=  ",A)') TRIM(FmtD(width))
+	WRITE(2,'(14x,"gap=  ",A)') TRIM(FmtD(gap))
+	WRITE(2,'(9x,"SegXgrid=",3(2x,A))')
+     &	  TRIM(FmtD(SegXgrid(1))),
+     &	  TRIM(FmtD(SegXgrid(2))),
+     &	  TRIM(FmtD(SegXgrid(3)))
+	WRITE(2,574) (SegCoord(i,1),i=1,3)
 	DO 5 iElt=2,nElt
-	  WRITE(9,504)(SegCoord(i,iElt),i=1,3)
-	  WRITE(2,504)(SegCoord(i,iElt),i=1,3)
+	  WRITE(2,575) (SegCoord(i,iElt),i=1,3)
   5	CONTINUE
+	WRITE(2,'()')
+
+	REWIND(8)
+ 801	READ(8,'(A)',END=802) smLine
+	  WRITE(2,'(A)') TRIM(smLine)
+	  GO TO 801
+ 802	CLOSE(8)
 
 C  Compute edge-sensor measurement matrices
 
