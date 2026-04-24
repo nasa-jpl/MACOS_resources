@@ -76,6 +76,7 @@ C***********************************************************************
 
 	USE smacos_mod, ONLY: SMACOS
 	USE math_mod,   ONLY: DORTHOGANALIZE
+	USE src_mod,    ONLY: Aperture
 	USE segmir_parent_mod
 
 C  Declarations
@@ -123,6 +124,7 @@ C  here so this .f file needs no CPP.)
 	INTEGER :: modelSize
 	CHARACTER(len=256) :: parentPresc
 	CHARACTER(len=256) :: smLine,fchk
+	CHARACTER(len=8)   :: ans
 	LOGICAL :: parentFileExists
 	INTEGER :: lp
 
@@ -143,8 +145,8 @@ C  Formats
  503	FORMAT(//'SegCoord= ',i5,2(5x,i5))
  504	FORMAT(10x,i5,2(5x,i5))
  505	FORMAT(/' Default mirror aperture diameter is ',1P,d17.9)
- 506	FORMAT(//' COMP Segmented Mirror Prescription Generator'/
-     &	' Version 0.4, May 7, 1992'//)
+ 506	FORMAT(//' MACOS Segmented Mirror Prescription Generator'/
+     &	' Version 0.6, April 26, 2026'/)
  507	FORMAT(/'Default segment size is ',1P,d17.9)
  508	FORMAT(/' nMeas=',i6,';'/' nState=',i6,';'/)
  509	FORMAT(' Hx(',i6,',',i6,':',i6,')=[',6d17.9,'];')
@@ -307,7 +309,11 @@ C  Enter mirror size parameters
 	CALL IACCEPT(i,1,1,
      &	'Enter size option (1=spec seg size, 2=spec aperture diam):')
 	IF (i.EQ.1) THEN
-	  S1=.03d0
+	  IF (parentIsFF .AND. Aperture.GT.0d0) THEN
+	    S1 = Aperture/DBLE(2*nRing+1)
+	  ELSE
+	    S1 = 0.03d0
+	  END IF
 	  CALL DACCEPT(SegSize,S1,1,
      &	  'Enter segment size (side-to-side):')
 	  width=SegSize
@@ -325,7 +331,11 @@ c	    MirApDiam=DSQRT((FLOAT(2*nRing+1)*width)**2+(S2*S2/4d0))
 	    MirApDiam=FLOAT(2*nRing+1)*width
 	  END IF
 	ELSE IF (i.EQ.2) THEN
-	  S1=12d0
+	  IF (parentIsFF .AND. Aperture.GT.0d0) THEN
+	    S1 = Aperture
+	  ELSE
+	    S1 = 12d0
+	  END IF
 	  CALL DACCEPT(MirApDiam,S1,1,
      &	  'Enter mirror aperture diameter:')
 	  SegSize=MirApDiam/FLOAT(2*nRing+1)
@@ -460,26 +470,49 @@ C - Find surface normal and local coordinates
 
 	nElt=iElt
 
-C  Write source-section header (matches SegDemo3.in layout) to unit 2,
-C  then copy the buffered segment blocks from the scratch file.
-	WRITE(2,570) nElt
-	WRITE(2,'(12x,"width=  ",A)') TRIM(FmtD(width))
-	WRITE(2,'(14x,"gap=  ",A)') TRIM(FmtD(gap))
-	WRITE(2,'(9x,"SegXgrid=",3(2x,A))')
+C  Build source-section header in scratch unit 9 (matches SegDemo3.in
+C  layout).  Segment blocks are already buffered in scratch unit 8.
+	OPEN(9, STATUS='SCRATCH')
+	WRITE(9,570) nElt
+	WRITE(9,'(12x,"width=  ",A)') TRIM(FmtD(width))
+	WRITE(9,'(14x,"gap=  ",A)') TRIM(FmtD(gap))
+	WRITE(9,'(9x,"SegXgrid=",3(2x,A))')
      &	  TRIM(FmtD(SegXgrid(1))),
      &	  TRIM(FmtD(SegXgrid(2))),
      &	  TRIM(FmtD(SegXgrid(3)))
-	WRITE(2,574) (SegCoord(i,1),i=1,3)
+	WRITE(9,574) (SegCoord(i,1),i=1,3)
 	DO 5 iElt=2,nElt
-	  WRITE(2,575) (SegCoord(i,iElt),i=1,3)
+	  WRITE(9,575) (SegCoord(i,iElt),i=1,3)
   5	CONTINUE
-	WRITE(2,'()')
+	WRITE(9,'()')
 
-	REWIND(8)
- 801	READ(8,'(A)',END=802) smLine
-	  WRITE(2,'(A)') TRIM(smLine)
-	  GO TO 801
- 802	CLOSE(8)
+C  Preview: show header + first segment block only (later segments are
+C  structurally identical, just with different pose).
+	WRITE(*,'(/A/)') '---- Prescription preview ----'
+	CALL DumpScratch(9, -1, 0)
+	CALL DumpScratch(8, -1, 1)
+	IF (nElt .GT. 1) THEN
+	  WRITE(*,'(A,I0,A)') '  ... (',nElt-1,
+     &	      ' more segment blocks omitted from preview) ...'
+	END IF
+	WRITE(*,'(/A/)') '---- End of preview ----'
+
+	WRITE(*,'(1X,A)',ADVANCE='NO')
+     &	  'Write prescription to file? [Y/n]: '
+	READ(*,'(A)') ans
+	IF (ans(1:1).EQ.'n' .OR. ans(1:1).EQ.'N') THEN
+	  WRITE(*,*) ' Aborted by user; no files written.'
+	  CLOSE(2, STATUS='DELETE')
+	  CLOSE(3, STATUS='DELETE')
+	  CLOSE(8)
+	  CLOSE(9)
+	  STOP
+	END IF
+
+	CALL DumpScratch(9, 2, 0)
+	CALL DumpScratch(8, 2, 0)
+	CLOSE(8)
+	CLOSE(9)
 
 C  Compute edge-sensor measurement matrices
 
@@ -777,6 +810,34 @@ C	Get file name
 	END DO
 
 	END
+
+C***********************************************************************
+C  DumpScratch(iSrc, iDst)
+C  Copy a scratch unit's contents line-by-line to iDst.  If iDst <= 0,
+C  write to stdout instead.  Used to preview .presc contents on screen
+C  and to emit them to the final file after user confirmation.
+C***********************************************************************
+      SUBROUTINE DumpScratch(iSrc, iDst, maxBlocks)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: iSrc, iDst, maxBlocks
+      CHARACTER(LEN=256) :: line
+      INTEGER :: ios, blockCount
+      REWIND(iSrc)
+      blockCount = 0
+      DO
+        READ(iSrc, '(A)', IOSTAT=ios) line
+        IF (ios /= 0) EXIT
+        IF (INDEX(ADJUSTL(line),'iElt=') .EQ. 1) THEN
+          blockCount = blockCount + 1
+        END IF
+        IF (maxBlocks .GT. 0 .AND. blockCount .GT. maxBlocks) EXIT
+        IF (iDst .LE. 0) THEN
+          WRITE(*,  '(A)') TRIM(line)
+        ELSE
+          WRITE(iDst,'(A)') TRIM(line)
+        END IF
+      END DO
+      END SUBROUTINE
 
 C***********************************************************************
 C

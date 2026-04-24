@@ -46,15 +46,29 @@ from `~/dev/macos/build_release_giza/` (libsmacos.a + libnpsol + lapack
 ## Output layout
 - `.presc` starts with a source-section header modeled on SegDemo3.in:
   `nSeg`, `width`, `gap`, `SegXgrid`, then the `SegCoord` table.
-- Segment blocks are written to a scratch unit (unit 8,
-  `STATUS='SCRATCH'`) inside the segment loop, then copied to unit 2
-  after the header. This lets the header precede blocks even though
-  `SegCoord` values are built up inside the generation loop.
+- Two scratch units buffer output:
+  - Unit 8: segment blocks (appended during the segment loop)
+  - Unit 9: source-section header (written after the loop)
+  Both are `STATUS='SCRATCH'` (auto-deleted on CLOSE).
+- `DumpScratch(iSrc, iDst, maxBlocks)` helper copies a scratch unit
+  line-by-line to `iDst` (or stdout if `iDst ≤ 0`). `maxBlocks > 0`
+  stops after that many `iElt=` blocks — used to bound the preview.
 - `FmtD(x)` formats a REAL*8 with up to 16 sig figs, stripping trailing
   zeros from the mantissa:
   `1.2d0 → 1.2E+00`, `0.866…6d0 → 8.660254037844387E-01`.
   Used for `width`, `gap`, `SegXgrid` to keep round numbers compact
   while preserving precision on parent-derived values.
+
+## Preview / confirm before write
+- After the segment loop the program prints the source-section header
+  plus the first segment block to stdout (`DumpScratch(8, -1, 1)`),
+  followed by a `... (N-1 more segment blocks omitted from preview) ...`
+  note when N > 1.
+- Prompts `Write prescription to file? [Y/n]:`. Default is Y.
+- On `n`/`N`: closes unit 2 (`.presc`) and unit 3 (`Hx.m`) with
+  `STATUS='DELETE'` so no partial files are left, then STOPs.
+- On Y/blank: `DumpScratch(9, 2, 0)` + `DumpScratch(8, 2, 0)` flushes
+  the full content (header + all segments) to the `.presc` file.
 
 ## Parent-file gotchas
 - **SMACOS `OLD` appends `.in` internally.** User typing `foo.in`
@@ -75,6 +89,11 @@ from `~/dev/macos/build_release_giza/` (libsmacos.a + libnpsol + lapack
   `SurfCoordFF` and `WriteSegBlock` see whatever the user chose.
 - No-parent canonical defaults: `psi=[0,0,1]`, `f=18`, `e=0`,
   `SegXgrid=[1,0,0]`, `gap=0`.
+- Segment-size defaults come from MACOS `src_mod::Aperture` when a
+  parent was loaded (`USE src_mod, ONLY: Aperture`):
+  option 1 (segment width) default = `Aperture/(1+2·nRing)`;
+  option 2 (aperture diameter) default = `Aperture`.
+  Fall back to legacy `0.03` / `12` when `Aperture ≤ 0`.
 
 ## Conventions
 - Math helpers (`DORTHOGANALIZE`, `EQUATE`, `ZERO`, `DOT`, `MAG`) are
@@ -83,4 +102,4 @@ from `~/dev/macos/build_release_giza/` (libsmacos.a + libnpsol + lapack
 - Prompts use `DACCEPT`/`IACCEPT` (original VAX names kept). Prompt
   format is sized dynamically to avoid clipping.
 - Statement labels: main program uses 1–21 for CONTINUE, 500–575 for
-  FORMAT. Scratch-file read loop uses 801/802 (label 7 is taken).
+  FORMAT. Short labels 1–9 are all in use.
