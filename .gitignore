@@ -12,5 +12,10 @@ build_release/
 # Fortran runtime scratch
 fort.*
 
+# SegMirMaker run artifacts (keep test_in/*.in inputs tracked)
+segmirmaker/test_in/SegMirMaker
+segmirmaker/test_in/*.presc
+segmirmaker/test_in/*Hx.m
+
 # macOS metadata
 .DS_Store
