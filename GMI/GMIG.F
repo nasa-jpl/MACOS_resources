@@ -40,18 +40,20 @@ C  This is the SMACOS user COMMON
 	INCLUDE 'GMI.inc'
 
 	LOGICAL :: ifInitOptics,ifprb,ifpzern,ifpgrid,ifpdm,ifpfa,
-     &	  	   ifprad,ifpimg,ifpflg,ifMetGMIG,ifPfGMIG
+     &	  	   ifprad,ifpimg,ifpflg,ifMetGMIG,ifPfGMIG,
+     &             ifpmonzern
 
 	INTEGER :: i,M,N,mxGetN,mxGetM,mxGetString,mxIsChar,
      &	  	   NLHS,NRHS,nPix,nPos,nProc,myProc,myPart,
      &	  Nprb,Npzern,Npgrid,Npdm,Npfa,Nprad,Npimg,Npflg,
-     &	  model_size_in,gsStatus,szUSER,m_err_jwstG,dim1
+     &	  model_size_in,gsStatus,szUSER,m_err_jwstG,dim1,
+     &    Npmonzern
 
 	MWPOINTER :: PLHS(*),PRHS(*),mxGetPr,mxCreateDoubleMatrix,
      &	  prbP,pzernP,pgridP,pdmP,pfaP,pradP,pimgP,pflgP,
      &	  InfFcnZernP,InfFcnGridP,PixArrayP,OPDP,spotP,metMeasP,
      &	  WFEP,CENTP,USERP,msp,dPosP,dAngleP,mxCreateDoubleScalar,
-     &    StrCmdP,RealEFdArrayP,ImagEFdArrayP,OPDMaskP
+     &    StrCmdP,RealEFdArrayP,ImagEFdArrayP,OPDMaskP,pmonzernP
 
 	REAL*8, dimension(:),   allocatable, save :: OPD,PIX,USER,
      &                          RealEFd,ImagEFd,OPDMask
@@ -60,7 +62,7 @@ C  This is the SMACOS user COMMON
 	REAL*8 prb(mprb),pzern(mpzern),pgrid(mpgrid),pdm(mpdm),
      &	  pfa(mpfa),prad(mprad),WFError,CENT(2),
      &	  pimg(mpimg),pflg(mpflg),InfFcnZern(15),InfFcnGrid(mgrid,
-     &    mgrid),msbuf(1)
+     &    mgrid),msbuf(1),pmonzern(mpzern)
 
         REAL*8, dimension(:,:), allocatable, save :: dPos, dAngle
 
@@ -88,8 +90,8 @@ C        REAL*8 D_CEIL
 ! INTERFACE definition
 ! ------------------------------------------------------------------------------
 
- 	IF (NRHS .NE. 13)
-     &	  CALL mexErrMsgTxt('GMI requires 13 input arguments')
+ 	IF (NRHS .NE. 14)
+     &	  CALL mexErrMsgTxt('GMI requires 14 input arguments')
 	IF (NLHS .NE. 10)
      &	  CALL mexErrMsgTxt('GMI requires 10 output argument')
 
@@ -287,6 +289,19 @@ C        REAL*8 D_CEIL
           call mexErrMsgTxt('prescription filename too long')
         endif
 
+        ! ----------------------------------------------------------------------
+        ! pmonzern (PRHS(14)) -- mirrors pzern, but for FreeForm Mon component
+        ! ----------------------------------------------------------------------
+        M         = mxGetM(PRHS(14))
+        N         = mxGetN(PRHS(14))
+        Npmonzern = MAX(M,N)
+        IF ((Npmonzern.LE.mpzern).AND.(MIN(M,N).LE.1)) THEN
+          ifpmonzern = .NOT.(Npmonzern.LE.1)
+        ELSE
+          CALL mexErrMsgTxt('pmonzern must be scalar, empty or a '//
+     &                      'mpzern x 1 matrix')
+        END IF
+
 ! ------------------------------------------------------------------------------
 ! Assign pointers to input arguments
 ! ------------------------------------------------------------------------------
@@ -303,6 +318,7 @@ C        REAL*8 D_CEIL
 	IF (ifprad) pradP = mxGetPr(PRHS(6))
 	IF (ifpimg) pimgP = mxGetPr(PRHS(7))
 	IF (ifpflg) pflgP = mxGetPr(PRHS(8))
+	IF (ifpmonzern) pmonzernP = mxGetPr(PRHS(14))
 
 ! ------------------------------------------------------------------------------
 ! Get values for input arguments
@@ -335,6 +351,8 @@ C        REAL*8 D_CEIL
         IF (ifprad) CALL mxCopyPtrToReal8(pradP, prad, mxGetNumberOfElements(PRHS(6)))
         IF (ifpimg) CALL mxCopyPtrToReal8(pimgP, pimg, mxGetNumberOfElements(PRHS(7)))
         IF (ifpflg) CALL mxCopyPtrToReal8(pflgP, pflg, mxGetNumberOfElements(PRHS(8)))
+        IF (ifpmonzern) CALL mxCopyPtrToReal8(pmonzernP, pmonzern,
+     &      mxGetNumberOfElements(PRHS(14)))
         
 
 	IF (ifpgrid.AND..NOT.ifprb) THEN
@@ -358,7 +376,8 @@ C        REAL*8 D_CEIL
      &          pfa,prad,pimg,pflg,
      &		ifprb,ifpzern,ifpgrid,ifpdm,ifpfa,ifprad,ifpflg,
      &		ifInitOptics,nPix,Npimg,InfFcnZern,InfFcnGrid,
-     &          fname,curr_model_size,myProc,nProc)
+     &          fname,curr_model_size,myProc,nProc,
+     &          pmonzern,ifpmonzern)
 
         print*,'************** -->GMIG: After GMI_DVR'
 

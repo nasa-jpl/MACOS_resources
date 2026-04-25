@@ -7,10 +7,10 @@ C***********************************************************************
 
 
 	Integer, parameter ::
-     &             numseg    =  6,   ! max # of segments
+     &             numseg    =  7,   ! max # of segments
      &             numacf    =  6,
      &             numSAF    =  0,   ! max # of sub-aperture flats (ACFs = SAFs)
-     &             mzern     = 12,
+     &             mzern     = 15,
 !    &             mgrid     = 256,
      &             mgrid     = 99,
      &             mgrid2    = mgrid*mgrid,
