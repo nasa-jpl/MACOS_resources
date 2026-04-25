@@ -102,6 +102,7 @@ C	 mMeas = 6 x mSeg
      &	TbSeg(3,3,mSeg)
 
 	CHARACTER*8 Cinteger
+	CHARACTER*20 GridTypeStr
 	INTEGER i,j,k,ip3,jp3,iRay,iElt,iEm1,iSeg,iRing,iLeg,jSeg,nR2,
      &	iAdj,iMeas,nMeas,nState,iEltPrt,iPrt
 	REAL*8 radhat(3),tanhat(3),normhat(3),SegSize,MirApDiam,width,
@@ -244,6 +245,8 @@ C  Dialog for parameters of base mirror
 	CALL IACCEPT(parentEltIn,parentEltDef,1,
      &	  'Enter number of rings:')
 	nRing = parentEltIn(1)
+	CALL CACCEPT(GridTypeStr,'Hex',
+     &	  'Enter ray grid type (Circular, Square, Hex, Pie, Flower):')
 	CALL ZERO(prot,3)
 	IF (parentIsFF) THEN
 	  CALL EQUATE(pv,pv_p,3)
@@ -359,6 +362,8 @@ C  them in the final .presc file.
 
 	OPEN(8, STATUS='SCRATCH')
 
+	lMon_p = L2   ! per-segment Mon aperture = half segment size
+
 	iElt=0
 	iPrt=iEltPrt-1
 	jSeg=0
@@ -473,6 +478,7 @@ C - Find surface normal and local coordinates
 C  Build source-section header in scratch unit 9 (matches SegDemo3.in
 C  layout).  Segment blocks are already buffered in scratch unit 8.
 	OPEN(9, STATUS='SCRATCH')
+	WRITE(9,'(12x,"GridType=  ",A)') TRIM(GridTypeStr)
 	WRITE(9,570) nElt
 	WRITE(9,'(12x,"width=  ",A)') TRIM(FmtD(width))
 	WRITE(9,'(14x,"gap=  ",A)') TRIM(FmtD(gap))
@@ -1555,56 +1561,41 @@ C***********************************************************************
 	INTEGER modesFF(mFFCoef), modesMon(mMonCoef)
 	REAL*8  coefsFF(mFFCoef), coefsMon(mMonCoef)
 	CHARACTER*32 zernTypeFF, zernTypeMon
+	CHARACTER(LEN=300) :: line
 
-C  Original SMPGe legacy formats (unchanged)
- 500	FORMAT(1P,'    iElt= ',i4/' EltName=  Seg',A/' EltType=  5'/
-     &	'    fElt= ',d17.9/'    eElt= ',d17.9/'  psiElt= ',3d17.9/
-     &	'  VptElt= ',3d17.9/'  RptElt= ',3d17.9/'  IndRef=  1d0'/
-     &	'    zElt= ',d17.9/'PropType= 1'/' nECoord=',i2)
- 501	FORMAT(1P,'    TElt= ',6d17.9)
- 502	FORMAT(1P,10x,6d17.9)
-
-C  FreeForm-segment formats (MACOS keyword conventions)
- 600	FORMAT(1P,'    iElt= ',i4/' EltName=  Seg',A/
-     &	' Element=  Segment'/' Surface=  FreeForm'/
-     &	'    fElt= ',d17.9/'    eElt= ',d17.9/
-     &	'   KrElt= ',d17.9/'   KcElt= ',d17.9/
-     &	'  psiElt= ',3d17.9/'  VptElt= ',3d17.9/
-     &	'  RptElt= ',3d17.9)
  601	FORMAT(' FFZernType=  ',A)
  602	FORMAT('nFFZernCoef= ',i4)
  603	FORMAT('FFZernModes= ',6(i4,1x))
- 604	FORMAT(1P,' FFZernCoef= ',6d23.15)
- 605	FORMAT(1P,' FFZernCoef=  0d0')
- 606	FORMAT(1P,'     lFF= ',d17.9)
  607	FORMAT('MonZernType=  ',A)
  608	FORMAT('nMonZernCoef=    1')
- 609	FORMAT(1P,' MonZernCoef=  0d0')
- 620	FORMAT(1P,'    lMon= ',d17.9)
- 621	FORMAT('nMonZernCoef= ',i4)
- 622	FORMAT('MonZernModes= ',6(i4,1x))
- 623	FORMAT(1P,' MonZernCoef= ',6d23.15)
  611	FORMAT(' nGridMat= ',i4)
  612	FORMAT(' GridFile=  ',A)
- 613	FORMAT(1P,'GridSrfdx= ',d17.9)
- 614	FORMAT(1P,'     pFF= ',3d17.9/'     xFF= ',3d17.9/
-     &	'     yFF= ',3d17.9/'     zFF= ',3d17.9)
- 619	FORMAT(1P,'    pMon= ',3d17.9/'    xMon= ',3d17.9/
-     &	'    yMon= ',3d17.9/'    zMon= ',3d17.9)
- 615	FORMAT(1P,'   pData= ',3d17.9/'   xData= ',3d17.9/
-     &	'   yData= ',3d17.9/'   zData= ',3d17.9)
- 616	FORMAT('  IndRef=  1d0'/'    zElt=  0d0'/'PropType= 1'/
-     &	' nECoord=',i2)
- 617	FORMAT(1P,'    TElt= ',6d17.9)
- 618	FORMAT(1P,10x,6d17.9)
+ 621	FORMAT('nMonZernCoef= ',i4)
+ 622	FORMAT('MonZernModes= ',6(i4,1x))
 
 	IF (.NOT.parentIsFF) THEN
-C	  Legacy conic segment output (byte-identical to SMPGe)
-	  WRITE(iUnit,500)iPrt,TRIM(Cinteger),f,e,psi,pv,pr,0d0,iDOF
-	  WRITE(iUnit,501)(TElt(1,i),i=1,6)
+C	  Legacy conic segment output
+	  WRITE(iUnit,'(A,I4)')    '    iElt=', iPrt
+	  WRITE(iUnit,'(A,A)')     ' EltName=  Seg', TRIM(Cinteger)
+	  WRITE(iUnit,'(A)')       ' EltType=  5'
+	  WRITE(iUnit,'(A,2x,A)')  '    fElt=', TRIM(FmtD(f))
+	  WRITE(iUnit,'(A,2x,A)')  '    eElt=', TRIM(FmtD(e))
+	  WRITE(iUnit,'(A,3(2x,A))') '  psiElt=',
+     &	    TRIM(FmtD(psi(1))),TRIM(FmtD(psi(2))),TRIM(FmtD(psi(3)))
+	  WRITE(iUnit,'(A,3(2x,A))') '  VptElt=',
+     &	    TRIM(FmtD(pv(1))),TRIM(FmtD(pv(2))),TRIM(FmtD(pv(3)))
+	  WRITE(iUnit,'(A,3(2x,A))') '  RptElt=',
+     &	    TRIM(FmtD(pr(1))),TRIM(FmtD(pr(2))),TRIM(FmtD(pr(3)))
+	  WRITE(iUnit,'(A)')       '  IndRef=  1d0'
+	  WRITE(iUnit,'(A,2x,A)')  '    zElt=', TRIM(FmtD(0d0))
+	  WRITE(iUnit,'(A)')       ' PropType= 1'
+	  WRITE(iUnit,'(A,I2)')    '  nECoord=', iDOF
+	  WRITE(iUnit,'(A,6(2x,A))') '    TElt=',
+     &	    (TRIM(FmtD(TElt(1,k))),k=1,6)
 	  DO i=2,6
-	    WRITE(iUnit,502)(TElt(i,k),k=1,6)
+	    WRITE(iUnit,'(10x,6(2x,A))') (TRIM(FmtD(TElt(i,k))),k=1,6)
 	  END DO
+	  WRITE(iUnit,'()')
 	  RETURN
 	END IF
 
@@ -1631,17 +1622,42 @@ C  FreeForm segment output -----------------------------------------
 	  END IF
 	END DO
 
-	WRITE(iUnit,600)iPrt,TRIM(Cinteger),f,e,Kr_p,Kc_p,psi,pv,pr
+	WRITE(iUnit,'(A,I4)')    '    iElt=', iPrt
+	WRITE(iUnit,'(A,A)')     ' EltName=  Seg', TRIM(Cinteger)
+	WRITE(iUnit,'(A)')       ' Element=  Segment'
+	WRITE(iUnit,'(A)')       ' Surface=  FreeForm'
+	WRITE(iUnit,'(A,2x,A)')  '    fElt=', TRIM(FmtD(f))
+	WRITE(iUnit,'(A,2x,A)')  '    eElt=', TRIM(FmtD(e))
+	WRITE(iUnit,'(A,2x,A)')  '   KrElt=', TRIM(FmtD(Kr_p))
+	WRITE(iUnit,'(A,2x,A)')  '   KcElt=', TRIM(FmtD(Kc_p))
+	WRITE(iUnit,'(A,3(2x,A))') '  psiElt=',
+     &	  TRIM(FmtD(psi(1))),TRIM(FmtD(psi(2))),TRIM(FmtD(psi(3)))
+	WRITE(iUnit,'(A,3(2x,A))') '  VptElt=',
+     &	  TRIM(FmtD(pv(1))),TRIM(FmtD(pv(2))),TRIM(FmtD(pv(3)))
+	WRITE(iUnit,'(A,3(2x,A))') '  RptElt=',
+     &	  TRIM(FmtD(pr(1))),TRIM(FmtD(pr(2))),TRIM(FmtD(pr(3)))
+
 	WRITE(iUnit,601)TRIM(zernTypeFF)
 	IF (nFFnz.EQ.0) THEN
 	  WRITE(iUnit,'(A)')'nFFZernCoef=    1'
-	  WRITE(iUnit,605)
+	  WRITE(iUnit,'(A)')' FFZernCoef=  0d0'
 	ELSE
 	  WRITE(iUnit,602)nFFnz
 	  WRITE(iUnit,603)(modesFF(i),i=1,nFFnz)
-	  WRITE(iUnit,604)(coefsFF(i),i=1,nFFnz)
+	  line = ''
+	  DO i=1,MIN(nFFnz,6)
+	    line = TRIM(line)//'  '//TRIM(FmtD(coefsFF(i)))
+	  END DO
+	  WRITE(iUnit,'(A,A)') ' FFZernCoef=', TRIM(line)
+	  DO i=7,nFFnz,6
+	    line = ''
+	    DO k=i,MIN(i+5,nFFnz)
+	      line = TRIM(line)//'  '//TRIM(FmtD(coefsFF(k)))
+	    END DO
+	    WRITE(iUnit,'(12x,A)') TRIM(line)
+	  END DO
 	END IF
-	WRITE(iUnit,606)lFF_p
+	WRITE(iUnit,'(A,2x,A)') '     lFF=', TRIM(FmtD(lFF_p))
 
 C  Mon: replicate parent's Mon (if any) into every segment's Mon slot.
 C  Each segment's Mon coordinate frame is its own (pMon=RptElt,
@@ -1657,31 +1673,73 @@ C  {xMon,yMon,zMon}=segment face triad), emitted below via format 619.
 	END DO
 	IF (nMonnz.EQ.0) THEN
 	  WRITE(iUnit,608)
-	  WRITE(iUnit,609)
+	  WRITE(iUnit,622) 1
+	  WRITE(iUnit,'(A)')' MonZernCoef=  0d0'
 	ELSE
 	  WRITE(iUnit,621)nMonnz
 	  WRITE(iUnit,622)(modesMon(i),i=1,nMonnz)
-	  WRITE(iUnit,623)(coefsMon(i),i=1,nMonnz)
+	  line = ''
+	  DO i=1,MIN(nMonnz,6)
+	    line = TRIM(line)//'  '//TRIM(FmtD(coefsMon(i)))
+	  END DO
+	  WRITE(iUnit,'(A,A)') ' MonZernCoef=', TRIM(line)
+	  DO i=7,nMonnz,6
+	    line = ''
+	    DO k=i,MIN(i+5,nMonnz)
+	      line = TRIM(line)//'  '//TRIM(FmtD(coefsMon(k)))
+	    END DO
+	    WRITE(iUnit,'(13x,A)') TRIM(line)
+	  END DO
 	END IF
-	WRITE(iUnit,620)lMon_p
+	WRITE(iUnit,'(A,2x,A)') '    lMon=', TRIM(FmtD(lMon_p))
 
 	IF (nGridMat_p.GT.0) THEN
 	  WRITE(iUnit,611)nGridMat_p
 	  WRITE(iUnit,612)TRIM(GridFile_p)
-	  WRITE(iUnit,613)GridSrfdx_p
+	  WRITE(iUnit,'(A,2x,A)') ' GridSrfdx=', TRIM(FmtD(GridSrfdx_p))
 	END IF
 
-	WRITE(iUnit,614)pFF_p,xFF_p,yFF_p,zFF_p
-	WRITE(iUnit,619)pr,xhat,yhat,zhat
+	WRITE(iUnit,'(A,3(2x,A))') '     pFF=',
+     &	  TRIM(FmtD(pFF_p(1))),TRIM(FmtD(pFF_p(2))),TRIM(FmtD(pFF_p(3)))
+	WRITE(iUnit,'(A,3(2x,A))') '     xFF=',
+     &	  TRIM(FmtD(xFF_p(1))),TRIM(FmtD(xFF_p(2))),TRIM(FmtD(xFF_p(3)))
+	WRITE(iUnit,'(A,3(2x,A))') '     yFF=',
+     &	  TRIM(FmtD(yFF_p(1))),TRIM(FmtD(yFF_p(2))),TRIM(FmtD(yFF_p(3)))
+	WRITE(iUnit,'(A,3(2x,A))') '     zFF=',
+     &	  TRIM(FmtD(zFF_p(1))),TRIM(FmtD(zFF_p(2))),TRIM(FmtD(zFF_p(3)))
+	WRITE(iUnit,'(A,3(2x,A))') '    pMon=',
+     &	  TRIM(FmtD(pr(1))),TRIM(FmtD(pr(2))),TRIM(FmtD(pr(3)))
+	WRITE(iUnit,'(A,3(2x,A))') '    xMon=',
+     &	  TRIM(FmtD(xhat(1))),TRIM(FmtD(xhat(2))),TRIM(FmtD(xhat(3)))
+	WRITE(iUnit,'(A,3(2x,A))') '    yMon=',
+     &	  TRIM(FmtD(yhat(1))),TRIM(FmtD(yhat(2))),TRIM(FmtD(yhat(3)))
+	WRITE(iUnit,'(A,3(2x,A))') '    zMon=',
+     &	  TRIM(FmtD(zhat(1))),TRIM(FmtD(zhat(2))),TRIM(FmtD(zhat(3)))
 	IF (nGridMat_p.GT.0) THEN
-	  WRITE(iUnit,615)pData_p,xData_p,yData_p,zData_p
+	  WRITE(iUnit,'(A,3(2x,A))') '   pData=',
+     &	    TRIM(FmtD(pData_p(1))),TRIM(FmtD(pData_p(2))),
+     &	    TRIM(FmtD(pData_p(3)))
+	  WRITE(iUnit,'(A,3(2x,A))') '   xData=',
+     &	    TRIM(FmtD(xData_p(1))),TRIM(FmtD(xData_p(2))),
+     &	    TRIM(FmtD(xData_p(3)))
+	  WRITE(iUnit,'(A,3(2x,A))') '   yData=',
+     &	    TRIM(FmtD(yData_p(1))),TRIM(FmtD(yData_p(2))),
+     &	    TRIM(FmtD(yData_p(3)))
+	  WRITE(iUnit,'(A,3(2x,A))') '   zData=',
+     &	    TRIM(FmtD(zData_p(1))),TRIM(FmtD(zData_p(2))),
+     &	    TRIM(FmtD(zData_p(3)))
 	END IF
 
-	WRITE(iUnit,616)iDOF
-	WRITE(iUnit,617)(TElt(1,i),i=1,6)
+	WRITE(iUnit,'(A)')       '  IndRef=  1d0'
+	WRITE(iUnit,'(A)')       '    zElt=  0d0'
+	WRITE(iUnit,'(A)')       ' PropType= 1'
+	WRITE(iUnit,'(A,I2)')    '  nECoord=', iDOF
+	WRITE(iUnit,'(A,6(2x,A))') '    TElt=',
+     &	  (TRIM(FmtD(TElt(1,k))),k=1,6)
 	DO i=2,6
-	  WRITE(iUnit,618)(TElt(i,k),k=1,6)
+	  WRITE(iUnit,'(10x,6(2x,A))') (TRIM(FmtD(TElt(i,k))),k=1,6)
 	END DO
+	WRITE(iUnit,'()')
 
 	RETURN
 	END
