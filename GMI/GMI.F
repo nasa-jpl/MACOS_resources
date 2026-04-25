@@ -23,7 +23,9 @@ C**************************************************************************
         IMPLICIT NONE
 
         REAL*8, dimension(:,:), allocatable, save :: psiNom,
-     &          vptNom,rptNom,pNom,xNom,yNom,zNom,ObsTypeNom
+     &          vptNom,rptNom,pNom,xNom,yNom,zNom,ObsTypeNom,
+     &          pFFNom,xFFNom,yFFNom,zFFNom,
+     &          pDataNom,xDataNom,yDataNom,zDataNom
         REAL*8, dimension(:,:,:), allocatable, save :: SrfMetPosNom
 
 #if 0
@@ -55,7 +57,8 @@ C**************************************************************************
      &     cent,USER,prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,
      &     ifprb,ifpzern,ifpgrid,ifpdm,ifpfa,ifprad,ifpflg,
      &     ifInitOptics,nPix,Npimg,InfFcnZern,InfFcnGrid,fname,
-     &     modelsize,ip,np)
+     &     modelsize,ip,np,
+     &     pmonzern,ifpmonzern)
 
         IMPLICIT NONE
 
@@ -65,12 +68,12 @@ C**************************************************************************
 
         ! Non-dynamic array arguments
         REAL*8, dimension(:) :: prb,pzern,pgrid,pdm,
-     &          pfa,prad,pimg,pflg,cent,USER,InfFcnZern
+     &          pfa,prad,pimg,pflg,cent,USER,InfFcnZern,pmonzern
         REAL*8, dimension(:,:) :: InfFcnGrid
         REAL*8 :: WFError
         Logical :: ifprb,ifpzern,ifpgrid,ifpdm,ifpfa,ifprad,
      &             ifpimg,ifpflg,ifInitOptics,ifMet,ifSpf,
-     &             rxStopSetSave
+     &             rxStopSetSave,ifpmonzern
         Integer :: nPix,Npimg,modelsize,ip,np
         character fname*(*)
 
@@ -103,7 +106,9 @@ C**************************************************************************
      &    idmSrf,jdmSrf,dmSrf(mprb),ldmSrf(mElt),LensElt,Segsrf(mprb),
      &    minrbSrf,nFSM,iFSM(4),irbSrf,jrbSrf,rbSrf(mprb),iRptSrf,
      &    jRptSrf,RptSrf(mElt),ifPupilImg,DBias,ifFEX,numspot(numseg),
-     &    wlens,m_err_jwst,NumChkThr,NumOverThreshold,ifRetRefSrf,iWF
+     &    wlens,m_err_jwst,NumChkThr,NumOverThreshold,ifRetRefSrf,iWF,
+     &    nmonzern,imonzernSrf,jmonzernSrf,monzernSrf(mprb),
+     &    lmonzernSrf(mElt)
 
         Integer, save :: ifRetUserSrf
 
@@ -157,7 +162,12 @@ C  Run parameters
      &             IndRefNom(mElt),nObsNom(mElt),ObsTypeNom(1,mElt),
      &             ObsVecNom(6,mObs,mElt),
      &             SrfMetPosNom(3,mMetPos,mMetSrf),
-     &             TEltNom(6,6,mElt), stat=m_err_jwst)
+     &             TEltNom(6,6,mElt),
+     &             pFFNom(3,mElt),xFFNom(3,mElt),
+     &             yFFNom(3,mElt),zFFNom(3,mElt),
+     &             pDataNom(3,mElt),xDataNom(3,mElt),
+     &             yDataNom(3,mElt),zDataNom(3,mElt),
+     &             stat=m_err_jwst)
           IF (m_err_jwst /= 0) THEN
             call macos_memory_failure('jwst: allocate failed!')
             stop "*** Memory allocation failed ***"
@@ -615,6 +625,14 @@ C  Run parameters
               xNom(i,iElt)        = xMon(i,iElt)
               yNom(i,iElt)        = yMon(i,iElt)
               zNom(i,iElt)        = zMon(i,iElt)
+              pFFNom(i,iElt)      = pFF(i,iElt)
+              xFFNom(i,iElt)      = xFF(i,iElt)
+              yFFNom(i,iElt)      = yFF(i,iElt)
+              zFFNom(i,iElt)      = zFF(i,iElt)
+              pDataNom(i,iElt)    = pData(i,iElt)
+              xDataNom(i,iElt)    = xData(i,iElt)
+              yDataNom(i,iElt)    = yData(i,iElt)
+              zDataNom(i,iElt)    = zData(i,iElt)
               ObsVecNom(i,1,iElt) = ObsVec(i,1,iElt)
               CALL DEQUATE(TEltNom(1,1,iElt),TElt(1,1,iElt),36)
             END DO
@@ -655,6 +673,14 @@ C  Run parameters
               xMon(i,iElt)     = xNom(i,iElt)
               yMon(i,iElt)     = yNom(i,iElt)
               zMon(i,iElt)     = zNom(i,iElt)
+              pFF(i,iElt)      = pFFNom(i,iElt)
+              xFF(i,iElt)      = xFFNom(i,iElt)
+              yFF(i,iElt)      = yFFNom(i,iElt)
+              zFF(i,iElt)      = zFFNom(i,iElt)
+              pData(i,iElt)    = pDataNom(i,iElt)
+              xData(i,iElt)    = xDataNom(i,iElt)
+              yData(i,iElt)    = yDataNom(i,iElt)
+              zData(i,iElt)    = zDataNom(i,iElt)
               ObsVec(i,1,iElt) = ObsVecNom(i,1,iElt)
             END DO
             CALL DEQUATE(TElt(1,1,iElt),TEltNom(1,1,iElt),36)
@@ -903,6 +929,35 @@ C  Run parameters
                 IF (MsgsOn) WRITE(P,*)'USER(',i,') =',USER(i)
               END DO
             END IF
+
+            ! ------------------------------------
+            ! monzernSrf (pmonzern) -- mirrors zernSrf
+            ! Parallel to zernSrf, but for FreeForm surfaces:
+            ! pmonzern values land in MonZernCoef(:,iElt) instead of
+            ! ZernCoef(:,iElt).  Encoded at end of pflg with 9999
+            ! sentinel so old callers (no monzernSrf field) leave the
+            ! pflg slot at 0 and we treat that as "absent".
+            ! ------------------------------------
+            lmonzernSrf = 0
+            nmonzern    = nzern   ! default: same mode count as Zernike block
+            ipflg = ipflg + 1
+            imonzernSrf = pflg(ipflg)
+            If (imonzernSrf /= 9999 .and. imonzernSrf > 0) Then
+              IF (MsgsOn) WRITE(P,*)'imonzernSrf =',imonzernSrf
+              ipflg = ipflg + 1
+              jmonzernSrf = pflg(ipflg)
+              IF (MsgsOn) WRITE(P,*)'jmonzernSrf =',jmonzernSrf
+              DO i=1,imonzernSrf*jmonzernSrf
+                ipflg = ipflg + 1
+                monzernSrf(i) = pflg(ipflg)
+                IF (MsgsOn) WRITE(P,*)
+     &            'monzernSrf(',i,') =',monzernSrf(i)
+                lmonzernSrf(INT(pflg(ipflg)))=1
+              END DO
+            Else
+              imonzernSrf = 0
+              jmonzernSrf = 0
+            End If
           ELSE
 	    ! .not. ifpflg
             IF (MsgsOn) WRITE(P,*)' into else IF (ifpflg) ',ifpflg
@@ -929,6 +984,10 @@ C  Run parameters
             ifPIXflip          = .FALSE.
             ifRetRefSrf        = 0
             ifPIXSpotDetCheck  = .FALSE.
+            imonzernSrf        = 0
+            jmonzernSrf        = 0
+            lmonzernSrf        = 0
+            nmonzern           = nzern
           END IF
         END SUBROUTINE ExtractFlagParameters
          
@@ -977,6 +1036,53 @@ C  Run parameters
 	    END DO
 	  END DO
 	END IF !of ifpzern check
+
+        ! ------------------------------------
+        ! Implement MonZernike (FreeForm Mon component) deformations
+        ! Parallel to the ifpzern block above, but writes into
+        ! MonZernCoef(:,iElt) on FreeForm surfaces (SrfType=14).
+        ! Surface type is NOT changed here -- caller must already
+        ! have the target element configured as FreeForm.
+        ! ------------------------------------
+	IF (MsgsOn) WRITE(P,*)'ifpmonzern =',ifpmonzern
+	IF (ifpmonzern) THEN
+	  iSeg = 0
+	  DO j=1,jmonzernSrf
+	    k = 0
+	    DO  i=1,imonzernSrf
+	      iSeg = iSeg + 1
+	      iElt = monzernSrf(iSeg)
+	      IF (iElt.GT.0) THEN
+		IF (MsgsOn)
+     &		  WRITE(P,*)'monzern app. to monzernSrf ',iSeg,
+     &                    ', Elt ',iElt
+		DO iNode=4,nmonzern+3   ! skip tip, tilt, piston
+		  k=k+1
+		  MonZernCoef(iNode,iElt)=pmonzern(k)
+		  IF (MsgsOn)
+     &		    WRITE(P,*)'MonZernCoef(',iNode,iElt,') =',
+     &                      pmonzern(k)
+		END DO
+	      ELSE IF (iElt.LT.0) THEN
+		IF (MsgsOn) WRITE(P,*)'negative value for element'
+	      ELSE
+	      END IF
+	    END DO
+	  END DO
+	ELSE
+	  iSeg = 0
+	  DO j=1,jmonzernSrf
+	    DO  i=1,imonzernSrf
+	      iSeg = iSeg + 1
+	      iElt = monzernSrf(iSeg)
+	      IF (iElt.GT.0) THEN
+	        DO iNode=1,15
+		  MonZernCoef(iNode,iElt)=0.d0
+	        END DO
+	      END IF
+	    END DO
+	  END DO
+	END IF !of ifpmonzern check
 
 	print*,'GMI-applyPert: check-point 1'
 	

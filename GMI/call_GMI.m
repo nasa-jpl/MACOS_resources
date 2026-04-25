@@ -212,6 +212,21 @@ if isfield(param,'ifFEX'),
  end
 end;
 
+% ----------------------------------------------------
+% Set up monzernSrf information in pflg
+% Mirrors zernSrf, but for FreeForm Mon component (MonZernCoef).
+% Write 9999 sentinel when absent so GMI.F can detect "no monzernSrf".
+% ----------------------------------------------------
+if isfield(param,'monzernSrf'),
+ ipflg = ipflg+1;  pflg(ipflg) = size(param.monzernSrf,1); % # of monzernSrfs
+ ipflg = ipflg+1;  pflg(ipflg) = size(param.monzernSrf,2); % # of passes of monzernSrfs
+ for i=1:size(param.monzernSrf,1)*size(param.monzernSrf,2)
+   ipflg = ipflg+1;  pflg(ipflg) = param.monzernSrf(i);
+ end
+else,
+ ipflg = ipflg+1;  pflg(ipflg) = 9999;
+end;
+
 if isfield(param,'RefSurfs')
    ipflg = ipflg+1;  pflg(ipflg) = length(param.RefSurfs); % # of Ref surfaces
    for i=1:length(param.RefSurfs)
@@ -246,17 +261,25 @@ if winfil
    fclose(fid);
 end
 
+% pmonzern: parallel to pzern, applied to MonZernCoef on FreeForm
+% surfaces.  Optional; pass scalar 0 if not provided.
+if isfield(param,'pmonzern'),
+  pmonzern = param.pmonzern;
+else
+  pmonzern = 0;
+end
+
 if 1,
   [PIX,ER,EI,OPD,OPDMask,SPOT,WFE,c,metMeas,USER] = ...
      GMI(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
-         fname,param.mdttl,param.nProc);
+         fname,param.mdttl,param.nProc,pmonzern);
      CE = complex(ER,EI);
      %GMI_mex(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
 else
   % old version
   [OPD,WFE,USER] = ...
      GMI(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
-         fname,param.mdttl);
+         fname,param.mdttl,param.nProc,pmonzern);
      !GMI_mex(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
   PIX=[];
   SPOT=[];
