@@ -17,8 +17,13 @@ segmirmaker/test_in/SegMirMaker
 segmirmaker/test_in/*.presc
 segmirmaker/test_in/*Hx.m
 
-# Matlab autosave
+# Matlab autosave + output caches
 *.asv
+GMI/test_ff/*.mat
+
+# Runtime binaries and resources copied into test_ff for convenience
+GMI/test_ff/libpgplot.so
+GMI/test_ff/grfont.dat
 
 # macOS metadata
 .DS_Store
