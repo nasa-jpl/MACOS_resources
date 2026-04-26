@@ -1,0 +1,130 @@
+
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0D+00  0.0D+00  1.0D+00
+        ChfRayPos=  0.0D+00  0.0D+00 -1.0D+02
+          zSource=  1.0D+22
+
+        BaseUnits=  mm
+        WaveUnits=  mm
+
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+          Wavelen=  6.328000000000000D-04
+             Flux=  1.0D+00
+
+         Aperture=  5.0D+00
+         Obscratn=  0.0D+00
+
+         GridType=  Circular
+         nGridpts=  256
+            xGrid=  1.0D+00  0.0D+00  0.0D+00
+            yGrid=  0.0D+00  1.0D+00  0.0D+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  4
+
+
+             iElt=  1
+          EltName=  ZGD_reflector
+          Element=  Reflector
+          Surface=  ZrnGrData
+            KrElt= -1.25D+01
+            KcElt= -1.0D+00
+           psiElt=  0.0D+00  0.0D+00 -1.0D+00
+           VptElt=  0.0D+00  0.0D+00  0.0D+00
+           RptElt=  0.0D+00  0.0D+00  0.0D+00
+         ZernType=  ANSI
+        nZernCoef=   4
+        ZernModes=  14  15  19 38
+         ZernCoef=  3.0D-04  4.0D-04  1.0D-05  1.0D-05
+             lMon=  2.5D+00
+         nGridMat=  256
+         GridFile=  zern41em5z155em3.txt
+        GridSrfdx=  1.2D-02
+             pMon=  0.0D+00  0.0D+00  0.0D+00
+             xMon= -1.0D+00  0.0D+00  0.0D+00
+             yMon=  0.0D+00  1.0D+00  0.0D+00
+             zMon=  0.0D+00  0.0D+00 -1.0D+00
+            pData=  2.0D+00  0.0D+00  0.0D+00
+            xData= -1.0D+00  0.0D+00  0.0D+00
+            yData=  0.0D+00  1.0D+00  0.0D+00
+            zData=  0.0D+00  0.0D+00 -1.0D+00
+           IndRef=  1.0D+00
+           Extinc=  1.0D+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  2.5D+02
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Focus
+          Element=  Return
+          Surface=  Flat
+            KrElt= -1.0D+22
+            KcElt=  0.0D+00
+           psiElt=  0.0D+00  0.0D+00 -1.0D+00
+           VptElt=  0.0D+00  0.0D+00 -6.25D+00
+           RptElt=  0.0D+00  0.0D+00 -6.25D+00
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.0D+22
+          nECoord= -6
+
+             iElt=  3
+          EltName=  ExitPupil
+          Element=  Return
+          Surface=  Conic
+            KrElt= -6.25D+00
+            KcElt=  0.0D+00
+           psiElt=  0.0D+00  0.0D+00 -1.0D+00
+           VptElt=  0.0D+00  0.0D+00  0.0D+00
+           RptElt=  0.0D+00  0.0D+00  0.0D+00
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.0D+22
+          nECoord= -6
+
+             iElt=  4
+          EltName=  FP
+          Element=  Reference
+          Surface=  Flat
+            KrElt= -1.0D+22
+            KcElt=  0.0D+00
+           psiElt=  0.0D+00  0.0D+00 -1.0D+00
+           VptElt=  0.0D+00  0.0D+00 -6.25D+00
+           RptElt=  0.0D+00  0.0D+00 -6.25D+00
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.0D+22
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00
