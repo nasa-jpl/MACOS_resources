@@ -1460,9 +1460,16 @@ C***********************************************************************
      &	  lFF, pFF, xFF, yFF, zFF, FFCoef,
      &	  FFZernTypeL, FFZernCoef, MonZernTypeL, MonZernCoef,
      &	  nGridMat, iEltToGridSrf, GridMat, GridSrfdx,
-     &	  pData, xData, yData, zData, mElt, mFFCoef, mMonCoef
+     &	  pData, xData, yData, zData, mElt, mFFCoef, mMonCoef,
+     &	  ZernType_ANSI, ZernType_BornWolf, ZernType_Fringe,
+     &	  ZernType_NormANSI, ZernType_NormBornWolf,
+     &	  ZernType_NormFringe, ZernType_NormHex,
+     &	  ZernType_Noll, ZernType_NormNoll,
+     &	  ZernType_NormAnnularNoll, ZernAnnuRatio
 	USE param_mod,   ONLY: mGridMat
 	USE cfiles_mod,  ONLY: GridFile
+	USE surfsub,     ONLY: ZerntoMon1, ZerntoMon2, ZerntoMon3,
+     &	  ZerntoMon4, ZerntoMon6, ZerntoMon7
 	USE segmir_parent_mod
 	IMPLICIT NONE
 	INTEGER, INTENT(IN) :: iParent
@@ -1543,6 +1550,56 @@ C  (same convention used by SMPGe's dialog defaults).
 	      GridMat_p(i,j) = GridMat(i,j,jG)
 	    END DO
 	  END DO
+	END IF
+
+C  Populate FFCoef_p / MonCoef_p (monomial form) from the parent's
+C  FFZernCoef / MonZernCoef (Zernike form).  In MACOS this conversion
+C  normally happens in CTRACE at trace time (tracesub.F:1316-1395), so
+C  if SegMirMaker reads FFCoef/MonCoef directly out of elt_mod after
+C  OLD (with no intervening trace), the arrays are still zero and
+C  SurfCoordFF would compute the conic-only intersection -- placing
+C  RptElt off the actual FreeForm surface by the FF sag (~mm).  Mirror
+C  the trace-time dispatch here so RptElt lands on the FreeForm
+C  surface that MACOS will see at trace time.
+
+C  -- FF Zernikes --
+	IF (FFZernTypeL_p.EQ.ZernType_ANSI .OR.
+     &      FFZernTypeL_p.EQ.ZernType_NormANSI) THEN
+	  CALL ZerntoMon1(FFZernCoef_p, FFCoef_p, iParent)
+	ELSE IF (FFZernTypeL_p.EQ.ZernType_BornWolf .OR.
+     &           FFZernTypeL_p.EQ.ZernType_NormBornWolf) THEN
+	  CALL ZerntoMon2(FFZernCoef_p, FFCoef_p, iParent)
+	ELSE IF (FFZernTypeL_p.EQ.ZernType_Fringe .OR.
+     &           FFZernTypeL_p.EQ.ZernType_NormFringe) THEN
+	  CALL ZerntoMon3(FFZernCoef_p, FFCoef_p, iParent)
+	ELSE IF (FFZernTypeL_p.EQ.ZernType_NormHex) THEN
+	  CALL ZerntoMon4(FFZernCoef_p, FFCoef_p)
+	ELSE IF (FFZernTypeL_p.EQ.ZernType_NormNoll .OR.
+     &           FFZernTypeL_p.EQ.ZernType_Noll) THEN
+	  CALL ZerntoMon6(FFZernCoef_p, FFCoef_p, iParent)
+	ELSE IF (FFZernTypeL_p.EQ.ZernType_NormAnnularNoll) THEN
+	  CALL ZerntoMon7(FFZernCoef_p, FFCoef_p,
+     &                    ZernAnnuRatio(iParent))
+	END IF
+
+C  -- Mon Zernikes --
+	IF (MonZernTypeL_p.EQ.ZernType_ANSI .OR.
+     &      MonZernTypeL_p.EQ.ZernType_NormANSI) THEN
+	  CALL ZerntoMon1(MonZernCoef_p, MonCoef_p, iParent)
+	ELSE IF (MonZernTypeL_p.EQ.ZernType_BornWolf .OR.
+     &           MonZernTypeL_p.EQ.ZernType_NormBornWolf) THEN
+	  CALL ZerntoMon2(MonZernCoef_p, MonCoef_p, iParent)
+	ELSE IF (MonZernTypeL_p.EQ.ZernType_Fringe .OR.
+     &           MonZernTypeL_p.EQ.ZernType_NormFringe) THEN
+	  CALL ZerntoMon3(MonZernCoef_p, MonCoef_p, iParent)
+	ELSE IF (MonZernTypeL_p.EQ.ZernType_NormHex) THEN
+	  CALL ZerntoMon4(MonZernCoef_p, MonCoef_p)
+	ELSE IF (MonZernTypeL_p.EQ.ZernType_NormNoll .OR.
+     &           MonZernTypeL_p.EQ.ZernType_Noll) THEN
+	  CALL ZerntoMon6(MonZernCoef_p, MonCoef_p, iParent)
+	ELSE IF (MonZernTypeL_p.EQ.ZernType_NormAnnularNoll) THEN
+	  CALL ZerntoMon7(MonZernCoef_p, MonCoef_p,
+     &                    ZernAnnuRatio(iParent))
 	END IF
 
 	parentElt  = iParent
