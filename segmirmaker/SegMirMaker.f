@@ -281,6 +281,21 @@ C  Passing (psi, SegXgrid, ys) keeps psi's direction.
 	CALL DORTHOGANALIZE(psi,SegXgrid,ys)
 	xs=SegXgrid
 	zs=psi
+
+C  When psi points away from world +z (e.g., a mirror whose surface
+C  faces -z, with light arriving from -z), the DORTHOGANALIZE-derived
+C  ys ends up anti-aligned with world +y, which places iSeg=1 at
+C  lower-right physically instead of the conventional upper-left in
+C  the viewer's frame (looking from the source side toward the mirror).
+C  Rotate the in-plane basis 180 deg about zs (negate both xs and ys)
+C  so segment numbering starts at upper-left and traverses clockwise,
+C  matching the convention used for back-facing mirrors.  Frame stays
+C  right-handed.  No-op for nominal +z-facing mirrors.
+	IF (zs(3) .LT. 0d0) THEN
+	  xs(1) = -xs(1); xs(2) = -xs(2); xs(3) = -xs(3)
+	  ys(1) = -ys(1); ys(2) = -ys(2); ys(3) = -ys(3)
+	END IF
+
 	ihat(1)=-psi(1)
 	ihat(2)=-psi(2)
 	ihat(3)=-psi(3)

@@ -70,6 +70,29 @@ from `~/dev/macos/build_release_giza/` (libsmacos.a + libnpsol + lapack
 - On Y/blank: `DumpScratch(9, 2, 0)` + `DumpScratch(8, 2, 0)` flushes
   the full content (header + all segments) to the `.presc` file.
 
+## Segment placement & psi orientation
+- The in-plane `(xs, ys)` basis comes from
+  `DORTHOGANALIZE(psi, SegXgrid, ys)` which sets `ys = psi × xs` (then
+  rebuilds `xs` orthogonal to `ys`).  `zs = psi`.
+- For nominal mirrors (`psi` roughly along +z, e.g. SegDemo3 with
+  `psi=(0,0,1)`), `ys ≈ +y` in world coords and segment numbering
+  starts at upper-right (`iSeg=1` at `(+dx, +dy)`), traversing
+  counter-clockwise.
+- For back-facing mirrors (`psi` with negative z component, e.g. an
+  off-axis primary that bulges away from the source so `psi` points
+  toward the source), `ys` would naturally come out anti-aligned with
+  world +y, placing iSeg=1 at lower-right and reversing the perceived
+  rotational direction.  SegMirMaker detects this case (`zs(3) < 0`)
+  and rotates the in-plane basis 180° about `zs` (negates both `xs`
+  and `ys`).  Net effect: iSeg=1 lands at upper-left and traversal is
+  clockwise in the viewer's frame (looking from the source side
+  toward the mirror).  Frame stays right-handed.
+- Sanity-check the output by tracing a ray to the geometric middle of
+  each segment and comparing to the segment's `RptElt` — they should
+  agree to within ring-curvature precision.  Mismatch by ~180° means
+  the orientation flip didn't fire when it should have (or vice
+  versa).
+
 ## Parent-file gotchas
 - **SMACOS `OLD` appends `.in` internally.** User typing `foo.in`
   causes it to look for `foo.in.in`. SegMirMaker strips a trailing

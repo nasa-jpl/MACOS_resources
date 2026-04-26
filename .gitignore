@@ -17,5 +17,8 @@ segmirmaker/test_in/SegMirMaker
 segmirmaker/test_in/*.presc
 segmirmaker/test_in/*Hx.m
 
+# Matlab autosave
+*.asv
+
 # macOS metadata
 .DS_Store
