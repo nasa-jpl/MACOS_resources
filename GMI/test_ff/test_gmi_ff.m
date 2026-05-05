@@ -6,6 +6,8 @@
 % ------------------------------------------------------------------------------
 % Initialize parameters
 
+clear all
+
 gmi_Init_ff;  % specify Rx and other parameters
 
 prb = zeros(mprb,1);
@@ -24,14 +26,16 @@ pgrid=zeros(mgrid2,1);
 %% ------------------------------------------------------------------------
 % Nominal OPD
 
+fprintf('Nominal OPD ');
 [PIX,CEFnom,OPDnom,OPDnomMask,SPOT,WFE,c,metMeasNom,R] ...
     = call_GMI(0,0,0,0,0,0, ...
     param.pimg,InfFcnZern,InfFcnGrid,param);
+fprintf('\n');
 [vec,indx]=m2v(OPDnom);
 
 figure(1), clf
-dimage(OPDnom.*1e6,1);
-title('Nominal OPD')
+dimage(OPDnom.*1e3,1);   % mm to um
+title('Nominal OPD (um)')
 
 nseg=7;
 
@@ -43,8 +47,9 @@ dc = 1d-4;  % differential clocking
 dt = 1d-5;  % differential x and y translations
 dp = 5d-6;  % differential piston
 
+% Generate global WF mask valid for all perturbations
 if ~isfile('OPDMask_g.mat')
-    % Generate global WF mask valid for all perturbations
+    fprintf('Building global OPD mask ');
     OPDMask_g=OPDnomMask;
     for irb=1:mrbSrf
         for idof=1:6
@@ -64,12 +69,14 @@ if ~isfile('OPDMask_g.mat')
             end
         end
     end
-   prb=zeros(mprb,1);
-    %
-    save OPDMask_g OPDMask_g OPDnom;
 else
+    fprintf('Loading global OPD mask (OPDMask_g.mat)');
     load OPDMask_g;
 end
+fprintf('\n');
+prb=zeros(mprb,1);
+%
+save OPDMask_g OPDMask_g OPDnom;
 
 % Filter OPDnom and wnom with global OPD mask 'OPDMask_g'
 
@@ -83,6 +90,7 @@ title('OPD Mask')
 %% ------------------------------------------------------------------------
 % Compute dwdx, mask all OPD with OPDMask_g, and convert to um and urad
 
+fprintf('Computing dwdx ');
 dwdx=zeros(size(wnom,1),mrbSrf*6); % mrbSrf=(6+5)
 figure(3), clf
 jdof=0;
@@ -100,14 +108,19 @@ for irb=1:mrbSrf
             param.pimg,InfFcnZern,InfFcnGrid,param);
         OPD=OPD.*OPDMask_g;
         dOPD=OPD-OPDnom;
-        dimage(dOPD,1)
         w1=m2v(OPD,ix);
         dwdx(:,(irb-1)*6+idof)=(w1-wnom)/dx;
-        dimage([dOPD],1)
+        figure(3)
+        dimage(dOPD,1)
         title(['dOPD, DOF=' num2str(jdof)])
         drawnow
     end
 end
+fprintf('\n');
+
+% Keep an mm-domain copy of wnom for the dwdz loop below, since the
+% next line scales wnom to um in place.
+wnom_mm = wnom;
 
 % Convert to urad and um for wavefront sensitivity
 dwdx(:,1:6:6*mrbSrf-5)=dwdx(:,1:6:6*mrbSrf-5)/1d3;
@@ -136,6 +149,7 @@ mpmzsrf = nz*nmzsrf;
 prb_zero = 0;   %zeros(mprb,1);         % no rigid-body perturbations here
 dwdz     = zeros(size(wnom,1), mpmzsrf);
 
+fprintf('Computing dwdz ');
 figure(4), clf
 jdof = 0;
 dz   = 1d-4;
@@ -150,22 +164,23 @@ for irb = 1:nmzsrf
             param.pimg, InfFcnZern, InfFcnGrid, param);
         OPD  = OPD .* OPDMask_g;
         dOPD = OPD - OPDnom;
-        dimage(dOPD,1)
         w1   = m2v(OPD,ix);
-        dwdz(:, jdof) = (w1 - wnom) / dz;
+        dwdz(:, jdof) = (w1 - wnom_mm) / dz;   % both sides in mm
+        figure(4)
+        dimage(dOPD,1)
         title(['dOPD, MonZern DOF=' num2str(jdof) ...
                ' (seg ' num2str(irb) ' mode ' num2str(idof+3) ')'])
         drawnow
     end
 end
+fprintf('\n');
 param = rmfield(param, 'pmonzern');   % leave param clean for later calls
 
-% % Convert to urad and um for wavefront sensitivity
-% dwdx(:,1:6:6*mrbSrf-5)=dwdx(:,1:6:6*mrbSrf-5)/1d3;
-% dwdx(:,2:6:6*mrbSrf-4)=dwdx(:,2:6:6*mrbSrf-4)/1d3;
-% dwdx(:,3:6:6*mrbSrf-3)=dwdx(:,3:6:6*mrbSrf-3)/1d3;
-% wnom=wnom*1d3; % mm to um
-% elt_names = rbEltSens;
+% Scale dwdz to um for consistency with wnom (already converted above)
+% and with the _urad_um filename convention.
+dwdz = dwdz * 1d3;   % mm/dz -> um/dz
+
+elt_names = rbEltSens;
 
 save ff_pie_dwdz_urad_um dwdz wnom ix elt_names OPDMask_g;
 

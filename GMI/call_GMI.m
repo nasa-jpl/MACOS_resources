@@ -1,15 +1,15 @@
 %function [PIX,OPD,OPDMask,SPOT,WFE,c,USER] = ...
 function [PIX,CE,OPD,OPDMask,SPOT,WFE,c,metMeas,USER] = ...
-   call_GMI(prb,pzern,pgrid,pdm,pfa,prad,pimg,InfFcnZern,InfFcnGrid,param,winfil)
+    call_GMI(prb,pzern,pgrid,pdm,pfa,prad,pimg,InfFcnZern,InfFcnGrid,param,winfil)
 
 if nargin < 11, winfil = 0; end
 
 fname = param.Rx;
 
 if isfield(param,'mgrid'),
-  mgrid=param.mgrid;
+    mgrid=param.mgrid;
 else,
-  mgrid=99;  % default value
+    mgrid=99;  % default value
 end;
 
 pflg(1)  = param.ifFEX(1);
@@ -58,21 +58,21 @@ end;
 pflg(26) = param.ifPIXElt;
 
 if isfield(param,'ifMetCalc'),
-  pflg(27) = param.ifMetCalc;
+    pflg(27) = param.ifMetCalc;
 else,
-  pflg(27) = 0;
+    pflg(27) = 0;
 end;
 
 if isfield(param,'ifSpfCalc'),
-  pflg(28) = param.ifSpfCalc;
+    pflg(28) = param.ifSpfCalc;
 else,
-  pflg(28) = 0;
+    pflg(28) = 0;
 end;
 
 if isfield(param,'ifRetUserSrf'),
-  pflg(29)=param.ifRetUserSrf;
+    pflg(29)=param.ifRetUserSrf;
 else,
-  pflg(29)=0;  % default, no user surface info returned
+    pflg(29)=0;  % default, no user surface info returned
 end;
 
 ipflg = 30;
@@ -81,135 +81,135 @@ ipflg = 30;
 % Set up STOP
 % ----------------------------------------------------
 for i=1:4,
-  ipflg       = ipflg+1;
-  if isfield(param,'STOP'),
-    pflg(ipflg) = param.STOP(i);
-  else,
-    if i==1,
-     %pflg(ipflg) = -1d22;
-      pflg(ipflg) = -9999;
+    ipflg       = ipflg+1;
+    if isfield(param,'STOP'),
+        pflg(ipflg) = param.STOP(i);
     else,
-      pflg(ipflg) = 0d0;  % STOP undefined
+        if i==1,
+            %pflg(ipflg) = -1d22;
+            pflg(ipflg) = -9999;
+        else,
+            pflg(ipflg) = 0d0;  % STOP undefined
+        end;
+        %pflg(ipflg) = 0d0;  % STOP undefined
     end;
-    %pflg(ipflg) = 0d0;  % STOP undefined
-  end;
 end
 
-fprintf(1,'**call_GMI: after STOP: ipflg = %i\n', ipflg);
+fprintf('.');   % single-dot liveness indicator, one per call
 
 % ----------------------------------------------------
 % Set up iFSM
 % ----------------------------------------------------
 if isfield(param,'iFSM'),
-  ipflg = ipflg+1;  pflg(ipflg) = length(param.iFSM);
-  for i=1:length(param.iFSM), 
-    ipflg = ipflg+1;  pflg(ipflg) = param.iFSM(i); 
-  end
-  for i=1:length(param.TFSM),  
-    ipflg = ipflg+1;  pflg(ipflg) = param.TFSM(i); 
-  end
+    ipflg = ipflg+1;  pflg(ipflg) = length(param.iFSM);
+    for i=1:length(param.iFSM),
+        ipflg = ipflg+1;  pflg(ipflg) = param.iFSM(i);
+    end
+    for i=1:length(param.TFSM),
+        ipflg = ipflg+1;  pflg(ipflg) = param.TFSM(i);
+    end
 else
-  ipflg = ipflg+1; pflg(ipflg) = 9999;
+    ipflg = ipflg+1; pflg(ipflg) = 9999;
 end;
 
 % ----------------------------------------------------
 % Set up iFDP
 % ----------------------------------------------------
 if isfield(param,'iFDP'),
-  ipflg = ipflg+1; pflg(ipflg) = param.iFDP
+    ipflg = ipflg+1; pflg(ipflg) = param.iFDP;
 else
-  ipflg = ipflg+1; pflg(ipflg) = 9999;
+    ipflg = ipflg+1; pflg(ipflg) = 9999;
 end;
 
 % ----------------------------------------------------
 % Set up gridSrf information in pflg
 % ----------------------------------------------------
 if isfield(param,'gridSrf'),
- ipflg = ipflg+1;  pflg(ipflg) = size(param.gridSrf,1); % # of gridSrfs
- ipflg = ipflg+1;  pflg(ipflg) = size(param.gridSrf,2); % # of passes of gridSrfs
- for i=1:size(param.gridSrf,1)*size(param.gridSrf,2)
-   ipflg = ipflg+1;  pflg(ipflg) = param.gridSrf(i);
- end;
- if (length(pgrid) ~= size(param.gridSrf,1)*size(InfFcnGrid,1)*size(InfFcnGrid,2)) & (pgrid~=0)
-   disp('gridSrf error'), return
- end;
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.gridSrf,1); % # of gridSrfs
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.gridSrf,2); % # of passes of gridSrfs
+    for i=1:size(param.gridSrf,1)*size(param.gridSrf,2)
+        ipflg = ipflg+1;  pflg(ipflg) = param.gridSrf(i);
+    end;
+    if (length(pgrid) ~= size(param.gridSrf,1)*size(InfFcnGrid,1)*size(InfFcnGrid,2)) & (pgrid~=0)
+        disp('gridSrf error'), return
+    end;
 else,
-  ipflg = ipflg+1;  pflg(ipflg) = 9999; 
+    ipflg = ipflg+1;  pflg(ipflg) = 9999;
 end;
 
 % ----------------------------------------------------
 % Set up zernSrf information in pflg
 % ----------------------------------------------------
 if isfield(param,'zernSrf'),
- ipflg = ipflg+1;  pflg(ipflg) = size(param.zernSrf,1); % # of zernSrfs
- ipflg = ipflg+1;  pflg(ipflg) = size(param.zernSrf,2); % # of passes of zernSrfs
- for i=1:size(param.zernSrf,1)*size(param.zernSrf,2)
-   ipflg = ipflg+1;  pflg(ipflg) = param.zernSrf(i);
- end
- if ~((length(pzern) == size(param.zernSrf,1)*param.mzern) | (length(pzern)==1 & (pzern==0)))
-    disp('zernSrf error'), return
- end
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.zernSrf,1); % # of zernSrfs
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.zernSrf,2); % # of passes of zernSrfs
+    for i=1:size(param.zernSrf,1)*size(param.zernSrf,2)
+        ipflg = ipflg+1;  pflg(ipflg) = param.zernSrf(i);
+    end
+    if ~((length(pzern) == size(param.zernSrf,1)*param.mzern) | (length(pzern)==1 & (pzern==0)))
+        disp('zernSrf error'), return
+    end
 else,
- ipflg = ipflg+1;  pflg(ipflg) = 9999;
+    ipflg = ipflg+1;  pflg(ipflg) = 9999;
 end;
 
 % ----------------------------------------------------
 % Set up dmSrf information in pflg
 % ----------------------------------------------------
 if isfield(param,'dmSrf'),
- ipflg = ipflg+1;  pflg(ipflg) = size(param.dmSrf,1); % # of dmSrfs
- ipflg = ipflg+1;  pflg(ipflg) = size(param.dmSrf,2); % # of passes of dmSrfs
- for i=1:size(param.dmSrf,1)*size(param.dmSrf,2)
-   ipflg = ipflg+1;  pflg(ipflg) = param.dmSrf(i);
- end
- %if ~((length(pdm) == size(param.dmSrf,1)) | (length(pdm)==1 & (pdm==0)))
- %   disp('dmSrf error'), return
- %end
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.dmSrf,1); % # of dmSrfs
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.dmSrf,2); % # of passes of dmSrfs
+    for i=1:size(param.dmSrf,1)*size(param.dmSrf,2)
+        ipflg = ipflg+1;  pflg(ipflg) = param.dmSrf(i);
+    end
+    %if ~((length(pdm) == size(param.dmSrf,1)) | (length(pdm)==1 & (pdm==0)))
+    %   disp('dmSrf error'), return
+    %end
 else,
-  ipflg = ipflg+1;  pflg(ipflg) = 9999;
+    ipflg = ipflg+1;  pflg(ipflg) = 9999;
 end;
 
 % ----------------------------------------------------
 % Set up rbSrf information in pflg
 % ----------------------------------------------------
 if isfield(param,'rbSrf'),
- ipflg = ipflg+1;  pflg(ipflg) = size(param.rbSrf,1); % # of rbSrfs
- ipflg = ipflg+1;  pflg(ipflg) = size(param.rbSrf,2); % # of passes of rbSrfs
- for i=1:size(param.rbSrf,1)*size(param.rbSrf,2)
-   ipflg = ipflg+1;  pflg(ipflg) = param.rbSrf(i);
- end
- %if (length(prb) ~= size(param.rbSrf,1)*size(InfFcnGrid,1)*size(InfFcnGrid,2)) & (prb~=0)
- %   disp('rbSrf error'), return
- %end
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.rbSrf,1); % # of rbSrfs
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.rbSrf,2); % # of passes of rbSrfs
+    for i=1:size(param.rbSrf,1)*size(param.rbSrf,2)
+        ipflg = ipflg+1;  pflg(ipflg) = param.rbSrf(i);
+    end
+    %if (length(prb) ~= size(param.rbSrf,1)*size(InfFcnGrid,1)*size(InfFcnGrid,2)) & (prb~=0)
+    %   disp('rbSrf error'), return
+    %end
 else,
-  ipflg = ipflg+1;  pflg(ipflg) = 9999;
+    ipflg = ipflg+1;  pflg(ipflg) = 9999;
 end;
 
 % ----------------------------------------------------
 % Set up RptElt for surfaces requiring different Rpt's
 % ----------------------------------------------------
 if isfield(param,'RptSrf'),
- ipflg = ipflg+1;  pflg(ipflg) = size(param.RptSrf,1); % # of passes of rbSrfs
- ipflg = ipflg+1;  pflg(ipflg) = size(param.RptSrf,2); % # of RptSrfs
- for i=1:size(param.RptSrf,1)*size(param.RptSrf,2)
-   ipflg = ipflg+1;  pflg(ipflg) = param.RptSrf(i);
- end
- if size(param.RptSrf,1)*3 ~= length(param.RptElt)
-   disp('RptElt is not sized properly'), return
- end
- for i=1:size(param.RptSrf,1)*3
-   ipflg = ipflg+1;  pflg(ipflg) = param.RptElt(i);
- end
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.RptSrf,1); % # of passes of rbSrfs
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.RptSrf,2); % # of RptSrfs
+    for i=1:size(param.RptSrf,1)*size(param.RptSrf,2)
+        ipflg = ipflg+1;  pflg(ipflg) = param.RptSrf(i);
+    end
+    if size(param.RptSrf,1)*3 ~= length(param.RptElt)
+        disp('RptElt is not sized properly'), return
+    end
+    for i=1:size(param.RptSrf,1)*3
+        ipflg = ipflg+1;  pflg(ipflg) = param.RptElt(i);
+    end
 else,
-  ipflg = ipflg+1;  pflg(ipflg) = 9999;
+    ipflg = ipflg+1;  pflg(ipflg) = 9999;
 end;
 
 if isfield(param,'ifFEX'),
- if (param.ifFEX(1)==2)
-   for i=2:8
-      ipflg = ipflg+1;  pflg(ipflg) = param.ifFEX(i);
-   end
- end
+    if (param.ifFEX(1)==2)
+        for i=2:8
+            ipflg = ipflg+1;  pflg(ipflg) = param.ifFEX(i);
+        end
+    end
 end;
 
 % ----------------------------------------------------
@@ -218,72 +218,72 @@ end;
 % Write 9999 sentinel when absent so GMI.F can detect "no monzernSrf".
 % ----------------------------------------------------
 if isfield(param,'monzernSrf'),
- ipflg = ipflg+1;  pflg(ipflg) = size(param.monzernSrf,1); % # of monzernSrfs
- ipflg = ipflg+1;  pflg(ipflg) = size(param.monzernSrf,2); % # of passes of monzernSrfs
- for i=1:size(param.monzernSrf,1)*size(param.monzernSrf,2)
-   ipflg = ipflg+1;  pflg(ipflg) = param.monzernSrf(i);
- end
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.monzernSrf,1); % # of monzernSrfs
+    ipflg = ipflg+1;  pflg(ipflg) = size(param.monzernSrf,2); % # of passes of monzernSrfs
+    for i=1:size(param.monzernSrf,1)*size(param.monzernSrf,2)
+        ipflg = ipflg+1;  pflg(ipflg) = param.monzernSrf(i);
+    end
 else,
- ipflg = ipflg+1;  pflg(ipflg) = 9999;
+    ipflg = ipflg+1;  pflg(ipflg) = 9999;
 end;
 
 if isfield(param,'RefSurfs')
-   ipflg = ipflg+1;  pflg(ipflg) = length(param.RefSurfs); % # of Ref surfaces
-   for i=1:length(param.RefSurfs)
-      ipflg = ipflg+1;  pflg(ipflg) = param.RefSurfs(i);
-   end
+    ipflg = ipflg+1;  pflg(ipflg) = length(param.RefSurfs); % # of Ref surfaces
+    for i=1:length(param.RefSurfs)
+        ipflg = ipflg+1;  pflg(ipflg) = param.RefSurfs(i);
+    end
 else
-   ipflg = ipflg+1;  pflg(ipflg) = 0;
+    ipflg = ipflg+1;  pflg(ipflg) = 0;
 end
 
 if isfield(param,'INTsrf')
-   ipflg = ipflg+1;  pflg(ipflg) = length(param.INTsrf); % # of INTsrf's
-   for i=1:length(param.INTsrf)
-      ipflg = ipflg+1;  pflg(ipflg) = param.INTsrf(i);
-   end
+    ipflg = ipflg+1;  pflg(ipflg) = length(param.INTsrf); % # of INTsrf's
+    for i=1:length(param.INTsrf)
+        ipflg = ipflg+1;  pflg(ipflg) = param.INTsrf(i);
+    end
 else
-   ipflg = ipflg+1;  pflg(ipflg) = 0;
+    ipflg = ipflg+1;  pflg(ipflg) = 0;
 end
 
 if isfield(param,'nProc')==0,
-  param.nProc=1;  
+    param.nProc=1;
 end;
 
 if (length(pflg)>2000), disp('!!!!!  PFLG TOO BIG!!!!!'); return, end
 
 if winfil
-   fid = fopen('infil','w');
-   fprintf(fid,'%s\n',param.Rx);
-   fprintf(fid,'%d\n',length(pflg));
-   for i=1:length(pflg)
-      fprintf(fid,'%g\n',pflg(i));
-   end
-   fclose(fid);
+    fid = fopen('infil','w');
+    fprintf(fid,'%s\n',param.Rx);
+    fprintf(fid,'%d\n',length(pflg));
+    for i=1:length(pflg)
+        fprintf(fid,'%g\n',pflg(i));
+    end
+    fclose(fid);
 end
 
 % pmonzern: parallel to pzern, applied to MonZernCoef on FreeForm
 % surfaces.  Optional; pass scalar 0 if not provided.
 if isfield(param,'pmonzern'),
-  pmonzern = param.pmonzern;
+    pmonzern = param.pmonzern;
 else
-  pmonzern = 0;
+    pmonzern = 0;
 end
 
 if 1,
-  [PIX,ER,EI,OPD,OPDMask,SPOT,WFE,c,metMeas,USER] = ...
-     GMI(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
-         fname,param.mdttl,param.nProc,pmonzern);
-     CE = complex(ER,EI);
-     %GMI_mex(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
+    [PIX,ER,EI,OPD,OPDMask,SPOT,WFE,c,metMeas,USER] = ...
+        GMI(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
+        fname,param.mdttl,param.nProc,pmonzern);
+    CE = complex(ER,EI);
+    %GMI_mex(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
 else
-  % old version
-  [OPD,WFE,USER] = ...
-     GMI(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
-         fname,param.mdttl,param.nProc,pmonzern);
-     !GMI_mex(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
-  PIX=[];
-  SPOT=[];
-  c=[];
+    % old version
+    [OPD,WFE,USER] = ...
+        GMI(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
+        fname,param.mdttl,param.nProc,pmonzern);
+    !GMI_mex(prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,InfFcnZern,InfFcnGrid,...
+    PIX=[];
+    SPOT=[];
+    c=[];
 end;
 
 return
