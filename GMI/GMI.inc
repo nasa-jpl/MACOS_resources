@@ -10,7 +10,7 @@ C***********************************************************************
      &             numseg    =  7,   ! max # of segments
      &             numacf    =  6,
      &             numSAF    =  0,   ! max # of sub-aperture flats (ACFs = SAFs)
-     &             mzern     = 15,
+     &             mzern     = 45,   ! Zernikes/segment; sync param.mzern
 !    &             mgrid     = 256,
      &             mgrid     = 99,
      &             mgrid2    = mgrid*mgrid,

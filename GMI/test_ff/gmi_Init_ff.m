@@ -131,7 +131,7 @@ numseg=7;
 numSAF=0;
 mgrid=256;
 mgrid2=mgrid*mgrid;
-param.mzern=15;
+param.mzern=45;   % MUST match GMI.inc:mzern (Fortran-side parameter)
 mpdm= numseg;
 mrbSrf= size(param.rbSrf,1);
 mprb= mrbSrf*6;
@@ -168,7 +168,10 @@ param.pixelSize =1.098471E-02;
 param.QE = 1.d0;
 param.DBias = 0.d0;
 
-InfFcnZern= 1e-3*[0;0;0;0;1;0;0;0;0.1;0;0;0;0;0;0];
+% InfFcnZern: DM Zernike-influence coefficients, length param.mzern.
+% First 15 entries preserve the legacy values; remaining entries are 0.
+InfFcnZern = zeros(param.mzern,1);
+InfFcnZern(1:15) = 1e-3*[0;0;0;0;1;0;0;0;0.1;0;0;0;0;0;0];
 InfFcnGrid = zeros(256);
 
 %% MACOS Rx
