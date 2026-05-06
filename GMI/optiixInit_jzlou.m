@@ -135,7 +135,10 @@ end;
 %  set influence functions
 % ------------------------------------------------------------------------------
 
-    InfFcnZern = 1e-3*[0;0;0;0;1;0;0;0;0.1;0;0;0;0;0;0];
+    % InfFcnZern length is enforced to equal Fortran-side GMI.inc:mzern
+    % (currently 45).  Pad with zeros beyond the legacy 15 entries.
+    InfFcnZern = zeros(45,1);
+    InfFcnZern(1:15) = 1e-3*[0;0;0;0;1;0;0;0;0.1;0;0;0;0;0;0];
 
     InfFcnGrid = zeros(99);
 
