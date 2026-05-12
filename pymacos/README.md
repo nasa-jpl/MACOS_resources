@@ -222,3 +222,13 @@ CodeV's reference output — this is the principal cross-validation path.
   hitting Fortran. Tests must `init()` before `load()`, and `init()`
   is one-shot per process (changing model size requires a fresh
   interpreter).
+
+## Regression trip-wire for future macos edits:
+
+cd ~/dev/MACOS_resources/pymacos
+source .venv/bin/activate && source /opt/intel/oneapi/setvars.sh intel64
+cd tests && pytest test_api_rx_grating.py test_masks.py -q --tb=no
+
+If you change something in macos_f90 and rebuild via makems.sh, rebuild pymacos (cd pymacos/src/cmake/build && make), then re-run this command. Any new failures are likely your edits. As of 2026-05-11 the full suite passes 6601/6601.
+
+Remove the --deselect... once parabola_glb is fixed.
