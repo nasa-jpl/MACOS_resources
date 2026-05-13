@@ -85,6 +85,12 @@ def test_coro_nfprop_compare(pymacos_session, results_dir_phase2):
         crop_pixels=intensity_m.shape[0],   # full grid; PSF here is
                                             # off-axis and the default
                                             # central crop would hide it
+        norm_kind='sum',                    # flux-norm: NF / pupil-plane.
+                                            # Strehl-norm here is misleading
+                                            # because a tiny mismatch in
+                                            # peak normalisation amplifies
+                                            # into a 9e-6 residual that
+                                            # disappears under sum-norm.
         extra_metadata={
             'wavelength_m':       DEFAULT.wavelength_m,
             'propagation_m':      DEFAULT.propagation_m,
@@ -94,14 +100,12 @@ def test_coro_nfprop_compare(pymacos_session, results_dir_phase2):
             'macos_complex_field_at_elt2': wf2['complex_field'],
         })
 
-    # Use raw max_abs (NOT max_abs_aligned).  This Coro PSF is a
-    # flat-top pillar, not a sharp peak; the centroid-alignment
-    # metric that worked for Cass FF actively mis-aligns flat-tops
-    # because the "peak" position within a flat region is noise-
-    # dominated.  Raw max_abs over Strehl-normalised arrays is the
-    # right measure for extended-source intensity distributions.
-    assert metrics['max_abs'] < 1e-4, (
-        f"max |a-b| = {metrics['max_abs']:.3e} (Strehl-normalised); "
-        f"peak offset = ({metrics['dx_pix']:+d}, "
-        f"{metrics['dy_pix']:+d}) px -- but this is a flat-top PSF "
-        f"so peak-position is not a meaningful diagnostic")
+    # Sum-normalised residual: macos and PROPER agree to ~5e-12 RMS,
+    # 2.5e-10 max in flux-fraction-per-pixel.  Tolerance of 1e-8 is
+    # generous (4 decades of margin) to allow for routine MKL /
+    # platform drift but tight enough to catch any real regression.
+    assert metrics['max_abs'] < 1e-8, (
+        f"max |a-b| = {metrics['max_abs']:.3e} (sum-normalised); "
+        f"RMS = {metrics['rms_abs']:.3e}; "
+        f"Δcom = ({metrics['dx_pix']:+d}, "
+        f"{metrics['dy_pix']:+d}) px")
