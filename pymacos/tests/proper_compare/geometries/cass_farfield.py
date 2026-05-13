@@ -64,73 +64,93 @@ class CassFarField:
 DEFAULT = CassFarField()
 
 
-def _embed_opd_in_proper_grid(macos_opd, geom: 'CassFarField',
-                              allow_resample: bool = False):
-    """Place macos's OPD array into a PROPER-sized phase array.
+def _embed_macos_array_in_proper_grid(macos_arr, geom: 'CassFarField',
+                                      allow_resample: bool = False,
+                                      fill_value: float = 0.0):
+    """Place a macos source-grid array (OPD or amplitude mask) into a
+    PROPER-sized array.
 
-    Default mode (no resampling): macos's source-grid pixel pitch
-    equals PROPER's entrance-pupil pixel pitch by construction --
-    proper_grid_n * beam_ratio = macos source grid size.  We
-    zero-pad macos OPD into the centre of a (proper_grid_n,
-    proper_grid_n) array.  The aperture stop in PROPER masks the
-    surrounding zeros, so they're physically harmless.
+    Sampling: macos's source-grid pixel pitch equals PROPER's
+    entrance-pupil pitch by construction (proper_grid_n * beam_ratio
+    = macos source grid size).  No resampling needed; centre-pad
+    only.
 
-    Fallback (allow_resample=True): if the inner dim doesn't match,
-    use scipy.ndimage.zoom for a bilinear resample.  This is OFF by
-    default because resampling introduces interpolation error that
-    can mask real engine disagreement -- prefer to choose grid
-    parameters that match exactly.
-
-    Raises ValueError on shape mismatch when allow_resample=False.
+    allow_resample=True falls back to bilinear scipy.zoom on a shape
+    mismatch.  OFF by default to avoid masking real engine
+    disagreements with interpolation error.
     """
     import numpy as np
-    macos_n = macos_opd.shape[0]
+    macos_n = macos_arr.shape[0]
     inner_n = int(round(geom.proper_grid_n * geom.proper_beam_ratio))
 
     if macos_n == inner_n:
-        # zero-pad centre into PROPER's full grid
         n = geom.proper_grid_n
-        padded = np.zeros((n, n), dtype=float)
+        padded = np.full((n, n), fill_value, dtype=float)
         off = (n - macos_n) // 2
-        padded[off:off + macos_n, off:off + macos_n] = macos_opd
+        padded[off:off + macos_n, off:off + macos_n] = macos_arr
         return padded
 
     if not allow_resample:
         raise ValueError(
-            f"macos OPD size {macos_n} does not match the expected "
+            f"macos array size {macos_n} does not match the expected "
             f"PROPER inner-pupil size {inner_n} "
             f"(= proper_grid_n {geom.proper_grid_n} * beam_ratio "
-            f"{geom.proper_beam_ratio}).  Either fix the geometry so "
-            f"the sampling matches, or call proper_run with "
-            f"allow_resample=True (interpolation error will be folded "
-            f"into the comparison).")
+            f"{geom.proper_beam_ratio}).")
 
     from scipy.ndimage import zoom
     factor = geom.proper_grid_n / macos_n
-    return zoom(macos_opd, factor, order=1, mode='constant', cval=0.0)
+    return zoom(macos_arr, factor, order=1, mode='constant',
+                cval=fill_value)
+
+
+# Backwards-compatible alias (older call sites or external scripts)
+_embed_opd_in_proper_grid = _embed_macos_array_in_proper_grid
 
 
 def proper_run(geom: CassFarField = DEFAULT,
                include_obscurations: bool = True,
                macos_opd=None,
-               allow_resample: bool = False):
+               macos_amplitude=None,
+               allow_resample: bool = False,
+               opd_sign_flip: bool = True):
     """Drive PROPER for the Cass-FF geometry.
 
     Returns (intensity, sampling_m_per_pixel).
 
-    Args:
-      include_obscurations: place secondary + cross spider at the
-        entrance aperture when True (default).
-      macos_opd: optional 2D OPD map (in metres) from pymacos.opd() at
-        the exit pupil.  If provided, it is placed at PROPER's
-        entrance pupil via prop_add_phase so PROPER carries the same
-        aberration content macos traced through its mirrors.  Default
-        sampling assumption: macos OPD pixel pitch already matches
-        PROPER's entrance-pupil pitch; only zero-padding is applied.
-      allow_resample: if True and the OPD shape doesn't match
-        PROPER's inner pupil size exactly, bilinearly resample.  Off
-        by default to avoid silently introducing interpolation error.
+    Aperture model
+    --------------
+    When macos_opd is provided (or macos_amplitude is provided
+    explicitly), PROPER's amplitude pattern is taken DIRECTLY from
+    macos's mask -- the analytical prop_circular_aperture /
+    prop_circular_obscuration / prop_rectangular_obscuration calls
+    are SKIPPED.  This guarantees PROPER's illuminated pixels are
+    exactly the pixels macos sees as carrying light, which is the
+    only physically-defensible choice: putting amplitude where macos
+    says there's none introduces a phase-mismatch artefact that
+    (in the Tx +1um diagnostic case) halved the apparent PSF shift.
+
+    When no macos input is given the analytical aperture+spider
+    model is used (so the "PROPER only" comparison still works).
+
+    Args
+    ----
+    include_obscurations: only consulted in the analytical-aperture
+        path (when macos input is not provided).
+    macos_opd: optional 2D OPD map (in metres) from pymacos.opd().
+        Placed at PROPER's entrance pupil via prop_add_phase.
+    macos_amplitude: optional 2D amplitude mask.  Defaults to
+        (macos_opd != 0) when macos_opd is provided.  Override to
+        supply a non-binary amplitude (e.g. apodisation, real macos
+        amplitude output once that wrapper exists).
+    opd_sign_flip: if True (default) multiplies macos OPD by -1
+        before adding to PROPER's phase.  Empirically determined:
+        macos OPD sign convention is opposite to PROPER's
+        prop_add_phase input -- without the flip the focal-plane
+        PSF shifts in the wrong direction.
+    allow_resample: bilinear-resample if macos array shape doesn't
+        match PROPER's inner-pupil size; OFF by default.
     """
+    import numpy as np
     import proper
 
     n = geom.proper_grid_n
@@ -138,25 +158,39 @@ def proper_run(geom: CassFarField = DEFAULT,
     wfo = proper.prop_begin(geom.pupil_diameter_m,
                             geom.wavelength_m, n, beam_ratio)
 
-    proper.prop_circular_aperture(wfo, geom.pupil_diameter_m / 2.0)
+    use_macos_mask = (macos_opd is not None) or (macos_amplitude is not None)
 
-    if include_obscurations:
-        proper.prop_circular_obscuration(wfo, geom.sec_obs_radius_m)
-        # cross-spider: two orthogonal rectangular obscurations
-        proper.prop_rectangular_obscuration(
-            wfo,
-            geom.spider_half_width * 2.0,    # x-width
-            geom.spider_half_length * 2.0,   # y-height
-        )
-        proper.prop_rectangular_obscuration(
-            wfo,
-            geom.spider_half_length * 2.0,
-            geom.spider_half_width * 2.0,
-        )
+    if use_macos_mask:
+        # Apply macos's amplitude mask directly.  Default: binary mask
+        # from |OPD| > 0.
+        if macos_amplitude is None:
+            macos_amplitude = (np.asarray(macos_opd) != 0).astype(float)
+        amp_padded = _embed_macos_array_in_proper_grid(
+            macos_amplitude, geom, allow_resample=allow_resample,
+            fill_value=0.0)
+        proper.prop_multiply(wfo, amp_padded)
+    else:
+        proper.prop_circular_aperture(wfo, geom.pupil_diameter_m / 2.0)
+        if include_obscurations:
+            proper.prop_circular_obscuration(wfo, geom.sec_obs_radius_m)
+            proper.prop_rectangular_obscuration(
+                wfo,
+                geom.spider_half_width * 2.0,
+                geom.spider_half_length * 2.0,
+            )
+            proper.prop_rectangular_obscuration(
+                wfo,
+                geom.spider_half_length * 2.0,
+                geom.spider_half_width * 2.0,
+            )
 
     if macos_opd is not None:
-        phase = _embed_opd_in_proper_grid(macos_opd, geom,
-                                          allow_resample=allow_resample)
+        opd_arr = np.asarray(macos_opd, dtype=float)
+        if opd_sign_flip:
+            opd_arr = -opd_arr
+        phase = _embed_macos_array_in_proper_grid(
+            opd_arr, geom, allow_resample=allow_resample,
+            fill_value=0.0)
         proper.prop_add_phase(wfo, phase)
 
     proper.prop_define_entrance(wfo)

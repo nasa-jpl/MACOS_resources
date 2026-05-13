@@ -72,17 +72,15 @@ def test_compare_secondary_perturbation(name, prb,
             'macos_opd_at_xp':  opd,
         })
 
-    # Use the centroid-aligned metric: macos chief ray re-aims under
-    # tilt-class perturbations and the PSF shifts on the detector,
-    # but PROPER's prop_add_phase doesn't reproduce that shift (the
-    # OPD as reported by macos is referenced to the chief ray).  The
-    # *shape* of the PSF is what each engine actually computes from
-    # the wavefront aberration, and that's what we want to check.
-    assert metrics['max_abs_aligned'] < 0.15, (
-        f"{name}: max |a-b| aligned = "
-        f"{metrics['max_abs_aligned']:.3e} (Strehl-norm); "
-        f"PSF shift = ({metrics['dx_pix']:+d}, "
-        f"{metrics['dy_pix']:+d}) pixels")
-    # OPD scale sanity: report ties RMS OPD to perturbation magnitude
+    # With macos's mask applied as PROPER's amplitude (via prop_multiply)
+    # and the OPD sign reconciled, the two engines now agree to
+    # numerical-precision level (~1e-11) on Strehl-normalised PSFs.
+    # Keep a generous margin (1e-6) to swallow FFT round-off and
+    # platform-dependent intel-MKL drift; large deviations indicate
+    # a real regression in either pymacos or the harness.
+    assert metrics['max_abs'] < 1e-6, (
+        f"{name}: max |a-b| = {metrics['max_abs']:.3e} "
+        f"(Strehl-norm); PSF shift = "
+        f"({metrics['dx_pix']:+d}, {metrics['dy_pix']:+d}) px")
     rms_opd = float(opd[opd != 0].std()) if (opd != 0).any() else 0.0
     assert np.isfinite(rms_opd)
