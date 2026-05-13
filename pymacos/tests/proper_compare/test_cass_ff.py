@@ -65,7 +65,7 @@ def test_macos_cass_ff_runs(pymacos_session):
     assert intensity.sum() == pytest.approx(1.802e6, rel=1e-3)
 
 
-def test_compare_cass_ff_psf(pymacos_session, tol, results_dir):
+def test_compare_cass_ff_psf(pymacos_session, tol, results_dir_phase1):
     """Pixel-by-pixel focal-plane PSF comparison, nominal Cass-FF.
 
     Same prescription for both engines.  No OPD pass-through (PROPER
@@ -80,7 +80,7 @@ def test_compare_cass_ff_psf(pymacos_session, tol, results_dir):
     metrics = compare_and_record(
         'cass_ff_nominal',
         macos_int, proper_int, dx_m,
-        results_dir,
+        results_dir_phase1,
         extra_metadata={
             'wavelength_m':     DEFAULT.wavelength_m,
             'pupil_diameter_m': DEFAULT.pupil_diameter_m,
@@ -89,7 +89,7 @@ def test_compare_cass_ff_psf(pymacos_session, tol, results_dir):
         f"max |a-b| = {metrics['max_abs_aligned']:.3e} aligned")
 
 
-def test_compare_cass_ff_psf_with_opd(pymacos_session, tol, results_dir):
+def test_compare_cass_ff_psf_with_opd(pymacos_session, tol, results_dir_phase1):
     """As above, but PROPER's wavefront carries macos's OPD at the
     exit pupil.  In the nominal (un-perturbed) case this is ~1 pm RMS
     and shouldn't change the focal-plane PSF much; the test confirms
@@ -104,7 +104,7 @@ def test_compare_cass_ff_psf_with_opd(pymacos_session, tol, results_dir):
     metrics = compare_and_record(
         'cass_ff_nominal_with_opd',
         macos_int, proper_int, dx_m,
-        results_dir,
+        results_dir_phase1,
         extra_metadata={
             'wavelength_m':     DEFAULT.wavelength_m,
             'pupil_diameter_m': DEFAULT.pupil_diameter_m,

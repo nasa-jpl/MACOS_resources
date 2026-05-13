@@ -70,19 +70,46 @@ if [[ $do_build -eq 1 ]]; then
     (cd "$build_dir" && make)
 fi
 
-# 4. Run the suite
-echo
-echo "Running proper_compare suite..."
+# 4. Run each phase in its own pytest process.
+#
+# Why two invocations: pymacos's init() reallocates the Fortran
+# arrays when model_size changes, but some module-level state (most
+# visibly the diffraction-grid normalisation) leaks across a 512 <->
+# 1024 transition in the same Python process.  Running each phase as
+# a fresh process sidesteps this entirely.  Long-term fix is on the
+# pymacos side; until then this is the cheap, correct option.
 cd tests
-pytest proper_compare/ "${pytest_args[@]}"
-status=$?
+
+set +e   # collect status of each phase rather than aborting at the first
+echo
+echo "=== Phase 1 (Cass FF) ==="
+pytest proper_compare/test_cass_ff.py proper_compare/test_cass_ff_aberrations.py \
+       "${pytest_args[@]}"
+s1=$?
 
 echo
-echo "Artefacts: $here/tests/proper_compare/results/"
-echo "  - report.md         (cumulative quantitative table)"
-echo "  - <test>.png        (3-panel macos / PROPER / diff plot)"
-echo "  - <test>.mat        (full arrays + metadata, Matlab-readable)"
-echo "  - <test>.macos.txt  (ASCII central crop, sum-normalised)"
-echo "  - <test>.proper.txt (ASCII central crop, sum-normalised)"
+echo "=== Phase 2 (Coro NF-prop) ==="
+pytest proper_compare/test_coro_nfprop.py "${pytest_args[@]}"
+s2=$?
 
-exit $status
+# (test_psf.py is a leftover skip; include for completeness but its
+# status doesn't gate the overall run.)
+echo
+echo "=== Auxiliary (test_psf -- mostly skipped) ==="
+pytest proper_compare/test_psf.py "${pytest_args[@]}" || true
+set -e
+
+echo
+echo "Artefacts:"
+echo "  $here/tests/proper_compare/results_phase1/   (Cass FF: PNG, .mat, report.md)"
+echo "  $here/tests/proper_compare/results_phase2/   (Coro NF-prop: same)"
+
+# Overall status: fail if either phase failed.
+if [[ $s1 -ne 0 || $s2 -ne 0 ]]; then
+    echo
+    echo "FAILURE: phase1=$s1, phase2=$s2"
+    exit 1
+fi
+echo
+echo "Both phases passed."
+exit 0

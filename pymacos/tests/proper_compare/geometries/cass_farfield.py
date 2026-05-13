@@ -233,6 +233,10 @@ def macos_run(geom: CassFarField = DEFAULT, pymacos_session=None,
     rx_path = (Path(__file__).resolve().parents[2]
                / "Rx" / geom.rx_filename)
 
+    # Each macos_run owns its own model-size init: pymacos.init() is
+    # cheap when the size hasn't changed and reallocates when it has,
+    # so different-phase tests can coexist in one pytest session.
+    pymacos_session.init(geom.macos_size)
     pymacos_session.load(str(rx_path))
 
     if perturbation is not None:

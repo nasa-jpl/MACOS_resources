@@ -44,7 +44,7 @@ PERTURBATIONS = [
 @pytest.mark.parametrize('name, prb', PERTURBATIONS,
                          ids=[p[0] for p in PERTURBATIONS])
 def test_compare_secondary_perturbation(name, prb,
-                                         pymacos_session, results_dir):
+                                         pymacos_session, results_dir_phase1):
     """One macos/PROPER comparison per secondary-mirror perturbation
     in the PERTURBATIONS table.
     """
@@ -63,7 +63,7 @@ def test_compare_secondary_perturbation(name, prb,
     metrics = compare_and_record(
         f'cass_ff_perturb_SM_{name}',
         macos_int, proper_int, dx_m,
-        results_dir,
+        results_dir_phase1,
         extra_metadata={
             'wavelength_m':     DEFAULT.wavelength_m,
             'pupil_diameter_m': DEFAULT.pupil_diameter_m,
