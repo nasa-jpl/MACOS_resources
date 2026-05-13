@@ -87,18 +87,16 @@ def macos_run(geom: CoroNFprop = DEFAULT, pymacos_session=None):
 
     intensity_at_2 = pymacos_session.intensity(geom.src_elt)
 
-    # OPD at Elt 2 -- captured here so each .mat carries it AND so
-    # downstream aberration cases have it available, but NOT passed
-    # into PROPER for the v1 NF-prop test.  pymacos.opd() returns a
-    # source-ray-grid map (512x512 over the 0.22 mm aperture at ~0.43
-    # um pix pitch); PROPER's prop_add_phase needs the phase on the
-    # diffraction grid (1024x1024 at 0.334 mm).  Bringing them
-    # together for downstream perturbation cases needs either a new
-    # pymacos wrapper exposing the diffraction-grid complex field at
-    # Elt 2, or a documented embedding scheme that maps source-grid
-    # OPD onto the diffraction grid the way macos does internally.
-    # For the nominal Rx_Coro Elt-2 state the OPD is 0.28 pm RMS
-    # (3e-7 waves at 850 nm), so ignoring it here is harmless.
+    # Diffraction-grid complex field at Elt 2 (Phase 3 wrapper):
+    # WFElt(:,:, iEltToiWF(2)) as np.complex128.  This is the
+    # quantity macos's own propagation routines operate on, so it's
+    # the right thing to hand off to PROPER for a faithful Phase 2 v2
+    # NF-prop comparison.  Lives on the SAME grid as intensity (1024
+    # x 1024 at 0.334 mm pix) -- no resampling.
+    cfield_at_2 = pymacos_session.complex_field(geom.src_elt)
+
+    # Source-ray-grid OPD (legacy / for archive) -- kept for the .mat
+    # but no longer the primary phase source for PROPER.
     pymacos_session.trace_rays(geom.src_elt)
     opd_at_2 = pymacos_session.opd().copy()
 
@@ -106,7 +104,9 @@ def macos_run(geom: CoroNFprop = DEFAULT, pymacos_session=None):
 
     amplitude_at_2 = np.sqrt(np.clip(intensity_at_2, 0, None))
     return (intensity_at_3, geom.dx_m,
-            dict(amplitude=amplitude_at_2, opd=opd_at_2))
+            dict(amplitude=amplitude_at_2,
+                 complex_field=cfield_at_2,
+                 opd=opd_at_2))
 
 
 # ---------------------------------------------------------------------
@@ -139,25 +139,34 @@ def proper_run(geom: CoroNFprop = DEFAULT, wavefront_at_elt2=None,
     wfo = proper.prop_begin(geom.grid_extent_m, geom.wavelength_m,
                             N, geom.proper_beam_ratio)
 
-    # Take amplitude (and therefore mask) directly from macos.  The
-    # Phase 1 "mask-matched amplitude via prop_multiply" recipe carries
-    # over: PROPER's analytical aperture model isn't used.
-    amp = np.asarray(wavefront_at_elt2['amplitude'], dtype=float)
-    proper.prop_multiply(wfo, amp)
-
-    # Phase from macos OPD -- gated on shape match.  In v1 macos OPD
-    # is on a 512x512 source grid, PROPER's wavefront is on a
-    # 1024x1024 diffraction grid: shapes differ, so skip and rely on
-    # the fact that nominal Rx_Coro has 0.28 pm RMS OPD at Elt 2.
-    # Once a diffraction-grid OPD wrapper exists, this branch will
-    # apply the phase via prop_add_phase (with sign reconciliation
-    # per Phase 1's discovery).
-    opd = wavefront_at_elt2.get('opd', None)
-    if opd is not None and opd.shape == amp.shape:
-        opd = np.asarray(opd, dtype=float)
+    # Preferred path (Phase 2 v2): use macos's diffraction-grid
+    # complex field at Elt 2 -- both amplitude and phase on the
+    # matching 1024 x 1024 / 0.334 mm grid.
+    cfield = wavefront_at_elt2.get('complex_field', None)
+    if cfield is not None:
+        cfield = np.asarray(cfield, dtype=np.complex128)
+        amp = np.abs(cfield)
+        # Phase in radians; convert to OPD in metres for prop_add_phase.
+        # exp(+i phi) macos vs PROPER convention: same Phase 1 sign
+        # flip applies (the OPD-extracted-from-cfield is positive when
+        # macos's wavefront is delayed, opposite to PROPER's).
+        phase_rad  = np.angle(cfield)
+        opd_metres = phase_rad * geom.wavelength_m / (2.0 * np.pi)
         if opd_sign_flip:
-            opd = -opd
-        proper.prop_add_phase(wfo, opd)
+            opd_metres = -opd_metres
+        proper.prop_multiply(wfo, amp)
+        proper.prop_add_phase(wfo, opd_metres)
+    else:
+        # Fallback (Phase 2 v1): amplitude-only from sqrt(intensity);
+        # source-grid OPD is captured but not used (grid mismatch).
+        amp = np.asarray(wavefront_at_elt2['amplitude'], dtype=float)
+        proper.prop_multiply(wfo, amp)
+        opd = wavefront_at_elt2.get('opd', None)
+        if opd is not None and opd.shape == amp.shape:
+            opd = np.asarray(opd, dtype=float)
+            if opd_sign_flip:
+                opd = -opd
+            proper.prop_add_phase(wfo, opd)
 
     proper.prop_define_entrance(wfo)
 

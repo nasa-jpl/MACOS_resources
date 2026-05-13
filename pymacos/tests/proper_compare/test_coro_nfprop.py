@@ -82,17 +82,16 @@ def test_coro_nfprop_compare(pymacos_session, results_dir_phase2):
         'coro_nfprop_elt2_to_elt3',
         intensity_m, intensity_p, dx_m,
         results_dir_phase2,
-        crop_pixels=intensity_m.shape[0],   # show the full grid, not a
-                                            # central crop -- macos's
-                                            # PSF here is well off-axis
-                                            # and the default crop
-                                            # would hide it
+        crop_pixels=intensity_m.shape[0],   # full grid; PSF here is
+                                            # off-axis and the default
+                                            # central crop would hide it
         extra_metadata={
             'wavelength_m':       DEFAULT.wavelength_m,
             'propagation_m':      DEFAULT.propagation_m,
             'rx_filename':        DEFAULT.rx_filename,
-            'macos_opd_at_elt2':  wf2['opd'],
-            'macos_amp_at_elt2':  wf2['amplitude'],
+            'macos_opd_at_elt2':           wf2['opd'],
+            'macos_amp_at_elt2':           wf2['amplitude'],
+            'macos_complex_field_at_elt2': wf2['complex_field'],
         })
 
     # Use raw max_abs (NOT max_abs_aligned).  This Coro PSF is a
