@@ -135,6 +135,7 @@ venv.bak/
 
 # proper_compare test artefacts (regenerated on each pytest run)
 tests/proper_compare/results/
+tests/proper_compare/results_phase*/
 
 
 # Spyder project settings
