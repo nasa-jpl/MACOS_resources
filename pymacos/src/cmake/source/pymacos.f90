@@ -3136,6 +3136,75 @@
 
 
       !---------------------------------------------------------------------------------------------
+      ! Execute INT (Intensity) cmd at element iElt
+      !
+      ! Drives MACOS's 'INT' interactive command:  fires Ca2Int() which
+      ! fills MWFFT(1:mdttl,1:mdttl) with intensity at the wavefront's
+      ! native (diffraction-grid) sampling.  Returns the matrix size N
+      ! (= mdttl) so the caller knows what to ask int_get for.
+      !---------------------------------------------------------------------------------------------
+      subroutine int_cmd(OK, N, iElt, res_trace)
+        implicit none
+        logical, intent(out):: OK        ! (PASS=1) if successful; (FAIL=0) otherwise
+        integer, intent(out):: N         ! intensity matrix size per side (= mdttl)
+        integer, intent(in) :: iElt      ! element where intensity is to be computed
+        logical, intent(in) :: res_trace ! (PASS=1) apply a MODIFY first; (FAIL=0) keep prior trace state
+        ! ------------------------------------------------------
+        OK = FAIL
+        N  = 0
+
+        if ((.not. SystemCheck()) .or.            &
+            (iElt<1) .or. (iElt>nElt) .or.        &
+            (EltID(iElt).EQ.SegmentElt).or.       &
+            (EltID(iElt).EQ.NSRefractorElt) .or.  &
+            (EltID(iElt).EQ.NSReflectorElt)) return
+
+        if (res_trace==PASS) then
+          command = 'MODIFY'
+          CALL SMACOS(command,CARG,DARG,IARG,LARG,RARG,OPDMat,RaySpot,RMSWFE,PixArray)
+        end if
+
+        command = 'INT'
+        IARG(1) = iElt
+        CALL SMACOS(command,CARG,DARG,IARG,LARG,RARG,OPDMat,RaySpot,RMSWFE,PixArray)
+
+        N  = mdttl
+        OK = PASS
+
+      end subroutine int_cmd
+
+
+      !---------------------------------------------------------------------------------------------
+      ! Retrieve intensity array filled by the most recent int_cmd
+      !
+      ! Caller passes N = mdttl (returned by int_cmd) and gets back a
+      ! REAL*8 N x N array.  MWFFT is held in single precision in
+      ! elt_mod; we widen on the copy.
+      !---------------------------------------------------------------------------------------------
+      subroutine int_get(OK, INT_OUT, N)
+        use elt_mod, only: MWFFT
+
+        implicit none
+        logical,                 intent(out):: OK
+        real(8), dimension(N,N), intent(out):: INT_OUT
+        integer,                 intent(in) :: N      ! = mdttl
+
+        !f2py  intent(hide)         :: OK
+        !f2py  intent(out,hide,copy):: INT_OUT
+        ! ------------------------------------------------------
+        OK      = FAIL
+        INT_OUT = 0d0
+
+        if ((.not. SystemCheck()) .or. (N /= mdttl)) return
+        if (.not. allocated(MWFFT)) return
+
+        INT_OUT(:,:) = dble(MWFFT(:N, :N))
+        OK = PASS
+
+      end subroutine int_get
+
+
+      !---------------------------------------------------------------------------------------------
       ! Set Exit Pupil (XP) information
       !---------------------------------------------------------------------------------------------
       subroutine xp_set(ok, vpt, psi, rad)

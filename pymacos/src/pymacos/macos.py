@@ -2853,6 +2853,57 @@ def opd() -> Matrix[np.float64]:
     return opd
 
 
+def intensity(srf: int | np.int32,
+              reset_trace: bool = True) -> Matrix[np.float64]:
+    """INT: Compute intensity (modulus squared of complex amplitude) at
+    the given element. Equivalent to MACOS interactive 'INT <srf>'.
+
+    The result is the diffraction-grid (mdttl x mdttl) intensity at the
+    wavefront's native sampling. For a pixelated detector (configurable
+    pixel size + count) use a future 'pix()' wrapper; intensity() takes
+    no pixelization arguments.
+
+    Args:
+        srf: Element ID (Range: -nElt < srf <= nElt). Negative values
+             index from the end; -1 is the last surface (image plane).
+        reset_trace: If True (default), runs MODIFY first so the trace
+             starts from the source.  Set False to keep the prior trace
+             state (e.g. after a perturbation sequence).
+
+    Returns:
+        2D ndarray (N x N) of intensity values, float64. N equals
+        macos's diffraction grid size (param_mod.mdttl), which for the
+        active model_size is typically equal to model_size.
+
+    Raises:
+        Exception: MACOS-side failure (system not loaded, invalid srf,
+                   or unallocated intensity buffer).
+
+    Example:
+        pymacos.load('Rx_Cass_FarField.in')
+        psf = pymacos.intensity(6)     # focal plane
+    """
+    _chk_macos_and_rx_loaded()
+
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception("intensity() takes a single srf, got "
+                            f"{len(iElt)}")
+        iElt = int(iElt[0])
+
+    ok, n = lib.api.int_cmd(int(iElt), int(bool(reset_trace)))
+    if not ok or n == 0:
+        raise Exception("MACOS: 'INT' command failed at "
+                        f"Elt {iElt}")
+
+    ok, arr = lib.api.int_get(n)
+    if not ok:
+        raise Exception("MACOS: intensity buffer retrieval failed")
+
+    return arr
+
+
 def spot(srf: int | Tuple[int] | np.int32,
          vpt_center: bool | int = True,
          beam_csys: int = 1,
