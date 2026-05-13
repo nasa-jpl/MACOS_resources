@@ -39,14 +39,27 @@ pymacos/
     ├── context.py              sys.path shim + wavelength decorators
     ├── test_settings.py        global pass/fail tolerances + Qform helper
     ├── rx_data.py              fixtures: RxDataBase + per-Rx data classes
+    ├── conftest.py             session_dir fixture
     ├── test_api_rx_grating.py  pytest, parametrized over macos_size
     ├── test_masks.py
     ├── macos_param.txt
+    ├── proper_compare/         macos vs PROPER (PyPROPER3) physical-optics
+    │   │                       cross-validation suite -- see its README
+    │   ├── conftest.py         pymacos session (init at 512) + 3-panel
+    │   │                       plot/.mat/.txt report fixture
+    │   ├── geometries/         per-problem dataclasses; macos_run + proper_run
+    │   ├── test_cass_ff.py     nominal + with-OPD comparison on Rx_Cass_FarField
+    │   ├── test_cass_ff_aberrations.py   SM Tx/Ty/Tz perturbation sequence
+    │   ├── test_psf.py         toy circular-pupil reference
+    │   └── results/            per-test PNG / .mat / .macos.txt / .proper.txt
+    │                           + report.md (gitignored, regenerated each run)
     └── Rx/
-        ├── Rx_Mask_Parabolas.in        MACOS prescription
-        ├── Rx_Mask_Parabola_glb.in
-        ├── Rx_Mask_parabolas.seq       CodeV sequence file (cross-validation)
+        ├── Rx_Mask_Parabolas.in        MACOS prescription (CodeV comparison)
+        ├── Rx_Mask_Parabolas_glb.in
+        ├── Rx_Mask_parabolas.seq       CodeV sequence file
         ├── Rx_Mask_parabolas_glb.seq
+        ├── Rx_Cass_FarField.in         Cass + far-field; PROPER comparison
+        ├── Rx_P2P_Int.in
         └── Grating_example_001.in
 ```
 
@@ -105,7 +118,7 @@ static libraries.
 | Element surface | `elt_kc`, `elt_kr`, `elt_zrn_*`, `elt_grid_*`, `elt_grating_*` |
 | Groups | `elt_grp`, `elt_grp_rm`, `elt_grp_wipe`, `elt_grp_fnd`, `elt_grp_any`, `elt_grp_max_size` |
 | Perturbation | `prb_elt`, `prb_grp` |
-| Trace / outputs | `trace_rays`, `opd`, `spot`, `fex`, `xp`, `stop`, `modify` |
+| Trace / outputs | `trace_rays`, `opd`, `intensity`, `spot`, `fex`, `xp`, `stop`, `modify` |
 
 Each `elt_*`-style getter/setter follows the pattern: pass `None` to get
 the current value, pass a value (scalar or array) to set it. Inputs are
@@ -187,19 +200,34 @@ is not under `C:\Program Files (x86)\Intel\oneAPI\2025.3`).
 
 ```bash
 cd pymacos/tests
-pytest                          # all tests
+pytest                          # all tests (CodeV-compare + PROPER-compare)
 pytest test_api_rx_grating.py   # one file
 pytest -k Grating               # one selection
+pytest proper_compare/          # PROPER physical-optics comparison only
 ```
 
-Tests are parametrized over `macos_size` via a module-scoped fixture
-(`@pytest.fixture(params=(128,))`) so the same test can be run against
-multiple compiled array bounds. Tolerances live in `test_settings._Tol`
-(positional 1e-10, directional 1e-13, path-length 1e-11, value 1e-15).
+Two test families:
 
-`tests/Rx/` ships both `.in` (MACOS) and `.seq` (CodeV) versions of each
-prescription so the trace outputs from pymacos can be checked against
-CodeV's reference output — this is the principal cross-validation path.
+- **CodeV cross-validation** (`test_api_rx_grating.py`, `test_masks.py`):
+  geometric / ray-trace paths. Parametrized over `macos_size` via a
+  module-scoped fixture. Tolerances in `test_settings._Tol` (positional
+  1e-10, directional 1e-13, path-length 1e-11, value 1e-15). 6601 tests
+  total, all passing. `tests/Rx/` ships `.in` (MACOS) and `.seq` (CodeV)
+  pairs.
+
+- **PROPER cross-validation** (`tests/proper_compare/`): physical-optics
+  paths (INT/PIX/DFT-propagation) that CodeV can't reach. Uses
+  [PyPROPER3](https://proper-library.sourceforge.net/) (John Krist's
+  Python port of PROPER) as the comparator. Currently scoped to
+  `Rx_Cass_FarField.in` with nominal + secondary-mirror Tx/Ty/Tz
+  perturbations; macos and PROPER agree at numerical-precision level
+  (max |a-b| ~ 1e-11 on Strehl-normalised PSFs). Per-test artefacts
+  (3-panel PNG, .mat with raw + normalised arrays + metadata, ASCII
+  crops, cumulative `report.md`) land in `tests/proper_compare/results/`
+  (gitignored). See `tests/proper_compare/README.md` for install
+  procedure and the two corrections needed to reach this level of
+  agreement (mask-matched amplitude via prop_multiply, and OPD sign
+  flip).
 
 ## Gaps / notes for downstream changes
 
@@ -223,12 +251,21 @@ CodeV's reference output — this is the principal cross-validation path.
   is one-shot per process (changing model size requires a fresh
   interpreter).
 
-## Regression trip-wire for future macos edits:
+## Regression trip-wire for future macos edits
 
+```bash
 cd ~/dev/MACOS_resources/pymacos
-source .venv/bin/activate && source /opt/intel/oneapi/setvars.sh intel64
-cd tests && pytest test_api_rx_grating.py test_masks.py -q --tb=no
+source .venv/bin/activate
+source /opt/intel/oneapi/setvars.sh intel64
+# 1. rebuild pymacosf90 against the freshly rebuilt libsmacos.a
+cd src/cmake/build && make && cd ../../../tests
+# 2. CodeV-comparison suite (geometric / ray-trace paths)
+pytest test_api_rx_grating.py test_masks.py -q --tb=no
+# 3. PROPER-comparison suite (physical-optics paths)
+pytest proper_compare/ -q --tb=no
+```
 
-If you change something in macos_f90 and rebuild via makems.sh, rebuild pymacos (cd pymacos/src/cmake/build && make), then re-run this command. Any new failures are likely your edits. As of 2026-05-11 the full suite passes 6601/6601.
-
-Remove the --deselect... once parabola_glb is fixed.
+If you change something in `macos_f90/` and rebuild via `makems.sh`,
+both suites should still be green. A new failure usually points at the
+edit. As of 2026-05-12 the suites pass 6601/6601 (CodeV) and 11/11
+(PROPER).
