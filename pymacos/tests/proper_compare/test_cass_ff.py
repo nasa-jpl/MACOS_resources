@@ -110,8 +110,9 @@ def test_compare_cass_ff_psf_with_opd(pymacos_session, tol, results_dir):
             'pupil_diameter_m': DEFAULT.pupil_diameter_m,
             'macos_opd_at_xp':  opd,
         })
-    # With OPD pass-through, residual disagreement drops because the
-    # remaining mismatch is engine architecture rather than wavefront
-    # bookkeeping.  Set the bar tighter than the no-OPD test.
-    assert metrics['max_abs_aligned'] < 0.02, (
-        f"max |a-b| = {metrics['max_abs_aligned']:.3e} aligned")
+    # With macos's mask used directly as PROPER's amplitude and the
+    # OPD sign reconciled, residual agreement is at numerical
+    # precision (max |a-b| ~ 1e-11 on Strehl-normalised PSFs).  Set
+    # the bar at 1e-6 to allow for FFT round-off / MKL drift.
+    assert metrics['max_abs'] < 1e-6, (
+        f"max |a-b| = {metrics['max_abs']:.3e}")
