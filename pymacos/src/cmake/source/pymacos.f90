@@ -3205,6 +3205,96 @@
 
 
       !---------------------------------------------------------------------------------------------
+      ! Execute a propagation to element iElt so the diffraction-grid
+      ! complex field is populated in WFElt(:,:, iEltToiWF(iElt)).
+      !
+      ! Drives MACOS's 'INT' command -- INT triggers the full ray-trace +
+      ! propagation chain which populates WFElt at every element along
+      ! the way.  After this, cfield_get retrieves the complex field at
+      ! iElt for ingestion by an external physical-optics engine (e.g.
+      ! PROPER's prop_multiply + prop_add_phase).
+      !---------------------------------------------------------------------------------------------
+      subroutine cfield_cmd(OK, N, iElt, res_trace)
+        implicit none
+        logical, intent(out):: OK        ! (PASS=1) if successful
+        integer, intent(out):: N         ! WFElt's leading dim (= mdttl)
+        integer, intent(in) :: iElt      ! element at which complex field
+                                         ! is wanted
+        logical, intent(in) :: res_trace ! (PASS=1) apply a MODIFY first
+        ! ------------------------------------------------------
+        OK = FAIL
+        N  = 0
+
+        if ((.not. SystemCheck()) .or.            &
+            (iElt<1) .or. (iElt>nElt) .or.        &
+            (EltID(iElt).EQ.SegmentElt).or.       &
+            (EltID(iElt).EQ.NSRefractorElt) .or.  &
+            (EltID(iElt).EQ.NSReflectorElt)) return
+
+        if (res_trace==PASS) then
+          command = 'MODIFY'
+          CALL SMACOS(command,CARG,DARG,IARG,LARG,RARG,OPDMat,RaySpot,RMSWFE,PixArray)
+        end if
+
+        command = 'INT'
+        IARG(1) = iElt
+        CALL SMACOS(command,CARG,DARG,IARG,LARG,RARG,OPDMat,RaySpot,RMSWFE,PixArray)
+
+        N  = mdttl
+        OK = PASS
+
+      end subroutine cfield_cmd
+
+
+      !---------------------------------------------------------------------------------------------
+      ! Retrieve diffraction-grid complex field at element iElt filled
+      ! by the most recent cfield_cmd (or any preceding propagation).
+      !
+      ! WFElt is COMPLEX*16; we split into REAL and IMAG output arrays
+      ! because f2py wraps real-valued arrays more robustly than complex
+      ! ones.  The Python wrapper (macos.py) recombines them into a
+      ! complex128 ndarray.
+      !
+      ! iElt -> WF slot mapping comes from iEltToiWF (set by macos's
+      ! propagation routines as the wavefront moves through the optical
+      ! train).  An iElt whose slot is 0 has no diffraction wavefront
+      ! computed (purely geometric path) and yields OK=FAIL.
+      !---------------------------------------------------------------------------------------------
+      subroutine cfield_get(OK, REAL_OUT, IMAG_OUT, N, iElt)
+        use elt_mod, only: WFElt, iEltToiWF
+
+        implicit none
+        logical,                 intent(out):: OK
+        real(8), dimension(N,N), intent(out):: REAL_OUT
+        real(8), dimension(N,N), intent(out):: IMAG_OUT
+        integer,                 intent(in) :: N      ! = mdttl
+        integer,                 intent(in) :: iElt   ! element
+
+        !f2py  intent(hide)         :: OK
+        !f2py  intent(out,hide,copy):: REAL_OUT
+        !f2py  intent(out,hide,copy):: IMAG_OUT
+
+        integer :: iWF
+        ! ------------------------------------------------------
+        OK       = FAIL
+        REAL_OUT = 0d0
+        IMAG_OUT = 0d0
+
+        if ((.not. SystemCheck()) .or. (N /= mdttl)) return
+        if ((iElt < 1) .or. (iElt > nElt))           return
+        if (.not. allocated(WFElt))                  return
+
+        iWF = iEltToiWF(iElt)
+        if (iWF .LE. 0) return   ! no diffraction wavefront at this element
+
+        REAL_OUT(:,:) = dble(WFElt(:N, :N, iWF))
+        IMAG_OUT(:,:) = dimag(WFElt(:N, :N, iWF))
+        OK = PASS
+
+      end subroutine cfield_get
+
+
+      !---------------------------------------------------------------------------------------------
       ! Set Exit Pupil (XP) information
       !---------------------------------------------------------------------------------------------
       subroutine xp_set(ok, vpt, psi, rad)
