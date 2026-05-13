@@ -2853,6 +2853,62 @@ def opd() -> Matrix[np.float64]:
     return opd
 
 
+def complex_field(srf: int | np.int32,
+                  reset_trace: bool = True) -> Matrix[np.complex128]:
+    """Retrieve the diffraction-grid complex field at element `srf`.
+
+    Triggers macos's full propagation chain (via the 'INT' command),
+    then returns WFElt(:,:, iEltToiWF(srf)) as a NumPy complex128
+    array of shape (mdttl, mdttl).  This is the same complex
+    amplitude macos's downstream propagation routines (FFPROP,
+    NFPROP, PPPROP, ...) operate on; useful for handing off the
+    wavefront to an external physical-optics engine like PROPER.
+
+    Args:
+        srf: Element ID (Range: -nElt < srf <= nElt).  Negative
+             values index from the end.
+        reset_trace: If True (default), runs MODIFY first so the trace
+             starts from the source.
+
+    Returns:
+        2D complex128 ndarray (N x N) of the complex amplitude at the
+        diffraction-grid sampling.  N equals macos's mdttl, which for
+        the current model_size is typically equal to model_size.
+
+    Raises:
+        Exception: MACOS not loaded, invalid srf, or element has no
+                   diffraction wavefront slot (purely geometric path).
+
+    Example:
+        pymacos.load('Rx_Coro.in')
+        field = pymacos.complex_field(2)        # at Elt 2
+        amp    = np.abs(field)
+        phase  = np.angle(field)                # radians
+        # opd_metres = phase / (2*np.pi) * wavelength_m
+    """
+    _chk_macos_and_rx_loaded()
+
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception("complex_field() takes a single srf, got "
+                            f"{len(iElt)}")
+        iElt = int(iElt[0])
+
+    ok, n = lib.api.cfield_cmd(int(iElt), int(bool(reset_trace)))
+    if not ok or n == 0:
+        raise Exception("MACOS: 'complex_field' propagation failed at "
+                        f"Elt {iElt}")
+
+    ok, re_arr, im_arr = lib.api.cfield_get(n, int(iElt))
+    if not ok:
+        raise Exception(
+            f"MACOS: complex-field buffer retrieval failed at Elt "
+            f"{iElt} (element may have no diffraction wavefront slot)")
+
+    return re_arr + 1j * im_arr
+
+
 def intensity(srf: int | np.int32,
               reset_trace: bool = True) -> Matrix[np.float64]:
     """INT: Compute intensity (modulus squared of complex amplitude) at
