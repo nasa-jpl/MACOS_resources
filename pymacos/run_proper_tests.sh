@@ -88,9 +88,14 @@ pytest proper_compare/test_cass_ff.py proper_compare/test_cass_ff_aberrations.py
 s1=$?
 
 echo
-echo "=== Phase 2 (Coro NF-prop) ==="
+echo "=== Phase 2 (Coro NF-prop, Elt 2 -> Elt 3) ==="
 pytest proper_compare/test_coro_nfprop.py "${pytest_args[@]}"
 s2=$?
+
+echo
+echo "=== Phase 3 (Coro NF-prop, further-down-chain pairs) ==="
+pytest proper_compare/test_coro_nfprop_phase3.py "${pytest_args[@]}"
+s3=$?
 
 # (test_psf.py is a leftover skip; include for completeness but its
 # status doesn't gate the overall run.)
@@ -102,14 +107,15 @@ set -e
 echo
 echo "Artefacts:"
 echo "  $here/tests/proper_compare/results_phase1/   (Cass FF: PNG, .mat, report.md)"
-echo "  $here/tests/proper_compare/results_phase2/   (Coro NF-prop: same)"
+echo "  $here/tests/proper_compare/results_phase2/   (Coro NF-prop 2->3)"
+echo "  $here/tests/proper_compare/results_phase3/   (Coro NF-prop further-down-chain)"
 
-# Overall status: fail if either phase failed.
-if [[ $s1 -ne 0 || $s2 -ne 0 ]]; then
+# Overall status: fail if any phase failed.
+if [[ $s1 -ne 0 || $s2 -ne 0 || $s3 -ne 0 ]]; then
     echo
-    echo "FAILURE: phase1=$s1, phase2=$s2"
+    echo "FAILURE: phase1=$s1, phase2=$s2, phase3=$s3"
     exit 1
 fi
 echo
-echo "Both phases passed."
+echo "All phases passed."
 exit 0
