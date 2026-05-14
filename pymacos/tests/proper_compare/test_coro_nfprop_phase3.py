@@ -26,7 +26,9 @@ from .conftest import compare_and_record
 from .geometries.coro_nfprop import (
     CoroNFprop, macos_run, proper_run,
     CoroSphereToPlane, DEFAULT_SPHERE_TO_PLANE,
-    macos_run_sphere_to_plane, proper_run_sphere_to_plane)
+    macos_run_sphere_to_plane, proper_run_sphere_to_plane,
+    CoroPupilToPupilThruFocus, DEFAULT_PUPIL_TO_PUPIL,
+    macos_run_pupil_to_pupil, proper_run_pupil_to_pupil)
 
 pytestmark = pytest.mark.proper_compare
 
@@ -130,6 +132,60 @@ def test_coro_sphere_to_plane_elt8_to_elt9(pymacos_session,
     # after the actual residual is observed.
     assert metrics['max_abs'] < 0.1, (
         f"max |a-b| = {metrics['max_abs']:.3e} (Strehl-normalised); "
+        f"RMS = {metrics['rms_abs']:.3e}; "
+        f"Δcom = ({metrics['dx_pix']:+d}, "
+        f"{metrics['dy_pix']:+d}) px")
+
+
+# =====================================================================
+# Phase 4a: chain through the focus to the far-side pupil reference
+# =====================================================================
+
+def test_coro_pupil_to_pupil_elt8_to_elt10(pymacos_session,
+                                            results_dir_phase3):
+    """Phase 4a: continue past the focal plane to Elt 10 (the
+    spherical-reference pupil on the divergent side of the focus).
+
+    Same starting point as Phase 3b (cfield at Elt 8), same recipe
+    (prop_lens + prop_propagate to focus), then a SECOND
+    prop_propagate(f) carries the beam past the focus to Elt 10.
+    Output sampling rebins back to the pupil scale (0.333 mm/pix);
+    PROPER's outside-beam Fresnel kernel handles the rebin
+    automatically.
+
+    No mask or Lyot stop yet -- this is the baseline.
+    """
+    intensity_m, dx_m, wf = macos_run_pupil_to_pupil(
+        DEFAULT_PUPIL_TO_PUPIL, pymacos_session)
+    intensity_p, dx_p     = proper_run_pupil_to_pupil(
+        DEFAULT_PUPIL_TO_PUPIL, wavefront_at_pupil=wf)
+
+    assert intensity_m.shape == intensity_p.shape
+    assert dx_p == pytest.approx(dx_m, rel=1e-3), (
+        f"pupil-plane sampling mismatch: macos dx={dx_m:.3e}, "
+        f"PROPER dx={dx_p:.3e}")
+
+    metrics = compare_and_record(
+        'coro_pupil_to_pupil_elt8_to_elt10',
+        intensity_m, intensity_p, dx_m,
+        results_dir_phase3,
+        crop_pixels=intensity_m.shape[0],
+        norm_kind='sum',                    # pupil-plane (back at coarse
+                                            # sampling): flux-norm
+        extra_metadata={
+            'wavelength_m':           DEFAULT_PUPIL_TO_PUPIL.wavelength_m,
+            'focal_length_m':         DEFAULT_PUPIL_TO_PUPIL.focal_length_m,
+            'src_elt':                DEFAULT_PUPIL_TO_PUPIL.src_elt,
+            'focus_elt':              DEFAULT_PUPIL_TO_PUPIL.focus_elt,
+            'detector_elt':           DEFAULT_PUPIL_TO_PUPIL.detector_elt,
+            'rx_filename':            DEFAULT_PUPIL_TO_PUPIL.rx_filename,
+            'macos_cfield_at_pupil':  wf['complex_field'],
+            'macos_intensity_at_focus': wf['intensity_at_focus'],
+        })
+
+    # First-cut tolerance.  Tighten once observed.
+    assert metrics['max_abs'] < 1e-4, (
+        f"max |a-b| = {metrics['max_abs']:.3e} (sum-normalised); "
         f"RMS = {metrics['rms_abs']:.3e}; "
         f"Δcom = ({metrics['dx_pix']:+d}, "
         f"{metrics['dy_pix']:+d}) px")
