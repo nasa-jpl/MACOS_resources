@@ -26,23 +26,26 @@ python -c "import proper; print('OK')"
 
 ```
 proper_compare/
-├── conftest.py                       # pymacos session (init at 512),
-│                                       3-panel plot + .mat/.txt report
-│                                       fixture, comparison metrics
+├── conftest.py                       # per-phase results-dir fixtures,
+│                                       3-panel plot + .mat report,
+│                                       comparison metrics (peak/sum
+│                                       norm, centroid alignment)
 ├── geometries/
-│   ├── cass_farfield.py              # Rx_Cass_FarField.in + matching
-│   │                                   PROPER thin-lens model; macos_run
-│   │                                   and proper_run on one dataclass
+│   ├── cass_farfield.py              # Phase 1: Rx_Cass_FarField.in
+│   ├── coro_nfprop.py                # Phase 2: Rx_Coro.in Elt 2 → 3
 │   └── circular_pupil_focus.py       # toy reference (PROPER side only)
-├── test_cass_ff.py                   # nominal + nominal-with-OPD
-├── test_cass_ff_aberrations.py       # SM Tx/Ty/Tz perturbations
+├── test_cass_ff.py                   # Phase 1: nominal + with-OPD
+├── test_cass_ff_aberrations.py       # Phase 1: SM Tx/Ty/Tz perturb
+├── test_coro_nfprop.py               # Phase 2: NF prop comparison
 ├── test_psf.py                       # toy circular-pupil sanity test
-└── results/                          # gitignored, regenerated each run
-    ├── report.md                     # cumulative quantitative table
-    ├── <test>.png                    # 3-panel macos / PROPER / diff
-    ├── <test>.mat                    # full arrays + metadata
-    ├── <test>.macos.txt              # ASCII 64x64 central crop
-    └── <test>.proper.txt             # ditto, PROPER side
+├── results_phase1/                   # Phase 1 artefacts (gitignored)
+│   ├── report.md
+│   ├── cass_ff_*.png
+│   └── cass_ff_*.mat
+└── results_phase2/                   # Phase 2 artefacts (gitignored)
+    ├── report.md
+    ├── coro_nfprop_*.png
+    └── coro_nfprop_*.mat
 ```
 
 ## Run
@@ -65,30 +68,43 @@ cd tests && pytest proper_compare/ -v
 
 ## Status
 
-- **`test_cass_ff.py` and `test_cass_ff_aberrations.py`**: both engines
-  fully wired against `Rx_Cass_FarField.in`. macos's INT array is
-  retrieved via `pymacos.intensity(6)`; macos's OPD at the exit pupil
-  is retrieved via `pymacos.opd()` after `trace_rays(5)`. PROPER takes
-  its amplitude pattern directly from macos's mask and adds macos OPD
-  as phase. **Agreement is at numerical precision (max |a-b| ~ 1e-11
-  on Strehl-normalised PSFs)** for nominal + all six SM Tx/Ty/Tz
-  perturbation cases.
+- **Phase 1 — `test_cass_ff.py` + `test_cass_ff_aberrations.py`**:
+  both engines fully wired against `Rx_Cass_FarField.in`.  macos's
+  INT array via `pymacos.intensity(6)`; OPD at the exit pupil via
+  `pymacos.opd()` after `trace_rays(5)`.  PROPER takes amplitude
+  directly from macos's mask and adds macos OPD as phase.  Image-
+  plane PSF comparison uses **peak-normalised** metric.  **Agreement
+  at numerical precision (max |a-b| ~ 1e-11)** for nominal + six SM
+  Tx/Ty/Tz perturbation cases.
+
+- **Phase 2 — `test_coro_nfprop.py`**: near-field plane-to-plane
+  propagation between Elt 2 and Elt 3 of `Rx_Coro.in`.  Both engines
+  start from macos's diffraction-grid complex field at Elt 2 (via
+  the new `pymacos.complex_field()` wrapper exposing `WFElt`),
+  propagate 774 mm, compare at Elt 3.  Pupil-plane intensity uses
+  **sum-normalised** (flux-conservation) metric.  **Agreement at
+  5e-12 RMS, 2.5e-10 max** in fraction-of-flux-per-pixel -- at
+  double-precision FFT round-off floor.  Peak-normalised metric
+  would have read 9e-6 here, but that's a normalisation artefact
+  (peak inside a flat-top is noise-dominated) -- the engines
+  agree on the physics to roughly seven significant figures inside
+  the bright pillar and to round-off in the dark region.
 
 - **`test_psf.py` + `circular_pupil_focus.py`**: leftover from the
   initial scaffolding. PROPER side works
   (`test_proper_circular_psf_runs`), macos side is `pytest.mark.skip`
   because `CircularPupilFocus.macos_rx_text()` is a stub that raises
-  `NotImplementedError`. The cass_ff suite supersedes this; the toy
-  test is kept only as a minimal PROPER-only sanity check.
+  `NotImplementedError`. The cass_ff and coro_nfprop suites supersede
+  this; the toy test is kept only as a minimal PROPER-only sanity
+  check.
 
 ## Critical learnings (don't lose these)
 
-Reaching the 1e-11 agreement required two corrections to the
-straightforward macos-OPD-to-PROPER path. Both live in
-`geometries/cass_farfield.py`'s `proper_run`. Disabling either
-(via the `opd_sign_flip=False` arg, or by switching back to the
-analytical aperture model) reproduces the symptoms below — useful
-when debugging a future regression.
+Reaching the observed agreement required three reconciliations to
+the straightforward macos→PROPER hand-off (plus two metric choices
+that turn out to be necessary for the residual to be readable).
+Future regressions can usually be diagnosed by checking these in
+order.
 
 1. **Mask-matched amplitude.** Take PROPER's amplitude DIRECTLY from
    macos's mask (`opd != 0`) via `prop_multiply`, instead of building
@@ -100,10 +116,35 @@ when debugging a future regression.
    and halves the apparent PSF shift under a tilt-class perturbation.
 
 2. **OPD sign flip.** macos's OPD-positive convention is opposite to
-   PROPER's `prop_add_phase` input. Without the flip, PROPER's PSF
+   PROPER's `prop_add_phase` input.  Without the flip, PROPER's PSF
    shifts in the *opposite* direction to macos's INT result.
-   `opd_sign_flip=True` by default. Worth checking the macos source
+   `opd_sign_flip=True` by default.  Worth checking the macos source
    for which sign convention is actually documented.
+
+3. **Normalisation choice (`norm_kind` in `compare_and_record`).**
+   `'peak'` (Strehl-norm, default; right for image-plane Airy-style
+   PSFs) or `'sum'` (flux-norm; right for pupil-plane / near-field
+   intensities).  Using peak-norm on a flat-top NF PSF inflates the
+   reported residual by ~4 orders of magnitude because of a tiny
+   mismatch in how the two engines normalise their peaks.  Phase 2
+   passes `norm_kind='sum'`.
+
+4. **Centroid (not peak) alignment.**  Post-comparison roll uses
+   intensity-weighted center of mass instead of `argmax`.  Peak
+   position inside a flat-top is noise-dominated; centroid is robust
+   for both NF flat-top pillars and FF Airy peaks.  The roll is
+   Python-side only and never touches macos's `WFElt` -- continuing
+   propagation past the current element is unaffected.
+
+5. **Diffraction-grid wavefront pass-through (Phase 2+).**  For
+   perturbation-aware comparisons in the coronagraph chain, pass
+   macos's complex field at the propagation start plane via
+   `pymacos.complex_field()` (exposes `WFElt(:,:, iEltToiWF(iElt))`).
+   This beats the legacy `opd()` for NF tests because `opd()`
+   returns the SOURCE-ray-grid OPD (e.g. 512×512 over the source
+   aperture), while `complex_field()` returns the diffraction-grid
+   wavefront (mdttl × mdttl) that matches PROPER's expected
+   sampling.
 
 ## Design notes
 

@@ -118,7 +118,7 @@ static libraries.
 | Element surface | `elt_kc`, `elt_kr`, `elt_zrn_*`, `elt_grid_*`, `elt_grating_*` |
 | Groups | `elt_grp`, `elt_grp_rm`, `elt_grp_wipe`, `elt_grp_fnd`, `elt_grp_any`, `elt_grp_max_size` |
 | Perturbation | `prb_elt`, `prb_grp` |
-| Trace / outputs | `trace_rays`, `opd`, `intensity`, `spot`, `fex`, `xp`, `stop`, `modify` |
+| Trace / outputs | `trace_rays`, `opd`, `intensity`, `complex_field`, `spot`, `fex`, `xp`, `stop`, `modify` |
 
 Each `elt_*`-style getter/setter follows the pattern: pass `None` to get
 the current value, pass a value (scalar or array) to set it. Inputs are
@@ -216,18 +216,30 @@ Two test families:
   pairs.
 
 - **PROPER cross-validation** (`tests/proper_compare/`): physical-optics
-  paths (INT/PIX/DFT-propagation) that CodeV can't reach. Uses
-  [PyPROPER3](https://proper-library.sourceforge.net/) (John Krist's
-  Python port of PROPER) as the comparator. Currently scoped to
-  `Rx_Cass_FarField.in` with nominal + secondary-mirror Tx/Ty/Tz
-  perturbations; macos and PROPER agree at numerical-precision level
-  (max |a-b| ~ 1e-11 on Strehl-normalised PSFs). Per-test artefacts
-  (3-panel PNG, .mat with raw + normalised arrays + metadata, ASCII
-  crops, cumulative `report.md`) land in `tests/proper_compare/results/`
-  (gitignored). See `tests/proper_compare/README.md` for install
-  procedure and the two corrections needed to reach this level of
-  agreement (mask-matched amplitude via prop_multiply, and OPD sign
-  flip).
+  paths (INT/PIX/DFT-propagation, NF plane-to-plane) that CodeV can't
+  reach.  Uses [PyPROPER3](https://proper-library.sourceforge.net/)
+  (John Krist's Python port of PROPER) as the comparator.  Organised
+  by phase, each writing to its own `results_phase<n>/` directory:
+
+  - **Phase 1** (`test_cass_ff*.py`, `Rx_Cass_FarField.in`): far-field
+    image-plane PSF comparison with nominal + secondary-mirror Tx/Ty/Tz
+    perturbations.  Peak-normalised agreement at 1e-11 with macos OPD
+    pass-through.
+  - **Phase 2** (`test_coro_nfprop.py`, `Rx_Coro.in`): near-field
+    plane-to-plane propagation between Elt 2 and Elt 3 of an
+    HCIT-style coronagraph (simplified-conic version).  Sum-normalised
+    agreement at 5e-12 RMS, 2.5e-10 max -- at double-precision FFT
+    round-off.
+
+  Per-test artefacts (3-panel PNG, `.mat` with raw + sum-normalised +
+  peak-normalised arrays + metadata, cumulative `report.md`) land in
+  `tests/proper_compare/results_phase<n>/` (gitignored).  Run via
+  `./run_proper_tests.sh` at the pymacos root; each phase executes in
+  its own pytest process to avoid pymacos state leak across
+  model_size transitions.  See `tests/proper_compare/README.md` for
+  install procedure and the corrections needed for the engines to
+  agree (mask-matched amplitude via `prop_multiply`, OPD sign flip,
+  norm_kind choice per plane).
 
 ## Gaps / notes for downstream changes
 
@@ -267,5 +279,5 @@ pytest proper_compare/ -q --tb=no
 
 If you change something in `macos_f90/` and rebuild via `makems.sh`,
 both suites should still be green. A new failure usually points at the
-edit. As of 2026-05-12 the suites pass 6601/6601 (CodeV) and 11/11
-(PROPER).
+edit. As of 2026-05-13 the suites pass 6601/6601 (CodeV) and 14/14
+(PROPER: 10 Phase 1 + 3 Phase 2 + 1 auxiliary).
