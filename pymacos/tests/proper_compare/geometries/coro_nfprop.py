@@ -55,6 +55,125 @@ class CoroNFprop:
 DEFAULT = CoroNFprop()
 
 
+@dataclass(frozen=True)
+class CoroSphereToPlane:
+    """NF1/NF2 spherical-to-plane propagation (Rx_Coro Elt 8 -> Elt 9).
+
+    macos's NF1/NF2 is mathematically the same as the Cass FF case:
+    a propagation from a spherical reference surface (KrElt=-774 at
+    Elt 8) to a plane (Elt 9), exactly what PROPER's
+    prop_lens(f) + prop_propagate(f) recipe is designed for.  Use
+    the Phase 1 template (mask-matched amplitude + sign-flipped OPD
+    + prop_lens + prop_propagate) but parameterized for this step.
+
+    Output sampling: macos's NF1/NF2 rebins to dx2 = 1.928e-6 m at
+    Elt 9 (170x finer than the Elt-8 pupil sampling).  PROPER's FF
+    propagator does the same rebinning: focal-plane dx = lambda *
+    f_eff / grid_extent = 8.5e-7 * 0.774 / 0.341 = 1.929e-6 m.
+    Matches macos by construction (the macos diffraction-grid extent
+    IS what determines the FF focal sampling on both sides).
+    """
+    rx_filename:        str   = "Rx_Coro.in"
+    src_elt:            int   = 8          # 1stPropStart (spherical ref)
+    detector_elt:       int   = 9          # CorMask (plane)
+    macos_size:         int   = 1024
+    wavelength_m:       float = 8.5e-7     # 850 nm
+    dx_pupil_m:         float = 3.3323e-4  # macos dx at Elt 8
+    dx_focal_m:         float = 1.928e-6   # macos dx at Elt 9 (170x finer)
+    focal_length_m:     float = 0.774      # |KrElt| at Elt 8
+
+    @property
+    def grid_extent_m(self) -> float:
+        return self.macos_size * self.dx_pupil_m  # 0.341 m
+
+    @property
+    def proper_beam_ratio(self) -> float:
+        # beam fills the grid -- PROPER's grid extent at the pupil
+        # matches macos's, so PROPER's focal-plane dx auto-matches
+        # macos's dx at Elt 9.
+        return 1.0
+
+
+DEFAULT_SPHERE_TO_PLANE = CoroSphereToPlane()
+
+
+def macos_run_sphere_to_plane(geom: CoroSphereToPlane = DEFAULT_SPHERE_TO_PLANE,
+                              pymacos_session=None):
+    """Drive macos for the spherical-to-plane step.
+
+    Returns (intensity_at_detector, dx_focal_m, dict with amplitude
+    and complex_field at the spherical reference).
+    """
+    if pymacos_session is None:
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+        import pymacos.macos as pymacos_session
+
+    import numpy as np
+    rx_path = (Path(__file__).resolve().parents[2]
+               / "Rx" / geom.rx_filename)
+    pymacos_session.init(geom.macos_size)
+    pymacos_session.load(str(rx_path))
+
+    cfield_at_pupil = pymacos_session.complex_field(geom.src_elt)
+    intensity_pupil = pymacos_session.intensity(geom.src_elt)
+    intensity_focal = pymacos_session.intensity(geom.detector_elt)
+    amplitude_pupil = np.sqrt(np.clip(intensity_pupil, 0, None))
+
+    return (intensity_focal, geom.dx_focal_m,
+            dict(complex_field=cfield_at_pupil,
+                 amplitude=amplitude_pupil))
+
+
+def proper_run_sphere_to_plane(geom: CoroSphereToPlane = DEFAULT_SPHERE_TO_PLANE,
+                               wavefront_at_pupil=None,
+                               opd_sign_flip: bool = True,
+                               use_cfield_phase: bool = True):
+    """Drive PROPER for the spherical-to-plane step, Phase 1-style.
+
+    Args:
+      wavefront_at_pupil: dict with 'complex_field' and 'amplitude'
+        from macos_run_sphere_to_plane().
+      opd_sign_flip: same sign reconciliation as Phase 1 / Phase 2 v2.
+      use_cfield_phase: if True (default), pass macos's cfield phase
+        as PROPER's OPD (the residual phase content beyond the
+        spherical reference, since cfield at a spherical-reference
+        element is referenced to that sphere).  Then prop_lens
+        re-applies the convergence.  If macos's cfield turns out to
+        contain the convergence too (rather than being in the reference
+        frame), set False to use amplitude only and let prop_lens
+        supply the full convergence.
+    """
+    if wavefront_at_pupil is None:
+        raise ValueError("macos wavefront at the pupil is required")
+
+    import numpy as np
+    import proper
+
+    N = geom.macos_size
+    wfo = proper.prop_begin(geom.grid_extent_m, geom.wavelength_m,
+                            N, geom.proper_beam_ratio)
+
+    cfield = np.asarray(wavefront_at_pupil['complex_field'],
+                        dtype=np.complex128)
+    proper.prop_multiply(wfo, np.abs(cfield))
+
+    if use_cfield_phase:
+        opd = np.angle(cfield) * geom.wavelength_m / (2.0 * np.pi)
+        if opd_sign_flip:
+            opd = -opd
+        proper.prop_add_phase(wfo, opd)
+
+    proper.prop_define_entrance(wfo)
+    # prop_lens supplies the convergence; prop_propagate uses
+    # PROPER's Sphere-to-plane FF kernel (same as Cass FF Phase 1).
+    proper.prop_lens(wfo, geom.focal_length_m)
+    proper.prop_propagate(wfo, geom.focal_length_m)
+    field, sampling = proper.prop_end(wfo)
+    intensity = abs(field) ** 2 if field.dtype.kind == "c" else field
+    return intensity, sampling
+
+
 # ---------------------------------------------------------------------
 # macos side
 # ---------------------------------------------------------------------

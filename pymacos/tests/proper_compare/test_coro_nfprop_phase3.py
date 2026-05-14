@@ -23,7 +23,10 @@ import numpy as np
 import pytest
 
 from .conftest import compare_and_record
-from .geometries.coro_nfprop import CoroNFprop, macos_run, proper_run
+from .geometries.coro_nfprop import (
+    CoroNFprop, macos_run, proper_run,
+    CoroSphereToPlane, DEFAULT_SPHERE_TO_PLANE,
+    macos_run_sphere_to_plane, proper_run_sphere_to_plane)
 
 pytestmark = pytest.mark.proper_compare
 
@@ -81,3 +84,52 @@ def test_coro_nfplane_elt5_to_elt6(pymacos_session, results_dir_phase3):
     assert metrics['rms_abs'] < 1e-8, (
         f"RMS |a-b| = {metrics['rms_abs']:.3e} (sum-normalised); "
         f"max = {metrics['max_abs']:.3e}")
+
+
+def test_coro_sphere_to_plane_elt8_to_elt9(pymacos_session,
+                                            results_dir_phase3):
+    """Sphere-to-plane propagation from Elt 8 (1stPropStart, spherical
+    reference KrElt=-774) to Elt 9 (CorMask, plane).  Geometrically a
+    far-field calc just like Phase 1's Cass FF: macos's
+    PropType=NF1/NF2 reflects the local frame ("near-field of the
+    focus"), but the physics is sphere-to-plane FF, so PROPER uses
+    prop_lens(f=774) + prop_propagate(f=774).
+
+    This is the first comparison step where macos's diffraction-grid
+    pixel pitch CHANGES between source (0.333 mm/pix) and destination
+    (1.93 um/pix, 170x finer) -- PROPER's FF kernel rebins exactly
+    the same way, by construction (focal-plane dx = lambda * f /
+    grid_extent matches macos's reported dx2).
+    """
+    intensity_m, dx_m, wf = macos_run_sphere_to_plane(
+        DEFAULT_SPHERE_TO_PLANE, pymacos_session)
+    intensity_p, dx_p     = proper_run_sphere_to_plane(
+        DEFAULT_SPHERE_TO_PLANE, wavefront_at_pupil=wf)
+
+    assert intensity_m.shape == intensity_p.shape
+    assert dx_p == pytest.approx(dx_m, rel=1e-3), (
+        f"focal-plane sampling mismatch: macos dx={dx_m:.3e}, "
+        f"PROPER dx={dx_p:.3e}")
+
+    metrics = compare_and_record(
+        'coro_sphere_to_plane_elt8_to_elt9',
+        intensity_m, intensity_p, dx_m,
+        results_dir_phase3,
+        crop_pixels=intensity_m.shape[0],
+        norm_kind='peak',                 # image-plane (focal): Strehl form
+        extra_metadata={
+            'wavelength_m':            DEFAULT_SPHERE_TO_PLANE.wavelength_m,
+            'focal_length_m':          DEFAULT_SPHERE_TO_PLANE.focal_length_m,
+            'src_elt':                 DEFAULT_SPHERE_TO_PLANE.src_elt,
+            'detector_elt':            DEFAULT_SPHERE_TO_PLANE.detector_elt,
+            'rx_filename':             DEFAULT_SPHERE_TO_PLANE.rx_filename,
+            'macos_cfield_at_pupil':   wf['complex_field'],
+        })
+
+    # First-cut tolerance.  Will tighten or adjust use_cfield_phase
+    # after the actual residual is observed.
+    assert metrics['max_abs'] < 0.1, (
+        f"max |a-b| = {metrics['max_abs']:.3e} (Strehl-normalised); "
+        f"RMS = {metrics['rms_abs']:.3e}; "
+        f"Δcom = ({metrics['dx_pix']:+d}, "
+        f"{metrics['dy_pix']:+d}) px")
