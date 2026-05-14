@@ -174,6 +174,103 @@ def proper_run_sphere_to_plane(geom: CoroSphereToPlane = DEFAULT_SPHERE_TO_PLANE
     return intensity, sampling
 
 
+@dataclass(frozen=True)
+class CoroPupilToPupilThruFocus:
+    """Phase 4a: chain through the coronagraph focal plane to the
+    far-side pupil reference.
+
+    macos's Elt 10 (1stPropEnd) is the conjugate of Elt 8: another
+    spherical reference of radius 774 mm, on the divergent side of
+    the focus.  macos reports dx ~ 0.333 mm/pix at Elt 10 -- back
+    at the pupil-like sampling, having rebinned twice (8->9 via
+    Siegman-Sziklas to the fine focal plane, then 9->10 back to the
+    coarse pupil).
+
+    PROPER's equivalent: prop_lens(f) + prop_propagate(f) lands us
+    at the focus (Elt 9); a further prop_propagate(f) carries the
+    beam past focus to Elt 10.  PROPER's outside-beam Fresnel kernel
+    auto-rebins the sampling back to the pupil-scale grid.
+    """
+    rx_filename:    str   = "Rx_Coro.in"
+    src_elt:        int   = 8       # 1stPropStart (sphere)
+    focus_elt:      int   = 9       # CorMask (plane)
+    detector_elt:   int   = 10      # 1stPropEnd  (sphere, far side)
+    macos_size:     int   = 1024
+    wavelength_m:   float = 8.5e-7
+    dx_pupil_m:     float = 3.3323e-4  # at Elt 8 AND Elt 10
+    dx_focal_m:     float = 1.928e-6   # at Elt 9 only
+    focal_length_m: float = 0.774
+
+    @property
+    def grid_extent_m(self) -> float:
+        return self.macos_size * self.dx_pupil_m
+
+
+DEFAULT_PUPIL_TO_PUPIL = CoroPupilToPupilThruFocus()
+
+
+def macos_run_pupil_to_pupil(geom: CoroPupilToPupilThruFocus
+                              = DEFAULT_PUPIL_TO_PUPIL,
+                              pymacos_session=None):
+    """Drive macos through Elt 8 -> 9 -> 10.  Returns (intensity_at_10,
+    dx_m_at_10, dict with cfield_at_pupil for PROPER to ingest).
+    """
+    if pymacos_session is None:
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+        import pymacos.macos as pymacos_session
+
+    import numpy as np
+    rx_path = (Path(__file__).resolve().parents[2]
+               / "Rx" / geom.rx_filename)
+    pymacos_session.init(geom.macos_size)
+    pymacos_session.load(str(rx_path))
+
+    cfield_at_pupil   = pymacos_session.complex_field(geom.src_elt)
+    intensity_focus   = pymacos_session.intensity(geom.focus_elt)
+    intensity_at_10   = pymacos_session.intensity(geom.detector_elt)
+
+    return (intensity_at_10, geom.dx_pupil_m,
+            dict(complex_field=cfield_at_pupil,
+                 intensity_at_focus=intensity_focus))
+
+
+def proper_run_pupil_to_pupil(geom: CoroPupilToPupilThruFocus
+                               = DEFAULT_PUPIL_TO_PUPIL,
+                               wavefront_at_pupil=None,
+                               opd_sign_flip: bool = True):
+    """Drive PROPER through Elt 8 -> 9 -> 10.  Same setup as the
+    sphere-to-plane case for the first leg, then a second
+    prop_propagate(f) past the focus.
+    """
+    if wavefront_at_pupil is None:
+        raise ValueError("macos wavefront at the pupil is required")
+
+    import numpy as np
+    import proper
+
+    N  = geom.macos_size
+    wfo = proper.prop_begin(geom.grid_extent_m, geom.wavelength_m,
+                            N, 1.0)
+
+    cfield = np.asarray(wavefront_at_pupil['complex_field'],
+                        dtype=np.complex128)
+    proper.prop_multiply(wfo, np.abs(cfield))
+    opd = np.angle(cfield) * geom.wavelength_m / (2.0 * np.pi)
+    if opd_sign_flip:
+        opd = -opd
+    proper.prop_add_phase(wfo, opd)
+
+    proper.prop_define_entrance(wfo)
+    proper.prop_lens(wfo, geom.focal_length_m)
+    proper.prop_propagate(wfo, geom.focal_length_m)  # to Elt 9 (focus)
+    proper.prop_propagate(wfo, geom.focal_length_m)  # to Elt 10
+
+    field, sampling = proper.prop_end(wfo)
+    intensity = abs(field) ** 2 if field.dtype.kind == "c" else field
+    return intensity, sampling
+
+
 # ---------------------------------------------------------------------
 # macos side
 # ---------------------------------------------------------------------
