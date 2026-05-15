@@ -97,6 +97,11 @@ echo "=== Phase 3 (Coro NF-prop, further-down-chain pairs) ==="
 pytest proper_compare/test_coro_nfprop_phase3.py "${pytest_args[@]}"
 s3=$?
 
+echo
+echo "=== Phase 6 (Coro apodisation via pymacos.apodize) ==="
+pytest proper_compare/test_coro_apodizer.py "${pytest_args[@]}"
+s6=$?
+
 # (test_psf.py is a leftover skip; include for completeness but its
 # status doesn't gate the overall run.)
 echo
@@ -111,9 +116,9 @@ echo "  $here/tests/proper_compare/results_phase2/   (Coro NF-prop 2->3)"
 echo "  $here/tests/proper_compare/results_phase3/   (Coro NF-prop further-down-chain)"
 
 # Overall status: fail if any phase failed.
-if [[ $s1 -ne 0 || $s2 -ne 0 || $s3 -ne 0 ]]; then
+if [[ $s1 -ne 0 || $s2 -ne 0 || $s3 -ne 0 || $s6 -ne 0 ]]; then
     echo
-    echo "FAILURE: phase1=$s1, phase2=$s2, phase3=$s3"
+    echo "FAILURE: phase1=$s1, phase2=$s2, phase3=$s3, phase6=$s6"
     exit 1
 fi
 echo

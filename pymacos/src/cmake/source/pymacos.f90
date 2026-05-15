@@ -3353,6 +3353,49 @@
 
 
       !---------------------------------------------------------------------------------------------
+      ! Multiply macos's diffraction-grid complex field WFElt(:,:, iEltToiWF(iElt))
+      ! by a user-supplied real-valued NxN mask, in place.  Used by Python-side
+      ! apodization helpers to inject an arbitrary amplitude transmission map
+      ! into macos's wavefront on the diffraction grid, so the same mask can be
+      ! handed to PROPER (prop_multiply) and both engines see bit-identical
+      ! apodization.
+      !
+      ! Apply order is the caller's responsibility: macos must have already
+      ! propagated to iElt (i.e. WFElt(:,:, iEltToiWF(iElt)) must be populated)
+      ! BEFORE this call, and subsequent propagations (intensity, complex_field,
+      ! ...) will see the apodized wavefront.
+      !
+      ! Real-valued mask only.  Complex (amplitude+phase) apodisers would need
+      ! a sibling cfield_apodize(REAL_MASK, IMAG_MASK) -- defer until needed
+      ! (vortex / PIAA tests).
+      !---------------------------------------------------------------------------------------------
+      subroutine cfield_apodize(OK, MASK, N, iElt)
+        use elt_mod, only: WFElt, iEltToiWF
+
+        implicit none
+        logical,                 intent(out):: OK
+        real(8), dimension(N,N), intent(in) :: MASK
+        integer,                 intent(in) :: N      ! = mdttl
+        integer,                 intent(in) :: iElt
+
+        integer :: iWF
+        ! ------------------------------------------------------
+        OK = FAIL
+
+        if ((.not. SystemCheck()) .or. (N /= mdttl)) return
+        if ((iElt < 1) .or. (iElt > nElt))           return
+        if (.not. allocated(WFElt))                  return
+
+        iWF = iEltToiWF(iElt)
+        if (iWF .LE. 0) return   ! no diffraction wavefront at this element
+
+        WFElt(:N, :N, iWF) = WFElt(:N, :N, iWF) * cmplx(MASK, 0d0, kind=8)
+        OK = PASS
+
+      end subroutine cfield_apodize
+
+
+      !---------------------------------------------------------------------------------------------
       ! Set Exit Pupil (XP) information
       !---------------------------------------------------------------------------------------------
       subroutine xp_set(ok, vpt, psi, rad)

@@ -3035,6 +3035,62 @@ def dx_at(srf: int | np.int32, unit: str = 'm') -> float:
     return float(dx_m) * _DX_AT_UNIT_FACTORS[unit]
 
 
+def apodize(srf: int | np.int32, mask: np.ndarray) -> None:
+    """Multiply macos's diffraction-grid complex field at ``srf`` by
+    a user-supplied real-valued amplitude transmission map, in place.
+
+    Companion to PROPER's ``prop_multiply(wfo, mask)``.  Pass the SAME
+    NxN array to both engines and the apodisation is bit-identical:
+    no parametric-reconstruction drift, no FITS round-tripping.
+
+    macos must already have propagated to ``srf`` (e.g. via a prior
+    ``intensity(srf)``, ``complex_field(srf)``, or ``trace_rays(srf)``
+    call) so that ``WFElt(:,:, iEltToiWF(srf))`` is populated.
+    Subsequent calls (``intensity``, ``complex_field``, downstream
+    propagations) see the apodised wavefront.
+
+    Args:
+        srf:  Element id (1..nElt, or -k from end).
+        mask: Real-valued (N, N) array.  N must equal macos's
+              diffraction-grid size ``mdttl`` (= ``model_size`` arg
+              to ``init()``).  Typical values are amplitude
+              transmissions in [0, 1], but the wrapper does not
+              clamp -- caller may pass values outside [0, 1] for
+              e.g. inverted apodisers or sign-flipped masks.
+
+    Raises:
+        Exception: Rx not loaded, srf out of range, mask shape
+                   mismatch, or no diffraction wavefront populated
+                   at ``srf`` (``iEltToiWF(srf) <= 0``).
+    """
+    _chk_macos_and_rx_loaded()
+
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception("apodize() takes a single srf, got "
+                            f"{len(iElt)}")
+        iElt = int(iElt[0])
+
+    mask = np.asarray(mask, dtype=np.float64)
+    if mask.ndim != 2 or mask.shape[0] != mask.shape[1]:
+        raise Exception(f"apodize(): mask must be square 2D, got "
+                        f"shape {mask.shape}")
+    N = mask.shape[0]
+    if N != _MODELSIZE:
+        raise Exception(f"apodize(): mask shape ({N}, {N}) does not "
+                        f"match macos's diffraction-grid size "
+                        f"(mdttl = {_MODELSIZE}); call init({N}) and "
+                        "reload the Rx, or resize the mask")
+
+    ok = lib.api.cfield_apodize(mask, int(iElt))
+    if not ok:
+        raise Exception(
+            f"MACOS: cfield_apodize failed at Elt {iElt} -- check "
+            "that a propagation has populated WFElt at this element "
+            "(call intensity(srf) or complex_field(srf) first)")
+
+
 def spot(srf: int | Tuple[int] | np.int32,
          vpt_center: bool | int = True,
          beam_csys: int = 1,
