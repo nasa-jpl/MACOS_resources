@@ -32,20 +32,19 @@ proper_compare/
 │                                       norm, centroid alignment)
 ├── geometries/
 │   ├── cass_farfield.py              # Phase 1: Rx_Cass_FarField.in
-│   ├── coro_nfprop.py                # Phase 2: Rx_Coro.in Elt 2 → 3
+│   ├── coro_nfprop.py                # Phase 2/3/4a: Rx_Coro.in NFPlane,
+│   │                                   sphere-to-plane, pupil-to-pupil
 │   └── circular_pupil_focus.py       # toy reference (PROPER side only)
 ├── test_cass_ff.py                   # Phase 1: nominal + with-OPD
 ├── test_cass_ff_aberrations.py       # Phase 1: SM Tx/Ty/Tz perturb
-├── test_coro_nfprop.py               # Phase 2: NF prop comparison
+├── test_coro_nfprop.py               # Phase 2: NFPlane Elt 2 → 3
+├── test_coro_nfprop_phase3.py        # Phase 3a/b + 4a:
+│                                       NFPlane 5→6, sphere-to-plane 8→9,
+│                                       pupil-to-pupil 8→10 (through focus)
 ├── test_psf.py                       # toy circular-pupil sanity test
 ├── results_phase1/                   # Phase 1 artefacts (gitignored)
-│   ├── report.md
-│   ├── cass_ff_*.png
-│   └── cass_ff_*.mat
-└── results_phase2/                   # Phase 2 artefacts (gitignored)
-    ├── report.md
-    ├── coro_nfprop_*.png
-    └── coro_nfprop_*.mat
+├── results_phase2/                   # Phase 2 artefacts (gitignored)
+└── results_phase3/                   # Phase 3/4a artefacts (gitignored)
 ```
 
 ## Run
@@ -80,15 +79,93 @@ cd tests && pytest proper_compare/ -v
 - **Phase 2 — `test_coro_nfprop.py`**: near-field plane-to-plane
   propagation between Elt 2 and Elt 3 of `Rx_Coro.in`.  Both engines
   start from macos's diffraction-grid complex field at Elt 2 (via
-  the new `pymacos.complex_field()` wrapper exposing `WFElt`),
-  propagate 774 mm, compare at Elt 3.  Pupil-plane intensity uses
-  **sum-normalised** (flux-conservation) metric.  **Agreement at
-  5e-12 RMS, 2.5e-10 max** in fraction-of-flux-per-pixel -- at
-  double-precision FFT round-off floor.  Peak-normalised metric
-  would have read 9e-6 here, but that's a normalisation artefact
-  (peak inside a flat-top is noise-dominated) -- the engines
-  agree on the physics to roughly seven significant figures inside
-  the bright pillar and to round-off in the dark region.
+  `pymacos.complex_field()` exposing `WFElt`), propagate 774 mm,
+  compare at Elt 3.  Pupil-plane intensity uses **sum-normalised**
+  (flux-conservation) metric.  **Agreement at 2.4e-14 RMS, 4.8e-13
+  max** with the runtime `pymacos.dx_at()` query (see learning 6
+  below) and `nGridpts=511` (odd, true grid-center pixel).  That's
+  double-precision FFT round-off.
+
+- **Phase 3 — `test_coro_nfprop_phase3.py`**: three additional Coro
+  steps further down the chain.
+  - **3a (NFPlane 5→6):** mirror of Phase 2 but at the second
+    NFPlane.  Intervening DM (Elt 4) + reference apertures clip the
+    beam to ~1/4 its Elt-2 footprint (R~63 px vs ~128 px), dropping
+    the Fresnel number from ~2770 to ~684.  **Agreement at 3.7e-8
+    max, 1.2e-9 RMS** — sampling-limited at the smaller beam.
+    Investigation (2026-05-14) ruled out dx mismatch (matches to
+    1e-16), sub-pixel grid origin (centroids match at 14+ digits),
+    and kernel-boundary handling (apodization moved PROPER *away*
+    from macos, confirming both engines correctly diffract the hard
+    aperture edges).  Floor is sampling-limited for this geometry
+    at N=1024 — expected to drop as ~1/N² with denser grid.
+  - **3b (sphere-to-plane 8→9):** Siegman–Sziklas style; macos's
+    `NF1/NF2` matches PROPER's `prop_lens(f) + prop_propagate(f)`
+    bit-for-bit.  **4.2e-11 max, 4.8e-13 RMS** (peak-normalised,
+    image-plane metric).
+  - **4a (pupil-to-pupil 8→10 through focus):** chains the
+    sphere-to-plane plus a second `prop_propagate(f)` past focus to
+    Elt 10.  **5.9e-13 max, 1.3e-14 RMS** (sum-normalised).
+    Pupil-side sampling auto-rebins back to the coarse grid by
+    construction.
+  - **4b (NFPlane 13→14):** mirror of 3a, downstream of the focus.
+    **7.4e-5 max, 1.4e-6 RMS** -- the only step that doesn't hit
+    numerical precision.  Diagnostic confirmed the residual is a
+    localized diffraction ring at r=17-34 mm from earlier hard
+    apertures (M1/DM/OAPs), not a handoff leak; agreement is
+    machine-precision (1e-13) across the rest of the 80%-filled
+    wavefront.  Re-enabling the 20 mm Lyot doesn't help (the ring
+    sits INSIDE the Lyot's clear aperture); the Lyot adds its own
+    edge residual at r=20 mm.
+
+- **Phase 5 — `test_coro_nfprop_phase3.py` (continued)**: full chain
+  to the science focal plane (Elt 21), with and without a basic
+  coronagraph mask + Lyot.
+  - **5 step 1 (no mask):** `Rx_Coro_noLyot.in`, ExitPupil (Elt 20,
+    spherical, Kr=-951.4 mm) -> FocalPlane (Elt 21).  Macos's
+    `PropType=FarField` is the same sphere-to-plane physics as
+    Phase 3b/4a at a different f; reuses `CoroSphereToPlane`
+    directly with `focal_length_m=0.9514`.  **2.3e-9 max, 2.7e-11
+    RMS** (Strehl-normalised).
+  - **5 step 2 (FPM + Lyot):** `Rx_Coro_FPM.in` adds a 400 um
+    radius circular obscuration at Elt 9 (Element=Obscuring) and
+    a 14 mm radius circular Lyot stop at Elt 14.  Sizes tuned by
+    /tmp/fpm_lyot_sweep.py + /tmp/lyot_sweep.py (FPM diminishing
+    returns above ~400 um at this F#; Lyot ~14 mm crops the
+    leakage halo at the pupil edge cleanly).  Macos applies both
+    masks during its trace; PROPER ingests the post-mask cfield at
+    Elt 20 and propagates the last sphere-to-plane step.
+    **2.6e-6 max, 1.0e-8 RMS** (Strehl-normalised).  Looser than
+    step 1's 2.3e-9 because the suppressed wavefront has hard-edge
+    diffraction structure that the two engines' finite-grid kernels
+    sample slightly differently -- same sampling-limited regime as
+    Phase 3a.  In absolute units the residual is ~2.5e-13 against
+    a peak of 9.5e-8.  On-axis suppression: **factor 3.2 million**
+    versus the no-mask baseline (0.304 -> 9.5e-8).
+
+  **Critical gotcha (debugged 2026-05-14):** Elt 9 (the FPM
+  element) MUST be declared `Element= Obscuring`, not
+  `Element= Reference`, for macos to apply the circular obscuration
+  to the diffraction-grid wavefront.  A `Reference`-typed element
+  carries `nObs / ObsType / ObsVec` metadata but only applies it
+  to geometric rays during ray tracing; the diffraction `WFElt`
+  array sails through untouched.  This silently broke the original
+  Phase 5.2 setup (FPM=132 um + Lyot=20 mm) where suppression was
+  only ~17% -- the apparent "weak coronagraph" was actually no
+  coronagraph at all, just flux trimming at the 20 mm Lyot.
+
+  Prescriptions:
+  - `Rx_Coro_noLyot.in` : no FPM, no Lyot (Phase 4b / 5.1 baseline)
+  - `Rx_Coro_FPM.in`    : FPM=400 um + Lyot=14 mm (Phase 5.2)
+  - `Rx_Coro_FPM_noLyot.in` : FPM=400 um, no Lyot (sweep helper)
+  - `Rx_Coro.in`        : pristine, do not edit -- original
+                          prescription used as the source for all
+                          variants
+
+  Designing a properly-matched Lyot coronagraph (and later
+  apodizers) will use a different setup; this prescription is
+  retained as a "good enough" test case for macos<->PROPER
+  validation across the full chain.
 
 - **`test_psf.py` + `circular_pupil_focus.py`**: leftover from the
   initial scaffolding. PROPER side works
@@ -145,6 +222,37 @@ order.
    aperture), while `complex_field()` returns the diffraction-grid
    wavefront (mdttl × mdttl) that matches PROPER's expected
    sampling.
+
+6. **Runtime dx query via `pymacos.dx_at()` (Phase 2+).**  macos
+   stores per-element diffraction-grid pitch `dxElt(iElt)` in the
+   prescription's BaseUnits (mm for `Rx_Coro.in`, m for
+   `Rx_Cass_FarField.in`).  For plane-to-plane and sphere-to-sphere
+   propagations, `dxElt` is **set by the ray-grid geometry** -- a
+   strictly geometric calculation, NOT an analytical
+   `extent / (N-1)` shortcut.  Reach into `dxElt` directly with
+   `pymacos.dx_at(srf, unit='m'|'mm'|'native')` (default `'m'`,
+   returns SI metres via `dxElt * CBM` in the Fortran wrapper).
+   Hardcoded 5-sig-fig dx values from macos's diagnostic output cap
+   agreement at ~1e-7; runtime queries unlock 1e-13 in Phase 2 and
+   Phase 4a.
+
+7. **Odd `nGridpts` for true grid-center pixel.**  Even-N grids
+   place the FFT-center between four pixels, which manifests as a
+   sub-pixel Δcom = (0,0) but a stubborn ~1e-5 max residual that
+   doesn't go away no matter how careful the handoff.  Setting
+   `nGridpts` to an odd value (`511`, `1023`, ...) puts a true
+   pixel at the optical axis and drops Phase 4a from 1e-5 to 1e-13
+   on its own.
+
+8. **`prop_end` return type guard.**  PROPER's `proper.prop_end(wfo)`
+   returns either complex amplitude (`field.dtype.kind == 'c'`) or
+   already-squared real intensity, depending on internal state.
+   Always guard:
+   ```python
+   intensity = np.abs(field) ** 2 if field.dtype.kind == 'c' else field
+   ```
+   Squaring an already-real intensity is a silent 5-order-of-
+   magnitude bug.
 
 ## Design notes
 

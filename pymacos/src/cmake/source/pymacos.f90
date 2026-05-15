@@ -3260,6 +3260,64 @@
       ! train).  An iElt whose slot is 0 has no diffraction wavefront
       ! computed (purely geometric path) and yields OK=FAIL.
       !---------------------------------------------------------------------------------------------
+      !---------------------------------------------------------------------------------------------
+      ! Retrieve per-element diffraction-grid pixel pitch (dxElt(iElt))
+      ! after a propagation has populated it.  Returns 0 if Rx not loaded
+      ! or iElt out of range.  Used by Python tests that need to set up
+      ! their own grids (e.g. PROPER's prop_begin) at the EXACT macos
+      ! dx, avoiding 5-sig-fig precision losses from hardcoded values.
+      !---------------------------------------------------------------------------------------------
+      subroutine elt_dx_get(OK, dx_out, iElt)
+        use elt_mod, only: dxElt, CBM
+
+        implicit none
+        logical, intent(out):: OK
+        real(8), intent(out):: dx_out
+        integer, intent(in) :: iElt
+        ! ------------------------------------------------------
+        ! dxElt is stored in the prescription's BaseUnits (mm, cm, m,
+        ! in, ...). CBM is the conversion factor BaseUnits -> metres,
+        ! set at prescription load time (msmacosio.inc / macosio.F).
+        ! Returning SI metres so cross-engine code (PROPER) doesn't
+        ! need to know the prescription's unit choice.
+        OK     = FAIL
+        dx_out = 0d0
+
+        if ((.not. SystemCheck())) return
+        if ((iElt < 0) .or. (iElt > nElt)) return
+        if (.not. allocated(dxElt)) return
+
+        dx_out = dxElt(iElt) * CBM
+        OK = PASS
+
+      end subroutine elt_dx_get
+
+
+      !---------------------------------------------------------------------------------------------
+      ! Expose the prescription's BaseUnits -> metres conversion factor
+      ! (macos's internal `CBM`).  Used by the Python dx_at(unit='native')
+      ! path to reconstruct the raw dxElt value in whatever units the
+      ! prescription declared (mm/cm/m/in).  CBM is set at prescription
+      ! load time; reads as 0 until then.
+      !---------------------------------------------------------------------------------------------
+      subroutine base_unit_to_metres(OK, cbm_out)
+        use elt_mod, only: CBM
+
+        implicit none
+        logical, intent(out):: OK
+        real(8), intent(out):: cbm_out
+        ! ------------------------------------------------------
+        OK      = FAIL
+        cbm_out = 0d0
+
+        if (.not. SystemCheck()) return
+
+        cbm_out = CBM
+        OK = PASS
+
+      end subroutine base_unit_to_metres
+
+
       subroutine cfield_get(OK, REAL_OUT, IMAG_OUT, N, iElt)
         use elt_mod, only: WFElt, iEltToiWF
 

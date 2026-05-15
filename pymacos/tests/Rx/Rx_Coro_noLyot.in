@@ -286,8 +286,7 @@
             nCoat=  0
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  0
-           ApType=  Circular
-            ApVec=  2.0E+01  0.0E+00  0.0E+00
+           ApType=  None
          PropType=  Geometric
              zElt=0.0E+00
           nECoord= -6

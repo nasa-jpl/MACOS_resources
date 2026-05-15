@@ -182,7 +182,7 @@
 
              iElt=  9
           EltName=  CorMask
-          Element=  Reference
+          Element=  Obscuring
           Surface=  Flat
             KrElt=-1.0E+22
             KcElt=0.0E+00
@@ -192,7 +192,10 @@
            IndRef=1.0E+00
            Extinc=0.0E+00
             nCoat=  0
-             nObs=  0
+        xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  1
+          ObsType=  Circle
+         ObsVec=  4.00E-01  0.0E+00  0.0E+00
            ApType=  None
          PropType=  NF2
              zElt=-7.74E+02
@@ -287,7 +290,7 @@
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  0
            ApType=  Circular
-            ApVec=  2.0E+01  0.0E+00  0.0E+00
+            ApVec=  1.4E+01  0.0E+00  0.0E+00
          PropType=  Geometric
              zElt=0.0E+00
           nECoord= -6
