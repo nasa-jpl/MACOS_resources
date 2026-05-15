@@ -19,7 +19,7 @@
          Obscratn=0.0E+00
 
          GridType=  Square
-         nGridpts=  512
+         nGridpts=  511
             xGrid=  1.0E+00  0.0E+00  0.0E+00
             yGrid=  0.0E+00  1.0E+00  0.0E+00
 

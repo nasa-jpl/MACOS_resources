@@ -41,23 +41,29 @@ def test_coro_nfprop_macos_runs(pymacos_session):
     if wf2.get('opd') is not None:
         assert np.all(np.isfinite(wf2['opd']))
 
-    # macos's interactive diagnostic on this prescription:
-    #   Peak intensity= 6.305460e-06; Sum of intensity= 0.1962738
-    assert intensity_at_3.max() == pytest.approx(6.305e-6, rel=1e-3)
-    assert intensity_at_3.sum() == pytest.approx(0.1963,    rel=1e-3)
+    # macos's interactive diagnostic on this prescription
+    # (nGridpts=511, the odd value used so that the diffraction grid
+    # has a true center pixel; pre-2026-05 even-N runs reported
+    # peak~6.305e-6 / sum~0.1963):
+    #   Peak intensity= 6.347030e-06; Sum of intensity= 0.1962238
+    assert intensity_at_3.max() == pytest.approx(6.347e-6, rel=1e-3)
+    assert intensity_at_3.sum() == pytest.approx(0.1962,    rel=1e-3)
 
 
 def test_coro_nfprop_proper_runs(pymacos_session):
     """Sanity: PROPER ingests macos's Elt-2 wavefront and produces
     a finite, non-degenerate intensity at the Elt-3 plane.
     """
-    _, _, wf2 = macos_run(DEFAULT, pymacos_session)
+    _, dx_m, wf2 = macos_run(DEFAULT, pymacos_session)
     intensity_p, dxp = proper_run(DEFAULT, wavefront_at_elt2=wf2)
 
     assert intensity_p.shape == (DEFAULT.macos_size, DEFAULT.macos_size)
     assert np.all(np.isfinite(intensity_p))
     assert intensity_p.max() > 0
-    assert dxp == pytest.approx(DEFAULT.dx_m, rel=1e-3)
+    # PROPER's sampling should match macos's dx at the detector
+    # element (queried at runtime via pymacos.dx_at, returned by
+    # macos_run as the second tuple element).
+    assert dxp == pytest.approx(dx_m, rel=1e-3)
 
 
 def test_coro_nfprop_compare(pymacos_session, results_dir_phase2):

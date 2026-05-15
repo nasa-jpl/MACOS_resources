@@ -2960,6 +2960,81 @@ def intensity(srf: int | np.int32,
     return arr
 
 
+_DX_AT_UNIT_FACTORS = {
+    'm':      1.0,            # SI metres (default)
+    'mm':     1.0e3,          # millimetres
+    'native': None,           # whatever the prescription's BaseUnits are
+}
+
+
+def dx_at(srf: int | np.int32, unit: str = 'm') -> float:
+    """Diffraction-grid pixel pitch at element ``srf``.
+
+    Reads macos's per-element dxElt(iElt) at full double precision.
+    Returns the same value macos prints as 'dx2=' in propagation
+    diagnostics, but without the 5-sig-fig display truncation -- useful
+    for cross-codes that must seed their own grids at exactly macos's
+    sampling (e.g. PROPER's prop_begin).
+
+    Requires that a propagation has reached ``srf`` first (TRACE or
+    INT/CFIELD/etc.); a slot that has never been touched by diffraction
+    propagation has dxElt(iElt)=0 and this call raises.
+
+    Args:
+        srf:  Element id (1..nElt, or -k from end).
+        unit: Output unit. One of:
+              - 'm'      (default) -- SI metres.
+              - 'mm'     -- millimetres.
+              - 'native' -- the prescription's own BaseUnits (mm, cm,
+                            m, in, ...).  No conversion applied -- this
+                            is dxElt(iElt) verbatim.  Callers using
+                            this option are responsible for knowing
+                            what BaseUnits= the loaded prescription
+                            declared.
+
+    Returns:
+        Pixel pitch as a float, in the requested unit.
+
+    Raises:
+        Exception: Rx not loaded, srf out of range, dxElt unallocated
+                   / zero at that slot, or invalid ``unit`` string.
+    """
+    if unit not in _DX_AT_UNIT_FACTORS:
+        raise Exception(
+            f"dx_at(): unit={unit!r} not recognised; expected one of "
+            f"{sorted(_DX_AT_UNIT_FACTORS)}")
+
+    _chk_macos_and_rx_loaded()
+
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception("dx_at() takes a single srf, got "
+                            f"{len(iElt)}")
+        iElt = int(iElt[0])
+
+    # Fortran side returns SI metres (dxElt * CBM); for 'native' we
+    # divide back out by querying CBM separately.
+    ok, dx_m = lib.api.elt_dx_get(int(iElt))
+    if not ok:
+        raise Exception(f"MACOS: dxElt({iElt}) unavailable -- check that "
+                        "an Rx is loaded and a propagation has reached "
+                        "this element")
+    if dx_m == 0.0:
+        raise Exception(f"MACOS: dxElt({iElt}) is zero -- this slot "
+                        "hasn't been populated by a diffraction "
+                        "propagation yet")
+
+    if unit == 'native':
+        ok, cbm = lib.api.base_unit_to_metres()
+        if not ok or cbm == 0.0:
+            raise Exception("MACOS: base-units conversion factor "
+                            "unavailable; can't return native dx")
+        return float(dx_m) / float(cbm)
+
+    return float(dx_m) * _DX_AT_UNIT_FACTORS[unit]
+
+
 def spot(srf: int | Tuple[int] | np.int32,
          vpt_center: bool | int = True,
          beam_csys: int = 1,

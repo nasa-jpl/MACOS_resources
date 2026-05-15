@@ -35,21 +35,13 @@ class CoroNFprop:
     detector_elt:     int   = 3          # Prop_1_end   (NF prop end)
     macos_size:       int   = 1024       # nGridpts in the prescription
     wavelength_m:     float = 8.5e-7     # 850 nm (= 8.5e-4 mm)
-    dx_m:             float = 3.3382e-4  # 0.33382 mm pixel pitch at both
-                                         # ends of the NF prop step
     propagation_m:    float = 0.774      # 774 mm Elt 2 -> Elt 3
-
-    @property
-    def grid_extent_m(self) -> float:
-        return self.macos_size * self.dx_m  # 0.342 m
-
-    @property
-    def proper_beam_ratio(self) -> float:
-        """beam_ratio = beam_diam / grid_extent.  With beam_diam ==
-        grid_extent the PROPER grid pitch equals macos's dx_m exactly,
-        so no resampling is needed for the OPD or amplitude transfer.
-        """
-        return 1.0
+    # dx is queried at runtime via pymacos.dx_at(src_elt) -- macos's
+    # dxElt(iElt) carries the full double-precision value, removing the
+    # 5-sig-fig display truncation that bit Phase 2/3a earlier.  macos
+    # uses "samples at corners" (dx = extent/(N-1)), but for PROPER's
+    # grid setup we feed N * dx as the beam_diam -- PROPER's pitch =
+    # beam_diam/N = dx, matching macos bit-for-bit.
 
 
 DEFAULT = CoroNFprop()
@@ -78,20 +70,9 @@ class CoroSphereToPlane:
     detector_elt:       int   = 9          # CorMask (plane)
     macos_size:         int   = 1024
     wavelength_m:       float = 8.5e-7     # 850 nm
-    dx_pupil_m:         float = 3.3323e-4  # macos dx at Elt 8
-    dx_focal_m:         float = 1.928e-6   # macos dx at Elt 9 (170x finer)
     focal_length_m:     float = 0.774      # |KrElt| at Elt 8
-
-    @property
-    def grid_extent_m(self) -> float:
-        return self.macos_size * self.dx_pupil_m  # 0.341 m
-
-    @property
-    def proper_beam_ratio(self) -> float:
-        # beam fills the grid -- PROPER's grid extent at the pupil
-        # matches macos's, so PROPER's focal-plane dx auto-matches
-        # macos's dx at Elt 9.
-        return 1.0
+    # dx_pupil and dx_focal queried at runtime via pymacos.dx_at()
+    # at src_elt / detector_elt; see CoroNFprop note on precision.
 
 
 DEFAULT_SPHERE_TO_PLANE = CoroSphereToPlane()
@@ -102,7 +83,8 @@ def macos_run_sphere_to_plane(geom: CoroSphereToPlane = DEFAULT_SPHERE_TO_PLANE,
     """Drive macos for the spherical-to-plane step.
 
     Returns (intensity_at_detector, dx_focal_m, dict with amplitude
-    and complex_field at the spherical reference).
+    and complex_field at the spherical reference, plus dx_pupil_m /
+    dx_focal_m queried at runtime from macos for PROPER to consume).
     """
     if pymacos_session is None:
         import sys
@@ -120,9 +102,14 @@ def macos_run_sphere_to_plane(geom: CoroSphereToPlane = DEFAULT_SPHERE_TO_PLANE,
     intensity_focal = pymacos_session.intensity(geom.detector_elt)
     amplitude_pupil = np.sqrt(np.clip(intensity_pupil, 0, None))
 
-    return (intensity_focal, geom.dx_focal_m,
+    dx_pupil_m = pymacos_session.dx_at(geom.src_elt)
+    dx_focal_m = pymacos_session.dx_at(geom.detector_elt)
+
+    return (intensity_focal, dx_focal_m,
             dict(complex_field=cfield_at_pupil,
-                 amplitude=amplitude_pupil))
+                 amplitude=amplitude_pupil,
+                 dx_pupil_m=dx_pupil_m,
+                 dx_focal_m=dx_focal_m))
 
 
 def proper_run_sphere_to_plane(geom: CoroSphereToPlane = DEFAULT_SPHERE_TO_PLANE,
@@ -151,8 +138,9 @@ def proper_run_sphere_to_plane(geom: CoroSphereToPlane = DEFAULT_SPHERE_TO_PLANE
     import proper
 
     N = geom.macos_size
-    wfo = proper.prop_begin(geom.grid_extent_m, geom.wavelength_m,
-                            N, geom.proper_beam_ratio)
+    dx_pupil_m   = wavefront_at_pupil['dx_pupil_m']
+    grid_extent  = N * dx_pupil_m  # match macos's pitch bit-for-bit
+    wfo = proper.prop_begin(grid_extent, geom.wavelength_m, N, 1.0)
 
     cfield = np.asarray(wavefront_at_pupil['complex_field'],
                         dtype=np.complex128)
@@ -197,13 +185,8 @@ class CoroPupilToPupilThruFocus:
     detector_elt:   int   = 10      # 1stPropEnd  (sphere, far side)
     macos_size:     int   = 1024
     wavelength_m:   float = 8.5e-7
-    dx_pupil_m:     float = 3.3323e-4  # at Elt 8 AND Elt 10
-    dx_focal_m:     float = 1.928e-6   # at Elt 9 only
     focal_length_m: float = 0.774
-
-    @property
-    def grid_extent_m(self) -> float:
-        return self.macos_size * self.dx_pupil_m
+    # dx_pupil and dx_focal queried at runtime via pymacos.dx_at().
 
 
 DEFAULT_PUPIL_TO_PUPIL = CoroPupilToPupilThruFocus()
@@ -230,9 +213,16 @@ def macos_run_pupil_to_pupil(geom: CoroPupilToPupilThruFocus
     intensity_focus   = pymacos_session.intensity(geom.focus_elt)
     intensity_at_10   = pymacos_session.intensity(geom.detector_elt)
 
-    return (intensity_at_10, geom.dx_pupil_m,
+    dx_pupil_m = pymacos_session.dx_at(geom.src_elt)
+    dx_focal_m = pymacos_session.dx_at(geom.focus_elt)
+    dx_at_10_m = pymacos_session.dx_at(geom.detector_elt)
+
+    return (intensity_at_10, dx_at_10_m,
             dict(complex_field=cfield_at_pupil,
-                 intensity_at_focus=intensity_focus))
+                 intensity_at_focus=intensity_focus,
+                 dx_pupil_m=dx_pupil_m,
+                 dx_focal_m=dx_focal_m,
+                 dx_at_10_m=dx_at_10_m))
 
 
 def proper_run_pupil_to_pupil(geom: CoroPupilToPupilThruFocus
@@ -250,8 +240,9 @@ def proper_run_pupil_to_pupil(geom: CoroPupilToPupilThruFocus
     import proper
 
     N  = geom.macos_size
-    wfo = proper.prop_begin(geom.grid_extent_m, geom.wavelength_m,
-                            N, 1.0)
+    dx_pupil_m  = wavefront_at_pupil['dx_pupil_m']
+    grid_extent = N * dx_pupil_m
+    wfo = proper.prop_begin(grid_extent, geom.wavelength_m, N, 1.0)
 
     cfield = np.asarray(wavefront_at_pupil['complex_field'],
                         dtype=np.complex128)
@@ -318,11 +309,16 @@ def macos_run(geom: CoroNFprop = DEFAULT, pymacos_session=None):
 
     intensity_at_3 = pymacos_session.intensity(geom.detector_elt)
 
+    dx_at_2 = pymacos_session.dx_at(geom.src_elt)
+    dx_at_3 = pymacos_session.dx_at(geom.detector_elt)
+
     amplitude_at_2 = np.sqrt(np.clip(intensity_at_2, 0, None))
-    return (intensity_at_3, geom.dx_m,
+    return (intensity_at_3, dx_at_3,
             dict(amplitude=amplitude_at_2,
                  complex_field=cfield_at_2,
-                 opd=opd_at_2))
+                 opd=opd_at_2,
+                 dx_at_src_m=dx_at_2,
+                 dx_at_det_m=dx_at_3))
 
 
 # ---------------------------------------------------------------------
@@ -352,8 +348,9 @@ def proper_run(geom: CoroNFprop = DEFAULT, wavefront_at_elt2=None,
 
     N = geom.macos_size
     # beam_diam = grid_extent -> PROPER dx = macos dx exactly.
-    wfo = proper.prop_begin(geom.grid_extent_m, geom.wavelength_m,
-                            N, geom.proper_beam_ratio)
+    dx_at_src   = wavefront_at_elt2['dx_at_src_m']
+    grid_extent = N * dx_at_src
+    wfo = proper.prop_begin(grid_extent, geom.wavelength_m, N, 1.0)
 
     # Preferred path (Phase 2 v2): use macos's diffraction-grid
     # complex field at Elt 2 -- both amplitude and phase on the
