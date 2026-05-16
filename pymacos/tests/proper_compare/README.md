@@ -240,6 +240,20 @@ cd tests && pytest proper_compare/ -v
     until contrast targets cross the K=16 SS aliasing floor
     (~1e-8 ish).
 
+    **Placement guidance for the next 6b-2 pass (Dave, 2026-05-16):**
+    when we repeat the apodization sweep, put the apodiser
+    UPSTREAM of the FPM, right after the DM -- in this prescription,
+    Elt 5 (Prop_2_start; Elt 4 is the DM).  Elt 5 → Elt 6 is
+    NFPlane (diffractive), so the apodise propagates correctly
+    through that step (Phase 6a already validated this geometry,
+    just for a Gaussian-edge taper).  Pupil apodisers upstream of
+    the focal-plane mask have the biggest leverage on dark-zone
+    contrast -- they sculpt the pupil before focal-plane
+    diffraction occurs, so the resulting PSF wings are already
+    suppressed where the FPM + Lyot can finish the job.  Compared
+    to putting the apodiser at the Lyot plane (Elt 14), this
+    placement also avoids the rays-vs-WFElt mismatch issue.
+
 - **6c: HWO-style coronagraph designs.**  Once the gold-standard
   builder is in place, apply it to specific HWO candidate masks:
   CGI-style shaped pupils, PIAA apodisers, vortex masks (the last
