@@ -240,6 +240,64 @@ cd tests && pytest proper_compare/ -v
   Out of scope until 6a/b/c land and HWO-relevant prescriptions
   are available.
 
+## Cross-cutting concerns (apply across all phases)
+
+Three infrastructure pieces that intersect every phase past 6a and
+should be built once for reuse:
+
+- **Broadband contrast scoring.**  Coronagraph performance is only
+  meaningful in a wavelength band -- monochromatic contrast can hide
+  pathologies that bite at the band edges.  Implementation: sample
+  5-7 wavelengths uniformly across a 10-20% band centered on the
+  prescription wavelength, run macos and PROPER at each wavelength,
+  sum focal-plane intensities incoherently to produce
+  `I_broadband = sum_i I(lambda_i)`, score that with the same
+  `radial_contrast()` machinery the monochromatic case uses.
+  Wavelength is set per-run via `pymacos.src_wvl()` on the macos
+  side and passed to `proper.prop_begin(beam_d, lambda, n, ratio)`
+  on the PROPER side.  Contrast axis uses the centre wavelength's
+  lambda/D.
+
+- **Aberration sweeps.**  Re-run every phase against
+  representative perturbations:
+  - DM-commanded shape (Zernike coefficients via
+    `pymacos.elt_srf_zrn_set(...)` on Elt 4 in Rx_Coro.in);
+  - segment phase errors (where applicable);
+  - rigid-body OAP perturbations (already exercised by the Phase 1
+    Cass FF perturbation tests; extend to the Coro chain).
+  Most perturbations live BEFORE the PROPER handoff at Elt 20, so
+  PROPER just ingests the perturbed cfield and propagates the last
+  step -- same pattern as Phase 5.2's FPM+Lyot handoff.  The
+  macos<->PROPER residual confirms PROPER's propagation works on
+  aberrated wavefronts; the contrast metric shows how much each
+  aberration costs dark-zone performance.
+
+- **Sampling-density (N) sweep.**  Run every phase at
+  N in {256, 512, 1024, 2048} (with the matching odd `nGridpts` in
+  the prescription) and record:
+  - macos<->PROPER agreement (max + RMS, sum- or peak-norm per
+    phase's existing metric);
+  - radial dark-zone contrast at a few key separations (3, 5, 10
+    lambda/D);
+  - wall-clock runtime per test;
+  - peak memory (N=2048 needs ~2 GB at double precision per
+    NxN array -- the system has crashed VS Code at N=2048 once
+    already; tread carefully).
+  Establishes the "knee" of accuracy vs N so we know which N is
+  appropriate for what kind of test (cheap development iteration
+  vs production scoring vs convergence checks).  This sweep is
+  also where Phase 6b's "super-sampling vs band-limited mask"
+  comparison shows its teeth: gold-standard masks should give
+  N-independent dark-zone contrast where super-sampled masks
+  degrade as N drops.
+
+**Sequencing suggestion (informal):** N sweep first -- it's cheap to
+set up and decides what N to use for everything else.  Then
+aberrations (still monochromatic) to validate the perturbation
+plumbing.  Then broadband.  A fully realistic HWO-style test
+eventually combines all three: broadband + aberrated + at the chosen
+N.
+
 - **`test_psf.py` + `circular_pupil_focus.py`**: leftover from the
   initial scaffolding. PROPER side works
   (`test_proper_circular_psf_runs`), macos side is `pytest.mark.skip`
