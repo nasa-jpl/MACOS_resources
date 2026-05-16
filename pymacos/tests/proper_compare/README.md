@@ -185,6 +185,29 @@ cd tests && pytest proper_compare/ -v
     confirming the wrapper integrates correctly with downstream
     propagation.
 
+- **Contrast scoring — `test_coro_contrast_curve.py` +
+  `contrast.py`**: radial dark-zone contrast vs lambda/D at the
+  science focal plane.  Decouples scoring from the engine-specific
+  peak/sum normalisations (macos peak = 0.30 vs PROPER peak = 0.012
+  for the same physical PSF -- different internal conventions, but
+  the Strehl-normalised contrast `mean_intensity(r) / peak_unaberrated`
+  is engine-independent).
+  - lambda/D derived empirically from the un-coronagraphed PSF's
+    first Airy null (1.22 lambda/D), with a fractional-depth guard
+    (the detected null must be < 5% of peak) so spurious sub-pixel
+    local minima on the central Airy peak's falling slope don't get
+    picked up.  No need to know the prescription's effective pupil
+    diameter at the science focal plane (depends on the full
+    magnification chain through Elts 15-20).
+  - First scoring pass on Phase 5.1 + 5.2: lambda/D = 8.6 px on this
+    1024 grid; **dark-zone contrast (3-10 lambda/D) ~ 1e-9 to 3e-10**;
+    bright outer-ring artefact at ~15 lambda/D (Lyot edge diffraction).
+    Plot in `results_phase3/contrast_curves.png`.
+  - This curve becomes the baseline that Phase 6b/c (band-limited
+    apodisers, HWO designs) will score against.  When new apodised
+    setups land they just register additional curves on the same
+    overlay plot via `plot_contrast_curves({...})`.
+
 ## Phase 6 roadmap (next steps)
 
 - **6b: gold-standard apodiser construction.**  Add a second mask-
