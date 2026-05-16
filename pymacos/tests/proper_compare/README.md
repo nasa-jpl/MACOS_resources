@@ -215,15 +215,30 @@ cd tests && pytest proper_compare/ -v
   of the binary aperture (Airy-disk-like ring in k-space, low-pass
   filter to grid Nyquist, inverse FFT) so the resulting real-space
   mask is perfectly band-limited with no super-sampling artefacts.
-  Slots into the same API as `build_apodised_mask`.  Test plan:
-  drive the existing Phase 6a Gaussian-edge case at several N (256,
-  512, 1024) under both builders.  Super-sampling result should
-  show ~1/N jitter in dark-zone contrast at the K-sample resolution
-  limit (~1e-7 to 1e-8); Fourier-construction result should show
-  N-independent dark-zone contrast down to floating-point limits.
-  Demonstrates that super-sampling is enough for present-day Lyot
-  coronagraphs but Fourier-construction is required as the
-  HWO-target raw contrast approaches 1e-10.
+  Slots into the same API as `build_apodised_mask`.
+  - **6b-1 (done):** `BandLimitedCircle` + `build_band_limited_mask`
+    in `apodizer.py`.  Math-level characterisation
+    (`test_band_limited_mask.py`): integral preservation to 6+ sig
+    figs, shape invariance < 2% across N in {128..1024}, visualisation
+    in `results_phase3/band_limited_vs_super_sampled.png`.  Surprise
+    null result: at K=16 super-sampling, SS aliasing magnitude
+    (~1e-4) is dwarfed by the legitimate Airy F(k) tail extending
+    to Nyquist (~1e-3 at N=256, ~1e-4 at N=1024).  Both methods
+    produce essentially equivalent Fourier content in the mask;
+    Phase 6b's advantage lives in PROPAGATION RESULT, not in mask
+    spectra.
+
+  - **6b-2 (deferred):** the natural propagation-based comparison
+    (BL vs SS mask as an externally-applied Lyot at Elt 14, scored
+    via radial contrast at the science focal plane across N) ran
+    into a real-physics limit of `pymacos.apodize`.  See "apodize
+    limitation" note below.  We'll come back to 6b-2 either after
+    upgrading the test prescription to a fully-diffractive chain
+    (see option 4 below), or after extending apodize to also clip
+    rays.  For now, BL is validated mathematically; its propagation
+    payoff over SS hasn't been demonstrated yet, and may not exist
+    until contrast targets cross the K=16 SS aliasing floor
+    (~1e-8 ish).
 
 - **6c: HWO-style coronagraph designs.**  Once the gold-standard
   builder is in place, apply it to specific HWO candidate masks:
@@ -297,6 +312,69 @@ aberrations (still monochromatic) to validate the perturbation
 plumbing.  Then broadband.  A fully realistic HWO-style test
 eventually combines all three: broadband + aberrated + at the chosen
 N.
+
+## pymacos.apodize limitation (debugged 2026-05-16)
+
+`pymacos.apodize(srf, mask)` modifies `WFElt(:,:, iEltToiWF(srf))` --
+the diffraction-grid wavefront -- in place.  Macos's downstream
+propagation **does** pick this up: a zero mask at Elt 14 takes the
+science focal plane (Elt 21) to exact zero.
+
+But macos's prescription-driven aperture stops (`Element=Reference`
+with `ApType=Circular`, etc.) do TWO things during the trace, not
+one:
+
+1. Multiply WFElt by the aperture mask (the half pymacos.apodize
+   replicates).
+2. **Clip the rays** -- set `LRayPass = False` for rays that miss
+   the aperture's geometric footprint.  Those rays then carry no
+   flux through the subsequent geometric props.
+
+Geometric props (PropType=Geometric) propagate rays + per-ray OPD;
+the next diffractive plane reconstructs WFElt from the ray grid.
+So the "ray clip" half is necessary for hard-edge apertures whose
+effect reaches the next pupil/focal plane via the ray channel.
+
+Concrete bite: replacing the 14 mm Lyot at Elt 14 (macos
+`ApType=Circular`) with `pymacos.apodize(14, BL_circle(14mm))` at
+the same physical location only achieves ~factor 17 of Phase 5.2's
+3.2-million suppression at the science focal plane.  The "missing"
+factor 200 is in the rays that should have been clipped at Elt 14
+but instead propagated.
+
+**Honest use of pymacos.apodize:**
+- **Smooth apodisers** (Gaussian taper, polynomial roll-off,
+  super-Gaussian, etc.) where the WFElt is the meaningful
+  representation -- the ray-channel contribution from "outside the
+  apodiser" is fuzzy by design.  Phase 6a's Gaussian-edge test is
+  this regime.
+- **Downstream-only effects**, where the apodise lives immediately
+  before a diffractive prop (NFPlane, NF1/NF2, FarField) and the
+  result is read out before any subsequent geometric props.
+  Examples in `Rx_Coro.in`: apodise at Elts 2, 5, 8, 13, 20 (each
+  the start of a diffractive prop).
+
+**For hard-edge apertures in a real chain**, use macos's
+prescription-driven `ApType=Circular`/etc.  That's what Phase 5.2
+relies on and it works correctly.
+
+**Long-term fix options** (in increasing order of effort):
+
+- *Extend `pymacos.apodize` to also clip rays.* Sibling
+  `apodize_with_rays(srf, mask)` that sets `LRayPass = False` for
+  rays outside the mask support (with a threshold for partial
+  transmission).  Roughly 30 more lines of Fortran.
+- *Wire macos's prescription parser for external mask arrays.*
+  `ApType=External` reads a user-loaded NxN array via a new
+  parameter.  Touches macos source -- more invasive.
+- ***Replace geometric props with NF-props between coextant reference
+  surfaces.*** The physically-most-correct model: every element gets
+  a NFPlane (or appropriate diffractive) prop to the next, with the
+  optic represented by a reference surface coincident with the
+  physical optic.  Then WFElt propagates diffractively at every step,
+  apertures are WFElt multiplications, and `pymacos.apodize` works
+  end-to-end.  Requires prescription rework -- worth it for the
+  HWO-realistic case.  (Dave's suggestion, 2026-05-16.)
 
 - **`test_psf.py` + `circular_pupil_focus.py`**: leftover from the
   initial scaffolding. PROPER side works

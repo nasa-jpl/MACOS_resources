@@ -3049,6 +3049,27 @@ def apodize(srf: int | np.int32, mask: np.ndarray) -> None:
     Subsequent calls (``intensity``, ``complex_field``, downstream
     propagations) see the apodised wavefront.
 
+    Caveat (important): this modifies ONLY the diffraction-grid
+    wavefront, not the geometric ray channel.  Macos's prescription
+    aperture stops (``Element=Reference`` with ``ApType=Circular``,
+    etc.) do TWO things during the trace -- mask the WFElt AND clip
+    the rays.  Geometric props between elements carry rays + per-ray
+    OPD, and the next diffractive plane reconstructs WFElt from those
+    rays.  An ``apodize`` call only handles the WFElt half; the rays
+    at ``srf`` are not clipped to the mask support.
+
+    Honest use:
+      - Smooth apodisers (Gaussian taper, super-Gaussian, etc.).
+      - Hard-edged masks applied immediately before a diffractive
+        prop with no following geometric prop -- so the masked
+        WFElt is the only thing that matters.
+
+    For hard-edge aperture stops in a chain with intervening
+    geometric props, use macos's prescription ``ApType=Circular``
+    instead (which clips rays too).  See
+    ``tests/proper_compare/README.md`` "pymacos.apodize limitation"
+    for the full story.
+
     Args:
         srf:  Element id (1..nElt, or -k from end).
         mask: Real-valued (N, N) array.  N must equal macos's
