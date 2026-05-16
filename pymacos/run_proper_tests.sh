@@ -101,7 +101,8 @@ s3=$?
 
 echo
 echo "=== Phase 6 (Coro apodisation via pymacos.apodize) ==="
-pytest proper_compare/test_coro_apodizer.py "${pytest_args[@]}"
+pytest proper_compare/test_coro_apodizer.py \
+       proper_compare/test_band_limited_mask.py "${pytest_args[@]}"
 s6=$?
 
 echo
