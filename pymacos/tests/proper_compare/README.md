@@ -167,6 +167,56 @@ cd tests && pytest proper_compare/ -v
   retained as a "good enough" test case for macos<->PROPER
   validation across the full chain.
 
+- **Phase 6 — `test_coro_apodizer.py` + `apodizer.py`**:
+  pupil apodisation via a NEW pymacos wrapper.
+  - **6a (done):** `pymacos.apodize(srf, mask)` multiplies macos's
+    `WFElt(:,:, iEltToiWF(srf))` in place by a user-supplied real
+    NxN mask -- companion to PROPER's `prop_multiply`.  The same
+    numpy array goes to both engines, so apodisation is
+    bit-identical with no parametric drift.  `apodizer.py` provides
+    `build_apodised_mask(N, dx, aperture_fn, taper_fn, K)` using
+    KxK super-sampling for sub-pixel area-weighted aperture edges
+    -- low-N results converge to high-N as the same physical shape
+    rather than re-quantising the boundary.  First Phase 6 test
+    applies a Gaussian-edge taper (r0=18 mm, sigma=2 mm, truncated
+    at 26 mm) at Elt 5 and compares NFPlane Elt 5 -> 6 with macos
+    and PROPER.  **4.0e-8 max, 1.1e-9 RMS** (sum-norm) -- same
+    sampling-limited regime as un-apodised Phase 3a (3.7e-8),
+    confirming the wrapper integrates correctly with downstream
+    propagation.
+
+## Phase 6 roadmap (next steps)
+
+- **6b: gold-standard apodiser construction.**  Add a second mask-
+  builder in `apodizer.py` using analytic Fourier-domain construction
+  of the binary aperture (Airy-disk-like ring in k-space, low-pass
+  filter to grid Nyquist, inverse FFT) so the resulting real-space
+  mask is perfectly band-limited with no super-sampling artefacts.
+  Slots into the same API as `build_apodised_mask`.  Test plan:
+  drive the existing Phase 6a Gaussian-edge case at several N (256,
+  512, 1024) under both builders.  Super-sampling result should
+  show ~1/N jitter in dark-zone contrast at the K-sample resolution
+  limit (~1e-7 to 1e-8); Fourier-construction result should show
+  N-independent dark-zone contrast down to floating-point limits.
+  Demonstrates that super-sampling is enough for present-day Lyot
+  coronagraphs but Fourier-construction is required as the
+  HWO-target raw contrast approaches 1e-10.
+
+- **6c: HWO-style coronagraph designs.**  Once the gold-standard
+  builder is in place, apply it to specific HWO candidate masks:
+  CGI-style shaped pupils, PIAA apodisers, vortex masks (the last
+  requires extending pymacos.apodize to accept a complex mask;
+  trivial Fortran extension -- amplitude+phase array splitting,
+  same template as cfield_get).  Each new mask is a config-only
+  change at this point -- the harness is built.
+
+- **6d (provisional): wavefront-control loop demonstrations.**
+  Apply the apodise + DM-pattern + Lyot chain repeatedly to drive
+  the dark-zone contrast via an EFC-like update rule.  This is
+  where macos's DM model (Elt 4) starts to matter directly.
+  Out of scope until 6a/b/c land and HWO-relevant prescriptions
+  are available.
+
 - **`test_psf.py` + `circular_pupil_focus.py`**: leftover from the
   initial scaffolding. PROPER side works
   (`test_proper_circular_psf_runs`), macos side is `pytest.mark.skip`
