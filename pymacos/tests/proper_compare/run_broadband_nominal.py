@@ -1,33 +1,24 @@
-"""Cycle 4: broadband nominal coronagraph score, 7 wavelengths over a
-10% bandpass.
+"""Cycle 4 / broadband nominal coronagraph score.
 
-Configuration:
-  - center wavelength  : 850 nm  (matches the monochromatic baselines)
-  - bandwidth fraction : 10%      (i.e., +/- 5% of centre)
-  - wavelength samples : 7 (linearly spaced)
-  - cases              : (1) no mask, no Lyot       (Rx_Coro_noLyot.in)
-                         (2) FPM=400um + Lyot=14mm  (Rx_Coro_FPM.in)
-  - per-wavelength run : macos + PROPER through the full Phase 5
-                         sphere-to-plane chain to Elt 21
-  - aggregation        : incoherent sum of intensities across the band
-                         (rectangular filter; could be Gaussian-weighted
-                         later if needed)
+For each case (no_mask, with_mask), runs macos + PROPER through the
+full Phase-5 sphere-to-plane chain at 7 wavelengths uniformly spaced
+across a 10% band centred on 850 nm.  All 7 PSFs are then resampled
+onto a common pixel pitch (the centre-wavelength's dx_focal) before
+incoherent summation -- focal-plane dx scales linearly with λ, so a
+naive pixel-by-pixel sum mixes physical positions and is wrong by
+~5% radially across a 10% band.
 
-Outputs (in tests/Rx/results_cycle4/):
+Per-case run lives in ONE subprocess that loops over wavelengths
+internally (vs the previous 7 subprocesses per case).  Saves
+14 × Python+pymacos startup costs ≈ ~2 min vs ~3.5 min wall time.
+
+Outputs (in results_cycle4/):
   - {case}_broadband_focalplane.png   log10 intensity, summed
   - {case}_broadband_contrast.png     radial contrast curve
-  - both_cases_contrast.png           BL vs SS-equivalent overlay (here
-                                       no_mask vs with_mask)
-  - per-wavelength PSF previews are not saved separately by default;
-    intensities are kept only as in-memory accumulators.
-  - {case}_broadband.npz              saved arrays for downstream use:
-                                       I_macos_sum, I_proper_sum,
-                                       I_macos_per_wave (3D),
-                                       wavelengths_m, dx_focal_m
-
-Each (case, wavelength) runs in its own subprocess (mirrors the
-N-sweep driver pattern) to dodge pymacos state-leakage when changing
-the wavelength inside the same process.
+  - both_cases_contrast.png           overlay
+  - {case}_broadband.npz              full arrays: native per-wave,
+                                       resampled per-wave, summed,
+                                       wavelengths, dx values
 """
 from __future__ import absolute_import
 
@@ -39,63 +30,161 @@ from typing import List
 
 
 # ----------------------------------------------------------------------
-# Worker mode (called as: python -m proper_compare.run_broadband_nominal
-# --worker RX_PATH WAVELENGTH_M OUT_JSON)
+# Resampling: NxN at dx_native -> NxN at dx_ref, centered.
 # ----------------------------------------------------------------------
 
-def worker(rx_path: Path, wavelength_m: float, out_json: Path) -> None:
+def resample_to_grid(I, dx_native: float, dx_ref: float):
+    """Interpolate ``I`` (NxN, pitch ``dx_native``) onto an NxN grid of
+    pitch ``dx_ref``, centred on the array centre.  Outside the native
+    grid, values fall to zero.
+
+    Note: linear interpolation of intensity samples.  We're NOT
+    rescaling for flux conservation -- the operation is "evaluate the
+    underlying continuous I(x, y) at the ref grid's pixel centres"
+    and we trust that the input was already a properly-normalised
+    intensity-per-pixel quantity at its native dx.  For a broadband
+    sum across closely-spaced wavelengths (10% band), the small dx
+    change doesn't introduce significant flux distortion at the pixel
+    level.
+    """
+    from scipy.interpolate import RegularGridInterpolator
     import numpy as np
+
+    N = I.shape[0]
+    coords_native = (np.arange(N) - (N - 1) / 2.0) * dx_native
+    coords_ref    = (np.arange(N) - (N - 1) / 2.0) * dx_ref
+
+    interp = RegularGridInterpolator(
+        (coords_native, coords_native), I,
+        bounds_error=False, fill_value=0.0, method="linear")
+
+    yy, xx = np.meshgrid(coords_ref, coords_ref, indexing="ij")
+    pts = np.stack([yy, xx], axis=-1).reshape(-1, 2)
+    return interp(pts).reshape(N, N)
+
+
+# ----------------------------------------------------------------------
+# Worker: one case, all wavelengths in one process.
+# ----------------------------------------------------------------------
+
+def worker(rx_path: Path, wavelengths_si: List[float],
+           out_npz: Path, case_name: str) -> None:
+    """Run macos + PROPER at every wavelength in ``wavelengths_si``
+    on the loaded prescription, resample each PSF to the centre-λ
+    pixel pitch, and write the full bundle to ``out_npz``.
+
+    Single subprocess, single ``init(N)`` and ``load(rx)``; loops
+    wavelengths internally via ``src_wvl()``.
+    """
+    import numpy as np
+
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
     import pymacos.macos as m
     from proper_compare.geometries.coro_nfprop import (
-        CoroSphereToPlane, macos_run_sphere_to_plane,
-        proper_run_sphere_to_plane)
+        CoroSphereToPlane, proper_run_sphere_to_plane)
 
     N = 1024
+    m.init(N)
+    m.load(str(rx_path))
 
-    # macos_run_sphere_to_plane re-inits and re-loads inside.  The
-    # wavelength override has to fire AFTER the load.  Pass a hook.
-    def _set_wavelength(session):
-        # src_wvl() takes WaveUnits (which = BaseUnits for Rx_Coro.in).
-        # Use the CBM factor to convert SI metres -> BaseUnits.
-        ok_cbm, cbm = session.lib.api.base_unit_to_metres()
-        if not ok_cbm or cbm == 0.0:
-            raise RuntimeError("worker: CBM unavailable")
-        session.src_wvl(wavelength_m / float(cbm))
+    # SI metres -> WaveUnits
+    ok_cbm, cbm = m.lib.api.base_unit_to_metres()
+    if not ok_cbm or cbm == 0.0:
+        raise RuntimeError("worker: CBM unavailable")
+    si_to_wave_units = 1.0 / float(cbm)
 
-    geom = CoroSphereToPlane(
-        rx_filename=str(rx_path),
-        src_elt=20, detector_elt=21,
-        macos_size=N,
-        wavelength_m=wavelength_m,
-        focal_length_m=0.9514,
-    )
+    n_wave = len(wavelengths_si)
+    I_macos_native  = np.zeros((n_wave, N, N))
+    I_proper_native = np.zeros((n_wave, N, N))
+    dx_macos        = np.zeros(n_wave)
+    dx_proper       = np.zeros(n_wave)
+    peak_macos_native = np.zeros(n_wave)
 
-    I_m, dx_m, wf = macos_run_sphere_to_plane(geom, m,
-                                               post_load_hook=_set_wavelength)
-    I_p, dx_p     = proper_run_sphere_to_plane(geom, wavefront_at_pupil=wf)
+    for i, lam in enumerate(wavelengths_si):
+        m.src_wvl(lam * si_to_wave_units)
 
-    out_npz = out_json.with_suffix(".npz")
+        # Manually replicate macos_run_sphere_to_plane's interior
+        # without the per-iteration init/load.
+        cfield_pupil = m.complex_field(20)            # re-traces (reset)
+        I_pupil      = m.intensity(20, reset_trace=False)
+        I_focal      = m.intensity(21, reset_trace=False)
+        amp_pupil    = np.sqrt(np.clip(I_pupil, 0, None))
+        d_pupil      = m.dx_at(20)
+        d_focal      = m.dx_at(21)
+
+        wf = dict(complex_field=cfield_pupil,
+                  amplitude=amp_pupil,
+                  dx_pupil_m=d_pupil,
+                  dx_focal_m=d_focal)
+
+        geom = CoroSphereToPlane(
+            rx_filename=str(rx_path),
+            src_elt=20, detector_elt=21,
+            macos_size=N,
+            wavelength_m=lam,
+            focal_length_m=0.9514)
+
+        I_proper_i, dx_proper_i = proper_run_sphere_to_plane(
+            geom, wavefront_at_pupil=wf)
+
+        I_macos_native[i]  = I_focal
+        I_proper_native[i] = I_proper_i
+        dx_macos[i]        = abs(d_focal)
+        dx_proper[i]       = dx_proper_i
+        peak_macos_native[i] = float(I_focal.max())
+
+        print(f"[worker {case_name} λ={lam*1e9:.2f}nm] "
+              f"peak_macos={I_focal.max():.4e}  "
+              f"dx_macos={abs(d_focal):.4e}  "
+              f"peak_proper={I_proper_i.max():.4e}",
+              flush=True)
+
+    # Resample each PSF onto the centre-λ's pitch.
+    ref_idx = n_wave // 2
+    ref_dx_macos  = dx_macos[ref_idx]
+    ref_dx_proper = dx_proper[ref_idx]
+
+    print(f"[worker {case_name}] resampling to ref dx (centre λ) = "
+          f"{ref_dx_macos:.4e} m", flush=True)
+
+    I_macos_resampled  = np.zeros_like(I_macos_native)
+    I_proper_resampled = np.zeros_like(I_proper_native)
+    for i in range(n_wave):
+        I_macos_resampled[i] = resample_to_grid(
+            I_macos_native[i], dx_macos[i], ref_dx_macos)
+        I_proper_resampled[i] = resample_to_grid(
+            I_proper_native[i], dx_proper[i], ref_dx_proper)
+
+    I_macos_sum  = I_macos_resampled.sum(axis=0)
+    I_proper_sum = I_proper_resampled.sum(axis=0)
+
     np.savez(out_npz,
-             I_macos=I_m, I_proper=I_p,
-             dx_macos=float(abs(dx_m)),
-             dx_proper=float(dx_p),
-             wavelength_m=float(wavelength_m))
+             # Per-wavelength native arrays + dx
+             I_macos_native=I_macos_native,
+             I_proper_native=I_proper_native,
+             dx_macos_per_wave=dx_macos,
+             dx_proper_per_wave=dx_proper,
+             # Per-wavelength resampled to centre-λ dx
+             I_macos_resampled=I_macos_resampled,
+             I_proper_resampled=I_proper_resampled,
+             # Summed broadband
+             I_macos_sum=I_macos_sum,
+             I_proper_sum=I_proper_sum,
+             # Common reference dx (used for resampling target)
+             ref_dx_macos=ref_dx_macos,
+             ref_dx_proper=ref_dx_proper,
+             # Wavelengths
+             wavelengths_m=np.array(wavelengths_si),
+             # Misc digest
+             peak_macos_native=peak_macos_native)
 
-    out_json.write_text(json.dumps({
-        "wavelength_m":  float(wavelength_m),
-        "dx_macos":      float(abs(dx_m)),
-        "dx_proper":     float(dx_p),
-        "peak_macos":    float(I_m.max()),
-        "peak_proper":   float(I_p.max()),
-        "npz":           str(out_npz),
-    }))
-    print(f"[worker lambda={wavelength_m*1e9:.1f}nm rx={rx_path.name}] "
-          f"peak_macos={I_m.max():.4e}  dx={abs(dx_m):.4e}")
+    print(f"[worker {case_name}] wrote {out_npz}  "
+          f"broadband peak_macos = {I_macos_sum.max():.4e}",
+          flush=True)
 
 
 # ----------------------------------------------------------------------
-# Driver mode (no args, or --driver explicitly)
+# Driver: spawn one worker per case, aggregate at the end.
 # ----------------------------------------------------------------------
 
 def driver() -> int:
@@ -105,13 +194,12 @@ def driver() -> int:
     from proper_compare.contrast import (
         lambda_over_D_pixels, plot_contrast_curves, radial_contrast)
 
-    # Center wavelength + bandpass
-    LAM_C    = 850e-9          # 850 nm
-    BAND_FRAC = 0.10           # 10%
+    LAM_C    = 850e-9
+    BAND_FRAC = 0.10
     N_WAVE   = 7
-    fractions = np.linspace(-BAND_FRAC/2, BAND_FRAC/2, N_WAVE)
-    wavelengths = LAM_C * (1.0 + fractions)
-    print(f"[driver] center λ = {LAM_C*1e9:.1f} nm; band = "
+    fractions = np.linspace(-BAND_FRAC / 2, BAND_FRAC / 2, N_WAVE)
+    wavelengths = (LAM_C * (1.0 + fractions)).tolist()
+    print(f"[driver] centre λ = {LAM_C*1e9:.1f} nm; band = "
           f"{BAND_FRAC*100:.1f}%; {N_WAVE} samples:")
     for i, lam in enumerate(wavelengths):
         print(f"  {i}: {lam*1e9:.2f} nm")
@@ -125,111 +213,73 @@ def driver() -> int:
         "with_mask": rx_dir / "Rx_Coro_FPM.in",
     }
 
-    case_outputs = {}
+    npz_paths = {}
     for case_name, rx_path in cases.items():
+        npz_path = out_dir / f"{case_name}_broadband.npz"
+        npz_paths[case_name] = npz_path
         print(f"\n[driver] === case: {case_name} ({rx_path.name}) ===")
-        I_macos_sum = None
-        I_proper_sum = None
-        I_macos_per_wave = []
-        I_proper_per_wave = []
-        per_wave_info = []
+        _spawn_case(rx_path, wavelengths, npz_path, case_name)
 
-        for i, lam in enumerate(wavelengths):
-            out_json = out_dir / f"_bb_{case_name}_wave{i}.json"
-            _spawn(rx_path, lam, out_json)
-            info = json.loads(out_json.read_text())
-            arrs = np.load(info["npz"])
-            I_m = arrs["I_macos"]
-            I_p = arrs["I_proper"]
-            if I_macos_sum is None:
-                I_macos_sum  = np.zeros_like(I_m)
-                I_proper_sum = np.zeros_like(I_p)
-            I_macos_sum  += I_m
-            I_proper_sum += I_p
-            I_macos_per_wave.append(I_m)
-            I_proper_per_wave.append(I_p)
-            per_wave_info.append(info)
+    # ------------- aggregate + plot -------------
+    no_mask  = np.load(npz_paths["no_mask"])
+    with_mask = np.load(npz_paths["with_mask"])
 
-        dx_focal = per_wave_info[N_WAVE // 2]["dx_macos"]
+    I_no  = no_mask["I_macos_sum"]
+    I_co  = with_mask["I_macos_sum"]
+    dx_ref = float(no_mask["ref_dx_macos"])
 
-        # Save broadband stack + sums
-        np.savez(out_dir / f"{case_name}_broadband.npz",
-                 I_macos_sum=I_macos_sum,
-                 I_proper_sum=I_proper_sum,
-                 I_macos_per_wave=np.stack(I_macos_per_wave),
-                 I_proper_per_wave=np.stack(I_proper_per_wave),
-                 wavelengths_m=wavelengths,
-                 dx_focal_m=dx_focal)
-
-        case_outputs[case_name] = dict(
-            I_macos_sum=I_macos_sum,
-            I_proper_sum=I_proper_sum,
-            dx_focal_m=dx_focal,
-            peak_per_wave=[w["peak_macos"] for w in per_wave_info],
-        )
-
-        # Per-case focal-plane plot (log10 intensity, broadband sum)
-        _save_focal_plane(I_macos_sum, dx_focal,
-                          out_dir / f"{case_name}_broadband_focalplane.png",
-                          title=(f"{case_name} broadband (Σ across "
-                                 f"{N_WAVE} λ in 10% band centred at "
-                                 f"{LAM_C*1e9:.0f} nm)"))
-
-    # Contrast curves: use no-mask broadband peak for Strehl ref,
-    # and derive lambda/D from the no-mask broadband PSF.
-    I_no  = case_outputs["no_mask"]["I_macos_sum"]
-    I_co  = case_outputs["with_mask"]["I_macos_sum"]
     peak_ref = float(I_no.max())
     lam_D    = float(lambda_over_D_pixels(I_no))
-    print(f"\n[driver] broadband no-mask peak = {peak_ref:.4e}; "
-          f"λ/D at centre = {lam_D:.2f} px")
-    print(f"[driver] broadband with-mask peak = {I_co.max():.4e}; "
-          f"suppression = {peak_ref / max(I_co.max(), 1e-30):.2e}")
+    print(f"\n[driver] broadband no-mask peak    = {peak_ref:.4e}  "
+          f"(λ/D at centre = {lam_D:.2f} px)")
+    print(f"[driver] broadband with-mask peak  = {I_co.max():.4e}")
+    print(f"[driver] suppression               = "
+          f"{peak_ref / max(I_co.max(), 1e-30):.2e}")
 
-    r_no, c_no = radial_contrast(I_no, peak_ref, lam_D, max_lambda_over_D=20.0)
-    r_co, c_co = radial_contrast(I_co, peak_ref, lam_D, max_lambda_over_D=20.0)
+    r_no, c_no = radial_contrast(I_no, peak_ref, lam_D,
+                                 max_lambda_over_D=20.0)
+    r_co, c_co = radial_contrast(I_co, peak_ref, lam_D,
+                                 max_lambda_over_D=20.0)
 
-    # Per-case contrast PNG
     plot_contrast_curves(
         {"no mask (broadband sum)": (r_no, c_no)},
         out_dir / "no_mask_broadband_contrast.png",
-        title=(f"No mask, broadband ({N_WAVE} λ across {BAND_FRAC*100:.0f}% "
-               f"band centred at {LAM_C*1e9:.0f} nm)"),
+        title=(f"Cycle 4: no mask, broadband ({N_WAVE} λ across "
+               f"{BAND_FRAC*100:.0f}% band centred at "
+               f"{LAM_C*1e9:.0f} nm)"),
         ylim=(1e-10, 2.0),
     )
     plot_contrast_curves(
         {"FPM=400um + Lyot=14mm (broadband sum)": (r_co, c_co)},
         out_dir / "with_mask_broadband_contrast.png",
-        title=(f"FPM=400um + Lyot=14mm, broadband ({N_WAVE} λ across "
-               f"{BAND_FRAC*100:.0f}% band, centred at "
-               f"{LAM_C*1e9:.0f} nm)"),
+        title=(f"Cycle 4: FPM=400um + Lyot=14mm, broadband"),
         ylim=(1e-14, 1e-4),
     )
-
-    # Both-cases overlay
     plot_contrast_curves(
         {"no mask (broadband)":  (r_no, c_no),
          "FPM+Lyot (broadband)": (r_co, c_co)},
         out_dir / "both_cases_contrast.png",
-        title=(f"Cycle 4: nominal coronagraph contrast at broadband "
-               f"({BAND_FRAC*100:.0f}% band, {N_WAVE} λ summed)\n"
-               "Strehl-norm to no-mask broadband peak"),
+        title=(f"Cycle 4: nominal coronagraph broadband contrast "
+               f"({BAND_FRAC*100:.0f}% band, {N_WAVE} λ summed,\n"
+               f"resampled to centre-λ pitch before sum)"),
         ylim=(1e-14, 2.0),
     )
 
-    # Clean up worker scratch
-    for p in out_dir.glob("_bb_*"):
-        try:
-            p.unlink()
-        except OSError:
-            pass
+    _save_focal_plane(I_no, dx_ref,
+                      out_dir / "no_mask_broadband_focalplane.png",
+                      title=(f"no_mask broadband sum ({N_WAVE} λ in "
+                             f"{BAND_FRAC*100:.0f}% band centred at "
+                             f"{LAM_C*1e9:.0f} nm)"))
+    _save_focal_plane(I_co, dx_ref,
+                      out_dir / "with_mask_broadband_focalplane.png",
+                      title=(f"with_mask broadband sum ({N_WAVE} λ in "
+                             f"{BAND_FRAC*100:.0f}% band centred at "
+                             f"{LAM_C*1e9:.0f} nm)"))
 
     print(f"\n[driver] wrote results to {out_dir}/")
-    for case_name in cases:
-        print(f"  {case_name}_broadband_focalplane.png")
-        print(f"  {case_name}_broadband_contrast.png")
-        print(f"  {case_name}_broadband.npz")
-    print(f"  both_cases_contrast.png")
+    print(f"  both_cases_contrast.png  "
+          "{no_mask,with_mask}_broadband_{focalplane,contrast}.png  "
+          "{no_mask,with_mask}_broadband.npz")
     return 0
 
 
@@ -237,18 +287,19 @@ def driver() -> int:
 # Helpers
 # ----------------------------------------------------------------------
 
-def _spawn(rx_path: Path, wavelength_m: float, out_json: Path) -> None:
+def _spawn_case(rx_path: Path, wavelengths: list, out_npz: Path,
+                case_name: str) -> None:
     args = [sys.executable, "-m", "proper_compare.run_broadband_nominal",
-            "--worker", str(rx_path), f"{wavelength_m:.6e}", str(out_json)]
+            "--worker", str(rx_path),
+            ",".join(f"{lam:.10e}" for lam in wavelengths),
+            str(out_npz), case_name]
     cwd = Path(__file__).resolve().parents[1]
-    print(f"[driver] spawn λ={wavelength_m*1e9:.2f}nm rx={rx_path.name}")
     res = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
     if res.returncode != 0:
         sys.stderr.write(res.stdout)
         sys.stderr.write(res.stderr)
         raise RuntimeError(
-            f"worker failed (rx={rx_path.name}, "
-            f"λ={wavelength_m*1e9:.1f}nm, code={res.returncode})")
+            f"worker failed (case={case_name}, code={res.returncode})")
     for line in res.stdout.splitlines():
         if line.startswith("[worker"):
             print(line)
@@ -262,8 +313,8 @@ def _save_focal_plane(intensity, dx_m, out_path, title=""):
 
     N = intensity.shape[0]
     cy = cx = (N - 1) // 2
-    # Crop window: +/- 25 lambda/D approx
-    half_window_um = 25 * 50.0  # ~25 lambda/D in micron, rough
+    # Crop window roughly +/- 25 λ/D
+    half_window_um = 25 * 50.0
     half_window_px = int(half_window_um * 1e-6 / dx_m)
     half_window_px = min(half_window_px, N // 2)
     lo_y = max(0, cy - half_window_px); hi_y = min(N, cy + half_window_px + 1)
@@ -294,11 +345,12 @@ def _save_focal_plane(intensity, dx_m, out_path, title=""):
 
 def _entry() -> int:
     if len(sys.argv) > 1 and sys.argv[1] == "--worker":
-        # --worker RX_PATH WAVELENGTH_M OUT_JSON
-        rx_path      = Path(sys.argv[2])
-        wavelength_m = float(sys.argv[3])
-        out_json     = Path(sys.argv[4])
-        worker(rx_path, wavelength_m, out_json)
+        # --worker RX_PATH WAVELENGTHS_COMMA_SEP OUT_NPZ CASE_NAME
+        rx_path        = Path(sys.argv[2])
+        wavelengths_si = [float(s) for s in sys.argv[3].split(",")]
+        out_npz        = Path(sys.argv[4])
+        case_name      = sys.argv[5]
+        worker(rx_path, wavelengths_si, out_npz, case_name)
         return 0
     return driver()
 
