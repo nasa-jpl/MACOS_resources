@@ -203,7 +203,7 @@
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  1
           ObsType=  Circle
-           ObsVec=  4.0E-01  0.0E+00  0.0E+00
+           ObsVec=  2.0E-01  0.0E+00  0.0E+00
            ApType=  None
          PropType=  NF2
              zElt=-7.74E+02
@@ -298,7 +298,7 @@
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  0
            ApType=  Circular
-            ApVec=  1.4E+01  0.0E+00  0.0E+00
+            ApVec=  1.2E+01  0.0E+00  0.0E+00
          PropType=  Geometric
              zElt=0.0E+00
           nECoord= -6
