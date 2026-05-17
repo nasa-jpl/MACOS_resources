@@ -1,11 +1,20 @@
-"""Cycle 5: broadband vortex coronagraph.
+"""Cycle 5: broadband vortex coronagraph (oversized-rays scheme).
 
 Runs nominal + comparative aberration cases through a vortex
-coronagraph at the focal plane (Elt 9 of Rx_Coro_FPM_Zern_vortex.in,
-which has Element=Reference / nObs=0 so the vortex is the only
-focal-plane element).  The mask is applied via the new
-pymacos.apodize_complex wrapper (sibling of apodize, takes a complex
-NxN array).  Two vortex flavors:
+coronagraph at the focal plane (Elt 9 of
+Rx_Coro_FPM_Zern_vortex_oversized.in, which has Element=Reference /
+nObs=0 so the vortex is the only focal-plane element).
+
+The "oversized" Rx doubles the source aperture and removes the front-
+end ray clips on Elts 1/4/7/12 so the focal-plane vortex's pupil-
+domain ring-of-fire isn't zeroed out by macos's geometric prop chain
+between Elt 10 and Elt 14.  The 21 mm design entrance pupil is
+enforced as a WFElt apodization at Elt 4 via apodize_complex, applied
+each wavelength inside the worker.  Lyot is enlarged to 20 mm (the
+sweet spot from the radius sweep against a charge-4 vortex).
+
+The mask is applied via the new pymacos.apodize_complex wrapper
+(sibling of apodize, takes a complex NxN array).  Two vortex flavors:
 
   - VECTOR (default): the Pancharatnam-Berry geometric phase mask.
     Wavelength-independent -- the SAME exp(i*charge*theta) at every
@@ -26,13 +35,15 @@ Elt 21 -- the vortex itself is purely a macos-side operation (via
 apodize_complex at Elt 9), and PROPER consumes the result.  Same
 handoff pattern as Phase 5.2.
 
-NOTE: the WFElt-only caveat from apodize applies.  Macos's geometric
-props between Elt 9 (focal plane) and Elt 13 (next diffractive plane)
-carry rays + OPD, not WFElt -- so the vortex's effect is "diluted"
-relative to the textbook all-diffractive prediction.  Expected
-result: meaningful broadband suppression with chromatic structure
-(scalar) or near-flat (vector), but not the infinite null of an
-idealised vortex.
+NOTE: the oversized-rays scheme is what makes this work end-to-end.
+The standard Rx_Coro_FPM_Zern_vortex.in gives only ~6.7e3 peak
+suppression because the post-FPM ring-of-fire (the bulk of the
+vortex's pupil-domain effect) falls outside the geometric ray bundle
+and gets zeroed at the first geometric prop after Elt 10.  Oversize
+plus the WFElt-only entrance-pupil clip keeps the ring-of-fire on
+alive-ray pixels through the relay; the Lyot at Elt 14 does the
+actual coronagraph clipping.  Result at nominal, charge-4 vector:
+1.84e4 peak suppression.
 """
 from __future__ import absolute_import
 
@@ -113,6 +124,7 @@ def worker(rx_path: Path, wavelengths_si: List[float], state_json: str,
         CoroSphereToPlane, proper_run_sphere_to_plane)
 
     N = 1024
+    PUPIL_R_MM = 21.0  # design entrance pupil radius enforced at Elt 4
     state = state_from_json(state_json)
     print(f"[worker {state.name} vortex={vortex_mode} ℓ={charge}] start",
           flush=True)
@@ -132,6 +144,16 @@ def worker(rx_path: Path, wavelengths_si: List[float], state_json: str,
     dx_macos         = np.zeros(n_wave)
     dx_proper        = np.zeros(n_wave)
 
+    # Pre-build the 21-mm hard-edge entrance-pupil mask on the Elt 4 grid.
+    # macos's pupil-domain dx is wavelength-independent, so this mask
+    # works at every wavelength.
+    _ = m.complex_field(4)
+    dx4_mm = m.dx_at(4) * 1e3
+    yy, xx = np.indices((N, N))
+    cy = cx = (N - 1) / 2.0
+    r_mm = np.sqrt((xx - cx)**2 + (yy - cy)**2) * dx4_mm
+    entrance_mask = np.where(r_mm <= PUPIL_R_MM, 1.0 + 0j, 0.0 + 0j)
+
     # Vector vortex: build the mask once outside the wavelength loop.
     if vortex_mode == "vector":
         vortex_mask_static = vortex_phase_mask(N, charge=charge)
@@ -141,8 +163,15 @@ def worker(rx_path: Path, wavelengths_si: List[float], state_json: str,
     for i, lam in enumerate(wavelengths_si):
         m.src_wvl(lam * si_to_wave_units)
 
-        # Trace to Elt 9 so WFElt(9) is populated.
-        m.intensity(9)
+        # Re-trace to Elt 4 (resets state) and apply entrance apodization
+        # so the design 21 mm pupil amplitude is enforced before the
+        # focal-plane vortex.
+        _ = m.complex_field(4)
+        m.apodize_complex(4, entrance_mask)
+
+        # Continue to Elt 9 with reset_trace=False to preserve the
+        # entrance apodization.
+        m.intensity(9, reset_trace=False)
 
         # Apply the vortex mask at the focal plane.
         if vortex_mode == "vector":
@@ -256,7 +285,7 @@ def driver() -> int:
           f"{BAND_FRAC*100:.0f}%, {N_WAVE} samples")
 
     rx_dir = Path(__file__).resolve().parents[1] / "Rx"
-    rx_path = rx_dir / "Rx_Coro_FPM_Zern_vortex.in"
+    rx_path = rx_dir / "Rx_Coro_FPM_Zern_vortex_oversized.in"
     out_dir = Path(__file__).resolve().parent / "results_cycle5"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -279,15 +308,17 @@ def driver() -> int:
     no_mask_npz = out_dir / "no_mask_broadband.npz"
     if not no_mask_npz.exists():
         print(f"\n[driver] no_mask reference missing -- building")
-        rx_no_mask = rx_dir / "Rx_Coro_noLyot.in"
+        rx_no_mask = rx_dir / "Rx_Coro_FPM_Zern_vortex_oversized_noLyot.in"
         sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
         from proper_compare.aberrations import CORO_LAYOUT, SystemState
         nominal_state = SystemState(layout=CORO_LAYOUT, name="no_mask")
         _spawn(rx_no_mask, wavelengths, nominal_state, "vector",
                0, LAM_C, no_mask_npz)
         # charge=0 + vector mode -> mask is exp(i*0*θ) = 1 everywhere.
-        # That's a no-op apodization, so the result is the un-vortexed
-        # broadband sum on Rx_Coro_noLyot.
+        # That's a no-op vortex on the noLyot oversized Rx, so the
+        # result is the un-vortexed, un-Lyotted broadband sum -- the
+        # right Strehl reference for the oversized scheme (same
+        # entrance-pupil apodization as the coronagraph cases).
 
     ref = np.load(no_mask_npz)
     peak_ref = float(ref["I_macos_sum"].max())
