@@ -79,8 +79,16 @@ DEFAULT_SPHERE_TO_PLANE = CoroSphereToPlane()
 
 
 def macos_run_sphere_to_plane(geom: CoroSphereToPlane = DEFAULT_SPHERE_TO_PLANE,
-                              pymacos_session=None):
+                              pymacos_session=None,
+                              post_load_hook=None):
     """Drive macos for the spherical-to-plane step.
+
+    Args:
+      post_load_hook: optional callable(session) invoked AFTER the
+        prescription is loaded but BEFORE the first complex_field /
+        intensity call.  The aberration sweep uses this to apply
+        perturbations to the loaded state -- the next macos call
+        re-runs MODIFY and sees the perturbed system.
 
     Returns (intensity_at_detector, dx_focal_m, dict with amplitude
     and complex_field at the spherical reference, plus dx_pupil_m /
@@ -96,6 +104,9 @@ def macos_run_sphere_to_plane(geom: CoroSphereToPlane = DEFAULT_SPHERE_TO_PLANE,
                / "Rx" / geom.rx_filename)
     pymacos_session.init(geom.macos_size)
     pymacos_session.load(str(rx_path))
+
+    if post_load_hook is not None:
+        post_load_hook(pymacos_session)
 
     cfield_at_pupil = pymacos_session.complex_field(geom.src_elt)
     intensity_pupil = pymacos_session.intensity(geom.src_elt)

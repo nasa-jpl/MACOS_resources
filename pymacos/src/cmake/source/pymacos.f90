@@ -3396,6 +3396,48 @@
 
 
       !---------------------------------------------------------------------------------------------
+      ! Programmatic rigid-body coordinate-frame perturbation of one
+      ! element.  Wraps macos's CPERTURB_PROG (funcsub.F), the
+      ! non-interactive sibling of the interactive CPERTURB command.
+      !
+      ! Unlike a direct elt_vpt setter, this routine performs the full
+      ! macos PERTURB bookkeeping: position + orientation, the
+      ! element's local TElt frame matrix, the aperture vector xObs,
+      ! HOE points, the Mon / pData / FF figure-error coordinate
+      ! frames, metrology surface points, and any linked-element
+      ! children.  This is the correct path for moving a real optic
+      ! (instead of just shifting its vertex while leaving figure
+      ! errors stuck at the original location).
+      !
+      ! Args:
+      !   iElt          : element index (1..nElt)
+      !   th(3)         : rotation perturbation vector (x, y, z), radians
+      !   del(3)        : translation perturbation vector (x, y, z),
+      !                   in prescription BaseUnits (mm for Rx_Coro.in)
+      !   useLocalCoord : .true. -> (th, del) are in element-local
+      !                   coords; .false. -> already in global coords
+      !---------------------------------------------------------------------------------------------
+      subroutine perturb_elt(OK, iElt, th, del, useLocalCoord)
+
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: iElt
+        real(8), intent(in) :: th(3), del(3)
+        logical, intent(in) :: useLocalCoord
+        external :: CPERTURB_PROG
+        ! ------------------------------------------------------
+        OK = FAIL
+
+        if (.not. SystemCheck())          return
+        if ((iElt < 1) .or. (iElt > nElt)) return
+
+        call CPERTURB_PROG(iElt, th, del, useLocalCoord)
+        OK = PASS
+
+      end subroutine perturb_elt
+
+
+      !---------------------------------------------------------------------------------------------
       ! Set Exit Pupil (XP) information
       !---------------------------------------------------------------------------------------------
       subroutine xp_set(ok, vpt, psi, rad)
