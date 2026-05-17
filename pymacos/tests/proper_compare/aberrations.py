@@ -326,6 +326,10 @@ def run_chain_with_state(state: SystemState,
 
 CORO_LAYOUT = SystemLayout(
     real_optics=(1, 4, 7, 12, 15, 17, 18),
-    zernike_optics={4: (5, 9, 33), 17: (5, 9, 33)},
+    # Zernike modes by Noll index: Z5 (oblique astig), Z7 (vertical
+    # coma), Z9 (vertical trefoil), Z33 (high-order radial).  Extend
+    # as needed for new sensitivity studies -- adding modes here is
+    # backward-compatible with existing tests (modes default to zero).
+    zernike_optics={4: (5, 7, 9, 33), 17: (5, 7, 9, 33)},
     zernike_type="BornWolf",
 )
