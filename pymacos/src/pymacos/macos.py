@@ -3112,6 +3112,66 @@ def apodize(srf: int | np.int32, mask: np.ndarray) -> None:
             "(call intensity(srf) or complex_field(srf) first)")
 
 
+def perturb(srf: int | np.int32,
+            rotation_rad: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+            translation_m: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+            in_local_coords: bool = True) -> None:
+    """Apply a rigid-body coordinate-frame perturbation to element ``srf``.
+
+    Wraps macos's ``CPERTURB_PROG`` (the programmatic sibling of the
+    interactive ``CPERTURB``).  Unlike a raw ``elt_vpt`` setter, this
+    performs the full PERTURB bookkeeping: position + orientation,
+    the element's local TElt frame matrix, aperture vector xObs, HOE
+    points, the Mon / pData / FF figure-error coordinate frames,
+    metrology surface points, and any linked-element children.
+
+    For an optic that has a Monomial / FreeForm figure error riding
+    on its surface, ``elt_vpt`` alone would shift the vertex but
+    leave the figure error stuck at the original location -- a
+    silent bug.  ``perturb`` moves everything together, as it would
+    physically.
+
+    Args:
+        srf:            Element id (1..nElt).
+        rotation_rad:   (x, y, z) rotation perturbation vector
+                        in radians.
+        translation_m:  (x, y, z) translation in SI metres.  Converted
+                        to the prescription's BaseUnits internally
+                        via the CBM factor.
+        in_local_coords: True (default) -> the rotation + translation
+                        are expressed in the element's LOCAL coordinate
+                        frame; False -> already in GLOBAL coords.
+
+    Raises:
+        Exception: Rx not loaded, srf out of range, or macos's
+                   CPERTURB_PROG signalled failure.
+    """
+    _chk_macos_and_rx_loaded()
+
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception(f"perturb() takes a single srf, got {len(iElt)}")
+        iElt = int(iElt[0])
+
+    # SI metres -> BaseUnits via CBM.
+    ok_cbm, cbm = lib.api.base_unit_to_metres()
+    if not ok_cbm or cbm == 0.0:
+        raise Exception("MACOS: base-units conversion factor unavailable "
+                        "(perturb needs CBM to convert SI metres "
+                        "translation to BaseUnits)")
+    si_to_base = 1.0 / float(cbm)
+
+    th  = np.asarray(rotation_rad, dtype=np.float64).reshape(3)
+    del_ = np.asarray(translation_m, dtype=np.float64).reshape(3) * si_to_base
+
+    ok = lib.api.perturb_elt(int(iElt), th, del_, bool(in_local_coords))
+    if not ok:
+        raise Exception(
+            f"MACOS: perturb failed at Elt {iElt} -- check that the "
+            "Rx is loaded and the element index is valid")
+
+
 def spot(srf: int | Tuple[int] | np.int32,
          vpt_center: bool | int = True,
          beam_csys: int = 1,
