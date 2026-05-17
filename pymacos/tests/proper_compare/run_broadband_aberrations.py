@@ -225,9 +225,19 @@ def _make_states():
     # 1. Nominal
     states.append(SystemState(layout=CORO_LAYOUT, name="nominal"))
 
-    # 2. Elt 1 tip y 50 urad (clear PSF shift on focal plane)
+    # 2. Elt 1 tip y 50 urad (clear PSF shift; focus stays within
+    #    the 400 μm FPM, ~77 μm displaced from centre).
     s = SystemState(layout=CORO_LAYOUT, name="Elt1_tip_y_50urad")
     s.set_dof(element=1, dof="roty", value=50e-6)
+    states.append(s)
+
+    # 2b. Elt 1 tip y 500 urad -- focus displacement at the FPM is
+    #     ~770 μm, well OUTSIDE the 400 μm FPM.  Coronagraph should
+    #     "fail" here: most of the starlight bypasses the FPM and
+    #     reaches the science focal plane unsuppressed.  Compare to
+    #     the 50 μrad case for the difference.
+    s = SystemState(layout=CORO_LAYOUT, name="Elt1_tip_y_500urad")
+    s.set_dof(element=1, dof="roty", value=500e-6)
     states.append(s)
 
     # 3. Elt 1 Tx +20 um
@@ -314,9 +324,9 @@ def driver() -> int:
         I_p = arrs["I_proper_sum"]
         ref_dx = float(arrs["ref_dx_macos"])
 
-        _save_three_panel(state.name, I_m, I_p, ref_dx,
-                          out_dir / f"aberration_{state.name}"
-                                    f"_broadband_focalplane.png")
+        _save_four_panel(state.name, I_m, I_p, ref_dx,
+                         out_dir / f"aberration_{state.name}"
+                                   f"_broadband_focalplane.png")
 
         r_ld, c = radial_contrast(I_m, peak_ref, lam_D,
                                   max_lambda_over_D=20.0)
@@ -372,28 +382,31 @@ def _spawn_state(rx_path: Path, wavelengths: list, state, out_npz: Path):
             print(line)
 
 
-def _save_three_panel(state_name: str,
-                      I_macos: 'np.ndarray',
-                      I_proper: 'np.ndarray',
-                      dx_m: float,
-                      out_path: Path,
-                      window_lambda_over_D: float = 20.0):
-    """3-panel focal-plane plot: macos / PROPER / Δ (Strehl-normalised).
+def _save_four_panel(state_name: str,
+                     I_macos: 'np.ndarray',
+                     I_proper: 'np.ndarray',
+                     dx_m: float,
+                     out_path: Path,
+                     window_lambda_over_D: float = 30.0):
+    """4-panel diagnostic: macos / PROPER (top); Δ / radial profile
+    overlay (bottom).
 
-    macos + PROPER are shown as log10 intensity (each on its own
-    peak scale, but using the SAME color scale for the log range so
-    structures are comparable).  Difference panel is signed
-    a_strehl - b_strehl with a diverging RdBu_r colormap.
+    Top row: log10 intensity, each on its own peak scale (same
+    dynamic range).  Bottom-left: signed Strehl-normed difference
+    (macos − PROPER) with a FIXED color range (±1e-3 Strehl) so
+    genuine agreement reads as nearly-uniform colour -- avoids the
+    auto-stretch lie where sub-precision noise looks like big
+    structure.  Bottom-right: radial-profile overlay (log y) plus
+    signed difference on a twin axis.
     """
     import numpy as np
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from proper_compare.contrast import radial_profile
 
     N = I_macos.shape[0]
     cy = cx = (N - 1) // 2
-    # Crop window approximately +/- window_lambda_over_D in λ/D units.
-    # 1 λ/D ≈ 50 μm at this F#; convert to pixels via dx_m.
     half_window_um = window_lambda_over_D * 50.0
     half_window_px = int(half_window_um * 1e-6 / dx_m)
     half_window_px = min(half_window_px, N // 2)
@@ -404,50 +417,84 @@ def _save_three_panel(state_name: str,
 
     peak_m = max(crop_m.max(), 1e-30)
     peak_p = max(crop_p.max(), 1e-30)
-
-    # log10 intensity panels: use same DYNAMIC RANGE relative to each
-    # panel's own peak (so structure is visible regardless of engine
-    # normalisation conventions).
-    floor_dec = 10  # 10 orders of magnitude below peak
+    floor_dec = 10
     log_m = np.log10(np.maximum(crop_m, peak_m * 10**(-floor_dec)))
     log_p = np.log10(np.maximum(crop_p, peak_p * 10**(-floor_dec)))
 
-    # Strehl-normalised diff (each / own peak)
     diff = crop_m / peak_m - crop_p / peak_p
-    diff_lim = max(np.abs(diff).max(), 1e-30)
+    diff_max_abs = float(np.abs(diff).max())
+    # Auto-stretch the diff colormap to the data range (per Dave's
+    # preference: see the actual data; numerical readout in the title
+    # tells you the absolute magnitude).
+    diff_lim = max(diff_max_abs, 1e-30)
 
     ext_um = (-half_window_px * dx_m * 1e6,
                (hi - cy - 1) * dx_m * 1e6,
               -half_window_px * dx_m * 1e6,
                (hi - cy - 1) * dx_m * 1e6)
 
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
-    im0 = axes[0].imshow(log_m, extent=ext_um, origin="lower",
-                          cmap="viridis",
-                          vmin=np.log10(peak_m) - floor_dec,
-                          vmax=np.log10(peak_m))
-    axes[0].set_title(f"macos broadband\npeak = {peak_m:.3e}")
-    axes[0].set_xlabel("x (μm)"); axes[0].set_ylabel("y (μm)")
-    plt.colorbar(im0, ax=axes[0], label=r"log$_{10}$ I", fraction=0.046)
+    fig, axes = plt.subplots(2, 2, figsize=(13, 11))
 
-    im1 = axes[1].imshow(log_p, extent=ext_um, origin="lower",
-                          cmap="viridis",
-                          vmin=np.log10(peak_p) - floor_dec,
-                          vmax=np.log10(peak_p))
-    axes[1].set_title(f"PROPER broadband\npeak = {peak_p:.3e}")
-    axes[1].set_xlabel("x (μm)"); axes[1].set_ylabel("y (μm)")
-    plt.colorbar(im1, ax=axes[1], label=r"log$_{10}$ I", fraction=0.046)
+    im0 = axes[0, 0].imshow(log_m, extent=ext_um, origin="lower",
+                             cmap="viridis",
+                             vmin=np.log10(peak_m) - floor_dec,
+                             vmax=np.log10(peak_m))
+    axes[0, 0].set_title(f"macos broadband\npeak = {peak_m:.3e}")
+    axes[0, 0].set_xlabel("x (μm)"); axes[0, 0].set_ylabel("y (μm)")
+    plt.colorbar(im0, ax=axes[0, 0], label=r"log$_{10}$ I",
+                  fraction=0.046)
 
-    im2 = axes[2].imshow(diff, extent=ext_um, origin="lower",
-                          cmap="RdBu_r",
-                          vmin=-diff_lim, vmax=diff_lim)
-    axes[2].set_title(f"macos/peak − PROPER/peak\n"
-                      f"max|Δ| = {np.abs(diff).max():.3e}")
-    axes[2].set_xlabel("x (μm)"); axes[2].set_ylabel("y (μm)")
-    plt.colorbar(im2, ax=axes[2], label="Δ (Strehl-norm)", fraction=0.046)
+    im1 = axes[0, 1].imshow(log_p, extent=ext_um, origin="lower",
+                             cmap="viridis",
+                             vmin=np.log10(peak_p) - floor_dec,
+                             vmax=np.log10(peak_p))
+    axes[0, 1].set_title(f"PROPER broadband\npeak = {peak_p:.3e}")
+    axes[0, 1].set_xlabel("x (μm)"); axes[0, 1].set_ylabel("y (μm)")
+    plt.colorbar(im1, ax=axes[0, 1], label=r"log$_{10}$ I",
+                  fraction=0.046)
 
-    fig.suptitle(f"{state_name}  -- broadband (10% band, 7 λ summed)",
-                 y=1.02)
+    im2 = axes[1, 0].imshow(diff, extent=ext_um, origin="lower",
+                             cmap="RdBu_r",
+                             vmin=-diff_lim, vmax=diff_lim)
+    axes[1, 0].set_title(
+        f"macos/peak − PROPER/peak\n"
+        f"max|Δ| = {diff_max_abs:.3e} (auto-stretch ±max|Δ|)")
+    axes[1, 0].set_xlabel("x (μm)"); axes[1, 0].set_ylabel("y (μm)")
+    plt.colorbar(im2, ax=axes[1, 0], label="Δ (Strehl-norm)",
+                  fraction=0.046)
+
+    a = I_macos / I_macos.max() if I_macos.max() > 0 else I_macos
+    b = I_proper / I_proper.max() if I_proper.max() > 0 else I_proper
+    r_px, mean_a, _, _ = radial_profile(a, max_radius=half_window_px,
+                                         bin_size=1.0)
+    _,    mean_b, _, _ = radial_profile(b, max_radius=half_window_px,
+                                         bin_size=1.0)
+    r_um = r_px * dx_m * 1e6
+
+    ax_rad = axes[1, 1]
+    ax_rad.semilogy(r_um, np.maximum(mean_a, 1e-18),
+                    color="C0", lw=1.5, label="macos / peak")
+    ax_rad.semilogy(r_um, np.maximum(mean_b, 1e-18),
+                    color="C1", lw=1.5, ls="--", label="PROPER / peak")
+    ax_rad.set_xlabel("radius (μm)")
+    ax_rad.set_ylabel("Strehl-normed radial mean (log)")
+    ax_rad.legend(loc="upper right")
+    ax_rad.grid(alpha=0.3, which="both")
+    ax_rad.set_title("Radial profile overlay + signed Δ (twin axis)")
+
+    ax_diff = ax_rad.twinx()
+    signed = mean_a - mean_b
+    ax_diff.plot(r_um, signed, color="C3", lw=1.0, alpha=0.7)
+    ax_diff.axhline(0, color="k", lw=0.5, alpha=0.5)
+    ax_diff.set_ylabel("signed Δ macos − PROPER (linear)", color="C3")
+    ax_diff.tick_params(axis="y", labelcolor="C3")
+    sd_lim = float(np.nanmax(np.abs(signed))) if np.isfinite(
+        np.nanmax(np.abs(signed))) else 1e-12
+    sd_lim = max(sd_lim, 1e-12)
+    ax_diff.set_ylim(-2 * sd_lim, 2 * sd_lim)
+
+    fig.suptitle(f"{state_name}  --  broadband (10% band, 7 λ summed)",
+                 y=1.00, fontsize=13)
     fig.tight_layout()
     fig.savefig(out_path, dpi=110, bbox_inches="tight")
     plt.close(fig)
