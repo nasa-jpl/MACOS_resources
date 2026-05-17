@@ -3396,6 +3396,44 @@
 
 
       !---------------------------------------------------------------------------------------------
+      ! Complex-valued apodization: multiply WFElt(:,:, iEltToiWF(iElt))
+      ! by a user-supplied COMPLEX NxN mask, in place.  Like
+      ! cfield_apodize but accepts amplitude + phase per pixel (mask
+      ! provided as separate real/imag NxN arrays, since f2py handles
+      ! real arrays more robustly than complex).
+      !
+      ! Used by Python-side phase-mask helpers (vortex coronagraph,
+      ! PIAA-like apodisers, sub-wavelength gratings, etc.) where the
+      ! mask carries both transmission and phase information.
+      !---------------------------------------------------------------------------------------------
+      subroutine cfield_apodize_complex(OK, MASK_RE, MASK_IM, N, iElt)
+        use elt_mod, only: WFElt, iEltToiWF
+
+        implicit none
+        logical,                 intent(out):: OK
+        real(8), dimension(N,N), intent(in) :: MASK_RE, MASK_IM
+        integer,                 intent(in) :: N      ! = mdttl
+        integer,                 intent(in) :: iElt
+
+        integer :: iWF
+        ! ------------------------------------------------------
+        OK = FAIL
+
+        if ((.not. SystemCheck()) .or. (N /= mdttl)) return
+        if ((iElt < 1) .or. (iElt > nElt))           return
+        if (.not. allocated(WFElt))                  return
+
+        iWF = iEltToiWF(iElt)
+        if (iWF .LE. 0) return
+
+        WFElt(:N, :N, iWF) = WFElt(:N, :N, iWF) &
+                            * cmplx(MASK_RE, MASK_IM, kind=8)
+        OK = PASS
+
+      end subroutine cfield_apodize_complex
+
+
+      !---------------------------------------------------------------------------------------------
       ! Programmatic rigid-body coordinate-frame perturbation of one
       ! element.  Wraps macos's CPERTURB_PROG (funcsub.F), the
       ! non-interactive sibling of the interactive CPERTURB command.
