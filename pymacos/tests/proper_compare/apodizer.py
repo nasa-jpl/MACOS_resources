@@ -268,3 +268,59 @@ def build_band_limited_mask(N: int, dx: float,
     mask_fft_ordered = np.real(np.fft.ifft2(F)) / (dx * dx)
     # Shift array centre from (0, 0) to ((N-1)/2, (N-1)/2)
     return np.fft.fftshift(mask_fft_ordered)
+
+
+# ----------------------------------------------------------------------
+# Vortex coronagraph phase masks (complex unit amplitude)
+# ----------------------------------------------------------------------
+
+def vortex_phase_mask(N: int, charge: int = 4) -> np.ndarray:
+    """Vector vortex coronagraph mask: exp(i * charge * theta).
+
+    Achromatic (wavelength-independent) -- the geometric / Pancharatnam-
+    Berry phase imposed by a half-wave plate / liquid-crystal polymer
+    whose optic axis rotates with azimuthal angle.  Well-designed
+    physical devices (multi-twist LCP, sub-wavelength gratings) hold
+    achromatic half-wave behaviour over 20%+ bandwidths -- the
+    canonical assumption for HWO-class vortex designs.
+
+    Returns:
+        (N, N) complex128 array, unit amplitude, helical phase.
+        The central pixel sits at the topological defect; numpy's
+        arctan2(0, 0) = 0 puts a "fake" phase of 0 there (transmission
+        1 with no phase rotation).  In practice, the single-pixel
+        defect is below the FFT's resolution -- the surrounding pixels
+        carry the full helical structure.
+    """
+    yy, xx = np.indices((N, N))
+    cy, cx = (N - 1) / 2.0, (N - 1) / 2.0
+    theta = np.arctan2(yy - cy, xx - cx)
+    return np.exp(1j * charge * theta)
+
+
+def scalar_vortex_phase_mask(N: int,
+                              charge: int,
+                              lambda_design_m: float,
+                              lambda_m: float) -> np.ndarray:
+    """Scalar vortex coronagraph mask: exp(i * eff_charge * theta).
+
+    Chromatic: phase comes from a physical helical thickness
+    profile (refractive material), so the effective charge scales as
+    (lambda_design / lambda_actual).  Off-design wavelengths see
+    non-integer effective charges, which don't null cleanly -- the
+    classic chromatic leakage that motivates vector designs.
+
+    Args:
+        charge:           design integer charge (e.g. 2, 4, 6).
+        lambda_design_m:  the wavelength the helical thickness was
+                          designed for.
+        lambda_m:         the actual operating wavelength.
+
+    Returns:
+        (N, N) complex128 array.
+    """
+    eff_charge = charge * (lambda_design_m / lambda_m)
+    yy, xx = np.indices((N, N))
+    cy, cx = (N - 1) / 2.0, (N - 1) / 2.0
+    theta = np.arctan2(yy - cy, xx - cx)
+    return np.exp(1j * eff_charge * theta)

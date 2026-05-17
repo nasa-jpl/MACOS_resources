@@ -3112,6 +3112,64 @@ def apodize(srf: int | np.int32, mask: np.ndarray) -> None:
             "(call intensity(srf) or complex_field(srf) first)")
 
 
+def apodize_complex(srf: int | np.int32, mask: np.ndarray) -> None:
+    """Complex-valued sibling of :func:`apodize`.
+
+    Multiplies macos's diffraction-grid complex field at ``srf`` by a
+    user-supplied COMPLEX-valued NxN mask, in place.  Used for phase
+    masks (vortex coronagraphs, PIAA-like apodisers, sub-wavelength
+    gratings) where the mask carries both amplitude and phase.
+
+    Same WFElt-only caveat as :func:`apodize` applies: ray-channel
+    information at ``srf`` is not modified.  For apodisers immediately
+    upstream of a DIFFRACTIVE propagation step (NFPlane / NF1 / NF2 /
+    FarField), the effect propagates correctly to the next plane via
+    WFElt; subsequent geometric propagations may dilute the effect
+    when WFElt is reconstructed from rays.
+
+    Args:
+        srf:  Element id (1..nElt).
+        mask: Complex (N, N) array.  Real/imag pair handed to the
+              Fortran wrapper as separate float64 arrays.
+
+    Raises:
+        Exception: Rx not loaded, srf out of range, mask shape
+                   mismatch, or no diffraction wavefront at ``srf``.
+    """
+    _chk_macos_and_rx_loaded()
+
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception("apodize_complex() takes a single srf, got "
+                            f"{len(iElt)}")
+        iElt = int(iElt[0])
+
+    mask = np.asarray(mask)
+    if not np.iscomplexobj(mask):
+        # Allow real-valued input but warn -- this is usually a sign
+        # the caller meant apodize() instead.
+        mask = mask.astype(np.complex128)
+
+    if mask.ndim != 2 or mask.shape[0] != mask.shape[1]:
+        raise Exception(f"apodize_complex(): mask must be square 2D, "
+                        f"got shape {mask.shape}")
+    N = mask.shape[0]
+    if N != _MODELSIZE:
+        raise Exception(f"apodize_complex(): mask shape ({N}, {N}) does not "
+                        f"match macos's diffraction-grid size "
+                        f"(mdttl = {_MODELSIZE}); call init({N}) and "
+                        "reload the Rx, or resize the mask")
+
+    mask_re = np.ascontiguousarray(mask.real, dtype=np.float64)
+    mask_im = np.ascontiguousarray(mask.imag, dtype=np.float64)
+    ok = lib.api.cfield_apodize_complex(mask_re, mask_im, int(iElt))
+    if not ok:
+        raise Exception(
+            f"MACOS: cfield_apodize_complex failed at Elt {iElt} -- check "
+            "that a propagation has populated WFElt at this element")
+
+
 def perturb(srf: int | np.int32,
             rotation_rad: Tuple[float, float, float] = (0.0, 0.0, 0.0),
             translation_m: Tuple[float, float, float] = (0.0, 0.0, 0.0),
