@@ -406,7 +406,11 @@ def _save_four_panel(state_name: str,
     from proper_compare.contrast import radial_profile
 
     N = I_macos.shape[0]
-    cy = cx = (N - 1) // 2
+    # Use N//2 (not (N-1)//2) as the crop center so the clamp
+    # half_window_px=N//2 yields lo=0 instead of lo=-1 (which would
+    # negative-index slice into the last row and silently miss the
+    # PSF core).
+    cy = cx = N // 2
     half_window_um = window_lambda_over_D * 50.0
     half_window_px = int(half_window_um * 1e-6 / dx_m)
     half_window_px = min(half_window_px, N // 2)
