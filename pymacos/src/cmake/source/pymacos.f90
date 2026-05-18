@@ -2485,8 +2485,10 @@
         if ((.not. SystemCheck()) .or. (iElt<1) .or. (iElt>nElt)) return
         ! if (.not. StatusChk1(iElt)) return
 
-        ! check if SrfType /= Zernike
-        if (SrfType(iElt) /= SrfType_Zernike) return
+        ! Accept SrfType=Zernike (pure Zernike) or ZrnGrData (Zernike+grid
+        ! composite); both store their Zernike component in ZernCoef(:,iElt).
+        if ((SrfType(iElt) /= SrfType_Zernike) .and.                       &
+            (SrfType(iElt) /= SrfType_ZrnGrData)) return
 
         ! check mode range: Fringe is limited to 37 Modes
         if (((ZernTypeL(iElt) == ZernType_Fringe) .or.       &
@@ -2842,6 +2844,174 @@
         ok = PASS
 
       end subroutine elt_srf_zrn_get
+
+
+    ! ============================================================================================
+    !
+    ! Element Surface Properties: FreeForm Mon-Zernike Coefficients
+    !
+    ! MonZernCoef(:, iElt) is the Zernike-form representation of the
+    ! perturbable "Mon" component of a FreeForm surface (SrfType=14).
+    ! At trace time, ZerntoMon converts MonZernCoef into the MonCoef
+    ! monomial coefficients that FreeFormSrf evaluates.  Writing
+    ! MonZernCoef directly here is the wavefront-control / sensitivity-
+    ! matrix channel for FreeForm optics (mirrors what GMI does via
+    ! pmonzern; see GMI.F:ApplyPerturbationToOpticalSystem).
+    !
+    ! ============================================================================================
+
+      !-------------------------------------------------------------------------------------------
+      ! Determine if at least one Element is a FreeForm surface
+      !-------------------------------------------------------------------------------------------
+      subroutine elt_srf_ff_any(any_elt_FF)
+
+        implicit none
+        logical, intent(out):: any_elt_FF
+        ! ------------------------------------------------------
+        any_elt_FF = FAIL
+
+        if (.not. (SystemCheck() .and. nElt>0)) return
+
+        if (any(SrfType(:nElt) == SrfType_FreeForm)) any_elt_FF = PASS
+
+      end subroutine elt_srf_ff_any
+
+
+      !-------------------------------------------------------------------------------------------
+      ! Determine if FreeForm surfaces are defined at specified Element(s).
+      !-------------------------------------------------------------------------------------------
+      subroutine elt_srf_ff_fnd(ok, nFF, iElt, N)
+
+        implicit none
+        logical,                     intent(out):: ok    ! success (1) or Fail (0)
+        logical, dimension(N),       intent(out):: nFF   ! 1 (FreeForm at this elt) or 0
+        integer, dimension(N),       intent(in) :: iElt  ! Elt ID: (0 < iElt[i] <= nElt)
+
+        integer,                     intent(in) :: N
+        !f2py   integer intent(hide), depend(iElt):: N=len(iElt)
+        ! ------------------------------------------------------
+        ok     = FAIL
+        nFF(:) = FAIL
+
+        if (.not. StatusChk1(iElt)) return
+
+        where (SrfType(iElt) == SrfType_FreeForm) nFF(iElt) = PASS
+        ok = PASS
+
+      end subroutine elt_srf_ff_fnd
+
+
+      !-------------------------------------------------------------------------------------------
+      ! Get the number of Mon-Zernike coefficient slots allocated per element
+      ! (mMonCoef from elt_mod).  Lets the Python side size its mode arrays
+      ! without hard-coding 120.
+      !-------------------------------------------------------------------------------------------
+      subroutine elt_srf_mon_zrn_max_modes(n_max)
+        use elt_mod, only: mMonCoef
+
+        implicit none
+        integer, intent(out) :: n_max
+        ! ------------------------------------------------------
+        n_max = mMonCoef
+      end subroutine elt_srf_mon_zrn_max_modes
+
+
+      !-------------------------------------------------------------------------------------------
+      ! Set/get Mon-Zernike Coefficients on a FreeForm surface.
+      ! Mirrors elt_srf_zrn_coef but writes/reads MonZernCoef(:, iElt)
+      ! and gates on SrfType_FreeForm instead of SrfType_Zernike.
+      ! On set, the perturbed coefficients persist until the next overwrite
+      ! or load; the next trace picks them up via ZerntoMon in tracesub.F.
+      !-------------------------------------------------------------------------------------------
+      subroutine elt_srf_mon_zrn_coef(ok, iElt, ZernMode, MonZernCoef_,    &
+                                      setter, reset, N)
+        use elt_mod, only: mMonCoef, MonZernCoef, MonZernTypeL,             &
+                           ZernType_Fringe, ZernType_NormFringe
+
+        implicit none
+        logical,               intent(out)   :: ok
+        integer,               intent(in)    :: iElt          ! 0 < iElt <= nElt
+        integer, dimension(N), intent(inout) :: ZernMode      ! mode indices
+        real(8), dimension(N), intent(inout) :: MonZernCoef_  ! coefficients
+        logical,               intent(in)    :: setter        ! PASS = set, else get
+        logical,               intent(in)    :: reset         ! PASS = zero all modes first (setter only)
+        integer,               intent(in)    :: N
+        !f2py   integer intent(hide), depend(ZernMode,MonZernCoef_), check(len(ZernMode)==len(MonZernCoef_), len(ZernMode)>0) :: N=len(ZernMode)
+        ! ------------------------------------------------------
+        ok = FAIL
+
+        if ((.not. SystemCheck()) .or. (iElt<1) .or. (iElt>nElt)) return
+
+        if (SrfType(iElt) /= SrfType_FreeForm) return
+
+        ! Fringe Zernike is limited to 37 modes; other types up to mMonCoef
+        if (((MonZernTypeL(iElt) == ZernType_Fringe) .or.                  &
+             (MonZernTypeL(iElt) == ZernType_NormFringe)) .and.            &
+            (any(ZernMode > 37))) then
+          return
+        else
+          if (any(ZernMode < 1 .or. ZernMode > mMonCoef)) return
+        end if
+
+        if (setter == PASS) then
+          if (reset == PASS) MonZernCoef(:, iElt) = 0d0
+          MonZernCoef(ZernMode(:), iElt) = MonZernCoef_(:)
+        else
+          MonZernCoef_(:) = MonZernCoef(ZernMode(:), iElt)
+        end if
+
+        ok = PASS
+
+      end subroutine elt_srf_mon_zrn_coef
+
+
+      !-------------------------------------------------------------------------------------------
+      ! Set/get FF-Zernike Coefficients on a FreeForm surface.
+      ! Same pattern as elt_srf_mon_zrn_coef, but writes/reads
+      ! FFZernCoef(:, iElt) -- the FreeForm surface's figure-description
+      ! Zernike-form coefficients (distinct from the perturbation overlay
+      ! held in MonZernCoef).  Both arrays are evaluated at trace time
+      ! by ZerntoMon and feed FreeFormSrf.
+      !-------------------------------------------------------------------------------------------
+      subroutine elt_srf_ff_zrn_coef(ok, iElt, ZernMode, FFZernCoef_,      &
+                                     setter, reset, N)
+        use elt_mod, only: mFFCoef, FFZernCoef, FFZernTypeL,                &
+                           ZernType_Fringe, ZernType_NormFringe
+
+        implicit none
+        logical,               intent(out)   :: ok
+        integer,               intent(in)    :: iElt
+        integer, dimension(N), intent(inout) :: ZernMode
+        real(8), dimension(N), intent(inout) :: FFZernCoef_
+        logical,               intent(in)    :: setter
+        logical,               intent(in)    :: reset
+        integer,               intent(in)    :: N
+        !f2py   integer intent(hide), depend(ZernMode,FFZernCoef_), check(len(ZernMode)==len(FFZernCoef_), len(ZernMode)>0) :: N=len(ZernMode)
+        ! ------------------------------------------------------
+        ok = FAIL
+
+        if ((.not. SystemCheck()) .or. (iElt<1) .or. (iElt>nElt)) return
+
+        if (SrfType(iElt) /= SrfType_FreeForm) return
+
+        if (((FFZernTypeL(iElt) == ZernType_Fringe) .or.                   &
+             (FFZernTypeL(iElt) == ZernType_NormFringe)) .and.             &
+            (any(ZernMode > 37))) then
+          return
+        else
+          if (any(ZernMode < 1 .or. ZernMode > mFFCoef)) return
+        end if
+
+        if (setter == PASS) then
+          if (reset == PASS) FFZernCoef(:, iElt) = 0d0
+          FFZernCoef(ZernMode(:), iElt) = FFZernCoef_(:)
+        else
+          FFZernCoef_(:) = FFZernCoef(ZernMode(:), iElt)
+        end if
+
+        ok = PASS
+
+      end subroutine elt_srf_ff_zrn_coef
 
 
     ! ============================================================================================
