@@ -2101,6 +2101,218 @@ def setEltSrfZernMode(iElt, izernMode=None, zernCoef=None) -> None:
         raise Exception("'elt_srf_zrn_mode_set' threw an exception")
 
 
+def getEltSrfZernMode(iElt: int,
+                      zernMode: int | np.ndarray) -> np.ndarray:
+    """Get current ZernCoef values at the requested modes on a
+    Zernike or ZrnGrData element (SrfType=8 or 13).
+
+    Symmetric companion to :func:`setEltSrfZernCoef`.  Used by the
+    sensitivity-matrix work (channels.py) to read the nominal value
+    before perturbing.  Calls the underlying ``elt_srf_zrn_coef`` in
+    get mode -- bypasses the older ``getEltSrfZern`` wrapper, which
+    targets a Fortran name (``getEltSrfZern``) that doesn't exist in
+    the current build.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = int(_map_Elt(iElt, max_rows=1).squeeze())
+    modes = np.atleast_1d(np.asarray(zernMode, dtype=np.int32)).ravel()
+    if modes.size == 0:
+        raise ValueError("getEltSrfZernMode(): zernMode is empty")
+    coef = np.zeros(modes.size, dtype=np.float64)
+    ok = lib.api.elt_srf_zrn_coef(iElt, modes, coef, False, False)
+    if not ok:
+        raise Exception(
+            f"getEltSrfZernMode(): MACOS rejected iElt={iElt} (not a "
+            f"Zernike / ZrnGrData surface, or modes out of range)")
+    return coef
+
+
+def setEltSrfZernCoef(iElt: int,
+                      zernMode: int | np.ndarray,
+                      zernCoef: float | np.ndarray,
+                      reset: bool = False) -> None:
+    """Set ZernCoef values at the given modes on a Zernike (SrfType=8)
+    or ZrnGrData (SrfType=13) element.
+
+    Symmetric setter for :func:`getEltSrfZernMode`.  Routes through
+    ``elt_srf_zrn_coef`` in setter mode -- bypasses the older
+    :func:`setEltSrfZernMode` which has an f2py-side error path
+    that triggers on single-mode calls.
+
+    Args:
+        iElt:     Element ID (1..nElt).
+        zernMode: 1-based mode indices to write.
+        zernCoef: Coefficient values (same length as ``zernMode``).
+        reset:    If True, zero ALL modes on this element BEFORE
+                  writing the new ones.
+
+    Raises:
+        Exception: Rx not loaded, iElt out of range, surface not
+                   Zernike/ZrnGrData, or modes out of range.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = int(_map_Elt(iElt, max_rows=1).squeeze())
+    modes = np.atleast_1d(np.asarray(zernMode, dtype=np.int32)).ravel()
+    coef  = np.atleast_1d(np.asarray(zernCoef, dtype=np.float64)).ravel()
+    if modes.size == 0 or modes.size != coef.size:
+        raise ValueError(
+            "setEltSrfZernCoef(): zernMode and zernCoef must have the "
+            f"same nonzero length (got {modes.size} and {coef.size})")
+    ok = lib.api.elt_srf_zrn_coef(iElt, modes, coef, True, bool(reset))
+    if not ok:
+        raise Exception(
+            f"setEltSrfZernCoef(): MACOS rejected iElt={iElt} (not a "
+            f"Zernike/ZrnGrData surface, or modes out of range)")
+
+
+# ----------------------------------------------------------------------------
+# Element Surface Properties: FreeForm Mon-Zernike Coefficients
+#
+# MonZernCoef(:, iElt) is the perturbation channel for FreeForm surfaces
+# (SrfType=14).  Used as the state vector for HWO-style wavefront-control
+# sensitivity matrices: perturb a coefficient, retrace, capture OPD, build
+# dw/dz columns.  Mirrors the GMI pmonzern path.
+# ----------------------------------------------------------------------------
+
+def findFreeFormElts() -> np.ndarray:
+    """Return 1-based indices of every FreeForm-typed element in the
+    loaded prescription (SrfType=14 in macos), in element order.
+
+    Empty array if no FreeForm surfaces are present.
+    """
+    _chk_macos_and_rx_loaded()
+    n = num_elt()
+    all_elts = np.arange(1, n + 1, dtype=np.int32)
+    ok, mask = lib.api.elt_srf_ff_fnd(all_elts)
+    if not ok:
+        raise Exception("'elt_srf_ff_fnd' threw an exception")
+    return all_elts[mask.astype(bool)]
+
+
+def getEltSrfMonZern(iElt: int,
+                     zernMode: int | np.ndarray) -> np.ndarray:
+    """Get current MonZernCoef values at the requested mode indices on
+    a FreeForm element (SrfType=14).
+
+    Args:
+        iElt:     Element ID (1..nElt).  Must be a FreeForm surface.
+        zernMode: 1-based mode indices to read (scalar or 1D array).
+
+    Returns:
+        1D float64 array of coefficients at the requested modes.
+
+    Raises:
+        Exception: Rx not loaded, iElt out of range, or the surface at
+                   iElt isn't FreeForm.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = int(_map_Elt(iElt, max_rows=1).squeeze())
+    modes = np.atleast_1d(np.asarray(zernMode, dtype=np.int32)).ravel()
+    if modes.size == 0:
+        raise ValueError("getEltSrfMonZern(): zernMode is empty")
+    coef = np.zeros(modes.size, dtype=np.float64)
+    ok = lib.api.elt_srf_mon_zrn_coef(iElt, modes, coef,
+                                      False, False)
+    if not ok:
+        raise Exception(
+            f"getEltSrfMonZern(): MACOS rejected iElt={iElt} (not a "
+            f"FreeForm surface, or modes out of [1, mMonCoef])")
+    return coef
+
+
+def setEltSrfMonZern(iElt: int,
+                     zernMode: int | np.ndarray,
+                     zernCoef: float | np.ndarray,
+                     reset: bool = False) -> None:
+    """Set MonZernCoef values at the given modes on a FreeForm element.
+
+    The perturbation persists until the next setter call, a reset, or
+    a fresh prescription load.  The next trace picks up the new
+    coefficients via ZerntoMon in tracesub.F.
+
+    Args:
+        iElt:     Element ID (1..nElt).  Must be a FreeForm surface.
+        zernMode: 1-based mode indices to write.
+        zernCoef: Coefficient values (same shape as ``zernMode``).
+        reset:    If True, zero ALL modes on this element BEFORE
+                  writing the new ones (gives a clean state).
+
+    Raises:
+        Exception: Rx not loaded, iElt out of range, surface not
+                   FreeForm, or modes out of [1, mMonCoef].
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = int(_map_Elt(iElt, max_rows=1).squeeze())
+    modes = np.atleast_1d(np.asarray(zernMode, dtype=np.int32)).ravel()
+    coef  = np.atleast_1d(np.asarray(zernCoef, dtype=np.float64)).ravel()
+    if modes.size == 0 or modes.size != coef.size:
+        raise ValueError(
+            "setEltSrfMonZern(): zernMode and zernCoef must have the "
+            f"same nonzero length (got {modes.size} and {coef.size})")
+    ok = lib.api.elt_srf_mon_zrn_coef(iElt, modes, coef,
+                                      True, bool(reset))
+    if not ok:
+        raise Exception(
+            f"setEltSrfMonZern(): MACOS rejected iElt={iElt} (not a "
+            f"FreeForm surface, or modes out of [1, mMonCoef])")
+
+
+def getEltSrfFFZern(iElt: int,
+                    zernMode: int | np.ndarray) -> np.ndarray:
+    """Get current FFZernCoef values at the requested modes on a
+    FreeForm element (SrfType=14).
+
+    FFZernCoef is the FreeForm surface's *figure-description* Zernike
+    component -- the static shape of the freeform itself.  It's a
+    distinct array from MonZernCoef, which carries the perturbation
+    overlay used for sensitivity / control work.  Both are converted
+    to MonCoef at trace time via ZerntoMon.
+
+    Args/Raises: same shape as :func:`getEltSrfMonZern`.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = int(_map_Elt(iElt, max_rows=1).squeeze())
+    modes = np.atleast_1d(np.asarray(zernMode, dtype=np.int32)).ravel()
+    if modes.size == 0:
+        raise ValueError("getEltSrfFFZern(): zernMode is empty")
+    coef = np.zeros(modes.size, dtype=np.float64)
+    ok = lib.api.elt_srf_ff_zrn_coef(iElt, modes, coef, False, False)
+    if not ok:
+        raise Exception(
+            f"getEltSrfFFZern(): MACOS rejected iElt={iElt} (not a "
+            f"FreeForm surface, or modes out of [1, mFFCoef])")
+    return coef
+
+
+def setEltSrfFFZern(iElt: int,
+                    zernMode: int | np.ndarray,
+                    zernCoef: float | np.ndarray,
+                    reset: bool = False) -> None:
+    """Set FFZernCoef values at the given modes on a FreeForm element.
+
+    Use this to edit the FreeForm surface's *figure description*
+    (the static shape).  For *perturbations* on top of an unchanged
+    figure -- the wavefront-control / sensitivity-matrix channel --
+    use :func:`setEltSrfMonZern` instead.
+
+    Args/Raises: same shape as :func:`setEltSrfMonZern`.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = int(_map_Elt(iElt, max_rows=1).squeeze())
+    modes = np.atleast_1d(np.asarray(zernMode, dtype=np.int32)).ravel()
+    coef  = np.atleast_1d(np.asarray(zernCoef, dtype=np.float64)).ravel()
+    if modes.size == 0 or modes.size != coef.size:
+        raise ValueError(
+            "setEltSrfFFZern(): zernMode and zernCoef must have the "
+            f"same nonzero length (got {modes.size} and {coef.size})")
+    ok = lib.api.elt_srf_ff_zrn_coef(iElt, modes, coef,
+                                     True, bool(reset))
+    if not ok:
+        raise Exception(
+            f"setEltSrfFFZern(): MACOS rejected iElt={iElt} (not a "
+            f"FreeForm surface, or modes out of [1, mFFCoef])")
+
+
 # ----------------------------------------------------------------------------
 # [ ] Element Surface Properties: Grid
 # ----------------------------------------------------------------------------
