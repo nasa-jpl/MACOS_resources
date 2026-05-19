@@ -38,8 +38,10 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--rx", type=Path,
-                   default=Path("/home/dcr/dev/macos/ZGD_test_files/e5hex1.in"),
-                   help="prescription path (default: e5hex1.in)")
+                   default=Path(__file__).resolve().parents[1] /
+                           "Rx" / "e5hex1.in",
+                   help="prescription path (default: "
+                        "pymacos/tests/Rx/e5hex1.in)")
     p.add_argument("--model-size", type=int, default=128,
                    choices=(128, 256, 512, 1024),
                    help="pymacos diffraction grid (default: 128)")
@@ -216,8 +218,10 @@ def _m2v_first_call(mat: np.ndarray) -> tuple[dict, np.ndarray, np.ndarray]:
     flat_F = mat.flatten(order="F")
     nz_flat = np.nonzero(flat_F)[0]            # 0-based positions
     vec = flat_F[nz_flat].astype(np.float64)
-    i_row = (nz_flat %  nrows).astype(np.int64) + 1   # MATLAB 1-based
-    j_col = (nz_flat // nrows).astype(np.int64) + 1
+    # MATLAB 1-based; save as float64 because MATLAB prefers all loaded
+    # variables in double type (sub2ind etc. take doubles fine).
+    i_row = (nz_flat %  nrows).astype(np.float64) + 1.0
+    j_col = (nz_flat // nrows).astype(np.float64) + 1.0
     indx = {
         "i":    i_row.reshape(-1, 1),    # column vectors (MATLAB style)
         "j":    j_col.reshape(-1, 1),
@@ -239,20 +243,28 @@ def _save_mat(mat_path, dwdz, w_nom, indx, names, rx, delta, method,
     for k, n in enumerate(names):
         name_arr[k] = n
 
+    # MATLAB strongly prefers double-typed scalars/arrays for loaded
+    # variables (avoids surprise int promotions in arithmetic).  Cast
+    # everything numeric to float64 here.
     savemat(str(mat_path), {
-        "dwdz":          dwdz,
-        "w_nom":         w_nom.reshape(-1, 1),
+        "dwdz":          np.asarray(dwdz, dtype=np.float64),
+        "w_nom":         np.asarray(w_nom.reshape(-1, 1),
+                                     dtype=np.float64),
         "indx":          indx,
         "channel_names": name_arr.reshape(-1, 1),
         "rx":            str(rx),
-        "delta":         float(delta),
+        "delta":         np.float64(delta),
         "method":        method,
-        "wf_elt":        int(wf_elt),
-        "model_size":    int(model_size),
-        "zmode_start":   int(zmode_start),
-        "n_zcoef":       int(n_zcoef),
+        "wf_elt":        np.float64(wf_elt),
+        "model_size":    np.float64(model_size),
+        "zmode_start":   np.float64(zmode_start),
+        "n_zcoef":       np.float64(n_zcoef),
         "kinds":         np.array(kinds, dtype=object).reshape(-1, 1),
-        "mat_shape":     np.array(mat_shape, dtype=np.int64),
+        "mat_shape":     np.array(mat_shape, dtype=np.float64).reshape(
+                              -1, 1),
+        # Convenience for verify_dwdz.m's pad(..., nGridPts) call;
+        # equals mat_shape(1) since macos's OPD grid is always square.
+        "nGridPts":      np.float64(mat_shape[0]),
     }, do_compression=True, oned_as="column")
 
 
@@ -271,8 +283,10 @@ def _plot_jacobian_panels(dwdz, indx, names, mat_shape, delta,
     if vmax == 0.0:
         vmax = 1e-30
 
-    i_row = indx["i"].ravel() - 1
-    j_col = indx["j"].ravel() - 1
+    # indx i/j are stored as float64 (MATLAB-friendly); cast back to int
+    # for numpy fancy indexing.
+    i_row = (indx["i"].ravel() - 1).astype(np.int64)
+    j_col = (indx["j"].ravel() - 1).astype(np.int64)
     nrows, ncols = mat_shape
 
     for k in range(rows * cols):
