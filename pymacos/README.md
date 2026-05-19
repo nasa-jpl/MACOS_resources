@@ -53,14 +53,30 @@ pymacos/
     │   ├── test_psf.py         toy circular-pupil reference
     │   └── results/            per-test PNG / .mat / .macos.txt / .proper.txt
     │                           + report.md (gitignored, regenerated each run)
+    ├── sensitivities/          dw/dz Jacobians of exit-pupil OPD vs
+    │   │                       Zernike-form coefficient perturbations.
+    │   │                       Pluggable channel architecture for adding
+    │   │                       dw/dx, dw/ddm, dw/dsource etc.
+    │   ├── channels.py         SensitivityChannel base + ZernikeCoefChannel
+    │   │                       (Zern / MonZern / FFZern); Rx-parse helpers
+    │   │                       auto-discover loop bounds from the .in file
+    │   ├── jacobian.py         finite-difference engine (central or forward)
+    │   ├── dw_dz_zernike.py    driver: writes dwdz_<rx>.mat + panel .png
+    │   ├── run_dw_dz_zernike.sh  shell wrapper (oneAPI + venv + cd)
+    │   ├── verify_dwdz.m       MATLAB replay: per-element panel figures
+    │   ├── {m2v,v2m,pad,mimg}.m  MATLAB helpers used by verify_dwdz.m
+    │   └── results/            generated .mat / .png artefacts
     └── Rx/
         ├── Rx_Mask_Parabolas.in        MACOS prescription (CodeV comparison)
         ├── Rx_Mask_Parabolas_glb.in
         ├── Rx_Mask_parabolas.seq       CodeV sequence file
         ├── Rx_Mask_parabolas_glb.seq
         ├── Rx_Cass_FarField.in         Cass + far-field; PROPER comparison
+        ├── Rx_Coro*.in                 HCIT-style coronagraph (PROPER)
         ├── Rx_P2P_Int.in
-        └── Grating_example_001.in
+        ├── Grating_example_001.in
+        └── e5hex1.in                   7-segment hex + FreeForm lens
+                                        (sensitivity-matrix test Rx)
 ```
 
 ## Architecture
@@ -114,8 +130,10 @@ static libraries.
 |-------|----------|
 | Lifecycle | `init(model_size)`, `load(rx)`, `save(rx)`, `has_rx`, `num_elt`, `rx_modified`, `model_size` |
 | Source | `src_info`, `src_csys`, `src_wvl`, `src_fov`, `src_size`, `src_finite`, `src_sampling`, `sys_units` |
-| Element pose | `elt_vpt`, `elt_rpt`, `elt_psi`, `elt_csys`, `elt_srf_csys` |
-| Element surface | `elt_kc`, `elt_kr`, `elt_zrn_*`, `elt_grid_*`, `elt_grating_*` |
+| Element pose | `elt_vpt`, `elt_rpt`, `elt_psi`, `elt_csys`, `elt_srf_csys`, `perturb` (CPERTURB_PROG; rigid-body, FreeForm-aware) |
+| Element surface | `elt_kc`, `elt_kr`, `elt_zrn_*`, `elt_grid_*`, `elt_grating_*`, `findFreeFormElts` |
+| Zernike-coef perturbation | `getEltSrfZernMode`, `setEltSrfZernCoef` (ZernCoef on SrfType=8/13); `getEltSrfMonZern`, `setEltSrfMonZern` (MonZernCoef on FreeForm); `getEltSrfFFZern`, `setEltSrfFFZern` (FFZernCoef on FreeForm) |
+| Apodization | `apodize` (real mask), `apodize_complex` (complex mask) |
 | Groups | `elt_grp`, `elt_grp_rm`, `elt_grp_wipe`, `elt_grp_fnd`, `elt_grp_any`, `elt_grp_max_size` |
 | Perturbation | `prb_elt`, `prb_grp` |
 | Trace / outputs | `trace_rays`, `opd`, `intensity`, `complex_field`, `spot`, `fex`, `xp`, `stop`, `modify` |
@@ -241,6 +259,48 @@ Two test families:
   agree (mask-matched amplitude via `prop_multiply`, OPD sign flip,
   norm_kind choice per plane).
 
+## Sensitivities (`tests/sensitivities/`)
+
+dw/dz Jacobians of an output wavefront vector vs. degree-of-freedom
+perturbations on the loaded prescription, packaged for MATLAB-side
+control-matrix work.
+
+- **Channel architecture.** `channels.py` defines `SensitivityChannel`
+  (one DOF) and `ZernikeCoefChannel` covering the three Zernike-form
+  coefficient arrays in macos:
+  - `MonZernCoef` on FreeForm  (SrfType=14) — perturbation overlay
+  - `FFZernCoef`  on FreeForm  (SrfType=14) — figure description
+  - `ZernCoef`    on Zernike / ZrnGrData (SrfType=8 / 13)
+  Auto-discovers loop bounds from the Rx file (parses `nMonZernCoef` /
+  `MonZernModes` etc., mirroring `msmacosio.inc` semantics).  Designed
+  so future channel kinds — rigid-body (`dw/dx`), DM actuators
+  (`dw/ddm`), source (`dw/dsource`) — drop in as new subclasses with
+  no change to the engine or driver.
+- **Engine.** `jacobian.py` runs central or forward differences and
+  returns `(J, w_nom, names)`.
+- **Driver.** `dw_dz_zernike.py` writes `dwdz_<rx_stem>.mat` with
+  `dwdz`, `w_nom`, `indx` (m2v.m-compatible struct: column-major
+  non-zero mask of the nominal OPD), `channel_names` (cell array
+  formatted "Elt N KindM" — e.g. "Elt 4 MonZern15"), and metadata
+  (rx, delta, method, wf_elt, model_size, zmode_start, n_zcoef,
+  kinds, mat_shape, nGridPts).  All numeric variables saved as
+  `float64`.  Shell wrapper `run_dw_dz_zernike.sh` handles oneAPI +
+  venv setup.
+- **MATLAB verification.** `verify_dwdz.m` (plus copies of the
+  `~/matlab/` helpers `m2v.m`, `v2m.m`, `pad.m`, `mimg.m`) replays
+  each dwdz column through v2m and emits one `dwdz,EltN.png` panel
+  figure per Zrn-equipped element.
+
+Example: full HWO-style sweep on `e5hex1.in` (7 hex segments + 1
+FreeForm lens + one Zernike reflector, modes 4..45):
+
+```bash
+cd pymacos/tests/sensitivities
+./run_dw_dz_zernike.sh --model-size 256 --n-zcoef 45
+```
+
+Produces a `(41803, 378)` Jacobian in ~5 min on the macos workstation.
+
 ## Gaps / notes for downstream changes
 
 - **No upstream MACOS pin.** `src/macos/` is empty and there is no
@@ -279,5 +339,8 @@ pytest proper_compare/ -q --tb=no
 
 If you change something in `macos_f90/` and rebuild via `makems.sh`,
 both suites should still be green. A new failure usually points at the
-edit. As of 2026-05-13 the suites pass 6601/6601 (CodeV) and 14/14
-(PROPER: 10 Phase 1 + 3 Phase 2 + 1 auxiliary).
+edit. As of 2026-05-18 the suites pass 6601/6601 (CodeV) and the
+PROPER-comparison suite has matured through Phases 1–5 + the Cycle-5
+vortex coronagraph harness; `proper_compare/README.md` records the
+current phase counts.  The `sensitivities/` package round-trips via
+`verify_dwdz.m` on `e5hex1.in` at model-size 256.
