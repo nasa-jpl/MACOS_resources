@@ -107,7 +107,9 @@ class ZernikeCoefChannel(SensitivityChannel):
 
     @property
     def name(self) -> str:  # type: ignore[override]
-        return f"Elt{self.iElt}.{_ZERN_KINDS[self.kind].label}{self.mode}"
+        # Format used as the plot title and the MATLAB cell-array entry
+        # for this DOF; e.g. "Elt 4 MonZern15".
+        return f"Elt {self.iElt} {_ZERN_KINDS[self.kind].label}{self.mode}"
 
     @property
     def _setter(self) -> Callable:
