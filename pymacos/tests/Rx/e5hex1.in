@@ -18,6 +18,8 @@
          Aperture=8.0E+03
          Obscratn=0.0E+00
 
+         ApStop=  0.0E+00  0.0E+00  0.0E+00
+
          GridType=  Hex
          nGridpts=  256
             xGrid=  -1.0E+00  -8.256168163029683E-26  -2.881946477916146E-29

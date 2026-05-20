@@ -3382,6 +3382,122 @@ def apodize_complex(srf: int | np.int32, mask: np.ndarray) -> None:
             "that a propagation has populated WFElt at this element")
 
 
+def sxp(mode: int = 1) -> Tuple[np.float64,
+                                Vector[np.float64], Vector[np.float64]]:
+    """SXP -- Set eXit Pupil.  FEX variant with one geometry fix:
+    the EP radius is set to the chief-ray distance from the EP
+    (element ``nElt-1``) to the FP (element ``nElt``), instead of
+    FEX's legacy distance from ``iEm1=nElt-2`` to the EP.
+
+    Makes the EP geometry sensitive to FP-Tz perturbations (focus),
+    which the original FEX is not (because ``iEm1`` is upstream of
+    the EP and doesn't move when the FP moves).  Lateral FP shifts
+    (Tx/Ty) and FP rotations are still NOT captured by SXP -- they
+    would need the EP vertex / orientation to also follow, not just
+    the radius (use the dw/dx FocalPlaneChannel "track" mode for
+    full coverage).
+
+    See tracesub.F SUBROUTINE SXP for the algorithm; the dispatch
+    path is identical to FEX (SMACOS('SXP', ...)) -- added in
+    macos_ops.F.
+
+    Args:
+        mode: 1 (default) -> chief-ray-centered; 0 -> centroid-centered
+              (same convention as :func:`fex`).
+
+    Returns:
+        (rad, psi, vpt) of the updated XP surface at ``nElt-1``.
+
+    Raises:
+        Exception: Rx not loaded, Stop not set, or fewer than 3
+                   elements (so no XP slot at ``nElt-1``).
+    """
+    _chk_macos_and_rx_loaded()
+
+    if lib.api.n_elt() <= 3:
+        raise Exception("'sxp': not more than 3 surfaces defined")
+
+    ok, xp = lib.api.sxp_fnd(np.int32(mode))
+    if not ok:
+        raise Exception("'sxp' threw an exception - stop set?")
+    return xp
+
+
+def ors(srf: int | np.int32) -> None:
+    """ORS -- Optimize Reference Surface.
+
+    Traces the chief ray from the source to ``srf-1`` and then runs
+    macos's ``CRSOPTIMIZE`` to fit an optimal reference sphere at
+    element ``srf`` against the current ray geometry.  Used in
+    set-up to derive a clean EP-element pose from the unperturbed
+    design (typically follows :func:`fex` and precedes
+    :func:`srs`).
+
+    NOT typically part of a sensitivity / dw/dx loop -- ORS would
+    re-optimize away from the perturbation being measured.
+
+    Args:
+        srf: element id to optimize.  macos requires the element
+             to be Reference / Return / Zernike-typed.
+
+    Raises:
+        Exception: Rx not loaded, srf out of range, or macos's ORS
+                   rejected the request (wrong element type).
+    """
+    _chk_macos_and_rx_loaded()
+    s = int(_map_Elt(srf, max_rows=1).squeeze())
+    ok = lib.api.ors_run(s)
+    if not ok:
+        raise Exception(
+            f"MACOS: ors(srf={s}) rejected -- valid element types are "
+            "Reference / Return / Zernike-typed")
+
+
+def srs(slave: int | np.int32,
+        master: int | np.int32,
+        link: bool = True) -> None:
+    """SRS -- slave one optical surface to another.
+
+    Wraps macos's interactive SRS (Slave Reference Surface) command.
+    Recomputes ``slave``'s pose from the chief ray traced through
+    ``master``, so the slave tracks the master across subsequent
+    traces.
+
+    Typical setup pattern (from an unperturbed design):
+        FEX     - find the pupil
+        ORS  N  - set element N as the exit pupil
+        srs(FP, EP)  - lock the focal plane behind the EP
+
+    For the dw/dx FocalPlaneChannel "srs" mode, the channel calls
+    ``srs(EP_elt, FP_elt, link=True)`` after each FP perturbation,
+    recomputing the EP's pose against the new chief-ray geometry
+    from the moved FP.
+
+    Args:
+        slave:  element id whose pose is computed from the chief ray.
+        master: element id the chief ray is traced through.
+                Must differ from ``slave``.
+        link:   if True (default), establish a persistent SRS link
+                that re-evaluates on subsequent traces.  If False,
+                the slave's pose is set once but not maintained.
+
+    Raises:
+        Exception: Rx not loaded, either id out of range, slave ==
+                   master, or macos's SRS rejected the request.
+    """
+    _chk_macos_and_rx_loaded()
+    s = int(_map_Elt(slave, max_rows=1).squeeze())
+    M = int(_map_Elt(master, max_rows=1).squeeze())
+    if s == M:
+        raise Exception(f"srs(): slave and master must differ (both = {s})")
+    ok = lib.api.srs_run(s, M, bool(link))
+    if not ok:
+        raise Exception(
+            f"MACOS: srs(slave={s}, master={M}) rejected -- check that "
+            "both elements are valid types for SRS (Reference / Return / "
+            "Zernike-typed)")
+
+
 def perturb(srf: int | np.int32,
             rotation_rad: Tuple[float, float, float] = (0.0, 0.0, 0.0),
             translation_m: Tuple[float, float, float] = (0.0, 0.0, 0.0),

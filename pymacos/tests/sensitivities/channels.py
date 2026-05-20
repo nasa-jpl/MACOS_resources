@@ -361,3 +361,370 @@ def _parse_rx_zern_elts(rx_path: str) -> set[int]:
                 if surf in ("Zernike", "ZrnGridData", "ZrnGrData"):
                     out.add(cur_elt)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Rigid-body perturbation channels (CPERTURB_PROG on real optics)
+# ---------------------------------------------------------------------------
+
+# Element kinds that the Rx parser accepts but which are NOT "actual optics"
+# in the sense of "things a sensitivity matrix should perturb": reference
+# planes and return-type elements only carry their pose for the trace's
+# bookkeeping, not for a real piece of glass / mirror / detector.
+_NON_OPTIC_ELEMENT_KINDS = frozenset({"Reference", "Return"})
+
+# DOF ordering of the per-optic 6-vector x.  Locked by the user spec:
+# x rotation, y rotation, z rotation, x translation, y translation,
+# z translation -- stacked as [Elt 1 x_6; Elt 2 x_6; ...].
+_RB_DOF_LABELS: tuple[str, ...] = ("Rx", "Ry", "Rz", "Tx", "Ty", "Tz")
+
+
+@dataclass
+class RigidBodyChannel(SensitivityChannel):
+    """One-DOF rigid-body perturbation on an actual optic.
+
+    ``dof_idx`` in 0..5 selects (Rx, Ry, Rz, Tx, Ty, Tz).  Rotations are
+    in radians, translations are passed in SI metres (matches the
+    :func:`pymacos.macos.perturb` API; macos converts internally to
+    BaseUnits via CBM).
+
+    macos's ``CPERTURB_PROG`` is INCREMENTAL -- each call adds to the
+    element's current pose.  To support the sensitivity engine's
+    central-difference pattern ``apply(+d) -> measure -> apply(-d) ->
+    measure -> restore()`` this class tracks its own cumulative state
+    and passes ``(value - current)`` as the increment each call.
+    Restore is just ``apply(0.0)``.
+
+    Single-axis perturbations are first-order accurate regardless of
+    rotation ordering, so the rotation-noncommutativity error is at
+    O(delta^2) -- below numerical noise at the deltas used for
+    sensitivity work (1e-9 rad / 1e-9 m).
+    """
+    macos: object
+    iElt: int
+    dof_idx: int
+    current: float = 0.0  # accumulated perturbation in this DOF
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.dof_idx <= 5:
+            raise ValueError(
+                f"RigidBodyChannel: dof_idx must be in 0..5, got "
+                f"{self.dof_idx}")
+
+    @property
+    def name(self) -> str:  # type: ignore[override]
+        return f"Elt {self.iElt} {_RB_DOF_LABELS[self.dof_idx]}"
+
+    @property
+    def kind(self) -> str:
+        # Match the ZernikeCoefChannel `kind` field so callers can
+        # sort / filter heterogeneous channel lists uniformly.
+        return "RigidBody"
+
+    def _do_perturb(self, increment: float) -> None:
+        rot = [0.0, 0.0, 0.0]
+        trans = [0.0, 0.0, 0.0]
+        if self.dof_idx < 3:
+            rot[self.dof_idx] = increment
+        else:
+            trans[self.dof_idx - 3] = increment
+        self.macos.perturb(self.iElt,
+                           rotation_rad=tuple(rot),
+                           translation_m=tuple(trans),
+                           in_local_coords=True)
+        # MODIFY clears the cached trace state so the next trace_rays()
+        # picks up the new pose.  Same gotcha as the Zernike channels.
+        self.macos.modify()
+
+    def apply(self, value: float) -> None:
+        increment = value - self.current
+        if increment != 0.0:
+            self._do_perturb(increment)
+        self.current = value
+
+    def restore(self) -> None:
+        self.apply(0.0)
+
+
+@dataclass
+class FocalPlaneChannel(RigidBodyChannel):
+    """Rigid-body perturbation on the focal-plane element.
+
+    macos's standard trace does NOT propagate FP perturbations back
+    to the EP-OPD measurement, because the EP definition's dependency
+    on the FP position is implicit.  Without compensation, all six FP
+    DOFs come out as zero sensitivities -- physically wrong: the EP
+    is a sphere centered on the FP, so moving the FP must change the
+    EP and thus the wavefront referenced to it (lateral FP shift ->
+    tilt; along-axis shift -> defocus).
+
+    Three compensation modes:
+
+    - ``"track"`` (default) : perturb the FP AND the EP element by
+      the same 6-vector, so the existing XP sphere is dragged with
+      the moving FP.  Matches the physics that "the EP is a sphere
+      centered on the FP".  Gives non-zero sensitivities for FP
+      Tx/Ty (tilt), Tz (focus), and the rotations.  Doesn't need a
+      Stop set.
+    - ``"srs"`` : perturb the FP, then ``srs(ep_elt, FP_elt)`` --
+      slave the EP to the moved FP via macos's SRS, recomputing the
+      EP pose from the new chief-ray geometry.  More principled than
+      track (which just drags the EP through the same 6-vector
+      naively); the EP-FP geometric link is re-derived from the
+      trace each call.  Needs a Stop set for the chief-ray trace
+      that SRS rides on.
+    - ``"fex"`` : perturb the FP, then ``fex()`` to recompute the
+      XP at nElt-1.  Diagnostic-only on this Rx: macos's FEX
+      computes the EP as the optical conjugate of the Stop, which
+      is unchanged by an FP shift, so FEX returns the same EP and
+      FP DOFs come out as zero sensitivities.  Kept because GMI's
+      ``ifFEX`` flag uses the same call for general EP recomputation
+      in multi-element perturbation loops -- might be useful in
+      other workflows.
+
+    Caveat: only meaningful when the wavefront is evaluated at the
+    XP surface ``nElt-1`` -- a different wf_elt won't carry the
+    FP-tracking EP geometry into the OPD measurement.
+    """
+    mode: str = "track"
+    ep_elt: int = -1   # FP-mode target EP element; -1 -> nElt-1 (auto)
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.mode not in ("track", "srs", "sxp", "fex"):
+            raise ValueError(
+                f"FocalPlaneChannel: mode must be 'track', 'srs', "
+                f"'sxp', or 'fex'; got {self.mode!r}")
+
+    def _do_perturb(self, increment: float) -> None:
+        # Build the 6-vector for this DOF.
+        rot = [0.0, 0.0, 0.0]
+        trans = [0.0, 0.0, 0.0]
+        if self.dof_idx < 3:
+            rot[self.dof_idx] = increment
+        else:
+            trans[self.dof_idx - 3] = increment
+        rot_t = tuple(rot)
+        trans_t = tuple(trans)
+
+        # Always perturb the FP.
+        self.macos.perturb(self.iElt,
+                           rotation_rad=rot_t,
+                           translation_m=trans_t,
+                           in_local_coords=True)
+
+        if self.mode == "track":
+            # DOF-dependent EP move per Dave's spec:
+            #   - lateral translations (Tx, Ty): EP follows FP by the
+            #     same vector in their local frames (which are
+            #     approximately aligned for an imager EP/FP pair)
+            #   - axial translation (Tz): EP does NOT move axially --
+            #     its location is determined by upstream chief-ray
+            #     geometry, not by the FP's axial position; only the
+            #     EP radius changes (handled by the SXP block below)
+            #   - rotations (Rx, Ry, Rz): EP rotates rigidly about
+            #     FP's RptElt, NOT about its own RptElt; computed
+            #     directly via vpt/psi/rpt setters so the rotation
+            #     center is correct (m.perturb always rotates about
+            #     the perturbed element's own RptElt)
+            ep = (self.ep_elt if self.ep_elt > 0
+                  else self.macos.num_elt() - 1)
+
+            if self.dof_idx == 3 or self.dof_idx == 4:
+                # Lateral translation -- propagate to EP unchanged.
+                self.macos.perturb(ep,
+                                   rotation_rad=rot_t,
+                                   translation_m=trans_t,
+                                   in_local_coords=True)
+            elif self.dof_idx == 5:
+                # Axial translation -- EP vpt should NOT move; SXP
+                # below will refine the radius.
+                pass
+            else:
+                # Rotation DOF -- rotate EP rigidly about FP's RptElt.
+                self._rotate_ep_about_fp_rpt(ep, increment)
+
+        self.macos.modify()
+
+        if self.mode == "track":
+            # SXP-refine the EP radius without disturbing the track-
+            # induced EP vpt/psi.  SXP overwrites VptElt/psiElt/RptElt
+            # (it sets them from the chief-ray crossing point), which
+            # would undo the lateral / rotational EP move -- so we
+            # snapshot them, run SXP, then write them back.
+            ep = (self.ep_elt if self.ep_elt > 0
+                  else self.macos.num_elt() - 1)
+            vpt_save = np.asarray(self.macos.elt_vpt(ep)).copy()
+            psi_save = np.asarray(self.macos.elt_psi(ep)).copy()
+            rpt_save = np.asarray(self.macos.elt_rpt(ep)).copy()
+            self.macos.trace_rays(self.iElt)
+            self.macos.sxp()
+            self.macos.elt_vpt(ep, vpt_save)
+            self.macos.elt_psi(ep, psi_save)
+            self.macos.elt_rpt(ep, rpt_save)
+            self.macos.modify()
+        elif self.mode == "fex":
+            # FEX needs a current chief-ray trace; run one to update.
+            self.macos.trace_rays(self.iElt)
+            # Rebuild the XP at nElt-1 centered on the (now-moved) FP.
+            self.macos.fex()
+        elif self.mode == "sxp":
+            # SXP -- FEX variant with EP radius set to chief-ray
+            # distance EP-to-FP (captures FP-Tz focus perturbations
+            # that FEX misses).  See macos tracesub.F SUBROUTINE SXP.
+            self.macos.trace_rays(self.iElt)
+            self.macos.sxp()
+        elif self.mode == "srs":
+            # Slave the EP element to the moved FP -- macos's SRS
+            # recomputes the EP pose from the chief ray traced through
+            # the FP.  Needs a current trace first.
+            ep = (self.ep_elt if self.ep_elt > 0
+                  else self.macos.num_elt() - 1)
+            self.macos.trace_rays(self.iElt)
+            self.macos.srs(ep, self.iElt, link=True)
+
+    def _rotate_ep_about_fp_rpt(self, ep_elt: int,
+                                 increment: float) -> None:
+        """Rigid-body rotate the EP element about the FP's RptElt by
+        ``increment`` radians, about the rotation axis indexed by
+        ``self.dof_idx`` in the FP's local frame.
+
+        m.perturb rotates an element about its OWN RptElt; for a
+        rigid pair (EP, FP) being rotated as a unit about FP's
+        RptElt the EP's vpt/psi/rpt must be updated by hand.
+
+        Small-angle approximation -- the delta in dw/dx is typically
+        1e-9 rad, well into the linear regime.
+        """
+        # Local rotation vector in FP's frame.
+        theta_local = np.zeros(3, dtype=np.float64)
+        theta_local[self.dof_idx] = increment
+
+        # Convert to global via FP's TElt (upper-left 3x3 = rotation
+        # local->global, columns are local axes in global coords).
+        csys = self.macos.elt_csys(self.iElt)
+        TElt_FP = csys[0] if isinstance(csys, tuple) else csys
+        if TElt_FP.ndim == 3:
+            R = TElt_FP[:3, :3, 0]
+        else:
+            R = TElt_FP[:3, :3]
+        theta_global = R @ theta_local
+
+        # Get FP RptElt and EP vpt/psi/rpt (all in macos BaseUnits).
+        fp_rpt = np.asarray(self.macos.elt_rpt(self.iElt)).ravel()
+        ep_vpt = np.asarray(self.macos.elt_vpt(ep_elt)).ravel()
+        ep_psi = np.asarray(self.macos.elt_psi(ep_elt)).ravel()
+        ep_rpt = np.asarray(self.macos.elt_rpt(ep_elt)).ravel()
+
+        # Small-angle rigid rotation about FP RptElt:
+        #   new_v = v + theta_global x (v - FP_RptElt)
+        # Points (vpt, rpt) translate per the cross-product; psi (a
+        # direction) just rotates: new_psi = normalize(psi + theta x psi).
+        new_ep_vpt = ep_vpt + np.cross(theta_global, ep_vpt - fp_rpt)
+        new_ep_rpt = ep_rpt + np.cross(theta_global, ep_rpt - fp_rpt)
+        new_ep_psi = ep_psi + np.cross(theta_global, ep_psi)
+        n = np.linalg.norm(new_ep_psi)
+        if n > 0:
+            new_ep_psi = new_ep_psi / n
+
+        # Setters take shape (3, N); reshape from (3,) -> (3, 1).
+        self.macos.elt_vpt(ep_elt, new_ep_vpt.reshape(3, 1))
+        self.macos.elt_psi(ep_elt, new_ep_psi.reshape(3, 1))
+        self.macos.elt_rpt(ep_elt, new_ep_rpt.reshape(3, 1))
+
+
+def rigid_body_channels(macos,
+                         rx_path: str,
+                         elts: Iterable[int] | None = None,
+                         dofs: Iterable[int] | None = None,
+                         fp_mode: str = "track",
+                         ep_elt: int = -1,
+                         ) -> list[RigidBodyChannel]:
+    """Build rigid-body channels for every actual optic in the Rx.
+
+    "Actual optic" = any Element= kind except Reference / Return.
+    Source isn't an Element entry in the .in file -- if you want
+    source perturbations, add a dedicated SourceChannel class.
+
+    FocalPlane elements get a :class:`FocalPlaneChannel` instead of
+    the plain :class:`RigidBodyChannel`; everything else (Reflector,
+    Refractor, Segment, HOE, Grating, ...) uses the base class.
+
+    Args:
+        macos:     pymacos.macos module (already init+load'd).
+        rx_path:   .in file currently loaded.
+        elts:      Optional restriction to a subset of element IDs.
+        dofs:      Optional subset of DOFs as indices in 0..5
+                   (default: all six, in Rx,Ry,Rz,Tx,Ty,Tz order).
+        fp_mode:   FocalPlaneChannel mode: "fex" or "track" (default
+                   "fex", which uses FEX to rebuild the XP after the
+                   FP perturbation; requires a Stop to be set).
+        ep_elt:    EP element id for "track" mode (default -1 ->
+                   nElt-1).  Ignored in "fex" mode (FEX always
+                   updates nElt-1).
+
+    Returns:
+        List of channels, element-major then DOF-minor (so the full
+        state vector concatenates as Dave's spec: Elt 1 x_6, Elt 2
+        x_6, ..., Elt n x_6).
+    """
+    if dofs is None:
+        dofs = range(6)
+    dofs = list(dofs)
+    kinds = _parse_rx_actual_optic_elts_with_kinds(rx_path)
+    if elts is not None:
+        wanted = set(int(i) for i in elts)
+        kinds = {k: v for k, v in kinds.items() if k in wanted}
+    channels: list[RigidBodyChannel] = []
+    for iElt in sorted(kinds):
+        if kinds[iElt] == "FocalPlane":
+            for dof in dofs:
+                channels.append(FocalPlaneChannel(
+                    macos=macos, iElt=iElt, dof_idx=int(dof),
+                    mode=fp_mode, ep_elt=ep_elt))
+        else:
+            for dof in dofs:
+                channels.append(RigidBodyChannel(
+                    macos=macos, iElt=iElt, dof_idx=int(dof)))
+    return channels
+
+
+def _parse_rx_actual_optic_elts(rx_path: str) -> set[int]:
+    """Scan an Rx for actual-optic elements (Reflector, Refractor,
+    Segment, FocalPlane, HOE, Grating, ...).  Excludes Reference and
+    Return (bookkeeping-only elements).
+
+    Returns set of 1-based element IDs.
+    """
+    return set(_parse_rx_actual_optic_elts_with_kinds(rx_path))
+
+
+def _parse_rx_actual_optic_elts_with_kinds(rx_path: str) -> dict[int, str]:
+    """Like :func:`_parse_rx_actual_optic_elts` but also returns the
+    element-kind label (Reflector / Refractor / FocalPlane / Segment
+    / HOE / Grating / ...) per element, so callers can pick a
+    specialized channel subclass (currently used for FocalPlane).
+    """
+    out: dict[int, str] = {}
+    cur_elt: int | None = None
+    cur_kind: str | None = None
+
+    def _flush():
+        if cur_elt is not None and cur_kind is not None:
+            if cur_kind not in _NON_OPTIC_ELEMENT_KINDS:
+                out[cur_elt] = cur_kind
+
+    with open(rx_path) as f:
+        for ln in f:
+            s = ln.strip()
+            if s.startswith("iElt="):
+                _flush()
+                try:
+                    cur_elt = int(s.split("=", 1)[1].strip())
+                except ValueError:
+                    cur_elt = None
+                cur_kind = None
+            elif s.startswith("Element=") and cur_elt is not None:
+                cur_kind = s.split("=", 1)[1].strip().split()[0]
+    _flush()
+    return out
