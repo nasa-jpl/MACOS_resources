@@ -63,6 +63,9 @@ pymacos/
     │   ├── jacobian.py         finite-difference engine (central or forward)
     │   ├── dw_dz_zernike.py    driver: writes dwdz_<rx>.mat + panel .png
     │   ├── run_dw_dz_zernike.sh  shell wrapper (oneAPI + venv + cd)
+    │   ├── dw_dx.py            rigid-body (Rx/Ry/Rz/Tx/Ty/Tz per optic)
+    │   │                       Jacobian driver -- writes dwdx_<rx>.mat
+    │   ├── run_dw_dx.sh        shell wrapper for dw_dx
     │   ├── verify_dwdz.m       MATLAB replay: per-element panel figures
     │   ├── {m2v,v2m,pad,mimg}.m  MATLAB helpers used by verify_dwdz.m
     │   └── results/            generated .mat / .png artefacts
@@ -136,7 +139,8 @@ static libraries.
 | Apodization | `apodize` (real mask), `apodize_complex` (complex mask) |
 | Groups | `elt_grp`, `elt_grp_rm`, `elt_grp_wipe`, `elt_grp_fnd`, `elt_grp_any`, `elt_grp_max_size` |
 | Perturbation | `prb_elt`, `prb_grp` |
-| Trace / outputs | `trace_rays`, `opd`, `intensity`, `complex_field`, `spot`, `fex`, `xp`, `stop`, `modify` |
+| EP / FP setup helpers | `fex` (Find Exit Pupil), `sxp` (Set eXit Pupil -- FEX variant with EP radius = chief-ray-distance EP-to-FP), `ors` (Optimize Reference Surface), `srs` (Slave Reference Surface; slave-pose computed from chief ray traced through the master) |
+| Trace / outputs | `trace_rays`, `opd`, `intensity`, `complex_field`, `spot`, `xp`, `stop`, `modify` |
 
 Each `elt_*`-style getter/setter follows the pattern: pass `None` to get
 the current value, pass a value (scalar or array) to set it. Inputs are
@@ -300,6 +304,51 @@ cd pymacos/tests/sensitivities
 ```
 
 Produces a `(41803, 378)` Jacobian in ~5 min on the macos workstation.
+
+### dw/dx — rigid-body sensitivities
+
+`dw_dx.py` is the rigid-body sibling of `dw_dz_zernike.py`.  Per-optic
+state vector is the 6-vector (Rx, Ry, Rz, Tx, Ty, Tz) in the
+element's local frame, matching GMI's `prb` layout.  Channels are
+element-major then DOF-minor over every "actual optic" (Reflector /
+Refractor / Segment / FocalPlane / HOE / Grating -- Reference and
+Return surfaces are skipped).
+
+The `FocalPlaneChannel` for the FocalPlane optic needs special
+EP-bookkeeping because the EP is conceptually a sphere centered on
+the FP -- moving the FP moves the EP.  Four modes:
+
+- **`track`** (default): DOF-aware EP follow.  Lateral FP shifts
+  (Tx, Ty) -- EP follows; axial (Tz) -- EP stays, radius updates
+  via SXP; rotations -- EP rotates rigidly about the FP's RptElt
+  (NOT its own).  An internal SXP-with-vpt-restore refines the
+  radius without disturbing the lateral/rotational EP motion.
+  Gives the right physics for all six FP DOFs on a typical imager.
+- **`sxp`**: perturb FP, then run macos's SXP (the new corrected
+  FEX -- sets EP radius = chief-ray-distance EP-to-FP).  Captures
+  FP-Tz (focus); FP-Tx/Ty come out zero because lateral chord is
+  unchanged.
+- **`srs`** and **`fex`**: diagnostic-only on a typical imager Rx.
+  SRS's asymmetric `sphere<-plane` case is "not implemented" in
+  macos; FEX defines the EP as the optical-conjugate of the Stop,
+  insensitive to FP motion.
+
+`--update-ep {none,sxp,fex}` is an opt-in for catching EP-location
+shifts driven by UPSTREAM perturbations -- runs the named EP update
+before each OPD measurement.  Off by default because SXP/FEX can be
+unstable for some Rxes.  Conflicts with `--fp-mode=track` on FP
+channels: the wf-side SXP overwrites the EP vpt that track set, so
+lateral FP responses collapse to zero (matching `--fp-mode=sxp`
+semantics).  Use `--fp-mode=sxp --update-ep=sxp` together for
+consistent EP handling across upstream and FP channels.
+
+Example sweep on `e5hex1.in`:
+
+```bash
+cd pymacos/tests/sensitivities
+./run_dw_dx.sh                                  # defaults: 66 channels
+./run_dw_dx.sh --model-size 256 --update-ep sxp # upstream EP-shifts included
+```
 
 ## Gaps / notes for downstream changes
 

@@ -63,6 +63,48 @@ requires a fresh interpreter.  pymacos tests work around this by
 spawning subprocess per model-size when needed (see e.g.
 `run_broadband_*.py`'s `_spawn` pattern).
 
+### SMACOS dispatch path (when adding new commands)
+SMACOS dispatches via `#include "macos_cmd_loop.inc"` from
+`smacos.F:210` -- the SAME command loop the interactive macos uses.
+`macos_ops.F:MACOS_OPS` is NOT the SMACOS top-level dispatcher; it's
+only called from the inner optimization loop in `smacos_compute.inc`.
+When wiring a new SMACOS-callable command:
+1. Add the branch to `macos_cmd_loop.inc` (so both interactive and
+   SMACOS reach it).
+2. Add a `LoadStack` entry in `smacosutil.F` -- pushes args onto the
+   STACK that `IACCEPT_S` reads in SMACOS mode.  (Without this entry
+   the command's first arg becomes the next-command's `command`
+   variable, and you get "** Unknown command = SXP" -- the failure
+   I hit when SXP first didn't dispatch.)
+3. Pymacos Fortran wrapper that sets `command='X'`, fills `IARG`/
+   `CARG`, calls `SMACOS(...)`.  No need to do anything in
+   `macos_ops.F` unless you also want it invokable from optimization
+   loops.
+
+### SXP vs FEX for FP-perturbation dw/dx
+`m.fex()` defines the EP as the optical conjugate of the Stop --
+upstream-only chief-ray geometry, INSENSITIVE to FP motion.  Use
+`m.sxp()` instead when you want the EP radius to track the FP
+position (FEX clone with EP radius = chief-ray distance EP-to-FP,
+added on macos joint-dev).  `FocalPlaneChannel` modes in
+`sensitivities/channels.py`:
+- `track` (default): DOF-aware EP follow per the "EP sphere
+  centered on FP" physics.  Internal SXP-with-vpt-restore refines
+  radius without undoing the lateral/rotational EP motion.
+  Rotations rotate EP rigidly about FP's RptElt, NOT EP's own
+  RptElt -- direct vpt/psi/rpt setter geometry (m.perturb always
+  rotates about the element's own RptElt).
+- `sxp`: simple FP-perturb-then-SXP.  Captures FP-Tz (focus); FP-
+  Tx/Ty come out 0.
+- `srs`: macos's SRS sphere<-plane case is "not implemented" --
+  no-op for now.
+- `fex`: diagnostic only; gives 0 by construction of FEX.
+
+`--update-ep {sxp,fex}` is an opt-in for upstream-perturbation EP
+shifts.  Conflicts with `--fp-mode=track` -- the wf-side SXP
+overwrites the EP vpt that track set.  Pair `--fp-mode=sxp` with
+`--update-ep=sxp` for consistent behavior.
+
 ## Key files
 
 | File | Role |
@@ -72,9 +114,10 @@ spawning subprocess per model-size when needed (see e.g.
 | `src/pymacos/__init__.py` | Win DLL search-path shim; re-exports `macos`. |
 | `tests/sensitivities/channels.py` | `ZernikeCoefChannel` + Rx-parse helpers.  Calls `m.modify()` in `apply/restore`. |
 | `tests/sensitivities/jacobian.py` | `sensitivity_jacobian(channels, wf_func, delta)` — central/forward FD engine. |
-| `tests/sensitivities/dw_dz_zernike.py` | driver; writes `.mat` in m2v.m convention (column-major non-zero mask of nominal OPD). |
+| `tests/sensitivities/dw_dz_zernike.py` | dw/dz driver (Zernike-coef perturbations); writes `.mat` in m2v.m convention. |
+| `tests/sensitivities/dw_dx.py` | dw/dx driver (rigid-body perturbations).  `RigidBodyChannel` + DOF-aware `FocalPlaneChannel` with track/sxp/srs/fex modes; `--update-ep` opt-in for upstream EP shifts. |
 | `tests/proper_compare/run_broadband_vortex.py` | Cycle 5 vortex coronagraph driver. |
-| `tests/Rx/e5hex1.in` | local copy of `~/dev/macos/ZGD_test_files/e5hex1.in` — sensitivity-matrix test Rx (7 hex segments + FreeForm lens). |
+| `tests/Rx/e5hex1.in` | local copy of `~/dev/macos/ZGD_test_files/e5hex1.in` — sensitivity-matrix test Rx (7 hex segments + FreeForm lens).  Contains `ApStop= 0 0 0` (object-space stop) because the segmented primary is the natural stop but pymacos's `stop()` refuses Segment surfaces. |
 
 ## .mat output convention (sensitivities)
 
@@ -112,9 +155,19 @@ ndarray for cellstr.
 ## Recent activity (May 2026)
 
 - **dr-dev2 branch**: sensitivity-matrix engine (this file, channels,
-  Jacobian, .mat output, MATLAB verify).  See git log for the commit
-  series.  Default test Rx is `e5hex1.in` (model_size=256, modes
-  4..45 → 378-channel Jacobian).
+  Jacobian, .mat output, MATLAB verify).  Two drivers:
+  - `dw_dz_zernike.py` -- Zernike-coef perturbations (Zern, MonZern,
+    FFZern).  Default Rx `e5hex1.in` at model_size=256, modes 4..45
+    → 378-channel Jacobian.
+  - `dw_dx.py` -- rigid-body perturbations (Rx,Ry,Rz,Tx,Ty,Tz per
+    actual optic).  `FocalPlaneChannel` with track/sxp/srs/fex modes;
+    `--update-ep {sxp,fex}` opt-in for upstream EP-shift capture.
+  Both drivers write `.mat` files in m2v.m convention and emit a
+  per-element panel figure.  Shell wrappers `run_dw_dz_zernike.sh` /
+  `run_dw_dx.sh` handle Intel oneAPI + venv setup.
+  Companion pymacos wrappers `sxp()`, `srs()`, `ors()` for the EP/FP
+  setup workflow (FEX → ORS → SRS).  `sxp()` requires the SXP
+  command on the macos side (joint-dev `ca2f82b`).
 - **dr-dev branch (merged via main?)**: Cycle 5 vortex coronagraph
   + oversized-rays scheme.  `apodize_complex` wrapper, FreeForm
   surface helpers (`findFreeFormElts`, the Mon/FFZern get/set pairs).
