@@ -3745,6 +3745,144 @@
 
 
       !---------------------------------------------------------------------------------------------
+      ! SXP -- Set eXit Pupil.  FEX variant that sets the EP radius to
+      ! the chief-ray distance from the EP to the FP (iElt+1), so the
+      ! EP geometry tracks FP perturbations.  Same dispatch path as
+      ! FEX (SMACOS('SXP', ...)); the underlying Fortran subroutine
+      ! SXP lives in tracesub.F.
+      !---------------------------------------------------------------------------------------------
+      subroutine sxp_fnd(OK, XP, mode)
+        use       macos_mod, only: ifStopSet
+        use smacos_vars_mod, only: npts
+        use         src_mod, only: nGridPts
+
+        implicit none
+        logical, intent(out):: OK
+        real(8), intent(out):: XP(7)
+        integer, intent(in) :: mode
+
+        logical :: ifCentroidSave
+        integer :: nGridPtsSave
+        ! ------------------------------------------------------
+        OK    = FAIL
+        XP(:) = 0e0_pr
+        if (.not. (SystemCheck() .and. ifStopSet)) return
+
+        nGridPtsSave = nGridPts
+        ifCentroidSave = ifCentroid
+        ifCentroid     = (mode == FAIL)
+
+        command = 'SXP'
+        IARG(1) = nElt-1
+        CARG(1) = 'YES'
+        CALL SMACOS(command,CARG,DARG,IARG,LARG,RARG,                      &
+                    OPDMat,RaySpot,RMSWFE,PixArray)
+
+        if (nGridPtsSave/=nGridPts .or. npts/=nGridPtsSave-1) then
+          nGridPts = nGridPtsSave
+          npts     = nGridPts-1
+          command = 'MODIFY'
+          CALL SMACOS(command,CARG,DARG,IARG,LARG,RARG,                    &
+                      OPDMat,RaySpot,RMSWFE,PixArray)
+        end if
+
+        ifCentroid = ifCentroidSave
+
+        XP = (/KrElt(nElt-1), PsiElt(:,nElt-1), VptElt(:,nElt-1)/)
+        OK = PASS
+
+      end subroutine sxp_fnd
+
+
+      !---------------------------------------------------------------------------------------------
+      ! ORS -- Optimize Reference Surface.
+      ! Calls macos's interactive ORS command via SMACOS.  Traces the
+      ! chief ray from the source to iElt-1 and then runs
+      ! CRSOPTIMIZE(iElt) to fit an optimal reference sphere at iElt
+      ! against the current ray geometry.
+      !
+      ! Typical setup pattern (from an unperturbed design):
+      !   FEX  -> find pupil location
+      !   ORS  -> set the EP element to that pupil
+      !   SRS FP-to-EP -> lock FP behind EP
+      !
+      ! NOT typically part of a sensitivity / dw/dx loop -- ORS would
+      ! re-optimize away from the perturbation we're trying to
+      ! measure.  Use it before the sweep to set up the EP/FP
+      ! geometry from the unperturbed design.
+      !---------------------------------------------------------------------------------------------
+      subroutine ors_run(OK, iElt)
+
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: iElt
+        ! ------------------------------------------------------
+        OK = FAIL
+
+        if (.not. SystemCheck())                       return
+        if ((iElt < 1) .or. (iElt > nElt))             return
+
+        command = 'ORS'
+        IARG(1) = iElt
+        CARG(1) = 'YES'
+        CALL SMACOS(command, CARG, DARG, IARG, LARG, RARG,                 &
+                    OPDMat, RaySpot, RMSWFE, PixArray)
+
+        OK = PASS
+
+      end subroutine ors_run
+
+
+      !---------------------------------------------------------------------------------------------
+      ! SRS -- Slave Reference Surface.
+      ! Recomputes the pose of element ``iSlv1`` from the chief ray
+      ! traced through ``iSlv2`` (the master).  Used to lock one
+      ! optical surface to another so it tracks across traces.
+      !
+      ! Typical setup pattern (from an unperturbed design):
+      !   FEX  -> find pupil
+      !   ORS  -> set the EP element to that pupil
+      !   SRS FP-to-EP  -> lock FP behind EP
+      ! And for the dw/dx FocalPlaneChannel "srs" mode: each FP
+      ! perturbation is followed by SRS EP-to-FP, recomputing the EP
+      ! pose against the new chief-ray geometry from the moved FP.
+      !
+      ! ``link`` (PASS = link / 'YES') vs not (FAIL = 'NO') maps to
+      ! CARG(1) per smacosutil.F:174.  link=PASS is what slaves the
+      ! pose; link=FAIL is the "compute once, don't track" variant.
+      !---------------------------------------------------------------------------------------------
+      subroutine srs_run(OK, iSlv1, iSlv2, link)
+
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: iSlv1
+        integer, intent(in) :: iSlv2
+        logical, intent(in) :: link
+        ! ------------------------------------------------------
+        OK = FAIL
+
+        if (.not. SystemCheck())                       return
+        if ((iSlv1 < 1) .or. (iSlv1 > nElt))           return
+        if ((iSlv2 < 1) .or. (iSlv2 > nElt))           return
+        if (iSlv1 == iSlv2)                            return
+
+        command = 'SRS'
+        IARG(1) = iSlv1
+        IARG(2) = iSlv2
+        if (link == PASS) then
+          CARG(1) = 'YES'
+        else
+          CARG(1) = 'NO'
+        end if
+        CALL SMACOS(command, CARG, DARG, IARG, LARG, RARG,                 &
+                    OPDMat, RaySpot, RMSWFE, PixArray)
+
+        OK = PASS
+
+      end subroutine srs_run
+
+
+      !---------------------------------------------------------------------------------------------
       ! Get Stop Information
       !---------------------------------------------------------------------------------------------
       subroutine stop_info_get(OK, iElt, VptOffset)
