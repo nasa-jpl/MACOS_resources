@@ -315,6 +315,55 @@ W^T * dwdx_perelt row vs the measured group column localizes the
 broken member), and for predicting the response of arbitrary
 rigid-body perturbations without re-running pymacos.
 
+### dw/dx noise floor: where it comes from (and what doesn't help)
+
+For a collimated source on Rx_e5hex1.in at delta=1e-8, the
+noise-floor "signal" on a DOF that should be physically zero
+(Src Tx/Ty/Tz, Grp[all] Tx/Ty/Tz) sits around **~1e-3 OPD/m**
+(equivalently ~1 nm OPD response per 1 mm rigid-body translation).
+Sufficient for HWO at typical perturbation deltas; this section
+documents what governs it so it's not relitigated.
+
+**Tightening Brent solver TOL in surfsub.F won't help.**  The
+Brent convergence test uses
+    `TOL1 = 2*EPS*ABS(B) + 0.5*TOL`
+where `EPS = εmach ≈ 2.22e-16` and B is the ray path length being
+solved for.  For typical optics with B ~ 1000 mm, the
+`2*EPS*|B| ~ 4e-13 mm` floor dominates.  SFFZPSolve already
+passes TOL=2e-15 (line 2089), AZPSolve at one call site uses
+1e-14 (line 918) and at the other 1e-16 (line 1184, the latter
+Dave-tightened in 2016) -- but the 0.5*TOL contribution is
+~1e-15 or less, so the EPS floor pins TOL1 the same way regardless.
+Every ray-surface intersection in a typical macos trace is
+already solved to ~4 femtometers of L precision.
+
+GSZPSolve and UDSZPSolve (legacy ZrnGridData / User-Defined
+surfaces, surfsub.F:1309 + 2949) DO use looser `tol=1d-10`, but
+neither shows up in Rx_e5hex1.in's trace -- FreeForm uses
+SFFZPSolve, not GSZPSolve.
+
+**The actual noise floor is in the OPD assembly downstream of
+the trace** -- the differential between chief-ray and grid-ray
+cumulative path lengths (each ~1e5 mm), or the reference-sphere
+fit at the EP, or central-difference `(w_+ - w_-)/(2*delta)`
+where each `w_±` is itself a sum of these subtractions.  Each
+w vector is precise to ~1e-13 mm in absolute terms; dividing
+by 2*delta = 2e-8 gives ~5e-6 OPD/m as a back-of-envelope
+floor, which is within an order of magnitude of what we see.
+
+Options if a future task needs to push below this:
+1. **Richardson extrapolation** in `dw_dx.py` -- measure at
+   ±d and ±d/2 to subtract out the leading numerical-error
+   term.  ~2× measurement cost.
+2. **Analytic differential** instead of finite-difference --
+   compute path-length sensitivities once per element via
+   adjoint methods.  Major refactor.
+3. **Rewrite the macos OPD assembly** with Kahan summation or
+   analytic differential at the cancellation hotspot.  Needs
+   a profiling pass first to identify the lossy site.
+
+None of these are needed for HWO at the current delta scale.
+
 ## Key files
 
 | File | Role |
