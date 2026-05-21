@@ -34,7 +34,7 @@ getter / setter pair.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Iterable, Sequence
 
 import numpy as np
@@ -447,6 +447,134 @@ class RigidBodyChannel(SensitivityChannel):
 
 
 @dataclass
+class SourceChannel(SensitivityChannel):
+    """One-DOF rigid-body perturbation on the SOURCE (iElt=0 in macos).
+
+    Wraps :func:`pymacos.macos.perturb_src`, the iElt=0 branch of
+    macos's CPERTURB.  The source rotates ChfRayDir (point source)
+    and translates ChfRayPos (collimated or point); macos updates
+    xGrid/yGrid/SegXGrid alongside.
+
+    Stop re-enforcement: a source perturbation moves the chief ray
+    off the stop center.  For dw/dx work we want the wavefront
+    referenced to the same chief-ray-through-stop geometry as the
+    nominal, so the channel re-enforces the stop after every
+    perturbation.  Two modes:
+
+    - ``stop_mode='obj'`` (default): call
+      ``m.stop_obj(*stop_obj_pos)`` -- the OBJ branch of macos's
+      STOP command (deterministic chief-ray-aim math, no iterative
+      solve).  Use this for Rxes that declare an object-space stop
+      via ``ApStop= x y z``.
+    - ``stop_mode='elt'``: call ``m.stop(stop_elt)`` -- the ELT
+      branch.  Use this when the system stop is an element.
+    - ``stop_mode='none'``: skip; the chief ray drifts off-stop
+      with the source.  Diagnostic only; the resulting columns
+      include a large "chief ray missed stop" component that is
+      not physically meaningful for sensitivity work.
+
+    DOF layout matches :class:`RigidBodyChannel`:
+    (Rx, Ry, Rz, Tx, Ty, Tz).  ``perturb_src`` follows macos's
+    source-perturb frame convention (GLOBAL by default, LOCAL when
+    the Rx declares ``SrcXAxis/SrcYAxis``); since macos itself has
+    no per-call switch this channel passes the user vector through
+    verbatim.
+
+    perturb_src is incremental like CPERTURB_PROG, so the
+    cumulative-state pattern (``current`` tracks the running
+    perturbation; each apply sends ``value - current``) mirrors
+    RigidBodyChannel.
+    """
+    macos: object
+    dof_idx: int
+    stop_mode: str = "obj"        # 'obj' | 'elt' | 'none'
+    stop_obj_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    stop_elt: int = 0             # required when stop_mode='elt'
+    current: float = 0.0
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.dof_idx <= 5:
+            raise ValueError(
+                f"SourceChannel: dof_idx must be in 0..5, got "
+                f"{self.dof_idx}")
+        if self.stop_mode not in ("obj", "elt", "none"):
+            raise ValueError(
+                f"SourceChannel: stop_mode must be 'obj', 'elt' or "
+                f"'none'; got {self.stop_mode!r}")
+        if self.stop_mode == "elt" and self.stop_elt <= 0:
+            raise ValueError(
+                "SourceChannel: stop_mode='elt' requires stop_elt > 0")
+
+    @property
+    def name(self) -> str:  # type: ignore[override]
+        return f"Src {_RB_DOF_LABELS[self.dof_idx]}"
+
+    @property
+    def kind(self) -> str:
+        return "Source"
+
+    def _enforce_stop(self) -> None:
+        if self.stop_mode == "obj":
+            self.macos.stop_obj(*self.stop_obj_pos)
+        elif self.stop_mode == "elt":
+            self.macos.stop(self.stop_elt)
+        # 'none': no-op
+
+    def _do_perturb(self, increment: float) -> None:
+        rot = [0.0, 0.0, 0.0]
+        trans = [0.0, 0.0, 0.0]
+        if self.dof_idx < 3:
+            rot[self.dof_idx] = increment
+        else:
+            trans[self.dof_idx - 3] = increment
+        self.macos.perturb_src(rotation_rad=tuple(rot),
+                                translation_m=tuple(trans))
+        self._enforce_stop()
+        self.macos.modify()
+
+    def apply(self, value: float) -> None:
+        increment = value - self.current
+        if increment != 0.0:
+            self._do_perturb(increment)
+        self.current = value
+
+    def restore(self) -> None:
+        self.apply(0.0)
+
+
+def source_channels(macos,
+                    dofs: Iterable[int] | None = None,
+                    stop_mode: str = "obj",
+                    stop_obj_pos: tuple[float, float, float] = (0.0, 0.0, 0.0),
+                    stop_elt: int = 0,
+                    ) -> list[SourceChannel]:
+    """Build SourceChannel instances for the requested DOFs.
+
+    Args:
+        macos:        pymacos.macos module.
+        dofs:         DOF subset (default all six 0..5).
+        stop_mode:    'obj' (default) -> use stop_obj_pos;
+                      'elt' -> use stop_elt; 'none' -> no
+                      re-enforcement.
+        stop_obj_pos: object-space stop coordinates for stop_mode
+                      'obj'.  Defaults to the origin -- matches Rx
+                      conventions like ``ApStop= 0 0 0`` in
+                      Rx_e5hex1.in.
+        stop_elt:     element index for stop_mode='elt'.
+
+    Returns:
+        One :class:`SourceChannel` per DOF, in DOF order.
+    """
+    if dofs is None:
+        dofs = range(6)
+    return [SourceChannel(macos=macos, dof_idx=int(d),
+                          stop_mode=stop_mode,
+                          stop_obj_pos=stop_obj_pos,
+                          stop_elt=stop_elt)
+            for d in dofs]
+
+
+@dataclass
 class FocalPlaneChannel(RigidBodyChannel):
     """Rigid-body perturbation on the focal-plane element.
 
@@ -491,10 +619,10 @@ class FocalPlaneChannel(RigidBodyChannel):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        if self.mode not in ("track", "srs", "sxp", "fex"):
+        if self.mode not in ("track", "srs", "sxp", "fex", "none"):
             raise ValueError(
                 f"FocalPlaneChannel: mode must be 'track', 'srs', "
-                f"'sxp', or 'fex'; got {self.mode!r}")
+                f"'sxp', 'fex', or 'none'; got {self.mode!r}")
 
     def _do_perturb(self, increment: float) -> None:
         # Build the 6-vector for this DOF.
@@ -639,6 +767,7 @@ def rigid_body_channels(macos,
                          dofs: Iterable[int] | None = None,
                          fp_mode: str = "track",
                          ep_elt: int = -1,
+                         include_non_optics: bool = False,
                          ) -> list[RigidBodyChannel]:
     """Build rigid-body channels for every actual optic in the Rx.
 
@@ -662,6 +791,16 @@ def rigid_body_channels(macos,
         ep_elt:    EP element id for "track" mode (default -1 ->
                    nElt-1).  Ignored in "fex" mode (FEX always
                    updates nElt-1).
+        include_non_optics:  if True, also build plain
+                   :class:`RigidBodyChannel` entries for Reference /
+                   Return surfaces (kinds normally excluded as
+                   bookkeeping-only).  Needed when the per-element
+                   block is meant to drive
+                   :func:`predict_global_rigid_response` --
+                   reconstructing a rigid global perturbation of a
+                   group containing Ref/Return surfaces needs their
+                   per-element columns to capture the rigid-coupling
+                   cancellations they participate in.
 
     Returns:
         List of channels, element-major then DOF-minor (so the full
@@ -671,7 +810,8 @@ def rigid_body_channels(macos,
     if dofs is None:
         dofs = range(6)
     dofs = list(dofs)
-    kinds = _parse_rx_actual_optic_elts_with_kinds(rx_path)
+    kinds = _parse_rx_actual_optic_elts_with_kinds(
+        rx_path, include_non_optics=include_non_optics)
     if elts is not None:
         wanted = set(int(i) for i in elts)
         kinds = {k: v for k, v in kinds.items() if k in wanted}
@@ -699,11 +839,554 @@ def _parse_rx_actual_optic_elts(rx_path: str) -> set[int]:
     return set(_parse_rx_actual_optic_elts_with_kinds(rx_path))
 
 
-def _parse_rx_actual_optic_elts_with_kinds(rx_path: str) -> dict[int, str]:
+# ---------------------------------------------------------------------------
+# Grouped rigid-body channels (rigid-body perturbation of a sub-assembly)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class GroupedRigidBodyChannel(SensitivityChannel):
+    """Rigid-body perturbation applied to a group of elements as a
+    single rigid unit, dispatched through macos's ``GPERTURB``
+    (``CPERTURB_GRP_DVR``).
+
+    Why macos-side and not Python-side: the per-element rigid-body
+    columns can be linearly combined to synthesize a group column
+    under most conditions, but combinations involving the
+    Reference/Return surfaces around the exit pupil and the
+    focal-plane element do NOT superimpose linearly -- a rigid
+    camera (lens + FP) motion produces an EP/FP rigid coupling that
+    cancels across the Reference and the FP into a small residual,
+    which superposition of two individually-large columns can't
+    reproduce within numerical precision.  Letting macos perturb the
+    members as a rigid unit captures the cancellation directly.
+
+    Group declaration is installed dynamically: the existing
+    ``EltGrp`` state on ``ref_elt`` is snapshotted, the desired
+    members are written via :func:`macos.elt_grp`, ``GPERTURB`` runs
+    (via :func:`macos.prb_grp`), and the snapshot is restored on
+    ``restore()``.  This permits OVERLAPPING groups across separate
+    channels -- the same element can belong to multiple Python-side
+    groups even though macos's ``EltGrp(0:N, iElt)`` data structure
+    only allows one group per element at a time.
+
+    DOF layout matches :class:`RigidBodyChannel`:
+    (Rx, Ry, Rz, Tx, Ty, Tz) interpreted in ``ref_elt``'s LOCAL
+    frame.  Rotation pivot is ``ref_elt``'s RptElt (per
+    ``CPERTURB_GRP_DVR`` in funcsub.F).  Macos converts the local
+    6-vector to global via ``TElt`` and applies the same rigid
+    motion to every member.
+
+    Optional FP follow-up for groups containing a focal-plane
+    element (``fp_elt > 0``):
+
+    - ``fp_mode='none'`` (default if no FP in group): GPERTURB only.
+    - ``fp_mode='sxp'`` (default if FP in group): after GPERTURB,
+      run macos's SXP to recompute the EP from the post-
+      perturbation chief-ray geometry.  Captures the EP radius
+      change driven by FP motion (the upstream optic motion in the
+      group already imprints its tilt/defocus on the wavefront via
+      its own pose change).
+    - ``fp_mode='fex'``: same as 'sxp' but with FEX (EP as the
+      Stop's optical conjugate; insensitive to FP motion -- mostly
+      diagnostic).
+    - ``fp_mode='srs'``: ``srs(ep_elt, fp_elt)`` to slave EP pose
+      to the post-perturbation FP.
+    """
+    macos: object
+    members: tuple[int, ...]
+    dof_idx: int
+    group_name: str = ""
+    ref_elt: int = 0          # 0 -> first member; rotation pivot
+    fp_elt: int = 0           # 0 -> no FP follow-up
+    fp_mode: str = "auto"     # 'auto'|'none'|'sxp'|'fex'|'srs'
+    ep_elt: int = -1          # for srs follow-up; -1 -> nElt-1
+    coords: str = "global"    # 'global' (default) | 'local' (ref_elt's TElt frame)
+    stop_mode: str = "obj"    # 'obj' | 'elt' | 'none' -- re-aim chief ray after GPERTURB
+    stop_obj_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    stop_elt: int = 0         # required when stop_mode='elt'
+    current: float = 0.0
+    _saved_grp: tuple[int, ...] | None = field(
+        default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.dof_idx <= 5:
+            raise ValueError(
+                f"GroupedRigidBodyChannel: dof_idx must be in 0..5, "
+                f"got {self.dof_idx}")
+        if len(self.members) < 2:
+            raise ValueError(
+                f"GroupedRigidBodyChannel: need at least 2 members, "
+                f"got {self.members!r}")
+        if self.ref_elt == 0:
+            self.ref_elt = int(self.members[0])
+        if self.ref_elt not in self.members:
+            raise ValueError(
+                f"GroupedRigidBodyChannel: ref_elt={self.ref_elt} "
+                f"must be one of members={self.members!r}")
+        if not self.group_name:
+            self.group_name = f"{min(self.members)}-{max(self.members)}"
+        if self.fp_mode not in ("auto", "none", "sxp", "fex", "srs"):
+            raise ValueError(
+                f"GroupedRigidBodyChannel: fp_mode must be one of "
+                f"'auto','none','sxp','fex','srs'; got {self.fp_mode!r}")
+        if self.fp_mode == "auto":
+            self.fp_mode = ("sxp" if (self.fp_elt > 0
+                                       and self.fp_elt in self.members)
+                            else "none")
+        if self.coords not in ("global", "local"):
+            raise ValueError(
+                f"GroupedRigidBodyChannel: coords must be 'global' or "
+                f"'local'; got {self.coords!r}")
+        if self.stop_mode not in ("obj", "elt", "none"):
+            raise ValueError(
+                f"GroupedRigidBodyChannel: stop_mode must be 'obj', "
+                f"'elt' or 'none'; got {self.stop_mode!r}")
+        if self.stop_mode == "elt" and self.stop_elt <= 0:
+            raise ValueError(
+                "GroupedRigidBodyChannel: stop_mode='elt' requires "
+                "stop_elt > 0")
+
+    @property
+    def name(self) -> str:  # type: ignore[override]
+        return f"Grp[{self.group_name}] {_RB_DOF_LABELS[self.dof_idx]}"
+
+    @property
+    def kind(self) -> str:
+        return "Group"
+
+    def _install_group(self) -> None:
+        """Snapshot ref_elt's current EltGrp and write desired members.
+        Idempotent across multiple apply() calls -- the snapshot is
+        taken only on the first install and held until restore_group().
+        """
+        if self._saved_grp is not None:
+            return
+        existing = self.macos.elt_grp(self.ref_elt)
+        cur = list(existing[0]) if existing else []
+        self._saved_grp = tuple(int(x) for x in cur)
+        target = [int(m) for m in self.members]
+        if sorted(cur) != sorted(target):
+            self.macos.elt_grp(self.ref_elt, target)
+
+    def _restore_group(self) -> None:
+        if self._saved_grp is None:
+            return
+        saved = self._saved_grp
+        self._saved_grp = None
+        if not saved:
+            self.macos.elt_grp_rm(self.ref_elt)
+        else:
+            self.macos.elt_grp(self.ref_elt, list(saved))
+
+    def _enforce_stop(self) -> None:
+        # Defensive re-aim of the chief ray through the stop after
+        # the GPERTURB.  GPERTURB itself only changes element poses
+        # and leaves ChfRayDir / ChfRayPos untouched, so for the
+        # standard apply-from-nominal / measure / restore channel
+        # pattern this is a no-op: the source wasn't perturbed, the
+        # chief ray is still nominal, the stop is trivially still
+        # hit.  But if a caller stacks channels (e.g. SourceChannel
+        # followed by GroupedRigidBodyChannel before measuring) the
+        # source-side perturbation moved the chief ray; re-aiming
+        # here keeps the OPD reference geometry consistent across
+        # the stack.  Cost is one cheap macos call per apply().
+        if self.stop_mode == "obj":
+            self.macos.stop_obj(*self.stop_obj_pos)
+        elif self.stop_mode == "elt":
+            self.macos.stop(self.stop_elt)
+
+    def _do_perturb(self, increment: float) -> None:
+        self._install_group()
+        prb_vec = np.zeros((6, 1), dtype=np.float64)
+        prb_vec[self.dof_idx, 0] = increment
+        # glb_csys = 1 (global, default) or 0 (ref_elt's local frame).
+        # Global is the right default for telescopes: the source's
+        # ChfRayDir lives in global coords, so for the source-vs-
+        # all-optics-group cross-check to give cos=-1 the group
+        # rotation axes must be in the same global frame.
+        glb = 1 if self.coords == "global" else 0
+        self.macos.prb_grp(
+            [self.ref_elt], prb_vec,
+            np.array([glb], dtype=np.int32))
+        self._enforce_stop()
+        self.macos.modify()
+
+        if self.fp_mode == "sxp":
+            self.macos.trace_rays(self.ref_elt)
+            self.macos.sxp()
+        elif self.fp_mode == "fex":
+            self.macos.trace_rays(self.ref_elt)
+            self.macos.fex()
+        elif self.fp_mode == "srs":
+            ep = (self.ep_elt if self.ep_elt > 0
+                  else self.macos.num_elt() - 1)
+            fp = self.fp_elt if self.fp_elt > 0 else self.macos.num_elt()
+            self.macos.trace_rays(self.ref_elt)
+            self.macos.srs(ep, fp, link=True)
+
+    def apply(self, value: float) -> None:
+        increment = value - self.current
+        if increment != 0.0:
+            self._do_perturb(increment)
+        self.current = value
+
+    def restore(self) -> None:
+        # Drive the pose back to nominal via GPERTURB, then release
+        # the temporary EltGrp install so other channels' state is
+        # not surprised by lingering group definitions.
+        self.apply(0.0)
+        self._restore_group()
+
+
+def predict_global_rigid_response(
+        macos,
+        dwdx: np.ndarray,
+        col_map: dict[tuple[int, int], int],
+        members: Sequence[int],
+        prb_global: Sequence[float],
+        pivot_global: Sequence[float] | None = None,
+        ) -> np.ndarray:
+    """Predict the dw response of a global rigid-body perturbation
+    applied to a group of members, USING per-element dw/dx columns
+    measured in each element's LOCAL frame.
+
+    The per-element columns in ``dwdx`` were measured by perturbing
+    each element about its own RptElt in its own LOCAL frame (the
+    default ``RigidBodyChannel`` and ``perturb()`` semantics).  To
+    use them to predict the response of a rigid-body perturbation
+    of a group (rotation+translation applied at a GLOBAL reference
+    pivot), each member needs its own equivalent local-frame
+    perturbation derived from the rigid-body kinematics:
+
+        For pivot P (global) and global rotation theta_g (rad) and
+        global translation T_g, a member m at RptElt p_m with
+        local-to-global rotation R_m experiences:
+            - local rotation:    theta_m_loc = R_m^T @ theta_g
+            - local translation: T_m_loc = R_m^T @ (T_g + theta_g × (p_m - P))
+
+    The predicted response is then the linear combination
+
+        dw_pred = Σ_m  Σ_j  theta_m_loc[j] * dwdx[:, (m, j)]
+                + Σ_m  Σ_j  T_m_loc[j]      * dwdx[:, (m, 3+j)]
+
+    This is a self-consistency check on the measured per-element
+    columns: comparing ``dw_pred`` against a separately-measured
+    GPERTURB-driven group column tests whether the per-element
+    sensitivities correctly reconstruct the rigid-body response, and
+    catches per-element frame/pivot bookkeeping bugs that would
+    silently bias group predictions.
+
+    Args:
+        macos:         pymacos.macos module (Rx loaded), used to read
+                       ``elt_csys``, ``elt_rpt`` and the BaseUnits
+                       conversion factor.
+        dwdx:          (Nw, Nz) Jacobian holding per-element columns.
+        col_map:       ``{(iElt, dof_idx): column_index}`` mapping.
+                       Every (m, 0..5) referenced by ``members`` must
+                       be present.
+        members:       member element IDs of the group.
+        prb_global:    6-vector (Rx, Ry, Rz, Tx, Ty, Tz) in GLOBAL
+                       frame.  Rotations in radians, translations in
+                       SI METRES (matches the per-element columns
+                       measured by ``RigidBodyChannel`` which uses
+                       ``m.perturb(..., translation_m=...)``).
+        pivot_global:  optional global rotation pivot (3-vector), in
+                       prescription BaseUnits (the same units macos
+                       returns from ``elt_rpt``).  Default: RptElt of
+                       the first member.  For cross-checking against
+                       a GPERTURB group, set this to the GPERTURB
+                       ref_elt's RptElt.
+
+    Returns:
+        dw_pred:       (Nw,) predicted OPD response vector.
+    """
+    members_i = [int(m) for m in members]
+    if len(members_i) == 0:
+        raise ValueError("predict_global_rigid_response: empty members")
+    prb = np.asarray(prb_global, dtype=np.float64).reshape(6)
+    theta_g = prb[:3]
+    T_g     = prb[3:]
+    if pivot_global is None:
+        pivot = np.asarray(macos.elt_rpt(members_i[0])).ravel()
+    else:
+        pivot = np.asarray(pivot_global, dtype=np.float64).ravel()
+
+    # base_units -> metres scale (e.g. 1e-3 if Rx is in mm; 1.0 if Rx
+    # is in metres).  Per-element translation columns were measured
+    # with perturb(translation_m=...) so the column weight for an
+    # offset-induced translation has to be in METRES too -- but
+    # offset = rpt_m - pivot is in BaseUnits.  Convert.
+    ok_cbm, cbm = macos.lib.api.base_unit_to_metres()
+    if not ok_cbm or cbm == 0.0:
+        raise Exception("predict_global_rigid_response: macos returned "
+                        "no BaseUnits->metres factor (CBM)")
+    base_to_m = float(cbm)
+
+    # Cache R_m and rpt_m for each member.
+    R_by: dict[int, np.ndarray] = {}
+    rpt_by: dict[int, np.ndarray] = {}
+    for m_elt in members_i:
+        csys_m = macos.elt_csys(m_elt)
+        TElt_m = csys_m[0] if isinstance(csys_m, tuple) else csys_m
+        R_by[m_elt] = (TElt_m[:3, :3, 0] if TElt_m.ndim == 3
+                       else TElt_m[:3, :3])
+        rpt_by[m_elt] = np.asarray(macos.elt_rpt(m_elt)).ravel()
+
+    Nw = dwdx.shape[0]
+    dw_pred = np.zeros(Nw, dtype=np.float64)
+
+    for m_elt in members_i:
+        R_m  = R_by[m_elt]
+        offset_m_base = rpt_by[m_elt] - pivot          # global, BaseUnits
+        offset_m_m    = offset_m_base * base_to_m      # global, metres
+        # Rigid-body local-frame perturbation at this member.
+        # theta_g: rad (frame-independent under rotation -> still rad
+        # in local frame).  T_g + theta_g × offset: metres.
+        theta_m_loc = R_m.T @ theta_g
+        T_m_loc     = R_m.T @ (T_g + np.cross(theta_g, offset_m_m))
+
+        for j in range(3):
+            if theta_m_loc[j] != 0.0:
+                key = (m_elt, j)
+                if key not in col_map:
+                    raise KeyError(
+                        f"predict_global_rigid_response: missing "
+                        f"column for ({m_elt}, R{('x','y','z')[j]}) "
+                        f"in col_map")
+                dw_pred += theta_m_loc[j] * dwdx[:, col_map[key]]
+            if T_m_loc[j] != 0.0:
+                key = (m_elt, j + 3)
+                if key not in col_map:
+                    raise KeyError(
+                        f"predict_global_rigid_response: missing "
+                        f"column for ({m_elt}, T{('x','y','z')[j]}) "
+                        f"in col_map")
+                dw_pred += T_m_loc[j] * dwdx[:, col_map[key]]
+
+    return dw_pred
+
+
+def group_synthesis_matrix(
+        macos,
+        members: Sequence[int],
+        dofs: Sequence[int] | None = None,
+        pivot_global: Sequence[float] | None = None,
+        ) -> np.ndarray:
+    """Build the (N_rows, 6) weight matrix W that maps a global
+    rigid-body 6-vector applied at ``pivot_global`` to per-element
+    LOCAL-frame perturbations of the group ``members``.
+
+    Layout:
+        N_rows = len(members) * len(dofs).
+        Rows are ordered ELEMENT-MAJOR, DOF-MINOR -- matching the
+        per-element channel order in dw_dx.py:
+            [(members[0], dofs[0]), (members[0], dofs[1]), ...,
+             (members[1], dofs[0]), ...]
+        Columns are indexed 0..5 = global (Rx, Ry, Rz, Tx, Ty, Tz).
+
+    For each member m with local-to-global rotation R_m and RptElt
+    offset p_m from the global pivot P:
+        local rotation:    theta_m_loc = R_m^T @ theta_g
+        local translation: T_m_loc     = R_m^T @ (T_g + theta_g × (p_m - P))
+
+    Usage (consistency check):
+        dwdx_group_pred[:, dof_g] = dwdx_perelt[:, member_dofs] @ W[:, dof_g]
+    where ``member_dofs`` is the list of dwdx column indices for the
+    same (member, dof) order used to construct W.
+
+    Units: rotation rows are unitless (rad/rad); translation rows
+    coming from theta_g × offset are in METRES (per the
+    BaseUnits->m conversion applied to offsets), matching the
+    metres-per-translation column convention of RigidBodyChannel.
+
+    Args:
+        macos:         pymacos.macos module (Rx loaded), used for
+                       elt_csys, elt_rpt, base_unit_to_metres.
+        members:       member element IDs of the group.
+        dofs:          subset of local DOFs to include per member
+                       (default: all six, in 0..5 order matching
+                       ``_RB_DOF_LABELS``).
+        pivot_global:  global rotation pivot (3-vector, in macos
+                       BaseUnits).  Default: RptElt of the first
+                       member.
+
+    Returns:
+        W:             (len(members)*len(dofs), 6) float64 ndarray.
+    """
+    members_i = [int(m) for m in members]
+    if len(members_i) == 0:
+        raise ValueError("group_synthesis_matrix: empty members")
+    if dofs is None:
+        dofs = list(range(6))
+    dofs = list(dofs)
+
+    ok_cbm, cbm = macos.lib.api.base_unit_to_metres()
+    if not ok_cbm or cbm == 0.0:
+        raise Exception("group_synthesis_matrix: BaseUnits->m factor "
+                        "(CBM) unavailable")
+    base_to_m = float(cbm)
+
+    if pivot_global is None:
+        pivot = np.asarray(macos.elt_rpt(members_i[0])).ravel()
+    else:
+        pivot = np.asarray(pivot_global, dtype=np.float64).ravel()
+
+    Nrows = len(members_i) * len(dofs)
+    W = np.zeros((Nrows, 6), dtype=np.float64)
+
+    # Per-global-DOF column: a unit perturbation of that DOF.
+    for col, g_dof in enumerate(range(6)):
+        prb = np.zeros(6, dtype=np.float64)
+        prb[g_dof] = 1.0
+        theta_g = prb[:3]
+        T_g     = prb[3:]
+        for mi, m_elt in enumerate(members_i):
+            csys_m = macos.elt_csys(m_elt)
+            TElt_m = csys_m[0] if isinstance(csys_m, tuple) else csys_m
+            R_m = (TElt_m[:3, :3, 0] if TElt_m.ndim == 3
+                   else TElt_m[:3, :3])
+            rpt_m = np.asarray(macos.elt_rpt(m_elt)).ravel()
+            offset_m = (rpt_m - pivot) * base_to_m   # global, metres
+            theta_m_loc = R_m.T @ theta_g
+            T_m_loc     = R_m.T @ (T_g + np.cross(theta_g, offset_m))
+            # Fill the 6 rows for this member, only keeping the
+            # requested dofs.
+            local6 = np.concatenate([theta_m_loc, T_m_loc])  # (Rx,Ry,Rz,Tx,Ty,Tz)
+            for di, dof_idx in enumerate(dofs):
+                W[mi * len(dofs) + di, col] = local6[dof_idx]
+    return W
+
+
+def grouped_rigid_body_channels(
+        macos,
+        groups: dict[str, tuple[int, ...]],
+        ref_elt_by_group: dict[str, int] | None = None,
+        dofs: Iterable[int] | None = None,
+        rx_path: str | None = None,
+        fp_mode: str = "auto",
+        ep_elt: int = -1,
+        fp_elt_by_group: dict[str, int] | None = None,
+        coords: str = "global",
+        stop_mode: str = "obj",
+        stop_obj_pos: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        stop_elt: int = 0,
+        ) -> list[GroupedRigidBodyChannel]:
+    """Build group channels for each named (name -> members) group.
+
+    Args:
+        macos:             pymacos.macos module.
+        groups:            mapping from group name to a tuple of
+                           member element IDs.
+        ref_elt_by_group:  optional mapping name -> reference
+                           element id (default: first member).
+        dofs:              optional subset of DOF indices 0..5
+                           (default: all six).
+        rx_path:           if given, parse the Rx to auto-detect a
+                           FocalPlane-typed element among each
+                           group's members; that element becomes the
+                           group's ``fp_elt``.  Without it (None),
+                           no FP follow-up is performed unless
+                           ``fp_elt_by_group`` overrides per group.
+        fp_mode:           propagated to each group channel
+                           ('auto' / 'none' / 'sxp' / 'fex' / 'srs').
+        ep_elt:            propagated to each group channel.
+        fp_elt_by_group:   optional explicit per-group FP element id
+                           override; supersedes Rx-based detection.
+
+    Returns:
+        List of :class:`GroupedRigidBodyChannel`, ordered as the
+        ``groups`` dict iterates, with DOF-minor inside each group.
+    """
+    if dofs is None:
+        dofs = range(6)
+    dofs = list(dofs)
+    ref_elt_by_group = ref_elt_by_group or {}
+    fp_elt_by_group = dict(fp_elt_by_group or {})
+
+    if rx_path is not None:
+        kinds = _parse_rx_actual_optic_elts_with_kinds(str(rx_path))
+        fp_elts = {iElt for iElt, k in kinds.items() if k == "FocalPlane"}
+    else:
+        fp_elts = set()
+
+    channels: list[GroupedRigidBodyChannel] = []
+    for name, members in groups.items():
+        members_t = tuple(int(m) for m in members)
+        if len(members_t) < 2:
+            continue
+        ref = int(ref_elt_by_group.get(name, members_t[0]))
+        fp = int(fp_elt_by_group.get(name, 0))
+        if fp == 0 and fp_elts:
+            fp_in_group = [e for e in members_t if e in fp_elts]
+            if fp_in_group:
+                fp = fp_in_group[0]
+        for dof in dofs:
+            channels.append(GroupedRigidBodyChannel(
+                macos=macos, members=members_t, dof_idx=int(dof),
+                group_name=name, ref_elt=ref,
+                fp_elt=fp, fp_mode=fp_mode, ep_elt=ep_elt,
+                coords=coords,
+                stop_mode=stop_mode,
+                stop_obj_pos=stop_obj_pos,
+                stop_elt=stop_elt))
+    return channels
+
+
+def parse_rx_groups(rx_path: str) -> dict[str, tuple[int, ...]]:
+    """Parse ``EltGrp=`` declarations from a macos .in file.
+
+    Multiple elements typically declare the same group (all members
+    of a group repeat ``EltGrp= N m1 m2 ... mN`` in their per-element
+    blocks).  Dedups by the sorted member tuple and emits one entry
+    per unique group, named ``"min-max"`` of its member IDs.
+
+    Returns ``{name: (m1, m2, ...)}`` in stable order.
+    """
+    seen: dict[tuple[int, ...], str] = {}
+    cur_elt: int | None = None
+
+    with open(rx_path) as f:
+        for ln in f:
+            s = ln.strip()
+            if s.startswith("iElt="):
+                try:
+                    cur_elt = int(s.split("=", 1)[1].strip())
+                except ValueError:
+                    cur_elt = None
+            elif s.startswith("EltGrp=") and cur_elt is not None:
+                # "EltGrp= N m1 m2 ... mN"  (positive N -> explicit list)
+                # Macos also supports negative N (range form) and
+                # MrEltGrp (multi-range) -- defer those until needed.
+                toks = s.split("=", 1)[1].split()
+                try:
+                    nums = [int(t) for t in toks]
+                except ValueError:
+                    continue
+                if not nums or nums[0] <= 0:
+                    continue
+                n = nums[0]
+                if len(nums) < n + 1:
+                    continue
+                members = tuple(sorted(nums[1:n + 1]))
+                if members not in seen:
+                    seen[members] = f"{members[0]}-{members[-1]}"
+    # Preserve insertion order (dict in Python 3.7+ does this).
+    return {seen[k]: k for k in seen}
+
+
+def _parse_rx_actual_optic_elts_with_kinds(
+        rx_path: str, include_non_optics: bool = False
+        ) -> dict[int, str]:
     """Like :func:`_parse_rx_actual_optic_elts` but also returns the
     element-kind label (Reflector / Refractor / FocalPlane / Segment
     / HOE / Grating / ...) per element, so callers can pick a
     specialized channel subclass (currently used for FocalPlane).
+
+    ``include_non_optics=True`` retains Reference / Return elements
+    too (needed when measuring per-element rigid-body columns to
+    drive ``predict_global_rigid_response`` -- a global rigid motion
+    of a group containing Ref/Return surfaces needs those per-
+    element columns to reconstruct the rigid-coupling cancellations).
     """
     out: dict[int, str] = {}
     cur_elt: int | None = None
@@ -711,7 +1394,7 @@ def _parse_rx_actual_optic_elts_with_kinds(rx_path: str) -> dict[int, str]:
 
     def _flush():
         if cur_elt is not None and cur_kind is not None:
-            if cur_kind not in _NON_OPTIC_ELEMENT_KINDS:
+            if include_non_optics or cur_kind not in _NON_OPTIC_ELEMENT_KINDS:
                 out[cur_elt] = cur_kind
 
     with open(rx_path) as f:

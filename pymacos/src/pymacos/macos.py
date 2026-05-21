@@ -3558,6 +3558,60 @@ def perturb(srf: int | np.int32,
             "Rx is loaded and the element index is valid")
 
 
+def perturb_src(rotation_rad: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+                translation_m: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+                ) -> None:
+    """Apply a rigid-body perturbation to the SOURCE (iElt=0 in macos).
+
+    Routes through macos's ``CPERTURB`` source-perturb branch
+    (funcsub.F:41-92) via ``SMACOS('PERTURB', IARG(1)=0, DARG=6vec)``.
+    macos updates ``ChfRayDir``, ``ChfRayPos``, ``xGrid``, ``yGrid``,
+    and ``SegXGrid`` if the prescription uses a segmented xGrid.
+
+    Coordinate frame:
+        - GLOBAL by default.
+        - LOCAL when the prescription declares source local frames
+          (``SrcXAxis=`` / ``SrcYAxis=`` keywords -> ``SrcLF_FLG``
+          set inside macos).  There is no per-call switch because
+          macos itself has none -- the frame choice is baked into
+          the Rx.
+
+    For a rotation-only perturbation (point source), the chief ray
+    is REDIRECTED (its direction rotates).  For a translation, the
+    source position shifts; chief ray direction stays the same.
+    Note that this changes where the chief ray hits the system Stop
+    -- callers that want to KEEP the chief ray passing through the
+    Stop after a source motion should re-call :func:`stop` (for
+    element-based stops) or otherwise re-enforce the chief-ray
+    aiming after this call.
+
+    Args:
+        rotation_rad:    (x, y, z) source rotation in radians.
+        translation_m:   (x, y, z) source translation in SI metres
+                         (converted to prescription BaseUnits via
+                         CBM, matching :func:`perturb`).
+
+    Raises:
+        Exception: Rx not loaded, or macos signalled failure.
+    """
+    _chk_macos_and_rx_loaded()
+
+    ok_cbm, cbm = lib.api.base_unit_to_metres()
+    if not ok_cbm or cbm == 0.0:
+        raise Exception("MACOS: base-units conversion factor unavailable "
+                        "(perturb_src needs CBM to convert SI metres "
+                        "translation to BaseUnits)")
+    si_to_base = 1.0 / float(cbm)
+
+    th  = np.asarray(rotation_rad, dtype=np.float64).reshape(3)
+    del_ = np.asarray(translation_m, dtype=np.float64).reshape(3) * si_to_base
+
+    ok = lib.api.perturb_src(th, del_)
+    if not ok:
+        raise Exception(
+            "MACOS: perturb_src failed -- check that the Rx is loaded")
+
+
 def spot(srf: int | Tuple[int] | np.int32,
          vpt_center: bool | int = True,
          beam_csys: int = 1,
@@ -3770,6 +3824,37 @@ def stop(srf: None | int | Tuple[int] | np.int32 = None,
             raise Exception('MACOS threw an Exception')
 
 
+def stop_obj(x: float, y: float, z: float) -> None:
+    """Define / re-enforce an object-space stop.
+
+    The OBJ branch of macos's ``STOP`` command: given a 3D point in
+    object space, redirect the chief ray from the current source
+    position through that point.  Cheap (no iterative element solve,
+    just the geometric chief-ray-aim math in
+    ``macos_cmd_loop.inc:2957-3005``).
+
+    Use cases:
+        - Prescriptions that declare an object-space stop via
+          ``ApStop= x y z`` (e.g. Rx_e5hex1.in, where the segmented
+          primary is the natural stop and pymacos's :func:`stop`
+          refuses Segment surfaces).
+        - Re-aiming the chief ray after a source perturbation
+          (``perturb_src``) when an object-space stop is in use --
+          for an element-based stop, re-call :func:`stop` instead.
+
+    Args:
+        x, y, z: object-space stop position in prescription
+                 BaseUnits.  Conventionally ``(0, 0, 0)`` for
+                 telescopes whose source is at infinity and whose
+                 chief ray nominally passes through the global
+                 origin.
+
+    Raises:
+        Exception: MACOS triggered error.
+    """
+    _chk_macos_and_rx_loaded()
+    if not lib.api.stop_obj_set(float(x), float(y), float(z)):
+        raise Exception('MACOS threw an Exception')
 
 
 # -------------------------------------------------------------------------------------------
