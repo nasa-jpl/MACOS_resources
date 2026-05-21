@@ -342,12 +342,79 @@ lateral FP responses collapse to zero (matching `--fp-mode=sxp`
 semantics).  Use `--fp-mode=sxp --update-ep=sxp` together for
 consistent EP handling across upstream and FP channels.
 
+#### Source perturbations
+
+`--include-source` prepends 6 `SourceChannel` entries (perturbations
+of `iElt=0` in macos -- `ChfRayDir`, `ChfRayPos`, `xGrid`, `yGrid`).
+Dispatched through macos's `CPERTURB` source branch via a new
+`pymacos.macos.perturb_src()` wrapper.  For collimated sources at
+`zSource >= 1e10`, Tx/Ty/Tz come back at the noise floor (the
+physics says they're identically zero) and Rx/Ry/Rz drive global
+tilt/rotation.
+
+#### Group perturbations (`GroupedRigidBodyChannel`)
+
+`--groups auto` discovers `EltGrp=` declarations in the Rx and
+emits 6 group channels per group.  `--groups 'name=m1,m2,...'`
+adds extras.  Group perturbations route through macos's `GPERTURB`
+(`CPERTURB_GRP_DVR`) so the EP/FP rigid coupling that defeats
+linear superposition is handled inside macos.  Each channel
+dynamically writes `EltGrp` on its `ref_elt` (snapshotted +
+restored around the perturbation), so overlapping groups work even
+though macos's `EltGrp` data structure is single-group-per-element.
+
+`--group-coords {global,local}` (default `global`) picks the frame
+in which the group 6-vector is interpreted by GPERTURB.  Global
+matches the source's frame, so source vs all-optics-group
+cross-checks line up to cos = -1 exactly.  Local uses
+`ref_elt`'s TElt frame (legacy per-element semantics).
+
+#### Source ↔ all-optics cross-check (`cos = -1`)
+
+By Newtonian relativity, rotating the source by +δ is equivalent
+to rotating every optical element rigidly by -δ.  This drops out
+of the channels with the right defaults:
+
+```bash
+./run_dw_dx.sh --rx tests/Rx/Rx_e5hex1.in \
+    --include-source --include-non-optics \
+    --groups 'all=1,2,3,4,5,6,7,8,9,10,11,12,13' \
+    --fp-mode none --group-coords global
+```
+
+On Rx_e5hex1.in this gives Src{Rx,Ry} vs Grp[all]{Rx,Ry}
+correlations of `cos = -1.000000` with Tx/Ty/Tz at the noise
+floor (their physical value is zero for a collimated source).
+
+#### Direct dw/dx-matrix consistency check
+
+`--include-non-optics` adds Reference / Return surfaces to the
+per-element block (normally excluded as bookkeeping-only).  With
+that, the saved `.mat` has columns for every element a group
+could touch, and the new `group_W` cell array exposes the
+synthesis weights `W` (one (N_members × n_dof, 6) matrix per
+group) such that
+
+```matlab
+cols = group_member_dof_idx{k};
+pred = dwdx(:, cols) * group_W{k};       % (Nw, 6) -- per-DOF
+```
+
+reproduces the directly-measured `Grp[name] {Rx,Ry,Rz,Tx,Ty,Tz}`
+columns.  Useful as a regression check (Rx/Ry agree to ~1e-5 on
+Rx_e5hex1.in) and as a way to predict arbitrary rigid-body group
+responses without re-running pymacos.  See CLAUDE.md for the
+math and unit conventions (the rotation×offset term needs the
+BaseUnits→m conversion to match the metres-per-translation
+column convention of `RigidBodyChannel`).
+
 Example sweep on `e5hex1.in`:
 
 ```bash
 cd pymacos/tests/sensitivities
 ./run_dw_dx.sh                                  # defaults: 66 channels
 ./run_dw_dx.sh --model-size 256 --update-ep sxp # upstream EP-shifts included
+./run_dw_dx.sh --include-source --groups auto   # source + EltGrp= groups
 ```
 
 ## Gaps / notes for downstream changes

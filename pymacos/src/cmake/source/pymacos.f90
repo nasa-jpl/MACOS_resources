@@ -3646,6 +3646,45 @@
 
 
       !---------------------------------------------------------------------------------------------
+      ! Source rigid-body perturbation -- the iElt=0 branch of macos's
+      ! CPERTURB.  Dispatched through SMACOS so the existing PERTURB
+      ! LoadStack (smacosutil.F:401-408 handles IARG(1)==0) feeds the
+      ! 6-vector into CPERTURB's source-perturb branch (funcsub.F:41-92).
+      !
+      ! Coordinate frame for (th, del) matches macos's source-perturb
+      ! semantics: GLOBAL by default; LOCAL when the Rx declares
+      ! source local frames (SrcLF_FLG set by SrcXAxis/SrcYAxis/...).
+      ! There is no per-call useLocalCoord switch because macos itself
+      ! has none -- the choice is baked into the prescription.
+      !
+      ! Args:
+      !   th(3)  : rotation perturbation vector (rad), GLOBAL or LOCAL
+      !            per SrcLF_FLG
+      !   del(3) : translation perturbation vector, in prescription
+      !            BaseUnits
+      !---------------------------------------------------------------------------------------------
+      subroutine perturb_src(OK, th, del)
+
+        implicit none
+        logical, intent(out):: OK
+        real(8), intent(in) :: th(3), del(3)
+        ! ------------------------------------------------------
+        OK = FAIL
+
+        if (.not. SystemCheck()) return
+
+        command   = 'PERTURB'
+        IARG(1)   = 0          ! source-perturb branch
+        DARG(1:3) = th
+        DARG(4:6) = del
+        CALL SMACOS(command,CARG,DARG,IARG,LARG,RARG,OPDMat,RaySpot,RMSWFE,PixArray)
+
+        OK = PASS
+
+      end subroutine perturb_src
+
+
+      !---------------------------------------------------------------------------------------------
       ! Set Exit Pupil (XP) information
       !---------------------------------------------------------------------------------------------
       subroutine xp_set(ok, vpt, psi, rad)
@@ -3972,6 +4011,43 @@
         OK = PASS
 
       end subroutine stop_info_set
+
+
+      !---------------------------------------------------------------------------------------------
+      ! set Object-space Stop -- the OBJ branch of macos's STOP
+      ! command (macos_cmd_loop.inc:2957-3005).  Aims the chief ray
+      ! from the current source position through the given point in
+      ! object space (StopPos).  Cheap and deterministic: no
+      ! optimization, just the geometric "redirect ChfRayDir" math
+      ! for point sources (or "translate ChfRayPos" for collimated
+      ! sources).  Use this to re-enforce the stop after a source
+      ! perturbation when the prescription declares an object-space
+      ! stop (ApStop= x y z) instead of an element stop.
+      !---------------------------------------------------------------------------------------------
+      subroutine stop_obj_set(OK, x, y, z)
+        use smacos_vars_mod, only: npts
+        use       macos_mod, only: ifStopSet
+        implicit none
+        logical, intent(out):: OK
+        real(8), intent(in) :: x, y, z
+        ! ------------------------------------------------------
+        OK = FAIL
+        if (.not. SystemCheck()) return
+
+        command   = 'STOP'
+        CARG(1)   = 'OBJ'
+        DARG(1)   = x
+        DARG(2)   = y
+        DARG(3)   = z
+        CALL SMACOS(command,CARG,DARG,IARG,LARG,RARG,OPDMat,RaySpot,RMSWFE,PixArray)
+
+        ! Same nGridPts/npts re-sync as the ELT path (same macos quirk).
+        if ((nGridPts-1)/=npts) nGridPts = npts + 1
+
+        if (.not. ifStopSet) return
+        OK = PASS
+
+      end subroutine stop_obj_set
 
 
     ! ============================================================================================
