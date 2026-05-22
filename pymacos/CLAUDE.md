@@ -315,6 +315,44 @@ W^T * dwdx_perelt row vs the measured group column localizes the
 broken member), and for predicting the response of arbitrary
 rigid-body perturbations without re-running pymacos.
 
+### dwdx units: the "natural" output convention
+
+The saved `dwdx` matrix in `dwdx_<rx>.mat` is in **OPD-in-metres per
+SI perturbation** by default.  This is the universal numerical
+convention that gives the SAME numbers whether you think in (m, rad)
+or (mm, mrad) -- the OPD numerator and the perturbation denominator
+both rescale by the same factor and cancel.  Concretely:
+
+- Translation columns:  `OPD_m / dx_m`   = dimensionless ratio
+                         (= `OPD_mm / dx_mm` for a mm Rx, etc.)
+- Rotation columns:     `OPD_m / dx_rad` = metres per radian
+                         (= `OPD_mm / dx_mrad` for a mm Rx)
+
+Internally the channels stay SI: `RigidBodyChannel`, `SourceChannel`,
+`GroupedRigidBodyChannel` all take rotations in rad and translations
+in metres via the `m.perturb()` / `m.perturb_src()` wrappers.  The
+unit rescaling is a per-column post-multiply applied inside the
+measurement loop in `dw_dx.py` so the printed `[dwdx]` RMS lines
+already reflect the saved values.
+
+`dw_dx.py` ERRORS OUT if the loaded Rx hasn't declared `BaseUnits=`,
+because the OPD-in-BaseUnits → OPD-in-metres rescaling needs the CBM
+factor.  The error message tells the user to add a `BaseUnits=` line
+to the Rx header.
+
+`--rot-output base-per-rad` opt-in: post-multiplies rotation columns
+by `1/cbm` so they read OPD-in-BaseUnits per rad (e.g. mm/rad for a
+mm Rx).  Translation columns are unchanged.  Useful when you want
+rotation sensitivities displayed in the Rx's native length unit per
+radian.  group_W is computed in the SI/natural convention; the
+synthesis identity still holds for translation columns but not for
+the rescaled rotation columns (user divides by cbm to compare).
+
+`.mat` metadata fields:
+- `rot_output`: 'natural' or 'base-per-rad'
+- `base_units`: 'm', 'mm', 'cm', 'in' (the Rx's BaseUnits string)
+- `cbm`: BaseUnits→m conversion factor (e.g. 1e-3 for mm)
+
 ### dw/dx noise floor: where it comes from (and what doesn't help)
 
 For a collimated source on Rx_e5hex1.in at delta=1e-8, the

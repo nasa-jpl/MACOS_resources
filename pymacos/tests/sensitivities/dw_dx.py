@@ -100,6 +100,32 @@ def main(argv: list[str] | None = None) -> int:
                         "lateral EP motion that track relies on).  Pair "
                         "with --fp-mode=sxp for consistent EP handling "
                         "across both FP and upstream channels.")
+    p.add_argument("--rot-output",
+                   choices=("natural", "base-per-rad"),
+                   default="natural",
+                   help="output convention for rotation columns of "
+                        "dwdx.\n"
+                        "  natural (DEFAULT): every dwdx column is "
+                        "OPD-in-metres per SI perturbation.  Numerically "
+                        "this is the SAME matrix whether you think in "
+                        "(m, rad) or in (mm, mrad) for a mm Rx -- both "
+                        "OPD and perturbation rescale by the same factor.  "
+                        "Translation columns are dimensionless ratios "
+                        "(m/m = mm/mm).  Rotation columns are m/rad "
+                        "(= mm/mrad).\n"
+                        "  base-per-rad: rotation columns are post-"
+                        "multiplied by 1/cbm so they read OPD-in-Rx-"
+                        "BaseUnits per rad (e.g. mm/rad for a mm Rx).  "
+                        "Translation columns unchanged.  Use when you "
+                        "specifically want rotation sensitivity to be "
+                        "displayed in the Rx's native length unit per "
+                        "radian.\n"
+                        "Either way the Rx MUST declare BaseUnits in its "
+                        "header (CBM conversion factor needed for the "
+                        "OPD-in-BaseUnits -> OPD-in-metres rescaling); "
+                        "dw_dx errors out otherwise.  Stamps the units "
+                        "convention and the Rx's BaseUnits string into "
+                        "the saved .mat.")
     p.add_argument("--include-non-optics", action="store_true",
                    help="include Reference / Return surfaces in the "
                         "per-element rigid-body block (normally "
@@ -220,6 +246,25 @@ def main(argv: list[str] | None = None) -> int:
     wf_elt = (args.exit_pupil_elt if args.exit_pupil_elt is not None
               else n_elt - 1)
     print(f"[setup] nElt={n_elt}; wavefront evaluated at Elt {wf_elt}")
+
+    # --- BaseUnits sanity check + CBM lookup -------------------------
+    # CBM = BaseUnits-to-metres factor (e.g. 1e-3 for mm Rx).  Needed
+    # to convert macos's OPD output (BaseUnits) to metres so the saved
+    # dwdx matrix is in the universal (OPD-in-m / SI-perturbation)
+    # convention that matches both (m, rad) and (mm, mrad) thinking
+    # for free.  Errors out if the Rx didn't declare BaseUnits.
+    base_units, _wave_units = m.sys_units()
+    ok_cbm, cbm = m.lib.api.base_unit_to_metres()
+    cbm = float(cbm) if ok_cbm else 0.0
+    if base_units == "none" or cbm == 0.0:
+        raise SystemExit(
+            f"** {args.rx}: BaseUnits not declared (sys_units returned "
+            f"'{base_units}'; CBM unavailable).  Add a 'BaseUnits=' "
+            f"line to the Rx header (e.g. 'BaseUnits=  mm') so dw_dx "
+            f"can rescale OPD from BaseUnits to metres for the saved "
+            f"matrix.")
+    print(f"[setup] Rx BaseUnits = {base_units!r}, CBM = {cbm:g} m/BaseUnit; "
+          f"--rot-output={args.rot_output}")
 
     if args.stop_elt is not None:
         m.stop(int(args.stop_elt))
@@ -414,6 +459,25 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[m2v] mask: {Nw} non-zero pixels in {w_nom_2d.shape} OPD")
 
     # --- Jacobian (central differences in m2v-vector space) ----------
+    # Internal calcs in SI: channels take rotation in rad and
+    # translation in metres.  Per-column unit rescaling to the
+    # natural output convention (OPD: BaseUnits -> metres so that
+    # translation columns are dimensionless ratios; optional
+    # --rot-output base-per-rad on rotation columns) is applied
+    # inline so the printed RMS reflects what the user gets in the
+    # saved .mat.
+    def _output_scale(ch_) -> float:
+        # Translation: scale by cbm (OPD_BU * cbm = OPD_m, divided
+        # by dx_m gives the natural dimensionless ratio).
+        # Rotation, natural: scale by cbm too (OPD_m / dx_rad).
+        # Rotation, base-per-rad: leave as OPD_BU / dx_rad
+        # (multiply by 1.0).
+        if (hasattr(ch_, "dof_idx")
+                and 0 <= int(ch_.dof_idx) <= 2
+                and args.rot_output == "base-per-rad"):
+            return 1.0
+        return cbm
+
     dwdx = np.zeros((Nw, Nz), dtype=np.float64)
     names: list[str] = []
     for k, ch in enumerate(channels):
@@ -429,6 +493,7 @@ def main(argv: list[str] | None = None) -> int:
             w_plus = wf_func().flatten(order="F")[nz_flat]
             ch.restore()
             dwdx[:, k] = (w_plus - w_nom_vec) / args.delta
+        dwdx[:, k] *= _output_scale(ch)
         col_rms = float(np.sqrt(np.mean(dwdx[:, k] ** 2)))
         names.append(ch.name)
         print(f"[dwdx] {k+1:3d}/{Nz}  {ch.name:24s}  "
@@ -505,7 +570,9 @@ def main(argv: list[str] | None = None) -> int:
               n_src=n_src,
               group_W=group_W_list,
               group_member_dof_idx=group_member_dof_idx_list,
-              group_member_idx=group_member_idx_list)
+              group_member_idx=group_member_idx_list,
+              rot_output=args.rot_output,
+              base_units=base_units, cbm=cbm)
     print(f"[save] wrote {mat_path}  (dwdx shape {user_dwdx.shape})")
 
     # --- Plot ----------------------------------------------------------
@@ -553,7 +620,8 @@ def _save_mat(mat_path, dwdx, w_nom, indx, names, rx, delta, method,
               wf_elt, model_size, dof_labels, mat_shape, n_elt_actual,
               n_group, groups, n_src=0,
               group_W=None, group_member_dof_idx=None,
-              group_member_idx=None):
+              group_member_idx=None,
+              rot_output="natural", base_units="none", cbm=0.0):
     from scipy.io import savemat
 
     name_arr = np.empty(len(names), dtype=object)
@@ -615,6 +683,17 @@ def _save_mat(mat_path, dwdx, w_nom, indx, names, rx, delta, method,
         "method":        method,
         "wf_elt":        np.float64(wf_elt),
         "model_size":    np.float64(model_size),
+        # Unit convention metadata.  dwdx is scaled so that:
+        #  - translation columns are dimensionless OPD-in-m / dx-in-m
+        #    (which equals OPD-in-mm / dx-in-mm for a mm Rx, etc.);
+        #  - rotation columns are OPD-in-m / dx-in-rad in 'natural'
+        #    mode (equals OPD-in-mm / dx-in-mrad for a mm Rx).
+        # rot_output='base-per-rad' rescales rotation columns to
+        # OPD-in-BaseUnits / dx-in-rad (e.g. mm/rad).  Translation
+        # columns are unaffected by rot_output.
+        "rot_output":    rot_output,
+        "base_units":    base_units,    # 'm', 'mm', 'cm', 'in', or 'none'
+        "cbm":           np.float64(cbm),  # BaseUnits -> m factor
         "mat_shape":     np.array(mat_shape, dtype=np.float64).reshape(
                               -1, 1),
         "nGridPts":      np.float64(mat_shape[0]),
