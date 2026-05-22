@@ -1171,6 +1171,7 @@ def group_synthesis_matrix(
         members: Sequence[int],
         dofs: Sequence[int] | None = None,
         pivot_global: Sequence[float] | None = None,
+        units: str = "SI",
         ) -> np.ndarray:
     """Build the (N_rows, 6) weight matrix W that maps a global
     rigid-body 6-vector applied at ``pivot_global`` to per-element
@@ -1194,14 +1195,16 @@ def group_synthesis_matrix(
     where ``member_dofs`` is the list of dwdx column indices for the
     same (member, dof) order used to construct W.
 
-    Units: rotation rows are unitless (rad/rad); translation rows
-    coming from theta_g × offset are in METRES (per the
-    BaseUnits->m conversion applied to offsets), matching the
-    metres-per-translation column convention of RigidBodyChannel.
+    Units: rotation rows are unitless (rad/rad).  Translation rows
+    coming from theta_g × offset are in METRES (units='SI', for use
+    against per-element columns measured in OPD/m), or in the Rx's
+    BaseUnits (units='base', for OPD/BaseUnits columns).  Match the
+    convention used to build the dwdx matrix you'll multiply with.
 
     Args:
         macos:         pymacos.macos module (Rx loaded), used for
-                       elt_csys, elt_rpt, base_unit_to_metres.
+                       elt_csys, elt_rpt, and (only for units='SI')
+                       base_unit_to_metres.
         members:       member element IDs of the group.
         dofs:          subset of local DOFs to include per member
                        (default: all six, in 0..5 order matching
@@ -1209,6 +1212,12 @@ def group_synthesis_matrix(
         pivot_global:  global rotation pivot (3-vector, in macos
                        BaseUnits).  Default: RptElt of the first
                        member.
+        units:         'SI' (default) -- W's translation entries
+                       have units of metres, matching dwdx columns
+                       measured with m.perturb(translation_m=...).
+                       'base' -- W's translation entries in
+                       BaseUnits, matching dwdx columns measured
+                       with translation perturbations in BaseUnits.
 
     Returns:
         W:             (len(members)*len(dofs), 6) float64 ndarray.
@@ -1219,12 +1228,20 @@ def group_synthesis_matrix(
     if dofs is None:
         dofs = list(range(6))
     dofs = list(dofs)
+    if units not in ("SI", "base"):
+        raise ValueError(
+            f"group_synthesis_matrix: units must be 'SI' or 'base'; "
+            f"got {units!r}")
 
-    ok_cbm, cbm = macos.lib.api.base_unit_to_metres()
-    if not ok_cbm or cbm == 0.0:
-        raise Exception("group_synthesis_matrix: BaseUnits->m factor "
-                        "(CBM) unavailable")
-    base_to_m = float(cbm)
+    if units == "SI":
+        ok_cbm, cbm = macos.lib.api.base_unit_to_metres()
+        if not ok_cbm or cbm == 0.0:
+            raise Exception("group_synthesis_matrix: BaseUnits->m "
+                            "factor (CBM) unavailable")
+        base_to_m = float(cbm)         # offset BaseUnits -> metres
+    else:
+        # units='base': offset stays in BaseUnits, no conversion.
+        base_to_m = 1.0
 
     if pivot_global is None:
         pivot = np.asarray(macos.elt_rpt(members_i[0])).ravel()
