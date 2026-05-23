@@ -43,8 +43,9 @@ MACOS_BUILD_DIR :=
 
 ifneq ($(MACOS_BUILD_DIR),)
   SMACOS_OBJS := $(MACOS_BUILD_DIR)/mod_smacos
-  SMACOS_LIBS := $(MACOS_BUILD_DIR)/lib/libsmacos.a \
-                 $(MACOS_BUILD_DIR)/lib/libnpsol.a
+  # libnpsol.a removed by macos rem_npsol PR (Levenberg-Marquardt
+  # in nls_optim_dvr replaces NPSOL-based constrained-optim).
+  SMACOS_LIBS := $(MACOS_BUILD_DIR)/lib/libsmacos.a
 else
   SMACOS_OBJS := $(MACOS_DIR)/SMACOS_OBJS/$(ARCH)
   SMACOS_LIBS := $(SMACOS_OBJS)/smacos_lib.a
