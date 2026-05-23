@@ -543,3 +543,94 @@ ndarray for cellstr.
 - **dr-dev branch (merged via main?)**: Cycle 5 vortex coronagraph
   + oversized-rays scheme.  `apodize_complex` wrapper, FreeForm
   surface helpers (`findFreeFormElts`, the Mon/FFZern get/set pairs).
+
+## DM phase-imprint validation (Phase 6, May 2026)
+
+Two-part validation of how macos handles DM-like phase imprints,
+both in absolute (macos vs PROPER) and self-consistency (macos
+apodize_complex vs grid-surface) terms.
+
+### Phase 6b: post-trace phase imprint vs PROPER
+
+`tests/proper_compare/test_coro_dm_phase.py` runs three OPD shapes
+(defocus Z4, 5-cycle x-sinusoid, low-pass filtered noise at
+k_max=12 cycles/pupil-radius, all at lambda/20 RMS) through:
+
+  macos:  `m.apodize_complex(elt5, exp(i*2*pi*OPD/lambda))` + NF
+          propagation Elt 5 -> Elt 6
+  PROPER: same wavefront pre-imprint + `prop_add_phase(opd)` +
+          `prop_propagate` over the same 774 mm
+
+Result: **cos = +1.000000, sum-norm RMS residual 1.16e-9**, same
+Phase 3a numerical floor for all three OPD shapes.  The OPD shape
+doesn't matter at this floor -- both engines treat post-trace
+phase imprinting identically.
+
+### Phase 6c: macos self-consistency (post-trace vs grid-surface)
+
+`tests/proper_compare/test_coro_dm_grid_self.py` compares:
+
+  Method A: macos `m.apodize_complex` at Elt 5 -- post-trace
+  Method B: macos `m.elt_grid` at Elt 4 with `surface = OPD/2`
+            (reflector OPD = 2 * surface displacement) -- the
+            physically-correct ray-trace through the deformed
+            mirror
+
+Rx_Coro_DM.in is a copy of Rx_Coro_noLyot.in with Elt 4 changed to
+`Surface=FreeForm` carrying a grid surface.  Two detector planes
+(Elt 6 NF, Elt 21 focal) x three OPD shapes = six parameterised
+cases.
+
+**Key findings:**
+
+1. The post-trace method (A) and ray-trace method (B) **differ**.
+   The diff is NOT a numerical artifact -- bumping mGridMat from
+   128 to 1024 doesn't change defocus or sinusoid residuals.
+2. Smooth shapes (defocus, sinusoid): max residual at Elt 21 is
+   1.3e-3 (defocus) to 9.5e-3 (sinusoid) peak-normalised.  The
+   residual structure tracks the satellite-spot locations the
+   OPD's spatial frequency produces at the focal plane.
+3. High-freq content (filtered noise k_max=12): max residual
+   1.3e-2 at mGridMat=128, 8.7e-3 at mGridMat=1024 (the bump
+   helps).  The downstream grid spacing dx_at(21) also shifts
+   between methods (4% at 128, 2.5% at 1024).
+4. Therefore PROPER's `prop_add_phase` (and `prop_dm`, which uses
+   `prop_add_phase` internally) is a **post-trace approximation**
+   that systematically underestimates the diffractive coupling of
+   a deformed mirror by ~1e-4 at the focal plane.  For HWO ~1e-10
+   contrast targets this matters; for first-cut design at ~1e-6 it
+   doesn't.
+
+### elt_grid convention gotcha
+
+`m.elt_grid(srf, dx, grid_dz)` in `src/pymacos/macos.py` transposes
+its input array before handing to Fortran:
+
+    grid_dz = np.asarray_chkfinite(grid_dz.T, dtype=np.float64, order='F')
+
+while `m.apodize_complex(srf, mask)` does NOT transpose.  Result: an
+OPD array `arr[i, j]` is interpreted as `(y, x)` by apodize_complex
+and as `(x, y)` by elt_grid.  Symptom: focal-plane satellite spots
+appear 90 rotated between the two methods for asymmetric OPD shapes.
+
+Workaround in `test_coro_dm_grid_self.py`: pass `opd_surface.T` to
+`elt_grid()` so both methods see the same logical convention.  The
+"right" fix is to remove the transpose in `macos.py` so both
+wrappers agree (deferred -- callers that already rely on the
+current convention would break).
+
+### mGridMat=1024 for model 1024
+
+`src/pymacos/macos_param.txt` and `tests/macos_param.txt`: bumped
+`mGridMat` in the `&macos_param1024` block from 128 to 1024 so the
+grid-surface DM can match the WFElt sampling 1:1.  No source-code
+recompile needed -- `mGridMat` is a runtime allocation parameter.
+
+### Rx_Coro_DM.in
+
+Copy of Rx_Coro_noLyot.in with Elt 4 (the "DM" flat reflector)
+changed from `Surface=Flat` to `Surface=FreeForm` with
+`nGridMat=1024 GridSrfdx=0.33382 mm` and trivial pData/xData/yData/
+zData orienting the grid frame to the global frame.  The grid is
+zero-initialised; the test populates it at runtime via
+`m.elt_grid(4, dx, surface)`.

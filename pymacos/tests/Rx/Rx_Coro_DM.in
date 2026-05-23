@@ -1,0 +1,435 @@
+
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  1.0E+02
+          zSource=-1.0E+02
+
+        BaseUnits=  mm
+        WaveUnits=  mm
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=8.5E-04
+             Flux=1.0E+00
+
+         Aperture=2.2E-01
+         Obscratn=0.0E+00
+
+         GridType=  Square
+         nGridpts=  511
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  21
+
+
+             iElt=  1
+          EltName=  1stOAP
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-1.548E+03
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  7.74E+02
+           RptElt=  0.0E+00  0.0E+00  7.74E+02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  -1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  4.266E+01  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.548E+03
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Prop_1_start
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  7.74E+02
+           RptElt=  0.0E+00  0.0E+00  7.74E+02
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NFPlane
+             zElt=-7.74E+02
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Prop_1_end
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  4
+          EltName=  DM
+          Element=  Reflector
+          Surface=  FreeForm
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+         nGridMat=  1024
+        GridSrfdx=  3.3382E-01
+            pData=  0.0E+00  0.0E+00  0.0E+00
+            xData=  1.0E+00  0.0E+00  0.0E+00
+            yData=  0.0E+00  1.0E+00  0.0E+00
+            zData=  0.0E+00  0.0E+00  1.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  2.1E+01  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  5
+          EltName=  Prop_2_start
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NFPlane
+             zElt=-7.74E+02
+          nECoord= -6
+
+             iElt=  6
+          EltName=  Prop_2_end
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  7.74E+02
+           RptElt=  0.0E+00  0.0E+00  7.74E+02
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  7
+          EltName=  2ndOAP
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-1.548E+03
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  7.74E+02
+           RptElt=  0.0E+00  0.0E+00  7.74E+02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  -1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  4.445E+01  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.548E+03
+          nECoord= -6
+
+             iElt=  8
+          EltName=  1stPropStart
+          Element=  Reference
+          Surface=  Conic
+            KrElt=-7.74E+02
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  7.74E+02
+           RptElt=  0.0E+00  0.0E+00  7.74E+02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NF1
+             zElt=7.74E+02
+          nECoord= -6
+
+             iElt=  9
+          EltName=  CorMask
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NF2
+             zElt=-7.74E+02
+          nECoord= -6
+
+             iElt=  10
+          EltName=  1stPropEnd
+          Element=  Return
+          Surface=  Conic
+            KrElt=-7.74E+02
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -7.74E+02
+           RptElt=  0.0E+00  0.0E+00  -7.74E+02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=-7.74E+02
+          nECoord= -6
+
+             iElt=  11
+          EltName=  CorMaskReturn
+          Element=  Return
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=-1.0E+22
+          nECoord= -6
+
+             iElt=  12
+          EltName=  3rdOAP
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-1.548E+03
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -7.74E+02
+           RptElt=  0.0E+00  0.0E+00  -7.74E+02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  4.445E+01  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=7.74E+02
+          nECoord= -6
+
+             iElt=  13
+          EltName=  Prop_1_start
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -7.74E+02
+           RptElt=  0.0E+00  0.0E+00  -7.74E+02
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NFPlane
+             zElt=-7.74E+02
+          nECoord= -6
+
+             iElt=  14
+          EltName=  LyotStop
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  15
+          EltName=  4thOAP
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-1.548E+03
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  7.74E+02
+           RptElt=  0.0E+00  0.0E+00  7.74E+02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=7.74E+02
+          nECoord= -6
+
+             iElt=  16
+          EltName=  IntImg
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  17
+          EltName=  5thOAP
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-3.142E+02
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.571E+02
+           RptElt=  0.0E+00  0.0E+00  -1.571E+02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=3.142E+02
+          nECoord= -6
+
+             iElt=  18
+          EltName=  6thOAP
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-9.514E+02
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  4.757E+02
+           RptElt=  0.0E+00  0.0E+00  4.757E+02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=4.757E+02
+          nECoord= -6
+
+             iElt=  19
+          EltName=  FocalPlane
+          Element=  Return
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  20
+          EltName=  ExitPupil
+          Element=  Return
+          Surface=  Conic
+            KrElt=-9.514E+02
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  9.514E+02
+           RptElt=  0.0E+00  0.0E+00  9.514E+02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  FarField
+             zElt=-9.514E+02
+          nECoord= -6
+
+             iElt=  21
+          EltName=  FocalPlane
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

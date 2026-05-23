@@ -20,10 +20,10 @@ mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32,
 mUDScoef=4000/
 
 &macos_param1024
-mElt=100, mpts=1024, bRay=500, mWF=3, 
-mIntSrf=10, mDP=255, mDrawRay=101, mObs=20, 
+mElt=100, mpts=1024, bRay=500, mWF=3,
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20,
 mWavelen=10, mStarType=7, mSegMirs=2, mGridSrf=100,
-mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32, 
+mGridMat=1024, mGlass=250, mCplxObs=2, mObsMat=32,
 mUDScoef=4000/
 
 &macos_param2048

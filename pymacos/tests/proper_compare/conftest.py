@@ -144,6 +144,7 @@ def _make_results_fixture(subdir: str):
 results_dir_phase1 = _make_results_fixture("results_phase1")
 results_dir_phase2 = _make_results_fixture("results_phase2")
 results_dir_phase3 = _make_results_fixture("results_phase3")
+results_dir_phase6 = _make_results_fixture("results_phase6")
 
 # Backwards-compat alias: legacy `results_dir` fixture continues to
 # resolve to the Phase-2 directory (the current active phase).  New
