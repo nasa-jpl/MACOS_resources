@@ -91,6 +91,25 @@ def main(argv: list[str] | None = None) -> int:
               else n_elt - 1)
     print(f"[setup] nElt={n_elt}; wavefront evaluated at Elt {wf_elt}")
 
+    # --- BaseUnits sanity check (consistent with dw_dx.py) ----------
+    # The Zernike-coefficient dwdz matrix is naturally in OPD-in-
+    # BaseUnits per coef-in-BaseUnits (a dimensionless ratio), but we
+    # still REQUIRE the Rx to declare BaseUnits so the saved .mat can
+    # stamp the unit context for downstream tools.  Stays consistent
+    # with the dw_dx.py policy of failing early if BaseUnits is
+    # absent.
+    base_units, _wave_units = m.sys_units()
+    ok_cbm, cbm = m.lib.api.base_unit_to_metres()
+    cbm = float(cbm) if ok_cbm else 0.0
+    if base_units == "none" or cbm == 0.0:
+        raise SystemExit(
+            f"** {args.rx}: BaseUnits not declared (sys_units returned "
+            f"'{base_units}'; CBM unavailable).  Add a 'BaseUnits=' "
+            f"line to the Rx header so the saved .mat can record the "
+            f"unit convention.")
+    print(f"[setup] Rx BaseUnits = {base_units!r}, CBM = {cbm:g} m/BaseUnit"
+          f"  (dwdz is dimensionless: OPD_BU / coef_BU)")
+
     requested_kinds = {k.strip().lower() for k in args.kinds.split(",")}
     unknown = requested_kinds - {"monzern", "ffzern", "zern"}
     if unknown:
@@ -183,7 +202,8 @@ def main(argv: list[str] | None = None) -> int:
     _save_mat(mat_path, dwdz, w_nom_vec, indx, names,
               args.rx, args.delta, args.method, wf_elt,
               args.model_size, args.zmode_start, args.n_zcoef,
-              sorted(requested_kinds), w_nom_2d.shape)
+              sorted(requested_kinds), w_nom_2d.shape,
+              base_units=base_units, cbm=cbm)
     print(f"[save] wrote {mat_path}  (dwdz shape {dwdz.shape})")
 
     # --- Plot ----------------------------------------------------------
@@ -235,7 +255,8 @@ def _m2v_first_call(mat: np.ndarray) -> tuple[dict, np.ndarray, np.ndarray]:
 # ---------------------------------------------------------------------------
 
 def _save_mat(mat_path, dwdz, w_nom, indx, names, rx, delta, method,
-              wf_elt, model_size, zmode_start, n_zcoef, kinds, mat_shape):
+              wf_elt, model_size, zmode_start, n_zcoef, kinds, mat_shape,
+              base_units="none", cbm=0.0):
     from scipy.io import savemat
 
     # MATLAB cellstr -> savemat wants an object ndarray of strings.
@@ -265,6 +286,14 @@ def _save_mat(mat_path, dwdz, w_nom, indx, names, rx, delta, method,
         # Convenience for verify_dwdz.m's pad(..., nGridPts) call;
         # equals mat_shape(1) since macos's OPD grid is always square.
         "nGridPts":      np.float64(mat_shape[0]),
+        # Unit convention metadata, matching dw_dx.py's .mat fields.
+        # dwdz here is naturally a dimensionless ratio (OPD-in-BaseUnits
+        # per coef-in-BaseUnits, both fed through macos in BaseUnits),
+        # so unlike dw_dx no rescaling is performed -- 'natural' is
+        # the only available convention.
+        "rot_output":    "natural",
+        "base_units":    base_units,    # 'm', 'mm', 'cm', 'in'
+        "cbm":           np.float64(cbm),  # BaseUnits -> m factor
     }, do_compression=True, oned_as="column")
 
 

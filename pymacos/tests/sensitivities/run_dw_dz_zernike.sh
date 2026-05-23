@@ -51,5 +51,8 @@ source "$ONEAPI_SETVARS" --force >/dev/null 2>&1
 # shellcheck disable=SC1090
 source "$VENV_ACT"
 
-cd "$TESTS_DIR"
-exec python3 -m sensitivities.dw_dz_zernike "$@"
+# Use PYTHONPATH so the `sensitivities` package resolves WITHOUT
+# cd-ing into TESTS_DIR -- otherwise relative paths the user passed
+# (e.g. `--rx ../Rx/foo.in`) would resolve against the wrong cwd.
+exec env PYTHONPATH="$TESTS_DIR${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 -m sensitivities.dw_dz_zernike "$@"
