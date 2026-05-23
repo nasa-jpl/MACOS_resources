@@ -283,37 +283,104 @@ RptElt(Elt 1)=(0,0,0)):
 - Rz, Tx/Ty/Tz: both sides at noise floor; differences are
   noise-vs-noise.
 
-### Group synthesis weights in the .mat output
+### What's in `group_W`
 
-`group_synthesis_matrix(macos, members, dofs, pivot)` returns the
-weight matrix `W` of shape (n_members * n_dof, 6) such that
-    dwdx_group_pred[:, dof_g] = dwdx_perelt[:, member_dofs] @ W[:, dof_g]
-Rows are ordered ELEMENT-MAJOR, DOF-MINOR; columns are 0..5 =
-global (Rx, Ry, Rz, Tx, Ty, Tz).  Rotation rows are unitless
-(rad/rad); translation rows from theta × offset are in metres.
+`group_W` is the **rigid-body kinematics matrix** that maps a unit
+global rigid-body perturbation to the per-member local-frame
+perturbations it induces.  Cell array in the saved .mat: one entry
+per group, parallel to `group_names`.
 
-`dw_dx.py` computes W per group (pivot = `RptElt(first member)`,
-i.e. the GPERTURB default) and writes three cell arrays to the
-.mat for MATLAB-side consistency-checking workflows:
+**Shape**: `(N_members * n_dof, 6)`.  For a 13-member group with
+all 6 DOFs requested: `(78, 6)`.
 
-- `group_W{k}`               -- (N_rows, 6) weight matrix
+**Rows** are ordered **element-major, DOF-minor** -- same order as
+the per-element block of `dwdx`.  Row index `(member_i, local_dof_j)
+= i * n_dof + j`.  The companion `group_member_dof_idx{k}` gives
+the 1-based column indices into `dwdx` for the same (member,
+local_dof) order, so MATLAB can directly slice
+`dwdx(:, cols) * W`.
+
+**Columns** are the 6 global rigid-body DOFs in canonical order:
+`(Rx, Ry, Rz, Tx, Ty, Tz)`.  Always 6, regardless of `--dofs`.
+
+**Each entry** is the per-member local-frame perturbation
+experienced under a unit global rigid-body perturbation.  For a
+unit global rotation `θ̂_g` about global axis g, member m at offset
+`p_m` from the group pivot P, with local-to-global rotation `R_m`:
+
+  `W[(m, Rx_loc..Rz_loc), g] = R_m^T @ θ̂_g`       (rad/rad, unitless)
+  `W[(m, Tx_loc..Tz_loc), g] = R_m^T @ (θ̂_g × (p_m − P))`   (metres)
+
+For a unit global translation `T̂_g`:
+
+  `W[(m, Rx_loc..Rz_loc), g] = 0`                  (translation makes no rotation)
+  `W[(m, Tx_loc..Tz_loc), g] = R_m^T @ T̂_g`        (m/m, unitless)
+
+**Example** (Rx_e5hex1.in Grp[all]=[1..13], global Rx column):
+```
+member       Rx          Ry          Rz          Tx          Ty          Tz
+Elt 1   +8.66e-01   -5.00e-01   +0          +0          +0          +0
+Elt 2   +8.66e-01   -5.00e-01   -2.59e-02   +6.90e-02   +4.01e-05   +2.31e+00
+```
+Reading Elt 1: a unit global Rx rotation shows up as 0.866 local-Rx
++ −0.500 local-Ry (Elt 1's frame is rotated 30° about z relative to
+global → `cos(30°)/sin(30°)` mix), and zero local translation
+because Elt 1's RptElt sits at the pivot.  Reading Elt 2: same
+rotation mix (segments share local frame), plus 2.31 m of local-Tz
+translation because Elt 2 is offset from the pivot by ~70 mm and
+the rotation about global-x folds into local-z via R_m^T.
+
+**Units**: `group_W` is in SI -- rotation rows unitless,
+translation rows in metres.  Independent of the `--rot-output`
+choice for `dwdx`.
+
+  - In `--rot-output natural` (default): `dwdx` is in OPD-in-m per
+    SI perturbation, W matches it, identity holds exactly.
+  - In `--rot-output base-per-rad`: rotation columns of `dwdx` get
+    an extra `1/cbm` scaling that W doesn't know about.  The
+    identity holds for translation columns only; for rotation
+    columns the user must divide the saved column by `cbm` before
+    comparing.
+
+**Three uses** of W -- all from
+`dwdx_group[:, g] = dwdx_perelt[:, cols] @ W[:, g]`:
+
+1. **Consistency check** on a measured Jacobian.  Mismatch in one
+   row localizes the bad member's per-element column.  Validated
+   on Rx_e5hex1.in: `cos = +1.000000`, residual 1e-5 on Rx,Ry.
+2. **Predict the response of a different rigid-body group**
+   without re-running pymacos: build a new W with different
+   members or a different pivot, multiply against the same per-
+   element columns.
+3. **Decompose a group response** into per-member contributions:
+   each row of `W[:, g]` tells you which member-DOF carries how
+   much of the load for global DOF g.
+
+### `.mat` fields for group synthesis
+
+`dw_dx.py` writes three parallel cell arrays per group:
+
+- `group_W{k}`               -- (N_rows, 6) weight matrix per above
 - `group_member_dof_idx{k}`  -- (N_rows, 1) 1-based column indices
                                  into `dwdx` for the corresponding
                                  (member, local_dof) entries
 - `group_member_idx{k}`      -- (N_members, 1) member element IDs
 
 MATLAB usage:
-    cols = group_member_dof_idx{k};
-    dwdx_pred = dwdx(:, cols) * group_W{k};        % (Nw, 6)
-    dwdx_meas = dwdx(:, find_group_columns(k));    % from channel_names
-    residual  = dwdx_pred - dwdx_meas;             % near machine noise
-                                                   % on physically-
-                                                   % well-conditioned DOFs
+```matlab
+cols      = group_member_dof_idx{k};
+dwdx_pred = dwdx(:, cols) * group_W{k};        % (Nw, 6)
+dwdx_meas = dwdx(:, find_group_columns(k));    % from channel_names
+residual  = dwdx_pred - dwdx_meas;             % near machine noise on
+                                               % physically well-conditioned DOFs
+```
 
-Useful for diagnosing per-element column bugs (mismatch in one
-W^T * dwdx_perelt row vs the measured group column localizes the
-broken member), and for predicting the response of arbitrary
-rigid-body perturbations without re-running pymacos.
+The default pivot used to build each `group_W{k}` is
+`RptElt(first member)` -- i.e. the same pivot macos's GPERTURB
+uses when the channel's `ref_elt` is the first member.  If you
+re-build W in post-processing with a different pivot, you can
+predict the same group's response about that alternative pivot
+without re-running pymacos.
 
 ### dwdx units: the "natural" output convention
 
