@@ -420,6 +420,14 @@ the rescaled rotation columns (user divides by cbm to compare).
 - `base_units`: 'm', 'mm', 'cm', 'in' (the Rx's BaseUnits string)
 - `cbm`: BaseUnits→m conversion factor (e.g. 1e-3 for mm)
 
+The Zernike driver `dw_dz_zernike.py` stamps the same three metadata
+fields, but its dwdz is naturally a dimensionless ratio
+(OPD-in-BaseUnits per coef-in-BaseUnits, both fed through macos in
+BaseUnits) so no rescaling is applied -- `rot_output` is always
+`'natural'` there.  The BaseUnits requirement still holds (the
+driver errors out if `BaseUnits=` is missing from the Rx) so the
+.mat carries the unit context consistently with the dw_dx .mat.
+
 ### dw/dx noise floor: where it comes from (and what doesn't help)
 
 For a collimated source on Rx_e5hex1.in at delta=1e-8, the
