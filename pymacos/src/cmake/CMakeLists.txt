@@ -124,18 +124,13 @@ set(macos_lib_dir "${cmake_source_parent_dir}/macos/cmake/build/libs")
 
 
 # ------------------------------------------------------- SMACOS dependent libs
+# NPSOL / blaslib / lapacklib removed by macos rem_npsol PR
+# (compatible with macos release-candidate branch).  libsmacos.a is
+# now self-contained for the symbols pymacos needs.
 if(WINx64)
-  set(SMACOS_Libs
-        ${macos_lib_dir}/blaslib.lib
-        ${macos_lib_dir}/lapacklib.lib
-        ${macos_lib_dir}/npsol.lib
-        ${macos_lib_dir}/smacos.lib)
+  set(SMACOS_Libs ${macos_lib_dir}/smacos.lib)
 else()
-  set(SMACOS_Libs
-        ${macos_lib_dir}/libsmacos.a
-        ${macos_lib_dir}/libnpsol.a
-        ${macos_lib_dir}/libblaslib.a
-        ${macos_lib_dir}/liblapacklib.a)
+  set(SMACOS_Libs ${macos_lib_dir}/libsmacos.a)
 endif()
 
 # ------------------------------------------------------- Fortran Flags
