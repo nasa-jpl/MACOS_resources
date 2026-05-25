@@ -61,7 +61,7 @@ APP      := GMI
 MEX_NAME := $(APP)
 
 # Compiler flags (shared between GMI.F and GMIG.F)
-FFLAGS := -check all -traceback -fstack-protector \
+FFLAGS := -traceback -fstack-protector \
           -fPIC -fpp -132 -gen-interfaces -fp-model strict \
           -fno-omit-frame-pointer -nologo \
           -O2 -xHOST \
@@ -70,7 +70,11 @@ FFLAGS := -check all -traceback -fstack-protector \
           -module $(SMACOS_OBJS)
 
 # Linker flags — embed Intel RPATH so MATLAB can load without setvars.sh
-LDFLAGS := -check all -traceback -fstack-protector \
+# (-check all removed from both FFLAGS and LDFLAGS: it pulls in ifx's
+# fsanitize=memory which SIGSEGVs in the mex cleanup path under
+# MATLAB on the release-candidate build.  Re-enable when investigating
+# specific runtime issues.)
+LDFLAGS := -traceback -fstack-protector \
            -O -shared-intel -shared \
            -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
            -Wl,--no-undefined \
