@@ -763,11 +763,11 @@ C  Run parameters
 
             ifOPDCalc = (INT(ifOPD).NE.9999)
 
-	    ifPIXElt=pflg(26)
-	    ifMetCalc=pflg(27)
-	    ifSpfCalc=pflg(28)
+	    ifPIXElt=INT(pflg(26))
+	    ifMetCalc=(INT(pflg(27)).EQ.1)
+	    ifSpfCalc=(INT(pflg(28)).EQ.1)
 
-            ifRetUserSrf=pflg(29) 
+            ifRetUserSrf=INT(pflg(29))
 	
             ipflg = 30
 
