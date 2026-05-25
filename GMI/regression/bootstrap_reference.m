@@ -33,10 +33,13 @@ save(fullfile(ref_dir, 'nominal_optiix.mat'), 'OPDnom');
 fprintf('  -> reference/nominal_optiix.mat  (OPDnom RMS=%.3e)\n', ...
         sqrt(mean(OPDnom(OPDnom~=0).^2)));
 
-% Optiix Z4 response: temporarily skipped -- the Zernike-channel
-% apply path SIGSEGVs the MATLAB process on the release-candidate
-% build.  Re-enable when the mex is fixed.
-if false
+% Optiix Z4 response: now produces a real perturbation -- the
+% Zernike-apply path was silently no-op'ing because the optiix Rx
+% used legacy "Malacara" naming (unrecognized by ParseZernType,
+% leaving ZernTypeL=0 and trace dispatch falling through).  Fixed
+% by (1) GMI.F forcing ZernTypeL=1 when SrfType=8 is set, and
+% (2) ParseZernType accepting "Malacara" as ANSI alias.
+if true
     fprintf('[bootstrap] Optiix Z4 response on Elt 4\n');
     p.zernSrf = [4];
     pz_loc = zeros(length(p.zernSrf) * p.mzern, 1);
@@ -50,7 +53,7 @@ if false
             max(abs(dOPD(:))));
 end
 
-% --- e5hex1: nominal only (Z4 response disabled, see above) ---
+% --- e5hex1: nominal + Z4 response on Elt 8 ---
 fprintf('\n[bootstrap] e5hex1 nominal\n');
 [p, prb, pz, pg, IZ, IG] = init_e5hex1();
 clear mex;
@@ -59,7 +62,7 @@ save(fullfile(ref_dir, 'nominal_e5hex1.mat'), 'OPDnom');
 fprintf('  -> reference/nominal_e5hex1.mat  (OPDnom RMS=%.3e)\n', ...
         sqrt(mean(OPDnom(OPDnom~=0).^2)));
 
-if false
+if true
     fprintf('[bootstrap] e5hex1 Z4 response on Elt 8\n');
     p.zernSrf = [8];
     pz_loc = zeros(length(p.zernSrf) * p.mzern, 1);
