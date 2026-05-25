@@ -5,19 +5,25 @@ classes.  Each test loads a known Rx, calls the mex via the standard
 `call_GMI.m` entry point, and compares the result against a committed
 `.mat` reference.
 
-> **Current GMI state (2026-05-24):** GMI's work computes correctly --
-> all `call_GMI` invocations return the right answers and the
-> regression suite passes -- but MATLAB SIGSEGVs at process-exit
-> teardown (after `quit` has fired and every `.m` script has
-> returned).  Suspected Fortran-module finalizer in libsmacos.a
-> tripping on second mex-unload.  Cosmetic for batch + interactive
-> use: results are written before the crash; the user just sees
-> MATLAB die loudly on its way out.
+> **GMI build choice (2026-05-24):** GMI builds with either ifx or
+> gfortran.  Both pass all six regression tests with bit-identical
+> numeric results.  They differ at MATLAB process exit:
 >
-> Because of this `run_regression.sh` can't trust MATLAB's exit
-> code, so the success gate is "did the script print its
-> completion marker before MATLAB died?"  Drop the marker-based
-> gate and trust the exit code once the finalizer bug is fixed.
+> - **gfortran (recommended):** clean exit, code 0, no SIGSEGV.
+>   Build via `source ~/dev/macos/makegfortran.sh release` -- the
+>   mex lands at `build_release_gfortran/lib/GMI.mexa64`.
+> - **ifx:** MATLAB SIGSEGVs at process-exit teardown *after* the
+>   summary has printed and every `.m` script has returned.
+>   Suspected Fortran-module finalizer in libsmacos.a tripping on
+>   second mex-unload.  Cosmetic for batch + interactive use:
+>   results are written before the crash; the user just sees
+>   MATLAB die loudly on its way out.  Build via
+>   `source ~/dev/macos/makegmi.sh` (uses the standalone Makefile).
+>
+> `run_regression.sh`'s success gate is "did the script print its
+> completion marker before MATLAB died?" rather than the exit code,
+> so it works under both compilers.  Drop the marker gate and trust
+> the exit code if you've standardized on the gfortran build.
 
 ## Run
 
@@ -78,10 +84,13 @@ regression/
 
 The summary table tells you which test + the max |diff| vs reference.
 
-- **All tests fail with mex error**: rebuild GMI.  `source ~/dev/macos/makegmi.sh`.
+- **All tests fail with mex error**: rebuild GMI.  `source ~/dev/macos/makegmi.sh` (ifx) or `source ~/dev/macos/makegfortran.sh` (gfortran).
 - **Just `nominal_repro_*` fails (round-trip non-zero)**: state-drift bug; check `ObtainNominalSettings` / `SetToNominalSettings` in `GMI.F` for fields not being snapshotted (e.g., the FreeForm `pFF/xFF/yFF/zFF` class of fix).
 - **All tests fail with `vs reference`**: an intentional change has shifted the numbers.  Inspect the diff, regenerate via `./run_regression.sh --bootstrap`, commit the new `reference/*.mat`.
-- **One specific `*_response_*` fails**: the perturbation-apply path for that channel is broken.
+- **`zern_response_*` fails with "perturbation produced zero response"**: GMI is forcing `SrfType=8` on the perturbed element but the trace dispatch in `propsub.F` is silently no-op'ing.  Two known root causes (both fixed on release-candidate, watch for regression):
+  - `ZernTypeL(iElt)=0` at the apply site — GMI must set a non-zero default when forcing SrfType=8 (see `GMI.F` ~line 1066).
+  - Rx uses legacy "Malacara" naming that `ParseZernType` no longer recognizes — see the `Mala`-prefix alias in `elt_mod.F` ParseZernType.
+- **One specific `*_response_*` fails with `vs reference`**: numeric drift in the perturbation-apply path.
 
 ## Adding a test
 

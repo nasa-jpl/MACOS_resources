@@ -1059,6 +1059,14 @@ C  Run parameters
 		IF (MsgsOn)
      &		  WRITE(P,*)'zern app. to zernSrf ',iSeg,', Elt ',iElt
 		SrfType(iElt)=8
+		! ZernTypeL governs the mode ordering ZerntoMon dispatches
+		! to (propsub.F:230 etc).  If the Rx didn't set it -- either
+		! because the original surface wasn't Zernike-typed or the
+		! Rx used a legacy typename ParseZernType doesn't know --
+		! it'll be 0 here, and the trace-time dispatch falls
+		! through silently, producing zero perturbation.  Force a
+		! default that matches ChkDf2's behaviour (ANSI/Malacara).
+		IF (ZernTypeL(iElt).EQ.0) ZernTypeL(iElt)=1
 		DO iNode=4,nzern+3   ! skip tip, tilt, piston
 		  k=k+1
 		  ZernCoef(iNode,iElt)=pzern(k)

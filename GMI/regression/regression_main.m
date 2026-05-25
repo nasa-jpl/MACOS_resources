@@ -38,19 +38,13 @@ end
 cd(fullfile(here, 'Rx'));
 
 % --- Run all tests ---
-% Tests 03 and 06 (Zernike-channel response) are temporarily
-% disabled: on the release-candidate build the second call_GMI
-% invocation with a non-empty param.zernSrf SIGSEGVs the MATLAB
-% process (not catchable by try/catch).  Re-enable once the mex
-% Zernike-apply path is fixed.  The test files remain in tests/
-% so the fix-and-re-enable is a one-line uncomment + bootstrap.
 tests = {
     @test01_smoke_optiix
     @test02_nominal_repro_optiix
-    % @test03_zern_response_optiix
+    @test03_zern_response_optiix
     @test04_smoke_e5hex1
     @test05_nominal_repro_e5hex1
-    % @test06_zern_response_e5hex1
+    @test06_zern_response_e5hex1
 };
 
 n = length(tests);
@@ -83,8 +77,10 @@ end
 fprintf('=== summary: %d passed, %d failed (of %d) ===\n', n_pass, n_fail, n);
 
 % quit force (rather than exit) skips MATLAB's mex-cleanup
-% finalization, which currently SIGSEGVs in GMI.mexa64 on the
-% release-candidate build.  Re-evaluate when the mex is fixed.
+% finalization.  Needed for the ifx-built mex (which SIGSEGVs at
+% exit teardown -- suspected Fortran-module finalizer on second mex
+% unload).  Harmless for the gfortran build, which exits cleanly
+% either way.
 if n_fail > 0
     quit(1, 'force');
 end
