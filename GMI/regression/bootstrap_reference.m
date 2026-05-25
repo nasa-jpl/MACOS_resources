@@ -77,4 +77,4 @@ if true
 end
 
 fprintf('\n[bootstrap] done.  Inspect reference/*.mat, then commit.\n');
-quit force;
+quit;

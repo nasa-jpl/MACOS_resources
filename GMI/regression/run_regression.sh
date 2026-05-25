@@ -25,41 +25,35 @@ fi
 # The mex file lives one level up; addpath via the entry script.
 cd "$HERE"
 
-# NOTE on the exit-code gate.  The current GMI.mexa64 SIGSEGVs in
-# MATLAB's mex-cleanup phase at process exit -- AFTER every script
-# call has returned and the user's `quit` has fired.  All work
-# completes correctly; only MATLAB's teardown hits the bug
-# (suspected Fortran-module finalizer in libsmacos.a tripping on
-# second unload).  So we can't trust the exit code: a clean run
-# still exits non-zero.  Gate is "did the script print its explicit
-# completion marker before MATLAB died?"  Drop this gate and trust
-# the exit code once the finalizer bug is fixed.
+# Both supported GMI builds (gfortran default; ifx via FC=ifx with
+# -reentrancy=none in the Makefile) now exit MATLAB cleanly, so we
+# trust the exit code directly.  History: a previous marker-based
+# gate compensated for the libifcoremt thread-pool SIGSEGV that the
+# ifx-built mex hit at MATLAB process exit; resolved by linking the
+# single-threaded libifcore variant.  See GMI/Makefile for the
+# back-story.
 
 if [ "${1:-}" = "--bootstrap" ]; then
     echo "Bootstrapping reference .mat files (committing CURRENT behavior as ground truth)"
-    out="$("$MATLAB_BIN" -batch "bootstrap_reference" 2>&1)" || true
-    echo "$out" | tail -8
-    if echo "$out" | grep -q '\[bootstrap\] done\.'; then
+    "$MATLAB_BIN" -batch "bootstrap_reference"
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
         echo
         echo "Reference .mat files written to ./reference/"
         echo "Review the diff, commit if intended."
         exit 0
     fi
-    echo "FAILED: bootstrap did not reach completion marker"
-    exit 1
+    echo "FAILED: bootstrap exited non-zero ($rc)"
+    exit "$rc"
 fi
 
-out="$("$MATLAB_BIN" -batch "regression_main" 2>&1)" || true
-echo "$out" | tail -40
-if ! echo "$out" | grep -q '=== summary:'; then
-    echo "FAILED: suite did not reach summary marker"
-    exit 1
-fi
-# Summary line format: "=== summary: N passed, M failed (of K) ==="
-if echo "$out" | grep -qE '=== summary: [0-9]+ passed, 0 failed'; then
+"$MATLAB_BIN" -batch "regression_main"
+rc=$?
+if [ "$rc" -eq 0 ]; then
     echo
     echo "All GMI regression tests passed."
     exit 0
 fi
-echo "FAILED: one or more regression tests did not pass"
-exit 1
+echo
+echo "FAILED: regression suite exited non-zero ($rc)"
+exit "$rc"

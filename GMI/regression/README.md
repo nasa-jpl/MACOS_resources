@@ -5,25 +5,22 @@ classes.  Each test loads a known Rx, calls the mex via the standard
 `call_GMI.m` entry point, and compares the result against a committed
 `.mat` reference.
 
-> **GMI build choice (2026-05-24):** GMI builds with either ifx or
+> **GMI build choice (2026-05-25):** GMI builds with either ifx or
 > gfortran.  Both pass all six regression tests with bit-identical
-> numeric results.  They differ at MATLAB process exit:
+> numeric results, both exit MATLAB cleanly, and `run_regression.sh`
+> trusts the exit code directly.
 >
-> - **gfortran (recommended):** clean exit, code 0, no SIGSEGV.
->   Build via `source ~/dev/macos/makegfortran.sh release` -- the
->   mex lands at `build_release_gfortran/lib/GMI.mexa64`.
-> - **ifx:** MATLAB SIGSEGVs at process-exit teardown *after* the
->   summary has printed and every `.m` script has returned.
->   Suspected Fortran-module finalizer in libsmacos.a tripping on
->   second mex-unload.  Cosmetic for batch + interactive use:
->   results are written before the crash; the user just sees
->   MATLAB die loudly on its way out.  Build via
->   `source ~/dev/macos/makegmi.sh` (uses the standalone Makefile).
->
-> `run_regression.sh`'s success gate is "did the script print its
-> completion marker before MATLAB died?" rather than the exit code,
-> so it works under both compilers.  Drop the marker gate and trust
-> the exit code if you've standardized on the gfortran build.
+> - **gfortran (default):** `source ~/dev/macos/makegmi.sh`.  Mex at
+>   `~/dev/MACOS_resources/GMI/GMI.mexa64`.  Requires
+>   `build_release_gfortran/` from `makegfortran.sh release` first.
+> - **ifx:** `source ~/dev/macos/makegmi.sh ifx`.  Requires
+>   `build_release/` from `makems.sh release` first.  GMI/Makefile
+>   links the single-threaded Intel runtime (`-reentrancy=none`,
+>   pulls in `libifcore.so.5` instead of `libifcoremt.so.5`); the
+>   default multi-threaded variant kept worker threads alive across
+>   `clear mex` unloads and SIGSEGV'd at MATLAB process exit by
+>   waking those threads to a now-unmapped callback.  See
+>   GMI/Makefile for the full back-story.
 
 ## Run
 

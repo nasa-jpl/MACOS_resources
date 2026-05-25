@@ -76,12 +76,9 @@ end
 
 fprintf('=== summary: %d passed, %d failed (of %d) ===\n', n_pass, n_fail, n);
 
-% quit force (rather than exit) skips MATLAB's mex-cleanup
-% finalization.  Needed for the ifx-built mex (which SIGSEGVs at
-% exit teardown -- suspected Fortran-module finalizer on second mex
-% unload).  Harmless for the gfortran build, which exits cleanly
-% either way.
+% quit (not exit) -- we want to propagate the failure count via
+% MATLAB's exit code so run_regression.sh can trust it.
 if n_fail > 0
-    quit(1, 'force');
+    quit(1);
 end
-quit force;
+quit;
