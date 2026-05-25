@@ -64,12 +64,25 @@ APP      := GMI
 MEX_NAME := $(APP)
 
 # Per-compiler flags.  Both produce bit-identical numeric results
-# (verified by MACOS_resources/GMI/regression).  gfortran exits
-# MATLAB cleanly; ifx SIGSEGVs in MATLAB's mex-cleanup teardown.
+# (verified by MACOS_resources/GMI/regression) and both exit MATLAB
+# cleanly with the flags below.
 #
 # -check all removed from FFLAGS/LDFLAGS: it pulls in ifx's
 # fsanitize=memory which SIGSEGVs in the mex cleanup path.
 # Re-enable when investigating specific runtime issues.
+#
+# ifx LDFLAGS use -reentrancy=none to link the single-threaded
+# Intel Fortran runtime (libifcore.so.5) instead of the default
+# multi-threaded one (libifcoremt.so.5).  libifcoremt keeps worker
+# threads parked in the host process; once MATLAB's `clear mex`
+# unloads the DSO that owned their wake-up callback, those threads
+# die at process exit by jumping to a now-unmapped function pointer.
+# The crash shows up as SIGSEGV with RIP=...e2c0 inside a
+# clone3/start_thread stack -- pure thread-spawn-to-freed-memory,
+# no module of our own on the stack.  GMI does not use the Intel
+# Fortran runtime's internal threading anyway, so linking libifcore
+# is a strict win; rebuild GMI with FC=gfortran (the default) to
+# sidestep the question entirely.
 
 ifeq ($(FC),ifx)
   FFLAGS := -traceback -fstack-protector \
@@ -81,8 +94,9 @@ ifeq ($(FC),ifx)
             -module $(SMACOS_OBJS)
 
   # Compiler-only link flags — placed before objects.
+  # -reentrancy=none: single-threaded libifcore (see notes above).
   LDFLAGS := -traceback -fstack-protector \
-             -O -shared-intel -shared \
+             -O -shared-intel -shared -reentrancy=none \
              -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
              -Wl,--no-undefined \
              -Wl,-rpath-link,$(MATLAB_DIR)/bin/glnxa64 \
