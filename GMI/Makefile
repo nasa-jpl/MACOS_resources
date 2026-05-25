@@ -1,6 +1,6 @@
 
 ##--------------------------------------
-# Makefile for GMI (ifx + auto-detected MATLAB)
+# Makefile for GMI (ifx or gfortran + auto-detected MATLAB)
 ##--------------------------------------
 
 #####################################
@@ -11,8 +11,11 @@
 MACOS_DIR := $(macossrc_dir)
 GMI_DIR    := $(shell pwd)
 
-# Fortran compiler
-FC := ifx
+# Fortran compiler.  gfortran is the default — produces a mex that
+# exits cleanly under MATLAB.  ifx still works but SIGSEGVs at
+# MATLAB process-exit teardown (cosmetic; results are correct).
+# Override on the command line: make FC=ifx
+FC ?= gfortran
 
 # MATLAB installation — pick the lexicographically latest R20XXx under /usr/local/MATLAB.
 # Override on the command line: make MATLAB_DIR=/usr/local/MATLAB/R2023a
@@ -60,36 +63,65 @@ GMI_DATE := $(shell date '+%Y-%m-%d')
 APP      := GMI
 MEX_NAME := $(APP)
 
-# Compiler flags (shared between GMI.F and GMIG.F)
-FFLAGS := -traceback -fstack-protector \
-          -fPIC -fpp -132 -gen-interfaces -fp-model strict \
-          -fno-omit-frame-pointer -nologo \
-          -O2 -xHOST \
-          -DMX_COMPAT_32 \
-          -I$(MACOS_DIR) -I$(MATLAB_DIR)/extern/include \
-          -module $(SMACOS_OBJS)
+# Per-compiler flags.  Both produce bit-identical numeric results
+# (verified by MACOS_resources/GMI/regression).  gfortran exits
+# MATLAB cleanly; ifx SIGSEGVs in MATLAB's mex-cleanup teardown.
+#
+# -check all removed from FFLAGS/LDFLAGS: it pulls in ifx's
+# fsanitize=memory which SIGSEGVs in the mex cleanup path.
+# Re-enable when investigating specific runtime issues.
 
-# Linker flags — embed Intel RPATH so MATLAB can load without setvars.sh
-# (-check all removed from both FFLAGS and LDFLAGS: it pulls in ifx's
-# fsanitize=memory which SIGSEGVs in the mex cleanup path under
-# MATLAB on the release-candidate build.  Re-enable when investigating
-# specific runtime issues.)
-LDFLAGS := -traceback -fstack-protector \
-           -O -shared-intel -shared \
-           -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
-           -Wl,--no-undefined \
-           -Wl,-rpath-link,$(MATLAB_DIR)/bin/glnxa64 \
-           -L$(MATLAB_DIR)/bin/glnxa64 -l:libmx.so -l:libmex.so -lmat \
-           -L$(INTEL_LIB) \
-           -Wl,-rpath,$(INTEL_LIB) \
-           -Wl,-rpath,$(MKL_LIB) \
-           -Wl,--disable-new-dtags \
-           -lirc -lm -lstdc++
+ifeq ($(FC),ifx)
+  FFLAGS := -traceback -fstack-protector \
+            -fPIC -fpp -132 -gen-interfaces -fp-model strict \
+            -fno-omit-frame-pointer -nologo \
+            -O2 -xHOST \
+            -DMX_COMPAT_32 \
+            -I$(MACOS_DIR) -I$(MATLAB_DIR)/extern/include \
+            -module $(SMACOS_OBJS)
+
+  # Compiler-only link flags — placed before objects.
+  LDFLAGS := -traceback -fstack-protector \
+             -O -shared-intel -shared \
+             -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
+             -Wl,--no-undefined \
+             -Wl,-rpath-link,$(MATLAB_DIR)/bin/glnxa64 \
+             -Wl,-rpath,$(INTEL_LIB) \
+             -Wl,-rpath,$(MKL_LIB) \
+             -Wl,--disable-new-dtags
+
+  # Trailing libs — placed after objects/archives so --no-undefined
+  # resolves correctly under both bundled and system ld.
+  POST_LIBS := -L$(MATLAB_DIR)/bin/glnxa64 -l:libmx.so -l:libmex.so -lmat \
+               -L$(INTEL_LIB) -lirc -lm -lstdc++
+else ifeq ($(FC),gfortran)
+  FFLAGS := -fPIC -cpp -ffixed-line-length-132 \
+            -fno-omit-frame-pointer -O2 -march=native \
+            -fallow-argument-mismatch -std=legacy \
+            -DMX_COMPAT_32 \
+            -I$(MACOS_DIR) -I$(MATLAB_DIR)/extern/include \
+            -J$(SMACOS_OBJS)
+
+  LDFLAGS := -fPIC -O -shared \
+             -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
+             -Wl,--no-undefined \
+             -Wl,-rpath-link,$(MATLAB_DIR)/bin/glnxa64 \
+             -Wl,--disable-new-dtags
+
+  POST_LIBS := -L$(MATLAB_DIR)/bin/glnxa64 -l:libmx.so -l:libmex.so -lmat \
+               -lm -lstdc++
+else
+  $(error Unsupported FC='$(FC)' — use ifx or gfortran)
+endif
+
+# Some macos cmake builds emit libfitslib.a as a separate archive;
+# link it when present so gfortran's --no-undefined is satisfied.
+FITS_LIB := $(wildcard $(MACOS_BUILD_DIR)/lib/libfitslib.a)
 
 default: $(MEX_NAME).$(MEXTAG)
 
 $(MEX_NAME).$(MEXTAG): GMI.o GMIG.o $(SMACOS_LIBS)
-	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS)
+	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS) $(FITS_LIB) $(POST_LIBS)
 
 GMI.o: GMI.F
 	$(FC) $(FFLAGS) -c GMI.F
