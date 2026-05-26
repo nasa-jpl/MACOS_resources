@@ -46,12 +46,19 @@ MACOS_BUILD_DIR :=
 
 ifneq ($(MACOS_BUILD_DIR),)
   SMACOS_OBJS := $(MACOS_BUILD_DIR)/mod_smacos
-  # libnpsol.a removed by macos rem_npsol PR (Levenberg-Marquardt
-  # in nls_optim_dvr replaces NPSOL-based constrained-optim).
   SMACOS_LIBS := $(MACOS_BUILD_DIR)/lib/libsmacos.a
+  # NPSOL libraries are present in MACOS_BUILD_DIR/lib only when the
+  # macos tree was configured with -DUSE_NPSOL=ON (opt-dev path).
+  # Auto-detect their presence and link them when found; users on a
+  # NPSOL-free build see an empty list and the design_cons_optim
+  # paths inside libsmacos.a are #ifdef'd out at compile time.
+  NPSOL_LIBS := $(wildcard $(MACOS_BUILD_DIR)/lib/libnpsol.a) \
+                $(wildcard $(MACOS_BUILD_DIR)/lib/liblapacklib.a) \
+                $(wildcard $(MACOS_BUILD_DIR)/lib/libblaslib.a)
 else
   SMACOS_OBJS := $(MACOS_DIR)/SMACOS_OBJS/$(ARCH)
   SMACOS_LIBS := $(SMACOS_OBJS)/smacos_lib.a
+  NPSOL_LIBS  :=
 endif
 
 ######################################################
@@ -135,7 +142,7 @@ FITS_LIB := $(wildcard $(MACOS_BUILD_DIR)/lib/libfitslib.a)
 default: $(MEX_NAME).$(MEXTAG)
 
 $(MEX_NAME).$(MEXTAG): GMI.o GMIG.o $(SMACOS_LIBS)
-	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS) $(FITS_LIB) $(POST_LIBS)
+	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
 
 GMI.o: GMI.F
 	$(FC) $(FFLAGS) -c GMI.F
