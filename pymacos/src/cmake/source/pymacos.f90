@@ -2843,6 +2843,402 @@
 
       end subroutine elt_srf_zrn_get
 
+      ! ============================================================================================
+      !
+      ! Element Surface Properties: Multiple Zernike Srf.
+      !
+      ! ============================================================================================
+      subroutine elt_srf_zrn_FreeForm(ok, srf,&
+                ifFF_, FFZernType_, FFZernModes_, FFZernCoef_, &
+                lFF_, pFF_, xFF_, yFF_, zFF_, &
+                ifMon_, MonZernType_, MonZernModes_, MonZernCoef_, &
+                lMon_, pMon_, xMon_, yMon_, zMon_, &
+                ifGridTerm_, GridSrfdx_, GridMat_, &
+                pData_, xData_, yData_, zData_, setter,&
+                Nx, Ny, nFF, nMon)
+
+        use elt_mod, only: mZernModes
+        use, intrinsic :: IEEE_ARITHMETIC
+
+        implicit none
+        integer, parameter :: mZernCoef = 66             ! hardcoded value taken from module "elt_mod" (issues with parameter from elt_mod)
+
+        logical,                  intent(out)  :: ok
+        integer,                  intent(in)   :: srf
+        ! ----------- "FF" Data
+        logical,                  intent(inout):: ifFF_          ! (1) active / (0) inactive
+        integer,                  intent(inout):: FFZernType_    ! BornWolf
+        integer, dimension(nFF),  intent(inout):: FFZernModes_
+        real(8), dimension(nFF),  intent(inout):: FFZernCoef_
+        real(8),                  intent(inout):: lFF_
+        real(8), dimension(3),    intent(inout):: pFF_          ! CSYS Pos
+        real(8), dimension(3),    intent(inout):: xFF_          ! CSYS x-dir
+        real(8), dimension(3),    intent(inout):: yFF_          ! CSYS y-dir
+        real(8), dimension(3),    intent(inout):: zFF_          ! CSYS z-dir
+
+        ! ----------- "Mon" Data
+        logical,                  intent(inout):: ifMon_        ! (1) active / (0) inactive
+        integer,                  intent(inout):: MonZernType_  ! Type: BornWolf, ...
+        integer, dimension(nMon), intent(inout):: MonZernModes_ ! # of Modes
+        real(8), dimension(nMon), intent(inout):: MonZernCoef_  ! Zern Modes
+        real(8),                  intent(inout):: lMon_
+        real(8), dimension(3),    intent(inout):: pMon_         ! CSYS Pos
+        real(8), dimension(3),    intent(inout):: xMon_         ! CSYS x-dir
+        real(8), dimension(3),    intent(inout):: yMon_         ! CSYS y-dir
+        real(8), dimension(3),    intent(inout):: zMon_         ! CSYS z-dir
+
+        ! ----------- "Grid Data" Data
+        logical,                  intent(inout):: ifGridTerm_   ! (1) active / (0) inactive
+        real(8),                  intent(inout):: GridSrfdx_    ! grid data sampling spacing dx==dy
+        real(8), dimension(Ny,Nx),intent(inout):: GridMat_      ! displacement at node points from nominal shape (N x N) Grid
+        real(8), dimension(3),    intent(inout):: pData_        ! CSYS Pos
+        real(8), dimension(3),    intent(inout):: xData_        ! CSYS x-dir
+        real(8), dimension(3),    intent(inout):: yData_        ! CSYS y-dir
+        real(8), dimension(3),    intent(inout):: zData_        ! CSYS z-dir
+
+        integer,                  intent(in) :: setter
+        integer,                  intent(in) :: Nx,Ny,nFF,nMon
+        !f2py  integer intent(hide), depend(GridMat_), check(shape(GridMat_,0)>0, shape(GridMat_,1)>0):: Ny=shape(GridMat_,0), Nx=shape(GridMat_,1)
+        !f2py  integer intent(hide), depend(FFZernModes_,FFZernCoef_):: nFF=len(FFZernModes_)
+        !f2py  integer intent(hide), depend(MonZernModes_,MonZernCoef_):: nMon=len(MonZernModes_)
+
+        real(pr) :: A(3, 3)
+        logical :: GFM(3)    ! ifGridTerm, ifFF, ifMon
+
+        real(pr), parameter :: NormRadius_max = 1e5_pr
+        ! ------------------------------------------------------
+        ! initialize in case of failure
+        ok = FAIL
+
+        if (setter==0) then
+
+            ! Zernike Def #1
+            FFZernType_     = 0
+            FFZernModes_(:) = 0;
+            FFZernCoef_(:)  = 0e0_pr
+            lFF_ = 0e0_pr
+            pFF_(:) = 0e0_pr; xFF_(:) = 0e0_pr; yFF_(:) = 0e0_pr; zFF_(:) = 0e0_pr
+
+            ! Zernike Def #2
+            MonZernType_     = 0
+            MonZernModes_(:) = 0
+            MonZernCoef_(:)  = 0e0_pr
+            lMon_ = 0e0_pr
+            pMon_(:) = 0e0_pr; xMon_(:) = 0e0_pr; yMon_(:) = 0e0_pr; zMon_(:) = 0e0_pr
+
+            ! Grid Data Def
+            GridSrfdx_    = 0e0_pr
+            GridMat_(:,:) = 0e0_pr
+            pData_(:) = 0e0_pr; xData_(:) = 0e0_pr; yData_(:) = 0e0_pr; zData_(:) = 0e0_pr
+
+        end if
+
+        ! SMACOS and Rx status & range chk: 0 < srf <= nElt
+        if ((.not. SystemCheck()) .or. (srf<1) .or. (srf>nElt)) return
+
+        ! check SrfType
+        if (SrfType(srf) /= SrfType_FreeForm) return
+
+        if (setter>0) then
+          ! ------------------------------------
+          ! set
+          ! ------------------------------------
+
+            ! ----------------------------------
+            ! do all checks BEFORE making changes
+            ! ----------------------------------
+            GFM(1) = (ifGridTerm_ == PASS)
+            GFM(2) = (ifFF_ == PASS)
+            GFM(3) = (ifMon_ == PASS)
+
+            ! -------------------
+            ! Grid Data
+            ! -------------------
+            if (GFM(1)) then
+              ! out-of-boundary & shape check (mGridMat defined in macos_param.txt)
+              if ((Nx > mGridMat) .or. (Nx/=Ny) .or. (Nx<3)) return
+
+              if (any(.not.IEEE_IS_FINITE(GridMat_(:,:))) .or. &
+                  any(.not.IEEE_IS_FINITE(xData_))        .or. &
+                  any(.not.IEEE_IS_FINITE(yData_))        .or. &
+                  any(.not.IEEE_IS_FINITE(zData_))        .or. &
+                     (.not.IEEE_IS_FINITE(GridSrfdx_))) return
+
+              ! check: CSYS
+              if (.not.valid_csys(xData_, yData_, zData_)) return
+            end if
+
+            ! ---------------------------
+            ! Zernike Def #1 (FF - Terms)
+            ! ---------------------------
+            if (GFM(2)) then
+
+              if (.not.validate_Zrn_Data(FFZernCoef_, FFZernType_, &
+                            FFZernModes_, lFF_, pFF_, xFF_, yFF_, zFF_)) return
+
+            end if
+
+            ! ---------------------------
+            ! Zernike Def #2 (Mon - Terms)
+            ! ---------------------------
+            if (GFM(3)) then
+
+              if (.not.validate_Zrn_Data(MonZernCoef_, MonZernType_, &
+                      MonZernModes_, lMon_, pMon_, xMon_, yMon_, zMon_)) return
+
+            end if
+
+            ! proceed
+            ifGridTerm(srf) = GFM(1)
+            ifFF(srf)       = GFM(2)
+            ifMon(srf)      = GFM(3)
+
+          ! -----------------------
+          ! Grid Data:
+          ! -----------------------
+          if (ifGridTerm(srf)) then
+
+            ! Grid Data: Nodes
+                                   GridSrfdx(srf) = GridSrfdx_
+                                    nGridMat(srf) = Nx
+            GridMat(:,:,iEltToGridSrf(srf))       = 0e0_pr         ! reset first (just in case)
+            GridMat(1:Ny,1:Nx,iEltToGridSrf(srf)) = GridMat_(:,:)  !Transpose(GridMat_(Ny:-1:1,:))
+
+            ! Grid Data: CSYS
+            xData(:, srf) = xData_(:)
+            yData(:, srf) = yData_(:)
+            zData(:, srf) = zData_(:)
+            pData(:, srf) = pData_(:)
+
+          else
+            ! reset
+                             GridSrfdx(srf) = 0e0_pr
+                              nGridMat(srf) = 0
+            GridMat(:,:,iEltToGridSrf(srf)) = 0e0_pr
+
+            xData_(:) = 0e0_pr
+            yData_(:) = 0e0_pr
+            zData_(:) = 0e0_pr
+            pData_(:) = 0e0_pr
+          end if
+
+          ! -----------------------
+          ! Zernike Def #1
+          ! -----------------------
+          if (ifFF(srf)) then
+
+                       FFZernCoef(:, srf) = 0e0_pr         ! Zrn Coefs: reset
+            FFZernCoef(FFZernModes_, srf) = FFZernCoef_    ! Zrn Coefs
+                         FFZernTypeL(srf) = FFZernType_    ! Zern Type
+                                 lFF(srf) = lFF_           ! NormRad
+
+            ! CSYS
+            pFF(:, srf) = pFF_(:)
+            xFF(:, srf) = xFF_(:)
+            yFF(:, srf) = yFF_(:)
+            zFF(:, srf) = zFF_(:)
+
+          else
+            ! reset
+
+            FFZernCoef(:, srf) = 0e0_pr   ! Zrn Coefs: reset
+              FFZernTypeL(srf) = 0        ! Zern Type
+                      lFF(srf) = 0e0_pr   ! NormRad
+
+            ! CSYS
+            pFF(:, srf) = 0e0_pr
+            xFF(:, srf) = 0e0_pr
+            yFF(:, srf) = 0e0_pr
+            zFF(:, srf) = 0e0_pr
+
+          end if
+
+          ! -----------------------
+          ! Zernike Def #2
+          ! -----------------------
+          if (ifMon(srf)) then
+
+                        MonZernCoef(:, srf) = 0e0_pr         ! Zrn Coefs: reset
+            MonZernCoef(MonZernModes_, srf) = MonZernCoef_   ! Zrn Coefs
+                          MonZernTypeL(srf) = MonZernType_   ! Zern Type
+                                  lMon(srf) = lMon_          ! NormRad
+
+            ! CSYS
+            pMon(:, srf) = pMon_(:)
+            xMon(:, srf) = xMon_(:)
+            yMon(:, srf) = yMon_(:)
+            zMon(:, srf) = zMon_(:)
+
+          else
+            ! reset
+
+            MonZernCoef(:, srf) = 0e0_pr   ! Zrn Coefs: reset
+              MonZernTypeL(srf) = 0        ! Zern Type
+                      lMon(srf) = 0e0_pr   ! NormRad
+
+            ! CSYS
+            pMon(:, srf) = 0e0_pr
+            xMon(:, srf) = 0e0_pr
+            yMon(:, srf) = 0e0_pr
+            zMon(:, srf) = 0e0_pr
+
+          end if
+
+        else
+          ! ------------------------------------
+          ! getter
+          ! ------------------------------------
+
+          ! -----------------------
+          ! Grid Data
+          ! -----------------------
+          if (ifGridTerm(srf)) then
+            print *, "------------------------ Grid", ifGridTerm(srf)
+            ifGridTerm_ = PASS
+            ! Grid Data: Nodes & CSYS
+            if (nGridMat(srf)<3) then  ! no valid Grid Data: should not happen
+              ! reset
+              GridMat(:,:,iEltToGridSrf(srf)) = 0e0_pr
+                               GridSrfdx(srf) = huge(1d0)
+              ! return
+              GridMat_(:,:) = 0e0_pr
+              GridSrfdx_    = GridSrfdx(srf)
+
+            else
+              ! return
+              GridSrfdx_    = GridSrfdx(srf)
+              GridMat_(:,:) = GridMat(:Ny,:Nx,iEltToGridSrf(srf))
+            end if
+
+            ! Grid Data: CSYS
+            xData_(:) = xData(:, srf)
+            yData_(:) = yData(:, srf)
+            zData_(:) = zData(:, srf)
+            pData_(:) = pData(:, srf)
+          else
+            ifGridTerm_ = FAIL
+          end if
+
+          ! -----------------------
+          ! Zernike Def #1
+          ! -----------------------
+          if (ifFF(srf)) then
+            ifFF_ = PASS
+
+            FFZernType_         = FFZernTypeL(srf)
+            FFZernCoef_(:nFF)   = FFZernCoef(:nFF, srf)
+            lFF_                = lFF(srf)
+
+            pFF_(:) = pFF(:, srf)
+            xFF_(:) = xFF(:, srf)
+            yFF_(:) = yFF(:, srf)
+            zFF_(:) = zFF(:, srf)
+          else
+            ifFF_ = FAIL
+          end if
+
+          ! -----------------------
+          ! Zernike Def #2
+          ! -----------------------
+          if (ifMon(srf)) then
+            ifMon_ = PASS
+
+            MonZernType_        = MonZernTypeL(srf)
+            MonZernCoef_(:nMon) = MonZernCoef(:nMon, srf)
+            lMon_               = lMon(srf)
+
+            pMon_(:) = pMon(:, srf)
+            xMon_(:) = xMon(:, srf)
+            yMon_(:) = yMon(:, srf)
+            zMon_(:) = zMon(:, srf)
+
+          else
+           ifMon_ = FAIL
+          end if
+
+
+        end if
+
+        ok = PASS
+
+        contains
+
+          logical function validate_Zrn_Data(zCoefs, zType, zModes, rad, &
+                                             Pos, xDir, yDir, zDir)
+            implicit none
+            real(pr), intent(in)    :: zCoefs(:)
+            integer,  intent(in)    :: zType
+            integer,  intent(in)    :: zModes(:)
+            real(pr), intent(in)    :: rad, Pos(3)
+            real(pr), intent(inout) :: xDir(3), yDir(3), zDir(3)
+
+            real(pr), parameter :: NORMRADIUS_MAX = 1e5_pr
+            ! -----------------------------------------
+            validate_Zrn_Data = .False.
+
+            if (any(.not.IEEE_IS_FINITE(zCoefs(:))) .or. &
+                any(.not.IEEE_IS_FINITE(xDir))      .or. &
+                any(.not.IEEE_IS_FINITE(yDir))      .or. &
+                any(.not.IEEE_IS_FINITE(zDir))      .or. &
+                any(.not.IEEE_IS_FINITE(Pos))       .or. &
+                   (.not.IEEE_IS_FINITE(rad))) return
+
+            ! Normalization Radius
+            if ((rad < 0e0_pr) .or. (rad > NORMRADIUS_MAX)) return
+
+            ! Zernite Types
+            if ((zType < 1) .or. (zType > mZernType)) return
+
+            ! check mode range: Fringe is limited to 37 Modes
+            if (((zType == ZernType_Fringe) .or.       &
+                 (zType == ZernType_NormFringe)) .and. &
+                 (any(zModes > 37))) return
+
+            if (any(zModes< 1 .or. zModes>mZernCoef)) return
+
+            ! check: CSYS
+            if (.not.valid_csys(xDir, yDir, zDir)) return
+
+            ! pass
+            validate_Zrn_Data = .True.
+
+          end function validate_Zrn_Data
+
+
+          logical function valid_csys(xDir, yDir, zDir)
+            use Constants, only: EPS
+            use  math_mod, only: dorthoganalize
+
+            implicit none
+            real(8), intent(inout) :: xDir(3), yDir(3), zDir(3)
+            ! real(8), intent(out):: A(3, 3)
+
+            real(8) :: A(3, 3)
+            ! ----------------------------------------
+            ! check for null-vector
+            A(:,1) = xDir
+            A(:,2) = yDir
+            A(:,3) = zDir
+            valid_csys = (.not. (any(norm2(A, DIM=1)<=EPS)))
+
+            if (valid_csys) then
+              ! if CF is not orthonormal, orthonormalize it
+              if (abs(-A(3,1)*A(2,2) + A(2,1)*A(3,2) - A(1,3))>EPS .or. &
+                  abs( A(3,1)*A(1,2) - A(1,1)*A(3,2) - A(2,3))>EPS .or. &
+                  abs(-A(2,1)*A(1,2) + A(1,1)*A(2,2) - A(3,3))>EPS)     &
+                  call dorthoganalize(A(:,1), A(:,2), A(:,3))
+
+              xDir = A(:,1)
+              yDir = A(:,2)
+              zDir = A(:,3)
+
+            end if
+
+          end function valid_csys
+
+
+      end subroutine elt_srf_zrn_FreeForm
+
 
     ! ============================================================================================
     !
