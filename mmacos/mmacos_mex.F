@@ -51,6 +51,7 @@ C=======================================================================
         character(len=64) :: cmd
         integer*4         :: stat
         mwSize            :: cmdlen
+        logical           :: handled_gen
 
         IF (nrhs .lt. 1) THEN
           CALL mexErrMsgTxt('mmacos requires at least one argument: the command string.')
@@ -97,13 +98,19 @@ C=======================================================================
           CASE ('trace_rays')
             CALL do_trace_rays(nlhs, plhs, nrhs, prhs)
           CASE DEFAULT
-            ! Assemble error string in a buffer because cpp eats `//`
-            ! at end of preprocessed line in fixed-form sources.
-            BLOCK
-              CHARACTER(len=128) :: errmsg
-              errmsg = 'mmacos: unknown command "' // trim(cmd) // '"'
-              CALL mexErrMsgTxt(trim(errmsg))
-            END BLOCK
+            ! Fall through to auto-generated dispatcher.  Covers every
+            ! macos_api_mod routine NOT special-cased above; see
+            ! mmacos_gen.F (produced by gen_mex_wrappers.py).
+            CALL gen_dispatch(cmd, nlhs, plhs, nrhs, prhs, handled_gen)
+            IF (.not. handled_gen) THEN
+              ! Assemble error string in a buffer because cpp eats `//`
+              ! at end of preprocessed line in fixed-form sources.
+              BLOCK
+                CHARACTER(len=128) :: errmsg
+                errmsg = 'mmacos: unknown command "' // trim(cmd) // '"'
+                CALL mexErrMsgTxt(trim(errmsg))
+              END BLOCK
+            END IF
         END SELECT
 
         return

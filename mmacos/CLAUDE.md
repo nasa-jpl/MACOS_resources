@@ -82,15 +82,74 @@ Fixes (use any):
    `'foo: '`, newline `  &  // 'bar'`.
 
 ### Adding a new command
-1. Add the matching `subroutine do_<name>(nlhs, plhs, nrhs, prhs)` at
-   the bottom of `mmacos_mex.F`.  Inside: `use macos_api_mod, only:
-   <api routines>`; validate nrhs; copy in via `mxCopyPtrToReal8`;
-   call into `macos_api_mod`; copy out via `mxCopyReal8ToPtr`
-   (allocating via `mxCreateDoubleMatrix` / `mxCreateDoubleScalar`).
+Two paths depending on whether the mapping from `macos_api_mod`
+signature → mex helper is mechanical:
+
+**Path A — codegen handles it (most cases).**  Just add the routine to
+`macos_api_mod.F90`, then re-run `python3 gen_mex_wrappers.py` from
+`MACOS_resources/mmacos/`.  The script regenerates `mmacos_gen.F`
+with a new `do_<name>` helper and a new `CASE` in `gen_dispatch`.
+The main `mexFunction`'s `CASE DEFAULT` falls through to
+`gen_dispatch`, so the command becomes callable from MATLAB with no
+edits to `mmacos_mex.F`.  Re-run `make` and the new command is wired.
+
+**Path B — hand-write the helper.**  Required when:
+- The arg shape exceeds rank 2 (e.g. `elt_csys_get`'s 3×3×N csys).
+- The cmd needs argument repacking, e.g. complex-array split/interleave
+  (`do_complex_field` / `write_imag`).
+- The mmacos cmd name differs from the api routine name (e.g. `apodize`
+  → `cfield_apodize`, `opd` → `opd_val`, `intensity` → `int_cmd+int_get`).
+- A name collision between two api routines that map to the same mex
+  cmd (e.g. the array-form `prb_elt` is hand-wired as cmd `perturb_elt`,
+  so the single-element-form api `perturb_elt` is excluded from codegen
+  via the `HAND_WRITTEN` set).
+
+For Path B:
+1. Add `subroutine do_<name>(nlhs, plhs, nrhs, prhs)` at the bottom of
+   `mmacos_mex.F`.  Inside: `use macos_api_mod, only: <api routines>`;
+   validate nrhs; copy in via `mxCopyPtrToReal8`; call into
+   `macos_api_mod`; copy out via `mxCopyReal8ToPtr` (allocating via
+   `mxCreateDoubleMatrix` / `mxCreateDoubleScalar`).
 2. Wire the dispatch: add `CASE ('cmd_name') CALL do_<name>(...)` to
-   the `mexFunction` `SELECT CASE` block.
-3. Add a row to the README's "MVP command surface" table.
-4. Extend `test_mmacos.m` with a `check('cmd_name returns ...', ...)`.
+   the `mexFunction` `SELECT CASE` block (BEFORE the `CASE DEFAULT`
+   fall-through so it beats `gen_dispatch`).
+3. Add the api routine name to `HAND_WRITTEN` in
+   `gen_mex_wrappers.py` so codegen doesn't double-emit it.
+4. Re-run `python3 gen_mex_wrappers.py` to refresh `mmacos_gen.F`.
+5. Add a row to the README's "MVP command surface" table.
+6. Extend `test_mmacos.m` with a `check('cmd_name returns ...', ...)`.
+
+### Codegen prhs/plhs convention
+Generated helpers in `mmacos_gen.F` follow a uniform layout:
+- `prhs(1)` is the command name (consumed by `mexFunction` before
+  dispatch).
+- `prhs(2..)` are the api routine's `intent(in)` and `intent(inout)`
+  args in declaration order.
+- `plhs(1..)` are the api routine's `intent(out)` and `intent(inout)`
+  args in declaration order, with `ok` SKIPPED (replaced by
+  `mexErrMsgTxt` on failure).
+- Array dim args (e.g. `n` in `prb_elt_grp(ok, iElt(n), prb(6,n), ifGlobal(n), n)`)
+  are passed explicitly by the MATLAB caller — codegen does NOT auto-
+  derive them from input array shape.  The `MacosSession` class veneer
+  (Phase 2) will hide this; for now, callers compute `n = length(iElt)`
+  themselves.
+- `intent(inout)` args are read from `prhs` AND written back to `plhs`,
+  even in getter mode — the api routine zeros the buffer then fills it.
+  Callers in getter mode can pass `zeros(...)` as a placeholder.
+
+### Codegen idiosyncrasies worth remembering
+- Routines declaring `OK` and `setter` as `integer` instead of `logical`
+  (e.g. `src_wvl`) — the parser picks up the declared type and emits the
+  matching Fortran local + comparison (`ok == 0` for integer-ok,
+  `.not. ok` for logical-ok).  PASS / FAIL convention is shared (1/0).
+- Local `integer, parameter :: mZernCoef = mZernModes` aliases inside
+  some api routines (where the dim symbol differs from the elt_mod
+  symbol).  Codegen replicates the alias in the helper and pulls in the
+  rhs symbol via `use elt_mod, only: mZernModes`.
+- Continuation-line subroutine arg lists (e.g.
+  `elt_srf_mon_zrn_coef(ok, iElt, ZernMode, MonZernCoef_, &\n setter, reset, N)`)
+  are parsed correctly — the SUB_RE regex tolerates `&\n` inside the
+  paren group.
 
 For scalar outputs use `mxCreateDoubleScalar(dble(value))`.  For 2-D
 output use `mxCreateDoubleMatrix(int(M, kind=8), int(N, kind=8), 0)`
