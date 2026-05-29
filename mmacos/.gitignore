@@ -1,0 +1,8 @@
+# Build artefacts
+*.o
+*.mod
+*.smod
+*.mexa64
+
+# ifx -gen-interfaces output
+*__genmod.f90

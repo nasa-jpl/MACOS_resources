@@ -1,9 +1,22 @@
 # MACOS_resources/pymacos
 
-Python interface to MACOS / SMACOS via an f2py wrapper. Three layers:
-user Python → `src/pymacos/macos.py` (typed API, ~75 fns + validation)
-→ `pymacosf90.*.so` (f2py) → `src/cmake/source/pymacos.f90`
-(`MODULE api`) → SMACOS static libs from `~/dev/macos/` build tree.
+Python interface to MACOS / SMACOS via an f2py wrapper. Four layers
+since §5.2 of the dev plan:
+
+  user Python
+    → `src/pymacos/macos.py`           (typed API, ~75 fns + validation)
+    → `pymacosf90.*.so`                (f2py-built shared module)
+    → `src/cmake/source/pymacos_f2py.f90`
+        (`MODULE api` — thin forwarding wrappers carrying `!f2py`
+         annotations; one wrapper per Python-facing routine that
+         re-applies the f2py size-derivation hints and calls
+         `NAME_impl(...)` via `use macos_api_mod, only: NAME_impl =>
+         NAME`)
+    → `MODULE macos_api_mod` in `libsmacos.a`
+        (language-neutral SMACOS-call backbone — same module
+         `mmacos.mexa64` binds.  Lives at
+         `~/dev/macos/macos_f90/macos_api_mod.F90`.)
+    → smacos modules + static lib from the macos build tree.
 
 For the overall layout, build steps, and test suites see `README.md`.
 This file is the working-memory cheatsheet of gotchas and shortcuts
@@ -11,12 +24,25 @@ not derivable from the code.
 
 ## Build (fast path)
 
-After editing `pymacos.f90` or `macos.py`:
+After editing `pymacos_f2py.f90` or `macos.py`:
 
 ```bash
 cd /home/dcr/dev/MACOS_resources/pymacos/src/cmake/build
 bash -c 'source /opt/intel/oneapi/setvars.sh intel64 >/dev/null 2>&1; make'
 ```
+
+After editing `macos_api_mod.F90` (which now lives in the macos repo at
+`~/dev/macos/macos_f90/macos_api_mod.F90`), rebuild macos first so
+`libsmacos.a` carries the change:
+
+```bash
+cd ~/dev/macos && source ./makems.sh release
+cd /home/dcr/dev/MACOS_resources/pymacos/src/cmake/build && make
+```
+
+By default the pymacos cmake reads `MACOS_BUILD_DIR=$HOME/dev/macos/build_release`.
+Override with `cmake -DMACOS_BUILD_DIR=/path/to/build_release_gfortran` if
+you've built macos under gfortran or in a non-standard location.
 
 `macos.py` is pure Python — no rebuild needed for edits there.
 
@@ -481,7 +507,8 @@ None of these are needed for HWO at the current delta scale.
 
 | File | Role |
 |------|------|
-| `src/cmake/source/pymacos.f90` | `MODULE api` — ~3700 LOC, one Fortran wrapper per public Python entry.  USES smacos modules directly (Kinds, elt_mod, macos_mod, ...). |
+| `src/cmake/source/pymacos_f2py.f90` | `MODULE api` — thin forwarding wrappers (~1300 LOC).  Each routine reapplies the `!f2py` annotations needed to derive a clean Python signature and calls the corresponding `macos_api_mod` routine.  f2py parses ONLY this file. |
+| `~/dev/macos/macos_f90/macos_api_mod.F90` | `MODULE macos_api_mod` — language-neutral SMACOS-call backbone (~4300 LOC), one wrapper per public entry; held in `libsmacos.a` since §5.2.  Shared with mmacos. |
 | `src/pymacos/macos.py` | typed Python API — input validation, state globals, raises Exception on Fortran-side failure. |
 | `src/pymacos/__init__.py` | Win DLL search-path shim; re-exports `macos`. |
 | `tests/sensitivities/channels.py` | `ZernikeCoefChannel` + Rx-parse helpers.  Calls `m.modify()` in `apply/restore`. |
