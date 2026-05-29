@@ -109,18 +109,28 @@ set_source_files_properties(PROPERTIES Fortran_PREPROCESS ON)
 set(f2py_module_name      ${PROJECT_NAME})
 set(pymacos_src_dir      "${CMAKE_SOURCE_DIR}/source")
 
-set(fortran_src_file      ${pymacos_src_dir}/pymacos.f90)
-set(fortran_src_file_fpp  ${CMAKE_CURRENT_BINARY_DIR}/pymacos.i90)
+# --- Two-file split ---------------------------------------------------
+# macos_api_mod.F90 : pure-Fortran language-neutral backbone (no !f2py).
+#                    NOW LIVES IN libsmacos.a (macos/macos_f90/).  Only
+#                    its .mod is needed here for the f2py wrapper layer.
+# pymacos_f2py.f90 : module `api` -- f2py-facing wrappers that forward
+#                     into macos_api_mod via NAME_impl => NAME use-rename.
+# f2py parses only pymacos_f2py.f90 (so it sees the Python signatures /
+# !f2py annotations).
+set(fortran_src_file      ${pymacos_src_dir}/pymacos_f2py.f90)
+set(fortran_src_file_fpp  ${CMAKE_CURRENT_BINARY_DIR}/pymacos_f2py.i90)
 set(f2py_module_c        "${f2py_module_name}module.c")
 set(f2py_wrapper_pyf     "${CMAKE_CURRENT_BINARY_DIR}/${f2py_module_name}.pyf")
 set(f2py_wrapper_f90     "${CMAKE_CURRENT_BINARY_DIR}/${f2py_module_name}-f2pywrappers2.f90")
 
-cmake_path(GET CMAKE_SOURCE_DIR PARENT_PATH cmake_source_parent_dir)
-set(macos_mod_dir "${cmake_source_parent_dir}/macos/cmake/build/mod")
-set(macos_lib_dir "${cmake_source_parent_dir}/macos/cmake/build/libs")
-
-# set(macos_mod_dir  "${CMAKE_SOURCE_DIR}/../macos/cmake/build/mod")
-# set(macos_lib_dir  "${CMAKE_SOURCE_DIR}/../macos/cmake/build/libs")
+# Point at the macos build tree.  Default to ~/dev/macos/build_release;
+# override via -DMACOS_BUILD_DIR=... on the cmake command line.
+if(NOT DEFINED MACOS_BUILD_DIR)
+  set(MACOS_BUILD_DIR "$ENV{HOME}/dev/macos/build_release" CACHE PATH
+      "Path to a built macos tree (must contain mod_smacos/ and lib/libsmacos.a)")
+endif()
+set(macos_mod_dir "${MACOS_BUILD_DIR}/mod_smacos")
+set(macos_lib_dir "${MACOS_BUILD_DIR}/lib")
 
 
 # ------------------------------------------------------- SMACOS dependent libs
@@ -205,13 +215,15 @@ add_custom_command(
   VERBATIM
 )
 
-# Set up target
+# Set up target.  macos_api_mod's compiled object now lives inside
+# libsmacos.a; only the .mod is needed at compile time (taken from
+# the macos build's mod_smacos dir via target_include_directories).
 Python_add_library(${CMAKE_PROJECT_NAME} MODULE  WITH_SOABI  # SOABI (Shared Object Application Interface)
   ${f2py_module_c}                        # Generated
   ${f2py_wrapper_pyf}                     # Generated
   ${f2py_wrapper_f90}                     # Generated -- needed when modules are present in fortran file
   "${F2PY_INCLUDE_DIR}/fortranobject.c"   # From NumPy
-  "${fortran_src_file}"                   # Fortran source(s)
+  "${fortran_src_file}"                   # f2py-facing wrapper
 )
 
 if(WINx64)
