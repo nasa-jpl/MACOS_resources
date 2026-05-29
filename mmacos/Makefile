@@ -106,14 +106,21 @@ endif
 
 default: $(MEX_NAME).$(MEXTAG)
 
-$(MEX_NAME).$(MEXTAG): mmacos_mex.o $(SMACOS_LIBS)
+MEX_OBJS := mmacos_mex.o mmacos_gen.o
+
+$(MEX_NAME).$(MEXTAG): $(MEX_OBJS) $(SMACOS_LIBS)
 	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) \
-	    mmacos_mex.o \
+	    $(MEX_OBJS) \
 	    $(SMACOS_LIBS) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
 
 # macos_api_mod's .mod comes from $(SMACOS_OBJS) via -I in FFLAGS.
 mmacos_mex.o: mmacos_mex.F
 	$(FC) $(FFLAGS) -c mmacos_mex.F
+
+# Auto-generated dispatcher + per-routine helpers.  Regenerate via
+# `python3 gen_mex_wrappers.py` whenever macos_api_mod signatures change.
+mmacos_gen.o: mmacos_gen.F
+	$(FC) $(FFLAGS) -c mmacos_gen.F
 
 clean:
 	-rm -f *.o *.mod *.smod $(MEX_NAME).$(MEXTAG)

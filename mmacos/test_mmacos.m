@@ -92,6 +92,32 @@ dx = mmacos('dx_at', nElt);
 check('dx_at returns positive scalar', isnumeric(dx) && dx > 0);
 fprintf('  dx_at(%d) = %g m\n', nElt, dx);
 
+% --- Codegen-routed commands (gen_dispatch fallback) --------------
+% These exercise the auto-generated do_<name> helpers in mmacos_gen.F.
+
+% get_src_sampling: returns N (source-grid sampling = nGridPts)
+n_src = mmacos('get_src_sampling');
+check('get_src_sampling returns N>0', isnumeric(n_src) && n_src > 0);
+fprintf('  get_src_sampling = %d\n', n_src);
+
+% elt_grp_max_all: max group size across all elements (no OK arg)
+max_grp = mmacos('elt_grp_max_all');
+check('elt_grp_max_all returns >=0', isnumeric(max_grp) && max_grp >= 0);
+fprintf('  elt_grp_max_all = %d\n', max_grp);
+
+% src_wvl getter: setter=0 returns current wavelength
+wvl0 = 0;  % placeholder; intent(inout) -- caller provides a slot
+wvl = mmacos('src_wvl', wvl0, 0);
+check('src_wvl get returns >0', isnumeric(wvl) && wvl > 0);
+fprintf('  src_wvl = %g\n', wvl);
+
+% elt_vpt getter: iElt is a length-n vector, Vpt is 3 x n.
+% For a single element n=1.
+vpt_in = zeros(3,1);
+vpt = mmacos('elt_vpt', [2], vpt_in, 0, 1);
+check('elt_vpt get returns 3-vec', isnumeric(vpt) && numel(vpt) == 3);
+fprintf('  elt_vpt(2) = [%g %g %g]\n', vpt(1), vpt(2), vpt(3));
+
 fprintf('=== %d pass, %d fail ===\n', n_pass, n_fail);
 if n_fail > 0
     error('mmacos smoke test failed');
