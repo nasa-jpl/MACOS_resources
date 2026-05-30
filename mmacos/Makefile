@@ -132,3 +132,7 @@ RX ?= $(HOME)/dev/MACOS_resources/pymacos/tests/Rx/Rx_Cass_FarField.in
 test: $(MEX_NAME).$(MEXTAG)
 	$(MATLAB_DIR)/bin/matlab -batch \
 	    "addpath('$(MMACOS_DIR)'); test_mmacos('$(RX)')"
+
+# Full matlab.unittest suite under tests/.  See run_mmacos_tests.sh.
+unittest: $(MEX_NAME).$(MEXTAG)
+	./run_mmacos_tests.sh

@@ -227,11 +227,38 @@ Pass `int8(N)` or `int(N, kind=8)`.  Passing a plain integer compiles
 under ifx but mismatches the prototype under gfortran's stricter
 checks.
 
+## Tests: two layers
+
+| Layer | Run | Purpose |
+|---|---|---|
+| Quick smoke | `make test` (or `matlab -batch "test_mmacos"`) | One pass per surface: `test_mmacos.m` for raw mex, `test_macos_pkg.m` for +macos / Session.  `fprintf`-style output — easier to read while debugging.  ~10-15 s. |
+| Full unittest | `make unittest` (or `./run_mmacos_tests.sh`) | 50 `matlab.unittest` tests across 5 classes in `tests/`.  Regression layer with assertion-based expectations.  ~6 s for the cold session + ~5 s for the suite. |
+
+The two layers are intentional redundancy.  The smoke scripts pre-date
+the unittest suite and serve as readable diagnostics — they print
+state values so a developer can eyeball what changed.  The unittest
+suite is the safety net: assertion-based, CI-friendly, encoding
+specific invariants (e.g. `tPerturbRoundtrip` pins the ULP residual
+finding so a future psi-renormalize fix doesn't regress).
+
+`run_mmacos_tests.sh` filter shortcuts:
+- `./run_mmacos_tests.sh tMacosPkg` runs one class.
+- `./run_mmacos_tests.sh -k roundtrip` runs method names matching the
+  substring.
+
 ## Key files
 
 | File | Role |
 |---|---|
-| `mmacos_mex.F` | Single mex, `SELECT CASE` dispatch, ~600 LOC |
-| `Makefile` | GMI-style build; ifx + gfortran arms; MATLAB auto-detect |
-| `test_mmacos.m` | `matlab -batch` smoke test (init + load_rx + modify + perturb + trace + opd/intensity/cfield/dx_at) |
-| `~/dev/macos/macos_f90/macos_api_mod.F90` | The shared backbone (compiled into libsmacos.a) |
+| `mmacos_mex.F` | Hand-written mex helpers + dispatcher (13 cmds), ~600 LOC |
+| `mmacos_gen.F` | Auto-generated mex helpers + `gen_dispatch` (78 cmds) |
+| `gen_mex_wrappers.py` | Codegen script — re-run on api signature change |
+| `+macos/` | Function-package user surface (23 funcs + Session class) |
+| `tests/` | matlab.unittest suite (5 classes, 50 tests) |
+| `tests/private/rx_fixture_path.m` | Shared Rx-corpus locator |
+| `run_mmacos_tests.sh` | Bash entrypoint for the unittest suite |
+| `Makefile` | GMI-style build; `make test` (smoke) / `make unittest` (full) |
+| `test_mmacos.m` | Raw-mex quick smoke |
+| `test_macos_pkg.m` | +macos + Session quick smoke |
+| `test_state_after_roundtrip.m` | Diagnostic probe for the ULP residual |
+| `~/dev/macos/macos_f90/macos_api_mod.F90` | Shared backbone (in libsmacos.a) |
