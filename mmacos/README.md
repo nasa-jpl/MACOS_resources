@@ -110,6 +110,15 @@ Unittest classes:
 | `tMacosSession` | `macos.Session` class delegation |
 | `tCrossSurface` | State coherence across all three surfaces |
 | `tPerturbRoundtrip` | CPERTURB_PROG round-trip invariants (incl. the 1-ULP psi residual; pinned so a prospective renormalize fix lands cleanly) |
+| `tCodeVGrating` | CodeV grating-API regression (Phase 4 slice 1) |
+| `tCodeVApeMasks*`, `tCodeVObsMasks*` | CodeV mask regressions, 8 classes (Phase 4 slice 2) |
+| `tProperCompareCassFF` | PROPER vs mmacos Cass-FarField comparison (Phase 5 slice 1) |
+
+The Phase 5 PROPER suite requires MATLAB PROPER v3.3.1 at
+`~/dev/proper_matlab/` (download from
+[sourceforge.net/projects/proper-library](https://sourceforge.net/projects/proper-library/files/)).
+`run_mmacos_tests.sh` auto-adds it to the path; tests skip with a
+helpful error if `prop_begin` isn't resolvable.
 
 Filter options:
 ```bash

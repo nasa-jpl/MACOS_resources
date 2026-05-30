@@ -129,9 +129,12 @@ clean:
 # batch session.  Requires Rx_Cass_FarField.in (or set RX=...) on
 # the path.
 RX ?= $(HOME)/dev/MACOS_resources/pymacos/tests/Rx/Rx_Cass_FarField.in
+# Explicit `exit(0)` after the test function — without it matlab -batch
+# on R2026a hangs at process exit when a mex is loaded (see
+# CLAUDE.md "clear mmacos hangs matlab -batch" note for the family).
 test: $(MEX_NAME).$(MEXTAG)
 	$(MATLAB_DIR)/bin/matlab -batch \
-	    "addpath('$(MMACOS_DIR)'); test_mmacos('$(RX)')"
+	    "addpath('$(MMACOS_DIR)'); test_mmacos('$(RX)'); exit(0);"
 
 # Full matlab.unittest suite under tests/.  See run_mmacos_tests.sh.
 unittest: $(MEX_NAME).$(MEXTAG)
