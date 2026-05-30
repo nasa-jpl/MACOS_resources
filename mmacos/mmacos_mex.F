@@ -93,8 +93,11 @@ C=======================================================================
             CALL do_cbm(nlhs, plhs, nrhs, prhs)
           CASE ('apodize')
             CALL do_apodize(nlhs, plhs, nrhs, prhs)
-          CASE ('perturb_elt')
-            CALL do_perturb_elt(nlhs, plhs, nrhs, prhs)
+          CASE ('prb_elt')
+            ! Array-form rigid-body perturbation: iElt(N), prb(6,N),
+            ! ifGlobal(N). Maps to api `prb_elt`.  The single-element
+            ! form lives under cmd 'perturb_elt' (codegen-emitted).
+            CALL do_prb_elt(nlhs, plhs, nrhs, prhs)
           CASE ('trace_rays')
             CALL do_trace_rays(nlhs, plhs, nrhs, prhs)
           CASE DEFAULT
@@ -492,9 +495,13 @@ C=======================================================================
         end subroutine do_trace_rays
 
 C=======================================================================
-C     perturb_elt -- rigid-body PERTURB of one or more elements         =
+C     prb_elt -- rigid-body PERTURB of one or more elements (array form)
+C     Cmd 'prb_elt' is hand-wired because it accepts a 6xN matrix +
+C     length-N iElt + length-N ifGlobal in one call.  The single-element
+C     api `perturb_elt(ok, iElt, th, del, useLocalCoord)` is exposed via
+C     the codegen-emitted cmd 'perturb_elt' in mmacos_gen.F.
 C=======================================================================
-        subroutine do_perturb_elt(nlhs, plhs, nrhs, prhs)
+        subroutine do_prb_elt(nlhs, plhs, nrhs, prhs)
         use macos_api_mod, only: prb_elt
         implicit none
         mwPointer plhs(*), prhs(*)
@@ -555,7 +562,7 @@ C=======================================================================
         CALL prb_elt(ok, iElt_i, prb, ifGlobal, n_elt_arg)
         deallocate(iElt_d, iElt_i, prb_in, prb, glb_d, ifGlobal)
         IF (.not. ok) CALL mexErrMsgTxt('mmacos: perturb_elt failed')
-        end subroutine do_perturb_elt
+        end subroutine do_prb_elt
 
 C=======================================================================
 C     write_imag -- helper: write imag part to mxArray's pi pointer

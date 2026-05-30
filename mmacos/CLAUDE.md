@@ -7,18 +7,34 @@ For end-user docs (build, usage, command surface) see `README.md`.
 This file is the working-memory cheatsheet of gotchas not derivable
 from the code.
 
-## Layering (since §5.2)
+## Layering (since §5.4 Phase 2)
 
 ```
 user MATLAB
+  → macos.Session(model_size)      % OO veneer; m.load_rx(...), m.opd(), ...
+  → macos.opd(), macos.trace(), ...% function-style package (+macos/)
   → mmacos('cmd', args...)         % single mex with command dispatch
-  → mmacos_mex.F                   % SELECT CASE on cmd string ->
-                                   %   per-command do_<name>(plhs/prhs)
+  → mmacos_mex.F + mmacos_gen.F    % SELECT CASE on cmd string ->
+                                   %   hand-written do_<name> in mex.F,
+                                   %   codegen do_<name> in gen.F,
+                                   %   gen_dispatch fallback
   → MODULE macos_api_mod           % in libsmacos.a — language-neutral
                                    %   SMACOS-call backbone (shared
                                    %   with pymacos)
   → smacos engine                  % libsmacos.a
 ```
+
+All three top layers (`macos.Session`, `+macos/` functions, raw
+`mmacos(...)`) share libsmacos.a state — there's only one Fortran
+session per MATLAB process.  Pick whichever surface fits the code:
+
+- `mmacos('cmd', ...)` — power-user / debugging surface.  No
+  validation, no unit conversion, exact pass-through.
+- `macos.<name>(...)` — primary user-facing surface.  Validates args,
+  converts SI ↔ BaseUnits where physical (perturb translations,
+  dx_at units), returns MATLAB-idiomatic shapes (structs not tuples).
+- `macos.Session` — handle class that wraps the package functions for
+  dot-notation flow (`m.trace().nRays`).  No per-instance state.
 
 `macos_api_mod` lives at `~/dev/macos/macos_f90/macos_api_mod.F90` and
 is compiled INTO `libsmacos.a` — mmacos doesn't compile it locally,
@@ -80,6 +96,53 @@ Fixes (use any):
    block for the pattern.
 3. Avoid the trailing `//` form — split before the operator instead:
    `'foo: '`, newline `  &  // 'bar'`.
+
+## +macos/ package conventions
+
+User-facing surface lives in `MACOS_resources/mmacos/+macos/` (one
+`.m` per public function) plus `MACOS_resources/mmacos/+macos/Session.m`
+(the classdef).  When extending it:
+
+- **Naming.**  Split getters and setters into `get_<name>` /
+  `set_<name>`.  Don't mirror pymacos's overloaded form
+  (`elt_vpt(srf)` vs `elt_vpt(srf, vpt)`) — MATLAB autocomplete
+  surfaces both half of the contract separately and is easier to grep.
+- **Validation.**  Use the `arguments` block (R2019b+).  For element
+  ids: `(1,1) double {mustBeInteger, mustBePositive}`.  For vectors:
+  `(3,1) double`.  For optional opts: `opts.<name>`.
+- **Unit conventions.**  All user-facing translations are in **SI
+  metres**.  Convert to BaseUnits via `1/CBM` inside the package
+  function (not in the mex layer).  Same for `dx_at(srf, unit)` — the
+  mex returns metres, the package function converts.
+- **Returns.**  Prefer structs over multi-output for related fields
+  (e.g. `trace` returns `s.nRays`, `s.rmsWFE`).  Vector outputs as
+  column vectors (`vpt(:)`).
+- **Validation defaults.**  If a default arg can't be supplied at
+  declaration time (e.g. `srf = num_elt()`), use a positional
+  `nargin < N` check + `validateattributes` instead of an `arguments`
+  block default — `mustBePositive` etc. fire on the unset sentinel
+  otherwise.
+
+When the package function is mostly a thin pass-through, mirror it as
+a one-line method in `Session.m`.  When it has non-trivial logic
+(unit conversion, struct packing), keep the logic in the package
+function and have `Session.m` delegate via `macos.<name>(...)`.
+
+### Cmd-name vs api-routine-name convention
+
+The hand-written mex cmd `'prb_elt'` calls api `prb_elt` (array form,
+6×N).  The codegen-emitted cmd `'perturb_elt'` calls api `perturb_elt`
+(single-element form, 3-vec th + 3-vec del + useLocalCoord).  The
+package wrappers expose:
+
+- `macos.perturb(srf, 'rotation', th, 'translation', del_SI, 'frame', f)`
+  → mmacos cmd `'perturb_elt'` (single-element, SI→BaseUnits inside
+  the `.m`).
+- `macos.perturb_many(srf_vec, prb_6xN, ifGlobal)` → mmacos cmd
+  `'prb_elt'` (array form; translations already in BaseUnits, no
+  conversion).
+- `macos.perturb_grp(...)` (not yet written) → mmacos cmd `'prb_elt_grp'`
+  (group form via GPERTURB).
 
 ### Adding a new command
 Two paths depending on whether the mapping from `macos_api_mod`

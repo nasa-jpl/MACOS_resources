@@ -64,6 +64,7 @@ opd
 ors_run
 perturb_elt
 perturb_src
+prb_elt
 prb_elt_grp
 ray_info_get
 ray_info_set

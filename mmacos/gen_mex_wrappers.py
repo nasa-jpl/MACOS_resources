@@ -44,21 +44,14 @@ HAND_WRITTEN = {
     'cfield_apodize', 'cfield_apodize_complex',
     'elt_dx_get', 'base_unit_to_metres',
     'trace_rays', 'prb_elt',
-    # The hand-written 'perturb_elt' MATLAB cmd in mmacos_mex.F calls
-    # api `prb_elt` (array, 6xN form). The api ALSO has a single-element
-    # `perturb_elt(ok, iElt, th, del, useLocalCoord)` routine — skip it
-    # here to avoid colliding with the hand-written do_perturb_elt. If a
-    # caller needs the single-element form, expose it as a distinct mmacos
-    # command (e.g. 'perturb_elt_single') with a hand-written helper.
-    'perturb_elt',
 }
 # Command-string aliases for the hand-written ones (mexFunction
-# dispatch already handles these — listed here so MacosSession.m sees
-# the full surface).
+# dispatch already handles these — listed here so the +macos/ package
+# layer sees the full surface).
 HAND_WRITTEN_CMDS = {
     'init', 'load_rx', 'save_rx', 'modified_rx', 'n_elt',
     'opd', 'intensity', 'complex_field', 'apodize',
-    'dx_at', 'base_unit_to_metres', 'trace_rays', 'perturb_elt',
+    'dx_at', 'base_unit_to_metres', 'trace_rays', 'prb_elt',
 }
 
 PRIVATE_HELPERS = {
