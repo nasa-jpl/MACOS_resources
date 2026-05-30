@@ -52,6 +52,7 @@ HAND_WRITTEN_CMDS = {
     'init', 'load_rx', 'save_rx', 'modified_rx', 'n_elt',
     'opd', 'intensity', 'complex_field', 'apodize',
     'dx_at', 'base_unit_to_metres', 'trace_rays', 'prb_elt',
+    'elt_csys_get',
 }
 
 PRIVATE_HELPERS = {
