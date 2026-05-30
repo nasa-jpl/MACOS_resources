@@ -63,13 +63,50 @@ makes it try to open `foo.in.in`.  Same `.in`-stripping workaround
 pymacos applies in `macos.py:_load_rx`.  See the test_mmacos.m
 fileparts-based stripping.
 
-### `clear mmacos` hangs `matlab -batch` on R2026a
+### `macos_init_all()` corrupts heap on model_size transitions
+mmacos surfaces this bug when matlab.unittest's full suite runs the
+Phase 5 PROPER-comparison tests (model_size=512) after the Phase 3/4
+tests (model_size=128) in the same MATLAB session: the next
+FFT-bearing trace aborts in `malloc()`/`free()` with `invalid size`
+or `unaligned tcache chunk` or `munmap_chunk: invalid pointer`.
+
+Same bug pymacos has (its `run_proper_tests.sh` invokes a separate
+pytest process per phase to dodge it).  Logged as a real
+engine-level fix in macos/PLAN.md §0.
+
+**Workaround in `run_mmacos_tests.sh`:** the full-suite run splits
+into per-model_size matlab -batch invocations.  When you pass a
+filter arg (`./run_mmacos_tests.sh tFoo`) the script runs a single
+invocation — assumes the user has narrowed to one model_size group.
+
+If you add a new test class that uses a different model_size, update
+the `SUITE_SIZE*` definitions at the bottom of
+`run_mmacos_tests.sh` so the split-suite path includes it.
+
+### `clear mmacos` hangs `matlab -batch` on R2026a — and so does implicit exit
 Don't put `clear mmacos` (or `clear mex`) inside a batch-mode script.
 MATLAB's mex teardown stalls when the mex was loaded from the
 session's own classpath in `-batch` mode, presumably waiting on a
-worker handshake that the headless session never completes.  The mex
-naturally unloads at process exit anyway — let it.  This is why the
-smoke test omits the `clear mmacos` it had during early development.
+worker handshake that the headless session never completes.  This is
+why the smoke test omits the `clear mmacos` it had during early
+development.
+
+**Stronger version of the same bug surfaced 2026-05-30:** matlab
+-batch ALSO hangs at IMPLICIT process exit (after the batch script
+returns normally) when a mex has been loaded.  Discovery: three
+zombie `test_mmacos()` batches from 1.8 days prior were found
+sleeping at 0% CPU, holding ~1 GB RAM each (3 GB total).
+
+**Fix:** always end batch scripts with an explicit `exit(0)`.  Both
+`run_mmacos_tests.sh` (full unittest) and the Makefile's `test`
+target (quick smoke) now do this.  The matlab.unittest framework
+already gets it right somehow — only the bare `addpath; func(); ` form
+hangs — but the safe rule is to terminate every batch invocation
+with `exit(0)`.
+
+If you find another hung MATLAB process holding a mex, kill it with
+`kill <pid>`; the mex unloads cleanly when the process is signalled
+(it's only the orderly-exit path that stalls).
 
 ### Trace-dependent commands need `trace_rays` first
 `opd`, `intensity`, `complex_field`, `dx_at`, `apodize` all read state
@@ -241,10 +278,21 @@ suite is the safety net: assertion-based, CI-friendly, encoding
 specific invariants (e.g. `tPerturbRoundtrip` pins the ULP residual
 finding so a future psi-renormalize fix doesn't regress).
 
-`run_mmacos_tests.sh` filter shortcuts:
-- `./run_mmacos_tests.sh tMacosPkg` runs one class.
-- `./run_mmacos_tests.sh -k roundtrip` runs method names matching the
-  substring.
+`run_mmacos_tests.sh` shortcuts:
+
+| Form | Scope | Wall time |
+|---|---|---|
+| `./run_mmacos_tests.sh` | full suite (split by size) | ~11 min |
+| `./run_mmacos_tests.sh fast` | size=128 EXCEPT masks | ~10 s |
+| `./run_mmacos_tests.sh masks` | CodeV mask suite | ~10 min |
+| `./run_mmacos_tests.sh proper` | Phase 5 PROPER cmp | ~15 s |
+| `./run_mmacos_tests.sh tFooClass` | one class | varies |
+| `./run_mmacos_tests.sh -k substr` | method-name substring filter | varies |
+
+Dev loop guidance: when iterating on a Phase 6+ slice that doesn't
+touch masks or PROPER, use `./run_mmacos_tests.sh fast` between
+edits — it runs the small classes in ~10 s.  Save the full
+`./run_mmacos_tests.sh` for pre-commit checks.
 
 ### Standing rule: grow the regression suite alongside every phase
 
@@ -257,6 +305,13 @@ unittest` covering the realistic mmacos surface; by Phase 8
 mmacos-side coverage to compare bit-for-bit against pymacos.
 
 Shared test conventions:
+- `tests/proper_compare/` — Phase 5 PROPER-comparison suite (requires
+  MATLAB PROPER at `~/dev/proper_matlab/`; auto-added to path by
+  `run_mmacos_tests.sh`).  Pattern: one geometry struct in
+  `+geometries/`, one `proper_run_<geom>.m` + `macos_run_<geom>.m`
+  pair driving each engine, one `tProperCompare<Geom>.m` test class
+  asserting `compare_and_record(...).max_abs_aligned < tol`.  PNG
+  artefacts written to `results/phase<N>/` (gitignored).
 - `tests/private/rx_fixture_path.m` — resolve named Rx fixtures from
   the pymacos corpus.
 - `tests/private/rx_mask_params.m` — RX_PARAMS dict (Rx_Mask_Parabolas
