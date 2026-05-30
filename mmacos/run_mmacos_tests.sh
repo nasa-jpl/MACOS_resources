@@ -97,10 +97,13 @@ join_suites() {
 # model_size, update the relevant group definition below.
 SUITE_FAST=$(join_suites \
     "tMmacosCmd" "tMacosPkg" "tMacosSession" \
-    "tCrossSurface" "tPerturbRoundtrip" "tCodeVGrating")
+    "tCrossSurface" "tPerturbRoundtrip" "tCodeVGrating" \
+    "tBandLimitedMask")
+# Note: tBandLimitedMask is pure math (no macos calls), safe in any
+# group; lives in "fast" because it's quick.
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
 SUITE_PROPER_512=$(join_suites "tProperCompareCassFF" "tProperCompareCassFFAberrations")
-SUITE_PROPER_1024=$(join_suites "tProperCompareCoroNFprop" "tProperCompareCoroPhase3" "tProperCompareCoroApodizer")
+SUITE_PROPER_1024=$(join_suites "tProperCompareCoroNFprop" "tProperCompareCoroPhase3" "tProperCompareCoroApodizer" "tProperCompareCoroDMPhase")
 # Aggregate for the `proper` shortcut (runs in two batches — the
 # initial Cass-FF group at 512 then the Coro group at 1024 — to
 # dodge the engine init-reinit heap bug PLAN.md §0 logs).

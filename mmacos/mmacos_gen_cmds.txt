@@ -1,5 +1,6 @@
 apodize
 base_unit_to_metres
+cfield_apodize_complex
 complex_field
 dx_at
 elt_csys_get

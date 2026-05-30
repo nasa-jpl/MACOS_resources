@@ -41,7 +41,8 @@ HAND_WRITTEN = {
     'init', 'load_rx', 'save_rx', 'modified_rx', 'n_elt',
     'opd_val', 'int_cmd', 'int_get',
     'cfield_cmd', 'cfield_get',
-    'cfield_apodize', 'cfield_apodize_complex',
+    'cfield_apodize',  # cfield_apodize_complex removed from skip list
+                       # (codegen handles it cleanly; Phase 5 DM tests need it)
     'elt_dx_get', 'base_unit_to_metres',
     'trace_rays', 'prb_elt',
 }
