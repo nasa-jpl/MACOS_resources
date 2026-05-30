@@ -55,10 +55,12 @@ mmacos('modified_rx');
 check('modified_rx returns', true);
 
 % Perturbation: tiny Rx tilt of element 2 and back.
+% Array form ('prb_elt'): iElt is a length-N vector, prb is 6xN,
+% ifGlobal is length-N (0=local frame, 1=global).
 if nElt >= 2
-    mmacos('perturb_elt', 2, [1e-6; 0; 0; 0; 0; 0], 1);
-    check('perturb_elt(2, small Rx, global) returns', true);
-    mmacos('perturb_elt', 2, [-1e-6; 0; 0; 0; 0; 0], 1);
+    mmacos('prb_elt', [2], [1e-6; 0; 0; 0; 0; 0], 1);
+    check('prb_elt(2, small Rx, global) returns', true);
+    mmacos('prb_elt', [2], [-1e-6; 0; 0; 0; 0; 0], 1);
 end
 
 % --- Trace-dependent commands ------------------------------------
