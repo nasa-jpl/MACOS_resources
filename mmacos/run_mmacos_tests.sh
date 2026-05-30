@@ -99,7 +99,12 @@ SUITE_FAST=$(join_suites \
     "tMmacosCmd" "tMacosPkg" "tMacosSession" \
     "tCrossSurface" "tPerturbRoundtrip" "tCodeVGrating")
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
-SUITE_PROPER=$(join_suites "tProperCompare*")
+SUITE_PROPER_512=$(join_suites "tProperCompareCassFF" "tProperCompareCassFFAberrations")
+SUITE_PROPER_1024=$(join_suites "tProperCompareCoroNFprop" "tProperCompareCoroPhase3" "tProperCompareCoroApodizer")
+# Aggregate for the `proper` shortcut (runs in two batches — the
+# initial Cass-FF group at 512 then the Coro group at 1024 — to
+# dodge the engine init-reinit heap bug PLAN.md §0 logs).
+SUITE_PROPER="$SUITE_PROPER_512"  # back-compat; not directly used
 
 # Argument handling.
 case "${1:-}" in
@@ -107,7 +112,8 @@ case "${1:-}" in
         # Full suite: split by model_size group to dodge the
         # init-reinit heap-corruption bug (PLAN.md §0).
         run_batch "[$SUITE_FAST, $SUITE_MASKS]" "model_size=128"
-        run_batch "$SUITE_PROPER" "model_size=512"
+        run_batch "$SUITE_PROPER_512" "model_size=512"
+        run_batch "$SUITE_PROPER_1024" "model_size=1024"
         echo "=== all groups passed ==="
         ;;
     fast)
@@ -119,8 +125,10 @@ case "${1:-}" in
         run_batch "$SUITE_MASKS" "masks (size=128)"
         ;;
     proper)
-        # Phase 5 PROPER-comparison suite, size=512, ~15 s.
-        run_batch "$SUITE_PROPER" "proper (size=512)"
+        # Phase 5 PROPER-comparison suite — split by size to dodge
+        # the init-reinit bug.  ~15 s + ~10 s.
+        run_batch "$SUITE_PROPER_512"  "proper Cass-FF (size=512)"
+        run_batch "$SUITE_PROPER_1024" "proper Coro NF (size=1024)"
         ;;
     -k)
         # Method-name substring filter.
