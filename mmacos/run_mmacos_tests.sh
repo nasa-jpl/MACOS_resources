@@ -42,7 +42,9 @@ FILTER_ARG=""
 if [ $# -ge 1 ]; then
     case "$1" in
         -k) FILTER_ARG=", 'ProcedureName', '*$2*'" ;;
-        *)  FILTER_ARG=", 'Name', '$1'" ;;
+        # Bare class-name arg: glob to match every method of that class.
+        # (TestSuite.fromFolder 'Name' filter expects <Class>/<Method>.)
+        *)  FILTER_ARG=", 'Name', '$1/*'" ;;
     esac
 fi
 
