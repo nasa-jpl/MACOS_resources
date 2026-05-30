@@ -100,6 +100,10 @@ C=======================================================================
             CALL do_prb_elt(nlhs, plhs, nrhs, prhs)
           CASE ('trace_rays')
             CALL do_trace_rays(nlhs, plhs, nrhs, prhs)
+          CASE ('elt_csys_get')
+            ! Rank-3 csys(6,6,N) array — outside the codegen ≤2D
+            ! ceiling, so hand-written.  Returns [csys, csys_lcs, csys_upd].
+            CALL do_elt_csys_get(nlhs, plhs, nrhs, prhs)
           CASE DEFAULT
             ! Fall through to auto-generated dispatcher.  Covers every
             ! macos_api_mod routine NOT special-cased above; see
@@ -604,3 +608,115 @@ C=======================================================================
         END IF
 #endif
         end subroutine write_imag
+
+C=======================================================================
+C     elt_csys_get -- query the 6x6xN coordinate-system tensor for one
+C     or more elements.  api signature:
+C       elt_csys_get(ok, iElt(N), csys(6,6,N), csys_lcs(N),
+C                    csys_upd(N), N)
+C     mmacos cmd: 'elt_csys_get'
+C       prhs: iElt-vec (length N), N (scalar)
+C       plhs: csys (6 x 6 x N double), csys_lcs (N x 1 double),
+C             csys_upd (N x 1 double)
+C     Hand-written because the rank-3 csys array is outside the
+C     codegen ≤2D ceiling.  Uses mxCreateNumericArray for the 3D
+C     output.
+C=======================================================================
+        subroutine do_elt_csys_get(nlhs, plhs, nrhs, prhs)
+        use macos_api_mod, only: elt_csys_get
+        implicit none
+        mwPointer plhs(*), prhs(*)
+        integer nlhs, nrhs
+
+        mwPointer mxGetPr, mxCreateDoubleMatrix
+        mwPointer mxCreateNumericArray, mxClassIDFromClassName
+        mwPointer pr
+        mwSize    dims3(3)
+        integer*4 classid, mxREAL
+        parameter (mxREAL = 0)
+
+        integer :: N, i, j, k
+        integer, allocatable :: iElt(:)
+        real(8), allocatable :: rbuf(:), csys(:,:,:)
+        logical, allocatable :: csys_lcs(:), csys_upd(:)
+        real(8)   :: dbuf(1)
+        integer*8 :: nbytes
+        logical   :: ok
+
+        IF (nrhs .ne. 3) CALL mexErrMsgTxt(
+     &    'elt_csys_get: usage mmacos(''elt_csys_get'', iElt_vec, N)')
+
+        ! Read N from prhs(3) so we can size iElt allocation.
+        pr = mxGetPr(prhs(3))
+        CALL mxCopyPtrToReal8(pr, dbuf, int(1, kind=8))
+        N = int(dbuf(1))
+        IF (N .le. 0) CALL mexErrMsgTxt(
+     &    'elt_csys_get: N must be positive')
+
+        ! Read iElt vector.
+        allocate(iElt(N), rbuf(N))
+        pr = mxGetPr(prhs(2))
+        CALL mxCopyPtrToReal8(pr, rbuf, int(N, kind=8))
+        DO i = 1, N
+          iElt(i) = int(rbuf(i))
+        END DO
+        deallocate(rbuf)
+
+        ! Allocate outputs and call.
+        allocate(csys(6,6,N), csys_lcs(N), csys_upd(N))
+        CALL elt_csys_get(ok, iElt, csys, csys_lcs, csys_upd, N)
+        IF (.not. ok) THEN
+          deallocate(iElt, csys, csys_lcs, csys_upd)
+          CALL mexErrMsgTxt('mmacos: elt_csys_get failed')
+        END IF
+
+        ! plhs(1) = csys (6 x 6 x N double).  Use mxCreateNumericArray
+        ! for rank-3.
+        IF (nlhs .ge. 1) THEN
+          classid = mxClassIDFromClassName('double')
+          dims3(1) = 6
+          dims3(2) = 6
+          dims3(3) = N
+          plhs(1) = mxCreateNumericArray(int(3, kind=8), dims3,
+     &                                   classid, mxREAL)
+          pr = mxGetPr(plhs(1))
+          nbytes = int(36, kind=8) * int(N, kind=8)
+          CALL mxCopyReal8ToPtr(csys, pr, nbytes)
+        END IF
+
+        ! plhs(2) = csys_lcs (N x 1 logical-as-double).
+        IF (nlhs .ge. 2) THEN
+          plhs(2) = mxCreateDoubleMatrix(int(N, kind=8),
+     &                                   int(1, kind=8), 0)
+          pr = mxGetPr(plhs(2))
+          allocate(rbuf(N))
+          DO i = 1, N
+            IF (csys_lcs(i)) THEN
+              rbuf(i) = 1d0
+            ELSE
+              rbuf(i) = 0d0
+            END IF
+          END DO
+          CALL mxCopyReal8ToPtr(rbuf, pr, int(N, kind=8))
+          deallocate(rbuf)
+        END IF
+
+        ! plhs(3) = csys_upd (N x 1).
+        IF (nlhs .ge. 3) THEN
+          plhs(3) = mxCreateDoubleMatrix(int(N, kind=8),
+     &                                   int(1, kind=8), 0)
+          pr = mxGetPr(plhs(3))
+          allocate(rbuf(N))
+          DO i = 1, N
+            IF (csys_upd(i)) THEN
+              rbuf(i) = 1d0
+            ELSE
+              rbuf(i) = 0d0
+            END IF
+          END DO
+          CALL mxCopyReal8ToPtr(rbuf, pr, int(N, kind=8))
+          deallocate(rbuf)
+        END IF
+
+        deallocate(iElt, csys, csys_lcs, csys_upd)
+        end subroutine do_elt_csys_get

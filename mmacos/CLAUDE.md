@@ -246,6 +246,30 @@ finding so a future psi-renormalize fix doesn't regress).
 - `./run_mmacos_tests.sh -k roundtrip` runs method names matching the
   substring.
 
+### Standing rule: grow the regression suite alongside every phase
+
+Per macos/PLAN.md §5.4: when a new +macos wrapper, helper, or mex
+command lands in any phase, add a `tCodeV*` (or topical) test that
+exercises it — even if the immediate motivating task didn't require
+it.  The longer-term goal is a continuously expanding `make
+unittest` covering the realistic mmacos surface; by Phase 8
+(cross-language verification) there should already be substantial
+mmacos-side coverage to compare bit-for-bit against pymacos.
+
+Shared test conventions:
+- `tests/private/rx_fixture_path.m` — resolve named Rx fixtures from
+  the pymacos corpus.
+- `tests/private/rx_mask_params.m` — RX_PARAMS dict (Rx_Mask_Parabolas
+  line numbers and dx_fact convention).
+- `tests/private/rx_grating_001_data.m` — reference values for the
+  grating slice (transcribed from pymacos rx_data.py).
+- `tests/private/tolerances.m` — shared (abs, rel) tolerance constants
+  mirroring pymacos `_Tol`.  Prefer these over hardcoded scalars in
+  new tests so the precision contract stays consistent.
+- `tests/private/{hexagon, rectangular_polygon, poly_lines,
+  chk_polygon_pts, ray_pos_at_srf_in_tangent_plane}.m` — mask-
+  geometry helpers ported from pymacos test_masks.py.
+
 ## Key files
 
 | File | Role |
