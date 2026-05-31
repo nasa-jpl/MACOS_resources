@@ -53,6 +53,7 @@ elt_srf_zrn_norm_radius
 elt_srf_zrn_set
 elt_srf_zrn_type
 elt_vpt
+elt_z
 get_src_csys
 get_src_fov
 get_src_sampling

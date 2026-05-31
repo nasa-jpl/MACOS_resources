@@ -344,8 +344,8 @@
           EltName=  FclPlane
           Element=  FocalPlane
           Surface=  Flat
-            KrElt=  0.0D+00
-            KcElt= -1.0D+38
+                        KrElt= -1.0D+22
+            KcElt=  0.0D+00
            psiElt=  0.0D+00  0.0D+00 -1.0D+00
            VptElt=  0.0D+00  0.0D+00 -1.309D+00
            RptElt=  0.0D+00  0.0D+00 -1.309D+00
