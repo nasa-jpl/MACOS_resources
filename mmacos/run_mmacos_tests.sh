@@ -98,7 +98,7 @@ join_suites() {
 SUITE_FAST=$(join_suites \
     "tMmacosCmd" "tMacosPkg" "tMacosSession" \
     "tCrossSurface" "tPerturbRoundtrip" "tCodeVGrating" \
-    "tBandLimitedMask")
+    "tBandLimitedMask" "tSrsBugFlatZ")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
 # group; lives in "fast" because it's quick.
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
