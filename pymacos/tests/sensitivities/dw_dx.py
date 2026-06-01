@@ -451,21 +451,12 @@ def main(argv: list[str] | None = None) -> int:
         m.trace_rays(wf_elt)
         return m.opd()
 
-    # --- Nominal + m2v-compatible index struct -----------------------
-    w_nom_2d = wf_func()
-    indx, w_nom_vec, nz_flat = _m2v_first_call(w_nom_2d)
-    Nw = w_nom_vec.size
-    Nz = len(channels)
-    print(f"[m2v] mask: {Nw} non-zero pixels in {w_nom_2d.shape} OPD")
-
-    # --- Jacobian (central differences in m2v-vector space) ----------
+    # --- Per-column output-unit rescaler --------------------------------
     # Internal calcs in SI: channels take rotation in rad and
     # translation in metres.  Per-column unit rescaling to the
     # natural output convention (OPD: BaseUnits -> metres so that
     # translation columns are dimensionless ratios; optional
-    # --rot-output base-per-rad on rotation columns) is applied
-    # inline so the printed RMS reflects what the user gets in the
-    # saved .mat.
+    # --rot-output base-per-rad on rotation columns).
     def _output_scale(ch_) -> float:
         # Translation: scale by cbm (OPD_BU * cbm = OPD_m, divided
         # by dx_m gives the natural dimensionless ratio).
@@ -478,26 +469,13 @@ def main(argv: list[str] | None = None) -> int:
             return 1.0
         return cbm
 
-    dwdx = np.zeros((Nw, Nz), dtype=np.float64)
-    names: list[str] = []
-    for k, ch in enumerate(channels):
-        if args.method == "central":
-            ch.apply(+args.delta)
-            w_plus = wf_func().flatten(order="F")[nz_flat]
-            ch.apply(-args.delta)
-            w_minus = wf_func().flatten(order="F")[nz_flat]
-            ch.restore()
-            dwdx[:, k] = (w_plus - w_minus) / (2.0 * args.delta)
-        else:  # forward
-            ch.apply(+args.delta)
-            w_plus = wf_func().flatten(order="F")[nz_flat]
-            ch.restore()
-            dwdx[:, k] = (w_plus - w_nom_vec) / args.delta
-        dwdx[:, k] *= _output_scale(ch)
-        col_rms = float(np.sqrt(np.mean(dwdx[:, k] ** 2)))
-        names.append(ch.name)
-        print(f"[dwdx] {k+1:3d}/{Nz}  {ch.name:24s}  "
-              f"RMS dw/dx = {col_rms:.3e}")
+    dwdx, w_nom_2d, w_nom_vec, indx, nz_flat, names = (
+        dwdx_for_current_source(channels, wf_func, args.delta,
+                                 method=args.method,
+                                 output_scale_fn=_output_scale,
+                                 verbose=True))
+    Nw = w_nom_vec.size
+    Nz = len(channels)
 
     # Per-element + per-group columns were measured in one pass;
     # rename for the save/plot path below to make the intent explicit.
@@ -588,6 +566,68 @@ def main(argv: list[str] | None = None) -> int:
             n_dof, dofs_requested)
 
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Single-field worker (callable from main + the multi-field supervisor)
+# ---------------------------------------------------------------------------
+
+def dwdx_for_current_source(channels, wf_func, delta,
+                              method: str = "central",
+                              output_scale_fn=None,
+                              verbose: bool = False):
+    """Compute dwdx for ``channels`` at the macos source state CURRENTLY
+    loaded.  Caller owns: load_rx + STOP / src_fov / channel setup.
+
+    ``output_scale_fn(channel) -> float`` is multiplied into each
+    column post-difference (use it to apply CBM / unit-convention
+    rescaling).  Default: no rescaling (identity 1.0).
+
+    Returns:
+        (dwdx, w_nom_2d, w_nom_vec, indx, nz_flat, names)
+
+        dwdx:      Nw × Nz float64 — finite-difference Jacobian in
+                   m2v-vector space, AFTER output_scale_fn rescaling.
+        w_nom_2d:  full N × N nominal OPD matrix (un-flattened).
+        w_nom_vec: Nw nominal OPD values at non-zero mask positions.
+        indx, nz_flat: m2v bookkeeping (see _m2v_first_call docstring).
+        names:     list of Nz channel name strings.
+    """
+    import numpy as np
+
+    if output_scale_fn is None:
+        def output_scale_fn(_ch):
+            return 1.0
+
+    w_nom_2d = wf_func()
+    indx, w_nom_vec, nz_flat = _m2v_first_call(w_nom_2d)
+    Nw = w_nom_vec.size
+    Nz = len(channels)
+    if verbose:
+        print(f"[m2v] mask: {Nw} non-zero pixels in {w_nom_2d.shape} OPD")
+
+    dwdx = np.zeros((Nw, Nz), dtype=np.float64)
+    names: list[str] = []
+    for k, ch in enumerate(channels):
+        if method == "central":
+            ch.apply(+delta)
+            w_plus = wf_func().flatten(order="F")[nz_flat]
+            ch.apply(-delta)
+            w_minus = wf_func().flatten(order="F")[nz_flat]
+            ch.restore()
+            dwdx[:, k] = (w_plus - w_minus) / (2.0 * delta)
+        else:  # forward
+            ch.apply(+delta)
+            w_plus = wf_func().flatten(order="F")[nz_flat]
+            ch.restore()
+            dwdx[:, k] = (w_plus - w_nom_vec) / delta
+        dwdx[:, k] *= output_scale_fn(ch)
+        names.append(ch.name)
+        if verbose:
+            col_rms = float(np.sqrt(np.mean(dwdx[:, k] ** 2)))
+            print(f"[dwdx] {k+1:3d}/{Nz}  {ch.name:24s}  "
+                  f"RMS dw/dx = {col_rms:.3e}")
+    return dwdx, w_nom_2d, w_nom_vec, indx, nz_flat, names
 
 
 # ---------------------------------------------------------------------------
