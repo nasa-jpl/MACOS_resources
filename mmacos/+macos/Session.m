@@ -92,5 +92,55 @@ classdef Session < handle
         function apodize(obj, srf, mask)
             macos.apodize(srf, mask);
         end
+
+        % --- Field-of-view / stop / exit pupil ------------------------
+        function f = get_src_fov(obj),  f = macos.get_src_fov();    end
+        function set_src_fov(obj, varargin)
+            macos.set_src_fov(varargin{:});
+        end
+        function stop(obj, iElt, vpt_offset)
+            if nargin < 3
+                macos.stop(iElt);
+            else
+                macos.stop(iElt, vpt_offset);
+            end
+        end
+        function stop_obj(obj, x, y, z),  macos.stop_obj(x, y, z);   end
+        function xp = sxp(obj, mode)
+            if nargin < 2
+                xp = macos.sxp();
+            else
+                xp = macos.sxp(mode);
+            end
+        end
+
+        % --- Sensitivity-channel eligibility --------------------------
+        function ff = find_freeform_elts(obj)
+            ff = macos.find_freeform_elts();
+        end
+        function ze = find_zern_elts(obj, rx_path)
+            if nargin < 2, rx_path = obj.rx_path; end
+            ze = macos.find_zern_elts(rx_path);
+        end
+
+        % --- Element Zernike coefficients -----------------------------
+        function set_elt_zrn_coef(obj, iElt, modes, coefs, varargin)
+            macos.set_elt_zrn_coef(iElt, modes, coefs, varargin{:});
+        end
+        function c = get_elt_zrn_coef(obj, iElt, modes)
+            c = macos.get_elt_zrn_coef(iElt, modes);
+        end
+        function set_elt_mon_zrn_coef(obj, iElt, modes, coefs, varargin)
+            macos.set_elt_mon_zrn_coef(iElt, modes, coefs, varargin{:});
+        end
+        function c = get_elt_mon_zrn_coef(obj, iElt, modes)
+            c = macos.get_elt_mon_zrn_coef(iElt, modes);
+        end
+        function set_elt_ff_zrn_coef(obj, iElt, modes, coefs, varargin)
+            macos.set_elt_ff_zrn_coef(iElt, modes, coefs, varargin{:});
+        end
+        function c = get_elt_ff_zrn_coef(obj, iElt, modes)
+            c = macos.get_elt_ff_zrn_coef(iElt, modes);
+        end
     end
 end
