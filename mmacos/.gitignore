@@ -6,3 +6,8 @@
 
 # ifx -gen-interfaces output
 *__genmod.f90
+
+# Run outputs from examples/ (regenerate via the run_*.m drivers).
+# The PNGs from verifyall.m ARE checked in as the canonical visual
+# reference for users; only the heavy .mat outputs are skipped.
+examples/sensitivities/**/*.mat

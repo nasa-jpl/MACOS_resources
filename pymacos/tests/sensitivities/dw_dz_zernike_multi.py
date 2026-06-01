@@ -281,9 +281,16 @@ def main(argv: list[str] | None = None) -> int:
             modes_per_elt={i: target_modes for i in range(1, n_elt + 1)})
     if not channels:
         raise SystemExit("no channels found")
-    kind_order = {"MonZern": 0, "Zern": 1, "FFZern": 2}
-    channels.sort(key=lambda c: (c.iElt, kind_order.get(c.kind, 99),
-                                  c.mode))
+    # Canonical order: kind-major (MonZern block, then FFZern block,
+    # then Zern block), element-minor within each kind, mode-minor
+    # within each element.  Users work with en-bloc Jacobians, so the
+    # natural block layout is what the saved .mat ships.  The kind
+    # blocks above already appear in that fixed order; sort the
+    # (iElt, mode) within each block.  kind_order maps each kind to
+    # its appearance index so the existing channel list stays grouped.
+    kind_order = {"MonZern": 0, "FFZern": 1, "Zern": 2}
+    channels.sort(key=lambda c: (kind_order.get(c.kind, 99),
+                                  c.iElt, c.mode))
     Nz = len(channels)
     print(f"[setup] {Nz} channels")
 
