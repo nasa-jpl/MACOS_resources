@@ -167,33 +167,11 @@ def main(argv: list[str] | None = None) -> int:
         m.trace_rays(wf_elt)
         return m.opd()
 
-    # --- Nominal + m2v-compatible index struct -----------------------
-    w_nom_2d = wf_func()
-    indx, w_nom_vec, nz_flat = _m2v_first_call(w_nom_2d)
+    dwdz, w_nom_2d, w_nom_vec, indx, nz_flat, names = (
+        dwdz_for_current_source(channels, wf_func, args.delta,
+                                method=args.method, verbose=True))
     Nw = w_nom_vec.size
     Nz = len(channels)
-    print(f"[m2v] mask: {Nw} non-zero pixels in {w_nom_2d.shape} OPD")
-
-    # --- Jacobian (central differences in m2v-vector space) ----------
-    dwdz = np.zeros((Nw, Nz), dtype=np.float64)
-    names: list[str] = []
-    for k, ch in enumerate(channels):
-        if args.method == "central":
-            ch.apply(+args.delta)
-            w_plus = wf_func().flatten(order="F")[nz_flat]
-            ch.apply(-args.delta)
-            w_minus = wf_func().flatten(order="F")[nz_flat]
-            ch.restore()
-            dwdz[:, k] = (w_plus - w_minus) / (2.0 * args.delta)
-        else:  # forward
-            ch.apply(+args.delta)
-            w_plus = wf_func().flatten(order="F")[nz_flat]
-            ch.restore()
-            dwdz[:, k] = (w_plus - w_nom_vec) / args.delta
-        col_rms = float(np.sqrt(np.mean(dwdz[:, k] ** 2)))
-        names.append(ch.name)
-        print(f"[dwdz] {k+1:3d}/{Nz}  {ch.name:24s}  "
-              f"RMS dw/dz = {col_rms:.3e}")
 
     # --- Save .mat -----------------------------------------------------
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -214,6 +192,57 @@ def main(argv: list[str] | None = None) -> int:
             ",".join(sorted(requested_kinds)))
 
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Single-field worker (callable from main + the multi-field supervisor)
+# ---------------------------------------------------------------------------
+
+def dwdz_for_current_source(channels, wf_func, delta,
+                             method: str = "central",
+                             verbose: bool = False):
+    """Compute dwdz for ``channels`` at the macos source state CURRENTLY
+    loaded.  Caller owns: load_rx + any STOP/FEX/perturb_src setup.
+
+    Returns:
+        (dwdz, w_nom_2d, w_nom_vec, indx, nz_flat, names)
+
+        dwdz:      Nw × Nz float64 — finite-difference Jacobian in
+                   m2v-vector space.
+        w_nom_2d:  full N × N nominal OPD matrix (un-flattened).
+        w_nom_vec: Nw nominal OPD values at non-zero mask positions.
+        indx, nz_flat: m2v bookkeeping (see _m2v_first_call docstring).
+        names:     list of Nz channel name strings.
+    """
+    import numpy as np
+    w_nom_2d = wf_func()
+    indx, w_nom_vec, nz_flat = _m2v_first_call(w_nom_2d)
+    Nw = w_nom_vec.size
+    Nz = len(channels)
+    if verbose:
+        print(f"[m2v] mask: {Nw} non-zero pixels in {w_nom_2d.shape} OPD")
+
+    dwdz = np.zeros((Nw, Nz), dtype=np.float64)
+    names: list[str] = []
+    for k, ch in enumerate(channels):
+        if method == "central":
+            ch.apply(+delta)
+            w_plus = wf_func().flatten(order="F")[nz_flat]
+            ch.apply(-delta)
+            w_minus = wf_func().flatten(order="F")[nz_flat]
+            ch.restore()
+            dwdz[:, k] = (w_plus - w_minus) / (2.0 * delta)
+        else:  # forward
+            ch.apply(+delta)
+            w_plus = wf_func().flatten(order="F")[nz_flat]
+            ch.restore()
+            dwdz[:, k] = (w_plus - w_nom_vec) / delta
+        col_rms = float(np.sqrt(np.mean(dwdz[:, k] ** 2)))
+        names.append(ch.name)
+        if verbose:
+            print(f"[dwdz] {k+1:3d}/{Nz}  {ch.name:24s}  "
+                  f"RMS dw/dz = {col_rms:.3e}")
+    return dwdz, w_nom_2d, w_nom_vec, indx, nz_flat, names
 
 
 # ---------------------------------------------------------------------------

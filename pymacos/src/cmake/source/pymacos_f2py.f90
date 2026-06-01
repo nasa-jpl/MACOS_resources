@@ -87,6 +87,8 @@
       elt_srf_ff_any_impl => elt_srf_ff_any, &
       elt_srf_ff_fnd_impl => elt_srf_ff_fnd, &
       elt_srf_mon_zrn_max_modes_impl => elt_srf_mon_zrn_max_modes, &
+      elt_srf_mon_zrn_coef_impl => elt_srf_mon_zrn_coef, &
+      elt_srf_ff_zrn_coef_impl => elt_srf_ff_zrn_coef, &
       ray_info_get_impl => ray_info_get, &
       ray_info_set_impl => ray_info_set, &
       trace_rays_impl => trace_rays, &
@@ -844,6 +846,38 @@
 
         CALL elt_srf_zrn_coef_impl(ok, iElt, ZernMode, ZernCoef_, setter, reset, N)
       end subroutine elt_srf_zrn_coef
+
+      subroutine elt_srf_mon_zrn_coef(ok, iElt, ZernMode, MonZernCoef_, &
+                                      setter, reset, N)
+        implicit none
+        logical,               intent(out)   :: ok
+        integer,               intent(in)    :: iElt
+        integer, dimension(N), intent(inout) :: ZernMode      ! mode indices
+        real(8), dimension(N), intent(inout) :: MonZernCoef_  ! coefficients
+        logical,               intent(in)    :: setter        ! PASS = set, else get
+        logical,               intent(in)    :: reset         ! PASS = zero all modes first
+        integer,               intent(in)    :: N
+        !f2py   integer intent(hide), depend(ZernMode,MonZernCoef_), check(len(ZernMode)==len(MonZernCoef_), len(ZernMode)>0) :: N=len(ZernMode)
+
+        CALL elt_srf_mon_zrn_coef_impl(ok, iElt, ZernMode, MonZernCoef_, &
+                                        setter, reset, N)
+      end subroutine elt_srf_mon_zrn_coef
+
+      subroutine elt_srf_ff_zrn_coef(ok, iElt, ZernMode, FFZernCoef_, &
+                                     setter, reset, N)
+        implicit none
+        logical,               intent(out)   :: ok
+        integer,               intent(in)    :: iElt
+        integer, dimension(N), intent(inout) :: ZernMode      ! mode indices
+        real(8), dimension(N), intent(inout) :: FFZernCoef_   ! coefficients
+        logical,               intent(in)    :: setter
+        logical,               intent(in)    :: reset
+        integer,               intent(in)    :: N
+        !f2py   integer intent(hide), depend(ZernMode,FFZernCoef_), check(len(ZernMode)==len(FFZernCoef_), len(ZernMode)>0) :: N=len(ZernMode)
+
+        CALL elt_srf_ff_zrn_coef_impl(ok, iElt, ZernMode, FFZernCoef_, &
+                                       setter, reset, N)
+      end subroutine elt_srf_ff_zrn_coef
 
       subroutine elt_srf_zrn_type(ok, iElt, ZernType, setter, reset)
         use elt_mod,   only: mZernType
