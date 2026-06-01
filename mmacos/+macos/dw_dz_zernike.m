@@ -49,9 +49,18 @@ arguments
                                   {'central','forward'})} = 'central'
     opts.exit_pupil_elt       (1,1) double {mustBeInteger} = -1
     opts.verbose              (1,1) logical = false
+    opts.reload_rx            (1,1) logical = true
 end
 
-session.load_rx(rx_path);
+% reload_rx=true is the right default for a standalone single-field
+% call (load Rx, compute Jacobian, done).  Multi-field supervisors
+% should pass reload_rx=false so the source-FoV state established
+% before each per-field call survives -- otherwise load_rx resets
+% ChfRayDir back to nominal and every field sees the same nominal
+% OPD.
+if opts.reload_rx
+    session.load_rx(rx_path);
+end
 n_elt = session.num_elt();
 if opts.exit_pupil_elt < 0
     wf_elt = n_elt - 1;
@@ -79,6 +88,14 @@ for k = 1:numel(ze_elts)
     mp_ze(int32(ze_elts(k))) = target_modes;
 end
 
+% Build channels in CANONICAL ORDER: kind-major, element-minor,
+% mode-minor.  Users work with en-bloc Jacobians (all MonZern, then
+% all FFZern, then all Zern), so the natural block layout is the
+% right output order.  The kind blocks always appear in the fixed
+% order monzern -> ffzern -> zern regardless of the order in which
+% the caller listed them in 'kinds'.  Within each block, elements
+% are in element-id order (the builders iterate find_*_elts() sorted)
+% and modes are in mode-index order.
 channels = {};
 kinds_l = lower(opts.kinds);
 if any(strcmp(kinds_l, 'monzern'))
@@ -96,17 +113,6 @@ end
 if isempty(channels)
     error('macos:dw_dz_zernike:nochan', 'no channels found');
 end
-
-% Sort by (iElt, kind_order, mode) so output is reproducible.
-kind_order = containers.Map({'MonZern','Zern','FFZern'}, {0, 1, 2});
-sort_key = zeros(numel(channels), 3);
-for k = 1:numel(channels)
-    sort_key(k, 1) = channels{k}.iElt;
-    sort_key(k, 2) = kind_order(channels{k}.kind);
-    sort_key(k, 3) = channels{k}.mode;
-end
-[~, order] = sortrows(sort_key);
-channels = channels(order);
 
 wf_func = @() local_wf(session, wf_elt);
 
