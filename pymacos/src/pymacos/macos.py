@@ -28,6 +28,12 @@ Surface = int | Tuple[int] | np.int32 | Vector[np.int32]                       #
 Position = Tuple[float] | Vector[np.float64] | Matrix[np.float64]
 Direction = Tuple[float] | Vector[np.float64] | Matrix[np.float64]
 Parameter = float | np.float64 | Tuple[float] | Vector[np.float64]
+
+
+# Sentinel used by zrn_freeform (and any other set-some-leave-others
+# wrappers) to distinguish "preserve current value" (default) from
+# "explicitly clear/wipe" (None).
+_PRESERVE = object()
 Index = int | np.int32 | Tuple[int] | Vector[np.int32]
 
 _floatType = (float, np.float32, np.float64)
@@ -2556,9 +2562,9 @@ class GridData:
 
 def zrn_freeform(
     srf: int,
-    zrn_1: None | ZernikeData = None,
-    zrn_2: None | ZernikeData = None,
-    grid: None | GridData = None
+    zrn_1=_PRESERVE,
+    zrn_2=_PRESERVE,
+    grid=_PRESERVE,
 ) -> tuple[ZernikeData | None, ZernikeData | None, GridData | None] | None:
     """Get or set FreeForm surface data using dataclass structures.
 
@@ -2567,8 +2573,23 @@ def zrn_freeform(
     2. Mon (Monolithic) Zernike terms with coordinate system
     3. Grid data displacement map with coordinate system
 
-    **Getter Mode:** When all optional parameters are None, retrieves FreeForm data.
-    **Setter Mode:** When any parameter is provided, applies FreeForm data to surface.
+    **Getter Mode:** call ``zrn_freeform(srf)`` with no other arguments
+    to retrieve the current (FF, Mon, Grid) triple.
+
+    **Setter Mode:** pass any of ``zrn_1`` / ``zrn_2`` / ``grid`` to
+    update the corresponding component.  Three sentinel semantics:
+
+      - default (``_PRESERVE``)  -> leave that component unchanged;
+        the function reads the current state via an internal get and
+        substitutes it so the setter call carries the existing values
+        forward.
+      - ``None``                  -> EXPLICITLY clear/wipe that
+        component (its activity flag goes to FAIL, all data zeroed).
+      - ``ZernikeData`` / ``GridData`` -> write the new value.
+
+    This avoids the old behaviour where ``zrn_freeform(srf, zrn_1=X)``
+    would silently wipe ``zrn_2`` and ``grid`` -- callers no longer
+    need to ``get`` first and pass the unchanged components back in.
 
     Args:
         srf: Element ID (single surface only)
@@ -2635,14 +2656,29 @@ def zrn_freeform(
         )
 
     def _zrn_from_api(if_active, ztype, modes, coefs, norm_rad, pos, x, y, z):
-        """Convert Fortran output arrays to ZernikeData dataclass."""
+        """Convert Fortran output arrays to ZernikeData dataclass.
+
+        Returns ``modes = [1..last_nonzero]`` with the full prefix of
+        coefficients (intermediate zeros PRESERVED) so a user-set
+        ``Z4 = 0.0`` is reported on get and survives set/get round-
+        trips.  Trailing zeros beyond the last non-zero entry are
+        dropped because the Fortran getter pads the buffer out to
+        ``mZernCoef = 66`` regardless of how many modes the Rx
+        actually declared.
+        """
         if not if_active:
             return None
-        mask = coefs != 0
-        active_modes = np.arange(1, len(coefs) + 1, dtype=np.int32)[mask]
-        active_coefs = coefs[mask]
-        if len(active_modes) == 0:
-            return None
+        nz = np.flatnonzero(coefs)
+        if nz.size == 0:
+            # active flag set but every coefficient is zero (e.g., the
+            # component is declared in the Rx but currently un-perturbed).
+            # Return a single-slot placeholder so the round-trip is
+            # explicit rather than silently producing None.
+            last = 0
+        else:
+            last = int(nz[-1])
+        active_modes = np.arange(1, last + 2, dtype=np.int32)
+        active_coefs = np.asarray(coefs[:last + 1], dtype=float).copy()
         return ZernikeData(
             norm_rad=float(norm_rad),
             zern_type=int(ztype),
@@ -2691,11 +2727,11 @@ def zrn_freeform(
             gdata.csys.z
         )
 
-    if (zrn_1 is None) and (zrn_2 is None) and (grid is None):
+    def _do_get():
         z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z = \
-                                          _init_zernike_arrays(n_zrn_coef_max)
+                                      _init_zernike_arrays(n_zrn_coef_max)
         z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z = \
-                                          _init_zernike_arrays(n_zrn_coef_max)
+                                      _init_zernike_arrays(n_zrn_coef_max)
         g_if, g_d, g_m, g_p, g_x, g_y, g_z = _init_grid_arrays(srf)
 
         ok = lib.api.elt_srf_zrn_FreeForm(
@@ -2713,22 +2749,34 @@ def zrn_freeform(
           _grid_from_api(g_if, g_d, g_m, g_p, g_x, g_y, g_z)
         )
 
-    else:
-        z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z = \
-                                        _zrn_to_api(zrn_1, n_zrn_coef_max)
-        z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z = \
-                                        _zrn_to_api(zrn_2, n_zrn_coef_max)
-        g_if, g_d, g_m, g_p, g_x, g_y, g_z = _grid_to_api(grid, srf)
+    is_getter = (zrn_1 is _PRESERVE) and (zrn_2 is _PRESERVE) \
+                                    and (grid is _PRESERVE)
+    if is_getter:
+        return _do_get()
 
-        ok = lib.api.elt_srf_zrn_FreeForm(
-            srf,
-            z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z,
-            z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z,
-            g_if, g_d, g_m, g_p, g_x, g_y, g_z, 1
-        )
+    # Setter: preserve un-specified components by reading current state.
+    # None stays explicit "clear" semantics; _PRESERVE -> substitute.
+    if (zrn_1 is _PRESERVE) or (zrn_2 is _PRESERVE) or (grid is _PRESERVE):
+        cur_z1, cur_z2, cur_g = _do_get()
+        if zrn_1 is _PRESERVE: zrn_1 = cur_z1
+        if zrn_2 is _PRESERVE: zrn_2 = cur_z2
+        if grid  is _PRESERVE: grid  = cur_g
 
-        if not ok:
-            raise RuntimeError("Failed to set FreeForm surface data")
+    z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z = \
+                                    _zrn_to_api(zrn_1, n_zrn_coef_max)
+    z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z = \
+                                    _zrn_to_api(zrn_2, n_zrn_coef_max)
+    g_if, g_d, g_m, g_p, g_x, g_y, g_z = _grid_to_api(grid, srf)
+
+    ok = lib.api.elt_srf_zrn_FreeForm(
+        srf,
+        z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z,
+        z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z,
+        g_if, g_d, g_m, g_p, g_x, g_y, g_z, 1
+    )
+
+    if not ok:
+        raise RuntimeError("Failed to set FreeForm surface data")
 
 
 # ------------------------------------------------------------------------------
