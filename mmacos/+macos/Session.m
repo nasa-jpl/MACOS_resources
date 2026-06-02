@@ -113,6 +113,12 @@ classdef Session < handle
                 xp = macos.sxp(mode);
             end
         end
+        function srs(obj, iSlv1, iSlv2, varargin)
+            macos.srs(iSlv1, iSlv2, varargin{:});
+        end
+        function s = get_elt_csys(obj, srfs)
+            s = macos.get_elt_csys(srfs);
+        end
 
         % --- Sensitivity-channel eligibility --------------------------
         function ff = find_freeform_elts(obj)
