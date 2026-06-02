@@ -146,7 +146,14 @@ classdef FocalPlaneChannel < macos.channels.RigidBodyChannel
             new_ep_vpt = ep_vpt + cross(theta_global, ep_vpt - fp_rpt);
             new_ep_rpt = ep_rpt + cross(theta_global, ep_rpt - fp_rpt);
             new_ep_psi = ep_psi + cross(theta_global, ep_psi);
-            n = norm(new_ep_psi);
+            % Use sqrt(sum(v.^2)) instead of norm(v) so the
+            % normalization matches NumPy's np.linalg.norm exactly.
+            % MATLAB's norm() uses a more sophisticated
+            % (dnrm2-style) algorithm that differs by 1 ULP at this
+            % scale -- the residual then propagates through the
+            % trace and shows up as a ~7e-7 m FP-channel discrepancy
+            % vs pymacos.
+            n = sqrt(sum(new_ep_psi.^2));
             if n > 0
                 new_ep_psi = new_ep_psi / n;
             end
