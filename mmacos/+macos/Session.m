@@ -148,5 +148,19 @@ classdef Session < handle
         function c = get_elt_ff_zrn_coef(obj, iElt, modes)
             c = macos.get_elt_ff_zrn_coef(iElt, modes);
         end
+
+        % --- Element groups (EltGrp / GPERTURB) -----------------------
+        function set_elt_grp(obj, iElt, members)
+            macos.set_elt_grp(iElt, members);
+        end
+        function m = get_elt_grp(obj, iElt),  m = macos.get_elt_grp(iElt); end
+        function del_elt_grp(obj, iElt),      macos.del_elt_grp(iElt);     end
+        function prb_grp(obj, iElt, prb, ifGlobal)
+            if nargin < 4
+                macos.prb_grp(iElt, prb);
+            else
+                macos.prb_grp(iElt, prb, ifGlobal);
+            end
+        end
     end
 end
