@@ -2857,7 +2857,7 @@
                 pData_, xData_, yData_, zData_, setter,&
                 Nx, Ny, nFF, nMon)
 
-        use elt_mod, only: mZernModes
+        use elt_mod, only: mZernModes, mZernType
         use, intrinsic :: IEEE_ARITHMETIC
 
         implicit none
@@ -3016,10 +3016,13 @@
                               nGridMat(srf) = 0
             GridMat(:,:,iEltToGridSrf(srf)) = 0e0_pr
 
-            xData_(:) = 0e0_pr
-            yData_(:) = 0e0_pr
-            zData_(:) = 0e0_pr
-            pData_(:) = 0e0_pr
+            ! Mirror the FF/Mon reset pattern: clear the per-srf
+            ! module CSYS arrays (not just the temporary input args)
+            ! so the next trace doesn't inherit stale Grid CSYS.
+            pData(:, srf) = 0e0_pr
+            xData(:, srf) = 0e0_pr
+            yData(:, srf) = 0e0_pr
+            zData(:, srf) = 0e0_pr
           end if
 
           ! -----------------------
@@ -3093,7 +3096,6 @@
           ! Grid Data
           ! -----------------------
           if (ifGridTerm(srf)) then
-            print *, "------------------------ Grid", ifGridTerm(srf)
             ifGridTerm_ = PASS
             ! Grid Data: Nodes & CSYS
             if (nGridMat(srf)<3) then  ! no valid Grid Data: should not happen
