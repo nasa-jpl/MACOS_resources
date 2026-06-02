@@ -89,6 +89,7 @@
       elt_srf_mon_zrn_max_modes_impl => elt_srf_mon_zrn_max_modes, &
       elt_srf_mon_zrn_coef_impl => elt_srf_mon_zrn_coef, &
       elt_srf_ff_zrn_coef_impl => elt_srf_ff_zrn_coef, &
+      elt_srf_zrn_FreeForm_impl => elt_srf_zrn_FreeForm, &
       ray_info_get_impl => ray_info_get, &
       ray_info_set_impl => ray_info_set, &
       trace_rays_impl => trace_rays, &
@@ -878,6 +879,52 @@
         CALL elt_srf_ff_zrn_coef_impl(ok, iElt, ZernMode, FFZernCoef_, &
                                        setter, reset, N)
       end subroutine elt_srf_ff_zrn_coef
+
+      subroutine elt_srf_zrn_FreeForm(ok, srf,                       &
+                ifFF_, FFZernType_, FFZernModes_, FFZernCoef_,        &
+                lFF_, pFF_, xFF_, yFF_, zFF_,                         &
+                ifMon_, MonZernType_, MonZernModes_, MonZernCoef_,    &
+                lMon_, pMon_, xMon_, yMon_, zMon_,                    &
+                ifGridTerm_, GridSrfdx_, GridMat_,                    &
+                pData_, xData_, yData_, zData_, setter,               &
+                Nx, Ny, nFF, nMon)
+        implicit none
+        logical,                  intent(out)  :: ok
+        integer,                  intent(in)   :: srf
+        ! FF Zernike
+        logical,                  intent(inout):: ifFF_
+        integer,                  intent(inout):: FFZernType_
+        integer, dimension(nFF),  intent(inout):: FFZernModes_
+        real(8), dimension(nFF),  intent(inout):: FFZernCoef_
+        real(8),                  intent(inout):: lFF_
+        real(8), dimension(3),    intent(inout):: pFF_, xFF_, yFF_, zFF_
+        ! Mon Zernike
+        logical,                  intent(inout):: ifMon_
+        integer,                  intent(inout):: MonZernType_
+        integer, dimension(nMon), intent(inout):: MonZernModes_
+        real(8), dimension(nMon), intent(inout):: MonZernCoef_
+        real(8),                  intent(inout):: lMon_
+        real(8), dimension(3),    intent(inout):: pMon_, xMon_, yMon_, zMon_
+        ! Grid Data
+        logical,                  intent(inout):: ifGridTerm_
+        real(8),                  intent(inout):: GridSrfdx_
+        real(8), dimension(Ny,Nx),intent(inout):: GridMat_
+        real(8), dimension(3),    intent(inout):: pData_, xData_, yData_, zData_
+        integer,                  intent(in)   :: setter
+        integer,                  intent(in)   :: Nx, Ny, nFF, nMon
+        !f2py  integer intent(hide), depend(GridMat_), check(shape(GridMat_,0)>0, shape(GridMat_,1)>0):: Ny=shape(GridMat_,0), Nx=shape(GridMat_,1)
+        !f2py  integer intent(hide), depend(FFZernModes_,FFZernCoef_):: nFF=len(FFZernModes_)
+        !f2py  integer intent(hide), depend(MonZernModes_,MonZernCoef_):: nMon=len(MonZernModes_)
+
+        CALL elt_srf_zrn_FreeForm_impl(ok, srf,                       &
+                ifFF_, FFZernType_, FFZernModes_, FFZernCoef_,        &
+                lFF_, pFF_, xFF_, yFF_, zFF_,                         &
+                ifMon_, MonZernType_, MonZernModes_, MonZernCoef_,    &
+                lMon_, pMon_, xMon_, yMon_, zMon_,                    &
+                ifGridTerm_, GridSrfdx_, GridMat_,                    &
+                pData_, xData_, yData_, zData_, setter,               &
+                Nx, Ny, nFF, nMon)
+      end subroutine elt_srf_zrn_FreeForm
 
       subroutine elt_srf_zrn_type(ok, iElt, ZernType, setter, reset)
         use elt_mod,   only: mZernType

@@ -7,6 +7,7 @@ import functools
 import warnings
 from pathlib import Path
 from typing import Any, List, NewType, Tuple, TypeVar, TypeVarTuple
+from dataclasses import dataclass
 
 import numpy as np
 from numpy._typing import ArrayLike, NDArray
@@ -27,6 +28,12 @@ Surface = int | Tuple[int] | np.int32 | Vector[np.int32]                       #
 Position = Tuple[float] | Vector[np.float64] | Matrix[np.float64]
 Direction = Tuple[float] | Vector[np.float64] | Matrix[np.float64]
 Parameter = float | np.float64 | Tuple[float] | Vector[np.float64]
+
+
+# Sentinel used by zrn_freeform (and any other set-some-leave-others
+# wrappers) to distinguish "preserve current value" (default) from
+# "explicitly clear/wipe" (None).
+_PRESERVE = object()
 Index = int | np.int32 | Tuple[int] | Vector[np.int32]
 
 _floatType = (float, np.float32, np.float64)
@@ -2621,6 +2628,371 @@ def elt_grid_fnd(srf: None | Surface = None,
     return n_elt_grid.nonzero()[0]+1
 
 
+
+# ------------------------------------------------------------------------------
+# [ ] Element Surface Properties: FreeForm
+# ------------------------------------------------------------------------------
+#
+# [x] zrn_freeform        set/get FreeForm surface data (Zernike + Grid)
+#
+# FreeForm surfaces combine multiple surface descriptions:
+# - FF (FreeForm): First Zernike polynomial definition with coordinate system
+# - Mon (Monolithic): Second Zernike polynomial definition with coordinate system
+# - Grid: Grid data displacement map with coordinate system
+# ------------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class LocalCSYS:
+    """3D Local Coordinate System definition.
+
+    Attributes:
+        pos: Position vector [3] (origin)
+        x: X-direction unit vector [3]
+        y: Y-direction unit vector [3]
+        z: Z-direction unit vector [3]
+    """
+    pos: np.ndarray
+    x: np.ndarray
+    y: np.ndarray
+    z: np.ndarray
+
+    def __post_init__(self):
+        """Validate and convert to numpy arrays."""
+        self.pos = np.asarray(self.pos, dtype=np.float64).ravel()
+        self.x = np.asarray(self.x, dtype=np.float64).ravel()
+        self.y = np.asarray(self.y, dtype=np.float64).ravel()
+        self.z = np.asarray(self.z, dtype=np.float64).ravel()
+
+        if self.pos.size != 3:
+            raise ValueError("Position must be 3-element vector")
+
+        if self.x.size != 3 or self.y.size != 3 or self.z.size != 3:
+            raise ValueError("Direction vectors must be 3-element vectors")
+
+
+@dataclass(slots=True)
+class ZernikeData:
+    """Zernike surface data structure.
+
+    Attributes:
+        norm_rad: Zernike normalization radius (lmon)
+        zern_type: Zernike type (1-9)
+            1) Malacara (ANSI)     4) Norm. Malacara     7) Norm. Hex
+            2) Born & Wolf         5) Norm. Born & Wolf  8) Norm. Noll
+            3) Fringe              6) Norm. Fringe       9) Norm. AnnularNoll
+        modes: Zernike mode indices [N] (1-66, Fringe limited to 37)
+        coefs: Zernike coefficients [N] corresponding to modes
+        csys:  Local Coord. System (Pose)
+        annular_ratio: Inner/outer radius ratio (0-1), only for type 9
+    """
+    zern_type: int
+    modes: np.ndarray
+    coefs: np.ndarray
+    norm_rad: float
+    csys: LocalCSYS
+    annular_ratio: float = 0.0
+
+    def __post_init__(self):
+        """Validate Zernike data after initialization."""
+        self.norm_rad = np.asarray_chkfinite(self.norm_rad, dtype=np.float64)
+        self.modes = np.asarray_chkfinite(self.modes, dtype=np.int32)
+        self.coefs = np.asarray_chkfinite(self.coefs, dtype=np.float64)
+
+        if self.norm_rad <= 0:
+            raise ValueError("Normalization radius must be > 0")
+
+        if not (1 <= self.zern_type <= 9):
+            raise ValueError("Zernike type must be in range [1-9]")
+
+        if self.modes.shape != self.coefs.shape:
+            raise ValueError("Modes and coefficients must have same shape")
+
+        if np.any(self.modes < 1) or np.any(self.modes > 66):
+            raise ValueError("Zernike modes must be in range [1-66]")
+
+        if self.zern_type in [3, 6] and np.any(self.modes > 37):
+            raise ValueError("Fringe Zernike types limited to 37 modes")
+
+        if not (0 <= self.annular_ratio <= 1):
+            raise ValueError("Annular ratio must be in range [0-1]")
+
+    def to_tuple(self) -> Tuple:
+        """Convert to tuple format matching pymacos.elt.zernike.get() output.
+
+        Returns:
+            Tuple of (type, modes, coefs, norm_rad, pos, x_dir, y_dir, z_dir)
+
+        Example:
+            >>> zdata = ZernikeData(10.0, 6, np.arange(1, 11), np.zeros(10))
+            >>> lmon, ztype, modes, coefs, ratio = zdata.to_tuple()
+        """
+        return (
+            self.zern_type,
+            self.modes,
+            self.coefs,
+            self.norm_rad,
+            self.csys.pos,
+            self.csys.x,
+            self.csys.y,
+            self.csys.z
+        )
+
+
+@dataclass(slots=True)
+class GridData:
+    """Grid displacement data structure.
+
+    Attributes:
+        dx: Grid sampling spacing (dx == dy)
+        mat: Grid displacement matrix [Ny x Nx] (must be square, min 3x3)
+    """
+    dx: float
+    mat: np.ndarray
+    csys: LocalCSYS
+
+    def __post_init__(self):
+        """Validate grid data."""
+        self.dx = np.asarray_chkfinite(self.dx, dtype=np.float64)
+
+        if self.dx.ndim != 0:
+            raise ValueError("Grid spacing must be a scalar")
+
+        if self.dx <= 0:
+            raise ValueError("Grid spacing must be > 0")
+
+        self.mat = np.asarray_chkfinite(self.mat, dtype=np.float64, order='F')
+
+        if self.mat.ndim != 2:
+            raise ValueError("Grid matrix must be 2D")
+
+        ny, nx = self.mat.shape
+        if nx != ny:
+            raise ValueError("Grid matrix must be square (Nx == Ny)")
+        if nx < 3:
+            raise ValueError("Grid matrix must be at least 3x3")
+
+
+def zrn_freeform(
+    srf: int,
+    zrn_1=_PRESERVE,
+    zrn_2=_PRESERVE,
+    grid=_PRESERVE,
+) -> tuple[ZernikeData | None, ZernikeData | None, GridData | None] | None:
+    """Get or set FreeForm surface data using dataclass structures.
+
+    FreeForm surfaces combine up to three independent surface descriptions:
+    1. FF (FreeForm) Zernike terms with coordinate system
+    2. Mon (Monolithic) Zernike terms with coordinate system
+    3. Grid data displacement map with coordinate system
+
+    **Getter Mode:** call ``zrn_freeform(srf)`` with no other arguments
+    to retrieve the current (FF, Mon, Grid) triple.
+
+    **Setter Mode:** pass any of ``zrn_1`` / ``zrn_2`` / ``grid`` to
+    update the corresponding component.  Three sentinel semantics:
+
+      - default (``_PRESERVE``)  -> leave that component unchanged;
+        the function reads the current state via an internal get and
+        substitutes it so the setter call carries the existing values
+        forward.
+      - ``None``                  -> EXPLICITLY clear/wipe that
+        component (its activity flag goes to FAIL, all data zeroed).
+      - ``ZernikeData`` / ``GridData`` -> write the new value.
+
+    This avoids the old behaviour where ``zrn_freeform(srf, zrn_1=X)``
+    would silently wipe ``zrn_2`` and ``grid`` -- callers no longer
+    need to ``get`` first and pass the unchanged components back in.
+
+    Args:
+        srf: Element ID (single surface only)
+        zrn_1: First Zernike component (FF) as ZernikeData or None
+        zrn_2: Second Zernike component (Mon) as ZernikeData or None
+        grid: Grid displacement data as GridData or None
+
+    Returns:
+        Tuple of (zrn_1, zrn_2, grid) when getting (all params None):
+            - zrn_1: ZernikeData or None (FF component)
+            - zrn_2: ZernikeData or None (Mon component)
+            - grid: GridData or None (Grid component)
+
+        None when setting (any param provided)
+
+    Raises:
+        RuntimeError: If MACOS is not initialized, Rx not loaded, or API call fails
+        ValueError: If srf is not a single surface ID
+
+    See Also:
+        LocalCSYS: 3D coordinate system dataclass
+        ZernikeData: Zernike polynomial data with validation
+        GridData: Grid displacement map data
+    """
+    _chk_macos_and_rx_loaded()
+
+    srf_mapped = _map_Elt(srf)
+    if srf_mapped.size != 1:
+        raise ValueError("Only accepting a single surface ID")
+    srf = srf_mapped.item()
+
+    n_zrn_coef_max = 66
+
+    def _init_zernike_arrays(ncoef: int) -> tuple:
+        """Initialize empty Zernike arrays for Fortran getter."""
+        return (
+            np.array(0, dtype=np.int32),
+            np.array(0, dtype=np.int32),
+            np.zeros(ncoef, dtype=np.int32),
+            np.zeros(ncoef, dtype=float),
+            np.array(0.0, dtype=float),
+            np.zeros(3, dtype=float),
+            np.zeros(3, dtype=float),
+            np.zeros(3, dtype=float),
+            np.zeros(3, dtype=float),
+        )
+
+    def _init_grid_arrays(srf_id: int | None = None) -> tuple:
+        """Initialize empty grid arrays for Fortran getter."""
+        if srf_id is None:
+            g_mat = np.zeros((1, 1), dtype=float, order='F')
+        else:
+            ok, n_grid = lib.api.elt_srf_grid_size(srf_id)
+            n_grid = n_grid.item()
+            g_mat = np.zeros((max(n_grid, 1), max(n_grid, 1)), dtype=float, order='F')
+        return (
+            np.array(0, dtype=np.int32),
+            np.array(0.0, dtype=float),
+            g_mat,
+            np.zeros(3, dtype=float),
+            np.zeros(3, dtype=float),
+            np.zeros(3, dtype=float),
+            np.zeros(3, dtype=float),
+        )
+
+    def _zrn_from_api(if_active, ztype, modes, coefs, norm_rad, pos, x, y, z):
+        """Convert Fortran output arrays to ZernikeData dataclass.
+
+        Returns ``modes = [1..last_nonzero]`` with the full prefix of
+        coefficients (intermediate zeros PRESERVED) so a user-set
+        ``Z4 = 0.0`` is reported on get and survives set/get round-
+        trips.  Trailing zeros beyond the last non-zero entry are
+        dropped because the Fortran getter pads the buffer out to
+        ``mZernCoef = 66`` regardless of how many modes the Rx
+        actually declared.
+        """
+        if not if_active:
+            return None
+        nz = np.flatnonzero(coefs)
+        if nz.size == 0:
+            # active flag set but every coefficient is zero (e.g., the
+            # component is declared in the Rx but currently un-perturbed).
+            # Return a single-slot placeholder so the round-trip is
+            # explicit rather than silently producing None.
+            last = 0
+        else:
+            last = int(nz[-1])
+        active_modes = np.arange(1, last + 2, dtype=np.int32)
+        active_coefs = np.asarray(coefs[:last + 1], dtype=float).copy()
+        return ZernikeData(
+            norm_rad=float(norm_rad),
+            zern_type=int(ztype),
+            modes=active_modes,
+            coefs=active_coefs,
+            csys=LocalCSYS(pos, x, y, z)
+        )
+
+    def _grid_from_api(if_active, dx, mat, pos, x, y, z):
+        """Convert Fortran output arrays to GridData dataclass."""
+        if not if_active:
+            return None
+        return GridData(
+            dx=float(dx),
+            mat=np.ascontiguousarray(mat),
+            csys=LocalCSYS(pos, x, y, z)
+        )
+
+    def _zrn_to_api(zdata, ncoef: int) -> tuple:
+        """Convert ZernikeData dataclass to Fortran arrays for setter."""
+        if zdata is None or len(zdata.modes) == 0:
+            return _init_zernike_arrays(ncoef)
+        return (
+            1,
+            zdata.zern_type,
+            zdata.modes,
+            zdata.coefs,
+            zdata.norm_rad,
+            zdata.csys.pos,
+            zdata.csys.x,
+            zdata.csys.y,
+            zdata.csys.z
+        )
+
+    def _grid_to_api(gdata, srf_id: int) -> tuple:
+        """Convert GridData dataclass to Fortran arrays for setter."""
+        if gdata is None or gdata.dx == 0:
+            return _init_grid_arrays(srf_id)
+        return (
+            1,
+            gdata.dx,
+            np.asfortranarray(gdata.mat),
+            gdata.csys.pos,
+            gdata.csys.x,
+            gdata.csys.y,
+            gdata.csys.z
+        )
+
+    def _do_get():
+        z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z = \
+                                      _init_zernike_arrays(n_zrn_coef_max)
+        z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z = \
+                                      _init_zernike_arrays(n_zrn_coef_max)
+        g_if, g_d, g_m, g_p, g_x, g_y, g_z = _init_grid_arrays(srf)
+
+        ok = lib.api.elt_srf_zrn_freeform(
+            srf,
+            z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z,
+            z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z,
+            g_if, g_d, g_m, g_p, g_x, g_y, g_z, 0)
+
+        if not ok:
+            raise RuntimeError("Failed to retrieve FreeForm surface data")
+
+        return (
+          _zrn_from_api(z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z),
+          _zrn_from_api(z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z),
+          _grid_from_api(g_if, g_d, g_m, g_p, g_x, g_y, g_z)
+        )
+
+    is_getter = (zrn_1 is _PRESERVE) and (zrn_2 is _PRESERVE) \
+                                    and (grid is _PRESERVE)
+    if is_getter:
+        return _do_get()
+
+    # Setter: preserve un-specified components by reading current state.
+    # None stays explicit "clear" semantics; _PRESERVE -> substitute.
+    if (zrn_1 is _PRESERVE) or (zrn_2 is _PRESERVE) or (grid is _PRESERVE):
+        cur_z1, cur_z2, cur_g = _do_get()
+        if zrn_1 is _PRESERVE: zrn_1 = cur_z1
+        if zrn_2 is _PRESERVE: zrn_2 = cur_z2
+        if grid  is _PRESERVE: grid  = cur_g
+
+    z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z = \
+                                    _zrn_to_api(zrn_1, n_zrn_coef_max)
+    z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z = \
+                                    _zrn_to_api(zrn_2, n_zrn_coef_max)
+    g_if, g_d, g_m, g_p, g_x, g_y, g_z = _grid_to_api(grid, srf)
+
+    ok = lib.api.elt_srf_zrn_freeform(
+        srf,
+        z1_if, z1_t, z1_m, z1_c, z1_r, z1_p, z1_x, z1_y, z1_z,
+        z2_if, z2_t, z2_m, z2_c, z2_r, z2_p, z2_x, z2_y, z2_z,
+        g_if, g_d, g_m, g_p, g_x, g_y, g_z, 1
+    )
+
+    if not ok:
+        raise RuntimeError("Failed to set FreeForm surface data")
+
+
+
 # ------------------------------------------------------------------------------
 # [ ] Element Group Management
 # ------------------------------------------------------------------------------
@@ -3859,4 +4231,4 @@ def stop_obj(x: float, y: float, z: float) -> None:
 
 # -------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    pass
+    pass
