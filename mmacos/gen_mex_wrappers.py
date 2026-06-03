@@ -110,6 +110,37 @@ DIM_RE = re.compile(r'dimension\s*\(([^)]+)\)', re.IGNORECASE)
 INTENT_RE = re.compile(r'intent\s*\(([^)]+)\)', re.IGNORECASE)
 
 
+def _split_namelist(text):
+    """Split a Fortran comma list at top-level commas only.
+
+    Used for both the names list in a declaration and per-name dim
+    suffixes like ``arr(max(n,1))`` or ``mat(N,M)`` -- a naive
+    str.split(',') would shred those.  Returns a list of stripped
+    non-empty pieces.
+    """
+    parts = []
+    depth = 0
+    buf = []
+    for ch in text:
+        if ch == '(':
+            depth += 1
+            buf.append(ch)
+        elif ch == ')':
+            depth -= 1
+            buf.append(ch)
+        elif ch == ',' and depth == 0:
+            tok = ''.join(buf).strip()
+            if tok:
+                parts.append(tok)
+            buf = []
+        else:
+            buf.append(ch)
+    tail = ''.join(buf).strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
 def parse_type(base):
     b = base.strip().lower()
     if b.startswith('logical'):
@@ -145,6 +176,10 @@ def parse_subroutines(src):
         # Only look at declarations BEFORE the first executable statement.
         # Heuristic: stop at the first non-blank, non-decl line.
         decl_section = body.split('\n! ----')[0]  # crude but works for this file
+        # Join Fortran line continuations (`&` at EOL, optional `&` at
+        # next-line start) so multi-line decls and `use ..., only:` lists
+        # are parsed as one logical line.
+        decl_section = re.sub(r'&\s*\n\s*&?', ' ', decl_section)
         args_by_name = {n.lower(): Arg(name=n, type='?', intent='?') for n in arg_names}
         for dm in DECL_RE.finditer(decl_section):
             base = dm.group('base')
@@ -157,14 +192,16 @@ def parse_subroutines(src):
             dims = []
             if dim_m:
                 dims = [d.strip() for d in dim_m.group(1).split(',')]
-            # Each decl can also have per-name dim suffix like `arr(N)`
-            for nm in [s.strip() for s in names_raw.split(',')]:
+            # Each decl can also have per-name dim suffix like `arr(N,M)`
+            # or `arr(max(n,1))`.  Split the name list on commas that are
+            # NOT inside parens, then peel each per-name (...) suffix.
+            for nm in _split_namelist(names_raw):
                 bare_name = nm
                 per_name_dim = None
-                paren = re.match(r'(\w+)\s*\(([^)]+)\)', nm)
+                paren = re.match(r'(\w+)\s*\((.+)\)\s*$', nm)
                 if paren:
                     bare_name = paren.group(1)
-                    per_name_dim = [d.strip() for d in paren.group(2).split(',')]
+                    per_name_dim = _split_namelist(paren.group(2))
                 key = bare_name.lower()
                 if key in args_by_name:
                     a = args_by_name[key]
@@ -197,7 +234,7 @@ def parse_subroutines(src):
                 src_mod = use_only_map[rhs_id.group(1).lower()]
             local_params[pname] = (rhs, src_mod)
         subs.append((name, [args_by_name[n.lower()] for n in arg_names],
-                     body, local_params))
+                     body, local_params, use_only_map))
     return subs
 
 
@@ -209,10 +246,11 @@ def array_size_expr(dim_exprs):
     return ' * '.join(parts)
 
 
-def emit_helper(name, args, local_params=None):
+def emit_helper(name, args, local_params=None, use_only_map=None):
     """Return (helper_text, prhs_descr, plhs_descr) or (None, reason, None)
     if codegen can't handle this signature."""
     local_params = local_params or {}
+    use_only_map = use_only_map or {}
 
     # Skip routines with character args -- only load_rx/save_rx use them
     # and those are hand-written.
@@ -254,7 +292,12 @@ def emit_helper(name, args, local_params=None):
             helper_param_lines.append(
                 f'        integer, parameter :: {nm} = {rhs}')
         else:
-            extern_use_by_module.setdefault('elt_mod', set()).add(nm)
+            # Consult use_only_map first -- the subroutine may already
+            # have imported this symbol from a specific module (e.g.
+            # max_fov / max_wl from dopt_mod).  Fall back to elt_mod
+            # only when we have no other hint.
+            src_mod = use_only_map.get(nm.lower(), 'elt_mod')
+            extern_use_by_module.setdefault(src_mod, set()).add(nm)
 
     # Resolve actual declared types for `ok` and `setter` (they vary —
     # some routines declare integer instead of logical).
@@ -504,10 +547,11 @@ def main():
     helpers = []
     cmds = []
     skipped = []
-    for name, args, body, local_params in subs:
+    for name, args, body, local_params, use_only_map in subs:
         if name in PRIVATE_HELPERS or name in HAND_WRITTEN:
             continue
-        text, prhs_args, plhs_args = emit_helper(name, args, local_params)
+        text, prhs_args, plhs_args = emit_helper(name, args, local_params,
+                                                  use_only_map)
         if text is None:
             skipped.append((name, prhs_args))  # prhs_args is reason str when text is None
             continue
