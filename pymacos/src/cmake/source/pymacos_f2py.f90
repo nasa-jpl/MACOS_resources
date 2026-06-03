@@ -114,6 +114,11 @@
       srs_run_impl => srs_run, &
       calib_run_impl => calib_run, &
       calib_buffer_dims_impl => calib_buffer_dims, &
+      calib_set_var_elt_impl => calib_set_var_elt, &
+      calib_clear_var_elts_impl => calib_clear_var_elts, &
+      calib_set_iter_impl => calib_set_iter, &
+      calib_set_tol_impl => calib_set_tol, &
+      calib_set_target_impl => calib_set_target, &
       stop_info_get_impl => stop_info_get, &
       stop_info_set_impl => stop_info_set, &
       stop_obj_set_impl => stop_obj_set, &
@@ -1325,6 +1330,57 @@
 
         CALL calib_buffer_dims_impl(maxFov, maxWl)
       end subroutine calib_buffer_dims
+
+      subroutine calib_set_var_elt(OK, iElt, dofs, zern_modes, n_zern)
+
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: iElt
+        integer, intent(in) :: dofs(8)
+        integer, intent(in) :: n_zern
+        integer, intent(in) :: zern_modes(n_zern)
+        !f2py integer intent(hide), depend(zern_modes):: n_zern=len(zern_modes)
+
+        CALL calib_set_var_elt_impl(OK, iElt, dofs, zern_modes, n_zern)
+      end subroutine calib_set_var_elt
+
+      subroutine calib_clear_var_elts(OK)
+
+        implicit none
+        logical, intent(out):: OK
+
+        CALL calib_clear_var_elts_impl(OK)
+      end subroutine calib_clear_var_elts
+
+      subroutine calib_set_iter(OK, n_iter)
+
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: n_iter
+
+        CALL calib_set_iter_impl(OK, n_iter)
+      end subroutine calib_set_iter
+
+      subroutine calib_set_tol(OK, tol)
+
+        implicit none
+        logical, intent(out):: OK
+        real(8), intent(in) :: tol
+
+        CALL calib_set_tol_impl(OK, tol)
+      end subroutine calib_set_tol
+
+      subroutine calib_set_target(OK, target_type, wf_zern_modes, n_wf_zern)
+
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: target_type
+        integer, intent(in) :: n_wf_zern
+        integer, intent(in) :: wf_zern_modes(n_wf_zern)
+        !f2py integer intent(hide), depend(wf_zern_modes):: n_wf_zern=len(wf_zern_modes)
+
+        CALL calib_set_target_impl(OK, target_type, wf_zern_modes, n_wf_zern)
+      end subroutine calib_set_target
 
       subroutine stop_info_get(OK, iElt, VptOffset)
         use Kinds
