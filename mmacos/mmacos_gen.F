@@ -5042,6 +5042,9 @@ C=======================================================================
         IF (nrhs .ne. 5) CALL mexErrMsgTxt(
      &    'calib_set_var_elt: expects 4 input arg(s)')
 
+        pr = mxGetPr(prhs(5))
+        CALL mxCopyPtrToReal8(pr, dbuf, int(1, kind=8))
+        n_zern = int(dbuf(1))
         pr = mxGetPr(prhs(2))
         CALL mxCopyPtrToReal8(pr, dbuf, int(1, kind=8))
         iElt = int(dbuf(1))
@@ -5059,9 +5062,6 @@ C=======================================================================
         CALL mxCopyPtrToReal8(pr, rbuf, nbytes_tmp)
         zern_modes = int(reshape(rbuf, [max(n_zern, 1)]))
         deallocate(rbuf)
-        pr = mxGetPr(prhs(5))
-        CALL mxCopyPtrToReal8(pr, dbuf, int(1, kind=8))
-        n_zern = int(dbuf(1))
 
         CALL calib_set_var_elt(OK, iElt, dofs, zern_modes, n_zern)
         IF (.not. ok) THEN
@@ -5201,6 +5201,9 @@ C=======================================================================
         IF (nrhs .ne. 4) CALL mexErrMsgTxt(
      &    'calib_set_target: expects 3 input arg(s)')
 
+        pr = mxGetPr(prhs(4))
+        CALL mxCopyPtrToReal8(pr, dbuf, int(1, kind=8))
+        n_wf_zern = int(dbuf(1))
         pr = mxGetPr(prhs(2))
         CALL mxCopyPtrToReal8(pr, dbuf, int(1, kind=8))
         target_type = int(dbuf(1))
@@ -5211,9 +5214,6 @@ C=======================================================================
         CALL mxCopyPtrToReal8(pr, rbuf, nbytes_tmp)
         wf_zern_modes = int(reshape(rbuf, [max(n_wf_zern,1)]))
         deallocate(rbuf)
-        pr = mxGetPr(prhs(4))
-        CALL mxCopyPtrToReal8(pr, dbuf, int(1, kind=8))
-        n_wf_zern = int(dbuf(1))
 
         CALL calib_set_target(OK, target_type, wf_zern_modes, n_wf_zern)
         IF (.not. ok) THEN

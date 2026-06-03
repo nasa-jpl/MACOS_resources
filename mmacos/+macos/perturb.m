@@ -36,6 +36,12 @@ if c == 0.0
 end
 del_base = opts.translation / c;
 
-use_local = strcmp(opts.frame, 'local');
+% Cast logical -> double: mmacos dispatcher reads every arg as
+% REAL(8) via mxGetPr+mxCopyPtrToReal8.  Passing a MATLAB `logical`
+% gives mxGetPr the wrong pointer and mxCopyPtrToReal8 reads
+% adjacent heap memory, corrupting the next allocation.  See
+% feedback_mmacos_dispatcher_double_only memory note + macos
+% PLAN.md §0.
+use_local = double(strcmp(opts.frame, 'local'));
 mmacos('perturb_elt', srf, opts.rotation, del_base, use_local);
 end
