@@ -265,8 +265,27 @@ def emit_helper(name, args, local_params=None):
     L = lines.append
     L(f'C=======================================================================')
     L(f'C     {name}  (auto-generated)')
-    L(f'C     prhs: ' + (', '.join(f'{a.name}' for a in prhs_args) or '(none)'))
-    L(f'C     plhs: ' + (', '.join(f'{a.name}' for a in plhs_args) or '(none)'))
+    def _emit_arg_comment(label, alist):
+        if not alist:
+            L(f'C     {label}: (none)')
+            return
+        head = f'C     {label}: '
+        line = head + ', '.join(a.name for a in alist)
+        if len(line) <= 120:
+            L(line)
+            return
+        cont = 'C            '   # align under after-label column
+        cur = head + alist[0].name
+        for a in alist[1:]:
+            tentative = cur + ', ' + a.name
+            if len(tentative) <= 120:
+                cur = tentative
+            else:
+                L(cur + ',')
+                cur = cont + a.name
+        L(cur)
+    _emit_arg_comment('prhs', prhs_args)
+    _emit_arg_comment('plhs', plhs_args)
     L(f'C=======================================================================')
     L(f'        subroutine do_{name}(nlhs, plhs, nrhs, prhs)')
     L(f'        use macos_api_mod, only: {name}')
@@ -383,7 +402,33 @@ def emit_helper(name, args, local_params=None):
     # declaration order.
     sig_args = ', '.join(a.name for a in args)
     L(f'')
-    L(f'        CALL {name}({sig_args})')
+    # Wrap the CALL across fixed-form continuation lines if the
+    # one-liner would exceed the project's -132 column limit.
+    one_liner = f'        CALL {name}({sig_args})'
+    if len(one_liner) <= 120:
+        L(one_liner)
+    else:
+        # Fixed-form continuation: `&` at column 6 of the NEXT line
+        # marks it as a continuation of the previous statement.  No
+        # trailing `&` on the previous line (that's free-form style
+        # and fixed-form rejects it).  We split args across lines
+        # with the comma at the END of the previous line (so the
+        # continuation line never starts with a comma).
+        head = f'        CALL {name}('
+        cont = '     &      '   # cols 1-5 spaces, col 6 '&', then indent
+        names = [a.name for a in args]
+        call_lines = []
+        cur = head + names[0]
+        for nm in names[1:]:
+            tentative = cur + ', ' + nm
+            if len(tentative) <= 120:
+                cur = tentative
+            else:
+                call_lines.append(cur + ',')
+                cur = cont + nm
+        call_lines.append(cur + ')')
+        for line in call_lines:
+            L(line)
 
     # Step 4: ok check. (FAIL = 0/.false., PASS = 1/.true. — see
     # macos_api_mod's parameters.)

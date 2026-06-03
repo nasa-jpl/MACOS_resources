@@ -149,6 +149,15 @@ classdef Session < handle
             c = macos.get_elt_ff_zrn_coef(iElt, modes);
         end
 
+        % --- FreeForm composite Zernike + Grid -----------------------
+        function s = zrn_freeform(obj, srf, varargin)
+            if nargout > 0
+                s = macos.zrn_freeform(srf, varargin{:});
+            else
+                macos.zrn_freeform(srf, varargin{:});
+            end
+        end
+
         % --- Element groups (EltGrp / GPERTURB) -----------------------
         function set_elt_grp(obj, iElt, members)
             macos.set_elt_grp(iElt, members);
