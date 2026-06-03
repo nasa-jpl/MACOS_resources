@@ -379,8 +379,13 @@ def emit_helper(name, args, local_params=None, use_only_map=None):
     dim_names = set()
     for a in args:
         for d in a.dims:
-            tok = d.strip()
-            if re.match(r'^[A-Za-z_]\w*$', tok):
+            # Pull every bare identifier out of the dim expression so
+            # patterns like `max(n_zern, 1)` add n_zern to dim_names.
+            # Filter out Fortran intrinsics (max, min, etc.) since
+            # they're never prhs args.
+            for tok in re.findall(r'[A-Za-z_]\w*', d):
+                if tok.lower() in ('max', 'min', 'size', 'kind', 'len'):
+                    continue
                 dim_names.add(tok.lower())
 
     def is_dim_scalar(a):

@@ -100,8 +100,8 @@ SUITE_FAST=$(join_suites \
     "tCrossSurface" "tPerturbRoundtrip" "tCodeVGrating" \
     "tBandLimitedMask" "tSrsBugFlatZ" "tDwDzZernike" "tDwDx" \
     "tDwDxGroups")
-# tFreeFormComposite needs ModelSize=256 (FFSegDemoAll); separate group
-SUITE_FREEFORM=$(join_suites "tFreeFormComposite")
+# tFreeFormComposite + tCalib both run at ModelSize=256; same group
+SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
 # group; lives in "fast" because it's quick.
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
@@ -118,7 +118,7 @@ case "${1:-}" in
         # Full suite: split by model_size group to dodge the
         # init-reinit heap-corruption bug (PLAN.md §0).
         run_batch "[$SUITE_FAST, $SUITE_MASKS]" "model_size=128"
-        run_batch "$SUITE_FREEFORM" "model_size=256 (freeform)"
+        run_batch "$SUITE_FREEFORM" "model_size=256 (freeform + calib)"
         run_batch "$SUITE_PROPER_512" "model_size=512"
         run_batch "$SUITE_PROPER_1024" "model_size=1024"
         echo "=== all groups passed ==="
