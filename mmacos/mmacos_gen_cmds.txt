@@ -1,5 +1,12 @@
 apodize
 base_unit_to_metres
+calib_buffer_dims
+calib_clear_var_elts
+calib_run
+calib_set_iter
+calib_set_target
+calib_set_tol
+calib_set_var_elt
 cfield_apodize_complex
 complex_field
 dx_at

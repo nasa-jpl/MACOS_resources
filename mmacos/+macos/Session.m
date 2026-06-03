@@ -158,6 +158,26 @@ classdef Session < handle
             end
         end
 
+        % --- CALIB design optimizer -----------------------------------
+        function r = calib(obj)
+            r = macos.calib();
+        end
+        function calib_clear_var_elts(obj)
+            macos.calib_clear_var_elts();
+        end
+        function calib_set_var_elt(obj, srf, varargin)
+            macos.calib_set_var_elt(srf, varargin{:});
+        end
+        function calib_set_iter(obj, n_iter)
+            macos.calib_set_iter(n_iter);
+        end
+        function calib_set_tol(obj, tol)
+            macos.calib_set_tol(tol);
+        end
+        function calib_set_target(obj, target, varargin)
+            macos.calib_set_target(target, varargin{:});
+        end
+
         % --- Element groups (EltGrp / GPERTURB) -----------------------
         function set_elt_grp(obj, iElt, members)
             macos.set_elt_grp(iElt, members);
