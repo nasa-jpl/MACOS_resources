@@ -3870,6 +3870,170 @@ def srs(slave: int | np.int32,
             "Zernike-typed)")
 
 
+# --- Optimization-target sentinels (mirror dopt_mod's *_TARGET) -----
+CALIB_TARGET_WFE       = 1
+CALIB_TARGET_WFE_ZMODE = 2
+CALIB_TARGET_BEAM      = 3
+CALIB_TARGET_SPOT      = 4
+CALIB_TARGET_OPL       = 5
+
+_CALIB_TARGET_NAMES = {
+    'WFE':       CALIB_TARGET_WFE,
+    'WFE_ZMODE': CALIB_TARGET_WFE_ZMODE,
+    'ZWF':       CALIB_TARGET_WFE_ZMODE,
+    'BEAM':      CALIB_TARGET_BEAM,
+    'SPOT':      CALIB_TARGET_SPOT,
+    'OPL':       CALIB_TARGET_OPL,
+}
+
+# Position order matches dopt_mod's DOF_NameList:
+#   [TIP, TILT, CLOCK, DX, DY, PIST, ROC, CONIC]
+_CALIB_DOF_NAMES = ('TIP', 'TILT', 'CLOCK', 'DX', 'DY', 'PIST', 'ROC', 'CONIC')
+
+
+def _calib_dof_mask(dofs) -> np.ndarray:
+    """Normalize a ``dofs`` argument into the 8-int mask CALIB expects.
+
+    Accepts:
+      * iterable of 8 ints: nonzero = vary, zero = freeze (positional).
+      * iterable of strings: names from {TIP, TILT, CLOCK, DX, DY,
+        PIST, ROC, CONIC}; case-insensitive; everything not listed
+        is frozen.
+    """
+    mask = np.zeros(8, dtype=np.int32)
+    items = list(dofs)
+    if not items:
+        return mask
+    if all(isinstance(x, str) for x in items):
+        name_to_idx = {n: i for i, n in enumerate(_CALIB_DOF_NAMES)}
+        for s in items:
+            key = s.strip().upper()
+            if key not in name_to_idx:
+                raise ValueError(
+                    f"calib_set_var_elt: unknown DOF name {s!r}; "
+                    f"valid: {_CALIB_DOF_NAMES}")
+            mask[name_to_idx[key]] = 1
+    else:
+        if len(items) != 8:
+            raise ValueError(
+                f"calib_set_var_elt: positional dofs must be length 8 "
+                f"(got {len(items)}); use a name list or pad with zeros")
+        mask[:] = [int(bool(v)) for v in items]
+    return mask
+
+
+def calib_clear_var_elts() -> None:
+    """Wipe all CALIB variable-element state (DOFs + Zernike modes).
+
+    Use before defining a fresh variable-element list; otherwise
+    subsequent :func:`calib_set_var_elt` calls accumulate on top of
+    whatever the prescription's ``VarDOF=`` keywords already set.
+    """
+    _chk_macos_and_rx_loaded()
+    if not lib.api.calib_clear_var_elts():
+        raise Exception("MACOS: calib_clear_var_elts() failed")
+
+
+def calib_set_var_elt(srf: int | np.int32,
+                      dofs,
+                      zern_modes=None) -> None:
+    """Mark element ``srf`` as a CALIB variable.
+
+    Programmatic equivalent of the interactive AVAR command.  If
+    ``srf`` was already a variable element, this call REPLACES its
+    DOF + Zernike configuration (MVAR semantics).
+
+    Args:
+        srf:        element id (1..nElt).
+        dofs:       iterable selecting free DOFs.  Either:
+                      - 8-element positional mask [TIP, TILT, CLOCK,
+                        DX, DY, PIST, ROC, CONIC]; nonzero = vary, or
+                      - list of name strings from the set above
+                        (case-insensitive).
+        zern_modes: optional iterable of Zernike mode indices (1..45)
+                    to also optimize on this element; None / empty =
+                    rigid-body-only.
+
+    Raises:
+        Exception: Rx not loaded, srf out of range, mode out of
+                   range, or macos rejected the configuration.
+
+    Example:
+        >>> m.calib_set_var_elt(7, dofs=['TIP', 'TILT'])
+        >>> m.calib_set_var_elt(3, dofs=['DX', 'DY', 'PIST'],
+        ...                    zern_modes=[4, 5, 11])
+    """
+    _chk_macos_and_rx_loaded()
+    s = int(_map_Elt(srf, max_rows=1).squeeze())
+    mask = _calib_dof_mask(dofs)
+    if zern_modes is None:
+        modes = np.array([], dtype=np.int32)
+    else:
+        modes = np.asarray(zern_modes, dtype=np.int32).ravel()
+    ok = lib.api.calib_set_var_elt(s, mask, modes)
+    if not ok:
+        raise Exception(
+            f"MACOS: calib_set_var_elt(srf={s}) rejected -- check that "
+            "srf is in range 1..nElt and any zern_modes are in 1..45")
+
+
+def calib_set_iter(n_iter: int) -> None:
+    """Set the CALIB optimizer iteration cap (``nitrs_dopt``)."""
+    n = int(n_iter)
+    if n < 1:
+        raise ValueError(f"calib_set_iter: n_iter must be >= 1 (got {n})")
+    if not lib.api.calib_set_iter(n):
+        raise Exception(f"MACOS: calib_set_iter({n}) failed")
+
+
+def calib_set_tol(tol: float) -> None:
+    """Set the CALIB convergence tolerance (``dopt_tol``)."""
+    t = float(tol)
+    if t <= 0.0:
+        raise ValueError(f"calib_set_tol: tol must be > 0 (got {t})")
+    if not lib.api.calib_set_tol(t):
+        raise Exception(f"MACOS: calib_set_tol({t}) failed")
+
+
+def calib_set_target(target, wf_zern_modes=None) -> None:
+    """Set the CALIB optimization target.
+
+    Args:
+        target: either an integer (1..5 mapping to the dopt_mod
+                *_TARGET constants) OR a name string from
+                {'WFE', 'WFE_ZMODE', 'ZWF', 'BEAM', 'SPOT', 'OPL'}
+                (case-insensitive).
+        wf_zern_modes: required for the WFE_ZMODE target -- list of
+                Zernike mode indices (1..45) the optimizer should
+                drive to zero.  Ignored for other targets.
+
+    Raises:
+        ValueError: unknown target name.
+        Exception:  macos rejected the configuration.
+
+    Example:
+        >>> m.calib_set_target('WFE')
+        >>> m.calib_set_target('WFE_ZMODE', wf_zern_modes=[4, 5, 11])
+    """
+    if isinstance(target, str):
+        key = target.strip().upper()
+        if key not in _CALIB_TARGET_NAMES:
+            raise ValueError(
+                f"calib_set_target: unknown target name {target!r}; "
+                f"valid: {sorted(_CALIB_TARGET_NAMES)}")
+        t = _CALIB_TARGET_NAMES[key]
+    else:
+        t = int(target)
+    if wf_zern_modes is None:
+        modes = np.array([], dtype=np.int32)
+    else:
+        modes = np.asarray(wf_zern_modes, dtype=np.int32).ravel()
+    if not lib.api.calib_set_target(t, modes):
+        raise Exception(
+            f"MACOS: calib_set_target(target={target!r}) failed -- check "
+            "wf_zern_modes is set for WFE_ZMODE target")
+
+
 def calib() -> dict:
     """CALIB -- run the macos design optimizer.
 
