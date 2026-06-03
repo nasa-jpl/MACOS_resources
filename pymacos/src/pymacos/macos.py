@@ -3870,6 +3870,75 @@ def srs(slave: int | np.int32,
             "Zernike-typed)")
 
 
+def calib() -> dict:
+    """CALIB -- run the macos design optimizer.
+
+    Wraps the SMACOS ``CALIB`` command.  Reads the optimization
+    configuration from current state -- variable elements (set via the
+    prescription's ``VarDOF=`` keyword or future programmatic setters),
+    field-of-view list, wavelength list, target (``OptTarget=``),
+    iteration cap (``OptMxItrs=``), tolerance, and the FEX
+    pre-optimization flag (``OptFEX=``).  The simplest workflow is to
+    bake the config into the .in file and call :func:`calib` after
+    loading::
+
+        m.load('opt_example.in')
+        m.perturb(1, rotation_rad=(1e-3, 0, 0), in_local_coords=False)
+        m.stop(7, [0.0, 0.0])
+        result = m.calib()
+        if result['converged']:
+            print(f"old WFE = {result['old_wfe']}")
+            print(f"new WFE = {result['new_wfe']}")
+
+    The constrained (NPSOL) optimizer is selected automatically when
+    the prescription enables it AND macos was built with
+    ``-DUSE_NPSOL=ON``; otherwise CALIB falls back to an unconstrained
+    Levenberg-Marquardt step.
+
+    Returns:
+        dict with keys:
+
+        ``converged`` (bool):
+            True if rtn_flag == 0 (optimizer ran to completion).
+        ``rtn_flag`` (int):
+            Optimizer return code; 0 = converged, nonzero = failure.
+        ``n_fov`` (int):
+            Number of field-of-view points used.
+        ``n_wavelength`` (int):
+            Number of wavelengths used.
+        ``old_wfe`` (np.ndarray, shape=(n_fov, n_wavelength)):
+            RMS wavefront error per (FOV, wavelength) BEFORE the
+            optimization.  Only populated for ``OptTarget=WFE``;
+            BEAM / SPOT / OPL / ZWF targets leave this zero (their
+            equivalent metrics aren't yet exposed -- Phase 1b).
+        ``new_wfe`` (np.ndarray, shape=(n_fov, n_wavelength)):
+            Same, AFTER the optimization.
+
+    Raises:
+        Exception: Rx not loaded, no variable elements defined, no
+                   FOVs defined, or the optimizer rejected the run.
+    """
+    _chk_macos_and_rx_loaded()
+    maxFov, maxWl = lib.api.calib_buffer_dims()
+    old_wfe = np.zeros((maxFov, maxWl), order='F', dtype=np.float64)
+    new_wfe = np.zeros((maxFov, maxWl), order='F', dtype=np.float64)
+    ok, rtn_flag, n_fov, n_wl = lib.api.calib_run(old_wfe, new_wfe)
+    if not ok:
+        raise Exception(
+            f"MACOS: calib() failed -- rtn_flag={rtn_flag}.  Common "
+            "causes: no variable elements defined (set VarDOF= on at "
+            "least one element in the prescription), no FOVs defined "
+            "(set OptFOVWt=), or CALIB's iteration cap was exhausted.")
+    return {
+        'converged':     rtn_flag == 0,
+        'rtn_flag':      int(rtn_flag),
+        'n_fov':         int(n_fov),
+        'n_wavelength':  int(n_wl),
+        'old_wfe':       old_wfe[:n_fov, :n_wl].copy(),
+        'new_wfe':       new_wfe[:n_fov, :n_wl].copy(),
+    }
+
+
 def perturb(srf: int | np.int32,
             rotation_rad: Tuple[float, float, float] = (0.0, 0.0, 0.0),
             translation_m: Tuple[float, float, float] = (0.0, 0.0, 0.0),
