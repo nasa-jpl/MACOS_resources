@@ -112,6 +112,8 @@
       sxp_fnd_impl => sxp_fnd, &
       ors_run_impl => ors_run, &
       srs_run_impl => srs_run, &
+      calib_run_impl => calib_run, &
+      calib_buffer_dims_impl => calib_buffer_dims, &
       stop_info_get_impl => stop_info_get, &
       stop_info_set_impl => stop_info_set, &
       stop_obj_set_impl => stop_obj_set, &
@@ -1297,6 +1299,32 @@
 
         CALL srs_run_impl(OK, iSlv1, iSlv2, link)
       end subroutine srs_run
+
+      subroutine calib_run(OK, rtn_flag_out, nFov_out, nWl_out,            &
+                           old_wfe_out, new_wfe_out, max_fov, max_wl)
+
+        implicit none
+        logical, intent(out)  :: OK
+        integer, intent(out)  :: rtn_flag_out
+        integer, intent(out)  :: nFov_out
+        integer, intent(out)  :: nWl_out
+        integer, intent(in)   :: max_fov, max_wl
+        real(8), intent(inout):: old_wfe_out(max_fov,max_wl)
+        real(8), intent(inout):: new_wfe_out(max_fov,max_wl)
+        !f2py integer intent(hide), depend(old_wfe_out):: max_fov=shape(old_wfe_out,0), max_wl=shape(old_wfe_out,1)
+
+        CALL calib_run_impl(OK, rtn_flag_out, nFov_out, nWl_out,           &
+                            old_wfe_out, new_wfe_out)
+      end subroutine calib_run
+
+      subroutine calib_buffer_dims(maxFov, maxWl)
+
+        implicit none
+        integer, intent(out):: maxFov
+        integer, intent(out):: maxWl
+
+        CALL calib_buffer_dims_impl(maxFov, maxWl)
+      end subroutine calib_buffer_dims
 
       subroutine stop_info_get(OK, iElt, VptOffset)
         use Kinds
