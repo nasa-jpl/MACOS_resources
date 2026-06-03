@@ -44,6 +44,7 @@ elt_srf_grid_size_max
 elt_srf_grid_spacing
 elt_srf_mon_zrn_coef
 elt_srf_mon_zrn_max_modes
+elt_srf_zrn_FreeForm
 elt_srf_zrn_any
 elt_srf_zrn_coef
 elt_srf_zrn_fnd
