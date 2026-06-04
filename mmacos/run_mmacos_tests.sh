@@ -115,13 +115,14 @@ SUITE_PROPER="$SUITE_PROPER_512"  # back-compat; not directly used
 # Argument handling.
 case "${1:-}" in
     "")
-        # Full suite: split by model_size group to dodge the
-        # init-reinit heap-corruption bug (PLAN.md §0).
-        run_batch "[$SUITE_FAST, $SUITE_MASKS]" "model_size=128"
-        run_batch "$SUITE_FREEFORM" "model_size=256 (freeform + calib)"
-        run_batch "$SUITE_PROPER_512" "model_size=512"
-        run_batch "$SUITE_PROPER_1024" "model_size=1024"
-        echo "=== all groups passed ==="
+        # Full suite in ONE matlab -batch.  The historical per-
+        # model_size split was a workaround for the init-reinit
+        # heap-corruption bug (PLAN.md §0); that bug was fixed in
+        # macos commit e2e8bf6 (macos_realloc=.true. on resize +
+        # DFOURN grow-on-demand), so all four model_size groups now
+        # run cleanly back-to-back in a single matlab process.
+        run_batch "[$SUITE_FAST, $SUITE_MASKS, $SUITE_FREEFORM, $SUITE_PROPER_512, $SUITE_PROPER_1024]" \
+                  "full suite (all model sizes)"
         ;;
     fast)
         # All size=128 EXCEPT masks — dev iteration loop, ~10 s.
@@ -132,10 +133,8 @@ case "${1:-}" in
         run_batch "$SUITE_MASKS" "masks (size=128)"
         ;;
     proper)
-        # Phase 5 PROPER-comparison suite — split by size to dodge
-        # the init-reinit bug.  ~15 s + ~10 s.
-        run_batch "$SUITE_PROPER_512"  "proper Cass-FF (size=512)"
-        run_batch "$SUITE_PROPER_1024" "proper Coro NF (size=1024)"
+        # Phase 5 PROPER-comparison suite — now one batch.
+        run_batch "[$SUITE_PROPER_512, $SUITE_PROPER_1024]" "proper (Cass-FF + Coro NF)"
         ;;
     -k)
         # Method-name substring filter.
