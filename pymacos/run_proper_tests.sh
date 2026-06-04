@@ -72,43 +72,28 @@ if [[ $do_build -eq 1 ]]; then
     (cd "$build_dir" && make)
 fi
 
-# 4. Run each phase in its own pytest process.
+# 4. Run all PROPER-compare phases in ONE pytest process.
 #
-# Why two invocations: pymacos's init() reallocates the Fortran
-# arrays when model_size changes, but some module-level state (most
-# visibly the diffraction-grid normalisation) leaks across a 512 <->
-# 1024 transition in the same Python process.  Running each phase as
-# a fresh process sidesteps this entirely.  Long-term fix is on the
-# pymacos side; until then this is the cheap, correct option.
+# Until macos commit e2e8bf6 (macos_realloc=.true. on resize +
+# DFOURN grow-on-demand) closed PLAN.md §0, switching model_size
+# between phases corrupted the heap; the workaround was to invoke
+# pytest once per phase so each subprocess saw a single model size.
+# That fix lands cleanly here too -- one pytest run covers all the
+# phases below.
 cd tests
 
-set +e   # collect status of each phase rather than aborting at the first
+set +e
 echo
-echo "=== Phase 1 (Cass FF) ==="
-pytest proper_compare/test_cass_ff.py proper_compare/test_cass_ff_aberrations.py \
+echo "=== PROPER-compare suite (all phases, single pytest) ==="
+pytest proper_compare/test_cass_ff.py \
+       proper_compare/test_cass_ff_aberrations.py \
+       proper_compare/test_coro_nfprop.py \
+       proper_compare/test_coro_nfprop_phase3.py \
+       proper_compare/test_coro_apodizer.py \
+       proper_compare/test_band_limited_mask.py \
+       proper_compare/test_coro_contrast_curve.py \
        "${pytest_args[@]}"
-s1=$?
-
-echo
-echo "=== Phase 2 (Coro NF-prop, Elt 2 -> Elt 3) ==="
-pytest proper_compare/test_coro_nfprop.py "${pytest_args[@]}"
-s2=$?
-
-echo
-echo "=== Phase 3 (Coro NF-prop, further-down-chain pairs) ==="
-pytest proper_compare/test_coro_nfprop_phase3.py "${pytest_args[@]}"
-s3=$?
-
-echo
-echo "=== Phase 6 (Coro apodisation via pymacos.apodize) ==="
-pytest proper_compare/test_coro_apodizer.py \
-       proper_compare/test_band_limited_mask.py "${pytest_args[@]}"
-s6=$?
-
-echo
-echo "=== Contrast curves (radial scoring of Phase 5 baselines) ==="
-pytest proper_compare/test_coro_contrast_curve.py "${pytest_args[@]}"
-sc=$?
+s_all=$?
 
 # N-sweep is opt-in (slow-ish: ~30 s for N=256,512,1024 across both
 # no-mask and with-mask cases; longer if PROPER_COMPARE_NSWEEP_HIGH_N=1
@@ -135,9 +120,9 @@ echo "  $here/tests/proper_compare/results_phase2/   (Coro NF-prop 2->3)"
 echo "  $here/tests/proper_compare/results_phase3/   (Coro NF-prop further-down-chain)"
 
 # Overall status: fail if any phase failed.
-if [[ $s1 -ne 0 || $s2 -ne 0 || $s3 -ne 0 || $s6 -ne 0 || $sc -ne 0 || $sn -ne 0 ]]; then
+if [[ $s_all -ne 0 || $sn -ne 0 ]]; then
     echo
-    echo "FAILURE: phase1=$s1, phase2=$s2, phase3=$s3, phase6=$s6, contrast=$sc, nsweep=$sn"
+    echo "FAILURE: proper_compare=$s_all, nsweep=$sn"
     exit 1
 fi
 echo
