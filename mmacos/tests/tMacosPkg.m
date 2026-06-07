@@ -128,6 +128,52 @@ classdef tMacosPkg < matlab.unittest.TestCase
             testCase.verifyGreaterThan(max(I(:)), 0);
         end
 
+        % --- Ray status ---------------------------------------------
+        function test_get_ray_status_returns_struct(testCase)
+            s = macos.trace();
+            r = macos.get_ray_status(s.nRays);
+            testCase.verifyTrue(isstruct(r));
+            for fn = {'status','fail_elt','n_ok','n_obscured','n_miss', ...
+                      'n_bracket','n_max_iter','n_undef','n_lost'}
+                testCase.verifyTrue(isfield(r, fn{1}), ...
+                    sprintf('missing field %s', fn{1}));
+            end
+            testCase.verifyEqual(numel(r.status),  s.nRays);
+            testCase.verifyEqual(numel(r.fail_elt), s.nRays);
+        end
+
+        function test_get_ray_status_cass_obscuration(testCase)
+            % Rx_Cass_FarField has an M2 shadow that blocks the central
+            % rays.  Expect Obscured > 0, but every ray must trace
+            % cleanly (no Miss/Bracket/MaxIter/Undef) and the per-
+            % category counts must add up to nRays.
+            s = macos.trace();
+            r = macos.get_ray_status(s.nRays);
+            testCase.verifyGreaterThan(r.n_ok,       0);
+            testCase.verifyGreaterThan(r.n_obscured, 0);
+            testCase.verifyEqual(r.n_miss,     0);
+            testCase.verifyEqual(r.n_bracket,  0);
+            testCase.verifyEqual(r.n_max_iter, 0);
+            testCase.verifyEqual(r.n_undef,    0);
+            n_categorised = r.n_ok + r.n_obscured + r.n_miss + ...
+                            r.n_bracket + r.n_max_iter + r.n_undef;
+            testCase.verifyEqual(n_categorised, s.nRays);
+            testCase.verifyEqual(r.n_lost, s.nRays - r.n_ok);
+        end
+
+        function test_get_ray_status_matches_ray_info(testCase)
+            % get_ray_status (per-category) and get_ray_info (binary
+            % ok_trace / ok_pass) must agree: status == 0 iff ok_pass,
+            % and ok_trace must be true everywhere (no intersection
+            % failures on Rx_Cass_FarField).
+            s  = macos.trace();
+            rs = macos.get_ray_status(s.nRays);
+            ri = macos.get_ray_info(s.nRays);
+            testCase.verifyTrue(all(ri.ok_trace));
+            testCase.verifyEqual(rs.n_ok, nnz(ri.ok_pass));
+            testCase.verifyTrue(all((rs.status == 0) == ri.ok_pass));
+        end
+
         function test_complex_field_is_complex(testCase)
             cf = macos.complex_field(testCase.ExpectedNelt);
             testCase.verifyFalse(isreal(cf));

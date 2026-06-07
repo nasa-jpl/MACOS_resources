@@ -59,6 +59,11 @@ SMACOS_LIBS := $(MACOS_BUILD_DIR)/lib/libsmacos.a
 NPSOL_LIBS  := $(wildcard $(MACOS_BUILD_DIR)/lib/libnpsol.a) \
                $(wildcard $(MACOS_BUILD_DIR)/lib/liblapacklib.a) \
                $(wildcard $(MACOS_BUILD_DIR)/lib/libblaslib.a)
+# SLSQP -- libsmacos references slsqp_ via design_slsqp_optim_mod but
+# the slsqp_optmz.f objects live in their own static archive (CMake
+# target slsqplib).  Link it alongside libsmacos here; the wildcard
+# tolerates older trees that don't have it yet.
+SLSQP_LIB   := $(wildcard $(MACOS_BUILD_DIR)/lib/libslsqplib.a)
 FITS_LIB    := $(wildcard $(MACOS_BUILD_DIR)/lib/libfitslib.a)
 
 APP      := mmacos
@@ -111,7 +116,7 @@ MEX_OBJS := mmacos_mex.o mmacos_gen.o
 $(MEX_NAME).$(MEXTAG): $(MEX_OBJS) $(SMACOS_LIBS)
 	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) \
 	    $(MEX_OBJS) \
-	    $(SMACOS_LIBS) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
+	    $(SMACOS_LIBS) $(SLSQP_LIB) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
 
 # macos_api_mod's .mod comes from $(SMACOS_OBJS) via -I in FFLAGS.
 mmacos_mex.o: mmacos_mex.F
