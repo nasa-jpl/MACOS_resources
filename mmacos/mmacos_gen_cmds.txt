@@ -79,6 +79,7 @@ prb_elt
 prb_elt_grp
 ray_info_get
 ray_info_set
+ray_status_get
 save_rx
 set_src_csys
 set_src_fov
