@@ -143,18 +143,24 @@ classdef tMacosPkg < matlab.unittest.TestCase
         end
 
         function test_get_ray_status_cass_obscuration(testCase)
-            % Rx_Cass_FarField has an M2 shadow that blocks the central
-            % rays.  Expect Obscured > 0, but every ray must trace
-            % cleanly (no Miss/Bracket/MaxIter/Undef) and the per-
-            % category counts must add up to nRays.
+            % Q2 acceptance: known-vignetting Rx -> known per-category
+            % counts.  Rx_Cass_FarField at model_size 128 traces a
+            % deterministic 12850 rays; the M2 shadow obscures the
+            % central 1366, leaving 11484 OK.  These exact numbers
+            % match the engine's own "A total of 1366 rays were lost /
+            % Obscured: 1366" diagnostic.  Pinned so an emitter/sampling
+            % regression fails loudly.
             s = macos.trace();
             r = macos.get_ray_status(s.nRays);
-            testCase.verifyGreaterThan(r.n_ok,       0);
-            testCase.verifyGreaterThan(r.n_obscured, 0);
+            testCase.verifyEqual(s.nRays,      12850);
+            testCase.verifyEqual(r.n_ok,       11484);
+            testCase.verifyEqual(r.n_obscured,  1366);
+            % no intersection failures on a healthy on-axis Cass
             testCase.verifyEqual(r.n_miss,     0);
             testCase.verifyEqual(r.n_bracket,  0);
             testCase.verifyEqual(r.n_max_iter, 0);
             testCase.verifyEqual(r.n_undef,    0);
+            % per-category counts partition nRays
             n_categorised = r.n_ok + r.n_obscured + r.n_miss + ...
                             r.n_bracket + r.n_max_iter + r.n_undef;
             testCase.verifyEqual(n_categorised, s.nRays);
