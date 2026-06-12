@@ -325,19 +325,70 @@ Shared test conventions:
   chk_polygon_pts, ray_pos_at_srf_in_tangent_plane}.m` — mask-
   geometry helpers ported from pymacos test_masks.py.
 
+## Design layer (`+macos/+design/`, Sprint 2A-i, 2026-06-12)
+
+`macos.design.System` is the high-level **import / analysis / optimize**
+front-end (plan: `~/dev/macos/PLAN_DESIGN_LAYER.md`).  It wraps the
+existing `+macos` surface; it does NOT touch Fortran.
+
+- `System.from_rx(path, 'model_size', N)` — load via SMACOS, read
+  element/source params back through the getters into a plain `spec`
+  struct (state-as-data; **no MATLAB text parser**).  `from_rx` leaves
+  the Rx loaded.
+- `vary(elt, param, ...)` — declare a design var (pure spec edit).
+- `sensitivities(...)` — **harvests** `dw_dx` + `dw_dz_zernike`,
+  returns them as **separate** `out.rigid` / `out.zern` structs (user
+  joins `[rigid.dwdx, zern.dwdz]` if wanted).  Bitwise-equal to the
+  standalone drivers — never re-derives FD.
+- `evaluate(x)` / `optimize(...)` — rigid-body MVP; fmincon over
+  [0,1]-normalized bounds with a ray-loss penalty; restores nominal by
+  `load_rx` (Q5 says that's bit-stable).
+
+**Conventions baked into the surface (don't regress):**
+- **DOFs are name-based** (`'Tz'`, `'despace'`, `'tilt'`), NEVER the
+  0-based `dw_dx` index — that index lives only in the private
+  `dofs_to_idx_` translator.  `vary` stores `dof_name`, not a number.
+- **Rigid perturbations are LOCAL/EltCoord frame** (`RigidBodyChannel`
+  hardwires `'frame','local'`): `Ty` is the element's own y, not global
+  Y.  The `{'global','local'}` knob in `dw_dx` is `group_coords` (groups
+  only).
+- Examples live in `examples/design/`; each ends in `exit(0)`.
+
+## Veneer parity with pymacos (audit 2026-06-12)
+
+**Engine-level parity is complete** — every implemented pymacos function
+maps to a shared `macos_api_mod` routine mmacos also exposes as a raw
+`mmacos('cmd',...)`.  Remaining gaps are convenience `+macos` veneers,
+not capability.  First batch added 2026-06-12: `spot`, `fex` +
+`get_xp`/`set_xp`, `get_elt_kc`/`set_elt_kc`/`get_elt_kr`/`set_elt_kr`.
+Still raw-only (no veneer): grid-surface family (`elt_srf_grid_*`),
+`src_size`/`src_csys`/`src_info`, surface-csys, `elt_zrn_type`/
+`norm_rad`, `set_ray_info`, `elt_grp` query helpers.  Tracker:
+`~/dev/macos/PLAN.md` §11.6.
+
+Other engine wrappers added this cycle: `get_ray_status(N)` (per-category
+RayStat counts; complements binary `get_ray_info`) backed by
+`ray_status_get` in `macos_api_mod`.
+
+## slsqplib link (Makefile)
+
+`libsmacos.a` references `slsqp_` (via `design_slsqp_optim_mod`) but the
+SLSQP objects live in their own archive `libslsqplib.a` (CMake target
+`slsqplib`).  The Makefile links `$(SLSQP_LIB)` alongside `$(SMACOS_LIBS)`
+(wildcard-guarded for older trees).  Without it any sls-dev/opt-dev
+mmacos build fails with `undefined reference to slsqp_`.
+
 ## Key files
 
 | File | Role |
 |---|---|
-| `mmacos_mex.F` | Hand-written mex helpers + dispatcher (13 cmds), ~600 LOC |
-| `mmacos_gen.F` | Auto-generated mex helpers + `gen_dispatch` (78 cmds) |
+| `mmacos_mex.F` | Hand-written mex helpers + dispatcher, ~600 LOC |
+| `mmacos_gen.F` | Auto-generated mex helpers + `gen_dispatch` (90 cmds) |
 | `gen_mex_wrappers.py` | Codegen script — re-run on api signature change |
-| `+macos/` | Function-package user surface (23 funcs + Session class) |
-| `tests/` | matlab.unittest suite (5 classes, 50 tests) |
+| `+macos/` | Function-package user surface + `+macos/+design/` + `+macos/+channels/` |
+| `tests/` | matlab.unittest suite; `tests/README.md` maps class→suite→coverage |
 | `tests/private/rx_fixture_path.m` | Shared Rx-corpus locator |
-| `run_mmacos_tests.sh` | Bash entrypoint for the unittest suite |
-| `Makefile` | GMI-style build; `make test` (smoke) / `make unittest` (full) |
-| `test_mmacos.m` | Raw-mex quick smoke |
-| `test_macos_pkg.m` | +macos + Session quick smoke |
-| `test_state_after_roundtrip.m` | Diagnostic probe for the ULP residual |
+| `examples/design/` | Design-layer runnable examples (sensitivities, align) |
+| `run_mmacos_tests.sh` | Bash entrypoint; `fast` / `masks` / `proper` / `<Class>` |
+| `Makefile` | GMI-style build; links libsmacos + slsqplib (+ fits) |
 | `~/dev/macos/macos_f90/macos_api_mod.F90` | Shared backbone (in libsmacos.a) |
