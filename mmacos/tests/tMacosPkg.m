@@ -143,41 +143,8 @@ classdef tMacosPkg < matlab.unittest.TestCase
             macos.set_elt_kr(3, kr0);
         end
 
-        % --- Spot / exit-pupil veneers ------------------------------
-        function test_spot_returns_struct(testCase)
-            macos.trace();
-            s = macos.spot(testCase.ExpectedNelt);
-            testCase.verifyTrue(isstruct(s));
-            for fn = {'pts','centroid','shift','csys','nSpot'}
-                testCase.verifyTrue(isfield(s, fn{1}), ...
-                    sprintf('spot missing field %s', fn{1}));
-            end
-            testCase.verifyEqual(size(s.pts,2), 2);
-            testCase.verifyEqual(size(s.pts,1), s.nSpot);
-            testCase.verifyEqual(numel(s.centroid), 2);
-            testCase.verifyEqual(size(s.csys), [3 3]);
-        end
-
-        function test_fex_returns_geometry(testCase)
-            macos.trace();
-            s = macos.fex(1);
-            for fn = {'f','vpt','psi','rad'}
-                testCase.verifyTrue(isfield(s, fn{1}), ...
-                    sprintf('fex missing field %s', fn{1}));
-            end
-            testCase.verifyEqual(size(s.vpt), [3 1]);
-            testCase.verifyEqual(size(s.psi), [3 1]);
-        end
-
-        function test_xp_get_set_roundtrip(testCase)
-            macos.trace();
-            macos.fex(1);
-            x0 = macos.get_xp();
-            macos.set_xp(x0.vpt + [1e-6; 0; 0], x0.psi, x0.rad);
-            x1 = macos.get_xp();
-            testCase.verifyEqual(x1.vpt(1) - x0.vpt(1), 1e-6, 'AbsTol', 1e-12);
-            macos.set_xp(x0.vpt, x0.psi, x0.rad);
-        end
+        % (spot / fex / xp veneers need a STOP-bearing Rx — tested in
+        %  tVeneerXP on e5hex1.  Rx_Cass_FarField is stopless.)
 
         % --- Ray status ---------------------------------------------
         function test_get_ray_status_returns_struct(testCase)

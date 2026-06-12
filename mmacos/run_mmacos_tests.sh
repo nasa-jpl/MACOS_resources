@@ -48,6 +48,33 @@ if [ -z "$MATLAB_DIR" ] || [ ! -d "$MATLAB_DIR" ]; then
     exit 2
 fi
 
+# License-seat preflight.  MathWorks Home/Individual licenses allow ONE
+# concurrent MATLAB session.  If an interactive desktop is open it holds
+# the seat, and a `matlab -batch` run BLOCKS waiting for it — surfacing
+# as a silent multi-minute "hang" that dies at the timeout with zero
+# output.  Detect a seat-holding interactive MATLAB and fail fast with a
+# clear message.  Set MM_SKIP_SEAT_CHECK=1 to bypass (e.g. a real
+# multi-seat / network license).
+if [ "${MM_SKIP_SEAT_CHECK:-0}" != "1" ]; then
+    seat_holder=""
+    for p in $(pgrep -f "glnxa64/MATLAB" 2>/dev/null); do
+        a=$(ps -o args= -p "$p" 2>/dev/null)
+        case "$a" in
+            *MathWorksServiceHost*|*ServiceHost*) ;;   # daemon — ignore
+            *" -batch "*) ;;                           # a batch run — ignore
+            *glnxa64/MATLAB*) seat_holder="$p $seat_holder" ;;
+        esac
+    done
+    if [ -n "$seat_holder" ]; then
+        echo "error: an interactive MATLAB session is running (pid ${seat_holder%% })." >&2
+        echo "       Home/Individual licenses allow ONE concurrent session, so a" >&2
+        echo "       'matlab -batch' test run would block waiting for the seat." >&2
+        echo "       Close the MATLAB desktop and retry (or MM_SKIP_SEAT_CHECK=1" >&2
+        echo "       if you have a multi-seat license)." >&2
+        exit 3
+    fi
+fi
+
 # Rebuild mmacos.mexa64 if any source is newer.
 if [ ! -f mmacos.mexa64 ] \
    || [ mmacos_mex.F -nt mmacos.mexa64 ] \
@@ -100,7 +127,7 @@ SUITE_FAST=$(join_suites \
     "tCrossSurface" "tPerturbRoundtrip" "tCodeVGrating" \
     "tBandLimitedMask" "tSrsBugFlatZ" "tDwDzZernike" "tDwDx" \
     "tDwDxGroups" "tDesignSystem" "tDesignVary" "tDesignSensitivities" \
-    "tDesignOptimize")
+    "tDesignOptimize" "tVeneerXP")
 # tFreeFormComposite + tCalib both run at ModelSize=256; same group
 SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
