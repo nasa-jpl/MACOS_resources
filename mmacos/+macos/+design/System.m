@@ -105,6 +105,81 @@ classdef System < handle
             n = obj.spec.n_elt;
         end
 
+        function out = sensitivities(obj, opts)
+        %SENSITIVITIES  OPD sensitivity Jacobians for the imported system.
+        %   out = s.sensitivities() runs the bitwise-verified Phase 7
+        %   sensitivity drivers (PLAN_DESIGN_LAYER §1.0 / Sprint 2A-i,
+        %   PLAN.md §5.4) and returns their results side by side — it
+        %   HARVESTS the existing channel machinery, it does not re-derive
+        %   FD.  The two Jacobians are kept as SEPARATE matrices (current
+        %   practice); join them yourself if you prefer a single matrix:
+        %       J = [out.rigid.dwdx, out.zern.dwdz];   % same Nw rows
+        %
+        %     'rigid' -> out.rigid = macos.dw_dx        (rigid-body / src / FP)
+        %     'zern'  -> out.zern  = macos.dw_dz_zernike (MonZern / Zern,
+        %                                       auto-discovered from the Rx)
+        %
+        %   Name-value pairs:
+        %     'families'    cellstr subset of {'rigid','zern'} (default both).
+        %                   A family not requested -> [] in the output.
+        %                   'zern' yields an empty dwdz if the Rx has no
+        %                   Zernike-eligible elements.
+        %     'dofs'        rigid DOF indices 0..5 (default all 6).
+        %     'fp_mode'     'track'(default)|'srs'|'sxp'|'none' (dw_dx).
+        %     'zern_kinds'  {'monzern','zern'} default (dw_dz_zernike).
+        %     'zmode_start' lowest Zernike mode (default 4).
+        %     'n_zcoef'     highest Zernike mode (default 15).
+        %     'delta_rigid' rigid FD step (default 1e-8).
+        %     'delta_zern'  Zernike FD step (default 1e-6).
+        %     'verbose'     logical (default false).
+        %
+        %   Output struct:
+        %     rigid       full macos.dw_dx result struct, or [].
+        %                 (.dwdx Nw×Nz, .channel_names, .iElt, .dof_idx,
+        %                  .w_nom_vec, …)
+        %     zern        full macos.dw_dz_zernike result struct, or [].
+        %                 (.dwdz Nw×Nz, .channel_names, .iElt, .mode,
+        %                  .kind, .w_nom_vec, …)
+        %     families, rx_path, model_size.
+        %
+        %   Until nominal snapshot/restore lands (§9.1 Q9 → PLAN.md §11.7)
+        %   each driver reloads the Rx; that is correct (Q5 certified
+        %   repeated load/trace is bit-stable) just not yet cheap.
+            arguments
+                obj
+                opts.families   (1,:) cell   = {'rigid','zern'}
+                opts.dofs       (1,:) double = 0:5
+                opts.fp_mode    (1,:) char   = 'track'
+                opts.zern_kinds (1,:) cell   = {'monzern','zern'}
+                opts.zmode_start (1,1) double = 4
+                opts.n_zcoef    (1,1) double = 15
+                opts.delta_rigid (1,1) double = 1e-8
+                opts.delta_zern  (1,1) double = 1e-6
+                opts.verbose    (1,1) logical = false
+            end
+            sp = obj.spec;
+            m  = macos.Session(sp.model_size);
+
+            out = struct();
+            out.rigid      = [];
+            out.zern       = [];
+            out.families   = opts.families;
+            out.rx_path    = sp.rx_path;
+            out.model_size = sp.model_size;
+
+            if any(strcmp('rigid', opts.families))
+                out.rigid = macos.dw_dx(m, sp.rx_path, 'dofs', opts.dofs, ...
+                    'fp_mode', opts.fp_mode, 'delta', opts.delta_rigid, ...
+                    'verbose', opts.verbose);
+            end
+            if any(strcmp('zern', opts.families))
+                out.zern = macos.dw_dz_zernike(m, sp.rx_path, ...
+                    'kinds', opts.zern_kinds, 'zmode_start', opts.zmode_start, ...
+                    'n_zcoef', opts.n_zcoef, 'delta', opts.delta_zern, ...
+                    'verbose', opts.verbose);
+            end
+        end
+
         function describe(obj)
         %DESCRIBE  Print the imported element table with provenance.
         %   Everything in an imported System has provenance 'imported'
