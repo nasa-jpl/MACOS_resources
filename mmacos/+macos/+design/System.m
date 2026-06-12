@@ -124,7 +124,19 @@ classdef System < handle
         %                   A family not requested -> [] in the output.
         %                   'zern' yields an empty dwdz if the Rx has no
         %                   Zernike-eligible elements.
-        %     'dofs'        rigid DOF indices 0..5 (default all 6).
+        %     'dofs'        rigid DOF NAMES, cellstr subset of
+        %                   {'Rx','Ry','Rz','Tx','Ty','Tz'} (default all
+        %                   6).  The design layer is name-based; the
+        %                   0-based dw_dx index convention is translated
+        %                   internally and never exposed here.
+        %
+        %   FRAME: per-element rigid DOFs are in the element's LOCAL
+        %   (EltCoord / TElt) frame — e.g. 'Ty' on a tilted OAP is along
+        %   that element's own y-axis, NOT global Y.  This is the mount-
+        %   aligned convention tolerancing wants, and it is inherited
+        %   from the Phase 7 RigidBodyChannel (which perturbs local).
+        %   Global-frame per-element sensitivities are not yet exposed
+        %   (would need a RigidBodyChannel frame arg).
         %     'fp_mode'     'track'(default)|'srs'|'sxp'|'none' (dw_dx).
         %     'zern_kinds'  {'monzern','zern'} default (dw_dz_zernike).
         %     'zmode_start' lowest Zernike mode (default 4).
@@ -148,7 +160,7 @@ classdef System < handle
             arguments
                 obj
                 opts.families   (1,:) cell   = {'rigid','zern'}
-                opts.dofs       (1,:) double = 0:5
+                opts.dofs       (1,:) cell   = {'Rx','Ry','Rz','Tx','Ty','Tz'}
                 opts.fp_mode    (1,:) char   = 'track'
                 opts.zern_kinds (1,:) cell   = {'monzern','zern'}
                 opts.zmode_start (1,1) double = 4
@@ -168,7 +180,8 @@ classdef System < handle
             out.model_size = sp.model_size;
 
             if any(strcmp('rigid', opts.families))
-                out.rigid = macos.dw_dx(m, sp.rx_path, 'dofs', opts.dofs, ...
+                out.rigid = macos.dw_dx(m, sp.rx_path, ...
+                    'dofs', obj.dofs_to_idx_(opts.dofs), ...
                     'fp_mode', opts.fp_mode, 'delta', opts.delta_rigid, ...
                     'verbose', opts.verbose);
             end
@@ -178,6 +191,76 @@ classdef System < handle
                     'n_zcoef', opts.n_zcoef, 'delta', opts.delta_zern, ...
                     'verbose', opts.verbose);
             end
+        end
+
+        function vary(obj, elt, param, opts)
+        %VARY  Declare a design variable (an optimizer-driven override).
+        %   s.vary(ELT, PARAM, ...) records a free DOF for optimize()
+        %   (PLAN_DESIGN_LAYER §5.4: vary shares addressing with override;
+        %   a design var IS an optimizer-driven override).  It only edits
+        %   the spec — no engine call.
+        %
+        %   ELT    integer element index (1..n_elt).  (Name addressing is
+        %          a builder-path / follow-on concern; import addresses
+        %          by index.)
+        %
+        %   FRAME: rigid DOFs are in the element LOCAL (EltCoord / TElt)
+        %   frame — 'Ty' is the element's own y-axis, not global Y (see
+        %   sensitivities()).  Local is the only per-element frame today.
+        %   PARAM  one of:
+        %     rigid single DOF : 'Rx' 'Ry' 'Rz' 'Tx' 'Ty' 'Tz'
+        %     rigid aliases    : 'despace'(Tz), 'tilt'(Rx+Ry),
+        %                        'decenter'(Tx+Ty)   [expand to 2 vars]
+        %     Zernike          : 'zern' with 'mode', N
+        %     surface          : 'conic' / 'asphere'  (declared, but no
+        %                        Phase 7 sensitivity channel yet — see
+        %                        sensitivities(); FD-from-scratch pending)
+        %
+        %   Name-value:
+        %     'bounds' [lo hi]  optimizer bounds (lo<hi).  Default [NaN NaN].
+        %     'unit'   char     'm'|'mm'|'rad'|'mrad'|'lambdaD'|''  (sugar;
+        %                       bare SI is canonical — §10 Made #11).
+        %     'role'   'design'(default) | 'compensator'  (compensator =
+        %              solved inner-loop per outer iterate, §5.4).
+        %     'mode'   N         Zernike mode index (required for 'zern').
+        %
+        %   See also: design_vars, clear_vars, override.
+            arguments
+                obj
+                elt   (1,1) double {mustBeInteger, mustBePositive}
+                param (1,:) char
+                opts.bounds (1,2) double = [NaN NaN]
+                opts.unit   (1,:) char = ''
+                opts.role   (1,:) char {mustBeMember(opts.role, ...
+                              {'design','compensator'})} = 'design'
+                opts.mode   (1,1) double = NaN
+            end
+            if elt > obj.spec.n_elt
+                error('macos:design:System:eltRange', ...
+                    'vary: element %d out of range (n_elt=%d).', ...
+                    elt, obj.spec.n_elt);
+            end
+            if ~any(isnan(opts.bounds)) && opts.bounds(1) >= opts.bounds(2)
+                error('macos:design:System:bounds', ...
+                    'vary: bounds must be [lo hi] with lo<hi; got [%g %g].', ...
+                    opts.bounds(1), opts.bounds(2));
+            end
+            recs = obj.resolve_param_(elt, param, opts);
+            if ~isfield(obj.spec, 'vars') || isempty(obj.spec.vars)
+                obj.spec.vars = recs;
+            else
+                obj.spec.vars = [obj.spec.vars, recs];
+            end
+        end
+
+        function v = design_vars(obj)
+        %DESIGN_VARS  Struct array of declared design variables (or []).
+            if isfield(obj.spec, 'vars'), v = obj.spec.vars; else, v = []; end
+        end
+
+        function clear_vars(obj)
+        %CLEAR_VARS  Remove all declared design variables.
+            obj.spec.vars = [];
         end
 
         function describe(obj)
@@ -198,6 +281,90 @@ classdef System < handle
                 fprintf('   %2d  [% .6g % .6g % .6g]  [%s]\n', ...
                     k, v(1), v(2), v(3), sp.elt(k).provenance);
             end
+            vars = obj.design_vars();
+            if ~isempty(vars)
+                fprintf('  %d design variable(s):\n', numel(vars));
+                for j = 1:numel(vars)
+                    dv = vars(j);
+                    if strcmp(dv.family, 'zern')
+                        tag = sprintf('zern mode %d', dv.mode);
+                    else
+                        tag = dv.dof_name;
+                    end
+                    fprintf('   Elt %2d  %-12s [%s]  bounds=[%g %g] %s {%s}\n', ...
+                        dv.elt, tag, dv.family, dv.bounds(1), dv.bounds(2), ...
+                        dv.unit, dv.role);
+                end
+            end
         end
+    end
+
+    methods (Access = private)
+        function idx = dofs_to_idx_(obj, names)
+        %DOFS_TO_IDX_  Translate rigid DOF names -> dw_dx 0-based indices.
+        %   The ONE place the design layer touches the 0-based dw_dx
+        %   convention; the user surface stays name-based.
+            idx = zeros(1, numel(names));
+            for i = 1:numel(names)
+                k = find(strcmpi(obj.DOF_NAMES, names{i}), 1);
+                if isempty(k)
+                    error('macos:design:System:dofName', ...
+                        ['unknown rigid DOF name ''%s'' (expected one of ' ...
+                         'Rx Ry Rz Tx Ty Tz).'], names{i});
+                end
+                idx(i) = k - 1;            % 1-based MATLAB find -> 0-based dw_dx
+            end
+        end
+
+        function recs = resolve_param_(obj, elt, param, opts)
+        %RESOLVE_PARAM_  Map a vary() (elt,param) to design-var record(s).
+        %   Rigid params resolve by NAME (no 0-based index stored);
+        %   aliases tilt/decenter expand to two records.
+            base = struct('elt', elt, 'param', param, 'family', '', ...
+                          'dof_name', '', 'mode', NaN, ...
+                          'bounds', opts.bounds, 'unit', opts.unit, ...
+                          'role', opts.role);
+            switch lower(param)
+                case {'rx','ry','rz','tx','ty','tz'}
+                    r = base; r.family = 'rigid';
+                    k = find(strcmpi(obj.DOF_NAMES, param), 1);
+                    r.dof_name = obj.DOF_NAMES{k};      % canonical case
+                    recs = r;
+                case 'despace'
+                    r = base; r.family = 'rigid'; r.dof_name = 'Tz';
+                    recs = r;
+                case 'tilt'
+                    a = base; a.family = 'rigid'; a.dof_name = 'Rx';
+                    b = base; b.family = 'rigid'; b.dof_name = 'Ry';
+                    recs = [a, b];
+                case 'decenter'
+                    a = base; a.family = 'rigid'; a.dof_name = 'Tx';
+                    b = base; b.family = 'rigid'; b.dof_name = 'Ty';
+                    recs = [a, b];
+                case 'zern'
+                    if isnan(opts.mode)
+                        error('macos:design:System:zernMode', ...
+                            'vary(...,''zern''): supply ''mode'', N.');
+                    end
+                    r = base; r.family = 'zern'; r.mode = opts.mode;
+                    recs = r;
+                case {'conic','asphere'}
+                    r = base; r.family = 'surface';
+                    warning('macos:design:System:noChannel', ...
+                        ['vary(%d,''%s''): surface param has no Phase 7 ' ...
+                         'sensitivity channel yet; sensitivities() skips ' ...
+                         'it (FD-from-scratch pending).'], elt, param);
+                    recs = r;
+                otherwise
+                    error('macos:design:System:param', ...
+                        ['vary: unrecognised param ''%s'' (expected ' ...
+                         'Rx/Ry/Rz/Tx/Ty/Tz, despace/tilt/decenter, ' ...
+                         'zern, conic/asphere).'], param);
+            end
+        end
+    end
+
+    properties (Constant, Access = private)
+        DOF_NAMES = {'Rx','Ry','Rz','Tx','Ty','Tz'}   % dw_dx idx 0..5
     end
 end

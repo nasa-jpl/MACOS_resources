@@ -14,9 +14,10 @@ classdef tDesignSensitivities < matlab.unittest.TestCase
     properties (Constant)
         ModelSize = 128
         RxName    = 'e5hex1.in'
-        DOFS      = [0 5]      % Tx, Tz — reduced rigid sweep
+        DOFS      = {'Rx','Tz'}   % name-based at the design surface
+        DOFS_IDX  = [0 5]         % the dw_dx 0-based equivalent (reference)
         ZSTART    = 4
-        NZ        = 5          % modes 4..5 — reduced Zernike sweep
+        NZ        = 5             % modes 4..5 — reduced Zernike sweep
     end
 
     properties
@@ -39,7 +40,7 @@ classdef tDesignSensitivities < matlab.unittest.TestCase
                 'zmode_start', testCase.ZSTART, 'n_zcoef', testCase.NZ);
 
             rbref = macos.dw_dx(macos.Session(testCase.ModelSize), ...
-                testCase.rx_path, 'dofs', testCase.DOFS);
+                testCase.rx_path, 'dofs', testCase.DOFS_IDX);   % dw_dx is 0-based
             znref = macos.dw_dz_zernike(macos.Session(testCase.ModelSize), ...
                 testCase.rx_path, 'zmode_start', testCase.ZSTART, ...
                 'n_zcoef', testCase.NZ);
@@ -63,7 +64,8 @@ classdef tDesignSensitivities < matlab.unittest.TestCase
             sr = s.sensitivities('families', {'rigid'}, 'dofs', testCase.DOFS);
             testCase.verifyNotEmpty(sr.rigid);
             testCase.verifyEmpty(sr.zern);
-            testCase.verifyTrue(all(ismember(sr.rigid.dof_idx, testCase.DOFS)));
+            % name 'dofs' {Rx,Tz} translate to dw_dx indices {0,5}
+            testCase.verifyTrue(all(ismember(sr.rigid.dof_idx, testCase.DOFS_IDX)));
 
             sz = s.sensitivities('families', {'zern'}, ...
                 'zmode_start', testCase.ZSTART, 'n_zcoef', testCase.NZ);
