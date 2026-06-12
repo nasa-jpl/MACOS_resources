@@ -29,7 +29,7 @@ mex is loaded — see CLAUDE.md).
 
 | Suite | Model size | Classes |
 |---|---|---|
-| `SUITE_FAST` | 128 | tMmacosCmd, tMacosPkg, tMacosSession, tCrossSurface, tPerturbRoundtrip, tCodeVGrating, tSrsBugFlatZ, tDwDzZernike, tDwDx, tDwDxGroups, tDesignSystem, tDesignSensitivities, tBandLimitedMask¹ |
+| `SUITE_FAST` | 128 | tMmacosCmd, tMacosPkg, tMacosSession, tCrossSurface, tPerturbRoundtrip, tCodeVGrating, tSrsBugFlatZ, tDwDzZernike, tDwDx, tDwDxGroups, tDesignSystem, tDesignVary, tDesignSensitivities, tBandLimitedMask¹ |
 | `SUITE_FREEFORM` | 256 | tFreeFormComposite, tCalib |
 | `SUITE_MASKS` | 128 | tCodeVApeMasks{Circ,Ellipse,Polygon,Rect}, tCodeVObsMasks{Circ,Ellipse,Polygon,Rect} |
 | `SUITE_PROPER_512` | 512 | tProperCompareCassFF, tProperCompareCassFFAberrations |
@@ -65,6 +65,7 @@ excluded for being slow (~31 s) and using a Linux `/proc` RSS probe.
 | tProperCompareCassFF[Aberrations] | far-field PSF vs PROPER, nominal + SM perturbations |
 | tProperCompareCoro* | near-field / coronagraph propagation vs PROPER (NF, phase3, apodizer, DM phase) |
 | tDesignSystem | `macos.design.System.from_rx` import core — engine-readback spec matches direct getters (Sprint 2A-i) |
+| tDesignVary | `macos.design.System.vary` declaration layer — name-based DOF addressing, alias expansion, Zernike modes, roles, validation (Sprint 2A-i) |
 | tDesignSensitivities | `macos.design.System.sensitivities` — rigid + Zernike blocks bitwise-match standalone dw_dx / dw_dz_zernike (Sprint 2A-i) |
 | tEndurance | load/trace endurance — bit-identical rmsWFE + flat memory over many iters (Q5) |
 
