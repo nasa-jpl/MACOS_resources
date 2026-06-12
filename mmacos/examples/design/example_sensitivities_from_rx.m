@@ -18,7 +18,7 @@ addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..'));   % +macos on p
 
 here = fileparts(mfilename('fullpath'));
 if isempty(here), here = pwd; end
-rx = fullfile(here, 'e5hex1', 'e5hex1.in');
+rx = fullfile(here, '..', 'sensitivities', 'e5hex1', 'e5hex1.in');
 
 % 1. Import (engine readback — no MATLAB text parser).
 s = macos.design.System.from_rx(rx, 'model_size', 128);

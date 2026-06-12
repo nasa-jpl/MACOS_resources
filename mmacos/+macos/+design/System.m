@@ -263,6 +263,120 @@ classdef System < handle
             obj.spec.vars = [];
         end
 
+        function out = evaluate(obj, x)
+        %EVALUATE  Merit (RMS WFE) at a design point.
+        %   out = s.evaluate(X) applies the design-variable values X
+        %   (one per design_vars(), each in that var's unit) as rigid-body
+        %   perturbations in the element LOCAL frame, traces, and returns
+        %       out.merit  RMS WFE (WaveUnits) at the image plane
+        %       out.nRays  surviving ray count (for the §1.3 ray-loss guard)
+        %       out.x      echo of X
+        %   X = zeros is the imported nominal.  The Rx is reloaded first to
+        %   restore nominal (Q9 snapshot/restore will make that cheap;
+        %   today it is a load_rx, which Q5 certified bit-stable).
+        %
+        %   MVP scope: rigid-body design vars only.  Zernike / surface
+        %   optimization is future (errors clearly if present).
+            arguments
+                obj
+                x (1,:) double
+            end
+            vars = obj.design_vars();
+            if isempty(vars)
+                error('macos:design:System:noVars', ...
+                    'evaluate: no design variables; call vary() first.');
+            end
+            if numel(x) ~= numel(vars)
+                error('macos:design:System:xLen', ...
+                    'evaluate: X has %d values but %d design variables.', ...
+                    numel(x), numel(vars));
+            end
+            for i = 1:numel(vars)
+                if ~strcmp(vars(i).family, 'rigid')
+                    error('macos:design:System:optimFamily', ...
+                        ['evaluate/optimize MVP supports rigid-body vars ' ...
+                         'only; got ''%s'' (elt %d).  Zernike/surface ' ...
+                         'optimization is future.'], vars(i).family, vars(i).elt);
+                end
+            end
+
+            macos.load_rx(obj.spec.rx_path);          % restore nominal
+            obj.apply_perturbations_(vars, x);
+            macos.modify();
+            s = macos.trace();
+
+            out = struct('merit', s.rmsWFE, 'nRays', s.nRays, 'x', x(:)');
+        end
+
+        function res = optimize(obj, opts)
+        %OPTIMIZE  Outer fmincon loop over the declared design variables.
+        %   res = s.optimize(...) minimises evaluate().merit over the
+        %   vary()'d DOFs, with bound constraints and a ray-loss guard
+        %   (PLAN_DESIGN_LAYER §1.1/§1.3).  Internally the variables are
+        %   normalised to [0,1] from their bounds so fmincon's FD step is
+        %   well-scaled across mixed units (§1.3.2).
+        %
+        %   Name-value:
+        %     'algorithm'   fmincon algorithm (default 'sqp').
+        %     'MaxIter'     iteration cap (default 60).
+        %     'x0'          physical start point, per var (default nominal
+        %                   = 0, clamped into bounds).
+        %     'UseParallel' fmincon FD over parfor workers (default false).
+        %     'verbose'     'iter' display (default false).
+        %
+        %   res fields: x_opt (physical), merit_opt, merit0 (at x0),
+        %   x0, exitflag, output, vars.
+        %
+        %   Needs the Optimization Toolbox (fmincon); patternsearch /
+        %   MultiStart are the documented fallbacks (§1.3.3).
+            arguments
+                obj
+                opts.algorithm   (1,:) char   = 'sqp'
+                opts.MaxIter     (1,1) double = 60
+                opts.x0          (1,:) double = []
+                opts.UseParallel (1,1) logical = false
+                opts.verbose     (1,1) logical = false
+            end
+            if isempty(which('fmincon'))
+                error('macos:design:System:noFmincon', ...
+                    ['optimize() needs the Optimization Toolbox (fmincon), ' ...
+                     'not found.  Fallbacks: patternsearch / MultiStart ' ...
+                     '(§1.3.3).']);
+            end
+            vars = obj.design_vars();
+            if isempty(vars)
+                error('macos:design:System:noVars', ...
+                    'optimize: no design variables; call vary() first.');
+            end
+            n  = numel(vars);
+            lo = arrayfun(@(v) v.bounds(1), vars);
+            hi = arrayfun(@(v) v.bounds(2), vars);
+            if any(isnan(lo) | isnan(hi))
+                error('macos:design:System:bounds', ...
+                    'optimize: every design var needs finite bounds.');
+            end
+            if isempty(opts.x0), x0 = zeros(1,n); else, x0 = opts.x0(:)'; end
+
+            unnorm = @(xn) lo + xn .* (hi - lo);
+            x0n    = min(max((x0 - lo) ./ (hi - lo), 0), 1);
+
+            e0     = obj.evaluate(x0);
+            nRays0 = e0.nRays;
+
+            if opts.verbose, disp_ = 'iter'; else, disp_ = 'off'; end
+            o = optimoptions('fmincon', 'Algorithm', opts.algorithm, ...
+                'MaxIterations', opts.MaxIter, 'UseParallel', opts.UseParallel, ...
+                'Display', disp_);
+
+            fun = @(xn) obj.ray_penalised_merit_(unnorm(xn), nRays0);
+            [xn, fopt, exitflag, output] = fmincon(fun, x0n, [], [], [], [], ...
+                zeros(1,n), ones(1,n), [], o);
+
+            res = struct('x_opt', unnorm(xn), 'merit_opt', fopt, ...
+                'merit0', e0.merit, 'x0', x0, 'exitflag', exitflag, ...
+                'output', output, 'vars', vars);
+        end
+
         function describe(obj)
         %DESCRIBE  Print the imported element table with provenance.
         %   Everything in an imported System has provenance 'imported'
@@ -300,6 +414,81 @@ classdef System < handle
     end
 
     methods (Access = private)
+        function apply_perturbations_(obj, vars, x)
+        %APPLY_PERTURBATIONS_  Apply rigid design-var values as one
+        %   local-frame perturbation per element (CPERTURB is incremental,
+        %   so per-element accumulation matches the sensitivity channels).
+            elts = unique([vars.elt]);
+            for e = elts
+                rot   = zeros(3,1);
+                trans = zeros(3,1);
+                sel = find([vars.elt] == e);
+                for k = sel
+                    vk  = vars(k);
+                    ax  = obj.dof_axis_(vk.dof_name);
+                    isr = obj.is_rotation_(vk.dof_name);
+                    f   = obj.unit_factor_(vk.unit, isr);
+                    if isr, rot(ax)   = rot(ax)   + x(k) * f;
+                    else,   trans(ax) = trans(ax) + x(k) * f;
+                    end
+                end
+                macos.perturb(e, 'rotation', rot, 'translation', trans, ...
+                    'frame', 'local');   % local: matches sensitivity convention
+            end
+        end
+
+        function m = ray_penalised_merit_(obj, x_phys, nRays0)
+        %RAY_PENALISED_MERIT_  evaluate().merit with the §1.3.4 ray-loss
+        %   guard: vignetting that drops rays is penalised so the optimizer
+        %   can't "improve" RMS-over-surviving-rays by clipping the beam.
+            e = obj.evaluate(x_phys);
+            if e.nRays < nRays0
+                m = e.merit + 1e6 * (nRays0 - e.nRays);
+            else
+                m = e.merit;
+            end
+        end
+
+        function ax = dof_axis_(~, dof_name)
+            switch upper(dof_name(2))   % x/y/z -> 1/2/3
+                case 'X', ax = 1;
+                case 'Y', ax = 2;
+                case 'Z', ax = 3;
+            end
+        end
+
+        function tf = is_rotation_(~, dof_name)
+            tf = upper(dof_name(1)) == 'R';
+        end
+
+        function f = unit_factor_(~, unit, is_rot)
+        %UNIT_FACTOR_  Multiply a value in UNIT by f to get SI
+        %   (radians for rotation, metres for translation).
+            if is_rot
+                switch lower(unit)
+                    case {'', 'rad'}, f = 1;
+                    case 'mrad',      f = 1e-3;
+                    case 'urad',      f = 1e-6;
+                    case 'arcsec',    f = pi/180/3600;
+                    case 'arcmin',    f = pi/180/60;
+                    case 'deg',       f = pi/180;
+                    otherwise
+                        error('macos:design:System:unit', ...
+                            'unknown rotation unit ''%s''.', unit);
+                end
+            else
+                switch lower(unit)
+                    case {'', 'm'},                 f = 1;
+                    case 'mm',                      f = 1e-3;
+                    case {'um','micron','micrometer'}, f = 1e-6;
+                    case 'nm',                      f = 1e-9;
+                    otherwise
+                        error('macos:design:System:unit', ...
+                            'unknown translation unit ''%s''.', unit);
+                end
+            end
+        end
+
         function idx = dofs_to_idx_(obj, names)
         %DOFS_TO_IDX_  Translate rigid DOF names -> dw_dx 0-based indices.
         %   The ONE place the design layer touches the 0-based dw_dx
