@@ -779,6 +779,43 @@ def src_wvl(wvl: float | None = None) -> None | float:
         raise Exception("failed to set wavelength")
 
 
+def src_flux(flux: float | None = None) -> None | float:
+    """set / get the source FLUX.
+
+    The propagated intensity scales linearly with the source flux
+    (sourcsub seeds each ray amplitude as sqrt(flux)).  Set a small
+    flux on an off-axis source to inject a faint "planet" alongside the
+    on-axis star, then COMPOSE the two scenes onto one detector image.
+    Takes effect on the next trace/propagation.
+
+    Args:
+        flux: source flux (>= 0).  None (default) -> get current value.
+
+    Returns:
+        float current flux when called as a getter; None when setting.
+
+    Raises:
+        Exception:  MACOS failure
+        ValueError: if flux is not finite and/or < 0
+    """
+    _chk_macos_and_rx_loaded()
+
+    if flux is None:
+        flux_ = np.array(0, dtype=float)
+        if not lib.api.src_flux(flux_, 0):
+            raise Exception("MACOS: failed to get source flux")
+        return flux_
+
+    flux_ = np.asarray_chkfinite(flux, dtype=np.float64).squeeze()
+    if flux_.shape not in ((), (1,), (1, 1)):
+        raise ValueError("flux must be a scalar")
+    if flux_ < 0:
+        raise ValueError("'flux' must be real, >= 0 and finite")
+
+    if not lib.api.src_flux(flux_, 1):
+        raise Exception("failed to set source flux")
+
+
 def src_fov(src_pos: np.ndarray | None = None,
             src_dir: np.ndarray | None = None,
             src_dist: float | None = None) -> tuple[float, np.ndarray, np.ndarray, bool] | None:
@@ -3540,6 +3577,98 @@ def intensity(srf: int | np.int32,
     ok, arr = lib.api.int_get(n)
     if not ok:
         raise Exception("MACOS: intensity buffer retrieval failed")
+
+    return arr
+
+
+def compose(srf: int | np.int32,
+            wavelengths,
+            npix: int,
+            dx: float,
+            dx_unit: str = 'm') -> Matrix[np.float64]:
+    """COMPOSE: assemble a multi-wavelength (or multi-field) PSF on a
+    FIXED pixel grid at element ``srf`` (MACOS 'COMPOSE' + 'ADD').
+
+    For each wavelength in ``wavelengths`` the source wavelength is set,
+    the field is propagated to ``srf``, and its intensity is accumulated
+    onto a single ``npix`` x ``npix`` detector grid of pitch ``dx``.  The
+    result is the **incoherent** sum -- a broadband PSF.  Each wavelength
+    has a different native diffraction sampling (focal dx is proportional
+    to lambda), and COMPOSE resamples each onto the common pixel grid, so
+    this is the right primitive for broadband scoring rather than summing
+    raw intensity() arrays.
+
+    Note: only incoherent intensity composition is supported; the
+    engine's coherent complex-amplitude path ('CADD') is unimplemented.
+
+    Args:
+        srf: element ID where the composite image is formed (image plane).
+        wavelengths: iterable of source wavelengths, in the prescription's
+             WaveUnits (e.g. micron).  May be a single broadband sampling
+             or a set of field/spectral points.
+        npix: pixels per side of the composite grid.
+        dx: detector pixel size, in ``dx_unit``.
+        dx_unit: 'm' (default), 'mm', or 'native' (prescription BaseUnits).
+
+    Returns:
+        2D ndarray (npix x npix) of accumulated intensity, float64.
+
+    Raises:
+        Exception: MACOS-side failure or bad arguments.
+
+    Example:
+        pymacos.load('Rx_Coro_FPM.in')
+        lams = [0.80, 0.85, 0.90]              # micron
+        psf  = pymacos.compose(21, lams, npix=128, dx=5e-6)   # 5 um pixels
+    """
+    _chk_macos_and_rx_loaded()
+
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception("compose() takes a single srf, got "
+                            f"{len(iElt)}")
+        iElt = int(iElt[0])
+
+    wl = [float(w) for w in wavelengths]
+    if len(wl) == 0:
+        raise Exception("compose(): wavelengths is empty")
+    if any(w <= 0 for w in wl):
+        raise Exception("compose(): wavelengths must be positive")
+    npix = int(npix)
+
+    # Engine COMPOSE wants the pixel size in BaseUnits; dx_at() and this
+    # API speak SI metres by default.  Convert metres -> BaseUnits via CBM.
+    if dx_unit == 'native':
+        dxpix = float(dx)
+    else:
+        to_m = {'m': 1.0, 'mm': 1.0e-3}.get(dx_unit)
+        if to_m is None:
+            raise Exception(f"compose(): bad dx_unit {dx_unit!r}; "
+                            "use 'm', 'mm', or 'native'")
+        ok, cbm = lib.api.base_unit_to_metres()
+        if not ok or cbm <= 0:
+            raise Exception("compose(): base-unit conversion failed")
+        dxpix = float(dx) * to_m / cbm
+
+    ok = lib.api.compose_start(int(iElt), npix, dxpix)
+    if not ok:
+        raise Exception(f"MACOS: 'COMPOSE' failed at Elt {iElt}")
+
+    for lam in wl:
+        src_wvl(lam)
+        # re-MODIFY + propagate to iElt at this wavelength, then accumulate
+        ok, n = lib.api.int_cmd(int(iElt), 1)
+        if not ok or n == 0:
+            raise Exception(f"MACOS: propagation failed at Elt {iElt} "
+                            f"for wavelength {lam}")
+        ok = lib.api.compose_add(0)        # do_plot = False
+        if not ok:
+            raise Exception(f"MACOS: 'ADD' failed at wavelength {lam}")
+
+    ok, arr = lib.api.compose_get(npix)
+    if not ok:
+        raise Exception("MACOS: composite image retrieval failed")
 
     return arr
 

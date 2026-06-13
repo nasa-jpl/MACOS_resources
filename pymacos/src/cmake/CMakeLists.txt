@@ -139,8 +139,16 @@ set(macos_lib_dir "${MACOS_BUILD_DIR}/lib")
 # now self-contained for the symbols pymacos needs.
 if(WINx64)
   set(SMACOS_Libs ${macos_lib_dir}/smacos.lib)
+  if(EXISTS ${macos_lib_dir}/slsqplib.lib)
+    list(APPEND SMACOS_Libs ${macos_lib_dir}/slsqplib.lib)
+  endif()
 else()
   set(SMACOS_Libs ${macos_lib_dir}/libsmacos.a)
+  # libsmacos references slsqp_ (the SLSQP constrained-optim back end);
+  # link libslsqplib.a after it when present (opt-dev/main default).
+  if(EXISTS ${macos_lib_dir}/libslsqplib.a)
+    list(APPEND SMACOS_Libs ${macos_lib_dir}/libslsqplib.a)
+  endif()
 endif()
 
 # ------------------------------------------------------- Fortran Flags

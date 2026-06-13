@@ -127,7 +127,7 @@ SUITE_FAST=$(join_suites \
     "tCrossSurface" "tPerturbRoundtrip" "tCodeVGrating" \
     "tBandLimitedMask" "tSrsBugFlatZ" "tDwDzZernike" "tDwDx" \
     "tDwDxGroups" "tDesignSystem" "tDesignVary" "tDesignSensitivities" \
-    "tDesignOptimize" "tVeneerXP" "tCoroContrast")
+    "tDesignOptimize" "tVeneerXP" "tCoroContrast" "tCompose")
 # tFreeFormComposite + tCalib both run at ModelSize=256; same group
 SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any

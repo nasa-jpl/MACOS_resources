@@ -33,6 +33,7 @@
       src_info_impl => src_info, &
       get_src_fov_impl => get_src_fov, &
       src_wvl_impl => src_wvl, &
+      src_flux_impl => src_flux, &
       set_src_info_impl => set_src_info, &
       set_src_fov_impl => set_src_fov, &
       src_size_impl => src_size, &
@@ -98,6 +99,9 @@
       spot_get_impl => spot_get, &
       int_cmd_impl => int_cmd, &
       int_get_impl => int_get, &
+      compose_start_impl => compose_start, &
+      compose_add_impl => compose_add, &
+      compose_get_impl => compose_get, &
       cfield_cmd_impl => cfield_cmd, &
       elt_dx_get_impl => elt_dx_get, &
       base_unit_to_metres_impl => base_unit_to_metres, &
@@ -281,6 +285,15 @@
 
         CALL src_wvl_impl(OK, WVL, setter)
       end subroutine src_wvl
+
+      subroutine src_flux(OK, FLX, setter)
+        implicit none
+        integer, intent(out)   :: OK       ! (PASS) if successful; (FAIL) otherwise
+        real(8), intent(inout) :: FLX      ! source flux (FLX >= 0); intensity ~ Flux
+        integer, intent(in)    :: setter   ! (PASS) to set & (FAIL) to get
+
+        CALL src_flux_impl(OK, FLX, setter)
+      end subroutine src_flux
 
       subroutine set_src_info(OK,zSrc,SrcPos,SrcDir,WL,SrcApe,SrcObs)
         use Constants, only: eps
@@ -1133,6 +1146,33 @@
 
         CALL int_get_impl(OK, INT_OUT, N)
       end subroutine int_get
+
+      subroutine compose_start(OK, iElt, npix, dxpix)
+        implicit none
+        logical, intent(out):: OK       ! (PASS=1) success; (FAIL=0) otherwise
+        integer, intent(in) :: iElt     ! element where the image is composed
+        integer, intent(in) :: npix     ! pixels per side of the composite grid
+        real(8), intent(in) :: dxpix    ! pixel size (BaseUnits)
+
+        CALL compose_start_impl(OK, iElt, npix, dxpix)
+      end subroutine compose_start
+
+      subroutine compose_add(OK, do_plot)
+        implicit none
+        logical, intent(out):: OK
+        logical, intent(in) :: do_plot  ! (PASS=1) plot after add; (FAIL=0) no plot
+
+        CALL compose_add_impl(OK, do_plot)
+      end subroutine compose_add
+
+      subroutine compose_get(OK, PIX_OUT, npix)
+        implicit none
+        logical,                       intent(out):: OK
+        real(8), dimension(npix,npix), intent(out):: PIX_OUT
+        integer,                       intent(in) :: npix
+
+        CALL compose_get_impl(OK, PIX_OUT, npix)
+      end subroutine compose_get
 
       subroutine cfield_cmd(OK, N, iElt, res_trace)
         implicit none
