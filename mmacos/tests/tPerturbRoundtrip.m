@@ -79,10 +79,16 @@ classdef tPerturbRoundtrip < matlab.unittest.TestCase
         function test_compound_perturb_path_F_is_exact(testCase)
             % Path F from the investigation: +1e-6, +1e-6, then -2e-6
             % inverse.  All three perturbs use the "spiky" 1e-6
-            % magnitude, but the FP arithmetic accumulates to exact
-            % identity (in contrast to two-step +θ, -θ).  Pinned here
-            % so a future Qform / CPERTURB_PROG refactor that breaks it
-            % surfaces immediately.
+            % magnitude.  Originally this path produced bitwise identity
+            % and was pinned with a zero-tolerance verifyEqual.  The §0
+            % CPERTURB_PROG psi-renormalize fix (divide by
+            % sqrt(sum(D1**2)) after the DMPROD, which stops unit-norm
+            % drift on large cumulative rotations) injects a ~4e-22
+            % residual into the should-be-zero component — ~2e6× below
+            % machine epsilon, pure FP noise, NOT drift.  So path F is
+            % now exact-to-ULP rather than bitwise; assert the same
+            % 4*eps bound the +θ/-θ sibling uses.  Anything above a ULP
+            % (a real Qform / CPERTURB_PROG regression) still fails here.
             psi0 = macos.get_elt_psi(testCase.TestElt);
             macos.perturb(testCase.TestElt, ...
                 'rotation', [1e-6; 0; 0], 'frame', 'global');
@@ -90,8 +96,9 @@ classdef tPerturbRoundtrip < matlab.unittest.TestCase
                 'rotation', [1e-6; 0; 0], 'frame', 'global');
             macos.perturb(testCase.TestElt, ...
                 'rotation', [-2e-6; 0; 0], 'frame', 'global');
-            testCase.verifyEqual(macos.get_elt_psi(testCase.TestElt), ...
-                psi0);
+            err = max(abs(macos.get_elt_psi(testCase.TestElt) - psi0));
+            testCase.verifyLessThanOrEqual(err, 4 * eps(1.0), ...
+                sprintf('path F psi residual %g exceeds 4*eps', err));
         end
     end
 end
