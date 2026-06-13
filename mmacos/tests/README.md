@@ -29,7 +29,7 @@ mex is loaded — see CLAUDE.md).
 
 | Suite | Model size | Classes |
 |---|---|---|
-| `SUITE_FAST` | 128 | tMmacosCmd, tMacosPkg, tMacosSession, tCrossSurface, tPerturbRoundtrip, tCodeVGrating, tSrsBugFlatZ, tDwDzZernike, tDwDx, tDwDxGroups, tDesignSystem, tDesignVary, tDesignSensitivities, tDesignOptimize, tVeneerXP, tBandLimitedMask¹ |
+| `SUITE_FAST` | 128 | tMmacosCmd, tMacosPkg, tMacosSession, tCrossSurface, tPerturbRoundtrip, tCodeVGrating, tSrsBugFlatZ, tDwDzZernike, tDwDx, tDwDxGroups, tDesignSystem, tDesignVary, tDesignSensitivities, tDesignOptimize, tVeneerXP, tCoroContrast², tBandLimitedMask¹ |
 | `SUITE_FREEFORM` | 256 | tFreeFormComposite, tCalib |
 | `SUITE_MASKS` | 128 | tCodeVApeMasks{Circ,Ellipse,Polygon,Rect}, tCodeVObsMasks{Circ,Ellipse,Polygon,Rect} |
 | `SUITE_PROPER_512` | 512 | tProperCompareCassFF, tProperCompareCassFFAberrations |
@@ -39,6 +39,11 @@ mex is loaded — see CLAUDE.md).
 ¹ `tBandLimitedMask` is pure math (no macos calls); it lives under
 `proper_compare/` but is glob-pulled into `SUITE_FAST` because it's
 quick and model-size-agnostic.
+
+² `tCoroContrast` is also pure math (no macos calls) — it pins the
+ported `contrast.py` λ/D machinery in `examples/design/coro/` against
+an analytic Airy pattern; model-size-agnostic, lives in `SUITE_FAST`
+because it's quick.
 
 The no-arg full run is `[FAST, MASKS, FREEFORM, PROPER_512,
 PROPER_1024]` — i.e. **everything except `tEndurance`**, which is
@@ -69,6 +74,7 @@ excluded for being slow (~31 s) and using a Linux `/proc` RSS probe.
 | tDesignSensitivities | `macos.design.System.sensitivities` — rigid + Zernike blocks bitwise-match standalone dw_dx / dw_dz_zernike (Sprint 2A-i) |
 | tDesignOptimize | `macos.design.System.evaluate` / `optimize` — fmincon recovers a despace misalignment to min WFE; ray-loss guard; family guard (Sprint 2A-i) |
 | tVeneerXP | spot / fex / get_xp / set_xp veneers on a STOP-bearing Rx (e5hex1); + regression that spot-on-stopless fails fast (engine infinite-loop fix) |
+| tCoroContrast | ported `contrast.py` λ/D machinery (radial_profile / first_airy_null / lambda_over_D_pixels / radial_contrast) vs an analytic Airy disk — Sprint-1 E1 dark-zone merit (pure math) |
 | tEndurance | load/trace endurance — bit-identical rmsWFE + flat memory over many iters (Q5) |
 
 ## Adding a class

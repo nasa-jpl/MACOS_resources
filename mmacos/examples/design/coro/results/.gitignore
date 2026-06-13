@@ -1,0 +1,6 @@
+# Experiment workspaces (large 1024^2 intensity arrays) are local resume
+# state, not version-controlled.  Kept pruned by save_coro_workspace.m
+# (last 2 per tag) + clean_results.sh (age-based, scheduled).
+# *.log are the per-experiment tail-able run streams (coro_log_start.m).
+*.mat
+*.log
