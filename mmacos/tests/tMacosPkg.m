@@ -59,6 +59,14 @@ classdef tMacosPkg < matlab.unittest.TestCase
             macos.set_src_wvl(wvl0);
         end
 
+        function test_src_flux_roundtrip(testCase)
+            f0 = macos.get_src_flux();
+            macos.set_src_flux(0.25);
+            testCase.verifyEqual(macos.get_src_flux(), 0.25, 'AbsTol', 1e-12);
+            macos.set_src_flux(f0);
+            testCase.verifyEqual(macos.get_src_flux(), f0, 'AbsTol', eps(max(f0,1)));
+        end
+
         % --- Element geometry ---------------------------------------
         function test_elt_vpt_returns_column_3vec(testCase)
             v = macos.get_elt_vpt(2);
