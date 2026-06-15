@@ -35,6 +35,11 @@
       src_wvl_impl => src_wvl, &
       src_flux_impl => src_flux, &
       sysprop_impl => sysprop, &
+      window_set_impl => window_set, &
+      window_off_impl => window_off, &
+      ffp_impl => ffp, &
+      pfp_impl => pfp, &
+      obs_set_impl => obs_set, &
       set_src_info_impl => set_src_info, &
       set_src_fov_impl => set_src_fov, &
       src_size_impl => src_size, &
@@ -313,6 +318,50 @@
                           plate_arcsec_px, plate_px_rad, nyquist_bu,   &
                           dx_focal_bu)
       end subroutine sysprop
+
+      subroutine window_set(OK, frame, sizPix, eltPixX, eltPixY,       &
+                            winCenX, winCenY)
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: frame
+        real(8), intent(in) :: sizPix, eltPixX, eltPixY, winCenX, winCenY
+
+        CALL window_set_impl(OK, frame, sizPix, eltPixX, eltPixY,       &
+                             winCenX, winCenY)
+      end subroutine window_set
+
+      subroutine window_off(OK)
+        implicit none
+        logical, intent(out):: OK
+
+        CALL window_off_impl(OK)
+      end subroutine window_off
+
+      subroutine ffp(OK, iElt, dx, dy)
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: iElt
+        real(8), intent(in) :: dx, dy
+
+        CALL ffp_impl(OK, iElt, dx, dy)
+      end subroutine ffp
+
+      subroutine pfp(OK, iElt, pixSize, dxPix, dyPix)
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: iElt
+        real(8), intent(in) :: pixSize, dxPix, dyPix
+
+        CALL pfp_impl(OK, iElt, pixSize, dxPix, dyPix)
+      end subroutine pfp
+
+      subroutine obs_set(OK, opt)
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: opt
+
+        CALL obs_set_impl(OK, opt)
+      end subroutine obs_set
 
       subroutine set_src_info(OK,zSrc,SrcPos,SrcDir,WL,SrcApe,SrcObs)
         use Constants, only: eps

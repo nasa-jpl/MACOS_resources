@@ -4460,9 +4460,14 @@ def spot(srf: int | Tuple[int] | np.int32,
     """
     _chk_macos_and_rx_loaded()
 
+    # spot_cmd signature is (iElt, ref_csys, ref_pos, res_trace): ref_csys
+    # is the coord frame (1=BEAM/2=TOUT/3=TELT), ref_pos is the centering
+    # logical (1=ELT vertex / 0=chief ray).  beam_csys -> ref_csys and
+    # vpt_center -> ref_pos (previously swapped, which made vpt_center=False
+    # send ref_csys=0 and spot_cmd reject every call -- no spot test caught it).
     ok, npts = lib.api.spot_cmd(_map_Elt(srf).squeeze(),
-                                np.int32(vpt_center),
                                 np.int32(beam_csys),
+                                np.int32(vpt_center),
                                 np.int32(reset_trace))
 
     ok, pts, shift, centre, csys = lib.api.spot_get(npts)
@@ -4472,6 +4477,128 @@ def spot(srf: int | Tuple[int] | np.int32,
     return pts, centre, shift[2:] if vpt_center else shift[:2], csys
 
 
+
+
+def window(frame: str,
+           siz_pix: float,
+           elt_pix: Tuple[float, float] = (0.0, 0.0),
+           win_cen: Tuple[float, float] = (0.0, 0.0)) -> None:
+    """WINDOW -- place diffraction images at their TRUE sky offset.
+
+    Turns on the pixel-location option so PIX / COMPOSE place each
+    source's image at its real chief-ray offset on the grid instead of
+    re-centred -- required to COMPOSE an off-axis source (e.g. a planet)
+    at its true position relative to an on-axis star.  Needs a prior trace.
+
+    Args:
+        frame: output coordinate frame the placement references --
+               'tout' (prescription output frame) or 'beam' (local beam
+               frame at the output element).
+        siz_pix: window pixel size in BaseUnits (match the COMPOSE pitch).
+        elt_pix: (x, y) element reference pixel (default (0, 0)).
+        win_cen: (x, y) window centre pixel (default (0, 0)).
+
+    Raises:
+        Exception: Rx not loaded, bad frame, or MACOS rejected the call.
+    """
+    _chk_macos_and_rx_loaded()
+    codes = {'tout': 1, 'beam': 2}
+    if frame not in codes:
+        raise Exception(f"window: frame must be 'tout' or 'beam', got {frame!r}")
+    ok = lib.api.window_set(np.int32(codes[frame]),
+                            np.float64(siz_pix),
+                            np.float64(elt_pix[0]), np.float64(elt_pix[1]),
+                            np.float64(win_cen[0]), np.float64(win_cen[1]))
+    if not ok:
+        raise Exception('MACOS: window_set failed')
+
+
+def window_off() -> None:
+    """Turn the WINDOW pixel-location option back off (re-centre images)."""
+    _chk_macos_and_rx_loaded()
+    if not lib.api.window_off():
+        raise Exception('MACOS: window_off failed')
+
+
+def ffp(place_elt: int | np.int32,
+        offset: Tuple[float, float]) -> None:
+    """FFP -- place an off-axis field point by DIRECTION COSINES (sky angle).
+
+    Tilts the source so the image at element ``place_elt`` lands at the
+    off-axis field point ``offset = (dx, dy)`` given as direction cosines
+    (normalized; ~= field angle in rad for small angles).  This is the
+    "angle on the sky" placement; :func:`pfp` is the focal-pixel sibling
+    (the two differ by the plate scale).  Requires the system stop set
+    first (:func:`stop`); FFP changes the source pointing, so reset the
+    Return / exit-pupil reference surfaces afterwards (:func:`ors`,
+    :func:`fex`).
+
+    Args:
+        place_elt: element at which to position the off-axis image.
+        offset: (dx, dy) direction cosines.
+
+    Raises:
+        Exception: Rx not loaded, element out of range, or MACOS rejected.
+    """
+    _chk_macos_and_rx_loaded()
+    s = int(_map_Elt(place_elt, max_rows=1).squeeze())
+    ok = lib.api.ffp(s, np.float64(offset[0]), np.float64(offset[1]))
+    if not ok:
+        raise Exception(f'MACOS: ffp(place_elt={s}) failed -- stop set?')
+
+
+def pfp(place_elt: int | np.int32,
+        pix_size: float,
+        offset: Tuple[float, float]) -> None:
+    """PFP -- place an off-axis field point in focal-plane PIXELS.
+
+    Focal-plane-pixel sibling of :func:`ffp` (which places by direction
+    cosines / sky angle); the two differ by the plate scale.  Positions
+    the image at element ``place_elt`` at pixel ``offset = (dx, dy)`` on a
+    grid of pitch ``pix_size`` (BaseUnits) -- match the COMPOSE pitch.
+    Requires the system stop set first (:func:`stop`); reset reference
+    surfaces afterwards (:func:`ors`, :func:`fex`).
+
+    Args:
+        place_elt: element at which to position the off-axis image.
+        pix_size: pixel size in BaseUnits.
+        offset: (dx, dy) image position in pixels.
+
+    Raises:
+        Exception: Rx not loaded, element out of range, or MACOS rejected.
+    """
+    _chk_macos_and_rx_loaded()
+    s = int(_map_Elt(place_elt, max_rows=1).squeeze())
+    ok = lib.api.pfp(s, np.float64(pix_size),
+                     np.float64(offset[0]), np.float64(offset[1]))
+    if not ok:
+        raise Exception(f'MACOS: pfp(place_elt={s}) failed -- stop set?')
+
+
+def obs_set(option: str = 'positive') -> None:
+    """OBS -- set the ray-trace obscuration option for spot diagrams.
+
+    Controls which rays :func:`spot` plots (iObsOpt):
+      'all'      -- every ray, regardless of obscuration (option 0)
+      'positive' -- unobscured rays only (default; option 1)
+      'negative' -- obscured rays only (option 2)
+    Session state -- persists until changed.  Set 'all' to draw a spot at
+    a focal plane where every ray is obscured (a coronagraph FP), then
+    restore 'positive' so the diffraction trace stays masked.
+
+    Args:
+        option: 'all' | 'positive' | 'negative'.
+
+    Raises:
+        Exception: Rx not loaded, bad option, or MACOS rejected the call.
+    """
+    _chk_macos_and_rx_loaded()
+    codes = {'all': 0, 'positive': 1, 'negative': 2}
+    if option not in codes:
+        raise Exception(
+            f"obs_set: option must be 'all'|'positive'|'negative', got {option!r}")
+    if not lib.api.obs_set(np.int32(codes[option])):
+        raise Exception('MACOS: obs_set failed')
 
 
 def fex(mode=1) -> Tuple[np.float64, Vector[np.float64], Vector[np.float64]]:
