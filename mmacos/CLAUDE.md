@@ -1,5 +1,12 @@
 # MACOS_resources/mmacos
 
+> **Post-compaction / post-upgrade — re-read the docs first.** After a
+> context compaction or a tooling upgrade, before resuming build/engine
+> work, re-read the doc set across ALL working dirs (the conversation
+> summary drops mechanical how-to): `macos/CLAUDE.md` + `macos/PLAN.md`;
+> this file + `MACOS_resources/{pymacos,GMI}/CLAUDE.md` + `README.md`s;
+> and the agent `MEMORY.md` (esp. the build/test workflow entries).
+
 MATLAB mex bridge to MACOS / SMACOS — the sibling of `../pymacos`,
 sharing the same `MODULE macos_api_mod` backbone in `libsmacos.a`.
 
