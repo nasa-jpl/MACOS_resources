@@ -65,6 +65,7 @@ elt_srf_zrn_set
 elt_srf_zrn_type
 elt_vpt
 elt_z
+ffp
 get_src_csys
 get_src_fov
 get_src_sampling
@@ -74,10 +75,12 @@ intensity
 load_rx
 modified_rx
 n_elt
+obs_set
 opd
 ors_run
 perturb_elt
 perturb_src
+pfp
 prb_elt
 prb_elt_grp
 ray_info_get
@@ -104,6 +107,8 @@ sxp_fnd
 sys_units
 sysprop
 trace_rays
+window_off
+window_set
 xp_fnd
 xp_get
 xp_set

@@ -7,8 +7,10 @@
 #
 # Usage:
 #   ./run_mmacos_tests.sh                   # full suite (split by size)
+#   ./run_mmacos_tests.sh quick             # truly-fast smoke subset
+#                                           # (~30 s — dev loop)
 #   ./run_mmacos_tests.sh fast              # all size=128 EXCEPT masks
-#                                           # (~10 s total — dev loop)
+#                                           # (minutes — broad, not quick)
 #   ./run_mmacos_tests.sh masks             # only the CodeV mask suite
 #                                           # (~10 min — heavyweight)
 #   ./run_mmacos_tests.sh proper            # only Phase 5 PROPER cmp
@@ -128,6 +130,15 @@ SUITE_FAST=$(join_suites \
     "tBandLimitedMask" "tSrsBugFlatZ" "tDwDzZernike" "tDwDx" \
     "tDwDxGroups" "tDesignSystem" "tDesignVary" "tDesignSensitivities" \
     "tDesignOptimize" "tVeneerXP" "tCoroContrast" "tCompose" "tSysProp")
+# Truly-fast smoke subset for the dev loop: lightweight, high-signal
+# classes only (command dispatch, package/session veneers, pure-math
+# mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the
+# heavy dw/dx sensitivity, design-layer optimisation, and coronagraph-
+# contrast classes that make `fast` take minutes.  All size=128, one
+# matlab -batch.
+SUITE_QUICK=$(join_suites \
+    "tMmacosCmd" "tMacosPkg" "tMacosSession" "tBandLimitedMask" \
+    "tPerturbRoundtrip" "tSysProp" "tCompose" "tVeneerXP")
 # tFreeFormComposite + tCalib both run at ModelSize=256; same group
 SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
@@ -152,8 +163,13 @@ case "${1:-}" in
         run_batch "[$SUITE_FAST, $SUITE_MASKS, $SUITE_FREEFORM, $SUITE_PROPER_512, $SUITE_PROPER_1024]" \
                   "full suite (all model sizes)"
         ;;
+    quick)
+        # Truly-fast smoke subset — dev iteration loop, ~30 s.
+        run_batch "$SUITE_QUICK" "quick (smoke, size=128)"
+        ;;
     fast)
-        # All size=128 EXCEPT masks — dev iteration loop, ~10 s.
+        # All size=128 EXCEPT masks — broad, but minutes (heavy dw/dx +
+        # design + coro-contrast classes).  Use `quick` for the dev loop.
         run_batch "$SUITE_FAST" "fast (size=128, no masks)"
         ;;
     masks)
