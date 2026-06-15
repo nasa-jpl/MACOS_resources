@@ -9,6 +9,9 @@ calib_set_tol
 calib_set_var_elt
 cfield_apodize_complex
 complex_field
+compose_add
+compose_get
+compose_start
 dx_at
 elt_csys_get
 elt_csys_rm
@@ -89,6 +92,7 @@ set_src_size
 spot_cmd
 spot_get
 src_finite
+src_flux
 src_info
 src_size
 src_wvl
@@ -98,6 +102,7 @@ stop_info_set
 stop_obj_set
 sxp_fnd
 sys_units
+sysprop
 trace_rays
 xp_fnd
 xp_get

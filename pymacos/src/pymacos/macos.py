@@ -816,6 +816,68 @@ def src_flux(flux: float | None = None) -> None | float:
         raise Exception("failed to set source flux")
 
 
+def first_order_properties(srf: int | np.int32 = -1) -> dict:
+    """First-order optical system properties (the SYSPROP command).
+
+    Runs the engine EFL analysis (traces chief + marginal rays; the
+    source must be at infinity) and returns the system's first-order /
+    diffraction properties at focal-plane element ``srf`` (default -1 =
+    last element).  This is the SAME engine computation the interactive
+    SYSPROP command prints and the design layer can target.
+
+    The pixel-based entries (``lamD_px``, ``plate_arcsec_px``,
+    ``plate_px_rad``, ``dx_focal_baseunits``) require a prior
+    propagation to ``srf`` (e.g. ``intensity(srf)``) to have set the
+    diffraction grid pitch; they are 0.0 otherwise.
+
+    Returns:
+        dict with keys:
+          'efl_baseunits'      effective focal length (BaseUnits)
+          'fno'                F-number (EFL / entrance-pupil diameter)
+          'dpup_m'             entrance-pupil diameter (metres)
+          'obscuration'        central obscuration ratio
+          'lambda_m'           wavelength (metres)
+          'lamD_rad'           lambda/D (radians) -- also the source-tilt
+                               offset for 1 lambda/D ("planet" placement)
+          'lamD_arcsec'        lambda/D (arcsec)
+          'lamD_px'            lambda/D (detector pixels; 0 pre-INT)
+          'plate_arcsec_px'    plate scale (arcsec/pixel; 0 pre-INT)
+          'plate_px_rad'       source tilt -> focal shift (px/rad; 0 pre-INT)
+          'nyquist_baseunits'  Nyquist focal sampling (BaseUnits)
+          'dx_focal_baseunits' detector pixel pitch (BaseUnits; 0 pre-INT)
+
+    Raises:
+        Exception: MACOS-side failure (e.g. EFL needs source at infinity).
+    """
+    _chk_macos_and_rx_loaded()
+
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        iElt = int(iElt[0])
+
+    (ok, efl, fno, dpup_m, obsc, lam_m, lamD_rad, lamD_arcsec, lamD_px,
+     plate_arcsec_px, plate_px_rad, nyquist_bu,
+     dx_focal_bu) = lib.api.sysprop(int(iElt))
+    if not ok:
+        raise Exception("MACOS: SYSPROP failed (EFL needs source at "
+                        f"infinity?) at Elt {iElt}")
+
+    return {
+        'efl_baseunits':      float(efl),
+        'fno':                float(fno),
+        'dpup_m':             float(dpup_m),
+        'obscuration':        float(obsc),
+        'lambda_m':           float(lam_m),
+        'lamD_rad':           float(lamD_rad),
+        'lamD_arcsec':        float(lamD_arcsec),
+        'lamD_px':            float(lamD_px),
+        'plate_arcsec_px':    float(plate_arcsec_px),
+        'plate_px_rad':       float(plate_px_rad),
+        'nyquist_baseunits':  float(nyquist_bu),
+        'dx_focal_baseunits': float(dx_focal_bu),
+    }
+
+
 def src_fov(src_pos: np.ndarray | None = None,
             src_dir: np.ndarray | None = None,
             src_dist: float | None = None) -> tuple[float, np.ndarray, np.ndarray, bool] | None:

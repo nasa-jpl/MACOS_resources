@@ -34,6 +34,7 @@
       get_src_fov_impl => get_src_fov, &
       src_wvl_impl => src_wvl, &
       src_flux_impl => src_flux, &
+      sysprop_impl => sysprop, &
       set_src_info_impl => set_src_info, &
       set_src_fov_impl => set_src_fov, &
       src_size_impl => src_size, &
@@ -294,6 +295,24 @@
 
         CALL src_flux_impl(OK, FLX, setter)
       end subroutine src_flux
+
+      subroutine sysprop(OK, iElt, efl, fno, dpup_m, obsc, lambda_m,   &
+                         lamD_rad, lamD_arcsec, lamD_px,               &
+                         plate_arcsec_px, plate_px_rad, nyquist_bu,    &
+                         dx_focal_bu)
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: iElt
+        real(8), intent(out):: efl, fno, dpup_m, obsc, lambda_m
+        real(8), intent(out):: lamD_rad, lamD_arcsec, lamD_px
+        real(8), intent(out):: plate_arcsec_px, plate_px_rad
+        real(8), intent(out):: nyquist_bu, dx_focal_bu
+
+        CALL sysprop_impl(OK, iElt, efl, fno, dpup_m, obsc, lambda_m,  &
+                          lamD_rad, lamD_arcsec, lamD_px,              &
+                          plate_arcsec_px, plate_px_rad, nyquist_bu,   &
+                          dx_focal_bu)
+      end subroutine sysprop
 
       subroutine set_src_info(OK,zSrc,SrcPos,SrcDir,WL,SrcApe,SrcObs)
         use Constants, only: eps

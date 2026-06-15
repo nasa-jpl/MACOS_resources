@@ -53,6 +53,16 @@ Figures written to `figures/`:
   (850 nm +/- 10%, 7 wavelengths).  `macos.compose` assembles the
   per-wavelength PSFs on a fixed pixel grid — one step in the
   walkthrough.
+- **`coro_planet.png`** (PRELIMINARY) — planet injection: on-axis star +
+  an off-axis faint "planet" COMPOSEd onto one detector image, with a
+  difference panel `(star+planet) - star`.  The source-tilt for the
+  planet comes from the exact first-order plate scale
+  (`tilt = N * first_order_properties().lamD_rad`).  **Two known
+  limitations on this heavily-scaled Rx_Coro (redo on a better model):**
+  (1) N lambda/D maps to a large source tilt that vignettes the beam;
+  (2) the off-axis PSF stays centered (the diffraction grid re-centers
+  on the chief ray) — correct off-axis placement needs the WINDOW
+  command, not yet wrapped.  See memory `project_planet_injection_redo`.
 
 ## Notes
 

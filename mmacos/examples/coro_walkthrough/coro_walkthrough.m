@@ -196,52 +196,64 @@ fprintf('[walkthrough] wrote coro_broadband.png\n');
 % (macos.compose loops wavelengths; here we vary source pointing + flux
 % between the two ADDs).
 np3          = 256;
-PLANET_LAMD  = 8;            % planet separation (lambda/D), in the dark hole
+% PRELIMINARY planet-injection demo -- to be redone on a better-scaled
+% model.  Two known limitations on this heavily SCALED Rx_Coro (tiny
+% ~0.22 mm pupil):
+%   1) N lambda/D maps to a LARGE source tilt (8 l/D ~ 1.8 deg) that
+%      vignettes the off-axis beam through the relay.
+%   2) macos's focal-plane diffraction grid re-centers on the chief ray,
+%      so an off-axis source's PSF stays CENTERED in its grid -- COMPOSE
+%      then stacks the planet on the (suppressed) star instead of
+%      offsetting it.  Correct off-axis placement needs the WINDOW
+%      command (ifPixLoc -> CPIXILATE uses the chief-ray offset), which
+%      is not yet wrapped.
+% TODO: redo on a realistically-scaled coronagraph (arcsec tilts) WITH a
+% WINDOW reference so the planet lands at its true sky offset.
+PLANET_LAMD  = 3;            % planet separation (lambda/D)
 PLANET_RATIO = 1e-3;         % planet flux relative to the star
 
-% Calibrate source-tilt -> science-plane shift on the bright no-mask PSF
-% (also tells us whether off-axis PSFs land offset on the grid at all).
+% Source-tilt for the planet, from the first-order plate scale:
+% tilt-per-(lambda/D) = lamD_rad (SYSPROP).  Exact, needs no calibration
+% ramp.  Computed on the no-mask Rx (clean EFL marginal-ray trace; the
+% FPM can vignette the marginal ray); same optics -> same lamD_rad for
+% the coronagraph.
 macos.load_rx(NO_MASK_RX);
-fov0 = macos.get_src_fov();  dir0 = fov0.src_dir;
-cen = floor(size(I_no,1)/2) + 1;
-% TODO(plate-scale): PROVISIONAL empirical calibration -- the ramp can
-% overshoot into the non-linear large-tilt regime.  Replace with the
-% analytic plate scale (tilt-per-lambda/D) from the forthcoming native
-% smacos first-order-properties analysis.
-% Ramp the test tilt until the bright PSF shifts a measurable >=5 px
-% (the plate scale is unknown a priori; a too-small tilt is sub-pixel).
-th_test = 1e-5;  shift_test = 0;
-for itc = 1:8
-    macos.set_src_fov('src_dir', dir0 + [th_test; 0; 0]);
-    It = macos.intensity(DET);
-    [~, kk] = max(It(:));  [rt, ct] = ind2sub(size(It), kk);
-    shift_test = hypot(rt-cen, ct-cen);
-    if shift_test >= 5, break; end
-    th_test = th_test * 4;
-end
-fprintf('[walkthrough] calib: tilt %.2e rad -> %.1f px (%.2f lambda/D)\n', ...
-        th_test, shift_test, shift_test/lamD);
-th_planet  = th_test * (PLANET_LAMD * lamD) / max(shift_test, 1);
-macos.set_src_fov('src_dir', dir0);                % restore
+fop = macos.first_order_properties(DET);
+th_planet = PLANET_LAMD * fop.lamD_rad;
+fprintf('[walkthrough] planet at %d lambda/D -> tilt %.3e rad (lamD_rad=%.3e)\n', ...
+        PLANET_LAMD, th_planet, fop.lamD_rad);
 
 % COMPOSE the two scenes on the coronagraph.
 macos.load_rx(rx_path);
 macos.intensity(DET);
 dxp_bu = abs(macos.dx_at(DET, 'native'));          % BaseUnits for raw compose_start
 fovC = macos.get_src_fov();  dirC = fovC.src_dir;  fluxC = macos.get_src_flux();
+% Build the composite incrementally so we can capture the star-only
+% scene and then star+planet -- their difference isolates the planet.
 mmacos('compose_start', double(DET), double(np3), double(dxp_bu));
 macos.set_src_fov('src_dir', dirC);                        macos.set_src_flux(fluxC);
 macos.intensity(DET);  mmacos('compose_add', 0.0);                  % on-axis star
+I_star = mmacos('compose_get', double(np3));                        % star only
 macos.set_src_fov('src_dir', dirC + [th_planet; 0; 0]);    macos.set_src_flux(PLANET_RATIO*fluxC);
-macos.intensity(DET);  mmacos('compose_add', 0.0);                  % off-axis planet
-I_scene = mmacos('compose_get', double(np3));
+macos.intensity(DET);  mmacos('compose_add', 0.0);                  % + off-axis planet
+I_scene = mmacos('compose_get', double(np3));                       % star + planet
 macos.set_src_fov('src_dir', dirC);  macos.set_src_flux(fluxC);     % restore
+I_diff = I_scene - I_star;                                          % planet light, star cancelled
 
-fig = figure('Visible','off','Position',[80 80 780 700], 'Color','w');
+fig = figure('Visible','off','Position',[80 80 1180 560], 'Color','w');
+tl = tiledlayout(fig, 1, 2, 'TileSpacing','compact', 'Padding','compact');
+title(tl, sprintf(['Planet injection via COMPOSE: suppressed on-axis ', ...
+   'star + planet at %d \\lambda/D, %g\\times fainter'], ...
+   PLANET_LAMD, PLANET_RATIO), 'FontWeight','bold');
+nexttile(tl);
 show_log(I_scene / max(I_scene(:)), [-6 0]);
-title(sprintf(['Planet injection via COMPOSE: suppressed on-axis star\n', ...
-   '+ off-axis planet at %d \\lambda/D, %g\\times fainter'], ...
-   PLANET_LAMD, PLANET_RATIO));
+title('star + planet (composite)');
+add_dz_rings(np3, lamD, 7, 10);
+nexttile(tl);
+% Difference (star+planet) - (star) cancels the star residual and
+% sharply exposes the planet.  Normalise to the planet peak.
+show_log(max(I_diff,0) / max(I_diff(:)), [-6 0]);
+title('difference: (star+planet) - star  ->  planet isolated');
 add_dz_rings(np3, lamD, 7, 10);
 exportgraphics(fig, fullfile(outdir,'coro_planet.png'), 'Resolution',150);
 close(fig);
