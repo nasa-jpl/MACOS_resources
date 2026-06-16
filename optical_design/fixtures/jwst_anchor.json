@@ -1,0 +1,36 @@
+{
+  "note": "REAL published JWST OTE values for an independent trace-only check. M1 & M2 verified from public sources (cite below). M3 radius/conic and the M1-M2-M3 vertex spacings are in Lightsey et al. 2012 (Opt.Eng. 51, 011003) Table / McElwain et al. 2023 (PASP, arXiv:2301.01779) Table 2 -- fill from the source; NOT reproduced here because I could not extract them to fixture precision. Do not trace until completed.",
+  "system": {
+    "EFL_m": 131.4,
+    "f_number": 20.0,
+    "entrance_pupil_diameter_m": 6.6,
+    "field_arcmin": "~18 x 9",
+    "architecture": "Korsch TMA (Korsch 1972)"
+  },
+  "M1_primary": {
+    "RoC_m": 15.88,
+    "conic_K": -0.9967,
+    "note": "near-parabolic, 18 segments"
+  },
+  "M2_secondary": {
+    "RoC_mm": 1778.913,
+    "conic_K": -1.6598,
+    "note": "convex"
+  },
+  "M3_tertiary": {
+    "RoC": "TODO from Lightsey/McElwain Table",
+    "conic_K": "TODO",
+    "note": "concave aspheric, in aft-optics; near intermediate image"
+  },
+  "spacings": {
+    "t_M1_M2": "TODO",
+    "t_M2_M3": "TODO",
+    "t_M3_FSM_focus": "TODO"
+  },
+  "sources": [
+    "Lightsey et al. 2012, Opt. Eng. 51(1), 011003",
+    "McElwain et al. 2023, PASP (arXiv:2301.01779), Table 2",
+    "Stahl, Rules for Optical Metrology (NASA NTRS 20110015786): M1 K=-0.9967, RoC 15.88 m",
+    "JWST SMA spec (Ball): RoC 1778.913 mm, K=-1.6598"
+  ]
+}
