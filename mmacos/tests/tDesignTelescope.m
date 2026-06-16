@@ -125,5 +125,37 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyEqual(tmm.spec.derived.R1, tm.spec.derived.R1, 'AbsTol',1e-12);
             tc.verifyEqual(tmm.spec.derived.bfd, tm.spec.derived.bfd, 'AbsTol',1e-12);
         end
+
+        function test_emit_is_deterministic(tc)
+            % Parity property (§3): same spec -> byte-identical .in.  (The
+            % committed-golden cross-language anchor waits for the emitter
+            % to stabilise in 2B/2C; determinism is the stable part now.)
+            t  = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            f1 = [tempname '.in']; f2 = [tempname '.in'];
+            c  = onCleanup(@() delete(f1, f2));
+            t.save(f1); t.save(f2);
+            tc.verifyEqual(fileread(f2), fileread(f1));
+        end
+
+        function test_built_telescope_feeds_alignment(tc)
+            % The §2 Stage 4 first result: a BUILT Cassegrain imported via
+            % System recovers an M2 despace error -- closing the
+            % builder -> analysis loop on the emitted prescription.
+            t  = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            rx = t.build();
+            s  = macos.design.System.from_rx(rx, 'model_size', tc.ModelSize);
+            s.vary(2, 'despace', 'bounds', [-2 2], 'unit', 'mm');   % M2 Tz
+            base = s.evaluate(0);                  % aligned baseline (spherical-free)
+            tc.verifyLessThan(base.merit, 1e-9, ...
+                sprintf('built Cass baseline WFE not small: %.3e', base.merit));
+            bad = s.evaluate(0.5);                 % +0.5 mm M2 despace
+            tc.verifyGreaterThan(bad.merit, 1e3*base.merit + 1e-9, ...
+                'M2 despace did not raise WFE');
+            res = s.optimize('x0', 0.5, 'MaxIter', 40);
+            tc.verifyLessThan(res.merit_opt, bad.merit/10, ...
+                sprintf('optimize did not recover alignment: %.3e', res.merit_opt));
+            tc.verifyLessThan(abs(res.x_opt), 0.05, ...     % recovered despace ~0 (mm)
+                sprintf('recovered despace not ~0: %.4g mm', res.x_opt));
+        end
     end
 end
