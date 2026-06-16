@@ -393,6 +393,13 @@ resolve it with a `tests/private/` path helper (mirror
   nonzero S_I/II/III on the TMA row is **stop-and-fix** — never widen
   the tolerance or hand-edit a fixture; regenerate with the matching
   `make_*.py` and explain.
+- **Coronagraph back-end (Sprint 3)** lives in the same shared dir:
+  `optical_design/CORONAGRAPH_DESIGN_{RULES,AGENT_GUIDE}.md` +
+  `coronagraph_layout.py`.  First-order LAYOUT only (NOT contrast/EFC —
+  those are FALCO).  Two HARD rules: `quarter_talbot_sep_mm` is a
+  reference scale, NEVER the DM separation; and units there are
+  **mm + nm** (this telescope layer is **metres**) — chain only via the
+  dimensionless F/#, convert lengths explicitly.
 
 ## Veneer parity with pymacos (audit 2026-06-12)
 
