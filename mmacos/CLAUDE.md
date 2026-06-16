@@ -361,6 +361,39 @@ existing `+macos` surface; it does NOT touch Fortran.
   only).
 - Examples live in `examples/design/`; each ends in `exit(0)`.
 
+### Optical-design reference & fixtures (Sprint 2A-ii builder)
+The de-novo `macos.design.Telescope` builder (closed-form Cass / RC /
+Gregorian / DK layout + conics) is backed by a self-checked reference
+set in **`MACOS_resources/optical_design/`** — a shared root dir (beside
+`rx_converter`/`segmirmaker`), NOT under mmacos, because it is
+language-agnostic and the JSON fixtures are the cross-language parity
+golden specs (`macos/PLAN_DESIGN_LAYER.md` §3).  From mmacos tests,
+resolve it with a `tests/private/` path helper (mirror
+`rx_fixture_path.m`).
+
+- **Equations & families:** `optical_design/TELESCOPE_DESIGN_REFERENCE.md`
+  (Schroeder closed forms — first-order layout, two-mirror master
+  conditions, conic constants per family, Korsch TMA, freeform).
+- **Agent guide (READ before editing any optical math):**
+  `optical_design/OPTICAL_DESIGN_AGENT_GUIDE.md`.
+- **Regression fixtures:** `optical_design/fixtures/*.json` —
+  `telescope_design_fixtures.json` (5 two-mirror `(f,D,m,β)→R1,R2,K1,K2`
+  rows), `tma_fixture.json` (Korsch TMA, conics solved to null
+  S_I/II/III), `jwst_anchor.json` (real JWST M1/M2; M3+spacings TODO,
+  do NOT fabricate).  `optical_design/seidel.py` is the paraxial+Seidel
+  **oracle** (print-only; never writes fixtures).  `make_fixtures.py` /
+  `make_tma_fixture.py` regenerate the JSON and self-validate.
+- **Convention (FIXED — do not reinterpret):** `R>0` = concave /
+  converging; two-mirror conics in the Schroeder `(m,β)` convention
+  (`β` = back-focal-dist / f1).  If MACOS's internal radius/mag sign
+  differs, write the translation layer explicitly and test it against
+  the fixtures.
+- **Hard gate:** after ANY change to conic-solving / layout /
+  aberration code, run the fixtures.  A conic mismatch `>1e-6` or a
+  nonzero S_I/II/III on the TMA row is **stop-and-fix** — never widen
+  the tolerance or hand-edit a fixture; regenerate with the matching
+  `make_*.py` and explain.
+
 ## Veneer parity with pymacos (audit 2026-06-12)
 
 **Engine-level parity is complete** — every implemented pymacos function

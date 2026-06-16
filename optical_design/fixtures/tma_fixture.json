@@ -1,0 +1,29 @@
+{
+  "description": "Self-consistent Korsch-type three-mirror anastigmat. Conics solved to null third-order spherical (S_I), coma (S_II), and astigmatism (S_III) for the given first-order layout, stop at M1. Residuals are machine-zero BY CONSTRUCTION -> use as the TMA regression target. S_IV (Petzval) is reported, not nulled: full field flattening is the extra Korsch condition needing a 4th layout DOF.",
+  "convention": "n-flip unfolded paraxial; R>0 = concave/converging; metres; stop at M1; small field 0.05 deg for coma/astig scaling. EFL sign is negative under the odd-reflection unfolded convention; magnitude is physical. Engine VALIDATED against the 2-mirror RC (S_I=S_II=0) and classical Cassegrain (S_I=0, S_II=/=0).",
+  "layout_m": {
+    "D": 1.0,
+    "R1": 3.0,
+    "t_M1_M2": 1.37,
+    "R2": 0.28,
+    "t_M2_M3": 2.62,
+    "R3": 2.8,
+    "t_M3_image": 1.064384
+  },
+  "conics": {
+    "K1": -0.974748,
+    "K2": -1.034525,
+    "K3": -4.5527288
+  },
+  "derived": {
+    "EFL_m": 5.0342,
+    "f_number": 5.034,
+    "primary_f_number": 1.5
+  },
+  "expected_seidel": {
+    "S_I": "0 (<1e-12)",
+    "S_II": "0 (<1e-12)",
+    "S_III": "0 (<1e-12)",
+    "S_IV_petzval": "-1.0970e-06"
+  }
+}
