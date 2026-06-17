@@ -8,7 +8,7 @@ example; reproducible from one script.
 ## Run
 
 ```matlab
-addpath('<mmacos>');
+addpath('<mmacos>/src');
 addpath('<mmacos>/examples/coro_walkthrough');
 coro_walkthrough();                       % -> figures/  (headless OK)
 % or: coro_walkthrough(rx_path, outdir)

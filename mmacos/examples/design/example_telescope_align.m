@@ -14,7 +14,7 @@
 %
 % Run:  matlab -batch "run('.../example_telescope_align.m')"   (ends exit(0))
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..'));   % +macos on path
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src'));   % +macos on path
 
 %% 1. Declare design intent (no engine calls) — a 1 m f/8 classical Cass.
 t = macos.design.Telescope('family','Cassegrain', ...

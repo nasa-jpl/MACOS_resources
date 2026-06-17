@@ -19,7 +19,7 @@
 %                                   channel_names + field_table + ...
 %   verify_grid_dwdxall_e5hex1*.png after running verifyall.m
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'src'));
 
 here = fileparts(mfilename('fullpath'));
 if isempty(here), here = pwd; end

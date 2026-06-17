@@ -31,6 +31,15 @@ user MATLAB
   → smacos engine                  % libsmacos.a
 ```
 
+**Source layout (since the 2026-06-17 reorg):** the mex sources
+(`mmacos_mex.F`, `mmacos_gen.F`), the codegen (`gen_mex_wrappers.py`,
+`mmacos_gen_cmds.txt`), the **built `mmacos.mexa64`**, and the `+macos/`
+package all live under **`src/`** (mirrors pymacos's `src/pymacos`).  The
+MATLAB path needs `mmacos/src` on it — the `Makefile` (`SRCDIR`), the test
+runner, and the examples all point there.  `Makefile`,
+`run_mmacos_tests.sh`, `tests/`, `examples/`, and the smoke `test_*.m`
+stay at the top level.
+
 All three top layers (`macos.Session`, `+macos/` functions, raw
 `mmacos(...)`) share libsmacos.a state — there's only one Fortran
 session per MATLAB process.  Pick whichever surface fits the code:
@@ -143,8 +152,8 @@ Fixes (use any):
 
 ## +macos/ package conventions
 
-User-facing surface lives in `MACOS_resources/mmacos/+macos/` (one
-`.m` per public function) plus `MACOS_resources/mmacos/+macos/Session.m`
+User-facing surface lives in `MACOS_resources/mmacos/src/+macos/` (one
+`.m` per public function) plus `MACOS_resources/mmacos/src/+macos/Session.m`
 (the classdef).  When extending it:
 
 - **Naming.**  Split getters and setters into `get_<name>` /
@@ -194,7 +203,7 @@ signature → mex helper is mechanical:
 
 **Path A — codegen handles it (most cases).**  Just add the routine to
 `macos_api_mod.F90`, then re-run `python3 gen_mex_wrappers.py` from
-`MACOS_resources/mmacos/`.  The script regenerates `mmacos_gen.F`
+`MACOS_resources/mmacos/src/`.  The script regenerates `mmacos_gen.F`
 with a new `do_<name>` helper and a new `CASE` in `gen_dispatch`.
 The main `mexFunction`'s `CASE DEFAULT` falls through to
 `gen_dispatch`, so the command becomes callable from MATLAB with no
@@ -332,7 +341,7 @@ Shared test conventions:
   chk_polygon_pts, ray_pos_at_srf_in_tangent_plane}.m` — mask-
   geometry helpers ported from pymacos test_masks.py.
 
-## Design layer (`+macos/+design/`, Sprint 2A-i, 2026-06-12)
+## Design layer (`src/+macos/+design/`, Sprint 2A-i, 2026-06-12)
 
 `macos.design.System` is the high-level **import / analysis / optimize**
 front-end (plan: `~/dev/macos/PLAN_DESIGN_LAYER.md`).  It wraps the
@@ -429,10 +438,10 @@ mmacos build fails with `undefined reference to slsqp_`.
 
 | File | Role |
 |---|---|
-| `mmacos_mex.F` | Hand-written mex helpers + dispatcher, ~600 LOC |
-| `mmacos_gen.F` | Auto-generated mex helpers + `gen_dispatch` (90 cmds) |
-| `gen_mex_wrappers.py` | Codegen script — re-run on api signature change |
-| `+macos/` | Function-package user surface + `+macos/+design/` + `+macos/+channels/` |
+| `src/mmacos_mex.F` | Hand-written mex helpers + dispatcher, ~600 LOC |
+| `src/mmacos_gen.F` | Auto-generated mex helpers + `gen_dispatch` (90 cmds) |
+| `src/gen_mex_wrappers.py` | Codegen script — re-run on api signature change |
+| `src/+macos/` | Function-package user surface + `+design/` + `+channels/` |
 | `tests/` | matlab.unittest suite; `tests/README.md` maps class→suite→coverage |
 | `tests/private/rx_fixture_path.m` | Shared Rx-corpus locator |
 | `examples/design/` | Design-layer runnable examples (sensitivities, align) |

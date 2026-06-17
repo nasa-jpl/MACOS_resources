@@ -15,6 +15,11 @@
 ##-----------------------------------------------------------------
 
 MMACOS_DIR := $(shell pwd)
+# Sources (mex + codegen) and the MATLAB +macos package live under src/
+# (mirrors pymacos's src/pymacos layout).  The mex is built into src/ too,
+# so the MATLAB path only needs src/ on it.
+SRCDIR  := src
+SRCPATH := $(MMACOS_DIR)/$(SRCDIR)
 # macos_api_mod is now compiled into libsmacos.a (lives in macos_f90/
 # in the macos repo).  The .mod is taken from $(SMACOS_OBJS), the
 # library code is linked via $(SMACOS_LIBS) -- no separate compile step.
@@ -79,7 +84,7 @@ ifeq ($(FC),ifx)
             -DMX_COMPAT_32 \
             -I$(MATLAB_DIR)/extern/include \
             -I$(SMACOS_OBJS) \
-            -module $(MMACOS_DIR)
+            -module $(SRCPATH)
   LDFLAGS := -traceback -fstack-protector \
              -O -shared-intel -shared -reentrancy=none \
              -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
@@ -97,7 +102,7 @@ else ifeq ($(FC),gfortran)
             -DMX_COMPAT_32 \
             -I$(MATLAB_DIR)/extern/include \
             -I$(SMACOS_OBJS) \
-            -J$(MMACOS_DIR)
+            -J$(SRCPATH)
   LDFLAGS := -fPIC -O -shared \
              -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
              -Wl,--no-undefined \
@@ -109,26 +114,27 @@ else
   $(error Unsupported FC='$(FC)' -- use ifx or gfortran)
 endif
 
-default: $(MEX_NAME).$(MEXTAG)
+default: $(SRCDIR)/$(MEX_NAME).$(MEXTAG)
 
-MEX_OBJS := mmacos_mex.o mmacos_gen.o
+MEX_OBJS := $(SRCDIR)/mmacos_mex.o $(SRCDIR)/mmacos_gen.o
 
-$(MEX_NAME).$(MEXTAG): $(MEX_OBJS) $(SMACOS_LIBS)
-	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) \
+$(SRCDIR)/$(MEX_NAME).$(MEXTAG): $(MEX_OBJS) $(SMACOS_LIBS)
+	$(FC) $(LDFLAGS) -o $(SRCDIR)/$(MEX_NAME).$(MEXTAG) \
 	    $(MEX_OBJS) \
 	    $(SMACOS_LIBS) $(SLSQP_LIB) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
 
 # macos_api_mod's .mod comes from $(SMACOS_OBJS) via -I in FFLAGS.
-mmacos_mex.o: mmacos_mex.F
-	$(FC) $(FFLAGS) -c mmacos_mex.F
+$(SRCDIR)/mmacos_mex.o: $(SRCDIR)/mmacos_mex.F
+	$(FC) $(FFLAGS) -c $(SRCDIR)/mmacos_mex.F -o $(SRCDIR)/mmacos_mex.o
 
 # Auto-generated dispatcher + per-routine helpers.  Regenerate via
-# `python3 gen_mex_wrappers.py` whenever macos_api_mod signatures change.
-mmacos_gen.o: mmacos_gen.F
-	$(FC) $(FFLAGS) -c mmacos_gen.F
+# `python3 src/gen_mex_wrappers.py` whenever macos_api_mod signatures change.
+$(SRCDIR)/mmacos_gen.o: $(SRCDIR)/mmacos_gen.F
+	$(FC) $(FFLAGS) -c $(SRCDIR)/mmacos_gen.F -o $(SRCDIR)/mmacos_gen.o
 
 clean:
-	-rm -f *.o *.mod *.smod $(MEX_NAME).$(MEXTAG)
+	-rm -f $(SRCDIR)/*.o $(SRCDIR)/*.mod $(SRCDIR)/*.smod \
+	    $(SRCDIR)/*__genmod.f90 $(SRCDIR)/$(MEX_NAME).$(MEXTAG)
 
 # Quick smoke target: build then exercise the mex from a MATLAB
 # batch session.  Requires Rx_Cass_FarField.in (or set RX=...) on
@@ -137,10 +143,10 @@ RX ?= $(HOME)/dev/MACOS_resources/pymacos/tests/Rx/Rx_Cass_FarField.in
 # Explicit `exit(0)` after the test function — without it matlab -batch
 # on R2026a hangs at process exit when a mex is loaded (see
 # CLAUDE.md "clear mmacos hangs matlab -batch" note for the family).
-test: $(MEX_NAME).$(MEXTAG)
+test: $(SRCDIR)/$(MEX_NAME).$(MEXTAG)
 	$(MATLAB_DIR)/bin/matlab -batch \
-	    "addpath('$(MMACOS_DIR)'); test_mmacos('$(RX)'); exit(0);"
+	    "addpath('$(MMACOS_DIR)'); addpath('$(SRCPATH)'); test_mmacos('$(RX)'); exit(0);"
 
 # Full matlab.unittest suite under tests/.  See run_mmacos_tests.sh.
-unittest: $(MEX_NAME).$(MEXTAG)
+unittest: $(SRCDIR)/$(MEX_NAME).$(MEXTAG)
 	./run_mmacos_tests.sh
