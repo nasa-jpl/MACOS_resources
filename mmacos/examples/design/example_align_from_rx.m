@@ -12,7 +12,7 @@
 %
 % Run:  matlab -batch "run('.../example_align_from_rx.m')"     (ends exit(0))
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..'));   % +macos on path
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src'));   % +macos on path
 
 here = fileparts(mfilename('fullpath'));
 if isempty(here), here = pwd; end

@@ -14,7 +14,7 @@
 % Run:  matlab -batch "run('.../example_sensitivities_from_rx.m')"
 % Ends in exit(0) (batch-mode rule, mmacos/CLAUDE.md).
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..'));   % +macos on path
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src'));   % +macos on path
 
 here = fileparts(mfilename('fullpath'));
 if isempty(here), here = pwd; end

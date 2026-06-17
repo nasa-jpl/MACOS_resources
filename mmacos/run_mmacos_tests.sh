@@ -77,15 +77,16 @@ if [ "${MM_SKIP_SEAT_CHECK:-0}" != "1" ]; then
     fi
 fi
 
-# Rebuild mmacos.mexa64 if any source is newer.
-if [ ! -f mmacos.mexa64 ] \
-   || [ mmacos_mex.F -nt mmacos.mexa64 ] \
-   || [ mmacos_gen.F -nt mmacos.mexa64 ]; then
-    echo "(re)building mmacos.mexa64..."
+# Rebuild src/mmacos.mexa64 if any source is newer.
+if [ ! -f src/mmacos.mexa64 ] \
+   || [ src/mmacos_mex.F -nt src/mmacos.mexa64 ] \
+   || [ src/mmacos_gen.F -nt src/mmacos.mexa64 ]; then
+    echo "(re)building src/mmacos.mexa64..."
     make FC=gfortran MACOS_BUILD_DIR="$MACOS_BUILD_DIR" >/dev/null
 fi
 
-SETUP_PATHS="addpath('$SCRIPT_DIR'); addpath('$SCRIPT_DIR/tests/proper_compare');"
+# +macos package + the mex live under src/ (see Makefile SRCDIR).
+SETUP_PATHS="addpath('$SCRIPT_DIR/src'); addpath('$SCRIPT_DIR/tests/proper_compare');"
 if [ -d "$PROPER_DIR" ]; then
     SETUP_PATHS="$SETUP_PATHS addpath('$PROPER_DIR');"
 fi

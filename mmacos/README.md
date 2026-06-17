@@ -26,7 +26,7 @@ exact pass-through to the Fortran API.
 ### 2. `+macos/` function package (primary user surface)
 
 ```matlab
-addpath('/home/dcr/dev/MACOS_resources/mmacos')
+addpath('/home/dcr/dev/MACOS_resources/mmacos/src')   % package + mex live in src/
 
 macos.init(128)
 n = macos.load_rx('/path/Rx_Cass.in')       % accepts .in extension
@@ -80,8 +80,8 @@ make test                                             # quick smoke
 make unittest                                         # full matlab.unittest suite
 ```
 
-`mmacos.mexa64` lands next to the Makefile.  `make clean` removes
-build artefacts.
+`mmacos.mexa64` lands in `src/` (the build, runner, and examples all add
+`mmacos/src` to the MATLAB path).  `make clean` removes build artefacts.
 
 ### gfortran vs ifx
 
@@ -128,14 +128,14 @@ Filter options:
 
 ## Codegen
 
-`gen_mex_wrappers.py` parses `~/dev/macos/macos_f90/macos_api_mod.F90`
-and emits `mmacos_gen.F` (78 `do_<name>` mex helpers plus a
+`src/gen_mex_wrappers.py` parses `~/dev/macos/macos_f90/macos_api_mod.F90`
+and emits `src/mmacos_gen.F` (78 `do_<name>` mex helpers plus a
 `gen_dispatch` fallback that the main `mexFunction` falls through to
 after its 13 hand-written cases).  Re-run after any api signature
-change:
+change (from `src/`):
 
 ```bash
-python3 gen_mex_wrappers.py
+cd src && python3 gen_mex_wrappers.py
 ```
 
 The codegen handles scalar / ≤2D-array intent(in/out/inout), local
@@ -153,11 +153,12 @@ wins under the cmd name `prb_elt`, codegen emits the single form under
 
 | File | Role |
 |---|---|
-| `mmacos_mex.F` | Hand-written mex helpers + dispatcher (13 cmds) |
-| `mmacos_gen.F` | Auto-generated mex helpers + `gen_dispatch` (78 cmds) |
-| `gen_mex_wrappers.py` | Codegen script |
-| `mmacos_gen_cmds.txt` | Machine-readable full cmd inventory |
-| `+macos/` | Function-package user surface (23 funcs + `Session.m`) |
+| `src/mmacos_mex.F` | Hand-written mex helpers + dispatcher (13 cmds) |
+| `src/mmacos_gen.F` | Auto-generated mex helpers + `gen_dispatch` (78 cmds) |
+| `src/gen_mex_wrappers.py` | Codegen script |
+| `src/mmacos_gen_cmds.txt` | Machine-readable full cmd inventory |
+| `src/+macos/` | Function-package user surface (23 funcs + `Session.m`) |
+| `src/mmacos.mexa64` | Built mex (add `mmacos/src` to the MATLAB path) |
 | `tests/` | matlab.unittest suite (5 classes, 50 tests) |
 | `tests/private/rx_fixture_path.m` | Shared Rx-corpus locator |
 | `run_mmacos_tests.sh` | Bash entrypoint for the unittest suite |
@@ -165,7 +166,7 @@ wins under the cmd name `prb_elt`, codegen emits the single form under
 | `test_macos_pkg.m` | +macos + Session quick smoke |
 | `test_state_after_roundtrip.m` | Diagnostic probe for the ULP residual |
 | `Makefile` | GMI-style build; `make` / `make test` / `make unittest` |
-| `mmacos.mexa64` | Built artefact (gitignored) |
+| `src/mmacos.mexa64` | Built artefact (gitignored) |
 | `~/dev/macos/macos_f90/macos_api_mod.F90` | Shared backbone (in libsmacos.a) |
 
 Links against:

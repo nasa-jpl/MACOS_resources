@@ -543,8 +543,9 @@ def emit_helper(name, args, local_params=None, use_only_map=None):
 
 
 def main():
-    here = Path(__file__).parent
-    default_src = here / '..' / '..' / 'macos' / 'macos_f90' / 'macos_api_mod.F90'
+    here = Path(__file__).parent          # mmacos/src
+    # ../../../macos/macos_f90 : src -> mmacos -> MACOS_resources -> ~/dev
+    default_src = here / '..' / '..' / '..' / 'macos' / 'macos_f90' / 'macos_api_mod.F90'
     src_path = Path(sys.argv[1]) if len(sys.argv) > 1 else default_src.resolve()
     src = src_path.read_text()
     subs = parse_subroutines(src)

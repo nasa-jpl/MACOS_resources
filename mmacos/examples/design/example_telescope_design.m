@@ -23,7 +23,7 @@
 %  Run:  matlab -batch "run('.../example_telescope_design.m')"   (exit 0)
 % ===================================================================
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..'));   % +macos on path
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src'));   % +macos on path
 MODEL = 256;
 
 %% -- Stage 1 -------------------------------------------------------

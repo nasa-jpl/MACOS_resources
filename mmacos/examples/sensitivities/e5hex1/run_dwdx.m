@@ -8,7 +8,7 @@
 % STOP needed.  fp_mode='track' (default) drags the EP rigidly with
 % the FP so FP perturbations produce non-zero sensitivities.
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'src'));
 
 here = fileparts(mfilename('fullpath'));
 if isempty(here), here = pwd; end
