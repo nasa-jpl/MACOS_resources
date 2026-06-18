@@ -50,14 +50,13 @@ if [ -z "$MATLAB_DIR" ] || [ ! -d "$MATLAB_DIR" ]; then
     exit 2
 fi
 
-# License-seat preflight.  MathWorks Home/Individual licenses allow ONE
-# concurrent MATLAB session.  If an interactive desktop is open it holds
-# the seat, and a `matlab -batch` run BLOCKS waiting for it — surfacing
-# as a silent multi-minute "hang" that dies at the timeout with zero
-# output.  Detect a seat-holding interactive MATLAB and fail fast with a
-# clear message.  Set MM_SKIP_SEAT_CHECK=1 to bypass (e.g. a real
-# multi-seat / network license).
-if [ "${MM_SKIP_SEAT_CHECK:-0}" != "1" ]; then
+# License-seat preflight (OPT-IN; default OFF).  In practice a MathWorks
+# Home/Individual license runs MULTIPLE concurrent MATLAB sessions under
+# the same user, so a `matlab -batch` test run coexists fine with an open
+# desktop -- no check is needed by default.  Set MM_SEAT_CHECK=1 to
+# re-enable the guard (a strict single-seat setup where a batch run would
+# block on a busy seat, surfacing as a silent multi-minute "hang").
+if [ "${MM_SEAT_CHECK:-0}" = "1" ]; then
     seat_holder=""
     for p in $(pgrep -f "glnxa64/MATLAB" 2>/dev/null); do
         a=$(ps -o args= -p "$p" 2>/dev/null)
@@ -69,10 +68,8 @@ if [ "${MM_SKIP_SEAT_CHECK:-0}" != "1" ]; then
     done
     if [ -n "$seat_holder" ]; then
         echo "error: an interactive MATLAB session is running (pid ${seat_holder%% })." >&2
-        echo "       Home/Individual licenses allow ONE concurrent session, so a" >&2
-        echo "       'matlab -batch' test run would block waiting for the seat." >&2
-        echo "       Close the MATLAB desktop and retry (or MM_SKIP_SEAT_CHECK=1" >&2
-        echo "       if you have a multi-seat license)." >&2
+        echo "       MM_SEAT_CHECK is on and this looks like a single-seat block." >&2
+        echo "       Close the MATLAB desktop and retry, or unset MM_SEAT_CHECK." >&2
         exit 3
     fi
 fi

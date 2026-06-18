@@ -12,9 +12,11 @@
 % PLAN_DESIGN_LAYER §5); everything downstream is the shared
 % front-end-agnostic analysis surface (§1.0).  No CodeV/Zemax step.
 %
-% Run:  matlab -batch "run('.../example_telescope_align.m')"   (ends exit(0))
+% Run interactively:  >> run('.../example_telescope_align.m')
+% (Batch check: matlab -batch "run('.../example_telescope_align.m'); exit(0)")
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src'));   % +macos on path
+addpath('~/dev/MACOS_resources/mmacos/src');   % +macos on path
+exdir = pwd;                                    % save artifacts here
 
 %% 1. Declare design intent (no engine calls) — a 1 m f/8 classical Cass.
 t = macos.design.Telescope('family','Cassegrain', ...
@@ -46,4 +48,19 @@ fprintf('   merit_opt (end)       : %.6e m\n', res.merit_opt);
 fprintf('   recovered despace     : % .4e mm   (target ~0)\n', res.x_opt);
 fprintf('   exitflag              : %d\n', res.exitflag);
 
-exit(0)
+%% 6. Add an accessible exit pupil + export the (nominal) design.
+%  The exit pupil is the deliverable handle for downstream instruments;
+%  add_pupil keeps the focal plane and inserts the image + pupil refs
+%  before it.  (The alignment above ran on the imported copy `s`; the
+%  builder `t` holds the clean nominal design we export.)
+fprintf('\n=== export the design ===\n');
+t.add_pupil();
+p = t.spec.pupil;
+fprintf('  exit pupil @ z = %.4f m,  reference radius = %.4f m\n', ...
+        p.ep_vpt(3), p.ep_radius);
+out_rx   = fullfile(exdir, 'cass_1m_f8.in');
+out_spec = fullfile(exdir, 'cass_1m_f8.mat');
+t.save(out_rx);  t.save_spec(out_spec);
+fprintf('  saved: %s\n         %s\n', out_rx, out_spec);
+
+fprintf('\n  done.  (design + exit pupil on disk; MATLAB stays open)\n');

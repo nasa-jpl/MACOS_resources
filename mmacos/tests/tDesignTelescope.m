@@ -157,5 +157,106 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyLessThan(abs(res.x_opt), 0.05, ...     % recovered despace ~0 (mm)
                 sprintf('recovered despace not ~0: %.4g mm', res.x_opt));
         end
+
+        function test_add_pupil_inserts_exit_pupil(tc)
+            % add_pupil inserts a FLAT image-Return + a SPHERICAL exit-pupil
+            % Return BEFORE the focal plane, PRESERVING the FP (nElt += 2).
+            % EP located by FEX; radius = chief-ray FP->EP, psi toward CoC.
+            t  = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            n0 = numel(t.spec.elt);                       % 3 (M1,M2,FP)
+            t.add_pupil();
+            p  = t.spec.pupil;
+            tc.verifyEqual(numel(t.spec.elt), n0+2, '"lost the FP" -- nElt not +2');
+            tc.verifyEqual(p.img_elt, n0);                % flat image return
+            tc.verifyEqual(p.ep_elt,  n0+1);              % spherical EP return
+            tc.verifyEqual(p.fp_elt,  n0+2);              % preserved FocalPlane
+            tc.verifyEqual(t.spec.elt(p.img_elt).kind, 'Return');
+            tc.verifyEqual(t.spec.elt(p.ep_elt).kind,  'Return');
+            tc.verifyEqual(t.spec.elt(p.fp_elt).kind,  'FocalPlane');
+            % real exit pupil behind the secondary (z<0), positive radius
+            tc.verifyGreaterThan(p.ep_radius, 0);
+            tc.verifyLessThan(p.ep_vpt(3), 0);
+            % radius == chief-ray distance FP->EP; sphere Kr = -radius;
+            % psi = -unit(FP->EP) points back toward the image (+z here)
+            fpz = t.spec.elt(p.fp_elt).Vpt(3);
+            tc.verifyEqual(p.ep_radius, abs(fpz - p.ep_vpt(3)), 'RelTol', 1e-9);
+            tc.verifyEqual(t.spec.elt(p.ep_elt).Kr, -p.ep_radius, 'RelTol', 1e-9);
+            tc.verifyGreaterThan(t.spec.elt(p.ep_elt).psi(3), 0.99);
+            % augmented Rx loads + traces; wavefront still spherical-free
+            tc.verifyTrue(macos.has_rx());
+            tc.verifyEqual(macos.num_elt(), n0+2);
+            s = macos.trace(numel(t.spec.elt));
+            tc.verifyLessThan(s.rmsWFE, tc.WfeTol, ...
+                sprintf('pupil refs perturbed the wavefront: %.3e', s.rmsWFE));
+        end
+
+        function test_tma_seidel_seed_matches_proof(tc)
+            % Pure-math: the ported Seidel-seed solver reproduces the locked
+            % proof_korsch f/8 conics (R=[8 2 4], t=[3 4.5,derive]).
+            [K, tf, EFL] = macos.design.seidel_seed([8 2 4], [3 4.5], 1.0);
+            tc.verifyEqual(K,   [-0.622 0.148 -3.904], 'AbsTol', 2e-3, 'seidel conics');
+            tc.verifyEqual(EFL, 8.0, 'AbsTol', 1e-3, 'EFL (f/8)');
+            tc.verifyEqual(tf,  2.0, 'AbsTol', 1e-3, 't_focus');
+        end
+
+        function test_tma_builder_emits_coaxial_korsch(tc)
+            % N-mirror builder: add_mirror -> Seidel-seeded coaxial Korsch
+            % that loads + traces at the seed residual (~0.15 lambda on-axis;
+            % 3rd-order nulled, higher-order left for multi-field optimize).
+            t = macos.design.Telescope('family','TMA', ...
+                'aperture_diameter_m',1.0, 'model_size',tc.ModelSize, ...
+                'grid_npts',tc.GridNpts);
+            t.add_mirror('M1','radius_m',8.0,'spacing_after_m',3.0);
+            t.add_mirror('M2','radius_m',2.0,'spacing_after_m',4.5);
+            t.add_mirror('M3','radius_m',4.0,'spacing_after','derive');
+            t.build();
+            tc.verifyTrue(macos.has_rx());
+            tc.verifyEqual(macos.num_elt(), 4);
+            % builder conics == standalone solver (exact)
+            Kref = macos.design.seidel_seed([8 2 4], [3 4.5], 1.0);
+            tc.verifyEqual(t.spec.derived.K, Kref, 'AbsTol', 1e-12);
+            % coaxial: all mirrors psi=(0,0,-1); fold vertices 0,-3,+1.5
+            for k = 1:3
+                tc.verifyEqual(t.spec.elt(k).psi, [0 0 -1], 'mirror psi not -z');
+            end
+            tc.verifyEqual(t.spec.elt(1).Vpt(3),  0.0, 'AbsTol', 1e-12);
+            tc.verifyEqual(t.spec.elt(2).Vpt(3), -3.0, 'AbsTol', 1e-12);
+            tc.verifyEqual(t.spec.elt(3).Vpt(3),  1.5, 'AbsTol', 1e-12);
+            % on-axis: seidel-seed residual band (not yet diffraction-limited)
+            s = macos.trace(4);
+            tc.verifyLessThan(s.rmsWFE, 5e-7, ...
+                sprintf('TMA on-axis WFE too large -- emission suspect: %.3e', s.rmsWFE));
+            tc.verifyGreaterThan(s.rmsWFE, 1e-8, ...
+                'TMA on-axis WFE implausibly small for an un-optimized seed');
+        end
+
+        function test_tma_multifield_optimize_native(tc)
+            % Native multi-field CALIB drives the Seidel-seeded Korsch from
+            % the seed residual (on-axis ~0.15 lambda, off-axis few-lambda)
+            % to diffraction-limited across the field, varying ONLY conics
+            % (radii/spacings fixed -- one shared physical system).
+            t = macos.design.Telescope('family','TMA', ...
+                'aperture_diameter_m',1.0, 'model_size',tc.ModelSize, ...
+                'grid_npts',tc.GridNpts);
+            t.add_mirror('M1','radius_m',8.0,'spacing_after_m',3.0);
+            t.add_mirror('M2','radius_m',2.0,'spacing_after_m',4.5);
+            t.add_mirror('M3','radius_m',4.0,'spacing_after','derive');
+            t.build();
+            Kseed = t.spec.derived.K;
+            res = t.optimize('fields_arcmin',[1.2 2.4], 'max_iters',60);
+            tc.verifyTrue(res.converged, 'CALIB did not converge');
+            % off-axis improved by >100x -- the multi-field payoff
+            tc.verifyGreaterThan(res.wfe_before(end)/res.wfe_after(end), 100, ...
+                'off-axis WFE not strongly improved');
+            tc.verifyLessThan(max(res.wfe_after), 5e-8, ...
+                sprintf('not ~diffraction-limited: max %.3e m', max(res.wfe_after)));
+            % conics actually moved and were written back to the spec
+            tc.verifyGreaterThan(max(abs(res.conics - Kseed)), 0.1, 'conics did not move');
+            tc.verifyEqual(t.spec.derived.K, res.conics, 'AbsTol', 1e-12);
+            % the clean re-emitted design traces optimized (conic readback)
+            s = macos.trace(4);
+            tc.verifyLessThan(s.rmsWFE, 5e-8, ...
+                sprintf('clean re-emit not optimized: %.3e m', s.rmsWFE));
+        end
     end
 end
