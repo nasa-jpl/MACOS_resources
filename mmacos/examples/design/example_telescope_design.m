@@ -18,12 +18,17 @@
 %  Plan: macos/PLAN_DESIGN_LAYER.md  §2 (this flow), §5 (the math).
 %
 %  To adapt this template: change the family + the four first-order
-%  numbers in Stage 1.  Everything else follows.
+%  numbers in Stage 1.  Everything else follows.  It leaves the design
+%  (a .in + a .mat) in your working directory and leaves MATLAB open so
+%  you can keep working with `t`.
 %
-%  Run:  matlab -batch "run('.../example_telescope_design.m')"   (exit 0)
+%  Run interactively:  >> run('.../example_telescope_design.m')
+%  (For an unattended batch check, append a trailing exit: matlab -batch
+%   "run('.../example_telescope_design.m'); exit(0)".)
 % ===================================================================
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src'));   % +macos on path
+addpath('~/dev/MACOS_resources/mmacos/src');   % +macos on path
+exdir = pwd;
 MODEL = 256;
 
 %% -- Stage 1 -------------------------------------------------------
@@ -92,17 +97,39 @@ fprintf('  (optimizer returned the secondary to within %.1f um of nominal)\n', .
         abs(res.x_opt)*1e3);
 
 %% -- Stage 6 -------------------------------------------------------
+%  ADD AN ACCESSIBLE EXIT PUPIL.  Insert reference surfaces so the exit
+%  pupil is available to downstream instruments (coronagraph, spectro-
+%  graph, metrology).  add_pupil(ielt) puts a FLAT Return at the focal
+%  plane and a SPHERICAL Return at the paraxial exit pupil (located by
+%  FEX; radius = chief-ray distance focus->pupil), and KEEPS the focal
+%  plane (it shifts down by 2 -- "don't lose the FP").
+%  Note: the optimiser does NOT need this -- the focal-plane OPD over the
+%  ray grid is already the exit-pupil-referenced wavefront; the pupil
+%  surfaces are for the DELIVERABLE.
+fprintf('\n Stage 6 — add an accessible exit pupil (deliverable)\n');
+fprintf('------------------------------------------------------------------\n');
+t.add_pupil();                                   % default: terminal FocalPlane
+p = t.spec.pupil;
+fprintf('  exit pupil @ z = %.4f m,  reference radius = %.4f m\n', ...
+        p.ep_vpt(3), p.ep_radius);
+fprintf('  elements now: image-return #%d, exit-pupil #%d, detector #%d\n', ...
+        p.img_elt, p.ep_elt, p.fp_elt);
+
+%% -- Stage 7 -------------------------------------------------------
 %  EXPORT.  save() writes a stand-alone .in (loadable in interactive
 %  macos, shareable, diffable); save_spec() persists the design struct
-%  so the builder state can be reloaded and re-optimized later.
-fprintf('\n Stage 6 — export\n');
+%  so the builder state can be reloaded and re-optimized later.  Both
+%  land in your working directory (exdir = pwd at launch) as a design
+%  you keep.  (For an engine-canonical .in with every default filled in
+%  -- prettier, no "Default used" notices on reload -- run the macos SAVE
+%  command / macos.save_rx on the loaded model instead.)
+fprintf('\n Stage 7 — export (saved to your working directory)\n');
 fprintf('------------------------------------------------------------------\n');
-out_rx   = fullfile(tempdir, 'rc_6m_f20.in');
-out_spec = fullfile(tempdir, 'rc_6m_f20.mat');
+out_rx   = fullfile(exdir, 'rc_6m_f20.in');
+out_spec = fullfile(exdir, 'rc_6m_f20.mat');
 t.save(out_rx);
 t.save_spec(out_spec);
 fprintf('  prescription : %s\n', out_rx);
 fprintf('  design spec  : %s\n', out_spec);
 
-fprintf('\n  done.\n');
-exit(0)
+fprintf('\n  done.  (the design + exit pupil are on disk; MATLAB stays open)\n');
