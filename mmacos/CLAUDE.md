@@ -368,7 +368,27 @@ existing `+macos` surface; it does NOT touch Fortran.
   hardwires `'frame','local'`): `Ty` is the element's own y, not global
   Y.  The `{'global','local'}` knob in `dw_dx` is `group_coords` (groups
   only).
-- Examples live in `examples/design/`; each ends in `exit(0)`.
+- Examples (REORGANIZED 2026-06-19, `d9978d8`): `examples/` now has three
+  category dirs — `sensitivities/`, `design/` (telescope builder examples
+  + `tma_widefield/`), `coronagraph/` (coro_planet_demo, coro_walkthrough,
+  `coro/` = the old design/coro E1–E4).  `tCoroContrast`'s path fixture
+  points at `examples/coronagraph/coro`.
+
+### Layout viewer — Telescope.diagram / view_layout (Sprint 4, 2026-06-19)
+For the off-axis-fold work (the coaxial TMA self-obscures — M1 + FP sit
+on the M2→M3 beam).  `Telescope.diagram()` = cheap marginal-beam side
+view (exterior clipping).  `Telescope.view_layout(plane,opts)` = the
+revealing view: the engine's REAL ray bundle (`macos.draw_rays`, a wrapper
+over the engine `draw_rays_cmd`/`draw_rays_get` data-only-DRAW getter —
+see macos/CLAUDE.md) plus conic-sag surfaces drawn to each optic's ACTUAL
+beam FOOTPRINT (not aperture); opts `plane` (YZ/XZ/XY), `istart`/`iend`
+(slice), `hide` (drop surfaces), `nrays`.  Slicing + hiding kill the
+FALSE conflicts a 2-D projection paints (a fold sends light behind the
+PM).  `check_clipping()` (3-D, phantom-free) + the off-axis fold builder
+are the remaining pieces.  These touch the engine, so the mex needs a
+relink after pulling: rebuild `build_release_gfortran`, re-run
+`gen_mex_wrappers.py`, `rm src/mmacos.mexa64`, `make FC=gfortran`.
+(macos `f3e98e5` + mmacos `caf3b86` are LOCAL/UNPUSHED.)
 
 ### Optical-design reference & fixtures (Sprint 2A-ii builder)
 The de-novo `macos.design.Telescope` builder (closed-form Cass / RC /
