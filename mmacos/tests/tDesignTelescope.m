@@ -258,5 +258,44 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyLessThan(s.rmsWFE, 5e-8, ...
                 sprintf('clean re-emit not optimized: %.3e m', s.rmsWFE));
         end
+
+        function test_check_clipping_flags_coaxial_tma(tc)
+            % The coaxial Korsch TMA SELF-OBSCURES: M1 (z=0) and the FP
+            % (z=-0.5) sit inside the converging M2->M3 beam.  check_clipping
+            % reconstructs the real ray bundle in 3-D (two orthogonal DRAW
+            % projections) and must flag it -- this is the diagnosis that
+            % motivates the off-axis fold builder.
+            t = macos.design.Telescope('family','TMA', ...
+                'aperture_diameter_m',1.0, 'model_size',tc.ModelSize, ...
+                'grid_npts',tc.GridNpts);
+            t.add_mirror('M1','radius_m',8.0,'spacing_after_m',3.0);
+            t.add_mirror('M2','radius_m',2.0,'spacing_after_m',4.5);
+            t.add_mirror('M3','radius_m',4.0,'spacing_after','derive');
+            t.build();
+            rep = t.check_clipping('quiet', true);     % standalone (loads Rx)
+            tc.verifyEqual(numel(rep), 4, 'report should cover all 4 elements');
+            tc.verifyFalse(all([rep.ok]), ...
+                'coaxial TMA must register a body-in-beam conflict');
+            % M1 is certainly pierced by the M2->M3 segment (crosses z=0 on-axis)
+            tc.verifyGreaterThan(rep(1).obstructs, 0, ...
+                'M1 body not detected in the converging M2->M3 beam');
+            % every footprint is a finite, non-negative radius
+            tc.verifyTrue(all(isfinite([rep.foot_r]) & [rep.foot_r] >= 0));
+        end
+
+        function test_check_clipping_cassegrain_central_obs(tc)
+            % An on-axis 2-mirror Cassegrain has the EXPECTED central
+            % obscuration: the secondary sits in the incoming beam to the
+            % primary.  check_clipping reports it as a real finding (the
+            % check is honest about coaxial obscuration -- the off-axis
+            % builder is what removes it).
+            t = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            t.build();
+            rep = t.check_clipping('quiet', true);
+            tc.verifyEqual(numel(rep), 3, 'M1 + secondary + FP');
+            tc.verifyGreaterThan(rep(2).obstructs, 0, ...
+                'secondary central obscuration not detected');
+            tc.verifyTrue(all(isfinite([rep.margin])), 'margins must be finite');
+        end
     end
 end
