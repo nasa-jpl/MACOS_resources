@@ -188,12 +188,15 @@ classdef Telescope < handle
         %   rx = t.build('foo.in')   -> writes foo.in
         %   Name-value: 'validate' (default true) load-checks the emitted
         %   Rx through SMACOS (the path pymacos/mmacos use); 'init'
-        %   (default true) inits the engine at the spec model_size first.
+        %   (default true) inits the engine at the spec model_size first;
+        %   'check' (default false) runs check_clipping() on the loaded
+        %   design and warns on any body-in-beam / vignetting conflict.
             arguments
                 obj
                 path (1,:) char = ''
                 opts.validate (1,1) logical = true
                 opts.init     (1,1) logical = true
+                opts.check    (1,1) logical = false
             end
             if isempty(path), path = [tempname '.in']; end
             if obj.is_nmirror_() && (~isfield(obj.spec,'elt') || isempty(obj.spec.elt))
@@ -212,6 +215,16 @@ classdef Telescope < handle
                 if ~macos.has_rx()
                     error('macos:design:Telescope:loadFailed', ...
                         'emitted Rx failed to load via SMACOS: %s', path);
+                end
+                if opts.check
+                    rep = obj.check_clipping('noload', true, 'quiet', true);
+                    if ~all([rep.ok])
+                        bad = {rep(~[rep.ok]).name};
+                        warning('macos:design:Telescope:clipping', ...
+                            ['layout has body-in-beam / vignetting conflicts ' ...
+                             'at: %s  (run check_clipping() for the report)'], ...
+                            strjoin(bad, ', '));
+                    end
                 end
             end
             obj.spec.rx_path = path;
@@ -570,6 +583,121 @@ classdef Telescope < handle
                           mat2str(opts.hide))]; end
             title(ttl);
             if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+        end
+
+        function rep = check_clipping(obj, opts)
+        %CHECK_CLIPPING  3-D body-in-beam obscuration + footprint margin
+        %   (PLAN_DESIGN_LAYER §8 Sprint 4).  Reconstructs the engine's real
+        %   ray bundle in full 3-D from TWO orthogonal DRAW projections
+        %   (YZ -> Y,Z ; XZ -> X,Z ; the shared Z is an integrity check),
+        %   then tests every PHYSICAL element body (a disk: centre Vpt,
+        %   normal psi, radius ap_r) for piercing a beam segment that runs
+        %   between two OTHER elements -- the self-obscuration the coaxial
+        %   TMA suffers (M1 and the FP sit on the M2->M3 axis).  Judged in
+        %   3-D on purpose: a 2-D projection paints FALSE conflicts (a fold
+        %   tucks the beam harmlessly behind the PM).
+        %
+        %   rep = t.check_clipping() returns a struct array, one per element:
+        %     .name .kind .ap_r   aperture radius (m)
+        %     .foot_r            realised beam-footprint radius at the elt
+        %     .margin            ap_r - foot_r  (>=0: beam fits the aperture)
+        %     .obstructs         # beam segments this body pierces (0 = clear)
+        %     .ok                margin>=0 && obstructs==0
+        %   Prints a table + overall verdict unless 'quiet'.  'noload' skips
+        %   the build/reload when the design is already loaded in the engine.
+            arguments
+                obj
+                opts.quiet  (1,1) logical = false
+                opts.noload (1,1) logical = false
+                opts.tol    (1,1) double  = 1e-9   % segment-endpoint exclusion
+            end
+            if ~opts.noload
+                if ~macos.has_rx(), obj.build(); else, obj.build('','init',false); end
+            end
+            e  = obj.spec.elt;  nE = numel(e);
+
+            % --- full 3-D bundle from two orthogonal orthographic projections
+            byz = macos.draw_rays('YZ', 0, nE);   % U=Z  V=Y
+            bxz = macos.draw_rays('XZ', 0, nE);   % U=Z  V=X
+            X = bxz.V;  Y = byz.V;  Z = byz.U;     % (nMaxElt x nRay)
+            elt = byz.elt;  nper = byz.nper;  nRay = byz.nray;
+            zchk = max(abs(byz.U(:) - bxz.U(:)));  % both passes traced alike?
+            if zchk > 1e-6 * (1 + max(abs(Z(:))))
+                warning('macos:design:Telescope:check_clipping:stitch', ...
+                    'YZ/XZ Z mismatch %.3g -- bundles may be misaligned', zchk);
+            end
+
+            % --- per-element disk geometry + physical-body flag
+            Vpt = zeros(3,nE);  psi = zeros(3,nE);  apr = zeros(1,nE);
+            isBody = false(1,nE);
+            for k = 1:nE
+                Vpt(:,k) = e(k).Vpt(:);
+                p = e(k).psi(:);  np = norm(p);  if np > 0, p = p/np; end
+                psi(:,k) = p;  apr(k) = e(k).ap_r;
+                isBody(k) = any(strcmp(e(k).kind, {'Reflector','FocalPlane'}));
+            end
+
+            % --- realised footprint radius at each element (perp to psi)
+            foot = zeros(1,nE);
+            for k = 1:nE
+                m = (elt == k);
+                if ~any(m(:)), continue; end
+                P  = [X(m).'; Y(m).'; Z(m).'];          % 3 x npts
+                d  = P - Vpt(:,k);
+                ax = d - psi(:,k) * (psi(:,k).' * d);    % component perp to psi
+                foot(k) = max(sqrt(sum(ax.^2, 1)));
+            end
+
+            % --- body-in-beam: every segment vs every non-endpoint body disk
+            obstructs = zeros(1,nE);
+            for r = 1:nRay
+                for i = 1:nper(r)-1
+                    A  = [X(i,r);  Y(i,r);  Z(i,r)];
+                    B  = [X(i+1,r);Y(i+1,r);Z(i+1,r)];
+                    ea = elt(i,r);  eb = elt(i+1,r);  AB = B - A;
+                    for k = 1:nE
+                        if ~isBody(k) || k == ea || k == eb, continue; end
+                        den = psi(:,k).' * AB;
+                        if abs(den) < 1e-30, continue; end          % grazes plane
+                        t = (psi(:,k).' * (Vpt(:,k) - A)) / den;
+                        if t <= opts.tol || t >= 1-opts.tol, continue; end
+                        Q   = A + t*AB;
+                        d   = Q - Vpt(:,k);
+                        rho = norm(d - psi(:,k) * (psi(:,k).' * d));
+                        if rho < apr(k), obstructs(k) = obstructs(k) + 1; end
+                    end
+                end
+            end
+
+            % --- assemble report
+            rep = struct('name',{},'kind',{},'ap_r',{},'foot_r',{}, ...
+                         'margin',{},'obstructs',{},'ok',{});
+            for k = 1:nE
+                margin = apr(k) - foot(k);
+                okk    = (margin >= 0) && (obstructs(k) == 0);
+                rep(k) = struct('name',e(k).name, 'kind',e(k).kind, ...
+                    'ap_r',apr(k), 'foot_r',foot(k), 'margin',margin, ...
+                    'obstructs',obstructs(k), 'ok',okk);
+            end
+
+            if ~opts.quiet
+                fprintf('check_clipping  (family=%s, %d elements)\n', ...
+                        obj.spec.family, nE);
+                fprintf('  %-10s %-10s %10s %10s %10s %9s  %s\n', ...
+                    'name','kind','ap_r','foot_r','margin','obstruct','status');
+                for k = 1:nE
+                    st = 'OK';  if ~rep(k).ok, st = '** CLIP'; end
+                    fprintf('  %-10s %-10s %10.4g %10.4g %10.4g %9d  %s\n', ...
+                        rep(k).name, rep(k).kind, rep(k).ap_r, rep(k).foot_r, ...
+                        rep(k).margin, rep(k).obstructs, st);
+                end
+                if all([rep.ok])
+                    fprintf(['  => layout is CLEAR ' ...
+                             '(no body-in-beam, beams fit apertures)\n']);
+                else
+                    fprintf('  => layout has CONFLICTS (see ** CLIP rows)\n');
+                end
+            end
         end
     end
 
