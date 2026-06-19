@@ -12,6 +12,8 @@ complex_field
 compose_add
 compose_get
 compose_start
+draw_rays_cmd
+draw_rays_get
 dx_at
 elt_csys_get
 elt_csys_rm
