@@ -2,7 +2,7 @@ classdef tCoroContrast < matlab.unittest.TestCase
 %TCOROCONTRAST  Unit tests for the ported contrast.py lambda/D machinery.
 %   Pure math, no macos calls — pins the MATLAB port of radial_profile /
 %   first_airy_null / lambda_over_D_pixels / radial_contrast (in
-%   examples/design/coro/) against an analytic Airy pattern with a
+%   examples/coronagraph/coro/) against an analytic Airy pattern with a
 %   known first null.  Guards the Sprint-1 E1 dark-zone merit from
 %   silent regressions in the port.
 
@@ -14,7 +14,7 @@ classdef tCoroContrast < matlab.unittest.TestCase
     methods (TestClassSetup)
         function addCoroPath(testCase)
             here = fileparts(mfilename('fullpath'));
-            coro = fullfile(here, '..', 'examples', 'design', 'coro');
+            coro = fullfile(here, '..', 'examples', 'coronagraph', 'coro');
             testCase.applyFixture( ...
                 matlab.unittest.fixtures.PathFixture(coro));
         end
