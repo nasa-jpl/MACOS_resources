@@ -426,6 +426,151 @@ classdef Telescope < handle
                 'wfe_before',r.old_wfe(:,1).', 'wfe_after',r.new_wfe(:,1).', ...
                 'conics',Kopt, 'var_elts',var_elts, 'wavelength',obj.spec.wavelength);
         end
+
+        function fig = diagram(obj, opts)
+        %DIAGRAM  Side-view (z-y) layout: element bodies + chief ray +
+        %   marginal beam (PLAN_DESIGN_LAYER §8 Sprint 4).  Reveals when an
+        %   element BODY sits in another element's BEAM -- e.g. a coaxial
+        %   TMA where M1 and the focal plane occult the M2->M3 beam (all
+        %   vertices on one axis -> physically unbuildable until taken
+        %   off-axis).  z is the (folded) optical axis, y the in-plane
+        %   transverse coord; x is ignored (planar layouts).
+        %   Name-value: 'save' (PNG path), 'visible' (default true).
+            arguments
+                obj
+                opts.save    (1,:) char   = ''
+                opts.visible (1,1) logical = true
+            end
+            if obj.is_nmirror_() && (~isfield(obj.spec,'elt') || isempty(obj.spec.elt))
+                obj.resolve_nmirror_();
+            end
+            e = obj.spec.elt;  n = numel(e);
+            z = arrayfun(@(x) x.Vpt(3), e);     % side view: z horizontal
+            y = arrayfun(@(x) x.Vpt(2), e);     %            y vertical
+            h = obj.paraxial_heights_();         % marginal beam radius at each elt
+
+            vis = 'on';  if ~opts.visible, vis = 'off'; end
+            fig = figure('Visible',vis, 'Position',[80 80 980 520]);  hold on;
+            % chief ray (vertex path) + marginal-beam envelope (both folded)
+            plot(z, y,   'r-', 'LineWidth',1.2, 'DisplayName','chief ray');
+            plot(z, y+h, 'b-', 'LineWidth',0.8, 'DisplayName','marginal beam');
+            plot(z, y-h, 'b-', 'LineWidth',0.8, 'HandleVisibility','off');
+            % element bodies: segment perpendicular to psi, length 2*aperture
+            for k = 1:n
+                p = e(k).psi;  apr = e(k).ap_r;
+                bdir = [-p(2), p(3)];            % perp to psi projected into (z,y)
+                nb = hypot(p(2), p(3));  if nb > 0, bdir = bdir/nb; end
+                zz = z(k) + apr*[-1 1]*bdir(1);
+                yy = y(k) + apr*[-1 1]*bdir(2);
+                col = 'k';  if strcmp(e(k).kind,'FocalPlane'), col = 'm'; end
+                if strcmp(e(k).kind,'Return'), col = [0 .6 0]; end
+                plot(zz, yy, 'Color',col, 'LineWidth',2.5, 'HandleVisibility','off');
+                text(z(k), y(k), ['  ' e(k).name], 'FontSize',8, ...
+                     'VerticalAlignment','bottom');
+            end
+            axis equal; grid on; box on;
+            xlabel('z  (optical axis)'); ylabel('y  (transverse)');
+            title(sprintf('%s layout (side view) -- bodies black, FP magenta', ...
+                  obj.spec.family));
+            legend('Location','best');
+            if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+        end
+
+        function fig = view_layout(obj, plane, opts)
+        %VIEW_LAYOUT  Real-ray layout view (engine DRAW bundle) + conic
+        %   surfaces -- the revealing beam-train / deconfliction view
+        %   (PLAN_DESIGN_LAYER §8 Sprint 4).  Plots the engine's actual
+        %   traced ray fan in PLANE ('YZ'|'XZ'|'XY') together with each
+        %   element's conic-sag surface profile, so the beam filling the
+        %   optics and any body-in-beam obscuration are visible.
+        %
+        %   Because a 2-D projection collapses depth and can paint FALSE
+        %   conflicts (e.g. a fold sends light behind the PM), the view is
+        %   sliceable:
+        %     'hide'    element indices whose SURFACE to omit (e.g. the PM)
+        %     'istart'  first element to draw (0 = from the source)
+        %     'iend'    last element to draw   (0 = nElt)
+        %     'save'    PNG path;  'visible'  (default true)
+            arguments
+                obj
+                plane   (1,:) char    = 'YZ'
+                opts.hide   (1,:) double  = []
+                opts.istart (1,1) double  = 0
+                opts.iend   (1,1) double  = 0
+                opts.nrays  (1,1) double  = 25     % # rays drawn (subsampled)
+                opts.save   (1,:) char    = ''
+                opts.visible (1,1) logical = true
+            end
+            % ensure the CURRENT design is loaded in the engine
+            if ~macos.has_rx()
+                obj.build();
+            else
+                obj.build('', 'init', false);
+            end
+            nE   = numel(obj.spec.elt);
+            iend = opts.iend;  if iend <= 0, iend = nE; end
+            b = macos.draw_rays(plane, opts.istart, iend);
+
+            switch upper(plane)            % which 3-D comps map to (U,V)
+                case 'YZ', cU = 3; cV = 2;
+                case 'XZ', cU = 3; cV = 1;
+                case 'XY', cU = 1; cV = 2;
+                otherwise
+                    error('macos:design:Telescope:view_layout:plane', ...
+                          'plane must be YZ, XZ or XY.');
+            end
+            axn = 'XYZ';
+
+            % per-element beam FOOTPRINT (transverse extent of the rays at
+            % each surface) so each optic is drawn to its actual beam size,
+            % not its (generous) aperture.
+            foot = zeros(1, nE);
+            for k = 1:nE
+                mask = (b.elt == k);
+                if ~any(mask(:)), continue; end
+                e  = obj.spec.elt(k);
+                pu = e.psi(cU);  pv = e.psi(cV);  np = hypot(pu,pv);
+                if np > 0, pu = pu/np;  pv = pv/np; end
+                tperp = (b.U(mask)-e.Vpt(cU))*(-pv) + (b.V(mask)-e.Vpt(cV))*pu;
+                foot(k) = max(abs(tperp));
+            end
+
+            vis = 'on';  if ~opts.visible, vis = 'off'; end
+            fig = figure('Visible',vis, 'Position',[60 60 1000 560]);  hold on;
+            % --- real ray bundle, subsampled so the beam shape stays legible ---
+            step = max(1, floor(b.nray / max(2, opts.nrays)));
+            for r = 1:step:b.nray
+                m = b.nper(r);
+                if m >= 2
+                    plot(b.U(1:m,r), b.V(1:m,r), '-', 'Color',[0 .45 .85], ...
+                         'LineWidth',0.5, 'HandleVisibility','off');
+                end
+            end
+            % --- conic-sag surfaces, drawn to the actual footprint ---
+            for k = max(1,opts.istart):iend
+                if ismember(k, opts.hide), continue; end
+                e = obj.spec.elt(k);
+                if strcmp(e.kind,'Reflector') && foot(k) > 0
+                    ext = foot(k)*1.15;       % mirror: beam footprint + 15% edge
+                else
+                    ext = e.ap_r;             % FP/Return: physical (detector) size
+                end
+                [su, sv] = obj.surface_profile_(e, cU, cV, ext);
+                col = 'k';
+                if strcmp(e.kind,'FocalPlane'), col = 'm';
+                elseif strcmp(e.kind,'Return'), col = [0 .6 0]; end
+                plot(su, sv, 'Color',col, 'LineWidth',2.4, 'HandleVisibility','off');
+                text(e.Vpt(cU), e.Vpt(cV), ['  ' e.name], 'FontSize',8);
+            end
+            axis equal; grid on; box on;
+            xlabel([axn(cU) ' axis']);  ylabel([axn(cV) ' axis']);
+            ttl = sprintf('%s layout -- %s plane (real rays)', ...
+                          obj.spec.family, upper(plane));
+            if ~isempty(opts.hide), ttl = [ttl sprintf('  [hidden: %s]', ...
+                          mat2str(opts.hide))]; end
+            title(ttl);
+            if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+        end
     end
 
     methods (Static)
@@ -727,6 +872,52 @@ classdef Telescope < handle
                 fprintf('   %2d  %-10s %-10s Vpt=[% .4g % .4g % .4g]  [%s]\n', ...
                     k, e.name, e.kind, e.Vpt(1), e.Vpt(2), e.Vpt(3), e.provenance);
             end
+        end
+
+        function h = paraxial_heights_(obj)
+        %PARAXIAL_HEIGHTS_  Marginal ray radius at each element from a folded
+        %   paraxial trace (collimated full-aperture input; mirror n-flip;
+        %   inter-element distance = |dz| between vertices).  Flat surfaces
+        %   (FP/Return, |Kr| huge) pass the ray through.  Used by diagram()
+        %   and check_clipping() to draw / test the beam vs element bodies.
+            e = obj.spec.elt;  n = numel(e);
+            z = arrayfun(@(x) x.Vpt(3), e);
+            h = zeros(1, n);
+            nn = 1.0;  yy = obj.spec.in.D/2;  u = 0.0;
+            for k = 1:n
+                h(k) = abs(yy);
+                R  = abs(e(k).Kr);  c = 1/R;       % flat -> R huge -> c ~ 0
+                np = -nn;  phi = (np-nn)*c;
+                u  = (nn*u - yy*phi)/np;
+                if k < n
+                    yy = yy + abs(z(k+1)-z(k))*u;
+                end
+                nn = np;
+            end
+        end
+
+        function [su, sv] = surface_profile_(~, e, cU, cV, extent)
+        %SURFACE_PROFILE_  Conic-sag profile of element e projected onto the
+        %   (cU,cV) plane axes (for view_layout).  Sag s(h) along psi,
+        %   transverse h out to EXTENT (the beam footprint; defaults to the
+        %   aperture); a flat surface (huge |Kr|) becomes a straight segment
+        %   perpendicular to psi.
+            R = abs(e.Kr);  Kc = e.Kc;
+            apr = e.ap_r;
+            if nargin >= 5 && extent > 0, apr = extent; end
+            h = linspace(-apr, apr, 41);
+            if R > 1e15
+                s = zeros(size(h));                  % flat (FP / Return)
+            else
+                disc = R^2 - (1+Kc)*h.^2;  disc(disc < 0) = 0;
+                s = h.^2 ./ (R + sqrt(disc));
+            end
+            vu = e.Vpt(cU);  vv = e.Vpt(cV);
+            pu = e.psi(cU);  pv = e.psi(cV);
+            np = hypot(pu, pv);  if np > 0, pu = pu/np;  pv = pv/np; end
+            tu = -pv;  tv = pu;                       % in-plane transverse
+            su = vu + h.*tu + s.*pu;                  % vertex + h*t + sag*psi
+            sv = vv + h.*tv + s.*pv;
         end
     end
 
