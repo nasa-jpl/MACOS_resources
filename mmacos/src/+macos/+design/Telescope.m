@@ -701,8 +701,12 @@ classdef Telescope < handle
                 foot(k) = max(sqrt(sum(ax.^2, 1)));
             end
 
-            % --- body-in-beam: every segment vs every non-endpoint body disk
+            % --- body-in-beam: every segment vs every non-endpoint body disk.
+            % obstructs counts pierced segments; clr tracks the CLOSEST foreign
+            % beam approach to each body axis (min rho where a foreign segment
+            % crosses the body's plane) -> signed clearance = clr - ap_r.
             obstructs = zeros(1,nE);
+            clr       = inf(1,nE);
             for r = 1:nRay
                 for i = 1:nper(r)-1
                     A  = [X(i,r);  Y(i,r);  Z(i,r)];
@@ -717,6 +721,7 @@ classdef Telescope < handle
                         Q   = A + t*AB;
                         d   = Q - Vpt(:,k);
                         rho = norm(d - psi(:,k) * (psi(:,k).' * d));
+                        clr(k) = min(clr(k), rho);
                         if rho < apr(k), obstructs(k) = obstructs(k) + 1; end
                     end
                 end
@@ -724,31 +729,36 @@ classdef Telescope < handle
 
             % --- assemble report
             rep = struct('name',{},'kind',{},'ap_r',{},'foot_r',{}, ...
-                         'margin',{},'obstructs',{},'ok',{});
+                         'margin',{},'obstructs',{},'clearance',{},'ok',{});
             for k = 1:nE
-                margin = apr(k) - foot(k);
-                okk    = (margin >= 0) && (obstructs(k) == 0);
+                margin    = apr(k) - foot(k);             % own beam vs own aperture
+                clearance = clr(k) - apr(k);             % body edge to nearest foreign beam
+                okk       = (margin >= 0) && (obstructs(k) == 0);
                 rep(k) = struct('name',e(k).name, 'kind',e(k).kind, ...
                     'ap_r',apr(k), 'foot_r',foot(k), 'margin',margin, ...
-                    'obstructs',obstructs(k), 'ok',okk);
+                    'obstructs',obstructs(k), 'clearance',clearance, 'ok',okk);
             end
 
             if ~opts.quiet
                 fprintf('check_clipping  (family=%s, %d elements)\n', ...
                         obj.spec.family, nE);
-                fprintf('  %-10s %-10s %10s %10s %10s %9s  %s\n', ...
-                    'name','kind','ap_r','foot_r','margin','obstruct','status');
+                fprintf('  %-10s %-10s %9s %9s %9s %9s %8s  %s\n', ...
+                    'name','kind','ap_r','foot_r','margin','clearnce','obstruct','status');
                 for k = 1:nE
                     st = 'OK';  if ~rep(k).ok, st = '** CLIP'; end
-                    fprintf('  %-10s %-10s %10.4g %10.4g %10.4g %9d  %s\n', ...
+                    cstr = sprintf('%9.4g', rep(k).clearance);
+                    if isinf(rep(k).clearance), cstr = sprintf('%9s','--'); end
+                    fprintf('  %-10s %-10s %9.4g %9.4g %9.4g %s %8d  %s\n', ...
                         rep(k).name, rep(k).kind, rep(k).ap_r, rep(k).foot_r, ...
-                        rep(k).margin, rep(k).obstructs, st);
+                        rep(k).margin, cstr, rep(k).obstructs, st);
                 end
                 if all([rep.ok])
                     fprintf(['  => layout is CLEAR ' ...
                              '(no body-in-beam, beams fit apertures)\n']);
                 else
-                    fprintf('  => layout has CONFLICTS (see ** CLIP rows)\n');
+                    fprintf(['  => layout has CONFLICTS: margin<0 = own beam ' ...
+                             'overfills aperture; clearance<0 = body cuts a ' ...
+                             'foreign beam\n']);
                 end
             end
         end
