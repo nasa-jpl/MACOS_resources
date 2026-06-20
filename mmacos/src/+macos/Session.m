@@ -157,6 +157,9 @@ classdef Session < handle
                 macos.zrn_freeform(srf, varargin{:});
             end
         end
+        function elt_grid_add(obj, srf, grid_dz)
+            macos.elt_grid_add(srf, grid_dz);
+        end
 
         % --- CALIB design optimizer -----------------------------------
         function r = calib(obj)
