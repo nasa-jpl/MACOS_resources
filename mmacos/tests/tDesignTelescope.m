@@ -368,5 +368,77 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyGreaterThan(s.rmsWFE, s0.rmsWFE, ...
                 'field bias should add aberration vs the on-axis seed');
         end
+
+        function test_field_bias_optimize_corrects_offaxis(tc)
+            % optimize() centers its eval fields on the bias and re-derives
+            % the conics, so the biased (off-axis) field is corrected.
+            bias = 2.0;                       % arcmin
+            t = tc.make_tma_();
+            t.set_field_bias(bias);
+            t.build();
+            s_before = macos.trace(4);        % biased seed: aberrated
+            res = t.optimize('fields_arcmin',[1.0 2.0], 'max_iters',60);
+            tc.verifyTrue(res.converged, 'CALIB did not converge (biased)');
+            % eval fields are absolute, centered on the bias (field 1 = bias)
+            tc.verifyEqual(res.fields_arcmin(1), bias, 'AbsTol', 1e-9);
+            tc.verifyEqual(res.fields_arcmin, bias + [0 1 2], 'AbsTol', 1e-9);
+            s_after = macos.trace(4);         % re-emitted optimized @ bias
+            tc.verifyLessThan(s_after.rmsWFE, s_before.rmsWFE, ...
+                'optimize did not improve the biased-field WFE');
+        end
+
+        function test_aperture_decenter_zero_is_centered(tc)
+            % dy=0 must emit the on-axis stop exactly.
+            t = tc.make_tma_();  t.set_aperture_decenter(0);
+            f = [tempname '.in']; c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save(f);
+            tc.verifyEqual(tc.parse_vec3_(fileread(f), 'ApStop'), [0 0 0], ...
+                'AbsTol', 1e-15, 'zero decenter must stay centered');
+        end
+
+        function test_aperture_decenter_emits_and_shifts_footprint(tc)
+            % Decentering the aperture offsets the stop + chief ray and moves
+            % the beam onto an OFF-AXIS patch of the pinned parent: the M1
+            % footprint centroid shifts to +dy.  (Small dy so the beam still
+            % fits inside the full-aperture parent -- larger decenters need
+            % oversized parents, a follow-on.)
+            dy = 0.03;
+            t = tc.make_tma_();  t.set_aperture_decenter(dy);
+            f = [tempname '.in']; c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save(f);
+            txt = fileread(f);
+            tc.verifyEqual(tc.parse_vec3_(txt, 'ApStop'), [0 dy 0], 'AbsTol', 1e-12, ...
+                'stop not decentered');
+            % vertices stay pinned on-axis
+            for k = 1:3
+                tc.verifyEqual(t.spec.elt(k).Vpt(1:2), [0 0], 'AbsTol', 1e-12);
+            end
+            t.build();
+            b  = macos.draw_rays('YZ', 0, 4);    % YZ: V = Y
+            m1 = (b.elt == 1);
+            tc.assertTrue(any(m1(:)), 'no M1 crossings in the bundle');
+            tc.verifyEqual(mean(b.V(m1)), dy, 'AbsTol', 0.01, ...
+                'M1 footprint not centered on the aperture decenter');
+        end
+
+        function test_offaxis_tools_compose(tc)
+            % field bias + aperture decenter compose in the emit: the chief
+            % ray is tilted AND passes through the decentered stop.
+            a = deg2rad(2/60);  dy = 0.02;
+            t = tc.make_tma_();
+            t.set_field_bias(2.0);  t.set_aperture_decenter(dy);
+            f = [tempname '.in']; c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save(f);
+            txt = fileread(f);
+            tc.verifyEqual(tc.parse_vec3_(txt, 'ChfRayDir'), [0 sin(a) cos(a)], ...
+                'AbsTol', 1e-12);
+            tc.verifyEqual(tc.parse_vec3_(txt, 'ApStop'), [0 dy 0], 'AbsTol', 1e-12);
+            % ChfRayPos = ApStop - stand*ChfRayDir : its y = dy - stand*sin(a),
+            % so (ChfRayPos - ApStop) is anti-parallel to ChfRayDir.
+            pos = tc.parse_vec3_(txt, 'ChfRayPos');
+            v = pos - [0 dy 0];
+            tc.verifyEqual(v./norm(v), -[0 sin(a) cos(a)], 'AbsTol', 1e-9, ...
+                'chief ray does not pass through the decentered stop');
+        end
     end
 end
