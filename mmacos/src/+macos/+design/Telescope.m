@@ -690,21 +690,28 @@ classdef Telescope < handle
                 isBody(k) = any(strcmp(e(k).kind, {'Reflector','FocalPlane'}));
             end
 
-            % --- realised footprint radius at each element (perp to psi)
+            % --- realised footprint: CENTER (off-axis patch centroid) + radius
+            % ABOUT that center.  An off-axis-section element's real body is
+            % this off-axis patch, NOT a vertex-centered disk -- essential so
+            % the clearance test of a DECENTERED design judges the actual mirror
+            % outline (a near-axis foreign beam clears an off-axis patch).
             foot = zeros(1,nE);
+            ctr  = Vpt;                                  % patch center (global); default vertex
             for k = 1:nE
                 m = (elt == k);
                 if ~any(m(:)), continue; end
-                P  = [X(m).'; Y(m).'; Z(m).'];          % 3 x npts
-                d  = P - Vpt(:,k);
-                ax = d - psi(:,k) * (psi(:,k).' * d);    % component perp to psi
-                foot(k) = max(sqrt(sum(ax.^2, 1)));
+                P    = [X(m).'; Y(m).'; Z(m).'];         % 3 x npts
+                d    = P - Vpt(:,k);
+                ax   = d - psi(:,k) * (psi(:,k).' * d);  % in-plane offset from vertex
+                cbar = mean(ax, 2);                      % patch centroid (in plane)
+                ctr(:,k) = Vpt(:,k) + cbar;              % patch center (global, in plane)
+                foot(k)  = max(sqrt(sum((ax - cbar).^2, 1)));   % radius about center
             end
 
-            % --- body-in-beam: every segment vs every non-endpoint body disk.
-            % obstructs counts pierced segments; clr tracks the CLOSEST foreign
-            % beam approach to each body axis (min rho where a foreign segment
-            % crosses the body's plane) -> signed clearance = clr - ap_r.
+            % --- body-in-beam: every segment vs every non-endpoint body PATCH
+            % (center ctr, radius foot, in the surface plane).  obstructs counts
+            % pierced segments; clr tracks the closest foreign-beam approach to
+            % the patch CENTER -> signed clearance = clr - foot.
             obstructs = zeros(1,nE);
             clr       = inf(1,nE);
             for r = 1:nRay
@@ -716,13 +723,12 @@ classdef Telescope < handle
                         if ~isBody(k) || k == ea || k == eb, continue; end
                         den = psi(:,k).' * AB;
                         if abs(den) < 1e-30, continue; end          % grazes plane
-                        t = (psi(:,k).' * (Vpt(:,k) - A)) / den;
+                        t = (psi(:,k).' * (ctr(:,k) - A)) / den;    % cross patch plane
                         if t <= opts.tol || t >= 1-opts.tol, continue; end
                         Q   = A + t*AB;
-                        d   = Q - Vpt(:,k);
-                        rho = norm(d - psi(:,k) * (psi(:,k).' * d));
+                        rho = norm(Q - ctr(:,k));        % dist from patch center (in plane)
                         clr(k) = min(clr(k), rho);
-                        if rho < apr(k), obstructs(k) = obstructs(k) + 1; end
+                        if rho < foot(k), obstructs(k) = obstructs(k) + 1; end
                     end
                 end
             end
@@ -731,9 +737,9 @@ classdef Telescope < handle
             rep = struct('name',{},'kind',{},'ap_r',{},'foot_r',{}, ...
                          'margin',{},'obstructs',{},'clearance',{},'ok',{});
             for k = 1:nE
-                margin    = apr(k) - foot(k);             % own beam vs own aperture
-                clearance = clr(k) - apr(k);             % body edge to nearest foreign beam
-                okk       = (margin >= 0) && (obstructs(k) == 0);
+                margin    = apr(k) - foot(k);            % patch vs nominal aperture (info)
+                clearance = clr(k) - foot(k);           % patch edge to nearest foreign beam
+                okk       = (obstructs(k) == 0);          % body clears all foreign beams
                 rep(k) = struct('name',e(k).name, 'kind',e(k).kind, ...
                     'ap_r',apr(k), 'foot_r',foot(k), 'margin',margin, ...
                     'obstructs',obstructs(k), 'clearance',clearance, 'ok',okk);
