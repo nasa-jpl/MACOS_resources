@@ -440,5 +440,49 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyEqual(v./norm(v), -[0 sin(a) cos(a)], 'AbsTol', 1e-9, ...
                 'chief ray does not pass through the decentered stop');
         end
+
+        function test_offaxis_mirrors_emit_apnone(tc)
+            % During the off-axis design phase the mirrors must not clip the
+            % decentered/biased beam: Reflectors emit ApType=None.
+            t = tc.make_tma_();  t.set_aperture_decenter(0.02);
+            f = [tempname '.in']; c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save(f);
+            txt = fileread(f);
+            tc.verifyTrue(contains(txt, 'ApType=  None'), ...
+                'off-axis mirrors should emit ApType=None');
+            % on-axis design keeps Circular apertures
+            t2 = tc.make_tma_();
+            f2 = [tempname '.in']; c2 = onCleanup(@() delete(f2)); %#ok<NASGU>
+            t2.save(f2);
+            tc.verifyFalse(contains(fileread(f2), 'ApType=  None'), ...
+                'on-axis design must keep Circular apertures');
+        end
+
+        function test_aperture_full_field_sizes_and_centers(tc)
+            % aperture_full_field returns a per-element centered circle that
+            % covers the traced footprints; with an aperture decenter the M1
+            % aperture center tracks the decenter (XY plane: center(2)=Y).
+            dy = 0.03;
+            t = tc.make_tma_();  t.set_aperture_decenter(dy);  t.build();
+            rep = t.aperture_full_field('quiet', true);
+            tc.verifyEqual(numel(rep), 4, 'one entry per element');
+            tc.verifyTrue(all([rep.radius] > 0), 'radii must be positive');
+            tc.verifyTrue(all(isfinite([rep.radius])), 'radii must be finite');
+            tc.verifyEqual(rep(1).center(2), dy, 'AbsTol', 0.02, ...
+                'M1 aperture center not tracking the decenter');
+        end
+
+        function test_aperture_full_field_grows_with_fov(tc)
+            % A wider field set covers more, so element apertures grow.
+            t = tc.make_tma_();  t.set_field_bias(2.0);  t.build();
+            r1 = t.aperture_full_field('fields', [0 deg2rad(2/60)], 'quiet', true);
+            wide = [0            deg2rad(0/60);
+                    0            deg2rad(4/60);
+                    deg2rad( 2/60) deg2rad(2/60);
+                    deg2rad(-2/60) deg2rad(2/60)];
+            r2 = t.aperture_full_field('fields', wide, 'quiet', true);
+            tc.verifyGreaterThanOrEqual(r2(end).radius, r1(end).radius, ...
+                'FP aperture should not shrink with a wider field set');
+        end
     end
 end

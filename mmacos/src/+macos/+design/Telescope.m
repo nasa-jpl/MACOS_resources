@@ -735,6 +735,82 @@ classdef Telescope < handle
                 end
             end
         end
+
+        function rep = aperture_full_field(obj, opts)
+        %APERTURE_FULL_FIELD  Per-element clear aperture covering the FULL
+        %   FIELD (PLAN_DESIGN_LAYER §8).  Traces a set of field points
+        %   spanning the design FoV and, for each element, returns the
+        %   smallest centred circle (centre + radius, in the element's local
+        %   aperture plane) that contains EVERY field point's beam footprint
+        %   -- the essential aperture-sizing output once a design meets its
+        %   other requirements.  Directly emit-ready as ApVec=(radius,xc,yc).
+        %
+        %   Name-value:
+        %     'fields'  Kx2 field points [theta_x theta_y] (rad) to span.
+        %               Default: the bias point plus set_field_points offsets
+        %               (shifted onto the bias), or just the bias alone.
+        %     'margin'  fractional radius margin (default 0.05).
+        %     'quiet'   suppress the printed table (default false).
+        %   rep(k): .name .center [xc yc] .radius .nfield
+            arguments
+                obj
+                opts.fields (:,2) double  = []
+                opts.margin (1,1) double  = 0.05
+                opts.quiet  (1,1) logical = false
+            end
+            by = 0;  if isfield(obj.spec,'field_bias'), by = obj.spec.field_bias; end
+            F = opts.fields;
+            if isempty(F)
+                if isfield(obj.spec,'field_points') && any(obj.spec.field_points(:))
+                    fp = obj.spec.field_points;          % Kx2 offsets (rad)
+                    F  = [fp(:,1), by + fp(:,2)];
+                else
+                    F = [0, by];
+                end
+            end
+            nE = numel(obj.spec.elt);
+
+            % accumulate per-element footprint bounding box over field points
+            lo = inf(2,nE);  hi = -inf(2,nE);
+            saved = [];
+            if isfield(obj.spec,'trace_field'), saved = obj.spec.trace_field; end
+            restore = onCleanup(@() obj.restore_trace_field_(saved)); %#ok<NASGU>
+            for i = 1:size(F,1)
+                obj.spec.trace_field = F(i,:);
+                obj.build('', 'init', false);
+                b = macos.draw_rays('XY', 0, nE);        % U=X, V=Y (pinned plane)
+                for k = 1:nE
+                    m = (b.elt == k);
+                    if ~any(m(:)), continue; end
+                    lo(1,k) = min(lo(1,k), min(b.U(m)));
+                    hi(1,k) = max(hi(1,k), max(b.U(m)));
+                    lo(2,k) = min(lo(2,k), min(b.V(m)));
+                    hi(2,k) = max(hi(2,k), max(b.V(m)));
+                end
+            end
+
+            rep = struct('name',{},'center',{},'radius',{},'nfield',{});
+            for k = 1:nE
+                if ~isfinite(lo(1,k))
+                    c = [0 0];  r = 0;
+                else
+                    c = [(lo(1,k)+hi(1,k))/2, (lo(2,k)+hi(2,k))/2];
+                    % half-diagonal of the bounding box covers every footprint
+                    r = 0.5*hypot(hi(1,k)-lo(1,k), hi(2,k)-lo(2,k))*(1+opts.margin);
+                end
+                rep(k) = struct('name',obj.spec.elt(k).name, 'center',c, ...
+                                'radius',r, 'nfield',size(F,1));
+            end
+            if ~opts.quiet
+                fprintf('aperture_full_field  (%d field point(s), family=%s)\n', ...
+                        size(F,1), obj.spec.family);
+                fprintf('  %-10s %12s %12s %12s\n', 'element','radius','xc','yc');
+                for k = 1:nE
+                    fprintf('  %-10s %12.5g %12.5g %12.5g\n', rep(k).name, ...
+                            rep(k).radius, rep(k).center(1), rep(k).center(2));
+                end
+            end
+        end
     end
 
     methods (Static)
@@ -748,6 +824,20 @@ classdef Telescope < handle
 
     % ===================================================================
     methods (Access = private)
+        function restore_trace_field_(obj, saved)
+        %RESTORE_TRACE_FIELD_  Undo the transient per-field-point source
+        %   re-pointing used by aperture_full_field, and re-emit the nominal
+        %   design so the engine state matches the design again.
+            if isempty(saved)
+                if isfield(obj.spec,'trace_field')
+                    obj.spec = rmfield(obj.spec, 'trace_field');
+                end
+            else
+                obj.spec.trace_field = saved;
+            end
+            obj.build('', 'init', false);
+        end
+
         function resolve_(obj)
         %RESOLVE_  Closed-form first-order layout + conics (§5.1/§5.2).
         %   Ported and validated against the shared fixtures
@@ -834,8 +924,12 @@ classdef Telescope < handle
             %                     off-axis patch; off-axis-parabola style)
             % Both zero -> (0,0,1)/(0,0,0), byte-identical to the on-axis emit.
             by    = 0;   if isfield(sp,'field_bias'),       by  = sp.field_bias;       end
+            bx    = 0;   % no x field-bias design knob; trace_field overrides below
             apdy  = 0;   if isfield(sp,'aperture_decenter'), apdy = sp.aperture_decenter; end
-            cdir  = [0, sin(by), cos(by)];
+            if isfield(sp,'trace_field')     % transient: emit for ONE field point
+                bx = sp.trace_field(1);  by = sp.trace_field(2);
+            end
+            cdir  = [sin(bx), sin(by), sqrt(max(0, 1 - sin(bx)^2 - sin(by)^2))];
             apst  = [0, apdy, 0];                  % aperture-stop center (global)
             cpos  = apst - stand*cdir;             % chief ray back-projected through the stop
             L = {};
@@ -898,8 +992,23 @@ classdef Telescope < handle
                     L{end+1} = '           VarElt=  0 0 0 0 0 0 0 1';  % conic DOF
                 end
                 L{end+1} = '             nObs=  0';
-                L{end+1} = '           ApType=  Circular';
-                L{end+1} = ['            ApVec=  ' v3(e.ap_r,0,0)];
+                offaxis = (by ~= 0) || (apst(2) ~= 0);
+                if offaxis && strcmp(e.kind,'Reflector')
+                    % Off-axis design phase: don't clip the decentered/biased
+                    % beam at the vertex-centered aperture (matches dmt6mono/
+                    % e5mono, which use ApType=None on the mirrors).  The
+                    % realistic per-element clear aperture -- sized + centered
+                    % to the FULL FIELD -- is produced by aperture_full_field()
+                    % and can be emitted as ApVec=(R,xc,yc) once the design is
+                    % final.
+                    L{end+1} = '           ApType=  None';                          %#ok<AGROW>
+                elseif isfield(e,'ap') && ~isempty(e.ap)
+                    L{end+1} = '           ApType=  Circular';                       %#ok<AGROW>
+                    L{end+1} = ['            ApVec=  ' v3(e.ap(1),e.ap(2),e.ap(3))]; %#ok<AGROW>
+                else
+                    L{end+1} = '           ApType=  Circular';                       %#ok<AGROW>
+                    L{end+1} = ['            ApVec=  ' v3(e.ap_r,0,0)];              %#ok<AGROW>
+                end
                 L{end+1} = '         PropType=  Geometric';
                 L{end+1} = sprintf('             zElt=%.16E', e.zElt);
                 L{end+1} = '          nECoord=  -6';
