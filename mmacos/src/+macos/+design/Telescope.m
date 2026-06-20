@@ -90,6 +90,7 @@ classdef Telescope < handle
             sp.model_size  = opts.model_size;
             sp.wavelength  = opts.wavelength_m;          % SI metres
             sp.field_points = [0 0];                     % on-axis (rad); set_field_points overrides
+            sp.field_bias   = 0;                         % nominal +y field-bias half-angle (rad); set_field_bias overrides
             sp.sampling    = opts.grid_npts;             % circular grid (geometric default)
             sp.in.D        = D;
 
@@ -180,6 +181,20 @@ classdef Telescope < handle
             arguments, obj, wvl (1,:) double {mustBePositive}, end
             obj.spec.wavelength = wvl(1);
             obj.spec.bandwidth  = wvl;
+        end
+
+        function set_field_bias(obj, bias_arcmin)
+        %SET_FIELD_BIAS  Take the on-axis design OFF-AXIS by biasing the
+        %   nominal chief ray in +y by BIAS_ARCMIN (a half-angle).  The
+        %   element vertices stay PINNED on-axis and psi stays axis-aligned
+        %   -- only the source chief ray tilts, so the beam runs through a
+        %   different OFF-AXIS part of the same on-axis parents (the
+        %   e5mono/dmt6mono "design on-axis, then move off-axis" recipe;
+        %   PLAN_DESIGN_LAYER §8).  build() emits the biased ChfRayDir;
+        %   optimize() then re-derives the conics for the biased field.
+        %   bias_arcmin = 0 restores the on-axis design exactly.
+            arguments, obj, bias_arcmin (1,1) double, end
+            obj.spec.field_bias = deg2rad(bias_arcmin/60);   % store radians
         end
 
         function rx = build(obj, path, opts)
@@ -790,11 +805,17 @@ classdef Telescope < handle
             zmin  = min(arrayfun(@(e) e.Vpt(3), sp.elt));
             stand = max(2.5*D, -zmin + 0.5*D);
             v3 = @(a,b,c) sprintf('%.16E  %.16E  %.16E', a, b, c);
+            % Nominal chief ray.  field_bias tilts it in +y so the system is
+            % designed/used OFF-AXIS through the PINNED on-axis parents
+            % (vertices + psi unchanged -- only the source is biased).
+            % field_bias=0 -> (0,0,1), byte-identical to the on-axis emit.
+            by   = 0;  if isfield(sp,'field_bias'), by = sp.field_bias; end
+            cdir = [0, sin(by), cos(by)];
             L = {};
             L{end+1} = sprintf('%% MACOS prescription emitted by macos.design.Telescope (family=%s)', sp.family);
             L{end+1} = '% Source Definition';
-            L{end+1} = ['        ChfRayDir=  ' v3(0,0,1)];
-            L{end+1} = ['        ChfRayPos=  ' v3(0,0,-stand)];
+            L{end+1} = ['        ChfRayDir=  ' v3(cdir(1),cdir(2),cdir(3))];
+            L{end+1} = ['        ChfRayPos=  ' v3(-stand*cdir(1),-stand*cdir(2),-stand*cdir(3))];
             L{end+1} = '          zSource=1.0E+22';
             L{end+1} = '        BaseUnits=  m';
             L{end+1} = '        WaveUnits=  m';
@@ -1066,6 +1087,7 @@ classdef Telescope < handle
                     'wavelength_m', sp.wavelength);
             end
             if isfield(sp,'field_points'), obj.spec.field_points = sp.field_points; end
+            if isfield(sp,'field_bias'),   obj.spec.field_bias = sp.field_bias; end
             if isfield(sp,'bandwidth'),    obj.spec.bandwidth = sp.bandwidth; end
         end
     end
