@@ -422,6 +422,11 @@ classdef Telescope < handle
                 opts.max_iters     (1,1) double {mustBeInteger,mustBePositive} = 60
                 opts.target        (1,:) char = 'WFE'
                 opts.weights       (1,:) double = []
+                opts.dofs          (1,8) double = [0 0 0 0 0 0 0 1]  % per-elt VarElt mask
+            end
+            if ~all(ismember(opts.dofs, [0 1]))
+                error('macos:design:Telescope:optimize:dofs', ...
+                    'dofs must be a 0/1 mask over [TIP TILT CLOCK DX DY PIST ROC CONIC].');
             end
             if ~strcmp(opts.engine, 'native')
                 error('macos:design:Telescope:optimize:engine', ...
@@ -455,20 +460,32 @@ classdef Telescope < handle
 
             obj.spec.opt = struct('target',opts.target, 'wf_elt',fp_elt, ...
                 'max_iters',opts.max_iters, 'fields',dirs, 'weights',w, ...
-                'var_elts',var_elts);
+                'var_elts',var_elts, 'dof_mask',opts.dofs);
             obj.build();                                  % emit opt block -> load
             r = macos.calib();
 
-            % read the optimised conics back into the spec
+            % read back per-element params CALIB may have moved, into the spec
+            % (for describe()/view_layout); the deliverable handling differs
+            % for conic-only vs geometry-moving runs (see below).
             Kopt = zeros(1, Nv);
             for j = 1:Nv
                 k = var_elts(j);
-                Kopt(j) = macos.get_elt_kc(k);
-                obj.spec.elt(k).Kc = Kopt(j);
+                Kopt(j)             = macos.get_elt_kc(k);
+                obj.spec.elt(k).Kc  = Kopt(j);
+                obj.spec.elt(k).Kr  = macos.get_elt_kr(k);          % ROC DOF
+                obj.spec.elt(k).psi = reshape(macos.get_elt_psi(k), 1, 3); % tilt
+                obj.spec.elt(k).Vpt = reshape(macos.get_elt_vpt(k), 1, 3); % decenter
             end
             if isfield(obj.spec.derived,'K'), obj.spec.derived.K = Kopt; end
-            obj.spec = rmfield(obj.spec, 'opt');          % clean deliverable
-            obj.build('', 'init', false);                 % re-emit clean optimised Rx
+            obj.spec = rmfield(obj.spec, 'opt');
+            % Clean re-emit from the updated spec.  CALIB bakes the rigid-body
+            % result into psiElt/VptElt (verified), and our mirrors are
+            % rotationally-symmetric conics, so the moved psi/Vpt fully define
+            % each tilted/decentered surface -- the in-plane roll (TElt) is
+            % irrelevant for a conic.  The reload-reproduces-WFE test guards
+            % this.  (TElt emission is still needed for non-symmetric surfaces
+            % and for fold flats -- a later step.)
+            obj.build('', 'init', false);
 
             res = struct('converged',r.converged, 'n_fov',r.n_fov, ...
                 'fields_arcmin',rad2deg([by, ang])*60, ...   % absolute (centered on bias)
@@ -824,6 +841,21 @@ classdef Telescope < handle
 
     % ===================================================================
     methods (Access = private)
+        function R = surf_frame_(~, psi)
+        %SURF_FRAME_  Local surface frame [x y z] (columns, in global coords)
+        %   for the element TElt: Z along the OUTWARD surface normal (psi) at
+        %   the pole, X/Y tangent to the surface, right-handed.  Matches the
+        %   dmt6mono convention (psi=(0,0,-1) -> x=(-1,0,0), y=(0,1,0)).
+        %   Trace-neutral; this is the interface frame for PERTURB +
+        %   MACOS-emitted sensitivities (structures/controls hand-off).
+            z = psi(:) / norm(psi);
+            yhat = [0;1;0];
+            if abs(z(2)) > 0.95, yhat = [1;0;0]; end   % avoid psi ~ y degeneracy
+            y = yhat - (yhat.'*z)*z;  y = y / norm(y);
+            x = cross(y, z);                           % right-handed: x = y x z
+            R = [x, y, z];
+        end
+
         function restore_trace_field_(obj, saved)
         %RESTORE_TRACE_FIELD_  Undo the transient per-field-point source
         %   re-pointing used by aperture_full_field, and re-emit the nominal
@@ -916,6 +948,8 @@ classdef Telescope < handle
             zmin  = min(arrayfun(@(e) e.Vpt(3), sp.elt));
             stand = max(2.5*D, -zmin + 0.5*D);
             v3 = @(a,b,c) sprintf('%.16E  %.16E  %.16E', a, b, c);
+            v6 = @(u,w) sprintf('%.16E  %.16E  %.16E  %.16E  %.16E  %.16E', ...
+                                u(1),u(2),u(3),w(1),w(2),w(3));
             % Two off-axis tools, both keeping the parent VERTICES pinned and
             % psi axis-aligned (only the source moves):
             %   field_bias       tilts the chief ray in +y (image off-axis)
@@ -989,7 +1023,9 @@ classdef Telescope < handle
                 L{end+1} = '           IndRef=1.0E+00';
                 L{end+1} = '           Extinc=0.0E+00';
                 if isfield(sp,'opt') && any(sp.opt.var_elts == k)
-                    L{end+1} = '           VarElt=  0 0 0 0 0 0 0 1';  % conic DOF
+                    % VarElt mask over [TIP TILT CLOCK DX DY PIST ROC CONIC]
+                    L{end+1} = ['           VarElt=  ' ...                        %#ok<AGROW>
+                                strtrim(sprintf('%d ', sp.opt.dof_mask))];
                 end
                 L{end+1} = '             nObs=  0';
                 offaxis = (by ~= 0) || (apst(2) ~= 0);
@@ -1011,7 +1047,20 @@ classdef Telescope < handle
                 end
                 L{end+1} = '         PropType=  Geometric';
                 L{end+1} = sprintf('             zElt=%.16E', e.zElt);
-                L{end+1} = '          nECoord=  -6';
+                % Sensible element coordinate frame (TElt): trace-neutral, but
+                % the interface frame MACOS uses for PERTURB + emitted
+                % sensitivities (the structures/controls hand-off).  Convention
+                % (matches dmt6mono): Z along the outward surface normal (psi)
+                % at the pole (RptElt), X/Y tangent to the surface.  6x6 block-
+                % diagonal [R R]; each TElt line is one COLUMN of the matrix.
+                R = obj.surf_frame_(e.psi);
+                L{end+1} = '          nECoord=  6';                              %#ok<AGROW>
+                L{end+1} = ['             TElt=  ' v6(R(:,1),[0;0;0])];          %#ok<AGROW>
+                L{end+1} = ['                    ' v6(R(:,2),[0;0;0])];          %#ok<AGROW>
+                L{end+1} = ['                    ' v6(R(:,3),[0;0;0])];          %#ok<AGROW>
+                L{end+1} = ['                    ' v6([0;0;0],R(:,1))];          %#ok<AGROW>
+                L{end+1} = ['                    ' v6([0;0;0],R(:,2))];          %#ok<AGROW>
+                L{end+1} = ['                    ' v6([0;0;0],R(:,3))];          %#ok<AGROW>
             end
             % REQUIRED trailing block (else SMACOS load -> nElt=0)
             L{end+1} = '% Output Coordinate System Definition';
