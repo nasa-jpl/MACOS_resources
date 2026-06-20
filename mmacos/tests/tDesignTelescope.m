@@ -42,6 +42,25 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'primary_fnum', f/(mg*D), 'BFD_m', bt*f/mg, ...
                 'model_size', tc.ModelSize, 'grid_npts', tc.GridNpts);
         end
+
+        function t = make_tma_(tc)
+        %MAKE_TMA_  The standard 3-mirror Seidel-seeded TMA fixture.
+            t = macos.design.Telescope('family','TMA', ...
+                'aperture_diameter_m',1.0, 'model_size',tc.ModelSize, ...
+                'grid_npts',tc.GridNpts);
+            t.add_mirror('M1','radius_m',8.0,'spacing_after_m',3.0);
+            t.add_mirror('M2','radius_m',2.0,'spacing_after_m',4.5);
+            t.add_mirror('M3','radius_m',4.0,'spacing_after','derive');
+        end
+
+        function v = parse_vec3_(~, txt, key)
+        %PARSE_VEC3_  Extract the 3-vector after 'KEY=' in emitted Rx text.
+        %   Lookbehind excludes OptChfRayDir/Pos (KEY is a suffix of those).
+            pat = ['(?<![A-Za-z])' key '=\s*(\S+)\s+(\S+)\s+(\S+)'];
+            tok = regexp(txt, pat, 'tokens', 'once');
+            assert(~isempty(tok), 'key %s not found in emitted Rx', key);
+            v = [str2double(tok{1}), str2double(tok{2}), str2double(tok{3})];
+        end
     end
 
     methods (Test)
@@ -296,6 +315,58 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyGreaterThan(rep(2).obstructs, 0, ...
                 'secondary central obscuration not detected');
             tc.verifyTrue(all(isfinite([rep.margin])), 'margins must be finite');
+        end
+
+        function test_field_bias_zero_is_on_axis(tc)
+            % set_field_bias(0) must emit the exact on-axis chief ray.
+            t = tc.make_tma_();
+            t.set_field_bias(0);
+            f = [tempname '.in']; c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save(f);
+            dir = tc.parse_vec3_(fileread(f), 'ChfRayDir');
+            tc.verifyEqual(dir, [0 0 1], 'AbsTol', 1e-15, ...
+                'zero field bias must stay on-axis');
+        end
+
+        function test_field_bias_emits_offaxis_chief_ray_pinned(tc)
+            % A +y field bias tilts ChfRayDir to (0,sin a,cos a) and points
+            % ChfRayPos anti-parallel (through the on-axis stop); the element
+            % vertices stay PINNED on-axis (the off-axis-section invariant).
+            a_arcmin = 3.0;  a = deg2rad(a_arcmin/60);
+            t = tc.make_tma_();
+            t.set_field_bias(a_arcmin);
+            f = [tempname '.in']; c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save(f);
+            txt = fileread(f);
+            dir = tc.parse_vec3_(txt, 'ChfRayDir');
+            tc.verifyEqual(dir, [0 sin(a) cos(a)], 'AbsTol', 1e-12, ...
+                'biased chief-ray direction wrong');
+            pos = tc.parse_vec3_(txt, 'ChfRayPos');
+            tc.verifyEqual(pos./norm(pos), -[0 sin(a) cos(a)], 'AbsTol', 1e-9, ...
+                'ChfRayPos must be anti-parallel to ChfRayDir (through the stop)');
+            % vertices PINNED on-axis, psi axis-aligned -- no decenter/tilt
+            for k = 1:3
+                tc.verifyEqual(t.spec.elt(k).Vpt(1:2), [0 0], 'AbsTol', 1e-12, ...
+                    'mirror decentered -- vertices must stay pinned');
+                tc.verifyEqual(t.spec.elt(k).psi, [0 0 -1], ...
+                    'mirror psi not axis-aligned');
+            end
+        end
+
+        function test_field_bias_loads_traces_and_aberrates(tc)
+            % The biased design loads + traces (rays not lost), and the
+            % off-axis field is MORE aberrated than the on-axis seed -- the
+            % bias bites, which is what optimize() will then correct.
+            t0 = tc.make_tma_();  t0.build();
+            s0 = macos.trace(4);
+
+            t = tc.make_tma_();  t.set_field_bias(2.0);  t.build();
+            tc.verifyTrue(macos.has_rx());
+            tc.verifyEqual(macos.num_elt(), 4);
+            s = macos.trace(4);
+            tc.verifyTrue(isfinite(s.rmsWFE), 'biased trace WFE not finite');
+            tc.verifyGreaterThan(s.rmsWFE, s0.rmsWFE, ...
+                'field bias should add aberration vs the on-axis seed');
         end
     end
 end
