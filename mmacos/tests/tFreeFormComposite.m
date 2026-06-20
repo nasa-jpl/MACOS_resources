@@ -142,5 +142,43 @@ classdef tFreeFormComposite < matlab.unittest.TestCase
             testCase.verifyEqual(out_class.ff.coefs, out_pkg.ff.coefs);
             testCase.verifyEqual(out_class.grid.mat, out_pkg.grid.mat);
         end
+
+        function test_elt_grid_add_adds_displacement(testCase)
+            % elt_grid_add must ADD the matrix node-for-node to the live
+            % grid (after = before + dz).  Use an ASYMMETRIC dz so a
+            % transpose/orientation bug would be caught.
+            before = testCase.m.zrn_freeform(testCase.srf).grid.mat;
+            N = size(before, 1);
+            % distinct value per (row,col): 1000*iy + ix, scaled small
+            [IX, IY] = meshgrid(1:N, 1:N);     % IY=row index, IX=col index
+            dz = 1e-7 * (1000*IY + IX);
+            testCase.assertNotEqual(dz, dz.', ...
+                'dz must be asymmetric to exercise orientation');
+
+            testCase.m.elt_grid_add(testCase.srf, dz);
+
+            after = testCase.m.zrn_freeform(testCase.srf).grid.mat;
+            testCase.verifyEqual(after, before + dz, 'AbsTol', 1e-14, ...
+                'grid not incremented node-for-node (check orientation)');
+        end
+
+        function test_elt_grid_add_size_mismatch_errors(testCase)
+            % Wrong-size grid_dz must error, not silently corrupt.
+            N = size(testCase.m.zrn_freeform(testCase.srf).grid.mat, 1);
+            bad = zeros(N+1, N+1);
+            testCase.verifyError(@() testCase.m.elt_grid_add(testCase.srf, bad), ...
+                'macos:elt_grid_add:sizeMismatch');
+        end
+
+        function test_elt_grid_add_package_equals_session(testCase)
+            % Package function and Session method must apply identically.
+            N  = size(testCase.m.zrn_freeform(testCase.srf).grid.mat, 1);
+            dz = 3.0e-8 * ones(N, N);
+            base = testCase.m.zrn_freeform(testCase.srf).grid.mat;
+
+            macos.elt_grid_add(testCase.srf, dz);
+            v_pkg = testCase.m.zrn_freeform(testCase.srf).grid.mat;
+            testCase.verifyEqual(v_pkg, base + dz, 'AbsTol', 1e-14);
+        end
     end
 end
