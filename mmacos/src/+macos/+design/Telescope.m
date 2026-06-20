@@ -91,6 +91,7 @@ classdef Telescope < handle
             sp.wavelength  = opts.wavelength_m;          % SI metres
             sp.field_points = [0 0];                     % on-axis (rad); set_field_points overrides
             sp.field_bias   = 0;                         % nominal +y field-bias half-angle (rad); set_field_bias overrides
+            sp.aperture_decenter = 0;                    % +y beam/stop offset from the on-axis vertex (m); set_aperture_decenter overrides
             sp.sampling    = opts.grid_npts;             % circular grid (geometric default)
             sp.in.D        = D;
 
@@ -195,6 +196,19 @@ classdef Telescope < handle
         %   bias_arcmin = 0 restores the on-axis design exactly.
             arguments, obj, bias_arcmin (1,1) double, end
             obj.spec.field_bias = deg2rad(bias_arcmin/60);   % store radians
+        end
+
+        function set_aperture_decenter(obj, dy_m)
+        %SET_APERTURE_DECENTER  Take the design off-axis by offsetting the
+        %   beam/aperture-stop center in +y by DY_M (metres) from the
+        %   on-axis vertex -- the beam then uses an OFF-AXIS PART of the
+        %   same pinned parents (off-axis-parabola style: it converges to
+        %   focus from one side, clear of the incoming cone).  Vertices and
+        %   psi are unchanged; only the source ApStop + ChfRayPos shift.
+        %   Complements set_field_bias (which tilts the chief ray); the two
+        %   compose.  dy_m = 0 restores the centered design.
+            arguments, obj, dy_m (1,1) double, end
+            obj.spec.aperture_decenter = dy_m;
         end
 
         function rx = build(obj, path, opts)
@@ -423,9 +437,16 @@ classdef Telescope < handle
             end
             Nv     = numel(var_elts);                     % # conic DOFs
             fp_elt = numel(obj.spec.elt);                 % terminal FocalPlane
-            off    = deg2rad(opts.fields_arcmin(:).'/60); % off-axis half-angles (rad)
-            dirs   = [zeros(numel(off),1), sin(off(:)), cos(off(:))];
-            nfov   = 1 + numel(off);
+            % Off-axis eval directions for the OptChfRayDir block.  When a
+            % field bias is set the design field is OFF-axis (field 1 IS the
+            % biased ChfRayDir), so the FoV spread is centered on the bias:
+            % the off-axis fields are emitted at absolute angle (bias + off).
+            % bias=0 reduces to the original on-axis behaviour exactly.
+            by     = 0;  if isfield(obj.spec,'field_bias'), by = obj.spec.field_bias; end
+            off    = deg2rad(opts.fields_arcmin(:).'/60); % FoV offsets from the nominal (rad)
+            ang    = by + off;                            % absolute off-axis field angles (rad)
+            dirs   = [zeros(numel(ang),1), sin(ang(:)), cos(ang(:))];
+            nfov   = 1 + numel(ang);
             w = opts.weights;  if isempty(w), w = ones(1,nfov); end
             if numel(w) ~= nfov
                 error('macos:design:Telescope:optimize:weights', ...
@@ -450,7 +471,7 @@ classdef Telescope < handle
             obj.build('', 'init', false);                 % re-emit clean optimised Rx
 
             res = struct('converged',r.converged, 'n_fov',r.n_fov, ...
-                'fields_arcmin',[0, opts.fields_arcmin(:).'], ...
+                'fields_arcmin',rad2deg([by, ang])*60, ...   % absolute (centered on bias)
                 'wfe_before',r.old_wfe(:,1).', 'wfe_after',r.new_wfe(:,1).', ...
                 'conics',Kopt, 'var_elts',var_elts, 'wavelength',obj.spec.wavelength);
         end
@@ -805,17 +826,23 @@ classdef Telescope < handle
             zmin  = min(arrayfun(@(e) e.Vpt(3), sp.elt));
             stand = max(2.5*D, -zmin + 0.5*D);
             v3 = @(a,b,c) sprintf('%.16E  %.16E  %.16E', a, b, c);
-            % Nominal chief ray.  field_bias tilts it in +y so the system is
-            % designed/used OFF-AXIS through the PINNED on-axis parents
-            % (vertices + psi unchanged -- only the source is biased).
-            % field_bias=0 -> (0,0,1), byte-identical to the on-axis emit.
-            by   = 0;  if isfield(sp,'field_bias'), by = sp.field_bias; end
-            cdir = [0, sin(by), cos(by)];
+            % Two off-axis tools, both keeping the parent VERTICES pinned and
+            % psi axis-aligned (only the source moves):
+            %   field_bias       tilts the chief ray in +y (image off-axis)
+            %   aperture_decenter offsets the beam/stop center in +y to an
+            %                     off-axis point on the parent (use an
+            %                     off-axis patch; off-axis-parabola style)
+            % Both zero -> (0,0,1)/(0,0,0), byte-identical to the on-axis emit.
+            by    = 0;   if isfield(sp,'field_bias'),       by  = sp.field_bias;       end
+            apdy  = 0;   if isfield(sp,'aperture_decenter'), apdy = sp.aperture_decenter; end
+            cdir  = [0, sin(by), cos(by)];
+            apst  = [0, apdy, 0];                  % aperture-stop center (global)
+            cpos  = apst - stand*cdir;             % chief ray back-projected through the stop
             L = {};
             L{end+1} = sprintf('%% MACOS prescription emitted by macos.design.Telescope (family=%s)', sp.family);
             L{end+1} = '% Source Definition';
             L{end+1} = ['        ChfRayDir=  ' v3(cdir(1),cdir(2),cdir(3))];
-            L{end+1} = ['        ChfRayPos=  ' v3(-stand*cdir(1),-stand*cdir(2),-stand*cdir(3))];
+            L{end+1} = ['        ChfRayPos=  ' v3(cpos(1),cpos(2),cpos(3))];
             L{end+1} = '          zSource=1.0E+22';
             L{end+1} = '        BaseUnits=  m';
             L{end+1} = '        WaveUnits=  m';
@@ -825,7 +852,7 @@ classdef Telescope < handle
             L{end+1} = '             Flux=1.0E+00';
             L{end+1} = sprintf('         Aperture=%.16E', D);
             L{end+1} = '         Obscratn=0.0E+00';
-            L{end+1} = ['         ApStop=  ' v3(0,0,0)];
+            L{end+1} = ['         ApStop=  ' v3(apst(1),apst(2),apst(3))];
             L{end+1} = '         GridType=  Circular';
             L{end+1} = sprintf('         nGridpts=  %d', sp.sampling);
             L{end+1} = ['            xGrid=  ' v3(1,0,0)];
@@ -841,10 +868,10 @@ classdef Telescope < handle
                 L{end+1} = sprintf('       OptMaxItrs=  %d', o.max_iters);
                 L{end+1} = '           OptFEX=  No';
                 for j = 1:size(o.fields,1)
-                    d = o.fields(j,:);
+                    d  = o.fields(j,:);
+                    cp = apst - stand*d;            % through the (decentered) stop
                     L{end+1} = ['     OptChfRayDir=  ' v3(d(1),d(2),d(3))];          %#ok<AGROW>
-                    L{end+1} = ['     OptChfRayPos=  ' ...                            %#ok<AGROW>
-                                 v3(-stand*d(1),-stand*d(2),-stand*d(3))];
+                    L{end+1} = ['     OptChfRayPos=  ' v3(cp(1),cp(2),cp(3))];       %#ok<AGROW>
                 end
                 L{end+1} = ['         OptFOVWt=  ' strtrim(sprintf('%.6g  ', o.weights))];
             end
@@ -1088,6 +1115,7 @@ classdef Telescope < handle
             end
             if isfield(sp,'field_points'), obj.spec.field_points = sp.field_points; end
             if isfield(sp,'field_bias'),   obj.spec.field_bias = sp.field_bias; end
+            if isfield(sp,'aperture_decenter'), obj.spec.aperture_decenter = sp.aperture_decenter; end
             if isfield(sp,'bandwidth'),    obj.spec.bandwidth = sp.bandwidth; end
         end
     end
