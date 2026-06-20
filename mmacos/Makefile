@@ -56,6 +56,10 @@ endif
 
 SMACOS_OBJS := $(MACOS_BUILD_DIR)/mod_smacos
 SMACOS_LIBS := $(MACOS_BUILD_DIR)/lib/libsmacos.a
+# SLSQP (default constrained-optim back end): libsmacos's slsqp_optim_dvr
+# references slsqp_, which lives in this separate archive.  Link it after
+# libsmacos for static resolution order.
+SLSQP_LIB   := $(wildcard $(MACOS_BUILD_DIR)/lib/libslsqplib.a)
 NPSOL_LIBS  := $(wildcard $(MACOS_BUILD_DIR)/lib/libnpsol.a) \
                $(wildcard $(MACOS_BUILD_DIR)/lib/liblapacklib.a) \
                $(wildcard $(MACOS_BUILD_DIR)/lib/libblaslib.a)
@@ -111,7 +115,7 @@ MEX_OBJS := mmacos_mex.o mmacos_gen.o
 $(MEX_NAME).$(MEXTAG): $(MEX_OBJS) $(SMACOS_LIBS)
 	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) \
 	    $(MEX_OBJS) \
-	    $(SMACOS_LIBS) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
+	    $(SMACOS_LIBS) $(SLSQP_LIB) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
 
 # macos_api_mod's .mod comes from $(SMACOS_OBJS) via -I in FFLAGS.
 mmacos_mex.o: mmacos_mex.F
