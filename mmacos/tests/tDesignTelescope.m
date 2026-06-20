@@ -298,6 +298,10 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % M1 is certainly pierced by the M2->M3 segment (crosses z=0 on-axis)
             tc.verifyGreaterThan(rep(1).obstructs, 0, ...
                 'M1 body not detected in the converging M2->M3 beam');
+            % and the signed clearance quantifies it: the foreign beam cuts
+            % INSIDE M1's body edge -> negative clearance (vignette depth)
+            tc.verifyLessThan(rep(1).clearance, 0, ...
+                'M1 clearance should be negative (beam cuts the body)');
             % every footprint is a finite, non-negative radius
             tc.verifyTrue(all(isfinite([rep.foot_r]) & [rep.foot_r] >= 0));
         end
