@@ -484,5 +484,54 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyGreaterThanOrEqual(r2(end).radius, r1(end).radius, ...
                 'FP aperture should not shrink with a wider field set');
         end
+
+        function test_optimize_rigid_body_reemits_moved_design(tc)
+            % Rigid-body DOFs (tilt + decenter + conic).  CALIB bakes the move
+            % into psi/Vpt; the clean re-emit (moved psi/Vpt + conic surfaces)
+            % reproduces the optimized WFE -- for rotationally-symmetric conics
+            % the moved psi/Vpt fully define the surface (no TElt roll needed).
+            t = tc.make_tma_();  t.set_field_bias(2.0);  t.build();
+            seed = macos.trace(4).rmsWFE;                 % biased, un-optimized
+            res = t.optimize('fields_arcmin',[1 2], 'max_iters',30, ...
+                             'dofs',[1 1 0 1 1 0 0 1]);   % TIP TILT DX DY CONIC
+            tc.verifyTrue(res.converged, 'rigid-body CALIB did not converge');
+            % the re-emitted deliverable (now loaded) reproduces the optimized
+            % WFE -> MACOS honored the moved psi/Vpt on re-load.  Compare with
+            % an ABSOLUTE tol: both sit at the ~3e-9 diffraction-limited noise
+            % floor (a lost tilt would leave WFE ~1e-6, caught by AbsTol).
+            s = macos.trace(4);
+            tc.verifyEqual(s.rmsWFE, res.wfe_after(1), 'AbsTol', 1e-8, ...
+                're-emitted moved design does not reproduce the optimized WFE');
+            tc.verifyLessThan(s.rmsWFE, 1e-8, ...
+                'rigid+conic optimize not diffraction-limited');
+            tc.verifyLessThan(s.rmsWFE, seed/10, ...
+                'rigid+conic optimize did not substantially improve the seed');
+            % the optimizer moved M2 off the pinned axis (recorded in spec)
+            tc.verifyGreaterThan(norm(t.spec.elt(2).psi(:) - [0;0;-1]), 1e-7, ...
+                'rigid-body DOFs did not move M2 (tilt expected)');
+        end
+
+        function test_emit_sensible_telt(tc)
+            % The builder emits nECoord=6 + a sensible TElt: Z along the
+            % outward surface normal (psi), X/Y tangent.  Trace-neutral, but
+            % the interface frame for PERTURB/sensitivities.  On-axis M1
+            % (psi=(0,0,-1)) -> the dmt6mono frame x=(-1,0,0) y=(0,1,0)
+            % z=(0,0,-1); columns are emitted one per TElt line.
+            t = tc.make_tma_();
+            f = [tempname '.in']; c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save(f);
+            txt = fileread(f);
+            tc.verifyTrue(contains(txt, 'nECoord=  6'), 'expected nECoord=6');
+            % first TElt line (column 1 = local x) for the first element is
+            % (-1,0,0,0,0,0) for an on-axis mirror
+            tok = regexp(txt, 'TElt=\s*(\S+)\s+(\S+)\s+(\S+)', 'tokens', 'once');
+            col1 = [str2double(tok{1}) str2double(tok{2}) str2double(tok{3})];
+            tc.verifyEqual(col1, [-1 0 0], 'AbsTol', 1e-12, ...
+                'on-axis TElt column-1 (local x) not (-1,0,0)');
+            % and the design still traces spherical-free (TElt is trace-neutral)
+            t.build();
+            tc.verifyLessThan(macos.trace(4).rmsWFE, 5e-7, ...
+                'TElt emission must not change the ray trace');
+        end
     end
 end
