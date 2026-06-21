@@ -364,6 +364,115 @@ def _parse_rx_zern_elts(rx_path: str) -> set[int]:
 
 
 # ---------------------------------------------------------------------------
+# Powered-surface (radius / conic) channels -- dw/dKr, dw/dKc
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SurfaceChannel(SensitivityChannel):
+    """Perturbation of one powered-surface parameter (Kr or Kc) on one optic.
+
+    ``param`` picks the element parameter:
+      - ``"Kr"`` : KrElt, base radius of curvature (BaseUnits)
+      - ``"Kc"`` : KcElt, conic constant (dimensionless)
+
+    Kr / Kc are ABSOLUTE element parameters (not incremental like CPERTURB),
+    so ``apply(value)`` sets the parameter to ``nominal + value`` via the
+    absolute setter; ``restore()`` writes ``nominal`` back.
+    """
+    macos: object
+    iElt: int
+    param: str          # "Kr" | "Kc"
+    nominal: float
+
+    def __post_init__(self) -> None:
+        if self.param not in ("Kr", "Kc"):
+            raise ValueError(
+                f"SurfaceChannel: param must be 'Kr' or 'Kc', got "
+                f"{self.param!r}")
+
+    @property
+    def name(self) -> str:  # type: ignore[override]
+        return f"Elt {self.iElt} {self.param}"
+
+    @property
+    def kind(self) -> str:
+        return "Surface"
+
+    def _set(self, val: float) -> None:
+        if self.param == "Kr":
+            self.macos.elt_kr([self.iElt], [val])
+        else:
+            self.macos.elt_kc([self.iElt], [val])
+
+    def apply(self, value: float) -> None:
+        self._set(self.nominal + value)
+        # MODIFY clears macos's "trace state is current" cache so the next
+        # trace_rays() re-derives the surface with the new Kr/Kc -- same
+        # gotcha as the Zernike / rigid-body channels (else dw/d* == 0).
+        self.macos.modify()
+
+    def restore(self) -> None:
+        self._set(self.nominal)
+        self.macos.modify()
+
+
+def _parse_rx_powered_optics(rx_path: str) -> list[int]:
+    """Scan an Rx for Element= Reflector or Refractor (the powered-capable
+    optics), preserving file (element-id) order.  The powered (finite-Kr)
+    filter is applied by the caller via the engine.  (No pymacos query
+    exists; the Rx text is the source of truth.)
+    """
+    out: list[int] = []
+    cur_elt: int | None = None
+    with open(rx_path) as f:
+        for ln in f:
+            s = ln.strip()
+            if s.startswith("iElt="):
+                try:
+                    cur_elt = int(s.split("=", 1)[1].strip())
+                except ValueError:
+                    cur_elt = None
+            elif s.startswith("Element=") and cur_elt is not None:
+                kind = s.split("=", 1)[1].strip().split()[0]
+                if kind in ("Reflector", "Refractor") and cur_elt not in out:
+                    out.append(cur_elt)
+    return out
+
+
+def surf_channels(macos,
+                  rx_path: str,
+                  params: Sequence[str] = ("Kr", "Kc"),
+                  elts: Iterable[int] | None = None,
+                  kr_max: float = 1e21,
+                  ) -> list[SurfaceChannel]:
+    """Discover powered-surface (Kr/Kc) channels from a loaded Rx.
+
+    A POWERED optic is an Element= Reflector or Refractor whose base radius
+    is real (|Kr| << the flat sentinel 1e22).  Flats (fold mirrors,
+    FocalPlane, Reference, Return) are excluded.  One channel per
+    (optic, param) pair, element-major then param-minor (Kr then Kc).
+    """
+    bad = [p for p in params if p not in ("Kr", "Kc")]
+    if bad:
+        raise ValueError(f"surf_channels: params must be Kr/Kc, got {bad}")
+    optics = _parse_rx_powered_optics(rx_path)
+    if elts is not None:
+        keep = {int(i) for i in elts}
+        optics = [i for i in optics if i in keep]
+    chans: list[SurfaceChannel] = []
+    for ie in optics:
+        kr = float(np.asarray(macos.elt_kr([ie])).ravel()[0])
+        if abs(kr) >= kr_max:
+            continue                                   # flat -> not powered
+        for p in params:
+            nominal = kr if p == "Kr" else \
+                float(np.asarray(macos.elt_kc([ie])).ravel()[0])
+            chans.append(SurfaceChannel(macos=macos, iElt=ie, param=p,
+                                        nominal=nominal))
+    return chans
+
+
+# ---------------------------------------------------------------------------
 # Rigid-body perturbation channels (CPERTURB_PROG on real optics)
 # ---------------------------------------------------------------------------
 
