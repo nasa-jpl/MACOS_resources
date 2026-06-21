@@ -211,6 +211,70 @@ classdef Telescope < handle
             obj.spec.aperture_decenter = dy_m;
         end
 
+        function d = set_offaxis(obj, clear, opts)
+        %SET_OFFAXIS  Build an UNOBSCURED off-axis section: decenter the beam
+        %   so a downstream optic clears the incoming cone, then emit each
+        %   mirror as a true off-axis SECTION of its (unchanged) parent conic.
+        %   This is the engine-true off-axis-parabola / eccentric-pupil
+        %   representation -- VptElt = parent VERTEX, psiElt = parent AXIS,
+        %   RptElt = the section POLE on the parent surface, TElt = the section
+        %   frame (Z = outward surface normal at the pole).  ConSrf (surfsub.F)
+        %   measures the conic sag from VptElt only, so RptElt is trace-neutral;
+        %   it sets the PERTURB / sensitivity interface frame and the rigid-body
+        %   rotation center.  Matches the JWST segmented model (j18sc: segments
+        %   share one parent vertex, each carries its own off-axis pole + frame).
+        %
+        %   For an aplanatic parent (RC/Gregorian) an eccentric sub-aperture at
+        %   the axial field is spherical- AND coma-free by construction, so the
+        %   off-axis section traces diffraction-limited with NO re-optimization;
+        %   the decenter only has to lift the secondary clear of the beam.
+        %
+        %   The off-axis distance is driven by clearing the optic(s) the
+        %   designer is EXTRACTING from the beam -- NOT necessarily every body.
+        %   Accepted obscurations stay: a JWST-like TMA keeps the central M2 in
+        %   the beam and decenters only until M3 clears ('clear','M3'); an
+        %   unobscured 2-mirror clears both mirrors ('clear','all').  For an RC
+        %   the BINDING body is M1 (the M2->FP return beam crosses the M1 plane
+        %   behind it) -- clearing M2 alone is NOT enough.
+        %
+        %   CLEAR is REQUIRED -- name the optic(s) the off-axis is FOR, so the
+        %   intent is explicit (no presumed "clear everything"):
+        %     'M3'          JWST-style: M3 out of the beam, M2 still obscures
+        %     'all'         unobscured: every mirror clears
+        %     {'M1','M2'}   a specific set
+        %     'none'        no clearance solve -- pair with 'dist' (explicit
+        %                   decenter) or apply sections at the current decenter
+        %
+        %   t.set_offaxis('M3')               % JWST: clear M3, M2 still central
+        %   t.set_offaxis('all')              % unobscured: every mirror clears
+        %   t.set_offaxis({'M1','M2'})        % name a specific set
+        %   t.set_offaxis('none','dist',0.6)  % explicit +y decenter (metres)
+        %   Name-value:
+        %     'dist'     explicit +y decenter (m); omit -> clearance-driven
+        %     'margin'   clearance margin as a fraction of D (default 0.05)
+        %     'max_dist' bisection upper bound (m); default 1.5*D
+        %   Returns the decenter distance used (m).
+            arguments
+                obj
+                clear                              % REQUIRED: name | cellstr | 'all' | 'none'
+                opts.dist     (1,1) double = NaN
+                opts.margin   (1,1) double = 0.05
+                opts.max_dist (1,1) double = NaN
+            end
+            D = obj.spec.in.D;
+            if ~isnan(opts.dist)
+                d = opts.dist;                     % explicit decenter
+            elseif (ischar(clear) || isstring(clear)) && strcmpi(clear,'none')
+                d = obj.spec.aperture_decenter;    % no solve; keep current decenter
+            else
+                hi = opts.max_dist;  if isnan(hi), hi = 1.5*D; end
+                d  = obj.clearance_solve_(clear, opts.margin*D, hi);
+            end
+            obj.spec.aperture_decenter = d;
+            obj.spec.offaxis_section   = true;
+            obj.resolve_section_poles_();
+        end
+
         function rx = build(obj, path, opts)
         %BUILD  Emit the prescription and validate it by loading via SMACOS.
         %   rx = t.build()           -> writes a temp .in, returns its path
@@ -355,7 +419,7 @@ classdef Telescope < handle
             %     the EP, so the seed only has to make the Rx loadable. ---
             seed    = prev.Vpt(:);
             rSeed   = norm(seed - FP_Vpt);
-            flatRet = obj.new_elt_('PupImg', 'Return', FP_Vpt, [0 0 1], ...
+            flatRet = obj.new_elt_('FP_return', 'Return', FP_Vpt, [0 0 1], ...
                                    -1.0e22, apR, 'derived(add_pupil)', rSeed);
             sphRet  = obj.new_elt_('ExitPupil', 'Return', seed, [0 0 1], ...
                                    -abs(rSeed), apR, 'derived(fex)', rSeed);
@@ -407,14 +471,25 @@ classdef Telescope < handle
         %   Name-value:
         %     'engine'        'native' (CALIB, default) | 'fmincon' (TODO).
         %     'fields_arcmin' OFF-axis field half-angles, +y (default [1.2 2.4]).
+        %     'fields'        (:,2) [thx thy] OFF-axis field OFFSETS (rad) -- an
+        %                     explicit 2-D field set (a CROSS or area GRID);
+        %                     supersedes 'fields_arcmin'.  A (0,0) row is
+        %                     dropped (on-axis is the implicit field 1), so a
+        %                     full grid incl. center is safe.  Build one with
+        %                     macos.design.field_cross / field_grid.  NOTE:
+        %                     CALIB caps at 12 FoV (a 3x3 area grid = 9).
         %     'max_iters'     CALIB iteration cap (default 60).
         %     'target'        'WFE' (default).
         %     'weights'       FoV weights, length 1+numel(fields) (default equal).
+        %     'dofs'          (1,8) VarElt mask [TIP TILT CLOCK DX DY PIST ROC
+        %                     CONIC] (default [0 0 0 0 0 0 0 1] = conic only).
         %
-        %   Returns: .converged, .n_fov, .fields_arcmin (incl. on-axis 0),
-        %   .wfe_before/.wfe_after (per field, metres), .conics (optimised K),
-        %   .wavelength.  Optimised conics are written back to the spec, so a
-        %   subsequent save()/add_pupil() emits the clean optimised design.
+        %   Returns: .converged, .n_fov, .fields_xy_arcmin (nfov x 2, absolute
+        %   (thx,thy) incl. on-axis row 1), .fields_arcmin (the y-angles, back-
+        %   compat), .wfe_before/.wfe_after (per field, metres), .conics
+        %   (optimised K), .wavelength.  Optimised conics/geometry are written
+        %   back to the spec, so a subsequent save()/add_pupil() emits the
+        %   clean optimised design.
             arguments
                 obj
                 opts.engine        (1,:) char = 'native'
@@ -422,6 +497,7 @@ classdef Telescope < handle
                 opts.max_iters     (1,1) double {mustBeInteger,mustBePositive} = 60
                 opts.target        (1,:) char = 'WFE'
                 opts.weights       (1,:) double = []
+                opts.fields        (:,2) double = []   % explicit (thx,thy) OFF-axis offsets (rad)
                 opts.dofs          (1,8) double = [0 0 0 0 0 0 0 1]  % per-elt VarElt mask
             end
             if ~all(ismember(opts.dofs, [0 1]))
@@ -442,16 +518,30 @@ classdef Telescope < handle
             end
             Nv     = numel(var_elts);                     % # conic DOFs
             fp_elt = numel(obj.spec.elt);                 % terminal FocalPlane
-            % Off-axis eval directions for the OptChfRayDir block.  When a
-            % field bias is set the design field is OFF-axis (field 1 IS the
-            % biased ChfRayDir), so the FoV spread is centered on the bias:
-            % the off-axis fields are emitted at absolute angle (bias + off).
-            % bias=0 reduces to the original on-axis behaviour exactly.
-            by     = 0;  if isfield(obj.spec,'field_bias'), by = obj.spec.field_bias; end
-            off    = deg2rad(opts.fields_arcmin(:).'/60); % FoV offsets from the nominal (rad)
-            ang    = by + off;                            % absolute off-axis field angles (rad)
-            dirs   = [zeros(numel(ang),1), sin(ang(:)), cos(ang(:))];
-            nfov   = 1 + numel(ang);
+            % Off-axis eval directions for the OptChfRayDir block.  Field 1 is
+            % the nominal (possibly biased) ChfRayDir and is omitted here (it
+            % shares the OptChfRayDir parse block).  The OFF-axis fields are
+            % OFFSETS from that nominal, given either as a 2-D set or +y only:
+            %   'fields'        (:,2) [thx thy] pairs (rad) -- a 2-D field set
+            %                   (e.g. a CROSS); takes precedence when non-empty.
+            %   'fields_arcmin' (1,:) +y half-angles (arcmin) -- 1-D default.
+            % Directions are direction-cosines [sin ax, sin ay, sqrt(1-..)],
+            % reducing EXACTLY to the legacy [0,sin,cos] form when ax=0.
+            by = 0;  if isfield(obj.spec,'field_bias'), by = obj.spec.field_bias; end
+            if ~isempty(opts.fields)
+                F  = opts.fields;
+                F  = F(any(abs(F) > 1e-12, 2), :);     % drop on-axis (= field 1)
+                ax = F(:,1);                           % x offsets (rad)
+                ay = by + F(:,2);                      % y offsets about the bias (rad)
+            else
+                ax = zeros(numel(opts.fields_arcmin),1);
+                ay = by + deg2rad(opts.fields_arcmin(:)/60);
+            end
+            ax = ax(:);  ay = ay(:);
+            cz = sqrt(max(0, 1 - sin(ax).^2 - sin(ay).^2));
+            dirs = [sin(ax), sin(ay), cz];             % off-axis field directions
+            fxy  = [0, by; ax, ay];                    % absolute (thx,thy)/field (rad)
+            nfov = 1 + size(dirs,1);
             w = opts.weights;  if isempty(w), w = ones(1,nfov); end
             if numel(w) ~= nfov
                 error('macos:design:Telescope:optimize:weights', ...
@@ -488,7 +578,8 @@ classdef Telescope < handle
             obj.build('', 'init', false);
 
             res = struct('converged',r.converged, 'n_fov',r.n_fov, ...
-                'fields_arcmin',rad2deg([by, ang])*60, ...   % absolute (centered on bias)
+                'fields_xy_arcmin',rad2deg(fxy)*60, ...      % (thx,thy)/field, incl bias
+                'fields_arcmin',rad2deg(fxy(:,2)).'*60, ...  % y-angles only (back-compat)
                 'wfe_before',r.old_wfe(:,1).', 'wfe_after',r.new_wfe(:,1).', ...
                 'conics',Kopt, 'var_elts',var_elts, 'wavelength',obj.spec.wavelength);
         end
@@ -567,88 +658,104 @@ classdef Telescope < handle
                 opts.save   (1,:) char    = ''
                 opts.visible (1,1) logical = true
             end
-            % ensure the CURRENT design is loaded in the engine
-            if ~macos.has_rx()
-                obj.build();
-            else
-                obj.build('', 'init', false);
-            end
-            nE   = numel(obj.spec.elt);
-            iend = opts.iend;  if iend <= 0, iend = nE; end
-            b = macos.draw_rays(plane, opts.istart, iend);
-
-            switch upper(plane)            % which 3-D comps map to (U,V)
-                case 'YZ', cU = 3; cV = 2;
-                case 'XZ', cU = 3; cV = 1;
-                case 'XY', cU = 1; cV = 2;
-                otherwise
-                    error('macos:design:Telescope:view_layout:plane', ...
-                          'plane must be YZ, XZ or XY.');
-            end
-            axn = 'XYZ';
-
-            % per-element beam FOOTPRINT (transverse extent of the rays at
-            % each surface) so each optic is drawn to its actual beam size,
-            % not its (generous) aperture.
-            foot = zeros(1, nE);
-            for k = 1:nE
-                mask = (b.elt == k);
-                if ~any(mask(:)), continue; end
-                e  = obj.spec.elt(k);
-                pu = e.psi(cU);  pv = e.psi(cV);  np = hypot(pu,pv);
-                if np > 0, pu = pu/np;  pv = pv/np; end
-                tperp = (b.U(mask)-e.Vpt(cU))*(-pv) + (b.V(mask)-e.Vpt(cV))*pu;
-                foot(k) = max(abs(tperp));
-            end
-
+            obj.ensure_loaded_();                  % current design in the engine
             vis = 'on';  if ~opts.visible, vis = 'off'; end
-            fig = figure('Visible',vis, 'Position',[60 60 1000 560]);  hold on;
-            % --- real ray bundle, subsampled so the beam shape stays legible ---
-            step = max(1, floor(b.nray / max(2, opts.nrays)));
-            for r = 1:step:b.nray
-                m = b.nper(r);
-                if m >= 2
-                    plot(b.U(1:m,r), b.V(1:m,r), '-', 'Color',[0 .45 .85], ...
-                         'LineWidth',0.5, 'HandleVisibility','off');
-                end
+            fig = figure('Visible',vis, 'Position',[60 60 1000 560]);
+            ax  = axes('Parent', fig);
+            obj.draw_plane_(ax, plane, opts.hide, opts.istart, opts.iend, opts.nrays);
+            if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+        end
+
+        function fig = view_orthoviews(obj, planes, opts)
+        %VIEW_ORTHOVIEWS  Multi-panel orthographic layout -- the design-report
+        %   figure.  Draws the same real-ray VIEW_LAYOUT in several planes side
+        %   by side so the design can be judged from all angles.  PLANES is a
+        %   cellstr or a token list ('YZ XZ XY') of 'YZ'|'XZ'|'XY' (default
+        %   {'YZ','XZ'} -- add 'XY' for folded / non-planar designs).  Same
+        %   'hide'/'istart'/'iend'/'nrays'/'save'/'visible' options as
+        %   view_layout, applied to every panel.
+            arguments
+                obj
+                planes                     = {'YZ','XZ'}
+                opts.hide    (1,:) double  = []
+                opts.istart  (1,1) double  = 0
+                opts.iend    (1,1) double  = 0
+                opts.nrays   (1,1) double  = 25
+                opts.save    (1,:) char    = ''
+                opts.visible (1,1) logical = true
             end
-            % --- conic-sag surfaces, drawn to the actual footprint ---
-            for k = max(1,opts.istart):iend
-                if ismember(k, opts.hide), continue; end
-                e = obj.spec.elt(k);
-                if strcmp(e.kind,'Reflector') && foot(k) > 0
-                    ext = foot(k)*1.15;       % mirror: beam footprint + 15% edge
+            pl  = obj.plane_list_(planes);
+            np  = numel(pl);
+            obj.ensure_loaded_();
+            vis = 'on';  if ~opts.visible, vis = 'off'; end
+            fig = figure('Visible',vis, 'Position',[40 60 min(520*np,1560) 540]);
+            tl  = tiledlayout(fig, 1, np, 'TileSpacing','compact', 'Padding','compact');
+            for i = 1:np
+                ax = nexttile(tl);
+                obj.draw_plane_(ax, pl{i}, opts.hide, opts.istart, opts.iend, opts.nrays);
+            end
+            sgtitle(tl, sprintf('%s -- orthographic layout (real rays)', obj.spec.family), ...
+                    'Interpreter','none');
+            if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+        end
+
+        function fig = view_field_map(obj, scan, opts)
+        %VIEW_FIELD_MAP  Map of RMS WFE over the 2-D field -- the design-report
+        %   field view.  SCAN is a realize_apertures (or compatible) result
+        %   carrying .fields (K x 2 field angles, arcmin) and .wfe (K, waves).
+        %   When the samples lie on a rectangular GRID (e.g. macos.design.
+        %   field_grid) the WFE is drawn as a filled contour (default) or a
+        %   surface; otherwise it falls back to a colored scatter.  Use a fine
+        %   grid (7x7+) for a smooth report map.
+        %     'kind'    'contour' (default) | 'surf'
+        %     'save'    PNG path;  'visible' (default true)
+            arguments
+                obj
+                scan struct
+                opts.kind (1,:) char {mustBeMember(opts.kind,{'contour','surf'})} = 'contour'
+                opts.save (1,:) char = ''
+                opts.visible (1,1) logical = true
+            end
+            fx = scan.fields(:,1);  fy = scan.fields(:,2);  w = scan.wfe(:);
+            ux = uniquetol(fx, 1e-9);  uy = uniquetol(fy, 1e-9);
+            vis = 'on';  if ~opts.visible, vis = 'off'; end
+            fig = figure('Visible',vis, 'Position',[60 60 620 500]);
+            isgrid = numel(ux) >= 2 && numel(uy) >= 2 && ...
+                     numel(w) == numel(ux)*numel(uy);
+            if isgrid
+                W = nan(numel(uy), numel(ux));
+                for i = 1:numel(w)
+                    ix = find(abs(ux - fx(i)) < 1e-9, 1);
+                    iy = find(abs(uy - fy(i)) < 1e-9, 1);
+                    W(iy, ix) = w(i);
+                end
+                if strcmp(opts.kind, 'surf')
+                    surf(ux, uy, W);  shading interp;  view(40, 30);
+                    zlabel('RMS WFE (waves)');
                 else
-                    ext = e.ap_r;             % FP/Return: physical (detector) size
+                    contourf(ux, uy, W, 12);  axis equal tight;
                 end
-                [su, sv] = obj.surface_profile_(e, cU, cV, ext);
-                col = 'k';
-                if strcmp(e.kind,'FocalPlane'), col = 'm';
-                elseif strcmp(e.kind,'Return'), col = [0 .6 0]; end
-                plot(su, sv, 'Color',col, 'LineWidth',2.4, 'HandleVisibility','off');
-                text(e.Vpt(cU), e.Vpt(cV), ['  ' e.name], 'FontSize',8);
+            else
+                scatter(fx, fy, 45, w, 'filled');  axis equal tight;
             end
-            axis equal; grid on; box on;
-            xlabel([axn(cU) ' axis']);  ylabel([axn(cV) ' axis']);
-            ttl = sprintf('%s layout -- %s plane (real rays)', ...
-                          obj.spec.family, upper(plane));
-            if ~isempty(opts.hide), ttl = [ttl sprintf('  [hidden: %s]', ...
-                          mat2str(opts.hide))]; end
-            title(ttl);
+            cb = colorbar;  cb.Label.String = 'RMS WFE (waves)';
+            xlabel('\theta_x (arcmin)');  ylabel('\theta_y (arcmin)');
+            title(sprintf('%s -- RMS WFE over field', obj.spec.family), 'Interpreter','none');
             if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
         end
 
         function rep = check_clipping(obj, opts)
         %CHECK_CLIPPING  3-D body-in-beam obscuration + footprint margin
-        %   (PLAN_DESIGN_LAYER §8 Sprint 4).  Reconstructs the engine's real
-        %   ray bundle in full 3-D from TWO orthogonal DRAW projections
-        %   (YZ -> Y,Z ; XZ -> X,Z ; the shared Z is an integrity check),
-        %   then tests every PHYSICAL element body (a disk: centre Vpt,
-        %   normal psi, radius ap_r) for piercing a beam segment that runs
-        %   between two OTHER elements -- the self-obscuration the coaxial
-        %   TMA suffers (M1 and the FP sit on the M2->M3 axis).  Judged in
-        %   3-D on purpose: a 2-D projection paints FALSE conflicts (a fold
-        %   tucks the beam harmlessly behind the PM).
+        %   (PLAN_DESIGN_LAYER §8 Sprint 4).  DRAW (data-only) traces a 1-D
+        %   MERIDIAN fan per plane, so the YZ and XZ passes are DIFFERENT rays
+        %   (the y-fan and the x-fan) and must NOT be stitched into one bundle.
+        %   This uses them as TWO independent 3-D fans -- each plane fixes 2
+        %   coords; the off-plane coord is the per-element beam center -- and
+        %   tests every PHYSICAL element body (disk: centre = beam center,
+        %   normal psi, radius = beam footprint) for piercing a beam segment
+        %   between two OTHER elements (the self-obscuration the coaxial TMA
+        %   suffers: M1 + FP on the M2->M3 axis).  Judged in 3-D: a single 2-D
+        %   projection paints FALSE conflicts (a fold tucks the beam behind PM).
         %
         %   rep = t.check_clipping() returns a struct array, one per element:
         %     .name .kind .ap_r   aperture radius (m)
@@ -669,17 +776,6 @@ classdef Telescope < handle
             end
             e  = obj.spec.elt;  nE = numel(e);
 
-            % --- full 3-D bundle from two orthogonal orthographic projections
-            byz = macos.draw_rays('YZ', 0, nE);   % U=Z  V=Y
-            bxz = macos.draw_rays('XZ', 0, nE);   % U=Z  V=X
-            X = bxz.V;  Y = byz.V;  Z = byz.U;     % (nMaxElt x nRay)
-            elt = byz.elt;  nper = byz.nper;  nRay = byz.nray;
-            zchk = max(abs(byz.U(:) - bxz.U(:)));  % both passes traced alike?
-            if zchk > 1e-6 * (1 + max(abs(Z(:))))
-                warning('macos:design:Telescope:check_clipping:stitch', ...
-                    'YZ/XZ Z mismatch %.3g -- bundles may be misaligned', zchk);
-            end
-
             % --- per-element disk geometry + physical-body flag
             Vpt = zeros(3,nE);  psi = zeros(3,nE);  apr = zeros(1,nE);
             isBody = false(1,nE);
@@ -690,45 +786,62 @@ classdef Telescope < handle
                 isBody(k) = any(strcmp(e(k).kind, {'Reflector','FocalPlane'}));
             end
 
-            % --- realised footprint: CENTER (off-axis patch centroid) + radius
-            % ABOUT that center.  An off-axis-section element's real body is
-            % this off-axis patch, NOT a vertex-centered disk -- essential so
-            % the clearance test of a DECENTERED design judges the actual mirror
-            % outline (a near-axis foreign beam clears an off-axis patch).
-            foot = zeros(1,nE);
-            ctr  = Vpt;                                  % patch center (global); default vertex
+            % --- two orthogonal DRAW MERIDIAN fans (data-only).  DRAW traces a
+            % 1-D meridian fan per plane (the middle row/col of the ray grid,
+            % macos_cmd_loop.inc) -- NOT the full bundle: YZ -> the y-fan, XZ ->
+            % the x-fan, which are DIFFERENT rays.  So they must NOT be stitched
+            % into one 3-D bundle: pairing an x-fan ray's X with a y-fan ray's Y
+            % fills the bounding SQUARE (corner r*sqrt2 -- the old M1 foot=0.707
+            % for a 0.5 beam).  Treat them as two INDEPENDENT 3-D fans instead:
+            % each plane fixes 2 coords; the off-plane coord is the beam CENTER
+            % at that element (the other fan's transverse mean -- exact for a
+            % meridian ray, which lies in its plane through the beam center).
+            byz = macos.draw_rays('YZ', 0, nE);   % y-fan: V=Y, U=Z  (x ~ center)
+            bxz = macos.draw_rays('XZ', 0, nE);   % x-fan: V=X, U=Z  (y ~ center)
+
+            % per-element beam center (off-plane coords from each fan's mean) +
+            % footprint radius (max transverse half-extent over both fans).
+            ctr = Vpt;  foot = zeros(1,nE);
             for k = 1:nE
-                m = (elt == k);
-                if ~any(m(:)), continue; end
-                P    = [X(m).'; Y(m).'; Z(m).'];         % 3 x npts
-                d    = P - Vpt(:,k);
-                ax   = d - psi(:,k) * (psi(:,k).' * d);  % in-plane offset from vertex
-                cbar = mean(ax, 2);                      % patch centroid (in plane)
-                ctr(:,k) = Vpt(:,k) + cbar;              % patch center (global, in plane)
-                foot(k)  = max(sqrt(sum((ax - cbar).^2, 1)));   % radius about center
+                my = (byz.elt == k);  mx = (bxz.elt == k);
+                if ~any(my(:)) && ~any(mx(:)), continue; end
+                cx = Vpt(1,k);  if any(mx(:)), cx = mean(bxz.V(mx)); end
+                cy = Vpt(2,k);  if any(my(:)), cy = mean(byz.V(my)); end
+                zz = [byz.U(my); bxz.U(mx)];  cz = mean(zz(:));
+                ctr(:,k) = [cx; cy; cz];
+                ry = 0;  if any(my(:)), ry = max(abs(byz.V(my) - cy)); end
+                rx = 0;  if any(mx(:)), rx = max(abs(bxz.V(mx) - cx)); end
+                foot(k) = max(rx, ry);              % beam radius (0.5 for a 0.5 beam)
             end
 
-            % --- body-in-beam: every segment vs every non-endpoint body PATCH
-            % (center ctr, radius foot, in the surface plane).  obstructs counts
-            % pierced segments; clr tracks the closest foreign-beam approach to
-            % the patch CENTER -> signed clearance = clr - foot.
+            % --- body-in-beam: test each fan's REAL 3-D ray segments (off-plane
+            % coord = the per-element beam center) against every non-endpoint
+            % body disk.  obstructs counts pierced segments; clr tracks the
+            % closest foreign-beam approach to the body center -> signed
+            % clearance = clr - foot.
             obstructs = zeros(1,nE);
             clr       = inf(1,nE);
-            for r = 1:nRay
-                for i = 1:nper(r)-1
-                    A  = [X(i,r);  Y(i,r);  Z(i,r)];
-                    B  = [X(i+1,r);Y(i+1,r);Z(i+1,r)];
-                    ea = elt(i,r);  eb = elt(i+1,r);  AB = B - A;
-                    for k = 1:nE
-                        if ~isBody(k) || k == ea || k == eb, continue; end
-                        den = psi(:,k).' * AB;
-                        if abs(den) < 1e-30, continue; end          % grazes plane
-                        t = (psi(:,k).' * (ctr(:,k) - A)) / den;    % cross patch plane
-                        if t <= opts.tol || t >= 1-opts.tol, continue; end
-                        Q   = A + t*AB;
-                        rho = norm(Q - ctr(:,k));        % dist from patch center (in plane)
-                        clr(k) = min(clr(k), rho);
-                        if rho < foot(k), obstructs(k) = obstructs(k) + 1; end
+            for pass = 1:2
+                isy = (pass == 1);
+                if isy, bb = byz; else, bb = bxz; end
+                for r = 1:bb.nray
+                    npr = bb.nper(r);
+                    for i = 1:npr-1
+                        ea = bb.elt(i,r);  eb = bb.elt(i+1,r);
+                        A = obj.fan_pt_(bb, i,   r, isy, ctr, nE);
+                        B = obj.fan_pt_(bb, i+1, r, isy, ctr, nE);
+                        AB = B - A;
+                        for k = 1:nE
+                            if ~isBody(k) || k == ea || k == eb, continue; end
+                            den = psi(:,k).' * AB;
+                            if abs(den) < 1e-30, continue; end       % grazes plane
+                            t = (psi(:,k).' * (ctr(:,k) - A)) / den;
+                            if t <= opts.tol || t >= 1-opts.tol, continue; end
+                            Q   = A + t*AB;
+                            rho = norm(Q - ctr(:,k));
+                            clr(k) = min(clr(k), rho);
+                            if rho < foot(k), obstructs(k) = obstructs(k) + 1; end
+                        end
                     end
                 end
             end
@@ -844,6 +957,114 @@ classdef Telescope < handle
                 end
             end
         end
+
+        function scan = realize_apertures(obj, opts)
+        %REALIZE_APERTURES  Field scan -> per-optic clear apertures + WFE(field).
+        %   Sweeps the chief-ray direction over the FoV (about any field bias),
+        %   traces each field, and records (a) the RMS WFE at each field and
+        %   (b) the MAXIMUM beam footprint on every optic across the field.
+        %   Sizes a clear aperture to that full-field footprint -- CIRCULAR
+        %   (radius,xc,yc) on the mirrors, SQUARE (Rectangular) on the focal
+        %   plane -- stores it on the spec (so build() emits the ApVec and
+        %   view_layout draws each optic to its real size + center) and returns
+        %   the scan.  Footprints use BOTH DRAW meridian fans (YZ -> y-extent,
+        %   XZ -> x-extent) so the aperture is the true 2-D beam size.
+        %
+        %   The FIELD SET (FoV) is telescope-specific -- by default it comes
+        %   from the design's field_points (set_field_points), NOT a built-in
+        %   list.  Name-value:
+        %     'fields_arcmin'  +y field half-angles (arcmin) -- convenience
+        %                      override of the design FoV.
+        %     'fields'         Kx2 [thx thy] field set (rad) -- explicit override.
+        %     'margin'         fractional aperture margin (default 0.05).
+        %     'quiet'          suppress the printed table (default false).
+        %   Returns scan: .fields (Kx2 arcmin) .wfe (waves, per field) .lambda
+        %                 .aperture (struct array: name/shape/radius/center/rect).
+            arguments
+                obj
+                opts.fields_arcmin (1,:) double = []
+                opts.fields (:,2) double = []
+                opts.margin (1,1) double = 0.05
+                opts.quiet  (1,1) logical = false
+            end
+            by0 = 0;  if isfield(obj.spec,'field_bias'), by0 = obj.spec.field_bias; end
+            nE  = numel(obj.spec.elt);
+            lam = obj.spec.wavelength;
+            % Field set (Kx2 rad, absolute incl. bias).  Priority: explicit
+            % fields_arcmin (+y) > explicit fields > the design's field_points
+            % (the user-specified FoV) > on-axis.
+            if ~isempty(opts.fields_arcmin)
+                F = [zeros(numel(opts.fields_arcmin),1), ...
+                     by0 + deg2rad(opts.fields_arcmin(:)/60)];
+            elseif ~isempty(opts.fields)
+                F = opts.fields;
+            elseif isfield(obj.spec,'field_points') && any(obj.spec.field_points(:))
+                fp = obj.spec.field_points;             % Kx2 offsets (rad)
+                F  = [fp(:,1), by0 + fp(:,2)];
+            else
+                F = [0, by0];                           % on-axis only
+            end
+            nF = size(F,1);
+
+            saved = [];
+            if isfield(obj.spec,'trace_field'), saved = obj.spec.trace_field; end
+            restore = onCleanup(@() obj.restore_trace_field_(saved)); %#ok<NASGU>
+
+            xlo = inf(1,nE);  xhi = -inf(1,nE);
+            ylo = inf(1,nE);  yhi = -inf(1,nE);
+            wfe = nan(1, nF);
+            for j = 1:nF
+                obj.spec.trace_field = F(j,:);
+                obj.build('', 'init', false);
+                macos.trace(nE);
+                W = macos.opd();  v = W(isfinite(W) & W ~= 0);
+                if ~isempty(v), wfe(j) = std(v)/lam; end
+                byz = macos.draw_rays('YZ', 0, nE);        % y-fan: V=Y
+                bxz = macos.draw_rays('XZ', 0, nE);        % x-fan: V=X
+                for k = 1:nE
+                    my = (byz.elt == k);  mx = (bxz.elt == k);
+                    if any(my(:))
+                        ylo(k)=min(ylo(k),min(byz.V(my))); yhi(k)=max(yhi(k),max(byz.V(my)));
+                    end
+                    if any(mx(:))
+                        xlo(k)=min(xlo(k),min(bxz.V(mx))); xhi(k)=max(xhi(k),max(bxz.V(mx)));
+                    end
+                end
+            end
+
+            ap = struct('name',{},'shape',{},'radius',{},'center',{},'rect',{});
+            for k = 1:nE
+                e = obj.spec.elt(k);
+                if ~isfinite(xlo(k)) && ~isfinite(ylo(k)), continue; end
+                xs = max(0, xhi(k)-xlo(k));  ys = max(0, yhi(k)-ylo(k));
+                cx = (xlo(k)+xhi(k))/2;      cy = (ylo(k)+yhi(k))/2;
+                hw = 0.5*(1+opts.margin)*max(xs, ys);    % half-width / radius
+                if strcmp(e.kind,'FocalPlane')
+                    rect = [cx-hw, cx+hw, cy-hw, cy+hw];  % SQUARE
+                    obj.spec.elt(k).ap_rect = rect;  obj.spec.elt(k).ap = [];
+                    ap(end+1) = struct('name',e.name,'shape','rect', ...
+                        'radius',hw,'center',[cx cy],'rect',rect);  %#ok<AGROW>
+                elseif strcmp(e.kind,'Reflector')
+                    obj.spec.elt(k).ap = [hw, cx, cy];  obj.spec.elt(k).ap_rect = [];
+                    ap(end+1) = struct('name',e.name,'shape','circ', ...
+                        'radius',hw,'center',[cx cy],'rect',[]);  %#ok<AGROW>
+                end
+            end
+            scan = struct('fields', rad2deg(F)*60, 'wfe',wfe, ...
+                          'lambda',lam, 'aperture',ap);
+
+            if ~opts.quiet
+                fa = rad2deg(F(:,2))*60;
+                fprintf(['realize_apertures  (%d fields, +y %g..%g arcmin, ' ...
+                         'family=%s)\n'], nF, min(fa), max(fa), obj.spec.family);
+                fprintf('  field WFE (waves):');  fprintf(' %.4f', wfe);  fprintf('\n');
+                fprintf('  %-10s %-5s %10s %10s %10s\n','optic','shape','radius','xc','yc');
+                for i = 1:numel(ap)
+                    fprintf('  %-10s %-5s %10.4g %10.4g %10.4g\n', ap(i).name, ...
+                        ap(i).shape, ap(i).radius, ap(i).center(1), ap(i).center(2));
+                end
+            end
+        end
     end
 
     methods (Static)
@@ -857,6 +1078,154 @@ classdef Telescope < handle
 
     % ===================================================================
     methods (Access = private)
+        function ensure_loaded_(obj)
+        %ENSURE_LOADED_  Make sure the CURRENT design is loaded in the engine.
+            if ~macos.has_rx()
+                obj.build();
+            else
+                obj.build('', 'init', false);
+            end
+        end
+
+        function pl = plane_list_(~, planes)
+        %PLANE_LIST_  Normalize a planes arg (cellstr or token list) -> cellstr.
+            if iscell(planes)
+                pl = cellfun(@char, planes, 'UniformOutput', false);
+            else
+                pl = regexp(char(planes), '[A-Za-z][A-Za-z]', 'match');
+            end
+            if isempty(pl)
+                error('macos:design:Telescope:view_orthoviews:planes', ...
+                      'planes must be a cellstr or token list of YZ/XZ/XY.');
+            end
+        end
+
+        function draw_plane_(obj, ax, plane, hide, istart, iend, nrays)
+        %DRAW_PLANE_  Draw the real-ray layout for ONE plane into axes AX -- the
+        %   shared core of view_layout / view_orthoviews.  Assumes the current
+        %   design is already loaded (see ensure_loaded_).
+            nE = numel(obj.spec.elt);
+            if iend <= 0, iend = nE; end
+            b = macos.draw_rays(plane, istart, iend);
+            switch upper(plane)            % which 3-D comps map to (U,V)
+                case 'YZ', cU = 3; cV = 2;
+                case 'XZ', cU = 3; cV = 1;
+                case 'XY', cU = 1; cV = 2;
+                otherwise
+                    error('macos:design:Telescope:view_layout:plane', ...
+                          'plane must be YZ, XZ or XY.');
+            end
+            axn = 'XYZ';
+            % per-element beam FOOTPRINT in the (cU,cV) plane: HALF-WIDTH about
+            % the beam center (not |offset-from-vertex|) + the center in plane
+            % coords, so each optic is drawn to its real beam size AND position
+            % -- correct for off-axis sections (FP / exit pupil) whose beam
+            % center is offset from the vertex.
+            foot   = zeros(1, nE);
+            cenU_b = nan(1, nE);
+            cenV_b = nan(1, nE);
+            for k = 1:nE
+                mask = (b.elt == k);
+                if ~any(mask(:)), continue; end
+                e  = obj.spec.elt(k);
+                pu = e.psi(cU);  pv = e.psi(cV);  np = hypot(pu,pv);
+                if np > 0, pu = pu/np;  pv = pv/np; end
+                tu = -pv;  tv = pu;                          % in-plane transverse
+                tperp = (b.U(mask)-e.Vpt(cU))*tu + (b.V(mask)-e.Vpt(cV))*tv;
+                tlo = min(tperp);  thi = max(tperp);
+                foot(k)   = 0.5*(thi - tlo);
+                hc        = 0.5*(thi + tlo);
+                cenU_b(k) = e.Vpt(cU) + hc*tu;
+                cenV_b(k) = e.Vpt(cV) + hc*tv;
+            end
+            hold(ax, 'on');
+            % --- real ray bundle (subsampled so the beam shape stays legible) ---
+            step = max(1, floor(b.nray / max(2, nrays)));
+            for r = 1:step:b.nray
+                m = b.nper(r);
+                if m >= 2
+                    plot(ax, b.U(1:m,r), b.V(1:m,r), '-', 'Color',[0 .45 .85], ...
+                         'LineWidth',0.5, 'HandleVisibility','off');
+                end
+            end
+            % --- conic-sag surfaces, to the MEASURED clear aperture
+            % (realize_apertures) when present, else the real beam footprint.
+            % cW is the out-of-plane axis; the section's offset along it feeds
+            % surface_profile_ so an off-axis slice (e.g. M1 in XZ with the beam
+            % decentered in y) is drawn at the right depth, not the y=0 sag. ---
+            cW = 6 - cU - cV;                  % the third axis (1+2+3 = 6)
+            % Out-of-plane (cW) beam center per element, from an ORTHOGONAL DRAW
+            % fan -- so the conic sag uses the FULL transverse radius (the y
+            % offset for an XZ view, etc.), not just the in-plane coordinate;
+            % otherwise an off-axis section is drawn at the wrong depth.
+            cwc = obj.beam_offplane_(plane, cW, istart, iend, nE);
+            % label placement with vertical collision avoidance so coincident
+            % surfaces (an image Return + the FP at the same plane) don't
+            % overwrite each other.
+            Vspan = max(b.V(:)) - min(b.V(:));  if Vspan <= 0, Vspan = 1; end
+            vstep = 0.07 * Vspan;  placed = zeros(0,2);
+            for k = max(1,istart):iend
+                if ismember(k, hide), continue; end
+                e = obj.spec.elt(k);
+                cen = [];
+                if isfield(e,'ap') && ~isempty(e.ap)             % measured circular
+                    ext = e.ap(1);   G3 = [e.ap(2), e.ap(3), e.Vpt(3)];
+                    cen = [G3(cU), G3(cV)];
+                elseif isfield(e,'ap_rect') && ~isempty(e.ap_rect)   % measured rect (FP)
+                    rr  = e.ap_rect;  ext = 0.5*max(rr(2)-rr(1), rr(4)-rr(3));
+                    G3  = [0.5*(rr(1)+rr(2)), 0.5*(rr(3)+rr(4)), e.Vpt(3)];
+                    cen = [G3(cU), G3(cV)];
+                elseif foot(k) > 0             % mirror / FP / EP: real beam footprint
+                    ext = foot(k)*1.15;
+                    cen = [cenU_b(k), cenV_b(k)];
+                else
+                    ext = e.ap_r;              % no rays here: physical (detector) size
+                end
+                woff = 0;
+                if ~isnan(cwc(k)), woff = cwc(k) - e.Vpt(cW); end  % out-of-plane offset
+                [su, sv] = obj.surface_profile_(e, cU, cV, ext, cen, woff);
+                col = 'k';
+                if strcmp(e.kind,'FocalPlane'), col = 'm';
+                elseif strcmp(e.kind,'Return'), col = [0 .6 0]; end
+                plot(ax, su, sv, 'Color',col, 'LineWidth',2.4, 'HandleVisibility','off');
+                lu = e.Vpt(cU);  lv = e.Vpt(cV);
+                if ~isempty(cen), lu = cen(1);  lv = cen(2); end   % label at section
+                while ~isempty(placed) && ...
+                      any(hypot(placed(:,1)-lu, placed(:,2)-lv) < 1.3*vstep)
+                    lv = lv + vstep;           % bump up until clear of placed labels
+                end
+                placed = [placed; lu lv];      %#ok<AGROW>
+                text(ax, lu, lv, ['  ' e.name], 'FontSize',8, 'Interpreter','none');
+            end
+            axis(ax, 'equal');  grid(ax, 'on');  box(ax, 'on');
+            xlabel(ax, [axn(cU) ' axis']);  ylabel(ax, [axn(cV) ' axis']);
+            ttl = sprintf('%s layout -- %s plane (real rays)', ...
+                          obj.spec.family, upper(plane));
+            if ~isempty(hide), ttl = [ttl sprintf('  [hidden: %s]', mat2str(hide))]; end
+            title(ax, ttl, 'Interpreter','none');
+        end
+
+        function cwc = beam_offplane_(~, plane, cW, istart, iend, nE)
+        %BEAM_OFFPLANE_  Out-of-plane (axis cW) beam center per element, from a
+        %   DRAW fan in a plane ORTHOGONAL to the viewing PLANE.  Lets
+        %   draw_plane_ draw each conic at its true transverse radius (so an
+        %   off-axis section sits at the right depth in the cross-plane view).
+        %   Returns NaN for elements with no rays.
+            oplane = 'YZ';  if strcmpi(plane,'YZ'), oplane = 'XZ'; end
+            switch upper(oplane)
+                case 'YZ', oc = [3 2];        % bo.U = z, bo.V = y
+                case 'XZ', oc = [3 1];        % bo.U = z, bo.V = x
+            end
+            cwc = nan(1, nE);
+            bo  = macos.draw_rays(oplane, istart, iend);
+            for k = 1:nE
+                m = (bo.elt == k);  if ~any(m(:)), continue; end
+                if     oc(1) == cW, cwc(k) = 0.5*(min(bo.U(m)) + max(bo.U(m)));
+                elseif oc(2) == cW, cwc(k) = 0.5*(min(bo.V(m)) + max(bo.V(m)));
+                end
+            end
+        end
+
         function R = surf_frame_(~, psi)
         %SURF_FRAME_  Local surface frame [x y z] (columns, in global coords)
         %   for the element TElt: Z along the OUTWARD surface normal (psi) at
@@ -884,6 +1253,128 @@ classdef Telescope < handle
                 obj.spec.trace_field = saved;
             end
             obj.build('', 'init', false);
+        end
+
+        function resolve_section_poles_(obj)
+        %RESOLVE_SECTION_POLES_  For every mirror, set RptElt = the beam-
+        %   footprint center on the parent surface (the section pole) and nrm =
+        %   the analytic outward surface normal there, so emit_ writes a true
+        %   off-axis section (RptElt!=VptElt + section TElt).  Trace-neutral
+        %   (ConSrf uses VptElt only) -- this changes only the interface /
+        %   perturbation frame, never the WFE.  The analytic normal
+        %   n = (psi - s'(d)*that)/sqrt(1+s'^2) reproduces j18sc's segment TElt
+        %   col-3 exactly (s'(d) = (d/R)/sqrt(1-(1+K)(d/R)^2) is the conic-sag
+        %   slope at off-axis height d; R=|Kr|, K=Kc, that = transverse unit).
+            obj.build('', 'init', false);              % current (decentered) design
+            nE = numel(obj.spec.elt);
+            b  = macos.draw_rays('XY', 0, nE);         % U=X, V=Y (pinned plane)
+            for k = 1:nE
+                e = obj.spec.elt(k);
+                if ~strcmp(e.kind, 'Reflector'), continue; end
+                m = (b.elt == k);
+                if ~any(m(:)), continue; end
+                xc = mean(b.U(m));  yc = mean(b.V(m));
+                Vpt = e.Vpt(:);  psi = e.psi(:)/norm(e.psi);
+                off = [xc - Vpt(1); yc - Vpt(2); 0];   % footprint center vs vertex
+                off = off - (psi.'*off)*psi;           % perpendicular to parent axis
+                d   = norm(off);  R = abs(e.Kr);  K = e.Kc;
+                if d < 1e-12 || R >= 1e21
+                    obj.spec.elt(k).pole = [];  obj.spec.elt(k).nrm = [];
+                    continue;                          % on-axis / flat: no section
+                end
+                that = off / d;
+                u    = min((1+K)*(d/R)^2, 1 - 1e-12);  % guard beyond valid aperture
+                sag  = d^2 / (R*(1 + sqrt(1 - u)));     % conic sag at height d
+                sp   = (d/R) / sqrt(1 - u);             % d(sag)/d(transverse)
+                pole = Vpt + d*that + sag*psi;          % the pole lies ON the parent
+                nrm  = psi - sp*that;  nrm = nrm/norm(nrm);
+                obj.spec.elt(k).pole = pole(:).';
+                obj.spec.elt(k).nrm  = nrm(:).';
+            end
+            obj.build('', 'init', false);              % re-emit with the section poles
+        end
+
+        function d = clearance_solve_(obj, target, margin_m, hi)
+        %CLEARANCE_SOLVE_  Smallest +y beam decenter (m) such that element
+        %   TARGET's body clears every foreign beam by >= MARGIN_M.  Clearance
+        %   grows monotonically with decenter, so bisect on [0, HI].
+            saved_d = obj.spec.aperture_decenter;
+            restore = onCleanup(@() obj.restore_decenter_(saved_d)); %#ok<NASGU>
+            if obj.probe_clearance_(0, target) >= margin_m
+                d = 0;  return;                        % already clear (unlikely)
+            end
+            if obj.probe_clearance_(hi, target) < margin_m
+                warning('macos:design:Telescope:offaxis:noclear', ...
+                    ['%s does not clear by %.3g m even at decenter %.3g m; ' ...
+                     'using the max.'], target, margin_m, hi);
+                d = hi;  return;
+            end
+            lo = 0;
+            for it = 1:40 %#ok<NASGU>
+                d = 0.5*(lo + hi);
+                if obj.probe_clearance_(d, target) >= margin_m, hi = d; else, lo = d; end
+                if (hi - lo) < 1e-4*max(1, obj.spec.in.D), break; end
+            end
+            d = hi;                                    % return the cleared side
+        end
+
+        function c = probe_clearance_(obj, d, target)
+        %PROBE_CLEARANCE_  WORST signed clearance (m) over the TARGET optic set
+        %   at +y decenter D -- negative if any targeted body still pierces a
+        %   foreign beam.  TARGET is a name, a cellstr, or 'all' (every mirror).
+        %   Bodies with no foreign beam crossing their plane are infinitely
+        %   clear and do not constrain the solve.
+            obj.spec.aperture_decenter = d;
+            obj.build('', 'init', false);
+            rep   = obj.check_clipping('noload', true, 'quiet', true);
+            names = obj.clear_targets_(target);
+            c = inf;
+            for k = 1:numel(rep)
+                if ~any(strcmp(rep(k).name, names)), continue; end
+                ck = rep(k).clearance;
+                if rep(k).obstructs > 0, ck = -abs(ck); end     % pierced -> negative
+                if isinf(ck) && ck > 0, continue; end           % infinitely clear
+                c = min(c, ck);
+            end
+            if isinf(c), c = 1e9; end                            % all targets clear
+        end
+
+        function names = clear_targets_(obj, target)
+        %CLEAR_TARGETS_  Resolve a 'clear' spec (name | cellstr | 'all') to a
+        %   cellstr of mirror element names.
+            if iscell(target)
+                names = target;  return;
+            end
+            if ischar(target) && ~strcmpi(target, 'all')
+                names = {target};  return;
+            end
+            names = {};                                          % 'all' -> every mirror
+            for k = 1:numel(obj.spec.elt)
+                if strcmp(obj.spec.elt(k).kind, 'Reflector')
+                    names{end+1} = obj.spec.elt(k).name; %#ok<AGROW>
+                end
+            end
+        end
+
+        function P = fan_pt_(~, bb, i, r, isy, ctr, nE)
+        %FAN_PT_  3-D point of crossing I on ray R of a DRAW meridian fan BB.
+        %   y-fan (isy): off-plane x = beam center x at the crossed element;
+        %   x-fan: off-plane y = beam center y.  Meridian rays lie in their
+        %   plane through the beam center, so this is exact (not a stitch).
+            ke = bb.elt(i,r);
+            cx = 0;  cy = 0;
+            if ke >= 1 && ke <= nE, cx = ctr(1,ke);  cy = ctr(2,ke); end
+            if isy        % y-fan: V=Y, U=Z, x = beam center
+                P = [cx; bb.V(i,r); bb.U(i,r)];
+            else          % x-fan: V=X, U=Z, y = beam center
+                P = [bb.V(i,r); cy; bb.U(i,r)];
+            end
+        end
+
+        function restore_decenter_(obj, d)
+        %RESTORE_DECENTER_  Undo the transient decenter probing in the
+        %   clearance bisection (the final decenter is set by set_offaxis).
+            obj.spec.aperture_decenter = d;
         end
 
         function resolve_(obj)
@@ -928,6 +1419,11 @@ classdef Telescope < handle
             e2 = mk('M2','Reflector', -sep,  psi_M2,  -abs(R2), K2, 0.6*D/2);
             e3 = mk('FP','FocalPlane', bfd,  -1.0,    -1.0e22,  0.0, 0.2*D);
             e1.zElt = sep;  e2.zElt = sep + bfd;  e3.zElt = 1.0e20;
+            % pole/nrm/ap/ap_rect complete the canonical schema (empty = on-axis
+            % section, no measured aperture)
+            [e1.pole,e1.nrm,e1.ap,e1.ap_rect, ...
+             e2.pole,e2.nrm,e2.ap,e2.ap_rect, ...
+             e3.pole,e3.nrm,e3.ap,e3.ap_rect] = deal([]);
             obj.spec.elt = [e1 e2 e3];
         end
 
@@ -1033,9 +1529,19 @@ classdef Telescope < handle
                 end
                 L{end+1} = sprintf('            KrElt=%.16E', e.Kr);
                 L{end+1} = sprintf('            KcElt=%.16E', e.Kc);
-                L{end+1} = ['           psiElt=  ' v3(e.psi(1),e.psi(2),e.psi(3))];
-                L{end+1} = ['           VptElt=  ' v3(e.Vpt(1),e.Vpt(2),e.Vpt(3))];
-                L{end+1} = ['           RptElt=  ' v3(e.Vpt(1),e.Vpt(2),e.Vpt(3))];
+                % Off-axis section (engine-true, ConSrf surfsub.F:82): the
+                % conic sag is measured from VptElt (parent VERTEX) along
+                % psiElt (parent AXIS); RptElt is the section POLE -- the point
+                % ON the parent surface at the used sub-aperture center, and the
+                % origin of the TElt/perturbation frame.  RptElt is NOT used by
+                % the conic intersection, so it never changes the trace; it sets
+                % the interface frame + the rigid-body rotation center.  On-axis
+                % (no 'pole' field) -> RptElt=VptElt, byte-identical to before.
+                pole = e.Vpt;
+                if isfield(e,'pole') && ~isempty(e.pole), pole = e.pole; end
+                L{end+1} = ['           psiElt=  ' v3(e.psi(1),e.psi(2),e.psi(3))];  %#ok<AGROW>
+                L{end+1} = ['           VptElt=  ' v3(e.Vpt(1),e.Vpt(2),e.Vpt(3))];  %#ok<AGROW>
+                L{end+1} = ['           RptElt=  ' v3(pole(1),pole(2),pole(3))];      %#ok<AGROW>
                 L{end+1} = '           IndRef=1.0E+00';
                 L{end+1} = '           Extinc=0.0E+00';
                 if isfield(sp,'opt') && any(sp.opt.var_elts == k)
@@ -1044,19 +1550,25 @@ classdef Telescope < handle
                                 strtrim(sprintf('%d ', sp.opt.dof_mask))];
                 end
                 L{end+1} = '             nObs=  0';
+                % Aperture: honor a MEASURED full-field clear aperture when one
+                % has been realized (realize_apertures) -- Rectangular on the
+                % focal plane, Circular (radius,xc,yc) on the mirrors.  In the
+                % off-axis design phase BEFORE apertures are sized, mirrors emit
+                % ApType=None (don't clip the decentered/biased beam at a vertex-
+                % centered stop -- matches dmt6mono/e5mono).  Otherwise the
+                % default vertex-centered circle.
                 offaxis = (by ~= 0) || (apst(2) ~= 0);
-                if offaxis && strcmp(e.kind,'Reflector')
-                    % Off-axis design phase: don't clip the decentered/biased
-                    % beam at the vertex-centered aperture (matches dmt6mono/
-                    % e5mono, which use ApType=None on the mirrors).  The
-                    % realistic per-element clear aperture -- sized + centered
-                    % to the FULL FIELD -- is produced by aperture_full_field()
-                    % and can be emitted as ApVec=(R,xc,yc) once the design is
-                    % final.
-                    L{end+1} = '           ApType=  None';                          %#ok<AGROW>
-                elseif isfield(e,'ap') && ~isempty(e.ap)
+                hasRect = isfield(e,'ap_rect') && ~isempty(e.ap_rect);
+                hasCirc = isfield(e,'ap')      && ~isempty(e.ap);
+                if hasRect
+                    L{end+1} = '           ApType=  Rectangular';                    %#ok<AGROW>
+                    L{end+1} = ['            ApVec=  ' sprintf('%.16E  %.16E  %.16E  %.16E', ...
+                                e.ap_rect(1),e.ap_rect(2),e.ap_rect(3),e.ap_rect(4))]; %#ok<AGROW>
+                elseif hasCirc
                     L{end+1} = '           ApType=  Circular';                       %#ok<AGROW>
                     L{end+1} = ['            ApVec=  ' v3(e.ap(1),e.ap(2),e.ap(3))]; %#ok<AGROW>
+                elseif offaxis && strcmp(e.kind,'Reflector')
+                    L{end+1} = '           ApType=  None';                           %#ok<AGROW>
                 else
                     L{end+1} = '           ApType=  Circular';                       %#ok<AGROW>
                     L{end+1} = ['            ApVec=  ' v3(e.ap_r,0,0)];              %#ok<AGROW>
@@ -1066,10 +1578,14 @@ classdef Telescope < handle
                 % Sensible element coordinate frame (TElt): trace-neutral, but
                 % the interface frame MACOS uses for PERTURB + emitted
                 % sensitivities (the structures/controls hand-off).  Convention
-                % (matches dmt6mono): Z along the outward surface normal (psi)
-                % at the pole (RptElt), X/Y tangent to the surface.  6x6 block-
-                % diagonal [R R]; each TElt line is one COLUMN of the matrix.
-                R = obj.surf_frame_(e.psi);
+                % (matches dmt6mono): Z along the OUTWARD SURFACE NORMAL at the
+                % pole (RptElt), X/Y tangent to the surface.  For an off-axis
+                % section the normal at the pole differs from the parent axis
+                % (psi); use e.nrm when present, else psi (on-axis: they
+                % coincide).  6x6 block-diagonal [R R]; each line is one COLUMN.
+                nrm = e.psi;
+                if isfield(e,'nrm') && ~isempty(e.nrm), nrm = e.nrm; end
+                R = obj.surf_frame_(nrm);
                 L{end+1} = '          nECoord=  6';                              %#ok<AGROW>
                 L{end+1} = ['             TElt=  ' v6(R(:,1),[0;0;0])];          %#ok<AGROW>
                 L{end+1} = ['                    ' v6(R(:,2),[0;0;0])];          %#ok<AGROW>
@@ -1123,10 +1639,13 @@ classdef Telescope < handle
         function e = new_elt_(~, name, kind, Vpt, psi, Kr, ap_r, prov, zElt)
         %NEW_ELT_  Build a spec element struct with the canonical field set
         %   (matches resolve_'s mk()) so it concatenates into spec.elt.
-        %   Used by add_pupil for Return surfaces; Kc fixed at 0.
+        %   Used by add_pupil for Return surfaces; Kc fixed at 0.  pole/nrm are
+        %   part of the canonical schema (empty = on-axis, no off-axis section)
+        %   so off-axis and on-axis designs concatenate identically.
             e = struct('name',name, 'kind',kind, 'Vpt',Vpt(:).', ...
                        'psi',psi(:).', 'Kr',Kr, 'Kc',0.0, 'ap_r',ap_r, ...
-                       'provenance',prov, 'zElt',zElt);
+                       'provenance',prov, 'zElt',zElt, 'pole',[], 'nrm',[], ...
+                       'ap',[], 'ap_rect',[]);   % measured clear apertures
         end
 
         function tf = is_nmirror_(obj)
@@ -1246,26 +1765,40 @@ classdef Telescope < handle
             end
         end
 
-        function [su, sv] = surface_profile_(~, e, cU, cV, extent)
+        function [su, sv] = surface_profile_(~, e, cU, cV, extent, cenUV, woff)
         %SURFACE_PROFILE_  Conic-sag profile of element e projected onto the
-        %   (cU,cV) plane axes (for view_layout).  Sag s(h) along psi,
-        %   transverse h out to EXTENT (the beam footprint; defaults to the
-        %   aperture); a flat surface (huge |Kr|) becomes a straight segment
-        %   perpendicular to psi.
+        %   (cU,cV) plane axes (for view_layout).  Sag s(r) along psi at
+        %   transverse radius r; a flat surface (huge |Kr|) becomes a straight
+        %   segment perpendicular to psi.  Optional CENUV = [u v] is the
+        %   USED-section center in the plane: the profile is drawn over
+        %   [h0-extent, h0+extent] about it (the off-axis section), not about
+        %   the vertex.  Optional WOFF is the OUT-OF-PLANE offset of that
+        %   section center from the vertex (along the third axis): the conic sag
+        %   uses the FULL transverse radius r = sqrt(h^2 + woff^2), so an
+        %   off-axis slice (e.g. M1 in XZ while the beam is decentered in y)
+        %   sits at the correct depth instead of the y=0 sag.  (Assumes the
+        %   out-of-plane axis is ~perpendicular to psi -- true for pinned-axis
+        %   off-axis sections; tilted folds would need a full 3-D slice.)
             R = abs(e.Kr);  Kc = e.Kc;
             apr = e.ap_r;
             if nargin >= 5 && extent > 0, apr = extent; end
-            h = linspace(-apr, apr, 41);
-            if R > 1e15
-                s = zeros(size(h));                  % flat (FP / Return)
-            else
-                disc = R^2 - (1+Kc)*h.^2;  disc(disc < 0) = 0;
-                s = h.^2 ./ (R + sqrt(disc));
-            end
             vu = e.Vpt(cU);  vv = e.Vpt(cV);
             pu = e.psi(cU);  pv = e.psi(cV);
             np = hypot(pu, pv);  if np > 0, pu = pu/np;  pv = pv/np; end
             tu = -pv;  tv = pu;                       % in-plane transverse
+            h0 = 0;
+            if nargin >= 6 && ~isempty(cenUV)
+                h0 = (cenUV(1)-vu)*tu + (cenUV(2)-vv)*tv;   % in-plane section offset
+            end
+            w = 0;  if nargin >= 7 && ~isempty(woff), w = woff; end   % out-of-plane offset
+            h = linspace(h0-apr, h0+apr, 41);
+            if R > 1e15
+                s = zeros(size(h));                  % flat (FP / Return)
+            else
+                r2   = h.^2 + w.^2;                  % full transverse radius^2
+                disc = R^2 - (1+Kc)*r2;  disc(disc < 0) = 0;
+                s = r2 ./ (R + sqrt(disc));
+            end
             su = vu + h.*tu + s.*pu;                  % vertex + h*t + sag*psi
             sv = vv + h.*tv + s.*pv;
         end
