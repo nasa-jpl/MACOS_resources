@@ -537,5 +537,101 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyLessThan(macos.trace(4).rmsWFE, 5e-7, ...
                 'TElt emission must not change the ray trace');
         end
+
+        function test_optimize_accepts_2d_field_cross(tc)
+            % optimize() accepts an explicit 2-D (thx,thy) field set -- a CROSS
+            % through the origin -- not just +y half-angles.  The seed Korsch is
+            % rotationally symmetric, so the x-arm and y-arm at equal half-angle
+            % aberrate equally; that equality proves the x field genuinely
+            % reaches the trace (a collapse-to-+y bug would leave the x-arm at
+            % the tiny on-axis WFE), and the optimizer balances the whole cross.
+            a     = deg2rad(2.0/60);                    % 2 arcmin half-angle
+            cross = [a 0; -a 0; 0 a; 0 -a];             % 4 off-axis arms (rad)
+            t = tc.make_tma_();  t.build();
+            res = t.optimize('fields', cross, 'max_iters',60);
+            tc.verifyTrue(res.converged, 'CALIB did not converge on a 2-D field set');
+            % result table is 2-D: (1+4) x 2, on-axis row 1 = [0 0]
+            tc.verifySize(res.fields_xy_arcmin, [5 2]);
+            tc.verifyEqual(res.fields_xy_arcmin(1,:), [0 0], 'AbsTol', 1e-9);
+            tc.verifyEqual(max(abs(res.fields_xy_arcmin(:,1))), 2.0, 'AbsTol', 1e-6, ...
+                'x-field component lost (collapsed to +y)');
+            % x-arm (field 2) and y-arm (field 4) at the same half-angle must
+            % aberrate equally -> the x field reached the trace, symmetrically.
+            tc.verifyEqual(res.wfe_before(2), res.wfe_before(4), 'RelTol', 0.25, ...
+                'x-arm WFE ~= y-arm WFE -> x field component did not reach the trace');
+            tc.verifyGreaterThan(res.wfe_before(2), 5*res.wfe_before(1), ...
+                'off-axis arm not aberrated vs on-axis -> field set inert');
+            % and the conics balance the full 2-D field to diffraction-limited
+            tc.verifyLessThan(max(res.wfe_after), 5e-8, ...
+                sprintf('2-D field optimize not diffraction-limited: %.3e m', ...
+                        max(res.wfe_after)));
+        end
+
+        function test_view_orthoviews_renders(tc)
+            % view_layout's core is refactored into a shared draw-into-axes
+            % helper (draw_plane_); view_orthoviews tiles it across planes for
+            % a design-report figure.  Smoke: view_layout + both planes forms
+            % (cellstr and token list) render to PNG (visible off) without
+            % error -- guards the refactor end-to-end.
+            t = tc.make_tma_();  t.build();
+            cl = onCleanup(@() close('all','force'));  %#ok<NASGU>
+            p1 = [tempname '.png'];  c1 = onCleanup(@() delete(p1)); %#ok<NASGU>
+            t.view_layout('YZ', 'nrays',9, 'visible',false, 'save',p1);
+            tc.verifyTrue(isfile(p1) && dir(p1).bytes > 0, ...
+                'view_layout did not render a PNG');
+            p2 = [tempname '.png'];  c2 = onCleanup(@() delete(p2)); %#ok<NASGU>
+            t.view_orthoviews({'YZ','XZ'}, 'nrays',9, 'visible',false, 'save',p2);
+            tc.verifyTrue(isfile(p2) && dir(p2).bytes > 0, ...
+                'view_orthoviews (cellstr) did not render a PNG');
+            p3 = [tempname '.png'];  c3 = onCleanup(@() delete(p3)); %#ok<NASGU>
+            t.view_orthoviews('YZ XZ XY', 'nrays',9, 'visible',false, 'save',p3);
+            tc.verifyTrue(isfile(p3) && dir(p3).bytes > 0, ...
+                'view_orthoviews (token list) did not render a PNG');
+            % view_field_map on a synthetic 3x3 grid scan (no real trace needed)
+            [gx, gy] = meshgrid([-1 0 1], [-1 0 1]);
+            sc = struct('fields',[gx(:) gy(:)], 'wfe', 0.01 + 0.02*(gx(:).^2+gy(:).^2));
+            p4 = [tempname '.png'];  c4 = onCleanup(@() delete(p4)); %#ok<NASGU>
+            t.view_field_map(sc, 'kind','contour', 'visible',false, 'save',p4);
+            tc.verifyTrue(isfile(p4) && dir(p4).bytes > 0, ...
+                'view_field_map did not render a PNG');
+        end
+
+        function test_field_set_builders(tc)
+            % field_grid / field_cross produce the documented 2-D field sets
+            % (the area + cross "modes"): right shape, span, origin handling,
+            % and arcmin->rad units.
+            fov = deg2rad(1.0/60);
+            G = macos.design.field_grid(fov, 3);            % 3x3 incl center
+            tc.verifySize(G, [9 2]);
+            tc.verifyEqual(max(abs(G(:))), fov, 'AbsTol', 1e-15, 'grid must span +-fov');
+            tc.verifyEqual(nnz(all(abs(G) < 1e-15, 2)), 1, 'grid must include (0,0)');
+            G0 = macos.design.field_grid(fov, 3, 'origin', false);
+            tc.verifySize(G0, [8 2]);                       % center dropped
+            tc.verifyEqual(nnz(all(abs(G0) < 1e-15, 2)), 0, 'origin=false must drop center');
+            Ga = macos.design.field_grid(1.0, 3, 'units','arcmin');   % arcmin -> rad
+            tc.verifyEqual(max(abs(Ga(:))), fov, 'RelTol', 1e-12, 'arcmin units mismatch');
+            C = macos.design.field_cross(fov, 3);           % 4 tips + shared center
+            tc.verifySize(C, [5 2]);
+            C0 = macos.design.field_cross(fov, 3, 'origin', false);
+            tc.verifySize(C0, [4 2]);                       % the 4 arm tips
+            tc.verifyEqual(sort(C0(:,1)).', [-fov 0 0 fov], 'AbsTol', 1e-15);
+        end
+
+        function test_optimize_area_grid_dedup(tc)
+            % optimize() accepts a full 2-D AREA grid INCLUDING the (0,0)
+            % center; the on-axis row is dropped (it is the implicit field 1)
+            % so n_fov is NOT inflated, and the area is balanced.
+            fov = deg2rad(1.0/60);
+            G = macos.design.field_grid(fov, 3);            % 9 pts incl center
+            t = tc.make_tma_();  t.build();
+            res = t.optimize('fields', G, 'max_iters', 60);
+            tc.verifyTrue(res.converged, 'area-grid CALIB did not converge');
+            % 9 grid points, center de-duped vs the implicit on-axis field
+            % -> 1 + 8 = 9 FoV (NOT 1 + 9 = 10)
+            tc.verifyEqual(res.n_fov, 9, 'on-axis grid point not de-duped');
+            tc.verifySize(res.fields_xy_arcmin, [9 2]);
+            tc.verifyLessThan(max(res.wfe_after), 5e-8, ...
+                sprintf('area optimize not diffraction-limited: %.3e m', max(res.wfe_after)));
+        end
     end
 end
