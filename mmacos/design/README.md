@@ -36,4 +36,5 @@ run('~/dev/MACOS_resources/mmacos/design/rc_unobscured/rc_unobscured.m');
 
 | Folder | Design |
 |---|---|
+| [`rc_onaxis/`](rc_onaxis) | Parameterized **on-axis Ritchey-Chrétien** — the classical *obscured* Cassegrain form. Aplanatic → diffraction-limited on-axis; reports first-order properties (EFL, plate scale, central obscuration) and the WFE-vs-field **astigmatism limit** that two conics cannot beat (the reason wide fields go to a TMA). The obscured baseline for the unobscured driver below. |
 | [`rc_unobscured/`](rc_unobscured) | Parameterized **unobscured off-axis Ritchey-Chrétien** (eccentric-pupil section). The off-axis distance trades against secondary size — a faster primary and/or slower system f/# shrinks the secondary and lets you go less off-axis (≈0.89·D → 0.64·D, floor ≈0.5·D). Focus behind M1. |
