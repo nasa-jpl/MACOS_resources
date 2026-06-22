@@ -9,10 +9,13 @@ function [K, t_focus, EFL] = seidel_seed(R, t_between, D)
 %   paraxial focus distance t_focus (last mirror -> image) and |EFL|.
 %
 %   Inputs (consistent units; metres in the design layer):
-%     R         1xN mirror vertex radii in the n-flip convention, SIGNED
-%               (R > 0 = concave/converging, R < 0 = convex).  The Seidel
-%               math is sign-correct (uses 1/R), so a convex secondary
-%               (Cassegrain feed) is fine; the emitter stores KrElt = -R.
+%     R         1xN mirror vertex radii as POSITIVE MAGNITUDES in the n-flip
+%               unfolded model (the validated reference is all-positive:
+%               seidel_seed([8 2 4],[3 4.5],1) -> f/8 with a convex secondary).
+%               Convexity is the GEOMETRY (a secondary before the M1 focus,
+%               t1 < f1), not the radius sign -- a negative R here would
+%               corrupt the paraxial trace.  The emitter stores KrElt = -|R|
+%               for every mirror (MACOS convention; see j18mono's convex SM).
 %     t_between 1x(N-1) vertex spacings M1->M2, ..., M(N-1)->MN.
 %     D         aperture diameter.
 %

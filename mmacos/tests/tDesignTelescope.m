@@ -635,21 +635,37 @@ classdef tDesignTelescope < matlab.unittest.TestCase
         end
 
         function test_add_mirror_convex_secondary(tc)
-            % add_mirror accepts a NEGATIVE (convex) radius; the sign
-            % propagates to KrElt = -R, so a convex secondary emits KrElt > 0.
-            % The old builder forced KrElt = -abs(R) (concave only); seidel_seed
-            % is sign-correct (uses 1/R).  Cassegrain-feed / JWST-style TMAs
-            % need this.
+            % A convex secondary uses the SAME MACOS convention as any mirror:
+            % KrElt = -|R| (negative).  It is convex by GEOMETRY -- it sits
+            % before the M1 focus (Cassegrain spacing, t1 < f1), so the beam
+            % reflects away from its centre of curvature (j18mono's convex SM).
+            % The radius is a positive MAGNITUDE (the n-flip Seidel seed needs
+            % it; a signed radius would corrupt the paraxial trace).  This is
+            % the validated f/8 Korsch [8 2 4] / [3 4.5]: M2 (R=2) sits before
+            % the M1 focus (f1 = 4), so M2 is the convex secondary.
             t = macos.design.Telescope('family','TMA', 'aperture_diameter_m',1.0, ...
                 'model_size',tc.ModelSize, 'grid_npts',tc.GridNpts);
-            t.add_mirror('M1','radius_m', 8.0, 'spacing_after_m',3.0);
-            t.add_mirror('M2','radius_m',-3.0, 'spacing_after_m',5.0);   % CONVEX
-            t.add_mirror('M3','radius_m', 1.2, 'spacing_after','derive');
-            t.build('', 'validate', false);          % geometry + sign only
-            tc.verifyGreaterThan(t.spec.elt(2).Kr, 0, ...
-                'convex secondary must emit KrElt > 0 (was forced negative before)');
-            tc.verifyEqual(t.spec.elt(1).Kr, -8.0, 'AbsTol', 1e-9, ...
-                'concave primary must stay KrElt = -R < 0');
+            t.add_mirror('M1','radius_m',8.0, 'spacing_after_m',3.0);
+            t.add_mirror('M2','radius_m',2.0, 'spacing_after_m',4.5);   % convex (t1<f1)
+            t.add_mirror('M3','radius_m',4.0, 'spacing_after','derive');
+            t.build();
+            % KrElt = -|R| for EVERY mirror, convex secondary included.
+            tc.verifyEqual(t.spec.elt(1).Kr, -8.0, 'AbsTol',1e-9, ...
+                'concave primary must be KrElt = -|R|');
+            tc.verifyEqual(t.spec.elt(2).Kr, -2.0, 'AbsTol',1e-9, ...
+                'CONVEX secondary must STILL be KrElt = -|R| (convention, not a sign flip)');
+            % convexity is the geometry: M2 sits before the M1 focus (t1 < f1).
+            f1 = abs(t.spec.elt(1).Kr)/2;
+            tc.verifyLessThan(t.spec.derived.t(1), f1, ...
+                'convex secondary must sit before the M1 focus (Cassegrain spacing)');
+            % and it actually TRACES (the old sign-only test never did).
+            s = macos.trace(numel(t.spec.elt));
+            tc.verifyGreaterThan(s.nRays, 0, 'convex-secondary TMA failed to trace');
+            tc.verifyTrue(isfinite(s.rmsWFE), 'convex-secondary TMA WFE not finite');
+            % a signed radius is rejected -- magnitudes only (a fresh object).
+            t2 = macos.design.Telescope('family','TMA', 'aperture_diameter_m',1.0);
+            tc.verifyError(@() t2.add_mirror('M1','radius_m',-3.0, 'spacing_after_m',1.0), ...
+                'macos:design:Telescope:sign', 'signed radius must be rejected (magnitudes only)');
         end
 
         function test_rc_unobscured_decenter_shrinks_with_mag(tc)
