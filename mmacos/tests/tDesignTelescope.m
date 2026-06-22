@@ -669,5 +669,23 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'higher-mag RC should need less off-axis decenter');
             tc.verifyGreaterThan(d_hi, 0.5, 'decenter cannot beat the D/2 floor');
         end
+
+        function test_rc_onaxis_obscured_aplanat(tc)
+            % The on-axis RC (design/rc_onaxis) is an obscured aplanat:
+            % diffraction-limited on-axis, with a real central obscuration the
+            % secondary casts (~0.19 for f/2 + f/10).
+            t = macos.design.Telescope('family','RC', 'aperture_diameter_m',1.0, ...
+                'primary_fnum',2.0, 'system_fnum',10.0, 'BFD_m',0.30, ...
+                'wavelength_m',633e-9, 'model_size',tc.ModelSize);
+            t.build();
+            s = macos.trace(numel(t.spec.elt));
+            tc.verifyLessThan(s.rmsWFE, 5e-8, ...
+                'on-axis RC not diffraction-limited (should be an aplanat)');
+            rep = t.check_clipping('noload', true, 'quiet', true);
+            iM2 = find(strcmp({rep.name}, 'M2'), 1);
+            eps_o = 2 * rep(iM2).foot_r;          % obscuration ratio (D = 1)
+            tc.verifyGreaterThan(eps_o, 0.05, 'expected a real central obscuration');
+            tc.verifyLessThan(eps_o, 0.5, 'central obscuration unreasonably large');
+        end
     end
 end
