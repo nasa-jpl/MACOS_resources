@@ -144,7 +144,7 @@ classdef Telescope < handle
                 error('macos:design:Telescope:add_mirror:family', ...
                     'add_mirror is for N-mirror families (family=%s).', obj.spec.family);
             end
-            R = obj.pick_len_(opts.radius_m, opts.radius_mm, 'radius');
+            R = obj.pick_len_(opts.radius_m, opts.radius_mm, 'radius', true);
             derive = strcmpi(strtrim(opts.spacing_after), 'derive');
             if derive
                 t = NaN;
@@ -1159,11 +1159,14 @@ classdef Telescope < handle
             % offset for an XZ view, etc.), not just the in-plane coordinate;
             % otherwise an off-axis section is drawn at the wrong depth.
             cwc = obj.beam_offplane_(plane, cW, istart, iend, nE);
-            % label placement with vertical collision avoidance so coincident
-            % surfaces (an image Return + the FP at the same plane) don't
-            % overwrite each other.
+            % label placement: stack labels that would overlap (TEXT-WIDTH
+            % aware, not just point distance) and draw a thin leader to the
+            % element, so clustered optics (secondary + exit pupil + image
+            % return) stay readable.
             Vspan = max(b.V(:)) - min(b.V(:));  if Vspan <= 0, Vspan = 1; end
-            vstep = 0.07 * Vspan;  placed = zeros(0,2);
+            gap   = 0.075 * Vspan;              % vertical stack step
+            cw    = 0.022 * Vspan;              % approx char width (font 8)
+            placed = zeros(0,3);                % [u, v, text-width]
             for k = max(1,istart):iend
                 if ismember(k, hide), continue; end
                 e = obj.spec.elt(k);
@@ -1188,13 +1191,25 @@ classdef Telescope < handle
                 if strcmp(e.kind,'FocalPlane'), col = 'm';
                 elseif strcmp(e.kind,'Return'), col = [0 .6 0]; end
                 plot(ax, su, sv, 'Color',col, 'LineWidth',2.4, 'HandleVisibility','off');
-                lu = e.Vpt(cU);  lv = e.Vpt(cV);
-                if ~isempty(cen), lu = cen(1);  lv = cen(2); end   % label at section
-                while ~isempty(placed) && ...
-                      any(hypot(placed(:,1)-lu, placed(:,2)-lv) < 1.3*vstep)
-                    lv = lv + vstep;           % bump up until clear of placed labels
+                lu0 = e.Vpt(cU);  lv0 = e.Vpt(cV);
+                if ~isempty(cen), lu0 = cen(1);  lv0 = cen(2); end  % element point
+                lu = lu0;  lv = lv0;
+                w  = (numel(e.name)+2) * cw;       % approx rendered text width
+                bumped = true;
+                while bumped                       % stack up until no overlap
+                    bumped = false;
+                    for r = 1:size(placed,1)
+                        xov = (lu < placed(r,1)+placed(r,3)) && (placed(r,1) < lu+w);
+                        if xov && abs(lv-placed(r,2)) < gap
+                            lv = lv + gap;  bumped = true;  break;
+                        end
+                    end
                 end
-                placed = [placed; lu lv];      %#ok<AGROW>
+                placed = [placed; lu lv w];        %#ok<AGROW>
+                if abs(lv-lv0) > 1e-9              % offset -> thin leader line
+                    plot(ax, [lu0 lu], [lv0 lv], '-', 'Color',[.65 .65 .65], ...
+                         'LineWidth',0.4, 'HandleVisibility','off');
+                end
                 text(ax, lu, lv, ['  ' e.name], 'FontSize',8, 'Interpreter','none');
             end
             axis(ax, 'equal');  grid(ax, 'on');  box(ax, 'on');
@@ -1619,8 +1634,11 @@ classdef Telescope < handle
             end
         end
 
-        function L = pick_len_(~, v_m, v_mm, name)
+        function L = pick_len_(~, v_m, v_mm, name, allow_signed)
         %PICK_LEN_  Resolve a length given _m and/or _mm forms (SI metres out).
+        %   allow_signed (default false) permits a NEGATIVE value -- used for a
+        %   mirror RADIUS (R < 0 = convex secondary), where the sign matters.
+            if nargin < 5, allow_signed = false; end
             has_m = ~isnan(v_m); has_mm = ~isnan(v_mm);
             if has_m && has_mm
                 error('macos:design:Telescope:dupUnit', ...
@@ -1631,7 +1649,11 @@ classdef Telescope < handle
                 error('macos:design:Telescope:missing', ...
                     '%s is required (give %s_m or %s_mm).', name, name, name);
             end
-            if ~(L > 0)
+            if allow_signed
+                if L == 0
+                    error('macos:design:Telescope:sign', '%s must be nonzero.', name);
+                end
+            elseif ~(L > 0)
                 error('macos:design:Telescope:sign', '%s must be positive.', name);
             end
         end
@@ -1703,11 +1725,11 @@ classdef Telescope < handle
             apr = repmat(0.5*D, 1, N);  apr(1) = 0.55*D;   % generous defaults
 
             elts = obj.new_elt_(mir(1).name, 'Reflector', [0 0 z(1)], ...
-                    [0 0 -1], -abs(R(1)), apr(1), 'derived(tma+seidel)', t(1));
+                    [0 0 -1], -R(1), apr(1), 'derived(tma+seidel)', t(1));
             elts.Kc = K(1);
             for k = 2:N
                 e = obj.new_elt_(mir(k).name, 'Reflector', [0 0 z(k)], ...
-                    [0 0 -1], -abs(R(k)), apr(k), 'derived(tma+seidel)', t(k));
+                    [0 0 -1], -R(k), apr(k), 'derived(tma+seidel)', t(k));
                 e.Kc = K(k);
                 elts(k) = e;                     %#ok<AGROW>
             end
@@ -1779,7 +1801,7 @@ classdef Telescope < handle
         %   sits at the correct depth instead of the y=0 sag.  (Assumes the
         %   out-of-plane axis is ~perpendicular to psi -- true for pinned-axis
         %   off-axis sections; tilted folds would need a full 3-D slice.)
-            R = abs(e.Kr);  Kc = e.Kc;
+            Rsig = -e.Kr;  Kc = e.Kc;   % signed radius (concave > 0, convex < 0)
             apr = e.ap_r;
             if nargin >= 5 && extent > 0, apr = extent; end
             vu = e.Vpt(cU);  vv = e.Vpt(cV);
@@ -1792,12 +1814,13 @@ classdef Telescope < handle
             end
             w = 0;  if nargin >= 7 && ~isempty(woff), w = woff; end   % out-of-plane offset
             h = linspace(h0-apr, h0+apr, 41);
-            if R > 1e15
+            if abs(Rsig) > 1e15
                 s = zeros(size(h));                  % flat (FP / Return)
             else
+                c    = 1/Rsig;                       % signed curvature
                 r2   = h.^2 + w.^2;                  % full transverse radius^2
-                disc = R^2 - (1+Kc)*r2;  disc(disc < 0) = 0;
-                s = r2 ./ (R + sqrt(disc));
+                disc = 1 - (1+Kc)*c^2*r2;  disc(disc < 0) = 0;
+                s = c*r2 ./ (1 + sqrt(disc));        % signed sag (convex -> s < 0)
             end
             su = vu + h.*tu + s.*pu;                  % vertex + h*t + sag*psi
             sv = vv + h.*tv + s.*pv;

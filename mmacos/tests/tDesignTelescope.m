@@ -633,5 +633,41 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyLessThan(max(res.wfe_after), 5e-8, ...
                 sprintf('area optimize not diffraction-limited: %.3e m', max(res.wfe_after)));
         end
+
+        function test_add_mirror_convex_secondary(tc)
+            % add_mirror accepts a NEGATIVE (convex) radius; the sign
+            % propagates to KrElt = -R, so a convex secondary emits KrElt > 0.
+            % The old builder forced KrElt = -abs(R) (concave only); seidel_seed
+            % is sign-correct (uses 1/R).  Cassegrain-feed / JWST-style TMAs
+            % need this.
+            t = macos.design.Telescope('family','TMA', 'aperture_diameter_m',1.0, ...
+                'model_size',tc.ModelSize, 'grid_npts',tc.GridNpts);
+            t.add_mirror('M1','radius_m', 8.0, 'spacing_after_m',3.0);
+            t.add_mirror('M2','radius_m',-3.0, 'spacing_after_m',5.0);   % CONVEX
+            t.add_mirror('M3','radius_m', 1.2, 'spacing_after','derive');
+            t.build('', 'validate', false);          % geometry + sign only
+            tc.verifyGreaterThan(t.spec.elt(2).Kr, 0, ...
+                'convex secondary must emit KrElt > 0 (was forced negative before)');
+            tc.verifyEqual(t.spec.elt(1).Kr, -8.0, 'AbsTol', 1e-9, ...
+                'concave primary must stay KrElt = -R < 0');
+        end
+
+        function test_rc_unobscured_decenter_shrinks_with_mag(tc)
+            % The unobscured off-axis RC (design/rc_unobscured) decenter is set
+            % by the secondary's SHADOW, so a smaller secondary -- higher
+            % magnification, i.e. a faster primary + slower system f/# -- needs
+            % LESS off-axis decenter (geometric floor ~ D/2).
+            t1 = macos.design.Telescope('family','RC', 'aperture_diameter_m',1.0, ...
+                'primary_fnum',2.0, 'system_fnum',10.0, 'BFD_m',0.30, ...
+                'wavelength_m',633e-9, 'model_size',tc.ModelSize);
+            t1.build();  d_lo = t1.set_offaxis('all');     % m = 5
+            t2 = macos.design.Telescope('family','RC', 'aperture_diameter_m',1.0, ...
+                'primary_fnum',1.5, 'system_fnum',20.0, 'BFD_m',0.30, ...
+                'wavelength_m',633e-9, 'model_size',tc.ModelSize);
+            t2.build();  d_hi = t2.set_offaxis('all');     % m = 13.3 (smaller secondary)
+            tc.verifyLessThan(d_hi, d_lo, ...
+                'higher-mag RC should need less off-axis decenter');
+            tc.verifyGreaterThan(d_hi, 0.5, 'decenter cannot beat the D/2 floor');
+        end
     end
 end
