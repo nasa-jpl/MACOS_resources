@@ -1,0 +1,9 @@
+# Generated artifacts + the externally-provided j18 reference prescription.
+# Regenerate:
+#   cp <macos j18mono.in> ./j18mono.in        # the JPL early-JWST reference seed
+#   python3 scale_j18.py 1000                 # -> j18_scaled.in (D=1 m)
+#   matlab -batch "run('tma_onaxis.m')"       # from-scratch Korsch driver
+*.png
+*.mat
+*.in
+__pycache__/
