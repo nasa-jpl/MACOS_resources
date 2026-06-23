@@ -151,7 +151,7 @@ classdef Telescope < handle
                 error('macos:design:Telescope:add_mirror:family', ...
                     'add_mirror is for N-mirror families (family=%s).', obj.spec.family);
             end
-            R = obj.pick_len_(opts.radius_m, opts.radius_mm, 'radius');
+            R = obj.pick_len_(opts.radius_m, opts.radius_mm, 'radius', true);
             derive = strcmpi(strtrim(opts.spacing_after), 'derive');
             if derive
                 t = NaN;
@@ -589,6 +589,46 @@ classdef Telescope < handle
                 'fields_arcmin',rad2deg(fxy(:,2)).'*60, ...  % y-angles only (back-compat)
                 'wfe_before',r.old_wfe(:,1).', 'wfe_after',r.new_wfe(:,1).', ...
                 'conics',Kopt, 'var_elts',var_elts, 'wavelength',obj.spec.wavelength);
+        end
+
+        function res = optimize_aspheres(obj, elts, opts)
+        %OPTIMIZE_ASPHERES  Refine even-radial AsphCoef (h^4, h^6, ...) on the
+        %   given mirror ELTS to minimise on-axis RMS WFE -- the higher-order
+        %   spherical the conic seed cannot reach at a fast primary.  Radii and
+        %   conics are HELD (preserving the first-order f/# layout); aspheres
+        %   are layered on, so the mirror emits Surface=Aspheric.  Nelder-Mead
+        %   over scaled coefficients; each eval re-emits the spec and traces.
+        %
+        %   t.optimize_aspheres([1 3], 'nterms',3)   % M1 + M3, h^4/h^6/h^8
+            arguments
+                obj
+                elts (1,:) double {mustBeInteger, mustBePositive}
+                opts.nterms    (1,1) double = 3      % h^4, h^6, h^8
+                opts.max_evals (1,1) double = 300
+                opts.xmax      (1,1) double = 25     % |scaled coeff| bound (~waves)
+            end
+            D = obj.spec.in.D;  lam = obj.spec.wavelength;  h = D/2;
+            nt = opts.nterms;  ne = numel(elts);
+            scale = lam ./ h.^(2*(1:nt)+2);          % x~O(1) -> ~lam of sag
+            function ww = ev(x)
+                % bound the search -- extreme aspheres make rays miss/NaN and
+                % SIGSEGV the engine (uncatchable); keep fminsearch in range.
+                if any(abs(x) > opts.xmax), ww = 1e3; return; end
+                xi = reshape(x, nt, ne);
+                for j = 1:ne
+                    obj.spec.elt(elts(j)).asph = xi(:,j).' .* scale;
+                end
+                obj.build('', 'init', false);        % re-emit spec + reload
+                s  = macos.trace(numel(obj.spec.elt));
+                ww = s.rmsWFE / lam;
+                if ~isfinite(ww), ww = 1e3; end
+            end
+            w0 = ev(zeros(nt*ne, 1));                % baseline (asph = 0)
+            o  = optimset('MaxFunEvals',opts.max_evals, 'MaxIter',opts.max_evals, ...
+                          'TolFun',1e-4, 'TolX',1e-3, 'Display','off');
+            [xo, wf] = fminsearch(@ev, zeros(nt*ne,1), o);
+            ev(xo);                                  % leave optimum set + loaded
+            res = struct('wfe_before',w0, 'wfe_after',wf, 'elts',elts, 'nterms',nt);
         end
 
         function fig = diagram(obj, opts)
@@ -1443,9 +1483,9 @@ classdef Telescope < handle
             e1.zElt = sep;  e2.zElt = sep + bfd;  e3.zElt = 1.0e20;
             % pole/nrm/ap/ap_rect complete the canonical schema (empty = on-axis
             % section, no measured aperture)
-            [e1.pole,e1.nrm,e1.ap,e1.ap_rect, ...
-             e2.pole,e2.nrm,e2.ap,e2.ap_rect, ...
-             e3.pole,e3.nrm,e3.ap,e3.ap_rect] = deal([]);
+            [e1.pole,e1.nrm,e1.ap,e1.ap_rect,e1.asph, ...
+             e2.pole,e2.nrm,e2.ap,e2.ap_rect,e2.asph, ...
+             e3.pole,e3.nrm,e3.ap,e3.ap_rect,e3.asph] = deal([]);
             obj.spec.elt = [e1 e2 e3];
         end
 
@@ -1544,13 +1584,29 @@ classdef Telescope < handle
                 L{end+1} = sprintf('             iElt=  %d', k);                  %#ok<AGROW>
                 L{end+1} = ['          EltName=  ' e.name];
                 L{end+1} = ['          Element=  ' e.kind];
+                hasAsph = isfield(e,'asph') && ~isempty(e.asph) && any(e.asph ~= 0);
                 if strcmp(e.kind,'FocalPlane')
                     L{end+1} = '          Surface=  Flat';
+                elseif hasAsph
+                    L{end+1} = '          Surface=  Aspheric';                     %#ok<AGROW>
                 else
                     L{end+1} = '          Surface=  Conic';
                 end
                 L{end+1} = sprintf('            KrElt=%.16E', e.Kr);
                 L{end+1} = sprintf('            KcElt=%.16E', e.Kc);
+                if hasAsph
+                    % conic base + AsphCoef (even radial terms h^4,h^6,...).
+                    % Parser reads in GROUPS OF 4 per line (crashes otherwise);
+                    % count must precede the coefficient array.
+                    a = e.asph(:).';  na = numel(a);
+                    L{end+1} = sprintf('        nAsphCoef=  %d', na);              %#ok<AGROW>
+                    L{end+1} = ['         AsphCoef=  ' ...                          %#ok<AGROW>
+                                strtrim(sprintf('%.16E ', a(1:min(4,na))))];
+                    for g = 5:4:na
+                        L{end+1} = ['                    ' ...                      %#ok<AGROW>
+                                    strtrim(sprintf('%.16E ', a(g:min(g+3,na))))];
+                    end
+                end
                 % Off-axis section (engine-true, ConSrf surfsub.F:82): the
                 % conic sag is measured from VptElt (parent VERTEX) along
                 % psiElt (parent AXIS); RptElt is the section POLE -- the point
@@ -1641,12 +1697,15 @@ classdef Telescope < handle
             end
         end
 
-        function L = pick_len_(~, v_m, v_mm, name)
+        function L = pick_len_(~, v_m, v_mm, name, allow_signed)
         %PICK_LEN_  Resolve a length given _m and/or _mm forms (SI metres out).
-        %   All design-layer lengths are POSITIVE magnitudes -- including a
-        %   mirror radius, where convexity is encoded by geometry (Cassegrain
-        %   spacing), not the radius sign (see add_mirror / the MACOS KrElt=-|R|
-        %   convention).
+        %   allow_signed (default false) permits a NEGATIVE value -- used for a
+        %   mirror RADIUS in the n-flip Seidel convention, where a slowing relay
+        %   tertiary (whose beam has crossed an intermediate focus) carries a
+        %   negative n-flip radius.  KrElt is still emitted as -|R| (always
+        %   negative); the sign only drives the Seidel conic/focus math.  All
+        %   other lengths stay positive.
+            if nargin < 5, allow_signed = false; end
             has_m = ~isnan(v_m); has_mm = ~isnan(v_mm);
             if has_m && has_mm
                 error('macos:design:Telescope:dupUnit', ...
@@ -1657,7 +1716,11 @@ classdef Telescope < handle
                 error('macos:design:Telescope:missing', ...
                     '%s is required (give %s_m or %s_mm).', name, name, name);
             end
-            if ~(L > 0)
+            if allow_signed
+                if L == 0
+                    error('macos:design:Telescope:sign', '%s must be nonzero.', name);
+                end
+            elseif ~(L > 0)
                 error('macos:design:Telescope:sign', '%s must be positive.', name);
             end
         end
@@ -1671,7 +1734,7 @@ classdef Telescope < handle
             e = struct('name',name, 'kind',kind, 'Vpt',Vpt(:).', ...
                        'psi',psi(:).', 'Kr',Kr, 'Kc',0.0, 'ap_r',ap_r, ...
                        'provenance',prov, 'zElt',zElt, 'pole',[], 'nrm',[], ...
-                       'ap',[], 'ap_rect',[]);   % measured clear apertures
+                       'ap',[], 'ap_rect',[], 'asph',[]);   % asph = AsphCoef row
         end
 
         function tf = is_nmirror_(obj)

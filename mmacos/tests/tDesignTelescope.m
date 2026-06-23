@@ -639,10 +639,11 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % KrElt = -|R| (negative).  It is convex by GEOMETRY -- it sits
             % before the M1 focus (Cassegrain spacing, t1 < f1), so the beam
             % reflects away from its centre of curvature (j18mono's convex SM).
-            % The radius is a positive MAGNITUDE (the n-flip Seidel seed needs
-            % it; a signed radius would corrupt the paraxial trace).  This is
-            % the validated f/8 Korsch [8 2 4] / [3 4.5]: M2 (R=2) sits before
-            % the M1 focus (f1 = 4), so M2 is the convex secondary.
+            % A POSITIVE radius is the normal case (convex by geometry); a
+            % NEGATIVE n-flip radius is also accepted and still emits KrElt<0
+            % (see the signed-radius assertion below).  This is the validated f/8
+            % Korsch [8 2 4] / [3 4.5]: M2 (R=2) sits before the M1 focus (f1=4),
+            % so M2 is the convex secondary.
             t = macos.design.Telescope('family','TMA', 'aperture_diameter_m',1.0, ...
                 'model_size',tc.ModelSize, 'grid_npts',tc.GridNpts);
             t.add_mirror('M1','radius_m',8.0, 'spacing_after_m',3.0);
@@ -662,10 +663,20 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             s = macos.trace(numel(t.spec.elt));
             tc.verifyGreaterThan(s.nRays, 0, 'convex-secondary TMA failed to trace');
             tc.verifyTrue(isfinite(s.rmsWFE), 'convex-secondary TMA WFE not finite');
-            % a signed radius is rejected -- magnitudes only (a fresh object).
-            t2 = macos.design.Telescope('family','TMA', 'aperture_diameter_m',1.0);
-            tc.verifyError(@() t2.add_mirror('M1','radius_m',-3.0, 'spacing_after_m',1.0), ...
-                'macos:design:Telescope:sign', 'signed radius must be rejected (magnitudes only)');
+            % a NEGATIVE n-flip radius is ACCEPTED (a slowing relay tertiary past
+            % an intermediate focus carries one) and still emits KrElt=-|R| < 0 --
+            % the sign drives only the Seidel conic/focus math, never KrElt.
+            t2 = macos.design.Telescope('family','TMA', 'aperture_diameter_m',1.0, ...
+                'model_size',tc.ModelSize, 'grid_npts',tc.GridNpts);
+            t2.add_mirror('M1','radius_m', 8.0, 'spacing_after_m',3.0);
+            t2.add_mirror('M2','radius_m',-2.0, 'spacing_after_m',4.5);   % signed (n-flip)
+            t2.add_mirror('M3','radius_m', 4.0, 'spacing_after','derive');
+            t2.build('', 'validate', false);                             % geometry/sign only
+            tc.verifyLessThan(t2.spec.elt(2).Kr, 0, ...
+                'signed n-flip radius must still emit KrElt = -|R| < 0');
+            % a ZERO radius is still rejected.
+            tc.verifyError(@() t2.add_mirror('Mx','radius_m',0.0, 'spacing_after','derive'), ...
+                'macos:design:Telescope:sign');
         end
 
         function test_rc_unobscured_decenter_shrinks_with_mag(tc)
