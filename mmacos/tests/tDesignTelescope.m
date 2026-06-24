@@ -53,6 +53,20 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             t.add_mirror('M3','radius_m',4.0,'spacing_after','derive');
         end
 
+        function t = make_sz_tma_(tc)
+        %MAKE_SZ_TMA_  e5mono-derived sphere+Zernike unobscured TMA: M1 concave +
+        %   M2 CONVEX (real intermediate image) + M3 concave, all base spheres
+        %   (Kc=0), folded to clear the beam.  D=8 m, f/21.
+            t = macos.design.Telescope('family','TMA', ...
+                'aperture_diameter_m',8.0, 'model_size',tc.ModelSize, ...
+                'grid_npts',tc.GridNpts, 'wavelength_m',1e-6);
+            t.set_base_sphere(true);
+            t.add_mirror('M1','radius_m',51.534,'spacing_after_m',22.0,'tilt_deg',-7.2);
+            t.add_mirror('M2','radius_m', 8.871,'spacing_after_m',28.0,'tilt_deg', 8.46,'convex',true);
+            t.add_mirror('M3','radius_m', 3.0,  'spacing_after','derive','tilt_deg',12.0);
+            t.add_focal_plane('FP');
+        end
+
         function v = parse_vec3_(~, txt, key)
         %PARSE_VEC3_  Extract the 3-vector after 'KEY=' in emitted Rx text.
         %   Lookbehind excludes OptChfRayDir/Pos (KEY is a suffix of those).
@@ -90,6 +104,127 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             s = macos.trace();
             tc.verifyLessThan(s.rmsWFE, tc.WfeTol, ...
                 sprintf('classical Cassegrain not spherical-free: %.3e', s.rmsWFE));
+        end
+
+        function test_set_freeform_zernike_bites(tc)
+        %TEST_SET_FREEFORM_ZERNIKE_BITES  A Zernike departure layered on a
+        %   spherical-free Cassegrain mirror must (a) emit Surface=Zernike,
+        %   (b) measurably deform the traced wavefront -- the engine actually
+        %   applies it -- and (c) round-trip through save/load.  Guards the
+        %   freeform DOF against a silent no-op (the ZernTypeL=0 trace-dispatch
+        %   trap documented in macos/CLAUDE.md).
+            t  = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            t.build();
+            s0 = macos.trace();                          % spherical-free baseline
+            tc.verifyLessThan(s0.rmsWFE, tc.WfeTol, ...
+                sprintf('baseline not spherical-free: %.3e', s0.rmsWFE));
+
+            % 2 um of surface astigmatism (ANSI mode 6) on M1 -- a pure non-
+            % rotationally-symmetric term the conic baseline has zero of, so it
+            % shows up directly in the wavefront (not absorbed by refocus).
+            t.set_freeform(1, 6, 2e-6);
+            rx = t.build();                              % re-emit + reload
+            s1 = macos.trace();
+            tc.verifyGreaterThan(s1.rmsWFE, 1e-7, ...
+                sprintf('Zernike departure did not bite (no-op?): %.3e', s1.rmsWFE));
+
+            % (a) the element emitted a Zernike surface
+            txt = fileread(rx);
+            tc.verifyNotEmpty(regexp(txt, 'Surface=\s*Zernike', 'once'), ...
+                'M1 did not emit Surface=Zernike');
+
+            % (c) round-trip: a fresh load of the saved Rx reproduces the WFE
+            macos.load_rx(rx);
+            s2 = macos.trace();
+            tc.verifyEqual(s2.rmsWFE, s1.rmsWFE, 'RelTol', 1e-9, ...
+                'freeform Rx did not round-trip through save/load');
+
+            % zeroing the departure returns to the spherical-free conic baseline
+            t.set_freeform(1, 6, 0);
+            t.build();
+            s3 = macos.trace();
+            tc.verifyEqual(s3.rmsWFE, s0.rmsWFE, 'AbsTol', 10*tc.WfeTol, ...
+                'zeroing the Zernike did not restore the conic baseline');
+        end
+
+        function test_optimize_freeform_corrects_injected(tc)
+        %TEST_OPTIMIZE_FREEFORM_CORRECTS_INJECTED  optimize_freeform must drive
+        %   a known injected Zernike departure back out -- proving the optimize
+        %   loop (re-emit + trace + minimise, radii/conics held) actually
+        %   closes.  On-axis, single mode: well-posed and fast.
+            t = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            t.set_freeform(1, 6, 2e-6);                  % inject 2 um astig on M1
+            t.build();  s_err = macos.trace();
+            tc.verifyGreaterThan(s_err.rmsWFE, 1e-7, 'injected error not present');
+
+            % on-axis only (fields_arcmin=[]): well-posed 1-DOF removal via the
+            % native CALIB OptZern channel (radii/conics held).
+            res   = t.optimize_freeform(1, 'modes',6, 'fields_arcmin',[], 'max_iters',60);
+            s_fix = macos.trace();
+            tc.verifyLessThan(s_fix.rmsWFE, s_err.rmsWFE/10, ...
+                sprintf('did not correct injected astig: %.3e -> %.3e', ...
+                        s_err.rmsWFE, s_fix.rmsWFE));
+            tc.verifyLessThan(res.wfe_after(1), res.wfe_before(1)/10, ...
+                'reported merit did not improve');
+        end
+
+        function test_base_sphere_zeros_conics(tc)
+        %TEST_BASE_SPHERE_ZEROS_CONICS  set_base_sphere -> every mirror Kc=0
+        %   (the Seidel conic seed is skipped; correction is all-Zernike).
+            t = tc.make_sz_tma_();  t.build();
+            for k = 1:3
+                tc.verifyEqual(t.spec.elt(k).Kc, 0.0, ...
+                    sprintf('mirror %d conic not zero under base_sphere', k));
+            end
+        end
+
+        function test_convex_secondary_reproduces_e5mono(tc)
+        %TEST_CONVEX_SECONDARY_REPRODUCES_E5MONO  the convex psi-flip emits M1/M2
+        %   surface normals matching the e5mono reference (downstream centre of
+        %   curvature for the convex secondary), to 1e-3.
+            t = tc.make_sz_tma_();  t.build();
+            tc.verifyEqual(t.spec.elt(1).psi, [0 -0.125333 -0.992115], ...
+                'AbsTol',1e-3, 'M1 psi vs e5mono');
+            tc.verifyEqual(t.spec.elt(2).psi, [0 -0.103482 -0.994631], ...
+                'AbsTol',1e-3, 'M2 (convex) psi vs e5mono');
+        end
+
+        function test_convex_aware_focus(tc)
+        %TEST_CONVEX_AWARE_FOCUS  paraxial_focus_ recovers the true f/# of a
+        %   convex-secondary reimager (~f/21); the Seidel |radii| n-flip model
+        %   mis-derives it (f/0.6).  Guards the convex-focus regression.
+            t = tc.make_sz_tma_();  t.build();
+            tc.verifyGreaterThan(t.spec.derived.fnum, 18, ...
+                'convex-aware f/# too small -- seidel focus leaked through?');
+            tc.verifyLessThan(t.spec.derived.fnum, 25, 'convex-aware f/# too large');
+        end
+
+        function test_zernmodes_single_line_emit_loads(tc)
+        %TEST_ZERNMODES_SINGLE_LINE_EMIT_LOADS  >6 Zernike modes on a Surface=
+        %   Zernike element must emit ZernModes on ONE line; wrapping at 6/row
+        %   crashed the parser with a list-directed EOF (msmacosio.inc:1733).
+            t = tc.make_sz_tma_();
+            t.set_freeform(1, [3 4 5 9 11 12 13 19], zeros(1,8), 'type','BornWolf');
+            rx = t.build();                          % re-emit + load; must not crash
+            tc.verifyTrue(macos.has_rx(), 'Rx with 8 Zernike modes failed to load');
+            line = regexp(fileread(rx), 'ZernModes=[^\n]*', 'match', 'once');
+            tc.verifyEqual(numel(regexp(line, '\d+', 'match')), 8, ...
+                'all 8 modes must be on the single ZernModes line');
+        end
+
+        function test_base_sphere_zernike_correction(tc)
+        %TEST_BASE_SPHERE_ZERNIKE_CORRECTION  end-to-end recipe: uncorrected base
+        %   spheres are aberration-dominated; optimizing the Zernike departures
+        %   (CALIB OptZern) on-axis must crush the WFE by >100x.
+            t = tc.make_sz_tma_();  t.build();
+            macos.trace(numel(t.spec.elt));  W0 = macos.opd();
+            wfe0 = std(W0(isfinite(W0) & W0~=0));     % m
+            tc.verifyGreaterThan(wfe0/1e-6, 1000, 'base spheres should start badly aberrated');
+            res = t.optimize_freeform([1 2 3], 'modes',[3 4 5 9 11], 'type','BornWolf', ...
+                                      'fields_arcmin',[], 'max_iters',120);
+            tc.verifyLessThan(res.wfe_after, res.wfe_before/100, ...
+                sprintf('on-axis Zernike correction insufficient: %.3e -> %.3e m', ...
+                        res.wfe_before, res.wfe_after));
         end
 
         function test_gregorian_loads_spherical_free(tc)
