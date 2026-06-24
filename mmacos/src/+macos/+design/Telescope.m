@@ -138,6 +138,10 @@ classdef Telescope < handle
         %   sits BEFORE the M1 focus (Cassegrain spacing, t1 < f1), so the beam
         %   reflects away from the centre of curvature (j18mono's convex SM).
         %   The Seidel seed's n-flip paraxial model also wants magnitudes.
+        %   In the TILTED-fold path, pass 'convex',true for a secondary whose
+        %   centre of curvature is downstream of the vertex (e.g. a Cassegrain
+        %   SM): resolve_nmirror_fold_ then emits psiElt pointing to that
+        %   downstream CoC (the coaxial path infers convex from geometry).
             arguments
                 obj
                 name (1,:) char
@@ -146,6 +150,8 @@ classdef Telescope < handle
                 opts.spacing_after_m  (1,1) double = NaN
                 opts.spacing_after_mm (1,1) double = NaN
                 opts.spacing_after    (1,:) char   = ''
+                opts.tilt_deg         (1,1) double = 0     % fold tilt about x (Bauer)
+                opts.convex           (1,1) logical = false % convex: psi->downstream CoC
             end
             if ~obj.is_nmirror_()
                 error('macos:design:Telescope:add_mirror:family', ...
@@ -159,7 +165,24 @@ classdef Telescope < handle
                 t = obj.pick_len_(opts.spacing_after_m, opts.spacing_after_mm, ...
                                   'spacing_after');
             end
-            obj.spec.mirrors(end+1) = struct('name',name, 'R',R, 't',t, 'derive',derive);
+            % tilt_deg folds the chief ray at this mirror (Bauer/Schiesser/Rolland
+            % unobscuring -- TILT minimally to clear, not decenter).  0 = coaxial
+            % (the legacy path, byte-identical).  See resolve_nmirror_fold_.
+            obj.spec.mirrors(end+1) = struct('name',name, 'R',R, 't',t, ...
+                'derive',derive, 'tilt_deg',opts.tilt_deg, 'convex',opts.convex);
+            obj.spec.elt = [];                           % invalidate -> re-resolve
+        end
+
+        function set_base_sphere(obj, tf)
+        %SET_BASE_SPHERE  Hold all mirror base surfaces as spheres (Kc=0).
+        %   When true, resolve_nmirror_/_fold_ skip the Seidel conic seed and
+        %   emit pure spheres (KcElt=0); ALL aberration correction is then
+        %   carried by the Zernike departures (set_freeform + optimize_freeform).
+        %   This is the e5mono sphere+Zernike model -- the 0th-order layout
+        %   (radii + fold) sets first-order f/# and packaging, the Zernikes do
+        %   the rest, so geometry and correction fully decouple.
+            arguments, obj, tf (1,1) logical = true, end
+            obj.spec.base_sphere = tf;
             obj.spec.elt = [];                           % invalidate -> re-resolve
         end
 
@@ -589,6 +612,148 @@ classdef Telescope < handle
                 'fields_arcmin',rad2deg(fxy(:,2)).'*60, ...  % y-angles only (back-compat)
                 'wfe_before',r.old_wfe(:,1).', 'wfe_after',r.new_wfe(:,1).', ...
                 'conics',Kopt, 'var_elts',var_elts, 'wavelength',obj.spec.wavelength);
+        end
+
+        function set_freeform(obj, elt, modes, coef, opts)
+        %SET_FREEFORM  Layer a Zernike-departure (freeform) figure onto a mirror.
+        %   The conic base (KrElt/KcElt) is HELD -- preserving the first-order
+        %   f/# and EP/layout -- and the Zernike terms add the figure correction,
+        %   so the element emits Surface=Zernike (conic + Zernike departure: the
+        %   §7.1 NAT-friendly canonical freeform form, e5mono's reflective M2).
+        %   Zernike departures break rotational symmetry, so they reach the
+        %   field-dependent aberrations conics alone cannot (-> optimize_freeform).
+        %
+        %     t.set_freeform(2, [4 11], [1e-7 -3e-8])   % focus + spherical on M2
+        %     t.set_freeform(3, 5:11)                   % declare modes 5..11 (zeros)
+        %     t.set_freeform(2, [4 11], c, 'type','Fringe')
+            arguments
+                obj
+                elt   (1,1) double {mustBeInteger, mustBePositive}
+                modes (1,:) double {mustBeInteger, mustBePositive}
+                coef  (1,:) double = []
+                opts.type (1,:) char = 'ANSI'
+            end
+            if isempty(coef), coef = zeros(1, numel(modes)); end
+            if numel(coef) ~= numel(modes)
+                error('macos:design:Telescope:freeform:len', ...
+                    'modes (%d) and coef (%d) must match in length.', ...
+                    numel(modes), numel(coef));
+            end
+            if obj.is_nmirror_() && (~isfield(obj.spec,'elt') || isempty(obj.spec.elt))
+                obj.resolve_nmirror_();
+            end
+            if ~isfield(obj.spec,'elt') || isempty(obj.spec.elt)
+                error('macos:design:Telescope:freeform:noElts', ...
+                    'no elements yet -- build the telescope before set_freeform.');
+            end
+            if elt > numel(obj.spec.elt)
+                error('macos:design:Telescope:freeform:range', ...
+                    'elt %d > nElt %d.', elt, numel(obj.spec.elt));
+            end
+            if ~strcmp(obj.spec.elt(elt).kind, 'Reflector')
+                error('macos:design:Telescope:freeform:kind', ...
+                    'freeform applies to a Reflector; elt %d is %s.', ...
+                    elt, obj.spec.elt(elt).kind);
+            end
+            obj.spec.elt(elt).freeform = struct( ...
+                'modes',modes(:).', 'coef',coef(:).', 'type',opts.type);
+        end
+
+        function res = optimize_freeform(obj, elts, opts)
+        %OPTIMIZE_FREEFORM  Optimize Zernike-departure coefficients on the given
+        %   mirror ELTS over a FIELD, holding every radius and conic FIXED, using
+        %   MACOS's native multi-field design optimizer (CALIB, the OptZern DOF
+        %   channel).  This is the §7.2 method: fix the geometry (radii set the
+        %   EP/layout), then correct the wavefront with freeform departures that
+        %   don't move the first-order solution.  Freeform terms break rotational
+        %   symmetry, so they reach the field-dependent aberrations (coma/
+        %   astigmatism) conics cannot; CALIB balances them over the on-axis
+        %   field PLUS the given off-axis half-angles (the same multi-field
+        %   machinery optimize() uses for conics -- see rc_unobscured).  Radii/
+        %   conics are held by pairing OptZern with an all-zero VarElt mask, so
+        %   only the Zernike modes vary.
+        %
+        %     t.optimize_freeform(2, 'modes',[5 6 7 8], 'fields_arcmin',[2 4])
+        %     t.optimize_freeform([2 3], 'modes',5:11, 'fields',F)   % 2-D field set
+        %
+        %   fields_arcmin are the OFF-axis +y half-angles; the on-axis field is
+        %   implicit (field 1).  Returns .wfe_before/.wfe_after (per field,
+        %   metres), .fields_arcmin, .modes, .elts, .converged.
+            arguments
+                obj
+                elts (1,:) double {mustBeInteger, mustBePositive}
+                opts.modes (1,:) double {mustBeInteger,mustBePositive} = [5 6 7 8]
+                opts.fields_arcmin (1,:) double = [2 4]   % OFF-axis (on-axis implicit)
+                opts.fields (:,2) double = []             % explicit (thx,thy) offsets (rad)
+                opts.max_iters (1,1) double = 80
+                opts.target (1,:) char = 'WFE'
+                opts.type   (1,:) char = 'ANSI'
+                opts.weights (1,:) double = []
+            end
+            if obj.is_nmirror_() && (~isfield(obj.spec,'elt') || isempty(obj.spec.elt))
+                obj.resolve_nmirror_();
+            end
+            elts  = unique(elts(:).');
+            modes = opts.modes;
+            for k = elts
+                if k > numel(obj.spec.elt) || ~strcmp(obj.spec.elt(k).kind,'Reflector')
+                    error('macos:design:Telescope:optfree:kind', ...
+                        'optimize_freeform: elt %d is not a built Reflector.', k);
+                end
+                % establish/keep a Zernike surface with the requested modes,
+                % seeding from any departure already present on those modes
+                seed = zeros(1, numel(modes));
+                ff = obj.spec.elt(k).freeform;
+                if isstruct(ff) && ~isempty(ff) && isfield(ff,'modes')
+                    for i = 1:numel(modes)
+                        kk = find(ff.modes == modes(i), 1);
+                        if ~isempty(kk), seed(i) = ff.coef(kk); end
+                    end
+                end
+                obj.set_freeform(k, modes, seed, 'type', opts.type);
+            end
+
+            % off-axis eval directions about any +y bias; on-axis = field 1
+            % (replicates optimize()'s OptChfRayDir set-up exactly).
+            by = 0;  if isfield(obj.spec,'field_bias'), by = obj.spec.field_bias; end
+            if ~isempty(opts.fields)
+                F = opts.fields;  F = F(any(abs(F) > 1e-12, 2), :);
+                ax = F(:,1);  ay = by + F(:,2);
+            else
+                ax = zeros(numel(opts.fields_arcmin),1);
+                ay = by + deg2rad(opts.fields_arcmin(:)/60);
+            end
+            ax = ax(:);  ay = ay(:);
+            cz   = sqrt(max(0, 1 - sin(ax).^2 - sin(ay).^2));
+            dirs = [sin(ax), sin(ay), cz];
+            nfov = 1 + size(dirs,1);
+            w = opts.weights;  if isempty(w), w = ones(1,nfov); end
+            if numel(w) ~= nfov
+                error('macos:design:Telescope:optfree:weights', ...
+                    'weights must have 1+numel(fields) = %d entries.', nfov);
+            end
+
+            % CALIB opt block: OptZern DOF on elts, all-zero rigid/conic mask.
+            o = struct('target',opts.target, 'wf_elt',numel(obj.spec.elt), ...
+                'max_iters',opts.max_iters, 'fields',dirs, 'weights',w, ...
+                'var_elts',elts, 'dof_mask',[0 0 0 0 0 0 0 0], 'zern_elts',elts);
+            o.zern_modes  = repmat({modes}, 1, numel(elts));  % cell, assigned after
+            obj.spec.opt  = o;
+            obj.build();                              % emit Zernike surfaces + OptZern
+            r = macos.calib();
+
+            % read the optimized Zernike coefficients back into the spec
+            for k = elts
+                c = macos.get_elt_zrn_coef(k, modes(:)).';
+                obj.spec.elt(k).freeform = struct('modes',modes,'coef',c,'type',opts.type);
+            end
+            obj.spec = rmfield(obj.spec, 'opt');
+            obj.build('', 'init', false);             % clean re-emit from updated spec
+
+            res = struct('converged',r.converged, 'n_fov',r.n_fov, ...
+                'wfe_before',r.old_wfe(:,1).', 'wfe_after',r.new_wfe(:,1).', ...
+                'fields_arcmin',rad2deg(ay).'*60, 'modes',modes, 'elts',elts, ...
+                'wavelength',obj.spec.wavelength);
         end
 
         function res = optimize_aspheres(obj, elts, opts)
@@ -1483,9 +1648,9 @@ classdef Telescope < handle
             e1.zElt = sep;  e2.zElt = sep + bfd;  e3.zElt = 1.0e20;
             % pole/nrm/ap/ap_rect complete the canonical schema (empty = on-axis
             % section, no measured aperture)
-            [e1.pole,e1.nrm,e1.ap,e1.ap_rect,e1.asph, ...
-             e2.pole,e2.nrm,e2.ap,e2.ap_rect,e2.asph, ...
-             e3.pole,e3.nrm,e3.ap,e3.ap_rect,e3.asph] = deal([]);
+            [e1.pole,e1.nrm,e1.ap,e1.ap_rect,e1.asph,e1.freeform, ...
+             e2.pole,e2.nrm,e2.ap,e2.ap_rect,e2.asph,e2.freeform, ...
+             e3.pole,e3.nrm,e3.ap,e3.ap_rect,e3.asph,e3.freeform] = deal([]);
             obj.spec.elt = [e1 e2 e3];
         end
 
@@ -1585,8 +1750,20 @@ classdef Telescope < handle
                 L{end+1} = ['          EltName=  ' e.name];
                 L{end+1} = ['          Element=  ' e.kind];
                 hasAsph = isfield(e,'asph') && ~isempty(e.asph) && any(e.asph ~= 0);
+                % A freeform element emits Surface=Zernike whenever modes are
+                % DECLARED -- even with zero coefficients -- so the CALIB OptZern
+                % optimizer has a Zernike surface (ZernTypeL/=0) to perturb from
+                % a zero seed.  (Clear .freeform to revert a mirror to Conic.)
+                hasFree = isfield(e,'freeform') && ~isempty(e.freeform) ...
+                          && isstruct(e.freeform) && isfield(e.freeform,'modes') ...
+                          && ~isempty(e.freeform.modes);
                 if strcmp(e.kind,'FocalPlane')
                     L{end+1} = '          Surface=  Flat';
+                elseif hasFree
+                    % conic base + Zernike departure (§7.1 canonical freeform
+                    % representation); KrElt/KcElt held, the Zernike terms add
+                    % the figure correction.  This is e5mono's reflective M2 form.
+                    L{end+1} = '          Surface=  Zernike';                       %#ok<AGROW>
                 elseif hasAsph
                     L{end+1} = '          Surface=  Aspheric';                     %#ok<AGROW>
                 else
@@ -1594,7 +1771,43 @@ classdef Telescope < handle
                 end
                 L{end+1} = sprintf('            KrElt=%.16E', e.Kr);
                 L{end+1} = sprintf('            KcElt=%.16E', e.Kc);
-                if hasAsph
+                if hasFree
+                    % Zernike-departure block: sparse (modes + coefs), 6/row to
+                    % match MACOS's own emit.  lMon = beam footprint radius
+                    % (rho=1 at the aperture edge -> standard normalization).
+                    % The Mon frame (pMon=Vpt, axes = local surface frame) is the
+                    % Zernike evaluation frame; emitted explicitly to match the
+                    % engine's known-good round-trip (e5mono/SegDemo3).
+                    ft = 'ANSI';
+                    if isfield(e.freeform,'type') && ~isempty(e.freeform.type)
+                        ft = e.freeform.type;
+                    end
+                    zm = e.freeform.modes(:).';  zc = e.freeform.coef(:).';
+                    nz = numel(zc);
+                    L{end+1} = ['         ZernType=  ' ft];                          %#ok<AGROW>
+                    L{end+1} = sprintf('        nZernCoef=  %d', nz);               %#ok<AGROW>
+                    % ZernModes on ONE line -- the Surface=Zernike parser
+                    % (msmacosio.inc:1733) reads all nZernCoef modes from a
+                    % single VALUE with no continuation (unlike ZernCoef, which
+                    % does wrap).  Matches e5mono M2's 16-on-one-line emit;
+                    % wrapping crashed the parser with a list-directed EOF.
+                    L{end+1} = ['        ZernModes=  ' strtrim(sprintf('%d ', zm))]; %#ok<AGROW>
+                    L{end+1} = ['         ZernCoef=  ' ...                           %#ok<AGROW>
+                                strtrim(sprintf('%.16E ', zc(1:min(6,nz))))];
+                    for g = 7:6:nz
+                        L{end+1} = ['                   ' ...                        %#ok<AGROW>
+                                    strtrim(sprintf('%.16E ', zc(g:min(g+5,nz))))];
+                    end
+                    L{end+1} = sprintf('             lMon=%.16E', e.ap_r);          %#ok<AGROW>
+                    nrmz = e.psi;
+                    if isfield(e,'nrm') && ~isempty(e.nrm), nrmz = e.nrm; end
+                    Rz = obj.surf_frame_(nrmz);
+                    L{end+1} = ['             pMon=  ' v3(e.Vpt(1),e.Vpt(2),e.Vpt(3))];   %#ok<AGROW>
+                    L{end+1} = ['             xMon=  ' v3(Rz(1,1),Rz(2,1),Rz(3,1))];      %#ok<AGROW>
+                    L{end+1} = ['             yMon=  ' v3(Rz(1,2),Rz(2,2),Rz(3,2))];      %#ok<AGROW>
+                    L{end+1} = ['             zMon=  ' v3(Rz(1,3),Rz(2,3),Rz(3,3))];      %#ok<AGROW>
+                end
+                if hasAsph && ~hasFree
                     % conic base + AsphCoef (even radial terms h^4,h^6,...).
                     % Parser reads in GROUPS OF 4 per line (crashes otherwise);
                     % count must precede the coefficient array.
@@ -1626,6 +1839,18 @@ classdef Telescope < handle
                     % VarElt mask over [TIP TILT CLOCK DX DY PIST ROC CONIC]
                     L{end+1} = ['           VarElt=  ' ...                        %#ok<AGROW>
                                 strtrim(sprintf('%d ', sp.opt.dof_mask))];
+                end
+                % CALIB Zernike-departure DOF (OptZern= n mode1 .. moden): the
+                % freeform figure-correction channel.  Listing modes here adds
+                % them to the optimizer (auto-enrolls the elt as VarElt); paired
+                % with an all-zero VarElt mask it varies ONLY the Zernike coefs,
+                % so radii/conics are held (optimize_freeform).
+                if isfield(sp,'opt') && isfield(sp.opt,'zern_elts') ...
+                        && any(sp.opt.zern_elts == k)
+                    zi  = find(sp.opt.zern_elts == k, 1);
+                    zmd = sp.opt.zern_modes{zi};
+                    L{end+1} = ['          OptZern=  ' num2str(numel(zmd)) ...    %#ok<AGROW>
+                                '  ' strtrim(sprintf('%d ', zmd))];
                 end
                 L{end+1} = '             nObs=  0';
                 % Aperture: honor a MEASURED full-field clear aperture when one
@@ -1734,7 +1959,8 @@ classdef Telescope < handle
             e = struct('name',name, 'kind',kind, 'Vpt',Vpt(:).', ...
                        'psi',psi(:).', 'Kr',Kr, 'Kc',0.0, 'ap_r',ap_r, ...
                        'provenance',prov, 'zElt',zElt, 'pole',[], 'nrm',[], ...
-                       'ap',[], 'ap_rect',[], 'asph',[]);   % asph = AsphCoef row
+                       'ap',[], 'ap_rect',[], 'asph',[], 'freeform',[]);
+            % asph = AsphCoef row; freeform = struct(modes,coef,type) Zernike departure
         end
 
         function tf = is_nmirror_(obj)
@@ -1744,7 +1970,7 @@ classdef Telescope < handle
 
         function m = empty_mirror_list_(~)
         %EMPTY_MIRROR_LIST_  0x0 struct carrying the add_mirror field set.
-            m = struct('name',{},'R',{},'t',{},'derive',{});
+            m = struct('name',{},'R',{},'t',{},'derive',{},'tilt_deg',{},'convex',{});
         end
 
         function resolve_nmirror_(obj)
@@ -1759,6 +1985,10 @@ classdef Telescope < handle
             sp  = obj.spec;
             mir = sp.mirrors;
             N   = numel(mir);
+            if isfield(mir,'tilt_deg') && any([mir.tilt_deg] ~= 0)
+                obj.resolve_nmirror_fold_();     % Bauer tilted-fold unobscuring
+                return;
+            end
             if N < 3
                 error('macos:design:Telescope:nmirror:tooFew', ...
                     'TMA needs >= 3 mirrors via add_mirror (have %d).', N);
@@ -1781,6 +2011,9 @@ classdef Telescope < handle
             end
 
             [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D);
+            if isfield(sp,'base_sphere') && sp.base_sphere
+                K = zeros(1, N);            % sphere+Zernike: hold base spheres
+            end
             t = [t_between, t_focus];
 
             % fold vertices: propagation dir after mirror k is (-1)^k (the
@@ -1809,6 +2042,103 @@ classdef Telescope < handle
             obj.spec.elt     = elts;
             obj.spec.derived = struct('N',N, 'R',R, 'K',K, 't',t, 'z',z, ...
                 'EFL',EFL, 'fnum',EFL/D, 't_focus',t_focus);
+        end
+
+        function resolve_nmirror_fold_(obj)
+        %RESOLVE_NMIRROR_FOLD_  Tilted-fold N-mirror layout (Bauer/Schiesser/
+        %   Rolland 2018 unobscuring -- TILT each mirror minimally to clear the
+        %   beam, NOT decenter the pupil; keeps the system compact, M2 near the
+        %   incoming beam).  The chief ray folds M1->M2->M3->FP: each mirror's
+        %   normal = the normal-incidence normal (-d_in) rotated by tilt_deg
+        %   about x, so the reflection deviates the chief ray by 2*tilt.  Radii
+        %   are the user/Bauer values; conics are the seidel n-flip seed (the
+        %   rotationally-symmetric starting point -- the tilt-induced field-
+        %   dependent aberrations are left for optimize + optimize_freeform per
+        %   the Bauer method).  doc/bauer2018_starting_geometry_method.md.
+            sp = obj.spec;  mir = sp.mirrors;  N = numel(mir);
+            if N < 3
+                error('macos:design:Telescope:nmirror:tooFew', ...
+                    'TMA needs >= 3 mirrors via add_mirror (have %d).', N);
+            end
+            if ~mir(N).derive
+                error('macos:design:Telescope:nmirror:lastDerive', ...
+                    'the last mirror (%s) spacing must be ''derive''.', mir(N).name);
+            end
+            D = sp.in.D;  R = [mir.R];  tilt = deg2rad([mir.tilt_deg]);
+            t_between = zeros(1, N-1);
+            for k = 1:N-1
+                if mir(k).derive
+                    error('macos:design:Telescope:nmirror:midDerive', ...
+                        'only the LAST mirror spacing may be ''derive'' (%s is).', mir(k).name);
+                end
+                t_between(k) = mir(k).t;
+            end
+            [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D);
+            if isfield(sp,'base_sphere') && sp.base_sphere
+                K = zeros(1, N);            % sphere+Zernike: hold base spheres
+            end
+            cvx = false(1, N);
+            if isfield(mir,'convex'), cvx = logical([mir.convex]); end
+            if any(cvx)                     % Seidel |radii| n-flip misplaces the
+                [t_focus, EFL] = obj.paraxial_focus_(R, t_between, cvx); % focus of a
+            end                             % convex secondary; this is the correct
+            t = [t_between, t_focus];       % convex-aware focus (agrees on afocal)
+
+            % fold the chief ray: vertex k on the chief ray, normal = tilted
+            % normal-incidence normal; reflect to get the next direction.
+            rotx = @(a) [1 0 0; 0 cos(a) -sin(a); 0 sin(a) cos(a)];
+            Vpt = zeros(N+1, 3);  psi = zeros(N, 3);
+            din = [0 0 1];  v = [0 0 0];
+            for k = 1:N
+                Vpt(k,:) = v;
+                nk = (rotx(tilt(k)) * (-din(:))).';     % psiElt = tilted normal
+                nk = nk / norm(nk);
+                if isfield(mir,'convex') && mir(k).convex
+                    nk = -nk;               % convex: psiElt -> downstream CoC
+                end
+                psi(k,:) = nk;
+                dout = din - 2*(din*nk.')*nk;           % reflect chief ray (sign-
+                dout = dout / norm(dout);               % invariant to nk flip)
+                v = v + t(k)*dout;  din = dout;
+            end
+            Vpt(N+1,:) = v;
+
+            apr = repmat(0.5*D, 1, N);  apr(1) = 0.55*D;
+            elts = obj.new_elt_(mir(1).name, 'Reflector', Vpt(1,:), psi(1,:), ...
+                    -abs(R(1)), apr(1), 'derived(tma+fold)', t(1));
+            elts.Kc = K(1);
+            for k = 2:N
+                e = obj.new_elt_(mir(k).name, 'Reflector', Vpt(k,:), psi(k,:), ...
+                    -abs(R(k)), apr(k), 'derived(tma+fold)', t(k));
+                e.Kc = K(k);  elts(k) = e;               %#ok<AGROW>
+            end
+            elts(N+1) = obj.new_elt_(sp.fp_name, 'FocalPlane', Vpt(N+1,:), ...
+                    -din, -1.0e22, 0.3*D, 'derived(tma)', 1.0e20);   % FP faces the beam
+
+            obj.spec.elt     = elts;
+            obj.spec.derived = struct('N',N, 'R',R, 'K',K, 't',t, 'Vpt',Vpt, ...
+                'psi',psi, 'tilt_deg',[mir.tilt_deg], 'EFL',EFL, 'fnum',EFL/D, ...
+                't_focus',t_focus, 'folded',true);
+        end
+
+        function [bf, EFL] = paraxial_focus_(~, R, t, convex)
+        %PARAXIAL_FOCUS_  Back focus after the last mirror + system EFL via the
+        %   unfolded thin-lens equivalent (mirror f = R/2; a CONVEX mirror is a
+        %   NEGATIVE lens, f = -R/2).  The Seidel seed takes |radii| only, so its
+        %   n-flip focus is wrong for a system with a convex secondary (it places
+        %   the focus as if the secondary were concave); this recovers the true
+        %   paraxial focus.  R = |radii| (1xN), t = inter-mirror spacings (1xN-1),
+        %   convex = logical(1xN).  Validated vs the e5mono real-ray intermediate
+        %   image (0.585 m beam at M2, image 25 m past M2, f/20.8).
+            N = numel(R);
+            f = R/2;  f(convex) = -f(convex);     % convex mirror = negative lens
+            y = 1.0;  u = 0.0;                     % collimated unit-height marginal
+            for k = 1:N
+                u = u - y/f(k);                   % thin-lens (mirror) power
+                if k < N, y = y + u*t(k); end     % propagate to next vertex
+            end
+            bf  = -y / u;                          % distance to on-axis crossing
+            EFL = 1.0 / abs(u);                    % collimated in, unit input height
         end
 
         function describe_nmirror_(obj)
