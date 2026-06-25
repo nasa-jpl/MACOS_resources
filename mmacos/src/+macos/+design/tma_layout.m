@@ -72,11 +72,26 @@ function [R, t, info] = tma_layout(D, primary_fnum, system_fnum, opts)
     end
     t2 = m3b + t1;                         % z_M3 = -t1 + t2 = m3b
 
-    % --- M3: R3 from the system-f/# constraint (marginal slope linear in 1/R3) ---
-    um_target = -1/(2*system_fnum);
-    umA = tma_marg_(R1, R2, 1e30, t1, t2, D);
-    umB = tma_marg_(R1, R2, R1,   t1, t2, D);
-    R3  = (umB - umA)*R1 / (um_target - umA);
+    % --- M3: R3 from the system-f/# constraint.  The exit marginal slope um is
+    % LINEAR in c3 = 1/R3; the real intermediate focus between M2 and M3 means the
+    % marginal ray has CROSSED the axis, flipping the parity of the exit slope
+    % (the unfolded trace exposes this; the legacy n-flip masked it and picked the
+    % wrong branch in the aggressive regime).  So solve um = +-1/(2*system_fnum)
+    % and take the CONCAVE root (c3 > 0) -- the physical Korsch tertiary that
+    % reimages the real intermediate focus.
+    umA = tma_marg_(R1, R2, 1e30, t1, t2, D);    % M3 flat
+    umB = tma_marg_(R1, R2, R1,   t1, t2, D);    % M3 = R1 (probe slope)
+    dum_dc3 = (umB - umA)*R1;                     % d(um)/d(c3), c3 = 1/R3
+    R3 = NaN;
+    for s = [1 -1]
+        c3 = (s/(2*system_fnum) - umA)/dum_dc3;
+        if c3 > 0, R3 = 1/c3;  break; end         % concave M3
+    end
+    if isnan(R3) || ~isfinite(R3)
+        error('macos:design:tma_layout:m3', ...
+            'no concave M3 reaches f/%.2f for this feed (adjust m3_behind_m / mag).', ...
+            system_fnum);
+    end
 
     info = struct('f1',f1, 'R1',R1, 'R2',R2, 'R3',R3, 't1',t1, 't2',t2, ...
         'm2',m2, 'm3', system_fnum/(primary_fnum*m2), 'EFL', system_fnum*D, ...
@@ -88,23 +103,27 @@ end
 
 % =====================================================================
 function um = tma_marg_(R1, R2, R3, t1, t2, D)
-%TMA_MARG_  n-flip paraxial marginal-ray final slope through M1,M2,M3.
-%   EFL = -(D/2)/um.  Same recurrence as seidel_seed's seidel_trace_.
-    Rk = [R1 R2 R3];  tk = [t1 t2 0];  n = 1;  y = D/2;  u = 0;
+%TMA_MARG_  Unfolded paraxial marginal-ray final slope through M1,M2,M3.
+%   EFL = -(D/2)/um.  The secondary is CONVEX by geometry (it sits before
+%   the M1 focus), so its curvature is SIGNED negative -- the n-flip |radii|
+%   recurrence mis-places the M3 relay of a convex-secondary reimager (the
+%   same bug fixed in seidel_seed's convex path); the unfolded signed-c
+%   transfer (convex = negative lens, u' = u - 2*c*y) is correct.
+    c  = [1/R1, -1/R2, 1/R3];          % M1 concave, M2 CONVEX, M3 concave
+    tk = [t1 t2 0];  y = D/2;  u = 0;
     for k = 1:3
-        c = 1/Rk(k);  np = -n;  phi = (np - n)*c;
-        up = (n*u - y*phi)/np;  y = y + tk(k)*up;  u = up;  n = np;
+        u = u - 2.0*c(k)*y;  y = y + tk(k)*u;
     end
     um = u;
 end
 
 function s = cassfocus_(R1, R2, t1, D)
 %CASSFOCUS_  M1+M2 marginal-ray axis crossing past M2 (intermediate focus
-%   distance), magnitude -- to verify the Cassegrain solve.
-    n = 1;  y = D/2;  u = 0;  Rk = [R1 R2];  tk = [t1 0];
+%   distance), magnitude -- to verify the Cassegrain solve.  Unfolded
+%   signed-c (M2 convex), like tma_marg_.
+    c = [1/R1, -1/R2];  tk = [t1 0];  y = D/2;  u = 0;
     for k = 1:2
-        c = 1/Rk(k);  np = -n;  phi = (np - n)*c;
-        up = (n*u - y*phi)/np;  y = y + tk(k)*up;  u = up;  n = np;
+        u = u - 2.0*c(k)*y;  y = y + tk(k)*u;
     end
     s = abs(-y/u);
 end
