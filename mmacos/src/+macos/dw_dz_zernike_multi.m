@@ -25,6 +25,14 @@ function out = dw_dz_zernike_multi(session, rx_path, opts)
 %     'kinds', 'zmode_start', 'n_zcoef', 'delta', 'method',
 %     'exit_pupil_elt', 'verbose'.
 %
+%   'reset_xp'  (default true) re-find the exit pupil (FEX, chief ray) for
+%               EACH field before differencing, so the nominal wavefront is
+%               referenced to that field's own chief ray and the gross field
+%               TILT is removed (off-axis fields otherwise carry a large
+%               linear-in-field tilt that swamps the OPD canvas).  A poke's
+%               OWN tilt is retained -- the reference is fixed per field, not
+%               re-fit after each poke.  Requires a STOP set and > 3 elements.
+%
 %   OUTPUT STRUCT FIELDS:
 %     dwdxall       Nw x Nz canonical state-vector Jacobian
 %     dwdzall       alias (== dwdxall) -- kind-specific name
@@ -55,6 +63,7 @@ arguments
     opts.method                 (1,:) char {mustBeMember(opts.method, ...
                                   {'central','forward'})} = 'central'
     opts.exit_pupil_elt         (1,1) double {mustBeInteger} = -1
+    opts.reset_xp               (1,1) logical = true
     opts.verbose                (1,1) logical = false
 end
 
@@ -89,6 +98,12 @@ nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
 
+% Snapshot the prescription's exit-pupil reference (elt nElt-1 geometry)
+% so the per-field FEX resets can be undone before returning.
+if opts.reset_xp
+    xp0 = macos.get_xp();
+end
+
 % ---- Per-field loop -----------------------------------------------
 % Each iteration uses set_src_fov ABSOLUTELY so no perturb-undo
 % round-trip is needed -- each field starts from the nominal source
@@ -109,6 +124,15 @@ for k = 1:n_fields
     session.modify();   % flush trace cache so the new dir takes effect
     fprintf('[field %s] ChfRayDir = [%g %g %g]\n', ...
         fields(k).name, new_dir);
+    if opts.reset_xp
+        % Re-reference this field's exit pupil to its OWN chief ray (FEX
+        % writes the reference into elt nElt-1 = wf_elt) so the nominal
+        % wavefront is tilt-removed.  It persists as element geometry across
+        % the poke traces, and a poke's own tilt is retained (the reference
+        % is NOT re-fit after poking).  The Zern/MonZern/FFZern pokes act on
+        % the powered/Zernike optics, not elt nElt-1.  See dw_dgrid_multi.
+        macos.fex(1);   % mode 1 = centre on chief ray
+    end
     sf = macos.dw_dz_zernike(session, rx_path, ...
         'kinds', opts.kinds, ...
         'zmode_start', opts.zmode_start, ...
@@ -131,6 +155,13 @@ end
 session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
                     'zSrc', nom.zSrc);
 session.modify();
+
+% Restore the prescription's exit-pupil reference (undo the per-field FEX
+% writes to elt nElt-1) so the session is left as loaded.
+if opts.reset_xp
+    macos.set_xp(xp0.vpt, xp0.psi, xp0.rad);
+    session.modify();
+end
 
 % ---- Tile OPDall + scatter dwdzall --------------------------------
 N = size(per_field_w_nom{1}, 1);
@@ -222,6 +253,7 @@ out.delta                = opts.delta;
 out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.kinds                = opts.kinds;
+out.reset_xp             = opts.reset_xp;
 end
 
 
