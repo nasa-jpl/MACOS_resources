@@ -1,4 +1,4 @@
-function [K, t_focus, EFL] = seidel_seed(R, t_between, D)
+function [K, t_focus, EFL] = seidel_seed(R, t_between, D, convex)
 %SEIDEL_SEED  Korsch-anastigmat conic seed for a coaxial mirror train.
 %   [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D) solves
 %   the conic constants K (1xN) that null the 3rd-order Seidel spherical,
@@ -7,6 +7,23 @@ function [K, t_focus, EFL] = seidel_seed(R, t_between, D)
 %   from optical_design/seidel.py, which is validated against the trusted
 %   2-mirror RC and classical-Cassegrain fixtures).  It also returns the
 %   paraxial focus distance t_focus (last mirror -> image) and |EFL|.
+%
+%   [...] = seidel_seed(R, t_between, D, CONVEX) takes a 1xN logical CONVEX
+%   flagging each mirror's curvature SENSE.  The n-flip |radii| model bakes
+%   in a fixed concave-convex-concave alternation, so it mis-handles a
+%   mirror that is convex OFF that pattern (a real-intermediate-image
+%   reimager): it returns the WRONG paraxial focus AND unreliable conics
+%   (see project_seidel_convex_bug; brute-forcing all radius signs does NOT
+%   recover the true focus -- the n-flip is fundamentally inadequate here).
+%   So when ANY mirror is flagged convex, this returns the physically-
+%   correct UNFOLDED paraxial focus (signed curvature; a convex mirror is a
+%   negative lens, f = -R/2) and a SAFE base-sphere seed K = 0 -- the
+%   closed-form Seidel conic seed is not valid for the convex reimager, so
+%   the caller refines the conics with the design-layer optimize() (CALIB
+%   over conic DOFs), which nulls the field WFE to diffraction-limited (the
+%   j18mono f/20 convex TMA: 53590 waves -> 0.002 waves from the K=0 seed).
+%   Default CONVEX = all false -> the validated n-flip closed form, exactly
+%   byte-identical to the 3-arg call.
 %
 %   Inputs (consistent units; metres in the design layer):
 %     R         1xN mirror vertex radii as POSITIVE MAGNITUDES in the n-flip
@@ -36,6 +53,7 @@ function [K, t_focus, EFL] = seidel_seed(R, t_between, D)
         R         (1,:) double
         t_between (1,:) double
         D         (1,1) double {mustBePositive}
+        convex    (1,:) logical = false(1, numel(R))
     end
     N = numel(R);
     if N < 3
@@ -46,6 +64,29 @@ function [K, t_focus, EFL] = seidel_seed(R, t_between, D)
         error('macos:design:seidel_seed:dims', ...
             't_between must have N-1 = %d entries (got %d).', N-1, numel(t_between));
     end
+    if numel(convex) ~= N
+        error('macos:design:seidel_seed:convexdims', ...
+            'convex must have N = %d entries (got %d).', N, numel(convex));
+    end
+
+    % --- Convex secondary: bail out of the n-flip closed form ----------
+    % The n-flip |radii| model cannot represent a convex mirror off its
+    % baked-in alternation; return the correct UNFOLDED paraxial focus
+    % (signed curvature, convex = negative lens) + a K=0 sphere seed for
+    % optimize() to refine.  See the header note.
+    if any(convex)
+        cc = 1.0 ./ R;  cc(convex) = -cc(convex);    % signed curvature
+        yy = D/2;  uu = 0.0;
+        for k = 1:N-1
+            uu = uu - 2.0*cc(k)*yy;  yy = yy + t_between(k)*uu;
+        end
+        uu      = uu - 2.0*cc(N)*yy;
+        t_focus = -yy / uu;
+        EFL     = abs((D/2) / uu);
+        K       = zeros(1, N);
+        return
+    end
+
     th = deg2rad(0.05);                  % small field for coma/astig scaling
 
     % --- paraxial marginal focus after the last mirror -> t_focus ---

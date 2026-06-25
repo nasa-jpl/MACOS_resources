@@ -2010,11 +2010,14 @@ classdef Telescope < handle
                 t_between(k) = mir(k).t;
             end
 
-            [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D);
+            cvx = false(1, N);
+            if isfield(mir,'convex'), cvx = logical([mir.convex]); end
+            [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D, cvx);
             if isfield(sp,'base_sphere') && sp.base_sphere
                 K = zeros(1, N);            % sphere+Zernike: hold base spheres
             end
-            t = [t_between, t_focus];
+            t = [t_between, t_focus];       % seidel_seed returns the convex-aware
+                                            % paraxial focus + K=0 sphere seed
 
             % fold vertices: propagation dir after mirror k is (-1)^k (the
             % incoming beam travels +z before M1, so z2 = -t1, z3 = -t1+t2, ...).
@@ -2073,16 +2076,13 @@ classdef Telescope < handle
                 end
                 t_between(k) = mir(k).t;
             end
-            [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D);
+            cvx = false(1, N);
+            if isfield(mir,'convex'), cvx = logical([mir.convex]); end
+            [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D, cvx);
             if isfield(sp,'base_sphere') && sp.base_sphere
                 K = zeros(1, N);            % sphere+Zernike: hold base spheres
             end
-            cvx = false(1, N);
-            if isfield(mir,'convex'), cvx = logical([mir.convex]); end
-            if any(cvx)                     % Seidel |radii| n-flip misplaces the
-                [t_focus, EFL] = obj.paraxial_focus_(R, t_between, cvx); % focus of a
-            end                             % convex secondary; this is the correct
-            t = [t_between, t_focus];       % convex-aware focus (agrees on afocal)
+            t = [t_between, t_focus];       % seidel_seed: convex-aware focus + K=0
 
             % fold the chief ray: vertex k on the chief ray, normal = tilted
             % normal-incidence normal; reflect to get the next direction.
