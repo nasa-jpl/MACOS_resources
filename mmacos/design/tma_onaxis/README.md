@@ -1,36 +1,55 @@
-# `tma_onaxis/` — on-axis three-mirror anastigmat (Korsch / JWST form)
+# `tma_onaxis/` — on-axis three-mirror anastigmat designer (Korsch / j18mono form)
 
-Two ways to get an on-axis obscured TMA (M1 + convex SM + tertiary behind M1,
-real intermediate focus, FSM fold, slightly off-axis detector):
+A parameterized Korsch TMA — concave M1, **convex** secondary (convex by geometry:
+it sits before the M1 focus, `KrElt=-|R|`), concave M3 behind M1 — with the three
+j18mono features:
 
-## 1. `scale_j18.py` — scale the validated j18 design (robust, recommended)
+1. a **real intermediate focus BETWEEN M1 and M2** (the field-stop / metrology-
+   injection plane);
+2. a **slight off-axis bias** that tips the focal plane OUT of the M2→M3 beam
+   (the j18 "slightly off-axis detector"); the M2 central obscuration remains —
+   this is the *obscured* baseline, whose unobscured eccentric-pupil cousin is
+   [`../tma_offaxis`](../tma_offaxis);
+3. the **exit pupil after M3 is ASSESSED** (FEX), not constrained.
 
-A uniform length-scaling of the **j18mono** prescription (an early-JWST obscured
-TMA, diffraction-limited with all the packaging features). Scaling preserves
-every angle, conic constant and the f/# — only lengths scale — so the result is
-a real, working j18-like TMA at any aperture.
+## `tma_onaxis.m` — the designer (bias sweep)
 
-```bash
-cp <macos>/j18mono.in ./j18mono.in     # the reference seed (not committed)
-python3 scale_j18.py 1000              # -> j18_scaled.in at D = 1 m
-```
+Pipeline: `macos.design.tma_layout` (closed-form Cassegrain feed for the
+intermediate focus + M3 relay for the system f/#; **convex-secondary aware** — the
+unfolded paraxial, not the n-flip) → `add_mirror(...,'convex',true)` (`seidel_seed`
+returns the correct unfolded focus + a **K=0** sphere seed) → `optimize(conics)` →
+diffraction-limited.
 
-Verified: D=1 m → **0.0018 waves** at 2.3 µm (= j18's 0.012 × k), all 5 features,
-proper central obscuration. Useful if not fully versatile — re-optimize the
-conics for a different f/# if needed.
+**The off-axis bias is a SWEEP.** It must clear the FP, but off-axis aberration
+grows ~quadratically with it, so the script sweeps `BIAS_SWEEP_ARCMIN`, prints the
+clearance-vs-WFE table, and **recommends + builds the LEAST bias that both clears
+the FP and is diffraction-limited.** Example (D=1 m, f/1.5 primary, f/8 system):
 
-## 2. `tma_onaxis.m` — parametric from-scratch Korsch designer
+| bias (′) | RMS WFE (waves) | FP out of beam |
+|---|---|---|
+| 1 | 0.0074 | YES |
+| 2 | 0.0113 | YES |
+| 3 | 0.0172 | YES |
+| 4 | 0.0305 | YES |
+| 6 | 0.0758 | YES |
 
-`tma_layout` (scaled Korsch fixture) → field-optimize(radius+conic) →
-`optimize_aspheres` → diffraction-limited. Knobs: aperture, primary f/#, system
-f/#, M3-behind, intermediate-focus location.
+→ recommended **1′** → **0.0074 waves** (diffraction-limited), M3 + FP clear (M2
+central obscuration), exit pupil after M3 at z = 0.26·D, r = 0.147 m.
 
-**Status / scope.** This nails the *gentle* Korsch regime (diffraction-limited,
-sane mirrors) and the new `tma_layout` Cassegrain solve places the intermediate
-focus exactly where you ask (`int_focus_m`, before/after M1). But in the
-aggressive j18 regime (fast primary, focus well before M1) the first-order M3
-relay is hard to place from the n-flip Seidel convention, and the exit pupil is
-near-telecentric — **EP control and a finite-pupil FSM fold are a FREEFORM
-problem** (fix the radii for the layout, correct the wavefront with Zernike
-departures that don't move the radii). That's the next driver. For a guaranteed
-working design today, use `scale_j18.py`.
+Knobs: aperture, primary f/#, system f/#, secondary magnification, intermediate-
+focus location, M3-behind distance, the bias-sweep list. A FAST primary may leave
+higher-order spherical after the 3 conics — raise the bias floor or set
+`ASPHERE_TERMS > 0` (an even-radial M1 asphere polish) for the aggressive regime.
+
+> The earlier "the n-flip M3 relay is hard to place in the aggressive j18 regime"
+> caveat is **resolved** — `tma_layout` and `seidel_seed` are now convex-secondary
+> aware (the unfolded paraxial). A *constrained, accessible* exit pupil + finite-
+> pupil FSM fold is still the freeform driver's job (fix the radii for the EP,
+> correct with Zernike departures that don't move the radii).
+
+## `scale_j18.py` — scale the validated j18 design (alternative)
+
+A uniform length-scaling of the **j18mono** prescription (preserves every angle,
+conic constant, and the f/# — only lengths scale): `python3 scale_j18.py 1000` →
+`j18_scaled.in` at D = 1 m. Useful when you want j18's exact conics rather than a
+from-scratch solve. (Verified D=1 m → 0.0018 waves at 2.3 µm.)
