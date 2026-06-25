@@ -1,21 +1,21 @@
-function out = dw_dsurf_multi(session, rx_path, opts)
-%MACOS.DW_DSURF_MULTI  Multi-field dw/dKr + dw/dKc supervisor.
-%   out = macos.dw_dsurf_multi(SESSION, RX_PATH, ...) loads RX_PATH on
+function out = dw_dgrid_multi(session, rx_path, opts)
+%MACOS.DW_DGRID_MULTI  Multi-field dw/d(grid-data) sensitivity supervisor.
+%   out = macos.dw_dgrid_multi(SESSION, RX_PATH, ...) loads RX_PATH on
 %   SESSION, snapshots the nominal source FoV, then loops field points --
 %   each iteration absolutely sets ChfRayDir via set_src_fov and runs
-%   dw_dsurf at the new field.  The per-field results are tiled into one
-%   big OPDall canvas and scattered into one big dwdsall (canonical
+%   dw_dgrid at the new field.  The per-field results are tiled into one
+%   big OPDall canvas and scattered into one big dwdgall (canonical
 %   state-vector form):
 %
-%       wall = dwdsall * x + w0_stacked
+%       wall = dwdgall * x + w0_stacked
 %
 %   where wall is the column-major vectorisation of OPDall via m2v, and
-%   x is the stacked (Kr, Kc) state of every POWERED optic (Element=
-%   Reflector / Refractor with |Kr| << the flat sentinel).
+%   x is the stacked influence-map amplitude of every grid poke on every
+%   grid-bearing surface.
 %
-%   The powered-surface (radius + conic) companion to
-%   macos.dw_dz_zernike_multi, built on the same field-loop + tiling
-%   machinery, a different DOF set.
+%   The grid-data (GMI pgrid) companion to macos.dw_dz_zernike_multi and
+%   macos.dw_dsurf_multi, built on the same field-loop + tiling machinery,
+%   a different DOF set.
 %
 %   REQUIRED USER INPUTS:
 %     'field_x_rad'   half-FoV in x (direction cosine added to ChfRayDir)
@@ -27,34 +27,38 @@ function out = dw_dsurf_multi(session, rx_path, opts)
 %                     once when both N and M are odd)
 %     'fields' FILE   override: rows of 'name dx_rad dy_rad tile_row tile_col'
 %
-%   OTHER NAME-VALUE PAIRS (forwarded to dw_dsurf):
-%     'params' (cellstr subset of {'Kr','Kc'}), 'delta', 'method',
-%     'exit_pupil_elt', 'verbose'.
+%   OTHER NAME-VALUE PAIRS (forwarded to dw_dgrid):
+%     'influence'  [N x N x K] influence maps (default: a low-order
+%                  Zernike-on-grid basis via macos.zernike_grid_basis).
+%     'zmodes'     Noll/ANSI modes for the default basis.  Default [4 5 6 7 8 11].
+%     'delta', 'method', 'exit_pupil_elt', 'verbose'.
 %
 %   'reset_xp'  (default true) re-find the exit pupil (FEX, chief ray) for
 %               EACH field before differencing, so the nominal wavefront is
 %               referenced to that field's own chief ray and the gross field
-%               TILT is removed (off-axis fields otherwise carry a large
-%               linear-in-field tilt that swamps the OPD canvas).  A poke's
-%               OWN tilt is retained -- the reference is fixed per field, not
-%               re-fit after each poke.  Requires a STOP set and > 3 elements.
+%               TILT is removed (without it, an off-axis field carries a
+%               large linear-in-field tilt that swamps the OPD canvas).  A
+%               poke's OWN tilt is retained -- the reference is fixed per
+%               field, not re-fit after each poke.  Requires a STOP set and
+%               > 3 elements.  Set false to keep the prescription's
+%               elt nElt-1 reference unchanged.
 %
 %   OUTPUT STRUCT FIELDS:
-%     dwdsall       Nw x Ns canonical state-vector Jacobian
-%     dwdxall       alias (== dwdsall) -- canonical-form consumers
+%     dwdgall       Nw x Ng canonical state-vector Jacobian
+%     dwdxall       alias (== dwdgall) -- canonical-form consumers
 %     w0_stacked    Nw x 1 stacked nominal OPDs (m2v of OPDall)
 %     indxall       struct with i, j, size -- m2v round-trip metadata
 %     OPDall        full tiled OPD canvas (un-vectorised)
-%     channel_names Ns x 1 cell array  ('Elt N Kr' / 'Elt N Kc')
-%     iElt / param  Ns x 1 per-channel element id + param ('Kr'|'Kc')
+%     channel_names Ng x 1 cell array
+%     iElt / map_idx  Ng x 1 per-channel element id + influence-map index
 %     field_table   Nfields x 4: [dx_rad, dy_rad, tile_row, tile_col]
 %     field_names   Nfields x 1 cell array
 %     chfraydir_nom 3 x 1 nominal ChfRayDir
-%     per_field_dwds      Nfields x 1 cell of single-field dwds blocks
+%     per_field_dwdg      Nfields x 1 cell of single-field dwdg blocks
 %     per_field_w_nom_2d  Nfields x 1 cell of single-field nominal OPDs
-%     rx_path / delta / method / wf_elt / params  -- echoed inputs
+%     rx_path / delta / method / wf_elt / zmodes  -- echoed inputs
 %
-%   See also: macos.dw_dsurf, macos.dw_dz_zernike_multi, macos.dw_dx_multi.
+%   See also: macos.dw_dgrid, macos.dw_dz_zernike_multi, macos.dw_dsurf_multi.
 
 arguments
     session
@@ -63,7 +67,8 @@ arguments
     opts.field_y_rad            (1,1) double = NaN
     opts.fields                 (1,:) char = ''
     opts.grid                   (1,:) char = ''
-    opts.params                 cell = {'Kr','Kc'}
+    opts.influence              double = []
+    opts.zmodes                 (1,:) double = [4 5 6 7 8 11]
     opts.delta                  (1,1) double = 1e-6
     opts.method                 (1,:) char {mustBeMember(opts.method, ...
                                   {'central','forward'})} = 'central'
@@ -73,7 +78,7 @@ arguments
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
-    error('macos:dw_dsurf_multi:fov', ...
+    error('macos:dw_dgrid_multi:fov', ...
         'field_x_rad and field_y_rad are required');
 end
 
@@ -109,15 +114,33 @@ if opts.reset_xp
     xp0 = macos.get_xp();
 end
 
+% Resolve the influence basis ONCE so every field shares identical
+% columns (same channel order, same map amplitudes).  When the caller
+% supplies 'influence' it is used verbatim; otherwise a default
+% Zernike-on-grid basis is built at the first grid element's sampling.
+% Building here (after load_rx) -- rather than letting each per-field
+% dw_dgrid rebuild it -- guarantees consistency and avoids redundant
+% basis evaluations across the field loop.
+infl = opts.influence;
+if isempty(infl)
+    g = macos.find_grid_elts();
+    if isempty(g)
+        error('macos:dw_dgrid_multi:nogrid', ...
+            'no grid-bearing elements in the loaded prescription');
+    end
+    nsz  = double(mmacos('elt_srf_grid_size', g(1), 1));
+    infl = macos.zernike_grid_basis(nsz, opts.zmodes);
+end
+
 % ---- Per-field loop -----------------------------------------------
 % Each iteration uses set_src_fov ABSOLUTELY (no perturb-undo needed) +
 % modify() to flush the trace cache so the new ChfRayDir takes effect,
-% and passes reload_rx=false to dw_dsurf so it does NOT call load_rx
+% and passes reload_rx=false to dw_dgrid so it does NOT call load_rx
 % (which would reset ChfRayDir back to the prescription nominal).
-per_field_dwds   = cell(n_fields, 1);
+per_field_dwdg   = cell(n_fields, 1);
 per_field_w_nom  = cell(n_fields, 1);
 per_field_struct = cell(n_fields, 1);
-names = {};  iElt_out = [];  param_out = {};
+names = {};  iElt_out = [];  map_idx_out = [];
 for k = 1:n_fields
     new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
     session.set_src_fov('src_pos', nom.src_pos, 'src_dir', new_dir, ...
@@ -126,31 +149,32 @@ for k = 1:n_fields
     fprintf('[field %s] ChfRayDir = [%g %g %g]\n', ...
         fields(k).name, new_dir);
     if opts.reset_xp
-        % Re-reference this field's exit pupil to its OWN chief ray (FEX
-        % writes the reference into elt nElt-1 = wf_elt) so the nominal
-        % wavefront is tilt-removed.  It persists as element geometry across
-        % the poke traces, and a poke's own tilt is retained (the reference
-        % is NOT re-fit after poking).  Kr/Kc pokes act on the powered optics
-        % (Reflector/Refractor); elt nElt-1 is a Return/Reference and is NOT
-        % in the powered set, so the pokes never touch it.  See dw_dgrid_multi.
+        % Re-reference this field's exit pupil to its OWN chief ray: FEX
+        % writes the reference sphere into elt nElt-1 (= wf_elt), so the
+        % nominal (unpoked) wavefront there is tilt-removed.  That reference
+        % is element geometry, so it persists across the poke traces below
+        % -- and the grid pokes live on elts 1..nElt-2, never touching elt
+        % nElt-1.  Net: the FIELD tilt is removed from the nominal, but a
+        % POKE's own tilt is retained in the sensitivity (the reference is
+        % NOT re-fit after poking).
         macos.fex(1);   % mode 1 = centre on chief ray
     end
-    sf = macos.dw_dsurf(session, rx_path, ...
-        'params', opts.params, ...
+    sf = macos.dw_dgrid(session, rx_path, ...
+        'influence', infl, ...
         'delta', opts.delta, ...
         'method', opts.method, ...
         'exit_pupil_elt', opts.exit_pupil_elt, ...
         'verbose', opts.verbose, ...
         'reload_rx', false);    % keep current src_fov state
-    per_field_dwds{k} = sf.dwds;
+    per_field_dwdg{k} = sf.dwdg;
     per_field_w_nom{k} = sf.w_nom_2d;
     per_field_struct{k} = sf;
     if isempty(names)
-        names = sf.channel_names;  iElt_out = sf.iElt;  param_out = sf.param;
+        names = sf.channel_names;  iElt_out = sf.iElt;  map_idx_out = sf.map_idx;
     end
-    col_rms_mean = mean(sqrt(mean(sf.dwds.^2, 1)));
-    fprintf('[field %s] dwds shape [%d %d], mean col-RMS %.3e\n', ...
-        fields(k).name, size(sf.dwds, 1), size(sf.dwds, 2), col_rms_mean);
+    col_rms_mean = mean(sqrt(mean(sf.dwdg.^2, 1)));
+    fprintf('[field %s] dwdg shape [%d %d], mean col-RMS %.3e\n', ...
+        fields(k).name, size(sf.dwdg, 1), size(sf.dwdg, 2), col_rms_mean);
 end
 
 % Restore source back to nominal.
@@ -165,7 +189,7 @@ if opts.reset_xp
     session.modify();
 end
 
-% ---- Tile OPDall + scatter dwdsall --------------------------------
+% ---- Tile OPDall + scatter dwdgall --------------------------------
 N = size(per_field_w_nom{1}, 1);
 OPDall = zeros(tile_rows * N, tile_cols * N);
 for k = 1:n_fields
@@ -176,11 +200,11 @@ end
 
 [w0_stacked, indxall] = macos.m2v(OPDall);
 Nw = numel(w0_stacked);
-Ns = size(per_field_dwds{1}, 2);
+Ng = size(per_field_dwdg{1}, 2);
 fprintf('[stack] OPDall [%d %d]; non-zero pixels = %d\n', ...
     size(OPDall, 1), size(OPDall, 2), Nw);
 
-dwdsall = zeros(Nw, Ns);
+dwdgall = zeros(Nw, Ng);
 indx_i = indxall.i(:);
 indx_j = indxall.j(:);
 for k = 1:n_fields
@@ -191,7 +215,7 @@ for k = 1:n_fields
     i_local = indx_i(in_tile) - tr * N;
     j_local = indx_j(in_tile) - tc * N;
     % Build field-local m2v of this tile so we can map global rows back
-    % to the per-field dwds rows.
+    % to the per-field dwdg rows.
     [~, field_indx] = macos.m2v(per_field_w_nom{k});
     field_i = field_indx.i(:);
     field_j = field_indx.j(:);
@@ -199,62 +223,62 @@ for k = 1:n_fields
     flat_field  = (field_j  - 1) * N + field_i;
     [tf, loc] = ismember(flat_local, flat_field);
     if ~all(tf)
-        error('macos:dw_dsurf_multi:scatter', ...
+        error('macos:dw_dgrid_multi:scatter', ...
             'field %s: indxall references pixels outside per-field mask', ...
             fields(k).name);
     end
     global_rows = find(in_tile);
-    dwdsall(global_rows, :) = per_field_dwds{k}(loc, :);
-    fprintf('[stack] field %s: scattered %d rows into dwdsall\n', ...
+    dwdgall(global_rows, :) = per_field_dwdg{k}(loc, :);
+    fprintf('[stack] field %s: scattered %d rows into dwdgall\n', ...
         fields(k).name, numel(global_rows));
 end
 
-fprintf('[stack] dwdsall shape [%d %d]; |dwdsall| max = %.3e\n', ...
-    size(dwdsall, 1), size(dwdsall, 2), max(abs(dwdsall(:))));
+fprintf('[stack] dwdgall shape [%d %d]; |dwdgall| max = %.3e\n', ...
+    size(dwdgall, 1), size(dwdgall, 2), max(abs(dwdgall(:))));
 
-% Center-tile sanity check: the (0,0) field's rows in dwdsall must
-% exactly match its per_field_dwds block (max|diff| = 0 in practice).
+% Center-tile sanity check: the (0,0) field's rows in dwdgall must
+% exactly match its per_field_dwdg block (max|diff| = 0 in practice).
 ctr_idx = find_center_field_index(fields);
 if ~isempty(ctr_idx)
     tr = fields(ctr_idx).tile_row;
     tc = fields(ctr_idx).tile_col;
     in_ctr = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
            & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
-    dwdsall_ctr = dwdsall(in_ctr, :);
-    dwds_C = per_field_dwds{ctr_idx};
-    max_diff = max(abs(dwdsall_ctr(:) - dwds_C(:)));
-    fprintf('[check] dwdsall@center-tile vs per_field_dwds[center]: ');
+    dwdgall_ctr = dwdgall(in_ctr, :);
+    dwdg_C = per_field_dwdg{ctr_idx};
+    max_diff = max(abs(dwdgall_ctr(:) - dwdg_C(:)));
+    fprintf('[check] dwdgall@center-tile vs per_field_dwdg[center]: ');
     fprintf('max|diff| = %.3e ([%d %d])\n', ...
-        max_diff, size(dwdsall_ctr, 1), size(dwdsall_ctr, 2));
+        max_diff, size(dwdgall_ctr, 1), size(dwdgall_ctr, 2));
     assert(max_diff == 0, ...
-        'scatter bug: dwdsall@center-tile differs from per_field_dwds[center]');
+        'scatter bug: dwdgall@center-tile differs from per_field_dwdg[center]');
 else
     fprintf('[check] no (0,0)-offset field -- skipping center-tile check\n');
 end
 
 % ---- Pack output struct -------------------------------------------
 out = struct();
-out.dwdsall              = dwdsall;
-out.dwdxall              = dwdsall;     % canonical-form alias
+out.dwdgall              = dwdgall;
+out.dwdxall              = dwdgall;     % canonical-form alias
 out.w0_stacked           = w0_stacked;
 out.indxall              = indxall;
 out.OPDall               = OPDall;
 out.channel_names        = names;
 out.iElt                 = iElt_out;
-out.param                = param_out;
+out.map_idx              = map_idx_out;
 out.field_table          = arrayfun( ...
     @(s) [s.dx, s.dy, s.tile_row, s.tile_col], fields, ...
     'UniformOutput', false);
 out.field_table          = vertcat(out.field_table{:});
 out.field_names          = {fields.name}.';
 out.chfraydir_nom        = nom.src_dir(:);
-out.per_field_dwds       = per_field_dwds;
+out.per_field_dwdg       = per_field_dwdg;
 out.per_field_w_nom_2d   = per_field_w_nom;
 out.rx_path              = rx_path;
 out.delta                = opts.delta;
 out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
-out.params               = opts.params;
+out.zmodes               = opts.zmodes;
 out.reset_xp             = opts.reset_xp;
 end
 
@@ -313,7 +337,7 @@ function new_dir = field_to_chfraydir(dir_nom, dx_rad, dy_rad)
 v = dir_nom(:) + [dx_rad; dy_rad; 0];
 n = norm(v);
 if n == 0
-    error('macos:dw_dsurf_multi:zerodir', ...
+    error('macos:dw_dgrid_multi:zerodir', ...
         'zero-magnitude direction after field offset');
 end
 new_dir = v / n;
@@ -323,12 +347,12 @@ end
 function [nx, ny] = parse_grid_spec(spec)
 toks = regexp(lower(spec), 'x', 'split');
 if numel(toks) ~= 2
-    error('macos:dw_dsurf_multi:grid', ...
+    error('macos:dw_dgrid_multi:grid', ...
         '''grid'' must be ''NxM'' (e.g. ''3x3''); got %s', spec);
 end
 nx = str2double(toks{1});  ny = str2double(toks{2});
 if isnan(nx) || isnan(ny) || nx < 1 || ny < 1
-    error('macos:dw_dsurf_multi:grid', ...
+    error('macos:dw_dgrid_multi:grid', ...
         '''grid'' must be ''NxM'' with positive integers; got %s', spec);
 end
 end
@@ -338,7 +362,7 @@ function fields = load_field_file(fname)
 % Free-form list: lines of 'name dx_rad dy_rad tile_row tile_col'.
 fid = fopen(fname, 'r');
 if fid < 0
-    error('macos:dw_dsurf_multi:fields', ...
+    error('macos:dw_dgrid_multi:fields', ...
         'cannot open fields file: %s', fname);
 end
 c = onCleanup(@() fclose(fid)); %#ok<NASGU>
@@ -351,7 +375,7 @@ while true
     if isempty(s) || startsWith(s, '#'), continue; end
     toks = regexp(s, '\s+', 'split');
     if numel(toks) < 5
-        error('macos:dw_dsurf_multi:fields', ...
+        error('macos:dw_dgrid_multi:fields', ...
             'fields-file row needs 5 columns: %s', s);
     end
     fields(end+1) = field_entry(toks{1}, ...
