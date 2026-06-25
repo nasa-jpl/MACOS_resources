@@ -199,6 +199,33 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyLessThan(t.spec.derived.fnum, 25, 'convex-aware f/# too large');
         end
 
+        function test_convex_conic_seed_zero_and_optimizes(tc)
+        %TEST_CONVEX_CONIC_SEED_ZERO_AND_OPTIMIZES  For a convex-secondary TMA
+        %   the n-flip Seidel conic seed is unreliable, so seidel_seed returns a
+        %   SAFE K=0 sphere seed (NOT garbage conics) + the correct unfolded
+        %   focus; the conic optimize() then nulls the multi-field WFE to
+        %   diffraction-limited (the j18mono f/20 geometry).
+            t = macos.design.Telescope('family','TMA', ...
+                'aperture_diameter_m',6.605, 'model_size',tc.ModelSize, ...
+                'grid_npts',tc.GridNpts, 'wavelength_m',2.3e-6);
+            t.add_mirror('M1','radius_m',15.879722,'spacing_after_m',7.169041556);
+            t.add_mirror('M2','radius_m', 1.778913,'spacing_after_m',7.965313479,'convex',true);
+            t.add_mirror('M3','radius_m', 3.016227,'spacing_after','derive');
+            t.add_focal_plane('FP');
+            t.build();
+            % safe K=0 seed (NOT the broken n-flip conics) + correct f/20 focus
+            tc.verifyEqual([t.spec.elt(1).Kc t.spec.elt(2).Kc t.spec.elt(3).Kc], ...
+                [0 0 0], 'AbsTol',0, 'convex conic seed must be K=0');
+            tc.verifyGreaterThan(t.spec.derived.fnum, 18, 'convex f/# wrong');
+            tc.verifyLessThan(t.spec.derived.fnum, 25, 'convex f/# wrong');
+            % the conic optimize crushes the field WFE to diffraction-limited
+            res = t.optimize('fields_arcmin',[0.5 1.0], 'max_iters',150);
+            tc.verifyLessThan(max(res.wfe_after)/2.3e-6, 0.07, ...
+                'convex conic optimize did not reach the diffraction limit');
+            tc.verifyLessThan(max(res.wfe_after), max(res.wfe_before)/1000, ...
+                'convex conic optimize did not crush the WFE');
+        end
+
         function test_zernmodes_single_line_emit_loads(tc)
         %TEST_ZERNMODES_SINGLE_LINE_EMIT_LOADS  >6 Zernike modes on a Surface=
         %   Zernike element must emit ZernModes on ONE line; wrapping at 6/row
