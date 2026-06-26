@@ -114,3 +114,4 @@ window_set
 xp_fnd
 xp_get
 xp_set
+xps_cmd
