@@ -139,10 +139,15 @@ endif
 # link it when present so gfortran's --no-undefined is satisfied.
 FITS_LIB := $(wildcard $(MACOS_BUILD_DIR)/lib/libfitslib.a)
 
+# libsmacos.a references slsqp_ (design_slsqp_optim_mod) on sls-dev/opt-dev;
+# the SLSQP objects live in their own archive -- link it after libsmacos so
+# the reference resolves.  Wildcard-guarded for older trees without it.
+SLSQP_LIB := $(wildcard $(MACOS_BUILD_DIR)/lib/libslsqplib.a)
+
 default: $(MEX_NAME).$(MEXTAG)
 
 $(MEX_NAME).$(MEXTAG): GMI.o GMIG.o $(SMACOS_LIBS)
-	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
+	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS) $(SLSQP_LIB) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
 
 GMI.o: GMI.F
 	$(FC) $(FFLAGS) -c GMI.F
