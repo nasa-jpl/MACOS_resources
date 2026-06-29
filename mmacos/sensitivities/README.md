@@ -12,6 +12,12 @@ produces a canonical state-vector Jacobian plus two figures.
 | `run_dwdsurf_multi.m` | powered surface | Kr, Kc per powered optic     | `macos.dw_dsurf_multi` |
 | `run_dwdgrid_multi.m` | grid data       | (element, influence poke)    | `macos.dw_dgrid_multi` |
 
+> **Self-contained examples + `mmacos_setup` (2026-06).** Per-driver copies in
+> `examples/` each ship their own `.in`, set the path via the repo-root
+> `mmacos_setup` (run once per MATLAB session — no `addpath` in the script), and
+> also emit single-page-**per-element** *center* and *multi* plots via the generic
+> `plot_dw_per_element` helper (one page per optic/segment, parula + zero-mask).
+
 ## Use it on your own system
 
 Open any script and edit the **CONFIG block** at the top — the only line you

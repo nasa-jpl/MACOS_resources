@@ -454,6 +454,51 @@ SLSQP objects live in their own archive `libslsqplib.a` (CMake target
 (wildcard-guarded for older trees).  Without it any sls-dev/opt-dev
 mmacos build fails with `undefined reference to slsqp_`.
 
+## Sensitivities: dw/d(grid) segment example — RESOLVED 2026-06-29
+
+The per-segment dW/d(grid-data) example now images correctly — each grid-figure
+poke is localized to its segment (matches FreeForm).  The "spurious per-segment
+piston" flagged 2026-06-28 was NOT a conjugate/reset artifact: it was the engine
+**`GridSrf` (SrfType-9) bug** — GridSrf forwarded an all-zero grid frame to
+FreeFormSrf, collapsing the grid index to the center pixel so the grid acted as a
+pure piston (the figure was discarded).  Fixed in the macos engine (sls-dev
+`03db580` / opt-dev `1b535a5`, threads the real grid frame; see
+`macos/macos_f90/CLAUDE.md`).  GMI regression 6/6 bit-identical.
+
+- **Rx** (`SegDemo3conic.in`, self-contained): PM-conic Reference=elt1, S1=elt2,
+  6 GridData segments S2..S7=elts3..8, SecMir=9, FclPlaneReturn=10, ExitPupil=11
+  (wf_elt), FclPlane=12, ApStop=0 0 0.  Exit pupil set via the FP-Return-before-
+  EP-Return 2-pass pattern (`add_pupil`); `reset_xp_method='sxp'` (FEX collapses on
+  SegDemo3 — a SEPARATE, real issue, unrelated to the piston).
+- **GridSrfdx / figure-scale gotcha:** the bundled grid file `zern41em5z155em3.txt`
+  (a steep z41, ~5 mm) is built for `GridSrfdx=0.01`.  At a tighter scale
+  (0.0071/0.0063) its full extent lands on the segment and the trace DIVERGES —
+  for BOTH FreeForm AND GridData (so it's figure-scale, not a GridData bug).  Use
+  `GridSrfdx=0.01` (segment samples the figure's gentle center) or a gentler file.
+  Flat segments are NOT acceptable (Dave: unusable in a real telescope) — the demo
+  must carry a real figure.
+- **GridFile resolves from CWD** (engine `GridInit`): run with cwd = the dir
+  holding `zern41em5z155em3.txt` (`examples/grid_surface/`) or co-locate it
+  (deferred).  Else "File ... does not exist -sub GridInit" → flat nominal.
+
+Plotting helpers (`sensitivities/`, GENERIC across all dw_d*_multi):
+- **`plot_dw_channels`** — all-channels overview.
+- **`plot_dw_per_element(out, 'center'|'multi', here, prefix)`** (NEW) — one page
+  PER ELEMENT (= per segment for grid; per optic for dwdx/dwdz/dwdsurf),
+  center-field AND multi-field, parula + zero-mask, no thresholding/caxis band-aids
+  (retired — the dW is localized now).  Auto-detects the per-field cell
+  (`per_field_dwd{x,z,s,g}`); wired into all the `run_dwd*_multi` examples.
+- **`macos.gs_zernike_segment_basis`** — GS-orthonormalized Zernike basis over a
+  segment's true (irregular) aperture, piston/tip/tilt projected out; one basis
+  covers all clocked segments.  Trace to the PM Reference (can't trace a Segment).
+- **`mmacos_setup.m`** (repo root, NEW) — run once per MATLAB session to put `src`
+  + the sensitivities helpers on the path; anchored to its own location (no
+  hardcoded user paths).  Example drivers carry no addpath.
+
+The `sensitivities/examples/` tree (per-driver self-contained examples) is
+UNCOMMITTED on sls-dev — feature work; prune the experimental `run_dwd*_SegDemo`
+dirs + the stray `SD3ff.in` before committing.
+
 ## Key files
 
 | File | Role |
