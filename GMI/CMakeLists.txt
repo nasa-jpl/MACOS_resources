@@ -163,13 +163,18 @@ endif()
 
 set(NPSOL_GMI_LIBS "")
 if(WIN32)
-  foreach(_lib npsol.lib lapacklib.lib blaslib.lib)
+  # slsqplib included: libsmacos references slsqp_ (design_slsqp_optim_mod)
+  # on sls-dev/opt-dev branches, but the slsqp_optmz.f objects live in
+  # their own static archive (CMake target slsqplib) -- link it after
+  # smacos so the reference resolves, same as the GMI Makefile's
+  # explicit $(SLSQP_LIB) addition.
+  foreach(_lib npsol.lib lapacklib.lib blaslib.lib slsqplib.lib)
     if(EXISTS "${_smacos_lib_dir}/${_lib}")
       list(APPEND NPSOL_GMI_LIBS "${_smacos_lib_dir}/${_lib}")
     endif()
   endforeach()
 else()
-  foreach(_lib libnpsol.a liblapacklib.a libblaslib.a)
+  foreach(_lib libnpsol.a liblapacklib.a libblaslib.a libslsqplib.a)
     if(EXISTS "${_smacos_lib_dir}/${_lib}")
       list(APPEND NPSOL_GMI_LIBS "${_smacos_lib_dir}/${_lib}")
     endif()
