@@ -6,9 +6,14 @@ apply per-element perturbations, and pull back OPD/PIX/SPOT/CEF arrays.
 
 ## Build
 Standalone Makefile, outside the macos cmake tree. Links pre-built
-libraries from `~/dev/macos/build_release_giza/`:
-- `libsmacos.a`, `libnpsol.a`, plus MATLAB libmex/libmx
-- Consumes mod files from `build_release_giza/mod_smacos/`
+libraries from the macos cmake build tree (`MACOS_BUILD_DIR`, default
+`~/dev/macos/build_release_gfortran` for the gfortran path):
+- `libsmacos.a` + **`libslsqplib.a`** (`SLSQP_LIB`, wildcard-guarded, after
+  libsmacos on the link line) — libsmacos references `slsqp_` via
+  `design_slsqp_optim_mod` on sls-dev/opt-dev, so the link fails with
+  `undefined reference to slsqp_` without it (mirrors the mmacos Makefile;
+  added 2026-06-29). Plus `libfitslib.a`/NPSOL when present + MATLAB libmex/libmx.
+- Consumes mod files from `$(MACOS_BUILD_DIR)/mod_smacos/`
 
 Build entry points (in `~/dev/macos/`):
 - `source ./makegmi.sh` — GMI mex only (requires macos+smacos pre-built)
