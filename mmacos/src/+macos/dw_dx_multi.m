@@ -112,6 +112,7 @@ per_field_dwdx   = cell(n_fields, 1);
 per_field_w_nom  = cell(n_fields, 1);
 per_field_struct = cell(n_fields, 1);
 names = {};
+iElt_out = [];
 for k = 1:n_fields
     new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
     session.set_src_fov('src_pos', nom.src_pos, 'src_dir', new_dir, ...
@@ -137,7 +138,7 @@ for k = 1:n_fields
     per_field_dwdx{k}   = sf.dwdx;
     per_field_w_nom{k}  = sf.w_nom_2d;
     per_field_struct{k} = sf;
-    if isempty(names), names = sf.channel_names; end
+    if isempty(names), names = sf.channel_names; iElt_out = sf.iElt; end
     col_rms_mean = mean(sqrt(mean(sf.dwdx.^2, 1)));
     fprintf('[field %s] dwdx shape [%d %d], mean col-RMS %.3e\n', ...
         fields(k).name, size(sf.dwdx, 1), size(sf.dwdx, 2), col_rms_mean);
@@ -213,6 +214,7 @@ out.w0_stacked           = w0_stacked;
 out.indxall              = indxall;
 out.OPDall               = OPDall;
 out.channel_names        = names;
+out.iElt                 = iElt_out;
 out.field_table          = arrayfun( ...
     @(s) [s.dx, s.dy, s.tile_row, s.tile_col], fields, ...
     'UniformOutput', false);
