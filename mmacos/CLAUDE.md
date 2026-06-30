@@ -491,13 +491,31 @@ Plotting helpers (`sensitivities/`, GENERIC across all dw_d*_multi):
 - **`macos.gs_zernike_segment_basis`** — GS-orthonormalized Zernike basis over a
   segment's true (irregular) aperture, piston/tip/tilt projected out; one basis
   covers all clocked segments.  Trace to the PM Reference (can't trace a Segment).
-- **`mmacos_setup.m`** (repo root, NEW) — run once per MATLAB session to put `src`
-  + the sensitivities helpers on the path; anchored to its own location (no
-  hardcoded user paths).  Example drivers carry no addpath.
+- **`macos.segment_grid_basis`** (NEW 2026-06-30, sls-dev `245af94`) — the
+  PER-SEGMENT generalization: steps EVERY grid segment (find_grid_elts), builds a
+  bespoke Voronoi+hull mask + Z-mode stack `out.seg(s).B [N×N×K]` in each
+  segment's OWN clocked (xData,yData) frame.  `zern_type` 'ansi' (engine
+  ZerntoMon1/NormANSI, default) | 'noll'; `orthogonalize` (GS vs plain circular).
+  Voronoi WEDGES are correct (`ApType=None` → nearest-centre footprint); for the
+  congruent SegDemo3conic flower the per-segment bases are ~98% congruent (it
+  matters for clipped EDGE segments).  See memory [[project-gridmat-generator]].
+- **Per-segment influence path**: `grid_channels` / `dw_dgrid` / `dw_dgrid_multi`
+  `'influence'` now accepts `[N×N×K]` (all elts), a `segment_grid_basis` struct
+  (per-segment, keyed by iElt), OR a cell per grid elt — so `run_dwdgrid*` can use
+  per-segment bases.  `macos.write_grid_file` writes a grid to the engine GridFile
+  format (GridInit reads `DO j: READ(GridMat(i,j),i=1,N)` → file line j = column j;
+  fprintf column-major → GridMat==M, no transpose; validated by load+trace).
+  Example `examples/gen_segment_gridmat/` (driver + SegDemo3conic.in with
+  GridFile=none + README).  **Do NOT collapse modes into the Rx** — that
+  (modes×coefs in the engine) is a deferred bigger task.
+- **`mmacos_setup.m`** (repo root, committed 245af94) — run once per MATLAB session
+  to put `src` + the sensitivities helpers on the path; anchored to its own
+  location (no hardcoded user paths).  Example drivers carry no addpath.
 
-The `sensitivities/examples/` tree (per-driver self-contained examples) is
-UNCOMMITTED on sls-dev — feature work; prune the experimental `run_dwd*_SegDemo`
-dirs + the stray `SD3ff.in` before committing.
+The `gen_segment_gridmat` example + `mmacos_setup.m` shipped (245af94); the OTHER
+`run_dwd*_multi` self-contained examples + `plot_dw_per_element.m` are STILL
+UNCOMMITTED on sls-dev — prune the experimental `run_dwd*_SegDemo` dirs + the stray
+`SD3ff.in` before committing.
 
 ## Key files
 
