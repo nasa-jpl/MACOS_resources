@@ -7,7 +7,7 @@
 # User Configurable Options         #
 #####################################
 
-# MACOS source directory (set by makealldcr.sh / makeGMIdcr.sh, or override here)
+# MACOS source directory (set by makeall.sh / makegmi.sh, or override here)
 MACOS_DIR := $(macossrc_dir)
 GMI_DIR    := $(shell pwd)
 
@@ -149,14 +149,33 @@ default: $(MEX_NAME).$(MEXTAG)
 $(MEX_NAME).$(MEXTAG): GMI.o GMIG.o $(SMACOS_LIBS)
 	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS) $(SLSQP_LIB) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
 
-GMI.o: GMI.F
+# --- Force objects to rebuild when the compiler (FC) changes -----------
+# GMI.o/GMIG.o live in this flat directory, shared between the gfortran
+# (makegmi.sh default) and ifx (makeall.sh) builds.  make keys recompiles
+# on source mtime only, so switching compilers silently reuses the other
+# compiler's objects and the link then fails with "undefined reference to
+# _gfortran_*" (ifx linking gfortran .o) or the Intel-runtime mirror image.
+# .fc_stamp records the FC of the last build and is rewritten -- bumping its
+# mtime -- only when FC actually changes, forcing a recompile with the new
+# compiler.  Re-running with the same FC leaves the stamp untouched, so
+# there is no spurious rebuild.
+.fc_stamp: FORCE
+	@if [ "x$$(cat $@ 2>/dev/null)" != "x$(FC)" ]; then \
+	   echo "GMI: compiler set to FC=$(FC); forcing object rebuild"; \
+	   echo "$(FC)" > $@; \
+	 fi
+
+FORCE: ;
+.PHONY: FORCE
+
+GMI.o: GMI.F .fc_stamp
 	$(FC) $(FFLAGS) -c GMI.F
 
-GMIG.o: GMIG.F
+GMIG.o: GMIG.F .fc_stamp
 	$(FC) $(FFLAGS) -c GMIG.F
 
 clean:
-	-rm -f *.o *.mod $(MEX_NAME).$(MEXTAG)
+	-rm -f *.o *.mod .fc_stamp $(MEX_NAME).$(MEXTAG)
 
 # begin fortran depends
 GMIG.o: GMIG.F
