@@ -12,10 +12,11 @@ function out = dw_dgrid(session, rx_path, opts)
 %   mirrors macos.dw_dz_zernike (rigid-body = dw_dx, Zernike = dw_dz_zernike).
 %
 %   Name-value pairs:
-%     'influence'       [N×N×K] influence maps (DM actuator functions, measured
-%                       figure maps, …).  Default: a low-order Zernike-on-grid
-%                       basis (macos.zernike_grid_basis) at the elements' grid
-%                       size.  N must equal the surface grid sampling.
+%     'influence'       [N×N×K] maps applied to every grid element; OR a
+%                       per-segment basis (a macos.segment_grid_basis struct, or
+%                       a cell per grid element -- see grid_channels).  Default:
+%                       a low-order Zernike-on-grid basis (zernike_grid_basis)
+%                       at the elements' grid size.  N = surface grid sampling.
 %     'zmodes'          Noll modes for the default basis.  Default [4 5 6 7 8 11].
 %     'exit_pupil_elt'  surface the wavefront is read at.  Default -1 = nElt-1.
 %     'delta'           finite-difference step (map amplitude).  Default 1e-6.
@@ -31,7 +32,7 @@ function out = dw_dgrid(session, rx_path, opts)
 arguments
     session
     rx_path (1,:) char = ''
-    opts.influence      double  = []
+    opts.influence              = []   % [NxNxK] | per-segment struct | cell
     opts.zmodes         (1,:) double = [4 5 6 7 8 11]
     opts.exit_pupil_elt (1,1) double = -1
     opts.delta          (1,1) double = 1e-6
