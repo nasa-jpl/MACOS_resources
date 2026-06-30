@@ -28,8 +28,9 @@ function out = dw_dgrid_multi(session, rx_path, opts)
 %     'fields' FILE   override: rows of 'name dx_rad dy_rad tile_row tile_col'
 %
 %   OTHER NAME-VALUE PAIRS (forwarded to dw_dgrid):
-%     'influence'  [N x N x K] influence maps (default: a low-order
-%                  Zernike-on-grid basis via macos.zernike_grid_basis).
+%     'influence'  [N x N x K] maps for every grid element, OR a per-segment
+%                  basis (a macos.segment_grid_basis struct, or a cell per grid
+%                  element).  Default: a low-order Zernike-on-grid basis.
 %     'zmodes'     Noll/ANSI modes for the default basis.  Default [4 5 6 7 8 11].
 %     'delta', 'method', 'exit_pupil_elt', 'verbose'.
 %
@@ -67,7 +68,7 @@ arguments
     opts.field_y_rad            (1,1) double = NaN
     opts.fields                 (1,:) char = ''
     opts.grid                   (1,:) char = ''
-    opts.influence              double = []
+    opts.influence              = []   % [NxNxK] | per-segment struct | cell
     opts.zmodes                 (1,:) double = [4 5 6 7 8 11]
     opts.delta                  (1,1) double = 1e-6
     opts.method                 (1,:) char {mustBeMember(opts.method, ...
@@ -75,6 +76,9 @@ arguments
     opts.exit_pupil_elt         (1,1) double {mustBeInteger} = -1
     opts.reset_xp               (1,1) logical = true
     opts.verbose                (1,1) logical = false
+    opts.reload_rx              (1,1) logical = true
+    opts.reset_xp_method        (1,:) char {mustBeMember(opts.reset_xp_method, ...
+                                  {'fex','sxp'})} = 'fex'
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -103,7 +107,14 @@ for k = 1:n_fields
 end
 
 % ---- Load + snapshot nominal source -------------------------------
-session.load_rx(rx_path);
+% reload_rx=false lets the caller pre-load the Rx AND install state that
+% must persist across the field loop -- e.g. a nominal grid figure added
+% with macos.elt_grid_add (a fresh load_rx here would wipe it).  Each
+% field below runs dw_dgrid with reload_rx=false, so a single load is all
+% that happens regardless.
+if opts.reload_rx
+    session.load_rx(rx_path);
+end
 nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
@@ -157,7 +168,17 @@ for k = 1:n_fields
         % nElt-1.  Net: the FIELD tilt is removed from the nominal, but a
         % POKE's own tilt is retained in the sensitivity (the reference is
         % NOT re-fit after poking).
-        macos.fex(1);   % mode 1 = centre on chief ray
+        % reset_xp_method='sxp' uses SXP instead of FEX -- SXP sets the EP
+        % reference radius to the EP->FP distance (the true exit-pupil focal
+        % length) rather than FEX's legacy iEm1->EP, so it stays well-posed
+        % when the Rx places the exit pupil near the preceding element (the
+        % SegDemo3* case: FEX collapses to a ~0.1 m sphere, ~half the rays
+        % miss elt nElt-1, OPD becomes a ~50 mm defocus bowl).
+        if strcmp(opts.reset_xp_method, 'sxp')
+            macos.sxp(1);   % EP radius = EP->FP (robust to a misplaced-EP Rx)
+        else
+            macos.fex(1);   % mode 1 = centre on chief ray
+        end
     end
     sf = macos.dw_dgrid(session, rx_path, ...
         'influence', infl, ...
