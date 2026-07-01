@@ -58,9 +58,10 @@ if isempty(INFL)
     end
     N    = double(mmacos('elt_srf_grid_size', g(1), 1));
     txt  = fileread(RX);
-    lMon = str2double(regexp(txt, 'lMon=\s*([\d.eE+-]+)',      'tokens', 'once'));
-    gdx  = str2double(regexp(txt, 'GridSrfdx=\s*([\d.eE+-]+)', 'tokens', 'once'));
-    if ~isnan(lMon) && ~isnan(gdx) && gdx > 0
+    % str2num (not str2double) so Fortran D-exponents parse, e.g. 1.0D-02
+    lMon = str2num(regexp(txt, '(?<=lMon=)\s*[\d.eEdD+-]+',      'match', 'once'));  %#ok<ST2NM>
+    gdx  = str2num(regexp(txt, '(?<=GridSrfdx=)\s*[\d.eEdD+-]+', 'match', 'once'));  %#ok<ST2NM>
+    if ~isempty(lMon) && ~isempty(gdx) && gdx > 0
         ap_frac = lMon / (((N-1)/2) * gdx);   % confine to the segment aperture
         fprintf('aperture-confined basis: %.0f%% of grid half-width\n', 100*ap_frac);
         INFL = macos.zernike_grid_basis(N, ZMODES, ap_frac);
