@@ -512,10 +512,22 @@ Plotting helpers (`sensitivities/`, GENERIC across all dw_d*_multi):
   to put `src` + the sensitivities helpers on the path; anchored to its own
   location (no hardcoded user paths).  Example drivers carry no addpath.
 
-The `gen_segment_gridmat` example + `mmacos_setup.m` shipped (245af94); the OTHER
-`run_dwd*_multi` self-contained examples + `plot_dw_per_element.m` are STILL
-UNCOMMITTED on sls-dev — prune the experimental `run_dwd*_SegDemo` dirs + the stray
-`SD3ff.in` before committing.
+Two segmented dwdgrid worked examples shipped 2026-07-01 (sls-dev `c07ed65`):
+`examples/run_dwdgrid_multi_multisegbasis` (PER-segment -- feeds the
+`segment_grid_basis` struct as `dw_dgrid_multi` `'influence'`; verified 72 chan
+/ 0.0% inter-seg support overlap / 92px centroid spread) and
+`examples/run_dwdgrid_multi_singlesegbasis` (SINGLE shared basis via
+`gs_zernike_segment_basis`).  Naming (Dave): `multi`=one-basis-per-segment,
+`single`=one-shared-basis (both `*segbasis`).  Both segmented drivers also live
+as generic library templates in `sensitivities/` (RX='' -> bundled default).
+`plot_dw_per_element.m`, `gs_zernike_segment_basis.m` (doc-ref fixed off the
+deleted `check_pmref.in`), the generic `run_dwdgrid_multi`, and the
+`run_dwd{x,z,surf}_multi` examples are committed too (`c07ed65` + `8beb774`).
+The experimental `run_dwd*_SegDemo` scratch dirs were DELETED; their unique
+FreeForm/Zernike fixtures (`SegDemo3ff.in`, `SD3ff.in`, `SegDemo3zern.in` + the
+gs bespoke driver) are preserved untracked in
+`~/dev/MACOS_sandbox/segdemo_fixtures/`.  `gen_segment_gridmat` + `mmacos_setup.m`
+shipped earlier (245af94).
 
 ## Key files
 
