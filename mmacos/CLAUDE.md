@@ -432,6 +432,12 @@ resolve it with a `tests/private/` path helper (mirror
 
 ## Veneer parity with pymacos (audit 2026-06-12)
 
+> **Superseded in part by the full 3-layer audit 2026-07-02:**
+> `MACOS_resources/doc/mmacos_pymacos_parity.md` — mmacos is now a
+> strict SUPERSET at the raw layer (5 api_mod routines have no pymacos
+> wrapper: draw_rays_cmd/get, xps_cmd, ray_status_get, elt_z); both
+> directions of user-surface gaps enumerated there with a re-run recipe.
+
 **Engine-level parity is complete** — every implemented pymacos function
 maps to a shared `macos_api_mod` routine mmacos also exposes as a raw
 `mmacos('cmd',...)`.  Remaining gaps are convenience `+macos` veneers,
