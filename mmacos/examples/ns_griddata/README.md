@@ -1,31 +1,37 @@
-# ns_griddata — a GridData (Zernike-grid) figure imaged at the exit pupil
+# ns_griddata — how `ZrnGrData` composes: Zernike + GridData on an NSReflector
 
-Demonstrates a **grid-data surface figure** (`GridFile=`) on a segment of a
-double-pass system (`iris_dp_ZGD.in`: segment **A1** is an `Element=NSReflector`,
-`Surface=ZrnGrData` hit twice, iElt 17 & 35), and shows it in the **ExitPupil
-OPD** by comparing the figure **ON** (`zern41em5z155em3.txt`) vs **OFF**
-(`flat.txt`) — the difference is the grid figure's contribution to the
-wavefront.
+Answers the iris double-pass "ZGD" questions (Luis).  Segments **A1/A3/A5** are
+`Element=NSReflector` surfaces hit twice (iElt 17/19/21 on pass 1, 35/37/39 on
+pass 2).  Each carries **both** a Zernike figure (`ZernCoef`, ANSI modes
+14 15 19 38) and a grid figure (`GridFile=zern41em5z155em3.txt`,
+`GridSrfdx=1.1e-2`).  Five prescriptions differ **only** in the `Surface=` type
+of those six element entries:
+
+| File | Surface= | Figure applied |
+|---|---|---|
+| `iris_dp_conic.in` | `Conic` | none (baseline) |
+| `iris_dp_Zern.in` | `Zernike` | Zernike only (grid lines parsed, ignored) |
+| `iris_dp_GD.in` | `GridData` | grid only (`ZernCoef` parsed, ignored) |
+| `iris_dp_ZGD_flat.in` | `ZrnGrData` | Zernike + FLAT grid (`flat.txt`) |
+| `iris_dp_ZGD.in` | `ZrnGrData` | Zernike + grid (both) |
+
+Each variant's ExitPupil (elt 55) OPD minus the conic baseline isolates that
+surface type's figure contribution.  The driver then checks:
+
+1. **Superposition** — `dZGD == dZern + dGD`: a `ZrnGrData` surface applies the
+   Zernike leg and the grid leg independently and adds them.
+2. **Flat grid is inert** — `ZGD_flat == Zern`: an all-zero grid contributes
+   nothing, and `ZrnGrData`'s Zernike leg is identical to `Surface=Zernike`.
 
 Run (after `mmacos_setup`):
 
 ```matlab
 mmacos_setup
-run ns_griddata      % OPD_on, OPD_off, and their difference at the ExitPupil
+run ns_griddata
 ```
 
-Outputs `ns_griddata_opd_on_off_diff.png` (3-panel: OPD on / off / difference)
-and `ns_griddata.mat`.
-
-## Files
-
-| File | Role |
-|---|---|
-| `iris_dp_ZGD.in` | prescription; A1 grid = `zern41em5z155em3.txt` (figure ON) |
-| `iris_dp_ZGD_flat.in` | same, A1 grid = `flat.txt` (figure OFF) |
-| `zern41em5z155em3.txt` | the N×N grid figure (a steep z41), `GridSrfdx=0.2` |
-| `flat.txt` | an all-zero N×N grid (the OFF baseline) |
-| `ns_griddata.m` | the driver (uses `macos.opd_psf`) |
+Outputs `ns_griddata_decomposition.png` (2×3: dZern / dGD / dZGD / dZern+dGD /
+superposition residual / flat-grid residual) and `ns_griddata.mat`.
 
 ## The reusable utility
 
@@ -39,7 +45,7 @@ macos.opd_psf('iris_dp_ZGD.in', 'wf_elt', 55, 'psf', true, ...
               'save_png', true, 'save_mat', true);
 ```
 
-## What this example caught
+## What the original version of this example caught
 
 A `GridFile=` line with an inline comment kept the trailing **tabs** before the
 `%` — e.g. `GridFile=  zern41em5z155em3.txt<TAB><TAB>% flat.txt`.  The parser
@@ -56,3 +62,21 @@ with the figure on or off).  Fixed in the engine (strip trailing tabs from
 > (or comments)** — a SAVE'd Rx comes back with no `ApStop=` and no comments —
 > so add the `ApStop=` line to the Rx directly.  (Both the ApStop-SAVE gap and
 > the opd-segfault-on-zero-rays are tracked engine TODOs.)
+
+> **Engine note (non-sequential grids):** this example caught a second bug —
+> `NSReflector` elements trace through the standard `Reflector` routine, but
+> the non-sequential call sites (tracesub.F / propsub.F) passed the grid
+> coordinate frame (`pData/xData/yData/zData`) indexed by the wrong element
+> (`iElt`, the NS-group entry, instead of `imin`, the element actually hit).
+> A frameless element's vectors are all zero, so every ray mapped to the
+> grid's **center pixel** and the figure degenerated to a per-segment piston
+> (measured: 2·bounces·cosθ·GridMat(128,128) exactly, ~0.3% residual from the
+> cosθ variation).  Fixed by indexing the frame with `imin`.  The refractive
+> NS path (`NSRefractor` routine) still carries a null grid frame — a tracked
+> engine TODO (not exercised by iris, which is all-reflective).
+>
+> **GridSrfdx:** the grid's physical span is `(nGridMat−1) × GridSrfdx` in
+> base units, centered on `pData`.  For a 256-grid to span a 280-diameter
+> segment: `GridSrfdx = 280/255 ≈ 1.1`.  Too small a value leaves most of the
+> footprint outside the grid (fh=0 there); the original 0.2 sampled only the
+> central ±25 units.
