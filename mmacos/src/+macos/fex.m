@@ -22,7 +22,22 @@ if macos.num_elt() <= 3
     error('macos:fex:tooFewElts', ...
         'fex: needs more than 3 elements (have %d).', macos.num_elt());
 end
-xp = mmacos('xp_fnd', mode);          % 7-vec [Kr, psi(3), vpt(3)]
+try
+    xp = mmacos('xp_fnd', mode);      % 7-vec [Kr, psi(3), vpt(3)]
+catch
+    % The dispatcher raises a terse 'mmacos: xp_fnd failed' when xp_fnd
+    % returns OK=false -- which happens only when the Rx isn't loaded or
+    % (the usual cause) no aperture stop is set, leaving the chief ray and
+    % hence the pupil undefined.  The engine has already printed the same
+    % remedy on stdout; re-throw with an actionable identifier so callers
+    % (dw_d*_multi's reset_xp, pupil_quality, ...) abort cleanly instead
+    % of building a wavefront on a bogus pupil.
+    error('macos:fex:noStop', ...
+        ['fex could not find the exit pupil: no aperture stop is set, ' ...
+         'so the chief ray (and hence the pupil) is undefined.  Add ' ...
+         '"ApStop= 0 0 0" to the Rx header (stop at the primary), or ' ...
+         'call macos.stop(iElt) before macos.fex.']);
+end
 [vpt, psi, rad] = mmacos('xp_get');
 s.vpt = vpt(:);
 s.psi = psi(:);

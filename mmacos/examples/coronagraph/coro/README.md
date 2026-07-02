@@ -16,7 +16,7 @@ vs Fortran" — empirically, with measured numbers.
 
 Run (each ends with `exit(0)` under `-batch`):
 ```matlab
-addpath(<mmacos>/src); addpath(<mmacos>/examples/design/coro);
+addpath(<mmacos>/src); addpath(<mmacos>/examples/coronagraph/coro);
 out = E1_darkzone_contrast();
 ```
 
