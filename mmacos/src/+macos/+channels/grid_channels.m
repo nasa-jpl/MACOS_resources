@@ -26,6 +26,14 @@ g = macos.find_grid_elts();
 if ~isempty(opts.elts)
     g = intersect(g, opts.elts(:));
 end
+% A per-segment basis struct is authoritative for WHICH elements get channels:
+% restrict to the elements it covers.  find_grid_elts keys on nGridMat alone,
+% so it also lists grid-bearing non-candidates -- a conforming Reference (a
+% passive trace target holding a Zernike basis definition) or a downstream
+% full-aperture refractor -- for which the per-segment basis has no entry. -CC
+if isstruct(influence) && isfield(influence, 'seg')
+    g = intersect(g, [influence.seg.iElt].', 'stable');
+end
 get_basis = resolve_influence_(influence, g);    % @(ie) -> [N×N×K] for element ie
 
 chans = {};
