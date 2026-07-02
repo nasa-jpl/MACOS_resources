@@ -68,10 +68,20 @@ session.load_rx(rx_path);
 txt = fileread(rx_path);
 
 % ---- segment sets ----------------------------------------------------
-seg_elts = opts.seg_elts;
-if isempty(seg_elts), seg_elts = macos.find_grid_elts().'; end
 center_elts = opts.center_elts;
 if isempty(center_elts), center_elts = find_segment_elts_(txt); end
+seg_elts = opts.seg_elts;
+if isempty(seg_elts)
+    % Grid-bearing SEGMENTS only: intersect the grid-bearing set (nGridMat>0)
+    % with the Voronoi centres (Element=Segment).  find_grid_elts() keys on
+    % nGridMat alone, so it also picks up grid-bearing elements that are NOT
+    % part of the segmentation and cannot be Voronoi-partitioned -- a
+    % conforming Reference (a passive trace target holding a Zernike basis
+    % definition) or a downstream full-aperture refractor.  Those are dropped
+    % here (a Reference is never a basis candidate; a full-aperture optic uses
+    % the whole-grid basis path, not this per-segment one). -CC
+    seg_elts = intersect(macos.find_grid_elts().', center_elts, 'stable');
+end
 
 % ---- Voronoi centres (segment origins), from the Rx ------------------
 nc = numel(center_elts);
