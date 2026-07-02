@@ -48,8 +48,9 @@ N    = double(mmacos('elt_srf_grid_size', g(1), 1));
 % which see only their own data), but a grid-sized Zernike is a flat sliver
 % inside lMon.  ap_frac = aperture radius / grid half-width.
 txt  = fileread(rx);
-lMon = str2double(regexp(txt, 'lMon=\s*([\d.eE+-]+)',      'tokens', 'once'));
-gdx  = str2double(regexp(txt, 'GridSrfdx=\s*([\d.eE+-]+)', 'tokens', 'once'));
+% str2num (not str2double) so Fortran D-exponents parse, e.g. 1.0D-02
+lMon = str2num(regexp(txt, '(?<=lMon=)\s*[\d.eEdD+-]+',      'match', 'once'));  %#ok<ST2NM>
+gdx  = str2num(regexp(txt, '(?<=GridSrfdx=)\s*[\d.eEdD+-]+', 'match', 'once'));  %#ok<ST2NM>
 ap_frac = lMon / (((N-1)/2) * gdx);
 fprintf('lMon=%.1f  GridSrfdx=%.3f  -> aperture = %.0f%% of grid half-width\n', ...
         lMon, gdx, 100*ap_frac);

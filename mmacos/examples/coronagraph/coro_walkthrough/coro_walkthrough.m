@@ -21,7 +21,7 @@ function coro_walkthrough(rx_path, outdir)
 %
 %   Runs headless (MATLAB -batch): figures are created invisible and
 %   exported to PNG.  Reuses the dark-zone scoring helpers in
-%   ../design/coro/.
+%   ../coro/.
 arguments
     rx_path (1,:) char = ''
     outdir  (1,:) char = ''

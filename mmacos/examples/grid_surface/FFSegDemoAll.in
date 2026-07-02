@@ -76,7 +76,7 @@
        FFZernType=  ANSI
       nFFZernCoef=   4
       FFZernModes=  14  15  19 38
-       FFZernCoef=  0 0 0 0 % 6.0D-05  8.0D-05  2.0D-06  1.0D-06
+       FFZernCoef=  6.0D-05  8.0D-05  2.0D-06  1.0D-06
               lFF=  0.92D+00
       MonZernType=  ANSI
      nMonZernCoef=  1
@@ -125,7 +125,7 @@
        FFZernType=  ANSI
       nFFZernCoef=   4
       FFZernModes=  14  15  19 38
-       FFZernCoef=  0 0 0 0 % 6.0D-05  8.0D-05  2.0D-06  1.0D-06
+       FFZernCoef=  6.0D-05  8.0D-05  2.0D-06  1.0D-06
               lFF=  0.92D+00
       MonZernType=  ANSI
      nMonZernCoef=  1
@@ -174,7 +174,7 @@
        FFZernType=  ANSI
       nFFZernCoef=   4
       FFZernModes=  14  15  19 38
-       FFZernCoef=  0 0 0 0 % 6.0D-05  8.0D-05  2.0D-06  1.0D-06
+       FFZernCoef=  6.0D-05  8.0D-05  2.0D-06  1.0D-06
               lFF=  0.92D+00
       MonZernType=  ANSI
      nMonZernCoef=  1
@@ -223,7 +223,7 @@
        FFZernType=  ANSI
       nFFZernCoef=   4
       FFZernModes=  14  15  19 38
-       FFZernCoef=  0 0 0 0 % 6.0D-05  8.0D-05  2.0D-06  1.0D-06
+       FFZernCoef=  6.0D-05  8.0D-05  2.0D-06  1.0D-06
               lFF=  0.92D+00
       MonZernType=  ANSI
      nMonZernCoef=  1
@@ -272,7 +272,7 @@
        FFZernType=  ANSI
       nFFZernCoef=   4
       FFZernModes=  14  15  19 38
-       FFZernCoef=  0 0 0 0 % 6.0D-05  8.0D-05  2.0D-06  1.0D-06
+       FFZernCoef=  6.0D-05  8.0D-05  2.0D-06  1.0D-06
               lFF=  0.92D+00
       MonZernType=  ANSI
      nMonZernCoef=  1
@@ -321,7 +321,7 @@
        FFZernType=  ANSI
       nFFZernCoef=   4
       FFZernModes=  14  15  19 38
-       FFZernCoef=  0 0 0 0 % 6.0D-05  8.0D-05  2.0D-06  1.0D-06
+       FFZernCoef=  6.0D-05  8.0D-05  2.0D-06  1.0D-06
               lFF=  0.92D+00
       MonZernType=  ANSI
      nMonZernCoef=  1

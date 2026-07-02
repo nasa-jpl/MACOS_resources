@@ -46,8 +46,9 @@ m = macos.Session(MODEL);  m.load_rx(rx);
 g    = macos.find_grid_elts();
 N    = double(mmacos('elt_srf_grid_size', g(1), 1));
 txt  = fileread(rx);
-lMon = str2double(regexp(txt, 'lMon=\s*([\d.eE+-]+)',      'tokens', 'once'));
-gdx  = str2double(regexp(txt, 'GridSrfdx=\s*([\d.eE+-]+)', 'tokens', 'once'));
+% str2num (not str2double) so Fortran D-exponents parse, e.g. 1.0D-02
+lMon = str2num(regexp(txt, '(?<=lMon=)\s*[\d.eEdD+-]+',      'match', 'once'));  %#ok<ST2NM>
+gdx  = str2num(regexp(txt, '(?<=GridSrfdx=)\s*[\d.eEdD+-]+', 'match', 'once'));  %#ok<ST2NM>
 ap_frac = lMon / (((N-1)/2) * gdx);
 fprintf('grid-bearing elements: %s\n', mat2str(g(:).'));
 fprintf('lMon=%.1f  GridSrfdx=%.3f  -> aperture = %.0f%% of grid half-width\n', ...

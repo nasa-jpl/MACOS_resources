@@ -9,7 +9,7 @@ example; reproducible from one script.
 
 ```matlab
 addpath('<mmacos>/src');
-addpath('<mmacos>/examples/coro_walkthrough');
+addpath('<mmacos>/examples/coronagraph/coro_walkthrough');
 coro_walkthrough();                       % -> figures/  (headless OK)
 % or: coro_walkthrough(rx_path, outdir)
 ```
@@ -47,7 +47,7 @@ Figures written to `figures/`:
   (dashed rings mark it).
 - **`coro_darkzone.png`** — radial contrast vs lambda/D, no-mask
   baseline vs coronagraph, with the 7-10 lambda/D dark-zone mean +
-  floor annotated (reuses the Sprint-1 `../design/coro` scoring
+  floor annotated (reuses the Sprint-1 `../coro` scoring
   helpers).
 - **`coro_broadband.png`** — monochromatic vs **COMPOSE** broadband PSF
   (850 nm +/- 10%, 7 wavelengths).  `macos.compose` assembles the
@@ -71,4 +71,4 @@ Figures written to `figures/`:
   asset dir as needed.
 - Uses `macos.complex_field` (pupil amplitude), `macos.intensity`
   (focal/mask planes), `macos.compose` (broadband), and the
-  `../design/coro` dark-zone scoring helpers.
+  `../coro` dark-zone scoring helpers.
