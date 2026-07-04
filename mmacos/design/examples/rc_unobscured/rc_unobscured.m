@@ -1,4 +1,4 @@
-% rc_unobscured.m  (mmacos/design/ -- a parameterized design driver)
+% rc_unobscured.m  (mmacos/design/examples/ -- a parameterized design driver)
 % =====================================================================
 %  PARAMETERIZED UNOBSCURED OFF-AXIS RITCHEY-CHRETIEN DESIGNER
 % =====================================================================
@@ -28,7 +28,7 @@
 %  refigure cleans up the residual and the rigid-body DOFs then balance
 %  the linear off-axis astigmatism over the design field.
 %
-%  Run:  >> run('.../design/rc_unobscured/rc_unobscured.m')
+%  Run:  >> run('.../design/examples/rc_unobscured/rc_unobscured.m')
 % =====================================================================
 
 addpath('~/dev/MACOS_resources/mmacos/src');
