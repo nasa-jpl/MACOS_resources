@@ -911,6 +911,37 @@ classdef Telescope < handle
             if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
         end
 
+        function trace_at_field(obj, fxy)
+        %TRACE_AT_FIELD  Re-emit + trace the design at one field offset.
+        %   t.trace_at_field([thx thy]) rebuilds the emitted Rx with the
+        %   chief ray pointed at the given field OFFSET (rad, about any
+        %   field bias) and traces it, so macos.opd() / macos.draw_rays /
+        %   macos.spot inspect that field.  t.trace_at_field([]) restores
+        %   the nominal field (and re-traces).  This is the per-field
+        %   mechanism realize_apertures / aperture_full_field use
+        %   internally, exposed as a utility -- the sanctioned way to look
+        %   at an off-axis field (macos.set_src_fov does NOT move the
+        %   field of an emitted design; the biased chief ray must be
+        %   re-emitted).
+            arguments
+                obj
+                fxy (:,:) double = []
+            end
+            if isempty(fxy)
+                obj.restore_trace_field_([]);          % rebuilds nominal
+            else
+                if numel(fxy) ~= 2
+                    error('macos:design:Telescope:trace_at_field:fxy', ...
+                        'fxy must be [thx thy] (rad) or [] for nominal.');
+                end
+                by = 0;
+                if isfield(obj.spec,'field_bias'), by = obj.spec.field_bias; end
+                obj.spec.trace_field = [fxy(1), by + fxy(2)];
+                obj.build('', 'init', false);
+            end
+            macos.trace(numel(obj.spec.elt));
+        end
+
         function fig = view_field_map(obj, scan, opts)
         %VIEW_FIELD_MAP  Map of RMS WFE over the 2-D field -- the design-report
         %   field view.  SCAN is a realize_apertures (or compatible) result

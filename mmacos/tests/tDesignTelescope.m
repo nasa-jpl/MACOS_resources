@@ -779,6 +779,43 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyEqual(sort(C0(:,1)).', [-fov 0 0 fov], 'AbsTol', 1e-15);
         end
 
+        function test_field_ring_builder(tc)
+            % field_ring produces the CIRCULAR-field set: n azimuths at the
+            % given radius + the inner samples, no origin, arcmin->rad units.
+            r = deg2rad(2.5/60);
+            F = macos.design.field_ring(r);                 % 8 + 2 inner
+            tc.verifySize(F, [10 2]);
+            rad = hypot(F(:,1), F(:,2));
+            tc.verifyEqual(max(rad), r, 'RelTol', 1e-12, 'ring must sit at radius');
+            tc.verifyEqual(min(rad), 0.5*r, 'RelTol', 1e-12, 'inner ring at inner*radius');
+            tc.verifyEqual(nnz(rad > 0.9*r), 8, 'default 8 outer azimuths');
+            tc.verifyEqual(nnz(all(abs(F) < 1e-15, 2)), 0, 'ring must not include (0,0)');
+            Fa = macos.design.field_ring(2.5, 'units','arcmin', 'inner',0);
+            tc.verifySize(Fa, [8 2]);                       % inner=0 skips
+            tc.verifyEqual(max(hypot(Fa(:,1),Fa(:,2))), r, 'RelTol', 1e-12, ...
+                'arcmin units mismatch');
+        end
+
+        function test_trace_at_field_moves_field(tc)
+            % trace_at_field re-emits + traces at a field OFFSET (the public
+            % form of the realize_apertures per-field mechanism); [] restores
+            % the nominal field.  An uncorrected off-axis field of a conic
+            % telescope must show MORE aberration than on-axis, and the
+            % restore must reproduce the nominal wavefront.
+            t = tc.make_tma_();  t.build();
+            nE = numel(t.spec.elt);
+            macos.trace(nE);
+            W0 = macos.opd();  v0 = W0(isfinite(W0) & W0 ~= 0);
+            t.trace_at_field(deg2rad([0, 4.0/60]));         % 4' off-axis
+            W1 = macos.opd();  v1 = W1(isfinite(W1) & W1 ~= 0);
+            tc.verifyGreaterThan(std(v1), 2*std(v0), ...
+                'off-axis field did not move (WFE unchanged)');
+            t.trace_at_field([]);                           % restore nominal
+            W2 = macos.opd();  v2 = W2(isfinite(W2) & W2 ~= 0);
+            tc.verifyEqual(std(v2), std(v0), 'RelTol', 1e-9, ...
+                'restore did not reproduce the nominal field');
+        end
+
         function test_optimize_area_grid_dedup(tc)
             % optimize() accepts a full 2-D AREA grid INCLUDING the (0,0)
             % center; the on-axis row is dropped (it is the implicit field 1)
