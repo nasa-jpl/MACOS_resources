@@ -816,6 +816,78 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'restore did not reproduce the nominal field');
         end
 
+        function test_add_mirror_explicit_conic_seed(tc)
+            % add_mirror(...,'conic',K) overrides the seidel seed per mirror
+            % (the carry-optimized-conics path for chains seidel cannot seed,
+            % e.g. the 3+1 relay).  Unset mirrors keep their seidel values.
+            t = macos.design.Telescope('family','TMA', ...
+                    'aperture_diameter_m',1.0, 'model_size',128);
+            t.add_mirror('M1','radius_m',8.0,'spacing_after_m',3.0,'conic',-0.5);
+            t.add_mirror('M2','radius_m',2.0,'spacing_after_m',4.5);
+            t.add_mirror('M3','radius_m',4.0,'spacing_after','derive','conic',-2.0);
+            t.build();
+            tc.verifyEqual(t.spec.elt(1).Kc, -0.5, 'AbsTol', 1e-15, ...
+                'explicit conic seed not applied to M1');
+            tc.verifyEqual(t.spec.elt(3).Kc, -2.0, 'AbsTol', 1e-15, ...
+                'explicit conic seed not applied to M3');
+            tc.verifyNotEqual(t.spec.elt(2).Kc, 0, ...
+                'M2 (no explicit seed) should keep its seidel conic');
+        end
+
+        function test_optimize_elts_subset(tc)
+            % optimize(...,'elts',SET) varies only the named Reflectors: the
+            % held mirror's conic must not move (the 3+1 image-vs-pupil split).
+            t = tc.make_tma_();  t.build();
+            K2_before = t.spec.elt(2).Kc;
+            t.optimize('fields_arcmin',[0.5 1.0],'dofs',[0 0 0 0 0 0 0 1], ...
+                       'elts',[1 3],'max_iters',40);
+            tc.verifyEqual(t.spec.elt(2).Kc, K2_before, 'AbsTol', 1e-15, ...
+                'held element''s conic moved despite elts subset');
+            tc.verifyError(@() t.optimize('elts',99,'max_iters',10), ...
+                'macos:design:Telescope:optimize:elts');
+        end
+
+        function test_fourth_mirror_psi_parity(tc)
+            % The coaxial psi rule generalized: psi_z = -dir_in (concave) /
+            % +dir_in (convex).  For <=3-mirror Korsch chains this reproduces
+            % the legacy all-(0,0,-1); a 4th mirror CONCAVE to a -z beam needs
+            % psi=+1 -- emitted at -1 it traces convex and diverges the relay
+            % (the 3+1 M4 bug).  Verify the emitted psi AND that a carried-
+            % conic 4-mirror relay actually images (the trace-level proof).
+            t3 = tc.make_tma_();  t3.build();
+            psis3 = arrayfun(@(e) e.psi(3), t3.spec.elt(1:3));
+            tc.verifyEqual(psis3, [-1 -1 -1], 'AbsTol', 1e-15, ...
+                '3-mirror chain must keep the legacy all-(0,0,-1)');
+            t3.optimize('fields_arcmin',[0.5 1.0],'dofs',[0 0 0 0 0 0 0 1], ...
+                        'max_iters',60);
+            K = [t3.spec.elt(1).Kc t3.spec.elt(2).Kc t3.spec.elt(3).Kc];
+            vM3 = t3.spec.elt(3).Vpt;  vFP = t3.spec.elt(end).Vpt;
+            bfd = norm(vFP - vM3);
+            R3 = abs([t3.spec.elt(1).Kr t3.spec.elt(2).Kr t3.spec.elt(3).Kr]);
+            lam = t3.spec.wavelength;
+
+            t4 = macos.design.Telescope('family','TMA', ...
+                    'aperture_diameter_m',t3.spec.in.D, 'model_size',128, ...
+                    'wavelength_m',lam);
+            t4.add_mirror('M1','radius_m',R3(1),'spacing_after_m',t3.spec.derived.t(1),'conic',K(1));
+            % 'convex' matters for the paraxial DERIVE of the relay focus
+            % (the [8 2 4] M2 is convex by geometry: t1 < f1); without it
+            % the 4-chain t_focus lands wrong and FP2 is misplaced.
+            t4.add_mirror('M2','radius_m',R3(2),'spacing_after_m',t3.spec.derived.t(2),'convex',true,'conic',K(2));
+            t4.add_mirror('M3','radius_m',R3(3),'spacing_after_m',bfd+0.6,'conic',K(3));
+            t4.add_mirror('M4','radius_m',0.8,'spacing_after','derive','conic',0);
+            t4.add_focal_plane('FP2');
+            t4.build();
+            tc.verifyEqual(t4.spec.elt(4).psi(3), 1, 'AbsTol', 1e-15, ...
+                'M4 (concave to a -z beam) must emit psi=(0,0,+1)');
+            nE = numel(t4.spec.elt);
+            macos.trace(nE);
+            W = macos.opd();  v = W(isfinite(W) & W ~= 0);
+            tc.verifyLessThan(std(v)/lam, 1.0, ...
+                sprintf(['carried-conic 4-mirror relay does not image ' ...
+                         '(%.1f waves) -- psi parity broken?'], std(v)/lam));
+        end
+
         function test_optimize_area_grid_dedup(tc)
             % optimize() accepts a full 2-D AREA grid INCLUDING the (0,0)
             % center; the on-axis row is dropped (it is the implicit field 1)

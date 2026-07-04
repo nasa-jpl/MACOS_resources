@@ -152,6 +152,7 @@ classdef Telescope < handle
                 opts.spacing_after    (1,:) char   = ''
                 opts.tilt_deg         (1,1) double = 0     % fold tilt about x (Bauer)
                 opts.convex           (1,1) logical = false % convex: psi->downstream CoC
+                opts.conic            (1,1) double = NaN   % explicit Kc seed (skips seidel)
             end
             if ~obj.is_nmirror_()
                 error('macos:design:Telescope:add_mirror:family', ...
@@ -168,8 +169,14 @@ classdef Telescope < handle
             % tilt_deg folds the chief ray at this mirror (Bauer/Schiesser/Rolland
             % unobscuring -- TILT minimally to clear, not decenter).  0 = coaxial
             % (the legacy path, byte-identical).  See resolve_nmirror_fold_.
+            % opts.conic: an EXPLICIT Kc seed for this mirror (NaN = let
+            % seidel_seed provide it).  Use when carrying optimized conics
+            % into a longer chain -- e.g. the 3+1: seidel cannot seed a
+            % relay-past-focus 4-mirror chain (the degenerate-reimager
+            % regime), so seed M1-M3 from the optimized TMA and M4 = 0.
             obj.spec.mirrors(end+1) = struct('name',name, 'R',R, 't',t, ...
-                'derive',derive, 'tilt_deg',opts.tilt_deg, 'convex',opts.convex);
+                'derive',derive, 'tilt_deg',opts.tilt_deg, 'convex',opts.convex, ...
+                'conic',opts.conic);
             obj.spec.elt = [];                           % invalidate -> re-resolve
         end
 
@@ -529,6 +536,7 @@ classdef Telescope < handle
                 opts.weights       (1,:) double = []
                 opts.fields        (:,2) double = []   % explicit (thx,thy) OFF-axis offsets (rad)
                 opts.dofs          (1,8) double = [0 0 0 0 0 0 0 1]  % per-elt VarElt mask
+                opts.elts          (1,:) double = []   % subset of elements to vary
             end
             if ~all(ismember(opts.dofs, [0 1]))
                 error('macos:design:Telescope:optimize:dofs', ...
@@ -542,6 +550,18 @@ classdef Telescope < handle
                 obj.resolve_nmirror_();
             end
             var_elts = find(arrayfun(@(e) strcmp(e.kind,'Reflector'), obj.spec.elt));
+            if ~isempty(opts.elts)
+                % subset: vary only the named elements (e.g. the imaging
+                % mirrors while a field mirror is held, or vice versa --
+                % the 3+1's image-vs-pupil split)
+                bad = setdiff(opts.elts, var_elts);
+                if ~isempty(bad)
+                    error('macos:design:Telescope:optimize:elts', ...
+                        'elts must be Reflector element indices (got %s).', ...
+                        mat2str(bad));
+                end
+                var_elts = intersect(var_elts, opts.elts);
+            end
             if isempty(var_elts)
                 error('macos:design:Telescope:optimize:noMirror', ...
                     'no Reflector elements to vary.');
@@ -2001,7 +2021,8 @@ classdef Telescope < handle
 
         function m = empty_mirror_list_(~)
         %EMPTY_MIRROR_LIST_  0x0 struct carrying the add_mirror field set.
-            m = struct('name',{},'R',{},'t',{},'derive',{},'tilt_deg',{},'convex',{});
+            m = struct('name',{},'R',{},'t',{},'derive',{},'tilt_deg',{}, ...
+                       'convex',{},'conic',{});
         end
 
         function resolve_nmirror_(obj)
@@ -2047,6 +2068,13 @@ classdef Telescope < handle
             if isfield(sp,'base_sphere') && sp.base_sphere
                 K = zeros(1, N);            % sphere+Zernike: hold base spheres
             end
+            if isfield(mir,'conic')
+                % explicit per-mirror Kc seeds (add_mirror 'conic') override
+                % the seidel seed -- the carry-optimized-conics path
+                for k = 1:N
+                    if ~isnan(mir(k).conic), K(k) = mir(k).conic; end
+                end
+            end
             t = [t_between, t_focus];       % seidel_seed returns the convex-aware
                                             % paraxial focus + K=0 sphere seed
 
@@ -2061,12 +2089,30 @@ classdef Telescope < handle
             % KrElt=-|R| for EVERY mirror (MACOS convention): convex vs concave
             % is the geometry (a secondary before the M1 focus reflects away
             % from its CoC -> convex), never the radius sign (j18mono's SM).
+            %
+            % psiElt: the legacy all-(0,0,-1) is kept for mirrors 1..3 -- it
+            % is engine-validated for every combination that occurs there
+            % (j18mono: concave/+z, convex/-z, concave/+z; note a Korsch M2
+            % is often convex BY GEOMETRY with no 'convex' flag, so the flag
+            % cannot discriminate at k<=3).  From the 4th mirror on (relay
+            % mirrors past a real focus, e.g. the 3+1 M4) the parity rule
+            % applies: psi_z = -dir_in for concave (default), +dir_in when
+            % flagged convex, where dir_in = (-1)^(k-1) is the beam
+            % direction into mirror k.  A 4th mirror CONCAVE to a -z beam
+            % needs +1; emitted at -1 it traces CONVEX and diverges the
+            % relay.  (The fully general discriminator is the paraxial
+            % vergence at each mirror -- follow-on.)
+            psiz = -ones(1, N);
+            for k = 4:N
+                dir_in = (-1)^(k-1);
+                if cvx(k), psiz(k) = dir_in; else, psiz(k) = -dir_in; end
+            end
             elts = obj.new_elt_(mir(1).name, 'Reflector', [0 0 z(1)], ...
-                    [0 0 -1], -abs(R(1)), apr(1), 'derived(tma+seidel)', t(1));
+                    [0 0 psiz(1)], -abs(R(1)), apr(1), 'derived(tma+seidel)', t(1));
             elts.Kc = K(1);
             for k = 2:N
                 e = obj.new_elt_(mir(k).name, 'Reflector', [0 0 z(k)], ...
-                    [0 0 -1], -abs(R(k)), apr(k), 'derived(tma+seidel)', t(k));
+                    [0 0 psiz(k)], -abs(R(k)), apr(k), 'derived(tma+seidel)', t(k));
                 e.Kc = K(k);
                 elts(k) = e;                     %#ok<AGROW>
             end
@@ -2112,6 +2158,13 @@ classdef Telescope < handle
             [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D, cvx);
             if isfield(sp,'base_sphere') && sp.base_sphere
                 K = zeros(1, N);            % sphere+Zernike: hold base spheres
+            end
+            if isfield(mir,'conic')
+                % explicit per-mirror Kc seeds (add_mirror 'conic') -- see
+                % resolve_nmirror_
+                for k = 1:N
+                    if ~isnan(mir(k).conic), K(k) = mir(k).conic; end
+                end
             end
             t = [t_between, t_focus];       % seidel_seed: convex-aware focus + K=0
 
