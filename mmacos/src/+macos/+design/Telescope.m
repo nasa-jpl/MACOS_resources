@@ -1057,7 +1057,11 @@ classdef Telescope < handle
         %   'zoom' appends one extra DETAIL panel: {'PLANE',[Ulo Uhi Vlo Vhi]}
         %   redraws that plane cropped to the given plot-axis window (U = the
         %   panel's horizontal axis, V vertical) -- e.g. magnify a folded
-        %   back end that a full-train view renders unreadably small.
+        %   back end that a full-train view renders unreadably small.  An
+        %   optional third entry {'PLANE',rect,[istart iend]} restricts the
+        %   detail panel to that ELEMENT range, so only the legs of interest
+        %   are drawn (a folded bench without the front-end beams that
+        %   otherwise project through the crop).
             arguments
                 obj
                 planes                     = {'YZ','XZ'}
@@ -1071,10 +1075,10 @@ classdef Telescope < handle
             end
             pl  = obj.plane_list_(planes);
             nz  = ~isempty(opts.zoom);
-            if nz && (numel(opts.zoom) ~= 2 || ~isnumeric(opts.zoom{2}) ...
-                      || numel(opts.zoom{2}) ~= 4)
+            if nz && (numel(opts.zoom) < 2 || numel(opts.zoom) > 3 ...
+                      || ~isnumeric(opts.zoom{2}) || numel(opts.zoom{2}) ~= 4)
                 error('macos:design:Telescope:orthoviews:zoom', ...
-                    'zoom must be {''PLANE'',[Ulo Uhi Vlo Vhi]}.');
+                    'zoom must be {''PLANE'',[Ulo Uhi Vlo Vhi]} or {...,[istart iend]}.');
             end
             np  = numel(pl) + nz;
             obj.ensure_loaded_();
@@ -1087,8 +1091,13 @@ classdef Telescope < handle
             end
             if nz
                 zp = obj.plane_list_(opts.zoom{1});
+                zi = opts.istart;  ze = opts.iend;
+                if numel(opts.zoom) == 3
+                    zr = opts.zoom{3};
+                    zi = zr(1);  if numel(zr) > 1, ze = zr(2); end
+                end
                 ax = nexttile(tl);
-                obj.draw_plane_(ax, zp{1}, opts.hide, opts.istart, opts.iend, opts.nrays);
+                obj.draw_plane_(ax, zp{1}, opts.hide, zi, ze, opts.nrays);
                 r = opts.zoom{2};
                 xlim(ax, r(1:2));  ylim(ax, r(3:4));
                 title(ax, sprintf('%s detail', zp{1}), 'Interpreter','none');
@@ -2614,13 +2623,35 @@ classdef Telescope < handle
 
     methods (Static, Access = private)
         function obj = from_spec_(sp)
+            npts = 41;  if isfield(sp,'sampling'), npts = sp.sampling; end
             if isfield(sp,'is_nmirror') && sp.is_nmirror
                 obj = macos.design.Telescope('family', sp.family, ...
                     'aperture_diameter_m', sp.in.D, ...
-                    'model_size', sp.model_size, 'wavelength_m', sp.wavelength);
+                    'model_size', sp.model_size, 'wavelength_m', sp.wavelength, ...
+                    'grid_npts', npts);
                 obj.spec.mirrors = sp.mirrors;
                 if isfield(sp,'fp_name'), obj.spec.fp_name = sp.fp_name; end
-                obj.spec.elt = [];                       % re-resolve at build
+                if isfield(sp,'fp_ap_r'), obj.spec.fp_ap_r = sp.fp_ap_r; end
+                if isfield(sp,'folds'),   obj.spec.folds   = sp.folds;   end
+                if isfield(sp,'holes'),   obj.spec.holes   = sp.holes;   end
+                if isfield(sp,'base_sphere')
+                    obj.spec.base_sphere = sp.base_sphere;
+                end
+                if isfield(sp,'offaxis_section')
+                    obj.spec.offaxis_section = sp.offaxis_section;
+                end
+                % keep the RESOLVED elements verbatim: CALIB's rigid-body
+                % moves, center_focal_plane's FP position, measured
+                % apertures, and freeform/asph departures live only there
+                % -- a bare re-resolve from the mirror list loses them
+                % (this is what made a saved folded design come back
+                % unfolded).  build() re-resolves only when elt is empty.
+                if isfield(sp,'elt') && ~isempty(sp.elt)
+                    obj.spec.elt = sp.elt;
+                    if isfield(sp,'derived'), obj.spec.derived = sp.derived; end
+                else
+                    obj.spec.elt = [];                   % re-resolve at build
+                end
             else
                 obj = macos.design.Telescope( ...
                     'family', sp.family, 'aperture_diameter_m', sp.in.D, ...
