@@ -47,7 +47,10 @@ FIELD_RAD  = 2.5;               % science-field RADIUS about the biased
                                 % center (arcmin; = 5' diameter ring)
 BIAS_STEPS = [5 10 15 20];      % field-bias ladder (arcmin)
 DM3_STEPS  = [0 1 2 3 4];       % M3 pushback ladder (m, added to t2)
-FM_MARGIN  = 0.10;              % fold mount margin beyond its bundle (m)
+FM_MARGIN  = 0.08;              % fold mount margin beyond its bundle (m)
+                                % (0.08 approved by Dave 2026-07-05: lets
+                                % the 10' bias close at dM3=2 -- ~2.25x
+                                % less bias astigmatism than 15')
 FP_HOUSING = 0.15;              % detector housing beyond the image (m)
 ARM_MIN    = 0.40;              % min fold->image arm (m): a fold right AT
                                 % the image (where the return bundle
