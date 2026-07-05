@@ -86,27 +86,30 @@ rb1 = t.optimize('fields_arcmin',[],'dofs',[0 0 0 0 0 0 1 1], ...
 d1 = ladder([0 0]);
 lprint('[2b] conics at bias:', d1);
 
-% ONE mirror (M2, nearest the pupil image), center-only, modes 5:11,
-% and -- decisive -- the Zernike NORMALIZATION RADIUS set to the BEAM
-% FOOTPRINT on M2, not its body radius.  Three lessons are baked in
-% here, each found the expensive way:
+% ONE mirror, center-only -- and the mirror is M1 (Dave 2026-07-05:
+% a Zernike surface on M1 is fine).  M1 IS the aperture stop, so its
+% figure is exactly pupil-conjugate: a field-constant correction with
+% the least field damage, and it is FULLY lit (no normalization
+% degeneracy).  Four lessons from the ways this failed first, kept
+% visible per Dave:
 %  (i)  a RING-balanced freeform trades the center away (0.061 -> 0.122
 %       over a 0.5' ring, mode 4 fighting the detector conjugate);
 %  (ii) TWO mirrors at a single field over-fit -- 14 DOFs for one field
 %       put huge canceling figures on M2/M3 (center 0.044 but the 0.25'
 %       ring collapsed 0.16 -> 0.85 waves);
-%  (iii) modes normalized to the 3.3 m body over a 0.32 m lit patch are
-%       DEGENERATE there (all look like tilt/astig locally) -- the
-%       OptZern solve goes ill-conditioned and nulls the center with
-%       steep canceling figures that beam-walk wrecks the field with.
-%       'lmon' = the measured footprint conditions the basis.
-iM2 = find(strcmp({t.spec.elt.name},'M2'), 1);
-cc0 = t.check_clipping('noload',true,'quiet',true);
-rf = t.optimize_freeform(iM2, 'modes',5:11, ...
-        'fields_arcmin',[], 'max_iters',100, ...
-        'lmon', 1.05*cc0(iM2).foot_r);                   %#ok<NASGU>
+%  (iii) modes normalized to a 3.3 m BODY over a 0.32 m lit patch (M2)
+%       are degenerate there -- ill-conditioned OptZern nulls the
+%       center with steep canceling figures that beam walk turns into
+%       field damage.  'lmon' = the measured footprint conditions the
+%       basis when a small-patch mirror must be used;
+%  (iv) M2's conditioned modes 5:11 could not reach the post-conic
+%       higher-order residual at all (0.061 -> 0.060, a no-op) -- the
+%       stop surface with a deeper mode set can.
+iM1 = find(strcmp({t.spec.elt.name},'M1'), 1);
+rf = t.optimize_freeform(iM1, 'modes',5:15, ...
+        'fields_arcmin',[], 'max_iters',100);            %#ok<NASGU>
 d2 = ladder([0 0]);
-lprint('[2c] + freeform M2:', d2);
+lprint('[2c] + freeform M1:', d2);
 t.center_focal_plane();                      % re-aim the detector body
 w23 = max(d2.rms_raw)*c.lambda/2.3e-6;
 fprintf(['    bias point at j18''s own 2.3 um yardstick: %.3f waves -> %s\n'], ...
@@ -152,10 +155,14 @@ t.save(rxfile);  t.save_spec(matfile);
 fprintf('\n[5] saved: %s\n           + %s\n', rxfile, matfile);
 
 try
-    % zoom panel: the X-Y BENCH behind the PM (fold / M3 / image / FP),
-    % framed square over both bench coordinates so it survives knob
-    % changes; the add_pupil Return surfaces are hidden and rays stop at
-    % the FP (the pupil retrace clutters the detail view)
+    % ALL figures land in the example directory (usual practice, Dave
+    % 2026-07-05) -- the layout, the bench detail, AND the verification
+    % views of the pupil retrace.
+    % (1) layout + X-Y bench detail: the detail draws ONLY the bench
+    % legs (fold -> M3 -> FP) and ONLY the rays that LIE IN the bench
+    % plane (the x-slice; XY panels render TRUE ray positions from
+    % ray_bundle -- the earlier beam-center reconstruction drew the
+    % Return retrace visibly separated when it physically overlays).
     ib = find(ismember({t.spec.elt.name}, {'FM','M3','FP'}));
     xx = arrayfun(@(k) t.spec.elt(k).Vpt(1), ib);
     yy = arrayfun(@(k) t.spec.elt(k).Vpt(2), ib);
@@ -163,14 +170,18 @@ try
     hid  = find(strcmp({t.spec.elt.kind}, 'Return'));
     iFM  = find(strcmp({t.spec.elt.name}, 'FM'), 1);
     iFP  = find(strcmp({t.spec.elt.name}, 'FP'), 1);
-    % the detail panel draws ONLY the bench legs (fold -> M3 -> FP) and
-    % ONLY the rays that LIE IN the bench plane (the x-fan; the y-fan
-    % projects as vertical clutter here -- Dave 2026-07-05)
     f2 = t.view_orthoviews({'YZ','XZ'},'nrays',9,'hide',hid, ...
                            'iend',iFP,'zoom',{'XY',[lo hi lo hi],[iFM iFP]}, ...
                            'zoom_fans','x');
     saveas(f2, fullfile(exdir,'tma_centered_foldfp_layout.png'));
-    fprintf('    figure: tma_centered_foldfp_layout.png (+ X-Y bench detail)\n');
+    % (2) full-chain XY incl. the FP -> ExitPupil -> FP pupil retrace
+    % (Returns drawn): the retrace legs must OVERLAY the M3->FP band --
+    % a Return retro-reflects (rhat = -ihat), verified here by eye.
+    f3 = t.view_orthoviews({'XY'},'nrays',9, ...
+                           'zoom',{'XY',[lo hi lo hi]});
+    saveas(f3, fullfile(exdir,'tma_centered_foldfp_xy_retrace.png'));
+    fprintf(['    figures: tma_centered_foldfp_layout.png (bench detail)\n' ...
+             '             tma_centered_foldfp_xy_retrace.png (pupil retrace)\n']);
 catch ME, fprintf('    figures skipped (%s)\n', ME.message); end
 
 function s = ternary(c, a, b), if c, s = a; else, s = b; end, end
