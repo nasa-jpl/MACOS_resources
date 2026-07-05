@@ -1670,39 +1670,32 @@ classdef Telescope < handle
             hold(ax, 'on');
             % --- real ray bundle (subsampled so the beam shape stays legible) ---
             if strcmpi(plane, 'XY')
-                % CROSS-PLANE view: a single meridian fan projects to a thin
-                % line here, so beam EXTENTS are unreadable.  Draw BOTH
-                % meridian fans instead, reconstructed in 3-D (off-plane
-                % coord = per-element beam center via fan_pt_ -- exact for
-                % meridian rays) and projected onto (X,Y): the y-fan spans
-                % each beam's y-extent and the x-fan its x-extent, so beam
-                % sizes can be MEASURED in the cross-plane (Dave 2026-07-05).
-                byz = macos.draw_rays('YZ', istart, iend);
-                bxz = macos.draw_rays('XZ', istart, iend);
-                ctr = zeros(3, nE);
-                for k = 1:nE
-                    my = (byz.elt == k);  mx = (bxz.elt == k);
-                    if any(mx(:)), ctr(1,k) = mean(bxz.V(mx)); end
-                    if any(my(:)), ctr(2,k) = mean(byz.V(my)); end
+                % CROSS-PLANE view: draw the TRUE position of every selected
+                % ray at every element (ray_bundle), projected onto (X,Y).
+                % The earlier beam-center fan reconstruction drew the Return
+                % retrace legs visibly separated when physically they
+                % overlay exactly (rhat = -ihat retro), and could not show
+                % the real XY spread (Dave 2026-07-05: the panel must show
+                % the actual ray spread in the XY plane).  'fans' picks the
+                % slice: 'y' = the nrays rays nearest the pupil y-meridian,
+                % 'x' = nearest the x-meridian, 'both' = both slices.
+                B  = obj.ray_bundle();
+                i0 = max(1, istart);
+                sel = [];
+                if any(strcmpi(fans, {'y','both'}))
+                    [~, o] = sort(abs(B.pup(1,:)));     % pupil-x ~ 0: y-slice
+                    sel = [sel, o(1:min(max(2,nrays), numel(o)))];
                 end
-                passes = 1:2;
-                if strcmpi(fans,'y'), passes = 1; end
-                if strcmpi(fans,'x'), passes = 2; end
-                for pass = passes
-                    isy = (pass == 1);
-                    if isy, bb = byz; else, bb = bxz; end
-                    stepf = max(1, floor(bb.nray / max(2, nrays)));
-                    for r = 1:stepf:bb.nray
-                        m = bb.nper(r);
-                        if m < 2, continue; end
-                        P = zeros(2, m);
-                        for i = 1:m
-                            p3 = obj.fan_pt_(bb, i, r, isy, ctr, nE);
-                            P(:,i) = p3(1:2);
-                        end
-                        plot(ax, P(1,:), P(2,:), '-', 'Color',[0 .45 .85], ...
-                             'LineWidth',0.5, 'HandleVisibility','off');
-                    end
+                if any(strcmpi(fans, {'x','both'}))
+                    [~, o] = sort(abs(B.pup(2,:)));     % pupil-y ~ 0: x-slice
+                    sel = [sel, o(1:min(max(2,nrays), numel(o)))];
+                end
+                for r = unique(sel)
+                    P   = squeeze(B.pos{1}(:, r, i0:iend));
+                    okr = B.ok{1}(r, i0:iend);
+                    P(:, ~okr) = NaN;                   % break lost segments
+                    plot(ax, P(1,:), P(2,:), '-', 'Color',[0 .45 .85], ...
+                         'LineWidth',0.5, 'HandleVisibility','off');
                 end
             else
                 step = max(1, floor(b.nray / max(2, nrays)));
