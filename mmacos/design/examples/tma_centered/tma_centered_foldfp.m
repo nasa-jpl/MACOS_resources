@@ -123,9 +123,12 @@ try
     yy = arrayfun(@(k) t.spec.elt(k).Vpt(2), ib);
     lo = min([xx yy]) - 0.6;  hi = max([xx yy]) + 0.6;
     hid  = find(strcmp({t.spec.elt.kind}, 'Return'));
+    iFM  = find(strcmp({t.spec.elt.name}, 'FM'), 1);
     iFP  = find(strcmp({t.spec.elt.name}, 'FP'), 1);
+    % the detail panel draws ONLY the bench legs (fold -> M3 -> FP): the
+    % front-end beams otherwise project through the crop and bury it
     f2 = t.view_orthoviews({'YZ','XZ'},'nrays',9,'hide',hid, ...
-                           'iend',iFP,'zoom',{'XY',[lo hi lo hi]});
+                           'iend',iFP,'zoom',{'XY',[lo hi lo hi],[iFM iFP]});
     saveas(f2, fullfile(exdir,'tma_centered_foldfp_layout.png'));
     fprintf('    figure: tma_centered_foldfp_layout.png (+ X-Y bench detail)\n');
 catch ME, fprintf('    figures skipped (%s)\n', ME.message); end

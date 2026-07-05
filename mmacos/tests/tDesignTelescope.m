@@ -982,6 +982,30 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyEqual(d, abs(yfp), 'RelTol', 1e-3);
         end
 
+        function test_load_spec_roundtrip_folded(tc)
+            % save_spec -> load_spec must reconstruct a FOLDED design
+            % verbatim: from_spec_ used to rebuild from the mirror list
+            % only, so folds/holes/the resolved elements vanished and a
+            % saved folded design came back unfolded (Dave 2026-07-05).
+            t = tc.make_tma_();  t.add_focal_plane('FP','ap_r',0.11);
+            t.add_fold('FM','after','M2','dist_m',2.0);
+            t.set_hole('M1', 0.2);
+            t.build();
+            f = [tempname '.mat'];  c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save_spec(f);
+            t2 = macos.design.Telescope.load_spec(f);
+            tc.verifyEqual({t2.spec.elt.name}, {t.spec.elt.name}, ...
+                'reloaded spec lost the fold element');
+            for k = 1:numel(t.spec.elt)
+                tc.verifyEqual(t2.spec.elt(k).Vpt, t.spec.elt(k).Vpt, ...
+                    'AbsTol', 1e-15, sprintf('Vpt mismatch at %s', ...
+                    t.spec.elt(k).name));
+            end
+            tc.verifyTrue(isfield(t2.spec,'holes') && ...
+                strcmp(t2.spec.holes(1).name,'M1'), 'hole lost on reload');
+            tc.verifyEqual(t2.spec.fp_ap_r, 0.11, 'AbsTol', 1e-15);
+        end
+
         function test_fold_station_report_smoke(tc)
             % fold_station_report returns per-station feed/return intervals
             % + the daylight gap.  On the biased [8 2 4] the two bundles
