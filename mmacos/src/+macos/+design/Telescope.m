@@ -1084,7 +1084,8 @@ classdef Telescope < handle
                 opts.save    (1,:) char    = ''
                 opts.visible (1,1) logical = true
                 opts.zoom    (1,:) cell    = {}
-                opts.zoom_fans (1,:) char  = 'both'   % XY detail: 'both'|'x'|'y'
+                opts.fans      (1,:) char  = 'both'   % XY main panels: 'both'|'x'|'y'
+                opts.zoom_fans (1,:) char  = 'both'   % XY detail panel
             end
             pl  = obj.plane_list_(planes);
             nz  = ~isempty(opts.zoom);
@@ -1100,7 +1101,8 @@ classdef Telescope < handle
             tl  = tiledlayout(fig, 1, np, 'TileSpacing','compact', 'Padding','compact');
             for i = 1:numel(pl)
                 ax = nexttile(tl);
-                obj.draw_plane_(ax, pl{i}, opts.hide, opts.istart, opts.iend, opts.nrays);
+                obj.draw_plane_(ax, pl{i}, opts.hide, opts.istart, opts.iend, ...
+                                opts.nrays, opts.fans);
             end
             if nz
                 zp = obj.plane_list_(opts.zoom{1});
@@ -1681,14 +1683,18 @@ classdef Telescope < handle
                 % 'x' = nearest the x-meridian, 'both' = both slices.
                 B  = obj.ray_bundle();
                 i0 = max(1, istart);
+                % slice = the full grid COLUMN/ROW within one grid pitch of
+                % the pupil meridian, subsampled EVENLY along the fan.  A
+                % nearest-N pick has no ray exactly ON the meridian, so it
+                % clumps to both sides and draws a visible GAP in the slice
+                % (Dave 2026-07-05).
+                tol = 1.2 / max(2, obj.spec.sampling - 1);
                 sel = [];
-                if any(strcmpi(fans, {'y','both'}))
-                    [~, o] = sort(abs(B.pup(1,:)));     % pupil-x ~ 0: y-slice
-                    sel = [sel, o(1:min(max(2,nrays), numel(o)))];
+                if any(strcmpi(fans, {'y','both'}))     % pupil-x ~ 0 column
+                    sel = [sel, slice_(B.pup(1,:), B.pup(2,:), tol, nrays)];
                 end
-                if any(strcmpi(fans, {'x','both'}))
-                    [~, o] = sort(abs(B.pup(2,:)));     % pupil-y ~ 0: x-slice
-                    sel = [sel, o(1:min(max(2,nrays), numel(o)))];
+                if any(strcmpi(fans, {'x','both'}))     % pupil-y ~ 0 row
+                    sel = [sel, slice_(B.pup(2,:), B.pup(1,:), tol, nrays)];
                 end
                 for r = unique(sel)
                     P   = squeeze(B.pos{1}(:, r, i0:iend));
@@ -2753,4 +2759,16 @@ classdef Telescope < handle
             if isfield(sp,'bandwidth'),    obj.spec.bandwidth = sp.bandwidth; end
         end
     end
+end
+
+function sel = slice_(pa, pb, tol, nrays)
+%SLICE_ (file-local)  Rays within one grid pitch of a pupil meridian
+%   (|pa| < tol), ordered ALONG the fan (by pb) and evenly subsampled to
+%   ~nrays -- a contiguous, symmetric fan with no gap at the meridian.
+    m = find(abs(pa) < tol);
+    if isempty(m), sel = m; return; end
+    [~, o] = sort(pb(m));  m = m(o);
+    n = max(2, nrays);
+    if numel(m) > n, m = m(round(linspace(1, numel(m), n))); end
+    sel = m;
 end

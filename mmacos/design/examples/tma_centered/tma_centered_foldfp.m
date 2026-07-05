@@ -158,11 +158,13 @@ try
     % ALL figures land in the example directory (usual practice, Dave
     % 2026-07-05) -- the layout, the bench detail, AND the verification
     % views of the pupil retrace.
-    % (1) layout + X-Y bench detail: the detail draws ONLY the bench
-    % legs (fold -> M3 -> FP) and ONLY the rays that LIE IN the bench
-    % plane (the x-slice; XY panels render TRUE ray positions from
-    % ray_bundle -- the earlier beam-center reconstruction drew the
-    % Return retrace visibly separated when it physically overlays).
+    % (1) layout + X-Y bench detail.  XY panels render TRUE ray
+    % positions from ray_bundle.  Slice choice matters (Dave
+    % 2026-07-05): the fold swaps z<->x and PRESERVES y, so the pupil-X
+    % slice's spread maps into z -- invisible in an XY view -- while
+    % the pupil-Y slice fans out in y along the bench and SHOWS the
+    % beam width.  All XY panels start AT THE FOLD: the M1-M2-FM legs
+    % project on top of the bench and bury the detail.
     ib = find(ismember({t.spec.elt.name}, {'FM','M3','FP'}));
     xx = arrayfun(@(k) t.spec.elt(k).Vpt(1), ib);
     yy = arrayfun(@(k) t.spec.elt(k).Vpt(2), ib);
@@ -172,13 +174,13 @@ try
     iFP  = find(strcmp({t.spec.elt.name}, 'FP'), 1);
     f2 = t.view_orthoviews({'YZ','XZ'},'nrays',9,'hide',hid, ...
                            'iend',iFP,'zoom',{'XY',[lo hi lo hi],[iFM iFP]}, ...
-                           'zoom_fans','x');
+                           'zoom_fans','y');
     saveas(f2, fullfile(exdir,'tma_centered_foldfp_layout.png'));
-    % (2) full-chain XY incl. the FP -> ExitPupil -> FP pupil retrace
-    % (Returns drawn): the retrace legs must OVERLAY the M3->FP band --
-    % a Return retro-reflects (rhat = -ihat), verified here by eye.
-    f3 = t.view_orthoviews({'XY'},'nrays',9, ...
-                           'zoom',{'XY',[lo hi lo hi]});
+    % (2) XY from the fold onward incl. the FP -> ExitPupil -> FP pupil
+    % retrace (Returns drawn): the retrace legs must OVERLAY the M3->FP
+    % band -- a Return retro-reflects (rhat = -ihat), verified by eye.
+    f3 = t.view_orthoviews({'XY'},'nrays',9,'istart',iFM,'fans','y', ...
+                           'zoom',{'XY',[lo hi lo hi]},'zoom_fans','y');
     saveas(f3, fullfile(exdir,'tma_centered_foldfp_xy_retrace.png'));
     fprintf(['    figures: tma_centered_foldfp_layout.png (bench detail)\n' ...
              '             tma_centered_foldfp_xy_retrace.png (pupil retrace)\n']);
