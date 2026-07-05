@@ -57,46 +57,84 @@ for k = 1:numel(e)
             e(k).name, e(k).kind, e(k).Vpt);
 end
 
-%% -- [2] balance the conics over the science ring at the biased field --
-% ROC+conic ONLY: giving the balance tip/tilt/decenter lets CALIB re-point
-% the telescope INTO the bias -- the WFE improves but the lateral
-% separation the source tilt bought is silently optimized away and the
-% feed beam lands back on the fold (check_clipping catches it).  Hold the
-% pointing geometry; let the figures do the field work.
-optF = macos.design.field_ring(c.field_rad,'units','arcmin');
-rb = t.optimize('fields',optF,'dofs',[0 0 0 0 0 0 1 1],'max_iters',120);
-t.center_focal_plane();                      % re-aim the detector body
-wworst = max(rb.wfe_after)/c.lambda;
-% the LADDER separates what the raw number mixes: field-dependent TILT
-% is distortion/plate-scale (calibrated out in imaging), and FOCUS is
-% the field curvature a biased ring pays (refocusable / a curved or
-% stepped detector / the 3+1's field mirror).  Judge blur on -tilt,
-% and the freeform-reachable floor on -focus.
-dc = wfe_field_diag(t, optF, 'quiet',true);
-fprintf(['\n[2] balanced over the %g''-dia ring about the %g'' bias ' ...
-         '(waves RMS @ %g um):\n' ...
-         '    worst raw %.3f | -tilt %.3f | -focus %.3f | -astig %.3f\n' ...
-         '    (at j18''s own 2.3 um yardstick: -tilt %.3f waves -> %s)\n'], ...
-        2*c.field_rad, c.bias, c.lambda*1e6, wworst, ...
-        max(dc.rms_tilt), max(dc.rms_focus), max(dc.rms_astig), ...
-        max(dc.rms_tilt)*c.lambda/2.3e-6, ...
-        ternary(max(dc.rms_tilt)*c.lambda/2.3e-6 < DIFFRACTION_LIMIT, ...
-                'DIFFRACTION-LIMITED','residual'));
-fprintf(['    The residual is the price of USING the field off-axis: the\n' ...
-         '    ring rides at %g''+/-%g'' where field curvature and astig grow\n' ...
-         '    as r*dr, beyond what ROC+conic can null (and the pointing DOFs\n' ...
-         '    that would null it re-center the telescope and put the beam\n' ...
-         '    back on the fold -- check_clipping guards that).  Buy-downs:\n' ...
-         '    per-field refocus / curved detector (the -focus row), freeform\n' ...
-         '    M2/M3 (partial -- see tma_freeform), or a 4th powered mirror\n' ...
-         '    (the tma_3plus1 route; the real wide-field answer).\n'], ...
-        c.bias, c.field_rad);
+%% -- [2] performance-first correction at the biased field --------------
+% Dave 2026-07-05: optical performance over FOV.  The OPD at the bias
+% point is dominated by the symmetric parent's FIELD ASTIGMATISM
+% (~bias^2) -- the earlier ring balance spread 6 DOFs over an 11-point
+% ring and left the bias point astigmatic.  Two corrections stack, each
+% shown as its own step:
+%   [2a] diagnose the raw bias-point ladder (the "before");
+%   [2b] conics+ROC re-derived AT THE BIAS FIELD ONLY -- the classic
+%        annular-field-anastigmat solve (three conics can null coma +
+%        astig at ONE field radius; the FOV pays, stage [3] shows it);
+%   [2c] freeform Zernike departures on M2+M3 -- at a single field the
+%        residual is a FIXED pupil map, so a static mirror figure nulls
+%        it; only the DIFFERENTIAL aberration across the field remains.
+% Pointing DOFs stay out throughout (tip/tilt/decenter would re-center
+% the telescope INTO the bias and put the feed back on the fold --
+% check_clipping guards that trade).
+ladder = @(F) wfe_field_diag(t, F, 'quiet',true);
+lprint = @(tag,d) fprintf( ...
+    '    %-22s raw %7.3f | -tilt %7.3f | -focus %7.3f | -astig %7.3f\n', ...
+    tag, max(d.rms_raw), max(d.rms_tilt), max(d.rms_focus), max(d.rms_astig));
+fprintf('\n[2] bias-point correction ladder (waves RMS @ %g um):\n', c.lambda*1e6);
+d0 = ladder([0 0]);
+lprint('[2a] as found:', d0);
 
-%% -- [3] the buildability verdict -------------------------------------
+rb1 = t.optimize('fields_arcmin',[],'dofs',[0 0 0 0 0 0 1 1], ...
+                 'max_iters',120);                       %#ok<NASGU>
+d1 = ladder([0 0]);
+lprint('[2b] conics at bias:', d1);
+
+% ONE mirror (M2, nearest the pupil image), center-only, modes 5:11,
+% and -- decisive -- the Zernike NORMALIZATION RADIUS set to the BEAM
+% FOOTPRINT on M2, not its body radius.  Three lessons are baked in
+% here, each found the expensive way:
+%  (i)  a RING-balanced freeform trades the center away (0.061 -> 0.122
+%       over a 0.5' ring, mode 4 fighting the detector conjugate);
+%  (ii) TWO mirrors at a single field over-fit -- 14 DOFs for one field
+%       put huge canceling figures on M2/M3 (center 0.044 but the 0.25'
+%       ring collapsed 0.16 -> 0.85 waves);
+%  (iii) modes normalized to the 3.3 m body over a 0.32 m lit patch are
+%       DEGENERATE there (all look like tilt/astig locally) -- the
+%       OptZern solve goes ill-conditioned and nulls the center with
+%       steep canceling figures that beam-walk wrecks the field with.
+%       'lmon' = the measured footprint conditions the basis.
+iM2 = find(strcmp({t.spec.elt.name},'M2'), 1);
+cc0 = t.check_clipping('noload',true,'quiet',true);
+rf = t.optimize_freeform(iM2, 'modes',5:11, ...
+        'fields_arcmin',[], 'max_iters',100, ...
+        'lmon', 1.05*cc0(iM2).foot_r);                   %#ok<NASGU>
+d2 = ladder([0 0]);
+lprint('[2c] + freeform M2:', d2);
+t.center_focal_plane();                      % re-aim the detector body
+w23 = max(d2.rms_raw)*c.lambda/2.3e-6;
+fprintf(['    bias point at j18''s own 2.3 um yardstick: %.3f waves -> %s\n'], ...
+        w23, ternary(w23 < DIFFRACTION_LIMIT,'DIFFRACTION-LIMITED','residual'));
+
+%% -- [3] what the correction costs in FOV ------------------------------
+% The bias-point solve nulls the aberration AT the bias; the field
+% around it keeps the differential part.  Judge BLUR on the -tilt
+% column: the raw number at a ring field is dominated by the field-
+% dependent TILT the single-point solve no longer balances -- that is
+% distortion / plate scale (calibrated out in imaging), not image
+% quality.  This is the honest performance-vs-FOV curve.
+fprintf(['\n[3] FOV ladder (worst on ring, waves RMS @ %g um):\n' ...
+         '    %9s %9s %9s %12s\n'], c.lambda*1e6, ...
+        'ring','raw','-tilt','-tilt @2.3um');
+for rr = [0.25 0.5 1.0 2.5]
+    dr = ladder(macos.design.field_ring(rr,'units','arcmin'));
+    w1 = max(dr.rms_raw);  wt = max(dr.rms_tilt);
+    fprintf('    %8.2f'' %9.3f %9.3f %12.3f%s\n', rr, w1, wt, ...
+            wt*c.lambda/2.3e-6, ...
+            ternary(wt*c.lambda/2.3e-6 < DIFFRACTION_LIMIT,'  <- DL @2.3um',''));
+end
+
+%% -- [4] the buildability verdict (re-checked AFTER the correction) ----
 rep = t.check_clipping('noload',true);
-iM2 = find(strcmp({rep.name},'M2'),1);
-others_ok = all([rep([1:iM2-1, iM2+1:end]).obstructs] == 0);
-fprintf(['[3] M2''s central obscuration is the centered family''s accepted\n' ...
+i2 = find(strcmp({rep.name},'M2'),1);
+others_ok = all([rep([1:i2-1, i2+1:end]).obstructs] == 0);
+fprintf(['\n[4] M2''s central obscuration is the centered family''s accepted\n' ...
          '    price; every OTHER body %s.\n'], ...
         ternary(others_ok,'is CLEAR of every beam','still CONFLICTS'));
 
@@ -106,12 +144,12 @@ fprintf('    fold AOI %.1f deg (spread %.1f); shroud %.2f x D\n', ...
         aoi(strcmp({aoi.name},'FM')).aoi_chief_deg, ...
         aoi(strcmp({aoi.name},'FM')).aoi_spread_deg, pk.shroud_over_D);
 
-%% -- [4] deliverables --------------------------------------------------
+%% -- [5] deliverables --------------------------------------------------
 t.add_pupil(numel(t.spec.elt));
 rxfile = fullfile(exdir,'tma_centered_foldfp.in');
 matfile = fullfile(exdir,'tma_centered_foldfp.mat');
 t.save(rxfile);  t.save_spec(matfile);
-fprintf('\n[4] saved: %s\n           + %s\n', rxfile, matfile);
+fprintf('\n[5] saved: %s\n           + %s\n', rxfile, matfile);
 
 try
     % zoom panel: the X-Y BENCH behind the PM (fold / M3 / image / FP),
@@ -125,10 +163,12 @@ try
     hid  = find(strcmp({t.spec.elt.kind}, 'Return'));
     iFM  = find(strcmp({t.spec.elt.name}, 'FM'), 1);
     iFP  = find(strcmp({t.spec.elt.name}, 'FP'), 1);
-    % the detail panel draws ONLY the bench legs (fold -> M3 -> FP): the
-    % front-end beams otherwise project through the crop and bury it
+    % the detail panel draws ONLY the bench legs (fold -> M3 -> FP) and
+    % ONLY the rays that LIE IN the bench plane (the x-fan; the y-fan
+    % projects as vertical clutter here -- Dave 2026-07-05)
     f2 = t.view_orthoviews({'YZ','XZ'},'nrays',9,'hide',hid, ...
-                           'iend',iFP,'zoom',{'XY',[lo hi lo hi],[iFM iFP]});
+                           'iend',iFP,'zoom',{'XY',[lo hi lo hi],[iFM iFP]}, ...
+                           'zoom_fans','x');
     saveas(f2, fullfile(exdir,'tma_centered_foldfp_layout.png'));
     fprintf('    figure: tma_centered_foldfp_layout.png (+ X-Y bench detail)\n');
 catch ME, fprintf('    figures skipped (%s)\n', ME.message); end

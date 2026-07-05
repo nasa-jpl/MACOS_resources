@@ -800,6 +800,14 @@ classdef Telescope < handle
                 modes (1,:) double {mustBeInteger, mustBePositive}
                 coef  (1,:) double = []
                 opts.type (1,:) char = 'ANSI'
+                opts.lmon (1,1) double = NaN   % Zernike normalization radius
+                % (m); default = the element BODY ap_r.  Set it to the BEAM
+                % footprint when the beam underfills the mirror: modes
+                % normalized to a much larger radius are nearly degenerate
+                % over the lit patch (they all look like tilt/astig there),
+                % the solve goes ill-conditioned, and CALIB nulls the target
+                % field with huge canceling coefficients that wreck the
+                % surrounding field via beam walk.
             end
             if isempty(coef), coef = zeros(1, numel(modes)); end
             if numel(coef) ~= numel(modes)
@@ -824,7 +832,8 @@ classdef Telescope < handle
                     elt, obj.spec.elt(elt).kind);
             end
             obj.spec.elt(elt).freeform = struct( ...
-                'modes',modes(:).', 'coef',coef(:).', 'type',opts.type);
+                'modes',modes(:).', 'coef',coef(:).', 'type',opts.type, ...
+                'lmon',opts.lmon);
         end
 
         function res = optimize_freeform(obj, elts, opts)
@@ -857,6 +866,8 @@ classdef Telescope < handle
                 opts.target (1,:) char = 'WFE'
                 opts.type   (1,:) char = 'ANSI'
                 opts.weights (1,:) double = []
+                opts.lmon   (1,1) double = NaN   % Zernike normalization radius
+                                                 % (see set_freeform)
             end
             if obj.is_nmirror_() && (~isfield(obj.spec,'elt') || isempty(obj.spec.elt))
                 obj.resolve_nmirror_();
@@ -878,7 +889,8 @@ classdef Telescope < handle
                         if ~isempty(kk), seed(i) = ff.coef(kk); end
                     end
                 end
-                obj.set_freeform(k, modes, seed, 'type', opts.type);
+                obj.set_freeform(k, modes, seed, 'type', opts.type, ...
+                                 'lmon', opts.lmon);
             end
 
             % off-axis eval directions about any +y bias; on-axis = field 1
@@ -1072,6 +1084,7 @@ classdef Telescope < handle
                 opts.save    (1,:) char    = ''
                 opts.visible (1,1) logical = true
                 opts.zoom    (1,:) cell    = {}
+                opts.zoom_fans (1,:) char  = 'both'   % XY detail: 'both'|'x'|'y'
             end
             pl  = obj.plane_list_(planes);
             nz  = ~isempty(opts.zoom);
@@ -1097,7 +1110,8 @@ classdef Telescope < handle
                     zi = zr(1);  if numel(zr) > 1, ze = zr(2); end
                 end
                 ax = nexttile(tl);
-                obj.draw_plane_(ax, zp{1}, opts.hide, zi, ze, opts.nrays);
+                obj.draw_plane_(ax, zp{1}, opts.hide, zi, ze, opts.nrays, ...
+                                opts.zoom_fans);
                 r = opts.zoom{2};
                 xlim(ax, r(1:2));  ylim(ax, r(3:4));
                 title(ax, sprintf('%s detail', zp{1}), 'Interpreter','none');
@@ -1105,6 +1119,69 @@ classdef Telescope < handle
             sgtitle(tl, sprintf('%s -- orthographic layout (real rays)', obj.spec.family), ...
                     'Interpreter','none');
             if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+        end
+
+        function B = ray_bundle(obj, opts)
+        %RAY_BUNDLE  Full-grid 3-D ray bundle: the position of EVERY grid
+        %   ray at EVERY element, per field point -- the primitive behind
+        %   slice-selectable layout views (Dave 2026-07-05: engine DRAW
+        %   traces only the middle meridian fan per plane, so tricky
+        %   folded layouts cannot be sliced usefully from it).  Built on
+        %   macos.trace(k) + macos.get_ray_info -- no engine change, no
+        %   DRAW ray-count cap.
+        %
+        %   B = t.ray_bundle()                        % nominal field
+        %   B = t.ray_bundle('fields',F)              % (N,2) rad offsets
+        %                                             % about the bias
+        %   Returns:
+        %     .nray, .nelt, .fields (N,2)
+        %     .pos {f}  3 x nray x nelt   ray position at each element
+        %     .ok  {f}  nray x nelt       traced-AND-passed mask
+        %     .pup      2 x nray          pupil coords, normalized to the
+        %                                 entrance footprint (slice masks:
+        %                                 |pup(1,:)| < tol = the Y-slice,
+        %                                 |pup(2,:)| < tol = the X-slice,
+        %                                 offsets/annuli at will)
+        %
+        %   Slice example (the fan at x = +0.5 of the pupil radius):
+        %     m = abs(B.pup(1,:) - 0.5) < 0.08;
+        %     plot(squeeze(B.pos{1}(3,m,:)).', squeeze(B.pos{1}(2,m,:)).')
+            arguments
+                obj
+                opts.fields (:,2) double = [0 0]
+            end
+            obj.ensure_loaded_();
+            if ~macos.has_rx(), obj.build(); else, obj.build('','init',false); end
+            nE = numel(obj.spec.elt);
+            nF = size(opts.fields,1);
+            B  = struct('nelt',nE, 'fields',opts.fields, ...
+                        'pos',{cell(1,nF)}, 'ok',{cell(1,nF)});
+            for f = 1:nF
+                fxy = opts.fields(f,:);
+                if any(abs(fxy) > 1e-15), obj.trace_at_field(fxy); end
+                s  = macos.trace(1);
+                ri = macos.get_ray_info(s.nRays);
+                nR = size(ri.pos, 2);
+                P  = nan(3, nR, nE);  OK = false(nR, nE);
+                P(:,:,1) = ri.pos;
+                OK(:,1)  = logical(ri.ok_trace) & logical(ri.ok_pass);
+                if f == 1
+                    % pupil coords from the entrance footprint (elt 1),
+                    % centered on its mean, normalized to max radius
+                    c = mean(ri.pos(1:2, OK(:,1)), 2);
+                    q = ri.pos(1:2,:) - c;
+                    B.pup  = q / max(hypot(q(1,OK(:,1)), q(2,OK(:,1))));
+                    B.nray = nR;
+                end
+                for k = 2:nE
+                    macos.trace(k);
+                    ri = macos.get_ray_info(nR);
+                    P(:,:,k) = ri.pos;
+                    OK(:,k)  = logical(ri.ok_trace) & logical(ri.ok_pass);
+                end
+                B.pos{f} = P;  B.ok{f} = OK;
+                if any(abs(fxy) > 1e-15), obj.trace_at_field([]); end
+            end
         end
 
         function trace_at_field(obj, fxy)
@@ -1547,10 +1624,15 @@ classdef Telescope < handle
             end
         end
 
-        function draw_plane_(obj, ax, plane, hide, istart, iend, nrays)
+        function draw_plane_(obj, ax, plane, hide, istart, iend, nrays, fans)
         %DRAW_PLANE_  Draw the real-ray layout for ONE plane into axes AX -- the
         %   shared core of view_layout / view_orthoviews.  Assumes the current
-        %   design is already loaded (see ensure_loaded_).
+        %   design is already loaded (see ensure_loaded_).  FANS applies to the
+        %   XY cross-plane view only: 'both' (default) overlays the x- AND
+        %   y-meridian fans (beam extents measurable in both axes); 'x' or 'y'
+        %   draws that single fan -- e.g. a folded X-Y bench reads cleanest
+        %   with only the rays that LIE IN the bench plane (the x-fan).
+            if nargin < 8, fans = 'both'; end
             nE = numel(obj.spec.elt);
             if iend <= 0, iend = nE; end
             b = macos.draw_rays(plane, istart, iend);
@@ -1603,7 +1685,10 @@ classdef Telescope < handle
                     if any(mx(:)), ctr(1,k) = mean(bxz.V(mx)); end
                     if any(my(:)), ctr(2,k) = mean(byz.V(my)); end
                 end
-                for pass = 1:2
+                passes = 1:2;
+                if strcmpi(fans,'y'), passes = 1; end
+                if strcmpi(fans,'x'), passes = 2; end
+                for pass = passes
                     isy = (pass == 1);
                     if isy, bb = byz; else, bb = bxz; end
                     stepf = max(1, floor(bb.nray / max(2, nrays)));
@@ -2071,7 +2156,17 @@ classdef Telescope < handle
                         L{end+1} = ['                   ' ...                        %#ok<AGROW>
                                     strtrim(sprintf('%.16E ', zc(g:min(g+5,nz))))];
                     end
-                    L{end+1} = sprintf('             lMon=%.16E', e.ap_r);          %#ok<AGROW>
+                    % Zernike normalization radius: an explicit freeform
+                    % lmon (set_freeform) wins over the body ap_r -- for a
+                    % beam that underfills the mirror, ap_r-normalized modes
+                    % are degenerate over the lit patch (ill-conditioned
+                    % OptZern -> huge canceling coefficients)
+                    lz = e.ap_r;
+                    if isfield(e.freeform,'lmon') && ~isempty(e.freeform.lmon) ...
+                            && ~isnan(e.freeform.lmon)
+                        lz = e.freeform.lmon;
+                    end
+                    L{end+1} = sprintf('             lMon=%.16E', lz);              %#ok<AGROW>
                     nrmz = e.psi;
                     if isfield(e,'nrm') && ~isempty(e.nrm), nrmz = e.nrm; end
                     Rz = obj.surf_frame_(nrmz);

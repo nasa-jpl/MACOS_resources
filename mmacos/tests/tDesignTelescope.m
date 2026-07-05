@@ -1006,6 +1006,42 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyEqual(t2.spec.fp_ap_r, 0.11, 'AbsTol', 1e-15);
         end
 
+        function test_ray_bundle_smoke(tc)
+            % ray_bundle: full-grid positions at every element (the slice-
+            % selectable layout primitive; engine DRAW gives only middle
+            % meridian fans).  Pupil coords support slice masks.
+            t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
+            B = t.ray_bundle();
+            tc.verifyEqual(B.nelt, 4);
+            tc.verifyEqual(size(B.pos{1}), [3 B.nray 4]);
+            tc.verifyEqual(size(B.ok{1}),  [B.nray 4]);
+            tc.verifyEqual(size(B.pup, 1), 2);
+            r = hypot(B.pup(1,B.ok{1}(:,1)), B.pup(2,B.ok{1}(:,1)));
+            tc.verifyEqual(max(r), 1.0, 'AbsTol', 1e-9, ...
+                'pupil coords must normalize to the entrance footprint');
+            ysl = abs(B.pup(1,:)) < 0.05 & B.ok{1}(:,1).';
+            tc.verifyGreaterThan(nnz(ysl), 3, 'Y-slice mask is empty');
+            % FP positions of the y-slice: near-focus -> tightly clustered
+            fpz = B.pos{1}(:, ysl, end);
+            spread = max(fpz, [], 2) - min(fpz, [], 2);
+            tc.verifyLessThan(max(spread), 1e-2, ...
+                'y-slice does not converge at the focal plane');
+        end
+
+        function test_freeform_lmon_emitted(tc)
+            % set_freeform 'lmon' overrides the emitted Zernike
+            % normalization radius (default = the body ap_r, which is
+            % ill-conditioned when the beam underfills the mirror).
+            t = tc.make_tma_();  t.add_focal_plane('FP');
+            t.build('', 'validate', false);
+            t.set_freeform(2, [5 6], [1e-8 0], 'lmon', 0.31);
+            f = [tempname '.in'];  c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save(f);
+            txt = fileread(f);
+            tc.verifyTrue(contains(txt, 'lMon=3.1000000000000000E-01'), ...
+                'freeform lmon not emitted as the lMon radius');
+        end
+
         function test_fold_station_report_smoke(tc)
             % fold_station_report returns per-station feed/return intervals
             % + the daylight gap.  On the biased [8 2 4] the two bundles
