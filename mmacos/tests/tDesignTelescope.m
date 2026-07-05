@@ -616,12 +616,17 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             txt = fileread(f);
             tc.verifyTrue(contains(txt, 'ApType=  None'), ...
                 'off-axis mirrors should emit ApType=None');
-            % on-axis design keeps Circular apertures
+            % on-axis design keeps Circular apertures on the MIRRORS.  The
+            % FocalPlane emits ApType=None by policy (its ap_r is a
+            % check_clipping BODY, not a field stop -- an honestly-sized
+            % detector emitted as a hard stop makes CALIB rigid-body trial
+            % steps lose every ray), so count the None lines instead.
             t2 = tc.make_tma_();
             f2 = [tempname '.in']; c2 = onCleanup(@() delete(f2)); %#ok<NASGU>
             t2.save(f2);
-            tc.verifyFalse(contains(fileread(f2), 'ApType=  None'), ...
-                'on-axis design must keep Circular apertures');
+            nnone = numel(strfind(fileread(f2), 'ApType=  None'));
+            tc.verifyEqual(nnone, 1, ...
+                'on-axis design: only the FocalPlane may emit ApType=None');
         end
 
         function test_aperture_full_field_sizes_and_centers(tc)
@@ -886,6 +891,115 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyLessThan(std(v)/lam, 1.0, ...
                 sprintf(['carried-conic 4-mirror relay does not image ' ...
                          '(%.1f waves) -- psi parity broken?'], std(v)/lam));
+        end
+
+        function test_add_fold_neutral_and_geometry(tc)
+            % A flat fold (add_fold) maps everything downstream by the
+            % fold-plane reflection isometry -- an EXACT unfold, so the
+            % trace is preserved to machine precision and the flat adds
+            % zero aberration.  Fixture: fold 2 m after M2, 90 deg into +y;
+            % M2 sits at z=-3 with the beam running +z, so the fold lands
+            % at z=-1 and M3 (was z=+1.5, 2.5 m past the fold) maps to
+            % (0, 2.5, -1) with psi swung to (0,-1,0).
+            t0 = tc.make_tma_();  t0.add_focal_plane('FP');  t0.build();
+            macos.trace(numel(t0.spec.elt));
+            W = macos.opd();  v = W(isfinite(W) & W ~= 0);  rms0 = std(v);
+
+            t1 = tc.make_tma_();  t1.add_focal_plane('FP');
+            t1.add_fold('FM','after','M2','dist_m',2.0);
+            t1.build();
+            e = t1.spec.elt;
+            tc.verifyEqual({e.name}, {'M1','M2','FM','M3','FP'}, ...
+                'fold must insert between M2 and M3');
+            tc.verifyLessThan(norm(e(4).Vpt - [0 2.5 -1]), 1e-12, ...
+                'M3 not mapped by the fold isometry');
+            tc.verifyLessThan(norm(e(4).psi - [0 -1 0]), 1e-12, ...
+                'M3 psi not reflected');
+            tc.verifyEqual(e(2).zElt, 2.0, 'AbsTol', 1e-15);
+            macos.trace(numel(e));
+            W = macos.opd();  v = W(isfinite(W) & W ~= 0);  rms1 = std(v);
+            tc.verifyLessThan(abs(rms1 - rms0), 1e-12, ...
+                sprintf('flat fold is not WFE-neutral (d=%.3g m)', ...
+                        abs(rms1 - rms0)));
+        end
+
+        function test_add_fold_bad_args(tc)
+            % dist past the next element and unknown 'after' both error.
+            t = tc.make_tma_();  t.add_focal_plane('FP');
+            t.add_fold('FM','after','M2','dist_m',99);
+            tc.verifyError(@() t.build(), ...
+                'macos:design:Telescope:fold:dist');
+            t2 = tc.make_tma_();  t2.add_focal_plane('FP');
+            t2.add_fold('FM','after','NOPE','dist_m',1);
+            tc.verifyError(@() t2.build(), ...
+                'macos:design:Telescope:fold:after');
+        end
+
+        function test_add_fold_after_optimize_keeps_conics(tc)
+            % optimize() writes the solved conics back into the MIRROR list,
+            % so add_fold's re-resolve keeps them instead of silently
+            % re-seeding from Seidel (the fold-an-optimized-design trap).
+            t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
+            t.optimize('fields_arcmin',[0.5 1.0],'dofs',[0 0 0 0 0 0 0 1], ...
+                       'max_iters',60);
+            K = [t.spec.elt(1).Kc t.spec.elt(2).Kc t.spec.elt(3).Kc];
+            t.add_fold('FM','after','M2','dist_m',2.0);
+            t.build();                                   % re-resolves
+            K2 = [t.spec.elt(1).Kc t.spec.elt(2).Kc t.spec.elt(4).Kc];
+            tc.verifyEqual(K2, K, 'AbsTol', 1e-14, ...
+                'optimized conics lost across the fold re-resolve');
+        end
+
+        function test_set_hole_passes_through_beam(tc)
+            % set_hole declares the perforated primary: through-the-hole
+            % crossings stop counting as body-in-beam obstructions.  In the
+            % [8 2 4] fixture the M2->M3 feed re-crosses the M1 plane near
+            % the axis, so M1 shows obstructions until the hole is declared.
+            t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
+            r0 = t.check_clipping('noload',true,'quiet',true);
+            i1 = find(strcmp({r0.name},'M1'),1);
+            tc.verifyGreaterThan(r0(i1).obstructs, 0, ...
+                'fixture should show through-hole hits on M1');
+            t.set_hole('M1', 0.25);
+            r1 = t.check_clipping('noload',true,'quiet',true);
+            tc.verifyLessThan(r1(i1).obstructs, r0(i1).obstructs, ...
+                'set_hole did not absorb the through-beam crossings');
+        end
+
+        function test_center_focal_plane_follows_bias(tc)
+            % Source tilt (set_field_bias) walks the image EFL*theta off
+            % axis; center_focal_plane moves the detector BODY there.
+            % [8 2 4] has EFL 8 m -> 10' bias walks the image ~23 mm.
+            t = tc.make_tma_();  t.add_focal_plane('FP');
+            t.set_field_bias(10);
+            t.build();
+            d = t.center_focal_plane();
+            yfp = t.spec.elt(end).Vpt(2);
+            expect = 8.0 * sin(deg2rad(10/60));
+            tc.verifyEqual(abs(yfp), expect, 'RelTol', 0.1, ...
+                'FP body not centered on the biased image');
+            % d includes micron-level x/z centroid components -- loose tol
+            tc.verifyEqual(d, abs(yfp), 'RelTol', 1e-3);
+        end
+
+        function test_fold_station_report_smoke(tc)
+            % fold_station_report returns per-station feed/return intervals
+            % + the daylight gap.  On the biased [8 2 4] the two bundles
+            % overlap near M3 (gap<0) -- the report must SAY so rather than
+            % green-light a colliding fold.
+            addpath(fullfile(getenv('HOME'), ...
+                    'dev/MACOS_resources/mmacos/design/src'));
+            t = tc.make_tma_();  t.add_focal_plane('FP');
+            t.set_field_bias(10);
+            t.build();
+            rep = fold_station_report(t,'mirror','M3','quiet',true, ...
+                                      'noload',true);
+            tc.verifyNotEmpty(rep);
+            tc.verifyTrue(all(isfield(rep, ...
+                {'z','c_in','hw_in','c_out','hw_out','gap'})));
+            tc.verifyGreaterThan(min([rep.hw_in]), 0);
+            tc.verifyLessThan(rep(end).gap, 0, ...
+                'bundles must overlap near the mirror');
         end
 
         function test_optimize_area_grid_dedup(tc)

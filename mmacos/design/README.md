@@ -120,6 +120,12 @@ Script-level utilities shared by the examples (add
   focal surface / relay conjugates); astig-dominated with field-varying
   orientation → binodal astig (a fixed mirror Zernike cannot fix it —
   smaller field, 4th powered mirror, or field-conjugate freeform).
+- **`fold_station_report(t,'mirror',M)`** — where can a fold live?  For
+  the legs into/out of a mirror, per-station lateral intervals of the
+  two bundles + the daylight GAP between them (from the YZ DRAW fan).
+  A fold picking off one leg needs gap > its mount margin or it clips
+  the other — the quantitative form of the centered-Korsch focal-plane
+  extraction (run on the UNFOLDED biased design, then `add_fold`).
 
 Package-side helpers (in `+macos/+design`, used everywhere):
 
@@ -151,6 +157,21 @@ Package-side helpers (in `+macos/+design`, used everywhere):
   `weights`), holding all radii/conics. CALIB OptZern under the hood.
 - `add_pupil` — place the exit-pupil reference surface (deliverable + future
   pupil-referenced optimization).
+- `add_fold(NAME,'after',M,'dist_m',d,'to',DIR)` — insert a FLAT fold mirror
+  d metres after element M; everything downstream is mapped by the fold-plane
+  reflection isometry (exactly WFE-neutral, verified to machine precision).
+  Folds emit `ApType=None` (the `ap_r` is a check_clipping BODY, not a stop)
+  and are excluded from `optimize`'s DOF set. Weak POWER on the fold is a
+  planned option (Dave 2026-07-05). See `tma_centered_fold_search`.
+- `set_hole(NAME,r)` — declare a perforated element (the centered family's
+  primary): through-the-hole crossings stop counting as body-in-beam
+  obstructions in `check_clipping` (clearance only; the hole is not yet
+  emitted as an inner obscuration).
+- `center_focal_plane()` — move the detector BODY to the traced image
+  centroid (trace-neutral); use after `set_field_bias`/`add_fold`, where the
+  image walks off the derived on-axis FP center.
+- `add_focal_plane(NAME,'ap_r',r)` — honest detector body size for the
+  clearance judge (default 0.3·D is a generous placeholder).
 
 ## Status & roadmap
 

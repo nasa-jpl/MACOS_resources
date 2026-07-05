@@ -193,16 +193,145 @@ classdef Telescope < handle
             obj.spec.elt = [];                           % invalidate -> re-resolve
         end
 
-        function add_focal_plane(obj, name)
+        function add_focal_plane(obj, name, opts)
         %ADD_FOCAL_PLANE  Name the terminal focal plane of an N-mirror
         %   telescope (default 'FP'); placed at the derived focus at build.
-            arguments, obj, name (1,:) char = 'FP', end
+        %   'ap_r' sets the PHYSICAL body radius (m) used by check_clipping
+        %   -- default 0.3*D is a generous placeholder; for an honest
+        %   clearance verdict size it to the real detector + structure
+        %   (image extent = EFL * field radius, plus housing).
+            arguments
+                obj
+                name (1,:) char = 'FP'
+                opts.ap_r (1,1) double = NaN
+            end
             if ~obj.is_nmirror_()
                 error('macos:design:Telescope:add_focal_plane:family', ...
                     'add_focal_plane is for N-mirror families.');
             end
             obj.spec.fp_name = name;
+            obj.spec.fp_ap_r = opts.ap_r;                % NaN -> 0.3*D default
             obj.spec.elt     = [];
+        end
+
+        function add_fold(obj, name, opts)
+        %ADD_FOLD  Insert a FLAT fold mirror into an N-mirror chain.
+        %   t.add_fold('FM','after','M2','dist_m',0.5)  puts a flat 0.5 m
+        %   along the beam after mirror M2 and folds the beam into 'to'
+        %   (default [0 1 0]: 90 deg into +y).  Everything DOWNSTREAM of the
+        %   fold (mirrors, focal plane, their psi) is mapped by the fold
+        %   plane's reflection isometry, so path lengths and angles are
+        %   EXACTLY preserved -- a flat fold adds zero aberration (image
+        %   parity flips).  Folds compose: chain a second fold by naming the
+        %   first as 'after'.
+        %
+        %   THE use case (the centered/Korsch family): the coaxial TMA's
+        %   focal plane lands ON AXIS in the middle of the incoming beam.
+        %   A field bias separates the M2->M3 feed and the M3->FP return
+        %   bundles laterally near the exit pupil; a small fold there picks
+        %   off ONE of them and moves the back end into the x-y plane
+        %   behind the primary.  Use design/src/fold_station_report to find
+        %   a station where the two bundles have daylight between them, and
+        %   set_hole to stop check_clipping charging the through-the-hole
+        %   passes to a perforated primary.
+        %
+        %   Name-value:
+        %     'after'   (required) name of the element the fold follows
+        %     'dist_m'  (required) station distance (m) along the beam after
+        %               that element; must be < the spacing to the next one
+        %     'to'      outgoing beam direction, global (default [0 1 0])
+        %     'ap_r'    fold body radius (m); default 0.1*D.  Size it to the
+        %               local beam footprint -- check_clipping judges it.
+        %
+        %   PLANNED (Dave 2026-07-05): a 'radius_m' option for WEAK POWER on
+        %   the fold (slow focus/pupil trim without a dedicated powered
+        %   mirror).  Until then folds are strictly flat (Kr sentinel -1e22);
+        %   a powered fold also needs enrollment in optimize's ROC DOF and
+        %   an astigmatism warning at large fold angles.
+            arguments
+                obj
+                name (1,:) char
+                opts.after  (1,:) char
+                opts.dist_m (1,1) double
+                opts.to     (1,3) double = [0 1 0]
+                opts.ap_r   (1,1) double = NaN
+            end
+            if ~obj.is_nmirror_()
+                error('macos:design:Telescope:add_fold:family', ...
+                    'add_fold is for N-mirror families (family=%s).', obj.spec.family);
+            end
+            if ~isfield(opts,'after') || ~isfield(opts,'dist_m')
+                error('macos:design:Telescope:add_fold:args', ...
+                    'add_fold requires ''after'' (element name) and ''dist_m''.');
+            end
+            if ~(opts.dist_m > 0)
+                error('macos:design:Telescope:add_fold:dist', ...
+                    'dist_m must be positive (got %g).', opts.dist_m);
+            end
+            if norm(opts.to) < eps
+                error('macos:design:Telescope:add_fold:to', ...
+                    '''to'' direction must be non-zero.');
+            end
+            f = struct('name',name, 'after',opts.after, 'dist',opts.dist_m, ...
+                       'to',opts.to./norm(opts.to), 'ap_r',opts.ap_r);
+            if ~isfield(obj.spec,'folds') || isempty(obj.spec.folds)
+                obj.spec.folds = f;
+            else
+                obj.spec.folds(end+1) = f;
+            end
+            obj.spec.elt = [];                           % invalidate -> re-resolve
+        end
+
+        function d = center_focal_plane(obj)
+        %CENTER_FOCAL_PLANE  Move the focal-plane BODY to the traced beam
+        %   centroid at the FP -- body placement only: a lateral shift of a
+        %   flat focal plane within its own plane is trace-neutral.  Use
+        %   after set_field_bias and/or add_fold, where the image walks off
+        %   the derived on-axis FP center and check_clipping would judge
+        %   the body in the wrong place (and a real detector would sit in
+        %   the wrong place).  Returns the offset applied (m).
+            obj.ensure_loaded_();
+            if ~macos.has_rx(), obj.build(); else, obj.build('','init',false); end
+            e  = obj.spec.elt;  nE = numel(e);
+            fk = find(strcmp({e.kind},'FocalPlane'), 1, 'last');
+            if isempty(fk)
+                error('macos:design:Telescope:center_fp:none', ...
+                    'no FocalPlane element.');
+            end
+            byz = macos.draw_rays('YZ', 0, nE);
+            bxz = macos.draw_rays('XZ', 0, nE);
+            my = (byz.elt == fk);  mx = (bxz.elt == fk);
+            if ~any(my(:)) || ~any(mx(:))
+                error('macos:design:Telescope:center_fp:trace', ...
+                    'no rays reach the focal plane.');
+            end
+            ctr = [mean(bxz.V(mx)); mean(byz.V(my)); ...
+                   mean([byz.U(my); bxz.U(mx)])];
+            d = norm(ctr.' - e(fk).Vpt);
+            obj.spec.elt(fk).Vpt = ctr.';
+        end
+
+        function set_hole(obj, name, r_m)
+        %SET_HOLE  Declare a central perforation (hole) of radius R_M in the
+        %   named element's body.  Geometry/trace are UNCHANGED -- this only
+        %   informs check_clipping: a foreign-beam crossing within R_M of the
+        %   body center passes THROUGH the hole and is not an obstruction.
+        %   The centered (Korsch/Cassegrain) families need this for their
+        %   perforated primary -- without it every through-the-hole pass of
+        %   the M2->M3 beam is charged to M1 as a false body-in-beam hit.
+        %   r_m = 0 removes the hole.  NOTE: the hole is not yet emitted as
+        %   an inner obscuration on the element (diffraction model), only
+        %   used for the clearance verdict -- realize_apertures sizing plus
+        %   an ObsType annulus is the follow-on.
+            arguments, obj, name (1,:) char, r_m (1,1) double {mustBeNonnegative}, end
+            h = struct('name',name, 'r',r_m);
+            if ~isfield(obj.spec,'holes') || isempty(obj.spec.holes)
+                obj.spec.holes = h;
+            else
+                i = find(strcmp({obj.spec.holes.name}, name), 1);
+                if isempty(i), obj.spec.holes(end+1) = h;
+                else,          obj.spec.holes(i)     = h; end
+            end
         end
 
         function set_field_points(obj, fp)
@@ -549,7 +678,10 @@ classdef Telescope < handle
             if obj.is_nmirror_() && (~isfield(obj.spec,'elt') || isempty(obj.spec.elt))
                 obj.resolve_nmirror_();
             end
-            var_elts = find(arrayfun(@(e) strcmp(e.kind,'Reflector'), obj.spec.elt));
+            % powered Reflectors only: a flat fold (add_fold, Kr sentinel
+            % -1e22) has no radius/conic to vary and must not be enrolled
+            var_elts = find(arrayfun(@(e) strcmp(e.kind,'Reflector') ...
+                                     && abs(e.Kr) < 1e21, obj.spec.elt));
             if ~isempty(opts.elts)
                 % subset: vary only the named elements (e.g. the imaging
                 % mirrors while a field mirror is held, or vice versa --
@@ -557,7 +689,7 @@ classdef Telescope < handle
                 bad = setdiff(opts.elts, var_elts);
                 if ~isempty(bad)
                     error('macos:design:Telescope:optimize:elts', ...
-                        'elts must be Reflector element indices (got %s).', ...
+                        'elts must be POWERED Reflector element indices (got %s).', ...
                         mat2str(bad));
                 end
                 var_elts = intersect(var_elts, opts.elts);
@@ -617,6 +749,22 @@ classdef Telescope < handle
                 obj.spec.elt(k).Vpt = reshape(macos.get_elt_vpt(k), 1, 3); % decenter
             end
             if isfield(obj.spec.derived,'K'), obj.spec.derived.K = Kopt; end
+            if obj.is_nmirror_()
+                % write the optimized conic (and radius, for ROC runs) back
+                % into the MIRROR LIST too, so a later re-resolve -- e.g.
+                % add_fold/add_mirror invalidating spec.elt -- keeps the
+                % optimized prescription instead of silently re-seeding
+                % from Seidel.  (Rigid-body moves are NOT representable in
+                % the coaxial mirror list and are still lost on re-resolve.)
+                for j = 1:Nv
+                    nm = obj.spec.elt(var_elts(j)).name;
+                    i  = find(strcmp({obj.spec.mirrors.name}, nm), 1);
+                    if ~isempty(i)
+                        obj.spec.mirrors(i).conic = Kopt(j);
+                        obj.spec.mirrors(i).R     = abs(obj.spec.elt(var_elts(j)).Kr);
+                    end
+                end
+            end
             obj.spec = rmfield(obj.spec, 'opt');
             % Clean re-emit from the updated spec.  CALIB bakes the rigid-body
             % result into psiElt/VptElt (verified), and our mirrors are
@@ -906,6 +1054,10 @@ classdef Telescope < handle
         %   {'YZ','XZ'} -- add 'XY' for folded / non-planar designs).  Same
         %   'hide'/'istart'/'iend'/'nrays'/'save'/'visible' options as
         %   view_layout, applied to every panel.
+        %   'zoom' appends one extra DETAIL panel: {'PLANE',[Ulo Uhi Vlo Vhi]}
+        %   redraws that plane cropped to the given plot-axis window (U = the
+        %   panel's horizontal axis, V vertical) -- e.g. magnify a folded
+        %   back end that a full-train view renders unreadably small.
             arguments
                 obj
                 planes                     = {'YZ','XZ'}
@@ -915,16 +1067,31 @@ classdef Telescope < handle
                 opts.nrays   (1,1) double  = 25
                 opts.save    (1,:) char    = ''
                 opts.visible (1,1) logical = true
+                opts.zoom    (1,:) cell    = {}
             end
             pl  = obj.plane_list_(planes);
-            np  = numel(pl);
+            nz  = ~isempty(opts.zoom);
+            if nz && (numel(opts.zoom) ~= 2 || ~isnumeric(opts.zoom{2}) ...
+                      || numel(opts.zoom{2}) ~= 4)
+                error('macos:design:Telescope:orthoviews:zoom', ...
+                    'zoom must be {''PLANE'',[Ulo Uhi Vlo Vhi]}.');
+            end
+            np  = numel(pl) + nz;
             obj.ensure_loaded_();
             vis = 'on';  if ~opts.visible, vis = 'off'; end
             fig = figure('Visible',vis, 'Position',[40 60 min(520*np,1560) 540]);
             tl  = tiledlayout(fig, 1, np, 'TileSpacing','compact', 'Padding','compact');
-            for i = 1:np
+            for i = 1:numel(pl)
                 ax = nexttile(tl);
                 obj.draw_plane_(ax, pl{i}, opts.hide, opts.istart, opts.iend, opts.nrays);
+            end
+            if nz
+                zp = obj.plane_list_(opts.zoom{1});
+                ax = nexttile(tl);
+                obj.draw_plane_(ax, zp{1}, opts.hide, opts.istart, opts.iend, opts.nrays);
+                r = opts.zoom{2};
+                xlim(ax, r(1:2));  ylim(ax, r(3:4));
+                title(ax, sprintf('%s detail', zp{1}), 'Interpreter','none');
             end
             sgtitle(tl, sprintf('%s -- orthographic layout (real rays)', obj.spec.family), ...
                     'Interpreter','none');
@@ -1039,14 +1206,21 @@ classdef Telescope < handle
             end
             e  = obj.spec.elt;  nE = numel(e);
 
-            % --- per-element disk geometry + physical-body flag
+            % --- per-element disk geometry + physical-body flag + hole
+            % (set_hole: a perforated primary passes the through-beam; a
+            % foreign crossing within hole_r of the body center is NOT an
+            % obstruction and does not count toward clearance)
             Vpt = zeros(3,nE);  psi = zeros(3,nE);  apr = zeros(1,nE);
-            isBody = false(1,nE);
+            isBody = false(1,nE);  hole = zeros(1,nE);
             for k = 1:nE
                 Vpt(:,k) = e(k).Vpt(:);
                 p = e(k).psi(:);  np = norm(p);  if np > 0, p = p/np; end
                 psi(:,k) = p;  apr(k) = e(k).ap_r;
                 isBody(k) = any(strcmp(e(k).kind, {'Reflector','FocalPlane'}));
+                if isfield(obj.spec,'holes') && ~isempty(obj.spec.holes)
+                    i = find(strcmp({obj.spec.holes.name}, e(k).name), 1);
+                    if ~isempty(i), hole(k) = obj.spec.holes(i).r; end
+                end
             end
 
             % --- two orthogonal DRAW MERIDIAN fans (data-only).  DRAW traces a
@@ -1102,6 +1276,7 @@ classdef Telescope < handle
                             if t <= opts.tol || t >= 1-opts.tol, continue; end
                             Q   = A + t*AB;
                             rho = norm(Q - ctr(:,k));
+                            if rho < hole(k), continue; end   % through the hole
                             clr(k) = min(clr(k), rho);
                             if rho < foot(k), obstructs(k) = obstructs(k) + 1; end
                         end
@@ -1403,12 +1578,46 @@ classdef Telescope < handle
             end
             hold(ax, 'on');
             % --- real ray bundle (subsampled so the beam shape stays legible) ---
-            step = max(1, floor(b.nray / max(2, nrays)));
-            for r = 1:step:b.nray
-                m = b.nper(r);
-                if m >= 2
-                    plot(ax, b.U(1:m,r), b.V(1:m,r), '-', 'Color',[0 .45 .85], ...
-                         'LineWidth',0.5, 'HandleVisibility','off');
+            if strcmpi(plane, 'XY')
+                % CROSS-PLANE view: a single meridian fan projects to a thin
+                % line here, so beam EXTENTS are unreadable.  Draw BOTH
+                % meridian fans instead, reconstructed in 3-D (off-plane
+                % coord = per-element beam center via fan_pt_ -- exact for
+                % meridian rays) and projected onto (X,Y): the y-fan spans
+                % each beam's y-extent and the x-fan its x-extent, so beam
+                % sizes can be MEASURED in the cross-plane (Dave 2026-07-05).
+                byz = macos.draw_rays('YZ', istart, iend);
+                bxz = macos.draw_rays('XZ', istart, iend);
+                ctr = zeros(3, nE);
+                for k = 1:nE
+                    my = (byz.elt == k);  mx = (bxz.elt == k);
+                    if any(mx(:)), ctr(1,k) = mean(bxz.V(mx)); end
+                    if any(my(:)), ctr(2,k) = mean(byz.V(my)); end
+                end
+                for pass = 1:2
+                    isy = (pass == 1);
+                    if isy, bb = byz; else, bb = bxz; end
+                    stepf = max(1, floor(bb.nray / max(2, nrays)));
+                    for r = 1:stepf:bb.nray
+                        m = bb.nper(r);
+                        if m < 2, continue; end
+                        P = zeros(2, m);
+                        for i = 1:m
+                            p3 = obj.fan_pt_(bb, i, r, isy, ctr, nE);
+                            P(:,i) = p3(1:2);
+                        end
+                        plot(ax, P(1,:), P(2,:), '-', 'Color',[0 .45 .85], ...
+                             'LineWidth',0.5, 'HandleVisibility','off');
+                    end
+                end
+            else
+                step = max(1, floor(b.nray / max(2, nrays)));
+                for r = 1:step:b.nray
+                    m = b.nper(r);
+                    if m >= 2
+                        plot(ax, b.U(1:m,r), b.V(1:m,r), '-', 'Color',[0 .45 .85], ...
+                             'LineWidth',0.5, 'HandleVisibility','off');
+                    end
                 end
             end
             % --- conic-sag surfaces, to the MEASURED clear aperture
@@ -1729,14 +1938,16 @@ classdef Telescope < handle
         %   helper would capture L by value and silently drop all but the
         %   last line.
             sp = obj.spec;  D = sp.in.D;
-            % Source standoff: place the collimated source a couple aperture
-            % diameters in front of the FRONTMOST optic (the most negative
-            % vertex z) so the DRAW layout stays interpretable -- the old
-            % 10*f1 put it ~100 m out.  zSource=1e22 (collimated) makes this
-            % WFE-neutral; only the drawn incoming-beam length changes.
-            % Vertex-based so it works for 2-mirror AND N-mirror (no 'sep').
+            % Source standoff: place the collimated source just ahead of the
+            % FRONTMOST optic (the most negative vertex z, usually M2) so the
+            % DRAW layout is dominated by the telescope, not the incoming
+            % beam -- the old 2.5*D floor drew ~17 m of empty beam on a deep
+            % Korsch and made the back end unreadable (Dave 2026-07-05).
+            % zSource=1e22 (collimated) makes this WFE-neutral; only the
+            % drawn incoming-beam length changes.  Vertex-based so it works
+            % for 2-mirror AND N-mirror (no 'sep').
             zmin  = min(arrayfun(@(e) e.Vpt(3), sp.elt));
-            stand = max(2.5*D, -zmin + 0.5*D);
+            stand = max(1.0*D, -zmin + 0.25*D);
             v3 = @(a,b,c) sprintf('%.16E  %.16E  %.16E', a, b, c);
             v6 = @(u,w) sprintf('%.16E  %.16E  %.16E  %.16E  %.16E  %.16E', ...
                                 u(1),u(2),u(3),w(1),w(2),w(3));
@@ -1808,7 +2019,9 @@ classdef Telescope < handle
                 hasFree = isfield(e,'freeform') && ~isempty(e.freeform) ...
                           && isstruct(e.freeform) && isfield(e.freeform,'modes') ...
                           && ~isempty(e.freeform.modes);
-                if strcmp(e.kind,'FocalPlane')
+                if strcmp(e.kind,'FocalPlane') || abs(e.Kr) >= 1e21
+                    % focal planes AND flat fold mirrors (add_fold: Reflector
+                    % with the flat sentinel Kr=-1e22) emit Surface= Flat
                     L{end+1} = '          Surface=  Flat';
                 elseif hasFree
                     % conic base + Zernike departure (§7.1 canonical freeform
@@ -1921,7 +2134,19 @@ classdef Telescope < handle
                 elseif hasCirc
                     L{end+1} = '           ApType=  Circular';                       %#ok<AGROW>
                     L{end+1} = ['            ApVec=  ' v3(e.ap(1),e.ap(2),e.ap(3))]; %#ok<AGROW>
-                elseif offaxis && strcmp(e.kind,'Reflector')
+                elseif strcmp(e.kind,'Reflector') && (offaxis || abs(e.Kr) >= 1e21)
+                    % off-axis design phase (don't clip the biased beam at a
+                    % vertex-centered stop) AND flat folds (add_fold: ap_r is
+                    % the check_clipping BODY, not a stop -- a design-phase
+                    % fold must not clip silently; realize_apertures sizes
+                    % the real aperture later)
+                    L{end+1} = '           ApType=  None';                           %#ok<AGROW>
+                elseif strcmp(e.kind,'FocalPlane')
+                    % same policy for the detector: ap_r is its BODY for
+                    % check_clipping, not a field stop.  An honestly-sized
+                    % (small) FP emitted as a hard Circular stop makes CALIB
+                    % rigid-body trial steps lose EVERY ray the moment the
+                    % image walks off it -- no gradient, runaway solve.
                     L{end+1} = '           ApType=  None';                           %#ok<AGROW>
                 else
                     L{end+1} = '           ApType=  Circular';                       %#ok<AGROW>
@@ -2116,12 +2341,15 @@ classdef Telescope < handle
                 e.Kc = K(k);
                 elts(k) = e;                     %#ok<AGROW>
             end
+            fpr = 0.3*D;
+            if isfield(sp,'fp_ap_r') && ~isnan(sp.fp_ap_r), fpr = sp.fp_ap_r; end
             elts(N+1) = obj.new_elt_(sp.fp_name, 'FocalPlane', [0 0 z(N+1)], ...
-                    [0 0 -1], -1.0e22, 0.3*D, 'derived(tma)', 1.0e20);
+                    [0 0 -1], -1.0e22, fpr, 'derived(tma)', 1.0e20);
 
             obj.spec.elt     = elts;
             obj.spec.derived = struct('N',N, 'R',R, 'K',K, 't',t, 'z',z, ...
                 'EFL',EFL, 'fnum',EFL/D, 't_focus',t_focus);
+            obj.apply_folds_();                  % flat folds (no-op if none)
         end
 
         function resolve_nmirror_fold_(obj)
@@ -2196,13 +2424,83 @@ classdef Telescope < handle
                     -abs(R(k)), apr(k), 'derived(tma+fold)', t(k));
                 e.Kc = K(k);  elts(k) = e;               %#ok<AGROW>
             end
+            fpr = 0.3*D;
+            if isfield(sp,'fp_ap_r') && ~isnan(sp.fp_ap_r), fpr = sp.fp_ap_r; end
             elts(N+1) = obj.new_elt_(sp.fp_name, 'FocalPlane', Vpt(N+1,:), ...
-                    -din, -1.0e22, 0.3*D, 'derived(tma)', 1.0e20);   % FP faces the beam
+                    -din, -1.0e22, fpr, 'derived(tma)', 1.0e20);   % FP faces the beam
 
             obj.spec.elt     = elts;
             obj.spec.derived = struct('N',N, 'R',R, 'K',K, 't',t, 'Vpt',Vpt, ...
                 'psi',psi, 'tilt_deg',[mir.tilt_deg], 'EFL',EFL, 'fnum',EFL/D, ...
                 't_focus',t_focus, 'folded',true);
+            obj.apply_folds_();                  % flat folds (no-op if none)
+        end
+
+        function apply_folds_(obj)
+        %APPLY_FOLDS_  Insert the queued flat folds (add_fold) into the
+        %   resolved element chain.  Each fold: station P sits 'dist' along
+        %   the beam after the named element (the beam direction there is
+        %   the vertex-to-next-vertex direction -- vertices lie on the axial
+        %   chief path); the outgoing direction is 'to'.  Everything
+        %   downstream is mapped by the reflection isometry about the fold
+        %   plane (M = I - 2nn', n = unit(d_in - d_out)): an EXACT unfold,
+        %   so spacings, angles, and the trace are preserved and the flat
+        %   contributes zero aberration.  psi of the flat faces the
+        %   incoming beam (psi = -n, psi.d_in < 0).  Folds are applied in
+        %   add_fold order; to chain, name the previous fold as 'after'.
+            sp = obj.spec;
+            if ~isfield(sp,'folds') || isempty(sp.folds), return; end
+            if isfield(sp,'offaxis_section') && sp.offaxis_section
+                error('macos:design:Telescope:fold:section', ...
+                    ['add_fold + set_offaxis sections do not compose yet -- ' ...
+                     'apply folds to the centered design.']);
+            end
+            D = sp.in.D;
+            for q = 1:numel(sp.folds)
+                f = sp.folds(q);
+                e = obj.spec.elt;
+                k = find(strcmp({e.name}, f.after), 1);
+                if isempty(k)
+                    error('macos:design:Telescope:fold:after', ...
+                        'add_fold ''after'' element ''%s'' not found.', f.after);
+                end
+                if k == numel(e)
+                    error('macos:design:Telescope:fold:last', ...
+                        'cannot fold after the last element (%s).', f.after);
+                end
+                seg  = e(k+1).Vpt - e(k).Vpt;
+                slen = norm(seg);
+                if ~(f.dist < slen)
+                    error('macos:design:Telescope:fold:dist', ...
+                        ['fold ''%s'': dist %.4g m >= the %s->%s spacing ' ...
+                         '%.4g m -- move the next element back or shorten ' ...
+                         'dist.'], f.name, f.dist, f.after, e(k+1).name, slen);
+                end
+                din  = seg / slen;
+                dout = f.to(:).' / norm(f.to);
+                if norm(dout - din) < 1e-9
+                    error('macos:design:Telescope:fold:straight', ...
+                        'fold ''%s'': ''to'' equals the incoming direction.', f.name);
+                end
+                P = e(k).Vpt + f.dist * din;
+                n = (din - dout);  n = n / norm(n);      % reflection normal
+                M = eye(3) - 2*(n.'*n);                  % fold-plane isometry
+                for j = k+1:numel(e)
+                    e(j).Vpt = (P.' + M*(e(j).Vpt.' - P.')).';
+                    e(j).psi = (M*e(j).psi.').';
+                    if isfield(e(j),'pole') && ~isempty(e(j).pole)
+                        e(j).pole = (P.' + M*(e(j).pole.' - P.')).';
+                    end
+                    if isfield(e(j),'nrm') && ~isempty(e(j).nrm)
+                        e(j).nrm = (M*e(j).nrm.').';
+                    end
+                end
+                apr = f.ap_r;  if isnan(apr), apr = 0.1*D; end
+                fe = obj.new_elt_(f.name, 'Reflector', P, -n, -1.0e22, ...
+                                  apr, 'derived(fold)', slen - f.dist);
+                e(k).zElt = f.dist;
+                obj.spec.elt = [e(1:k), fe, e(k+1:end)];
+            end
         end
 
         function [bf, EFL] = paraxial_focus_(~, R, t, convex)
