@@ -243,7 +243,12 @@ function S = strehl_(t, fxy, lam)
     if any(abs(fxy) > 1e-15), t.trace_at_field(fxy);
     else,                     t.trace_at_field([]);   end
     W = macos.opd();
-    m = isfinite(W) & (W ~= 0);
+    m = isfinite(W) & (W ~= 0) & (abs(W) < 1e30);  % exclude the all-lost
+    if nnz(m) < 6                                  % 9.9999e36 sentinel
+        S = NaN;
+        if any(abs(fxy) > 1e-15), t.trace_at_field([]); end
+        return
+    end
     [ry, rx] = find(m);
     ux = rx - mean(rx);  uy = ry - mean(ry);
     r  = max(hypot(ux, uy));

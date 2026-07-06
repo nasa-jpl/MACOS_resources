@@ -194,7 +194,10 @@ Package-side helpers (in `+macos/+design`, used everywhere):
 - **Working:** `rc_onaxis`, `rc_unobscured` (conic); `sz_tma` (sphere+Zernike —
   on-axis + central field diffraction-limited); `tma_offaxis` (convex-secondary
   conic TMA — on-axis + off-axis ±2′ area diffraction-limited, unobscured);
-  `wf2_freeform`, `tma_freeform`, `tma_onaxis`.
+  `wf2_freeform`, `tma_freeform`, `tma_onaxis`; `tma_unobscured` (the VISIBLE
+  500 nm coronagraph/imager/spectrometer front end — f/2.5 primary from the
+  slower-M1 trade, constant-feed ladder, AOI spread < 15°, Strehl 0.95 center /
+  0.85 @0.5′ ring, aligned tilted FP + FarField EP + design report).
 - **In progress:** `tma_3plus1` — THE reference design (3+1 unobscured,
   conics first + freeform where needed, HWO-ish 6.6 m f/20, sweet spot in
   the ~5 arcmin full field at λ=1 µm).  Downstream consumers: Sprint 2D
