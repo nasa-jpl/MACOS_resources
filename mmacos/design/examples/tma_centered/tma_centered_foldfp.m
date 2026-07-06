@@ -216,4 +216,16 @@ try
              '             tma_centered_foldfp_xy_retrace.png (pupil retrace)\n']);
 catch ME, fprintf('    figures skipped (%s)\n', ME.message); end
 
+%% -- [6] the design report ---------------------------------------------
+% One page: first-order properties (EFL, f/# at M1 and at the FP, plate
+% scale, lambda/D), the WFE-vs-field ladder WITH Strehl (PSF peak over
+% the unaberrated-aperture peak -- real far-field INT through the
+% PropType=FarField exit pupil add_pupil just emitted), the FP tilt,
+% the exit-pupil handle, and packaging/clearance (Dave 2026-07-06).
+fprintf('\n[6] design report:\n');
+rpt = design_report(t, 'rings_arcmin',[0.25 0.5 1.0 2.5], ...
+        'align',fa, 'yardstick_m',2.3e-6, ...
+        'file',fullfile(exdir,'tma_centered_foldfp_report.txt'));  %#ok<NASGU>
+fprintf('    report: tma_centered_foldfp_report.txt\n');
+
 function s = ternary(c, a, b), if c, s = a; else, s = b; end, end

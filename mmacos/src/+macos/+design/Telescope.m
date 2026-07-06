@@ -2410,7 +2410,16 @@ classdef Telescope < handle
                     L{end+1} = '           ApType=  Circular';                       %#ok<AGROW>
                     L{end+1} = ['            ApVec=  ' v3(e.ap_r,0,0)];              %#ok<AGROW>
                 end
-                L{end+1} = '         PropType=  Geometric';
+                % PropType: FarField ONLY at the add_pupil exit-pupil
+                % sphere (the EP->detector hop is the far-field
+                % propagation; enables PSF/Strehl metrics at the FP --
+                % Dave 2026-07-06); every other element is Geometric.
+                if isfield(obj.spec,'pupil') && ~isempty(obj.spec.pupil) ...
+                        && strcmp(e.name,'ExitPupil')
+                    L{end+1} = '         PropType=  FarField';                       %#ok<AGROW>
+                else
+                    L{end+1} = '         PropType=  Geometric';                      %#ok<AGROW>
+                end
                 L{end+1} = sprintf('             zElt=%.16E', e.zElt);
                 % Sensible element coordinate frame (TElt): trace-neutral, but
                 % the interface frame MACOS uses for PERTURB + emitted

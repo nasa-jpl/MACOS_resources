@@ -156,7 +156,16 @@ Package-side helpers (in `+macos/+design`, used everywhere):
   optimize the Zernike coefficients multi-field (supply 2-D `fields` + area
   `weights`), holding all radii/conics. CALIB OptZern under the hood.
 - `add_pupil` — place the exit-pupil reference surface (deliverable + future
-  pupil-referenced optimization).
+  pupil-referenced optimization).  The EP sphere emits `PropType=FarField`
+  (ONLY the EP; everything else Geometric) so `INT` at the detector is the
+  far-field PSF — the hook for PSF/Strehl metrics.
+- `design_report(t,...)` (design/src) — the one-page design report (Dave
+  2026-07-06): first-order properties (EFL, f/# at M1 and at the FP, plate
+  scale, λ/D), the WFE-vs-field ladder **with Strehl** (PSF peak over the
+  unaberrated-aperture peak, real far-field INT through the FarField EP),
+  FP tilt wrt the chief, exit-pupil handle, shroud/clearance/AOI.  Returns
+  the struct + formatted text; `'file'` writes it next to the example
+  artifacts.
 - `add_fold(NAME,'after',M,'dist_m',d,'to',DIR)` — insert a FLAT fold mirror
   d metres after element M; everything downstream is mapped by the fold-plane
   reflection isometry (exactly WFE-neutral, verified to machine precision).

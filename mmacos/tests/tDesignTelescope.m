@@ -1067,6 +1067,45 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'macos:design:Telescope:align_fp:afterPupil');
         end
 
+        function test_add_pupil_farfield_ep(tc)
+            % add_pupil's exit-pupil sphere emits PropType=FarField --
+            % the EP->detector hop is the far-field propagation, enabling
+            % PSF/Strehl metrics at the FP.  ONLY the EP: every other
+            % element stays Geometric (Dave 2026-07-06).
+            t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
+            t.add_pupil();
+            f = [tempname '.in'];  c = onCleanup(@() delete(f)); %#ok<NASGU>
+            t.save(f);
+            txt = fileread(f);
+            tc.verifyEqual(numel(strfind(txt,'PropType=  FarField')), 1, ...
+                'exactly ONE FarField element (the EP)');
+            iEP = strfind(txt, 'EltName=  ExitPupil');
+            blk = txt(iEP:min(iEP+2500, numel(txt)));
+            nxt = regexp(blk, '\n\s*iElt=', 'once');   % next element header
+            if ~isempty(nxt), blk = blk(1:nxt); end    % ('psiElt=' contains 'iElt=')
+            tc.verifyTrue(contains(blk, 'FarField'), ...
+                'the FarField PropType must be on the ExitPupil element');
+        end
+
+        function test_design_report_smoke(tc)
+            % design_report: one-struct report (first-order f/#s, WFE
+            % ladder + Strehl via the FarField EP, FP tilt, packaging).
+            addpath(fullfile(getenv('HOME'), ...
+                    'dev/MACOS_resources/mmacos/design/src'));
+            t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
+            t.add_pupil();
+            rep = design_report(t, 'rings_arcmin', 0.25, 'quiet', true);
+            tc.verifyGreaterThan(rep.fno_m1, 0);
+            tc.verifyGreaterThan(rep.fno_fp, rep.fno_m1, ...
+                'system f/# must be slower than the primary');
+            tc.verifyEqual(numel(rep.wfe_raw), 2);   % center + 1 ring
+            tc.verifyGreaterThan(rep.strehl(1), 0);
+            tc.verifyLessThanOrEqual(rep.strehl(1), 1 + 1e-6, ...
+                'Strehl is a peak ratio against the unaberrated aperture');
+            tc.verifyFalse(isnan(rep.fp_tilt_deg));
+            tc.verifyTrue(ischar(rep.text) && numel(rep.text) > 200);
+        end
+
         function test_freeform_lmon_emitted(tc)
             % set_freeform 'lmon' overrides the emitted Zernike
             % normalization radius (default = the body ap_r, which is
