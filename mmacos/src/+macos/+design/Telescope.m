@@ -1563,6 +1563,25 @@ classdef Telescope < handle
             end
         end
 
+        function clear_realized_apertures(obj)
+        %CLEAR_REALIZED_APERTURES  Drop the realized per-element clear
+        %   apertures (spec.elt.ap / ap_rect) and re-emit with the
+        %   design-phase (vertex-centered ap_r) stops.  STOPGAP for the
+        %   realize_apertures frame bug (2026-07-06): footprint centers
+        %   are measured in GLOBAL XY (draw_rays) but emitted as LOCAL
+        %   ApVec offsets -- correct only while the element origin sits
+        %   at the global origin (coaxial / eccentric-section parents).
+        %   On a tilted-fold design the emitted stops land metres off
+        %   the beam and the SAVED .in loses every ray on reload
+        %   (sz_tma.in carries this latent).  Call before save() until
+        %   the ray_bundle-based aperture-frame fix lands.
+            for k = 1:numel(obj.spec.elt)
+                obj.spec.elt(k).ap = [];
+                obj.spec.elt(k).ap_rect = [];
+            end
+            obj.build('', 'init', false);
+        end
+
         function rep = aperture_full_field(obj, opts)
         %APERTURE_FULL_FIELD  Per-element clear aperture covering the FULL
         %   FIELD (PLAN_DESIGN_LAYER §8).  Traces a set of field points
