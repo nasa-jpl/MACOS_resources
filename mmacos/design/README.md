@@ -170,6 +170,13 @@ Package-side helpers (in `+macos/+design`, used everywhere):
 - `center_focal_plane()` — move the detector BODY to the traced image
   centroid (trace-neutral); use after `set_field_bias`/`add_fold`, where the
   image walks off the derived on-axis FP center.
+- `align_focal_plane('grid',N,'span_arcmin',r)` — place AND TILT the detector
+  from best-focus points mapped over an N×N field grid (2×2 for prelim
+  analysis, 5×5/7×7 for the final design — Dave 2026-07-06): a biased field's
+  TRUE focal plane is tilted wrt the chief ray, which one focus point cannot
+  identify.  Fits the FP plane through the foci, sets Vpt+psi, and returns
+  the tilt, the defocus removed, and the residual field-curvature `sag_m`
+  map.  Run BEFORE `add_pupil`.
 - `add_focal_plane(NAME,'ap_r',r)` — honest detector body size for the
   clearance judge (default 0.3·D is a generous placeholder).
 

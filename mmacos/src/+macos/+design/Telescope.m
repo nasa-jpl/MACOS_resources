@@ -311,6 +311,145 @@ classdef Telescope < handle
             obj.spec.elt(fk).Vpt = ctr.';
         end
 
+        function res = align_focal_plane(obj, opts)
+        %ALIGN_FOCAL_PLANE  Place AND tilt the focal plane from multi-field
+        %   best foci.  center_focal_plane translates the detector body
+        %   only; on a field-biased design the TRUE focal plane is TILTED
+        %   with respect to the chief ray, and at least 3 non-collinear
+        %   field points are needed to identify that tilt (Dave 2026-07-06).
+        %   This traces a small field set about the (biased) field center,
+        %   finds each field's best-focus point in 3-D -- the least-squares
+        %   closest point to that field's arriving ray bundle, no scan --
+        %   fits a plane through the foci, and sets the FocalPlane Vpt
+        %   (center-field focus, projected onto the plane) + psi (plane
+        %   normal, oriented along the arriving chief) from it.
+        %
+        %   Run BEFORE add_pupil: the inserted FP_return/ExitPupil are
+        %   derived from the FP station and would go stale.
+        %
+        %   Name-value:
+        %     'grid'         N -> map the foci on an N x N field grid over
+        %                    +/- span (Dave 2026-07-06: start 2x2 for
+        %                    prelim analysis, refine to 5x5 / 7x7 for the
+        %                    final design).  Default 0 = the minimal
+        %                    4-point cross.  The field CENTER is always
+        %                    traced too, as the anchor (field 1).
+        %     'span_arcmin'  half-span of the grid / cross radius
+        %                    (default 0.25').
+        %     'fields'       explicit (N,2) rad offsets (>=2, plus the
+        %                    auto-anchor; must not be collinear with it);
+        %                    supersedes grid/span.
+        %
+        %   Returns res: .fields (N,2 rad, row 1 = center anchor), .foci
+        %   (3xN), .fp_vpt, .psi, .tilt_deg (plane normal vs arriving
+        %   chief), .defocus_m (along-chief shift of the center-field
+        %   focus from the old FP station), .sag_m (1xN signed
+        %   out-of-plane residual per focus -- the FIELD-CURVATURE map
+        %   over the grid), .spot_rms_m (per-field residual blur at best
+        %   focus), .fit_rms_m (plane-fit residual = rms(sag_m)).
+            arguments
+                obj
+                opts.grid (1,1) double {mustBeInteger,mustBeNonnegative} = 0
+                opts.span_arcmin (1,1) double {mustBePositive} = 0.25
+                opts.fields (:,2) double = zeros(0,2)
+            end
+            obj.ensure_loaded_();
+            if ~macos.has_rx(), obj.build(); else, obj.build('','init',false); end
+            e  = obj.spec.elt;
+            if any(strcmp({e.name}, 'FP_return'))
+                error('macos:design:Telescope:align_fp:afterPupil', ...
+                    'align_focal_plane must run BEFORE add_pupil.');
+            end
+            fk = find(strcmp({e.kind},'FocalPlane'), 1, 'last');
+            if isempty(fk)
+                error('macos:design:Telescope:align_fp:none', ...
+                    'no FocalPlane element.');
+            end
+            F = opts.fields;
+            if isempty(F)
+                if opts.grid > 0
+                    F = macos.design.field_grid(opts.span_arcmin, ...
+                            opts.grid, 'units','arcmin');
+                    F = F(any(abs(F) > 1e-12, 2), :);  % center re-added below
+                else
+                    r = opts.span_arcmin * pi/180/60;
+                    F = [r 0; -r 0; 0 r; 0 -r];
+                end
+            end
+            F = [0 0; F];                    % field 1 = the center anchor
+            if size(F,1) < 3
+                error('macos:design:Telescope:align_fp:nfields', ...
+                    'need >= 3 field points to identify the FP tilt.');
+            end
+            nF   = size(F,1);
+            foci = zeros(3,nF);  blur = zeros(1,nF);
+            dch  = zeros(3,1);
+            for f = 1:nF
+                obj.trace_at_field(F(f,:));
+                s = macos.trace(fk-1);  a = macos.get_ray_info(s.nRays);
+                macos.trace(fk);        b = macos.get_ray_info(s.nRays);
+                ok = logical(a.ok_trace(:)) & logical(a.ok_pass(:)) & ...
+                     logical(b.ok_trace(:)) & logical(b.ok_pass(:));
+                if nnz(ok) < 10
+                    obj.trace_at_field([]);
+                    error('macos:design:Telescope:align_fp:rays', ...
+                        'field [%g %g]: only %d rays reach the FP.', ...
+                        F(f,1), F(f,2), nnz(ok));
+                end
+                P = b.pos(:,ok);
+                D = b.pos(:,ok) - a.pos(:,ok);  D = D ./ vecnorm(D);
+                % least-squares closest point to the ray bundle:
+                % min_X sum ||(I - d d')(X - p)||^2
+                A = nnz(ok)*eye(3) - D*D.';
+                bb = sum(P,2) - D*sum(D.*P,1).';
+                X = A \ bb;
+                foci(:,f) = X;
+                R = X - P;                           % ray->focus offsets
+                R = R - D .* sum(D.*R,1);            % transverse part
+                blur(f) = sqrt(mean(sum(R.^2,1)));
+                if f == 1, dch = mean(D,2); dch = dch/norm(dch); end
+            end
+            obj.trace_at_field([]);                  % restore nominal
+            % plane through the foci
+            C = mean(foci,2);
+            [U,S,~] = svd(foci - C, 'econ');
+            sv = diag(S);
+            if sv(2) < 1e3*sv(3) || sv(2) < 1e-12
+                warning('macos:design:Telescope:align_fp:collinear', ...
+                    ['foci are near-collinear (sv2/sv3 = %.1e); the ' ...
+                     'fitted tilt is poorly determined.'], sv(2)/max(sv(3),eps));
+            end
+            nrmv = U(:,3);
+            nrmv = nrmv * sign(dot(nrmv, dch));      % FP psi convention:
+            sag  = nrmv.' * (foci - C);              % along arriving chief
+            Vnew = foci(:,1) - nrmv*dot(nrmv, foci(:,1)-C);  % center focus on plane
+            oldV = e(fk).Vpt(:);
+            res = struct('fields',F, 'foci',foci, 'fp_vpt',Vnew.', ...
+                'psi',nrmv.', ...
+                'tilt_deg', acosd(min(1,abs(dot(nrmv,dch)))), ...
+                'defocus_m', dot(Vnew - oldV, dch), ...
+                'sag_m', sag, 'spot_rms_m', blur, ...
+                'fit_rms_m', sqrt(mean(sag.^2)));
+            if opts.grid > 0
+                % ready-to-plot N x N field-curvature map (arcmin axes).
+                % Odd grids: the (0,0) slot was deduped into the anchor;
+                % put its sag back so the matrix is complete.
+                gm = F(2:end,:);  sv = sag(2:end);
+                if mod(opts.grid,2) == 1
+                    gm = [gm; 0 0];  sv = [sv, sag(1)];
+                end
+                [gm, io] = sortrows(gm);  sv = sv(io);
+                n = opts.grid;
+                res.map = struct( ...
+                    'thx_arcmin', reshape(gm(:,1),n,n)*180*60/pi, ...
+                    'thy_arcmin', reshape(gm(:,2),n,n)*180*60/pi, ...
+                    'sag_m',      reshape(sv,n,n));
+            end
+            obj.spec.elt(fk).Vpt = Vnew.';
+            obj.spec.elt(fk).psi = nrmv.';
+            obj.build('', 'init', false);            % re-emit the tilted FP
+        end
+
         function set_hole(obj, name, r_m)
         %SET_HOLE  Declare a central perforation (hole) of radius R_M in the
         %   named element's body.  Geometry/trace are UNCHANGED -- this only
@@ -585,9 +724,17 @@ classdef Telescope < handle
             %     the EP, so the seed only has to make the Rx loadable. ---
             seed    = prev.Vpt(:);
             rSeed   = norm(seed - FP_Vpt);
-            flatRet = obj.new_elt_('FP_return', 'Return', FP_Vpt, [0 0 1], ...
+            % Seed orientations from the chief line prev->FP.  A literal
+            % [0 0 1] here assumes an UNFOLDED axial train: on a folded
+            % bench the beam arrives in-plane, the z-facing flat is
+            % ray-parallel, and the chief dies at it (the
+            % tma_centered_foldfp "undefined after element 4" break).
+            % -uIn reproduces (0,0,1) exactly for axial trains; uIn is the
+            % same contract the post-FEX assignment uses (psi=-unit(FP->EP)).
+            uIn     = (FP_Vpt - seed) / rSeed;     % chief prev -> FP
+            flatRet = obj.new_elt_('FP_return', 'Return', FP_Vpt, -uIn, ...
                                    -1.0e22, apR, 'derived(add_pupil)', rSeed);
-            sphRet  = obj.new_elt_('ExitPupil', 'Return', seed, [0 0 1], ...
+            sphRet  = obj.new_elt_('ExitPupil', 'Return', seed, uIn, ...
                                    -abs(rSeed), apR, 'derived(fex)', rSeed);
             obj.spec.elt = [obj.spec.elt(1:ielt-1), flatRet, sphRet, ...
                             obj.spec.elt(ielt:end)];
@@ -597,8 +744,16 @@ classdef Telescope < handle
             %     off-axis chief ray). XP lands at nElt-1 = the EP slot. ---
             iEP = ielt + 1;  iFPnew = ielt + 2;  nE = numel(obj.spec.elt);
             cur = macos.get_src_fov();
+            % Probe field = a small offset FROM THE CURRENT chief direction.
+            % A literal [sin fr, 0, cos fr] probes about the unbiased +z
+            % axis, locating the EP for the wrong field on a field-biased
+            % (or folded) design.
+            d0 = cur.src_dir(:) / norm(cur.src_dir);
+            px = [1;0;0];
+            if abs(dot(px,d0)) > 0.9, px = [0;1;0]; end
+            px = px - dot(px,d0)*d0;  px = px / norm(px);
             macos.set_src_fov('src_dir', ...      % off-axis field first ...
-                [sin(opts.field_rad); 0; cos(opts.field_rad)]);
+                d0*cos(opts.field_rad) + px*sin(opts.field_rad));
             macos.stop(opts.stop_elt);            % ... then aim chief ray thru stop
             macos.trace(nE);
             f = macos.fex(opts.mode);

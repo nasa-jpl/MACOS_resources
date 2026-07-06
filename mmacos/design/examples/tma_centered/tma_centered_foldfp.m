@@ -110,7 +110,37 @@ rf = t.optimize_freeform(iM1, 'modes',5:15, ...
         'fields_arcmin',[], 'max_iters',100);            %#ok<NASGU>
 d2 = ladder([0 0]);
 lprint('[2c] + freeform M1:', d2);
-t.center_focal_plane();                      % re-aim the detector body
+
+% [2d] the TRUE focal plane (Dave 2026-07-06): for a biased field the
+% focal plane is TILTED wrt the chief ray, and one focus point cannot
+% identify the tilt -- align_focal_plane maps best-focus points over a
+% FIELD GRID (2x2 for prelim analysis; 5x5 here = final design), fits
+% the detector plane through the foci, and sets FP Vpt + psi from it.
+% Replaces the translate-only center_focal_plane; defocus_m answers
+% "do the plots show a defocused spot?" honestly, and sag_m is the
+% residual FIELD-CURVATURE map the flat detector cannot follow.
+NGRID = 5;  SPAN = 0.25;                     % arcmin half-span
+fa = t.align_focal_plane('grid',NGRID, 'span_arcmin',SPAN);
+fprintf(['[2d] true FP from %dx%d field foci (+center): ' ...
+         'tilt %.3f deg wrt chief,\n' ...
+         '     defocus removed %+.3f mm; field-curvature sag ' ...
+         '%+.1f to %+.1f um (rms %.1f um);\n' ...
+         '     best-focus blur RMS %.2e m at the field center\n'], ...
+        NGRID, NGRID, fa.tilt_deg, fa.defocus_m*1e3, ...
+        min(fa.sag_m)*1e6, max(fa.sag_m)*1e6, fa.fit_rms_m*1e6, ...
+        fa.spot_rms_m(1));
+try
+    fg = figure('Visible','off');
+    contourf(fa.map.thx_arcmin, fa.map.thy_arcmin, ...
+             fa.map.sag_m*1e6, 15, 'LineColor','none');
+    axis equal tight; colormap(parula); cb = colorbar;
+    cb.Label.String = 'focus sag from fitted FP  [\mum]';
+    xlabel('\theta_x  [arcmin]'); ylabel('\theta_y  [arcmin]');
+    title(sprintf('field-curvature map about the %g'' bias (FP tilt %.3f\\circ)', ...
+          c.bias, fa.tilt_deg));
+    saveas(fg, fullfile(exdir,'tma_centered_foldfp_fpmap.png')); close(fg);
+    fprintf('     field map: tma_centered_foldfp_fpmap.png\n');
+catch ME, fprintf('     field map skipped (%s)\n', ME.message); end
 w23 = max(d2.rms_raw)*c.lambda/2.3e-6;
 fprintf(['    bias point at j18''s own 2.3 um yardstick: %.3f waves -> %s\n'], ...
         w23, ternary(w23 < DIFFRACTION_LIMIT,'DIFFRACTION-LIMITED','residual'));
