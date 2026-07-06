@@ -23,6 +23,10 @@ function out = dw_dgrid(session, rx_path, opts)
 %     'method'          'central' (default) | 'forward'.
 %     'verbose'         logical.  Default false.
 %     'reload_rx'       reload RX_PATH first.  Default true.
+%     'ngridpts'        ray-grid sampling override (nGridPts).  Default [] =
+%                       keep the .in-file value.  Clamped by the engine to
+%                       [3, model-size limit] (warns).  This is the RAY grid;
+%                       it is independent of the surface GridMat sampling.
 %
 %   Returns a struct: dwdg (Nw×Nz Jacobian), w_nom_2d, w_nom_vec, indx,
 %   channel_names (Nz×1), iElt, map_idx, rx_path, wf_elt, delta, method.
@@ -39,10 +43,12 @@ arguments
     opts.method         (1,:) char {mustBeMember(opts.method,{'central','forward'})} = 'central'
     opts.verbose        (1,1) logical = false
     opts.reload_rx      (1,1) logical = true
+    opts.ngridpts       double {mustBeScalarOrEmpty} = []
 end
 if opts.reload_rx && ~isempty(rx_path)
     session.load_rx(rx_path);
 end
+apply_ngridpts(session, opts.ngridpts, 'dw_dgrid');
 wf_elt = opts.exit_pupil_elt;
 if wf_elt < 0
     wf_elt = session.num_elt() - 1;

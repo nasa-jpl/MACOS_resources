@@ -40,6 +40,9 @@ function out = dw_dx(session, rx_path, opts)
 %     'reload_rx'        logical.  Default true.  Pass false from a
 %                        multi-field supervisor so per-field set_src_fov
 %                        survives.
+%     'ngridpts'         ray-grid sampling override (nGridPts).  Default
+%                        [] = keep the .in-file value.  Clamped by the
+%                        engine to [3, model-size limit] (warns).
 %
 %   Output struct fields:
 %     dwdx           Nw × Nz Jacobian (after rot_output rescaling).
@@ -90,6 +93,7 @@ arguments
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
     opts.verbose             (1,1) logical = false
     opts.reload_rx           (1,1) logical = true
+    opts.ngridpts            double {mustBeScalarOrEmpty} = []
 end
 
 if ~isempty(opts.stop_elt) && ~isempty(opts.stop_obj_pos)
@@ -100,6 +104,7 @@ end
 if opts.reload_rx
     session.load_rx(rx_path);
 end
+apply_ngridpts(session, opts.ngridpts, 'dw_dx');
 n_elt = session.num_elt();
 if opts.exit_pupil_elt < 0
     wf_elt = n_elt - 1;

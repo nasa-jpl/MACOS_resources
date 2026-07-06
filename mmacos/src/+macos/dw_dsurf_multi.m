@@ -31,6 +31,10 @@ function out = dw_dsurf_multi(session, rx_path, opts)
 %     'params' (cellstr subset of {'Kr','Kc'}), 'delta', 'method',
 %     'exit_pupil_elt', 'verbose'.
 %
+%   'ngridpts'  (default [] = keep the .in value) ray-grid sampling
+%               override, applied once right after the Rx load; persists
+%               across the per-field calls.  Clamped by the engine to
+%               [3, model-size limit] (warns).
 %   'reset_xp'  (default true) re-find the exit pupil (FEX, chief ray) for
 %               EACH field before differencing, so the nominal wavefront is
 %               referenced to that field's own chief ray and the gross field
@@ -70,6 +74,7 @@ arguments
     opts.exit_pupil_elt         (1,1) double {mustBeInteger} = -1
     opts.reset_xp               (1,1) logical = true
     opts.verbose                (1,1) logical = false
+    opts.ngridpts               double {mustBeScalarOrEmpty} = []
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -99,6 +104,7 @@ end
 
 % ---- Load + snapshot nominal source -------------------------------
 session.load_rx(rx_path);
+apply_ngridpts(session, opts.ngridpts, 'dw_dsurf_multi');
 nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);

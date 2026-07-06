@@ -30,6 +30,7 @@ here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end
 RX     = fullfile(here, 'e5hex1.in');  % self-contained demo Rx (point elsewhere
                                        % to run on your own system)
 MODEL  = 128;           % model size (>= your aperture grid sampling)
+NGRIDPTS = 63;         % ray-grid sampling override ([] = keep the .in value)
 FOV    = 1e-4;          % half-field (rad) for the 4 corner field points
 DELTA  = 1e-6;          % finite-difference step (Zernike coefficient)
 KINDS  = {'monzern','zern'};  % subset of {'monzern','ffzern','zern'}
@@ -42,6 +43,7 @@ ZEND   = 9;             % highest Zernike mode -- this is the END mode, NOT a
 fprintf('=== dw/dz (Zernike) multi-field: %s (model %d) ===\n', rxstem, MODEL);
 m   = macos.Session(MODEL);
 out = macos.dw_dz_zernike_multi(m, RX, ...
+    'ngridpts', NGRIDPTS, ...
     'field_x_rad', FOV, 'field_y_rad', FOV, ...
     'kinds', KINDS, 'zmode_start', ZSTART, 'n_zcoef', ZEND, 'delta', DELTA);
 
