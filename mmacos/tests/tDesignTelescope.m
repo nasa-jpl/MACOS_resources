@@ -1028,6 +1028,45 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'y-slice does not converge at the focal plane');
         end
 
+        function test_align_focal_plane_grid(tc)
+            % align_focal_plane maps best-focus points over a field grid
+            % (2x2 prelim / 5x5 final, Dave 2026-07-06), fits the detector
+            % plane through them, and sets FP Vpt + psi: a biased field's
+            % TRUE focal plane is tilted wrt the chief; >=3 non-collinear
+            % foci are needed to identify the tilt.
+            % Unbiased coaxial: fitted plane stays ~axis-normal.
+            t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
+            r0 = t.align_focal_plane('grid',2, 'span_arcmin',0.5);
+            tc.verifyEqual(size(r0.foci), [3 5]);   % center anchor + 2x2
+            tc.verifyEqual(numel(r0.sag_m), 5);
+            tc.verifyEqual(size(r0.map.sag_m), [2 2], ...
+                'grid mode must return the ready-to-plot sag map');
+            tc.verifyLessThan(r0.tilt_deg, 0.1, ...
+                'unbiased coaxial TMA must fit an axis-normal FP');
+            % Biased: tilt is real and the aligned design still traces.
+            t2 = tc.make_tma_();  t2.add_focal_plane('FP');
+            t2.set_field_bias(10);  t2.build();
+            t2.center_focal_plane();
+            rb = t2.align_focal_plane('grid',2, 'span_arcmin',0.5);
+            tc.verifyGreaterThan(rb.tilt_deg, 1e-3, ...
+                'biased field must tilt the fitted focal plane');
+            tc.verifyLessThan(rb.tilt_deg, 45);
+            tc.verifyEqual(norm(t2.spec.elt(end).psi), 1, 'AbsTol', 1e-12);
+            s = macos.trace(numel(t2.spec.elt));
+            tc.verifyGreaterThan(s.nRays, 10, ...
+                'aligned (tilted-FP) design no longer traces');
+        end
+
+        function test_align_focal_plane_before_pupil(tc)
+            % The FP_return/ExitPupil that add_pupil inserts are derived
+            % from the FP station -- re-aligning the FP under them would
+            % go stale, so align_focal_plane refuses to run after.
+            t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
+            t.add_pupil();
+            tc.verifyError(@() t.align_focal_plane(), ...
+                'macos:design:Telescope:align_fp:afterPupil');
+        end
+
         function test_freeform_lmon_emitted(tc)
             % set_freeform 'lmon' overrides the emitted Zernike
             % normalization radius (default = the body ap_r, which is
