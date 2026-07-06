@@ -49,7 +49,11 @@ function diag = wfe_field_diag(t, F, opts)
         W = macos.opd();
         [ny,nx] = size(W);
         [X,Y] = meshgrid(linspace(-1,1,nx), linspace(-1,1,ny));
-        m = isfinite(W) & (W ~= 0);
+        m = isfinite(W) & (W ~= 0) & (abs(W) < 1e30);   % 9.9999e36 = the
+        if nnz(m) < 6                                    % all-lost sentinel
+            z(j,:) = NaN;  z4(j) = NaN;  z56(j,:) = NaN; % field loses all
+            continue                                     % rays: report NaN,
+        end                                              % don't crash
         x = X(m); y = Y(m); w = W(m);
         x = x - mean(x);  y = y - mean(y);
         s = max(hypot(x,y));  x = x/s;  y = y/s;
