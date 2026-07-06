@@ -22,6 +22,9 @@ function out = dw_dz_zernike(session, rx_path, opts)
 %     'exit_pupil_elt'  element id at which to evaluate the wavefront;
 %                       default nElt-1 (the XP convention).
 %     'verbose'       logical, prints per-channel RMS.  Default false.
+%     'ngridpts'      ray-grid sampling override (nGridPts).  Default
+%                     [] = keep the .in-file value.  Clamped by the
+%                     engine to [3, model-size limit] (warns).
 %
 %   Output struct fields:
 %     dwdz        Nw × Nz finite-difference Jacobian.
@@ -50,6 +53,7 @@ arguments
     opts.exit_pupil_elt       (1,1) double {mustBeInteger} = -1
     opts.verbose              (1,1) logical = false
     opts.reload_rx            (1,1) logical = true
+    opts.ngridpts             double {mustBeScalarOrEmpty} = []
 end
 
 % reload_rx=true is the right default for a standalone single-field
@@ -61,6 +65,7 @@ end
 if opts.reload_rx
     session.load_rx(rx_path);
 end
+apply_ngridpts(session, opts.ngridpts, 'dw_dz_zernike');
 n_elt = session.num_elt();
 if opts.exit_pupil_elt < 0
     wf_elt = n_elt - 1;

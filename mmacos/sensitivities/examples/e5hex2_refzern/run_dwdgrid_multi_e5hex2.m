@@ -24,6 +24,7 @@ cd(here);
 RX        = fullfile(here, 'e5hex2grid.in');                  % 19-hex + conf. Ref
 BASIS_MAT = fullfile(here, 'gridmat_e5hex2grid_ansi_gs.mat'); % from PART 1
 MODEL     = 512;        % model size (>= nGridMat=256; e5hex2 loads at 512)
+NGRIDPTS  = 63;         % ray-grid sampling override ([] = keep the .in value)
 FOV       = 1e-4;       % half-field (rad) for the 4 corner field points
 DELTA     = 1e-6;       % finite-difference step (grid-map amplitude)
 % =====================================================================
@@ -45,6 +46,7 @@ fprintf('loaded GS basis: %d segments x %d modes (N=%d grid, dx=%.4g)\n', ...
 %     that segment (grid_channels keys the basis struct by iElt).
 m   = macos.Session(MODEL);
 out = macos.dw_dgrid_multi(m, RX, ...
+    'ngridpts', NGRIDPTS, ...
     'field_x_rad', FOV, 'field_y_rad', FOV, ...
     'influence', basis, 'delta', DELTA);
 

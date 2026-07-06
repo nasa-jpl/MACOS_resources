@@ -26,6 +26,7 @@
 % ===================  CONFIG -- EDIT FOR YOUR SYSTEM  ================
 RX         = '';         % <-- YOUR SEGMENTED .in FILE GOES HERE (absolute path)
 MODEL      = 256;        % model size: >= the Rx's nGridMat
+NGRIDPTS   = [];         % ray-grid sampling override, e.g. 63 ([] = keep the .in value)
 FOV        = 1e-5;       % half-field (rad) for the 4 corner field points
 DELTA      = 1e-6;       % finite-difference step (grid-map amplitude, BaseUnits)
 PM_REF_ELT = 1;          % near-pupil Reference (trace target for the footprint)
@@ -61,6 +62,7 @@ fprintf('single shared GS basis: %d modes over %d-px aperture (ref seg elt %d)\n
 % Multi-field response.  SegDemo3: FEX collapses to a ~0.1 m EP sphere, so use
 % SXP (EP radius = EP->FP distance) for the per-field exit-pupil reset.
 out = macos.dw_dgrid_multi(m, RX, ...
+    'ngridpts', NGRIDPTS, ...
     'field_x_rad', FOV, 'field_y_rad', FOV, ...
     'influence', INFL, 'delta', DELTA, ...
     'reset_xp_method', XP_METHOD);

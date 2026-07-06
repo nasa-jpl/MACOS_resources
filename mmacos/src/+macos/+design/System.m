@@ -143,6 +143,9 @@ classdef System < handle
         %     'n_zcoef'     highest Zernike mode (default 15).
         %     'delta_rigid' rigid FD step (default 1e-8).
         %     'delta_zern'  Zernike FD step (default 1e-6).
+        %     'ngridpts'    ray-grid sampling override (default [] =
+        %                   keep the .in value; engine-clamped to
+        %                   [3, model-size limit]).
         %     'verbose'     logical (default false).
         %
         %   Output struct:
@@ -167,6 +170,7 @@ classdef System < handle
                 opts.n_zcoef    (1,1) double = 15
                 opts.delta_rigid (1,1) double = 1e-8
                 opts.delta_zern  (1,1) double = 1e-6
+                opts.ngridpts   double {mustBeScalarOrEmpty} = []
                 opts.verbose    (1,1) logical = false
             end
             sp = obj.spec;
@@ -183,12 +187,14 @@ classdef System < handle
                 out.rigid = macos.dw_dx(m, sp.rx_path, ...
                     'dofs', obj.dofs_to_idx_(opts.dofs), ...
                     'fp_mode', opts.fp_mode, 'delta', opts.delta_rigid, ...
+                    'ngridpts', opts.ngridpts, ...
                     'verbose', opts.verbose);
             end
             if any(strcmp('zern', opts.families))
                 out.zern = macos.dw_dz_zernike(m, sp.rx_path, ...
                     'kinds', opts.zern_kinds, 'zmode_start', opts.zmode_start, ...
                     'n_zcoef', opts.n_zcoef, 'delta', opts.delta_zern, ...
+                    'ngridpts', opts.ngridpts, ...
                     'verbose', opts.verbose);
             end
         end

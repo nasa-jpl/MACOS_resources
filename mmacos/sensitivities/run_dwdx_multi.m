@@ -23,6 +23,7 @@
 % ===================  CONFIG -- EDIT FOR YOUR SYSTEM  ================
 RX     = '';            % <-- YOUR .in FILE GOES HERE (absolute path)
 MODEL  = 128;           % model size (>= your aperture grid sampling)
+NGRIDPTS = [];         % ray-grid sampling override, e.g. 63 ([] = keep the .in value)
 FOV    = 1e-4;          % half-field (rad) for the 4 corner field points
 DELTA  = 1e-8;          % finite-difference step (rigid-body)
 DOFS   = (0:5).';       % 0=Rx 1=Ry 2=Rz 3=Tx 4=Ty 5=Tz  (subset allowed)
@@ -41,6 +42,7 @@ end
 fprintf('=== dw/dx multi-field: %s (model %d) ===\n', rxstem, MODEL);
 m   = macos.Session(MODEL);
 out = macos.dw_dx_multi(m, RX, ...
+    'ngridpts', NGRIDPTS, ...
     'field_x_rad', FOV, 'field_y_rad', FOV, ...
     'dofs', DOFS, 'delta', DELTA);
 

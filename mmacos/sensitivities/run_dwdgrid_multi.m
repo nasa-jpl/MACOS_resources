@@ -26,6 +26,7 @@
 % ===================  CONFIG -- EDIT FOR YOUR SYSTEM  ================
 RX     = '';            % <-- YOUR .in FILE GOES HERE (absolute path)
 MODEL  = 256;           % model size: >= the Rx's nGridMat (256 for e5hex1_grid)
+NGRIDPTS = [];         % ray-grid sampling override, e.g. 63 ([] = keep the .in value)
 FOV    = 1e-4;          % half-field (rad) for the 4 corner field points
 DELTA  = 1e-6;          % finite-difference step (grid-map amplitude, BaseUnits)
 ZMODES = [4 5 6 7 8 9]; % default poke shapes: MACOS ANSI Zernike indices
@@ -71,6 +72,7 @@ if isempty(INFL)
 end
 
 out = macos.dw_dgrid_multi(m, RX, ...
+    'ngridpts', NGRIDPTS, ...
     'field_x_rad', FOV, 'field_y_rad', FOV, ...
     'influence', INFL, 'delta', DELTA);
 

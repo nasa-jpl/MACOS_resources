@@ -34,6 +34,10 @@ function out = dw_dgrid_multi(session, rx_path, opts)
 %     'zmodes'     Noll/ANSI modes for the default basis.  Default [4 5 6 7 8 11].
 %     'delta', 'method', 'exit_pupil_elt', 'verbose'.
 %
+%   'ngridpts'  (default [] = keep the .in value) ray-grid sampling
+%               override, applied once right after the Rx load; persists
+%               across the per-field calls.  Clamped by the engine to
+%               [3, model-size limit] (warns).
 %   'reset_xp'  (default true) re-find the exit pupil (FEX, chief ray) for
 %               EACH field before differencing, so the nominal wavefront is
 %               referenced to that field's own chief ray and the gross field
@@ -79,6 +83,7 @@ arguments
     opts.reload_rx              (1,1) logical = true
     opts.reset_xp_method        (1,:) char {mustBeMember(opts.reset_xp_method, ...
                                   {'fex','sxp'})} = 'fex'
+    opts.ngridpts               double {mustBeScalarOrEmpty} = []
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -115,6 +120,7 @@ end
 if opts.reload_rx
     session.load_rx(rx_path);
 end
+apply_ngridpts(session, opts.ngridpts, 'dw_dgrid_multi');
 nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);

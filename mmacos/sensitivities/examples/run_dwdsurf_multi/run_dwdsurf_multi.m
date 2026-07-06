@@ -31,6 +31,7 @@ here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end
 RX     = fullfile(here, 'e5hex1.in');  % self-contained demo Rx (point elsewhere
                                        % to run on your own system)
 MODEL  = 128;           % model size (>= your aperture grid sampling)
+NGRIDPTS = 63;         % ray-grid sampling override ([] = keep the .in value)
 FOV    = 1e-4;          % half-field (rad) for the 4 corner field points
 DELTA  = 1e-6;          % finite-difference step (Kr / Kc)
 PARAMS = {'Kr','Kc'};   % subset of {'Kr','Kc'}
@@ -40,6 +41,7 @@ PARAMS = {'Kr','Kc'};   % subset of {'Kr','Kc'}
 fprintf('=== dw/d(Kr,Kc) multi-field: %s (model %d) ===\n', rxstem, MODEL);
 m   = macos.Session(MODEL);
 out = macos.dw_dsurf_multi(m, RX, ...
+    'ngridpts', NGRIDPTS, ...
     'field_x_rad', FOV, 'field_y_rad', FOV, ...
     'params', PARAMS, 'delta', DELTA);
 

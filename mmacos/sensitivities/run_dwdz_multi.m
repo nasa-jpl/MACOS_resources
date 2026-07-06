@@ -23,6 +23,7 @@
 % ===================  CONFIG -- EDIT FOR YOUR SYSTEM  ================
 RX     = '';            % <-- YOUR .in FILE GOES HERE (absolute path)
 MODEL  = 128;           % model size (>= your aperture grid sampling)
+NGRIDPTS = [];         % ray-grid sampling override, e.g. 63 ([] = keep the .in value)
 FOV    = 1e-4;          % half-field (rad) for the 4 corner field points
 DELTA  = 1e-6;          % finite-difference step (Zernike coefficient)
 KINDS  = {'monzern','zern'};  % subset of {'monzern','ffzern','zern'}
@@ -44,6 +45,7 @@ end
 fprintf('=== dw/dz (Zernike) multi-field: %s (model %d) ===\n', rxstem, MODEL);
 m   = macos.Session(MODEL);
 out = macos.dw_dz_zernike_multi(m, RX, ...
+    'ngridpts', NGRIDPTS, ...
     'field_x_rad', FOV, 'field_y_rad', FOV, ...
     'kinds', KINDS, 'zmode_start', ZSTART, 'n_zcoef', ZEND, 'delta', DELTA);
 

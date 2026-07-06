@@ -20,6 +20,11 @@ function out = dw_dx_multi(session, rx_path, opts)
 %     stop_elt, stop_obj_pos, rot_output, delta, method,
 %     exit_pupil_elt, verbose.
 %
+%   'ngridpts' (default [] = keep the .in value) overrides the ray-grid
+%   sampling once, right after the Rx load; it persists across the
+%   per-field calls (they run reload_rx=false).  Clamped by the engine
+%   to [3, model-size limit] (warns).
+%
 %   OUTPUT STRUCT FIELDS:
 %     dwdxall            Nw x Nz canonical state-vector Jacobian
 %     w0_stacked         Nw x 1 stacked nominal OPDs (m2v of OPDall)
@@ -59,6 +64,7 @@ arguments
                                 {'central','forward'})} = 'central'
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
     opts.verbose             (1,1) logical = false
+    opts.ngridpts            double {mustBeScalarOrEmpty} = []
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -89,6 +95,7 @@ end
 
 % ---- Load + snapshot nominal --------------------------------------
 session.load_rx(rx_path);
+apply_ngridpts(session, opts.ngridpts, 'dw_dx_multi');
 
 % Apply stop here so it survives across per-field calls (dw_dx with
 % reload_rx=false won't touch the stop state).

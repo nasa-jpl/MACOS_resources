@@ -29,9 +29,16 @@ RX = '';   % <-- YOUR .in FILE GOES HERE (absolute path)
 
 Everything below the CONFIG block is generic. Leave `RX` empty to run the
 bundled `e5hex1` demo. Other knobs: `MODEL` (≥ your aperture grid sampling;
-use 256+ for grid-data prescriptions), `FOV` (half-field in rad for the four
+use 256+ for grid-data prescriptions), `NGRIDPTS` (ray-grid sampling
+override, e.g. `NGRIDPTS = 63;` — replaces the `.in`-file `nGridpts` /
+model-limit default; `[]` keeps the `.in` value; engine-clamped to
+[3, model-size limit]), `FOV` (half-field in rad for the four
 corner field points), `DELTA` (finite-difference step), and the channel-
 specific set (`DOFS` / `KINDS`+`ZSTART`+`ZEND` / `PARAMS` / `ZMODES`+`INFL`).
+The same override is available programmatically on every driver —
+`macos.dw_dx[_multi]`, `dw_dz_zernike[_multi]`, `dw_dsurf[_multi]`,
+`dw_dgrid[_multi]` — as `'ngridpts', N` (applied once after the Rx load;
+persists across the per-field calls).
 
 Run with `>> run('run_dwdgrid_multi.m')` (or any of the four).
 
