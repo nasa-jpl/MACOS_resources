@@ -1021,15 +1021,29 @@ classdef Telescope < handle
                 opts.target (1,:) char = 'WFE'
                 opts.type   (1,:) char = 'ANSI'
                 opts.weights (1,:) double = []
-                opts.lmon   (1,1) double = NaN   % Zernike normalization radius
-                                                 % (see set_freeform)
+                opts.lmon   (1,:) double = NaN   % Zernike normalization radius
+                                                 % (m): scalar for all ELTS, or
+                                                 % one per ELTS entry -- multi-
+                                                 % mirror solves span very
+                                                 % different footprints (a
+                                                 % near-focus field mirror is
+                                                 % ~100x smaller than the
+                                                 % stop); see set_freeform
             end
             if obj.is_nmirror_() && (~isfield(obj.spec,'elt') || isempty(obj.spec.elt))
                 obj.resolve_nmirror_();
             end
-            elts  = unique(elts(:).');
             modes = opts.modes;
-            for k = elts
+            lmon  = opts.lmon;
+            if isscalar(lmon), lmon = repmat(lmon, 1, numel(elts)); end
+            if numel(lmon) ~= numel(elts)
+                error('macos:design:Telescope:optfree:lmon', ...
+                    'lmon must be scalar or one per ELTS entry (%d).', numel(elts));
+            end
+            [elts, iu] = unique(elts(:).', 'stable');
+            lmon = lmon(iu);
+            for j = 1:numel(elts)
+                k = elts(j);
                 if k > numel(obj.spec.elt) || ~strcmp(obj.spec.elt(k).kind,'Reflector')
                     error('macos:design:Telescope:optfree:kind', ...
                         'optimize_freeform: elt %d is not a built Reflector.', k);
@@ -1043,9 +1057,17 @@ classdef Telescope < handle
                         kk = find(ff.modes == modes(i), 1);
                         if ~isempty(kk), seed(i) = ff.coef(kk); end
                     end
+                    % lmon continuity: coefficients only mean anything on
+                    % the normalization radius they were solved on -- an
+                    % omitted lmon INHERITS the stored one rather than
+                    % silently reinterpreting the seed on the body radius.
+                    if isnan(lmon(j)) && isfield(ff,'lmon') && ...
+                            isscalar(ff.lmon) && ~isnan(ff.lmon)
+                        lmon(j) = ff.lmon;
+                    end
                 end
                 obj.set_freeform(k, modes, seed, 'type', opts.type, ...
-                                 'lmon', opts.lmon);
+                                 'lmon', lmon(j));
             end
 
             % off-axis eval directions about any +y bias; on-axis = field 1
@@ -1078,9 +1100,14 @@ classdef Telescope < handle
             r = macos.calib();
 
             % read the optimized Zernike coefficients back into the spec
-            for k = elts
+            % (lmon rides along -- the coefficients are tied to the
+            % normalization radius they were solved on; dropping it would
+            % re-emit the surface on the body radius = a different figure)
+            for j = 1:numel(elts)
+                k = elts(j);
                 c = macos.get_elt_zrn_coef(k, modes(:)).';
-                obj.spec.elt(k).freeform = struct('modes',modes,'coef',c,'type',opts.type);
+                obj.spec.elt(k).freeform = struct('modes',modes,'coef',c, ...
+                    'type',opts.type, 'lmon',lmon(j));
             end
             obj.spec = rmfield(obj.spec, 'opt');
             obj.build('', 'init', false);             % clean re-emit from updated spec
