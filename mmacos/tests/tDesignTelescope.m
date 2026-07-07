@@ -1120,6 +1120,58 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'freeform lmon not emitted as the lMon radius');
         end
 
+        function test_optimize_freeform_lmon_vector_validates(tc)
+            % optimize_freeform 'lmon' accepts one value per ELTS entry
+            % (a near-focus field mirror needs a ~100x smaller Zernike
+            % normalization radius than the stop).  Wrong length must
+            % error out BEFORE any engine work; the pairing must survive
+            % the internal unique() (stable order).
+            t = tc.make_tma_();  t.add_focal_plane('FP');
+            tc.verifyError(@() t.optimize_freeform([1 2 3], ...
+                'modes',[5 6], 'lmon',[0.3 0.4]), ...
+                'macos:design:Telescope:optfree:lmon');
+        end
+
+        function test_optimize_freeform_lmon_survives_readback(tc)
+            % The solved coefficients are tied to the normalization radius
+            % they were solved on: optimize_freeform must (a) store lmon in
+            % the read-back freeform struct (else the next build re-emits
+            % the figure on the body radius = a different surface), and
+            % (b) INHERIT a stored lmon when a later call omits it.
+            t = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            t.set_freeform(1, 6, 2e-6, 'lmon', 0.45);
+            t.build();
+            t.optimize_freeform(1, 'modes',6, 'fields_arcmin',[], ...
+                                'max_iters',30, 'lmon',0.45);
+            ff = t.spec.elt(1).freeform;
+            tc.verifyTrue(isfield(ff,'lmon') && abs(ff.lmon - 0.45) < 1e-12, ...
+                'solved freeform lost its lmon');
+            % omitted lmon on a re-solve inherits the stored one
+            t.optimize_freeform(1, 'modes',6, 'fields_arcmin',[], ...
+                                'max_iters',10);
+            ff2 = t.spec.elt(1).freeform;
+            tc.verifyTrue(abs(ff2.lmon - 0.45) < 1e-12, ...
+                'omitted lmon did not inherit the stored radius');
+        end
+
+        function test_zern_jacobian_solve_corrects_injected(tc)
+            % the SVD linear-solve figure engine (design/src) must drive a
+            % known injected Zernike departure back out -- same contract as
+            % the CALIB path (test_optimize_freeform_corrects_injected),
+            % via one poke-Jacobian + damped step instead of FD-LM.
+            addpath(fullfile(getenv('HOME'), ...
+                    'dev/MACOS_resources/mmacos/design/src'));
+            t = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            t.set_freeform(1, 6, 2e-6);              % inject 2 um astig on M1
+            t.build();  s_err = macos.trace();
+            tc.verifyGreaterThan(s_err.rmsWFE, 1e-7);
+            out = zern_jacobian_solve(t, 1, 'modes',6, 'type','ANSI', ...
+                    'fields',[0 0], 'iters',2, 'quiet',true);
+            tc.verifyLessThan(out.wfe(end,1), out.wfe(1,1)/10, ...
+                sprintf('jacobian solve did not correct: %.3e -> %.3e', ...
+                        out.wfe(1,1), out.wfe(end,1)));
+        end
+
         function test_fold_station_report_smoke(tc)
             % fold_station_report returns per-station feed/return intervals
             % + the daylight gap.  On the biased [8 2 4] the two bundles
