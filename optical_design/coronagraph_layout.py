@@ -94,6 +94,7 @@ if __name__ == "__main__":
     OUT = (sys.argv[1] if len(sys.argv) > 1
            else os.environ.get("CORO_OUT_DIR")
            or os.path.dirname(os.path.abspath(__file__))) or "."
+    OUT = os.path.realpath(OUT)   # canonicalize the caller-chosen dir
     os.makedirs(OUT, exist_ok=True)
 
     r = design()   # Roman-class default
@@ -116,5 +117,7 @@ if __name__ == "__main__":
     print("Published HCIT/Roman OPERATING separation ~1 m (sub-quarter-Talbot, numerically")
     print("optimized across the band + packaging/beam-walk limits). Treat z_qT as upper-scale.")
 
-    json.dump(r, open(os.path.join(OUT,"coronagraph_layout.json"),"w"), indent=2)
+    out_json = os.path.join(OUT, "coronagraph_layout.json")
+    with open(out_json, "w") as fh:
+        json.dump(r, fh, indent=2)
     print(f"\nwrote coronagraph_layout.json to {OUT}")
