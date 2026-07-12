@@ -6,8 +6,13 @@ Original preserved in `Archive/SMPGe.for` (CR-only line terminators).
 
 ## Build
 Standalone cmake, outside the macos tree. Links pre-built libraries
-from `~/dev/macos/build_release_giza/` (libsmacos.a + libnpsol + lapack
-+ blas) and consumes mod files from `build_release_giza/mod_smacos/`.
+from `~/dev/macos/build_release/` (libsmacos.a + libslsqplib + fitslib
++ giza stack; NPSOL is gone) and consumes mod files from
+`build_release/mod_smacos/`.  ifx compiles `-fp-model strict` so a
+rebuild reproduces the committed `test_in/` references byte-identically
+(the tSegMirMaker batch regression relies on it).  Batch mode = stdin
+answer scripts (`test_in/*.stdin`, README "Batch / scripted use");
+MATLAB driver: `macos.design.segmirmaker_run`.
 
 - Default build dir: `build_debug_ifx/`
 - VS Code: F5 launches Debug SegMirMaker; launch.json cwd = `test_in/`

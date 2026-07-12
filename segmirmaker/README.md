@@ -12,9 +12,11 @@ preserved in `Archive/SMPGe.for`.
 ## Build
 
 Standalone CMake, outside the macos tree. Links pre-built libraries
-from `~/dev/macos/build_release_giza/` (`libsmacos.a` + `libnpsol` +
-`lapack` + `blas`) and consumes `.mod` files from
-`build_release_giza/mod_smacos/`.
+from `~/dev/macos/build_release/` (`libsmacos.a` + `libslsqplib` +
+`libfitslib` + the giza display stack) and consumes `.mod` files from
+`build_release/mod_smacos/`.  Override with `-DMACOS_BUILD_DIR=`.
+(NPSOL is gone from the macos tree; SLSQP is the back end libsmacos
+references.)
 
 ```
 cd ~/dev/MACOS_resources/segmirmaker
@@ -23,6 +25,10 @@ cd ~/dev/MACOS_resources/segmirmaker
 
 Output: `build_release_ifx/SegMirMaker`. Needs `macos_param.txt` in
 the working directory at runtime.
+
+The ifx build compiles `-fp-model strict` (no FMA contraction): a
+rebuilt binary reproduces the committed `test_in/` reference outputs
+**byte-identically**, which is what the batch regression below pins.
 
 ## Quick start
 
@@ -39,7 +45,8 @@ The interactive dialog walks you through:
    surface to segment (e.g. `1` for the primary).
 3. **Output filename** — produces `<name>.presc` and `<name>Hx.m`.
 4. **Number of DOFs per segment** — `3` (piston/tip/tilt) or `6`
-   (full rigid-body). Default `6`.
+   (full rigid-body). Default `3` (a blank answer gives 3; any value
+   other than 3 is forced to 6).
 5. **Number of rings** — `1` for 7-segment, `2` for 19-segment, etc.
    (segments per ring = `6·iRing`; total = `1 + 6·sum(1..nRing)`).
 6. **Mirror principal axis** (`psi`), eccentricity (`e`), focal length
@@ -50,6 +57,44 @@ The interactive dialog walks you through:
    diameter.
 9. **Preview / confirm** — segment count, layout, and sizes shown
    before the `.presc` and `Hx.m` files are written.
+
+The nine items above are a conceptual grouping — the binary actually
+issues ~15–17 individual prompts (item 6 alone is five; ray grid type
+and `SegXgrid` are asked too).  The authoritative prompt order is
+pinned by the committed answer scripts `test_in/e5pie.stdin` /
+`test_in/e5hex2.stdin` (see next section).
+
+## Batch / scripted use (no interactive dialog)
+
+There is no control-file mode; batch operation = feeding the ordered
+answer list on stdin (blank line accepts the bracketed default).  Run
+in a directory containing `macos_param.txt`, the parent `.in`, and any
+`GridFile=` data files the parent references:
+
+```
+cd test_in
+../build_release_ifx/SegMirMaker < e5pie.stdin     # regenerates e5pie.presc + e5pieHx.m
+```
+
+`test_in/e5pie.stdin` and `test_in/e5hex2.stdin` regenerate the
+committed reference outputs byte-identically (run them in a scratch
+copy of the directory — the tool prompts before overwriting an
+existing output, which shifts the answer stream off-script).
+
+From MATLAB, use the design-layer driver — it assembles the answers,
+stages a fresh scratch dir (parent + `macos_param.txt` + grid files),
+runs the binary, and returns the output paths:
+
+```matlab
+out = macos.design.segmirmaker_run('test_in/e5mono.in', ...
+          'name','e5pie', 'grid','Pie', 'rings',1, 'gap',50, ...
+          'dofs',6, 'meas_config',1);
+% out.presc, out.hx, out.workdir, out.log, out.answers
+```
+
+The `tSegMirMaker` class in `mmacos/tests` is the regression: driver
+runs must reproduce the committed `e5pie` / `e5hex2` outputs
+byte-identically.
 
 ## Output
 
