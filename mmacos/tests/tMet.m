@@ -119,6 +119,19 @@ classdef tMet < matlab.unittest.TestCase
             tc.verifyEqual(m.n, am.n_beams);
             expect = vecnorm(am.src_pts - am.tgt_pts)';
             tc.verifyEqual(m.l, expect, 'RelTol', 1e-12);
+            % dldx FD channel vs analytic: straight-line model =>
+            % dl/d(local trans) = u.(triad axis), u = (s-t)/|s-t|
+            % (source points move with the segment).  Seg1 owns beams
+            % 1:6 / columns 1:6; other segments' columns read zero.
+            dm = macos.design.dmet_dx([seg.seg_elts 11], ...
+                'dstep_trans', 1e-6, 'dstep_rot', 1e-6);
+            tc.verifySize(dm.dldx, [48, 48]);
+            u = am.src_pts - am.tgt_pts; u = u ./ vecnorm(u);
+            f1 = seg.frames(1); T1 = [f1.xhat f1.yhat f1.zhat];
+            tc.verifyEqual(dm.dldx(1:6, 4:6), u(:,1:6)'*T1, 'AbsTol', 1e-7);
+            tc.verifyEqual(max(abs(dm.dldx(1:6, 7:12)), [], 'all'), 0);
+            % rotations couple through the moment arms: nonzero
+            tc.verifyGreaterThan(max(abs(dm.dldx(1:6, 1:3)), [], 'all'), 0);
         end
     end
 end
