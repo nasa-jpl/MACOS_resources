@@ -4,20 +4,20 @@ project(SegMirMaker Fortran)
 # Pre-built MACOS tree supplies libsmacos.a plus its dependency stack and
 # the Fortran module files SegMirMaker needs (smacos_mod, surfsub, elt_mod,
 # segmir_parent_mod compiled in-tree, param_mod, cfiles_mod).
-set(MACOS_BUILD_DIR "$ENV{HOME}/dev/macos/build_release_giza" CACHE PATH
-    "Pre-built MACOS build tree (use makeCMdcr.sh to build it)")
+set(MACOS_BUILD_DIR "$ENV{HOME}/dev/macos/build_release" CACHE PATH
+    "Pre-built MACOS build tree (use makems.sh to build it)")
 
 if(NOT EXISTS "${MACOS_BUILD_DIR}/lib/libsmacos.a")
   message(FATAL_ERROR
       "libsmacos.a not found in ${MACOS_BUILD_DIR}/lib. "
-      "Build MACOS first: cd ../../macos && source ./makeCMdcr.sh")
+      "Build MACOS first: cd ../../macos/macos && source ./makems.sh")
 endif()
 
 find_library(SMACOS_LIB    smacos    PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
 find_library(FITSLIB       fitslib   PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
-find_library(NPSOL_LIB     npsol     PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
-find_library(LAPACK_LIB    lapacklib PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
-find_library(BLAS_LIB      blaslib   PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
+# NPSOL was removed from the macos tree (PR #44); SLSQP is the constrained
+# back end libsmacos references (design_slsqp_optim_mod -> slsqp_).
+find_library(SLSQP_LIB     slsqplib  PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
 find_library(CPGPLOT_LIB   cpgplot   PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
 find_library(PGPLOT_LIB    pgplot    PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
 find_library(GIZA_LIB      giza      PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
@@ -45,7 +45,10 @@ target_include_directories(SegMirMaker PRIVATE
 
 # Per-compiler flags match the macos build.
 if(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM|Intel")
-  target_compile_options(SegMirMaker PRIVATE -extend-source 132 -nowarn)
+  # -fp-model strict: no FMA contraction — segment geometry reproduces
+  # byte-identically across rebuilds (matches the engine's own flags).
+  target_compile_options(SegMirMaker PRIVATE -extend-source 132 -nowarn
+      -fp-model strict)
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   target_compile_options(SegMirMaker PRIVATE
       -std=legacy -fallow-argument-mismatch -ffixed-line-length-132
@@ -55,9 +58,7 @@ endif()
 target_link_libraries(SegMirMaker PRIVATE
     ${SMACOS_LIB}
     ${FITSLIB}
-    ${NPSOL_LIB}
-    ${LAPACK_LIB}
-    ${BLAS_LIB}
+    ${SLSQP_LIB}
     ${CPGPLOT_LIB}
     ${PGPLOT_LIB}
     ${GIZA_LIB}

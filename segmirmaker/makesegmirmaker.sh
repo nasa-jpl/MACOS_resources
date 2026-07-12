@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build SegMirMaker. Requires a pre-built MACOS tree
-# (default: $HOME/dev/macos/build_release_giza).
+# (default: $HOME/dev/macos/build_release; override -DMACOS_BUILD_DIR=).
 #
 # Usage:
 #   source ./makesegmirmaker.sh             # Release ifx
