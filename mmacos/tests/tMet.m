@@ -132,6 +132,22 @@ classdef tMet < matlab.unittest.TestCase
             tc.verifyEqual(max(abs(dm.dldx(1:6, 7:12)), [], 'all'), 0);
             % rotations couple through the moment arms: nonzero
             tc.verifyGreaterThan(max(abs(dm.dldx(1:6, 1:3)), [], 'all'), 0);
+            % dldx_analytic == engine FD over the SEGMENT truss (rows
+            % 1:42 / seg columns 1:42) — the tier-3 layout search moves
+            % segment launchers + hub fiducials, so this is the
+            % engine-free evaluator's load-bearing identity.  (The fpa
+            % body needs the engine TElt/RptElt frame, not an ad-hoc
+            % triad — excluded here.)
+            bodies = struct('rpt', {}, 'T', {});
+            for s2 = 1:seg.nseg
+                f2 = seg.frames(s2);
+                bodies(s2) = struct('rpt', f2.rpt, ...
+                    'T', [f2.xhat f2.yhat f2.zhat]);
+            end
+            da = macos.design.dldx_analytic(bodies, ...
+                am.src_pts(:,1:42), am.tgt_pts(:,1:42), ...
+                repelem(1:7, 6), zeros(1,42));
+            tc.verifyEqual(da, dm.dldx(1:42, 1:42), 'AbsTol', 2e-6);
         end
     end
 end
