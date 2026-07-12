@@ -21,7 +21,7 @@
 
 %% ------------------------- knobs ----------------------------------
 RINGS   = 1;          % 1 -> 7 segments, 2 -> 19
-GRID    = 'Pie';      % segment tiling / ray grid (Pie|Hex|...)
+GRID    = 'Hex';      % segment tiling / ray grid (Hex|Pie|...)
 GAP     = 50;         % inter-segment gap, mm
 MEASCFG = 2;          % edge sensors: 1 inner edges, 2 all adjacencies
 NF      = 3;          % MET fiducials on the hub (3..6)

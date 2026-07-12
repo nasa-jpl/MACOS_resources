@@ -32,6 +32,7 @@ arguments
     opts.r_launch_frac (1,1) double {mustBePositive} = 0.7
     opts.launch_clock (1,1) double = pi/6   % launcher hexagon clocking, rad
     opts.fid_clock (1,1) double = 0         % hub fiducial ring clocking, rad
+    opts.launch_pts cell = {}               % override: {nseg} of 3x6 GLOBAL launcher points
     opts.out_in (1,1) string = ""
 end
 if isempty(opts.r_extra), opts.r_extra = opts.r_fid; end
@@ -68,8 +69,12 @@ ins = cell(numel(starts), 1);      % met text to insert per element
 tl6 = opts.launch_clock + 2*pi*(0:5)'/6;
 for s = 1:seg.nseg
     k = seg.seg_elts(s); f = seg.frames(s);
-    r = opts.r_launch_frac * f.lmon;
-    L = f.rpt + r*(f.xhat*cos(tl6') + f.yhat*sin(tl6'));  % 3 x 6
+    if ~isempty(opts.launch_pts)
+        L = opts.launch_pts{s};                           % explicit (3x6 global)
+    else
+        r = opts.r_launch_frac * f.lmon;
+        L = f.rpt + r*(f.xhat*cos(tl6') + f.yhat*sin(tl6'));  % 3 x 6
+    end
     ins{k} = met_block_(L, opts.hub, opts.nf, pair);
     src_pts = [src_pts, L]; %#ok<AGROW>
     tgt_pts = [tgt_pts, fid(:, pair)]; %#ok<AGROW>

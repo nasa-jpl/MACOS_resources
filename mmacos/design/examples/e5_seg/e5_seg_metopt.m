@@ -1,19 +1,28 @@
 %E5_SEG_METOPT  Tier-3 MET-layout optimization on the e5_seg model.
 %
-% Run AFTER e5_seg.m (loads its saved workspace).  Optimizes the
-% segment-truss layout against the post-control wavefront residual
-% trace(dwdx*P_dx*dwdx') using the ANALYTIC gauge Jacobian
-% (macos.design.dldx_analytic — validated == engine FD in tMet), so
-% the search costs linear algebra only; the winner is then realized
-% with add_met and validated with the engine-FD dmet_dx.
+% Run AFTER e5_seg.m (loads its saved workspace; GRID='Hex').
+% Optimizes the segment-truss layout against the post-control
+% wavefront residual trace(dwdx*P_dx*dwdx') using the ANALYTIC gauge
+% Jacobian (macos.design.dldx_analytic == engine FD, tMet); the winner
+% is realized with add_met('launch_pts',...) and re-validated with the
+% engine-FD dmet_dx.
 %
-% Search structure (recorded in CURRENT_SLICE): SYMMETRY (one
-% launcher pattern per segment, replicated) -> small COMBINATORIC set
-% (nf + pairing) x STEP-AND-EVALUATE grid over the continuous knobs
-% (launcher radius/clocking, fiducial radius/clocking) -> worst-mode
-% guard alongside the trace -> engine validation of the winner.
-% Scope: x = the 7x6 SEGMENT DOFs (hub/extra bodies need engine
-% TElt/RptElt frames for the analytic rows — queued extension).
+% Launcher placement model (Dave 2026-07-12):
+%   - launchers must NOT obscure the reflecting surface: they sit on
+%     the segment-boundary hexagon OFFSET OUTWARD by EDGE_OFF (5 mm
+%     nominal) — i.e. always exactly the specified clearance off the
+%     optical edge, in the inter-segment gap zone;
+%   - 6 launchers = 3 MIRROR PAIRS about the segment's RADIAL
+%     CENTERLINE (center segment uses its xhat), pair angles free —
+%     the optimizer explores positions, not just a clocked ring.
+% Search: combinations of 3 pair angles x fiducial ring (nf, radius,
+% clocking) step-and-evaluate; worst-mode guard; engine validation.
+
+EDGE_OFF = 5;                      % launcher clearance off the optical edge, mm
+PHI_GRID = deg2rad(10:10:170);     % candidate pair angles off the radial line
+RFID_GRID = [150 300 600 1200 2400];
+FCLK_GRID = deg2rad(0:15:105);
+NF_GRID  = [3 6];
 
 here = fileparts(mfilename('fullpath'));
 S = load(fullfile(here, 'e5_seg.mat'));
@@ -35,39 +44,52 @@ pv = g3("VptElt", ihub); ps = g3("psiElt", ihub); ps = ps/norm(ps);
 [~,imin] = min(abs(ps)); e0 = zeros(3,1); e0(imin) = 1;
 xh = cross(ps,e0); xh = xh/norm(xh); yh = cross(ps,xh);
 
+% per-segment radial centerline angle in the face plane (from xhat)
+rad_ang = zeros(1, nseg);
+for s2 = 1:nseg
+    f = seg.frames(s2);
+    v = f.rpt - dot(f.rpt, f.zhat)*f.zhat;         % in-plane radial vector
+    if norm(v) < 1e-6, rad_ang(s2) = 0;            % center segment: xhat
+    else, rad_ang(s2) = atan2(dot(v, f.yhat), dot(v, f.xhat));
+    end
+end
 ctx = struct('pv',pv,'xh',xh,'yh',yh,'seg',seg,'nseg',nseg, ...
-    'bodies',bodies,'E',E,'X',X,'G',G,'nw',nw,'sige',sige,'sigl',sigl);
+    'bodies',bodies,'E',E,'X',X,'G',G,'nw',nw,'sige',sige,'sigl',sigl, ...
+    'rad_ang',rad_ang,'edge_off',EDGE_OFF);
 
-base = struct('rl',0.7,'lclock',pi/6,'nf',3,'rfid',300,'fclock',0);
+% baseline = the as-built clocked ring re-expressed in this model:
+% pairs at 30/90/150 deg on the offset boundary
+base = struct('phis', deg2rad([30 90 150]), 'nf', 3, 'rfid', 300, 'fclock', 0);
 [r0, w0m] = metric_(base, ctx);
-fprintf('baseline (as-built): rms %.3f nm, worst-mode %.3f nm\n', r0*1e9, w0m*1e9);
+fprintf('baseline (edge ring, %g mm clearance): rms %.3f nm, worst %.3f nm\n', ...
+    EDGE_OFF, r0*1e9, w0m*1e9);
 
+combos = nchoosek(1:numel(PHI_GRID), 3);
 best = base; rb = r0; wb = w0m; nev = 0; tic;
-for nf = [3 6]
-  for rl = 0.3:0.05:0.95
-    for lc = deg2rad(0:5:55)
-      for rf = [150 300 600 1200 2400]
-        for fc = deg2rad(0:10:110)
-          lay = struct('rl',rl,'lclock',lc,'nf',nf,'rfid',rf,'fclock',fc);
-          [r1, w1] = metric_(lay, ctx); nev = nev + 1;
-          if r1 < rb, best = lay; rb = r1; wb = w1; end
-        end
+for nf = NF_GRID
+  for ci = 1:size(combos,1)
+    for rf = RFID_GRID
+      for fc = FCLK_GRID
+        lay = struct('phis', PHI_GRID(combos(ci,:)), 'nf', nf, ...
+                     'rfid', rf, 'fclock', fc);
+        [r1, w1] = metric_(lay, ctx); nev = nev + 1;
+        if r1 < rb, best = lay; rb = r1; wb = w1; end
       end
     end
   end
 end
 fprintf('%d layouts evaluated in %.1f s (analytic)\n', nev, toc);
-fprintf('best: rl=%.2f lclock=%.0f deg nf=%d rfid=%g fclock=%.0f deg\n', ...
-    best.rl, rad2deg(best.lclock), best.nf, best.rfid, rad2deg(best.fclock));
+fprintf('best: pair angles [%s] deg, nf=%d, rfid=%g, fclock=%.0f deg\n', ...
+    join(string(round(rad2deg(best.phis))), ' '), best.nf, best.rfid, ...
+    rad2deg(best.fclock));
 fprintf('      rms %.3f nm (was %.3f), worst-mode %.3f nm (was %.3f)\n', ...
     rb*1e9, r0*1e9, wb*1e9, w0m*1e9);
 
-%% engine validation of the winner
-res_root = fileparts(fileparts(fileparts(fileparts(here))));
+%% engine validation of the winner (realized via explicit launch_pts)
+[~, ~, LP] = metric_(best, ctx);
 am2 = macos.design.add_met(seg.in, seg, 'hub', nseg+1, ...
-    'r_fid', best.rfid, 'nf', best.nf, 'r_launch_frac', best.rl, ...
-    'launch_clock', best.lclock, 'fid_clock', best.fclock, ...
-    'extra_sources', seg.n_elt-2, ...
+    'r_fid', best.rfid, 'nf', best.nf, 'fid_clock', best.fclock, ...
+    'launch_pts', LP, 'extra_sources', seg.n_elt-2, ...
     'out_in', fullfile(seg.run.workdir, 'e5_seg_metopt.in'));
 old = cd(seg.run.workdir); restore = onCleanup(@() cd(old));
 macos.init(512); macos.load_rx(am2.in); macos.trace();
@@ -80,19 +102,27 @@ fprintf('engine-FD validation of winner: rms %.3f nm (analytic %.3f, %.2f%%)\n',
     rfd*1e9, rb*1e9, 100*abs(rfd-rb)/rb);
 copyfile(am2.in, fullfile(here, 'e5_seg_metopt.in'));
 save(fullfile(here, 'e5_seg_metopt.mat'), 'base', 'best', 'r0', 'w0m', ...
-     'rb', 'wb', 'rfd', 'nev');
+     'rb', 'wb', 'rfd', 'nev', 'EDGE_OFF');
 fprintf('artifacts: e5_seg_metopt.in / .mat beside the script\n');
 
-function [rms_w, worst] = metric_(lay, c)
+function [rms_w, worst, LP] = metric_(lay, c)
+% 3 mirror pairs about each segment's radial centerline, ON the
+% hex boundary offset outward by edge_off (apothem = lMon + edge_off;
+% hexagon flats assumed normal to the neighbor/radial directions).
 if lay.nf == 3, pair = [1 2 2 3 3 1]; else, pair = 1:6; end
 thf = lay.fclock + 2*pi*(0:lay.nf-1)/lay.nf;
 fid = c.pv + lay.rfid*(c.xh*cos(thf) + c.yh*sin(thf));
-tl6 = lay.lclock + 2*pi*(0:5)'/6;
 src = zeros(3, 6*c.nseg); tgt = zeros(3, 6*c.nseg);
+LP = cell(1, c.nseg);
+hexr = @(phi, a) a ./ cos(mod(phi + pi/6, pi/3) - pi/6);
 for s3 = 1:c.nseg
     f3 = c.seg.frames(s3);
-    src(:, (s3-1)*6+(1:6)) = f3.rpt + lay.rl*f3.lmon* ...
-        (f3.xhat*cos(tl6') + f3.yhat*sin(tl6'));
+    a = f3.lmon + c.edge_off;
+    phi = c.rad_ang(s3) + [lay.phis, -lay.phis];      % 6 angles, mirror pairs
+    r = hexr(phi - c.rad_ang(s3), a);                  % boundary dist per angle
+    P6 = f3.rpt + f3.xhat*(r.*cos(phi)) + f3.yhat*(r.*sin(phi));
+    LP{s3} = P6;
+    src(:, (s3-1)*6+(1:6)) = P6;
     tgt(:, (s3-1)*6+(1:6)) = fid(:, pair);
 end
 Hl = macos.design.dldx_analytic(c.bodies, src, tgt, ...
