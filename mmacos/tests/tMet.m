@@ -94,5 +94,31 @@ classdef tMet < matlab.unittest.TestCase
             cd(tc.wd);
             macos.load_rx(tc.fixture);
         end
+
+        function test_add_met_stewart_truss(tc)
+            % S3 emitter: 6 launchers/segment + 6 around an aft element
+            % -> 3 hub fiducials; engine lengths must equal the emitted
+            % point geometry exactly (buffer order = source elements in
+            % read order, launcher-major).
+            here = fileparts(mfilename('fullpath'));
+            res_root = fileparts(fileparts(here));
+            tin = fullfile(res_root, 'segmirmaker', 'test_in');
+            bin = fullfile(res_root, 'segmirmaker', ...
+                           'build_release_ifx', 'SegMirMaker');
+            tc.assumeTrue(isfile(bin), 'SegMirMaker not built');
+            seg = macos.design.segment_rx(fullfile(tin, 'e5mono.in'), ...
+                'elt', 1, 'rings', 1, 'grid', 'Pie', 'gap', 50, ...
+                'dofs', 6, 'meas_config', 1);
+            % after the 7-seg splice: m2 = elt 8 (hub), fpa = elt 11
+            am = macos.design.add_met(seg.in, seg, 'hub', 8, ...
+                'r_fid', 300, 'nf', 3, 'extra_sources', 11);
+            tc.verifyEqual(am.n_beams, 7*6 + 6);
+            old = cd(seg.run.workdir); restore = onCleanup(@() cd(old));
+            macos.load_rx(am.in);
+            m = macos.met('native');
+            tc.verifyEqual(m.n, am.n_beams);
+            expect = vecnorm(am.src_pts - am.tgt_pts)';
+            tc.verifyEqual(m.l, expect, 'RelTol', 1e-12);
+        end
     end
 end
