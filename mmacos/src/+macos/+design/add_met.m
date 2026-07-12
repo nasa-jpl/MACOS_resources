@@ -30,6 +30,8 @@ arguments
     opts.extra_sources double = []
     opts.r_extra double = []
     opts.r_launch_frac (1,1) double {mustBePositive} = 0.7
+    opts.launch_clock (1,1) double = pi/6   % launcher hexagon clocking, rad
+    opts.fid_clock (1,1) double = 0         % hub fiducial ring clocking, rad
     opts.out_in (1,1) string = ""
 end
 if isempty(opts.r_extra), opts.r_extra = opts.r_fid; end
@@ -51,7 +53,7 @@ pv = vec3_(opts.hub, "VptElt");
 ps = vec3_(opts.hub, "psiElt"); ps = ps/norm(ps);
 [~, imin] = min(abs(ps)); e = zeros(3,1); e(imin) = 1;
 xh = cross(ps, e); xh = xh/norm(xh); yh = cross(ps, xh);
-th = 2*pi*(0:opts.nf-1)'/opts.nf;
+th = opts.fid_clock + 2*pi*(0:opts.nf-1)'/opts.nf;
 fid = pv + opts.r_fid*(xh*cos(th') + yh*sin(th'));   % 3 x nf
 
 % Stewart pairing: launcher k -> fiducial pair(k); crossing struts.
@@ -63,7 +65,7 @@ src_pts = zeros(3,0); tgt_pts = zeros(3,0);
 ins = cell(numel(starts), 1);      % met text to insert per element
 
 % Per-segment launchers: hexagon in the segment face triad.
-tl6 = 2*pi*((0:5)' + 0.5)/6;
+tl6 = opts.launch_clock + 2*pi*(0:5)'/6;
 for s = 1:seg.nseg
     k = seg.seg_elts(s); f = seg.frames(s);
     r = opts.r_launch_frac * f.lmon;
