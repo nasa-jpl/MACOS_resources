@@ -1,0 +1,12 @@
+pie system: 7 segments, width 2666.7, gap 50
+baseline:       12520 src rays,  12520 pass, rmsWFE 3.98351e-05
+pie MET scene rendered (e5pie_met_layout.png)
+poly-aperture variant emitted (e5pie_polyap.in)
+poly variant:   12520 src rays,  12064 pass, rmsWFE 3.92983e-05
+  lost rays first failed at elt 14: 456
+nominal parity: dPass = -456, d(rmsWFE) = -5.37e-07 (1.3476%)
+clipped pixels: 456;  radius [1238 .. 4040] mm;  median 3933
+  angle-in-wedge quartiles: 11.8 / 29.8 / 48.1 deg
+poke 100 mm, no aperture  :  10678 pass (clipped 1842 vs its nominal)
+poke 100 mm, poly aperture:  10297 pass (clipped 1767 vs its nominal)
+rxpoly read-back: 6 wedge polygons, outer-arc radius consistent to 25 mm
