@@ -26,7 +26,7 @@ GAP     = 50;         % inter-segment gap, mm
 MEASCFG = 2;          % edge sensors: 1 inner edges, 2 all adjacencies
 NF      = 3;          % MET fiducials on the hub (3..6)
 R_FID   = 300;        % hub fiducial ring radius, mm
-R_LFRAC = 0.7;        % launcher ring radius as a fraction of lMon
+EDGE_OFF = 5;         % launcher clearance outward of the segment edge, mm
 SIG_ROT   = 1e-6;     % prior (deploy) uncertainty: rad per rot DOF
 SIG_TRANS = 1e-6;     % ... metres per trans DOF
 SIG_EDGE  = 1e-9;     % edge-sensor noise, metres
@@ -51,7 +51,7 @@ extra = seg.n_elt - 2;            % fpa (Return before exitpupil/FP)
 fprintf('[2] MET truss: 6 launchers/seg + 6 around elt %d -> %d fiducials on elt %d\n', ...
     extra, NF, hub);
 am = macos.design.add_met(seg.in, seg, 'hub', hub, 'r_fid', R_FID, ...
-    'nf', NF, 'extra_sources', extra, 'r_launch_frac', R_LFRAC);
+    'nf', NF, 'extra_sources', extra, 'edge_off', EDGE_OFF);
 
 %% ---------------- 3. load + sensing Jacobians ----------------------
 old = cd(seg.run.workdir);        % GridFile= resolves from cwd
@@ -150,4 +150,18 @@ bar(r*1e9); set(gca, 'XTickLabel', cases(:,1)); ylabel('w_{post} rms [nm]');
 title(sprintf('e5\\_seg MET metric (%d segs, %d edge + %d MET meas)', ...
     nseg, es.nmeas, dm.nmeas)); grid on;
 saveas(fig, fullfile(here, 'e5_seg_metric.png')); close(fig);
-fprintf('\n[5] artifacts saved beside the script (e5_seg_met.in, .mat, metric png)\n');
+
+%% ---------------- 6. MET setup visualization -----------------------
+% 3-D scene (segment tiles, launchers, fiducials, gauge beams, hub disc,
+% real-ray envelope from the loaded trace) + face-on launcher layout.
+fv = macos.design.met_view(seg, am, 'visible', false, 'edge_off', EDGE_OFF, ...
+    'title', sprintf('e5_seg MET setup (as built): %d segs, %d beams, edge+MET %.2f nm rms', ...
+                     nseg, am.n_beams, r(4)*1e9), ...
+    'save', fullfile(here, 'e5_seg_met_layout.png'));
+close(fv);
+% ... and the same system through the GENERAL viewer (works on any loaded
+% Rx: beam + element footprints + MET paths -- no design-layer structs).
+fg = macos.view_rx('visible', false, ...
+    'save', fullfile(here, 'e5_seg_view_rx.png'));
+close(fg);
+fprintf('\n[5] artifacts saved beside the script (e5_seg_met.in, .mat, metric + layout png)\n');

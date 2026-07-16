@@ -12,6 +12,7 @@ complex_field
 compose_add
 compose_get
 compose_start
+draw_rays3d_get
 draw_rays_cmd
 draw_rays_get
 dx_at
@@ -75,6 +76,9 @@ get_src_size
 init
 intensity
 load_rx
+met_calc
+met_geom_get
+met_get
 modified_rx
 n_elt
 obs_set

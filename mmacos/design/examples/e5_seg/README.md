@@ -30,7 +30,20 @@ Monte-Carlo (200 draws) 5.85 nm vs analytic 5.98 nm (2.2%).
 
 Artifacts land beside the script: `e5_seg_met.in` (+ `flat.txt` it
 needs in the cwd at load), `e5_segHx.m`, `e5_seg.mat` (all Jacobians),
-`e5_seg_metric.png`.
+`e5_seg_metric.png`, and two layout views:
+
+- `e5_seg_met_layout.png` — `macos.design.met_view`: 3-D MET scene
+  (segment hex tiles, launchers, hub fiducials, gauge beams, hub disc,
+  real-ray envelope from the engine trace) + face-on launcher layout
+  with per-segment radial centerlines.
+- `e5_seg_view_rx.png` — the same system through the GENERAL viewer
+  `macos.view_rx` (works on ANY loaded Rx: traced beam + per-element
+  ray-footprint patches + MET paths via `macos.met_geom`).
+
+The optimizer runner (`e5_seg_metopt.m`) additionally writes
+`e5_seg_metopt_layout.png`: the optimized launcher/fiducial layout with
+the baseline edge ring overlaid as open circles and the 5 mm
+edge-clearance hex dashed.
 
 Notes: the engine MET model is straight-line point-to-point length
 (no LOS/obscuration check); `macos.modify()` after each poke is
