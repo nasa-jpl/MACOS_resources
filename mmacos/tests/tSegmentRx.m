@@ -126,9 +126,12 @@ classdef tSegmentRx < matlab.unittest.TestCase
             tc.verifyEqual(count(txt, 'ApType=  Polygonal'), 7);
             tc.verifyEqual(count(txt, 'PolyApVec='), 7);
             tc.verifyEqual(count(txt, 'PolyObsVec='), 6);   % wedges only
-            % center = hexagon; wedges = apex + chorded arc
+            % center = hexagon; wedges = apex + chorded arc; the ring-1
+            % obscuration is the apex TRIANGLE to the chord facing the
+            % center hexagon's flat (straight physical edge, not an arc)
             tc.verifyEqual(size(s.apertures.poly{1}, 2), 6);
             tc.verifyEqual(size(s.apertures.poly{2}, 2), 14);
+            tc.verifyEqual(size(s.apertures.obs{2}, 2), 3);
             % rxpoly reader: auto-detected; the center hexagon must
             % round-trip vertex-for-vertex (polyshape may re-order)
             B = macos.design.seg_boundary(s);
@@ -140,14 +143,22 @@ classdef tSegmentRx < matlab.unittest.TestCase
                 tc.verifyLessThan(min(vecnorm(P - Q(:,q))), 1e-6, ...
                     sprintf('center hex vertex %d does not round-trip', q));
             end
-            % the wedge boundary is the aperture MINUS its obscuration
-            % (the physical annular band): no boundary point may sit
-            % well inside the obscured inner sector
-            O2 = [B.u.'; B.v.'] * (s.apertures.obs{2} - B.c0);
+            % the wedge boundary is the aperture MINUS its obscuration:
+            % no boundary point may sit inside the chord (perpendicular
+            % distance (width+gap)/2 from the tiling center), and EVERY
+            % segment tile must survive as a full-size region (the
+            % subtract used to leave numeric slivers as boundary #1)
             W2 = [B.u.'; B.v.'] * (B.poly{2} - B.c0);
-            ri = max(vecnorm(O2));
-            tc.verifyGreaterThan(min(vecnorm(W2)), 0.9*ri, ...
-                'wedge rxpoly boundary must exclude the obscured inner sector');
+            d_chord = (s.width + s.gap)/2;
+            tc.verifyGreaterThan(min(vecnorm(W2)), 0.95*d_chord, ...
+                'wedge rxpoly boundary must exclude the obscured apex region');
+            for s2 = 1:s.nseg
+                tc.verifyGreaterThan(size(B.poly{s2}, 2), 5, ...
+                    sprintf('segment %d rxpoly boundary collapsed', s2));
+                span = max(B.poly{s2}, [], 2) - min(B.poly{s2}, [], 2);
+                tc.verifyGreaterThan(max(span), s.width, ...
+                    sprintf('segment %d rxpoly tile is a sliver', s2));
+            end
             % source can be forced; rxpoly on an aperture-less Rx refuses
             Bt = macos.design.seg_boundary(s, 0, 'source', 'tiling');
             tc.verifyEqual(Bt.kind, 'pie');

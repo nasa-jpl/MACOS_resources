@@ -73,6 +73,14 @@ if ~isempty(V)
             shp = subtract(shp, polyshape(O2(1,:), O2(2,:), 'Simplify', true));
         end
         if off ~= 0, shp = polybuffer(shp, off); end
+        % the subtract can leave numeric slivers as extra regions (the
+        % %.10E-rounded Rx vertices need not intersect exactly); the
+        % segment is the LARGEST region, not boundary #1
+        if shp.NumRegions > 1
+            rg = regions(shp);
+            [~, imax] = max(area(rg));
+            shp = rg(imax);
+        end
         [px, py] = boundary(shp, 1);
         P2 = [px.'; py.'];
         if any(vecnorm(P2(:,1) - P2(:,end)) > 1e-9)
@@ -122,7 +130,6 @@ switch kind
                 P2 = [P2, P2(:,1)]; %#ok<AGROW>
             else
                 % gap at internal shared edges only; rim carries none
-                ri = max(rc(s) - w/2 + g/2 - off, 1e-9);
                 ro = rc(s) + w/2 + off;
                 if any(rings > rc(s) + 1e-6*max(rc)), ro = ro - g/2; end
                 % angular pitch of this ring
@@ -132,8 +139,20 @@ switch kind
                 a0  = atan2(C2(2,s), C2(1,s));
                 ha  = dth/2 - (g/2)/rc(s) + off/rc(s);   % half-span + offset
                 tho = linspace(a0 - ha, a0 + ha, 25);    % outer arc
-                thi = fliplr(tho);                       % inner arc (back)
-                P2  = [ro*[cos(tho); sin(tho)], ri*[cos(thi); sin(thi)]];
+                inner_ring = ~any(rings < rc(s) - 1e-6*max(rc));
+                if inner_ring && any(isctr)
+                    % ring 1 abuts the center HEXAGON: the physical
+                    % inner edge is the straight chord facing its flat
+                    % (flat (w-g)/2 + gap g), NOT an arc
+                    d  = (w + g)/2 - off;
+                    er = [cos(a0); sin(a0)];  et = [-sin(a0); cos(a0)];
+                    P2 = [ro*[cos(tho); sin(tho)], ...
+                          d*er + d*tan(ha)*et, d*er - d*tan(ha)*et];
+                else
+                    ri  = max(rc(s) - w/2 + g/2 - off, 1e-9);
+                    thi = fliplr(tho);                   % inner arc (back)
+                    P2  = [ro*[cos(tho); sin(tho)], ri*[cos(thi); sin(thi)]];
+                end
                 P2  = [P2, P2(:,1)]; %#ok<AGROW>
             end
             poly{s} = c0 + u*P2(1,:) + v*P2(2,:);
