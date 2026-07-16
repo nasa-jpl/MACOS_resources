@@ -7,14 +7,22 @@ function elt_grid_add(srf, grid_dz)
 %
 %   N must equal the element's current grid sampling size and SRF must
 %   already carry a grid surface (SrfType Grid / MonGrData / FreeForm with
-%   a grid term).  GRID_DZ is indexed (y-row, x-col), running -Y..+Y by
-%   -X..+X -- the same orientation as macos.zrn_freeform's grid.mat, and
-%   no transpose is needed (MATLAB and the Fortran grid are both
-%   column-major).
+%   a grid term).  GRID_DZ is indexed (x-row, y-col): the FIRST index runs
+%   along +x (xhat), the SECOND along +y (yhat) -- the engine's GridMat(i,j)
+%   convention (surfsub.F NGSrf), and the same orientation as
+%   macos.zrn_freeform's grid.mat and macos.zernike_grid_basis.  Build the
+%   map with ndgrid, NOT meshgrid (a meshgrid array is x<->y transposed,
+%   which silently flips the odd/coma modes).
 %
-%   Mirrors pymacos's elt_grid_add (Luis, 2026-06-20).
+%   CROSS-BINDING NOTE: this is the OPPOSITE of pymacos.elt_grid_add, which
+%   takes [y, x] (it transposes internally), so the array you pass here is
+%   the TRANSPOSE of the one you'd pass pymacos.  To load an existing
+%   GridFile= data file with NO manual transpose, use macos.read_grid_file
+%   (it returns the array in THIS convention); a bare readmatrix/load of that
+%   file is the transpose -- rot90(fliplr(...)).
 %
-%   See also: macos.zrn_freeform.
+%   See also: macos.read_grid_file, macos.write_grid_file,
+%             macos.zrn_freeform, macos.zernike_grid_basis.
     arguments
         srf     (1,1) double {mustBeInteger, mustBePositive}
         grid_dz (:,:) double {mustBeReal, mustBeFinite}
