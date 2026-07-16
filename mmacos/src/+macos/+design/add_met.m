@@ -15,8 +15,18 @@ function out = add_met(in_path, seg, opts)
 %   seg = the macos.design.segment_rx output (frames + seg_elts).
 %   opts: hub (element index, required), r_fid (hub fiducial ring
 %   radius, BaseUnits, required), nf (3..6, default 3), extra_sources
-%   ([] element indices), r_extra (default r_fid), r_launch_frac
-%   (default 0.7), out_in (default <in>_met.in beside in_path).
+%   ([] element indices), r_extra (default r_fid), out_in (default
+%   <in>_met.in beside in_path).
+%
+%   Default launcher placement (Dave 2026-07-16): launchers sit AT the
+%   segment edge with a small outward clearance (edge_off, default 5
+%   BaseUnits) so they never obscure the reflecting surface -- 6 points
+%   equally spaced along the segment's TRUE boundary
+%   (macos.design.seg_boundary: hex tiles OR pie wedges, offset
+%   outward), phased by launch_clock.  Pass r_launch_frac to instead
+%   use the legacy interior ring at r_launch_frac*lMon in the segment
+%   face triad (also the fallback for tilings seg_boundary does not
+%   model).
 %
 %   out: .in, .n_beams, .src_pts/.tgt_pts (3 x n_beams, global,
 %   BaseUnits — engine buffer order) so tests can pin met().l exactly.
@@ -29,7 +39,8 @@ arguments
     opts.nf (1,1) double {mustBeMember(opts.nf, [3 4 5 6])} = 3
     opts.extra_sources double = []
     opts.r_extra double = []
-    opts.r_launch_frac (1,1) double {mustBePositive} = 0.7
+    opts.r_launch_frac double = []          % legacy interior ring (frac of lMon)
+    opts.edge_off (1,1) double {mustBeNonnegative} = 5  % edge clearance, BaseUnits
     opts.launch_clock (1,1) double = pi/6   % launcher hexagon clocking, rad
     opts.fid_clock (1,1) double = 0         % hub fiducial ring clocking, rad
     opts.launch_pts cell = {}               % override: {nseg} of 3x6 GLOBAL launcher points
@@ -65,12 +76,27 @@ end
 src_pts = zeros(3,0); tgt_pts = zeros(3,0);
 ins = cell(numel(starts), 1);      % met text to insert per element
 
-% Per-segment launchers: hexagon in the segment face triad.
+% Per-segment launchers: edge-offset boundary points (default, hex AND
+% pie via seg_boundary) or the legacy interior ring / explicit override.
 tl6 = opts.launch_clock + 2*pi*(0:5)'/6;
+use_edge = isempty(opts.r_launch_frac);
+Boff = [];
+if use_edge && isempty(opts.launch_pts)
+    try
+        Boff = macos.design.seg_boundary(seg, opts.edge_off);
+    catch                                   % unmodeled tiling -> legacy ring
+        use_edge = false;
+    end
+end
+if isempty(opts.r_launch_frac), opts.r_launch_frac = 0.7; end   % fallback ring
 for s = 1:seg.nseg
     k = seg.seg_elts(s); f = seg.frames(s);
     if ~isempty(opts.launch_pts)
         L = opts.launch_pts{s};                           % explicit (3x6 global)
+    elseif ~isempty(Boff)
+        % 6 equal-arc-length points on the offset boundary, phased by
+        % launch_clock (fraction of the perimeter = clock/2pi)
+        L = Boff.sample(s, 6, opts.launch_clock/(2*pi));
     else
         r = opts.r_launch_frac * f.lmon;
         L = f.rpt + r*(f.xhat*cos(tl6') + f.yhat*sin(tl6'));  % 3 x 6

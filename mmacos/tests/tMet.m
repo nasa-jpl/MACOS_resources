@@ -81,6 +81,47 @@ classdef tMet < matlab.unittest.TestCase
             macos.perturb(5, 'translation', -dperp*1e-3, 'frame', 'global');
         end
 
+        function test_met_geom_matches_lengths(tc)
+            % met_geom endpoints must reproduce the fixture points AND
+            % beam k's |src-tgt| must equal met().l(k) exactly (the
+            % engine enumerates both the same way).
+            g = macos.met_geom();
+            tc.verifyEqual(g.n, 2);
+            tc.verifyEqual(g.src_pts, [tc.a, tc.b], 'AbsTol', 1e-9);
+            tc.verifyEqual(g.tgt_pts, [tc.c, tc.d], 'AbsTol', 1e-9);
+            tc.verifyEqual(g.src_elt, [2 2]);
+            tc.verifyEqual(g.tgt_elt, [5 5]);
+            m = macos.met('native');
+            tc.verifyEqual(vecnorm(g.src_pts - g.tgt_pts).', m.l, ...
+                'RelTol', 1e-12);
+            % endpoints ride the perturbed state (source elt 2 moves)
+            dmm = [0.1; 0; 0];
+            macos.perturb(2, 'translation', dmm*1e-3, 'frame', 'global');
+            g2 = macos.met_geom();
+            macos.perturb(2, 'translation', -dmm*1e-3, 'frame', 'global');
+            tc.verifyEqual(g2.src_pts - g.src_pts, repmat(dmm, 1, 2), ...
+                'AbsTol', 1e-9);
+            tc.verifyEqual(g2.tgt_pts, g.tgt_pts, 'AbsTol', 1e-9);
+        end
+
+        function test_view_rx_renders_met_scene(tc)
+            % view_rx on the loaded fixture: beam + optics + MET layers.
+            macos.trace();
+            f = [tempname '.png'];
+            cpng = onCleanup(@() delete(f));
+            fig = macos.view_rx('visible', false, 'save', f);
+            cf = onCleanup(@() close(fig));
+            tc.verifyClass(fig, 'matlab.ui.Figure');
+            % beam polylines + element cross-section curves drawn
+            tc.verifyGreaterThanOrEqual( ...
+                numel(findobj(fig, 'Type', 'line')), 5);
+            % MET markers + beams present (title carries the count)
+            tc.verifyTrue(contains(fig.Name, '2 MET beams'));
+            d = dir(f);
+            tc.assertNotEmpty(d);
+            tc.verifyGreaterThan(d.bytes, 1000);
+        end
+
         function test_no_met_rx_returns_empty(tc)
             here = fileparts(mfilename('fullpath'));
             res_root = fileparts(fileparts(here));
@@ -90,6 +131,9 @@ classdef tMet < matlab.unittest.TestCase
             m = macos.met();
             tc.verifyEqual(m.n, 0);
             tc.verifyEmpty(m.l);
+            g = macos.met_geom();
+            tc.verifyEqual(g.n, 0);
+            tc.verifyEmpty(g.src_pts);
             % restore the met fixture for any later test ordering
             cd(tc.wd);
             macos.load_rx(tc.fixture);
@@ -129,7 +173,9 @@ classdef tMet < matlab.unittest.TestCase
             u = am.src_pts - am.tgt_pts; u = u ./ vecnorm(u);
             f1 = seg.frames(1); T1 = [f1.xhat f1.yhat f1.zhat];
             tc.verifyEqual(dm.dldx(1:6, 4:6), u(:,1:6)'*T1, 'AbsTol', 1e-7);
-            tc.verifyEqual(max(abs(dm.dldx(1:6, 7:12)), [], 'all'), 0);
+            % cross-segment coupling is physically zero; the FD picks up
+            % ~eps(L)/h ~ 4e-9 of round-off on the 25 m gauges
+            tc.verifyLessThan(max(abs(dm.dldx(1:6, 7:12)), [], 'all'), 1e-7);
             % rotations couple through the moment arms: nonzero
             tc.verifyGreaterThan(max(abs(dm.dldx(1:6, 1:3)), [], 'all'), 0);
             % dldx_analytic == engine FD over the SEGMENT truss (rows

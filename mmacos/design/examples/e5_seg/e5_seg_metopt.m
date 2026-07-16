@@ -44,18 +44,17 @@ pv = g3("VptElt", ihub); ps = g3("psiElt", ihub); ps = ps/norm(ps);
 [~,imin] = min(abs(ps)); e0 = zeros(3,1); e0(imin) = 1;
 xh = cross(ps,e0); xh = xh/norm(xh); yh = cross(ps,xh);
 
-% per-segment radial centerline angle in the face plane (from xhat)
-rad_ang = zeros(1, nseg);
-for s2 = 1:nseg
-    f = seg.frames(s2);
-    v = f.rpt - dot(f.rpt, f.zhat)*f.zhat;         % in-plane radial vector
-    if norm(v) < 1e-6, rad_ang(s2) = 0;            % center segment: xhat
-    else, rad_ang(s2) = atan2(dot(v, f.yhat), dot(v, f.xhat));
-    end
-end
+% boundary-true hex geometry, offset outward by the edge clearance
+% (macos.design.hex_tile: apothem = width/2, ONE global tiling clocking
+% -- NOT per-segment face-frame angles), and the per-segment radial
+% centerline (pair-symmetry axis) in the TILING plane.
+T = macos.design.hex_tile(seg, EDGE_OFF);
+C2 = [T.u.'; T.v.'] * ([seg.frames.rpt] - T.c0);
+rad_ang = atan2(C2(2,:), C2(1,:));
+rad_ang(vecnorm(C2) < 1e-6) = 0;                   % center segment
 ctx = struct('pv',pv,'xh',xh,'yh',yh,'seg',seg,'nseg',nseg, ...
     'bodies',bodies,'E',E,'X',X,'G',G,'nw',nw,'sige',sige,'sigl',sigl, ...
-    'rad_ang',rad_ang,'edge_off',EDGE_OFF);
+    'rad_ang',rad_ang,'T',T,'C2',C2);
 
 % baseline = the as-built clocked ring re-expressed in this model:
 % pairs at 30/90/150 deg on the offset boundary
@@ -103,24 +102,36 @@ fprintf('engine-FD validation of winner: rms %.3f nm (analytic %.3f, %.2f%%)\n',
 copyfile(am2.in, fullfile(here, 'e5_seg_metopt.in'));
 save(fullfile(here, 'e5_seg_metopt.mat'), 'base', 'best', 'r0', 'w0m', ...
      'rb', 'wb', 'rfd', 'nev', 'EDGE_OFF');
-fprintf('artifacts: e5_seg_metopt.in / .mat beside the script\n');
+
+% MET setup view of the WINNER (engine holds am2's Rx + trace): optimized
+% launchers filled, baseline edge-ring launchers as open circles.
+[~, ~, LP0] = metric_(base, ctx);
+fv = macos.design.met_view(seg, am2, 'visible', false, ...
+    'overlay_pts', [LP0{:}], 'edge_off', EDGE_OFF, ...
+    'title', sprintf(['e5_seg optimized MET layout: %.3f -> %.3f nm rms ' ...
+                      '(pairs [%s] deg, nf=%d, rfid=%g, fclock=%.0f deg; open circles = baseline)'], ...
+                     r0*1e9, rb*1e9, ...
+                     join(string(round(rad2deg(best.phis))), ' '), ...
+                     best.nf, best.rfid, rad2deg(best.fclock)), ...
+    'save', fullfile(here, 'e5_seg_metopt_layout.png'));
+close(fv);
+fprintf('artifacts: e5_seg_metopt.in / .mat / _layout.png beside the script\n');
 
 function [rms_w, worst, LP] = metric_(lay, c)
 % 3 mirror pairs about each segment's radial centerline, ON the
-% hex boundary offset outward by edge_off (apothem = lMon + edge_off;
-% hexagon flats assumed normal to the neighbor/radial directions).
+% boundary-true hex offset outward by the edge clearance (c.T =
+% macos.design.hex_tile(seg, EDGE_OFF): apothem = width/2 + off, one
+% GLOBAL tiling clocking).  Angles are tiling-plane angles.
 if lay.nf == 3, pair = [1 2 2 3 3 1]; else, pair = 1:6; end
 thf = lay.fclock + 2*pi*(0:lay.nf-1)/lay.nf;
 fid = c.pv + lay.rfid*(c.xh*cos(thf) + c.yh*sin(thf));
 src = zeros(3, 6*c.nseg); tgt = zeros(3, 6*c.nseg);
 LP = cell(1, c.nseg);
-hexr = @(phi, a) a ./ cos(mod(phi + pi/6, pi/3) - pi/6);
 for s3 = 1:c.nseg
-    f3 = c.seg.frames(s3);
-    a = f3.lmon + c.edge_off;
     phi = c.rad_ang(s3) + [lay.phis, -lay.phis];      % 6 angles, mirror pairs
-    r = hexr(phi - c.rad_ang(s3), a);                  % boundary dist per angle
-    P6 = f3.rpt + f3.xhat*(r.*cos(phi)) + f3.yhat*(r.*sin(phi));
+    r  = c.T.boundary(phi, s3);                       % offset-hex boundary
+    P2 = c.C2(:, s3) + r.*[cos(phi); sin(phi)];
+    P6 = c.T.c0 + c.T.u*P2(1,:) + c.T.v*P2(2,:);
     LP{s3} = P6;
     src(:, (s3-1)*6+(1:6)) = P6;
     tgt(:, (s3-1)*6+(1:6)) = fid(:, pair);

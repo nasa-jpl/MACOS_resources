@@ -390,6 +390,24 @@ relink after pulling: rebuild `build_release_gfortran`, re-run
 `gen_mex_wrappers.py`, `rm src/mmacos.mexa64`, `make FC=gfortran`.
 (macos `f3e98e5` + mmacos `caf3b86` are LOCAL/UNPUSHED.)
 
+### General Rx viewer — macos.view_rx / met_geom / design.met_view (2026-07-16)
+`macos.view_rx()` = prescription-agnostic 3-D scene from the LOADED Rx
+only (Dave: "work with any prescription — beam, optics, MET paths if
+present"): traced-ray polylines (`macos.trace(k)`+`get_ray_info` bundle),
+one translucent patch per element = convex hull of the rays that HIT it
+(renders any surface type, sized by use, no per-type geometry code),
+and — when the Rx declares `nMetPos`/`tMetElt`/`metBeamFlg` — gauge
+beams from `macos.met_geom()` (engine `met_geom_get`, which mirrors
+SrfMetCalc's enumeration EXACTLY so beam k == `macos.met().l(k)`;
+endpoints ride perturbations).  `macos.design.met_view(seg,am)` = the
+segmented-primary annotated wrapper (hex tiles, face-on launcher panel,
+radial centerlines, `edge_off` dashed hex, `overlay_pts` comparison).
+Tests: tMet (met_geom identity + view_rx smoke), tMetView (geometry-only,
+SUITE_FAST).  GOTCHA: `findall(fig)` CANNOT reach the sgtitle layout
+Text (R2026a) — met_view/view_rx mirror the title onto `fig.Name`;
+assert on that in tests.  Engine leg = `met_geom_get` in macos_api_mod
+(same rebuild chain as any api_mod change).
+
 ### Optical-design reference & fixtures (Sprint 2A-ii builder)
 The de-novo `macos.design.Telescope` builder (closed-form Cass / RC /
 Gregorian / DK layout + conics) is backed by a self-checked reference
