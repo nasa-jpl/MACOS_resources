@@ -118,28 +118,38 @@ D  = hc + rd*(ux*cos(th) + uy*sin(th));
 patch(ax3, D(1,:), D(2,:), D(3,:), [0.75 0.7 0.55], ...
       'FaceAlpha', 0.25, 'EdgeColor', [0.5 0.45 0.3]);
 
-% MET beams: segment trusses (blue) / extra-source truss (orange)
-i1 = 1:min(nsrc_seg, nbeam);  i2 = (min(nsrc_seg, nbeam)+1):nbeam;
-hb1 = beams_(ax3, am.src_pts(:,i1), am.tgt_pts(:,i1), [0.20 0.45 0.85]);
+% MET beams + launchers, COLORED PER OWNING SEGMENT (Dave 2026-07-16:
+% the association must be readable); extra-source truss orange.
+segcol = seg_colors_(nseg);
+i2 = (min(nsrc_seg, nbeam)+1):nbeam;
+hb1 = gobjects(0);
+for s = 1:nseg
+    js = (s-1)*6 + (1:6);  js = js(js <= nbeam);
+    h = beams_(ax3, am.src_pts(:,js), am.tgt_pts(:,js), segcol(s,:));
+    plot3(ax3, am.src_pts(1,js), am.src_pts(2,js), am.src_pts(3,js), ...
+          'o', 'MarkerSize', 4.5, 'MarkerFaceColor', segcol(s,:), ...
+          'MarkerEdgeColor', 'none', 'LineStyle', 'none');
+    if isempty(hb1), hb1 = h; end
+end
 hb2 = beams_(ax3, am.src_pts(:,i2), am.tgt_pts(:,i2), [0.90 0.55 0.10]);
-
-% launchers + fiducials
-hl = plot3(ax3, am.src_pts(1,:), am.src_pts(2,:), am.src_pts(3,:), 'o', ...
-     'MarkerSize', 4, 'MarkerFaceColor', [0.1 0.6 0.2], ...
-     'MarkerEdgeColor', 'none', 'LineStyle', 'none');
+if ~isempty(i2)
+    plot3(ax3, am.src_pts(1,i2), am.src_pts(2,i2), am.src_pts(3,i2), ...
+          'o', 'MarkerSize', 4.5, 'MarkerFaceColor', [0.90 0.55 0.10], ...
+          'MarkerEdgeColor', 'none', 'LineStyle', 'none');
+end
 hf = plot3(ax3, fid(1,:), fid(2,:), fid(3,:), 's', ...
      'MarkerSize', 7, 'MarkerFaceColor', [0.85 0.15 0.15], ...
      'MarkerEdgeColor', 'k', 'LineStyle', 'none');
 if ~isempty(opts.overlay_pts)
     plot3(ax3, opts.overlay_pts(1,:), opts.overlay_pts(2,:), ...
           opts.overlay_pts(3,:), 'o', 'MarkerSize', 5, ...
-          'MarkerEdgeColor', [0.1 0.6 0.2], 'LineStyle', 'none');
+          'MarkerEdgeColor', [0.4 0.4 0.4], 'LineStyle', 'none');
 end
 
 axis(ax3, 'equal'); grid(ax3, 'on'); view(ax3, [-35 18]);
 xlabel(ax3, 'X'); ylabel(ax3, 'Y'); zlabel(ax3, 'Z');
-hh = [hl hf];  lb = {'launchers', 'fiducials'};
-if ~isempty(hb1), hh(end+1) = hb1; lb{end+1} = 'segment trusses'; end
+hh = hf;  lb = {'fiducials'};
+if ~isempty(hb1), hh(end+1) = hb1; lb{end+1} = 'segment trusses (color = segment)'; end
 if ~isempty(hb2), hh(end+1) = hb2; lb{end+1} = 'extra-source truss'; end
 legend(ax3, hh, lb, 'Location', 'northeastoutside');   % clear of the scene
 title(ax3, '3-D MET scene');
@@ -159,8 +169,8 @@ for s = 1:nseg
     end
     cs = C2(:, s);
     text(ax2, cs(1), cs(2), sprintf('S%d', s), ...
-         'HorizontalAlignment', 'center', 'FontSize', 9, ...
-         'Color', [0.3 0.3 0.35]);
+         'HorizontalAlignment', 'center', 'FontSize', 10, ...
+         'FontWeight', 'bold', 'Color', segcol(s,:));
     % radial centerline (the pair-symmetry axis), sized to the segment
     hw = max(vecnorm(prj(B0.poly{s}) - cs));
     dr = [cos(rad_ang(s)); sin(rad_ang(s))];
@@ -168,23 +178,34 @@ for s = 1:nseg
     plot(ax2, cl(1,:), cl(2,:), ':', 'Color', [0.5 0.5 0.55]);
 end
 
-Lp = prj(am.src_pts(:, i1));             % segment launchers only
-plot(ax2, Lp(1,:), Lp(2,:), 'o', 'MarkerSize', 5, ...
-     'MarkerFaceColor', [0.1 0.6 0.2], 'MarkerEdgeColor', 'none', ...
-     'LineStyle', 'none');
+% projected MET beams launcher->fiducial + launchers, colored per
+% owning segment (label text matches), fiducials red squares
 Fp = prj(fid);
+for s = 1:nseg
+    js = (s-1)*6 + (1:6);  js = js(js <= nbeam);
+    Sp = prj(am.src_pts(:, js));
+    Tp = prj(am.tgt_pts(:, js));
+    n = size(Sp, 2);
+    Xb = [Sp(1,:); Tp(1,:); nan(1,n)];
+    Yb = [Sp(2,:); Tp(2,:); nan(1,n)];
+    plot(ax2, Xb(:), Yb(:), '-', 'Color', [segcol(s,:) 0.35], ...
+         'LineWidth', 0.6);
+    plot(ax2, Sp(1,:), Sp(2,:), 'o', 'MarkerSize', 5.5, ...
+         'MarkerFaceColor', segcol(s,:), 'MarkerEdgeColor', 'none', ...
+         'LineStyle', 'none');
+end
 plot(ax2, Fp(1,:), Fp(2,:), 's', 'MarkerSize', 8, ...
      'MarkerFaceColor', [0.85 0.15 0.15], 'MarkerEdgeColor', 'k', ...
      'LineStyle', 'none');
 if ~isempty(opts.overlay_pts)
     Op = prj(opts.overlay_pts);
     plot(ax2, Op(1,:), Op(2,:), 'o', 'MarkerSize', 6, ...
-         'MarkerEdgeColor', [0.1 0.6 0.2], 'LineStyle', 'none');
+         'MarkerEdgeColor', [0.4 0.4 0.4], 'LineStyle', 'none');
 end
 
 axis(ax2, 'equal'); grid(ax2, 'on');
 xlabel(ax2, 'tiling-plane x'); ylabel(ax2, 'tiling-plane y');
-title(ax2, 'face-on: launchers / hub fiducial ring (projected)');
+title(ax2, 'face-on: beams + launchers (color = segment), fiducials red');
 
 if isempty(opts.title)
     opts.title = sprintf('MET setup: %d segments, %d launchers, %d fiducials, %d gauge beams', ...
@@ -198,6 +219,16 @@ if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
 end
 
 % ---------------------------------------------------------------------------
+function C = seg_colors_(n)
+%SEG_COLORS_  n distinguishable segment colors (stable across panels).
+base = lines(7);
+C = base(mod(0:n-1, 7) + 1, :);
+if n > 7                                  % 2-ring+: darken repeats
+    k = ceil((8:n)/7) - 1;
+    C(8:n, :) = max(C(8:n, :) - 0.25*k(:), 0);
+end
+end
+
 function h = beams_(ax, S, T, col)
 %BEAMS_  One line object for all gauge beams S(:,k)->T(:,k) (NaN-separated).
 if isempty(S), h = gobjects(0); return; end

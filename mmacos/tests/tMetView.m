@@ -30,10 +30,11 @@ classdef tMetView < matlab.unittest.TestCase
             % one hex patch per segment + the hub disc
             pt = findobj(fig, 'Type', 'patch');
             testCase.verifyNumElements(pt, seg.nseg + 1);
-            % legend carries the annotation vocabulary
+            % legend carries the annotation vocabulary (launchers are
+            % colored per segment, keyed by the truss entry)
             lg = findobj(fig, 'Type', 'legend');
             testCase.assertNotEmpty(lg);
-            testCase.verifyTrue(any(contains(lg.String, 'launchers')));
+            testCase.verifyTrue(any(contains(lg.String, 'fiducials')));
             testCase.verifyTrue(any(contains(lg.String, 'segment trusses')));
             testCase.verifyTrue(any(contains(lg.String, 'extra-source truss')));
         end
