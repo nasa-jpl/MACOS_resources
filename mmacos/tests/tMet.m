@@ -184,9 +184,7 @@ classdef tMet < matlab.unittest.TestCase
             % dldx_analytic == engine FD over the SEGMENT truss (rows
             % 1:42 / seg columns 1:42) — the tier-3 layout search moves
             % segment launchers + hub fiducials, so this is the
-            % engine-free evaluator's load-bearing identity.  (The fpa
-            % body needs the engine TElt/RptElt frame, not an ad-hoc
-            % triad — excluded here.)
+            % engine-free evaluator's load-bearing identity.
             bodies = struct('rpt', {}, 'T', {});
             for s2 = 1:seg.nseg
                 f2 = seg.frames(s2);
@@ -197,6 +195,22 @@ classdef tMet < matlab.unittest.TestCase
                 am.src_pts(:,1:42), am.tgt_pts(:,1:42), ...
                 repelem(1:7, 6), zeros(1,42));
             tc.verifyEqual(da, dm.dldx(1:42, 1:42), 'AbsTol', 2e-6);
+            % engine-frame bodies (met_bodies: TElt/RptElt) close the
+            % hub/aft gap: the FULL 54-column identity, with fiducials
+            % riding the HUB body and the extra ring riding the aft.
+            b54 = macos.design.met_bodies([seg.seg_elts 8 11]);
+            for s2 = 1:seg.nseg
+                f2 = seg.frames(s2);
+                tc.verifyEqual(b54(s2).T, [f2.xhat f2.yhat f2.zhat], ...
+                    'AbsTol', 1e-12, 'engine TElt must equal the face triad');
+                tc.verifyEqual(b54(s2).rpt, f2.rpt, 'AbsTol', 1e-9);
+            end
+            dm54 = macos.design.dmet_dx([seg.seg_elts 8 11]);
+            da54 = macos.design.dldx_analytic(b54, am.src_pts, am.tgt_pts, ...
+                [repelem(1:7, 6), repelem(9, 6)], 8*ones(1, 48));
+            tc.verifyEqual(da54, dm54.dldx, 'AbsTol', 2e-6);
+            % hub columns must be LIVE (fiducial points move with M2)
+            tc.verifyGreaterThan(max(abs(dm54.dldx(:, 43:48)), [], 'all'), 0.5);
         end
     end
 end

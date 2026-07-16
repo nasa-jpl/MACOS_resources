@@ -1,11 +1,20 @@
-%E5_SEG_METOPT  Tier-3 MET-layout optimization on the e5_seg model (v2).
+%E5_SEG_METOPT  Tier-3 MET-layout optimization on the e5_seg model (v3).
 %
-% Run AFTER e5_seg.m (loads its saved workspace; GRID='Hex').
+% Run AFTER e5_seg.m (loads its saved workspace; GRID='Hex'; needs its
+% scratch workdir intact -- same session or a fresh e5_seg run).
 % Minimizes the post-control wavefront residual trace(dwdx*P_dx*dwdx')
 % using the ANALYTIC gauge Jacobian (macos.design.dldx_analytic ==
 % engine FD, tMet); the winner is realized with
 % add_met('launch_pts',...,'pair_map',...) and re-validated with the
 % engine-FD dmet_dx.
+%
+% v3 (2026-07-16): the merit covers ALL 54 sensed DOFs -- segments +
+% HUB (M2) + AFT body -- with engine-truth frames from
+% macos.design.met_bodies (TElt/RptElt).  Fiducials ride the hub body
+% and the aft launcher ring rides the aft body in the analytic rows,
+% so the estimator sees fiducial/launcher motion when those bodies
+% move.  The v2 merit's 42-DOF slice could not see the aft truss --
+% the demonstrated 232 nm as-built bottleneck.
 %
 % Search space (Dave 2026-07-12 + 2026-07-16):
 %   - launchers ON the segment's TRUE boundary (macos.design.hex_tile:
@@ -56,15 +65,22 @@ NREFINE   = 12;                    % layouts refined over the fine grids
 
 here = fileparts(mfilename('fullpath'));
 S = load(fullfile(here, 'e5_seg.mat'));
-seg = S.seg; nseg = seg.nseg; n42 = 6*nseg;
-D = S.dwdx(:, 1:n42); E = S.dedx(:, 1:n42); X = S.X(1:n42, 1:n42);
+seg = S.seg; nseg = seg.nseg;
+hub = nseg + 1;  aft = seg.n_elt - 2;
+D = S.dwdx; E = S.dedx; X = S.X;          % FULL 54-DOF (seg + hub + aft)
 sige = sqrt(S.Re(1,1)); sigl = sqrt(S.Rl(1,1));
 nw = size(D, 1); G = D'*D;
-bodies = struct('rpt', {}, 'T', {});
-for s2 = 1:nseg
-    f = seg.frames(s2);
-    bodies(s2) = struct('rpt', f.rpt, 'T', [f.xhat f.yhat f.zhat]);
-end
+% engine-truth body frames (TElt/RptElt via met_bodies) for segments +
+% hub + aft; body indices: 1..nseg = segments, nseg+1 = hub, nseg+2 = aft
+old0 = cd(seg.run.workdir);
+macos.init(512); macos.load_rx(seg.in);
+bodies = macos.design.met_bodies([seg.seg_elts, hub, aft]);
+% aft launcher ring: fixed hardware (r_extra=100 around the aft body),
+% layout-independent -- take the emitted points once
+am0 = macos.design.add_met(seg.in, seg, 'hub', hub, 'r_fid', 300, ...
+    'nf', 3, 'extra_sources', aft, 'r_extra', 100);
+src_aft = am0.src_pts(:, 6*nseg + (1:6));
+cd(old0);
 % hub fiducial plane + M2 size (same construction as add_met)
 L = readlines(seg.in); tl = strtrim(L);
 g3 = @(key,i0) str2double(string(regexp(L(find(startsWith(tl(i0:end), ...
@@ -103,7 +119,7 @@ else
 end
 ctx = struct('pv',pv,'xh',xh,'yh',yh,'seg',seg,'nseg',nseg, ...
     'bodies',bodies,'E',E,'X',X,'G',G,'nw',nw,'sige',sige,'sigl',sigl, ...
-    'ref_ang',ref_ang,'T',T,'C2',C2,'min_sep',MIN_SEP);
+    'ref_ang',ref_ang,'T',T,'C2',C2,'min_sep',MIN_SEP,'src_aft',src_aft);
 
 % baseline = edge ring, Stewart crossing struts, rim-zone fiducials
 base = struct('family',"spread", 'angs',deg2rad([30 90 150 -30 -90 -150]), ...
@@ -226,7 +242,7 @@ am2 = macos.design.add_met(seg.in, seg, 'hub', nseg+1, ...
     'out_in', fullfile(seg.run.workdir, 'e5_seg_metopt.in'));
 old = cd(seg.run.workdir); restore = onCleanup(@() cd(old));
 macos.init(512); macos.load_rx(am2.in); macos.trace();
-dm2 = macos.design.dmet_dx(seg.seg_elts);
+dm2 = macos.design.dmet_dx([seg.seg_elts, hub, aft]);   % full 54 cols
 H = [E; dm2.dldx]; R = blkdiag(sige^2*eye(size(E,1)), ...
                                sigl^2*eye(size(dm2.dldx,1)));
 P = X - X*H'*((H*X*H' + R) \ (H*X));
@@ -282,9 +298,13 @@ function [rms_w, worst] = metric_(lay, c)
 if ~ok, rms_w = inf; worst = inf; return; end
 thf = lay.fclock + 2*pi*(0:lay.nf-1)/lay.nf;
 fid = c.pv + lay.rfid*(c.xh*cos(thf) + c.yh*sin(thf));
-tgt = repmat(fid(:, lay.pmap), 1, c.nseg);
+% beams: 6 per segment + the fixed aft ring; fiducials RIDE the hub
+% body, the aft ring RIDES the aft body (engine-truth frames)
+src = [src, c.src_aft];
+tgt = repmat(fid(:, lay.pmap), 1, c.nseg + 1);
 Hl = macos.design.dldx_analytic(c.bodies, src, tgt, ...
-                                repelem(1:c.nseg,6), zeros(1,6*c.nseg));
+        [repelem(1:c.nseg, 6), repelem(c.nseg+2, 6)], ...
+        (c.nseg+1)*ones(1, 6*(c.nseg+1)));
 H = [c.E; Hl];
 R = blkdiag(c.sige^2*eye(size(c.E,1)), c.sigl^2*eye(size(Hl,1)));
 P = c.X - c.X*H'*((H*c.X*H' + R) \ (H*c.X));
