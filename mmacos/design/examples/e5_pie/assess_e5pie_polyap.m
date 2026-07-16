@@ -15,7 +15,9 @@
 %      to the wedge outer arc) + a convex PolyObsVec inner-sector
 %      obscuration (annular sectors are non-convex; the engine builds
 %      non-convex shapes as convex aperture minus convex obscurations,
-%      Lou item 13).  The center segment gets ApType=Circular.
+%      Lou item 13).  The center segment gets a circumscribed regular
+%      NCTR-gon (Dave 2026-07-16: Polygonal for Elt 1 too, no circular
+%      special case -- SetCvxPolyApVtx generates its ApVec).
 %   4. traces the variant and compares: nominal parity (source tiling
 %      already excludes gap rays, so the apertures should be nearly
 %      invisible), then a 100 mm segment decenter, where the aperture
@@ -28,6 +30,7 @@
 % Findings land in findings.txt + PNGs beside this script.
 
 NCHORD = 12;                 % chords per arc (<= mPolySide=128 total)
+NCTR   = 24;                 % vertices of the center-segment polygon
 WITH_OBS = false;            % include the inner-sector obscuration
                              % (discriminator: outer-ring clipping with
                              % obs OFF isolates the aperture polygon)
@@ -89,10 +92,19 @@ for s = seg.nseg:-1:1                            % bottom-up, indices stay valid
     ps = sscanf(regexprep(lines(find(startsWith(tl(b0:b1), "psiElt="),1)+b0-1), ...
                           '.*psiElt=', ''), '%f');
     xo = ps([3 1 2]);
+    fmt3 = @(P) arrayfun(@(q) sprintf("  %.10E  %.10E  %.10E", ...
+                P(1,q), P(2,q), P(3,q)), 1:size(P,2))';
     if isctr(s)
+        % center segment: circumscribed regular NCTR-gon at the disc
+        % radius (Polygonal like the wedges -- no circular special case)
         r0c = min(w/2, min(rc(~isctr)) - w/2 - g) + PAD;
-        newap = [sprintf("           ApType=  Circular"); ...
-                 sprintf("            ApVec=  %.6E  0.0E+00  0.0E+00", r0c)];
+        thc = 2*pi*(0:NCTR-1)/NCTR;
+        Pc = B.c0 + (r0c/cos(pi/NCTR)) * (B.u*cos(thc) + B.v*sin(thc));
+        newap = [ ...
+            sprintf("           ApType=  Polygonal"); ...
+            sprintf("             xObs=  %.10E  %.10E  %.10E", xo); ...
+            sprintf("        PolyApVec=  %d", size(Pc,2)); ...
+            fmt3(Pc)];
     else
         a0 = atan2(C2(2,s), C2(1,s));
         nring = nnz(~isctr);
@@ -107,8 +119,6 @@ for s = seg.nseg:-1:1                            % bottom-up, indices stay valid
         % obscuration = convex inner sector (inscribed chords)
         Pin = B.c0 + ri*(B.u*cos(thc) + B.v*sin(thc));
         Vob = [B.c0, Pin];
-        fmt3 = @(P) arrayfun(@(q) sprintf("  %.10E  %.10E  %.10E", ...
-                    P(1,q), P(2,q), P(3,q)), 1:size(P,2))';
         newap = [ ...
             sprintf("           ApType=  Polygonal"); ...
             sprintf("             xObs=  %.10E  %.10E  %.10E", xo); ...
@@ -192,7 +202,6 @@ st2 = find(startsWith(tl2, "iElt="));
 maxdev = 0; nread = 0;
 nring = nnz(~isctr);
 for s = 1:seg.nseg
-    if isctr(s), continue; end
     k = seg.seg_elts(s);
     b0 = st2(k); b1 = numel(lines2); if k < numel(st2), b1 = st2(k+1)-1; end
     ip = find(startsWith(tl2(b0:b1), "PolyApVec="), 1) + b0 - 1;
@@ -200,14 +209,22 @@ for s = 1:seg.nseg
     V = zeros(3, nv);
     for q = 1:nv, V(:,q) = sscanf(lines2(ip+q), '%f'); end
     nread = nread + 1;
-    % outer-arc vertices (2:end) must sit at the circumscribed radius
-    % used at emission -- the round-trip fidelity of an 'rxpoly' reader
-    Vp = [B.u.'; B.v.'] * (V(:,2:end) - B.c0);
-    ha = pi/nring - (g/2 - PAD)/rc(s);
-    r_circ = (rc(s) + w/2) / cos(ha/NCHORD);
+    % arc vertices must sit at the circumscribed radius used at
+    % emission -- the round-trip fidelity of an 'rxpoly' reader.
+    % Wedges: vertex 1 is the sector apex, 2:end the outer arc.
+    % Center: all NCTR vertices are on the circumscribed circle.
+    if isctr(s)
+        Vp = [B.u.'; B.v.'] * (V - B.c0);
+        r0c = min(w/2, min(rc(~isctr)) - w/2 - g) + PAD;
+        r_circ = r0c / cos(pi/NCTR);
+    else
+        Vp = [B.u.'; B.v.'] * (V(:,2:end) - B.c0);
+        ha = pi/nring - (g/2 - PAD)/rc(s);
+        r_circ = (rc(s) + w/2 + PAD) / cos(ha/NCHORD);
+    end
     maxdev = max(maxdev, max(abs(vecnorm(Vp) - r_circ)));
 end
-out('rxpoly read-back: %d wedge polygons, outer-arc radius consistent to %.3g mm\n', ...
+out('rxpoly read-back: %d segment polygons (incl. center), arc radius consistent to %.3g mm\n', ...
     nread, maxdev);
 fclose(log_);
 fprintf('findings.txt + figures written to %s\n', here);
