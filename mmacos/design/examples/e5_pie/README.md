@@ -1,4 +1,8 @@
-# e5pie poly-aperture assessment (2026-07-16)
+# e5_pie — poly apertures on pie segments (assessment, 2026-07-16)
+
+> Companion to `../e5_seg/` (hex).  Re-runnable end-to-end: the runner
+> (`assess_e5pie_polyap.m`, after `mmacos_setup`) regenerates the
+> variant Rx, the parity numbers, and the figures beside this script.
 
 **Question (Dave):** should each segment carry a polygonal aperture in
 the Rx, with that polygon as the basis for launcher placement — the
