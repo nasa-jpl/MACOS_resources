@@ -16,17 +16,32 @@ SI units, identical across all three Jacobians by construction).
 Knobs at the top: rings/grid/gap, edge-sensor config, truss geometry
 (nf, radii), prior X (deploy tolerances), sensor noises R, MC draws.
 
-Reference output (rings=1 Pie, 7 segs + m2 + fpa = 54 DOF, 20 edge +
-48 MET measurements, 1 µrad/1 µm priors, 1 nm sensors):
+Reference output (rings=1 Hex, 7 segs + m2 + fpa = 54 DOF, 20 edge +
+48 MET measurements, 1 µrad/1 µm priors, 1 nm sensors) under the
+PHYSICAL mounting constraints (Dave 2026-07-16): launchers at the
+segment edges + 5 mm clearance, 6 fiducials mounted ON M2 ~25 mm
+inside its 615 mm rim, aft ("M3") launcher ring hugging that body
+(100 mm — it has no structure at larger radius):
 
 | sensing        | w_post rms |
 |----------------|-----------:|
-| prior          |    9566 nm |
-| edge only      |    3653 nm |
-| MET only       |    10.0 nm |
-| edge + MET     |    5.98 nm |
+| prior          |    9577 nm |
+| edge only      |    3641 nm |
+| MET only       |     450 nm |
+| edge + MET     |     232 nm |
 
-Monte-Carlo (200 draws) 5.85 nm vs analytic 5.98 nm (2.2%).
+Monte-Carlo (200 draws) 229 nm vs analytic 232 nm (1.3%).
+
+The dominant residual is the AFT-BODY (fpa) uncertainty: its ring
+shrank to the physically-mountable 100 mm radius, so its rotational
+lever arms are weak.  (An earlier, unphysical configuration with
+free-floating 300 mm fiducial/aft rings scored 4.3 nm — mounting
+reality costs real performance and is exactly what the layout
+optimizer must work within.)  The tier-3 optimizer
+(`e5_seg_metopt.m`) currently optimizes the SEGMENT truss only (its
+merit covers the 42 segment DOFs; hub/aft analytic rows are the
+queued follow-on) and reaches 3.36 nm on that sub-merit,
+engine-validated to 0.00%.
 
 Artifacts land beside the script: `e5_seg_met.in` (+ `flat.txt` it
 needs in the cwd at load), `e5_segHx.m`, `e5_seg.mat` (all Jacobians),

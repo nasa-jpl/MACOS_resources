@@ -104,11 +104,17 @@ for s = 1:nseg
           'FaceAlpha', 0.35, 'EdgeColor', [0.25 0.25 0.3], 'LineWidth', 0.8);
 end
 
-% hub disc (translucent, sized past the fiducial ring)
+% hub disc at its REAL physical extent when known (add_met .hub_rad /
+% .hub_pv/.hub_ps) so fiducials floating past the mirror rim are
+% VISIBLE as a mounting problem; fallback = fit past the fiducial ring.
 th = linspace(0, 2*pi, 72);
-e0 = null(fn.'); ux = e0(:,1); uy = e0(:,2);
-rd = 1.35*fr;
-D  = fc + rd*(ux*cos(th) + uy*sin(th));
+if isfield(am, 'hub_rad') && isfinite(am.hub_rad)
+    hn = am.hub_ps;  hc = am.hub_pv;  rd = am.hub_rad;
+else
+    hn = fn;  hc = fc;  rd = 1.35*fr;
+end
+e0 = null(hn.'); ux = e0(:,1); uy = e0(:,2);
+D  = hc + rd*(ux*cos(th) + uy*sin(th));
 patch(ax3, D(1,:), D(2,:), D(3,:), [0.75 0.7 0.55], ...
       'FaceAlpha', 0.25, 'EdgeColor', [0.5 0.45 0.3]);
 

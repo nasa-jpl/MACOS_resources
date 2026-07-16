@@ -3,14 +3,14 @@ function out = add_met(in_path, seg, opts)
 %
 %   out = macos.design.add_met(in_path, seg, 'hub', k, 'r_fid', r)
 %   appends engine met blocks (nMetPos/tMetElt/metBeamFlg) to the
-%   prescription: 6 launchers on EACH segment (hexagon at
-%   r_launch_frac*lMon in the segment's own face triad) beamed to nf
-%   fiducials on the hub element ("M2"), plus 6 launchers ringed
-%   around each extra_sources element ("points around M3") beamed to
-%   the same hub fiducials.  One measurement per launcher = the change
-%   in straight-line launcher->fiducial distance (Dave 2026-07-12:
-%   Stewart-platform geometry between each segment and M2, and between
-%   M3 and M2; >= as many measurements as DOFs).
+%   prescription: 6 launchers on EACH segment (at the segment edge by
+%   default, see below) beamed to nf fiducials on the hub element
+%   ("M2"), plus 6 launchers ringed around each extra_sources element
+%   ("points around M3") beamed to the same hub fiducials.  One
+%   measurement per launcher = the change in straight-line
+%   launcher->fiducial distance (Dave 2026-07-12: Stewart-platform
+%   geometry between each segment and M2, and between M3 and M2;
+%   >= as many measurements as DOFs).
 %
 %   seg = the macos.design.segment_rx output (frames + seg_elts).
 %   opts: hub (element index, required), r_fid (hub fiducial ring
@@ -44,9 +44,11 @@ arguments
     opts.launch_clock (1,1) double = pi/6   % launcher hexagon clocking, rad
     opts.fid_clock (1,1) double = 0         % hub fiducial ring clocking, rad
     opts.launch_pts cell = {}               % override: {nseg} of 3x6 GLOBAL launcher points
+    opts.pair_map double = []               % override: 1x6 fiducial index per launcher
     opts.out_in (1,1) string = ""
 end
-if isempty(opts.r_extra), opts.r_extra = opts.r_fid; end
+% r_extra: [] (default) = size each extra ring from that element's own
+% physical radius + edge_off (resolved per element below)
 
 lines = readlines(in_path);
 starts = find(startsWith(strtrim(lines), "iElt="));
@@ -58,19 +60,56 @@ starts = find(startsWith(strtrim(lines), "iElt="));
                    key + '=\s*(\S+)\s+(\S+)\s+(\S+)', 'tokens', 'once');
         v = str2double(string(t))';
     end
+    function r = eltrad_(k)
+        % element physical semi-diameter: circular ApVec radius if
+        % present, else lMon (normalization radius), else NaN
+        bend = numel(lines);
+        if k < numel(starts), bend = starts(k+1) - 1; end
+        b = strtrim(lines(starts(k):bend));
+        r = NaN;
+        ia = find(startsWith(b, "ApVec="), 1);
+        if ~isempty(ia)
+            t = regexp(b(ia), 'ApVec=\s*(\S+)', 'tokens', 'once');
+            r = str2double(string(t));
+        end
+        if ~isfinite(r)
+            il = find(startsWith(b, "lMon="), 1);
+            if ~isempty(il)
+                t = regexp(b(il), 'lMon=\s*(\S+)', 'tokens', 'once');
+                r = str2double(string(t));
+            end
+        end
+    end
 
 % Hub fiducials: ring of nf points about the hub vertex, in the plane
-% perpendicular to its psi.
+% perpendicular to its psi.  Fiducials must be MOUNTED ON the hub
+% mirror (Dave 2026-07-16: near its edge, ~25 mm inside the rim; there
+% is no structure beyond) -- warn when the requested ring leaves it.
 pv = vec3_(opts.hub, "VptElt");
 ps = vec3_(opts.hub, "psiElt"); ps = ps/norm(ps);
+hub_rad = eltrad_(opts.hub);
+if isfinite(hub_rad) && opts.r_fid > hub_rad
+    warning('macos:design:add_met:fid_off_hub', ...
+        ['fiducial ring r_fid=%g exceeds the hub element''s ' ...
+         'semi-diameter %g -- no structure to mount on'], ...
+        opts.r_fid, hub_rad);
+end
 [~, imin] = min(abs(ps)); e = zeros(3,1); e(imin) = 1;
 xh = cross(ps, e); xh = xh/norm(xh); yh = cross(ps, xh);
 th = opts.fid_clock + 2*pi*(0:opts.nf-1)'/opts.nf;
 fid = pv + opts.r_fid*(xh*cos(th') + yh*sin(th'));   % 3 x nf
 
-% Stewart pairing: launcher k -> fiducial pair(k); crossing struts.
-if opts.nf == 3, pair = [1 2 2 3 3 1];
-else,            pair = mod((0:5), opts.nf) + 1;
+% Beam assignment: launcher k -> fiducial pair(k).  Default = Stewart
+% crossing struts; pair_map overrides (the layout optimizer iterates
+% assignment combinations, Dave 2026-07-16).
+if ~isempty(opts.pair_map)
+    pair = opts.pair_map(:).';
+    if numel(pair) ~= 6 || any(pair < 1) || any(pair > opts.nf)
+        error('macos:design:add_met:pairmap', ...
+              'pair_map must be 1x6 fiducial indices in 1..nf');
+    end
+elseif opts.nf == 3, pair = [1 2 2 3 3 1];
+else,                pair = mod((0:5), opts.nf) + 1;
 end
 
 src_pts = zeros(3,0); tgt_pts = zeros(3,0);
@@ -105,12 +144,24 @@ for s = 1:seg.nseg
     src_pts = [src_pts, L]; %#ok<AGROW>
     tgt_pts = [tgt_pts, fid(:, pair)]; %#ok<AGROW>
 end
-% Extra sources ("around M3"): ring about the element vertex.
+% Extra sources ("around M3"): ring about the element vertex, hugging
+% the element's PHYSICAL extent (its aperture/lMon radius + edge_off)
+% unless r_extra is given explicitly -- launchers must mount on the
+% element's cell, not float in space (Dave 2026-07-16).
 for k = opts.extra_sources(:)'
     pvk = vec3_(k, "VptElt"); psk = vec3_(k, "psiElt"); psk = psk/norm(psk);
     [~, imin] = min(abs(psk)); e = zeros(3,1); e(imin) = 1;
     xk = cross(psk, e); xk = xk/norm(xk); yk = cross(psk, xk);
-    L = pvk + opts.r_extra*(xk*cos(tl6') + yk*sin(tl6'));
+    rk = opts.r_extra;
+    if isempty(rk)
+        rk = eltrad_(k) + opts.edge_off;
+        if ~isfinite(rk)
+            error('macos:design:add_met:r_extra', ...
+                ['element %d has no ApVec/lMon to size its launcher ' ...
+                 'ring -- pass r_extra explicitly'], k);
+        end
+    end
+    L = pvk + rk*(xk*cos(tl6') + yk*sin(tl6'));
     ins{k} = met_block_(L, opts.hub, opts.nf, pair);
     src_pts = [src_pts, L]; %#ok<AGROW>
     tgt_pts = [tgt_pts, fid(:, pair)]; %#ok<AGROW>
@@ -136,7 +187,8 @@ if strlength(out_in) == 0
 end
 writelines(lines, out_in);
 out = struct('in', char(out_in), 'n_beams', size(src_pts, 2), ...
-             'src_pts', src_pts, 'tgt_pts', tgt_pts);
+             'src_pts', src_pts, 'tgt_pts', tgt_pts, ...
+             'hub_pv', pv, 'hub_ps', ps, 'hub_rad', hub_rad);
 
     function txt = met_block_(L, hub, nf, pr)
         flg = strings(6,1);
