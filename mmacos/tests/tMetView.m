@@ -16,7 +16,8 @@ classdef tMetView < matlab.unittest.TestCase
             cf = onCleanup(@() close(fig)); %#ok<NASGU>
             testCase.verifyClass(fig, 'matlab.ui.Figure');
             ax = findobj(fig, 'Type', 'axes');
-            testCase.verifyNumElements(ax, 2, '3-D scene + face-on panel');
+            testCase.verifyNumElements(ax, 3, ...
+                '3-D scene + face-on panel + M2-M3 inset');
             d = dir(f);
             testCase.assertNotEmpty(d, 'PNG must be written');
             testCase.verifyGreaterThan(d.bytes, 1000, 'PNG must be non-trivial');
