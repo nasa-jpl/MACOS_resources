@@ -184,7 +184,9 @@ plot(axi, Fi(1,:), Fi(2,:), 's', 'MarkerSize', 6, ...
      'MarkerFaceColor', [0.85 0.15 0.15], 'MarkerEdgeColor', 'k', ...
      'LineStyle', 'none');
 axis(axi, 'equal');  box(axi, 'on');
-axi.XTick = [];  axi.YTick = [];
+axi.FontSize = 6;
+xlabel(axi, 'hub-plane x, mm', 'FontSize', 7);
+ylabel(axi, 'hub-plane y, mm', 'FontSize', 7);
 title(axi, 'M2-M3 MET face-on', 'FontSize', 8);
 
 %% ---------------- right: face-on primary layout --------------------

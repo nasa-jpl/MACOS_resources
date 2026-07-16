@@ -25,15 +25,19 @@ segmentations imported from .in files (Dave 2026-07-16).
    tiling is a **HEXAGON, not a disc** — apothem at the tiling midline
    `width/2`, corners toward the wedge–wedge junctions.  The
    `seg_boundary` tiling reconstruction (center hexagon at the
-   physical `(width−gap)/2`, wedges with the gap at INTERNAL shared
-   edges only) overlays the traced footprints.
+   physical `(width−gap)/2`; ring-1 wedges meet it along straight
+   CHORDS — the hexagon's flats plus the gap, not an inner arc — with
+   the gap at INTERNAL shared edges only) overlays the traced
+   footprints exactly.
 3. **Emit the apertures** (`e5pie_step3_apertures.png`,
    `e5pie_polyap.in`): `segment_rx(..., 'emit_apertures', true)` →
    `macos.design.seg_apertures`.  Center = the hexagon (6 vertices;
    `SetCvxPolyApVtx` generates its ApVec — no circular special case);
-   wedges = convex chorded sectors + convex inner-sector `PolyObsVec`
-   obscurations (annular sectors are non-convex; engine convention is
-   convex aperture minus convex obscurations).  Every polygon ships
+   wedges = convex chorded sectors + convex `PolyObsVec` obscurations
+   (non-convex shapes = convex aperture minus convex obscurations):
+   ring-1 wedges obscure with the apex TRIANGLE to the chord facing
+   the center hexagon's flat; deeper rings with the inner-sector arc
+   (ring-ring boundaries are radial).  Every polygon ships
    with an explicit `xObs` (the ChkDf2 `(psi3,psi1,psi2)` default) so
    parse order never matters.  `ap_pad` knob: 0 = physical edge
    (default), `gap/2` = trace-neutral tiling midline.

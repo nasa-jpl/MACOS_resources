@@ -416,9 +416,16 @@ triads clock; frames now carry `.psi`) + 3-D `PolyApVec`.  Hex = exact
 hex_tile corners; **pie center cell = a HEXAGON** (the (X,L,R)
 hex-coord tiling's central cell, footprint-verified — NOT a disc),
 apothem `(width−gap)/2`, flats facing ring-1 wedge centers; pie wedges
-= convex chorded sector + convex inner-sector `PolyObsVec` (non-convex
-= convex ap minus convex obs).  Gap sits at INTERNAL shared edges only
-(g/2 each side; tiling rim carries none).  `ap_pad` 0 = physical (gap
+= convex chorded sector + convex `PolyObsVec` (non-convex = convex ap
+minus convex obs); **ring-1 wedges abut the hexagon along straight
+CHORDS** (flat (w−g)/2 + gap g → chord at (w+g)/2; obscuration = apex
+TRIANGLE, NOT an inner arc — an arc draws a spurious circle around
+Seg 1, Dave), deeper rings obscure with the inner-sector arc.  Gap
+sits at INTERNAL shared edges only (g/2 each side; tiling rim carries
+none).  rxpoly GOTCHA: the polyshape subtract of %.10E-rounded Rx
+vertices can leave numeric slivers as extra regions — seg_boundary
+takes the LARGEST region, never `boundary(shp,1)` blindly (a sliver as
+boundary #1 made one tile vanish from met_view).  `ap_pad` 0 = physical (gap
 rays clip, correct — Dave); `gap/2` = trace-neutral midline.
 `seg_boundary` gained `source="auto"|"tiling"|"rxpoly"`: **auto uses
 'rxpoly'** when every segment block declares PolyApVec — boundary =

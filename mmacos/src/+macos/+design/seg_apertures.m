@@ -22,7 +22,11 @@ function ap = seg_apertures(seg, opts)
 %                flats facing the ring-1 wedge centers; ring wedges =
 %                convex chorded SECTOR to the outer arc (circumscribed
 %                chords so the polygon never cuts inside the arc), with
-%                a convex inner-sector PolyObsVec when obs=true.
+%                a convex PolyObsVec when obs=true: ring 1 abuts the
+%                center hexagon along a straight CHORD (its flat + gap),
+%                so its obscuration is the apex TRIANGLE to that chord
+%                -- NOT an arc; deeper rings obscure with the
+%                inner-sector arc (ring-ring boundaries are radial).
 %
 %   Options:
 %     pad     (0)     outward clearance, same units: 0 = the physical
@@ -92,7 +96,6 @@ switch kind
                 dth = 2*pi / nnz(m);
                 a0 = atan2(C2(2,s), C2(1,s));
                 ha = dth/2 - (g/2 - pad)/rc(s);
-                ri = rc(s) - w/2 + g/2 - pad;         % inner edge: internal
                 ro = rc(s) + w/2 + pad;               % outer edge: rim...
                 if any(rings > rc(s) + 1e-6*max(rc))  % ...unless a ring outside
                     ro = ro - g/2;
@@ -102,7 +105,20 @@ switch kind
                 Pout = (ro/cos((thc(2)-thc(1))/2)) * [cos(thc); sin(thc)];
                 poly{s} = lift([[0;0], Pout]);        % apex + arc
                 if opts.obs
-                    obs{s} = lift([[0;0], ri*[cos(thc); sin(thc)]]);
+                    inner_ring = ~any(rings < rc(s) - 1e-6*max(rc));
+                    if inner_ring && any(isctr)
+                        % ring 1 abuts the center HEXAGON: the physical
+                        % inner edge is the straight chord facing its
+                        % flat ((w-g)/2 + gap g), NOT an arc -- the
+                        % obscuration is the apex TRIANGLE to the chord
+                        d  = (w + g)/2 - pad;
+                        er = [cos(a0); sin(a0)];  et = [-sin(a0); cos(a0)];
+                        obs{s} = lift([[0;0], d*er - d*tan(ha)*et, ...
+                                              d*er + d*tan(ha)*et]);
+                    else
+                        ri = rc(s) - w/2 + g/2 - pad; % ring-ring arc edge
+                        obs{s} = lift([[0;0], ri*[cos(thc); sin(thc)]]);
+                    end
                 else
                     obs{s} = [];
                 end
