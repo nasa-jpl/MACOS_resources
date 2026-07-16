@@ -1,70 +1,80 @@
-# e5_pie — poly apertures on pie segments (assessment, 2026-07-16)
+# e5_pie — pie segmentation with physical polygonal apertures
 
-> Companion to `../e5_seg/` (hex).  Re-runnable end-to-end: the runner
-> (`assess_e5pie_polyap.m`, after `mmacos_setup`) regenerates the
-> variant Rx, the parity numbers, and the figures beside this script.
+> Companion to `../e5_seg/` (hex).  Manual worked example: run
+> `e5_pie.m` after `mmacos_setup` — it regenerates every figure and
+> `findings.txt` beside this script.
 
-**Question (Dave):** should each segment carry a polygonal aperture in
-the Rx, with that polygon as the basis for launcher placement — the
-general case, covering .in-defined segmentations too?
+A segmented prescription built by `macos.design.segment_rx` carries
+segment-ness in the SOURCE tiling only: every segment element is a
+full mathematical surface with no aperture, and rays are assigned to
+segments by the tiling.  That is trace-exact at nominal but
+physically dishonest under perturbation — a ray can walk off its
+segment and keep tracing against a surface that has no glass there.
+This example declares each segment's PHYSICAL boundary as a polygonal
+aperture in the Rx, and then uses those declared polygons as the basis
+for MET launcher placement — the general case, which also covers
+segmentations imported from .in files (Dave 2026-07-16).
 
-**Verdict: yes — the engine machinery is ready.  (The ray loss first
-flagged as an open engine question is resolved: Dave's OPD review
-shows the lost rays fall into the inter-segment GAPS — physically
-correct clipping, not a bug.  Productization is ungated.)**
+## The steps (`e5_pie.m`, one figure each)
 
-Prototype: `assess_e5pie_polyap.m` (run after `mmacos_setup`).  Builds
-the SegMirMaker e5 PIE system through `segment_rx`, emits a variant
-where EVERY segment carries `ApType=Polygonal` + explicit `xObs` +
-`PolyApVec`: ring wedges as convex chorded sectors (optional convex
-`PolyObsVec` inner-sector obscuration — annular sectors are
-non-convex, engine convention is convex aperture minus convex
-obscurations), and the center segment as a circumscribed regular
-24-gon (Dave 2026-07-16: no circular special case for Elt 1;
-`SetCvxPolyApVtx` generates its `ApVec`).  Artifacts beside the
-script:
-`e5pie_polyap.in`, `e5pie_met_layout.png` (first real-fixture pie
-`seg_boundary`/`met_view` render), `clipped_mask.png`, `findings.txt`.
+1. **Segment** the e5 monolith into a 1-ring PIE (7 segments = center
+   + 6 wedges), `gap=50`.
+2. **Measure the true footprints** (`e5pie_step2_footprints.png`):
+   poke each segment, diff the piston-removed OPD (split on deviation
+   from the median).  The central cell of the (X,L,R) hex-coordinate
+   tiling is a **HEXAGON, not a disc** — apothem at the tiling midline
+   `width/2`, corners toward the wedge–wedge junctions.  The
+   `seg_boundary` tiling reconstruction (center hexagon at the
+   physical `(width−gap)/2`, wedges with the gap at INTERNAL shared
+   edges only) overlays the traced footprints.
+3. **Emit the apertures** (`e5pie_step3_apertures.png`,
+   `e5pie_polyap.in`): `segment_rx(..., 'emit_apertures', true)` →
+   `macos.design.seg_apertures`.  Center = the hexagon (6 vertices;
+   `SetCvxPolyApVtx` generates its ApVec — no circular special case);
+   wedges = convex chorded sectors + convex inner-sector `PolyObsVec`
+   obscurations (annular sectors are non-convex; engine convention is
+   convex aperture minus convex obscurations).  Every polygon ships
+   with an explicit `xObs` (the ChkDf2 `(psi3,psi1,psi2)` default) so
+   parse order never matters.  `ap_pad` knob: 0 = physical edge
+   (default), `gap/2` = trace-neutral tiling midline.
+4. **Trace parity** (`e5pie_step4_clipped.png`): with `ap_pad=0`, the
+   rays the source tiling places in the inter-segment gaps clip —
+   physically correct (Dave's OPD review closed this: NOT an engine
+   bug).  They report `RayFailElt = nElt+1`, a cosmetic return-leg
+   attribution.  The surviving wavefront is unchanged.
+5. **Perturbation honesty** (`e5pie_step5_poke.png`): a 100 mm wedge
+   decenter.  The aperture-less trace keeps ~400 rays that have no
+   glass under them; with the apertures the loss lands at the declared
+   edge.
+6. **Launchers on the Rx-declared edges** (`e5pie_step6_met.png`):
+   with polygons in the Rx, `macos.design.seg_boundary` auto-switches
+   to its **`rxpoly`** source — the boundary is the declared aperture
+   polygon minus its obscuration (the physical annular band), read
+   back from the prescription itself — so `add_met` places launchers
+   on the edges the Rx defines, and `met_view` renders the MET scene.
 
-## What works (verified)
+## Assessment history (2026-07-16)
 
-1. **Parse + projection + round-trip**: `PolyApVec` 3-D emission with
-   an explicit `xObs` (ChkDf2's (psi3,psi1,psi2) convention) loads
-   clean; `SetCvxPolyApVtx` centroids/projects correctly (my first
-   "ApVec(3) never set" hypothesis was WRONG — it rewrites ApVec
-   properly); all 7 segment polygons (wedges + center 24-gon) read
-   back from the Rx to sub-µm.  A `seg_boundary('rxpoly')` reader is
-   trivially feasible.
-2. **Segment-level trace neutrality**: at nominal, ZERO rays are
-   clipped at the segment elements (1–7) — per-ray `fail_elt`
-   histogram.  The wedge polygons (half-span pi/nring − (g/2−PAD)/rc,
-   radial band width/2 ± PAD, circumscribed outer chords) match the
-   source pie tiling.
-3. **The clipping mechanism is live** on segments (poke demos show
-   differential loss vs the aperture-less baseline).
-4. **Pie `seg_boundary`/`met_view`/edge launcher placement** work on
-   the real SegMirMaker pie fixture (previously only synthetic).
+This example grew out of the poly-aperture feasibility assessment
+(`assess_e5pie_polyap.m`, retired at commit history; verdict YES).
+What it established:
 
-## The ray loss — RESOLVED (Dave, 2026-07-16)
+- `PolyApVec` 3-D emission + explicit `xObs` loads clean;
+  `SetCvxPolyApVtx` centroids/projects correctly (a first "ApVec never
+  set" hypothesis was WRONG); polygons round-trip from the Rx to
+  6e-8 mm.
+- At the tiling midline (`pad = gap/2`) the apertures clip ZERO rays
+  at the segment elements — the polygons match the source tiling.
+- The `RayFailElt = nElt+1` ray loss is the gap rays being correctly
+  clipped (Dave's OPD review) — not an engine bug.
+- Gotchas: `macos.trace().nRays` is the SOURCE ray count, not passing
+  — use `get_ray_info().ok_pass` / `get_ray_status().fail_elt` for
+  parity claims; SegMirMaker `.presc` segment blocks carry NO
+  ApType/nObs lines (ChkDf2 defaults them) — append, don't
+  find-and-replace.
 
-With segment poly apertures present, 442 of 12,520 rays (3.5%) are
-lost with `RayFailElt = 14` on a 13-element system (a virtual/
-return-leg index of the OPD calculation; the e5 train has Return
-elements at 11/12).  Dave's review of the variant OPD: **the lost
-rays fall into the inter-segment GAPS** — the polygons are doing
-exactly their job on rays the aperture-less baseline let sail through
-the gaps, and the 1.4% rms shift is the ray SET becoming physically
-honest.  Not an engine bug; no root-cause needed.  (The
-`RayFailElt=14` attribution — one past the train — remains a cosmetic
-oddity of where the return leg records the failure, worth a note if
-it ever confuses a diagnostic.)
+## Tests
 
-## Productization plan (ungated)
-
-1. `seg_boundary('rxpoly')`: read `PolyApVec`/`ApVec` polygons from
-   segment blocks — launcher placement from Rx-declared edges (works
-   for imported segmented prescriptions immediately; no engine work).
-2. `segment_rx('emit_apertures', true)`: write the tile polygons into
-   the segmented Rx (hex corners exact; pie = chorded sectors +
-   inner-sector obscurations), with a clearance pad knob.
-3. Trace-parity test in tSegmentRx gated on the elt-14 fix.
+`tSegmentRx/test_emit_apertures_and_rxpoly` (engine parity + rxpoly
+round-trip + forced-source refusals) and
+`tSegmentRx/test_seg_apertures_hex` (hex-corner geometry, no engine).

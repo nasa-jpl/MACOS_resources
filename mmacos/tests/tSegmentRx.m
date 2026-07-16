@@ -112,6 +112,84 @@ classdef tSegmentRx < matlab.unittest.TestCase
             tc.verifyLessThan(max(abs(r - mean(r)))/mean(r), 1e-7);
         end
 
+        function test_emit_apertures_and_rxpoly(tc)
+            % segment_rx emit_apertures declares each segment's PHYSICAL
+            % boundary as a polygonal aperture (pie: center HEXAGON +
+            % chorded sectors with inner-sector obscurations), and
+            % seg_boundary auto-switches to its 'rxpoly' source so
+            % launcher placement uses the Rx-declared edges.
+            s = macos.design.segment_rx(fullfile(tc.tin, 'e5mono.in'), ...
+                'elt', 1, 'rings', 1, 'grid', 'Pie', 'gap', 50, ...
+                'dofs', 6, 'meas_config', 1, 'emit_apertures', true);
+            tc.verifyEqual(s.nseg, 7);
+            txt = fileread(s.in);
+            tc.verifyEqual(count(txt, 'ApType=  Polygonal'), 7);
+            tc.verifyEqual(count(txt, 'PolyApVec='), 7);
+            tc.verifyEqual(count(txt, 'PolyObsVec='), 6);   % wedges only
+            % center = hexagon; wedges = apex + chorded arc
+            tc.verifyEqual(size(s.apertures.poly{1}, 2), 6);
+            tc.verifyEqual(size(s.apertures.poly{2}, 2), 14);
+            % rxpoly reader: auto-detected; the center hexagon must
+            % round-trip vertex-for-vertex (polyshape may re-order)
+            B = macos.design.seg_boundary(s);
+            tc.verifyEqual(B.kind, 'rxpoly');
+            P = B.poly{1}(:, 1:end-1);
+            Q = s.apertures.poly{1};
+            tc.verifyEqual(size(P, 2), 6);
+            for q = 1:6
+                tc.verifyLessThan(min(vecnorm(P - Q(:,q))), 1e-6, ...
+                    sprintf('center hex vertex %d does not round-trip', q));
+            end
+            % the wedge boundary is the aperture MINUS its obscuration
+            % (the physical annular band): no boundary point may sit
+            % well inside the obscured inner sector
+            O2 = [B.u.'; B.v.'] * (s.apertures.obs{2} - B.c0);
+            W2 = [B.u.'; B.v.'] * (B.poly{2} - B.c0);
+            ri = max(vecnorm(O2));
+            tc.verifyGreaterThan(min(vecnorm(W2)), 0.9*ri, ...
+                'wedge rxpoly boundary must exclude the obscured inner sector');
+            % source can be forced; rxpoly on an aperture-less Rx refuses
+            Bt = macos.design.seg_boundary(s, 0, 'source', 'tiling');
+            tc.verifyEqual(Bt.kind, 'pie');
+            tc.verifyError(@() macos.design.seg_boundary(tc.seg, 0, ...
+                'source', 'rxpoly'), 'macos:design:seg_boundary:rxpoly');
+            % engine parity: the variant loads + traces; ONLY the
+            % source-tiling gap rays clip (physical honesty), the
+            % vast majority of rays survive
+            old = cd(s.run.workdir);
+            restore = onCleanup(@() cd(old));
+            macos.init(512);
+            macos.load_rx(s.in);
+            t = macos.trace();
+            ri_ = macos.get_ray_info(t.nRays);
+            frac = nnz(ri_.ok_pass) / t.nRays;
+            tc.verifyGreaterThan(frac, 0.90, 'apertures clipped far more than the gaps');
+            tc.verifyLessThan(frac, 1.0, 'physical apertures must clip the gap rays');
+        end
+
+        function test_seg_apertures_hex(tc)
+            % hex tiles: exact hex corners, no obscurations (pure
+            % geometry -- no engine, runs on the shared 2-ring seg)
+            ap = macos.design.seg_apertures(tc.seg);
+            tc.verifyEqual(ap.kind, 'hex');
+            tc.verifyNumElements(ap.blocks, 19);
+            for k = [1 7 19]
+                tc.verifyEqual(size(ap.poly{k}, 2), 6);
+                tc.verifyEmpty(ap.obs{k});
+                tc.verifyTrue(any(contains(ap.blocks{k}, "ApType=  Polygonal")));
+                tc.verifyTrue(any(contains(ap.blocks{k}, "xObs=")));
+            end
+            % apothem = width/2: every corner sits at width/2/cos(30)
+            % from its segment center, in the tiling plane
+            T = macos.design.hex_tile(tc.seg);
+            prj = @(P) [T.u.'; T.v.'] * (P - T.c0);
+            for k = [1 7 19]
+                r = vecnorm(prj(ap.poly{k}) - prj(tc.seg.frames(k).rpt));
+                tc.verifyLessThan(max(abs(r - (tc.seg.width/2)/cos(pi/6))), ...
+                    1e-6, sprintf('hex corner radius off on segment %d', k));
+            end
+        end
+
         function test_apstop_handling_and_refusals(tc)
             % ApStop's element form is a 2-vector offset carried INSIDE
             % the stop element's own block (StopElt = that element by

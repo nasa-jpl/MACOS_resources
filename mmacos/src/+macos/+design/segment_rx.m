@@ -23,7 +23,12 @@ function out = segment_rx(parent_in, opts)
 %   path (default <name>_seg.in in the SegMirMaker scratch dir, which
 %   already holds macos_param.txt + the GridFile= data, so it is a
 %   self-contained load directory — the engine resolves GridFile from
-%   the cwd); plus the segmentation options forwarded to
+%   the cwd); emit_apertures (false) — declare each segment's PHYSICAL
+%   boundary as a polygonal aperture in the merged .in
+%   (macos.design.seg_apertures: hex corners exact; pie = center hexagon
+%   + chorded sectors with inner-sector obscurations), with ap_pad (0 =
+%   physical edge; gap/2 = trace-neutral tiling midline) and ap_obs
+%   (true) knobs; plus the segmentation options forwarded to
 %   segmirmaker_run: rings, grid, gap, dofs, meas_config, seg_size,
 %   ap_diam, psi, segxgrid, f, ecc, standoff, binary.
 %
@@ -59,6 +64,9 @@ arguments
     opts.ecc double = []
     opts.standoff double = []
     opts.binary (1,1) string = ""
+    opts.emit_apertures (1,1) logical = false
+    opts.ap_pad (1,1) double = 0
+    opts.ap_obs (1,1) logical = true
 end
 
 % --- 0. read + vet the parent BEFORE paying for the SegMirMaker run ------
@@ -195,7 +203,8 @@ writelines(merged, out_in);
 
 % --- 5. per-segment frames (as emitted) ----------------------------------
 frames = repmat(struct('name', "", 'rpt', zeros(3,1), 'xhat', zeros(3,1), ...
-                       'yhat', zeros(3,1), 'zhat', zeros(3,1), 'lmon', NaN), ...
+                       'yhat', zeros(3,1), 'zhat', zeros(3,1), ...
+                       'psi', zeros(3,1), 'lmon', NaN), ...
                 1, nseg);
     function v = vec3(blk, key)
         t = regexp(blk(startsWith(strtrim(blk), key + "=")), ...
@@ -211,6 +220,9 @@ for k = 1:nseg
     frames(k).xhat = vec3(b, "xMon");
     frames(k).yhat = vec3(b, "yMon");
     frames(k).zhat = vec3(b, "zMon");
+    frames(k).psi  = vec3(b, "psiElt");   % surface normal keyword — the
+                                          % ChkDf2 default xObs source
+                                          % (NOT zMon: face triads clock)
     lm = regexp(b(startsWith(strtrim(b), "lMon=")), ...
                 'lMon=\s*(\S+)', 'tokens', 'once');
     frames(k).lmon = str2double(string(lm{1}));
@@ -228,4 +240,27 @@ out = struct('in', char(out_in), 'nseg', nseg, ...
              'width', gv("width"), 'gap', gv("gap"), ...
              'grid', char(opts.grid), ...
              'dropped_apstop', dropped_apstop, 'run', run_out);
+
+% --- 6. optional: declare each segment's physical boundary as a
+%        polygonal aperture (macos.design.seg_apertures) ------------------
+% Appended at the END of each segment block: SegMirMaker .presc blocks
+% carry no ApType/nObs lines (ChkDf2 defaults them), so there is nothing
+% to replace — and the parser is last-wins anyway.
+if opts.emit_apertures
+    ap = macos.design.seg_apertures(out, 'pad', opts.ap_pad, ...
+                                    'obs', opts.ap_obs);
+    tlm = strtrim(merged);
+    mstarts = find(startsWith(tlm, "iElt="));
+    for s = nseg:-1:1                        % bottom-up, indices stay valid
+        k = out.seg_elts(s);
+        b1 = numel(merged); if k < numel(mstarts), b1 = mstarts(k+1) - 1; end
+        ie = b1;
+        while ie > mstarts(k) && strlength(strtrim(merged(ie))) == 0
+            ie = ie - 1;
+        end
+        merged = [merged(1:ie); ap.blocks{s}; merged(ie+1:end)];
+    end
+    writelines(merged, out_in);
+    out.apertures = ap;
+end
 end

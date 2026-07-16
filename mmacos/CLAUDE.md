@@ -408,6 +408,30 @@ Text (R2026a) — met_view/view_rx mirror the title onto `fig.Name`;
 assert on that in tests.  Engine leg = `met_geom_get` in macos_api_mod
 (same rebuild chain as any api_mod change).
 
+### Segment physical apertures + rxpoly (2026-07-16, e5_pie example)
+`segment_rx(..., 'emit_apertures', true)` → `design.seg_apertures`:
+every segment's PHYSICAL boundary lands in the merged .in as
+`ApType=Polygonal` + explicit `xObs` (**from psiElt, NOT zMon** — face
+triads clock; frames now carry `.psi`) + 3-D `PolyApVec`.  Hex = exact
+hex_tile corners; **pie center cell = a HEXAGON** (the (X,L,R)
+hex-coord tiling's central cell, footprint-verified — NOT a disc),
+apothem `(width−gap)/2`, flats facing ring-1 wedge centers; pie wedges
+= convex chorded sector + convex inner-sector `PolyObsVec` (non-convex
+= convex ap minus convex obs).  Gap sits at INTERNAL shared edges only
+(g/2 each side; tiling rim carries none).  `ap_pad` 0 = physical (gap
+rays clip, correct — Dave); `gap/2` = trace-neutral midline.
+`seg_boundary` gained `source="auto"|"tiling"|"rxpoly"`: **auto uses
+'rxpoly'** when every segment block declares PolyApVec — boundary =
+declared polygon MINUS its obscuration (polyshape subtract), so
+add_met/met_view place launchers on Rx-DECLARED edges (works for
+imported segmented Rx).  Worked example: `design/examples/e5_pie/`
+(manual-grade, figure per step).  GOTCHA there: the engine OPD grid
+maps x along the ROW index and e5's `xGrid=(−1,0,0)` — overlaying
+tiling geometry on OPD maps needs the affine centroid calibration in
+`e5_pie.m:pupil_axes_` (transpose + mirror aware), not a hard-coded
+±R/N pixel map.  Tests: tSegmentRx test_emit_apertures_and_rxpoly +
+test_seg_apertures_hex.
+
 ### Optical-design reference & fixtures (Sprint 2A-ii builder)
 The de-novo `macos.design.Telescope` builder (closed-form Cass / RC /
 Gregorian / DK layout + conics) is backed by a self-checked reference
