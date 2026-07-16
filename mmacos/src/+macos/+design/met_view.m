@@ -151,8 +151,41 @@ xlabel(ax3, 'X'); ylabel(ax3, 'Y'); zlabel(ax3, 'Z');
 hh = hf;  lb = {'fiducials'};
 if ~isempty(hb1), hh(end+1) = hb1; lb{end+1} = 'segment trusses (color = segment)'; end
 if ~isempty(hb2), hh(end+1) = hb2; lb{end+1} = 'extra-source truss'; end
-legend(ax3, hh, lb, 'Location', 'northeastoutside');   % clear of the scene
+lg = legend(ax3, hh, lb, 'Location', 'northeastoutside'); % clear of the scene
 title(ax3, '3-D MET scene');
+
+% small inset below the legend: the M2-M3 MET, face-on in the HUB plane
+% (M2 disc at its real radius, rim fiducials, the extra/M3 launcher
+% ring + its gauge beams projected along the hub normal) -- makes the
+% aft-truss geometry readable at a glance (Dave 2026-07-16).
+drawnow;                                  % realize the legend position
+lp = lg.Position;
+iw = max(lp(3), 0.11);
+axi = axes(fig, 'Position', ...
+    [lp(1), max(lp(2) - iw - 0.09, 0.05), iw, iw]);
+hold(axi, 'on');
+pj  = @(P) [ux.'; uy.'] * (P - hc);       % hub-plane coords (disc basis)
+thc = linspace(0, 2*pi, 72);
+plot(axi, rd*cos(thc), rd*sin(thc), '-', 'Color', [0.5 0.45 0.3]);
+if ~isempty(i2)
+    Si = pj(am.src_pts(:, i2));
+    Ti = pj(am.tgt_pts(:, i2));
+    nb2 = size(Si, 2);
+    Xb = [Si(1,:); Ti(1,:); nan(1,nb2)];
+    Yb = [Si(2,:); Ti(2,:); nan(1,nb2)];
+    plot(axi, Xb(:), Yb(:), '-', 'Color', [0.90 0.55 0.10 0.5], ...
+         'LineWidth', 0.6);
+    plot(axi, Si(1,:), Si(2,:), 'o', 'MarkerSize', 4, ...
+         'MarkerFaceColor', [0.90 0.55 0.10], 'MarkerEdgeColor', 'none', ...
+         'LineStyle', 'none');
+end
+Fi = pj(fid);
+plot(axi, Fi(1,:), Fi(2,:), 's', 'MarkerSize', 6, ...
+     'MarkerFaceColor', [0.85 0.15 0.15], 'MarkerEdgeColor', 'k', ...
+     'LineStyle', 'none');
+axis(axi, 'equal');  box(axi, 'on');
+axi.XTick = [];  axi.YTick = [];
+title(axi, 'M2-M3 MET face-on', 'FontSize', 8);
 
 %% ---------------- right: face-on primary layout --------------------
 ax2 = nexttile(tl);  hold(ax2, 'on');
