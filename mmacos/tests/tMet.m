@@ -154,8 +154,11 @@ classdef tMet < matlab.unittest.TestCase
                 'elt', 1, 'rings', 1, 'grid', 'Pie', 'gap', 50, ...
                 'dofs', 6, 'meas_config', 1);
             % after the 7-seg splice: m2 = elt 8 (hub), fpa = elt 11
+            % r_extra explicit: elt 11 (aft Return) has no ApVec/lMon
+            % for add_met's hug-the-element auto-sizing
             am = macos.design.add_met(seg.in, seg, 'hub', 8, ...
-                'r_fid', 300, 'nf', 3, 'extra_sources', 11);
+                'r_fid', 300, 'nf', 3, 'extra_sources', 11, ...
+                'r_extra', 100);
             tc.verifyEqual(am.n_beams, 7*6 + 6);
             old = cd(seg.run.workdir); restore = onCleanup(@() cd(old));
             macos.load_rx(am.in);

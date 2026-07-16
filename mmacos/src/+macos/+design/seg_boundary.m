@@ -23,6 +23,13 @@ function B = seg_boundary(seg, off)
 %                 the perimeter -- grid-agnostic launcher placement
 %     B.kind      'hex' | 'pie'
 %
+%   PLANNED (Dave 2026-07-16): an 'rxpoly' source for segmentations
+%   defined as .in-file polygonal apertures (ApType=Polygonal ApVec /
+%   PolyApVec vertices on each segment element) -- the boundary then
+%   comes from the Rx aperture definition itself, not the tiling
+%   reconstruction, so launchers land on the edges the Rx declares.
+%   Dispatch on aperture presence before the GridType branch when built.
+%
 %   See also: macos.design.hex_tile, macos.design.add_met,
 %             macos.design.met_view.
 arguments

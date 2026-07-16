@@ -24,8 +24,13 @@ RINGS   = 1;          % 1 -> 7 segments, 2 -> 19
 GRID    = 'Hex';      % segment tiling / ray grid (Hex|Pie|...)
 GAP     = 50;         % inter-segment gap, mm
 MEASCFG = 2;          % edge sensors: 1 inner edges, 2 all adjacencies
-NF      = 3;          % MET fiducials on the hub (3..6)
-R_FID   = 300;        % hub fiducial ring radius, mm
+NF      = 6;          % MET fiducials on the hub (Dave: >=3, likely 6)
+R_FID   = 590;        % hub fiducial ring radius, mm -- fiducials must
+                      % MOUNT ON M2 near its edge (~25 mm inside the
+                      % 615 mm ApVec rim; no structure beyond)
+R_EXTRA = 100;        % aft ("M3") launcher ring radius, mm -- must hug
+                      % that body (elt 11 is a Return with no ApVec/
+                      % lMon to auto-size from; aft bench is ~90 mm)
 EDGE_OFF = 5;         % launcher clearance outward of the segment edge, mm
 SIG_ROT   = 1e-6;     % prior (deploy) uncertainty: rad per rot DOF
 SIG_TRANS = 1e-6;     % ... metres per trans DOF
@@ -51,7 +56,8 @@ extra = seg.n_elt - 2;            % fpa (Return before exitpupil/FP)
 fprintf('[2] MET truss: 6 launchers/seg + 6 around elt %d -> %d fiducials on elt %d\n', ...
     extra, NF, hub);
 am = macos.design.add_met(seg.in, seg, 'hub', hub, 'r_fid', R_FID, ...
-    'nf', NF, 'extra_sources', extra, 'edge_off', EDGE_OFF);
+    'nf', NF, 'extra_sources', extra, 'r_extra', R_EXTRA, ...
+    'edge_off', EDGE_OFF);
 
 %% ---------------- 3. load + sensing Jacobians ----------------------
 old = cd(seg.run.workdir);        % GridFile= resolves from cwd
