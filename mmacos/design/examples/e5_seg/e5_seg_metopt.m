@@ -33,6 +33,18 @@
 
 EDGE_OFF = 5;                      % launcher clearance off the optical edge, mm
 MIN_SEP  = 50;                     % min launcher-launcher separation, mm
+PATTERN_FRAME = 'radial';          % launcher-pattern reference per segment:
+                                   %  'radial'  = its radial centerline (max
+                                   %              symmetry wrt the array)
+                                   %  'segment' = its OWN face-frame x-axis --
+                                   %              every segment in a ring gets
+                                   %              the IDENTICAL pattern wrt its
+                                   %              clocking (builder-uniform
+                                   %              parts, Dave 2026-07-16)
+FAMILIES = ["spread" "cluster"];   % keep BOTH: clustered pairs stay a
+                                   % first-class option -- co-located pairs
+                                   % help decouple segment DEFORMATION from
+                                   % rigid-body DOFs in the estimator (Dave)
 PHI_GRID  = deg2rad(10:10:170);    % 'spread': candidate pair angles
 PSI_GRID  = deg2rad(20:20:160);    % 'cluster': mirrored cluster centers
 C0_GRID   = [0 pi];                % 'cluster': on-centerline cluster
@@ -79,9 +91,19 @@ T = macos.design.hex_tile(seg, EDGE_OFF);
 C2 = [T.u.'; T.v.'] * ([seg.frames.rpt] - T.c0);
 rad_ang = atan2(C2(2,:), C2(1,:));
 rad_ang(vecnorm(C2) < 1e-6) = 0;
+% launcher-pattern reference angle per segment (PATTERN_FRAME)
+if strcmpi(PATTERN_FRAME, 'segment')
+    ref_ang = zeros(1, nseg);            % segment face-frame x in tiling plane
+    for s2 = 1:nseg
+        xs = seg.frames(s2).xhat;
+        ref_ang(s2) = atan2(dot(xs, T.v), dot(xs, T.u));
+    end
+else
+    ref_ang = rad_ang;
+end
 ctx = struct('pv',pv,'xh',xh,'yh',yh,'seg',seg,'nseg',nseg, ...
     'bodies',bodies,'E',E,'X',X,'G',G,'nw',nw,'sige',sige,'sigl',sigl, ...
-    'rad_ang',rad_ang,'T',T,'C2',C2,'min_sep',MIN_SEP);
+    'ref_ang',ref_ang,'T',T,'C2',C2,'min_sep',MIN_SEP);
 
 % baseline = edge ring, Stewart crossing struts, rim-zone fiducials
 base = struct('family',"spread", 'angs',deg2rad([30 90 150 -30 -90 -150]), ...
@@ -101,6 +123,7 @@ spread_pmaps = { ...
     3, [1 2 2 3 3 1; 1 1 2 2 3 3; 1 2 3 1 2 3]; ...
     6, [1 2 3 4 5 6; 1 4 2 5 3 6; 2 1 4 3 6 5]};
 combos = nchoosek(1:numel(PHI_GRID), 3);
+if ~any(FAMILIES == "spread"), combos = combos([], :); end
 for ci = 1:size(combos,1)
     phis = PHI_GRID(combos(ci,:));
     for nfi = 1:size(spread_pmaps,1)
@@ -118,6 +141,7 @@ n_spread = numel(cands);
 % Structured assignment (tractable, symmetry-aware): cluster k gets the
 % pair (1+o_k, 1+mod(o_k+d, nf)) -- one index STRIDE d shared by all
 % clusters, free per-cluster offsets o_k, both beam orders.
+if ~any(FAMILIES == "cluster"), C0_GRID = []; end
 for c0v = C0_GRID
   for psi = PSI_GRID
     for dl = DELTA_GRID
@@ -233,7 +257,7 @@ function [ok, LP, src] = place_(lay, c)
 src = zeros(3, 6*c.nseg);
 LP = cell(1, c.nseg);
 for s3 = 1:c.nseg
-    phi = c.rad_ang(s3) + lay.angs;                   % 6 tiling angles
+    phi = c.ref_ang(s3) + lay.angs;                   % 6 tiling angles
     r  = c.T.boundary(phi, s3);                       % offset-hex boundary
     P2 = c.C2(:, s3) + r.*[cos(phi); sin(phi)];
     P6 = c.T.c0 + c.T.u*P2(1,:) + c.T.v*P2(2,:);
