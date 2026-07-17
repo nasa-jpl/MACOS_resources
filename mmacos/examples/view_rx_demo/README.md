@@ -6,17 +6,24 @@ design-layer structs: beam, optics, and MET paths if present (Dave
 demo 3-D visualizer (Lou-UpdateNotes.txt, never generalized): all data
 comes from the engine itself.
 
-- **beam** — the engine DRAW command's real traced meridian fans in
-  true global 3-D (`macos.draw_rays3d`, backed by the new engine
-  `Draw3DVec` capture + `draw_rays3d_get`), both fans, correct for
-  folded / off-axis systems;
-- **optics** — per-element surface cross-section curves through the
-  actual beam footprint.  Works for every element type the trace
-  crosses, Segment / non-sequential included — which per-element
-  `macos.trace(k)` harvesting cannot do (the engine's OPD command
-  refuses NSRefractor/Segment/NSReflector targets, and used to
-  infinite-loop on them in batch mode; both fixed alongside this
-  example);
+- **beam** — a sparse-but-FILLED ray bundle in true global 3-D: a
+  rings-and-spokes pattern (chief + 3 rings × 8 spokes by default) cut
+  from the engine's per-trace ray-position history (`macos.ray_hist`,
+  backed by the engine `RayPosHist` capture — John Lou's Vis3D
+  substrate, now API-exposed).  The full traced grid is available, so
+  any pattern can be cut; `'rim'` and the legacy dual meridian
+  `'fans'` remain as options.  Correct for folded / off-axis systems.
+- **optics** — each optic rendered as a **solid body** with lighting:
+  the true aperture boundary (Circular/Elliptical/Hexagonal `ApVec`,
+  Polygonal `PolyApVtx`, `lMon` disc, or the ray-footprint hull — all
+  via `macos.get_elt_info`) lifted onto the real conic sag
+  (`KcElt`/`KrElt`, sign calibrated against the actual ray crossings),
+  extruded to a plate of thickness aperture/12.  **Consecutive
+  Refractor pairs join into one glass solid** (front + back surface +
+  barrel).  Passive elements (Reference / Return / FocalPlane /
+  Obscuring) draw as outline frames — they are not hardware.  Works
+  for every element type the trace crosses, Segment / non-sequential
+  included — which per-element `macos.trace(k)` harvesting cannot do;
 - **MET** — gauge beams launcher→fiducial via `macos.met_geom`
   whenever the Rx declares `nMetPos`/`tMetElt`/`metBeamFlg`, colored
   per source element.

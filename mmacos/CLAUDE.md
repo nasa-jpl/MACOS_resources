@@ -393,20 +393,34 @@ relink after pulling: rebuild `build_release_gfortran`, re-run
 ### General Rx viewer — macos.view_rx / met_geom / design.met_view (2026-07-16)
 `macos.view_rx()` = prescription-agnostic 3-D scene from the LOADED Rx
 only (Dave: "work with any prescription — beam, optics, MET paths if
-present"): traced-ray polylines (`macos.trace(k)`+`get_ray_info` bundle),
-one translucent patch per element = convex hull of the rays that HIT it
-(renders any surface type, sized by use, no per-type geometry code),
-and — when the Rx declares `nMetPos`/`tMetElt`/`metBeamFlg` — gauge
-beams from `macos.met_geom()` (engine `met_geom_get`, which mirrors
-SrfMetCalc's enumeration EXACTLY so beam k == `macos.met().l(k)`;
-endpoints ride perturbations).  `macos.design.met_view(seg,am)` = the
-segmented-primary annotated wrapper (hex tiles, face-on launcher panel,
-radial centerlines, `edge_off` dashed hex, `overlay_pts` comparison).
-Tests: tMet (met_geom identity + view_rx smoke), tMetView (geometry-only,
-SUITE_FAST).  GOTCHA: `findall(fig)` CANNOT reach the sgtitle layout
-Text (R2026a) — met_view/view_rx mirror the title onto `fig.Name`;
-assert on that in tests.  Engine leg = `met_geom_get` in macos_api_mod
-(same rebuild chain as any api_mod change).
+present").  **v2 (solid look, Dave-planned):** beam = sparse-but-FILLED
+rings-and-spokes bundle cut from the engine per-trace ray-position
+history (`macos.ray_hist` → api `ray_hist_set`/`ray_pos_hist_get`,
+exposing traceutil_mod `RayPosHist`/`LRayOKHist` — Lou's Vis3D
+substrate; slot 1 = source plane); optics = SOLID sag-following SHELLS
+with lighting + meridian profile curves on BOTH faces (the flat-back
+plate read as a cylinder — Dave) — aperture truth via
+`macos.get_elt_info` (api `elt_info_get`: EltID/ApType/ApVec/xObs/
+lMon/PolyApVtx), conic sag from Kc/Kr with the SIGN calibrated per
+element against the actual crossings (no KrElt convention baked in),
+thickness aperture/12; **consecutive Refractor pairs JOIN into one
+glass solid**; Reference/Return/FocalPlane/Obscuring = outline frames;
+ApType=None → smoothed ray-footprint hull.  Options: bundle
+'rings'|'rim'|'fans', bodies 'solid'|'outline'|'patch'.  GOTCHAS:
+(1) `ray_hist('on')` must DIRTY the trace (`macos.modify()`) or a
+previously-traced session returns an empty history (grid-setter
+retrace class — the veneer does it); (2) engine `PolyApVtx` is
+IN-PLANE (SetCvxPolyApVtx projects out psi; frame xa=xObs⊥psi,
+ya=psi×xa, origin VptElt, minus ApVec(1:2) centroid) — reconstruct
+in-plane, don't expect the emitted 3-D vertices back; (3) the DRAW fan
+resamples its OWN rays — validate ray_hist against it to the
+source-grid pitch, not exact identity.  `macos.design.met_view(seg,am)`
+= the segmented-primary annotated wrapper (tiles, face-on panel, M2-M3
+inset).  Tests: tViewRx (SUITE_FREEFORM, model 256), tMet, tMetView.
+`findall(fig)` CANNOT reach the sgtitle layout Text (R2026a) — titles
+mirror onto `fig.Name`.  Engine leg in macos_api_mod (same rebuild
+chain as any api_mod change; pymacos export of the new routines =
+deferred, mmacos-only for now).
 
 ### Segment physical apertures + rxpoly (2026-07-16, e5_pie example)
 `segment_rx(..., 'emit_apertures', true)` → `design.seg_apertures`:

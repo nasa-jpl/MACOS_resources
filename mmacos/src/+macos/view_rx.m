@@ -4,12 +4,19 @@ function fig = view_rx(opts)
 %   structs required; everything is read back from the engine (the modern
 %   equivalent of the old MACOS 3-D model visualizer):
 %
-%     beam    grey 3-D polylines = the engine DRAW command's real traced
-%             ray fans (macos.draw_rays3d, both meridians), true global
-%             coordinates -- correct for folded / off-axis systems
-%     optics  per-element surface cross-section curves through the fan
-%             crossings (drawn to the beam footprint, any surface type --
-%             Segment and non-sequential elements included), labeled E<k>
+%     beam    a sparse-but-FILLED ray bundle from the engine's per-trace
+%             ray-position history (macos.ray_hist): rings-and-spokes
+%             pattern across the full pupil by default, true global 3-D
+%             polylines -- correct for folded / off-axis systems
+%     optics  each optic rendered as a SOLID BODY: the true aperture
+%             boundary (Circular/Elliptical/Hexagonal ApVec, Polygonal
+%             PolyApVtx, lMon disc, or the ray-footprint hull), lifted
+%             onto the real conic sag (KcElt/KrElt), extruded to a plate
+%             of thickness aperture/12 with lighting.  CONSECUTIVE
+%             REFRACTOR pairs are JOINED into one glass solid (front
+%             surface + back surface + barrel).  Passive elements
+%             (Reference / Return / FocalPlane / Obscuring) draw as
+%             outline frames -- they are not hardware.
 %     MET     if the Rx declares metrology (nMetPos/tMetElt/metBeamFlg):
 %             gauge beams launcher->fiducial via macos.met_geom, colored
 %             per source element, with launcher/fiducial markers
@@ -17,26 +24,45 @@ function fig = view_rx(opts)
 %   fig = macos.view_rx() draws into a new figure and returns it.
 %
 %   Options:
-%     'nrays'   max rays drawn per fan (default 15, subsampled)
+%     'bundle'  ray pattern: 'rings' (default; chief + nrings x nspokes
+%               across the pupil), 'rim' (marginal ring only), 'fans'
+%               (legacy dual meridian DRAW fans)
+%     'nrings'  rings in the bundle (default 3);  'nspokes' (default 8)
+%     'nrays'   ray budget for 'rim'/'fans' subsampling (default 25)
+%     'bodies'  'solid' (default) | 'outline' (rims only) | 'patch'
+%               (legacy cross-section curves)
+%     'thick_frac'  plate thickness as a fraction of the element
+%               aperture (default 1/12)
 %     'elts'    element range [first last] to draw (default all)
-%     'hide'    element indices whose surface curve to omit
-%     'labels'  label element surfaces (default true)
+%     'hide'    element indices to omit
+%     'labels'  label elements (default true)
 %     'met'     draw MET paths when present (default true)
 %     'ax'      draw into an existing axes instead of a new figure
 %     'view'    [az el] initial 3-D view (default [-35 18])
 %     'title'   figure title (default: counts summary)
 %     'save'    PNG path;  'visible' (default true)
 %
-%   Positions are global BaseUnits.  Implementation note: the harvest is
-%   the DRAW fan capture, NOT per-element macos.trace(k) -- OPD refuses
-%   NSRefractor/Segment/NSReflector target elements (and used to
-%   infinite-loop on them in batch mode), while the DRAW trace crosses
-%   every element type.
+%   Positions are global BaseUnits.  Implementation notes: the beam
+%   harvest is the engine ray-position history (RayPosHist via
+%   macos.ray_hist -- the full traced grid, so any sparse pattern can be
+%   cut from it), NOT per-element macos.trace(k) -- OPD refuses
+%   NSRefractor/Segment/NSReflector target elements, while the history
+%   records every element type.  The sag SIGN is calibrated per element
+%   against the actual ray crossings, so no KrElt orientation convention
+%   is baked in.
 %
-%   See also: macos.draw_rays3d, macos.met_geom, macos.design.met_view.
+%   See also: macos.ray_hist, macos.get_elt_info, macos.draw_rays3d,
+%             macos.met_geom, macos.design.met_view.
 
 arguments
-    opts.nrays   (1,1) double  = 15
+    opts.bundle  (1,:) char {mustBeMember(opts.bundle, ...
+                  {'rings','rim','fans'})} = 'rings'
+    opts.nrings  (1,1) double  = 3
+    opts.nspokes (1,1) double  = 8
+    opts.nrays   (1,1) double  = 25
+    opts.bodies  (1,:) char {mustBeMember(opts.bodies, ...
+                  {'solid','outline','patch'})} = 'solid'
+    opts.thick_frac (1,1) double {mustBePositive} = 1/12
     opts.elts    (1,:) double  = []
     opts.hide    (1,:) double  = []
     opts.labels  (1,1) logical = true
@@ -59,8 +85,15 @@ if ~isempty(opts.elts)
     if numel(opts.elts) > 1, k1 = min(nE, opts.elts(2)); end
 end
 
-% ---- harvest: both meridian fans, true 3-D crossings -------------------
-fans = {macos.draw_rays3d('YZ', k0, k1), macos.draw_rays3d('XZ', k0, k1)};
+% ---- harvest: full ray-position history (+ legacy fans if asked) -------
+macos.ray_hist('on');
+t = macos.trace();
+h = macos.ray_hist(t.nRays);
+macos.ray_hist('off');
+fans = {};
+if strcmp(opts.bundle, 'fans')
+    fans = {macos.draw_rays3d('YZ', k0, k1), macos.draw_rays3d('XZ', k0, k1)};
+end
 
 % ---- figure / axes -----------------------------------------------------
 if isempty(opts.ax)
@@ -72,44 +105,91 @@ else
 end
 hold(ax, 'on');
 
-% ---- beam: subsampled fan polylines ------------------------------------
-ndrawn = 0;
-for f = 1:2
-    b = fans{f};
-    live = find(b.nper > 1);
-    if isempty(live), continue; end
-    pick = live(round(linspace(1, numel(live), min(opts.nrays, numel(live)))));
-    for r = unique(pick)
-        p = b.P(:, 1:b.nper(r), r);
-        plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
-              'Color', [0.55 0.55 0.55 0.4], 'LineWidth', 0.4);
-        ndrawn = ndrawn + 1;
+% ---- optics ------------------------------------------------------------
+% classify each element; then draw solids (with lens joins), outlines,
+% or the legacy cross-section curves
+SOLID_M = ["Reflector" "Segment" "NSReflector" "Grating" "RfPolarizer"];
+GLASS   = ["Refractor" "NSRefractor" "TrGrating" "TrPolarizer" ...
+           "CGHNullPlate" "DoeTrGrating" "LensArray" "HOE"];
+kk = max(1, k0):k1;
+kk = kk(~ismember(kk, opts.hide));
+E = struct('k', {}, 'kind', {}, 'B', {}, 'ctr', {});
+for k = kk
+    g = elt_geom_(k, h);
+    if isempty(g), continue; end
+    if     any(strcmp(g.type, SOLID_M)), g.kind = 'mirror';
+    elseif any(strcmp(g.type, GLASS)),   g.kind = 'glass';
+    else,                                g.kind = 'passive';
+    end
+    E(end+1) = struct('k', k, 'kind', g.kind, 'B', g, 'ctr', g.ctr); %#ok<AGROW>
+end
+
+switch opts.bodies
+    case 'patch'
+        for e = 1:numel(E)
+            curves_legacy_(ax, E(e).k, h);
+        end
+    case 'outline'
+        for e = 1:numel(E)
+            R = E(e).B.rim;
+            plot3(ax, R(1,:), R(2,:), R(3,:), '-', ...
+                  'Color', [0.2 0.3 0.5], 'LineWidth', 1.2);
+        end
+    case 'solid'
+        e = 1;
+        while e <= numel(E)
+            if strcmp(E(e).kind, 'glass') && e < numel(E) && ...
+               strcmp(E(e+1).kind, 'glass') && E(e+1).k == E(e).k + 1
+                lens_(ax, E(e).B, E(e+1).B);          % joined glass solid
+                e = e + 2;
+            elseif strcmp(E(e).kind, 'passive')
+                passive_(ax, E(e).B);
+                e = e + 1;
+            else
+                plate_(ax, E(e).B, opts.thick_frac);
+                e = e + 1;
+            end
+        end
+        lighting(ax, 'gouraud');
+        material(ax, 'dull');
+        if isempty(findobj(ax, 'Type', 'light')), camlight(ax, 'headlight'); end
+end
+if opts.labels
+    for e = 1:numel(E)
+        c = E(e).ctr;
+        text(ax, c(1), c(2), c(3), sprintf('  E%d', E(e).k), ...
+             'FontSize', 8, 'Color', [0.15 0.2 0.35]);
     end
 end
 
-% ---- optics: per-element cross-section curves through the crossings ----
-for k = max(1,k0):k1
-    if any(opts.hide == k), continue; end
-    ctr = zeros(3,1);  npt = 0;
+% ---- beam: sparse filled bundle (or legacy fans) ------------------------
+ndrawn = 0;
+if strcmp(opts.bundle, 'fans')
     for f = 1:2
         b = fans{f};
-        % crossing of element k on each ray of this fan, in ray order
-        Q = nan(3, b.nray);
-        for r = 1:b.nray
-            c = find(b.elt(1:b.nper(r), r) == k, 1);
-            if ~isempty(c), Q(:, r) = b.P(:, c, r); end
+        live = find(b.nper > 1);
+        if isempty(live), continue; end
+        pick = live(round(linspace(1, numel(live), ...
+                                   min(opts.nrays, numel(live)))));
+        for r = unique(pick)
+            p = b.P(:, 1:b.nper(r), r);
+            plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
+                  'Color', [0.45 0.45 0.45 0.45], 'LineWidth', 0.4);
+            ndrawn = ndrawn + 1;
         end
-        m = ~isnan(Q(1,:));
-        if nnz(m) < 2, continue; end
-        Q = Q(:, m);
-        plot3(ax, Q(1,:), Q(2,:), Q(3,:), '-', ...
-              'Color', [0.2 0.3 0.5], 'LineWidth', 1.4);
-        ctr = ctr + sum(Q, 2);  npt = npt + size(Q, 2);
     end
-    if opts.labels && npt > 0
-        c = ctr / npt;
-        text(ax, c(1), c(2), c(3), sprintf('  E%d', k), 'FontSize', 8, ...
-             'Color', [0.15 0.2 0.35]);
+else
+    sel = pick_bundle_(h, opts);
+    s0 = max(1, k0 + 1);  s1 = k1 + 1;              % history slots
+    for r = sel
+        m = squeeze(h.ok(r, s0:s1));
+        c = find(~m, 1);                             % draw up to first loss
+        if isempty(c), c = numel(m) + 1; end
+        if c < 3, continue; end
+        p = squeeze(h.P(:, r, s0:s0+c-2));
+        plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
+              'Color', [0.45 0.45 0.45 0.45], 'LineWidth', 0.4);
+        ndrawn = ndrawn + 1;
     end
 end
 
@@ -154,4 +234,276 @@ title(ax, opts.title, 'Interpreter', 'none');
 if isempty(opts.ax), fig.Name = opts.title; end
 
 if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+end
+
+% ===========================================================================
+function g = elt_geom_(k, h)
+%ELT_GEOM_  Per-element drawing geometry from engine truth.
+%   Frame (vpt/psi/xa/ya), aperture boundary in the aperture plane (2 x M,
+%   relative to vpt), the sag-lifted rim polyline (3 x M+1), the sag
+%   function with its sign CALIBRATED against the actual ray crossings,
+%   and a label center.  Returns [] when the element has no usable
+%   boundary (no aperture, no lMon, no ray hits).
+info = macos.get_elt_info(k);
+vp = mmacos('elt_vpt', double(k), zeros(3,1), 0, 1);
+ps = mmacos('elt_psi', double(k), zeros(3,1), 0, 1);
+if norm(ps) == 0, ps = [0;0;1]; else, ps = ps/norm(ps); end
+xa = info.x_obs;
+if norm(xa) < 1e-9, [~, i0] = min(abs(ps)); xa = zeros(3,1); xa(i0) = 1; end
+xa = xa - dot(xa, ps)*ps;  xa = xa / norm(xa);
+ya = cross(ps, xa);
+
+% ray crossings at this element (footprint + sag-sign calibration)
+m = h.ok(:, k+1);
+Q = squeeze(h.P(:, m, k+1));
+if isempty(Q), Q = zeros(3,0); end
+U = [xa.'; ya.'] * (Q - vp);
+
+nb = 48;
+th = 2*pi*(0:nb-1)/nb;
+switch info.ap_type
+    case 1                                          % Circular
+        B2 = info.ap_vec(1) * [cos(th); sin(th)];
+    case 2                                          % Elliptical
+        B2 = [info.ap_vec(1)*cos(th); info.ap_vec(2)*sin(th)];
+    case 6                                          % Hexagonal (apothem)
+        phic = pi/6 + (0:5)*pi/3;
+        B2 = (info.ap_vec(1)/cos(pi/6)) * [cos(phic); sin(phic)];
+    case {7, 8}                                     % Polygonal
+        B2 = info.ap_vec(1:2) + info.poly;
+    otherwise                                       % None: footprint / lMon
+        B2 = [];
+        if size(U, 2) >= 3
+            B2 = smooth_hull_(U);
+        elseif info.lmon > 0
+            B2 = info.lmon * [cos(th); sin(th)];
+        end
+end
+if isempty(B2) || size(B2, 2) < 3, g = []; return; end
+% guard absurd declared sizes (unset 1e22-style) with the footprint
+if size(U, 2) >= 3 && max(vecnorm(B2)) > 50*max(1, max(vecnorm(U)))
+    B2 = smooth_hull_(U);
+end
+
+% conic sag, sign calibrated against the crossings
+kr = macos.get_elt_kr(k);
+kc = macos.get_elt_kc(k);
+c = 0;
+if isfinite(kr) && abs(kr) > 0 && abs(kr) < 1e15, c = 1/kr; end
+sag = @(r2) (c*r2) ./ (1 + sqrt(max(1 - (1+kc)*c^2*r2, 0)));
+sgn = 1;
+if c ~= 0 && size(Q, 2) >= 3
+    w  = ps.' * (Q - vp);                           % actual normal offsets
+    sp = sag(sum(U.^2, 1));
+    if dot(w, sp) < 0, sgn = -1; end
+end
+sagf = @(r2) sgn * sag(r2);
+
+lift = @(P2) vp + xa*P2(1,:) + ya*P2(2,:) + ps*sagf(sum(P2.^2, 1));
+rim = lift(B2(:, [1:end 1]));
+g = struct('type', info.type, 'vp', vp, 'ps', ps, 'xa', xa, 'ya', ya, ...
+           'B2', B2, 'rim', rim, 'lift', lift, 'sagf', sagf, ...
+           'D', max(vecnorm(B2 - mean(B2, 2)))*2, 'ctr', mean(rim, 2), ...
+           'kind', '');
+end
+
+% ---------------------------------------------------------------------------
+function [V, Fq, ring] = surf_mesh_(g, nr)
+%SURF_MESH_  Sag-lifted surface disc: boundary-shaped rings scaled toward
+%   the centroid + a center vertex.  Returns vertices (3 x nv), quad/tri
+%   faces (cell of index rows), and the boundary ring's vertex indices.
+B2 = g.B2;  c2 = mean(B2, 2);
+M = size(B2, 2);
+sc = linspace(1, 0.18, nr);
+V = zeros(3, 0);
+for j = 1:nr
+    V = [V, g.lift(c2 + sc(j)*(B2 - c2))]; %#ok<AGROW>
+end
+V = [V, g.lift(c2)];                                % center vertex
+icen = size(V, 2);
+Fq = {};
+for j = 1:nr-1
+    a = (j-1)*M;  b = j*M;
+    for q = 1:M
+        q2 = mod(q, M) + 1;
+        Fq{end+1} = [a+q, a+q2, b+q2, b+q]; %#ok<AGROW>
+    end
+end
+a = (nr-1)*M;
+for q = 1:M
+    q2 = mod(q, M) + 1;
+    Fq{end+1} = [a+q, a+q2, icen]; %#ok<AGROW>
+end
+ring = 1:M;
+end
+
+function draw_solid_(ax, V, F, col, alpha, spec)
+% triangulate mixed quad/tri faces and draw one lit patch
+if nargin < 6, spec = 0.35; end
+T = zeros(0, 3);
+for i = 1:numel(F)
+    f = F{i};
+    if numel(f) == 3, T(end+1, :) = f; %#ok<AGROW>
+    else
+        T(end+1, :) = f([1 2 3]); %#ok<AGROW>
+        T(end+1, :) = f([1 3 4]); %#ok<AGROW>
+    end
+end
+patch(ax, 'Vertices', V.', 'Faces', T, 'FaceColor', col, ...
+      'EdgeColor', 'none', 'FaceAlpha', alpha, ...
+      'SpecularStrength', spec, 'AmbientStrength', 0.55);
+end
+
+function profiles_(ax, g, offs)
+%PROFILES_  Meridian profile curves -- the classic cross-section cue
+%   that makes the figure (concave dish / convex dome / flat) read at
+%   any camera angle.  OFFS = cell of 3x1 offsets (draw the curves on
+%   each face of a shell, so one is visible from every side).
+if nargin < 3, offs = {zeros(3,1)}; end
+c2 = mean(g.B2, 2);
+for dirv = {[1;0], [0;1]}
+    d = dirv{1};
+    pr = d.' * (g.B2 - c2);
+    tt = linspace(min(pr), max(pr), 33);
+    P0 = g.lift(c2 + d*tt);
+    for o = offs
+        P = P0 + o{1};
+        plot3(ax, P(1,:), P(2,:), P(3,:), '-', ...
+              'Color', [0.3 0.34 0.42], 'LineWidth', 1.1);
+    end
+end
+end
+
+function plate_(ax, g, tf)
+%PLATE_  Mirror solid: a constant-thickness SHELL that follows the sag
+%   (back = the same surface offset along -psi), so the optic's actual
+%   figure -- concave dish, convex dome, flat -- reads directly (Dave:
+%   the body must be tight to the optical surface, not a cylinder).
+[V, F, ring] = surf_mesh_(g, 8);
+tt = tf * g.D;
+nV = size(V, 2);
+V = [V, V - g.ps*tt];                                % shell back
+for i = 1:numel(F)
+    F{end+1} = F{i} + nV; %#ok<AGROW>
+end
+M = numel(ring);
+for q = 1:M                                          % rim wall
+    q2 = mod(q, M) + 1;
+    F{end+1} = [ring(q), ring(q2), nV+ring(q2), nV+ring(q)]; %#ok<AGROW>
+end
+draw_solid_(ax, V, F, [0.72 0.76 0.82], 1.0, 0.65);
+plot3(ax, g.rim(1,:), g.rim(2,:), g.rim(3,:), '-', ...
+      'Color', [0.25 0.3 0.4], 'LineWidth', 0.8);
+Rb = g.rim - g.ps*tt;                                % back rim
+plot3(ax, Rb(1,:), Rb(2,:), Rb(3,:), '-', ...
+      'Color', [0.25 0.3 0.4], 'LineWidth', 0.5);
+profiles_(ax, g, {zeros(3,1), -g.ps*tt});            % both faces
+end
+
+function lens_(ax, g1, g2)
+%LENS_  Joined glass solid: front surface at g1, back surface at g2,
+%   barrel wall between their rims (Dave: join consecutive refractors).
+[V1, F1, r1] = surf_mesh_(g1, 5);
+[V2, F2, r2] = surf_mesh_(g2, 5);
+n1 = size(V1, 2);
+V = [V1, V2];
+F = F1;
+for i = 1:numel(F2), F{end+1} = F2{i} + n1; end %#ok<AGROW>
+M = numel(r1);                                       % same nb by construction
+for q = 1:M
+    q2 = mod(q, M) + 1;
+    F{end+1} = [r1(q), r1(q2), n1+r2(q2), n1+r2(q)]; %#ok<AGROW>
+end
+draw_solid_(ax, V, F, [0.55 0.75 0.95], 0.35);
+for g = {g1, g2}
+    R = g{1}.rim;
+    plot3(ax, R(1,:), R(2,:), R(3,:), '-', ...
+          'Color', [0.25 0.45 0.65], 'LineWidth', 0.8);
+    profiles_(ax, g{1});
+end
+end
+
+function passive_(ax, g)
+%PASSIVE_  Reference / Return / FocalPlane / Obscuring: outline frame only.
+R = g.rim;
+st = '--';  col = [0.55 0.55 0.6];
+if strcmp(g.type, 'FocalPlane'), st = '-'; col = [0.15 0.15 0.2]; end
+if strcmp(g.type, 'Obscuring')
+    st = '-'; col = [0.4 0.25 0.25];
+    fill3(ax, R(1,:), R(2,:), R(3,:), [0.45 0.3 0.3], ...
+          'FaceAlpha', 0.25, 'EdgeColor', 'none');
+end
+plot3(ax, R(1,:), R(2,:), R(3,:), st, 'Color', col, 'LineWidth', 1.0);
+end
+
+function curves_legacy_(ax, k, h)
+%CURVES_LEGACY_  The pre-solid look: crossing curves from the history.
+m = h.ok(:, k+1);
+Q = squeeze(h.P(:, m, k+1));
+if size(Q, 2) < 2, return; end
+plot3(ax, Q(1,:), Q(2,:), Q(3,:), '.', 'Color', [0.2 0.3 0.5], ...
+      'MarkerSize', 3);
+end
+
+% ---------------------------------------------------------------------------
+function sel = pick_bundle_(h, opts)
+%PICK_BUNDLE_  Sparse-but-filled ray selection from the source plane.
+P0 = squeeze(h.P(:, :, 1));
+ok0 = h.ok(:, 1).';
+c = mean(P0(:, ok0), 2);
+A = P0(:, ok0) - c;
+[Ub, ~, ~] = svd(A, 'econ');
+uv = Ub(:, 1:2).' * (P0 - c);                        % source-plane coords
+r  = vecnorm(uv);
+thr = atan2(uv(2,:), uv(1,:));
+rmax = max(r(ok0));
+live = find(ok0);
+sel = zeros(1, 0);
+    function grab(rt, at)
+        % nearest live ray to (radius rt, azimuth at)
+        d2 = (r(live) - rt).^2 + (rt * wrap_(thr(live) - at)).^2;
+        [~, i] = min(d2);
+        sel(end+1) = live(i);
+    end
+switch opts.bundle
+    case 'rim'
+        na = max(6, opts.nrays);
+        for a = 2*pi*(0:na-1)/na, grab(0.98*rmax, a); end
+    otherwise                                        % 'rings'
+        [~, i0] = min(r(live));                      % chief
+        sel = live(i0);
+        for j = 1:opts.nrings
+            rt = j/opts.nrings * 0.98 * rmax;
+            st = pi/opts.nspokes * mod(j, 2);        % stagger rings
+            for a = st + 2*pi*(0:opts.nspokes-1)/opts.nspokes
+                grab(rt, a);
+            end
+        end
+end
+sel = unique(sel, 'stable');
+end
+
+function w = wrap_(a)
+w = mod(a + pi, 2*pi) - pi;
+end
+
+function B2 = smooth_hull_(U)
+%SMOOTH_HULL_  Ray-footprint boundary: convex hull, grown 8%, resampled
+%   by arc length and lightly smoothed so the body reads as the optic's
+%   smooth outline instead of a kinked sampling polygon.
+Kh = convhull(U(1,:), U(2,:));
+H = U(:, Kh(1:end-1));
+c2 = mean(H, 2);
+H = c2 + 1.08*(H - c2);
+Hc = H(:, [1:end 1]);
+d = [0, cumsum(vecnorm(diff(Hc, 1, 2)))];
+tq = linspace(0, d(end), 49);  tq(end) = [];
+B2 = [interp1(d, Hc(1,:), tq); interp1(d, Hc(2,:), tq)];
+w = 5;                                               % closed moving average
+kern = ones(1, w)/w;
+for i = 1:2
+    x = [B2(i, end-w+1:end), B2(i,:), B2(i, 1:w)];
+    x = conv(x, kern, 'same');
+    B2(i,:) = x(w+1:end-w);
+end
 end
