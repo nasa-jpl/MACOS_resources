@@ -1,11 +1,14 @@
 %VIEW_RX_DEMO  The general prescription visualizer on stock .in files.
 %
 % macos.view_rx works on ANY loaded prescription -- no design-layer
-% structs: the beam is the engine DRAW command's real traced fans in
-% true 3-D (macos.draw_rays3d, both meridians), each optic is drawn as
-% surface cross-section curves through its actual beam footprint (any
-% surface type, Segment/NS included), and laser-MET gauge paths render
-% whenever the Rx declares nMetPos/tMetElt/metBeamFlg (macos.met_geom).
+% structs: the beam is a sparse-but-FILLED rings-and-spokes bundle cut
+% from the engine's per-trace ray-position history (macos.ray_hist --
+% the full traced grid, true 3-D), each optic renders as a SOLID BODY
+% (true aperture boundary on the real conic sag, plate thickness
+% aperture/12; consecutive refractors JOIN into one glass solid;
+% Reference/Return/FocalPlane/Obscuring draw as outline frames), and
+% laser-MET gauge paths render whenever the Rx declares
+% nMetPos/tMetElt/metBeamFlg (macos.met_geom).
 %
 % Three cases, PNGs land beside this script:
 %   1. CassWithExitPupil.in  -- classic double-pass Cassegrain (manual)
@@ -17,7 +20,7 @@
 % Modify the knobs and re-run.  Requires a built mmacos mex.
 
 MODEL  = 512;          % one model size for all cases (avoid transitions)
-NRAYS  = 15;           % rays drawn per fan
+NRAYS  = 25;           % bundle ray budget ('rim'/'fans' modes)
 
 here = fileparts(mfilename('fullpath'));
 res_root = fileparts(fileparts(fileparts(here)));      % MACOS_resources

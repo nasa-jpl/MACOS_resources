@@ -27,6 +27,7 @@ elt_grp_get
 elt_grp_max
 elt_grp_max_all
 elt_grp_set
+elt_info_get
 elt_kc
 elt_kr
 elt_psi
@@ -89,8 +90,10 @@ perturb_src
 pfp
 prb_elt
 prb_elt_grp
+ray_hist_set
 ray_info_get
 ray_info_set
+ray_pos_hist_get
 ray_status_get
 save_rx
 set_src_csys

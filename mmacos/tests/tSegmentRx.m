@@ -176,6 +176,22 @@ classdef tSegmentRx < matlab.unittest.TestCase
             frac = nnz(ri_.ok_pass) / t.nRays;
             tc.verifyGreaterThan(frac, 0.90, 'apertures clipped far more than the gaps');
             tc.verifyLessThan(frac, 1.0, 'physical apertures must clip the gap rays');
+            % elt_info polygon read-back: the engine's projected
+            % PolyApVtx must reproduce the emitted center hexagon IN
+            % the element's aperture plane (the out-of-plane component
+            % is projected away by SetCvxPolyApVtx)
+            i1 = macos.get_elt_info(1);
+            tc.verifyEqual(i1.ap_type, 7);
+            ps = mmacos('elt_psi', 1, zeros(3,1), 0, 1);  ps = ps/norm(ps);
+            vp = mmacos('elt_vpt', 1, zeros(3,1), 0, 1);
+            xa = i1.x_obs - dot(i1.x_obs, ps)*ps;  xa = xa/norm(xa);
+            ya = cross(ps, xa);
+            G2 = i1.ap_vec(1:2) + i1.poly;
+            T2 = [xa.'; ya.'] * (s.apertures.poly{1} - vp);
+            for q = 1:6
+                tc.verifyLessThan(min(vecnorm(G2 - T2(:,q))), 1e-6, ...
+                    sprintf('elt_info hexagon vertex %d off in-plane', q));
+            end
         end
 
         function test_seg_apertures_hex(tc)
