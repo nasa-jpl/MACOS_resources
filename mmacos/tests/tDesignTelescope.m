@@ -1106,6 +1106,23 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyTrue(ischar(rep.text) && numel(rep.text) > 200);
         end
 
+        function test_field_zone_lmon(tc)
+            % field_zone_lmon: per-mirror field-zone normalization radii
+            % (solve doctrine) -- pooled footprint over the field set,
+            % growing with field span; M1's zone ~ the half-aperture.
+            addpath(fullfile(getenv('HOME'), ...
+                    'dev/MACOS_resources/mmacos/design/src'));
+            t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
+            F = macos.design.field_ring(2.0, 'units', 'arcmin');
+            lz0 = field_zone_lmon(t, 1:3, zeros(0,2));   % footprint only
+            lz  = field_zone_lmon(t, 1:3, F);            % + field walk
+            tc.verifyTrue(all(isfinite(lz)) && all(lz > 0));
+            tc.verifyGreaterThanOrEqual(lz, lz0 - 1e-9, ...
+                'the field walk can only grow the zone');
+            tc.verifyGreaterThan(lz(1), 0.4);            % D/2 = 0.5 m
+            tc.verifyLessThan(lz(1), 0.65);              % margin 1.05
+        end
+
         function test_freeform_lmon_emitted(tc)
             % set_freeform 'lmon' overrides the emitted Zernike
             % normalization radius (default = the body ap_r, which is

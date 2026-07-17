@@ -1,0 +1,46 @@
+==================== DESIGN REPORT ====================
+ family TMA | D = 4.000 m | lambda = 0.5 um | 7 elements
+   M1         R =   10.0000 m  K =  -0.99682  Vpt=[  0.000   0.000   0.000]
+   M2         R =    0.5647 m  K =  -1.20785  Vpt=[  0.000   0.000  -4.735]
+   FM         Reflector  (flat)        Vpt=[  0.000   0.000   0.300]
+   M3         R =    2.7474 m  K =  -0.75539  Vpt=[  2.100   0.000   0.300]
+   FP_return  Return     (flat)        Vpt=[ -0.504  -0.116   0.300]
+   ExitPupil  R =    0.9207 m  K =  +0.00000  Vpt=[  0.410  -0.010   0.300]
+   FP         FocalPlane (flat)        Vpt=[ -0.504  -0.116   0.300]
+ -- first order --
+   EFL 71.48 m | f/# at M1 1.25 | f/# at FP 17.87
+   plate scale 346.5 um/arcsec | lambda/D 25.78 mas
+ -- field performance (RMS WFE about the field center) --
+   bias +5.0' |    field       raw     -tilt    Strehl
+          center     0.045     0.026     0.973
+      0.25' ring     0.360     0.126     0.531
+      0.50' ring     0.767     0.258     0.055
+      1.00' ring     1.900     0.600     0.006
+      2.00' ring     6.190     1.915     0.002
+   (Strehl = far-field peak / unaberrated-aperture peak, exact coherent sum over the
+    EP-referenced OPD, tilt removed; worst ring point.  PSF products: INT at the FP.)
+ -- focal plane --
+   FP tilt 1.752 deg wrt the arriving chief ray
+   aligned from 25 field foci: defocus removed +0.244 mm; field-curvature
+   sag -6.8 to +6.3 um (rms 4.1 um); best-focus blur 5.97e-07 m (center)
+ -- exit pupil (add_pupil / FEX) --
+   0.921 m from the image, at [  0.410  -0.010   0.300] (elt 6)
+ -- packaging / clearance --
+   shroud 1.05 x D | train length 5.12 m
+   clearance: body-in-beam at M2 (FP vs its own pupil-retrace legs excluded)
+   M1         AOI   0.1 deg (spread 11.2 deg across the beam)
+   M2         AOI   0.7 deg (spread 12.5 deg across the beam)
+   FM         AOI  45.0 deg (spread 2.8 deg across the beam)
+   M3         AOI   2.6 deg (spread 0.2 deg across the beam)
+=======================================================
+ -- stage-1 addendum: requested vs achieved --
+   requested: D 4.00 m | primary f/1.25 | system f/18 | m2 16
+   first-order: EFL 72.00 m (f/18.00); achieved live EFL 71.48 m (f/17.87)
+   fold FM at z=+0.300 m -> bench behind M1: M3 [2.10 0.00 0.30], FP [-0.50 -0.12 0.30]
+   bias sweep [3 4 5 6 8]' -> recommended 5' (least whose folded design clears)
+   conic solve (bias point): K = [-0.99682 -1.20785 -0.75539], 0.5984 waves
+   freeform:  lMon = [2.201 0.119 0.128] m (field-zone), max|coef| = [1.8e-05 2.1e-05 3.5e-04] m
+   bias point 0.0024 waves (DL); worst-field @ +-1': 1.5799 raw / 0.9710 -tilt waves @ 500 nm
+   the +-1' spread is the telescope's field differential -- stage 2's instrument widens toward +-2'
+   M1 hole r 0.182 m | intermediate focus f/20.0 at z=-0.500 m
+=======================================================
