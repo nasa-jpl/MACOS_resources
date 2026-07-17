@@ -3,9 +3,10 @@
 % macos.view_rx works on ANY loaded prescription -- no design-layer
 % structs: the beam is a sparse-but-FILLED rings-and-spokes bundle cut
 % from the engine's per-trace ray-position history (macos.ray_hist --
-% the full traced grid, true 3-D), each optic renders as a SOLID BODY
-% (true aperture boundary on the real conic sag, plate thickness
-% aperture/12; consecutive refractors JOIN into one glass solid;
+% the full traced grid, true 3-D), each optic renders as a THIN flat-
+% toned sag-following shell (true aperture boundary on the real conic
+% sag; exact hex tiles for Segment elements on hex-segmented sources;
+% consecutive refractors JOIN into one glass solid;
 % Reference/Return/FocalPlane/Obscuring draw as outline frames), and
 % laser-MET gauge paths render whenever the Rx declares
 % nMetPos/tMetElt/metBeamFlg (macos.met_geom).
@@ -44,6 +45,7 @@ fprintf('[2] CoroExample.in\n');
 macos.load_rx(fullfile(man, 'CoroExample.in'));
 macos.trace();
 f = macos.view_rx('nrays', NRAYS, 'visible', false, ...
+    'ray_color', [0.72 0.0 0.72], ...   % channel color (cf. LightTools decks)
     'title', 'CoroExample.in -- macos.view_rx', ...
     'save', fullfile(here, 'view_rx_coro.png'));
 close(f);
@@ -78,4 +80,21 @@ f = macos.view_rx('nrays', NRAYS, 'visible', false, ...
     'save', fullfile(here, 'view_rx_met.png'));
 close(f);
 
-fprintf('done: view_rx_cass/coro/met.png + e5mono_met.in beside the script\n');
+%% ---- 4. segmented hex primary: e5hex1, standard 3-view -----------------
+% 7 EXACT hex Segment tiles (engine tiling truth via src_seg_get:
+% width/gap + one global clocking -- tiles don't overlap and the gaps
+% read), the m2 hub, and the JOINED lens_s1/lens_s2 glass solid.
+% macos.view_std draws the three standard beam-aligned panels -- front
+% (looking back up the beam at M1's face), iso, side -- with the layout
+% convention: SOURCE AT LEFT, light travels right.  Fine-tune any panel
+% with its [az el] option.
+fprintf('[4] e5hex1.in (segmented hex primary), standard views\n');
+macos.load_rx(fullfile(here, 'e5hex1.in'));    % copy committed beside script
+macos.trace();
+f = macos.view_std('visible', false, ...
+    'args', {'ray_color', [0.9 0.45 0.0]}, ...
+    'title', 'e5hex1.in -- macos.view_std (front / back / iso / side)', ...
+    'save', fullfile(here, 'view_rx_e5hex1.png'));
+close(f);
+
+fprintf('done: view_rx_cass/coro/met/e5hex1.png + e5mono_met.in beside the script\n');

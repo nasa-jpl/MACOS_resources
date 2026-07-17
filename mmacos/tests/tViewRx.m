@@ -84,11 +84,10 @@ classdef tViewRx < matlab.unittest.TestCase
             fig = macos.view_rx('visible', false, 'save', f);
             cf = onCleanup(@() close(fig)); %#ok<NASGU>
             tc.verifyClass(fig, 'matlab.ui.Figure');
-            % solid default: lit patches for the two mirrors (+ the
-            % Obscuring fill), a camlight, and bundle polylines
+            % solid default: flat two-tone patches for the two mirrors
+            % (+ the Obscuring fill) and bundle polylines
             pt = findobj(fig, 'Type', 'patch');
             tc.verifyGreaterThanOrEqual(numel(pt), 2);
-            tc.assertNotEmpty(findobj(fig, 'Type', 'light'));
             tc.verifyGreaterThan(numel(findobj(fig, 'Type', 'line')), 10);
             d = dir(f);
             tc.assertNotEmpty(d, 'PNG must be written');
