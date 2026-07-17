@@ -97,4 +97,19 @@ f = macos.view_std('visible', false, ...
     'save', fullfile(here, 'view_rx_e5hex1.png'));
 close(f);
 
-fprintf('done: view_rx_cass/coro/met/e5hex1.png + e5mono_met.in beside the script\n');
+%% ---- 5. pie segmentation: e5pie, same standard views --------------------
+% Same 4-panel view_std on the PIE segmentation (center + 6 wedges):
+% pie tiles render as smoothed ray-footprint hulls (the exact-tile
+% path is hex-only so far -- pie wedge outlines via seg_boundary /
+% emitted PolyApVec are the design-layer path, see design/examples/
+% e5_pie).
+fprintf('[5] e5pie.in (pie segmentation), standard views\n');
+macos.load_rx(fullfile(here, 'e5pie.in'));     % copy committed beside script
+macos.trace();
+f = macos.view_std('visible', false, ...
+    'args', {'ray_color', [0.15 0.45 0.85]}, ...
+    'title', 'e5pie.in -- macos.view_std (front / back / iso / side)', ...
+    'save', fullfile(here, 'view_rx_e5pie.png'));
+close(f);
+
+fprintf('done: view_rx_cass/coro/met/e5hex1/e5pie.png + e5mono_met.in beside the script\n');
