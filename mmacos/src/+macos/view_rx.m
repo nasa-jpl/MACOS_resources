@@ -125,7 +125,7 @@ GLASS   = ["Refractor" "NSRefractor" "TrGrating" "TrPolarizer" ...
            "CGHNullPlate" "DoeTrGrating" "LensArray" "HOE"];
 kk = max(1, k0):k1;
 kk = kk(~ismember(kk, opts.hide));
-tile = hex_tiling_(kk);          % exact hex tiles for Segment elements
+tile = seg_tiling_(kk);          % exact tiles for Segment elements
 E = struct('k', {}, 'kind', {}, 'B', {}, 'ctr', {});
 for k = kk
     g = elt_geom_(k, h, tile);
@@ -296,7 +296,7 @@ switch info.ap_type
         B2 = info.ap_vec(1:2) + info.poly;
     otherwise                                       % None: tile / footprint / lMon
         B2 = [];
-        if tile.hex && strcmp(info.type, 'Segment')
+        if strcmp(info.type, 'Segment') && strcmp(tile.kind, 'hex')
             % exact hex tile from the engine tiling truth (src_seg_get:
             % width = flat-to-flat, ONE global clocking): apothem w/2
             % about the segment's own center -- adjacent tiles are
@@ -306,6 +306,11 @@ switch info.ap_type
             C3 = rp + (tile.a/cos(pi/6)) * ...
                  (tile.xa*cos(phic) + tile.ya*sin(phic));
             B2 = [xa.'; ya.'] * (C3 - vp);
+        elseif strcmp(info.type, 'Segment') && strcmp(tile.kind, 'pie') ...
+               && any(tile.ks == k)
+            % exact pie tile: center hexagon / wedge with chord inner
+            % edge (physical, non-overlapping -- see seg_tiling_)
+            B2 = [xa.'; ya.'] * (pie_tile_(tile, k) - vp);
         elseif size(U, 2) >= 3
             B2 = smooth_hull_(U);
         elseif info.lmon > 0
@@ -545,15 +550,18 @@ for i = 1:2
 end
 end
 
-function tile = hex_tiling_(kk)
-%HEX_TILING_  Engine segmentation-tiling truth for exact Segment tiles.
-%   src_seg_get gives GridType/nSeg/width/gap; the ONE global tiling
-%   clocking comes from the consensus of nearest-neighbor segment-center
-%   directions (mod 60 deg), as in macos.design.hex_tile.
-tile = struct('hex', false, 'a', 0, 'flat_ang', 0, ...
-              'ps', [0;0;1], 'xa', [1;0;0], 'ya', [0;1;0]);
-[gid, nsg, w, ~] = mmacos('src_seg_get');
-if gid ~= 3 || nsg < 2 || w <= 0, return; end
+function tile = seg_tiling_(kk)
+%SEG_TILING_  Engine segmentation-tiling truth for exact Segment tiles.
+%   src_seg_get gives GridType/nSeg/width/gap.  Hex: one global tiling
+%   clocking from the consensus of nearest-neighbor segment-center
+%   directions (mod 60 deg).  Pie: center segment = HEXAGON at the
+%   physical (width-gap)/2, ring wedges = outer arc + straight CHORD
+%   inner edge facing the center hexagon's flat -- the same physical
+%   model as macos.design.seg_boundary (tiles must not overlap and the
+%   gaps must read; Dave).
+tile = struct('kind', 'none');
+[gid, nsg, w, gp] = mmacos('src_seg_get');
+if nsg < 2 || w <= 0 || ~any(gid == [3 4]), return; end
 ks = zeros(1, 0);  Cs = zeros(3, 0);
 for k = kk
     ii = macos.get_elt_info(k);
@@ -568,17 +576,62 @@ if norm(ps) == 0, return; end
 ps = ps/norm(ps);
 [~, i0] = min(abs(ps));  xa = zeros(3,1);  xa(i0) = 1;
 xa = xa - dot(xa, ps)*ps;  xa = xa/norm(xa);  ya = cross(ps, xa);
-C2 = [xa, ya].' * (Cs - mean(Cs, 2));
-n = size(C2, 2);
-D = squeeze(vecnorm(reshape(C2, 2, 1, n) - reshape(C2, 2, n, 1)));
-D(1:n+1:end) = inf;
-[iq, jq] = find(D < 1.05*min(D(:)));
-angs = zeros(1, numel(iq));
-for q = 1:numel(iq)
-    dv = C2(:, jq(q)) - C2(:, iq(q));
-    angs(q) = mod(atan2(dv(2), dv(1)), pi/3);
+c0 = mean(Cs, 2);
+C2 = [xa, ya].' * (Cs - c0);
+if gid == 3                                          % Hex
+    n = size(C2, 2);
+    D = squeeze(vecnorm(reshape(C2, 2, 1, n) - reshape(C2, 2, n, 1)));
+    D(1:n+1:end) = inf;
+    [iq, jq] = find(D < 1.05*min(D(:)));
+    angs = zeros(1, numel(iq));
+    for q = 1:numel(iq)
+        dv = C2(:, jq(q)) - C2(:, iq(q));
+        angs(q) = mod(atan2(dv(2), dv(1)), pi/3);
+    end
+    tile = struct('kind', 'hex', 'a', w/2, ...
+                  'flat_ang', angle(mean(exp(1i*6*angs)))/6, ...
+                  'ps', ps, 'xa', xa, 'ya', ya);
+else                                                 % Pie
+    rc = vecnorm(C2);
+    isctr = rc < 1e-6*max(rc);
+    rings = uniquetol(rc(~isctr), 1e-6, 'DataScale', max(rc));
+    r1 = ~isctr & abs(rc - rings(1)) < 1e-6*max(rc);
+    az = atan2(C2(2, r1), C2(1, r1));
+    tile = struct('kind', 'pie', 'w', w, 'g', gp, 'ks', ks, ...
+                  'C2', C2, 'c0', c0, 'rc', rc, 'isctr', isctr, ...
+                  'rings', rings, ...
+                  'flat_ang', angle(mean(exp(1i*6*az)))/6, ...
+                  'ps', ps, 'xa', xa, 'ya', ya);
 end
-tile = struct('hex', true, 'a', w/2, ...
-              'flat_ang', angle(mean(exp(1i*6*angs)))/6, ...
-              'ps', ps, 'xa', xa, 'ya', ya);
+end
+
+function P3 = pie_tile_(tile, k)
+%PIE_TILE_  Global boundary polyline of pie Segment element k (open).
+i = find(tile.ks == k, 1);
+w = tile.w;  g = tile.g;
+lift = @(P2) tile.c0 + tile.xa*P2(1,:) + tile.ya*P2(2,:);
+if tile.isctr(i)
+    % center cell: hexagon at the physical (w-g)/2, flats facing ring 1
+    phic = tile.flat_ang + pi/6 + (0:5)*pi/3;
+    P3 = lift(((w-g)/2/cos(pi/6)) * [cos(phic); sin(phic)]);
+    return
+end
+rc = tile.rc(i);
+m  = abs(tile.rc - rc) < 1e-6*max(tile.rc);
+ha = pi/nnz(m) - (g/2)/rc;
+a0 = atan2(tile.C2(2,i), tile.C2(1,i));
+ro = rc + w/2;
+if any(tile.rings > rc + 1e-6*max(tile.rc)), ro = ro - g/2; end
+tho = linspace(a0-ha, a0+ha, 25);
+inner_ring = ~any(tile.rings < rc - 1e-6*max(tile.rc));
+if inner_ring && any(tile.isctr)
+    % straight chord facing the center hexagon's flat
+    d = (w + g)/2;
+    er = [cos(a0); sin(a0)];  et = [-sin(a0); cos(a0)];
+    P2 = [ro*[cos(tho); sin(tho)], d*er + d*tan(ha)*et, d*er - d*tan(ha)*et];
+else
+    ri = max(rc - w/2 + g/2, 1e-9);
+    P2 = [ro*[cos(tho); sin(tho)], ri*[cos(fliplr(tho)); sin(fliplr(tho))]];
+end
+P3 = lift(P2);
 end
