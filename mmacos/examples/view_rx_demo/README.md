@@ -28,13 +28,20 @@ comes from the engine itself.
   whenever the Rx declares `nMetPos`/`tMetElt`/`metBeamFlg`, colored
   per source element.
 
-One runner (`view_rx_demo.m`), three stock cases, PNGs beside it:
+Layer selection: `'show'` = `'beam'` / `'beam+met'` / `'met'`; a ring
+circles the beam at the source plane so a collimated source's location
+is unambiguous.  `macos.view_std` wraps view_rx into the standard
+beam-aligned 4-panel figure (source at LEFT, light travels right) with
+per-panel `[az el]` fine-tuning.
+
+One runner (`view_rx_demo.m`), four stock cases, PNGs beside it:
 
 | figure | prescription |
 |---|---|
 | `view_rx_cass.png` | `CassWithExitPupil.in` (manual example) |
 | `view_rx_coro.png` | `CoroExample.in` coronagraph train (manual example) |
 | `view_rx_met.png`  | `e5mono_met.in` = e5mono + hand-added met keywords — MET paths on a plain Rx that never touched the design layer |
+| `view_rx_e5hex1.png` | `e5hex1.in` segmented hex primary — `macos.view_std` standard 4-panel figure (front from behind the source / back / iso / side), exact hex Segment tiles from the engine tiling truth (`src_seg_get`), joined `lens_s1`/`lens_s2` glass solid, source-plane ring, light left→right |
 
 For segmented-primary MET systems the design layer adds annotation on
 top of this scene: `macos.design.met_view` (segment tiles via

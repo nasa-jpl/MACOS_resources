@@ -11,8 +11,10 @@ function fig = view_rx(opts)
 %     optics  each optic rendered as a SOLID BODY: the true aperture
 %             boundary (Circular/Elliptical/Hexagonal ApVec, Polygonal
 %             PolyApVtx, lMon disc, or the ray-footprint hull), lifted
-%             onto the real conic sag (KcElt/KrElt), extruded to a plate
-%             of thickness aperture/12 with lighting.  CONSECUTIVE
+%             onto the real conic sag (KcElt/KrElt), extruded to a THIN
+%             sag-following shell (thickness aperture/25), drawn in flat
+%             two-tone (light optical face, dark back -- no edge
+%             shading) with meridian profile curves.  CONSECUTIVE
 %             REFRACTOR pairs are JOINED into one glass solid (front
 %             surface + back surface + barrel).  Passive elements
 %             (Reference / Return / FocalPlane / Obscuring) draw as
@@ -31,8 +33,15 @@ function fig = view_rx(opts)
 %     'nrays'   ray budget for 'rim'/'fans' subsampling (default 25)
 %     'bodies'  'solid' (default) | 'outline' (rims only) | 'patch'
 %               (legacy cross-section curves)
-%     'thick_frac'  plate thickness as a fraction of the element
-%               aperture (default 1/12)
+%     'thick_frac'  shell thickness as a fraction of the element
+%               aperture (default 1/25)
+%     'ray_color'  RGB of the traced bundle (default green); overlay
+%               several instrument paths into one 'ax' with distinct
+%               colors to tell the channels apart
+%     'show'    layer selection: 'beam' (no MET), 'beam+met' (default),
+%               'met' (no traced bundle); optics always draw.  A ring
+%               circles the beam at the SOURCE plane so a collimated
+%               source's location is unambiguous.
 %     'elts'    element range [first last] to draw (default all)
 %     'hide'    element indices to omit
 %     'labels'  label elements (default true)
@@ -62,7 +71,10 @@ arguments
     opts.nrays   (1,1) double  = 25
     opts.bodies  (1,:) char {mustBeMember(opts.bodies, ...
                   {'solid','outline','patch'})} = 'solid'
-    opts.thick_frac (1,1) double {mustBePositive} = 1/12
+    opts.thick_frac (1,1) double {mustBePositive} = 1/25
+    opts.ray_color (1,3) double = [0.0 0.62 0.10]
+    opts.show    (1,:) char {mustBeMember(opts.show, ...
+                  {'beam','beam+met','met'})} = 'beam+met'
     opts.elts    (1,:) double  = []
     opts.hide    (1,:) double  = []
     opts.labels  (1,1) logical = true
@@ -113,9 +125,10 @@ GLASS   = ["Refractor" "NSRefractor" "TrGrating" "TrPolarizer" ...
            "CGHNullPlate" "DoeTrGrating" "LensArray" "HOE"];
 kk = max(1, k0):k1;
 kk = kk(~ismember(kk, opts.hide));
+tile = hex_tiling_(kk);          % exact hex tiles for Segment elements
 E = struct('k', {}, 'kind', {}, 'B', {}, 'ctr', {});
 for k = kk
-    g = elt_geom_(k, h);
+    g = elt_geom_(k, h, tile);
     if isempty(g), continue; end
     if     any(strcmp(g.type, SOLID_M)), g.kind = 'mirror';
     elseif any(strcmp(g.type, GLASS)),   g.kind = 'glass';
@@ -150,9 +163,6 @@ switch opts.bodies
                 e = e + 1;
             end
         end
-        lighting(ax, 'gouraud');
-        material(ax, 'dull');
-        if isempty(findobj(ax, 'Type', 'light')), camlight(ax, 'headlight'); end
 end
 if opts.labels
     for e = 1:numel(E)
@@ -164,7 +174,9 @@ end
 
 % ---- beam: sparse filled bundle (or legacy fans) ------------------------
 ndrawn = 0;
-if strcmp(opts.bundle, 'fans')
+if strcmp(opts.show, 'met')
+    % beam layer off (optics + MET only)
+elseif strcmp(opts.bundle, 'fans')
     for f = 1:2
         b = fans{f};
         live = find(b.nper > 1);
@@ -174,28 +186,39 @@ if strcmp(opts.bundle, 'fans')
         for r = unique(pick)
             p = b.P(:, 1:b.nper(r), r);
             plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
-                  'Color', [0.45 0.45 0.45 0.45], 'LineWidth', 0.4);
+                  'Color', [opts.ray_color 0.8], 'LineWidth', 0.5);
             ndrawn = ndrawn + 1;
         end
     end
 else
-    sel = pick_bundle_(h, opts);
+    [sel, ring3] = pick_bundle_(h, opts);
     s0 = max(1, k0 + 1);  s1 = k1 + 1;              % history slots
     for r = sel
+        % connect the slots the ray actually REACHED: on segmented /
+        % non-sequential systems ok is false at the OTHER segments'
+        % elements (a ray visits one segment), and a lost ray's slots
+        % are false from its failure onward -- both handled by keeping
+        % the ok slots in order
         m = squeeze(h.ok(r, s0:s1));
-        c = find(~m, 1);                             % draw up to first loss
-        if isempty(c), c = numel(m) + 1; end
-        if c < 3, continue; end
-        p = squeeze(h.P(:, r, s0:s0+c-2));
+        if nnz(m) < 3, continue; end
+        p = squeeze(h.P(:, r, s0:s1));
+        p = p(:, m);
         plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
-              'Color', [0.45 0.45 0.45 0.45], 'LineWidth', 0.4);
+              'Color', [opts.ray_color 0.8], 'LineWidth', 0.5);
         ndrawn = ndrawn + 1;
+    end
+    if k0 == 0 && ~isempty(ring3)
+        % ring circling the beam AT THE SOURCE PLANE, so a collimated
+        % source's location is unambiguous (Dave); a point source
+        % collapses the ring to a dot
+        plot3(ax, ring3(1,:), ring3(2,:), ring3(3,:), '-', ...
+              'Color', 0.7*opts.ray_color, 'LineWidth', 1.4);
     end
 end
 
 % ---- MET paths, when the Rx declares metrology -------------------------
 nbeam = 0;
-if opts.met
+if opts.met && ~strcmp(opts.show, 'beam')
     g = macos.met_geom();
     nbeam = g.n;
     if nbeam > 0
@@ -237,7 +260,7 @@ if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
 end
 
 % ===========================================================================
-function g = elt_geom_(k, h)
+function g = elt_geom_(k, h, tile)
 %ELT_GEOM_  Per-element drawing geometry from engine truth.
 %   Frame (vpt/psi/xa/ya), aperture boundary in the aperture plane (2 x M,
 %   relative to vpt), the sag-lifted rim polyline (3 x M+1), the sag
@@ -271,9 +294,19 @@ switch info.ap_type
         B2 = (info.ap_vec(1)/cos(pi/6)) * [cos(phic); sin(phic)];
     case {7, 8}                                     % Polygonal
         B2 = info.ap_vec(1:2) + info.poly;
-    otherwise                                       % None: footprint / lMon
+    otherwise                                       % None: tile / footprint / lMon
         B2 = [];
-        if size(U, 2) >= 3
+        if tile.hex && strcmp(info.type, 'Segment')
+            % exact hex tile from the engine tiling truth (src_seg_get:
+            % width = flat-to-flat, ONE global clocking): apothem w/2
+            % about the segment's own center -- adjacent tiles are
+            % separated by exactly the tiling gap
+            rp = mmacos('elt_rpt', double(k), zeros(3,1), 0, 1);
+            phic = tile.flat_ang + pi/6 + (0:5)*pi/3;
+            C3 = rp + (tile.a/cos(pi/6)) * ...
+                 (tile.xa*cos(phic) + tile.ya*sin(phic));
+            B2 = [xa.'; ya.'] * (C3 - vp);
+        elseif size(U, 2) >= 3
             B2 = smooth_hull_(U);
         elseif info.lmon > 0
             B2 = info.lmon * [cos(th); sin(th)];
@@ -337,9 +370,10 @@ end
 ring = 1:M;
 end
 
-function draw_solid_(ax, V, F, col, alpha, spec)
-% triangulate mixed quad/tri faces and draw one lit patch
-if nargin < 6, spec = 0.35; end
+function draw_solid_(ax, V, F, col, alpha)
+% triangulate mixed quad/tri faces and draw one FLAT-shaded patch
+% (LightTools look: no lighting gradient / edge shading -- the body
+% reads by silhouette, tone and the profile curves)
 T = zeros(0, 3);
 for i = 1:numel(F)
     f = F{i};
@@ -350,8 +384,7 @@ for i = 1:numel(F)
     end
 end
 patch(ax, 'Vertices', V.', 'Faces', T, 'FaceColor', col, ...
-      'EdgeColor', 'none', 'FaceAlpha', alpha, ...
-      'SpecularStrength', spec, 'AmbientStrength', 0.55);
+      'EdgeColor', 'none', 'FaceAlpha', alpha, 'FaceLighting', 'none');
 end
 
 function profiles_(ax, g, offs)
@@ -383,15 +416,17 @@ function plate_(ax, g, tf)
 tt = tf * g.D;
 nV = size(V, 2);
 V = [V, V - g.ps*tt];                                % shell back
+Fb = {};
 for i = 1:numel(F)
-    F{end+1} = F{i} + nV; %#ok<AGROW>
+    Fb{end+1} = F{i} + nV; %#ok<AGROW>
 end
 M = numel(ring);
 for q = 1:M                                          % rim wall
     q2 = mod(q, M) + 1;
-    F{end+1} = [ring(q), ring(q2), nV+ring(q2), nV+ring(q)]; %#ok<AGROW>
+    Fb{end+1} = [ring(q), ring(q2), nV+ring(q2), nV+ring(q)]; %#ok<AGROW>
 end
-draw_solid_(ax, V, F, [0.72 0.76 0.82], 1.0, 0.65);
+draw_solid_(ax, V, F,  [0.72 0.74 0.92], 1.0);       % optical face: light
+draw_solid_(ax, V, Fb, [0.42 0.44 0.50], 1.0);       % back + wall: dark
 plot3(ax, g.rim(1,:), g.rim(2,:), g.rim(3,:), '-', ...
       'Color', [0.25 0.3 0.4], 'LineWidth', 0.8);
 Rb = g.rim - g.ps*tt;                                % back rim
@@ -446,7 +481,7 @@ plot3(ax, Q(1,:), Q(2,:), Q(3,:), '.', 'Color', [0.2 0.3 0.5], ...
 end
 
 % ---------------------------------------------------------------------------
-function sel = pick_bundle_(h, opts)
+function [sel, ring3] = pick_bundle_(h, opts)
 %PICK_BUNDLE_  Sparse-but-filled ray selection from the source plane.
 P0 = squeeze(h.P(:, :, 1));
 ok0 = h.ok(:, 1).';
@@ -481,6 +516,8 @@ switch opts.bundle
         end
 end
 sel = unique(sel, 'stable');
+thr2 = linspace(0, 2*pi, 91);
+ring3 = c + rmax*(Ub(:,1)*cos(thr2) + Ub(:,2)*sin(thr2));
 end
 
 function w = wrap_(a)
@@ -506,4 +543,42 @@ for i = 1:2
     x = conv(x, kern, 'same');
     B2(i,:) = x(w+1:end-w);
 end
+end
+
+function tile = hex_tiling_(kk)
+%HEX_TILING_  Engine segmentation-tiling truth for exact Segment tiles.
+%   src_seg_get gives GridType/nSeg/width/gap; the ONE global tiling
+%   clocking comes from the consensus of nearest-neighbor segment-center
+%   directions (mod 60 deg), as in macos.design.hex_tile.
+tile = struct('hex', false, 'a', 0, 'flat_ang', 0, ...
+              'ps', [0;0;1], 'xa', [1;0;0], 'ya', [0;1;0]);
+[gid, nsg, w, ~] = mmacos('src_seg_get');
+if gid ~= 3 || nsg < 2 || w <= 0, return; end
+ks = zeros(1, 0);  Cs = zeros(3, 0);
+for k = kk
+    ii = macos.get_elt_info(k);
+    if strcmp(ii.type, 'Segment')
+        ks(end+1) = k; %#ok<AGROW>
+        Cs(:, end+1) = mmacos('elt_rpt', double(k), zeros(3,1), 0, 1); %#ok<AGROW>
+    end
+end
+if numel(ks) < 2, return; end
+ps = mmacos('elt_psi', double(ks(1)), zeros(3,1), 0, 1);
+if norm(ps) == 0, return; end
+ps = ps/norm(ps);
+[~, i0] = min(abs(ps));  xa = zeros(3,1);  xa(i0) = 1;
+xa = xa - dot(xa, ps)*ps;  xa = xa/norm(xa);  ya = cross(ps, xa);
+C2 = [xa, ya].' * (Cs - mean(Cs, 2));
+n = size(C2, 2);
+D = squeeze(vecnorm(reshape(C2, 2, 1, n) - reshape(C2, 2, n, 1)));
+D(1:n+1:end) = inf;
+[iq, jq] = find(D < 1.05*min(D(:)));
+angs = zeros(1, numel(iq));
+for q = 1:numel(iq)
+    dv = C2(:, jq(q)) - C2(:, iq(q));
+    angs(q) = mod(atan2(dv(2), dv(1)), pi/3);
+end
+tile = struct('hex', true, 'a', w/2, ...
+              'flat_ang', angle(mean(exp(1i*6*angs)))/6, ...
+              'ps', ps, 'xa', xa, 'ya', ya);
 end

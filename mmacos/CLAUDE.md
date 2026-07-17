@@ -405,8 +405,19 @@ lMon/PolyApVtx), conic sag from Kc/Kr with the SIGN calibrated per
 element against the actual crossings (no KrElt convention baked in),
 thickness aperture/12; **consecutive Refractor pairs JOIN into one
 glass solid**; Reference/Return/FocalPlane/Obscuring = outline frames;
-ApType=None → smoothed ray-footprint hull.  Options: bundle
-'rings'|'rim'|'fans', bodies 'solid'|'outline'|'patch'.  GOTCHAS:
+ApType=None → smoothed ray-footprint hull; **Segment elements on a
+hex-segmented source draw as EXACT hex tiles** (api `src_seg_get`:
+GridType/nSeg/width/gap + consensus clocking from segment centers —
+no overlap, gaps read).  Options: bundle 'rings'|'rim'|'fans', bodies
+'solid'|'outline'|'patch', `show` 'beam'|'beam+met'|'met', ray_color
+(per-channel colors, LightTools-deck style — Dave's reference:
+MACOS_sandbox/181202-Layouts PDF); a RING circles the beam at the
+source plane (collimated-source location cue).  `macos.view_std` =
+standard beam-aligned 4-panel figure (front-from-behind-source / back
+/ iso / side; SOURCE AT LEFT, light travels right; per-panel [az el]
+fine-tune; manual camera + `camva('auto')` — a hand-computed
+CameraViewAngle badly misframes, and titles collide with axis labels
+unless the panels are `axis off`).  GOTCHAS:
 (1) `ray_hist('on')` must DIRTY the trace (`macos.modify()`) or a
 previously-traced session returns an empty history (grid-setter
 retrace class — the veneer does it); (2) engine `PolyApVtx` is

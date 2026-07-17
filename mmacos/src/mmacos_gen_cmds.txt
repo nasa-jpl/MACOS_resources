@@ -106,6 +106,7 @@ spot_get
 src_finite
 src_flux
 src_info
+src_seg_get
 src_size
 src_wvl
 srs_run
