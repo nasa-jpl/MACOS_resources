@@ -60,10 +60,25 @@ P.model_size = 256;         % stage 1-2 engine model
 P.grid_npts  = 41;          % circular ray-grid points (~1300 rays)
 
 % ================= stage 2: imaging instrument ======================
+% A THREE-mirror bench relay behind the telescope focus (M4 weak
+% corrector at an intermediate conjugate / M5 collimator / M6 camera,
+% unit magnification -> final f/# preserved).  Field correction =
+% freeform on surfaces at staggered intermediate conjugates; no active
+% control in this part of the telescope (Dave 2026-07-17).  A 4-mirror
+% variant (extra weak corrector near the relayed pupil) was probed and
+% conditioned WORSE -- near-pupil weak correctors act common-mode and
+% collapse to near-zero field-solve rank.
+% The solve is JOINT: M1-M3 keep refining with the instrument.
 P.inst = struct( ...
-    'fov_arcmin', 2.0);     % widened half-field target for the 3-4
-                            % mirror imaging relay (rest of the stage-2
-                            % knobs land with s2_instrument)
+    'fov_arcmin', 2.0, ...      % widened half-field target
+    'dpast_m',    0.45, ...     % M4 corrector past the telescope focus
+    'R_m',        [20 2.6 2.6], ...    % M4 weak / M5 collimator / M6 camera
+    'legs_m',     [1.0 1.5], ...       % M4->M5, M5->M6 (M6->FP derives)
+    'tilt_deg',   [8 -8 8], ...        % bench zigzag tilts (astig ~ tilt^2)
+    'modes',      [], ...       % relay Zernike modes ([] -> P.modes)
+    'nfield_svd', 5, ...        % NxN dense field grid for the SVD solve
+    ...                         % stages + final scoring (CALIB caps at 12)
+    'max_iters_ff', 150);       % joint freeform field-solve iterations
 
 % ================= stage 3: segmentation ============================
 P.seg = struct( ...
