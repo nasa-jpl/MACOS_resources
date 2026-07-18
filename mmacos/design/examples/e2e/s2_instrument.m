@@ -100,7 +100,15 @@ else
                  'tilt_deg',rtilts(3),'conic',0);
 end
 t.add_focal_plane('FP','ap_r',P.fp_body_r);
-t.set_field_bias(s1.bias);
+% Science-field-center shift (Dave 2026-07-18): the s2 WFE map's sweet
+% spot sat below the s1 bias point -- re-center the instrument stage's
+% field there.  The shifted bias becomes the artifact's chief ray, so
+% stages 3-6 inherit the re-centered field.  Clearance is re-checked in
+% [5]; the [4f] center scan below guides further tuning.
+bias2 = s1.bias + P.inst.field_dy_arcmin;
+t.set_field_bias(bias2);
+fprintf('    field center: s1 bias %g'' %+g'' shift -> %g''\n', ...
+        s1.bias, P.inst.field_dy_arcmin, bias2);
 t.add_fold('FM','after','M2','dist_m', s1.tsp(1)+zf, 'to',[1 0 0], ...
            'ap_r', r_fold);
 t.set_hole('M1', s1.r_hole);
@@ -274,6 +282,23 @@ fprintf(['\n[4e] M4 distortion solve (blur-guarded, alpha %.2f): rms %.1f -> %.1
 end
 wfe_ff = max(d4e.rms_raw);  wfe_ft = max(d4e.rms_tilt);
 
+%% -- [4f] field-center scan (is the patch centered on the sweet spot?) -
+% Score the SOLVED system on the same +-2' patch recentered at a ladder
+% of +y shifts.  If a nonzero shift wins by a margin, put that value in
+% P.inst.field_dy_arcmin and re-run (the solve itself re-centers).
+scan_dy = [0.7 0.35 0 -0.35 -0.7];
+scan_w  = zeros(numel(scan_dy), 2);
+for q = 1:numel(scan_dy)
+    dq = wfe_field_diag(t, F2s + [0 scan_dy(q)]*pi/180/60, 'quiet', true);
+    scan_w(q,:) = [max(dq.rms_raw), max(dq.rms_tilt)];
+end
+fprintf('\n[4f] field-center scan (relative to the adopted center %g''):\n', bias2);
+fprintf('     dy''     worst raw   worst -tilt [waves]\n');
+for q = 1:numel(scan_dy)
+    fprintf('    %+5.2f     %8.4f    %8.4f%s\n', scan_dy(q), scan_w(q,:), ...
+            ternary(all(scan_w(q,2) <= scan_w(:,2)), '   <-- best', ''));
+end
+
 %% -- [5] clearance + M1 hole re-check ---------------------------------
 r_hole = m1_hole_radius_(t, P.hole_margin);
 if isfinite(r_hole), t.set_hole('M1', r_hole); end
@@ -341,6 +366,9 @@ add = { ...
          h2, max(d0.rms_tilt), wfe_ff, wfe_ft, ...
          ternary(wfe_ft < P.dl_waves,'DL','residual'))
  sprintf('   bias point %.4f -tilt waves | max|coef| %s m', bias_pt_wfe_(d4e, F2s), mat2str(cmax,2))
+ sprintf('   field center: s1 bias %g'' %+g'' shift = %g'' (Dave 2026-07-18); center scan [dy'' raw -tilt]:', ...
+         s1.bias, P.inst.field_dy_arcmin, bias2)
+ sprintf('     %s', strtrim(sprintf('%+.2f/%.3f/%.3f  ', [scan_dy; scan_w.'])))
  sprintf('   distortion (M4 reflective field-corrector solve): %.1f -> %.1f um rms at the detector', ...
          dx0*1e6, dx1*1e6)
  '======================================================='};

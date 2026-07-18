@@ -10,7 +10,10 @@ function out = segment_rx(parent_in, opts)
 %   text and renumbers.
 %
 %   Steps: run SegMirMaker batch (with the emitted iElt numbering started
-%   at `elt`) → replace the parent's source GridType with the segment
+%   at `elt`) → carry the parent element's Zernike FIGURE onto every
+%   segment via the FF channel (SegMirMaker replicates only conic +
+%   frames; a Surface=Zernike parent would otherwise lose its solved
+%   figure) → replace the parent's source GridType with the segment
 %   tiling grid + insert the nSeg/width/gap/SegXgrid/SegCoord block →
 %   swap the parent element block for the segment blocks → renumber the
 %   downstream blocks' iElt (cosmetic — the engine numbers by read
@@ -28,9 +31,14 @@ function out = segment_rx(parent_in, opts)
 %   (macos.design.seg_apertures: hex corners exact; pie = center hexagon
 %   + chorded sectors with inner-sector obscurations), with ap_pad (0 =
 %   physical edge; gap/2 = trace-neutral tiling midline) and ap_obs
-%   (true) knobs; plus the segmentation options forwarded to
-%   segmirmaker_run: rings, grid, gap, dofs, meas_config, seg_size,
-%   ap_diam, psi, segxgrid, f, ecc, standoff, binary.
+%   (true) knobs; carry_obs (true) -- carry the segmented element's own
+%   obscuration declarations (e.g. the set_hole central perforation)
+%   onto the CENTER segment, where they physically live; grid_npts ([])
+%   -- rewrite the merged source's nGridpts (segmentation usually wants
+%   a denser grid than the parent; e5 corpus runs 128); plus the
+%   segmentation options forwarded to segmirmaker_run: rings, grid,
+%   gap, dofs, meas_config, seg_size, ap_diam, psi, segxgrid, f, ecc,
+%   standoff, binary.
 %
 %   out fields:
 %     .in        merged prescription path
@@ -67,6 +75,8 @@ arguments
     opts.emit_apertures (1,1) logical = false
     opts.ap_pad (1,1) double = 0
     opts.ap_obs (1,1) logical = true
+    opts.carry_obs (1,1) logical = true
+    opts.grid_npts double = []
 end
 
 % --- 0. read + vet the parent BEFORE paying for the SegMirMaker run ------
@@ -112,10 +122,47 @@ seg_header = phead(~startsWith(strtrim(phead), "GridType="));
 while ~isempty(seg_header) && strlength(strtrim(seg_header(end))) == 0
     seg_header(end) = [];                    % drop trailing blank lines
 end
+% SegXgrid: the engine's HSEG anchors the HEX tiling to SegXgrid's
+% GLOBAL orientation (PSEG/pie ignores it -- its rotation block is dead
+% code), and the frames <-> tiling contract closes only with
+% SegXgrid=(-1,0,0) alongside the heritage xGrid=(-1,0,0) below:
+% engine-truth verified via ray_hist -- each hex segment's rays then
+% land ON its emitted frame.  SegMirMaker's default emission (1,0,0)
+% leaves the hex tiling 180 deg off the frames (latent in the e5
+% corpus, where no fixture traces hex apertures).
+isx = find(startsWith(strtrim(seg_header), "SegXgrid="), 1);
+if ~isempty(isx)
+    sx = sscanf(char(regexprep(seg_header(isx), '.*SegXgrid=', '')), '%f');
+    if numel(sx) == 3 && abs(sx(1) - 1) < 1e-9 && all(abs(sx(2:3)) < 1e-9)
+        seg_header(isx) = regexprep(seg_header(isx), ...
+            '(SegXgrid=\s*)\S+', "$1-1.0");
+    end
+end
 pblocks = cell(nseg, 1);
 for k = 1:nseg
     e = numel(plines); if k < nseg, e = pstarts(k+1) - 1; end
     pblocks{k} = plines(pstarts(k):e);
+end
+
+% --- 1b. carry the parent's Zernike FIGURE onto every segment ------------
+% SegMirMaker replicates only the parent's conic + frames; a parent with
+% Surface=Zernike (e.g. a design-layer primary carrying its solved
+% freeform figure) would silently lose that figure -- the segmented
+% system then reproduces the BASE conic, not the as-designed surface
+% (e2e s3, 2026-07-18: 5.9 nm parent -> 15 um segmented).  The segments
+% are FreeForm surfaces with an FF channel reserved for exactly this:
+% append the parent figure as FFZern* in the PARENT's Mon frame (pFF/
+% xFF/yFF/zFF = parent pMon/xMon/yMon/zMon, lFF = parent lMon), leaving
+% the per-segment Mon channel free for segment figure DOFs.
+pb0 = blocks_parent_figure_(lines, starts, opts.elt);
+if ~isempty(pb0)
+    for k = 1:nseg
+        b = pblocks{k};
+        while ~isempty(b) && strlength(strtrim(b(end))) == 0
+            b(end) = [];
+        end
+        pblocks{k} = [b; pb0];
+    end
 end
 
 % --- 2. carve up the parent ---------------------------------------------
@@ -147,6 +194,32 @@ if isempty(igt)
     error('macos:design:segment_rx:gridtype', 'parent has no GridType= line');
 end
 pre(igt) = regexprep(pre(igt), '(GridType=\s*)\S+', "$1" + seg_gridtype);
+% Heritage source-grid orientation: the SegMirMaker <-> engine tiling
+% contract assumes xGrid=(-1,0,0) (the e5mono/dmt6mono corpus).  A
+% design-layer parent emits (+1,0,0), under which the engine's
+% ray-to-segment map comes out 180 deg ROTATED from the emitted segment
+% frames -- every off-center segment's polygonal aperture then clips
+% its own rays (e2e s3, 2026-07-18).  Flip the merged source to the
+% heritage orientation (no-op for heritage parents; the engine
+% recomputes yGrid/zGrid from it).
+ix = find(startsWith(strtrim(pre), "xGrid="), 1);
+if ~isempty(ix)
+    xg = sscanf(char(regexprep(pre(ix), '.*xGrid=', '')), '%f');
+    if numel(xg) == 3 && abs(xg(1) - 1) < 1e-9 && all(abs(xg(2:3)) < 1e-9)
+        pre(ix) = regexprep(pre(ix), '(xGrid=\s*)\S+', "$1-1.0");
+    end
+end
+% Optional sampling bump: the parent's nGridpts rides through the
+% splice, but segmentation usually wants a denser grid (the e5 corpus
+% runs 128 where the design-layer parents emit 41 -- at 41 a 19-segment
+% tiling gets ~50 rays/segment and 25 mm gaps are under-resolved).
+if ~isempty(opts.grid_npts)
+    ig2 = find(startsWith(strtrim(pre), "nGridpts="), 1);
+    if ~isempty(ig2)
+        pre(ig2) = regexprep(pre(ig2), '(nGridpts=\s*)\d+', ...
+                             sprintf('$1%d', round(opts.grid_npts)));
+    end
+end
 iy = find(startsWith(strtrim(pre), "yGrid="), 1);
 if isempty(iy), iy = igt; end
 pre = [pre(1:iy); ""; seg_header; pre(iy+1:end)];
@@ -262,5 +335,97 @@ if opts.emit_apertures
     end
     writelines(merged, out_in);
     out.apertures = ap;
+end
+
+% --- 7. carry the segmented element's obscurations onto the CENTER
+%        segment (Seg1) -- e.g. a perforated primary's central hole
+%        (Telescope set_hole emission).  The parent block leaves the
+%        file with its obscurations; physically they live in the center
+%        segment (Dave 2026-07-18).  The group is appended at the END
+%        of Seg1's block (the parser is last-wins, and obscuration
+%        declarations are contiguous: nObs= N followed by N ObsType=/
+%        ObsVec= [+ vertex-row] sets), so it also wins over any nObs= 0
+%        a seg_apertures emission wrote earlier in the block.
+%        Limitation: not merged with per-segment obscurations
+%        seg_apertures itself declares (pie wedges) -- those live on
+%        OTHER segments today, so the groups never collide.
+out.carried_obs = 0;
+if opts.carry_obs
+    pb = blocks{opts.elt};  tpb = strtrim(pb);
+    iN = find(startsWith(tpb, "nObs="), 1);
+    nOb = 0;
+    if ~isempty(iN)
+        tk = regexp(tpb(iN), 'nObs=\s*(\d+)', 'tokens', 'once');
+        if ~isempty(tk), nOb = str2double(tk{1}); end
+    end
+    if nOb > 0
+        j = iN + 1;
+        while j <= numel(pb) && (startsWith(tpb(j), "ObsType=") || ...
+              startsWith(tpb(j), "ObsVec=") || ...
+              startsWith(tpb(j), "PolyObsVec=") || ...
+              startsWith(tpb(j), "Poly3DObsVec=") || ...
+              ~isempty(regexp(tpb(j), '^[-+0-9.eEdD ]+$', 'once')))
+            j = j + 1;
+        end
+        grp = pb(iN:j-1);
+        merged = readlines(out_in);
+        tlm = strtrim(merged);
+        mstarts = find(startsWith(tlm, "iElt="));
+        k = out.seg_elts(1);
+        b1 = numel(merged); if k < numel(mstarts), b1 = mstarts(k+1) - 1; end
+        ie = b1;
+        while ie > mstarts(k) && strlength(strtrim(merged(ie))) == 0
+            ie = ie - 1;
+        end
+        merged = [merged(1:ie); grp; merged(ie+1:end)];
+        writelines(merged, out_in);
+        out.carried_obs = nOb;
+    end
+end
+end
+
+% =========================================================================
+function grp = blocks_parent_figure_(lines, starts, elt)
+%BLOCKS_PARENT_FIGURE_  The parent element's Zernike figure, re-keyed for
+%   the segment FF channel (step 1b).  Returns [] when the parent block
+%   carries no ZernCoef= (bare-conic parents: no-op, e5 fixtures
+%   unchanged).  The figure is carried VERBATIM -- same type, modes,
+%   coefs, normalization radius (lMon -> lFF) and frame (pMon/xMon/yMon/
+%   zMon -> pFF/xFF/yFF/zFF) -- so every segment evaluates conic +
+%   parent figure exactly as the monolithic parent did.
+b1 = starts(elt);
+b2 = numel(lines); if elt < numel(starts), b2 = starts(elt+1) - 1; end
+pb = lines(b1:b2);  tp = strtrim(pb);
+
+    function [v, rows] = take_(key)
+    % the Key= line plus its bare-number continuation rows
+        i = find(startsWith(tp, key + "="), 1);
+        v = string.empty;  rows = string.empty;
+        if isempty(i), return; end
+        v = pb(i);
+        j = i + 1;
+        while j <= numel(pb) && strlength(tp(j)) > 0 && ...
+              ~contains(pb(j), "=") && ...
+              ~isempty(regexp(tp(j), '^[-+0-9.eEdD ]+$', 'once'))
+            rows(end+1,1) = pb(j);  j = j + 1; %#ok<AGROW>
+        end
+    end
+
+[cl, crows] = take_("ZernCoef");
+if isempty(cl), grp = string.empty; return; end
+[tl, ~]     = take_("ZernType");
+[nl, ~]     = take_("nZernCoef");
+[ml, mrows] = take_("ZernModes");
+[ll, ~]     = take_("lMon");
+rekey = @(s, from, to) regexprep(s, "(^\s*)" + from + "=", "$1" + to + "=");
+grp = string.empty;
+if ~isempty(tl), grp(end+1,1) = rekey(tl, "ZernType", "FFZernType"); end
+if ~isempty(nl), grp(end+1,1) = rekey(nl, "nZernCoef", "nFFZernCoef"); end
+if ~isempty(ml), grp = [grp; rekey(ml, "ZernModes", "FFZernModes"); mrows]; end
+grp = [grp; rekey(cl, "ZernCoef", "FFZernCoef"); crows];
+if ~isempty(ll), grp(end+1,1) = rekey(ll, "lMon", "lFF"); end
+for fk = ["pMon" "xMon" "yMon" "zMon"; "pFF" "xFF" "yFF" "zFF"]
+    [fl, ~] = take_(fk(1));
+    if ~isempty(fl), grp(end+1,1) = rekey(fl, fk(1), fk(2)); end %#ok<AGROW>
 end
 end

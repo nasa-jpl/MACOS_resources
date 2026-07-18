@@ -8,47 +8,47 @@
    M5         R =    2.0000 m  K =  +0.00000  Vpt=[ -0.569  -0.266   0.300]
    M6         R =    1.0000 m  K =  +0.00000  Vpt=[ -1.494   0.153   0.300]
    M7         R =    2.0000 m  K =  +0.00000  Vpt=[ -0.482   0.234   0.300]
-   FP_return  Return     (flat)        Vpt=[ -2.432   0.584   0.300]
-   ExitPupil  R =    1.9660 m  K =  +0.00000  Vpt=[ -0.490   0.282   0.298]
-   FP         FocalPlane (flat)        Vpt=[ -2.432   0.584   0.300]
+   FP_return  Return     (flat)        Vpt=[ -2.434   0.573   0.300]
+   ExitPupil  R =    1.9533 m  K =  +0.00000  Vpt=[ -0.501   0.288   0.297]
+   FP         FocalPlane (flat)        Vpt=[ -2.434   0.573   0.300]
  -- first order --
-   EFL 73.43 m | f/# at M1 1.75 | f/# at FP 18.36
-   plate scale 356.0 um/arcsec | lambda/D 25.78 mas
+   EFL 73.24 m | f/# at M1 1.75 | f/# at FP 18.31
+   plate scale 355.1 um/arcsec | lambda/D 25.78 mas
  -- field performance (RMS WFE about the field center) --
-   bias +1.3' |    field       raw     -tilt    Strehl
-          center     0.012     0.008     0.997
-      0.50' ring     0.015     0.011     0.996
-      1.00' ring     0.031     0.020     0.984
-      1.50' ring     0.058     0.028     0.969
-      2.00' ring     0.085     0.030     0.965
+   bias +0.9' |    field       raw     -tilt    Strehl
+          center     0.015     0.014     0.992
+      0.50' ring     0.017     0.016     0.990
+      1.00' ring     0.024     0.016     0.991
+      1.50' ring     0.035     0.019     0.985
+      2.00' ring     0.069     0.038     0.945
    (Strehl = far-field peak / unaberrated-aperture peak, exact coherent sum over the
     EP-referenced OPD, tilt removed; worst ring point.  PSF products: INT at the FP.)
  -- focal plane --
-   FP tilt 0.923 deg wrt the arriving chief ray
-   aligned from 25 field foci: defocus removed -0.465 mm; field-curvature
-   sag -6.1 to +5.9 um (rms 3.5 um); best-focus blur 3.21e-07 m (center)
+   FP tilt 0.406 deg wrt the arriving chief ray
+   aligned from 25 field foci: defocus removed -0.199 mm; field-curvature
+   sag -5.3 to +5.2 um (rms 3.1 um); best-focus blur 3.94e-07 m (center)
  -- exit pupil (add_pupil / FEX) --
-   1.966 m from the image, at [ -0.490   0.282   0.298] (elt 10)
+   1.953 m from the image, at [ -0.501   0.288   0.297] (elt 10)
  -- packaging / clearance --
    shroud 1.25 x D | train length 6.69 m
    clearance: body-in-beam at M2, FM (FP vs its own pupil-retrace legs excluded)
    M1         AOI   0.1 deg (spread 7.9 deg across the beam)
    M2         AOI   0.4 deg (spread 9.3 deg across the beam)
    FM         AOI  45.0 deg (spread 4.1 deg across the beam)
-   M3         AOI   0.7 deg (spread 0.5 deg across the beam)
-   M4         AOI   2.9 deg (spread 3.1 deg across the beam)
+   M3         AOI   0.8 deg (spread 0.5 deg across the beam)
+   M4         AOI   2.8 deg (spread 3.1 deg across the beam)
    M5         AOI   6.0 deg (spread 0.1 deg across the beam)
-   M6         AOI  12.4 deg (spread 0.1 deg across the beam)
-   M7         AOI   6.9 deg (spread 0.0 deg across the beam)
+   M6         AOI  12.3 deg (spread 0.1 deg across the beam)
+   M7         AOI   6.7 deg (spread 0.0 deg across the beam)
 =======================================================
  -- stage-2 addendum: the imaging instrument --
    relay: M4 corrector 0.45 m past the telescope focus / M5 collimator / M6 corrector / M7 camera
    relay R = [1e+06 2 1 2] m, K = [0 0 0 0] (M5/M7 solved at the bias point)
    joint solve: CALIB M2/M3/M5/M6 (11 pts) + SVD M4 + polish M2..M6 + M1 common mode (5x5 grid)
-   field-zone lMon (m): [2.2 0.232 0.171 0.0788 0.171 0.0583 0.063]  (s1: [2.2 0.23 0.143])
-   baseline +-2': 1.676 -tilt -> after joint solve 0.0575 raw / 0.0231 -tilt waves (DL)
-   bias point 0.0144 -tilt waves | max|coef| [0.00069 0.00092 0.00065 2.6e-08 0.00055 0 0.00077] m
-   field center: s1 bias 2' -0.7' shift = 1.3' (Dave 2026-07-18); center scan [dy' raw -tilt]:
-     +0.70/0.120/0.098  +0.35/0.058/0.045  +0.00/0.057/0.023  -0.35/0.057/0.040  -0.70/0.135/0.083
-   distortion (M4 reflective field-corrector solve): 201.4 -> 201.4 um rms at the detector
+   field-zone lMon (m): [2.2 0.232 0.171 0.0787 0.171 0.0584 0.0629]  (s1: [2.2 0.23 0.143])
+   baseline +-2': 1.809 -tilt -> after joint solve 0.0662 raw / 0.0303 -tilt waves (DL)
+   bias point 0.0230 -tilt waves | max|coef| [0.00069 0.00093 0.00079 2.9e-08 0.00057 0 0.00061] m
+   field center: s1 bias 2' -1.05' shift = 0.95' (Dave 2026-07-18); center scan [dy' raw -tilt]:
+     +0.70/0.105/0.081  +0.35/0.056/0.051  +0.00/0.066/0.030  -0.35/0.082/0.038  -0.70/0.107/0.064
+   distortion (M4 reflective field-corrector solve): 185.6 -> 185.6 um rms at the detector
 =======================================================

@@ -282,6 +282,36 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyTrue(contains(txt, 'Surface=  Conic'));
         end
 
+        function test_set_hole_emits_circle_obscuration(tc)
+            % set_hole is emitted into the Rx as a REAL ObsType=Circle
+            % obscuration centered on the vertex (2026-07-18): the trace
+            % clips the central rays (no glass at the hole) and
+            % macos.get_elt_obs reads it back for the layout views.
+            t = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            t.build();
+            s0 = macos.trace();
+            r0 = macos.get_ray_info(s0.nRays);
+            p0 = nnz(logical(r0.ok_pass) & logical(r0.ok_trace));
+            t.set_hole('M1', 0.15);
+            f = [tempname '.in']; c = onCleanup(@() delete(f));
+            t.save(f);
+            txt = fileread(f);
+            tc.verifyTrue(contains(txt, 'ObsType=  Circle'));
+            tc.verifyEqual(numel(strfind(txt, 'nObs=  1')), 1);
+            macos.load_rx(f);
+            s1 = macos.trace();
+            r1 = macos.get_ray_info(s1.nRays);
+            p1 = nnz(logical(r1.ok_pass) & logical(r1.ok_trace));
+            tc.verifyLessThan(p1, p0, 'hole obscuration did not clip rays');
+            ob = macos.get_elt_obs(1);           % engine readback (elt_obs_get)
+            tc.verifyEqual(ob.n, 1);
+            tc.verifyEqual(ob.type, 1);          % Circle
+            tc.verifyEqual(ob.vec(1,1), 0.15, 'AbsTol', 1e-12);
+            t.set_hole('M1', 0);                 % r=0 removes the hole again
+            t.save(f);
+            tc.verifyFalse(contains(fileread(f), 'ObsType=  Circle'));
+        end
+
         function test_describe_runs_clean(tc)
             t = tc.make_('RC', 2.4, 57.6, 10.4, 0.271);
             evalc('t.describe()');                       % prints; must not error
