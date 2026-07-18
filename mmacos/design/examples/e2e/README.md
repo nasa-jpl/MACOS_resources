@@ -38,7 +38,7 @@ correction DOFs.
 | runner | consumes | produces |
 |---|---|---|
 | `s1_telescope.m` | `e2e_params.m` | telescope design: `s1_telescope.in/.mat`, `s1_views.png`, `s1_wfe_field.png`, `s1_fpmap.png`, `s1_report.txt` |
-| `s2_instrument.m` | s1 artifacts | 3-mirror bench relay (M4 corrector / M5 collimator / M6 camera; legs 1.5/2.0 m at 5° tilts — the relay's own tilt astigmatism scales ~f₅·θ², so longer legs + smaller tilts halve it) widening the corrected field: DL through the 1.5′ ring (0.022–0.068 −tilt waves, Strehl 0.98→0.91), 0.108 at the 2′ edge; distortion 0.19″ (the M4 distortion corrector stands down below its 100 µm bar).  NEXT: the Offner ring-field 1:1 relay (concentric, no tilted powered surfaces — deletes the tilt-astig floor; ring field hosts several small-field instrument pickoffs).  The solve is JOINT (CALIB on M2/M3/M5/M6, SVD-engine stages on the dense 5×5 field grid, M1 common mode over the full set); M2/M3 keep refining with the instrument, their field-zone lMon growing with the field.  The BEST DETECTOR PLANE (tilt + despace) is re-fit through a 5×5 grid of measured field foci (`align_focal_plane`) and the ladder is scored on it.  The remaining raw−(−tilt) gap is relay DISTORTION — not correctable by detector angle; M4 near the focus is the reflective field-corrector for it (distortion-merit solve, follow-on).  Probed and rejected: per-field patch corrector at a focus (SVD rank collapse) and a 4th weak mirror near the relayed pupil (common-mode, conditions the joint solve worse).  `s2_instrument.in/.mat`, views + field maps + `s2_report.txt` |
+| `s2_instrument.m` | s1 artifacts | **OFFNER ring-field 1:1 relay** (`P.inst.type="offner"`, geometry from `design/src/offner_layout`): concave R=2 m used twice + convex R/2 at the stop, ALL CONCENTRIC — no tilted powered surfaces, so the tilt-astig floor is deleted at the root and the odd aberrations (coma, distortion) cancel by symmetry.  M4 = flat routing fold + corrector station; the convex stop mirror is held out of every solve (pupil-conjugate).  Result: **DL over the FULL ±2′ field at 500 nm** — −tilt ladder 0.015/0.017/0.027/0.037/0.043, Strehl 0.99→0.93, on pure spheres (all K=0), sub-mm figures.  The ring field hosts several small-field instrument pickoffs.  The tilted-sphere `"zigzag"` variant remains selectable (DL through 1.5′; its tilt astig scales ~f₅·θ²).  The solve is JOINT (CALIB on M2/M3/M5/M6, SVD-engine stages on the dense 5×5 field grid, M1 common mode over the full set); M2/M3 keep refining with the instrument, their field-zone lMon growing with the field.  The BEST DETECTOR PLANE (tilt + despace) is re-fit through a 5×5 grid of measured field foci (`align_focal_plane`) and the ladder is scored on it.  The remaining raw−(−tilt) gap is relay DISTORTION — not correctable by detector angle; M4 near the focus is the reflective field-corrector for it (distortion-merit solve, follow-on).  Probed and rejected: per-field patch corrector at a focus (SVD rank collapse) and a 4th weak mirror near the relayed pupil (common-mode, conditions the joint solve worse).  `s2_instrument.in/.mat`, views + field maps + `s2_report.txt` |
 | `s3_segmentation.m` | s2 | segmented primary (`segment_rx` + physical apertures); new views |
 | `s4_jacobians.m` | s3 | `dwdx`, `dwdz`, `dwdgrid` sensitivity channels + condition/rank report |
 | `s5_met.m` | s4 | MET truss (`add_met` + layout optimizer), `dedx`/`dldx`, estimator gains `dxdl`/`dxde`, `dwdl`/`dwde`, MET-optimized performance report, views with MET |
@@ -105,6 +105,13 @@ should just work — if you restructure the chain, keep the rules:
     near-focus corrector (M4) against the affine-projected
     chief-displacement metric — its per-field-tilt channel is exactly
     the distortion knob (and exactly why it is useless for blur).
+
+12. **The relay wants to be an Offner.**  A concentric 1:1 ring-field
+    relay (spheres held — a ROC/conic solve would un-Offner the
+    concentricity; convex stop mirror out of the solves) beats any
+    tilted-sphere arrangement outright: the biased patch is a
+    ring-field arc, which is exactly the field shape the Offner
+    serves aberration-free.
 
 Dead ends, kept on record in `s2_instrument.m` so nobody re-walks
 them: a per-field Zernike patch corrector at a focus (SVD rank
