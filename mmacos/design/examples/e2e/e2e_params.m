@@ -88,8 +88,8 @@ P.inst = struct( ...
     ...                         % the collimator condition f5 = dpast +
     ...                         % leg1 (exact, whatever the telescope
     ...                         % conjugates); M6 = M5 (unit mag)
-    'legs_m',     [1.0 1.5], ...       % M4->M5, M5->M6 (M6->FP derives)
-    'tilt_deg',   [8 -8 8], ...        % bench zigzag tilts (astig ~
+    'legs_m',     [1.5 2.0], ...       % M4->M5, M5->M6 (M6->FP derives)
+    'tilt_deg',   [5 -5 5], ...        % bench zigzag tilts (astig ~
     ...                         % tilt^2; 6 deg OVERLAPS the in/out
     ...                         % beams at these legs and diverges)
     'modes',      [], ...       % relay Zernike modes ([] -> P.modes)
