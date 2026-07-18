@@ -1,49 +1,50 @@
 ==================== DESIGN REPORT ====================
  family TMA | D = 4.000 m | lambda = 0.5 um | 10 elements
-   M1         R =   10.0000 m  K =  -0.99682  Vpt=[  0.000   0.000   0.000]
-   M2         R =    0.5647 m  K =  -1.20785  Vpt=[  0.000   0.000  -4.735]
+   M1         R =   14.0000 m  K =  -0.98946  Vpt=[  0.000   0.000   0.000]
+   M2         R =    1.6508 m  K =  -1.50791  Vpt=[  0.000   0.000  -6.278]
    FM         Reflector  (flat)        Vpt=[  0.000   0.000   0.300]
-   M3         R =    2.7474 m  K =  -0.75539  Vpt=[  2.100   0.000   0.300]
-   M4         R =   20.0000 m  K =  +0.00000  Vpt=[ -0.957   0.000   0.300]
-   M5         R =    2.5641 m  K =  -2.16834  Vpt=[  0.004  -0.276   0.300]
-   M6         R =    2.5830 m  K =  +3.99943  Vpt=[ -1.496  -0.276   0.300]
-   FP_return  Return     (flat)        Vpt=[ -0.383  -0.415   0.300]
-   ExitPupil  R =    0.5232 m  K =  +0.00000  Vpt=[ -0.906  -0.389   0.298]
-   FP         FocalPlane (flat)        Vpt=[ -0.383  -0.415   0.300]
+   M3         R =    3.2625 m  K =  -0.98712  Vpt=[  2.100   0.000   0.300]
+   M4         R =   20.0000 m  K =  +0.00000  Vpt=[ -2.079   0.000   0.300]
+   M5         R =    2.4926 m  K =  -4.73057  Vpt=[ -1.118  -0.276   0.300]
+   M6         R =    3.7201 m  K = -41.69914  Vpt=[ -2.618  -0.276   0.300]
+   FP_return  Return     (flat)        Vpt=[ -1.207  -0.509   0.300]
+   ExitPupil  R =    1.1448 m  K =  +0.00000  Vpt=[ -2.331  -0.290   0.299]
+   FP         FocalPlane (flat)        Vpt=[ -1.207  -0.509   0.300]
  -- first order --
-   EFL 67.65 m | f/# at M1 1.25 | f/# at FP 16.91
-   plate scale 328.0 um/arcsec | lambda/D 25.78 mas
+   EFL 91.59 m | f/# at M1 1.75 | f/# at FP 22.90
+   plate scale 444.0 um/arcsec | lambda/D 25.78 mas
  -- field performance (RMS WFE about the field center) --
-   bias +5.0' |    field       raw     -tilt    Strehl
-          center     6.221     0.266     0.077
-      0.50' ring     8.147     0.333     0.019
-      1.00' ring    10.370     0.507     0.016
-      1.50' ring    12.608     0.629     0.003
-      2.00' ring    14.176     0.515     0.017
+   bias +2.0' |    field       raw     -tilt    Strehl
+          center     0.240     0.148     0.395
+      0.50' ring     0.302     0.161     0.559
+      1.00' ring     0.427     0.162     0.507
+      1.50' ring     0.652     0.171     0.369
+      2.00' ring     0.971     0.241     0.161
    (Strehl = far-field peak / unaberrated-aperture peak, exact coherent sum over the
     EP-referenced OPD, tilt removed; worst ring point.  PSF products: INT at the FP.)
  -- focal plane --
-   FP tilt 6.131 deg wrt the arriving chief ray
-   aligned from 25 field foci: defocus removed +7.911 mm; field-curvature
-   sag -7.3 to +9.2 um (rms 4.8 um); best-focus blur 3.93e-05 m (center)
+   FP tilt 2.920 deg wrt the arriving chief ray
+   aligned from 25 field foci: defocus removed -3.450 mm; field-curvature
+   sag -63.9 to +63.8 um (rms 44.5 um); best-focus blur 4.95e-06 m (center)
  -- exit pupil (add_pupil / FEX) --
-   0.523 m from the image, at [ -0.906  -0.389   0.298] (elt 9)
+   1.145 m from the image, at [ -2.331  -0.290   0.299] (elt 9)
  -- packaging / clearance --
-   shroud 1.05 x D | train length 5.12 m
-   clearance: body-in-beam at M2, M4 (FP vs its own pupil-retrace legs excluded)
-   M1         AOI   0.1 deg (spread 11.2 deg across the beam)
-   M2         AOI   0.6 deg (spread 12.5 deg across the beam)
-   FM         AOI  45.0 deg (spread 2.9 deg across the beam)
-   M3         AOI   4.2 deg (spread 0.1 deg across the beam)
-   M4         AOI  16.7 deg (spread 2.7 deg across the beam)
+   shroud 1.31 x D | train length 6.69 m
+   clearance: body-in-beam at M2, FM (FP vs its own pupil-retrace legs excluded)
+   M1         AOI   0.1 deg (spread 8.0 deg across the beam)
+   M2         AOI   0.4 deg (spread 9.2 deg across the beam)
+   FM         AOI  45.0 deg (spread 4.1 deg across the beam)
+   M3         AOI   0.8 deg (spread 0.5 deg across the beam)
+   M4         AOI   8.7 deg (spread 3.0 deg across the beam)
    M5         AOI   4.1 deg (spread 1.1 deg across the beam)
-   M6         AOI   6.3 deg (spread 1.8 deg across the beam)
+   M6         AOI   1.6 deg (spread 1.5 deg across the beam)
 =======================================================
  -- stage-2 addendum: the imaging instrument --
    relay: M4 corrector 0.45 m past the telescope focus / M5 collimator / M6 corrector / M7 camera
-   relay R = [20 2.564 2.583] m, K = [0 -2.168 3.999] (M5/M7 solved at the bias point)
+   relay R = [20 2.493 3.72] m, K = [0 -4.731 -41.7] (M5/M7 solved at the bias point)
    joint solve: CALIB M2/M3/M5/M6 (11 pts) + SVD M4 + polish M2..M6 + M1 common mode (5x5 grid)
-   field-zone lMon (m): [2.2 0.12 0.175 0.0953 0.17 0.0975]  (s1: [2.2 0.119 0.128])
-   baseline +-2': 39.976 -tilt -> after joint solve 10.4673 raw / 0.6237 -tilt waves (residual)
-   bias point 0.2769 -tilt waves | max|coef| [1.8e-05 0.00011 0.0058 0 0.0023 0.0052] m
+   field-zone lMon (m): [2.2 0.232 0.171 0.0796 0.131 0.0539]  (s1: [2.2 0.23 0.143])
+   baseline +-2': 7.373 -tilt -> after joint solve 0.6464 raw / 0.2612 -tilt waves (residual)
+   bias point 0.1590 -tilt waves | max|coef| [0.00069 0.001 0.005 2e-08 0.00053 0.00079] m
+   distortion (M4 reflective field-corrector solve): 95.9 -> 95.9 um rms at the detector
 =======================================================

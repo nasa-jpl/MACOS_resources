@@ -20,14 +20,14 @@ P.lambda_m     = 0.5e-6;    % design wavelength (m) -- visible telescope
 P.fov_arcmin   = 1.0;       % HALF-field (about the bias) the telescope
                             % holds; stage 2's imaging instrument pushes
                             % the corrected field toward P.inst.fov_arcmin
-P.primary_fnum = 1.25;      % M1 f/#  (f1 = fno1*D, R1 = 2*f1) -- FAST
+P.primary_fnum = 1.75;      % M1 f/#  (f1 = fno1*D, R1 = 2*f1)
 P.system_fnum  = 18;        % final f/# at the FP  (EFL = fno_sys*D)
-P.secondary_mag  = 16;      % Cassegrain feed magnification m2 (>1).
-                            % HIGH mag = compact: intermediate cone
-                            % fno1*m2 = f/20, so the M3 relay is
-                            % near-unit magnification (short bench),
-                            % M2 is small (~6% linear obscuration),
-                            % and the M1 hole is cm-scale
+P.secondary_mag  = 8;       % Cassegrain feed magnification m2 (>1).
+                            % Lower mag relaxes M2's curvature (a
+                            % field-aberration source) at the cost of
+                            % a somewhat longer bench; the f/1.25+m2=16
+                            % starting point could not reach VIS blur
+                            % (Dave 2026-07-17: f/1.75, m2=8)
 P.int_focus_frac = -0.125;  % intermediate-focus z, fraction of D
                             % (NEGATIVE = in front of M1, between M1
                             % and M2 -- the field-stop / metrology-
@@ -38,10 +38,22 @@ P.fold_frac    = 0.075;     % 90-deg fold (FM) station z, fraction of D
                             % +x there, so M3 and everything after live
                             % on a flat bench BEHIND M1 (Dave: move the
                             % back end behind the primary)
-P.fold_margin  = 1.4;       % fold body radius = margin * local feed radius
+P.m3_tilt_deg  = 1.2;       % EXTRACTION TILT on M3, about the bench
+                            % normal (the builder's tilt axis maps
+                            % there through the fold isometry): the
+                            % M3->FP return leaves the feed axis
+                            % geometrically, so the fold clears WITHOUT
+                            % field bias -- the bias sweep then settles
+                            % near its minimum.  (Bias was the VIS
+                            % killer: aberration ~ bias^2.)
+P.fold_margin  = 1.15;      % fold body radius = margin * local feed
+                            % radius.  A slim mount: the M3->FP return
+                            % passes the fold body with mm-scale
+                            % daylight at the chosen tilt/bias -- 1.4x
+                            % grazed the clearance judge
 P.fp_body_r    = 0.075;     % focal-plane BODY radius (m) for the
                             % clearance judge (detector + mount)
-P.bias_sweep_arcmin = [3 4 5 6 8];  % off-axis biases to explore; the
+P.bias_sweep_arcmin = [1 2 3 4 6];  % off-axis biases to explore; the
                             % least whose folded design fully CLEARS
                             % (only M2's central obscuration allowed)
                             % wins -- aberration grows ~bias^2
@@ -72,9 +84,14 @@ P.grid_npts  = 41;          % circular ray-grid points (~1300 rays)
 P.inst = struct( ...
     'fov_arcmin', 2.0, ...      % widened half-field target
     'dpast_m',    0.45, ...     % M4 corrector past the telescope focus
-    'R_m',        [20 2.6 2.6], ...    % M4 weak / M5 collimator / M6 camera
+    'R_m',        [], ...      % [] = DERIVE: M4 weak (20 m); M5 from
+    ...                         % the collimator condition f5 = dpast +
+    ...                         % leg1 (exact, whatever the telescope
+    ...                         % conjugates); M6 = M5 (unit mag)
     'legs_m',     [1.0 1.5], ...       % M4->M5, M5->M6 (M6->FP derives)
-    'tilt_deg',   [8 -8 8], ...        % bench zigzag tilts (astig ~ tilt^2)
+    'tilt_deg',   [8 -8 8], ...        % bench zigzag tilts (astig ~
+    ...                         % tilt^2; 6 deg OVERLAPS the in/out
+    ...                         % beams at these legs and diverges)
     'modes',      [], ...       % relay Zernike modes ([] -> P.modes)
     'nfield_svd', 5, ...        % NxN dense field grid for the SVD solve
     ...                         % stages + final scoring (CALIB caps at 12)
