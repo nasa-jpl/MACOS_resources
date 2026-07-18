@@ -55,13 +55,28 @@ K1  = arrayfun(@(k) e1(k).Kc, s1.pm);
 zf  = P.fold_frac*D;
 r_fold = P.fold_margin * (zf - s1.lay.int_focus_z) / ...
          (2*P.primary_fnum*P.secondary_mag);
-Rrel = P.inst.R_m;
-if isempty(Rrel)
-    % derive the relay: collimator f5 = its distance from the telescope
-    % focus (exact whatever the telescope conjugates); camera f6 = f5
-    % (unit magnification -> final f/# preserved); M4 stays weak.
-    f5 = P.inst.dpast_m + P.inst.legs_m(1);
-    Rrel = [20, 2*f5, 2*f5];
+is_offner = strcmpi(string(P.inst.type), "offner");
+if is_offner
+    % Concentric ring-field 1:1 Offner: concave R (twice) + convex R/2
+    % at the stop, chief-path legs/tilts from the closed geometry.
+    % M4 = a FLAT routing fold + corrector station inside the object
+    % leg (flat => zero tilt astigmatism at any routing angle).
+    [olegs, otilts, og] = offner_layout(P.inst.offner_R, P.inst.offner_h, ...
+                                        'fno', P.system_fnum);
+    Rrel = [1e6, P.inst.offner_R, P.inst.offner_R/2, P.inst.offner_R];
+    rlegs = [olegs(1) - P.inst.dpast_m, olegs(2), olegs(3)];
+    rtilts = [P.inst.tilt_deg(1), otilts];
+else
+    Rrel = P.inst.R_m;
+    if isempty(Rrel)
+        % zigzag relay: collimator f5 = its distance from the telescope
+        % focus (exact whatever the telescope conjugates); camera f6 =
+        % f5 (unit magnification); M4 stays weak.
+        f5 = P.inst.dpast_m + P.inst.legs_m(1);
+        Rrel = [20, 2*f5, 2*f5];
+    end
+    rlegs = P.inst.legs_m;
+    rtilts = P.inst.tilt_deg;
 end
 t = macos.design.Telescope('family','TMA', ...
         'aperture_diameter_m', D, 'wavelength_m', LAM, ...
@@ -71,12 +86,19 @@ t.add_mirror('M2','radius_m',s1.R(2),'spacing_after_m',s1.tsp(2),'convex',true, 
              'conic',K1(2));
 t.add_mirror('M3','radius_m',s1.R(3),'spacing_after_m', b + P.inst.dpast_m, ...
              'conic',K1(3));
-t.add_mirror('M4','radius_m',Rrel(1),'spacing_after_m',P.inst.legs_m(1), ...
-             'tilt_deg',P.inst.tilt_deg(1),'conic',0);
-t.add_mirror('M5','radius_m',Rrel(2),'spacing_after_m',P.inst.legs_m(2), ...
-             'tilt_deg',P.inst.tilt_deg(2),'conic',0);
-t.add_mirror('M6','radius_m',Rrel(3),'spacing_after','derive', ...
-             'tilt_deg',P.inst.tilt_deg(3),'conic',0);
+t.add_mirror('M4','radius_m',Rrel(1),'spacing_after_m',rlegs(1), ...
+             'tilt_deg',rtilts(1),'conic',0);
+t.add_mirror('M5','radius_m',Rrel(2),'spacing_after_m',rlegs(2), ...
+             'tilt_deg',rtilts(2),'conic',0);
+if is_offner
+    t.add_mirror('M6','radius_m',Rrel(3),'spacing_after_m',rlegs(3), ...
+                 'tilt_deg',rtilts(3),'convex',true,'conic',0);
+    t.add_mirror('M7','radius_m',Rrel(4),'spacing_after','derive', ...
+                 'tilt_deg',rtilts(4),'conic',0);
+else
+    t.add_mirror('M6','radius_m',Rrel(3),'spacing_after','derive', ...
+                 'tilt_deg',rtilts(3),'conic',0);
+end
 t.add_focal_plane('FP','ap_r',P.fp_body_r);
 t.set_field_bias(s1.bias);
 t.add_fold('FM','after','M2','dist_m', s1.tsp(1)+zf, 'to',[1 0 0], ...
@@ -117,8 +139,25 @@ fprintf('\n[2] baseline over +-%g'': worst %.3f raw / %.3f -tilt waves\n', ...
 % corrector turns into a strongly-powered K~-2000 surface (conic
 % abused as high-order sag) and drags the first order off spec.  Their
 % correction budget is the freeform in [4].
-relay = pm(4:6);  cams = pm([5 6]);  weak = pm(4);
+if is_offner
+    % pm = [M1 M2 M3 M4 M5 M6 M7]; the convex stop mirror M6 is
+    % pupil-conjugate (M1-degenerate) and stays OUT of the solves.
+    relay = pm(4:7);  cams = [];  weak = pm(4);
+    strong = pm([2 3 5 7]);  polishset = pm([2 3 4 5 7]);
+else
+    relay = pm(4:6);  cams = pm([5 6]);  weak = pm(4);
+    strong = pm([2 3 5 6]);  polishset = pm(2:6);
+end
 t.align_focal_plane('grid', 3, 'span_arcmin', h2/2);
+if isempty(cams)
+    % Offner: the spheres ARE the design -- no ROC/conic solve (a solve
+    % here would un-Offner the concentricity).  Measure only.
+    t.align_focal_plane('grid', 3, 'span_arcmin', h2/2);
+    macos.trace(numel(t.spec.elt));  wfe_pt = rms_waves(macos.opd(), LAM);
+    r3 = struct('wfe_before', wfe_pt*LAM, 'wfe_after', wfe_pt*LAM);
+    fprintf('\n[3] Offner relay held (concentric spheres by design): bias point %.4f waves\n', ...
+            wfe_pt);
+else
 t.optimize('fields_arcmin', [], 'elts', cams, ...
            'dofs', [0 0 0 0 0 0 1 1], 'max_iters', P.max_iters);
 t.align_focal_plane('grid', 3, 'span_arcmin', h2/2);
@@ -127,6 +166,7 @@ r3 = t.optimize('fields_arcmin', [], 'elts', cams, ...
 macos.trace(numel(t.spec.elt));  wfe_pt = rms_waves(macos.opd(), LAM);
 fprintf('\n[3] M5/M6 conic+ROC @ bias point (FP aligned, correctors held): %.4f -> %.4f waves\n', ...
         max(r3.wfe_before)/LAM, wfe_pt);
+end
 fprintf('    relay R = %s m, K = %s\n', ...
         mat2str(arrayfun(@(k) abs(e_now(t,k).Kr), relay), 4), ...
         mat2str(arrayfun(@(k) e_now(t,k).Kc, relay), 4));
@@ -140,12 +180,12 @@ fprintf('    (s1 zones were %s -- M2/M3 grow with the wider field)\n', ...
 % pupil-degenerate with the relayed stop; the weak correctors get the
 % SVD engine next -- CALIB's FD-LM goes singular on their sparser
 % support).
-strong = pm([2 3 5 6]);
+[~, si] = ismember(strong, pm);
 r4 = t.optimize_freeform(strong, 'modes', imodes, 'type', P.ztype, ...
-                         'fields', F2, 'weights', w2, 'lmon', lz([2 3 5 6]), ...
+                         'fields', F2, 'weights', w2, 'lmon', lz(si), ...
                          'max_iters', P.inst.max_iters_ff);
-fprintf('    [4a] joint M2/M3/M5/M6 field solve: worst %.4f -> %.4f waves\n', ...
-        max(r4.wfe_before)/LAM, max(r4.wfe_after)/LAM);
+fprintf('    [4a] joint field solve (elts %s): worst %.4f -> %.4f waves\n', ...
+        mat2str(strong), max(r4.wfe_before)/LAM, max(r4.wfe_after)/LAM);
 % [4b] the weak correctors at their intermediate conjugates (SVD
 % engine: truncated SVD + damping + line search on the true
 % multi-field merit -- rank-safe where CALIB blows up).
@@ -154,10 +194,11 @@ r4w = zern_jacobian_solve(t, weak, 'modes', imodes, 'type', P.ztype, ...
 fprintf('    [4b] M4 corrector (SVD rank %d): worst %.4f -> %.4f -tilt waves\n', ...
         r4w.rank, max(r4w.wfe(1,:))/LAM, max(last_wfe_(r4w))/LAM);
 % [4c] SVD polish of the full instrument+telescope set (M2..M7).
-r4c = zern_jacobian_solve(t, pm(2:6), 'modes', imodes, 'type', P.ztype, ...
-        'lmon', lz(2:6), 'fields', F2s, 'iters', 2);
-fprintf('    [4c] SVD polish M2..M6: worst %.4f -> %.4f -tilt waves\n', ...
-        max(r4c.wfe(1,:))/LAM, max(last_wfe_(r4c))/LAM);
+[~, ci] = ismember(polishset, pm);
+r4c = zern_jacobian_solve(t, polishset, 'modes', imodes, 'type', P.ztype, ...
+        'lmon', lz(ci), 'fields', F2s, 'iters', 2);
+fprintf('    [4c] SVD polish (elts %s): worst %.4f -> %.4f -tilt waves\n', ...
+        mat2str(polishset), max(r4c.wfe(1,:))/LAM, max(last_wfe_(r4c))/LAM);
 % [4d] M1 common mode over the FULL field set (the single-field CALIB
 % null wandered -- tilt is a gauge at one field -- and traded
 % worst-field 0.72 -> 3.6; the SVD engine projects the gauge out).
@@ -169,7 +210,7 @@ fprintf(['    [4d] M1 common mode (SVD): worst %.4f -> %.4f -tilt; ', ...
          'final +-%g'''': %.4f raw / %.4f -tilt -> %s\n'], ...
         max(r4b.wfe(1,:))/LAM, max(last_wfe_(r4b))/LAM, h2, wfe_ff, wfe_ft, ...
         ternary(wfe_ft < P.dl_waves, 'DIFFRACTION-LIMITED', 'residual'));
-cmax = arrayfun(@(k) max(abs(e_now(t,k).freeform.coef)), pm);
+cmax = arrayfun(@(k) coef_max_(t, k), pm);
 fprintf('    coefficient sanity: max|coef| = %s m\n', mat2str(cmax, 2));
 if any(cmax > 1e-2)
     warning('e2e:s2:coef', ['metre/cm-scale Zernike coefficients -- the ', ...
@@ -315,6 +356,17 @@ fprintf('\nStage 2 complete.  Next: s3_segmentation.m.\n');
 
 % ---- helpers --------------------------------------------------------
 function ek = e_now(t, k), ek = t.spec.elt(k); end
+
+function c = coef_max_(t, k)
+%COEF_MAX_  Max |freeform coef| of elt k; 0 when it carries no figure
+%   (e.g. the Offner convex, held out of every solve).
+    ff = t.spec.elt(k).freeform;
+    if isstruct(ff) && ~isempty(ff) && isfield(ff, 'coef') && ~isempty(ff.coef)
+        c = max(abs(ff.coef));
+    else
+        c = 0;
+    end
+end
 
 function [rms_m, res] = distortion_(t, F)
 %DISTORTION_  Chief-ray mapping error over field set F: landing points

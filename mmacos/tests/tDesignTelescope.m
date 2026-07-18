@@ -1106,6 +1106,22 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             tc.verifyTrue(ischar(rep.text) && numel(rep.text) > 200);
         end
 
+        function test_offner_layout(tc)
+            % offner_layout: concentric 1:1 relay chief geometry --
+            % closure (image at -h), path/tilt symmetry, positive
+            % vignetting clearance, and exact scale invariance.
+            addpath(fullfile(getenv('HOME'), ...
+                    'dev/MACOS_resources/mmacos/design/src'));
+            [L, T, g] = offner_layout(2.0, 0.25);
+            tc.verifyEqual(L(1), L(4), 'AbsTol', 1e-9, 'object/image legs');
+            tc.verifyEqual(L(2), L(3), 'AbsTol', 1e-9, 'inner legs');
+            tc.verifyEqual(T(1), T(3), 'AbsTol', 1e-9, 'concave tilts');
+            tc.verifyEqual(g.I(1), -0.25, 'AbsTol', 1e-9, '1:1 inversion');
+            tc.verifyGreaterThan(g.conv_clear_m, 0, 'stop-plane daylight');
+            L2 = offner_layout(4.0, 0.5);
+            tc.verifyEqual(L2, 2*L, 'RelTol', 1e-9, 'scale invariance');
+        end
+
         function test_field_zone_lmon(tc)
             % field_zone_lmon: per-mirror field-zone normalization radii
             % (solve doctrine) -- pooled footprint over the field set,

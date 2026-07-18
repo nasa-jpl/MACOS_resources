@@ -82,6 +82,15 @@ P.grid_npts  = 41;          % circular ray-grid points (~1300 rays)
 % collapse to near-zero field-solve rank.
 % The solve is JOINT: M1-M3 keep refining with the instrument.
 P.inst = struct( ...
+    'type', "offner", ...       % "offner" (concentric ring-field 1:1
+    ...                         % relay -- no tilted powered surfaces,
+    ...                         % zero Seidel over the ring; the biased
+    ...                         % patch is a ring arc, and several
+    ...                         % small-field instruments can pick off
+    ...                         % arcs of the same ring) | "zigzag"
+    ...                         % (the tilted-sphere bench relay)
+    'offner_R',   2.0, ...      % Offner concave radius (m); convex = R/2
+    'offner_h',   0.25, ...     % ring radius (m): object/image offset
     'fov_arcmin', 2.0, ...      % widened half-field target
     'dpast_m',    0.45, ...     % M4 corrector past the telescope focus
     'R_m',        [], ...      % [] = DERIVE: M4 weak (20 m); M5 from
