@@ -187,6 +187,12 @@ end
 % chief-displacement Jacobian (affine part projects out inside the
 % metric), damped LSQ, verify the blur is untouched.
 [dx0, ~] = distortion_(t, F2s);
+DIST_TOL = 1e-4;                              % m at the detector; below
+if dx0 < DIST_TOL                             % this, correction is not
+    dx1 = dx0;  d4e = d4;  a_pick = 0;        % worth ANY blur trade
+    fprintf(['\n[4e] distortion %.1f um already below the %.0f um bar -- ', ...
+             'M4 corrector stands down\n'], dx0*1e6, DIST_TOL*1e6);
+else
 i4 = pm(4);  ff4 = t.spec.elt(i4).freeform;
 c0 = ff4.coef(:).';  ds = 2e-7;
 [~, r0] = distortion_(t, F2s);
@@ -224,6 +230,7 @@ fprintf(['\n[4e] M4 distortion solve (blur-guarded, alpha %.2f): rms %.1f -> %.1
          '(%.3f -> %.3f arcsec); blur worst %.4f -> %.4f -tilt waves\n'], ...
         a_pick, dx0*1e6, dx1*1e6, dx0/(P.system_fnum*D)*206265, ...
         dx1/(P.system_fnum*D)*206265, wfe_ft, max(d4e.rms_tilt));
+end
 wfe_ff = max(d4e.rms_raw);  wfe_ft = max(d4e.rms_tilt);
 
 %% -- [5] clearance + M1 hole re-check ---------------------------------
