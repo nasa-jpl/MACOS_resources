@@ -55,6 +55,14 @@ K1  = arrayfun(@(k) e1(k).Kc, s1.pm);
 zf  = P.fold_frac*D;
 r_fold = P.fold_margin * (zf - s1.lay.int_focus_z) / ...
          (2*P.primary_fnum*P.secondary_mag);
+Rrel = P.inst.R_m;
+if isempty(Rrel)
+    % derive the relay: collimator f5 = its distance from the telescope
+    % focus (exact whatever the telescope conjugates); camera f6 = f5
+    % (unit magnification -> final f/# preserved); M4 stays weak.
+    f5 = P.inst.dpast_m + P.inst.legs_m(1);
+    Rrel = [20, 2*f5, 2*f5];
+end
 t = macos.design.Telescope('family','TMA', ...
         'aperture_diameter_m', D, 'wavelength_m', LAM, ...
         'model_size', P.model_size, 'grid_npts', P.grid_npts);
@@ -63,11 +71,11 @@ t.add_mirror('M2','radius_m',s1.R(2),'spacing_after_m',s1.tsp(2),'convex',true, 
              'conic',K1(2));
 t.add_mirror('M3','radius_m',s1.R(3),'spacing_after_m', b + P.inst.dpast_m, ...
              'conic',K1(3));
-t.add_mirror('M4','radius_m',P.inst.R_m(1),'spacing_after_m',P.inst.legs_m(1), ...
+t.add_mirror('M4','radius_m',Rrel(1),'spacing_after_m',P.inst.legs_m(1), ...
              'tilt_deg',P.inst.tilt_deg(1),'conic',0);
-t.add_mirror('M5','radius_m',P.inst.R_m(2),'spacing_after_m',P.inst.legs_m(2), ...
+t.add_mirror('M5','radius_m',Rrel(2),'spacing_after_m',P.inst.legs_m(2), ...
              'tilt_deg',P.inst.tilt_deg(2),'conic',0);
-t.add_mirror('M6','radius_m',P.inst.R_m(3),'spacing_after','derive', ...
+t.add_mirror('M6','radius_m',Rrel(3),'spacing_after','derive', ...
              'tilt_deg',P.inst.tilt_deg(3),'conic',0);
 t.add_focal_plane('FP','ap_r',P.fp_body_r);
 t.set_field_bias(s1.bias);
@@ -168,6 +176,56 @@ if any(cmax > 1e-2)
         'canceling-pair pathology; revisit lMon / staging.']);
 end
 
+%% -- [4e] distortion: M4 as the reflective field corrector ------------
+% The raw-vs-tilt gap is relay DISTORTION: per-field chief-ray landing
+% error after the best AFFINE map (magnification / rotation /
+% anamorphism are plate-scale calibration, not distortion).  Detector
+% tilt cannot correct it (Dave) -- but M4, near the focus, bends each
+% field's chief individually: its per-field-tilt channel (useless for
+% blur, which is why its blur rank collapsed) is exactly the
+% distortion knob.  Linear solve: poke each M4 mode, build the
+% chief-displacement Jacobian (affine part projects out inside the
+% metric), damped LSQ, verify the blur is untouched.
+[dx0, ~] = distortion_(t, F2s);
+i4 = pm(4);  ff4 = t.spec.elt(i4).freeform;
+c0 = ff4.coef(:).';  ds = 2e-7;
+[~, r0] = distortion_(t, F2s);
+J = zeros(numel(r0), numel(c0));
+for j = 1:numel(c0)
+    cj = c0;  cj(j) = cj(j) + ds;
+    t.set_freeform(i4, ff4.modes, cj, 'type', ff4.type, 'lmon', ff4.lmon);
+    t.build('', 'init', false);
+    [~, rj] = distortion_(t, F2s);
+    J(:,j) = (rj(:) - r0(:)) / ds;
+end
+lamd = 1e-3 * norm(J);
+dc = -(J.'*J + lamd^2*eye(numel(c0))) \ (J.'*r0(:));
+% BLUR-GUARDED step: an unguarded full step fixed the mapping 4x but
+% cost 6 waves of blur (large tilt-channel excursions carry
+% within-patch structure).  Scan the step scale and take the best
+% distortion whose blur cost stays within BLUR_TOL of the pre-solve
+% state.
+BLUR_TOL = 0.02;                              % waves, allowed blur cost
+alphas = [1 0.5 0.25 0.1 0.05 0.02];
+dx1 = dx0;  d4e = d4;  a_pick = 0;
+for a = alphas
+    t.set_freeform(i4, ff4.modes, c0 + a*dc.', 'type', ff4.type, 'lmon', ff4.lmon);
+    t.build('', 'init', false);
+    da = wfe_field_diag(t, F2s, 'quiet', true);
+    if max(da.rms_tilt) <= wfe_ft + BLUR_TOL
+        [dxa, ~] = distortion_(t, F2s);
+        if dxa < dx1, dx1 = dxa;  d4e = da;  a_pick = a; end
+        break                                  % largest guarded step wins
+    end
+end
+t.set_freeform(i4, ff4.modes, c0 + a_pick*dc.', 'type', ff4.type, 'lmon', ff4.lmon);
+t.build('', 'init', false);
+fprintf(['\n[4e] M4 distortion solve (blur-guarded, alpha %.2f): rms %.1f -> %.1f um ', ...
+         '(%.3f -> %.3f arcsec); blur worst %.4f -> %.4f -tilt waves\n'], ...
+        a_pick, dx0*1e6, dx1*1e6, dx0/(P.system_fnum*D)*206265, ...
+        dx1/(P.system_fnum*D)*206265, wfe_ft, max(d4e.rms_tilt));
+wfe_ff = max(d4e.rms_raw);  wfe_ft = max(d4e.rms_tilt);
+
 %% -- [5] clearance + M1 hole re-check ---------------------------------
 r_hole = m1_hole_radius_(t, P.hole_margin);
 if isfinite(r_hole), t.set_hole('M1', r_hole); end
@@ -234,7 +292,9 @@ add = { ...
  sprintf('   baseline +-%g'': %.3f -tilt -> after joint solve %.4f raw / %.4f -tilt waves (%s)', ...
          h2, max(d0.rms_tilt), wfe_ff, wfe_ft, ...
          ternary(wfe_ft < P.dl_waves,'DL','residual'))
- sprintf('   bias point %.4f -tilt waves | max|coef| %s m', bias_pt_wfe_(d4, F2s), mat2str(cmax,2))
+ sprintf('   bias point %.4f -tilt waves | max|coef| %s m', bias_pt_wfe_(d4e, F2s), mat2str(cmax,2))
+ sprintf('   distortion (M4 reflective field-corrector solve): %.1f -> %.1f um rms at the detector', ...
+         dx0*1e6, dx1*1e6)
  '======================================================='};
 addtxt = sprintf('%s\n', add{:});
 fprintf('%s', addtxt);
@@ -243,11 +303,36 @@ fprintf(fid, '%s%s', rpt.text, addtxt);  fclose(fid);
 fprintf('    report: s2_report.txt\n');
 
 save(matfile, 'P', 'r3', 'r4', 'r4b', 'lz', 'fa', 'rpt', 'pm', 'relay', ...
-     'r4w', 'r4c', 'r_hole', 'd0', 'd4', '-append');
+     'r4w', 'r4c', 'r_hole', 'd0', 'd4', 'd4e', 'dx0', 'dx1', '-append');
 fprintf('\nStage 2 complete.  Next: s3_segmentation.m.\n');
 
 % ---- helpers --------------------------------------------------------
 function ek = e_now(t, k), ek = t.spec.elt(k); end
+
+function [rms_m, res] = distortion_(t, F)
+%DISTORTION_  Chief-ray mapping error over field set F: landing points
+%   in the detector plane minus their best AFFINE map of field angle
+%   (residual = true distortion).  Returns the rms (m) and the 2xN
+%   residual matrix.
+    e = t.spec.elt;
+    ifp = find(strcmp({e.kind}, 'FocalPlane'), 1, 'last');
+    ps = e(ifp).psi(:);  vpt = e(ifp).Vpt(:);
+    [~, i0] = min(abs(ps));  u = zeros(3,1);  u(i0) = 1;
+    u1 = u - ps*(ps.'*u);  u1 = u1/norm(u1);  u2 = cross(ps, u1);
+    n = size(F,1);  Pp = zeros(2, n);
+    for i = 1:n
+        t.trace_at_field(F(i,:));
+        sc = macos.trace(ifp);
+        b = macos.get_ray_info(sc.nRays);
+        q = b.pos(:,1) - vpt;              % ray 1 = the chief
+        Pp(:,i) = [u1.'*q; u2.'*q];
+    end
+    t.trace_at_field([]);
+    A = [F, ones(n,1)];
+    C = (A \ Pp.').';
+    res = Pp - C*A.';
+    rms_m = sqrt(mean(sum(res.^2, 1)));
+end
 
 function w = last_wfe_(r)
 %LAST_WFE_  Last APPLIED wfe row of a zern_jacobian_solve result (a

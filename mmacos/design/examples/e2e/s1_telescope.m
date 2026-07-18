@@ -84,14 +84,20 @@ for i = 1:nb
     clr(i) = all(strcmp(bad, 'M2'));            % only M2 may obstruct
     fprintf('      %8.1f       %10.4f       %s\n', bias, wfe(i), ...
             ternary(clr(i), 'YES', ['no  (' strjoin(bad,',') ')']));
-    if pick == 0 && clr(i), pick = i; end       % least clearing bias
 end
-if pick == 0
+% Among the CLEARING biases, pick the one whose solved WFE is BEST --
+% not simply the least bias: with the M3 extraction tilt the tilt/bias
+% interplay is non-monotonic (the tilt astigmatism dominates at small
+% bias and a too-small bias lands the conic solve in a bad basin).
+ic = find(clr);
+if ~isempty(ic)
+    [~, j] = min(wfe(ic));  pick = ic(j);
+else
     [~, pick] = min(wfe + 1e3*(~clr));
     fprintf('    (no bias fully cleared -- taking the best candidate; inspect!)\n');
 end
 bias = P.bias_sweep_arcmin(pick);
-fprintf('    RECOMMENDED bias = %g''\n', bias);
+fprintf('    RECOMMENDED bias = %g'' (best solved WFE among clearing biases)\n', bias);
 
 %% -- [3] conic solve AT THE BIAS POINT (annular-field anastigmat) -----
 % Three conics null spherical + coma + astig at ONE field radius (the
@@ -99,6 +105,19 @@ fprintf('    RECOMMENDED bias = %g''\n', bias);
 % job.  Radii stay FIXED so the requested f/# holds.
 t = build_tma_(R, tsp, lay, P, bias);
 pm = powered_(t);                               % powered mirrors (FM is flat)
+% BIAS CONTINUATION: the conic solve at a small bias (where the M3
+% extraction-tilt astigmatism dominates) repeatably lands in a BAD LM
+% basin (K3 -> -3..-4).  Seed it by solving first at the sweep's
+% best-conditioned bias, then walking the bias to the picked value and
+% re-solving from those conics.
+[~, ib] = min(wfe);  bias_seed = P.bias_sweep_arcmin(ib);
+if bias_seed ~= bias
+    t.set_field_bias(bias_seed);  t.build('', 'init', false);
+    t.optimize('fields_arcmin', [], ...
+               'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.max_iters);
+    t.set_field_bias(bias);  t.build('', 'init', false);
+    fprintf('    (conics seeded by continuation from bias %g'')\n', bias_seed);
+end
 r3 = t.optimize('fields_arcmin', [], ...
                 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.max_iters);
 % the FP still sits at the ON-AXIS paraxial focus; the biased field
@@ -140,10 +159,26 @@ fprintf('    [4a] joint field solve: worst %.4f -> %.4f waves\n', ...
 % (The corners pay a little: the common mode partially canceled the
 % differential there.  The patch spread itself is architecture-limited
 % at this bias -- widening the corrected field is stage 2's job.)
+ff1_pre = t.spec.elt(pm(1)).freeform;          % for the guard below
 r4b = t.optimize_freeform(pm(1), 'modes', P.modes, 'type', P.ztype, ...
                           'fields_arcmin', [], 'lmon', lz(1), ...
                           'max_iters', P.max_iters);
 d4 = wfe_field_diag(t, F, 'quiet', true);
+% GUARD: the common-mode null trades bias-point perfection against the
+% corners; when the joint solve left a larger residual the trade can
+% LOSE.  Revert the M1 figure if the worst-field degraded.
+if max(d4.rms_tilt) > 1.2 * max(r4.wfe_after)/LAM
+    if isstruct(ff1_pre) && ~isempty(ff1_pre) && isfield(ff1_pre,'modes')
+        t.set_freeform(pm(1), ff1_pre.modes, ff1_pre.coef, ...
+                       'type', ff1_pre.type, 'lmon', ff1_pre.lmon);
+    else
+        t.set_freeform(pm(1), P.modes, zeros(1,numel(P.modes)), ...
+                       'type', P.ztype, 'lmon', lz(1));
+    end
+    t.build('', 'init', false);
+    d4 = wfe_field_diag(t, F, 'quiet', true);
+    fprintf('    [4b] M1 null REVERTED (worst-field degraded; guard)\n');
+end
 wfe_ff = max(d4.rms_raw);  wfe_ft = max(d4.rms_tilt);
 fprintf(['    [4b] M1 common-mode null: bias point %.4f -> %.4f waves; ', ...
          'worst-field %.4f raw / %.4f -tilt -> %s\n'], ...
@@ -272,7 +307,8 @@ function t = build_tma_(R, tsp, lay, P, bias)
             'model_size', P.model_size, 'grid_npts', P.grid_npts);
     t.add_mirror('M1','radius_m',R(1),'spacing_after_m',tsp(1));
     t.add_mirror('M2','radius_m',R(2),'spacing_after_m',tsp(2),'convex',true);
-    t.add_mirror('M3','radius_m',R(3),'spacing_after','derive');
+    t.add_mirror('M3','radius_m',R(3),'spacing_after','derive', ...
+                 'tilt_deg',P.m3_tilt_deg);   % extraction tilt: return off the feed axis
     t.add_focal_plane('FP','ap_r',P.fp_body_r);
     t.set_field_bias(bias);
     t.add_fold('FM','after','M2','dist_m', tsp(1)+zf, 'to',[1 0 0], ...
