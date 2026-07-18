@@ -259,5 +259,78 @@ classdef tSegmentRx < matlab.unittest.TestCase
             tc.verifyError(@() macos.design.segment_rx(pin2, 'elt', 1), ...
                 'macos:design:segment_rx:renumber');
         end
+
+        function test_carry_parent_zernike_figure(tc)
+            % A design-layer parent (Surface=Zernike, solved figure)
+            % must hand its figure to EVERY segment via the FF channel
+            % -- SegMirMaker replicates FF-channel figures (e5) but
+            % silently drops the Zern channel (e2e s3, 2026-07-18).
+            % Gate: figure text on all segments + trace parity of the
+            % figured wavefront.
+            t = macos.design.Telescope('family','Cassegrain', ...
+                'aperture_diameter_m',1.0, 'system_fnum',8.0, ...
+                'primary_fnum',2.0, 'BFD_m',0.25, ...
+                'model_size',512, 'grid_npts',21);
+            t.build();
+            t.set_freeform(1, 5, 2e-7, 'type','BornWolf', 'lmon', 0.5);
+            t.build('', 'init', false);
+            s0 = macos.trace();
+            rms0 = s0.rmsWFE;
+            tc.verifyGreaterThan(rms0, 1e-8, 'figure not expressed on parent');
+            wd = tempname; mkdir(wd);          % short basename: SegMirMaker
+            f = fullfile(wd, 'zfig.in');       % truncates long file names
+            t.save(f);
+            s = macos.design.segment_rx(f, 'elt', 1, 'rings', 1, ...
+                'grid', 'Hex', 'gap', 0.005, 'dofs', 6);
+            merged = strtrim(readlines(s.in));
+            % each segment: SegMirMaker's zeroed FF line + the carried
+            % parent figure appended LAST (parser last-wins)
+            tc.verifyEqual(nnz(startsWith(merged, "FFZernCoef=") & ...
+                               ~contains(merged, "0d0")), s.nseg, ...
+                'parent figure not carried onto every segment');
+            tc.verifyEqual(nnz(startsWith(merged, "lFF=") & ...
+                               ~contains(merged, "0.0E+00")), s.nseg);
+            macos.init(512);
+            macos.load_rx(s.in);
+            s1 = macos.trace();
+            tc.verifyEqual(s1.rmsWFE, rms0, 'RelTol', 0.25, ...
+                'segmented wavefront does not reproduce the figured parent');
+        end
+
+        function test_carry_obs_center_segment(tc)
+            % A central-hole obscuration on the segmented element (the
+            % Telescope set_hole emission) must ride onto the CENTER
+            % segment, where it physically lives: appended LAST in
+            % Seg1's block (parser last-wins) and clipping rays after
+            % the splice (a bare segmentation otherwise loses none).
+            wd = tempname; mkdir(wd);
+            copyfile(fullfile(tc.tin, 'flat.txt'), fullfile(wd, 'flat.txt'));
+            copyfile(fullfile(tc.tin, 'macos_param.txt'), ...
+                     fullfile(wd, 'macos_param.txt'));
+            lines = readlines(fullfile(tc.tin, 'e5mono.in'));
+            i1 = find(contains(lines, "EltName=  m1"), 1);
+            grp = ["             nObs=  1"; ...
+                   "          ObsType=  Circle"; ...
+                   "           ObsVec=  5.0E+02  0.0E+00  0.0E+00"];
+            lines = [lines(1:i1); grp; lines(i1+1:end)];
+            pin = fullfile(wd, 'e5mono_hole.in');
+            writelines(lines, pin);
+            s = macos.design.segment_rx(pin, 'elt', 1, 'rings', 1, ...
+                'grid', 'Hex', 'gap', 50, 'dofs', 6);
+            tc.verifyEqual(s.carried_obs, 1);
+            merged = strtrim(readlines(s.in));
+            ic = find(merged == "ObsType=  Circle");
+            tc.verifyNumElements(ic, 1);
+            ie = find(startsWith(merged, "iElt="), 2);
+            tc.verifyTrue(ic > ie(1) && ic < ie(2), ...
+                'carried obscuration not inside Seg1''s block');
+            old = cd(s.run.workdir); c_ = onCleanup(@() cd(old));
+            macos.init(512);
+            macos.load_rx(s.in);
+            st = macos.trace();
+            rs = macos.get_ray_status(st.nRays);
+            tc.verifyGreaterThan(nnz(rs.status ~= 0), 0, ...
+                'carried hole did not clip any center-segment rays');
+        end
     end
 end

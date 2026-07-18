@@ -298,17 +298,23 @@ classdef Telescope < handle
                 error('macos:design:Telescope:center_fp:none', ...
                     'no FocalPlane element.');
             end
-            byz = macos.draw_rays('YZ', 0, nE);
-            bxz = macos.draw_rays('XZ', 0, nE);
-            my = (byz.elt == fk);  mx = (bxz.elt == fk);
-            if ~any(my(:)) || ~any(mx(:))
+            % Beam centroid at the FP from engine-truth GLOBAL ray
+            % landings (trace to fk + get_ray_info) -- the previous
+            % draw_rays('YZ'/'XZ') route read the DRAW plot projection,
+            % whose axis signs follow the source-grid handedness (the
+            % 2026-07-18 heritage xGrid=(-1,0,0) emission flipped its U
+            % axis and sent the FP a metre off).
+            sc = macos.trace(fk);
+            b  = macos.get_ray_info(sc.nRays);
+            ok = logical(b.ok_trace) & logical(b.ok_pass);
+            if ~any(ok)
                 error('macos:design:Telescope:center_fp:trace', ...
                     'no rays reach the focal plane.');
             end
-            ctr = [mean(bxz.V(mx)); mean(byz.V(my)); ...
-                   mean([byz.U(my); bxz.U(mx)])];
+            ctr = mean(b.pos(:, ok), 2);
             d = norm(ctr.' - e(fk).Vpt);
             obj.spec.elt(fk).Vpt = ctr.';
+            macos.trace(nE);                    % leave a full trace behind
         end
 
         function res = align_focal_plane(obj, opts)
@@ -458,10 +464,11 @@ classdef Telescope < handle
         %   The centered (Korsch/Cassegrain) families need this for their
         %   perforated primary -- without it every through-the-hole pass of
         %   the M2->M3 beam is charged to M1 as a false body-in-beam hit.
-        %   r_m = 0 removes the hole.  NOTE: the hole is not yet emitted as
-        %   an inner obscuration on the element (diffraction model), only
-        %   used for the clearance verdict -- realize_apertures sizing plus
-        %   an ObsType annulus is the follow-on.
+        %   r_m = 0 removes the hole.  The hole is ALSO emitted into the Rx
+        %   as a real ObsType=Circle obscuration centered on the vertex
+        %   (2026-07-18): the trace clips the central rays (no glass there
+        %   -- physically honest) and layout views (macos.view_rx /
+        %   view_std) render the hole.
             arguments, obj, name (1,:) char, r_m (1,1) double {mustBeNonnegative}, end
             h = struct('name',name, 'r',r_m);
             if ~isfield(obj.spec,'holes') || isempty(obj.spec.holes)
@@ -2278,6 +2285,14 @@ classdef Telescope < handle
             L{end+1} = ['         ApStop=  ' v3(apst(1),apst(2),apst(3))];
             L{end+1} = '         GridType=  Circular';
             L{end+1} = sprintf('         nGridpts=  %d', sp.sampling);
+            % NOTE (2026-07-18): the heritage corpus (e5mono/dmt6mono)
+            % uses xGrid=(-1,0,0), and the SegMirMaker <-> engine
+            % segment-tiling contract silently assumes that orientation.
+            % The design layer keeps (+1,0,0) -- draw_rays plot-axis
+            % signs follow the grid handedness and several consumers
+            % (check_clipping legs, realize_apertures, reports) were
+            % built on it -- and segment_rx flips the grid line to the
+            % heritage orientation in its merged output instead.
             L{end+1} = ['            xGrid=  ' v3(1,0,0)];
             L{end+1} = ['            yGrid=  ' v3(0,1,0)];
             % --- native multi-field optimization block (when configured) ---
@@ -2420,7 +2435,23 @@ classdef Telescope < handle
                     L{end+1} = ['          OptZern=  ' num2str(numel(zmd)) ...    %#ok<AGROW>
                                 '  ' strtrim(sprintf('%d ', zmd))];
                 end
-                L{end+1} = '             nObs=  0';
+                % Central perforation (set_hole): emitted as a REAL circular
+                % obscuration centered on the vertex -- the trace is
+                % physically honest (no glass at the hole; the central rays
+                % clip) and the layout views render it (Dave 2026-07-18).
+                % xObs defaults from psiElt (ChkDf2); r=0 removes the hole.
+                hr = 0;
+                if isfield(sp,'holes') && ~isempty(sp.holes)
+                    hi = find(strcmp({sp.holes.name}, e.name), 1);
+                    if ~isempty(hi), hr = sp.holes(hi).r; end
+                end
+                if hr > 0
+                    L{end+1} = '             nObs=  1';                              %#ok<AGROW>
+                    L{end+1} = '          ObsType=  Circle';                         %#ok<AGROW>
+                    L{end+1} = ['           ObsVec=  ' v3(hr,0,0)];                  %#ok<AGROW>
+                else
+                    L{end+1} = '             nObs=  0';                              %#ok<AGROW>
+                end
                 % Aperture: honor a MEASURED full-field clear aperture when one
                 % has been realized (realize_apertures) -- Rectangular on the
                 % focal plane, Circular (radius,xc,yc) on the mirrors.  In the

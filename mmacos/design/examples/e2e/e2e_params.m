@@ -92,6 +92,24 @@ P.inst = struct( ...
     'offner_R',   2.0, ...      % Offner concave radius (m); convex = R/2
     'offner_h',   0.25, ...     % ring radius (m): object/image offset
     'fov_arcmin', 2.0, ...      % widened half-field target
+    'field_dy_arcmin', -0.7, ...% science-field-center shift (+y bias
+    ...                         % units) applied to the s1 bias for the
+    ...                         % instrument stage: the s2 WFE map's
+    ...                         % sweet spot sat below (0,0) (Dave
+    ...                         % 2026-07-18: center at (0,-0.7)' or
+    ...                         % lower).  BOTH candidates were solved
+    ...                         % end-to-end and kept (s2_variants/):
+    ...                         %  -0.70' -> best FIELD EDGE: worst +-2'
+    ...                         %    0.0231 -tilt, 2' ring Strehl 0.965
+    ...                         %  -1.05' -> FLATTER interior (Strehl
+    ...                         %    >=0.985 through 1.5') but the 2'
+    ...                         %    edge pays (0.038 -tilt, 0.945)
+    ...                         % Adopted -0.7 on the worst-field
+    ...                         % criterion; switch here if the
+    ...                         % instruments live inside the ring.
+    ...                         % The runner prints a center-scan table
+    ...                         % after the solve; clearance is
+    ...                         % re-checked at the shifted bias.
     'dpast_m',    0.45, ...     % M4 corrector past the telescope focus
     'R_m',        [], ...      % [] = DERIVE: M4 weak (20 m); M5 from
     ...                         % the collimator condition f5 = dpast +
@@ -107,14 +125,27 @@ P.inst = struct( ...
     'max_iters_ff', 150);       % joint freeform field-solve iterations
 
 % ================= stage 3: segmentation ============================
+% TWO variants, both kept as artifacts (Dave 2026-07-18): "pie" =
+% 1-ring PIE (7 segments: center HEXAGON + 6 chorded wedges) and
+% "hex2" = 2-ring HEX (19 hexagonal segments).  Segment size is NOT a
+% knob: SegMirMaker defaults it to Aperture/(2*rings+1), so the tiling
+% scales with P.D_m automatically (4 m here = half the e5 fixtures;
+% the gap halves with it, 50 -> 25 mm).
 P.seg = struct( ...
-    'rings',          1, ...    % 1 -> 7 segments, 2 -> 19
-    'grid',           "Hex", ...% segment tiling (Hex|Pie)
-    'gap_mm',         25, ...   % inter-segment gap
+    'variants', ["pie" "hex2"], ... % s3 builds ALL of these ->
+    ...                         % e2e_pie.in / e2e_hex2.in
+    'variant',  "pie", ...      % the one stages 4-6 consume (one-knob
+    ...                         % switch; both artifacts always exist)
+    'gap_mm',         25, ...   % inter-segment gap (BaseUnits are m in
+    ...                         % this family -- the runner converts)
     'dofs',           6, ...    % per-segment DOFs
     'meas_config',    2, ...    % edge sensors: 1 inner edges, 2 all
     'emit_apertures', true, ... % declare physical PolyApVec boundaries
     'ap_pad',         0, ...    % 0 = physical edge (gap rays clip)
+    'grid_npts',      128, ...  % segmented-source sampling (e5-corpus
+    ...                         % density; the parent's 41 gives only
+    ...                         % ~50 rays/segment at 2 rings -- Dave
+    ...                         % 2026-07-18: sampling seemed coarse)
     'model_size',     512);     % segmented stages need the big model
 
 % ================= stage 5: MET =====================================

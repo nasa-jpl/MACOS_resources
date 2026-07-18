@@ -164,6 +164,30 @@ switch opts.bodies
             end
         end
 end
+% Rx-declared obscurations (M1 hole / masks): dark disc flush on the
+% optical face (+ the shell back face in solid mode), rim outlined --
+% the hole reads from both sides (Dave 2026-07-18: show the M1 hole,
+% or the segment carrying it, in every layout view).
+for e = 1:numel(E)
+    B = E(e).B;
+    for i = 1:numel(B.obs2)
+        C2 = B.obs2{i};
+        Q  = B.lift(C2);
+        nudge = B.ps * (0.004 * max(B.D, eps));
+        plot3(ax, Q(1,:), Q(2,:), Q(3,:), '-', 'Color', [0.1 0.1 0.12], ...
+              'LineWidth', 1.2);
+        if strcmp(opts.bodies, 'solid')
+            Qf = Q + nudge;                          % optical face
+            fill3(ax, Qf(1,:), Qf(2,:), Qf(3,:), [0.16 0.16 0.2], ...
+                  'EdgeColor', [0.1 0.1 0.12], 'FaceAlpha', 1, ...
+                  'FaceLighting', 'none');
+            Qb = Q - B.ps*(opts.thick_frac*B.D) - nudge;   % shell back
+            fill3(ax, Qb(1,:), Qb(2,:), Qb(3,:), [0.16 0.16 0.2], ...
+                  'EdgeColor', [0.1 0.1 0.12], 'FaceAlpha', 1, ...
+                  'FaceLighting', 'none');
+        end
+    end
+end
 if opts.labels
     for e = 1:numel(E)
         c = E(e).ctr;
@@ -339,10 +363,23 @@ sagf = @(r2) sgn * sag(r2);
 
 lift = @(P2) vp + xa*P2(1,:) + ya*P2(2,:) + ps*sagf(sum(P2.^2, 1));
 rim = lift(B2(:, [1:end 1]));
+
+% Rx-declared circular obscurations (a perforated primary's central
+% hole, a coronagraph mask...): ObsVec = (r, xc, yc) in the element's
+% xObs frame == the (xa, ya) basis used here.  Closed 2-D polylines.
+obs2 = {};
+ob = macos.get_elt_obs(k);
+for i = 1:numel(ob.type)
+    if ob.type(i) == 1 && ob.vec(1, i) > 0
+        obs2{end+1} = ob.vec(2:3, i) + ...
+            ob.vec(1, i) * [cos(th([1:end 1])); sin(th([1:end 1]))]; %#ok<AGROW>
+    end
+end
+
 g = struct('type', info.type, 'vp', vp, 'ps', ps, 'xa', xa, 'ya', ya, ...
            'B2', B2, 'rim', rim, 'lift', lift, 'sagf', sagf, ...
            'D', max(vecnorm(B2 - mean(B2, 2)))*2, 'ctr', mean(rim, 2), ...
-           'kind', '');
+           'obs2', {obs2}, 'kind', '');
 end
 
 % ---------------------------------------------------------------------------

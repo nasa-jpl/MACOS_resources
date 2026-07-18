@@ -22,7 +22,7 @@
  -- focal plane --
    FP tilt 0.007 deg wrt the arriving chief ray
    aligned from 25 field foci: defocus removed +0.023 mm; field-curvature
-   sag -1.7 to +1.7 um (rms 1.0 um); best-focus blur 1.95e-07 m (center)
+   sag -1.7 to +1.7 um (rms 1.0 um); best-focus blur 1.96e-07 m (center)
  -- exit pupil (add_pupil / FEX) --
    1.760 m from the image, at [  0.130   0.014   0.300] (elt 6)
  -- packaging / clearance --

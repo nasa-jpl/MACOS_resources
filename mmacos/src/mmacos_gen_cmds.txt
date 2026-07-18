@@ -30,6 +30,7 @@ elt_grp_set
 elt_info_get
 elt_kc
 elt_kr
+elt_obs_get
 elt_psi
 elt_rpt
 elt_srf_csys
