@@ -145,16 +145,23 @@ for k = 1:nseg
 end
 
 % --- 1b. carry the parent's Zernike FIGURE onto every segment ------------
-% SegMirMaker replicates only the parent's conic + frames; a parent with
-% Surface=Zernike (e.g. a design-layer primary carrying its solved
-% freeform figure) would silently lose that figure -- the segmented
-% system then reproduces the BASE conic, not the as-designed surface
-% (e2e s3, 2026-07-18: 5.9 nm parent -> 15 um segmented).  The segments
-% are FreeForm surfaces with an FF channel reserved for exactly this:
-% append the parent figure as FFZern* in the PARENT's Mon frame (pFF/
-% xFF/yFF/zFF = parent pMon/xMon/yMon/zMon, lFF = parent lMon), leaving
-% the per-segment Mon channel free for segment figure DOFs.
-pb0 = blocks_parent_figure_(lines, starts, opts.elt);
+% A Surface=Zernike parent (design-layer primary carrying its solved
+% figure) must hand that figure to the segments or the segmented system
+% reproduces the BARE conic (e2e s3, 2026-07-18: 5.9 nm parent ->
+% 15 um segmented).  SegMirMaker is Zernike-aware since 2026-07-18
+% (LoadParent merges the Zern channel into the FF channel it already
+% replicates) -- detected here by a nonzero FFZernCoef in the emitted
+% blocks, in which case this text-level carry stands down.  For OLDER
+% SegMirMaker binaries the fallback appends the parent figure as
+% FFZern* in the PARENT's Mon frame (pFF/xFF/yFF/zFF = parent pMon/
+% xMon/yMon/zMon, lFF = parent lMon), leaving the per-segment Mon
+% channel free for segment figure DOFs.
+tp1 = strtrim(pblocks{1});
+smm_ff = any(startsWith(tp1, "FFZernCoef=") & ~contains(tp1, "0d0"));
+pb0 = string.empty;
+if ~smm_ff
+    pb0 = blocks_parent_figure_(lines, starts, opts.elt);
+end
 if ~isempty(pb0)
     for k = 1:nseg
         b = pblocks{k};
