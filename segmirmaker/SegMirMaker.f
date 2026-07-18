@@ -497,10 +497,22 @@ C  layout).  Segment blocks are already buffered in scratch unit 8.
 	WRITE(9,570) nElt
 	WRITE(9,'(12x,"width=  ",A)') TRIM(FmtD(width))
 	WRITE(9,'(14x,"gap=  ",A)') TRIM(FmtD(gap))
+!-->  Emit the in-plane basis ACTUALLY USED for segment placement (xs),
+!     not the raw SegXgrid answer: for a back-facing mirror (zs(3)<0)
+!     the basis above is rotated 180 deg (xs=-xs, ys=-ys) and the
+!     frames + SegCoord are built in THAT basis, but the engine tiles
+!     rays (HSEG) in the frame of the EMITTED SegXgrid -- emitting the
+!     pre-negation vector left the ray-to-segment map point-reflected
+!     from the emitted segment frames, so a segment's rays reflected
+!     off the OPPOSITE segment's element (latent in every back-facing
+!     fixture; caught by the e2e s3 aperture traces, 2026-07-18).
+!     State consistency requires: moving segment k's DOFs moves the
+!     wavefront/edge/MET outputs of segment k, nobody else's.
 	WRITE(9,'(9x,"SegXgrid=",3(2x,A))')
-     &	  TRIM(FmtD(SegXgrid(1))),
-     &	  TRIM(FmtD(SegXgrid(2))),
-     &	  TRIM(FmtD(SegXgrid(3)))
+     &	  TRIM(FmtD(xs(1))),
+     &	  TRIM(FmtD(xs(2))),
+     &	  TRIM(FmtD(xs(3)))
+!<--
 	WRITE(9,574) (SegCoord(i,1),i=1,3)
 	DO 5 iElt=2,nElt
 	  WRITE(9,575) (SegCoord(i,iElt),i=1,3)
@@ -1459,6 +1471,7 @@ C***********************************************************************
      &	  lMon, pMon, xMon, yMon, zMon, MonCoef,
      &	  lFF, pFF, xFF, yFF, zFF, FFCoef,
      &	  FFZernTypeL, FFZernCoef, MonZernTypeL, MonZernCoef,
+     &	  ZernCoef, ZernTypeL, mZernModes,
      &	  nGridMat, iEltToGridSrf, GridMat, GridSrfdx,
      &	  pData, xData, yData, zData, mElt, mFFCoef, mMonCoef,
      &	  ZernType_ANSI, ZernType_BornWolf, ZernType_Fringe,
@@ -1474,6 +1487,7 @@ C***********************************************************************
 	IMPLICIT NONE
 	INTEGER, INTENT(IN) :: iParent
 	INTEGER i,j,jG
+	LOGICAL hasZern,hasFF
 
 	IF (iParent.LT.1 .OR. iParent.GT.mElt) THEN
 	  WRITE(*,*) ' LoadParent: parent element ',iParent,
@@ -1551,6 +1565,46 @@ C  (same convention used by SMPGe's dialog defaults).
 	    END DO
 	  END DO
 	END IF
+
+!-->  Zernike-aware parent (2026-07-18): a Surface=Zernike parent
+!     carries its figure in the ZERN channel (ZernCoef/ZernTypeL,
+!     evaluated in the Mon frame with lMon normalization) -- the
+!     channel the design layer emits.  Merge it into the FF channel so
+!     segments replicate the figure exactly as for an FF-channel
+!     parent (state consistency: the segmented system must present the
+!     parent's as-designed surface; previously the figure was silently
+!     DROPPED and the segments reverted to the bare conic).  ZernCoef
+!     is stored dense at MODE positions (msmacosio remap), same
+!     indexing as FFZernCoef.  Only when the parent has no FF-channel
+!     figure of its own; both channels at once is not representable in
+!     the segment's single FF slot.
+	hasZern = .FALSE.
+	IF (ZernTypeL(iParent).GT.0) THEN
+	  DO i=1,MIN(mZernModes,mFFCoef)
+	    IF (ZernCoef(i,iParent).NE.0d0) hasZern = .TRUE.
+	  END DO
+	END IF
+	hasFF = .FALSE.
+	DO i=1,mFFCoef
+	  IF (FFZernCoef_p(i).NE.0d0) hasFF = .TRUE.
+	END DO
+	IF (hasZern .AND. hasFF) THEN
+	  WRITE(*,*) ' LoadParent: parent carries BOTH Zern- and '//
+     &	    'FF-channel figures; keeping FF, Zern figure DROPPED.'
+	ELSE IF (hasZern) THEN
+	  DO i=1,MIN(mZernModes,mFFCoef)
+	    FFZernCoef_p(i) = ZernCoef(i,iParent)
+	  END DO
+	  FFZernTypeL_p = ZernTypeL(iParent)
+	  lFF_p = lMon_p
+	  DO i=1,3
+	    pFF_p(i) = pMon_p(i)
+	    xFF_p(i) = xMon_p(i)
+	    yFF_p(i) = yMon_p(i)
+	    zFF_p(i) = zMon_p(i)
+	  END DO
+	END IF
+!<--
 
 C  Populate FFCoef_p / MonCoef_p (monomial form) from the parent's
 C  FFZernCoef / MonZernCoef (Zernike form).  In MACOS this conversion

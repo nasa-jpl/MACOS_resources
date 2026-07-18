@@ -260,6 +260,45 @@ classdef tSegmentRx < matlab.unittest.TestCase
                 'macos:design:segment_rx:renumber');
         end
 
+        function test_state_consistency_rays_on_frames(tc)
+            % THE segmentation invariant (Dave 2026-07-18): moving
+            % segment k's DOFs must move segment k's outputs -- so the
+            % rays assigned to element k must physically lie ON the
+            % emitted frame k (which drives apertures, launchers, edge
+            % sensors).  Gate = engine-truth ray positions (ray_hist)
+            % vs frames, BOTH grids, on the e5 back-facing parent --
+            % the case where SegMirMaker's 180-deg in-plane basis flip
+            % used to desynchronize the emitted SegXgrid from the
+            % frames (every back-facing fixture was point-reflected).
+            for cfg = {{'Pie', 1}, {'Hex', 2}}
+                s = macos.design.segment_rx( ...
+                    fullfile(tc.tin, 'e5mono.in'), 'elt', 1, ...
+                    'rings', cfg{1}{2}, 'grid', cfg{1}{1}, ...
+                    'gap', 50, 'dofs', 6);
+                old = cd(s.run.workdir); c_ = onCleanup(@() cd(old));
+                macos.init(512);
+                macos.load_rx(s.in);
+                macos.ray_hist('on');
+                t = macos.trace();
+                h = macos.ray_hist(t.nRays);
+                for k = 2:s.nseg          % off-center segments = the gate
+                    m = squeeze(h.ok(:, k+1));
+                    tc.assertGreaterThan(nnz(m), 0, ...
+                        sprintf('%s Seg%d received no rays', cfg{1}{1}, k));
+                    P = squeeze(h.P(:, m, k+1));
+                    ctr = mean(P(1:2,:), 2);
+                    tc.verifyLessThan( ...
+                        norm(ctr - s.frames(k).rpt(1:2)), 0.35*s.width, ...
+                        sprintf(['%s Seg%d rays centered at (%.0f,%.0f), ' ...
+                                 'frame at (%.0f,%.0f) -- tiling/frame ' ...
+                                 'mismatch'], cfg{1}{1}, k, ctr, ...
+                                 s.frames(k).rpt(1:2)));
+                end
+                macos.ray_hist('off');
+                clear c_
+            end
+        end
+
         function test_carry_parent_zernike_figure(tc)
             % A design-layer parent (Surface=Zernike, solved figure)
             % must hand its figure to EVERY segment via the FF channel
