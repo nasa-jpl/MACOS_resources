@@ -151,6 +151,19 @@ wins under the cmd name `prb_elt`, codegen emits the single form under
 
 ## Files
 
+## Where to go next (the layers above the mex)
+
+- **`design/`** — the DESIGN LAYER: telescope/instrument builders,
+  segmentation, metrology, and the **stage-runner pipeline**
+  (`design/runners/`: design → segmentation → sensitivities → MET →
+  compare → simulate).  Start at `design/README.md`; the canonical
+  end-to-end worked example is `design/examples/e2e/`.
+- **`sensitivities/`** — multi-field `dW/d…` Jacobian drivers (thin
+  CONFIG wrappers over `design/runners/run_sensitivities.m`), with
+  self-contained per-channel examples under `sensitivities/examples/`.
+- **`examples/`** — fixed feature demos (coronagraph, grid surfaces,
+  view_rx, …).
+
 | File | Role |
 |---|---|
 | `src/mmacos_mex.F` | Hand-written mex helpers + dispatcher (13 cmds) |

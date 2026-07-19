@@ -137,6 +137,20 @@ for ii = 1:numel(seg_elts)
 
     % bespoke aperture mask on the segment grid (segment-local frame)
     c  = (N+1)/2;  [I, J] = ndgrid(1:N, 1:N);  GU = (I-c)*gdx;  GV = (J-c)*gdx;
+    % GUARD: the grid span must cover the segment's true footprint --
+    % rays beyond the span read zero grid figure, so a clipped span
+    % silently truncates the influence maps mid-segment (the s4 wedge
+    % failure, 2026-07-19: a span sized from lMon missed the wedge
+    % outer corners; wedge lMon is NOT a circumscribing radius)
+    half = (N-1)/2 * gdx;
+    nout = nnz(abs(us) > half | abs(vs) > half);
+    if nout > 0
+        warning('macos:segment_grid_basis:span', ...
+            ['seg elt %d: %d of %d footprint rays fall OUTSIDE the ' ...
+             'grid span (max extent %.4g vs half-span %.4g) -- the ' ...
+             'grid cannot fill the segment; enlarge GridSrfdx'], ...
+            e, nout, numel(us), max(max(abs(us)), max(abs(vs))), half);
+    end
     Kh = convhull(us, vs);   mask = inpolygon(GU, GV, us(Kh), vs(Kh));
 
     % Zernike modes over the mask (circular or Gram-Schmidt)

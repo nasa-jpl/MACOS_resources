@@ -26,11 +26,19 @@ re-run in a fresh session from files alone.
 | runner | status | in | out |
 |---|---|---|---|
 | `run_design` | PLANNED (today: `design/examples/e2e/s1_telescope.m` + `s2_instrument.m` over `tma_layout`/`offner_layout`) | design params | mono `.in` + report/views |
-| `run_segmentation` | PLANNED (today: `e2e/s3_segmentation.m` over `macos.design.segment_rx`) | mono `.in` | segmented `.in` + `Hx.m` + apertures + footprints |
-| `run_sensitivities` | PLANNED (today: `e2e/s4_jacobians.m` over `macos.dw_d*_multi`) | segmented `.in` | `*_jacobians.mat` + maps |
+| `run_segmentation` | **SHIPPED** | mono `.in` | segmented `.in` (physical apertures) + `Hx.m` + footprint/views figures + parity report |
+| `run_sensitivities` | **SHIPPED** | (segmented) `.in` | `*_sens.mat` (dwdx/dwdz/dwdgrid, + dwdsurf opt-in) + conditioning report + per-element pages in `*_pages/` |
 | `run_met` | **SHIPPED** | segmented `.in` + `Hx.m` + jac `.mat` | `*_met.in`, `*_metopt.in`, `*_met.mat` (dedx/dldx/gains), report + views |
-| `run_compare` | PLANNED | all of the above | linear-vs-mmacos w/e/l comparison report |
+| `run_compare` | PLANNED (spec Dave 2026-07-19: poke each DOF, 100 nm/100 nrad; mmacos-vs-linear graphics = OPD map + l/e_piston/e_gap/e_shear bars; 0.25 s dwell; agreement report) | all of the above | poke movie + per-poke agreement report |
 | `run_simulator` | PLANNED | all of the above | time-history PSFs + controlled/uncontrolled stats |
+
+The `sensitivities/run_dwd*_multi.m` scripts (and their self-contained
+copies under `sensitivities/examples/`) are thin CONFIG wrappers over
+`run_sensitivities` — same user interface, one algorithm source.
+Edge sensors (2026-07-19 model): SegMirMaker emits 2 sensor locations
+x 3 axes (normal + in-plane pair) per shared segment edge, purely
+differential (no absolute-piston anchor row); `macos.design.
+edge_sensors` ingests the axis/location tags for the MET stage.
 
 Worked examples driving the runners: `design/examples/e2e/` (the full
 six-stage sequence — the canonical template), `design/examples/e5_seg/`

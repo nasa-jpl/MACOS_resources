@@ -49,6 +49,8 @@ for r = 1:nrow
         subplot(nrow, ncol, (r-1)*ncol + c);
         M = macos.v2m(J(:, ks(c)), indx);
         M(M == 0) = NaN;                            % mask outside the pupils
+        M = M - mean(M(:), 'omitnan');              % piston removed (display
+                                                    % convention, Dave 2026-07-19)
         h = imagesc(M);  set(h, 'AlphaData', ~isnan(M));
         axis image off;  set(gca, 'Color', 'w');
         if ue(r) == 0

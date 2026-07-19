@@ -1,230 +1,53 @@
 %S4_JACOBIANS  Stage 4: sensitivity Jacobians on the segmented system.
 %
-% Stage 4 of the end-to-end worked example: the LINEAR MODEL substrate
-% for stages 5 (MET configuration) and 6 (simulator).  Harvests the
-% three wavefront-sensitivity channels on the stage-3 artifact
-% (e2e_<P.seg.variant>.in, default pie) over the +-2' science field
-% (center + 4 corners), each in the canonical state-vector form
+% Stage 4 of the end-to-end worked example -- now a THIN DRIVER over
+% the general stage runner design/runners/run_sensitivities.m (the
+% runners doctrine, Dave 2026-07-19: the product is a small set of
+% reusable stage runners handing the .in from stage to stage; this
+% script only wires the e2e parameters and the s5 handoff).
 %
-%     wall = dwdxall * x + w0_stacked        (macos.dw_d*_multi)
+% The runner harvests the three channels on e2e_<P.seg.variant>.in
+% over the +-2' science field (center + 4 corners), each in canonical
+% state-vector form  wall = J*x + w0_stacked:
+%   dwdx     rigid-body 6-DOF per element (LOCAL/TElt triads)
+%   dwdz     segment-LOCAL MonZernike modes 4..11 (kinds={'monzern'})
+%   dwdgrid  per-segment G-S Zernike influence pokes on the
+%            grid-augmented Rx (grids in the CLOCKED Mon frames --
+%            macos.design.grid_augment_rx)
+% and emits the conditioning report (all-column AND segment-only),
+% per-segment column norms, the nominal-OPD canvas, SV spectra,
+% per-channel overviews, and the e5-style PER-ELEMENT pages.
 %
-%   [1] dwdx    rigid-body 6-DOF per element (per body
-%               [rot_xyz|trans_xyz] in its LOCAL/TElt triad -- the
-%               Sprint-2D ordering); segments are the controlled
-%               bodies, the relay mirrors ride along for disturbance
-%               studies.
-%   [2] dwdz    segment FIGURE channel: MonZernike coefficient
-%               derivatives (kinds={'monzern'}) modes 4..11 -- the
-%               SEGMENT-LOCAL basis (lMon aperture, clocked Mon frame).
-%               NOT the FF channel: that carries the PARENT-aperture
-%               figure basis (lFF = full aperture), whose pokes paint
-%               full-aperture modes (Dave 2026-07-18).
-%   [3] dwdgrid segment grid-poke channel on a GRID-AUGMENTED variant
-%               (e2e_<v>_grid.in): each segment gets a flat 256 grid
-%               in its CLOCKED Mon frame (pData..zData = pMon..zMon --
-%               the frames must match or pokes don't localize), and
-%               the pokes are aperture-confined Zernike influence maps
-%               (macos.zernike_grid_basis).
-%   [4] conditioning report: size / rank / singular-value spectrum per
-%               channel + per-segment column norms (who moves the
-%               wavefront how hard).
-%   [5] figures: tiled nominal-OPD canvas + the three SV spectra.
-%
-% Artifacts (beside this script): s4_report.txt, s4_jacobians.mat
-% (dwdx/dwdz/dwdg outputs), e2e_<v>_grid.in + flat.txt, s4_svspec.png,
-% s4_opdall.png.
+% Artifacts (beside this script): s4_sens_report.txt (+ s4_report.txt
+% alias), s4_sens.mat, s4_grid.in + flat256.txt, s4_*.png, and the s5
+% handoff s4_jacobians.mat (ox/oz/og + P -- consumed by s5_met.m).
 %
 % Run AFTER s3_segmentation.m.
 
-addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/src'));
-addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/design/src'));
+addpath(fullfile(getenv('HOME'), 'dev/MACOS_resources/mmacos/src'));
+addpath(fullfile(getenv('HOME'), 'dev/MACOS_resources/mmacos/design/src'));
+addpath(fullfile(getenv('HOME'), 'dev/MACOS_resources/mmacos/design/runners'));
+addpath(fullfile(getenv('HOME'), 'dev/MACOS_resources/mmacos/sensitivities'));
 P = e2e_params();
 here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end
 v  = char(P.seg.variant);
 rx = fullfile(here, sprintf('e2e_%s.in', v));
 assert(isfile(rx), 's4 needs e2e_%s.in -- run s3_segmentation.m first', v);
 
-FOV   = P.inst.fov_arcmin * pi/180/60;    % +-2' corners (science patch)
-ZMODES_FIG  = 4:11;                        % dwdz: figure modes/segment
-ZMODES_GRID = [4 5 6 7 8 9];               % dwdgrid pokes/segment
-NG    = 256;                               % grid size (model 512)
+FOV = P.inst.fov_arcmin * pi/180/60;      % +-2' corners (science patch)
 
-log_ = fopen(fullfile(here, 's4_report.txt'), 'w');
-say = @(varargin) fprintf(1, varargin{:}) + fprintf(log_, varargin{:});
-say('==== e2e stage 4: sensitivity Jacobians on e2e_%s.in ====\n', v);
-say('field set: center + 4 corners at +-%g'' (the science patch)\n\n', ...
-    P.inst.fov_arcmin);
+art = run_sensitivities(rx, ...
+    'fov_rad', FOV, ...
+    'zmodes_fig', 4:11, ...               % dwdz figure modes / segment
+    'zmodes_grid', 4:9, ...               % dwdgrid pokes / segment
+    'ng', 256, ...                        % grid size (model 512)
+    'model_size', P.seg.model_size, ...
+    'out_dir', here, 'name', 's4');
 
-% segment bookkeeping from the artifact text (Seg blocks lead the file)
-txt = fileread(rx);
-nseg = numel(regexp(txt, 'Element=\s*Segment', 'match'));
-segs = 1:nseg;
-
-%% -- [1] dwdx: rigid-body 6-DOF per element ---------------------------
-m = macos.Session(P.seg.model_size);
-say('[1] dwdx (rigid-body, 6 DOF/element, LOCAL triads)...\n');
-ox = macos.dw_dx_multi(m, rx, 'field_x_rad', FOV, 'field_y_rad', FOV);
-say('    dwdxall %d x %d over %d fields; channels: %s ...\n', ...
-    size(ox.dwdxall, 1), size(ox.dwdxall, 2), size(ox.field_table, 1), ...
-    strjoin(ox.channel_names(1:min(3, end)), ', '));
-
-%% -- [2] dwdz: segment FF-Zernike figure channel ----------------------
-say('\n[2] dwdz (segment-LOCAL MonZernike modes %s)...\n', mat2str(ZMODES_FIG));
-oz = macos.dw_dz_zernike_multi(m, rx, 'field_x_rad', FOV, 'field_y_rad', FOV, ...
-    'kinds', {'monzern'}, 'zmode_start', ZMODES_FIG(1), 'n_zcoef', ZMODES_FIG(end));
-say('    dwdzall %d x %d; channels: %s ...\n', size(oz.dwdxall, 1), ...
-    size(oz.dwdxall, 2), strjoin(oz.channel_names(1:min(3, end)), ', '));
-
-%% -- [3] dwdgrid: per-segment grid pokes on the grid variant ----------
-% augment each Segment block with a flat 256 grid in its clocked Mon
-% frame; span sized to cover the wedge/hexagon footprint
-say('\n[3] dwdgrid: grid-augmenting the artifact...\n');
-gdx = 2*0.7*P.D_m/2 / (NG - 1);           % half-extent 0.7*(D/2) per segment
-rxg = fullfile(here, sprintf('e2e_%s_grid.in', v));
-L = splitlines(string(fileread(rx)));
-outL = strings(0, 1);
-inseg = false;  monf = containers.Map;
-for i = 1:numel(L)
-    ln = L(i);
-    outL(end+1) = ln; %#ok<AGROW>
-    tl = strtrim(ln);
-    if startsWith(tl, 'Element=')
-        inseg = contains(tl, 'Segment');
-        monf = containers.Map;
-    end
-    if inseg
-        for key = ["pMon" "xMon" "yMon" "zMon"]
-            if startsWith(tl, key + "=")
-                monf(char(key)) = regexprep(char(tl), '^\w+=', '');
-            end
-        end
-        if startsWith(tl, "zMon=") && monf.Count == 4
-            outL(end+1) = sprintf('         nGridMat=  %d', NG); %#ok<AGROW>
-            outL(end+1) = "         GridFile=  flat.txt"; %#ok<AGROW>
-            outL(end+1) = sprintf('        GridSrfdx=%.6E', gdx); %#ok<AGROW>
-            outL(end+1) = "            pData=" + monf('pMon'); %#ok<AGROW>
-            outL(end+1) = "            xData=" + monf('xMon'); %#ok<AGROW>
-            outL(end+1) = "            yData=" + monf('yMon'); %#ok<AGROW>
-            outL(end+1) = "            zData=" + monf('zMon'); %#ok<AGROW>
-        end
-    end
-end
-fid = fopen(rxg, 'w'); fprintf(fid, '%s\n', outL); fclose(fid);
-if ~isfile(fullfile(here, 'flat.txt'))
-    macos.write_grid_file(fullfile(here, 'flat.txt'), zeros(NG));
-end
-oldd = cd(here);  restore = onCleanup(@() cd(oldd));   % GridFile= from cwd
-nge = macos.load_rx(rxg);  tg = macos.trace(nge);      % sanity: loads+traces
-say('    e2e_%s_grid.in: %d elts, %d/%d rays (grid frames = clocked Mon)\n', ...
-    v, nge, nnz(logical(macos.get_ray_info(tg.nRays).ok_pass)), tg.nRays);
-
-% per-segment G-S influence basis (Dave 2026-07-18: reuse the dwdgrid
-% example machinery): bespoke aperture mask + Zernike modes in EACH
-% segment's own clocked frame, modified Gram-Schmidt orthonormalized
-% over the mask, rigid-body content removed
-sgb = macos.segment_grid_basis(m, rxg, 'pm_ref_elt', 1, ...
-    'modes', ZMODES_GRID, 'orthogonalize', true);
-say('    pokes: G-S orthonormal per-segment basis, %d segs x %d modes\n', ...
-    numel(sgb.seg), numel(sgb.modes));
-og = macos.dw_dgrid_multi(m, rxg, 'field_x_rad', FOV, 'field_y_rad', FOV, ...
-    'influence', sgb);
-say('    dwdgall %d x %d\n', size(og.dwdgall, 1), size(og.dwdgall, 2));
-
-%% -- [4] conditioning report -----------------------------------------
-say('\n[4] channel conditioning (finite rows only):\n');
-say('    %-8s %12s %6s %10s %10s %10s\n', 'channel', 'size', 'rank', ...
-    'sv_max', 'sv_min+', 'cond+');
-J = {'dwdx', ox.dwdxall; 'dwdz', oz.dwdxall; 'dwdgrid', og.dwdgall};
-SV = cell(3, 1);
-for q = 1:3
-    A = J{q,2};  A = A(all(isfinite(A), 2), :);
-    s = svd(full(A), 'econ');  SV{q} = s;
-    tol = max(size(A)) * eps(max(s));
-    rk = nnz(s > tol);
-    sp = s(s > tol);
-    say('    %-8s %5dx%-6d %6d %10.3e %10.3e %10.3e\n', J{q,1}, ...
-        size(A,1), size(A,2), rk, s(1), sp(end), s(1)/sp(end));
-end
-% per-segment rigid-body column norms: who moves the wavefront hardest
-say('\n    dwdx per-segment column norms (rms waves per unit DOF):\n');
-say('      seg     rx        ry        rz        tx        ty        tz\n');
-cn = ox.channel_names;                     % 'Elt 1 Rx', 'Elt 1 Ry', ...
-for s = segs
-    ic = find(startsWith(cn, sprintf('Elt %d ', s)));
-    if numel(ic) == 6
-        nv = sqrt(mean(ox.dwdxall(:, ic).^2, 1, 'omitnan'));
-        say('      %3d  %s\n', s, sprintf('%9.2e ', nv));
-    else
-        say('      %3d  (channels not found: %d)\n', s, numel(ic));
-    end
-end
-
-%% -- [5] figures ------------------------------------------------------
-f = figure('Visible', 'off', 'Position', [0 0 760 520]);
-mk = {'-o', '-s', '-^'};
-for q = 1:3
-    semilogy(SV{q}/SV{q}(1), mk{q}, 'MarkerSize', 3); hold on
-end
-grid on; legend({'dwdx', 'dwdz', 'dwdgrid'}, 'Location', 'southwest');
-xlabel('singular value index'); ylabel('\sigma_i / \sigma_1');
-title(sprintf('e2e s4: Jacobian spectra (%s, %d segs, 5 fields, +-%g'')', ...
-      v, nseg, P.inst.fov_arcmin));
-print(f, fullfile(here, 's4_svspec.png'), '-dpng', '-r120'); close(f);
-f = figure('Visible', 'off', 'Position', [0 0 900 700]);
-imagesc(ox.OPDall); axis image; colorbar;
-title('e2e s4: nominal OPD, field canvas (center + 4 corners)');
-print(f, fullfile(here, 's4_opdall.png'), '-dpng', '-r120'); close(f);
-
-% sensitivity-map figures, sensitivities-example style but COMPACT
-% (Dave 2026-07-18): the model is linear and the segments are
-% spatially disjoint in the pupil, so poking every segment
-% SIMULTANEOUSLY = summing the per-segment columns -- one panel per
-% DOF/mode instead of one per segment x DOF, painted straight from the
-% harvested Jacobians onto the tiled field canvas (no extra tracing).
-paint_ = @(A, cols) canvas_(sum(A(:, cols), 2), ox.indxall, size(ox.OPDall));
-cnz = oz.channel_names;  cng = og.channel_names;
-dofL = ["Rx" "Ry" "Rz" "Tx" "Ty" "Tz"];
-f = figure('Visible', 'off', 'Position', [0 0 1240 760]);
-tiledlayout(2, 3, 'TileSpacing', 'compact');
-for d = 1:6
-    ic = find(endsWith(cn, ' ' + dofL(d)) & ...
-              contains(cn, compose('Elt %d ', segs(:))));
-    nexttile; imagesc(paint_(ox.dwdxall, ic)); axis image off; colorbar;
-    title(sprintf('all segments %s', dofL(d)));
-end
-sgtitle(sprintf('e2e s4: dwdx maps, all-segment simultaneous pokes (%d fields)', ...
-        size(ox.field_table, 1)));
-print(f, fullfile(here, 's4_dwdx_maps.png'), '-dpng', '-r120'); close(f);
-f = figure('Visible', 'off', 'Position', [0 0 1480 760]);
-tiledlayout(2, 4, 'TileSpacing', 'compact');
-for M = ZMODES_FIG
-    ic = find(~cellfun('isempty', regexp(cnz, sprintf('Zern%d$', M))));
-    nexttile; imagesc(paint_(oz.dwdxall, ic)); axis image off; colorbar;
-    title(sprintf('all segments Z%d', M));
-end
-sgtitle('e2e s4: dwdz maps, all-segment simultaneous LOCAL Zernike pokes');
-print(f, fullfile(here, 's4_dwdz_maps.png'), '-dpng', '-r120'); close(f);
-f = figure('Visible', 'off', 'Position', [0 0 1240 760]);
-tiledlayout(2, 3, 'TileSpacing', 'compact');
-nmap = numel(ZMODES_GRID);
-for q = 1:nmap
-    ic = q:nmap:size(og.dwdgall, 2);          % map q on every segment
-    nexttile; imagesc(paint_(og.dwdgall, ic)); axis image off; colorbar;
-    title(sprintf('all segments grid poke Z%d', ZMODES_GRID(q)));
-end
-sgtitle('e2e s4: dwdgrid maps, all-segment simultaneous grid pokes');
-print(f, fullfile(here, 's4_dwdgrid_maps.png'), '-dpng', '-r120'); close(f);
-say(['\n[5] figures: s4_svspec.png + s4_opdall.png + ', ...
-     's4_dwdx_maps.png + s4_dwdz_maps.png + s4_dwdgrid_maps.png\n']);
-
+% s5 handoff: run_met consumes s4_jacobians.mat (ox/oz/og + P)
+ox = art.ox;  oz = art.oz;  og = art.og; %#ok<NASGU>
 save(fullfile(here, 's4_jacobians.mat'), 'ox', 'oz', 'og', 'P', '-v7.3');
-say('\nStage 4 complete: s4_jacobians.mat + s4_report.txt + e2e_%s_grid.in\n', v);
-say('Next: s5_met.m (shape-class launcher patterns; dedx/dldx join dwdx here).\n');
-fclose(log_);
-
-% ---------------------------------------------------------------------
-function M = canvas_(w, idx, sz)
-%CANVAS_  Scatter a stacked state-vector column onto the field canvas.
-M = nan(sz);
-M(sub2ind(sz, idx.i, idx.j)) = w;
-end
+copyfile(fullfile(here, 's4_sens_report.txt'), ...
+         fullfile(here, 's4_report.txt'));
+fprintf('\nStage 4 complete: s4_jacobians.mat + s4_report.txt\n');
+fprintf('Next: s5_met.m (shape-class launcher patterns; dedx/dldx join dwdx here).\n');
