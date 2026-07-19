@@ -13,9 +13,12 @@
 %               Sprint-2D ordering); segments are the controlled
 %               bodies, the relay mirrors ride along for disturbance
 %               studies.
-%   [2] dwdz    segment FIGURE channel: FF-Zernike coefficient
-%               derivatives (kinds={'ffzern'}) modes 4..11 on every
-%               segment.
+%   [2] dwdz    segment FIGURE channel: MonZernike coefficient
+%               derivatives (kinds={'monzern'}) modes 4..11 -- the
+%               SEGMENT-LOCAL basis (lMon aperture, clocked Mon frame).
+%               NOT the FF channel: that carries the PARENT-aperture
+%               figure basis (lFF = full aperture), whose pokes paint
+%               full-aperture modes (Dave 2026-07-18).
 %   [3] dwdgrid segment grid-poke channel on a GRID-AUGMENTED variant
 %               (e2e_<v>_grid.in): each segment gets a flat 256 grid
 %               in its CLOCKED Mon frame (pData..zData = pMon..zMon --
@@ -66,9 +69,9 @@ say('    dwdxall %d x %d over %d fields; channels: %s ...\n', ...
     strjoin(ox.channel_names(1:min(3, end)), ', '));
 
 %% -- [2] dwdz: segment FF-Zernike figure channel ----------------------
-say('\n[2] dwdz (segment figure, FF-Zernike modes %s)...\n', mat2str(ZMODES_FIG));
+say('\n[2] dwdz (segment-LOCAL MonZernike modes %s)...\n', mat2str(ZMODES_FIG));
 oz = macos.dw_dz_zernike_multi(m, rx, 'field_x_rad', FOV, 'field_y_rad', FOV, ...
-    'kinds', {'ffzern'}, 'zmode_start', ZMODES_FIG(1), 'n_zcoef', ZMODES_FIG(end));
+    'kinds', {'monzern'}, 'zmode_start', ZMODES_FIG(1), 'n_zcoef', ZMODES_FIG(end));
 say('    dwdzall %d x %d; channels: %s ...\n', size(oz.dwdxall, 1), ...
     size(oz.dwdxall, 2), strjoin(oz.channel_names(1:min(3, end)), ', '));
 
@@ -115,14 +118,16 @@ nge = macos.load_rx(rxg);  tg = macos.trace(nge);      % sanity: loads+traces
 say('    e2e_%s_grid.in: %d elts, %d/%d rays (grid frames = clocked Mon)\n', ...
     v, nge, nnz(logical(macos.get_ray_info(tg.nRays).ok_pass)), tg.nRays);
 
-% aperture-confined Zernike pokes inside each segment footprint
-lMon = str2num(regexp(txt, '(?<=lMon=)\s*[\d.eEdD+-]+', 'match', 'once')); %#ok<ST2NM>
-ap_frac = min(lMon / (((NG-1)/2)*gdx), 1);
-infl = macos.zernike_grid_basis(NG, ZMODES_GRID, ap_frac);
-say('    pokes: modes %s, aperture %.0f%% of grid half-width\n', ...
-    mat2str(ZMODES_GRID), 100*ap_frac);
+% per-segment G-S influence basis (Dave 2026-07-18: reuse the dwdgrid
+% example machinery): bespoke aperture mask + Zernike modes in EACH
+% segment's own clocked frame, modified Gram-Schmidt orthonormalized
+% over the mask, rigid-body content removed
+sgb = macos.segment_grid_basis(m, rxg, 'pm_ref_elt', 1, ...
+    'modes', ZMODES_GRID, 'orthogonalize', true);
+say('    pokes: G-S orthonormal per-segment basis, %d segs x %d modes\n', ...
+    numel(sgb.seg), numel(sgb.modes));
 og = macos.dw_dgrid_multi(m, rxg, 'field_x_rad', FOV, 'field_y_rad', FOV, ...
-    'influence', infl);
+    'influence', sgb);
 say('    dwdgall %d x %d\n', size(og.dwdgall, 1), size(og.dwdgall, 2));
 
 %% -- [4] conditioning report -----------------------------------------
@@ -169,9 +174,57 @@ f = figure('Visible', 'off', 'Position', [0 0 900 700]);
 imagesc(ox.OPDall); axis image; colorbar;
 title('e2e s4: nominal OPD, field canvas (center + 4 corners)');
 print(f, fullfile(here, 's4_opdall.png'), '-dpng', '-r120'); close(f);
-say('\n[5] figures: s4_svspec.png + s4_opdall.png\n');
+
+% sensitivity-map figures, sensitivities-example style but COMPACT
+% (Dave 2026-07-18): the model is linear and the segments are
+% spatially disjoint in the pupil, so poking every segment
+% SIMULTANEOUSLY = summing the per-segment columns -- one panel per
+% DOF/mode instead of one per segment x DOF, painted straight from the
+% harvested Jacobians onto the tiled field canvas (no extra tracing).
+paint_ = @(A, cols) canvas_(sum(A(:, cols), 2), ox.indxall, size(ox.OPDall));
+cnz = oz.channel_names;  cng = og.channel_names;
+dofL = ["Rx" "Ry" "Rz" "Tx" "Ty" "Tz"];
+f = figure('Visible', 'off', 'Position', [0 0 1240 760]);
+tiledlayout(2, 3, 'TileSpacing', 'compact');
+for d = 1:6
+    ic = find(endsWith(cn, ' ' + dofL(d)) & ...
+              contains(cn, compose('Elt %d ', segs(:))));
+    nexttile; imagesc(paint_(ox.dwdxall, ic)); axis image off; colorbar;
+    title(sprintf('all segments %s', dofL(d)));
+end
+sgtitle(sprintf('e2e s4: dwdx maps, all-segment simultaneous pokes (%d fields)', ...
+        size(ox.field_table, 1)));
+print(f, fullfile(here, 's4_dwdx_maps.png'), '-dpng', '-r120'); close(f);
+f = figure('Visible', 'off', 'Position', [0 0 1480 760]);
+tiledlayout(2, 4, 'TileSpacing', 'compact');
+for M = ZMODES_FIG
+    ic = find(~cellfun('isempty', regexp(cnz, sprintf('Zern%d$', M))));
+    nexttile; imagesc(paint_(oz.dwdxall, ic)); axis image off; colorbar;
+    title(sprintf('all segments Z%d', M));
+end
+sgtitle('e2e s4: dwdz maps, all-segment simultaneous LOCAL Zernike pokes');
+print(f, fullfile(here, 's4_dwdz_maps.png'), '-dpng', '-r120'); close(f);
+f = figure('Visible', 'off', 'Position', [0 0 1240 760]);
+tiledlayout(2, 3, 'TileSpacing', 'compact');
+nmap = numel(ZMODES_GRID);
+for q = 1:nmap
+    ic = q:nmap:size(og.dwdgall, 2);          % map q on every segment
+    nexttile; imagesc(paint_(og.dwdgall, ic)); axis image off; colorbar;
+    title(sprintf('all segments grid poke Z%d', ZMODES_GRID(q)));
+end
+sgtitle('e2e s4: dwdgrid maps, all-segment simultaneous grid pokes');
+print(f, fullfile(here, 's4_dwdgrid_maps.png'), '-dpng', '-r120'); close(f);
+say(['\n[5] figures: s4_svspec.png + s4_opdall.png + ', ...
+     's4_dwdx_maps.png + s4_dwdz_maps.png + s4_dwdgrid_maps.png\n']);
 
 save(fullfile(here, 's4_jacobians.mat'), 'ox', 'oz', 'og', 'P', '-v7.3');
 say('\nStage 4 complete: s4_jacobians.mat + s4_report.txt + e2e_%s_grid.in\n', v);
 say('Next: s5_met.m (shape-class launcher patterns; dedx/dldx join dwdx here).\n');
 fclose(log_);
+
+% ---------------------------------------------------------------------
+function M = canvas_(w, idx, sz)
+%CANVAS_  Scatter a stacked state-vector column onto the field canvas.
+M = nan(sz);
+M(sub2ind(sz, idx.i, idx.j)) = w;
+end

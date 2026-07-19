@@ -4,31 +4,31 @@ field set: center + 4 corners at +-2' (the science patch)
 [1] dwdx (rigid-body, 6 DOF/element, LOCAL triads)...
     dwdxall 60412 x 90 over 5 fields; channels: Elt 1 Rx, Elt 1 Ry, Elt 1 Rz ...
 
-[2] dwdz (segment figure, FF-Zernike modes [4 5 6 7 8 9 10 11])...
-    dwdzall 60412 x 56; channels: Elt 1 FFZern4, Elt 1 FFZern5, Elt 1 FFZern6 ...
+[2] dwdz (segment-LOCAL MonZernike modes [4 5 6 7 8 9 10 11])...
+    dwdzall 60412 x 56; channels: Elt 1 MonZern4, Elt 1 MonZern5, Elt 1 MonZern6 ...
 
 [3] dwdgrid: grid-augmenting the artifact...
     e2e_pie_grid.in: 17 elts, 12098/12520 rays (grid frames = clocked Mon)
-    pokes: modes [4 5 6 7 8 9], aperture 55% of grid half-width
+    pokes: G-S orthonormal per-segment basis, 7 segs x 6 modes
     dwdgall 60412 x 42
 
 [4] channel conditioning (finite rows only):
     channel          size   rank     sv_max    sv_min+      cond+
-    dwdx     60412x90         90  1.989e+02  1.994e-05  9.978e+06
-    dwdz     60412x56         56  1.467e+02  3.349e-01  4.379e+02
-    dwdgrid  60412x42         42  1.868e+02  1.070e+02  1.746e+00
+    dwdx     60412x90         90  1.989e+02  1.994e-05  9.979e+06
+    dwdz     60412x56         56  1.833e+02  3.367e+01  5.445e+00
+    dwdgrid  60412x42         42  1.992e+02  1.586e+02  1.256e+00
 
     dwdx per-segment column norms (rms waves per unit DOF):
       seg     rx        ry        rz        tx        ty        tz
-        1   2.46e-01  2.59e-01  3.09e-07  1.85e-02  1.76e-02  6.43e-01 
-        2   3.23e-01  3.09e-01  1.14e-04  2.18e-02  2.29e-02  7.04e-01 
-        3   3.42e-01  2.87e-01  1.13e-04  2.02e-02  2.42e-02  7.04e-01 
-        4   3.22e-01  3.08e-01  1.11e-04  2.17e-02  2.28e-02  7.04e-01 
-        5   3.22e-01  3.05e-01  1.12e-04  2.15e-02  2.28e-02  7.04e-01 
-        6   3.40e-01  2.85e-01  1.12e-04  2.01e-02  2.41e-02  7.04e-01 
-        7   3.25e-01  3.06e-01  1.12e-04  2.16e-02  2.30e-02  7.04e-01 
+        1   2.59e-01  2.46e-01  3.09e-07  1.76e-02  1.85e-02  6.43e-01 
+        2   3.50e-01  2.79e-01  1.14e-04  1.96e-02  2.48e-02  7.04e-01 
+        3   3.49e-01  2.79e-01  1.13e-04  1.96e-02  2.48e-02  7.04e-01 
+        4   3.31e-01  2.98e-01  1.11e-04  2.09e-02  2.35e-02  7.04e-01 
+        5   3.48e-01  2.75e-01  1.12e-04  1.93e-02  2.47e-02  7.04e-01 
+        6   3.48e-01  2.75e-01  1.12e-04  1.93e-02  2.47e-02  7.04e-01 
+        7   3.31e-01  2.99e-01  1.12e-04  2.10e-02  2.35e-02  7.04e-01 
 
-[5] figures: s4_svspec.png + s4_opdall.png
+[5] figures: s4_svspec.png + s4_opdall.png + s4_dwdx_maps.png + s4_dwdz_maps.png + s4_dwdgrid_maps.png
 
 Stage 4 complete: s4_jacobians.mat + s4_report.txt + e2e_pie_grid.in
 Next: s5_met.m (shape-class launcher patterns; dedx/dldx join dwdx here).

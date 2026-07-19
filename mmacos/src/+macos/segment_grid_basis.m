@@ -89,9 +89,27 @@ C  = zeros(3, nc);
 for k = 1:nc, C(:,k) = local_vec_(txt, center_elts(k), 'RptElt'); end
 
 % ---- trace to the near-pupil reference; pull the ray footprint -------
-s  = session.trace(opts.pm_ref_elt);
-ri = macos.get_ray_info(s.nRays);
-P  = ri.pos;  ok = ri.ok_trace(:).';
+% trace(k) refuses Segment targets, so when the reference IS a segment
+% (segmented-primary prescriptions: the pupil elements ARE Segments, no
+% passive plane to point at) take the positions from the engine
+% ray-position history at each ray's own segment surface instead --
+% the union over segment slots is the primary-plane footprint.
+if strcmp(macos.get_elt_info(opts.pm_ref_elt).type, 'Segment')
+    macos.ray_hist('on');
+    s = session.trace();
+    h = macos.ray_hist(s.nRays);
+    macos.ray_hist('off');
+    P = nan(3, s.nRays);  ok = false(1, s.nRays);
+    for e = seg_elts(:).'
+        mm = logical(h.ok(:, e+1)).';
+        P(:, mm) = squeeze(h.P(:, mm, e+1));
+        ok = ok | mm;
+    end
+else
+    s  = session.trace(opts.pm_ref_elt);
+    ri = macos.get_ray_info(s.nRays);
+    P  = ri.pos;  ok = ri.ok_trace(:).';
+end
 
 % ---- per-segment bespoke mask + Zernike modes ------------------------
 out = struct('N',[], 'gdx',[], 'modes',opts.modes, 'zern_type',opts.zern_type, ...
