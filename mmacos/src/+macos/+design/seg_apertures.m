@@ -19,24 +19,27 @@ function ap = seg_apertures(seg, opts)
 %     Pie        center segment = a HEXAGON (the (X,L,R) hex-coordinate
 %                tiling's central cell -- verified against the traced ray
 %                footprint, NOT a disc), apothem (width-gap)/2 + pad,
-%                flats facing the ring-1 wedge centers; ring wedges =
-%                convex chorded SECTOR to the outer arc (circumscribed
-%                chords so the polygon never cuts inside the arc), with
-%                a convex PolyObsVec when obs=true: ring 1 abuts the
-%                center hexagon along a straight CHORD (its flat + gap),
-%                so its obscuration is the apex TRIANGLE to that chord
-%                -- NOT an arc; deeper rings obscure with the
-%                inner-sector arc (ring-ring boundaries are radial).
+%                flats facing the ring-1 wedge centers; ring-1 wedges =
+%                the TRUE physical wedge as one CONVEX polygon (outer
+%                circumscribed arc + two side edges PARALLEL to the
+%                sector boundary rays at offset g/2, + the straight
+%                CHORD facing the center hexagon's flat) -- gaps are
+%                uniform-width slots, they do NOT converge at the
+%                tiling center, and no obscuration is needed (Dave
+%                2026-07-18; geometry: macos.design.pie_wedge_geom).
+%                Deeper rings (inner edge = an arc, non-convex) emit a
+%                convex sector + an inner-sector PolyObsVec when
+%                obs=true.
 %
 %   Options:
 %     pad     (0)     outward clearance, same units: 0 = the physical
 %                     edge (rays the source tiling puts in the gaps get
 %                     clipped -- physically honest); pad=gap/2 puts the
 %                     aperture at the tiling midline (trace-neutral).
-%     obs     (true)  emit the inner-sector obscuration on pie wedges
-%                     (the physical inner edge; without it the convex
-%                     sector extends to the tiling center -- harmless at
-%                     nominal, dishonest under large perturbations).
+%     obs     (true)  emit the inner-sector obscuration on DEEPER-ring
+%                     pie wedges (their arc inner edge is non-convex;
+%                     ring-1 wedges are convex chorded polygons and
+%                     never need one).
 %     nchord  (12)    chords per wedge outer/inner arc (total vertices
 %                     per polygon must stay <= engine mPolySide=128).
 %
@@ -76,50 +79,44 @@ switch kind
         u = fr(1).xhat;  vN = fr(1).zhat;  v = cross(vN, u);
         c0 = mean([fr.rpt], 2);
         C2 = [u.'; v.'] * ([fr.rpt] - c0);
-        rc = vecnorm(C2);
-        isctr = rc < 1e-6 * max(rc);
-        rings = uniquetol(rc(~isctr), 1e-6, 'DataScale', max(rc));
+        R  = macos.design.pie_rings(C2, w);   % width-scaled tolerance
+        rc = R.rc;  isctr = R.isctr;
         lift = @(P2) c0 + u*P2(1,:) + v*P2(2,:);
         for s = 1:n
             if isctr(s)
                 % central cell of the hex-coordinate tiling: a hexagon
                 % with flats facing the ring-1 wedge centers
-                az = atan2(C2(2,~isctr & abs(rc-rings(1)) < 1e-6*max(rc)), ...
-                           C2(1,~isctr & abs(rc-rings(1)) < 1e-6*max(rc)));
+                az = atan2(C2(2, R.iring == 1), C2(1, R.iring == 1));
                 flat_ang = angle(mean(exp(1i*6*az))) / 6;
                 a0h = (w - g)/2 + pad;
                 phic = flat_ang + pi/6 + (0:5)*pi/3;
                 poly{s} = lift(C2(:,s) + (a0h/cos(pi/6))*[cos(phic); sin(phic)]);
                 obs{s} = [];
             else
-                m = abs(rc - rc(s)) < 1e-6 * max(rc);
-                dth = 2*pi / nnz(m);
+                dth = 2*pi / R.nmem(R.iring(s));
                 a0 = atan2(C2(2,s), C2(1,s));
-                ha = dth/2 - (g/2 - pad)/rc(s);
-                ro = rc(s) + w/2 + pad;               % outer edge: rim...
-                if any(rings > rc(s) + 1e-6*max(rc))  % ...unless a ring outside
-                    ro = ro - g/2;
-                end
-                thc = linspace(a0-ha, a0+ha, opts.nchord+1);
-                % aperture = convex sector to the outer arc, circumscribed
-                Pout = (ro/cos((thc(2)-thc(1))/2)) * [cos(thc); sin(thc)];
-                poly{s} = lift([[0;0], Pout]);        % apex + arc
-                if opts.obs
-                    inner_ring = ~any(rings < rc(s) - 1e-6*max(rc));
-                    if inner_ring && any(isctr)
-                        % ring 1 abuts the center HEXAGON: the physical
-                        % inner edge is the straight chord facing its
-                        % flat ((w-g)/2 + gap g), NOT an arc -- the
-                        % obscuration is the apex TRIANGLE to the chord
-                        d  = (w + g)/2 - pad;
-                        er = [cos(a0); sin(a0)];  et = [-sin(a0); cos(a0)];
-                        obs{s} = lift([[0;0], d*er - d*tan(ha)*et, ...
-                                              d*er + d*tan(ha)*et]);
-                    else
-                        ri = rc(s) - w/2 + g/2 - pad; % ring-ring arc edge
-                        obs{s} = lift([[0;0], ri*[cos(thc); sin(thc)]]);
-                    end
+                has_outer  = R.iring(s) < numel(R.rings);
+                inner_ring = R.iring(s) == 1;
+                W = macos.design.pie_wedge_geom(a0, dth, rc(s), w, g, ...
+                        pad, has_outer, inner_ring && any(isctr));
+                thc = linspace(W.th1, W.th2, opts.nchord+1);
+                % circumscribed outer arc: the polygon never cuts
+                % inside the rim
+                Pout = (W.ro/cos((thc(2)-thc(1))/2)) * [cos(thc); sin(thc)];
+                if inner_ring && any(isctr)
+                    % ring-1 wedge = the physical shape, one convex
+                    % polygon (chord + parallel sides + arc): uniform-
+                    % width gaps, no apex at the center, no obscuration
+                    poly{s} = lift([W.A, Pout, W.B]);
+                    obs{s} = [];
+                elseif opts.obs
+                    % deeper ring: convex sector from the side-line
+                    % apex + inner-sector arc obscuration
+                    poly{s} = lift([W.X, Pout]);
+                    thi = linspace(W.ti1, W.ti2, opts.nchord+1);
+                    obs{s} = lift([W.X, W.ri*[cos(thi); sin(thi)]]);
                 else
+                    poly{s} = lift([W.X, Pout]);
                     obs{s} = [];
                 end
             end

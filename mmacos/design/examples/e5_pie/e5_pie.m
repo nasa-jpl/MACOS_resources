@@ -14,10 +14,13 @@
 %   Step 3  re-emit the prescription with each segment's physical
 %           boundary declared as a polygonal aperture
 %           (segment_rx emit_apertures=true -> macos.design.
-%           seg_apertures: center hexagon + convex chorded sectors
-%           with inner-sector obscurations; engine convention for
-%           non-convex shapes is convex aperture minus convex
-%           obscurations).
+%           seg_apertures: center hexagon + ring-1 wedges as TRUE
+%           convex chorded polygons -- side edges parallel to the
+%           sector rays, so inter-segment gaps are uniform-width
+%           slots that do not converge at the center, and no
+%           obscuration is needed.  Deeper rings, whose arc inner
+%           edge is non-convex, would emit convex sector + inner
+%           obscuration per the engine convention).
 %   Step 4  trace parity: rays the source tiling places in the
 %           inter-segment GAPS are clipped by the apertures --
 %           physically honest (they have no glass under them); the
@@ -68,34 +71,14 @@ say('        baseline: %d src rays, %d pass, rmsWFE %.6g mm\n', ...
 
 %% ---- Step 2: true footprints vs the tiling boundary --------------------
 % Poke each segment in turn (local piston) and mark the OPD pixels that
-% move.  OPD is piston-removed, so every pixel shifts by a constant --
-% the segment's own pixels sit at a distinct level; split on deviation
-% from the median.
-N = size(w0, 1);
-labels = zeros(N);                                % pixel -> segment id
-for s = 1:seg.nseg
-    macos.load_rx(seg.in);
-    macos.perturb(seg.seg_elts(s), 'translation', [0;0;1e-6], 'frame','local');
-    macos.modify(); macos.trace();
-    d = macos.opd() - w0;
-    ok = isfinite(d) & (w0 ~= 0);
-    dev = abs(d - median(d(ok)));
-    labels(ok & dev > 0.25*max(dev(ok))) = s;
-end
-macos.load_rx(seg.in);                            % restore nominal
+% move -- macos.design.seg_footprints, the shared engine-truth
+% measurement; figure via macos.design.seg_footprint_view (both hoisted
+% from this example so e2e s3 and future runners consume the same code).
+labels = macos.design.seg_footprints(seg, w0, 'poke', 1e-6);
 B = macos.design.seg_boundary(seg);               % tiling reconstruction
-% Calibrate the OPD pixel grid to global X/Y from the trace itself:
-% the source grid axes (xGrid/yGrid in the Rx) need not point along
-% +X/+Y -- e5's xGrid is (-1,0,0) -- so fit the pixel->mm map from the
-% footprint centroids instead of assuming a convention.
-[xmm, ymm, toimg] = pupil_axes_(labels, B, seg);
-f = figure('Visible','off', 'Position', [0 0 720 660]);
-imagesc(xmm, ymm, toimg(labels), 'AlphaData', toimg(labels) > 0);
-axis xy image; hold on
-colormap([0.94 0.94 0.94; lines(seg.nseg)]); clim([-0.5 seg.nseg+0.5]);
-overlay_(B, seg.nseg, 'k-', 1.4);
-title('Step 2 -- traced segment footprints + tiling boundary');
-xlabel('pupil x, mm'); ylabel('pupil y, mm');
+[f, xmm, ymm, toimg] = macos.design.seg_footprint_view(labels, B, seg, ...
+    'units', 'mm', ...
+    'title', 'Step 2 -- traced segment footprints + tiling boundary');
 text(0, 0, 'hexagonal center cell', 'Horiz', 'center', 'FontWeight', 'bold');
 print(f, fullfile(here, 'e5pie_step2_footprints.png'), '-dpng', '-r120');
 close(f);
@@ -109,21 +92,11 @@ copyfile(segA.in, fullfile(here, 'e5pie_polyap.in'));
 ap = segA.apertures;
 say('step 3: apertures emitted (pad %g mm): center %s with %d vertices, wedges %d each -> e5pie_polyap.in\n', ...
     PAD, 'hexagon', size(ap.poly{1}, 2), size(ap.poly{2}, 2));
-f = figure('Visible','off', 'Position', [0 0 720 660]);
-imagesc(xmm, ymm, toimg(labels), 'AlphaData', 0.35*(toimg(labels) > 0));
-axis xy image; hold on
-colormap([0.94 0.94 0.94; lines(seg.nseg)]); clim([-0.5 seg.nseg+0.5]);
-for s = 1:segA.nseg
-    P = ap.poly{s}(:, [1:end 1]);
-    plot(P(1,:), P(2,:), 'k-', 'LineWidth', 1.6);
-    if ~isempty(ap.obs{s})
-        O = ap.obs{s}(:, [1:end 1]);
-        plot(O(1,:), O(2,:), 'r--', 'LineWidth', 1.0);
-    end
-end
-title('Step 3 -- emitted aperture polygons (black) + inner obscurations (red)');
-xlabel('pupil x, mm'); ylabel('pupil y, mm');
-print(f, fullfile(here, 'e5pie_step3_apertures.png'), '-dpng', '-r120');
+f = macos.design.seg_footprint_view(labels, B, seg, 'units', 'mm', ...
+    'apertures', ap, 'boundary', false, 'alpha', 0.35, ...
+    'title', ['Step 3 -- emitted aperture polygons ', ...
+              '(black; red = obscurations, none for 1 ring)'], ...
+    'save', fullfile(here, 'e5pie_step3_apertures.png'));
 close(f);
 
 %% ---- Step 4: trace parity (gap rays clip) --------------------------------
@@ -200,56 +173,6 @@ fclose(log_);
 fprintf('findings.txt + 5 figures written to %s\n', here);
 
 % ---------------------------------------------------------------------------
-function [xmm, ymm, toimg] = pupil_axes_(labels, B, seg)
-%PUPIL_AXES_  Calibrate the OPD pixel grid to global X/Y (mm).
-%   Fits the affine pixel->mm map from the per-segment footprint
-%   centroids (pixel space) against the tiling-region centroids (global
-%   X/Y from the boundary polygons), so the overlay is exact whatever
-%   the source grid orientation (xGrid/yGrid may be mirrored or flipped
-%   wrt the global axes).  Returns ascending mm axes plus TOIMG, the
-%   flip that puts a pixel matrix into that axis convention.
-N = size(labels, 1);
-[JJ, II] = meshgrid(1:N, 1:N);
-Ppix = zeros(0, 3);  Pmm = zeros(0, 2);
-for s = 1:seg.nseg
-    m = labels == s;
-    if ~any(m, 'all'), continue; end
-    shp = polyshape(B.poly{s}(1, 1:end-1), B.poly{s}(2, 1:end-1));
-    [cx, cy] = centroid(shp);
-    Ppix(end+1, :) = [mean(JJ(m)), mean(II(m)), 1]; %#ok<AGROW>
-    Pmm(end+1, :)  = [cx, cy];                      %#ok<AGROW>
-end
-A = (Ppix \ Pmm).';                    % 2x3: [X;Y] = A*[col;row;1]
-% the engine OPD grid stores x along the ROW index (see the GridMat /
-% write_grid_file orientation convention) -- if the fit says the map is
-% transposed, swap the pixel axes and refit
-swp = abs(A(1,1)) + abs(A(2,2)) < abs(A(1,2)) + abs(A(2,1));
-if swp
-    Ppix(:, [1 2]) = Ppix(:, [2 1]);
-    A = (Ppix \ Pmm).';
-end
-offd = max(abs([A(1,2) A(2,1)])) / max(abs([A(1,1) A(2,2)]));
-if offd > 0.05
-    warning('e5_pie:grid', ...
-        'pupil grid rotated %.2f wrt global X/Y; overlay approximate', offd);
-end
-assert(all(isfinite([A(:); 0])), 'pupil grid calibration failed');
-xmm = A(1,1)*(1:N) + A(1,3);
-ymm = A(2,2)*(1:N) + A(2,3);
-fx = xmm(1) > xmm(end);  fy = ymm(1) > ymm(end);
-if fx, xmm = flip(xmm); end
-if fy, ymm = flip(ymm); end
-toimg = @(M) flip_(flip_(tr_(M, swp), fx, 2), fy, 1);
-end
-
-function M = flip_(M, tf, dim)
-if tf, M = flip(M, dim); end
-end
-
-function M = tr_(M, tf)
-if tf, M = M.'; end
-end
-
 function overlay_(B, nseg, style, lw)
 for s = 1:nseg
     plot(B.poly{s}(1,:), B.poly{s}(2,:), style, 'LineWidth', lw);
