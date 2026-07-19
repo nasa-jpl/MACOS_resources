@@ -198,11 +198,15 @@ if any(cmax > 1e-2)
 end
 
 %% -- [5] M1 hole + the true focal plane + clearance -------------------
-r_hole = m1_hole_radius_(t, P.hole_margin);
+% hole = max(beam-derived, the SM-shadow floor P.hole_min_r_m): the SM
+% obscures that much anyway and the aft MET leg routes through the hole
+r_hole = max([m1_hole_radius_(t, P.hole_margin), P.hole_min_r_m], ...
+             [], 'omitnan');
 if isfinite(r_hole)
     t.set_hole('M1', r_hole);
-    fprintf(['\n[5] M1 central hole: r = %.3f m (%.1fx the measured ', ...
-             'through-beam at the M1 plane)\n'], r_hole, P.hole_margin);
+    fprintf(['\n[5] M1 central hole: r = %.3f m (max of %.1fx the ', ...
+             'through-beam and the %.3f m SM-shadow floor)\n'], ...
+            r_hole, P.hole_margin, P.hole_min_r_m);
 else
     fprintf('\n[5] no beam crosses the M1 plane -- no hole needed\n');
 end

@@ -352,7 +352,9 @@ for q = 1:numel(scan_dy)
 end
 
 %% -- [5] clearance + M1 hole re-check ---------------------------------
-r_hole = m1_hole_radius_(t, P.hole_margin);
+% same SM-shadow floor as s1 [5] (Dave 2026-07-19)
+r_hole = max([m1_hole_radius_(t, P.hole_margin), P.hole_min_r_m], ...
+             [], 'omitnan');
 if isfinite(r_hole), t.set_hole('M1', r_hole); end
 fa = t.align_focal_plane('grid', 5, 'span_arcmin', min(0.5, h2/2));
 rep = t.check_clipping('noload', true, 'quiet', true);
