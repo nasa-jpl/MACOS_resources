@@ -2,7 +2,7 @@
 parent: D = 4 m, BaseUnits=m; gap 25 mm; segment size defaults to
 Aperture/(2*rings+1) -- the tiling scales with the aperture
 
-[0] monolithic parent: 1305 src rays, 1300 pass, rmsWFE 5.88e-09 (WaveUnits)
+[0] monolithic parent: 1305 src rays, 1300 pass, rmsWFE 3.882e-09 (WaveUnits)
 
 ---- variant "pie": rings=1, grid=Pie ----
 [1] 7 segments, width 1.333 m flat-to-flat, gap 0.025 m, 17 elements
@@ -14,12 +14,12 @@ Aperture/(2*rings+1) -- the tiling scales with the aperture
       Seg5     center [ +0.6667  -1.1547  -0.0631] m  lMon 0.7698
       Seg6     center [ -0.6667  -1.1547  -0.0631] m  lMon 0.7698
       Seg7     center [ -1.3333  +0.0000  -0.0635] m  lMon 0.7698
-    bare segmented: 12520 src rays, 12482 pass, rmsWFE 5.627e-09 (parent 5.88e-09, -4.30%)
-[3] physical apertures (pad 0): 12106 pass (bare 12482) -- 376 gap/rim rays clip;
-    first-fail elements 18; rmsWFE 5.489e-09 (-6.65% vs parent)
+    bare segmented: 12520 src rays, 12474 pass, rmsWFE 3.59e-09 (parent 3.882e-09, -7.53%)
+[3] physical apertures (pad 0): 12098 pass (bare 12474) -- 376 gap/rim rays clip;
+    first-fail elements 18; rmsWFE 3.453e-09 (-11.06% vs parent)
     footprint/aperture figure: s3_footprints_pie.png
 [4] standard views: s3_views_pie.png
-[5] artifact e2e_pie.in: standalone reload 17 elts, 12106/12520 rays pass -> VERIFIED
+[5] artifact e2e_pie.in: standalone reload 17 elts, 12098/12520 rays pass -> VERIFIED
 
 ---- variant "hex2": rings=2, grid=Hex ----
 [1] 19 segments, width 0.8 m flat-to-flat, gap 0.025 m, 29 elements
@@ -43,17 +43,17 @@ Aperture/(2*rings+1) -- the tiling scales with the aperture
       Seg17    center [ -1.2000  -0.6928  -0.0684] m  lMon 0.4619
       Seg18    center [ -1.6000  +0.0000  -0.0914] m  lMon 0.4619
       Seg19    center [ -1.2000  +0.6928  -0.0688] m  lMon 0.4619
-    bare segmented: 9876 src rays, 9838 pass, rmsWFE 4.831e-09 (parent 5.88e-09, -17.85%)
-[3] physical apertures (pad 0): 9838 pass (bare 9838) -- 0 gap/rim rays clip;
-    first-fail elements 30; rmsWFE 4.831e-09 (-17.85% vs parent)
+    bare segmented: 9876 src rays, 9830 pass, rmsWFE 2.905e-09 (parent 3.882e-09, -25.17%)
+[3] physical apertures (pad 0): 9830 pass (bare 9830) -- 0 gap/rim rays clip;
+    first-fail elements 30; rmsWFE 2.905e-09 (-25.17% vs parent)
     footprint/aperture figure: s3_footprints_hex2.png
 [4] standard views: s3_views_hex2.png
-[5] artifact e2e_hex2.in: standalone reload 29 elts, 9838/9876 rays pass -> VERIFIED
+[5] artifact e2e_hex2.in: standalone reload 29 elts, 9830/9876 rays pass -> VERIFIED
 
 ==== stage-3 summary ====
 name    nseg   width_m   pass/src   clipped    rmsWFE d%
-pie        7     1.333  12106/12520      376       -6.65
-hex2      19       0.8   9838/9876         0      -17.85
+pie        7     1.333  12098/12520      376      -11.06
+hex2      19       0.8   9830/9876         0      -25.17
 (rmsWFE deltas vs parent = pupil-sampling coverage: the segment tilings
  sample the pupil differently from the parent Circular grid)
 downstream variant (P.seg.variant) = "pie" -> stages 4-6 consume e2e_pie.in

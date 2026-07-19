@@ -92,7 +92,21 @@ P.inst = struct( ...
     'offner_R',   2.0, ...      % Offner concave radius (m); convex = R/2
     'offner_h',   0.25, ...     % ring radius (m): object/image offset
     'fov_arcmin', 2.0, ...      % widened half-field target
-    'field_dy_arcmin', -0.7, ...% science-field-center shift (+y bias
+    'field_center', "auto", ... % "auto" (Dave 2026-07-18): after the
+    ...                         % pass-1 solve, point the nominal chief
+    ...                         % at the y-CENTROID of the region where
+    ...                         % raw WFE < field_center_thresh on the
+    ...                         % +-map_fov map, and re-solve once (the
+    ...                         % [4f] scan then verifies optimality).
+    ...                         % "manual" keeps field_dy_arcmin as-is.
+    ...                         % set_field_bias is a +y scalar, so
+    ...                         % only the y-centroid is adoptable; the
+    ...                         % x-centroid is reported.
+    'field_center_thresh', 0.02, ...  % waves, the "good region" bar
+    'map_fov_arcmin', 3, ...    % WFE-map half-width (Dave: +-3')
+    'map_n', 13, ...            % map sampling (13x13 = 0.5' pitch)
+    'field_dy_arcmin', -0.7, ...% STARTING science-field-center shift
+    ...                         % (+y bias
     ...                         % units) applied to the s1 bias for the
     ...                         % instrument stage: the s2 WFE map's
     ...                         % sweet spot sat below (0,0) (Dave
