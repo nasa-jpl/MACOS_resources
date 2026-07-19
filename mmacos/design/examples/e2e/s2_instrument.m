@@ -25,8 +25,13 @@
 %        are added) + JOINT freeform field solve (CALIB on the powered
 %        set, SVD engine on the weak correctors + polish + M1 common
 %        mode over the full field set);
+%        Sections [2]-[4e] run inside a 2-pass field-center loop
+%        ([4g], Dave 2026-07-18): pass 1 solves at the starting shift,
+%        maps +-3' and finds the centroid of the <0.02-waves region;
+%        if the chief is off it by >0.15', pass 2 re-solves there.
 %    [5] clearance + M1 hole re-check;
-%    [6] standard views + field maps at +-2';
+%    [6] standard views + WFE field map at +-3' (0.02 contour, science
+%        patch, chief + centroid markers) + FP curvature map;
 %    [7] deliverables (s2_instrument.in/.mat) + standalone reload;
 %    [8] design report + stage-2 addendum -> s2_report.txt.
 %
@@ -127,6 +132,24 @@ fprintf('\n[1] chain (telescope + bench relay; M3->M4 = %.3f m):\n', ...
         b + P.inst.dpast_m);
 for k = 1:numel(e)
     fprintf('    %-4s %-10s Vpt=[%8.3f %8.3f %8.3f]\n', e(k).name, e(k).kind, e(k).Vpt);
+end
+
+%% -- field-center passes: solve, map the sweet spot, recenter once ----
+% Dave 2026-07-18: point the nominal chief at the CENTROID of the
+% WFE < 0.02-waves region, not a hand-picked shift.  Pass 1 solves at
+% the P.inst.field_dy_arcmin starting guess and measures the region on
+% a +-3' map ([4g]); if the y-centroid is off by > 0.15', pass 2
+% re-solves with the chief there (sections [2]-[4e] run once per pass;
+% pass-2 solves start from the pass-1 figures -- a refinement, and the
+% [4f] scan validates the final center).
+for fc_pass = 1:2
+if fc_pass > 1
+    bias2 = bias2 + dy_c;
+    t.set_field_bias(bias2);
+    t.build('', 'init', false);
+    t.center_focal_plane();
+    fprintf('\n==== field-center pass 2: chief re-pointed %+.2f'' -> bias %g'' ====\n', ...
+            dy_c, bias2);
 end
 
 %% -- [2] baseline: the +-2' ladder with the bare relay ----------------
@@ -282,10 +305,39 @@ fprintf(['\n[4e] M4 distortion solve (blur-guarded, alpha %.2f): rms %.1f -> %.1
 end
 wfe_ff = max(d4e.rms_raw);  wfe_ft = max(d4e.rms_tilt);
 
+%% -- [4g] the <0.02-waves region on a +-3' map + centroid --------------
+h3 = P.inst.map_fov_arcmin;
+Fw = macos.design.field_grid(h3, P.inst.map_n, 'units','arcmin');
+dw = wfe_field_diag(t, Fw, 'quiet', true);
+thw = Fw*180*60/pi;                       % arcmin, relative to the chief
+mr = dw.rms_raw(:)  < P.inst.field_center_thresh;
+mt = dw.rms_tilt(:) < P.inst.field_center_thresh;
+dx_c = 0;  dy_c = 0;
+if any(mr), dx_c = mean(thw(mr,1));  dy_c = mean(thw(mr,2)); end
+fprintf('\n[4g] <%g-waves region on the +-%g'' map (%dx%d):\n', ...
+        P.inst.field_center_thresh, h3, P.inst.map_n, P.inst.map_n);
+fprintf('     raw:   %3d/%d pts, centroid [%+.2f %+.2f]''\n', ...
+        nnz(mr), numel(mr), dx_c, dy_c);
+fprintf('     -tilt: %3d/%d pts, centroid [%+.2f %+.2f]''\n', nnz(mt), ...
+        numel(mt), ternary(any(mt), mean(thw(mt,1)), 0), ...
+        ternary(any(mt), mean(thw(mt,2)), 0));
+if strcmpi(char(P.inst.field_center), 'auto') && fc_pass == 1 && ...
+        any(mr) && abs(dy_c) > 0.15
+    fprintf('     centroid %+.2f'' off the chief -> pass 2 re-solves there\n', dy_c);
+else
+    if strcmpi(char(P.inst.field_center), 'auto')
+        fprintf('     chief within %.2f'' of the sweet-spot centroid -- adopted\n', ...
+                abs(dy_c));
+    end
+    break
+end
+end   % fc_pass
+
 %% -- [4f] field-center scan (is the patch centered on the sweet spot?) -
 % Score the SOLVED system on the same +-2' patch recentered at a ladder
-% of +y shifts.  If a nonzero shift wins by a margin, put that value in
-% P.inst.field_dy_arcmin and re-run (the solve itself re-centers).
+% of +y shifts -- the independent check that the [4g] centroid pointing
+% left us at the worst-field local optimum (if a nonzero shift wins by
+% a margin, the two criteria disagree; the table shows it).
 scan_dy = [0.7 0.35 0 -0.35 -0.7];
 scan_w  = zeros(numel(scan_dy), 2);
 for q = 1:numel(scan_dy)
@@ -319,10 +371,21 @@ try
     fprintf('\n[6] standard views: s2_views.png\n');
 catch ME, fprintf('\n[6] view_std skipped (%s)\n', ME.message); end
 try
-    Fmap = macos.design.field_grid(h2, 7, 'units','arcmin');
-    dmap = wfe_field_diag(t, Fmap, 'quiet', true);
-    scan = struct('fields', Fmap*180*60/pi, 'wfe', dmap.rms_raw(:));
+    % +-3' map (Dave: widen past the science patch) reusing the [4g]
+    % measurement; overlays = the 0.02-waves contour, the +-2' science
+    % patch, the chief (+) and the good-region centroid (o)
+    scan = struct('fields', thw, 'wfe', dw.rms_raw(:));
     f1 = t.view_field_map(scan, 'kind', 'contour');
+    ax = f1.CurrentAxes;  hold(ax, 'on');
+    nm = P.inst.map_n;  aax = linspace(-h3, h3, nm);
+    contour(ax, aax, aax, reshape(dw.rms_raw(:), nm, nm), ...
+            [1 1]*P.inst.field_center_thresh, 'k--', 'LineWidth', 1.2);
+    rectangle('Parent', ax, 'Position', [-h2 -h2 2*h2 2*h2], ...
+              'EdgeColor', 'w', 'LineStyle', ':', 'LineWidth', 1.1);
+    plot(ax, 0, 0, 'w+', 'MarkerSize', 10, 'LineWidth', 1.5);
+    if any(mr)
+        plot(ax, dx_c, dy_c, 'wo', 'MarkerSize', 8, 'LineWidth', 1.5);
+    end
     saveas(f1, fullfile(exdir, 's2_wfe_field.png'));  close(f1);
     fg = figure('Visible','off');
     contourf(fa.map.thx_arcmin, fa.map.thy_arcmin, fa.map.sag_m*1e6, ...
@@ -366,8 +429,11 @@ add = { ...
          h2, max(d0.rms_tilt), wfe_ff, wfe_ft, ...
          ternary(wfe_ft < P.dl_waves,'DL','residual'))
  sprintf('   bias point %.4f -tilt waves | max|coef| %s m', bias_pt_wfe_(d4e, F2s), mat2str(cmax,2))
- sprintf('   field center: s1 bias %g'' %+g'' shift = %g'' (Dave 2026-07-18); center scan [dy'' raw -tilt]:', ...
-         s1.bias, P.inst.field_dy_arcmin, bias2)
+ sprintf(['   field center (%s): s1 bias %g'' start %+g'' -> adopted %g'' ', ...
+          '(chief at the <%g-waves-region centroid; residual [%+.2f %+.2f]''); ', ...
+          'center scan [dy'' raw -tilt]:'], ...
+         char(P.inst.field_center), s1.bias, P.inst.field_dy_arcmin, bias2, ...
+         P.inst.field_center_thresh, dx_c, dy_c)
  sprintf('     %s', strtrim(sprintf('%+.2f/%.3f/%.3f  ', [scan_dy; scan_w.'])))
  sprintf('   distortion (M4 reflective field-corrector solve): %.1f -> %.1f um rms at the detector', ...
          dx0*1e6, dx1*1e6)
