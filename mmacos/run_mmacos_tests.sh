@@ -83,7 +83,7 @@ if [ ! -f src/mmacos.mexa64 ] \
 fi
 
 # +macos package + the mex live under src/ (see Makefile SRCDIR).
-SETUP_PATHS="addpath('$SCRIPT_DIR/src'); addpath('$SCRIPT_DIR/tests/proper_compare');"
+SETUP_PATHS="addpath('$SCRIPT_DIR/src'); addpath('$SCRIPT_DIR/design/runners'); addpath('$SCRIPT_DIR/tests/proper_compare');"
 if [ -d "$PROPER_DIR" ]; then
     SETUP_PATHS="$SETUP_PATHS addpath('$PROPER_DIR');"
 fi
@@ -129,7 +129,7 @@ SUITE_FAST=$(join_suites \
     "tDwDxGroups" "tDesignSystem" "tDesignVary" "tDesignSensitivities" \
     "tDesignOptimize" "tDesignTelescope" "tVeneerXP" "tCoroContrast" \
     "tCompose" "tSysProp" "tSegMirMaker" "tSegmentRx" "tEdgeSensors" \
-    "tMet" "tMetView")
+    "tMet" "tMetView" "tRunMet")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the

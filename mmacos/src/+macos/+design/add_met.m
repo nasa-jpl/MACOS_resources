@@ -42,9 +42,13 @@ arguments
     opts.r_launch_frac double = []          % legacy interior ring (frac of lMon)
     opts.edge_off (1,1) double {mustBeNonnegative} = 5  % edge clearance, BaseUnits
     opts.launch_clock (1,1) double = pi/6   % launcher hexagon clocking, rad
+    opts.extra_clock double = []            % extra-ring clocking ([] = launch_clock)
+    opts.extra_pair_map double = []         % extra-ring fiducial map ([] = pair)
     opts.fid_clock (1,1) double = 0         % hub fiducial ring clocking, rad
     opts.launch_pts cell = {}               % override: {nseg} of 3x6 GLOBAL launcher points
-    opts.pair_map double = []               % override: 1x6 fiducial index per launcher
+    opts.pair_map double = []               % override: 1x6 fiducial index per
+                                            % launcher, or nseg x 6 for a
+                                            % per-segment (rotational) assignment
     opts.out_in (1,1) string = ""
 end
 % r_extra: [] (default) = size each extra ring from that element's own
@@ -103,14 +107,18 @@ fid = pv + opts.r_fid*(xh*cos(th') + yh*sin(th'));   % 3 x nf
 % crossing struts; pair_map overrides (the layout optimizer iterates
 % assignment combinations, Dave 2026-07-16).
 if ~isempty(opts.pair_map)
-    pair = opts.pair_map(:).';
-    if numel(pair) ~= 6 || any(pair < 1) || any(pair > opts.nf)
+    pm = opts.pair_map;
+    if isvector(pm), pm = repmat(pm(:).', seg.nseg, 1); end
+    if size(pm, 2) ~= 6 || size(pm, 1) ~= seg.nseg ...
+            || any(pm(:) < 1) || any(pm(:) > opts.nf)
         error('macos:design:add_met:pairmap', ...
-              'pair_map must be 1x6 fiducial indices in 1..nf');
+              ['pair_map must be 1x6 (shared) or nseg x 6 (per-segment ' ...
+               'rotational assignment) fiducial indices in 1..nf']);
     end
-elseif opts.nf == 3, pair = [1 2 2 3 3 1];
-else,                pair = mod((0:5), opts.nf) + 1;
+elseif opts.nf == 3, pm = repmat([1 2 2 3 3 1], seg.nseg, 1);
+else,                pm = repmat(mod((0:5), opts.nf) + 1, seg.nseg, 1);
 end
+pair = pm(1, :);                 % extras fall back to segment 1's map
 
 src_pts = zeros(3,0); tgt_pts = zeros(3,0);
 ins = cell(numel(starts), 1);      % met text to insert per element
@@ -140,14 +148,23 @@ for s = 1:seg.nseg
         r = opts.r_launch_frac * f.lmon;
         L = f.rpt + r*(f.xhat*cos(tl6') + f.yhat*sin(tl6'));  % 3 x 6
     end
-    ins{k} = met_block_(L, opts.hub, opts.nf, pair);
+    ins{k} = met_block_(L, opts.hub, opts.nf, pm(s, :));
     src_pts = [src_pts, L]; %#ok<AGROW>
-    tgt_pts = [tgt_pts, fid(:, pair)]; %#ok<AGROW>
+    tgt_pts = [tgt_pts, fid(:, pm(s, :))]; %#ok<AGROW>
 end
 % Extra sources ("around M3"): ring about the element vertex, hugging
 % the element's PHYSICAL extent (its aperture/lMon radius + edge_off)
 % unless r_extra is given explicitly -- launchers must mount on the
 % element's cell, not float in space (Dave 2026-07-16).
+xclk = opts.extra_clock;
+if isempty(xclk), xclk = opts.launch_clock; end
+xpair = opts.extra_pair_map;
+if isempty(xpair), xpair = pair; end
+if numel(xpair) ~= 6 || any(xpair < 1) || any(xpair > opts.nf)
+    error('macos:design:add_met:xpairmap', ...
+          'extra_pair_map must be 1x6 fiducial indices in 1..nf');
+end
+tx6 = xclk + 2*pi*(0:5)'/6;
 for k = opts.extra_sources(:)'
     pvk = vec3_(k, "VptElt"); psk = vec3_(k, "psiElt"); psk = psk/norm(psk);
     [~, imin] = min(abs(psk)); e = zeros(3,1); e(imin) = 1;
@@ -161,10 +178,10 @@ for k = opts.extra_sources(:)'
                  'ring -- pass r_extra explicitly'], k);
         end
     end
-    L = pvk + rk*(xk*cos(tl6') + yk*sin(tl6'));
-    ins{k} = met_block_(L, opts.hub, opts.nf, pair);
+    L = pvk + rk*(xk*cos(tx6') + yk*sin(tx6'));
+    ins{k} = met_block_(L, opts.hub, opts.nf, xpair);
     src_pts = [src_pts, L]; %#ok<AGROW>
-    tgt_pts = [tgt_pts, fid(:, pair)]; %#ok<AGROW>
+    tgt_pts = [tgt_pts, fid(:, xpair)]; %#ok<AGROW>
 end
 % Hub target points (no tMetElt -> contributes no beams itself).
 hubtxt = ["          nMetPos=  " + opts.nf; pts_rows_(fid)];

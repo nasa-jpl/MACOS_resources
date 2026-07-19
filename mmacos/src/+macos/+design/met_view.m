@@ -45,6 +45,11 @@ arguments
     opts.rays        double  = -1        % -1 = auto (engine has an Rx)
     opts.nrays       (1,1) double = 24
     opts.overlay_pts double  = []
+    opts.sensor_pts  double  = []        % 3 x N edge-sensor points drawn
+                                         % as small gray DOTS (the SMM Hx
+                                         % shared-edge sensors; Dave
+                                         % 2026-07-19 -- distinct from the
+                                         % open-circle launcher overlay)
     opts.edge_off    double  = []
     opts.title       (1,:) char = ''
     opts.save        (1,:) char = ''
@@ -145,6 +150,12 @@ if ~isempty(opts.overlay_pts)
           opts.overlay_pts(3,:), 'o', 'MarkerSize', 5, ...
           'MarkerEdgeColor', [0.4 0.4 0.4], 'LineStyle', 'none');
 end
+if ~isempty(opts.sensor_pts)
+    plot3(ax3, opts.sensor_pts(1,:), opts.sensor_pts(2,:), ...
+          opts.sensor_pts(3,:), 'o', 'MarkerSize', 4, ...
+          'MarkerFaceColor', [0.45 0.45 0.45], ...
+          'MarkerEdgeColor', 'none', 'LineStyle', 'none');
+end
 
 axis(ax3, 'equal'); grid(ax3, 'on'); view(ax3, [-35 18]);
 xlabel(ax3, 'X'); ylabel(ax3, 'Y'); zlabel(ax3, 'Z');
@@ -236,6 +247,12 @@ if ~isempty(opts.overlay_pts)
     Op = prj(opts.overlay_pts);
     plot(ax2, Op(1,:), Op(2,:), 'o', 'MarkerSize', 6, ...
          'MarkerEdgeColor', [0.4 0.4 0.4], 'LineStyle', 'none');
+end
+if ~isempty(opts.sensor_pts)
+    Sp = prj(opts.sensor_pts);
+    plot(ax2, Sp(1,:), Sp(2,:), 'o', 'MarkerSize', 4, ...
+         'MarkerFaceColor', [0.45 0.45 0.45], ...
+         'MarkerEdgeColor', 'none', 'LineStyle', 'none');
 end
 
 axis(ax2, 'equal'); grid(ax2, 'on');
