@@ -1,5 +1,12 @@
 # e5_seg — segmented primary + edge sensors + laser-MET truss
 
+> **STALE ARTIFACTS (2026-07-19):** the committed `e5_seg` Hx/MET
+> artifacts predate the SegMirMaker edge-sensor rework (per shared
+> edge: 2 sensor locations x 3 axes piston/gap/shear, no
+> absolute-piston anchor row) — regeneration queued; the edge+MET
+> numbers will improve as on e2e (in-plane DOFs become
+> edge-observable).
+
 One modifiable runner (`e5_seg.m`): `e5mono.in` (monolithic parent) →
 segmented `.in` **including the MET points** → `dedx` (SegMirMaker Hx),
 `dldx` (FD over the engine METcalc), `dwdx` → **MET metric

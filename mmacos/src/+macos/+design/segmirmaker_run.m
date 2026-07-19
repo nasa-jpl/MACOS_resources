@@ -66,6 +66,9 @@ arguments
     opts.gap (1,1) double {mustBeNonnegative} = 0
     opts.standoff double = []
     opts.meas_config (1,1) double {mustBeMember(opts.meas_config, [1 2])} = 1
+    opts.sensor_off double = []   % edge-sensor offset from the shared-edge
+                                  % midpoint along the edge ([] = SMM default
+                                  % 0.25*width; 2 locations x 3 axes per edge)
     opts.seg_size double = []
     opts.ap_diam double = []
     opts.binary (1,1) string = ""
@@ -170,7 +173,10 @@ else
     answers(end+1) = "1";              % 15 size option: segment size
     answers(end+1) = optnum(opts.seg_size);
 end
-answers(end+1) = "Y";                  % 17 write prescription to file
+answers(end+1) = optnum(opts.sensor_off); % 17 edge-sensor offset from the
+                                       %    shared-edge midpoint (blank =
+                                       %    SMM default 0.25*width)
+answers(end+1) = "Y";                  % 18 write prescription to file
 
 ansfile = fullfile(wd, 'answers.stdin');
 fid = fopen(ansfile, 'w');
