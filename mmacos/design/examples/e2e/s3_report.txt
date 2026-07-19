@@ -1,54 +1,12 @@
 ==== e2e stage 3: segmentation of M1 (parent s2_instrument.in) ====
-parent: D = 4 m, BaseUnits=m; gap 25 mm; segment size defaults to
-Aperture/(2*rings+1) -- the tiling scales with the aperture
-
-[0] monolithic parent: 1305 src rays, 1300 pass, rmsWFE 3.882e-09 (WaveUnits)
+parent: D = 4 m, BaseUnits=m; gap 25 mm; per-variant detail in
+e2e_<variant>_seg_report.txt (run_segmentation runner reports)
 
 ---- variant "pie": rings=1, grid=Pie ----
-[1] 7 segments, width 1.333 m flat-to-flat, gap 0.025 m, 17 elements
-    M1 hole carried onto the center segment: 1 obscuration(s)
-      Seg1     center [ +0.0000  +0.0000  -0.0000] m  lMon 0.7698
-      Seg2     center [ -0.6667  +1.1547  -0.0639] m  lMon 0.7698
-      Seg3     center [ +0.6667  +1.1547  -0.0639] m  lMon 0.7698
-      Seg4     center [ +1.3333  +0.0000  -0.0635] m  lMon 0.7698
-      Seg5     center [ +0.6667  -1.1547  -0.0631] m  lMon 0.7698
-      Seg6     center [ -0.6667  -1.1547  -0.0631] m  lMon 0.7698
-      Seg7     center [ -1.3333  +0.0000  -0.0635] m  lMon 0.7698
-    bare segmented: 12520 src rays, 12474 pass, rmsWFE 3.59e-09 (parent 3.882e-09, -7.53%)
-[3] physical apertures (pad 0): 12098 pass (bare 12474) -- 376 gap/rim rays clip;
-    first-fail elements 18; rmsWFE 3.453e-09 (-11.06% vs parent)
-    footprint/aperture figure: s3_footprints_pie.png
-[4] standard views: s3_views_pie.png
-[5] artifact e2e_pie.in: standalone reload 17 elts, 12098/12520 rays pass -> VERIFIED
+    -> e2e_pie.in VERIFIED (12098/12520 pass, 376 clipped)
 
 ---- variant "hex2": rings=2, grid=Hex ----
-[1] 19 segments, width 0.8 m flat-to-flat, gap 0.025 m, 29 elements
-    M1 hole carried onto the center segment: 1 obscuration(s)
-      Seg1     center [ +0.0000  +0.0000  -0.0000] m  lMon 0.4619
-      Seg2     center [ -0.4000  +0.6928  -0.0231] m  lMon 0.4619
-      Seg3     center [ +0.4000  +0.6928  -0.0231] m  lMon 0.4619
-      Seg4     center [ +0.8000  +0.0000  -0.0229] m  lMon 0.4619
-      Seg5     center [ +0.4000  -0.6928  -0.0226] m  lMon 0.4619
-      Seg6     center [ -0.4000  -0.6928  -0.0226] m  lMon 0.4619
-      Seg7     center [ -0.8000  +0.0000  -0.0229] m  lMon 0.4619
-      Seg8     center [ -0.8000  +1.3856  -0.0919] m  lMon 0.4619
-      Seg9     center [ +0.0000  +1.3856  -0.0690] m  lMon 0.4619
-      Seg10    center [ +0.8000  +1.3856  -0.0919] m  lMon 0.4619
-      Seg11    center [ +1.2000  +0.6928  -0.0688] m  lMon 0.4619
-      Seg12    center [ +1.6000  +0.0000  -0.0914] m  lMon 0.4619
-      Seg13    center [ +1.2000  -0.6928  -0.0684] m  lMon 0.4619
-      Seg14    center [ +0.8000  -1.3856  -0.0910] m  lMon 0.4619
-      Seg15    center [ +0.0000  -1.3856  -0.0681] m  lMon 0.4619
-      Seg16    center [ -0.8000  -1.3856  -0.0910] m  lMon 0.4619
-      Seg17    center [ -1.2000  -0.6928  -0.0684] m  lMon 0.4619
-      Seg18    center [ -1.6000  +0.0000  -0.0914] m  lMon 0.4619
-      Seg19    center [ -1.2000  +0.6928  -0.0688] m  lMon 0.4619
-    bare segmented: 9876 src rays, 9830 pass, rmsWFE 2.905e-09 (parent 3.882e-09, -25.17%)
-[3] physical apertures (pad 0): 9830 pass (bare 9830) -- 0 gap/rim rays clip;
-    first-fail elements 30; rmsWFE 2.905e-09 (-25.17% vs parent)
-    footprint/aperture figure: s3_footprints_hex2.png
-[4] standard views: s3_views_hex2.png
-[5] artifact e2e_hex2.in: standalone reload 29 elts, 9830/9876 rays pass -> VERIFIED
+    -> e2e_hex2.in VERIFIED (9830/9876 pass, 0 clipped)
 
 ==== stage-3 summary ====
 name    nseg   width_m   pass/src   clipped    rmsWFE d%

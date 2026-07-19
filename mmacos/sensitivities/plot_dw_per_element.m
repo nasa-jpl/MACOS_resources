@@ -50,12 +50,15 @@ for ie = ue
         c = cols(j);
         M = macos.v2m(src(:, c), idx);
         M(M == 0) = NaN;                          % mask outside the pupils (white)
+        M = M - mean(M(:), 'omitnan');            % piston removed (display
+                                                  % convention, Dave 2026-07-19)
         subplot(nr, nc, j);
         h = imagesc(M);  set(h, 'AlphaData', ~isnan(M));
         axis image off;  set(gca, 'Color', 'w');  colorbar;  colormap(parula);
         title(strtrim(char(out.channel_names{c})), 'FontSize', 8, 'Interpreter', 'none');
     end
-    sgtitle(sprintf('%s -- dW, %s, %s', prefix, ttl_e, tag), 'Interpreter', 'none');
+    sgtitle(sprintf('%s -- dW, %s, %s (piston removed)', prefix, ttl_e, tag), ...
+        'Interpreter', 'none');
     png = sprintf('%s_%s_%s.png', prefix, etag, fieldmode);
     print(f, fullfile(here, png), '-dpng', '-r140');
     close(f);

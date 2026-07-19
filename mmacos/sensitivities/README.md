@@ -3,7 +3,22 @@
 Generic, ready-to-adapt drivers for the four wavefront-sensitivity
 ("`dW/d…`") channels MACOS exposes through mmacos. Each script runs the
 corresponding `macos.dw_d*_multi` supervisor over a set of field points and
-produces a canonical state-vector Jacobian plus two figures.
+produces a canonical state-vector Jacobian plus figures.
+
+> **Single source (2026-07-19).** Every script below is now a thin
+> CONFIG wrapper over the sensitivity **stage runner**
+> `design/runners/run_sensitivities.m` — the same code the design
+> pipeline (design → segmentation → sensitivities → MET → …) uses.
+> The CONFIG-block interfaces are unchanged. What you gain from the
+> runner: a conditioning report (all-column AND segment-only),
+> per-segment column norms, piston-removed plots with per-element
+> pages collected in a `<name>_pages/` folder, automatic ApStop
+> injection for stop-less (SMM-corpus) fixtures, and — for `dwdgrid`
+> — grid augmentation in each segment's CLOCKED Mon frame with the
+> span sized from the parent Aperture, replacing the stale
+> parent-frame grid lines SegMirMaker replicates into segment blocks
+> (poking those paints a "central dot" and rank-collapses the
+> Jacobian).
 
 | Script | Channel | DOFs | underlying driver |
 |---|---|---|---|
@@ -42,19 +57,26 @@ persists across the per-field calls).
 
 Run with `>> run('run_dwdgrid_multi.m')` (or any of the four).
 
-## Outputs (written next to the script)
+## Outputs (written next to the script; runner naming, 2026-07-19)
 
-- `*_OPDall.png` — the nominal OPD at every field point (the tiled field
-  canvas).
-- `*_channels.png` — **each channel's multi-field sensitivity** `dW/d(param)`,
-  one subplot per (element, DOF), reconstructed onto the field canvas.
-- `*_<rx>.mat` — the canonical state-vector layout
+- `<name>_sens_report.txt` — sizes, conditioning (all-column AND
+  segment-only), per-segment column norms.
+- `<name>_opdall.png` — the nominal OPD at every field point (tiled
+  field canvas); `<name>_svspec.png` — singular-value spectra.
+- `<name>_<ch>_channels.png` — each channel's multi-field sensitivity,
+  one subplot per (element, DOF), piston removed.
+- `<name>_pages/` — the per-element single-page maps (center AND
+  multi field; the pages are numerous, so they get their own folder).
+- `<name>_sens.mat` — the supervisor outputs (`ox`/`oz`/`og`/`os`) in
+  the canonical state-vector layout
 
   ```
   wall = dwdxall * x + w0_stacked
   ```
 
-  consumable directly by the shared `examples/sensitivities/verifyall.m`.
+- `<name>_grid.in` + `flat<ng>.txt` — the grid-augmented Rx (dwdgrid
+  channel; grids in each segment's CLOCKED Mon frame, span from the
+  parent Aperture — the dxGrid convention).
 
 ## Per-field exit-pupil reset (`reset_xp`)
 

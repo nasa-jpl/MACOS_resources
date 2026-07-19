@@ -8,51 +8,31 @@
 %  TO RUN ON YOUR OWN SYSTEM: edit the CONFIG block ("YOUR .in FILE GOES
 %  HERE") -- everything below it is generic.
 %
-%  Outputs (this directory):
-%    *_OPDall.png    nominal OPD at every field point (field canvas)
-%    *_channels.png  EACH channel's MULTI-FIELD dW (one subplot per
-%                    element x DOF) -- the per-channel sensitivity
-%    *_<rx>.mat      dwdxall + w0_stacked + indxall + ...
-%
-%  FIELD REFERENCING: dw_dx's FocalPlaneChannel re-references the exit pupil
-%  per perturbation (fp_mode='track' -> sxp), so the off-axis field tilt is
-%  already handled -- no separate per-field exit-pupil reset is needed here
-%  (unlike dw_dz/dw_dsurf/dw_dgrid, which take reset_xp).
+%  NOTE (2026-07-19): this script is now a thin wrapper over the
+%  sensitivity STAGE RUNNER design/runners/run_sensitivities.m (single
+%  algorithm source; per-element pages land in <name>_pages/, plots
+%  piston-removed).  The CONFIG interface is unchanged.
 % =====================================================================
+
+here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end
+addpath(fullfile(here, '..', 'design', 'runners'));
 
 % ===================  CONFIG -- EDIT FOR YOUR SYSTEM  ================
 RX     = '';            % <-- YOUR .in FILE GOES HERE (absolute path)
 MODEL  = 128;           % model size (>= your aperture grid sampling)
-NGRIDPTS = [];         % ray-grid sampling override, e.g. 63 ([] = keep the .in value)
+NGRIDPTS = 63;          % ray-grid sampling override ([] = keep the .in value)
 FOV    = 1e-4;          % half-field (rad) for the 4 corner field points
 DELTA  = 1e-8;          % finite-difference step (rigid-body)
 DOFS   = (0:5).';       % 0=Rx 1=Ry 2=Rz 3=Tx 4=Ty 5=Tz  (subset allowed)
 % =====================================================================
 
-here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end
-addpath(fullfile(here, '..', 'src'));     % +macos package + mmacos mex
-addpath(here);                            % plot_* / save_dw_multi helpers
-
 if isempty(RX)
-    RX = fullfile(here, '..', 'examples', 'sensitivities', 'e5hex1', 'e5hex1.in');
+    RX = fullfile(here, 'examples', 'run_dwdx_multi', 'e5hex1.in');
     fprintf('[demo] RX not set -- using bundled example: %s\n', RX);
 end
 [~, rxstem] = fileparts(RX);
-
-fprintf('=== dw/dx multi-field: %s (model %d) ===\n', rxstem, MODEL);
-m   = macos.Session(MODEL);
-out = macos.dw_dx_multi(m, RX, ...
-    'ngridpts', NGRIDPTS, ...
-    'field_x_rad', FOV, 'field_y_rad', FOV, ...
-    'dofs', DOFS, 'delta', DELTA);
-
-% ---- Figures -------------------------------------------------------
-plot_opd_canvas(out, sprintf('dw/dx %s -- nominal OPD, %d fields', ...
-    rxstem, numel(out.field_names)), here, ['dwdx_multi_' rxstem '_OPDall.png']);
-plot_dw_channels(out, sprintf('dW/dx -- each channel, %d fields (%s)', ...
-    numel(out.field_names), rxstem), here, ['dwdx_multi_' rxstem '_channels.png']);
-
-% ---- Save canonical state-vector .mat ------------------------------
-save_dw_multi(out, MODEL, fullfile(here, ['dwdx_multi_' rxstem '.mat']));
+art = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdx", ...
+    'ngridpts', NGRIDPTS, 'model_size', MODEL, 'delta_x', DELTA, ...
+    'dofs', DOFS, 'out_dir', here, 'name', ['dwdx_multi_' rxstem]);
 fprintf('=== dw/dx multi: %d channels x %d fields ===\n', ...
-    numel(out.channel_names), numel(out.field_names));
+    numel(art.ox.channel_names), size(art.ox.field_table, 1));

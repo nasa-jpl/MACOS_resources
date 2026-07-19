@@ -1,0 +1,30 @@
+==== run_segmentation: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/s2_instrument.in (elt 1, Hex rings=2, gap 0.025) ====
+[0] parent: 1305 src rays, 1300 pass, rmsWFE 3.882e-09 (WaveUnits)
+
+[1] 19 segments, width 0.8 flat-to-flat, 29 elements
+    parent obscurations carried onto the center segment: 1
+      Seg1     center [        +0         +0 -5.862e-07]  lMon 0.4619
+      Seg2     center [      -0.4    +0.6928   -0.02307]  lMon 0.4619
+      Seg3     center [      +0.4    +0.6928   -0.02307]  lMon 0.4619
+      Seg4     center [      +0.8         +0   -0.02286]  lMon 0.4619
+      Seg5     center [      +0.4    -0.6928   -0.02265]  lMon 0.4619
+      Seg6     center [      -0.4    -0.6928   -0.02265]  lMon 0.4619
+      Seg7     center [      -0.8         +0   -0.02286]  lMon 0.4619
+      Seg8     center [      -0.8     +1.386   -0.09186]  lMon 0.4619
+      Seg9     center [        +0     +1.386     -0.069]  lMon 0.4619
+      Seg10    center [      +0.8     +1.386   -0.09186]  lMon 0.4619
+      Seg11    center [      +1.2    +0.6928   -0.06879]  lMon 0.4619
+      Seg12    center [      +1.6         +0   -0.09143]  lMon 0.4619
+      Seg13    center [      +1.2    -0.6928   -0.06836]  lMon 0.4619
+      Seg14    center [      +0.8     -1.386     -0.091]  lMon 0.4619
+      Seg15    center [ +1.11e-16     -1.386   -0.06814]  lMon 0.4619
+      Seg16    center [      -0.8     -1.386     -0.091]  lMon 0.4619
+      Seg17    center [      -1.2    -0.6928   -0.06836]  lMon 0.4619
+      Seg18    center [      -1.6         +0   -0.09143]  lMon 0.4619
+      Seg19    center [      -1.2    +0.6928   -0.06879]  lMon 0.4619
+    bare segmented: 9876 src rays, 9830 pass, rmsWFE 2.905e-09 (parent 3.882e-09, -25.17%)
+[3] physical apertures (pad 0): 9830 pass (bare 9830) -- 0 gap/rim rays clip
+    first-fail elements 30; rmsWFE 2.905e-09 (-25.17% vs parent)
+    footprint/aperture figure: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_hex2_footprints.png
+[4] standard views: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_hex2_views.png
+[5] artifact /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_hex2.in: standalone reload 29 elts, 9830/9876 rays pass -> VERIFIED

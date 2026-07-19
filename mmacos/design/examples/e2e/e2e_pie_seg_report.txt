@@ -1,0 +1,18 @@
+==== run_segmentation: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/s2_instrument.in (elt 1, Pie rings=1, gap 0.025) ====
+[0] parent: 1305 src rays, 1300 pass, rmsWFE 3.882e-09 (WaveUnits)
+
+[1] 7 segments, width 1.333 flat-to-flat, 17 elements
+    parent obscurations carried onto the center segment: 1
+      Seg1     center [        +0         +0 -5.862e-07]  lMon 0.7698
+      Seg2     center [   -0.6667     +1.155   -0.06385]  lMon 0.7698
+      Seg3     center [   +0.6667     +1.155   -0.06385]  lMon 0.7698
+      Seg4     center [    +1.333         +0   -0.06349]  lMon 0.7698
+      Seg5     center [   +0.6667     -1.155   -0.06314]  lMon 0.7698
+      Seg6     center [   -0.6667     -1.155   -0.06314]  lMon 0.7698
+      Seg7     center [    -1.333         +0   -0.06349]  lMon 0.7698
+    bare segmented: 12520 src rays, 12474 pass, rmsWFE 3.59e-09 (parent 3.882e-09, -7.53%)
+[3] physical apertures (pad 0): 12098 pass (bare 12474) -- 376 gap/rim rays clip
+    first-fail elements 18; rmsWFE 3.453e-09 (-11.06% vs parent)
+    footprint/aperture figure: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_footprints.png
+[4] standard views: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_views.png
+[5] artifact /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in: standalone reload 17 elts, 12098/12520 rays pass -> VERIFIED
