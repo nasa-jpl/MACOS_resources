@@ -460,7 +460,31 @@ C - Upper right leg
 	    NumToRing(iElt)=iRing
 	    SegCrdToNum(SegCoord(1,iElt),SegCoord(2,iElt))=iElt
 
-C - Find surface normal and local coordinates 
+!-->  Pie tiling: segment local x = the AXIS OF SYMMETRY (Dave
+!     2026-07-18) -- each wedge's frame points along its own radial
+!     bisector, so same-shape wedges have CONGRUENT frames (s5
+!     shape-class launcher patterns replicate in them); the center
+!     hexagon's x points at wedge 1 (a flat normal).  The hex walk's
+!     per-leg xseg (30 deg off the bisector) is KEPT for Hex --
+!     heritage convention.
+	    IF ((GridTypeStr(1:1).EQ.'P').OR.
+     &	        (GridTypeStr(1:1).EQ.'p')) THEN
+	      IF (iRing.EQ.0) THEN
+	        D1(1)=dx*xs(1)+dy*ys(1)
+	        D1(2)=dx*xs(2)+dy*ys(2)
+	        D1(3)=dx*xs(3)+dy*ys(3)
+	      ELSE
+	        D1(1)=pin(1)-standoff*zs(1)
+	        D1(2)=pin(2)-standoff*zs(2)
+	        D1(3)=pin(3)-standoff*zs(3)
+	      END IF
+	      S1=MAG(D1,3)
+	      xseg(1)=D1(1)/S1
+	      xseg(2)=D1(2)/S1
+	      xseg(3)=D1(3)/S1
+	    END IF
+!<--
+C - Find surface normal and local coordinates
 	    CALL SurfCoordFF(rho,pr,L,radhat,tanhat,normhat,
      &	    xhat,yhat,zhat,pv,prot,pin,ihat,f,e,psi,xseg)
 	    CALL EQUATE(pSeg(1,iElt),pr,3)
