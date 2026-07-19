@@ -17,8 +17,13 @@ function fig = view_rx(opts)
 %             shading) with meridian profile curves.  CONSECUTIVE
 %             REFRACTOR pairs are JOINED into one glass solid (front
 %             surface + back surface + barrel).  Passive elements
-%             (Reference / Return / FocalPlane / Obscuring) draw as
-%             outline frames -- they are not hardware.
+%             (Reference / FocalPlane / Obscuring) draw as outline
+%             frames -- they are not hardware.  Return elements (exit-
+%             pupil / FP bookkeeping planes) are HIDDEN by default --
+%             their declared apertures dwarf the optics ('returns'
+%             restores them).  Segment elements draw with alternating
+%             face tints and no per-tile profile curves, so the tiling
+%             (and the center segment) reads on a segmented primary.
 %     MET     if the Rx declares metrology (nMetPos/tMetElt/metBeamFlg):
 %             gauge beams launcher->fiducial via macos.met_geom, colored
 %             per source element, with launcher/fiducial markers
@@ -44,6 +49,7 @@ function fig = view_rx(opts)
 %               source's location is unambiguous.
 %     'elts'    element range [first last] to draw (default all)
 %     'hide'    element indices to omit
+%     'returns' draw Return elements too (default false)
 %     'labels'  label elements (default true)
 %     'met'     draw MET paths when present (default true)
 %     'ax'      draw into an existing axes instead of a new figure
@@ -77,6 +83,7 @@ arguments
                   {'beam','beam+met','met'})} = 'beam+met'
     opts.elts    (1,:) double  = []
     opts.hide    (1,:) double  = []
+    opts.returns (1,1) logical = false
     opts.labels  (1,1) logical = true
     opts.met     (1,1) logical = true
     opts.ax                    = []
@@ -130,6 +137,7 @@ E = struct('k', {}, 'kind', {}, 'B', {}, 'ctr', {});
 for k = kk
     g = elt_geom_(k, h, tile);
     if isempty(g), continue; end
+    if strcmp(g.type, 'Return') && ~opts.returns, continue; end
     if     any(strcmp(g.type, SOLID_M)), g.kind = 'mirror';
     elseif any(strcmp(g.type, GLASS)),   g.kind = 'glass';
     else,                                g.kind = 'passive';
@@ -149,7 +157,7 @@ switch opts.bodies
                   'Color', [0.2 0.3 0.5], 'LineWidth', 1.2);
         end
     case 'solid'
-        e = 1;
+        e = 1;  si = 0;
         while e <= numel(E)
             if strcmp(E(e).kind, 'glass') && e < numel(E) && ...
                strcmp(E(e+1).kind, 'glass') && E(e+1).k == E(e).k + 1
@@ -157,6 +165,19 @@ switch opts.bodies
                 e = e + 2;
             elseif strcmp(E(e).kind, 'passive')
                 passive_(ax, E(e).B);
+                e = e + 1;
+            elseif strcmp(E(e).B.type, 'Segment')
+                % alternating face tints, no per-tile profile curves:
+                % 7-19 overlapping meridian-curve sets on same-color
+                % tiles turned a segmented primary into spoke mush
+                si = si + 1;
+                if si == 1                            % Seg1 = center cell
+                    dt = -0.16;                       % (carries the hole)
+                else
+                    tints = [0, 0.06, -0.07];
+                    dt = tints(mod(si-2, 3) + 1);
+                end
+                plate_(ax, E(e).B, opts.thick_frac, dt, false);
                 e = e + 1;
             else
                 plate_(ax, E(e).B, opts.thick_frac);
@@ -449,11 +470,15 @@ for dirv = {[1;0], [0;1]}
 end
 end
 
-function plate_(ax, g, tf)
+function plate_(ax, g, tf, dtint, do_prof)
 %PLATE_  Mirror solid: a constant-thickness SHELL that follows the sag
 %   (back = the same surface offset along -psi), so the optic's actual
 %   figure -- concave dish, convex dome, flat -- reads directly (Dave:
 %   the body must be tight to the optical surface, not a cylinder).
+%   DTINT shifts the optical-face brightness (segment tiling contrast);
+%   DO_PROF=false suppresses the meridian profile curves.
+if nargin < 4, dtint = 0; end
+if nargin < 5, do_prof = true; end
 [V, F, ring] = surf_mesh_(g, 8);
 tt = tf * g.D;
 nV = size(V, 2);
@@ -467,14 +492,17 @@ for q = 1:M                                          % rim wall
     q2 = mod(q, M) + 1;
     Fb{end+1} = [ring(q), ring(q2), nV+ring(q2), nV+ring(q)]; %#ok<AGROW>
 end
-draw_solid_(ax, V, F,  [0.72 0.74 0.92], 1.0);       % optical face: light
+fcol = min(max([0.72 0.74 0.92] + dtint, 0), 1);
+draw_solid_(ax, V, F,  fcol, 1.0);                   % optical face: light
 draw_solid_(ax, V, Fb, [0.42 0.44 0.50], 1.0);       % back + wall: dark
 plot3(ax, g.rim(1,:), g.rim(2,:), g.rim(3,:), '-', ...
       'Color', [0.25 0.3 0.4], 'LineWidth', 0.8);
 Rb = g.rim - g.ps*tt;                                % back rim
 plot3(ax, Rb(1,:), Rb(2,:), Rb(3,:), '-', ...
       'Color', [0.25 0.3 0.4], 'LineWidth', 0.5);
-profiles_(ax, g, {zeros(3,1), -g.ps*tt});            % both faces
+if do_prof
+    profiles_(ax, g, {zeros(3,1), -g.ps*tt});        % both faces
+end
 end
 
 function lens_(ax, g1, g2)
@@ -629,14 +657,14 @@ if gid == 3                                          % Hex
                   'flat_ang', angle(mean(exp(1i*6*angs)))/6, ...
                   'ps', ps, 'xa', xa, 'ya', ya);
 else                                                 % Pie
-    rc = vecnorm(C2);
-    isctr = rc < 1e-6*max(rc);
-    rings = uniquetol(rc(~isctr), 1e-6, 'DataScale', max(rc));
-    r1 = ~isctr & abs(rc - rings(1)) < 1e-6*max(rc);
-    az = atan2(C2(2, r1), C2(1, r1));
+    % ring classification with the width-scaled tolerance (shared
+    % helper -- micron radius scatter on figured parents must not
+    % split a ring)
+    R = macos.design.pie_rings(C2, w);
+    az = atan2(C2(2, R.iring == 1), C2(1, R.iring == 1));
     tile = struct('kind', 'pie', 'w', w, 'g', gp, 'ks', ks, ...
-                  'C2', C2, 'c0', c0, 'rc', rc, 'isctr', isctr, ...
-                  'rings', rings, ...
+                  'C2', C2, 'c0', c0, 'rc', R.rc, 'isctr', R.isctr, ...
+                  'rings', R.rings, 'iring', R.iring, 'nmem', R.nmem, ...
                   'flat_ang', angle(mean(exp(1i*6*az)))/6, ...
                   'ps', ps, 'xa', xa, 'ya', ya);
 end
@@ -654,21 +682,20 @@ if tile.isctr(i)
     return
 end
 rc = tile.rc(i);
-m  = abs(tile.rc - rc) < 1e-6*max(tile.rc);
-ha = pi/nnz(m) - (g/2)/rc;
 a0 = atan2(tile.C2(2,i), tile.C2(1,i));
-ro = rc + w/2;
-if any(tile.rings > rc + 1e-6*max(tile.rc)), ro = ro - g/2; end
-tho = linspace(a0-ha, a0+ha, 25);
-inner_ring = ~any(tile.rings < rc - 1e-6*max(tile.rc));
+has_outer  = tile.iring(i) < numel(tile.rings);
+inner_ring = tile.iring(i) == 1;
+% side edges parallel to the sector boundary rays (uniform-width gap
+% slots -- shared geometry with seg_boundary/seg_apertures)
+W = macos.design.pie_wedge_geom(a0, 2*pi/tile.nmem(tile.iring(i)), ...
+        rc, w, g, 0, has_outer, inner_ring && any(tile.isctr));
+tho = linspace(W.th1, W.th2, 25);
 if inner_ring && any(tile.isctr)
     % straight chord facing the center hexagon's flat
-    d = (w + g)/2;
-    er = [cos(a0); sin(a0)];  et = [-sin(a0); cos(a0)];
-    P2 = [ro*[cos(tho); sin(tho)], d*er + d*tan(ha)*et, d*er - d*tan(ha)*et];
+    P2 = [W.A, W.ro*[cos(tho); sin(tho)], W.B];
 else
-    ri = max(rc - w/2 + g/2, 1e-9);
-    P2 = [ro*[cos(tho); sin(tho)], ri*[cos(fliplr(tho)); sin(fliplr(tho))]];
+    thi = linspace(W.ti2, W.ti1, 25);
+    P2 = [W.ro*[cos(tho); sin(tho)], W.ri*[cos(thi); sin(thi)]];
 end
 P3 = lift(P2);
 end

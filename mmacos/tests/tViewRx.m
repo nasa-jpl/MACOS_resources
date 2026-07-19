@@ -94,6 +94,33 @@ classdef tViewRx < matlab.unittest.TestCase
             tc.verifyGreaterThan(d.bytes, 1000);
         end
 
+        function test_view_rx_hides_returns(tc)
+            % Return elements (exit-pupil / FP bookkeeping planes) are
+            % hidden by default -- their declared apertures dwarf the
+            % optics (Dave: no need to show the EP in layout views);
+            % 'returns', true restores them
+            nE = macos.num_elt();
+            kr = [];
+            for k = 1:nE
+                if strcmp(macos.get_elt_info(k).type, 'Return')
+                    kr(end+1) = k; %#ok<AGROW>
+                end
+            end
+            tc.assumeTrue(~isempty(kr), 'fixture must declare a Return');
+            fig = macos.view_rx('visible', false);
+            c1 = onCleanup(@() close(fig)); %#ok<NASGU>
+            lab = arrayfun(@(t) string(t.String), ...
+                           findobj(fig, 'Type', 'text'));
+            tc.verifyFalse(any(lab == sprintf('  E%d', kr(1))), ...
+                'Return element must not draw by default');
+            fig2 = macos.view_rx('visible', false, 'returns', true);
+            c2 = onCleanup(@() close(fig2)); %#ok<NASGU>
+            lab2 = arrayfun(@(t) string(t.String), ...
+                            findobj(fig2, 'Type', 'text'));
+            tc.verifyTrue(any(lab2 == sprintf('  E%d', kr(1))), ...
+                'returns=true must restore the Return element');
+        end
+
         function test_view_rx_legacy_modes(tc)
             fig = macos.view_rx('visible', false, ...
                 'bodies', 'outline', 'bundle', 'rim', 'nrays', 10);

@@ -110,18 +110,18 @@ switch kind
 
     case 'pie'
         C2 = [u.'; v.'] * ([fr.rpt] - c0);
-        rc = vecnorm(C2);
         w  = seg.width;   g = 0;
         if isfield(seg, 'gap') && isfinite(seg.gap), g = seg.gap; end
         poly = cell(1, n);
-        % ring membership by center radius
-        isctr = rc < 1e-6 * max(rc);
-        rings = uniquetol(rc(~isctr), 1e-6, 'DataScale', max(rc));
+        % ring membership by center radius (width-scaled tolerance --
+        % figured/tilted parents scatter within-ring radii by microns)
+        R  = macos.design.pie_rings(C2, w);
+        rc = R.rc;  isctr = R.isctr;
         for s = 1:n
             if isctr(s)
                 % central cell of the hex-coordinate tiling: a hexagon
                 % with flats facing the ring-1 wedge centers
-                r1 = ~isctr & abs(rc - rings(1)) < 1e-6*max(rc);
+                r1 = R.iring == 1;
                 az = atan2(C2(2,r1), C2(1,r1));
                 flat_ang = angle(mean(exp(1i*6*az))) / 6;
                 a0h = (w - g)/2 + off;
@@ -129,29 +129,26 @@ switch kind
                 P2 = C2(:,s) + (a0h/cos(pi/6))*[cos(phic); sin(phic)];
                 P2 = [P2, P2(:,1)]; %#ok<AGROW>
             else
-                % gap at internal shared edges only; rim carries none
-                ro = rc(s) + w/2 + off;
-                if any(rings > rc(s) + 1e-6*max(rc)), ro = ro - g/2; end
-                % angular pitch of this ring
-                m  = abs(rc - rc(s)) < 1e-6 * max(rc);
-                nring = nnz(m);
-                dth = 2*pi / nring;
+                % gap at internal shared edges only; rim carries none.
+                % Side edges PARALLEL to the sector boundary rays at
+                % offset g/2 - off: uniform-width gap slots, NOT an
+                % angular gap converging at the tiling center (Dave
+                % 2026-07-18; geometry: macos.design.pie_wedge_geom)
+                dth = 2*pi / R.nmem(R.iring(s));
                 a0  = atan2(C2(2,s), C2(1,s));
-                ha  = dth/2 - (g/2)/rc(s) + off/rc(s);   % half-span + offset
-                tho = linspace(a0 - ha, a0 + ha, 25);    % outer arc
-                inner_ring = ~any(rings < rc(s) - 1e-6*max(rc));
+                has_outer  = R.iring(s) < numel(R.rings);
+                inner_ring = R.iring(s) == 1;
+                W = macos.design.pie_wedge_geom(a0, dth, rc(s), w, g, ...
+                        off, has_outer, inner_ring && any(isctr));
+                tho = linspace(W.th1, W.th2, 25);        % outer arc
                 if inner_ring && any(isctr)
-                    % ring 1 abuts the center HEXAGON: the physical
-                    % inner edge is the straight chord facing its flat
-                    % (flat (w-g)/2 + gap g), NOT an arc
-                    d  = (w + g)/2 - off;
-                    er = [cos(a0); sin(a0)];  et = [-sin(a0); cos(a0)];
-                    P2 = [ro*[cos(tho); sin(tho)], ...
-                          d*er + d*tan(ha)*et, d*er - d*tan(ha)*et];
+                    % ring 1 abuts the center HEXAGON: straight chord
+                    % inner edge facing its flat (flat (w-g)/2 + gap g)
+                    P2 = [W.A, W.ro*[cos(tho); sin(tho)], W.B];
                 else
-                    ri  = max(rc(s) - w/2 + g/2 - off, 1e-9);
-                    thi = fliplr(tho);                   % inner arc (back)
-                    P2  = [ro*[cos(tho); sin(tho)], ri*[cos(thi); sin(thi)]];
+                    thi = linspace(W.ti2, W.ti1, 25);    % inner arc (back)
+                    P2  = [W.ro*[cos(tho); sin(tho)], ...
+                           W.ri*[cos(thi); sin(thi)]];
                 end
                 P2  = [P2, P2(:,1)]; %#ok<AGROW>
             end

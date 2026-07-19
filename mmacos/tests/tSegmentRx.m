@@ -35,6 +35,70 @@ classdef tSegmentRx < matlab.unittest.TestCase
     end
 
     methods (Test)
+        function test_pie_wedge_uniform_gap(tc)
+            % ring-1 pie wedge geometry (macos.design.pie_wedge_geom,
+            % shared by seg_boundary / seg_apertures / view_rx): side
+            % edges PARALLEL to the sector rays -> the inter-segment
+            % gap is a uniform-width slot that does NOT converge at
+            % the tiling center (Dave 2026-07-18); the wedge is a
+            % single CONVEX polygon (chord + sides + arc), directly
+            % emittable as a PolyApVec with no obscuration
+            w = 1.0;  g = 0.05;  rc = 1.0;  dth = 2*pi/6;
+            a1 = pi/2;  a2 = a1 + dth;
+            W1 = macos.design.pie_wedge_geom(a1, dth, rc, w, g, 0, ...
+                                             false, true);
+            W2 = macos.design.pie_wedge_geom(a2, dth, rc, w, g, 0, ...
+                                             false, true);
+            th = linspace(W1.th1, W1.th2, 13);
+            P  = [W1.A, W1.ro*[cos(th); sin(th)], W1.B];
+            tc.verifyGreaterThan(min(vecnorm(P)), 0.3, ...
+                'no wedge vertex may sit near the tiling center');
+            tc.verifyEqual(min(P.' * W1.er), (w+g)/2, 'AbsTol', 1e-12, ...
+                'chord inner edge at hexagon flat + gap');
+            Q = [P, P(:,1)];  E = diff(Q, 1, 2);
+            cr = E(1,1:end-1).*E(2,2:end) - E(2,1:end-1).*E(1,2:end);
+            tc.verifyTrue(all(cr > 0) || all(cr < 0), ...
+                'ring-1 wedge must be convex');
+            % uniform gap: both wedges' facing side edges lie on lines
+            % parallel to the shared sector ray at +-g/2, checked at
+            % the chord end AND the rim end of each edge
+            b = a1 + dth/2;
+            nrm = [-sin(b); cos(b)];
+            for p = {W2.A, W2.ro*[cos(W2.th1); sin(W2.th1)]}
+                tc.verifyEqual(dot(p{1}, nrm), g/2, 'AbsTol', 1e-9, ...
+                    'side edge parallel at +g/2 (uniform-width gap)');
+            end
+            for p = {W1.B, W1.ro*[cos(W1.th2); sin(W1.th2)]}
+                tc.verifyEqual(dot(p{1}, nrm), -g/2, 'AbsTol', 1e-9, ...
+                    'facing side edge at -g/2: slot width g everywhere');
+            end
+        end
+
+        function test_pie_ring_classify_jitter(tc)
+            % macos.design.pie_rings must hold a ring together under
+            % the micron-level radius scatter real (figured / tilted)
+            % parents produce -- the e2e Zernike-figured primary
+            % scattered its ring-1 wedge radii by ~5 um, and the old
+            % 1e-6*max(rc) tolerance split them into 1-2 member
+            % "rings" (2*pi/nnz sector spans, go/sin(pi) apex blowup)
+            w = 1.333;  nring = 6;
+            az = 2*pi*(0:nring-1)/nring + pi/6;
+            jit = 5e-6 * [1 1 -1 -1 0 0.5];        % the observed scale
+            C2 = [zeros(2,1), (w + jit) .* [cos(az); sin(az)]];
+            C2(:,1) = 2e-5 * [1; 0];               % center-cell scatter
+            R = macos.design.pie_rings(C2, w);
+            tc.verifyTrue(R.isctr(1), 'center cell must classify');
+            tc.verifyEqual(numel(R.rings), 1, ...
+                'jittered wedges must stay ONE ring');
+            tc.verifyEqual(R.nmem, nring);
+            tc.verifyEqual(R.iring, [0 ones(1, nring)]);
+            % two REAL rings must still separate
+            C22 = [C2, 2*w*[cos(az); sin(az)]];
+            R2 = macos.design.pie_rings(C22, w);
+            tc.verifyEqual(numel(R2.rings), 2);
+            tc.verifyEqual(R2.nmem, [nring nring]);
+        end
+
         function test_structure(tc)
             s = tc.seg;
             tc.verifyEqual(s.nseg, 19);
@@ -115,7 +179,8 @@ classdef tSegmentRx < matlab.unittest.TestCase
         function test_emit_apertures_and_rxpoly(tc)
             % segment_rx emit_apertures declares each segment's PHYSICAL
             % boundary as a polygonal aperture (pie: center HEXAGON +
-            % chorded sectors with inner-sector obscurations), and
+            % ring-1 wedges as TRUE convex chorded polygons -- chord +
+            % parallel side edges + arc, NO obscuration needed), and
             % seg_boundary auto-switches to its 'rxpoly' source so
             % launcher placement uses the Rx-declared edges.
             s = macos.design.segment_rx(fullfile(tc.tin, 'e5mono.in'), ...
@@ -125,13 +190,20 @@ classdef tSegmentRx < matlab.unittest.TestCase
             txt = fileread(s.in);
             tc.verifyEqual(count(txt, 'ApType=  Polygonal'), 7);
             tc.verifyEqual(count(txt, 'PolyApVec='), 7);
-            tc.verifyEqual(count(txt, 'PolyObsVec='), 6);   % wedges only
-            % center = hexagon; wedges = apex + chorded arc; the ring-1
-            % obscuration is the apex TRIANGLE to the chord facing the
-            % center hexagon's flat (straight physical edge, not an arc)
+            tc.verifyEqual(count(txt, 'PolyObsVec='), 0, ...
+                'ring-1 wedges are convex: no obscurations');
+            % center = hexagon; wedge = chord vertex A + circumscribed
+            % arc (nchord+1 pts) + chord vertex B = 15; no vertex may
+            % sit near the tiling center (the old apex-sector emission
+            % covered the center hexagon in every declared-polygon
+            % consumer)
             tc.verifyEqual(size(s.apertures.poly{1}, 2), 6);
-            tc.verifyEqual(size(s.apertures.poly{2}, 2), 14);
-            tc.verifyEqual(size(s.apertures.obs{2}, 2), 3);
+            tc.verifyEqual(size(s.apertures.poly{2}, 2), 15);
+            tc.verifyEmpty(s.apertures.obs{2});
+            c0w = mean([s.frames.rpt], 2);
+            d_ap = vecnorm(s.apertures.poly{2} - c0w);
+            tc.verifyGreaterThan(min(d_ap), 0.9*(s.width + s.gap)/2, ...
+                'wedge aperture must stop at the chord, not the center');
             % rxpoly reader: auto-detected; the center hexagon must
             % round-trip vertex-for-vertex (polyshape may re-order)
             B = macos.design.seg_boundary(s);
@@ -143,11 +215,11 @@ classdef tSegmentRx < matlab.unittest.TestCase
                 tc.verifyLessThan(min(vecnorm(P - Q(:,q))), 1e-6, ...
                     sprintf('center hex vertex %d does not round-trip', q));
             end
-            % the wedge boundary is the aperture MINUS its obscuration:
-            % no boundary point may sit inside the chord (perpendicular
-            % distance (width+gap)/2 from the tiling center), and EVERY
-            % segment tile must survive as a full-size region (the
-            % subtract used to leave numeric slivers as boundary #1)
+            % the rxpoly wedge boundary is the declared chorded polygon
+            % itself (no obscuration subtract anymore): no boundary
+            % point may sit inside the chord (perpendicular distance
+            % (width+gap)/2 from the tiling center), and EVERY segment
+            % tile must survive as a full-size region
             W2 = [B.u.'; B.v.'] * (B.poly{2} - B.c0);
             d_chord = (s.width + s.gap)/2;
             tc.verifyGreaterThan(min(vecnorm(W2)), 0.95*d_chord, ...
@@ -370,6 +442,38 @@ classdef tSegmentRx < matlab.unittest.TestCase
             rs = macos.get_ray_status(st.nRays);
             tc.verifyGreaterThan(nnz(rs.status ~= 0), 0, ...
                 'carried hole did not clip any center-segment rays');
+        end
+
+        function test_seg_footprints_and_view(tc)
+            % shared footprint measurement + overlay figure (hoisted
+            % from e5_pie / e2e-s3 so all runners consume ONE
+            % implementation): every segment must own a footprint
+            % region of comparable size, and the view must render+save
+            old = cd(tc.seg.run.workdir);
+            restore = onCleanup(@() cd(old)); %#ok<NASGU>
+            macos.init(512);
+            macos.load_rx(tc.seg.in);
+            macos.trace();
+            w0 = macos.opd();
+            labels = macos.design.seg_footprints(tc.seg, w0, ...
+                                                 'poke', 1e-6);
+            ids = unique(labels(labels > 0));
+            tc.verifyEqual(numel(ids), tc.seg.nseg, ...
+                'every segment must own a footprint region');
+            counts = histcounts(labels(labels > 0), ...
+                                0.5:1:tc.seg.nseg + 0.5);
+            tc.verifyGreaterThan(min(counts), 0.3*max(counts), ...
+                'same-size hex segments: comparable footprint areas');
+            B = macos.design.seg_boundary(tc.seg);
+            fpng = [tempname '.png'];
+            cp = onCleanup(@() delete(fpng)); %#ok<NASGU>
+            fig = macos.design.seg_footprint_view(labels, B, tc.seg, ...
+                'units', 'mm', 'title', 'footprint-view test', ...
+                'save', fpng);
+            cf = onCleanup(@() close(fig)); %#ok<NASGU>
+            d = dir(fpng);
+            tc.assertNotEmpty(d, 'PNG must be written');
+            tc.verifyGreaterThan(d.bytes, 1000);
         end
     end
 end

@@ -96,18 +96,9 @@ for iv = 1:numel(vs)
         t1.nRays, p1, t1.rmsWFE, t0.rmsWFE, 100*(t1.rmsWFE - t0.rmsWFE)/t0.rmsWFE);
 
     %% [2] traced footprints vs the tiling boundary -------------------
-    N = size(w1, 1);
-    labels = zeros(N);
-    for s = 1:seg.nseg
-        macos.load_rx(seg.in);
-        macos.perturb(seg.seg_elts(s), 'translation', [0;0;1e-7], 'frame','local');
-        macos.modify(); macos.trace();
-        d = macos.opd() - w1;
-        ok = isfinite(d) & (w1 ~= 0);
-        dev = abs(d - median(d(ok)));
-        labels(ok & dev > 0.25*max(dev(ok))) = s;
-    end
-    macos.load_rx(seg.in);
+    % shared engine-truth measurement (macos.design.seg_footprints;
+    % poke in metres -- the e2e parent's base unit)
+    labels = macos.design.seg_footprints(seg, w1, 'poke', 1e-7);
     B = macos.design.seg_boundary(seg);
 
     %% [3] physical polygonal apertures -------------------------------
@@ -128,25 +119,13 @@ for iv = 1:numel(vs)
         mat2str(unique(fe(fe > 0)).'), tA.rmsWFE, ...
         100*(tA.rmsWFE - t0.rmsWFE)/t0.rmsWFE);
 
-    % footprint + boundary + aperture-polygon figure
-    [xm, ym, toimg] = pupil_axes_(labels, B, seg);
-    f = figure('Visible','off', 'Position', [0 0 720 660]);
-    imagesc(xm, ym, toimg(labels), 'AlphaData', 0.55*(toimg(labels) > 0));
-    axis xy image; hold on
-    colormap([0.94 0.94 0.94; lines(seg.nseg)]); clim([-0.5 seg.nseg+0.5]);
-    for s = 1:seg.nseg
-        plot(B.poly{s}(1,:), B.poly{s}(2,:), 'k-', 'LineWidth', 0.8);
-        Pp = segA.apertures.poly{s}(:, [1:end 1]);
-        plot(Pp(1,:), Pp(2,:), 'k-', 'LineWidth', 1.6);
-        if ~isempty(segA.apertures.obs{s})
-            O = segA.apertures.obs{s}(:, [1:end 1]);
-            plot(O(1,:), O(2,:), 'r--', 'LineWidth', 1.0);
-        end
-    end
-    title(sprintf('e2e s3 (%s): traced footprints + emitted apertures (%d segs)', ...
-          v, seg.nseg));
-    xlabel('pupil x, m'); ylabel('pupil y, m');
-    print(f, fullfile(here, sprintf('s3_footprints_%s.png', v)), '-dpng', '-r120');
+    % footprint + boundary + aperture-polygon figure (shared
+    % macos.design.seg_footprint_view -- hoisted with e5_pie)
+    f = macos.design.seg_footprint_view(labels, B, seg, 'units', 'm', ...
+        'apertures', segA.apertures, 'alpha', 0.55, ...
+        'title', sprintf('e2e s3 (%s): traced footprints + emitted apertures (%d segs)', ...
+                         v, seg.nseg), ...
+        'save', fullfile(here, sprintf('s3_footprints_%s.png', v)));
     close(f);
     say('    footprint/aperture figure: s3_footprints_%s.png\n', v);
 
@@ -198,42 +177,3 @@ fprintf('Next: s4_jacobians.m (dwdx / dwdz / dwdgrid on e2e_%s.in).\n', P.seg.va
 
 % ---------------------------------------------------------------------
 function s = tern_(c, a, b), if c, s = a; else, s = b; end, end
-
-function [xmm, ymm, toimg] = pupil_axes_(labels, B, seg)
-%PUPIL_AXES_  Calibrate the OPD pixel grid to global X/Y (parent units).
-%   Same construction as e5_pie: fit the affine pixel->pupil map from
-%   per-segment footprint centroids vs tiling-region centroids, so the
-%   overlay is exact whatever the source grid orientation.
-N = size(labels, 1);
-[JJ, II] = meshgrid(1:N, 1:N);
-Ppix = zeros(0, 3);  Pmm = zeros(0, 2);
-for s = 1:seg.nseg
-    m = labels == s;
-    if ~any(m, 'all'), continue; end
-    shp = polyshape(B.poly{s}(1, 1:end-1), B.poly{s}(2, 1:end-1));
-    [cx, cy] = centroid(shp);
-    Ppix(end+1, :) = [mean(JJ(m)), mean(II(m)), 1]; %#ok<AGROW>
-    Pmm(end+1, :)  = [cx, cy];                      %#ok<AGROW>
-end
-A = (Ppix \ Pmm).';
-swp = abs(A(1,1)) + abs(A(2,2)) < abs(A(1,2)) + abs(A(2,1));
-if swp
-    Ppix(:, [1 2]) = Ppix(:, [2 1]);
-    A = (Ppix \ Pmm).';
-end
-assert(all(isfinite(A(:))), 'pupil grid calibration failed');
-xmm = A(1,1)*(1:N) + A(1,3);
-ymm = A(2,2)*(1:N) + A(2,3);
-fx = xmm(1) > xmm(end);  fy = ymm(1) > ymm(end);
-if fx, xmm = flip(xmm); end
-if fy, ymm = flip(ymm); end
-toimg = @(M) flip_(flip_(tr_(M, swp), fx, 2), fy, 1);
-end
-
-function M = flip_(M, tf, dim)
-if tf, M = flip(M, dim); end
-end
-
-function M = tr_(M, tf)
-if tf, M = M.'; end
-end
