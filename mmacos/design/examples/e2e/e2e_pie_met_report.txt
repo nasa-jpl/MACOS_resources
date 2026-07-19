@@ -1,0 +1,43 @@
+==== run_met: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
+[0] e2e_pie: 7 segments (Pie tiling), 17 elements; 12098/12520 rays pass
+
+[1] as-built truss: 48 beams (6 launchers/segment + aft ring on elt 9), 6 fiducials at r=0.207 on elt 8
+    trace parity: 12098/12520 rays pass (bare 12098/12520), rmsWFE 3.453e-09 (bare 3.453e-09)
+    aft-beam hole clearance (effective hole r=0.232 (design override)):
+      crossing radii [0.1803 0.2263 0.1808 0.1822 0.2263 0.1766] -> min margin 0.005712 (CLEAR)
+
+[2] dedx 19x54 (SI);  dldx 48x54 engine-FD vs analytic: 1.11e-07 max rel  PASS
+
+[3] dwdx: 54 columns for bodies [1  2  3  4  5  6  7  8  9] from the sensitivities .mat
+    post-control wavefront residual (fraction of prior; nm at the
+    configured scenario: prior 1e-10 rad / 1e-10 m, noise 1e-11 / 1e-12 m):
+      prior (no sensing)       1.0000   (0.2197 nm)
+      edge sensors only        0.3020   (0.06635 nm)
+      MET only                 0.1348   (0.02962 nm)
+      edge + MET               0.0502   (0.01103 nm)
+    as-built WEM (per unit gauge noise, suite ratios held;
+    prior split: 8.252e-13 nm tilt / 0.2197 nm non-tilt):
+      config        WEM_full  WEM_tilt WEM_ntilt  floor_ntilt
+      MET only        15.568     0.000    15.568       0.1147
+      edge+MET        10.813     0.000    10.813       0.0099
+    observability: H 67x54, sv(H*sqrt(X)) 7.184e-10 .. 1.948e-19 (cond 3.24e+06)
+    products: dxde 54x19, dxdl 54x48, dwde 60412x19, dwdl 60412x48
+
+[4] met_layout_opt (one pattern per shape class; MET-only, NON-TILT merit):
+    class 1 (1 members, cluster): angs [170 190 70 90 -90 -70] deg
+    class 2 (6 members, cluster): angs [175 185 55 65 -65 -55] deg
+    engine-FD validation (non-tilt merit): 0.02031 nm (analytic 0.02031, 0.00% off)
+
+[4b] configuration comparison (WEM per unit gauge noise):
+      config         | MET_full MET_tilt   MET_nt | e+M_full e+M_tilt   e+M_nt |    flr_nt  min_sep
+      as-built       |   15.568    0.000   15.568 |   10.813    0.000   10.813 |    0.0099 
+      optimized      |    3.766    0.000    3.766 |    4.585    0.000    4.585 |    0.0028 
+      corner_pairs   |    3.973    0.000    3.973 |    4.774    0.000    4.774 |    0.0029  0.01502
+
+[5] Monte-Carlo (200 draws): 0.005 nm rms  (analytic 0.005) [0.7%]
+
+[6] figures: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_layout.png, /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt_layout.png, /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_view_rx.png, /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_metric.png
+preset saved: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_preset.mat (reusable as-built for future Pie builds)
+
+artifacts: e2e_pie_met.in, e2e_pie_metopt.in, e2e_pie_met.mat, this report + figures
+next stage: run_compare (linear model vs mmacos on x/z/grid states).

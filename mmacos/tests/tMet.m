@@ -212,5 +212,26 @@ classdef tMet < matlab.unittest.TestCase
             % hub columns must be LIVE (fiducial points move with M2)
             tc.verifyGreaterThan(max(abs(dm54.dldx(:, 43:48)), [], 'all'), 0.5);
         end
+
+        function test_dldx_analytic_unit_to_m(tc)
+            % The same physical geometry expressed in mm (default
+            % unit_to_m=1e-3) and in metres (unit_to_m=1) must give the
+            % IDENTICAL SI Jacobian -- the guard for metres-BaseUnits
+            % prescriptions like the e2e example (a wrong arm scale
+            % shrinks every rotation row by 1000x).
+            rng(7);
+            Tq = orth(randn(3));
+            bmm = struct('rpt', 100*randn(3,1), 'T', Tq);
+            src = 1e3*randn(3, 5);  tgt = 1e3*randn(3, 5);
+            sb = [1 1 0 1 1];  tb = [0 0 1 0 1];
+            bodies_mm = [bmm, struct('rpt', 50*randn(3,1), 'T', orth(randn(3)))];
+            d_mm = macos.design.dldx_analytic(bodies_mm, src, tgt, sb, tb);
+            bodies_m = bodies_mm;
+            for k = 1:2, bodies_m(k).rpt = bodies_m(k).rpt*1e-3; end
+            d_m = macos.design.dldx_analytic(bodies_m, src*1e-3, tgt*1e-3, ...
+                sb, tb, 1);
+            tc.verifyEqual(d_m, d_mm, 'AbsTol', 1e-12, ...
+                'mm and metres representations must agree in SI');
+        end
     end
 end

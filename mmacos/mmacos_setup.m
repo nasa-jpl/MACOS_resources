@@ -7,6 +7,8 @@
 %
 %  Dirs added (relative to this file):
 %      src/                     the +macos package + the mmacos mex
+%      design/runners/          the STAGE RUNNERS (run_met, ... -- the
+%                               product pipeline; see design/runners/README.md)
 %      sensitivities/           plot_opd_canvas / plot_dw_channels / save_dw_multi
 %      examples/sensitivities/  mimg / m2v / v2m / pad display helpers
 %
@@ -20,6 +22,7 @@
 
 mmacos_root_ = fileparts(mfilename('fullpath'));
 addpath(fullfile(mmacos_root_, 'src'));                       % +macos package + mmacos mex
+addpath(fullfile(mmacos_root_, 'design', 'runners'));        % stage runners (the pipeline)
 addpath(fullfile(mmacos_root_, 'sensitivities'));            % plot_*/save_dw_multi
 addpath(fullfile(mmacos_root_, 'examples', 'sensitivities'));% mimg / m2v / v2m / pad
 fprintf('mmacos: path set from %s\n', mmacos_root_);
