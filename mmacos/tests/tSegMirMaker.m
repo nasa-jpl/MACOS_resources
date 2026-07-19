@@ -59,9 +59,10 @@ classdef tSegMirMaker < matlab.unittest.TestCase
                 fileread(fullfile(tc.tin, 'e5hex2Hx.m')), ...
                 'e5hex2Hx.m not byte-identical to the committed reference');
             % Hx dimension sanity from the committed run: 19 segments,
-            % 6 DOF, config 2 -> nMeas=79, nState=114.
+            % 42 shared edges x 2 locations x 3 axes (2026-07-19 model,
+            % no anchor row) -> nMeas=252, nState=114.
             hxtxt = fileread(out.hx);
-            tc.verifySubstring(hxtxt, 'nMeas=    79;');
+            tc.verifySubstring(hxtxt, 'nMeas=   252;');
             tc.verifySubstring(hxtxt, 'nState=   114;');
         end
 

@@ -1,5 +1,12 @@
 # e5_pie — pie segmentation with physical polygonal apertures
 
+> **STALE ARTIFACTS (2026-07-19):** the committed `e5_pie` Hx/MET
+> artifacts predate the SegMirMaker edge-sensor rework (per shared
+> edge: 2 sensor locations x 3 axes piston/gap/shear, no
+> absolute-piston anchor row) — regeneration queued; the edge+MET
+> numbers will improve as on e2e (in-plane DOFs become
+> edge-observable).
+
 > Companion to `../e5_seg/` (hex).  Manual worked example: run
 > `e5_pie.m` after `mmacos_setup` — it regenerates every figure and
 > `findings.txt` beside this script.

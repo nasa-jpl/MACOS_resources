@@ -58,8 +58,21 @@ The interactive dialog walks you through:
 9. **Preview / confirm** — segment count, layout, and sizes shown
    before the `.presc` and `Hx.m` files are written.
 
+7b. **Edge-sensor offset** (2026-07-19) — after the size answers, one
+more prompt asks for the sensor offset from each shared-edge midpoint
+(default `0.25*width`).  The measurement model is now: per SHARED
+EDGE, **2 sensor locations** at +/-offset along the edge, **3 axes
+per location** — 1 piston (surface normal), 2 gap (in-plane,
+perpendicular to the edge), 3 shear (in-plane, along the edge) — all
+purely differential (**no absolute-piston anchor row**).  A 1-ring
+pie = 12 edges x 6 = 72 rows.  `Hx.m` also carries `MeasToSeg`,
+`MeasAxis`, `MeasLoc`, and `SensorPos` (world sensor positions);
+`macos.design.edge_sensors` ingests all of it (legacy single-axis
+files still parse).  Rows use each segment's own moment arm:
+dm/d(del_s) = +/- a'*T_s, dm/d(th_s) = +/- (rho_s x a)'*T_s.
+
 The nine items above are a conceptual grouping — the binary actually
-issues ~15–17 individual prompts (item 6 alone is five; ray grid type
+issues ~16–18 individual prompts (item 6 alone is five; ray grid type
 and `SegXgrid` are asked too).  The authoritative prompt order is
 pinned by the committed answer scripts `test_in/e5pie.stdin` /
 `test_in/e5hex2.stdin` (see next section).

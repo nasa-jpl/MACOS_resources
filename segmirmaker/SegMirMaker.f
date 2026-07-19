@@ -93,11 +93,13 @@ C	 mMeas = 6 x mSeg
 
 	INTEGER mRing,mR2,mSeg,mState,mMeas
 	PARAMETER (mRing=8, mR2=(2*mRing), 
-     &	mSeg=(3*(mRing+1)*mRing+1), mMeas=(6*mSeg), mState=(6*mSeg))
+     &	mSeg=(3*(mRing+1)*mRing+1), mMeas=(18*mSeg), mState=(6*mSeg))
 
+	LOGICAL DonePair(mSeg,mSeg)
 	INTEGER nRing,nElt,SegCoord(3,mSeg),iFirst,iLast,
      &  SegCrdToNum(-mR2:mR2,-mR2:mR2),NumToRing(0:mSeg),
-     &	MeasToSeg(2,mMeas),iMeasConfig,iDOF
+     &	MeasToSeg(2,mMeas),iMeasConfig,iDOF,
+     &	MeasAxis(mMeas),MeasLoc(mMeas),iLoc,iAx
 	REAL*8 NumToPos(3,mSeg),NumToRadius(mSeg),pSeg(3,mSeg),
      &	TbSeg(3,3,mSeg)
 
@@ -113,7 +115,9 @@ C	 mMeas = 6 x mSeg
      &  pr(3),rhat(3),L,rho(3),th,PI,ds,rs,qs,ps,ths,D1(100),D2(100),
      &  D3(3,3),D4(3,3),S1,DOT,MAG,TElt(6,6),xSi,xSim1,ySi,ySim1,
      &  dx,dy,twodx,SIN60,COS60,Hw1(6),Hw2(6),
-     &	SegYgrid(3),xs(3),ys(3),zs(3),standoff,gap
+     &	SegYgrid(3),xs(3),ys(3),zs(3),standoff,gap,
+     &	ehat(3),axhat(3),pinl(3),SensorOff,agap(3),ashear(3),
+     &	SensorPos(3,mMeas)
 
 C  SMACOS call buffers + parent-prescription state
 C  (SMACOS signature uses CHARACTER(len=256) for command/CARG; mirror it
@@ -152,6 +156,8 @@ C  Formats
  508	FORMAT(/' nMeas=',i6,';'/' nState=',i6,';'/)
  509	FORMAT(' Hx(',i6,',',i6,':',i6,')=[',6d17.9,'];')
  512	FORMAT(' Hx(',i6,',',i6,':',i6,')=[',3d17.9,'];')
+  513	FORMAT(' MeasAxis(',i6,')=',i2,'; MeasLoc(',i6,')=',i2,';')
+  514	FORMAT(' SensorPos(1:3,',i6,')=[',3d17.9,'];')
  511	FORMAT(' Hw(',i6,',',i6,':',i6,')=[',6d17.9,'];')
  510	FORMAT(' MeasToSeg(1:2,',i6,')=[',i6,';',i6,'];')
  570	FORMAT('             nSeg=  ',i0)
@@ -370,6 +376,13 @@ c	    MirApDiam=DSQRT((FLOAT(2*nRing+1)*width)**2+(S2*S2/4d0))
 	  GO TO 21
 	END IF
 
+C  Edge-sensor location: two sensors per shared edge, offset
+C  +/-SensorOff from the edge midpoint along the edge direction
+C  (Dave 2026-07-19: 2 locations x 3 axes per edge).
+	S1=2.5d-1*width
+	CALL DACCEPT(SensorOff,S1,1,
+     &	  'Enter edge-sensor offset from shared-edge midpoint:')
+
 C  Compute segment coordinates
 C  Segment blocks are emitted to a scratch unit first so the source-
 C  section header (nSeg, width, gap, SegXgrid, SegCoord) can precede
@@ -573,18 +586,16 @@ C  structurally identical, just with different pose).
 
 C  Compute edge-sensor measurement matrices
 
-C    First measurement is of master segment absolute piston
+C    No absolute-piston anchor row: edge sensors are purely
+C    differential (Dave 2026-07-19); the legacy master-segment
+C    absolute-piston row was not a physical measurement.
 
-	iMeas=1
-	CALL ZERO(dzdxi,6)
-	dzdxi(6)=1d0
-	IF (iDOF.EQ.3) THEN
-	  WRITE(3,512)iMeas,1,iDOF,dzdxi(1),dzdxi(2),dzdxi(6)
-	ELSE
-	  WRITE(3,509)iMeas,1,iDOF,dzdxi
-	END IF
-	MeasToSeg(1,iMeas)=1
-	MeasToSeg(2,iMeas)=1
+	iMeas=0
+	DO i=1,mSeg
+	  DO j=1,mSeg
+	    DonePair(i,j)=.FALSE.
+	  END DO
+	END DO
 
 C    Loop through each segment
 	
@@ -623,62 +634,104 @@ C    Find each adjacent segment
 
 C   If adjacent segment exists and is eligible, compute Hx submatrix
 
-	    IF ((jSeg.GT.0).AND.
+	    IF ((jSeg.GT.0).AND.(.NOT.DonePair(iSeg,jSeg)).AND.
      &	    (((iMeasConfig.EQ.1).AND.(NumToRing(jSeg).LE.iRing))
      &	    .OR.(iMeasConfig.EQ.2)))THEN
-C  Midpoint of two adjacent segment centers, projected onto the
-C  parent's tangent plane through pv (normal zs), then lifted by
-C  standoff along zs.  This replaces the legacy world-xy projection
-C  plus fixed pin(3)=100, which assumed psi=(0,0,1).
+	      DonePair(iSeg,jSeg)=.TRUE.
+	      DonePair(jSeg,iSeg)=.TRUE.
+C  Edge midpoint on the segment definition plane: midpoint of the two
+C  segment centers, projected onto the parent's tangent plane through
+C  pv (normal zs), lifted by standoff along zs.  The edge DIRECTION is
+C  the in-plane unit vector perpendicular to the center-to-center
+C  line; two sensor locations sit at +/-SensorOff along it
+C  (2 locations x 3 axes per shared edge -- Dave 2026-07-19).
 	      dpin(1:3)=5d-1*(pSeg(1:3,iSeg)+pSeg(1:3,jSeg))
 	      D1(1:3)=dpin(1:3)-pv(1:3)
 	      pin(1:3)=pv(1:3)+D1(1:3)
      &	               -DOT_PRODUCT(D1(1:3),zs(1:3))*zs(1:3)
      &	               +standoff*zs(1:3)
+	      CALL SUB(D1,pSeg(1,jSeg),pSeg(1,iSeg),3)
+	      CALL CROSSPROD(ehat,zs,D1)
+	      CALL UNITIZE(ehat)
 
-	      CALL SurfCoordFF(rho,pr,L,radhat,tanhat,normhat,
-     &	      xhat,yhat,zhat,pv,prot,pin,ihat,f,e,psi,xseg)
+	      DO iLoc=1,2
 
-	      CALL SUB(rhoi,pr,pSeg(1,iSeg),3)
-	      CALL SUB(rhoj,pr,pSeg(1,jSeg),3)
-	      CALL MPROD(dzddeli,normhat,TbSeg(1,1,iSeg),1,3,3)
+	        pinl(1:3)=pin(1:3)
+     &	                 +DBLE(2*iLoc-3)*SensorOff*ehat(1:3)
 
-	      CALL MPROD(D1,normhat,TbSeg(1,1,jSeg),1,3,3)
-	      CALL NEGATE(dzddelj,D1,3)
+	        CALL SurfCoordFF(rho,pr,L,radhat,tanhat,normhat,
+     &	        xhat,yhat,zhat,pv,prot,pinl,ihat,f,e,psi,xseg)
 
-	      CALL CROSSMAT(rhoix,rhoi)
-	      CALL MPROD(D1,normhat,TbSeg(1,1,iSeg),1,3,3)
-	      CALL MPROD(D2,D1,rhoix,1,3,3)
-	      CALL NEGATE(dzdthi,D2,3)
+	        CALL SUB(rhoi,pr,pSeg(1,iSeg),3)
+	        CALL SUB(rhoj,pr,pSeg(1,jSeg),3)
 
-	      CALL MPROD(D1,normhat,TbSeg(1,1,jSeg),1,3,3)
-	      CALL MPROD(dzdthj,D1,rhoix,1,3,3)
+C  Local measurement axes at this sensor point (Dave 2026-07-19):
+C    1 piston = surface normal
+C    2 gap    = in-plane, PERPENDICULAR to the edge
+C    3 shear  = in-plane, ALONG the edge
+	        CALL CROSSPROD(agap,normhat,ehat)
+	        CALL UNITIZE(agap)
+	        CALL CROSSPROD(ashear,agap,normhat)
+	        CALL UNITIZE(ashear)
 
-	      CALL EQUATE(dzdxi,dzdthi,3)
-	      CALL EQUATE(dzdxi(4),dzddeli,3)
-	      CALL EQUATE(dzdxj,dzdthj,3)
-	      CALL EQUATE(dzdxj(4),dzddelj,3)
+	        DO iAx=1,3
 
-	      iMeas=iMeas+1
-	      MeasToSeg(1,iMeas)=iSeg
-	      MeasToSeg(2,iMeas)=jSeg
+	          IF (iAx.EQ.1) THEN
+	            CALL EQUATE(axhat,normhat,3)
+	          ELSE IF (iAx.EQ.2) THEN
+	            CALL EQUATE(axhat,agap,3)
+	          ELSE
+	            CALL EQUATE(axhat,ashear,3)
+	          END IF
 
-	      i=(iSeg-1)*iDOF+1
-	      k=iSeg*iDOF
-c	      WRITE(3,509)iMeas,i,k,dzdxi
-	      IF (iDOF.EQ.3) THEN
-	        WRITE(3,512)iMeas,i,k,dzdxi(1),dzdxi(2),dzdxi(6)
-	      ELSE
-	        WRITE(3,509)iMeas,i,k,dzdxi
-	      END IF
-	      j=(jSeg-1)*iDOF+1
-	      k=jSeg*iDOF
-c	      WRITE(3,509)iMeas,j,k,dzdxj
-	      IF (iDOF.EQ.3) THEN
-	        WRITE(3,512)iMeas,j,k,dzdxj(1),dzdxj(2),dzdxj(6)
-	      ELSE
-	        WRITE(3,509)iMeas,j,k,dzdxj
-	      END IF
+C  m = axhat.(u_i - u_j), u_s = del_s + th_s x rho_s (world), with
+C  del_s/th_s expressed in segment s's face triad TbSeg_s:
+C    dm/d(del_s) = +/- axhat'*TbSeg_s
+C    dm/d(th_s)  = +/- (rho_s x axhat)'*TbSeg_s
+C  Each segment uses its OWN moment arm and the projection order is
+C  world-row-then-triad (the legacy single-axis model reused rhoi for
+C  both segments and projected before the cross term -- fixed here,
+C  flagged for model review 2026-07-19).
+	          CALL MPROD(dzddeli,axhat,TbSeg(1,1,iSeg),1,3,3)
+	          CALL MPROD(D1,axhat,TbSeg(1,1,jSeg),1,3,3)
+	          CALL NEGATE(dzddelj,D1,3)
+	          CALL CROSSPROD(D2,rhoi,axhat)
+	          CALL MPROD(dzdthi,D2,TbSeg(1,1,iSeg),1,3,3)
+	          CALL CROSSPROD(D2,rhoj,axhat)
+	          CALL MPROD(D1,D2,TbSeg(1,1,jSeg),1,3,3)
+	          CALL NEGATE(dzdthj,D1,3)
+
+	          CALL EQUATE(dzdxi,dzdthi,3)
+	          CALL EQUATE(dzdxi(4),dzddeli,3)
+	          CALL EQUATE(dzdxj,dzdthj,3)
+	          CALL EQUATE(dzdxj(4),dzddelj,3)
+
+	          iMeas=iMeas+1
+	          MeasToSeg(1,iMeas)=iSeg
+	          MeasToSeg(2,iMeas)=jSeg
+	          MeasAxis(iMeas)=iAx
+	          MeasLoc(iMeas)=iLoc
+	          SensorPos(1,iMeas)=pr(1)
+	          SensorPos(2,iMeas)=pr(2)
+	          SensorPos(3,iMeas)=pr(3)
+
+	          i=(iSeg-1)*iDOF+1
+	          k=iSeg*iDOF
+	          IF (iDOF.EQ.3) THEN
+	            WRITE(3,512)iMeas,i,k,dzdxi(1),dzdxi(2),dzdxi(6)
+	          ELSE
+	            WRITE(3,509)iMeas,i,k,dzdxi
+	          END IF
+	          j=(jSeg-1)*iDOF+1
+	          k=jSeg*iDOF
+	          IF (iDOF.EQ.3) THEN
+	            WRITE(3,512)iMeas,j,k,dzdxj(1),dzdxj(2),dzdxj(6)
+	          ELSE
+	            WRITE(3,509)iMeas,j,k,dzdxj
+	          END IF
+
+	        END DO
+	      END DO
 
 	    END IF
  19	  CONTINUE
@@ -690,6 +743,12 @@ c	      WRITE(3,509)iMeas,j,k,dzdxj
 	DO 10 iMeas=1,nMeas
 	  WRITE(3,510)iMeas,(MeasToSeg(i,iMeas),i=1,2)
  10	CONTINUE
+	DO iMeas=1,nMeas
+	  WRITE(3,513)iMeas,MeasAxis(iMeas),iMeas,MeasLoc(iMeas)
+	END DO
+	DO iMeas=1,nMeas
+	  WRITE(3,514)iMeas,(SensorPos(i,iMeas),i=1,3)
+	END DO
 
 
 C  End of program
