@@ -59,6 +59,11 @@ P.bias_sweep_arcmin = [1 2 3 4 6];  % off-axis biases to explore; the
                             % wins -- aberration grows ~bias^2
 P.hole_margin  = 1.3;       % M1 central hole radius = margin * the
                             % measured beam radius at the M1 plane
+P.hole_min_r_m = 0.232;     % FLOOR on the hole radius = the SM radius
+                            % (M2 lMon, see the s2 report): the SM
+                            % shadow obscures this much anyway, and the
+                            % aft MET beams route through the hole to
+                            % the M2 rim fiducials (Dave 2026-07-19).
 
 % ---- freeform refinement on top of the conic solve (the "+FF") -----
 P.modes     = [3 4 5 9 10 11 12 13 19 20 21 22 23 24 25];
