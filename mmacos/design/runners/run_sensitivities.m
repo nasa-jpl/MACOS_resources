@@ -232,7 +232,14 @@ if any(opts.channels == "dwdgrid") && (nseg > 0 || ~isempty(opts.influence))
     a = {};  if ~isempty(opts.delta_g), a = {'delta', opts.delta_g}; end
     og = macos.dw_dgrid_multi(m, rxg, sup{:}, 'influence', sgb, ...
         'reset_xp_method', opts.reset_xp_method, a{:});
-    say('    dwdgall %d x %d\n\n', size(og.dwdgall, 1), size(og.dwdgall, 2));
+    % persist the influence basis WITH the harvest: the basis is part
+    % of the Jacobian's definition, and rebuilding it in a later
+    % session is not bit-stable (the last G-S mode can come out
+    % rotated -- caught by run_compare 2026-07-19); downstream
+    % consumers (run_compare pokes, dmdgrid) use og.sgb verbatim
+    og.sgb = sgb;
+    say('    dwdgall %d x %d (influence basis saved in og.sgb)\n\n', ...
+        size(og.dwdgall, 1), size(og.dwdgall, 2));
 end
 
 %% conditioning report
