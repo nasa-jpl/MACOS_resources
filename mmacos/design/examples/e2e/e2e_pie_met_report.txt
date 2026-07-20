@@ -34,7 +34,7 @@
       optimized      |    3.766    0.000    3.766 |    1.777    0.000    1.777 |    0.0908 
       corner_pairs   |    3.973    0.000    3.973 |    1.789    0.000    1.789 |    0.0908  0.01502
 
-[5] Monte-Carlo (200 draws): 0.020 nm rms  (analytic 0.020) [1.8%]
+[5] Monte-Carlo (200 draws): 0.020 nm rms  (analytic 0.020) [1.9%]
 
 [6] figures: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_layout.png, /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt_layout.png, /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_view_rx.png, /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_metric.png
 preset saved: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_preset.mat (reusable as-built for future Pie builds)

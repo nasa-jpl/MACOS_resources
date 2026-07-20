@@ -9,15 +9,15 @@ segments: 7
     dwdzall 60412 x 56
 
 [dwdgrid] grid-augmenting in the clocked Mon frames...
-    s4_grid.in: 17 elts, 12098/12520 rays, gdx 0.01098
-    dwdgall 60412 x 42
+    s4_grid.in: 17 elts, 12098/12520 rays, gdx 0.01569
+    dwdgall 60412 x 42 (influence basis saved in og.sgb)
 
 [conditioning] finite rows only:
     channel          size   rank     sv_max    sv_min+      cond+
     dwdx     60412x90         90  1.989e+02  1.994e-05  9.979e+06
     dwdx     segment-only: 60412x42  cond+ 2.975e+06
     dwdz     60412x56         56  1.833e+02  3.367e+01  5.445e+00
-    dwdgrid  60412x42         42  1.992e+02  1.586e+02  1.256e+00
+    dwdgrid  60412x42         42  1.875e+02  1.568e+02  1.195e+00
 
     dwdx per-segment column norms (rms native-unit per unit DOF):
       seg     rx        ry        rz        tx        ty        tz

@@ -29,8 +29,8 @@ re-run in a fresh session from files alone.
 | `run_segmentation` | **SHIPPED** | mono `.in` | segmented `.in` (physical apertures) + `Hx.m` + footprint/views figures + parity report |
 | `run_sensitivities` | **SHIPPED** | (segmented) `.in` | `*_sens.mat` (dwdx/dwdz/dwdgrid, + dwdsurf opt-in) + conditioning report + per-element pages in `*_pages/` |
 | `run_met` | **SHIPPED** | segmented `.in` + `Hx.m` + jac `.mat` | `*_met.in`, `*_metopt.in`, `*_met.mat` (dedx/dldx/gains), report + views |
-| `run_compare` | PLANNED (spec Dave 2026-07-19: poke each DOF, 100 nm/100 nrad; mmacos-vs-linear graphics = OPD map + l/e_piston/e_gap/e_shear bars; 0.25 s dwell; agreement report) | all of the above | poke movie + per-poke agreement report |
-| `run_simulator` | PLANNED | all of the above | time-history PSFs + controlled/uncontrolled stats |
+| `run_compare` | **SHIPPED** (Dave's spec 2026-07-19: poke every model DOF in turn — rigid x at 100 nrad/100 nm, then z figure modes, then grid influence DOFs at 100 nm; per poke TWO graphics — mmacos ENGINE vs LINEAR MODEL — each an OPD map above stacked `l` / `e_piston` / `e_gap` / `e_shear` bars; dwell 1.6 s.  Figure pokes' l/e bars show the `macos.design.dmet_dfig` **dmdz/dmdgrid** figure-sensing blocks — mode shape at each sensor/launcher mount point — vs the engine's rigid METcalc/Hx zeros) | segmented `.in` + `Hx.m` + jac `.mat` + met `.mat` | per-poke frames + `*_compare.gif` + agreement report + `*_compare.mat` (`dwdu` control columns + `dmdz`/`dmdgrid` for the simulator's estimator H) |
+| `run_simulator` | PLANNED (Dave 2026-07-19: SINGLE-STEP STATIC estimator — the OSE form x̂ = x̄ + K·(m − m̄) with converged steady-state gains, m = [l; e]; controller = regularized wavefront-nulling on dwdu; background: `MACOS_sandbox/Documents/OSE_Eqns_2019.pdf` + the 2025 JATIS HWO paper) | all of the above | time-history PSFs + controlled/uncontrolled stats |
 
 The `sensitivities/run_dwd*_multi.m` scripts (and their self-contained
 copies under `sensitivities/examples/`) are thin CONFIG wrappers over
