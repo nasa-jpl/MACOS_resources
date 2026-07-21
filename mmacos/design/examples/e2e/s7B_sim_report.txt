@@ -1,0 +1,75 @@
+==== run_simulator: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
+[0] 9 bodies (7 segments), T = 50 frames, dt = 10 s
+    states: x 54x50, z 56x50, g 42x50;  sim Rx /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/s4_grid.in
+[1] baseline on /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/s4_grid.in: 12098 rays in pupil; psf @ elt 17, peak 7.34e+03;
+    COMPOSE band [4.85e-07 5e-07 5.15e-07] WaveUnits, 128 px @ 2.18 um; (grid Rx: no metrology) engine l model-only
+[2] channels in motion: 48 rigid, 21 zernike, 42 grid
+[3] pass 1 (uncorrected): 10 20 30 40 50 done
+    initial wavefront control @ frame 2 (t=20 s): uncorrected w rms 100.4 um -> predicted residual 24 nm
+    (u on 8 bodies, ridge 0.0003, 21/48 directions with sv > lam, |u| max 0.0001358)
+    wfc iteration 2: engine residual 3286 nm -> update |du| max 6.322e-06
+    wfc iteration 3: engine residual 19.75 nm -> update |du| max 5.746e-06
+[3b] metrology loop ON (RBCS weighted-LS estimator + pose-error controller):
+     R_meas = (H'N^-1 H + Rx^-1)^-1 H'N^-1, kp 0.5, rho 0; sensor sigma [1e-12 1e-09] m;
+     state prior sigma 2.1e-11..2.1e-08 m (auto from drift stats); loop senses figure: 0; meas bias: 0
+     WF-maintenance recontrol at t = 400 s (reset ridge 1e-05)
+
+[4]   t(s)  rms_unc(nm) rms_corr(nm)   w_rel   S_unc  S_corr  S_bb   |l|max(nm) |e|max(nm)  l_rel
+         0    1.004e+05    1.004e+05     null   0.000   0.000   0.001           0          0  null
+        10    1.004e+05    1.004e+05     null   0.000   0.000   0.001           0          0  null
+        20    1.004e+05        19.48  3.27e-02   0.000   0.943   1.036           0          0  null
+        30    1.004e+05        19.78  3.27e-02   0.000   0.941   1.045        11.6       20.1  null
+        40    1.004e+05        19.91  3.27e-02   0.000   0.940   1.043        16.1       15.4  null
+        50    1.004e+05        20.04  3.27e-02   0.000   0.940   1.046          12       14.9  null
+        60    1.004e+05        20.11  3.27e-02   0.000   0.939   1.039        14.3         24  null
+        70    1.004e+05        20.13  3.27e-02   0.000   0.939   1.036        11.9       17.4  null
+        80    1.004e+05        20.29  3.27e-02   0.000   0.938   1.043        13.6         15  null
+        90    1.004e+05        20.81  3.27e-02   0.000   0.935   1.045        20.1       16.6  null
+       100    1.004e+05        20.82  3.27e-02   0.000   0.935   1.027        19.5       10.5  null
+       110    1.004e+05        21.42  3.27e-02   0.000   0.931   1.021        29.3       16.9  null
+       120    1.004e+05        22.21  3.27e-02   0.000   0.926   1.019        18.7       24.1  null
+       130    1.004e+05        22.41  3.27e-02   0.000   0.925   1.016        21.9       15.9  null
+       140    1.004e+05        22.59  3.27e-02   0.000   0.924   1.031        22.3       13.1  null
+       150    1.004e+05        23.11  3.27e-02   0.000   0.921   1.019        9.13       14.7  null
+       160    1.004e+05        23.86  3.27e-02   0.000   0.916   1.004        11.8       11.4  null
+       170    1.004e+05        24.88  3.27e-02   0.000   0.909   1.012          21       16.9  null
+       180    1.004e+05        25.52  3.27e-02   0.000   0.905   1.021        19.5       11.7  null
+       190    1.004e+05        26.24  3.27e-02   0.000   0.900   1.001        11.3       9.82  null
+       200    1.004e+05        26.88  3.27e-02   0.000   0.896   0.995        12.2       12.5  null
+       210    1.004e+05         27.9  3.27e-02   0.000   0.888   0.988          14       25.8  null
+       220    1.004e+05        28.44  3.27e-02   0.000   0.884   0.985        18.7       9.89  null
+       230    1.004e+05        29.59  3.27e-02   0.000   0.876   0.959          13       13.2  null
+       240    1.004e+05        30.44  3.27e-02   0.000   0.869   0.961        15.7       12.8  null
+       250    1.004e+05        31.39  3.27e-02   0.000   0.861   0.963        17.9       22.6  null
+       260    1.004e+05        32.54  3.27e-02   0.000   0.853   0.940        19.9         14  null
+       270    1.004e+05        33.09  3.27e-02   0.000   0.849   0.949        15.9       14.3  null
+       280    1.004e+05        34.57  3.27e-02   0.000   0.837   0.940        18.9       15.5  null
+       290    1.004e+05        35.51  3.27e-02   0.000   0.828   0.921        12.8         19  null
+       300    1.004e+05        36.64  3.27e-02   0.000   0.819   0.904        13.8       16.5  null
+       310    1.004e+05        37.82  3.27e-02   0.000   0.809   0.897        21.3       22.7  null
+       320    1.004e+05        37.95  3.27e-02   0.000   0.808   0.899        11.4       10.7  null
+       330    1.004e+05        39.27  3.27e-02   0.000   0.797   0.882        16.6       12.2  null
+       340    1.004e+05        40.38  3.27e-02   0.000   0.789   0.876        16.2       12.4  null
+       350    1.004e+05        41.26  3.27e-02   0.000   0.781   0.874          14       13.1  null
+       360    1.004e+05        42.36  3.27e-02   0.000   0.770   0.855        17.6       15.2  null
+       370    1.004e+05        43.74  3.27e-02   0.000   0.758   0.844        13.4       18.8  null
+       380    1.004e+05        44.65  3.27e-02   0.000   0.752   0.832        20.2       12.7  null
+       390    1.004e+05        45.61  3.27e-02   0.000   0.743   0.818        10.9       16.3  null
+       400    1.004e+05        24.43  3.27e-02   0.000   0.912   1.008          19       23.2  null
+       410    1.004e+05        24.92  3.27e-02   0.000   0.908   0.998        11.2       11.5  null
+       420    1.004e+05         25.7  3.27e-02   0.000   0.903   0.992        10.9       12.1  null
+       430    1.004e+05        26.15  3.27e-02   0.000   0.899   1.000        9.76       13.4  null
+       440    1.004e+05        27.01  3.27e-02   0.000   0.893   0.998        12.9       16.4  null
+       450    1.004e+05        27.55  3.27e-02   0.000   0.889   0.989        17.2       17.9  null
+       460    1.004e+05        28.33  3.27e-02   0.000   0.883   0.993        24.6       13.1  null
+       470    1.004e+05        28.87  3.27e-02   0.000   0.879   0.987        11.1       13.2  null
+       480    1.004e+05        29.17  3.27e-02   0.000   0.877   0.970        13.2         11  null
+       490    1.004e+05         30.2  3.27e-02   0.000   0.869   0.971        12.2       13.9  null
+       500    1.004e+05         31.2  3.27e-02   0.000   0.861   0.964        26.1         22  null
+
+[5] final: rms WFE 1.004e+05 nm uncorrected vs 31.2 nm corrected;
+    Strehl 0.0000 uncorrected vs 0.8606 corrected (0.9642 broadband); worst w_rel 3.27e-02
+    m bars are the LINEAR measurement model (grid Rx declares no metrology;
+    the engine METcalc/Hx hold met/sensor points rigid for figure states)
+
+artifacts: s7B_sim.mat, frames in s7B_sim_frames/, s7B_sim.gif, this report

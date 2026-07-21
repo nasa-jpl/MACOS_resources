@@ -161,6 +161,90 @@ classdef tRunCompare < matlab.unittest.TestCase
             tc.verifySize(art.dmdgrid, [size(M.dldx, 1) + es.nmeas, ng]);
         end
 
+        function test_run_simulator_time_history(tc)
+            % Simulate stage (design/runners/run_simulator): a history
+            % that opens with um-scale misalignments and drifts with
+            % 100 nm steps, played through the engine in the two-pass
+            % uncorrected/corrected schedule.  Gates: the initial
+            % image-based wavefront control u = -pinv(dwdu)*w must
+            % collapse the wavefront (the corrected leg), Strehl must
+            % improve accordingly, the corrected-leg engine must match
+            % the linear model on the MIXED state (the s6 gates,
+            % superposed), and the movie artifacts must be complete.
+            M = load(tc.met5.mat);
+            nb = numel(M.bodies);
+            nz = numel(tc.oz.channel_names);
+            ng = numel(tc.og.channel_names);
+            T = 3;
+            ts = struct('dt', 2);
+            ts.x = zeros(6*nb, T);
+            ts.x(2, :)  = 5e-6 + (0:T-1) * 1e-7;  % Seg 1 Ry: 5 urad + drift
+            ts.x(12, :) = 5e-6 + (0:T-1) * 1e-7;  % Seg 2 Tz: 5 um + drift
+            ts.x(46, :) = 3e-6;                   % hub Tx: 3 um, static
+            ts.z = zeros(nz, T);
+            iz = find(~cellfun('isempty', regexp(tc.oz.channel_names, ...
+                sprintf('^Elt %d MonZern4$', tc.seg.seg_elts(1)), 'once')), 1);
+            tc.assertNotEmpty(iz);
+            ts.z(iz, :) = (1:T) * 1e-4;           % 100 nm/frame, mm BU
+            ts.g = zeros(ng, T);
+            ts.g(1, :) = (1:T) * 1e-4;
+            art = run_simulator(fullfile(tc.wd, 'pie.in'), ...
+                'hx', fullfile(tc.wd, 'pieHx.m'), ...
+                'jac', struct('ox', tc.ox, 'oz', tc.oz, 'og', tc.og), ...
+                'met', M, 'ts', ts, ...
+                'npix', 32, 'psf_crop', 32, 'dwell', 0, ...
+                'ngridpts', 15, 'visible', false, 'verbose', false, ...
+                'out_dir', tc.wd, 'name', 'sim');
+            % artifacts: nominal frame + T history frames, gif, mat
+            tc.verifyTrue(isfile(art.mat));
+            tc.verifyTrue(isfile(art.gif));
+            fr = dir(fullfile(art.frames_dir, 't*.png'));
+            tc.verifySize(fr, [T + 1, 1]);
+            tc.verifyEqual(art.t, (0:T) * ts.dt);
+            % grid states in the history -> the sim runs on the grid-
+            % augmented Rx (no metrology): m bars are model-only
+            tc.verifyFalse(art.engine_l);
+            % the wavefront control: u on 8 bodies x 6 DOFs, and the
+            % corrected leg collapses the um-scale uncorrected error
+            tc.verifySize(art.u, [48, 1]);
+            tc.verifyGreaterThan(max(abs(art.u)), 1e-7);
+            tc.verifyGreaterThan(art.rms_wfe_unc(2), 500, ...
+                'um-scale misalignment must dominate the uncorrected leg');
+            tc.verifyLessThan(art.rms_wfe_corr(2), ...
+                0.2 * art.rms_wfe_unc(2), 'the control must bite');
+            tc.verifyGreaterThan(art.strehl_corr(2), art.strehl_unc(2));
+            % t=0 is the AS-DEPLOYED (uninitialised) frame -- "no system
+            % starts perfect" (Dave 2026-07-20): both legs show the
+            % uncorrected initial state there, not a perfect nominal
+            tc.verifyEqual(art.rms_wfe_corr(1), art.rms_wfe_unc(1));
+            tc.verifyGreaterThan(art.rms_wfe_corr(1), 500);
+            tc.verifyEqual(art.strehl_corr(1), art.strehl_unc(1));
+            tc.verifyLessThan(art.strehl_corr(1), 1);
+            tc.verifyGreaterThan(art.strehl_bb(2), 0);
+            % corrected-leg engine vs linear on the MIXED state:
+            % superposition of the validated columns (the residual
+            % after control is small, so compare where the response is
+            % above the fixture's floor)
+            wr = [art.table.w_rel];
+            tc.verifyLessThan(max(wr(2:end)), 0.15);
+            % RBCS loop STABILITY gate: the metrology loop (weighted-LS
+            % BLUE estimator) must NEVER diverge -- the corrected leg
+            % stays at or below the uncorrected leg every frame.  The
+            % old raw-pinv basic-LS loop blew up ~100x above uncorrected
+            % (1e6 nm) here; this gate is the regression guard.
+            tc.verifyTrue(art.met_loop, 'the fixture must exercise the loop');
+            tc.verifyLessThanOrEqual(max(art.rms_wfe_corr), ...
+                max(art.rms_wfe_unc), ...
+                'RBCS loop diverged: corrected worse than uncorrected');
+            % measurement history: [l; e] rows, T columns, and the
+            % figure blocks exported for the estimator
+            es = macos.design.edge_sensors(fullfile(tc.wd, 'pieHx.m'));
+            tc.verifySize(art.m_hist, [size(M.dldx, 1) + es.nmeas, T]);
+            tc.verifyGreaterThan(max(abs(art.m_hist(:))), 0);
+            tc.verifySize(art.dmdz, [size(M.dldx, 1) + es.nmeas, nz]);
+            tc.verifySize(art.dmdgrid, [size(M.dldx, 1) + es.nmeas, ng]);
+        end
+
         function test_zern_grid_engine_equivalence(tc)
             % THE CONVENTION GATE for zern_seg_eval (dmdz's mode
             % shapes): the same MonZernike mode sampled onto a grid
