@@ -70,14 +70,16 @@ classdef tVeneerXP < matlab.unittest.TestCase
             macos.set_xp(x0.vpt, x0.psi, x0.rad);   % restore
         end
 
-        function test_spot_stopless_fails_gracefully(testCase)
-            % Regression for the infinite-loop fix: spot at a FocalPlane
-            % on a stopless Rx must FAIL FAST (not hang).
+        function test_spot_invalid_elt_fails_gracefully(testCase)
+            % Regression for the infinite-loop fix: an out-of-range spot
+            % element must FAIL FAST (spot_cmd rejects iElt>nElt) -> mmacos
+            % raises, rather than hanging on an exhausted IACCEPT_S stack.
+            % (A valid FocalPlane spot on this obscured Cass now SUCCEEDS
+            %  for every reference frame -- see tSpot.)
             macos.load_rx(rx_fixture_path('Rx_Cass_FarField.in'));
             macos.trace();
-            % spot_cmd fails -> mmacos raises (any MException); the point
-            % is it RETURNS rather than hanging.
-            testCase.verifyError(@() macos.spot(macos.num_elt()), ?MException);
+            testCase.verifyError(@() macos.spot(macos.num_elt() + 5), ...
+                                 ?MException);
         end
     end
 end

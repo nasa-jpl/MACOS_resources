@@ -92,6 +92,9 @@ classdef Session < handle
         function apodize(obj, srf, mask)
             macos.apodize(srf, mask);
         end
+        function s = spot(obj, srf, varargin)
+            s = macos.spot(srf, varargin{:});
+        end
 
         % --- Field-of-view / stop / exit pupil ------------------------
         function f = get_src_fov(obj),  f = macos.get_src_fov();    end
@@ -194,5 +197,80 @@ classdef Session < handle
                 macos.prb_grp(iElt, prb, ifGlobal);
             end
         end
+
+        % --- Element conic / radius / geometry queries ----------------
+        function kc = get_elt_kc(obj, srf),      kc = macos.get_elt_kc(srf);   end
+        function set_elt_kc(obj, srf, kc),       macos.set_elt_kc(srf, kc);     end
+        function kr = get_elt_kr(obj, srf),      kr = macos.get_elt_kr(srf);   end
+        function set_elt_kr(obj, srf, kr),       macos.set_elt_kr(srf, kr);     end
+        function z  = get_elt_z(obj, srf),       z  = macos.get_elt_z(srf);    end
+        function i  = get_elt_info(obj, srf),    i  = macos.get_elt_info(srf); end
+        function o  = get_elt_obs(obj, srf),     o  = macos.get_elt_obs(srf);  end
+
+        % --- Element surface inspection (grid / Zernike / csys) -------
+        function tf = elt_grid_any(obj),         tf = macos.elt_grid_any();     end
+        function tf = elt_zrn_any(obj),          tf = macos.elt_zrn_any();      end
+        function tf = elt_ff_any(obj),           tf = macos.elt_ff_any();       end
+        function n  = grid_size_max(obj),        n  = macos.grid_size_max();    end
+        function n  = mon_zrn_max_modes(obj),    n  = macos.mon_zrn_max_modes();end
+        function g  = get_elt_grid(obj, srf),    g  = macos.get_elt_grid(srf);  end
+        function set_elt_grid(obj, srf, dx, mat),macos.set_elt_grid(srf, dx, mat); end
+        function scale_elt_grid(obj, srf, f),    macos.scale_elt_grid(srf, f);  end
+        function n  = get_elt_grid_size(obj, srf),    n  = macos.get_elt_grid_size(srf);    end
+        function dx = get_elt_grid_spacing(obj, srf), dx = macos.get_elt_grid_spacing(srf); end
+        function set_elt_grid_spacing(obj, srf, dx),  macos.set_elt_grid_spacing(srf, dx);  end
+        function z  = get_elt_zrn(obj, srf),          z  = macos.get_elt_zrn(srf);          end
+        function t  = get_elt_zrn_type(obj, srf),     t  = macos.get_elt_zrn_type(srf);     end
+        function set_elt_zrn_type(obj, srf, varargin),macos.set_elt_zrn_type(srf, varargin{:}); end
+        function r  = get_elt_zrn_norm_radius(obj, srf),   r = macos.get_elt_zrn_norm_radius(srf); end
+        function set_elt_zrn_norm_radius(obj, srf, r),     macos.set_elt_zrn_norm_radius(srf, r);  end
+        function s  = get_elt_srf_csys(obj, srfs),    s  = macos.get_elt_srf_csys(srfs);    end
+        function set_elt_srf_csys(obj, srf, p, x, y, z),   macos.set_elt_srf_csys(srf, p, x, y, z); end
+        function set_elt_csys(obj, srf, x, y, z, varargin),macos.set_elt_csys(srf, x, y, z, varargin{:}); end
+        function rm_elt_csys(obj, srfs),              macos.rm_elt_csys(srfs);              end
+
+        % --- Grating inspection ---------------------------------------
+        function tf = elt_grating_any(obj),      tf = macos.elt_grating_any();  end
+        function s  = elt_grating_fnd(obj, srfs),s  = macos.elt_grating_fnd(srfs); end
+        function r  = get_elt_grating_type(obj, srf),  r = macos.get_elt_grating_type(srf);  end
+        function o  = get_elt_grating_order(obj, srf), o = macos.get_elt_grating_order(srf); end
+        function d  = get_elt_grating_dir(obj, srf),   d = macos.get_elt_grating_dir(srf);   end
+        function w  = get_elt_grating_rulewidth(obj, srf), w = macos.get_elt_grating_rulewidth(srf); end
+        function p  = get_elt_grating_params(obj, srf),    p = macos.get_elt_grating_params(srf);    end
+
+        % --- Ray-trace status queries ---------------------------------
+        function r = get_ray_info(obj, n),       r = macos.get_ray_info(n);     end
+        function r = get_ray_status(obj, n),     r = macos.get_ray_status(n);   end
+
+        % --- Stop / exit-pupil / first-order --------------------------
+        function s = get_stop_info(obj),         s = macos.get_stop_info();     end
+        function s = fex(obj, varargin),         s = macos.fex(varargin{:});    end
+        function ffp(obj, varargin),             macos.ffp(varargin{:});         end
+        function pfp(obj, varargin),             macos.pfp(varargin{:});         end
+        function xps(obj, iElt),                 macos.xps(iElt);                end
+        function s = get_xp(obj),                s = macos.get_xp();            end
+        function set_xp(obj, vpt, psi, rad),     macos.set_xp(vpt, psi, rad);    end
+        function p = first_order_properties(obj, varargin)
+            p = macos.first_order_properties(varargin{:});
+        end
+        function pq = pupil_quality(obj, ep_elt, varargin)
+            pq = macos.pupil_quality(ep_elt, varargin{:});
+        end
+
+        % --- Source queries -------------------------------------------
+        function s = get_src_size(obj),          s = macos.get_src_size();      end
+        function set_src_size(obj, varargin),    macos.set_src_size(varargin{:}); end
+        function tf = is_point_source(obj),      tf = macos.is_point_source();  end
+        function s = get_src_csys(obj),          s = macos.get_src_csys();      end
+        function f = get_src_flux(obj),          f = macos.get_src_flux();      end
+        function set_src_flux(obj, flux),        macos.set_src_flux(flux);       end
+
+        % --- Diffraction buffers / window -----------------------------
+        function I = compose(obj, srf, varargin), I = macos.compose(srf, varargin{:}); end
+        function window(obj, varargin),          macos.window(varargin{:});      end
+        function window_off(obj),                macos.window_off();             end
+
+        % --- Element finders ------------------------------------------
+        function g = find_grid_elts(obj),        g = macos.find_grid_elts();    end
     end
 end
