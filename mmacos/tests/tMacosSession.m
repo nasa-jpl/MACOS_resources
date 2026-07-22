@@ -81,5 +81,29 @@ classdef tMacosSession < matlab.unittest.TestCase
             dx_m  = testCase.m.dx_at(testCase.m.num_elt(), 'm');
             testCase.verifyEqual(dx_mm, dx_m * 1e3, 'AbsTol', 1e-18);
         end
+
+        % --- new query/instrument method delegation ------------------
+        function test_elt_conic_radius_delegate(testCase)
+            testCase.verifyEqual(testCase.m.get_elt_kc(2), macos.get_elt_kc(2));
+            testCase.verifyEqual(testCase.m.get_elt_kr(2), macos.get_elt_kr(2));
+        end
+
+        function test_src_size_delegate(testCase)
+            s_class = testCase.m.get_src_size();
+            s_pkg   = macos.get_src_size();
+            testCase.verifyEqual(s_class.aperture, s_pkg.aperture);
+            testCase.verifyEqual(testCase.m.is_point_source(), macos.is_point_source());
+        end
+
+        function test_surface_predicates_delegate(testCase)
+            testCase.verifyEqual(testCase.m.elt_grid_any(), macos.elt_grid_any());
+            testCase.verifyEqual(testCase.m.elt_zrn_any(),  macos.elt_zrn_any());
+        end
+
+        function test_stop_info_delegate(testCase)
+            testCase.m.stop(2);
+            s = testCase.m.get_stop_info();
+            testCase.verifyEqual(s.elt, 2);
+        end
     end
 end

@@ -130,7 +130,7 @@ SUITE_FAST=$(join_suites \
     "tDesignOptimize" "tDesignTelescope" "tVeneerXP" "tCoroContrast" \
     "tCompose" "tSysProp" "tSegMirMaker" "tSegmentRx" "tEdgeSensors" \
     "tMet" "tMetView" "tRunMet" "tRunSensitivities" "tRunSegmentation" \
-    "tRunCompare")
+    "tRunCompare" "tSpot")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the
@@ -139,9 +139,9 @@ SUITE_FAST=$(join_suites \
 # matlab -batch.
 SUITE_QUICK=$(join_suites \
     "tMmacosCmd" "tMacosPkg" "tMacosSession" "tBandLimitedMask" \
-    "tPerturbRoundtrip" "tSysProp" "tCompose" "tVeneerXP")
+    "tPerturbRoundtrip" "tSysProp" "tCompose" "tVeneerXP" "tSpot")
 # tFreeFormComposite + tCalib + tReadGridFile + tViewRx run at ModelSize=256
-SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx")
+SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
 # group; lives in "fast" because it's quick.
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
