@@ -64,7 +64,7 @@ function [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_e5hex1()
     param.pimg                = [5d-4, 1d0];   % wavelength, flux
     param.nProc               = 1;
 
-    % Influence functions -- same defaults as optiix init.
+    % Influence functions -- same defaults as the e2e_pie init.
     InfFcnZern        = zeros(45, 1);
     InfFcnZern(1:15)  = 1d-3 * [0;0;0;0;1;0;0;0;0.1;0;0;0;0;0;0];
     InfFcnGrid        = zeros(mgrid, mgrid);

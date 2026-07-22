@@ -1,32 +1,43 @@
-function [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_optiix()
-% INIT_OPTIIX  Reference param struct for the Optiix Rx (regression).
+function [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_e2e_pie()
+% INIT_E2E_PIE  Reference param struct for the e2e_pie Rx (regression).
 %
-% Slimmed-down version of optiixInit_jzlou.m -- only the fields
-% call_GMI actually reads, no interactive prompts, no plotting setup.
-% The vectors (prb, pzern, pgrid) are zero-initialized -- each test
+% e2e_pie = the 7-segment pie-PM three-mirror telescope emitted by the
+% mmacos design pipeline (design/examples/e2e).  17 elements:
+%   Elts  1..7  : FreeForm PM Segments (grid + Mon-Zernike figure)
+%   Elts  8..14 : downstream Reflectors (8,10,11,12,14 = Zernike; 9 Flat;
+%                 13 Conic)
+%   Elts 15..16 : Return (Flat, Conic)  -- Elt 16 = the exit-pupil plane
+%   Elt   17    : FocalPlane
+% Object-space aperture stop (ApStop= 0 0 0).  4 m, 500 nm, model 512.
+% The _met variant carries per-segment metrology, so ifMetCalc=1 here
+% exercises the METcalc / MetMeas channel.
+%
+% Slimmed-down reference initializer -- only the fields call_GMI reads.
+% The vectors (prb, pzern, pgrid) are zero-initialized; each test
 % overrides whatever channels it exercises.
 
-    numseg            = 6;
+    numseg            = 7;                 % 7 pie PM segments
     numSAF            = 0;
     mgrid             = 99;
     mgrid2            = mgrid * mgrid;
     param.mzern       = 12;
     mpdm              = 90 * numseg;
 
-    mrbSrf            = 6 + 5 + 1;
+    mrbSrf            = numseg + 7;         % 7 segments + 7 downstream mirrors
     mprb              = mrbSrf * 6;
     mpgrid            = mgrid2 * numseg;
     mpzern            = (numseg + numSAF) * param.mzern;
 
-    param.Rx          = 'optiixonaxisz1_v4_pmsm_met';
+    param.Rx          = 'e2e_pie_met';
     param.mdttl       = 512;
     param.mgrid       = mgrid;
 
-    % rbSrf: column 2 = 0 (global coords) / 1 (local coords).
-    param.rbSrf       = [(4:9)', zeros(6,1); ...
-                         (11:16)', zeros(6,1)];
-    param.gridSrf     = [param.rbSrf(1,1)]';
-    param.zernSrf     = [];     % populated by tests that exercise Zernike channel
+    % rbSrf: the 14 real optics (7 segments + 7 reflectors) in the
+    % global frame (column 2 = 0 global / 1 local).  Returns (15,16)
+    % and the FocalPlane (17) are not rigid-body channels.
+    param.rbSrf       = [(1:14)', zeros(14,1)];
+    param.gridSrf     = (1:7)';    % FreeForm PM segments carry the grid figure
+    param.zernSrf     = [];        % populated by tests that exercise the Zernike channel
     param.dmSrf       = [];
     param.RptSrf      = [];
     param.RptElt      = [];
@@ -42,10 +53,10 @@ function [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_optiix()
     param.cGrid               = 256;
     param.cPix                = param.mdttl;
     param.DMlim               = 10.0;
-    param.ifOPD               = 17;       % OPD reported at Elt 17
+    param.ifOPD               = 16;       % OPD reported at Elt 16 (exit-pupil Return)
     param.ifPIX               = 0;
-    param.ifPIXElt            = 18;
-    param.ifMetCalc           = 0;
+    param.ifPIXElt            = 17;       % FocalPlane
+    param.ifMetCalc           = 1;        % _met Rx: exercise the METcalc/MetMeas channel
     param.ifShotNoise         = 0;
     param.sigReadNoise        = 0;
     param.sigJitterX          = 0;
@@ -58,7 +69,7 @@ function [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_optiix()
     param.QE                  = 1.0;
     param.DBias               = 0.0;
     param.pfa                 = 0;
-    param.pimg                = [5d-4, 1d0];   % wavelength, flux
+    param.pimg                = [5d-7, 1d0];   % wavelength (m), flux
     param.nProc               = 1;
 
     % Influence functions -- defaults matching legacy test_gmi.m

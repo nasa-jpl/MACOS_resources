@@ -1,19 +1,19 @@
 % 
 % A script running GMI interface to macos_f90
-% for Optiix optical prescription. 
+% for e2e_pie optical prescription. 
 % John Z. Lou, Jet Propulsion Laboratory
 % Last modified: Feb 21, 2012
 % 
 
-% Calc dwdx and Optiix 
+% Calc dwdx and e2e_pie 
 
 clear mex; clear all;
 
 % ------------------------------------------------------------------------------
 % Initialize parameters
 % ------------------------------------------------------------------------------
-optiixInit_jzlou;  % specify Rx and other parameters 
-param.Rx='optiixonaxisz1_v4_pmsm_met';
+e2e_pie_init;  % specify Rx and other parameters 
+param.Rx='e2e_pie_met';
  
 prb = zeros(mprb,1);
 pzern = zeros(mpzern,1);
@@ -22,7 +22,7 @@ pgrid = zeros(mpgrid,1); %1e-4*rand(mpgrid,1); %zeros(mpgrid,1);
 %pdm = 0; %zeros(mpdm,1);
 %param.pfa = [1 0 -0.72*pi/180];
 param.pfa=0; 
-param.pimg(1)=5d-04; % WL
+param.pimg(1)=5d-07; % WL
 param.pimg(2)=1d0;
  
 
@@ -40,9 +40,9 @@ pgrid=zeros(mgrid2,1);
 % ------------------------------------------------------------------------------
 
 % Call GMI interface
-param.ifOPD=17; % OPD element
+param.ifOPD=16; % OPD element
 param.ifPIX=0;  % this turns on or off PIX operation
-param.ifPIXElt=18; % this specifies PIX element
+param.ifPIXElt=17; % this specifies PIX element
 param.ifMetCalc=1;
 param.nProc=1;
 
@@ -55,10 +55,10 @@ if 1,
   [k2ij(:,1),k2ij(:,2)]=find(OPDnom); k2ij=k2ij';
   wnom=OPD2w(OPDnom,k2ij);
   figure; imagesc(OPDnom); colorbar;
-  %save wnom_optiix_v4 wnom OPDnom OPDnomMask metMeasNom k2ij;
+  %save wnom_e2e_pie_v4 wnom OPDnom OPDnomMask metMeasNom k2ij;
   return;
 else,
-  load wnom_optiix_v4;
+  load wnom_e2e_pie_v4;
 end;
 
 nseg=6; 
@@ -138,14 +138,14 @@ if 1,
 end;
 elt_names=[' A1-A6  ', '  SM    ', '  TM    ', '  FSM   ', ' Dummy  ' 'Detector'];
 
-save optiix_v4_dwdx_11elts_urad_um dwdx wnom k2ij elt_names OPDMask_g;
+save e2e_pie_v4_dwdx_11elts_urad_um dwdx wnom k2ij elt_names OPDMask_g;
 
-%save optiix_dwdx wnom k2ij dwdx;
-%save optiix_dwdx_11elts_urad_um dwdx wnom k2ij elt_names;
+%save e2e_pie_dwdx wnom k2ij dwdx;
+%save e2e_pie_dwdx_11elts_urad_um dwdx wnom k2ij elt_names;
 return;
 
 if 0,
- figure,imagesc(OPD); colorbar; title('Optiix nominal OPD');
+ figure,imagesc(OPD); colorbar; title('e2e_pie nominal OPD');
  rmswf=rms2(nonzeros(OPD(:)));
  xlabel(['RMS = ' num2str(rmswf*1d6) ' nm']);
  %figure,imagesc(PIX); colorbar; title('ecco PIX');
