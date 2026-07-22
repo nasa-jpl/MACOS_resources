@@ -1,11 +1,11 @@
 % 
 % A script running GMI interface to macos_f90
-% for Optiix optical prescription. 
+% for e2e_pie optical prescription. 
 % John Z. Lou, Jet Propulsion Laboratory
 % Last modified: Feb 21, 2012
 % 
 
-% Calc dwdx and Optiix 
+% Calc dwdx and e2e_pie 
 
 clear mex; clear all;
 
@@ -40,9 +40,9 @@ pgrid=zeros(mgrid2,1);
 % ------------------------------------------------------------------------------
 
 % Call GMI interface
-% param.ifOPD=17; % OPD element
+% param.ifOPD=16; % OPD element
 % param.ifPIX=0;  % this turns on or off PIX operation
-% param.ifPIXElt=18; % this specifies PIX element
+% param.ifPIXElt=17; % this specifies PIX element
 % param.ifMetCalc=0;
 % param.nProc=1;
 
@@ -55,10 +55,10 @@ if 1,
   [vec,indx]=m2v(OPDnom);
 
   figure; dimage(OPDnom.*1e6); colorbar;
-  %save wnom_optiix_v4 wnom OPDnom OPDnomMask metMeasNom k2ij;
+  %save wnom_e2e_pie_v4 wnom OPDnom OPDnomMask metMeasNom k2ij;
   return;
 else,
-  load wnom_optiix_v4;
+  load wnom_e2e_pie_v4;
 end;
 return
 nseg=6; 
@@ -141,14 +141,14 @@ if 1,
 end;
 elt_names=[' A1-A6  ', '  SM    ', '  TM    ', '  FSM   ', ' Dummy  ' 'Detector'];
 
-save optiix_v4_dwdx_11elts_urad_um dwdx wnom k2ij elt_names OPDMask_g;
+save e2e_pie_v4_dwdx_11elts_urad_um dwdx wnom k2ij elt_names OPDMask_g;
 
-%save optiix_dwdx wnom k2ij dwdx;
-%save optiix_dwdx_11elts_urad_um dwdx wnom k2ij elt_names;
+%save e2e_pie_dwdx wnom k2ij dwdx;
+%save e2e_pie_dwdx_11elts_urad_um dwdx wnom k2ij elt_names;
 return;
 
 if 0,
- figure,imagesc(OPD); colorbar; title('Optiix nominal OPD');
+ figure,imagesc(OPD); colorbar; title('e2e_pie nominal OPD');
  rmswf=rms2(nonzeros(OPD(:)));
  xlabel(['RMS = ' num2str(rmswf*1d6) ' nm']);
  %figure,imagesc(PIX); colorbar; title('ecco PIX');

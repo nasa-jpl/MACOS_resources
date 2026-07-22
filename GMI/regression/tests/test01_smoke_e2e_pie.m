@@ -1,12 +1,12 @@
-function result = test01_smoke_optiix(opts)
-% Smoke test on the Optiix Rx: load + nominal call + sanity assertions
+function result = test01_smoke_e2e_pie(opts)
+% Smoke test on the e2e_pie Rx: load + nominal call + sanity assertions
 % on shape, finiteness, sum > 0.  Does NOT compare to reference yet --
 % the harness's "first call after a `clear mex`" is what's exercised.
 
-    name = 'test01_smoke_optiix';
+    name = 'test01_smoke_e2e_pie';
     result = make_result(name);
 
-    [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_optiix();
+    [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_e2e_pie();
 
     try
         clear mex;

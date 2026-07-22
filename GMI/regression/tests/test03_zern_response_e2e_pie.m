@@ -1,4 +1,4 @@
-function result = test03_zern_response_optiix(opts)
+function result = test03_zern_response_e2e_pie(opts)
 % Zernike-channel apply: put a 1e-8 mm Z4 (defocus) on the first
 % segment via param.zernSrf, compare the OPD difference against a
 % committed reference column.
@@ -8,13 +8,13 @@ function result = test03_zern_response_optiix(opts)
 %   - the iNode = 4..nzern+3 indexing convention drifting
 %   - the ELSE-branch reset failing to zero ZernCoef between calls
 
-    name = 'test03_zern_response_optiix';
+    name = 'test03_zern_response_e2e_pie';
     result = make_result(name);
 
-    [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_optiix();
+    [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_e2e_pie();
 
-    % Pick the first segment of optiix as the Zernike target.
-    target_elt   = 4;                    % param.rbSrf row 1
+    % Pick a Zernike-typed reflector (Elt 8) as the target.
+    target_elt   = 8;                    % Elt 8 = a Zernike reflector
     target_mode  = 4;                    % Z4 = defocus (Born&Wolf 4)
     amplitude_mm = 1.0d-8;
     param.zernSrf = [target_elt];
@@ -51,7 +51,7 @@ function result = test03_zern_response_optiix(opts)
 
     % Reference: dOPD must match the committed column.
     ref_path = fullfile(fileparts(fileparts(mfilename('fullpath'))), ...
-                        'reference', 'zern_response_optiix.mat');
+                        'reference', 'zern_response_e2e_pie.mat');
     if ~isfile(ref_path)
         result.pass = false;
         result.msg = sprintf(['[%s] FAIL  reference not found: %s\n  ' ...

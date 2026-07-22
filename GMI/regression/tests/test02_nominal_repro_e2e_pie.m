@@ -1,4 +1,4 @@
-function result = test02_nominal_repro_optiix(opts)
+function result = test02_nominal_repro_e2e_pie(opts)
 % Nominal-call repeatability: call_GMI twice with zero perturbations,
 % the two OPDnom arrays must be bit-identical.  Catches state-drift
 % bugs in SetToNominalSettings / ObtainNominalSettings (the class of
@@ -8,10 +8,10 @@ function result = test02_nominal_repro_optiix(opts)
 % Also compares against the committed reference OPDnom to catch
 % inter-build / inter-version drift.
 
-    name = 'test02_nominal_repro_optiix';
+    name = 'test02_nominal_repro_e2e_pie';
     result = make_result(name);
 
-    [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_optiix();
+    [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_e2e_pie();
 
     try
         clear mex;
@@ -36,7 +36,7 @@ function result = test02_nominal_repro_optiix(opts)
 
     % Reference: call 1 must match the committed reference.
     ref_path = fullfile(fileparts(fileparts(mfilename('fullpath'))), ...
-                        'reference', 'nominal_optiix.mat');
+                        'reference', 'nominal_e2e_pie.mat');
     if ~isfile(ref_path)
         result.pass = false;
         result.msg = sprintf(['[%s] FAIL  reference not found: %s\n  ' ...

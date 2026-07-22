@@ -33,7 +33,7 @@ source ~/dev/macos/makegmi.sh
 | `GMI.F` | `MODULE GMI_mod` containing `GMI_DVR` (the work routine) and a stack of internal subroutines |
 | `GMI.inc` | compile-time array sizes (`numseg`, `mzern`, `mpzern`, `mprb`, `mpgrid`, …) |
 | `call_GMI.m` | MATLAB wrapper that builds `pflg` from a `param` struct and invokes the mex |
-| `optiixInit_jzlou.m` | reference `param` initializer (Optiix Rx). `gmi_Init_*.m` files in user test dirs follow this pattern |
+| `e2e_pie_init.m` | reference `param` initializer (e2e_pie Rx). `gmi_Init_*.m` files in user test dirs follow this pattern |
 | `test_gmi.m`, `test_gmi_ff.m` | sample driver scripts (rb sensitivity loops, MonZern sensitivity loops) |
 
 ## Mex argument layout (14 args, all PRHS positional)

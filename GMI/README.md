@@ -19,9 +19,9 @@ wavefront sensing demos.
 | `GMI.mexa64` | Built MEX binary (gitignored; produced by `Makefile`) |
 | `Makefile` | Standalone build (auto-detects MATLAB under `/usr/local/MATLAB`) |
 | `call_GMI.m` | MATLAB wrapper — packs a `param` struct into `pflg` and invokes the MEX |
-| `optiixInit_jzlou.m` | Reference `param` initializer (Optiix Rx) |
+| `e2e_pie_init.m` | Reference `param` initializer (e2e_pie Rx) |
 | `test_gmi.m` | Sample driver (rb sensitivity loops) |
-| `optiixonaxisz1_v4_pmsm_met.in` | Optiix prescription used by `test_gmi.m` |
+| `e2e_pie_met.in` | e2e_pie prescription used by `test_gmi.m` |
 | `ff_pie.in` | FreeForm pie-segmented test prescription |
 | `test_ff/` | Self-contained FreeForm sensitivity test directory (see below) |
 | `CLAUDE.md` | Architecture / mex-arg / pflg-layout / nominal-restore reference |
@@ -47,7 +47,7 @@ source ~/dev/macos/makegmi.sh
 ## Quick start (MATLAB)
 
 ```matlab
-optiixInit_jzlou;          % populate `param` and constants
+e2e_pie_init;              % populate `param` and constants
 prb = zeros(mprb,1);
 [PIX,CE,OPD,OPDMask,SPOT,WFE,c,metMeas,USER] = ...
    call_GMI(prb, 0, 0, 0, 0, 0, ...

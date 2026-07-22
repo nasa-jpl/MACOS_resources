@@ -37,9 +37,9 @@ Needs MATLAB (any `R20xx` under `/usr/local/MATLAB/`) and a built
 
 | Test | Rx | Channel | Catches |
 |---|---|---|---|
-| 01 smoke (optiix) | `optiixonaxisz1_v4_pmsm_met` | nominal | mex won't load, missing symbol, signature regression |
-| 02 nominal repro (optiix) | optiix | nominal x2 | `SetToNominalSettings` state-drift |
-| 03 Zernike response (optiix) | optiix | Z4 on Elt 4 | Zernike-channel apply path, `iNode=4..nzern+3` indexing, ELSE-branch reset |
+| 01 smoke (e2e_pie) | `e2e_pie_met` | nominal | mex won't load, missing symbol, signature regression |
+| 02 nominal repro (e2e_pie) | e2e_pie | nominal x2 | `SetToNominalSettings` state-drift |
+| 03 Zernike response (e2e_pie) | e2e_pie | Z4 on Elt 8 (Zernike-typed) | Zernike-channel apply path, `iNode=4..nzern+3` indexing, ELSE-branch reset |
 | 04 smoke (e5hex1) | `Rx_e5hex1.in` (FreeForm chain) | nominal | basic FreeForm loading |
 | 05 nominal repro (e5hex1) | e5hex1 | nominal x2 | FreeForm save/restore (`pFF/xFF/yFF/zFF`, `pData/xData/...`) |
 | 06 Zernike response (e5hex1) | e5hex1 | Z4 on Elt 8 (Zernike-typed) | Zernike apply on a mixed FreeForm+Zernike chain |
@@ -57,24 +57,24 @@ regression/
 ├── regression_main.m            top-level runner
 ├── bootstrap_reference.m        regenerate references
 ├── tests/
-│   ├── test01_smoke_optiix.m
-│   ├── test02_nominal_repro_optiix.m
-│   ├── test03_zern_response_optiix.m
+│   ├── test01_smoke_e2e_pie.m
+│   ├── test02_nominal_repro_e2e_pie.m
+│   ├── test03_zern_response_e2e_pie.m
 │   ├── test04_smoke_e5hex1.m
 │   ├── test05_nominal_repro_e5hex1.m
 │   └── test06_zern_response_e5hex1.m
 ├── lib/
 │   ├── compare_within.m         absolute-tolerance equality check
-│   ├── init_optiix.m            param struct for the Optiix Rx
+│   ├── init_e2e_pie.m           param struct for the e2e_pie Rx
 │   └── init_e5hex1.m            param struct for the e5hex1 Rx
 ├── reference/                   committed `.mat` ground truth
-│   ├── nominal_optiix.mat
-│   ├── zern_response_optiix.mat
+│   ├── nominal_e2e_pie.mat
+│   ├── zern_response_e2e_pie.mat
 │   ├── nominal_e5hex1.mat
 │   └── zern_response_e5hex1.mat
 └── Rx/                          prescription files seen by SMACOS OLD
     ├── Rx_e5hex1.in
-    └── optiixonaxisz1_v4_pmsm_met.in   (copied from parent on first run)
+    └── e2e_pie_met.in          (copied from parent on first run)
 ```
 
 ## When a test fails
