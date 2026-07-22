@@ -1,72 +1,65 @@
-# Optical-design reference & regression fixtures
+# optical_design — design-layer reference fixtures & tools
 
-Language-agnostic ground truth for the **design layer** built on MACOS —
-shared by the MATLAB binding (`mmacos/+macos/+design/`, the live
-consumer) and the eventual Python port (`pymacos`).  Kept at the
-`MACOS_resources` root, beside `rx_converter` / `segmirmaker`, so both
-bindings (and their users) can find it and so the JSON fixtures serve as
-the **shared golden specs** for the cross-language byte-identical-`.in`
-parity criterion (`macos/PLAN_DESIGN_LAYER.md` §3).
+Language-agnostic ground truth for the **MACOS design layer**
+(`mmacos/+macos/+design/`, and the Python port in `pymacos`).  The JSON
+fixtures here are the shared golden specs that the bindings are validated
+against; the Python tools are the oracles that generate and check them.
 
-| Path | What | Use it for |
-|---|---|---|
-| `TELESCOPE_DESIGN_REFERENCE.md` | Schroeder closed forms: first-order layout, two-mirror master conditions, conic constants per family, Korsch TMA, freeform | **reasoning** |
-| `OPTICAL_DESIGN_AGENT_GUIDE.md` | how to use this set; FIXED conventions; the stop-and-fix gate | **read before editing any optical math** |
-| `fixtures/telescope_design_fixtures.{json,md}` | 5 two-mirror `(f,D,m,β) → R1,R2,K1,K2` rows (RC / Cass / DK / Gregorian) | **assert these numbers** |
-| `fixtures/tma_fixture.{json,md}` | Korsch TMA, conics solved to null S_I/II/III (machine-zero by construction) | **assert these numbers** |
-| `fixtures/jwst_anchor.json` | real published JWST M1/M2; M3 + spacings TODO **on purpose** | real-world anchor (trace-disabled until completed) |
-| `seidel.py` | paraxial + Seidel **oracle** (print-only; never writes fixtures) | ground truth / regeneration spec |
-| `make_fixtures.py`, `make_tma_fixture.py` | self-validating regenerators | reproduce the JSON from scratch |
+Kept at the `MACOS_resources` root so both bindings — and their users —
+can find it.
 
-**Conventions (FIXED — do not reinterpret):** `R > 0` = concave /
-converging; two-mirror conics in the Schroeder `(m, β)` convention
-(`β` = back-focal-distance / f1).  If MACOS's internal radius/magnitude
-sign differs, write the translation layer explicitly and test it against
-the two-mirror fixtures before trusting anything downstream.  (The MACOS
-emission mapping is now pinned: `KcElt=K`, `KrElt=-|R|`, `psiElt`→CoC —
-see the agent reference memory and `mmacos/+macos/+design/Telescope.m`.)
+## Contents
 
-**Verification gate (hard stop):** after any change to conic-solving,
-first-order-layout, or aberration-evaluation code, run the fixtures.
+| Path | What it is |
+|---|---|
+| `fixtures/telescope_design_fixtures.json` | 5 two-mirror rows `(f, D, m, β) → R1, R2, K1, K2` (Ritchey-Chrétien / classical Cassegrain / Dall-Kirkham / Gregorian). Golden. |
+| `fixtures/tma_fixture.json` | Korsch three-mirror anastigmat with conics solved to null spherical/coma/astigmatism (Seidel S_I/S_II/S_III ≈ machine zero). Golden. |
+| `fixtures/jwst_anchor.json` | Real published JWST M1/M2 as a real-world anchor. M3 + spacings are intentionally incomplete (trace-disabled) until filled in. |
+| `seidel.py` | Paraxial + Seidel-aberration oracle for coaxial mirror trains (print-only; never writes fixtures). The ground-truth engine. |
+| `make_fixtures.py` | Regenerates `telescope_design_fixtures.json` from the closed-form two-mirror relations; self-validating. |
+| `make_tma_fixture.py` | Regenerates `tma_fixture.json`; solves the TMA conics against `seidel.py` and asserts the aberration residuals. |
+| `coronagraph_layout.py` | First-order layout generator for a Lyot-type, two-DM coronagraph back-end. `design(spec)` → OAP focal lengths, pupil sizes, focal-plane scales, Nyquist F/#. |
+| `coronagraph_layout.json` | A sample `coronagraph_layout.py` output (Roman-class defaults). Illustrative example — **not** a golden fixture. |
+
+## Who consumes these
+
+- `mmacos/+macos/+design/Telescope.m` and `seidel_seed.m` — the shipped
+  MATLAB design layer — are ported and validated against the two-mirror
+  and TMA fixtures.
+- The mmacos test suite reads the fixtures via
+  `mmacos/tests/private/design_fixture_path.m` (see `tDesignTelescope`).
+
+## Conventions (fixed — do not reinterpret)
+
+- **Telescope generators / fixtures use metres.** `R > 0` = concave /
+  converging mirror. Two-mirror conics follow Schroeder's `(m, β)`
+  convention, where `β` = back-focal-distance / f₁.
+- **`coronagraph_layout.py` uses mm + nm** (not metres). The only safe
+  chaining point between the metre-based telescope layout and this module
+  is the dimensionless `input_fnum` (feed the telescope's output F/#);
+  convert any physical length m↔mm explicitly.
+- Coronagraph working angles are in **λ/D referenced to the telescope
+  aperture**, not the instrument beam — the module is aperture-agnostic.
+- `coronagraph_layout.py` produces **first-order layout only** — no
+  contrast, dark-hole depth, mask profiles, or wavefront-control
+  performance (those belong to a diffraction/control model such as PROPER
+  or FALCO). Its `quarter_talbot_sep_mm` is a reference scale, not the
+  operating DM1–DM2 separation.
+
+## Regenerating / verifying the fixtures
+
+The golden JSON fixtures are reproducible from scratch — never hand-edit
+them. After any change to the conic-solving or aberration code, regenerate
+and let the tools self-check:
+
+```sh
+# needs numpy (e.g. the pymacos venv):
+python3 make_fixtures.py        # -> fixtures/telescope_design_fixtures.json
+python3 make_tma_fixture.py     # -> fixtures/tma_fixture.json (asserts S_I/II/III ≈ 0)
+python3 seidel.py               # prints the paraxial + Seidel oracle output
+```
+
 A conic mismatch `> 1e-6` on a two-mirror row, or a nonzero
-S_I/II/III on the TMA fixture, is **stop-and-fix** — never widen the
-tolerance or hand-edit a fixture; regenerate with the matching
-`make_*.py` and explain the discrepancy.
-
-## Coronagraph back-end (instrument layer, Sprint 3)
-
-Companion set for the coronagraph treated as a telescope back-end
-(Lyot-type, two-DM wavefront control).  **First-order *layout* only — NOT
-a diffraction/contrast model, and the sample is NOT a regression
-fixture.**
-
-| Path | What | Use it for |
-|---|---|---|
-| `CORONAGRAPH_DESIGN_RULES.md` | architecture, plane sequence, OAP-relay rules, the two-DM quarter-Talbot derivation, FPM/Lyot/apodizer rules, contrast-limiting effects | **reasoning** |
-| `CORONAGRAPH_DESIGN_AGENT_GUIDE.md` | how to use this set; the hard rules | **read before editing coronagraph layout** |
-| `coronagraph_layout.py` | first-order layout generator: `(D_beam, N_act, λ, IWA/OWA, F/#s, pixel)` → OAP focal lengths, pupil sizes, FPM scales, Nyquist F/#, DM-sep envelope | **call `design()` for a layout** |
-| `coronagraph_layout.md` | usage notes + the quarter-Talbot caveat | **reasoning** |
-| `coronagraph_layout.json` | **sample output** (Roman-class default) — **NOT golden truth** | example only |
-
-**Coronagraph-specific rules (do not violate):**
-- **`quarter_talbot_sep_mm` is a reference SCALE, never the DM1–DM2
-  separation.**  It is frequency-dependent (~metres at OWA, ~hundreds of
-  metres at IWA); the real ~1 m operating separation is optimized in the
-  diffraction model (FALCO), not here.  Carry it as `dm_sep_upper_scale`.
-- **Units are mm + nm here** (the telescope generators are **metres**).
-  The only safe chaining point is the dimensionless `input_fnum` (feed
-  the TMA's output F/# in).  Convert any physical length m↔mm explicitly.
-- **λ/D is referenced to the telescope aperture, not the instrument
-  beam** — this module is aperture-agnostic; don't substitute `D_beam`.
-- This is layout, not performance: **no contrast, dark-hole depth, mask
-  profiles, polarization, or EFC** come from here — those live in the
-  diffraction/control layer (FALCO / PROPER).  Its self-checks are
-  *constraint* checks (OWA ≤ N/2, Nyquist, `IWA<OWA`), not
-  ground-truth comparisons — so `coronagraph_layout.json` is **not** a
-  fixture and lives outside `fixtures/` deliberately.
-
-`prepare-public-release` note: this is internal development reference;
-exclude from any public-bound snapshot until the design layer ships.
-
-The generators need `numpy`; run them with the pymacos venv
-(`pymacos/.venv/bin/python`).
+S_I/S_II/S_III on the TMA fixture, means the generating code changed
+behaviour — fix the code and regenerate, don't widen the tolerance or
+edit the fixture by hand.

@@ -23,7 +23,7 @@ optical_design/CORONAGRAPH_DESIGN_AGENT_GUIDE.md
 optical_design/OPTICAL_DESIGN_AGENT_GUIDE.md
 optical_design/CORONAGRAPH_DESIGN_RULES.md
 optical_design/TELESCOPE_DESIGN_REFERENCE.md
-optical_design/README.md
+optical_design/AGENT_NOTES.md
 optical_design/coronagraph_layout.md
 optical_design/fixtures/telescope_design_fixtures.md
 optical_design/fixtures/tma_fixture.md
@@ -41,8 +41,9 @@ these — stripping them breaks tests:
 - `optical_design/coronagraph_layout.json`
 
 Only the agent-voiced `.md` docs in `optical_design/` are stripped (above).
-Note: after the strip the kept `.py`/`.json` lose their (agent-voiced) README;
-write a short user-facing one on `main` if desired.
+`optical_design/README.md` is a user-facing README documenting the kept
+fixtures/tools and **stays on `main`**; the previous agent-voiced README was
+preserved as `optical_design/AGENT_NOTES.md` (dev-only, in the strip list).
 
 ## Explicitly KEPT on `main` (external documentation — do NOT strip)
 
