@@ -83,6 +83,25 @@ make unittest                                         # full matlab.unittest sui
 `mmacos.mexa64` lands in `src/` (the build, runner, and examples all add
 `mmacos/src` to the MATLAB path).  `make clean` removes build artefacts.
 
+### macOS (Apple Silicon)
+
+Fully supported — `make` (gfortran) and `run_mmacos_tests.sh` build a
+`mmacos.mexmaca64` bundle and run green (validated: fast suite 226/0).
+Darwin specifics are handled automatically (MATLAB at `/Applications/
+MATLAB_R*.app`, `maca64` arch, `-bundle`+dynamic_lookup link, `-mcpu=native`).
+Two things to know:
+
+- Toolchain is **gfortran only** (ifx has no arm64); `make` picks it up via
+  the bare `gfortran` Homebrew symlink.  Build the engine first with
+  `cmake -DCMAKE_Fortran_COMPILER=gfortran-NN -DBUILD_SMACOS=ON` into
+  `build_release_gfortran/` (the Makefile's macOS default `MACOS_BUILD_DIR`).
+- `run_mmacos_tests.sh` exports **`MACOS_HOME`** so the engine finds
+  `macos_param.txt`.  A missing param file aborts `init` fatally, and inside
+  the MEX host that abort is a **SIGSEGV** (not a clean error) — set
+  `MACOS_HOME=<macos>/macos_f90` for any batch/`-batch` run from a paramless cwd.
+
+Full setup + copy-paste commands: **`../../macos/MAC_PORT.md`**.
+
 ### gfortran vs ifx
 
 gfortran is the default: it produces a mex that **exits MATLAB cleanly**
