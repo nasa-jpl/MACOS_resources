@@ -29,7 +29,7 @@ function out = opd_psf(rx_path, opts)
 %   (restored on return) -- co-located grid files then load correctly.
 %
 %   Example:
-%     macos.opd_psf('iris_dp_ZGD.in', 'wf_elt', 55, 'psf', true, ...
+%     macos.opd_psf('my_rx.in', 'wf_elt', 55, 'psf', true, ...
 %                   'save_png', true, 'save_mat', true);
 %
 %   See also: macos.opd, macos.intensity, macos.fex, macos.trace.

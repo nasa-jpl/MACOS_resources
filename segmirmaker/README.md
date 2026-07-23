@@ -40,7 +40,7 @@ cd ~/dev/MACOS_resources/segmirmaker/test_in
 The interactive dialog walks you through:
 
 1. **Parent prescription file** — type a MACOS `.in` filename (e.g.
-   `iris_dp_v14`) or hit return for a no-parent canonical conic.
+   `my_telescope`) or hit return for a no-parent canonical conic.
 2. **Parent element index** — the element number of the parent
    surface to segment (e.g. `1` for the primary).
 3. **Output filename** — produces `<name>.presc` and `<name>Hx.m`.
