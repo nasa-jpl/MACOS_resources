@@ -21,11 +21,18 @@ classdef tSegMirMaker < matlab.unittest.TestCase
             here = fileparts(mfilename('fullpath'));            % mmacos/tests
             res_root = fileparts(fileparts(here));              % MACOS_resources
             tc.tin = fullfile(res_root, 'segmirmaker', 'test_in');
-            tc.bin = fullfile(res_root, 'segmirmaker', ...
-                              'build_release_ifx', 'SegMirMaker');
+            % Locate whichever build tree exists (ifx on Linux, gfortran on
+            % macOS / gfortran builds); ifx preferred when both are present.
+            smmdir = fullfile(res_root, 'segmirmaker');
+            tc.bin = '';
+            for tag = ["build_release_ifx", "build_release_gfortran", ...
+                       "build_debug_ifx", "build_debug_gfortran"]
+                cand = fullfile(smmdir, tag, 'SegMirMaker');
+                if isfile(cand), tc.bin = cand; break; end
+            end
             tc.assumeTrue(isfolder(tc.tin), ...
                 'segmirmaker/test_in not found');
-            tc.assumeTrue(isfile(tc.bin), ...
+            tc.assumeTrue(~isempty(tc.bin) && isfile(tc.bin), ...
                 'SegMirMaker binary not built (source ./makesegmirmaker.sh)');
         end
     end

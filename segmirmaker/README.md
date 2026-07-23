@@ -20,21 +20,57 @@ references.)
 
 ```
 cd ~/dev/MACOS_resources/segmirmaker
-./makesegmirmaker.sh        # release build, ifx
+./makesegmirmaker.sh            # release build, ifx  -> build_release_ifx/
+./makesegmirmaker.sh gfortran   # release build, gfortran -> build_release_gfortran/
 ```
 
-Output: `build_release_ifx/SegMirMaker`. Needs `macos_param.txt` in
-the working directory at runtime.
+Output: `build_<type>_<fc>/SegMirMaker` (e.g. `build_release_ifx/`).
+Needs `macos_param.txt` in the working directory at runtime. The
+script auto-selects the matching engine tree from the compiler +
+build type (`build_release` / `build_release_gfortran` / debug
+variants); override with `MACOS_BUILD_DIR=` in the environment.
 
 The ifx build compiles `-fp-model strict` (no FMA contraction): a
 rebuilt binary reproduces the committed `test_in/` reference outputs
 **byte-identically**, which is what the batch regression below pins.
+gfortran is likewise deterministic run-to-run, but its outputs differ
+in the last digits from ifx's, so the byte-identity references are
+**per-compiler / per-machine** — they are gitignored and regenerated
+locally (see "Batch / scripted use"). The regression compares against
+whatever `test_in/*.presc` + `*Hx.m` the local toolchain produced.
+
+### macOS (Apple Silicon)
+
+Fully supported — gfortran only (`ifx` has no arm64 build; the script
+forces gfortran on Darwin automatically):
+
+```
+cd ~/dev/MACOS_resources/segmirmaker
+source ./makesegmirmaker.sh gfortran   # -> build_release_gfortran/SegMirMaker
+```
+
+Prereqs mirror the rest of the Mac port ([`../../macos/MAC_PORT.md`]):
+a gfortran-built engine tree at `~/dev/macos/build_release_gfortran/`,
+Homebrew `readline` (the CMakeLists picks it up via `brew --prefix
+readline` — the bundled `macos_f90/readline-8.2` isn't built on Mac),
+and `export MACOS_HOME=~/dev/macos/macos_f90` at runtime (a missing
+`macos_param.txt` aborts `init`).
+
+**Fixed for the Mac port (2026-07-23):** `CACCEPT`/`PROMPT` declared
+their character dummy as fixed-length `CHARACTER*32` while the caller
+passes a `CHARACTER*20` (`GridTypeStr`); the `CVAR=' '` blank-fill
+overran the actual argument by 12 bytes and clobbered the adjacent
+`nRing` on the stack (read back as `0x20202020` = four blanks =
+538976288 → a `7.4e-6` segment-size default and `SurfCoordFF: ray
+missed parent surface`). ifx's stack layout happened to hide it;
+gfortran/arm64 exposed it. The dummies are now assumed-length
+`CHARACTER*(*)` — a correctness fix that applies to every platform.
 
 ## Quick start
 
 ```
 cd ~/dev/MACOS_resources/segmirmaker/test_in
-../build_release_ifx/SegMirMaker
+../build_release_ifx/SegMirMaker          # or ../build_release_gfortran/SegMirMaker
 ```
 
 The interactive dialog walks you through:
@@ -87,12 +123,20 @@ in a directory containing `macos_param.txt`, the parent `.in`, and any
 ```
 cd test_in
 ../build_release_ifx/SegMirMaker < e5pie.stdin     # regenerates e5pie.presc + e5pieHx.m
+# (or ../build_release_gfortran/SegMirMaker on a gfortran / macOS build)
 ```
 
 `test_in/e5pie.stdin` and `test_in/e5hex2.stdin` regenerate the
-committed reference outputs byte-identically (run them in a scratch
-copy of the directory — the tool prompts before overwriting an
-existing output, which shifts the answer stream off-script).
+reference outputs byte-identically (run them in a scratch copy of the
+directory — the tool prompts before overwriting an existing output,
+which shifts the answer stream off-script). The `.presc`/`Hx.m`
+references themselves are gitignored and **regenerated locally** for
+the toolchain in use — the first time you build with a new compiler
+(e.g. gfortran on the Mac), run both `.stdin` scripts once to populate
+`test_in/` before running `tSegMirMaker`. The binary-locate logic in
+the driver and the test scans `build_release_ifx` then
+`build_release_gfortran` (then the debug variants), so whichever tree
+you built is found automatically.
 
 From MATLAB, use the design-layer driver — it assembles the answers,
 stages a fresh scratch dir (parent + `macos_param.txt` + grid files),

@@ -1452,10 +1452,15 @@ C***********************************************************************
 	SUBROUTINE CACCEPT(CVAR,CDEF,TEXT)
 C	CHARACTER INPUT ROUTINE
 C	Blank line -> CVAR = CDEF (if given); else reprompt.
+C	CVAR is assumed-length: a fixed CHARACTER*32 dummy blank-fills 32
+C	bytes even when the caller passes a shorter actual (e.g. the
+C	CHARACTER*20 GridTypeStr), overrunning the argument and clobbering
+C	adjacent stack storage -- observed on gfortran/arm64 as a corrupted
+C	nRing (0x20202020 = four blanks).  Match the actual length instead.
 
 	IMPLICIT NONE
 	CHARACTER*(*) TEXT,CDEF
-	CHARACTER*32 CVAR
+	CHARACTER*(*) CVAR
 
   1	FORMAT(1X,A,' [',A,']: ')
   5	FORMAT(1X,A,': ')
@@ -1479,7 +1484,7 @@ C***********************************************************************
 	SUBROUTINE PROMPT(CVAR,TEXT)
 	IMPLICIT NONE
 	CHARACTER*(*) TEXT
-	CHARACTER*32 CVAR
+	CHARACTER*(*) CVAR
   5	FORMAT(1X,A,': ')
 100	CONTINUE
 	CVAR=' '

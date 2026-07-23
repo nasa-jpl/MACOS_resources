@@ -27,9 +27,18 @@ find_library(PNG_LIB       png16     PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PAT
 find_library(Z_LIB         z         PATHS ${MACOS_BUILD_DIR}/lib NO_DEFAULT_PATH REQUIRED)
 
 # readline lives outside the CMake tree (built by makealldcr.sh into the
-# macos_f90/readline-8.2 source directory).
-set(READLINE_LIB "$ENV{HOME}/dev/macos/macos_f90/readline-8.2/libreadline.a"
-    CACHE FILEPATH "Static readline library")
+# macos_f90/readline-8.2 source directory).  On macOS the engine build uses
+# Homebrew's readline instead of the bundled one, so pick that up here too.
+if(APPLE)
+  execute_process(COMMAND brew --prefix readline
+      OUTPUT_VARIABLE _brew_readline OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET)
+  set(READLINE_LIB "${_brew_readline}/lib/libreadline.a"
+      CACHE FILEPATH "Static readline library")
+else()
+  set(READLINE_LIB "$ENV{HOME}/dev/macos/macos_f90/readline-8.2/libreadline.a"
+      CACHE FILEPATH "Static readline library")
+endif()
 if(NOT EXISTS "${READLINE_LIB}")
   message(FATAL_ERROR "readline static library not found: ${READLINE_LIB}")
 endif()
@@ -66,8 +75,17 @@ target_link_libraries(SegMirMaker PRIVATE
     ${PIXMAN_LIB}
     ${PNG_LIB}
     ${Z_LIB}
-    ${READLINE_LIB}
-    X11 ncurses dl pthread m)
+    ${READLINE_LIB})
+
+# Platform system libraries.  On Linux the giza/pgplot stack needs X11 and
+# readline needs ncurses/dl; on macOS -ldl is folded into libSystem and the
+# CoreFoundation frameworks the Homebrew libs may reference are picked up
+# automatically, so only ncurses + the math/thread libs are named explicitly.
+if(APPLE)
+  target_link_libraries(SegMirMaker PRIVATE ncurses pthread m)
+else()
+  target_link_libraries(SegMirMaker PRIVATE X11 ncurses dl pthread m)
+endif()
 
 # Embed RPATH so the binary runs without sourcing Intel setvars.sh or
 # relying on a loaded gfortran module.  Same pattern as macos/CMakeLists.txt.
@@ -81,5 +99,9 @@ elseif(NOT WIN32 AND CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   set_target_properties(SegMirMaker PROPERTIES
       BUILD_RPATH   "${CMAKE_Fortran_IMPLICIT_LINK_DIRECTORIES}"
       INSTALL_RPATH "${CMAKE_Fortran_IMPLICIT_LINK_DIRECTORIES}")
-  target_link_options(SegMirMaker PRIVATE -Wl,--disable-new-dtags)
+  # --disable-new-dtags is a GNU-ld option ld64 rejects; RPATH via the
+  # implicit link dirs is already correct on macOS (@rpath entries).
+  if(NOT APPLE)
+    target_link_options(SegMirMaker PRIVATE -Wl,--disable-new-dtags)
+  endif()
 endif()

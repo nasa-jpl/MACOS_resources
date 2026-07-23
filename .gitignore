@@ -3,6 +3,8 @@
 *.mod
 *.mexa64
 *.mexa64.dSYM/
+*.mexmaca64
+*.mexmaca64.dSYM/
 .fc_stamp
 
 # CMake build trees
