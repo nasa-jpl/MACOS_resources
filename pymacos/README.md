@@ -148,9 +148,19 @@ validated against the loaded prescription before the Fortran call.
 
 ## Build
 
-Two cmake passes. **Intel oneAPI (icx/icpx/ifx) is required** —
-the cmake hard-codes Intel compilers; gfortran is not currently
-supported. cmake **≥ 3.31**, Python **≥ 3.13**, NumPy **≥ 2.2**.
+Two cmake passes. On **Linux/Windows, Intel oneAPI (icx/icpx/ifx) is
+required** — the cmake hard-codes Intel compilers there. On **macOS
+(Apple Silicon) the build is gfortran** (ifx has no arm64); the cmake has
+an `if(APPLE)` arm that selects gfortran + Apple clang and preprocesses
+with `-E -cpp -P` (see `../../macos/MAC_PORT.md` for the validated Mac
+recipe). cmake **≥ 3.31**, Python **≥ 3.13**, NumPy **≥ 2.2**.
+
+> **macOS quick path:** build the engine into `~/dev/macos/build_release_gfortran/`,
+> then `cmake -B build_mac -DCMAKE_Fortran_COMPILER=gfortran-NN
+> -DMACOS_BUILD_DIR=<...>/build_release_gfortran
+> -DPython_EXECUTABLE=<venv>/bin/python && cmake --build build_mac`.
+> Set `MACOS_HOME=<macos>/macos_f90` at runtime so `init` finds
+> `macos_param.txt` (missing → fatal abort).
 
 ### 1. SMACOS static libraries
 
