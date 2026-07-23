@@ -15,8 +15,7 @@ import context  # noqa: F401  -- adds ../src to sys.path
 from pymacos import macos as m
 
 
-RX_SRC = Path(
-    '/home/dcr/dev/macos/ZGD_test_files/opt_example.in')
+RX_SRC = Path(__file__).resolve().parent / 'Rx' / 'opt_example.in'
 
 
 @pytest.fixture()
