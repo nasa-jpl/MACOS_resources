@@ -28,11 +28,26 @@ SRCPATH := $(MMACOS_DIR)/$(SRCDIR)
 # the gfortran mex exits MATLAB cleanly; ifx also works but is the
 # alternative.  macos_api_mod was ported to be gfortran-clean as part of
 # §5.2; both compilers now produce numerically identical results.
-FC ?= gfortran
+# Default to gfortran.  NOTE: a plain `FC ?= gfortran` does NOT work here —
+# GNU make ships a built-in default `FC = f77`, and `?=` treats that built-in
+# as "already set", so bare `make` would try f77.  Override only when FC comes
+# from make's built-in default (an explicit `make FC=ifx` still wins).
+ifeq ($(origin FC),default)
+  FC := gfortran
+endif
 
-# MATLAB installation — pick the lexicographically latest R20XXx.
-MATLAB_BASE := /usr/local/MATLAB
-MATLAB_DIR  := $(shell ls -1d $(MATLAB_BASE)/R[0-9]*[ab] 2>/dev/null | sort -V | tail -1)
+# OS detection (used for MATLAB location + arch below)
+OS := $(shell uname -s)
+
+# MATLAB installation — pick the lexicographically latest release.
+# Linux/Windows: /usr/local/MATLAB/R20XXx.  macOS: /Applications/MATLAB_R20XXx.app.
+ifeq ($(OS),Darwin)
+  MATLAB_BASE := /Applications
+  MATLAB_DIR  := $(shell ls -1d $(MATLAB_BASE)/MATLAB_R[0-9]*[ab].app 2>/dev/null | sort -V | tail -1)
+else
+  MATLAB_BASE := /usr/local/MATLAB
+  MATLAB_DIR  := $(shell ls -1d $(MATLAB_BASE)/R[0-9]*[ab] 2>/dev/null | sort -V | tail -1)
+endif
 ifeq ($(MATLAB_DIR),)
   $(error No MATLAB installation found under $(MATLAB_BASE). \
     Install MATLAB or set MATLAB_DIR on the command line.)
@@ -42,17 +57,28 @@ endif
 INTEL_LIB  := /opt/intel/oneapi/compiler/latest/lib
 MKL_LIB    := /opt/intel/oneapi/mkl/latest/lib
 
-# Architecture / MEX extension
-OS       := $(shell uname -s)
-PLATFORM := $(shell uname -i)
-ifeq ($(PLATFORM),x86_64)
-    ARCH    := Linux-x86_64
-    MEXTAG  := mexa64
+# Architecture / MEX extension.  `uname -i` is invalid on macOS; use `uname -m`.
+MACHINE := $(shell uname -m)
+ifeq ($(OS),Darwin)
+  ifeq ($(MACHINE),arm64)
+    ARCH   := maca64
+    MEXTAG := mexmaca64
+  else
+    ARCH   := maci64
+    MEXTAG := mexmaci64
+  endif
+else
+  ARCH   := glnxa64
+  MEXTAG := mexa64
 endif
 
-# Path to a CMake build tree of macos (build_release_giza by default).
-# Falls back to ~/dev/macos/build_release_giza.
-MACOS_BUILD_DIR ?= $(HOME)/dev/macos/build_release_giza
+# Path to a CMake build tree of macos.  On macOS the engine is built with
+# gfortran into build_release_gfortran; Linux legacy default is build_release_giza.
+ifeq ($(OS),Darwin)
+  MACOS_BUILD_DIR ?= $(HOME)/dev/macos/build_release_gfortran
+else
+  MACOS_BUILD_DIR ?= $(HOME)/dev/macos/build_release_giza
+endif
 
 ifeq ($(wildcard $(MACOS_BUILD_DIR)/lib/libsmacos.a),)
   $(error MACOS_BUILD_DIR='$(MACOS_BUILD_DIR)' does not contain \
@@ -96,6 +122,32 @@ ifeq ($(FC),ifx)
   POST_LIBS := -L$(MATLAB_DIR)/bin/glnxa64 -l:libmx.so -l:libmex.so -lmat \
                -L$(INTEL_LIB) -lirc -lm -lstdc++
 else ifeq ($(FC),gfortran)
+ifeq ($(OS),Darwin)
+  # macOS / Apple Silicon.  MEX = a -bundle with dynamic_lookup (ld64 rejects
+  # the GNU-ld version-script/--no-undefined/-rpath-link/--disable-new-dtags).
+  # MATLAB libs are plain .dylib (-lmx, not -l:libmx.so); -mcpu=native on arm64
+  # (-march=native is rejected); -lc++ not -lstdc++.  Homebrew's libgfortran
+  # dir goes on the rpath so the bundle finds it without a module file.
+  GFLIB := $(shell dirname $$($(FC) -print-file-name=libgfortran.dylib))
+  ifeq ($(MACHINE),arm64)
+    ARCHFLAG := -mcpu=native
+  else
+    ARCHFLAG := -march=native
+  endif
+  FFLAGS := -fPIC -cpp -ffixed-line-length-132 \
+            -fno-omit-frame-pointer -O2 $(ARCHFLAG) \
+            -fallow-argument-mismatch -std=legacy \
+            -DMX_COMPAT_32 \
+            -I$(MATLAB_DIR)/extern/include \
+            -I$(SMACOS_OBJS) \
+            -J$(SRCPATH)
+  LDFLAGS := -fPIC -O -bundle -Wl,-undefined,dynamic_lookup \
+             -Wl,-rpath,$(MATLAB_DIR)/bin/$(ARCH) \
+             -Wl,-rpath,$(GFLIB)
+  POST_LIBS := -L$(MATLAB_DIR)/bin/$(ARCH) -lmx -lmex -lmat \
+               -L$(GFLIB) -lgfortran -lm -lc++
+else
+  # Linux gfortran
   FFLAGS := -fPIC -cpp -ffixed-line-length-132 \
             -fno-omit-frame-pointer -O2 -march=native \
             -fallow-argument-mismatch -std=legacy \
@@ -110,11 +162,18 @@ else ifeq ($(FC),gfortran)
              -Wl,--disable-new-dtags
   POST_LIBS := -L$(MATLAB_DIR)/bin/glnxa64 -l:libmx.so -l:libmex.so -lmat \
                -lgfortran -lm -lstdc++
+endif
 else
   $(error Unsupported FC='$(FC)' -- use ifx or gfortran)
 endif
 
 default: $(SRCDIR)/$(MEX_NAME).$(MEXTAG)
+
+# Emit just the platform MEX extension (used by run_mmacos_tests.sh to locate
+# the built mex without hardcoding mexa64).
+.PHONY: print-mextag
+print-mextag:
+	@echo $(MEXTAG)
 
 MEX_OBJS := $(SRCDIR)/mmacos_mex.o $(SRCDIR)/mmacos_gen.o
 

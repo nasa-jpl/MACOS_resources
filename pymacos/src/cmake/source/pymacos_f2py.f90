@@ -248,8 +248,12 @@
 
         integer, parameter :: MaxBaseUnit = 10, &
                               MaxWaveUnit = 16
-        character(len=*), dimension(MaxBaseUnit), parameter:: BaseUnits_ = (/'m', 'cm', 'mm', 'in', 'none', 'M', 'CM', 'MM', 'IN', 'NONE'/)
-        character(len=*), dimension(MaxWaveUnit), parameter:: WaveUnits_ = (/'m', 'cm', 'mm', 'um', 'nm', 'A', 'in', 'none','M', 'CM', 'MM', 'UM', 'NM', 'A', 'IN', 'NONE'/)
+        ! gfortran rejects mixed-length char-array constructors; pad to a
+        ! common length with the [character(len=N)::] form (Fortran 2003).
+        character(len=4), dimension(MaxBaseUnit), parameter:: BaseUnits_ = &
+          [character(len=4):: 'm', 'cm', 'mm', 'in', 'none', 'M', 'CM', 'MM', 'IN', 'NONE']
+        character(len=4), dimension(MaxWaveUnit), parameter:: WaveUnits_ = &
+          [character(len=4):: 'm', 'cm', 'mm', 'um', 'nm', 'A', 'in', 'none','M', 'CM', 'MM', 'UM', 'NM', 'A', 'IN', 'NONE']
 
         CALL sys_units_impl(OK, BaseUnitID, WaveUnitID)
       end subroutine sys_units

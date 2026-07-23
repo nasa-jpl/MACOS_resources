@@ -42,11 +42,28 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 MACOS_BUILD_DIR="${MACOS_BUILD_DIR:-$HOME/dev/macos/build_release_gfortran}"
-MATLAB_DIR="${MATLAB_DIR:-$(ls -1d /usr/local/MATLAB/R[0-9]*[ab] 2>/dev/null | sort -V | tail -1)}"
+# MATLAB location differs by OS: /Applications/MATLAB_R20XXx.app on macOS,
+# /usr/local/MATLAB/R20XXx on Linux.
+if [ -z "$MATLAB_DIR" ]; then
+    if [ "$(uname -s)" = "Darwin" ]; then
+        MATLAB_DIR="$(ls -1d /Applications/MATLAB_R[0-9]*[ab].app 2>/dev/null | sort -V | tail -1)"
+    else
+        MATLAB_DIR="$(ls -1d /usr/local/MATLAB/R[0-9]*[ab] 2>/dev/null | sort -V | tail -1)"
+    fi
+fi
 PROPER_DIR="${PROPER_DIR:-$HOME/dev/proper_matlab}"
 
+# The engine loads macos_param.txt from (in order) cwd, exe dir, $MACOS_HOME,
+# then a compile-time build dir.  matlab -batch runs from the mmacos root, which
+# has no macos_param.txt, and a MISSING param file makes the engine's init abort
+# fatally — inside the MEX host that abort is a SIGSEGV, not a clean error.  Point
+# MACOS_HOME at the engine's canonical param file so init always resolves it.
+# (Tests that need a bespoke param file — e.g. tSegmentRx — copy their own into a
+# scratch cwd, which still wins over MACOS_HOME.)
+export MACOS_HOME="${MACOS_HOME:-$HOME/dev/macos/macos_f90}"
+
 if [ -z "$MATLAB_DIR" ] || [ ! -d "$MATLAB_DIR" ]; then
-    echo "error: MATLAB not found.  Set MATLAB_DIR or install under /usr/local/MATLAB/." >&2
+    echo "error: MATLAB not found.  Set MATLAB_DIR, install under /usr/local/MATLAB/ (Linux), or /Applications/MATLAB_R*.app (macOS)." >&2
     exit 2
 fi
 
@@ -74,11 +91,14 @@ if [ "${MM_SEAT_CHECK:-0}" = "1" ]; then
     fi
 fi
 
-# Rebuild src/mmacos.mexa64 if any source is newer.
-if [ ! -f src/mmacos.mexa64 ] \
-   || [ src/mmacos_mex.F -nt src/mmacos.mexa64 ] \
-   || [ src/mmacos_gen.F -nt src/mmacos.mexa64 ]; then
-    echo "(re)building src/mmacos.mexa64..."
+# Rebuild the mex if any source is newer.  MEX extension is platform-specific
+# (mexa64 Linux, mexmaca64/mexmaci64 macOS) — ask the Makefile so the -nt check
+# targets the file that actually gets built.
+MEX_FILE="src/mmacos.$(make -s print-mextag 2>/dev/null || echo mexa64)"
+if [ ! -f "$MEX_FILE" ] \
+   || [ src/mmacos_mex.F -nt "$MEX_FILE" ] \
+   || [ src/mmacos_gen.F -nt "$MEX_FILE" ]; then
+    echo "(re)building $MEX_FILE..."
     make FC=gfortran MACOS_BUILD_DIR="$MACOS_BUILD_DIR" >/dev/null
 fi
 
