@@ -132,6 +132,22 @@ if(WIN32)
       "${MATLAB_LIB_DIR}/libmex.lib"
       "${MATLAB_LIB_DIR}/libmat.lib"
   )
+elseif(APPLE)
+  # macOS / Apple Silicon: MATLAB libs are plain .dylib under bin/maca64
+  # (Intel Macs = maci64).  Link with -lmx (NOT the GNU-ld -l:libmx.so form).
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+    set(MATLAB_ARCH "maca64")
+  else()
+    set(MATLAB_ARCH "maci64")
+  endif()
+  set(MATLAB_LIB_DIR "${MATLAB_DIR}/bin/${MATLAB_ARCH}")
+  set(MEX_SUFFIX     ".mex${MATLAB_ARCH}")
+  set(MATLAB_LIBS
+      "-L${MATLAB_LIB_DIR}"
+      "-lmx"
+      "-lmex"
+      "-lmat"
+  )
 else()
   set(MATLAB_ARCH    "glnxa64")
   set(MATLAB_LIB_DIR "${MATLAB_DIR}/bin/glnxa64")
@@ -223,7 +239,14 @@ foreach(_src ${MMACOS_SOURCES})
   endif()
 endforeach()
 
-add_library(mmacos SHARED ${MMACOS_SOURCES})
+# On macOS a MEX file is a loadable BUNDLE, not a .dylib.  CMake's MODULE
+# library type emits `-bundle` automatically (adding it by hand alongside
+# SHARED's `-dynamiclib` would conflict).  Linux/Windows keep SHARED.
+if(APPLE)
+  add_library(mmacos MODULE ${MMACOS_SOURCES})
+else()
+  add_library(mmacos SHARED ${MMACOS_SOURCES})
+endif()
 
 set_target_properties(mmacos PROPERTIES
     OUTPUT_NAME              "mmacos"
@@ -332,13 +355,19 @@ else()
         -fstack-protector
     )
   elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+    # Apple Silicon rejects -march=native; use -mcpu=native there.
+    if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+      set(_mmacos_arch_flag -mcpu=native)
+    else()
+      set(_mmacos_arch_flag -march=native)
+    endif()
     target_compile_options(mmacos PRIVATE
         -fPIC
         -cpp
         -ffixed-line-length-132
         -fno-omit-frame-pointer
         -O2
-        -march=native
+        ${_mmacos_arch_flag}
         -fallow-argument-mismatch
         -std=legacy
         -fstack-protector
@@ -375,6 +404,26 @@ if(WIN32)
       ${MATLAB_LIBS}
       gdi32.lib
       user32.lib
+  )
+elseif(APPLE)
+  # macOS mex = a -bundle with dynamic_lookup (MATLAB symbols resolved at
+  # load time), NOT a -shared lib with a version-script.  ld64 rejects the
+  # GNU-ld flags (--version-script/--no-undefined/-rpath-link/--disable-new-dtags).
+  # -lc++ (not -lstdc++) is the Apple C++ runtime.  gfortran is the only
+  # compiler here (ifx has no arm64), so no Intel arm.
+  target_link_libraries(mmacos PRIVATE
+      smacos
+      $<$<TARGET_EXISTS:fitslib>:fitslib>
+      ${NPSOL_MMACOS_LIBS}
+      ${MATLAB_LIBS}
+      -lm
+      -lc++
+  )
+  # MODULE library already passes -bundle; just resolve MATLAB symbols at
+  # load time (dynamic_lookup) and add an rpath to MATLAB's dylib dir.
+  target_link_options(mmacos PRIVATE
+      "-Wl,-undefined,dynamic_lookup"
+      "-Wl,-rpath,${MATLAB_LIB_DIR}"
   )
 else()
   target_link_libraries(mmacos PRIVATE

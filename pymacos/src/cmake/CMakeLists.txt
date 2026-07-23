@@ -50,6 +50,11 @@ if(WIN32)
   set(WINx64 TRUE)
   set(LINUX64 FALSE)
 
+elseif(APPLE)
+  message("-------------------------------\nmacOS Settings\n-------------------------------")
+  set(WINx64 FALSE)
+  set(LINUX64 FALSE)
+  set(MACOS64 TRUE)
 else() # if(CMAKE_SYSTEM_NAME STREQUAL "Linux")  # (CMAKE_HOST_UNIX)
   message("-------------------------------\nLinux Settings\n-------------------------------")
   set(WINx64 FALSE)
@@ -57,7 +62,15 @@ else() # if(CMAKE_SYSTEM_NAME STREQUAL "Linux")  # (CMAKE_HOST_UNIX)
 endif()
 
 # ------------------------------------------------------- Compiler
-if (LINUX64)
+if (MACOS64)
+  # Apple Silicon: gfortran only (ifx has no arm64); C stays Apple clang.
+  # Use the versioned Homebrew gfortran if a bare `gfortran` isn't on PATH;
+  # override with -DCMAKE_Fortran_COMPILER=... on the command line.
+  if(NOT CMAKE_Fortran_COMPILER)
+    find_program(_GFORTRAN NAMES gfortran gfortran-16 gfortran-15 gfortran-14 gfortran-13 REQUIRED)
+    set(CMAKE_Fortran_COMPILER "${_GFORTRAN}")
+  endif()
+elseif (LINUX64)
   set(CMAKE_C_COMPILER icx)          # Intel oneAPI
   set(CMAKE_CXX_COMPILER icpx)       # Intel oneAPI
   set(CMAKE_Fortran_COMPILER ifx)    # Intel oneAPI
@@ -158,6 +171,12 @@ if(WINx64)
   set(FFlags  "${FFlags} /Qm64 /Qmkl /Qparallel /Qopt-mem-layout-trans /QxHost")
   set(FFlags  "${FFlags} /traceback")
   set(FFlags  "${FFlags} /names:uppercase /assume:nounderscore")
+elseif(MACOS64)
+  # gfortran flag equivalents (the ifx flags below are Intel-only).
+  # pymacos_f2py.f90 is free-form; -cpp for the .F preprocessing; f2py's
+  # default symbol mangling is lowercase-with-underscore, which gfortran
+  # produces natively (no -names/-assume knobs needed).  -mcpu=native on arm64.
+  set(FFlags "-ffree-form -O2 -fPIC -cpp -fallow-argument-mismatch -std=legacy -mcpu=native")
 else()
   set(FFlags            "-nologo -free -align -O2 -fpp -fPIC -gen-interfaces ")
   set(FFlags  "${FFlags} -fp-model=strict -fp-speculation=strict")
@@ -174,11 +193,23 @@ set_source_files_properties(
   PROPERTIES Fortran_PREPROCESS ON)
 
 # ------------------------------------------------------- Fortran Pre-processing
-add_custom_command(
-  OUTPUT   ${fortran_src_file_fpp}
-  COMMAND ${CMAKE_Fortran_COMPILER} -P  ${fortran_src_file}
-  DEPENDS ${fortran_src_file}
-)
+# Intel ifx `-P` preprocesses to a `.i90` file WITHOUT compiling.  gfortran's
+# bare `-P` instead does a full compile (which would need kinds.mod etc. on the
+# include path and defeats the purpose); use `-E -cpp -P -o <out>` for a pure
+# preprocess-to-file that f2py can then parse.
+if(MACOS64)
+  add_custom_command(
+    OUTPUT   ${fortran_src_file_fpp}
+    COMMAND ${CMAKE_Fortran_COMPILER} -E -cpp -P ${fortran_src_file} -o ${fortran_src_file_fpp}
+    DEPENDS ${fortran_src_file}
+  )
+else()
+  add_custom_command(
+    OUTPUT   ${fortran_src_file_fpp}
+    COMMAND ${CMAKE_Fortran_COMPILER} -P  ${fortran_src_file}
+    DEPENDS ${fortran_src_file}
+  )
+endif()
 # -------------------------------------------------------
 if(WINx64)
   set(f2py_flag "--no-lower")
