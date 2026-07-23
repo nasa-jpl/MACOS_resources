@@ -175,14 +175,26 @@ SUITE_PROPER="$SUITE_PROPER_512"  # back-compat; not directly used
 # Argument handling.
 case "${1:-}" in
     "")
-        # Full suite in ONE matlab -batch.  The historical per-
-        # model_size split was a workaround for the init-reinit
-        # heap-corruption bug (PLAN.md §0); that bug was fixed in
-        # macos commit e2e8bf6 (macos_realloc=.true. on resize +
-        # DFOURN grow-on-demand), so all four model_size groups now
-        # run cleanly back-to-back in a single matlab process.
-        run_batch "[$SUITE_FAST, $SUITE_MASKS, $SUITE_FREEFORM, $SUITE_PROPER_512, $SUITE_PROPER_1024]" \
-                  "full suite (all model sizes)"
+        # Full suite, split into ONE matlab -batch PER model-size group
+        # (each group = a fresh MATLAB process).  This is the workaround
+        # for the init-reinit heap-corruption bug (PLAN.md §0): that bug
+        # was thought fixed in macos e2e8bf6, and the split was briefly
+        # collapsed into a single process, but §0 REOPENED (2026-07-16/18)
+        # and reconfirmed on the Mac against CCL's partial fix 54270af
+        # (2026-07-23) — a single-process run still SIGSEGVs at tViewRx
+        # setup from corruption seeded by an earlier size transition.
+        # Separate processes contain the corruption to its own group so
+        # the rest of the suite still reports.  DO NOT recollapse until
+        # PLAN.md §0 REOPENED is closed.
+        # Groups are run independently; a failure in one does not abort
+        # the others (so a green/red per group is always reported).
+        rc=0
+        run_batch "$SUITE_FAST"        "full: fast (size 128)"      || rc=1
+        run_batch "$SUITE_MASKS"       "full: masks (size 128)"     || rc=1
+        run_batch "$SUITE_FREEFORM"    "full: freeform (size 256)"  || rc=1
+        run_batch "$SUITE_PROPER_512"  "full: proper Cass-FF (512)" || rc=1
+        run_batch "$SUITE_PROPER_1024" "full: proper Coro (1024)"   || rc=1
+        exit $rc
         ;;
     quick)
         # Truly-fast smoke subset — dev iteration loop, ~30 s.
