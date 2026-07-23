@@ -7,14 +7,19 @@
 > (Phase 6)" (the apodize-and-propagate pattern this plan reuses), the
 > worked example `examples/coronagraph/coro_walkthrough/coro_walkthrough.m`
 > (the propagation/figure idiom to copy), and the review doc in this
-> directory.  Source hardware doc: `~/dev/MACOS_sandbox/VSG2 Info.pptx`.
+> directory.  Source hardware docs: `VSG2_Info.pptx` (this dir) and the
+> authoritative ZWFS-upgrade deck `~/Documents/DCR'26/mmacos/VSG2
+> Zernike Wavefront Sensor Update -v2.pptx` — the latter fixes the DM
+> pupil diameter (D = N_act·pitch·√2 ≈ 68 mm, NOT 48 mm), F/# ≈ 3.6,
+> and the 9-spot etched-depth transmissive mask array (see §6/§8).
 
 ## 1. Context (what VSG2 is — condensed)
 
 Twyman-Green interferometer measuring a deformable mirror (DM), in a
 vacuum chamber.  HeNe (632.8 nm, frequency-stabilized) → SM fiber →
 baffle → L1 collimator (Newport PAC097AR.14 achromat, D=76.2 mm,
-EFL 750 mm) → beamsplitter → {test arm: DM} / {reference arm: flat on
+EFL 750 mm — the layout figure labels it "700mm EFL", a typo per the
+review doc) → beamsplitter → {test arm: DM} / {reference arm: flat on
 PZT phase-shift stage} → recombine at BS → L2 (Newport PAC095AR.14,
 D=76.2 mm, EFL 250 mm) → Fold1 → Fold2 → ND → Andor NEO sCMOS
 (2560×2160 px, 6.5 µm).  Camera is at the DM's image conjugate
@@ -22,6 +27,27 @@ D=76.2 mm, EFL 250 mm) → Fold1 → Fold2 → ND → Andor NEO sCMOS
 magnification ≈ 0.27).  The DM is the system pupil.  There is an
 internal point-source focus 250 mm past L2 (~67 mm before the camera)
 — that is where the ZWFS phase dimple goes.
+
+**Illuminated pupil diameter (authoritative — VSG2 ZWFS deck, slides
+5/16):** the DM is illuminated over the circle CIRCUMSCRIBING its
+square actuator grid, so the collimated beam diameter is
+**D = N_act·pitch·√2**, NOT the square edge.  For the 48×48 AOX DM
+(1.0 mm pitch): D = 48·√2 ≈ **68 mm** → imager **F/# = 250/68 ≈
+3.57–3.7** (the deck quotes both 3.57 for D=70 and 3.7 for D=68).
+The bench also supports a **96×96 BMC DM at 0.4 mm pitch** (same
+optics, different pupil sampling); model the DM format as a
+selectable param, not a constant.  DM image at the camera ≈
+17.9–18.9 mm across, sampled at **13.4 binned (3×3) px/mm** in the
+DM plane (>10 px per AOX actuator — adequate for both modes).
+
+**Dual-mode hardware (deck):** mode switching is by two remotely
+actuated stages in-chamber — a **Xeryon XYZ stage** carrying the ZWFS
+mask (positions the selected dimple onto the internal focus) and an
+**Aerotech ATS-100 linear stage** blocking the reference arm in ZWFS
+mode.  The ZWFS "mask" is a **1 mm fused-silica substrate (Thorlabs
+W4101FT1, one-side AR)** carrying a 3×3 ARRAY of 9 selectable dimples
+(see §6); its clear 4×4 mm patch is used for the interferometer mode,
+so BOTH modes share the substrate and its focus shift.
 
 **Two models to build (Dave, 2026-07-22):**
 
@@ -134,15 +160,20 @@ any engine (Fortran) change.
 
 ### Stage 0.1 — params + Rx authoring (idealized Stage A)
 - `vsg2_params.m`: wavelength(s), BaseUnits (mm), model_size (256
-  default; 512 for fidelity runs), DM: **Xinetics format — square
-  actuator grid, 1.0 mm pitch, stroke ±200 nm surface** (Dave
-  2026-07-23; N_act placeholder 48×48 → 48 mm clear aperture,
-  **TODO(Dave)** confirm count), beam diameter at DM = DM clear
-  aperture (DM is the pupil), BS amplitude factors (see BS design
-  below), PZT step table, distances (1175, 317, 250 nominal; see arm-
-  distance procedure below), camera (6.5 µm, 2560×2160), F/# at focus
-  = 250/beam_diam, dimple diameter = 1.06·λ·F#, dimple phase (π/2),
-  ε leakage default 0.
+  default; 512 for fidelity runs), DM: **selectable format** —
+  default **48×48 AOX, 1.0 mm pitch** (Xinetics-style square actuator
+  grid; Dave 2026-07-23) with a **96×96 BMC, 0.4 mm pitch** option
+  (both on the same optics per the deck).  Stroke ±200 nm surface
+  (AOX).  **Illuminated pupil D = N_act·pitch·√2** (beam fills the
+  circle circumscribing the square grid — deck slides 5/16): AOX →
+  D ≈ 68 mm, BMC (96·0.4·√2) → D ≈ 54 mm.  BS amplitude factors (see
+  BS design below), PZT step table, distances (1175, 317, 250
+  nominal; see arm-distance procedure below), camera (6.5 µm,
+  2560×2160; **binning 3×3**, DM-plane scale ≈ 13.4 binned px/mm),
+  **F/# at focus = 250/D ≈ 3.57–3.7 for AOX**, ε leakage default 0.
+  ZWFS dimple/mask params live in their own block (see §6.1 + the
+  mask-array table in §6 — a 9-spot selectable array, etched depth
+  346.2 nm = π/2, NOT a single idealized 1.06·λ·F# plane).
 - **BS design (selected — Dave delegated the choice):** wedged
   plate beamsplitter, fused silica, ~10 mm thick, 30 arcmin wedge,
   dielectric 50/50 coating at 632.8 nm / 45°, AR-coated second
@@ -368,16 +399,45 @@ any engine (Fortran) change.
   load test Rx, apply spec, trace, build mask on the FOCUS grid,
   `apodize_complex(FOCUS, mask)`,
   `I = |complex_field(DET,'reset_trace',false)|²`.
-- `vsg2_zwfs_mask(lam)`: trace nominal, `dxf = macos.dx_at(FOCUS)`;
-  dimple radius r0 = 0.53·λ·F#; mask = ones except exp(i·phase) inside
+- `vsg2_zwfs_mask(lam, spot_id)`: trace nominal, `dxf =
+  macos.dx_at(FOCUS)`; dimple DIAMETER = (λ/D factor)·λ·F# per the
+  selected spot from the deck's mask-array table (below), so
+  r0 = 0.5·factor·λ·F#; mask = ones except exp(i·phase) inside
   r ≤ r0 (grid centered per the engine's focal-grid convention —
   determine it empirically from the nominal PSF centroid, don't
-  assume).  **Sampling gate:** require ≥ ~5 samples across the dimple
-  (2·r0/dxf ≥ 5).  If the native focal sampling is too coarse at
-  model 256, follow the oversized-rays / windowing recipe from the
+  assume).  **Phase from etched depth, not assumed π/2:** the real
+  mask is a physical etch of depth t in fused silica, phase =
+  2π(n−1)t/λ.  Deck value t = 346.2 nm, n(632.8 nm) = 1.45702 →
+  phase = π/2 by construction; keep `phase` derived from
+  `(t, n, λ)` params so a finite-band λ sweep sees the correct
+  CHROMATIC phase error (the etch is π/2 only at 632.8 nm).
+  **Sampling gate:** require ≥ ~5 samples across the dimple
+  (2·r0/dxf ≥ 5).  The smallest deck dimples are TINY (2.26–2.8 µm
+  at F/3.6) — expect the native focal sampling at model 256 to be
+  too coarse; follow the oversized-rays / windowing recipe from the
   Cycle-5 vortex work (see `macos.window`/`window_off` veneers and
   pymacos `tests/proper_compare/run_broadband_vortex.py`) before
-  resorting to model 512.
+  resorting to model 512.  (Slide 7 sanity check: dimple Fresnel
+  distance Z_F = a²/λ = 0.007–0.073 mm ≪ Z = 67 mm to the pupil
+  image → far-field propagation; the smallest dimple's diffraction
+  covers the whole 17.9 mm pupil.)
+- **Mask-array table (deck slide 6 — the REAL selectable spots).**
+  A 3×3 array on one 25.4 mm FS substrate, spots on a 5 mm pitch,
+  all etched to the SAME depth (346.2 nm → π/2 at HeNe):
+
+  | Spot ID | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+  |---|---|---|---|---|---|---|---|---|---|
+  | Dia (λ/D) | 3.0 | 2.0 | — | 2.0 | — | 1.0 | — | 1.22 | 1.06 |
+  | Dia (µm) | 6.78 | 4.52 | — | 4.52 | — | 2.26 | — | 2.76 | 2.40 |
+
+  "—" = no dimple (clear reference windows).  There is also a clear
+  4×4 mm patch used for the interferometer mode.  `spot_id` selects
+  the row; default to the classic ZWFS **1.06 λ/D (spot 9)** unless a
+  driver overrides.  The substrate itself contributes **~1.7 nm rms
+  spherical aberration + a 0.31 mm focus shift** (deck slide 5) —
+  Stage A may ignore these; Stage B adds them as a bias term on the
+  common back-end (they are common to BOTH modes, so they largely
+  subtract in the IFO reference measurement but bias the ZWFS).
 - Leakage case: reuse the IFO mixer with a_r → ε·a_r to model
   imperfect reference-arm blocking; this is how the blocker-extinction
   spec gets derived later.
@@ -427,16 +487,32 @@ any engine (Fortran) change.
 - Do not hand-edit fixtures or widen tolerances to make a gate pass;
   diagnose instead (project standing rule).
 
-## 8. Hardware data status (updated 2026-07-23)
-RESOLVED (Dave): DM = Xinetics format, square grid, 1.0 mm actuator
-pitch, stroke ±200 nm (N_act still open — placeholder 48×48).
-BS = our selection (wedged 50/50 plate, §4 Stage 0.1).  Arm distances
-= scale from drawing, refine via `macos.pupil_quality` (§4).  PSI =
-Zygo 13-frame (§5.2, coefficients verified from US 6,359,692 B1
-claim 11).
-STILL OPEN (TODO(Dave)): DM actuator count; ref-flat figure quality;
-fiber NA (sets beam-overfill vs the DM aperture); camera flux/QE for
-photon-noise runs.
+## 8. Hardware data status (updated 2026-07-23, reconciled with the
+VSG2 ZWFS deck "…Update -v2.pptx")
+RESOLVED (Dave): DM = Xinetics/AOX format, square grid, 1.0 mm actuator
+pitch, stroke ±200 nm.  **DM count RESOLVED by the deck: default
+48×48 AOX (1.0 mm pitch), with a 96×96 BMC (0.4 mm pitch) alternate —
+model as a selectable format.**  BS = our selection (wedged 50/50
+plate, §4 Stage 0.1).  Arm distances = scale from drawing, refine via
+`macos.pupil_quality` (§4).  PSI = Zygo 13-frame (§5.2, coefficients
+verified from US 6,359,692 B1 claim 11).
+**RESOLVED by the deck (were TODO(Dave)):**
+- **Illuminated pupil D = N_act·pitch·√2** (circle circumscribes the
+  square grid) → AOX ≈ 68 mm, F/# ≈ 3.57–3.7.  Do NOT use the square
+  edge (48 mm) as the beam diameter.
+- **ZWFS mask = a 9-spot selectable array** on a 1 mm FS substrate
+  (Thorlabs W4101FT1, one-side AR), spots 1.0–3.0 λ/D, all etched
+  346.2 nm (π/2 at HeNe).  See the §6 mask-array table.  Substrate
+  bias ≈ 1.7 nm rms SA + 0.31 mm focus shift (common to both modes).
+- **Camera binning 3×3**, DM-plane scale ≈ 13.4 binned px/mm; DM
+  image ≈ 17.9–18.9 mm.
+- **Ref blocker = Aerotech ATS-100 linear stage; mask on a Xeryon
+  XYZ stage** (mode switching is remote/in-chamber — the ZWFS
+  ref-blocking discussion in the review doc is realized this way).
+STILL OPEN (TODO(Dave)): ref-flat figure quality; fiber NA (sets
+beam-overfill vs the DM aperture — deck implies the beam fills the
+circumscribing circle); camera flux/QE for photon-noise runs; BS
+substrate thickness/wedge/compensator for Stage B.
 Note the stroke number in context: ±200 nm surface = ±400 nm OPD
 ≈ ±0.63λ — full DM stroke EXCEEDS the ZWFS linear range (λ/8–λ/4
 scale), which quantitatively motivates the IFO-for-absolute /

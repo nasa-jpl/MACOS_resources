@@ -7,6 +7,9 @@
 *.mexmaca64.dSYM/
 .fc_stamp
 
+# Per-developer Claude Code local config (permission rules, etc.)
+.claude/settings.local.json
+
 # CMake build trees
 build_*/
 build_debug/
