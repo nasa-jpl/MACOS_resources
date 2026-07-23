@@ -28,9 +28,16 @@ classdef tRunCompare < matlab.unittest.TestCase
             res_root = fileparts(fileparts(here));
             addpath(fullfile(res_root, 'mmacos', 'design', 'runners'));
             tin = fullfile(res_root, 'segmirmaker', 'test_in');
-            bin = fullfile(res_root, 'segmirmaker', ...
-                           'build_release_ifx', 'SegMirMaker');
-            tc.assumeTrue(isfile(bin), 'SegMirMaker not built');
+            % Locate whichever build tree exists (ifx on Linux, gfortran on
+            % macOS / gfortran builds); ifx preferred when both are present.
+            smmdir = fullfile(res_root, 'segmirmaker');
+            bin = '';
+            for tag = ["build_release_ifx", "build_release_gfortran", ...
+                       "build_debug_ifx", "build_debug_gfortran"]
+                cand = fullfile(smmdir, tag, 'SegMirMaker');
+                if isfile(cand), bin = cand; break; end
+            end
+            tc.assumeTrue(~isempty(bin) && isfile(bin), 'SegMirMaker not built');
             macos.init(512);
             tc.seg = macos.design.segment_rx(fullfile(tin, 'e5mono.in'), ...
                 'elt', 1, 'rings', 1, 'grid', 'Pie', 'gap', 50, ...
@@ -77,7 +84,9 @@ classdef tRunCompare < matlab.unittest.TestCase
             tc.og.sgb = sgb;
         end
         function cleanupdir(tc)
-            tc.addTeardown(@() rmdir(tc.wd, 's'));
+            % tc.wd is only set once the SegMirMaker assumption in make()
+            % passes; guard so a filtered class doesn't rmdir([]) at teardown.
+            tc.addTeardown(@() rmdir_if_exists(tc));
         end
     end
 
@@ -287,5 +296,13 @@ classdef tRunCompare < matlab.unittest.TestCase
             cc = corrcoef(dg(sel), dz(sel));
             tc.verifyGreaterThan(cc(1, 2), 0.995);
         end
+    end
+end
+
+function rmdir_if_exists(tc)
+    % Teardown guard: tc.wd is unset when the class was filtered by the
+    % SegMirMaker assumption, so only remove a directory that was created.
+    if ~isempty(tc.wd) && (isfolder(tc.wd) || isfolder(char(tc.wd)))
+        rmdir(tc.wd, 's');
     end
 end
