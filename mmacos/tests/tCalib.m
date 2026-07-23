@@ -4,17 +4,26 @@ classdef tCalib < matlab.unittest.TestCase
 
     properties (Constant)
         ModelSize = 256
-        RxSrc = ['/home/dcr/dev/macos/ZGD_test_files/' ...
-                 'opt_example.in']
     end
 
     properties
         m
         rx_path
+        RxSrc      % resolved in setupClass (repo-relative, not hardcoded)
     end
 
     methods (TestClassSetup)
         function setupClass(testCase)
+            % opt_example.in is a dev-only fixture in the macos repo's
+            % ZGD_test_files/, a sibling of MACOS_resources.  Resolve it
+            % relative to this file rather than a hardcoded absolute path
+            % (the old /home/dcr/... broke on macOS / any other machine).
+            here = fileparts(mfilename('fullpath'));           % mmacos/tests
+            res_root = fileparts(fileparts(here));             % MACOS_resources
+            testCase.RxSrc = fullfile(fileparts(res_root), 'macos', ...
+                'ZGD_test_files', 'opt_example.in');
+            testCase.assumeTrue(isfile(testCase.RxSrc), ...
+                sprintf('opt_example.in fixture not found: %s', testCase.RxSrc));
             testCase.m = macos.Session(testCase.ModelSize);
         end
     end
