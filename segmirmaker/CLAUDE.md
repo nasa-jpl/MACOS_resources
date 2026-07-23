@@ -17,6 +17,39 @@ MATLAB driver: `macos.design.segmirmaker_run`.
 - Default build dir: `build_debug_ifx/`
 - VS Code: F5 launches Debug SegMirMaker; launch.json cwd = `test_in/`
 - Fixed-form `.f` (no CPP). Needs `macos_param.txt` in CWD at runtime.
+- `makesegmirmaker.sh` now auto-selects the matching engine tree from
+  fc+build-type (`build_release` / `build_release_gfortran` / debug
+  variants); override with `MACOS_BUILD_DIR=`. macOS forces gfortran
+  (no arm64 ifx) and pulls readline from `brew --prefix readline`.
+
+### gfortran / macOS port + the CACCEPT stack-overrun bug (2026-07-23)
+SMM was assumed ifx-only; it isn't. `makesegmirmaker.sh gfortran` builds
+it (the CMakeLists already had a GNU arm). The Mac gaps were only
+mechanical: bundled readline absent → Homebrew, `X11 ncurses dl` link
+line → `ncurses pthread m`, `-Wl,--disable-new-dtags` (ld64 rejects) →
+`if(NOT APPLE)`, and the script never passed `-DMACOS_BUILD_DIR`.
+
+**But building it surfaced a REAL latent bug** (worth flagging to anyone
+touching the engine's own I/O helpers, same class recurs): `CACCEPT` and
+`PROMPT` declared their character dummy as fixed-length `CHARACTER*32`
+while the sole `CACCEPT` caller passes a `CHARACTER*20` (`GridTypeStr`).
+`CVAR=' '` blank-fills 32 bytes into the 20-byte actual → a 12-byte
+stack overrun that clobbered the adjacent `nRing` (came back as
+`0x20202020` = four blanks = 538976288 → segment-size default `7.4e-6`,
+then `SurfCoordFF: ray missed parent surface`). ifx's stack layout hid
+it; gfortran/arm64 exposed it. Fixed by making the dummies assumed-length
+`CHARACTER*(*)` — a genuine correctness fix, the only non-`if(APPLE)`
+edit of the port. (Same character-arg-length class as the mixed-length
+constructor fixes elsewhere in the Mac port — gfortran strictness
+surfaces what ifx tolerated.)
+
+**Byte-identity references are per-compiler/per-machine.** ifx and
+gfortran differ in the last digits, so `test_in/*.presc` + `*Hx.m` are
+gitignored and regenerated locally (run both `.stdin` scripts once after
+a first build with a new compiler). `tSegMirMaker` + `segmirmaker_run.m`
+scan `build_release_ifx` → `build_release_gfortran` → debug variants for
+the binary (ifx preferred). All 3 tSegMirMaker tests green on gfortran/
+arm64 (e5pie nSeg=7, e5hex2 nSeg=19 / nMeas=252 / nState=114).
 
 ## Design choices (locked; the plan that drove the modernization)
 1. **Parent source.** Read from a MACOS `.in` prescription via

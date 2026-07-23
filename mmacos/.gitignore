@@ -3,6 +3,7 @@
 *.mod
 *.smod
 *.mexa64
+*.mexmaca64
 
 # ifx -gen-interfaces output
 *__genmod.f90

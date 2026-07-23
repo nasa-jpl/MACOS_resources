@@ -93,7 +93,17 @@ end
 if strlength(bin) == 0
     here = fileparts(mfilename('fullpath'));          % .../src/+macos/+design
     res_root = fileparts(fileparts(fileparts(fileparts(here))));  % MACOS_resources
-    bin = fullfile(res_root, 'segmirmaker', 'build_release_ifx', 'SegMirMaker');
+    smmdir = fullfile(res_root, 'segmirmaker');
+    % Pick whichever build tree exists (ifx on Linux, gfortran on macOS /
+    % gfortran builds).  First match wins; ifx is preferred when both exist.
+    for tag = ["build_release_ifx", "build_release_gfortran", ...
+               "build_debug_ifx", "build_debug_gfortran"]
+        cand = fullfile(smmdir, tag, 'SegMirMaker');
+        if isfile(cand), bin = cand; break; end
+    end
+    if strlength(bin) == 0
+        bin = fullfile(smmdir, 'build_release_ifx', 'SegMirMaker');  % report this path
+    end
 end
 if ~isfile(bin)
     error('macos:design:segmirmaker_run:binary', ...
