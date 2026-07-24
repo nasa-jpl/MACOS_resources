@@ -56,6 +56,21 @@ you've built macos under gfortran or in a non-standard location.
 Smoke test: `pymacos/tests/sensitivities/run_dw_dz_zernike.sh --help`
 exercises the venv + oneAPI runtime setup without touching macos.
 
+### macOS: a fresh venv has ONLY the build dep (numpy) — tests need more
+The Mac-port venv (`~/.venv/pymacos`) was created with just `numpy` for
+the f2py build, so the test suites all fail on missing imports until you
+add them. On a fresh venv (e.g. after Friday's re-clone), install:
+```bash
+pip install "numpy>=2.2" scipy astropy matplotlib pytest   # scipy/astropy/mpl = proper_compare; pytest = all
+```
+plus **PyPROPER3** (Krist's JPL port; no modern wheel → manual copy, see
+`README.md` macOS quick path + `tests/proper_compare/README.md`). Run
+pytest directly (the `run_*_tests.sh` scripts hardcode Intel oneAPI +
+`./.venv`, neither of which applies on Mac): from `tests/`, with
+`MACOS_HOME=~/dev/macos/macos_f90` and `MPLBACKEND=Agg` exported. Validated
+2026-07-24: CodeV `test_api_rx_grating.py test_masks.py` → 6601/6601;
+`proper_compare/` phase list → 26/26.
+
 ## Critical gotchas
 
 ### MODIFY required after direct coefficient writes

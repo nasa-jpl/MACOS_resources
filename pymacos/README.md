@@ -162,6 +162,27 @@ recipe). cmake **≥ 3.31**, Python **≥ 3.13**, NumPy **≥ 2.2**.
 > Set `MACOS_HOME=<macos>/macos_f90` at runtime so `init` finds
 > `macos_param.txt` (missing → fatal abort).
 
+> **macOS venv test dependencies.** The build itself needs only
+> `numpy>=2.2`, but the *test suites* need more, and a fresh venv won't
+> have them. Into the venv (`~/.venv/pymacos` by convention):
+> ```bash
+> pip install "numpy>=2.2" scipy astropy matplotlib pytest
+> ```
+> and PyPROPER3 for the `proper_compare/` suite (no modern wheel — copy
+> the package tree in, per `tests/proper_compare/README.md`):
+> ```bash
+> curl -sL -o /tmp/PyPROPER3-3.2.1.tar.gz \
+>   https://files.pythonhosted.org/packages/65/63/3d569f23800bd829e47f0c3be0d7774291bf3f8d8653f8ca3ad176f76cf8/PyPROPER3-3.2.1.tar.gz
+> tar xzf /tmp/PyPROPER3-3.2.1.tar.gz -C /tmp
+> SITE=$(python -c "import site; print(site.getsitepackages()[0])")
+> cp -r /tmp/PyPROPER3-3.2.1/proper "$SITE/"
+> ```
+> Then run with `MACOS_HOME` set and `MPLBACKEND=Agg` (headless):
+> `MACOS_HOME=<macos>/macos_f90 MPLBACKEND=Agg python -m pytest ...`
+> from `tests/`. Validated 2026-07-24 on Apple Silicon: CodeV suite
+> 6601/6601, PROPER-compare suite 26/26. (`run_proper_tests.sh` itself is
+> Linux/oneAPI-only — on Mac invoke pytest directly with the phase list.)
+
 ### 1. SMACOS static libraries
 
 `src/macos/` is empty in the repo — it is meant to hold (or symlink to) a
