@@ -19,14 +19,27 @@ function L = ideal_lens(f, D, opts)
 %                          aberration (~0.1 wave at F/3.6).  Use for a
 %                          more physical Stage-A lens or as an SA source.
 %     'mode'    'focus'     (default) — collimated in -> focus out
-%                          (imager, e.g. VSG2 L2).  Flat face toward the
-%                          collimated side, powered face toward focus.
+%                          (imager, e.g. VSG2 L2).
 %               'collimate'          — point source at front focus ->
 %                          collimated out (collimator, e.g. VSG2 L1).
-%                          Powered face toward the source, flat toward
-%                          the collimated side (the reverse of 'focus').
+%               BOTH modes use the SAME surface order: FLAT front (air->
+%                          glass) then POWERED back (glass->air).  The
+%                          powered face must face the glass->air step to
+%                          work at the infinite conjugate; reversing the
+%                          order (powered front) does NOT collimate
+%                          (~7000 waves of defocus -- verified).  'mode'
+%                          currently only documents intent + picks the
+%                          default conjugate for future placement helpers.
 %     'n'       glass index (default 1.5).
-%     'thickness' center thickness (default max(D/20, 2)).
+%     'thickness' center thickness.  Default is SAG-AWARE: the exact
+%                 conic sag of the powered surface at the clear
+%                 semi-diameter D/2, plus an edge margin, so the two
+%                 surfaces never overlap inside the beam footprint (an
+%                 overlap silently corrupts the trace -- this was the
+%                 VSG2 L1 collimation bug: a 5mm-thick f=722 lens whose
+%                 front sag is 6.85mm at r=70).  Override for a specific
+%                 mechanical thickness.
+%     'edge_margin' minimum glass at the rim beyond the sag (default 2).
 %     'name'    base element name (default 'lens').
 %
 %   Returned struct L:
@@ -41,14 +54,18 @@ function L = ideal_lens(f, D, opts)
 %
 %   Emit the two element blocks with macos.design.ideal_lens_emit.
 %
-%   CONVENTION (verified empirically 2026-07-23 against the engine, on
-%   Apple-silicon gfortran build; see vsg PLAN §4):
-%     collimated in +axis -> FLAT front (air->glass) -> powered back
-%     (glass->air) focuses to a point at F past the back vertex, needs
-%       Kr = +(n-1)*f   (POSITIVE radius magnitude),
-%       Kc = -n^2       (conic; 0 for spherical).
-%     'collimate' mode mirrors the surface order + reuses the same conic
-%     by reversibility of the infinite conjugate.
+%   CONVENTION (verified empirically against the engine, Apple-silicon
+%   gfortran build; see vsg PLAN §4):
+%     FLAT front (air->glass) -> POWERED back (glass->air), for BOTH
+%     focus and collimate, needs
+%       Kr = +(n-1)*f   (POSITIVE radius magnitude).
+%     Kc: for a FOCUS lens (collimated in) Kc=-n^2 is stigmatic to
+%     ~1e-14.  For a COLLIMATE lens (point source in) the stigmatic Kc
+%     is NOT -n^2 (empirically ~ -1.5 for n=1.5, F/5); Kc=0 (SPHERICAL)
+%     is the recommended FIRST CUT -- it collimates cleanly with ~20
+%     waves of pure spherical aberration and NO defocus, a sane seed for
+%     CALIB to refine the conic from.  Reversing the surface order does
+%     NOT collimate (defocus, ~7000 waves).
 %
 %   See also: macos.design.ideal_lens_emit, macos.design.Telescope.
 
@@ -59,11 +76,20 @@ arguments
     opts.mode (1,:) char {mustBeMember(opts.mode,{'focus','collimate'})} = 'focus'
     opts.n    (1,1) double {mustBePositive} = 1.5
     opts.thickness (1,1) double {mustBeNonnegative} = 0
+    opts.edge_margin (1,1) double {mustBeNonnegative} = 2.0
     opts.name (1,:) char = 'lens'
 end
 
 n = opts.n;
-t = opts.thickness;  if t == 0, t = max(D/20, 2.0); end
+% Sag-aware default thickness: the powered surface's exact conic sag at
+% the clear semi-diameter must fit inside the glass, else the flat and
+% powered faces cross within the beam and the trace is garbage.
+Rmag = (n-1)*abs(f);  a = D/2;
+Kc_pow_ = 0;  if strcmp(opts.type,'conic'), Kc_pow_ = -n^2; end
+sag = conic_sag(Rmag, Kc_pow_, a);
+t = opts.thickness;  if t == 0, t = sag + opts.edge_margin; end
+assert(t > sag, ['ideal_lens: thickness %.3g < powered-surface sag %.3g ' ...
+    'at r=%.3g -> surfaces overlap in the beam. Increase thickness.'], t, sag, a);
 
 L.f = f;  L.D = D;  L.n = n;  L.type = opts.type;
 L.mode = opts.mode;  L.thickness = t;  L.name = opts.name;
@@ -85,14 +111,16 @@ pow  = struct('name',[ opts.name '_pow'],  'kind','Refractor', ...
     'Kr',Kr_pow, 'Kc',Kc_pow, 'ap',D/2);
 % (spherical still emits Surface=Conic with Kc=0 -- a sphere.)
 
-switch opts.mode
-    case 'focus'        % flat front (collimated) -> powered back (focus)
-        s1 = flat;  s1.indref = n;    s1.dz = 0.0;    % air->glass
-        s2 = pow;   s2.indref = 1.0;  s2.dz = t;      % glass->air
-    case 'collimate'    % powered front (source) -> flat back (collimated)
-        s1 = pow;   s1.indref = n;    s1.dz = 0.0;    % air->glass
-        s2 = flat;  s2.indref = 1.0;  s2.dz = t;      % glass->air
-end
+% FLAT FRONT (air->glass) -> POWERED BACK (glass->air) for BOTH modes.
+% Verified empirically (2026-07-24): a point source through flat-front/
+% powered-back collimates (rmsWFE responds to Kc: ~21 waves spherical,
+% ~few waves conic).  The REVERSED order (powered front) does NOT
+% collimate -- it leaves ~7000 waves of pure DEFOCUS regardless of Kc.
+% The infinite conjugate is reversible, but the powered surface must
+% face the SAME index step (glass->air) either way, so the surface order
+% is identical for focus and collimate.
+s1 = flat;  s1.indref = n;    s1.dz = 0.0;    % air->glass
+s2 = pow;   s2.indref = 1.0;  s2.dz = t;      % glass->air
 L.surf = [s1, s2];
 L.vertex_span = t;
 end
@@ -100,4 +128,19 @@ end
 % ---------------------------------------------------------------------
 function y = ternary(c, a, b)
     if c, y = a; else, y = b; end
+end
+
+% ---------------------------------------------------------------------
+function z = conic_sag(Rmag, Kc, r)
+%CONIC_SAG  Exact sag of a conic surface of vertex radius Rmag, conic Kc,
+%   at radial height r.  z = r^2/(R(1+sqrt(1-(1+K)r^2/R^2))).
+%   Falls back to the parabolic approx if the radicand goes negative
+%   (r beyond the conic's real extent).
+    c = 1/Rmag;
+    rad = 1 - (1+Kc)*c^2*r^2;
+    if rad <= 0
+        z = 0.5*c*r^2;              % parabolic fallback
+    else
+        z = c*r^2 / (1 + sqrt(rad));
+    end
 end
