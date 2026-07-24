@@ -4520,6 +4520,72 @@ def window_off() -> None:
         raise Exception('MACOS: window_off failed')
 
 
+_BEAM_CODES = {'uniform': 1, 'gaussian': 2, 'cos': 3, 'dipole': 4}
+_BEAM_NAMES = {v: k for k, v in _BEAM_CODES.items()}
+
+
+def beam(kind: str | None = None,
+         waist: float | Tuple[float, float] | None = None,
+         radius: float | None = None,
+         power: float | None = None) -> dict | None:
+    """BEAM -- shape the source amplitude (apodization) profile.
+
+    Sets the source beam profile macos applies to the aperture amplitude
+    before tracing.  Setting the beam resets the trace, so re-trace after.
+
+    Args:
+        kind: 'uniform' (flat-top, no params), 'gaussian' (needs ``waist``),
+              'cos' (cosine**power, needs ``radius`` + ``power``), or
+              'dipole' (no params).  If None (default), QUERY the current
+              profile instead of setting it.
+        waist: GAUSSIAN x/y waist radii in source BaseUnits -- a scalar is
+               broadcast to (rx, ry).  Required for 'gaussian'.
+        radius: COS cosine beam radius in source BaseUnits.  Required for 'cos'.
+        power: COS cosine exponent.  Required for 'cos'.
+
+    Returns:
+        None when setting.  When called with no args (query), a dict:
+        ``{'kind': str, 'waist': (rx, ry), 'power': float}``.
+
+    Raises:
+        Exception: Rx not loaded, bad kind / missing params, or MACOS
+            rejected the call.
+    """
+    _chk_macos_and_rx_loaded()
+
+    # query mode -----------------------------------------------------
+    if kind is None:
+        ok, code, rx, ry, cos_pwr = lib.api.beam_get()
+        if not ok:
+            raise Exception('MACOS: beam_get failed')
+        code = int(round(code))
+        return {'kind': _BEAM_NAMES.get(code, 'unset'),
+                'waist': (float(rx), float(ry)),
+                'power': float(cos_pwr)}
+
+    # set mode -------------------------------------------------------
+    kind = kind.lower()
+    if kind not in _BEAM_CODES:
+        raise Exception(f'MACOS: unknown beam kind {kind!r} '
+                        f'(expected one of {list(_BEAM_CODES)})')
+    p1, p2 = 0.0, 0.0
+    if kind == 'gaussian':
+        if waist is None:
+            raise Exception("MACOS: gaussian beam requires 'waist'")
+        w = (waist, waist) if np.isscalar(waist) else tuple(waist)
+        if len(w) != 2:
+            raise Exception("MACOS: 'waist' must be a scalar or (rx, ry)")
+        p1, p2 = float(w[0]), float(w[1])
+    elif kind == 'cos':
+        if radius is None or power is None:
+            raise Exception("MACOS: cos beam requires 'radius' and 'power'")
+        p1, p2 = float(radius), float(power)
+
+    if not lib.api.beam_set(_BEAM_CODES[kind], p1, p2):
+        raise Exception('MACOS: beam_set failed')
+    return None
+
+
 def ffp(place_elt: int | np.int32,
         offset: Tuple[float, float]) -> None:
     """FFP -- place an off-axis field point by DIRECTION COSINES (sky angle).
