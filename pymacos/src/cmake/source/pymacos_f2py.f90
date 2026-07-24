@@ -37,6 +37,8 @@
       sysprop_impl => sysprop, &
       window_set_impl => window_set, &
       window_off_impl => window_off, &
+      beam_set_impl => beam_set, &
+      beam_get_impl => beam_get, &
       ffp_impl => ffp, &
       pfp_impl => pfp, &
       obs_set_impl => obs_set, &
@@ -340,6 +342,24 @@
 
         CALL window_off_impl(OK)
       end subroutine window_off
+
+      subroutine beam_set(OK, beamType, p1, p2)
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: beamType
+        real(8), intent(in) :: p1, p2
+
+        CALL beam_set_impl(OK, beamType, p1, p2)
+      end subroutine beam_set
+
+      subroutine beam_get(OK, beamType, rx, ry, cosPwr)
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(out):: beamType
+        real(8), intent(out):: rx, ry, cosPwr
+
+        CALL beam_get_impl(OK, beamType, rx, ry, cosPwr)
+      end subroutine beam_get
 
       subroutine ffp(OK, iElt, dx, dy)
         implicit none
