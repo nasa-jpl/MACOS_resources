@@ -265,6 +265,9 @@ classdef Session < handle
         function f = get_src_flux(obj),          f = macos.get_src_flux();      end
         function set_src_flux(obj, flux),        macos.set_src_flux(flux);       end
 
+        % --- Source beam shaping --------------------------------------
+        function varargout = beam(obj, varargin), [varargout{1:nargout}] = macos.beam(varargin{:}); end
+
         % --- Diffraction buffers / window -----------------------------
         function I = compose(obj, srf, varargin), I = macos.compose(srf, varargin{:}); end
         function window(obj, varargin),          macos.window(varargin{:});      end

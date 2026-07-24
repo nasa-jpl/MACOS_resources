@@ -1,5 +1,7 @@
 apodize
 base_unit_to_metres
+beam_get
+beam_set
 calib_buffer_dims
 calib_clear_var_elts
 calib_run
