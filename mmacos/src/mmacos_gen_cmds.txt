@@ -10,6 +10,8 @@ calib_set_target
 calib_set_tol
 calib_set_var_elt
 cfield_apodize_complex
+coat_get
+coat_set
 complex_field
 compose_add
 compose_get
@@ -91,8 +93,11 @@ ors_run
 perturb_elt
 perturb_src
 pfp
+pol_get
+pol_set
 prb_elt
 prb_elt_grp
+ray_field
 ray_hist_set
 ray_info_get
 ray_info_set
@@ -120,6 +125,7 @@ sxp_fnd
 sys_units
 sysprop
 trace_rays
+vecdif_set
 window_off
 window_set
 xp_fnd
