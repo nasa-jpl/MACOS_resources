@@ -64,7 +64,12 @@ arguments
     opts.workdir  (1,:) char   = ''
     opts.tilt_rad (1,1) double = 1e-5
     opts.verbose  (1,1) logical = true
+    opts.plane    (1,:) char {mustBeMember(opts.plane, {'det','rc'})} = 'det'
 end
+% 'plane','rc' measures the differential phase AT THE RECOMB PLANE (before
+% the tail) through the same machinery -- the tail-immune gauge.  The
+% det-vs-rc difference isolates the detector-leg retrace term (mechanism
+% analysis, PLAN sec.5).  Guards always run on the detector-leg instrument.
 
 LAM = 6.328e-4;                                    % mm (rig wavelength)
 if isempty(which('macos.init'))
@@ -106,10 +111,12 @@ rx_test = fullfile(opts.workdir, 'l2m_test_arm.in');  G.bt.emit(rx_test);
 rx_base = fullfile(opts.workdir, 'l2m_base_arm.in');  G0.bt.emit(rx_base);
 rx_ref  = fullfile(opts.workdir, 'l2m_ref_arm.in');   G.br.emit(rx_ref);
 T = G.T;  R = G.R;
+if strcmp(opts.plane, 'rc'), iMEAS = T.iRC;  rMEAS = R.iRC;
+else,                        iMEAS = T.iDET; rMEAS = R.iDET; end
 
 % ---- 3. direct differential fields (M1 numerator) -----------------------
-macos.load_rx(rx_test);  Ed_pk = macos.complex_field(T.iDET);
-macos.load_rx(rx_base);  Ed_b  = macos.complex_field(T.iDET);
+macos.load_rx(rx_test);  Ed_pk = macos.complex_field(iMEAS);
+macos.load_rx(rx_base);  Ed_b  = macos.complex_field(iMEAS);
 msk = abs(Ed_pk) > 0.1*max(abs(Ed_pk(:)));
 phi = angle(Ed_pk .* conj(Ed_b));                  % differential, wrap-free
 assert(std(phi(msk)) > 1e-6, ['ifo_l2_metric: poked and baseline fields ' ...
@@ -119,12 +126,12 @@ h   = phi * LAM/(4*pi);                            % surface height, mm (+ sign:
                                                    %  path shortens)
 
 % null guard: repeat the baseline field, differential must vanish
-macos.load_rx(rx_base);  Ed_b2 = macos.complex_field(T.iDET);
+macos.load_rx(rx_base);  Ed_b2 = macos.complex_field(iMEAS);
 null_rms = std(angle(Ed_b2(msk) .* conj(Ed_b(msk))));
 
 % inter-arm static (report only; complex-domain centering avoids the +/-pi
 % branch artifact -- never std() wrapped angles directly)
-macos.load_rx(rx_ref);   Er = macos.complex_field(R.iDET);
+macos.load_rx(rx_ref);   Er = macos.complex_field(rMEAS);
 ang = angle(Ed_b .* conj(Er));
 ang = angle(exp(1i*(ang - median(ang(msk)))));
 static_rms = std(ang(msk));
@@ -132,16 +139,16 @@ static_rms = std(ang(msk));
 % ---- 4. per-ray pupil map on the poked test arm (M2 + truth resample) ---
 macos.load_rx(rx_test);
 s  = macos.trace(T.iTO);   ito  = macos.get_ray_info(s.nRays);
-s2 = macos.trace(T.iDET);  idet = macos.get_ray_info(s2.nRays);
+s2 = macos.trace(iMEAS);   idet = macos.get_ray_info(s2.nRays);
 okr = ito.ok_trace(:) & ito.ok_pass(:) & idet.ok_trace(:) & idet.ok_pass(:);
-dxp = macos.dx_at(T.iDET, 'mm');
+dxp = macos.dx_at(iMEAS, 'mm');
 % DM-plane coords in the grid frame the Rx declares (pData=vpt,
 % xData=perp(psi), yData=psi x xData) -- the frame Mdm lives in
 psi1 = macos.get_elt_psi(T.iTO);  vpt1 = macos.get_elt_vpt(T.iTO);
 u1 = macos.design.Bench.perp(psi1);  v1 = cross(psi1, u1);
 xy_to = [u1.'; v1.'] * (ito.pos - vpt1);
-% detector-plane coords about the chief
-psi2 = macos.get_elt_psi(T.iDET);
+% measurement-plane coords about the chief
+psi2 = macos.get_elt_psi(iMEAS);
 u2 = macos.design.Bench.perp(psi2);  v2 = cross(psi2, u2);
 xy_d = [u2.'; v2.'] * (idet.pos - idet.pos(:,1));
 xy_to = xy_to(:,okr);  xy_d = xy_d(:,okr);
@@ -189,9 +196,14 @@ assert(isfield(best, 'ht'), ['ifo_l2_metric: orientation scan found no ' ...
 A1 = cands{best.i,1};  A2 = cands{best.i,2};
 regc = @(p) -reg_corr(p, A1, A2, c_d, Fx, Fy, ax, Mdm, hm, msk);
 p_reg = fminsearch(regc, [0 0 0 0], optimset('TolX',1e-7,'TolFun',1e-10,'Display','off'));
-[c_ref, ht_ref] = reg_corr(p_reg, A1, A2, c_d, Fx, Fy, ax, Mdm, hm, msk);
+[c_ref, ht_ref, Xt_ref, Yt_ref] = reg_corr(p_reg, A1, A2, c_d, Fx, Fy, ax, Mdm, hm, msk);
 corr_scan = best.c;
-if c_ref > best.c, best.c = c_ref;  best.ht = ht_ref; end
+if c_ref > best.c
+    best.c = c_ref;  best.ht = ht_ref;
+else
+    p_reg = zeros(1,4);
+    [~, ~, Xt_ref, Yt_ref] = reg_corr(p_reg, A1, A2, c_d, Fx, Fy, ax, Mdm, hm, msk);
+end
 res = hm(msk) - best.ht(msk);
 
 % ---- 6. guards ----------------------------------------------------------
@@ -251,7 +263,8 @@ out = struct( ...
     'reg', struct('p', p_reg, 'offset_mm', p_reg(1:2), ...
         'rot_mrad', 1e3*p_reg(3), 'scale', expm1(p_reg(4))), ...
     'params', opts, ...
-    'dbg', struct('h', h, 'msk', msk, 'ht', best.ht, 'xy_to', xy_to, ...
+    'dbg', struct('h', h, 'hm', hm, 'msk', msk, 'ht', best.ht, ...
+        'Xt', Xt_ref, 'Yt', Yt_ref, 'xy_to', xy_to, ...
         'xy_d', xy_d, 'nl', nl, 'Aaf', Aaf, 'dxp', dxp, 'ax', ax, ...
         'Mdm', Mdm, 'okr', okr, 'r_beam', r_beam));
 
