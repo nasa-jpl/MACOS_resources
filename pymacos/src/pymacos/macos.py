@@ -303,7 +303,10 @@ def model_size() -> int:
         int: model size -1, 128, 256, 512, 1024, 2048 or 4096
              where -1 indicates that MACOS has not yet been initialised
     """
-    return lib.api.currrent_macos_model_size()
+    # currrent_macos_model_size is a FUNCTION and was never wrapped for
+    # f2py (imported but no shim), so call the model_size_get subroutine
+    # wrapper instead.
+    return int(lib.api.model_size_get())
 
 
 def init(model_size: int = 512) -> None:
@@ -4584,6 +4587,169 @@ def beam(kind: str | None = None,
     if not lib.api.beam_set(_BEAM_CODES[kind], p1, p2):
         raise Exception('MACOS: beam_set failed')
     return None
+
+
+# --- Polarization (PLAN_POLARIZATION Phase 1) --------------------------
+def _single_elt(srf) -> int:
+    """Map a user srf to a single 1-based element ID (raise if multiple)."""
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception(f'expected a single element, got {len(iElt)}')
+        iElt = iElt[0]
+    return int(iElt)
+
+
+def polarization(state: str | None = None,
+                 Ex: complex | Tuple[float, float] = (1.0, 0.0),
+                 Ey: complex | Tuple[float, float] = (0.0, 0.0)) -> dict | None:
+    """POLARIZATION -- enable/disable polarized ray tracing + source state.
+
+    With ``state='on'`` enables polarized tracing (rays carry a complex
+    3-vector E-field, surface coatings become active, and vector
+    diffraction turns on when the model supports it, mWF>=3).  With
+    ``state='off'`` restores scalar tracing.  With ``state=None`` (default)
+    QUERIES the current state.
+
+    Args:
+        state: 'on', 'off', or None (query).
+        Ex, Ey: source Jones amplitudes, complex or (re, im).  Used only
+            when ``state='on'``.  Defaults to x-polarized (Ex=1, Ey=0).
+
+    Returns:
+        None when setting.  When querying, a dict:
+        ``{'on': bool, 'vector': bool, 'Ex': complex, 'Ey': complex}``.
+
+    Raises:
+        Exception: Rx not loaded, bad state, mWF<3 when enabling, or the
+            engine rejected the call.
+    """
+    _chk_macos_and_rx_loaded()
+
+    if state is None:
+        ok, on, vec, exre, exim, eyre, eyim = lib.api.pol_get()
+        if not ok:
+            raise Exception('MACOS: pol_get failed')
+        return {'on': bool(on), 'vector': bool(vec),
+                'Ex': complex(exre, exim), 'Ey': complex(eyre, eyim)}
+
+    s = state.lower()
+    if s == 'off':
+        if not lib.api.pol_set(False, 0.0, 0.0, 0.0, 0.0):
+            raise Exception('MACOS: pol_set (off) failed')
+        return None
+    if s != 'on':
+        raise Exception(f"MACOS: polarization state must be 'on'/'off'/None, "
+                        f"got {state!r}")
+
+    exc = Ex if isinstance(Ex, complex) else complex(*np.atleast_1d(Ex)[:2]) \
+        if hasattr(Ex, '__len__') else complex(Ex)
+    eyc = Ey if isinstance(Ey, complex) else complex(*np.atleast_1d(Ey)[:2]) \
+        if hasattr(Ey, '__len__') else complex(Ey)
+    if not lib.api.pol_set(True, exc.real, exc.imag, eyc.real, eyc.imag):
+        raise Exception('MACOS: pol_set (on) failed -- model may have mWF<3')
+    return None
+
+
+def vector_diffraction(on: bool) -> None:
+    """VECTOR / SCALAR -- toggle 3-component (vector) diffraction.
+
+    ``on=True`` propagates Ex/Ey/Ez as three independent fields (far-field
+    FFT leg only; other legs remain scalar -- see the engine polarization
+    notes).  ``on=False`` restores single-field scalar diffraction.
+
+    VECTOR requires polarization ON already (:func:`polarization`) and a
+    model with mWF>=3, else raises (the engine would otherwise silently
+    revert to scalar).
+    """
+    _chk_macos_and_rx_loaded()
+    if not lib.api.vecdif_set(bool(on)):
+        raise Exception('MACOS: vecdif_set failed -- turn polarization on '
+                        'first (and need mWF>=3)')
+
+
+_MCOAT = 10   # mCoat in elt_mod.F
+
+
+def coating(srf: int | np.int32,
+            index: ArrayLike | None = None,
+            extinc: ArrayLike | None = None,
+            thickness: ArrayLike | None = None) -> dict | None:
+    """Set or query the thin-film coating stack on an element (Model A).
+
+    The polarization-path coating (active only under
+    ``polarization('on')``).  Layers are ordered OUTERMOST -> INNERMOST.
+
+    Args:
+        srf: element ID.
+        index, extinc, thickness: equal-length per-layer vectors.  ``index``
+            is the real refractive index n, ``extinc`` the extinction kappa
+            (index = n - i*kappa), ``thickness`` the PHYSICAL layer thickness
+            in element BaseUnits (NOT waves).  Omit all three to QUERY.
+
+    Returns:
+        None when setting.  When querying, a dict:
+        ``{'n_layer': int, 'index': ndarray, 'extinc': ndarray,
+        'thickness': ndarray}`` (physical thickness).
+
+    Raises:
+        Exception: Rx not loaded, bad layer count/length, or engine error.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = _single_elt(srf)
+
+    if index is None and extinc is None and thickness is None:
+        ok, n_layer, idx, ext, thk = lib.api.coat_get(iElt, _MCOAT)
+        if not ok:
+            raise Exception(f'MACOS: coat_get failed at Elt {iElt}')
+        n = int(n_layer)
+        return {'n_layer': n,
+                'index': np.asarray(idx[:n], dtype=float),
+                'extinc': np.asarray(ext[:n], dtype=float),
+                'thickness': np.asarray(thk[:n], dtype=float)}
+
+    n_arr = np.atleast_1d(np.asarray(index, dtype=float))
+    k_arr = np.atleast_1d(np.asarray(extinc, dtype=float))
+    t_arr = np.atleast_1d(np.asarray(thickness, dtype=float))
+    L = n_arr.size
+    if L < 1 or L > _MCOAT:
+        raise Exception(f'MACOS: coating needs 1..{_MCOAT} layers (got {L})')
+    if k_arr.size != L or t_arr.size != L:
+        raise Exception("MACOS: 'index','extinc','thickness' must match length")
+    # f2py derives nlayer from the array shapes (optional trailing arg).
+    if not lib.api.coat_set(iElt, n_arr, k_arr, t_arr):
+        raise Exception(f'MACOS: coat_set failed at Elt {iElt}')
+    return None
+
+
+def ray_field(srf: int | np.int32) -> dict:
+    """Per-ray complex E-field + geometry + status at an element.
+
+    Harvests, on the N x N ray grid at element ``srf`` (N = model size),
+    the per-ray complex field RayE(3,:), the ray direction cosines, the
+    element surface normal, and the per-ray status.  Requires a polarized
+    trace: call :func:`polarization` ('on') and trace first.
+
+    Returns:
+        dict of ndarrays: ``E`` (complex, shape (N, N, 3) = Ex/Ey/Ez),
+        ``k`` (float, (N, N, 3) direction cosines), ``n`` (float, (N, N, 3)
+        surface normal), and ``status`` (int, (N, N); 0=OK..5=Undef).
+
+    Raises:
+        Exception: Rx not loaded or engine error.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = _single_elt(srf)
+    N = model_size()
+    (ok, exre, exim, eyre, eyim, ezre, ezim,
+     kx, ky, kz, nx, ny, nz, status) = lib.api.rayfield_get(N, iElt)
+    if not ok:
+        raise Exception(f'MACOS: rayfield_get failed at Elt {iElt}')
+    E = np.stack([exre + 1j * exim, eyre + 1j * eyim, ezre + 1j * ezim],
+                 axis=-1)
+    k = np.stack([kx, ky, kz], axis=-1)
+    n = np.stack([nx, ny, nz], axis=-1)
+    return {'E': E, 'k': k, 'n': n, 'status': status.astype(int)}
 
 
 def ffp(place_elt: int | np.int32,
