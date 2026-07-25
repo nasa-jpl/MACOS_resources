@@ -104,6 +104,11 @@ C=======================================================================
             ! Rank-3 csys(6,6,N) array — outside the codegen ≤2D
             ! ceiling, so hand-written.  Returns [csys, csys_lcs, csys_upd].
             CALL do_elt_csys_get(nlhs, plhs, nrhs, prhs)
+          CASE ('ray_field')
+            ! Path B: harvest RayE(3,:)+geometry+status on the ray grid.
+            ! Hand-written so the helper queries mdttl internally
+            ! (currrent_macos_model_size) -- the veneer is ray_field(iElt).
+            CALL do_ray_field(nlhs, plhs, nrhs, prhs)
           CASE DEFAULT
             ! Fall through to auto-generated dispatcher.  Covers every
             ! macos_api_mod routine NOT special-cased above; see
@@ -720,3 +725,115 @@ C=======================================================================
 
         deallocate(iElt, csys, csys_lcs, csys_upd)
         end subroutine do_elt_csys_get
+
+
+C=======================================================================
+C     ray_field -- harvest per-ray complex E-field RayE(3,:) + ray       =
+C     direction cosines + element surface normal + per-ray status onto   =
+C     the ray grid at element iElt.  Path B: queries mdttl internally so =
+C     the veneer signature is ray_field(iElt).                           =
+C                                                                        =
+C     Returns (in nlhs order):                                           =
+C       Ex, Ey, Ez : N x N complex (RayE components)                     =
+C       kx, ky, kz : N x N real (ray direction cosines)                  =
+C       nx, ny, nz : N x N real (element surface normal, broadcast)      =
+C       status     : N x N real (RayStatus code per ray; 5=no ray)       =
+C=======================================================================
+        subroutine do_ray_field(nlhs, plhs, nrhs, prhs)
+        use macos_api_mod, only: rayfield_get, currrent_macos_model_size
+        implicit none
+        mwPointer plhs(*), prhs(*)
+        integer nlhs, nrhs
+
+        mwPointer mxGetPr
+        mwPointer mxCreateDoubleMatrix
+        mwPointer pr_in, pr
+        real(8)   buf(1)
+        integer   iElt, N
+        logical   ok
+        integer*8 nbytes
+        real(8), allocatable :: ExRe(:,:), ExIm(:,:), EyRe(:,:),
+     &    EyIm(:,:), EzRe(:,:), EzIm(:,:), kx(:,:), ky(:,:), kz(:,:),
+     &    nx(:,:), ny(:,:), nz(:,:)
+        integer, allocatable :: status(:,:)
+        real(8), allocatable :: rbuf(:)
+
+        IF (nrhs .ne. 2) CALL mexErrMsgTxt(
+     &    'ray_field: usage mmacos(''ray_field'', iElt)')
+        pr_in = mxGetPr(prhs(2))
+        CALL mxCopyPtrToReal8(pr_in, buf, int8(1))
+        iElt = int(buf(1))
+
+        N = currrent_macos_model_size()
+        IF (N .le. 0) CALL mexErrMsgTxt(
+     &    'mmacos: ray_field -- engine not initialised')
+
+        allocate(ExRe(N,N), ExIm(N,N), EyRe(N,N), EyIm(N,N),
+     &    EzRe(N,N), EzIm(N,N), kx(N,N), ky(N,N), kz(N,N),
+     &    nx(N,N), ny(N,N), nz(N,N), status(N,N))
+
+        CALL rayfield_get(ok, ExRe, ExIm, EyRe, EyIm, EzRe, EzIm,
+     &    kx, ky, kz, nx, ny, nz, status, N, iElt)
+        IF (.not. ok) THEN
+          deallocate(ExRe, ExIm, EyRe, EyIm, EzRe, EzIm, kx, ky, kz,
+     &      nx, ny, nz, status)
+          CALL mexErrMsgTxt('mmacos: ray_field failed')
+        END IF
+
+        nbytes = int(N, kind=8) * int(N, kind=8)
+
+        ! Ex, Ey, Ez as complex matrices
+        IF (nlhs .ge. 1) THEN
+          plhs(1) = mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),1)
+          CALL mxCopyReal8ToPtr(ExRe, mxGetPr(plhs(1)), nbytes)
+          CALL write_imag(plhs(1), ExIm, nbytes)
+        END IF
+        IF (nlhs .ge. 2) THEN
+          plhs(2) = mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),1)
+          CALL mxCopyReal8ToPtr(EyRe, mxGetPr(plhs(2)), nbytes)
+          CALL write_imag(plhs(2), EyIm, nbytes)
+        END IF
+        IF (nlhs .ge. 3) THEN
+          plhs(3) = mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),1)
+          CALL mxCopyReal8ToPtr(EzRe, mxGetPr(plhs(3)), nbytes)
+          CALL write_imag(plhs(3), EzIm, nbytes)
+        END IF
+        ! kx, ky, kz
+        IF (nlhs .ge. 4) THEN
+          plhs(4) = mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),0)
+          CALL mxCopyReal8ToPtr(kx, mxGetPr(plhs(4)), nbytes)
+        END IF
+        IF (nlhs .ge. 5) THEN
+          plhs(5) = mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),0)
+          CALL mxCopyReal8ToPtr(ky, mxGetPr(plhs(5)), nbytes)
+        END IF
+        IF (nlhs .ge. 6) THEN
+          plhs(6) = mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),0)
+          CALL mxCopyReal8ToPtr(kz, mxGetPr(plhs(6)), nbytes)
+        END IF
+        ! nx, ny, nz
+        IF (nlhs .ge. 7) THEN
+          plhs(7) = mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),0)
+          CALL mxCopyReal8ToPtr(nx, mxGetPr(plhs(7)), nbytes)
+        END IF
+        IF (nlhs .ge. 8) THEN
+          plhs(8) = mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),0)
+          CALL mxCopyReal8ToPtr(ny, mxGetPr(plhs(8)), nbytes)
+        END IF
+        IF (nlhs .ge. 9) THEN
+          plhs(9) = mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),0)
+          CALL mxCopyReal8ToPtr(nz, mxGetPr(plhs(9)), nbytes)
+        END IF
+        ! status (integer -> real matrix)
+        IF (nlhs .ge. 10) THEN
+          plhs(10)= mxCreateDoubleMatrix(int(N,kind=8),int(N,kind=8),0)
+          pr = mxGetPr(plhs(10))
+          allocate(rbuf(nbytes))
+          rbuf = dble(reshape(status, [nbytes]))
+          CALL mxCopyReal8ToPtr(rbuf, pr, nbytes)
+          deallocate(rbuf)
+        END IF
+
+        deallocate(ExRe, ExIm, EyRe, EyIm, EzRe, EzIm, kx, ky, kz,
+     &    nx, ny, nz, status)
+        end subroutine do_ray_field

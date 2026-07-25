@@ -268,6 +268,12 @@ classdef Session < handle
         % --- Source beam shaping --------------------------------------
         function varargout = beam(obj, varargin), [varargout{1:nargout}] = macos.beam(varargin{:}); end
 
+        % --- Polarization ---------------------------------------------
+        function varargout = polarization(obj, varargin), [varargout{1:nargout}] = macos.polarization(varargin{:}); end
+        function vector_diffraction(obj, on),    macos.vector_diffraction(on);   end
+        function varargout = coating(obj, varargin), [varargout{1:nargout}] = macos.coating(varargin{:}); end
+        function rf = ray_field(obj, srf),       rf = macos.ray_field(srf);      end
+
         % --- Diffraction buffers / window -----------------------------
         function I = compose(obj, srf, varargin), I = macos.compose(srf, varargin{:}); end
         function window(obj, varargin),          macos.window(varargin{:});      end
