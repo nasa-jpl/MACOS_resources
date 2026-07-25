@@ -50,14 +50,23 @@ classdef Bench < handle
 %                                       (default) is normal-incidence
 %                                       retro-reflection (e.g. a DM
 %                                       being probed on-axis).
-%     add_bs_transmit(bs)               TRANSMIT re-encounter with the
-%                                       plate recorded in token BS: two
-%                                       flat refractor surfaces; the
-%                                       chief is Snell-refracted through
-%                                       the tilted plate (real walk-off)
-%                                       and both surfaces are centered
-%                                       on the refracted chief.  No DIST:
-%                                       the plate is already placed.
+%     add_bs_transmit(bs)               TRANSMIT pass through the plate
+%                                       in token BS (from either side --
+%                                       side-agnostic): two flat
+%                                       refractor surfaces centered on
+%                                       the Snell-refracted chief (real
+%                                       walk-off).  No DIST: the plate
+%                                       is already placed.
+%     add_bs_reflect_return(bs)         recombining reflection off the
+%                                       BS with its REAL glass path:
+%                                       back-face in -> internal reflect
+%                                       at the coating -> back-face out
+%                                       (two glass transits -- what a
+%                                       compensator plate balances).
+%     plate(dist, psi, ...)             define a plane-parallel plate
+%                                       token (e.g. a COMPENSATOR) with
+%                                       no element added; pass it to
+%                                       add_bs_transmit per pass.
 %     add_fold(dist, out)               fold mirror (OUT required).
 %     add_oap(dist, out, ...)           off-axis parabola section
 %                                       (RptElt=pole, VptElt=parent
@@ -240,6 +249,10 @@ methods
             opts.out = 'retro'
             opts.name (1,:) char = 'M'
             opts.aprad (1,1) double = 0     % 0 = no aperture (ApType=None)
+            opts.Kr   (1,1) double = 0     % nonzero: Surface=Conic, vertex
+                                           % radius Kr (Kr<0 = concave toward
+                                           % the beam for a retro mirror --
+                                           % e.g. a weak test-optic figure)
         end
         P = b.step(dist);
         if ischar(opts.out) || isstring(opts.out)
@@ -253,9 +266,59 @@ methods
         psi = macos.design.Bench.unit(out - b.dir);
         e = b.blank(opts.name, 'Reflector');
         e.psi = psi;  e.vpt = P;  e.extinc = 1e22;
+        if opts.Kr ~= 0
+            e.surface = 'Conic';  e.Kr = opts.Kr;  e.Kc = 0.0;
+        end
         if opts.aprad > 0, e.aptype = 'Circular';  e.aprad = opts.aprad; end
         i = b.push(e);
         b.dir = out;
+    end
+
+    % -----------------------------------------------------------------
+    function idx = add_bs_reflect_return(b, bs, opts)
+        %ADD_BS_REFLECT_RETURN  Recombining reflection off the plate in
+        %   token BS, modeled with its REAL glass path: the returning
+        %   beam (e.g. a reference arm coming back from its retro
+        %   mirror) enters through the BACK face, reflects INTERNALLY
+        %   off the coated psi-side face, and exits through the back
+        %   face into the common output port -- three elements
+        %   [back-in, coating-reflect, back-out], two glass transits.
+        %   (This is what a compensator plate in the other arm
+        %   balances.)  Returns the three element indices.
+        arguments
+            b
+            bs (1,1) struct
+            opts.tag (1,:) char = 'r'
+        end
+        psi = bs.psi;  t = bs.thickness;  n = bs.n;
+        denom = dot(b.dir, psi);
+        assert(abs(denom) > 1e-12, 'Bench.add_bs_reflect_return: chief parallel to plate.');
+        % the returning beam must approach from the glass (-psi) side
+        vptB = bs.vpt - t*psi;                       % back face point
+        sB = dot(vptB - b.pos, psi) / denom;
+        assert(sB > 0, 'Bench.add_bs_reflect_return: plate is behind the beam.');
+        Pin = b.pos + sB*b.dir;
+        dg  = macos.design.Bench.refract(b.dir, psi, 1.0, n);
+        sf  = dot(bs.vpt - Pin, psi) / dot(dg, psi); % to the coating
+        assert(sf > 0, 'Bench.add_bs_reflect_return: degenerate glass path.');
+        Pr  = Pin + sf*dg;
+        dr  = macos.design.Bench.reflect(dg, psi);
+        sb2 = dot(vptB - Pr, psi) / dot(dr, psi);    % back out
+        assert(sb2 > 0, 'Bench.add_bs_reflect_return: degenerate return path.');
+        Pout = Pr + sb2*dr;
+        dout = macos.design.Bench.refract(dr, psi, n, 1.0);
+
+        e1 = b.blank([bs.name 'bin' opts.tag], 'Refractor');
+        e1.psi = psi;  e1.vpt = Pin;   e1.indref = n;    e1.extinc = 1e22;
+        b.path_len = b.path_len + sB;   i1 = b.push(e1);
+        e2 = b.blank([bs.name 'cref' opts.tag], 'Reflector');
+        e2.psi = psi;  e2.vpt = Pr;    e2.indref = n;    e2.extinc = 1e22;
+        b.path_len = b.path_len + sf;   i2 = b.push(e2);
+        e3 = b.blank([bs.name 'bout' opts.tag], 'Refractor');
+        e3.psi = psi;  e3.vpt = Pout;  e3.indref = 1.0;  e3.extinc = 1e22;
+        b.path_len = b.path_len + sb2;  i3 = b.push(e3);
+        idx = [i1, i2, i3];
+        b.pos = Pout;  b.dir = dout;
     end
 
     % -----------------------------------------------------------------
@@ -405,34 +468,63 @@ methods
     end
 
     % -----------------------------------------------------------------
-    function idx = add_bs_transmit(b, bs)
+    function tok = plate(b, dist, psi, opts)
+        %PLATE  Define a tilted plane-parallel plate token WITHOUT adding
+        %   any element or touching the chief -- e.g. a COMPENSATOR
+        %   plate, or a substrate this arm only transmits.  DIST places
+        %   a reference point on the plate's psi-side face along the
+        %   current chief; PSI is the plate normal (glass extends away
+        %   from psi).  Feed the token to add_bs_transmit (any number
+        %   of passes, from either side) or add_bs_reflect_return.
+        arguments
+            b
+            dist (1,1) double {mustBePositive}
+            psi  (3,1) double
+            opts.thickness (1,1) double {mustBePositive} = 10
+            opts.n         (1,1) double {mustBePositive} = 1.5
+            opts.name      (1,:) char = 'Plate'
+        end
+        tok = struct('vpt', b.pos + dist*b.dir, ...
+                     'psi', macos.design.Bench.unit(psi), ...
+                     'thickness', opts.thickness, 'n', opts.n, ...
+                     'name', opts.name);
+    end
+
+    % -----------------------------------------------------------------
+    function idx = add_bs_transmit(b, bs, opts)
         %ADD_BS_TRANSMIT  Transmit pass through the plate in token BS.
+        %   SIDE-AGNOSTIC: the chief may approach from either face (a
+        %   double-passed compensator returns through its back face).
         %   Snell-refracts the chief through the tilted plate; both
         %   surfaces are emitted centered on the refracted chief (real
-        %   walk-off).  Returns [i_front i_back].
+        %   walk-off).  Returns [i_in i_out].  'tag' suffixes the
+        %   element names (distinguish repeated passes).
         arguments
             b
             bs (1,1) struct
+            opts.tag (1,:) char = ''
         end
-        denom = dot(b.dir, bs.psi);
+        psi = bs.psi;  t = bs.thickness;
+        denom = dot(b.dir, psi);
         assert(abs(denom) > 1e-12, 'Bench.add_bs_transmit: chief parallel to plate.');
-        s1 = dot(bs.vpt - b.pos, bs.psi) / denom;
-        assert(s1 > 0, 'Bench.add_bs_transmit: plate is behind the beam.');
-        P1 = b.pos + s1*b.dir;
-        d1 = macos.design.Bench.refract(b.dir, bs.psi, 1.0, bs.n);
-        % back face: plate glass extends AWAY from psi (psi faces the beam)
-        p2 = bs.vpt - bs.thickness*bs.psi;
-        s2 = dot(p2 - P1, bs.psi) / dot(d1, bs.psi);
+        sF = dot(bs.vpt - b.pos, psi) / denom;              % psi-side face
+        sB = dot(bs.vpt - t*psi - b.pos, psi) / denom;      % far face
+        ss = sort([sF, sB]);
+        assert(ss(1) > 0, 'Bench.add_bs_transmit: plate is behind the beam.');
+        P1 = b.pos + ss(1)*b.dir;
+        d1 = macos.design.Bench.refract(b.dir, psi, 1.0, bs.n);
+        if sF <= sB, q2 = bs.vpt - t*psi; else, q2 = bs.vpt; end
+        s2 = dot(q2 - P1, psi) / dot(d1, psi);
         assert(s2 > 0, 'Bench.add_bs_transmit: degenerate plate crossing.');
         P2 = P1 + s2*d1;
-        d2 = macos.design.Bench.refract(d1, bs.psi, bs.n, 1.0);
+        d2 = macos.design.Bench.refract(d1, psi, bs.n, 1.0);
 
-        e1 = b.blank([bs.name 'txf'], 'Refractor');
-        e1.psi = bs.psi;  e1.vpt = P1;  e1.indref = bs.n;  e1.extinc = 1e22;
-        b.path_len = b.path_len + s1;          % geometric path bookkeeping
+        e1 = b.blank([bs.name 'txf' opts.tag], 'Refractor');
+        e1.psi = psi;  e1.vpt = P1;  e1.indref = bs.n;  e1.extinc = 1e22;
+        b.path_len = b.path_len + ss(1);       % geometric path bookkeeping
         i1 = b.push(e1);
-        e2 = b.blank([bs.name 'txb'], 'Refractor');
-        e2.psi = bs.psi;  e2.vpt = P2;  e2.indref = 1.0;   e2.extinc = 1e22;
+        e2 = b.blank([bs.name 'txb' opts.tag], 'Refractor');
+        e2.psi = psi;  e2.vpt = P2;  e2.indref = 1.0;   e2.extinc = 1e22;
         b.path_len = b.path_len + s2;
         i2 = b.push(e2);
         idx = [i1, i2];
