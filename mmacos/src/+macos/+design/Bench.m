@@ -253,6 +253,11 @@ methods
                                            % radius Kr (Kr<0 = concave toward
                                            % the beam for a retro mirror --
                                            % e.g. a weak test-optic figure)
+            opts.grid_file (1,:) char = '' % nonempty: Surface=GridData with
+                                           % this GridFile (surface figure map,
+                                           % e.g. a DM); requires grid_n/grid_dx
+            opts.grid_n  (1,1) double = 0  % nGridMat (grid is grid_n x grid_n)
+            opts.grid_dx (1,1) double = 0  % GridSrfdx (BaseUnits per sample)
         end
         P = b.step(dist);
         if ischar(opts.out) || isstring(opts.out)
@@ -268,6 +273,15 @@ methods
         e.psi = psi;  e.vpt = P;  e.extinc = 1e22;
         if opts.Kr ~= 0
             e.surface = 'Conic';  e.Kr = opts.Kr;  e.Kc = 0.0;
+        end
+        if ~isempty(opts.grid_file)
+            % GridData figure map (SrfType 9): grid frame = the element's
+            % own local frame (pData=vertex, zData=psi) so pokes localize
+            assert(opts.grid_n > 1 && opts.grid_dx > 0, ...
+                'Bench.add_mirror: grid_file needs grid_n and grid_dx.');
+            e.surface = 'GridData';
+            e.gridfile = opts.grid_file;
+            e.gridn = opts.grid_n;  e.griddx = opts.grid_dx;
         end
         if opts.aprad > 0, e.aptype = 'Circular';  e.aprad = opts.aprad; end
         i = b.push(e);
@@ -602,6 +616,16 @@ methods
             ln{end+1} =         '            nCoat=  0';
             ln{end+1} = sprintf('             xObs=  %s', F(macos.design.Bench.perp(e.psi)));
             ln{end+1} =         '             nObs=  0';
+            if ~isempty(e.gridfile)
+                w = macos.design.Bench.perp(e.psi);
+                ln{end+1} = sprintf('         nGridMat=  %d', e.gridn);
+                ln{end+1} = sprintf('         GridFile=  %s', e.gridfile);
+                ln{end+1} = sprintf('        GridSrfdx=  %.10E', e.griddx);
+                ln{end+1} = sprintf('            pData=  %s', F(e.vpt));
+                ln{end+1} = sprintf('            xData=  %s', F(w));
+                ln{end+1} = sprintf('            yData=  %s', F(cross(e.psi, w)));
+                ln{end+1} = sprintf('            zData=  %s', F(e.psi));
+            end
             ln{end+1} = sprintf('           ApType=  %s', e.aptype);
             if strcmp(e.aptype, 'Circular')
                 ln{end+1} = sprintf('            ApVec=  %.10E  0.0D+00  0.0D+00', e.aprad);
@@ -734,6 +758,7 @@ methods (Access = private)
             'Kr', -1e22, 'Kc', 0.0, 'psi', b.dir, 'vpt', b.pos, ...
             'rpt', [NaN;NaN;NaN], ...   % NaN = same as vpt (resolved in push)
             'indref', 1.0, 'extinc', 0.0, 'aptype', 'None', 'aprad', 0, ...
+            'gridfile', '', 'gridn', 0, 'griddx', 0, ...
             'zelt', 1e22, 's', b.path_len);
     end
 
