@@ -14,6 +14,7 @@ rule, `../../CLAUDE.md`).
 | `example_telescope_align.m` | builder | `Telescope → build → from_rx → vary → evaluate → optimize` | Focused: the builder→analysis loop — a built Cassegrain recovers an M2 despace error. |
 | `example_sensitivities_from_rx.m` | import | `from_rx → describe → sensitivities → table` | Import any Rx, get a labeled rigid-body + Zernike sensitivity table (the 2A-i headline). |
 | `example_align_from_rx.m` | import | `from_rx → sensitivities → vary → evaluate → optimize` | Import + align: declare a design variable, misalign an element, optimize it back. |
+| `bench_layout/example_bench_layout.m` | builder | `Bench add_* → emit → staged optimize → conjugate trim → render` | **Lay out and optimize an optical BENCH** (interferometer-test-arm topology): build source → baffle → L1 → BS reflect → DM → BS transmit → folds → L2 → focal mask → detector sequentially with `macos.design.Bench` add-optic utilities (analytic chief tracking incl. Snell walk-off through the tilted BS plate), then collimate L1 at the DM, focus L2 at the mask, and place the detector at the DM-pupil conjugate via the DM-tilt test. `Bench` also provides `add_oap` (off-axis parabola sections) and `add_relay` (Offner-type concentric 3-mirror 1:1 relay). |
 
 The builder examples derive geometry from closed-form optics
 (`../../../optical_design/` reference + fixtures); the import examples run
