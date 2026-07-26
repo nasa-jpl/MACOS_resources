@@ -4752,6 +4752,262 @@ def ray_field(srf: int | np.int32) -> dict:
     return {'E': E, 'k': k, 'n': n, 'status': status.astype(int)}
 
 
+def jones_pupil(srf: int | np.int32, basis: str = 'double-pole',
+                axis: ArrayLike | None = None,
+                xref: ArrayLike | None = None) -> dict:
+    """2x2 Jones pupil at an element from two orthogonal polarized traces.
+
+    Traces the loaded prescription twice with source states (Ex0,Ey0) =
+    (1,0) and (0,1), harvests the per-ray vector field at ``srf``
+    (:func:`ray_field`), and assembles the 2x2 complex Jones matrix per
+    ray-grid point: [E_out in exit basis] = J [source state].
+
+    INPUT basis (fixed by the engine): collimated sources launch every
+    ray with E = S*(Ex0*xGrid + Ey0*yGrid) -- the source-frame pair,
+    uniform over the grid; point sources use the per-ray frame
+    yray = unit(RayDir x xGrid), xray = yray x RayDir (ssrcray.inc).
+    S is the engine flux normalization (~1/sqrt(nRays)); J carries this
+    common real scalar (ratios/metrics unaffected).
+
+    Args:
+        srf: element at which to harvest.
+        basis: output transverse basis --
+            'double-pole' (default): Chipman double-pole coordinates,
+            smooth over any physical pupil; use for budget numbers.
+            'local-sp': per-ray s/p relative to the exit axis;
+            coordinate-singular on axis -- diagnostic only.
+            'global': project onto (xref, yref) ignoring ray direction.
+        axis: exit-axis 3-vector (default: mean unit ray direction).
+        xref: reference x direction (default: global +x projected out of
+            the axis; +y fallback).
+
+    Returns:
+        dict: ``J`` (N,N,2,2) complex, NaN at vignetted points; ``mask``
+        (N,N) bool; ``basis``, ``axis``, ``xref``, ``yref``; ``k``
+        (N,N,3) exit unit ray directions; ``leak`` max longitudinal
+        residual |E.k|/|E|; ``singular`` (N,N) bool where the requested
+        basis is coordinate-singular (local-sp only, else all-False).
+
+    The two traces are geometry-identical by construction (asserted
+    bitwise).  The pre-call polarization state is restored on exit.
+    """
+    if basis not in ('double-pole', 'local-sp', 'global'):
+        raise Exception(f"MACOS: jones_pupil basis must be 'double-pole', "
+                        f"'local-sp' or 'global', got {basis!r}")
+    s0 = polarization()
+
+    polarization('on', Ex=1 + 0j, Ey=0 + 0j)
+    trace_rays(srf)
+    rfx = ray_field(srf)
+    polarization('on', Ex=0 + 0j, Ey=1 + 0j)
+    trace_rays(srf)
+    rfy = ray_field(srf)
+
+    if s0['on']:
+        polarization('on', Ex=s0['Ex'], Ey=s0['Ey'])
+    else:
+        polarization('off')
+
+    if (not np.array_equal(rfx['status'], rfy['status'])
+            or not np.array_equal(rfx['k'], rfy['k'])):
+        raise Exception('MACOS: jones_pupil -- x/y-state traces disagree in '
+                        'ray geometry (engine bug?)')
+    mask = (rfx['status'] == 0) & (rfy['status'] == 0)
+    if not mask.any():
+        raise Exception(f'MACOS: jones_pupil -- no unvignetted rays at {srf}')
+    N = mask.shape[0]
+
+    k = rfx['k'].copy()
+    kmag = np.linalg.norm(k, axis=-1)
+    kmag[~mask] = 1.0
+    k /= kmag[..., None]
+
+    if axis is not None:
+        ax = np.asarray(axis, dtype=float)
+        ax = ax / np.linalg.norm(ax)
+    else:
+        ax = k[mask].mean(axis=0)
+        ax = ax / np.linalg.norm(ax)
+
+    if xref is not None:
+        xr = np.asarray(xref, dtype=float)
+    else:
+        xr = np.array([1.0, 0.0, 0.0])
+        if abs(xr @ ax) > 1 - 1e-8:
+            xr = np.array([0.0, 1.0, 0.0])
+    xr = xr - (xr @ ax) * ax
+    xr = xr / np.linalg.norm(xr)
+    yr = np.cross(ax, xr)                      # right-handed: xr x yr = ax
+
+    singular = np.zeros((N, N), dtype=bool)
+    if basis == 'double-pole':
+        # Rodrigues rotation carrying ax -> khat, applied to (xr, yr)
+        cth = k @ ax
+        r = np.cross(np.broadcast_to(ax, k.shape), k)
+        sth = np.linalg.norm(r, axis=-1)
+        onax = sth < 1e-12
+        u = r / np.where(sth[..., None] == 0, 1, sth[..., None])
+
+        def _rotc(v0):
+            cxv = np.stack([u[..., 1] * v0[2] - u[..., 2] * v0[1],
+                            u[..., 2] * v0[0] - u[..., 0] * v0[2],
+                            u[..., 0] * v0[1] - u[..., 1] * v0[0]], axis=-1)
+            ud = u @ v0
+            v = (v0[None, None, :] * cth[..., None] + cxv * sth[..., None]
+                 + u * (ud * (1 - cth))[..., None])
+            v[onax] = v0
+            return v
+        e1 = _rotc(xr)
+        e2 = _rotc(yr)
+    elif basis == 'local-sp':
+        s_ = np.cross(k, np.broadcast_to(ax, k.shape))
+        smag = np.linalg.norm(s_, axis=-1)
+        singular = mask & (smag < 1e-9)
+        s_ /= np.where(smag[..., None] < 1e-9, 1, smag[..., None])
+        e1 = np.cross(s_, k)                   # p (meridional); e1 x e2 = k
+        e2 = s_
+        e1[singular] = xr
+        e2[singular] = yr
+    else:                                      # 'global'
+        e1 = np.broadcast_to(xr, k.shape).copy()
+        e2 = np.broadcast_to(yr, k.shape).copy()
+
+    J = np.full((N, N, 2, 2), np.nan + 1j * np.nan, dtype=complex)
+    J[..., 0, 0] = (e1 * rfx['E']).sum(axis=-1)
+    J[..., 1, 0] = (e2 * rfx['E']).sum(axis=-1)
+    J[..., 0, 1] = (e1 * rfy['E']).sum(axis=-1)
+    J[..., 1, 1] = (e2 * rfy['E']).sum(axis=-1)
+    J[~mask] = np.nan + 1j * np.nan
+
+    leak = 0.0
+    for rf in (rfx, rfy):
+        Edotk = (rf['E'] * k).sum(axis=-1)
+        Emag = np.linalg.norm(rf['E'], axis=-1)
+        lk = np.abs(Edotk) / np.where(Emag == 0, 1, Emag)
+        leak = max(leak, float(lk[mask].max()))
+
+    return {'J': J, 'mask': mask, 'basis': basis, 'axis': ax,
+            'xref': xr, 'yref': yr, 'k': k, 'leak': leak,
+            'singular': singular}
+
+
+def pol_maps(jp: dict) -> dict:
+    """Polarization-aberration decomposition of a Jones pupil.
+
+    Decomposes ``jp`` (from :func:`jones_pupil`, or any dict with ``J``
+    (N,N,2,2) complex and ``mask`` (N,N) bool) via the per-point polar
+    decomposition J = H W (H hermitian >= 0, W unitary), closed-form 2x2
+    Pauli algebra, fully vectorized.
+
+    Pauli ordering: s1 = x/y (0/90 linear), s2 = +/-45 linear,
+    s3 = circular.
+
+    Returns:
+        dict of (N,N) maps (NaN off-mask): ``T`` intensity transmission
+        (carries the engine source normalization -- ratios only), ``D``
+        diattenuation magnitude, ``Dvec`` (N,N,3) components, ``ret``
+        retardance magnitude in [0, pi], ``retvec`` (N,N,3), ``phase``
+        unitary-part global phase (mod pi), ``ambiguous`` bool (ret
+        within 0.2 rad of pi -- branch unresolved, flagged not chosen),
+        ``mask``; plus ``mean`` and ``var_rms`` dicts (T, D, Dvec, ret,
+        retvec), the pupil mean and the RMS of the variation SEPARATELY
+        -- uniform retardance/diattenuation is a state change (and,
+        after folds, the system's geometric rotation), not an
+        aberration; only the variation drives a contrast floor or a PSI
+        systematic.
+
+    Basis dependence: ``D``/``T`` are singular-value invariants
+    (basis-independent); ``ret``/``retvec`` are exactly what the
+    double-pole basis makes artifact-free.
+    """
+    J = jp['J']
+    mask = np.asarray(jp['mask'], dtype=bool)
+    J11, J12 = J[..., 0, 0], J[..., 0, 1]
+    J21, J22 = J[..., 1, 0], J[..., 1, 1]
+    with np.errstate(invalid='ignore', divide='ignore'):
+        return _pol_maps_body(J11, J12, J21, J22, mask)
+
+
+def _pol_maps_body(J11, J12, J21, J22, mask):
+    # off-mask points are NaN by construction (errstate-silenced caller)
+
+    # hermitian product M = J^dag J (Pauli coefficients, real)
+    M11 = np.abs(J11) ** 2 + np.abs(J21) ** 2
+    M22 = np.abs(J12) ** 2 + np.abs(J22) ** 2
+    M12 = np.conj(J11) * J12 + np.conj(J21) * J22
+    t0 = (M11 + M22) / 2
+    t1 = (M11 - M22) / 2
+    t2 = M12.real
+    t3 = -M12.imag
+    tm = np.sqrt(t1 ** 2 + t2 ** 2 + t3 ** 2)
+
+    tiny = np.finfo(float).tiny
+    T = t0
+    D = tm / np.maximum(t0, tiny)
+    Dvec = np.stack([t1, t2, t3], axis=-1) / np.maximum(t0, tiny)[..., None]
+
+    # polar: H = sqrtm(M) closed form; W = J H^-1
+    detM = t0 ** 2 - tm ** 2
+    sq = np.sqrt(np.maximum(detM, 0))
+    den = np.sqrt(np.maximum(2 * t0 + 2 * sq, tiny))
+    H11, H22, H12 = (M11 + sq) / den, (M22 + sq) / den, M12 / den
+    detH = np.maximum(sq, tiny)
+    Hi11, Hi22 = H22 / detH, H11 / detH
+    Hi12, Hi21 = -H12 / detH, -np.conj(H12) / detH
+    W11 = J11 * Hi11 + J12 * Hi21
+    W12 = J11 * Hi12 + J12 * Hi22
+    W21 = J21 * Hi11 + J22 * Hi21
+    W22 = J21 * Hi12 + J22 * Hi22
+
+    # retardance from the unitary part: strip psi (det W = e^{2i psi}),
+    # W' = cos(d/2) I - i sin(d/2) (nhat . sigma)
+    detW = W11 * W22 - W12 * W21
+    psi = np.angle(detW) / 2
+    ph = np.exp(-1j * psi)
+    W11p, W12p, W21p, W22p = W11 * ph, W12 * ph, W21 * ph, W22 * ph
+    c = (W11p + W22p).real / 2
+    sn1 = (W22p - W11p).imag / 2
+    sn2 = -(W12p + W21p).imag / 2
+    sn3 = (W21p - W12p).real / 2
+    neg = c < 0                                # canonicalize d in [0, pi]
+    c = np.where(neg, -c, c)
+    sn1 = np.where(neg, -sn1, sn1)
+    sn2 = np.where(neg, -sn2, sn2)
+    sn3 = np.where(neg, -sn3, sn3)
+    psi = np.where(neg, psi + np.pi, psi)
+    psi = np.mod(psi + np.pi / 2, np.pi) - np.pi / 2
+    snm = np.sqrt(sn1 ** 2 + sn2 ** 2 + sn3 ** 2)
+    delta = 2 * np.arctan2(snm, c)
+    snmn = np.where(snm < tiny, 1, snm)
+    retvec = np.stack([delta * sn1 / snmn, delta * sn2 / snmn,
+                       delta * sn3 / snmn], axis=-1)
+    ambiguous = mask & (delta > np.pi - 0.2)
+
+    off = ~mask
+    for a in (T, D, delta, psi):
+        a[off] = np.nan
+    Dvec[off] = np.nan
+    retvec[off] = np.nan
+
+    def _stat(x):
+        v = x[mask] if x.ndim == 2 else x[mask]
+        mu = v.mean(axis=0)
+        return mu, np.sqrt(((v - mu) ** 2).mean(axis=0))
+
+    mT, vT = _stat(T)
+    mD, vD = _stat(D)
+    mR, vR = _stat(delta)
+    mDv, vDv = _stat(Dvec)
+    mRv, vRv = _stat(retvec)
+
+    return {'T': T, 'D': D, 'Dvec': Dvec, 'ret': delta, 'retvec': retvec,
+            'phase': psi, 'ambiguous': ambiguous, 'mask': mask,
+            'mean': {'T': mT, 'D': mD, 'Dvec': mDv, 'ret': mR,
+                     'retvec': mRv},
+            'var_rms': {'T': vT, 'D': vD, 'Dvec': vDv, 'ret': vR,
+                        'retvec': vRv}}
+
+
 def ffp(place_elt: int | np.int32,
         offset: Tuple[float, float]) -> None:
     """FFP -- place an off-axis field point by DIRECTION COSINES (sky angle).
@@ -5014,4 +5270,4 @@ def stop_obj(x: float, y: float, z: float) -> None:
 
 # -------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    pass
+    pass

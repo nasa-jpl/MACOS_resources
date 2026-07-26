@@ -150,7 +150,7 @@ SUITE_FAST=$(join_suites \
     "tDesignOptimize" "tDesignTelescope" "tVeneerXP" "tCoroContrast" \
     "tCompose" "tSysProp" "tBeam" "tSegMirMaker" "tSegmentRx" "tEdgeSensors" \
     "tMet" "tMetView" "tRunMet" "tRunSensitivities" "tRunSegmentation" \
-    "tRunCompare" "tSpot")
+    "tRunCompare" "tSpot" "tPolarization" "tJonesPupil")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the
