@@ -273,6 +273,8 @@ classdef Session < handle
         function vector_diffraction(obj, on),    macos.vector_diffraction(on);   end
         function varargout = coating(obj, varargin), [varargout{1:nargout}] = macos.coating(varargin{:}); end
         function rf = ray_field(obj, srf),       rf = macos.ray_field(srf);      end
+        function jp = jones_pupil(obj, srf, varargin), jp = macos.jones_pupil(srf, varargin{:}); end
+        function pm = pol_maps(obj, jp),         pm = macos.pol_maps(jp);        end
 
         % --- Diffraction buffers / window -----------------------------
         function I = compose(obj, srf, varargin), I = macos.compose(srf, varargin{:}); end
