@@ -1,0 +1,88 @@
+{
+  "_comment": [
+    "Gates the MATLAB driver CANNOT measure, and therefore does not silently",
+    "omit: they run in another language binding, under another compiler, in",
+    "another repo, or against a historical pre-fix engine binary that no",
+    "longer exists in the tree.  Each entry records the command that produces",
+    "it and the date it was captured; the report labels every one of them as",
+    "externally sourced, with that date, so a reader can tell at a glance",
+    "which numbers `make polval-regen` refreshed and which it did not.",
+    "",
+    "Update protocol: re-run the command, paste the result here, bump",
+    "'captured'.  Do NOT copy any of these into the report prose -- the prose",
+    "carries @@TOKENS@@ only."
+  ],
+
+  "values": {
+    "X_MMACOS_SUITE": {
+      "text": "412 pass, 0 fail",
+      "gate": "mmacos matlab.unittest suite, all classes",
+      "command": "cd MACOS_resources/mmacos && ./run_mmacos_tests.sh",
+      "captured": "2026-07-26",
+      "note": "fast 281 / masks 62 / freeform 46 / proper-512 10 / proper-1024 13; gfortran-linked mex",
+      "source": "external"
+    },
+    "X_PYMACOS_SUITE": {
+      "text": "6645 pass",
+      "gate": "pymacos pytest suite (ifx-linked = the standing ifx smoke)",
+      "command": "cd MACOS_resources/pymacos && pytest",
+      "captured": "2026-07-26",
+      "source": "external"
+    },
+    "X_PROPER_COMPARE": {
+      "text": "26/26",
+      "gate": "pymacos PROPER-comparison suite",
+      "command": "cd MACOS_resources/pymacos && ./run_proper_tests.sh",
+      "captured": "2026-07-26",
+      "source": "external"
+    },
+    "X_PROPER_RESIDUAL": {
+      "text": "4.836e-13",
+      "units": "committed macos-vs-PROPER residual",
+      "gate": "ladder 3 -- polarized PROPER re-run reproduces the committed scalar residual EXACTLY, for both polarization-off and polarization-on/vector-off",
+      "command": "cd MACOS_resources/pymacos && ./run_proper_tests.sh   (with pol_set on)",
+      "captured": "2026-07-26",
+      "source": "external"
+    },
+    "X_PROPER_VECDIFF": {
+      "text": "1.3e-2",
+      "gate": "ladder 3 -- vector run differs from scalar on the Coro near-field leg at identical total power; attribution UNVERIFIED",
+      "command": "cd MACOS_resources/pymacos && ./run_proper_tests.sh   (with vecdif_set on)",
+      "captured": "2026-07-26",
+      "source": "external"
+    },
+    "X_GMI": {
+      "text": "6/6, bit-identical (vs-ref = 0.000e+00)",
+      "gate": "GMI regression -- polarization work must be a no-op on polarization-off prescriptions",
+      "command": "cd MACOS_resources/GMI && ./makegmi.sh && <GMI regression driver>",
+      "captured": "2026-07-26",
+      "source": "external"
+    },
+
+    "X_PREFIX_FF_TOTAL": {
+      "text": "8.937660518e-01",
+      "gate": "ladder 5 -- far-field vector total power BEFORE the PFFPROP->FFPROP*3 unification",
+      "command": "rebuild the engine with propsub.F at a0f6dba^, then re-run the ladder-5 case",
+      "captured": "2026-07-26",
+      "note": "HISTORICAL. Requires rebuilding the pre-fix engine; not reproducible from the current tree. The post-fix counterpart (G35_VECTOR_TOT) IS regenerated every run.",
+      "source": "external"
+    },
+    "X_PREFIX_VECCHAIN": {
+      "text": "0.21 .. 0.38",
+      "units": "relative error",
+      "gate": "non-vacuity -- the pre-fix engine FAILS the vector-chain gates",
+      "command": "rebuild the engine with propsub.F at a0f6dba^, then run tVecChain",
+      "captured": "2026-07-26",
+      "note": "HISTORICAL. 0.21 after one leg, 0.38 after two.",
+      "source": "external"
+    },
+    "X_PREFIX_POWER": {
+      "text": "4-7%",
+      "gate": "non-vacuity -- the pre-fix engine also mis-states total power",
+      "command": "rebuild the engine with propsub.F at a0f6dba^, then run tVecChain",
+      "captured": "2026-07-26",
+      "note": "HISTORICAL.",
+      "source": "external"
+    }
+  }
+}
