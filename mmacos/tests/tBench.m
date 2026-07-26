@@ -179,5 +179,40 @@ classdef tBench < matlab.unittest.TestCase
             testCase.verifyLessThan(rImg, 0.2*rM1);
             macos.trace(iDet);
         end
+
+        function test_tail_arches(testCase)
+            % l2_trade detector-leg architectures (twyman_green
+            % 'tail_arch'): each builds, emits, traces with zero ray loss,
+            % and the engine chief crosses every emitted vertex.  Params
+            % are the optimized values from l2_trade/TRADE_NOTE.md.
+            archs = { ...
+                {'tail_arch','fieldlens', 'FL_F',25.02100857, ...
+                 'FL_Kc',-2.11278288, 'D_MASK_FL',6.277463741, ...
+                 'DET_TRIM',1.085330067}, ...
+                {'tail_arch','doublet', 'MASK_TRIM',1.614619633, ...
+                 'L2A_Kc',-3.575374653, 'L2B_Kc',2.328903027, ...
+                 'DET_TRIM',2.97066401}};
+            for a = 1:numel(archs)
+                G = macos.design.twyman_green('ngridpts',21, archs{a}{:});
+                rx = fullfile(tempname); mkdir(rx);
+                rxf = fullfile(rx, 'tg_arm.in');
+                G.bt.emit(rxf);
+                macos.load_rx(rxf);
+                nE = macos.num_elt();
+                testCase.verifyEqual(nE, numel(G.bt.E));
+                s1 = macos.trace(1);
+                sN = macos.trace(nE);
+                testCase.verifyEqual(sN.nRays, s1.nRays, ...
+                    sprintf('%s: ray loss through the tail', archs{a}{2}));
+                for k = 1:nE
+                    sk = macos.trace(k);
+                    info = macos.get_ray_info(sk.nRays);
+                    testCase.verifyLessThan( ...
+                        norm(info.pos(:,1) - G.bt.E(k).vpt), 1e-6, ...
+                        sprintf('%s: chief mismatch at elt %d (%s)', ...
+                        archs{a}{2}, k, G.bt.E(k).name));
+                end
+            end
+        end
     end
 end

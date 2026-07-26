@@ -49,6 +49,15 @@ PATTERN = 'checker';             % 'checker' (alternating +/- actuators,
                                  %  staggered by rows) or 'random'
 N_G     = 256;                   % GridData sampling (model 256 => mGridMat 256)
 DX_G    = 0.35;                  % mm/sample -> 89 mm grid span
+TAIL_ARCH = 'fieldlens';         % detector-leg (L2) architecture -- the
+                                 %  l2_trade result (l2_trade/TRADE_NOTE.md):
+                                 %  'fieldlens' -- WINNER: small field lens
+                                 %   behind the FocalMask; instrument-vs-
+                                 %   truth residual 0.97 nm rms at 50 nm
+                                 %   pokes (was 6.76 with the singlet)
+                                 %  'doublet'  -- statistical tie (0.98 nm),
+                                 %   keeps the baseline pupil-image scale
+                                 %  'singlet'  -- the phase-1 baseline
 PSI_MODE = 'detector';           % how the two arms combine:
                                  %  'detector' -- each arm traced
                                  %   INDEPENDENTLY to the shared
@@ -86,10 +95,21 @@ Mdm = macos.read_grid_file(gridfile);          % engine GridMat convention, mm
 %  DM-induced change is < +/-pi, so no unwrapping is needed anywhere.
 zerofile = 'dm_zero.txt';
 macos.write_grid_file(zerofile, zeros(N_G));
+%  Tail-architecture parameters from the l2_trade optimization (each
+%  includes its lever-nulled DET_TRIM -- detector at the DM conjugate):
+switch TAIL_ARCH
+    case 'singlet',   tail_opts = {};
+    case 'fieldlens', tail_opts = {'tail_arch','fieldlens', ...
+        'FL_F',25.02100857, 'FL_Kc',-2.11278288, ...
+        'D_MASK_FL',6.277463741, 'DET_TRIM',1.085330067};
+    case 'doublet',   tail_opts = {'tail_arch','doublet', ...
+        'MASK_TRIM',1.614619633, 'L2A_Kc',-3.575374653, ...
+        'L2B_Kc',2.328903027, 'DET_TRIM',2.97066401};
+end
 G  = macos.design.twyman_green('to_grid_file', gridfile, ...
-        'to_grid_n', N_G, 'to_grid_dx', DX_G);
+        'to_grid_n', N_G, 'to_grid_dx', DX_G, tail_opts{:});
 G0 = macos.design.twyman_green('to_grid_file', zerofile, ...
-        'to_grid_n', N_G, 'to_grid_dx', DX_G);
+        'to_grid_n', N_G, 'to_grid_dx', DX_G, tail_opts{:});
 rx_test = fullfile(exdir, 'ifo_dm_test_arm.in');   G.bt.emit(rx_test);
 rx_base = fullfile(exdir, 'ifo_dm_base_arm.in');   G0.bt.emit(rx_base);
 rx_ref  = fullfile(exdir, 'ifo_dm_ref_arm.in');    G.br.emit(rx_ref);
@@ -147,9 +167,9 @@ h = phi * LAM/(4*pi);                  % surface height, mm
 %  reference rides the test rays, so the poked DM changes the tail
 %  phase it accumulates, whereas the direct field difference keeps
 %  that term.  A physical instrument's independent reference DOES see
-%  the retrace term -- which is exactly the pupil-image-quality cost
-%  of the singlet L2 leg (candidate fix: better L2 / doublet / OAP
-%  relay in the Bench roadmap).
+%  the retrace term -- the pupil-image-quality cost of the detector
+%  leg.  The l2_trade redesign (TAIL_ARCH above) attacked exactly this:
+%  singlet 6.76 nm -> field lens 0.97 nm at 50 nm pokes.
 macos.load_rx(rx_test);  Ed_pk = macos.complex_field(T.iDET);
 macos.load_rx(rx_base);  Ed_b  = macos.complex_field(T.iDET);
 phi_dir = angle(Ed_pk .* conj(Ed_b));

@@ -14,7 +14,7 @@
          nGridpts=  63
             xGrid=  0  1  0
             yGrid=  0  0  1
-             nElt=  16
+             nElt=  18
 
              iElt=  1
           EltName=  Baffle
@@ -311,14 +311,52 @@
           nECoord=  -6
 
              iElt=  16
+          EltName=  FLpow
+          Element=  Refractor
+          Surface=  Conic
+            KrElt=  -1.2510504285E+01
+            KcElt=  -2.1127828800E+00
+           psiElt=  5.55111512312578E-16  1  0
+           VptElt=  650.493713462266  462.905070622294  0
+           RptElt=  650.493713462266  462.905070622294  0
+           IndRef=  1.500000E+00
+           Extinc=  0.000000E+00
+            nCoat=  0
+             xObs=  -1  5.55111512312578E-16  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1E+22
+          nECoord=  -6
+
+             iElt=  17
+          EltName=  FLflat
+          Element=  Refractor
+          Surface=  Flat
+            KrElt=  -1.0000000000E+22
+            KcElt=  0.0000000000E+00
+           psiElt=  5.55111512312578E-16  1  0
+           VptElt=  650.493713462266  466.261976419112  0
+           RptElt=  650.493713462266  466.261976419112  0
+           IndRef=  1.000000E+00
+           Extinc=  0.000000E+00
+            nCoat=  0
+             xObs=  -1  5.55111512312578E-16  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1E+22
+          nECoord=  -6
+
+             iElt=  18
           EltName=  Detector
           Element=  FocalPlane
           Surface=  Flat
             KrElt=  -1.0000000000E+22
             KcElt=  0.0000000000E+00
            psiElt=  5.55111512312578E-16  1  0
-           VptElt=  650.493713462266  761.832656947584  0
-           RptElt=  650.493713462266  761.832656947584  0
+           VptElt=  650.493713462266  487.078846872158  0
+           RptElt=  650.493713462266  487.078846872158  0
            IndRef=  1.000000E+00
            Extinc=  0.000000E+00
             nCoat=  0
