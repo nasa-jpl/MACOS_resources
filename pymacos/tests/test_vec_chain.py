@@ -24,8 +24,17 @@ is a CONSTANT unit vector: the field factorises as ``E_k = e_k * u(x, y)`` and
 propagating the three planes separately then summing ``|E_k|**2`` must
 reproduce the scalar intensity to round-off at every leg, for ANY input
 polarization state.  On a real off-normal train (Rx_Cass_FarField) vector and
-scalar legitimately differ at the ``|Ez|**2`` level, so no exact comparison is
-possible there -- hence the dedicated fixture.
+scalar differ by ~2.6e-3, so no exact comparison is possible there -- hence
+the dedicated fixture.
+
+UNVERIFIED ATTRIBUTION.  That 2.6e-3 is *believed* to be the off-normal
+train's out-of-plane content -- ``|Ez|/|Ex|`` measures ~8.8e-2 at the exit
+pupil through ``ray_field``, the right order -- but it is NOT verified: there
+is no plane-selectable complex-field getter, so the per-plane contribution to
+the propagated intensity cannot currently be measured.  Treat it as a
+plausible explanation, not a validated one; if a plane-selectable cfield
+getter lands, close this out.  Nothing here DEPENDS on the attribution -- the
+assertions bound the difference, they do not explain it.
 
 NON-VACUITY (checked 2026-07-26 against the pre-fix engine): the pre-fix code
 fails these at 0.21 .. 0.38 relative error and mis-states total power by 4-7%.
@@ -145,8 +154,10 @@ def test_far_field_vector_matches_scalar_normalization():
     scal = run_case(RX_FF, 'scalar', FF_DET)
     vec = run_case(RX_FF, 'vec_x', FF_DET)
     assert vec.sum() == pytest.approx(scal.sum(), rel=1e-12)
-    # Sanity: NOT simply the scalar map.  Rx_Cass_FarField is an off-normal
-    # train, |Ez| ~ 8.8% of |Ex| at the exit pupil, so the vector PSF
-    # genuinely differs at the |Ez|**2 level.
+    # Sanity bound only: the vector run must neither collapse onto the scalar
+    # map nor wander far from it.  The out-of-plane content is the SUSPECTED
+    # source of the difference -- see the UNVERIFIED ATTRIBUTION note in the
+    # module docstring.  These are empirical brackets on the observed 2.6e-3,
+    # not a derived budget.
     r = relerr(vec, scal)
     assert 1e-4 < r < 1e-2, f'vector/scalar far-field difference {r:.3e}'
