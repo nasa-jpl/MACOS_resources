@@ -632,6 +632,23 @@ here.  mmacos-side facts only:
   that share a `PropType`** into ONE propagation, so a "two-leg" chain
   written as two `NFPlane` elements in a row is silently one leg — bracket
   each hop `NFPlane` → `Geometric` (the `Rx_Coro.in` idiom).
+- **Validation report driver: `tools/pol_validation_report/`** (2026-07-26,
+  PLAN worklist item 7).  `./make_polval.sh` re-runs every polarization
+  validation case, writes `macos/docs/macos-manual/polval/media/*.png` +
+  `generated/numbers.json`, then substitutes into the `polval/*.md.in`
+  prose (which carries **no numeric literals**, only `@@TOKEN@@`).  Build
+  with `make polval` / `polval-pdf` from `docs/macos-manual`;
+  `polval-regen` is the same thing from the docs side.  Three guards:
+  the renderer writes nothing unless every token resolves; the driver
+  asserts 19 gate thresholds mirroring tPolarization/tJonesPupil/tVecChain
+  and ABORTS on regression; `tools/check_polval.py` (prerequisite of
+  `make polval`) rejects a stale template, a figure newer than the
+  numbers, or a surviving placeholder.  Gates this box can't run
+  (pymacos/ifx, GMI, the historical pre-fix engine) live in
+  `external.json` with command + capture date.  **One model size (128),
+  one MATLAB session** — the `macos_init_all()` heap bug applies here
+  like everywhere else.  Adding a phase's evidence section: see the
+  tool's README.
 - **Pre-existing, unrelated:** `Rx_Coro_FPM.in` SIGSEGVs at model size 256
   (`macos.intensity` at any element).  Verified against the pre-Phase-3a
   engine — not a polarization bug.  Use `Rx_Coro.in` at 1024 (what the
