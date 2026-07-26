@@ -4654,13 +4654,25 @@ def polarization(state: str | None = None,
 def vector_diffraction(on: bool) -> None:
     """VECTOR / SCALAR -- toggle 3-component (vector) diffraction.
 
-    ``on=True`` propagates Ex/Ey/Ez as three independent fields (far-field
-    FFT leg only; other legs remain scalar -- see the engine polarization
-    notes).  ``on=False`` restores single-field scalar diffraction.
+    ``on=True`` propagates Ex/Ey/Ez as three independent fields.  Since
+    PLAN_POLARIZATION Phase 3a Tranche 1 this covers the WHOLE chain --
+    every near-field, plane-to-plane, spherical, Fresnel and DFT leg, plus
+    ``FFObscure`` and the ray-side aperture masking -- not just the
+    far-field FFT leg.  Intensity / complex-field readouts sum the three
+    components.  ``on=False`` restores single-field scalar diffraction.
 
     VECTOR requires polarization ON already (:func:`polarization`) and a
     model with mWF>=3, else raises (the engine would otherwise silently
     revert to scalar).
+
+    Constraint: vector mode repurposes the model's mWF=3 wavefront planes
+    as Ex/Ey/Ez of ONE wavefront, so only a single wavefront can be in
+    flight -- do not combine it with multi-WF / COMPOSE work.
+
+    Chains with COATED or reflective surfaces BETWEEN physical propagation
+    legs still need Tranche 2 (per-ray running Jones); Tranche 1 is exact
+    when the elements between legs are non-polarizing (Obscuring /
+    Reference / FocalPlane) -- the coronagraph pupil->FPM->Lyot->focal case.
     """
     _chk_macos_and_rx_loaded()
     if not lib.api.vecdif_set(bool(on)):

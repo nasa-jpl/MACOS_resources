@@ -29,7 +29,7 @@ mex is loaded — see CLAUDE.md).
 
 | Suite | Model size | Classes |
 |---|---|---|
-| `SUITE_FAST` | 128 | tMmacosCmd, tMacosPkg, tMacosSession, tCrossSurface, tPerturbRoundtrip, tCodeVGrating, tSrsBugFlatZ, tDwDzZernike, tDwDx, tDwDxGroups, tDesignSystem, tDesignVary, tDesignSensitivities, tDesignOptimize, tVeneerXP, tCoroContrast², tBandLimitedMask¹ |
+| `SUITE_FAST` | 128 | tMmacosCmd, tMacosPkg, tMacosSession, tCrossSurface, tPerturbRoundtrip, tCodeVGrating, tSrsBugFlatZ, tDwDzZernike, tDwDx, tDwDxGroups, tDesignSystem, tDesignVary, tDesignSensitivities, tDesignOptimize, tVeneerXP, tCoroContrast², tBandLimitedMask¹, tPolarization, tJonesPupil, tVecChain |
 | `SUITE_FREEFORM` | 256 | tFreeFormComposite, tCalib |
 | `SUITE_MASKS` | 128 | tCodeVApeMasks{Circ,Ellipse,Polygon,Rect}, tCodeVObsMasks{Circ,Ellipse,Polygon,Rect} |
 | `SUITE_PROPER_512` | 512 | tProperCompareCassFF, tProperCompareCassFFAberrations |
@@ -76,6 +76,9 @@ excluded for being slow (~31 s) and using a Linux `/proc` RSS probe.
 | tVeneerXP | spot / fex / get_xp / set_xp veneers on a STOP-bearing Rx (e5hex1); + regression that spot-on-stopless fails fast (engine infinite-loop fix) |
 | tCoroContrast | ported `contrast.py` λ/D machinery (radial_profile / first_airy_null / lambda_over_D_pixels / radial_contrast) vs an analytic Airy disk — Sprint-1 E1 dark-zone merit (pure math) |
 | tEndurance | load/trace endurance — bit-identical rmsWFE + flat memory over many iters (Q5) |
+| tPolarization | PLAN_POLARIZATION Phase 1 — `polarization` / `vector_diffraction` / `coating` (Model A round-trip) / `ray_field` state + geometry gates |
+| tJonesPupil | Phase 2a/2b — two-trace Jones pupil (double-pole / local-sp / global bases) + `pol_maps` polar decomposition; unitarity, Fresnel-analytic fold, 2θ symmetry |
+| tVecChain | Phase 3a Tranche 1 — vector propagation across a multi-leg chain on `tests/Rx/Rx_VecChain.in`: polarized-scalar ≡ scalar bit-identically, vector ≡ scalar at round-off for x/45°/circular input, per-leg energy, mask throughput, far-field normalization A/B |
 
 ## Adding a class
 
@@ -87,4 +90,6 @@ class won't run in `fast` or the full suite (only via
 already in its group, put it in the matching-size group instead.
 Per the standing regression rule, every new wrapper / helper lands with
 a test here.  Shared fixtures and helpers live in `private/`
-(`rx_fixture_path`, tolerances, polygon helpers, …).
+(`rx_fixture_path`, tolerances, polygon helpers, …).  Rx fixtures come
+from the shared pymacos corpus; an mmacos-ONLY prescription goes in
+`tests/Rx/` and `rx_fixture_path` finds it there as a fallback.
