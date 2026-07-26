@@ -609,6 +609,34 @@ gs bespoke driver) are preserved untracked in
 `~/dev/MACOS_sandbox/segdemo_fixtures/`.  `gen_segment_gridmat` + `mmacos_setup.m`
 shipped earlier (245af94).
 
+## Polarization (PLAN_POLARIZATION)
+
+Engine-side conventions, coating models, the Phase-2 Jones layer and the
+Phase-3a vector chain all live in **`macos/macos_f90/CLAUDE.md`** — read
+that before touching anything polarization-related; do not duplicate it
+here.  mmacos-side facts only:
+
+- Surface: `+macos/{polarization,vector_diffraction,coating,ray_field,
+  jones_pupil,pol_maps}.m`.  All ride codegen Path A except `ray_field`.
+- Tests: `tPolarization` (Phase 1 state/round-trip), `tJonesPupil`
+  (Phase 2a/2b), `tVecChain` (Phase 3a Tranche 1) — all in `SUITE_FAST`.
+- **`tests/Rx/` is a new fixture home.**  `rx_fixture_path` searches the
+  shared pymacos corpus FIRST and `mmacos/tests/Rx/` second, so an
+  mmacos-only prescription (currently `Rx_VecChain.in`) resolves by name
+  with no caller change.  `Rx_VecChain.in` is duplicated into
+  `pymacos/tests/Rx/` for the mirrored pytest — keep the two in sync.
+- **Writing a new Rx fixture by hand: two traps.** (1) The file needs the
+  trailing `nOutCord=`/`Tout=` **Output Coordinate System** block or
+  `load_rx` fails with no diagnostic (the parser leaves `nElt=0` and the
+  api's only check is `nElt>0`). (2) MACOS **merges consecutive elements
+  that share a `PropType`** into ONE propagation, so a "two-leg" chain
+  written as two `NFPlane` elements in a row is silently one leg — bracket
+  each hop `NFPlane` → `Geometric` (the `Rx_Coro.in` idiom).
+- **Pre-existing, unrelated:** `Rx_Coro_FPM.in` SIGSEGVs at model size 256
+  (`macos.intensity` at any element).  Verified against the pre-Phase-3a
+  engine — not a polarization bug.  Use `Rx_Coro.in` at 1024 (what the
+  proper_compare suite does) for coronagraph-chain work.
+
 ## Key files
 
 | File | Role |
