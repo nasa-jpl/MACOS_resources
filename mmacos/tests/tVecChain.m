@@ -25,9 +25,18 @@ classdef tVecChain < matlab.unittest.TestCase
 %   |E_k|^2 must therefore reproduce the scalar intensity to round-off at
 %   every leg, for ANY input polarization state.  That makes the comparison
 %   exact rather than "close enough", which matters because on a real
-%   off-normal train (Rx_Cass_FarField) vector and scalar legitimately
-%   differ at the |Ez|^2 level (~2.6e-3 there) and no tolerance would be
-%   defensible.
+%   off-normal train (Rx_Cass_FarField) vector and scalar differ by ~2.6e-3
+%   and no tolerance there would be defensible.
+%
+%   UNVERIFIED ATTRIBUTION.  That 2.6e-3 is *believed* to be the off-normal
+%   train's out-of-plane content -- |Ez|/|Ex| measures ~8.8e-2 at the exit
+%   pupil through macos.ray_field, which is the right order -- but it is NOT
+%   verified: there is no plane-selectable complex-field getter, so the
+%   per-plane contribution to the propagated intensity cannot currently be
+%   measured.  Treat it as a plausible explanation, not a validated one; if
+%   a plane-selectable cfield getter lands, close this out.  Nothing here
+%   DEPENDS on the attribution -- the assertions bound the difference, they
+%   do not explain it.
 %
 %   NON-VACUITY (checked 2026-07-26 against the pre-fix engine, both
 %   compilers): the pre-fix code fails these at 0.21 .. 0.38 relative error
@@ -172,14 +181,18 @@ classdef tVecChain < matlab.unittest.TestCase
             testCase.verifyEqual(sum(Iv(:)), sum(Is(:)), 'RelTol', 1e-12, ...
                 ['vector far-field leg must carry the scalar leg''s ' ...
                  'Fresnel output factors (PFFPROP -> FFPROP x3)']);
-            % Sanity: it is not simply the scalar map -- Rx_Cass_FarField is
-            % an off-normal train, so |Ez| is ~8.8% of |Ex| at the exit pupil
-            % and the vector PSF genuinely differs at the |Ez|^2 level.
+            % Sanity bound only: the vector run must neither collapse onto
+            % the scalar map nor wander far from it.  Rx_Cass_FarField is an
+            % off-normal train (|Ez|/|Ex| ~ 8.8e-2 at the exit pupil by
+            % ray_field), and the out-of-plane content is the SUSPECTED
+            % source of the difference -- see the UNVERIFIED ATTRIBUTION note
+            % in the class header.  These are empirical brackets on the
+            % observed 2.6e-3, not a derived budget.
             r = tVecChain.relerr(Iv, Is);
             testCase.verifyGreaterThan(r, 1e-4, ...
                 'vector far-field run collapsed onto the scalar result');
             testCase.verifyLessThan(r, 1e-2, ...
-                'vector/scalar far-field difference far exceeds the |Ez|^2 budget');
+                'vector/scalar far-field difference outside its observed bracket');
         end
     end
 end
