@@ -120,6 +120,7 @@
       elt_dx_get_impl => elt_dx_get, &
       base_unit_to_metres_impl => base_unit_to_metres, &
       cfield_get_impl => cfield_get, &
+      cfield_plane_get_impl => cfield_plane_get, &
       cfield_apodize_impl => cfield_apodize, &
       cfield_apodize_complex_impl => cfield_apodize_complex, &
       perturb_elt_impl => perturb_elt, &
@@ -1412,6 +1413,27 @@
 
         CALL cfield_get_impl(OK, REAL_OUT, IMAG_OUT, N, iElt)
       end subroutine cfield_get
+
+      subroutine cfield_plane_get(OK, REAL_OUT, IMAG_OUT, N, iElt, iPlane)
+        ! Plane-selectable sibling of cfield_get: iPlane 0 = the element's
+        ! own wavefront (identical to cfield_get), 1..3 = the Ex/Ey/Ez
+        ! component planes, which exist only in vector-diffraction mode
+        ! (the api returns OK=FAIL otherwise rather than handing back an
+        ! unrelated wavefront).
+        implicit none
+        logical,                 intent(out):: OK
+        real(8), dimension(N,N), intent(out):: REAL_OUT
+        real(8), dimension(N,N), intent(out):: IMAG_OUT
+        integer,                 intent(in) :: N       ! = mdttl
+        integer,                 intent(in) :: iElt    ! element
+        integer,                 intent(in) :: iPlane  ! 0 own WF; 1..3 Ex/Ey/Ez
+
+        !f2py  intent(hide)         :: OK
+        !f2py  intent(out,hide,copy):: REAL_OUT
+        !f2py  intent(out,hide,copy):: IMAG_OUT
+
+        CALL cfield_plane_get_impl(OK, REAL_OUT, IMAG_OUT, N, iElt, iPlane)
+      end subroutine cfield_plane_get
 
       subroutine cfield_apodize(OK, MASK, N, iElt)
         use elt_mod, only: WFElt, iEltToiWF

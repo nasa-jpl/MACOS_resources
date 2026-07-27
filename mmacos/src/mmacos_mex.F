@@ -341,7 +341,7 @@ C=======================================================================
 C     complex_field -- writes (N x N) complex WFElt to MATLAB array     =
 C=======================================================================
         subroutine do_complex_field(nlhs, plhs, nrhs, prhs)
-        use macos_api_mod, only: cfield_cmd, cfield_get
+        use macos_api_mod, only: cfield_cmd, cfield_plane_get
         implicit none
         mwPointer plhs(*), prhs(*)
         integer nlhs, nrhs
@@ -350,13 +350,13 @@ C=======================================================================
         mwPointer mxCreateDoubleMatrix
         mwPointer pr_in, pr_re, pr_im
         real(8)   buf(1)
-        integer   iElt, N
+        integer   iElt, N, iPlane
         real(8), allocatable :: re_local(:,:), im_local(:,:)
         logical   ok, res_trace
         integer*8 nbytes
 
-        IF (nrhs .lt. 2 .or. nrhs .gt. 3) CALL mexErrMsgTxt(
-     &    'complex_field: usage mmacos(''complex_field'', iElt[, reset_trace])')
+        IF (nrhs .lt. 2 .or. nrhs .gt. 4) CALL mexErrMsgTxt(
+     &  'complex_field: mmacos(''complex_field'',iElt[,reset_trace[,plane]])')
         pr_in = mxGetPr(prhs(2))
         CALL mxCopyPtrToReal8(pr_in, buf, int8(1))
         iElt = int(buf(1))
@@ -366,16 +366,26 @@ C=======================================================================
           CALL mxCopyPtrToReal8(pr_in, buf, int8(1))
           res_trace = (buf(1) .ne. 0d0)
         END IF
+!       plane 0 (default) = the element's own wavefront, i.e. exactly what
+!       cfield_get always returned; 1..3 = the Ex/Ey/Ez component planes,
+!       vector-diffraction mode only (the api rejects them otherwise).
+        iPlane = 0
+        IF (nrhs .ge. 4) THEN
+          pr_in = mxGetPr(prhs(4))
+          CALL mxCopyPtrToReal8(pr_in, buf, int8(1))
+          iPlane = int(buf(1))
+        END IF
 
         CALL cfield_cmd(ok, N, iElt, res_trace)
         IF (.not. ok .or. N .le. 0) CALL mexErrMsgTxt(
      &    'mmacos: complex_field cfield_cmd failed')
 
         allocate(re_local(N, N), im_local(N, N))
-        CALL cfield_get(ok, re_local, im_local, N, iElt)
+        CALL cfield_plane_get(ok, re_local, im_local, N, iElt, iPlane)
         IF (.not. ok) THEN
           deallocate(re_local, im_local)
-          CALL mexErrMsgTxt('mmacos: complex_field cfield_get failed')
+          CALL mexErrMsgTxt('mmacos: complex_field failed '//
+     &      '(plane 1..3 needs vector diffraction ON)')
         END IF
 
         ! Return as a single complex matrix (MATLAB-side complex double).

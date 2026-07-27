@@ -28,15 +28,21 @@ classdef tVecChain < matlab.unittest.TestCase
 %   off-normal train (Rx_Cass_FarField) vector and scalar differ by ~2.6e-3
 %   and no tolerance there would be defensible.
 %
-%   UNVERIFIED ATTRIBUTION.  That 2.6e-3 is *believed* to be the off-normal
-%   train's out-of-plane content -- |Ez|/|Ex| measures ~8.8e-2 at the exit
-%   pupil through macos.ray_field, which is the right order -- but it is NOT
-%   verified: there is no plane-selectable complex-field getter, so the
-%   per-plane contribution to the propagated intensity cannot currently be
-%   measured.  Treat it as a plausible explanation, not a validated one; if
-%   a plane-selectable cfield getter lands, close this out.  Nothing here
-%   DEPENDS on the attribution -- the assertions bound the difference, they
-%   do not explain it.
+%   ATTRIBUTION -- MEASURED, and the first guess was half wrong.  That
+%   2.6e-3 was believed to be the off-normal train's out-of-plane content.
+%   It could not be checked, because the per-plane contribution to a
+%   propagated intensity was not reachable.  macos.complex_field(srf,
+%   'plane', k) now makes it reachable, and the difference decomposes into
+%   TWO mechanisms: (1) the scalar run seeds from |RayE|, so ALL the power
+%   -- including what is physically out-of-plane -- propagates in one
+%   plane, while the vector run leaves only the fraction f in Ex (a
+%   near-pure rescale); (2) Ey and Ez diffract to their own pattern.  So
+%   Iv ~ f*Is + Iy + Iz, which drops the difference from 2.56e-3 to
+%   2.90e-4.  The naive expectation (difference == out-of-plane intensity)
+%   is wrong by ~2x.  Pinned by
+%   test_vector_scalar_difference_decomposition below.  The 2.9e-4 that
+%   remains is a shape difference between the scalar field and Ex,
+%   consistent with their different seeds, and is NOT further verified.
 %
 %   NON-VACUITY (checked 2026-07-26 against the pre-fix engine, both
 %   compilers): the pre-fix code fails these at 0.21 .. 0.38 relative error
@@ -185,14 +191,113 @@ classdef tVecChain < matlab.unittest.TestCase
             % the scalar map nor wander far from it.  Rx_Cass_FarField is an
             % off-normal train (|Ez|/|Ex| ~ 8.8e-2 at the exit pupil by
             % ray_field), and the out-of-plane content is the SUSPECTED
-            % source of the difference -- see the UNVERIFIED ATTRIBUTION note
-            % in the class header.  These are empirical brackets on the
-            % observed 2.6e-3, not a derived budget.
+            % source of the difference -- now MEASURED and decomposed; see
+            % the ATTRIBUTION note in the class header and
+            % test_vector_scalar_difference_decomposition.  These remain
+            % empirical brackets on the observed 2.6e-3, not a derived
+            % budget: the decomposition explains it, it does not predict it
+            % from first principles.
             r = tVecChain.relerr(Iv, Is);
             testCase.verifyGreaterThan(r, 1e-4, ...
                 'vector far-field run collapsed onto the scalar result');
             testCase.verifyLessThan(r, 1e-2, ...
                 'vector/scalar far-field difference outside its observed bracket');
+        end
+
+        % ---- plane-selectable complex field: the planes ARE the sum ----
+        function test_component_planes_sum_to_intensity(testCase)
+            % macos.intensity sums |Ex|^2+|Ey|^2+|Ez|^2 internally; this
+            % pins that the per-plane getter returns those very planes and
+            % not, say, a stale buffer or the same plane three times.
+            macos.load_rx(rx_fixture_path(testCase.RxFF));
+            macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+            macos.vector_diffraction(true);
+            I = macos.intensity(testCase.FFDet);
+            S = zeros(size(I));
+            for k = 1:3
+                S = S + abs(macos.complex_field(testCase.FFDet, 'plane', k)).^2;
+            end
+            testCase.verifyLessThan(tVecChain.relerr(S, I), 1e-14, ...
+                'the three component planes must sum to the intensity');
+            % plane 0 is the historical behaviour, unchanged
+            testCase.verifyEqual( ...
+                macos.complex_field(testCase.FFDet, 'plane', 0), ...
+                macos.complex_field(testCase.FFDet), ...
+                'plane 0 must equal the default (backward compatible)');
+        end
+
+        function test_component_plane_rejected_in_scalar_mode(testCase)
+            % In scalar mode plane k is an UNRELATED wavefront, not a field
+            % component.  Returning it would look plausible and be wrong,
+            % so the api must refuse.
+            macos.load_rx(rx_fixture_path(testCase.RxFF));
+            macos.polarization('off');
+            macos.intensity(testCase.FFDet);
+            % mexErrMsgTxt raises with an EMPTY identifier, so match on the
+            % message rather than an id that does not exist.
+            threw = false;  msg = '';
+            try
+                macos.complex_field(testCase.FFDet, 'plane', 2);
+            catch err
+                threw = true;  msg = err.message;
+            end
+            testCase.verifyTrue(threw, ...
+                'a component plane must be refused when vector mode is off');
+            testCase.verifySubstring(msg, 'vector diffraction', ...
+                'the refusal must say why');
+        end
+
+        % ---- the vector/scalar difference, DECOMPOSED ------------------
+        function test_vector_scalar_difference_decomposition(testCase)
+            % This is what the plane getter was built for.  Tranche 1 could
+            % only say the vector/scalar difference on an off-normal train
+            % was "believed to be out-of-plane content" -- unverifiable,
+            % because the per-plane contribution was not reachable.
+            %
+            % It is now measurable, and the one-line story turns out to be
+            % HALF right.  Two mechanisms, both driven by the out-of-plane
+            % content, contribute:
+            %
+            %   1. POWER REDISTRIBUTION (dominant).  The scalar run seeds
+            %      from |RayE|, so ALL the power -- including what is
+            %      physically out-of-plane -- propagates in one plane.  The
+            %      vector run leaves only the fraction f in Ex.  That is a
+            %      near-pure rescale of the same map: corr(Ix, Is) > 0.9999.
+            %   2. The out-of-plane components DIFFRACT to their own
+            %      pattern, contributing Iy + Iz.
+            %
+            % So the prediction is Iv ~ f*Is + Iy + Iz, and the naive
+            % expectation (difference ~ ||Iy+Iz||) is wrong by about 2x.
+            macos.load_rx(rx_fixture_path(testCase.RxFF));
+            macos.polarization('off');
+            Is = macos.intensity(testCase.FFDet);
+            macos.load_rx(rx_fixture_path(testCase.RxFF));
+            macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+            macos.vector_diffraction(true);
+            Iv = macos.intensity(testCase.FFDet);
+            Ix = abs(macos.complex_field(testCase.FFDet, 'plane', 1)).^2;
+            Iy = abs(macos.complex_field(testCase.FFDet, 'plane', 2)).^2;
+            Iz = abs(macos.complex_field(testCase.FFDet, 'plane', 3)).^2;
+
+            f = sum(Ix(:)) / sum(Is(:));            % in-plane power fraction
+            testCase.verifyGreaterThan(1 - f, 1e-4, ...
+                'fixture must actually carry out-of-plane content');
+
+            r_raw = tVecChain.relerr(Iv, Is);       % the number to explain
+            r_dec = tVecChain.relerr(f*Is + Iy + Iz, Iv);
+            testCase.verifyLessThan(r_dec, r_raw/5, sprintf( ...
+                ['the two-term decomposition must explain most of the ' ...
+                 'vector/scalar difference (raw %.3e, residual %.3e)'], ...
+                r_raw, r_dec));
+            % measured 2026-07-26 at model 128: raw 2.564e-3 -> 2.898e-4,
+            % i.e. ~89%% explained.  Bound generously; the point is the
+            % decomposition works, not the third digit.
+            testCase.verifyLessThan(r_dec, 1e-3, ...
+                'decomposition residual outside its measured bracket');
+            % mechanism 1 really is a near-pure rescale
+            c = corrcoef(Ix(:), Is(:));
+            testCase.verifyGreaterThan(c(1,2), 0.9999, ...
+                'Ix must be a near-pure rescale of the scalar map');
         end
     end
 end

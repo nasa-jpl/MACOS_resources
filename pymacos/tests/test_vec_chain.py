@@ -27,14 +27,18 @@ polarization state.  On a real off-normal train (Rx_Cass_FarField) vector and
 scalar differ by ~2.6e-3, so no exact comparison is possible there -- hence
 the dedicated fixture.
 
-UNVERIFIED ATTRIBUTION.  That 2.6e-3 is *believed* to be the off-normal
-train's out-of-plane content -- ``|Ez|/|Ex|`` measures ~8.8e-2 at the exit
-pupil through ``ray_field``, the right order -- but it is NOT verified: there
-is no plane-selectable complex-field getter, so the per-plane contribution to
-the propagated intensity cannot currently be measured.  Treat it as a
-plausible explanation, not a validated one; if a plane-selectable cfield
-getter lands, close this out.  Nothing here DEPENDS on the attribution -- the
-assertions bound the difference, they do not explain it.
+ATTRIBUTION -- MEASURED (and the first guess was half wrong).  That 2.6e-3
+was believed to be the off-normal train's out-of-plane content, and could
+not be checked because the per-plane contribution was unreachable.
+``complex_field(srf, plane=k)`` now reaches it: the difference decomposes
+into (1) power redistribution -- the scalar run seeds from |RayE| so ALL
+the power propagates in one plane, while the vector run leaves only the
+fraction f in Ex -- and (2) Ey/Ez diffracting to their own pattern.
+Iv ~ f*Is + Iy + Iz drops the difference from 2.56e-3 to 2.90e-4.  The
+naive expectation (difference == out-of-plane intensity) is wrong by ~2x.
+Pinned by test_vector_scalar_difference_decomposition.  The 2.9e-4 that
+remains is a shape difference between the scalar field and Ex, not further
+verified.
 
 NON-VACUITY (checked 2026-07-26 against the pre-fix engine): the pre-fix code
 fails these at 0.21 .. 0.38 relative error and mis-states total power by 4-7%.
@@ -156,8 +160,70 @@ def test_far_field_vector_matches_scalar_normalization():
     assert vec.sum() == pytest.approx(scal.sum(), rel=1e-12)
     # Sanity bound only: the vector run must neither collapse onto the scalar
     # map nor wander far from it.  The out-of-plane content is the SUSPECTED
-    # source of the difference -- see the UNVERIFIED ATTRIBUTION note in the
-    # module docstring.  These are empirical brackets on the observed 2.6e-3,
-    # not a derived budget.
+    # source of the difference -- now MEASURED and decomposed; see the
+    # ATTRIBUTION note in the module docstring and
+    # test_vector_scalar_difference_decomposition.  These remain empirical
+    # brackets on the observed 2.6e-3, not a derived budget: the
+    # decomposition explains the number, it does not predict it.
     r = relerr(vec, scal)
     assert 1e-4 < r < 1e-2, f'vector/scalar far-field difference {r:.3e}'
+
+
+# ---- plane-selectable complex field (closes the Tranche-1 open item) ----
+def test_component_planes_sum_to_intensity():
+    """The per-plane getter must return the very planes intensity() sums."""
+    m.init(MODEL)
+    m.load(RX_FF)
+    m.polarization('on', Ex=(1.0, 0.0), Ey=(0.0, 0.0))
+    m.vector_diffraction(True)
+    I = np.asarray(m.intensity(FF_DET))
+    S = sum(np.abs(m.complex_field(FF_DET, plane=k)) ** 2 for k in (1, 2, 3))
+    assert relerr(S, I) < 1e-14
+    assert np.array_equal(m.complex_field(FF_DET, plane=0),
+                          m.complex_field(FF_DET))
+
+
+def test_component_plane_rejected_in_scalar_mode():
+    """In scalar mode plane k is an unrelated wavefront, not a component."""
+    m.init(MODEL)
+    m.load(RX_FF)
+    m.polarization('off')
+    m.intensity(FF_DET)
+    with pytest.raises(Exception):
+        m.complex_field(FF_DET, plane=2)
+
+
+def test_vector_scalar_difference_decomposition():
+    """Decompose the off-normal vector/scalar difference -- the measurement
+    the Tranche-1 attribution could not make.
+
+    The one-line story ("the difference is the out-of-plane content") is
+    half right.  TWO mechanisms contribute, both driven by that content:
+
+      1. POWER REDISTRIBUTION (dominant).  The scalar run seeds from
+         |RayE|, so all the power -- including what is physically
+         out-of-plane -- propagates in ONE plane; the vector run leaves
+         only the fraction f in Ex.  A near-pure rescale of the same map.
+      2. Ey and Ez diffract to their own pattern.
+
+    So Iv ~ f*Is + Iy + Iz, and the naive expectation that the difference
+    equals ||Iy + Iz|| is wrong by about 2x.
+    """
+    m.init(MODEL)
+    m.load(RX_FF)
+    m.polarization('off')
+    Is = np.asarray(m.intensity(FF_DET))
+    m.load(RX_FF)
+    m.polarization('on', Ex=(1.0, 0.0), Ey=(0.0, 0.0))
+    m.vector_diffraction(True)
+    Iv = np.asarray(m.intensity(FF_DET))
+    Ix, Iy, Iz = (np.abs(m.complex_field(FF_DET, plane=k)) ** 2
+                  for k in (1, 2, 3))
+
+    f = Ix.sum() / Is.sum()
+    assert 1 - f > 1e-4, 'fixture must carry out-of-plane content'
+    r_raw = relerr(Iv, Is)
+    r_dec = relerr(f * Is + Iy + Iz, Iv)
+    assert r_dec < r_raw / 5, f'raw {r_raw:.3e} -> residual {r_dec:.3e}'
+    assert r_dec < 1e-3
+    assert np.corrcoef(Ix.ravel(), Is.ravel())[0, 1] > 0.9999

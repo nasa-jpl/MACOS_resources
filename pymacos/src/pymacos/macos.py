@@ -3541,7 +3541,8 @@ def opd() -> Matrix[np.float64]:
 
 
 def complex_field(srf: int | np.int32,
-                  reset_trace: bool = True) -> Matrix[np.complex128]:
+                  reset_trace: bool = True,
+                  plane: int = 0) -> Matrix[np.complex128]:
     """Retrieve the diffraction-grid complex field at element `srf`.
 
     Triggers macos's full propagation chain (via the 'INT' command),
@@ -3556,6 +3557,20 @@ def complex_field(srf: int | np.int32,
              values index from the end.
         reset_trace: If True (default), runs MODIFY first so the trace
              starts from the source.
+        plane: 0 (default) returns the element's own wavefront -- the
+             historical behaviour.  1, 2 or 3 returns a single Cartesian
+             FIELD COMPONENT Ex, Ey or Ez.  In vector-diffraction mode
+             the three wavefront storage planes are repurposed as the
+             components of one wavefront, so this is the only way to see
+             how they contribute to a propagated intensity (which sums
+             them).  Requesting 1..3 with vector diffraction OFF raises:
+             in scalar mode plane k is an unrelated wavefront, not a
+             field component, and returning it would invite exactly the
+             misreading the option exists to prevent.
+
+             The planes add in INTENSITY, not amplitude:
+             ``sum(abs(complex_field(s, plane=k))**2 for k in (1,2,3))``
+             equals ``intensity(s)``.
 
     Returns:
         2D complex128 ndarray (N x N) of the complex amplitude at the
@@ -3587,11 +3602,14 @@ def complex_field(srf: int | np.int32,
         raise Exception("MACOS: 'complex_field' propagation failed at "
                         f"Elt {iElt}")
 
-    ok, re_arr, im_arr = lib.api.cfield_get(n, int(iElt))
+    if plane not in (0, 1, 2, 3):
+        raise ValueError(f"complex_field: plane must be 0..3, got {plane}")
+    ok, re_arr, im_arr = lib.api.cfield_plane_get(n, int(iElt), int(plane))
     if not ok:
         raise Exception(
             f"MACOS: complex-field buffer retrieval failed at Elt "
-            f"{iElt} (element may have no diffraction wavefront slot)")
+            f"{iElt} (element may have no diffraction wavefront slot; "
+            f"plane 1..3 additionally requires vector diffraction ON)")
 
     return re_arr + 1j * im_arr
 
