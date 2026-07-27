@@ -20,12 +20,23 @@ function out = polarizer(srf, opts)
 %   a plain geometric surface and the axis is inert. Setting the axis
 %   invalidates the cached trace (MODIFY), so re-trace.
 %
-%   NORMAL INCIDENCE is the gated regime. Off normal, projecting the
-%   declared PASS axis is not the same as projecting a declared BLOCK axis
-%   and transmitting the complement -- the two differ at O(sin^2 AOI)
-%   because projection does not preserve orthogonality. This function
-%   declares the PASS axis. See REVIEW_POL_ELEMENTS_2026-07-27.md; the
-%   choice is reported, not settled.
+%   OFF NORMAL the engine projects the element's MATERIAL axis -- the
+%   ABSORBING direction, which is the in-element complement psi x A of the
+%   pass axis declared here. It is projected into each ray's transverse
+%   plane and extinguished; the transmitted direction is its orthogonal
+%   partner. That is not the same as projecting A itself, because
+%   projection does not preserve orthogonality: the two constructions
+%   differ by acos(2cos a/(1+cos^2 a)) of transmitted-axis orientation,
+%   3.56 deg at 20 deg of incidence. The material-axis (dipole) rule is
+%   the settled one -- measured for a tilted dichroic polarizer by Korger
+%   et al., Opt. Express 21, 27032 (2013). At normal incidence the two
+%   coincide exactly. Consequence: only the component of A perpendicular
+%   to the element normal matters, and an A parallel to the normal is a
+%   prescription error (the element extinguishes).
+%
+%   For a beamsplitter at a large deliberate angle, prefer a coated
+%   Reflector: there s and p are set by the physical plane of incidence
+%   and the thin-film recursion gives real diattenuation and retardance.
 %
 %   Example -- crossed polarizers:
 %     macos.polarization('on', 'ex', 1, 'ey', 0);

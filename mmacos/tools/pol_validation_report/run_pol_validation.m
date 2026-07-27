@@ -150,6 +150,15 @@ function lim = gate_limits(model)
         'G56_AB_POL',     '>',   0.5
         'G57_BITWISE',    '==',  1
         'G58_GRID_MALUS', '<',   1e-10
+        'G60_AOI_RESID',  '<',   1e-12
+        'G60_MATAXIS',    '<',   1e-12
+        'G60_VS_PASSAXIS_RESID', '<', 1e-9
+        'G61_DEGEN_SPREAD','<',  1e-15
+        'G61_DEGEN_ENGINE','<',  1e-12
+        'G62_NULL_SEP',   '>',   5
+        'G62_GRID_NULL',  '<',   1e-25
+        'G62_GRID_LEAK',  '>',   1e-3
+        'G62_LEAK_RESID', '<',   1e-6
         };
       case 256
         lim = {
@@ -1480,18 +1489,112 @@ function V = polelt_gates(V, ~, mediaDir)
         'detector-plane intensity obeys Malus (grid sees the train)', ...
         'tPolElement/test_grid_carries_the_polarizing_train');
 
-    % ---- reported scope: the off-normal axis-convention ambiguity
+    % ---- the size of the off-normal axis-convention choice, in closed
+    % form (no engine): the two candidate constructions, and the two
+    % azimuths at which they agree no matter which is right.
     V = addval(V, 'G59_AMBIG20', rad2deg(polelt_ambig(deg2rad(20), pi/4)), ...
         '%.2f', 'degrees', ...
-        'off-normal pass-vs-block axis ambiguity at 20 deg AOI, 45 deg azimuth', ...
+        'off-normal pass-vs-material axis difference at 20 deg AOI, 45 deg azimuth', ...
         'tPolElement/test_offnormal_convention_magnitude');
     V = addval(V, 'G59_AMBIG20_INPLANE', ...
         rad2deg(polelt_ambig(deg2rad(20), 0)), '%.3e', 'degrees', ...
-        'the same ambiguity with the axis IN the plane of incidence (vanishes)', ...
+        'the same difference with the axis IN the plane of incidence (vanishes)', ...
         'tPolElement/test_offnormal_convention_magnitude');
 
     fig_polelt(th, I, pred, Rs, S3s, S1s, thw, angu, ...
                fullfile(mediaDir, 'polelt_gates.png'));
+
+    % =================================================================
+    % G6.0-6.2  OFF NORMAL: the settled material-axis rule, driven in
+    % the engine.  Rx_PolElt_Tilt.in tilts the BEAM (a collimated on-axis
+    % bundle does not care whether the ELEMENT is tilted), so the
+    % polarizers see a true 20 deg AOI and the convention is exercised.
+    % =================================================================
+    macos.load_rx(polval_rx('Rx_PolElt_Tilt.in'));
+    TPOL = 2;   TANAL = 3;   TDET = 5;
+    macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    axf = @(p) [cos(p) sin(p) 0];
+    phi = pi/4;
+
+    macos.polarizer(TPOL,  'axis', axf(phi));
+    macos.polarizer(TANAL, 'axis', axf(phi));
+    macos.trace(TPOL);
+    [d, r, n] = polelt_axis_from_field(TPOL);
+
+    % the fixture really is at 20 deg, ray by ray, out of the engine's own
+    % direction cosines and surface normal
+    aoi = rad2deg(acos(abs(sum(r .* n, 1))));
+    V = addval(V, 'G60_AOI_RESID', max(abs(aoi - 20)), '%.1e', 'degrees', ...
+        'measured AOI at the tilted polarizer, residual from 20 deg (all rays)', ...
+        'tPolElement/test_offnormal_transmitted_axis_is_the_material_rule');
+
+    tMat = polelt_material_axis(r(:,1).', n(:,1).', axf(phi));
+    tFS  = polelt_passaxis_axis(r(:,1).', axf(phi));
+    V = addval(V, 'G60_MATAXIS', max(polelt_axis_angle(d, tMat)), ...
+        '%.1e', 'radians', ...
+        'engine transmitted axis vs the MATERIAL-axis closed form, 20 deg AOI / 45 deg azimuth', ...
+        'tPolElement/test_offnormal_transmitted_axis_is_the_material_rule');
+    aFS = rad2deg(polelt_axis_angle(d, tFS));
+    V = addval(V, 'G60_VS_PASSAXIS', mean(aFS), '%.4f', 'degrees', ...
+        'engine transmitted axis vs the REJECTED pass-axis projection -- the full ambiguity', ...
+        'tPolElement/test_offnormal_transmitted_axis_is_the_material_rule');
+    V = addval(V, 'G60_VS_PASSAXIS_RESID', ...
+        max(abs(aFS - rad2deg(polelt_ambig(deg2rad(20), pi/4)))), ...
+        '%.1e', 'degrees', ...
+        'and that miss equals the closed form acos(2cos a/(1+cos^2 a)) to', ...
+        'tPolElement/test_offnormal_transmitted_axis_is_the_material_rule');
+
+    % degenerate azimuths: BOTH constructions, and the engine, coincide --
+    % so a gate written there cannot tell the two rules apart
+    dg = 0;   dgm = 0;
+    macos.polarization('on', 'Ex', [1/sqrt(2) 0], 'Ey', [1/sqrt(2) 0]);
+    for p = [0 pi/2]
+        macos.polarizer(TPOL, 'axis', axf(p));
+        macos.trace(TPOL);
+        [dd, rr, nn] = polelt_axis_from_field(TPOL);
+        tM = polelt_material_axis(rr(:,1).', nn(:,1).', axf(p));
+        tF = polelt_passaxis_axis(rr(:,1).', axf(p));
+        dg  = max(dg,  polelt_axis_angle(tM.', tF));
+        dgm = max([dgm, max(polelt_axis_angle(dd, tM)), ...
+                        max(polelt_axis_angle(dd, tF))]);
+    end
+    V = addval(V, 'G61_DEGEN_SPREAD', dg, '%.1e', 'radians', ...
+        'at azimuth 0 and 90 the two constructions coincide (the vacuity trap)', ...
+        'tPolElement/test_offnormal_degenerate_azimuths_are_blind');
+    V = addval(V, 'G61_DEGEN_ENGINE', dgm, '%.1e', 'radians', ...
+        'and the engine sits on both of them there, so such a gate proves nothing', ...
+        'tPolElement/test_offnormal_degenerate_azimuths_are_blind');
+
+    % the same discrimination on the DETECTOR plane (the second dispatch
+    % chain): the crossed-analyzer null sits at a different azimuth under
+    % each rule, so total intensity alone separates them
+    macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.polarizer(TPOL, 'axis', axf(phi));
+    fM = @(p2) dot(polelt_material_axis(r(:,1).', n(:,1).', axf(p2)), tMat);
+    fF = @(p2) dot(polelt_passaxis_axis(r(:,1).', axf(p2)), tFS);
+    p2m = fzero(fM, [phi+pi/2-0.3, phi+pi/2+0.3]);
+    p2f = fzero(fF, [phi+pi/2-0.3, phi+pi/2+0.3]);
+    Pg = zeros(1,3);   pset = [phi, p2m, p2f];
+    for k = 1:3
+        macos.polarizer(TANAL, 'axis', axf(pset(k)));
+        macos.trace(TDET);
+        Pg(k) = sum(macos.intensity(TDET), 'all');
+    end
+    V = addval(V, 'G62_NULL_SEP', rad2deg(abs(p2m - p2f)), '%.2f', 'degrees', ...
+        'separation of the crossed-analyzer null predicted by the two rules', ...
+        'tPolElement/test_offnormal_grid_crossed_null');
+    V = addval(V, 'G62_GRID_NULL', Pg(2)/Pg(1), '%.1e', 'relative', ...
+        'detector-plane power at the MATERIAL-rule crossed setting (extinguishes)', ...
+        'tPolElement/test_offnormal_grid_crossed_null');
+    V = addval(V, 'G62_GRID_LEAK', Pg(3)/Pg(1), '%.3e', 'relative', ...
+        'detector-plane power at the PASS-axis crossed setting (does not)', ...
+        'tPolElement/test_offnormal_grid_crossed_null');
+    leakPred = cos(polelt_axis_angle( ...
+        polelt_material_axis(r(:,1).', n(:,1).', axf(p2f)).', tMat))^2;
+    V = addval(V, 'G62_LEAK_RESID', abs(Pg(3)/Pg(1) - leakPred)/leakPred, ...
+        '%.1e', 'relative', ...
+        'and that leak is the predicted cos^2 of the residual axis mismatch, to', ...
+        'tPolElement/test_offnormal_grid_crossed_null');
 end
 
 function polelt_configure(p1, w1, w2, an, ap, a1, r1, a2, r2, aa)
@@ -1524,15 +1627,57 @@ end
 
 function dth = polelt_ambig(aoi, az)
 %POLELT_AMBIG  Angle between the two candidate polarizer pass axes off
-%   normal: project the declared PASS axis (what PolElt does) versus
-%   project the declared BLOCK axis and take the complement.
+%   normal: project the declared PASS axis (Fainman and Shamir) versus
+%   project the MATERIAL, absorbing axis and take the complement (Korger
+%   et al., which is what PolElt does).
     r    = [sin(aoi) 0 cos(aoi)];
     pass = [cos(az)  sin(az) 0];
     blok = [-sin(az) cos(az) 0];
     prj  = @(v) (v - dot(v,r)*r) / norm(v - dot(v,r)*r);
     a1 = prj(pass);
     a2 = cross(r, prj(blok));  a2 = a2 / norm(a2);
-    dth = real(acos(min(1, abs(dot(a1, a2)))));
+    dth = polelt_axis_angle(a1(:), a2);
+end
+
+function [d, r, n] = polelt_axis_from_field(srf)
+%POLELT_AXIS_FROM_FIELD  Per-ray transmitted axis of a polarizer, read off
+%   the field, with the geometry taken from the engine (direction cosines
+%   and surface normal), not from the fixture's declared numbers.
+    rf = macos.ray_field(srf);   m = (rf.status == 0);
+    E  = [rf.Ex(m).'; rf.Ey(m).'; rf.Ez(m).'];
+    r  = [rf.kx(m).'; rf.ky(m).'; rf.kz(m).'];
+    n  = [rf.nx(m).'; rf.ny(m).'; rf.nz(m).'];
+    [~, im] = max(abs(E(:,1)));
+    d = real(E ./ E(im,:));
+    d = d ./ vecnorm(d);
+end
+
+function t = polelt_material_axis(r, n, a)
+%POLELT_MATERIAL_AXIS  Transmitted axis under the SETTLED rule: project the
+%   absorbing direction n x a, extinguish it, transmit its partner.
+    r = r / norm(r);
+    w = cross(n, a);
+    b = w - dot(w, r)*r;   b = b / norm(b);
+    t = cross(b, r);       t = t(:).' / norm(t);
+end
+
+function t = polelt_passaxis_axis(r, a)
+%POLELT_PASSAXIS_AXIS  Transmitted axis under the REJECTED construction:
+%   the declared pass axis projected orthographically. Kept as an explicit
+%   non-target.
+    r = r / norm(r);
+    t = a - dot(a, r)*r;   t = t(:).' / norm(t);
+end
+
+function ang = polelt_axis_angle(d, t)
+%POLELT_AXIS_ANGLE  Angle between axis T (1x3) and each column of D (3xN),
+%   sign-insensitive and computed as atan2(|cross|,|dot|) -- an acos of a
+%   near-unit dot product loses half its digits and reports 1e-8 rad for a
+%   residual that is really 1e-16.
+    t  = t(:) / norm(t);
+    ct = abs(sum(d .* t, 1));
+    st = vecnorm(cross(d, repmat(t, 1, size(d,2)), 1));
+    ang = atan2(st, ct);
 end
 
 function fig_polelt(th, I, pred, Rs, S3s, S1s, thw, angu, out)
