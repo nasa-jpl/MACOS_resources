@@ -41,6 +41,14 @@ function run_pol_validation(polvalDir)
     V = struct();                       % token -> entry (see addval)
 
     fprintf('polval: model size %d, output %s\n', MODEL, polvalDir);
+
+    % Capture git provenance BEFORE writing anything.  The driver's own
+    % outputs (media/*.png, generated/numbers.json) live in the macos repo,
+    % so sampling git state at the END always reports that tree as dirty --
+    % the stamp would describe the tree the run CREATED rather than the one
+    % it measured, which is the opposite of the point.
+    prov0 = capture_provenance(MODEL);
+
     macos.init(MODEL);
 
     V = phase1_gates(V, MODEL);
@@ -48,7 +56,7 @@ function run_pol_validation(polvalDir)
     V = phase3a_gates(V, MODEL, mediaDir);
 
     assert_gates(V);
-    write_numbers(V, genDir, MODEL);
+    write_numbers(V, genDir, prov0);
     fprintf('polval: wrote %s\n', fullfile(genDir, 'numbers.json'));
 end
 
@@ -88,6 +96,9 @@ function assert_gates(V)
       'G33_ELEG2',      '<',   1e-14
       'G34_THRU_RESID', '<',   1e-14
       'G35_TOT_RESID',  '<',   1e-12
+      'G36_PLANESUM',   '<',   1e-14
+      'G36_RESID',      '<',   1e-3
+      'G36_DECORR',     '<',   1e-4
       };
     bad = {};
     for i = 1:size(lim, 1)
@@ -454,14 +465,52 @@ function V = phase3a_gates(V, ~, mediaDir)
     ok = rfe.status == 0;
     ez = abs(rfe.Ez(ok)) ./ abs(rfe.Ex(ok));
     V = addval(V, 'G35_EZ_RATIO', median(ez), '%.2e', '', ...
-        'median |Ez|/|Ex| at the exit pupil (UNVERIFIED attribution)', ...
+        'median |Ez|/|Ex| at the exit pupil', ...
         'this driver');
     V = addval(V, 'G35_EZ_MAX', max(ez), '%.2e', '', ...
-        'max |Ez|/|Ex| at the exit pupil (UNVERIFIED attribution)', ...
+        'max |Ez|/|Ex| at the exit pupil', ...
         'this driver');
     V = addval(V, 'G35_EZ_NRAYS', nnz(ok), '%d', 'rays', ...
         'unvignetted rays in the |Ez|/|Ex| probe', 'this driver');
     fig_farfield(Isf, Ivf, fullfile(mediaDir, 'polval_farfield_ab.png'));
+
+    % ---- G3.6 the attribution, DECOMPOSED (was unverifiable) ----------
+    % Tranche 1 could only guess why the vector run differs from the
+    % scalar one on an off-normal train.  With the plane-selectable
+    % complex-field getter the per-plane contributions are measurable, and
+    % the guess turns out to be HALF right: two mechanisms, not one.
+    fprintf('polval: G3.6 attribution decomposition\n');
+    macos.load_rx(rxFF);
+    macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.vector_diffraction(true);
+    Ivd = macos.intensity(FFDET);
+    Ipx = abs(macos.complex_field(FFDET, 'plane', 1)).^2;
+    Ipy = abs(macos.complex_field(FFDET, 'plane', 2)).^2;
+    Ipz = abs(macos.complex_field(FFDET, 'plane', 3)).^2;
+    fpow = sum(Ipx(:)) / sum(Isf(:));
+    rel = @(A,B) norm(A(:)-B(:))/norm(B(:));
+    raw = rel(Ivd, Isf);
+    resid = rel(fpow*Isf + Ipy + Ipz, Ivd);
+    cc = corrcoef(Ipx(:), Isf(:));
+    V = addval(V, 'G36_F', fpow, '%.6f', '', 'in-plane (Ex) power fraction', ...
+        'tVecChain/test_vector_scalar_difference_decomposition');
+    V = addval(V, 'G36_OUTFRAC', 1-fpow, '%.4e', '', ...
+        'out-of-plane (Ey+Ez) power fraction', ...
+        'tVecChain/test_vector_scalar_difference_decomposition');
+    V = addval(V, 'G36_RAW', raw, '%.4e', '', ...
+        'vector-vs-scalar map difference being explained', ...
+        'tVecChain/test_vector_scalar_difference_decomposition');
+    V = addval(V, 'G36_RESID', resid, '%.4e', '', ...
+        'residual of the two-term decomposition f*Is + Iy + Iz', ...
+        'tVecChain/test_vector_scalar_difference_decomposition');
+    % Report 1-corr: "corr = 1.000000" is uninformative and reads as an
+    % exact claim (same trap as the fit-fraction number in G2.5).
+    V = addval(V, 'G36_DECORR', 1-cc(1,2), '%.2e', '', ...
+        '1 - corr(Ex, scalar map): mechanism 1 is a near-pure rescale', ...
+        'tVecChain/test_vector_scalar_difference_decomposition');
+    V = addval(V, 'G36_PLANESUM', rel(Ipx+Ipy+Ipz, Ivd), '%.2e', '', ...
+        'component planes summed vs intensity()', ...
+        'tVecChain/test_component_planes_sum_to_intensity');
 end
 
 % =====================================================================
@@ -773,7 +822,8 @@ function V = addval(V, name, value, fmt, units, gate, test)
     V.(name) = e;
 end
 
-function write_numbers(V, genDir, model)
+function p = capture_provenance(model)
+%CAPTURE_PROVENANCE  git/host/tool state, sampled BEFORE the run writes.
     p = struct();
     p.generated     = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
     [p.engine_sha, p.engine_branch, p.engine_dirty] = ...
@@ -783,6 +833,9 @@ function write_numbers(V, genDir, model)
     p.matlab     = version('-release');
     p.model_size = model;
     [~, h] = system('hostname'); p.host = strtrim(h);
+end
+
+function write_numbers(V, genDir, p)
     out = struct('provenance', p, 'values', V);
     fid = fopen(fullfile(genDir, 'numbers.json'), 'w');
     fprintf(fid, '%s\n', jsonencode(out, 'PrettyPrint', true));
