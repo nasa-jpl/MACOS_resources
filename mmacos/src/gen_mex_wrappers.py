@@ -40,11 +40,16 @@ from pathlib import Path
 HAND_WRITTEN = {
     'init', 'load_rx', 'save_rx', 'modified_rx', 'n_elt',
     'opd_val', 'int_cmd', 'int_get',
-    'cfield_cmd', 'cfield_get',
+    'cfield_cmd', 'cfield_get', 'cfield_plane_get',  # Path B: folded into
+                                          # the 'complex_field' cmd as an
+                                          # optional 4th arg (plane)
     'cfield_apodize',  # cfield_apodize_complex removed from skip list
                        # (codegen handles it cleanly; Phase 5 DM tests need it)
     'elt_dx_get', 'base_unit_to_metres',
     'trace_rays', 'prb_elt',
+    'rayfield_get',   # Path B: the mex helper queries mdttl internally
+                      # (currrent_macos_model_size) so the veneer signature
+                      # is macos.ray_field(iElt) -- no N from the caller.
 }
 # Command-string aliases for the hand-written ones (mexFunction
 # dispatch already handles these — listed here so the +macos/ package
@@ -53,7 +58,7 @@ HAND_WRITTEN_CMDS = {
     'init', 'load_rx', 'save_rx', 'modified_rx', 'n_elt',
     'opd', 'intensity', 'complex_field', 'apodize',
     'dx_at', 'base_unit_to_metres', 'trace_rays', 'prb_elt',
-    'elt_csys_get',
+    'elt_csys_get', 'ray_field',
 }
 
 PRIVATE_HELPERS = {
