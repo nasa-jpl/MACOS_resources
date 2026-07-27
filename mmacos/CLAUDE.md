@@ -672,6 +672,31 @@ here.  mmacos-side facts only:
   engine — not a polarization bug.  Use `Rx_Coro.in` at 1024 (what the
   proper_compare suite does) for coronagraph-chain work.
 
+## Commit hazard: `git add -A` under `pymacos/tests`
+
+`pymacos/tests/` carries LARGE untracked artifact trees that are **not**
+gitignored: `proper_compare/results_cycle4/` and `results_cycle5/` (PROPER
+comparison `.npy` dumps, 56 MiB each), `Rx/IntLog.txt`, and the
+`sensitivities/*/`+`sensitivities/results/` PNG outputs.  Only
+`results/phase<N>/` is ignored.
+
+`git add -A pymacos/tests` therefore stages ~740 MiB of someone's working
+tree.  This happened 2026-07-26 and was caught only because the push to
+`nasa-jpl/MACOS_resources` STALLED -- diagnosed as payload, not network
+(`ssh -T git@github.com` and `git ls-remote` were both instant).  Fixed by
+`git reset --soft` + staging the intended files BY EXPLICIT PATH; payload
+741 MiB -> 1.09 MiB, and the commit was still unpushed so no history
+damage.
+
+**Rule: stage by explicit path in these repos, never `-A` on a directory
+you did not create.**  Before any push, sanity-check the payload:
+
+```sh
+git rev-list --objects origin/<branch>..HEAD \
+  | git cat-file --batch-check='%(objecttype) %(objectsize) %(rest)' \
+  | awk '$1=="blob"{s+=$2} END{printf "%.2f MiB\n", s/1048576}'
+```
+
 ## Key files
 
 | File | Role |
