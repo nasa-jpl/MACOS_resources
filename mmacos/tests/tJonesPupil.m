@@ -3,9 +3,11 @@ classdef tJonesPupil < matlab.unittest.TestCase
 %   Exercises macos.jones_pupil + macos.pol_maps against closed-form truth:
 %
 %   * unitarity gate     -- stock Cass mirrors carry the perfect-conductor
-%                           idiom (IndRef=1, Extinc=1e22): RP=RS=-1, so the
-%                           Jones pupil must be unitary-to-a-scalar at every
-%                           point (D, ret, T-nonuniformity all ~ 0).
+%                           idiom (IndRef=1, Extinc=1e22): RS=-1, RP=+1 in
+%                           the engine's ray-following basis (E_out=-E_in
+%                           at normal incidence), so the Jones pupil must
+%                           be unitary-to-a-scalar at every point (D, ret,
+%                           T-nonuniformity all ~ 0).
 %   * basis invariance   -- D is a singular-value invariant: identical
 %                           between 'double-pole' and 'local-sp'; retardance
 %                           is NOT (the s/p coordinate singularity is the
@@ -97,6 +99,12 @@ classdef tJonesPupil < matlab.unittest.TestCase
             testCase.verifyGreaterThan(nnz(m), 1000);
             testCase.verifyLessThan(max(pm.D(m)),   1e-12, 'diattenuation');
             testCase.verifyLessThan(max(pm.ret(m)), 1e-12, 'retardance');
+            % NOTE: this std/mean statistic has a SUMMATION floor of
+            % ~5e-14 (mean over ~1e4 points; the map's true spread is
+            % ~6e-15 p-v) -- the 1e-12 gate is a valid regression
+            % tripwire two orders above that floor.  Do NOT "tighten"
+            % it toward the measured value; you would be asserting the
+            % accumulator, not the physics (see polval section 2).
             testCase.verifyLessThan(std(pm.T(m))/mean(pm.T(m)), 1e-12, ...
                 'transmission uniformity');
             testCase.verifyLessThan(jp.leak, 1e-12, 'longitudinal leak');
@@ -115,7 +123,14 @@ classdef tJonesPupil < matlab.unittest.TestCase
             testCase.verifyLessThan(max(abs(pm_dp.D(m) - pm_sp.D(m))), 1e-12);
             testCase.verifyLessThan(max(abs(pm_dp.T(m) - pm_sp.T(m))) ...
                 / mean(pm_dp.T(m)), 1e-12);
-            % the coordinate singularity inflates s/p retardance variation
+            % the coordinate singularity inflates s/p retardance variation.
+            % RE-VALIDATED on the r_p-sign-corrected engine (2026-07-27):
+            % measured 247x (sp 0.891 vs dp 3.61e-3, sp mean ret = pi/2 --
+            % the artifact in person).  A HALF-patched engine (uncoated
+            % branch only) makes the two bases spuriously agree at ~3.4e-3
+            % -- if this assertion starts failing, suspect a partial
+            % convention change in elemsub.F before doubting the doctrine
+            % (REVIEW_POL_SP_SIGN_2026-07-27.md, Fable decision section).
             testCase.verifyGreaterThan(pm_sp.var_rms.ret, ...
                 10*pm_dp.var_rms.ret, ...
                 'local-sp retardance artifact should dominate');
@@ -159,11 +174,19 @@ classdef tJonesPupil < matlab.unittest.TestCase
             qp = einx.*pix + einy.*piy + einz.*piz;
             ratio_meas = (Es./Ep).*(qp./qs);
 
-            % analytic thick-layer (= bare-interface) Fresnel, engine forms
+            % analytic thick-layer (= bare-interface) Fresnel, TEXTBOOK
+            % forms (Born & Wolf, ray-following p-hat).  RPa was
+            % originally transcribed from the engine's own expression,
+            % which made the phase comparison CIRCULAR in the r_p sign --
+            % exactly the sign the 2022 import had flipped (see
+            % REVIEW_POL_SP_SIGN_2026-07-27.md).  Written from the
+            % textbook now, this gate pins the sign non-circularly:
+            % r_p = (N2 c_i - N1 c_t)/(N2 c_i + N1 c_t),
+            % r_s = (N1 c_i - N2 c_t)/(N1 c_i + N2 c_t).
             N1 = 1.0;  N2 = complex(testCase.nAl, -testCase.kAl);
             cthi = abs(kix.*nx + kiy.*ny + kiz.*nz);
             ctht = sqrt(1 - (N1/N2)^2*(1 - cthi.^2));
-            RPa = (N1*ctht - N2*cthi)./(N2*cthi + N1*ctht);
+            RPa = (N2*cthi - N1*ctht)./(N2*cthi + N1*ctht);
             RSa = (N1*cthi - N2*ctht)./(N1*cthi + N2*ctht);
 
             testCase.verifyLessThan( ...
@@ -181,8 +204,8 @@ classdef tJonesPupil < matlab.unittest.TestCase
             ki2 = ko2 - 2*sum(ko2.*n2,2).*n2;
             c2  = abs(sum(ki2.*n2,2));
             ct2 = sqrt(1 - (N1/N2)^2*(1 - c2.^2));
-            RP2 = (N1*ct2 - N2*c2)./(N2*c2 + N1*ct2);
-            RS2 = (N1*c2 - N2*ct2)./(N1*c2 + N2*ct2);
+            RP2 = (N2*c2 - N1*ct2)./(N2*c2 + N1*ct2);   % textbook r_p (sign-
+            RS2 = (N1*c2 - N2*ct2)./(N1*c2 + N2*ct2);   % invariant in Da below)
             Da  = abs(abs(RS2).^2 - abs(RP2).^2)./(abs(RS2).^2 + abs(RP2).^2);
             testCase.verifyLessThan(max(abs(pm.D(jp.mask) - Da)), 1e-12, ...
                 'per-ray diattenuation vs Fresnel');

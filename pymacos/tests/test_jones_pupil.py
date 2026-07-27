@@ -75,7 +75,12 @@ def test_basis_invariance_and_sp_artifact(loaded):
     assert np.nanmax(np.abs(pm_dp['D'][msk] - pm_sp['D'][msk])) < 1e-12
     assert (np.nanmax(np.abs(pm_dp['T'][msk] - pm_sp['T'][msk]))
             / np.nanmean(pm_dp['T'][msk])) < 1e-12
-    # coordinate singularity inflates s/p retardance variation
+    # coordinate singularity inflates s/p retardance variation.
+    # RE-VALIDATED on the r_p-sign-corrected engine (2026-07-27): 247x
+    # (sp 0.891 vs dp 3.61e-3).  A HALF-patched elemsub.F (uncoated
+    # branch only) makes the bases spuriously agree at ~3.4e-3 -- if
+    # this fails, suspect a partial convention change before doubting
+    # the doctrine (REVIEW_POL_SP_SIGN_2026-07-27.md).
     assert pm_sp['var_rms']['ret'] > 10 * pm_dp['var_rms']['ret']
 
 
@@ -220,4 +225,6 @@ def test_pol_zernike_basis_dependence(loaded):
     pzs = m.pol_zernike(m.pol_maps(m.jones_pupil(DET, basis='local-sp')))
     scale = np.abs(pzd['D']).max()
     assert np.abs(pzd['D'] - pzs['D']).max() / scale < 1e-9
+    # re-validated post r_p-sign fix: 220x (see comment in
+    # test_basis_invariance_and_sp_artifact)
     assert np.abs(pzs['ret']).max() > 10 * np.abs(pzd['ret']).max()
