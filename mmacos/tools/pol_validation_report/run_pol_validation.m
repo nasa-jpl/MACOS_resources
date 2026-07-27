@@ -54,6 +54,7 @@ function run_pol_validation(polvalDir)
     V = phase1_gates(V, MODEL);
     V = phase2_gates(V, MODEL, mediaDir);
     V = phase3a_gates(V, MODEL, mediaDir);
+    V = spsign_gates(V, MODEL, mediaDir);
 
     assert_gates(V);
     write_numbers(V, genDir, prov0);
@@ -99,6 +100,11 @@ function assert_gates(V)
       'G36_PLANESUM',   '<',   1e-14
       'G36_RESID',      '<',   1e-3
       'G36_DECORR',     '<',   1e-4
+      'G41_RESID_MAX',  '<',   1e-11
+      'G41_RET',        '<',   1e-14
+      'G42_BOUNDRATIO', '<',   1.05
+      'G42_PYPX1',      '<',   1e-3
+      'G42_SLOPE',      '>',   1.7
       };
     bad = {};
     for i = 1:size(lim, 1)
@@ -516,6 +522,122 @@ end
 % =====================================================================
 %  case runners
 % =====================================================================
+% =====================================================================
+%  Section 4 -- the reflected-p-hat / Fresnel r_p sign correction
+%  (macos cb29ea5).  Everything else in this report is measured on
+%  EVEN-mirror trains, where the pre-fix defect cancelled exactly.  These
+%  gates read the field after exactly ONE reflection, which is the only
+%  place it was ever visible.
+% =====================================================================
+function V = spsign_gates(V, ~, mediaDir)
+    rx = polval_rx('Rx_Cass_FarField.in');
+    STOP = 1;  PRIM = 2;  SEC = 3;     % Obscuring stop, primary, secondary
+
+    fprintf('polval: G4.x odd-mirror s/p sign\n');
+    macos.load_rx(rx);
+    macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.trace(STOP);  r0 = macos.ray_field(STOP);
+    macos.trace(PRIM);  r1 = macos.ray_field(PRIM);
+    macos.trace(SEC);   r2 = macos.ray_field(SEC);
+    ok  = (r0.status == 0) & (r1.status == 0);
+    ok2 = r2.status == 0;
+
+    % Geometry from the RAY DIRECTIONS only: AOI from the stop-to-mirror
+    % deflection (pi - 2*AOI for a mirror), azimuth from the outgoing
+    % transverse direction.  No pixel-grid-to-pupil mapping is assumed.
+    kdot = r0.kx.*r1.kx + r0.ky.*r1.ky + r0.kz.*r1.kz;
+    aoi  = (pi - acos(min(max(kdot, -1), 1))) / 2;
+    phi  = atan2(r1.ky, r1.kx);
+    rEy  = r1.Ey ./ r1.Ex;
+    rEz  = r1.Ez ./ r1.Ex;
+
+    % ---- G4.1 the whole single-reflection Jones, closed form ----------
+    % Perfect conductor (r_s = -1, r_p = +1 in the engine's ray-following
+    % p-hat basis) plus geometry gives, EXACTLY in the AOI:
+    %   Ey/Ex = -sin(2 phi) sin^2(a) / den,  Ez/Ex = -sin(2a) cos(phi)/den
+    %   den   = 1 - 2 sin^2(a) cos^2(phi)
+    % written from Born & Wolf, NOT transcribed from the engine -- the
+    % circularity that let the old fold gate pass either way.
+    den   = 1 - 2*sin(aoi).^2 .* cos(phi).^2;
+    predY = -sin(aoi).^2 .* sin(2*phi) ./ den;
+    predZ =  sin(2*aoi)  .* cos(phi)   ./ den;
+    sy = ok & abs(sin(2*phi)) > 0.2 & aoi > deg2rad(1);   % away from own zeros
+    sz = ok & abs(cos(phi))   > 0.2 & aoi > deg2rad(1);
+    ry = abs((rEy(sy) - predY(sy)) ./ predY(sy));
+    rz = abs((rEz(sz) - predZ(sz)) ./ predZ(sz));
+
+    V = addval(V, 'G41_NRAYS', nnz(sy), '%d', 'rays', ...
+        'rays entering the closed-form comparison', ...
+        'tPolarization/test_odd_mirror_crosspol_pec_analytic');
+    V = addval(V, 'G41_AOIMAX', rad2deg(max(aoi(ok))), '%.2f', 'deg', ...
+        'largest angle of incidence on the primary', 'this driver');
+    V = addval(V, 'G41_RESID_MED', median(ry), '%.2e', '', ...
+        'median relative residual, cross-pol vs closed form', ...
+        'tPolarization/test_odd_mirror_crosspol_pec_analytic');
+    V = addval(V, 'G41_RESID_MAX', max(ry), '%.2e', '', ...
+        'max relative residual, cross-pol vs closed form', ...
+        'tPolarization/test_odd_mirror_crosspol_pec_analytic');
+    V = addval(V, 'G41_RESIDZ_MAX', max(rz), '%.2e', '', ...
+        'max relative residual, longitudinal component vs closed form', ...
+        'tPolarization/test_odd_mirror_crosspol_pec_analytic');
+    V = addval(V, 'G41_RET', max(abs(imag(rEy(ok)))), '%.2e', '', ...
+        'retardance introduced by a perfect conductor', ...
+        'tPolarization/test_odd_mirror_crosspol_pec_analytic');
+
+    % ---- G4.2 the fixture-free half: bound, magnitude, rho^2 law ------
+    ratio = abs(rEy);
+    V = addval(V, 'G42_BOUNDRATIO', max(ratio(ok))/max(sin(aoi(ok)).^2), ...
+        '%.3f', '', 'max cross-pol as a fraction of the O(sin^2 AOI) bound', ...
+        'tPolarization/test_odd_mirror_crosspol_rho2_law');
+    V = addval(V, 'G42_PYPX1', mean(ratio(ok).^2), '%.3e', '', ...
+        'cross-polarized power fraction after ONE mirror', ...
+        'tPolarization/test_odd_mirror_crosspol_rho2_law');
+    V = addval(V, 'G42_PYPX2', ...
+        sum(abs(r2.Ey(ok2)).^2)/sum(abs(r2.Ex(ok2)).^2), '%.4e', '', ...
+        'cross-polarized power fraction after TWO mirrors (unchanged by the fix)', ...
+        'tools/pol_sp_sign_probe');
+
+    N = size(r1.Ex, 1);  c = (N + 1)/2;
+    [jj, ii] = meshgrid(1:N, 1:N);
+    rho = hypot(ii - c, jj - c);  rmax = max(rho(ok));
+    frac = [0.25 0.5 0.75 1.0];  med = nan(size(frac));
+    for t = 1:numel(frac)
+        sel = ok & abs(rho - frac(t)*rmax) < 2;
+        med(t) = median(ratio(sel));
+    end
+    for t = 1:numel(frac)
+        V = addval(V, sprintf('G42_R%d', t), med(t), '%.3e', '', ...
+            sprintf('median |Ey/Ex| at rho = %.2f of the pupil edge', frac(t)), ...
+            'tPolarization/test_odd_mirror_crosspol_rho2_law');
+    end
+    sl = polyfit(log(frac(:)), log(med(:)), 1);
+    V = addval(V, 'G42_SLOPE', sl(1), '%.3f', '', ...
+        'log-log slope of cross-pol vs pupil radius (physics requires 2)', ...
+        'tPolarization/test_odd_mirror_crosspol_rho2_law');
+
+    fig_spsign(ratio, predY, aoi, ok, rho/rmax, frac, med, ...
+        fullfile(mediaDir, 'polval_spsign.png'));
+end
+
+function fig_spsign(ratio, predY, aoi, ok, rn, frac, med, out)
+    f = newfig([1150 420]);
+    tiledlayout(f, 1, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
+    nexttile; panel_here(ratio, ok, ...
+        'measured |E_y/E_x| after ONE mirror');
+    nexttile; panel_here(abs(predY), ok, ...
+        'closed form  sin^2(AOI)|sin 2\phi| / den');
+    nexttile;
+    loglog(frac, med, 'o-', 'LineWidth', 1.4, 'MarkerFaceColor', 'w'); hold on
+    loglog(frac, med(end)*frac.^2, 'k--', 'LineWidth', 1.1);
+    grid on; xlabel('\rho / \rho_{max}'); ylabel('median |E_y/E_x|');
+    legend({'measured', '\rho^2'}, 'Location', 'northwest', 'Box', 'off');
+    title(sprintf('radial law (max AOI %.1f\\circ)', rad2deg(max(aoi(ok)))));
+    sgtitle(f, ['One mirror: cross-polarization is slope-driven and matches ' ...
+                'the perfect-conductor closed form -- pre-fix it was flat at ~1'], ...
+            'FontWeight', 'bold');
+    savefig_(f, out);
+end
+
 function I = vecchain_case(rx, mode, elt)
     macos.load_rx(rx);
     switch mode
@@ -559,10 +681,20 @@ function [ratio_meas, RSa, RPa, aoi] = fold_fresnel(rf, m, nAl, kAl)
     qs = einx.*sx  + einy.*sy  + einz.*sz;
     qp = einx.*pix + einy.*piy + einz.*piz;
     ratio_meas = (Es./Ep).*(qp./qs);
+    % TEXTBOOK Born & Wolf forms (ray-following p-hat), mirroring
+    % tJonesPupil after mmacos 9bc2029:
+    %   r_p = (N2 c_i - N1 c_t)/(N2 c_i + N1 c_t)
+    %   r_s = (N1 c_i - N2 c_t)/(N1 c_i + N2 c_t)
+    % This RPa was originally transcribed from the engine's own
+    % expression, which made the phase comparison CIRCULAR in exactly
+    % the r_p sign the 2022 import had flipped -- it agreed with the
+    % pre-fix engine and disagrees by pi with the corrected one.  The
+    % gate guard caught that staleness when the fix landed; do not
+    % "restore" it.  See REVIEW_POL_SP_SIGN_2026-07-27.md.
     N1 = 1.0;  N2 = complex(nAl, -kAl);
     cthi = abs(kix.*nx + kiy.*ny + kiz.*nz);
     ctht = sqrt(1 - (N1/N2)^2*(1 - cthi.^2));
-    RPa = (N1*ctht - N2*cthi)./(N2*cthi + N1*ctht);
+    RPa = (N2*cthi - N1*ctht)./(N2*cthi + N1*ctht);
     RSa = (N1*cthi - N2*ctht)./(N1*cthi + N2*ctht);
     aoi = acosd(cthi);
 end
@@ -574,7 +706,10 @@ function Da = analytic_D(jp, rf, nAl, kAl)
     c  = abs(sum(ki.*n,2));
     N1 = 1.0;  N2 = complex(nAl, -kAl);
     ct = sqrt(1 - (N1/N2)^2*(1 - c.^2));
-    RP = (N1*ct - N2*c)./(N2*c + N1*ct);
+    % textbook forms as in fold_fresnel; D is a magnitude ratio so the
+    % r_p sign cancels here -- normalized anyway so the two copies of
+    % the analytic cannot drift apart again.
+    RP = (N2*c - N1*ct)./(N2*c + N1*ct);
     RS = (N1*c - N2*ct)./(N1*c + N2*ct);
     Da = abs(abs(RS).^2 - abs(RP).^2)./(abs(RS).^2 + abs(RP).^2);
 end

@@ -681,16 +681,35 @@ here.  mmacos-side facts only:
   model size; it is **not** exposed in `macos_api_mod`, so from mmacos the
   lever is `macos.init(N)`.  An earlier PLAN note claiming `Rx_Coro` runs at
   128 is wrong and has been corrected — it appears to work, then doesn't.
-- **OPEN ENGINE DEFECT — odd-mirror-count polarized results are wrong**
-  (2026-07-27, blocks Phase 2c).  `Reflector`'s reflected-p̂ basis and its
-  Fresnel `r_p` sign disagree, so ONE on-axis mirror turns x-polarized light
-  into a 50/50 x/y mixture; a mirror PAIR cancels it exactly, which is why
-  `tJonesPupil` (2-mirror Cassegrain), `tVecChain` (no mirrors) and the
-  coated 45° fold gate all pass.  Do not build polarization analyses on the
-  pupil state of an odd-mirror train until it is resolved.  Reproducer:
-  `tools/pol_sp_sign_probe/probe_sp_sign.m`.  Decision packet:
-  `macos/REVIEW_POL_SP_SIGN_2026-07-27.md`; engine detail in
-  `macos/macos_f90/CLAUDE.md`.
+- **FIXED 2026-07-27 — the odd-mirror `r_p` sign defect** (macos `cb29ea5`
+  Reflector + `25c4386` Refractor; resources `9bc2029` fold-gate
+  de-circularization + `fc2e22e` the new gates).  `Reflector`'s
+  reflected-p̂ basis disagreed with its Fresnel `r_p` sign, so ONE on-axis
+  mirror turned x-polarized light into a 50/50 x/y mixture; a mirror PAIR
+  cancelled it EXACTLY (an involution) and the error is unitary, which is
+  why `tJonesPupil` (2-mirror Cassegrain), `tVecChain` (no mirrors) and the
+  coated 45° fold gate all passed.  Odd-mirror polarized results are
+  trustworthy again.  Two lasting lessons: **an "analytic" reference
+  transcribed from the engine's own expression is circular in exactly the
+  sign it should check** (the fold gate's `RPa`, and the same staleness in
+  the polval driver, which its gate guard caught), and **fixture parity
+  matters** — every fixture in the suite had an even mirror count or none.
+  New gates: `tPolarization/test_odd_mirror_crosspol_{pec_analytic,
+  rho2_law}` — the whole PEC single-reflection Jones against a Born&Wolf
+  closed form, with AOI and azimuth taken from RAY DIRECTIONS so no
+  pupil-grid mapping is assumed (median 2.1e-15).  Reproducer:
+  `tools/pol_sp_sign_probe/probe_sp_sign.m`.  Packet (with the closeout
+  entry): `macos/REVIEW_POL_SP_SIGN_2026-07-27.md`; engine detail in
+  `macos/macos_f90/CLAUDE.md`; report evidence in `polval/50_sp_sign`.
+  **Watch out when reading `ray_field`:** `RayE`/`RayDir` are the CURRENT
+  trace state, not a per-element history — `trace(e)` then `ray_field(e)`,
+  or you get the state at whatever element you last traced to.
+- **OPEN (found in the same audit)** — coated and uncoated `Refractor`
+  transmission use DIFFERENT amplitude normalizations (the coated branch
+  omits the radiometric `sqrt(n2 cos02/(n1 cos01))` factor): a coated lens
+  under-transmits by ~18% in amplitude vs the same surface uncoated
+  (measured 1/sqrt(1.5) exactly with an index-matched layer).  The coated
+  Refractor branch also has no analytic gate at all.
 - **`complex_field(..., 'reset_trace', false)` is bit-identical and ~100×
   faster** for the 2nd/3rd component plane at the same element (0.01 s vs
   0.83 s at model 512) — reading Ex/Ey/Ez costs ONE propagation, not three.

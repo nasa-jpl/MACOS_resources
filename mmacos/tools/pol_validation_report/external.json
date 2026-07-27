@@ -12,7 +12,6 @@
     "'captured'.  Do NOT copy any of these into the report prose -- the prose",
     "carries @@TOKENS@@ only."
   ],
-
   "values": {
     "X_MMACOS_SUITE": {
       "text": "412 pass, 0 fail",
@@ -58,7 +57,6 @@
       "captured": "2026-07-26",
       "source": "external"
     },
-
     "X_PREFIX_FF_TOTAL": {
       "text": "8.937660518e-01",
       "gate": "ladder 5 -- far-field vector total power BEFORE the PFFPROP->FFPROP*3 unification",
@@ -82,6 +80,72 @@
       "command": "rebuild the engine with propsub.F at a0f6dba^, then run tVecChain",
       "captured": "2026-07-26",
       "note": "HISTORICAL.",
+      "source": "external"
+    },
+    "X_SPSIGN_CAPTURED": {
+      "text": "2026-07-27",
+      "gate": "capture date of the pre-fix A/B below",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PREFIX_RESID": {
+      "text": "1.14e+02",
+      "gate": "pre-fix median relative residual vs the perfect-conductor closed form (max 1.61e+05)",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "note": "model 128, Rx_Cass_FarField, same rays as G41",
+      "source": "external"
+    },
+    "X_SPSIGN_PREFIX_RADIAL": {
+      "text": "0.988 / 1.038 / 1.029 / 1.035",
+      "gate": "pre-fix median |Ey/Ex| at rho = 0.25 / 0.50 / 0.75 / 1.00",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "note": "flat -- no slope-driven effect can be",
+      "source": "external"
+    },
+    "X_SPSIGN_PREFIX_SLOPE": {
+      "text": "0.033",
+      "gate": "pre-fix log-log slope of cross-pol vs pupil radius",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PREFIX_RET": {
+      "text": "3.9e-10",
+      "gate": "pre-fix spurious retardance from a perfect conductor",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PROBE_PRE1": {
+      "text": "1.0163e+00",
+      "gate": "PRE-fix cross-polarized power fraction after ONE mirror",
+      "command": "MACOS_resources/mmacos/tools/pol_sp_sign_probe/probe_sp_sign.m (model 256)",
+      "captured": "2026-07-27",
+      "note": "model 256; the driver's own G42_PYPX1 is the model-128 post-fix value",
+      "source": "external"
+    },
+    "X_SPSIGN_PROBE_POST1": {
+      "text": "2.0724e-04",
+      "gate": "POST-fix cross-polarized power fraction after ONE mirror",
+      "command": "MACOS_resources/mmacos/tools/pol_sp_sign_probe/probe_sp_sign.m (model 256)",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PROBE_PRE2": {
+      "text": "7.0612e-07",
+      "gate": "PRE-fix cross-polarized power fraction after TWO mirrors",
+      "command": "MACOS_resources/mmacos/tools/pol_sp_sign_probe/probe_sp_sign.m (model 256)",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PROBE_POST2": {
+      "text": "7.0612e-07",
+      "gate": "POST-fix cross-polarized power fraction after TWO mirrors -- bit-identical to the pre-fix value",
+      "command": "MACOS_resources/mmacos/tools/pol_sp_sign_probe/probe_sp_sign.m (model 256)",
+      "captured": "2026-07-27",
       "source": "external"
     }
   }
