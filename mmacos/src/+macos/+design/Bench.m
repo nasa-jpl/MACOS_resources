@@ -323,13 +323,13 @@ methods
         dout = macos.design.Bench.refract(dr, psi, n, 1.0);
 
         e1 = b.blank([bs.name 'bin' opts.tag], 'Refractor');
-        e1.psi = psi;  e1.vpt = Pin;   e1.indref = n;    e1.extinc = 1e22;
+        e1.psi = psi;  e1.vpt = Pin;   e1.indref = n;    e1.extinc = 0;
         b.path_len = b.path_len + sB;   i1 = b.push(e1);
         e2 = b.blank([bs.name 'cref' opts.tag], 'Reflector');
         e2.psi = psi;  e2.vpt = Pr;    e2.indref = n;    e2.extinc = 1e22;
         b.path_len = b.path_len + sf;   i2 = b.push(e2);
         e3 = b.blank([bs.name 'bout' opts.tag], 'Refractor');
-        e3.psi = psi;  e3.vpt = Pout;  e3.indref = 1.0;  e3.extinc = 1e22;
+        e3.psi = psi;  e3.vpt = Pout;  e3.indref = 1.0;  e3.extinc = 0;
         b.path_len = b.path_len + sb2;  i3 = b.push(e3);
         idx = [i1, i2, i3];
         b.pos = Pout;  b.dir = dout;
@@ -534,11 +534,11 @@ methods
         d2 = macos.design.Bench.refract(d1, psi, bs.n, 1.0);
 
         e1 = b.blank([bs.name 'txf' opts.tag], 'Refractor');
-        e1.psi = psi;  e1.vpt = P1;  e1.indref = bs.n;  e1.extinc = 1e22;
+        e1.psi = psi;  e1.vpt = P1;  e1.indref = bs.n;  e1.extinc = 0;
         b.path_len = b.path_len + ss(1);       % geometric path bookkeeping
         i1 = b.push(e1);
         e2 = b.blank([bs.name 'txb' opts.tag], 'Refractor');
-        e2.psi = psi;  e2.vpt = P2;  e2.indref = 1.0;   e2.extinc = 1e22;
+        e2.psi = psi;  e2.vpt = P2;  e2.indref = 1.0;   e2.extinc = 0;
         b.path_len = b.path_len + s2;
         i2 = b.push(e2);
         idx = [i1, i2];
