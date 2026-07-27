@@ -14,25 +14,25 @@
   ],
   "values": {
     "X_MMACOS_SUITE": {
-      "text": "412 pass, 0 fail",
+      "text": "420 pass, 0 fail",
       "gate": "mmacos matlab.unittest suite, all classes",
       "command": "cd MACOS_resources/mmacos && ./run_mmacos_tests.sh",
-      "captured": "2026-07-26",
-      "note": "fast 281 / masks 62 / freeform 46 / proper-512 10 / proper-1024 13; gfortran-linked mex",
+      "captured": "2026-07-27",
+      "note": "fast 289 / masks 62 / freeform 46 / proper-512 10 / proper-1024 13; gfortran-linked mex, engine at the r_p sign fix",
       "source": "external"
     },
     "X_PYMACOS_SUITE": {
-      "text": "6645 pass",
+      "text": "6694 pass, 1 skipped",
       "gate": "pymacos pytest suite (ifx-linked = the standing ifx smoke)",
       "command": "cd MACOS_resources/pymacos && pytest",
-      "captured": "2026-07-26",
+      "captured": "2026-07-27",
       "source": "external"
     },
     "X_PROPER_COMPARE": {
       "text": "26/26",
       "gate": "pymacos PROPER-comparison suite",
       "command": "cd MACOS_resources/pymacos && ./run_proper_tests.sh",
-      "captured": "2026-07-26",
+      "captured": "2026-07-27",
       "source": "external"
     },
     "X_PROPER_RESIDUAL": {
@@ -40,8 +40,9 @@
       "units": "committed macos-vs-PROPER residual",
       "gate": "ladder 3 -- polarized PROPER re-run reproduces the committed scalar residual EXACTLY, for both polarization-off and polarization-on/vector-off",
       "command": "cd MACOS_resources/pymacos && ./run_proper_tests.sh   (with pol_set on)",
-      "captured": "2026-07-26",
-      "source": "external"
+      "captured": "2026-07-27",
+      "source": "external",
+      "note": "re-confirmed in the 2026-07-27 re-run: unchanged in results_phase2/report.md and results_phase3/report.md"
     },
     "X_PROPER_VECDIFF": {
       "text": "1.3e-2",
@@ -54,7 +55,7 @@
       "text": "6/6, bit-identical (vs-ref = 0.000e+00)",
       "gate": "GMI regression -- polarization work must be a no-op on polarization-off prescriptions",
       "command": "cd MACOS_resources/GMI && ./makegmi.sh && <GMI regression driver>",
-      "captured": "2026-07-26",
+      "captured": "2026-07-27",
       "source": "external"
     },
     "X_PREFIX_FF_TOTAL": {
@@ -146,6 +147,14 @@
       "gate": "POST-fix cross-polarized power fraction after TWO mirrors -- bit-identical to the pre-fix value",
       "command": "MACOS_resources/mmacos/tools/pol_sp_sign_probe/probe_sp_sign.m (model 256)",
       "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SUITES_CAPTURED": {
+      "text": "2026-07-27",
+      "gate": "date the three cross-checking suites were last re-run together",
+      "command": "run_mmacos_tests.sh; pymacos pytest; pymacos run_proper_tests.sh",
+      "captured": "2026-07-27",
+      "note": "a hand-typed date in the prose is the same hazard as a hand-typed number",
       "source": "external"
     }
   }
