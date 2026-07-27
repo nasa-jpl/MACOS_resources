@@ -9,12 +9,15 @@
 # polvalDir defaults to <macos repo>/docs/macos-manual/polval, resolved from
 # this script's own location (mmacos and macos are siblings under ~/dev).
 #
-# Two stages:
-#   1. MATLAB driver run_pol_validation.m -- runs every validation case this
-#      box can measure, writes media/*.png + generated/numbers.json.
-#      ONE model size, ONE session (macos_init_all() corrupts the heap across
-#      model_size transitions -- see mmacos/CLAUDE.md).
-#   2. render_polval.py -- substitutes those numbers into polval/*.md.in ->
+# Three stages:
+#   1. MATLAB driver run_pol_validation.m, once PER MODEL SIZE -- each
+#      invocation is its own process because macos_init_all() corrupts the
+#      heap across model_size transitions (see mmacos/CLAUDE.md).  Each run
+#      writes media/*.png plus its own generated/parts/numbers_<size>.json.
+#   2. merge_numbers.py -- combines the parts into generated/numbers.json,
+#      refusing to merge parts from different sessions or with colliding
+#      tokens.
+#   3. render_polval.py -- substitutes those numbers into polval/*.md.in ->
 #      polval/*.md.  Fails if any @@TOKEN@@ is left unresolved.
 #
 # Then build the documents with `make polval` in docs/macos-manual.
@@ -38,15 +41,26 @@ fi
 echo "make_polval: mmacos   = $MMACOS"
 echo "make_polval: polval   = $POLVAL"
 
-# -- stage 1: measure ---------------------------------------------------
+# -- stage 1: measure, one batch per model size -------------------------
 # -batch must end with an explicit exit(0): matlab -batch hangs at implicit
 # process exit once a mex has been loaded (mmacos/CLAUDE.md).
-matlab -batch "run('$MMACOS/mmacos_setup.m'); \
-               addpath('$HERE'); \
-               run_pol_validation('$POLVAL'); \
-               exit(0)"
+#   128  Phase 1 / 2a / 2b / 3a Tranche 1 / the r_p sign fix
+#   256  Phase 2c exactness gates   (Rx_VecChain, Rx_Cass_FarField)
+#   512  Phase 2c coronagraph chain (Rx_Coro declares nGridpts=511)
+MODELS="128 256 512"
+rm -f "$POLVAL/generated/parts"/numbers_*.json
+for m in $MODELS; do
+  echo "make_polval: --- model size $m ---"
+  matlab -batch "run('$MMACOS/mmacos_setup.m'); \
+                 addpath('$HERE'); \
+                 run_pol_validation('$POLVAL', $m); \
+                 exit(0)"
+done
 
-# -- stage 2: render ----------------------------------------------------
+# -- stage 2: merge the parts -------------------------------------------
+python3 "$HERE/merge_numbers.py" "$POLVAL" $MODELS
+
+# -- stage 3: render ----------------------------------------------------
 python3 "$HERE/render_polval.py" "$POLVAL"
 
 echo "make_polval: done -- now run 'make polval' in docs/macos-manual"

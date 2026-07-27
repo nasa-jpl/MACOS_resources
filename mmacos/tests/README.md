@@ -30,9 +30,10 @@ mex is loaded — see CLAUDE.md).
 | Suite | Model size | Classes |
 |---|---|---|
 | `SUITE_FAST` | 128 | tMmacosCmd, tMacosPkg, tMacosSession, tCrossSurface, tPerturbRoundtrip, tCodeVGrating, tSrsBugFlatZ, tDwDzZernike, tDwDx, tDwDxGroups, tDesignSystem, tDesignVary, tDesignSensitivities, tDesignOptimize, tVeneerXP, tCoroContrast², tBandLimitedMask¹, tPolarization, tJonesPupil, tVecChain |
-| `SUITE_FREEFORM` | 256 | tFreeFormComposite, tCalib |
+| `SUITE_FREEFORM` | 256 | tFreeFormComposite, tCalib, tReadGridFile, tViewRx, tSurfInspect, tPolContrast |
 | `SUITE_MASKS` | 128 | tCodeVApeMasks{Circ,Ellipse,Polygon,Rect}, tCodeVObsMasks{Circ,Ellipse,Polygon,Rect} |
 | `SUITE_PROPER_512` | 512 | tProperCompareCassFF, tProperCompareCassFFAberrations |
+| `SUITE_POL_512` | 512 | tPolContrastCoro |
 | `SUITE_PROPER_1024` | 1024 | tProperCompareCoroNFprop, tProperCompareCoroPhase3, tProperCompareCoroApodizer, tProperCompareCoroDMPhase |
 | **on-demand** (no group) | 128 | **tEndurance** |
 
@@ -78,6 +79,8 @@ excluded for being slow (~31 s) and using a Linux `/proc` RSS probe.
 | tEndurance | load/trace endurance — bit-identical rmsWFE + flat memory over many iters (Q5) |
 | tPolarization | PLAN_POLARIZATION Phase 1 — `polarization` / `vector_diffraction` / `coating` (Model A round-trip) / `ray_field` state + geometry gates |
 | tJonesPupil | Phase 2a/2b — two-trace Jones pupil (double-pole / local-sp / global bases) + `pol_maps` polar decomposition + `pol_zernike` low-order expansion; unitarity, Fresnel-analytic fold, 2θ symmetry, and the two-mirror "polarization astigmatism" literature form.  NOTE: uses two fixtures with DIFFERENT BaseUnits (Rx_Cass_FarField = m, Bench fold rig = mm), so the Al thickness is two constants — see `thkAl`/`thkAlBench` |
+| tPolContrast | Phase 2c — `pol_contrast_floor` exactness gates at model 256.  Rx_VecChain: a polarization-neutral train must report NO floor (cross exactly 0, co-polarized channel == the scalar run and its contrast curve to 1e-12).  Rx_Cass_FarField: Parseval on the co/cross split, energy closure against the engine intensity, floor by component, the coating sensitivity sweep, NaN-masking of small denominators, and the full-carry scope check.  The CIRCULAR input state is load-bearing — it is the only case that can see a conjugated coherency matrix |
+| tPolContrastCoro | Phase 2c on the coronagraph chain at model **512** (Rx_Coro declares nGridpts=511).  Floor by component, Parseval/closure at scale, and — pinned deliberately — the Phase 3a Tranche-1 shortfall: the grid carries 0.84 of the ray-level cross-polarized fraction bare, 0.57 coated, and the coating sensitivity comes out with the WRONG SIGN.  Tranche 2 must change these two tests |
 | tVecChain | Phase 3a Tranche 1 — vector propagation across a multi-leg chain on `tests/Rx/Rx_VecChain.in`: polarized-scalar ≡ scalar bit-identically, vector ≡ scalar at round-off for x/45°/circular input, per-leg energy, mask throughput, far-field normalization A/B |
 
 ## Adding a class
