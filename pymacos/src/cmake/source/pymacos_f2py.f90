@@ -39,6 +39,12 @@
       window_off_impl => window_off, &
       beam_set_impl => beam_set, &
       beam_get_impl => beam_get, &
+      pol_set_impl => pol_set, &
+      pol_get_impl => pol_get, &
+      vecdif_set_impl => vecdif_set, &
+      coat_set_impl => coat_set, &
+      coat_get_impl => coat_get, &
+      rayfield_get_impl => rayfield_get, &
       ffp_impl => ffp, &
       pfp_impl => pfp, &
       obs_set_impl => obs_set, &
@@ -114,6 +120,7 @@
       elt_dx_get_impl => elt_dx_get, &
       base_unit_to_metres_impl => base_unit_to_metres, &
       cfield_get_impl => cfield_get, &
+      cfield_plane_get_impl => cfield_plane_get, &
       cfield_apodize_impl => cfield_apodize, &
       cfield_apodize_complex_impl => cfield_apodize_complex, &
       perturb_elt_impl => perturb_elt, &
@@ -360,6 +367,96 @@
 
         CALL beam_get_impl(OK, beamType, rx, ry, cosPwr)
       end subroutine beam_get
+
+      subroutine pol_set(OK, on, ExRe, ExIm, EyRe, EyIm)
+        implicit none
+        logical, intent(out):: OK
+        logical, intent(in) :: on
+        real(8), intent(in) :: ExRe, ExIm, EyRe, EyIm
+
+        CALL pol_set_impl(OK, on, ExRe, ExIm, EyRe, EyIm)
+      end subroutine pol_set
+
+      subroutine pol_get(OK, on, vecDif, ExRe, ExIm, EyRe, EyIm)
+        implicit none
+        logical, intent(out):: OK
+        logical, intent(out):: on, vecDif
+        real(8), intent(out):: ExRe, ExIm, EyRe, EyIm
+
+        CALL pol_get_impl(OK, on, vecDif, ExRe, ExIm, EyRe, EyIm)
+      end subroutine pol_get
+
+      subroutine vecdif_set(OK, on)
+        implicit none
+        logical, intent(out):: OK
+        logical, intent(in) :: on
+
+        CALL vecdif_set_impl(OK, on)
+      end subroutine vecdif_set
+
+      ! Subroutine wrapper around the model-size FUNCTION so f2py exposes
+      ! it (the bare function is imported but never wrapped, so macos.py's
+      ! model_size() -> lib.api.currrent_macos_model_size AttributeErrors).
+      subroutine model_size_get(N)
+        implicit none
+        integer, intent(out):: N
+
+        N = currrent_macos_model_size()
+      end subroutine model_size_get
+
+      subroutine coat_set(OK, iElt, nLayer, IndRef_, Extinc_, Thk_)
+        implicit none
+        logical,                    intent(out):: OK
+        integer,                    intent(in) :: iElt
+        integer,                    intent(in) :: nLayer
+        real(8), dimension(nLayer), intent(in) :: IndRef_, Extinc_, Thk_
+
+        CALL coat_set_impl(OK, iElt, nLayer, IndRef_, Extinc_, Thk_)
+      end subroutine coat_set
+
+      subroutine coat_get(OK, iElt, nLayer, IndRef_, Extinc_, Thk_, maxL)
+        implicit none
+        logical,                  intent(out):: OK
+        integer,                  intent(in) :: iElt
+        integer,                  intent(out):: nLayer
+        integer,                  intent(in) :: maxL
+        real(8), dimension(maxL), intent(out):: IndRef_, Extinc_, Thk_
+
+        !f2py  intent(out,hide,copy):: IndRef_
+        !f2py  intent(out,hide,copy):: Extinc_
+        !f2py  intent(out,hide,copy):: Thk_
+
+        CALL coat_get_impl(OK, iElt, nLayer, IndRef_, Extinc_, Thk_, maxL)
+      end subroutine coat_get
+
+      subroutine rayfield_get(OK, ExRe, ExIm, EyRe, EyIm, EzRe, EzIm,   &
+                              kx, ky, kz, nx, ny, nz, status, N, iElt)
+        implicit none
+        logical,                 intent(out):: OK
+        real(8), dimension(N,N), intent(out):: ExRe, ExIm, EyRe, EyIm,  &
+                                               EzRe, EzIm, kx, ky, kz,  &
+                                               nx, ny, nz
+        integer, dimension(N,N), intent(out):: status
+        integer,                 intent(in) :: N
+        integer,                 intent(in) :: iElt
+
+        !f2py  intent(out,hide,copy):: ExRe
+        !f2py  intent(out,hide,copy):: ExIm
+        !f2py  intent(out,hide,copy):: EyRe
+        !f2py  intent(out,hide,copy):: EyIm
+        !f2py  intent(out,hide,copy):: EzRe
+        !f2py  intent(out,hide,copy):: EzIm
+        !f2py  intent(out,hide,copy):: kx
+        !f2py  intent(out,hide,copy):: ky
+        !f2py  intent(out,hide,copy):: kz
+        !f2py  intent(out,hide,copy):: nx
+        !f2py  intent(out,hide,copy):: ny
+        !f2py  intent(out,hide,copy):: nz
+        !f2py  intent(out,hide,copy):: status
+
+        CALL rayfield_get_impl(OK, ExRe, ExIm, EyRe, EyIm, EzRe, EzIm,  &
+                               kx, ky, kz, nx, ny, nz, status, N, iElt)
+      end subroutine rayfield_get
 
       subroutine ffp(OK, iElt, dx, dy)
         implicit none
@@ -1316,6 +1413,27 @@
 
         CALL cfield_get_impl(OK, REAL_OUT, IMAG_OUT, N, iElt)
       end subroutine cfield_get
+
+      subroutine cfield_plane_get(OK, REAL_OUT, IMAG_OUT, N, iElt, iPlane)
+        ! Plane-selectable sibling of cfield_get: iPlane 0 = the element's
+        ! own wavefront (identical to cfield_get), 1..3 = the Ex/Ey/Ez
+        ! component planes, which exist only in vector-diffraction mode
+        ! (the api returns OK=FAIL otherwise rather than handing back an
+        ! unrelated wavefront).
+        implicit none
+        logical,                 intent(out):: OK
+        real(8), dimension(N,N), intent(out):: REAL_OUT
+        real(8), dimension(N,N), intent(out):: IMAG_OUT
+        integer,                 intent(in) :: N       ! = mdttl
+        integer,                 intent(in) :: iElt    ! element
+        integer,                 intent(in) :: iPlane  ! 0 own WF; 1..3 Ex/Ey/Ez
+
+        !f2py  intent(hide)         :: OK
+        !f2py  intent(out,hide,copy):: REAL_OUT
+        !f2py  intent(out,hide,copy):: IMAG_OUT
+
+        CALL cfield_plane_get_impl(OK, REAL_OUT, IMAG_OUT, N, iElt, iPlane)
+      end subroutine cfield_plane_get
 
       subroutine cfield_apodize(OK, MASK, N, iElt)
         use elt_mod, only: WFElt, iEltToiWF

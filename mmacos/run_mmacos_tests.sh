@@ -14,6 +14,7 @@
 #   ./run_mmacos_tests.sh masks             # only the CodeV mask suite
 #                                           # (~10 min — heavyweight)
 #   ./run_mmacos_tests.sh proper            # only Phase 5 PROPER cmp
+#   ./run_mmacos_tests.sh polfloor          # only Phase 2c contrast floor
 #   ./run_mmacos_tests.sh tMacosPkg         # one class by name
 #   ./run_mmacos_tests.sh -k roundtrip      # methods matching a substring
 #
@@ -150,7 +151,8 @@ SUITE_FAST=$(join_suites \
     "tDesignOptimize" "tDesignTelescope" "tVeneerXP" "tCoroContrast" \
     "tCompose" "tSysProp" "tBeam" "tSegMirMaker" "tSegmentRx" "tEdgeSensors" \
     "tMet" "tMetView" "tRunMet" "tRunSensitivities" "tRunSegmentation" \
-    "tRunCompare" "tSpot")
+    "tRunCompare" "tSpot" "tPolarization" "tJonesPupil" "tVecChain" \
+    "tPolElement")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the
@@ -161,11 +163,15 @@ SUITE_QUICK=$(join_suites \
     "tMmacosCmd" "tMacosPkg" "tMacosSession" "tBandLimitedMask" \
     "tPerturbRoundtrip" "tSysProp" "tCompose" "tVeneerXP" "tSpot")
 # tFreeFormComposite + tCalib + tReadGridFile + tViewRx run at ModelSize=256
-SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect")
+SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tPolContrast")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
 # group; lives in "fast" because it's quick.
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
 SUITE_PROPER_512=$(join_suites "tProperCompareCassFF" "tProperCompareCassFFAberrations")
+# Phase 2c coronagraph floor -- Rx_Coro declares nGridpts=511 and MUST run
+# at model >= 512 (PLAN_POLARIZATION §2c fixture correction).  Its own
+# batch so the model-size transition stays contained.
+SUITE_POL_512=$(join_suites "tPolContrastCoro")
 SUITE_PROPER_1024=$(join_suites "tProperCompareCoroNFprop" "tProperCompareCoroPhase3" "tProperCompareCoroApodizer" "tProperCompareCoroDMPhase")
 # Aggregate for the `proper` shortcut (runs in two batches — the
 # initial Cass-FF group at 512 then the Coro group at 1024 — to
@@ -193,6 +199,7 @@ case "${1:-}" in
         run_batch "$SUITE_MASKS"       "full: masks (size 128)"     || rc=1
         run_batch "$SUITE_FREEFORM"    "full: freeform (size 256)"  || rc=1
         run_batch "$SUITE_PROPER_512"  "full: proper Cass-FF (512)" || rc=1
+        run_batch "$SUITE_POL_512"     "full: pol contrast (512)"   || rc=1
         run_batch "$SUITE_PROPER_1024" "full: proper Coro (1024)"   || rc=1
         exit $rc
         ;;
@@ -212,6 +219,14 @@ case "${1:-}" in
     proper)
         # Phase 5 PROPER-comparison suite — now one batch.
         run_batch "[$SUITE_PROPER_512, $SUITE_PROPER_1024]" "proper (Cass-FF + Coro NF)"
+        ;;
+    polfloor)
+        # Phase 2c contrast floor: exactness gates at 256, coronagraph
+        # chain at 512.  Two batches — different model sizes.
+        rc=0
+        run_batch "$(join_suites "tPolContrast")" "polfloor (size 256)"      || rc=1
+        run_batch "$SUITE_POL_512"                "polfloor coro (size 512)" || rc=1
+        exit $rc
         ;;
     -k)
         # Method-name substring filter.

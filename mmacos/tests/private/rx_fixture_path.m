@@ -9,10 +9,16 @@ function p = rx_fixture_path(name)
 arguments
     name (1,:) char
 end
-root = fullfile(getenv('HOME'), 'dev', 'MACOS_resources', ...
-    'pymacos', 'tests', 'Rx');
-p = fullfile(root, name);
-if ~exist(p, 'file')
-    error('rx_fixture_path:notFound', 'Rx fixture not found: %s', p);
+%   Fixtures that exist only for mmacos (no pymacos counterpart) live in
+%   mmacos/tests/Rx/ and are found by the same call — the shared corpus is
+%   searched first, the mmacos-local one second.
+roots = { ...
+    fullfile(getenv('HOME'), 'dev', 'MACOS_resources', 'pymacos', 'tests', 'Rx'), ...
+    fullfile(fileparts(fileparts(mfilename('fullpath'))), 'Rx')};
+for i = 1:numel(roots)
+    p = fullfile(roots{i}, name);
+    if exist(p, 'file'), return; end
 end
+error('rx_fixture_path:notFound', ...
+    'Rx fixture not found: %s (searched %s)', name, strjoin(roots, ', '));
 end
