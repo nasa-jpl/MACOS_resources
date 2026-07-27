@@ -36,16 +36,41 @@ make polval-pdf       # PDF
 
 | File | Role |
 |---|---|
-| `run_pol_validation.m` | MATLAB driver — runs every case, writes `media/*.png` + `generated/numbers.json` |
+| `run_pol_validation.m` | MATLAB driver — runs one model size's cases, writes `media/*.png` + `generated/parts/numbers_<size>.json` |
+| `merge_numbers.py` | merges the per-size parts into `generated/numbers.json` |
 | `render_polval.py` | substitutes measured numbers into `polval/*.md.in` → `polval/*.md` |
 | `external.json` | gates this box cannot run, with their producing command and capture date |
-| `make_polval.sh` | the one command (driver, then renderer) |
+| `make_polval.sh` | the one command (driver per size, merge, render) |
+
+## Per-model-size batches
+
+`macos_init_all()` corrupts the heap across `model_size` transitions
+(`mmacos/CLAUDE.md`), so the driver runs **one size per MATLAB process**:
+
+| Size | Cases | Why that size |
+|---|---|---|
+| 128 | Phase 1, Phase 2a/2b, Phase 3a Tranche 1, the r_p sign fix | historical; `Rx_Cass_FarField` is exercised here as the landed tests do |
+| 256 | Phase 2c exactness gates | `Rx_VecChain` and `Rx_Cass_FarField` both declare `nGridpts=256` |
+| 512 | Phase 2c coronagraph chain | `Rx_Coro` declares `nGridpts=511` — it only *appears* to run at 128 |
+
+Each run writes `generated/parts/numbers_<size>.json` (gitignored — an
+intermediate); `merge_numbers.py` combines them into the committed
+`generated/numbers.json`. The merge refuses to proceed when two parts define
+the same token (which part wins would depend on file ordering) or when their
+provenance disagrees (parts from different sessions must not be stitched into
+one report).
+
+**Adding a size:** a new branch in `run_pol_validation`'s `switch`, its own
+block in `gate_limits()`, and the size added to `MODELS` in `make_polval.sh`.
+Gate thresholds are per size, so a token listed in one size's table but never
+measured by that size's group fails the run — the same way a regressed value
+does.
 
 ## What the driver measures, and what it cannot
 
 The driver covers Phase 1 exposure gates, Phase 2a/2b Jones-pupil physics,
-and Phase 3a Tranche 1 vector-chain gates — everything reachable from mmacos
-on this box in a single MATLAB session.
+Phase 3a Tranche 1 vector-chain gates, the `Reflector` s/p sign fix, and the
+Phase 2c contrast floor — everything reachable from mmacos on this box.
 
 Four classes of number are **not** reachable from here and live in
 `external.json` instead, each with the command that produces it and the date
@@ -67,11 +92,8 @@ copy is also what auto permission mode allows without prompting.
 
 ## Constraints
 
-* **One model size, one MATLAB session.** `macos_init_all()` corrupts the
-  heap across `model_size` transitions (see `mmacos/CLAUDE.md`), so every
-  case here runs at 128. Adding a case at a different size means splitting
-  the driver into per-size `matlab -batch` invocations, the way
-  `run_mmacos_tests.sh` does.
+* **One model size, one MATLAB session.** See *Per-model-size batches* above
+  — this is why the driver is invoked once per size rather than once.
 * **Every batch invocation ends `exit(0)`.** `matlab -batch` hangs at
   implicit process exit once a mex has been loaded.
 * **Needs a current mex.** After any change to `macos_api_mod.F90` or the

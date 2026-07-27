@@ -1,4 +1,4 @@
-function run_pol_validation(polvalDir)
+function run_pol_validation(polvalDir, model)
 %RUN_POL_VALIDATION  Regenerate the polarization validation report evidence.
 %   run_pol_validation(POLVALDIR) re-runs every polarization validation case
 %   that this box can measure, writes the figures to POLVALDIR/media/*.png
@@ -12,10 +12,21 @@ function run_pol_validation(polvalDir)
 %   ~/dev by convention): tools/pol_validation_report -> ../../.. = the
 %   MACOS_resources parent -> ../macos.  Pass an explicit path to override.
 %
-%   Everything here runs at ONE model size (128) in ONE MATLAB session --
-%   see mmacos/CLAUDE.md on macos_init_all() heap corruption across
-%   model_size transitions.  Do not add a case at a different size without
-%   splitting the driver into per-size batch invocations.
+%   ONE model size per MATLAB session -- see mmacos/CLAUDE.md on
+%   macos_init_all() heap corruption across model_size transitions.  The
+%   driver is therefore invoked once per size and each run writes a PART
+%   file, generated/parts/numbers_<model>.json; merge_numbers.py combines
+%   the parts into generated/numbers.json.  make_polval.sh does all of it.
+%
+%       model 128   Phase 1 exposure, Phase 2a/2b Jones pupil, Phase 3a
+%                   Tranche 1, the r_p sign fix
+%       model 256   Phase 2c exactness gates (Rx_VecChain, Rx_Cass_FarField
+%                   -- both declare nGridpts=256)
+%       model 512   Phase 2c on the coronagraph chain (Rx_Coro declares
+%                   nGridpts=511, so it MUST run at >= 512)
+%
+%   A new case at a new size needs a new branch in the switch below, its
+%   own gate-limit block in gate_limits(), and a line in make_polval.sh.
 %
 %   Gates that this driver CANNOT measure (other language, other engine
 %   build, or a historical pre-fix binary) are not silently omitted: they
@@ -32,12 +43,15 @@ function run_pol_validation(polvalDir)
         devRoot = fileparts(fileparts(mmacosRoot));             % .../dev
         polvalDir = fullfile(devRoot, 'macos', 'docs', 'macos-manual', 'polval');
     end
+    if nargin < 2 || isempty(model), model = 128; end
     mediaDir = fullfile(polvalDir, 'media');
     genDir   = fullfile(polvalDir, 'generated');
+    partDir  = fullfile(genDir, 'parts');
     if ~exist(mediaDir, 'dir'), mkdir(mediaDir); end
     if ~exist(genDir,   'dir'), mkdir(genDir);   end
+    if ~exist(partDir,  'dir'), mkdir(partDir);  end
 
-    MODEL = 128;
+    MODEL = model;
     V = struct();                       % token -> entry (see addval)
 
     fprintf('polval: model size %d, output %s\n', MODEL, polvalDir);
@@ -51,14 +65,24 @@ function run_pol_validation(polvalDir)
 
     macos.init(MODEL);
 
-    V = phase1_gates(V, MODEL);
-    V = phase2_gates(V, MODEL, mediaDir);
-    V = phase3a_gates(V, MODEL, mediaDir);
-    V = spsign_gates(V, MODEL, mediaDir);
+    switch MODEL
+        case 128
+            V = phase1_gates(V, MODEL);
+            V = phase2_gates(V, MODEL, mediaDir);
+            V = phase3a_gates(V, MODEL, mediaDir);
+            V = spsign_gates(V, MODEL, mediaDir);
+        case 256
+            V = phase2c_exact_gates(V, MODEL, mediaDir);
+        case 512
+            V = phase2c_coro_gates(V, MODEL, mediaDir);
+        otherwise
+            error('polval:model', 'no gate group defined for model size %d', MODEL);
+    end
 
-    assert_gates(V);
-    write_numbers(V, genDir, prov0);
-    fprintf('polval: wrote %s\n', fullfile(genDir, 'numbers.json'));
+    assert_gates(V, MODEL);
+    part = fullfile(partDir, sprintf('numbers_%d.json', MODEL));
+    write_numbers(V, part, prov0);
+    fprintf('polval: wrote %s\n', part);
 end
 
 % =====================================================================
@@ -69,43 +93,78 @@ end
 %  next to prose that still calls it round-off.  This is a guard on the
 %  report, not a substitute for the test suite -- run that too.
 % =====================================================================
-function assert_gates(V)
-    lim = {
-    % token             op     limit    (mirrors)
-      'G11_BITWISE',    '==',  1
-      'G11_STATUS_DIFF','<=',  0
-      'G12_COAT_ROUNDTRIP','<', 1e-12
-      'G21_MAXD',       '<',   1e-12
-      'G21_MAXRET',     '<',   1e-12
-      'G21_LEAK',       '<',   1e-12
-      'G21_TNONUNIF',   '<',   1e-12
-      'G22_DMAG',       '<',   1e-12
-      'G22_DPHASE',     '<',   1e-12
-      'G22_DRESID',     '<',   1e-12
-      'G23_AZ_RESID',   '<',   1e-10
-      'G24_DINV',       '<',   1e-12
-      'G24_RATIO',      '>',   10
-      'G25_OTHER',      '<',   1e-10
-      'G25_CIRC',       '<',   1e-10
-      'G25_RHO4',       '<',   1e-2
-      'G25_PAIR_RESID', '<',   1e-6
-      'G25_RADSYM',     '<',   1e-6
-      'G25_DZERO',      '<',   1e-3
-      'G31_BITWISE',    '==',  1
-      'G32_WORST',      '<',   1e-13
-      'G33_ELEG1',      '<',   1e-14
-      'G33_ELEG2',      '<',   1e-14
-      'G34_THRU_RESID', '<',   1e-14
-      'G35_TOT_RESID',  '<',   1e-12
-      'G36_PLANESUM',   '<',   1e-14
-      'G36_RESID',      '<',   1e-3
-      'G36_DECORR',     '<',   1e-4
-      'G41_RESID_MAX',  '<',   1e-11
-      'G41_RET',        '<',   1e-14
-      'G42_BOUNDRATIO', '<',   1.05
-      'G42_PYPX1',      '<',   1e-3
-      'G42_SLOPE',      '>',   1.7
-      };
+function lim = gate_limits(model)
+%GATE_LIMITS  Per-model-size gate thresholds.  A token listed here
+%   MUST have been measured by that size's gate group -- a missing
+%   measurement fails the run exactly like a regressed one.
+    switch model
+      case 128
+        lim = {
+      % token             op     limit    (mirrors)
+        'G11_BITWISE',    '==',  1
+        'G11_STATUS_DIFF','<=',  0
+        'G12_COAT_ROUNDTRIP','<', 1e-12
+        'G21_MAXD',       '<',   1e-12
+        'G21_MAXRET',     '<',   1e-12
+        'G21_LEAK',       '<',   1e-12
+        'G21_TNONUNIF',   '<',   1e-12
+        'G22_DMAG',       '<',   1e-12
+        'G22_DPHASE',     '<',   1e-12
+        'G22_DRESID',     '<',   1e-12
+        'G23_AZ_RESID',   '<',   1e-10
+        'G24_DINV',       '<',   1e-12
+        'G24_RATIO',      '>',   10
+        'G25_OTHER',      '<',   1e-10
+        'G25_CIRC',       '<',   1e-10
+        'G25_RHO4',       '<',   1e-2
+        'G25_PAIR_RESID', '<',   1e-6
+        'G25_RADSYM',     '<',   1e-6
+        'G25_DZERO',      '<',   1e-3
+        'G31_BITWISE',    '==',  1
+        'G32_WORST',      '<',   1e-13
+        'G33_ELEG1',      '<',   1e-14
+        'G33_ELEG2',      '<',   1e-14
+        'G34_THRU_RESID', '<',   1e-14
+        'G35_TOT_RESID',  '<',   1e-12
+        'G36_PLANESUM',   '<',   1e-14
+        'G36_RESID',      '<',   1e-3
+        'G36_DECORR',     '<',   1e-4
+        'G41_RESID_MAX',  '<',   1e-11
+        'G41_RET',        '<',   1e-14
+        'G42_BOUNDRATIO', '<',   1.05
+        'G42_PYPX1',      '<',   1e-3
+        'G42_SLOPE',      '>',   1.7
+        };
+      case 256
+        lim = {
+        % token                op     limit
+          'C21_VC_CROSS',      '<=',  0
+          'C21_VC_SCALAR',     '<',   1e-13
+          'C21_VC_CURVE',      '<',   1e-12
+          'C22_PARSEVAL',      '<',   1e-18
+          'C22_CLOSURE',       '<',   1e-14
+          'C23_ANALYZER',      '<',   1e-12
+          'C23_CIRC_ORTHO',    '>',   1e5
+          'C24_CARRIED',       '<',   1.001
+          'C24_CARRIED_LO',    '>',   0.999
+          'C25_SWEEP_MONO',    '==',  1
+          };
+      case 512
+        lim = {
+        % token                op     limit
+          'C31_PARSEVAL',      '<',   1e-15
+          'C31_CLOSURE',       '<',   1e-14
+          'C32_DOP',           '>',   0.99999
+          'C33_CARRIED',       '<',   0.95
+          'C33_CARRIED_COAT',  '<',   0.7
+          };
+      otherwise
+        error('polval:gate', 'no gate table for model %d', model);
+    end
+end
+
+function assert_gates(V, model)
+    lim = gate_limits(model);
     bad = {};
     for i = 1:size(lim, 1)
         tokv = lim{i,1};  op = lim{i,2};  L = lim{i,3};
@@ -128,7 +187,7 @@ function assert_gates(V)
         error('polval:gate', ['validation gate(s) FAILED -- report not ' ...
             'regenerated:\n  %s\n'], strjoin(bad, sprintf('\n  ')));
     end
-    fprintf('polval: %d gate thresholds pass\n', size(lim, 1));
+    fprintf('polval: %d gate thresholds pass (model %d)\n', size(lim, 1), model);
 end
 
 % =====================================================================
@@ -941,6 +1000,267 @@ function savefig_(f, out)
 end
 
 % =====================================================================
+%  Phase 2c -- contrast floor, exactness gates (model 256)
+% =====================================================================
+function V = phase2c_exact_gates(V, ~, mediaDir)
+    fprintf('polval: Phase 2c exactness gates (model 256)\n');
+    rxChain = polval_rx('Rx_VecChain.in');   % 2 MidStop, 4 Detector
+    rxCass  = polval_rx('Rx_Cass_FarField.in');  % 5 ExitPupil, 6 Detector
+    nAl = 1.45; kAl = 7.54; thkAl = 2.0e-7;  % Al at 632.8 nm, BaseUnits = m
+    nMgF2 = 1.38; thkMgF2 = 1.1e-7;          % ~quarter wave in MgF2
+
+    % ---- C2.1 the machinery invents no floor -------------------------
+    % Rx_VecChain is collimated, on-axis, flat and uncoated: polarization
+    % is a no-op by construction, so the co-polarized channel must BE the
+    % scalar run -- contrast curve included -- and the cross channel must
+    % be empty.  This is the "x-pol reduces to the scalar contrast curve
+    % at round-off" gate, and it is what stops the decomposition from
+    % manufacturing a floor out of its own reference-frame choices.
+    macos.load_rx(rxChain);
+    oc = macos.pol_contrast_floor(2, 4, 'input', 'x');
+    macos.polarization('off');
+    Is = macos.intensity(4);
+    pk = max(Is(:));
+    V = addval(V, 'C21_VC_CROSS', oc.floor.cross / oc.floor.co, '%.3e', 'relative', ...
+        'cross-polarized power on a polarization-neutral train', ...
+        'tPolContrast/test_reduction_to_scalar_contrast_curve');
+    V = addval(V, 'C21_VC_SCALAR', max(abs(oc.I_co(:) - Is(:))) / pk, '%.3e', ...
+        'relative to peak', 'co-polarized channel == the scalar run', ...
+        'tPolContrast/test_reduction_to_scalar_contrast_curve');
+    cc = radial_mean_(oc.I_co);  cs = radial_mean_(Is);
+    g  = isfinite(cc) & isfinite(cs) & cs > 0;
+    V = addval(V, 'C21_VC_CURVE', max(abs(cc(g) - cs(g)) ./ cs(g)), '%.3e', ...
+        'relative', 'co-polarized contrast curve == the scalar contrast curve', ...
+        'tPolContrast/test_reduction_to_scalar_contrast_curve');
+    V = addval(V, 'C21_VC_BINS', nnz(g), '%d', 'radial bins', ...
+        'contrast-curve bins compared', 'this driver');
+
+    % ---- C2.2 the split is a unitary change of basis -----------------
+    macos.load_rx(rxCass);
+    o = macos.pol_contrast_floor(5, 6, 'input', 'x', 'dark_zone', [10 40]);
+    V = addval(V, 'C22_PARSEVAL', o.checks.parseval, '%.3e', 'relative to peak', ...
+        'co + cross == |Ex|^2 + |Ey|^2 pointwise', ...
+        'tPolContrast/test_parseval_on_the_split');
+    V = addval(V, 'C22_CLOSURE', o.checks.closure, '%.3e', 'relative to peak', ...
+        'co + cross + longitudinal == the engine intensity', ...
+        'tPolContrast/test_energy_bookkeeping');
+
+    % ---- C2.3 the floor of the bare two-mirror train, by component ---
+    V = addval(V, 'C23_CROSS_OVER_CO', o.floor.cross_over_co, '%.4e', 'relative', ...
+        'cross-polarized fraction, uncoated Cassegrain', ...
+        'tPolContrast/test_floor_reported_by_component');
+    V = addval(V, 'C23_LONG_FRAC', o.floor.long / (o.floor.co + o.floor.cross ...
+        + o.floor.long), '%.4e', 'relative', ...
+        'longitudinal fraction (compare the Tranche-1 out-of-plane 1-f)', ...
+        'tPolContrast/test_floor_reported_by_component');
+    V = addval(V, 'C23_DZ_BARE', o.floor.dark_zone.cross.mean, '%.3e', 'contrast', ...
+        'mean peak-normalized cross-polarized contrast, 10-40 px annulus', ...
+        'tPolContrast/test_floor_reported_by_component');
+
+    % analyzer tracking, including the circular state -- the ONLY input
+    % that can see a conjugated coherency matrix (a linear state has a
+    % real analyzer, for which conj() is the identity).
+    vc = [1; 1i]/sqrt(2);
+    ocirc = macos.pol_contrast_floor(5, 6, 'input', vc);
+    a = ocirc.per_state(1).analyzer;
+    V = addval(V, 'C23_ANALYZER', abs(1 - abs(a' * vc)), '%.3e', 'relative', ...
+        'derived analyzer tracks an arbitrary input state', ...
+        'tPolContrast/test_analyzer_tracks_input_state');
+    macos.polarization('on', 'Ex', [real(vc(1)) imag(vc(1))], ...
+                             'Ey', [real(vc(2)) imag(vc(2))]);
+    macos.vector_diffraction(true);
+    D1 = macos.complex_field(6, 'plane', 1);
+    D2 = macos.complex_field(6, 'plane', 2, 'reset_trace', false);
+    ac = conj(a);
+    badco = abs(conj(ac(1))*D1 + conj(ac(2))*D2).^2;
+    trans = abs(D1).^2 + abs(D2).^2;
+    V = addval(V, 'C23_CIRC_ORTHO', ...
+        (sum(trans(:)) - sum(badco(:))) / sum(badco(:)), '%.3e', 'relative', ...
+        'a conjugated analyzer reports the whole beam as cross-polarized', ...
+        'tPolContrast/test_analyzer_would_be_wrong_if_conjugated');
+    V = addval(V, 'C23_CIRC_TRUE', ocirc.floor.cross_over_co, '%.3e', 'relative', ...
+        'true cross fraction for a circular input', ...
+        'tPolContrast/test_analyzer_tracks_input_state');
+
+    % ---- C2.4 scope: this train carries the whole chain --------------
+    V = addval(V, 'C24_CARRIED', o.scope.worst, '%.6f', 'ratio', ...
+        'grid / ray cross-polarized fraction (full carry)', ...
+        'tPolContrast/test_scope_reports_full_carry_on_a_single_leg_train');
+    V = addval(V, 'C24_CARRIED_LO', o.scope.worst, '%.6f', 'ratio', ...
+        'same, lower bound', ...
+        'tPolContrast/test_scope_reports_full_carry_on_a_single_leg_train');
+    V = addval(V, 'C24_RAYFRAC', o.scope.ray_cross_frac(1), '%.4e', 'relative', ...
+        'ray-level cross fraction (non-vacuity of the carry check)', ...
+        'tPolContrast/test_scope_reports_full_carry_on_a_single_leg_train');
+
+    % ---- C2.5 coating sensitivity ------------------------------------
+    macos.load_rx(rxCass);
+    al  = struct('elt', {2, 3}, 'index', nAl, 'extinc', kAl, ...
+                 'thickness', thkAl, 'label', 'bare Al');
+    pal = struct('elt', {2, 3}, 'index', [nMgF2 nAl], 'extinc', [0 kAl], ...
+                 'thickness', [thkMgF2 thkAl], 'label', 'MgF2 / Al');
+    osw = macos.pol_contrast_floor(5, 6, 'input', 'x', 'dark_zone', [10 40], ...
+                                   'coatings', {al, pal});
+    V = addval(V, 'C25_AL_REL', osw.sweep(1).d_cross_rel, '%.1f', 'x baseline', ...
+        'cross-polarized power, bare Al vs uncoated', ...
+        'tPolContrast/test_coating_sensitivity');
+    V = addval(V, 'C25_MGF2_REL', osw.sweep(2).d_cross_rel, '%.1f', 'x baseline', ...
+        'cross-polarized power, MgF2/Al vs uncoated', ...
+        'tPolContrast/test_coating_sensitivity');
+    V = addval(V, 'C25_DZ_AL', osw.sweep(1).floor.dark_zone.cross.mean, '%.3e', ...
+        'contrast', 'mean cross contrast in the annulus, bare Al', ...
+        'tPolContrast/test_coating_sensitivity');
+    V = addval(V, 'C25_DZ_MGF2', osw.sweep(2).floor.dark_zone.cross.mean, '%.3e', ...
+        'contrast', 'mean cross contrast in the annulus, MgF2/Al', ...
+        'tPolContrast/test_coating_sensitivity');
+    mono = double(osw.sweep(2).floor.dark_zone.cross.mean > ...
+                  osw.sweep(1).floor.dark_zone.cross.mean && ...
+                  osw.sweep(1).floor.dark_zone.cross.mean > ...
+                  osw.floor.dark_zone.cross.mean);
+    V = addval(V, 'C25_SWEEP_MONO', mono, '%d', 'bool', ...
+        'floor rises monotonically bare -> Al -> MgF2/Al', ...
+        'tPolContrast/test_coating_sensitivity');
+    V = addval(V, 'C25_THKAL', thkAl * 1e9, '%.0f', 'nm', ...
+        'Al layer thickness used', 'this driver');
+    V = addval(V, 'C25_THKMGF2', thkMgF2 * 1e9, '%.0f', 'nm', ...
+        'MgF2 overcoat thickness used', 'this driver');
+
+    fig_floor_channels(o, osw, fullfile(mediaDir, 'polval_2c_channels.png'));
+end
+
+% =====================================================================
+%  Phase 2c -- the coronagraph chain (model 512)
+% =====================================================================
+function V = phase2c_coro_gates(V, ~, mediaDir)
+    fprintf('polval: Phase 2c coronagraph gates (model 512)\n');
+    rx = polval_rx('Rx_Coro.in');
+    PUP = 20; DET = 21;  MIR = [1 4 7 12 15 17 18];
+    nAl = 1.45; kAl = 7.54; thkAl = 2.0e-4;   % BaseUnits = mm here
+
+    macos.load_rx(rx);
+    w = warning('off', 'macos:pol_contrast_floor:tranche1');
+    restore = onCleanup(@() warning(w));
+    o = macos.pol_contrast_floor(PUP, DET, 'input', 'x', 'dark_zone', [20 80]);
+
+    V = addval(V, 'C31_CROSS_OVER_CO', o.floor.cross_over_co, '%.4e', 'relative', ...
+        'cross-polarized fraction, coaxial coronagraph chain', ...
+        'tPolContrastCoro/test_floor_reported_by_component');
+    V = addval(V, 'C31_PEAKCONTRAST', o.floor.contrast_cross_peak, '%.4e', ...
+        'contrast', 'peak cross-polarized contrast at the focal plane', ...
+        'tPolContrastCoro/test_floor_reported_by_component');
+    V = addval(V, 'C31_DZ_CROSS', o.floor.dark_zone.cross.mean, '%.3e', 'contrast', ...
+        'mean cross-polarized contrast, 20-80 px annulus', ...
+        'tPolContrastCoro/test_floor_reported_by_component');
+    V = addval(V, 'C31_DZ_CROSS_MED', o.floor.dark_zone.cross.median, '%.3e', ...
+        'contrast', 'median cross-polarized contrast, same annulus', ...
+        'tPolContrastCoro/test_floor_reported_by_component');
+    V = addval(V, 'C31_DZ_CO', o.floor.dark_zone.co.mean, '%.3e', 'contrast', ...
+        'mean co-polarized contrast, same annulus', ...
+        'tPolContrastCoro/test_floor_reported_by_component');
+    V = addval(V, 'C31_PARSEVAL', o.checks.parseval, '%.3e', 'relative to peak', ...
+        'Parseval on the split at model 512', ...
+        'tPolContrastCoro/test_parseval_and_closure_at_scale');
+    V = addval(V, 'C31_CLOSURE', o.checks.closure, '%.3e', 'relative to peak', ...
+        'energy closure at model 512', ...
+        'tPolContrastCoro/test_parseval_and_closure_at_scale');
+    V = addval(V, 'C32_DOP', o.per_state(1).dop, '%.8f', 'ratio', ...
+        'pupil degree of polarization (the analyzer is well defined)', ...
+        'tPolContrastCoro/test_analyzer_is_fully_polarized_and_axis_aligned');
+
+    % ---- C3.3 the Tranche-1 shortfall, measured ----------------------
+    V = addval(V, 'C33_GRIDFRAC', o.scope.grid_cross_frac(1), '%.4e', 'relative', ...
+        'cross-polarized fraction the diffraction grid carries', ...
+        'tPolContrastCoro/test_tranche1_shortfall_is_detected');
+    V = addval(V, 'C33_RAYFRAC', o.scope.ray_cross_frac(1), '%.4e', 'relative', ...
+        'cross-polarized fraction the RAYS carry (the full train)', ...
+        'tPolContrastCoro/test_tranche1_shortfall_is_detected');
+    V = addval(V, 'C33_CARRIED', o.scope.worst, '%.4f', 'ratio', ...
+        'carried fraction, uncoated', ...
+        'tPolContrastCoro/test_tranche1_shortfall_is_detected');
+
+    al = struct('elt', num2cell(MIR), 'index', nAl, 'extinc', kAl, ...
+                'thickness', thkAl, 'label', 'bare Al');
+    osw = macos.pol_contrast_floor(PUP, DET, 'input', 'x', ...
+                                   'dark_zone', [20 80], 'coatings', {al});
+    V = addval(V, 'C33_CARRIED_COAT', osw.sweep(1).scope.worst, '%.4f', 'ratio', ...
+        'carried fraction with all seven mirrors coated', ...
+        'tPolContrastCoro/test_coating_sensitivity_is_not_trustworthy_here');
+    V = addval(V, 'C33_GRID_DREL', osw.sweep(1).d_cross_rel, '%+.4f', 'x baseline', ...
+        'coating sensitivity the GRID reports (wrong sign)', ...
+        'tPolContrastCoro/test_coating_sensitivity_is_not_trustworthy_here');
+
+    % the ray-level truth the grid is missing (the sweep leaves Al applied)
+    macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.vector_diffraction(true);
+    macos.trace(PUP);
+    rf = macos.ray_field(PUP);
+    k = rf.status == 0;
+    raycoat = sum(abs(rf.Ey(k)).^2) / sum(abs(rf.Ex(k)).^2);
+    V = addval(V, 'C33_RAY_COAT', raycoat, '%.4e', 'relative', ...
+        'ray-level cross fraction with the mirrors coated', ...
+        'tPolContrastCoro/test_coating_sensitivity_is_not_trustworthy_here');
+    V = addval(V, 'C33_RAY_DREL', ...
+        raycoat / o.scope.ray_cross_frac(1) - 1, '%+.3f', 'x baseline', ...
+        'coating sensitivity the RAYS report (the truth the grid misses)', ...
+        'tPolContrastCoro/test_coating_sensitivity_is_not_trustworthy_here');
+    V = addval(V, 'C33_NMIRROR', numel(MIR), '%d', 'mirrors', ...
+        'reflectors in the chain', 'this driver');
+
+    fig_coro_floor(o, fullfile(mediaDir, 'polval_2c_coro.png'));
+end
+
+function c = radial_mean_(I)
+    N = size(I, 1);  ctr = (N - 1)/2;
+    [xx, yy] = meshgrid(0:N-1, 0:N-1);
+    rr = round(hypot(xx - ctr, yy - ctr)) + 1;
+    c = accumarray(rr(:), I(:), [], @mean) / max(I(:));
+end
+
+function fig_floor_channels(o, osw, out)
+%FIG_FLOOR_CHANNELS  Cass-FF: the three channels, and the coating trade.
+    f = newfig([1150 380]);
+    tiledlayout(f, 1, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
+    m = true(size(o.I_co));
+    nexttile; panel_here(log10(max(o.contrast_co,    1e-30)), m, ...
+        'log_{10} co-polarized (peak-normalized)');
+    nexttile; panel_here(log10(max(o.contrast_cross, 1e-30)), m, ...
+        'log_{10} cross-polarized');
+    nexttile;
+    r = 0:(numel(radial_mean_(o.I_co)) - 1);
+    semilogy(r, radial_mean_(o.I_cross) * max(o.I_cross(:)) / max(o.I_co(:)), ...
+             '-', 'LineWidth', 1.2); hold on
+    semilogy(r, radial_mean_(osw.sweep(1).I_cross) * ...
+             max(osw.sweep(1).I_cross(:)) / max(osw.sweep(1).I_co(:)), '-', 'LineWidth', 1.2);
+    semilogy(r, radial_mean_(osw.sweep(2).I_cross) * ...
+             max(osw.sweep(2).I_cross(:)) / max(osw.sweep(2).I_co(:)), '-', 'LineWidth', 1.2);
+    grid on; xlabel('radius (px)'); ylabel('cross-polarized contrast');
+    legend({'uncoated', 'bare Al', 'MgF_2 / Al'}, 'Location', 'northeast');
+    title('polarization floor vs coating'); xlim([0 60]);
+    savefig_(f, out);
+end
+
+function fig_coro_floor(o, out)
+%FIG_CORO_FLOOR  Rx_Coro: co / cross channels and the contrast curves.
+    f = newfig([1150 380]);
+    tiledlayout(f, 1, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
+    m = true(size(o.I_co));
+    nexttile; panel_here(log10(max(o.contrast_co,    1e-30)), m, ...
+        'log_{10} co-polarized (peak-normalized)');
+    nexttile; panel_here(log10(max(o.contrast_cross, 1e-30)), m, ...
+        'log_{10} cross-polarized');
+    nexttile;
+    cco = radial_mean_(o.I_co);
+    ccr = radial_mean_(o.I_cross) * max(o.I_cross(:)) / max(o.I_co(:));
+    r = 0:(numel(cco) - 1);
+    semilogy(r, cco, '-', 'LineWidth', 1.2); hold on
+    semilogy(r, ccr, '-', 'LineWidth', 1.2);
+    grid on; xlabel('radius (px)'); ylabel('contrast');
+    legend({'co-polarized', 'cross-polarized'}, 'Location', 'northeast');
+    title('coronagraph contrast, by channel'); xlim([0 150]);
+    savefig_(f, out);
+end
+
+% =====================================================================
 %  bookkeeping
 % =====================================================================
 function V = addval(V, name, value, fmt, units, gate, test)
@@ -970,9 +1290,9 @@ function p = capture_provenance(model)
     [~, h] = system('hostname'); p.host = strtrim(h);
 end
 
-function write_numbers(V, genDir, p)
+function write_numbers(V, path, p)
     out = struct('provenance', p, 'values', V);
-    fid = fopen(fullfile(genDir, 'numbers.json'), 'w');
+    fid = fopen(path, 'w');
     fprintf(fid, '%s\n', jsonencode(out, 'PrettyPrint', true));
     fclose(fid);
 end

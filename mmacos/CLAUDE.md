@@ -713,6 +713,34 @@ here.  mmacos-side facts only:
 - **`complex_field(..., 'reset_trace', false)` is bit-identical and ~100×
   faster** for the 2nd/3rd component plane at the same element (0.01 s vs
   0.83 s at model 512) — reading Ex/Ey/Ez costs ONE propagation, not three.
+- **Phase 2c (`pol_contrast_floor`, 2026-07-27)** — co/cross/longitudinal
+  split at the DETECTOR on the engine's component planes; analyzer = dominant
+  eigenvector of the pupil coherency matrix (referenced to the mean OUTPUT
+  state, never the input).  Tests `tPolContrast` (model **256**,
+  SUITE_FREEFORM) + `tPolContrastCoro` (model **512**, its own
+  `SUITE_POL_512` batch); `./run_mmacos_tests.sh polfloor` runs both.
+  Three things to know:
+  (1) **The coherency matrix's conjugation order is a trap.**  In MATLAB `'`
+  conjugates its LEFT operand, so `C_12 = Σ E_1 conj(E_2)` is `Ey'*Ex`, NOT
+  `Ex'*Ey`.  Backwards builds `conj(C)`, whose dominant eigenvector is the
+  CONJUGATE analyzer — identical for any LINEAR input state and exactly
+  ORTHOGONAL for a circular one (cross/co 1.4e-6 → 7.1e+05).  The circular
+  input state in `tPolContrast` exists to catch exactly this.
+  (2) **Tranche 1 caps what the floor can see.**  The component planes are
+  seeded from `RayE` at the FIRST physical-optics leg and thereafter only get
+  a common scalar phase, so a polarizing surface after that leg never reaches
+  the grid.  `Rx_Cass_FarField` (mirrors, then one far-field hop) carries the
+  full train; `Rx_Coro` carries 0.84 of the ray-level cross-pol bare, 0.57
+  coated, and reports the coating sensitivity with the WRONG SIGN.  The
+  function measures this itself (`.scope`) and warns.
+  (3) **A coating can be overwritten but never cleared** (`coat_set` takes
+  ≥1 layer), so every set in a `'coatings'` sweep must cover the same
+  elements and the sweep leaves the last set applied — `load_rx` to reset.
+- **polval driver is now split per model size** (2026-07-27): 128 / 256 / 512,
+  one `matlab -batch` each (the `macos_init_all()` heap bug), each writing
+  `generated/parts/numbers_<size>.json`, merged by `merge_numbers.py`.  Adding
+  a case at a new size = a new branch in `run_pol_validation`'s switch, its own
+  block in `gate_limits()`, and a size in `make_polval.sh`'s `MODELS`.
 
 ## Commit hazard: `git add -A` under `pymacos/tests`
 
