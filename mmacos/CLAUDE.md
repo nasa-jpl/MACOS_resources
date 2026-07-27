@@ -617,7 +617,25 @@ that before touching anything polarization-related; do not duplicate it
 here.  mmacos-side facts only:
 
 - Surface: `+macos/{polarization,vector_diffraction,coating,ray_field,
-  jones_pupil,pol_maps}.m`.  All ride codegen Path A except `ray_field`.
+  jones_pupil,pol_maps,pol_zernike}.m`.  All ride codegen Path A except
+  `ray_field`; `pol_maps`/`pol_zernike` are pure MATLAB (no engine call).
+- **`pol_zernike` (Phase 2b, 2026-07-26)** — Zernike expansion of the
+  Dvec/retvec maps into standard polarization-aberration terms.  Mode
+  indices are the MACOS ANSI 1-based numbers (`MonZernModes=`); the
+  evaluator is shared with `zernike_grid_basis` via
+  **`+macos/private/ansi_zernike_eval.m`** so an influence-basis mode
+  index and an aberration-report mode index cannot drift.  LEAST-SQUARES
+  fit, not a projection — circular Zernikes are non-orthogonal on an
+  obscured pupil.  Expected two-mirror answer: astig0 in s1, astig45 in
+  s2, equal, everything else round-off ("polarization astigmatism").
+- **UNITS TRAP in `tJonesPupil`:** `macos.coating` takes thickness in
+  element **BaseUnits** (documented exception to the SI-metres veneer
+  convention), and the class uses TWO fixtures with different BaseUnits —
+  `Rx_Cass_FarField` is `m`, the Bench-emitted fold rig is `mm`.  One
+  shared constant silently meant 200 um on the Cassegrain; gates still
+  passed (any optically thick layer satisfies them) but the mmacos and
+  pymacos Jones coefficients disagreed in the 8th digit.  Now split into
+  `thkAl` / `thkAlBench`; with that, the two bindings agree to 11 digits.
 - Tests: `tPolarization` (Phase 1 state/round-trip), `tJonesPupil`
   (Phase 2a/2b), `tVecChain` (Phase 3a Tranche 1) — all in `SUITE_FAST`.
 - **`tests/Rx/` is a new fixture home.**  `rx_fixture_path` searches the

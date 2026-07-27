@@ -4,6 +4,7 @@
 #
 # ------------------------------------------------------------------------------
 import functools
+import math
 import warnings
 from pathlib import Path
 from typing import Any, List, NewType, Tuple, TypeVar, TypeVarTuple
@@ -5018,6 +5019,181 @@ def _pol_maps_body(J11, J12, J21, J22, mask):
                      'retvec': mRv},
             'var_rms': {'T': vT, 'D': vD, 'Dvec': vDv, 'ret': vR,
                         'retvec': vRv}}
+
+
+_ANSI_NORM_RMS = (1.0, 2.0, 2.0, np.sqrt(6), np.sqrt(3), np.sqrt(6),
+                  np.sqrt(8), np.sqrt(8), np.sqrt(8), np.sqrt(8),
+                  np.sqrt(10), np.sqrt(10), np.sqrt(5), np.sqrt(10),
+                  np.sqrt(10))
+
+_ANSI_NAMES = ('piston', 'tilt-y', 'tilt-x', 'astig45', 'defocus', 'astig0',
+               'trefoil-y', 'coma-y', 'coma-x', 'trefoil-x', 'quadrafoil-y',
+               'astig45-2', 'spherical', 'astig0-2', 'quadrafoil-x')
+
+
+def _ansi_nm(j: int) -> tuple:
+    """Radial and azimuthal order of MACOS ANSI mode ``j`` (1-based)."""
+    jj = j - 1
+    n = int(np.ceil((-3 + np.sqrt(9 + 8 * jj)) / 2))
+    return n, 2 * jj - n * (n + 2)
+
+
+def _ansi_zernike(j: int, rho, th):
+    """MACOS ANSI Zernike mode ``j`` (1-based, as in MonZernModes=).
+
+    Mirrors mmacos ``+macos/private/ansi_zernike_eval.m`` exactly --
+    ZerntoMon1 convention, m < 0 -> sin(|m|th), RMS-normalized by
+    NORM_RMS_PARAM_ANSI (elt_mod.F:288-299).  The two must agree: a mode
+    index that means different things in the two bindings is a silent
+    cross-language trap.
+    """
+    if j > len(_ANSI_NORM_RMS):
+        raise ValueError(f'NORM_RMS_PARAM_ANSI tabulated to mode '
+                         f'{len(_ANSI_NORM_RMS)} here (got {j})')
+    n, m = _ansi_nm(j)
+    am = abs(m)
+    R = np.zeros_like(rho)
+    for s in range((n - am) // 2 + 1):
+        c = ((-1) ** s * math.factorial(n - s)
+             / (math.factorial(s) * math.factorial((n + am) // 2 - s)
+                * math.factorial((n - am) // 2 - s)))
+        R = R + c * rho ** (n - 2 * s)
+    ang = np.cos(m * th) if m >= 0 else np.sin(am * th)
+    return _ANSI_NORM_RMS[j - 1] * R * ang
+
+
+def pol_zernike(pm: dict, modes=None, center=None, radius=None,
+                orthonormalize: bool = False) -> dict:
+    """Low-order Zernike expansion of polarization-aberration maps.
+
+    Expands the diattenuation and retardance maps in ``pm`` (from
+    :func:`pol_maps`) onto a Zernike basis over the unvignetted pupil,
+    giving the standard polarization-aberration terms -- piston, tilt,
+    defocus, astigmatism and up -- in each Pauli component.  This is what
+    makes a MACOS result comparable term-by-term with the published
+    polarization-aberration literature, which is written in aberration
+    terms rather than as maps.
+
+    For an on-axis rotationally symmetric two-mirror system the theory
+    predicts a specific answer: diattenuation and retardance grow as
+    rho**2 with a 2*theta azimuthal dependence, so the expansion must be
+    dominated by ASTIGMATISM in the two linear Pauli components (mode 6 =
+    astig0 in s1, mode 4 = astig45 in s2, equal magnitude), with no
+    circular (s3) content and no defocus -- "polarization astigmatism".
+
+    The fit is least-squares, which is the correct estimator whether or
+    not the basis is orthogonal over the actual mask; on an obscured
+    (annular) pupil circular Zernikes are NOT orthogonal, so the
+    conditioning is reported in ``cond``.
+
+    Args:
+        pm: dict from :func:`pol_maps` (needs Dvec, retvec, D, ret, mask;
+            uses ``ambiguous`` if present).
+        modes: MACOS ANSI 1-based mode indices.  Default 1..15.
+        center: (i, j) pupil centre in grid indices.  Default: mask
+            centroid.
+        radius: normalization radius in pixels.  Default: the largest
+            mask-point distance from the centre, so rho <= 1.
+        orthonormalize: Gram-Schmidt the basis over the ACTUAL mask before
+            fitting.  Coefficients become mutually independent but are no
+            longer standard Zernike coefficients -- use for energy
+            bookkeeping, not for literature comparison.
+
+    Returns:
+        dict with ``modes``, ``names``, ``nm`` (K,2), ``D`` (K,3),
+        ``ret`` (K,3), ``Dmag`` (K,), ``retmag`` (K,), ``resid_rms``,
+        ``frac`` (fraction of each map's mean square explained),
+        ``cond``, ``recon`` (reconstructed maps, NaN off-mask),
+        ``center``, ``radius``, ``npts``, ``npts_ret``,
+        ``orthonormalized``, ``mask``.
+
+    Mode 1 (piston) is the pupil MEAN; every other mode is variation
+    about it.  Keep the separation -- a uniform diattenuation or
+    retardance is a state change, not an aberration, and only the
+    variation drives a contrast floor or a PSI systematic.
+
+    Retardance caveat: points flagged ``pm['ambiguous']`` (retardance
+    within 0.2 rad of pi, where the branch is unresolved) are EXCLUDED
+    from the retardance fits and counted in ``npts_ret``.
+    """
+    modes = np.arange(1, 16) if modes is None else np.asarray(modes, int)
+    mask = np.asarray(pm['mask'], dtype=bool)
+    if not mask.any():
+        raise ValueError('pupil mask is empty')
+    ii, jj = np.indices(mask.shape).astype(float)   # first index = +x
+    ctr = ((ii[mask].mean(), jj[mask].mean()) if center is None
+           else (float(center[0]), float(center[1])))
+    dx, dy = ii - ctr[0], jj - ctr[1]
+    rr = np.hypot(dx, dy)
+    rad = float(rr[mask].max()) if radius is None else float(radius)
+    if rad <= 0:
+        raise ValueError('pupil radius must be positive')
+    rho, th = rr / rad, np.arctan2(dy, dx)
+
+    basis = np.stack([_ansi_zernike(int(j), rho, th) for j in modes], axis=-1)
+
+    def _design(sel):
+        A = basis[sel]
+        if orthonormalize:
+            A, _ = np.linalg.qr(A)
+            A = A * np.sqrt(A.shape[0])
+        return A
+
+    A = _design(mask)
+    cond = float(np.linalg.cond(basis[mask]))
+
+    retmask = mask
+    amb = pm.get('ambiguous')
+    if amb is not None:
+        a = np.asarray(amb)
+        retmask = mask & ~np.where(np.isnan(a.astype(float)), False,
+                                   a.astype(bool))
+    Ar = A if np.array_equal(retmask, mask) else _design(retmask)
+
+    def _fit(A_, sel, Map):
+        y = np.asarray(Map)[sel]
+        ok = np.isfinite(y)
+        Au, yu = (A_[ok], y[ok]) if not ok.all() else (A_, y)
+        c, *_ = np.linalg.lstsq(Au, yu, rcond=None)
+        r = yu - Au @ c
+        den = ((yu - yu.mean()) ** 2).mean()
+        frac = 1.0 if den <= 0 else 1 - ((r - r.mean()) ** 2).mean() / den
+        recon = np.full(np.asarray(Map).shape, np.nan)
+        idx = np.where(sel)
+        if not ok.all():
+            idx = tuple(v[ok] for v in idx)
+        recon[idx] = Au @ c
+        return c, float(np.sqrt((r ** 2).mean())), float(frac), recon
+
+    cD = np.zeros((len(modes), 3))
+    cR = np.zeros((len(modes), 3))
+    rD = np.zeros(3)
+    rR = np.zeros(3)
+    fD = np.zeros(3)
+    fR = np.zeros(3)
+    reconD = np.full(mask.shape + (3,), np.nan)
+    reconR = np.full(mask.shape + (3,), np.nan)
+    for c in range(3):
+        cD[:, c], rD[c], fD[c], reconD[..., c] = _fit(
+            A, mask, pm['Dvec'][..., c])
+        cR[:, c], rR[c], fR[c], reconR[..., c] = _fit(
+            Ar, retmask, pm['retvec'][..., c])
+    cDm, rDm, fDm, reconDm = _fit(A, mask, pm['D'])
+    cRm, rRm, fRm, reconRm = _fit(Ar, retmask, pm['ret'])
+
+    nm = np.array([_ansi_nm(int(j)) for j in modes])
+    names = [(_ANSI_NAMES[j - 1] if j <= len(_ANSI_NAMES)
+              else f'n{n} m{m:+d}') for j, (n, m) in zip(modes, nm)]
+    return {'modes': modes, 'names': names, 'nm': nm,
+            'D': cD, 'ret': cR, 'Dmag': cDm, 'retmag': cRm,
+            'resid_rms': {'D': rD, 'ret': rR, 'Dmag': rDm, 'retmag': rRm},
+            'frac': {'D': fD, 'ret': fR, 'Dmag': fDm, 'retmag': fRm},
+            'cond': cond,
+            'recon': {'Dvec': reconD, 'retvec': reconR,
+                      'D': reconDm, 'ret': reconRm},
+            'center': ctr, 'radius': rad,
+            'npts': int(mask.sum()), 'npts_ret': int(retmask.sum()),
+            'orthonormalized': orthonormalize, 'mask': mask}
 
 
 def ffp(place_elt: int | np.int32,
