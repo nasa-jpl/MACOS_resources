@@ -193,6 +193,30 @@ def test_component_plane_rejected_in_scalar_mode():
         m.complex_field(FF_DET, plane=2)
 
 
+def test_component_plane_refused_before_any_trace():
+    """Ownership rule at the RAW API: no trace, no field.
+
+    The binding-level complex_field() always propagates to the queried
+    element first, so through the wrapper the ownership guard is
+    unreachable -- but a direct cfield_plane_get caller (another binding,
+    or a wrapper bug) could query before any propagation has assembled a
+    wavefront.  iPlane selects the storage slot directly, so without the
+    guard (iEltToiWF(iElt) > 0, the same rule iPlane=0 has always had)
+    the engine would hand back the untraced WFElt buffer as if it were a
+    field.  Guard added in the Fable gate review of the plane-getter
+    landing (2026-07-27); this pins it at the level it lives at.
+    """
+    from pymacos import pymacosf90 as lib
+    m.init(MODEL)
+    m.load(RX_FF)
+    m.polarization('on', Ex=(1.0, 0.0), Ey=(0.0, 0.0))
+    m.vector_diffraction(True)
+    n = int(lib.api.model_size_get())
+    for plane in (0, 1, 2, 3):
+        ok = lib.api.cfield_plane_get(n, FF_DET, plane)[0]
+        assert not ok, f'plane={plane} returned a field with no trace run'
+
+
 def test_vector_scalar_difference_decomposition():
     """Decompose the off-normal vector/scalar difference -- the measurement
     the Tranche-1 attribution could not make.
