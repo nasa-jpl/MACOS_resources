@@ -671,6 +671,29 @@ here.  mmacos-side facts only:
   (`macos.intensity` at any element).  Verified against the pre-Phase-3a
   engine — not a polarization bug.  Use `Rx_Coro.in` at 1024 (what the
   proper_compare suite does) for coronagraph-chain work.
+- **Model size must be ≥ the Rx's `nGridpts` (Dave, 2026-07-27).**
+  `Rx_Coro.in` declares `nGridpts=511`, so it needs model **≥ 512**.  Run it
+  smaller and the engine prints `Too many grid points. Resetting npts to N`
+  and carries on — but that path is not safe: at 128 `macos.intensity(21)`
+  SIGSEGVs in roughly a third of runs (same registers every time) and
+  `trace`-then-`intensity` crashed 3/3.  At 512 and 1024 repeat runs are
+  bit-identical.  There is an `MREset` CLI command (128..8192) for changing
+  model size; it is **not** exposed in `macos_api_mod`, so from mmacos the
+  lever is `macos.init(N)`.  An earlier PLAN note claiming `Rx_Coro` runs at
+  128 is wrong and has been corrected — it appears to work, then doesn't.
+- **OPEN ENGINE DEFECT — odd-mirror-count polarized results are wrong**
+  (2026-07-27, blocks Phase 2c).  `Reflector`'s reflected-p̂ basis and its
+  Fresnel `r_p` sign disagree, so ONE on-axis mirror turns x-polarized light
+  into a 50/50 x/y mixture; a mirror PAIR cancels it exactly, which is why
+  `tJonesPupil` (2-mirror Cassegrain), `tVecChain` (no mirrors) and the
+  coated 45° fold gate all pass.  Do not build polarization analyses on the
+  pupil state of an odd-mirror train until it is resolved.  Reproducer:
+  `tools/pol_sp_sign_probe/probe_sp_sign.m`.  Decision packet:
+  `macos/REVIEW_POL_SP_SIGN_2026-07-27.md`; engine detail in
+  `macos/macos_f90/CLAUDE.md`.
+- **`complex_field(..., 'reset_trace', false)` is bit-identical and ~100×
+  faster** for the 2nd/3rd component plane at the same element (0.01 s vs
+  0.83 s at model 512) — reading Ex/Ey/Ez costs ONE propagation, not three.
 
 ## Commit hazard: `git add -A` under `pymacos/tests`
 
