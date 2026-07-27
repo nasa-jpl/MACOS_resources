@@ -76,6 +76,12 @@ function assert_gates(V)
       'G23_AZ_RESID',   '<',   1e-10
       'G24_DINV',       '<',   1e-12
       'G24_RATIO',      '>',   10
+      'G25_OTHER',      '<',   1e-10
+      'G25_CIRC',       '<',   1e-10
+      'G25_RHO4',       '<',   1e-2
+      'G25_PAIR_RESID', '<',   1e-6
+      'G25_RADSYM',     '<',   1e-6
+      'G25_DZERO',      '<',   1e-3
       'G31_BITWISE',    '==',  1
       'G32_WORST',      '<',   1e-13
       'G33_ELEG1',      '<',   1e-14
@@ -156,7 +162,16 @@ end
 function V = phase2_gates(V, ~, mediaDir)
     rx = polval_rx('Rx_Cass_FarField.in');
     DET = 6;  PRIM = 2;  SEC = 3;
-    nAl = 1.45; kAl = 7.54; thkAl = 2.0e-4;
+    % Al at 632.8 nm.  200 nm of it -- but macos.coating takes thickness in
+    % ELEMENT BaseUnits, and the two fixtures here differ: Rx_Cass_FarField
+    % is BaseUnits=m, the Bench-emitted fold rig is BaseUnits=mm.  Same
+    % constant in both would silently mean 200 um on one of them (which is
+    % still optically thick, so the gates would pass -- it just would not
+    % be the thickness the text claims, and it made the mmacos and pymacos
+    % coefficients differ in the 8th digit).  Mirrors tJonesPupil.
+    nAl = 1.45; kAl = 7.54;
+    thkAl = 2.0e-7;        % Rx_Cass_FarField (BaseUnits = m)
+    thkAlBench = 2.0e-4;   % Bench fold rig   (BaseUnits = mm)
 
     % ---- G2.1 unitarity gate -----------------------------------------
     % Stock Cass mirrors carry the perfect-conductor idiom (IndRef=1,
@@ -211,7 +226,7 @@ function V = phase2_gates(V, ~, mediaDir)
     foldRx = fullfile(tmp, 'foldrig.in');
     b.emit(foldRx);
     macos.load_rx(foldRx);
-    macos.coating(fold, 'index', nAl, 'extinc', kAl, 'thickness', thkAl);
+    macos.coating(fold, 'index', nAl, 'extinc', kAl, 'thickness', thkAlBench);
     macos.polarization('on', 'Ex', [1/sqrt(2) 0], 'Ey', [1/sqrt(2) 0]);
     macos.trace(fold);
     rf = macos.ray_field(fold);
@@ -261,6 +276,64 @@ function V = phase2_gates(V, ~, mediaDir)
     V = addval(V, 'G23_DVAR', pm2.var_rms.D, '%.3e', '', ...
         'pupil-VARIATION (RMS) diattenuation, Al Cass', 'this driver');
     fig_2theta(pm2, TH, R, rmax, resid, fullfile(mediaDir, 'polval_2theta.png'));
+
+    % ---- G2.5 low-order expansion: the two-mirror literature form -----
+    % Phase 2b.  Standard polarization-aberration theory for an on-axis
+    % rotationally symmetric two-mirror system predicts diattenuation and
+    % retardance growing as rho^2 with a 2*theta azimuth, i.e. in the
+    % Pauli representation pure ASTIGMATISM -- astig0 in s1, astig45 in
+    % s2, equal magnitude, no circular part, no defocus.  pm2 above is
+    % exactly that system, so reuse it.
+    fprintf('polval: G2.5 low-order expansion\n');
+    pz = macos.pol_zernike(pm2);
+    mo = pz.modes;
+    iA0 = find(mo==6); iA45 = find(mo==4); i2A0 = find(mo==14);
+    a0 = abs(pz.D(iA0,1));  a45 = abs(pz.D(iA45,2));
+    r0 = abs(pz.ret(iA0,1));
+    keep = true(numel(mo),1); keep([iA0 iA45 i2A0 find(mo==12)]) = false;
+    V = addval(V, 'G25_D_ASTIG0', pz.D(iA0,1), '%.4e', '', ...
+        'diattenuation astig0 coefficient (Pauli s1)', ...
+        'tJonesPupil/test_pol_zernike_two_mirror_form');
+    V = addval(V, 'G25_D_ASTIG45', pz.D(iA45,2), '%.4e', '', ...
+        'diattenuation astig45 coefficient (Pauli s2)', ...
+        'tJonesPupil/test_pol_zernike_two_mirror_form');
+    V = addval(V, 'G25_PAIR_RESID', abs(a0-a45)/a0, '%.2e', 'relative', ...
+        'astig0/astig45 magnitude mismatch (pupil discretization)', ...
+        'tJonesPupil/test_pol_zernike_two_mirror_form');
+    V = addval(V, 'G25_RET_ASTIG0', pz.ret(iA0,1), '%.4e', 'rad', ...
+        'retardance astig0 coefficient (Pauli s1)', ...
+        'tJonesPupil/test_pol_zernike_two_mirror_form');
+    V = addval(V, 'G25_OTHER', max(max(abs(pz.D(keep,1:2))))/a0, '%.2e', '', ...
+        'largest non-astigmatic linear coefficient, relative', ...
+        'tJonesPupil/test_pol_zernike_two_mirror_form');
+    V = addval(V, 'G25_CIRC', max(abs(pz.D(:,3)))/a0, '%.2e', '', ...
+        'largest circular (s3) coefficient, relative', ...
+        'tJonesPupil/test_pol_zernike_two_mirror_form');
+    V = addval(V, 'G25_RHO4', abs(pz.D(i2A0,1))/a0, '%.2e', '', ...
+        'rho^4 astigmatism companion, relative to the primary term', ...
+        'tJonesPupil/test_pol_zernike_two_mirror_form');
+    % radial law: |D| expands to piston + defocus only, and its on-axis
+    % extrapolation vanishes -- the fit is never told to arrange that.
+    cm = pz.Dmag;
+    kk = true(numel(mo),1); kk([find(mo==1) find(mo==5) find(mo==13)]) = false;
+    V = addval(V, 'G25_RADSYM', max(abs(cm(kk)))/abs(cm(mo==1)), '%.2e', '', ...
+        'largest non-rotationally-symmetric term in |D|, relative', ...
+        'tJonesPupil/test_pol_zernike_two_mirror_form');
+    D0 = zern_sum_(mo, cm, 0, 0);  D1 = zern_sum_(mo, cm, 1, 0);
+    V = addval(V, 'G25_DZERO', abs(D0)/abs(D1), '%.2e', 'relative', ...
+        'extrapolated on-axis diattenuation (physics requires 0)', ...
+        'tJonesPupil/test_pol_zernike_two_mirror_form');
+    % Report the UNEXPLAINED fraction: "explained = 1.000000" tells the
+    % reader nothing and reads as an exact claim it is not.
+    V = addval(V, 'G25_FIT_MISS', 1 - min(pz.frac.D(1:2)), '%.2e', '', ...
+        'fraction of the linear Dvec maps NOT captured by modes 1-15', ...
+        'this driver');
+    V = addval(V, 'G25_RESID_REL', max(pz.resid_rms.D(1:2))/abs(pz.D(iA0,1)), ...
+        '%.2e', '', 'fit residual RMS relative to the astigmatic term', ...
+        'this driver');
+    V = addval(V, 'G25_COND', pz.cond, '%.3f', '', ...
+        'condition number of the fit over this annular pupil', 'this driver');
+    fig_zernike(pz, pm2, fullfile(mediaDir, 'polval_zernike.png'));
 
     % ---- G2.4 basis artifact: double-pole vs local-sp -----------------
     fprintf('polval: G2.4 basis artifact\n');
@@ -552,6 +625,63 @@ function fig_2theta(pm, TH, R, rmax, resid, out)
     sgtitle(f, ['2\theta rotational-symmetry invariant: Al on both Cassegrain ' ...
                 'mirrors, on-axis'], 'FontWeight', 'bold');
     savefig_(f, out);
+end
+
+function fig_zernike(pz, pm, out)
+% Bar chart of the expansion (the literature comparison IS the bar chart:
+% one term should stand up and the rest should be floor) + the measured
+% map and its reconstruction, to show the fit is not hiding a residual.
+    f = newfig([1150 700]);
+    tiledlayout(f, 2, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
+    K = numel(pz.modes);
+    nexttile([1 2]);
+    b = bar(1:K, [pz.D(:,1), pz.D(:,2), pz.D(:,3)]);
+    set(gca, 'XTick', 1:K, 'XTickLabel', pz.names, ...
+        'XTickLabelRotation', 45, 'YScale', 'linear');
+    grid on; ylabel('coefficient');
+    legend({'s_1 (0/90 lin)', 's_2 (\pm45 lin)', 's_3 (circ)'}, ...
+        'Location', 'best'); legend boxoff;
+    title('diattenuation expansion -- only astigmatism stands up');
+    nexttile;
+    semilogy(1:K, max(abs(pz.D(:,1)), 1e-20), 'o-', 'LineWidth', 1); hold on;
+    semilogy(1:K, max(abs(pz.D(:,2)), 1e-20), 's-', 'LineWidth', 1);
+    semilogy(1:K, max(abs(pz.D(:,3)), 1e-20), '^-', 'LineWidth', 1);
+    set(gca, 'XTick', 1:K, 'XTickLabel', pz.names, 'XTickLabelRotation', 45);
+    grid on; ylabel('|coefficient|');
+    title('same, log scale (floor = round-off)');
+    panel_map(pm.Dvec(:,:,1), pm.mask, 'measured  D_{s1}');
+    panel_map(pz.recon.Dvec(:,:,1), pm.mask, 'Zernike reconstruction');
+    panel_map(pm.Dvec(:,:,1) - pz.recon.Dvec(:,:,1), pm.mask, ...
+        'residual (higher order than mode 15)');
+    sgtitle(f, ['Low-order expansion: the two-mirror system reduces to ' ...
+                'POLARIZATION ASTIGMATISM'], 'FontWeight', 'bold');
+    savefig_(f, out);
+end
+
+function v = zern_sum_(modes, coefs, rho, th)
+    v = 0;
+    for k = 1:numel(modes)
+        v = v + coefs(k)*ansi_zern_(modes(k), rho, th);
+    end
+end
+
+function Z = ansi_zern_(j, rho, th)
+% ANSI mode on caller polar coords.  Duplicated from +macos/private/
+% (not reachable from tools/) -- same table, same convention.
+    jj = j - 1;
+    n  = ceil((-3 + sqrt(9 + 8*jj)) / 2);
+    m  = 2*jj - n*(n + 2);
+    am = abs(m);
+    R  = zeros(size(rho));
+    for s = 0:((n - am)/2)
+        c = (-1)^s * factorial(n - s) / ...
+            (factorial(s) * factorial((n+am)/2 - s) * factorial((n-am)/2 - s));
+        R = R + c * rho.^(n - 2*s);
+    end
+    if m >= 0, ang = cos(m*th); else, ang = sin(am*th); end
+    P = [1, 2, 2, sqrt(6), sqrt(3), sqrt(6), sqrt(8), sqrt(8), sqrt(8), ...
+         sqrt(8), sqrt(10), sqrt(10), sqrt(5), sqrt(10), sqrt(10)];
+    Z = P(j) .* R .* ang;
 end
 
 function fig_basis(pdp, psp, out)

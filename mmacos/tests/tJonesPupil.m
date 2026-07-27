@@ -23,9 +23,20 @@ classdef tJonesPupil < matlab.unittest.TestCase
 %                           circular component, D grows with radius.
 %   * pol_maps identity  -- synthetic diattenuator*retarder recovered
 %                           exactly; ambiguity flag fires near delta=pi.
+%   * pol_zernike (2b)   -- the low-order expansion.  Recovers synthetic
+%                           Zernike input exactly on an ANNULUS (where the
+%                           basis is non-orthogonal, so it pins that the
+%                           fit is least-squares); reproduces the published
+%                           two-mirror form (POLARIZATION ASTIGMATISM:
+%                           astig0 in s1, astig45 in s2, equal magnitude,
+%                           no circular part, no defocus, rho^2 radial law
+%                           whose on-axis extrapolation vanishes); and
+%                           inherits pol_maps' basis behaviour in mode
+%                           space (D invariant, retardance not).
 %
 %   All engine-facing tests run at ModelSize 128 on Rx_Cass_FarField (via
 %   rx_fixture_path) or on a Bench-emitted fold rig in a temp folder.
+%   Mind the BaseUnits difference between the two -- see thkAl below.
 
     properties (Constant)
         ModelSize = 128
@@ -35,7 +46,21 @@ classdef tJonesPupil < matlab.unittest.TestCase
         Sec       = 3      % Cass secondary
         nAl       = 1.45   % Al at 632.8 nm
         kAl       = 7.54
-        thkAl     = 2.0e-4 % 200 nm in mm -- optically thick (skin ~13 nm)
+        % Al layer thickness: 200 nm, well beyond the ~13 nm skin depth, so
+        % the stack reduces to a bare interface and the analytic gate
+        % applies.  TWO constants because this class uses TWO prescriptions
+        % with DIFFERENT BaseUnits, and macos.coating takes thickness in
+        % ELEMENT BaseUnits (a documented exception to the SI-metres veneer
+        % convention):
+        %   Rx_Cass_FarField  BaseUnits=m   -> 2.0e-7
+        %   Bench fold rig    BaseUnits=mm  -> 2.0e-4
+        % A single 2.0e-4 used to serve both, which on the Cassegrain
+        % silently meant 200 um.  Harmless for the gates (any optically
+        % thick layer satisfies them) but it made the mmacos and pymacos
+        % Jones coefficients differ in the 8th digit for no stated reason.
+        % With this split they agree to 11 digits.
+        thkAl     = 2.0e-7   % Rx_Cass_FarField (BaseUnits = m)
+        thkAlBench= 2.0e-4   % Bench fold rig   (BaseUnits = mm)
     end
 
     properties
@@ -101,7 +126,7 @@ classdef tJonesPupil < matlab.unittest.TestCase
             macos.load_rx(fullfile(testCase.foldRx, 'foldrig.in'));
             fold = testCase.foldElt;
             macos.coating(fold, 'index', testCase.nAl, ...
-                'extinc', testCase.kAl, 'thickness', testCase.thkAl);
+                'extinc', testCase.kAl, 'thickness', testCase.thkAlBench);
 
             % single trace with both s and p lit
             macos.polarization('on', 'Ex', [1/sqrt(2) 0], 'Ey', [1/sqrt(2) 0]);
@@ -218,6 +243,180 @@ classdef tJonesPupil < matlab.unittest.TestCase
             for a=1:2, for b=1:2, J(:,:,a,b) = Jr2(a,b); end, end
             pm2 = macos.pol_maps(struct('J', J, 'mask', true(2)));
             testCase.verifyTrue(pm2.ambiguous(1,1));
+        end
+
+        % ---- 2b: Zernike expansion recovers synthetic input exactly ----
+        function test_pol_zernike_synthetic_recovery(testCase)
+            % Pure-math gate: build Dvec/retvec maps FROM known Zernike
+            % coefficients, then confirm macos.pol_zernike returns them.
+            % Uses an annular mask on purpose -- circular Zernikes are not
+            % orthogonal there, so this also proves the least-squares fit
+            % (rather than a naive projection) is doing the right thing.
+            N = 64;
+            [II, JJ] = ndgrid(1:N, 1:N);
+            c0 = (N+1)/2;
+            R = hypot(II-c0, JJ-c0);
+            rad = 0.45*N;
+            mask = (R <= rad) & (R >= 0.25*rad);     % annulus
+            modes = [1 4 5 6 9 13];
+            rho = R/rad;  th = atan2(JJ-c0, II-c0);
+            B = zeros(N, N, numel(modes));
+            for k = 1:numel(modes)
+                B(:,:,k) = tJonesPupil.zern_(modes(k), rho, th);
+            end
+            ctrue = [ 1.0 -0.3  0.7
+                     -2.0  0.5  0.0
+                      0.4  1.1 -0.6
+                      3.0 -0.2  0.9
+                     -0.7  0.8  0.1
+                      0.2 -1.4  0.3];
+            Dv = zeros(N, N, 3);  Rv = zeros(N, N, 3);
+            for c = 1:3
+                acc = zeros(N);
+                for k = 1:numel(modes)
+                    acc = acc + ctrue(k,c)*B(:,:,k);
+                end
+                acc(~mask) = NaN;
+                Dv(:,:,c) = acc;  Rv(:,:,c) = 2*acc;
+            end
+            pmS = struct('Dvec', Dv, 'retvec', Rv, ...
+                         'D', sqrt(sum(Dv.^2,3)), 'ret', sqrt(sum(Rv.^2,3)), ...
+                         'mask', mask);
+            pz = macos.pol_zernike(pmS, 'modes', modes, ...
+                                   'center', [c0 c0], 'radius', rad);
+            testCase.verifyEqual(pz.D,   ctrue,   'AbsTol', 1e-10, ...
+                'Dvec Zernike coefficients must be recovered exactly');
+            testCase.verifyEqual(pz.ret, 2*ctrue, 'AbsTol', 1e-10, ...
+                'retvec Zernike coefficients must be recovered exactly');
+            testCase.verifyLessThan(max(pz.resid_rms.D), 1e-10);
+            % names/orders are the documented ANSI mapping
+            testCase.verifyEqual(pz.names{ modes == 6 }, 'astig0');
+            testCase.verifyEqual(pz.nm(modes == 6, :), [2 2]);
+            testCase.verifyEqual(pz.nm(modes == 4, :), [2 -2]);
+        end
+
+        % ---- 2b: two-mirror system reproduces the literature form ------
+        function test_pol_zernike_two_mirror_form(testCase)
+            % Standard polarization-aberration theory for an ON-AXIS
+            % rotationally symmetric two-mirror system: diattenuation and
+            % retardance grow as rho^2 with a 2*theta azimuthal
+            % dependence.  In the Pauli representation that is EXACTLY
+            % astigmatism -- astig0 in s1, astig45 in s2, equal magnitude,
+            % nothing else, and no circular (s3) component.  This is the
+            % pattern the literature calls "polarization astigmatism", and
+            % it is what makes MACOS results comparable term-by-term.
+            macos.coating(testCase.Prim, 'index', testCase.nAl, ...
+                'extinc', testCase.kAl, 'thickness', testCase.thkAl);
+            macos.coating(testCase.Sec,  'index', testCase.nAl, ...
+                'extinc', testCase.kAl, 'thickness', testCase.thkAl);
+            pm = macos.pol_maps(macos.jones_pupil(testCase.Det));
+            pz = macos.pol_zernike(pm);
+
+            iA0 = find(pz.modes == 6);      % astig0   (rho^2 cos2th)
+            iA45= find(pz.modes == 4);      % astig45  (rho^2 sin2th)
+            i2A0= find(pz.modes == 14);     % rho^4 cos2th companion
+            i2A45=find(pz.modes == 12);
+
+            for f = {'D', 'ret'}
+                C = pz.(f{1});
+                a0 = abs(C(iA0,1));  a45 = abs(C(iA45,2));
+                testCase.verifyGreaterThan(a0, 0, ...
+                    sprintf('%s: astigmatism must be present', f{1}));
+                % The astigmatic pair is equal in magnitude (the map is a
+                % pure 2-theta rotation of one shape).  The residual
+                % asymmetry is a PUPIL-DISCRETIZATION effect, not physics:
+                % measured 1.9e-7 at model 128 and 5.8e-8 at 256 -- it
+                % shrinks with sampling, and it is the same value for D
+                % and for retardance, which physics would not arrange.
+                % Tolerance set for the size this class runs at.
+                testCase.verifyEqual(a0, a45, 'RelTol', 1e-6, sprintf( ...
+                    '%s: astig0(s1) and astig45(s2) must be equal', f{1}));
+                % EVERYTHING else in s1/s2 is round-off, except the rho^4
+                % companion which theory also allows (measured ~0.26%)
+                keep = true(numel(pz.modes), 1);
+                keep([iA0 iA45 i2A0 i2A45]) = false;
+                other = max(max(abs(C(keep, 1:2))));
+                testCase.verifyLessThan(other/a0, 1e-10, sprintf( ...
+                    ['%s: only astigmatism (and its rho^4 companion) may ' ...
+                     'appear -- no piston/tilt/defocus/coma/trefoil'], f{1}));
+                % the rho^4 companion is present but strictly sub-dominant
+                testCase.verifyLessThan(abs(C(i2A0,1))/a0, 1e-2, ...
+                    sprintf('%s: rho^4 companion must be sub-dominant', f{1}));
+                % no circular diattenuation/retardance from mirrors
+                testCase.verifyLessThan(max(abs(C(:,3)))/a0, 1e-10, ...
+                    sprintf('%s: no circular (s3) component', f{1}));
+            end
+
+            % Radial law: the MAGNITUDE map of a rho^2 aberration is
+            % piston + defocus only.  Its on-axis extrapolation must
+            % vanish -- at normal incidence there is no diattenuation --
+            % which the fit is never told and has no way to arrange.
+            cm = pz.Dmag;
+            keep = true(numel(pz.modes),1);
+            keep([find(pz.modes==1) find(pz.modes==5) find(pz.modes==13)]) = false;
+            % Tolerance 1e-6, not round-off, and the reason is measured:
+            % the largest non-symmetric term is quadrafoil-X (cos4th) at
+            % 1.0e-7 of piston at model 128, falling to 2.8e-8 at 256,
+            % while quadrafoil-Y (sin4th) stays at 1e-17.  A square pixel
+            % grid is 4-fold symmetric about its OWN axes, so it imprints
+            % cos4th and not sin4th; physics on a rotationally symmetric
+            % system has no way to prefer the grid's axes.  Discretization,
+            % and it shrinks with sampling.
+            testCase.verifyLessThan(max(abs(cm(keep)))/abs(cm(pz.modes==1)), ...
+                1e-6, 'diattenuation magnitude must be rotationally symmetric');
+            D0 = tJonesPupil.zern_eval_at_(pz.modes, cm, 0, 0);   % rho = 0
+            D1 = tJonesPupil.zern_eval_at_(pz.modes, cm, 1, 0);   % rho = 1
+            testCase.verifyLessThan(abs(D0)/abs(D1), 1e-3, ...
+                'extrapolated on-axis diattenuation must vanish');
+        end
+
+        % ---- 2b: the expansion inherits pol_maps' basis behaviour ------
+        function test_pol_zernike_basis_dependence(testCase)
+            % D is a singular-value invariant, so its EXPANSION must be
+            % basis-independent too; retardance is not, and the local-sp
+            % coordinate singularity shows up in mode space as a large
+            % spurious low-order term.
+            macos.coating(testCase.Sec, 'index', testCase.nAl, ...
+                'extinc', testCase.kAl, 'thickness', testCase.thkAl);
+            pzd = macos.pol_zernike(macos.pol_maps( ...
+                macos.jones_pupil(testCase.Det, 'basis', 'double-pole')));
+            pzs = macos.pol_zernike(macos.pol_maps( ...
+                macos.jones_pupil(testCase.Det, 'basis', 'local-sp')));
+            scale = max(abs(pzd.D(:)));
+            testCase.verifyLessThan(max(abs(pzd.D(:) - pzs.D(:)))/scale, ...
+                1e-9, 'diattenuation expansion must be basis-invariant');
+            testCase.verifyGreaterThan(max(abs(pzs.ret(:))), ...
+                10*max(abs(pzd.ret(:))), ...
+                'local-sp must inflate the retardance expansion');
+        end
+    end
+
+    methods (Static)
+        function Z = zern_(j, rho, th)
+            % ANSI mode on caller-supplied polar coordinates.  Duplicated
+            % here (small) rather than reaching into +macos/private/, which
+            % is not visible from the tests folder.
+            jj = j - 1;
+            n  = ceil((-3 + sqrt(9 + 8*jj)) / 2);
+            m  = 2*jj - n*(n + 2);
+            am = abs(m);
+            R  = zeros(size(rho));
+            for s = 0:((n - am)/2)
+                c = (-1)^s * factorial(n - s) / ...
+                    (factorial(s) * factorial((n+am)/2 - s) * factorial((n-am)/2 - s));
+                R = R + c * rho.^(n - 2*s);
+            end
+            if m >= 0, ang = cos(m*th); else, ang = sin(am*th); end
+            P = [1, 2, 2, sqrt(6), sqrt(3), sqrt(6), sqrt(8), sqrt(8), ...
+                 sqrt(8), sqrt(8), sqrt(10), sqrt(10), sqrt(5), sqrt(10), sqrt(10)];
+            Z = P(j) .* R .* ang;
+        end
+
+        function v = zern_eval_at_(modes, coefs, rho, th)
+            v = 0;
+            for k = 1:numel(modes)
+                v = v + coefs(k)*tJonesPupil.zern_(modes(k), rho, th);
+            end
         end
     end
 end

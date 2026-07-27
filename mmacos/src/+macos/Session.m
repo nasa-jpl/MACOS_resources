@@ -275,6 +275,7 @@ classdef Session < handle
         function rf = ray_field(obj, srf),       rf = macos.ray_field(srf);      end
         function jp = jones_pupil(obj, srf, varargin), jp = macos.jones_pupil(srf, varargin{:}); end
         function pm = pol_maps(obj, jp),         pm = macos.pol_maps(jp);        end
+        function pz = pol_zernike(obj, pm, varargin), pz = macos.pol_zernike(pm, varargin{:}); end
 
         % --- Diffraction buffers / window -----------------------------
         function I = compose(obj, srf, varargin), I = macos.compose(srf, varargin{:}); end
