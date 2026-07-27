@@ -273,6 +273,9 @@ classdef Session < handle
         function vector_diffraction(obj, on),    macos.vector_diffraction(on);   end
         function varargout = coating(obj, varargin), [varargout{1:nargout}] = macos.coating(varargin{:}); end
         function rf = ray_field(obj, srf),       rf = macos.ray_field(srf);      end
+        function varargout = polarizer(obj, varargin), [varargout{1:nargout}] = macos.polarizer(varargin{:}); end
+        function varargout = waveplate(obj, varargin), [varargout{1:nargout}] = macos.waveplate(varargin{:}); end
+        function J  = elt_jones(obj, srf),       J  = macos.elt_jones(srf);      end
         function jp = jones_pupil(obj, srf, varargin), jp = macos.jones_pupil(srf, varargin{:}); end
         function pm = pol_maps(obj, jp),         pm = macos.pol_maps(jp);        end
         function pz = pol_zernike(obj, pm, varargin), pz = macos.pol_zernike(pm, varargin{:}); end

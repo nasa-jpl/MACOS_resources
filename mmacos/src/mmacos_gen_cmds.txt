@@ -81,6 +81,7 @@ get_src_sampling
 get_src_size
 init
 intensity
+jmat_elt_get
 load_rx
 met_calc
 met_geom_get
@@ -95,6 +96,8 @@ perturb_src
 pfp
 pol_get
 pol_set
+polelt_get
+polelt_set
 prb_elt
 prb_elt_grp
 ray_field
