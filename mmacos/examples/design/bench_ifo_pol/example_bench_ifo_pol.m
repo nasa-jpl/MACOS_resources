@@ -48,23 +48,13 @@ coat = @(i) macos.coating(i, 'index', nAl, 'extinc', kAl, 'thickness', thkAl);
 % ---- 1. Build the (uncoated) polarization-honest Twyman-Green ----------
 fprintf('Building Twyman-Green rig...\n');
 G = macos.design.twyman_green('ngridpts', 63);
-
-% Bench builder subtlety (real finding): it stamps the mirror perfect-
-% conductor idiom Extinc=1e22 on EVERY element -- correct for Reflectors
-% (RS=-1,RP=+1, polarization-neutral) but on a TRANSMITTING Refractor
-% Extinc=1e22 means perfectly ABSORBING glass, so under ifPol the Fresnel
-% transmission kills the beam (verified: field collapses ~1e-22 at the
-% first compensator face).  Scalar tracing ignores extinction, so this is
-% invisible without polarization.  Make the transmitting glass transparent
-% (Extinc=0) here; the Reflectors keep 1e22.  (Edit the in-memory bench
-% before emit -- no shared Bench.m change.)
-for arm = [G.bt, G.br]
-    for k = 1:numel(arm.E)
-        if strcmp(arm.E(k).element, 'Refractor'), arm.E(k).extinc = 0; end
-    end
-end
 G.bt.emit('ifo_test_pol.in');
 G.br.emit('ifo_ref_pol.in');
+% NB: transmitting Refractors now carry Extinc=0 (transparent glass) by
+% Bench default -- the earlier Extinc=1e22 Reflector idiom that leaked onto
+% them made the glass perfectly ABSORBING under ifPol (invisible on the
+% scalar path).  Fixed in Bench.m (add_bs_transmit / add_bs_reflect_return);
+% Reflectors keep 1e22.
 
 % coated-face element indices, read from the in-memory bench (the element
 % index IS its position in b.E; no engine name-query API is needed)
