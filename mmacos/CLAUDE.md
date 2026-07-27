@@ -736,6 +736,30 @@ here.  mmacos-side facts only:
   (3) **A coating can be overwritten but never cleared** (`coat_set` takes
   ≥1 layer), so every set in a `'coatings'` sweep must cover the same
   elements and the sweep leaves the last set applied — `load_rx` to reset.
+- **Phase 3 elements (`polarizer` / `waveplate` / `elt_jones`, 2026-07-27)** —
+  `TrPolarizer` (EltID 15, finished from a name-table-only stub) and the new
+  `WavePlate` (EltID 18).  Engine detail + all four conventions live in
+  `macos_f90/CLAUDE.md`; mmacos-side facts:
+  (1) **`macos.polarizer`/`macos.waveplate` follow the OVERLOADED
+  query-when-no-opts form** (`coating.m`'s shape), not the `get_`/`set_`
+  split the naming convention prescribes — consistency inside the
+  polarization family beat the general rule, since `polarization`,
+  `vector_diffraction` and `coating` are all overloaded.
+  (2) **Axis storage is deliberately asymmetric**: the API stores the axis
+  as given (a query returns what you wrote), the Rx parser UNITIZES on load
+  (matching `psiElt=`).  So a non-unit axis comes back normalized after a
+  save/reload round trip — `tPolElement/test_save_roundtrip` pins it.
+  Retardance is in WAVES at the current wavelength on both sides but stored
+  physically, so a query after `set_src_wvl` legitimately returns a
+  different number.
+  (3) **Fixtures `tests/Rx/Rx_PolElt.in` + `Rx_PolElt_Ref.in` are a PAIR** —
+  the second is the geometric twin (Reference surfaces in place of the
+  polarizing elements) that makes "polarization-off is bit-identical" a test
+  rather than an inspection.  Any geometric edit to one belongs in the other.
+  (4) Element order in the fixture is load-bearing: all four polarizing
+  elements precede the single physical-optics leg, or the Tranche-1 seed
+  would miss them.
+  (5) Tests: `tPolElement` (23, SUITE_FAST).
 - **polval driver is now split per model size** (2026-07-27): 128 / 256 / 512,
   one `matlab -batch` each (the `macos_init_all()` heap bug), each writing
   `generated/parts/numbers_<size>.json`, merged by `merge_numbers.py`.  Adding

@@ -71,6 +71,7 @@ function run_pol_validation(polvalDir, model)
             V = phase2_gates(V, MODEL, mediaDir);
             V = phase3a_gates(V, MODEL, mediaDir);
             V = spsign_gates(V, MODEL, mediaDir);
+            V = polelt_gates(V, MODEL, mediaDir);
         case 256
             V = phase2c_exact_gates(V, MODEL, mediaDir);
         case 512
@@ -134,6 +135,21 @@ function lim = gate_limits(model)
         'G42_BOUNDRATIO', '<',   1.05
         'G42_PYPX1',      '<',   1e-3
         'G42_SLOPE',      '>',   1.7
+        'G51_MALUS',      '<',   1e-12
+        'G51_DYNRANGE',   '<',   1e-25
+        'G52_CROSSED',    '==',  1
+        'G53_S3',         '<',   1e-14
+        'G53_S12',        '<',   1e-14
+        'G53_AB_S3',      '<',   1e-14
+        'G54_SLOPE_RESID','<',   1e-10
+        'G54_AB_SLOPE',   '<',   1e-10
+        'G55_COMPOSE',    '<',   1e-15
+        'G55_AB_SINGLE',  '>',   0.1
+        'G56_UNITARY',    '<',   1e-14
+        'G56_JUNITARY',   '<',   1e-15
+        'G56_AB_POL',     '>',   0.5
+        'G57_BITWISE',    '==',  1
+        'G58_GRID_MALUS', '<',   1e-10
         };
       case 256
         lim = {
@@ -1305,6 +1321,249 @@ function [sha, br, dirty] = gitinfo(repo)
     if a == 0, sha = strtrim(s); end
     if b == 0, br  = strtrim(r); end
     if c == 0, dirty = ~isempty(strtrim(d)); end
+end
+
+% =====================================================================
+%  Phase 3 -- polarizing elements (TrPolarizer + WavePlate), model 128
+%
+%  Every prediction below is a closed-form Jones identity written from
+%  the textbook, NOT transcribed from the engine -- the standing lesson
+%  of section 4.  Each mechanism also carries an A/B in which it is
+%  switched off, so a passing number cannot mean "the element quietly
+%  did nothing" (which is precisely what these EltIDs did before this
+%  phase: they were name-table-only stubs).
+% =====================================================================
+function V = polelt_gates(V, ~, mediaDir)
+    fprintf('polval: Phase 3 polarizing-element gates\n');
+    rx    = polval_rx('Rx_PolElt.in');
+    rxRef = polval_rx('Rx_PolElt_Ref.in');
+    POL1 = 2; WP1 = 3; WP2 = 4; ANAL = 5; DET = 7;
+    ax = @(t) [cos(t) sin(t) 0];
+
+    % ---- G5.7 first: polarization OFF must be bit-identical to a twin
+    % prescription with plain Reference surfaces in the same places.
+    macos.load_rx(rx);      macos.polarization('off');
+    tA = macos.trace(DET);  WA = macos.opd();  IA = macos.intensity(DET);
+    macos.load_rx(rxRef);   macos.polarization('off');
+    tB = macos.trace(DET);  WB = macos.opd();  IB = macos.intensity(DET);
+    bitok = isequal(WA, WB) && isequal(IA, IB) && (tA.nRays == tB.nRays);
+    V = addval(V, 'G57_BITWISE', double(bitok), '%d', 'bool', ...
+        'pol-off trace bit-identical to the Reference-surface twin', ...
+        'tPolElement/test_unpolarized_bit_identical_to_reference_twin');
+
+    macos.load_rx(rx);
+    macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    cfg = @(tp,t1,r1,t2,r2,ta) polelt_configure(POL1,WP1,WP2,ANAL, ...
+                                                ax(tp),ax(t1),r1,ax(t2),r2,ax(ta));
+
+    % ---- G5.1 Malus.  I(theta) = I0 cos^2(theta).
+    th = linspace(0, pi, 25);   I = zeros(size(th));
+    for k = 1:numel(th)
+        cfg(0, 0, 0, 0, 0, th(k));
+        macos.trace(ANAL);
+        I(k) = polelt_power(ANAL);
+    end
+    pred = I(1) * cos(th).^2;
+    V = addval(V, 'G51_MALUS', max(abs(I - pred))/I(1), '%.3e', 'relative', ...
+        'Malus law vs analyzer angle', 'tPolElement/test_malus_law');
+    V = addval(V, 'G51_DYNRANGE', min(I)/max(I), '%.3e', 'relative', ...
+        'Malus curve dynamic range (non-vacuity: a pass-everything element is flat)', ...
+        'tPolElement/test_malus_law');
+
+    % ---- G5.2 crossed extinction, exactly-orthogonal axes -> exactly 0.
+    macos.polarizer(POL1, 'axis', [1 0 0]);
+    macos.polarizer(ANAL, 'axis', [0 1 0]);
+    macos.waveplate(WP1, 'axis', [1 0 0], 'retardance', 0);
+    macos.waveplate(WP2, 'axis', [1 0 0], 'retardance', 0);
+    macos.trace(ANAL);
+    V = addval(V, 'G52_CROSSED', double(polelt_power(ANAL) == 0), '%d', 'bool', ...
+        'crossed-polarizer extinction is exactly zero', ...
+        'tPolElement/test_crossed_polarizer_extinction');
+
+    % ---- G5.3 QWP: linear in, circular out.  The SIGN of S3 is the
+    % point -- it flips with the retardance convention, so a gate on
+    % |S3| would accept either.
+    cfg(0, pi/4, 0.25, 0, 0, 0);
+    macos.trace(WP1);   S = polelt_stokes(WP1);
+    V = addval(V, 'G53_S3', abs(S.S3/S.S0 + 1), '%.3e', 'relative', ...
+        'QWP linear->circular: signed S3/S0 = -1', ...
+        'tPolElement/test_qwp_linear_to_circular');
+    V = addval(V, 'G53_S12', max(abs([S.S1 S.S2]))/S.S0, '%.3e', 'relative', ...
+        'QWP linear->circular: residual linear Stokes', ...
+        'tPolElement/test_qwp_linear_to_circular');
+    cfg(0, pi/4, 0, 0, 0, 0);            % A/B: no retardance
+    macos.trace(WP1);   Sab = polelt_stokes(WP1);
+    V = addval(V, 'G53_AB_S3', abs(Sab.S3/Sab.S0), '%.3e', 'relative', ...
+        'A/B -- the same rig at zero retardance leaves the state linear', ...
+        'tPolElement/test_qwp_linear_to_circular');
+
+    % Stokes sweep vs retardance, for the figure
+    Rs = linspace(0, 1, 41);   S3s = zeros(size(Rs));   S1s = S3s;
+    for k = 1:numel(Rs)
+        cfg(0, pi/4, Rs(k), 0, 0, 0);
+        macos.trace(WP1);  Sk = polelt_stokes(WP1);
+        S3s(k) = Sk.S3/Sk.S0;   S1s(k) = Sk.S1/Sk.S0;
+    end
+
+    % ---- G5.4 HWP rotates linear input by 2*theta.
+    thw = linspace(0, pi/2, 17);   ang = zeros(size(thw));
+    for k = 1:numel(thw)
+        cfg(0, thw(k), 0.5, 0, 0, 0);
+        macos.trace(WP1);  Sk = polelt_stokes(WP1);
+        ang(k) = 0.5*atan2(Sk.S2, Sk.S1);
+    end
+    angu = unwrap(2*ang)/2;
+    pfit = polyfit(thw, angu, 1);
+    V = addval(V, 'G54_SLOPE_RESID', abs(pfit(1) - 2), '%.3e', 'absolute', ...
+        'HWP output orientation slope vs plate angle (theory 2)', ...
+        'tPolElement/test_hwp_rotates_by_2theta');
+    ang0 = zeros(size(thw));
+    for k = 1:numel(thw)
+        cfg(0, thw(k), 0, 0, 0, 0);
+        macos.trace(WP1);  Sk = polelt_stokes(WP1);
+        ang0(k) = 0.5*atan2(Sk.S2, Sk.S1);
+    end
+    p0 = polyfit(thw, unwrap(2*ang0)/2, 1);
+    V = addval(V, 'G54_AB_SLOPE', abs(p0(1)), '%.3e', 'absolute', ...
+        'A/B -- at zero retardance, rotating the plate does nothing (slope 0)', ...
+        'tPolElement/test_hwp_rotates_by_2theta');
+
+    % ---- G5.5 composition: two QWPs on a common axis == one HWP.
+    thf = 0.4;
+    cfg(0, thf, 0.25, thf, 0.25, 0);  macos.trace(WP2);
+    [ExA, EyA] = polelt_field(WP2);
+    cfg(0, thf, 0.5,  thf, 0,    0);  macos.trace(WP2);
+    [ExB, EyB] = polelt_field(WP2);
+    nrm = max(abs(ExA));
+    V = addval(V, 'G55_COMPOSE', ...
+        max([abs(ExA-ExB); abs(EyA-EyB)])/nrm, '%.3e', 'relative', ...
+        'two quarter-wave plates on a common axis reproduce one half-wave plate', ...
+        'tPolElement/test_two_qwp_equal_one_hwp');
+    cfg(0, thf, 0.25, thf, 0,    0);  macos.trace(WP2);
+    [ExC, ~] = polelt_field(WP2);
+    V = addval(V, 'G55_AB_SINGLE', max(abs(ExA-ExC))/nrm, '%.3e', 'relative', ...
+        'A/B -- a SINGLE quarter-wave plate at the same axis differs grossly', ...
+        'tPolElement/test_two_qwp_equal_one_hwp');
+
+    % ---- G5.6 unitarity, for linear AND circular input.
+    cfg(0, 0.37, 0.31, 0, 0, 0);
+    macos.trace(POL1);  P0 = polelt_power(POL1);
+    macos.trace(WP1);   P1 = polelt_power(WP1);
+    uLin = abs(P1/P0 - 1);
+    Jw = macos.elt_jones(WP1);
+    cfg(0, pi/4, 0.25, 0.19, 0.42, 0);      % circular onto WP2
+    macos.trace(WP1);  Pc0 = polelt_power(WP1);
+    macos.trace(WP2);  Pc1 = polelt_power(WP2);
+    V = addval(V, 'G56_UNITARY', max(uLin, abs(Pc1/Pc0 - 1)), '%.3e', 'relative', ...
+        'retarder conserves power, linear and circular input', ...
+        'tPolElement/test_waveplate_is_unitary');
+    V = addval(V, 'G56_JUNITARY', norm(Jw'*Jw - eye(2)), '%.3e', 'absolute', ...
+        'retarder Jones satisfies J^H J = I', ...
+        'tPolElement/test_waveplate_is_unitary');
+    Jp = macos.elt_jones(POL1);
+    V = addval(V, 'G56_AB_POL', norm(Jp'*Jp - eye(2)), '%.3e', 'absolute', ...
+        'A/B -- the POLARIZER Jones must FAIL unitarity, so the test can fail', ...
+        'tPolElement/test_waveplate_is_unitary');
+
+    % ---- G5.8 the diffraction grid carries the polarizing train.  This
+    % is the tripwire for the two-dispatch-chain trap: an element wired
+    % only into tracesub.F satisfies every ray-level gate above and
+    % leaves the detector plane completely unchanged.
+    thg = [0 pi/6 pi/3 pi/2];   Ig = zeros(size(thg));
+    for k = 1:numel(thg)
+        cfg(0, 0, 0, 0, 0, thg(k));
+        macos.trace(DET);
+        Ig(k) = sum(macos.intensity(DET), 'all');
+    end
+    V = addval(V, 'G58_GRID_MALUS', ...
+        max(abs(Ig - Ig(1)*cos(thg).^2))/Ig(1), '%.3e', 'relative', ...
+        'detector-plane intensity obeys Malus (grid sees the train)', ...
+        'tPolElement/test_grid_carries_the_polarizing_train');
+
+    % ---- reported scope: the off-normal axis-convention ambiguity
+    V = addval(V, 'G59_AMBIG20', rad2deg(polelt_ambig(deg2rad(20), pi/4)), ...
+        '%.2f', 'degrees', ...
+        'off-normal pass-vs-block axis ambiguity at 20 deg AOI, 45 deg azimuth', ...
+        'tPolElement/test_offnormal_convention_magnitude');
+    V = addval(V, 'G59_AMBIG20_INPLANE', ...
+        rad2deg(polelt_ambig(deg2rad(20), 0)), '%.3e', 'degrees', ...
+        'the same ambiguity with the axis IN the plane of incidence (vanishes)', ...
+        'tPolElement/test_offnormal_convention_magnitude');
+
+    fig_polelt(th, I, pred, Rs, S3s, S1s, thw, angu, ...
+               fullfile(mediaDir, 'polelt_gates.png'));
+end
+
+function polelt_configure(p1, w1, w2, an, ap, a1, r1, a2, r2, aa)
+    macos.polarizer(p1, 'axis', ap);
+    macos.waveplate(w1, 'axis', a1, 'retardance', r1);
+    macos.waveplate(w2, 'axis', a2, 'retardance', r2);
+    macos.polarizer(an, 'axis', aa);
+end
+
+function [Ex, Ey, Ez] = polelt_field(srf)
+    rf = macos.ray_field(srf);   m = (rf.status == 0);
+    Ex = rf.Ex(m);  Ey = rf.Ey(m);  Ez = rf.Ez(m);
+end
+
+function P = polelt_power(srf)
+    [Ex, Ey, Ez] = polelt_field(srf);
+    P = sum(abs(Ex).^2 + abs(Ey).^2 + abs(Ez).^2);
+end
+
+function S = polelt_stokes(srf)
+%   Conjugation order written out explicitly: MATLAB's ' conjugates its
+%   LEFT operand, and getting it backwards builds conj(C) -- the slip
+%   that passed every linear gate vacuously in section 5.
+    [Ex, Ey, ~] = polelt_field(srf);
+    S.S0 = sum(abs(Ex).^2 + abs(Ey).^2);
+    S.S1 = sum(abs(Ex).^2 - abs(Ey).^2);
+    S.S2 = sum(2*real(Ex .* conj(Ey)));
+    S.S3 = sum(2*imag(Ex .* conj(Ey)));
+end
+
+function dth = polelt_ambig(aoi, az)
+%POLELT_AMBIG  Angle between the two candidate polarizer pass axes off
+%   normal: project the declared PASS axis (what PolElt does) versus
+%   project the declared BLOCK axis and take the complement.
+    r    = [sin(aoi) 0 cos(aoi)];
+    pass = [cos(az)  sin(az) 0];
+    blok = [-sin(az) cos(az) 0];
+    prj  = @(v) (v - dot(v,r)*r) / norm(v - dot(v,r)*r);
+    a1 = prj(pass);
+    a2 = cross(r, prj(blok));  a2 = a2 / norm(a2);
+    dth = real(acos(min(1, abs(dot(a1, a2)))));
+end
+
+function fig_polelt(th, I, pred, Rs, S3s, S1s, thw, angu, out)
+    f = newfig([1100 340]);
+    tiledlayout(f, 1, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
+
+    nexttile;
+    plot(rad2deg(th), pred/I(1), '-', 'LineWidth', 1.4); hold on
+    plot(rad2deg(th), I/I(1), 'o', 'MarkerSize', 4);
+    xlabel('analyzer angle (deg)'); ylabel('I / I_0');
+    title('Malus: cos^2\theta'); grid on; xlim([0 180]);
+    legend({'cos^2\theta', 'MACOS'}, 'Location', 'north', 'Box', 'off');
+
+    nexttile;
+    plot(Rs, cos(2*pi*Rs), '-', 'LineWidth', 1.4); hold on
+    plot(Rs, S1s, 's', 'MarkerSize', 4);
+    plot(Rs, -sin(2*pi*Rs), '-', 'LineWidth', 1.4);
+    plot(Rs, S3s, 'o', 'MarkerSize', 4);
+    xlabel('retardance (waves)'); ylabel('S_i / S_0');
+    title('retarder, fast axis at 45\circ'); grid on;
+    legend({'cos2\pi R', 'S_1', '-sin2\pi R', 'S_3'}, ...
+           'Location', 'southeast', 'Box', 'off');
+
+    nexttile;
+    plot(rad2deg(thw), rad2deg(2*thw), '-', 'LineWidth', 1.4); hold on
+    plot(rad2deg(thw), rad2deg(angu), 'o', 'MarkerSize', 4);
+    xlabel('half-wave plate angle (deg)'); ylabel('output orientation (deg)');
+    title('HWP: rotation by 2\theta'); grid on;
+    legend({'2\theta', 'MACOS'}, 'Location', 'southeast', 'Box', 'off');
+
+    savefig_(f, out);
 end
 
 function p = polval_rx(name)

@@ -156,6 +156,29 @@
       "captured": "2026-07-27",
       "note": "a hand-typed date in the prose is the same hazard as a hand-typed number",
       "source": "external"
+    },
+    "X_POLELT_TWOCHAIN_RAY": {
+      "text": "3.6e-33",
+      "gate": "ray-level power at the detector with crossed polarizers, engine wired into tracesub.F ONLY",
+      "command": "revert the propsub.F CPROPAGATE dispatch for TrPolarizerElt/WavePlateElt (leave only the tracesub.F chain), makems.sh release gfortran, relink the mex, then trace Rx_PolElt.in with crossed polarizers and compare sum|RayE|^2 at the detector against sum(macos.intensity(7))",
+      "captured": "2026-07-27",
+      "note": "model 128, Rx_PolElt.in; the companion grid number is X_POLELT_TWOCHAIN_GRID",
+      "source": "external"
+    },
+    "X_POLELT_TWOCHAIN_GRID": {
+      "text": "9.69e-01",
+      "gate": "detector-PLANE integrated intensity for the same crossed-polarizer state -- the full incident power, i.e. the grid saw no polarization at all",
+      "command": "revert the propsub.F CPROPAGATE dispatch for TrPolarizerElt/WavePlateElt (leave only the tracesub.F chain), makems.sh release gfortran, relink the mex, then trace Rx_PolElt.in with crossed polarizers and compare sum|RayE|^2 at the detector against sum(macos.intensity(7))",
+      "captured": "2026-07-27",
+      "note": "model 128, Rx_PolElt.in; equals the analyzer-aligned value, which is the point",
+      "source": "external"
+    },
+    "X_POLELT_TWOCHAIN_CAPTURED": {
+      "text": "2026-07-27",
+      "gate": "capture date of the two-dispatch-chain A/B above",
+      "command": "revert the propsub.F CPROPAGATE dispatch for TrPolarizerElt/WavePlateElt (leave only the tracesub.F chain), makems.sh release gfortran, relink the mex, then trace Rx_PolElt.in with crossed polarizers and compare sum|RayE|^2 at the detector against sum(macos.intensity(7))",
+      "captured": "2026-07-27",
+      "source": "external"
     }
   }
 }
