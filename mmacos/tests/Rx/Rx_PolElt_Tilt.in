@@ -1,0 +1,188 @@
+% ---------------------------------------------------------------------------------------
+% Rx_PolElt_Tilt -- the OFF-NORMAL polarizer gate prescription.
+% PLAN_POLARIZATION Phase 3; the material-axis convention landing
+% (REVIEW_POL_ELEMENTS_2026-07-27.md, Fable-lane decision 2026-07-27).
+%
+% Why this exists.  Rx_PolElt.in is at strict normal incidence, where the
+% two candidate off-normal conventions -- project the declared PASS axis,
+% versus project the MATERIAL (absorbing) axis and transmit the complement
+% -- coincide identically.  The settled rule is the material-axis (dipole)
+% one, and a rule that is only ever exercised where it makes no difference
+% is not gated at all.  This fixture drives the engine where the two
+% constructions actually disagree.
+%
+% THE BEAM IS TILTED, NOT THE ELEMENT.  In a collimated on-axis bundle,
+% tilting a straight-through element does nothing to the ray directions, so
+% the transverse plane is unchanged and the ambiguity stays identically
+% zero.  What matters is the angle between the RAY and the element NORMAL.
+% So the chief ray runs at 20 degrees to global z:
+%
+%    ChfRayDir = (sin20, 0, cos20),  ChfRayPos = -ChfRayDir
+%
+% (so the chief ray reaches the global origin at unit path length), every
+% element sits on that ray, and the source frame follows it -- xGrid =
+% (cos20, 0, -sin20) is perpendicular to ChfRayDir, yGrid = ChfRayDir x
+% xGrid = y.  The two POLARIZERS keep psiElt = -z, so they see exactly 20
+% degrees of incidence; every other element is normal to the beam, so the
+% pupil stop and the near-field leg are the ordinary on-axis geometry.
+%
+% THE AZIMUTH MATTERS TOO, and its degenerate cases are a trap.  The
+% ambiguity vanishes not only at normal incidence but also whenever the
+% declared axis lies IN, or PERPENDICULAR TO, the plane of incidence --
+% here the x-z plane, since the tilt is in x.  An axis along x or along y
+% therefore reports a reassuring zero that means nothing.  The gates set
+% the axis from MATLAB (macos.polarizer) and use 45 degrees of azimuth,
+% where the disagreement is largest: acos(2cos a/(1+cos^2 a)) = 3.56
+% degrees of pass-axis orientation at a = 20 degrees.  The axis values
+% below are only parse-time defaults.
+%
+% TWO polarizers, so both dispatch chains are gated.  Element 2 alone
+% carries the ray-level claim (macos.ray_field reads the transmitted axis
+% directly).  Element 3 makes the crossed-analyzer null a DETECTOR-plane
+% measurement: the analyzer azimuth that extinguishes is a different number
+% under the two rules, so the grid side discriminates them too -- with
+% total intensity only, so no assumption about the component planes' frame
+% enters.  propsub's CPROPAGATE re-traces the seed rays through its own
+% EltID chain, which is how a polarizing element can pass every ray-level
+% gate and be invisible to the image; that finding is what this layout is
+% built to keep gated.
+%
+% Both polarizers precede the single physical-optics leg (bracketed
+% NFPlane(4) -> Geometric(5), the Rx_Coro.in idiom), which is the Tranche-1
+% validity condition -- same reason Rx_PolElt.in orders its elements the
+% way it does.
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  3.4202014332566873E-01  0.0E+00  9.3969262078590838E-01
+        ChfRayPos= -3.4202014332566873E-01  0.0E+00 -9.3969262078590838E-01
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=1.0E-02
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  128
+            xGrid=  9.3969262078590838E-01  0.0E+00 -3.4202014332566873E-01
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  5
+
+
+             iElt=  1
+          EltName=  PupilStop
+          Element=  Obscuring
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt= -3.4202014332566873E-01  0.0E+00 -9.3969262078590838E-01
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  9.3969262078590838E-01  0.0E+00 -3.4202014332566873E-01
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.0E-03  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  2
+          EltName=  TiltPol
+          Element=  TrPolarizer
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00 -1.0E+00
+           VptElt=  3.4202014332566873E-02  0.0E+00  9.3969262078590838E-02
+           RptElt=  3.4202014332566873E-02  0.0E+00  9.3969262078590838E-02
+          PolAxis=  7.0710678118654752E-01  7.0710678118654752E-01  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-01
+          nECoord= -6
+
+             iElt=  3
+          EltName=  TiltAnal
+          Element=  TrPolarizer
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00 -1.0E+00
+           VptElt=  6.8404028665133747E-02  0.0E+00  1.8793852415718168E-01
+           RptElt=  6.8404028665133747E-02  0.0E+00  1.8793852415718168E-01
+          PolAxis=  7.0710678118654752E-01  7.0710678118654752E-01  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=2.0E-01
+          nECoord= -6
+
+             iElt=  4
+          EltName=  PropStart
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt= -3.4202014332566873E-01  0.0E+00 -9.3969262078590838E-01
+           VptElt=  1.3680805733026749E-01  0.0E+00  3.7587704831436335E-01
+           RptElt=  1.3680805733026749E-01  0.0E+00  3.7587704831436335E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NFPlane
+             zElt=4.0E-01
+          nECoord= -6
+
+             iElt=  5
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt= -3.4202014332566873E-01  0.0E+00 -9.3969262078590838E-01
+           VptElt=  4.7882820065593623E-01  0.0E+00  1.3155696691002717E+00
+           RptElt=  4.7882820065593623E-01  0.0E+00  1.3155696691002717E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.4E+00
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

@@ -759,7 +759,26 @@ here.  mmacos-side facts only:
   (4) Element order in the fixture is load-bearing: all four polarizing
   elements precede the single physical-optics leg, or the Tranche-1 seed
   would miss them.
-  (5) Tests: `tPolElement` (23, SUITE_FAST).
+  (5) Tests: `tPolElement` (27, SUITE_FAST).
+  (6) **The off-normal axis convention is SETTLED (2026-07-27): project the
+  MATERIAL axis.**  For a waveplate that IS the declared (fast) axis; for a
+  polarizer it is the ABSORBING direction `psi x PolAxis`, projected into
+  the ray's transverse plane, extinguished, with its orthogonal partner
+  transmitted.  `PolAxis=` still declares the pass axis.  The alternative
+  (project the pass axis) is Fainman & Shamir's model and was what shipped
+  first; Korger et al., *Opt. Express* **21**, 27032 (2013) Eq. (5)–(6)
+  measured that a real tilted polarizer follows the material-axis one.
+  Three mmacos-side facts: normal incidence is **bit-identical** across the
+  flip (`test_normal_incidence_unchanged_by_the_material_flip` pins the
+  pre-flip values literally); a polarizer's declared axis is now taken
+  modulo its component along the element normal, and an axis parallel to
+  the normal extinguishes; and the gates live on a THIRD fixture,
+  `tests/Rx/Rx_PolElt_Tilt.in`, which tilts the **beam** — tilting the
+  element does nothing to a collimated on-axis bundle, which is why the
+  original packet could only measure the ambiguity in MATLAB.  Section F
+  gates both dispatch chains, the grid side via the crossed-analyzer null,
+  which sits 7.11° apart under the two rules (9.1e-33 vs 1.53e-2 of
+  relative detector power).  Evidence: polval §6.7.
 - **polval driver is now split per model size** (2026-07-27): 128 / 256 / 512,
   one `matlab -batch` each (the `macos_init_all()` heap bug), each writing
   `generated/parts/numbers_<size>.json`, merged by `merge_numbers.py`.  Adding

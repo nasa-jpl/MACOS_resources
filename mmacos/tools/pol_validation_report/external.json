@@ -14,19 +14,20 @@
   ],
   "values": {
     "X_MMACOS_SUITE": {
-      "text": "420 pass, 0 fail",
+      "text": "467 pass, 0 fail",
       "gate": "mmacos matlab.unittest suite, all classes",
       "command": "cd MACOS_resources/mmacos && ./run_mmacos_tests.sh",
       "captured": "2026-07-27",
-      "note": "fast 289 / masks 62 / freeform 46 / proper-512 10 / proper-1024 13; gfortran-linked mex, engine at the r_p sign fix",
+      "note": "fast 316 / masks 62 / freeform 60 / proper-512 10 / pol-512 6 / proper-1024 13; gfortran-linked mex, engine at the material-axis convention landing (was 463 before its 4 new gates)",
       "source": "external"
     },
     "X_PYMACOS_SUITE": {
       "text": "6694 pass, 1 skipped",
       "gate": "pymacos pytest suite (ifx-linked = the standing ifx smoke)",
-      "command": "cd MACOS_resources/pymacos && pytest",
+      "command": "cd MACOS_resources/pymacos/tests && python -m pytest -q   (from tests/, which is where context.py resolves src/ from)",
       "captured": "2026-07-27",
-      "source": "external"
+      "source": "external",
+      "note": "re-run at the material-axis landing and UNCHANGED. No pymacos fixture declares TrPolarizer or WavePlate, so PolElt is unreachable from this binding -- the run confirms inertness rather than covering the new elements, whose pymacos shims are still deferred."
     },
     "X_PROPER_COMPARE": {
       "text": "26/26",
@@ -56,7 +57,8 @@
       "gate": "GMI regression -- polarization work must be a no-op on polarization-off prescriptions",
       "command": "cd MACOS_resources/GMI && ./makegmi.sh && <GMI regression driver>",
       "captured": "2026-07-27",
-      "source": "external"
+      "source": "external",
+      "note": "re-run at the material-axis landing; GMI carries no TrPolarizer/WavePlate element, so PolElt is unreachable from it -- the run confirms that rather than exploring it"
     },
     "X_PREFIX_FF_TOTAL": {
       "text": "8.937660518e-01",
@@ -171,6 +173,38 @@
       "command": "revert the propsub.F CPROPAGATE dispatch for TrPolarizerElt/WavePlateElt (leave only the tracesub.F chain), makems.sh release gfortran, relink the mex, then trace Rx_PolElt.in with crossed polarizers and compare sum|RayE|^2 at the detector against sum(macos.intensity(7))",
       "captured": "2026-07-27",
       "note": "model 128, Rx_PolElt.in; equals the analyzer-aligned value, which is the point",
+      "source": "external"
+    },
+    "X_KORGER": {
+      "text": "J. Korger, T. Kolb, P. Banzer, A. Aiello, C. Wittmann, C. Marquardt and G. Leuchs, \"The polarization properties of a tilted polarizer,\" Opt. Express 21(22), 27032-27042 (2013)",
+      "gate": "EXTERNAL ANCHOR for the off-normal axis convention -- the published experiment that decides between the two candidate constructions",
+      "command": "doi:10.1364/OE.21.027032 (arXiv:1308.4309); read sections 3 and Fig. 2",
+      "captured": "2026-07-27",
+      "note": "Mueller matrices of a commercial nano-particle polarizer tilted about an in-plane axis, phi = 94.5 deg, theta swept to near grazing. Their Eq. (5)-(6) is the ABSORBING (material-axis) model: ahat = unit(P_A - (P_A.zhat)zhat), E_out = E_in - (E_in.ahat)ahat, i.e. T_A = 1 - ahat ahat^T = that that^T with that = zhat x ahat -- algebraically the rule PolElt now implements. The rejected alternative is Fainman and Shamir's transmitting-axis projection (Appl. Opt. 23, 3188 (1984)), which is what PolElt did before. The two 'coincide only for normal incidence'; the measurement (their Fig. 2c) is that 'only the absorbing model explains the drastic change of the transmitted state of polarization observed when the polarizer is tilted'.",
+      "source": "external"
+    },
+    "X_MATAXIS_PREFIX_ANGLE": {
+      "text": "3.5616",
+      "units": "degrees",
+      "gate": "non-vacuity -- the PRE-flip engine's transmitted axis misses the material-axis rule by the full ambiguity (and sits exactly on the pass-axis construction, residual 0)",
+      "command": "restore PolElt's pass-axis basis (make both EltType.EQ.TrPolarizerElt basis branches unreachable), makems.sh release gfortran, relink the mex, run tPolElement -k offnormal; then restore and rebuild",
+      "captured": "2026-07-27",
+      "note": "HISTORICAL. model 128, Rx_PolElt_Tilt.in, 20 deg AOI / 45 deg azimuth, all 12453 unvignetted rays. Same run: the DEGENERATE-azimuth gate passes on BOTH engines, which is what makes it a vacuity guard rather than a gate.",
+      "source": "external"
+    },
+    "X_MATAXIS_PREFIX_NULL": {
+      "text": "1.526e-02",
+      "gate": "non-vacuity, grid side -- PRE-flip detector power at the material-rule crossed setting, relative to the aligned analyzer (post-flip: 9.06e-33)",
+      "command": "restore PolElt's pass-axis basis (make both EltType.EQ.TrPolarizerElt basis branches unreachable), makems.sh release gfortran, relink the mex, run tPolElement -k crossed_null; then restore and rebuild",
+      "captured": "2026-07-27",
+      "note": "HISTORICAL. The pre-flip engine instead extinguishes at the PASS-axis crossed setting, 1.86e-32 -- the null moves, it does not blur, so the two rules are separated by ~30 orders of magnitude on the detector plane.",
+      "source": "external"
+    },
+    "X_MATAXIS_CAPTURED": {
+      "text": "2026-07-27",
+      "gate": "capture date of the pre-flip material-axis A/B above",
+      "command": "restore PolElt's pass-axis basis (make both EltType.EQ.TrPolarizerElt basis branches unreachable), makems.sh release gfortran, relink the mex, run tPolElement -k offnormal and -k crossed_null; then restore and rebuild",
+      "captured": "2026-07-27",
       "source": "external"
     },
     "X_POLELT_TWOCHAIN_CAPTURED": {
