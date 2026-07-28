@@ -14,20 +14,20 @@
   ],
   "values": {
     "X_MMACOS_SUITE": {
-      "text": "467 pass, 0 fail",
+      "text": "480 pass, 0 fail",
       "gate": "mmacos matlab.unittest suite, all classes",
       "command": "cd MACOS_resources/mmacos && ./run_mmacos_tests.sh",
-      "captured": "2026-07-27",
-      "note": "fast 316 / masks 62 / freeform 60 / proper-512 10 / pol-512 6 / proper-1024 13; gfortran-linked mex, engine at the material-axis convention landing (was 463 before its 4 new gates)",
+      "captured": "2026-07-28",
+      "note": "fast 329 / masks 62 / freeform 60 / proper-512 10 / pol-512 6 / proper-1024 13; gfortran-linked mex, engine at the coated-Refractor radiometric landing (was 467 before tPolRadiometric added its 13 gates)",
       "source": "external"
     },
     "X_PYMACOS_SUITE": {
       "text": "6694 pass, 1 skipped",
       "gate": "pymacos pytest suite (ifx-linked = the standing ifx smoke)",
       "command": "cd MACOS_resources/pymacos/tests && python -m pytest -q   (from tests/, which is where context.py resolves src/ from)",
-      "captured": "2026-07-27",
+      "captured": "2026-07-28",
       "source": "external",
-      "note": "re-run at the material-axis landing and UNCHANGED. No pymacos fixture declares TrPolarizer or WavePlate, so PolElt is unreachable from this binding -- the run confirms inertness rather than covering the new elements, whose pymacos shims are still deferred."
+      "note": "re-run at the radiometric landing and UNCHANGED. No pymacos fixture declares a COATED Refractor, so the coated transmission branch is unreachable from this binding -- the run confirms inertness rather than covering the fix."
     },
     "X_PROPER_COMPARE": {
       "text": "26/26",
@@ -56,9 +56,9 @@
       "text": "6/6, bit-identical (vs-ref = 0.000e+00)",
       "gate": "GMI regression -- polarization work must be a no-op on polarization-off prescriptions",
       "command": "cd MACOS_resources/GMI && ./makegmi.sh && <GMI regression driver>",
-      "captured": "2026-07-27",
+      "captured": "2026-07-28",
       "source": "external",
-      "note": "re-run at the material-axis landing; GMI carries no TrPolarizer/WavePlate element, so PolElt is unreachable from it -- the run confirms that rather than exploring it"
+      "note": "re-run at the coated-Refractor radiometric landing; the whole coated branch is gated on ifPol and GMI carries no polarization, so bit-identity is the expected -- and required -- result"
     },
     "X_PREFIX_FF_TOTAL": {
       "text": "8.937660518e-01",
@@ -152,10 +152,10 @@
       "source": "external"
     },
     "X_SUITES_CAPTURED": {
-      "text": "2026-07-27",
+      "text": "2026-07-28",
       "gate": "date the three cross-checking suites were last re-run together",
       "command": "run_mmacos_tests.sh; pymacos pytest; pymacos run_proper_tests.sh",
-      "captured": "2026-07-27",
+      "captured": "2026-07-28",
       "note": "a hand-typed date in the prose is the same hazard as a hand-typed number",
       "source": "external"
     },
@@ -205,6 +205,53 @@
       "gate": "capture date of the pre-flip material-axis A/B above",
       "command": "restore PolElt's pass-axis basis (make both EltType.EQ.TrPolarizerElt basis branches unreachable), makems.sh release gfortran, relink the mex, run tPolElement -k offnormal and -k crossed_null; then restore and rebuild",
       "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_NORMAL": {
+      "text": "0.8164965809",
+      "gate": "non-vacuity -- PRE-fix coated/uncoated transmitted amplitude at normal incidence, index-matched layer",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state (drops the RADIOMETRIC NORMALIZATION block in the coated Refractor branch), makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. model 128, Rx_Refract.in. Exactly 1/sqrt(1.5) -- the index half of the missing factor, with both cosines equal to 1.",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_P": {
+      "text": "0.7311104457",
+      "gate": "non-vacuity -- PRE-fix coated/uncoated transmitted amplitude, p at 45 deg",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. model 128, Rx_Refract45.in. = 1/sqrt(1.5*cos(28.1255deg)/cos(45deg)), i.e. both halves of the factor.",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_S": {
+      "text": "0.7311104457",
+      "gate": "non-vacuity -- PRE-fix coated/uncoated transmitted amplitude, s at 45 deg",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. Bit-identical to the p value, which is the tell: a Fresnel error would separate s from p, a missing COMMON scalar cannot.",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_GRID": {
+      "text": "0.6666666667",
+      "gate": "non-vacuity, grid side -- PRE-fix coated/uncoated integrated detector-plane INTENSITY",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric -k detector_plane; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. model 128, Rx_Refract.in elt 6. Exactly 1/1.5 = the square of the amplitude number: propsub's CPROPAGATE chain inherited the defect, so the image under-reported flux by a third.",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_SUITE": {
+      "text": "6 pass, 7 fail",
+      "gate": "non-vacuity -- tPolRadiometric scored against the pre-fix engine",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. The six that pass are the six that should: the two uncoated-convention gates, the 45-deg fixture's s/p purity check, the fully-coated-plate telescoping identity (invariant under the landing by construction), the polarization-state invariance, and the pol-off gate.",
+      "source": "external"
+    },
+    "X_RAD_CAPTURED": {
+      "text": "2026-07-28",
+      "gate": "capture date of the pre-fix radiometric A/B above",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
       "source": "external"
     },
     "X_POLELT_TWOCHAIN_CAPTURED": {

@@ -704,12 +704,24 @@ here.  mmacos-side facts only:
   **Watch out when reading `ray_field`:** `RayE`/`RayDir` are the CURRENT
   trace state, not a per-element history — `trace(e)` then `ray_field(e)`,
   or you get the state at whatever element you last traced to.
-- **OPEN (found in the same audit)** — coated and uncoated `Refractor`
-  transmission use DIFFERENT amplitude normalizations (the coated branch
-  omits the radiometric `sqrt(n2 cos02/(n1 cos01))` factor): a coated lens
-  under-transmits by ~18% in amplitude vs the same surface uncoated
-  (measured 1/sqrt(1.5) exactly with an index-matched layer).  The coated
-  Refractor branch also has no analytic gate at all.
+- **CLOSED 2026-07-28 (macos `a5e4288`)** — coated and uncoated `Refractor`
+  transmission used DIFFERENT amplitude normalizations (the coated branch
+  omitted the radiometric `sqrt(n2 cos02/(n1 cos01))` factor): a coated lens
+  under-transmitted by ~18% in amplitude vs the same surface uncoated
+  (0.8164965809 = 1/sqrt(1.5) exactly with an index-matched layer; 1/1.5 in
+  INTENSITY at the detector plane).  Fixed by one factor applied ONCE after
+  the Airy recursion; the branch now has `tPolRadiometric` (13 tests,
+  SUITE_FAST) against the Abeles characteristic matrix, on new fixtures
+  `Rx_Refract.in` / `Rx_Refract45.in`.  Binding-side things worth knowing:
+  the 45° fixture tilts the ELEMENT (unlike `Rx_PolElt_Tilt.in`, which
+  tilts the BEAM — a refractor's Fresnel physics depends on the ray-normal
+  angle, which element tilt does change, whereas a straight-through
+  polarizer's does not), and **Macleod's `2*eta0/(eta0*B+C)` is the
+  TANGENTIAL amplitude coefficient**, larger than the ordinary Fresnel
+  `t_p` by `cos_sub/cos_inc` (1.2472 at 45° into n=1.5) — convert before
+  comparing to a measured `E_out/E_in`, or a correct engine looks broken.
+  Engine detail + scope: `macos/macos_f90/CLAUDE.md`; report evidence in
+  `polval/80_radiometric`.
 - **`complex_field(..., 'reset_trace', false)` is bit-identical and ~100×
   faster** for the 2nd/3rd component plane at the same element (0.01 s vs
   0.83 s at model 512) — reading Ex/Ey/Ez costs ONE propagation, not three.
