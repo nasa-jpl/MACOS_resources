@@ -26,8 +26,19 @@ function out = waveplate(srf, opts)
 %   table in macos_f90/CLAUDE.md.
 %
 %   The element is a thin, non-ray-splitting idealization: no o/e walk-off,
-%   no Fresnel loss at the faces, no substrate thickness. It is also the
-%   primitive for bounding stress birefringence in a transmissive optic.
+%   no Fresnel loss at the faces, no substrate thickness. R is also
+%   independent of incidence angle, where a real crystal plate's retardance
+%   is not -- the field-of-view effect that drives compound and Pancharatnam
+%   designs; bounding that needs a birefringent-plate model with o/e indices
+%   and thickness. It is also the primitive for bounding stress
+%   birefringence in a transmissive optic.
+%
+%   The declared axis IS the material (crystal fast) axis, so off normal
+%   incidence it is the vector the engine projects into the ray's
+%   transverse plane -- the settled material-axis rule, which for a
+%   waveplate is simply the declared axis. (For macos.polarizer the
+%   material axis is the absorbing direction instead, so the two elements
+%   project different vectors from the same keyword; see that function.)
 %
 %   Requires macos.polarization('on'). Setting invalidates the cached trace.
 %

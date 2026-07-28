@@ -72,6 +72,7 @@ function run_pol_validation(polvalDir, model)
             V = phase3a_gates(V, MODEL, mediaDir);
             V = spsign_gates(V, MODEL, mediaDir);
             V = polelt_gates(V, MODEL, mediaDir);
+            V = radiometric_gates(V, MODEL);
         case 256
             V = phase2c_exact_gates(V, MODEL, mediaDir);
         case 512
@@ -150,6 +151,35 @@ function lim = gate_limits(model)
         'G56_AB_POL',     '>',   0.5
         'G57_BITWISE',    '==',  1
         'G58_GRID_MALUS', '<',   1e-10
+        'G60_AOI_RESID',  '<',   1e-12
+        'G60_MATAXIS',    '<',   1e-12
+        'G60_VS_PASSAXIS_RESID', '<', 1e-9
+        'G61_DEGEN_SPREAD','<',  1e-15
+        'G61_DEGEN_ENGINE','<',  1e-12
+        'G62_NULL_SEP',   '>',   5
+        'G62_GRID_NULL',  '<',   1e-25
+        'G62_GRID_LEAK',  '>',   1e-3
+        'G62_LEAK_RESID', '<',   1e-6
+        'G71_UNC_NORMAL', '<',   1e-12
+        'G71_UNC_P',      '<',   1e-12
+        'G71_UNC_S',      '<',   1e-12
+        'G71_SP_SPLIT',   '>',   0.08
+        'G72_IDX_NORMAL', '<',   1e-13
+        'G72_IDX_P',      '<',   1e-13
+        'G72_IDX_S',      '<',   1e-13
+        'G72_GRID',       '<',   1e-12
+        'G73_MGF2_NORMAL','<',   1e-12
+        'G73_MGF2_P',     '<',   1e-12
+        'G73_MGF2_S',     '<',   1e-12
+        'G73_MGF2_GAIN',  '>',   0.98
+        'G74_CLOSURE',    '<',   1e-12
+        'G74_TELESCOPE',  '<',   1e-12
+        'G75_STATE',      '<',   1e-11
+        'G75_STATE_SPLIT','>',   0.02
+        'G76_POLOFF',     '==',  1
+        'G77_LAMBDA',     '<',   1e-11
+        'G77_FLATNESS',   '<',   1e-11
+        'G77_CONTRAST',   '>',   0.01
         };
       case 256
         lim = {
@@ -1480,18 +1510,112 @@ function V = polelt_gates(V, ~, mediaDir)
         'detector-plane intensity obeys Malus (grid sees the train)', ...
         'tPolElement/test_grid_carries_the_polarizing_train');
 
-    % ---- reported scope: the off-normal axis-convention ambiguity
+    % ---- the size of the off-normal axis-convention choice, in closed
+    % form (no engine): the two candidate constructions, and the two
+    % azimuths at which they agree no matter which is right.
     V = addval(V, 'G59_AMBIG20', rad2deg(polelt_ambig(deg2rad(20), pi/4)), ...
         '%.2f', 'degrees', ...
-        'off-normal pass-vs-block axis ambiguity at 20 deg AOI, 45 deg azimuth', ...
+        'off-normal pass-vs-material axis difference at 20 deg AOI, 45 deg azimuth', ...
         'tPolElement/test_offnormal_convention_magnitude');
     V = addval(V, 'G59_AMBIG20_INPLANE', ...
         rad2deg(polelt_ambig(deg2rad(20), 0)), '%.3e', 'degrees', ...
-        'the same ambiguity with the axis IN the plane of incidence (vanishes)', ...
+        'the same difference with the axis IN the plane of incidence (vanishes)', ...
         'tPolElement/test_offnormal_convention_magnitude');
 
     fig_polelt(th, I, pred, Rs, S3s, S1s, thw, angu, ...
                fullfile(mediaDir, 'polelt_gates.png'));
+
+    % =================================================================
+    % G6.0-6.2  OFF NORMAL: the settled material-axis rule, driven in
+    % the engine.  Rx_PolElt_Tilt.in tilts the BEAM (a collimated on-axis
+    % bundle does not care whether the ELEMENT is tilted), so the
+    % polarizers see a true 20 deg AOI and the convention is exercised.
+    % =================================================================
+    macos.load_rx(polval_rx('Rx_PolElt_Tilt.in'));
+    TPOL = 2;   TANAL = 3;   TDET = 5;
+    macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    axf = @(p) [cos(p) sin(p) 0];
+    phi = pi/4;
+
+    macos.polarizer(TPOL,  'axis', axf(phi));
+    macos.polarizer(TANAL, 'axis', axf(phi));
+    macos.trace(TPOL);
+    [d, r, n] = polelt_axis_from_field(TPOL);
+
+    % the fixture really is at 20 deg, ray by ray, out of the engine's own
+    % direction cosines and surface normal
+    aoi = rad2deg(acos(abs(sum(r .* n, 1))));
+    V = addval(V, 'G60_AOI_RESID', max(abs(aoi - 20)), '%.1e', 'degrees', ...
+        'measured AOI at the tilted polarizer, residual from 20 deg (all rays)', ...
+        'tPolElement/test_offnormal_transmitted_axis_is_the_material_rule');
+
+    tMat = polelt_material_axis(r(:,1).', n(:,1).', axf(phi));
+    tFS  = polelt_passaxis_axis(r(:,1).', axf(phi));
+    V = addval(V, 'G60_MATAXIS', max(polelt_axis_angle(d, tMat)), ...
+        '%.1e', 'radians', ...
+        'engine transmitted axis vs the MATERIAL-axis closed form, 20 deg AOI / 45 deg azimuth', ...
+        'tPolElement/test_offnormal_transmitted_axis_is_the_material_rule');
+    aFS = rad2deg(polelt_axis_angle(d, tFS));
+    V = addval(V, 'G60_VS_PASSAXIS', mean(aFS), '%.4f', 'degrees', ...
+        'engine transmitted axis vs the REJECTED pass-axis projection -- the full ambiguity', ...
+        'tPolElement/test_offnormal_transmitted_axis_is_the_material_rule');
+    V = addval(V, 'G60_VS_PASSAXIS_RESID', ...
+        max(abs(aFS - rad2deg(polelt_ambig(deg2rad(20), pi/4)))), ...
+        '%.1e', 'degrees', ...
+        'and that miss equals the closed form acos(2cos a/(1+cos^2 a)) to', ...
+        'tPolElement/test_offnormal_transmitted_axis_is_the_material_rule');
+
+    % degenerate azimuths: BOTH constructions, and the engine, coincide --
+    % so a gate written there cannot tell the two rules apart
+    dg = 0;   dgm = 0;
+    macos.polarization('on', 'Ex', [1/sqrt(2) 0], 'Ey', [1/sqrt(2) 0]);
+    for p = [0 pi/2]
+        macos.polarizer(TPOL, 'axis', axf(p));
+        macos.trace(TPOL);
+        [dd, rr, nn] = polelt_axis_from_field(TPOL);
+        tM = polelt_material_axis(rr(:,1).', nn(:,1).', axf(p));
+        tF = polelt_passaxis_axis(rr(:,1).', axf(p));
+        dg  = max(dg,  polelt_axis_angle(tM.', tF));
+        dgm = max([dgm, max(polelt_axis_angle(dd, tM)), ...
+                        max(polelt_axis_angle(dd, tF))]);
+    end
+    V = addval(V, 'G61_DEGEN_SPREAD', dg, '%.1e', 'radians', ...
+        'at azimuth 0 and 90 the two constructions coincide (the vacuity trap)', ...
+        'tPolElement/test_offnormal_degenerate_azimuths_are_blind');
+    V = addval(V, 'G61_DEGEN_ENGINE', dgm, '%.1e', 'radians', ...
+        'and the engine sits on both of them there, so such a gate proves nothing', ...
+        'tPolElement/test_offnormal_degenerate_azimuths_are_blind');
+
+    % the same discrimination on the DETECTOR plane (the second dispatch
+    % chain): the crossed-analyzer null sits at a different azimuth under
+    % each rule, so total intensity alone separates them
+    macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.polarizer(TPOL, 'axis', axf(phi));
+    fM = @(p2) dot(polelt_material_axis(r(:,1).', n(:,1).', axf(p2)), tMat);
+    fF = @(p2) dot(polelt_passaxis_axis(r(:,1).', axf(p2)), tFS);
+    p2m = fzero(fM, [phi+pi/2-0.3, phi+pi/2+0.3]);
+    p2f = fzero(fF, [phi+pi/2-0.3, phi+pi/2+0.3]);
+    Pg = zeros(1,3);   pset = [phi, p2m, p2f];
+    for k = 1:3
+        macos.polarizer(TANAL, 'axis', axf(pset(k)));
+        macos.trace(TDET);
+        Pg(k) = sum(macos.intensity(TDET), 'all');
+    end
+    V = addval(V, 'G62_NULL_SEP', rad2deg(abs(p2m - p2f)), '%.2f', 'degrees', ...
+        'separation of the crossed-analyzer null predicted by the two rules', ...
+        'tPolElement/test_offnormal_grid_crossed_null');
+    V = addval(V, 'G62_GRID_NULL', Pg(2)/Pg(1), '%.1e', 'relative', ...
+        'detector-plane power at the MATERIAL-rule crossed setting (extinguishes)', ...
+        'tPolElement/test_offnormal_grid_crossed_null');
+    V = addval(V, 'G62_GRID_LEAK', Pg(3)/Pg(1), '%.3e', 'relative', ...
+        'detector-plane power at the PASS-axis crossed setting (does not)', ...
+        'tPolElement/test_offnormal_grid_crossed_null');
+    leakPred = cos(polelt_axis_angle( ...
+        polelt_material_axis(r(:,1).', n(:,1).', axf(p2f)).', tMat))^2;
+    V = addval(V, 'G62_LEAK_RESID', abs(Pg(3)/Pg(1) - leakPred)/leakPred, ...
+        '%.1e', 'relative', ...
+        'and that leak is the predicted cos^2 of the residual axis mismatch, to', ...
+        'tPolElement/test_offnormal_grid_crossed_null');
 end
 
 function polelt_configure(p1, w1, w2, an, ap, a1, r1, a2, r2, aa)
@@ -1524,15 +1648,57 @@ end
 
 function dth = polelt_ambig(aoi, az)
 %POLELT_AMBIG  Angle between the two candidate polarizer pass axes off
-%   normal: project the declared PASS axis (what PolElt does) versus
-%   project the declared BLOCK axis and take the complement.
+%   normal: project the declared PASS axis (Fainman and Shamir) versus
+%   project the MATERIAL, absorbing axis and take the complement (Korger
+%   et al., which is what PolElt does).
     r    = [sin(aoi) 0 cos(aoi)];
     pass = [cos(az)  sin(az) 0];
     blok = [-sin(az) cos(az) 0];
     prj  = @(v) (v - dot(v,r)*r) / norm(v - dot(v,r)*r);
     a1 = prj(pass);
     a2 = cross(r, prj(blok));  a2 = a2 / norm(a2);
-    dth = real(acos(min(1, abs(dot(a1, a2)))));
+    dth = polelt_axis_angle(a1(:), a2);
+end
+
+function [d, r, n] = polelt_axis_from_field(srf)
+%POLELT_AXIS_FROM_FIELD  Per-ray transmitted axis of a polarizer, read off
+%   the field, with the geometry taken from the engine (direction cosines
+%   and surface normal), not from the fixture's declared numbers.
+    rf = macos.ray_field(srf);   m = (rf.status == 0);
+    E  = [rf.Ex(m).'; rf.Ey(m).'; rf.Ez(m).'];
+    r  = [rf.kx(m).'; rf.ky(m).'; rf.kz(m).'];
+    n  = [rf.nx(m).'; rf.ny(m).'; rf.nz(m).'];
+    [~, im] = max(abs(E(:,1)));
+    d = real(E ./ E(im,:));
+    d = d ./ vecnorm(d);
+end
+
+function t = polelt_material_axis(r, n, a)
+%POLELT_MATERIAL_AXIS  Transmitted axis under the SETTLED rule: project the
+%   absorbing direction n x a, extinguish it, transmit its partner.
+    r = r / norm(r);
+    w = cross(n, a);
+    b = w - dot(w, r)*r;   b = b / norm(b);
+    t = cross(b, r);       t = t(:).' / norm(t);
+end
+
+function t = polelt_passaxis_axis(r, a)
+%POLELT_PASSAXIS_AXIS  Transmitted axis under the REJECTED construction:
+%   the declared pass axis projected orthographically. Kept as an explicit
+%   non-target.
+    r = r / norm(r);
+    t = a - dot(a, r)*r;   t = t(:).' / norm(t);
+end
+
+function ang = polelt_axis_angle(d, t)
+%POLELT_AXIS_ANGLE  Angle between axis T (1x3) and each column of D (3xN),
+%   sign-insensitive and computed as atan2(|cross|,|dot|) -- an acos of a
+%   near-unit dot product loses half its digits and reports 1e-8 rad for a
+%   residual that is really 1e-16.
+    t  = t(:) / norm(t);
+    ct = abs(sum(d .* t, 1));
+    st = vecnorm(cross(d, repmat(t, 1, size(d,2)), 1));
+    ang = atan2(st, ct);
 end
 
 function fig_polelt(th, I, pred, Rs, S3s, S1s, thw, angu, out)
@@ -1564,6 +1730,261 @@ function fig_polelt(th, I, pred, Rs, S3s, S1s, thw, angu, out)
     legend({'2\theta', 'MACOS'}, 'Location', 'southeast', 'Box', 'off');
 
     savefig_(f, out);
+end
+
+function V = radiometric_gates(V, ~)
+%RADIOMETRIC_GATES  Section 7 -- coated-Refractor transmission radiometry.
+%   Mirrors tPolRadiometric.  The engine numbers come from the two Refract
+%   fixtures; every truth value is the Abeles characteristic-matrix result
+%   computed by radio_T/radio_t below, written from Macleod ch. 2 and not
+%   from elemsub.F.
+    fprintf('polval: coated-Refractor radiometric gates\n');
+    rxN = polval_rx('Rx_Refract.in');    PRE = 2; F1 = 3; F2 = 4; DET = 6;
+    rx45 = polval_rx('Rx_Refract45.in'); PRE45 = 2; F45 = 3;
+    nA = 1.0; nG = 1.5; lam0 = 1.0e-6;
+    nC = 1.38; dC = lam0/(4*nC);          % quarter-wave MgF2 at lam0
+    th45 = pi/4;
+
+    % ---- G7.1 the INCUMBENT convention: uncoated |t|^2 IS the power
+    % transmittance.  Establishes from the textbook what the coated branch
+    % is being brought to, instead of asserting it.
+    macos.load_rx(rxN);  macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    Tn = radio_T2(PRE, F1);
+    V = addval(V, 'G71_UNC_NORMAL', ...
+        abs(Tn/radio_T(nA, [], [], nG, lam0, 0, 's') - 1), '%.3e', 'relative', ...
+        'uncoated transmission is the power transmittance (normal incidence)', ...
+        'tPolRadiometric/test_uncoated_transmission_is_the_power_transmittance');
+
+    [Tp, Ts] = radio_45(rx45, PRE45, F45, []);
+    Tpa = radio_T(nA, [], [], nG, lam0, th45, 'p');
+    Tsa = radio_T(nA, [], [], nG, lam0, th45, 's');
+    V = addval(V, 'G71_UNC_P', abs(Tp/Tpa - 1), '%.3e', 'relative', ...
+        'uncoated p transmittance at 45 deg', ...
+        'tPolRadiometric/test_uncoated_transmission_oblique_s_and_p');
+    V = addval(V, 'G71_UNC_S', abs(Ts/Tsa - 1), '%.3e', 'relative', ...
+        'uncoated s transmittance at 45 deg', ...
+        'tPolRadiometric/test_uncoated_transmission_oblique_s_and_p');
+    V = addval(V, 'G71_SP_SPLIT', abs(Tpa - Tsa), '%.4f', 'absolute', ...
+        'non-vacuity: s and p transmittances are genuinely split at 45 deg', ...
+        'tPolRadiometric/test_uncoated_transmission_oblique_s_and_p');
+
+    % ---- G7.2 an index-matched layer IS a bare interface.  The headline.
+    macos.load_rx(rxN);  macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    Tu = radio_T2(PRE, F1);
+    macos.coating(F1, 'index', nG, 'extinc', 0, 'thickness', 1.0e-7);
+    Tc = radio_T2(PRE, F1);
+    V = addval(V, 'G72_IDX_NORMAL', abs(sqrt(Tc/Tu) - 1), '%.3e', 'relative', ...
+        'index-matched layer reproduces the bare interface (normal incidence)', ...
+        'tPolRadiometric/test_index_matched_layer_equals_bare_interface_normal');
+
+    [Tp, Ts, Tpu, Tsu] = radio_45(rx45, PRE45, F45, {nG, 0, 1.0e-7});
+    V = addval(V, 'G72_IDX_P', abs(sqrt(Tp/Tpu) - 1), '%.3e', 'relative', ...
+        'index-matched layer, p at 45 deg (the cos_sub/cos_inc half of the factor)', ...
+        'tPolRadiometric/test_index_matched_layer_equals_bare_interface_oblique');
+    V = addval(V, 'G72_IDX_S', abs(sqrt(Ts/Tsu) - 1), '%.3e', 'relative', ...
+        'index-matched layer, s at 45 deg', ...
+        'tPolRadiometric/test_index_matched_layer_equals_bare_interface_oblique');
+
+    % ---- and the same claim on the DIFFRACTION GRID (propsub's chain).
+    macos.load_rx(rxN);  macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.trace(DET);  Iu = sum(macos.intensity(DET), 'all');
+    macos.coating(F1, 'index', nG, 'extinc', 0, 'thickness', 1.0e-7);
+    macos.trace(DET);  Ic = sum(macos.intensity(DET), 'all');
+    V = addval(V, 'G72_GRID', abs(Ic/Iu - 1), '%.3e', 'relative', ...
+        'index-matched layer at the detector plane (second dispatch chain)', ...
+        'tPolRadiometric/test_index_matched_layer_at_the_detector_plane');
+
+    % ---- G7.3 a real stack: quarter-wave MgF2 on glass vs the textbook T.
+    macos.load_rx(rxN);  macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.coating(F1, 'index', nC, 'extinc', 0, 'thickness', dC);
+    Tm = radio_T2(PRE, F1);
+    V = addval(V, 'G73_MGF2_NORMAL', ...
+        abs(Tm/radio_T(nA, nC, dC, nG, lam0, 0, 's') - 1), '%.3e', 'relative', ...
+        'MgF2 quarter-wave on glass vs the characteristic-matrix T (normal)', ...
+        'tPolRadiometric/test_mgf2_quarterwave_normal_incidence');
+    V = addval(V, 'G73_MGF2_GAIN', Tm, '%.4f', 'transmittance', ...
+        'non-vacuity: the AR stack really transmits (bare glass is 0.96)', ...
+        'tPolRadiometric/test_mgf2_quarterwave_normal_incidence');
+
+    [Tp, Ts] = radio_45(rx45, PRE45, F45, {nC, 0, dC});
+    V = addval(V, 'G73_MGF2_P', ...
+        abs(Tp/radio_T(nA, nC, dC, nG, lam0, th45, 'p') - 1), '%.3e', 'relative', ...
+        'MgF2 stack, p at 45 deg -- both halves of the factor at once', ...
+        'tPolRadiometric/test_mgf2_quarterwave_45deg_s_and_p');
+    V = addval(V, 'G73_MGF2_S', ...
+        abs(Ts/radio_T(nA, nC, dC, nG, lam0, th45, 's') - 1), '%.3e', 'relative', ...
+        'MgF2 stack, s at 45 deg', ...
+        'tPolRadiometric/test_mgf2_quarterwave_45deg_s_and_p');
+
+    % ---- G7.4 air-to-air closure.  MIXED plate (front coated, back bare):
+    % the both-coated case is invariant under the landing because the two
+    % factors cancel, so it cannot serve as the defect gate -- it is
+    % measured separately, below, as the composition identity it is.
+    macos.load_rx(rxN);  macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.coating(F1, 'index', nC, 'extinc', 0, 'thickness', dC);
+    Ttot = radio_T2(PRE, F2);
+    T1 = radio_T(nA, nC, dC, nG, lam0, 0, 's');
+    T2 = radio_T(nG, [], [], nA, lam0, 0, 's');
+    V = addval(V, 'G74_CLOSURE', abs(Ttot/(T1*T2) - 1), '%.3e', 'relative', ...
+        'air-to-air power closure, coated front face + bare back face', ...
+        'tPolRadiometric/test_air_to_air_power_closure_mixed_plate');
+
+    macos.load_rx(rxN);  macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.coating(F1, 'index', nC, 'extinc', 0, 'thickness', dC);
+    macos.coating(F2, 'index', nC, 'extinc', 0, 'thickness', dC);
+    amp = sqrt(radio_T2(PRE, F2));
+    t1 = radio_t(nA, nC, dC, nG, lam0, 0, 's');
+    t2 = radio_t(nG, nC, dC, nA, lam0, 0, 's');
+    V = addval(V, 'G74_TELESCOPE', abs(amp/abs(t1*t2) - 1), '%.3e', 'relative', ...
+        'fully coated plate: the two radiometric factors cancel air-to-air', ...
+        'tPolRadiometric/test_air_to_air_factors_telescope');
+
+    % ---- G7.5 what the landing did NOT move: a common real scalar cancels
+    % in t_p/t_s, so the transmitted polarization STATE is untouched.
+    macos.load_rx(rx45);
+    macos.polarization('on', 'Ex', [1/sqrt(2) 0], 'Ey', [1/sqrt(2) 0]);
+    macos.coating(F45, 'index', nC, 'extinc', 0, 'thickness', dC);
+    g = radio_geom(PRE45, F45);
+    sh = cross(g.ihat, g.nhat, 2);  sh = sh ./ vecnorm(sh, 2, 2);
+    pih = cross(sh, g.ihat, 2);     prh = cross(sh, g.rhat, 2);
+    rat = abs((sum(g.Eout.*prh,2)./sum(g.Ein.*pih,2)) ./ ...
+              (sum(g.Eout.*sh, 2)./sum(g.Ein.*sh, 2)));
+    tp = radio_t(nA, nC, dC, nG, lam0, th45, 'p');
+    ts = radio_t(nA, nC, dC, nG, lam0, th45, 's');
+    V = addval(V, 'G75_STATE', abs(median(rat)/abs(tp/ts) - 1), '%.3e', 'relative', ...
+        'transmitted p/s ratio equals the factor-FREE Fresnel ratio', ...
+        'tPolRadiometric/test_scalar_factor_leaves_the_polarization_state_alone');
+    V = addval(V, 'G75_STATE_SPLIT', abs(abs(tp/ts) - 1), '%.4f', 'absolute', ...
+        'non-vacuity: that ratio is not 1', ...
+        'tPolRadiometric/test_scalar_factor_leaves_the_polarization_state_alone');
+
+    % ---- G7.6 the factor lives inside ifPol.
+    macos.load_rx(rxN);  macos.polarization('off');
+    macos.trace(DET);  Wu = macos.opd();  Iu = macos.intensity(DET);
+    macos.coating(F1, 'index', nC, 'extinc', 0, 'thickness', dC);
+    macos.coating(F2, 'index', nC, 'extinc', 0, 'thickness', dC);
+    macos.trace(DET);  Wc = macos.opd();  Ic = macos.intensity(DET);
+    V = addval(V, 'G76_POLOFF', double(isequal(Wu,Wc) && isequal(Iu,Ic)), ...
+        '%d', 'bool', 'polarization-off is bit-identical with and without a coating', ...
+        'tPolRadiometric/test_pol_off_is_untouched_by_the_coating');
+
+    % ---- G7.7 a wavelength sweep: a real scalar cannot have created,
+    % shifted or flattened the quarter-wave interference structure.
+    lam = [0.6 0.8 1.0 1.2 1.5] * 1e-6;
+    macos.load_rx(rxN);  macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+    macos.coating(F1, 'index', nC, 'extinc', 0, 'thickness', dC);
+    Te = zeros(size(lam));  Ta = zeros(size(lam));
+    for i = 1:numel(lam)
+        macos.set_src_wvl(lam(i));
+        Te(i) = radio_T2(PRE, F1);
+        Ta(i) = radio_T(nA, nC, dC, nG, lam(i), 0, 's');
+    end
+    macos.set_src_wvl(lam0);
+    V = addval(V, 'G77_LAMBDA', max(abs(Te./Ta - 1)), '%.3e', 'relative', ...
+        'T(lambda) tracks the characteristic-matrix T across the sweep', ...
+        'tPolRadiometric/test_quarterwave_structure_survives_the_scalar_factor');
+    r = Te ./ Ta;
+    V = addval(V, 'G77_FLATNESS', max(r) - min(r), '%.3e', 'relative', ...
+        'engine/analytic ratio is wavelength-INDEPENDENT, as a real scalar must be', ...
+        'tPolRadiometric/test_quarterwave_structure_survives_the_scalar_factor');
+    V = addval(V, 'G77_CONTRAST', max(Ta) - min(Ta), '%.4f', 'transmittance', ...
+        'non-vacuity: there IS quarter-wave structure to preserve', ...
+        'tPolRadiometric/test_quarterwave_structure_survives_the_scalar_factor');
+end
+
+function T = radio_T2(iPre, iFace)
+%RADIO_T2  Engine power transmittance |E_face|^2/|E_pre|^2 between stations.
+%   Formed against the MEASURED incident field at iPre, never an assumed
+%   source amplitude (the IFO slice-1 finding-2 rule).  macos.ray_field
+%   returns the CURRENT RayE -- iElt selects only the surface normal -- so
+%   each station gets its own trace.
+    macos.trace(iPre);   a = macos.ray_field(iPre);
+    macos.trace(iFace);  b = macos.ray_field(iFace);
+    m  = (a.status == 0) & (b.status == 0);
+    Aa = sqrt(abs(a.Ex(m)).^2 + abs(a.Ey(m)).^2 + abs(a.Ez(m)).^2);
+    Ab = sqrt(abs(b.Ex(m)).^2 + abs(b.Ey(m)).^2 + abs(b.Ez(m)).^2);
+    T  = median(Ab ./ Aa).^2;
+end
+
+function g = radio_geom(iPre, iFace)
+%RADIO_GEOM  Fields at both stations plus the geometry, read from the engine.
+    macos.trace(iPre);   a = macos.ray_field(iPre);
+    macos.trace(iFace);  b = macos.ray_field(iFace);
+    m = (a.status == 0) & (b.status == 0);
+    g.ihat = [a.kx(m) a.ky(m) a.kz(m)];
+    g.rhat = [b.kx(m) b.ky(m) b.kz(m)];
+    g.nhat = [b.nx(m) b.ny(m) b.nz(m)];
+    g.Ein  = [a.Ex(m) a.Ey(m) a.Ez(m)];
+    g.Eout = [b.Ex(m) b.Ey(m) b.Ez(m)];
+end
+
+function [Tp, Ts, Tpu, Tsu] = radio_45(rx45, iPre, iFace, coat)
+%RADIO_45  p and s transmittance on the 45-degree fixture, optionally with a
+%   coating; also returns the UNCOATED pair measured in the same run so a
+%   caller can form the coated/uncoated ratio without a second load.
+%   On that fixture x^ is exactly p_i^ and y^ exactly s^ -- see its header.
+    Tpu = 0; Tsu = 0;
+    for k = 1:2
+        macos.load_rx(rx45);
+        if k == 1, macos.polarization('on', 'Ex', [1 0], 'Ey', [0 0]);
+        else,      macos.polarization('on', 'Ex', [0 0], 'Ey', [1 0]);
+        end
+        Tu = radio_T2(iPre, iFace);
+        if isempty(coat)
+            Tc = Tu;
+        else
+            macos.coating(iFace, 'index', coat{1}, 'extinc', coat{2}, ...
+                                 'thickness', coat{3});
+            Tc = radio_T2(iPre, iFace);
+        end
+        if k == 1, Tp = Tc; Tpu = Tu; else, Ts = Tc; Tsu = Tu; end
+    end
+end
+
+function T = radio_T(n0, nL, dL, nsub, lambda, theta0, pol)
+%RADIO_T  Abeles characteristic-matrix POWER transmittance of a stack.
+%   Macleod, "Thin-Film Optical Filters", ch. 2 (= Born & Wolf 1.6.4),
+%   typed from the tilted-admittance definitions -- NOT transcribed from
+%   elemsub.F, which would make the check circular in exactly the quantity
+%   it exists to test (the lesson of REVIEW_POL_SP_SIGN_2026-07-27.md).
+%   Zero layers -> the identity matrix -> the bare Fresnel interface.
+    [B, C, e0, es] = radio_charmat(n0, nL, dL, nsub, lambda, theta0, pol);
+    T = 4*e0*real(es) / abs(e0*B + C)^2;
+end
+
+function t = radio_t(n0, nL, dL, nsub, lambda, theta0, pol)
+%RADIO_T  Composed FIELD amplitude coefficient, ORDINARY Fresnel sense.
+%   Macleod's 2*eta0/(eta0*B+C) is the TANGENTIAL coefficient; for p the
+%   tangential component is E*cos(theta), so it exceeds the ordinary t_p by
+%   cos(theta_sub)/cos(theta_inc) -- 1.2472 at 45 deg into n=1.5, i.e. the
+%   size of a plausible radiometric error, so it must be converted, not
+%   waved off.  (T is unaffected either way.)
+    [B, C, e0, ~] = radio_charmat(n0, nL, dL, nsub, lambda, theta0, pol);
+    t = 2*e0 / (e0*B + C);
+    if strcmp(pol, 'p')
+        s0 = n0*sin(theta0);
+        t = t * sqrt(1 - (s0/n0)^2) / sqrt(1 - (s0/nsub)^2);
+    end
+end
+
+function [B, C, e0, es] = radio_charmat(n0, nL, dL, nsub, lambda, theta0, pol)
+    nL = nL(:).';  dL = dL(:).';
+    s0 = n0*sin(theta0);                          % Snell invariant
+    et = @(n) radio_eta(n, s0, pol);
+    e0 = et(n0);  es = et(nsub);
+    M = eye(2);
+    for j = 1:numel(nL)                           % OUTERMOST layer first
+        cj  = sqrt(1 - (s0/nL(j))^2);
+        dlt = 2*pi*nL(j)*dL(j)*cj/lambda;
+        ej  = et(nL(j));
+        M   = M * [cos(dlt), 1i*sin(dlt)/ej; 1i*ej*sin(dlt), cos(dlt)];
+    end
+    BC = M * [1; es];  B = BC(1);  C = BC(2);
+end
+
+function e = radio_eta(n, s0, pol)
+    c = sqrt(1 - (s0/n)^2);
+    if strcmp(pol, 's'), e = n*c; else, e = n/c; end
 end
 
 function p = polval_rx(name)
