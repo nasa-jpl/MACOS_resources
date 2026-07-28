@@ -704,12 +704,24 @@ here.  mmacos-side facts only:
   **Watch out when reading `ray_field`:** `RayE`/`RayDir` are the CURRENT
   trace state, not a per-element history — `trace(e)` then `ray_field(e)`,
   or you get the state at whatever element you last traced to.
-- **OPEN (found in the same audit)** — coated and uncoated `Refractor`
-  transmission use DIFFERENT amplitude normalizations (the coated branch
-  omits the radiometric `sqrt(n2 cos02/(n1 cos01))` factor): a coated lens
-  under-transmits by ~18% in amplitude vs the same surface uncoated
-  (measured 1/sqrt(1.5) exactly with an index-matched layer).  The coated
-  Refractor branch also has no analytic gate at all.
+- **CLOSED 2026-07-28 (macos `a5e4288`)** — coated and uncoated `Refractor`
+  transmission used DIFFERENT amplitude normalizations (the coated branch
+  omitted the radiometric `sqrt(n2 cos02/(n1 cos01))` factor): a coated lens
+  under-transmitted by ~18% in amplitude vs the same surface uncoated
+  (0.8164965809 = 1/sqrt(1.5) exactly with an index-matched layer; 1/1.5 in
+  INTENSITY at the detector plane).  Fixed by one factor applied ONCE after
+  the Airy recursion; the branch now has `tPolRadiometric` (13 tests,
+  SUITE_FAST) against the Abeles characteristic matrix, on new fixtures
+  `Rx_Refract.in` / `Rx_Refract45.in`.  Binding-side things worth knowing:
+  the 45° fixture tilts the ELEMENT (unlike `Rx_PolElt_Tilt.in`, which
+  tilts the BEAM — a refractor's Fresnel physics depends on the ray-normal
+  angle, which element tilt does change, whereas a straight-through
+  polarizer's does not), and **Macleod's `2*eta0/(eta0*B+C)` is the
+  TANGENTIAL amplitude coefficient**, larger than the ordinary Fresnel
+  `t_p` by `cos_sub/cos_inc` (1.2472 at 45° into n=1.5) — convert before
+  comparing to a measured `E_out/E_in`, or a correct engine looks broken.
+  Engine detail + scope: `macos/macos_f90/CLAUDE.md`; report evidence in
+  `polval/80_radiometric`.
 - **`complex_field(..., 'reset_trace', false)` is bit-identical and ~100×
   faster** for the 2nd/3rd component plane at the same element (0.01 s vs
   0.83 s at model 512) — reading Ex/Ey/Ez costs ONE propagation, not three.
@@ -759,7 +771,26 @@ here.  mmacos-side facts only:
   (4) Element order in the fixture is load-bearing: all four polarizing
   elements precede the single physical-optics leg, or the Tranche-1 seed
   would miss them.
-  (5) Tests: `tPolElement` (23, SUITE_FAST).
+  (5) Tests: `tPolElement` (27, SUITE_FAST).
+  (6) **The off-normal axis convention is SETTLED (2026-07-27): project the
+  MATERIAL axis.**  For a waveplate that IS the declared (fast) axis; for a
+  polarizer it is the ABSORBING direction `psi x PolAxis`, projected into
+  the ray's transverse plane, extinguished, with its orthogonal partner
+  transmitted.  `PolAxis=` still declares the pass axis.  The alternative
+  (project the pass axis) is Fainman & Shamir's model and was what shipped
+  first; Korger et al., *Opt. Express* **21**, 27032 (2013) Eq. (5)–(6)
+  measured that a real tilted polarizer follows the material-axis one.
+  Three mmacos-side facts: normal incidence is **bit-identical** across the
+  flip (`test_normal_incidence_unchanged_by_the_material_flip` pins the
+  pre-flip values literally); a polarizer's declared axis is now taken
+  modulo its component along the element normal, and an axis parallel to
+  the normal extinguishes; and the gates live on a THIRD fixture,
+  `tests/Rx/Rx_PolElt_Tilt.in`, which tilts the **beam** — tilting the
+  element does nothing to a collimated on-axis bundle, which is why the
+  original packet could only measure the ambiguity in MATLAB.  Section F
+  gates both dispatch chains, the grid side via the crossed-analyzer null,
+  which sits 7.11° apart under the two rules (9.1e-33 vs 1.53e-2 of
+  relative detector power).  Evidence: polval §6.7.
 - **polval driver is now split per model size** (2026-07-27): 128 / 256 / 512,
   one `matlab -batch` each (the `macos_init_all()` heap bug), each writing
   `generated/parts/numbers_<size>.json`, merged by `merge_numbers.py`.  Adding

@@ -20,14 +20,19 @@ classdef tPolElement < matlab.unittest.TestCase
 %   circular Stokes parameter, which flips if the retardance convention
 %   flips; test_qwp_circular_to_linear runs a circular state in.
 %
-%   SCOPE. The fixture is at strict normal incidence. That is not
-%   laziness: off normal, an ideal polarizer carries an unresolved O(sin^2
-%   AOI) convention question (declared PASS axis projected, versus declared
-%   BLOCK axis projected and complemented), which is written up in
-%   REVIEW_POL_ELEMENTS_2026-07-27.md and referred to the Fable lane rather
-%   than guessed.  test_offnormal_convention_magnitude MEASURES that
-%   ambiguity so the packet carries a number, and is explicitly a scope
-%   report, not a correctness claim.
+%   TWO FIXTURES. Rx_PolElt.in is at strict normal incidence, where the
+%   Jones identities above are clean of geometry. Rx_PolElt_Tilt.in drives
+%   the beam at 20 degrees to the polarizers' normal, which is the only
+%   regime where the off-normal axis convention is exercised at all: an
+%   ideal polarizer's declared axis has to be projected into the plane
+%   transverse to the ray, and projection does not preserve orthogonality,
+%   so projecting the declared PASS axis is a different operation from
+%   projecting the MATERIAL (absorbing) axis and transmitting the
+%   complement. The rule is SETTLED as the material-axis (dipole) one --
+%   the direction fixed in the substance of the element, adjudicated
+%   experimentally for a tilted dichroic polarizer by Korger et al., Opt.
+%   Express 21, 27032 (2013) -- and section F gates the engine against it
+%   on BOTH dispatch chains.
 
     properties (Constant)
         ModelSize = 128
@@ -38,6 +43,12 @@ classdef tPolElement < matlab.unittest.TestCase
         WP2       = 4    % WavePlate (defaults to zero retardance = identity)
         Anal      = 5    % TrPolarizer -- analyzer
         Det       = 7    % FocalPlane
+
+        RxTiltName = 'Rx_PolElt_Tilt.in'
+        TiltAOI    = 20  % degrees, beam to polarizer normal, by construction
+        TPol       = 2   % TrPolarizer at TiltAOI
+        TAnal      = 3   % TrPolarizer at TiltAOI
+        TDet       = 5   % FocalPlane
     end
 
     methods (TestClassSetup)
@@ -85,6 +96,29 @@ classdef tPolElement < matlab.unittest.TestCase
         function polOn(~, ex, ey)
             macos.polarization('on', 'Ex', [real(ex) imag(ex)], ...
                                      'Ey', [real(ey) imag(ey)]);
+        end
+
+        function [d, r, n, amp] = transmittedAxis(~, srf)
+            % Per-ray transmitted axis of a polarizer, read off the FIELD.
+            % The output of an ideal polarizer is t_hat times a complex
+            % scalar, so the direction is the normalized real part of E
+            % after dividing out any one nonzero component.
+            %
+            % The geometry comes from the ENGINE too -- ray direction
+            % cosines and the surface normal out of rayfield_get -- so
+            % nothing here assumes the fixture's declared numbers or any
+            % mapping from pupil grid to ray. Same discipline as the
+            % odd-mirror PEC gate in tPolarization.
+            rf = macos.ray_field(srf);
+            m  = (rf.status == 0);
+            E  = [rf.Ex(m).'; rf.Ey(m).'; rf.Ez(m).'];
+            r  = [rf.kx(m).'; rf.ky(m).'; rf.kz(m).'];
+            nn = [rf.nx(m).'; rf.ny(m).'; rf.nz(m).'];
+            n  = nn(:,1);
+            amp = vecnorm(abs(E));
+            [~, im] = max(abs(E(:,1)));
+            d = real(E ./ E(im,:));
+            d = d ./ vecnorm(d);
         end
     end
 
@@ -573,22 +607,22 @@ classdef tPolElement < matlab.unittest.TestCase
         end
 
         function test_offnormal_convention_magnitude(testCase)
-            % SCOPE REPORT, NOT A CORRECTNESS CLAIM.
+            % THE SIZE OF WHAT THE CONVENTION DECIDES, in closed form.
+            % The engine-driven gates in section F assert that MACOS
+            % follows the material-axis rule; this one says how much that
+            % choice is worth, and where it is worth nothing.
             %
-            % Off normal incidence an ideal polarizer is ambiguous at
-            % O(sin^2 AOI): declaring the PASS axis and projecting it (what
-            % PolElt does) is not the same as declaring the BLOCK axis,
-            % projecting THAT, and transmitting the complement, because
-            % orthographic projection does not preserve orthogonality.
-            %
-            % This test computes both constructions for the fixture's ray
-            % bundle at a deliberately large tilt and records the
-            % difference, so the packet carries a number rather than a
-            % worry. It asserts only (a) that at normal incidence the
-            % ambiguity is identically zero -- which is why every physics
-            % gate above is safe -- and (b) that the off-normal difference
-            % has the O(sin^2) size the argument predicts, so nobody later
-            % mistakes it for a bug or for a bigger effect than it is.
+            % Off normal the two constructions differ at O(sin^2 AOI):
+            % declaring the PASS axis and projecting it is not the same as
+            % declaring the BLOCK axis, projecting THAT, and transmitting
+            % the complement, because orthographic projection does not
+            % preserve orthogonality. Both are computed here from geometry
+            % alone -- no engine, so section F has an independent
+            % reference. It asserts (a) that at normal incidence the
+            % ambiguity is identically zero, which is why every physics
+            % gate above is untouched by the rule, and (b) that off normal
+            % it has the O(sin^2) size the argument predicts, so nobody
+            % later mistakes it for a bug or for a bigger effect than it is.
             % ambiguity(aoi, azimuth) -- angle between the two candidate
             % pass axes, in radians
             amb = @(aoi, az) local_axis_ambiguity(aoi, az);
@@ -620,6 +654,204 @@ classdef tPolElement < matlab.unittest.TestCase
             testCase.verifyEqual(rad2deg(amb(deg2rad(20), pi/4)), 3.562, ...
                                  'AbsTol', 0.005);
         end
+
+        % =============================================================
+        % F. Off normal: the material-axis rule, driven in the engine
+        % =============================================================
+
+        function test_offnormal_transmitted_axis_is_the_material_rule(testCase)
+            % THE A/B GATE. Off normal the engine has to choose which of
+            % the element's two in-plane directions gets projected into
+            % the transverse plane, and the settled rule is the MATERIAL
+            % one: for a polarizer that is the ABSORBING direction, the
+            % in-element complement psi x a_pass of the declared axis.
+            % Project it, extinguish it, transmit its partner.
+            %
+            % Both candidate axes are constructed here from the geometry
+            % and the textbook, not from the engine. The engine's answer
+            % must land on the material one and must MISS the pass-axis
+            % one by the closed form acos(2cos a/(1+cos^2 a)) -- 3.5616
+            % degrees at a = 20 -- so the gate cannot be satisfied by
+            % either construction accidentally.
+            macos.load_rx(rx_fixture_path(testCase.RxTiltName));
+            testCase.polOn(1, 0);
+            phi = pi/4;                      % azimuth from the plane of
+            ax  = [cos(phi) sin(phi) 0];     % incidence: the worst case
+            macos.polarizer(testCase.TPol, 'axis', ax);
+            macos.trace(testCase.TPol);
+            [d, r, n, amp] = testCase.transmittedAxis(testCase.TPol);
+
+            % The fixture is doing what its header claims: a collimated
+            % bundle at exactly TiltAOI to the element normal, so the
+            % closed form applies RAY BY RAY and not just on average.
+            aoi = rad2deg(acos(abs(sum(r .* n, 1))));
+            testCase.verifyEqual(aoi, repmat(testCase.TiltAOI, size(aoi)), ...
+                                 'AbsTol', 1e-12);
+            testCase.verifyLessThan(max(vecnorm(r - r(:,1))), 1e-15);
+            testCase.verifyGreaterThan(min(amp), 1e-6);   % not a null
+
+            tMat = local_material_axis(r(:,1).', n(:).', ax);
+            tA   = local_passaxis_axis(r(:,1).', n(:).', ax);
+
+            % (1) the engine IS the material-axis rule, ray by ray
+            aMat = local_axis_angle(d, tMat);
+            testCase.verifyLessThan(max(aMat), 1e-12);
+
+            % (2) and is NOT the pass-axis projection -- by exactly the
+            %     predicted amount, which is the part that makes (1) a
+            %     measurement rather than a coincidence
+            pred = acos(2*cos(deg2rad(testCase.TiltAOI)) / ...
+                        (1 + cos(deg2rad(testCase.TiltAOI))^2));
+            aA = local_axis_angle(d, tA);
+            testCase.verifyEqual(rad2deg(aA), ...
+                                 repmat(rad2deg(pred), size(aA)), ...
+                                 'AbsTol', 1e-9);
+            testCase.verifyEqual(rad2deg(pred), 3.5616, 'AbsTol', 1e-4);
+
+            % (3) the two constructions really are the two constructions:
+            %     they disagree by that same angle
+            testCase.verifyEqual(local_axis_angle(tMat.', tA), pred, ...
+                                 'AbsTol', 1e-12);
+        end
+
+        function test_offnormal_degenerate_azimuths_are_blind(testCase)
+            % VACUITY GUARD, and the reason the gate above uses 45 degrees
+            % of azimuth. The ambiguity vanishes identically when the
+            % declared axis lies IN the plane of incidence or PERPENDICULAR
+            % to it, so a gate written at either azimuth passes under BOTH
+            % rules and proves nothing -- which is exactly the trap the
+            % first version of the MATLAB-side gate fell into.
+            %
+            % Measured here, in the engine, at the same 20 degrees of
+            % incidence: both constructions coincide, and the engine sits
+            % on both of them, with a healthy transmitted field (a 45
+            % degree input state, so neither azimuth is starved).
+            macos.load_rx(rx_fixture_path(testCase.RxTiltName));
+            testCase.polOn(1/sqrt(2), 1/sqrt(2));
+            for phi = [0 pi/2]
+                ax = [cos(phi) sin(phi) 0];
+                macos.polarizer(testCase.TPol, 'axis', ax);
+                macos.trace(testCase.TPol);
+                [d, r, n, amp] = testCase.transmittedAxis(testCase.TPol);
+                tMat = local_material_axis(r(:,1).', n(:).', ax);
+                tA   = local_passaxis_axis(r(:,1).', n(:).', ax);
+
+                testCase.verifyGreaterThan(min(amp), 1e-6);
+                testCase.verifyLessThan(local_axis_angle(tMat.', tA), 1e-15);
+                testCase.verifyLessThan(max(local_axis_angle(d, tMat)), 1e-12);
+                testCase.verifyLessThan(max(local_axis_angle(d, tA)),   1e-12);
+            end
+        end
+
+        function test_offnormal_grid_crossed_null(testCase)
+            % THE SECOND DISPATCH CHAIN, off normal. propsub's CPROPAGATE
+            % re-traces the seed rays through its own EltID chain, so a
+            % change to PolElt's basis has to be gated on the DETECTOR
+            % plane as well as on the rays -- the dual-chain finding of
+            % REVIEW_POL_ELEMENTS_2026-07-27.md, where crossed polarizers
+            % gave 3.6e-33 of ray power and a full detector plane.
+            %
+            % The discriminator is the crossed-analyzer null. Off normal
+            % the analyzer azimuth that extinguishes is a DIFFERENT number
+            % under the two rules (131.445 vs 138.555 degrees here), so
+            % pointing the engine at each in turn separates them with
+            % total intensity alone -- no assumption about the component
+            % planes' frame enters.
+            macos.load_rx(rx_fixture_path(testCase.RxTiltName));
+            testCase.polOn(1, 0);
+            axf = @(p) [cos(p) sin(p) 0];
+            p1  = pi/4;
+
+            % geometry from a probe trace, so the nulls are solved against
+            % the engine's own ray direction and normal
+            macos.polarizer(testCase.TPol,  'axis', axf(p1));
+            macos.polarizer(testCase.TAnal, 'axis', axf(p1));
+            macos.trace(testCase.TPol);
+            [~, r, n, ~] = testCase.transmittedAxis(testCase.TPol);
+            r = r(:,1).';  n = n(:).';
+
+            % the crossed setting under each rule, found from the closed
+            % forms alone
+            fMat = @(p2) dot(local_material_axis(r, n, axf(p2)), ...
+                             local_material_axis(r, n, axf(p1)));
+            fA   = @(p2) dot(local_passaxis_axis(r, n, axf(p2)), ...
+                             local_passaxis_axis(r, n, axf(p1)));
+            p2m = fzero(fMat, [p1+pi/2-0.3, p1+pi/2+0.3]);
+            p2a = fzero(fA,   [p1+pi/2-0.3, p1+pi/2+0.3]);
+            testCase.verifyGreaterThan(abs(rad2deg(p2m - p2a)), 5);
+
+            P = zeros(1,3);
+            ps = [p1, p2m, p2a];
+            for k = 1:3
+                macos.polarizer(testCase.TAnal, 'axis', axf(ps(k)));
+                macos.trace(testCase.TDet);
+                P(k) = sum(macos.intensity(testCase.TDet), 'all');
+            end
+
+            % (1) the material-rule setting extinguishes on the GRID
+            testCase.verifyGreaterThan(P(1), 1e-3);
+            testCase.verifyLessThan(P(2)/P(1), 1e-25);
+
+            % (2) the pass-axis setting does not -- and the leak is the
+            %     predicted cos^2 of the residual axis mismatch, so this
+            %     is a number rather than a "greater than zero"
+            leak = cos(local_axis_angle( ...
+                       local_material_axis(r, n, axf(p2a)).', ...
+                       local_material_axis(r, n, axf(p1))))^2;
+            testCase.verifyEqual(P(3)/P(1), leak, 'RelTol', 1e-6);
+            testCase.verifyGreaterThan(P(3)/P(1), 1e-3);
+        end
+
+        function test_normal_incidence_unchanged_by_the_material_flip(testCase)
+            % The material-axis rule reduces to the pass-axis projection at
+            % normal incidence EXACTLY, not approximately: the partner axis
+            % is completed by a cross product with the ray direction, which
+            % returns the declared axis to the last bit (up to an overall
+            % sign a projector cannot see). PolElt is written to keep that
+            % true -- there is deliberately no redundant DUNITIZE on the
+            % transmitted axis, since normalizing an already-unit vector
+            % would perturb it by an ULP.
+            %
+            % The reference values below were captured from the PRE-FLIP
+            % engine (macos 52c7669, pass-axis projection) and are asserted
+            % BIT-for-bit, so this gate would fail on any change to the
+            % normal-incidence basis construction, including a change that
+            % is merely a rounding difference.
+            macos.load_rx(rx_fixture_path(testCase.RxName));
+            ax = @(t) [cos(t) sin(t) 0];
+            macos.polarization('on', 'Ex', [1/sqrt(3) 0], 'Ey', [0.4 0.6]);
+            macos.polarizer(testCase.Pol1, 'axis', ax(0.37));
+            macos.waveplate(testCase.WP1, 'axis', ax(0.2),  'retardance', 0.31);
+            macos.waveplate(testCase.WP2, 'axis', ax(-0.9), 'retardance', 0.13);
+            macos.polarizer(testCase.Anal, 'axis', ax(1.1));
+            macos.trace(testCase.Anal);
+            [Ex, Ey, Ez] = testCase.fieldAt(testCase.Anal);
+
+            testCase.verifyEqual(numel(Ex), 12453);
+            ref = complex(0.0013237489818033752, -0.0015839368906731888);
+            testCase.verifyEqual(Ex, repmat(ref, size(Ex)));       % bitwise
+            ref = complex(0.002600848595771252, -0.0031120553024225508);
+            testCase.verifyEqual(Ey, repmat(ref, size(Ey)));       % bitwise
+            testCase.verifyEqual(Ez, zeros(size(Ez)));
+            testCase.verifyEqual(sum(abs(Ex).^2 + abs(Ey).^2 + abs(Ez).^2), ...
+                                 0.25790747125301317);
+
+            % and the same on the GRID side -- a Malus curve at the
+            % detector, bit-for-bit against the pre-flip engine
+            testCase.polOn(1, 0);
+            testCase.configure(0, 0, 0, 0, 0, 0);
+            I = zeros(1,4);
+            th = [0 pi/6 pi/3 0.37];
+            for k = 1:4
+                macos.polarizer(testCase.Anal, 'axis', ax(th(k)));
+                macos.trace(testCase.Det);
+                I(k) = sum(macos.intensity(testCase.Det), 'all');
+            end
+            testCase.verifyEqual(I, [0.96918048097128195, ...
+                                     0.72688536072846333, ...
+                                     0.24229512024282066, ...
+                                     0.84244489695149771]);       % bitwise
+        end
     end
 end
 
@@ -630,15 +862,55 @@ end
 function dth = local_axis_ambiguity(aoi, az)
 %LOCAL_AXIS_AMBIGUITY  Angle between the two candidate polarizer pass axes.
 %   Ray tilted by AOI in the x-z plane; the element's declared in-plane
-%   axis pair is (pass, block) rotated by AZ about z. Construction 1 (what
-%   PolElt does) projects the PASS axis into the transverse plane.
-%   Construction 2 projects the BLOCK axis and takes the complement. They
-%   agree only where projection happens to preserve orthogonality.
+%   axis pair is (pass, block) rotated by AZ about z. Construction 1
+%   projects the declared PASS axis into the transverse plane.
+%   Construction 2 -- the settled MATERIAL-axis rule, which is what PolElt
+%   does -- projects the BLOCK (absorbing) axis and takes the complement.
+%   They agree only where projection happens to preserve orthogonality.
 r    = [sin(aoi) 0 cos(aoi)];
 pass = [cos(az)  sin(az) 0];
 blok = [-sin(az) cos(az) 0];
 proj = @(v) (v - dot(v,r)*r) / norm(v - dot(v,r)*r);
 a1 = proj(pass);
 a2 = cross(r, proj(blok));  a2 = a2 / norm(a2);
-dth = real(acos(min(1, abs(dot(a1, a2)))));
+dth = local_axis_angle(a1(:), a2);
+end
+
+function t = local_material_axis(r, n, a)
+%LOCAL_MATERIAL_AXIS  Transmitted axis under the SETTLED rule.
+%   R ray direction, N element normal, A the declared PASS axis (all
+%   1x3). The material (absorbing) direction is the in-element complement
+%   N x A; project THAT into the plane transverse to R, extinguish it, and
+%   transmit its orthogonal partner. Written from the rule, not from the
+%   engine.
+r = r / norm(r);
+w = cross(n, a);
+b = w - dot(w, r)*r;   b = b / norm(b);
+t = cross(b, r);       t = t / norm(t);
+t = t(:).';
+end
+
+function t = local_passaxis_axis(r, n, a)   %#ok<INUSL>
+%LOCAL_PASSAXIS_AXIS  Transmitted axis under the REJECTED construction.
+%   The declared pass axis projected orthographically into the transverse
+%   plane. Kept, and used as an explicit non-target, so the gate on the
+%   settled rule cannot pass by accident. N is unused -- deliberately: it
+%   is the element's material orientation, and this construction is the
+%   one that ignores it. Taking it as an argument anyway keeps the two
+%   constructions call-compatible at the site that compares them.
+r = r / norm(r);
+t = a - dot(a, r)*r;   t = t / norm(t);
+t = t(:).';
+end
+
+function ang = local_axis_angle(d, t)
+%LOCAL_AXIS_ANGLE  Angle between axis T (1x3) and each column of D (3xN).
+%   Sign-insensitive (these are axes, not vectors) and computed as
+%   atan2(|cross|, |dot|), which stays accurate near zero where a plain
+%   acos of a near-unit dot product loses half its digits -- an acos here
+%   reports 1e-8 rad for a residual that is really 1e-16.
+t  = t(:) / norm(t);
+ct = abs(sum(d .* t, 1));
+st = vecnorm(cross(d, repmat(t, 1, size(d,2)), 1));
+ang = atan2(st, ct);
 end
