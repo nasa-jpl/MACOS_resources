@@ -79,6 +79,16 @@ classdef Bench < handle
 %                                       'side').  See method help.
 %     add_reference(dist, name)         passive Reference plane marker
 %                                       (e.g. a focal-mask site).
+%     add_polarizer(dist, axis)         ideal linear polarizer (TrPolarizer);
+%                                       AXIS = transmission axis (3-vector).
+%                                       Transmissive + geometrically inert;
+%                                       use in a collimated normal-incidence
+%                                       leg.  Requires ifPol.
+%     add_waveplate(dist, axis, R)      linear retarder (WavePlate); AXIS =
+%                                       fast axis, R = retardance in WAVES at
+%                                       the bench Wavelen (0.25 QWP / 0.5 HWP).
+%                                       A double-passed plate is TWO WavePlate
+%                                       elements sharing one global fast axis.
 %     add_detector(dist, name)          FocalPlane (last element).
 %
 %   Output / inspection:
@@ -560,6 +570,65 @@ methods
     end
 
     % -----------------------------------------------------------------
+    function i = add_polarizer(b, dist, axis, opts)
+        %ADD_POLARIZER  Ideal linear polarizer (TrPolarizer element).
+        %   add_polarizer(DIST, AXIS) places a TrPolarizer a distance DIST
+        %   along the current chief ray.  AXIS is the TRANSMISSION axis as a
+        %   3-vector in global coordinates (need not be unit; the engine
+        %   projects it into each ray's transverse plane).  Transmissive and
+        %   geometrically inert (RefSrf geometry) -- the chief passes
+        %   straight through, so it belongs in a COLLIMATED, NORMAL-INCIDENCE
+        %   leg (psi = the current chief direction), where the off-normal
+        %   material-axis question is identically absent (packet
+        %   REVIEW_POL_ELEMENTS_2026-07-27.md).  Requires ifPol; the .in
+        %   default axis is what emit() writes (the harness may override at
+        %   runtime with macos.polarizer).
+        arguments
+            b
+            dist (1,1) double {mustBePositive}
+            axis (:,1) double
+            opts.name (1,:) char = 'Polarizer'
+        end
+        assert(numel(axis) == 3 && norm(axis) > 0, ...
+            'Bench.add_polarizer: axis must be a non-zero 3-vector.');
+        P = b.step(dist);
+        e = b.blank(opts.name, 'TrPolarizer');
+        e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
+        e.polaxis = axis(:) / norm(axis);
+        i = b.push(e);
+    end
+
+    % -----------------------------------------------------------------
+    function i = add_waveplate(b, dist, axis, retardance, opts)
+        %ADD_WAVEPLATE  Linear retarder (WavePlate element).
+        %   add_waveplate(DIST, AXIS, R) places a WavePlate a distance DIST
+        %   along the chief.  AXIS is the FAST axis (3-vector, global).  R is
+        %   the retardance in WAVES at the bench Wavelen (0.25 = quarter-wave,
+        %   0.5 = half-wave) -- emit() writes Retardance= in waves and the
+        %   parser scales by Wavelen on load, so the plate is fixed glass and
+        %   a wavelength sweep is chromatic (same treatment as Coating=).
+        %   Transmissive and geometrically inert; belongs in a collimated
+        %   normal-incidence leg.  A double-passed physical plate is TWO
+        %   WavePlate elements (one each side of the retro) sharing this axis,
+        %   the same way the compensator is add_bs_transmit'd twice.
+        arguments
+            b
+            dist (1,1) double {mustBePositive}
+            axis (:,1) double
+            retardance (1,1) double
+            opts.name (1,:) char = 'WavePlate'
+        end
+        assert(numel(axis) == 3 && norm(axis) > 0, ...
+            'Bench.add_waveplate: axis must be a non-zero 3-vector.');
+        P = b.step(dist);
+        e = b.blank(opts.name, 'WavePlate');
+        e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
+        e.polaxis = axis(:) / norm(axis);
+        e.retard = retardance;
+        i = b.push(e);
+    end
+
+    % -----------------------------------------------------------------
     function i = add_detector(b, dist, name)
         %ADD_DETECTOR  FocalPlane (terminal element).
         arguments
@@ -611,6 +680,15 @@ methods
             ln{end+1} = sprintf('           psiElt=  %s', F(e.psi));
             ln{end+1} = sprintf('           VptElt=  %s', F(e.vpt));
             ln{end+1} = sprintf('           RptElt=  %s', F(e.rpt));
+            % pol-element keywords (ChkDf2 REQUIRES PolAxis= on both types and
+            % Retardance= on WavePlate, or the load is rejected) -- written in
+            % waves at the bench Wavelen, matching the Rx_PolElt fixture order
+            if strcmp(e.element, 'TrPolarizer') || strcmp(e.element, 'WavePlate')
+                ln{end+1} = sprintf('          PolAxis=  %s', F(e.polaxis));
+            end
+            if strcmp(e.element, 'WavePlate')
+                ln{end+1} = sprintf('       Retardance=  %.10E', e.retard);
+            end
             ln{end+1} = sprintf('           IndRef=  %.6E', e.indref);
             ln{end+1} = sprintf('           Extinc=  %.6E', e.extinc);
             ln{end+1} =         '            nCoat=  0';
@@ -759,6 +837,7 @@ methods (Access = private)
             'rpt', [NaN;NaN;NaN], ...   % NaN = same as vpt (resolved in push)
             'indref', 1.0, 'extinc', 0.0, 'aptype', 'None', 'aprad', 0, ...
             'gridfile', '', 'gridn', 0, 'griddx', 0, ...
+            'polaxis', [1;0;0], 'retard', 0.0, ...   % pol-element fields (TrPolarizer/WavePlate)
             'zelt', 1e22, 's', b.path_len);
     end
 

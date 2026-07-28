@@ -48,12 +48,49 @@ cd ~/dev/macos          && git push    # pol-core -> origin (slice-2 packet)
 ```
 Both repos committed this session; NO PUSH until reviewed.
 
-## SLICE 3 — NEXT (polarizing-PSI variant)
+## SLICE 3 — DONE (polarizing phase-shifting variant)
 
-Ideal polarizer/waveplate (the shipped `PolElt`, elt types 15/18) in the
-collimated normal-incidence legs + comparison against the slice-1/2
-baseline. This is where the PSI pupil-variation (score 2) is designed to
-grow above round-off.
+**Landed this session (2026-07-28); HOLDING FOR REVIEW, then push.** Packet:
+`~/dev/macos/REVIEW_POL_IFO_SLICE3_2026-07-28.md`.
+
+- **Builder (general):** `Bench.add_polarizer(dist,axis)` + `add_waveplate(
+  dist,axis,R)` + emit (`PolAxis=`/`Retardance=`, ChkDf2-required) + `blank`
+  fields. The reusable emitters the Phase-3 pol packet flagged as the IFO
+  prerequisite.
+- **Builder (rig):** `twyman_green` `polarizing` (default false, BIT-IDENTICAL
+  off) inserts input polarizer @45 (both arms) → coated BS → double-passed QWP
+  each arm (net half-wave) → recomb → output QWP → rotating analyzer. All pol
+  elements in COLLIMATED NORMAL-INCIDENCE legs.
+- **Config:** rotating-analyzer polarization PSI. Orthogonal-circular arms →
+  I(θ)=A+Bcos2θ+Csin2θ (projector has NO higher harmonic → four-step at
+  θ=0/45/90/135 is CLOSED-FORM EXACT). de Groot/bench_ifo_dm PSI is the
+  processing reference, run on ray-level Jones (Tranche-1).
+- **Gates:** A null — 4-step vs LS 2θ fit **1.8e-16 rad** (bare+coated);
+  incremental OPD-change recovery 0.40 nm (rig-aberration-limited, reported).
+  B non-vacuity — injected output-QWP retardance error → textbook **2ω
+  (twice-fringe) ripple**, amp→ε²/4 at large ε (small-ε ε·δ_rig cross-term
+  reported). C pol-off bit-identity vs Reference-twin **0.000 mm** both arms.
+- **Three scores:** V=0.99155; PSI pupil-variation (coating-driven) **2.38
+  nm**; clearance 40.91 mm (45° fold).
+- **Error budget (the comparison):** arm-QWP retardance tightest (~344
+  nm/wave), then chromaticity (~8 nm/10%Δλ), then axis errors (~5 nm/deg
+  arm-QWP); analyzer azimuth = common-mode piston (~0). **KEY FINDING:** the
+  coated-BS arm retardance is negligible piston in slice-2 scalar IFO (2.3e-6
+  nm) but ALIASES to 2.38 nm OPD-dependent phase error in the polarization
+  PSI (~10⁶×). **Conclusion (measured):** PZT stepping wins unless a moving
+  mirror is unacceptable; then the pol PSI needs <0.01 wave / <0.1° waveplate
+  control. Comparison section COMPLETE (not partial).
+- **tBench 7/7** (+2 tests: emitter physics, polarizing-rig bit-identity +
+  Reference-twin); tBench added to SUITE_FAST; **fast 297/0**.
+- **Slice-2 riders delivered** in `REVIEW_POL_IFO_SLICE2` (fringe-contrast
+  budget @45/17.5° + s/p-lit assumption paragraph).
+
+### PUSH when Dave clears
+```
+cd ~/dev/MACOS_resources && git push   # pol-ifo -> origin
+cd ~/dev/macos          && git push    # pol-core -> origin (slice-2/3 packets)
+```
+Both repos committed this session; NO PUSH until reviewed.
 
 ## Known traps
 
