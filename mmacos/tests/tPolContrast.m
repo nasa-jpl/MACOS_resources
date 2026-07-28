@@ -56,6 +56,11 @@ classdef tPolContrast < matlab.unittest.TestCase
 
     methods (TestClassSetup)
         function setupClass(testCase)
+            % oc_ladder (the chromatic overcoat ladder) lives with its
+            % report driver in tools/, same arrangement as tPolExternal's
+            % vh_* helpers.
+            here = fileparts(mfilename('fullpath'));
+            addpath(fullfile(here, '..', 'tools', 'pol_overcoat_chromatic'));
             macos.init(testCase.ModelSize);
         end
     end
@@ -247,6 +252,114 @@ classdef tPolContrast < matlab.unittest.TestCase
             % every sweep point on this fixture still carries the full train
             testCase.verifyTrue(o.sweep(1).scope.full_chain);
             testCase.verifyTrue(o.sweep(2).scope.full_chain);
+        end
+
+        function test_overcoat_trade_reverses_across_the_quarter_wave_condition(testCase)
+            % The COMPANION to test_coating_sensitivity above, and the gate
+            % that makes the corrected design rule a measurement.
+            %
+            % REVIEW_POL_EXTERNAL_2026-07-28.md found that the 110 nm MgF2
+            % film this class applies is 0.607 quarter-waves at the
+            % fixture's own 1 um -- not the 0.96 that its "quarter wave at
+            % 632.8 nm" comment describes -- and that the overcoat
+            % polarization trade REVERSES across the quarter-wave
+            % condition.  Fable's ruling: the gated fixture does not move
+            % (27.898 / 151.31 above stay exactly as they are), and the
+            % corrected physics gets gated numbers on BOTH sides via a
+            % companion run at 632.8 nm applied with macos.set_src_wvl at
+            % RUNTIME.  Nothing on disk changes.
+            %
+            % This is a real measurement and not a unit conversion because
+            % macos.coating takes PHYSICAL thickness and the engine divides
+            % by the CURRENT Wavelen when it applies the layer phase: a
+            % film is fixed glass under a wavelength change and its optical
+            % thickness moves.  The 'achromatic' control at the bottom is
+            % what proves that is the mechanism.
+            %
+            % Measured 2026-07-28, model 256, x-polarized, both mirrors
+            % coated, cross-polarized TOTAL POWER (not an annulus mean -- a
+            % fixed pixel annulus subtends a different lambda/D range at the
+            % two wavelengths and would mix in the diffraction scale):
+            %
+            %   run                       QW frac   MgF2/bare   trueQW/bare
+            %   1 um (the fixture)         0.6072      5.2707     5.3207e-2
+            %   632.8 nm (companion)       0.9595      0.2035     5.3207e-2
+            %   632.8 nm, achromatic ctl   0.6072      5.2707     5.3207e-2
+            %
+            % See mmacos/tools/pol_overcoat_chromatic/ and polval section 8.3.
+            r = oc_ladder([], false);      % engine already init'd at 256
+
+            % --- the wavelength override actually took ---------------------
+            testCase.verifyEqual(r.at1000.wvl_readback, 1.0e-6, 'RelTol', 1e-12);
+            testCase.verifyEqual(r.at633.wvl_readback, 632.8e-9, 'RelTol', 1e-12);
+            testCase.verifyEqual(r.at633.qw_frac, 0.9595, 'RelTol', 1e-3, ...
+                'the 110 nm film is 0.96 quarter-waves at 632.8 nm');
+            testCase.verifyEqual(r.at1000.qw_frac, 0.6072, 'RelTol', 1e-3, ...
+                'the same film is 0.607 quarter-waves at 1 um');
+
+            % --- the 1 um side reproduces the RECORDED ladder --------------
+            % Same harness, same numbers as test_coating_sensitivity: this
+            % is what makes the companion run comparable rather than a
+            % separate measurement that happens to be nearby.
+            testCase.verifyEqual(r.at1000.d_cross_rel(1), 27.898, 'RelTol', 0.02);
+            testCase.verifyEqual(r.at1000.d_cross_rel(2), 151.31, 'RelTol', 0.02);
+
+            % --- THE REVERSAL ----------------------------------------------
+            testCase.verifyGreaterThan(r.at1000.ratio_mgf2, 1, ...
+                'at 1 um the 0.607-QW film must COST cross-polarized power');
+            testCase.verifyLessThan(r.at633.ratio_mgf2, 1, ...
+                'at 632.8 nm the same film must SUPPRESS it');
+            % regression pins.  RelTol 0.02 is this class''s existing
+            % convention for coating numbers (the 27.898 / 151.31 above):
+            % loose enough to survive a BLAS/compiler reshuffle, far tighter
+            % than the factor-26 effect being gated.
+            testCase.verifyEqual(r.at1000.ratio_mgf2, 5.2707, 'RelTol', 0.02);
+            testCase.verifyEqual(r.at633.ratio_mgf2,  0.20351, 'RelTol', 0.02);
+            testCase.verifyEqual(r.reversal, 25.899, 'RelTol', 0.02);
+
+            % --- a TRUE quarter wave suppresses, at either wavelength ------
+            % lambda/(4*1.38) is 181.2 nm at 1 um and 114.6 nm at 632.8 nm --
+            % different glass, same optical thickness -- so the two must
+            % agree to round-off.  That identity is exact by construction
+            % (the coating coefficients depend on lambda only through n*d/lambda
+            % and the indices are held fixed), so it is pinned at 1e-6 rather
+            % than at the 2% measurement tolerance.  Measured 1.9e-8.
+            testCase.verifyLessThan(r.at1000.ratio_qw, 0.1, ...
+                'a true quarter-wave overcoat must SUPPRESS the floor');
+            testCase.verifyEqual(r.at1000.ratio_qw, 0.053207, 'RelTol', 0.02);
+            testCase.verifyEqual(r.at633.ratio_qw, r.at1000.ratio_qw, ...
+                'RelTol', 1e-6, ...
+                'the quarter-wave condition must be wavelength-invariant');
+
+            % --- NON-VACUITY: no reversal without chromatic thickness ------
+            % 69.6 nm at 632.8 nm has the SAME optical thickness in waves
+            % that 110 nm has at 1 um -- what a thickness pinned in waves
+            % (an achromatic film) would have given at the companion
+            % wavelength.  It must land back on the 1 um answer, and the
+            % gate above must therefore fail if the engine were achromatic.
+            testCase.verifyGreaterThan(r.achromatic.ratio_mgf2, 1, ...
+                'an achromatic film shows NO reversal -- the gate is not vacuous');
+            testCase.verifyEqual(r.achromatic.ratio_mgf2, r.at1000.ratio_mgf2, ...
+                'RelTol', 1e-6, ...
+                'same optical thickness must give the same ratio at any lambda');
+
+            % --- and the metal-only leg does not move with lambda ----------
+            % No film, fixed indices: bare Al over uncoated must be
+            % wavelength-independent.  This localizes the whole reversal in
+            % the film''s optical thickness rather than in anything else the
+            % wavelength change touches.  Measured 1.3e-8.
+            testCase.verifyEqual(r.at633.al_over_bare, r.at1000.al_over_bare, ...
+                'RelTol', 1e-6);
+            testCase.verifyEqual(r.at633.cross_over_co, r.at1000.cross_over_co, ...
+                'RelTol', 1e-9, ...
+                'the uncoated geometric floor is a ray-geometry effect, not a chromatic one');
+
+            % every point still carries the whole train
+            testCase.verifyTrue(r.at1000.full_chain);
+            testCase.verifyTrue(r.at633.full_chain);
+            testCase.verifyTrue(r.achromatic.full_chain);
+
+            tPolContrast.loadCass();     % restore the fixture's own Wavelen
         end
 
         function test_sweep_rejects_mismatched_element_sets(testCase)
