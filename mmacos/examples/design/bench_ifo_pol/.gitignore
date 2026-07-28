@@ -6,3 +6,8 @@ s2_test_[0-9][0-9].in
 s2_ref_[0-9][0-9].in
 # engine stdout log
 fort.6
+# slice-3 emitted rigs + Reference-twins (regenerable from the harness)
+s3_test.in
+s3_ref.in
+s3_test_twin.in
+s3_ref_twin.in

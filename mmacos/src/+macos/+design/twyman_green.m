@@ -88,6 +88,32 @@ arguments
     opts.L2_SEP (1,1) double = 25        % powered-surface separation
     opts.L2A_Kc (1,1) double = NaN       % conics (NaN = add_lens seed -n^2)
     opts.L2B_Kc (1,1) double = NaN
+    % ---- polarizing phase-shifting variant (slice 3) --------------------
+    % When 'polarizing' is true the builder inserts real TrPolarizer /
+    % WavePlate elements to make a ROTATING-ANALYZER polarization PSI:
+    %   input polarizer (both arms) -> [BS] -> a double-passed QWP in each
+    %   arm (net half-wave, rotating that arm's linear state) -> [recomb] ->
+    %   output QWP -> rotating analyzer -> detector.
+    % The two arms leave orthogonally polarized; the output QWP maps them to
+    % orthogonal circular, so an analyzer at angle t imposes a fringe phase
+    % 2t -- stepping t = 0/45/90/135 deg is a four-step PSI with NO moving
+    % PZT.  Every pol element sits in a COLLIMATED, NORMAL-INCIDENCE leg
+    % (psi = chief), where the material-axis convention is identically
+    % absent.  Axes are given as ANGLES (deg) in each leg's LOCAL transverse
+    % plane (perp(dir), cross(dir,perp)) so "45 deg" is fold-correct.  The
+    % analyzer axis is a default; the harness steps it at runtime.  DEFAULT
+    % false emits BIT-IDENTICALLY to the non-polarizing rig (all insertions
+    % gated, and each steals its standoff from the following leg so the BS,
+    % test-optic, PZT and pupil conjugates are unmoved).
+    opts.polarizing (1,1) logical = false
+    opts.pol_in_deg   (1,1) double = 45     % input polarizer, both arms
+    opts.qwp_test_deg (1,1) double = 0      % test-arm QWP fast axis
+    opts.qwp_ref_deg  (1,1) double = 45     % ref-arm QWP fast axis
+    opts.out_qwp_deg  (1,1) double = 0      % output QWP fast axis (shared leg)
+    opts.analyzer_deg (1,1) double = 0      % analyzer default (stepped at run)
+    opts.qwp_ret      (1,1) double = 0.25   % nominal QWP retardance (waves)
+    opts.D_QWP        (1,1) double = 25     % arm-QWP standoff from the retro
+    opts.D_POL        (1,1) double = 10     % input-polarizer / output-leg standoff
 end
 P = opts;
 
@@ -104,12 +130,32 @@ end
 
 % ---- test arm -------------------------------------------------------
 bt = front_end(P, 'ifo_test');
-[~, bs] = bt.add_bs_reflect(P.D_L1_BS, bs_out, 'thickness',P.BS_T, 'n',P.N_GLASS);
+% input polarizer in the collimated pre-BS leg (slice-3 variant); it steals
+% its standoff from the L1->BS leg so the BS stays put (bit-identical off)
+if P.polarizing
+    bt.add_polarizer(P.D_POL, ax_local(bt.dir, P.pol_in_deg), 'name','PolIn');
+    d_l1_bs = P.D_L1_BS - P.D_POL;
+else
+    d_l1_bs = P.D_L1_BS;
+end
+[~, bs] = bt.add_bs_reflect(d_l1_bs, bs_out, 'thickness',P.BS_T, 'n',P.N_GLASS);
 cmp = bt.plate(P.D_BS_CMP, bs.psi, 'thickness',P.BS_T, 'n',P.N_GLASS, 'name','Comp');
 bt.add_bs_transmit(cmp, 'tag','d');
-T.iTO = bt.add_mirror(P.D_BS_TO - P.D_BS_CMP - P.BS_T, 'name','TestOptic', ...
+leg_to = P.D_BS_TO - P.D_BS_CMP - P.BS_T;
+if P.polarizing
+    % double-passed QWP: SAME global fast axis both passes -> net half-wave,
+    % rotating this arm's linear state.  The forward pass steals D_QWP from
+    % the retro leg; the return pass rides the geometry-absolute comp transit.
+    qa_t = ax_local(bt.dir, P.qwp_test_deg);
+    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestIn');
+    leg_to = leg_to - P.D_QWP;
+end
+T.iTO = bt.add_mirror(leg_to, 'name','TestOptic', ...
     'aprad',P.R_TO_AP, 'Kr',P.to_Kr, 'grid_file',P.to_grid_file, ...
     'grid_n',P.to_grid_n, 'grid_dx',P.to_grid_dx);
+if P.polarizing
+    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestOut');
+end
 bt.add_bs_transmit(cmp, 'tag','u');
 bt.add_bs_transmit(bs, 'tag','o');
 T.iRC = bt.add_reference(P.D_RECOMB, 'Recomb');
@@ -117,8 +163,20 @@ T.iRC = bt.add_reference(P.D_RECOMB, 'Recomb');
 
 % ---- reference arm --------------------------------------------------
 br = front_end(P, 'ifo_ref');
+if P.polarizing
+    br.add_polarizer(P.D_POL, ax_local(br.dir, P.pol_in_deg), 'name','PolIn');
+end
 br.add_bs_transmit(bs, 'tag','f');
-R.iPZT = br.add_mirror(P.D_BS_TO, 'name','PZT');
+leg_pzt = P.D_BS_TO;
+if P.polarizing
+    qa_r = ax_local(br.dir, P.qwp_ref_deg);
+    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefIn');
+    leg_pzt = leg_pzt - P.D_QWP;
+end
+R.iPZT = br.add_mirror(leg_pzt, 'name','PZT');
+if P.polarizing
+    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefOut');
+end
 br.add_bs_reflect_return(bs);
 d_rc = dot(bt.E(T.iRC).vpt - br.pos, br.dir);
 assert(d_rc > 0, 'twyman_green: recomb plane behind the reference return');
@@ -145,9 +203,20 @@ function [ix, det_leg] = tail(b, P, ix, conj_elt, det_leg)
 %   the detector sits at the thin-lens pupil image of CONJ_ELT (plus
 %   P.DET_TRIM, a knob for nulling the DM-tilt lever the thin-lens seed
 %   leaves -- ~4.6 mm on the baseline singlet).
+% Slice-3 output leg (both arms, before L2, collimated): output QWP then
+% rotating analyzer.  They steal 2*D_POL from the Recomb->L2 leg so L2 and
+% the pupil conjugate stay put.  ix.iOutQWP / ix.iAnalyzer are exposed.
+d_rc_l2 = P.D_RC_L2;
+if P.polarizing
+    ix.iOutQWP   = b.add_waveplate(P.D_POL, ax_local(b.dir, P.out_qwp_deg), ...
+                                   P.qwp_ret, 'name','OutQWP');
+    ix.iAnalyzer = b.add_polarizer(P.D_POL, ax_local(b.dir, P.analyzer_deg), ...
+                                   'name','Analyzer');
+    d_rc_l2 = P.D_RC_L2 - 2*P.D_POL;
+end
 switch P.tail_arch
 case 'singlet'                     % original architecture (default)
-    L2 = b.add_lens(P.D_RC_L2, P.F2, P.D_LENS, 'mode','focus', ...
+    L2 = b.add_lens(d_rc_l2, P.F2, P.D_LENS, 'mode','focus', ...
                     'n',P.N_GLASS, 'name','L2');
     b.E(L2.i_pow).Kr = P.L2_Kr;  b.E(L2.i_pow).Kc = P.L2_Kc;
     ix.iMASK = b.add_reference(P.F2 - L2.thickness + P.MASK_TRIM, 'FocalMask');
@@ -159,7 +228,7 @@ case 'singlet'                     % original architecture (default)
     ix.iDET = b.add_detector(det_leg, 'Detector');
 
 case 'fieldlens'                   % C1: field lens just behind the mask
-    L2 = b.add_lens(P.D_RC_L2, P.F2, P.D_LENS, 'mode','focus', ...
+    L2 = b.add_lens(d_rc_l2, P.F2, P.D_LENS, 'mode','focus', ...
                     'n',P.N_GLASS, 'name','L2');
     b.E(L2.i_pow).Kr = P.L2_Kr;  b.E(L2.i_pow).Kc = P.L2_Kc;
     ix.iMASK = b.add_reference(P.F2 - L2.thickness + P.MASK_TRIM, 'FocalMask');
@@ -179,7 +248,7 @@ case 'fieldlens'                   % C1: field lens just behind the mask
 case 'doublet'                     % C2: L2 as two air-spaced singlets
     aA = {'mode','focus', 'n',P.N_GLASS, 'name','L2A'};
     if ~isnan(P.L2A_Kc), aA = [aA {'Kc', P.L2A_Kc}]; end
-    A = b.add_lens(P.D_RC_L2, P.L2A_F, P.D_LENS, aA{:});
+    A = b.add_lens(d_rc_l2, P.L2A_F, P.D_LENS, aA{:});
     aB = {'mode','focus', 'n',P.N_GLASS, 'name','L2B'};
     if ~isnan(P.L2B_Kc), aB = [aB {'Kc', P.L2B_Kc}]; end
     gap = P.L2_SEP - A.thickness;
@@ -201,4 +270,17 @@ case 'doublet'                     % C2: L2 as two air-spaced singlets
     end
     ix.iDET = b.add_detector(det_leg, 'Detector');
 end
+end
+
+% ---------------------------------------------------------------------
+function a = ax_local(dir, deg)
+%AX_LOCAL  A polarization axis at DEG (from the local x) in the transverse
+%   plane of a beam travelling along DIR.  The local basis is
+%   (u1, u2) = (perp(dir), cross(dir, perp(dir))), the SAME right-handed
+%   transverse frame the Bench emitter uses for xObs, so "45 deg" means the
+%   same physical direction in every folded leg.  Returned as a global
+%   3-vector already in the transverse plane (exactly normal-incidence).
+    u1 = macos.design.Bench.perp(dir(:));
+    u2 = cross(dir(:), u1);
+    a  = cosd(deg)*u1 + sind(deg)*u2;
 end
