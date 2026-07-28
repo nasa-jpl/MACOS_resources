@@ -1,83 +1,71 @@
-# IFO Polarization Slice 1 — CURRENT STATE (2026-07-27, post-rewrite)
+# IFO Polarization — CURRENT STATE (2026-07-27)
 
 **Branch:** `pol-ifo` (MACOS_resources), off `bench-builder`, merged `ifo-l2` + `pol-core`
-**Engine:** macos `pol-core`, built gfortran @ `build_release_gfortran` (DONE this session)
-**mmacos mex:** rebuilt this session (`unset FC && make`)
+**Engine:** macos `pol-core`, built gfortran @ `build_release_gfortran`
+**mmacos mex:** `src/mmacos.mexmaca64` (rebuild with `unset FC && make` if the engine changes)
 
 ---
 
-## IMPORTANT: the pre-compaction harness was WRONG and has been REWRITTEN
+## SLICE 1 — DONE (Twyman-Green, coated BS, ray-level Jones)
 
-The first-pass `example_bench_ifo_pol.m` (before this session) was structurally
-broken — do NOT restore it:
-- fabricated a 9-output `ray_field` signature (real one returns a STRUCT
-  `.Ex .Ey .Ez .kx .ky .kz .nx .ny .nz .status`)
-- hand-rolled a `local-sp` s/p decomposition (pol_maps documents it as
-  artifact-prone) instead of using the gated `jones_pupil`/`pol_maps` layer
-- used a scalar per-component ratio `E_test./E_ref` instead of the 2×2
-  matrix arm-differential `M = J_test · inv(J_ref)`
-- Gate 1 assumed NORMAL incidence; the BS is at 45° AOI
+Committed + pushed (`5a65c43` + `cafc53c`). Polarization-honest TG at the
+canonical 45° fold: arm-differential D=0.0721 / retardance=0.0835 rad,
+verified against a full-train textbook Fresnel closed form to all digits;
+PSI pupil variation at round-off; two gates green. Packet:
+`~/dev/macos/REVIEW_POL_IFO_SLICE1_2026-07-27.md`. Harness:
+`example_bench_ifo_pol.m`.
 
-The Bench coating-passthrough (`coating_idx/ext/thk` on add_mirror/add_bs_reflect
-and `coating_bs` on twyman_green) was also REMOVED — it applied `macos.coating`
-during in-memory bench construction, before the Rx exists in the engine
-(`push` only appends to `b.E`; the engine sees nothing until `.emit()`+`load_rx`).
-Coatings are now applied AFTER `load_rx` in the example.  Bench.m /
-twyman_green.m are back to their pre-slice state (verify with `git diff`).
+## SLICE 2 — DONE (BS-AOI vs mechanical-clearance trade)
 
-## Current harness design (CORRECT approach)
+**Landed this session; HOLDING FOR REVIEW, then push.** Packet:
+`~/dev/macos/REVIEW_POL_IFO_SLICE2_2026-07-27.md`.
 
-`example_bench_ifo_pol.m`:
-1. Build uncoated TG, emit both arm .in files.
-2. Coated-face element indices from the in-memory bench:
-   test arm `BSrefl` (external air→Al reflect, elt 4),
-   ref arm `BScrefr` (internal glass→Al reflect, elt 8) — DIFFERENT Jones.
-3. **Gate 1** — single-surface 45° bare-Fresnel analytic on the test-arm BS
-   reflection, mirroring `tests/tJonesPupil.m:test_fold_fresnel_analytic`
-   (textbook Born&Wolf r_s/r_p, non-circular in the r_p sign).
-4. Arm Jones pupils at recombination via `jones_pupil` (double-pole basis);
-   ref arm forced into the test arm's exit basis (`'axis'`,`'xref'`).
-   Differential `M = J_test·inv(J_ref)` → `pol_maps` → D / retardance.
-5. PSI phase-error contribution = pupil variation of co-pol fringe phase.
-6. **Gate 2** — pol-off bit-identity: coating inert with pol OFF (<1e-12 mm OPD).
+- **Builder:** `twyman_green.m` gains `BS_AOI` (deg, default 45). Fold turn
+  = 180−2·AOI; 45° pinned to the exact `[0;-1;0]` literal → default rig
+  BIT-IDENTICAL (verified both arms). Compensator + substrate + return
+  faces track the BS normal automatically (shared `bs` token).
+- **Harness:** `example_bench_ifo_pol_slice2.m`. Sweeps AOI 45→15° (13
+  points), re-emits per angle, trace-clean check (100% rays kept
+  throughout), per-angle coated Fresnel Gate 1 (≤1.1e-14).
+- **Curve gate:** engine mean D/ret vs full-train closed form
+  (external-reflect × net-transit-pair vs transit-pair × internal-reflect,
+  Δtp=1). All 13 points pass at relD ≤ 3e-13. **Non-vacuity:** drop the
+  transit pair (Δtp=0) → misses D by 358% → fails the gate. Confirmed.
+- **Three scores:** (1) fringe visibility V=sqrt((1+sqrt(1−D²)cos ret)/2),
+  cost 1.5e-3 (45°) → 1e-5 (15°); (2) PSI pupil-variation stays round-off
+  (6e-7…2e-6 nm) — a result, collimated common-path; (3) beam-envelope
+  clearance (ray_hist, MIN_SEP style) 43.6 mm (45°) → 3.5 mm (15°),
+  closest node = compensator return face.
+- **Knee: AOI 17.5°** at the 10 mm clearance floor, visibility cost
+  1.9e-5 (~78× better than 45°). Figure
+  `bench_ifo_pol_slice2_trade.png`; data `bench_ifo_pol_slice2_results.mat`.
+- **tBench 5/5** green (only builder consumer touched).
 
-## STATUS: BOTH GATES GREEN, PACKET WRITTEN, HOLDING FOR REVIEW
+### PUSH when Dave clears (per session rule 5 / slice-1 protocol)
+```
+cd ~/dev/MACOS_resources && git push   # pol-ifo -> origin
+cd ~/dev/macos          && git push    # pol-core -> origin (slice-2 packet)
+```
+Both repos committed this session; NO PUSH until reviewed.
 
-- **Gate 1 PASS** — RS/RP magnitude resid 1.13e-14, phase resid 2.97e-14
-  (< 1e-12).  The L1-diattenuation diagnosis was correct: fixed by using
-  the measured field INCIDENT on the BS (`ray_field(iBS-1)` from a
-  separate trace) as the reference input.
-- **Gate 2 PASS** — pol-off OPD bit-identity, 0.000e+00 mm both arms.
-- **Result:** arm-differential D mean 7.21e-2 / retardance 8.35e-2 rad;
-  pupil VARIATION 2–4e-8 (round-off, collimated common-path); PSI phase
-  error 2.3e-6 nm RMS @ 632.8 nm.
-- **Packet:** `~/dev/macos/REVIEW_POL_IFO_SLICE1_2026-07-27.md` written.
-- **Two findings in the packet:** (1) the Bench builder stamps `Extinc=1e22`
-  on transmitting Refractors = opaque glass under ifPol (invisible on the
-  scalar path; fixed in-example, Bench.m policy = Dave's call); (2) Gate 1
-  must use the field incident on the BS, not the source launch state.
+## SLICE 3 — NEXT (polarizing-PSI variant)
 
-## NEXT STEP (resume here)
-
-- **HOLD FOR DAVE'S REVIEW before push** (he asked; first pass was wrong).
-  When cleared: `cd ~/dev/MACOS_resources`, add the example dir + the macos
-  packet, commit, `git push -u origin pol-ifo`.  Slices 2 (BS AOI trade) +
-  3 (polarizing PSI) after review.
-
-## Files touched (this branch)
-
-- `mmacos/examples/design/bench_ifo_pol/example_bench_ifo_pol.m` — REWRITTEN harness
-- `mmacos/examples/design/bench_ifo_pol/CURRENT_SLICE.md` — this file
-- `mmacos/src/+macos/+design/Bench.m` — coating passthrough REMOVED (back to baseline)
-- `mmacos/src/+macos/+design/twyman_green.m` — coating_bs REMOVED (back to baseline)
+Ideal polarizer/waveplate (the shipped `PolElt`, elt types 15/18) in the
+collimated normal-incidence legs + comparison against the slice-1/2
+baseline. This is where the PSI pupil-variation (score 2) is designed to
+grow above round-off.
 
 ## Known traps
 
-- **Mac FC env:** shell has `FC=gfortran-16`; mmacos Makefile rejects. `unset FC && make`.
-- **Coatings need a loaded Rx:** apply `macos.coating` AFTER `load_rx`, never during
-  Bench construction. `load_rx` CLEARS coating state (re-coat after every load).
-- **RayE is per-element overwritten:** to read incident + reflected fields you need
-  TWO traces (to iBS-1 and to iBS).
-- **No `macos.elt_name` / `macos.n_elt`:** use `{G.bt.E.name}` and `macos.num_elt()`.
-- **Reference for Gate 1:** `tests/tJonesPupil.m:test_fold_fresnel_analytic` is the
-  proven single-surface 45° Fresnel gate — copy its analytic, don't reinvent.
+- **Mac FC env:** shell has `FC=gfortran-16`; mmacos Makefile rejects.
+  `unset FC && make`.
+- **Coatings need a loaded Rx:** apply `macos.coating` AFTER `load_rx`.
+  `load_rx` clears coating state (re-coat after every load).
+- **RayE is per-element overwritten:** incident + reflected fields need
+  TWO traces (to iBS-1 and iBS).
+- **AOI→out:** turn = 180−2·AOI; pin 45° to `[0;-1;0]` (cosd(90)=6.1e-17
+  would perturb every emitted coordinate and break bit-identity).
+- **Clearance metric:** score the test-arm EXCURSION vs the incoming
+  source→BS beam; the output port (recomb/L2/detector) crosses near the
+  BS BY DESIGN and must be excluded (a naive all-legs metric reports a
+  false −60 mm collision at every AOI).

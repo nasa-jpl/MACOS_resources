@@ -35,6 +35,15 @@ function G = twyman_green(opts)
 arguments
     opts.F1 (1,1) double = 500
     opts.F2 (1,1) double = 250
+    % ---- beam-splitter angle of incidence (slice-2 AOI/clearance trade) --
+    % BS_AOI is the chief AOI on the beam-splitter, degrees.  The fold turn
+    % angle is 180 - 2*BS_AOI, so BS_AOI=45 is the canonical right-angle
+    % fold.  Every downstream face (compensator, BS substrate transits, the
+    % internal-reflect return) tracks the BS normal automatically through
+    % the shared bs token and the recomputed chief -- only the reflect
+    % turn direction is set here.  DEFAULT 45 emits BIT-IDENTICALLY to the
+    % pre-slice-2 rig (the exact [0;-1;0] literal, no cosd(90) round-off).
+    opts.BS_AOI (1,1) double {mustBePositive} = 45
     opts.D_LENS (1,1) double = 60
     opts.N_GLASS (1,1) double = 1.5
     opts.R_BAFFLE (1,1) double = 12.5
@@ -82,9 +91,20 @@ arguments
 end
 P = opts;
 
+% ---- BS fold direction from the AOI ---------------------------------
+% turn = 180 - 2*AOI about +z, applied to the +x chief toward -y.  Pin the
+% 45-deg case to the exact literal so the default rig stays bit-identical
+% (cosd(90) is 6.1e-17, which would perturb every emitted coordinate).
+if abs(P.BS_AOI - 45) < 1e-12
+    bs_out = [0; -1; 0];
+else
+    turn = 180 - 2*P.BS_AOI;
+    bs_out = [cosd(turn); -sind(turn); 0];
+end
+
 % ---- test arm -------------------------------------------------------
 bt = front_end(P, 'ifo_test');
-[~, bs] = bt.add_bs_reflect(P.D_L1_BS, [0;-1;0], 'thickness',P.BS_T, 'n',P.N_GLASS);
+[~, bs] = bt.add_bs_reflect(P.D_L1_BS, bs_out, 'thickness',P.BS_T, 'n',P.N_GLASS);
 cmp = bt.plate(P.D_BS_CMP, bs.psi, 'thickness',P.BS_T, 'n',P.N_GLASS, 'name','Comp');
 bt.add_bs_transmit(cmp, 'tag','d');
 T.iTO = bt.add_mirror(P.D_BS_TO - P.D_BS_CMP - P.BS_T, 'name','TestOptic', ...
