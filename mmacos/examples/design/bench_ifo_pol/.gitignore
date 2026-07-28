@@ -1,0 +1,8 @@
+# slice-2 sweep intermediates: the harness re-emits one rig per AOI as
+# s2_{test,ref}_NN.in.  Only the two committed endpoints (aoi45 = the
+# 45-deg anchor, aoi15 = the tightest fold) are evidence; the numbered
+# intermediates are deterministic and regenerable.
+s2_test_[0-9][0-9].in
+s2_ref_[0-9][0-9].in
+# engine stdout log
+fort.6
