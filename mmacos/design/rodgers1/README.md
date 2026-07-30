@@ -54,7 +54,14 @@ parameter values.
   the **detector plane**, which on this 14.3°-tilted image surface carries
   (transverse ray aberration) × tan(tilt) — an artifact ~22× the wavefront error
   itself, and not a low-order pupil term, so no `refsphere` fit removes it.
-  Stage-4 rigid-body values remain flagged, not tuned past.
+- **Scored across all four stages** (Addendum 3 §D.2), the pattern separates
+  cleanly: the stages our optimizer never touched agree (S1 1.60×, **S2
+  1.15×**) and the ones it solved do not (S3 1.98×, **S4 2.98×**). The
+  evaluation metric and the optics are therefore both fine; what differs is
+  **what our optimizer minimised**. Rodgers' stage-4 rigid body is genuinely
+  ~3× better under his own metric than ours — the `K_M3`/`Ydec` degenerate-
+  valley explanation is **not** confirmed, and re-optimising against the
+  strict metric (step 3) is the indicated next move, on its own brief.
 
 See **`PACKET.md`** for the full comparison tables, the engine forensics
 (Addendum 3 §A), the metric ladder, and what is left open.
@@ -65,6 +72,7 @@ See **`PACKET.md`** for the full comparison tables, the engine forensics
 strict_rung_gates(9)     % gates 1/2/3 end-to-end -- reproduces Addendum 3 §C/§D
 out = strict_wfe(t, F)   % the metric itself; F is a BOX-RELATIVE field list (rad)
 strict_ladder(5)         % what the strict residual is made of + the best-focus floor
+strict_stage_table(9)    % score all four COMMITTED stage decks + emit the 4 maps
 ```
 
 `strict_wfe` is pure MATLAB and computes the ray-to-sphere OPL exactly

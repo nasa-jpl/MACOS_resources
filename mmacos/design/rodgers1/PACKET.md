@@ -21,7 +21,13 @@ Coaxial three-mirror anastigmat, all mirrors on one axis. Prescription (CODE V):
 - **EPD:** *not stated on any slide.* Recovered as ≈2003 mm from the slide-1
   layout drawing (scale bar 590 drawing-units = 1000 mm; M1 arc ≈ 1182 units);
   **Dave set EPD = 2000 mm.** ⚠ This is the one inferred input — see §5.
-- Derived: EFL ≈ 3506 mm, **f/1.75**.
+- Derived (**corrected 2026-07-30 — see Addendum 3 §A.5**): the traced geometry
+  gives **EFL ≈ 96–101 m**, image-space **f/23.5** at EPD 4060 (M3 footprint
+  radius 0.1113 m, M3→focus 5.215 m, marginal half-cone 1.2177°). The earlier
+  "EFL ≈ 3506 mm, f/1.75 (→ f/0.86 at EPD 4060)" line was **wrong** and is
+  retracted; the *prescription* is unaffected (spacings and radii still match
+  Rodgers to the micron, §2). Where the text below says "f/0.86" or "f/1.75"
+  it means "at EPD 4060" / "at EPD 2000" — read it that way.
 
 **CODE V → MACOS conventions applied** (`rodgers_common.m`): ROC → `KrElt=−|R|`
 (convexity is geometry, not sign); K → `KcElt=K` directly; spacings passed as
@@ -98,7 +104,8 @@ ladder) shows why — and reconciles it:
 The **per-field defocus-removed** average (0.62 nm) matches Rodgers (0.61 nm) to
 **3%**. **Interpretation:** CODE V's "RMS wavefront error vs field" references
 each field to its own best-focus reference sphere (removing the field-curvature
-defocus of the fast f/1.75 anastigmat); `realize_apertures` uses `std(OPD)` at a
+defocus of the anastigmat's curved image surface); `realize_apertures` uses
+`std(OPD)` at a
 single global image plane, leaving that defocus in the off-center corners. It is
 a WFE-metric/reference-sphere convention difference, **not an optical error**.
 
@@ -387,7 +394,7 @@ EPD = 4060 with **zero touches beyond `EPD_mm`**:
   **structurally identical — 119 lines each**, same keyword set.
 - **No model-size / ray-grid change** (`model_size = 256`, `map_n = 9`,
   `opt_n = 3` all as committed).
-- **No CALIB convergence difference at f/0.86.** `align_focal_plane` fits the
+- **No CALIB convergence difference at the true aperture.** `align_focal_plane` fits the
   same focus (FP z = −3256.29 mm vs −3256.28 at 2000) and the S3/S4 optimizer
   converged normally in the same iteration budget (120); conics landed *closer*
   to Rodgers at the true aperture (below).
@@ -395,7 +402,7 @@ EPD = 4060 with **zero touches beyond `EPD_mm`**:
   across the two apertures to floating-point noise (zElt differs in the 16th
   digit only). Spacings/radii are his, fixed — untouched, as required.
 - **Nothing clipped, nothing lost:** all stages report **81/81 finite fields**
-  under both metrics at f/0.86, same as at f/1.75.
+  under both metrics at EPD 4060, same as at EPD 2000.
 
 This is the design-layer sales pitch, measured: aperture is a single scalar knob
 and the whole prescription — apertures, chief ray, pupil vectors — re-derives.
@@ -414,7 +421,7 @@ aperture. It does:
 K_M1 tightens by ~8× (to 5 dp); K_M2 loosens slightly but stays at 4 dp; **K_M3
 (the flagged 2.9e−3 term) stays at 3.4e−3** — same order, not worse in kind. The
 independent-optimizer conic match (§3's headline) **holds at the true aperture**:
-same Rx + DOFs + field → essentially his CODE V conics, at f/0.86.
+same Rx + DOFs + field → essentially his CODE V conics, at the true aperture.
 
 Stage-4 conics: K_M1 3.3e−4, K_M2 4.0e−3, K_M3 1.06e−2 (K_M3 loosens to 2 dp — the
 richer DOF set trades conic tightness for the added rigid-body freedom, same as
@@ -470,7 +477,9 @@ shows the clean D².
 **Hypothesis (b), decisively.** At Rodgers' true 4.06-m aperture the refsphere WFE
 scales as D² to within 10%, so the residual gap to his numbers is **not** a fixed
 metric-convention multiplier (that would be aperture-invariant) — it is genuine
-aperture-/field-dependent wavefront error, dominated by astigmatism at f/0.86.
+aperture-/field-dependent wavefront error, dominated by astigmatism at EPD 4060.
+(⚠ This verdict sentence is itself revisited in Addendum 3 §B, which keeps the
+D² scaling but re-attributes the residual to the detector-plane metric.)
 Two consequences sharpen the open asks for Mike:
 
 1. The EPD 2000-mm refsphere agreement (2.7–4.9× above Rodgers) was **partly
@@ -483,7 +492,7 @@ Two consequences sharpen the open asks for Mike:
    our absolute WFE is ~D²-larger than his, the residual must live in the two
    remaining asks — **the RMS reference-sphere definition (ask 1)** and **his
    off-axis FPA surface (ask 2)**. His slide numbers (79/375/40-class) at a 4-m
-   f/0.86 anastigmat imply CODE V removes more than piston+tip/tilt+defocus (its
+   anastigmat imply CODE V removes more than piston+tip/tilt+defocus (its
    field-map RMS likely also references out astigmatism, or a differently-tilted
    image surface); §4a's −astig ladder rung already dropped S2 into the tens of
    nm. This is now the *sole* live explanation — the aperture variable is spent.
@@ -518,8 +527,8 @@ exit-pupil-referenced wavefront is the deliverable handle.
 surfaces").** `add_pupil`'s two `Return` surfaces (`FP_return`, `ExitPupil`) were
 emitted with `ApType=Circular` at the generous reference `ap_r` — the Rx-emit
 policy had explicit `ApType=None` branches for off-axis `Reflector` and
-`FocalPlane` but `Return` fell through to the `else → Circular`. On this fast
-f/0.86 beam that circular stop **clipped rays at the exit pupil** (and, because
+`FocalPlane` but `Return` fell through to the `else → Circular`. On this beam
+that circular stop **clipped rays at the exit pupil** (and, because
 `realize_apertures` also leaves clip apertures installed, poisoned any later raw
 trace → the `9.999e39` all-rays-lost sentinel). Fix: `Return` kind now emits
 `ApType=None`. After it, **1304/1304 rays survive to the exit pupil at every box
@@ -586,7 +595,10 @@ session).
 aperture, on a detector frozen by his own procedure, under Dave's ruled metric,
 reads **429.6 / 246.8 nm (max / avg) against his 374.6 / 199.9 — 1.15x / 1.23x**.
 The 4–20x "residual gap" of Addenda 1 and 2 was a reference-convention artifact
-plus a units error; neither survives.
+plus a units error; neither survives.  Scored across the whole study (§D.2) the
+un-optimised stages agree (S1 1.60x, S2 1.15x) and the optimised ones do not
+(S3 1.98x, S4 2.98x) -- so the metric question closes and the **merit-function**
+question of §4c revives, with step 3 as its test.
 
 ## A. Engine forensics — where the OPD reference actually comes from
 
@@ -694,8 +706,9 @@ the exit pupil" fixes the construction but does not, near focus, move the number
 It matters only when the detector is far off focus, which is why the gate-1 rung
 at `dz = +627 mm` needs the true `R` and the `dz = 0` rung does not.
 
-**A.5 One geometry correction to §1 of this packet.** §1 states "EFL ~ 3506 mm,
-f/1.75" (hence "f/0.86 at EPD 4060"). The traced geometry disagrees: the M3
+**A.5 One geometry correction to §1 of this packet** (§1 now carries the
+retraction; this is the measurement behind it). §1 used to read "EFL ~ 3506 mm,
+f/1.75", hence "f/0.86 at EPD 4060". The traced geometry disagrees: the M3
 footprint radius is `0.1113 m`, the M3->focus leg is `5.215 m`, the marginal
 half-cone is `1.2177 deg` — **f/23.5** — and the `+0.5 deg` chief lands at
 `y = -0.8819 m`, i.e. **EFL ~ 96-101 m**. The M1->M2, M2->M3 and M3->focus
@@ -857,8 +870,75 @@ sampling and by exactly where the fitted plane sits, so a factor ~2 on a 1-nm
 quantity carries much less information than the offset-field result; it is
 recorded as a scale check, not as a second precision claim.
 
-**What is left over.** After §D there is no unexplained magnitude gap. The three
-open asks to Rodgers reduce to one:
+## D.2 The strict metric across all four stages — and what it says about the solves
+
+Pure evaluation of the **committed** `rodgers1_epd4060_stage{1..4}.in` decks:
+no rebuild, no optimizer, nothing re-solved. Each stage is scored against **its
+own solved FPA** (that deck's `FocalPlane`), held frozen — Rodgers' procedure,
+stage by stage. `strict_stage_table.m` drives it; `strict_wfe_deck.m` re-emits
+each deck per field with only its two source lines rewritten, exactly as
+`emit_` builds them, reading the field bias back **from the deck** so there is
+no bias to double. 1304 rays at every field, 81/81 finite, all four stages.
+
+**Cross-validation, asserted in the driver before anything else is reported:**
+the deck path reproduces §D's stage-2 gate number — obtained by the entirely
+separate `strict_wfe` / Telescope-object path — to **8.6e-7 relative**.
+
+| stage | what was solved | strict max / avg (nm) | Rodgers max / avg (nm) | max x | avg x |
+|---|---|---|---|---|---|
+| S1 | nothing (on-axis evaluation) | 3.6 / 1.0 | 1.5 / 0.6 | 2.44 | 1.60 |
+| S2 | nothing (offset evaluation, FPA re-fit) | **429.6 / 246.8** | 374.6 / 199.9 | **1.15** | **1.23** |
+| S3 | 3 conics + FPA | 181.2 / 97.1 | 91.6 / 46.4 | 1.98 | 2.09 |
+| S4 | + M2/M3 Ydec + tilt | 118.6 / 84.8 | 39.8 / 22.5 | **2.98** | **3.77** |
+
+**The agreement degrades monotonically with how much OUR optimizer did.** The
+two stages our optimizer never touched agree (S2 at 1.15x; S1 at 1.60x on a
+1-nm quantity); adding three conic DOFs takes it to ~2x; adding the rigid-body
+DOFs takes it to ~3-3.8x. That is the cleanest possible separation of concerns:
+
+- the **evaluation metric** is right — S2 proves it, with no optimizer anywhere
+  in the loop;
+- the **optics** are right — the conics match CODE V to 3-4 dp (§B');
+- what differs is **what our optimizer minimised**, and only that.
+
+### The rigid-body verdict
+
+The question this table was built to answer: our stage-4 rigid body is 4-5x
+smaller than his and opposite-signed on the decenters (ours M2 -3.74 mm /
+0.233 deg, M3 **-43.84 mm / 1.114 deg**; his M2 8.34 / 0.517, M3 **121.868 /
+2.330**). If the two solves were merely different points in a degenerate
+`K_M3`/`Ydec` valley, they would score the same under his own metric.
+
+**They do not. Our stage-4 solve scores 118.6 / 84.8 nm where his scores
+39.8 / 22.5 — 2.98x on max, 3.77x on avg. The degenerate-valley explanation is
+NOT confirmed: his rigid-body solution is genuinely the better design under the
+strict metric, by a factor of ~3.** The merit-function hypothesis of §4c
+therefore **revives**, and with a concrete mechanism: our CALIB solve was
+driven by the detector-plane WFE, which on this 14.3-degree-tilted image
+surface is dominated by `(transverse ray aberration) x tan(tilt)` (§A.1) — an
+artifact ~22x the wavefront error. Our optimizer was minimising the blur
+against a tilted plane, not the wavefront; it is unsurprising that it stopped
+short and landed on a different rigid-body balance.
+
+Corroborating detail: the *direction* of our ladder is right and only its depth
+is short. His S2 -> S4 improvement is `374.6 -> 39.8`, a factor **9.4**; ours is
+`429.6 -> 118.6`, a factor **3.6**. We capture rather more than half the
+available gain in log terms and stop.
+
+**Consequence for step 3: it is NOT unnecessary — it is the indicated next
+move, and it now has a validated objective to use.** Re-optimising stages 3 and
+4 against the strict metric (per §E, configuration-only: an ExitPupil `Return`
+element, the system STOP set, the detector immediately after the EP, FEX on) is
+the falsifiable test — if our conics and rigid body then move toward his and the
+strict score drops toward 39.8 / 22.5, §4c closes too. **That is a separate
+brief; nothing of it is started here.**
+
+Field maps for the four-panel progression (absolute field axes, same rendering
+as the committed `*_{global,refsphere}.png`):
+`rodgers1_epd4060_stage{1,2,3,4}_strict.png`.
+
+**What is left over.** After §D/§D.2 there is no unexplained magnitude gap
+in the *evaluation*. The three open asks to Rodgers reduce to one:
 
 1. ~~RMS reference sphere~~ — **CLOSED.** Dave's ruled construction reproduces his
    field map to 1.15x at his aperture.
@@ -879,10 +959,16 @@ astigmatism; the difference in steepness is most naturally a field-definition
 question -- exactly where his box centre sits, and whether his 0.2 deg is full or
 half width. Worth one line in the note to Mike; it changes no conclusion here.
 
+One thing §D.2 does change: the *optimised* stages (S3, S4) do NOT reproduce
+his numbers, and that is a merit-function finding, not a metric one. See §D.2.
+
 ## E. Lane determination for step 3 (read-only)
 
 **Verdict: CONFIGURATION-ONLY, no new engine mode.** [SOLID — CCMac finding,
-re-checked against the forensics above and unchanged.] CALIB's per-field WFE merit
+re-checked against the forensics above and unchanged.]  §D.2 upgrades step 3
+from optional to *indicated*: the optimised stages do not reproduce Rodgers,
+and re-solving them against the now-validated strict metric is the test of
+why.  It remains a SEPARATE brief. CALIB's per-field WFE merit
 is already chief-ray-tied per field with piston-only removal: `funcs_app` forces
 `LUseChfRayIfOK = .false.` (`design_optim.F:659-664`), which selects the
 mean-subtract branch of `SUBROUTINE OPD` (`tracesub.F:219-233`) — and §A.1 shows
@@ -911,8 +997,14 @@ bit-intact):
   reproduction of §C/§D. Gate 1 is the non-vacuity check and must be re-run
   before trusting any change to `strict_wfe`.
 - `strict_ladder.m` — the aberration ladder / best-focus floor of §C.
+- `strict_wfe_deck.m` — the same metric applied to a saved `.in` deck (pure
+  evaluation of an already-solved stage); `strict_stage_table.m` — the §D.2
+  four-stage table + the four field maps.  The driver ASSERTS the stage-2
+  cross-check against §D before reporting; keep that assert.
 - `rodgers1_epd4060_strict_gates.mat`, `rodgers1_epd4060_strict_ladder.mat`,
-  `rodgers1_epd4060_stage{1,2}_strict.png` (field maps, box-relative arcmin).
+  `rodgers1_epd4060_strict_stages.mat`, and `rodgers1_epd4060_stage{1..4}_strict.png`
+  — the four-panel strict progression, absolute field axes, same rendering as
+  the committed `*_{global,refsphere}.png` maps.
 
 Removed: `strict_rung.m`, `strict_rung_stages.m`,
 `rodgers1_epd4060_strict_rung.mat` and `wip_scratch_2026-07-30/` — the WIP
