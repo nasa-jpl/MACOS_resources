@@ -1435,6 +1435,14 @@ classdef Telescope < handle
         %   grid (7x7+) for a smooth report map.
         %     'kind'    'contour' (default) | 'surf'
         %     'save'    PNG path;  'visible' (default true)
+        %
+        %   LOST FIELDS (NaN wfe) are rendered VISIBLY (grey) and
+        %   NEVER interpolated over (Dave 2026-07-30): a filled contour of a
+        %   grid with NaN holes silently paints across them, hiding lost
+        %   fields.  We first grey-fill the whole grid extent, then contour
+        %   only the finite region on top, so any NaN field shows through as
+        %   grey.  The title/caption also states which WFE metric the scan
+        %   used (scan.metric).
             arguments
                 obj
                 scan struct
@@ -1444,10 +1452,13 @@ classdef Telescope < handle
             end
             fx = scan.fields(:,1);  fy = scan.fields(:,2);  w = scan.wfe(:);
             ux = uniquetol(fx, 1e-9);  uy = uniquetol(fy, 1e-9);
+            metric = 'global';
+            if isfield(scan,'metric') && ~isempty(scan.metric), metric = scan.metric; end
             vis = 'on';  if ~opts.visible, vis = 'off'; end
             fig = figure('Visible',vis, 'Position',[60 60 620 500]);
             isgrid = numel(ux) >= 2 && numel(uy) >= 2 && ...
                      numel(w) == numel(ux)*numel(uy);
+            nlost = nnz(~isfinite(w));
             if isgrid
                 W = nan(numel(uy), numel(ux));
                 for i = 1:numel(w)
@@ -1459,14 +1470,39 @@ classdef Telescope < handle
                     surf(ux, uy, W);  shading interp;  view(40, 30);
                     zlabel('RMS WFE (waves)');
                 else
-                    contourf(ux, uy, W, 12);  axis equal tight;
+                    % grey underlay over the full grid extent so any NaN field
+                    % shows through as grey instead of being interpolated over.
+                    if nlost > 0
+                        ax = gca;  set(ax,'Color',[0.75 0.75 0.75]);
+                        hold(ax,'on');
+                        % explicit grey patch behind the axes fill (robust when
+                        % the whole grid is finite except a border):
+                        patch('XData',[ux(1) ux(end) ux(end) ux(1)], ...
+                              'YData',[uy(1) uy(1) uy(end) uy(end)], ...
+                              'FaceColor',[0.75 0.75 0.75],'EdgeColor','none', ...
+                              'HandleVisibility','off');
+                    end
+                    % contour only the FINITE region; NaN cells are left blank
+                    % (contourf does not fill NaN-cornered cells) -> grey shows.
+                    contourf(ux, uy, W, 12, 'LineColor','none');  axis equal tight;
                 end
             else
-                scatter(fx, fy, 45, w, 'filled');  axis equal tight;
+                % scatter: draw finite fields colored, lost fields as grey x.
+                fin = isfinite(w);
+                scatter(fx(fin), fy(fin), 45, w(fin), 'filled');  hold on;
+                if any(~fin)
+                    scatter(fx(~fin), fy(~fin), 45, [0.5 0.5 0.5], 'x', 'LineWidth',1.2);
+                end
+                axis equal tight;
             end
             cb = colorbar;  cb.Label.String = 'RMS WFE (waves)';
             xlabel('\theta_x (arcmin)');  ylabel('\theta_y (arcmin)');
-            title(sprintf('%s -- RMS WFE over field', obj.spec.family), 'Interpreter','none');
+            ttl = sprintf('%s -- RMS WFE over field  [metric: %s]', ...
+                          obj.spec.family, metric);
+            if nlost > 0
+                ttl = sprintf('%s\n(%d/%d fields lost -- grey)', ttl, nlost, numel(w));
+            end
+            title(ttl, 'Interpreter','none');
             if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
         end
 
@@ -1731,7 +1767,38 @@ classdef Telescope < handle
         %     'fields'         Kx2 [thx thy] field set (rad) -- explicit override.
         %     'margin'         fractional aperture margin (default 0.05).
         %     'quiet'          suppress the printed table (default false).
+        %   The WFE metric is selectable (Dave / Rodgers reconciliation,
+        %   2026-07-30):
+        %     'metric'  'global'    (default) RMS = std(OPD) at ONE global
+        %                           image plane -- leaves the fast anastigmat's
+        %                           field-curvature defocus in the off-centre
+        %                           corners.  The historical behaviour; committed
+        %                           baselines depend on it, so it is UNCHANGED.
+        %               'refsphere' CODE V-consistent per-field best-focus
+        %                           reference-sphere RMS: each field's OPD has
+        %                           piston + tip/tilt + defocus removed (fit over
+        %                           the pupil) before the RMS, i.e. referenced to
+        %                           that field's own best-focus sphere, and is
+        %                           evaluated over the realised CLEAR APERTURE
+        %                           (the vignetted pupil, a 2nd pass after the
+        %                           apertures are sized) -- exactly CODE V's
+        %                           field-map RMS convention.  Reconciles the
+        %                           Rodgers on-axis field map to ~3% (rodgers1
+        %                           PACKET Sec 4a).  OPT-IN; the returned scan
+        %                           records .metric and every rendered field map
+        %                           states which metric it used.
+        %
+        %   IDEMPOTENCY (Dave 2026-07-30): any previously-realized clear
+        %   apertures are dropped at entry, so each call re-measures on the
+        %   CLEAN (un-clipped) design.  Without this, a second call -- or a
+        %   later per-field trace / metric_ladder -- runs THROUGH the stale
+        %   apertures sized for the earlier box; images that walk outside them
+        %   are clipped and the field reads NaN (the "top rows lost" / "second
+        %   call all-NaN" evaluator findings, PACKET Sec B).  On a fresh
+        %   telescope this clear is a no-op (bit-identical first-call numbers).
+        %
         %   Returns scan: .fields (Kx2 arcmin) .wfe (waves, per field) .lambda
+        %                 .metric ('global'|'refsphere')
         %                 .aperture (struct array: name/shape/radius/center/rect).
             arguments
                 obj
@@ -1739,6 +1806,7 @@ classdef Telescope < handle
                 opts.fields (:,2) double = []
                 opts.margin (1,1) double = 0.05
                 opts.quiet  (1,1) logical = false
+                opts.metric (1,:) char {mustBeMember(opts.metric,{'global','refsphere'})} = 'global'
             end
             by0 = 0;  if isfield(obj.spec,'field_bias'), by0 = obj.spec.field_bias; end
             nE  = numel(obj.spec.elt);
@@ -1759,6 +1827,18 @@ classdef Telescope < handle
             end
             nF = size(F,1);
 
+            % Idempotency: drop any previously-realized clear apertures so we
+            % re-measure on the CLEAN design (see the header note).  No-op on a
+            % fresh telescope -> first-call numbers are bit-identical.
+            hadAp = false;
+            for k = 1:nE
+                if ~isempty(obj.spec.elt(k).ap) || ~isempty(obj.spec.elt(k).ap_rect)
+                    obj.spec.elt(k).ap = [];  obj.spec.elt(k).ap_rect = [];
+                    hadAp = true;
+                end
+            end
+            if hadAp, obj.build('', 'init', false); end
+
             saved = [];
             if isfield(obj.spec,'trace_field'), saved = obj.spec.trace_field; end
             restore = onCleanup(@() obj.restore_trace_field_(saved)); %#ok<NASGU>
@@ -1771,7 +1851,13 @@ classdef Telescope < handle
                 obj.build('', 'init', false);
                 macos.trace(nE);
                 W = macos.opd();  v = W(isfinite(W) & W ~= 0);
-                if ~isempty(v), wfe(j) = std(v)/lam; end
+                % PASS 1 always records the GLOBAL-plane RMS over the clean
+                % (un-clipped) geometric pupil -- the historical metric, kept
+                % bit-identical.  The refsphere metric is a SECOND pass below,
+                % after the clear apertures are installed, so it is evaluated
+                % over the design's realised CLEAR APERTURE (the vignetted
+                % pupil) -- the CODE V field-map convention (PACKET Sec 4a).
+                if ~isempty(v), wfe(j) = std(v) / lam; end
                 byz = macos.draw_rays('YZ', 0, nE);        % y-fan: V=Y
                 bxz = macos.draw_rays('XZ', 0, nE);        % x-fan: V=X
                 for k = 1:nE
@@ -1803,13 +1889,55 @@ classdef Telescope < handle
                         'radius',hw,'center',[cx cy],'rect',[]);  %#ok<AGROW>
                 end
             end
+            % PASS 2 (refsphere metric only): with the MIRROR clear apertures
+            % now installed, re-trace each field and take the per-field best-
+            % focus reference-sphere RMS (piston+tip/tilt+defocus removed) over
+            % the rays that pass the realised STOPS -- the CODE V-consistent
+            % field-map RMS (references each field to its own best-focus sphere
+            % and counts only the clear-aperture pupil).  Reconciles the
+            % Rodgers on-axis map to ~3% (PACKET Sec 4a).  A field the aperture
+            % vignettes to < 6 samples stays NaN -> rendered as a lost field.
+            %
+            % The FocalPlane rect clip is DROPPED for this pass: on a tilted /
+            % offset FP its emitted ApVec carries the known global-XY ->
+            % local-ApVec frame bug (see clear_realized_apertures) and would
+            % vignette every ray off-axis, making the metric all-NaN.  The
+            % physical STOPS are the (coaxial, frame-bug-immune) mirrors; the
+            % FP only samples the wavefront.  The returned aperture struct
+            % still reports the FP rect (restored below) for downstream use.
+            if strcmp(opts.metric, 'refsphere')
+                fpsave = cell(nE,2);
+                for k = 1:nE
+                    if strcmp(obj.spec.elt(k).kind,'FocalPlane')
+                        fpsave{k,1} = obj.spec.elt(k).ap;
+                        fpsave{k,2} = obj.spec.elt(k).ap_rect;
+                        obj.spec.elt(k).ap = [];  obj.spec.elt(k).ap_rect = [];
+                    end
+                end
+                obj.build('', 'init', false);          % mirror aps only
+                for j = 1:nF
+                    obj.spec.trace_field = F(j,:);
+                    obj.build('', 'init', false);
+                    macos.trace(nE);
+                    r = obj.refsphere_rms_(macos.opd());
+                    if ~isnan(r), wfe(j) = r / lam; else, wfe(j) = NaN; end
+                end
+                for k = 1:nE                            % restore FP clip
+                    if strcmp(obj.spec.elt(k).kind,'FocalPlane')
+                        obj.spec.elt(k).ap = fpsave{k,1};
+                        obj.spec.elt(k).ap_rect = fpsave{k,2};
+                    end
+                end
+            end
+
             scan = struct('fields', rad2deg(F)*60, 'wfe',wfe, ...
-                          'lambda',lam, 'aperture',ap);
+                          'lambda',lam, 'metric',opts.metric, 'aperture',ap);
 
             if ~opts.quiet
                 fa = rad2deg(F(:,2))*60;
                 fprintf(['realize_apertures  (%d fields, +y %g..%g arcmin, ' ...
-                         'family=%s)\n'], nF, min(fa), max(fa), obj.spec.family);
+                         'family=%s, metric=%s)\n'], nF, min(fa), max(fa), ...
+                         obj.spec.family, opts.metric);
                 fprintf('  field WFE (waves):');  fprintf(' %.4f', wfe);  fprintf('\n');
                 fprintf('  %-10s %-5s %10s %10s %10s\n','optic','shape','radius','xc','yc');
                 for i = 1:numel(ap)
@@ -2060,6 +2188,29 @@ classdef Telescope < handle
                 obj.spec.trace_field = saved;
             end
             obj.build('', 'init', false);
+        end
+
+        function rms = refsphere_rms_(~, W)
+        %REFSPHERE_RMS_  Per-field best-focus reference-sphere RMS of an OPD map.
+        %   The CODE V-consistent field-map metric (Dave / Rodgers, 2026-07-30):
+        %   fit and remove piston + tip/tilt + defocus over the LIT pupil, i.e.
+        %   reference the wavefront to that field's own best-focus sphere, then
+        %   take the RMS of the residual.  This strips the field-curvature
+        %   defocus a fast anastigmat leaves at a single global image plane
+        %   (reconciles the Rodgers on-axis map to ~3%; see rodgers1 PACKET 4a).
+        %   Same fit basis as design/src/wfe_field_diag.m's rms_focus rung, so
+        %   the two agree.  Returns NaN if too few lit samples to fit.
+        %   W is the raw macos.opd() map (metres, 0 / >1e30 = unlit sentinels).
+            [ny,nx] = size(W);
+            [X,Y] = meshgrid(linspace(-1,1,nx), linspace(-1,1,ny));
+            m = isfinite(W) & (W ~= 0) & (abs(W) < 1e30);
+            if nnz(m) < 6, rms = NaN; return; end
+            x = X(m);  y = Y(m);  w = W(m);
+            x = x - mean(x);  y = y - mean(y);
+            s = max(hypot(x,y));  if s > 0, x = x/s;  y = y/s; end
+            B = [ones(size(x)), x, y, (2*(x.^2+y.^2)-1)];   % piston+tilt+defocus
+            c = B \ w;
+            rms = std(w - B*c);                             % metres
         end
 
         function resolve_section_poles_(obj)

@@ -165,3 +165,113 @@ now be `(Nv,8)` (one VarElt row per varied mirror) in addition to the shared
 Ydec+α-tilt, so there is no global-tilt gauge freedom to corrupt the solved
 rigid-body values. Back-compatible; covered by
 `tDesignTelescope/test_optimize_per_element_dofs` (suite 68/68 green).
+
+---
+
+# ADDENDUM (2026-07-30) — per-field metric, evaluator rulings B1/B2, recenter study
+
+Bundled follow-on to §4a/§5. Branch `rodgers1-metric` (off `dev`). No engine
+changes; design-layer only (`macos.design.Telescope` + `rodgers1.m`).
+Verified in a clean `dev` worktree MEX (gfortran/Apple-Silicon). Gates: default
+`global` metric **bit-identical** (stages 1–4 `isequaln`, conics 0.0e0);
+`tDesignTelescope` **70/70** green (+2 new tests).
+
+## A. Per-field best-focus reference-sphere RMS — the CODE V-consistent metric
+
+`realize_apertures` gained `'metric'` ∈ {`'global'` (default, unchanged),
+`'refsphere'`}. `refsphere` removes piston + tip/tilt + **defocus** per field
+(same fit basis as `wfe_field_diag`'s `rms_focus` rung) and evaluates the RMS
+over the **realised clear aperture** (a 2nd pass after the stops are sized) —
+exactly CODE V's field-map convention (references each field to its own
+best-focus sphere; counts only the clear-aperture pupil). The returned scan
+carries `.metric` and every rendered field map states the metric in its title.
+
+**Non-vacuity — the §4a anchor reproduces.** S1 on-axis box, 9×9, EPD 2000 mm:
+
+| S1 on-axis (nm) | min | max | avg |
+|---|---|---|---|
+| `global` (unchanged) | 0.314 | 8.001 | 2.608 |
+| **`refsphere`** | 0.030 | 1.833 | **0.623** |
+| Rodgers (CODE V) | 0.446 | 1.463 | **0.606** |
+
+avg ratio **1.027 (2.7%)** — the packet §4a reconciliation, now a built-in
+metric rather than a diagnostic ladder. (§4a's 0.62 came from the ladder run
+*after* `eval_box` had installed the clip apertures — i.e. already
+aperture-limited; `refsphere` makes that the metric's definition, honestly.)
+
+**Vignetting frame note.** Pass 2 vignettes on the **mirror** clear apertures
+only and drops the FocalPlane rect for the metric trace: the tilted/offset FP's
+emitted `ApVec` carries the known global-XY→local-ApVec frame bug (see
+`clear_realized_apertures`) and would vignette every ray off-axis (all-NaN).
+The physical stops are the coaxial (frame-bug-immune) mirrors; the FP only
+samples the wavefront. The returned `.aperture` still reports the FP rect.
+
+## B. Two evaluator findings — diagnosed and ruled
+
+**Root cause is shared and singular:** `realize_apertures` installed clip
+apertures on the optics (elts 1–4) sized to *the box it was handed* and **left
+them installed**. Any subsequent evaluation of a *different* box — the metric
+ladder (which adds the +30′ bias), a second call, or a recentered box — traced
+*through* those stale apertures; images that walk outside them read NaN.
+
+- **B1 — the top-two rows (box-rel y ≥ +4.5′) lost on committed stage 4:
+  ARTIFACT, not a physical field limit.** On the **clean** stage-4 design (no
+  realised apertures installed) **1305/1305 rays reach the FP at every field
+  across the whole box** (abs +24′→+36′, incl. the "lost" rows) — verified by a
+  per-field trace with `get_ray_info`. Nothing falls off any element ⇒ per
+  Dave's rule (loss to an *aperture* just means the aperture must be
+  re-defined; loss off an *element* is the true fail) this is **not** a true
+  fail. The committed map's NaN top rows were the stale-aperture clip, and the
+  contour silently interpolated over them. **Ruling: usable field is not
+  limited here; fix the evaluator, and render lost fields visibly.**
+
+- **B2 — a second `realize_apertures` with shifted fields returns all-NaN,
+  including fields finite on the first call: reproduced and FIXED.** Sequence
+  on committed stage 4: callA (fresh box) 81/81 finite → apertures now on elts
+  [1 2 3 4] → callB (identical box) **0/81** → callC (shifted) 0/81 →
+  `clear_realized_apertures` → callD **81/81** restored. The "state left behind"
+  is precisely the installed clip apertures (chiefly the frame-buggy tilted-FP
+  rect). **Fix:** `realize_apertures` now **clears any previously-realised clear
+  apertures at entry** and re-measures on the clean design — idempotent, and a
+  no-op on a fresh telescope (first-call numbers bit-identical). `view_field_map`
+  now grey-fills lost fields and never interpolates over them.
+
+Both covered by `tDesignTelescope/test_realize_apertures_metric_and_idempotent`
+and `.../test_view_field_map_renders_lost_fields`.
+
+## C. The recenter study — `rodgers1('mode','recenter','dy_arcmin',+2)`
+
+Scores the stage-4 solve on the box recentred **+2′ in +y**, two ways, under
+**both** metrics, complete 81/81 coverage (Part B resolved). Box is
+bias-relative (centred on the used +0.5° field — the physically-correct
+convention; the committed stage tables use an absolute box about 0′, hence the
+different AS-IS global magnitude).
+
+| scenario | global max/avg (nm) | refsphere max/avg (nm) |
+|---|---|---|
+| **AS-IS** (committed solve, box +2′) | 936.9 / 542.1 | 197.1 / 112.2 |
+| **RE-OPT** (bias moved to +32′, re-solved) | 1168.1 / 720.8 | 232.0 / 134.9 |
+
+**Expected shape confirmed:** AS-IS beats RE-OPT under *both* metrics — the
+sweet spot is **solve-relative**; re-optimising at the shifted bias does not
+beat the design tuned for its own centre. **The per-field metric does NOT flip
+the re-opt conclusion** (AS-IS < RE-OPT holds for `refsphere` too), so this is
+a robust trade result, not a metric artifact.
+
+**Cross-check vs Fable's interim (global-plane, partial coverage):**
+
+| quantity | Fable interim | this run (full 81/81) |
+|---|---|---|
+| RE-OPT conics | [−0.994041, −1.940273, −0.698961] | [−0.994040, −1.940269, −0.698985] |
+| RE-OPT M2 | −2.46 mm / 0.156° | −2.451 mm / 0.1557° |
+| RE-OPT M3 | −29.25 mm / 0.729° | −29.128 mm / 0.7256° |
+| AS-IS (global) max/avg | 900 / 477 (covered 10/12′) | 936.9 / 542.1 (81/81) |
+| RE-OPT (global) max/avg | 3038 / 1149 | 1168.1 / 720.8 |
+
+Conics match to **5 dp**, rigid-body to **~0.5%** — the two independent runs
+agree. The as-is avg differs modestly (fuller coverage here); the re-opt
+magnitude differs more because Fable's interim re-opt scored a partial box.
+Both agree on the sign of the trade (re-opt worse), which is the finding.
+
+## Artifacts added
+`rodgers1_recenter.mat`, `rodgers1_recenter_{asis,reopt}_{global,refsphere}.png`.
