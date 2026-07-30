@@ -502,3 +502,72 @@ matching the four-slide progression:
 `rodgers1_epd4060_stage{1..4}_{global,refsphere}.png`,
 `rodgers1_epd4060_results.mat`. **All committed EPD = 2000 outputs are left
 bit-intact** (the 4060 set is suffixed-parallel, never overwriting).
+
+---
+
+# ADDENDUM 2 — explicit exit pupil + WFE reference-surface comparison (2026-07-30)
+
+**Motivation (Dave).** Insert an explicit exit pupil into the emitted stage-4
+deck and evaluate WFE there, to see how much of the residual gap to Rodgers is
+just *which reference surface* the RMS is taken on (open-ask #1). `add_pupil`
+inserts, before the FocalPlane, a flat image-return and a **spherical ExitPupil
+Return** whose centre of curvature is at the image; its contract is that the
+exit-pupil-referenced wavefront is the deliverable handle.
+
+**Engine-adjacent fix this exercised (Dave: "no obscuration on the FP or return
+surfaces").** `add_pupil`'s two `Return` surfaces (`FP_return`, `ExitPupil`) were
+emitted with `ApType=Circular` at the generous reference `ap_r` — the Rx-emit
+policy had explicit `ApType=None` branches for off-axis `Reflector` and
+`FocalPlane` but `Return` fell through to the `else → Circular`. On this fast
+f/0.86 beam that circular stop **clipped rays at the exit pupil** (and, because
+`realize_apertures` also leaves clip apertures installed, poisoned any later raw
+trace → the `9.999e39` all-rays-lost sentinel). Fix: `Return` kind now emits
+`ApType=None`. After it, **1304/1304 rays survive to the exit pupil at every box
+field** (was ray-limited before). One-line change in `Telescope.emit_rx_`; pure
+MATLAB, no MEX rebuild; existing decks without a pupil are unaffected.
+
+**Result — WFE is reference-surface dependent (EPD 4060, stage-4, ±6′ box, nm):**
+
+| reference surface / metric | max | avg |
+|---|---|---|
+| FP, each field to its own chief-ray focus (engine `rmsWFE`) | 0.002 | 0.002 |
+| **explicit EXIT-PUPIL sphere (engine, CoC at image)** | **2.644** | **1.588** |
+| field-map `refsphere` (per-field piston+tip/tilt+defocus removed) | 775.6 | 485.5 |
+| field-map `global` (std of OPD at one image plane) | 2448.5 | 1871.4 |
+| Rodgers S4 (CODE V field-map RMS) | 39.8 | 22.5 |
+
+**Reading.** The *same optics* read across **six orders of magnitude** depending
+purely on the reference surface:
+
+- **Each field to its own chief focus → ~0 nm.** The design is essentially
+  perfect per field; there is no per-field aberration once you sit at that
+  field's own best focus. (This is why the stage-4 conic solve succeeds.)
+- **Explicit exit-pupil sphere → 1.6 nm avg / 2.6 nm max.** This is the honest
+  exit-pupil wavefront: the OPD on a sphere whose CoC is the image point, i.e.
+  the field-independent wavefront the downstream instrument actually sees. It is
+  tiny — the offset TMA is genuinely well-corrected at its own pupil.
+- **`refsphere` → 486 nm, `global` → 1871 nm.** These are large **because they
+  compare *different fields against a common plane*** — they retain the
+  field-to-field focus/tilt walk of the fast anastigmat's steeply curved,
+  ~14°-tilted image surface across the box. `global` keeps all of it;
+  `refsphere` removes per-field piston/tip/tilt/defocus but still measures each
+  field's residual over a shared realised aperture.
+
+**Bearing on the Rodgers gap (open-ask #1).** This localises the residual
+decisively: it is **not** an optical-quality deficit (the exit-pupil wavefront is
+1.6 nm, and per-field WFE is ~0), it is **entirely the field-map RMS reference
+convention**. Rodgers' 22–40 nm sits *between* our exit-pupil number (1.6) and
+our `refsphere` (486) — consistent with CODE V referencing each field to a
+best-fit image sphere on its converged (tilted) detector while removing a
+specific low-order set, i.e. more removed than our exit-pupil sphere sees across
+the box but far less than `global` leaves in. The two remaining asks (his exact
+RMS reference-sphere terms, ask 1; his off-axis FPA surface, ask 2) fully account
+for the 22–40 vs 1.6/486 spread. **Nothing here changes the D²-scaling verdict of
+Addendum 1** — that was about how the *field-map* metric scales with aperture;
+this shows the field-map metric's absolute magnitude is a reference-surface
+artifact, and the underlying optics (exit-pupil WFE) are excellent.
+
+**Artifacts added:** `epd4060_pupil_check.m` (the cross-check driver),
+`rodgers1_epd4060_stage4_pupil.in` (the 6-element augmented deck: M1, M2, M3,
+FP_return, ExitPupil sphere, detector FP — all reference surfaces `ApType=None`),
+`rodgers1_epd4060_pupil_check.mat`.

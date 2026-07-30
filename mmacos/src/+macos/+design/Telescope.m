@@ -2662,6 +2662,13 @@ classdef Telescope < handle
                     % rigid-body trial steps lose EVERY ray the moment the
                     % image walks off it -- no gradient, runaway solve.
                     L{end+1} = '           ApType=  None';                           %#ok<AGROW>
+                elseif strcmp(e.kind,'Return')
+                    % add_pupil's FP_return + ExitPupil reference surfaces are
+                    % REFERENCE geometry, not stops (Dave 2026-07-30): a
+                    % Circular ApType at the generous ap_r clips the fast
+                    % f/0.86 beam and kills rays at the exit pupil.  No
+                    % obscuration on the Return surfaces.
+                    L{end+1} = '           ApType=  None';                           %#ok<AGROW>
                 else
                     L{end+1} = '           ApType=  Circular';                       %#ok<AGROW>
                     L{end+1} = ['            ApVec=  ' v3(e.ap_r,0,0)];              %#ok<AGROW>
