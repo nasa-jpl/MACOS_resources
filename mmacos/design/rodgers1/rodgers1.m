@@ -45,6 +45,20 @@ function out = rodgers1(varargin)
 %    rodgers1('save',false,'plots',false)  % numbers only, no files
 %    out = rodgers1(...)                   % struct: per-stage stats + params
 %
+%  RECENTER STUDY (Part C -- does the stage-4 solve hold when the used box
+%  moves off its solved center?):
+%    rodgers1('mode','recenter')                 % +2 arcmin, both metrics
+%    rodgers1('mode','recenter','dy_arcmin',2)   % explicit shift
+%    rodgers1('mode','recenter','metric','refsphere')  % one metric only
+%  scores the committed stage-4 solve AS-IS on the box recentered +dy, and a
+%  RE-OPT with the bias itself at +0.5deg+dy, under the global-plane and the
+%  CODE V-consistent per-field best-focus reference-sphere RMS (see 'metric').
+%
+%  WFE METRIC ('metric' name-value, passed through to realize_apertures):
+%    'global'    (default in stages mode) std(OPD) at one image plane.
+%    'refsphere' CODE V-consistent per-field best-focus reference-sphere RMS.
+%    'both'      (default in recenter mode) report both.
+%
 %  Batch:  matlab -batch "run('.../rodgers1.m'); exit(0)"   (uses defaults)
 % =====================================================================
 
@@ -65,10 +79,19 @@ function out = rodgers1(varargin)
     ip.addParameter('save',  true);
     ip.addParameter('plots', true);
     ip.addParameter('outdir', here);
+    ip.addParameter('mode', 'stages');   % 'stages' (default) | 'recenter'
+    ip.addParameter('dy_arcmin', 2);     % recenter: +y box shift (arcmin)
+    ip.addParameter('metric', 'both');   % 'global' | 'refsphere' | 'both'
     ip.parse(varargin{:});
     A = ip.Results;
     P.EPD_mm = A.EPD_mm;  P.lambda_m = A.lambda_nm*1e-9;  P.model_size = A.model_size;
     lam_nm = A.lambda_nm;
+
+    % ----- recenter study (Part C) is a self-contained mode -----------
+    if strcmpi(A.mode, 'recenter')
+        out = rodgers_recenter(P, A, lam_nm);
+        return;
+    end
 
     banner('RODGERS OFFSET-FIELD COAXIAL-TMA STUDY  (lambda = %g nm, EPD = %g mm)', ...
            lam_nm, P.EPD_mm);
@@ -181,6 +204,150 @@ function out = rodgers1(varargin)
         save(fullfile(A.outdir,'rodgers1_results.mat'),'out');
         fprintf('\nSaved results + .in files + figures to %s\n', A.outdir);
     end
+end
+
+% =====================================================================
+%  PART C -- the recenter study
+% =====================================================================
+function out = rodgers_recenter(P, A, lam_nm)
+%RODGERS_RECENTER  Does the stage-4 solve hold when the used box moves +dy?
+%   The stage-4 conics + M2/M3 rigid-body were solved for the box centred on
+%   the +0.5deg bias.  This asks two questions, each scored on the box
+%   RECENTERED +dy_arcmin in +y, under BOTH WFE metrics (global-plane and
+%   the CODE V-consistent per-field best-focus reference sphere, Part A):
+%     AS-IS    the committed stage-4 solve, evaluated on the shifted box
+%              (nothing re-optimized) -- how much does 2' of field walk cost
+%              a design tuned for the un-shifted box?
+%     RE-OPT   re-solve conics + M2/M3 rigid-body with the BIAS ITSELF moved
+%              to +0.5deg + dy -- is the sweet spot solve-relative (re-opt at
+%              the shifted bias should NOT beat as-is if the design was near
+%              optimal for its own centre; a worse re-opt is the finding).
+%   Coverage is complete now that Part B is resolved (idempotent realize_
+%   apertures; lost fields, if any, render grey and are counted, not hidden).
+    banner('RODGERS RECENTER STUDY  (dy = +%g arcmin, lambda = %g nm)', ...
+           A.dy_arcmin, lam_nm);
+    dy = deg2rad(A.dy_arcmin/60);
+    n  = A.map_n;
+    Frel = macos.design.field_grid(P.fov_half_deg*60, n, 'units','arcmin');
+    metrics = pick_metrics(A.metric);
+
+    % ---- build + solve stage 4 (the committed recipe) ----------------
+    banner('build + solve STAGE 4 (as committed)');
+    t = build_tma(P, P.K_nom, P.offset_deg);
+    t.align_focal_plane('grid',5,'span_arcmin',6);
+    optF = macos.design.field_grid(P.fov_half_deg*60, A.opt_n, ...
+                'units','arcmin', 'origin',false);
+    perM = [0 0 0 0 0 0 0 1; 1 0 0 0 1 0 0 1; 1 0 0 0 1 0 0 1];
+    t.optimize('fields', optF, 'dofs', perM, 'max_iters', A.max_iters);
+    t.align_focal_plane('grid',5,'span_arcmin',6);
+    Kas = [t.spec.elt(1).Kc t.spec.elt(2).Kc t.spec.elt(3).Kc];
+    fprintf('  stage-4 conics: [% .6f % .6f % .6f]\n', Kas);
+
+    % ---- AS-IS: score the committed solve on the box shifted +dy -------
+    % the box is centred on the bias (+30') then translated +dy in +y.
+    banner('AS-IS -- stage-4 solve on the box recentered +%g arcmin', A.dy_arcmin);
+    by = t.spec.field_bias;
+    Fshift = [Frel(:,1), by + dy + Frel(:,2)];
+    asis = eval_metrics(t, Fshift, metrics, lam_nm);
+    report_recenter('AS-IS (committed solve, box +dy)', asis, metrics, lam_nm);
+
+    % ---- RE-OPT: move the bias to +0.5deg+dy and re-solve --------------
+    banner('RE-OPT -- bias at +%g arcmin, re-solve conics + M2/M3 rigid', ...
+           rad2deg(by+dy)*60);
+    t2 = build_tma(P, P.K_nom, 0);        % build unbiased, then set new bias
+    t2.set_field_bias(rad2deg(by+dy)*60);
+    t2.build();
+    t2.align_focal_plane('grid',5,'span_arcmin',6);
+    t2.optimize('fields', optF, 'dofs', perM, 'max_iters', A.max_iters);
+    t2.align_focal_plane('grid',5,'span_arcmin',6);
+    Kro = [t2.spec.elt(1).Kc t2.spec.elt(2).Kc t2.spec.elt(3).Kc];
+    fprintf('  re-opt conics:  [% .6f % .6f % .6f]\n', Kro);
+    by2 = t2.spec.field_bias;
+    Freopt = [Frel(:,1), by2 + Frel(:,2)];   % box centred on the NEW bias
+    reopt = eval_metrics(t2, Freopt, metrics, lam_nm);
+    report_recenter('RE-OPT (bias at +dy)', reopt, metrics, lam_nm);
+    [yd2,al2] = rigid_of(t2.spec.elt(2));
+    [yd3,al3] = rigid_of(t2.spec.elt(3));
+    fprintf('  re-opt rigid: M2 Ydec=%.3f mm tilt=%.4f deg ; M3 Ydec=%.3f mm tilt=%.4f deg\n', ...
+            yd2, al2, yd3, al3);
+
+    % ---- summary table -------------------------------------------------
+    banner('RECENTER SUMMARY  (used-box RMS WFE, nm @ %g nm)', lam_nm);
+    fprintf('  %-28s', 'scenario \\ metric');
+    for m = 1:numel(metrics), fprintf(' %10s(max/avg)', metrics{m}); end
+    fprintf('\n');
+    print_recenter_row('AS-IS  box +dy', asis, metrics, lam_nm);
+    print_recenter_row('RE-OPT bias +dy', reopt, metrics, lam_nm);
+    fprintf(['\n  Expected shape: AS-IS gains from following the field; ' ...
+             'RE-OPT does NOT beat the solve-relative optimum.\n']);
+
+    out = struct('P',P,'A',A,'dy_arcmin',A.dy_arcmin, ...
+                 'K_asis',Kas,'K_reopt',Kro, ...
+                 'rigid_reopt',[yd2 al2; yd3 al3], ...
+                 'asis',asis,'reopt',reopt,'metrics',{metrics});
+    if A.plots
+        for m = 1:numel(metrics)
+            save_recenter_map(t,  Fshift, metrics{m}, ...
+                sprintf('recenter_asis_%s', metrics{m}), A, lam_nm);
+            save_recenter_map(t2, Freopt, metrics{m}, ...
+                sprintf('recenter_reopt_%s', metrics{m}), A, lam_nm);
+        end
+    end
+    if A.save
+        save(fullfile(A.outdir,'rodgers1_recenter.mat'),'out');
+        fprintf('\nSaved recenter results + maps to %s\n', A.outdir);
+    end
+end
+
+function mm = pick_metrics(sel)
+    switch lower(sel)
+        case 'global',    mm = {'global'};
+        case 'refsphere', mm = {'refsphere'};
+        otherwise,        mm = {'global','refsphere'};
+    end
+end
+
+function R = eval_metrics(t, F, metrics, lam_nm)
+%EVAL_METRICS  realize_apertures over F under each requested metric.
+    R = struct();
+    for m = 1:numel(metrics)
+        s = t.realize_apertures('fields', F, 'quiet', true, 'metric', metrics{m});
+        w = s.wfe(isfinite(s.wfe));
+        R.(metrics{m}) = struct('scan',s, ...
+            'min',min(w)*lam_nm, 'max',max(w)*lam_nm, 'avg',mean(w)*lam_nm, ...
+            'nfin',numel(w), 'ntot',numel(s.wfe));
+    end
+end
+
+function report_recenter(tag, R, metrics, lam_nm) %#ok<INUSD>
+    for m = 1:numel(metrics)
+        s = R.(metrics{m});
+        lost = s.ntot - s.nfin;
+        fprintf('  %-32s [%s]  min=%.2f max=%.2f avg=%.2f nm  (%d/%d fields%s)\n', ...
+            tag, metrics{m}, s.min, s.max, s.avg, s.nfin, s.ntot, ...
+            ternary(lost>0, sprintf(', %d LOST', lost), ''));
+    end
+end
+
+function print_recenter_row(tag, R, metrics, lam_nm) %#ok<INUSD>
+    fprintf('  %-28s', tag);
+    for m = 1:numel(metrics)
+        s = R.(metrics{m});
+        fprintf('  %8.1f/%-8.1f', s.max, s.avg);
+    end
+    fprintf('\n');
+end
+
+function save_recenter_map(t, F, metric, tag, A, lam_nm) %#ok<INUSD>
+    s = t.realize_apertures('fields', F, 'quiet', true, 'metric', metric);
+    f = fullfile(A.outdir, ['rodgers1_' tag '.png']);
+    fig = t.view_field_map(s, 'kind','contour', 'save',f, 'visible',false);
+    close(fig);
+    fprintf('  field map [%s] -> %s\n', metric, f);
+end
+
+function y = ternary(c,a,b)
+    if c, y=a; else, y=b; end
 end
 
 % =====================================================================
