@@ -45,18 +45,50 @@ parameter values.
   focus (−3256 mm) to 0.05 mm; on-axis WFE ≈ 0.
 - **Stage-3 conics match Rodgers to 4 decimal places** — our optimizer
   independently lands on his CODE V solution.
-- **Absolute field-map WFE runs 4–6× off**, traced to a **field-map RMS metric
-  definition** (CODE V per-field best-focus reference sphere vs our global-plane
-  `std(OPD)`; the per-field-defocus-removed metric matches on-axis to 3%). This
-  and the Stage-4 rigid-body values are **flagged for Fable**, not tuned past.
+- **Absolute field-map WFE reproduces once the RMS reference convention matches**
+  (Addendum 3). Under Dave's ruled **strict metric** — a per-field reference
+  sphere anchored at the exit pupil, centred on that field's chief-ray incidence
+  point on the *frozen* detector, piston-only removal — stage 2 at his aperture
+  reads **429.6 / 246.8 nm against his 374.6 / 199.9 (1.15× / 1.23×)**. The
+  earlier "4–6× off" (and the 11–20× of Addendum 1) came from taking the RMS on
+  the **detector plane**, which on this 14.3°-tilted image surface carries
+  (transverse ray aberration) × tan(tilt) — an artifact ~22× the wavefront error
+  itself, and not a low-order pupil term, so no `refsphere` fit removes it.
+  Stage-4 rigid-body values remain flagged, not tuned past.
 
-See **`PACKET.md`** for the full comparison tables, the metric ladder, and the
-open questions.
+See **`PACKET.md`** for the full comparison tables, the engine forensics
+(Addendum 3 §A), the metric ladder, and what is left open.
+
+## The strict metric
+
+```matlab
+strict_rung_gates(9)     % gates 1/2/3 end-to-end -- reproduces Addendum 3 §C/§D
+out = strict_wfe(t, F)   % the metric itself; F is a BOX-RELATIVE field list (rad)
+strict_ladder(5)         % what the strict residual is made of + the best-focus floor
+```
+
+`strict_wfe` is pure MATLAB and computes the ray-to-sphere OPL exactly
+(`strict_sphere_opl`); no paraxial expansion and no engine reference-surface
+default is involved. **Re-run gate 1 (the displaced-detector discriminator)
+before trusting any change to it** — a metric that does not grow by the analytic
+sphere-difference amount when the detector moves is self-referencing.
+
+⚠ `macos.trace(k).rmsWFE` is in **BaseUnits (metres)** for these decks, not
+waves — unlike `realize_apertures(...).wfe`, which does divide by λ. Multiplying
+`rmsWFE` by λ in nm understates it by 1e6; that error produced the "0.002 nm" and
+"13.4 nm" rows this study had to un-pick (Addendum 3 §A.2).
 
 ## Files
 
 - `rodgers1.m` — the driver.
 - `rodgers_common.m` — verbatim prescription + Rodgers' ground-truth stats (nm).
 - `rodgers1_stage{1..4}.in` / `_*.png` / `rodgers1_results.mat` — artifacts.
+- `run_epd4060.m` + `rodgers1_epd4060_*` — the same sequence at Dave's measured
+  4060 mm aperture (Addendum 1).
+- `epd4060_pupil_check.m` + `rodgers1_epd4060_stage4_pupil.in` — the explicit
+  exit-pupil cross-check (Addendum 2; read its units caveat above).
+- `strict_wfe.m`, `strict_sphere_opl.m`, `strict_rung_gates.m`,
+  `strict_ladder.m` + `rodgers1_epd4060_strict_*` — the strict metric and its
+  gates (Addendum 3).
 - `diag_*.m` — the diagnostics (focus, grid convergence, metric ladder, aperture
   sweep, FPA strategy) supporting the packet's findings.

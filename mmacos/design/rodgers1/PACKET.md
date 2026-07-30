@@ -571,3 +571,360 @@ artifact, and the underlying optics (exit-pupil WFE) are excellent.
 `rodgers1_epd4060_stage4_pupil.in` (the 6-element augmented deck: M1, M2, M3,
 FP_return, ExitPupil sphere, detector FP — all reference surfaces `ApType=None`),
 `rodgers1_epd4060_pupil_check.mat`.
+
+---
+
+# ADDENDUM 3 — pinning the metric: engine forensics, the strict rung, stage-2 validation, lane (2026-07-30)
+
+Dave ruled the correct metric and asked to (1) make Addendum 2 publishable — every
+row gets an operational definition, the 0.002 and XP rows get resolved, and a
+rider reconciles it with Addendum 1 — (2) add and validate the **strict rung**, and
+(3) determine the lane for EP-in-the-loop re-optimization (step 3, not this
+session).
+
+**Headline: the strict metric closes ask 1.** Rodgers' stage-2 box, at his
+aperture, on a detector frozen by his own procedure, under Dave's ruled metric,
+reads **429.6 / 246.8 nm (max / avg) against his 374.6 / 199.9 — 1.15x / 1.23x**.
+The 4–20x "residual gap" of Addenda 1 and 2 was a reference-convention artifact
+plus a units error; neither survives.
+
+## A. Engine forensics — where the OPD reference actually comes from
+
+Citations are to `macos/macos_f90`, branch `pol-core`. Read this section before
+interpreting ANY engine WFE number in this packet.
+
+**A.1 `SUBROUTINE OPD` has no reference sphere at all.** `tracesub.F:21-250`.
+It accumulates, over rays 2..nRay that pass (`:163-174`), `OPDScal =
+CumRayL(iRay) - RefCumRayL`, subtracts the ray MEAN `DAvgL` (`:179`), and takes
+the sample std (`:235-239`). `RefCumRayL` is the chief ray's own cumulative path
+(`:138-144`) — a per-field CONSTANT, so it cancels out of the RMS entirely; the
+engine says so itself at `:135-136`. All three branches (`:190`, `:205`, `:219`)
+compute the same `WFE`; they differ only in whether the returned `OPDMat` has the
+mean removed. **There is no sphere, no centre, no radius, no tilt fit and no
+focus fit anywhere in the path.** The reference surface is simply *the surface the
+trace stopped on*, and the reference "point" for each ray is *its own intercept
+on that surface*.
+
+Consequences, and they are the whole story:
+
+- **At a FocalPlane, the engine measures OPL to each ray's own intercept on the
+  detector plane.** Nothing moves when the FIELD moves except the rays. Nothing
+  moves when the DETECTOR moves except the plane the rays are cut on. The design
+  layer does not re-reference either: `Telescope.emit_` writes every element
+  vertex verbatim from `spec.elt` and only the SOURCE chief ray changes with
+  `trace_field` (`Telescope.m:2432-2445`), and `align_focal_plane` writes its
+  fitted `Vpt`/`psi` into `spec` once (`Telescope.m:454-455`), after which
+  `trace_at_field` re-emits the SAME detector. **There is no silent
+  re-referencing.** (This retires the SESSION_STATE caveat.)
+- **On a TILTED detector that measurement is not a wavefront error.** A ray whose
+  transverse aberration displaces its intercept by `d` on a plane tilted by `g`
+  from the beam picks up an extra `~ d*tan(g)` of path. Here `align_focal_plane`
+  fits `g = 14.2994 deg` and the geometric blur is `27.9 um` rms, giving
+  `~7 um` — and the engine indeed reports `5.099e-06 m` at the box centre where
+  the true wavefront error is `2.27e-07 m`. **The engine's raw FP number is ~22x
+  the wavefront error, and the excess is (transverse ray aberration) x (detector
+  tilt).** It is not a low-order pupil polynomial, which is why fitting piston /
+  tilt / defocus out of it — what the `refsphere` metric does — cannot remove it.
+- **It is NOT Fermat-protected, and the "0.002 nm row is a quasi-tautology"
+  suspicion is not the mechanism.** Fermat makes OPL equal to a stigmatic *point*,
+  not to a *plane*: displace the plane by `dz` and the piston-removed OPL grows as
+  `dz*(sec(theta) - <sec(theta)>)`, measured coefficient `6.43e-05` on this
+  system. The near-zero appearance had a different cause — see A.2.
+
+**A.2 `macos.trace(k).rmsWFE` is in BaseUnits (metres), NOT waves.** Measured on
+the committed `rodgers1_epd4060_stage4_pupil.in` (`BaseUnits= m`, `WaveUnits= m`,
+`Wavelen = 1e-06`): elt 6 (FP) `rmsWFE = 1.790188e-06`, elt 5 (ExitPupil)
+`rmsWFE = 4.139914e-07`, both identical to `std(macos.opd())` and to the engine's
+own printed `RMS OPD error ... m`. `realize_apertures(...).wfe` DOES divide by
+lambda (`Telescope.m:1860`, `:1923`) and is genuinely in waves.
+
+`epd4060_pupil_check.m:73` used `s.rmsWFE*lam_nm` on the metres quantity, so
+**Addendum-2 rows 1 and 2 are low by 1e6**. Restated (EPD 4060, stage 4, +/-6' box):
+
+| # | Addendum-2 row | as printed | **true** |
+|---|---|---|---|
+| 1 | FP, each field to its own chief focus (engine `rmsWFE`) | 0.002 / 0.002 "nm" | **~2000 / ~2000 nm** |
+| 2 | explicit exit-pupil sphere, fixed on-axis CoC | 2.644 / 1.588 "nm" | **~2.6 / ~1.6 mm** |
+| 3 | field-map `refsphere` | 775.6 / 485.5 nm | unchanged (correct) |
+| 4 | field-map `global` | 2448.5 / 1871.4 nm | unchanged (correct) |
+
+The corrected numbers are self-consistent in a way the printed ones were not:
+row 1 (~2 um, all rays) now sits in the same class as row 4 (2.4 um, clear
+aperture only) — they ARE the same quantity up to the aperture restriction — and
+row 2's ~1.6 mm is exactly the image-displacement tilt a fixed on-axis CoC must
+carry (image walk `+/-0.17 m` across the box, `EP->image ~ 96 m`, pupil radius
+`2.03 m` -> `~1.8 mm` rms of tilt). **Both disputed §A claims are therefore
+resolved, but not as CCMac wrote them:** row 1 is not "0.002 nm, genuine
+geometric-OPL agreement" (it is 2 um and it is tilt-artifact-dominated), and it is
+not a Fermat tautology either. Row 2's qualitative reading — "retains the off-axis
+image-displacement tilt" — was right; its magnitude was not.
+
+**A.3 What FEX ties to what.** `SUBROUTINE FEX`, `tracesub.F:255-566`; write-back
+`macos_cmd_loop.inc:2662-2671`. FEX traces the chief ray at the nominal field and
+at a `5e-6 rad` probe field (`:312-333`), takes their crossing as the pupil
+station `CrossPt` (`:367-368`), and sets, on the EP element:
+
+    VptElt = RptElt = CrossPt        ! vertex  = the two-probe chief crossing
+    psiElt = psip = -cr1dir          ! axis    = the chief direction (:563)
+    fElt   = |zp| ,  KrElt = -|zp|   ! radius  = zp
+
+with `zp = fexT`, the chief-ray distance from `CrossPt` to the plane of element
+`iElt+1` — **the detector** (`:415-437`, the 2026-07-03 rework). Because the
+sphere's axis IS the chief direction and its radius IS the EP->detector chief
+distance, its **centre of curvature lands exactly on the chief ray's intercept
+with the detector plane.** So:
+
+| quantity | moves with the FIELD? | moves with the DETECTOR? |
+|---|---|---|
+| sphere vertex (`CrossPt`) | yes (chief-ray probe geometry) | no |
+| sphere axis (`psip`) | yes | no |
+| sphere radius (`zp`) | yes | **yes** |
+| **sphere centre = vertex + zp*axis** | **yes** | **yes** |
+
+That is Dave's ruled metric, exactly — *provided FEX is re-run per field*. It is
+not re-run by any plain `trace`/`opd` call; CALIB does re-run it per field
+(`smacos_compute.inc:391-397`), which is what §E rests on. A deck whose EP was
+set once and then evaluated off-axis has a sphere centred on the ON-AXIS image
+point, which is Addendum-2 row 2 and its millimetres of tilt.
+
+**A.4 Sensitivity to the radius.** With the centre pinned to the chief intercept,
+the radius enters the metric only through an `O(eps^2 / R)` term (`eps` = the
+transverse ray aberration). At focus that is `0.075 nm` here — i.e. "anchored at
+the exit pupil" fixes the construction but does not, near focus, move the number.
+It matters only when the detector is far off focus, which is why the gate-1 rung
+at `dz = +627 mm` needs the true `R` and the `dz = 0` rung does not.
+
+**A.5 One geometry correction to §1 of this packet.** §1 states "EFL ~ 3506 mm,
+f/1.75" (hence "f/0.86 at EPD 4060"). The traced geometry disagrees: the M3
+footprint radius is `0.1113 m`, the M3->focus leg is `5.215 m`, the marginal
+half-cone is `1.2177 deg` — **f/23.5** — and the `+0.5 deg` chief lands at
+`y = -0.8819 m`, i.e. **EFL ~ 96-101 m**. The M1->M2, M2->M3 and M3->focus
+spacings still match Rodgers to the micron (§2), so the *prescription* is right;
+only the derived-EFL line is wrong. Nothing else in the packet depends on it, but
+it should not be repeated: the paraxial-basis worry it motivated ("at f/0.86 the
+`2*rho^2` basis is the artifact") does not apply at f/23.5. (The strict metric is
+computed exactly regardless — see §C.)
+
+## B. Reconciliation rider — Addendum 1 stands; Addendum 2's verdict does not
+
+Addendum 1 concluded *"the residual gap is genuine aperture/field WFE, not a
+metric-convention artifact"*; Addendum 2 concluded *"not an optical-quality
+deficit — entirely the reference convention"*, and the previous draft of this
+rider had Addendum 2 superseding Addendum 1. **That is now reversed, and both are
+partly wrong.**
+
+- **Addendum 2's evidence does not exist.** Its two load-bearing rows — "each
+  field to its own chief focus -> ~0 nm" and "the exit-pupil wavefront is only
+  1.6 nm" — are 2 um and 1.6 mm (§A.2). The claim that the same optics "read
+  across six orders of magnitude depending purely on the reference surface" was
+  ~1e6 of unit error stacked on one real effect (the fixed-CoC tilt). **Addendum
+  2's verdict sentence is WITHDRAWN.**
+- **Addendum 1 survives intact, and is now explained.** Its D^2 scaling of the
+  field-map metrics (measured 3.98-4.50x vs 4.12), its conic agreement to 3-4 dp
+  at the true aperture, and "just-the-knob" are all unaffected. What Addendum 1
+  could not say is *why* the field-map metrics were 11-20x Rodgers while the
+  conics matched: because `global` and `refsphere` are both taken **on the
+  detector plane**, and on a 14.3-degree-tilted image surface that plane carries
+  `(transverse aberration) x tan(tilt)` — an artifact ~20x the wavefront error
+  which is not a low-order pupil term and so survives the `refsphere` fit
+  (§A.1). It scales as D^2 because the aberration it multiplies does.
+- **Net, one verdict:** the optics are excellent (conics match; §C's strict WFE is
+  0.11-0.43 waves at 0.5 deg off-axis on a frozen detector, right where Rodgers
+  puts it); the 11-20x field-map numbers were the *plane* the metric was taken
+  on, not the aperture and not the design; and the aperture question raised by
+  Addendum 1 is settled at D = 4060 mm by §D, where the strict metric lands at
+  1.15x his max without any aperture adjustment.
+
+## C. The strict rung — Dave's metric, implemented constructively
+
+**Definition (Dave, 2026-07-30).** Per field: a reference sphere **anchored at the
+exit pupil**, **centred on that field's chief-ray incidence point on the FROZEN
+detector**, **piston-only removal**.
+
+**Implementation** — `strict_wfe.m` + `strict_sphere_opl.m`, pure MATLAB, no
+engine change and no reliance on an engine reference-surface default. Per field we
+harvest the raw ray data at the terminal FocalPlane (`macos.get_ray_info`:
+position `P`, direction `d`, cumulative OPL `L`), and reduce it ourselves:
+
+- `c` = the chief ray's intersection with the frozen detector plane -> the sphere
+  CENTRE;
+- `X` = the exit pupil, found the way FEX finds it — the crossing of two probe
+  chief rays `1e-5 rad` apart (`tracesub.F:312-368`), measured here at
+  `[0, 0, +0.2185] m` -> the sphere ANCHOR;
+- `R = |X - c|`;
+- for every ray, with `v = P - c`, `a = v.d`, `e = |v|^2`:
+
+      s = -a - sqrt(R^2 + a^2 - e) ,      W = L + s
+
+  which is the OPL to the sphere **exactly** — rays are straight after the last
+  surface (verified: `dir` matches the M3->FP chord to `1.6e-15`, and
+  `OPL(FP)-OPL(M3)` equals the segment length to `8.9e-15 m`), so no paraxial or
+  `2*rho^2` expansion enters anywhere;
+- `wfe = std(W)`, mean removed and nothing else — piston only.
+
+The chief ray is excluded from the statistic, matching the engine's own
+`iRay = 2, nRay` loop. All 1305 rays reach the detector at every field; no
+`realize_apertures` call is made (that leaves clip apertures installed — the
+contamination trap).
+
+**Why the sphere and not the plane:** §A.1. The strict metric removes the
+detector-tilt artifact and the chief-ray tilt, and keeps exactly what a frozen
+detector genuinely imposes — the field-to-field focus and astigmatism walk.
+
+**GATE 1 — the displaced-detector discriminator. PASS.** Stage 2, detector frozen
+by `align_focal_plane('grid',5,'span_arcmin',6)`, then displaced along its own
+normal. The metric must grow by the closed-form sphere difference
+`delta*cos(theta) - sqrt(R'^2 - delta^2 sin^2(theta)) + R`, evaluated per ray from
+the measured obliquities (`std(cos theta) = 6.4286e-05`):
+
+| detector displacement | strict metric | growth vs dz=0 | **analytic** | per-ray residual |
+|---|---|---|---|---|
+| 0 | 226.5 nm | — | — | — |
+| +1 mm | 239.3 nm | 66.33 nm | **66.32 nm** | 0.18 nm |
+| +10 mm | 710.6 nm | 661.6 nm | **661.5 nm** | 1.78 nm |
+| +627 mm | 35 250 nm | 35 240 nm | **35 240 nm** | 94.8 nm |
+
+Agreement is to 0.02% at +10 mm, and the residual is checked **per ray**, not just
+on the RMS. The metric is detector-tied and is not self-referencing.
+
+Two notes. (i) The +627 mm rung reads tens of micrometres, not the millimetres
+anticipated — because that estimate assumed f/0.86, and the system is f/23.5
+(§A.5); at the measured obliquity `0.627 m x 6.43e-05` is `40 um`, which is what
+we get. (ii) The engine's own FP `rmsWFE` at `dz = 0` is `5099 nm` against the
+strict metric's `226.5 nm`: the 22x detector-tilt artifact of §A.1, in one line.
+This also disposes of the SESSION_STATE "13.4 nm at z = +0.627 m" puzzle — that
+number was `13.4 mm` (§A.2 units), at a plane 3.9 m from focus and tilted, which
+is exactly the scale `(beam width) x tan(14.3 deg)` demands. It was never evidence
+of re-referencing.
+
+**Aberration ladder** (`strict_ladder.m`, stage-2 box, 5x5, nm) — what the strict
+number is made of, and how much any further freedom could buy:
+
+| rung | min | max | avg |
+|---|---|---|---|
+| **strict** (Dave's ruling) | 110.2 | 429.6 | 250.9 |
+| + sphere slid to per-field best focus | 110.1 | 429.5 | 250.7 |
+| + tip/tilt removed | 54.8 | 261.2 | 143.0 |
+| + astigmatism removed | 33.3 | 117.7 | 71.3 |
+
+The best-focus rung is the important one: sliding the sphere centre along each
+chief ray to that field's own best focus improves the metric by **0.1%**, and the
+longitudinal shift it wants is only `-0.20 .. -0.07 mm` across the box. A detector
+surface — plane or curved — can do nothing else. **Open ask 2 (his FPA surface) is
+therefore not needed to reconcile the numbers and cannot have been the
+explanation.** `align_focal_plane`'s plane is already at best focus to a tenth of
+a millimetre (plane-fit rms `0.027 mm`, sag range `0.083 mm` over the box).
+
+## D. Stage-2 validation (step 2) — PASS
+
+Frozen stage-2 design (Rodgers' verbatim conics, `+0.5 deg` offset, EPD **4060
+mm**, lambda = 1000 nm, `model_size` 256); detector produced by his procedure
+(FPA tilt/focus fit over the box: tilt `14.2994 deg`, `Vpt = [0, -0.881880,
+-3.256477] m`) and then **held**; no optimizer; strict metric over the 9x9
+bias-relative box; 81/81 fields finite, 1305 rays each.
+
+| | min | max | avg |
+|---|---|---|---|
+| **strict metric** | **110.2** | **429.6** | **246.8** nm |
+| Rodgers (CODE V field map) | 79.4 | 374.6 | 199.9 nm |
+| ratio | 1.39x | **1.15x** | **1.23x** |
+| *engine FP `rmsWFE`, same run, for contrast* | 1940.7 | 12493.3 | 6023.5 nm |
+
+**Within the ~1.5x gate. Ask 1 closes.** The metric was not tuned toward his
+value: it is the ruled construction, validated independently by gate 1 before this
+box was ever evaluated.
+
+Two cross-checks worth keeping. (i) The engine `rmsWFE` column above —
+`12493.3 / 6023.5` — reproduces the committed §C' `global` row for S2 at EPD 4060
+**exactly**, confirming that this run's box is the same box §C' used and that the
+`global` metric is precisely the engine's own FP number. (ii) `refsphere` reads
+`4555.1 / 2478.9` on that same box while the strict metric reads `429.6 / 246.8`:
+removing *more* (piston + tip/tilt + defocus) gives a *larger* number, which is
+only possible because `refsphere` is taken on the tilted detector plane and the
+strict metric is taken on a sphere — §A.1, quantified.
+
+**GATE 2 — the on-axis anchor.** Stage 1 (no field bias), same recipe, 9x9 box
+about 0':
+
+| | min | max | avg |
+|---|---|---|---|
+| strict metric | 0.277 | 3.570 | 0.968 nm |
+| Rodgers on-axis map | 0.446 | 1.463 | 0.606 nm |
+
+Same scale (`~1 nm`), avg within `1.60x`, max `2.44x`. This is the regime where
+the design is essentially perfect and the absolute numbers are set by ray
+sampling and by exactly where the fitted plane sits, so a factor ~2 on a 1-nm
+quantity carries much less information than the offset-field result; it is
+recorded as a scale check, not as a second precision claim.
+
+**What is left over.** After §D there is no unexplained magnitude gap. The three
+open asks to Rodgers reduce to one:
+
+1. ~~RMS reference sphere~~ — **CLOSED.** Dave's ruled construction reproduces his
+   field map to 1.15x at his aperture.
+2. ~~His FPA tilt/focus DOF~~ — **not load-bearing.** §C's best-focus rung shows
+   any detector surface is worth 0.1% here. Worth confirming for completeness,
+   but it cannot move the comparison.
+3. **EPD** — now *supported* rather than open: D = 4060 mm is the aperture at
+   which the strict metric lands on his numbers with no adjustment, which is an
+   independent confirmation of Dave's measurement. (Addendum 1's D^2 scaling
+   means a 20% aperture error would show as a 44% metric error; we are at 15%.)
+
+The remaining live discrepancy is **not** magnitude but **shape**: across the box
+his field map spans `79.4 -> 374.6` (**4.72x**) where ours spans `110.2 -> 429.6`
+(**3.90x**) -- we agree best at the worst corner (1.15x) and least at the best one
+(1.39x). Both are steeper than the `H^2` an on-axis-corrected anastigmat's
+astigmatism alone would give across `0.4 -> 0.6 deg` (2.25x), so neither is pure
+astigmatism; the difference in steepness is most naturally a field-definition
+question -- exactly where his box centre sits, and whether his 0.2 deg is full or
+half width. Worth one line in the note to Mike; it changes no conclusion here.
+
+## E. Lane determination for step 3 (read-only)
+
+**Verdict: CONFIGURATION-ONLY, no new engine mode.** [SOLID — CCMac finding,
+re-checked against the forensics above and unchanged.] CALIB's per-field WFE merit
+is already chief-ray-tied per field with piston-only removal: `funcs_app` forces
+`LUseChfRayIfOK = .false.` (`design_optim.F:659-664`), which selects the
+mean-subtract branch of `SUBROUTINE OPD` (`tracesub.F:219-233`) — and §A.1 shows
+all three branches give the same RMS anyway, so the piston-only property is
+structural, not a branch accident. CALIB additionally re-runs FEX per field
+(`smacos_compute.inc:391-397`), and §A.3 shows that a FEX-set EP element is a
+sphere whose centre of curvature IS the chief-ray intercept on the next element's
+plane. So the strict metric in-the-loop needs only: a deck with an ExitPupil
+(`Return`) element, the system STOP set, the detector immediately after the EP,
+and FEX enabled. **No Fortran change; engine-first merge ordering does not bite.**
+
+One caveat carried forward for whoever runs step 3: the in-loop merit is then the
+strict metric *at the EP element*, which by §A.4 is the same number as the
+out-of-loop metric of §C only while `R` is right — i.e. the detector must be the
+element right after the EP, or `zp` will be the distance to something else.
+
+## F. Artifacts
+
+Added (suffixed-parallel; every committed EPD-2000 and EPD-4060 output is left
+bit-intact):
+
+- `strict_wfe.m` — the strict metric (the deliverable).
+- `strict_sphere_opl.m` — the exact ray-to-sphere OPL kernel, shared by
+  `strict_wfe` and the gates so there is one implementation.
+- `strict_rung_gates.m` — gates 1/2/3 end-to-end; `strict_rung_gates(9)` is the
+  reproduction of §C/§D. Gate 1 is the non-vacuity check and must be re-run
+  before trusting any change to `strict_wfe`.
+- `strict_ladder.m` — the aberration ladder / best-focus floor of §C.
+- `rodgers1_epd4060_strict_gates.mat`, `rodgers1_epd4060_strict_ladder.mat`,
+  `rodgers1_epd4060_stage{1,2}_strict.png` (field maps, box-relative arcmin).
+
+Removed: `strict_rung.m`, `strict_rung_stages.m`,
+`rodgers1_epd4060_strict_rung.mat` and `wip_scratch_2026-07-30/` — the WIP
+sketches, superseded by the above. `strict_rung.m` carried the `s.rmsWFE*lam_nm`
+units bug of §A.2 and its `align_focal_plane`-in-the-loop recipe; keeping it would
+be keeping a trap.
+
+**Field convention, since it cost this session a run.** `trace_at_field(F)` ADDS
+`spec.field_bias` to `F`, so it takes a **box-relative** box.
+`realize_apertures('fields',F)` is the one branch that does NOT add the bias and
+therefore takes the **absolute** box (the §D `biasbox` helper). Passing the
+absolute box to `strict_wfe` doubles the bias and silently evaluates a `+1.0 deg`
+box — which reads `2405 nm` avg, i.e. a plausible-looking 12x "miss".
+
+`tDesignTelescope` 70/70 green.
