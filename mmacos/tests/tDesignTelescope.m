@@ -1113,6 +1113,61 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'aligned (tilted-FP) design no longer traces');
         end
 
+        function test_realize_apertures_metric_and_idempotent(tc)
+            % realize_apertures WFE metric (Dave/Rodgers 2026-07-30):
+            %   * default 'global' = std(OPD) at one image plane (unchanged);
+            %   * 'refsphere'      = per-field best-focus reference-sphere RMS
+            %     (piston+tip/tilt+defocus removed), the CODE V field-map
+            %     convention -- so it must be <= the global RMS off-axis,
+            %     where field-curvature defocus dominates.
+            % And every call must be IDEMPOTENT: it clears any previously
+            % realized clip apertures at entry and re-measures on the clean
+            % design (PACKET Sec B -- the "second call all-NaN" finding).
+            t = tc.make_tma_();  t.add_focal_plane('FP');
+            t.set_field_bias(6);  t.build();               % off-axis: defocus grows
+            t.align_focal_plane('grid',3,'span_arcmin',2);
+            by = t.spec.field_bias;
+            F  = macos.design.field_grid(2, 3, 'units','arcmin');
+            Fb = [F(:,1), by + F(:,2)];                    % box on the bias
+
+            sg = t.realize_apertures('fields',Fb,'quiet',true);            % default
+            tc.verifyEqual(sg.metric, 'global', 'default metric must be global');
+            sr = t.realize_apertures('fields',Fb,'quiet',true,'metric','refsphere');
+            tc.verifyEqual(sr.metric, 'refsphere');
+
+            wg = sg.wfe(isfinite(sg.wfe));  wr = sr.wfe(isfinite(sr.wfe));
+            tc.verifyNotEmpty(wg);  tc.verifyNotEmpty(wr);
+            tc.verifyLessThanOrEqual(max(wr), max(wg) + 1e-12, ...
+                'refsphere (defocus-removed) RMS must not exceed the global RMS');
+
+            % IDEMPOTENT: a fresh global call reproduces the first bit-for-bit
+            % (no stale-aperture state left behind), for BOTH metrics.
+            sg2 = t.realize_apertures('fields',Fb,'quiet',true);
+            tc.verifyTrue(isequaln(sg.wfe, sg2.wfe), ...
+                'repeated global realize_apertures is not idempotent');
+            sr2 = t.realize_apertures('fields',Fb,'quiet',true,'metric','refsphere');
+            tc.verifyTrue(isequaln(sr.wfe, sr2.wfe), ...
+                'repeated refsphere realize_apertures is not idempotent');
+        end
+
+        function test_view_field_map_renders_lost_fields(tc)
+            % A field map with lost (NaN) fields must render them visibly and
+            % NOT interpolate over them (Dave 2026-07-30): the figure builds,
+            % and the title states the metric + the lost-field count.
+            t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
+            F  = macos.design.field_grid(2, 3, 'units','arcmin');
+            sc = t.realize_apertures('fields',F,'quiet',true);
+            sc.wfe(1:3) = NaN;                             % synthetic lost row
+            fig = t.view_field_map(sc, 'kind','contour', 'visible',false);
+            tc.addTeardown(@() close(fig));
+            ttl = get(get(gca,'Title'),'String');
+            if iscell(ttl), ttl = strjoin(ttl, ' '); end
+            tc.verifySubstring(ttl, 'metric', ...
+                'field-map title must state which WFE metric was used');
+            tc.verifySubstring(ttl, 'lost', ...
+                'field-map with NaN fields must annotate the lost count');
+        end
+
         function test_align_focal_plane_before_pupil(tc)
             % The FP_return/ExitPupil that add_pupil inserts are derived
             % from the FP station -- re-aligning the FP under them would
