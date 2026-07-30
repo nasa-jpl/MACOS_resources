@@ -58,10 +58,20 @@ parameter values.
   cleanly: the stages our optimizer never touched agree (S1 1.60×, **S2
   1.15×**) and the ones it solved do not (S3 1.98×, **S4 2.98×**). The
   evaluation metric and the optics are therefore both fine; what differs is
-  **what our optimizer minimised**. Rodgers' stage-4 rigid body is genuinely
-  ~3× better under his own metric than ours — the `K_M3`/`Ydec` degenerate-
-  valley explanation is **not** confirmed, and re-optimising against the
-  strict metric (step 3) is the indicated next move, on its own brief.
+  **what our optimizer minimised** — CALIB was driven by the detector-plane
+  WFE (Addendum 4 §A).
+- **His own designs, built verbatim** (Addendum 4 §B): his stage 3 reads
+  **115.3 / 53.7 nm vs his 91.6 / 46.4 — 1.26× / 1.16×**, so the strict metric
+  now reproduces *two* of his designs. His stage-4 parameters read **64.6 µm**;
+  an injection round-trip of our own stage-4 reproduces §D.2 to 5e-6, so the
+  failure is that his stated `Ydec`/`α` are **not in our frame**. The stage-4
+  rigid-body comparison is therefore **retracted as uninterpretable** and the
+  `K_M3`/`Ydec` degenerate-valley question is reopened. His *conics* are better
+  than ours by 1.57× under the strict metric — that finding stands.
+- **Step-3 lane** (Addendum 4 §C): **configuration-only, no Fortran.** Literal
+  ORS (`CRSOPTIMIZE`) is both unreachable from CALIB and the wrong merit (it
+  removes per-field focus); the right one is FEX-per-field, reached with
+  existing keywords via an `add_pupil` deck + `OptFEX=Yes` + `OptWFElt=nElt-1`.
 
 See **`PACKET.md`** for the full comparison tables, the engine forensics
 (Addendum 3 §A), the metric ladder, and what is left open.
@@ -73,6 +83,7 @@ strict_rung_gates(9)     % gates 1/2/3 end-to-end -- reproduces Addendum 3 §C/�
 out = strict_wfe(t, F)   % the metric itself; F is a BOX-RELATIVE field list (rad)
 strict_ladder(5)         % what the strict residual is made of + the best-focus floor
 strict_stage_table(9)    % score all four COMMITTED stage decks + emit the 4 maps
+his_designs(9)           % build + score RODGERS' OWN S3/S4 verbatim (Addendum 4)
 ```
 
 `strict_wfe` is pure MATLAB and computes the ray-to-sphere OPL exactly
@@ -80,6 +91,14 @@ strict_stage_table(9)    % score all four COMMITTED stage decks + emit the 4 map
 default is involved. **Re-run gate 1 (the displaced-detector discriminator)
 before trusting any change to it** — a metric that does not grow by the analytic
 sphere-difference amount when the detector moves is self-referencing.
+
+⚠ Three harness traps, all of the "plausible wrong answer" kind: (1) a driver
+that saves a deck after a probe loop bakes the **last probe field** into it and
+silently offsets every later scan (Addendum 4 §E — it turned a 1.26× result into
+a 4.17× one); (2) `macos.perturb`'s local `+Rx` reads back through `rigid_of` as
+**−α**; (3) the committed `*_epd4060_stage*.in` decks were saved after
+`realize_apertures` and carry its clip apertures. Each is now guarded by an
+assert in the code that found it.
 
 ⚠ `macos.trace(k).rmsWFE` is in **BaseUnits (metres)** for these decks, not
 waves — unlike `realize_apertures(...).wfe`, which does divide by λ. Multiplying
@@ -96,7 +115,9 @@ waves — unlike `realize_apertures(...).wfe`, which does divide by λ. Multiply
 - `epd4060_pupil_check.m` + `rodgers1_epd4060_stage4_pupil.in` — the explicit
   exit-pupil cross-check (Addendum 2; read its units caveat above).
 - `strict_wfe.m`, `strict_sphere_opl.m`, `strict_rung_gates.m`,
-  `strict_ladder.m` + `rodgers1_epd4060_strict_*` — the strict metric and its
-  gates (Addendum 3).
+  `strict_ladder.m`, `strict_wfe_deck.m`, `strict_stage_table.m` +
+  `rodgers1_epd4060_strict_*` — the strict metric and its gates (Addendum 3).
+- `his_designs.m` + `rodgers1_epd4060_{rodgersS3,rodgersS4,oursS4roundtrip}.*` —
+  Rodgers' own solves built verbatim and scored (Addendum 4).
 - `diag_*.m` — the diagnostics (focus, grid convergence, metric ladder, aperture
   sweep, FPA strategy) supporting the packet's findings.
