@@ -910,9 +910,22 @@ smaller than his and opposite-signed on the decenters (ours M2 -3.74 mm /
 `K_M3`/`Ydec` valley, they would score the same under his own metric.
 
 **They do not. Our stage-4 solve scores 118.6 / 84.8 nm where his scores
-39.8 / 22.5 — 2.98x on max, 3.77x on avg. The degenerate-valley explanation is
-NOT confirmed: his rigid-body solution is genuinely the better design under the
-strict metric, by a factor of ~3.** The merit-function hypothesis of §4c
+39.8 / 22.5 — 2.98x on max, 3.77x on avg.**
+
+> ⚠ **RETRACTED by Addendum 4 §B.** The sentence that stood here — *"his
+> rigid-body solution is genuinely the better design under the strict metric, by
+> a factor of ~3"* — compared our solve against his REPORTED number, never
+> against his design. Built verbatim, his stage-4 parameters score **64.6 um** in
+> our frame, while our own stage-4 re-injected through the identical path
+> reproduces the 118.6 / 84.8 above to 5e-6. His stated `Ydec`/`alpha` therefore
+> do not mean, in our frame, what `rigid_of` reports for ours; the two parameter
+> sets are **not commensurable** and NEITHER "his is better" NOR "the degenerate
+> valley explains it" can be concluded. The `K_M3`/`Ydec` question is **reopened**.
+> What survives, independently, is the conic finding — and Addendum 4 §B
+> sharpens it: his stage-3 conics score 115.3 nm max against our 181.2 nm, so his
+> conics really are better by 1.57x under the strict metric.
+
+The merit-function hypothesis of §4c
 therefore **revives**, and with a concrete mechanism: our CALIB solve was
 driven by the detector-plane WFE, which on this 14.3-degree-tilted image
 surface is dominated by `(transverse ray aberration) x tan(tilt)` (§A.1) — an
@@ -1020,3 +1033,203 @@ absolute box to `strict_wfe` doubles the bias and silently evaluates a `+1.0 deg
 box — which reads `2405 nm` avg, i.e. a plausible-looking 12x "miss".
 
 `tDesignTelescope` 70/70 green.
+
+---
+
+# ADDENDUM 4 — step 3, part A: what CALIB minimised, his designs verbatim, and the ORS lane (2026-07-30)
+
+Evaluation only. No re-solve was run; §C explains why the lane is clear anyway
+and §B explains why the gate that would have opened part B does not.
+
+**Headline.** His stage-3 design, built verbatim from his slide parameters and
+strict-scored, reads **115.3 / 53.7 nm against his 91.6 / 46.4 (1.26x / 1.16x)** —
+the strict metric now reproduces **two** of his own designs. His stage-4 design,
+built the same way, reads **64.6 um** — 1623x. An injection round-trip proves the
+machinery: pushing OUR committed stage-4 solve back through the identical path
+reproduces §D.2's number to **5e-6**. So the stage-4 failure is in **his stated
+rigid-body values not meaning, in our frame, what `rigid_of` reports for ours** —
+and the §4c / §D.2 rigid-body comparison is **retracted as uninterpretable**.
+
+## A. What CALIB actually minimised for these decks
+
+Addendum 3 §A.3/§E said CALIB re-runs FEX per field, so each field is referenced
+to its own chief-ray-tied exit-pupil sphere; §D.2 said the solve was driven by
+detector-plane WFE with the `tan(tilt)` artifact. **Both are correct; §A.3's
+statement was conditional and these decks do not meet the condition.**
+
+The inner loop is `smacos_compute.inc:388-405`:
+
+    If (ifCalcOPD) Then
+      if (ifFEX_m) then                     <- 391
+        cmd='FEX' ;  IARG(1)=nElt-1
+      end if
+      If (opt_tgt_m==WFE_TARGET ...) Then   <- 400
+        cmd='OPD' ;  IARG(1)=optElt_m
+
+`ifFEX_m` is **false** here, twice over: `LOptIfFEX` initialises to `.FALSE.`
+(`dopt_mod.F:229`) and the design layer emits `OptFEX= No` explicitly
+(`Telescope.m:2307`, hard-coded in `emit_`). And even had it been true, the call
+is hard-wired to `IARG(1)=nElt-1`, which for a 4-element deck is **M3, a
+Reflector** — the FEX dispatch accepts only `EltID` 8 (Return) or 3 (Reference)
+and would have aborted (`macos_cmd_loop.inc:2618-2627`).
+
+So the loop went straight to `cmd='OPD'` at `optElt_m = OptWFElt`, and the design
+layer sets `wf_elt = numel(spec.elt)` — the **terminal FocalPlane**
+(`Telescope.m:864`, emitted at `:2305`). Meanwhile `funcs_app` forces
+`LUseChfRayIfOK=.false.` (`design_optim.F:664`), selecting the mean-subtract
+branch of `SUBROUTINE OPD`, and feeds the **whole OPD map** to the LM as its
+residual vector (`design_optim.F:683`: `yfit(off:off+obj_size-1)=OPDm(1:obj_size)`),
+so the objective is `sum_pixels OPD^2 = nPix * RMS^2`.
+
+**Answer: CALIB minimised the piston-removed OPL to each ray's own intercept on
+the FocalPlane** — the detector-plane quantity of Addendum 3 §A.1, carrying
+`(transverse ray aberration) x tan(14.3 deg)`, ~22x the wavefront error. That is
+exactly the evaluation the ORS/strict change has to replace: **`OPD` at the
+FocalPlane must become `OPD` at a per-field chief-tied sphere.**
+
+## B. His designs verbatim — evaluation
+
+Built from `rodgers1_epd4060_stage2.in` (his layout, his bias, EPD 4060, clip
+apertures stripped): conics set to his slide values; stage 4's M2/M3 rigid body
+applied through the **same engine path CALIB uses** (`cmd='PERTURB'` /
+`CPERTURB_PROG`, `smacos_compute.inc:300-322`, reached as `macos.perturb`); FPA
+then fitted by his procedure (the `align_focal_plane` algorithm, 5x5 over +/-6')
+and **frozen**; strict-scored over the 9x9 box. 1304 rays, 81/81 fields.
+
+The applied rigid body is **read back and asserted** against his stated numbers in
+the same convention `rigid_of` reports ours (`Ydec = Vpt(2)`,
+`alpha = atan2d(psi_y, -psi_z)`) — so "his values" means the same thing on both
+sides. It asserts clean (M2 8.344733 mm / 0.516947 deg, M3 121.868248 mm /
+2.329710 deg, to 1e-6). The assert also **determined a convention**: `perturb`'s
+local `+Rx` reports back as **negative** alpha, so his `+alpha` is applied as
+`-Rx`. That is recorded in the source, not left implicit.
+
+| design | strict max / avg (nm) | Rodgers max / avg | max x | avg x |
+|---|---|---|---|---|
+| **his S3 verbatim** (his conics) | **115.3 / 53.7** | 91.6 / 46.4 | **1.26** | **1.16** |
+| **his S4 verbatim** (his conics + his rigid body) | **64609 / 64569** | 39.8 / 22.5 | 1623 | 2871 |
+| *our committed S4, re-injected (round-trip)* | *118.6 / 84.8* | — | *= §D.2 to 5e-6* | — |
+
+**S3 — the metric is confirmed a second time, on a design we did not solve.**
+1.26x / 1.16x sits in the same band as the stage-2 gate (1.15x / 1.23x), and the
+expectation in the brief was ~92 nm. This is now two of Rodgers' own designs
+reproduced by Dave's construction, one un-optimised and one optimised, which is
+considerably stronger evidence than stage 2 alone.
+
+It also lets the §D.2 conic finding be restated against his real design rather
+than his reported number: **his conics score 115.3 nm max where our stage-3
+conics score 181.2 nm — his are better by 1.57x under the strict metric.** The
+"our optimizer minimised the wrong quantity" conclusion survives, measured.
+
+**S4 — 64.6 um, and the round-trip localises it.** Re-injecting our OWN committed
+stage-4 solve (its conics and its rigid body, out of
+`rodgers1_epd4060_results.mat`) through the identical `macos.perturb` path, with a
+fresh FPA fit, reproduces the committed §D.2 stage-4 strict number **118.591 /
+84.806 nm to 3.5e-6 / 5.4e-6 relative**. The injection path, the FPA fit and the
+scorer are therefore all sound, and the failure is in the VALUES.
+
+Corroborating detail: with his rigid body installed, the fitted FPA moves to
+`Vpt_y = +0.3665 m` (from `-0.8811`) and tilts to **21.70 deg** — the image walks
+**1.25 m** — and the best-focus rung still reads 64.4 um, so no detector surface
+can recover it. A 121.868 mm decenter on a mirror whose beam footprint radius is
+**111 mm** is not an alignment perturbation at all; it walks the beam entirely off
+the region the surface was figured for. That is a strong hint that his `YDE`/`ADE`
+are **not** a global-frame vertex decenter plus a normal tilt — CODE V applies
+them in the surface's local, possibly reflection-flipped, coordinate system, and
+the sign or the order or the pivot differs.
+
+**Ruling: the stage-4 rigid-body comparison is RETRACTED as uninterpretable.**
+Addendum 3 §D.2 concluded *"his rigid-body solution is genuinely the better design
+under the strict metric, by a factor of ~3"* — that was inferred from OUR stage-4
+scoring 2.98x his REPORTED number, never from evaluating his design. Evaluating it
+directly shows his stated parameters do not produce a working design in our frame,
+so the two parameter sets are **not commensurable** and neither "his is better" nor
+"the degenerate valley explains it" can be concluded. §4c's "4-5x smaller and
+opposite-signed" table is void for the same reason. **The `K_M3`/`Ydec` degenerate-
+valley question is reopened, not answered.** What §D.2's monotone pattern still
+supports, independently of any rigid-body claim, is the conic finding above.
+
+**Next step for this, and it is small:** resolve the `YDE`/`ADE` convention. Four
+bounded variants (decenter sign, tilt sign, tilt-then-decenter vs decenter-then-
+tilt, pivot at vertex vs at the local origin) can be evaluated in a few minutes
+each with `his_designs.m`; the acceptance test is not "does it hit 39.8 nm" but
+"does his design work at all" (i.e. land in the hundreds of nm rather than tens of
+um). Better still, one line from Mike's `.seq` settles it. Deliberately NOT
+searched here — a convention should be read, not fitted.
+
+## C. Lane for the ORS-referenced merit — CONFIGURATION-ONLY, no engine edit
+
+Two separate questions, and they have different answers.
+
+**Literal ORS is not reachable from CALIB, and is also the wrong merit.** The
+`ORS` command runs `CRSOPTIMIZE` (`tracesub.F:4436-4517`), which Brent-minimises
+RMS OPD over the reference surface's RADIUS `fElt(iElt)` (`:4461-4483`) — i.e. it
+finds each field's own **best-fit** sphere, removing per-field focus. Dave's ruled
+metric does the opposite: it pins the sphere to the **frozen** detector and keeps
+the focus walk, which is exactly what a fixed FPA imposes and what makes the
+number comparable with Rodgers. Putting `CRSOPTIMIZE` in the loop would let the
+optimizer ignore field curvature. Separately, it is not callable there at all:
+`MACOS_OPS` implements STOP / FEX / PERT / GPER / SPOT / OPD / CRT / GBS / RefRay /
+ROC_PERT / CONIC_PERT / ZERN_PERT / ASPH_PERT / RESET (`macos_ops.F:56-346`) and
+has **no ORS branch**, so wiring it would need Fortran in two places plus a gate
+keyword. **We do not want it.**
+
+**The metric we DO want is reachable with existing keywords.** Give the deck an
+`add_pupil` exit pupil so the tail is `[..., FP_return(Return), ExitPupil(Return),
+FocalPlane]`, set the system STOP, and set `OptFEX= Yes` with
+`OptWFElt = nElt-1`. Then:
+
+- CALIB's `IARG(1)=nElt-1` FEX call (`smacos_compute.inc:391-397`) lands exactly
+  on the ExitPupil, per field;
+- by Addendum 3 §A.3 the FEX-set sphere's centre of curvature is the chief ray's
+  intercept on the plane of element `iElt+1` — the detector;
+- `OPD` at `nElt-1` then measures OPL to that sphere.
+
+That **is** the strict metric, and structurally so: with the Return pair, the
+second Return negates the EP->FP leg, so `CumRayL` at the ExitPupil equals
+`OPL(source -> FP intercept)` minus the distance back to the sphere — precisely
+the `L + s` that `strict_sphere_opl` computes. `MACOS_OPS` already implements
+`FEX` (`macos_ops.F:60`); `design_optim.F:170-180` only requires the STOP to be
+set, which `smacos_compute.inc:279-288` then re-issues per evaluation.
+
+**Verdict: no Fortran in `macos`. The stop point does not trigger.** Two small
+design-layer (MATLAB, resources-side) changes are needed, both removing a
+hard-coded constant: `emit_` writes `OptFEX= No` unconditionally
+(`Telescope.m:2307`) and `optimize()` sets `fp_elt = numel(spec.elt)`
+unconditionally (`Telescope.m:864`); both must become pupil-aware, using
+`spec.pupil.ep_elt` when `add_pupil` has run.
+
+## D. Part B was not started, and why
+
+Its gate is "Part A2 lands near his numbers **and** the lane is clear". The lane
+is clear (§C). A2 is **half**: S3 lands (1.26x), S4 does not (1623x). And part B's
+own gate 5 reads *"rigid-body values move toward his 121.868 mm / 2.330 deg"* —
+a criterion that cannot be evaluated while those numbers are not in our frame
+(§B). Re-solving now would produce rigid-body values with nothing meaningful to
+compare them against. **The `YDE`/`ADE` convention is the blocker and it is the
+next thing to close.** Nothing of the re-solve was begun.
+
+## E. Artifacts
+
+- `his_designs.m` — builds and scores his S3/S4 verbatim, plus the our-S4
+  injection round-trip. The rigid-body readback assert and the round-trip check
+  are both load-bearing; keep them.
+- `rodgers1_epd4060_rodgersS{3,4}.in`, `rodgers1_epd4060_oursS4roundtrip.in` —
+  the three built decks (FPA fitted and installed).
+- `rodgers1_epd4060_his_designs.mat`,
+  `rodgers1_epd4060_{rodgersS3,rodgersS4,oursS4roundtrip}_strict.png`.
+
+**Two harness traps found and fixed here, both of the "plausible wrong answer"
+kind** — worth the same standing as the bias-doubling and the metres-vs-waves
+entries:
+
+1. `align_fpa_deck_` drives the engine through its probe grid and leaves it
+   holding the **last probe field's** chief ray. Saving the artifact deck from
+   that state bakes a box-corner field into it, and every later scan is centred
+   6' off. First run reported his S3 at 381.9 nm (4.17x) instead of 115.3 nm
+   (1.26x) — a miss large enough to look like a real finding. Caught by the field
+   map's x axis reading 0..12' instead of -6..+6'; now guarded by an assert that
+   the saved deck's `ChfRayDir` still equals the nominal.
+2. `macos.perturb`'s local `+Rx` reads back through `rigid_of` as **negative**
+   alpha. Injecting his `+alpha` naively puts the mirror at `-alpha`. Caught by
+   the readback assert, which is the reason that assert exists.
