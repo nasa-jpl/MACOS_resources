@@ -346,3 +346,159 @@ the committed absolute-box stage tables bit-for-bit.)
 
 ## Artifacts added
 `rodgers1_recenter.mat`, `rodgers1_recenter_{asis,reopt}_{global,refsphere}.png`.
+
+---
+
+# ADDENDUM — the study at Rodgers' true aperture, EPD = 4060 mm (2026-07-30)
+
+**Motivation.** The one unpinned input (§5.3 / open ask 3) was the EPD: 2000 mm
+was *inferred* from the slide-1 layout drawing, but Rodgers' 1000-mm scale bar
+puts the beam filling M1 at ≈4 m, and **Dave measures D = 4.06 m**. Every
+absolute-WFE comparison above was therefore made at **half his aperture**. This
+addendum re-runs the full four-stage sequence at **EPD = 4060 mm**, both metrics,
+the same bias-relative box and `map_n = 9` as §D, to (a) close the last open
+input and (b) run the falsifiable **D²-scaling test**: frozen-design off-axis WFE
+(astigmatism-dominated) scales as D², so if "metric convention" alone explained
+the residual gap, the Rodgers-ratio would be *aperture-invariant*; if instead the
+gap is aperture-driven, the ratio grows by ≈D². **Run and record — not tuned
+toward his numbers.**
+
+**Environment.** Clean `origin/dev` worktree (`3cc09e1`) + the current mmacos MEX
+(dev's 128 dispatch commands are a strict subset of the MEX's 137; the extra 9
+are polarization symbols the scalar TMA path never calls). **Environment gate
+PASSED before trusting any 4060 number:** re-running at EPD = 2000 reproduces the
+committed §D table bit-for-bit — S2 refsphere 1012.8/556.5, S3 247.4/216.2, S4
+195.1/114.4 nm, and the committed S3 conics (−0.993475, −1.932031, −0.705426) and
+S4 rigid-body (M2 −2.17 mm/0.138°, M3 −25.6 mm/0.642°). Driver +
+scaffold agree.
+
+## A′. Friction record — Dave's question: "just the knob, or rework?"
+
+**It is just the knob.** The entire four-stage sequence ran end-to-end at
+EPD = 4060 with **zero touches beyond `EPD_mm`**:
+
+- `rodgers1('EPD_mm',4060)` completes all four stages clean (`stages=4`, exit 0),
+  no error, no evaluator guard fired.
+- **No element-aperture / M1-hole sizing edits.** There is no hard-coded aperture
+  or hole in this Rx — `Aperture`, `ApVec`, and `ChfRayPos` in every emitted deck
+  are **derived from `EPD_mm`** by the builder. Diffing `stage1.in` at 2000 vs
+  4060 shows *only* those derived fields change (`Aperture` 2.0→4.06,
+  `ApVec` 1.04→2.11, `ChfRayPos` z −5.77→−6.28); the four decks stay
+  **structurally identical — 119 lines each**, same keyword set.
+- **No model-size / ray-grid change** (`model_size = 256`, `map_n = 9`,
+  `opt_n = 3` all as committed).
+- **No CALIB convergence difference at f/0.86.** `align_focal_plane` fits the
+  same focus (FP z = −3256.29 mm vs −3256.28 at 2000) and the S3/S4 optimizer
+  converged normally in the same iteration budget (120); conics landed *closer*
+  to Rodgers at the true aperture (below).
+- **Layout gate unchanged:** M1→M2 / M2→M3 spacings and radii are bit-identical
+  across the two apertures to floating-point noise (zElt differs in the 16th
+  digit only). Spacings/radii are his, fixed — untouched, as required.
+- **Nothing clipped, nothing lost:** all stages report **81/81 finite fields**
+  under both metrics at f/0.86, same as at f/1.75.
+
+This is the design-layer sales pitch, measured: aperture is a single scalar knob
+and the whole prescription — apertures, chief ray, pupil vectors — re-derives.
+
+## B′. Gate (b): solved conics vs Rodgers — **equal-or-better at the true aperture**
+
+His conics were solved at *his* EPD, so agreement should improve at matched
+aperture. It does:
+
+| conic | EPD 2000 \|diff\| | EPD 4060 \|diff\| | Rodgers |
+|---|---|---|---|
+| K_M1 | 1.23e−4 | **1.56e−5** | −0.993352673 |
+| K_M2 | 5.39e−5 | 3.12e−4 | −1.932084692 |
+| **K_M3** | 2.93e−3 | **3.43e−3** | −0.702494853 |
+
+K_M1 tightens by ~8× (to 5 dp); K_M2 loosens slightly but stays at 4 dp; **K_M3
+(the flagged 2.9e−3 term) stays at 3.4e−3** — same order, not worse in kind. The
+independent-optimizer conic match (§3's headline) **holds at the true aperture**:
+same Rx + DOFs + field → essentially his CODE V conics, at f/0.86.
+
+Stage-4 conics: K_M1 3.3e−4, K_M2 4.0e−3, K_M3 1.06e−2 (K_M3 loosens to 2 dp — the
+richer DOF set trades conic tightness for the added rigid-body freedom, same as
+at 2000). Stage-4 rigid-body scales up toward his values but stays ~⅓–½:
+M2 −3.74 mm/0.233°, M3 **−43.84 mm/1.114°** (vs his 8.34/0.517, 121.87/2.330) —
+still opposite-signed decenters, still gated by the merit-function difference
+(§4c), now larger in magnitude as expected at the bigger aperture.
+
+## C′. Gate (c): the WFE table, stages 2–4, both metrics, EPD = 4060
+
+Bias-relative box (centred on +30′), `map_n = 9`, 81/81 finite:
+
+| stage | global max/avg (nm) | refsphere max/avg (nm) | Rodgers max/avg (nm) | global ×Rodgers(max) | refsphere ×Rodgers(max) |
+|---|---|---|---|---|---|
+| S2 (verbatim conics, FPA re-fit) | 12493.3 / 6023.5 | 4555.1 / 2478.9 | 374.6 / 199.9 | 33.4× | **12.2×** |
+| S3 (reopt conics + FPA)          |  5816.2 / 2812.0 | 1026.7 /  847.8 |  91.6 /  46.4 | 63.5× | **11.2×** |
+| S4 (tilt/dec M2,M3 + reopt)      |  2448.5 / 1871.4 |  775.6 /  485.5 |  39.8 /  22.5 | 61.5× | **19.5×** |
+
+On-axis anchor S1 (about 0′): global 14.4/3.9, **refsphere 9.43/2.78** nm (vs
+Rodgers 1.5/0.61). Even the on-axis refsphere anchor, which sat at 0.62 nm ≈
+Rodgers at EPD 2000, has grown ~4.5× — consistent with the D²-scaling below and
+its own tell that the residual is aperture-driven, not a fixed convention offset.
+S2 FPA tilt fits **14.30°** (vs 14.24° at 2000) — the tilted-image-surface finding
+(§4b) is aperture-robust.
+
+## D′. Gate (d): the D²-scaling check — **result supports hypothesis (b)**
+
+The task posed two hypotheses. **(a)** the gap closes at matched aperture ⇒ the
+2000-mm agreement was coincidental; **(b)** the gap *grows to ≈D²* ⇒ "metric
+convention" is falsified as the residual explanation and the gap is aperture-/
+field-driven. Measured ratios, EPD 4060 vs 2000:
+
+| stage | refsphere max | refsphere avg | global max | global avg | (4060/2000)² |
+|---|---|---|---|---|---|
+| S2 | 4.50× | 4.46× | 2.52× | 2.59× | **4.12** |
+| S3 | 4.15× | 3.92× | 2.09× | 2.33× | 4.12 |
+| S4 | 3.98× | 4.25× | 2.84× | 3.55× | 4.12 |
+
+**The refsphere metric scales as D² to within ~10%** (3.98–4.50× vs the 4.12
+expectation) across all three stages — clean astigmatism-dominated D² growth.
+Equivalently, the Rodgers-ratio grows by ≈D²: refsphere S2 2.7×→12.2×, S3
+2.7×→11.2×, S4 4.9×→19.5× (ratio-growth 4.0–4.5×, i.e. ≈D²). **This is
+hypothesis (b).**
+
+The global-plane metric grows *sub*-D² (2.1–3.6×): expected, because it carries a
+large aperture-*independent* field-curvature-defocus pedestal that dilutes the
+D²-scaling astigmatism — which is exactly why the refsphere metric (defocus
+removed per field) is the honest off-axis comparison, and it is the one that
+shows the clean D².
+
+## Verdict
+
+**Hypothesis (b), decisively.** At Rodgers' true 4.06-m aperture the refsphere WFE
+scales as D² to within 10%, so the residual gap to his numbers is **not** a fixed
+metric-convention multiplier (that would be aperture-invariant) — it is genuine
+aperture-/field-dependent wavefront error, dominated by astigmatism at f/0.86.
+Two consequences sharpen the open asks for Mike:
+
+1. The EPD 2000-mm refsphere agreement (2.7–4.9× above Rodgers) was **partly
+   coincidental** — half the beam meant a quarter of the astigmatic WFE. At his
+   aperture the honest refsphere gap is 11–20×, not 3–5×. **Open ask 3 (EPD) is
+   thus not cosmetic: it dominates the absolute-magnitude comparison**, and it is
+   now pinned at D = 4060 mm here.
+
+2. Because our conics *still match his to 3–4 dp at the true aperture* (B′) while
+   our absolute WFE is ~D²-larger than his, the residual must live in the two
+   remaining asks — **the RMS reference-sphere definition (ask 1)** and **his
+   off-axis FPA surface (ask 2)**. His slide numbers (79/375/40-class) at a 4-m
+   f/0.86 anastigmat imply CODE V removes more than piston+tip/tilt+defocus (its
+   field-map RMS likely also references out astigmatism, or a differently-tilted
+   image surface); §4a's −astig ladder rung already dropped S2 into the tens of
+   nm. This is now the *sole* live explanation — the aperture variable is spent.
+
+Neither hypothesis was contradicted; (b) is confirmed and (a) rejected. No
+conclusion from the EPD-2000 packet flips — the conic match and the AS-IS<RE-OPT
+recenter trade are aperture-robust — but the absolute-WFE narrative is now
+correctly anchored at his aperture.
+
+## Artifacts added (EPD = 4060, parallel to the committed EPD = 2000 set)
+
+`run_epd4060.m` (the sweep driver — reuses `rodgers_common` + the committed build
+recipe; runs any EPD, both metrics, emits the §D table); and, one per stage,
+matching the four-slide progression:
+`rodgers1_epd4060_stage{1..4}.in`,
+`rodgers1_epd4060_stage{1..4}_{global,refsphere}.png`,
+`rodgers1_epd4060_results.mat`. **All committed EPD = 2000 outputs are left
+bit-intact** (the 4060 set is suffixed-parallel, never overwriting).
