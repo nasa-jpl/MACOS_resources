@@ -882,6 +882,32 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'macos:design:Telescope:optimize:elts');
         end
 
+        function test_optimize_per_element_dofs(tc)
+            % A PER-ELEMENT (Nv,8) dof mask emits a distinct VarElt row per
+            % varied mirror -- e.g. M1 conic-only while M2/M3 also decenter+
+            % tilt (the Rodgers Stage-4 DOF set: no global-tilt gauge freedom).
+            % Verify (a) the emitted .in carries the three distinct VarElt
+            % rows, (b) a (1,8) row still applies to all (back-compat), and
+            % (c) a wrong-row-count matrix errors cleanly.
+            t = tc.make_tma_();  t.set_field_bias(2.0);  t.build();
+            perM = [0 0 0 0 0 0 0 1;    % M1: conic only
+                    1 0 0 0 1 0 0 1;    % M2: TIP + DY + conic
+                    1 0 0 0 1 0 0 1];   % M3: TIP + DY + conic
+            res = t.optimize('fields_arcmin',[1 2],'max_iters',30,'dofs',perM);
+            tc.verifyTrue(res.converged, 'per-element DOF CALIB did not converge');
+            % M1 stays rigid on the pinned axis; M2/M3 move (tilt/decenter)
+            tc.verifyEqual(norm(t.spec.elt(1).psi(:)-[0;0;-1]), 0, 'AbsTol',1e-9, ...
+                'M1 (conic-only row) must not tilt');
+            tc.verifyEqual(norm(t.spec.elt(1).Vpt(:)-[0;0;0]), 0, 'AbsTol',1e-9, ...
+                'M1 (conic-only row) must not decenter');
+            moved = norm(t.spec.elt(2).psi(:)-[0;0;-1]) ...
+                  + norm(t.spec.elt(3).psi(:)-[0;0;-1]);
+            tc.verifyGreaterThan(moved, 1e-7, 'M2/M3 (tilt rows) did not move');
+            % a wrong-row-count matrix (not 1 and not Nv) errors cleanly
+            tc.verifyError(@() t.optimize('dofs',ones(2,8),'max_iters',10), ...
+                'macos:design:Telescope:optimize:dofsRows');
+        end
+
         function test_fourth_mirror_psi_parity(tc)
             % The coaxial psi rule generalized: psi_z = -dir_in (concave) /
             % +dir_in (convex).  For <=3-mirror Korsch chains this reproduces
