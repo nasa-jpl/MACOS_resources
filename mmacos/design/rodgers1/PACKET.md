@@ -210,30 +210,46 @@ samples the wavefront. The returned `.aperture` still reports the FP rect.
 
 **Root cause is shared and singular:** `realize_apertures` installed clip
 apertures on the optics (elts 1–4) sized to *the box it was handed* and **left
-them installed**. Any subsequent evaluation of a *different* box — the metric
-ladder (which adds the +30′ bias), a second call, or a recentered box — traced
-*through* those stale apertures; images that walk outside them read NaN.
+them installed**. Any subsequent evaluation of a *different* box on the SAME
+object — the metric ladder (which adds the +30′ bias), a second call, or a
+recentered box — traced *through* those stale apertures; images that walk
+outside them read NaN.
 
-- **B1 — the top-two rows (box-rel y ≥ +4.5′) lost on committed stage 4:
-  ARTIFACT, not a physical field limit.** On the **clean** stage-4 design (no
-  realised apertures installed) **1305/1305 rays reach the FP at every field
-  across the whole box** (abs +24′→+36′, incl. the "lost" rows) — verified by a
-  per-field trace with `get_ray_info`. Nothing falls off any element ⇒ per
-  Dave's rule (loss to an *aperture* just means the aperture must be
-  re-defined; loss off an *element* is the true fail) this is **not** a true
-  fail. The committed map's NaN top rows were the stale-aperture clip, and the
-  contour silently interpolated over them. **Ruling: usable field is not
-  limited here; fix the evaluator, and render lost fields visibly.**
+**Where the NaN top rows actually appeared (attribution corrected, Fable
+review 2026-07-30).** The four committed stage scans in `rodgers1_results.mat`
+are **all 81/81 finite, zero NaN** — the committed field maps were never
+affected, which is also why the default-metric bit-identity gate holds. The
+"top-two-rows lost" NaN pattern appeared only in a **derivative run** (Fable's
+interim harness) whose call sequence re-used one telescope object across
+several evaluations and so tripped the B2 stale-aperture state *before* its
+field map was drawn. So B1 is a finding about **the stale-state artifact's
+effect on derivative/re-used-object runs and the metric ladder — not about the
+committed maps.**
 
-- **B2 — a second `realize_apertures` with shifted fields returns all-NaN,
-  including fields finite on the first call: reproduced and FIXED.** Sequence
-  on committed stage 4: callA (fresh box) 81/81 finite → apertures now on elts
-  [1 2 3 4] → callB (identical box) **0/81** → callC (shifted) 0/81 →
-  `clear_realized_apertures` → callD **81/81** restored. The "state left behind"
-  is precisely the installed clip apertures (chiefly the frame-buggy tilted-FP
-  rect). **Fix:** `realize_apertures` now **clears any previously-realised clear
+- **B1 — the substance: no physical usable-field limit at the box edge.** On
+  the **clean** stage-4 design (no realised apertures installed) **1305/1305
+  rays reach the FP at every field across the whole box** (abs +24′→+36′, incl.
+  the box-rel y ≥ +4.5′ top rows) — verified by a per-field trace with
+  `get_ray_info`. Nothing falls off any element ⇒ per Dave's rule (loss to an
+  *aperture* just means the aperture must be re-defined; loss off an *element*
+  is the true fail) there is **no true fail** and **no field limit** here.
+  Where the NaN top rows *did* surface (derivative runs / the metric ladder,
+  above), they were the stale-aperture clip with the contour silently
+  interpolating over them. **Ruling: usable field is not limited at the box
+  edge; fix the stale-state evaluator bug (B2), and render any lost field
+  visibly.** The committed stage maps do not change post-fix (they had no NaN).
+
+- **B2 — a second `realize_apertures` on the same object with shifted fields
+  returns all-NaN, including fields finite on the first call: reproduced and
+  FIXED.** Sequence on a stage-4 object: callA (fresh box) 81/81 finite →
+  apertures now on elts [1 2 3 4] → callB (identical box) **0/81** → callC
+  (shifted) 0/81 → `clear_realized_apertures` → callD **81/81** restored. The
+  "state left behind" is precisely the installed clip apertures (chiefly the
+  frame-buggy tilted-FP rect). This is the mechanism behind B1's derivative-run
+  NaNs. **Fix:** `realize_apertures` now **clears any previously-realised clear
   apertures at entry** and re-measures on the clean design — idempotent, and a
-  no-op on a fresh telescope (first-call numbers bit-identical). `view_field_map`
+  no-op on a fresh telescope (first-call numbers bit-identical, which is why
+  the committed single-call stage maps were already correct). `view_field_map`
   now grey-fills lost fields and never interpolates over them.
 
 Both covered by `tDesignTelescope/test_realize_apertures_metric_and_idempotent`
@@ -272,6 +288,61 @@ Conics match to **5 dp**, rigid-body to **~0.5%** — the two independent runs
 agree. The as-is avg differs modestly (fuller coverage here); the re-opt
 magnitude differs more because Fable's interim re-opt scored a partial box.
 Both agree on the sign of the trade (re-opt worse), which is the finding.
+
+## D. Bias-relative re-baseline of the stage tables (Fable condition 2)
+
+The convention flag: the committed stage-2/3/4 tables — and the original
+packet §4's 4–6× Rodgers-ratio narrative — were computed on the **absolute
+box about y = 0**, not the **used +30′ box**. (`realize_apertures('fields',F)`
+is the only field branch that does not add `field_bias`, so `eval_box`'s
+`field_grid` box sits about 0′.) The committed absolute-box outputs and the
+driver's default stage convention are LEFT UNTOUCHED (bit-compat); the table
+below is **additional rows**, not a rewrite of history.
+
+Stages 2–4 re-evaluated on the **bias-relative, un-shifted** box (9×9 centred
+on the +30′ used field), both metrics, 81/81 finite:
+
+| stage | global max/avg (nm) | refsphere max/avg (nm) | Rodgers max/avg (nm) | global ×Rodgers(max) | refsphere ×Rodgers(max) |
+|---|---|---|---|---|---|
+| S2 (verbatim conics, FPA re-fit) | 4959.1 / 2322.5 | 1012.8 / 556.5 | 374.6 / 199.9 | 13.2× | 2.7× |
+| S3 (reopt conics + FPA)          | 2789.7 / 1208.5 |  247.4 / 216.2 |  91.6 /  46.4 | 30.5× | 2.7× |
+| S4 (tilt/dec M2,M3 + reopt)      |  862.8 /  526.9 |  195.1 / 114.4 |  39.8 /  22.5 | 21.7× | 4.9× |
+
+**Sanity vs §C:** the S4 bias-relative refsphere (195.1 / 114.4 nm) sits right
+at the recenter study's AS-IS +2′ refsphere (197.1 / 112.2 nm) — as expected
+(the un-shifted box should be marginally better than the +2′-shifted one); the
+S4 global row (862.8 / 526.9) likewise matches the AS-IS +2′ global (936.9 /
+542.1), slightly better un-shifted. Consistent.
+
+**§4 discrepancy conclusion, restated.** Moving to the physically-correct box
+does NOT reconcile the off-axis magnitude with Rodgers, and no stage's
+conclusion flips. Under the global-plane metric the ratios stay large
+(13–30×) — that metric leaves the fast anastigmat's field-curvature defocus in
+the corners, so it was never the right comparison off-axis. Under the CODE
+V-consistent **refsphere** metric the ratios collapse to **2.7–4.9×** — far
+closer, and the honest comparison — but still **well above** Rodgers'
+79/375/200-class numbers. That residual gap is real and expected; it is NOT an
+optical-reproduction error (§3: the conics match CODE V to 4 dp). It is gated
+by the **three open asks to Rodgers**, unchanged from §5:
+
+1. **RMS reference sphere** — exactly which surface/normalization CODE V's
+   field-map RMS uses off-axis (our refsphere removes per-field
+   piston+tip/tilt+defocus over the clear aperture; if CODE V also removes
+   more, e.g. astigmatism, or references a different pupil, the residual
+   closes further — §4a's ladder shows −astig drops S2 into the tens of nm).
+2. **His FPA tilt/focus DOF** — does CODE V's detector reach the same ~14°
+   offset image surface our `align_focal_plane` fits (§4b)? The off-axis
+   metric is taken on whatever surface his optimizer converged to.
+3. **EPD** — 2000 mm was inferred from the layout drawing (§5.3); WFE-in-waves
+   scales with aperture, so the absolute magnitude cannot be pinned until his
+   `.seq`/EPD readout confirms it. (Conic *values* are aperture-robust — hence
+   §3 matches regardless.)
+
+Reproduce: build each committed stage (as `rodgers1` stages 2–4 do) and call
+`realize_apertures('fields', [Frel(:,1), field_bias + Frel(:,2)], 'metric', m)`
+for `m ∈ {global, refsphere}` — the same build recipe, only the eval box is
+shifted onto the +30′ bias. (Kept out of the default driver flow to preserve
+the committed absolute-box stage tables bit-for-bit.)
 
 ## Artifacts added
 `rodgers1_recenter.mat`, `rodgers1_recenter_{asis,reopt}_{global,refsphere}.png`.
