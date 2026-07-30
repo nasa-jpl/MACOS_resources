@@ -8,7 +8,8 @@ function out = rodgers1(varargin)
 %  solved optical parameters against Rodgers' CODE V results.
 %
 %  THE SYSTEM.  A coaxial three-mirror anastigmat (all mirrors on one
-%  axis), 2 m aperture, EFL ~3.5 m (f/1.75), imaging a small 0.2deg x
+%  axis), 2 m aperture (4.06 m at Rodgers' true EPD), EFL ~96-101 m,
+%  image-space f/23.5, imaging a small 0.2deg x
 %  0.2deg field.  lambda = 1000 nm.  The interesting part is what
 %  happens when the used field is pushed 0.5deg OFF axis: the on-axis
 %  corrections no longer serve it, WFE explodes, and successively richer

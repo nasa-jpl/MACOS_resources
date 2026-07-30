@@ -23,6 +23,14 @@ Open ask 1 (the RMS reference-sphere convention) **closes**.  Open ask 2 (his FP
 surface) is **not load-bearing** — sliding the sphere to per-field best focus buys
 0.1%.  Open ask 3 (EPD) is **supported** at D = 4060 mm.
 
+Scored across all four committed stage solves (PACKET §D.2): S1 1.60x, **S2
+1.15x**, S3 1.98x, **S4 2.98x** — the un-optimised stages agree and the
+optimised ones do not, so the residual is a **merit-function** question, not a
+metric one.  Rodgers' stage-4 rigid body scores ~3x better than ours under the
+strict metric, so the `K_M3`/`Ydec` degenerate-valley explanation is NOT
+confirmed and **step 3 (re-optimise against the strict metric) is indicated** —
+on its own brief.
+
 ## What the handoff's flagged numbers actually were
 
 - **"13.40 nm at the builder-seed FP (z = +0.627 m)"** was **13.4 mm**.
