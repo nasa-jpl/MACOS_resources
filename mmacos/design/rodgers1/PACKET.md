@@ -571,3 +571,122 @@ artifact, and the underlying optics (exit-pupil WFE) are excellent.
 `rodgers1_epd4060_stage4_pupil.in` (the 6-element augmented deck: M1, M2, M3,
 FP_return, ExitPupil sphere, detector FP — all reference surfaces `ApType=None`),
 `rodgers1_epd4060_pupil_check.mat`.
+
+---
+
+# ADDENDUM 3 — pinning the metric: per-row definitions, the strict rung, stage-2 validation, lane (2026-07-30)
+
+Dave ruled the correct metric and asked to (1) make Addendum 2 publishable — every
+row gets an operational definition, the 0.002 and XP rows get resolved, and a
+rider reconciles it with Addendum 1 — (2) add and validate the **strict rung**, and
+(3) determine the lane for EP-in-the-loop re-optimization (step 3, not this session).
+
+## A. Per-row operational definitions for the Addendum-2 table
+
+Each row states: **whose OPD map**, **which reference surface**, **center where**,
+**what is removed**. All at EPD 4060, stage-4 (except as noted), ±6′ box, λ=1000 nm.
+Engine citations are to `/Users/dcr/dev/macos/macos_f90` (branch `pol-core`).
+
+| # | row label | OPD map | reference surface | center | removed |
+|---|---|---|---|---|---|
+| 1 | FP per-field own chief focus | `macos.trace(FP)`→`.rmsWFE` | the detector plane | each field's own **chief ray** (ray-mean) | **piston only** |
+| 2 | explicit exit-pupil sphere | `macos.opd()` at the ExitPupil Return | spherical Return, `Kr=−R` | **fixed** CoC at the *on-axis* image | piston only (engine) |
+| 3 | field-map `refsphere` | `realize_apertures(metric='refsphere')` | the realised clear aperture at one plane | per-field | piston + tip/tilt + **defocus** via `2ρ²−1` LSQ fit |
+| 4 | field-map `global` | `realize_apertures(metric='global')` | one global image plane | shared | piston only (`std(OPD)`) |
+
+**Row 1 — the 0.002 nm number, RESOLVED (it is NOT a sphere-fit tautology).**
+`macos.trace(k).rmsWFE` is computed by `SUBROUTINE OPD`, `tracesub.F:21-250`. The
+reference OPL is the **chief ray's** cumulative path (`RefCumRayL=CumRayL(1)`,
+`tracesub.F:138-144`); the RMS reduction subtracts **only the ray-mean** `DAvgl`
+(`tracesub.F:179`, applied `:222-232`) and takes the sample std (`:235-239`). There
+is **no best-fit sphere, no tilt fit, no focus fit** anywhere in the path (the
+engine's own comment, `tracesub.F:135-136`: *"chief ray … would be cancelled in
+RMS formula"*). So 0.002 nm is **genuine geometric-OPL agreement** of the design
+traced to its own chief focus, not a numeric fit to λ/500,000. It is, however, the
+**tautology *floor* of the comparison** in a different sense: it references *each
+field to its own chief image point*, so field-to-field variation — the entire
+quantity Rodgers' field-map RMS measures — is definitionally absent. Keep the row,
+labelled **"floor: each field to its own chief focus (no field-to-field term)."**
+It is a validity check on the optics (they are near-perfect per field), not a
+field-map metric.
+
+**Row 2 — the XP row's hidden removal, STATED.** The `macos.opd()` at the ExitPupil
+is referenced to that Return's spherical surface, whose CoC + axis the engine sets
+from the **chief ray** (FEX geometry, `tracesub.F:255-566`; axis `=−`chief dir
+`:563`, vertex `=` chief crossing; written to the element `macos_cmd_loop.inc:2662-
+2671`). With the CoC **fixed at the on-axis image**, an off-axis field's chief hits
+a *displaced* point, so the raw pupil OPD carries a large **image-displacement
+tilt**; the 2.64 nm max is therefore **not** a tilt-free wavefront. Per Dave
+(2026-07-30): *"OPD on a FEX-generated exit pupil has focus but not much tilt —
+tying the EP to the chief ray is essentially removing the tilt, except for the
+tilt-like residual that coma produces."* So Row 2 as printed **retains the
+image-displacement tilt** of the fixed on-axis sphere; the label should read
+**"exit-pupil sphere, fixed on-axis CoC — retains off-axis image-displacement
+tilt."** Removing that tilt (re-tying the sphere to each field's chief) is the
+strict rung, §C.
+
+**Rows 3–4** are unchanged from Addendum 2; their definitions are in the table
+above. Row 3's `2ρ²−1` defocus term is the **basis artifact** at f/0.86 (§C).
+
+## B. Reconciliation rider — Addendum 2 **supersedes** Addendum 1's verdict sentence
+
+Addendum 1 concluded *"the residual gap is genuine aperture/field WFE (not a
+metric-convention artifact)"*; Addendum 2 concluded *"not an optical-quality
+deficit — entirely the reference convention."* Read cold these oppose. **Addendum 2
+is the more complete finding and supersedes Addendum 1's verdict sentence**, as
+follows. **What survives from Addendum 1, unchanged:** (i) the D²-scaling of the
+`refsphere`/`global` field-map metrics with aperture (measured 3.98–4.50× vs 4.12);
+(ii) the conic agreement with CODE V to 3–4 dp at the true aperture; (iii)
+"just-the-knob" — EPD is a single scalar that re-derives the whole deck. **What is
+restated:** Addendum 1 read the D²-growing *field-map* number as evidence the
+residual was "genuine optical WFE." Addendum 2 shows that number is
+**reference-surface-dominated**: the *same optics* read 0.002 nm (own-focus) to
+1871 nm (`global`), and the exit-pupil wavefront (tilt removed, focus kept) is small
+(§C). So the residual-vs-Rodgers gap is **not an optical-quality deficit** — it is
+which reference surface the field-map RMS is taken on. The D²-scaling still holds and
+is consistent with this: the field-map metrics scale as D² *because* the thing they
+retain (field-curvature focus/tilt walk across the box on the tilted image surface)
+scales as D² — a property of the *convention*, not of an optical error. Net: **the
+optics are excellent (conics match, exit-pupil WFE small); the large field-map
+numbers are the convention, and that convention's magnitude scales as D².** One
+verdict, both addenda.
+
+> **STATUS: WIP HANDOFF — Addendum 3 is INCOMPLETE.** §A (per-row definitions)
+> and §B (reconciliation rider) are DRAFTS by CCMac. §C/§D/§E below are
+> **PLACEHOLDERS, not results** — to be completed and merged by Terminal Opus
+> after the engine-forensic pass. Do not cite §C/§D/§E numbers; the strict-rung
+> values CCMac obtained (~0 nm) are provisional and confounded by
+> `align_focal_plane` (see `SESSION_STATE_2026-07-30.md`). The §A "0.002-row
+> resolution" is DISPUTED (Fermat second-order) — see SESSION_STATE.
+
+## C. The strict rung — Dave's metric, added to the table
+
+**[PLACEHOLDER — TO to complete.]** The strict metric (per-field reference sphere
+centered at each field's chief-ray intercept on the FIXED detector, evaluated at
+the exit pupil, piston-only removal) is defined; the operational sketch is
+`strict_rung.m` (FEX-per-field loop). CCMac's runs returned ~0 nm at all stages,
+but that is an ARTIFACT of `align_focal_plane` refitting the detector to the box
+(see SESSION_STATE crux). The correct row — box WFE at Rodgers' FIXED paraxial
+detector, no per-build refit — is TO's to produce and insert here.
+
+## D. Stage-2 validation (step 2)
+
+**[PLACEHOLDER — TO to complete.]** Gate: does the strict rung on the frozen
+stage-2 design land within ~1.5× of Rodgers' 374.6 nm? CCMac's numbers (0.01 nm
+aligned / 13.4 nm at the seed FP z=+0.627 m) are NOT valid answers to this gate —
+the first was detector-refit to null the box, the second is at the wrong fixed
+plane and is itself evidence of silent re-referencing (see SESSION_STATE). TO to
+compute at the correct fixed detector and record pass/miss.
+
+## E. Lane determination for step 3 (read-only)
+
+**[SOLID — CCMac finding, carried for TO's use.]** Verdict: **CONFIGURATION-ONLY,
+no new engine mode.** CALIB's per-field WFE merit is already chief-ray-tied per
+field with piston-only removal — `funcs_app` forces `LUseChfRayIfOK=.false.`
+(`design_optim.F:659-664`) driving the mean-subtract branch of `SUBROUTINE OPD`,
+and re-runs FEX per field (`smacos_compute.inc:391-397`) so each field is
+referenced to its own chief-ray-tied exit-pupil sphere. Achieving the strict
+metric in-the-loop therefore needs only a deck with an ExitPupil (Return) element,
+the system STOP set, and FEX enabled — no Fortran change. (Full citations in
+`SESSION_STATE_2026-07-30.md` §Q3. Caveat: this presumes the strict metric's own
+definition survives TO's forensic pass on the 0.002-row / re-referencing questions.)
