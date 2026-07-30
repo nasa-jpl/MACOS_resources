@@ -809,8 +809,14 @@ classdef Telescope < handle
         %     'max_iters'     CALIB iteration cap (default 60).
         %     'target'        'WFE' (default).
         %     'weights'       FoV weights, length 1+numel(fields) (default equal).
-        %     'dofs'          (1,8) VarElt mask [TIP TILT CLOCK DX DY PIST ROC
+        %     'dofs'          VarElt mask [TIP TILT CLOCK DX DY PIST ROC
         %                     CONIC] (default [0 0 0 0 0 0 0 1] = conic only).
+        %                     A (1,8) row applies to EVERY varied element; an
+        %                     (Nv,8) matrix gives a PER-ELEMENT mask, its rows
+        %                     aligned to the varied elements in ascending
+        %                     element-index order (or to 'elts' if given) --
+        %                     e.g. hold M1 rigid (conic only) while M2/M3 also
+        %                     decenter+tilt, without a global-tilt gauge freedom.
         %
         %   Returns: .converged, .n_fov, .fields_xy_arcmin (nfov x 2, absolute
         %   (thx,thy) incl. on-axis row 1), .fields_arcmin (the y-angles, back-
@@ -826,10 +832,10 @@ classdef Telescope < handle
                 opts.target        (1,:) char = 'WFE'
                 opts.weights       (1,:) double = []
                 opts.fields        (:,2) double = []   % explicit (thx,thy) OFF-axis offsets (rad)
-                opts.dofs          (1,8) double = [0 0 0 0 0 0 0 1]  % per-elt VarElt mask
+                opts.dofs          (:,8) double = [0 0 0 0 0 0 0 1]  % VarElt mask ((1,8) shared or (Nv,8) per-elt)
                 opts.elts          (1,:) double = []   % subset of elements to vary
             end
-            if ~all(ismember(opts.dofs, [0 1]))
+            if ~all(ismember(opts.dofs(:), [0 1]))
                 error('macos:design:Telescope:optimize:dofs', ...
                     'dofs must be a 0/1 mask over [TIP TILT CLOCK DX DY PIST ROC CONIC].');
             end
@@ -861,6 +867,19 @@ classdef Telescope < handle
                     'no Reflector elements to vary.');
             end
             Nv     = numel(var_elts);                     % # conic DOFs
+            % Expand the DOF mask to one row per varied element.  A single
+            % (1,8) row is shared across all; an (Nv,8) matrix is per-element
+            % (rows aligned to var_elts in ascending index order).
+            if size(opts.dofs,1) == 1
+                dof_rows = repmat(opts.dofs, Nv, 1);
+            elseif size(opts.dofs,1) == Nv
+                dof_rows = opts.dofs;
+            else
+                error('macos:design:Telescope:optimize:dofsRows', ...
+                    ['dofs must be (1,8) [shared] or (%d,8) [per varied ' ...
+                     'element] -- got %d rows for %d varied elements.'], ...
+                    Nv, size(opts.dofs,1), Nv);
+            end
             fp_elt = numel(obj.spec.elt);                 % terminal FocalPlane
             % Off-axis eval directions for the OptChfRayDir block.  Field 1 is
             % the nominal (possibly biased) ChfRayDir and is omitted here (it
@@ -894,7 +913,7 @@ classdef Telescope < handle
 
             obj.spec.opt = struct('target',opts.target, 'wf_elt',fp_elt, ...
                 'max_iters',opts.max_iters, 'fields',dirs, 'weights',w, ...
-                'var_elts',var_elts, 'dof_mask',opts.dofs);
+                'var_elts',var_elts, 'dof_mask',opts.dofs, 'dof_rows',dof_rows);
             obj.build();                                  % emit opt block -> load
             r = macos.calib();
 
@@ -2419,9 +2438,18 @@ classdef Telescope < handle
                 L{end+1} = '           IndRef=1.0E+00';
                 L{end+1} = '           Extinc=0.0E+00';
                 if isfield(sp,'opt') && any(sp.opt.var_elts == k)
-                    % VarElt mask over [TIP TILT CLOCK DX DY PIST ROC CONIC]
+                    % VarElt mask over [TIP TILT CLOCK DX DY PIST ROC CONIC].
+                    % Per-element rows (dof_rows) let e.g. M1 stay conic-only
+                    % while M2/M3 also decenter+tilt; falls back to the shared
+                    % dof_mask row for back-compat.
+                    if isfield(sp.opt,'dof_rows')
+                        vi   = find(sp.opt.var_elts == k, 1);
+                        mask = sp.opt.dof_rows(vi,:);
+                    else
+                        mask = sp.opt.dof_mask;
+                    end
                     L{end+1} = ['           VarElt=  ' ...                        %#ok<AGROW>
-                                strtrim(sprintf('%d ', sp.opt.dof_mask))];
+                                strtrim(sprintf('%d ', mask))];
                 end
                 % CALIB Zernike-departure DOF (OptZern= n mode1 .. moden): the
                 % freeform figure-correction channel.  Listing modes here adds
