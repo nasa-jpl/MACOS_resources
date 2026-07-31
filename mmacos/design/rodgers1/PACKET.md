@@ -912,6 +912,11 @@ smaller than his and opposite-signed on the decenters (ours M2 -3.74 mm /
 **They do not. Our stage-4 solve scores 118.6 / 84.8 nm where his scores
 39.8 / 22.5 — 2.98x on max, 3.77x on avg.**
 
+> ⚠ **RETRACTED by Addendum 4 §B, then RESTATED by Addendum 5 §B** — the honest
+> figure is **1.83x** (his 64.9 nm vs our 118.6, design against design, once
+> his ADE sign is decoded), not the ~3x below and not "uninterpretable".
+> Original retraction text follows.
+>
 > ⚠ **RETRACTED by Addendum 4 §B.** The sentence that stood here — *"his
 > rigid-body solution is genuinely the better design under the strict metric, by
 > a factor of ~3"* — compared our solve against his REPORTED number, never
@@ -1233,3 +1238,166 @@ entries:
 2. `macos.perturb`'s local `+Rx` reads back through `rigid_of` as **negative**
    alpha. Injecting his `+alpha` naively puts the mirror at `-alpha`. Caught by
    the readback assert, which is the reason that assert exists.
+
+---
+
+# ADDENDUM 5 — step 3, part B: the convention decode, gate 0, and the engine stop point (2026-07-30)
+
+**Headline.** The CODE V `ADE` sign is opposite to ours; decoded, **his stage-4
+design reads 64.9 / 35.4 nm against his 39.8 / 22.5 — 1.63x / 1.57x**, so the
+strict metric now reproduces **all three** of his designs. Gate 0 passes at
+**2.7e-9**. The re-solve is **BLOCKED at an engine change**: `OptFEX= Yes` is a
+no-op, so no prescription can turn on the per-field FEX the merit needs. Design
+below; nothing implemented in `macos` — engine-first ordering applies.
+
+## A. Convention decode — his ADE sign, measured
+
+Addendum 4 left his stage-4 rigid body uninterpretable. `convention_decode.m`
+screens all 16 sign combinations of (YDE, ADE) across M2/M3 x 2 application
+orders, at the box-centre field, on a criterion that is NOT his WFE: the
+arriving bundle's own best-focus spot RMS and the strict WFE about a sphere
+centred there. A wrong frame fails this by orders of magnitude and no detector
+fit can rescue it.
+
+| variant | spot RMS | strict at own focus |
+|---|---|---|
+| **M2(+YDE, −ADE) M3(+YDE, −ADE)** | **1.911 um** | **8.967 nm** |
+| runner-up: M2(−,+) M3(−,+) | 52.7 um | 293 nm |
+| the other 14 | 1.2 mm .. 8.5 mm | 5.8 .. 42 um |
+| *our committed S4, for scale* | *14.19 um* | *81.83 nm* |
+| *stage 2, no rigid body* | *27.45 um* | *155.4 nm* |
+
+**A 30x separation from the runner-up and 9x better than our own S4.** That is
+a decode, not a fit. The order of application makes no difference at all
+(identical to printed precision), so only the signs matter.
+
+**Result: his YDE sign matches ours; his ADE sign is OPPOSITE** to `rigid_of`'s
+`alpha = atan2d(psi_y, -psi_z)`, uniformly on both mirrors. The hypothesis
+under test — that CODE V's per-surface frame flips at each mirror, so M2 (odd)
+would flip and M3 (even) would not — is **wrong**; the measured answer is
+simpler and uniform. Worth recording as such: the reflection-flip story was
+plausible and false.
+
+**His design in our frame:** M2 (+8.344733 mm, −0.516947 deg),
+M3 (+121.868248 mm, −2.329710 deg).
+
+## B. His stage 4, re-scored — and the rigid-body comparison, finally in one frame
+
+With the decoded ADE sign, the full Addendum-4 pipeline (FPA fitted by his
+procedure then frozen, 9x9 box, 1304 rays, 81/81):
+
+| design | strict max / avg (nm) | Rodgers | max x | avg x |
+|---|---|---|---|---|
+| his S2 (Addendum 3 §D) | 429.6 / 246.8 | 374.6 / 199.9 | 1.15 | 1.23 |
+| his S3 verbatim (Addendum 4) | 115.3 / 53.7 | 91.6 / 46.4 | 1.26 | 1.16 |
+| **his S4 verbatim, decoded** | **64.9 / 35.4** | 39.8 / 22.5 | **1.63** | **1.57** |
+| our committed S4 | 118.6 / 84.8 | — | 2.98 | 3.77 |
+
+**Three of his designs, three reproductions in the 1.15–1.63x band.** The
+64.6 um of Addendum 4 was entirely the ADE sign.
+
+**Rigid body, both solves in the converted frame:**
+
+| | Ydec (mm) | alpha (deg) |
+|---|---|---|
+| his M2 | +8.3447 | −0.5169 |
+| our M2 | −3.7417 | +0.2330 |
+| his M3 | +121.868 | −2.3297 |
+| our M3 | −43.839 | +1.1142 |
+
+His is **−2.1x to −2.8x ours** — the same compensation *pattern*, on the
+**opposite branch**, roughly 2.4x further along it. That is the signature of a
+genuinely degenerate valley with two usable branches, not of two unrelated
+solutions. But they are **not equivalent**: his scores 64.9 nm where ours
+scores 118.6, so **his branch is better by 1.83x** under the strict metric.
+(Addendum 3 §D.2 claimed ~3x; that was against his reported number. 1.83x,
+design against design, is the honest figure and it supersedes both the §D.2
+claim and Addendum 4's retraction of it.)
+
+## C. Gate 0 — the in-loop merit IS the strict metric, numerically
+
+`gate0_merit_identity.m`, on the committed `rodgers1_epd4060_stage4_pupil.in`:
+run FEX at nElt-1 then `OPD` there (what CALIB's inner loop would evaluate),
+against `strict_wfe`'s own construction from raw ray data at M3.
+
+| field | CALIB merit (m) | strict (m) | relative |
+|---|---|---|---|
+| box centre | 8.228877052003e-08 | 8.228877029755e-08 | 2.7e-09 |
+| +x+y corner | 7.472140289252e-08 | 7.472140283521e-08 | 7.7e-10 |
+| −x−y corner | 1.185906278408e-07 | 1.185906278375e-07 | 2.8e-11 |
+
+**PASS.** The tolerance is 1e-6, not machine epsilon: the engine intersects the
+actual conic reference surface iteratively while the construction solves the
+sphere in closed form. 2.7e-9 is 2e-16 m on an 8e-8 m quantity. A conic walk of
++/-0.1 on K_M3 keeps the two identical to all printed digits, so the identity is
+not local to the nominal point.
+
+## D. STOP POINT — the re-solve needs a Fortran change in `macos`
+
+**Addendum 4 §C's "configuration-only" verdict is WRONG.** It was reasoned from
+the keyword's existence; the parser body says otherwise:
+
+    msmacosio.inc:327-329
+      ELSE IF (LCMP(VAR_NAM,'OptFEX',6)) THEN
+        If (LCMP(VALUE,'N',1)) LOptIfFEX=.FALSE.
+        GO TO 50
+
+**There is no affirmative branch. A prescription can turn the per-field FEX OFF
+and never ON.** `OptFEX= Yes` is silently a no-op. (`dopt_mod.F:229` initialises
+`LOptIfFEX=.FALSE.`; `macos_cmd_loop.inc:347` sets `.TRUE.` on the interactive
+CALIB path, so the effective default is path-dependent — which is its own
+defect.) Same class of error as an "analytic" transcribed from the engine's own
+expression: I read the keyword, not the code under it.
+
+**Measured consequence** (`fex_in_loop_check.m`, 9-field optimisation box):
+
+| | on-axis field | off-axis fields |
+|---|---|---|
+| EP OPD, stale add_pupil sphere | 1.26e-07 m | **1.84e-03 .. 2.64e-03 m** |
+| EP OPD, after per-field FEX | 2.26e-07 m | 1.10e-07 .. 4.30e-07 m |
+
+Four orders of magnitude, and they agree ONLY on axis — the tell. A real solve
+logged its inner merit at **5.5e-03 .. 1.3e-02 m**: the no-FEX column. So CALIB
+was minimising the image-displacement tilt of a sphere stuck at the on-axis
+image, which it reduces by moving the image — and it ran away exactly as that
+predicts (one round took K_M1 to −1.262, K_M3 to +7.198, the FPA 2.7 m, and the
+next round lost every ray).
+
+**Proposed engine change, for review — NOT implemented:**
+
+1. `msmacosio.inc:327-329` — add the affirmative branch:
+   `If (LCMP(VALUE,'Y',1)) LOptIfFEX=.TRUE.`
+2. Make the default explicit rather than path-dependent: `dopt_mod.F:229` says
+   `.FALSE.`, `macos_cmd_loop.inc:347` says `.TRUE.`. Pick one and have both
+   paths read it.
+3. **Gate, already measured and non-vacuous:** with `OptFEX= Yes`, an ExitPupil
+   at nElt-1 and the STOP set, CALIB's inner OPD must equal the strict metric —
+   1.1e-07..4.3e-07 m across the box, not 1.8e-03..2.6e-03. The pre-change
+   engine fails it at every off-axis field by 4 orders.
+4. **Risk to check:** FEX rewrites the EP element's `Vpt/psi/Kr/f/z` on every
+   evaluation (`macos_ops.F:78-84`); its interaction with CALIB's `RESET` and
+   with the finite-difference Jacobian needs a look before the flag is trusted.
+5. Scope: one parser line plus a default; no new command, no new state.
+
+**Design-layer side (this commit, resources only).** The plumbing is in place —
+`optimize()` routes `OptWFElt` to `spec.pupil.ep_elt` and requests `OptFEX`;
+`align_focal_plane` gained `'allow_pupil'` so the solve<->refit alternation can
+run with the pupil installed. It is **guarded by a hard error** until the engine
+lands: the failure mode is a *silent* wrong solve, so it must not be reachable
+by accident. `tDesignTelescope` 70/70.
+
+## E. What part B still owes, once the engine change lands
+
+Unchanged from the brief: alternate solve <-> `align_focal_plane` to
+convergence, report the round count, emit `_xpopt` artifacts, and check
+S3 <= ~115 nm, S4 <= ~1.5x his 39.8, and the rigid body against his converted
+(+121.868 mm, −2.330 deg). §B now says what the last of those should look like:
+our solve should either reach his branch or beat it on ours.
+
+## F. Artifacts
+
+`convention_decode.m` + `rodgers1_epd4060_convention_decode.mat`;
+`gate0_merit_identity.m` + `rodgers1_epd4060_gate0.mat`;
+`fex_in_loop_check.m`; the rebuilt `rodgers1_epd4060_rodgersS4.in` and its map
+(decoded convention). `his_designs.m` now carries the decoded ADE sign, with the
+readback assert comparing against the CONVERTED values.

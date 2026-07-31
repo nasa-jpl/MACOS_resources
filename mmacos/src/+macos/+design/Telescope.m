@@ -345,6 +345,18 @@ classdef Telescope < handle
         %     'fields'       explicit (N,2) rad offsets (>=2, plus the
         %                    auto-anchor; must not be collinear with it);
         %                    supersedes grid/span.
+        %     'allow_pupil'  run even when add_pupil has already inserted the
+        %                    FP_return/ExitPupil pair (default false, which
+        %                    keeps the original hard error).  Needed for the
+        %                    exit-pupil-referenced optimisation loop, which must
+        %                    ALTERNATE solve <-> re-fit the detector with the
+        %                    pupil in place.  Safe there: CALIB re-runs FEX per
+        %                    field, re-deriving the ExitPupil pose from scratch,
+        %                    and FP_return's station CANCELS out of the
+        %                    Return-pair OPL (the ray retraces the same line, so
+        %                    the leg it adds is the leg the second Return
+        %                    subtracts).  Only the terminal FocalPlane -- the
+        %                    frozen detector the metric is tied to -- is updated.
         %
         %   Returns res: .fields (N,2 rad, row 1 = center anchor), .foci
         %   (3xN), .fp_vpt, .psi, .tilt_deg (plane normal vs arriving
@@ -358,11 +370,12 @@ classdef Telescope < handle
                 opts.grid (1,1) double {mustBeInteger,mustBeNonnegative} = 0
                 opts.span_arcmin (1,1) double {mustBePositive} = 0.25
                 opts.fields (:,2) double = zeros(0,2)
+                opts.allow_pupil (1,1) logical = false
             end
             obj.ensure_loaded_();
             if ~macos.has_rx(), obj.build(); else, obj.build('','init',false); end
             e  = obj.spec.elt;
-            if any(strcmp({e.name}, 'FP_return'))
+            if any(strcmp({e.name}, 'FP_return')) && ~opts.allow_pupil
                 error('macos:design:Telescope:align_fp:afterPupil', ...
                     'align_focal_plane must run BEFORE add_pupil.');
             end
@@ -880,7 +893,47 @@ classdef Telescope < handle
                      'element] -- got %d rows for %d varied elements.'], ...
                     Nv, size(opts.dofs,1), Nv);
             end
-            fp_elt = numel(obj.spec.elt);                 % terminal FocalPlane
+            % WHERE THE MERIT IS EVALUATED.  Default: the terminal FocalPlane,
+            % which makes CALIB minimise std(OPL) to each ray's OWN intercept
+            % on the detector plane.  On a tilted image surface that carries
+            % (transverse ray aberration) x tan(tilt) -- an artifact that can
+            % dwarf the wavefront error itself (rodgers1 PACKET Addendum 3 A.1).
+            % When add_pupil has inserted an ExitPupil, evaluate THERE and turn
+            % OptFEX on: CALIB then re-runs FEX per field
+            % (smacos_compute.inc:391-397, hard-wired to nElt-1 = the
+            % ExitPupil), giving each field a reference sphere centred on ITS
+            % chief-ray intercept on the detector.  That is the strict metric;
+            % verified numerically equal to it (2.7e-9) by
+            % design/rodgers1/gate0_merit_identity.m.
+            use_ep = isfield(obj.spec,'pupil') && ~isempty(obj.spec.pupil);
+            if use_ep
+                % BLOCKED ON AN ENGINE CHANGE -- do not remove this guard until
+                % it lands.  `OptFEX= Yes` is a NO-OP: msmacosio.inc:327-329
+                % parses the keyword but carries only the
+                % "If (LCMP(VALUE,'N',1)) LOptIfFEX=.FALSE." branch, so a deck
+                % can turn the per-field FEX OFF and never ON.  Without it the
+                % merit is the OPD to a reference sphere STUCK at the on-axis
+                % image, which measures image-displacement tilt (1.8e-3..2.6e-3 m
+                % across the box vs 1.2e-7..4.3e-7 m with FEX -- see
+                % design/rodgers1/fex_in_loop_check.m) and drives the solve to
+                % run away.  Erroring is deliberate: the failure mode is a
+                % SILENT wrong solve.
+                error('macos:design:Telescope:optimize:epMeritBlocked', ...
+                    ['the exit-pupil merit needs per-field FEX inside CALIB, ' ...
+                     'which no prescription can enable (OptFEX parses only the ' ...
+                     '"No" branch, msmacosio.inc:327-329).  See rodgers1 PACKET ' ...
+                     'Addendum 5.  Remove add_pupil to optimise against the ' ...
+                     'focal-plane merit.']);
+                fp_elt = obj.spec.pupil.ep_elt; %#ok<UNRCH>
+                if fp_elt ~= numel(obj.spec.elt) - 1
+                    error('macos:design:Telescope:optimize:epNotPenultimate', ...
+                        ['the exit-pupil merit needs the ExitPupil at nElt-1 ' ...
+                         '(CALIB''s FEX call is hard-wired there) -- it is at ' ...
+                         '%d of %d.'], fp_elt, numel(obj.spec.elt));
+                end
+            else
+                fp_elt = numel(obj.spec.elt);             % terminal FocalPlane
+            end
             % Off-axis eval directions for the OptChfRayDir block.  Field 1 is
             % the nominal (possibly biased) ChfRayDir and is omitted here (it
             % shares the OptChfRayDir parse block).  The OFF-axis fields are
@@ -913,8 +966,15 @@ classdef Telescope < handle
 
             obj.spec.opt = struct('target',opts.target, 'wf_elt',fp_elt, ...
                 'max_iters',opts.max_iters, 'fields',dirs, 'weights',w, ...
-                'var_elts',var_elts, 'dof_mask',opts.dofs, 'dof_rows',dof_rows);
+                'var_elts',var_elts, 'dof_mask',opts.dofs, 'dof_rows',dof_rows, ...
+                'fex',use_ep);
             obj.build();                                  % emit opt block -> load
+            if use_ep
+                % design_optim.F:170-180 aborts the solve unless the system
+                % stop is set before CALIB is entered; smacos_compute.inc:279
+                % then re-issues it per evaluation.
+                macos.stop(1);
+            end
             r = macos.calib();
 
             % read back per-element params CALIB may have moved, into the spec
@@ -2474,7 +2534,13 @@ classdef Telescope < handle
                 L{end+1} = ['        OptTarget=  ' o.target];
                 L{end+1} = sprintf('         OptWFElt=  %d', o.wf_elt);
                 L{end+1} = sprintf('       OptMaxItrs=  %d', o.max_iters);
-                L{end+1} = '           OptFEX=  No';
+                fex = false;
+                if isfield(o,'fex') && ~isempty(o.fex), fex = o.fex; end
+                if fex
+                    L{end+1} = '           OptFEX=  Yes';  %#ok<AGROW>
+                else
+                    L{end+1} = '           OptFEX=  No';   %#ok<AGROW>
+                end
                 for j = 1:size(o.fields,1)
                     d  = o.fields(j,:);
                     cp = apst - stand*d;            % through the (decentered) stop
