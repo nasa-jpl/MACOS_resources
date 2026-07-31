@@ -1401,3 +1401,95 @@ our solve should either reach his branch or beat it on ours.
 `fex_in_loop_check.m`; the rebuilt `rodgers1_epd4060_rodgersS4.in` and its map
 (decoded convention). `his_designs.m` now carries the decoded ADE sign, with the
 readback assert comparing against the CONVERTED values.
+
+---
+
+# ADDENDUM 6 — the OptFEX engine fix (2026-07-31)
+
+Addendum 5 §D proposed a one-line parser change and stopped for review. This
+records what was actually needed (two parts, not one), the measurement that
+chose the default, and the gates. Engine work is on macos branch
+`optfex-fix`; the PR-shaped cherry-pick is `optfex-parse-fix` off `origin/dev`.
+
+## A. It was two defects, not one
+
+**A.1 The parser had no affirmative branch** — as diagnosed
+(`msmacosio.inc:327-329`). Fixed by adding the `'Y'` case.
+
+**A.2 The default was path-dependent AND clobbered.** `macos_cmd_loop.inc:347`
+set `LOptIfFEX=.TRUE.` in the LOAD block; `dopt_mod.F:229` set `.FALSE.` in
+`dopt_init_vars`. On the SMACOS/`load_rx` path the LOAD-site value is **undone**
+by a `dopt_init_vars` re-init that runs after it — the same hazard the
+`OptTgtElt`/`OptAlg` comment at `dopt_mod.F:218-224` documents, which
+`LOptIfFEX` was never protected from. Measured with a diagnostic build:
+
+    >>>DIAG OptFEX parse: VALUE=Yes  LOptIfFEX= F
+    >>>DIAG ifFEX_m= F  optElt_m= 5  nElt= 6
+
+i.e. the deck said `Yes`, the flag was already `F` at parse time, and the parser
+had no way to raise it. Addendum 5 §D reasoned the root cause from the parser
+alone and would have produced a fix that still did nothing on this path.
+
+## B. Default decision — `.FALSE.`, forced by measurement
+
+The brief's criterion: unify to `.TRUE.` if an invalid FEX target degrades
+gracefully; to `.FALSE.` if rejection is noisy or state-mutating.
+
+CALIB's FEX call is hard-wired to `nElt-1`, and on a deck ending
+`[.. mirror, FocalPlane]` that is a **Reflector**. `MACOS_OPS` calls
+`SUBROUTINE FEX` directly and then unconditionally overwrites the target's
+`eElt/fElt/KcElt/KrElt/zElt/psiElt/VptElt/RptElt` (`macos_ops.F:60-84`) with no
+type check — the check exists only in the interactive `FEXIT` dispatch. So
+corruption looked likely. **It is not** (`optfex_default_probe.m`):
+
+| | Kr | Kc | Vpt | psi |
+|---|---|---|---|---|
+| M3 before CALIB | −2.68797316 | −0.7036063605 | [0 0 1.83902] | [0 0 −1] |
+| M3 after CALIB | −2.68797316 | −0.7036063605 | [0 0 1.83902] | [0 0 −1] |
+
+max \|delta\| = **0**. But CALIB **aborts** (`calib_run failed`) — a hard
+failure, *not* a fall-back to the plain-OPD merit. Since every existing
+optimisation deck ends in a FocalPlane, a `.TRUE.` default would stop them all
+from optimising at all. **Unified to `.FALSE.`, opt in per deck with
+`OptFEX= Yes`.** One explicit default, stated in a comment at both sites.
+
+## C. Corpus — no committed result changes
+
+Every deck in either repo that carries an optimization block sets `OptFEX`
+explicitly, and all four say `No`: `macos/ZGD_test_files/opt_example{,_asph,
+_constrained}.in` and `pymacos/tests/Rx/opt_example.in`. Neither the fix (the
+`'N'` branch is untouched) nor the default change (they are explicit) alters
+any of them. Doc-only hits: `Lou-UpdateNotes.txt:652` — which documents
+`OptFEX= YES  % whether do FEX during optimization`, confirming the affirmative
+behaviour was always the intent — and a `pymacos/macos.py` docstring. The one
+real behaviour change is the interactive CLI default on a hand-written deck with
+an Opt block and no `OptFEX=` line; **no such deck exists**. Full table and the
+affected-work sweep: `OPTFEX_REDO_LIST.md`.
+
+## D. Gates — `mmacos/tests/tOptFex.m`, 3/3
+
+| test | what it pins |
+|---|---|
+| `test_merit_is_deterministic` | identical state evaluated twice is **bit-identical** — FEX rewrites the ExitPupil pose on every call, and none of it leaks forward |
+| `test_fd_reset_hygiene` | `+δ/−δ` on a conic DOF returns to the baseline merit **exactly**, with a non-vacuity check that δ actually moves it. **PASSES — so no second engine fix is needed**, and the LM's finite differences rest on clean state |
+| `test_offaxis_merit_is_wavefront_not_tilt` | promoted from `fex_in_loop_check.m`: off-axis exit-pupil OPD in the **1e-7 band**, not 1e-3, and no more than 100× the on-axis value |
+
+A fourth test asserting the emitted deck's literal `OptFEX= Yes` was written and
+dropped: `optimize()` re-emits a plain deck after the solve, so `spec.rx_path`
+no longer carries the Opt block by the time a test can read it. The behavioural
+gate is the real test of the fix and is what fails pre-fix.
+
+## E. Design layer
+
+`optimize()` routes `OptWFElt` to `spec.pupil.ep_elt` and emits `OptFEX= Yes`
+when `add_pupil` has run, and sets the system stop (`design_optim.F:170-180`
+aborts without it). `align_focal_plane` gained `'allow_pupil'` (default false,
+so the existing guard and its test are untouched) for the solve↔refit
+alternation. The Addendum-5 "blocked" hard error is **removed** — the engine
+change makes the path real.
+
+**Merge ordering.** The resources side carries decks that emit `OptFEX= Yes`.
+Those must not reach resources `dev` before the engine PR merges: on an
+unfixed engine the keyword is silently ignored and the merit reverts to the
+detector plane — a veneer ahead of its engine, failing quietly rather than at
+load. Local work proceeds; the push waits.
