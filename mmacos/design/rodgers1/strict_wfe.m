@@ -56,6 +56,13 @@ function out = strict_wfe(t, F, opts)
 %     'xp'        1x3 fixed exit pupil (metres) -- skips the probe trace
 %                 (2x faster).  Default [] = per-field FEX-style probe.
 %     'quiet'     suppress the per-field line (default true).
+%     'reference' 'strict-chief' (DEFAULT) | 'strict-centroid'.  Which sphere
+%                 centre lands in .wfe / .wfe_m; BOTH are always computed
+%                 (.wfe_m_chief, .wfe_m_centroid).  Dave's 2026-07-31 ruling
+%                 makes the centroid primary, but the DEFAULT here stays
+%                 'strict-chief' so the committed baselines reproduce -- the
+%                 ruling is applied in the .seq-truth study drivers, which
+%                 pass 'strict-centroid' explicitly.  See STRICT_REFS.
 %
 %   Returns OUT with fields .fields (K x 2 rad), .wfe (K, waves),
 %   .wfe_m (K, metres), .nrays (K), .c (3 x K sphere centres),
@@ -75,7 +82,10 @@ function out = strict_wfe(t, F, opts)
         opts.probe (1,1) double = 1e-5
         opts.xp (:,:) double = []
         opts.quiet (1,1) logical = true
+        opts.reference (1,:) char {mustBeMember(opts.reference, ...
+            {'strict-chief','strict-centroid','chief','centroid'})} = 'strict-chief'
     end
+    use_centroid = ~isempty(strfind(lower(opts.reference),'centroid')); %#ok<STREMP>
 
     nE = numel(t.spec.elt);
     if isempty(fieldnames(opts.detector))
@@ -91,7 +101,13 @@ function out = strict_wfe(t, F, opts)
                  'nrays',zeros(K,1), 'c',nan(3,K), 'xp',nan(3,K), ...
                  'R',nan(K,1), 'eng_rms_m',nan(K,1), ...
                  'detector',struct('Vpt',Vd.','psi',Nd.'), 'dz',opts.dz, ...
-                 'lambda',t.spec.wavelength);
+                 'lambda',t.spec.wavelength, 'reference',opts.reference, ...
+                 'wfe_m_chief',nan(K,1), 'wfe_m_centroid',nan(K,1), ...
+                 'c_chief',nan(3,K), 'c_centroid',nan(3,K), ...
+                 'dcen',nan(3,K), 'dcen_m',nan(K,1), 'dcen_2d',nan(2,K), ...
+                 'dcen_err_m',nan(K,1), 'tilt_resid',nan(K,1), ...
+                 'defoc_resid',nan(K,1), 'dcen_perp_m',nan(K,1), ...
+                 'dcen_long_m',nan(K,1), 'diff_rms',nan(K,1));
 
     for k = 1:K
         t.trace_at_field(F(k,:));
@@ -122,9 +138,26 @@ function out = strict_wfe(t, F, opts)
         R = norm(X - c);
         out.R(k) = R;
 
-        % ---- exact OPL to the reference sphere -------------------------
-        W = strict_sphere_opl(ri.pos(:,ok), ri.dir(:,ok), ri.opl(ok), c, R);
-        out.wfe_m(k) = std(W);
+        % ---- exact OPL to the reference sphere, BOTH references --------
+        rf = strict_refs(ri.pos(:,ok), ri.dir(:,ok), ri.opl(ok), p1, d1, Vd, Nd, X);
+        out.wfe_m_chief(k)    = rf.wfe_chief;
+        out.wfe_m_centroid(k) = rf.wfe_centroid;
+        out.c_chief(:,k)      = rf.c_chief;
+        out.c_centroid(:,k)   = rf.c_centroid;
+        out.dcen(:,k)         = rf.dcen;      out.dcen_m(k) = rf.dcen_m;
+        out.dcen_2d(:,k)      = rf.centroid_2d;
+        out.dcen_err_m(k)     = rf.dcen_err_m;
+        out.tilt_resid(k)     = rf.tilt_resid;
+        out.defoc_resid(k)    = rf.defoc_resid;
+        out.dcen_perp_m(k)    = rf.dcen_perp_m;
+        out.dcen_long_m(k)    = rf.dcen_long_m;
+        out.diff_rms(k)       = rf.diff_rms;
+        if use_centroid
+            out.wfe_m(k) = rf.wfe_centroid;  out.c(:,k) = rf.c_centroid;
+            out.R(k)     = rf.R_centroid;
+        else
+            out.wfe_m(k) = rf.wfe_chief;
+        end
         out.wfe(k)   = out.wfe_m(k) / t.spec.wavelength;
         out.nrays(k) = nnz(ok);
         if ~opts.quiet

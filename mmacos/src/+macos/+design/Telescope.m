@@ -1878,6 +1878,20 @@ classdef Telescope < handle
         %                           records .metric and every rendered field map
         %                           states which metric it used.
         %
+        %   TWO FURTHER NAMED REFERENCES live with the strict-metric study
+        %   code (mmacos/design/rodgers1/), not here, because they need an
+        %   exit-pupil probe and a FROZEN detector plane -- state this
+        %   function does not carry:
+        %     'strict-centroid'  sphere anchored at the exit pupil, centred on
+        %                        the SPOT CENTROID on the frozen detector.
+        %                        PRIMARY per Dave's 2026-07-31 ruling -- it is
+        %                        what the detector integrates.
+        %     'strict-chief'     the same, centred on the CHIEF-RAY intercept.
+        %                        Secondary, reported as a labelled column.
+        %   Select them with strict_wfe/strict_wfe_deck's 'reference' option;
+        %   both are always computed, and view_field_map labels whichever the
+        %   scan carries in .metric.
+        %
         %   IDEMPOTENCY (Dave 2026-07-30): any previously-realized clear
         %   apertures are dropped at entry, so each call re-measures on the
         %   CLEAN (un-clipped) design.  Without this, a second call -- or a

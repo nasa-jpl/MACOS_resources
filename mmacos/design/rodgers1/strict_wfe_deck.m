@@ -41,6 +41,19 @@ function out = strict_wfe_deck(deck, Frel, opts)
 %                  Scoring through them would aperture-limit the metric
 %                  with stale state -- the contamination trap.  The
 %                  optics, the FPA and the chief ray are untouched.
+%     'reference'  'strict-chief' (DEFAULT) | 'strict-centroid'.  Which
+%                  sphere centre lands in .wfe / .wfe_m.  BOTH are always
+%                  computed and returned (.wfe_m_chief, .wfe_m_centroid), so
+%                  nothing is lost either way.
+%
+%                  DEFAULT NOTE.  Dave's 2026-07-31 ruling makes the CENTROID
+%                  the primary reference.  This function nevertheless still
+%                  DEFAULTS to 'strict-chief', deliberately: flipping the
+%                  default here would silently rewrite every committed
+%                  EPD-2000/EPD-4060 artifact, which the same brief requires
+%                  to stay bit-intact.  The ruling is applied where it belongs
+%                  -- in the study drivers at the .seq truth, which pass
+%                  'strict-centroid' explicitly.
 %     'probe'      probe field for the exit-pupil finder, rad (def 1e-5).
 %     'model_size' engine model size (default 256).
 %     'quiet'      default true.
@@ -58,7 +71,10 @@ function out = strict_wfe_deck(deck, Frel, opts)
         opts.probe (1,1) double = 1e-5
         opts.model_size (1,1) double = 256
         opts.quiet (1,1) logical = true
+        opts.reference (1,:) char {mustBeMember(opts.reference, ...
+            {'strict-chief','strict-centroid','chief','centroid'})} = 'strict-chief'
     end
+    use_centroid = ~isempty(strfind(lower(opts.reference),'centroid')); %#ok<STREMP>
 
     txt = fileread(deck);
     if opts.strip_ap
@@ -80,7 +96,14 @@ function out = strict_wfe_deck(deck, Frel, opts)
                  'R',nan(K,1), 'eng_rms_m',nan(K,1), ...
                  'detector',struct('Vpt',Vd.','psi',Nd.'), 'dz',opts.dz, ...
                  'lambda',lam, 'deck',deck, ...
-                 'bias_deg',[bx0 by0]*180/pi, 'strip_ap',opts.strip_ap);
+                 'bias_deg',[bx0 by0]*180/pi, 'strip_ap',opts.strip_ap, ...
+                 'reference',opts.reference, ...
+                 'wfe_m_chief',nan(K,1), 'wfe_m_centroid',nan(K,1), ...
+                 'c_chief',nan(3,K), 'c_centroid',nan(3,K), ...
+                 'dcen',nan(3,K), 'dcen_m',nan(K,1), 'dcen_2d',nan(2,K), ...
+                 'dcen_err_m',nan(K,1), 'tilt_resid',nan(K,1), ...
+                 'defoc_resid',nan(K,1), 'dcen_perp_m',nan(K,1), ...
+                 'dcen_long_m',nan(K,1), 'diff_rms',nan(K,1));
 
     macos.init(opts.model_size);
     tmp = [tempname '.in'];
@@ -106,8 +129,26 @@ function out = strict_wfe_deck(deck, Frel, opts)
         out.xp(:,k) = X;
         R = norm(X - c);   out.R(k) = R;
 
-        W = strict_sphere_opl(ri.pos(:,ok), ri.dir(:,ok), ri.opl(ok), c, R);
-        out.wfe_m(k) = std(W);
+        rf = strict_refs(ri.pos(:,ok), ri.dir(:,ok), ri.opl(ok), p1, d1, Vd, Nd, X);
+        out.wfe_m_chief(k)    = rf.wfe_chief;
+        out.wfe_m_centroid(k) = rf.wfe_centroid;
+        out.c_chief(:,k)      = rf.c_chief;
+        out.c_centroid(:,k)   = rf.c_centroid;
+        out.dcen(:,k)         = rf.dcen;
+        out.dcen_m(k)         = rf.dcen_m;
+        out.dcen_2d(:,k)      = rf.centroid_2d;
+        out.dcen_err_m(k)     = rf.dcen_err_m;
+        out.tilt_resid(k)     = rf.tilt_resid;
+        out.defoc_resid(k)    = rf.defoc_resid;
+        out.dcen_perp_m(k)    = rf.dcen_perp_m;
+        out.dcen_long_m(k)    = rf.dcen_long_m;
+        out.diff_rms(k)       = rf.diff_rms;
+        if use_centroid
+            out.wfe_m(k) = rf.wfe_centroid;   out.c(:,k) = rf.c_centroid;
+            out.R(k)     = rf.R_centroid;
+        else
+            out.wfe_m(k) = rf.wfe_chief;
+        end
         out.wfe(k)   = out.wfe_m(k)/lam;
         out.nrays(k) = nnz(ok);
         if ~opts.quiet
