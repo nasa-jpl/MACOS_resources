@@ -907,24 +907,7 @@ classdef Telescope < handle
             % design/rodgers1/gate0_merit_identity.m.
             use_ep = isfield(obj.spec,'pupil') && ~isempty(obj.spec.pupil);
             if use_ep
-                % BLOCKED ON AN ENGINE CHANGE -- do not remove this guard until
-                % it lands.  `OptFEX= Yes` is a NO-OP: msmacosio.inc:327-329
-                % parses the keyword but carries only the
-                % "If (LCMP(VALUE,'N',1)) LOptIfFEX=.FALSE." branch, so a deck
-                % can turn the per-field FEX OFF and never ON.  Without it the
-                % merit is the OPD to a reference sphere STUCK at the on-axis
-                % image, which measures image-displacement tilt (1.8e-3..2.6e-3 m
-                % across the box vs 1.2e-7..4.3e-7 m with FEX -- see
-                % design/rodgers1/fex_in_loop_check.m) and drives the solve to
-                % run away.  Erroring is deliberate: the failure mode is a
-                % SILENT wrong solve.
-                error('macos:design:Telescope:optimize:epMeritBlocked', ...
-                    ['the exit-pupil merit needs per-field FEX inside CALIB, ' ...
-                     'which no prescription can enable (OptFEX parses only the ' ...
-                     '"No" branch, msmacosio.inc:327-329).  See rodgers1 PACKET ' ...
-                     'Addendum 5.  Remove add_pupil to optimise against the ' ...
-                     'focal-plane merit.']);
-                fp_elt = obj.spec.pupil.ep_elt; %#ok<UNRCH>
+                fp_elt = obj.spec.pupil.ep_elt;
                 if fp_elt ~= numel(obj.spec.elt) - 1
                     error('macos:design:Telescope:optimize:epNotPenultimate', ...
                         ['the exit-pupil merit needs the ExitPupil at nElt-1 ' ...
