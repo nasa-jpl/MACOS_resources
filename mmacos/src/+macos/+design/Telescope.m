@@ -822,6 +822,23 @@ classdef Telescope < handle
         %     'max_iters'     CALIB iteration cap (default 60).
         %     'target'        'WFE' (default).
         %     'weights'       FoV weights, length 1+numel(fields) (default equal).
+        %     'fpa_dofs'      (1,8) VarElt mask enrolling the terminal
+        %                     FocalPlane as a varied element, so the detector
+        %                     is solved JOINTLY with the optics instead of
+        %                     being re-fitted between solves.  The detector is
+        %                     what the exit-pupil merit's reference sphere is
+        %                     centred on (CALIB's FEX radius is the chief-ray
+        %                     distance from the pupil to the plane of the NEXT
+        %                     element), so alternating solve <-> align is a
+        %                     two-objective loop that need not contract --
+        %                     measured drifting at 0.6-13 mm per round on the
+        %                     rodgers1 TMA.  This is also what CODE V does.
+        %                     Focus + tilt is [1 0 0 0 0 1 0 0]: DOF 1 = TIP
+        %                     (rotation about local x) and DOF 6 = PIST
+        %                     (translation along the local z, i.e. the surface
+        %                     normal -- the focus/Tz direction).  Only DOFs
+        %                     1..6 are accepted; ROC/CONIC on a flat detector
+        %                     are meaningless.
         %     'dofs'          VarElt mask [TIP TILT CLOCK DX DY PIST ROC
         %                     CONIC] (default [0 0 0 0 0 0 0 1] = conic only).
         %                     A (1,8) row applies to EVERY varied element; an
@@ -847,6 +864,7 @@ classdef Telescope < handle
                 opts.fields        (:,2) double = []   % explicit (thx,thy) OFF-axis offsets (rad)
                 opts.dofs          (:,8) double = [0 0 0 0 0 0 0 1]  % VarElt mask ((1,8) shared or (Nv,8) per-elt)
                 opts.elts          (1,:) double = []   % subset of elements to vary
+                opts.fpa_dofs      (:,8) double = []   % enrol the detector as a varied element
             end
             if ~all(ismember(opts.dofs(:), [0 1]))
                 error('macos:design:Telescope:optimize:dofs', ...
@@ -879,19 +897,42 @@ classdef Telescope < handle
                 error('macos:design:Telescope:optimize:noMirror', ...
                     'no Reflector elements to vary.');
             end
-            Nv     = numel(var_elts);                     % # conic DOFs
+            % --- optionally enrol the detector as a varied element --------
+            fpa_elt = [];
+            if ~isempty(opts.fpa_dofs)
+                if size(opts.fpa_dofs,1) ~= 1
+                    error('macos:design:Telescope:optimize:fpaRows', ...
+                        'fpa_dofs must be a single (1,8) row.');
+                end
+                if any(opts.fpa_dofs(7:8) ~= 0)
+                    error('macos:design:Telescope:optimize:fpaSurfDofs', ...
+                        ['fpa_dofs may set only the rigid-body DOFs 1..6; ' ...
+                         'ROC/CONIC are meaningless on a flat detector.']);
+                end
+                fpa_elt = find(strcmp({obj.spec.elt.kind},'FocalPlane'), 1, 'last');
+                if isempty(fpa_elt)
+                    error('macos:design:Telescope:optimize:noFPA', ...
+                        'fpa_dofs given but the design has no FocalPlane.');
+                end
+                var_elts = [var_elts(:).' fpa_elt];
+            end
+            Nv     = numel(var_elts);                     % # varied elements
             % Expand the DOF mask to one row per varied element.  A single
             % (1,8) row is shared across all; an (Nv,8) matrix is per-element
             % (rows aligned to var_elts in ascending index order).
+            Nopt = Nv - numel(fpa_elt);                   % optics rows expected
             if size(opts.dofs,1) == 1
-                dof_rows = repmat(opts.dofs, Nv, 1);
-            elseif size(opts.dofs,1) == Nv
+                dof_rows = repmat(opts.dofs, Nopt, 1);
+            elseif size(opts.dofs,1) == Nopt
                 dof_rows = opts.dofs;
             else
                 error('macos:design:Telescope:optimize:dofsRows', ...
                     ['dofs must be (1,8) [shared] or (%d,8) [per varied ' ...
                      'element] -- got %d rows for %d varied elements.'], ...
-                    Nv, size(opts.dofs,1), Nv);
+                    Nopt, size(opts.dofs,1), Nopt);
+            end
+            if ~isempty(fpa_elt)
+                dof_rows = [dof_rows; opts.fpa_dofs];      % detector row last
             end
             % WHERE THE MERIT IS EVALUATED.  Default: the terminal FocalPlane,
             % which makes CALIB minimise std(OPL) to each ray's OWN intercept
@@ -963,11 +1004,17 @@ classdef Telescope < handle
             % read back per-element params CALIB may have moved, into the spec
             % (for describe()/view_layout); the deliverable handling differs
             % for conic-only vs geometry-moving runs (see below).
-            Kopt = zeros(1, Nv);
+            % Kopt covers the OPTICS only: a detector enrolled via fpa_dofs
+            % has no ROC/CONIC DOF, so its Kc/Kr are meaningless in derived.K
+            % and in res.conics.  Its psi/Vpt ARE read back (below) -- that is
+            % the whole point of enrolling it.
+            Kopt = zeros(1, Nopt);
             for j = 1:Nv
                 k = var_elts(j);
-                Kopt(j)             = macos.get_elt_kc(k);
-                obj.spec.elt(k).Kc  = Kopt(j);
+                if j <= Nopt
+                    Kopt(j)         = macos.get_elt_kc(k);
+                end
+                obj.spec.elt(k).Kc  = macos.get_elt_kc(k);
                 obj.spec.elt(k).Kr  = macos.get_elt_kr(k);          % ROC DOF
                 obj.spec.elt(k).psi = reshape(macos.get_elt_psi(k), 1, 3); % tilt
                 obj.spec.elt(k).Vpt = reshape(macos.get_elt_vpt(k), 1, 3); % decenter
@@ -980,7 +1027,7 @@ classdef Telescope < handle
                 % optimized prescription instead of silently re-seeding
                 % from Seidel.  (Rigid-body moves are NOT representable in
                 % the coaxial mirror list and are still lost on re-resolve.)
-                for j = 1:Nv
+                for j = 1:Nopt
                     nm = obj.spec.elt(var_elts(j)).name;
                     i  = find(strcmp({obj.spec.mirrors.name}, nm), 1);
                     if ~isempty(i)

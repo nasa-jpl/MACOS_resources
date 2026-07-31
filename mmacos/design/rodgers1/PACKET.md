@@ -1553,3 +1553,104 @@ current state each round.
 **Artifacts:** `xp_optimize.m`, `rodgers1_epd4060_stage{3,4}_xpopt.in`,
 `..._xpopt_strict.png`, `rodgers1_epd4060_xpopt.mat`. Committed baselines
 bit-intact.
+
+---
+
+# ADDENDUM 8 — part C: the joint FPA solve, and the close of the arc (2026-07-31)
+
+**Addendum 7's alternation is SUPERSEDED.** Its non-convergence was a
+two-objective mismatch, not an optimizer-depth problem: the merit's reference
+sphere is centred on each field's chief-ray intercept on the **detector**
+(CALIB's FEX radius is the chief-ray distance from the pupil to the plane of the
+NEXT element), so re-fitting the detector between solves moves the objective the
+solve just minimised. Replacing the loop with a **single joint solve** — the
+FPA's tilt and focus in the CALIB DOF set alongside the optics, `align_focal_plane`
+run once as a seed — closes both gates. The `_xpopt` artifacts are the joint
+result; the alternation numbers survive only in this packet as the diagnosis.
+
+## A. DOF indexing — corrected
+
+The brief specified "VarElt DOFs 3 and 4". The VarElt mask is
+`[TIP TILT CLOCK DX DY PIST ROC CONIC]`, and `macos_ops.F:CPERTURB_2` confirms
+`PV(1:3)` is the rotation and `PV(4:6)` the translation in the element frame.
+So DOFs 3 and 4 are **CLOCK** (rotation about the detector's own normal — a
+near-null direction on a nearly symmetric detector) and **DX** (a lateral shift
+the chief-ray tie absorbs). The FPA tilt/focus pair is
+
+    FPA_DOFS = [1 0 0 0 0 1 0 0]     % 1 = TIP (alpha, about local x)
+                                     % 6 = PIST (along the normal = focus/Tz)
+
+## B. Result — both gates pass
+
+Comparator is **his designs under the same metric** (Addendum 4/5), not his
+reported numbers. Gate: ≤ ~1.15×.
+
+| stage | joint xp-merit | gate (1.15× his) | his design | alternation | committed FP-merit | Rodgers reported |
+|---|---|---|---|---|---|---|
+| **S3** | **95.3 / 55.9** | ≤ 132.6 / 61.7 | 115.3 / 53.7 | 157.4 / 118.4 | 181.2 / 97.1 | 91.6 / 46.4 |
+| **S4** | **72.3 / 39.2** | ≤ 74.6 / 40.7 | 64.9 / 35.4 | 77.0 / 41.9 | 118.6 / 84.8 | 39.8 / 22.5 |
+
+**S3 passes with margin and BEATS his stage-3 design on the box maximum**
+(95.3 vs 115.3 nm, 0.83×), tying on the average (1.04×). Against Rodgers'
+reported numbers it lands at **1.04× max / 1.21× avg** — the closest any
+reproduction in this arc has come. **S4 passes** at 1.11× / 1.11× of his design
+(72.3 ≤ 74.6, 39.2 ≤ 40.7), against 2.98× / 3.77× for the committed solve.
+
+## C. Diagnostics
+
+**FPA pose vs the align seed** — this is the direct measurement of what the
+alternation could not resolve:
+
+| | station move | normal move |
+|---|---|---|
+| S3 | 3.57 mm | 0.359° |
+| S4 | **11.97 mm** | 1.064° |
+
+Addendum 7 recorded the S4 alternation still throwing **13.4 mm** of FPA motion
+at round 4 and called it unresolved. The joint solve resolves **11.97 mm** in
+one pass. The prediction and the measurement agree to ~10%, which is as direct
+a confirmation of the diagnosis as this arc has produced.
+
+**Rigid body along his branch** (decoded frame). The joint solve goes deeper
+along the branch the alternation found:
+
+| | committed (FP merit) | alternation | **joint** | his | joint as % of his |
+|---|---|---|---|---|---|
+| M2 Ydec | −3.742 mm | +2.739 | **+3.561** | +8.345 | 43% |
+| M2 alpha | +0.2330° | −0.1604 | **−0.2134** | −0.5169 | 41% |
+| M3 Ydec | −43.839 mm | +23.135 | **+38.549** | +121.868 | 32% |
+| M3 alpha | +1.1142° | −0.6795 | **−0.9099** | −2.3297 | 39% |
+
+All four signs match his; the joint solve sits 32–43% along his branch, up from
+19–34% for the alternation. The design reaches his WFE **without** reaching his
+rigid-body magnitudes, which is what a genuinely degenerate valley looks like —
+a range of (Ydec, alpha) pairs buying nearly the same wavefront.
+
+**K_M3 delta:** S3 **5.94e-4** (committed 3.43e-3, alternation 6.62e-4) — 5.8×
+tighter than the committed solve on the term this packet has flagged since §3.
+S4 7.18e-3 (committed 1.06e-2, alternation 6.17e-3).
+
+**LM:** `converged = 1` on both stages, **one solve each**, `max_iters` 120.
+Merit WFE per FOV fell 3.41e-7 → 6.84e-8 (S3) and 3.41e-7 → 4.47e-8 (S4).
+
+## D. What this closes, and what it does not
+
+**Closes.** The metric question (Addendum 3, gate 1.15×), the reference-frame
+question (Addendum 5's ADE decode), the engine question (the OptFEX fix, PR
+#68), and the merit question — our optimizer, given the right objective and the
+detector as a real DOF, reproduces Rodgers' designs to 1.04–1.11× of their
+own strict-metric scores and lands on his rigid-body branch.
+
+**Does not close.** Against his *reported* numbers we sit at 1.04× (S3 max) but
+1.82× (S4 max). Since our reproduction of *his own S4 design* also reads 1.63×
+his reported number (Addendum 5 §B), that residual is in the **comparison**, not
+in our solve — it is the same field-definition/box-placement question flagged
+since Addendum 3 §D, and it needs a line from Mike, not another run.
+
+## E. Artifacts
+
+`xp_optimize.m` (default `joint = true`; pass `false` for the superseded
+alternation), `rodgers1_epd4060_stage{3,4}_xpopt.in`, `..._xpopt_strict.png`,
+`rodgers1_epd4060_xpopt.mat`. `Telescope.m/optimize` gained `'fpa_dofs'`.
+Committed baselines bit-intact; `tDesignTelescope` 70/70, `tDesignOptimize`
+4/4, `tOptFex` 3/3.

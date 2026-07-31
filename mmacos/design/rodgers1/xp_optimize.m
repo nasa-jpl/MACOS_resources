@@ -1,4 +1,4 @@
-function R = xp_optimize(map_n, max_rounds)
+function R = xp_optimize(map_n, max_rounds, joint)
 %XP_OPTIMIZE  Re-solve stages 3 and 4 against the EXIT-PUPIL-REFERENCED merit.
 %
 %   R = XP_OPTIMIZE()            map_n = 9, max_rounds = 4
@@ -33,6 +33,20 @@ function R = xp_optimize(map_n, max_rounds)
 
     if nargin < 1, map_n = 9;      end
     if nargin < 2, max_rounds = 4; end
+    if nargin < 3, joint = true;   end
+    % JOINT (default) solves the detector WITH the optics -- align_focal_plane
+    % once as a seed, then the FPA's tilt + focus enter the CALIB DOF set and
+    % there is NO alternation loop.  This mirrors Rodgers' own procedure and
+    % removes the two-objective mismatch the alternation showed (Addendum 7:
+    % the FPA was still drifting 0.6-13 mm per round after four rounds).
+    % FPA DOF mask: [TIP TILT CLOCK DX DY PIST ROC CONIC] -> TIP (rotation
+    % about local x = the alpha tilt) and PIST (translation along the local z
+    % = the surface normal = focus/Tz).  Confirmed against
+    % macos_ops.F:CPERTURB_2, where PV(1:3) is the rotation and PV(4:6) the
+    % translation in the element frame.  NOT DOFs 3/4, which are CLOCK (a
+    % near-null direction on a detector) and DX (a lateral shift the chief-ray
+    % tie absorbs).
+    FPA_DOFS = [1 0 0 0 0 1 0 0];
     TOL_FP   = 5e-5;      % 0.05 mm station move
     TOL_TILT = 1e-4;      % ~0.006 deg normal move
 
@@ -61,21 +75,39 @@ function R = xp_optimize(map_n, max_rounds)
         fprintf('  deck is now %d elements; ExitPupil at %d\n', nE, t.spec.pupil.ep_elt);
 
         rounds = 0;  hist = [];
-        Vprev = t.spec.elt(nE).Vpt(:);  Nprev = t.spec.elt(nE).psi(:);
-        for r = 1:max_rounds
-            t.optimize('fields', optF, 'dofs', S.dofs, 'max_iters', 120);
-            fp = t.align_focal_plane('grid',5,'span_arcmin',6,'allow_pupil',true);
-            rounds = r;
-            dV = norm(fp.fp_vpt(:) - Vprev);
-            dN = norm(fp.psi(:)/norm(fp.psi) - Nprev/norm(Nprev));
-            K  = [t.spec.elt(1).Kc t.spec.elt(2).Kc t.spec.elt(3).Kc];
-            fprintf(['  round %d: FPA moved %.4g mm / %.4g rad;  ' ...
-                     'K = %.9f %.9f %.9f\n'], r, dV*1e3, dN, K);
-            hist(end+1,:) = [r dV dN K]; %#ok<AGROW>
-            Vprev = fp.fp_vpt(:);  Nprev = fp.psi(:);
-            if dV < TOL_FP && dN < TOL_TILT
-                fprintf('  converged: FPA stationary within tolerance.\n');
-                break;
+        Vseed = t.spec.elt(nE).Vpt(:);  Nseed = t.spec.elt(nE).psi(:);
+        Nseed = Nseed/norm(Nseed);
+        if joint
+            % ---- ONE solve, detector in the DOF set ----------------------
+            res = t.optimize('fields', optF, 'dofs', S.dofs, ...
+                             'fpa_dofs', FPA_DOFS, 'max_iters', 120);
+            rounds = 1;
+            R(c).converged = res.converged;
+            V = t.spec.elt(nE).Vpt(:);  N = t.spec.elt(nE).psi(:); N = N/norm(N);
+            R(c).fpa_move_mm  = norm(V - Vseed)*1e3;
+            R(c).fpa_tilt_deg = acosd(min(1,abs(dot(N,Nseed))));
+            fprintf(['  JOINT solve: converged=%d;  FPA moved %.4g mm and ' ...
+                     '%.4g deg from the align seed\n'], ...
+                    res.converged, R(c).fpa_move_mm, R(c).fpa_tilt_deg);
+            fprintf('  merit WFE before/after (per FOV, waves): %s -> %s\n', ...
+                    mat2str(res.wfe_before,4), mat2str(res.wfe_after,4));
+        else
+            Vprev = Vseed;  Nprev = Nseed;
+            for r = 1:max_rounds
+                t.optimize('fields', optF, 'dofs', S.dofs, 'max_iters', 120);
+                fp = t.align_focal_plane('grid',5,'span_arcmin',6,'allow_pupil',true);
+                rounds = r;
+                dV = norm(fp.fp_vpt(:) - Vprev);
+                dN = norm(fp.psi(:)/norm(fp.psi) - Nprev/norm(Nprev));
+                K  = [t.spec.elt(1).Kc t.spec.elt(2).Kc t.spec.elt(3).Kc];
+                fprintf(['  round %d: FPA moved %.4g mm / %.4g rad;  ' ...
+                         'K = %.9f %.9f %.9f\n'], r, dV*1e3, dN, K);
+                hist(end+1,:) = [r dV dN K]; %#ok<AGROW>
+                Vprev = fp.fp_vpt(:);  Nprev = fp.psi(:);
+                if dV < TOL_FP && dN < TOL_TILT
+                    fprintf('  converged: FPA stationary within tolerance.\n');
+                    break;
+                end
             end
         end
 
@@ -108,7 +140,7 @@ function R = xp_optimize(map_n, max_rounds)
                         R(c).rigid(i,2), old(i,2), ha(i));
             end
         end
-        fprintf('  rays/field %d..%d,  %d/%d fields finite,  %d round(s)\n', ...
+        fprintf('  rays/field %d..%d,  %d/%d fields finite,  %d solve(s)\n', ...
                 min(s.nrays), max(s.nrays), R(c).nfin, R(c).ntot, rounds);
         fprintf('  STRICT (nm)  min %9.3f  max %9.3f  avg %9.3f\n', R(c).min, R(c).max, R(c).avg);
         fprintf('  was (FP merit)                max %9.3f  avg %9.3f\n', S.ref(1), S.ref(2));
