@@ -2534,3 +2534,40 @@ seq_centroid_maps     % re-render the figure from the saved .mat
 
 Artifacts: `rodgers1_seq_centroid.mat`, `rodgers1_seq_centroid_maps.png`,
 `rodgers1_seq_spot_example.{mat,png}`, `rodgers1_seq_stage1.in`.
+
+## 9.10 Engine pairing verified against macos `dev` (PR #68 merged)
+
+PR #68 merged into macos `dev` on 2026-07-31 as **`cb8fd9b`** (merge commit
+`54f171b`), a **cherry-pick of `bf4f5c6`** — byte-identical to the commit these
+results were produced against, touching only `dopt_mod.F`,
+`macos_cmd_loop.inc` and `msmacosio.inc` (+33 / −2).
+
+That is necessary but not sufficient, because the engine these numbers were
+*built* against was the local `optfex-fix` branch = **`pol-core` + the fix**,
+not `dev` + the fix. Those two trees differ substantially across `elemsub.F`,
+`propsub.F`, `elt_mod.F`, `tracesub.F` and `macos_api_mod.F90` — the whole
+polarization programme. Resources `dev` pairs with macos `dev`, so pushing
+without checking would have shipped resources work whose numbers came from an
+engine configuration nobody else has.
+
+Checked rather than assumed. A worktree on macos `dev` (`~/dev/macos_dev`) was
+built `release gfortran`, the mmacos mex relinked against it — **it links
+clean, so resources `dev`'s `mmacos_gen.F` is consistent with `dev`'s
+`macos_api_mod`, not just with pol-core's** — and the gates re-run:
+
+| gate | pol-core + fix | **dev + fix** |
+|---|---|---|
+| epd4060 baseline `rodgersS3` max/avg | 115.3125 / 53.6523 | **identical**, Δ = 0 |
+| epd4060 baseline `rodgersS4` | 64.8506 / 35.3582 | **identical** (avg Δ 1.5e-10 nm) |
+| epd4060 `oursS4roundtrip` | 118.5906 / 84.8065 | **identical**, Δ = 0 |
+| headline centroid S2 / S3 / S4 | 540.7 / 128.7 / 75.9 | **identical to 0.1 nm print** |
+| ladder S2 / S3 `notilt` | 1.098× / 1.088× | **identical** |
+
+Everything reproduces. The polarization work is gated on `ifPol`, which these
+unpolarized geometric + CALIB paths never set, so the two engine
+configurations are equivalent here — now measured, not argued.
+
+**Consequence:** the push gate is lifted and Addendum 8/9 are committed to
+resources `dev` against a verified-paired engine. The `OPTFEX_REDO_LIST.md`
+items (14 affected decks / 7 exempt / 3 downstream) become actionable now that
+the fix is on `dev` — not started.
