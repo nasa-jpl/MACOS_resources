@@ -48,9 +48,15 @@ function H = his_designs(map_n)
     cfg = { struct('st',3, 'K',P.K_s3, 'rb',[], 'tag','rodgersS3', ...
                    'gt',P.gt.s3_box, 'ref',[]), ...
             struct('st',4, 'K',P.K_s4, 'tag','rodgersS4', ...
-                   'rb',[2 P.Ydec_M2_mm P.tilt_M2_deg; ...
-                         3 P.Ydec_M3_mm P.tilt_M3_deg], ...
+                   'rb',[2 P.Ydec_M2_mm -P.tilt_M2_deg; ...
+                         3 P.Ydec_M3_mm -P.tilt_M3_deg], ...
                    'gt',P.gt.s4_box, 'ref',[]) };
+    % ^ ADE SIGN: decoded by convention_decode.m, not chosen.  His ADE has the
+    % OPPOSITE positive sense to rigid_of's alpha = atan2d(psi_y,-psi_z); his
+    % YDE matches ours.  Of the 16 sign combinations x 2 application orders,
+    % this one reads 1.911 um spot / 8.967 nm at the box centre where the
+    % runner-up reads 52.7 um / 293 nm and everything else is mm-scale -- a
+    % 30x separation, so it is a decode, not a fit.
 
     % ---- injection round-trip: OUR OWN stage-4 solve, read out of the
     % committed results and pushed back through the SAME perturb path.  If
@@ -97,7 +103,8 @@ function H = his_designs(map_n)
 
         % ---- readback in the reporting convention, ASSERTED -----------
         if ~isempty(C.rb)
-            fprintf('  rigid-body readback (Ydec = Vpt(2), alpha = atan2d(psi_y,-psi_z)):\n');
+            fprintf('  rigid-body readback (Ydec = Vpt(2), alpha = atan2d(psi_y,-psi_z));\n');
+            fprintf('  "his" = his slide value CONVERTED to this frame (ADE sign flipped):\n');
             for r = 1:size(C.rb,1)
                 ie = C.rb(r,1);
                 v = macos.get_elt_vpt(ie);  p = macos.get_elt_psi(ie);

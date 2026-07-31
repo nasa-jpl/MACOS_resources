@@ -68,10 +68,22 @@ parameter values.
   rigid-body comparison is therefore **retracted as uninterpretable** and the
   `K_M3`/`Ydec` degenerate-valley question is reopened. His *conics* are better
   than ours by 1.57× under the strict metric — that finding stands.
-- **Step-3 lane** (Addendum 4 §C): **configuration-only, no Fortran.** Literal
-  ORS (`CRSOPTIMIZE`) is both unreachable from CALIB and the wrong merit (it
-  removes per-field focus); the right one is FEX-per-field, reached with
-  existing keywords via an `add_pupil` deck + `OptFEX=Yes` + `OptWFElt=nElt-1`.
+- **His stage 4, once the convention is decoded** (Addendum 5): his `ADE` sign
+  is opposite to ours (`YDE` matches) — measured over all 16 sign combinations
+  with a 30× margin. His S4 then reads **64.9 / 35.4 nm vs his 39.8 / 22.5 —
+  1.63× / 1.57×**, so the strict metric reproduces **all three** of his
+  designs (1.15×, 1.26×, 1.63×). In one frame his rigid body is −2.1..−2.8×
+  ours — the same compensation pattern on the **opposite branch** of a
+  degenerate valley — and his branch is better by **1.83×**, not the ~3× first
+  claimed.
+- **Step 3 is BLOCKED on a one-line engine change** (Addendum 5 §D).
+  `OptFEX= Yes` is a **no-op**: `msmacosio.inc:327-329` parses the keyword but
+  carries only the `'N'` branch, so a deck can turn the per-field FEX off and
+  never on. Without it CALIB minimises the tilt of a sphere stuck at the
+  on-axis image (1.8e-3..2.6e-3 m off-axis vs 1.1e-7..4.3e-7 m with FEX) and
+  the solve runs away. Gate 0 (the merit *is* the strict metric when FEX runs)
+  passes at **2.7e-9**. The design-layer plumbing is in place but **guarded by
+  a hard error** until the engine lands.
 
 See **`PACKET.md`** for the full comparison tables, the engine forensics
 (Addendum 3 §A), the metric ladder, and what is left open.
@@ -83,7 +95,10 @@ strict_rung_gates(9)     % gates 1/2/3 end-to-end -- reproduces Addendum 3 §C/�
 out = strict_wfe(t, F)   % the metric itself; F is a BOX-RELATIVE field list (rad)
 strict_ladder(5)         % what the strict residual is made of + the best-focus floor
 strict_stage_table(9)    % score all four COMMITTED stage decks + emit the 4 maps
-his_designs(9)           % build + score RODGERS' OWN S3/S4 verbatim (Addendum 4)
+his_designs(9)           % build + score RODGERS' OWN S3/S4 verbatim (Addendum 4/5)
+convention_decode()      % decode his YDE/ADE frame (Addendum 5 §A)
+gate0_merit_identity()   % in-loop merit == strict metric?  (Addendum 5 §C)
+fex_in_loop_check()      % is CALIB actually running FEX?   (Addendum 5 §D)
 ```
 
 `strict_wfe` is pure MATLAB and computes the ray-to-sphere OPL exactly
