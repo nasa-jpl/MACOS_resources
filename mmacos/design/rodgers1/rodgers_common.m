@@ -1,8 +1,26 @@
-function P = rodgers_common()
+function P = rodgers_common(variant)
 %RODGERS_COMMON  Shared constants for the Rodgers offset-field TMA study.
 %   Verbatim prescription + ground-truth field-map statistics transcribed
 %   from macos_sandbox/Design/Rodgers/260728-TMA_Offsetfield-jmr.pptx
 %   (J.M. Rodgers, ORA/CODE V, 28-Jul-2026).  lambda = 1000 nm.
+%
+%   P = RODGERS_COMMON()      the SLIDE transcription, UNCHANGED.  Every
+%                             committed EPD-2000 / EPD-4060 artifact was
+%                             produced from exactly these values; do not
+%                             edit them or the baselines stop reproducing.
+%   P = RODGERS_COMMON('seq') the same, OVERLAID with the CODE V .seq TRUTH
+%                             Mike supplied 2026-07-31 (see RODGERS_SEQ):
+%                             EPD 5000, the M1 hole, the 15-point half-box
+%                             field set, and the full-precision conics and
+%                             rigid-body values.  P.gt -- his reported
+%                             field-map statistics -- is NOT touched; it is
+%                             the thing being compared against.
+%
+%   P.seq is ALWAYS present (the raw .seq truth) so any caller can reconcile
+%   against it without re-parsing.  The slide-vs-.seq deltas on everything
+%   the slides DID state are at slide-rounding level (<= 8.3e-4 mm on the
+%   largest, M3 Ydec); the real deltas are the things the slides never
+%   stated -- see PACKET.md Addendum 8.
 %
 %   Sign/units notes (CODE V -> MACOS):
 %     * ROC given SIGNED in CODE V; MACOS emits KrElt = -|R| for every
@@ -54,4 +72,35 @@ function P = rodgers_common()
     P.gt.s4_wide       = [0.011241,   0.27777,    0.11739,    0.090993 ];
     P.gt.s4_box        = [0.01092,    0.039802,   0.022493,   0.0070409];
     P.gt.units = 'waves@1000nm';
+
+    % --- the CODE V .seq truth (always attached, never overwrites gt) -----
+    P.seq = rodgers_seq();
+    P.variant = 'slides';
+    if nargin >= 1 && ~isempty(variant) && strcmpi(variant,'seq')
+        P = apply_seq_(P);
+    end
+end
+
+% =====================================================================
+function P = apply_seq_(P)
+%APPLY_SEQ_  Overlay the .seq truth onto the slide transcription.
+%   Only quantities the .seq file actually states are replaced.  Each
+%   replacement is a DELTA to report, not a fit -- see PACKET Addendum 8.
+    S = P.seq;
+    P.variant       = 'seq';
+    P.EPD_mm        = S.EPD_mm;              % 2000/4060 (inferred) -> 5000
+    P.lambda_m      = S.lambda_nm*1e-9;      % unchanged (1 um)
+    P.ROC_mm        = S.ROC_mm;              % full precision
+    P.K_nom         = S.K(1,:);
+    P.K_s3          = S.K(3,:);
+    P.K_s4          = S.K(4,:);
+    P.s12_mm        = S.s12_mm;
+    P.s23_mm        = S.s23_mm;
+    P.s3f_mm        = S.s3f_mm;
+    P.Ydec_M2_mm    = S.rb(1,2);   P.tilt_M2_deg = S.rb(1,3);
+    P.Ydec_M3_mm    = S.rb(2,2);   P.tilt_M3_deg = S.rb(2,3);
+    P.fov_half_deg  = S.fov_half_deg;
+    P.offset_deg    = S.offset_deg;
+    P.M1_hole_m     = S.M1_hole_semi_mm*1e-3;   % NEW: absent from the slides
+    P.Frel          = S.Frel;                    % NEW: his 15-point half box
 end

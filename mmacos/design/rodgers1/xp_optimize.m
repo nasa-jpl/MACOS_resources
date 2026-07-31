@@ -1,7 +1,16 @@
-function R = xp_optimize(map_n, max_rounds, joint)
+function R = xp_optimize(map_n, max_rounds, joint, variant)
 %XP_OPTIMIZE  Re-solve stages 3 and 4 against the EXIT-PUPIL-REFERENCED merit.
 %
-%   R = XP_OPTIMIZE()            map_n = 9, max_rounds = 4
+%   R = XP_OPTIMIZE()                          map_n = 9, max_rounds = 4,
+%                                              joint = true, EPD 4060
+%   R = XP_OPTIMIZE(9, 4, true, 'seq')         the same solve at the CODE V
+%                                              .seq truth: EPD 5000, the M1
+%                                              hole, and HIS 15-point
+%                                              half-box optimisation field
+%                                              set (CALIB caps at 12 FoV, so
+%                                              the 15 are decimated to 12 --
+%                                              reported, not silent).
+%                                              Artifacts suffixed _seq.
 %
 %   Step 3 of the Rodgers arc.  The committed stages 3/4 were solved against
 %   `OPD` at the terminal FocalPlane -- std(OPL) to each ray's OWN intercept
@@ -34,6 +43,8 @@ function R = xp_optimize(map_n, max_rounds, joint)
     if nargin < 1, map_n = 9;      end
     if nargin < 2, max_rounds = 4; end
     if nargin < 3, joint = true;   end
+    if nargin < 4 || isempty(variant), variant = 'epd4060'; end
+    isseq = strcmpi(variant,'seq');
     % JOINT (default) solves the detector WITH the optics -- align_focal_plane
     % once as a seed, then the FPA's tilt + focus enter the CALIB DOF set and
     % there is NO alternation loop.  This mirrors Rodgers' own procedure and
@@ -54,16 +65,55 @@ function R = xp_optimize(map_n, max_rounds, joint)
     root = fileparts(fileparts(here));
     run(fullfile(root,'mmacos_setup.m'));
     addpath(here);
-    P = rodgers_common();  P.EPD_mm = 4060;
+    if isseq
+        P = rodgers_common('seq');
+    else
+        P = rodgers_common();  P.EPD_mm = 4060;
+    end
     lam_nm  = P.lambda_m*1e9;
-    optF    = macos.design.field_grid(P.fov_half_deg*60, 3, 'units','arcmin','origin',false);
-    Frel    = macos.design.field_grid(P.fov_half_deg*60, map_n, 'units','arcmin');
+    if isseq
+        % HIS field set, decimated to CALIB's 12-FoV cap.  Keep the on-axis
+        % (0,0) point implicit (optimize drops it) and drop the three points
+        % with the SMALLEST radius from the box centre -- the least
+        % informative, and the choice is stated here rather than hidden.
+        % CALIB caps the TOTAL FoV count at 12, and the on-axis field is
+        % IMPLICIT (optimize adds it), so at most 11 explicit points fit.
+        % Keep the 11 largest-radius of his 15 -- the informative ones -- and
+        % SAY which were dropped rather than truncating silently.
+        Fs = P.seq.Frel;
+        Fs = Fs(any(abs(Fs) > 1e-12, 2), :);          % drop (0,0): implicit
+        [~,ord] = sort(vecnorm(Fs,2,2), 'descend');
+        keep = sort(ord(1:min(11,size(Fs,1))));
+        optF = Fs(keep,:);
+        drop = setdiff(1:size(Fs,1), keep);
+        fprintf(['  optimisation field set: %d explicit + 1 implicit on-axis = %d ' ...
+                 'FoV,\n    from his %d (CALIB caps at 12).  Dropped %d ' ...
+                 'smallest-radius point(s):\n'], ...
+                size(optF,1), size(optF,1)+1, size(P.seq.Frel,1), numel(drop));
+        for q = drop
+            fprintf('      (XAN %+7.4f, dYAN %+7.4f) deg\n', rad2deg(Fs(q,1)), rad2deg(Fs(q,2)));
+        end
+        Frel = P.seq.Frel;                             % score on ALL 15
+    else
+        optF = macos.design.field_grid(P.fov_half_deg*60, 3, 'units','arcmin','origin',false);
+        Frel = macos.design.field_grid(P.fov_half_deg*60, map_n, 'units','arcmin');
+    end
     R = struct('map_n',map_n,'lambda_nm',lam_nm,'stage',cell(1,2));
 
+    % 'ref' = the committed FP-merit solve, 'his' = HIS design strict-scored.
+    % Both are EPD-4060 / 9x9-box numbers, so at the .seq truth they are NOT
+    % comparable and are blanked rather than printed misleadingly; the seq
+    % 'his' column is filled in by RUN_SEQ from the matching his_designs run.
+    if isseq
+        ref3 = [NaN NaN]; his3 = [NaN NaN];  ref4 = [NaN NaN]; his4 = [NaN NaN];
+    else
+        ref3 = [181.234 97.059];  his3 = [115.312 53.652];
+        ref4 = [118.591 84.806];  his4 = [ 64.851 35.358];
+    end
     specs = { struct('st',3, 'dofs',[0 0 0 0 0 0 0 1], 'gt',P.gt.s3_box, ...
-                     'ref',[181.234 97.059], 'his',[115.312 53.652]), ...
+                     'ref',ref3, 'his',his3), ...
               struct('st',4, 'dofs',[0 0 0 0 0 0 0 1; 1 0 0 0 1 0 0 1; 1 0 0 0 1 0 0 1], ...
-                     'gt',P.gt.s4_box, 'ref',[118.591 84.806], 'his',[64.851 35.358]) };
+                     'gt',P.gt.s4_box, 'ref',ref4, 'his',his4) };
 
     for c = 1:numel(specs)
         S = specs{c};
@@ -115,7 +165,7 @@ function R = xp_optimize(map_n, max_rounds, joint)
         R(c).K = [t.spec.elt(1).Kc t.spec.elt(2).Kc t.spec.elt(3).Kc];
         R(c).rigid = [rigid_of(t.spec.elt(2)); rigid_of(t.spec.elt(3))];
 
-        deck = fullfile(here, sprintf('rodgers1_epd4060_stage%d_xpopt.in', S.st));
+        deck = fullfile(here, sprintf('rodgers1_%s_stage%d_xpopt.in', variant, S.st));
         t.save(deck);
         s = strict_wfe_deck(deck, Frel);
         w = s.wfe_m(isfinite(s.wfe_m))*1e9;
@@ -151,14 +201,14 @@ function R = xp_optimize(map_n, max_rounds, joint)
                 R(c).max/(S.gt(2)*lam_nm), R(c).avg/(S.gt(3)*lam_nm), ...
                 S.ref(1)/(S.gt(2)*lam_nm), S.ref(2)/(S.gt(3)*lam_nm));
 
-        png = fullfile(here, sprintf('rodgers1_epd4060_stage%d_xpopt_strict.png', S.st));
+        png = fullfile(here, sprintf('rodgers1_%s_stage%d_xpopt_strict.png', variant, S.st));
         scan = struct('fields', s.fields*180/pi*60 + s.bias_deg*60, ...
                       'wfe', s.wfe(:), 'metric','strict');
         fig = t.view_field_map(scan,'kind','contour','save',png,'visible',false);
         close(fig);  R(c).png = png;
     end
 
-    banner('EXIT-PUPIL RE-SOLVE  (EPD 4060, nm @ %g nm, %dx%d box)', lam_nm, map_n, map_n);
+    banner('EXIT-PUPIL RE-SOLVE  (%s: EPD %g, nm @ %g nm, %d fields)', variant, P.EPD_mm, lam_nm, size(Frel,1));
     fprintf('  stage | xp-merit max/avg | FP-merit max/avg | HIS design | Rodgers | max x\n');
     for c = 1:numel(R)
         g = R(c).gt;
@@ -167,8 +217,8 @@ function R = xp_optimize(map_n, max_rounds, joint)
             R(c).his(1), R(c).his(2), g(2)*lam_nm, g(3)*lam_nm, ...
             R(c).max/(g(2)*lam_nm));
     end
-    save(fullfile(here,'rodgers1_epd4060_xpopt.mat'),'R');
-    fprintf('\nsaved rodgers1_epd4060_xpopt.mat + decks + maps\n');
+    save(fullfile(here,sprintf('rodgers1_%s_xpopt.mat',variant)),'R');
+    fprintf('\nsaved rodgers1_%s_xpopt.mat + decks + maps\n', variant);
 end
 
 function v = rigid_of(e)
@@ -183,6 +233,9 @@ function t = build_tma(P, K, bias_deg)
     t.add_mirror('M1','radius_mm',abs(P.ROC_mm(1)),'conic',K(1),'spacing_after_mm',abs(P.s12_mm));
     t.add_mirror('M2','radius_mm',abs(P.ROC_mm(2)),'conic',K(2),'spacing_after_mm',abs(P.s23_mm));
     t.add_mirror('M3','radius_mm',abs(P.ROC_mm(3)),'conic',K(3),'spacing_after','derive');
+    if isfield(P,'M1_hole_m') && P.M1_hole_m > 0
+        t.set_hole('M1', P.M1_hole_m);     % CODE V "CIR HOL" on M1
+    end
     if bias_deg ~= 0, t.set_field_bias(bias_deg*60); end
     t.build();
 end

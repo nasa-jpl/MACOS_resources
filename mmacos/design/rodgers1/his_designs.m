@@ -1,9 +1,28 @@
-function H = his_designs(map_n)
+function H = his_designs(map_n, opts)
 %HIS_DESIGNS  Build Rodgers' OWN stage-3 and stage-4 solutions verbatim from
-%   his slide parameters and strict-score them.  Pure evaluation -- exactly
+%   his parameters and strict-score them.  Pure evaluation -- exactly
 %   the class of the stage-2 gate, with no optimizer anywhere in the loop.
 %
-%   H = HIS_DESIGNS()      map_n = 9
+%   H = HIS_DESIGNS()             map_n = 9, the committed EPD-4060 run
+%                                 (slide parameters, 9x9 full box).
+%   H = HIS_DESIGNS(N,'variant','seq')
+%                                 the same evaluation at the CODE V .seq
+%                                 TRUTH: EPD 5000, the M1 hole, his 15-point
+%                                 half-box field set, full-precision conics
+%                                 and rigid body.  Artifacts are suffixed
+%                                 _seq; the committed _epd4060 set is not
+%                                 touched.
+%
+%   Name-value:
+%     'variant'  'epd4060' (default) | 'seq'
+%     'Frel'     explicit (K,2) rad box-relative field set; default is the
+%                variant's own (9x9 grid for epd4060, the .seq 15 for seq)
+%     'base'     explicit base deck; default is the committed stage-2 deck
+%                for epd4060, and a freshly BUILT one for seq
+%
+%   THE BAND.  The max/avg ratios this prints for rodgersS3 / rodgersS4,
+%   together with strict_stage_table's S2, ARE the residual band.  Nothing
+%   in here is tuned to it.
 %
 %   Construction, per stage:
 %     1. load the committed rodgers1_epd4060_stage2.in -- his verbatim
@@ -33,16 +52,43 @@ function H = his_designs(map_n)
 %   Writes rodgers1_epd4060_rodgersS{3,4}.in, ..._his_designs.mat, and
 %   rodgers1_epd4060_rodgersS{3,4}_strict.png.
 
-    if nargin < 1, map_n = 9; end
+    arguments
+        map_n (1,1) double {mustBeInteger,mustBePositive} = 9
+        opts.variant (1,:) char {mustBeMember(opts.variant,{'epd4060','seq'})} = 'epd4060'
+        opts.Frel (:,2) double = zeros(0,2)
+        opts.base (1,:) char = ''
+        opts.hole (1,1) double = NaN    % override the M1 hole radius (m); 0 = none
+        opts.suffix (1,:) char = ''     % extra filename suffix, for attribution runs
+    end
     here = fileparts(mfilename('fullpath'));
     root = fileparts(fileparts(here));
     run(fullfile(root,'mmacos_setup.m'));
     addpath(here);
-    P = rodgers_common();
+    isseq = strcmpi(opts.variant,'seq');
+    if isseq, P = rodgers_common('seq'); else, P = rodgers_common(); end
     lam_nm = P.lambda_m*1e9;
-    base = fullfile(here,'rodgers1_epd4060_stage2.in');
+    if ~isnan(opts.hole), P.M1_hole_m = opts.hole; end
+    tag    = [opts.variant opts.suffix];         % filename stem: _epd4060 | _seq[...]
 
-    Frel = macos.design.field_grid(P.fov_half_deg*60, map_n, 'units','arcmin');
+    % ---- the base deck: his verbatim layout, the +0.5 deg bias, the EPD.
+    % epd4060 = the committed deck (baseline, byte-for-byte).
+    % seq     = BUILT here at the .seq truth, so the M1 hole and EPD 5000 are
+    %           in the layout the scoring path actually traces.
+    if ~isempty(opts.base)
+        base = opts.base;
+    elseif isseq
+        base = build_base_deck_(P, here, tag);   % honours P.M1_hole_m
+    else
+        base = fullfile(here,'rodgers1_epd4060_stage2.in');
+    end
+
+    if ~isempty(opts.Frel)
+        Frel = opts.Frel;
+    elseif isseq
+        Frel = P.seq.Frel;                       % his 15-point half box
+    else
+        Frel = macos.design.field_grid(P.fov_half_deg*60, map_n, 'units','arcmin');
+    end
     H = struct('lambda_nm',lam_nm,'map_n',map_n,'stage',cell(1,3));
 
     cfg = { struct('st',3, 'K',P.K_s3, 'rb',[], 'tag','rodgersS3', ...
@@ -51,6 +97,16 @@ function H = his_designs(map_n)
                    'rb',[2 P.Ydec_M2_mm -P.tilt_M2_deg; ...
                          3 P.Ydec_M3_mm -P.tilt_M3_deg], ...
                    'gt',P.gt.s4_box, 'ref',[]) };
+    % Stage 2 -- his verbatim conics, only the detector re-fitted -- is the
+    % THIRD rung of the band.  At epd4060 it came from STRICT_STAGE_TABLE on
+    % the committed deck (429.627 / 246.8 nm); running it here too would
+    % rewrite that artifact, so it is added for the 'seq' variant only, where
+    % it goes through the identical recipe as S3/S4 and the whole band is
+    % produced by ONE path.
+    if isseq
+        cfg = [ { struct('st',2, 'K',P.K_nom, 'rb',[], 'tag','rodgersS2', ...
+                         'gt',P.gt.s2_box, 'ref',[]) }, cfg ];
+    end
     % ^ ADE SIGN: decoded by convention_decode.m, not chosen.  His ADE has the
     % OPPOSITE positive sense to rigid_of's alpha = atan2d(psi_y,-psi_z); his
     % YDE matches ours.  Of the 16 sign combinations x 2 application orders,
@@ -63,11 +119,17 @@ function H = his_designs(map_n)
     % this reproduces the committed stage-4 strict number (118.591 / 84.806
     % nm, PACKET Addendum 3 §D.2) then the injection machinery is sound and
     % any failure above is about the VALUES, not about the path.
-    Rc = load(fullfile(here,'rodgers1_epd4060_results.mat'));
-    cfg{end+1} = struct('st',44, 'K',Rc.R.K_s4, 'tag','oursS4roundtrip', ...
-                        'rb',[2 Rc.R.rigid(1,1) Rc.R.rigid(1,2); ...
-                              3 Rc.R.rigid(2,1) Rc.R.rigid(2,2)], ...
-                        'gt',P.gt.s4_box, 'ref',[118.591 84.806]);
+    % (epd4060 only: the reference numbers 118.591/84.806 belong to that
+    %  configuration.  At the .seq truth there is no committed solve to
+    %  round-trip against yet, so the check is skipped rather than compared
+    %  to a number from a different aperture.)
+    if ~isseq
+        Rc = load(fullfile(here,'rodgers1_epd4060_results.mat'));
+        cfg{end+1} = struct('st',44, 'K',Rc.R.K_s4, 'tag','oursS4roundtrip', ...
+                            'rb',[2 Rc.R.rigid(1,1) Rc.R.rigid(1,2); ...
+                                  3 Rc.R.rigid(2,1) Rc.R.rigid(2,2)], ...
+                            'gt',P.gt.s4_box, 'ref',[118.591 84.806]);
+    end
 
     for c = 1:numel(cfg)
         C = cfg{c};
@@ -135,7 +197,7 @@ function H = his_designs(map_n)
         macos.load_rx(work);
         macos.set_elt_vpt(nE, fpa.Vpt(:));  macos.set_elt_psi(nE, fpa.psi(:));
         macos.set_elt_rpt(nE, fpa.Vpt(:));  macos.modify();
-        deck = fullfile(here, sprintf('rodgers1_epd4060_%s.in', C.tag));
+        deck = fullfile(here, sprintf('rodgers1_%s_%s.in', tag, C.tag));
         macos.save_rx(deck);
         % the saved deck must still point at the nominal field
         dchk = regexp(fileread(deck),'ChfRayDir=\s*([^\n]*)','tokens','once');
@@ -183,14 +245,14 @@ function H = his_designs(map_n)
     trend = renderer_(P);
     for c = 1:numel(H)
         s = H(c).scan;
-        png = fullfile(here, sprintf('rodgers1_epd4060_%s_strict.png', H(c).tag));
+        png = fullfile(here, sprintf('rodgers1_%s_%s_strict.png', tag, H(c).tag));
         scan = struct('fields', s.fields*180/pi*60 + s.bias_deg*60, ...
                       'wfe', s.wfe(:), 'metric','strict');
         fig = trend.view_field_map(scan,'kind','contour','save',png,'visible',false);
         close(fig);  H(c).png = png;
     end
 
-    banner('HIS OWN SOLVES, STRICT-SCORED  (EPD 4060, nm @ %g nm)', lam_nm);
+    banner('HIS OWN SOLVES, STRICT-SCORED  (%s: EPD %g, nm @ %g nm, %d fields)', tag, P.EPD_mm, lam_nm, size(Frel,1));
     fprintf('  %-16s | %-19s | %-15s | %8s | %8s\n','design','strict max/avg','Rodgers max/avg','max x','avg x');
     for c = 1:numel(H)
         g = H(c).gt;
@@ -198,8 +260,8 @@ function H = his_designs(map_n)
             H(c).tag, H(c).max, H(c).avg, g(2)*lam_nm, g(3)*lam_nm, ...
             H(c).max/(g(2)*lam_nm), H(c).avg/(g(3)*lam_nm));
     end
-    save(fullfile(here,'rodgers1_epd4060_his_designs.mat'),'H');
-    fprintf('\nsaved rodgers1_epd4060_his_designs.mat + decks + maps\n');
+    save(fullfile(here,sprintf('rodgers1_%s_his_designs.mat',tag)),'H');
+    fprintf('\nsaved rodgers1_%s_his_designs.mat + decks + maps\n', tag);
 end
 
 % =====================================================================
@@ -300,8 +362,43 @@ function v = grab3_(txt, key)
     v = sscanf(strrep(t{1},'D','E'),'%f',3);
 end
 
+function base = build_base_deck_(P, here, tag)
+%BUILD_BASE_DECK_  His verbatim layout at THIS variant's configuration, with
+%   the FPA fitted by his procedure -- the stage-2 deck, built rather than
+%   read.  Used by the 'seq' variant, where the committed EPD-4060 deck is
+%   the wrong aperture and carries no M1 hole.
+%
+%   The M1 central perforation (CIR HOL, semi-diameter 513.9422766474837 mm)
+%   is emitted as a REAL circular obscuration via set_hole, so the traced
+%   pupil is the annulus CODE V traces, not a filled disc.
+    t = macos.design.Telescope('family','TMA', ...
+            'aperture_diameter_mm', P.EPD_mm, ...
+            'wavelength_m', P.lambda_m, 'model_size', P.model_size);
+    t.add_mirror('M1','radius_mm',abs(P.ROC_mm(1)),'conic',P.K_nom(1), ...
+                 'spacing_after_mm',abs(P.s12_mm));
+    t.add_mirror('M2','radius_mm',abs(P.ROC_mm(2)),'conic',P.K_nom(2), ...
+                 'spacing_after_mm',abs(P.s23_mm));
+    t.add_mirror('M3','radius_mm',abs(P.ROC_mm(3)),'conic',P.K_nom(3), ...
+                 'spacing_after','derive');
+    if isfield(P,'M1_hole_m') && P.M1_hole_m > 0
+        t.set_hole('M1', P.M1_hole_m);
+    end
+    t.set_field_bias(P.offset_deg*60);
+    t.build();
+    t.align_focal_plane('grid',5,'span_arcmin',6);
+    base = fullfile(here, sprintf('rodgers1_%s_stage2.in', tag));
+    t.save(base);
+    fprintf('  base deck built at the %s configuration -> %s\n', tag, base);
+    fprintf('    EPD %.1f mm, M1 hole semi %.4f mm, bias +%.3f deg\n', ...
+            P.EPD_mm, 1e3*getfielddef_(P,'M1_hole_m',0), P.offset_deg);
+end
+
+function v = getfielddef_(s, f, d)
+    if isfield(s,f), v = s.(f); else, v = d; end
+end
+
 function t = renderer_(P)
-    t = macos.design.Telescope('family','TMA','aperture_diameter_mm',4060, ...
+    t = macos.design.Telescope('family','TMA','aperture_diameter_mm',P.EPD_mm, ...
             'wavelength_m',P.lambda_m,'model_size',P.model_size);
     t.add_mirror('M1','radius_mm',abs(P.ROC_mm(1)),'conic',P.K_nom(1),'spacing_after_mm',abs(P.s12_mm));
     t.add_mirror('M2','radius_mm',abs(P.ROC_mm(2)),'conic',P.K_nom(2),'spacing_after_mm',abs(P.s23_mm));
