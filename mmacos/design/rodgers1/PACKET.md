@@ -1493,3 +1493,63 @@ Those must not reach resources `dev` before the engine PR merges: on an
 unfixed engine the keyword is silently ignored and the merit reverts to the
 detector plane — a veneer ahead of its engine, failing quietly rather than at
 load. Local work proceeds; the push waits.
+
+---
+
+# ADDENDUM 7 — part B: the exit-pupil re-solve (2026-07-31)
+
+On the fixed engine (macos PR #68), stages 3 and 4 re-solved against the
+per-field chief-ray-tied exit-pupil sphere. `xp_optimize.m`; scored by
+`strict_wfe_deck` on the emitted deck — an **independent** path from the
+in-loop merit. EPD 4060, 9x9 box, 1304 rays, 81/81 fields.
+
+| stage | xp merit | FP merit (committed) | HIS design | Rodgers | x his |
+|---|---|---|---|---|---|
+| S3 | **157.4 / 118.4** | 181.2 / 97.1 | 115.3 / 53.7 | 91.6 / 46.4 | 1.72 |
+| S4 | **77.0 / 41.9** | 118.6 / 84.8 | 64.9 / 35.4 | 39.8 / 22.5 | 1.93 |
+
+**Stage 4 improves substantially: max 118.6 -> 77.0 nm (35%), avg 84.8 -> 41.9
+(51%),** and the Rodgers ratio drops from 2.98x to 1.93x. Stage 3's max
+improves (181.2 -> 157.4) but its **avg gets worse** (97.1 -> 118.4) — the new
+merit flattens the field map rather than minimising its mean, which is what a
+per-field chief-tied reference should do, and the committed avg was partly an
+artifact of the tilt term being smallest at the box centre.
+
+**Gates: both missed.** S3 was to reach ~115 nm (his-conics level) and reads
+157.4; S4 was to reach <= ~1.5x his 39.8 (59.7 nm) and reads 77.0 (1.93x).
+Recorded as a miss, not tuned toward.
+
+**The standing rigid-body prediction is CONFIRMED — the solve moved onto his
+branch.** All four signs flipped to match:
+
+| | was (FP merit) | now (xp merit) | his (decoded) |
+|---|---|---|---|
+| M2 Ydec | −3.742 mm | **+2.739** | +8.345 |
+| M2 alpha | +0.2330 deg | **−0.1604** | −0.5169 |
+| M3 Ydec | −43.839 mm | **+23.135** | +121.868 |
+| M3 alpha | +1.1142 deg | **−0.6795** | −2.3297 |
+
+Addendum 5 §B read his solution as the **opposite branch** of a degenerate
+valley, ~2.4x further along it. With the corrected merit our optimizer lands on
+**his** branch — same signs on all four DOFs — at roughly a fifth to a third of
+his magnitudes. So the merit was indeed what put us on the wrong branch; the
+remaining gap is depth along the right one.
+
+Conics also tighten where it mattered: S3 K_M3 |diff| 3.43e-3 -> **6.62e-4**
+(5x), K_M2 3.12e-4 -> 1.05e-4; K_M1 loosens 1.56e-5 -> 3.37e-4. S4 all three
+improve ~2x (K_M2 4.0e-3 -> 2.26e-3, K_M3 1.06e-2 -> 6.17e-3).
+
+**The alternation did not converge in 4 rounds**, and that is the most likely
+reason the gates are missed. FPA station movement per round: S3 0.42, 0.49,
+0.55, 0.61 mm (drifting, not contracting); S4 66.8, 1.05, 3.93, 13.4 mm
+(non-monotone). The merit's sphere is centred on the chief intercept on the
+detector, so a detector that is still moving means the objective is still
+moving under the optimizer. **Next step for whoever takes this on: diagnose the
+solve<->refit coupling before pushing the gates harder** — likely candidates
+are the FPA fit's own field set (5x5 over +/-6' about the bias, which the solve
+then changes) and the fact that `optimize` restarts its DOF deviations from the
+current state each round.
+
+**Artifacts:** `xp_optimize.m`, `rodgers1_epd4060_stage{3,4}_xpopt.in`,
+`..._xpopt_strict.png`, `rodgers1_epd4060_xpopt.mat`. Committed baselines
+bit-intact.
