@@ -2252,3 +2252,285 @@ overshoots to 0.59–0.69×.
 
 Nothing else is outstanding. EPD, field set, hole, object, stop, layout, solves,
 detector and the ADE sign are all closed by these four files.
+
+---
+
+# Addendum 9 — the centroid-primary ruling: tables, maps, and the spot example
+
+**Ruling (Dave, 2026-07-31), superseding the chief-referenced ruling:** the
+primary WFE reference is the **spot centroid** — it is closest to the CODE V
+numbers, and the grid of centroids is what the detector actually sees.
+Chief-referenced is retained as a labelled **secondary** column. **Distortion
+is tracked in the grid of centroids** against the ideal f·θ mapping (EFL 100 m),
+not the chief grid.
+
+Everything below is at the `.seq` truth: EPD 5000 mm, the M1 hole, his 15-point
+half box. Code: `strict_refs.m` (the shared kernel), `seq_centroid.m`,
+`seq_centroid_maps.m`, `seq_spot_example.m`.
+
+## 9.1 Headline table — centroid primary
+
+| design | **CENTROID (primary)** | chief (secondary) | CODE V reported | centroid × |
+|---|---|---|---|---|
+| S1 on-axis, verbatim conics | **1.6 / 1.3** | 5.1 / 1.6 | 1.5 / 0.6 | 1.09× / 2.19× |
+| S2 offset, verbatim conics | **540.7 / 304.9** | 765.4 / 445.1 | 374.6 / 200.0 | **1.44×** / 1.53× |
+| S3 ours, joint solve | **128.7 / 77.5** | 195.6 / 109.2 | 91.6 / 46.4 | 1.40× / 1.67× |
+| S4 ours, joint solve | **75.9 / 41.8** | 130.2 / 65.2 | 39.8 / 22.5 | 1.91× / 1.86× |
+| CODE V S2 re-traced | **540.7 / 304.9** | 765.4 / 445.1 | 374.6 / 200.0 | **1.44×** / 1.53× |
+| CODE V S3 re-traced | **133.4 / 77.2** | 199.3 / 108.8 | 91.6 / 46.4 | **1.46×** / 1.67× |
+| CODE V S4 re-traced | **77.8 / 42.2** | 115.5 / 62.6 | 39.8 / 22.5 | 1.95× / 1.88× |
+
+max / avg in nm at λ = 1 µm. S2's two rows are the same optics — his verbatim
+design *is* our stage 2 — and are listed twice so the block reads as a complete
+set.
+
+**Centroid-referencing recovers most of the gap: 2.04× → 1.44× on S2, 2.18× →
+1.46× on S3.** It does **not** reach 1.09×, and that number should not be
+quoted as the centroid result — see 9.2.
+
+### 9.2 Where the ruling sits on the reference ladder — 1.44×, not 1.09×
+
+The Addendum-8 ladder rung that read 1.09× removes tip/tilt by **least
+squares** (the variance-minimising tilt) *and* slides to per-field best focus.
+The centroid reference removes a **specific** tilt — the one that re-centres the
+sphere on the spot. Those are close but not equal, and the LS tilt is by
+construction the smaller residual:
+
+| rung (max ratio vs CODE V) | S2 | S3 |
+|---|---|---|
+| strict-chief (frozen detector) | 2.043× | 2.176× |
+| **strict-centroid (frozen detector)** | **1.443×** | **1.456×** | ← **THE RULING** |
+| strict-chief + per-field best focus | 2.042× | 2.171× |
+| least-squares tilt + best focus | 1.098× | 1.088× |
+| + astigmatism | 0.589× | 0.694× |
+
+So the honest statement is: **the ruling lands at 1.44×/1.46×**, the
+variance-minimising tilt would land at 1.09×, and CODE V's own convention sits
+between the two — closer to the LS tilt. That is a factual observation about
+where CODE V is, not a re-litigation of the ruling; the centroid is the
+physically-motivated reference and it is what is reported as primary throughout.
+
+## 9.3 Identity cross-check — centroid-vs-chief is tilt **plus induced defocus**
+
+The tilt fitted between the two references, times the sphere radius, must
+reproduce the ray-measured centroid-minus-chief displacement. It does:
+
+| design | resid after piston+tilt | resid after piston+tilt+**defocus** | implied vs measured transverse displacement |
+|---|---|---|---|
+| S1 on-axis | 5.10e-04 | **8.05e-05** | 9.6e-05 µm of 0.420 µm (2.3e-04 rel) |
+| S2 offset | 2.19e-03 | **7.97e-05** | 1.94e-02 µm of 74.769 µm (2.6e-04 rel) |
+| S3 ours | 2.15e-03 | **7.99e-05** | 4.93e-03 µm of 19.412 µm (2.5e-04 rel) |
+| S4 ours | 1.99e-03 | **7.97e-05** | 3.22e-03 µm of 13.369 µm (2.4e-04 rel) |
+| CODE V S2 | 2.19e-03 | **7.97e-05** | 1.94e-02 µm of 74.769 µm (2.6e-04 rel) |
+| CODE V S3 | 2.15e-03 | **7.99e-05** | 4.96e-03 µm of 19.519 µm (2.5e-04 rel) |
+| CODE V S4 | 1.86e-03 | **8.02e-05** | 2.87e-03 µm of 12.507 µm (2.3e-04 rel) |
+
+**The Zernike-implied and the directly-measured displacement agree to 2.3–2.6
+× 10⁻⁴ relative on every design** — that is the number the brief asked for.
+
+**But the difference is not a pure tip/tilt, and the reason is worth keeping.**
+The residual after piston+tilt alone is ~2e-3, not machine-small. That is
+physics, not error: the displacement lies **in the detector plane**, which the
+beam meets at ~14°, so it carries an along-chief component — moving the
+reference from chief to centroid changes **focus** as well as tilt. Add the
+defocus term and the residual drops to **8e-05**, flat across all seven designs.
+The decomposition:
+
+| design | displacement total | transverse (→ tilt) | along-chief (→ defocus) |
+|---|---|---|---|
+| S1 | 0.421 µm | 0.420 | +0.030 |
+| S2 | 78.331 µm | 74.769 | +23.354 |
+| S3 | 20.301 µm | 19.412 | +5.941 |
+| S4 | 13.725 µm | 13.369 | +3.105 |
+| CODE V S4 | 12.550 µm | 12.507 | −1.040 |
+
+Ratios are taken only over fields where the two references actually differ; on a
+field with no coma the difference is null and the ratio would be 0/0.
+
+## 9.4 Centroid-displacement map — the coma tracker
+
+µm on the detector. **The expectation on record is confirmed**: largest at
+stage 2, shrinking as the solves correct the field.
+
+| design | min | max | mean |
+|---|---|---|---|
+| S1 on-axis | 0.000 | 0.421 | 0.137 |
+| **S2 offset, verbatim** | 20.856 | **78.331** | **46.012** |
+| S3 ours, joint solve | 3.005 | 20.301 | 11.148 |
+| S4 ours, joint solve | 1.573 | 13.725 | 7.010 |
+
+S2 map (µm), ΔYAN rows × XAN columns, arcmin:
+
+```
+  dYAN\XAN     0.00     1.50     3.00     4.50     6.00
+     +6.00    75.03        .    75.85        .    78.33
+     +3.00    57.08    57.26        .    58.75        .
+     +0.00    42.29        .    42.95        .    44.98
+     -3.00    30.32    30.47        .    31.66        .
+     -6.00    20.86        .    21.38        .    22.97
+```
+
+Monotone in ΔYAN and nearly flat in XAN — **linear-in-field coma**, exactly the
+signature that makes the chief and the centroid diverge. On axis (S1) it is
+0.42 µm, i.e. zero. Mean drops **46.0 → 11.1 → 7.0 µm** across the solves, a
+6.6× reduction.
+
+## 9.5 Distortion map — centroid grid vs ideal f·θ
+
+Reported **alongside**, never inside, the WFE tables. f = 100 000 mm from his
+`UMY` solve. Three readings, most literal first: (a) vs the ideal f·θ grid with
+the **scale held at f**, only the detector's arbitrary placement and clocking
+removed; (b) after also fitting a uniform scale — the fitted scale *is* the
+local magnification, which on a 0.2° patch sitting 0.5° off axis is **not** f;
+(c) after a full affine fit — what no linear map can absorb, i.e. the genuinely
+**nonlinear** distortion. (b) − (c) is the **anamorphic** part (tangential and
+sagittal magnifications differ off axis).
+
+| design | (a) vs f·θ max / rms | local scale vs f | (b) after uniform scale | (c) nonlinear |
+|---|---|---|---|---|
+| S1 on-axis | 178.8 / 82.4 µm | +0.0522 % | 76.1 / 38.0 µm | 73.3 / 37.4 µm |
+| S2 offset | 6937.1 / 4172.3 µm | +2.8035 % | 2197.2 / 1397.1 µm | 764.0 / 525.8 µm |
+| S3 ours | 6475.6 / 3873.0 µm | +2.5978 % | 2062.6 / 1315.1 µm | 731.3 / 502.9 µm |
+| S4 ours | 6001.4 / 3551.5 µm | +2.3240 % | 2163.1 / 1411.5 µm | 702.0 / 483.6 µm |
+| CODE V S2 | 6937.1 / 4172.3 µm | +2.8035 % | 2197.2 / 1397.1 µm | 764.0 / 525.8 µm |
+| CODE V S3 | 6499.9 / 3888.3 µm | +2.6078 % | 2072.7 / 1321.2 µm | 733.9 / 504.7 µm |
+| CODE V S4 | 4668.2 / 2677.6 µm | +1.6796 % | 1998.7 / 1273.4 µm | 635.0 / 437.1 µm |
+
+Frame rotation is +180.00° — the odd-mirror inversion, as it must be.
+
+**Reading.** On axis the mapping is f·θ to **+0.05 %** and the whole 82 µm rms
+departure is nonlinear (real distortion, small). Off axis the dominant term is
+that the **local magnification is 1.7–2.8 % larger than f** — that is not an EFL
+error, it is the distortion slope at 0.5° field. Of what the uniform scale
+leaves, roughly two-thirds is **anamorphic** (1397 → 526 µm rms on S2) and
+~440–530 µm rms is genuinely nonlinear.
+
+**Distortion moves far less than the wavefront does.** Across our solves the
+f·θ departure falls 4172 → 3873 → 3552 µm rms (−15 %) and the nonlinear part
+526 → 503 → 484 µm (−8 %), while the centroid displacement of 9.4 drops 6.6×.
+Distortion is a property of the layout and none of the DOFs in stages 3–4 target
+it — which is exactly why the two maps are reported side by side and why
+neither belongs inside the WFE table. His S4 is the outlier (2678 µm rms,
++1.68 % scale): its 4.44° image tilt and larger rigid-body moves reshape the
+mapping more than our lower-amplitude solve does — a distortion cost his design
+pays for its better wavefront, visible only because the two are tracked
+separately.
+
+Figure: `rodgers1_seq_centroid_maps.png` (top row displacement, bottom row f·θ
+departure, per-panel colour scales with the range printed in each subtitle).
+
+## 9.6 The spot-diagram example
+
+`rodgers1_seq_spot_example.png`. Field chosen **by measurement**, not by eye:
+index 15, **XAN +0.100°, ΔYAN +0.100°** — the box corner where the stage-2
+chief-to-centroid separation is largest (78.331 µm, the arg-max of the 9.4 map).
+
+| | Stage 2 (verbatim conics) | Stage 4 (CODE V solve) |
+|---|---|---|
+| rays | 1252 | 1252 |
+| spot rms about the centroid | 75.409 µm | 10.205 µm |
+| chief-to-centroid separation | **78.331 µm** | **11.835 µm** |
+| WFE referenced to the **chief** | 765.36 nm | 113.55 nm |
+| WFE referenced to the **centroid** | **540.68 nm** | **66.02 nm** |
+
+The stage-2 panel is a textbook comet: the chief sits at the head, the centroid
+is pushed out into the flare, and the 225 nm difference between the two WFE
+numbers is precisely the tilt that separation represents. The stage-4 companion
+is drawn at the **same scale** (so the shrink is visually honest) with a zoomed
+inset underneath, since at the shared scale it collapses to a dot — which is
+the message, but is not readable alone.
+
+## 9.7 Hardware numbers, labelled by customer
+
+Two different angles. They have been confused once already (PACKET §4b), so both
+are reported with the hardware each drives.
+
+| design | **BEAM AOI on the detector** — FPA acceptance angle, assembly alignment | **MECHANICAL detector tilt** about the axis — the mount |
+|---|---|---|
+| S1 on-axis | 0.0000° | +0.0000° |
+| S2 offset | **14.3353°** | +0.0957° |
+| S3 ours | 14.0018° | −0.2388° |
+| S4 ours | 12.9377° | −2.8232° |
+| CODE V S2 | **14.3353°** | +0.0957° |
+| CODE V S3 | 14.0252° | −0.2153° |
+| CODE V S4 | 11.9179° | **−4.4119°** |
+
+His `.seq` image `ADE`, verbatim: S2 −0.0735°, S3 +0.2400°, S4 +4.4407°; in our
+frame (decoded, α = −ADE): +0.0735°, −0.2400°, −4.4407°.
+
+**The focal-plane tilt that matters to hardware is the ~14° BEAM AOI.** It sets
+the FPA acceptance angle and drives assembly alignment. The **mechanical** tilt
+of the detector about the axis is ~0.1° for stages 1–3 — a trivial mount
+requirement — and 4.44° at stage 4, a genuine one, because there the solve uses
+image tilt as a DOF.
+
+**ADE-decode witness #4, and the strongest yet.** On *his* S4 optics our own FPA
+fit lands at **−4.4119°** where his decoded ADE is **−4.4407°** — 0.0288° apart
+on a 4.44° angle (**0.65 %**). The three earlier witnesses were all at ~0.07°,
+where a sign error is easy to hide. This one is at 4.4° and cannot be.
+
+## 9.8 Report-only: does the S4 solve-vs-CODE-V gap change under centroid scoring?
+
+**It narrows, and it reverses.**
+
+| stage | chief-scored: ours vs his design | centroid-scored: ours vs his design |
+|---|---|---|
+| S3 | 195.6 vs 199.3 = 0.98× | 128.7 vs 133.4 = **0.96×** |
+| S4 | 130.2 vs 115.5 = **1.13×** | 75.9 vs 77.8 = **0.98×** |
+
+Under the chief reference our stage-4 joint solve was **13 % worse** than his
+design. Under the centroid reference — the primary — it is **2 % better**. The
+"13 % short" finding of Addendum 8.6 is therefore **reference-dependent and
+should not be carried forward as a solve deficiency**; against the metric now
+ruled primary, our solve matches or beats his at both stages.
+
+**Flag for Dave — a merit/metric mismatch has reappeared, and it is the mirror
+image of the one Part C fixed.** The joint solves optimise against the
+**chief-tied FEX merit** (CALIB re-runs FEX per field; the reference sphere is
+centred on the chief-ray intercept). They are now *scored* centroid-referenced.
+So the solves are being judged by a metric they did not optimise — and they
+still win, which means the result is safe in the direction it matters. But the
+gap between what the optimiser minimises and what the packet reports is real,
+and closing it would mean a **centroid-tied merit inside CALIB** (an engine-side
+FEX change, not configuration). **Not started, per the brief.** Worth Dave's
+call on whether it is worth an engine slice; the evidence that it would help is
+that the ranking of our S4 against his flips when the reference changes, which
+is exactly the signature the Part-C alternation showed before it was fixed.
+
+## 9.9 Design-layer surfacing and artifacts
+
+Both references are named metrics — **`'strict-centroid'`** and
+**`'strict-chief'`** — selected by the `'reference'` option on `strict_wfe` and
+`strict_wfe_deck`. **Both are always computed** (`.wfe_m_centroid`,
+`.wfe_m_chief`, plus the displacement and identity fields), so the choice only
+decides which lands in `.wfe`; nothing is lost either way. `view_field_map`
+labels whichever the scan carries in `.metric`. `Telescope/realize_apertures`
+documents both names and points at where they live — they need an exit-pupil
+probe and a frozen detector plane, state that function does not carry, so they
+are not implemented there.
+
+**Defaults, deliberately split.** The `.seq`-truth study drivers default to
+**centroid**, per the ruling. The low-level functions and the `epd4060` variant
+default to **`strict-chief`** — flipping them would silently rewrite every
+committed EPD-2000/EPD-4060 artifact, which the same brief requires to stay
+bit-intact. Config-only; no behaviour changes anywhere else.
+
+**Baselines re-verified after this work:** `his_designs()` with defaults
+reproduces the committed `rodgers1_epd4060_his_designs.mat` — `rodgersS3`
+115.3125 / 53.6523, `rodgersS4` 64.8506 / 35.3582, `oursS4roundtrip` 118.5906 /
+84.8065, deltas 0.00e+00 except one avg at 1.5e-10 nm (floating-point
+reassociation from computing both references in one pass) — and
+`rodgers1_epd4060_rodgersS{3,4}.in` byte-identical.
+
+*The variant-naming trap of Addendum 8.8 still applies:* artifact names come
+from the variant, so any run at a non-default configuration must pass an
+explicit `'suffix'`.
+
+```matlab
+seq_centroid          % 9.1-9.5, 9.7 + the maps figure
+seq_spot_example      % 9.6
+seq_centroid_maps     % re-render the figure from the saved .mat
+```
+
+Artifacts: `rodgers1_seq_centroid.mat`, `rodgers1_seq_centroid_maps.png`,
+`rodgers1_seq_spot_example.{mat,png}`, `rodgers1_seq_stage1.in`.

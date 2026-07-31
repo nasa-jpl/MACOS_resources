@@ -45,6 +45,12 @@ function R = xp_optimize(map_n, max_rounds, joint, variant)
     if nargin < 3, joint = true;   end
     if nargin < 4 || isempty(variant), variant = 'epd4060'; end
     isseq = strcmpi(variant,'seq');
+    % Scoring reference: centroid at the .seq truth (Dave's 2026-07-31
+    % ruling), chief at epd4060 so the committed baselines reproduce.
+    % NOTE the in-loop MERIT is chief-tied either way (CALIB/FEX); scoring
+    % centroid therefore measures a solve against a metric it did not
+    % optimise -- see PACKET Addendum 9.6.
+    if isseq, sref = 'strict-centroid'; else, sref = 'strict-chief'; end
     % JOINT (default) solves the detector WITH the optics -- align_focal_plane
     % once as a seed, then the FPA's tilt + focus enter the CALIB DOF set and
     % there is NO alternation loop.  This mirrors Rodgers' own procedure and
@@ -167,7 +173,7 @@ function R = xp_optimize(map_n, max_rounds, joint, variant)
 
         deck = fullfile(here, sprintf('rodgers1_%s_stage%d_xpopt.in', variant, S.st));
         t.save(deck);
-        s = strict_wfe_deck(deck, Frel);
+        s = strict_wfe_deck(deck, Frel, 'reference', sref);
         w = s.wfe_m(isfinite(s.wfe_m))*1e9;
         R(c).scan = s;  R(c).min = min(w);  R(c).max = max(w);  R(c).avg = mean(w);
         R(c).gt = S.gt; R(c).ref = S.ref;   R(c).his = S.his;  R(c).deck = deck;

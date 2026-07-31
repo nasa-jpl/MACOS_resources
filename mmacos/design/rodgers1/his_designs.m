@@ -59,6 +59,7 @@ function H = his_designs(map_n, opts)
         opts.base (1,:) char = ''
         opts.hole (1,1) double = NaN    % override the M1 hole radius (m); 0 = none
         opts.suffix (1,:) char = ''     % extra filename suffix, for attribution runs
+        opts.reference (1,:) char = ''  % '' = the variant's default
     end
     here = fileparts(mfilename('fullpath'));
     root = fileparts(fileparts(here));
@@ -69,6 +70,14 @@ function H = his_designs(map_n, opts)
     lam_nm = P.lambda_m*1e9;
     if ~isnan(opts.hole), P.M1_hole_m = opts.hole; end
     tag    = [opts.variant opts.suffix];         % filename stem: _epd4060 | _seq[...]
+    % REFERENCE (Dave 2026-07-31): the .seq-truth study defaults to the
+    % CENTROID, per the ruling.  The epd4060 variant keeps 'strict-chief' so
+    % the committed baselines reproduce bit-for-bit.  Either can be forced.
+    ref = opts.reference;
+    if isempty(ref)
+        if isseq, ref = 'strict-centroid'; else, ref = 'strict-chief'; end
+    end
+    fprintf('  WFE reference: %s\n', ref);
 
     % ---- the base deck: his verbatim layout, the +0.5 deg bias, the EPD.
     % epd4060 = the committed deck (baseline, byte-for-byte).
@@ -207,9 +216,9 @@ function H = his_designs(map_n, opts)
             'artifact deck chief ray drifted from nominal -- the scanned box would be offset.');
 
         % ---- 5: strict score ------------------------------------------
-        s  = strict_wfe_deck(deck, Frel, 'detector', ...
+        s  = strict_wfe_deck(deck, Frel, 'reference', ref, 'detector', ...
                              struct('Vpt',fpa.Vpt,'psi',fpa.psi));
-        s2 = strict_wfe_deck(deck, Frel);          % deck's own FP, no override
+        s2 = strict_wfe_deck(deck, Frel, 'reference', ref);   % deck's own FP
         w  = s.wfe_m(isfinite(s.wfe_m))*1e9;
         w2 = s2.wfe_m(isfinite(s2.wfe_m))*1e9;
         fprintf('  detector-override vs deck-FP cross-check: %.3e relative on max\n', ...
