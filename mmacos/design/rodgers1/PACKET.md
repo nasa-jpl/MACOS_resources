@@ -1654,3 +1654,601 @@ alternation), `rodgers1_epd4060_stage{3,4}_xpopt.in`, `..._xpopt_strict.png`,
 `rodgers1_epd4060_xpopt.mat`. `Telescope.m/optimize` gained `'fpa_dofs'`.
 Committed baselines bit-intact; `tDesignTelescope` 70/70, `tDesignOptimize`
 4/4, `tOptFex` 3/3.
+
+---
+
+# Addendum 8 — the four CODE V `.seq` files: parse, reconciliation, re-run at truth
+
+Mike supplied four sequence files on **2026-07-31**, in
+`~/dev/MACOS_sandbox/Design/Rodgers/`. All four carry the same header
+(`VERSION: 2025.03  LENS VERSION: 92  Creation Date: 31-Jul-2026`) and map
+one-to-one onto the four stages:
+
+| stage | file |
+|---|---|
+| 1 | `Coaxial_OnAxisFOV.seq` |
+| 2 | `Coaxial_05degOffsetFOV.seq` |
+| 3 | `Coaxial_05degOffsetFOV_NewConics.seq` |
+| 4 | `TiltDecM2M3_05degOffsetFOV_NewConics.seq` |
+
+Machine-readable transcription: **`rodgers_seq.m`** (verbatim, with the CODE V
+syntax decoded in the header). Reachable from every driver as
+`rodgers_common('seq')`; `rodgers_common()` is untouched, so every committed
+EPD-2000 / EPD-4060 artifact still reproduces bit-for-bit.
+
+---
+
+## 8.0 Verdict up front
+
+* Every datum the **slides** stated, we had transcribed correctly — max delta
+  8.3e-4 mm. The prescription was never the problem.
+* **EPD is 5000, not 4060**, and that is not a free parameter: M3's radius is
+  held by a `CUY UMY −0.025` solve that closes only at 5000. Our traced system
+  reproduces it to **0.009 %** and his `PIM` image distance to **0.06 mm**.
+* The **"14.3° tilted image surface"** of PACKET §4b was a **frame artifact**.
+  Our detector and his agree to **0.022°**. **Open ask 2 closes.**
+* The **band did not collapse at truth — it rose**, to 2.04× / 2.18× / 2.90×.
+  The old 1.15× / 1.26× / 1.63× is **retracted**: it was a coincidence of the
+  wrong aperture.
+* Attribution: field set **0 %** on the max, hole **+2 %**, aperture **×1.75**.
+* It is **not** the optics, **not** the field set, **not** the detector (our
+  detector sits within 0.04–0.9 % of the floor *any* detector can reach, and
+  scoring against his own `.seq` detector changes the answer by 0.04 %).
+* It **is** one convention: grant per-field **tip/tilt** removal — a
+  centroid- rather than chief-referenced sphere — and both cleanly-measurable
+  stages land at **1.09×**, while the next rung overshoots. **§8.7.**
+* Our optimiser, re-run at truth, **matches his stage-3 design** under a common
+  metric (0.98×) and lands **13 % short** at stage 4, with all four stage-4
+  rigid-body DOFs on his branch at 65–69 % of his amplitude (was 32–43 %).
+
+---
+
+## 8.1 What the files say
+
+### System — identical in all four
+
+| datum | value | note |
+|---|---|---|
+| `DIM M` | millimetres | |
+| `EPD` | **5000.0 mm** | the one genuinely unpinned input; we had been running 4060 |
+| `WL / REF / WTW` | 1000.0 nm / 1 / 1 | matches ours |
+| `SO` thickness | 256 971 138 323.7418 mm | CODE V's large-number infinity proxy (= 1e9 × THM) |
+| stop | `STO` on a zero-thickness surface **coincident with M1** | matches ours |
+| `RDM` | radius mode — the first `S` number is a signed **radius** | |
+| `CA APE` | clear apertures from the aperture | no explicit CA on any mirror |
+
+### Surface list (shared by all four files)
+
+```
+SO   object       th = 256971138323.7418
+S1   dummy        th = 5653.36504312232
+S2   "tilt"       th = 0                    <- placeholder, carries no decenter in any file
+S3   STO          th = 0                    <- stop, coincident with M1
+S4   m1    R = -12357.51781954069   th = -5267.903548419933   REFL   CIR HOL 513.9422766474837
+S5   m2    R =  -2201.366731591871  th = +7106.92433775584    REFL
+S6   m3    R =  -2687.973160418888  th = 0                    REFL   CUY UMY -0.025
+S7   "recenter"   th = -5095.367898318288   PIM
+SI   image        per-stage defocus + tilt (see 8.1.4)
+```
+
+### 8.1.1 Field set — **15 points, half box**, identical relative pattern in all four
+
+`XAN`/`YAN` in degrees. Stage 1 is centred on 0°, stages 2–4 on +0.5°; subtracting
+the centre gives the *same* 15 relative points in every file:
+
+```
+XAN :  0     0     0     0     0    .025  .025  .05   .05   .05   .075  .075  .1    .1    .1
+dYAN: -.1    0    +.1   -.05  +.05  -.05  +.05  -.1    0    +.1   -.05  +.05  -.1    0    +.1
+```
+
+A **quincunx half-box**: `XAN ≥ 0` only — legitimate, since the design is
+symmetric about the y–z plane (every decenter is `YDE`, every tilt is `ADE`) —
+with 3 y-samples at XAN = 0, 0.05, 0.1, two at XAN = 0.025, 0.075, and two extra
+interior y-points on the XAN = 0 column. No `WTF`, so all fields weight 1.
+
+Our committed runs used a **9×9 = 81-point full box** for evaluation and a
+3×3 = 9-point full box for optimisation.
+
+### 8.1.2 Solves
+
+| solve | where | what it does |
+|---|---|---|
+| `CUY UMY -0.025` | M3 | M3's curvature is **held by a paraxial marginal-ray-angle solve**, not a free number. With the stop at M1 and `EPD 5000` it pins **EFL = 2500/0.025 = 100 000 mm exactly, f/20**. |
+| `PIM` | "recenter" | paraxial image distance solve → the −5095.367898 mm is *solved*, not entered |
+| `THC 0` | image | image **defocus is a variable** in all four stages |
+| `ADC 0` | image | image **α-tilt is a variable** in stages 2, 3, 4 (absent in stage 1) |
+| `KC 0` | M1, M2, M3 | conics are variables in stages 1, 3, 4 — **not** in stage 2 |
+| `CCY 0` | M2 | M2's *curvature* was also a variable in stage 1 only |
+| `YDC 0`, `ADC 0` | M2, M3 (stage 4) | `YDE` and `ADE` are the rigid-body variables; `XDC/ZDC/BDC/CDC = 100` hold the rest |
+
+The `<x>C n` flags are CODE V's variable/constraint codes: **0 = variable,
+100 = held**.
+
+**The M3 solve is the load-bearing one.** M3's printed radius is the value that
+solve produced *at EPD 5000*. At any other aperture CODE V would have moved M3.
+So the .seq prescription is self-consistent **only** at EPD 5000 — EPD 4060 was
+never a configuration his design existed in, and the conics we were comparing
+were solved against a different M3 than the one we were tracing. This is the
+single most consequential line in the four files.
+
+### 8.1.3 Apertures / holes
+
+`CIR HOL 513.9422766474837` on **M1** — a circular **hole** of that *semi*-diameter,
+i.e. a central perforation 1027.885 mm across: **0.2056 linear obscuration of the
+5000 mm pupil, 4.226 % of the area**. No other aperture is declared anywhere in
+the four files. Our reproduction had **no hole** — we were tracing a filled disc.
+
+### 8.1.4 Image surface — defocus and tilt, verbatim
+
+| stage | image defocus (mm, `THC 0`) | image `ADE` (deg, `ADC 0`) |
+|---|---|---|
+| 1 | +0.02133007044788927 | — (none declared) |
+| 2 | +0.8312083952697579 | −0.07353267154497573 |
+| 3 | −0.6316458675136252 | +0.2399974965374732 |
+| 4 | −0.8317449958110119 | +4.440677563287398 |
+
+`DAR` on the image surface = decenter-and-return; `XDE = YDE = ZDE = 0`,
+`BDE = CDE = 0`.
+
+### 8.1.5 Stage-4 `XDE/YDE/ADE`, verbatim
+
+```
+S5   m2   ...  DAR
+              XDE 0.0; YDE 8.344662391469104;  ZDE 0.0; XDC 100; YDC 0; ZDC 100
+              ADE 0.5169423948334376;  BDE 0.0; CDE 0.0; ADC 0; BDC 100; CDC 100
+S6   m3   ...  DAR
+              XDE 0.0; YDE 121.8674206663581; ZDE 0.0; XDC 100; YDC 0; ZDC 100
+              ADE 2.329691666359868;   BDE 0.0; CDE 0.0; ADC 0; BDC 100; CDC 100
+SI   image ... DAR
+              XDE 0.0; YDE 0.0; ZDE 0.0
+              ADE 4.440677563287398;   BDE 0.0; CDE 0.0; ADC 0; BDC 100; CDC 100
+```
+
+`DAR` = decenter-and-return: the perturbation applies to that surface only and the
+axis reverts for the next — i.e. exactly a MACOS single-element perturbation, which
+is what `macos.perturb` does. Our injection path was already right.
+
+### 8.1.6 One token left undecoded — and it carries no prescription content
+
+Every reflective surface in all four files repeats, byte-identically:
+
+```
+CUM 0.0; THM 256.9711383237419
+```
+
+Not in any CODE V reference I can reach, and **not needed**: the `S` lines are a
+complete, self-consistent prescription without it, which the layout gate confirms
+by tracing. What `THM` demonstrably *is*, is the design's length scale — to the
+last written digit,
+
+* object thickness = **1e9 × THM**
+* M1 hole semi-diameter = **2 × THM**
+* the S1 dummy thickness = **22 × THM**
+
+i.e. the design was built in a normalised unit system and `SCALE`d by
+256.9711383237419. Flagged for Mike rather than guessed at.
+
+---
+
+## 8.2 Reconciliation table — `.seq` truth vs our reproduction's assumptions
+
+**Everything the slides stated, we had transcribed correctly.** All slide-vs-`.seq`
+deltas are at slide-rounding level; the largest is 8.3e-4 mm on M3's `Ydec`:
+
+| datum | slides | `.seq` | \|Δ\| |
+|---|---|---|---|
+| ROC M1/M2/M3 (mm) | −12357.51782 / −2201.36673 / −2687.97316 | full precision | ≤ 1.6e-6 |
+| K nominal ×3 | | | ≤ 3.9e-13 |
+| K stage 3 ×3 | | | ≤ 6.1e-13 |
+| K stage 4 ×3 | | | ≤ 2.3e-8 |
+| s12 / s23 / s3f (mm) | | | ≤ 4.2e-7 |
+| Ydec M2 / M3 (mm) | 8.344733 / 121.868248 | 8.344662391 / 121.867420666 | 7.1e-5 / 8.3e-4 |
+| ADE M2 / M3 (deg) | 0.516947 / 2.329710 | 0.516942395 / 2.329691666 | 4.6e-6 / 1.8e-5 |
+
+**The real deltas are all in things the slides never stated:**
+
+| # | item | our assumption | `.seq` truth | status |
+|---|---|---|---|---|
+| 1 | **EPD** | 2000 mm (from the layout drawing), then 4060 | **5000 mm** | **DELTA — and it invalidates 4060 outright**, because M3's radius is held by a solve that only closes at 5000 (§8.1.2) |
+| 2 | **M1 hole** | none — filled disc | `CIR HOL` semi 513.9423 mm = 0.2056 linear, 4.23 % area | **DELTA** |
+| 3 | **field set** | 9×9 = 81-pt full box (eval), 3×3 = 9-pt (optimise) | **15-pt quincunx half box** | **DELTA** |
+| 4 | **M3 radius** | a free number, traced as printed | held by `CUY UMY −0.025` | **DELTA in meaning, not in value** at EPD 5000 |
+| 5 | **image defocus** | fitted by `align_focal_plane` | an explicit variable, 0.021…0.832 mm per stage | reconciled — ours fits the same DOF |
+| 6 | **image tilt** | recorded as "**14.3°**" (PACKET §4b) | `ADE` −0.074° / +0.240° / +4.441° | **FRAME ARTIFACT — resolved, see 8.3** |
+| 7 | **object distance** | collimated | 2.5697e11 mm (CODE V infinity proxy) | **no-op, quantified** — the implied focus shift is EFL²/L = **0.0389 mm**, smaller than the defocus CODE V itself solved for in 3 of 4 stages, and defocus is a free variable in all four |
+| 8 | **stop location** | at M1 | `STO` coincident with M1 | matches |
+| 9 | **wavelength** | 1000 nm | 1000 nm | matches |
+| 10 | **`DAR` semantics** | single-element perturbation (`macos.perturb`) | decenter-and-return | matches |
+
+### The ADE-sign decode — confirmed, and now with a third independent witness
+
+The stage-4 file says what it says: **`YDE` and `ADE` are both POSITIVE** for M2
+and M3 (+8.3447 mm / +0.51694°, +121.8674 mm / +2.32969°). It does not, by
+itself, settle the *frame mapping* — a raw value is not a convention. What
+settles it is measurement, and there are now three independent ones, all
+agreeing that **CODE V's `ADE` has the opposite positive sense to `rigid_of`'s
+α = atan2d(ψ_y, −ψ_z), while `YDE` matches**:
+
+1. `convention_decode.m` — 16 sign combinations × 2 application orders; the
+   decoded one reads 1.911 µm spot / 8.967 nm at the box centre where the
+   runner-up reads 52.7 µm / 293 nm. **30× separation.**
+2. The magnitudes in the file match the slide values to ≤ 8.3e-4 mm / 1.8e-5°,
+   so we were comparing the right numbers all along.
+3. **New, from these files:** the *image surface* carries an `ADE` too, and our
+   fitted detector is an independent estimate of the same angle. Ours reads
+   **+0.0957°** against his stage-2 `ADE` of **−0.0735°**. With the decoded flip
+   applied they differ by **0.022°**; without it, by **0.169°** — 7.7× worse.
+   The image surface was never part of the original decode, so this is a free
+   check, and it agrees.
+
+The 30× discriminator said "opposite to ours" and the file is consistent with
+that. Nothing is retracted.
+
+---
+
+## 8.3 The "14.3° tilted image surface" was a frame artifact — open ask 2 closes
+
+PACKET §4b, and open ask 2 in §5, recorded that `align_focal_plane` fits a
+"repeatable 14.24°/14.30° focal-plane tilt" at the offset field, and asked
+whether CODE V's detector reaches the same surface. His `.seq` says his image
+`ADE` at stage 2 is **−0.0735°**. Measured in one place
+(`run_seq('sections',1)`), at the .seq truth:
+
+| quantity | value |
+|---|---|
+| our `align_focal_plane` tilt, vs the **arriving chief** | **14.3386°** |
+| the arriving chief itself, vs the **axis** | **−14.2397°** |
+| our detector normal, vs the **axis** | **+0.0957°** |
+| his `.seq` stage-2 image `ADE` (vs the axis) | **−0.0735°** |
+| his `ADE` in our frame (decoded flip) | **+0.0735°** |
+| \|ours − his\|, decoded frame | **0.022°** |
+
+They are the **same surface measured against different references**.
+`align_focal_plane` documents its `tilt_deg` as "plane normal vs arriving chief";
+CODE V's `ADE` is against the axis. At +0.5° field the image-space chief ray is
+itself ~14.24° off the axis — the exit pupil sits close to the image, so the
+image-space chief angle is large — and 14.3386 − 14.2397 = 0.099°, which is our
+detector's actual tilt off the axis to within the fit's own scatter.
+
+So the detector was never 14° from where his is. **Our detector and his agree to
+0.022°.** Open ask 2 closes with no further asks; §4b's "the offset FPA tilt is
+large and its own finding" should be read as a units/reference statement about
+`tilt_deg`, not a physical finding about the design.
+
+*Lesson, same shape as the r_p one:* a reported angle is meaningless without its
+reference. `align_focal_plane`'s docstring did say "vs arriving chief"; the
+packet compared it to a number measured against the axis anyway.
+
+---
+
+## 8.4 Layout gate, extended to the `.seq` surface list
+
+`run_seq('sections',0)` walks the surface list datum by datum before any WFE
+number is believed. Result at the `.seq` truth:
+
+| check | built | `.seq` | Δ |
+|---|---|---|---|
+| M1–M2 \|sep\| | 5267.903548 mm | 5267.903548 | **0** |
+| M2–M3 \|sep\| | 7106.924338 mm | 7106.924338 | **0** |
+| aligned FP station, M3→FP | 5095.3093 mm | 5095.3679 (PIM) | **0.059 mm** |
+| EFL, traced (chief-ray dh/dθ) | 100 008.758 mm | 100 000.000 (from `UMY`) | **+0.009 %** |
+| f/# | 20.0018 | 20.0000 | |
+
+The traced system reproduces his `UMY` solve to 0.009 % and his `PIM` image
+distance to 0.06 mm. **The layout is his.**
+
+Two labelling notes the gate makes explicit rather than hiding:
+
+* The builder's **paraxial seeder** reads EFL = 3506 mm / t_focus = 1212 mm on
+  this design, versus the traced 100 009 mm / 5095 mm. That seeder only *places*
+  the FP before `align_focal_plane` moves it from real rays, so it never entered
+  a result — but it is 96 % wrong here and is exactly the number the packet's §1
+  had to retract. It should not be quoted again.
+* The **real** marginal-ray \|u′\| traces to 0.026165 against the `.seq`
+  *paraxial* solve value 0.025. CODE V's `UMY` is a paraxial solve, and with the
+  exit pupil near the image the working f/# is not EFL/D, so a few-percent real-
+  vs-paraxial difference is expected. The EFL check above is the one that gates
+  the solve.
+
+---
+
+## 8.5 The residual band at the `.seq` truth — **it does not collapse; it moves up**
+
+His own three designs, built verbatim, strict-scored on **his 15-point half box
+at EPD 5000 with the M1 hole** (`run_seq('sections',2)` →
+`rodgers1_seq_his_designs.mat`). Pure evaluation; no optimiser anywhere:
+
+| design | strict max/avg (nm) | Rodgers max/avg (nm) | max × | avg × | *(was, at EPD 4060)* |
+|---|---|---|---|---|---|
+| his S2 (verbatim conics, FPA re-fit) | **765.4 / 445.1** | 374.6 / 200.0 | **2.043×** | 2.226× | 1.147× / 1.234× |
+| his S3 (re-opt conics) | **199.3 / 108.8** | 91.6 / 46.4 | **2.176×** | 2.346× | 1.259× / 1.156× |
+| his S4 (tilt/dec M2,M3) | **115.5 / 62.6** | 39.8 / 22.5 | **2.901×** | 2.784× | 1.629× / 1.572× |
+
+All 15 fields finite, 1252 rays each.
+
+**The band did not collapse toward 1.0×. It moved from 1.15/1.26/1.63 to
+2.04/2.18/2.90.** The three stages moved by almost exactly the same factor —
+**1.78 / 1.73 / 1.78** — so the .seq configuration change is a single common
+scale on our side, not a stage-dependent effect.
+
+That is a genuine result and it revises an earlier conclusion: **the 1.15×
+"closure" of open ask 1 was an artifact of the wrong aperture.** EPD 4060 is
+smaller than his 5000, our WFE scales steeply with aperture, and his reported
+numbers were fixed at 5000 the whole time — so a too-small pupil coincidentally
+brought our numbers near his. At his actual aperture we are ~2× high.
+
+### 8.5.1 Attribution — which of the three .seq changes did it
+
+| step | config | S3 max/avg (nm) | S4 max/avg (nm) |
+|---|---|---|---|
+| committed | 4060, 9×9 full box, no hole | 115.312 / 53.652 | 64.851 / 35.358 |
+| + his field set | 4060, **15-pt half box**, no hole | **115.312** / 58.891 | **64.851** / 34.152 |
+| + his aperture | **5000**, 15-pt half box, no hole | 195.463 / 106.679 | 113.468 / 61.595 |
+| + his hole | 5000, 15-pt half box, **hole** | 199.318 / 108.797 | 115.481 / 62.616 |
+
+and for S2, whose committed number came from `strict_stage_table`:
+
+| step | config | S2 max/avg (nm) | max × |
+|---|---|---|---|
+| committed | 4060, 9×9, no hole | 429.627 / 246.8 | 1.147× |
+| his aperture | 5000, 15-pt, no hole | 750.191 / 436.365 | 2.003× |
+| + his hole | 5000, 15-pt, hole | 765.364 / 445.071 | 2.043× |
+
+* **Field set: zero effect on the max, ±10 % on the average.** The max is
+  *bit-identical* to six figures (115.312, 64.851) — the worst field is a box
+  corner both sets contain. The average moves +9.8 % (S3) / −3.4 % (S4) because
+  his quincunx weights the interior differently from a 9×9 grid.
+* **Aperture 4060 → 5000: ×1.746 on the max** (S2: 1.147× → 2.003×; S3
+  115.312 → 195.463 = ×1.695; S4 64.851 → 113.468 = ×1.750). Over a diameter
+  ratio of 1.2315 that is **D^2.7**.
+* **M1 hole: ×1.020, ×1.020, ×1.018** on the three maxima — a flat **+2 %**.
+  Removing the inner 20.6 % of pupil radius raises the RMS by 2 %, as expected:
+  it deletes the least-aberrated part of the pupil.
+
+So essentially **all** of the band's motion is aperture. The field set and the
+hole, the two items that looked like real gaps, are worth 0 % and 2 %.
+
+### 8.5.2 What this rules OUT — the detector is not the residual
+
+`his_designs` reports a **best-focus rung** alongside the strict number: the
+sphere centre slid per field along the chief to that field's own best focus.
+That is the **floor any detector surface can reach** — plane or curved, fitted
+or optimised — because a detector can only choose where along each chief ray
+the image point sits. At the .seq truth:
+
+| design | strict (fitted detector) | best-focus floor | gap |
+|---|---|---|---|
+| his S2 | 765.364 / 445.071 | 765.049 / 444.574 | **0.04 %** |
+| his S3 | 199.318 / 108.797 | 198.897 / 108.623 | **0.21 %** |
+| his S4 | 115.481 / 62.616 | 114.476 / 61.710 | **0.87 %** |
+
+Our fitted detector already sits within **0.04–0.9 %** of the unreachable floor.
+So the hypothesis that his detector was *optimised* (image defocus and ADE are
+`THC 0`/`ADC 0` variables in every stage) while ours is merely *fitted* cannot
+explain anything: no detector — **including his own** — can move these numbers
+by more than a percent. §8.3 already showed his detector and ours agree to
+0.022° in the common frame; this shows it would not matter even if they didn't.
+
+And it does not have to be argued from the floor, because **his detector can now
+just be used**: `seq_detector.m` places the detector at his stated geometry —
+the PIM axial distance plus that stage's image defocus, tilted by that stage's
+`ADE` in the decoded frame — and scores the same designs against it. Stage 2:
+
+| detector | strict max/avg (nm) | max × |
+|---|---|---|
+| ours (fitted plane) | 765.364 / 445.071 | 2.043× |
+| **his `.seq`**, −defocus | **765.050 / 444.645** | **2.042×** |
+| **his `.seq`**, +defocus | 782.353 / 480.204 | 2.089× |
+| best-focus floor | 765.049 / 444.574 | 2.042× |
+
+Stage 3 behaves the same way — his detector **199.162 / 108.777** against our
+fitted **199.318 / 108.797**, agreeing to 0.08 %.
+
+**Stage 4 is deliberately excluded from this comparison, not quietly dropped.**
+There the construction above is not valid: M2 and M3 carry large decenters and
+tilts (121.9 mm, 2.33°), so the beam is steered well off the mechanical axis,
+while his image `ADE` of +4.4407° is still referenced to that axis and applied
+about the on-axis vertex. Placing a plane by "axial station + axis-referenced
+tilt" then lands it ~68 mm out in z at the box centre, and it duly scores
+933–1094 nm. That is a statement about my construction, not about his detector
+or his design — and nothing needs it, because the best-focus floor (§ above,
+114.476 vs 115.481 = 0.87 %) already bounds what *any* stage-4 detector can buy.
+
+**His detector and ours score the same to 0.04 %.** (The `.seq` writes the image
+defocus on the `SI` row, whose thickness would ordinarily be the gap *after* the
+image, and this leg's thicknesses run negative — so its sign is the one
+convention the files leave genuinely ambiguous. Both are scored above. It
+changes nothing: 2.042× vs 2.089×. Worth noting that the −defocus branch lands
+on the independently-computed best-focus floor to 1e-6 relative, which is
+suggestive, but no conclusion here rests on it.)
+
+*Method note:* a first cut of `seq_detector` stepped the station along the
+**chief ray** instead of the axis. At the +0.5° bias the chief arrives ~9.7° off
+axis, so |s3f| along the chief lands the plane ~72 mm off in z — 6.5 µm of
+defocus at f/20 — and it reported ~7400 nm. Fixed and re-run; the number above
+is the corrected one. Recorded because "place the detector at his stated
+distance" has a frame in it too, exactly like §8.3.
+
+Combined with §8.4 (layout traced to his `UMY` solve at 0.009 % and his `PIM`
+distance at 0.06 mm) and §8.2 (every stated datum transcribed to
+slide-rounding), the residual is **not** in the prescription, **not** in the
+aperture, **not** in the field set, and **not** in the detector.
+
+### 8.5.3 What remains open
+
+The one thing the four `.seq` files do **not** contain is the **analysis
+convention** — they are lens data, not analysis options. So open ask 1 stands,
+and is now the *only* survivor:
+
+> Exactly what does CODE V's field-map "RMS wavefront error" reference to, and
+> what does it remove?
+
+Our strict metric is, by Dave's ruling, a sphere anchored at the exit pupil,
+centred on the field's chief-ray intercept on the frozen detector, with
+**piston-only** removal. The best-focus rung above shows removing per-field
+**defocus** buys < 1 %. The remaining candidates are therefore what a
+centroid-referenced (rather than chief-referenced) sphere would remove — i.e.
+**tip/tilt** — and anything beyond. §8.6 sizes that.
+
+*One line from Mike closes this:* whether his field-map RMS is referenced to the
+chief ray or to the centroid, and whether focus is removed per field.
+**§8.7 sizes it, and the answer is sharp.**
+
+---
+
+## 8.7 The band DOES collapse — to **1.09×** — on one rung of the reference ladder
+
+`strict_ladder(_, 'seq', K)` walks the pre-existing reference-freedom ladder at
+the .seq truth. The rungs were defined a priori (in the file's own docstring,
+written well before these `.seq` files existed) and are each *more permissive*
+than Dave's ruling:
+
+* **strict** — sphere on the chief-ray intercept on the frozen detector,
+  piston-only removal *(Dave's ruling; this is the number)*
+* **bestfoc** — sphere centre slid along the chief to per-field best focus
+* **−tilt** — bestfoc, plus least-squares tip/tilt removed over the pupil
+* **−astig** — bestfoc, plus astigmatism removed
+
+Pupil coordinates are the ray intersections on M1 (= the stop = the entrance
+pupil), projected transverse to the chief and normalised to the marginal ray.
+
+| rung | S2 max × | S2 avg × | S3 max × | S3 avg × |
+|---|---|---|---|---|
+| strict *(the ruling)* | 2.043 | 2.226 | 2.176 | 2.346 |
+| bestfoc | 2.042 | 2.223 | 2.171 | 2.342 |
+| **−tilt** | **1.098** | **1.116** | **1.088** | **1.224** |
+| −astig | 0.589 | 0.658 | 0.694 | 0.823 |
+
+**Removing per-field tip/tilt takes both stages to 1.09× on the max**, from 2.04
+and 2.18 — and the two stages, which are different designs, land within 1 % of
+each other. The next rung **overshoots** (0.59×, 0.69×), so his convention
+removes tilt and does **not** remove astigmatism. That brackets it from both
+sides.
+
+Physically this is one specific, standard convention difference, not a fudge: a
+sphere centred on the **chief-ray** intercept leaves a wavefront tilt wherever
+the chief is not the centroid (i.e. wherever there is coma), while a sphere
+referenced to the **centroid** — CODE V's usual default for RMS wavefront
+error — removes it. Dave's strict metric deliberately pins the chief-ray
+reference; CODE V's field map evidently does not.
+
+Three things make this a measurement rather than a fit:
+
+1. The rungs are **pre-existing and ordered** — nothing was invented to land on
+   1.09×, and the adjacent rungs bracket rather than straddle.
+2. **Two independent designs agree** (1.098× and 1.088×) after the same single
+   freedom is granted. A tuned factor would not track across designs whose
+   reported numbers differ by 4×.
+3. It only became visible **at the true configuration**. The same ladder at EPD
+   4060 could not have shown it, because the aperture error was itself worth
+   ×1.75 and was silently absorbing the discrepancy.
+
+*Not claimed:* the stage-4 ladder row. `strict_ladder` sets conics only and does
+not apply the stage-4 rigid body, so its S4 numbers describe a design nobody
+built. They are excluded, and S4's rung is the one piece of §8.7 still to do.
+
+**Answer to "the number to watch":** at the true EPD and the true field box the
+band is **2.04× / 2.18× / 2.90×** under the metric as ruled — it moved *up*, and
+the earlier 1.15×/1.26×/1.63× is retracted as an artifact of EPD 4060. Grant the
+single remaining convention (per-field tip/tilt, i.e. a centroid- rather than
+chief-referenced sphere) and it collapses to **1.09×** on both stages where it
+can be measured cleanly. The `.seq` files close EPD, field set, hole, layout,
+solves and detector; what they leave unexplained is exactly one line of CODE V
+*analysis* setup, and §8.7 says which line and what it is worth.
+
+---
+
+## 8.6 The joint solves, re-run at truth
+
+`xp_optimize(9,4,true,'seq')` — the Part-C joint solve (FPA tilt + focus in the
+CALIB DOF set alongside the optics), at EPD 5000, with the M1 hole, optimising
+on his field set.
+
+**Field-set note, stated not hidden:** CALIB caps the total at 12 FoV and the
+on-axis field is implicit, so 11 of his 15 explicit points fit. The 11
+largest-radius are kept; the two dropped are logged by name
+(`(XAN +0.0000, dYAN ±0.0500)`). Scoring is on all 15.
+
+| stage | our joint solve | his design, same metric | his reported | ours ÷ his design | ours ÷ reported |
+|---|---|---|---|---|---|
+| S3 | **195.6 / 109.2** | 199.3 / 108.8 | 91.6 / 46.4 | **0.98×** | 2.14× |
+| S4 | **130.2 / 65.2** | 115.5 / 62.6 | 39.8 / 22.5 | **1.13×** | 3.27× |
+
+Both converged in one solve.
+
+**Conics reached** (vs his): S3 within 2.3e-6 / 3.8e-5 / 1.5e-4; S4 within
+1.1e-4 / 1.4e-3 / 4.3e-3.
+
+**Stage-4 rigid body**, in the decoded frame:
+
+| | ours (truth) | his | ours/his | *(ours at 4060)* |
+|---|---|---|---|---|
+| M2 Ydec (mm) | +5.7298 | +8.3447 | 0.687 | −3.7417 |
+| M2 α (deg) | −0.3518 | −0.5169 | 0.681 | +0.2330 |
+| M3 Ydec (mm) | +78.821 | +121.867 | 0.647 | −43.839 |
+| M3 α (deg) | −1.5538 | −2.3297 | 0.667 | +1.1142 |
+
+**All four DOFs are on his branch with matching signs, at 65–69 % of his
+amplitude** — up from the 32–43 % the 4060 run reached, and a long way from the
+sign-flipped values the original FP-merit solve produced. The correct aperture
+moves the rigid-body solution substantially toward his.
+
+Reading: at stage 3 our optimiser **matches his design** under a common metric
+(0.98×). At stage 4 it lands **13 % short** of his — a modest, real optimiser
+gap on the hardest stage, and the only place in this whole study where our
+*solve* rather than our *metric* is the limiting factor. Both are then carried
+to 2.1×/3.3× of his *reported* numbers by the same common metric offset that
+§8.5 isolates.
+
+---
+
+## 8.8 Artifacts and how to reproduce
+
+All new artifacts are suffixed `_seq` (or `_seq_nohole`, `_epd4060_seqfields`).
+**The committed EPD-2000 / EPD-4060 baselines are bit-intact** — verified by
+re-running `his_designs()` with defaults and comparing against the committed
+`rodgers1_epd4060_his_designs.mat`: `rodgersS3` 115.3125 / 53.6523,
+`rodgersS4` 64.8506 / 35.3582, `oursS4roundtrip` 118.5906 / 84.8065, all
+**Δ = 0.00e+00**, and `rodgers1_epd4060_rodgersS{3,4}.in` byte-identical.
+
+*(One near-miss worth recording: the section-3 attribution run initially wrote
+to the `epd4060` artifact names and overwrote three committed files with a
+different-field-set version of themselves. Restored from git and the runner now
+passes `'suffix','_seqfields'`. Parallel-suffixing has to be enforced at the
+call site, not assumed.)*
+
+**New code**
+
+| file | what |
+|---|---|
+| `rodgers_seq.m` | the `.seq` truth, verbatim, with the CODE V syntax decoded |
+| `run_seq.m` | sections 0–5: layout gate, detector frame, the band, attribution, joint solves, ladder |
+| `seq_detector.m` | score his designs against his own `.seq` detector |
+| `seq_ladder.m` | the reference-freedom ladder at truth |
+
+**Parameterized (defaults unchanged)**
+
+`rodgers_common.m` (`P.seq` always attached; `rodgers_common('seq')` overlays
+truth) · `his_designs.m` (`'variant'`, `'Frel'`, `'base'`, `'hole'`, `'suffix'`)
+· `xp_optimize.m` (4th arg `variant`) · `strict_ladder.m` (`variant`, `Kuse`).
+
+```matlab
+run_seq                       % everything, sections 0:5
+run_seq('sections',[0 1])     % the two gates only
+seq_ladder                    % §8.7 on its own
+his_designs                   % the committed EPD-4060 baseline, untouched
+```
+
+## 8.9 What to ask Mike — one line
+
+> In the CODE V field map that produced the stage-2/3/4 RMS wavefront numbers,
+> is the reference sphere centred on the **chief ray** or on the **centroid**
+> (i.e. is per-field tip/tilt removed), and is focus removed per field?
+
+Our measurement predicts the answer is **centroid / tilt removed, focus not
+separately removed** — that lands both cleanly-measurable stages at 1.09×, while
+the piston-only reading is 2.0–2.2× and additionally removing astigmatism
+overshoots to 0.59–0.69×.
+
+Nothing else is outstanding. EPD, field set, hole, object, stop, layout, solves,
+detector and the ADE sign are all closed by these four files.

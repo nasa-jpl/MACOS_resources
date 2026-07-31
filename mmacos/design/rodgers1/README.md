@@ -11,6 +11,29 @@ parameter-driven, documented driver you open, set a few knobs at the top (or
 pass as name/value), and run. Adapt it for related offset-field / DOF-ladder
 studies by changing the prescription in `rodgers_common.m` and the knobs below.
 
+## THE CONFIGURATION IS NOW KNOWN — read this first (2026-07-31)
+
+Mike supplied the four CODE V `.seq` files on 2026-07-31.  They pin the inputs
+the slides never stated: **EPD = 5000 mm** (not the 2000/4060 we inferred), a
+**15-point half-box** field set, and a **central hole in M1**.  EPD 5000 is not
+optional — M3's radius is held by a `CUY UMY -0.025` solve that only closes
+there.
+
+* Truth, transcribed verbatim: **`rodgers_seq.m`**; reachable as
+  `rodgers_common('seq')`.
+* Re-run at truth: **`run_seq`** (sections 0–5).
+* Write-up, reconciliation table and verdict: **`PACKET.md` Addendum 8**.
+
+Headline: the residual band at the true configuration is **2.04× / 2.18× /
+2.90×** of his reported numbers under the metric as ruled — the earlier
+1.15×/1.26×/1.63× is **retracted** as an artifact of EPD 4060.  Granting the one
+remaining convention (per-field tip/tilt removal) collapses it to **1.09×**.
+The "14.3° tilted image surface" of §4b was a frame artifact; our detector and
+his agree to 0.022°.
+
+`rodgers_common()` with no argument is unchanged, so everything below still
+reproduces the committed EPD-2000 / EPD-4060 artifacts bit-for-bit.
+
 ## Run
 
 ```matlab

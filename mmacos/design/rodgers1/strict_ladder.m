@@ -1,4 +1,4 @@
-function L = strict_ladder(map_n)
+function L = strict_ladder(map_n, variant, Kuse)
 %STRICT_LADDER  Where does the stage-2 strict-metric magnitude live?
 %
 %   Diagnostic for the gate-3 miss.  For each field of the stage-2
@@ -25,14 +25,19 @@ function L = strict_ladder(map_n)
 %   and the sag of the align_focal_plane surface, so a "his FPA is curved"
 %   hypothesis can be sized.
 
-    if nargin < 1, map_n = 5; end
+    if nargin < 1 || isempty(map_n), map_n = 5; end
+    if nargin < 2 || isempty(variant), variant = 'epd4060'; end
+    isseq = strcmpi(variant,'seq');
     here = fileparts(mfilename('fullpath'));
     root = fileparts(fileparts(here));
     run(fullfile(root,'mmacos_setup.m'));
     addpath(here);
-    P = rodgers_common();  P.EPD_mm = 4060;
+    if isseq, P = rodgers_common('seq'); else, P = rodgers_common();  P.EPD_mm = 4060; end
+    if nargin < 3 || isempty(Kuse), Kuse = P.K_nom; end
 
-    t = build_tma(P, P.K_nom, P.offset_deg);
+    t = build_tma(P, Kuse, P.offset_deg);
+    fprintf('  variant %s: EPD %g mm, conics %.12f %.12f %.12f\n', ...
+            variant, P.EPD_mm, Kuse);
     fp = t.align_focal_plane('grid',5,'span_arcmin',6);
     nE = numel(t.spec.elt);
     V0 = t.spec.elt(nE).Vpt(:);  N0 = t.spec.elt(nE).psi(:); N0 = N0/norm(N0);
@@ -40,7 +45,11 @@ function L = strict_ladder(map_n)
             fp.tilt_deg, fp.fit_rms_m*1e3, (max(fp.sag_m)-min(fp.sag_m))*1e3);
 
     % box-RELATIVE: trace_at_field adds spec.field_bias itself.
-    Frel  = macos.design.field_grid(P.fov_half_deg*60, map_n, 'units','arcmin');
+    if isseq
+        Frel = P.seq.Frel;            % his 15-point half box
+    else
+        Frel = macos.design.field_grid(P.fov_half_deg*60, map_n, 'units','arcmin');
+    end
     Fbias = Frel;
     K = size(Fbias,1);
     L = struct('fields',Fbias,'bias_deg',t.spec.field_bias*180/pi,'strict',nan(K,1),'bestfoc',nan(K,1), ...
@@ -104,7 +113,7 @@ function L = strict_ladder(map_n)
             min(L.dfoc_mm), max(L.dfoc_mm), max(L.dfoc_mm)-min(L.dfoc_mm));
     fprintf('   Rodgers S2 box:     %10.4g %10.4g %10.4g\n', ...
             P.gt.s2_box(1)*1e3, P.gt.s2_box(2)*1e3, P.gt.s2_box(3)*1e3);
-    save(fullfile(here,'rodgers1_epd4060_strict_ladder.mat'),'L','fp','XP');
+    save(fullfile(here,sprintf('rodgers1_%s_strict_ladder.mat',variant)),'L','fp','XP');
 end
 
 function X = fex_cross(p1,d1,p2,d2)
@@ -123,6 +132,9 @@ function t = build_tma(P, K, bias_deg)
     t.add_mirror('M1','radius_mm',abs(P.ROC_mm(1)),'conic',K(1),'spacing_after_mm',abs(P.s12_mm));
     t.add_mirror('M2','radius_mm',abs(P.ROC_mm(2)),'conic',K(2),'spacing_after_mm',abs(P.s23_mm));
     t.add_mirror('M3','radius_mm',abs(P.ROC_mm(3)),'conic',K(3),'spacing_after','derive');
+    if isfield(P,'M1_hole_m') && P.M1_hole_m > 0
+        t.set_hole('M1', P.M1_hole_m);      % CODE V "CIR HOL" on M1
+    end
     if bias_deg ~= 0, t.set_field_bias(bias_deg*60); end
     t.build();
 end
