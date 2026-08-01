@@ -171,16 +171,21 @@ classdef tMacosPkg < matlab.unittest.TestCase
         function test_get_ray_status_cass_obscuration(testCase)
             % Q2 acceptance: known-vignetting Rx -> known per-category
             % counts.  Rx_Cass_FarField at model_size 128 traces a
-            % deterministic 12850 rays; the M2 shadow obscures the
-            % central 1366, leaving 11484 OK.  These exact numbers
-            % match the engine's own "A total of 1366 rays were lost /
-            % Obscured: 1366" diagnostic.  Pinned so an emitter/sampling
+            % deterministic 12454 rays; the M2 shadow obscures the
+            % central 970, leaving 11484 OK.  These exact numbers
+            % match the engine's own "A total of 970 rays were lost /
+            % Obscured: 970" diagnostic.  Pinned so an emitter/sampling
             % regression fails loudly.
+            % Re-pinned post macos PR #70 (ColSource traces the DECLARED
+            % aperture): the launched count dropped 12850 -> 12454 and
+            % the obscured count 1366 -> 970 -- the same 396 rays.  All
+            % of the trimmed oversize corner rays were M2/M1-obscured,
+            % so n_ok is unchanged and the partition still holds.
             s = macos.trace();
             r = macos.get_ray_status(s.nRays);
-            testCase.verifyEqual(s.nRays,      12850);
+            testCase.verifyEqual(s.nRays,      12454);
             testCase.verifyEqual(r.n_ok,       11484);
-            testCase.verifyEqual(r.n_obscured,  1366);
+            testCase.verifyEqual(r.n_obscured,  970);
             % no intersection failures on a healthy on-axis Cass
             testCase.verifyEqual(r.n_miss,     0);
             testCase.verifyEqual(r.n_bracket,  0);
