@@ -60,8 +60,15 @@ if ~isempty(opts.side),  panels{end+1} = {opts.side,  'side view'};  end
 np = numel(panels);
 
 vis = 'on';  if ~opts.visible, vis = 'off'; end
-fig = figure('Visible', vis, 'Position', [40 40 min(580*np, 2300) 520]);
-tl = tiledlayout(fig, 1, np, 'Padding', 'tight', 'TileSpacing', 'tight');
+% Grid layout (near-square) instead of a single 1xN row: a 4-panel row on
+% a short figure makes each panel tiny.  ncol = ceil(sqrt(np)) gives 2x2
+% for 4 panels, 2x1 for 2, etc.; the figure is sized so each TILE is a
+% large ~720x620 px regardless of paper count.
+ncol = ceil(sqrt(np));  nrow = ceil(np/ncol);
+tilew = 720;  tileh = 620;
+fig = figure('Visible', vis, ...
+    'Position', [40 40 min(ncol*tilew, 2400) min(nrow*tileh, 1800)]);
+tl = tiledlayout(fig, nrow, ncol, 'Padding', 'tight', 'TileSpacing', 'tight');
 for q = 1:np
     ax = nexttile(tl);
     macos.view_rx('ax', ax, 'title', panels{q}{2}, opts.args{:});

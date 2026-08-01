@@ -210,10 +210,38 @@ for e = 1:numel(E)
     end
 end
 if opts.labels
+    % Offset each label OFF the beam, PERPENDICULAR to the local beam and
+    % IN the layout plane, so it does not print on the ray lines (the old
+    % offset-along-surface-normal failed for near-normal folds, whose
+    % normal points along the beam).  Alternate the side element-to-element
+    % so adjacent labels do not stack; a faint leader ties label to centre.
+    C = zeros(3, numel(E));
+    for e = 1:numel(E), C(:,e) = E(e).ctr(:); end
+    span = 0;  for e = 1:numel(E), span = max(span, E(e).B.D); end
+    off = 1.1 * span;                       % label standoff (base units)
+    % layout-plane normal: smallest-variance axis of the element centres
+    if numel(E) >= 3
+        [U3,~,~] = svd(C - mean(C,2));  npl = U3(:,3);
+    else
+        npl = [0;0;1];
+    end
     for e = 1:numel(E)
-        c = E(e).ctr;
-        text(ax, c(1), c(2), c(3), sprintf('  E%d', E(e).k), ...
-             'FontSize', 8, 'Color', [0.15 0.2 0.35]);
+        c = C(:,e);
+        % local beam tangent from neighbouring centres
+        a = C(:, max(e-1,1));  b = C(:, min(e+1,numel(E)));
+        t = b - a;  if norm(t) < eps, t = E(e).B.ps(:); end
+        t = t / norm(t);
+        perp = cross(t, npl);               % in-plane, perp to the beam
+        if norm(perp) < 1e-6, perp = E(e).B.ps(:); end
+        perp = perp / norm(perp);
+        s = 1 - 2*mod(e,2);                 % +1 / -1 alternating
+        p = c + s*off*perp;
+        plot3(ax, [c(1) p(1)], [c(2) p(2)], [c(3) p(3)], '-', ...
+              'Color', [0.7 0.72 0.78], 'LineWidth', 0.5);
+        text(ax, p(1), p(2), p(3), sprintf('E%d', E(e).k), ...
+             'FontSize', 8, 'Color', [0.15 0.2 0.35], ...
+             'HorizontalAlignment', 'center', ...
+             'VerticalAlignment', 'middle');
     end
 end
 
