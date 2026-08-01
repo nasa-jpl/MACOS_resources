@@ -1075,7 +1075,28 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             r = hypot(B.pup(1,B.ok{1}(:,1)), B.pup(2,B.ok{1}(:,1)));
             tc.verifyEqual(max(r), 1.0, 'AbsTol', 1e-9, ...
                 'pupil coords must normalize to the entrance footprint');
-            ysl = abs(B.pup(1,:)) < 0.05 & B.ok{1}(:,1).';
+            % Y-slice = the populated lattice COLUMN nearest the axis.
+            % grid_npts=21 puts the columns at HALF-integer multiples of
+            % the pitch, so no column sits at x=0 -- only the chief ray
+            % does, alone.  A hand-picked |x|<0.05 window therefore lived
+            % or died on the normalization: pup divides by the outermost
+            % traced radius, and pre macos PR #70 that was an oversize
+            % diagonal corner ray (+10% at 21 grid points), which shrank
+            % every column just enough to pull the |x|=0.0538 column
+            % inside 0.05.  Post-fix it lands outside and the window
+            % catches the chief ray only.  So derive the window from the
+            % bundle's own pitch and keep it pitch-aware at any nGridpts.
+            okm   = B.ok{1}(:,1).';
+            xs    = B.pup(1,:);
+            xu    = unique(round(xs(okm), 9));
+            pitch = median(diff(xu));   % median: robust to the chief ray,
+                                        % which sits at x=0 OFF the lattice
+            tc.assertGreaterThan(pitch, 0, 'pupil columns are degenerate');
+            cnt   = arrayfun(@(v) nnz(abs(xs - v) < 0.25*pitch & okm), xu);
+            cols  = xu(cnt >= 0.5*max(cnt));   % populated columns only --
+                                               % drops the lone chief ray
+            [~, ic] = min(abs(cols));          % ... the one nearest the axis
+            ysl = abs(xs - cols(ic)) < 0.5*pitch & okm;
             tc.verifyGreaterThan(nnz(ysl), 3, 'Y-slice mask is empty');
             % FP positions of the y-slice: near-focus -> tightly clustered
             fpz = B.pos{1}(:, ysl, end);
