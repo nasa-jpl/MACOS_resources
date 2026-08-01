@@ -166,6 +166,11 @@ SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tVie
 # group; lives in "fast" because it's quick.
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
 SUITE_PROPER_512=$(join_suites "tProperCompareCassFF" "tProperCompareCassFFAberrations")
+# tPupilAperture (the macos PR #70 ColSource gates) runs every probe at
+# model_size 512 — Rx_Mask_Parabolas has nGridpts=512.  Own batch line so
+# it neither drags a 512 deck into the 128/256 groups nor rides along with
+# the PROPER classes it has nothing to do with.
+SUITE_PUPIL_512=$(join_suites "tPupilAperture")
 SUITE_PROPER_1024=$(join_suites "tProperCompareCoroNFprop" "tProperCompareCoroPhase3" "tProperCompareCoroApodizer" "tProperCompareCoroDMPhase")
 # Aggregate for the `proper` shortcut (runs in two batches — the
 # initial Cass-FF group at 512 then the Coro group at 1024 — to
@@ -193,6 +198,7 @@ case "${1:-}" in
         run_batch "$SUITE_MASKS"       "full: masks (size 128)"     || rc=1
         run_batch "$SUITE_FREEFORM"    "full: freeform (size 256)"  || rc=1
         run_batch "$SUITE_PROPER_512"  "full: proper Cass-FF (512)" || rc=1
+        run_batch "$SUITE_PUPIL_512"   "full: pupil aperture (512)" || rc=1
         run_batch "$SUITE_PROPER_1024" "full: proper Coro (1024)"   || rc=1
         exit $rc
         ;;
