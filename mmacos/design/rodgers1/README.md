@@ -11,7 +11,31 @@ parameter-driven, documented driver you open, set a few knobs at the top (or
 pass as name/value), and run. Adapt it for related offset-field / DOF-ladder
 studies by changing the prescription in `rodgers_common.m` and the knobs below.
 
-## THE CONFIGURATION IS NOW KNOWN — read this first (2026-07-31)
+## THE RESIDUAL IS CLOSED — read this first (2026-08-01)
+
+**MACOS was not tracing the pupil the prescription declares.**  `sourcsub.F:220`
+(`ColSource`) sets the circular-grid acceptance radius to
+`Aperture/2 + Aperture/npts`, not `Aperture/2` — an oversize of
+**1 + 2/(nGridpts−1)**, i.e. **+5 %** on this deck's `nGridpts=41`, putting
+**118 of 1252 rays (9.4 %) outside the declared 5000 mm pupil**.  It hid because
+the traced pupil is a disc clipped by the lattice square: measured along either
+axis it reads **exactly 5000.0000 mm**, and only the **diagonal** is oversize
+(5233.06 mm).  `PtSource` is not affected, so a collimated and a point source
+trace different pupils for the same `Aperture=`.
+
+Mask the rays to the declared pupil and grant the reference convention CODE V's
+field-map RMS uses (per-field best focus + least-squares tip/tilt), and Rodgers'
+three designs reproduce on the max to **1.000× / 1.008× / 1.001×** — three
+designs whose reported WFE spans a factor of 9.4.
+
+* Measurement + masking harness: **`pupil_audit.m`** (five-way pupil measurement,
+  then the ladder on both pupils).
+* Write-up, element-by-element `.seq` ↔ `.in` conversion audit, and the fix
+  scoping: **`PACKET.md` Addendum 10**.
+* **The engine is NOT fixed** — the masking is post-processing in MATLAB.  The
+  fix moves every collimated deck in both repos and wants its own slice.
+
+## The configuration (2026-07-31)
 
 Mike supplied the four CODE V `.seq` files on 2026-07-31.  They pin the inputs
 the slides never stated: **EPD = 5000 mm** (not the 2000/4060 we inferred), a
@@ -27,9 +51,13 @@ there.
 Headline: the residual band at the true configuration is **2.04× / 2.18× /
 2.90×** of his reported numbers under the metric as ruled — the earlier
 1.15×/1.26×/1.63× is **retracted** as an artifact of EPD 4060.  Granting the one
-remaining convention (per-field tip/tilt removal) collapses it to **1.09×**.
-The "14.3° tilted image surface" of §4b was a frame artifact; our detector and
-his agree to 0.022°.
+remaining convention (per-field tip/tilt removal) collapses it to **1.09×**, and
+the last 9 % is the pupil defect above (Addendum 10).  The "14.3° tilted image
+surface" of §4b was a frame artifact; our detector and his agree to 0.022°.
+
+Also retracted by Addendum 10: §8.4's "real `|u′|` 0.026165 vs paraxial 0.025 —
+a few-percent real-vs-paraxial difference is expected."  It was the pupil
+(2618.6/2500 = 1.047 against 0.026165/0.025 = 1.047).
 
 `rodgers_common()` with no argument is unchanged, so everything below still
 reproduces the committed EPD-2000 / EPD-4060 artifacts bit-for-bit.
@@ -159,3 +187,5 @@ waves — unlike `realize_apertures(...).wfe`, which does divide by λ. Multiply
   Rodgers' own solves built verbatim and scored (Addendum 4).
 - `diag_*.m` — the diagnostics (focus, grid convergence, metric ladder, aperture
   sweep, FPA strategy) supporting the packet's findings.
+- `pupil_audit.m` + `rodgers1_pupil_audit.mat` — the five-way measurement of the
+  traced pupil and the masking harness that closes the residual (Addendum 10).

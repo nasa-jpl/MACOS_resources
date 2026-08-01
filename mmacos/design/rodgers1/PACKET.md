@@ -2571,3 +2571,332 @@ configurations are equivalent here — now measured, not argued.
 resources `dev` against a verified-paired engine. The `OPTFEX_REDO_LIST.md`
 items (14 affected decks / 7 exempt / 3 downstream) become actionable now that
 the fix is on `dev` — not started.
+
+---
+
+# Addendum 10 — the traced pupil is not the declared pupil (2026-08-01)
+
+**Dave's challenge, which is what produced this:** *"macos and CODE V have been
+rigorously cross-validated, and for exactly the same optics they will generally
+have exactly the same ray trace results.  So the fact that CODE V retraced does
+not match CODE V reported for this example says there is an actual difference in
+the prescriptions."*
+
+He was right.  There is one, it is not in the `.seq` transcription, and it is not
+in the `.in` conversion — **it is in the engine's source-grid layout.  MACOS was
+never tracing a 5000 mm pupil.**
+
+---
+
+## 10.0 Verdict up front
+
+* `sourcsub.F:220`, in `ColSource`, sets the circular-grid **acceptance radius**
+  to `Aperture/2 + Aperture/npts`, not `Aperture/2`.  With `npts = nGridpts-1`
+  the traced pupil radius exceeds the declared one by **1 + 2/(nGridpts−1)** —
+  **+5.0 %** on this deck (`nGridpts=41`).
+* Measured five independent ways.  **118 of 1252 rays (9.4 %) lie outside the
+  declared 5000 mm pupil.**
+* It hid because the pupil is a disc **clipped by the lattice square**: measured
+  along either axis it reads **exactly 5000.0000 mm**; only the **diagonal** is
+  oversize, at **5233.06 mm**.
+* Mask the rays to the declared pupil and grant the one reference convention
+  CODE V's field-map RMS uses (per-field best focus + least-squares tip/tilt),
+  and Rodgers' three designs reproduce on the **max** to
+  **1.000× / 1.008× / 1.001×**.
+* So the residual was **two** things, only one of which was a convention: a real
+  prescription-level difference (the pupil, worth ~10 %) on top of the reference
+  ladder rung §8.7 had already isolated (1.09×).
+* **Retracts §8.4's real-vs-paraxial `u′` footnote** — that 4.66 % was this, and
+  the evidence was already in hand.
+* `PtSource` is **not** affected (`sourcsub.F:731` uses `(Aperture*0.50001)**2`).
+  A collimated and a point source therefore trace **different pupils for the
+  same `Aperture=`**.
+
+Nothing in the `.seq` truth (Addendum 8) or the centroid ruling (Addendum 9)
+changes.  The engine is **not** fixed here — this addendum measures, and the
+masking is done in MATLAB on the rays the engine returns.
+
+---
+
+## 10.1 The line
+
+```fortran
+! sourcsub.F:217-221, SUBROUTINE ColSource
+!ToDo: defining aperture for the sake of plotting is wrong => what is the correct physics
+	!A2=(Aperture/2d0)**2  ! original
+	A2= (Aperture/2d0 + Aperture/DBLE(npts))**2  ! for plotting a 'bottom' ray
+	!A2=(Aperture*0.5001)**2  ! original
+```
+
+and the acceptance test, `sourcsub.F:334-337`:
+
+```fortran
+	      IF (GridType.EQ.GridType_Circular) THEN
+	        r2=y**2+x**2
+	        IF (((r2.GE.O2).AND.(r2.LE.(A2+1d-9))).AND.(iRay.LT.mRay)) THEN
+```
+
+`npts = nGridpts - 1` (`iosub.inc:240`, `smacosio.F:277`/`:304`,
+`macosio.F:369`/`:481`/`:1322`/`:1962`), and the lattice is laid down at pitch
+`ds = Aperture/(npts-1)` over `npts` points spanning exactly `±Aperture/2`
+(`sourcsub.F:291-327`), plus the chief ray at the centre — which is **off**
+the lattice, since `npts` is even here.
+
+**The oversize factor in radius is `1 + 2/(nGridpts − 1)`:**
+
+| `nGridpts` | 41 | 65 | 129 | 257 | 513 |
+|---|---|---|---|---|---|
+| traced radius / declared | **1.0500** | 1.0313 | 1.0156 | 1.0078 | 1.0039 |
+
+So it is worst on the coarse geometric grids design work uses and nearly
+invisible on the fine grids the physical-optics work uses — which is a plausible
+reason it survived the PROPER comparison suite.
+
+The correct form sits **commented out one line above**, labelled `! original`,
+and the block carries a standing `ToDo` questioning it.  The line is present as
+far back as this tree's history reaches.
+
+---
+
+## 10.2 The pupil, measured five ways
+
+`pupil_audit('sections',0)`, on the committed `rodgers1_seq_rodgersS2.in`.
+Declared `Aperture= 5.0` m, `nGridpts= 41` ⇒ `npts = 40`, lattice pitch
+`5000/39 = 128.205128` mm.
+
+| # | measurement | value | vs declared |
+|---|---|---|---|
+| 1 | source formula `A/2 + A/npts` | 2625.0000 mm semi | **1.05000 ×** |
+| 2 | **SPOT at Elt 1**, x span (along the axis) | 5000.0000 mm | 1.00000 × |
+| 2 | **SPOT at Elt 1**, greatest point-to-point distance | **5233.0586 mm** | **1.04661 ×** |
+| 3 | outermost ray radius at M1 (`trace(1)` + `get_ray_info`) | 2618.6027 mm | 1.04744 × |
+| 4 | rays **outside** the declared pupil | **118 of 1252** | **9.42 %** |
+| 4 | grid radius implied by those counts | 2621.6155 mm | 1.04865 × |
+| 5 | radial histogram, last populated bin | **2500–2625 mm** | beyond the edge |
+
+Radial histogram of the 1252 passing rays, 125 mm bins:
+
+```
+0 0 0 0 24 36 36 44 56 52 68 64 68 86 94 92 98 90 116 110 118 0
+                                                        ^^^ 118 rays beyond
+                                                            the declared edge
+```
+
+(2) is the independent one: `macos.spot` is a different engine command in a
+different reference frame from the `get_ray_info` positions of (3), and it
+returns the same answer in **all three** frames (`telt`, `tout`, `beam`) at both
+the box centre and the box corner.
+
+Rows 1, 3 and 4 disagree in the third decimal on purpose — 2625.0 is the
+*acceptance* radius, 2618.6 is the outermost lattice point that fits inside it,
+and 2621.6 is the area-equivalent radius of the sampled set.  They bracket, as
+they must.
+
+**Secondary, same cause, opposite direction:** the innermost passing ray sits at
+551.36 mm against the declared `CIR HOL` semi of 513.94 mm.  That one is *not* a
+defect — the engine tests each ray against 513.94 exactly, and 551 mm is simply
+the nearest lattice point outside it.  But it biases the same way: the sampled
+annulus is 551 → 2619 mm where the prescription says 514 → 2500 mm.  Both edges
+are pushed outward.
+
+---
+
+## 10.3 Why it hid — the shape
+
+The traced pupil is **a disc of radius `A/2 + A/npts` clipped by the lattice
+square `|x|,|y| ≤ A/2`** — a square with rounded corners:
+
+* along either **axis** it is **exactly** the declared aperture;
+* along the **diagonals** it runs out to the acceptance radius;
+* the extra rays live in four corner lobes at 45° azimuths.
+
+A span check reports 5000.0000 mm.  A plot looks right.  Only the greatest chord
+— or a ray count — exposes it.  And the extra 9.4 % of rays sit at the **outer**
+pupil, which is exactly where the 5th-order field aberration that dominates this
+design is largest, so the error is amplified rather than averaged away.
+
+That last point is measurable in the field dependence.  Before masking, our WFE
+grew across the box as `H^3.55` against his `H^3.83` (max/min over the 15 fields:
+4.22 vs 4.72) — a *shape* difference, not a scale, which is what said the
+residual could not be a pure convention.  After masking the shapes agree.
+
+---
+
+## 10.4 The masking harness — the result
+
+`pupil_audit('sections',1)`.  Per field the four-rung reference ladder is
+computed **twice on the same trace**: once on every ray the engine returns, once
+on the rays whose radius at M1 is ≤ 2500 mm.  Same optics, same frozen detector,
+same fields, same exit-pupil probe — the *only* difference is which rays enter
+the RMS.
+
+| rung | S2 engine | S2 **true** | S3 engine | S3 **true** | S4 engine | S4 **true** |
+|---|---|---|---|---|---|---|
+| strict-chief | 2.043 | 1.813 | 2.176 | 1.944 | 2.901 | 2.534 |
+| strict-centroid *(the ruling)* | 1.443 | 1.297 | 1.456 | 1.328 | 1.954 | 1.714 |
+| + per-field best focus | 1.443 | 1.296 | 1.452 | 1.322 | 1.919 | 1.670 |
+| **+ least-squares tip/tilt** | 1.098 | **1.000** | 1.088 | **1.008** | 1.125 | **1.001** |
+
+(max ratios vs his reported max.)  Absolute, bottom row, right-hand column:
+
+| design | ours (true pupil, bestfoc + LS tilt) | CODE V reported | max × | avg × |
+|---|---|---|---|---|
+| his S2 | **374.47 / 203.16** | 374.59 / 199.95 | **1.000** | 1.016 |
+| his S3 | **92.32 / 50.73** | 91.62 / 46.38 | **1.008** | 1.094 |
+| his S4 | **39.84 / 22.12** | 39.80 / 22.49 | **1.001** | 0.984 |
+
+nm at λ = 1 µm, his 15-point half box, EPD 5000, M1 hole.
+
+**Three designs whose reported WFE spans a factor of 9.4 all land within 0.8 %
+on the max.**  Nothing is tuned: the mask is the aperture the prescription
+declares, and the rung is the one §8.7 had already bracketed from both sides
+(the next rung, removing astigmatism, still overshoots).
+
+**Residual, stated:** the *avg* is +1.6 % / +9.4 % / −1.6 %.  S3's +9.4 % is the
+one loose end — plausibly his box average came off a denser grid than his 15
+`.seq` points, but that is not measured.
+
+---
+
+## 10.5 What this retracts
+
+§8.4 recorded, as a labelling note:
+
+> The **real** marginal-ray `|u′|` traces to 0.026165 against the `.seq`
+> *paraxial* solve value 0.025. … a few-percent real-vs-paraxial difference is
+> expected.
+
+It was not.  `0.026165 / 0.025 = 1.0466` and `2618.6 / 2500 = 1.04744`.  The
+marginal ray was being traced from 2618 mm, not 2500 mm.  The number that
+identified this defect was sitting in the layout gate the whole time, explained
+away.  *Lesson, third of this shape after the r_p sign and the FPA tilt: a
+few-percent discrepancy that gets a plausible-sounding name stops being
+evidence.  §8.4's own EFL check (+0.009 %) should have made the 4.7 % impossible
+to write off — a system whose EFL traces right cannot have its marginal ray
+angle wrong by 4.7 % unless the ray started somewhere else.*
+
+---
+
+## 10.6 The conversion audit — `.seq` ↔ `.in`, element by element
+
+Done in full while hunting the difference, and **clean**: every surface, every
+spacing, every conic and every orientation transfers exactly.  Recorded because
+it is what makes §10.0's attribution safe — the pupil is the *only*
+prescription-level discrepancy.
+
+### CODE V `.seq` — surfaces (thickness = to the NEXT surface; z = global vertex station)
+
+| # | label | radius (mm) | thickness (mm) | vertex z (mm) | notes |
+|---|---|---|---|---|---|
+| SO | object | ∞ | 256 971 138 323.7418 | −2.5697e11 | infinity proxy = 1e9 × THM |
+| S1 | dummy | ∞ | 5653.36504312232 | −5653.365 | = 22 × THM; no optical effect |
+| S2 | "tilt" | ∞ | 0 | 0 | placeholder, **no decenter in any file** |
+| S3 | `STO` | ∞ | 0 | 0 | aperture stop |
+| S4 | m1 | **−12357.51781954069** | −5267.903548419933 | **0** | `REFL`, `CIR HOL` semi 513.9422766474837 |
+| S5 | m2 | **−2201.366731591871** | +7106.92433775584 | **−5267.903548** | `REFL` |
+| S6 | m3 | **−2687.973160418888** | 0 | **+1839.020790** | `REFL`, `CUY UMY −0.025` solve |
+| S7 | "recenter" | ∞ | −5095.367898318288 | +1839.020790 | `PIM` solve |
+| SI | image | ∞ | per-stage defocus | ≈ −3256.347 | `THC 0`; `ADE` per stage |
+
+### MACOS `.in` — source
+
+| keyword | value |
+|---|---|
+| `ChfRayDir` | (0, 8.7265354983739347e−03, 0.99996192306417131) = exactly 0.500000° |
+| `ChfRayPos` | (0, −0.056878716690264, −6.5176553666248) m — the chief passes through (0,0,0) |
+| `zSource` | 1e22 (collimated; his 2.5697e8 m object ⇒ 0.0389 mm focus shift, a free variable) |
+| `Aperture` / `Obscratn` | 5.0 m / 0.0 |
+| `GridType` / `nGridpts` | Circular / 41 → **1305 launched, 1252 pass, 53 obscured** |
+| `xGrid` / `yGrid` | (1,0,0) / (0, 0.99996192, −0.0087265355) |
+| `ApStop` | (0,0,0) = M1 vertex |
+| `Wavelen` / units | 1.0e−06 m / BaseUnits = WaveUnits = m |
+
+### MACOS `.in` — elements (stage 2; conics per stage below)
+
+| iElt | Name | Element / Surface | `KrElt` (m) | `KcElt` | `VptElt` (m) | `psiElt` | obscuration |
+|---|---|---|---|---|---|---|---|
+| 1 | M1 | Reflector / Conic | −12.3575178195407 | −0.99292447143561 | (0, 0, 0) | (0,0,−1) | `nObs=1 Circle r=0.51394227664748`, `xObs=(−1,0,0)` |
+| 2 | M2 | Reflector / Conic | −2.20136673159187 | −1.926467376849899 | (0, 0, −5.267903548419933) | (0,0,−1) | none |
+| 3 | M3 | Reflector / Conic | −2.68797316041889 | −0.70721618142286 | (0, 0, +1.8390207893359) | (0,0,−1) | none |
+| 4 | FP | FocalPlane / Flat | −1e22 | 0 | (0, −0.881971289, −3.256787273) | (3.6e−13, +1.66946199e−03, −0.999998606) | none |
+
+Conics `K` = `KcElt`, transferred verbatim (`KC 0` marks them variable in CODE V):
+
+| | M1 | M2 | M3 |
+|---|---|---|---|
+| S1 / S2 | −0.9929244714356076 | −1.926467376849899 | −0.7072161814228599 |
+| S3 | −0.9933526733207213 | −1.932084692329995 | −0.7024948533063915 |
+| S4 | −0.9936265324358577 | −1.93518426306974 | −0.7059332564340962 |
+
+Stage-4 rigid body, as emitted (readback asserted against his values to 1e−6 by
+`his_designs`):
+
+| | `VptElt` (m) | `psiElt` | ⇒ Ydec / α |
+|---|---|---|---|
+| M2 | (0, +8.3446623914691e−03, −5.267903548419933) | (0, −9.0222244261904e−03, −0.99995929890491) | 8.344662 mm / −0.516942° |
+| M3 | (0, +0.1218674206663581, +1.8390207893359) | (0, −4.0649586980667e−02, −0.99917346395824) | 121.867421 mm / −2.329692° |
+| FP | (0, −0.982086906332, −3.180876254506) | (3.0e−12, −7.6925431766e−02, −0.99703684884143) | — |
+
+### The checks that make the conversion safe
+
+MACOS emits `KrElt = −|R|` with `psiElt = (0,0,−1)` for every mirror — convex is
+**geometry, not radius sign** — so the sign transfer is only trustworthy if the
+**centres of curvature** land where CODE V puts them.  MACOS's centre is
+`Vpt − Kr·psi`:
+
+| quantity | CODE V | MACOS `Vpt − Kr·psi` | Δ |
+|---|---|---|---|
+| M1 CoC, global z (concave to the beam) | −12357.518 mm | −12357.518 mm | **0** |
+| M2 CoC (⇒ **convex** to the beam) | −7469.270 mm | −7469.270 mm | **0** |
+| M3 CoC (⇒ **concave** to the beam) | −848.952 mm | −848.952 mm | **0** |
+| M1→M2 / M2→M3 separations | 5267.903548 / 7106.924338 | identical | **0** |
+| detector axial station | −3255.516 mm (PIM + defocus) | −3255.315 mm | 0.20 mm |
+| detector tilt vs axis | −0.0735° (`ADE`, decoded) | +0.0735° in frame | 0.022° |
+
+All three signs and both spacings transfer exactly, **including the convex
+secondary** — the class of error [[project_seidel_convex_bug]] warns about.  The
+detector rows are the §8.3 / §8.5.2 results, unchanged.
+
+---
+
+## 10.7 The fix is not a one-liner — flagged, not done
+
+Setting `A2=(Aperture/2d0)**2` in `ColSource` is the correct physics and would
+align it with `PtSource`.  But:
+
+* it moves the traced beam on **every collimated deck in both repos**, by
+  `2/(nGridpts−1)` in radius — ~0.4 % at `nGridpts=513`, 5 % here;
+* every committed baseline, gate threshold and `.mat` shifts;
+* the comment says the current form exists "for plotting a 'bottom' ray", and
+  there is a `DrawMode` branch in the same loop — so `draw_rays` / the viewers
+  may be relying on it.  Whether the plotting need is real, and whether it wants
+  a separate draw-only radius rather than a physics-changing one, has to be
+  established before touching it.
+* `nGridpts=N` laying down `N−1` lattice rows is a separate off-by-one worth
+  deciding in the same slice.
+
+This wants its own slice with a redo list, the shape of `OPTFEX_REDO_LIST.md`.
+**Not started.**
+
+---
+
+## 10.8 Artifacts and how to reproduce
+
+New code: **`pupil_audit.m`** — both sections, deck-driven, self-contained
+(its deck helpers mirror `strict_wfe_deck`'s so the diagnostic cannot be broken
+by a change there).  Writes `rodgers1_pupil_audit.mat`.
+
+```matlab
+pupil_audit                      % both sections
+pupil_audit('sections',0)        % the five-way pupil measurement only
+pupil_audit('sections',1)        % the masking harness only
+pupil_audit('Rtrue_mm',2500)     % explicit true semi-diameter (default EPD/2)
+```
+
+It reads the three **committed** `.seq`-truth decks
+`rodgers1_seq_rodgers{S2,S3,S4}.in` and writes **only** its own `.mat`, so no
+committed artifact moves and the Addendum-8.8 variant-suffix trap does not
+apply.  Verified: `git status` clean apart from the new files.
+
+The masking is pure post-processing on the rays the engine returns.  **No engine
+change is involved in any number in this addendum.**
