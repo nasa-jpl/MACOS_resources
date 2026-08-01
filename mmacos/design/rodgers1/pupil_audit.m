@@ -236,30 +236,9 @@ function L = ladder_both_(deck, Frel, Rtrue_m)
         for pu = 1:2
             ok = base;  if pu == 2, ok = ok & (rho <= Rtrue_m); end
             if nnz(ok) < 10, continue; end
-            L(k,:,pu) = rungs_(ri.pos(:,ok), ri.dir(:,ok), ri.opl(ok), p1,d1,Vd,Nd,X);
+            L(k,:,pu) = strict_rungs(ri.pos(:,ok), ri.dir(:,ok), ri.opl(ok), p1,d1,Vd,Nd,X);
         end
     end
-end
-
-function v = rungs_(Pp,Dd,Ll,p1,d1,Vd,Nd,X)
-%RUNGS_  The four reference-freedom rungs, on whatever ray subset is handed in.
-    f = strict_refs(Pp,Dd,Ll,p1,d1,Vd,Nd,X);
-    v = nan(1,4);
-    v(1) = f.wfe_chief;                       % Dave's original ruling
-    v(2) = f.wfe_centroid;                    % the 2026-07-31 ruling
-    e3 = d1(:)/norm(d1(:));
-    e1 = [1;0;0] - e3*dot([1;0;0],e3);
-    if norm(e1) < 1e-8, e1 = [0;1;0] - e3*dot([0;1;0],e3); end
-    e1 = e1/norm(e1);  e2 = cross(e3,e1);
-    tp = (e3.'*(X(:)-Pp))./(e3.'*Dd);  Q = Pp + Dd.*tp;
-    px = (e1.'*(Q-X(:))).';  py = (e2.'*(Q-X(:))).';
-    c0 = f.c_centroid;  R0 = f.R_centroid;
-    ff = @(u) std(strict_sphere_opl(Pp,Dd,Ll, c0+e3*u, R0+u));
-    u  = fminbnd(ff, -0.05, 0.05);            % per-field best focus
-    v(3) = ff(u);
-    W  = strict_sphere_opl(Pp,Dd,Ll, c0+e3*u, R0+u);
-    Am = [ones(numel(px),1), px(:), py(:)];
-    v(4) = std(W(:) - Am*(Am\W(:)));          % + least-squares tip/tilt
 end
 
 % ---- deck helpers (mirrors of STRICT_WFE_DECK's, kept local so this

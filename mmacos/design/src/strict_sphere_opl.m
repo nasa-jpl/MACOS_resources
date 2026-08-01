@@ -13,7 +13,7 @@ function W = strict_sphere_opl(P, D, L, c, R)
 %   retained (it cancels under the piston-only std, but keeping it makes W
 %   directly differenceable between two spheres).
 %
-%   See also STRICT_WFE.
+%   See also STRICT_REFS, STRICT_RUNGS, STRICT_WFE_DECK.
     v = P - c(:);
     a = sum(v.*D, 1).';
     e = sum(v.^2, 1).';

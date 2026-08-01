@@ -80,7 +80,7 @@ function D = dense_field_check(opts)
                 'field set','K','max nm','x his','avg nm','x his');
         D(c).tag = tags{c};  D(c).gt_nm = g;
         for k = 1:size(grids,1)
-            L = ladder_(decks{c}, grids{k,2});
+            L = strict_ladder_deck(decks{c}, grids{k,2});
             a = L(:,4)*1e9;                      % bestfoc + LS tip/tilt rung
             a = a(isfinite(a));
             fprintf('  %-12s %6d | %8.2f %8.3f | %8.2f %8.3f\n', ...
@@ -104,84 +104,6 @@ function D = dense_field_check(opts)
 end
 
 % =====================================================================
-function L = ladder_(deck, Frel)
-%LADDER_  The 4-rung reference ladder per field.  Lifted from PUPIL_AUDIT's
-%   local ladder_both_ with the pupil-masking leg removed -- the engine now
-%   traces the declared pupil natively, so there is nothing to mask.
-    txt = strip_ap_(fileread(deck));
-    [cdir0,cpos0,apst] = deck_src_(txt);
-    stand = dot(apst - cpos0, cdir0);
-    bx0 = asin(cdir0(1));  by0 = asin(cdir0(2));
-    [Vd, Nd] = deck_fp_(txt);  Nd = Nd/norm(Nd);
-    K = size(Frel,1);  L = nan(K,4);
-    tmp = [tempname '.in'];  cu = onCleanup(@() del_(tmp)); %#ok<NASGU>
-    for k = 1:K
-        [ri,nE] = trace_field_(txt,tmp,apst,stand, bx0+Frel(k,1), by0+Frel(k,2));
-        p1 = ri.pos(:,1);  d1 = ri.dir(:,1);
-        rp = trace_field_(txt,tmp,apst,stand, bx0+Frel(k,1)+1e-5, by0+Frel(k,2));
-        X  = fex_cross_(p1,d1,rp.pos(:,1),rp.dir(:,1));
-        ri = trace_field_(txt,tmp,apst,stand, bx0+Frel(k,1), by0+Frel(k,2));
-        ok = ri.ok_trace(:) & ri.ok_pass(:);  ok(1) = false;  % engine OPD skips the chief
-        if nnz(ok) < 10, continue; end
-        L(k,:) = rungs_(ri.pos(:,ok), ri.dir(:,ok), ri.opl(ok), p1,d1,Vd,Nd,X);
-    end
-end
-
-function v = rungs_(Pp,Dd,Ll,p1,d1,Vd,Nd,X)
-    f = strict_refs(Pp,Dd,Ll,p1,d1,Vd,Nd,X);
-    v = nan(1,4);
-    v(1) = f.wfe_chief;
-    v(2) = f.wfe_centroid;
-    e3 = d1(:)/norm(d1(:));
-    e1 = [1;0;0] - e3*dot([1;0;0],e3);
-    if norm(e1) < 1e-8, e1 = [0;1;0] - e3*dot([0;1;0],e3); end
-    e1 = e1/norm(e1);  e2 = cross(e3,e1);
-    tp = (e3.'*(X(:)-Pp))./(e3.'*Dd);  Q = Pp + Dd.*tp;
-    px = (e1.'*(Q-X(:))).';  py = (e2.'*(Q-X(:))).';
-    c0 = f.c_centroid;  R0 = f.R_centroid;
-    ff = @(u) std(strict_sphere_opl(Pp,Dd,Ll, c0+e3*u, R0+u));
-    u  = fminbnd(ff, -0.05, 0.05);
-    v(3) = ff(u);
-    W  = strict_sphere_opl(Pp,Dd,Ll, c0+e3*u, R0+u);
-    Am = [ones(numel(px),1), px(:), py(:)];
-    v(4) = std(W(:) - Am*(Am\W(:)));
-end
-
-function s = strip_ap_(txt),  s = regexprep(txt,'(ApType=\s*)\S+','$1None');  end
-function [cdir,cpos,apst] = deck_src_(txt)
-    cdir = grab3_(txt,'ChfRayDir');  cpos = grab3_(txt,'ChfRayPos');
-    apst = grab3_(txt,'ApStop');
-end
-function [V,N] = deck_fp_(txt)
-    Vs = grabAll3_(txt,'VptElt');  Ps = grabAll3_(txt,'psiElt');
-    V = Vs(:,end);  N = Ps(:,end);
-end
-function v = grab3_(txt,key)
-    t = regexp(txt,[key '=\s*([^\n]*)'],'tokens','once');
-    v = sscanf(strrep(t{1},'D','E'),'%f',3);
-end
-function M = grabAll3_(txt,key)
-    t = regexp(txt,[key '=\s*([^\n]*)'],'tokens');
-    M = zeros(3,numel(t));
-    for i = 1:numel(t), M(:,i) = sscanf(strrep(t{i}{1},'D','E'),'%f',3); end
-end
-function [ri,nE] = trace_field_(txt,tmp,apst,stand,bx,by)
-    cdir = [sin(bx); sin(by); sqrt(max(0,1-sin(bx)^2-sin(by)^2))];
-    cpos = apst - stand*cdir;
-    s = regexprep(txt,'(ChfRayDir=\s*)[^\n]*',['$1' v3_(cdir)]);
-    s = regexprep(s,  '(ChfRayPos=\s*)[^\n]*',['$1' v3_(cpos)]);
-    fid = fopen(tmp,'w');  fprintf(fid,'%s',s);  fclose(fid);
-    macos.load_rx(tmp);
-    nE = macos.num_elt();
-    tr = macos.trace(nE);
-    ri = macos.get_ray_info(tr.nRays);
-end
-function s = v3_(v),  s = sprintf('%.16E  %.16E  %.16E', v(1), v(2), v(3));  end
-function X = fex_cross_(p1,d1,p2,d2)
-    d1 = d1/norm(d1);  d2 = d2/norm(d2);
-    w0 = p1-p2;  b = dot(d1,d2);  den = 1-b^2;
-    if abs(den) < 1e-14, X = p1; return; end
-    X = 0.5*((p1 + d1*((b*dot(d2,w0)-dot(d1,w0))/den)) + ...
-             (p2 + d2*((dot(d2,w0)-b*dot(d1,w0))/den)));
-end
-function del_(p),  if exist(p,'file'), delete(p); end,  end
+% The per-field ladder and the deck helpers it needed now live in
+% design/src (STRICT_LADDER_DECK / STRICT_RUNGS) -- hoisted 2026-08-01 so
+% the e2e2 flow and this diagnostic score through ONE kernel.

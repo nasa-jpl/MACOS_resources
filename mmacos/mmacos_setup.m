@@ -7,6 +7,8 @@
 %
 %  Dirs added (relative to this file):
 %      src/                     the +macos package + the mmacos mex
+%      design/src/              shared design LIBRARY (offner_layout,
+%                               design_report, the strict-WFE metric kernel, ...)
 %      design/runners/          the STAGE RUNNERS (run_met, ... -- the
 %                               product pipeline; see design/runners/README.md)
 %      sensitivities/           plot_opd_canvas / plot_dw_channels / save_dw_multi
@@ -22,6 +24,7 @@
 
 mmacos_root_ = fileparts(mfilename('fullpath'));
 addpath(fullfile(mmacos_root_, 'src'));                       % +macos package + mmacos mex
+addpath(fullfile(mmacos_root_, 'design', 'src'));            % shared design library
 addpath(fullfile(mmacos_root_, 'design', 'runners'));        % stage runners (the pipeline)
 addpath(fullfile(mmacos_root_, 'sensitivities'));            % plot_*/save_dw_multi
 addpath(fullfile(mmacos_root_, 'examples', 'sensitivities'));% mimg / m2v / v2m / pad

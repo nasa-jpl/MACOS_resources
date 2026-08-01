@@ -60,7 +60,8 @@ function out = strict_wfe_deck(deck, Frel, opts)
 %
 %   Returns the same struct shape as STRICT_WFE.
 %
-%   See also STRICT_WFE, STRICT_SPHERE_OPL, STRICT_STAGE_TABLE.
+%   See also STRICT_WFE, STRICT_SPHERE_OPL, STRICT_REFS,
+%   STRICT_LADDER_DECK, STRICT_RUNGS.
 
     arguments
         deck (1,:) char
@@ -167,7 +168,7 @@ function [ri, nE] = trace_field_(txt, tmp, apst, stand, bx, by, out, k) %#ok<INU
     fid = fopen(tmp,'w');  fprintf(fid,'%s',s);  fclose(fid);
     macos.load_rx(tmp);
     if ~macos.has_rx()
-        error('macos:rodgers1:strict_wfe_deck:load', 'deck failed to load: %s', tmp);
+        error('macos:design:strict_wfe_deck:load', 'deck failed to load: %s', tmp);
     end
     nE = macos.num_elt();
     tr = macos.trace(nE);
