@@ -28,18 +28,28 @@ function P = e2e2_params()
 %
 %  What is NOT scaled: the wavelength.  His study ran at 1 um; this one
 %  runs at 500 nm and asks for DIFFRACTION-LIMITED performance there --
-%  RMS <= lambda/14 ~ 36 nm and Strehl >= 0.8 across the used box.  Since
-%  geometric wavefront error scales with the design, his stage-4 result
-%  (39.8 nm max at 1 um) scales to ~24 nm here, i.e. the target is
-%  reachable in principle -- but only at the reference convention his
-%  numbers were reported under.  Under the primary reference used here it
-%  is a much tighter ask.  The README records what it actually took.
+%  RMS <= lambda/14 ~ 36 nm and Strehl >= 0.8 across the used box.
+%
+%  NOR IS THE FIELD.  His box was 0.2 deg; this one is 0.6 deg, THREE
+%  TIMES WIDER, and that is a measurement rather than an aspiration.
+%  s1_fov_sweep.m re-solved the axial telescope at half-fields from 0.10
+%  to 0.30 deg and scored each on its own uniform box: the residual grows
+%  as theta^2.96 and the full 0.6 deg box lands at 27.7 nm at the primary
+%  (centroid) reference, inside the 35.7 nm bar with 22%% margin.  Run the
+%  sweep again after any change to the design point -- it is cheap and it
+%  is the only honest way to set this number.
 
 % ================= aperture, wavelength, field =======================
 P.D_m        = 3.0;         % aperture diameter (m) = 5 m x 3/5
 P.lambda_m   = 500e-9;      % design wavelength (m) -- visible
-P.fov_half_deg = 0.1;       % HALF-field: the 0.2 deg x 0.2 deg used box
-P.fov_arcmin   = 6.0;       % the same half-field in arcmin (0.1 deg)
+P.fov_half_deg = 0.3;       % HALF-field: the 0.6 deg x 0.6 deg used box.
+                            % Measured, not assumed -- see s1_fov_sweep.m
+                            % and the header note above.  0.25 deg is the
+                            % conservative alternative: it passes every
+                            % rung including the strictest (chief) with
+                            % room, where 0.30 deg is 4%% OVER the bar at
+                            % chief while passing at the centroid primary.
+P.fov_arcmin   = 18.0;      % the same half-field in arcmin (0.3 deg)
 
 % ---- performance target (reported, never silently relaxed) ----------
 P.dl_waves   = 1/14;        % Marechal-class RMS bar, waves (~0.0714)
@@ -104,9 +114,22 @@ P.fixture_tol   = 1e-6;      % conic mismatch bar on the shared TMA
 
 % ================= off-axis stage (S2) ===============================
 % The field is biased off the axis so the focal plane clears the beam.
-% Aberration grows ~bias^2, so the bias is SWEPT and picked on solved
-% WFE -- not assumed.  Rodgers used +0.5 deg; the sweep brackets it.
-P.bias_sweep_arcmin = [12 18 24 30 36];   % 0.2 .. 0.6 deg
+% THE BIAS IS A PROGRAM REQUIREMENT, not an optimization output (Dave
+% 2026-08-01): what forces it is CLEARANCE, and clearance is tested in
+% S2/S3, so scoring candidates on WFE alone is degenerate -- the smallest
+% bias always wins.  The starting requirement grows in PROPORTION to the
+% field, at the ratio the reference design used:
+%
+%     offset / half-field = 0.5 deg / 0.1 deg = 5      (P.offset_ratio)
+%
+% so the 0.3 deg half-field above asks for a 1.5 deg offset.  S2 solves
+% there and S3's fold + M3 extraction tilt then sharpen it: the e2e VIS
+% lesson is that GEOMETRY buys clearance and bias only buys it at a
+% cost of ~bias^2, so expect the sharpened value to come back DOWN.
+P.offset_ratio = 5.0;       % offset / half-field; S2 derives the offset
+                            % from it and reports the number
+P.bias_sweep_arcmin = [30 60 90 120 150];  % 0.5 .. 2.5 deg, bracketing
+                            % the 90' (1.5 deg) proportional requirement
 P.field_center = "auto";     % "auto": after the pass-1 solve, map the WFE
                              % over a patch wider than the science box,
                              % take the centroid of the good region, and
@@ -116,7 +139,8 @@ P.field_center = "auto";     % "auto": after the pass-1 solve, map the WFE
                              % "manual" keeps field_dy_arcmin as given.
 P.field_center_thresh = 1/14;% waves, the "good region" bar for that scan
 P.field_dy_arcmin  = 0;      % starting science-center shift off the bias
-P.map_fov_arcmin   = 9;      % WFE-map half-width for the center scan
+P.map_fov_arcmin   = 27;     % WFE-map half-width for the center scan
+                             % (1.5x the half-field)
 P.map_n            = 13;     % map sampling (13x13)
 P.center_move_min_arcmin = 0.15;  % re-solve only if the chief is farther
                              % than this off the measured centroid
