@@ -1878,10 +1878,11 @@ classdef Telescope < handle
         %                           records .metric and every rendered field map
         %                           states which metric it used.
         %
-        %   TWO FURTHER NAMED REFERENCES live with the strict-metric study
-        %   code (mmacos/design/rodgers1/), not here, because they need an
-        %   exit-pupil probe and a FROZEN detector plane -- state this
-        %   function does not carry:
+        %   TWO FURTHER NAMED REFERENCES live in the strict-metric kernel
+        %   (mmacos/design/src/: strict_refs, strict_wfe_deck, strict_rungs,
+        %   strict_ladder_deck), not here, because they need an exit-pupil
+        %   probe and a FROZEN detector plane -- state this function does
+        %   not carry:
         %     'strict-centroid'  sphere anchored at the exit pupil, centred on
         %                        the SPOT CENTROID on the frozen detector.
         %                        PRIMARY per Dave's 2026-07-31 ruling -- it is
