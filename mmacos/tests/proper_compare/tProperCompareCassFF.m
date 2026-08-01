@@ -53,7 +53,12 @@ classdef tProperCompareCassFF < matlab.unittest.TestCase
         function test_macos_cass_ff_runs(testCase)
             % macos side produces a 512x512 focal-plane intensity array
             % with peak at array center, matching pymacos's reference
-            % values (Peak=3.236e5, Sum=1.802e6 at model_size=512).
+            % values (Peak=3.288e5, Sum=1.831e6 at model_size=512).
+            % Re-pinned post macos PR #70 (ColSource traces the DECLARED
+            % aperture): both scalars rose 1.6% = the pupil AREA change
+            % at nGridpts=257 (2 x 0.78% in radius).  The PROPER<->macos
+            % PSF comparison below is untouched -- PROPER takes its mask
+            % from macos, so both sides moved together.
             geom = geometries.cass_farfield();
             [intensity, ~] = macos_run_cass_ff(geom);
 
@@ -67,8 +72,8 @@ classdef tProperCompareCassFF < matlab.unittest.TestCase
             cx = cy;
             testCase.verifyLessThanOrEqual(abs(py - cy), 1);
             testCase.verifyLessThanOrEqual(abs(px - cx), 1);
-            testCase.verifyEqual(max(intensity(:)), 3.236e5, 'RelTol', 1e-3);
-            testCase.verifyEqual(sum(intensity(:)), 1.802e6, 'RelTol', 1e-3);
+            testCase.verifyEqual(max(intensity(:)), 3.288e5, 'RelTol', 1e-3);
+            testCase.verifyEqual(sum(intensity(:)), 1.831e6, 'RelTol', 1e-3);
         end
 
         function test_compare_cass_ff_psf(testCase)

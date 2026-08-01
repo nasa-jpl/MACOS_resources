@@ -60,9 +60,13 @@ def test_macos_cass_ff_runs(pymacos_session):
     assert abs(peak[0] - center[0]) <= 1
     assert abs(peak[1] - center[1]) <= 1
     # macos diagnostic at model_size=512 on this prescription:
-    #   Peak intensity= 3.2361861D+05; Sum of intensity= 1.8017729D+06
-    assert intensity.max() == pytest.approx(3.236e5, rel=1e-3)
-    assert intensity.sum() == pytest.approx(1.802e6, rel=1e-3)
+    #   Peak intensity= 3.2881011D+05; Sum of intensity= 1.8306770D+06
+    # Re-pinned post macos PR #70 (ColSource traces the DECLARED
+    # aperture): both scalars rose 1.6% = the pupil AREA change at
+    # nGridpts=257 (2 x 0.78% in radius).  The PROPER<->macos PSF
+    # comparison is untouched -- PROPER takes its mask from macos.
+    assert intensity.max() == pytest.approx(3.288e5, rel=1e-3)
+    assert intensity.sum() == pytest.approx(1.831e6, rel=1e-3)
 
 
 def test_compare_cass_ff_psf(pymacos_session, tol, results_dir_phase1):
