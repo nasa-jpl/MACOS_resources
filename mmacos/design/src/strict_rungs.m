@@ -23,21 +23,13 @@ function [v, W] = strict_rungs(P, D, L, p1, d1, Vd, Nd, X)
 %                          any detector surface can reach, since a detector
 %                          can only choose where along each chief ray the
 %                          image point sits.
-%                          SOLVER FLOOR, measured and left alone: the slide is
-%                          a bounded FMINBND over +-50 mm, and u = 0 (i.e.
-%                          rung 2) is inside that domain, so rung 3 ought to
-%                          be <= rung 2 by construction.  On a field where the
-%                          centroid sphere already sits at best focus the
-%                          search stops ~1.7e-4 RELATIVE above it instead
-%                          (measured on rodgers1_epd4060_rodgersS3, fields 1
-%                          and 7 of a uniform 3x3 box).  It is a search
-%                          tolerance, not physics.  Clamping it to
-%                          min(ff(u), ff(0)) is the obvious repair and would
-%                          move every committed rodgers1 rung-3/rung-4 number
-%                          in the 4th digit -- a reviewed change, not a
-%                          side effect of a file move.  tStrictKernel gates
-%                          the ordering at 1e-3 relative so a REAL inversion
-%                          still trips.
+%                          u = 0 IS the rung-2 sphere and IS inside the
+%                          search domain, so rung 3 can never legitimately
+%                          exceed rung 2.  It is now guaranteed not to: the
+%                          search takes the better of its own result and
+%                          ff(0), and runs at a tolerance scaled to the
+%                          system.  See THE FOCUS SEARCH below for why that
+%                          was necessary.
 %     4  + LS tip/tilt     rung 3 with least-squares tip/tilt removed over
 %                          the exit-pupil coordinates.  This is the rung
 %                          CODE V's field-map RMS is consistent with
@@ -72,10 +64,36 @@ function [v, W] = strict_rungs(P, D, L, p1, d1, Vd, Nd, X)
     px = (e1.'*(Q-X(:))).';   py = (e2.'*(Q-X(:))).';
 
     % ---- rung 3: per-field best focus, slid along the chief -------------
+    %
+    % THE FOCUS SEARCH, and why it is written this way.  u is a focus SLIDE
+    % in BaseUnits, and FMINBND's default TolX is 1e-4 in those units -- on
+    % a metre-based prescription, 0.1 mm.  A 0.1 mm slide on an f/20 beam is
+    % u/(8*F^2) ~ 31 nm of wavefront, so on a design already corrected to
+    % the nm level the default tolerance cannot resolve the minimum at all:
+    % measured on the e2e2 axial TMA (60 m EFL, f/20, sub-nm residual) the
+    % search returned 2.386 nm where the rung-2 sphere it started from reads
+    % 0.890 nm -- rung 3 reporting 2.7x WORSE than the more restrictive rung
+    % below it.  On the rodgers1 deck, 100x more aberrated, the same defect
+    % is only 1.7e-4 relative, which is why it survived.
+    %
+    % Two changes, both load-bearing:
+    %   TolX is RELATIVE to the pupil-to-detector distance, so it means the
+    %   same physical precision on a metre deck and a millimetre one;
+    %   ff(0) -- the rung-2 sphere -- is evaluated explicitly and wins ties,
+    %   which makes rung 3 <= rung 2 true BY CONSTRUCTION rather than by
+    %   the solver's good behaviour.
+    %
+    % The +-0.05 BRACKET is still in BaseUnits and is NOT scale-free: on a
+    % millimetre prescription it is 50 um and may not contain the optimum.
+    % The ff(0) guard is that case's safety net -- the rung degrades to
+    % rung 2 rather than returning something worse than it.
     c0 = f.c_centroid;   R0 = f.R_centroid;
     ff = @(u) std(strict_sphere_opl(P, D, L, c0+e3*u, R0+u));
-    u  = fminbnd(ff, -0.05, 0.05);
-    v(3) = ff(u);
+    w0 = ff(0);
+    [u, wu] = fminbnd(ff, -0.05, 0.05, ...
+                      optimset('TolX', max(realmin, 1e-12*abs(R0))));
+    if ~(wu < w0), u = 0;  wu = w0; end
+    v(3) = wu;
 
     % ---- rung 4: + least-squares tip/tilt over the pupil ----------------
     Wb = strict_sphere_opl(P, D, L, c0+e3*u, R0+u);

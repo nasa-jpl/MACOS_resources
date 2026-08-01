@@ -18,10 +18,11 @@ classdef tStrictKernel < matlab.unittest.TestCase
 %
 %   (b) RUNG ORDERING.  Each rung grants strictly more reference freedom
 %       than the one before, so its residual cannot be larger.  A violation
-%       means a rung is not what its name says.  Rung 3's bounded 1-D focus
-%       search has a measured ~1.7e-4 relative floor above rung 2 on already
-%       best-focused fields; the gate is set to catch a real inversion, and
-%       the artifact's own size is pinned separately.  See STRICT_RUNGS.
+%       means a rung is not what its name says.  This is now EXACT for every
+%       rung -- rung 3 evaluates its own starting point and keeps it when the
+%       search cannot beat it -- so the gate is exact too, and any future
+%       regression in the focus search trips immediately rather than hiding
+%       inside a tolerance.  See STRICT_RUNGS.
 %
 %   (c) STREHL CONSISTENCY.  The exact aperture form
 %       |mean(exp(i*2*pi*W/lambda))|^2 is bounded by 1 and, at small WFE,
@@ -80,37 +81,30 @@ classdef tStrictKernel < matlab.unittest.TestCase
         end
 
         function test_rungs_are_ordered_by_reference_freedom(tc)
-        %  (b) each rung is more permissive than the last.
+        %  (b) each rung is more permissive than the last -- EXACTLY.
         %
-        %  Rung 4 is EXACT: its wavefront is rung 3's with a least-squares
-        %  plane subtracted, so it cannot be larger.  Rung 3 is not, and the
-        %  reason is worth pinning rather than hiding.  It slides the sphere
-        %  centre by a bounded FMINBND whose domain CONTAINS u = 0 (= rung
-        %  2), so in exact arithmetic rung 3 <= rung 2; in practice, on a
-        %  field where the centroid sphere already sits at best focus, the
-        %  search stops ~1.7e-4 relative ABOVE it.  That is the search
-        %  tolerance, not physics, and it is pre-existing -- the kernel is
-        %  bit-identical to the example-local copies it was hoisted from
-        %  (verified A/B, 0.000e+00 over 15 fields x 4 rungs).  Repairing it
-        %  would move every committed rodgers1 rung-3/rung-4 number and is a
-        %  reviewed change in its own right.  So: gate the ordering at 1e-3
-        %  relative, which a REAL inversion (a rung that is not what its name
-        %  says) blows through, and separately pin the artifact's size so it
-        %  cannot grow unnoticed.
+        %  Rung 4's wavefront is rung 3's with a least-squares plane
+        %  subtracted, so it cannot be larger.  Rung 3 slides the sphere
+        %  along the chief by a bounded search whose domain CONTAINS u = 0,
+        %  i.e. the rung-2 sphere; it now evaluates that point explicitly
+        %  and keeps it when the search cannot beat it, so rung 3 <= rung 2
+        %  holds by construction and not by the solver behaving well.
+        %
+        %  It did not always.  With FMINBND's default TolX (1e-4 BaseUnits
+        %  = 0.1 mm of focus slide, ~31 nm of wavefront at f/20) the search
+        %  could not resolve a minimum sharp at the nm level: on the e2e2
+        %  axial TMA rung 3 read 2.7x WORSE than rung 2.  On this deck, 100x
+        %  more aberrated, the same defect was only 1.7e-4 relative -- which
+        %  is why an inexact gate would not have caught it.
             F = tc.fields_();
             L = strict_ladder_deck(tc.deck, F);
             ok = all(isfinite(L),2);
             tc.verifyGreaterThan(nnz(ok), 0, 'no field scored');
-            tc.verifyLessThanOrEqual(L(ok,3), L(ok,2)*(1+1e-3), ...
-                'best focus is more than a search tolerance worse than the centroid sphere');
-            tc.verifyLessThanOrEqual(L(ok,4), L(ok,3)*(1+1e-9), ...
+            tc.verifyLessThanOrEqual(L(ok,3), L(ok,2), ...
+                ['best focus cannot be worse than the centroid sphere it ' ...
+                 'starts from -- the focus search lost its ff(0) guard']);
+            tc.verifyLessThanOrEqual(L(ok,4), L(ok,3), ...
                 'removing LS tip/tilt cannot be worse than not removing it');
-            excess = max(0, L(ok,3)./L(ok,2) - 1);
-            tc.verifyLessThan(max(excess), 1e-3, sprintf( ...
-                ['the rung-3 search floor grew to %.2e relative (was 1.7e-4); ' ...
-                 'if this is climbing, clamp rung 3 to min(ff(u), ff(0)) and ' ...
-                 'regenerate the rodgers1 artifacts as a reviewed step'], ...
-                max(excess)));
         end
 
         function test_strehl_is_bounded_and_marechal_consistent(tc)
