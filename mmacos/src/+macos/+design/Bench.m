@@ -351,24 +351,49 @@ methods
         %   An off-axis section in MACOS is the SAME parent conic with
         %   RptElt (the section POLE, where the beam hits) different
         %   from VptElt (the parent VERTEX); psiElt is the parent AXIS.
-        %   The pole is placed DIST along the chief; the parent is
-        %   constructed from the conjugate:
+        %   The pole is placed DIST along the chief.  Specify the parent
+        %   EITHER by its focal length ('f', the usual optical spec) OR by
+        %   the conjugate distance ('focus_dist'):
         %     'mode','collimate' -- the incoming chief diverges from a
         %        focus 'focus_dist' BACK along the incoming chief (for
         %        a source-fed OAP that is the source distance); the
         %        reflected beam is collimated along OUT.
         %     'mode','focus'     -- incoming collimated; the reflected
         %        chief focuses 'focus_dist' ahead along OUT.
+        %
         %   Parent focal length from the polar equation of the parabola
-        %   r = 2f/(1+cos(theta)):  f_parent = focus_dist*(1+cos th)/2,
-        %   with th the full turn angle (cos th = d_in . d_out).
+        %   with the focus at the origin, r = 2f/(1 - cos(theta_polar)),
+        %   where theta_polar is measured from the focus->vertex direction
+        %   (-axis) to the focus->pole direction; since axis is +/-d_in and
+        %   the turn is cth = d_in.OUT, this gives  f_parent = r*(1-cth)/2
+        %   and, inverting, the conjugate that realizes a desired f is
+        %   focus_dist = 2f/(1-cth) = f/cos^2(AOI)  (AOI = angle of
+        %   incidence; turn theta = 180 - 2*AOI).  ARBITRARY fold angles
+        %   are supported -- near-normal (small AOI, e.g. 5 deg) gives a
+        %   nearly on-axis section (pole ~= vertex), 90-deg folds throw the
+        %   vertex fully lateral.
+        %
+        %   HISTORY: through 2026-07 this used (1+cth) -- correct ONLY at
+        %   theta=90 deg (cth=0), the sole regime the OAP tests exercised;
+        %   wrong for every other fold.  Fixed to (1-cth); 90-deg results
+        %   are bit-identical so back-compat holds.
+        %
+        %   'aprad' is kept as metadata (sketch footprint + a builder-side
+        %   vignetting note) but is NOT emitted as a hard aperture: a
+        %   Circular ApVec is applied about VptElt (the parent vertex),
+        %   which for an off-axis section sits far from the beam at the
+        %   pole, so it would block the whole bundle.  Put functional stops
+        %   on flat marker planes (add_reference/add_baffle), whose
+        %   vertex == pole.
+        %
         %   Returns struct O: .i .f_parent .pole .vertex .focus.
         arguments
             b
             dist (1,1) double {mustBePositive}
             out  (3,1) double
             opts.mode (1,:) char {mustBeMember(opts.mode,{'collimate','focus'})} = 'collimate'
-            opts.focus_dist (1,1) double {mustBePositive}
+            opts.focus_dist (1,1) double = NaN   % conjugate distance (mm)
+            opts.f          (1,1) double = NaN   % parent focal length (mm)
             opts.name (1,:) char = 'OAP'
             opts.aprad (1,1) double = 0
         end
@@ -377,8 +402,17 @@ methods
         P = b.step(dist);
         cth = dot(d_in, out);
         assert(cth > -1 + 1e-9, 'Bench.add_oap: retro OAP is degenerate.');
-        r = opts.focus_dist;
-        f_par = r*(1 + cth)/2;
+        % conjugate r: from a pinned focal length 'f', else explicit focus_dist
+        if ~isnan(opts.f)
+            assert(opts.f > 0, 'Bench.add_oap: f must be positive.');
+            r = 2*opts.f/(1 - cth);          % = f/cos^2(AOI)
+        elseif ~isnan(opts.focus_dist)
+            assert(opts.focus_dist > 0, 'Bench.add_oap: focus_dist must be positive.');
+            r = opts.focus_dist;
+        else
+            error('Bench.add_oap: provide ''f'' (parent focal length) or ''focus_dist''.');
+        end
+        f_par = r*(1 - cth)/2;               % parabola polar eqn (see help)
         switch opts.mode
             case 'collimate'    % axis = collimated output direction
                 a = out;   Fpt = P - r*d_in;
@@ -391,7 +425,9 @@ methods
         e.psi = a;            % engine convention: psi = parent axis toward the
                               % open/focus side, paired with KrElt=-|R|
         e.vpt = V;  e.rpt = P;  e.extinc = 1e22;
-        if opts.aprad > 0, e.aptype = 'Circular';  e.aprad = opts.aprad; end
+        e.aprad = opts.aprad; % metadata only (sketch/vignetting); aptype stays
+                              % 'None' -- a vertex-framed Circle would block the
+                              % off-axis beam (see help).
         O.i = b.push(e);
         O.f_parent = f_par;  O.pole = P;  O.vertex = V;  O.focus = Fpt;
         b.dir = out;
