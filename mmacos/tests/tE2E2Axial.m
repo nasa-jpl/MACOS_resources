@@ -33,16 +33,24 @@ classdef tE2E2Axial < matlab.unittest.TestCase
 %       is the FPA piston doing its job.  The bar separates a 20 um
 %       refinement from a 1.8 m excursion.
 %
-%   (4) The ANCHOR.  Stage 1 exists to hand stage 2 a design whose residual
-%       is negligible next to what the field bias is about to cost.  If it
-%       is not, the collapse stage 2 measures is not attributable.
+%   (4) The ANCHOR.  Stage 1 hands stage 2 the residual the field bias will
+%       then spoil, and stage 2's collapse measurement is only attributable
+%       if this number is known and stable.  At the 0.6 deg box it is 16.5
+%       nm -- 46% of the diffraction bar, against 1.8% at the original 0.2
+%       deg box.  Widening the field spends most of the budget here; what
+%       is left for stages 2-4, added in quadrature, is 31.7 nm.
 
     properties (Constant)
         MODEL = 256
-        ANCHOR_MAX_NM = 5.0   % stage-1 residual bar over the used box,
-                              % rung 4.  The design lands at 0.638 nm; the
-                              % bar is set where a real regression shows
-                              % rather than where the current number sits.
+        ANCHOR_MAX_NM = 25.0  % stage-1 residual bar over the used box,
+                              % rung 4.  At the 0.6 deg box the design
+                              % lands at 16.5 nm -- 46% of the 35.7 nm
+                              % diffraction bar, NOT the 1.8% it was at
+                              % 0.2 deg.  A wide field spends most of its
+                              % error budget at stage 1, which is a real
+                              % trade and not a defect; the bar is set
+                              % where a regression shows rather than where
+                              % the current number sits.
     end
 
     properties
@@ -134,8 +142,8 @@ classdef tE2E2Axial < matlab.unittest.TestCase
         function test_exit_pupil_pair_tracks_the_detector(tc)
         %  FP_return is frozen at whatever station add_pupil saw.  The joint
         %  solve then refines the detector with its FPA piston, so a SMALL
-        %  residual is expected and is exactly the refinement -- 22 um here,
-        %  1e-5 of the exit-pupil radius.  What must not happen is the
+        %  residual is expected and is exactly the refinement -- 0.48 mm at
+        %  the 0.6 deg box, 2e-4 of the exit-pupil radius.  What must not happen is the
         %  failure in the class header: the detector fitted on the unsolved
         %  K = 0 design walked 1.8 m, add_pupil derived FP_return and the
         %  ExitPupil sphere from the abandoned station, and the saved deck
@@ -147,9 +155,13 @@ classdef tE2E2Axial < matlab.unittest.TestCase
             for k = 1:n, V(:,k) = macos.get_elt_vpt(k); end
             iret = n - 2;   % M1 M2 M3 | FP_return ExitPupil FP
             d = norm(V(:,iret) - V(:,n));
-            tc.verifyLessThan(d, 1e-3, sprintf( ...
+            % 10 mm: still 180x below the 1.8 m failure, and 20x above the
+            % refinement the joint solve legitimately applies.  The two are
+            % separated by orders of magnitude, so the bar does not need to
+            % be tight -- and a tight one would just track the field size.
+            tc.verifyLessThan(d, 1e-2, sprintf( ...
                 ['FP_return sits %.4g m from the detector.  A refinement is ' ...
-                 'tens of microns; this is the stale-station failure.'], d));
+                 'sub-millimetre; this is the stale-station failure.'], d));
             tc.verifyGreaterThan(d, 0, ...
                 ['FP_return exactly coincides with the detector -- the joint ' ...
                  'solve''s FPA piston did nothing, so the detector was not ' ...
@@ -167,8 +179,8 @@ classdef tE2E2Axial < matlab.unittest.TestCase
             tc.verifyGreaterThan(nnz(ok), 0, 'no field scored');
             tc.verifyLessThan(max(L(ok,4))*1e9, tc.ANCHOR_MAX_NM, ...
                 'the axial anchor has degraded');
-            tc.verifyGreaterThan(min(info.strehl(ok,4)), 0.99, ...
-                'the axial anchor should be essentially perfect');
+            tc.verifyGreaterThan(min(info.strehl(ok,4)), 0.90, ...
+                'the axial anchor should still be well corrected');
             tc.verifyLessThan(max(L(ok,4))*1e9, P.dl_rms_m*1e9, ...
                 'the anchor must be far inside the diffraction-limit bar');
         end

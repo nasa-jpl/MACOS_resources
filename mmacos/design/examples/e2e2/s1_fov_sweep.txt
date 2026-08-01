@@ -1,0 +1,16 @@
+e2e2 stage-1 FIELD SWEEP
+D 3.000 m | f/20 | 500 nm | DL bar 35.71 nm RMS, Strehl 0.80
+
+half[deg] | AS-SOLVED (0.2 deg design)       | RE-SOLVED at that box           
+          |     max nm     avg nm     Strehl |     max nm     avg nm     Strehl
+     0.10 |      0.638      0.408     0.9999 |      0.638      0.408     0.9999
+     0.15 |      4.241      1.041     0.9972 |      1.728      1.252     0.9995
+     0.20 |     12.849      3.196     0.9743 |      4.087      2.949     0.9974
+     0.25 |     29.448      7.494     0.8718 |      8.616      5.858     0.9883
+     0.30 |     57.913     14.843     0.5863 |     16.457     10.392     0.9580
+
+ACHIEVABLE FIELD at 500 nm, RMS <= 35.71 nm and Strehl >= 0.80, rung "+LS tip/tilt":
+  half-field 0.30 deg (FULL BOX 0.60 deg) -- 100% of the 0.6 deg asked for,
+  at 16.457 nm max / 10.392 nm avg, Strehl 0.9580.
+Measured growth of the re-solved residual: RMS ~ theta^2.96 (a pure Petzval/astig wall would be 2).
+Re-solving is worth 3.5x at 0.30 deg half-field (57.9 nm as-solved -> 16.5 nm re-solved).
