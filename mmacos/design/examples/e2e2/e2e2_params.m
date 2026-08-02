@@ -42,14 +42,26 @@ function P = e2e2_params()
 % ================= aperture, wavelength, field =======================
 P.D_m        = 3.0;         % aperture diameter (m) = 5 m x 3/5
 P.lambda_m   = 500e-9;      % design wavelength (m) -- visible
-P.fov_half_deg = 0.3;       % HALF-field: the 0.6 deg x 0.6 deg used box.
+P.fov_half_deg = 0.2;       % HALF-field: the 0.4 deg x 0.4 deg used box.
+                            % NARROWED from 0.3 (Dave 2026-08-02) -- see
+                            % s3_relay.m's [0] branch point.  At 0.3 the
+                            % image at the telescope focus is 0.314 m and
+                            % drove the relay past the size of the
+                            % primary; at 0.2 it is 0.209 m.  The stage-1
+                            % sweep already measured this box: 4.087 nm
+                            % re-solved, against 16.457 at 0.3 -- so it
+                            % also hands back 12 nm of wavefront budget.
+                            % 0.25 (0.5 deg box, 8.6 nm) is the middle
+                            % option if the field matters more.
+% -- superseded, kept for the record --
+%   0.3;                    % the 0.6 deg x 0.6 deg used box.
                             % Measured, not assumed -- see s1_fov_sweep.m
                             % and the header note above.  0.25 deg is the
                             % conservative alternative: it passes every
                             % rung including the strictest (chief) with
                             % room, where 0.30 deg is 4%% OVER the bar at
                             % chief while passing at the centroid primary.
-P.fov_arcmin   = 18.0;      % the same half-field in arcmin (0.3 deg)
+P.fov_arcmin   = 12.0;      % the same half-field in arcmin (0.2 deg)
 
 % ---- performance target (reported, never silently relaxed) ----------
 P.dl_waves   = 1/14;        % Marechal-class RMS bar, waves (~0.0714)
@@ -174,7 +186,7 @@ P.field_center = "auto";     % "auto": after the pass-1 solve, map the WFE
                              % "manual" keeps field_dy_arcmin as given.
 P.field_center_thresh = 1/14;% waves, the "good region" bar for that scan
 P.field_dy_arcmin  = 0;      % starting science-center shift off the bias
-P.map_fov_arcmin   = 27;     % WFE-map half-width for the center scan
+P.map_fov_arcmin   = 18;     % WFE-map half-width for the center scan
                              % (1.5x the half-field)
 P.map_n            = 13;     % map sampling (13x13)
 P.center_move_min_arcmin = 0.15;  % re-solve only if the chief is farther
@@ -206,9 +218,26 @@ P.hole_margin    = 1.3;      % hole radius = margin x the MEASURED
 P.aoi_max_deg    = 15;       % standing rule: angle of incidence bar at
                              % every powered surface
 
-% ================= relay + focal plane (S4) ==========================
+% ================= relay + focal plane (S3) ==========================
+% THE RELAY IS NOT HERE TO RE-IMAGE.  Stage 2 measured the leftover
+% residual as FIELD-VARYING -- astigmatism that reverses sign across the
+% field, spread/mean 4.48 -- and proved that figure on the Korsch's three
+% PUPIL-conjugate mirrors cannot touch it (a fixed figure subtracts the
+% same map at every field).  What can is a mirror near a FOCUS, where
+% each field point lands on its own patch of glass, so a fixed figure IS
+% a field-dependent correction.  That is the corrector below, and it is
+% e2e's rule 11: "M4 near the focus is the reflective field-corrector".
+% The Offner triple stays spherical and concentric -- a ROC or conic
+% solve would un-Offner the symmetry that zeroes its Seidel sums.
 P.relay = struct( ...
-    'type',       "offner", ...  % "offner" (concentric 1:1 ring-field
+    'type',       "bench", ...   % ADOPTED (Dave 2026-08-02): the bench
+    ...                          % relay has NO ring-radius constraint, so
+    ...                          % it does not have to grow with the image
+    ...                          % the way a concentric Offner does, and it
+    ...                          % leaves the focus available to other
+    ...                          % instruments.  It pays tilt astigmatism,
+    ...                          % which the near-focus field corrector is
+    ...                          % there to absorb.  "offner" (concentric
     ...                          % relay, pure spheres -- no tilted
     ...                          % powered surfaces, so the tilt-astig
     ...                          % floor is deleted at the root) |
@@ -216,8 +245,16 @@ P.relay = struct( ...
     ...                          % "none" (score the telescope alone)
     'offner_R',   1.2, ...       % concave radius (m); convex = R/2
     'offner_h',   0.15, ...      % ring radius (m): object/image offset
-    'dpast_m',    0.27, ...      % first relay mirror past the telescope
-    ...                          % focus (m) = 0.45 x 3/5
+    'dpast_m',    0.27, ...      % the FIELD CORRECTOR's distance past the
+    ...                          % telescope focus (m).  Small on purpose:
+    ...                          % the beam radius there is dpast/(2 f/#)
+    ...                          % = 6.8 mm, so the field points barely
+    ...                          % overlap on it and its figure has real
+    ...                          % field-differential authority.  Too far
+    ...                          % out and it becomes another pupil.
+    'corrector_R',      20.0, ...% corrector radius (m) -- WEAK; it is a
+    ...                          % figure element, not a power element
+    'corrector_tilt_deg', 5.0, ...% routing tilt for the corrector
     'legs_m',     [0.9 1.2], ... % bench-relay legs (m) = e2e x 3/5
     'tilt_deg',   [5 -5 5], ...  % bench-relay zigzag tilts (deg)
     'nfield_svd', 5);            % NxN dense field grid for the SVD solve

@@ -1,0 +1,93 @@
+==================== DESIGN REPORT ====================
+ family TMA | D = 3.000 m | lambda = 0.5 um | 10 elements
+   M1         R =    7.4145 m  K =  -0.98006  Vpt=[  0.000   0.000   0.000]
+   M2         R =    1.3208 m  K =  -1.77907  Vpt=[  0.000   0.011  -3.161]
+   FM         Reflector  (flat)        Vpt=[  0.000   0.000   0.225]
+   M3         R =    1.6128 m  K =  -1.56156  Vpt=[  0.878   0.055   0.225]
+   M4         R =   20.0000 m  K =  +0.00000  Vpt=[ -2.457   0.000   0.225]
+   M5         R =    2.3400 m  K =  +0.00000  Vpt=[ -1.570  -0.156   0.225]
+   M6         R =    2.3400 m  K =  +0.00000  Vpt=[ -2.770  -0.156   0.225]
+   FP_return  Return     (flat)        Vpt=[ -1.592  -0.122   0.225]
+   ExitPupil  R =    0.8593 m  K =  +0.00000  Vpt=[ -2.447  -0.213   0.225]
+   FP         FocalPlane (flat)        Vpt=[ -1.578  -0.122   0.225]
+ -- first order --
+   EFL 109.86 m | f/# at M1 1.24 | f/# at FP 36.62
+   plate scale 532.6 um/arcsec | lambda/D 34.38 mas
+ -- field performance (RMS WFE about the field center) --
+   bias +13.0' |    field       raw     -tilt    Strehl
+          center  1593.387    22.310     0.001
+      3.00' ring  1686.134    25.540     0.000
+      6.00' ring  1616.340    27.695     0.000
+     12.00' ring  1531.130    27.849     0.000
+   (Strehl = far-field peak / unaberrated-aperture peak, exact coherent sum over the
+    EP-referenced OPD, tilt removed; worst ring point.  PSF products: INT at the FP.)
+ -- focal plane --
+   FP tilt 42.306 deg wrt the arriving chief ray
+ -- exit pupil (add_pupil / FEX) --
+   0.859 m from the image, at [ -2.447  -0.213   0.225] (elt 9)
+ -- packaging / clearance --
+   shroud 1.87 x D | train length 3.48 m
+   clearance: body-in-beam at M2, M4 (FP vs its own pupil-retrace legs excluded)
+   M1         AOI   0.2 deg (spread 11.4 deg across the beam)
+   M2         AOI   1.2 deg (spread 14.5 deg across the beam)
+   FM         AOI  45.0 deg (spread 7.9 deg across the beam)
+   M3         AOI   4.3 deg (spread 2.6 deg across the beam)
+   M4         AOI  15.7 deg (spread 2.4 deg across the beam)
+   M5         AOI   0.4 deg (spread 1.1 deg across the beam)
+   M6         AOI  19.9 deg (spread 0.8 deg across the beam)
+=======================================================
+---------------- S3 RELAY -- BENCH + field corrector ----------------
+  lambda 500 nm | used box scored on a UNIFORM 81-point grid
+  rung                 max nm     avg nm  max waves  avg waves min Strehl
+  strict-chief      10619.988   2384.996    21.2400     4.7700     0.0000
+  strict-centroid   10618.372   2381.222    21.2367     4.7624     0.0000
+  +best focus        7900.602   1151.361    15.8012     2.3027     0.0000
+  +LS tip/tilt       7899.754   1150.217    15.7995     2.3004     0.0000   <- verdict
+  the SOLVE set (8 points) for comparison -- sampling, not optics:
+  strict-chief      10619.988   3950.396
+  strict-centroid   10618.372   3948.071
+  +best focus        7900.602   2630.716
+  +LS tip/tilt       7899.754   2629.512
+  VERDICT at "+LS tip/tilt": RMS 7899.754 nm vs 35.714 nm bar -> FAIL;  Strehl 0.0000 vs 0.80 -> FAIL
+------------------------------------------------------------------------
+---------------- S3 RELAY -- PARAMETER PROVENANCE (delta vs stage 2) ----------------
+element     kind              Kr [m]           Kc             Vpt (x,y,z) [m] tilt[deg]   ap_r[m]  provenance
+M1          Reflector      -7.414512    -0.980060    0.0000   0.0000   0.0000    0.0000    1.6500  derived(tma+fold)
+M2          Reflector      -1.320820    -1.779070    0.0000   0.0112  -3.1607   -1.0506    1.5000  derived(tma+fold)
+FM          Reflector           flat     0.000000    0.0000   0.0000   0.2250   -0.0000    0.0174  derived(fold)
+M3          Reflector      -1.612788    -1.561563    0.8784   0.0546   0.2250  -90.0000    1.5000  derived(tma+fold)
+M4          Reflector     -20.000000     0.000000   -2.4568   0.0000   0.2250  -90.0000    1.5000  derived(tma+fold)
+M5          Reflector      -2.340000     0.000000   -1.5704  -0.1563   0.2250   90.0000    1.5000  derived(tma+fold)
+M6          Reflector      -2.340000     0.000000   -2.7704  -0.1563   0.2250  -90.0000    1.5000  derived(tma+fold)
+FP_return   Return              flat     0.000000   -1.5923  -0.1220   0.2250  -90.0000    1.6500  derived(add_pupil)
+ExitPupil   Return         -0.859339     0.000000   -2.4467  -0.2131   0.2249   90.0793    1.6500  derived(fex)
+FP          FocalPlane          flat     0.000000   -1.5777  -0.1220   0.2250   95.4139    0.0560  derived(tma)
+
+delta vs prev           dKc       dKr [m]            dVpt (x,y,z) [mm]  dtilt [deg]
+M1              1.311e-02     0.000e+00    0.0000   0.0000   0.0000      0.00000
+M2              1.505e-01     0.000e+00    0.0000  11.2227   0.0000     -1.05061
+FM              0.000e+00     0.000e+00    0.0000   0.0000   0.0000      0.00000
+M3             -8.572e-01     0.000e+00    0.0000  54.5599   0.0000    -90.00000
+M4            (new this stage)
+M5            (new this stage)
+M6            (new this stage)
+FP_return       0.000e+00     0.000e+00  586.5666 105.3814   0.0000   -180.00000
+ExitPupil       0.000e+00     1.239e+00  -2354.3900 -212.9641  -0.1152    180.08208
+FP              0.000e+00     0.000e+00  600.6188 105.3814   0.0000    185.41395
+
+focal plane: beam AOI 42.3061 deg (arriving CHIEF vs the detector normal -- FPA acceptance)
+             mechanical 87.9609 deg (detector normal vs the OPTICAL AXIS -- the mount)
+HELD this stage: R1,R2,R3 + spacings, the Offner triple (concentricity), field bias 13' (set by stage 2's clearance frontier)
+------------------------------------------------------------------------
+ -- stage-3 addendum: a conjugate the telescope does not have --
+   relay BENCH; corrector 0.270 m past the telescope focus, beam radius 0.0068 m
+   stage 2 proved pupil-conjugate figure cannot reach a field-VARYING residual
+   (astig reversing sign across the field, spread/mean 4.48); this stage puts
+   glass at a FIELD conjugate, where a fixed figure IS a field-dependent correction
+   stage 2 (fold, no relay)         20.380 nm
+   relay in, corrector flat       1577.580 nm
+   + field corrector              7899.754 nm  (LOST -- uncorrected kept)
+   astig z5 spread/mean 5.06 (was 4.48)
+   clearance M2 | AOI spread 13.90 deg (bar 15.0)
+   pupil gate 0.997696 x semi, 0 outside (saved deck 0.997696 x, 0)
+=======================================================
