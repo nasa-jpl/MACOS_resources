@@ -250,7 +250,13 @@ function [da, db, dc, scl, rot, par] = distortion_(obs, ideal)
     par = det(R);                      % +1 proper, -1 = inverted image
     ra = o - q*R.';
     da = [max(vecnorm(ra,2,2)), sqrt(mean(sum(ra.^2,2)))];
-    rot = atan2d(R(2,1), R(1,1));
+    % atan2d(R(2,1),R(1,1)) is a ROTATION angle only for a proper R.  When
+    % the fit comes back improper (det < 0, the odd-reflection case) that
+    % expression is the angle of the reflection AXIS doubled, not a
+    % rotation, so report it against the proper part and let `par` carry
+    % the parity.  (Fable review, 2026-08-02.)
+    Rp = R;   if par < 0, Rp = R*diag([1 -1]); end
+    rot = atan2d(Rp(2,1), Rp(1,1));
     % + uniform scale.  Minimising ||o - s*q*R'|| gives
     %   s = trace(o'*q*R') / trace(q'*q),  and trace(o'*q*R') = trace(R*q'*o),
     % i.e. R and NOT R'.  Getting that transpose wrong makes (b) come back
@@ -267,6 +273,13 @@ function [da, db, dc, scl, rot, par] = distortion_(obs, ideal)
     A  = [q, ones(size(q,1),1)] \ o;
     rc = o - [q, ones(size(q,1),1)]*A;
     dc = [max(vecnorm(rc,2,2)), sqrt(mean(sum(rc.^2,2)))];
+    % Same impossibility check as (b) vs (a), one rung further: a full
+    % affine has strictly more freedom than scale+rotation, so it cannot
+    % fit worse.  (Fable review, 2026-08-02.)
+    assert(dc(2) <= db(2)*(1+1e-9), ...
+        ['distortion_: the affine fit (%g) is worse than the ' ...
+         'uniform-scale fit (%g), which is impossible -- it has strictly ' ...
+         'more freedom.'], dc(2), db(2));
 end
 
 function s = tern_(c,a,b), if c, s = a; else, s = b; end, end
