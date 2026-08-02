@@ -320,6 +320,11 @@ P.score_rung   = 4;          % which strict_rungs column leads the
                              % rung external field-map RMS numbers
                              % (CODE V's included) are consistent with.
 P.report_rungs = 1:4;        % rungs to table
+P.final_n      = 13;         % NxN grid for the FINAL score (stage 3).
+                             % Denser than the 9x9 the stage verdicts
+                             % use, so the delivered numbers are checked
+                             % against a finer sampling rather than
+                             % inheriting the solve stages' grid.
 
 % ================= engine sampling ===================================
 P.model_size = 256;          % engine model size (>= nGridpts)

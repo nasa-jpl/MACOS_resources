@@ -21,13 +21,16 @@ report was **derived**.
 
 The Rodgers offset-field coaxial TMA, **scaled to D = 3 m** (every length
 × 3/5 from his 5 m `.seq` geometry), **f/20** (EFL 60 m) off an f/1.2358
-primary, **λ = 500 nm**, a **0.6° × 0.6° used box**, and the M1
-perforation scaled with it (0.2056 linear obscuration).  Target:
+primary, **λ = 500 nm**, a **0.4° × 0.4° used box**, and an M1
+perforation **measured** with the secondary's shadow as its floor
+(0.2331 m, 2.4 % of the area).  Target:
 **diffraction-limited at 500 nm across the used box** — RMS ≤ λ/14 ≈ 36 nm
 and Strehl ≥ 0.8, both reported.
 
-The field is **three times his**, and that is a measurement, not an
-aspiration — see *How wide a field does this hold?* below.
+The field is **twice his**, and the width was set by measurement — see
+*How wide a field does this hold?* below.  It was briefly 0.6° (three
+times his); that box drove the relay past the size of the primary and
+spent 46 % of the wavefront budget at stage 1, so it was narrowed.
 
 Scaling a validated design rather than inventing one buys a **first-order
 gate no de-novo layout has**.  f/# is scale-invariant, so the constraint
@@ -43,21 +46,46 @@ were reported under.
 
 ## Stages
 
+**Three stages, and the telescope is finished at stage 2.**
+
 | runner | consumes | produces |
 |---|---|---|
-| `s1_axial.m` | `e2e2_params.m` | the axial anchor: `s1_axial.in/.mat`, `s1_views.png`, `s1_wfe_field.png`, `s1_report.txt` |
-| `s1_fov_sweep.m` | `e2e2_params.m`, `s1_axial.in` | *diagnostic*: how much field the architecture holds — `s1_fov_sweep.{txt,mat,png}` + a solved deck per candidate |
+| `s1_axial.m` | `e2e2_params.m` | the axial anchor: `s1_axial.in/.mat`, views, field map, `s1_report.txt` |
+| `s1_fov_sweep.m` | `s1_axial.in` | *diagnostic*: how much field the architecture holds — `s1_fov_sweep.{txt,mat,png}` + a solved deck per candidate |
+| `s2_fold.m` | s1 artifacts | **the delivered telescope**: fold + the (tilt, bias) clearance frontier, `s2_fold.in/.mat`, views, field map, `s2_report.txt` |
+| `s3_score.m` | s2 artifacts | final ladder, coma and distortion maps, cross-stage provenance: `s3_report.txt`, `s3_score.mat`, `s3_maps.png`, `s3_views.png` |
 
-*(stages 2–5 land as they are built; this table grows with them)*
+`relay_followon/` holds the relay driver and the record of two failed
+attempts.  It is **not** part of the flow — see *The relay* below.
+
+### The delivered telescope
+
+Scored on a uniform 13 × 13 grid over the used box, all four references:
+
+| rung | max RMS | avg | min Strehl | vs the 35.71 nm bar |
+|---|---|---|---|---|
+| strict-chief | 49.220 nm | 28.351 | 0.679 | **FAIL** |
+| strict-centroid *(primary)* | **30.001** | 20.047 | 0.867 | PASS |
+| + best focus | 29.380 | 18.691 | 0.872 | PASS |
+| + LS tip/tilt | **20.380** | 12.176 | 0.936 | PASS |
+
+**Diffraction-limited at the primary reference and everything more
+permissive; missed at the strictest.**  The four spread by **2.42×**,
+which is why every number in this flow names its rung.  The 13 × 13 grid
+reproduces the 9 × 9 the stage verdicts used, so these are not
+sampling-limited.
+
+Alongside, never inside, the wavefront table: coma (centroid-minus-chief)
+runs 0.11–5.33 µm, and the chief-ray mapping is **f·θ to −0.0075 %** —
+the traced EFL right to 75 ppm — with a 630 µm rms departure of which
+522 µm is genuinely nonlinear.
 
 ### S1 — the Korsch axial starting point
 
 A coaxial on-axis three-mirror anastigmat, solved jointly with its
-detector and scored on a uniform grid.  **Result over the 0.6° box:
-16.5 nm max RMS** at the best-focus + LS-tip/tilt rung, **27.7 nm at the
-centroid reference**, Strehl ≥ 0.958.  It hands stage 2 the residual the
-field bias will then spoil, and stage 2's collapse measurement is only
-attributable if that number is known and stable.
+detector.  **4.140 nm** (+LS tip/tilt) / 7.182 centroid, Strehl 0.9973 —
+11 % of the error budget, so what stage 2 then measures is attributable
+to the fold and the bias rather than to a sloppy start.
 
 Three gates run **before any wavefront number is believed**, ordered by
 what a failure would invalidate:
@@ -91,7 +119,8 @@ difference between them is the point:
 | 0.25° | 29.448 | 8.616 |
 | 0.30° | 57.913 | **16.457** |
 
-(max RMS over the box, +LS tip/tilt rung, 500 nm.)
+(max RMS over the box, +LS tip/tilt rung, 500 nm.)  **0.20° is the
+adopted point**; 0.30° was adopted first and then narrowed.
 
 **Re-solving is worth 3.5× at 0.30°** — the conics rebalance, and a design
 merely *re-scored* over a wider box understates what the architecture can
@@ -120,6 +149,43 @@ including chief passes with room (20.5 nm at chief, Strehl 0.936).
 leaves 31.7 nm for stages 2–4 rather than 35.7 — a 9 % reduction in the
 remaining budget for a 3× wider field, which is a good trade, but the
 off-axis stage now starts with much less room than it did.
+
+### S2 — the fold, and the clearance frontier
+
+The coaxial design's detector sits in its own beam.  Two knobs move it
+out — a fold with an M3 extraction tilt, and a field bias — and **both
+cost wavefront**: the tilt as ~tilt², the bias as ~bias^1.80 (measured).
+So clearance is swept on **geometry alone** (cheap), the
+**Pareto-minimal** clearing combinations are taken, and solves are spent
+only on those.  Two survive:
+
+| | max RMS |
+|---|---|
+| **tilt 0° + bias 13′** | **20.4 nm** |
+| tilt 2.50° + bias 0′ | 2600 nm |
+
+**Bias beats extraction tilt by two orders of magnitude here** — the
+reverse of the e2e VIS telescope, where the tilt won.  2.5° on a
+*powered* f/20 M3 is ruinous astigmatism; 13′ of bias is cheap.  The e2e
+lesson does not transfer between architectures, and only pricing the two
+together shows it.
+
+Clearance passes on M2's accepted central obscuration alone; AOI spread
+13.90° against the 15° bar.
+
+## The relay — parked, and why
+
+The telescope reaches the target **without a relay**, so the relay's job
+is to feed instruments rather than rescue the wavefront, and it should be
+designed to its own requirements.  Two attempts failed the same way — a
+relay scaled from another design instead of laid out for this one — and
+the second did it inside the branch adopted to avoid the first.  Full
+record, including the still-**untested** field-corrector hypothesis, in
+`relay_followon/README.md`.
+
+The one transferable number: **a relay is sized by the IMAGE it accepts,
+not by the aperture.**  image half-height = EFL·tan(half-field) — e2e
+0.042 m, e2e2 0.209 m at the adopted box (0.314 m at 0.6°).
 
 ## The design procedure — why the solves are staged this way
 
