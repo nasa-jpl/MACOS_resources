@@ -5,10 +5,14 @@
 Telescope flow complete; relay parked as follow-on. Eight commits, local
 on `MACOS_res_dev` `dev`, **not pushed**.
 
-**Engine.** `mmacos.mexa64` is byte-identical (md5 `1f14bd2c…`) to the
-`mmacos_FIXED.mexa64` preserved from the macos PR #70 A/B; the macos tree
-sits on `colsource-pupil-fix` `36a5f5a`. The PR #70 precondition the
-brief sets is therefore met without a rebuild.
+**Engine.** PR #70 is merged. `~/dev/macos` — the primary tree, which all
+durable wiring anchors on — is on `dev` `ba23d93`, and the mex is linked
+against its `build_release_gfortran`. The e2e2 numbers were originally
+produced against `36a5f5a` (the fix branch, before the merge); the delta
+to `ba23d93` is comment-only in `macos_f90/`, and this was **checked
+rather than assumed**: rebuilt, relinked, and re-scored, giving
+`tStrictKernel` 4/0, `tE2E2Axial` 7/0 and a **byte-identical**
+`s3_report.txt`.
 
 ---
 
