@@ -197,7 +197,10 @@ classdef tE2E2Axial < matlab.unittest.TestCase
                 t.add_mirror('M3','radius_m',S1.R(3),'conic',S1.K(3), ...
                              'spacing_after','derive');
                 t.add_focal_plane('FP','ap_r',P.fp_body_r);
-                t.set_hole('M1', P.M1_hole_m);
+                % the hole is MEASURED by the drivers now (floored at the
+                % secondary's shadow), so the test uses what stage 1
+                % actually declared rather than a retired constant
+                t.set_hole('M1', S1.r_hole);
                 if bias(i) > 0, t.set_field_bias(bias(i)); end
                 t.build();
                 g = pupil_gate('elt', 1, 'rtol', P.pupil_tol_rel, 'quiet', true);
