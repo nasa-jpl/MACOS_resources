@@ -108,12 +108,68 @@ fprintf('                        M3 Ydec %+8.4f mm / alpha %+8.5f deg\n', rg(2,:
 deckC = fullfile(exdir,'s2c_rigid.in');   tc.save(deckC);
 scC = score_(deckC, 'S2(c) RIGID -- conics + M2/M3 tilt/decenter, joint');
 
+%% -- [3d] (d) FREEFORM -- the lever the Rodgers DOF set does not have --
+% (a)-(c) ARE the Rodgers approach: conics + M2/M3 decenter/tilt + FPA,
+% his stage 2->3->4 sequence, and nothing else.  That DOF set was tuned
+% against a 0.2 deg box; this one is 0.6 deg, and the field and the bias
+% draw on the same wavefront budget.  The e2e telescope closed a
+% comparable gap with FREEFORM Zernike departures on the powered mirrors,
+% which the Rodgers set has no analogue for -- so the honest thing is to
+% try it and report what it is worth rather than assume either way.
+%
+% Doctrine (e2e README rules 5-7): per-mirror FIELD-ZONE lMon, fixed ONCE
+% before the solve; ONE Zernike type per mirror for the life of its
+% coefficients; and never hand CALIB a degenerate basis -- a deep basis on
+% a weak corrector sends the FD normal matrix singular and the engine
+% SIGSEGVs.  45 coefficients over 9 fields is exactly that risk, so this
+% is GUARDED: if it fails, (a)-(c) and the cost curve still stand and the
+% failure is reported instead of taking the stage down with it.
+scD = [];  rd = [];  lz = [];  ffmsg = 'not attempted';
+if P.freeform_stage
+    fprintf('\n[3d] (d) FREEFORM -- Zernike departures on the powered mirrors\n');
+    try
+        td = build_from_s1_(S1, P, BIAS);
+        fit_detector_(td, P, '(d)');
+        td.add_pupil();
+        td.optimize('fields', Fsolve, 'dofs', dofs, 'fpa_dofs', P.fpa_dofs, ...
+                    'max_iters', P.max_iters);            % re-reach (c)
+        pmd = powered_(td);
+        lz  = field_zone_lmon(td, pmd, Fsolve);
+        fprintf('    field-zone lMon = [%.3f %.3f %.3f] m, %d modes/mirror (%s)\n', ...
+                lz, numel(P.modes), P.ztype);
+        rd = td.optimize_freeform(pmd, 'modes', P.modes, 'type', P.ztype, ...
+                'fields', Fsolve, 'lmon', lz, 'max_iters', P.max_iters_ff);
+        fprintf('    joint field solve: worst %.4g -> %.4g waves\n', ...
+                max(rd.wfe_before)/LAM, max(rd.wfe_after)/LAM);
+        cmax = zeros(1,numel(pmd));
+        for j = 1:numel(pmd)
+            ff = td.spec.elt(pmd(j)).freeform;
+            cmax(j) = max(abs(ff.coef));
+        end
+        fprintf('    coefficient sanity: max|coef| = [%.2e %.2e %.2e] m\n', cmax);
+        if any(cmax > 1e-2)
+            warning('e2e2:s2:coef', ['metre/cm-scale Zernike coefficients -- ' ...
+                'the canceling-pair pathology; revisit lMon / staging.']);
+        end
+        deckD = fullfile(exdir,'s2d_freeform.in');   td.save(deckD);
+        scD = score_(deckD, 'S2(d) FREEFORM -- + Zernike departures, joint');
+        ffmsg = sprintf('%.3f nm', scD.uniform.max_m(P.score_rung)*1e9);
+    catch ME
+        ffmsg = sprintf('FAILED (%s)', ME.message);
+        fprintf(['    ** freeform stage failed: %s\n    (a)-(c) and the cost ' ...
+                 'curve are unaffected; reported, not swallowed)\n'], ME.message);
+    end
+end
+
 %% -- [4] what the three sub-stages actually say ------------------------
 r  = P.score_rung;
 tab = { 'stage 1 (on axis)',  S1.sc.uniform.max_m(r), S1.sc.uniform.max_m(2)
         '(a) collapse',       scA.uniform.max_m(r),   scA.uniform.max_m(2)
         '(b) conics',         scB.uniform.max_m(r),   scB.uniform.max_m(2)
         '(c) + rigid',        scC.uniform.max_m(r),   scC.uniform.max_m(2) };
+if ~isempty(scD)
+    tab(end+1,:) = { '(d) + freeform', scD.uniform.max_m(r), scD.uniform.max_m(2) };
+end
 fprintf('\n[4] the stage-2 story, max RMS over the used box:\n');
 fprintf('    %-20s %12s %12s %10s\n','', '+LStilt nm','centroid nm','x stage 1');
 for i = 1:size(tab,1)
@@ -131,12 +187,13 @@ fprintf(['    collapse %.1fx -> conics recover %.1fx of it -> rigid a further ' 
 % a program negotiating its offset actually needs.
 fprintf('\n[5] bias cost curve (the (c) recipe at each candidate, %dx%d scoring grid)\n', ...
         P.bias_curve_n, P.bias_curve_n);
-fprintf('    %10s %12s %12s %11s   %s\n', 'bias[arcmin]','max nm','avg nm', ...
-        'minStrehl','clears?');
+fprintf('    %10s %12s %12s %11s %10s   %s\n', 'bias[arcmin]','max nm','avg nm', ...
+        'minStrehl','hole r[m]','clears?');
 BS = P.bias_sweep_arcmin;
 cost = nan(numel(BS),3);   clr = false(1,numel(BS));   bad = cell(1,numel(BS));
+hole_r = nan(1,numel(BS));
 for i = 1:numel(BS)
-    ti = build_from_s1_(S1, P, BS(i));
+    [ti, hi] = build_from_s1_(S1, P, BS(i));
     ti.align_focal_plane('grid', 3, 'span_arcmin', P.fov_arcmin);   % seed
     ti.add_pupil();
     ti.optimize('fields', Fsolve, 'dofs', dofs, 'fpa_dofs', P.fpa_dofs, ...
@@ -153,8 +210,9 @@ for i = 1:numel(BS)
     rep = ti.check_clipping('noload', true, 'quiet', true);
     bd  = {rep(~[rep.ok]).name};
     bad{i} = bd;   clr(i) = all(ismember(bd, {'M2'}));
-    fprintf('    %10d %12.3f %12.3f %11.4f   %s\n', BS(i), cost(i,1)*1e9, ...
-            cost(i,2)*1e9, cost(i,3), clear_str_(clr(i), bd));
+    hole_r(i) = hi.r; %#ok<SAGROW>
+    fprintf('    %10d %12.3f %12.3f %11.4f %10.4f   %s\n', BS(i), cost(i,1)*1e9, ...
+            cost(i,2)*1e9, cost(i,3), hi.r, clear_str_(clr(i), bd));
     delete(di);
 end
 gb = polyfit(log(BS(:)), log(cost(:,1)), 1);
@@ -235,6 +293,7 @@ add = { ...
          scB.uniform.max_m(r)*1e9, scA.uniform.max_m(r)/scB.uniform.max_m(r))
  sprintf('   (c) + rigid    %9.3f nm  (a further %.2fx)', ...
          scC.uniform.max_m(r)*1e9, scB.uniform.max_m(r)/scC.uniform.max_m(r))
+ sprintf('   (d) + freeform %s  -- the lever the Rodgers DOF set lacks', ffmsg)
  sprintf('   conic<->rigid trade: (b) K = [%.6f %.6f %.6f]', Kb)
  sprintf('                        (c) K = [%.6f %.6f %.6f]', Kc)
  '          equal wavefront from different DOF magnitudes on one compensation'
@@ -255,7 +314,8 @@ fclose(fid);
 matfile = fullfile(exdir,'s2_offaxis.mat');
 tc.save_spec(matfile);
 save(matfile, 'P','BIAS','scA','scB','scC','Kb','Kc','rg','cost','BS', ...
-     'clr','gb','cxy','pt','rpt','Fsolve','-append');
+     'clr','gb','cxy','pt','rpt','Fsolve','hole_r','scD','rd','lz', ...
+     'ffmsg','-append');
 fprintf('    report: s2_report.txt   artifacts: s2{a,b,c}_*.in, s2_offaxis.mat\n');
 fprintf('\nStage 2 complete.  Next: s3_fold.m (fold the back end behind M1).\n');
 
@@ -318,7 +378,7 @@ function fa = fit_detector_(t, P, tag)
          'degenerate plane fit, not a pose.'], tag, fa.tilt_deg);
 end
 
-function t = build_from_s1_(S1, P, bias_arcmin)
+function [t, hole] = build_from_s1_(S1, P, bias_arcmin)
 %BUILD_FROM_S1_  Stage 1's SOLVED optics, rebuilt at a given field bias.
 %   The conics come from stage 1, so what changes between the sub-stages
 %   is only which DOFs the solve is allowed to touch -- and the bias.
@@ -332,9 +392,30 @@ function t = build_from_s1_(S1, P, bias_arcmin)
     t.add_mirror('M3','radius_m',S1.R(3),'conic',S1.K(3), ...
                  'spacing_after','derive');
     t.add_focal_plane('FP','ap_r',P.fp_body_r);
-    t.set_hole('M1', P.M1_hole_m);
+    t.set_hole('M1', P.M1_hole_m);      % provisional -- re-sized below
     t.set_field_bias(bias_arcmin);
     t.build();
+    % MEASURE THE HOLE AT THIS BIAS.  The returning beam both grows with
+    % the field and WALKS OFF THE VERTEX with the bias, so a hole
+    % inherited from the reference design stops containing it: at 60' this
+    % telescope needs 0.387 m against the inherited 0.308 m, and at 90'
+    % 0.590 m.  Declaring the inherited value made check_clipping report
+    % M1 in the beam from 60' upward and produced a "nothing clears"
+    % verdict that was entirely an artifact of the stale hole.  With the
+    % hole measured, M1 never obstructs and only the accepted M2 central
+    % obscuration remains.
+    [rh, hi] = through_hole_radius(t, 'elt', 1, ...
+            'margin', P.hole_margin, 'floor_m', P.M1_hole_m);
+    if isfinite(rh)
+        t.set_hole('M1', rh);
+        t.build('', 'init', false);
+    end
+    if nargout > 1, hole = struct('r', rh, 'info', hi); end
+end
+
+function pm = powered_(t)
+    e = t.spec.elt;
+    pm = find(arrayfun(@(x) strcmp(x.kind,'Reflector') && abs(x.Kr) < 1e21, e));
 end
 
 function K = conics_(t)

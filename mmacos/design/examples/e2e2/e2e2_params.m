@@ -73,9 +73,20 @@ P.int_focus_m   = +0.008116;  % intermediate-focus z (m).  POSITIVE and
                               % M1 vertex -- a near-telecentric Cassegrain,
                               % which is why the M1 hole is large.
 P.m3_behind_m   = 1.103412;   % M3 vertex z, behind the primary (m)
-P.M1_hole_m     = 0.308365;   % M1 central perforation SEMI-diameter (m)
-                              % = his CIR HOL 513.9423 mm x 3/5.  0.2056
-                              % linear obscuration, 4.23% of the area.
+% NOTE there is no M1 hole radius here any more, deliberately.  It is
+% MEASURED in the stage driver, with the SECONDARY'S SHADOW as its floor
+% (Dave 2026-08-01: "the hole should be the size of M2, since it shadows
+% M1") -- light inside that shadow never reaches the primary, so a hole
+% that fits inside it is free, and one sized beyond it spends real
+% aperture.  The reference design's scaled value, 0.308365 m, is 1.39x
+% THIS design's own shadow: declaring it threw away 4.2%% of the area
+% where 2.2%% was unavoidable, and it was too SMALL for the returning
+% beam past 60' of bias, which made check_clipping report the primary as
+% an obstruction and produced a "nothing clears" verdict that was purely
+% an artifact of the stale number.  Both errors, in opposite directions,
+% from one inherited constant.
+P.m2_body_margin = 1.05;      % M2 body radius / its measured footprint --
+                              % mirror plus mount.  Sets the hole floor.
 
 % ---- the first-order GATE (S1 stops here if these miss) -------------
 % His radii, scaled.  R1 and R2 are INPUTS above (via the f/# and the
@@ -122,14 +133,34 @@ P.fixture_tol   = 1e-6;      % conic mismatch bar on the shared TMA
 %
 %     offset / half-field = 0.5 deg / 0.1 deg = 5      (P.offset_ratio)
 %
-% so the 0.3 deg half-field above asks for a 1.5 deg offset.  S2 solves
-% there and S3's fold + M3 extraction tilt then sharpen it: the e2e VIS
-% lesson is that GEOMETRY buys clearance and bias only buys it at a
-% cost of ~bias^2, so expect the sharpened value to come back DOWN.
-P.offset_ratio = 5.0;       % offset / half-field; S2 derives the offset
-                            % from it and reports the number
-P.bias_sweep_arcmin = [30 60 90 120 150];  % 0.5 .. 2.5 deg, bracketing
-                            % the 90' (1.5 deg) proportional requirement
+% RETRACTED, and kept here as the record of why.  The measured price
+% curve refutes it: at the 0.6 deg box even 30' -- the reference design's
+% own offset -- reads 117 nm, 3.3x the bar, because the field and the
+% bias draw on the SAME wavefront budget and widening the field 3x spent
+% the room the offset needed.  The offset does NOT scale with the field;
+% it is set by what the fold leaves un-cleared.
+P.offset_ratio = [];        % (retired -- see above)
+P.bias_sweep_arcmin = [0 4 6 8 10 11 12 13 14 16 20 30];  % arcmin.
+                            % RESOLUTION MATTERS HERE, not just range: the
+                            % clearance frontier picks the LEAST clearing
+                            % bias, and at RMS ~ bias^1.80 the difference
+                            % between 10' and 14' is 32 nm vs 60 nm --
+                            % which side of the diffraction bar the design
+                            % lands on.  The sweep is geometry-only and
+                            % cheap, so sample it finely near the knee.
+                            % RANGE SET BY THE
+                            % MEASURED PRICE, not by proportion to the
+                            % field.  From RMS ~ bias^1.80 and the 31.7 nm
+                            % stage 1 leaves in quadrature, the affordable
+                            % bias is ~14'; e2e's folded design settled at
+                            % 0.59'.  The earlier 30-150' range priced a
+                            % bias no designer would choose.
+P.frontier_max_solves = 4;  % how many Pareto-minimal (tilt, bias)
+                            % clearing combinations stage 2 SOLVES.  The
+                            % frontier is found by geometry (cheap) and
+                            % priced by solving (not cheap); every
+                            % combination found is reported, only this
+                            % many are scored, and the runner says so.
 P.bias_curve_n = 5;         % scoring-grid density for the bias COST
                             % CURVE only.  The curve wants an exponent,
                             % not a headline, and a 5x5 costs a quarter
@@ -149,20 +180,29 @@ P.map_n            = 13;     % map sampling (13x13)
 P.center_move_min_arcmin = 0.15;  % re-solve only if the chief is farther
                              % than this off the measured centroid
 
-% ================= fold (S3) =========================================
+% ================= fold (S2 -- BEFORE the bias) ======================
+% ORDER (Dave 2026-08-01, "fold first"): geometry buys clearance for
+% free -- a flat fold is EXACTLY null to the wavefront -- while bias buys
+% it at bias^1.80 measured, and above ~30' at real aperture too.  So the
+% fold is stage 2 and the bias stage inherits only what it leaves.
 P.fold_frac      = 0.075;    % 90-deg fold station z, fraction of D behind
                              % M1: the M2->M3 feed turns into +x there, so
                              % M3 + image + FP sit on a bench BEHIND M1
-P.m3_tilt_deg    = 1.2;      % EXTRACTION TILT on M3 about the bench
-                             % normal: the M3->FP return leaves the feed
-                             % axis geometrically, so the fold clears
-                             % WITHOUT paying bias^2 for it
+P.m3_tilt_sweep_deg = [0 0.4 0.8 1.2 1.8 2.5 3.5];
+                             % EXTRACTION TILT candidates on M3.  The
+                             % driver takes the LEAST that clears at ZERO
+                             % bias: every degree is a small astigmatism
+                             % the solve then has to absorb, and it pushes
+                             % the AOI toward the 15 deg standing rule.
 P.fold_margin    = 1.15;     % fold body radius = margin x local feed radius
 P.fp_body_r      = 0.056;    % focal-plane body radius (m) for the
                              % clearance judge = 0.075 x 3/5
-P.hole_margin    = 1.3;      % hole radius = margin x measured through-beam
-                             % radius at the M1 plane; the DECLARED hole is
-                             % max(this, P.M1_hole_m)
+P.hole_margin    = 1.3;      % hole radius = margin x the MEASURED
+                             % through-beam radius at the M1 plane; the
+                             % declared hole is max(that, the measured
+                             % secondary shadow).  Both terms are measured
+                             % on the design being built -- see the note
+                             % where P.m2_body_margin is defined.
 P.aoi_max_deg    = 15;       % standing rule: angle of incidence bar at
                              % every powered surface
 
@@ -185,6 +225,14 @@ P.relay = struct( ...
                                  % engine does not)
 
 % ================= solve control =====================================
+P.freeform_stage = true;    % run stage 2's (d) FREEFORM sub-stage.  (a)-(c)
+                            % are the Rodgers DOF set -- conics + M2/M3
+                            % rigid + FPA -- which is what his study used
+                            % and what PLAN_TMA_E2E2 specifies.  It was
+                            % tuned against a 0.2 deg box; at 0.6 deg it
+                            % leaves a gap, and Zernike departures are the
+                            % lever it has no analogue for.  Guarded: a
+                            % failure is reported, not fatal.
 P.modes        = [3 4 5 9 10 11 12 13 19 20 21 22 23 24 25];
 P.ztype        = 'BornWolf';  % ONE Zernike type per mirror for the life
                               % of its coefficients (solve doctrine)
