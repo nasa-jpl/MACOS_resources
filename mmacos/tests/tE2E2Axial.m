@@ -42,15 +42,14 @@ classdef tE2E2Axial < matlab.unittest.TestCase
 
     properties (Constant)
         MODEL = 256
-        ANCHOR_MAX_NM = 25.0  % stage-1 residual bar over the used box,
-                              % rung 4.  At the 0.6 deg box the design
-                              % lands at 16.5 nm -- 46% of the 35.7 nm
-                              % diffraction bar, NOT the 1.8% it was at
-                              % 0.2 deg.  A wide field spends most of its
-                              % error budget at stage 1, which is a real
-                              % trade and not a defect; the bar is set
-                              % where a regression shows rather than where
-                              % the current number sits.
+        ANCHOR_MAX_NM = 10.0  % stage-1 residual bar over the used box,
+                              % rung 4.  Tracks the field: 0.638 nm at the
+                              % original 0.2 deg box, 16.5 at 0.6, and
+                              % 4.1 at the adopted 0.4 -- the field is the
+                              % dominant term in this number, so the bar
+                              % moves when P.fov_half_deg does.  Set where
+                              % a regression shows rather than where the
+                              % current value sits.
     end
 
     properties
