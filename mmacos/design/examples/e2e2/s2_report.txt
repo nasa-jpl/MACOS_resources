@@ -1,108 +1,88 @@
 ==================== DESIGN REPORT ====================
- family TMA | D = 3.000 m | lambda = 0.5 um | 6 elements
-   M1         R =    7.4145 m  K =  -1.00013  Vpt=[  0.000   0.000   0.000]
-   M2         R =    1.3208 m  K =  -2.01652  Vpt=[  0.000   0.015  -3.161]
-   M3         R =    1.6128 m  K =  -0.67273  Vpt=[  0.000   0.163   1.103]
-   FP_return  Return     (flat)        Vpt=[  0.000  -1.734  -1.961]
-   ExitPupil  R =    2.6214 m  K =  +0.00000  Vpt=[ -0.001  -0.047   0.046]
-   FP         FocalPlane (flat)        Vpt=[  0.000  -1.737  -1.734]
+ family TMA | D = 3.000 m | lambda = 0.5 um | 7 elements
+   M1         R =    7.4145 m  K =  -0.99333  Vpt=[  0.000   0.000   0.000]
+   M2         R =    1.3208 m  K =  -1.93162  Vpt=[  0.000   0.000  -3.161]
+   FM         Reflector  (flat)        Vpt=[  0.000   0.000   0.225]
+   M3         R =    1.6128 m  K =  -0.70276  Vpt=[  0.878   0.000   0.225]
+   FP_return  Return     (flat)        Vpt=[ -2.179  -0.227   0.225]
+   ExitPupil  R =    2.0988 m  K =  +0.00000  Vpt=[ -0.092  -0.000   0.225]
+   FP         FocalPlane (flat)        Vpt=[ -2.178  -0.227   0.225]
  -- first order --
-   EFL 83.05 m | f/# at M1 1.24 | f/# at FP 27.68
-   plate scale 402.6 um/arcsec | lambda/D 34.38 mas
+   EFL 60.31 m | f/# at M1 1.24 | f/# at FP 20.10
+   plate scale 292.4 um/arcsec | lambda/D 34.38 mas
  -- field performance (RMS WFE about the field center) --
-   bias +90.0' |    field       raw     -tilt    Strehl
-          center    83.978    79.320     0.002
-      4.50' ring    96.990    96.717     0.001
-      9.00' ring   107.286   106.649     0.000
-     18.00' ring   179.613   174.809     0.001
+   bias +13.0' |    field       raw     -tilt    Strehl
+          center     1.870     1.247     0.001
+      4.50' ring     2.365     1.865     0.000
+      9.00' ring     2.463     2.152     0.001
+     18.00' ring     2.156     2.131     0.001
    (Strehl = far-field peak / unaberrated-aperture peak, exact coherent sum over the
     EP-referenced OPD, tilt removed; worst ring point.  PSF products: INT at the FP.)
  -- focal plane --
-   FP tilt 38.344 deg wrt the arriving chief ray
+   FP tilt 6.103 deg wrt the arriving chief ray
  -- exit pupil (add_pupil / FEX) --
-   2.621 m from the image, at [ -0.001  -0.047   0.046] (elt 5)
+   2.099 m from the image, at [ -0.092  -0.000   0.225] (elt 6)
  -- packaging / clearance --
-   shroud 1.35 x D | train length 4.15 m
-   clearance: body-in-beam at M1, M2 (FP vs its own pupil-retrace legs excluded)
-   M1         AOI   1.4 deg (spread 12.7 deg across the beam)
-   M2         AOI   5.7 deg (spread 19.2 deg across the beam)
-   M3         AOI  18.5 deg (spread 2.9 deg across the beam)
+   shroud 1.46 x D | train length 3.48 m
+   clearance: body-in-beam at M2 (FP vs its own pupil-retrace legs excluded)
+   M1         AOI   0.2 deg (spread 11.4 deg across the beam)
+   M2         AOI   0.6 deg (spread 13.9 deg across the beam)
+   FM         AOI  45.0 deg (spread 7.9 deg across the beam)
+   M3         AOI   2.5 deg (spread 2.5 deg across the beam)
 =======================================================
----------------- S2(a) COLLAPSE -- frozen S1 at 90.0' bias ----------------
+---------------- S2 FOLD -- tilt 0.00 deg + bias 13' ----------------
   lambda 500 nm | used box scored on a UNIFORM 81-point grid
   rung                 max nm     avg nm  max waves  avg waves min Strehl
-  strict-chief      16993.133   9160.568    33.9863    18.3211     0.0000
-  strict-centroid   15547.039   8173.438    31.0941    16.3469     0.0000
-  +best focus       15100.336   8041.355    30.2007    16.0827     0.0000
-  +LS tip/tilt      14433.111   7559.176    28.8662    15.1184     0.0000   <- verdict
+  strict-chief        114.623     65.293     0.2292     0.1306     0.1159
+  strict-centroid      78.094     47.960     0.1562     0.0959     0.3638
+  +best focus          75.123     40.039     0.1502     0.0801     0.3968
+  +LS tip/tilt         56.571     26.810     0.1131     0.0536     0.5941   <- verdict
   the SOLVE set (8 points) for comparison -- sampling, not optics:
-  strict-chief      16993.133   9935.793
-  strict-centroid   15547.039   8927.918
-  +best focus       15100.336   8738.705
-  +LS tip/tilt      14433.111   8252.838
-  VERDICT at "+LS tip/tilt": RMS 14433.111 nm vs 35.714 nm bar -> FAIL;  Strehl 0.0000 vs 0.80 -> FAIL
+  strict-chief        114.623     75.103
+  strict-centroid      78.094     52.661
+  +best focus          75.123     48.856
+  +LS tip/tilt         56.571     34.664
+  VERDICT at "+LS tip/tilt": RMS 56.571 nm vs 35.714 nm bar -> FAIL;  Strehl 0.5941 vs 0.80 -> FAIL
 ------------------------------------------------------------------------
----------------- S2(b) CONICS re-solved at the bias ----------------
-  lambda 500 nm | used box scored on a UNIFORM 81-point grid
-  rung                 max nm     avg nm  max waves  avg waves min Strehl
-  strict-chief       3253.534   2053.197     6.5071     4.1064     0.0000
-  strict-centroid    2804.395   1800.191     5.6088     3.6004     0.0000
-  +best focus        2785.175   1791.542     5.5704     3.5831     0.0000
-  +LS tip/tilt       2546.611   1656.610     5.0932     3.3132     0.0000   <- verdict
-  the SOLVE set (8 points) for comparison -- sampling, not optics:
-  strict-chief       3253.534   2651.411
-  strict-centroid    2804.395   2295.886
-  +best focus        2785.175   2283.525
-  +LS tip/tilt       2546.611   2096.027
-  VERDICT at "+LS tip/tilt": RMS 2546.611 nm vs 35.714 nm bar -> FAIL;  Strehl 0.0000 vs 0.80 -> FAIL
-------------------------------------------------------------------------
----------------- S2(c) RIGID -- conics + M2/M3 tilt/decenter, joint ----------------
-  lambda 500 nm | used box scored on a UNIFORM 81-point grid
-  rung                 max nm     avg nm  max waves  avg waves min Strehl
-  strict-chief       1672.888    986.610     3.3458     1.9732     0.0004
-  strict-centroid    1130.112    673.453     2.2602     1.3469     0.0001
-  +best focus        1127.503    664.557     2.2550     1.3291     0.0000
-  +LS tip/tilt        702.092    424.510     1.4042     0.8490     0.0001   <- verdict
-  the SOLVE set (8 points) for comparison -- sampling, not optics:
-  strict-chief       1672.888   1365.653
-  strict-centroid    1130.112    900.435
-  +best focus        1127.503    890.237
-  +LS tip/tilt        702.092    561.432
-  VERDICT at "+LS tip/tilt": RMS 702.092 nm vs 35.714 nm bar -> FAIL;  Strehl 0.0001 vs 0.80 -> FAIL
-------------------------------------------------------------------------
----------------- S2 OFF-AXIS -- PARAMETER PROVENANCE (delta vs stage 1) ----------------
+---------------- S2 FOLD -- PARAMETER PROVENANCE (delta vs stage 1) ----------------
 element     kind              Kr [m]           Kc             Vpt (x,y,z) [m] tilt[deg]   ap_r[m]  provenance
-M1          Reflector      -7.414512    -1.000126    0.0000   0.0000   0.0000    0.0000    1.6500  derived(tma+seidel)
-M2          Reflector      -1.320820    -2.016521    0.0000   0.0146  -3.1607   -1.4196    1.5000  derived(tma+seidel)
-M3          Reflector      -1.612788    -0.672735    0.0000   0.1627   1.1034   -5.4946    1.5000  derived(tma+seidel)
-FP_return   Return              flat     0.000000    0.0000  -1.7336  -1.9612  150.5038    1.6500  derived(add_pupil)
-ExitPupil   Return         -2.621376     0.000000   -0.0005  -0.0471   0.0457  -40.0426    1.6500  derived(fex)
-FP          FocalPlane          flat     0.000000    0.0000  -1.7371  -1.7339   -8.8260    0.0560  derived(tma)
+M1          Reflector      -7.414512    -0.993329    0.0000   0.0000   0.0000    0.0000    1.6500  derived(tma+seidel)
+M2          Reflector      -1.320820    -1.931620    0.0000   0.0000  -3.1607    0.0000    1.5000  derived(tma+seidel)
+FM          Reflector           flat     0.000000    0.0000   0.0000   0.2250   -0.0000    0.0174  derived(fold)
+M3          Reflector      -1.612788    -0.702756    0.8784   0.0000   0.2250    0.0000    1.5000  derived(tma+seidel)
+FP_return   Return              flat     0.000000   -2.1788  -0.2273   0.2250   90.0000    1.6500  derived(add_pupil)
+ExitPupil   Return         -2.098807     0.000000   -0.0923  -0.0001   0.2250  -90.0027    1.6500  derived(fex)
+FP          FocalPlane          flat     0.000000   -2.1777  -0.2273   0.2250  -90.0000    0.0560  derived(tma)
 
 delta vs prev           dKc       dKr [m]            dVpt (x,y,z) [mm]  dtilt [deg]
-M1             -6.988e-03     0.000e+00    0.0000   0.0000   0.0000      0.00000
-M2             -8.728e-02     0.000e+00    0.0000  14.5535   0.0000     -1.41964
-M3              3.256e-02     0.000e+00    0.0000 162.6721   0.0000     -5.49459
-FP_return       0.000e+00     0.000e+00    0.0000 -1733.5885  -7.3460    330.50375
-ExitPupil       0.000e+00    -5.327e-01   -0.5235 -47.1075 -89.1450    -40.04261
-FP              0.000e+00     0.000e+00    0.0000 -1737.0957 219.4166     -8.82597
+M1             -1.920e-04     0.000e+00    0.0000   0.0000   0.0000      0.00000
+M2             -2.383e-03     0.000e+00    0.0000   0.0000   0.0000      0.00000
+FM            (new this stage)
+M3              2.569e-03     0.000e+00  878.4120   0.0000 -878.4120      0.00000
+FP_return       0.000e+00     0.000e+00  -2178.8177 -227.3358 2178.8177    270.00000
+ExitPupil       0.000e+00    -1.017e-02  -92.3442  -0.1416  90.1699    -90.00275
+FP              0.000e+00     0.000e+00  -2177.6776 -227.3358 2178.3392    -90.00000
 
-focal plane: beam AOI 38.3435 deg (arriving CHIEF vs the detector normal -- FPA acceptance)
-             mechanical 8.8260 deg (detector normal vs the OPTICAL AXIS -- the mount)
-HELD this stage: R1,R2,R3 (first-order layout), t12,t23 (spacings), M1 hole radius, M1 pose (it is the stop)
+focal plane: beam AOI 6.1026 deg (arriving CHIEF vs the detector normal -- FPA acceptance)
+             mechanical 90.0000 deg (detector normal vs the OPTICAL AXIS -- the mount)
+HELD this stage: R1,R2,R3 (first-order layout), t12,t23 (spacings), field bias (ZERO at this stage -- geometry, not bias)
 ------------------------------------------------------------------------
- -- stage-2 addendum --
-   bias 90.0' (1.500 deg) = P.offset_ratio 5.00 x the 0.300 deg half-field,
-          a REQUIREMENT priced by [5] and sharpened by the fold in stage 3
-   pupil gate: 0.997696 x semi, 0 rays outside (saved deck 0.997696 x, 0)
-   (a) collapse   14433.111 nm  (877.0x stage 1)
-   (b) conics      2546.611 nm  (recovers 5.7x of the collapse)
-   (c) + rigid      702.092 nm  (a further 3.63x)
-   conic<->rigid trade: (b) K = [-0.996723 -1.979602 -0.664133]
-                        (c) K = [-1.000126 -2.016521 -0.672735]
-          equal wavefront from different DOF magnitudes on one compensation
-          branch is a PROPERTY of the joint solve, not a disagreement
-   measured cost of bias: RMS ~ bias^1.80 over 30'..150'
-   good-region centroid: (NaN, NaN)' -- stage 3 acts on it
-   budget: stage 1 left 31.7 nm in quadrature; (c) uses 702.1 nm of it
+ -- stage-2 addendum: geometry before bias --
+   fold: 90 deg into +x, 0.225 m behind M1
+   winner on the clearance frontier: extraction tilt 0.00 deg + bias 13'
+          tilt costs ~tilt^2 (astigmatism on a powered M3), bias costs ~bias^1.80;
+          searched together because a 1-D sweep of either finds a bad point --
+          tilt alone needs 2.50 deg at zero bias and lands at 13.4 waves
+   clears (M2 central obscuration only): YES
+   M1 hole 0.2331 m (0.1554 linear, 2.41% of the area)
+          floor = the 0.2331 m SECONDARY SHADOW, measured on this design;
+          the return beam itself needs only 0.0816 m at zero bias
+   max AOI SPREAD 13.90 deg at a powered surface (bar 15.0) -- PASS
+          the flat fold runs at 45 deg by construction and is excluded: it is
+          aberration-free there, and an absolute bar over all mirrors reports it
+   pupil gate 0.997696 x semi, 0 rays outside (saved deck 0.997696 x, 0)
+   score, +LStilt       56.571 nm  (stage 1: 16.689 nm)
+   score, centroid      78.094 nm  (stage 1: 27.317 nm)
+          a flat fold is EXACTLY null to the wavefront; any change here is the
+          hole and the extraction tilt, not the fold
 =======================================================

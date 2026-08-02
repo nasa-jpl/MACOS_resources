@@ -2,7 +2,7 @@
  family TMA | D = 3.000 m | lambda = 0.5 um | 6 elements
    M1         R =    7.4145 m  K =  -0.99314  Vpt=[  0.000   0.000   0.000]
    M2         R =    1.3208 m  K =  -1.92924  Vpt=[  0.000   0.000  -3.161]
-   M3         R =    1.6128 m  K =  -0.70529  Vpt=[  0.000   0.000   1.103]
+   M3         R =    1.6128 m  K =  -0.70533  Vpt=[  0.000   0.000   1.103]
    FP_return  Return     (flat)        Vpt=[  0.000   0.000  -1.954]
    ExitPupil  R =    2.0886 m  K =  +0.00000  Vpt=[  0.000  -0.000   0.135]
    FP         FocalPlane (flat)        Vpt=[  0.000   0.000  -1.953]
@@ -12,9 +12,9 @@
  -- field performance (RMS WFE about the field center) --
    bias +0.0' |    field       raw     -tilt    Strehl
           center     0.029     0.029     0.968
-      4.50' ring     0.286     0.106     0.647
-      9.00' ring     0.543     0.363     0.032
-     18.00' ring     0.734     0.729     0.009
+      4.50' ring     0.281     0.107     0.643
+      9.00' ring     0.538     0.365     0.030
+     18.00' ring     0.737     0.732     0.009
    (Strehl = far-field peak / unaberrated-aperture peak, exact coherent sum over the
     EP-referenced OPD, tilt removed; worst ring point.  PSF products: INT at the FP.)
  -- focal plane --
@@ -31,29 +31,29 @@
 ---------------- S1 AXIAL -- FIELD SCORE ----------------
   lambda 500 nm | used box scored on a UNIFORM 81-point grid
   rung                 max nm     avg nm  max waves  avg waves min Strehl
-  strict-chief         37.254     27.875     0.0745     0.0558     0.8031
-  strict-centroid      27.735     21.238     0.0555     0.0425     0.8846
-  +best focus          23.491     17.638     0.0470     0.0353     0.9159
-  +LS tip/tilt         16.457     10.392     0.0329     0.0208     0.9580   <- verdict
+  strict-chief         37.025     27.741     0.0741     0.0555     0.8054
+  strict-centroid      27.317     20.818     0.0546     0.0416     0.8879
+  +best focus          22.641     17.057     0.0453     0.0341     0.9217
+  +LS tip/tilt         16.689     10.335     0.0334     0.0207     0.9569   <- verdict
   the SOLVE set (8 points) for comparison -- sampling, not optics:
-  strict-chief         30.953     28.967
-  strict-centroid      22.474     21.011
-  +best focus          19.791     19.380
-  +LS tip/tilt         16.457     13.555
-  VERDICT at "+LS tip/tilt": RMS 16.457 nm vs 35.714 nm bar -> PASS;  Strehl 0.9580 vs 0.80 -> PASS
+  strict-chief         30.979     28.845
+  strict-centroid      22.434     20.654
+  +best focus          19.663     18.959
+  +LS tip/tilt         16.689     13.595
+  VERDICT at "+LS tip/tilt": RMS 16.689 nm vs 35.714 nm bar -> PASS;  Strehl 0.9569 vs 0.80 -> PASS
 ------------------------------------------------------------------------
 ---------------- S1 AXIAL -- PARAMETER PROVENANCE ----------------
 element     kind              Kr [m]           Kc             Vpt (x,y,z) [m] tilt[deg]   ap_r[m]  provenance
-M1          Reflector      -7.414512    -0.993138    0.0000   0.0000   0.0000    0.0000    1.6500  derived(tma+seidel)
-M2          Reflector      -1.320820    -1.929244    0.0000   0.0000  -3.1607    0.0000    1.5000  derived(tma+seidel)
-M3          Reflector      -1.612788    -0.705294    0.0000   0.0000   1.1034    0.0000    1.5000  derived(tma+seidel)
+M1          Reflector      -7.414512    -0.993137    0.0000   0.0000   0.0000    0.0000    1.6500  derived(tma+seidel)
+M2          Reflector      -1.320820    -1.929237    0.0000   0.0000  -3.1607    0.0000    1.5000  derived(tma+seidel)
+M3          Reflector      -1.612788    -0.705325    0.0000   0.0000   1.1034    0.0000    1.5000  derived(tma+seidel)
 FP_return   Return              flat     0.000000    0.0000   0.0000  -1.9538 -180.0000    1.6500  derived(add_pupil)
-ExitPupil   Return         -2.088636     0.000000    0.0000  -0.0000   0.1348    0.0000    1.6500  derived(fex)
-FP          FocalPlane          flat     0.000000    0.0000   0.0000  -1.9533   -0.0000    0.0560  derived(tma)
+ExitPupil   Return         -2.088637     0.000000    0.0000  -0.0000   0.1348    0.0000    1.6500  derived(fex)
+FP          FocalPlane          flat     0.000000    0.0000   0.0000  -1.9533    0.0000    0.0560  derived(tma)
 
 focal plane: beam AOI 0.0000 deg (arriving CHIEF vs the detector normal -- FPA acceptance)
              mechanical 0.0000 deg (detector normal vs the OPTICAL AXIS -- the mount)
-HELD this stage: R1,R2,R3 (first-order layout), t12,t23 (spacings), M1 hole radius, all rigid-body poses (coaxial)
+HELD this stage: R1,R2,R3 (first-order layout), t12,t23 (spacings), all rigid-body poses (coaxial)
 ------------------------------------------------------------------------
  -- stage-1 addendum: gates, provenance, and what this stage is --
    design point: D 3.000 m | primary f/1.2358 | system f/20 | m2 5.798319 | 500 nm
@@ -61,16 +61,16 @@ HELD this stage: R1,R2,R3 (first-order layout), t12,t23 (spacings), M1 hole radi
    GATE 2 derived R3 vs the reference f/#-constrained solve: 2.38e-06 rel (bar 2e-03) PASS
    GATE 3 pupil: r_max 0.997696 x semi, chord 0.997696 x Aperture, 0 rays outside -- PASS
           (re-checked on the SAVED deck: 0.997696 x semi, 0 outside)
-   detector: builder placed it at z -1.953818 m; the joint solve moved it 0.4829 mm
-   FP_return is frozen at the pre-solve station, so it trails the detector by that 482.9 um
+   detector: builder placed it at z -1.953818 m; the joint solve moved it 0.4785 mm
+   FP_return is frozen at the pre-solve station, so it trails the detector by that 478.5 um
             -- 2.3e-04 of the 2.089 m exit-pupil radius, and the reason the deck-level
             gate is a bar and not an equality (tE2E2Axial)
-   conic cross-check vs the reference design: |dK| = [2.14e-04 2.78e-03 1.92e-03] (reported, not gated)
+   conic cross-check vs the reference design: |dK| = [2.13e-04 2.77e-03 1.89e-03] (reported, not gated)
    first order: paraxial EFL 60.000 m (f/20.000) | TRACED EFL 59.986 m (f/19.995)
    solve: JOINT, 8 explicit FoV + implicit on-axis, conics + FPA(tip,focus) in ONE DOF set
-   conics reached K = [-0.993138009 -1.929243949 -0.705293633]
+   conics reached K = [-0.993137417 -1.929236781 -0.705325258]
    scoring: UNIFORM 9x9 grid over the +-0.3 deg box; the 8-point solve set is
             reported alongside ONLY to show what the optimizer saw
    what stage 2 receives: an axial anastigmat whose residual over the box is
-            27.735 nm max at the centroid reference -- the number the field bias will spoil
+            27.317 nm max at the centroid reference -- the number the field bias will spoil
 =======================================================

@@ -103,8 +103,7 @@ fprintf(['    NOTE the paraxial seeder only PLACES the focal plane; it is ' ...
 %% -- [3] build the axial telescope, and gate the pupil -----------------
 t  = build_axial_(R, tsp, P);
 pm = powered_(t);
-fprintf('\n[3] built: %d elements, M1 hole r = %.4f m (%.4f linear obscuration)\n', ...
-        numel(t.spec.elt), P.M1_hole_m, 2*P.M1_hole_m/D);
+fprintf('\n[3] built: %d elements\n', numel(t.spec.elt));
 g0 = pupil_gate('elt', 1, 'rtol', P.pupil_tol_rel);
 assert(g0.ok, 'e2e2:s1:pupil', 'PUPIL GATE FAILED: %s', g0.msg);
 
@@ -147,6 +146,28 @@ r4a = t.optimize('fields_arcmin', [], 'dofs', P.dofs_conic, ...
                  'max_iters', P.max_iters);
 fprintf('    [4a] on-axis conic seed: %.4g -> %.4g waves; z held  = %+10.6f\n', ...
         max(r4a.wfe_before)/LAM, max(r4a.wfe_after)/LAM, fpz());
+
+% THE HOLE IS MEASURED, NOT INHERITED, and measured on the SOLVED design.
+% Both halves matter.  Inherited: the reference geometry's scaled value is
+% 1.39x this design's own secondary shadow, so declaring it threw away
+% 4.2% of the area where 1.9% was unavoidable -- and it was simultaneously
+% too SMALL for the returning beam once the field is biased, which made
+% check_clipping report the primary as an obstruction.  One stale constant,
+% both errors, in opposite directions.
+% Solved: measured on the K = 0 spherical seed instead, M2's footprint
+% reads 0.195 m against 0.222 m on the solved conics -- a 14% error in the
+% shadow, and the shadow is the hole's floor.
+r_m2 = footprint_radius(t, 2, 'margin', P.m2_body_margin);
+[r_hole, hinfo] = through_hole_radius(t, 'elt', 1, ...
+        'margin', P.hole_margin, 'floor_m', r_m2);
+if isfinite(r_hole)
+    t.set_hole('M1', r_hole);
+    t.build('', 'init', false);
+end
+fprintf(['    M1 hole r = %.4f m = max(%.2f x the %.4f m measured return-beam\n' ...
+         '         crossing, the %.4f m measured SECONDARY SHADOW) -> %.4f ' ...
+         'linear, %.2f%% of the area\n'], r_hole, P.hole_margin, hinfo.r_raw, ...
+        r_m2, 2*r_hole/D, 100*(2*r_hole/D)^2);
 
 % [4b] the exit pupil, derived from a detector that is already correct
 t.add_pupil();
@@ -234,7 +255,7 @@ catch ME, fprintf('    field map skipped (%s)\n', ME.message); end
 %% -- [7] the parameter-provenance table --------------------------------
 pt = param_table(t, 'title', 'S1 AXIAL -- PARAMETER PROVENANCE', ...
      'held', {'R1,R2,R3 (first-order layout)', 't12,t23 (spacings)', ...
-              'M1 hole radius', 'all rigid-body poses (coaxial)'});
+              'all rigid-body poses (coaxial)'});
 
 %% -- [8] the design report ---------------------------------------------
 fprintf('\n[8] design report:\n');
@@ -280,8 +301,9 @@ fprintf(fid, '%s%s%s%s', rpt.text, sc.text, pt.text, addtxt);  fclose(fid);
 fprintf('    report: s1_report.txt\n');
 
 save(matfile, 'P','R','tsp','lay','K','res','r4a','sc','pt','rpt','pm', ...
-     'Fsolve','g0','dK','dR','dKr','z_build','fp_move_mm','ep_radius','-append');
-fprintf('\nStage 1 complete.  Next: s2_offaxis.m (take the field off the axis).\n');
+     'Fsolve','g0','dK','dR','dKr','z_build','fp_move_mm','ep_radius', ...
+     'r_hole','hinfo','r_m2','-append');
+fprintf('\nStage 1 complete.  Next: s2_fold.m (fold the back end behind M1).\n');
 
 % ---- helpers --------------------------------------------------------
 function t = build_axial_(R, tsp, P)
@@ -297,8 +319,7 @@ function t = build_axial_(R, tsp, P)
     t.add_mirror('M2','radius_m',R(2),'spacing_after_m',tsp(2),'convex',true);
     t.add_mirror('M3','radius_m',R(3),'spacing_after','derive');
     t.add_focal_plane('FP','ap_r',P.fp_body_r);
-    t.set_hole('M1', P.M1_hole_m);
-    t.build();
+    t.build();                          % [3] measures and declares the hole
 end
 
 function pm = powered_(t)
