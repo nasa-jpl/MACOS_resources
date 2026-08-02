@@ -130,6 +130,10 @@ P.offset_ratio = 5.0;       % offset / half-field; S2 derives the offset
                             % from it and reports the number
 P.bias_sweep_arcmin = [30 60 90 120 150];  % 0.5 .. 2.5 deg, bracketing
                             % the 90' (1.5 deg) proportional requirement
+P.bias_curve_n = 5;         % scoring-grid density for the bias COST
+                            % CURVE only.  The curve wants an exponent,
+                            % not a headline, and a 5x5 costs a quarter
+                            % of the 9x9 the stage verdict uses.
 P.field_center = "auto";     % "auto": after the pass-1 solve, map the WFE
                              % over a patch wider than the science box,
                              % take the centroid of the good region, and

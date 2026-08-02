@@ -168,6 +168,52 @@ classdef tE2E2Axial < matlab.unittest.TestCase
                  'in the DOF set']);
         end
 
+        function test_pupil_gate_is_bias_invariant(tc)
+        %  A COLLIMATED source lays its lattice down perpendicular to its
+        %  own chief direction, so the traced pupil cannot depend on where
+        %  the telescope is pointed.  Any bias dependence is the
+        %  MEASUREMENT leaking, not the engine.
+        %
+        %  This caught a real one.  pupil_gate projected ray offsets along
+        %  get_ray_info's .dir at the measured element -- the OUTGOING
+        %  direction, which is neither the travel direction nor common to
+        %  all rays.  On axis that is accidentally exact (outgoing chief
+        %  antiparallel to the axis, sag along the axis), so it read
+        %  perfectly until stage 2 biased the field: at 1.5 deg it reported
+        %  1.0025 x the declared semi-diameter and failed its own gate.
+        %  0.1517 m of M1 rim sag times sin(1.5 deg) is 0.0040 m against the
+        %  0.0037 m excess -- the whole discrepancy, and the engine's pupil
+        %  was right.  Projecting along the INCOMING chief removes it.
+            P = tc.P;   S1 = load(fullfile(tc.exdir,'s1_axial.mat'));
+            bias = [0 30 90 150];
+            r = nan(size(bias));   nout = nan(size(bias));
+            for i = 1:numel(bias)
+                t = macos.design.Telescope('family','TMA', ...
+                        'aperture_diameter_m', P.D_m, 'wavelength_m', P.lambda_m, ...
+                        'model_size', tc.MODEL, 'grid_npts', P.grid_npts);
+                t.add_mirror('M1','radius_m',S1.R(1),'conic',S1.K(1), ...
+                             'spacing_after_m',S1.tsp(1));
+                t.add_mirror('M2','radius_m',S1.R(2),'conic',S1.K(2), ...
+                             'spacing_after_m',S1.tsp(2),'convex',true);
+                t.add_mirror('M3','radius_m',S1.R(3),'conic',S1.K(3), ...
+                             'spacing_after','derive');
+                t.add_focal_plane('FP','ap_r',P.fp_body_r);
+                t.set_hole('M1', P.M1_hole_m);
+                if bias(i) > 0, t.set_field_bias(bias(i)); end
+                t.build();
+                g = pupil_gate('elt', 1, 'rtol', P.pupil_tol_rel, 'quiet', true);
+                r(i) = g.r_ratio;   nout(i) = g.n_outside;
+            end
+            tc.verifyEqual(r, repmat(r(1), size(r)), 'AbsTol', 1e-12, sprintf( ...
+                ['the traced pupil moved with the field bias (%s) -- a ' ...
+                 'collimated lattice cannot do that, so the measurement is ' ...
+                 'projecting along the wrong axis'], mat2str(r,8)));
+            tc.verifyEqual(nout, zeros(size(nout)), ...
+                'rays outside the declared pupil at some bias');
+            tc.verifyLessThanOrEqual(r(1), 1 + P.pupil_tol_rel, ...
+                'the traced pupil exceeds the declared aperture');
+        end
+
         function test_stage1_is_a_negligible_anchor(tc)
         %  (4) stage 2 measures a COLLAPSE against this; it has to be small
         %  enough that the collapse is attributable to the field bias.

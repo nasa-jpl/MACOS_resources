@@ -48,6 +48,25 @@ function g = pupil_gate(opts)
 %   obscurations clear ok_pass downstream of the source grid and would
 %   mask the very thing under test.
 %
+%   PROJECT ALONG THE INCOMING CHIEF, NOT THE OUTGOING ONE.  The rays land
+%   on a CURVED surface, so their intersection points are not coplanar --
+%   a rim ray sits a full sag deeper than the vertex.  A collimated bundle
+%   travels along one direction u, so the offsets transverse to u ARE the
+%   source lattice exactly, whatever the surface does: the sag displaces
+%   each ray purely along u and the projection removes it.  Project along
+%   anything else and the sag leaks in.
+%
+%   `get_ray_info`'s .dir at the measured element is the OUTGOING
+%   direction, which is neither u nor common to all rays, and using it
+%   silently reads the sag as pupil.  It happens to be exact on axis --
+%   there the outgoing chief is antiparallel to the axis and the sag is
+%   along the axis -- so the error only appears once the field is biased.
+%   Measured on the e2e2 TMA at a 1.5 deg bias: 1.0025 x the declared
+%   semi-diameter, and 0.1517 m of rim sag times sin(1.5 deg) is 0.0040 m
+%   against the 0.0037 m excess.  That is the whole discrepancy, and the
+%   engine's pupil was correct.  So the direction comes from
+%   macos.get_src_fov, the source's own chief direction.
+%
 %   See also tests/tPupilAperture.m (the regression class this shares its
 %   measurement with), design/rodgers1/pupil_audit.m (the five-way
 %   diagnostic).
@@ -69,9 +88,9 @@ function g = pupil_gate(opts)
     macos.trace(opts.elt);
     rm = macos.get_ray_info(n);
 
-    % transverse to the chief ray, about the chief's own intercept
-    pm   = rm.pos - rm.pos(:,1);
-    d    = rm.dir(:,1);   d = d/norm(d);
+    % transverse to the INCOMING chief, about the chief's own intercept
+    pm = rm.pos - rm.pos(:,1);
+    d  = incoming_chief_();
     perp = pm - d*(d.'*pm);
     ok   = logical(rm.ok_trace(:));
     rho  = sqrt(sum(perp.^2,1)).';
@@ -125,6 +144,20 @@ function Ap = declared_aperture_()
                'explicitly with ''aperture''.']);
     end
     Ap = s.aperture;
+end
+
+function d = incoming_chief_()
+%INCOMING_CHIEF_  The source's chief-ray direction -- the axis a collimated
+%   bundle actually travels along.  See the PROJECT ALONG note above for
+%   why get_ray_info's outgoing .dir is the wrong axis here.
+    f = macos.get_src_fov();
+    d = f.src_dir(:);
+    n = norm(d);
+    if ~(isfinite(n) && n > 0)
+        error('macos:design:pupil_gate:chief', ...
+              'the engine reports no usable source direction.');
+    end
+    d = d/n;
 end
 
 function s = tern_(c,a,b), if c, s = a; else, s = b; end, end
