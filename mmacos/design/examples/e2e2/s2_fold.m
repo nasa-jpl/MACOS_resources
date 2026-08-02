@@ -49,6 +49,10 @@ fprintf('====================================================================\n'
 
 Fsolve = macos.design.field_grid(P.fov_arcmin, P.solve_n, 'units','arcmin', ...
                                  'origin', false);
+% The SVD freeform engine has NO FoV cap, unlike CALIB's 12 -- so it gets
+% a dense grid, which is the whole point of using it (rule 7: more field
+% points smooth the OPD between the solve samples).
+Fdense = macos.design.field_grid(P.fov_arcmin, P.ff_field_n, 'units','arcmin');
 
 %% -- [1] where can a fold live? ----------------------------------------
 % Run on the UNFOLDED design: the report scans the leg INTO and the leg
@@ -144,39 +148,128 @@ else
     sel = 1:size(front,1);
 end
 
-%% -- [4] score the frontier, solve by solve, and take the measured best -
-fprintf('\n[4] solving and scoring %d frontier combinations\n', numel(sel));
-fprintf('    %8s %8s %11s %11s %10s %9s\n', 'tilt','bias''','max nm', ...
-        'centroid nm','minStrehl','AOI sprd');
+%% -- [4] score EVERY frontier branch, under BOTH DOF sets ---------------
+% DO NOT PRUNE THE FRONTIER ON A CONIC-ONLY SOLVE.  The two branches fail
+% in DIFFERENT WAYS -- the tilt branch's cost is astigmatism from a tilted
+% powered mirror, the bias branch's is off-axis aberration -- and Zernike
+% departures are far better at the first than the second.  Ranking them
+% with conics alone is ranking them under a DOF set that suits one of
+% them, which is the same error the "solve AT the target field" rule
+% warns about, one level up: solve AT the DOF SET the design will
+% actually have.  (Dave 2026-08-01: "a choice worth exploring on both
+% paths.")  So every Pareto branch is carried through both solves and the
+% winner is taken on the FULLER one.
+%
+% THE FREEFORM LEG USES THE SVD ENGINE, NOT CALIB, AND ON A DENSE FIELD
+% GRID.  This is e2e README rule 7, and it was learned here the hard way:
+% handing CALIB 45 coefficients against the 8-point SOLVE set fits those
+% eight samples and degrades between them, so the uniform 81-point score
+% got WORSE -- 56.6 nm -> 127.6 nm on the bias branch -- while the merit
+% improved.  Textbook overfitting, and the rule already said so: "NEVER
+% give CALIB a degenerate basis... the SVD engine has no FOV cap; more
+% field points smooth the OPD between solve samples."  zern_jacobian_solve
+% also projects per-field piston and tip/tilt out of both the residual and
+% the Jacobian, so the gauge directions vanish rather than wandering, and
+% it prints its singular-value spectrum, so degeneracy is VISIBLE instead
+% of showing up as metre-scale canceling coefficients.
+%
+% Guarded anyway: a failure is reported and the branch falls back to its
+% conic score rather than losing the stage.
+fprintf('\n[4] solving each frontier branch under BOTH DOF sets\n');
+fprintf('    %8s %8s | %11s %10s | %11s %10s %s\n', 'tilt','bias''', ...
+        'conic nm','Strehl','freeform nm','Strehl','note');
 best = struct('score', inf);
-FR = struct('tilt',{},'bias',{},'max_m',{},'cen_m',{},'strehl',{},'aoi',{});
+FR = struct('tilt',{},'bias',{},'max_conic',{},'max_ff',{},'strehl_conic',{}, ...
+            'strehl_ff',{},'aoi',{},'ffnote',{},'lmon',{},'cmax',{});
 for a = 1:numel(sel)
     tt = front(sel(a),1);   bb = front(sel(a),2);
-    [ta, rha, hia] = build_(S1, P, bb, tt, r_m2);
+    [ta, rha, hia] = build_(S1, P, bb, tt, r_m2); %#ok<ASGLU>
     ta.add_pupil();
-    ra = ta.optimize('fields', Fsolve, 'dofs', P.dofs_conic, ...
-                     'fpa_dofs', P.fpa_dofs, 'max_iters', P.max_iters);
-    da = fullfile(exdir, sprintf('s2_fr_t%03.0f_b%03.0f.in', tt*100, bb));
-    ta.save(da);
-    sa = stage_score(da, 'lambda', LAM, 'fov_half_deg', h, ...
-            'n', P.bias_curve_n, 'rung', P.score_rung, 'dl_waves', P.dl_waves, ...
-            'strehl_min', P.strehl_min, 'quiet', true, 'title', 'frontier');
-    aoia = powered_aoi_spread_(ta);
-    FR(a) = struct('tilt',tt,'bias',bb,'max_m',sa.uniform.max_m(P.score_rung), ...
-                   'cen_m',sa.uniform.max_m(2),'strehl',sa.uniform.strehl_min(P.score_rung), ...
-                   'aoi',aoia);
-    fprintf('    %8.2f %8g %11.3f %11.3f %10.4f %9.2f\n', tt, bb, ...
-            FR(a).max_m*1e9, FR(a).cen_m*1e9, FR(a).strehl, aoia);
-    if FR(a).max_m < best.score
-        best = struct('score',FR(a).max_m,'tilt',tt,'bias',bb,'deck',da, ...
-                      'res',ra,'hole',rha,'hinfo',hia);
+    ta.optimize('fields', Fsolve, 'dofs', P.dofs_conic, ...
+                'fpa_dofs', P.fpa_dofs, 'max_iters', P.max_iters);
+    ffstate = arrayfun(@(k) ta.spec.elt(k).freeform, powered_(ta), ...
+                       'UniformOutput', false);   %#ok<NASGU> % conic state
+    dA = fullfile(exdir, sprintf('s2_fr_t%03.0f_b%03.0f_conic.in', tt*100, bb));
+    ta.save(dA);
+    sA = stage_score(dA, 'lambda', LAM, 'fov_half_deg', h, 'n', P.bias_curve_n, ...
+            'rung', P.score_rung, 'dl_waves', P.dl_waves, ...
+            'strehl_min', P.strehl_min, 'quiet', true, 'title', 'frontier/conic');
+
+    % ---- the same branch, with Zernike departures added ----------------
+    mx_ff = NaN;  st_ff = NaN;  note = '';  lz = [];  cmax = [];
+    try
+        pmd = powered_(ta);
+        lz  = field_zone_lmon(ta, pmd, Fsolve);
+        rf  = zern_jacobian_solve(ta, pmd, 'modes', P.modes, 'type', P.ztype, ...
+                'fields', Fdense, 'lmon', lz, 'iters', P.ff_iters, ...
+                'svd_rel', P.ff_svd_rel, 'quiet', true);
+        note = sprintf('rank %d/%d', rf.rank, numel(pmd)*numel(P.modes));
+        cmax = zeros(1,numel(pmd));
+        for q = 1:numel(pmd)
+            ff = ta.spec.elt(pmd(q)).freeform;
+            cmax(q) = max(abs(ff.coef));
+        end
+        dB = fullfile(exdir, sprintf('s2_fr_t%03.0f_b%03.0f_ff.in', tt*100, bb));
+        ta.save(dB);
+        sB = stage_score(dB, 'lambda', LAM, 'fov_half_deg', h, 'n', P.bias_curve_n, ...
+                'rung', P.score_rung, 'dl_waves', P.dl_waves, ...
+                'strehl_min', P.strehl_min, 'quiet', true, 'title','frontier/ff');
+        mx_ff = sB.uniform.max_m(P.score_rung);
+        st_ff = sB.uniform.strehl_min(P.score_rung);
+        if any(cmax > 1e-2), note = [note ' coef>1e-2!']; end
+        delete(dB);
+    catch ME
+        note = sprintf('ff FAILED: %s', ME.message);
     end
-    delete(da);
+
+    aoia = powered_aoi_spread_(ta);
+    FR(a) = struct('tilt',tt,'bias',bb, ...
+                   'max_conic',sA.uniform.max_m(P.score_rung), 'max_ff',mx_ff, ...
+                   'strehl_conic',sA.uniform.strehl_min(P.score_rung), ...
+                   'strehl_ff',st_ff, 'aoi',aoia, 'ffnote',note, ...
+                   'lmon',lz, 'cmax',cmax);
+    fprintf('    %8.2f %8g | %11.3f %10.4f | %11.3f %10.4f %s\n', tt, bb, ...
+            FR(a).max_conic*1e9, FR(a).strehl_conic, mx_ff*1e9, st_ff, note);
+    % PER BRANCH, TAKE THE BETTER OF THE TWO SOLVES.  Offering more
+    % degrees of freedom can never legitimately make a design worse --
+    % the previous solution is always still available -- so a freeform
+    % result above its own conic result is a solve that lost, not a
+    % design that got worse, and it must not be reported as the answer.
+    % (It happened: ranking on the fuller set unconditionally reported
+    % 127.6 nm as the winner for a branch that reads 56.6 nm on conics.)
+    use_ff_a = isfinite(mx_ff) && mx_ff < FR(a).max_conic;
+    sc_a = FR(a).max_conic;
+    if use_ff_a, sc_a = mx_ff; end
+    if isfinite(mx_ff) && ~use_ff_a
+        FR(a).ffnote = [FR(a).ffnote ' (freeform LOST -- conic kept)'];
+    end
+    if sc_a < best.score
+        best = struct('score',sc_a,'tilt',tt,'bias',bb,'ff',use_ff_a);
+    end
+    delete(dA);
 end
-TILT = best.tilt;   BIAS = best.bias;
-fprintf(['    BEST MEASURED: tilt %.2f deg + bias %g'' -> %.3f nm.  Neither knob ' ...
-         'alone wins;\n    the frontier is where the two prices balance.\n'], ...
-        TILT, BIAS, best.score*1e9);
+TILT = best.tilt;   BIAS = best.bias;   USE_FF = best.ff;
+
+% Did the fuller DOF set REORDER the branches?  That is the whole reason
+% for carrying both, so it is reported explicitly rather than left for a
+% reader to infer from the table.
+if numel(FR) >= 2 && all(isfinite([FR.max_ff]))
+    bestper = min([FR.max_conic], [FR.max_ff]);
+    [~, o_c] = min([FR.max_conic]);   [~, o_f] = min(bestper);
+    if o_c ~= o_f
+        fprintf(['    ** THE RANKING FLIPPED: conics alone favour tilt %.2f/bias ' ...
+                 '%g'', freeform\n       favours tilt %.2f/bias %g''.  Pruning ' ...
+                 'the frontier on the conic score would\n       have discarded ' ...
+                 'the better design.\n'], FR(o_c).tilt, FR(o_c).bias, ...
+                FR(o_f).tilt, FR(o_f).bias);
+    else
+        fprintf(['    ranking is UNCHANGED by the fuller DOF set (tilt %.2f / ' ...
+                 'bias %g'' wins both) --\n       the branches were separated ' ...
+                 'by more than the freeform lever is worth.\n'], TILT, BIAS);
+    end
+end
+fprintf('    BEST: tilt %.2f deg + bias %g'' -> %.3f nm (%s DOF set)\n', ...
+        TILT, BIAS, best.score*1e9, tern_(USE_FF,'conic+freeform','conic'));
 
 %% -- [4b] rebuild the winner, gate it ----------------------------------
 fprintf('\n[4b] the folded design at tilt %.2f deg, bias %g''\n', TILT, BIAS);
@@ -201,6 +294,17 @@ fprintf('    clearance (pre-pupil): %d/%d bodies clear%s\n', ...
 t.add_pupil();
 res = t.optimize('fields', Fsolve, 'dofs', P.dofs_conic, ...
                  'fpa_dofs', P.fpa_dofs, 'max_iters', P.max_iters);
+if USE_FF
+    pmw  = powered_(t);
+    lz_w = field_zone_lmon(t, pmw, Fsolve);
+    rff  = zern_jacobian_solve(t, pmw, 'modes', P.modes, 'type', P.ztype, ...
+            'fields', Fdense, 'lmon', lz_w, 'iters', P.ff_iters, ...
+            'svd_rel', P.ff_svd_rel, 'quiet', true);
+    fprintf(['    freeform (SVD, %d dense fields): lMon = [%.3f %.3f %.3f] m, ' ...
+             'rank %d/%d,\n        worst %.4g -> %.4g waves\n'], ...
+            size(Fdense,1), lz_w, rff.rank, numel(pmw)*numel(P.modes), ...
+            max(rff.wfe(1,:))/LAM, max(rff.wfe(end,:))/LAM);
+end
 K = conics_(t);
 fprintf('    joint re-solve: converged=%d, merit %.4g -> %.4g waves\n', ...
         res.converged, max(res.wfe_before)/LAM, max(res.wfe_after)/LAM);
@@ -258,6 +362,10 @@ add = { ...
  sprintf('   fold: 90 deg into +x, %.3f m behind M1', P.fold_frac*D)
  sprintf('   winner on the clearance frontier: extraction tilt %.2f deg + bias %g''', ...
          TILT, BIAS)
+ sprintf('          chosen on the %s DOF set -- BOTH Pareto branches were carried', ...
+         tern_(USE_FF,'conic+freeform','conic'))
+ '          through both solves, because the tilt branch fails by astigmatism and'
+ '          the bias branch does not, and Zernikes are much better at the first'
  '          tilt costs ~tilt^2 (astigmatism on a powered M3), bias costs ~bias^1.80;'
  '          searched together because a 1-D sweep of either finds a bad point --'
  sprintf('          tilt alone needs %.2f deg at zero bias and lands at 13.4 waves', 2.5)
@@ -285,8 +393,8 @@ fid = fopen(fullfile(exdir,'s2_report.txt'),'w');
 fprintf(fid, '%s%s%s%s', rpt.text, sc.text, pt.text, addtxt);   fclose(fid);
 matfile = fullfile(exdir,'s2_fold.mat');
 t.save_spec(matfile);
-save(matfile, 'P','TILT','BIAS','TS','BS','clearsTB','front','FR','r_m2', ...
-     'r_hole','hinfo','K','res','sc','pt','rpt','Fsolve','cleared','-append');
+save(matfile, 'P','TILT','BIAS','USE_FF','TS','BS','clearsTB','front','FR', ...
+     'r_m2','r_hole','hinfo','K','res','sc','pt','rpt','Fsolve','cleared','-append');
 fprintf('    report: s2_report.txt   artifacts: s2_fold.{in,mat}\n');
 fprintf('\nStage 2 complete.  Next: s3_offaxis.m (only what the fold left).\n');
 
@@ -354,6 +462,13 @@ function a = powered_aoi_spread_(t)
         keep(k) = r(k).elt <= numel(pw) && pw(r(k).elt);
     end
     if any(keep), a = max([r(keep).aoi_spread_deg]); end
+end
+
+function pm = powered_(t)
+%POWERED_  Powered Reflector indices -- skips the flat fold, which has no
+%   radius or conic to vary and no Zernike departure to solve for.
+    e = t.spec.elt;
+    pm = find(arrayfun(@(x) strcmp(x.kind,'Reflector') && abs(x.Kr) < 1e21, e));
 end
 
 function K = conics_(t)

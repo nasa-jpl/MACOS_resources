@@ -237,7 +237,21 @@ P.modes        = [3 4 5 9 10 11 12 13 19 20 21 22 23 24 25];
 P.ztype        = 'BornWolf';  % ONE Zernike type per mirror for the life
                               % of its coefficients (solve doctrine)
 P.max_iters    = 150;         % CALIB iterations per conic/rigid solve
-P.max_iters_ff = 300;         % ... for the joint freeform field solve
+P.max_iters_ff = 300;         % ... for a CALIB freeform solve (unused by
+                              % stage 2, which routes freeform through the
+                              % SVD engine -- see below)
+% FREEFORM VIA THE SVD ENGINE, NOT CALIB (e2e README rule 7).  Handing
+% CALIB 45 coefficients against an 8-point solve set fits those eight and
+% degrades between them: measured here as 56.6 nm -> 127.6 nm on the
+% uniform 81-point score while the merit improved.  zern_jacobian_solve
+% has no FoV cap, so it solves on a DENSE grid; it projects per-field
+% piston and tip/tilt out of both residual and Jacobian, so gauge
+% directions vanish rather than wander; and it prints its singular-value
+% spectrum, so degeneracy is visible instead of arriving as metre-scale
+% canceling coefficients.
+P.ff_field_n   = 7;           % NxN dense field grid for the SVD solve
+P.ff_iters     = 2;           % outer linearize-solve-apply passes
+P.ff_svd_rel   = 1e-4;        % relative singular-value cutoff
 % FPA DOF mask for the JOINT solve, in the engine's
 % [TIP TILT CLOCK DX DY PIST ROC CONIC] order: TIP (rotation about the
 % detector's local x = the alpha tilt) and PIST (translation along its

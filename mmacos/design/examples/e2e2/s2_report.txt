@@ -70,6 +70,9 @@ HELD this stage: R1,R2,R3 (first-order layout), t12,t23 (spacings), field bias (
  -- stage-2 addendum: geometry before bias --
    fold: 90 deg into +x, 0.225 m behind M1
    winner on the clearance frontier: extraction tilt 0.00 deg + bias 13'
+          chosen on the conic DOF set -- BOTH Pareto branches were carried
+          through both solves, because the tilt branch fails by astigmatism and
+          the bias branch does not, and Zernikes are much better at the first
           tilt costs ~tilt^2 (astigmatism on a powered M3), bias costs ~bias^1.80;
           searched together because a 1-D sweep of either finds a bad point --
           tilt alone needs 2.50 deg at zero bias and lands at 13.4 waves
