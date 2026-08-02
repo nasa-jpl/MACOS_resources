@@ -158,3 +158,11 @@ camera at the pupil-image conjugate `s_i = 1/(1/f − 1/s_o)`.
 - `macos.view_std` uses a near-square panel grid (2×2 for 4 views) so each panel
   is ~4× larger at the same paper size.
 - (Both are local, unpushed edits in `MACOS_resources`; `tBench` stays green.)
+
+## Parallel faithful reference — `dst2/`
+
+This directory is the **generic, development** CTB. The `dst2/` subdirectory
+holds the **faithful DST2R** design (Brandon's actual CODE V layout via
+cv2macos) as a parallel reference — same 8 OAP focal lengths and topology, but
+Brandon's exact spacings/clocking. Develop here; track the real instrument
+there. See `dst2/README.md`.
