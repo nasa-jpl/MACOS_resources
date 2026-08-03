@@ -527,3 +527,12 @@ Kernels used, all in `design/src` and gated by `tAfocalKernel` (11/11) and
    emit `Element= Reference`.
 5. **An afocal reference inside the engine** would make CALIB usable here
    (§5) — a follow-on engine task, deliberately out of scope.
+
+6. **S3 has since answered the "why a 4th mirror" question, and the answer
+   is not the one the deck implies** — see
+   `../examples/afocal4/FORM_STUDY.md`.  His 3-mirror **already closes both
+   first-order conditions**: it recollimates at 30.000× and images the stop
+   onto a plane **0.81 mm** from the coldstop he placed by hand.  So the 4th
+   mirror repairs no first-order deficiency; what it has to buy is the pupil
+   ABERRATION this packet measured in §4.  Anything that goes back to Mike
+   should say so — it makes his verbal claim sharper, not weaker.

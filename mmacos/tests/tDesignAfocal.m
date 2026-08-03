@@ -174,6 +174,45 @@ classdef tDesignAfocal < matlab.unittest.TestCase
                 'the exit chief of an unbiased coaxial train is the axis');
         end
 
+        function test_first_order_kernel_matches_the_fixture(tc)
+        %  AFOCAL_FIRST_ORDER against the committed afocal fixture.
+        %  optical_design/fixtures/afocal_tma_fixture.json is a STOP-AND-FIX
+        %  gate, never a tolerance to widen: it pins the paraxial model, the
+        %  convex-flag convention and the stop-ahead handling on the 30x
+        %  Rodgers2 benchmark, and every afocal layout the design layer
+        %  closes is closed against exactly this arithmetic.
+            root = fileparts(fileparts(fileparts(mfilename('fullpath'))));
+            f = fullfile(root, 'optical_design', 'fixtures', ...
+                         'afocal_tma_fixture.json');
+            tc.assumeTrue(exist(f,'file') == 2, 'afocal fixture not present');
+            J = jsondecode(fileread(f));
+            L = J.layout_m;   E = J.expected_first_order;
+            o = afocal_first_order(L.R(:).', ...
+                    [L.t_M1_M2, L.t_M2_M3], logical(L.convex(:).'), ...
+                    'D', L.D, 'stop_ahead', L.stop_ahead_of_M1);
+            tc.verifyEqual(o.mag, E.magnification_chief, 'RelTol', 1e-6, ...
+                'the chief-ray angular magnification drifted from the fixture');
+            tc.verifyEqual(o.mag_lagrange, E.magnification_lagrange, ...
+                'RelTol', 1e-6, 'the Lagrange magnification drifted');
+            tc.verifyEqual(o.exit_dia, E.exit_beam_diameter_m, 'RelTol', 1e-6, ...
+                'the exit beam diameter drifted');
+            tc.verifyEqual(o.pupil_dist, E.exit_pupil_past_M3_m, 'RelTol', 1e-5, ...
+                'the exit-pupil station drifted -- the chief-ray trace changed');
+            tc.verifyEqual(o.pupil_dia, E.exit_pupil_diameter_m, 'RelTol', 1e-6);
+            tc.verifyLessThan(abs(o.u_out), 1e-5, ...
+                'the fixture system stopped being afocal');
+            % the witness: his hand-placed coldstop, an input to nothing
+            W = J.independent_witness;
+            tc.verifyLessThan(abs(o.pupil_dist - W.his_coldstop_past_M3_m)*1e3, ...
+                1.0, ['the paraxial exit pupil no longer lands within a ' ...
+                      'millimetre of the coldstop he placed by hand -- the ' ...
+                      'transcription and the paraxial model have parted']);
+            % and the two magnifications must agree WHILE the train is
+            % afocal; their divergence is the independent check on u_out
+            tc.verifyEqual(o.mag, o.mag_lagrange, 'RelTol', 1e-4, ...
+                'the chief and Lagrange magnifications disagree');
+        end
+
         function test_focal_path_still_needs_derive(tc)
         %  the guard that keeps the focal path honest: without an afocal
         %  terminal the last spacing is still the derived focus.

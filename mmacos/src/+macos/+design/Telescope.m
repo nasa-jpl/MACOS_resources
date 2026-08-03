@@ -3230,20 +3230,27 @@ classdef Telescope < handle
             % is the geometry (a secondary before the M1 focus reflects away
             % from its CoC -> convex), never the radius sign (j18mono's SM).
             %
-            % psiElt: the legacy all-(0,0,-1) is kept for mirrors 1..3 -- it
-            % is engine-validated for every combination that occurs there
-            % (j18mono: concave/+z, convex/-z, concave/+z; note a Korsch M2
-            % is often convex BY GEOMETRY with no 'convex' flag, so the flag
-            % cannot discriminate at k<=3).  From the 4th mirror on (relay
-            % mirrors past a real focus, e.g. the 3+1 M4) the parity rule
-            % applies: psi_z = -dir_in for concave (default), +dir_in when
-            % flagged convex, where dir_in = (-1)^(k-1) is the beam
+            % psiElt: the legacy all-(0,0,-1) is kept for mirrors 1 and 2 --
+            % it is engine-validated for every combination that occurs there
+            % (j18mono: concave/+z, convex/-z; note a Korsch M2 is often
+            % convex BY GEOMETRY with no 'convex' flag, so the flag cannot
+            % discriminate at k = 2).  From the THIRD mirror on the parity
+            % rule applies: psi_z = -dir_in for concave (default), +dir_in
+            % when flagged convex, where dir_in = (-1)^(k-1) is the beam
             % direction into mirror k.  A 4th mirror CONCAVE to a -z beam
             % needs +1; emitted at -1 it traces CONVEX and diverges the
             % relay.  (The fully general discriminator is the paraxial
             % vergence at each mirror -- follow-on.)
+            %
+            % k = 3 was raised from k = 4 for the afocal field-mirror form
+            % (PLAN_AFOCAL4 S3), which is the first design here to put a
+            % CONVEX mirror third.  The rule agrees with the legacy -1 for
+            % every k = 3 case that is not flagged convex, so no focal
+            % design changes -- the two differ only at k = 3 convex, which
+            % the legacy emitted concave and which traced 17 mrad off
+            % collimated.
             psiz = -ones(1, N);
-            for k = 4:N
+            for k = 3:N
                 dir_in = (-1)^(k-1);
                 if cvx(k), psiz(k) = dir_in; else, psiz(k) = -dir_in; end
             end

@@ -1,0 +1,41 @@
+{
+  "description": "Coaxial 30x AFOCAL three-mirror telescope, first-order regression fixture. Transcribed from J.M. Rodgers' CODE V deck CentAfo_Coaxial_OnAxisFOV (2026-08-02, see mmacos/design/rodgers2/PACKET.md) and re-derived paraxially rather than quoted. The point of the fixture is that BOTH first-order conditions of an afocal telescope close on it simultaneously: the marginal ray leaves parallel (afocal), and the chief ray images the stop onto a plane a specified distance past the last mirror (the interface pupil). A focal fixture cannot test either.",
+  "convention": "Unfolded thin-lens equivalent; mirror f = R/2 with a CONVEX mirror a negative lens; R given as MAGNITUDES with a separate convex flag (the MACOS emission convention: KrElt = -|R| for every mirror, concave vs convex is geometry). Metres. Marginal ray: collimated, full aperture, launched at M1. Chief ray: unit field angle through the stop, which sits 50 mm AHEAD of M1 -- that offset is carried, not approximated away, because it is what makes the entrance pupil not simply be M1.",
+  "layout_m": {
+    "D": 1.0,
+    "stop_ahead_of_M1": 0.050,
+    "R": [2.5, 0.4687799802942544, 0.5808105879437068],
+    "convex": [false, true, false],
+    "t_M1_M2": 1.049239293684764,
+    "t_M2_M3": 1.689655189684764
+  },
+  "conics": {
+    "K1": -1.0,
+    "K2": -1.782495505768868,
+    "K3": -1.001753914266608
+  },
+  "expected_first_order": {
+    "u_out_marginal": -3.1032482538384532e-06,
+    "u_out_note": "the afocal condition; 0 by design, the 3 urad residual is his real-ray tuning of R3",
+    "magnification_chief": 30.000095941950335,
+    "magnification_lagrange": 30.00201404856616,
+    "exit_beam_diameter_m": 0.033331095651819798,
+    "exit_pupil_past_M3_m": 0.34336274656439025,
+    "exit_pupil_diameter_m": 0.033333226731507216,
+    "marginal_heights_m": [0.5, 0.080304282526094339, -0.016665547825909899],
+    "chief_heights_per_rad": [0.05, 1.0572697219373735, 10.300915339823286],
+    "intermediate_image_past_M2_m": 1.3992655987081692
+  },
+  "independent_witness": {
+    "his_coldstop_past_M3_m": 0.344173,
+    "miss_mm": 0.81,
+    "note": "His coldstop station was placed by hand in CODE V and is not an input to anything above. That the paraxial exit pupil lands 0.8 mm from it, on a 33 mm beam, is the check that the transcription, the sign conventions and the paraxial model all agree."
+  },
+  "how_to_use": {
+    "assert": "afocal_first_order(R, t, convex, 'D', 1.0, 'stop_ahead', 0.050) must reproduce every entry of expected_first_order to 1e-6 relative.",
+    "gate": "STOP AND FIX -- never widen. A drift here means the paraxial model, the convex-flag convention, or the stop handling has changed, and every afocal layout closed against it is wrong by the same amount."
+  },
+  "caution": {
+    "which_variant": "Use the ON-AXIS variant, as here. His S3/S4 re-solves moved R3 by 3.8% to recollimate the REAL marginal ray at f/1.25; paraxially they leave 41 urad of convergence and a 4.8% small exit beam. Both are correct answers to different questions, but seeding a first-order study from S3 builds a 31.4x telescope."
+  }
+}
