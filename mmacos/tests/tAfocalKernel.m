@@ -381,11 +381,43 @@ classdef tAfocalKernel < matlab.unittest.TestCase
                  'tilt itself -- one of them has a sign wrong']);
         end
 
+        function test_scoring_lens_reproduces_the_afocal_ladder(tc)
+        %  (i) THE PLANE KERNEL AND THE SPHERE KERNEL MEASURE THE SAME
+        %  WAVEFRONT.  AFOCAL_SCORE_PSF appends an ideal lens behind the
+        %  interface pupil in a separate deck, which turns the afocal system
+        %  into a focal one that the STRICT_* ladder can score.  The two
+        %  ladders then have a rung in common: removing the wavefront POWER
+        %  (afocal rung 3) is the same freedom as sliding the focus (focal
+        %  rung 3), and both then remove least-squares tip/tilt.  So
+        %
+        %      focal rung 4  ==  afocal rung 3
+        %
+        %  and it holds to well under a percent on every field with enough
+        %  wavefront to measure.  Fields below ~10 nm are excluded: there the
+        %  singlet's own residual and the focal-plane fit, not the telescope,
+        %  set the number.
+            tc.assumeTrue(exist(tc.afocal_deck,'file') == 2, ...
+                'rodgers2 S3 deck not committed yet');
+            F = macos.design.field_grid(0.25*60, 3, 'units','arcmin');
+            o  = afocal_score_psf(tc.afocal_deck, F, 'init', false);
+            La = afocal_ladder_deck(tc.afocal_deck, F);
+            ok = isfinite(La(:,3)) & isfinite(o.rungs(:,4)) & La(:,3) > 10e-9;
+            tc.verifyGreaterThan(nnz(ok), 3, 'too few scorable fields');
+            rel = abs(o.rungs(ok,4) - La(ok,3)) ./ La(ok,3);
+            tc.verifyLessThan(max(rel), 0.02, ...
+                ['the focal ladder through the scoring lens must return the ' ...
+                 'afocal ladder''s own power-removed rung -- if it does not, ' ...
+                 'one of the two references is wrong or the lens is ' ...
+                 'contributing its own aberration']);
+            tc.verifyLessThanOrEqual(o.strehl(ok,4), 1 + 1e-12, ...
+                'the scoring deck''s Strehl exceeded 1');
+        end
+
         function test_kernel_lives_in_design_src(tc)
         %  one copy, in the shared library, reachable from mmacos_setup alone.
             want = fullfile('design','src');
             for f = {'afocal_plane_opl','afocal_refs','afocal_rungs', ...
-                     'afocal_wfe_deck','afocal_ladder_deck'}
+                     'afocal_wfe_deck','afocal_ladder_deck','afocal_score_psf'}
                 p = which(f{1});
                 tc.verifyNotEmpty(p, sprintf('%s is not on the path', f{1}));
                 tc.verifyTrue(contains(p, want), sprintf( ...
