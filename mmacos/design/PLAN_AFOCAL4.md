@@ -259,6 +259,38 @@ question queued for Mike.
   `rodgers2_<variant>_<stage>[_metric].{in,mat,png}`.
 
 ### S3 — 4-mirror afocal form + first-order layout
+**FORM STUDY DELIVERED (2026-08-03) — `design/examples/afocal4/FORM_STUDY.md`.
+The form CHOICE is a Dave/Fable gate; S4 does not start until it is made.**
+Headline: **the 3-mirror already closes BOTH first-order conditions** —
+M = 30.000, exit pupil 343.363 mm past M3 against the coldstop Mike placed
+by hand at 344.173 mm, i.e. **0.81 mm apart on a 33 mm beam**.  There is no
+first-order deficiency for a 4th mirror to repair, and a study that closes
+only the first-order conditions returns a **flat** (R = 45–78 km).  So the
+4th mirror must be justified on pupil ABERRATION, and the discriminator is
+which form can be GIVEN power without spending the first-order solution.
+**Recommend (i) the field mirror, convex, ~200 mm standoff** — the only form
+that preserves M and the afocal condition IDENTICALLY for any power (the
+marginal ray is small where it sits), so its power acts on the chief alone.
+One unoptimised K=0 mirror: blur 794 → 286 µm, breathing 3.97% → **0.156%**
+at φ4 = +2 /m (INSIDE the ±0.4% target), M held at 29.92, every conic
+unspent.  **Runner-up kept alive: (ii) the double Mersenne** — best pupil
+ladder measured (blur 175 µm, breathing 0.285%, wander 468 µm, 26% shorter
+train) but rung-2 WFE 59 µm and a 53 mm interface pupil; promote it iff a
+conic-relaxed version (confocal SPACINGS kept, 4 conics spent on image
+quality) reaches DL.  **(iii) the downstream relay is eliminated** — worse
+than the parent on every pupil term, 39 µm WFE, 11.7 mm wander, +25% train,
+a real internal focus, and it cannot reach the parent's interface distance
+without R3 → 0.  Also earned: a collimated exit space has NO first-order
+freedom (a powered element there breaks afocality), and the field-mirror
+leverage is SIGNED — concave makes everything worse.
+Shipped with it: `afocal_first_order` (design/src) + the stop-and-fix
+fixture `optical_design/fixtures/afocal_tma_fixture.{json,md}`;
+`afocal4_params` / `afocal4_close` / `afocal4_forms` + 7 committed `.in`,
+3-view renders and the comparison figure; `tDesignAfocal` 8/8.
+Builder bug closed en route: `resolve_nmirror_` emitted a CONVEX third
+mirror as concave (parity rule started at k=4) — 17 mrad off collimated,
+caught only because the study verifies each trace against its own paraxial
+prediction before taking a metric.
 - **Form study** (paper section in PACKET + a layout script): candidates
   (i) his TMA + M4 field mirror NEAR the intermediate image (pupil
   relay, minimal disturbance to the imaging solution), (ii) double-
