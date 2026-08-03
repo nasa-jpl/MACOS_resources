@@ -214,6 +214,61 @@ classdef Telescope < handle
             obj.spec.elt     = [];
         end
 
+        function add_exit_reference(obj, name, opts)
+        %ADD_EXIT_REFERENCE  Terminate an N-mirror telescope AFOCALLY.
+        %   t.add_exit_reference('ColdStop','dist_m',D) says the train does
+        %   not come to a focus: it delivers a COLLIMATED beam to an
+        %   interface plane D past the last mirror.  That replaces the
+        %   focal-plane terminal, and with it the paraxial-focus solve --
+        %   the last mirror's spacing becomes a USER number (the interface
+        %   distance) instead of the derived 'derive' focus.  Give the
+        %   distance here, or as 'spacing_after_m' on the last add_mirror;
+        %   this one wins if both are set.
+        %
+        %   THE TERMINAL IS `Element= Reference`, FLAT, NORMAL TO THE EXIT
+        %   CHIEF -- never `Element= Return`.  A Return REVERSES the ray
+        %   directions at its surface, so any metric that builds its
+        %   reference from the exit chief builds it backwards; the OPL is
+        %   unchanged, which is exactly why the error hides from a
+        %   piston-only check (rodgers2 PACKET section 5.0: afocal rung 1
+        %   read 4017 um instead of 359 nm).  Reference and FocalPlane agree
+        %   to the last digit; Reference is used because the surface is a
+        %   pupil, not an image.
+        %
+        %   The resolved terminal is a FIRST-ORDER seed: vertex on the
+        %   folded paraxial axis, normal along it.  On a FIELD-BIASED design
+        %   the real exit chief leaves at M times the bias, so call
+        %   ALIGN_EXIT_REFERENCE (or EXIT_PUPIL, which does it first) to put
+        %   the plane on the TRACED chief -- the 2-pass pattern ADD_PUPIL
+        %   uses for the focal case.
+        %
+        %   Name-value:
+        %     'dist_m' | 'dist_mm'  last mirror -> interface plane
+        %     'ap_r'                physical body radius (m) for
+        %                           check_clipping (default 0.55*D/M is
+        %                           unknown at declare time, so 0.3*D)
+        %
+        %   See also ALIGN_EXIT_REFERENCE, EXIT_PUPIL, ADD_FOCAL_PLANE.
+            arguments
+                obj
+                name (1,:) char = 'ExitRef'
+                opts.dist_m  (1,1) double = NaN
+                opts.dist_mm (1,1) double = NaN
+                opts.ap_r    (1,1) double = NaN
+            end
+            if ~obj.is_nmirror_()
+                error('macos:design:Telescope:add_exit_reference:family', ...
+                    'add_exit_reference is for N-mirror families.');
+            end
+            d = NaN;
+            if ~isnan(opts.dist_m) || ~isnan(opts.dist_mm)
+                d = obj.pick_len_(opts.dist_m, opts.dist_mm, 'dist');
+            end
+            obj.spec.afocal = struct('name',name, 'dist',d, ...
+                                     'ap_r',opts.ap_r, 'aligned',false);
+            obj.spec.elt = [];
+        end
+
         function add_fold(obj, name, opts)
         %ADD_FOLD  Insert a FLAT fold mirror into an N-mirror chain.
         %   t.add_fold('FM','after','M2','dist_m',0.5)  puts a flat 0.5 m
@@ -794,6 +849,136 @@ classdef Telescope < handle
             obj.spec.pupil = struct('img_elt',ielt, 'ep_elt',iEP, ...
                 'fp_elt',iFPnew, 'ep_vpt',EP_Vpt.', 'ep_radius',radius);
             obj.build('', 'init', false);          % re-emit + reload (validate)
+        end
+
+        function res = align_exit_reference(obj, opts)
+        %ALIGN_EXIT_REFERENCE  Put the afocal terminal on the TRACED exit
+        %   chief -- pass 2 of the 2-pass pattern.
+        %   The resolved terminal is a first-order seed on the folded
+        %   paraxial axis.  That is exact for an unbiased coaxial train and
+        %   WRONG the moment there is a field bias or a fold: the exit chief
+        %   leaves at M times the bias, so a plane normal to the axis is
+        %   oblique to the beam it is supposed to interface with -- and an
+        %   oblique interface plane puts a 1/cos frame term into every
+        %   footprint read on it (rodgers2 PACKET section 4).
+        %
+        %   This traces the box-centre field, takes the chief ray leaving the
+        %   last mirror, and re-places the terminal at the declared interface
+        %   distance ALONG that chief, normal to it.  Idempotent.
+        %
+        %   Name-value:  'quiet' (true)
+        %   Returns the placement: .vpt .psi .chief_dir .dist_m .moved_m
+            arguments
+                obj
+                opts.quiet (1,1) logical = true
+            end
+            if ~obj.is_afocal_()
+                error('macos:design:Telescope:align_exit_reference:notAfocal', ...
+                    'no afocal terminal -- call add_exit_reference first.');
+            end
+            obj.build();                              % emit + load
+            nE = numel(obj.spec.elt);
+            [p0, d0] = obj.exit_chief_(nE, [0 0]);
+            % the last MIRROR's vertex is the station the interface distance
+            % is measured from; the chief leaves it along d0
+            Vm   = obj.spec.elt(nE-1).Vpt(:);
+            dist = obj.spec.derived.iface_dist;
+            % foot of the chief at the mirror, then dist along it
+            V    = p0 + d0*(dot(Vm - p0, d0) + dist);
+            old  = obj.spec.elt(nE).Vpt(:);
+            obj.spec.elt(nE).Vpt = V.';
+            obj.spec.elt(nE).psi = (-d0).';
+            obj.spec.elt(nE).provenance = 'derived(afocal,chief-aligned)';
+            obj.spec.afocal.aligned = true;
+            obj.build('', 'init', false);
+            res = struct('vpt',V.', 'psi',(-d0).', 'chief_dir',d0.', ...
+                         'dist_m',dist, 'moved_m',norm(V-old));
+            if ~opts.quiet
+                fprintf(['align_exit_reference: chief [% .6f % .6f % .6f], ' ...
+                         'plane moved %.4g m\n'], d0, res.moved_m);
+            end
+        end
+
+        function res = exit_pupil(obj, opts)
+        %EXIT_PUPIL  Locate the afocal exit pupil by chief-ray crossing.
+        %   The afocal analogue of ADD_PUPIL, and it is a DIFFERENT
+        %   construction: the focal case anchors a reference SPHERE on the
+        %   FP-to-EP chief distance (macos.fex), which has no counterpart
+        %   here -- there is no image to be the centre of curvature, and the
+        %   interface surface is FLAT.  What survives is the pupil itself:
+        %   the station where chief rays of different fields cross.
+        %
+        %   Two probe fields at +-'field_rad' about the box centre, the chief
+        %   ray leaving the last mirror read at each, and the closest point
+        %   of the two lines.  That closest-approach distance is returned as
+        %   .miss_m and is the check that the answer means anything.
+        %
+        %   Also returns the TRACED angular magnification (the angle between
+        %   the two exit chiefs over the angle between the two input chiefs)
+        %   -- the number the whole afocal design is for, measured rather
+        %   than assumed.
+        %
+        %   Name-value:
+        %     'field_rad'  probe half-field (default ~1 arcmin)
+        %     'place'      move the terminal onto the pupil (false).  This is
+        %                  the analogue of tuning a coldstop's station; by
+        %                  default the terminal stays where the INTERFACE
+        %                  SPEC put it and .offset_m says how far the pupil
+        %                  missed it, which is the design question.
+        %     'quiet'      (true)
+        %
+        %   See also ALIGN_EXIT_REFERENCE, ADD_PUPIL, PUPIL_MAP (design/src).
+            arguments
+                obj
+                opts.field_rad (1,1) double {mustBePositive} = 2.908882e-4
+                opts.place     (1,1) logical = false
+                opts.quiet     (1,1) logical = true
+            end
+            if ~obj.is_afocal_()
+                error('macos:design:Telescope:exit_pupil:notAfocal', ...
+                    'no afocal terminal -- call add_exit_reference first.');
+            end
+            obj.align_exit_reference();               % pass 2 first
+            nE = numel(obj.spec.elt);
+            fr = opts.field_rad;
+            [p0, d0] = obj.exit_chief_(nE, [0 0]);
+            [p1, d1] = obj.exit_chief_(nE, [0 +fr]);
+            [p2, d2] = obj.exit_chief_(nE, [0 -fr]);
+            obj.trace_at_field([]);                   % restore the nominal field
+
+            % closest point of the two probe chief lines
+            A = zeros(3);  b = zeros(3,1);
+            for q = {[p1 d1], [p2 d2]}
+                d = q{1}(:,2);   M = eye(3) - d*d.';
+                A = A + M;   b = b + M*q{1}(:,1);
+            end
+            X = pinv(A)*b;
+            miss = 0.5*(norm(cross(d1, X-p1)) + norm(cross(d2, X-p2)));
+
+            % TRACED angular magnification: exit chief separation over input
+            cosang = max(-1, min(1, dot(d1,d2)));
+            Mtr    = atan2(norm(cross(d1,d2)), cosang) / (2*fr);
+
+            V  = obj.spec.elt(nE).Vpt(:);
+            n  = obj.spec.elt(nE).psi(:);  n = n/norm(n);
+            off = dot(X - V, d0);                     % signed, along the chief
+            res = struct('vpt',X.', 'miss_m',miss, 'mag',Mtr, ...
+                'offset_m',off, 'chief_dir',d0.', ...
+                'dist_m',dot(X - obj.spec.elt(nE-1).Vpt(:), d0), ...
+                'iface_vpt',V.', 'iface_psi',n.', 'placed',opts.place);
+            if opts.place
+                obj.spec.elt(nE).Vpt = X.';
+                obj.spec.elt(nE).psi = (-d0).';
+                obj.spec.elt(nE).provenance = 'derived(afocal,at exit pupil)';
+                obj.build('', 'init', false);
+            end
+            obj.spec.afocal.pupil = res;
+            if ~opts.quiet
+                fprintf(['exit_pupil: M = %.6f traced, pupil %.6g m past the ' ...
+                         'last mirror (%+.4g m from the interface plane), ' ...
+                         'chief-line miss %.3g m\n'], ...
+                         Mtr, res.dist_m, off, miss);
+            end
         end
 
         function res = optimize(obj, opts)
@@ -2295,6 +2480,20 @@ classdef Telescope < handle
             obj.build('', 'init', false);
         end
 
+        function [p, d] = exit_chief_(obj, ielt, fxy)
+        %EXIT_CHIEF_  Chief-ray position and direction AT element IELT for a
+        %   field OFFSET fxy (rad, about any field bias).  Ray 1 of the grid
+        %   is the chief; get_ray_info reports where it landed and where it
+        %   is going, which for an afocal train's terminal is the exit chief
+        %   line.  Re-emits the deck per field (macos.set_src_fov does NOT
+        %   move an emitted design's field -- see TRACE_AT_FIELD).
+            obj.trace_at_field(fxy);
+            tr = macos.trace(ielt);
+            ri = macos.get_ray_info(tr.nRays);
+            p  = ri.pos(:,1);
+            d  = ri.dir(:,1);   d = d/norm(d);
+        end
+
         function rms = refsphere_rms_(~, W)
         %REFSPHERE_RMS_  Per-field best-focus reference-sphere RMS of an OPD map.
         %   The CODE V-consistent field-map metric (Dave / Rodgers, 2026-07-30):
@@ -2773,6 +2972,14 @@ classdef Telescope < handle
                     % rigid-body trial steps lose EVERY ray the moment the
                     % image walks off it -- no gradient, runaway solve.
                     L{end+1} = '           ApType=  None';                           %#ok<AGROW>
+                elseif strcmp(e.kind,'Reference')
+                    % the afocal terminal (add_exit_reference).  Same policy
+                    % as the FP and the Return references: ap_r is the BODY
+                    % a coldstop would have, not a design-phase stop.  The
+                    % pupil metrics strip ApType anyway; emitting a hard
+                    % Circular here would clip the exit beam at whatever
+                    % placeholder radius the terminal was declared with.
+                    L{end+1} = '           ApType=  None';                           %#ok<AGROW>
                 elseif strcmp(e.kind,'Return')
                     % add_pupil's FP_return + ExitPupil reference surfaces are
                     % REFERENCE geometry, not stops (Dave 2026-07-30): a
@@ -2885,6 +3092,36 @@ classdef Telescope < handle
             tf = isfield(obj.spec,'is_nmirror') && obj.spec.is_nmirror;
         end
 
+        function tf = is_afocal_(obj)
+        %IS_AFOCAL_  True once add_exit_reference has declared an afocal
+        %   terminal.  Everything gated on this leaves the focal path
+        %   untouched.
+            tf = isfield(obj.spec,'afocal') && ~isempty(obj.spec.afocal) ...
+                 && isstruct(obj.spec.afocal);
+        end
+
+        function [u_out, y_out, M] = paraxial_afocal_(~, R, t, convex)
+        %PARAXIAL_AFOCAL_  Marginal ray LEAVING the last mirror of an N-mirror
+        %   train: exit angle, exit height, and the angular magnification.
+        %   Same unfolded thin-lens model as PARAXIAL_FOCUS_ (mirror f = R/2,
+        %   convex = negative lens), collimated unit-height input.
+        %
+        %   U_OUT is the AFOCAL CONDITION residual: exactly 0 when the train
+        %   recollimates, so it is the quantity a first-order afocal solve
+        %   drives to zero, and the honest thing to report instead of an
+        %   infinite back focus.  M = 1/|y_out| is the angular magnification
+        %   (a beam compressed to 1/M of its input diameter magnifies angles
+        %   by M) -- the 30x of the Rodgers2 benchmark.
+            N = numel(R);
+            f = R/2;  f(convex) = -f(convex);
+            y = 1.0;  u = 0.0;
+            for k = 1:N
+                u = u - y/f(k);
+                if k < N, y = y + u*t(k); end
+            end
+            u_out = u;   y_out = y;   M = 1/max(abs(y), realmin);
+        end
+
         function m = empty_mirror_list_(~)
         %EMPTY_MIRROR_LIST_  0x0 struct carrying the add_mirror field set.
             m = struct('name',{},'R',{},'t',{},'derive',{},'tilt_deg',{}, ...
@@ -2907,14 +3144,38 @@ classdef Telescope < handle
                 obj.resolve_nmirror_fold_();     % Bauer tilted-fold unobscuring
                 return;
             end
-            if N < 3
+            % AFOCAL: add_exit_reference replaces the derived paraxial focus
+            % with a user interface distance.  Everything below stays on the
+            % focal path bit-identical when .afocal is absent.
+            afoc = obj.is_afocal_();
+            % A FOCAL N-mirror train needs >= 3 mirrors: the 2-mirror focal
+            % families have their own closed form and never come through
+            % here.  An AFOCAL one legitimately has two -- a Mersenne beam
+            % compressor (confocal parabolas) is the canonical case, and the
+            % 2-mirror closed form has no afocal variant to hand it to.
+            if N < 3 && ~afoc
                 error('macos:design:Telescope:nmirror:tooFew', ...
                     'TMA needs >= 3 mirrors via add_mirror (have %d).', N);
             end
-            if ~mir(N).derive
+            if N < 2
+                error('macos:design:Telescope:nmirror:tooFew', ...
+                    'an afocal train needs >= 2 mirrors (have %d).', N);
+            end
+            if ~mir(N).derive && ~afoc
                 error('macos:design:Telescope:nmirror:lastDerive', ...
                     'the last mirror (%s) spacing must be ''derive'' (the focus).', ...
                     mir(N).name);
+            end
+            t_last = NaN;
+            if afoc
+                t_last = sp.afocal.dist;             % add_exit_reference wins
+                if isnan(t_last) && ~mir(N).derive, t_last = mir(N).t; end
+                if isnan(t_last)
+                    error('macos:design:Telescope:nmirror:afocalDist', ...
+                        ['an afocal train has no derived focus: give the ' ...
+                         'interface distance as add_exit_reference(...,' ...
+                         '''dist_m'',D) or spacing_after_m on %s.'], mir(N).name);
+                end
             end
             D = sp.in.D;
             R = [mir.R];                         % 1xN radii (magnitudes)
@@ -2930,7 +3191,20 @@ classdef Telescope < handle
 
             cvx = false(1, N);
             if isfield(mir,'convex'), cvx = logical([mir.convex]); end
-            [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D, cvx);
+            Mang = NaN;  u_out = NaN;
+            if afoc
+                % An afocal train HAS no paraxial focus, so the Seidel n-flip
+                % seed -- which solves for one -- is not defined here and
+                % would seed conics off a vanishing marginal angle.  Conics
+                % come from add_mirror(...,'conic',K) (the tma_3plus1 carry
+                % recipe) or from set_base_sphere; anything left unset seeds
+                % as a SPHERE, which is a seed and not an answer.
+                K = zeros(1, N);
+                [u_out, ~, Mang] = obj.paraxial_afocal_(R, t_between, cvx);
+                t_focus = t_last;   EFL = Inf;
+            else
+                [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D, cvx);
+            end
             if isfield(sp,'base_sphere') && sp.base_sphere
                 K = zeros(1, N);            % sphere+Zernike: hold base spheres
             end
@@ -2982,14 +3256,41 @@ classdef Telescope < handle
                 e.Kc = K(k);
                 elts(k) = e;                     %#ok<AGROW>
             end
-            fpr = 0.3*D;
-            if isfield(sp,'fp_ap_r') && ~isnan(sp.fp_ap_r), fpr = sp.fp_ap_r; end
-            elts(N+1) = obj.new_elt_(sp.fp_name, 'FocalPlane', [0 0 z(N+1)], ...
-                    [0 0 -1], -1.0e22, fpr, 'derived(tma)', 1.0e20);
+            if afoc
+                % The afocal terminal.  `Element= Reference`, FLAT, on the
+                % folded paraxial axis at the interface distance -- a
+                % first-order SEED whose normal ALIGN_EXIT_REFERENCE puts on
+                % the traced exit chief.  psi is -dir_out (facing back up the
+                % beam); for a flat the sign picks the local frame handedness
+                % and nothing else, which is why the focal FP above can carry
+                % a constant (0,0,-1) for every N.  NEVER `Return` here -- it
+                % reverses the ray directions (PACKET section 5.0).
+                apr_x = 0.3*D;
+                if ~isnan(sp.afocal.ap_r), apr_x = sp.afocal.ap_r; end
+                dir_out = (-1)^N;                 % beam direction after mirror N
+                elts(N+1) = obj.new_elt_(sp.afocal.name, 'Reference', ...
+                        [0 0 z(N+1)], [0 0 -dir_out], -1.0e22, apr_x, ...
+                        'derived(afocal)', 1.0e20);
+            else
+                fpr = 0.3*D;
+                if isfield(sp,'fp_ap_r') && ~isnan(sp.fp_ap_r), fpr = sp.fp_ap_r; end
+                elts(N+1) = obj.new_elt_(sp.fp_name, 'FocalPlane', [0 0 z(N+1)], ...
+                        [0 0 -1], -1.0e22, fpr, 'derived(tma)', 1.0e20);
+            end
 
             obj.spec.elt     = elts;
             obj.spec.derived = struct('N',N, 'R',R, 'K',K, 't',t, 'z',z, ...
                 'EFL',EFL, 'fnum',EFL/D, 't_focus',t_focus);
+            if afoc
+                % An afocal train's first-order deliverables are the ANGULAR
+                % magnification and the residual marginal angle -- the
+                % afocal condition itself, which u_out = 0 states exactly.
+                % EFL/fnum are Inf and mean nothing here.
+                obj.spec.derived.mag        = Mang;
+                obj.spec.derived.u_out      = u_out;
+                obj.spec.derived.exit_dia   = D/abs(Mang);
+                obj.spec.derived.iface_dist = t_last;
+            end
             obj.apply_folds_();                  % flat folds (no-op if none)
         end
 
@@ -3173,8 +3474,17 @@ classdef Telescope < handle
             sp = obj.spec; d = sp.derived;
             fprintf('macos.design.Telescope  (family=%s, %d mirrors)\n', sp.family, d.N);
             fprintf('  inputs [user]:  D=%.6g m\n', sp.in.D);
-            fprintf('  derived(layout): EFL=%.6g m  (f/%.4g)  focus=%.6g m\n', ...
-                d.EFL, d.fnum, d.t_focus);
+            if obj.is_afocal_()
+                % EFL and f/# are infinite here and say nothing; the
+                % first-order deliverables are M and the residual marginal
+                % angle (= the afocal condition, zero when recollimated).
+                fprintf(['  derived(layout): AFOCAL  M=%.6g x  exit beam %.6g m' ...
+                         '  interface %.6g m  (marginal u_out=%.3g)\n'], ...
+                    d.mag, d.exit_dia, d.iface_dist, d.u_out);
+            else
+                fprintf('  derived(layout): EFL=%.6g m  (f/%.4g)  focus=%.6g m\n', ...
+                    d.EFL, d.fnum, d.t_focus);
+            end
             fprintf('  %-6s %13s %13s %13s\n', 'mirror','R (m)','conic K','spacing (m)');
             for k = 1:d.N
                 fprintf('  %-6s %13.6g %13.6g %13.6g   [seidel]\n', ...
@@ -3264,6 +3574,7 @@ classdef Telescope < handle
                 obj.spec.mirrors = sp.mirrors;
                 if isfield(sp,'fp_name'), obj.spec.fp_name = sp.fp_name; end
                 if isfield(sp,'fp_ap_r'), obj.spec.fp_ap_r = sp.fp_ap_r; end
+                if isfield(sp,'afocal'),  obj.spec.afocal  = sp.afocal;  end
                 if isfield(sp,'folds'),   obj.spec.folds   = sp.folds;   end
                 if isfield(sp,'holes'),   obj.spec.holes   = sp.holes;   end
                 if isfield(sp,'base_sphere')
