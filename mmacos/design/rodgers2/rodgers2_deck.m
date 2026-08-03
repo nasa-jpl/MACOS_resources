@@ -66,7 +66,12 @@ function out = rodgers2_deck(iv, opts)
 %     'with_si'     append his SI plane 1000 mm past the coldstop (false)
 %     'hole'        override the M1 hole SEMI-diameter, m (NaN = his 0.130;
 %                   0 removes it)
-%     'stand'       source standoff along the chief, m (default 8)
+%     'stand'       source standoff along the chief, m.  0 (DEFAULT) uses
+%                   the layout rule -- just past the frontmost optic with a
+%                   body-scaled margin, as Telescope/emit_ does -- so the
+%                   drawn beam does not dwarf the telescope.  Collimated
+%                   source, so the choice is wavefront-neutral (piston);
+%                   it only changes what DRAW shows.
 %     'verify'      trace and measure .chief_miss_mm / .exit_dir (false)
 %     'quiet'       (true)
 %
@@ -86,7 +91,7 @@ function out = rodgers2_deck(iv, opts)
                         {'Reference','Return','FocalPlane'})} = 'Reference'
         opts.with_si   (1,1) logical = false
         opts.hole      (1,1) double = NaN
-        opts.stand     (1,1) double = 8.0
+        opts.stand     (1,1) double = 0     % 0 = the layout rule, below
         opts.recenter_sign (1,1) double {mustBeMember(opts.recenter_sign,[-1 1])} = 1
         opts.verify    (1,1) logical = false
         opts.quiet     (1,1) logical = true
@@ -145,11 +150,26 @@ function out = rodgers2_deck(iv, opts)
     end
 
     % ---- source ----------------------------------------------------------
+    % SOURCE STANDOFF.  zSource = 1e22 makes the source's DISTANCE
+    % wavefront-neutral -- the bundle is collimated, so moving the source
+    % plane along the chief adds the same path to every ray -- but it is NOT
+    % neutral for the LAYOUT: the drawn incoming beam is the standoff long,
+    % and a beam several times the telescope's own length makes every DRAW
+    % and view_rx unreadable.  So use the same rule Telescope/emit_ uses
+    % (Dave 2026-07-05): stand just past the FRONTMOST optic, with a
+    % body-scaled margin.  On this design zmin is M2 at -1.049 m, giving
+    % 1.299 m rather than the 8 m first shipped.
     bx = opts.field(1);
     by = deg2rad(V.YAN_abs_deg) + opts.field(2);
     cdir = [sin(bx), sin(by), sqrt(max(0, 1 - sin(bx)^2 - sin(by)^2))];
     apst = [0, 0, -S.stop_ahead_of_M1_mm*mm];
-    cpos = apst - opts.stand*cdir;
+    D    = S.EPD_mm*mm;
+    zmin = min(arrayfun(@(e) e.Vpt(3), E));
+    stand = opts.stand;
+    if stand <= 0
+        stand = max(1.0*D, -zmin + 0.25*D) + S.stop_ahead_of_M1_mm*mm;
+    end
+    cpos = apst - stand*cdir;
     ygrid = [0, cos(by), -sin(by)];
 
     txt = emit_(S, V, E, cdir, cpos, apst, ygrid, opts.sampling);
@@ -162,7 +182,7 @@ function out = rodgers2_deck(iv, opts)
                  'variant',V, 'M3_z_m',z_M3*mm, ...
                  'coldstop',struct('Vpt',cs_vpt_mm*mm, 'psi',cs_psi, ...
                                    'ADE_total_deg',Atot, 'zhat_rec',zrec), ...
-                 'ApStop',apst, 'stand',opts.stand, 'lambda',S.lambda_nm*1e-9);
+                 'ApStop',apst, 'stand',stand, 'lambda',S.lambda_nm*1e-9);
 
     if opts.verify
         out = verify_(out, S);
