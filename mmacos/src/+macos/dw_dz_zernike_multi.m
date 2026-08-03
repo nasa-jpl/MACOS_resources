@@ -22,7 +22,7 @@ function out = dw_dz_zernike_multi(session, rx_path, opts)
 %     'fields' FILE   override: rows of 'name dx_rad dy_rad tile_row tile_col'
 %
 %   OTHER NAME-VALUE PAIRS (all forwarded to dw_dz_zernike):
-%     'kinds', 'zmode_start', 'n_zcoef', 'delta', 'method',
+%     'kinds', 'elts', 'zmode_start', 'n_zcoef', 'delta', 'method',
 %     'exit_pupil_elt', 'verbose'.
 %
 %   'ngridpts'  (default [] = keep the .in value) ray-grid sampling
@@ -61,6 +61,7 @@ arguments
     opts.fields                 (1,:) char = ''
     opts.grid                   (1,:) char = ''
     opts.kinds                  cell = {'monzern','zern'}
+    opts.elts                   (:,1) double = []
     opts.zmode_start            (1,1) double {mustBeInteger, mustBePositive} = 4
     opts.n_zcoef                (1,1) double {mustBeInteger, mustBePositive} = 15
     opts.delta                  (1,1) double = 1e-6
@@ -70,6 +71,9 @@ arguments
     opts.reset_xp               (1,1) logical = true
     opts.verbose                (1,1) logical = false
     opts.ngridpts               double {mustBeScalarOrEmpty} = []
+    opts.src_samp               double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.compute_los            (1,1) logical = false
+    opts.spot_elt               double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -100,6 +104,13 @@ end
 % ---- Load + snapshot nominal source -------------------------------
 session.load_rx(rx_path);
 apply_ngridpts(session, opts.ngridpts, 'dw_dz_zernike_multi');
+
+% Apply source sampling if specified
+if ~isempty(opts.src_samp)
+    session.set_src_sampling(opts.src_samp);
+    session.modify();  % Flush cache so the new sampling takes effect
+end
+
 nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
@@ -122,6 +133,9 @@ end
 per_field_dwdz   = cell(n_fields, 1);
 per_field_w_nom  = cell(n_fields, 1);
 per_field_struct = cell(n_fields, 1);
+if opts.compute_los
+    per_field_dcdx = cell(n_fields, 1);
+end
 names = {};
 iElt_out = [];
 for k = 1:n_fields
@@ -142,20 +156,31 @@ for k = 1:n_fields
     end
     sf = macos.dw_dz_zernike(session, rx_path, ...
         'kinds', opts.kinds, ...
+        'elts', opts.elts, ...
         'zmode_start', opts.zmode_start, ...
         'n_zcoef', opts.n_zcoef, ...
         'delta', opts.delta, ...
         'method', opts.method, ...
         'exit_pupil_elt', opts.exit_pupil_elt, ...
         'verbose', opts.verbose, ...
-        'reload_rx', false);    % keep current src_fov state
+        'reload_rx', false, ...
+        'compute_los', opts.compute_los, ...
+        'spot_elt', opts.spot_elt);    % keep current src_fov state
     per_field_dwdz{k} = sf.dwdz;
     per_field_w_nom{k} = sf.w_nom_2d;
     per_field_struct{k} = sf;
+    if opts.compute_los
+        per_field_dcdx{k} = sf.dcdx;
+    end
     if isempty(names), names = sf.channel_names; iElt_out = sf.iElt; end
     col_rms_mean = mean(sqrt(mean(sf.dwdz.^2, 1)));
-    fprintf('[field %s] dwdz shape [%d %d], mean col-RMS %.3e\n', ...
+    fprintf('[field %s] dwdz shape [%d %d], mean col-RMS %.3e', ...
         fields(k).name, size(sf.dwdz, 1), size(sf.dwdz, 2), col_rms_mean);
+    if opts.compute_los
+        los_rms_mean = mean(sqrt(sum(sf.dcdx.^2, 2)));
+        fprintf('  mean LOS-RMS %.3e', los_rms_mean);
+    end
+    fprintf('\n');
 end
 
 % Restore source back to nominal.
@@ -262,6 +287,16 @@ out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.kinds                = opts.kinds;
 out.reset_xp             = opts.reset_xp;
+
+% Add per-field LOS if SPOT was computed
+if opts.compute_los
+    out.dcdx_per_field = per_field_dcdx;
+    if isempty(opts.spot_elt)
+        out.spot_elt = session.num_elt();  % Default focal plane
+    else
+        out.spot_elt = opts.spot_elt;
+    end
+end
 end
 
 

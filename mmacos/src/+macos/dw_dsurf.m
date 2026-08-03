@@ -15,6 +15,12 @@ function out = dw_dsurf(session, rx_path, opts)
 %
 %   Name-value pairs:
 %     'params'         cellstr subset of {'Kr','Kc'}.  Default {'Kr','Kc'}.
+%     'elts'           Vector of element IDs to include in the sensitivity
+%                      calculation.  Only powered optics (Reflector/Refractor
+%                      with |Kr| << 1e22) that are also in this list will be
+%                      perturbed.  Default [] (auto-detect all powered optics
+%                      from the loaded prescription).
+%                      Example: 'elts', [2; 4; 6] includes only elements 2, 4, 6.
 %     'delta'          finite-difference step (Kr in BaseUnits, Kc
 %                      dimensionless).  Default 1e-6.
 %     'method'         'central' | 'forward'.  Default central.
@@ -43,6 +49,7 @@ arguments
     session
     rx_path     (1,:) char {mustBeNonempty}
     opts.params               cell    = {'Kr','Kc'}
+    opts.elts                 (:,1) double = []
     opts.delta                (1,1) double = 1e-6
     opts.method               (1,:) char {mustBeMember(opts.method, ...
                                   {'central','forward'})} = 'central'
@@ -50,12 +57,22 @@ arguments
     opts.verbose              (1,1) logical = false
     opts.reload_rx            (1,1) logical = true
     opts.ngridpts             double {mustBeScalarOrEmpty} = []
+    opts.src_samp             double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.compute_los          (1,1) logical = false
+    opts.spot_elt             double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 
 if opts.reload_rx
     session.load_rx(rx_path);
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dsurf');
+
+% Apply source sampling if specified
+if ~isempty(opts.src_samp)
+    session.set_src_sampling(opts.src_samp);
+    session.modify();  % Flush cache so the new sampling takes effect
+end
+
 n_elt = session.num_elt();
 if opts.exit_pupil_elt < 0
     wf_elt = n_elt - 1;
@@ -63,7 +80,9 @@ else
     wf_elt = opts.exit_pupil_elt;
 end
 
-channels = macos.channels.surf_channels(session, rx_path, 'params', opts.params);
+channels = macos.channels.surf_channels(session, rx_path, ...
+    'params', opts.params, ...
+    'elts', opts.elts);
 if isempty(channels)
     error('macos:dw_dsurf:nochan', ...
         'no powered optics (Reflector/Refractor, |Kr|<<1e22) found in %s', ...
@@ -72,9 +91,21 @@ end
 
 wf_func = @() local_wf(session, wf_elt);
 
-[dwds, w_nom_2d, w_nom_vec, indx, names] = ...
+% Create spot_func if LOS computation requested
+if opts.compute_los
+    if isempty(opts.spot_elt)
+        spot_elt_use = n_elt;  % Default to focal plane
+    else
+        spot_elt_use = opts.spot_elt;
+    end
+    spot_func = @() local_spot(spot_elt_use);
+else
+    spot_func = [];
+end
+
+[dwds, w_nom_2d, w_nom_vec, indx, names, dcdx, spot_pos, spot_neg, spot_nom, spot_pert] = ...
     macos.dwdz_for_current_source(channels, wf_func, opts.delta, ...
-        'method', opts.method, 'verbose', opts.verbose);
+        'method', opts.method, 'verbose', opts.verbose, 'spot_func', spot_func);
 
 iElt_out  = zeros(numel(channels), 1);
 param_out = cell(numel(channels), 1);
@@ -95,10 +126,27 @@ out.rx_path       = rx_path;
 out.wf_elt        = wf_elt;
 out.delta         = opts.delta;
 out.method        = opts.method;
+
+% Add LOS fields if SPOT was computed
+if opts.compute_los
+    out.dcdx      = dcdx;
+    out.spot_elt  = spot_elt_use;
+    if strcmp(opts.method, 'central')
+        out.spot_pos = spot_pos;
+        out.spot_neg = spot_neg;
+    else  % forward
+        out.spot_nom  = spot_nom;
+        out.spot_pert = spot_pert;
+    end
+end
 end
 
 
 function W = local_wf(session, wf_elt)
 session.trace(wf_elt);
 W = session.opd();
+end
+
+function S = local_spot(spot_elt)
+S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'chief');
 end

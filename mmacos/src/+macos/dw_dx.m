@@ -12,6 +12,8 @@ function out = dw_dx(session, rx_path, opts)
 %
 %   Name-value pairs:
 %     'dofs'             vector of DOF indices (0..5).  Default all 6.
+%     'elts'             vector of element IDs to include.  Default []
+%                        (auto-detect all actual optics from Rx).
 %     'fp_mode'          'track' (default) | 'srs' | 'sxp' | 'none'
 %     'ep_elt'           EP element id (default -1 = nElt-1).
 %     'include_source'   logical -- prepend a SourceChannel block.
@@ -32,7 +34,11 @@ function out = dw_dx(session, rx_path, opts)
 %                        base-per-rad: rotations are OPD-in-BaseUnits
 %                        per rad (not multiplied by CBM).  Translations
 %                        unchanged.
-%     'delta'            finite-difference step.  Default 1e-8.
+%     'delta'            finite-difference step. Either:
+%                        - (1,1) double: single value for all DOFs
+%                        - (1,6) double: [Rx Ry Rz Tx Ty Tz] deltas
+%                        Rotations in rad, translations in BaseUnits.
+%                        Default 1e-8.
 %     'method'           'central' (default) | 'forward'.
 %     'exit_pupil_elt'   element id at which to evaluate the OPD.
 %                        Default -1 = nElt-1 (XP convention).
@@ -61,6 +67,7 @@ arguments
     session
     rx_path                  (1,:) char {mustBeNonempty}
     opts.dofs                (:,1) double = (0:5).'
+    opts.elts                (:,1) double = []
     opts.fp_mode             (1,:) char {mustBeMember( ...
         opts.fp_mode, {'track','srs','sxp','none'})} = 'track'
     opts.ep_elt              (1,1) double {mustBeInteger} = -1
@@ -87,13 +94,16 @@ arguments
     opts.group_stop_pos      (1,3) double = [0 0 0]
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
-    opts.delta               (1,1) double = 1e-8
+    opts.delta               (:,:) double {mustBeDeltaSize} = 1e-5
     opts.method              (1,:) char {mustBeMember(opts.method, ...
                                 {'central','forward'})} = 'central'
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
     opts.verbose             (1,1) logical = false
     opts.reload_rx           (1,1) logical = true
     opts.ngridpts            double {mustBeScalarOrEmpty} = []
+    opts.src_samp            double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.compute_los         (1,1) logical = false
+    opts.spot_elt            double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 
 if ~isempty(opts.stop_elt) && ~isempty(opts.stop_obj_pos)
@@ -105,6 +115,13 @@ if opts.reload_rx
     session.load_rx(rx_path);
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dx');
+
+% Apply source sampling if specified
+if ~isempty(opts.src_samp)
+    session.set_src_sampling(opts.src_samp);
+    session.modify();  % Flush cache so the new sampling takes effect
+end
+
 n_elt = session.num_elt();
 if opts.exit_pupil_elt < 0
     wf_elt = n_elt - 1;
@@ -147,6 +164,7 @@ end
 channels = [channels; macos.channels.rigid_body_channels(session, ...
     rx_path, ...
     'dofs', opts.dofs, ...
+    'elts', opts.elts, ...
     'fp_mode', opts.fp_mode, ...
     'ep_elt', opts.ep_elt, ...
     'include_non_optics', opts.include_non_optics)];
@@ -194,11 +212,25 @@ end
 
 wf_func = @() local_wf(session, wf_elt);
 
-[dwdx, w_nom_2d, w_nom_vec, indx, names] = ...
+% Create spot_func if LOS computation requested
+if opts.compute_los
+    if isempty(opts.spot_elt)
+        spot_elt_use = n_elt;  % Default to focal plane
+    else
+        spot_elt_use = opts.spot_elt;
+    end
+    spot_func = @() local_spot(spot_elt_use);
+else
+    spot_func = [];
+end
+
+[dwdx, w_nom_2d, w_nom_vec, indx, names, dcdx, spot_pos, spot_neg, spot_nom, spot_pert] = ...
     macos.dwdx_for_current_source(channels, wf_func, opts.delta, ...
         'method', opts.method, ...
         'output_scale_fn', @output_scale_fn, ...
-        'verbose', opts.verbose);
+        'cbm', cbm, ...
+        'verbose', opts.verbose, ...
+        'spot_func', spot_func);
 
 iElt_out   = zeros(numel(channels), 1);
 dof_out    = zeros(numel(channels), 1);
@@ -238,10 +270,34 @@ out.wf_elt        = wf_elt;
 out.rot_output    = opts.rot_output;
 out.cbm           = cbm;
 out.base_units    = base_units;
+
+% Add LOS fields if SPOT was computed
+if opts.compute_los
+    out.dcdx      = dcdx;
+    out.spot_elt  = spot_elt_use;
+    if strcmp(opts.method, 'central')
+        out.spot_pos = spot_pos;
+        out.spot_neg = spot_neg;
+    else  % forward
+        out.spot_nom  = spot_nom;
+        out.spot_pert = spot_pert;
+    end
+end
 end
 
 
 function W = local_wf(session, wf_elt)
 session.trace(wf_elt);
 W = session.opd();
+end
+
+function S = local_spot(spot_elt)
+S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'chief');
+end
+
+function mustBeDeltaSize(d)
+    if ~(isequal(size(d), [1 1]) || isequal(size(d), [1 6]))
+        error('macos:dw_dx:deltaSize', ...
+            'delta must be (1,1) or (1,6)');
+    end
 end
