@@ -48,6 +48,18 @@ function R = afocal4_mersenne(opts)
     end
     here = fileparts(mfilename('fullpath'));
     P = afocal4_params();
+    % THE HEDGE RUNS WITH THE PACKAGING WALL OFF, and the reason belongs in
+    % the record rather than in a footnote: the double Mersenne fails the
+    % S4b buildability constraint STRUCTURALLY.  Its second confocal pair
+    % lives inside the M1-M2 space -- M3 lands ~540 mm and M4 ~940 mm in
+    % FRONT of the primary -- and no conic, gap or stage split moves them
+    % behind it, because the form's whole compression happens before the
+    % beam ever gets back to M1.  The experiment below is kept RUNNABLE and
+    % its verdict stands as measured (four conics buy 1.7x against a factor
+    % of 500 needed); the constraint closes it a second time, on packaging,
+    % and that is stated in RESULTS section 4 rather than by deleting a
+    % result.
+    P.pack.enforce = false;
     if opts.max_iter <= 0, opts.max_iter = P.solve.max_iter; end
     macos.init(P.model_size);
     t0 = tic;

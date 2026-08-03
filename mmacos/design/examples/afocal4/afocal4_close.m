@@ -59,8 +59,11 @@ function C = afocal4_close(P, form, opts)
 %
 %   Returns C with .R .t .convex .K .names (ready for the builder), the
 %   paraxial verification .fo (an AFOCAL_FIRST_ORDER struct on the closed
-%   layout), .footprint_m on the new mirror, and .closure -- the residuals
-%   of the two conditions, which are the check that the algebra closed.
+%   layout), .footprint_m on the new mirror, .closure -- the residuals of
+%   the two conditions, which are the check that the algebra closed -- and
+%   the PACKAGING stations .z (global vertex z per mirror, M1 at 0, sky at
+%   -z), .z_iface and .behind_m1 = z(last mirror) - z(M1), the quantity the
+%   S4b buildability constraint is written on.
 
     arguments
         P (1,1) struct
@@ -210,6 +213,25 @@ function C = afocal4_close(P, form, opts)
         C.m1 = m1;  C.m2 = m2;  C.gap = gap;  C.stage2_type = opts.stage2_type;
         C.d_pred = pupil_of_(RR, C.t, cc, D, SA);
     end
+
+    % ---- where the mirrors actually SIT ---------------------------------
+    % The paraxial layout is a list of spacings; PACKAGING is a list of
+    % STATIONS, and the two are not the same statement.  A coaxial train
+    % reverses at every mirror, so the emitted global z alternates: M1 at
+    % z = 0 facing -z (sky at -z, BEHIND the primary is +z), then
+    % z(k+1) = z(k) -+ t(k).  One extra mirror flips the parity of the whole
+    % back end -- which is exactly how the S4 four-mirror designs ended up
+    % with M3 440 mm in FRONT of M1 while the three-mirror parent they came
+    % from has it 640 mm behind (S4b, PLAN_AFOCAL4 BUILDABILITY CONSTRAINT).
+    C.z = zeros(1, numel(C.t)+1);   dir = -1;
+    for k = 1:numel(C.t)
+        C.z(k+1) = C.z(k) + dir*C.t(k);   dir = -dir;
+    end
+    % ... and where the interface pupil lands, on the same axis: after an
+    % EVEN number of mirrors the exit beam runs +z, away from the primary,
+    % so the pupil is further behind M1 than the last mirror is.
+    C.z_iface   = C.z(end) + dir*dsp;
+    C.behind_m1 = C.z(end) - C.z(1);          % the packaging number
 
     % ---- verify the closure on the assembled layout ---------------------
     C.form = form;

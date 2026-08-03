@@ -54,7 +54,12 @@ classdef tAfocal4 < matlab.unittest.TestCase
         %  The three conditions, at the flagged operating point and at two
         %  others, on axis and at the bias.  They are IDENTITIES: the
         %  tolerances are numerical, not engineering.
-            for iface = [0.09 0.14 0.30]
+        %  The interface distances are inside the COMPLIANT window of the
+        %  seed standoff (S4b: s = -0.40 m closes from 84 to 233 mm); a
+        %  design outside it is not a closure failure but a packaging one,
+        %  and that is what test_packaging_is_a_wall_and_the_gate_agrees is
+        %  for.
+            for iface = [0.10 0.14 0.20]
                 for bias = [0 tc.P.bias_deg]
                     D = afocal4_seed(tc.P, 'bias_deg',bias, 'iface',iface);
                     f = [tempname '.in'];
@@ -91,12 +96,19 @@ classdef tAfocal4 < matlab.unittest.TestCase
         %  where the marginal ray is small, so its power cannot buy M.  At a
         %  fixed interface the closure re-derives phi4 as the standoff moves,
         %  and M must not notice.
+        %
+        %  Run with the PACKAGING WALL OFF, and deliberately: this is a
+        %  statement about the FORM, and it has to hold on both sides of the
+        %  intermediate image and on both sides of the constraint.  Mixing
+        %  the two would make a first-order identity look like it depended
+        %  on where the collimator happens to sit.
             m = [];
-            for s = [0.05 0.20 0.40]
-                D = afocal4_seed(tc.P, 'fm_standoff', s);
+            Q = tc.P;   Q.pack.enforce = false;
+            for s = [-0.50 -0.40 0.05 0.20 0.40]
+                D = afocal4_seed(Q, 'fm_standoff', s);
                 f = [tempname '.in'];
                 c = onCleanup(@() tc.rm_(f)); %#ok<NASGU>
-                b = afocal4_build(tc.P, D, f, 'verify',false);
+                b = afocal4_build(Q, D, f, 'verify',false);
                 m(end+1) = b.C.fo.mag; %#ok<AGROW>
             end
             tc.verifyLessThan(max(abs(m/tc.P.M - 1)), 1e-9, ...
@@ -191,6 +203,48 @@ classdef tAfocal4 < matlab.unittest.TestCase
             % a term twice inside its target earns nothing more
             tc.verifyEqual(max(0, log(0.4/tc.P.merit_floor)), 0, ...
                 'AbsTol', 0, 'the merit floor is not clamping at zero');
+        end
+
+        function test_packaging_is_a_wall_and_the_gate_agrees(tc)
+        %  THE S4b BUILDABILITY CONSTRAINT (Dave 2026-08-03).  Four claims,
+        %  because a constraint that is only half wired is worse than none:
+        %    (a) a layout that puts the collimator in FRONT of M1 -- which
+        %        is what the whole S4 trade did -- is now an error, not a
+        %        design;
+        %    (b) P.pack.enforce = false still builds it, so the S4 reference
+        %        stays reproducible (retract in place, never rewrite);
+        %    (c) a compliant seed builds, and its EMITTED vertex stations are
+        %        the ones the cheap paraxial wall judged;
+        %    (d) AFOCAL4_PACK -- which reads TRACED rays off the committed
+        %        deck rather than the closure -- agrees it is buildable, with
+        %        real daylight for the fold.
+            tc.verifyTrue(tc.P.pack.enforce, 'the constraint ships switched off');
+
+            f = [tempname '.in'];
+            c = onCleanup(@() tc.rm_(f)); %#ok<NASGU>
+            D = afocal4_seed(tc.P, 'fm_standoff', 0.20);   % the S4 standoff
+            tc.verifyError(@() afocal4_build(tc.P, D, f, 'verify',false), ...
+                'macos:design:afocal4_build:packaging', ...
+                'the unbuildable S4 layout still builds');
+
+            Q = tc.P;   Q.pack.enforce = false;
+            b0 = afocal4_build(Q, D, f, 'verify',false);
+            tc.verifyLessThan(b0.behind_m1, 0, ...
+                'the S4 reference is supposed to sit in front of M1');
+
+            b = afocal4_build(tc.P, afocal4_seed(tc.P), f, 'verify',false);
+            tc.verifyGreaterThanOrEqual(b.behind_m1, tc.P.pack.m3_behind_min, ...
+                'a design that passed the wall is not actually behind M1');
+            zz = tc.grab_(fileread(f), 'VptElt');
+            tc.verifyLessThan(max(abs(zz(3,1:numel(b.C.z)) - b.C.z)), 1e-9, ...
+                'emitted stations differ from the ones the wall judged');
+
+            K = afocal4_pack(tc.P, f, 'quiet',true);
+            tc.verifyTrue(K.ok_station, 'the gate disagrees with the wall');
+            tc.verifyGreaterThan(K.fold_pick.gap, 0, ...
+                'no daylight for a fold on the collimator''s exit leg');
+            tc.verifyTrue(K.ok, ...
+                sprintf('compliant design fails the packaging gate: %s', K.why));
         end
 
         function test_solve_smoke_is_wired_to_the_closure(tc)
