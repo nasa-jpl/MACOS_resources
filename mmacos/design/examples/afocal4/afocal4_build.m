@@ -26,6 +26,16 @@ function out = afocal4_build(P, D, deck, opts)
 %   with the trade curve reported rather than a value optimised.  Sweeping
 %   D.iface IS sweeping phi4; afocal4_ladder('trade') does exactly that.
 %
+%   AND ONE THING IS NOT NEGOTIABLE AT ALL: the design has to be BUILDABLE.
+%   The S4b constraint (Dave, 2026-08-03) says the last powered mirror sits
+%   at least P.pack.m3_behind_min BEHIND the primary, so that a fold on its
+%   exit leg can take the interface pupil and the instrument out of the
+%   incoming beam -- which is what Mike's own parent does.  It enters here
+%   as a WALL (an error the solver turns back on), never as a merit term:
+%   an unbuildable layout is not a worse design to be traded against
+%   wavefront error, it is not a design.  P.pack.enforce = false reproduces
+%   the unconstrained S4 reference.
+%
 %   D fields (AFOCAL4_SEED builds a default one):
 %     .form         'field' (the S3 ruling) | 'mersenne' (the hedge)
 %     .K            1x4 conics in BUILD order.  'field': [M1 M2 FM M3] with
@@ -107,6 +117,21 @@ function out = afocal4_build(P, D, deck, opts)
                'layout stacks two mirrors or runs the beam backwards.'], ...
               min(C.t));
     end
+    % ---- 1b. PACKAGING: the last mirror must sit BEHIND the primary -------
+    % The S4b constraint (Dave 2026-08-03; PLAN_AFOCAL4 BUILDABILITY
+    % CONSTRAINT), and it is a WALL, not a merit term -- see the P.pack
+    % comment in AFOCAL4_PARAMS for why.  An arithmetically valid closure
+    % that puts the collimator, the field mirror and the interface pupil in
+    % front of M1 is not a worse telescope; it is a telescope whose
+    % instrument sits in its own incoming beam.
+    pk = pack_spec_(P);
+    if pk.enforce && C.behind_m1 < pk.m3_behind_min
+        error('macos:design:afocal4_build:packaging', ...
+              ['the closure puts %s at z = %+.3f m, %.0f mm behind M1 ' ...
+               '(minimum %.0f): the back end and the instrument that ' ...
+               'follows the pupil would sit in the incoming beam.'], ...
+              C.names{end}, C.z(end), C.behind_m1*1e3, pk.m3_behind_min*1e3);
+    end
 
     % ---- 2. emit ---------------------------------------------------------
     t = macos.design.Telescope('family','tma', 'aperture_diameter_m',P.D, ...
@@ -133,7 +158,25 @@ function out = afocal4_build(P, D, deck, opts)
     out = struct('file',deck, 'D',D, 'C',C, 'phi4',phi4, ...
                  'R',C.R, 't',C.t, 'conic',C.K, 'names',{C.names}, ...
                  'iface',D.iface, 'iface_pred',C.fo.pupil_dist, ...
+                 'z',C.z, 'behind_m1',C.behind_m1, ...
                  'coldstop',cs, 'traced',[], 'paraxial_ok',true);
+
+    % ---- 3b. the EMITTED stations must be the ones the wall judged --------
+    % The packaging wall is applied to the closure's predicted stations,
+    % because it has to be cheap enough to sit inside the solve.  That is
+    % only sound if the emitter puts the mirrors where the closure says --
+    % so read them back off the committed deck and pin the two together.  A
+    % constraint checked against a prediction the artifact does not honour
+    % is the "closes on paper" failure the S3 builder bug already cost this
+    % study once.
+    zi = grab_all3_(fileread(deck),'VptElt');
+    dz = max(abs(zi(3,1:numel(C.z)) - C.z));
+    if dz > 1e-9
+        error('macos:design:afocal4_build:stations', ...
+              ['the emitted vertex stations differ from the closure''s by ' ...
+               '%.3e m: the packaging check judged a layout that was not ' ...
+               'built.'], dz);
+    end
 
     % ---- 4. verify against the closure it was built from -----------------
     if opts.verify
@@ -145,11 +188,28 @@ function out = afocal4_build(P, D, deck, opts)
             fprintf(['        traced M %.4fx (paraxial %.4f), exit %.3f mm, ' ...
                      'collimation %.2f urad\n'], out.traced.mag, C.fo.mag, ...
                      out.traced.exit_dia*1e3, out.traced.collimation_urad);
+            fprintf('        %s at z %+.3f m = %.0f mm behind M1\n', ...
+                    C.names{end}, C.z(end), C.behind_m1*1e3);
         end
     end
 end
 
 % =====================================================================
+function pk = pack_spec_(P)
+%PACK_SPEC_  The packaging spec, with the S4 (pre-constraint) behaviour as
+%   the default for a P that predates it.  A parameter struct saved inside
+%   an older afocal4_ladder.mat must still rebuild its own decks -- and it
+%   must rebuild them UNCONSTRAINED, because that is what it was scored
+%   under.  Silently applying today's wall to yesterday's record would make
+%   the S4 reference unreproducible, which is the opposite of retract-in-
+%   place.
+    pk = struct('enforce',false, 'm3_behind_min',0.500);
+    if isfield(P,'pack')
+        f = fieldnames(P.pack);
+        for i = 1:numel(f), pk.(f{i}) = P.pack.(f{i}); end
+    end
+end
+
 function D = fill_(P, D)
 %FILL_  Defaults, and the shape checks that catch a mis-packed DOF vector
 %   before it becomes a silently wrong design.
@@ -184,21 +244,52 @@ function [C, phi4] = close_field_(P, s, iface)
 %   the bracket is found by SCAN rather than assumed -- d is monotone
 %   decreasing across the physical window and the first sign change is the
 %   root.
+%
+%   A SIGN CHANGE IS NOT A ROOT.  d(phi4) is rational, so it changes sign
+%   across its POLES too, and fzero converges happily onto one -- returning
+%   a "layout" with a collimator 1e14 m away.  Under the S4b packaging
+%   constraint the useful roots moved from phi4 ~ 2 to phi4 ~ 4, past a
+%   pole, and taking the first sign change started failing outright.  So
+%   every candidate is CLOSED and CHECKED, and the first one that is
+%   actually a telescope wins.  The original 119-point window is tried
+%   first and unchanged, so every S4 design re-derives to its committed
+%   value; the wider window is a fallback, not a redefinition.
     Q = P;  Q.iface_dist = iface;
     d = @(x) pupil_of_(Q, s, x);
-    xs = linspace(-0.9, 5.0, 119);
-    g  = arrayfun(@(x) d(x) - iface, xs);
-    k  = find(isfinite(g(1:end-1)) & isfinite(g(2:end)) & ...
-              sign(g(1:end-1)) ~= sign(g(2:end)), 1, 'first');
-    if isempty(k)
-        error('macos:design:afocal4_build:noRoot', ...
-              ['no field-mirror power in [-0.9, 5] /m puts the exit pupil at ' ...
-               '%.1f mm with a %.0f mm standoff: the station runs %.1f mm to ' ...
-               '%.1f mm.  Pick an interface distance inside that range.'], ...
-              iface*1e3, s*1e3, (g(1)+iface)*1e3, (g(end)+iface)*1e3);
+    for xs = {linspace(-0.9, 5.0, 119), linspace(-0.9, 9.0, 401)}
+        [phi4, C, found] = first_valid_root_(Q, s, iface, d, xs{1});
+        if found, return; end
     end
-    phi4 = fzero(@(x) d(x) - iface, [xs(k) xs(k+1)]);
-    C = afocal4_close(Q, 'field', 'standoff',s, 'phi4',phi4);
+    g = arrayfun(@(x) d(x) - iface, linspace(-0.9, 9.0, 401));
+    error('macos:design:afocal4_build:noRoot', ...
+          ['no field-mirror power in [-0.9, 9] /m puts the exit pupil at ' ...
+           '%.1f mm with a %.0f mm standoff and closes a real layout: the ' ...
+           'station runs %.1f mm to %.1f mm.  Pick an interface distance ' ...
+           'inside that range.'], iface*1e3, s*1e3, ...
+          (g(1)+iface)*1e3, (g(end)+iface)*1e3);
+end
+
+function [phi4, C, found] = first_valid_root_(Q, s, iface, d, xs)
+%FIRST_VALID_ROOT_  The lowest field-mirror power whose closure is a
+%   telescope: finite spacings, the pupil where it was asked for, and the
+%   two first-order identities intact.  Lowest because the weakest field
+%   mirror is the one closest to the three-mirror parent.
+    phi4 = NaN;  C = [];  found = false;
+    g = arrayfun(@(x) d(x) - iface, xs);
+    k = find(isfinite(g(1:end-1)) & isfinite(g(2:end)) & ...
+             sign(g(1:end-1)) ~= sign(g(2:end)));
+    for j = k(:).'
+        try
+            x  = fzero(@(y) d(y) - iface, [xs(j) xs(j+1)]);
+            Ct = afocal4_close(Q, 'field', 'standoff',s, 'phi4',x);
+        catch
+            continue;
+        end
+        if any(~isfinite(Ct.t)) || any(Ct.t < 0.02) || any(Ct.t > 8), continue; end
+        if abs(Ct.fo.pupil_dist - iface) > 1e-8, continue; end
+        if abs(Ct.fo.mag/Q.M - 1) > 1e-9 || abs(Ct.fo.u_out) > 1e-9, continue; end
+        phi4 = x;   C = Ct;   found = true;   return;
+    end
 end
 
 function d = pupil_of_(Q, s, phi4)

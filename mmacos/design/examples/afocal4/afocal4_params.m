@@ -105,8 +105,59 @@ function P = afocal4_params()
     % the S3 breathing null sits, 27 mm at phi4 = +4.  Held at the flagged
     % default through the answer ladder; swept by afocal4_ladder('trade').
     P.iface        = 140*mm;
-    P.fm_standoff  = 0.20;             % field-mirror standoff SEED (a DOF)
+    % The field-mirror standoff SEED (a DOF).  NEGATIVE from S4b on: the
+    % packaging constraint is satisfied only with the field mirror PAST the
+    % intermediate image, because one extra mirror flips the parity of the
+    % back end and the collimator walks back toward the sky from wherever
+    % the field mirror sits.  Walls need a COMPLIANT SEED to be a wall and
+    % not a cage (the earned rule), and -0.40 m is the middle of the
+    % compliant band with his front end held: it closes anywhere in
+    % iface = 84..233 mm and puts the collimator 508..690 mm behind M1.
+    % The S4 value was +0.20, which is unbuildable; P.pack.enforce = false
+    % plus that value reproduces the S4 reference.
+    P.fm_standoff  = -0.40;
     P.iface_trade  = [50 90 140 220 343]*mm;   % the reported trade curve
+
+    % --- S4b: the PACKAGING CONSTRAINT (Dave, 2026-08-03) ----------------
+    % The S4 solutions put M3, the field mirror, the interface pupil -- and
+    % therefore the whole instrument that follows the pupil -- IN FRONT of
+    % M1, in the incoming beam.  Not buildable.  Mike's own parent is the
+    % existence proof of the fix: his M3 sits 640 mm BEHIND M1 and a
+    % recenter fold after it takes the rest of the optics out of the beam.
+    %
+    % SIGN CONVENTION, and it is worth stating once because everything here
+    % depends on it: the emitted decks put M1 at z = 0 facing -z, so the sky
+    % is at -z and BEHIND M1 IS +z.  His M3 reads z = +0.640 m; the S4
+    % four-mirror designs read z = -0.44 m, i.e. 440 mm in front of the
+    % primary, which is the finding in one number.
+    %
+    % The constraint enters as a WALL in AFOCAL4_BUILD, never as a merit
+    % term.  A mis-scaled penalty owns the solve (the log-merit lesson,
+    % RESULTS section 5 rule 2), and this is not a quantity to be traded
+    % against wavefront error: a design that cannot be built is not a worse
+    % design, it is not a design.  The solver turns back on a large finite
+    % residual exactly as it does for a degenerate closure.
+    P.pack = struct( ...
+        'enforce',       true,  ...   % false reproduces the S4 (unbuildable) reference
+        'm3_behind_min', 0.500, ...   % z(last powered mirror) - z(M1), m
+        ...  % the fold that takes the interface pupil + the instrument out of
+        ...  % the beam.  It picks off the LAST mirror's exit leg -- his own
+        ...  % recenter fold, in the same place -- so what moves into the x-y
+        ...  % plane behind the primary is the pupil and everything after it.
+        ...  % The field mirror is an optic of the TELESCOPE, upstream of the
+        ...  % collimator, so no fold can move it; what the constraint has to
+        ...  % guarantee for the FM is that it too sits behind M1, which
+        ...  % z_M3 >= 500 mm delivers here (z_FM > z_M3 in every compliant
+        ...  % closure, because the collimator sits BACK toward the primary
+        ...  % from the field mirror).
+        'fold_after',    'M3',  ...   % name of the mirror the fold follows
+        'fold_dist',     0.060, ...   % fold vertex, m past it along the beam
+        'fold_to',       [1 0 0], ... % into +x: the x-y plane behind M1
+        'fold_margin',   0.015, ...   % body extent beyond the folded bundle, m
+        'instr_len',     1.000, ...   % instrument envelope past the pupil, m
+        ...                           %   (his AFI -1000: coldstop -> SI)
+        'instr_dia',     0.300, ...   % and its diameter, m
+        'm1_keepout',    0.560);      % M1 radius + mount ring, m
 
     % --- the form under solve --------------------------------------------
     % 'field' is the S3 ruling.  'mersenne' is the ONE bounded hedge
@@ -161,7 +212,12 @@ function P = afocal4_params()
     % same size of design change and the trust region means one thing.
     P.dof_scale = struct('conic',0.5, 'standoff',0.05, 'radius',0.02, ...
                          'spacing',0.02, 'dec',1e-3, 'tilt',1e-3);
-    P.bounds    = struct('fm_standoff',[-0.50 0.60], 'conic',[-30 30], ...
+    % The field-mirror standoff bound is TWO-SIDED and the negative side is
+    % wide on purpose: under the packaging constraint the compliant band is
+    % s = -0.60 .. -0.22 m with his front end held (measured, S4b task 1), so
+    % a bound at -0.50 would clamp the solver against the constraint instead
+    % of letting it choose inside it.
+    P.bounds    = struct('fm_standoff',[-0.80 0.60], 'conic',[-30 30], ...
                          'R2',[0.25 1.20], 't1',[0.70 1.40], ...
                          'dec',[-0.05 0.05], 'tilt',[-0.05 0.05]);
 end

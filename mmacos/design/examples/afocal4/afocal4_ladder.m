@@ -41,6 +41,12 @@ function R = afocal4_ladder(opts)
 %     'max_iter'  solver cap per rung (P.solve.max_iter)
 %     'trade_iter' solver cap per trade point (30 -- warm-started from rung 3)
 %     'resume'    a previous R to extend instead of re-solving
+%     'prefix'    tag prepended to every artifact name (default '').  The
+%                 S4b constrained redo runs with 'b_', so it lands BESIDE
+%                 the S4 record rather than on top of it: those numbers
+%                 stand as the unconstrained reference, labelled NOT
+%                 BUILDABLE in RESULTS.md, and are never rewritten.
+%     'iface_trade'  override P.iface_trade (the swept operating points)
 %
 %   Run:  >> afocal4_ladder                 (everything)
 %         >> afocal4_ladder('sections',0:1) (the rungs only)
@@ -54,9 +60,18 @@ function R = afocal4_ladder(opts)
         opts.max_iter (1,1) double  = 0
         opts.trade_iter (1,1) double = 30
         opts.resume   struct = struct([])
+        opts.prefix   (1,:) char = ''
+        opts.iface_trade (1,:) double = []
     end
     here = fileparts(mfilename('fullpath'));
     P = afocal4_params();
+    % PREFIX tags every artifact this run writes.  The S4 record is a
+    % published reference that the S4b redo must not overwrite (Dave's
+    % retract-in-place discipline), so the constrained run writes
+    % afocal4_b_*.in / .png / .mat beside the S4 ones rather than on top
+    % of them.  Empty = the S4 names, unchanged.
+    pfx = opts.prefix;
+    if ~isempty(opts.iface_trade), P.iface_trade = opts.iface_trade; end
     if opts.max_iter <= 0, opts.max_iter = P.solve.max_iter; end
     macos.init(P.model_size);
     R = struct('P',P, 'when',datestr(now,31)); %#ok<TNOW1,DATST>
@@ -80,7 +95,7 @@ function R = afocal4_ladder(opts)
     banner('0.  THE SEED');
     % =====================================================================
     D0 = afocal4_seed(P, 'bias_deg', 0);
-    b0 = afocal4_build(P, D0, deck_(here,'seed',opts.save), 'quiet',false);
+    b0 = afocal4_build(P, D0, deck_(here,[pfx 'seed'],opts.save), 'quiet',false);
     S0 = afocal4_score(P, b0.file, 'nodes',P.solve.nodes_score, 'grid',P.grid_n);
     afocal4_score_print(P, S0, 'seed, on axis, conics carried');
     fprintf(['\n  The seed is the S3 recommendation UNOPTIMISED: his conics\n' ...
@@ -102,12 +117,12 @@ function R = afocal4_ladder(opts)
     % `arr(k) = s` when s has different fields, and it does so only when the
     % assignment is reached -- i.e. after the rung has been solved.
     rung = struct('name',{},'label',{},'D',{},'deck',{},'S',{},'solve',{});
-    ckpt = @(R_) save_(here, R_, opts.save);
+    ckpt = @(R_) save_(here, R_, opts.save, pfx);
 
     % --- rung 1: on axis, joint solve -------------------------------------
     D = afocal4_seed(P, 'bias_deg', 0);
     s1 = solve_rung_(P, D, OPT_DOFS, 'rung 1  on axis', ...
-                     deck_(here,'r1_onaxis',true), opts.max_iter);
+                     deck_(here,[pfx 'r1_onaxis'],true), opts.max_iter);
     rung(1) = mkrung_('r1_onaxis','1  on axis, joint solve', ...
                       s1.D, s1.deck, s1.S, s1);
     R.rung = rung;   ckpt(R);
@@ -119,7 +134,7 @@ function R = afocal4_ladder(opts)
     % mechanical part that follows the beam -- his coldstop DAR tilt does
     % exactly this (0 deg on axis, 4.289 deg at the offset field).
     D2 = rung(1).D;   D2.bias_deg = P.bias_deg;
-    b2 = afocal4_build(P, D2, deck_(here,'r2_offset',true));
+    b2 = afocal4_build(P, D2, deck_(here,[pfx 'r2_offset'],true));
     S2 = afocal4_score(P, b2.file, 'nodes',P.solve.nodes_score, 'grid',P.grid_n);
     rung(2) = mkrung_('r2_offset','2  offset +0.6 deg, FROZEN', D2, b2.file, S2, []);
     afocal4_score_print(P, S2, 'rung 2  offset, frozen');
@@ -127,14 +142,14 @@ function R = afocal4_ladder(opts)
 
     % --- rung 3: joint re-solve at the bias -------------------------------
     s3 = solve_rung_(P, D2, OPT_DOFS, 'rung 3  offset re-solve', ...
-                     deck_(here,'r3_resolve',true), opts.max_iter);
+                     deck_(here,[pfx 'r3_resolve'],true), opts.max_iter);
     rung(3) = mkrung_('r3_resolve','3  offset, joint re-solve', ...
                       s3.D, s3.deck, s3.S, s3);
     R.rung = rung;   ckpt(R);
 
     % --- rung 4: + rigid bodies, joint ------------------------------------
     s4 = solve_rung_(P, rung(3).D, [OPT_DOFS {'rb'}], 'rung 4  + tilt/dec', ...
-                     deck_(here,'r4_tiltdec',true), opts.max_iter);
+                     deck_(here,[pfx 'r4_tiltdec'],true), opts.max_iter);
     rung(4) = mkrung_('r4_tiltdec','4  + M2/FM/M3 tilt and decenter', ...
                       s4.D, s4.deck, s4.S, s4);
 
@@ -155,32 +170,72 @@ function R = afocal4_ladder(opts)
              '  ruling).  It rides the field mirror''s power -- 343 mm is the\n' ...
              '  three-mirror''s own pupil at phi4 = 0, 140 mm is the S3\n' ...
              '  breathing null -- so what the instrument is owed is the CURVE,\n' ...
-             '  with the design re-solved at every point.  Rung-3 DOFs,\n' ...
-             '  warm-started from rung 3.\n\n']);
-    Tr = struct('iface',{},'phi4',{},'R_fm',{},'R_col',{},'s_fm',{},'S',{},'D',{});
+             '  with the design re-solved at every point.  Rung-3 DOFs.\n\n' ...
+             '  TWO SEEDS AT EVERY POINT, and the pair is reported.  The S4\n' ...
+             '  curve warm-started each point from the last and walked into a\n' ...
+             '  basin at 220 mm whose wavefront column looked like the best on\n' ...
+             '  the curve while its pupil blur read 16.7 mm (RESULTS 3.1).  A\n' ...
+             '  finite-difference Jacobian over six DOFs makes the basin part\n' ...
+             '  of the answer, so it is measured rather than hoped for: WARM\n' ...
+             '  from the delivered rung, FRESH from the compliant seed at that\n' ...
+             '  operating point, and the lower worst-miss wins.\n\n']);
+    Tr = struct('iface',{},'phi4',{},'R_fm',{},'R_col',{},'s_fm',{},'S',{}, ...
+                'D',{},'behind_m1',{},'pack',{},'seeds',{},'seed_used',{});
     for q = P.iface_trade
         % One operating point that will not solve must not take the curve
         % down with it -- a missing point is a reported gap, an aborted
         % section is four solved points thrown away.
-        try
-            Dq = R.rung(3).D;   Dq.iface = q;
-            sq = solve_rung_(P, Dq, OPT_DOFS, ...
-                    sprintf('trade  iface %.0f mm', q*1e3), ...
-                    deck_(here,sprintf('trade_%03.0fmm', q*1e3), opts.save), ...
-                    opts.trade_iter, true);
-            bq = afocal4_build(P, sq.D, sq.deck, 'verify',false);
-            Tr(end+1) = struct('iface',q, 'phi4',bq.phi4, 'R_fm',bq.R(3), ...
-                               'R_col',bq.R(4), 's_fm',sq.D.fm_standoff, ...
-                               'S',sq.S, 'D',sq.D); %#ok<AGROW>
-            fprintf(['  iface %6.1f mm  phi4 %+6.3f /m  R_FM %7.4f m  s_FM %5.0f mm  ' ...
-                     '| WFE %8.1f nm  blur %6.1f  breathe %6.3f%%  wander %7.1f um  ' ...
-                     'worst %6.2fx\n'], q*1e3, bq.phi4, bq.R(3), sq.D.fm_standoff*1e3, ...
-                    sq.S.wfe_max_nm, sq.S.blur_um, sq.S.breathe_pct, ...
-                    sq.S.wander_um, sq.S.worst);
-        catch ME
-            fprintf('  iface %6.1f mm  NO POINT: %s\n', q*1e3, ME.message);
+        seeds = struct('name',{},'S',{},'D',{},'deck',{});
+        warm = R.rung(3).D;   warm.iface = q;
+        cold = afocal4_seed(P, 'iface',q, 'bias_deg',P.bias_deg);
+        for sd = [struct('name','warm','D',warm), struct('name','fresh','D',cold)]
+            try
+                dk = deck_(here, sprintf('%strade_%03.0fmm_%s', pfx, q*1e3, ...
+                                         sd.name), opts.save);
+                sq = solve_rung_(P, sd.D, OPT_DOFS, ...
+                        sprintf('trade  iface %.0f mm  (%s seed)', q*1e3, sd.name), ...
+                        dk, opts.trade_iter, true);
+                seeds(end+1) = struct('name',sd.name, 'S',sq.S, 'D',sq.D, ...
+                                      'deck',sq.deck); %#ok<AGROW>
+                fprintf(['    %-5s seed | WFE %8.1f nm  blur %7.1f  breathe %6.3f%%  ' ...
+                         'wander %7.1f um  worst %6.2fx  anchor %5.1f um\n'], ...
+                        sd.name, sq.S.wfe_max_nm, sq.S.blur_um, sq.S.breathe_pct, ...
+                        sq.S.wander_um, sq.S.worst, sq.S.anchor_resid_um);
+            catch ME
+                fprintf('    %-5s seed | NO POINT: %s\n', sd.name, ME.message);
+            end
         end
-        R.trade = Tr;   ckpt2_(here, R, opts.save);
+        if isempty(seeds)
+            fprintf('  iface %6.1f mm  NO POINT from either seed\n', q*1e3);
+            R.trade = Tr;   ckpt2_(here, R, opts.save, pfx);
+            continue;
+        end
+        [~, kw] = min(arrayfun(@(s) s.S.worst, seeds));
+        win = seeds(kw);
+        % the winner is what gets committed under the plain trade name
+        dk = deck_(here, sprintf('%strade_%03.0fmm', pfx, q*1e3), opts.save);
+        bq = afocal4_build(P, win.D, dk, 'verify',false);
+        % ANCHORING RESIDUAL is a validity check, not a metric: a design
+        % whose cones will not anchor is not a design with a large residual,
+        % it is a number nobody should quote (RESULTS 3.1).
+        if win.S.anchor_resid_um > 0.1*win.S.blur_um
+            fprintf(['    !! anchoring residual %.1f um is %.0f%% of the blur ' ...
+                     '-- this point is NOT trustworthy\n'], ...
+                    win.S.anchor_resid_um, 100*win.S.anchor_resid_um/win.S.blur_um);
+        end
+        K = afocal4_pack(P, dk, 'quiet',true);
+        Tr(end+1) = struct('iface',q, 'phi4',bq.phi4, 'R_fm',bq.R(3), ...
+                           'R_col',bq.R(4), 's_fm',win.D.fm_standoff, ...
+                           'S',win.S, 'D',win.D, 'behind_m1',bq.behind_m1, ...
+                           'pack',K, 'seeds',seeds, 'seed_used',win.name); %#ok<AGROW>
+        fprintf(['  iface %6.1f mm  phi4 %+6.3f /m  R_FM %7.4f m  s_FM %5.0f mm  ' ...
+                 '| WFE %8.1f nm  blur %6.1f  breathe %6.3f%%  wander %7.1f um  ' ...
+                 'worst %6.2fx  | %s behind %4.0f mm, fold %+5.1f mm  %s  [%s]\n'], ...
+                q*1e3, bq.phi4, bq.R(3), win.D.fm_standoff*1e3, ...
+                win.S.wfe_max_nm, win.S.blur_um, win.S.breathe_pct, ...
+                win.S.wander_um, win.S.worst, bq.names{end}, bq.behind_m1*1e3, ...
+                pick_(K,'gap')*1e3, yn_(K.ok), win.name);
+        R.trade = Tr;   ckpt2_(here, R, opts.save, pfx);
     end
     R.trade = Tr;
     end
@@ -194,7 +249,7 @@ function R = afocal4_ladder(opts)
              '  SAME DOFs so the claim is measured rather than asserted.\n\n']);
     ab = afocal4_solve(P, R.rung(2).D, 'dofs',OPT_DOFS, ...
                        'label','rung 3, LINEAR merit', 'merit','linear', ...
-                       'deck',deck_(here,'r3_linear_merit',opts.save), ...
+                       'deck',deck_(here,[pfx 'r3_linear_merit'],opts.save), ...
                        'max_iter',opts.max_iter);
     R.merit_ab = ab;
     fprintf('\n  %-22s %10s %10s %10s %10s %10s\n', ...
@@ -212,41 +267,41 @@ function R = afocal4_ladder(opts)
     % =====================================================================
     for i = 1:numel(R.rung)
         try
-            png = fullfile(here, sprintf('afocal4_%s_field.png', R.rung(i).name));
+            png = fullfile(here, sprintf('afocal4_%s%s_field.png', pfx, R.rung(i).name));
             field_map_(P, R.rung(i), png);   fprintf('  wrote %s\n', png);
         catch ME, fprintf('   field map %d failed: %s\n', i, ME.message); end
         try
-            png = fullfile(here, sprintf('afocal4_%s_pupil.png', R.rung(i).name));
+            png = fullfile(here, sprintf('afocal4_%s%s_pupil.png', pfx, R.rung(i).name));
             pupil_fig_(P, R.rung(i), png);   fprintf('  wrote %s\n', png);
         catch ME, fprintf('   pupil fig %d failed: %s\n', i, ME.message); end
     end
     if isfield(R,'trade')
         try
-            png = fullfile(here,'afocal4_trade.png');
+            png = fullfile(here, sprintf('afocal4_%strade.png', pfx));
             trade_fig_(P, R, png);   fprintf('  wrote %s\n', png);
         catch ME, fprintf('   trade figure failed: %s\n', ME.message); end
     end
     try
-        png = fullfile(here,'afocal4_ladder_summary.png');
+        png = fullfile(here, sprintf('afocal4_%sladder_summary.png', pfx));
         summary_fig_(P, R, png);   fprintf('  wrote %s\n', png);
     catch ME, fprintf('   summary figure failed: %s\n', ME.message); end
     end
 
-    save_(here, R, opts.save);
-    if opts.save, fprintf('\n  saved afocal4_ladder.mat\n'); end
+    save_(here, R, opts.save, pfx);
+    if opts.save, fprintf('\n  saved afocal4_%sladder.mat\n', pfx); end
 end
 
 % =====================================================================
-function ckpt2_(here, R, dosave)
-    save_(here, R, dosave);
+function ckpt2_(here, R, dosave, pfx)
+    save_(here, R, dosave, pfx);
 end
 
-function save_(here, R, dosave)
+function save_(here, R, dosave, pfx)
 %SAVE_  Checkpoint after every rung.  A ladder rung is tens of minutes of
 %   machine time and the run is unattended; losing four of them to a figure
 %   that threw is not a trade anyone would make deliberately.
     if ~dosave, return; end
-    save(fullfile(here,'afocal4_ladder.mat'), 'R', '-v7.3');
+    save(fullfile(here, sprintf('afocal4_%sladder.mat', pfx)), 'R', '-v7.3');
 end
 
 % =====================================================================
@@ -281,6 +336,17 @@ end
 function r = mkrung_(name, label, D, deck, S, sv)
     r = struct('name',name, 'label',label, 'D',D, 'deck',deck, 'S',S, 'solve',sv);
 end
+
+function g = pick_(K, f)
+%PICK_  A packaging field that may not exist -- a deck with no usable fold
+%   station has no .fold_pick, and the trade line still has to print.
+    g = NaN;
+    if isfield(K,'fold_pick') && ~isempty(K.fold_pick) && isfield(K.fold_pick,f)
+        g = K.fold_pick.(f);
+    end
+end
+
+function s = yn_(b),  if b, s = 'BUILDABLE'; else, s = 'not buildable'; end,  end
 
 function f = deck_(here, tag, dosave)
     if dosave, f = fullfile(here, sprintf('afocal4_%s.in', tag));
