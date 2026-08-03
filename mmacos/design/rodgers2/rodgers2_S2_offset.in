@@ -3,7 +3,7 @@
 % emitted by design/rodgers2/rodgers2_deck.m -- do not hand-edit
 % Source Definition
         ChfRayDir=  0.0000000000000000E+00  1.0471784116245792E-02  9.9994516936551214E-01
-        ChfRayPos=  0.0000000000000000E+00  -8.3774272929966337E-02  -8.0495613549240979E+00
+        ChfRayPos=  0.0000000000000000E+00  -1.4128942604622805E-02  -1.3991653140382154E+00
           zSource=1.0E+22
         BaseUnits=  m
         WaveUnits=  m
