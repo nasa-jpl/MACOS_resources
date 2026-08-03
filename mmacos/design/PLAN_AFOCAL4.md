@@ -97,6 +97,30 @@ From the deck + `.seq` extraction (2026-08-02):
 - DL at λ=1 µm is RMS ≤ λ/14 ≈ **71 nm** — his best 3-mirror (119 nm)
   misses it; the 4-mirror target is DL in-box PLUS controlled pupil.
 
+## BUILDABILITY CONSTRAINT (Dave, 2026-08-03 — binds every solution; S4b redo)
+
+The S3/S4 solutions place back-end optics (M3, the field mirror, the
+interface pupil — and therefore the entire instrument that follows it)
+IN FRONT of M1, in the incoming beam.  **Not buildable.**  Mike's
+parent is the existence proof of the fix: his M3 sits ~630 mm behind
+M1 and the recenter fold takes everything else out of the beam.
+Every candidate from S4b on must satisfy:
+1. **M3 well behind M1**: `z_M3 − z_M1 ≥ P.pack.m3_behind_min`
+   (parameter; default 500 mm).
+2. **A fold must be insertable** downstream (after M3 or after the
+   field mirror) with engine-truth daylight (`fold_station_report`),
+   taking the field mirror + interface pupil + instrument volume into
+   the x-y plane behind M1 — fold rules per `project_fold_extraction`
+   (M1 keep-out honored, clearances engine-truth).
+3. **Demonstrated, not asserted**: the folded variant is emitted and
+   rendered (yz + xz), ray-to-body clearance margins reported.
+Layout renders are a REVIEW GATE before any result is quoted; the
+packaging check includes INSTRUMENT-VOLUME PLACEMENT, not just train
+length/AOI/self-obscuration (the S3 gap that let this through).
+The unconstrained S4 results stand as the reference trade, labeled
+NOT BUILDABLE in RESULTS.md; S4b re-derives the trade curve under
+the constraint.
+
 ## Standing doctrine (rodgers1 + e2e2 — apply at every stage)
 
 1. **Joint solve, never alternate** (one CALIB DOF set; seeds are seeds).
