@@ -437,7 +437,8 @@ function compare_fig_(R, P, png)
         plot(ax, Y(:,1), Y(:,5), 'o-','LineWidth',1.6); hold(ax,'on');
         yline(ax, dsp, 'k--','the 3-mirror''s own pupil');
         xlabel(ax,'M3 power  \phi_3  (1/m)');  ylabel(ax,'exit-pupil station (m)');
-        title(ax,'(iii) relay: the pupil station is capped below the parent');
+        title(ax,'(iii) relay: reaches the parent only as R_3 \rightarrow 0');
+        set(ax,'YScale','log');
         grid(ax,'on');
     end
 
@@ -463,10 +464,14 @@ function compare_fig_(R, P, png)
             w(i) = 1e6*R.cand(i).pm.wander.rms;
             lbl{i} = R.cand(i).name;
         end
-        bar(ax, [b w]);   set(ax,'XTickLabel',lbl,'XTickLabelRotation',20);
-        legend(ax,{'blur rms','wander rms'},'Location','best');
+        hb = bar(ax, [b w]);   set(ax,'XTickLabel',lbl,'XTickLabelRotation',20);
         ylabel(ax,'\mum');   set(ax,'YScale','log');
-        yline(ax, P.targets.blur_um, 'k--','blur target');
+        % the target line must not claim a legend slot of its own (yline
+        % auto-registers as "data1" and pushes the two series it annotates
+        % off the top of the box)
+        yl = yline(ax, P.targets.blur_um, 'k--','blur target');
+        yl.Annotation.LegendInformation.IconDisplayStyle = 'off';
+        legend(ax, hb, {'blur rms','wander rms'}, 'Location','northwest');
         title(ax,'measured pupil ladder, first-order layouts');
         grid(ax,'on');
     end
