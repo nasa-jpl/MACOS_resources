@@ -68,6 +68,17 @@ function out = pupil_map(deck, Ffield, opts)
 %                    .distortion -- the nonlinear residual, i.e. the SHAPE
 %                    of the wander across the pupil.  Distortion is a
 %                    first-class metric here, not a leftover.
+%                    THE PER-FIELD MAGNIFICATION COMES IN TWO FRAMES and
+%                    they are not interchangeable: .mag_per_field is read on
+%                    the deck's PLACED plane (operational -- what a fixed
+%                    coldstop samples) and therefore carries a 1/cos
+%                    obliquity term as each field's exit chief swings away
+%                    from that plane's normal; .mag_per_field_chief reads
+%                    the same station perpendicular to THAT FIELD'S OWN exit
+%                    chief and is the true pupil-imaging scale.  Only the
+%                    chief-normal spread is a pupil-imaging defect.  On a
+%                    30x afocal over a 0.5 deg box the frame term alone is
+%                    ~0.8% of apparent magnification.
 %     (4) .wander    where each cone's rays actually pierce the PLACED
 %                    plane.  Non-convergence there IS the footprint shear
 %                    the instrument feels.  Reported for the deck's own
@@ -313,7 +324,7 @@ function out = pupil_map(deck, Ffield, opts)
     dist = vecnorm(w - pred);
     Rex  = max(vecnorm(w(:,good)));
     % PER-FIELD magnification: the affine map each field's OWN rays make from
-    % the anchor plane to the PLACED plane.  This is a different number from
+    % the anchor plane to the exit pupil.  This is a different number from
     % the cone-convergence .mag above and both belong in the report: the
     % cone number is the field-AVERAGED pupil magnification (what an
     % extended-field instrument's pupil image actually shows), while the
@@ -321,19 +332,51 @@ function out = pupil_map(deck, Ffield, opts)
     % one his slides quote when they say the magnification slips from 30x to
     % 28.7x.  On a perfect afocal they coincide; the gap between them IS
     % pupil aberration.
-    magf = nan(1,K);
+    %
+    % AND IT IS MEASURED IN TWO FRAMES, because one of them contains a term
+    % that is not pupil imaging at all (Fable review, 2026-08-03; the
+    % frame-before-angle rule).  A footprint read on the deck's PLACED plane
+    % -- which a coldstop holds FIXED while each field's exit chief swings by
+    % M*theta -- is stretched by 1/cos(incidence) in the plane of incidence.
+    % On a 30x afocal over a 0.5 deg box the exit chief reaches ~10.6 deg off
+    % the box centre, i.e. ~1.6% of areal stretch, which reads as ~0.8% of
+    % apparent magnification change ON A PERFECT SYSTEM.  The chief-normal
+    % number reads the SAME STATION in the plane perpendicular to THAT
+    % FIELD'S OWN exit chief and carries no such term.
+    %   .mag_per_field         placed-plane frame -- what a fixed detector or
+    %                          coldstop at the interface actually samples
+    %                          (operational; keep it, it is what the
+    %                          instrument feels)
+    %   .mag_per_field_chief   chief-normal frame -- the true pupil-imaging
+    %                          scale, and the ONLY one whose spread across
+    %                          the field is a pupil-imaging defect
+    %   .obliquity_per_field   the ratio between them; sqrt(cos(incidence))
+    %                          to first order, and .incidence_deg is that
+    %                          incidence
+    % Quote which frame a magnification came from.  Note that .mag (the
+    % cone-convergence magnification) is already chief-normal: it projects
+    % 3-D convergence POINTS onto the plane normal to the mean exit chief,
+    % and never intersects the placed plane at all.
+    magf = nan(1,K);   magc = nan(1,K);
+    anaf = nan(1,K);   anac = nan(1,K);
+    incd = nan(1,K);
     for k = 1:K
-        t = (npl.'*(plane.Vpt(:) - S(k).pe)) ./ (npl.'*S(k).de);
-        q = S(k).pe + S(k).de.*t;
-        wq = [b1.'*(q - plane.Vpt(:)); b2.'*(q - plane.Vpt(:))];
-        Ak = [S(k).m.', ones(size(S(k).m,2),1)];
-        Lk = [Ak\wq(1,:).', Ak\wq(2,:).'].';
-        magf(k) = 1/sqrt(abs(det(Lk(:,1:2))));
+        nk = S(k).chief(:)/norm(S(k).chief);
+        [c1,c2] = perp_(nk);
+        [magf(k), anaf(k)] = field_mag_(S(k), plane.Vpt(:), npl, b1, b2);
+        [magc(k), anac(k)] = field_mag_(S(k), plane.Vpt(:), nk,  c1, c2);
+        incd(k) = acosd(min(1, abs(npl.'*nk)));
     end
 
     map = struct('linear',Lmat, 'offset',[cx(3) cy(3)], ...
                  'sigma',sv(:).', 'mag_per_field',magf, ...
+                 'mag_per_field_chief',magc, ...
+                 'anamorph_per_field',anaf, ...
+                 'anamorph_per_field_chief',anac, ...
+                 'incidence_deg',incd, ...
+                 'obliquity_per_field',magc./magf, ...
                  'mag_centre',magf(kc), ...
+                 'mag_centre_chief',magc(kc), ...
                  'mag', 1/sqrt(prod(sv)), ...
                  'mag_axes', 1./sv(:).', ...
                  'anamorph', sv(1)/sv(2), ...
@@ -434,8 +477,16 @@ function report_(o)
     fprintf(['  (3) map         mag %9.4fx  anamorph %7.5f  rot %+7.4f deg  ' ...
              'distortion %6.3f%% of R\n'], o.map.mag, o.map.anamorph, ...
              o.map.rotation_deg, 100*o.map.distortion_frac_max);
-    fprintf('      per-field mag: centre %9.4fx   range %9.4f .. %9.4fx\n', ...
-        o.map.mag_centre, min(o.map.mag_per_field), max(o.map.mag_per_field));
+    fprintf('      per-field mag, PLACED plane:  centre %9.4fx  range %9.4f .. %9.4fx (%+.2f%%)\n', ...
+        o.map.mag_centre, min(o.map.mag_per_field), max(o.map.mag_per_field), ...
+        100*(max(o.map.mag_per_field)-min(o.map.mag_per_field))/o.map.mag_centre);
+    fprintf('      per-field mag, CHIEF-normal:  centre %9.4fx  range %9.4f .. %9.4fx (%+.2f%%)\n', ...
+        o.map.mag_centre_chief, min(o.map.mag_per_field_chief), ...
+        max(o.map.mag_per_field_chief), ...
+        100*(max(o.map.mag_per_field_chief)-min(o.map.mag_per_field_chief))/o.map.mag_centre_chief);
+    fprintf('      exit-chief incidence on the placed plane %.3f .. %.3f deg -> obliquity %.4f .. %.4f\n', ...
+        min(o.map.incidence_deg), max(o.map.incidence_deg), ...
+        min(o.map.obliquity_per_field), max(o.map.obliquity_per_field));
     fprintf('  (4) wander      placed plane  rms %8.3f um  max %8.3f um  (%.3f%% of R)\n', ...
         o.wander.rms*1e6, o.wander.max*1e6, 100*o.wander.frac_max);
     fprintf('                  best plane    rms %8.3f um  max %8.3f um  (shift %+7.3f mm, tilt %+7.4f deg)\n', ...
@@ -465,6 +516,25 @@ function [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, bx, by, i
     ok(1) = false;                       % the chief is the frame, not a node
     Pm = ro.pos;   Pe = re.pos;   De = re.dir;
     chief = re.dir(:,1)/norm(re.dir(:,1));
+end
+
+function [mg, an] = field_mag_(Sk, Vp, np, e1, e2)
+%FIELD_MAG_  One field's affine anchor->plane map, and its scale.
+%   NP is the evaluation plane's normal and (E1,E2) an orthonormal basis of
+%   that plane; the station VP is the same whichever normal is passed, so
+%   the only difference between the placed-plane and chief-normal calls is
+%   the OBLIQUITY of the plane the footprint is read on.  MG is the
+%   geometric-mean demagnification (1/sqrt of the areal Jacobian) and AN the
+%   anamorphic ratio -- which is where an oblique read shows up first, since
+%   the 1/cos stretch acts only in the plane of incidence.
+    t  = (np.'*(Vp - Sk.pe)) ./ (np.'*Sk.de);
+    q  = Sk.pe + Sk.de.*t;
+    wq = [e1.'*(q - Vp); e2.'*(q - Vp)];
+    A  = [Sk.m.', ones(size(Sk.m,2),1)];
+    L  = [A\wq(1,:).', A\wq(2,:).'].';
+    sv = svd(L(:,1:2));
+    mg = 1/sqrt(prod(sv));
+    an = sv(1)/sv(2);
 end
 
 function [pe, de, res] = regrid_(m, pe_s, de_s, nod)

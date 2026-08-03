@@ -105,7 +105,10 @@ scoring grid, model_size, targets:
 - **Image**: in-box max RMS WFE ≤ 71 nm (DL @ 1 µm), afocal ladder
   rung stated.
 - **Pupil** (defaults; Dave may retarget): traced magnification
-  30.000 ± 0.1%; then the S1c four-part ladder — per-node blur,
+  30.000 ± 0.1% at box centre, **chief-normal** (`.mag_centre_chief`;
+  the placed-plane read carries the interface plane's own obliquity —
+  S3 measurement check, PACKET §4); then the S1c four-part ladder —
+  per-node blur,
   convergence-surface power/astig, pupil distortion (wander shape
   across the pupil), and wander at the placed coldstop plane
   (≤ 1% of pupil radius) — each ≥ 10× better than the S2 3-mirror
@@ -280,17 +283,28 @@ question queued for Mike.
 - **Numeric targets (gate review, 2026-08-03 — "≥10× baseline" made
   concrete against the BEST 3-mirror, the S4 tilt/dec variant):**
   blur ≤ 47 µm rms (from 469), wander at the placed plane ≤ 56 µm rms
-  (from 557), mag breathing ≤ ±0.4% over the box (from ±3.8%),
-  convergence-surface P-V ≤ 0.2 mm net of imaged sag, M = 30.000 at
-  box center, AND rung-2 WFE ≤ 71 nm DL in-box (his best is 119).
-- **Pre-S3 measurement check (do FIRST, cheap):** the ±3.8% breathing
-  — and the 29.28–30.00 spread on the PERFECT on-axis variant — must
-  be shown to be true mapping scale, not obliquity of the fixed
-  evaluation plane (a footprint read on the tilted coldstop scales as
-  1/cos of each field's incidence; exit angles reach ~10.6° diagonal
-  → ~1.7% frame effect of the same order).  Re-measure M per field in
-  the plane ⊥ that field's own exit chief and report both; only the
-  chief-normal number is a pupil-imaging defect and an S3 target.
+  (from 557), **mag breathing ≤ ±0.4% CHIEF-NORMAL over the box (from
+  ±3.63%; see the measurement check below — the pre-check number ±3.8%
+  was the placed-plane read)**, convergence-surface P-V ≤ 0.2 mm net of
+  imaged sag, M = 30.000 at box center, AND rung-2 WFE ≤ 71 nm DL
+  in-box (his best is 119).
+- **Pre-S3 measurement check — DONE (2026-08-03), and the headline
+  survives.**  `pupil_map` now returns `.mag_per_field_chief` beside
+  `.mag_per_field`, measured at the same station in the plane ⊥ that
+  field's own exit chief; PACKET §4 carries the refinement in place and
+  `tPupilMap/test_chief_normal_mag_carries_no_obliquity` gates it (8/8).
+  Findings: the frame term IS exactly 1/√(cos incidence) (matched to
+  7e−7 where the box-centre chief is normal to the coldstop); exit
+  chiefs reach 10.5–13.6° of incidence; but it moves the corrected
+  variants only a few percent of themselves — **S4 ±3.837% → ±3.634%**,
+  and **S3 goes the other way, ±3.828% → ±4.071%** (his coldstop tilt
+  masks part of the real breathing).  Box-centre M is untouched
+  (28.6863 → 28.6848), so his 28.7× stands.  **Where it does bite is the
+  PERFECT on-axis variant: 35% of the apparent 29.28–30.00 spread was
+  frame, leaving 29.53–30.00 = ±0.78% of genuine pupil distortion** —
+  which is the strongest single confirmation that the deficits are
+  pupil-IMAGING aberrations, present at 15 nm of image quality.  Every
+  magnification number from here on names its frame.
 - **Form-study guidance from the baseline:** the deficits are
   pupil-IMAGING aberrations (blur is 0.5% of pupil dia even in the
   perfect on-axis design — the field-set aperture is large), so the
