@@ -29,6 +29,28 @@ function out = dw_dx_multi(session, rx_path, opts)
 %   per-field calls (they run reload_rx=false).  Clamped by the engine
 %   to [3, model-size limit] (warns).
 %
+%   'reset_xp'  (default true) re-find the exit pupil for EACH field
+%               before differencing, so the nominal wavefront is
+%               referenced to that field's own chief ray and the gross
+%               field TILT is removed.  A poke's OWN tilt is retained --
+%               the reference is fixed per field, not re-fit after each
+%               poke.  With a frozen EP (false) the field tilt is
+%               common-mode between w_nom and every poked w, so it
+%               cancels in the FD columns; what reset_xp changes is the
+%               first-order residual d(frame term)/dx -- negligible at
+%               arcminute fields, percent-level on tilt-coupled DOFs at
+%               wide fields.  Matches dw_dz_zernike_multi / dw_dsurf_multi
+%               / dw_dgrid_multi (family alignment).  Requires a STOP set
+%               and > 3 elements.  Set false to keep the prescription's
+%               elt nElt-1 reference unchanged (frozen EP).
+%               The re-find uses FEX (macos.fex, chief-ray centred);
+%               FEX and SXP are merged in the engine, so FEX alone is
+%               the well-posed re-reference for all placements.
+%               Composes with fp_mode='track': the per-field EP is
+%               written into elt nElt-1 BEFORE the FocalPlaneChannel
+%               builds its columns, so 'track' saves/restores the
+%               post-reset EP pose.
+%
 %   OUTPUT STRUCT FIELDS:
 %     dwdxall            Nw x Nz canonical state-vector Jacobian
 %     w0_stacked         Nw x 1 stacked nominal OPDs (m2v of OPDall)
@@ -70,6 +92,7 @@ arguments
     opts.method              (1,:) char {mustBeMember(opts.method, ...
                                 {'central','forward'})} = 'central'
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
+    opts.reset_xp            (1,1) logical = true
     opts.verbose             (1,1) logical = false
     opts.ngridpts            double {mustBeScalarOrEmpty} = []
     opts.src_samp            double {mustBeScalarOrEmpty, mustBeInteger} = []
@@ -130,6 +153,12 @@ nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
 
+% Snapshot the prescription's exit-pupil reference (elt nElt-1 geometry)
+% so the per-field FEX resets can be undone before returning.
+if opts.reset_xp
+    xp0 = macos.get_xp();
+end
+
 % ---- Per-field loop -----------------------------------------------
 per_field_dwdx   = cell(n_fields, 1);
 per_field_w_nom  = cell(n_fields, 1);
@@ -146,6 +175,41 @@ for k = 1:n_fields
     session.modify();
     fprintf('[field %s] ChfRayDir = [%g %g %g]\n', ...
         fields(k).name, new_dir);
+    if opts.reset_xp
+        % Re-reference this field's exit pupil to its OWN chief ray: FEX
+        % writes the reference sphere into elt nElt-1 (= wf_elt), so the
+        % nominal (unpoked) wavefront there is tilt-removed.  That
+        % reference is element geometry, so it persists across the poke
+        % traces below and the rigid-body pokes act on elts 1..nElt-2,
+        % never touching elt nElt-1.  Net: the FIELD tilt is removed from
+        % the nominal, but a POKE's own tilt is retained.  Writing the EP
+        % here -- BEFORE dw_dx builds its channels -- lets a
+        % FocalPlaneChannel ('track') save/restore the POST-reset EP pose.
+        % FEX and SXP are merged in the engine, so FEX alone is well-posed
+        % for all exit-pupil placements.  FEX needs an aperture stop to
+        % define the chief ray; if none is set (Rx has no ApStop= and the
+        % caller passed no stop_elt / stop_obj_pos) rethrow with an
+        % actionable supervisor-level message.  (A stop-state preflight is
+        % not viable: get_stop_info reports only element-based stops and
+        % errors on an object-space stop, which FEX itself handles fine --
+        % so catching FEX's own verdict is the only false-negative-free
+        % check.)  The stop state is constant across the loop, so this
+        % branch only ever fires on the first field.
+        try
+            macos.fex(1);   % mode 1 = centre on chief ray
+        catch me
+            if strcmp(me.identifier, 'macos:fex:noStop')
+                error('macos:dw_dx_multi:noStop', ...
+                    ['reset_xp=true re-references the exit pupil per ' ...
+                     'field via FEX, which needs an aperture stop, but ' ...
+                     'none is set.  Add "ApStop= 0 0 1" to the Rx header ' ...
+                     '(or 0 0 0 for a stop at the primary), pass ' ...
+                     'stop_elt / stop_obj_pos, or set reset_xp=false to ' ...
+                     'keep the prescription''s frozen EP.']);
+            end
+            rethrow(me);
+        end
+    end
     sf = macos.dw_dx(session, rx_path, ...
         'dofs', opts.dofs, ...
         'elts', opts.elts, ...
@@ -185,6 +249,13 @@ end
 session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
                     'zSrc', nom.zSrc);
 session.modify();
+
+% Restore the prescription's exit-pupil reference (undo the per-field FEX
+% writes to elt nElt-1) so the session is left as loaded.
+if opts.reset_xp
+    macos.set_xp(xp0.vpt, xp0.psi, xp0.rad);
+    session.modify();
+end
 
 % ---- Tile OPDall + scatter dwdxall --------------------------------
 N = size(per_field_w_nom{1}, 1);
@@ -267,6 +338,7 @@ out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.rot_output           = opts.rot_output;
 out.cbm                  = per_field_struct{1}.cbm;
+out.reset_xp             = opts.reset_xp;
 
 % Add per-field LOS if SPOT was computed
 if opts.compute_los
