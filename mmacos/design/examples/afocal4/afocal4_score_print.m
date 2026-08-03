@@ -44,6 +44,18 @@ function afocal4_score_print(P, S, label)
     end
     fprintf('    %-22s %10.3f     merit %.4f\n', ...
             'WORST normalised miss', S.worst, S.merit);
+    % THE ANCHORING RESIDUAL IS A VALIDITY CHECK ON THE PUPIL NUMBERS, not a
+    % metric.  pupil_map regrids each field's exit-side data onto common
+    % entrance-surface nodes; when a design scrambles part of the beam the
+    % two interpolants disagree, and a residual comparable to the blur means
+    % the blur is a number about nothing.  Measured at 0.1 um on every sound
+    % design here and at 84 mm on the failed 220 mm trade solve -- which is
+    % how that solve was caught.
+    if isfinite(S.anchor_resid_um) && S.anchor_resid_um > 0.1*S.blur_um
+        fprintf(['    ANCHORING RESIDUAL %.3g um is %.0f%% of the blur -- the ' ...
+                 'pupil numbers above are NOT valid.\n'], ...
+                S.anchor_resid_um, 100*S.anchor_resid_um/max(S.blur_um,eps));
+    end
 end
 
 function s = mark_(r)

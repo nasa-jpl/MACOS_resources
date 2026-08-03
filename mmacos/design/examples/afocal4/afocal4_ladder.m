@@ -399,42 +399,70 @@ function pupil_fig_(P, rg, png)
 %   different and an instrument cares about them separately.
     m = rg.S.pm;   g = m.good;
     u = m.nodes(1,g)*1e3;   v = m.nodes(2,g)*1e3;
-    fig = figure('Visible','off','Position',[100 100 1560 330]);
+    % Five panels need HEIGHT, not just width: at 330 px the layout title
+    % lands on the panel titles and the figure is unreadable.  The layout
+    % title is also split over two lines so it cannot run under them.
+    fig = figure('Visible','off','Position',[100 100 1560 460]);
     tl = tiledlayout(fig,1,5,'TileSpacing','compact','Padding','compact');
+    % RESERVE the title band explicitly.  title(tl,...) on a 1x5 layout whose
+    % panels carry two-line titles of their own lands ON them -- the layout
+    % gives the title whatever vertical space is left, and with five square
+    % panels there is none.  Shrinking the layout and drawing the heading as
+    % an annotation in the freed strip cannot collide by construction.
+    tl.OuterPosition = [0 0 1 0.88];
 
     ax = nexttile(tl);
     scatter(ax, u, v, 26, m.blur.waist_rms(g)*1e6, 'filled');
-    lbl_(ax, sprintf('(1) blur   rms %.1f um  (target %.0f)', ...
-                     1e6*m.blur.rms, P.targets.blur_um), 'um');
+    lbl_(ax, {'(1) blur, cone waist', ...
+              sprintf('rms %.1f um  (target %.0f)', 1e6*m.blur.rms, ...
+                      P.targets.blur_um)}, 'um');
     ylabel(ax,'M1 y (mm)');
 
     ax = nexttile(tl);
-    ir = m.surface.flat.dist(g)*1e6;
-    scatter(ax, u, v, 26, ir, 'filled');
-    lbl_(ax, sprintf('(2) surface vs sag image   %.4f mm', rg.S.surf_pv_mm), 'um');
+    % The MAP is the distance of each convergence point from the flat placed
+    % plane -- that is the per-node quantity pupil_map returns.  The number
+    % QUOTED is the residual against the ideal image of the primary's own
+    % sag, which is the one that is a pupil defect; the two are different
+    % statements and the panel says which is which.
+    scatter(ax, u, v, 26, m.surface.flat.dist(g)*1e6, 'filled');
+    lbl_(ax, {'(2) surface, vs the flat plane', ...
+              sprintf('net of imaged sag: %.4f mm', rg.S.surf_pv_mm)}, 'um');
 
     ax = nexttile(tl);
     scatter(ax, u, v, 26, m.map.distortion(g)*1e6, 'filled');
-    lbl_(ax, sprintf('(3) distortion   %.3f%% of R', ...
-                     100*m.map.distortion_frac_max), 'um');
+    lbl_(ax, {'(3) pupil distortion', ...
+              sprintf('%.3f%% of the pupil radius', ...
+                      100*m.map.distortion_frac_max)}, 'um');
 
     ax = nexttile(tl);
     scatter(ax, u, v, 26, m.wander.per_node_rms(g)*1e6, 'filled');
-    lbl_(ax, sprintf('(4) wander, placed plane   %.0f um', ...
-                     rg.S.wander_placed_um), 'um');
+    lbl_(ax, {'(4) wander, as-emitted plane', ...
+              sprintf('%.0f um  (refit: %.0f um)', rg.S.wander_placed_um, ...
+                      rg.S.wander_um)}, 'um');
 
     ax = nexttile(tl);
     c = m.map.mag_per_field_chief;
     fx = m.fields(:,1)*180/pi;   fy = m.fields(:,2)*180/pi;
     scatter(ax, fx, fy, 90, c, 'filled');   axis(ax,'square');  box(ax,'on');
     colormap(ax, parula);  cb = colorbar(ax);  cb.Label.String = 'M (chief-normal)';
-    title(ax, sprintf('breathing  %.3f%%  (target %.1f%%)', ...
-                      rg.S.breathe_pct, P.targets.breathe_pct));
+    title(ax, {'(5) magnification breathing', ...
+               sprintf('%.3f%%  (target %.1f%%)', rg.S.breathe_pct, ...
+                       P.targets.breathe_pct)});
     xlabel(ax,'XAN (deg)');   ylabel(ax,'YAN (deg)');
 
-    title(tl, sprintf(['afocal4 rung %s   interface pupil   ' ...
-        'M = %.4fx chief-normal, refit wander %.1f um'], ...
-        strrep(rg.label,'_','\_'), rg.S.mag_centre_chief, rg.S.wander_um));
+    % PLAIN ASCII, interpreter 'none'.  A TeX escape inside a sprintf FORMAT
+    % is read by sprintf first: '{\times}' becomes '{<TAB>imes}' and the rest
+    % of the string is mangled.  That is what put "{ imes}" in the first
+    % render.  Either escape the backslash for sprintf or do not use TeX
+    % here at all; not using it is the version that cannot regress.
+    annotation(fig, 'textbox', [0.02 0.885 0.96 0.10], 'EdgeColor','none', ...
+        'HorizontalAlignment','center', 'VerticalAlignment','middle', ...
+        'FontWeight','bold', 'FontSize',13, 'Interpreter','none', ...
+        'String', {sprintf('afocal4 rung %s  --  the interface pupil', rg.label), ...
+                   sprintf(['M = %.4fx chief-normal;  wander %.1f um at the ' ...
+                            'refit plane, %.0f um as emitted'], ...
+                           rg.S.mag_centre_chief, rg.S.wander_um, ...
+                           rg.S.wander_placed_um)});
     exportgraphics(fig, png, 'Resolution', 150);   close(fig);
 end
 
