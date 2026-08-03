@@ -1,11 +1,21 @@
 # PLAN — afocal4: 4-mirror afocal telescope driver with interface-pupil control
 
-> **Status: S1+S2 DELIVERED (TO, 2026-08-02/03; committed local on
-> `MACOS_res_dev` `dev` 9d3b3a1..4226f79, not pushed).  Gate review
-> PASSED (Fable, 2026-08-03) — S3 is next; see the S3 section for the
-> review's amendments (Reference terminal, numeric targets, the
-> mag-vs-field measurement check).  Ground truth for S1/S2 results:
-> `design/rodgers2/PACKET.md`.**
+> **Status: S1+S2+S3 DELIVERED (TO, 2026-08-02/03; local on
+> `MACOS_res_dev` `dev` through c40b12f, not pushed).  S3 form-gate
+> ruling (Fable, 2026-08-03, pending Dave's confirm): ADOPT the
+> convex field mirror near the intermediate image as the S4 form —
+> only form preserving M + afocal identically at any power; breathing
+> target already met at K=0 with all conics unspent.  KEEP the double
+> Mersenne alive on the one bounded experiment (conics relaxed,
+> confocal spacings held — promote iff it reaches DL).  DROP the
+> downstream relay.  S4 conditions: joint MATLAB solve, merit =
+> rung-2 WFE + weighted pupil ladder; treat the pupil STANDOFF as a
+> spec input (standoff rides φ₄: 343→140 mm at the breathing-meeting
+> power — question queued for Mike/instrument); the wander target
+> (56 µm; best first-order 1415→1645 µm) is the open risk the solve
+> must carry — if it stalls, the Mersenne experiment is the hedge.
+> Ground truth: `design/rodgers2/PACKET.md` (S1/S2),
+> `design/examples/afocal4/FORM_STUDY.md` (S3).**
 > Response to Mike Rodgers' Rodgers2 drop
 > (`~/dev/MACOS_sandbox/Design/Rodgers2/`): a 30× afocal 3-mirror
 > telescope, 0.5°×0.5° FOV offset 0.6°, with his verbal finding that
