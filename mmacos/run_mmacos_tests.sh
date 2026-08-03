@@ -161,8 +161,8 @@ SUITE_QUICK=$(join_suites \
     "tMmacosCmd" "tMacosPkg" "tMacosSession" "tBandLimitedMask" \
     "tPerturbRoundtrip" "tSysProp" "tCompose" "tVeneerXP" "tSpot")
 # tFreeFormComposite + tCalib + tReadGridFile + tViewRx + tStrictKernel
-# + tE2E2Axial run at ModelSize=256
-SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tOptFex" "tStrictKernel" "tE2E2Axial")
+# + tAfocalKernel + tPupilMap + tE2E2Axial run at ModelSize=256
+SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tOptFex" "tStrictKernel" "tAfocalKernel" "tPupilMap" "tE2E2Axial")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
 # group; lives in "fast" because it's quick.
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
