@@ -23,6 +23,24 @@ function P = afocal4_params()
 %   -- a magnification read on the placed coldstop carries that plane's own
 %   1/cos obliquity (rodgers2 PACKET section 4 refinement) and is not a
 %   pupil-imaging defect.
+%
+%   TWO DIFFERENT THINGS ARE CALLED "STANDOFF" and conflating them wastes an
+%   afternoon, so they are named apart here and everywhere below:
+%     P.iface        the INTERFACE standoff -- how far past the last mirror
+%                    the exit pupil (the instrument's cold stop) sits.  This
+%                    is the S4 ruling's PARAMETER: it selects the operating
+%                    point, it is not a spec, and the targets-versus-iface
+%                    curve is a reported output (afocal4_ladder 'trade').
+%                    140 mm is the flagged default -- the breathing-meeting
+%                    point of the S3 phi4 scan.
+%     P.fm_standoff  the FIELD MIRROR's standoff -- how far BEFORE the
+%                    intermediate image the fourth mirror sits.  A solve DOF;
+%                    it buys beam footprint on a mirror that would otherwise
+%                    have none, which is what makes its conic worth having.
+%                    NEGATIVE puts the mirror PAST the image, which is just
+%                    as physical -- the marginal ray has crossed the axis and
+%                    the closure handles the sign -- so the bound is
+%                    two-sided and the solve picks the side.
 
     mm = 1e-3;
     P = struct();
@@ -71,8 +89,76 @@ function P = afocal4_params()
     P.targets = struct( ...
         'wfe_rung2_nm',   71.0,  ...   % DL at 1 um, in-box max
         'blur_um',        47.0,  ...   % from 469 (his S4)
-        'wander_um',      56.0,  ...   % at the placed plane, from 557
+        'wander_um',      56.0,  ...   % at the REFIT plane, from 557
         'breathe_pct',    0.4,   ...   % CHIEF-NORMAL half-range, from 3.63
         'surface_pv_mm',  0.2,   ...   % net of the imaged primary sag
-        'mag',            30.0);
+        'mag',            30.0,  ...
+        'mag_pct',        0.1);        % tolerance on M at box centre
+
+    % =====================================================================
+    %  S4 -- the joint solve
+    % =====================================================================
+
+    % --- the operating point (the S4 ruling: a PARAMETER, not a spec) ----
+    % The interface standoff rides the field mirror's power: 343 mm at
+    % phi4 = 0 (the three-mirror's own pupil), 140 mm at phi4 = +2 /m where
+    % the S3 breathing null sits, 27 mm at phi4 = +4.  Held at the flagged
+    % default through the answer ladder; swept by afocal4_ladder('trade').
+    P.iface        = 140*mm;
+    P.fm_standoff  = 0.20;             % field-mirror standoff SEED (a DOF)
+    P.iface_trade  = [50 90 140 220 343]*mm;   % the reported trade curve
+
+    % --- the form under solve --------------------------------------------
+    % 'field' is the S3 ruling.  'mersenne' is the ONE bounded hedge
+    % experiment (task 3): confocal SPACINGS held -- that is where the pupil
+    % relay lives -- and all four conics relaxed.
+    P.form = 'field';
+    P.mersenne = struct('m1',6.0, 'stage2_fnum',2.0, ...
+                        'stage2_type','gregorian', 'gap',0.5);
+
+    % --- solve sampling: SOLVE SET ~= SCORING SET, in field AND in rays ---
+    % The doctrine rule is about the FIELD set (his 3x3 to solve, a uniform
+    % 9x9 to score).  The same separation pays in ray count and pupil-node
+    % count, and it is worth stating rather than leaving as tuning: the
+    % merit only has to RANK designs, the score has to be quotable.  Measured
+    % on the S3 field_p2 layout, nodes 11 vs 21 move the blur by 1% and the
+    % wander by 0.2%, for 10% of the time.
+    P.solve = struct( ...
+        'ngrid',       21,   ...  % ray grid during the solve (score at P.ngrid)
+        'nodes',       11,   ...  % pupil_map lattice during the solve
+        'nodes_score', 21,   ...  % ... and when scoring
+        'max_iter',    40,   ...
+        'tol_fun',     1e-4, ...
+        'tol_x',       1e-6, ...
+        'fd_step',     1e-3);     % forward-difference step, in SCALED DOFs
+
+    % --- merit weights (knobs, per the S4 brief) --------------------------
+    % Every term is scored in the LOG of its ratio to target, not the ratio
+    % itself; see AFOCAL4_SCORE for why (an unoptimised four-mirror layout
+    % misses the WFE target by 200x and the pupil targets by 6x, and a
+    % linear normalisation lets the WFE term own the solve outright).
+    P.weights = struct( ...
+        'wfe',      1.0,  ...   % applied per solve field
+        'blur',     1.0,  ...
+        'breathe',  1.0,  ...
+        'wander',   1.0,  ...
+        'surf_pv',  0.3,  ...   % already 14x inside target on the parent
+        'mag',      1.0);
+
+    % A term better than FLOOR x its target stops earning credit: the solve
+    % should spend its remaining freedom on whatever is still missing, not
+    % drive one satisfied metric to zero.
+    P.merit_floor = 0.5;
+
+    % --- rung-4 rigid-body DOFs -------------------------------------------
+    % M2 / FM / M3, y-decenter and x-tilt: the plane of the field bias, which
+    % is the only plane a coaxial design biased in +y has any asymmetry in.
+    % M1 carries no rigid body -- it is the datum (and his study holds it
+    % too).  Scales below make every DOF O(1) to the solver.
+    P.rb_elts   = [2 3 4];             % build order: M2, FM, M3
+    P.dof_scale = struct('conic',1.0, 'standoff',0.05, 'radius',0.05, ...
+                         'spacing',0.05, 'dec',1e-3, 'tilt',1e-3);
+    P.bounds    = struct('fm_standoff',[-0.50 0.60], 'conic',[-30 30], ...
+                         'R2',[0.25 1.20], 't1',[0.70 1.40], ...
+                         'dec',[-0.05 0.05], 'tilt',[-0.05 0.05]);
 end
