@@ -1,21 +1,47 @@
 # PLAN — afocal4: 4-mirror afocal telescope driver with interface-pupil control
 
-> **Status: S1+S2+S3 DELIVERED (TO, 2026-08-02/03; local on
-> `MACOS_res_dev` `dev` through c40b12f, not pushed).  S3 form-gate
-> ruling (Fable 2026-08-03, CONFIRMED by Dave): ADOPT the
-> convex field mirror near the intermediate image as the S4 form —
-> only form preserving M + afocal identically at any power; breathing
-> target already met at K=0 with all conics unspent.  KEEP the double
-> Mersenne alive on the one bounded experiment (conics relaxed,
-> confocal spacings held — promote iff it reaches DL).  DROP the
-> downstream relay.  S4 conditions: joint MATLAB solve, merit =
-> rung-2 WFE + weighted pupil ladder; the pupil STANDOFF is CARRIED AS A
-> PARAMETER (`P.iface`, reported trade curve; standoff rides φ₄: 343→140 mm at the breathing-meeting
-> power, 140 mm = flagged default); the wander target
-> (56 µm; best first-order 1415→1645 µm) is the open risk the solve
-> must carry — if it stalls, the Mersenne experiment is the hedge.
+> **Status: S1-S5 DELIVERED (TO, 2026-08-02/03; local on `MACOS_res_dev`
+> `dev`, not pushed).  S4/S5 results: `design/examples/afocal4/RESULTS.md`.**
+>
+> **The S4 headline is a PAIR, and only half of it is met.**  The convex
+> field mirror at the intermediate image SOLVES the interface pupil: on
+> axis, one joint solve puts blur (43.4 um), wander (44.0 um), breathing
+> (0.233%), convergence-surface figure and magnification (29.9811x) ALL
+> inside their targets -- including the 56 um wander the S3 gate flagged as
+> unreachable by any form at first order.  It is paid for in IMAGE QUALITY:
+> at the flagged 140 mm operating point the wavefront error floors near
+> 8.5 um at the design field, 120x the diffraction limit, and no conic,
+> standoff, front-end or rigid-body freedom moves it more than a few
+> percent (measured: a wavefront-ONLY re-solve of the same DOFs reaches
+> 8467 nm against the frozen design's 8835 -- 4%).
+>
+> **The two qualities are the same knob.**  The field mirror's power is
+> consumed holding the exit pupil at the interface standoff, so more pupil
+> control means more power means more field curvature and astigmatism.  The
+> interface standoff IS the exchange rate; carrying it as a PARAMETER (the
+> S4 ruling) rather than a spec is what makes that reportable.  At the far
+> end of the trade -- 343 mm, phi4 -> 0 -- the fourth mirror becomes a flat,
+> the wavefront returns to 15.8 nm on axis and the pupil reverts to the
+> three-mirror's.
+>
+> **Rung 4's rigid bodies buy 0.4%** and the solve drives them to 0.2 um /
+> 0.1 urad; his three-mirror gains 25% from the same freedom.  The residual
+> here is field astigmatism growing across the box (1108 -> 3312 -> 6809 nm
+> over YAN -0.25 -> 0 -> +0.25 deg), and a rigid body adds a field-CONSTANT
+> term.
+>
+> **The Mersenne hedge is CLOSED.**  Four conics relaxed with the confocal
+> spacings held take its wavefront error from 59.4 um to 35.1 um against a
+> 71 nm target, and only to 3955 nm even on axis.  The 59 um was never
+> mostly about the parabolas.  The field mirror stands.
+>
+> **Open for Dave/Mike:** the operating point.  The trade curve is the
+> deliverable, not a chosen value -- the instrument's interface standoff
+> picks the point, and 140 mm is only the flagged default.
+>
 > Ground truth: `design/rodgers2/PACKET.md` (S1/S2),
-> `design/examples/afocal4/FORM_STUDY.md` (S3).**
+> `design/examples/afocal4/FORM_STUDY.md` (S3),
+> `design/examples/afocal4/RESULTS.md` (S4/S5).
 > Response to Mike Rodgers' Rodgers2 drop
 > (`~/dev/MACOS_sandbox/Design/Rodgers2/`): a 30× afocal 3-mirror
 > telescope, 0.5°×0.5° FOV offset 0.6°, with his verbal finding that

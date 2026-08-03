@@ -1,5 +1,14 @@
 # PACKET — rodgers2: the 30× afocal TMA benchmark
 
+> **The four-mirror answer is delivered.**  The form study that chose it is
+> `../examples/afocal4/FORM_STUDY.md`; the joint solve, the answer ladder, the
+> interface-standoff trade curve and the Mersenne verdict are
+> `../examples/afocal4/RESULTS.md`.  Headline: a convex field mirror at the
+> intermediate image **solves the interface pupil** — on axis, every pupil target
+> inside, including the wander target no first-order form could reach — and it is
+> paid for in image quality, at an exchange rate set by the interface standoff.
+> This packet remains the record of **his** three-mirror benchmark under our metrics.
+
 J.M. Rodgers supplied four CODE V `.seq` decks on 2026-08-02
 (`~/dev/MACOS_sandbox/Design/Rodgers2/`, plus
 `260802-AfocalTMA_Offsetfield-jmr.pptx`): a coaxial three-mirror **afocal**

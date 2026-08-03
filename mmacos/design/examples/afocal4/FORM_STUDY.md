@@ -6,6 +6,11 @@ offset +0.6° in Y, delivering a collimated beam to an interface pupil — and h
 finding that *"with 3 mirrors the pupil quality is not very good; a 4th mirror is needed
 for pupil control."*
 
+> **S4 is delivered.**  The joint solve, the answer ladder, the interface-standoff trade
+> curve and the Mersenne hedge are in **`RESULTS.md`**, beside this file.  Read that for
+> what the fourth mirror actually buys once the design is optimised; this file is the
+> first-order argument that chose the form.
+
 **Scope: first order only.** Every layout here is closed in algebra, built, traced and
 measured with the conics carried from the parent and the new mirror seeded at K = 0.
 Nothing is optimised. The output is a ranking and its reasons, not a design; the joint
