@@ -49,6 +49,16 @@ function out = dw_dgrid_multi(session, rx_path, opts)
 %               field, not re-fit after each poke.  Requires a STOP set and
 %               > 3 elements.  Set false to keep the prescription's
 %               elt nElt-1 reference unchanged.
+%               Restore scope: the pre-loop EP is snapshotted and restored
+%               via get_xp/set_xp, i.e. vpt/psi/rad (VptElt/PsiElt/KrElt at
+%               nElt-1) only.  FEX-written auxiliary fields on the EP
+%               element (RptElt, zElt, fElt, eElt, KcElt) are left as
+%               re-derived, not rolled back -- callers who hand-author
+%               those on the EP element own re-asserting them afterward.
+%   'reset_xp_method'  DEPRECATED.  FEX and SXP are merged in the engine
+%               (FEX radius = chief-ray distance to iElt+1 = the FP), so
+%               FEX is the only path.  'sxp' is accepted as an alias with
+%               a one-time warning; do not rely on it.
 %
 %   OUTPUT STRUCT FIELDS:
 %     dwdgall       Nw x Ng canonical state-vector Jacobian
@@ -138,6 +148,13 @@ nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
 
+% reset_xp_method is DEPRECATED: FEX and SXP are merged in the engine, so
+% FEX is the only path now.  'sxp' is accepted as an alias (SegDemo3-era
+% scripts pass it) but warned once per session.
+if strcmp(opts.reset_xp_method, 'sxp')
+    warn_reset_xp_method_deprecated_();
+end
+
 % Snapshot the prescription's exit-pupil reference (elt nElt-1 geometry)
 % so the per-field FEX resets can be undone before returning.
 if opts.reset_xp
@@ -193,17 +210,13 @@ for k = 1:n_fields
         % nElt-1.  Net: the FIELD tilt is removed from the nominal, but a
         % POKE's own tilt is retained in the sensitivity (the reference is
         % NOT re-fit after poking).
-        % reset_xp_method='sxp' uses SXP instead of FEX -- SXP sets the EP
-        % reference radius to the EP->FP distance (the true exit-pupil focal
-        % length) rather than FEX's legacy iEm1->EP, so it stays well-posed
-        % when the Rx places the exit pupil near the preceding element (the
-        % SegDemo3* case: FEX collapses to a ~0.1 m sphere, ~half the rays
-        % miss elt nElt-1, OPD becomes a ~50 mm defocus bowl).
-        if strcmp(opts.reset_xp_method, 'sxp')
-            macos.sxp(1);   % EP radius = EP->FP (robust to a misplaced-EP Rx)
-        else
-            macos.fex(1);   % mode 1 = centre on chief ray
-        end
+        % FEX and SXP are merged in the engine: post-rework FEX sets the
+        % EP reference radius to the chief-ray distance to iElt+1 (= the
+        % FP), identical to what SXP produced -- so FEX is the single
+        % well-posed path for all EP placements (including the near-EP
+        % SegDemo3* layouts that once needed SXP).  reset_xp_method is
+        % retained only as a deprecated alias (warned once above).
+        macos.fex(1);   % mode 1 = centre on chief ray
     end
     sf = macos.dw_dgrid(session, rx_path, ...
         'influence', infl, ...
@@ -448,5 +461,18 @@ while true
     fields(end+1) = field_entry(toks{1}, ...
         str2double(toks{2}), str2double(toks{3}), ...
         str2double(toks{4}), str2double(toks{5})); %#ok<AGROW>
+end
+end
+
+
+function warn_reset_xp_method_deprecated_()
+% One-time-per-session deprecation notice for reset_xp_method='sxp'.
+persistent warned
+if isempty(warned)
+    warning('macos:dw_dgrid_multi:resetXpMethodDeprecated', ...
+        ['reset_xp_method is deprecated: FEX and SXP are merged in the ' ...
+         'engine, so FEX is used for the per-field exit-pupil reset ' ...
+         'regardless of this option.  ''sxp'' is accepted as an alias.']);
+    warned = true;
 end
 end

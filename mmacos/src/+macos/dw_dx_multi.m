@@ -50,6 +50,12 @@ function out = dw_dx_multi(session, rx_path, opts)
 %               written into elt nElt-1 BEFORE the FocalPlaneChannel
 %               builds its columns, so 'track' saves/restores the
 %               post-reset EP pose.
+%               Restore scope: the pre-loop EP is snapshotted/restored via
+%               get_xp/set_xp -- vpt/psi/rad (VptElt/PsiElt/KrElt at
+%               nElt-1) only.  FEX-written auxiliary fields on the EP
+%               element (RptElt, zElt, fElt, eElt, KcElt) are left as
+%               re-derived; callers who hand-author those own re-asserting
+%               them.
 %
 %   OUTPUT STRUCT FIELDS:
 %     dwdxall            Nw x Nz canonical state-vector Jacobian

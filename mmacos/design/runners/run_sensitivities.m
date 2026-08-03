@@ -45,8 +45,11 @@ function art = run_sensitivities(rx_in, opts)
 %     'ng'         grid size for the augmentation (default 256)
 %     'span_frac'  grid span fraction of the parent Aperture (1.0 = the dxGrid convention)
 %     'pm_ref_elt' segment_grid_basis footprint target (default 1)
-%     'reset_xp_method'  'fex' (default) | 'sxp' for the dwdz/dwdgrid
-%                  per-field exit-pupil reset (near-EP layouts: 'sxp')
+%     'reset_xp_method'  DEPRECATED.  FEX and SXP are merged in the
+%                  engine, so FEX is used for the per-field exit-pupil
+%                  reset regardless.  'sxp' is accepted as an alias
+%                  (warned once); retained so near-EP legacy decks that
+%                  pass it keep running.
 %     'delta_x','delta_z','delta_g'  FD steps ([] = supervisor default;
 %                  native units -- mind BaseUnits m vs mm)
 %     'ngridpts'   ray-grid override ([] = keep the .in value); a
