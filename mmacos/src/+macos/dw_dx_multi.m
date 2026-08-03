@@ -21,7 +21,8 @@ function out = dw_dx_multi(session, rx_path, opts)
 %     exit_pupil_elt, verbose.
 %
 %   'delta' can be (1,1) for uniform step or (1,6) for per-DOF steps
-%     [Rx Ry Rz Tx Ty Tz]. Rotations in rad, translations in BaseUnits.
+%     [Rx Ry Rz Tx Ty Tz]. Rotations in rad. Translation units set by
+%     'delta_units' ('si' metres, default | 'base' BaseUnits). Default 1e-8.
 %
 %   'ngridpts' (default [] = keep the .in value) overrides the ray-grid
 %   sampling once, right after the Rx load; it persists across the
@@ -63,13 +64,16 @@ arguments
     opts.stop_obj_pos        double = []
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
-    opts.delta               (:,:) double {mustBeDeltaSize} = 1e-5
+    opts.delta               (:,:) double {mustBeDeltaSize} = 1e-8
+    opts.delta_units         (1,:) char {mustBeMember(opts.delta_units, ...
+                                {'si','base'})} = 'si'
     opts.method              (1,:) char {mustBeMember(opts.method, ...
                                 {'central','forward'})} = 'central'
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
     opts.verbose             (1,1) logical = false
     opts.ngridpts            double {mustBeScalarOrEmpty} = []
     opts.src_samp            double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.compute_los         (1,1) logical = false
     opts.spot_elt            double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 
@@ -130,7 +134,7 @@ fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
 per_field_dwdx   = cell(n_fields, 1);
 per_field_w_nom  = cell(n_fields, 1);
 per_field_struct = cell(n_fields, 1);
-if ~isempty(opts.spot_elt)
+if opts.compute_los
     per_field_dcdx = cell(n_fields, 1);
 end
 names = {};
@@ -154,22 +158,24 @@ for k = 1:n_fields
         'include_non_optics', opts.include_non_optics, ...
         'rot_output', opts.rot_output, ...
         'delta', opts.delta, ...
+        'delta_units', opts.delta_units, ...
         'method', opts.method, ...
         'exit_pupil_elt', opts.exit_pupil_elt, ...
         'verbose', opts.verbose, ...
         'reload_rx', false, ...
+        'compute_los', opts.compute_los, ...
         'spot_elt', opts.spot_elt);
     per_field_dwdx{k}   = sf.dwdx;
     per_field_w_nom{k}  = sf.w_nom_2d;
     per_field_struct{k} = sf;
-    if ~isempty(opts.spot_elt)
+    if opts.compute_los
         per_field_dcdx{k} = sf.dcdx;
     end
     if isempty(names), names = sf.channel_names; iElt_out = sf.iElt; end
     col_rms_mean = mean(sqrt(mean(sf.dwdx.^2, 1)));
     fprintf('[field %s] dwdx shape [%d %d], mean col-RMS %.3e', ...
         fields(k).name, size(sf.dwdx, 1), size(sf.dwdx, 2), col_rms_mean);
-    if ~isempty(opts.spot_elt)
+    if opts.compute_los
         los_rms_mean = mean(sqrt(sum(sf.dcdx.^2, 2)));
         fprintf('  mean LOS-RMS %.3e', los_rms_mean);
     end
@@ -263,9 +269,13 @@ out.rot_output           = opts.rot_output;
 out.cbm                  = per_field_struct{1}.cbm;
 
 % Add per-field LOS if SPOT was computed
-if ~isempty(opts.spot_elt)
+if opts.compute_los
     out.dcdx_per_field = per_field_dcdx;
-    out.spot_elt       = opts.spot_elt;
+    if isempty(opts.spot_elt)
+        out.spot_elt = session.num_elt();  % Default focal plane
+    else
+        out.spot_elt = opts.spot_elt;
+    end
 end
 end
 
