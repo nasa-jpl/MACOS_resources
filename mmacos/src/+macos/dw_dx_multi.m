@@ -15,10 +15,13 @@ function out = dw_dx_multi(session, rx_path, opts)
 %     'grid' 'NxM'
 %     'fields' FILE
 %
-%   FORWARDED TO dw_dx:  dofs, fp_mode, ep_elt, include_source,
+%   FORWARDED TO dw_dx:  dofs, elts, fp_mode, ep_elt, include_source,
 %     src_stop_mode, src_stop_pos, src_stop_elt, include_non_optics,
 %     stop_elt, stop_obj_pos, rot_output, delta, method,
 %     exit_pupil_elt, verbose.
+%
+%   'delta' can be (1,1) for uniform step or (1,6) for per-DOF steps
+%     [Rx Ry Rz Tx Ty Tz]. Rotations in rad, translations in BaseUnits.
 %
 %   'ngridpts' (default [] = keep the .in value) overrides the ray-grid
 %   sampling once, right after the Rx load; it persists across the
@@ -46,6 +49,7 @@ arguments
     opts.fields              (1,:) char = ''
     opts.grid                (1,:) char = ''
     opts.dofs                (:,1) double = (0:5).'
+    opts.elts                (:,1) double = []
     opts.fp_mode             (1,:) char {mustBeMember( ...
         opts.fp_mode, {'track','srs','sxp','none'})} = 'track'
     opts.ep_elt              (1,1) double {mustBeInteger} = -1
@@ -59,12 +63,14 @@ arguments
     opts.stop_obj_pos        double = []
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
-    opts.delta               (1,1) double = 1e-8
+    opts.delta               (:,:) double {mustBeDeltaSize} = 1e-5
     opts.method              (1,:) char {mustBeMember(opts.method, ...
                                 {'central','forward'})} = 'central'
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
     opts.verbose             (1,1) logical = false
     opts.ngridpts            double {mustBeScalarOrEmpty} = []
+    opts.src_samp            double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.spot_elt            double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -97,6 +103,12 @@ end
 session.load_rx(rx_path);
 apply_ngridpts(session, opts.ngridpts, 'dw_dx_multi');
 
+% Apply source sampling if specified
+if ~isempty(opts.src_samp)
+    session.set_src_sampling(opts.src_samp);
+    session.modify();  % Flush cache so the new sampling takes effect
+end
+
 % Apply stop here so it survives across per-field calls (dw_dx with
 % reload_rx=false won't touch the stop state).
 if ~isempty(opts.stop_elt) && ~isempty(opts.stop_obj_pos)
@@ -118,6 +130,9 @@ fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
 per_field_dwdx   = cell(n_fields, 1);
 per_field_w_nom  = cell(n_fields, 1);
 per_field_struct = cell(n_fields, 1);
+if ~isempty(opts.spot_elt)
+    per_field_dcdx = cell(n_fields, 1);
+end
 names = {};
 iElt_out = [];
 for k = 1:n_fields
@@ -129,6 +144,7 @@ for k = 1:n_fields
         fields(k).name, new_dir);
     sf = macos.dw_dx(session, rx_path, ...
         'dofs', opts.dofs, ...
+        'elts', opts.elts, ...
         'fp_mode', opts.fp_mode, ...
         'ep_elt', opts.ep_elt, ...
         'include_source', opts.include_source, ...
@@ -141,14 +157,23 @@ for k = 1:n_fields
         'method', opts.method, ...
         'exit_pupil_elt', opts.exit_pupil_elt, ...
         'verbose', opts.verbose, ...
-        'reload_rx', false);
+        'reload_rx', false, ...
+        'spot_elt', opts.spot_elt);
     per_field_dwdx{k}   = sf.dwdx;
     per_field_w_nom{k}  = sf.w_nom_2d;
     per_field_struct{k} = sf;
+    if ~isempty(opts.spot_elt)
+        per_field_dcdx{k} = sf.dcdx;
+    end
     if isempty(names), names = sf.channel_names; iElt_out = sf.iElt; end
     col_rms_mean = mean(sqrt(mean(sf.dwdx.^2, 1)));
-    fprintf('[field %s] dwdx shape [%d %d], mean col-RMS %.3e\n', ...
+    fprintf('[field %s] dwdx shape [%d %d], mean col-RMS %.3e', ...
         fields(k).name, size(sf.dwdx, 1), size(sf.dwdx, 2), col_rms_mean);
+    if ~isempty(opts.spot_elt)
+        los_rms_mean = mean(sqrt(sum(sf.dcdx.^2, 2)));
+        fprintf('  mean LOS-RMS %.3e', los_rms_mean);
+    end
+    fprintf('\n');
 end
 
 session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
@@ -236,6 +261,12 @@ out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.rot_output           = opts.rot_output;
 out.cbm                  = per_field_struct{1}.cbm;
+
+% Add per-field LOS if SPOT was computed
+if ~isempty(opts.spot_elt)
+    out.dcdx_per_field = per_field_dcdx;
+    out.spot_elt       = opts.spot_elt;
+end
 end
 
 
@@ -334,4 +365,11 @@ while true
         str2double(toks{2}), str2double(toks{3}), ...
         str2double(toks{4}), str2double(toks{5})); %#ok<AGROW>
 end
+end
+
+function mustBeDeltaSize(d)
+    if ~(isequal(size(d), [1 1]) || isequal(size(d), [1 6]))
+        error('macos:dw_dx_multi:deltaSize', ...
+            'delta must be (1,1) or (1,6)');
+    end
 end

@@ -32,6 +32,8 @@ function out = dw_dgrid_multi(session, rx_path, opts)
 %                  basis (a macos.segment_grid_basis struct, or a cell per grid
 %                  element).  Default: a low-order Zernike-on-grid basis.
 %     'zmodes'     Noll/ANSI modes for the default basis.  Default [4 5 6 7 8 11].
+%     'elts'       Vector of element IDs to include.  Default [] (auto-detect all
+%                  grid-bearing elements from the loaded prescription).
 %     'delta', 'method', 'exit_pupil_elt', 'verbose'.
 %
 %   'ngridpts'  (default [] = keep the .in value) ray-grid sampling
@@ -74,6 +76,7 @@ arguments
     opts.grid                   (1,:) char = ''
     opts.influence              = []   % [NxNxK] | per-segment struct | cell
     opts.zmodes                 (1,:) double = [4 5 6 7 8 11]
+    opts.elts                   (:,1) double = []
     opts.delta                  (1,1) double = 1e-6
     opts.method                 (1,:) char {mustBeMember(opts.method, ...
                                   {'central','forward'})} = 'central'
@@ -84,6 +87,9 @@ arguments
     opts.reset_xp_method        (1,:) char {mustBeMember(opts.reset_xp_method, ...
                                   {'fex','sxp'})} = 'fex'
     opts.ngridpts               double {mustBeScalarOrEmpty} = []
+    opts.src_samp               double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.compute_los            (1,1) logical = false
+    opts.spot_elt               double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -121,6 +127,13 @@ if opts.reload_rx
     session.load_rx(rx_path);
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dgrid_multi');
+
+% Apply source sampling if specified
+if ~isempty(opts.src_samp)
+    session.set_src_sampling(opts.src_samp);
+    session.modify();  % Flush cache so the new sampling takes effect
+end
+
 nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
@@ -141,6 +154,9 @@ end
 infl = opts.influence;
 if isempty(infl)
     g = macos.find_grid_elts();
+    if ~isempty(opts.elts)
+        g = intersect(g, opts.elts);
+    end
     if isempty(g)
         error('macos:dw_dgrid_multi:nogrid', ...
             'no grid-bearing elements in the loaded prescription');
@@ -157,6 +173,9 @@ end
 per_field_dwdg   = cell(n_fields, 1);
 per_field_w_nom  = cell(n_fields, 1);
 per_field_struct = cell(n_fields, 1);
+if opts.compute_los
+    per_field_dcdx = cell(n_fields, 1);
+end
 names = {};  iElt_out = [];  map_idx_out = [];
 for k = 1:n_fields
     new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
@@ -188,20 +207,31 @@ for k = 1:n_fields
     end
     sf = macos.dw_dgrid(session, rx_path, ...
         'influence', infl, ...
+        'elts', opts.elts, ...
         'delta', opts.delta, ...
         'method', opts.method, ...
         'exit_pupil_elt', opts.exit_pupil_elt, ...
         'verbose', opts.verbose, ...
-        'reload_rx', false);    % keep current src_fov state
+        'reload_rx', false, ...
+        'compute_los', opts.compute_los, ...
+        'spot_elt', opts.spot_elt);    % keep current src_fov state
     per_field_dwdg{k} = sf.dwdg;
     per_field_w_nom{k} = sf.w_nom_2d;
     per_field_struct{k} = sf;
+    if opts.compute_los
+        per_field_dcdx{k} = sf.dcdx;
+    end
     if isempty(names)
         names = sf.channel_names;  iElt_out = sf.iElt;  map_idx_out = sf.map_idx;
     end
     col_rms_mean = mean(sqrt(mean(sf.dwdg.^2, 1)));
-    fprintf('[field %s] dwdg shape [%d %d], mean col-RMS %.3e\n', ...
+    fprintf('[field %s] dwdg shape [%d %d], mean col-RMS %.3e', ...
         fields(k).name, size(sf.dwdg, 1), size(sf.dwdg, 2), col_rms_mean);
+    if opts.compute_los
+        los_rms_mean = mean(sqrt(sum(sf.dcdx.^2, 2)));
+        fprintf('  mean LOS-RMS %.3e', los_rms_mean);
+    end
+    fprintf('\n');
 end
 
 % Restore source back to nominal.
@@ -307,6 +337,16 @@ out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.zmodes               = opts.zmodes;
 out.reset_xp             = opts.reset_xp;
+
+% Add per-field LOS if SPOT was computed
+if opts.compute_los
+    out.dcdx_per_field = per_field_dcdx;
+    if isempty(opts.spot_elt)
+        out.spot_elt = session.num_elt();  % Default focal plane
+    else
+        out.spot_elt = opts.spot_elt;
+    end
+end
 end
 
 
