@@ -12,6 +12,8 @@
 #   ./run_mmacos_tests.sh fast              # all size=128 EXCEPT masks
 #                                           # (minutes — broad, not quick)
 #   ./run_mmacos_tests.sh masks             # only the CodeV mask suite
+#   ./run_mmacos_tests.sh freeform          # the size=256 design-metric
+#                                           # group in one process
 #                                           # (~10 min — heavyweight)
 #   ./run_mmacos_tests.sh proper            # only Phase 5 PROPER cmp
 #   ./run_mmacos_tests.sh tMacosPkg         # one class by name
@@ -215,6 +217,13 @@ case "${1:-}" in
     masks)
         # The heavyweight CodeV mask suite, size=128, ~10 min.
         run_batch "$SUITE_MASKS" "masks (size=128)"
+        ;;
+    freeform)
+        # The size=256 group in ONE process — the design-metric classes
+        # (strict / afocal / pupil kernels, E2E2, CALIB, OptFEX) plus the
+        # freeform + viewer ones.  This is the group a design-layer change
+        # has to leave green.
+        run_batch "$SUITE_FREEFORM" "freeform (size=256)"
         ;;
     proper)
         # Phase 5 PROPER-comparison suite — now one batch.
