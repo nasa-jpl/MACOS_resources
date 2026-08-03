@@ -20,9 +20,16 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             res_root = fileparts(fileparts(here));
             addpath(fullfile(res_root, 'mmacos', 'design', 'runners'));
             addpath(fullfile(res_root, 'mmacos', 'sensitivities'));
-            bin = fullfile(res_root, 'segmirmaker', ...
-                           'build_release_ifx', 'SegMirMaker');
-            tc.assumeTrue(isfile(bin), 'SegMirMaker not built');
+            % Locate whichever build tree exists (ifx on Linux, gfortran on
+            % macOS / gfortran builds); ifx preferred when both are present.
+            smmdir = fullfile(res_root, 'segmirmaker');
+            bin = '';
+            for tag = ["build_release_ifx", "build_release_gfortran", ...
+                       "build_debug_ifx", "build_debug_gfortran"]
+                cand = fullfile(smmdir, tag, 'SegMirMaker');
+                if isfile(cand), bin = cand; break; end
+            end
+            tc.assumeTrue(~isempty(bin) && isfile(bin), 'SegMirMaker not built');
             macos.init(512);
             tin = fullfile(res_root, 'segmirmaker', 'test_in');
             tc.seg = macos.design.segment_rx(fullfile(tin, 'e5mono.in'), ...
@@ -64,6 +71,25 @@ classdef tRunSensitivities < matlab.unittest.TestCase
                 tc.verifyGreaterThanOrEqual(gx*(64-1), 2*lm(1)*(1 - 1e-12));
             end
             tc.verifyEqual(nGrid, tc.seg.nseg);
+        end
+
+        function test_reset_xp_method_sxp_deprecation_warns(tc)
+            % reset_xp_method is deprecated (FEX==SXP post-merge); 'sxp'
+            % must still WORK (legacy decks pass it) but warn once.  Clear
+            % the function so its persistent one-time flag is fresh.
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            rxg = fullfile(wd, 'aug.in');
+            macos.design.grid_augment_rx(tc.seg.in, rxg, 'ng', 64);
+            m = macos.Session(512);
+            sgb = macos.segment_grid_basis(m, rxg, ...
+                'pm_ref_elt', 1, 'modes', 4:5, 'orthogonalize', true);
+            clear macos.dw_dgrid_multi   % reset the persistent warned flag
+            tc.verifyWarning(@() macos.dw_dgrid_multi(m, rxg, ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
+                'influence', sgb, 'zmodes', 4:5, 'ngridpts', 15, ...
+                'reset_xp', false, 'reset_xp_method', 'sxp'), ...
+                'macos:dw_dgrid_multi:resetXpMethodDeprecated');
         end
 
         function test_run_sensitivities_end_to_end(tc)

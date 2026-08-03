@@ -43,6 +43,11 @@ function out = dw_dsurf_multi(session, rx_path, opts)
 %               linear-in-field tilt that swamps the OPD canvas).  A poke's
 %               OWN tilt is retained -- the reference is fixed per field, not
 %               re-fit after each poke.  Requires a STOP set and > 3 elements.
+%               Restore scope: the pre-loop EP is snapshotted/restored via
+%               get_xp/set_xp -- vpt/psi/rad (VptElt/PsiElt/KrElt at nElt-1)
+%               only.  FEX-written auxiliary fields on the EP element
+%               (RptElt, zElt, fElt, eElt, KcElt) are left as re-derived;
+%               callers who hand-author those own re-asserting them.
 %
 %   OUTPUT STRUCT FIELDS:
 %     dwdsall       Nw x Ns canonical state-vector Jacobian
