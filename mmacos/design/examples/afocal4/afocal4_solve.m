@@ -32,10 +32,15 @@ function R = afocal4_solve(P, D0, opts)
 %   which moves them ~29% from the parent at the flagged operating point.
 %   So those radii DO change rung to rung; they are just never free.
 %
-%   SCALING.  Conics are O(1), a standoff is O(0.1 m), a tilt is O(1 mrad).
-%   The solver sees all of them divided by P.dof_scale, so its trust region
-%   and its finite-difference step mean the same thing on every DOF.  Without
-%   that the rigid bodies are invisible to a step sized for the conics.
+%   SCALING, AND IT IS NOT A DETAIL.  The solver works in DEVIATIONS from the
+%   seed, divided by P.dof_scale:  x = (value - seed) / scale,  so every DOF
+%   starts at 0 and one unit of x means the same size of physical change on
+%   all of them.  Conics are O(1), the M1-M2 spacing is O(1 m), a tilt is
+%   O(1 mrad); feeding those to lsqnonlin as raw scaled VALUES makes the
+%   initial trust region proportional to the largest of them, and the first
+%   step throws the design across the parameter space.  Measured: the value
+%   parameterisation left rung 1 wandering at 2345 nm after 40 evaluations,
+%   worse than a three-conic solve had already reached.
 %
 %   Name-value:
 %     'dofs'     cellstr subset of {'conic','standoff','rb'}
@@ -68,7 +73,7 @@ function R = afocal4_solve(P, D0, opts)
     end
     if opts.max_iter <= 0, opts.max_iter = P.solve.max_iter; end
 
-    [x0, names, scale, lo, hi] = pack_(P, D0, opts.dofs);
+    [x0, names, scale, base, lo, hi] = pack_(P, D0, opts.dofs);
     tmp = [tempname '.in'];
     cu  = onCleanup(@() del_(tmp)); %#ok<NASGU>
 
@@ -79,7 +84,7 @@ function R = afocal4_solve(P, D0, opts)
 
     function r = obj_(xs)
         nfev = nfev + 1;
-        D = unpack_(P, D0, opts.dofs, xs, scale);
+        D = unpack_(P, D0, opts.dofs, xs, scale, base);
         D.ngrid = P.solve.ngrid;
         try
             afocal4_build(P, D, tmp, 'verify',false);
@@ -124,7 +129,7 @@ function R = afocal4_solve(P, D0, opts)
     end
     [x, ~, ~, exitflag] = lsqnonlin(@obj_, x0, lo, hi, o);
 
-    D = unpack_(P, D0, opts.dofs, x, scale);
+    D = unpack_(P, D0, opts.dofs, x, scale, base);
     deck = opts.deck;
     if isempty(deck), deck = tmp; end
     afocal4_build(P, D, deck, 'verify',false);
@@ -132,6 +137,7 @@ function R = afocal4_solve(P, D0, opts)
                       'nodes',P.solve.nodes_score, 'grid',P.grid_n);
 
     R = struct('D',D, 'S',S, 'x0',x0, 'x',x, 'names',{names}, 'scale',scale, ...
+               'base',base, ...
                'lo',lo, 'hi',hi, 'hist',hist, 'exitflag',exitflag, ...
                'nfev',nfev, 'seconds',toc(t0), 'merit_kind',opts.merit, ...
                'deck',deck, 'dofs',{opts.dofs});
@@ -143,17 +149,16 @@ function R = afocal4_solve(P, D0, opts)
 end
 
 % =====================================================================
-function [x, names, scale, lo, hi] = pack_(P, D, dofs)
-%PACK_  Physical DOFs -> the scaled vector the solver works in.
-    x = [];  names = {};  scale = [];  lo = [];  hi = [];
+function [x, names, scale, base, lo, hi] = pack_(P, D, dofs)
+%PACK_  Physical DOFs -> the scaled DEVIATION vector the solver works in.
+%   BASE is the seed value of each DOF; the solver's x is (value-base)/scale
+%   and therefore starts at zero on every DOF.
+    x = [];  names = {};  scale = [];  base = [];  lo = [];  hi = [];
     ki = conic_free_(D.form);
     if any(strcmp(dofs,'conic'))
         for k = ki
-            x(end+1) = D.K(k)/P.dof_scale.conic; %#ok<AGROW>
-            names{end+1} = sprintf('K%d', k); %#ok<AGROW>
-            scale(end+1) = P.dof_scale.conic; %#ok<AGROW>
-            lo(end+1) = P.bounds.conic(1)/P.dof_scale.conic; %#ok<AGROW>
-            hi(end+1) = P.bounds.conic(2)/P.dof_scale.conic; %#ok<AGROW>
+            [x,names,scale,base,lo,hi] = add_(x,names,scale,base,lo,hi, ...
+                sprintf('K%d',k), D.K(k), P.dof_scale.conic, P.bounds.conic);
         end
     end
     if any(strcmp(dofs,'standoff'))
@@ -161,47 +166,46 @@ function [x, names, scale, lo, hi] = pack_(P, D, dofs)
             error('macos:design:afocal4_solve:standoff', ...
                   'the field-mirror standoff is a DOF of the "field" form only.');
         end
-        x(end+1) = D.fm_standoff/P.dof_scale.standoff;
-        names{end+1} = 's_FM';
-        scale(end+1) = P.dof_scale.standoff;
-        lo(end+1) = P.bounds.fm_standoff(1)/P.dof_scale.standoff;
-        hi(end+1) = P.bounds.fm_standoff(2)/P.dof_scale.standoff;
+        [x,names,scale,base,lo,hi] = add_(x,names,scale,base,lo,hi, ...
+            's_FM', D.fm_standoff, P.dof_scale.standoff, P.bounds.fm_standoff);
     end
     if any(strcmp(dofs,'front'))
         if ~strcmp(D.form,'field')
             error('macos:design:afocal4_solve:front', ...
                   'the front-end DOFs belong to the "field" form only.');
         end
-        x(end+1) = D.R2/P.dof_scale.radius;
-        names{end+1} = 'R_M2';
-        scale(end+1) = P.dof_scale.radius;
-        lo(end+1) = P.bounds.R2(1)/P.dof_scale.radius;
-        hi(end+1) = P.bounds.R2(2)/P.dof_scale.radius;
-        x(end+1) = D.t1/P.dof_scale.spacing;
-        names{end+1} = 't_M1M2';
-        scale(end+1) = P.dof_scale.spacing;
-        lo(end+1) = P.bounds.t1(1)/P.dof_scale.spacing;
-        hi(end+1) = P.bounds.t1(2)/P.dof_scale.spacing;
+        [x,names,scale,base,lo,hi] = add_(x,names,scale,base,lo,hi, ...
+            'R_M2', D.R2, P.dof_scale.radius, P.bounds.R2);
+        [x,names,scale,base,lo,hi] = add_(x,names,scale,base,lo,hi, ...
+            't_M1M2', D.t1, P.dof_scale.spacing, P.bounds.t1);
     end
     if any(strcmp(dofs,'rb'))
         for i = 1:numel(P.rb_elts)
-            x(end+1) = D.rb(i,1)/P.dof_scale.dec; %#ok<AGROW>
-            names{end+1} = sprintf('dy%d', P.rb_elts(i)); %#ok<AGROW>
-            scale(end+1) = P.dof_scale.dec; %#ok<AGROW>
-            lo(end+1) = P.bounds.dec(1)/P.dof_scale.dec; %#ok<AGROW>
-            hi(end+1) = P.bounds.dec(2)/P.dof_scale.dec; %#ok<AGROW>
-            x(end+1) = D.rb(i,2)/P.dof_scale.tilt; %#ok<AGROW>
-            names{end+1} = sprintf('tx%d', P.rb_elts(i)); %#ok<AGROW>
-            scale(end+1) = P.dof_scale.tilt; %#ok<AGROW>
-            lo(end+1) = P.bounds.tilt(1)/P.dof_scale.tilt; %#ok<AGROW>
-            hi(end+1) = P.bounds.tilt(2)/P.dof_scale.tilt; %#ok<AGROW>
+            [x,names,scale,base,lo,hi] = add_(x,names,scale,base,lo,hi, ...
+                sprintf('dy%d',P.rb_elts(i)), D.rb(i,1), P.dof_scale.dec, ...
+                P.bounds.dec);
+            [x,names,scale,base,lo,hi] = add_(x,names,scale,base,lo,hi, ...
+                sprintf('tx%d',P.rb_elts(i)), D.rb(i,2), P.dof_scale.tilt, ...
+                P.bounds.tilt);
         end
     end
-    x = x(:);  scale = scale(:);  lo = lo(:);  hi = hi(:);
+    x = x(:);  scale = scale(:);  base = base(:);  lo = lo(:);  hi = hi(:);
 end
 
-function D = unpack_(P, D, dofs, xs, scale)
-    xs = xs(:).*scale;   j = 0;
+function [x,nm,sc,ba,lo,hi] = add_(x,nm,sc,ba,lo,hi, name, val, s, bnd)
+    x(end+1)  = 0;                    % the solver starts at the seed
+    nm{end+1} = name;
+    sc(end+1) = s;
+    ba(end+1) = val;
+    lo(end+1) = (bnd(1) - val)/s;
+    hi(end+1) = (bnd(2) - val)/s;
+end
+
+function D = unpack_(P, D, dofs, xs, scale, base)
+%UNPACK_  The solver's deviation vector -> physical values, in the SAME
+%   order PACK_ built it.  The two must be read together; a mismatch here is
+%   silent and produces a design nobody asked for.
+    xs = base(:) + xs(:).*scale(:);   j = 0;
     ki = conic_free_(D.form);
     if any(strcmp(dofs,'conic'))
         for k = ki, j = j + 1;  D.K(k) = xs(j); end
