@@ -37,8 +37,15 @@ function out = dw_dx(session, rx_path, opts)
 %     'delta'            finite-difference step. Either:
 %                        - (1,1) double: single value for all DOFs
 %                        - (1,6) double: [Rx Ry Rz Tx Ty Tz] deltas
-%                        Rotations in rad, translations in BaseUnits.
-%                        Default 1e-8.
+%                        Rotations always in rad.  Translation units set
+%                        by 'delta_units'.  Default 1e-8.
+%     'delta_units'      'si' (default) | 'base'.  Units of the
+%                        TRANSLATION entries of 'delta': 'si' = SI metres,
+%                        'base' = prescription BaseUnits (converted to
+%                        metres via CBM).  Rotations are rad either way.
+%                        Example: on an mm Rx, delta=1e-5 delta_units=
+%                        'base' is the same 10 nm translation poke as the
+%                        1e-8 SI default.
 %     'method'           'central' (default) | 'forward'.
 %     'exit_pupil_elt'   element id at which to evaluate the OPD.
 %                        Default -1 = nElt-1 (XP convention).
@@ -94,7 +101,9 @@ arguments
     opts.group_stop_pos      (1,3) double = [0 0 0]
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
-    opts.delta               (:,:) double {mustBeDeltaSize} = 1e-5
+    opts.delta               (:,:) double {mustBeDeltaSize} = 1e-8
+    opts.delta_units         (1,:) char {mustBeMember(opts.delta_units, ...
+                                {'si','base'})} = 'si'
     opts.method              (1,:) char {mustBeMember(opts.method, ...
                                 {'central','forward'})} = 'central'
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
@@ -134,6 +143,17 @@ cbm = session.cbm();
 if cbm == 0
     error('macos:dw_dx:cbm', ...
         'CBM unavailable (Rx not loaded or BaseUnits not declared)');
+end
+
+% Resolve the FD step to SI metres (translations) / rad (rotations)
+% before the inner loop.  'base' scales ONLY the translation entries by
+% CBM; a scalar delta is expanded so its translation use is scaled too.
+delta_si = opts.delta;
+if strcmp(opts.delta_units, 'base')
+    if isscalar(delta_si)
+        delta_si = repmat(delta_si, 1, 6);
+    end
+    delta_si(4:6) = delta_si(4:6) * cbm;   % BaseUnits -> metres
 end
 
 % Apply system Stop if requested.
@@ -225,10 +245,9 @@ else
 end
 
 [dwdx, w_nom_2d, w_nom_vec, indx, names, dcdx, spot_pos, spot_neg, spot_nom, spot_pert] = ...
-    macos.dwdx_for_current_source(channels, wf_func, opts.delta, ...
+    macos.dwdx_for_current_source(channels, wf_func, delta_si, ...
         'method', opts.method, ...
         'output_scale_fn', @output_scale_fn, ...
-        'cbm', cbm, ...
         'verbose', opts.verbose, ...
         'spot_func', spot_func);
 
@@ -265,6 +284,7 @@ out.dof_idx       = dof_out;
 out.kind          = kind_out;
 out.rx_path       = rx_path;
 out.delta         = opts.delta;
+out.delta_units   = opts.delta_units;
 out.method        = opts.method;
 out.wf_elt        = wf_elt;
 out.rot_output    = opts.rot_output;

@@ -14,7 +14,9 @@ function [dwdx, w_nom_2d, w_nom_vec, indx, names, dcdx, spot_pos, spot_neg, spot
 %     delta     finite-difference step. Either:
 %               - (1,1) double: single value for all DOFs
 %               - (1,6) double: [Rx Ry Rz Tx Ty Tz] deltas
-%               Rotations in rad, translations in BaseUnits.
+%               Rotations in rad, translations in SI metres (the step
+%               is handed to perturb() unchanged, which converts SI
+%               metres -> BaseUnits internally).
 %
 %   Name-value pairs:
 %     'method'           'central' (default) | 'forward'.
@@ -22,8 +24,6 @@ function [dwdx, w_nom_2d, w_nom_vec, indx, names, dcdx, spot_pos, spot_neg, spot
 %                        Multiplied into each column after the
 %                        difference.  Use for CBM rescaling
 %                        (OPD_BaseUnits -> OPD_metres) etc.
-%     'cbm'              Conversion factor: BaseUnits × CBM = metres.
-%                        Required when delta has translation components.
 %     'verbose'          logical (default false).
 %     'spot_func'        function handle () -> SPOT struct (optional).
 %                        When provided, computes LOS sensitivities dC/dX
@@ -50,7 +50,6 @@ arguments
     opts.method          (1,:) char {mustBeMember(opts.method, ...
                             {'central','forward'})} = 'central'
     opts.output_scale_fn = []  % function handle or []
-    opts.cbm             (1,1) double = NaN
     opts.verbose         (1,1) logical = false
     opts.spot_func       = []  % function handle or []
 end
@@ -100,21 +99,13 @@ end
 for k = 1:Nz
     ch = channels{k};
 
-    % Get the appropriate delta for this channel
+    % Get the appropriate delta for this channel.  For a (1,6) delta
+    % the DOF index selects [Rx Ry Rz Tx Ty Tz]; rotations are in rad,
+    % translations in SI metres (perturb() converts to BaseUnits).
+    % Channels without a dof_idx (SourceChannel) use the first entry.
     if isprop(ch, 'dof_idx')
         ch_delta = delta_vec(ch.dof_idx + 1);
-        % Convert translation deltas from BaseUnits to metres
-        % Rotations (dof_idx 0-2) are already in radians
-        % Translations (dof_idx 3-5) are in BaseUnits, need × CBM
-        if ch.dof_idx >= 3
-            if isnan(opts.cbm)
-                error('macos:dwdx_for_current_source:cbm', ...
-                    'CBM required for translation perturbations');
-            end
-            ch_delta = ch_delta * opts.cbm;
-        end
     else
-        % Source channels or other types: use first delta
         ch_delta = delta_vec(1);
     end
 
