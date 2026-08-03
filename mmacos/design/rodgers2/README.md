@@ -25,9 +25,11 @@ form study is S3 and is a separate gate.
 * **The pupil claim is now a table.**  His 30× measures **28.686×** at the
   box centre on the unoptimised offset variant (his slides say 28.7×) and
   is restored to 30.0015× by the conic re-solve — but the magnification
-  still **breathes ±3.8% across the field**, the pupil image is blurred by
-  0.5–2.7% of the pupil diameter, and 0.9 mm rms of footprint wander
-  remains at the placed coldstop.
+  still **breathes ±3.6% across the field** measured normal to each field's
+  own exit chief (±3.8% as read on the fixed tilted coldstop, which adds
+  that plane's own obliquity — PACKET §4 refinement, 2026-08-03), the pupil
+  image is blurred by 0.5–2.7% of the pupil diameter, and 0.9 mm rms of
+  footprint wander remains at the placed coldstop.
 * **CALIB runs on an afocal deck, converges, and wrecks the design** — its
   merit there is 10³–10⁴× the wavefront error.  MATLAB outer solve is the
   path (Dave, 2026-08-02).

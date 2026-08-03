@@ -64,6 +64,16 @@ infrastructure and the scored 3-mirror baseline.  The 4-mirror form study
 6. **`Element= Return` must not be used for the interface flat.**  It
    reverses the ray directions.  Section 4.0.
 
+7. **The magnification breathing is real, and it has two frames** (added
+   2026-08-03, §4).  A footprint read on the fixed tilted coldstop carries a
+   1/cos(incidence) stretch as each field's exit chief swings up to 13.6° off
+   that plane; measured normal to each field's own chief the best 3-mirror
+   variant breathes **±3.63%** against ±3.84% as read.  The headline
+   survives.  On the *perfect* on-axis variant, though, 35% of the apparent
+   spread was the frame, and the ±0.78% that remains is the cleanest
+   evidence here that the deficits are pupil-imaging aberrations rather than
+   field-dependent design error.
+
 ---
 
 ## 1. The conversion audit — `.seq` ↔ `.in`, surface by surface
@@ -282,6 +292,61 @@ the mechanism.
 28.36 – 30.66× across the 0.5° box: ±3.8%.  A restored centre magnification
 is not a restored pupil.
 
+### REFINEMENT (2026-08-03) — the breathing in two frames
+
+The gate review asked whether that ±3.8% is a pupil-imaging defect or a
+frame term, because the column above is a footprint read on the **placed
+coldstop** — a plane held fixed while each field's exit chief swings by
+M·θ, reaching **10.5–13.6°** of incidence at the box diagonal.  An oblique
+read stretches the footprint by 1/cos(incidence) in the plane of incidence,
+which is ~1.6% of areal stretch, i.e. ~0.8% of apparent magnification.
+`pupil_map` now measures the per-field magnification in **both** frames:
+`.mag_per_field` on the deck's placed plane and `.mag_per_field_chief` in
+the plane through the **same station** normal to **that field's own** exit
+chief.  The claim above is refined, not retracted; the numbers that
+produced it are unchanged and stand in the table.
+
+| variant | placed: centre / range / ± | chief-normal: centre / range / ± | incidence |
+|---|---|---|---|
+| S1 on-axis | 30.0000 / 29.28–30.00 / **±1.200%** | 30.0000 / 29.53–30.00 / **±0.783%** | 0.0–10.5° |
+| S2 offset | 28.6863 / 27.19–29.28 / ±3.652% | 28.6848 / 27.27–29.54 / ±3.966% | 2.6–13.6° |
+| S3 newconics | 30.0015 / 28.36–30.66 / ±3.828% | 30.0002 / 28.48–30.92 / ±4.071% | 3.6–13.5° |
+| S4 tilt/dec | 29.9988 / 28.34–30.64 / **±3.837%** | 29.9988 / 28.59–30.77 / **±3.634%** | 0.4–10.6° |
+
+**The frame term is real, it is exactly the 1/cos, and it does not explain
+the headline.**  The ratio between the two columns matches
+1/√(cos·incidence) to **7e−7** on the two variants whose box-centre chief is
+normal to the coldstop (S1, S4) and to 1.5e−3 on the two that are tilted off
+it (S2, S3, where the exit-frame projection adds a second small term).  So
+the mechanism is identified, not fitted.  But on the corrected offset
+variants it moves the answer by a few percent **of itself**: the S4
+breathing is **±3.63%** chief-normal against ±3.84% as read, and S3 goes the
+other way, **±4.07%** against ±3.83%.  His coldstop tilt happens to *mask*
+part of S3's real breathing.
+
+**Where it does matter is the perfect design.**  On S1 — a coaxial afocal
+with the box on axis, where there is no design error to find — **35% of the
+apparent 29.28–30.00 spread was the frame**, and the true pupil-imaging
+breathing is 29.53–30.00, ±0.78%.  That residual is genuine pupil
+distortion, and its survival on the *perfect* variant is the single
+strongest piece of evidence in this packet for Mike's assertion: the
+deficits are pupil-IMAGING aberrations, present with the image quality at
+15 nm.
+
+**Box-centre magnification is untouched** (28.6863 → 28.6848 on S2), because
+the coldstop is tilted to the box-centre chief by construction and a tilt of
+4.289° is only 1.4e−3 of areal stretch.  **His 28.7× stands.**
+
+Both numbers stay in the record and both are reported.  The placed-plane
+column is what a fixed coldstop actually samples — the instrument feels it,
+and it is not fictitious.  The chief-normal column is the pupil-imaging
+defect, and it is the one an S3 target is written against.  Gated by
+`tPupilMap/test_chief_normal_mag_carries_no_obliquity`: tilting the
+evaluation plane 10° must not move the chief-normal number at all, must move
+the placed one, and must break the four-corner symmetry of the placed read
+while leaving the chief-normal read rotationally symmetric on a coaxial
+deck.
+
 ### The two references for the convergence surface
 
 | variant | β / m² vs the ideal image of M1's sag | residual after it | vs the FLAT placed plane, rms | P-V |
@@ -343,7 +408,9 @@ The 3-mirror afocal delivers, at its interface pupil:
   off-axis**, against a 2.7 µm diffraction floor — i.e. this is geometry,
   not diffraction;
 * a magnification that is correct at the box centre after re-solving but
-  **breathes ±3.8% across the field**;
+  **breathes ±3.6% across the field** measured normal to each field's own
+  exit chief (±3.8% as read on the placed coldstop, which adds the plane's
+  own obliquity — see the refinement above, and name the frame);
 * a convergence surface **1.7–1.9 mm P-V from the flat coldstop**, of which
   only ~50 µm is the primary's correctly-imaged sag;
 * **0.9 mm rms of footprint wander** at the placed plane, which no
@@ -453,7 +520,9 @@ Kernels used, all in `design/src` and gated by `tAfocalKernel` (11/11) and
 2. **`CIR EDG 0.1`** on the stop — decode unconfirmed (§1).
 3. **The 4-mirror targets** are S0's placeholders until Dave or an
    instrument spec retargets them; the working claim is "≥10× the S2
-   baseline" against the table in §4.
+   baseline" against the table in §4.  The breathing target is written
+   **chief-normal** against the S4 baseline of ±3.63% (§4 refinement) —
+   quote the frame or the target means nothing.
 4. **The plan's flat-Return terminal is retired** (§5.0); S3's builder must
    emit `Element= Reference`.
 5. **An afocal reference inside the engine** would make CALIB usable here

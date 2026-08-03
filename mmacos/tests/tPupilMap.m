@@ -41,6 +41,13 @@ classdef tPupilMap < matlab.unittest.TestCase
 %       pupil magnification is 30 by construction and the primary's own sag
 %       must come back imaged at the longitudinal magnification m^2.
 %
+%   (f) THE MAGNIFICATION FRAME.  Per-field pupil magnification read on the
+%       deck's PLACED interface plane carries a 1/cos(incidence) obliquity
+%       term as each field's exit chief swings off that plane's normal --
+%       ~0.8% on this 30x afocal, i.e. the same order as the pupil-imaging
+%       defect.  The chief-normal number must be invariant to how the plane
+%       is oriented, and the ratio between the two must BE the areal 1/cos.
+%
 %   FIXTURES: the committed rodgers1 EPD-4060 exit-pupil deck (which carries
 %   an ExitPupil Return, so macos.pupil_quality has something to fit) and the
 %   committed rodgers2 S1 afocal deck.
@@ -171,6 +178,74 @@ classdef tPupilMap < matlab.unittest.TestCase
             % no worse than the placed one
             tc.verifyLessThanOrEqual(o.best_plane.rms, o.wander.rms*(1+1e-9), ...
                 'the fitted interface plane is worse than the placed one');
+        end
+
+        function test_chief_normal_mag_carries_no_obliquity(tc)
+        %  (f) THE FRAME TERM.  A per-field magnification read on the deck's
+        %  PLACED plane is a footprint on a surface the field's own exit
+        %  chief is oblique to, so it carries a 1/cos(incidence) areal
+        %  stretch -- ~0.8% of apparent magnification on a 30x afocal over a
+        %  0.5 deg box, which is the same order as the pupil-imaging defect
+        %  being hunted.  MAG_PER_FIELD_CHIEF reads the same STATION in the
+        %  plane normal to that field's OWN exit chief and must therefore be
+        %  invariant to how the interface plane is oriented.
+        %
+        %  Two ways of saying it, both gated here.  (i) Tilt the evaluation
+        %  plane 10 deg: the chief-normal numbers must not move at all, the
+        %  placed-plane ones must.  (ii) The on-axis deck is coaxial, so it
+        %  is rotationally symmetric and its four box corners are one field
+        %  radius -- the chief-normal magnification must be identical across
+        %  them even when a tilted plane has broken that symmetry for the
+        %  placed-plane read.
+            F = macos.design.field_grid(0.25*60, 3, 'units','arcmin');
+            o0 = pupil_map(tc.adeck, F, 'nodes', 15, 'init', false);
+            n0 = o0.placed.psi(:)/norm(o0.placed.psi);
+            t  = [1;0;0];  if abs(n0.'*t) > 0.9, t = [0;1;0]; end
+            e1 = t - (n0.'*t)*n0;   e1 = e1/norm(e1);
+            phi = 10*pi/180;
+            o1 = pupil_map(tc.adeck, F, 'nodes', 15, 'init', false, ...
+                 'placed', struct('Vpt', o0.placed.Vpt, ...
+                                  'psi', (cos(phi)*n0 + sin(phi)*e1).'));
+
+            % (i) invariance -- the same station, the same per-field normal
+            tc.verifyEqual(o1.map.mag_per_field_chief, ...
+                           o0.map.mag_per_field_chief, 'RelTol', 1e-9, ...
+                ['the chief-normal pupil magnification moved when only the ' ...
+                 'interface plane''s ORIENTATION changed -- it has inherited ' ...
+                 'the 1/cos obliquity it exists to remove']);
+            tc.verifyGreaterThan( ...
+                max(abs(o1.map.mag_per_field./o0.map.mag_per_field - 1)), 5e-3, ...
+                ['tilting the evaluation plane 10 deg did not move the ' ...
+                 'placed-plane magnification, so the invariance gate above ' ...
+                 'is not testing anything']);
+
+            % the mechanism, named: the ratio IS 1/sqrt(cos(incidence))
+            tc.verifyEqual(o1.map.obliquity_per_field, ...
+                           1./sqrt(cosd(o1.map.incidence_deg)), 'RelTol', 0.01, ...
+                ['the placed-vs-chief magnification ratio is not the areal ' ...
+                 '1/cos stretch, so it is not the frame term it is claimed ' ...
+                 'to be']);
+
+            % (ii) rotational symmetry survives in the chief-normal number
+            corner = abs(F(:,1)) > 1e-9 & abs(F(:,2)) > 1e-9;
+            tc.assumeGreaterThanOrEqual(nnz(corner), 4, 'no box corners in the field set');
+            sc = o1.map.mag_per_field_chief(corner);
+            sp = o1.map.mag_per_field(corner);
+            tc.verifyLessThan(max(sc)/min(sc) - 1, 1e-6, ...
+                ['the on-axis deck is coaxial, so its four box corners are ' ...
+                 'one field radius and must share one pupil magnification']);
+            tc.verifyGreaterThan(max(sp)/min(sp) - 1, 1e-3, ...
+                ['the tilted plane did not break the corner symmetry of the ' ...
+                 'placed-plane read -- the tilt is not doing what the test assumes']);
+
+            % and on the deck's OWN untilted plane the frame term inflates
+            % the apparent breathing: this is the S2 finding, pinned.
+            sprd = @(v) (max(v)-min(v))/mean(v);
+            tc.verifyGreaterThan(sprd(o0.map.mag_per_field), ...
+                                 sprd(o0.map.mag_per_field_chief), ...
+                ['on the perfect on-axis afocal the placed-plane read must ' ...
+                 'show MORE magnification breathing than the chief-normal ' ...
+                 'one -- the obliquity can only add here']);
         end
 
         function test_simulated_pupil_image_builds(tc)
