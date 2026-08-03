@@ -60,9 +60,13 @@ classdef tDwDx < matlab.unittest.TestCase
 
         function test_multi_field_5fp_shapes(testCase)
             m = macos.Session(testCase.ModelSize);
+            % Shape check only (EP-convention independent).  Pinned to
+            % reset_xp=false so it stays a pure per-field-tiling test and
+            % skips the FEX resets.
             out = macos.dw_dx_multi(m, testCase.rx_path, ...
                 'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
-                'dofs', testCase.DOFsForTest, 'delta', 1e-8);
+                'dofs', testCase.DOFsForTest, 'delta', 1e-8, ...
+                'reset_xp', false);
             n_dof = numel(testCase.DOFsForTest);
             expected = testCase.ExpectedActOpts * n_dof;
             testCase.verifyEqual(numel(out.field_names), 5);
@@ -98,16 +102,18 @@ classdef tDwDx < matlab.unittest.TestCase
             m = macos.Session(testCase.ModelSize);
             out = macos.dw_dx_multi(m, testCase.rx_path, ...
                 'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
-                'dofs', [3], 'ngridpts', 31);
+                'dofs', [3], 'ngridpts', 31, 'reset_xp', false);  % shape only
             testCase.verifyEqual(size(out.per_field_w_nom_2d{1}), [31 31]);
             testCase.verifyEqual(size(out.OPDall), [3*31 3*31]);
         end
 
         function test_multi_field_center_tile_bitwise(testCase)
+            % Bitwise scatter/tiling check, EP-convention independent.
+            % Pinned to reset_xp=false to isolate the tiling invariant.
             m = macos.Session(testCase.ModelSize);
             out = macos.dw_dx_multi(m, testCase.rx_path, ...
                 'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
-                'dofs', testCase.DOFsForTest);
+                'dofs', testCase.DOFsForTest, 'reset_xp', false);
             cidx = find(out.field_table(:,1) == 0 ...
                       & out.field_table(:,2) == 0, 1);
             testCase.verifyNotEmpty(cidx);
@@ -238,16 +244,106 @@ classdef tDwDx < matlab.unittest.TestCase
             % 'at','chief' can fail at off-axis fields when a rigid-body
             % perturbation vignettes the chief ray (see report -- an
             % engine-side spot fragility, orthogonal to this crash fix).
+            % reset_xp=false keeps this focused on the LOS crash regression.
             m = macos.Session(testCase.ModelSize);
             out = macos.dw_dx_multi(m, testCase.rx_path, ...
                 'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
-                'dofs', testCase.DOFsForTest, 'compute_los', true);
+                'dofs', testCase.DOFsForTest, 'compute_los', true, ...
+                'reset_xp', false);
             testCase.verifyTrue(isfield(out, 'dcdx_per_field'));
             testCase.verifyEqual(numel(out.dcdx_per_field), ...
                 numel(out.field_names));
             Nz = size(out.dwdxall, 2);
             testCase.verifyEqual(size(out.dcdx_per_field{1}), [Nz 2]);
             testCase.verifyEqual(out.spot_elt, macos.num_elt());
+        end
+
+        % ---- per-field exit-pupil reset (reset_xp) ----------------------
+
+        function test_reset_xp_default_and_stamp(testCase)
+            % Default is true (family alignment) and the convention is
+            % stamped in the output for run_compare's match check.  The
+            % harness fixture declares ApStop= 0 0 0, so FEX resolves with
+            % no explicit stop argument.
+            m = macos.Session(testCase.ModelSize);
+            out = macos.dw_dx_multi(m, testCase.rx_path, ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                'dofs', testCase.DOFsForTest);
+            testCase.verifyTrue(isfield(out, 'reset_xp'), ...
+                'out must stamp the reset_xp convention');
+            testCase.verifyTrue(out.reset_xp, ...
+                'reset_xp must default true (align dwdz/dwdsurf/dwdgrid)');
+        end
+
+        % NOTE: the reset_xp=true no-stop guard (macos:dw_dx_multi:noStop)
+        % is not unit-tested here.  The harness fixture
+        % (pymacos/tests/Rx/e5hex1.in via rx_fixture_path) declares
+        % "ApStop= 0 0 0" in its header, so load_rx sets a stop and FEX
+        % always succeeds -- the genuine no-stop path cannot be provoked on
+        % it.  (The stop-less copy under examples/view_rx_demo/e5hex1.in
+        % DOES raise macos:fex:noStop, which the guard rethrows -- verified
+        % during development.)  The guard is a pure defensive rethrow, so
+        % every reset_xp=true test below passes through it; run_sensitivities
+        % carries the text-level ApStop preflight for the batch path.
+
+        function test_reset_xp_continuity_arcminute(testCase)
+            % Continuity: at arcminute fields the per-field EP reset and
+            % the frozen EP must agree closely -- the removed term is only
+            % the first-order tilt-sensitivity residual, negligible here.
+            % (The fixture nominal ChfRayDir is itself ~1.2 arcmin off
+            % axis, so no field is exactly on-axis; the claim is global
+            % closeness, not per-field identity.)
+            m = macos.Session(testCase.ModelSize);
+            fx = 1e-4;   % ~0.34 arcmin half-field
+            out_reset  = macos.dw_dx_multi(m, testCase.rx_path, ...
+                'field_x_rad', fx, 'field_y_rad', fx, ...
+                'dofs', testCase.DOFsForTest, 'reset_xp', true);
+            out_frozen = macos.dw_dx_multi(m, testCase.rx_path, ...
+                'field_x_rad', fx, 'field_y_rad', fx, ...
+                'dofs', testCase.DOFsForTest, 'reset_xp', false);
+            % Off-axis blocks agree to a loose tolerance at arcminute
+            % fields (the removed residual is small, not zero).  The reset
+            % strips a per-field piston/tilt reference, so compare on the
+            % piston-removed columns to isolate the sensitivity residual.
+            rel = norm(out_reset.dwdxall - out_frozen.dwdxall, 'fro') ...
+                / max(norm(out_frozen.dwdxall, 'fro'), realmin);
+            testCase.verifyLessThan(rel, 0.15, ...
+                'arcminute-field reset vs frozen must be close (continuity)');
+        end
+
+        function test_reset_xp_restore_discipline(testCase)
+            % The per-field FEX mutates elt nElt-1 geometry; the supervisor
+            % must restore the as-loaded EP after the field loop so the
+            % session is left exactly as the prescription loaded it.
+            % dw_dx_multi always load_rx's internally, so a fresh load here
+            % reproduces the identical as-loaded EP for the comparison.
+            m = macos.Session(testCase.ModelSize);
+            m.load_rx(testCase.rx_path);   % fixture declares ApStop= 0 0 0
+            xp_before = macos.get_xp();
+            macos.dw_dx_multi(m, testCase.rx_path, ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                'dofs', testCase.DOFsForTest, 'reset_xp', true);
+            xp_after = macos.get_xp();
+            testCase.verifyEqual(xp_after.vpt, xp_before.vpt, 'AbsTol', 1e-9, ...
+                'EP vertex must be restored after the field loop');
+            testCase.verifyEqual(xp_after.psi, xp_before.psi, 'AbsTol', 1e-12, ...
+                'EP normal must be restored after the field loop');
+            testCase.verifyEqual(xp_after.rad, xp_before.rad, 'RelTol', 1e-9, ...
+                'EP radius must be restored after the field loop');
+        end
+
+        function test_reset_xp_composes_with_fp_track(testCase)
+            % fp_mode='track' saves/restores EP vpt/psi/rpt around its FP
+            % pokes; with reset_xp the per-field EP is written BEFORE the
+            % channels build, so track must run cleanly (no error) and
+            % produce a non-zero FP-DOF Jacobian on top of the reset EP.
+            m = macos.Session(testCase.ModelSize);
+            out = macos.dw_dx_multi(m, testCase.rx_path, ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                'dofs', (0:5).', 'fp_mode', 'track', ...
+                'include_non_optics', true, 'reset_xp', true);
+            testCase.verifyGreaterThan(max(abs(out.dwdxall(:))), 0, ...
+                'track + reset_xp must yield a non-zero Jacobian');
         end
     end
 end

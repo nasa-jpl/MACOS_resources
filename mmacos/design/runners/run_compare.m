@@ -178,6 +178,23 @@ if isscalar(chansel) && chansel == "auto"
 end
 assert(~any(chansel == "z")    || ~isempty(J.oz), 'run_compare: jac has no dwdz output');
 assert(~any(chansel == "grid") || ~isempty(J.og), 'run_compare: jac has no dwdgrid output');
+% Convention match: the dwdx leg must share the per-field exit-pupil
+% reset convention with the dwdz/dwdgrid legs it is joined with.  Mixing
+% a frozen-EP dwdx (reset_xp=false) into a model whose dwdz/dwdgrid used
+% reset_xp=true silently mixes tilt-reference conventions across channels
+% (the family-asymmetry hazard the reset_xp addition closes).
+if isfield(ox, 'reset_xp')
+    for leg = {J.oz, J.og}
+        L = leg{1};
+        if ~isempty(L) && isfield(L, 'reset_xp')
+            assert(isequal(logical(ox.reset_xp), logical(L.reset_xp)), ...
+                'run_compare:reset_xp_mismatch', ...
+                ['dwdx reset_xp=%d but a dwdz/dwdgrid leg used reset_xp=%d' ...
+                 ' -- regenerate the Jacobian with one convention'], ...
+                ox.reset_xp, L.reset_xp);
+        end
+    end
+end
 icf = find(strcmp(ox.field_names, 'C'), 1);
 assert(~isempty(icf), 'run_compare: jac has no center field ''C''');
 % center-field dwdx block for the sensed bodies, [rot|trans] col order
