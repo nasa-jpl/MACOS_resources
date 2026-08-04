@@ -1,63 +1,63 @@
-==== run_compare: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
-[0] 9 bodies (7 segments), channels [x z grid]; met Rx /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt.in
+==== run_compare: /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
+[0] 9 bodies (7 segments), channels [x z grid]; met Rx /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt.in
     jac: center field 12098 x 54 x-cols; dedx 72x54; dldx 48x54
     baseline: 12098 OPD pixels (jac mask mismatch 0 px), 48 met beams, 72 edge rows
 
 [2] x: rigid-body pokes (100 nrad rot / 100 nm trans), 9 bodies x 6 DOFs:
-    Seg 1 Rx +100 nrad     w     23.9 nm rms (rel 6.93e-05) | l     76.1 nm (rel 4.90e-08) | e     74.4 nm (rel 4.36e-08)
-    Seg 1 Ry +100 nrad     w       24 nm rms (rel 2.33e-05) | l     66.1 nm (rel 2.82e-08) | e     66.7 nm (rel 5.03e-08)
-    Seg 1 Rz +100 nrad     w 1.14e-05 nm rms (rel     null) | l     2.83 nm (rel 5.65e-07) | e     66.7 nm (rel 5.13e-08)
-    Seg 1 Tx +100 nm       w     1.71 nm rms (rel 1.47e-05) | l     12.4 nm (rel 6.67e-07) | e     99.9 nm (rel 2.65e-16)
-    Seg 1 Ty +100 nm       w     1.71 nm rms (rel 1.53e-05) | l     12.1 nm (rel 6.00e-07) | e      100 nm (rel 1.32e-16)
-    Seg 1 Tz +100 nm       w     64.3 nm rms (rel 3.81e-07) | l     99.6 nm (rel 9.81e-09) | e     99.9 nm (rel 1.33e-16)
+    Seg 1 Rx +100 nrad     w     23.9 nm rms (rel 6.94e-05) | l     76.1 nm (rel 3.85e-08) | e     74.4 nm (rel 4.36e-08)
+    Seg 1 Ry +100 nrad     w       24 nm rms (rel 2.33e-05) | l     66.1 nm (rel 4.03e-08) | e     66.7 nm (rel 5.03e-08)
+    Seg 1 Rz +100 nrad     w 1.13e-05 nm rms (rel     null) | l     2.83 nm (rel 3.14e-07) | e     66.7 nm (rel 5.13e-08)
+    Seg 1 Tx +100 nm       w     1.71 nm rms (rel 1.36e-05) | l     12.4 nm (rel 5.81e-07) | e     99.9 nm (rel 2.65e-16)
+    Seg 1 Ty +100 nm       w     1.71 nm rms (rel 1.36e-05) | l     12.1 nm (rel 5.71e-07) | e      100 nm (rel 1.32e-16)
+    Seg 1 Tz +100 nm       w     64.3 nm rms (rel 3.70e-07) | l     99.6 nm (rel 9.81e-09) | e     99.9 nm (rel 1.33e-16)
     Seg 2 Rx +100 nrad     w     33.1 nm rms (rel 5.29e-05) | l     91.2 nm (rel 9.35e-08) | e     74.4 nm (rel 4.42e-08)
-    Seg 2 Ry +100 nrad     w     26.9 nm rms (rel 1.90e-05) | l     65.7 nm (rel 1.23e-07) | e     66.8 nm (rel 5.02e-08)
-    Seg 2 Rz +100 nrad     w   0.0101 nm rms (rel 2.84e-03) | l       11 nm (rel 3.96e-07) | e     66.8 nm (rel 5.60e-08)
-    Seg 2 Tx +100 nm       w     1.89 nm rms (rel 1.52e-05) | l     22.5 nm (rel 3.35e-07) | e     99.9 nm (rel 1.32e-16)
-    Seg 2 Ty +100 nm       w     2.35 nm rms (rel 1.25e-05) | l     14.5 nm (rel 4.89e-07) | e      100 nm (rel 2.65e-16)
-    Seg 2 Tz +100 nm       w     70.4 nm rms (rel 4.13e-07) | l      100 nm (rel 4.44e-09) | e     99.9 nm (rel 2.65e-16)
-    Seg 3 Rx +100 nrad     w     33.1 nm rms (rel 5.28e-05) | l     91.2 nm (rel 8.67e-08) | e     74.4 nm (rel 4.33e-08)
+    Seg 2 Ry +100 nrad     w     26.9 nm rms (rel 1.89e-05) | l     65.7 nm (rel 1.20e-07) | e     66.8 nm (rel 5.02e-08)
+    Seg 2 Rz +100 nrad     w   0.0101 nm rms (rel 2.57e-03) | l       11 nm (rel 3.96e-07) | e     66.8 nm (rel 5.60e-08)
+    Seg 2 Tx +100 nm       w     1.89 nm rms (rel 1.36e-05) | l     22.5 nm (rel 3.70e-07) | e     99.9 nm (rel 1.32e-16)
+    Seg 2 Ty +100 nm       w     2.35 nm rms (rel 1.14e-05) | l     14.5 nm (rel 5.32e-07) | e      100 nm (rel 2.65e-16)
+    Seg 2 Tz +100 nm       w     70.4 nm rms (rel 3.72e-07) | l      100 nm (rel 8.88e-09) | e     99.9 nm (rel 2.65e-16)
+    Seg 3 Rx +100 nrad     w     33.1 nm rms (rel 5.27e-05) | l     91.2 nm (rel 8.67e-08) | e     74.4 nm (rel 4.33e-08)
     Seg 3 Ry +100 nrad     w     26.9 nm rms (rel 1.89e-05) | l     65.7 nm (rel 1.16e-07) | e     66.8 nm (rel 5.02e-08)
-    Seg 3 Rz +100 nrad     w   0.0101 nm rms (rel 2.81e-03) | l       11 nm (rel 4.36e-07) | e     66.8 nm (rel 5.07e-08)
-    Seg 3 Tx +100 nm       w     1.89 nm rms (rel 1.53e-05) | l     22.5 nm (rel 3.35e-07) | e     99.9 nm (rel 1.32e-16)
-    Seg 3 Ty +100 nm       w     2.35 nm rms (rel 1.33e-05) | l     14.5 nm (rel 5.87e-07) | e      100 nm (rel 2.65e-16)
-    Seg 3 Tz +100 nm       w     70.4 nm rms (rel 4.13e-07) | l      100 nm (rel 4.44e-09) | e     99.9 nm (rel 2.65e-16)
+    Seg 3 Rz +100 nrad     w   0.0101 nm rms (rel 2.54e-03) | l       11 nm (rel 4.28e-07) | e     66.8 nm (rel 5.07e-08)
+    Seg 3 Tx +100 nm       w     1.89 nm rms (rel 1.36e-05) | l     22.5 nm (rel 3.35e-07) | e     99.9 nm (rel 1.32e-16)
+    Seg 3 Ty +100 nm       w     2.35 nm rms (rel 1.17e-05) | l     14.5 nm (rel 5.26e-07) | e      100 nm (rel 2.65e-16)
+    Seg 3 Tz +100 nm       w     70.4 nm rms (rel 3.53e-07) | l      100 nm (rel 1.33e-08) | e     99.9 nm (rel 2.65e-16)
     Seg 4 Rx +100 nrad     w     33.1 nm rms (rel 2.94e-06) | l     91.2 nm (rel 9.15e-08) | e     74.4 nm (rel 4.38e-08)
     Seg 4 Ry +100 nrad     w     26.8 nm rms (rel 9.07e-05) | l     65.7 nm (rel 1.16e-07) | e     66.8 nm (rel 4.99e-08)
-    Seg 4 Rz +100 nrad     w   0.0101 nm rms (rel 2.76e-03) | l       11 nm (rel 4.03e-07) | e     66.8 nm (rel 5.64e-08)
-    Seg 4 Tx +100 nm       w     1.88 nm rms (rel 1.67e-05) | l     22.6 nm (rel 3.23e-07) | e     99.9 nm (rel 2.65e-16)
-    Seg 4 Ty +100 nm       w     2.35 nm rms (rel 1.18e-05) | l     14.5 nm (rel 4.89e-07) | e      100 nm (rel 1.32e-16)
-    Seg 4 Tz +100 nm       w     70.4 nm rms (rel 4.00e-07) | l      100 nm (rel 7.11e-09) | e     99.9 nm (rel 2.65e-16)
-    Seg 5 Rx +100 nrad     w     33.1 nm rms (rel 5.62e-05) | l     91.2 nm (rel 8.67e-08) | e     74.4 nm (rel 4.42e-08)
-    Seg 5 Ry +100 nrad     w     26.9 nm rms (rel 2.70e-05) | l     65.7 nm (rel 1.19e-07) | e     66.8 nm (rel 5.02e-08)
-    Seg 5 Rz +100 nrad     w   0.0103 nm rms (rel 2.64e-03) | l       11 nm (rel 3.70e-07) | e     66.8 nm (rel 5.74e-08)
-    Seg 5 Tx +100 nm       w     1.89 nm rms (rel 1.51e-05) | l     22.6 nm (rel 3.26e-07) | e     99.9 nm (rel 2.65e-16)
-    Seg 5 Ty +100 nm       w     2.35 nm rms (rel 1.27e-05) | l     14.5 nm (rel 5.14e-07) | e      100 nm (rel 2.23e-16)
-    Seg 5 Tz +100 nm       w     70.4 nm rms (rel 4.11e-07) | l      100 nm (rel 8.00e-09) | e     99.9 nm (rel 1.33e-16)
+    Seg 4 Rz +100 nrad     w   0.0101 nm rms (rel 2.49e-03) | l       11 nm (rel 4.03e-07) | e     66.8 nm (rel 5.64e-08)
+    Seg 4 Tx +100 nm       w     1.88 nm rms (rel 1.52e-05) | l     22.6 nm (rel 3.23e-07) | e     99.9 nm (rel 2.65e-16)
+    Seg 4 Ty +100 nm       w     2.35 nm rms (rel 1.06e-05) | l     14.5 nm (rel 4.89e-07) | e      100 nm (rel 1.32e-16)
+    Seg 4 Tz +100 nm       w     70.4 nm rms (rel 3.61e-07) | l      100 nm (rel 8.88e-09) | e     99.9 nm (rel 2.65e-16)
+    Seg 5 Rx +100 nrad     w     33.1 nm rms (rel 5.62e-05) | l     91.2 nm (rel 8.76e-08) | e     74.4 nm (rel 4.42e-08)
+    Seg 5 Ry +100 nrad     w     26.9 nm rms (rel 2.70e-05) | l     65.7 nm (rel 1.18e-07) | e     66.8 nm (rel 5.02e-08)
+    Seg 5 Rz +100 nrad     w   0.0103 nm rms (rel 2.52e-03) | l       11 nm (rel 3.78e-07) | e     66.8 nm (rel 5.74e-08)
+    Seg 5 Tx +100 nm       w     1.89 nm rms (rel 1.39e-05) | l     22.6 nm (rel 3.22e-07) | e     99.9 nm (rel 2.65e-16)
+    Seg 5 Ty +100 nm       w     2.35 nm rms (rel 1.15e-05) | l     14.5 nm (rel 5.02e-07) | e      100 nm (rel 2.23e-16)
+    Seg 5 Tz +100 nm       w     70.4 nm rms (rel 3.65e-07) | l      100 nm (rel 1.07e-08) | e     99.9 nm (rel 1.33e-16)
     Seg 6 Rx +100 nrad     w     33.1 nm rms (rel 5.61e-05) | l     91.2 nm (rel 8.96e-08) | e     74.4 nm (rel 4.33e-08)
     Seg 6 Ry +100 nrad     w     26.9 nm rms (rel 2.70e-05) | l     65.7 nm (rel 1.23e-07) | e     66.8 nm (rel 5.02e-08)
-    Seg 6 Rz +100 nrad     w   0.0103 nm rms (rel 2.70e-03) | l       11 nm (rel 4.35e-07) | e     66.8 nm (rel 5.10e-08)
-    Seg 6 Tx +100 nm       w     1.89 nm rms (rel 1.54e-05) | l     22.6 nm (rel 3.54e-07) | e     99.9 nm (rel 2.65e-16)
-    Seg 6 Ty +100 nm       w     2.35 nm rms (rel 1.30e-05) | l     14.5 nm (rel 5.75e-07) | e      100 nm (rel 2.23e-16)
-    Seg 6 Tz +100 nm       w     70.4 nm rms (rel 3.97e-07) | l      100 nm (rel 1.33e-08) | e     99.9 nm (rel 1.33e-16)
-    Seg 7 Rx +100 nrad     w     33.1 nm rms (rel 2.88e-06) | l     91.2 nm (rel 9.15e-08) | e     74.4 nm (rel 4.39e-08)
-    Seg 7 Ry +100 nrad     w     26.8 nm rms (rel 9.07e-05) | l     65.7 nm (rel 1.28e-07) | e     66.8 nm (rel 4.99e-08)
-    Seg 7 Rz +100 nrad     w   0.0101 nm rms (rel 2.81e-03) | l       11 nm (rel 4.83e-07) | e     66.8 nm (rel 5.63e-08)
-    Seg 7 Tx +100 nm       w     1.88 nm rms (rel 1.65e-05) | l     22.6 nm (rel 3.66e-07) | e     99.9 nm (rel 2.65e-16)
-    Seg 7 Ty +100 nm       w     2.35 nm rms (rel 1.22e-05) | l     14.5 nm (rel 5.56e-07) | e      100 nm (rel 1.32e-16)
-    Seg 7 Tz +100 nm       w     70.4 nm rms (rel 4.14e-07) | l      100 nm (rel 9.77e-09) | e     99.9 nm (rel 2.65e-16)
-    hub e8 Rx +100 nrad    w     20.6 nm rms (rel 2.81e-06) | l     20.1 nm (rel 1.68e-07) | e        0 nm (rel     null)
-    hub e8 Ry +100 nrad    w     20.6 nm rms (rel 2.74e-06) | l     23.2 nm (rel 1.80e-07) | e        0 nm (rel     null)
-    hub e8 Rz +100 nrad    w   0.0813 nm rms (rel 6.98e-04) | l     3.36 nm (rel 1.06e-06) | e        0 nm (rel     null)
-    hub e8 Tx +100 nm      w     12.4 nm rms (rel 4.62e-06) | l     31.6 nm (rel 2.47e-07) | e        0 nm (rel     null)
-    hub e8 Ty +100 nm      w     12.4 nm rms (rel 4.55e-06) | l     33.1 nm (rel 2.39e-07) | e        0 nm (rel     null)
-    hub e8 Tz +100 nm      w     1.17 nm rms (rel 4.85e-05) | l     99.9 nm (rel 1.33e-08) | e        0 nm (rel     null)
-    aft e9 Rx +100 nrad    w 4.74e-06 nm rms (rel     null) | l       15 nm (rel 4.75e-07) | e        0 nm (rel     null)
-    aft e9 Ry +100 nrad    w     2.92 nm rms (rel 1.38e-05) | l     17.1 nm (rel 4.83e-07) | e        0 nm (rel     null)
-    aft e9 Rz +100 nrad    w     2.03 nm rms (rel 1.97e-05) | l     14.9 nm (rel 3.58e-08) | e        0 nm (rel     null)
-    aft e9 Tx +100 nm      w     2.54 nm rms (rel 1.55e-05) | l       74 nm (rel 5.16e-08) | e        0 nm (rel     null)
-    aft e9 Ty +100 nm      w 5.69e-06 nm rms (rel     null) | l     6.17 nm (rel 1.18e-06) | e        0 nm (rel     null)
-    aft e9 Tz +100 nm      w 5.78e-06 nm rms (rel     null) | l     73.9 nm (rel 6.01e-08) | e        0 nm (rel     null)
+    Seg 6 Rz +100 nrad     w   0.0103 nm rms (rel 2.50e-03) | l       11 nm (rel 4.35e-07) | e     66.8 nm (rel 5.10e-08)
+    Seg 6 Tx +100 nm       w     1.89 nm rms (rel 1.37e-05) | l     22.6 nm (rel 3.38e-07) | e     99.9 nm (rel 2.65e-16)
+    Seg 6 Ty +100 nm       w     2.35 nm rms (rel 1.21e-05) | l     14.5 nm (rel 5.69e-07) | e      100 nm (rel 2.23e-16)
+    Seg 6 Tz +100 nm       w     70.4 nm rms (rel 3.61e-07) | l      100 nm (rel 8.88e-09) | e     99.9 nm (rel 1.33e-16)
+    Seg 7 Rx +100 nrad     w     33.1 nm rms (rel 2.87e-06) | l     91.2 nm (rel 9.54e-08) | e     74.4 nm (rel 4.39e-08)
+    Seg 7 Ry +100 nrad     w     26.8 nm rms (rel 9.07e-05) | l     65.7 nm (rel 1.15e-07) | e     66.8 nm (rel 4.99e-08)
+    Seg 7 Rz +100 nrad     w   0.0101 nm rms (rel 2.58e-03) | l       11 nm (rel 4.83e-07) | e     66.8 nm (rel 5.63e-08)
+    Seg 7 Tx +100 nm       w     1.88 nm rms (rel 1.48e-05) | l     22.6 nm (rel 3.31e-07) | e     99.9 nm (rel 2.65e-16)
+    Seg 7 Ty +100 nm       w     2.35 nm rms (rel 1.10e-05) | l     14.5 nm (rel 5.01e-07) | e      100 nm (rel 1.32e-16)
+    Seg 7 Tz +100 nm       w     70.4 nm rms (rel 3.67e-07) | l      100 nm (rel 8.88e-09) | e     99.9 nm (rel 2.65e-16)
+    hub e8 Rx +100 nrad    w     20.6 nm rms (rel 2.47e-06) | l     20.1 nm (rel 1.68e-07) | e        0 nm (rel     null)
+    hub e8 Ry +100 nrad    w     20.6 nm rms (rel 2.45e-06) | l     23.2 nm (rel 1.69e-07) | e        0 nm (rel     null)
+    hub e8 Rz +100 nrad    w   0.0813 nm rms (rel 6.14e-04) | l     3.36 nm (rel 1.06e-06) | e        0 nm (rel     null)
+    hub e8 Tx +100 nm      w     12.4 nm rms (rel 4.09e-06) | l     31.6 nm (rel 2.44e-07) | e        0 nm (rel     null)
+    hub e8 Ty +100 nm      w     12.4 nm rms (rel 4.12e-06) | l     33.1 nm (rel 2.39e-07) | e        0 nm (rel     null)
+    hub e8 Tz +100 nm      w     1.17 nm rms (rel 4.35e-05) | l     99.9 nm (rel 1.51e-08) | e        0 nm (rel     null)
+    aft e9 Rx +100 nrad    w 4.63e-06 nm rms (rel     null) | l       15 nm (rel 4.92e-07) | e        0 nm (rel     null)
+    aft e9 Ry +100 nrad    w     2.92 nm rms (rel 1.27e-05) | l     17.1 nm (rel 4.83e-07) | e        0 nm (rel     null)
+    aft e9 Rz +100 nrad    w     2.03 nm rms (rel 1.81e-05) | l     14.9 nm (rel 5.97e-08) | e        0 nm (rel     null)
+    aft e9 Tx +100 nm      w     2.54 nm rms (rel 1.42e-05) | l       74 nm (rel 5.16e-08) | e        0 nm (rel     null)
+    aft e9 Ty +100 nm      w 4.63e-06 nm rms (rel     null) | l     6.17 nm (rel 1.25e-06) | e        0 nm (rel     null)
+    aft e9 Tz +100 nm      w  4.7e-06 nm rms (rel     null) | l     73.9 nm (rel 5.29e-08) | e        0 nm (rel     null)
 
 [2z] z: segment MonZernike pokes (100 nm figure), 56 modes;
      linear l/e = dmdz (dmet_dfig at the mount points) -- the
@@ -69,7 +69,7 @@
     Seg 1 Z8 +100 nm       w     21.9 nm rms (rel 8.56e-04) | l mdl     90.8 nm | e_pist mdl     78.4 nm
     Seg 1 Z9 +100 nm       w     21.9 nm rms (rel 5.50e-04) | l mdl     22.9 nm | e_pist mdl     70.3 nm
     Seg 1 Z10 +100 nm      w     15.5 nm rms (rel 4.11e-04) | l mdl     56.7 nm | e_pist mdl     16.2 nm
-    Seg 1 Z11 +100 nm      w     14.4 nm rms (rel 4.56e-04) | l mdl     55.9 nm | e_pist mdl     84.3 nm
+    Seg 1 Z11 +100 nm      w     14.4 nm rms (rel 4.57e-04) | l mdl     55.9 nm | e_pist mdl     84.3 nm
     Seg 2 Z4 +100 nm       w     36.2 nm rms (rel 1.74e-04) | l mdl      135 nm | e_pist mdl     86.2 nm
     Seg 2 Z5 +100 nm       w     55.7 nm rms (rel 5.35e-04) | l mdl      256 nm | e_pist mdl     87.9 nm
     Seg 2 Z6 +100 nm       w     32.6 nm rms (rel 2.28e-04) | l mdl      115 nm | e_pist mdl       93 nm
@@ -119,55 +119,55 @@
     Seg 7 Z10 +100 nm      w     38.7 nm rms (rel 3.43e-04) | l mdl      230 nm | e_pist mdl     16.5 nm
     Seg 7 Z11 +100 nm      w     42.9 nm rms (rel 4.36e-04) | l mdl      316 nm | e_pist mdl     84.8 nm
 
-[2g] grid: influence pokes (100 nm) on /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/s4_grid.in (harvest basis og.sgb):
+[2g] grid: influence pokes (100 nm) on /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/s4_grid.in (harvest basis og.sgb):
      linear l/e = dmdgrid (dmet_dfig at the mount points; engine bars rigid-zero)
-    Seg 1 G1 +100 nm       w       67 nm rms (rel 9.80e-02) | l mdl      145 nm | e_pist mdl      252 nm
-    Seg 1 G2 +100 nm       w     65.2 nm rms (rel 8.20e-02) | l mdl      220 nm | e_pist mdl      223 nm
-    Seg 1 G3 +100 nm       w     66.5 nm rms (rel 8.98e-02) | l mdl      286 nm | e_pist mdl      287 nm
-    Seg 1 G4 +100 nm       w     66.8 nm rms (rel 1.29e-01) | l mdl      312 nm | e_pist mdl      313 nm
-    Seg 1 G5 +100 nm       w     67.9 nm rms (rel 1.61e-01) | l mdl      429 nm | e_pist mdl      432 nm
-    Seg 1 G6 +100 nm       w     66.7 nm rms (rel 1.54e-01) | l mdl      216 nm | e_pist mdl      357 nm
-    Seg 2 G1 +100 nm       w     72.2 nm rms (rel 8.31e-02) | l mdl      202 nm | e_pist mdl      253 nm
-    Seg 2 G2 +100 nm       w     73.8 nm rms (rel 2.85e-02) | l mdl      323 nm | e_pist mdl      176 nm
-    Seg 2 G3 +100 nm       w     71.9 nm rms (rel 5.05e-02) | l mdl      249 nm | e_pist mdl      211 nm
-    Seg 2 G4 +100 nm       w     71.2 nm rms (rel 1.20e-01) | l mdl      177 nm | e_pist mdl      277 nm
-    Seg 2 G5 +100 nm       w     73.3 nm rms (rel 8.71e-02) | l mdl      436 nm | e_pist mdl      279 nm
-    Seg 2 G6 +100 nm       w     71.1 nm rms (rel 8.95e-02) | l mdl      229 nm | e_pist mdl      329 nm
-    Seg 3 G1 +100 nm       w     72.6 nm rms (rel 4.24e-02) | l mdl      202 nm | e_pist mdl      253 nm
-    Seg 3 G2 +100 nm       w     73.1 nm rms (rel 1.02e-01) | l mdl      323 nm | e_pist mdl      176 nm
-    Seg 3 G3 +100 nm       w     71.8 nm rms (rel 1.81e-02) | l mdl      248 nm | e_pist mdl      211 nm
-    Seg 3 G4 +100 nm       w     70.7 nm rms (rel 1.14e-01) | l mdl      177 nm | e_pist mdl      277 nm
-    Seg 3 G5 +100 nm       w     72.7 nm rms (rel 6.35e-02) | l mdl      436 nm | e_pist mdl      279 nm
-    Seg 3 G6 +100 nm       w     71.5 nm rms (rel 6.14e-02) | l mdl      229 nm | e_pist mdl      329 nm
-    Seg 4 G1 +100 nm       w       72 nm rms (rel 6.07e-02) | l mdl      196 nm | e_pist mdl      253 nm
-    Seg 4 G2 +100 nm       w     72.4 nm rms (rel 5.44e-02) | l mdl      310 nm | e_pist mdl      171 nm
-    Seg 4 G3 +100 nm       w     73.2 nm rms (rel 9.50e-02) | l mdl      247 nm | e_pist mdl      225 nm
-    Seg 4 G4 +100 nm       w     70.5 nm rms (rel 8.83e-02) | l mdl      157 nm | e_pist mdl      268 nm
-    Seg 4 G5 +100 nm       w       71 nm rms (rel 5.90e-02) | l mdl      398 nm | e_pist mdl      282 nm
-    Seg 4 G6 +100 nm       w       70 nm rms (rel 1.14e-01) | l mdl      221 nm | e_pist mdl      327 nm
-    Seg 5 G1 +100 nm       w     72.2 nm rms (rel 9.20e-02) | l mdl      202 nm | e_pist mdl      253 nm
-    Seg 5 G2 +100 nm       w       74 nm rms (rel 9.06e-02) | l mdl      323 nm | e_pist mdl      176 nm
-    Seg 5 G3 +100 nm       w     71.9 nm rms (rel 3.73e-02) | l mdl      249 nm | e_pist mdl      211 nm
-    Seg 5 G4 +100 nm       w     71.2 nm rms (rel 7.88e-02) | l mdl      177 nm | e_pist mdl      277 nm
-    Seg 5 G5 +100 nm       w     73.3 nm rms (rel 1.35e-01) | l mdl      436 nm | e_pist mdl      279 nm
-    Seg 5 G6 +100 nm       w     71.1 nm rms (rel 5.65e-02) | l mdl      229 nm | e_pist mdl      329 nm
-    Seg 6 G1 +100 nm       w     72.6 nm rms (rel 3.94e-02) | l mdl      202 nm | e_pist mdl      253 nm
-    Seg 6 G2 +100 nm       w     73.2 nm rms (rel 6.85e-02) | l mdl      323 nm | e_pist mdl      176 nm
-    Seg 6 G3 +100 nm       w     71.8 nm rms (rel 4.73e-02) | l mdl      248 nm | e_pist mdl      211 nm
-    Seg 6 G4 +100 nm       w     70.7 nm rms (rel 3.27e-02) | l mdl      177 nm | e_pist mdl      277 nm
-    Seg 6 G5 +100 nm       w     72.7 nm rms (rel 2.35e-01) | l mdl      436 nm | e_pist mdl      279 nm
-    Seg 6 G6 +100 nm       w     71.5 nm rms (rel 3.66e-02) | l mdl      229 nm | e_pist mdl      329 nm
-    Seg 7 G1 +100 nm       w     72.1 nm rms (rel 5.10e-02) | l mdl      196 nm | e_pist mdl      253 nm
-    Seg 7 G2 +100 nm       w     72.5 nm rms (rel 4.78e-02) | l mdl      310 nm | e_pist mdl      171 nm
-    Seg 7 G3 +100 nm       w     73.2 nm rms (rel 9.60e-02) | l mdl      247 nm | e_pist mdl      225 nm
-    Seg 7 G4 +100 nm       w     70.6 nm rms (rel 7.22e-02) | l mdl      157 nm | e_pist mdl      268 nm
-    Seg 7 G5 +100 nm       w       71 nm rms (rel 1.05e-01) | l mdl      398 nm | e_pist mdl      282 nm
-    Seg 7 G6 +100 nm       w       70 nm rms (rel 1.04e-01) | l mdl      221 nm | e_pist mdl      327 nm
+    Seg 1 G1 +100 nm       w     66.6 nm rms (rel 1.12e-01) | l mdl      145 nm | e_pist mdl      252 nm
+    Seg 1 G2 +100 nm       w     65.1 nm rms (rel 8.81e-02) | l mdl      220 nm | e_pist mdl      223 nm
+    Seg 1 G3 +100 nm       w     66.5 nm rms (rel 1.13e-01) | l mdl      286 nm | e_pist mdl      287 nm
+    Seg 1 G4 +100 nm       w       67 nm rms (rel 1.45e-01) | l mdl      312 nm | e_pist mdl      313 nm
+    Seg 1 G5 +100 nm       w     66.8 nm rms (rel 2.91e-01) | l mdl      429 nm | e_pist mdl      432 nm
+    Seg 1 G6 +100 nm       w     67.1 nm rms (rel 1.11e-01) | l mdl      216 nm | e_pist mdl      357 nm
+    Seg 2 G1 +100 nm       w     73.1 nm rms (rel 1.16e-01) | l mdl      202 nm | e_pist mdl      253 nm
+    Seg 2 G2 +100 nm       w     74.7 nm rms (rel 1.11e-01) | l mdl      323 nm | e_pist mdl      176 nm
+    Seg 2 G3 +100 nm       w     72.5 nm rms (rel 4.46e-02) | l mdl      249 nm | e_pist mdl      211 nm
+    Seg 2 G4 +100 nm       w     71.8 nm rms (rel 8.34e-02) | l mdl      177 nm | e_pist mdl      277 nm
+    Seg 2 G5 +100 nm       w     74.4 nm rms (rel 2.31e-01) | l mdl      436 nm | e_pist mdl      279 nm
+    Seg 2 G6 +100 nm       w     72.1 nm rms (rel 1.01e-01) | l mdl      229 nm | e_pist mdl      329 nm
+    Seg 3 G1 +100 nm       w     74.4 nm rms (rel 8.20e-02) | l mdl      202 nm | e_pist mdl      253 nm
+    Seg 3 G2 +100 nm       w     74.7 nm rms (rel 1.11e-01) | l mdl      323 nm | e_pist mdl      176 nm
+    Seg 3 G3 +100 nm       w     72.5 nm rms (rel 4.46e-02) | l mdl      248 nm | e_pist mdl      211 nm
+    Seg 3 G4 +100 nm       w     72.8 nm rms (rel 1.57e-01) | l mdl      177 nm | e_pist mdl      277 nm
+    Seg 3 G5 +100 nm       w     72.8 nm rms (rel 1.07e-01) | l mdl      436 nm | e_pist mdl      279 nm
+    Seg 3 G6 +100 nm       w     72.1 nm rms (rel 1.01e-01) | l mdl      229 nm | e_pist mdl      329 nm
+    Seg 4 G1 +100 nm       w     73.7 nm rms (rel 7.98e-02) | l mdl      196 nm | e_pist mdl      253 nm
+    Seg 4 G2 +100 nm       w       74 nm rms (rel 5.12e-02) | l mdl      310 nm | e_pist mdl      171 nm
+    Seg 4 G3 +100 nm       w     76.6 nm rms (rel 1.02e-01) | l mdl      247 nm | e_pist mdl      225 nm
+    Seg 4 G4 +100 nm       w     72.6 nm rms (rel 1.21e-01) | l mdl      157 nm | e_pist mdl      268 nm
+    Seg 4 G5 +100 nm       w     72.9 nm rms (rel 7.54e-02) | l mdl      398 nm | e_pist mdl      282 nm
+    Seg 4 G6 +100 nm       w     71.5 nm rms (rel 1.05e-01) | l mdl      221 nm | e_pist mdl      327 nm
+    Seg 5 G1 +100 nm       w     73.1 nm rms (rel 8.41e-02) | l mdl      202 nm | e_pist mdl      253 nm
+    Seg 5 G2 +100 nm       w     74.8 nm rms (rel 8.84e-02) | l mdl      323 nm | e_pist mdl      176 nm
+    Seg 5 G3 +100 nm       w     72.5 nm rms (rel 5.66e-02) | l mdl      249 nm | e_pist mdl      211 nm
+    Seg 5 G4 +100 nm       w     71.9 nm rms (rel 1.59e-01) | l mdl      177 nm | e_pist mdl      277 nm
+    Seg 5 G5 +100 nm       w     74.5 nm rms (rel 1.03e-01) | l mdl      436 nm | e_pist mdl      279 nm
+    Seg 5 G6 +100 nm       w     72.1 nm rms (rel 7.22e-02) | l mdl      229 nm | e_pist mdl      329 nm
+    Seg 6 G1 +100 nm       w     74.4 nm rms (rel 1.12e-01) | l mdl      202 nm | e_pist mdl      253 nm
+    Seg 6 G2 +100 nm       w     74.8 nm rms (rel 8.84e-02) | l mdl      323 nm | e_pist mdl      176 nm
+    Seg 6 G3 +100 nm       w     72.5 nm rms (rel 5.66e-02) | l mdl      248 nm | e_pist mdl      211 nm
+    Seg 6 G4 +100 nm       w     72.7 nm rms (rel 7.88e-02) | l mdl      177 nm | e_pist mdl      277 nm
+    Seg 6 G5 +100 nm       w     72.8 nm rms (rel 2.40e-01) | l mdl      436 nm | e_pist mdl      279 nm
+    Seg 6 G6 +100 nm       w     72.1 nm rms (rel 7.22e-02) | l mdl      229 nm | e_pist mdl      329 nm
+    Seg 7 G1 +100 nm       w     73.7 nm rms (rel 4.77e-02) | l mdl      196 nm | e_pist mdl      253 nm
+    Seg 7 G2 +100 nm       w       74 nm rms (rel 5.12e-02) | l mdl      310 nm | e_pist mdl      171 nm
+    Seg 7 G3 +100 nm       w     76.6 nm rms (rel 1.02e-01) | l mdl      247 nm | e_pist mdl      225 nm
+    Seg 7 G4 +100 nm       w     72.8 nm rms (rel 6.82e-02) | l mdl      157 nm | e_pist mdl      268 nm
+    Seg 7 G5 +100 nm       w     72.8 nm rms (rel 7.26e-02) | l mdl      398 nm | e_pist mdl      282 nm
+    Seg 7 G6 +100 nm       w     71.5 nm rms (rel 1.05e-01) | l mdl      221 nm | e_pist mdl      327 nm
 
 [3] worst engine-vs-linear agreement per channel:
-    x     ( 54 pokes): w 2.84e-03 (Seg 2 Rz +100 nrad), l 1.18e-06, e 5.74e-08
+    x     ( 54 pokes): w 2.58e-03 (Seg 7 Rz +100 nrad), l 1.25e-06, e 5.74e-08
     z     ( 56 pokes): w 1.76e-03 (Seg 5 Z8 +100 nm), l     null, e     null
-    grid  ( 42 pokes): w 2.35e-01 (Seg 6 G5 +100 nm), l     null, e     null
+    grid  ( 42 pokes): w 2.91e-01 (Seg 1 G5 +100 nm), l     null, e     null
     (4 poke(s) below the 0.001 nm response floor -- no physical
      response, engine delta is FD noise; rel = null)
     (rel = engine-vs-linear residual over the engine response;
@@ -178,6 +178,14 @@
      read zero -- a known engine-model gap, not a failure.)
     dmdz: |l| model up to 409.5 nm, |e_piston| up to 92.97 nm per 100 nm figure
     dmdgrid: |l| model up to 435.6 nm, |e_piston| up to 432.5 nm per 100 nm figure
+    NOTE (grid w rel): the truth is a plain forward poke at 100 nm;
+    the harvest Jacobian is central-FD at 1e-06 (BaseUnits).  The
+    engine's grid-surface response is NOT proportional across
+    sub-um amplitudes on metre-based prescriptions (central FD at
+    the harvest delta reproduces the Jacobian to ~2e-5; forward
+    100 nm deviates ~15-25% on e2e, <5% on the mm fixture) --
+    flagged for engine review (FreeForm grid intersection path,
+    2026-07-19).  x and z channels do not show this.
     control u = bodies [1  2  3  4  5  6  7  8] -> dwdu 60412 x 48 (multi-field stack) for the simulator
 
 artifacts: s6_compare.mat, frames in s6_frames/, s6_compare.gif, this report
