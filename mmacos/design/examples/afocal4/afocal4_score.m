@@ -51,11 +51,27 @@ function S = afocal4_score(P, deck, opts)
 %   target, so freedom goes to whatever is still missing.
 %   The comparison is measured, not asserted: afocal4_ladder('merit_ab').
 %
+%   THE PUPIL CONVENTION IS SELECTABLE, AND THE DEFAULT IS UNCHANGED.
+%   Dave's 2026-08-04 ruling is that the pupil object for a COLDSTOP metric
+%   is the RIM of the primary, not its pole, and that what the coldstop
+%   cares about is the EDGE of the pupil image rather than its average.
+%   Both are opt-in here and neither moves an existing number:
+%     'anchor' 'surface' (default) | 'rim'   -- passed to PUPIL_MAP
+%     'zone'   'full' (default) | 'rim'      -- 'rim' scores the blur and
+%              wander terms on the outer 'rim_zone' annulus instead of the
+%              whole aperture
+%   A P carrying P.pupil.anchor / P.pupil.zone / P.pupil.rim_zone supplies
+%   the defaults, which is how a SOLVE selects them: AFOCAL4_SOLVE hands
+%   this function P and nothing else, so a convention that could only be
+%   passed as a name-value could never be optimised against.
+%
 %   Name-value:
 %     'fields'  K x 2 box-relative field offsets, rad (default P.Fsolve --
 %               HIS 3x3 solve set).  Score with a uniform grid; quote both.
 %     'nodes'   pupil_map lattice (default P.solve.nodes_score)
 %     'grid'    also score the WFE on this uniform n x n grid (0 = skip)
+%     'anchor'  pupil anchor (above)
+%     'zone'    which part of the pupil the blur/wander terms score (above)
 %     'quiet'   (true)
 %
 %   Returns S with the metrics above, .norm (each metric over its target),
@@ -73,9 +89,12 @@ function S = afocal4_score(P, deck, opts)
         opts.nodes  (1,1) double = P.solve.nodes_score
         opts.grid   (1,1) double = 0
         opts.pupil  (1,1) logical = true
+        opts.anchor (1,:) char = ''
+        opts.zone   (1,:) char = ''
         opts.quiet  (1,1) logical = true
     end
 
+    [anch, zone, zfrac] = pupil_cfg_(P, opts);
     T = P.targets;
     S = struct('deck',deck, 'fields',opts.fields, 'ok',false, ...
                'L',[], 'pm',[], 'err','');
@@ -84,7 +103,8 @@ function S = afocal4_score(P, deck, opts)
         [L, li] = afocal_ladder_deck(deck, opts.fields, 'init',false, ...
                                      'lambda',P.lambda);
         if opts.pupil
-            pm = pupil_map(deck, opts.fields, 'nodes',opts.nodes, 'init',false);
+            pm = pupil_map(deck, opts.fields, 'nodes',opts.nodes, 'init',false, ...
+                           'anchor',anch, 'rim_zone',zfrac);
         else
             % WFE-ONLY mode, for the diagnostic that asks what the wavefront
             % floor of an operating point IS before any pupil term is allowed
@@ -117,10 +137,18 @@ function S = afocal4_score(P, deck, opts)
     S.wfe_rung3_max_nm  = max(L(:,3))*1e9;
 
     if ~opts.pupil
+        % THE TWO MODES MUST CARRY THE SAME FIELD SET.  A ladder or a trade
+%       sweep stores S structs from both, and MATLAB's `arr(k) = s` fails
+%       on dissimilar structures only when REACHED -- i.e. after the
+%       expensive part is already spent (RESULTS rule 7).  Any field added
+%       to the pupil branch belongs here too.
         blank = {'blur_um','blur_max_um','breathe_pct','wander_um', ...
                  'wander_max_um','wander_placed_um','surf_pv_mm', ...
-                 'mag_centre_chief','mag_pct','distortion_pct','anchor_resid_um'};
+                 'mag_centre_chief','mag_pct','distortion_pct','anchor_resid_um', ...
+                 'blur_full_um','wander_full_um','blur_rim_um', ...
+                 'blur_rim_max_um','wander_rim_um','wander_rim_placed_um'};
         for q = blank, S.(q{1}) = NaN; end
+        S.pupil_anchor = anch;   S.pupil_zone = zone;
         S.pose = struct('shift_mm',NaN,'tilt_deg',NaN,'Vpt',[NaN NaN NaN], ...
                         'psi',[NaN NaN NaN]);
         S.norm = struct('wfe', S.wfe_max_nm/T.wfe_rung2_nm);
@@ -136,12 +164,29 @@ function S = afocal4_score(P, deck, opts)
 
     c   = pm.map.mag_per_field_chief;
     magc = pm.map.mag_centre_chief;
+    S.pupil_anchor      = anch;
+    S.pupil_zone        = zone;
     S.blur_um           = pm.blur.rms*1e6;
     S.blur_max_um       = pm.blur.max*1e6;
     S.breathe_pct       = 100*(max(c) - min(c))/2/magc;
     S.wander_um         = pm.best_plane.rms*1e6;      % REFIT plane
     S.wander_max_um     = pm.best_plane.max*1e6;
     S.wander_placed_um  = pm.wander.rms*1e6;          % as emitted
+    % the FULL-APERTURE numbers stay in the struct under every convention,
+    % so a rim-scored solve is still quotable against the curve it is being
+    % compared with; only which of them the RESIDUAL sees changes.
+    S.blur_full_um      = pm.blur.rms*1e6;
+    S.wander_full_um    = pm.best_plane.rms*1e6;
+    S.blur_rim_um       = pm.rim_zone.blur_rms*1e6;
+    S.blur_rim_max_um   = pm.rim_zone.blur_max*1e6;
+    S.wander_rim_um     = pm.rim_zone.wander_best_rms*1e6;
+    S.wander_rim_placed_um = pm.rim_zone.wander_rms*1e6;
+    if strcmp(zone,'rim')
+        S.blur_um       = S.blur_rim_um;
+        S.blur_max_um   = S.blur_rim_max_um;
+        S.wander_um     = S.wander_rim_um;
+        S.wander_max_um = pm.rim_zone.wander_best_max*1e6;
+    end
     S.surf_pv_mm        = pm.surface.ideal.resid_max*1e3;
     S.mag_centre_chief  = magc;
     S.mag_pct           = 100*abs(magc/T.mag - 1);
@@ -190,6 +235,25 @@ function S = grid_score_(P, deck, n, S)
     S.L_grid          = Lg;
     S.wfe_grid_max_nm = max(g2);
     S.wfe_grid_avg_nm = mean(g2(isfinite(g2)));
+end
+
+function [anch, zone, zfrac] = pupil_cfg_(P, opts)
+%PUPIL_CFG_  Which pupil convention this score is taken under.  Name-value
+%   beats P.pupil beats the study default, and the study default is the
+%   surface anchor over the whole aperture -- i.e. every number already in
+%   RESULTS.md re-derives unchanged from a P that has no .pupil field at all.
+    anch = 'surface';   zone = 'full';   zfrac = 0.10;
+    if isfield(P,'pupil')
+        if isfield(P.pupil,'anchor'),   anch  = P.pupil.anchor;   end
+        if isfield(P.pupil,'zone'),     zone  = P.pupil.zone;     end
+        if isfield(P.pupil,'rim_zone'), zfrac = P.pupil.rim_zone; end
+    end
+    if ~isempty(opts.anchor), anch = opts.anchor; end
+    if ~isempty(opts.zone),   zone = opts.zone;   end
+    if ~any(strcmp(zone,{'full','rim'}))
+        error('macos:design:afocal4_score:zone', ...
+              'pupil zone must be "full" or "rim" (got "%s")', zone);
+    end
 end
 
 function y = lg_(ratio, floor_frac)

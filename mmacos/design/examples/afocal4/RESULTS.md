@@ -604,6 +604,16 @@ usual here, so **both** basins are swept, same machinery, same merit, same gates
 | 220 | 448.6 | +1.68 | −51 | 12 524 | 152 | **0.118 ✓** | 156 | 210 mm |
 | **343** | **446.0** | **+1.06** | −41 | 10 521 | **160** | **0.081 ✓** | **164** | **464 mm** |
 
+> **SUPERSEDED IN PART by §S4c.1 (2026-08-04).** These points were solved with a
+> finite-difference step that reads the gradient 17% low, and they are not minima. Re-solved
+> from three seeds at ~1900 evaluations each, the wavefront column reads
+> **12 915 / 17 063 / 15 928 / 12 286 / 10 407 nm** — 0.02% to 10.8% better, with the pupil
+> columns inside 2% except the breathing at 220 mm (0.118 → 0.077%) and at 343 mm
+> (0.081 → 0.124%). The 220 mm row is delivered by a seed this sweep never had. **The shape
+> of the curve and every conclusion drawn from it stand**; the numbers are retracted in
+> place and superseded by the §S4c.1 table. The 90 mm design is not under-solved but
+> CONSTRAINED — it sits on the packaging wall to the millimetre.
+
 Three things, and they are the study's answer under the constraint.
 
 **1. Basin 1 never buys blur.** Across the whole curve the pupil blur sits between 759 and
@@ -760,3 +770,320 @@ again on a second, independent ground.
     trade through. The check that catches it needs the fold's lever arm and the envelope's
     girth, and its useful output is not a verdict but a number: the largest instrument
     that fits at this standoff.
+
+---
+
+# S4c RESULTS — the rim, the zone, and how far the second basin actually goes
+
+Answers the S4c brief (Dave, 2026-08-04): close the S4b caveat that basin 2 was
+hand-seeded and every one of its solves stopped on `exitflag 3`; implement the ruling that
+the pupil object for a **coldstop** metric is the **rim** of the primary rather than its
+pole; and re-score the 343 mm fork under it.
+
+Reproduce: `afocal4_basin2` (one process per trade point, then `afocal4_basin2_merge`) and
+`afocal4_fork`. Every number lives in `afocal4_basin2.mat` / `afocal4_fork.mat`.
+
+## One page
+
+**The `exitflag 3` caveat closes, and it closes as a stall rather than a wrong answer.**
+The S4b basin-2 solves stopped because a 3e-3 forward difference reads the merit's gradient
+17% low on an objective that is smooth to 1e-5 — not because the designs were minima.
+Re-solved from three seeds at ~1900 evaluations per point, basin 2's wavefront column
+improves by **0.02% to 10.8%** and every pupil column by less than 2%, except the breathing
+at 220 mm (0.118 → 0.077%) and 343 mm (0.081 → 0.124%). **Nothing concluded from basin 2
+changes.** Its flat wavefront column was not an artefact of under-solving: 90 mm, its worst
+point, moves 0.02% under a 17× larger budget — and turns out to sit **on the packaging
+wall**, to the millimetre, rather than at a minimum.
+
+**The rim ruling is implemented, and the anchor is not where the action is.** Rodgers'
+declared stop and the rim plane traced off his primary agree to **1.7e-13 mm**, so the
+convention is his deck's own. But moving the pupil object from the pole to the rim changes
+the measured blur by **0.01–0.06%** across his whole ladder and both fork branches, while
+scoring the outer 10% of the pupil instead of all of it changes it by **10–34%**. Where the
+anchor does bite is the convergence surface — 15.3 µm rms of imaged primary sag under the
+surface anchor against 0.11 µm under the rim, a factor of 140 — which is what the anchor
+exists for and where the thin-primary gate is written.
+
+**The fork does not soften.** At 343 mm the flat branch's rim-edge image is **11% worse
+than its own aperture average** (845.7 against 761.0 µm) and still 18× its target, so the
+edge metric does not rescue doing without the fourth mirror. The powered branch degrades
+*more* toward the rim (34%), so what the fourth mirror buys falls from **4.8× to 4.0×**
+while its wavefront price stays at **39.1×**. Measured on the annulus a coldstop actually
+masks, the case for it is weaker than the S4b table made it.
+
+**One spec moves.** The interface convergence surface against its ideal image reads
+0.0174 mm surface-anchored and **0.1853 mm** rim-anchored — 12× inside the 0.2 mm target
+against 1.08× inside it.
+
+**Status: delivered.** The premise §S4c.0, the long solve §S4c.1, the convention §S4c.2,
+the fork §S4c.3, eight more earned rules §S4c.4. Gated by `tPupilMap` (12/12) and
+`tAfocal4` (8/8).
+
+
+## S4c.0 The premise, measured
+
+The ruling rests on two claims that can be checked rather than repeated.
+
+**His decks already declare the rim plane.** His stop is typed into the source block 50 mm
+ahead of the pole. The sag of an R = −2500 mm parabola at r = 500 mm is 50.000 mm exactly.
+The rim plane `pupil_map` traces off his primary lands **1.7e-13 mm** from that stop — two
+independently supplied numbers, one plane. (The decks `afocal4_build` emits declare their
+stop at the **vertex**, so on those the rim sits 50.000 mm ahead of the declared stop.
+That is why the rim is measured off the traced bundle and never read from `ApStop`.)
+
+**And the choice is resolvable.** The pupil image's own depth of focus, λ/(2·NA_field²),
+against the primary's sag imaged at m²:
+
+| deck | NA_field | λ/(2·NA²) | M1 sag P-V | imaged at m² | resolvable? |
+|---|---|---|---|---|---|
+| basin 1, flat M4 (343 mm) | 0.1783 | 15.7 µm | 48.375 mm | 60.5 µm | yes, 3.8× |
+| basin 2, powered M4 (343 mm) | 0.1874 | 14.2 µm | 48.375 mm | 54.5 µm | yes, 3.8× |
+| his 3-mirror parent | 0.1781 | 15.8 µm | 48.375 mm | 60.6 µm | yes, 3.8× |
+
+The imaged object is about four times deeper than the depth over which the pupil imager
+holds focus, so rim-conjugate and pole-conjugate really are different states of it. (Dave's
+~30 µm is the λ/NA² form of the same quantity, twice the column above; the conclusion is
+the same either way.)
+
+## S4c.1 Basin 2, solved long — what the exitflag was hiding, and what it was not
+
+**Why the S4b solves stopped, measured before anything was changed.** At the 343 mm
+basin-2 design the merit is smooth in the DOFs down to a 1e-5 scaled step: the
+central-difference slope in K_M2 reads −1.4490 at 3e-3 and −1.4490 at 1e-5, four figures
+across two decades, with no noise floor between. The study's default **forward** difference
+at 3e-3 reads **−1.198** — 17% low. That gradient error, not the objective's shape, is what
+stalls `lsqnonlin` on its `FunctionTolerance`. And the slope itself is the finding: −1.45
+is not a stationary point, so the delivered design was never a minimum of anything.
+
+**What was run.** Every trade point re-solved from three independent seeds — the S4b
+delivered design restarted, the compliant image-behind-M1 seeder, and the *second*
+compliant closure (a different field-mirror branch, not a neighbouring radius) — with
+forward differences at 3e-4, `FunctionTolerance` 1e-8, `StepTolerance` 1e-9, restart rounds
+of 250 evaluations each, and a central-difference polish on the winner. ~1900 evaluations
+per point against S4b's ~110. The merit, the sampling, the DOF set and the packaging wall
+are untouched: a long solve that changed the objective would not be comparable to the curve
+it is correcting.
+
+**The result: the curve moves, and it does not move the answer.**
+
+| iface | WFE nm, S4b | WFE nm, S4c | Δ | blur µm | breathing % | wander µm | merit gained | delivered by |
+|---|---|---|---|---|---|---|---|---|
+| 50 | 14 481 | **12 915.5** | −10.8% | 238.1 | 1.342 | 241.1 | 2.09% | restart |
+| 90 | 17 066 | **17 063.3** | −0.02% | 190.6 | 0.561 | 194.8 | 0.02% | restart |
+| 140 | 16 367 | **15 927.6** | −2.7% | 152.9 | 0.082 ✓ | 157.4 | 0.86% | restart |
+| 220 | 12 524 | **12 285.8** | −1.9% | 154.8 | 0.077 ✓ | 159.0 | 0.78% | **third seed** |
+| 343 | 10 521 | **10 407.0** | −1.1% | 157.0 | 0.124 ✓ | 161.2 | 0.33% | restart |
+
+Basin 2 still runs 10.4–17.1 µm of wavefront error against a 71 nm target, still holds its
+pupil blur at 153–238 µm against 47, and is still the branch you buy pupil control with.
+**The flat wavefront column was not an artefact of under-solving** — 90 mm, the worst point
+on it, moves by 0.02% under a 17× larger budget.
+
+**Two rows do move enough to matter.** At 50 mm the wavefront error falls 10.8%, and at
+220 mm the *third seed* — the one the S4b sweep never had — wins outright, taking the
+breathing from 0.118% to 0.077% at 1.9% less wavefront error. Every other column is inside
+2%.
+
+**Where each design actually stands, by measurement rather than by exit code.** After the
+polish, the gradient at each delivered design was taken by central differences at a 1e-4
+scaled step, and the merit walked by hand along −g:
+
+| iface | \|g\| (free DOFs) | best gain along −g | what it is |
+|---|---|---|---|
+| 50 | 0.085 | none (−2e-6) | a floor |
+| 90 | 3.91 | undefined | **on the packaging wall** — `t_M1M2`'s step leaves the feasible set |
+| 140 | 1.44 | 1.3e-5 | a floor in the descent direction |
+| 220 | 1.07 | 2.4e-5 | a floor in the descent direction |
+| 343 | 0.80 | none (−7e-6) | a floor in the descent direction |
+
+**90 mm is the interesting one: it is not converged, it is CONSTRAINED.** Its closure puts
+M3 at z = +0.500 m — the packaging minimum, to the millimetre — and the finite-difference
+step in the M1–M2 spacing walks it into the beam. The merit still has a gradient there;
+descending it is simply not allowed. That is a different sentence from "the solver gave up",
+and it is the sentence the S4b caveat should have carried.
+
+**And a warning about the probe itself.** Walked along −g, *every* S4b design reported
+"nothing available": 2e-5 to 1.6e-4 of the merit, at all five standoffs. The Gauss-Newton
+restarts then took 0.02–2.1% off the same designs. **Steepest descent is not a convergence
+test on an ill-conditioned least-squares problem** — the probe is a lower bound, and it is
+reported as one.
+
+**Gates, all passed.** The anchoring residual is 0.09–0.21 µm at every delivered design
+(0.1 µm sound, tens of mm on a scrambled solve — S4 rule 8); the on-axis paraxial check
+traces M = 30.07–30.13× against the closure's 30.000 (+0.24 to +0.42%, real-ray against
+paraxial at f/1.25); and every delivered design clears the packaging gate, with M3 500 mm
+(90) to 5210 mm (50) behind the primary.
+
+**One seed is worth Dave's attention.** At 343 mm the third seed reaches essentially the
+same wavefront error as the delivered design — 10 331 nm against 10 402 — while holding
+the magnification breathing at **0.0117%**, ten times better. The merit cannot see the
+difference, because `P.merit_floor` stops a term earning credit once it is twice inside
+target and both are far inside. If breathing is worth more than the merit says, that design
+is on the table and it is committed as part of `afocal4_basin2_343mm`'s seed record.
+
+
+## S4c.2 The rim convention, and what it actually moves
+
+`pupil_map` grows two opt-in additions and no new defaults. `'anchor','rim'` anchors the
+cones on the flat plane through the object element's **rim**, normal to that element's own
+axis; `.rim_zone` reports blur and wander over the outermost fraction of the pupil radius
+(10% by default) beside the full-aperture numbers, under **every** anchor. The surface
+anchor's output is bit-identical to the pre-change function on every field of both fixture
+decks, and `tPupilMap` now pins it there.
+
+**The rim plane is measured, not declared, and that mattered.** The first implementation
+took the rim from the outermost traced ray. A circular grid's last ring lands 1.15 mm
+inside a 500 mm aperture, so the sag came back 0.23 mm short — a sampling artefact wearing
+geometry's clothes, and enough to break the identity with his declared stop by four orders
+of magnitude. The sag is now fitted in r² across every ray that reaches the element and
+evaluated at the **declared beam edge**; `.edge` records which edge was used.
+
+**A flat object has a flat ideal image.** Under any flat anchor the curved-object
+correction `.ideal.beta` is NaN and says so, and the residual is taken against the best-fit
+**plane** instead. Same sentence, different object — and it is what makes the convergence-
+surface term quotable in both conventions.
+
+**The anchor changes almost nothing; the zone changes a lot.** Measured on Rodgers' own
+ladder, at the same 21-node lattice as the §4 baseline table:
+
+| variant | blur, surface | blur, rim | blur, RIM ZONE | edge penalty | wander, rim zone |
+|---|---|---|---|---|---|
+| S1 on-axis | 152.9 | 152.9 | **195.0** | 1.275× | 197.0 |
+| S2 offset | 801.6 | 801.1 | **877.8** | 1.096× | 880.8 |
+| S3 newconics | 774.8 | 774.4 | **854.0** | 1.103× | 857.1 |
+| S4 tilt/dec | 468.6 | 468.5 | **588.0** | 1.255× | 591.5 |
+
+Moving the object plane from pole to rim moves the blur by **0.01–0.05%** — less than the
+anchoring residual on the offset variants. Looking at the outer 10% of the pupil instead of
+all of it moves it by **10–27%**. So on these designs "the pupil is at the rim" is a
+statement about *where on the pupil you measure*, not about *which plane you measure from*.
+
+Where the anchor does bite is the column it exists for: the **convergence surface**. Under
+the surface anchor the exit sag carries the primary's imaged sag — 15.3 µm rms on S1 —
+and under the rim anchor it does not: 0.11 µm, a factor of 140. That is also how the
+thin-primary gate is written: shrink the used aperture tenfold and the anchor-to-anchor
+difference in the convergence surface falls to 1% of itself, which is the statement that
+the two conventions differ by the imaged object sag *and by nothing else*.
+
+**His best variant has the worst rim.** S4's tilt/dec re-solve takes the aperture-average
+blur from 774.8 to 468.6 µm — 40% — while its edge penalty rises to 1.26×, the highest on
+the ladder after the on-axis case. Rigid bodies buy the middle of the pupil.
+
+
+## S4c.3 The 343 mm fork, re-scored in both conventions
+
+The fork is the S4b headline: at the only standoff where the package closes around a real
+instrument, a fourth mirror that has gone to a flat gives 266 nm of wavefront error and his
+three-mirror's pupil, and a real fourth mirror gives the pupil for a factor of 40 in
+wavefront. Dave's question is whether the physically-correct metric softens it. The powered
+branch below is the LONG-SOLVED design of §S4c.1; the flat branch and his parent are the
+committed S4b decks, unchanged.
+
+| at 343 mm | WFE nm | blur, surface | blur, rim | blur, RIM ZONE | wander, rim zone | breathing % |
+|---|---|---|---|---|---|---|
+| basin 1, flat M4 | 266.0 | 761.0 | 760.6 | **845.7** | 848.6 | 3.875 |
+| basin 2, powered M4 | **10 407.0** | 157.0 | 157.1 | **210.7** | 216.2 | 0.124 ✓ |
+| his 3-mirror parent | 429.1 | 794.0 | 793.6 | **878.1** | 881.1 | 3.966 |
+| target | 71 | 47 | 47 | 47 | 56 | 0.4 |
+
+**The anchor is a no-op and the zone is not.** Moving the pupil object from the pole to the
+rim changes the blur by **−0.055%** on the flat branch and **+0.025%** on the powered one.
+Looking at the outer 10% of the pupil instead of all of it changes it by **11%** and
+**34%**. Every effect the rim convention has on this fork, it has through the zone.
+
+**The answer to the question, in the form it was asked.**
+
+* *Does the flat branch's rim-edge image look better?* **No — it looks worse.** Its edge
+  blur is 845.7 µm against its own 761.0 µm average, 11% worse, and **18× its target**. The
+  metric that asks only for edge conjugacy does not rescue the design that declines pupil
+  control.
+* *Does the powered requirement relax?* **Partly, and against the fourth mirror.** The
+  powered branch degrades *more* toward the rim (34% against 11%), so the advantage it buys
+  falls from **4.8× on the aperture average to 4.0× at the rim** — the rim metric takes 17%
+  off what the fourth mirror is worth. The wavefront price is unchanged at **39.1×**.
+
+So the fork does not soften. Measured on the annulus a coldstop actually masks, the case
+for the fourth mirror is *weaker* than the S4b table made it, not stronger.
+
+**One column the anchor does move, and it is the one the anchor exists for.** The
+convergence surface against its ideal image reads 0.0174 mm under the surface anchor and
+**0.1853 mm** under the rim — a factor of 10.7, and the difference between 12× inside the
+0.2 mm target and 1.08× inside it. A flat object's ideal image is a plane, and the powered
+design does not deliver one; the curved-object reference was quietly absorbing that. Anyone
+writing a surface-figure spec for the interface pupil should write it in the rim
+convention, where it nearly binds.
+
+### The rim-weighted re-solve — the metric does not move the design
+
+The zone is where the two conventions differ, so the powered branch was re-solved against
+it: same log-domain merit, same DOFs, same sampling, with the blur and wander terms scoring
+the rim-anchored outer 10% annulus instead of the whole aperture. Seeded from the
+long-solved 343 mm design; 504 evaluations.
+
+| at 343 mm | WFE nm | rim-zone blur | rim-zone wander | full blur | breathing % | surface vs ideal, rim |
+|---|---|---|---|---|---|---|
+| surface-weighted (§S4c.1) | **10 407.0** | 210.7 | 216.2 | 157.0 | 0.124 | 0.1853 |
+| rim-weighted | 10 424.2 | **209.8** | **215.3** | 156.4 | 0.136 | 0.1855 |
+
+**0.4% on the very quantity it was asked to minimise**, 0.17% the wrong way in wavefront
+error, and the exchange rate against the flat branch reads **39.2× against 39.1×**. The
+rim-weighted merit does not buy a different design. That is the strongest form of the
+answer: the rim metric neither softens the fork nor moves the design that has to pay for
+it — the exchange rate is a property of the optics, not of which part of the pupil the
+metric is read on.
+
+
+
+## S4c.4 Rules earned, on top of the S4 eight and the S4b six
+
+15. **An exit code is not a convergence test; a gradient is.**
+    Every S4b basin-2 solve stopped on `exitflag 3`, which reads as convergence and was
+    reported as such with a caveat. Measured, the merit at those points had gradients of
+    0.16 to 7.2 in scaled DOFs. What stopped the solver was a 17%-low forward difference at
+    a 3e-3 scaled step, on an objective that is smooth to 1e-5. *Alternative rejected:*
+    trusting the exit code and tightening `tol_fun` alone — that changes when the solver
+    gives up, not what it can see.
+
+16. **And steepest descent is not a convergence test either.**
+    Walked along −g, all five S4b designs reported 2e-5 to 1.6e-4 of merit available, i.e.
+    "converged". A Gauss-Newton restart of the same designs then took 0.02–2.1%. On an
+    ill-conditioned least-squares problem −g is a poor direction; the probe is a lower
+    bound and is now labelled as one.
+
+17. **A round that ran out of budget is not a plateau.**
+    The first version of the restart loop declared a plateau whenever a round bought less
+    than 1e-6 — including rounds that hit `MaxFunctionEvaluations` mid-line-search, where
+    "no progress" means the budget was short. Plateau now requires `exitflag ≠ 0`.
+
+18. **A NaN in a gradient probe is a CONSTRAINT, not a failed measurement.**
+    At 90 mm the delivered design sits on the packaging wall to the millimetre (M3 at
+    z = +0.500 m against a 500 mm minimum), so the finite-difference step in the M1–M2
+    spacing is unbuildable and `|g|` is undefined in that DOF. Reporting that as "not
+    converged" is backwards: there is no interior minimum to converge to along it. The
+    verdict now names the walled DOFs, and the descent probe refuses to fabricate a
+    direction out of the ones that remain.
+
+19. **Sampling can masquerade as geometry.**
+    The first rim implementation took the rim from the outermost traced ray. A circular
+    grid's last ring lands 1.15 mm inside a 500 mm aperture, so the sag came back 0.23 mm
+    short — and broke the identity with Rodgers' declared stop by four orders of magnitude.
+    The r² fit is now evaluated at the *declared* beam edge, and the identity closes to
+    1.7e-13 mm.
+
+20. **Ask whether a new metric changes the NUMBER before believing it changes the ANSWER.**
+    The rim ruling is about the pupil OBJECT, so the natural expectation is that the anchor
+    is what matters. Measured, the anchor moves the blur by 0.05% and the zone moves it by
+    10–34%. Had the zone not been implemented alongside, "we re-scored under the rim
+    convention" would have been a true sentence about a metric that had not moved.
+
+21. **A seed that fails is not a second basin.**
+    The 343 mm cold seed reported blur 44 mm and wander 68 mm — and an anchoring residual of
+    **151 mm** against 0.09 µm on the sound seeds. Averaged into a seed-to-seed spread it
+    manufactured a 70% "basin" disagreement out of one failed solve. The basin report now
+    computes its spread over the sound seeds only and states how many it excluded.
+
+22. **Two scoring modes must carry one field set.**
+    `afocal4_score`'s WFE-only branch fills a blank list so its struct matches the full
+    score's; adding the rim fields to one branch and not the other would have broken every
+    `arr(k) = S` in the ladder — and only when reached, an hour into a sweep. Gated now.
+

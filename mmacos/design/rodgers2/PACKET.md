@@ -356,6 +356,51 @@ the placed one, and must break the four-corner symmetry of the placed read
 while leaving the chief-normal read rotationally symmetric on a coaxial
 deck.
 
+### REFINEMENT (2026-08-04) — the pupil object is the RIM, and the rim is a ZONE
+
+The table above anchors its cones on the **M1 surface**, which is the right object for
+imaging the primary's own structure — segment gaps, spider, hole.  It is not the right
+object for a **coldstop**.  A coldstop masks the aperture EDGE, so the plane it wants to be
+conjugate to is the plane through M1's **rim**, and the part of the pupil image its margin
+is decided on is the **outer annulus**, not the aperture average (Dave's ruling).  Both are
+now available in `pupil_map` (`'anchor','rim'`, `.rim_zone`), both are opt-in, and every
+number above is unchanged.
+
+**His decks already declare the rim plane.**  His stop sits 50 mm ahead of the pole; the sag
+of an R = −2500 mm parabola at r = 500 mm is 50.000 mm exactly; and the rim plane traced off
+his primary lands **1.7e-13 mm** from the stop he typed into the source block.  Two
+independently supplied numbers, one plane.  (The decks `afocal4_build` emits declare their
+stop at the vertex instead, so on those the rim sits 50.000 mm ahead of the declared stop —
+which is why the rim is measured off the traced bundle and never read from `ApStop`.)
+
+**And the choice is resolvable, not notional.**  The pupil image's own depth of focus is
+λ/(2·NA_field²) = **14.95 µm** on S1 — the λ/NA² form is twice that, ~30 µm — against
+the **50.73 µm** of primary sag imaged at m² that this section already quotes.  The imaged object is deeper than the depth over
+which the pupil imager holds focus, so rim-conjugate and pole-conjugate are different
+states of that imager.
+
+| variant | blur, surface anchor | blur, rim anchor | blur, RIM ZONE (outer 10%) | edge penalty | wander, rim zone | M, rim anchor |
+|---|---|---|---|---|---|---|
+| S1 on-axis | 152.9 | 152.9 | **195.0** | 1.275× | 197.0 | 30.0000 |
+| S2 offset | 801.6 | 801.1 | **877.8** | 1.096× | 880.8 | 28.6848 |
+| S3 newconics | 774.8 | 774.4 | **854.0** | 1.103× | 857.1 | 30.0002 |
+| S4 tilt/dec | 468.6 | 468.5 | **588.0** | 1.255× | 591.5 | 29.9988 |
+
+**The anchor changes nothing and the zone changes everything.**  Moving the object plane
+from the pole to the rim moves the blur by 0.01–0.05% — less than the anchoring residual on
+the offset variants.  Looking at the outer 10% of the pupil instead of all of it moves it
+by **10–27%**.  So "the pupil is at the rim" is, for these numbers, a statement about WHERE
+ON THE PUPIL you measure rather than about which plane you measure from.  Where it does
+move a column is the convergence SURFACE, which is what the anchor is for: the surface
+anchor's exit sag carries the imaged primary sag (15.3 µm rms on S1) and the rim anchor's
+does not (0.11 µm) — a factor of 140.
+
+**And his best variant has the worst edge.**  The tilt/dec re-solve takes the aperture-
+average blur from 774.8 to 468.6 µm — a 40% improvement — while its edge penalty rises to
+1.26×, the highest on the ladder after the on-axis case.  Rigid bodies buy the middle of
+the pupil, not its rim.  A coldstop scored on the annulus it actually masks sees 588 µm
+where the table above reports 469.
+
 ### The two references for the convergence surface
 
 | variant | β / m² vs the ideal image of M1's sag | residual after it | vs the FLAT placed plane, rms | P-V |
