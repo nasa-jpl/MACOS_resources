@@ -345,5 +345,84 @@ classdef tDwDx < matlab.unittest.TestCase
             testCase.verifyGreaterThan(max(abs(out.dwdxall(:))), 0, ...
                 'track + reset_xp must yield a non-zero Jacobian');
         end
+
+        % ---- empty-OPD guard + single-field identity --------------------
+
+        function test_emptyOPD_guard_on_clipped_read_surface(testCase)
+            % A deck whose read surface (nElt-1) clips the whole beam at a
+            % field yields an empty per-field OPD.  dw_dx_multi must fail
+            % LOUDLY (macos:dw_dx_multi:emptyOPD), not trip the opaque
+            % center-tile scalar-logical assert.  rodgers1_stage4 is a
+            % solved TMA carrying post-realize_apertures clip apertures
+            % (M3 ApVec r=0.17 vs M1 r=1.04); the full source grid
+            % overflows M3 -> 0 rays at the read surface.
+            rx = rodgers1_deck_();
+            testCase.assumeTrue(isfile(rx), 'rodgers1_stage4.in not reachable');
+            m = macos.Session(256);
+            testCase.verifyError(@() macos.dw_dx_multi(m, rx, ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
+                'dofs', (0:5).', 'reset_xp', false), ...
+                'macos:dw_dx_multi:emptyOPD');
+        end
+
+        function test_reset_xp_single_field_identity(testCase)
+            % Cheapest invariant that reset_xp acts ONLY through the field
+            % loop: on a SINGLE on-axis field, FEX re-references to the same
+            % chief ray the deck already points at, so reset==frozen bit-
+            % identical.  (Apertures stripped so the wide-bias deck traces.)
+            rx = rodgers1_stripped_deck_();
+            testCase.assumeTrue(isfile(rx), 'stripped rodgers1 unavailable');
+            m = macos.Session(256);
+            oR = macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
+                'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
+                'reset_xp', true);
+            oF = macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
+                'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
+                'reset_xp', false);
+            testCase.verifyEqual(oR.per_field_dwdx{1}, oF.per_field_dwdx{1}, ...
+                'single on-axis field: reset_xp must be a no-op (identity)');
+        end
+
+        % NOTE (wide-field benefit gate -- DEFERRED, see report to CCL
+        % 2026-08-04): the intended gate -- reset_xp removes a per-field
+        % frame tip/tilt at a wide field, matching a strict-kernel FD
+        % prediction -- could NOT be built on rodgers1_stage4.  Measured
+        % empirically: reset_xp is a BIT-IDENTICAL no-op on that deck at
+        % EVERY field (dwdx AND nominal-OPD reldiff = 0, on-axis and at
+        % 2e-3 rad corners).  On a 4-element TMA the read surface nElt-1
+        % is a powered mirror (M3), and the per-field FEX reference there
+        % coincides with the frozen prescription reference -- so there is
+        % no frame term to remove.  The effect IS real where nElt-1 is a
+        % dedicated reference/Return surface: the e2e_pie segmented deck's
+        % s4 harvest shifts ~1.6% (conditioning) under reset_xp (commit
+        % 5a704fb).  The wide-field benefit gate belongs on a deck whose
+        % exit-pupil reference genuinely moves per field; picking or
+        % building that fixture is queued with the strict-kernel FD
+        % comparator.  (Mike supplied a true wide-field example to probe
+        % for this -- use it as the gate deck when this lands.)
     end
+end
+
+
+% =====================================================================
+% Helpers: the rodgers1 wide-field TMA deck (a solved design fixture
+% under design/rodgers1) + an aperture-stripped copy for harvesting.
+function p = rodgers1_deck_()
+here = fileparts(mfilename('fullpath'));
+p = fullfile(here, '..', 'design', 'rodgers1', 'rodgers1_stage4.in');
+end
+
+function sd = rodgers1_stripped_deck_()
+% Persistent per-session stripped copy (ApType= -> None), mirroring
+% strict_ladder_deck's strip_ap: the committed deck carries tight
+% realize_apertures clips that vignette the read surface at wide field.
+persistent cached
+if ~isempty(cached) && isfile(cached), sd = cached; return; end
+rx = rodgers1_deck_();
+if ~isfile(rx), sd = ''; return; end
+txt = fileread(rx);
+txt = regexprep(txt, '(ApType=\s*)\S+', '$1None');
+sd  = [tempname '.in'];
+fid = fopen(sd, 'w');  fwrite(fid, txt);  fclose(fid);
+cached = sd;
 end
