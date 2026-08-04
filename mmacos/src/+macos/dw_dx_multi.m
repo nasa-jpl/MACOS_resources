@@ -161,8 +161,15 @@ fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
 
 % Snapshot the prescription's exit-pupil reference (elt nElt-1 geometry)
 % so the per-field FEX resets can be undone before returning.
+% reset_xp acts by writing the pupil reference into nElt-1 -- but the
+% engine FEX only writes when nElt-1 is a Return/Reference surface;
+% on any other type it silently declines (xp_fnd still returns PASS),
+% so reset_xp is a no-op there.  Track whether ANY field's FEX actually
+% moved the EP element, and refuse to let it CLOBBER a powered optic.
+reset_ep_moved = false;   % did any field's fex() change nElt-1 geometry?
 if opts.reset_xp
     xp0 = macos.get_xp();
+    ep_is_powered = reset_xp_guard('is_powered', session);
 end
 
 % ---- Per-field loop -----------------------------------------------
@@ -215,6 +222,11 @@ for k = 1:n_fields
             end
             rethrow(me);
         end
+        % Did FEX actually write? (engine writes nElt-1 only for a
+        % Return/Reference surface; elsewhere it declines silently.)  The
+        % shared guard also ERRORS if a write landed on a powered optic.
+        reset_ep_moved = reset_xp_guard('check', session, xp0, ...
+            reset_ep_moved, ep_is_powered);
     end
     sf = macos.dw_dx(session, rx_path, ...
         'dofs', opts.dofs, ...
@@ -276,6 +288,14 @@ if opts.reset_xp
     macos.set_xp(xp0.vpt, xp0.psi, xp0.rad);
     session.modify();
 end
+
+% NO-PUPIL GUARD: reset_xp was requested but FEX never moved the EP
+% element at any field -- this Rx has no exit-pupil element at nElt-1, so
+% the engine declined to write and the harvest is really FROZEN-EP.  Warn
+% once and stamp the truth so downstream convention asserts (run_compare)
+% see 'no-effect', not a false 'true'.
+reset_xp_stamp = reset_xp_guard('finalize', opts.reset_xp, ...
+    reset_ep_moved, session.num_elt() - 1);
 
 % ---- Tile OPDall + scatter dwdxall --------------------------------
 N = size(per_field_w_nom{1}, 1);
@@ -358,7 +378,7 @@ out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.rot_output           = opts.rot_output;
 out.cbm                  = per_field_struct{1}.cbm;
-out.reset_xp             = opts.reset_xp;
+out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
 
 % Add per-field LOS if SPOT was computed
 if opts.compute_los
@@ -475,3 +495,5 @@ function mustBeDeltaSize(d)
             'delta must be (1,1) or (1,6)');
     end
 end
+
+

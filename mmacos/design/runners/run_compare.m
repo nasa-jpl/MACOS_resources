@@ -182,16 +182,20 @@ assert(~any(chansel == "grid") || ~isempty(J.og), 'run_compare: jac has no dwdgr
 % reset convention with the dwdz/dwdgrid legs it is joined with.  Mixing
 % a frozen-EP dwdx (reset_xp=false) into a model whose dwdz/dwdgrid used
 % reset_xp=true silently mixes tilt-reference conventions across channels
-% (the family-asymmetry hazard the reset_xp addition closes).
+% (the family-asymmetry hazard the reset_xp addition closes).  The stamp
+% is true | false | 'no-effect' -- 'no-effect' (FEX found no pupil to
+% write, so the harvest is frozen-EP in practice) is EFFECTIVELY frozen,
+% so it matches a false leg; only a genuine true-vs-false split is a
+% mismatch.  reset_eff_() maps the tri-state stamp to that effective bool.
 if isfield(ox, 'reset_xp')
     for leg = {J.oz, J.og}
         L = leg{1};
         if ~isempty(L) && isfield(L, 'reset_xp')
-            assert(isequal(logical(ox.reset_xp), logical(L.reset_xp)), ...
+            assert(reset_eff_(ox.reset_xp) == reset_eff_(L.reset_xp), ...
                 'run_compare:reset_xp_mismatch', ...
-                ['dwdx reset_xp=%d but a dwdz/dwdgrid leg used reset_xp=%d' ...
+                ['dwdx reset_xp=%s but a dwdz/dwdgrid leg used reset_xp=%s' ...
                  ' -- regenerate the Jacobian with one convention'], ...
-                ox.reset_xp, L.reset_xp);
+                reset_str_(ox.reset_xp), reset_str_(L.reset_xp));
         end
     end
 end
@@ -567,6 +571,22 @@ end
 % =========================================================================
 function s = iif_(cond, a, b)
 s = b;  if cond, s = a; end
+end
+
+function b = reset_eff_(v)
+% Effective reset_xp bool from the tri-state stamp (true|false|'no-effect').
+% 'no-effect' = FEX found no pupil to write == frozen-EP in practice.
+if ischar(v) || isstring(v)
+    b = ~strcmpi(string(v), 'no-effect');   % any other string -> true-ish
+else
+    b = logical(v);
+end
+end
+
+function s = reset_str_(v)
+% Human-readable reset_xp stamp for the mismatch message.
+if ischar(v) || isstring(v), s = char(string(v));
+else, s = mat2str(logical(v)); end
 end
 
 function v = rms_(x)
