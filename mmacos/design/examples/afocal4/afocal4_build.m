@@ -47,6 +47,10 @@ function out = afocal4_build(P, D, deck, opts)
 %     .gap          'mersenne': inter-stage spacing, m
 %     .rb           numel(P.rb_elts) x 2 rigid body, [y-decenter m, x-tilt
 %                   rad], applied to the elements P.rb_elts names
+%     .fold         optional struct('dist',m,'to',[1x3],'ap_r',m): insert a
+%                   flat fold that far along the LAST mirror's exit leg,
+%                   turning the beam into 'to'.  The S4b packaging
+%                   demonstration; omit for the unfolded deck
 %     .bias_deg     field-box bias in +Y, deg
 %     .ngrid        ray grid (default P.ngrid)
 %
@@ -142,6 +146,19 @@ function out = afocal4_build(P, D, deck, opts)
         t.add_mirror(C.names{k}, 'radius_m',C.R(k), 'spacing_after_m',tt(k), ...
                      'convex',logical(C.convex(k)), 'conic',C.K(k));
     end
+    % THE FOLD, when there is one.  A flat on the last mirror's exit leg is
+    % the S4b demonstration (task 3): it takes the interface pupil and the
+    % instrument out of the beam and into the x-y plane behind the primary,
+    % which is what "buildable" means here.  Telescope/add_fold maps
+    % everything downstream by the fold plane's reflection isometry, so it
+    % is EXACT -- spacings, angles and the trace are preserved and the flat
+    % contributes zero aberration.  Nominally null is not the same as free,
+    % though: the pupil ladder is re-scored on the folded deck rather than
+    % asserted (e2e2 S3 lesson).
+    if isfield(D,'fold') && ~isempty(D.fold)
+        t.add_fold('Fold', 'after', C.names{end}, 'dist_m', D.fold.dist, ...
+                   'to', D.fold.to, 'ap_r', D.fold.ap_r);
+    end
     t.add_exit_reference('ColdStop', 'dist_m', D.iface);
     if D.bias_deg ~= 0, t.set_field_bias(D.bias_deg*60); end
     t.build(deck);
@@ -154,7 +171,10 @@ function out = afocal4_build(P, D, deck, opts)
         end
         write_(deck, txt);
     end
-    cs = place_coldstop_(deck, D.iface);
+    % The interface plane is posed IFACE past the last mirror ALONG THE
+    % CHIEF's own path, so a fold in between costs exactly the path it
+    % adds and nothing else.
+    cs = place_coldstop_(deck, D.iface, numel(C.R));
     out = struct('file',deck, 'D',D, 'C',C, 'phi4',phi4, ...
                  'R',C.R, 't',C.t, 'conic',C.K, 'names',{C.names}, ...
                  'iface',D.iface, 'iface_pred',C.fo.pupil_dist, ...
@@ -180,7 +200,7 @@ function out = afocal4_build(P, D, deck, opts)
 
     % ---- 4. verify against the closure it was built from -----------------
     if opts.verify
-        out.traced = traced_(numel(C.R)+1, P.D);
+        out.traced = traced_(size(zi,2), P.D);
         out.paraxial_ok = abs(out.traced.mag/P.M - 1) < 0.05;
         if ~opts.quiet
             fprintf(['  built %s: phi4 %+.4f /m, R_FM %.4f m, R_col %.4f m, ' ...
@@ -236,67 +256,18 @@ function [C, phi4] = close_field_(P, s, iface)
 %CLOSE_FIELD_  The field mirror's power that puts the exit pupil at IFACE,
 %   at field-mirror standoff S -- and then the whole closed layout.
 %
-%   d(phi4) is a RATIONAL function with poles, so a wide fzero bracket
-%   straddles one and returns the pole rather than the root (S3 FORM_STUDY
-%   trap 4).  afocal4_close's own bracket is +-1 /m, which does NOT contain
-%   the recommended operating point: phi4 = +2 /m (R = 1.0 m) is where the
-%   S3 breathing null sits and where the 140 mm interface comes from.  So
-%   the bracket is found by SCAN rather than assumed -- d is monotone
-%   decreasing across the physical window and the first sign change is the
-%   root.
-%
-%   A SIGN CHANGE IS NOT A ROOT.  d(phi4) is rational, so it changes sign
-%   across its POLES too, and fzero converges happily onto one -- returning
-%   a "layout" with a collimator 1e14 m away.  Under the S4b packaging
-%   constraint the useful roots moved from phi4 ~ 2 to phi4 ~ 4, past a
-%   pole, and taking the first sign change started failing outright.  So
-%   every candidate is CLOSED and CHECKED, and the first one that is
-%   actually a telescope wins.  The original 119-point window is tried
-%   first and unchanged, so every S4 design re-derives to its committed
-%   value; the wider window is a fallback, not a redefinition.
-    Q = P;  Q.iface_dist = iface;
-    d = @(x) pupil_of_(Q, s, x);
-    for xs = {linspace(-0.9, 5.0, 119), linspace(-0.9, 9.0, 401)}
-        [phi4, C, found] = first_valid_root_(Q, s, iface, d, xs{1});
-        if found, return; end
+%   The root selection (and why a sign change is not a root) lives in
+%   AFOCAL4_PHI4, so the SEEDER uses the same rule the builder does.  A
+%   seeder that picked roots differently would hand the solver designs the
+%   builder rejects.
+    [phi4, C, found] = afocal4_phi4(P, s, iface);
+    if ~found
+        error('macos:design:afocal4_build:noRoot', ...
+              ['no field-mirror power in [-0.9, 9] /m puts the exit pupil at ' ...
+               '%.1f mm with a %.0f mm standoff and closes a real layout.  ' ...
+               'Pick an interface distance the standoff can reach.'], ...
+              iface*1e3, s*1e3);
     end
-    g = arrayfun(@(x) d(x) - iface, linspace(-0.9, 9.0, 401));
-    error('macos:design:afocal4_build:noRoot', ...
-          ['no field-mirror power in [-0.9, 9] /m puts the exit pupil at ' ...
-           '%.1f mm with a %.0f mm standoff and closes a real layout: the ' ...
-           'station runs %.1f mm to %.1f mm.  Pick an interface distance ' ...
-           'inside that range.'], iface*1e3, s*1e3, ...
-          (g(1)+iface)*1e3, (g(end)+iface)*1e3);
-end
-
-function [phi4, C, found] = first_valid_root_(Q, s, iface, d, xs)
-%FIRST_VALID_ROOT_  The lowest field-mirror power whose closure is a
-%   telescope: finite spacings, the pupil where it was asked for, and the
-%   two first-order identities intact.  Lowest because the weakest field
-%   mirror is the one closest to the three-mirror parent.
-    phi4 = NaN;  C = [];  found = false;
-    g = arrayfun(@(x) d(x) - iface, xs);
-    k = find(isfinite(g(1:end-1)) & isfinite(g(2:end)) & ...
-             sign(g(1:end-1)) ~= sign(g(2:end)));
-    for j = k(:).'
-        try
-            x  = fzero(@(y) d(y) - iface, [xs(j) xs(j+1)]);
-            Ct = afocal4_close(Q, 'field', 'standoff',s, 'phi4',x);
-        catch
-            continue;
-        end
-        if any(~isfinite(Ct.t)) || any(Ct.t < 0.02) || any(Ct.t > 8), continue; end
-        if abs(Ct.fo.pupil_dist - iface) > 1e-8, continue; end
-        if abs(Ct.fo.mag/Q.M - 1) > 1e-9 || abs(Ct.fo.u_out) > 1e-9, continue; end
-        phi4 = x;   C = Ct;   found = true;   return;
-    end
-end
-
-function d = pupil_of_(Q, s, phi4)
-%   MATLAB will not index into a function-call result, so the closure's
-%   pupil station needs a named intermediate.  Cheap: pure algebra.
-    C = afocal4_close(Q, 'field', 'standoff',s, 'phi4',phi4);
-    d = C.fo.pupil_dist;
 end
 
 % ---------------------------------------------------------------------
@@ -316,27 +287,53 @@ function txt = rigid_body_(txt, k, dy, alpha)
     txt = set_elt_pose_(txt, k, psi, Vpt);
 end
 
-function cs = place_coldstop_(deck, iface)
+function cs = place_coldstop_(deck, iface, nmir)
 %PLACE_COLDSTOP_  Put the interface plane on the TRACED exit chief, IFACE
-%   past the last mirror's vertex, normal to that chief.  Idempotent -- a
-%   flat Reference does not bend rays, so the chief LINE it is placed from
-%   does not depend on where it currently is.
+%   past the LAST MIRROR, normal to that chief -- and then map it through
+%   any flat between the two.  Idempotent: a flat Reference does not bend
+%   rays, so the chief line it is placed from does not depend on where it
+%   currently is.
+%
+%   THE FOLD IS APPLIED AS AN ISOMETRY, NOT RE-DERIVED.  The unfolded rule
+%   is "project the last mirror's vertex onto the exit chief, step IFACE
+%   along it"; with a fold in between, the plane is that same plane
+%   REFLECTED through the fold, which is exactly what a flat does to
+%   everything downstream of it.  Re-deriving it from the fold's own vertex
+%   instead is wrong by the vertex-to-chief offset -- measured, at a 343 mm
+%   standoff that moved the pupil breathing from 3.9% to 23% across a fold
+%   that cannot change anything.  The fold-is-null check in AFOCAL4_S4B
+%   caught it, which is what that check is for.
+%
+%   With no fold the loop below is empty and the construction is the
+%   original one to the last digit, so every committed deck re-emits
+%   unchanged.
     txt = fileread(deck);
     Vs  = grab_all3_(txt, 'VptElt');
+    Ps  = grab_all3_(txt, 'psiElt');
     nE  = size(Vs, 2);
     macos.load_rx(deck);
     if ~macos.has_rx()
         error('macos:design:afocal4_build:load', 'deck failed to load: %s', deck);
     end
+    macos.ray_hist('on');
     tr = macos.trace(nE);
-    ri = macos.get_ray_info(tr.nRays);
-    p0 = ri.pos(:,1);   d0 = ri.dir(:,1);   d0 = d0/norm(d0);
-    Vm = Vs(:, nE-1);
-    V  = p0 + d0*(dot(Vm - p0, d0) + iface);
+    h  = macos.ray_hist(tr.nRays);
+    macos.ray_hist('off');
+    Pc = squeeze(h.P(:,1,:));              % chief polyline; Pc(:,k+1) = elt k
+    pm = Pc(:, nmir+1);                    % chief hit on the last mirror
+    dm = Pc(:, nmir+2) - pm;   dm = dm/norm(dm);
+    V  = pm + dm*(dot(Vs(:,nmir) - pm, dm) + iface);
+    d  = dm;
+    for k = nmir+1 : nE-1                  % every flat in between
+        nf = Ps(:,k)/norm(Ps(:,k));
+        Mr = eye(3) - 2*(nf*nf.');
+        V  = Vs(:,k) + Mr*(V - Vs(:,k));
+        d  = Mr*d;
+    end
     old = Vs(:, nE);
-    txt = set_elt_pose_(txt, nE, -d0, V);
+    txt = set_elt_pose_(txt, nE, -d, V);
     write_(deck, txt);
-    cs = struct('Vpt',V.', 'psi',(-d0).', 'chief',d0.', ...
+    cs = struct('Vpt',V.', 'psi',(-d).', 'chief',d.', ...
                 'dist_m',iface, 'moved_m',norm(V - old));
 end
 
