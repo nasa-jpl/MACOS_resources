@@ -1,9 +1,30 @@
 # PLAN — afocal4: 4-mirror afocal telescope driver with interface-pupil control
 
 > **Status: S1-S5 DELIVERED, then S4 RETRACTED ON PACKAGING and redone as
-> S4b (TO, 2026-08-02/03; local on `MACOS_res_dev` `dev`, not pushed).
-> Results: `design/examples/afocal4/RESULTS.md` (S4 as the unconstrained
-> reference, §S4b as the buildable trade).**
+> S4b, then S4c (TO, 2026-08-02/04; local on `MACOS_res_dev` `dev`, not
+> pushed).  Results: `design/examples/afocal4/RESULTS.md` (S4 as the
+> unconstrained reference, §S4b as the buildable trade, §S4c as the long
+> solve + the RIM pupil convention).**
+>
+> **S4c (Dave's rim ruling, 2026-08-04) — three answers.**  (1) The S4b
+> `exitflag 3` caveat closes as a STALL, not a wrong answer: a 3e-3 forward
+> difference read the merit's gradient 17% low on an objective smooth to
+> 1e-5, and re-solving from three seeds at ~1900 evaluations per point moves
+> basin 2's wavefront column by 0.02-10.8% and its pupil columns by under
+> 2%.  Nothing concluded from basin 2 changes.  The 90 mm design turns out
+> to sit ON THE PACKAGING WALL to the millimetre rather than at a minimum.
+> (2) The pupil object for a COLDSTOP metric is the RIM of the primary --
+> and his decks already declare it, his stop agreeing with the traced rim
+> plane to 1.7e-13 mm.  But the ANCHOR moves the measured blur by 0.01-0.06%
+> while the outer-10% ZONE moves it by 10-34%: the convention acts through
+> where on the pupil you look, not which plane you look from.  Where the
+> anchor bites is the convergence surface (a factor of 140).  (3) The 343 mm
+> fork DOES NOT SOFTEN: the flat branch's rim edge is 11% worse than its own
+> average and still 18x target, and what the fourth mirror buys falls from
+> 4.8x to 4.0x while its 39x wavefront price is unchanged.  One spec should
+> be rewritten in the rim convention -- the interface convergence surface,
+> 12x inside target surface-anchored and 1.08x inside it rim-anchored.
+> Status page: `design/examples/afocal4/STATUS_S4C.md`.
 >
 > **THE S4 TRADE IS NOT BUILDABLE.**  Every design on it puts the
 > collimator 200-440 mm in FRONT of M1 -- and with it the field mirror,

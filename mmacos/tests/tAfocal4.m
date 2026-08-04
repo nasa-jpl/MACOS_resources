@@ -205,6 +205,60 @@ classdef tAfocal4 < matlab.unittest.TestCase
                 'AbsTol', 0, 'the merit floor is not clamping at zero');
         end
 
+        function test_the_pupil_convention_is_selectable_and_opt_in(tc)
+        %  S4c: the score can be taken under the RIM convention -- rim-
+        %  anchored cones, blur and wander read on the edge annulus -- and
+        %  that has to be selectable from P, because AFOCAL4_SOLVE hands the
+        %  score P and nothing else, so a convention that could only arrive
+        %  as a name-value could never be optimised against.
+        %
+        %  Three claims: the default is exactly the old behaviour; the rim
+        %  zone really does replace the blur/wander TERMS and leaves the
+        %  wavefront alone; and P.pupil supplies the same thing the
+        %  name-value does.
+            D = afocal4_seed(tc.P);
+            f = [tempname '.in'];
+            c = onCleanup(@() tc.rm_(f)); %#ok<NASGU>
+            afocal4_build(tc.P, D, f, 'verify',false);
+
+            S0 = afocal4_score(tc.P, f, 'nodes',9);
+            Se = afocal4_score(tc.P, f, 'nodes',9, 'anchor','surface', ...
+                               'zone','full');
+            tc.verifyEqual(Se.merit, S0.merit, 'RelTol', 1e-12, ...
+                'the explicit default is not the default');
+            tc.verifyEqual(S0.pupil_anchor, 'surface');
+            tc.verifyEqual(S0.pupil_zone, 'full');
+            tc.verifyEqual(S0.blur_um, S0.blur_full_um, 'RelTol', 1e-12);
+
+            Sr = afocal4_score(tc.P, f, 'nodes',9, 'anchor','rim', 'zone','rim');
+            tc.verifyEqual(Sr.blur_um,   Sr.blur_rim_um,   'RelTol', 1e-12, ...
+                'the rim zone did not become the blur term');
+            tc.verifyEqual(Sr.wander_um, Sr.wander_rim_um, 'RelTol', 1e-12, ...
+                'the rim zone did not become the wander term');
+            tc.verifyEqual(Sr.wfe_nm, S0.wfe_nm, 'RelTol', 1e-12, ...
+                'a PUPIL convention moved the WAVEFRONT numbers');
+            tc.verifyGreaterThan(Sr.blur_um, Sr.blur_full_um, ...
+                ['the edge annulus is not worse than the aperture average ' ...
+                 'here, so this gate is not testing anything']);
+
+            Q = tc.P;
+            Q.pupil = struct('anchor','rim', 'zone','rim', 'rim_zone',0.10);
+            Sq = afocal4_score(Q, f, 'nodes',9);
+            tc.verifyEqual(Sq.merit, Sr.merit, 'RelTol', 1e-12, ...
+                'P.pupil does not select what the name-value selects');
+            tc.verifyError(@() afocal4_score(tc.P, f, 'nodes',9, 'zone','edge'), ...
+                'macos:design:afocal4_score:zone');
+
+            % and the two SCORING MODES must still carry one field set: a
+            % ladder holds S structs from both, and `arr(k) = s` on
+            % dissimilar structures fails only when reached -- after the
+            % expensive part is spent.  Adding a field to one branch and not
+            % the other is a bug that surfaces an hour later.
+            W = afocal4_score(tc.P, f, 'nodes',9, 'pupil',false);
+            tc.verifyEqual(sort(fieldnames(W)), sort(fieldnames(S0)), ...
+                'the WFE-only score and the full score have diverged in shape');
+        end
+
         function test_packaging_is_a_wall_and_the_gate_agrees(tc)
         %  THE S4b BUILDABILITY CONSTRAINT (Dave 2026-08-03).  Four claims,
         %  because a constraint that is only half wired is worse than none:
