@@ -1,4 +1,4 @@
-==== run_sensitivities: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
+==== run_sensitivities: /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
 field set: center + 4 corners at +-0.0005818 rad
 segments: 7
 
@@ -14,21 +14,21 @@ segments: 7
 
 [conditioning] finite rows only:
     channel          size   rank     sv_max    sv_min+      cond+
-    dwdx     60412x90         90  1.989e+02  1.994e-05  9.979e+06
-    dwdx     segment-only: 60412x42  cond+ 2.975e+06
+    dwdx     60412x90         89  1.989e+02  1.719e-05  1.157e+07
+    dwdx     segment-only: 60412x42  cond+ 3.385e+06
     dwdz     60412x56         56  1.833e+02  3.367e+01  5.445e+00
     dwdgrid  60412x42         42  1.882e+02  1.577e+02  1.194e+00
 
     dwdx per-segment column norms (rms native-unit per unit DOF):
       seg     rx        ry        rz        tx        ty        tz
-        1   2.59e-01  2.46e-01  3.09e-07  1.76e-02  1.85e-02  6.43e-01 
-        2   3.50e-01  2.79e-01  1.14e-04  1.96e-02  2.48e-02  7.04e-01 
-        3   3.49e-01  2.79e-01  1.13e-04  1.96e-02  2.48e-02  7.04e-01 
-        4   3.31e-01  2.98e-01  1.11e-04  2.09e-02  2.35e-02  7.04e-01 
-        5   3.48e-01  2.75e-01  1.12e-04  1.93e-02  2.47e-02  7.04e-01 
-        6   3.48e-01  2.75e-01  1.12e-04  1.93e-02  2.47e-02  7.04e-01 
-        7   3.31e-01  2.99e-01  1.12e-04  2.10e-02  2.35e-02  7.04e-01 
+        1   2.39e-01  2.39e-01  2.62e-07  1.71e-02  1.70e-02  6.43e-01 
+        2   3.31e-01  2.69e-01  1.01e-04  1.89e-02  2.34e-02  7.04e-01 
+        3   3.31e-01  2.69e-01  1.01e-04  1.89e-02  2.34e-02  7.04e-01 
+        4   3.31e-01  2.68e-01  1.02e-04  1.89e-02  2.35e-02  7.04e-01 
+        5   3.30e-01  2.69e-01  1.03e-04  1.89e-02  2.34e-02  7.04e-01 
+        6   3.30e-01  2.69e-01  1.03e-04  1.89e-02  2.34e-02  7.04e-01 
+        7   3.31e-01  2.68e-01  1.02e-04  1.89e-02  2.35e-02  7.04e-01 
 
 figures: s4_opdall/svspec/<ch>_channels + per-element pages in s4_pages/
 
-Done: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/s4_sens.mat + s4_sens_report.txt
+Done: /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/s4_sens.mat + s4_sens_report.txt

@@ -18,6 +18,11 @@ function out = dw_dgrid(session, rx_path, opts)
 %                       a low-order Zernike-on-grid basis (zernike_grid_basis)
 %                       at the elements' grid size.  N = surface grid sampling.
 %     'zmodes'          Noll modes for the default basis.  Default [4 5 6 7 8 11].
+%     'elts'            Vector of element IDs to include in the sensitivity
+%                       calculation.  Only grid-bearing elements that are also
+%                       in this list will be perturbed.  Default [] (auto-detect
+%                       all grid-bearing elements from the loaded prescription).
+%                       Example: 'elts', [3 5 7] includes only elements 3, 5, 7.
 %     'exit_pupil_elt'  surface the wavefront is read at.  Default -1 = nElt-1.
 %     'delta'           finite-difference step (map amplitude).  Default 1e-6.
 %     'method'          'central' (default) | 'forward'.
@@ -38,23 +43,37 @@ arguments
     rx_path (1,:) char = ''
     opts.influence              = []   % [NxNxK] | per-segment struct | cell
     opts.zmodes         (1,:) double = [4 5 6 7 8 11]
+    opts.elts           (:,1) double = []
     opts.exit_pupil_elt (1,1) double = -1
     opts.delta          (1,1) double = 1e-6
     opts.method         (1,:) char {mustBeMember(opts.method,{'central','forward'})} = 'central'
     opts.verbose        (1,1) logical = false
     opts.reload_rx      (1,1) logical = true
     opts.ngridpts       double {mustBeScalarOrEmpty} = []
+    opts.src_samp       double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.compute_los    (1,1) logical = false
+    opts.spot_elt       double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 if opts.reload_rx && ~isempty(rx_path)
     session.load_rx(rx_path);
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dgrid');
+
+% Apply source sampling if specified
+if ~isempty(opts.src_samp)
+    session.set_src_sampling(opts.src_samp);
+    session.modify();  % Flush cache so the new sampling takes effect
+end
+
 wf_elt = opts.exit_pupil_elt;
 if wf_elt < 0
     wf_elt = session.num_elt() - 1;
 end
 
 g = macos.find_grid_elts();
+if ~isempty(opts.elts)
+    g = intersect(g, opts.elts);
+end
 if isempty(g)
     error('macos:dw_dgrid:nogrid', ...
         'no grid-bearing elements in the loaded prescription');
@@ -71,9 +90,22 @@ end
 channels = macos.channels.grid_channels(session, infl);
 wf_func  = @() local_wf(session, wf_elt);
 
-[dwdg, w_nom_2d, w_nom_vec, indx, names] = ...
+% Create spot_func if LOS computation requested
+n_elt = session.num_elt();
+if opts.compute_los
+    if isempty(opts.spot_elt)
+        spot_elt_use = n_elt;  % Default to focal plane
+    else
+        spot_elt_use = opts.spot_elt;
+    end
+    spot_func = @() local_spot(spot_elt_use);
+else
+    spot_func = [];
+end
+
+[dwdg, w_nom_2d, w_nom_vec, indx, names, dcdx, spot_pos, spot_neg, spot_nom, spot_pert] = ...
     macos.dwdz_for_current_source(channels, wf_func, opts.delta, ...
-        'method', opts.method, 'verbose', opts.verbose);
+        'method', opts.method, 'verbose', opts.verbose, 'spot_func', spot_func);
 
 iElt_out = zeros(numel(channels), 1);
 idx_out  = zeros(numel(channels), 1);
@@ -94,10 +126,27 @@ out.rx_path       = rx_path;
 out.wf_elt        = wf_elt;
 out.delta         = opts.delta;
 out.method        = opts.method;
+
+% Add LOS fields if SPOT was computed
+if opts.compute_los
+    out.dcdx      = dcdx;
+    out.spot_elt  = spot_elt_use;
+    if strcmp(opts.method, 'central')
+        out.spot_pos = spot_pos;
+        out.spot_neg = spot_neg;
+    else  % forward
+        out.spot_nom  = spot_nom;
+        out.spot_pert = spot_pert;
+    end
+end
 end
 
 % ---------------------------------------------------------------------------
 function W = local_wf(session, wf_elt)
 session.trace(wf_elt);
 W = session.opd();
+end
+
+function S = local_spot(spot_elt)
+S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'chief');
 end

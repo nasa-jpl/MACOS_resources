@@ -13,6 +13,8 @@ function out = dw_dz_zernike(session, rx_path, opts)
 %   Name-value pairs:
 %     'kinds'         cellstr subset of {'monzern','ffzern','zern'}.
 %                     Default {'monzern','zern'}.
+%     'elts'          vector of element IDs to include.  Default []
+%                     (auto-detect all eligible elements from Rx).
 %     'zmode_start'   lowest Zernike mode to perturb.  Default 4
 %                     (skip piston / tip / tilt -- redundant with
 %                     rigid-body Tz/Ry/Rx).
@@ -45,6 +47,7 @@ arguments
     session
     rx_path     (1,:) char {mustBeNonempty}
     opts.kinds                cell    = {'monzern','zern'}
+    opts.elts                 (:,1) double = []
     opts.zmode_start          (1,1) double {mustBeInteger, mustBePositive} = 4
     opts.n_zcoef              (1,1) double {mustBeInteger, mustBePositive} = 15
     opts.delta                (1,1) double = 1e-6
@@ -54,6 +57,9 @@ arguments
     opts.verbose              (1,1) logical = false
     opts.reload_rx            (1,1) logical = true
     opts.ngridpts             double {mustBeScalarOrEmpty} = []
+    opts.src_samp             double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.compute_los          (1,1) logical = false
+    opts.spot_elt             double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 
 % reload_rx=true is the right default for a standalone single-field
@@ -66,6 +72,13 @@ if opts.reload_rx
     session.load_rx(rx_path);
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dz_zernike');
+
+% Apply source sampling if specified
+if ~isempty(opts.src_samp)
+    session.set_src_sampling(opts.src_samp);
+    session.modify();  % Flush cache so the new sampling takes effect
+end
+
 n_elt = session.num_elt();
 if opts.exit_pupil_elt < 0
     wf_elt = n_elt - 1;
@@ -83,6 +96,12 @@ end
 % Discover eligibility + build (element, mode) channel lists.
 ff_elts = session.find_freeform_elts();
 ze_elts = session.find_zern_elts(rx_path);
+
+% Filter to user-specified elements if provided
+if ~isempty(opts.elts)
+    ff_elts = intersect(ff_elts, opts.elts);
+    ze_elts = intersect(ze_elts, opts.elts);
+end
 
 mp_ff = containers.Map('KeyType','int32','ValueType','any');
 for k = 1:numel(ff_elts)
@@ -121,9 +140,21 @@ end
 
 wf_func = @() local_wf(session, wf_elt);
 
-[dwdz, w_nom_2d, w_nom_vec, indx, names] = ...
+% Create spot_func if LOS computation requested
+if opts.compute_los
+    if isempty(opts.spot_elt)
+        spot_elt_use = n_elt;  % Default to focal plane
+    else
+        spot_elt_use = opts.spot_elt;
+    end
+    spot_func = @() local_spot(spot_elt_use);
+else
+    spot_func = [];
+end
+
+[dwdz, w_nom_2d, w_nom_vec, indx, names, dcdx, spot_pos, spot_neg, spot_nom, spot_pert] = ...
     macos.dwdz_for_current_source(channels, wf_func, opts.delta, ...
-        'method', opts.method, 'verbose', opts.verbose);
+        'method', opts.method, 'verbose', opts.verbose, 'spot_func', spot_func);
 
 iElt_out = zeros(numel(channels), 1);
 mode_out = zeros(numel(channels), 1);
@@ -147,10 +178,27 @@ out.rx_path       = rx_path;
 out.wf_elt        = wf_elt;
 out.delta         = opts.delta;
 out.method        = opts.method;
+
+% Add LOS fields if SPOT was computed
+if opts.compute_los
+    out.dcdx      = dcdx;
+    out.spot_elt  = spot_elt_use;
+    if strcmp(opts.method, 'central')
+        out.spot_pos = spot_pos;
+        out.spot_neg = spot_neg;
+    else  % forward
+        out.spot_nom  = spot_nom;
+        out.spot_pert = spot_pert;
+    end
+end
 end
 
 
 function W = local_wf(session, wf_elt)
 session.trace(wf_elt);
 W = session.opd();
+end
+
+function S = local_spot(spot_elt)
+S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'chief');
 end

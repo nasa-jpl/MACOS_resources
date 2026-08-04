@@ -1,4 +1,4 @@
-==== run_met: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
+==== run_met: /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
 [0] e2e_pie: 7 segments (Pie tiling), 17 elements; 12098/12520 rays pass
 
 [1] as-built truss: 48 beams (6 launchers/segment + aft ring on elt 9), 6 fiducials at r=0.207 on elt 8
@@ -11,33 +11,32 @@
 [3] dwdx: 54 columns for bodies [1  2  3  4  5  6  7  8  9] from the sensitivities .mat
     post-control wavefront residual (fraction of prior; nm at the
     configured scenario: prior 1e-10 rad / 1e-10 m, noise 1e-11 / 1e-12 m):
-      prior (no sensing)       1.0000   (0.2197 nm)
-      edge sensors only        0.4314   (0.09479 nm)
-      MET only                 0.1348   (0.02962 nm)
-      edge + MET               0.0929   (0.02042 nm)
+      prior (no sensing)       1.0000   (0.2171 nm)
+      edge sensors only        0.4339   (0.09418 nm)
+      MET only                 0.1350   (0.02931 nm)
+      edge + MET               0.0940   (0.0204 nm)
     as-built WEM (per unit gauge noise, suite ratios held;
-    prior split: 8.252e-13 nm tilt / 0.2197 nm non-tilt):
+    prior split: 7.436e-16 nm tilt / 0.2171 nm non-tilt):
       config        WEM_full  WEM_tilt WEM_ntilt  floor_ntilt
-      MET only        15.568     0.000    15.568       0.1147
-      edge+MET         3.918     0.000     3.918       0.0912
-    observability: H 120x54, sv(H*sqrt(X)) 7.185e-10 .. 2.016e-19 (cond 3.24e+06)
+      MET only        15.296     0.000    15.296       0.1152
+      edge+MET         3.894     0.000     3.894       0.0922
+    observability: H 120x54, sv(H*sqrt(X)) 7.185e-10 .. 1.098e-19 (cond 3.24e+06)
     products: dxde 54x72, dxdl 54x48, dwde 60412x72, dwdl 60412x48
 
-[4] met_layout_opt (one pattern per shape class; MET-only, NON-TILT merit):
-    class 1 (1 members, cluster): angs [170 190 70 90 -90 -70] deg
-    class 2 (6 members, cluster): angs [175 185 55 65 -65 -55] deg
-    engine-FD validation (non-tilt merit): 0.02031 nm (analytic 0.02031, 0.00% off)
+[4] layout held from preset (no search; MET-only merit for the report):
+    class 1 (1 members, preset): angs [170 190 70 90 -90 -70] deg
+    class 2 (6 members, preset): angs [175 185 55 65 -65 -55] deg
+    engine-FD merit (non-tilt, layout held from preset): 0.02028 nm
 
 [4b] configuration comparison (WEM per unit gauge noise):
       config         | MET_full MET_tilt   MET_nt | e+M_full e+M_tilt   e+M_nt |    flr_nt  min_sep
-      as-built       |   15.568    0.000   15.568 |    3.918    0.000    3.918 |    0.0912 
-      optimized      |    3.766    0.000    3.766 |    1.777    0.000    1.777 |    0.0908 
-      corner_pairs   |    3.973    0.000    3.973 |    1.789    0.000    1.789 |    0.0908  0.01502
+      as-built       |   15.296    0.000   15.296 |    3.894    0.000    3.894 |    0.0922 
+      optimized      |    3.707    0.000    3.707 |    1.755    0.000    1.755 |    0.0918 
 
 [5] Monte-Carlo (200 draws): 0.020 nm rms  (analytic 0.020) [1.9%]
 
-[6] figures: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_layout.png, /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt_layout.png, /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_view_rx.png, /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_metric.png
-preset saved: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_preset.mat (reusable as-built for future Pie builds)
+[6] figures: /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_layout.png, /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt_layout.png, /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_view_rx.png, /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_metric.png
+preset saved: /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_met_preset.mat (reusable as-built for future Pie builds)
 
 artifacts: e2e_pie_met.in, e2e_pie_metopt.in, e2e_pie_met.mat, this report + figures
 next stage: run_compare (linear model vs mmacos on x/z/grid states).

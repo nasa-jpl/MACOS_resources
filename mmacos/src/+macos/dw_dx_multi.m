@@ -15,15 +15,47 @@ function out = dw_dx_multi(session, rx_path, opts)
 %     'grid' 'NxM'
 %     'fields' FILE
 %
-%   FORWARDED TO dw_dx:  dofs, fp_mode, ep_elt, include_source,
+%   FORWARDED TO dw_dx:  dofs, elts, fp_mode, ep_elt, include_source,
 %     src_stop_mode, src_stop_pos, src_stop_elt, include_non_optics,
 %     stop_elt, stop_obj_pos, rot_output, delta, method,
 %     exit_pupil_elt, verbose.
+%
+%   'delta' can be (1,1) for uniform step or (1,6) for per-DOF steps
+%     [Rx Ry Rz Tx Ty Tz]. Rotations in rad. Translation units set by
+%     'delta_units' ('si' metres, default | 'base' BaseUnits). Default 1e-8.
 %
 %   'ngridpts' (default [] = keep the .in value) overrides the ray-grid
 %   sampling once, right after the Rx load; it persists across the
 %   per-field calls (they run reload_rx=false).  Clamped by the engine
 %   to [3, model-size limit] (warns).
+%
+%   'reset_xp'  (default true) re-find the exit pupil for EACH field
+%               before differencing, so the nominal wavefront is
+%               referenced to that field's own chief ray and the gross
+%               field TILT is removed.  A poke's OWN tilt is retained --
+%               the reference is fixed per field, not re-fit after each
+%               poke.  With a frozen EP (false) the field tilt is
+%               common-mode between w_nom and every poked w, so it
+%               cancels in the FD columns; what reset_xp changes is the
+%               first-order residual d(frame term)/dx -- negligible at
+%               arcminute fields, percent-level on tilt-coupled DOFs at
+%               wide fields.  Matches dw_dz_zernike_multi / dw_dsurf_multi
+%               / dw_dgrid_multi (family alignment).  Requires a STOP set
+%               and > 3 elements.  Set false to keep the prescription's
+%               elt nElt-1 reference unchanged (frozen EP).
+%               The re-find uses FEX (macos.fex, chief-ray centred);
+%               FEX and SXP are merged in the engine, so FEX alone is
+%               the well-posed re-reference for all placements.
+%               Composes with fp_mode='track': the per-field EP is
+%               written into elt nElt-1 BEFORE the FocalPlaneChannel
+%               builds its columns, so 'track' saves/restores the
+%               post-reset EP pose.
+%               Restore scope: the pre-loop EP is snapshotted/restored via
+%               get_xp/set_xp -- vpt/psi/rad (VptElt/PsiElt/KrElt at
+%               nElt-1) only.  FEX-written auxiliary fields on the EP
+%               element (RptElt, zElt, fElt, eElt, KcElt) are left as
+%               re-derived; callers who hand-author those own re-asserting
+%               them.
 %
 %   OUTPUT STRUCT FIELDS:
 %     dwdxall            Nw x Nz canonical state-vector Jacobian
@@ -46,6 +78,7 @@ arguments
     opts.fields              (1,:) char = ''
     opts.grid                (1,:) char = ''
     opts.dofs                (:,1) double = (0:5).'
+    opts.elts                (:,1) double = []
     opts.fp_mode             (1,:) char {mustBeMember( ...
         opts.fp_mode, {'track','srs','sxp','none'})} = 'track'
     opts.ep_elt              (1,1) double {mustBeInteger} = -1
@@ -59,12 +92,18 @@ arguments
     opts.stop_obj_pos        double = []
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
-    opts.delta               (1,1) double = 1e-8
+    opts.delta               (:,:) double {mustBeDeltaSize} = 1e-8
+    opts.delta_units         (1,:) char {mustBeMember(opts.delta_units, ...
+                                {'si','base'})} = 'si'
     opts.method              (1,:) char {mustBeMember(opts.method, ...
                                 {'central','forward'})} = 'central'
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
+    opts.reset_xp            (1,1) logical = true
     opts.verbose             (1,1) logical = false
     opts.ngridpts            double {mustBeScalarOrEmpty} = []
+    opts.src_samp            double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.compute_los         (1,1) logical = false
+    opts.spot_elt            double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -97,6 +136,12 @@ end
 session.load_rx(rx_path);
 apply_ngridpts(session, opts.ngridpts, 'dw_dx_multi');
 
+% Apply source sampling if specified
+if ~isempty(opts.src_samp)
+    session.set_src_sampling(opts.src_samp);
+    session.modify();  % Flush cache so the new sampling takes effect
+end
+
 % Apply stop here so it survives across per-field calls (dw_dx with
 % reload_rx=false won't touch the stop state).
 if ~isempty(opts.stop_elt) && ~isempty(opts.stop_obj_pos)
@@ -114,10 +159,26 @@ nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
 
+% Snapshot the prescription's exit-pupil reference (elt nElt-1 geometry)
+% so the per-field FEX resets can be undone before returning.
+% reset_xp acts by writing the pupil reference into nElt-1 -- but the
+% engine FEX only writes when nElt-1 is a Return/Reference surface;
+% on any other type it silently declines (xp_fnd still returns PASS),
+% so reset_xp is a no-op there.  Track whether ANY field's FEX actually
+% moved the EP element, and refuse to let it CLOBBER a powered optic.
+reset_ep_moved = false;   % did any field's fex() change nElt-1 geometry?
+if opts.reset_xp
+    xp0 = macos.get_xp();
+    ep_is_powered = reset_xp_guard('is_powered', session);
+end
+
 % ---- Per-field loop -----------------------------------------------
 per_field_dwdx   = cell(n_fields, 1);
 per_field_w_nom  = cell(n_fields, 1);
 per_field_struct = cell(n_fields, 1);
+if opts.compute_los
+    per_field_dcdx = cell(n_fields, 1);
+end
 names = {};
 iElt_out = [];
 for k = 1:n_fields
@@ -127,8 +188,49 @@ for k = 1:n_fields
     session.modify();
     fprintf('[field %s] ChfRayDir = [%g %g %g]\n', ...
         fields(k).name, new_dir);
+    if opts.reset_xp
+        % Re-reference this field's exit pupil to its OWN chief ray: FEX
+        % writes the reference sphere into elt nElt-1 (= wf_elt), so the
+        % nominal (unpoked) wavefront there is tilt-removed.  That
+        % reference is element geometry, so it persists across the poke
+        % traces below and the rigid-body pokes act on elts 1..nElt-2,
+        % never touching elt nElt-1.  Net: the FIELD tilt is removed from
+        % the nominal, but a POKE's own tilt is retained.  Writing the EP
+        % here -- BEFORE dw_dx builds its channels -- lets a
+        % FocalPlaneChannel ('track') save/restore the POST-reset EP pose.
+        % FEX and SXP are merged in the engine, so FEX alone is well-posed
+        % for all exit-pupil placements.  FEX needs an aperture stop to
+        % define the chief ray; if none is set (Rx has no ApStop= and the
+        % caller passed no stop_elt / stop_obj_pos) rethrow with an
+        % actionable supervisor-level message.  (A stop-state preflight is
+        % not viable: get_stop_info reports only element-based stops and
+        % errors on an object-space stop, which FEX itself handles fine --
+        % so catching FEX's own verdict is the only false-negative-free
+        % check.)  The stop state is constant across the loop, so this
+        % branch only ever fires on the first field.
+        try
+            macos.fex(1);   % mode 1 = centre on chief ray
+        catch me
+            if strcmp(me.identifier, 'macos:fex:noStop')
+                error('macos:dw_dx_multi:noStop', ...
+                    ['reset_xp=true re-references the exit pupil per ' ...
+                     'field via FEX, which needs an aperture stop, but ' ...
+                     'none is set.  Add "ApStop= 0 0 1" to the Rx header ' ...
+                     '(or 0 0 0 for a stop at the primary), pass ' ...
+                     'stop_elt / stop_obj_pos, or set reset_xp=false to ' ...
+                     'keep the prescription''s frozen EP.']);
+            end
+            rethrow(me);
+        end
+        % Did FEX actually write? (engine writes nElt-1 only for a
+        % Return/Reference surface; elsewhere it declines silently.)  The
+        % shared guard also ERRORS if a write landed on a powered optic.
+        reset_ep_moved = reset_xp_guard('check', session, xp0, ...
+            reset_ep_moved, ep_is_powered);
+    end
     sf = macos.dw_dx(session, rx_path, ...
         'dofs', opts.dofs, ...
+        'elts', opts.elts, ...
         'fp_mode', opts.fp_mode, ...
         'ep_elt', opts.ep_elt, ...
         'include_source', opts.include_source, ...
@@ -138,22 +240,62 @@ for k = 1:n_fields
         'include_non_optics', opts.include_non_optics, ...
         'rot_output', opts.rot_output, ...
         'delta', opts.delta, ...
+        'delta_units', opts.delta_units, ...
         'method', opts.method, ...
         'exit_pupil_elt', opts.exit_pupil_elt, ...
         'verbose', opts.verbose, ...
-        'reload_rx', false);
+        'reload_rx', false, ...
+        'compute_los', opts.compute_los, ...
+        'spot_elt', opts.spot_elt);
+    % Guard: an empty OPD at the read surface (no surviving rays -- e.g.
+    % the beam footprint overflows a tight clip aperture at that field, or
+    % the trace is fully lost) yields a zero-row per-field block that
+    % otherwise scatters silently to nothing and later trips the
+    % center-tile check with an opaque scalar-logical error.  Fail loudly
+    % and actionably here instead.
+    if nnz(sf.w_nom_2d) == 0
+        error('macos:dw_dx_multi:emptyOPD', ...
+            ['field %s: OPD at the read surface (elt %d) has no non-zero ' ...
+             'samples -- 0 rays survived there.  Likely the beam footprint ' ...
+             'overflows a tight clip aperture at this field (strip the ' ...
+             'ApType= clips or widen the field/grid), or the trace is ' ...
+             'fully vignetted.'], fields(k).name, sf.wf_elt);
+    end
     per_field_dwdx{k}   = sf.dwdx;
     per_field_w_nom{k}  = sf.w_nom_2d;
     per_field_struct{k} = sf;
+    if opts.compute_los
+        per_field_dcdx{k} = sf.dcdx;
+    end
     if isempty(names), names = sf.channel_names; iElt_out = sf.iElt; end
     col_rms_mean = mean(sqrt(mean(sf.dwdx.^2, 1)));
-    fprintf('[field %s] dwdx shape [%d %d], mean col-RMS %.3e\n', ...
+    fprintf('[field %s] dwdx shape [%d %d], mean col-RMS %.3e', ...
         fields(k).name, size(sf.dwdx, 1), size(sf.dwdx, 2), col_rms_mean);
+    if opts.compute_los
+        los_rms_mean = mean(sqrt(sum(sf.dcdx.^2, 2)));
+        fprintf('  mean LOS-RMS %.3e', los_rms_mean);
+    end
+    fprintf('\n');
 end
 
 session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
                     'zSrc', nom.zSrc);
 session.modify();
+
+% Restore the prescription's exit-pupil reference (undo the per-field FEX
+% writes to elt nElt-1) so the session is left as loaded.
+if opts.reset_xp
+    macos.set_xp(xp0.vpt, xp0.psi, xp0.rad);
+    session.modify();
+end
+
+% NO-PUPIL GUARD: reset_xp was requested but FEX never moved the EP
+% element at any field -- this Rx has no exit-pupil element at nElt-1, so
+% the engine declined to write and the harvest is really FROZEN-EP.  Warn
+% once and stamp the truth so downstream convention asserts (run_compare)
+% see 'no-effect', not a false 'true'.
+reset_xp_stamp = reset_xp_guard('finalize', opts.reset_xp, ...
+    reset_ep_moved, session.num_elt() - 1);
 
 % ---- Tile OPDall + scatter dwdxall --------------------------------
 N = size(per_field_w_nom{1}, 1);
@@ -236,6 +378,17 @@ out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.rot_output           = opts.rot_output;
 out.cbm                  = per_field_struct{1}.cbm;
+out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
+
+% Add per-field LOS if SPOT was computed
+if opts.compute_los
+    out.dcdx_per_field = per_field_dcdx;
+    if isempty(opts.spot_elt)
+        out.spot_elt = session.num_elt();  % Default focal plane
+    else
+        out.spot_elt = opts.spot_elt;
+    end
+end
 end
 
 
@@ -335,3 +488,12 @@ while true
         str2double(toks{4}), str2double(toks{5})); %#ok<AGROW>
 end
 end
+
+function mustBeDeltaSize(d)
+    if ~(isequal(size(d), [1 1]) || isequal(size(d), [1 6]))
+        error('macos:dw_dx_multi:deltaSize', ...
+            'delta must be (1,1) or (1,6)');
+    end
+end
+
+

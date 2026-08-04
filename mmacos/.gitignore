@@ -12,3 +12,12 @@
 # The PNGs from verifyall.m ARE checked in as the canonical visual
 # reference for users; only the heavy .mat outputs are skipped.
 examples/sensitivities/**/*.mat
+
+# Large derived binary products (>= ~20 MB): NOT committed -- a small
+# committed <file>.fp.json fingerprint (jac_fingerprint) stands in as the
+# reviewable truth, and each consuming README documents the one command
+# that rebuilds the .mat from committed inputs.  Explicit paths (not a
+# blanket *.mat) so small reviewed artifacts -- presets, the ~6 MB
+# s6_compare.mat, s1-s3/s7 stage .mat, reports, .in -- stay tracked.
+design/examples/e2e/s4_jacobians.mat
+design/examples/e2e/e2e_pie_met.mat

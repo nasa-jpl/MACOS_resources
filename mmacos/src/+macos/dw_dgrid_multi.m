@@ -32,6 +32,8 @@ function out = dw_dgrid_multi(session, rx_path, opts)
 %                  basis (a macos.segment_grid_basis struct, or a cell per grid
 %                  element).  Default: a low-order Zernike-on-grid basis.
 %     'zmodes'     Noll/ANSI modes for the default basis.  Default [4 5 6 7 8 11].
+%     'elts'       Vector of element IDs to include.  Default [] (auto-detect all
+%                  grid-bearing elements from the loaded prescription).
 %     'delta', 'method', 'exit_pupil_elt', 'verbose'.
 %
 %   'ngridpts'  (default [] = keep the .in value) ray-grid sampling
@@ -47,6 +49,16 @@ function out = dw_dgrid_multi(session, rx_path, opts)
 %               field, not re-fit after each poke.  Requires a STOP set and
 %               > 3 elements.  Set false to keep the prescription's
 %               elt nElt-1 reference unchanged.
+%               Restore scope: the pre-loop EP is snapshotted and restored
+%               via get_xp/set_xp, i.e. vpt/psi/rad (VptElt/PsiElt/KrElt at
+%               nElt-1) only.  FEX-written auxiliary fields on the EP
+%               element (RptElt, zElt, fElt, eElt, KcElt) are left as
+%               re-derived, not rolled back -- callers who hand-author
+%               those on the EP element own re-asserting them afterward.
+%   'reset_xp_method'  DEPRECATED.  FEX and SXP are merged in the engine
+%               (FEX radius = chief-ray distance to iElt+1 = the FP), so
+%               FEX is the only path.  'sxp' is accepted as an alias with
+%               a one-time warning; do not rely on it.
 %
 %   OUTPUT STRUCT FIELDS:
 %     dwdgall       Nw x Ng canonical state-vector Jacobian
@@ -74,6 +86,7 @@ arguments
     opts.grid                   (1,:) char = ''
     opts.influence              = []   % [NxNxK] | per-segment struct | cell
     opts.zmodes                 (1,:) double = [4 5 6 7 8 11]
+    opts.elts                   (:,1) double = []
     opts.delta                  (1,1) double = 1e-6
     opts.method                 (1,:) char {mustBeMember(opts.method, ...
                                   {'central','forward'})} = 'central'
@@ -84,6 +97,9 @@ arguments
     opts.reset_xp_method        (1,:) char {mustBeMember(opts.reset_xp_method, ...
                                   {'fex','sxp'})} = 'fex'
     opts.ngridpts               double {mustBeScalarOrEmpty} = []
+    opts.src_samp               double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.compute_los            (1,1) logical = false
+    opts.spot_elt               double {mustBeScalarOrEmpty, mustBeInteger} = []
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -121,14 +137,33 @@ if opts.reload_rx
     session.load_rx(rx_path);
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dgrid_multi');
+
+% Apply source sampling if specified
+if ~isempty(opts.src_samp)
+    session.set_src_sampling(opts.src_samp);
+    session.modify();  % Flush cache so the new sampling takes effect
+end
+
 nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
 
+% reset_xp_method is DEPRECATED: FEX and SXP are merged in the engine, so
+% FEX is the only path now.  'sxp' is accepted as an alias (SegDemo3-era
+% scripts pass it) but warned once per session.
+if strcmp(opts.reset_xp_method, 'sxp')
+    warn_reset_xp_method_deprecated_();
+end
+
 % Snapshot the prescription's exit-pupil reference (elt nElt-1 geometry)
-% so the per-field FEX resets can be undone before returning.
+% so the per-field FEX resets can be undone before returning.  Track
+% whether FEX actually moves the EP (writes only into a Return/Reference
+% nElt-1; no-pupil decks are silent no-ops) + guard a powered-optic
+% clobber -- see private/reset_xp_guard.
+reset_ep_moved = false;
 if opts.reset_xp
     xp0 = macos.get_xp();
+    ep_is_powered = reset_xp_guard('is_powered', session);
 end
 
 % Resolve the influence basis ONCE so every field shares identical
@@ -141,6 +176,9 @@ end
 infl = opts.influence;
 if isempty(infl)
     g = macos.find_grid_elts();
+    if ~isempty(opts.elts)
+        g = intersect(g, opts.elts);
+    end
     if isempty(g)
         error('macos:dw_dgrid_multi:nogrid', ...
             'no grid-bearing elements in the loaded prescription');
@@ -157,6 +195,9 @@ end
 per_field_dwdg   = cell(n_fields, 1);
 per_field_w_nom  = cell(n_fields, 1);
 per_field_struct = cell(n_fields, 1);
+if opts.compute_los
+    per_field_dcdx = cell(n_fields, 1);
+end
 names = {};  iElt_out = [];  map_idx_out = [];
 for k = 1:n_fields
     new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
@@ -174,34 +215,43 @@ for k = 1:n_fields
         % nElt-1.  Net: the FIELD tilt is removed from the nominal, but a
         % POKE's own tilt is retained in the sensitivity (the reference is
         % NOT re-fit after poking).
-        % reset_xp_method='sxp' uses SXP instead of FEX -- SXP sets the EP
-        % reference radius to the EP->FP distance (the true exit-pupil focal
-        % length) rather than FEX's legacy iEm1->EP, so it stays well-posed
-        % when the Rx places the exit pupil near the preceding element (the
-        % SegDemo3* case: FEX collapses to a ~0.1 m sphere, ~half the rays
-        % miss elt nElt-1, OPD becomes a ~50 mm defocus bowl).
-        if strcmp(opts.reset_xp_method, 'sxp')
-            macos.sxp(1);   % EP radius = EP->FP (robust to a misplaced-EP Rx)
-        else
-            macos.fex(1);   % mode 1 = centre on chief ray
-        end
+        % FEX and SXP are merged in the engine: post-rework FEX sets the
+        % EP reference radius to the chief-ray distance to iElt+1 (= the
+        % FP), identical to what SXP produced -- so FEX is the single
+        % well-posed path for all EP placements (including the near-EP
+        % SegDemo3* layouts that once needed SXP).  reset_xp_method is
+        % retained only as a deprecated alias (warned once above).
+        macos.fex(1);   % mode 1 = centre on chief ray
+        reset_ep_moved = reset_xp_guard('check', session, xp0, ...
+            reset_ep_moved, ep_is_powered);
     end
     sf = macos.dw_dgrid(session, rx_path, ...
         'influence', infl, ...
+        'elts', opts.elts, ...
         'delta', opts.delta, ...
         'method', opts.method, ...
         'exit_pupil_elt', opts.exit_pupil_elt, ...
         'verbose', opts.verbose, ...
-        'reload_rx', false);    % keep current src_fov state
+        'reload_rx', false, ...
+        'compute_los', opts.compute_los, ...
+        'spot_elt', opts.spot_elt);    % keep current src_fov state
     per_field_dwdg{k} = sf.dwdg;
     per_field_w_nom{k} = sf.w_nom_2d;
     per_field_struct{k} = sf;
+    if opts.compute_los
+        per_field_dcdx{k} = sf.dcdx;
+    end
     if isempty(names)
         names = sf.channel_names;  iElt_out = sf.iElt;  map_idx_out = sf.map_idx;
     end
     col_rms_mean = mean(sqrt(mean(sf.dwdg.^2, 1)));
-    fprintf('[field %s] dwdg shape [%d %d], mean col-RMS %.3e\n', ...
+    fprintf('[field %s] dwdg shape [%d %d], mean col-RMS %.3e', ...
         fields(k).name, size(sf.dwdg, 1), size(sf.dwdg, 2), col_rms_mean);
+    if opts.compute_los
+        los_rms_mean = mean(sqrt(sum(sf.dcdx.^2, 2)));
+        fprintf('  mean LOS-RMS %.3e', los_rms_mean);
+    end
+    fprintf('\n');
 end
 
 % Restore source back to nominal.
@@ -215,6 +265,8 @@ if opts.reset_xp
     macos.set_xp(xp0.vpt, xp0.psi, xp0.rad);
     session.modify();
 end
+reset_xp_stamp = reset_xp_guard('finalize', opts.reset_xp, ...
+    reset_ep_moved, session.num_elt() - 1);
 
 % ---- Tile OPDall + scatter dwdgall --------------------------------
 N = size(per_field_w_nom{1}, 1);
@@ -306,7 +358,17 @@ out.delta                = opts.delta;
 out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.zmodes               = opts.zmodes;
-out.reset_xp             = opts.reset_xp;
+out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
+
+% Add per-field LOS if SPOT was computed
+if opts.compute_los
+    out.dcdx_per_field = per_field_dcdx;
+    if isempty(opts.spot_elt)
+        out.spot_elt = session.num_elt();  % Default focal plane
+    else
+        out.spot_elt = opts.spot_elt;
+    end
+end
 end
 
 
@@ -408,5 +470,18 @@ while true
     fields(end+1) = field_entry(toks{1}, ...
         str2double(toks{2}), str2double(toks{3}), ...
         str2double(toks{4}), str2double(toks{5})); %#ok<AGROW>
+end
+end
+
+
+function warn_reset_xp_method_deprecated_()
+% One-time-per-session deprecation notice for reset_xp_method='sxp'.
+persistent warned
+if isempty(warned)
+    warning('macos:dw_dgrid_multi:resetXpMethodDeprecated', ...
+        ['reset_xp_method is deprecated: FEX and SXP are merged in the ' ...
+         'engine, so FEX is used for the per-field exit-pupil reset ' ...
+         'regardless of this option.  ''sxp'' is accepted as an alias.']);
+    warned = true;
 end
 end
