@@ -729,8 +729,8 @@ again on a second, independent ground.
     Dropped in at a non-compliant point, every finite-difference direction is an error,
     the Jacobian is walls all the way round, and `lsqnonlin` hands back the seed it was
     given. That is a *seeding* failure and would have been reported as "this operating
-    point has no design": measured, the warm-started trade lost **three of five points**
-    that way, all of which `afocal4_pack_seed` then closed. Seed the search inside the
+    point has no design": measured, the warm-started trade lost **four of its five points**
+    that way, every one of which `afocal4_pack_seed` then closed. Seed the search inside the
     feasible region and let the wall bound it.
 
 11. **A sign change is not a root.**
