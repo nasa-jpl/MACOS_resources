@@ -48,6 +48,24 @@ classdef tPupilMap < matlab.unittest.TestCase
 %       defect.  The chief-normal number must be invariant to how the plane
 %       is oriented, and the ratio between the two must BE the areal 1/cos.
 %
+%   (g) THE RIM CONVENTION (Dave, 2026-08-04).  A coldstop masks the pupil's
+%       EDGE, so its pupil object is the RIM of the primary rather than the
+%       pole -- and Rodgers' decks already declare that plane: his stop sits
+%       50 mm ahead of the vertex, which is the sag of his R = -2500 mm
+%       parabola at r = 500 mm exactly.  Gated as an identity between two
+%       independently-supplied numbers.
+%   (h) AND THE ANCHOR CHANGES EXACTLY ONE THING.  A curved object images to
+%       a curved exit pupil, a flat one does not, so the two conventions'
+%       convergence surfaces must differ by the imaged object sag and by
+%       nothing else -- which is testable as a limit: shrink the used
+%       aperture and the difference must vanish with it.
+%   (i) THE RIM ZONE.  The edge annulus, scored separately.  With the zone
+%       set to the full radius its numbers are the full-aperture ones bit for
+%       bit; at 10% it selects only the outer nodes, and on these decks the
+%       pupil image really is worse there.
+%   (j) AND ALL OF IT IS OPT-IN.  The default (surface anchor, whole
+%       aperture) is pinned to values captured before 'rim' existed.
+%
 %   FIXTURES: the committed rodgers1 EPD-4060 exit-pupil deck (which carries
 %   an ExitPupil Return, so macos.pupil_quality has something to fit) and the
 %   committed rodgers2 S1 afocal deck.
@@ -260,6 +278,135 @@ classdef tPupilMap < matlab.unittest.TestCase
             tc.verifyEqual(o.image.n_zones, 3);
             tc.verifyEqual(o.image.n_field_samples, size(F,1), ...
                 'the kernel must record how coarsely the field was sampled');
+        end
+
+        function test_rim_plane_is_his_declared_stop(tc)
+        %  (g) THE RIM CONVENTION.  Dave's 2026-08-04 ruling: the pupil
+        %  object for a COLDSTOP metric is the RIM of the primary, and his
+        %  decks already declare it -- the stop 50 mm ahead of the pole IS
+        %  the rim plane, because the sag of an R = -2500 mm parabola at
+        %  r = 500 mm is 50.000 mm exactly.  Two numbers that come from
+        %  opposite ends of the prescription (a stop station typed into the
+        %  source block, a rim station traced off the primary) have to agree,
+        %  and this gate says by how much.
+            F = macos.design.field_grid(0.25*60, 3, 'units','arcmin');
+            o = pupil_map(tc.adeck, F, 'anchor','rim', 'nodes',15, 'init',false);
+            tc.verifyEqual(o.rim.radius, 0.500, 'AbsTol', 1e-9, ...
+                'the rim was not located at the declared beam edge');
+            tc.verifyEqual(o.rim.sag, 0.500^2/(2*2.5), 'AbsTol', 1e-9, ...
+                ['the traced rim sag is not the analytic sag of an ' ...
+                 'R = -2500 mm parabola at r = 500 mm']);
+            tc.verifyLessThan(abs(o.rim.stop_minus_rim), 1e-9, ...
+                ['the deck''s declared stop plane and its rim plane are not ' ...
+                 'the same plane -- the convention''s premise on these decks']);
+            % and it is not a tautology: the stop is 50 mm off the pole, so
+            % the agreement above is between two independent numbers, not
+            % between a number and itself.
+            tc.verifyGreaterThan(abs(o.rim.stop_offset), 0.04, ...
+                ['this deck declares its stop at the vertex, so the rim/stop ' ...
+                 'identity is vacuous on it']);
+            tc.verifyEqual(o.anchor_mode, 'rim');
+        end
+
+        function test_rim_and_surface_differ_by_the_imaged_object_sag(tc)
+        %  (h) WHAT THE ANCHOR CHANGES, and the thin-primary limit.
+        %  A curved object images to a curved exit pupil; a flat one does
+        %  not.  So the two conventions' CONVERGENCE SURFACES must differ by
+        %  the primary's own sag imaged at m^2 -- and by nothing else, which
+        %  means the difference has to vanish with the sag.  Shrinking the
+        %  used aperture is the clean way to take that limit: the same
+        %  telescope, the same solve, 1/100 of the sag.
+        %
+        %  (The blur is nearly anchor-independent -- 6e-5 relative on this
+        %  deck -- so gating the limit on blur would be gating nothing.  The
+        %  convergence surface is where the anchor lives, by a factor of 140.)
+            F = macos.design.field_grid(0.25*60, 3, 'units','arcmin');
+            txt = fileread(tc.adeck);
+            txt = regexprep(txt, '(?m)^[ \t]*nObs=[^\n]*', '         nObs=  0');
+            d = nan(1,2);   sag = nan(1,2);   br = nan(1,2);
+            ap = [1.0 0.1];
+            for i = 1:2
+                s = regexprep(txt, '(?m)^[ \t]*Aperture=[^\n]*', ...
+                              sprintf('         Aperture=%.16E', ap(i)));
+                f = [tempname '.in'];
+                fid = fopen(f,'w');  fprintf(fid,'%s',s);  fclose(fid);
+                a = pupil_map(f, F, 'nodes',15, 'init',false);
+                b = pupil_map(f, F, 'anchor','rim', 'nodes',15, 'init',false);
+                d(i)   = abs(a.surface.sag_rms - b.surface.sag_rms);
+                sag(i) = b.rim.sag;
+                br(i)  = b.blur.rms/a.blur.rms;
+                delete(f);
+            end
+            tc.verifyGreaterThan(d(1), 1e-5, ...
+                ['at full aperture the two anchors must give measurably ' ...
+                 'different convergence surfaces, or the limit below is ' ...
+                 'not testing anything']);
+            tc.verifyLessThan(d(2)/d(1), 0.02, ...
+                ['the anchor-to-anchor difference did not vanish with the ' ...
+                 'object sag -- the two conventions differ by more than the ' ...
+                 'imaged sag']);
+            tc.verifyEqual(sag(2)/sag(1), (ap(2)/ap(1))^2, 'RelTol', 1e-6, ...
+                'the rim sag does not scale as r^2 -- the rim fit is wrong');
+            tc.verifyEqual(br, [1 1], 'AbsTol', 1e-3, ...
+                'the anchor moved the pupil BLUR, which it has no business doing');
+        end
+
+        function test_rim_zone_is_the_edge_and_frac_1_is_the_aperture(tc)
+        %  (i) THE RIM ZONE.  Two statements.  First, the zone selection is
+        %  exact: with the zone set to the whole radius its numbers ARE the
+        %  full-aperture numbers, bit for bit -- the zone-uniform case, taken
+        %  as a limit rather than synthesised.  Second, the zone is the EDGE:
+        %  every node it scores lies outside (1-frac)*R, and on this deck the
+        %  edge of the pupil image is measurably worse than its average,
+        %  which is the whole reason a coldstop metric asks for it.
+            F = macos.design.field_grid(0.25*60, 3, 'units','arcmin');
+            o1 = pupil_map(tc.adeck, F, 'anchor','rim', 'nodes',15, ...
+                           'rim_zone',1, 'init',false);
+            tc.verifyEqual(o1.rim_zone.blur_rms,        o1.blur.rms);
+            tc.verifyEqual(o1.rim_zone.blur_max,        o1.blur.max);
+            tc.verifyEqual(o1.rim_zone.wander_rms,      o1.wander.rms);
+            tc.verifyEqual(o1.rim_zone.wander_best_rms, o1.best_plane.rms);
+            tc.verifyEqual(o1.rim_zone.n_nodes, nnz(o1.good), ...
+                'the full-radius zone did not select every scored node');
+
+            o = pupil_map(tc.adeck, F, 'anchor','rim', 'nodes',15, ...
+                          'rim_zone',0.10, 'init',false);
+            rn = vecnorm(o.nodes);
+            tc.verifyTrue(all(rn(o.rim_zone.sel) >= 0.90*o.rim_zone.r_outer - 1e-12), ...
+                'a node inside the annulus was scored as rim');
+            tc.verifyEqual(o.rim_zone.n_nodes, nnz(o.rim_zone.sel));
+            tc.verifyGreaterThan(o.rim_zone.n_nodes, 8, ...
+                'too few nodes in the rim zone for its rms to mean anything');
+            tc.verifyGreaterThan(o.rim_zone.blur_rms, o.blur.rms, ...
+                ['the pupil image is not worse at the rim than on average ' ...
+                 'here -- either the deck changed or the zone is not the edge']);
+            % the zone must sit between the full-aperture number and the
+            % worst node, never outside them
+            tc.verifyLessThanOrEqual(o.rim_zone.blur_max, o.blur.max*(1+1e-12));
+        end
+
+        function test_the_surface_anchor_is_bit_unchanged(tc)
+        %  (j) THE OPT-IN GATE.  'rim' and the rim zone are additions; the
+        %  DEFAULT convention is what run_compare, afocal4_score and every
+        %  committed number in RESULTS.md / PACKET.md were taken under.  The
+        %  values below were captured from the pre-'rim' pupil_map (HEAD
+        %  before this change) on the committed rodgers2 S1 deck and must not
+        %  move.  If a future change is meant to move them, this is the test
+        %  that makes that a decision rather than an accident.
+            F = macos.design.field_grid(0.25*60, 3, 'units','arcmin');
+            o = pupil_map(tc.adeck, F, 'nodes',15, 'init',false);
+            tc.verifyEqual(o.blur.rms,   1.5111768881276373e-04, 'RelTol',1e-12);
+            tc.verifyEqual(o.blur.max,   3.5039893850833352e-04, 'RelTol',1e-12);
+            tc.verifyEqual(o.best_plane.rms, 1.5275592951910781e-04, 'RelTol',1e-12);
+            tc.verifyEqual(o.wander.rms, 1.5865427353242221e-04, 'RelTol',1e-12);
+            tc.verifyEqual(o.map.mag,    2.9520102068706144e+01, 'RelTol',1e-12);
+            tc.verifyEqual(o.surface.ideal.beta_over_m2, ...
+                          -9.9077446988243323e-01, 'RelTol',1e-12);
+            tc.verifyEqual(o.surface.defocus, -2.6051612418968729e-05, ...
+                          'RelTol',1e-12);
+            tc.verifyEqual(o.anchor.resid_max, 1.6398283460283825e-09, ...
+                          'RelTol',1e-12);
+            tc.verifyEqual(o.anchor_mode, 'surface');
         end
 
         function test_kernel_lives_in_design_src(tc)

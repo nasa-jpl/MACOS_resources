@@ -59,7 +59,13 @@ function out = pupil_map(deck, Ffield, opts)
 %                                 curvature" is the error this reference
 %                                 exists to prevent.  .ideal.beta_over_m2
 %                                 is the measured ratio: 1 means the sag is
-%                                 imaged exactly as it should be.
+%                                 imaged exactly as it should be.  Under a
+%                                 FLAT anchor ('rim', 'stop', a plane) the
+%                                 object has no sag to image: beta is NaN
+%                                 and the ideal image is a PLANE, so the
+%                                 residual is taken against the best-fit
+%                                 plane instead.  Same sentence, different
+%                                 object.
 %                      .flat      residual against the FLAT placed plane =
 %                                 the operational number.
 %     (3) .map       the transverse map entrance -> exit: magnification
@@ -107,6 +113,30 @@ function out = pupil_map(deck, Ffield, opts)
 %          image of the PRIMARY (its segment gaps, its spider, its hole),
 %          and on a segmented primary that surface is the thing with
 %          structure on it.
+%     'anchor','rim' anchors on the FLAT PLANE THROUGH THE OBJECT ELEMENT'S
+%          RIM, normal to that element's own axis -- the convention for a
+%          COLDSTOP (Dave, 2026-08-04).  Tradition puts the pupil at the rim
+%          of the primary and the pole is laziness: a coldstop's job is
+%          masking the aperture EDGE, and the choice is a real one rather
+%          than a nicety because the pupil-imaging depth of focus,
+%          lambda/(2*NA_field^2), is SMALLER than the primary's own imaged
+%          depth (~30 um against ~56 um on the Rodgers2 deck), so rim- and
+%          pole-conjugate planes are resolvably different.  A flat object
+%          images to a flat ideal image, so the curved-object correction
+%          .ideal does not apply and the reference becomes the best-fit
+%          PLANE (see below).  The rim station is measured from the traced
+%          bundle -- sag fitted in r^2 over every ray that reaches the
+%          element and evaluated at the outermost one -- not read from the
+%          prescription's ApStop, because the two are not always the same
+%          plane: Rodgers' own decks declare the stop 50 mm ahead of the
+%          pole, which IS his rim plane to 8 nm (.rim.stop_minus_rim says
+%          so, and it is a measurement, not an assumption), while the decks
+%          afocal4_build emits declare it at the vertex.
+%          THE RIM IS ALSO A ZONE, not just a plane: .rim_zone reports the
+%          blur and wander of the outermost 'rim_zone' fraction of the
+%          pupil radius beside the full-aperture numbers, because that
+%          annulus is the part of the pupil image a coldstop's margin is
+%          actually decided on.
 %     'anchor','stop' anchors on the flat plane through the prescription's
 %          ApStop normal to the box-centre chief -- the classical ENTRANCE
 %          PUPIL.  This is what the engine's XPS computes (it rotates the
@@ -126,7 +156,11 @@ function out = pupil_map(deck, Ffield, opts)
 %   everything else on the ladder.  Quote which anchor a number came from.
 %
 %   Name-value:
-%     'anchor'      'surface' (default) | 'stop' | a plane struct (above)
+%     'anchor'      'surface' (default) | 'rim' | 'stop' | a plane struct
+%     'rim_zone'    outer annulus, as a fraction of the pupil radius, that
+%                   .rim_zone scores (0.10).  1 makes the zone the whole
+%                   aperture, and its numbers then reproduce the full-
+%                   aperture ones exactly.
 %     'obj_elt'     entrance-pupil element for 'surface' anchoring (default 1)
 %     'img_elt'     element at which the exit ray lines are read, and whose
 %                   plane is the PLACED plane (default: the last element)
@@ -146,6 +180,7 @@ function out = pupil_map(deck, Ffield, opts)
         deck (1,:) char
         Ffield (:,2) double
         opts.anchor     = 'surface'
+        opts.rim_zone   (1,1) double {mustBePositive} = 0.10
         opts.obj_elt    (1,1) double = 1
         opts.img_elt    (1,1) double = 0
         opts.nodes      (1,1) double {mustBeInteger,mustBePositive} = 21
@@ -184,13 +219,26 @@ function out = pupil_map(deck, Ffield, opts)
 
     if opts.init, macos.init(opts.model_size); end
 
+    tmp = [tempname '.in'];
+    cu  = onCleanup(@() del_(tmp)); %#ok<NASGU>
+
     % ---- the anchor: a curved element surface, or a fixed flat plane ------
     [~, kc] = min(sum(Ffield.^2, 2));
     anc = opts.anchor;
+    rim = nan_rim_();
     if ischar(anc) && strcmpi(anc,'stop')
         cbx = bx0 + Ffield(kc,1);   cby = by0 + Ffield(kc,2);
         nc  = [sin(cbx); sin(cby); sqrt(max(0,1-sin(cbx)^2-sin(cby)^2))];
         anc = struct('Vpt', apst(:).', 'psi', nc(:).');
+    elseif ischar(anc) && strcmpi(anc,'rim')
+        % The rim plane is MEASURED, not declared: one trace of the
+        % box-centre field, the sag fitted in r^2 across every ray that
+        % reaches the element, evaluated at the outermost one.  Reading it
+        % from ApStop instead would be right on Rodgers' decks and 50 mm
+        % wrong on the ones afocal4_build emits.
+        rim = rim_plane_(txt, tmp, apst, stand, bx0 + Ffield(kc,1), ...
+                         by0 + Ffield(kc,2), io, ii, V1, n1, 0.5*beam_dia_(txt));
+        anc = struct('Vpt', (V1 + n1*rim.sag).', 'psi', n1.');
     end
     index_group = ischar(anc) && strcmpi(anc,'index');
     if index_group, anc = 'surface'; end
@@ -204,21 +252,21 @@ function out = pupil_map(deck, Ffield, opts)
                    '(zSource >= 1e10); this deck is not collimated']);
         end
         anchor_mode = 'plane';
+        if isfinite(rim.sag), anchor_mode = 'rim'; end
     else
         A0 = V1;   nA = n1;   anchor_mode = 'surface';
     end
+    flat_anchor = ~strcmp(anchor_mode,'surface');
     [a1,a2] = perp_(nA);
 
     % ---- trace every field, twice (entrance then exit) --------------------
-    tmp = [tempname '.in'];
-    cu  = onCleanup(@() del_(tmp)); %#ok<NASGU>
     S = struct('m',{},'sag',{},'pe',{},'de',{},'chief',{});
     for k = 1:K
         bx = bx0 + Ffield(k,1);   by = by0 + Ffield(k,2);
         [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, ...
                                               bx, by, io, ii);
         Q = Pm(:,ok);
-        if strcmp(anchor_mode,'plane')
+        if flat_anchor
             % back-project each ray along the (collimated) source direction
             % onto the fixed anchor plane
             cd = [sin(bx); sin(by); sqrt(max(0,1-sin(bx)^2-sin(by)^2))];
@@ -395,18 +443,24 @@ function out = pupil_map(deck, Ffield, opts)
     zres = sg(good) - zbasis_(un,vn)*zc;
     gi = @(nm) zc(strcmp(znames,nm));
     % ideal image of the entrance sag: fit sag_exit = piston + tilt + beta*sag_in
-    % A FLAT anchor has no sag, so this reference does not exist there -- it
-    % is the curved-primary correction and nothing else.  Report NaN rather
-    % than a number fitted to round-off.
+    % A FLAT anchor has no sag, so the CURVED-object correction does not
+    % exist there -- beta is NaN and says so.  What replaces it is not
+    % nothing: a flat object's ideal image is a PLANE, so the reference
+    % becomes the best-fit plane (piston + tilt, which are frame terms) and
+    % the residual against it is the aberration.  Both branches therefore
+    % return .ideal.resid_*, and both mean "net of the ideal image of this
+    % object"; only the object differs.
     m2  = prod(sv);                        % longitudinal magnification
     sag_in_pv = max(sagn(good)) - min(sagn(good));
-    if strcmp(anchor_mode,'surface') && sag_in_pv > 1e-9
+    if ~flat_anchor && sag_in_pv > 1e-9
         Ai = [ones(nnz(good),1), un, vn, sagn(good).'];
         ci = Ai\sg(good);
         ires = sg(good) - Ai*ci;
         beta = ci(4);
     else
-        beta = NaN;   ires = nan(nnz(good),1);
+        Ai = [ones(nnz(good),1), un, vn];
+        ires = sg(good) - Ai*(Ai\sg(good));
+        beta = NaN;
     end
     % flat placed plane: signed distance of each convergence point from it
     dfl = (npl.'*(X - plane.Vpt(:))).';
@@ -429,6 +483,15 @@ function out = pupil_map(deck, Ffield, opts)
     wander = wander_(PE, DE, plane.Vpt(:), npl, b1, b2, good, Rex);
     bestpl = best_plane_(PE, DE, plane.Vpt(:), npl, ne, b1, b2, good, Rex);
 
+    % ---- the RIM ZONE: the same two metrics, over the outer annulus only ---
+    % A coldstop masks the aperture EDGE, so its margin is decided by the
+    % pupil image out there and not by an average that the well-behaved
+    % centre dominates.  Reported BESIDE the full-aperture numbers, never
+    % instead of them, and available under every anchor -- the zone is a
+    % question about where on the pupil you look, which is independent of
+    % what the cones were anchored to.
+    rimz = rim_zone_(nod, good, waist, wmax, wander, bestpl, opts.rim_zone);
+
     % ---- diffraction floor --------------------------------------------------
     na = sin(max(halfang(good)));
     diffraction = struct('NA_field',na, 'floor_m', lam/(2*max(na,realmin)), ...
@@ -444,7 +507,7 @@ function out = pupil_map(deck, Ffield, opts)
                       'rms',rms(waist(good)), 'max',max(wmax(good)), ...
                       'median',median(waist(good))), ...
         'surface',surface, 'map',map, ...
-        'wander',wander, 'best_plane',bestpl, ...
+        'wander',wander, 'best_plane',bestpl, 'rim',rim, 'rim_zone',rimz, ...
         'anchor',struct('resid',ares, 'resid_max',max(ares(good)), ...
                         'blur_ratio', max(ares(good))/max(rms(waist(good)),realmin)), ...
         'diffraction',diffraction, 'image',[]);
@@ -465,8 +528,17 @@ function report_(o)
         nnz(o.good), numel(o.good));
     fprintf('  (0) anchoring   resid %8.3f um   = %.1f%% of the blur\n', ...
         o.anchor.resid_max*1e6, 100*o.anchor.blur_ratio);
+    if isfinite(o.rim.sag)
+        fprintf(['      rim plane   sag %8.4f mm at r %8.4f mm (%s edge, fit ' ...
+                 'resid %.3f um); declared stop %+.4f mm from it\n'], ...
+            o.rim.sag*1e3, o.rim.radius*1e3, o.rim.edge, ...
+            o.rim.fit_resid*1e6, o.rim.stop_minus_rim*1e3);
+    end
     fprintf('  (1) blur        rms %8.3f um   max %8.3f um   (diffraction floor %.2f um)\n', ...
         o.blur.rms*1e6, o.blur.max*1e6, o.diffraction.floor_m*1e6);
+    fprintf(['      rim zone (outer %.0f%%, %d nodes)  blur rms %8.3f um   ' ...
+             'max %8.3f um\n'], 100*o.rim_zone.frac, o.rim_zone.n_nodes, ...
+        o.rim_zone.blur_rms*1e6, o.rim_zone.blur_max*1e6);
     fprintf(['  (2) surface     defocus %+8.3f mm  astig [%+7.3f %+7.3f] mm  ' ...
              'sag %7.3f mm rms\n'], o.surface.defocus*1e3, o.surface.astig*1e3, ...
              o.surface.sag_rms*1e3);
@@ -492,9 +564,93 @@ function report_(o)
     fprintf('                  best plane    rms %8.3f um  max %8.3f um  (shift %+7.3f mm, tilt %+7.4f deg)\n', ...
         o.best_plane.rms*1e6, o.best_plane.max*1e6, o.best_plane.shift*1e3, ...
         o.best_plane.tilt_deg);
+    fprintf(['      rim zone      placed rms %8.3f um   best rms %8.3f um   ' ...
+             '(r %.1f .. %.1f mm)\n'], o.rim_zone.wander_rms*1e6, ...
+        o.rim_zone.wander_best_rms*1e6, o.rim_zone.r_inner*1e3, ...
+        o.rim_zone.r_outer*1e3);
 end
 
 % =====================================================================
+function R = nan_rim_()
+%NAN_RIM_  The rim block, absent.  Returned under every other anchor so the
+%   output struct has ONE shape and arrays of results concatenate.
+    R = struct('sag',NaN, 'radius',NaN, 'radius_traced',NaN, ...
+               'radius_declared',NaN, 'edge',' ', 'n_rays',0, ...
+               'fit_resid',NaN, 'stop_offset',NaN, 'stop_minus_rim',NaN);
+end
+
+function R = rim_plane_(txt, tmp, apst, stand, bx, by, io, ii, V1, n1, Rdec)
+%RIM_PLANE_  The flat plane through the object element's RIM, measured.
+%
+%   One trace of the box-centre field gives every ray's hit point on the
+%   element.  Resolve each into a station along the element's own axis and a
+%   radius from it, fit  station = c0 + c2*r^2 + c4*r^4  -- exact for a conic
+%   to the order kept, and it uses every ray rather than the handful nearest
+%   the edge -- and evaluate it at the OUTERMOST radius.  That station is the
+%   rim, and the plane through it normal to the axis is the pupil object a
+%   coldstop is conjugate to.
+%
+%   THE EDGE IS THE DECLARED BEAM EDGE, NOT THE OUTERMOST RAY.  A circular
+%   ray grid's last ring lands just inside the aperture -- 498.85 mm on a
+%   500 mm beam at nGridpts 41 -- and taking that as the rim reports a sag
+%   0.23 mm short, which is a sampling artefact masquerading as geometry.
+%   The r^2 fit is therefore evaluated at the source's declared semi-
+%   aperture when that is within a few percent above the outermost ray, and
+%   .edge says which edge was used.
+%
+%   .stop_minus_rim is the identity check worth printing: on Rodgers' decks
+%   the declared stop sits 50 mm ahead of the pole, which is exactly the rim
+%   sag of an R = -2500 mm primary at r = 500 mm, so the number is ~0 and the
+%   deck's own stop IS its rim plane.  On a deck that declares the stop at
+%   the vertex it comes back as the sag, which is the honest statement that
+%   the two planes are different there.
+    [Pm, ~, ~, ok] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii);
+    if nnz(ok) < 8
+        error('macos:design:pupil_map:rim', ...
+              ['only %d rays reached element %d, which is not enough to ' ...
+               'locate its rim'], nnz(ok), io);
+    end
+    d  = Pm(:,ok) - V1;
+    ax = n1.'*d;                              % station along the axis
+    rr = vecnorm(d - n1*ax);                  % radius from the axis
+    Rt = max(rr);
+    Rr = Rt;   edge = 'traced';
+    if isfinite(Rdec) && Rdec >= Rt && Rdec <= 1.05*Rt
+        Rr = Rdec;   edge = 'declared';
+    end
+    A  = [ones(numel(rr),1), (rr(:)/Rt).^2, (rr(:)/Rt).^4];
+    c  = A\ax(:);
+    u  = Rr/Rt;
+    R  = struct('sag', c(1) + c(2)*u^2 + c(3)*u^4, 'radius', Rr, ...
+                'radius_traced', Rt, 'radius_declared', Rdec, ...
+                'edge', edge, 'n_rays', nnz(ok), ...
+                'fit_resid', max(abs(ax(:) - A*c)), ...
+                'stop_offset', n1.'*(apst(:) - V1));
+    R.stop_minus_rim = R.stop_offset - R.sag;
+end
+
+function Z = rim_zone_(nod, good, waist, wmax, W, B, frac)
+%RIM_ZONE_  Blur and wander over the outermost FRAC of the pupil radius.
+%   FRAC = 1 makes the zone the whole aperture, and every number below then
+%   equals its full-aperture counterpart by construction -- which is how the
+%   zone selection is gated.
+    rn = vecnorm(nod);
+    Rn = max(rn(good));
+    rin = (1 - min(frac,1))*Rn;
+    sel = good & rn >= rin*(1 - 1e-12);
+    Z = struct('frac',frac, 'r_inner',rin, 'r_outer',Rn, 'n_nodes',nnz(sel), ...
+               'sel',sel, 'blur_rms',NaN, 'blur_max',NaN, ...
+               'wander_rms',NaN, 'wander_max',NaN, ...
+               'wander_best_rms',NaN, 'wander_best_max',NaN);
+    if ~any(sel), return; end
+    Z.blur_rms        = rms(waist(sel));
+    Z.blur_max        = max(wmax(sel));
+    Z.wander_rms      = rms(W.per_node_rms(sel));
+    Z.wander_max      = max(W.per_node_max(sel));
+    Z.wander_best_rms = rms(B.per_node_rms(sel));
+    Z.wander_best_max = max(B.per_node_max(sel));
+end
+
 function [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii)
 %TRACE_FIELD_  One field: entrance hits, exit ray lines, exit chief.
 %   TWO traces, no reload between them -- macos.trace(k) reports at element
@@ -707,6 +863,12 @@ function [cdir, cpos, apst, lam] = deck_src_(txt)
     apst = grab3_(txt,'ApStop');
     t = regexp(txt,'Wavelen=\s*([-\d.EeD+]+)','tokens','once');
     lam = str2double(strrep(t{1},'D','E'));
+end
+
+function d = beam_dia_(txt)
+%BEAM_DIA_  The source's declared beam DIAMETER, or NaN if the deck has none.
+    t = regexp(txt,'(?m)^\s*Aperture=\s*([-\d.EeD+]+)','tokens','once');
+    if isempty(t), d = NaN; else, d = str2double(strrep(t{1},'D','E')); end
 end
 
 function v = grab3_(txt, key)
