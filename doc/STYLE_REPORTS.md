@@ -25,6 +25,11 @@
   parity flips"); coined shorthand ("the fork", "basin 2", "girth")
   stays in working notes — a deliverable defines a term once or does
   without it.
+- Depersonalized except when essential to name: "the delivered
+  design", "the reported values", "the CODE V decks" — not "his".
+  A person is named ("Rodgers", "Mike") only when the sentence is
+  about the person: an action item, a question to them, an
+  attribution that matters.
 - Significant figures match the measurement: do not quote six digits
   of a 2% effect.
 
@@ -93,6 +98,9 @@ before send.
 - 2026-08-04 (Dave): avoid jargon — be literal, use short words.
   (Folded into §1.  Earned by the Rodgers decks: "parity flip",
   "basin", "girth", "the fork".)
+- 2026-08-04 (Dave): depersonalized except when essential to name —
+  "his" becomes "the delivered/reported/CODE V …" or names the person
+  outright when the person is the point.  (Folded into §1.)
 - 2026-08-04 (Dave): claims of feasibility stay modest — meeting a
   packaging constraint is a screen, not a layout; say what still
   needs work (the Rodgers2 "buildable" de-emphasis: the long back
