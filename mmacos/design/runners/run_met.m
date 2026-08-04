@@ -109,6 +109,19 @@ arguments
                                 % as-built for future PIE builds" --
                                 % Dave 2026-07-19).  Every optimized
                                 % run writes <name>_met_preset.mat.
+    opts.opt_preset = []        % LAYOUT-HELD REGEN (no search): apply a
+                                % saved preset AS the optimizer winner --
+                                % emit <name>_metopt.in, the optimized
+                                % products (dldx_opt/dxde/dwde), and the
+                                % [4b] "optimized" row from the applied
+                                % layout, WITHOUT running met_layout_opt.
+                                % Use to refresh the committed products
+                                % against a new Jacobian generation while
+                                % holding the reviewed layout exactly
+                                % (mutually exclusive with 'optimize').
+                                % Distinct from 'preset' (which makes the
+                                % AS-BUILT be the preset); here the
+                                % as-built stays the default boundary ring.
     opts.ngridpts double = []
     opts.model_size (1,1) double = 512
     opts.mc (1,1) double {mustBeInteger, mustBeNonnegative} = 200
@@ -119,6 +132,14 @@ arguments
 end
 assert(isfile(seg_in), 'run_met: %s not found', seg_in);
 assert(isfile(opts.hx), 'run_met: Hx sidecar %s not found', opts.hx);
+% opt_preset (layout-held regen) and optimize (fresh search) are mutually
+% exclusive: opt_preset realizes a fixed winner, optimize searches for one.
+if ~isempty(opts.opt_preset) && opts.optimize
+    error('run_met:optPreset', ...
+        ['opt_preset (hold a saved layout) and optimize (search for a ' ...
+         'new one) are mutually exclusive -- set optimize=false to hold ' ...
+         'the preset layout.']);
+end
 [ind, base] = fileparts(seg_in);
 out_dir = opts.out_dir;  if strlength(out_dir) == 0, out_dir = ind; end
 name = opts.name;        if strlength(name) == 0,   name = base; end
@@ -351,6 +372,26 @@ if opts.optimize && ~isempty(D)
         say(['    NO feasible layout under min_sep=%g -- keeping the ' ...
              'as-built truss (widen grids or relax min_sep)\n'], min_sep);
     end
+elseif ~isempty(opts.opt_preset) && ~isempty(D)
+    % LAYOUT-HELD REGEN: realize the saved preset AS the optimizer winner
+    % (no search).  Apply-mode returns the same optout shape the search
+    % does (best/launch_pts/classes/pmap_per_seg) minus the merit rb; the
+    % engine-FD validation block below computes rb honestly on the realized
+    % layout, so we seed a finite placeholder purely to pass the gate.
+    etxt = 'MET-only';  E_opt = zeros(0, size(dedx, 2));
+    if opts.optimize_with_edge, E_opt = dedx; end
+    pre = opts.opt_preset;
+    if ischar(pre) || isstring(pre), Sp = load(pre); pre = Sp.preset; end
+    say('\n[4] layout held from preset (no search; %s merit for the report):\n', etxt);
+    optout = macos.design.met_layout_opt(seg, D, E_opt, X, ...
+        'apply', pre, 'hub', opts.hub, 'aft', opts.aft, ...
+        'r_extra', opts.r_extra, 'sig_edge', opts.sig_edge, ...
+        'sig_met', opts.sig_met, 'edge_off', edge_off, ...
+        'min_sep', min_sep, 'fid_inset', fid_inset, 'unit_to_m', cbm, ...
+        'gram', Gdt, 'nw', nwdt, 'verbose', opts.verbose);
+    if ~isfield(optout, 'rb') || isempty(optout.rb) || ~isfinite(optout.rb)
+        optout.rb = 0;   % placeholder; the real merit is rfd, computed below
+    end
 end
 if ~isempty(optout) && isfinite(optout.rb)
     for c = 1:numel(optout.classes)
@@ -378,8 +419,17 @@ if ~isempty(optout) && isfinite(optout.rb)
                  opts.sig_met^2*eye(size(dm2.dldx, 1)));
     Pv = X - X*Hv'*((Hv*X*Hv' + Rv) \ (Hv*X));
     rfd = sqrt(trace(Pv*Gdt)/nwdt);
-    say('    engine-FD validation (non-tilt merit): %.4g nm (analytic %.4g, %.2f%% off)\n', ...
-        rfd*1e9, optout.rb*1e9, 100*abs(rfd - optout.rb)/max(optout.rb, eps));
+    if ~isempty(opts.opt_preset)
+        % held-from-preset: no search merit to compare against; rfd IS the
+        % realized layout's merit.  Adopt it as optout.rb so downstream
+        % labels/figures read a real number, not the placeholder.
+        optout.rb = rfd;
+        say('    engine-FD merit (non-tilt, layout held from preset): %.4g nm\n', ...
+            rfd*1e9);
+    else
+        say('    engine-FD validation (non-tilt merit): %.4g nm (analytic %.4g, %.2f%% off)\n', ...
+            rfd*1e9, optout.rb*1e9, 100*abs(rfd - optout.rb)/max(optout.rb, eps));
+    end
     % winner products (edge+MET estimator -- exclusion was only for the
     % LAYOUT merit) supersede the as-built ones for downstream stages
     H2 = [dedx; dm2.dldx];
@@ -404,7 +454,9 @@ if ~isempty(D)
     if ~isempty(optout) && isfinite(optout.rb)
         rows(end+1, :) = {'optimized', dm2.dldx, NaN};
     end
-    if ~isempty(optout)
+    if ~isempty(optout) && isfield(optout, 'extras')
+        % benchmark layouts exist only from a search; a held/applied
+        % preset (opt_preset) returns no 'extras'.
         for q = 1:numel(optout.extras)
             xq = optout.extras(q);
             rows(end+1, :) = {char(xq.name), ...
