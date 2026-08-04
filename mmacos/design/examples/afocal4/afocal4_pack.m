@@ -196,12 +196,34 @@ function K = afocal4_pack(P, deck, opts)
             end
         end
     end
+    % The envelope is a CYLINDER of radius instr_dia/2 about the folded
+    % chief, not a line along it -- so what has to clear the beams is its
+    % WALL, and the margin carries the -hw.  Getting that wrong makes the
+    % check disagree with the one AFOCAL4_S4B runs on the folded deck
+    % (which measures point-to-axis distances directly), and the folded
+    % deck is the one telling the truth.
     K.instr.x_other  = xmax;
-    K.instr.clear_m  = dfp - xmax;
+    K.instr.clear_m  = dfp - hw - xmax;
     K.instr.clears_beams = K.instr.clear_m > 0;
+    % ... and the actionable form of the same statement: the biggest
+    % instrument that fits at this standoff.  A binary verdict against an
+    % assumed 300 mm envelope hides the fact that the fold's lever arm --
+    % and therefore the interface standoff -- is what sets it.
+    K.instr.dia_max = 2*max(0, dfp - xmax);
     % (c) and it must all sit behind the primary
     K.instr.clears_m1 = K.instr.z_min >= 0 || ...
                         K.instr.r_min > pk.m1_keepout;
+
+    % ---- 4. incidence angles on the POWERED surfaces -------------------
+    % Reported, not gated.  The compliant closures move the field mirror
+    % well past the intermediate image, where the chief ray is high and its
+    % incidence is not obviously small any more, and a mirror worked at 30
+    % degrees is a different part from one worked at 5.  The FLAT fold and
+    % the interface plane are excluded on purpose: a fold's incidence is a
+    % packaging choice, not an optical constraint, and folding it into the
+    % same column is the e2e2 trap.
+    K.aoi = aoi_(b, names, nM);
+    K.aoi_max_spread = max([0, K.aoi.spread_deg]);
 
     K.ok = K.ok_station && K.ok_fold && K.instr.clears_m1 && ...
            K.instr.clears_beams;
@@ -250,13 +272,63 @@ function report_(K, pk)
                  '%.0f mm, in the x-y plane at z %+.3f m (slab %+.3f..%+.3f)  %s\n'], ...
                 K.instr.r_min*1e3, K.instr.r_max*1e3, K.instr.z_fold, ...
                 K.instr.z_min, K.instr.z_max, tick_(K.instr.clears_m1));
-        fprintf(['      clearance to the nearest other bundle in that slab: ' ...
-                 '%+.1f mm  (envelope %.0f, beam %.0f)  %s\n'], ...
-                K.instr.clear_m*1e3, K.instr.r_min*1e3, K.instr.x_other*1e3, ...
+        fprintf(['      envelope wall vs the nearest other bundle: %+.1f mm  ' ...
+                 '(offset %.0f, radius %.0f, beam %.0f) -- largest instrument ' ...
+                 'that fits here: %.0f mm dia  %s\n'], ...
+                K.instr.clear_m*1e3, K.instr.r_min*1e3, 500*pk.instr_dia, ...
+                K.instr.x_other*1e3, K.instr.dia_max*1e3, ...
                 tick_(K.instr.clears_beams));
+    end
+    if isfield(K,'aoi') && ~isempty(K.aoi)
+        fprintf('    incidence on the powered surfaces (reported, not gated):');
+        for i = 1:numel(K.aoi)
+            fprintf('  %s %.1f+-%.1f deg', K.aoi(i).name, ...
+                    K.aoi(i).mid_deg, 0.5*K.aoi(i).spread_deg);
+        end
+        fprintf('\n');
     end
     if K.ok, fprintf('    => BUILDABLE\n');
     else,    fprintf('    => NOT BUILDABLE: %s\n', K.why);
+    end
+end
+
+function A = aoi_(b, names, nM)
+%AOI_  Incidence over the meridional fan, per powered mirror: the MEDIAN
+%   and the full spread.  Not "the chief ray's AOI" -- the fan IS the
+%   pupil, so on an f/1.25 primary the spread is the f-number (M1 reads
+%   11.8 deg of it) and only the difference BETWEEN mirrors is a statement
+%   about the layout.  A mirror turns the beam by 180 - 2*AOI (normal incidence
+%   reverses it), so AOI = 90 - acos(d_in . d_out)/2 per ray -- no surface
+%   normal needed (the AOI_REPORT identity).  Read from the YZ fan alone,
+%   which is exact here because these designs are coaxial and biased in y:
+%   the meridian that carries the chief carries the true angles.
+%
+%   Taken from the POLYLINE, not from the per-leg segment lists: a ray that
+%   drops out on one leg would desync two index-matched lists and turn a
+%   missing ray into a wrong angle.
+    acc = cell(1, nM);
+    for r = 1:b.nray
+        for i = 2:b.nper(r)-1
+            k = b.elt(i,r);
+            % M1 included: its in-leg is the incoming beam, which is a real
+            % straight ray, and on a biased design its incidence is the
+            % field angle -- worth seeing beside the others.
+            if k < 1 || k > nM, continue; end
+            di = [b.U(i,r)-b.U(i-1,r), b.V(i,r)-b.V(i-1,r)];
+            do = [b.U(i+1,r)-b.U(i,r), b.V(i+1,r)-b.V(i,r)];
+            if norm(di) < eps || norm(do) < eps, continue; end
+            di = di/norm(di);   do = do/norm(do);
+            acc{k}(end+1) = 90 - rad2deg(acos(max(-1,min(1, dot(di,do)))))/2;
+        end
+    end
+    A = struct('name',{},'elt',{},'mid_deg',{},'min_deg',{},'max_deg',{}, ...
+               'spread_deg',{});
+    for k = 1:nM
+        a = acc{k};   a = a(isfinite(a));
+        if isempty(a), continue; end
+        A(end+1) = struct('name',names{k}, 'elt',k, 'mid_deg',median(a), ...
+                          'min_deg',min(a), 'max_deg',max(a), ...
+                          'spread_deg',max(a)-min(a)); %#ok<AGROW>
     end
 end
 
