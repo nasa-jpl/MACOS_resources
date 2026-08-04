@@ -156,9 +156,14 @@ if strcmp(opts.reset_xp_method, 'sxp')
 end
 
 % Snapshot the prescription's exit-pupil reference (elt nElt-1 geometry)
-% so the per-field FEX resets can be undone before returning.
+% so the per-field FEX resets can be undone before returning.  Track
+% whether FEX actually moves the EP (writes only into a Return/Reference
+% nElt-1; no-pupil decks are silent no-ops) + guard a powered-optic
+% clobber -- see private/reset_xp_guard.
+reset_ep_moved = false;
 if opts.reset_xp
     xp0 = macos.get_xp();
+    ep_is_powered = reset_xp_guard('is_powered', session);
 end
 
 % Resolve the influence basis ONCE so every field shares identical
@@ -217,6 +222,8 @@ for k = 1:n_fields
         % SegDemo3* layouts that once needed SXP).  reset_xp_method is
         % retained only as a deprecated alias (warned once above).
         macos.fex(1);   % mode 1 = centre on chief ray
+        reset_ep_moved = reset_xp_guard('check', session, xp0, ...
+            reset_ep_moved, ep_is_powered);
     end
     sf = macos.dw_dgrid(session, rx_path, ...
         'influence', infl, ...
@@ -258,6 +265,8 @@ if opts.reset_xp
     macos.set_xp(xp0.vpt, xp0.psi, xp0.rad);
     session.modify();
 end
+reset_xp_stamp = reset_xp_guard('finalize', opts.reset_xp, ...
+    reset_ep_moved, session.num_elt() - 1);
 
 % ---- Tile OPDall + scatter dwdgall --------------------------------
 N = size(per_field_w_nom{1}, 1);
@@ -349,7 +358,7 @@ out.delta                = opts.delta;
 out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.zmodes               = opts.zmodes;
-out.reset_xp             = opts.reset_xp;
+out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
 
 % Add per-field LOS if SPOT was computed
 if opts.compute_los

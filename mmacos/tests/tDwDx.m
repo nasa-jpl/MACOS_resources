@@ -383,23 +383,62 @@ classdef tDwDx < matlab.unittest.TestCase
                 'single on-axis field: reset_xp must be a no-op (identity)');
         end
 
-        % NOTE (wide-field benefit gate -- DEFERRED, see report to CCL
-        % 2026-08-04): the intended gate -- reset_xp removes a per-field
-        % frame tip/tilt at a wide field, matching a strict-kernel FD
-        % prediction -- could NOT be built on rodgers1_stage4.  Measured
-        % empirically: reset_xp is a BIT-IDENTICAL no-op on that deck at
-        % EVERY field (dwdx AND nominal-OPD reldiff = 0, on-axis and at
-        % 2e-3 rad corners).  On a 4-element TMA the read surface nElt-1
-        % is a powered mirror (M3), and the per-field FEX reference there
-        % coincides with the frozen prescription reference -- so there is
-        % no frame term to remove.  The effect IS real where nElt-1 is a
-        % dedicated reference/Return surface: the e2e_pie segmented deck's
-        % s4 harvest shifts ~1.6% (conditioning) under reset_xp (commit
-        % 5a704fb).  The wide-field benefit gate belongs on a deck whose
-        % exit-pupil reference genuinely moves per field; picking or
-        % building that fixture is queued with the strict-kernel FD
-        % comparator.  (Mike supplied a true wide-field example to probe
-        % for this -- use it as the gate deck when this lands.)
+        function test_reset_xp_no_pupil_warns_and_stamps(testCase)
+            % reset_xp=true on a bare focal deck (no exit-pupil element at
+            % nElt-1 -- rodgers1's M3 is a powered Reflector) must WARN
+            % (macos:dw_dx_multi:noPupil, FEX found nothing to write) and
+            % stamp out.reset_xp = 'no-effect' so run_compare sees the truth.
+            rx = rodgers1_stripped_deck_();
+            testCase.assumeTrue(isfile(rx), 'stripped rodgers1 unavailable');
+            m = macos.Session(256);
+            f = @() macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
+                'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
+                'reset_xp', true);
+            out = testCase.verifyWarning(f, 'macos:dw_dx_multi:noPupil');
+            testCase.verifyEqual(out.reset_xp, 'no-effect', ...
+                'no-pupil deck must stamp reset_xp = ''no-effect''');
+        end
+
+        function test_reset_xp_stamps_true_on_pupiled_deck(testCase)
+            % The positive: on a deck WITH an exit-pupil element at nElt-1
+            % (the e5hex1 fixture's nElt-1 is a Return), FEX writes, the EP
+            % moves per field, and out.reset_xp stamps logical true.
+            m = macos.Session(testCase.ModelSize);
+            out = macos.dw_dx_multi(m, testCase.rx_path, ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                'dofs', testCase.DOFsForTest, 'reset_xp', true);
+            testCase.verifyTrue(islogical(out.reset_xp) && out.reset_xp, ...
+                'a pupiled deck must stamp reset_xp = true (FEX wrote)');
+        end
+
+        % NOTE (wide-field benefit gate -- DEFERRED): the intended gate --
+        % reset_xp removes a per-field frame tip/tilt at a wide field,
+        % matching a strict-kernel FD prediction -- could NOT be built on
+        % rodgers1_stage4.  Measured empirically: reset_xp is a BIT-
+        % IDENTICAL no-op on that deck at EVERY field (dwdx AND nominal-OPD
+        % reldiff = 0, on-axis and at 2e-3 rad corners).
+        %
+        % MECHANISM (verified 2026-08-04 by probing the engine, read-only):
+        % the SMACOS FEX command (macos_cmd_loop.inc ~L2618) writes the
+        % pupil reference into nElt-1 ONLY when that element is a Return
+        % (EltID 8) or Reference (EltID 3) surface; for any other type it
+        % ABORTS without writing.  On the 4-element rodgers1 TMA nElt-1 is
+        % M3, a powered Reflector (EltID 1), so FEX declines to write and
+        % macos.fex just reads M3's own Vpt/Kr back (probe: elt vpt/kr
+        % byte-unchanged across fex(1); xp.rad == KrElt(M3) == -2.688).
+        % NOTE the latent engine gap: xp_fnd returns OK=PASS even when its
+        % inner FEX aborted -- which is why the no-op is silent.  The reset
+        % is therefore behaving as FROZEN here (hence bit-identical), and
+        % the resetNoEffect guard below stamps that truthfully.
+        %
+        % The effect IS real where nElt-1 is a dedicated Return/Reference
+        % surface: the e2e_pie segmented deck (nElt-1 is a Return) shifts
+        % ~1.6% under reset_xp (commit 5a704fb).  The wide-field benefit
+        % gate belongs on such a deck whose exit-pupil reference genuinely
+        % moves per field -- the rodgers2 afocal fixtures (a dedicated
+        % Reference coldstop at nElt-1, 0.5 deg box, 30x exit angles) with
+        % the afocal-plane kernel (design/src/afocal_*) as the FD
+        % comparator, once that stack is in-tree.
     end
 end
 
