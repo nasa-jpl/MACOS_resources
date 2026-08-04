@@ -57,6 +57,28 @@ mmacos (`mmacos_setup.m` or the addpath lines at the top of each
 runner).  House rules: figures + reports land in this directory; no
 `exit(0)` inside example scripts (batch wrappers supply it).
 
+## Large derived products — NOT committed, regenerate from inputs
+
+Two products exceed the ~20 MB commit threshold and are **gitignored**
+(policy: derived binaries ≥ 20 MB are rebuilt, not stored — no LFS, so
+clone-and-run users are never blocked on pointer files).  A small
+committed **`<file>.fp.json` fingerprint** (`design/src/jac_fingerprint`)
+stands in as the reviewable truth — generation stamps (`reset_xp`,
+upstream commit, rx, delta/method), array dims, and per-column norms —
+so a generation change is auditable without the blob.  Asset-gated tests
+skip-with-message when the `.mat` is absent and check the fingerprint
+when it is present.
+
+| product (~size) | committed fingerprint | one-command regen (~time) |
+|---|---|---|
+| `s4_jacobians.mat` (69 MB) | `s4_jacobians.fp.json` | `run('s4_jacobians.m')` — s4 rigid/figure/grid harvest, model 512 (~3 min) |
+| `e2e_pie_met.mat` (63 MB) | `e2e_pie_met.fp.json` | `run('s5_met.m')` — MET products; layout HELD via `run_met(..., 'opt_preset', 'e2e_pie_met_preset.mat', 'optimize', false)` (~1 min; no 46-min search) |
+
+Both need s3 (`e2e_pie.in` + `e2e_pieHx.m`) present; s4 also feeds s5–s7.
+A generation bump (e.g. the reset_xp regen, upstream `5a704fb`) rebuilds
+these two and rewrites their fingerprints — the small sidecars are what
+shows in the diff.
+
 ## The design procedure — why the solves are staged this way
 
 Changing the parameters re-derives the whole design, but the SOLVE
