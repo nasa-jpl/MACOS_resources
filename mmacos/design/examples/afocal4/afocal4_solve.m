@@ -118,11 +118,28 @@ function R = afocal4_solve(P, D0, opts)
         end
     end
 
+    % THE FINITE-DIFFERENCE SETTINGS ARE PART OF THE ANSWER, not tuning.
+    % Measured at the basin-2 343 mm point (S4c task 1): the merit is smooth
+    % in the DOFs down to a 1e-5 scaled step -- central-difference slopes
+    % agree to four figures across two decades -- but the study's default
+    % 3e-3 forward step reads a gradient 17% low.  That is enough to stall
+    % lsqnonlin on FunctionTolerance and hand back `exitflag 3` at a point
+    % whose true gradient is nowhere near zero.  So the step, the difference
+    % type and the optimality tolerance are settable from P.solve, and a P
+    % that predates them keeps exactly the old behaviour.
+    fdt = 'forward';   topt = [];
+    if isfield(P.solve,'fd_type'), fdt = P.solve.fd_type; end
+    if isfield(P.solve,'tol_opt'), topt = P.solve.tol_opt; end
     o = optimoptions('lsqnonlin', 'Display','off', ...
         'MaxIterations',opts.max_iter, ...
         'MaxFunctionEvaluations',opts.max_iter*(numel(x0)+2), ...
         'FunctionTolerance',P.solve.tol_fun, 'StepTolerance',P.solve.tol_x, ...
-        'FiniteDifferenceStepSize',P.solve.fd_step);
+        'FiniteDifferenceStepSize',P.solve.fd_step, ...
+        'FiniteDifferenceType',fdt);
+    if ~isempty(topt), o = optimoptions(o, 'OptimalityTolerance', topt); end
+    if isfield(P.solve,'max_fev') && P.solve.max_fev > 0
+        o = optimoptions(o, 'MaxFunctionEvaluations', P.solve.max_fev);
+    end
     if ~opts.quiet
         fprintf('  %s: %d DOFs [%s], merit "%s"\n', opts.label, numel(x0), ...
                 strjoin(names, ' '), opts.merit);
