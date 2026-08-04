@@ -5,8 +5,18 @@ MACOS design layer and score **both** its image quality and its interface-pupil 
 The demonstration is J.M. Rodgers' 30× coaxial afocal TMA benchmark
 (`../rodgers2/`) and his assertion that a fourth mirror is needed for pupil control.
 
-**Where the arc is: S3 (the form study) and S4 (the joint solve, the answer ladder,
-the interface-standoff trade and the Mersenne hedge) are delivered.**
+**Where the arc is: S3 (the form study), S4 (the joint solve, the answer ladder,
+the interface-standoff trade and the Mersenne hedge) and S4b (the same trade redone
+under the packaging constraint) are delivered.**
+
+> **The S4 designs are NOT BUILDABLE** and are retained, unaltered, as the
+> unconstrained reference.  They put the collimator, the field mirror, the interface
+> pupil and the whole instrument behind it *in front of* the primary, inside the
+> incoming beam (Dave, 2026-08-03).  One extra mirror flips the parity of the back end:
+> his three-mirror parent has M3 640 mm **behind** M1, the four-mirror child built from
+> the same front end has it 200–440 mm **in front**.  S4b re-derives the trade with the
+> constraint enforced as a solver wall and demonstrates the fold that takes the
+> instrument out of the beam.  See `RESULTS.md` §S4b.
 
 ## Files
 
@@ -35,6 +45,17 @@ the interface-standoff trade and the Mersenne hedge) are delivered.**
 | `RESULTS.md` | **the S4 answer** — the rung table, the trade curve, the Mersenne verdict, the parameter provenance, and the rules the runs earned. |
 | `afocal4_r{1..4}_*.in` | one committed prescription per rung. |
 | `afocal4_r*_field.png` / `_pupil.png` | the WFE field map and the pupil ladder per rung. |
+
+### S4b — the buildable redo
+
+| file | what |
+|---|---|
+| `afocal4_pack.m` | **the packaging gate**, from traced rays: vertex stations, fold daylight on the collimator's exit leg against *every* other bundle crossing it, and where the interface pupil and a stated instrument envelope end up once that fold is inserted. |
+| `afocal4_phi4.m` | the interface-condition root, factored out of the builder so the seeder selects roots by the rule the builder uses.  A sign change is not a root: `d(phi4)` is rational and fzero converges onto its poles. |
+| `afocal4_pack_seed.m` | a **compliant** seed at a given operating point — his front end first, the weakest field mirror that clears the bound with margin.  A wall needs a compliant seed or it is a cage. |
+| `afocal4_s4b.m` | **the S4b driver**: the constraint in numbers, the anchor, the buildable trade (via `afocal4_ladder('prefix','b_')`), the folded demonstration, the figures. |
+| `afocal4_b_*.in`, `afocal4_b_*.png`, `afocal4_b_ladder.mat`, `afocal4_s4b.mat` | the S4b artifacts, beside the S4 ones rather than on top of them. |
+| `STATUS_S4B.md` | **the S4b one page** — the buildable trade table, what the constraint cost against the free curve, the folded package, and the feasible window. |
 | `afocal4_trade.png`, `afocal4_ladder_summary.png`, `afocal4_ladder.mat` | the trade curve, the ladder against its targets, and every number in `RESULTS.md`. |
 
 ## Run
@@ -46,10 +67,18 @@ run('~/dev/MACOS_resources/mmacos/mmacos_setup.m')
 afocal4_forms                          % everything, ~15 min, model size 256
 afocal4_forms('sections',0:1)          % the first-order closures only, seconds
 
-% --- S4, the joint solve ---
+% --- S4, the joint solve (UNCONSTRAINED -- not buildable) ---
 afocal4_ladder                         % rungs + trade + A/B + figures (hours)
 afocal4_ladder('sections',0:1)         % the four rungs only
 afocal4_mersenne                       % the hedge, time-boxed
+
+% --- S4b, the buildable redo ---
+afocal4_s4b                            % constraint + anchor + trade + fold (hours)
+afocal4_s4b('sections',[0 1])          % the constraint in numbers, and the anchor
+afocal4_s4b('sections',[3 4],'trade','load')   % fold + figures off a finished trade
+afocal4_ladder('prefix','b_')          % just the constrained rungs + trade
+K = afocal4_pack(P, 'x.in');           % is one deck buildable?
+[D, i] = afocal4_pack_seed(P, 0.14);   % a compliant seed at 140 mm
 
 % --- pieces ---
 P = afocal4_params();                  % the parameters
@@ -108,6 +137,19 @@ Full reasoning, the closures, the traps and the recommendation: **`FORM_STUDY.md
 * rigid bodies applied to the **emitted deck** and the interface plane re-posed on the
   traced chief, on one code path for perturbed and unperturbed builds alike —
   `tAfocal4` pins that path against `Telescope/align_exit_reference` at 1e-12.
+
+## What the S4b layer adds
+
+* the **packaging constraint as a wall, never a merit term** — `afocal4_close` returns the
+  vertex *stations* the spacings imply, `afocal4_build` refuses any closure whose last
+  powered mirror is less than `P.pack.m3_behind_min` behind the primary, and it reads the
+  emitted stations back off the committed deck to pin them to the ones the wall judged.
+  A mis-scaled penalty owns the solve; an unbuildable layout is not a worse design.
+* `afocal4_pack` — a packaging check that includes **instrument-volume placement**, which
+  is the gap that let the S4 layouts through: train length, AOI and self-obscuration all
+  pass on a design whose instrument sits in its own incoming beam.
+* `afocal4_pack_seed` — the companion rule: a wall is only a wall if the solver starts
+  inside the feasible region.
 
 Gated by `tDesignAfocal` and `tAfocal4` (size-256 group:
 `./run_mmacos_tests.sh freeform`).
