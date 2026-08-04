@@ -1,5 +1,19 @@
 # S4 RESULTS — the joint solve, the answer ladder, and what the fourth mirror actually buys
 
+> **RETRACTED ON PACKAGING, 2026-08-03 (Dave). Every design in §2, §3 and §4 below is
+> NOT BUILDABLE.** They put the collimator 200–440 mm *in front of* M1 — and with it the
+> field mirror, the interface pupil and the entire instrument that follows the pupil —
+> inside the incoming beam. The optical results stand exactly as measured and are left
+> unaltered, because a retraction whose numbers have been deleted cannot be checked; they
+> are the **unconstrained reference** against which the buildable trade is read. The redo
+> is **§S4b**, at the end of this file. Nothing between here and there has been rewritten.
+>
+> One extra mirror flips the parity of the whole back end: his three-mirror parent puts M3
+> 640 mm *behind* M1 and the four-mirror child, built from the same front end, puts it
+> 200 mm in front. That is the finding in one number, and neither the S3 packaging check
+> (train length, AOI, self-obscuration) nor the S4 gates looked at instrument-volume
+> placement at all.
+
 Answers `PLAN_AFOCAL4.md` S4 against the S3 ruling in `FORM_STUDY.md`: take the convex
 field mirror near the intermediate image into a joint solve, replay J.M. Rodgers' four-slide
 ladder with the fourth mirror in place, and score every rung on **both** axes — image
@@ -98,7 +112,11 @@ numbers below reproduces his own on-axis result to 0.93× through an independent
 
 ---
 
-## 2. The answer ladder
+## 2. The answer ladder  *(NOT BUILDABLE — see §S4b)*
+
+> All four rungs sit at the 140 mm operating point, whose collimator is 442 mm in front of
+> the primary. The optical numbers are the unconstrained reference; the buildable ladder is
+> §S4b.2.
 
 His four slides, replayed with the fourth mirror in place. Wavefront error is the afocal
 **rung 2** (piston + per-field tip/tilt) — the rung that matches his CODE V field maps —
@@ -220,7 +238,12 @@ tilt addresses and about twice as large.
 
 ---
 
-## 3. The interface-standoff trade — the exchange rate
+## 3. The interface-standoff trade — the exchange rate  *(NOT BUILDABLE — see §S4b)*
+
+> Every row of the table below places the collimator in front of the primary: 559 mm at
+> the 50 mm standoff, 442 at 140, and even the two points that come closest — 243 mm at
+> 220 and 21 mm at 343 — fall short of the 500 mm the constraint requires. The curve is
+> retained as the unconstrained reference; the buildable one is §S4b.3.
 
 The S4 ruling carries the interface standoff as a **parameter**, so what the instrument is
 owed is the **curve**, with the design fully re-solved at every point (rung-3 DOF set,
@@ -396,3 +419,344 @@ measurement that earned it.
 8. *(inherited from S3, and it kept paying)* **Verify a traced layout against its own
    paraxial prediction ON AXIS before taking any metric from it.** At the design bias
    the comparison reads the design's own field aberration as a builder failure.
+
+---
+
+# S4b RESULTS — the same trade, buildable
+
+Answers the S4b brief against the `PLAN_AFOCAL4.md` **BUILDABILITY CONSTRAINT** (Dave,
+2026-08-03). Everything in §0–§5 above is the unconstrained reference and is retracted on
+packaging; nothing there has been rewritten.
+
+Reproduce: `afocal4_s4b` (the constraint in numbers, the anchor, the folded
+demonstration, the figures) and `afocal4_ladder('prefix','b_')` (the constrained rungs and
+the buildable trade). Every number below lives in `afocal4_s4b.mat` /
+`afocal4_b_ladder.mat`.
+
+## One page
+
+**The constraint does not remove the S4 design's performance. It splits it, and forces a
+choice.** Holding Rodgers' front end verbatim, compliance requires the fourth mirror
+250–600 mm *past* the intermediate image rather than on it. There it gains a footprint —
+so its conic finally does wavefront work — and loses the field conjugate, which is where
+pupil control comes from. The buildable anchor therefore reads **2.8× better in wavefront
+and 6.8× worse in pupil** than the unbuildable design it replaces. The exchange rate runs
+the opposite way to S4's.
+
+**There is a second basin, and it has to be seeded by hand.** A 4.5% slower secondary
+pushes the intermediate image 900 mm behind M1; the field mirror can then sit *on* it and
+the collimator still lands 567 mm behind. That recovers the S4 geometry almost exactly and
+beats it on both pupil columns, for 2.5–3× the wavefront error and 240 mm of extra length.
+The solver does not find it unaided, so §S4b.3 sweeps both basins and reports both.
+
+**The sharpest statement is one row-pair.** At 343 mm — the only standoff where the whole
+package closes around a real instrument — two buildable designs exist: one whose fourth
+mirror has gone to a flat (**266 nm** wavefront, and his three-mirror's 3.9% breathing),
+and one with a real fourth mirror (**160 µm** blur, **0.081%** breathing, 10.5 µm
+wavefront). **Pupil control costs a factor of 40 in wavefront, and declining it returns you
+to the telescope Rodgers already has.** Unconstrained, the same exchange cost a factor of 6.
+
+**A second constraint appeared that S4 never had to face.** The fold needs lever arm; what
+is left of the interface standoff becomes the pupil's lateral offset once folded; and that
+sets the largest instrument that fits — 0 mm at a 90 mm standoff, 464 mm at 343 mm. **The
+pupil metrics want a short standoff and the package wants a long one.**
+
+**No target is reached anywhere on either buildable curve** (best: 266 nm against 71, and
+152 µm against 47), which is the same structural answer S4 gave, now with the packaging
+half of it honest.
+
+**Status: delivered.** The constraint in numbers §S4b.0, the anchor and the front-end
+variant §S4b.1, the buildable ladder §S4b.2, both trade basins and the feasible window
+§S4b.3, the folded demonstration §S4b.4, the Mersenne §S4b.5, and six more earned rules
+§S4b.6. Gated by `tAfocal4` (7/7).
+
+**Open for Dave and Mike:** the operating point and the instrument envelope, which are now
+one question rather than two.
+
+## S4b.0 The constraint, and what it is written on
+
+**Sky is at −z, so behind the primary is +z.** His three-mirror parent puts M3 at
+z = **+0.640 m**; the four-mirror child built from the same front end puts the collimator
+at **−0.200 m** and the delivered S4 rung at **−0.442 m**. One extra mirror flips the
+parity of the whole back end — after M2 the beam runs +z, the field mirror reverses it,
+and the collimator lands *back toward the sky* from wherever the field mirror sits.
+Nothing in the S3 packaging check (train length, incidence angles, self-obscuration) is
+sensitive to that, which is how it got through.
+
+The constraint has three clauses and they are enforced in three different places, on
+purpose:
+
+| clause | where | why there |
+|---|---|---|
+| `z(last mirror) − z(M1) ≥ 500 mm` | `afocal4_build`, as a **wall** | cheap (pure algebra), so it can sit inside every solver iterate |
+| a fold fits on the collimator's exit leg, with daylight against **every** other bundle crossing that station | `afocal4_pack`, at delivery | needs a trace; and the fold's size is a mechanical choice, not an optical DOF |
+| the interface pupil and a stated instrument envelope end up **behind M1 and out of the beam** | `afocal4_pack` + `afocal4_s4b` §3, demonstrated | the clause the S3 check did not have at all |
+
+**It is a wall, never a merit term.** The log-merit lesson of §5 rule 2 is that a
+mis-scaled term owns the solve; and buildability is not a quantity to trade against
+wavefront error in any case — an unbuildable layout is not a worse telescope, it is not a
+telescope. `afocal4_build` errors, the solver sees a large finite residual and turns back,
+exactly as it does for a degenerate closure.
+
+**Which leg the fold picks off, and why that one.** The fold goes on the collimator's
+exit leg — between the last mirror and the interface pupil — which is where Rodgers puts
+his own recenter fold, and it is the only choice that moves the pupil. The field mirror
+sits *upstream* of the collimator, so no fold downstream can move it; what the constraint
+has to deliver for the field mirror is that it too is behind the primary, and
+`z_M3 ≥ 500 mm` delivers that for free here, because in every compliant closure the
+collimator sits back toward M1 *from* the field mirror (`z_FM > z_M3`).
+
+## S4b.1 The anchor, and what the constraint actually costs
+
+The brief's first thing to try: hold his M1→M2 spacing and his M2→image geometry — which
+is to say M2's radius — verbatim, so the front end is exactly the benchmark's, and let the
+conics, the field-mirror standoff and φ₄ (consumed by the closure) carry the whole job.
+
+**It closes, everywhere.** His front end admits a compliant closure at *every* operating
+point from 50 mm to 343 mm. The compliant band is the field-mirror standoff: compliance
+needs the fourth mirror **250–600 mm PAST the intermediate image**, never before it. That
+is forced, not chosen — with one more mirror the collimator sits back toward the sky *from*
+the field mirror, so the only way to put it behind M1 is to put the field mirror further
+behind still.
+
+All three rows at 140 mm, +0.6° bias, same DOFs where comparable:
+
+| | R_M2 mm | s_FM mm | φ₄ /m | WFE nm | blur µm | breathing % | wander µm | M | worst |
+|---|---|---|---|---|---|---|---|---|---|
+| *S4 rung 3 — NOT BUILDABLE* | *473.0* | *+291* | *+1.78* | *9600* | *167* | *0.113* | *171* | *30.0156* | *135×* |
+| **S4b anchor** (his front end) | 468.78 | −381 | +3.97 | **3451** | 1141 | **0.046 ✓** | 1159 | 29.9805 ✓ | 48.6× |
+| **S4b variant** (image behind M1) | 447.5 | −50 | +2.11 | 16760 | **149** | **0.149 ✓** | **154** | 30.0047 ✓ | 236× |
+
+**The constraint does not cost image quality. It costs pupil quality, and the exchange
+rate runs the opposite way to S4's.** The anchor is 2.8× *better* in wavefront than the
+design it replaces and 6.8× worse in pupil. The mechanism is exactly the S3 form
+argument, running backwards: a mirror at the intermediate image moves pupil imaging at
+first order and leaves image quality nearly untouched *because the marginal ray is small
+there* — and the packaging constraint is precisely the requirement that the fourth mirror
+NOT be there. Moved 380 mm downstream it acquires a 46 mm footprint, so its conic finally
+does wavefront work, and it stops sitting at the field conjugate, so it stops doing pupil
+work.
+
+**There is one way to have both, and it is a front-end change.** A slower secondary pushes
+the intermediate image further back; once the image itself is ~900 mm behind M1 the field
+mirror can sit ON it (s_FM = −50 mm) and the collimator still lands 567 mm behind. That is
+the variant row, and it recovers the S4 geometry almost exactly (φ₄ = 2.11 against 1.78,
+R_FM = 946 mm against 1122 mm) with the whole train shifted behind the primary. It beats
+the unbuildable S4 design on *both* pupil columns. It is paid for in length — a 2.02 m
+envelope against 1.78 m for the anchor and 1.69 m for his three-mirror — and in wavefront.
+
+The solver will not find this basin on its own: M2's radius is 4.5% away and the ground
+between is not downhill, so it is seeded explicitly (`image_behind_seed_`) and reported
+beside the anchor rather than left to luck. Both solves ended on `exitflag 3` — converged
+on the merit's own tolerance, at 115 and 77 evaluations — and that is stated rather than
+smoothed over: these are local basins, reported as such.
+
+Artifacts: `afocal4_b_anchor.in`, `afocal4_b_frontvar.in`.
+
+## S4b.2 The buildable ladder
+
+His four slides again, with the constraint enforced at every iterate. Same DOF set, same
+merit, same rungs; the seed is the compliant one (field mirror 400 mm past the image).
+
+| rung | WFE nm | blur µm | breathing % | wander µm | surface mm | M | worst miss |
+|---|---|---|---|---|---|---|---|
+| **1  on axis, joint solve** | **554** | 86.6 | **0.101 ✓** | 88.3 | **0.0004 ✓** | **30.0038 ✓** | 7.81× |
+| **2  offset +0.6°, FROZEN** | 5384 | 958 | **0.340 ✓** | 971 | **0.016 ✓** | 29.8560 | 75.83× |
+| **3  offset, joint re-solve** | 4591 | 1074 | **0.082 ✓** | 1091 | **0.036 ✓** | **29.9810 ✓** | 64.66× |
+| **4  + M2/FM/M3 tilt+dec** | 4591 | 1074 | **0.082 ✓** | 1091 | **0.036 ✓** | **29.9810 ✓** | 64.66× |
+| TARGET | 71 | 47 | 0.4 | 56 | 0.2 | 30.000 | 1.00× |
+| *S4 rung 4 — not buildable* | *9558* | *153* | *0.083* | *156* | *0.016* | *30.0158* | *134.6×* |
+
+**Rung 1 is 2.5× better than S4's** (554 nm against 1392) and its worst miss is 7.81×
+against 19.6×. **Rung 4 is bit-identical to rung 3**: the six rigid-body degrees of freedom
+bought *nothing at all*, against 0.4% in S4 and 25% in his three-mirror. The S4 explanation
+holds and hardens — the residual is a field dependence and a rigid body adds a
+field-constant term — but here even the 0.4% is gone, because the compliant layout's
+residual is more purely field-quadratic.
+
+The interface plane's refit tilt runs 0.0° / 4.04° / 4.52° across the rungs, against
+0.0° / 10.1° / 8.6° in S4 and his own coldstop DAR tilts of 0° / 4.29° / 3.58°. **The
+buildable four-mirror wants almost exactly the coldstop tilt Rodgers tunes by hand**; the
+unbuildable one wanted twice it.
+
+## S4b.3 The buildable trade — two basins, and the choice the constraint forces
+
+The sweep of §2 stays in the basin its seeder hands it. That turns out to matter more than
+usual here, so **both** basins are swept, same machinery, same merit, same gates.
+
+**Basin 1 — his front end, field mirror far past the image:**
+
+| iface mm | φ₄ /m | R_FM m | s_FM mm | WFE nm | blur µm | breathing % | wander µm | collimator behind M1 |
+|---|---|---|---|---|---|---|---|---|
+| 50 | +3.03 | 0.660 | −741 | 11 776 | 759 | **0.247 ✓** | 774 | 909 mm |
+| 90 | +3.84 | 0.521 | −419 | 5040 | 872 | **0.113 ✓** | 887 | 500 mm |
+| 140 | +4.58 | 0.436 | −384 | 4591 | 1074 | **0.082 ✓** | 1091 | 501 mm |
+| 220 | +3.60 | 0.556 | −300 | 8928 | 800 | **0.098 ✓** | 814 | 533 mm |
+| **343** | **+0.03** | **60.0** | −250 | **266** | 761 | 3.875 | 763 | 559 mm |
+
+**Basin 2 — slower secondary, intermediate image behind M1, field mirror on it:**
+
+| iface mm | R_M2 mm | φ₄ /m | s_FM mm | WFE nm | blur µm | breathing % | wander µm | max instrument Ø |
+|---|---|---|---|---|---|---|---|---|
+| 50 | 603.7 | +1.78 | +21 | 14 481 | 238 | 1.371 | 242 | 0 mm |
+| 90 | 448.0 | +2.45 | −50 | 17 066 | 191 | **0.561** | 195 | 0 mm |
+| 140 | 448.0 | +2.15 | −49 | 16 367 | 153 | **0.086 ✓** | 157 | 71 mm |
+| 220 | 448.6 | +1.68 | −51 | 12 524 | 152 | **0.118 ✓** | 156 | 210 mm |
+| **343** | **446.0** | **+1.06** | −41 | 10 521 | **160** | **0.081 ✓** | **164** | **464 mm** |
+
+Three things, and they are the study's answer under the constraint.
+
+**1. Basin 1 never buys blur.** Across the whole curve the pupil blur sits between 759 and
+1074 µm against a 47 µm target — a factor of 16 at best — while the breathing goes to
+0.08%. The fourth mirror, forced off the field conjugate, buys **magnification stability
+and nothing else**. Basin 2 holds blur at 152–191 µm throughout: a factor of 5–7 better,
+for 2.5–3× the wavefront error.
+
+**2. At 343 mm, basin 1's fourth mirror becomes a flat** — φ₄ = +0.03 /m, R = 60 m — the
+wavefront falls to **266 nm** and the breathing reverts to the three-mirror's **3.875%**.
+That is the far end of the S4 curve reappearing intact: with the fourth mirror's power
+spent to zero, the design *is* his three-mirror, and its pupil is his three-mirror's.
+
+**3. So the choice the constraint forces is visible in one row-pair.** At 343 mm — the only
+operating point where the whole package closes around a real instrument — there are two
+buildable designs:
+
+| at 343 mm, both BUILDABLE | WFE nm | blur µm | breathing % | wander µm | max instrument Ø |
+|---|---|---|---|---|---|
+| basin 1, φ₄ → 0 (a flat: his three-mirror) | **266** | 761 | 3.875 | 763 | unlimited |
+| basin 2, φ₄ = +1.06 (a real fourth mirror) | 10 521 | **160** | **0.081 ✓** | **164** | 464 mm |
+
+**The fourth mirror's pupil control costs a factor of 40 in wavefront, and doing without it
+returns you to the telescope Rodgers already has.** That is the buildable form of the S4
+headline, and it is harsher: unconstrained, the same exchange cost a factor of 6.
+
+### The feasible window, and what closes it
+
+The packaging gate has three clauses and they do not bind in the same place.
+
+* **`z_M3 ≥ 500 mm`** binds nowhere on either curve once the seeder is compliant — every
+  delivered point clears it, by 0 to 1900 mm.
+* **Fold daylight** binds at the short end: at 50 mm standoff the gap between the
+  collimator's exit leg and the feed leg is **−2.7 mm** at every station — there is no room
+  for a fold at all, so the pupil cannot be taken out of the beam.
+* **Instrument volume** binds everywhere else, and it is the clause that sets the window.
+  The fold needs ~20 mm of lever arm for its own body; whatever is left of the interface
+  standoff becomes the pupil's lateral offset once folded, and the largest instrument that
+  clears the near-axis bundles is `2 × (offset − beam radius)`:
+
+| iface mm | 50 | 90 | 140 | 220 | 343 |
+|---|---|---|---|---|---|
+| largest instrument Ø, basin 2 | 0 | 0 | 71 mm | 210 mm | **464 mm** |
+
+**The interface standoff sets the instrument's girth, and that is a constraint the S4 trade
+never had to face.** For a 300 mm instrument the window is **iface ≳ 250 mm**; his own
+three-mirror, at 344 mm, admits 344 mm. Below ~90 mm nothing fits at all. The pupil metrics
+want a short standoff and the package wants a long one, which is a second exchange rate
+crossing the first.
+
+## S4b.4 The folded demonstration
+
+Constraint clause 3 says *demonstrated, not asserted*, so the flat is inserted, the
+prescription is emitted, and the design is re-scored on the same kernel — because a
+nominally null fold is not a free fold (e2e2 s3). The subject is the **basin-2 design at
+343 mm**: the buildable point that keeps a real fourth mirror and passes the whole gate.
+
+`afocal4_b_final.in` (unfolded) and `afocal4_b_final_folded.in` (folded) are committed side
+by side.
+
+**The fold is null, measured:**
+
+| | WFE nm | blur µm | breathing % | wander µm | M |
+|---|---|---|---|---|---|
+| unfolded | 10 520.53 | 159.71 | 0.0807 | 163.90 | — |
+| folded | 10 520.53 | 159.71 | 0.0807 | 163.90 | — |
+
+Every column identical to the printed precision, and unchanged when the fold's aperture is
+quadrupled — so it is not clipping either.
+
+**And the package lands where it has to.** Interface pupil at
+[+0.304, −0.004, +0.614] m, the stated 1000 mm instrument envelope running to
+[+1.304, −0.017, +0.614] m, its z-slab **+0.464 … +0.764 m — entirely behind the primary**,
+and the closest approach of any other traced bundle **+137 mm**. Renders: `afocal4_b_layout_
+{unfolded,folded}.png` (yz and xz, with the envelope drawn) and `rodgers2_final_folded.png`
+for the deck.
+
+### The check earned its keep twice
+
+**Once on a real defect of mine.** The first folded emission read 3.9% breathing → 23% and
+9% shifts in blur and wander, on a fold that is an exact isometry. The cause was the
+interface plane's placement: the unfolded rule projects the *last mirror's vertex* onto the
+exit chief, and with a fold in between the code was projecting the *fold's* vertex, which
+is a different offset. Fixed by applying the fold's own reflection to the unfolded plane
+instead of re-deriving it — the unfolded pose then moves by **1.3e-18 m** (so every
+committed deck re-emits unchanged) and the folded one agrees to **1.1e-12**.
+
+**Once on a conditioning limit of the pupil metric.** After that fix, one design still
+reads a fold-induced change: basin 1 at 343 mm, where φ₄ has gone to zero. Its wavefront
+and magnification are exact under the fold (1.4e-10, 4.4e-16) but its blur, wander and
+breathing move 9%, 9% and 6×, at any fold aperture. That design's exit pupil sits
+essentially *at* the interface plane, so the chief-normal magnification is a ratio of two
+ill-conditioned footprints, and a determinant −1 mapping is enough to move it. **The
+number is not trustworthy there, and the fold-is-null check is what says so** — it doubles
+as a conditioning check on the pupil metric. The affected row is the one already flagged as
+"his three-mirror wearing a flat"; its pupil column should be read as the three-mirror's,
+which is what §S4b.3 says it is.
+
+## S4b.5 The Mersenne, closed a second time
+
+The double Mersenne was closed in §4 on wavefront error: four conics take it from 59.4 µm
+to 35.1 µm against a 71 nm target, a factor of 1.7 where a factor of 500 was needed.
+
+**It also fails the packaging constraint structurally.** Its second confocal pair lives
+inside the M1–M2 space — the closed layout puts M3 at **z = −0.542 m** and M4 at
+**z = −0.942 m**, i.e. 942 mm *in front of* the primary — and no gap, stage split or conic
+moves them behind it, because the form's entire compression happens before the beam ever
+gets back to M1. `afocal4_mersenne` therefore runs with `P.pack.enforce = false`, so the
+experiment stays reproducible and its verdict stands as measured; the constraint closes it
+again on a second, independent ground.
+
+## S4b.6 Rules earned, on top of the S4 eight
+
+9. **Package as a wall in the closure, never as a term in the merit.**
+   *Alternative rejected:* a penalty on `z_M3`. The log-merit lesson (rule 2) is that a
+   mis-scaled term owns the solve, and buildability is not tradeable against wavefront
+   error in any case — an unbuildable layout is not a worse telescope, it is not a
+   telescope. The wall is pure algebra on the closure's own stations, so it costs nothing
+   to sit inside every iterate, and the solver turns back on it exactly as it does on a
+   degenerate closure.
+
+10. **A wall needs a compliant seed, or it is a cage.**
+    Dropped in at a non-compliant point, every finite-difference direction is an error,
+    the Jacobian is walls all the way round, and `lsqnonlin` hands back the seed it was
+    given. That is a *seeding* failure and would have been reported as "this operating
+    point has no design": measured, the warm-started trade lost **three of five points**
+    that way, all of which `afocal4_pack_seed` then closed. Seed the search inside the
+    feasible region and let the wall bound it.
+
+11. **A sign change is not a root.**
+    `d(φ₄)` is a rational function, so it changes sign across its *poles* as well as its
+    zeros, and `fzero` converges onto a pole quite happily — returning a layout with a
+    collimator 1e14 m away. S4 never noticed because its roots were the first sign change;
+    the constraint moved them from φ₄ ≈ 2 to ≈ 4, past a pole, and the builder started
+    failing outright. Close and CHECK every candidate; take the lowest power that is
+    actually a telescope.
+
+12. **Sweep the basin, then check it is the right basin.**
+    The trade of §S4b.3 was first run only in the basin its seeder produced — his front
+    end, field mirror past the image — where pupil blur never falls below 759 µm. A
+    second basin, seeded by hand at a slower secondary, holds 152 µm across the same
+    curve. A trade curve swept in one basin is a statement about that basin, and saying
+    so requires having looked at another.
+
+13. **Check a null operation is null, and believe the check when it fires.**
+    A flat fold is an exact isometry and cannot change anything. Emitting it and
+    re-scoring anyway caught, first, a real placement defect in this code (§S4b.4) and
+    then a conditioning limit of the pupil metric on a degenerate design. Both were
+    invisible to every other gate in the study.
+
+14. **Packaging includes where the INSTRUMENT goes.**
+    Train length, incidence angles and self-obscuration all pass on a design whose
+    instrument sits in its own incoming beam — that is the S3 gap that let the whole S4
+    trade through. The check that catches it needs the fold's lever arm and the envelope's
+    girth, and its useful output is not a verdict but a number: the largest instrument
+    that fits at this standoff.
