@@ -107,3 +107,10 @@ recommendation.
   the interface plane); a fold that is an exact isometry moves its breathing 6×. Read that
   row's pupil column as the three-mirror's, which is what it is.
 * Basin 2 was found by hand-seeding, not by the solver. There may be others.
+
+> **S4c CLOSES THE FIRST TWO CAVEATS (2026-08-04; `STATUS_S4C.md`).** The `exitflag 3`
+> stops were a 17%-low finite difference, not convergence: re-solved from three seeds at
+> ~1900 evaluations per point, basin 2's wavefront column improves by 0.02–10.8%
+> (12 915 / 17 063 / 15 928 / 12 286 / 10 407 nm) and every conclusion above stands. The
+> 90 mm design turns out to sit on the packaging wall to the millimetre rather than at a
+> minimum. The φ₄ → 0 conditioning caveat is unchanged.
