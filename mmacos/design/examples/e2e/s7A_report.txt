@@ -1,11 +1,11 @@
-==== run_simulator: /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
+==== run_simulator: /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie.in ====
 [0] 9 bodies (7 segments), T = 50 frames, dt = 10 s
-    states: x 54x50;  sim Rx /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt.in
-[1] baseline on /home/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt.in: 12098 rays in pupil; psf @ elt 17, peak 7.34e+03;
+    states: x 54x50;  sim Rx /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt.in
+[1] baseline on /Users/dcr/dev/MACOS_resources/mmacos/design/examples/e2e/e2e_pie_metopt.in: 12098 rays in pupil; psf @ elt 17, peak 7.34e+03;
     COMPOSE band [4.85e-07 5e-07 5.15e-07] WaveUnits, 128 px @ 2.18 um; engine l cross-checked (corrected leg)
 [2] channels in motion: 48 rigid, 0 zernike, 0 grid
 [3] pass 1 (uncorrected): 10 20 30 40 50 done
-    initial wavefront control @ frame 2 (t=20 s): uncorrected w rms 100.4 um -> predicted residual 6.723 nm
+    initial wavefront control @ frame 2 (t=20 s): uncorrected w rms 100.4 um -> predicted residual 6.724 nm
     (u on 8 bodies, ridge 0.0003, 21/48 directions with sv > lam, |u| max 0.0001357)
     wfc iteration 2: engine residual 3286 nm -> update |du| max 3.522e-06
     wfc iteration 3: engine residual 1.356 nm -> update |du| max 1.358e-06
