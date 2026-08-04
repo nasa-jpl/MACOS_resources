@@ -20,6 +20,11 @@
   its frame, or a WFE without its rung, is not a result.
 - No fluff: no rhetorical openers, superlatives, "exciting" framing,
   or filler adverbs.  Delete any sentence that survives deletion.
+- Avoid jargon: be literal and use short words.  Name things by what
+  they are ("the last mirror moves in front of M1", not "the back-end
+  parity flips"); coined shorthand ("the fork", "basin 2", "girth")
+  stays in working notes — a deliverable defines a term once or does
+  without it.
 - Significant figures match the measurement: do not quote six digits
   of a 2% effect.
 
@@ -85,3 +90,10 @@ before send.
   editing it.  (Origin of §1.)
 - 2026-08-04 (Dave): this file created; the §5 gate becomes standing —
   reviewed before every write, jointly amended here.
+- 2026-08-04 (Dave): avoid jargon — be literal, use short words.
+  (Folded into §1.  Earned by the Rodgers decks: "parity flip",
+  "basin", "girth", "the fork".)
+- 2026-08-04 (Dave): claims of feasibility stay modest — meeting a
+  packaging constraint is a screen, not a layout; say what still
+  needs work (the Rodgers2 "buildable" de-emphasis: the long back
+  focal distance needs serious repackaging).
