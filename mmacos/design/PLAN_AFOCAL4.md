@@ -133,6 +133,25 @@ The unconstrained S4 results stand as the reference trade, labeled
 NOT BUILDABLE in RESULTS.md; S4b re-derives the trade curve under
 the constraint.
 
+**S4b DELIVERED (2026-08-03).**  `design/examples/afocal4/STATUS_S4B.md`
+is the one page; `RESULTS.md` section S4b is the detail.  Headlines: the
+constraint does not cost image quality, it SPLITS the S4 design's
+performance and forces a choice, because compliance moves the fourth
+mirror off the intermediate image -- gaining a footprint (its conic does
+wavefront work) and losing the field conjugate (it stops doing pupil
+work).  His front end held closes at every operating point and reads
+3451 nm against the unbuildable 9600, paying 1141 um of blur against 167.
+A 4.5% slower secondary puts the image 900 mm behind M1, the field mirror
+back ON it, and recovers the pupil (149 um blur) for 2.5-3x the wavefront
+and 240 mm of length -- a second basin the solver does not find unaided,
+so both are swept.  At 343 mm, the only standoff where the package closes
+around a real instrument, pupil control costs a FACTOR OF 40 in wavefront
+and declining it returns his three-mirror.  A second constraint appeared
+that S4 never faced: the interface standoff sets the instrument's girth
+(0 mm at 90, 464 mm at 343), so the pupil metrics want it short and the
+package wants it long.  The fold is demonstrated null to 4.8e-12 and
+caught two defects doing it.  `tAfocal4` 7/7.
+
 ## Standing doctrine (rodgers1 + e2e2 — apply at every stage)
 
 1. **Joint solve, never alternate** (one CALIB DOF set; seeds are seeds).
