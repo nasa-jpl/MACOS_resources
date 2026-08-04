@@ -187,8 +187,16 @@ function R = afocal4_ladder(opts)
         % section is four solved points thrown away.
         seeds = struct('name',{},'S',{},'D',{},'deck',{});
         warm = R.rung(3).D;   warm.iface = q;
-        cold = afocal4_seed(P, 'iface',q, 'bias_deg',P.bias_deg);
-        for sd = [struct('name','warm','D',warm), struct('name','fresh','D',cold)]
+        % THE FRESH SEED IS SEARCHED, NOT ASSUMED.  A wall needs a compliant
+        % seed or it is a cage: dropped in at a non-compliant point every
+        % finite-difference direction is an error and lsqnonlin hands back
+        % the seed it was given -- which would be reported as "this
+        % operating point has no design" when what failed was the seeding.
+        [cold, si] = afocal4_pack_seed(P, q, 'quiet',false);
+        cold.bias_deg = P.bias_deg;
+        cand = struct('name','warm','D',warm);
+        if si.ok, cand(2) = struct('name','fresh','D',cold); end
+        for sd = cand
             try
                 dk = deck_(here, sprintf('%strade_%03.0fmm_%s', pfx, q*1e3, ...
                                          sd.name), opts.save);
@@ -322,7 +330,10 @@ function s = solve_rung_(P, D, dofs, label, deck, max_iter, quiet)
 %   that the first step decides the basin.  The conics-only pass costs about
 %   a tenth of the rung and removes that.
     if nargin < 7, quiet = false; end
-    pre = afocal4_solve(P, D, 'dofs',{'conic'}, 'max_iter',12, 'quiet',true, ...
+    % The seeding pass is a tenth of the rung, and it should stay a tenth of
+    % it: a two-iteration smoke run does not want a twelve-iteration seed.
+    pre = afocal4_solve(P, D, 'dofs',{'conic'}, ...
+                        'max_iter',min(12, max(2, max_iter)), 'quiet',true, ...
                         'label',[label ' (seed)']);
     if ~quiet
         fprintf('  %s: conic seed -> WFE %.1f nm, worst %.2fx\n', ...

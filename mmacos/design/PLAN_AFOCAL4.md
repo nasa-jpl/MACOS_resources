@@ -1,7 +1,19 @@
 # PLAN — afocal4: 4-mirror afocal telescope driver with interface-pupil control
 
-> **Status: S1-S5 DELIVERED (TO, 2026-08-02/03; local on `MACOS_res_dev`
-> `dev`, not pushed).  S4/S5 results: `design/examples/afocal4/RESULTS.md`.**
+> **Status: S1-S5 DELIVERED, then S4 RETRACTED ON PACKAGING and redone as
+> S4b (TO, 2026-08-02/03; local on `MACOS_res_dev` `dev`, not pushed).
+> Results: `design/examples/afocal4/RESULTS.md` (S4 as the unconstrained
+> reference, §S4b as the buildable trade).**
+>
+> **THE S4 TRADE IS NOT BUILDABLE.**  Every design on it puts the
+> collimator 200-440 mm in FRONT of M1 -- and with it the field mirror,
+> the interface pupil and the whole instrument behind the pupil -- inside
+> the incoming beam.  One extra mirror flips the parity of the back end:
+> his three-mirror parent has M3 640 mm behind M1; the four-mirror child
+> built from the same front end has it 200 mm in front.  The numbers stand
+> unaltered as the unconstrained reference (retract in place); S4b
+> re-derives the curve with the constraint enforced as a solver wall.  See
+> the BUILDABILITY CONSTRAINT section below.
 >
 > **The S4 headline is a PAIR, and only half of it is met.**  The convex
 > field mirror at the intermediate image SOLVES the interface pupil: on
