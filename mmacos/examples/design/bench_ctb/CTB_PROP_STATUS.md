@@ -116,8 +116,40 @@ macos leg runs standalone and skips the PROPER column if absent.)
      machinery add chromatic error" -> no).  compose() sums only engine
      traces (no MATLAB masks), so the sum is MATLAB-side, mask-aware.
 
-NEXT (deferred): E engine package (cfield_apodize_c + dx_at NF-plane fix +
-xp_fnd guard + vortex, engine-first -- STOP-and-flag, needs Dave's go);
+- **E -- `ctb_vortex.m` + engine-scope findings (STOP-and-FLAG).**  The
+  work order's E was framed engine-first (add cfield_apodize_c, fix dx_at
+  at NF planes, guard xp_fnd, THEN build the vortex).  Scoping the engine
+  first (as directed) changed the plan -- **the vortex needs NO engine
+  change**:
+  - **E.1 cfield_apodize_c ALREADY EXISTS.**  `macos_api_mod.F90:5239`
+    `cfield_apodize_complex(OK, MASK_RE, MASK_IM, N, iElt)` multiplies
+    WFElt by a complex NxN mask in place -- exactly the stage-2 API.
+    Surfaced as `macos.apodize_complex`; used already in work C and here.
+    So the charge-m scalar vortex is a pure-MATLAB phase mask on that API.
+    `ctb_vortex.m`: exp(i*m*theta) at the FPM (singular pixel -> phase 0,
+    O(1/N^2) defect, documented), Lyot rejects the star.  Charge-6 vs hard
+    occulter, 2-15 lam/D: hard mean 6.7e-6, vortex 3.9e-6 (1.7x deeper) AND
+    smaller inner working angle.  Idealized exp(i*m*theta) is achromatic by
+    construction (composes with the bandpass driver).
+    HONESTY CAVEAT: the Lyot panel shows a gradient, not the textbook
+    "all starlight in a ring outside the pupil" -- the CTB exit pupil is
+    not matched/circularized for an idealized vortex, so 1.7x is real but
+    modest, not a perfect-vortex total rejection.  A bench designed for a
+    vortex (clean circular matched Lyot) would do far better.
+  - **E.2 dx_at at NF planes: NO LIVE BUG on the validated quartet.**  The
+    old "2.6e26 garbage at NF2" gotcha was an artifact of the WRONG
+    through-focus construction; on Dave's committed quartet dx_at(FPM)
+    matches the deterministic dx_f to ratio 1.0000 (finding 2).  No fix
+    needed; the drivers compute dx_f deterministically regardless.
+  - **E.3 xp_fnd EltID guard: GENUINELY OPEN (the one real engine item).**
+    `xp_fnd` (macos_api_mod.F90:5396) runs FEX on nElt-1 UNCONDITIONALLY
+    (IARG(1)=nElt-1, line 5422) with no check that nElt-1 is Return/
+    Reference.  On a deck whose penultimate element is a powered optic this
+    silently mis-places the exit pupil.  A guarded version would return
+    FAIL with a reason when EltID(nElt-1) is not Return/Reference.  THIS
+    needs Dave's go (engine edit + relink chain).  ==> FLAGGED to Dave.
+
+NEXT (deferred, engine-first items need Dave's go): E.3 xp_fnd guard;
 full s2s generation rules; add_pupil FarField fix; tCtbProp test + README.  The generated ctb_planar_prop.in / ctb_prop_layout.m
 are SUPERSEDED by Dave's hand decks for the terminal/mask structure -- keep for
 the builder logic (NFPlane zElt rule, _Sret flip-back) but realign to the
