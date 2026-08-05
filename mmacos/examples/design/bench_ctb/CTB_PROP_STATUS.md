@@ -23,16 +23,50 @@ p2p diffraction).  Station indices:
 (SHIPPED this session).  Side-by-side INT at DM1/DM2/Apodizer/FPM/Lyot/
 ExitPupil/FPA (rows) x models (cols).  Coronagraph masks (apodizer/FPM/Lyot)
 applied IN MATLAB (macos.apodize multiply, reset_trace=false, continue prop).
-Shared lambda/D across models (analytic first_order_properties.lamD_px) so the
-FPM is identical -> apples-to-apples.  Verified:
+Shared lambda/D across models (analytic first_order_properties.lamD_px) for the
+DISPLAY scale only.  Verified:
   - bare:  compact peak 7.01e-2, full 6.03e-2 (matches direct compare).
-  - coro (apod+fpm+lyot, lam/D=16.8): compact FPA peak 7.99e-8, full 5.29e-8
-    (~1e6 suppression both); figure ctb_coro_compare_coro.png renders the
-    occulted FPM core, Lyot pupil rejection, suppressed FPA -- numerically
-    verified (Read of PNG).
+  - coro (apod+fpm+lyot, 3 lam/D hard occulter): compact FPA peak 1.89e-5,
+    full 4.28e-5; suppression 3.71e3 (compact) / 1.41e3 (full).
+
+**SUPPRESSION CORRECTION (2026-08-05, finding 2).**  The earlier "~1e6
+suppression both" number was an ARTIFACT of an FPM-sizing bug: the occulter
+radius was computed as `r_fpm_lamD * lamD_px_FPA(16.8) * dx_FPM`, mixing the
+**FPA** plate scale into the **intermediate FPM** plane -> occulter ~8x too
+large in radius -> far more starlight blocked -> inflated apparent
+suppression.  Fixed: the occulter is now sized in FPM-LOCAL lambda/D
+(`lam*R/D_beam`, R = the NF1-sphere zElt at FPM-1, D_beam the geometric beam
+diameter measured on that sphere) and painted on a DETERMINISTIC focal grid
+`dx_f = lam*R/(N*dx_sphere)` -- verified equal to the engine's `dx_at(FPM)`
+to ratio 1.0000 in the validated quartet (so the old "dx_at garbage at NF2"
+gotcha was itself an artifact of the WRONG through-focus construction; with
+Dave's quartet dx_at at NF2 is now trustworthy, but we compute dx_f
+deterministically regardless).  A ~1e3 suppression is physically correct for
+a HARD-EDGE occulter with no apodization; 1e6-class needs band-limited /
+apodized masks (deferred).  The Lyot radius is now keyed to the BARE
+geometric pupil radius (finding 4), not a radius measured from the post-FPM
+intensity (which the Babinet ring inflates).  The compact-vs-full coro gap
+(factor ~2.6) is the finding-3 point -- compact omits inter-optic diffraction;
+PROPER is the arbiter, not model-vs-model agreement.
   Usage: out=ctb_coro_compare('coro',true|false, 'apodizer'/'fpm'/'lyot',
   't/f', 'models',<struct w/ .name/.rx/.elt>, ...).  Pass your own decks via
   'models'.  Params: r_apod_m, r_apod_taper_m, r_fpm_lamD, r_lyot_frac.
+
+**PROPER ARBITER (2026-08-05, finding 3) -- `ctb_proper_compare.m`.**
+Model-vs-model agreement is NOT validation.  The arbiter is a per-leg
+cross-compare against MATLAB PROPER on the CTB deck's own sampling
+(recipe validation-ladder item 1).  Ran it for the NOVEL kernel the whole
+chain rests on -- the FPM through-focus leg (feed sphere FPM-1 -> FPM
+focus), macos NF1 sphere->plane vs PROPER prop_lens(R)+prop_propagate(R),
+beam_ratio=1 so PROPER pitch == macos pitch bit-for-bit.  RESULT:
+  - dx_focal ratio macos/PROPER = **1.0000** (both 2.1267e-5 m)
+  - peak-norm correlation = **1.000000**
+  - centroid offset = **0.000 px**
+So the CTB geometry reproduces PROPER's diffraction focus EXACTLY.  The
+diffraction layer is sound; the compact-vs-full suppression gap (factor
+~2.6) is a modeling-fidelity difference (compact omits inter-optic
+diffraction), not a bug.  (Needs `~/dev/proper_matlab` on the path; the
+macos leg runs standalone and skips the PROPER column if absent.)
 
 NEXT (deferred): full s2s generation rules; add_pupil FarField fix; then the
 tCtbProp test + README.  The generated ctb_planar_prop.in / ctb_prop_layout.m
@@ -111,27 +145,50 @@ FieldStop(24) FieldStop_Sout(25) FieldStop_Sret(26) OAP7(27) Backend(28)
 OAP8(29) FP_return(30) ExitPupil(31,FarField) FPA(32).
 Runtime ORS spheres now = [7 9 15 17 23 25]; fex(1) for the EP.
 
-## CORRECTED MODEL (Dave 2026-08-05) — mask NF1/NF2 = 4-surface EP quartet
+## CORRECTED MODEL (Dave 2026-08-05, table re-synced to the committed decks 2026-08-05)
 
 My through-focus construction (Sin/focus/Sout/Sret) was WRONG.  NF1 and NF2
 are the two halves of ONE near-field prop through a focal mask, but:
   - **NF1 = FarField sphere->plane** (EP sphere -> mask plane)
   - **NF2 = plane->sphere** (mask plane -> EP sphere)
 Both use the EXIT-PUPIL sphere (Kr = -(EP->mask distance), a LARGE radius),
-NOT a modest near-focus sphere.  Canonical model = manual CoroExample.in
-(ret1_1/ret2_1/CoroMask/ret2_2/ret1_2) and Dave's e-mail model.  Each mask is
-a QUARTET bracketed by flat FP-returns:
+NOT a modest near-focus sphere.
 
-  FPreturn  (Flat,  Geometric, at mask plane,      zElt=0)      % image ref in
-  EPreturn  (Conic, NF1,       EP sphere, Kr=-R,   zElt=+R)     % FF sphere->plane
-  <mask>    (Flat,  NF2,       at mask plane,      zElt=1e30)   % plane->sphere; MASK HERE
-  EPreturn2 (Conic, Geometric, EP sphere, Kr=-R,   zElt=-R)     % EP sphere back
-  FPreturn2 (Flat,  Geometric, at mask plane,      zElt=0)      % image ref out
+**THE VALIDATED TEMPLATE IS DAVE'S COMMITTED DECK `ctb_dcr.in`, NOT any
+hand-transcribed table.**  The as-committed Focus23 quartet (elts 7-10),
+read verbatim, is the convention of record.  Each focal mask is a
+**4-surface** quartet (NOT five — there is no trailing FPreturn2):
 
-  - R = distance EP->mask (the exit-pupil sphere radius); EPreturn sits one R
-    from the mask, psi=+beam; EPreturn2 psi=-beam (symmetric about the mask).
-  - The two flat FP-returns (FPreturn/FPreturn2) sit AT the mask plane and
-    bracket the quartet (Rx_Coro/CoroExample outer returns).
+  FPreturn   (Return, Flat,  Geometric, at mask plane,  zElt = 1e22)
+  EPreturn   (Return, Conic, NF1,  EP sphere, Kr=-R,    zElt = +R)
+  <mask>     (Return, Flat,  NF2,  at mask plane,        zElt = 1e22)  % MASK HERE
+  EPreturn2  (Return, Conic, Geometric, same sphere,    zElt = +R)    % SAME SIGN as EPreturn
+
+  - **All four surfaces are `Element=Return`** (not Reference).
+  - **Both sphere zElts are +R, identical to all digits** (e.g. Focus23:
+    +7017.8526119080789).  The engine's NF1 chirp uses zStart=zElt(EPreturn)
+    and zEnd=zElt(iElt+1)=zElt(EPreturn2); the mask sandwich is transparent
+    (no spurious defocus) IFF **zEnd == zStart, SIGN INCLUDED**.  EPreturn2
+    at **-R** produces S~2R — the exact defocus failure the round-trip
+    investigation diagnosed.  Do NOT write -R.
+  - **FPreturn and the mask both carry zElt=1e22** (the "plane" radius),
+    NOT 0 and NOT 1e30.
+  - R = distance EP->mask (the exit-pupil sphere radius, = -Kr).  The sphere
+    vertex sits one R on the incoming (-chief) side of the focus (Focus23:
+    focus x=+3274.6, EPreturn vertex x=-3743.3, R=7017.85), psi=+chief
+    (pointing toward the focus / centre of curvature).  EPreturn and EPreturn2
+    share the SAME pose and Kr (they are the same physical sphere, entered
+    then exited).
+  - Terminal FF leg mirrors this as a 3-surface triple: FP_return(Return,
+    Flat, Geometric, zElt=1e22) -> ExitPupil(Return, Conic, FarField, Kr=-R,
+    zElt=+R) -> FPA(FocalPlane, Flat, Geometric, zElt=1e22).  zElt=+R (positive)
+    for the FarField sphere, same convention as EPreturn.
+  - NFPlane p2p leg (DM1->DM2): P1_start(NFPlane, zElt=-L) -> P1_end(Geometric,
+    zElt=0); the DIFFERENCE = -L = chief L (Focus23 example: L~399.94).
+
+  The manual `CoroExample.in` (ret1_1/ret2_1/CoroMask/ret2_2/ret1_2) and
+  `Rx_Coro.in` are the upstream lineage, but where a table and the deck
+  disagree, **the deck wins** — it is the numerically-validated artefact.
 
 ### Alignment procedure (Dave point 1) -- do NOT hand-set psi/vpt
 For each near-field prop: **ORS iElt on the STARTING reference element, then
