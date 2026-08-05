@@ -68,7 +68,39 @@ diffraction layer is sound; the compact-vs-full suppression gap (factor
 diffraction), not a bug.  (Needs `~/dev/proper_matlab` on the path; the
 macos leg runs standalone and skips the PROPER column if absent.)
 
-NEXT (deferred): full s2s generation rules; add_pupil FarField fix; then the
+**NEW WORK A/B/C (2026-08-05).**
+- **A -- `ctb_train_render.m`:** deck-grade layout figure, XZ fold plane
+  (YZ/XY degenerate on this planar bench), compact stacked over full,
+  shared axis scale + 500mm scale bar, mask planes marked (dashed
+  verticals + top labels off the ray lines), EP reference spheres as
+  magenta rings.  Rays clipped to the physical bench window (the
+  off-bench EP-return spheres at x~-3700 are hidden).  Compact and full
+  render near-identically -- correct, they share the physical optics.
+- **B -- `ctb_contrast.m`:** radial dark-zone contrast vs lambda/D at the
+  FPA, Strehl-normalised to the bare (no-mask) peak, reusing the coro/
+  helpers (radial_contrast / dark_zone_metrics).  lambda/D is
+  DETERMINISTIC (lam*R_fpa/D_ep / dx_FPA = 2.006 px) -- SYSPROP returns 0
+  on this finite-conjugate deck and the Airy-null finder gave a spurious
+  16.8.  2-DM -> full annular dark zone; 3-15 lam/D: mean 4.6e-6,
+  median 4.7e-7, floor 2.0e-11 (n=2732 px).  Also repointed
+  ctb_coro_compare's shared_lamD_ to the same deterministic geometry
+  (was 4.0/16.8 spurious).
+- **C -- `ctb_planet.m`:** off-axis companion in the dark zone, incoherent
+  star+planet sum.  KEY: the CoroExample WINDOW/FFP recipe does NOT
+  displace a companion here -- Dave's "vertices ON the chief ray" rule
+  makes the FPM AND FPA grids re-centre on the tilted chief after
+  ffp+ors/fex, so the planet lands back at pixel centre and the occulter
+  clips it (verified).  Instead inject the companion as a PUPIL PHASE
+  RAMP on the complex field at DM1 (macos.apodize_complex): k cycles
+  across the pupil -> planet at exactly k lambda/D, at the FIXED centred
+  FPM (clears the occulter) and FPA.  Same "modify cfield in MATLAB"
+  contract as the masks.  Verified: 6 lam/D target -> planet peak at
+  5.98 lam/D; at flux ratio 1e-3 the planet (5.5e-4) stands above the
+  star residual (2.7e-4) -- the difference panel recovers it cleanly.
+
+NEXT (deferred): D finite bandpass (per-lambda focal masks + compose ADD);
+E engine package (cfield_apodize_c + dx_at NF-plane fix + xp_fnd guard +
+vortex, engine-first); full s2s generation rules; add_pupil FarField fix;
 tCtbProp test + README.  The generated ctb_planar_prop.in / ctb_prop_layout.m
 are SUPERSEDED by Dave's hand decks for the terminal/mask structure -- keep for
 the builder logic (NFPlane zElt rule, _Sret flip-back) but realign to the
