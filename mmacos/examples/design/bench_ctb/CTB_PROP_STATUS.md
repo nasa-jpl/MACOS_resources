@@ -98,10 +98,27 @@ macos leg runs standalone and skips the PROPER column if absent.)
   5.98 lam/D; at flux ratio 1e-3 the planet (5.5e-4) stands above the
   star residual (2.7e-4) -- the difference panel recovers it cleanly.
 
-NEXT (deferred): D finite bandpass (per-lambda focal masks + compose ADD);
-E engine package (cfield_apodize_c + dx_at NF-plane fix + xp_fnd guard +
-vortex, engine-first); full s2s generation rules; add_pupil FarField fix;
-tCtbProp test + README.  The generated ctb_planar_prop.in / ctb_prop_layout.m
+- **D -- `ctb_bandpass.m`:** finite-bandpass CTB, nwf wavelengths summed
+  INCOHERENTLY, mono vs broadband dark-zone contrast.  Focal masks rebuilt
+  per lambda (hard rule).  TWO findings baked in:
+  1. `set_src_wvl` DOES propagate to the grid (dx_at(FPA) = 2.28/2.40/2.52
+     e-5 m at 475/500/525 nm) -- verified.
+  2. MACOS's FarField FPA RE-GRIDS per lambda, so each mono PSF is the same
+     pixel size on the NxN array; naively summing there CANCELS the
+     chromatic effect (first cut gave mono==broadband exactly).  Correct
+     broadband resamples each lambda's PSF onto ONE COMMON PHYSICAL detector
+     grid (nominal-lambda pitch), flux-conserving -- what macos.compose does
+     internally.  Then the broadband PSF visibly smooths (rings wash out)
+     and contrast degrades a physically-sensible 1.018x over a 10% band with
+     a FIXED-METRES occulter (fpm_size='meters', default -- subtends varying
+     lambda/D -> chromatic).  fpm_size='lamD' gives the achromatic reference
+     (mask auto-scales -> mono==broadband to precision; isolates "does the
+     machinery add chromatic error" -> no).  compose() sums only engine
+     traces (no MATLAB masks), so the sum is MATLAB-side, mask-aware.
+
+NEXT (deferred): E engine package (cfield_apodize_c + dx_at NF-plane fix +
+xp_fnd guard + vortex, engine-first -- STOP-and-flag, needs Dave's go);
+full s2s generation rules; add_pupil FarField fix; tCtbProp test + README.  The generated ctb_planar_prop.in / ctb_prop_layout.m
 are SUPERSEDED by Dave's hand decks for the terminal/mask structure -- keep for
 the builder logic (NFPlane zElt rule, _Sret flip-back) but realign to the
 4-surface EP quartet when regenerating.
