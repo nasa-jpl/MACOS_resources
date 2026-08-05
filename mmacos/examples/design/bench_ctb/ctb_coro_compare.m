@@ -269,29 +269,27 @@ end
 % ======================================================================
 function lamD = shared_lamD_(models, model_size)
 %SHARED_LAMD_  ONE lambda/D (px) at the FPA for all models (they share
-%   optics).  Try each model's analytic first-order value; if none is
-%   valid, fall back to the Airy-null finder on a bare FPA PSF; then a
-%   constant.  Computed with NO masks (bare optics).
-    here = fileparts(mfilename('fullpath'));
-    coro = fullfile(here, '..', '..', 'coronagraph', 'coro');
-    if exist(fullfile(coro,'lambda_over_D_pixels.m'),'file'), addpath(coro); end
+%   optics).  DETERMINISTIC from the exit-pupil FF geometry:
+%     lamD = lambda * R_fpa / D_ep   (metres),  / dx_FPA   (px)
+%   R_fpa = zElt(ExitPupil) (terminal FarField sphere radius), D_ep the
+%   geometric beam diameter at the exit pupil.  Robust for this finite-
+%   conjugate deck where SYSPROP's lamD_px is 0 and the Airy-null finder
+%   locks onto the wrong feature (it returned a spurious ~16.8).  Computed
+%   maskless (bare optics).
     lamD = [];
     for k = 1:numel(models)
         e = models(k).elt;
         macos.init(model_size);
         try, macos.load_rx(models(k).rx); catch, continue; end
-        macos.intensity(e.FPA);
-        % analytic first-order lambda/D (preferred)
         try
-            p = macos.first_order_properties(e.FPA);
-            if isfield(p,'lamD_px') && isfinite(p.lamD_px) && p.lamD_px > 0
-                lamD = p.lamD_px;  return;
-            end
+            cbm = macos.cbm(); lambda_m = macos.get_src_wvl()*cbm;
+            macos.intensity(e.FPA);
+            Iep = macos.intensity(e.ExitPupil, 'reset_trace', false);
+            Dep = 2 * beam_radius_(Iep, abs(macos.dx_at(e.ExitPupil)));
+            R_m = abs(macos.get_elt_z(e.ExitPupil)) * cbm;
+            val = (lambda_m * R_m / Dep) / abs(macos.dx_at(e.FPA));
+            if isfinite(val) && val > 0, lamD = val; return; end
         catch
-        end
-        % Airy-null finder as a per-model fallback
-        if isempty(lamD) && exist('lambda_over_D_pixels','file')
-            try, lamD = lambda_over_D_pixels(macos.intensity(e.FPA)); catch, end
         end
     end
     if isempty(lamD) || ~isfinite(lamD) || lamD <= 0, lamD = 4.0; end
