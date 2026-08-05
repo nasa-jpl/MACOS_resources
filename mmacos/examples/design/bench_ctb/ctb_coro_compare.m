@@ -84,7 +84,8 @@ function out = ctb_coro_compare(opts)
     fprintf('[compare] shared lambda/D = %.3f px (all models)\n', lamD);
 
     % --- run every model ------------------------------------------------
-    R = struct('name',{},'I',{},'dx',{},'lamD',{});
+    R = struct('name',{},'I',{},'dx',{},'lamD',{}, ...
+               'dx_f',{},'lamD_fpm_m',{},'r_lyot_geom_m',{});
     for k = 1:numel(opts.models)
         m = opts.models(k);
         r = run_model_(m, planes, opts, lamD);
@@ -129,6 +130,15 @@ end
 % ======================================================================
 function r = run_model_(m, planes, opts, lamD)
     e = m.elt;
+
+    % ---- deterministic mask-sizing scales (bare, maskless pre-pass) ----
+    % FPM focal pitch and FPM-local lambda/D come from the FRAUNHOFER
+    % sphere-to-plane relation using engine-read geometry -- NOT dx_at at
+    % the NF2 plane (finding 2).  The geometric Lyot beam radius is measured
+    % on a bare pupil BEFORE any mask, so the post-FPM Babinet ring cannot
+    % bias it (finding 4).
+    g = geom_scales_(m, opts.model_size);
+
     macos.init(opts.model_size);
     nE = macos.load_rx(m.rx);
     assert(nE == e.FPA, '%s: nElt=%d but FPA index=%d', m.name, nE, e.FPA);
@@ -148,22 +158,23 @@ function r = run_model_(m, planes, opts, lamD)
         I{3} = macos.intensity(e.Apodizer, 'reset_trace', false);
     end
 
-    % FPM focus
+    % FPM focus -- occulter sized in FPM-LOCAL lambda/D (lam*R/D_beam),
+    % painted on the deterministic focal grid g.dx_f (finding 2).
     I{4} = macos.intensity(e.FPM, 'reset_trace', false);
     if opts.fpm
-        dxf = abs(macos.dx_at(e.FPM));
-        r_fpm_m = opts.r_fpm_lamD * lamD * dxf;          % lam/D -> pixels -> m
-        M = 1 - mask_harddisk_(size(I{4},1), dxf, r_fpm_m);  % opaque occulter
+        r_fpm_m = opts.r_fpm_lamD * g.lamD_fpm_m;        % lam/D -> metres
+        M = 1 - mask_harddisk_(size(I{4},1), g.dx_f, r_fpm_m);  % opaque occulter
         macos.apodize(e.FPM, M);
         I{4} = macos.intensity(e.FPM, 'reset_trace', false);
     end
 
-    % Lyot pupil
+    % Lyot pupil -- radius keyed to the BARE GEOMETRIC pupil radius from
+    % the deck (finding 4), not a radius measured from the post-FPM
+    % intensity (which the Babinet ring inflates).
     I{5} = macos.intensity(e.Lyot, 'reset_trace', false);
     if opts.lyot
         dxl = abs(macos.dx_at(e.Lyot));
-        r_beam = beam_radius_(I{5}, dxl);                % measured pupil radius
-        M = mask_harddisk_(size(I{5},1), dxl, opts.r_lyot_frac * r_beam);
+        M = mask_harddisk_(size(I{5},1), dxl, opts.r_lyot_frac * g.r_lyot_geom_m);
         macos.apodize(e.Lyot, M);
         I{5} = macos.intensity(e.Lyot, 'reset_trace', false);
     end
@@ -175,7 +186,38 @@ function r = run_model_(m, planes, opts, lamD)
     dx = zeros(1, numel(planes));
     fld = planes;
     for i = 1:numel(planes), dx(i) = abs(macos.dx_at(e.(fld{i}))); end
-    r = struct('name','', 'I',{I}, 'dx',dx, 'lamD',lamD);
+    r = struct('name','', 'I',{I}, 'dx',dx, 'lamD',lamD, ...
+               'dx_f',g.dx_f, 'lamD_fpm_m',g.lamD_fpm_m, ...
+               'r_lyot_geom_m',g.r_lyot_geom_m);
+end
+
+% ======================================================================
+%  Deterministic mask-sizing scales from a bare (maskless) pre-pass.
+%  Returns FPM focal pitch dx_f, FPM-local lambda/D (m), and the bare
+%  geometric Lyot beam radius (m) -- all from engine geometry, so the
+%  FPM sizing never depends on dx_at at the NF2 plane and the Lyot
+%  radius never sees the post-FPM Babinet ring.
+% ======================================================================
+function g = geom_scales_(m, N)
+    e = m.elt;
+    macos.init(N);
+    macos.load_rx(m.rx);
+    cbm      = macos.cbm();
+    lambda_m = macos.get_src_wvl() * cbm;
+
+    % FPM leg: the NF1 sphere is FPM-1; R = its zElt; feed pitch = dx_at on
+    % that sphere (a real illuminated pupil, so dx_at is trustworthy there).
+    macos.intensity(e.FPM);
+    Isph   = macos.intensity(e.FPM-1, 'reset_trace', false);
+    dx_sph = abs(macos.dx_at(e.FPM-1));
+    R_m    = abs(macos.get_elt_z(e.FPM-1)) * cbm;
+    Dbeam  = 2 * beam_radius_(Isph, dx_sph);             % geometric beam dia
+    g.dx_f       = lambda_m * R_m / (N * dx_sph);        % Fraunhofer focal pitch
+    g.lamD_fpm_m = lambda_m * R_m / Dbeam;               % FPM-local lambda/D (m)
+
+    % Bare geometric Lyot beam radius (no FPM applied on this pre-pass).
+    Ily = macos.intensity(e.Lyot, 'reset_trace', false);
+    g.r_lyot_geom_m = beam_radius_(Ily, abs(macos.dx_at(e.Lyot)));
 end
 
 % ======================================================================
