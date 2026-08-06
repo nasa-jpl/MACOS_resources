@@ -41,6 +41,9 @@ function out = ctb_train_render(opts)
             sx(end+1) = M(k).mark.(fn{i})(1); %#ok<AGROW>
             sy(end+1) = M(k).mark.(fn{i})(2); %#ok<AGROW>
         end
+        % include OAP1 + the source so the source->OAP1->DM1 leg is in-window
+        sx(end+1) = M(k).mark_OAP1(1); sy(end+1) = M(k).mark_OAP1(2); %#ok<AGROW>
+        sx(end+1) = M(k).src(1);       sy(end+1) = M(k).src(2);       %#ok<AGROW>
     end
     padx = 0.05*(max(sx)-min(sx));
     xl = [min(sx)-padx max(sx)+padx];
@@ -94,11 +97,21 @@ function m = local_model_(name, rx, elt, N)
         vp = macos.get_elt_vpt(elt.(fn{i}));       % [x;y;z] source coords
         m.mark.(fn{i}) = [vp(1); vp(3)];           % XZ -> (x, z)
     end
+    % OAP1 (element 1) + the source: the source->OAP1 leg is upstream of DM1
+    % and would otherwise fall off the left edge of a DM1..FPA window.
+    vp1 = macos.get_elt_vpt(1); m.mark_OAP1 = [vp1(1); vp1(3)];
+    sf = macos.get_src_fov();                      % ChfRayPos of the source
+    m.src = [sf.src_pos(1); sf.src_pos(3)];
     % EP reference sphere vertices (ExitPupil-1 is the NF1/FF sphere set)
     m.ep_sphere = [];
     for s = [elt.FPM-1, elt.Lyot, elt.ExitPupil]     % sphere / pupil marks
         try, vp = macos.get_elt_vpt(s); m.ep_sphere(:,end+1) = [vp(1);vp(3)]; catch, end
     end
+end
+
+function p = merge_mark_(m, nm)
+% station mark by name; OAP1 lives in its own field (mark_OAP1).
+    if strcmp(nm,'OAP1'), p = m.mark_OAP1; else, p = m.mark.(nm); end
 end
 
 function draw_panel_(ax, m, xl, yl, want_bar)
@@ -117,19 +130,32 @@ function draw_panel_(ax, m, xl, yl, want_bar)
         if nnz(in) < 2, continue; end
         plot(ax, u(in), v(in), '-', 'Color',[0 0.55 0.15 0.35], 'LineWidth',0.4);
     end
-    % mask-plane station markers + labels off the ray lines
-    stn = {'DM1','DM2','Apodizer','FPM','Lyot','ExitPupil','FPA'};
+    % mask-plane station markers + labels off the ray lines (OAP1 first, then
+    % the DM1..FPA stations); label struct fields are pulled by name.
+    stn  = {'OAP1','DM1','DM2','Apodizer','FPM','Lyot','ExitPupil','FPA'};
+    pmark = @(nm) merge_mark_(m, nm);
+    % OAP1 sits at nearly the same X as DM2 on this folded bench, so drop its
+    % label lower to avoid overprinting the DM2 label.
+    ytop = yl(2)-0.08*(yl(2)-yl(1));
+    ylow = yl(2)-0.24*(yl(2)-yl(1));
     for i = 1:numel(stn)
-        p = m.mark.(stn{i});
+        p = pmark(stn{i});
         plot(ax, p(1), p(2), 'k.', 'MarkerSize',9);
-        % label above the axis top so it never sits on a ray
-        text(ax, p(1), yl(2)-0.08*(yl(2)-yl(1)), stn{i}, ...
+        ytxt = ytop; if strcmp(stn{i},'OAP1'), ytxt = ylow; end
+        text(ax, p(1), ytxt, stn{i}, ...
             'Rotation',90, 'FontSize',7, 'Interpreter','none', ...
             'HorizontalAlignment','left','VerticalAlignment','middle', ...
             'Color',[0.2 0.2 0.2]);
         xline(ax, p(1), ':', 'Color',[0.7 0.7 0.7], 'LineWidth',0.3, ...
             'HandleVisibility','off');
     end
+    % the source (chief-ray origin) -- distinct marker
+    plot(ax, m.src(1), m.src(2), 'p', 'MarkerEdgeColor',[0.85 0.4 0], ...
+        'MarkerFaceColor',[1 0.7 0.2], 'MarkerSize',11);
+    text(ax, m.src(1), yl(2)-0.08*(yl(2)-yl(1)), 'source', ...
+        'Rotation',90,'FontSize',7,'Interpreter','none', ...
+        'HorizontalAlignment','left','VerticalAlignment','middle', ...
+        'Color',[0.85 0.4 0]);
     % EP reference spheres (magenta rings)
     if ~isempty(m.ep_sphere)
         plot(ax, m.ep_sphere(1,:), m.ep_sphere(2,:), 'o', ...

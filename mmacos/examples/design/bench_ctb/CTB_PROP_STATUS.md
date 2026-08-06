@@ -55,6 +55,14 @@ vs the old shallow occulter's 1.02x) -- an honest deep-vs-broadband trade.
    between elements).  Now keeps all in-window crossings and draws ONE
    polyline through them -> continuous fold path DM1->FPA.
 
+5. **SOURCE->OAP1 leg -- ADDED.**  The window was built only from the
+   DM1..FPA station vertices, so OAP1 (element 1) and the source fell off
+   the left edge.  Now the window also spans OAP1's vertex + the source
+   ChfRayPos (get_src_fov), the source is marked with an orange star, and
+   OAP1 is labelled (dropped lower to clear DM2, which sits at nearly the
+   same X on this folded bench).  Full path source->OAP1->DM1->...->FPA
+   is shown.
+
 ---
 
 
