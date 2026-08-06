@@ -182,9 +182,9 @@ para(cap, "ctb_mask_compare.png — contrast vs throughput; APLC deepest, vortex
 tf = textbox(s, Inches(0.35), Inches(1.1), Inches(6.05), Inches(3.35))
 para(tf, "Five families — driver · result (3–15 λ/D, N=1024)", size=14, bold=True, color=NAVY, first=True, space_after=5)
 rows = [
- ("Band-limited Lyot", "ctb_bandlimited", "null 4.4e5; (1−ε)R trim verified; 1.1× chromatic", ACCENT),
+ ("Band-limited Lyot", "ctb_bandlimited", "null 4.3e5; (1−ε)R trim verified; 1.1× chromatic", ACCENT),
  ("Vortex + matched Lyot", "ctb_vortex_matched", "3.2× throughput vs unmatched (star→ring)", GREEN),
- ("APLC (prolate)", "ctb_aplc", "174× deeper than BLC at equal 27% thru", BLUE),
+ ("APLC (prolate)", "ctb_aplc", "139× deeper than BLC at equal 27% thru", BLUE),
  ("Roddier π / dual-zone", "ctb_phase_masks", "first literature complex focal masks", NAVY),
  ("all six, head-to-head", "ctb_mask_compare", "table + scatter + .mat", GREY),
 ]
