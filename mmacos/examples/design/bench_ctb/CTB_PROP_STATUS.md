@@ -134,6 +134,98 @@ numerically colored, not by eye).
 
 ---
 
+## SESSION 6b (2026-08-05) — mechanical queue closed (merged from pol-ifo-mech)
+
+The four items SESSION 4 deferred, plus the engine guard it flagged. The
+science sections below are untouched.
+
+| Item | Verdict | Commit |
+|---|---|---|
+| E.3 `xp_fnd` EltID guard | closed | macos `dev` e1d3c2b + MACOS_res_dev `dev` bdfe0e5 |
+| add_pupil FarField emission | no fix needed | evidence below |
+| s2s generation rules | closed | pol-ifo-mech 4ca9fc2 |
+| `tCtbProp` | closed | pol-ifo-mech e2e2511 |
+| `README.md` diffraction section | closed | this commit |
+
+**E.3 `xp_fnd` guard.** `xp_fnd` ran FEX on `nElt-1` unconditionally and
+returned PASS even when the FEXIT handler had declined to write (it writes
+only a Return(8) or Reference(3) surface), so a deck whose penultimate
+element is a powered optic silently kept a stale exit pupil. A new
+`XpEltOrWarn()` precheck returns FAIL naming the element and its EltID; it
+runs before the stop check so the engine's stdout and the binding's error
+identifier always name the same cause. mmacos raises `macos:fex:noPupilElt`,
+distinct from `macos:fex:noStop`. The four `dw_d*_multi` supervisors were
+built on the old silent decline — their per-field FEX did nothing and
+`finalize` issued one `macos:dw_dx_multi:noPupil` warning — so the call moved
+into `reset_xp_guard('fex', ...)`, which absorbs the new FAIL into that same
+verdict. Gates: bare focal deck fails cleanly, e5hex1 radius unchanged from
+the pre-change mex to all digits, stopless deck still reports noStop,
+`dw_dx_multi` with `reset_xp` on a no-pupil deck still completes with stamp
+`no-effect`; mmacos fast 253/0, tPupilMap 12/0. `sxp_fnd` dispatches SXP, a
+FEXIT clone with the same element-type check, and carries the same gap —
+left for its own go.
+
+**add_pupil FarField — the record was right, no fix needed.** A three-mirror
+telescope built through `macos.design.Telescope`, `add_pupil`, `save`: the
+emitted deck carries `PropType= FarField` on the ExitPupil and Geometric
+everywhere else (`Telescope.m` emits FarField only at that element), with
+`KrElt = -R` and `zElt = +R`, R = 3.5731681773874477. The engine runs
+"Far-field sphere-to-plane diffraction" on it and the PSF forms on the DC
+pixel — peak 1.02e4 at [129,129] of 256. Two values differ from the CTB
+terminal convention and neither is read by the transform: `FP_return` carries
+zElt = +R rather than 1e22, and the FocalPlane 1e20 rather than 1e22
+(`FFPROP` takes only the sphere's zElt).
+
+**s2s generation rules.** `ctb_prop_layout.m` now emits BOTH models from
+`ctb_planar_stageF.in` on the validated conventions — quartet per focus,
+near-field pair per propagated leg, far-field terminal — writing
+`ctb_dcr_gen.in` (31) and `ctb_s2s_dcr_gen.in` (44) beside the committed
+decks. The sphere radius is measured by FEX on a truncated deck ending in
+`<upstream optics>/FPreturn/EPreturn/focus-as-FocalPlane`, reproducing the
+hand decks' radii from arbitrary seeds to ≤ 4.4e-8 mm at all three foci and
+the terminal. Acceptance at model 512: chief ray at all ten real optics
+1.64e-11 mm (committed decks 1.36e-11 mm under the same measure), PSF peak on
+[257,257] and dx 2.4039e-5 m on all four decks, bare correlation 0.999999 per
+model, peak ratio 1.000000 for the full model, quartet audit identical for
+generated and committed (3 quartets, 3 zElt-equal, spheres centred to
+9.1e-13 mm, 14 Returns, even).
+
+**The committed compact deck's DM1→DM2 leg was wrong, and is fixed.** It
+propagated that leg over 399.94 mm where the chief distance between the two
+stations is 499.92 mm — 0.8× it, the old builder's 10%/90% plane placement,
+inherited by the hand deck, with `P1_end` landing 399.94 mm *behind* DM1 and
+reached by a negative ray length. The full deck's `Prop1` pair was already
+correct. Raised as a flag, then fixed on Dave's instruction (2026-08-06) by
+lifting `Prop1_start`'s zElt and `Prop1_end`'s Vpt/Rpt verbatim into
+`P1_start`/`P1_end` — three lines, so the two committed decks now agree on
+that leg to all digits and the generator reproduces both.
+
+Effect: the leg is collimated pupil-to-pupil, so only edge diffraction
+changes. Bare FPA peak 7.006e-2 → **6.990e-2** (0.23%); compact-vs-full
+correlation 0.998863 → **0.998895**; generated-vs-committed compact peak
+ratio 0.9977 → **0.999999**. `tCtbProp` pins updated, 8/8. **Analysis
+outputs committed before 2026-08-06 — the contrast / planet / bandpass /
+vortex figures and their recorded numbers — were produced on the short leg
+and carry that 0.23%.** Not regenerated here (masks work order).
+
+**`tCtbProp`** (8 checks, asset-gated, model 512, own runner batch
+`SUITE_CTB_512` and a `./run_mmacos_tests.sh ctb` shortcut): quartet audit on
+both decks, NF1/NF2 round-trip identity, centred-PSF pins, the 0.998895
+compact-vs-full correlation, the PROPER arbiter (skipped with a message when
+PROPER is absent), and generator-reproduces-committed. 8 pass, 0 fail, none
+skipped; the PROPER leg reproduces the recorded arbiter values exactly. The
+two quartet pins were checked against the bug they exist for: negating every
+`EPreturn2` zElt in a scratch copy fails both, the round trip reporting
+42%–125% relative field error at the post-mask sphere.
+
+**Superseded artefacts.** `ctb_planar_prop.in` (29 elements, the old
+three-surface Sin/Sout/Sret construction) is no longer produced by
+`ctb_prop_layout.m` and nothing references it. The "What exists" and
+"Augmented deck element map" sections below describe that builder and are
+historical.
+
+---
+
 ## SESSION 5 (2026-08-05) — performance pass (centering, sampling, mask/Lyot optimize)
 
 Dave: "find better performance -- the hard occulter is not centered, the
@@ -353,18 +445,28 @@ macos leg runs standalone and skips the PROPER column if absent.)
     silently mis-places the exit pupil.  A guarded version would return
     FAIL with a reason when EltID(nElt-1) is not Return/Reference.  THIS
     needs Dave's go (engine edit + relink chain).  ==> FLAGGED to Dave.
+    **CLOSED 2026-08-05 (SESSION 6): macos dev e1d3c2b + MACOS_res_dev dev
+    bdfe0e5.**
 
 NEXT (deferred, engine-first items need Dave's go): E.3 xp_fnd guard;
 full s2s generation rules; add_pupil FarField fix; tCtbProp test + README.  The generated ctb_planar_prop.in / ctb_prop_layout.m
 are SUPERSEDED by Dave's hand decks for the terminal/mask structure -- keep for
 the builder logic (NFPlane zElt rule, _Sret flip-back) but realign to the
 4-surface EP quartet when regenerating.
+**ALL FOUR CLOSED 2026-08-05 (SESSION 6): e1d3c2b/bdfe0e5 (guard), 4ca9fc2
+(generation rules -- ctb_prop_layout.m rewritten to the quartet, and it now
+emits BOTH models), add_pupil verified correct as emitted (no fix), e2e2511
+(tCtbProp) and this commit (README).**
 
 ---
 
 _Older: paused 2026-08-04, mid-diagnosis; see "OPEN ITEM"/"RESOLVED" below._
 
 ## What exists (branch `pol-ifo`, in `bench_ctb/`, all UNTRACKED so far)
+
+> HISTORICAL (SESSION 6): `ctb_prop_layout.m` was rewritten in 4ca9fc2 and no
+> longer emits `ctb_planar_prop.in`; nothing references that deck. `tCtbProp.m`
+> exists (e2e2511). The current file inventory is in `README.md`.
 
 - `Coro_propagation_summary.md` — recipe of record (copied in per work order).
 - `ctb_prop_layout.m` — builder: loads `ctb_planar_stageF.in`, traces to get the
@@ -374,7 +476,7 @@ _Older: paused 2026-08-04, mid-diagnosis; see "OPEN ITEM"/"RESOLVED" below._
 
 Not yet written: `ctb_prop_legs.m`, `ctb_propagate.m`, `+ctbmask/*`, `tCtbProp.m`.
 
-## Augmented deck element map (current, 29 elts)
+## Augmented deck element map (current, 29 elts) — HISTORICAL, that builder is gone
 
 `OAP1(1) DM1(2) P1_start(3,NFPlane) P1_end(4) DM2(5) OAP2(6)
 Focus23_Sin(7,NF1) Focus23(8,NF2) Focus23_Sout(9) OAP3(10)
@@ -569,9 +671,19 @@ GEOMETRIC layout aid; the DIFFRACTION terminal is the Rx_Coro 2-surface form.
 - `.in` regexes MUST be line-anchored: `iElt` is a substring of `psiElt`, so an
   unanchored `iElt=\s+\d+` clobbers the leading digit of psiElt. Fixed in
   `ctb_prop_layout.m` (set_prop/set_z/renumber all use `^\s*` + `'lineanchors'`).
-- `dx_at` at an NF2 focal plane returns garbage (e.g. 2.6e26) — cosmetic readout,
-  field still propagates. Use `abs()` and don't trust dx at NF2 planes.
+- ~~`dx_at` at an NF2 focal plane returns garbage (e.g. 2.6e26) — cosmetic readout,
+  field still propagates. Use `abs()` and don't trust dx at NF2 planes.~~
+  RETRACTED (SESSION 4 finding E.2): an artefact of the superseded
+  through-focus construction. On the committed quartet `dx_at(FPM)` matches
+  the deterministic `lam*R/(N*dx_sphere)` to ratio 1.0000.
 - MATLAB on this box: `/Applications/MATLAB_R2024a.app/bin/matlab`; the mmacos MEX
   is `mmacos.mexmaca64`; `MACOS_HOME` set. `startup.m` prints a harmless pyenv
   error. Run sandboxed for license.
 - CLI exe (if needed): `/Users/dcr/dev/macos/build_release_gfortran/bin/macos`.
+- The two entries above are the Mac box. On the Linux box: `matlab` on PATH,
+  the mex is `mmacos.mexa64`, the CLI is
+  `~/dev/macos/build_release_gfortran/bin/macos`.
+- Some installed mexes predate the `'plane'` argument on
+  `macos.complex_field`; the veneer passes three arguments and errors against
+  them. Fall back to `mmacos('complex_field', iElt, reset)` — what
+  `ctb_proper_compare` and `tCtbProp` do.
