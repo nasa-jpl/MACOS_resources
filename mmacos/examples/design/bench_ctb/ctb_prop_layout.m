@@ -57,7 +57,13 @@ function info = ctb_prop_layout(opts)
 %
 %      L is the chief-ray distance between the two stations; the engine
 %      propagates the zElt DIFFERENCE, so -L then 0.  Both planes sit on the
-%      chief pierce of their station, normal along the chief.
+%      chief pierce of their station, normal along the chief -- NOT at a
+%      fraction along the segment.  The committed compact deck carried
+%      L = 399.94 mm on the DM1->DM2 leg against a 499.92 mm chief distance
+%      (0.8x it, from a builder that placed the planes at 10% and 90% along
+%      the segment, with the end plane landing behind DM1); corrected
+%      2026-08-06, and both committed decks now agree with this rule to all
+%      digits.
 %
 %   3. FAR-FIELD TERMINAL (three surfaces, replacing the bare FPA):
 %

@@ -29,8 +29,8 @@ classdef tCtbProp < matlab.unittest.TestCase
         ModelSize = 512
         % Committed measurements the pins are taken from -- ctb_dcr.in /
         % ctb_s2s_dcr.in at model 512, nGridpts 255, lambda 500 nm.
-        CorrCompactFull = 0.998863     % bare, peak-normalised
-        PeakCompact     = 7.00582e-2
+        CorrCompactFull = 0.998895     % bare, peak-normalised
+        PeakCompact     = 6.98980e-2
         PeakFull        = 6.02965e-2
         DxFpaM          = 2.4039e-5
     end
@@ -135,12 +135,10 @@ classdef tCtbProp < matlab.unittest.TestCase
         % --- (f) generator reproduces the committed decks ---------------
         function test_generator_reproduces_hand_decks(tc)
             % Fast subset of the ctb_prop_layout acceptance: element count,
-            % quartet audit, sphere radii, and -- for the full model, whose
-            % committed deck already carries the correct DM1->DM2 leg length
-            % -- the bare PSF peak.  (The committed COMPACT deck propagates
-            % that leg over 399.94 mm against a 499.92 mm chief distance, so
-            % its generated counterpart differs by ~0.23% in peak by design;
-            % see the generator header.)
+            % quartet audit, sphere radii, and the bare PSF peak on BOTH
+            % models.  (Until 2026-08-06 the committed compact deck
+            % propagated the DM1->DM2 leg over 399.94 mm against a 499.92 mm
+            % chief distance, and only the full model could be pinned here.)
             d = fullfile(tempname); mkdir(d);
             restore = onCleanup(@() rmdir(d, 's'));
             info = ctb_prop_layout('outdir', d, 'model', tc.ModelSize, ...
@@ -166,15 +164,18 @@ classdef tCtbProp < matlab.unittest.TestCase
                 tc.verifyEqual(got.(map.(f{1})), ref.(f{1}), 'RelTol', 1e-9, ...
                     sprintf('%s: FEX radius', f{1}));
             end
-            % the full model must reproduce the committed PSF peak
-            gfull = info(strcmp({info.name},'full')).out;
-            Ig = tCtbProp.psf_(gfull,    tc.ModelSize);
-            Ih = tCtbProp.psf_(tc.full,  tc.ModelSize);
-            tc.verifyEqual(max(Ig(:)), max(Ih(:)), 'RelTol', 1e-6, ...
-                'generated full deck: bare PSF peak');
+            % both models must reproduce their committed deck's bare PSF
             n = @(A) A / max(A(:));
-            tc.verifyGreaterThan(corr2(n(Ig), n(Ih)), 0.9999, ...
-                'generated full deck: bare PSF correlation');
+            for m = {{'compact', tc.compact}, {'full', tc.full}}
+                lbl  = m{1}{1};
+                gout = info(strcmp({info.name}, lbl)).out;
+                Ig = tCtbProp.psf_(gout,    tc.ModelSize);
+                Ih = tCtbProp.psf_(m{1}{2}, tc.ModelSize);
+                tc.verifyEqual(max(Ig(:)), max(Ih(:)), 'RelTol', 1e-5, ...
+                    sprintf('generated %s deck: bare PSF peak', lbl));
+                tc.verifyGreaterThan(corr2(n(Ig), n(Ih)), 0.9999, ...
+                    sprintf('generated %s deck: bare PSF correlation', lbl));
+            end
         end
     end
 
