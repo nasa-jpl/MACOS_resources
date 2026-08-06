@@ -103,24 +103,26 @@ function out = ctb_mask_compare(opts)
 
     % ---- summary figure -----------------------------------------------
     vis='off'; if opts.visible, vis='on'; end
-    fig = figure('Visible',vis,'Color','w','Position',[40 40 1560 820]);
+    fig = figure('Visible',vis,'Color','w','Position',[40 40 1760 940]);
+    set(fig,'DefaultAxesFontSize',18,'DefaultTextFontSize',18);   % readable when shrunk onto a slide
     tl = tiledlayout(fig,2,4,'TileSpacing','compact','Padding','compact');
     title(tl, sprintf(['CTB coronagraph mask families -- contrast vs throughput ', ...
         '(annulus %.0f-%.0f \\lambda/D, N=%d)'], opts.inner_lamD, opts.outer_lamD, N), ...
-        'FontWeight','bold','Interpreter','tex');
+        'FontWeight','bold','Interpreter','tex','FontSize',22);
 
     % big scatter panel (contrast vs throughput), lower-left = better
-    ax=nexttile(tl,[2 2]); hold(ax,'on'); set(ax,'YScale','log');
+    ax=nexttile(tl,[2 2]); hold(ax,'on'); set(ax,'YScale','log','FontSize',18);
     cols = lines(numel(rows));
     for k=1:numel(rows)
-        plot(ax, 100*rows(k).thru, rows(k).dz.mean, 'o', 'MarkerSize',12, ...
-            'MarkerFaceColor',cols(k,:),'MarkerEdgeColor','k');
-        text(ax, 100*rows(k).thru+1.2, rows(k).dz.mean, rows(k).name, ...
-            'FontSize',9.5,'Interpreter','tex');
+        plot(ax, 100*rows(k).thru, rows(k).dz.mean, 'o', 'MarkerSize',16, ...
+            'MarkerFaceColor',cols(k,:),'MarkerEdgeColor','k','LineWidth',1.2);
+        text(ax, 100*rows(k).thru+1.5, rows(k).dz.mean, rows(k).name, ...
+            'FontSize',17,'FontWeight','bold','Interpreter','tex');
     end
-    grid(ax,'on'); box(ax,'on'); xlim(ax,[0 100]);
-    xlabel(ax,'off-axis throughput (%)'); ylabel(ax,'mean dark-zone contrast');
-    title(ax,'deeper + more throughput = lower-right is better','Interpreter','none');
+    grid(ax,'on'); box(ax,'on'); xlim(ax,[0 108]);
+    xlabel(ax,'off-axis throughput (%)','FontSize',19);
+    ylabel(ax,'mean dark-zone contrast','FontSize',19);
+    title(ax,'deeper + more throughput = lower-right is better','Interpreter','none','FontSize',19);
 
     % FPA thumbnails
     w = round(2*(opts.outer_lamD+3)*lamD);
@@ -281,7 +283,8 @@ end
 function show_(ax, I, peak, w, ttl)
     In = double(I)/max(peak,eps); L=log10(max(In,1e-12));
     imagesc(ax, crop_(L,w)); axis(ax,'image','off'); colormap(ax,parula); clim(ax,[-10 0]);
-    cbh=colorbar(ax); cbh.Label.String='log_{10} contrast'; title(ax,ttl,'Interpreter','tex');
+    cbh=colorbar(ax); cbh.Label.String='log_{10} contrast'; cbh.FontSize=14; cbh.Label.FontSize=15;
+    title(ax,ttl,'Interpreter','tex','FontSize',18);
 end
 function o = crop_(img, w)
     n=size(img,1); if w>=n, o=img; return; end
