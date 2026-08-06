@@ -324,3 +324,116 @@ holds the **faithful DST2R** design (Brandon's actual CODE V layout via
 cv2macos) as a parallel reference — same 8 OAP focal lengths and topology, but
 Brandon's exact spacings/clocking. Develop here; track the real instrument
 there. See `dst2/README.md`.
+
+## Phase-factor export for external PROPER models
+
+The CTB **full model** (`ctb_s2s_dcr.in`, 44 elements) can be exported as a
+self-describing `.mat` so an **external PROPER user** — someone who has never
+seen macos — can consume this model's per-plane fields and surfaces in their
+own [PROPER](https://sourceforge.net/projects/proper-library/) run and check
+their model against ours **plane by plane** (an interface check).
+
+**Generate** (one MATLAB process, ~1 min, needs `MACOS_HOME` + the mmacos MEX):
+
+```matlab
+cd mmacos/examples/design/bench_ctb
+ctb_phase_export            % writes ctb_phase_export_N1024.mat (+ preview + .fp.json)
+```
+
+**Consume** (needs only the `.mat` + MATLAB PROPER on the path — no macos):
+
+```matlab
+addpath ~/dev/proper_matlab
+out_s2s       = proper_ctb_check('s2s',       'figure', true);
+out_collapsed = proper_ctb_check('collapsed', 'figure', true);
+```
+
+### File: `ctb_phase_export_N1024.mat` (`-v7.3`)
+
+All quantities are in **metres** (SI). Fields are on each plane's **own**
+diffraction grid; the array centre / focus pixel is `floor(N/2)+1`.
+
+| var | field | meaning |
+|---|---|---|
+| `meta` | `lambda_m`, `N`, `center_px` | 5.00e-7 m, 1024, 513 |
+| | `base_unit_to_metre` | deck is mm → 1e-3 (CBM) |
+| | `opd_sign` | **`OPD_m = -angle(E)·λ/(2π)`** — macos OPD is **opposite** PROPER `prop_add_phase` (pymacos `opd_sign_flip=true`). A consumer calls `prop_add_phase(bm, OPD_m)` directly. |
+| | `opd_wrapping` | `OPD_m` comes from `angle(E) ∈ [-π,π]`, so it is **wrapped** (`\|OPD\| ≤ λ/2`). `E` is the primary carrier (`AMP·exp(iθ)` reconstructs it exactly); unwrap `OPD_m` before using it as a smooth additive screen. |
+| | `grid_orientation` | `E(row,col)`: **row = +Y** (first index), **col = +X**. Verified: a **+X pupil phase ramp** `exp(+i2πk·X/D)` sends the FPA peak to **col < centre** (−X side). |
+| | `orientation` | the measured probe result: `k=8` ramp → FPA peak `dcol=-32, drow=0`. A consumer asserts the same handedness from the `.mat` alone. |
+| | `convention_focus`, `convention_p2p` | the two propagation conventions — **read these** (summarised below). |
+| `stations(k)` | `name, iElt, kind` | one per real optic (8 OAPs + 2 DMs), mask plane (Apodizer/FPM/Lyot/FieldStop), and the FPA. `kind ∈ {optic, pupil, focus}`. |
+| | `E, AMP, OPD_m` | complex field, amplitude, wrapped OPD on that plane (`\|E\|² = intensity`). |
+| | `dx_m, z_along_chief_m, chief_pos_m` | plane pitch (SI), cumulative chief-ray path, chief 3-vector. |
+| `legs(j)` | `from, to, chief_len_m, prop_type, sphere_R_m` | the propagation table between consecutive stations: `NFPlane plane-to-plane` \| `through-focus quartet` \| `FarField` \| `geometric jump`. `sphere_R_m` is the reference-sphere radius where the leg is spherical. |
+| `spheres(i)` | `feeds_station, sphere_iElt, E, AMP, OPD_m, dx_sphere_m, R_m` | the **feeding reference sphere** for each through-focus / FarField leg — the plane you seed PROPER from to replay that leg (see below). |
+| `screens(k)` | `at_station, OPD_add_m, dx_m` | the OPD **added** reaching that plane, as the **difference of consecutive-station OPDs** (a clean per-optic split is not directly readable from the engine; the diff construction is what ships — `meta.screen_method`). |
+
+A committed **preview** (`ctb_phase_export_preview.mat`, 96×-downsampled,
+≈3 MB) mirrors the format for inspection without a regen. The full `.mat`
+(≈320 MB) is **gitignored**; the committed truth is the fingerprint
+`ctb_phase_export_N1024.fp.json` (dims + per-column norms + provenance, via
+`jac_fingerprint.m`) — regenerate the `.mat` with the one line above.
+
+### The two propagation conventions you must understand
+
+**Through-focus & FarField legs — replay from the feeding sphere.** A
+sphere→focus→sphere (or terminal FarField) leg reproduces macos **exactly**
+only when PROPER is seeded at the **feeding reference sphere** (`spheres(i)`),
+not the optic-plane field:
+
+```matlab
+s  = spheres(i);                                   % feeds e.g. 'FPM'
+bm = prop_begin(N*s.dx_sphere_m, lambda_m, N, 'beam_diam_fraction',1.0);
+bm = prop_multiply(bm, s.AMP);
+bm = prop_add_phase(bm, s.OPD_m);                  % already sign-flipped
+bm = prop_define_entrance(bm);
+bm = prop_lens(bm, s.R_m);
+bm = prop_propagate(bm, s.R_m);                    % -> the focus station
+```
+
+This matches macos at the focus at **intensity peak-norm corr 1.000000** (the
+`ctb_proper_compare` arbiter class).
+
+**Collimated pupil→pupil (NFPlane) legs — do NOT compare raw complex fields.**
+macos's NFPlane p2p propagator reads the field on a **planar reference**
+(local-plane curvature re-zeroed); PROPER's `prop_propagate` accumulates the
+full Fresnel **quadratic reference-sphere phase**. So across a collimated leg
+the **intensity agrees** (corr ≈ 0.95) but the **raw complex fields differ by
+a large quadratic reference-phase term** (measured DM1→DM2 raw-field corr
+≈ −0.8). This is a **reference-phase convention difference, not an error**
+(the NF p2p propagator is validated to 2.4e-14 macos-vs-macos). **Judge
+collimated legs by intensity, not by raw complex-field correlation.** If you
+need bit-faithful fields at a pupil, **consume our exported `E` directly** at
+that plane — which is exactly what `'collapsed'` mode does, and why it is
+always valid.
+
+**Powered OAPs are the external user's own `prop_lens`.** A pupil fed *through*
+a powered OAP (e.g. `ExitPupil` via OAP8) is **not** replayable by a bare
+`prop_propagate` — the OAP's focal-length phase acts between planes and is the
+consumer's optic to model (`prop_lens` with its focal length), not ours to
+carry. The `optic`-kind stations sit mid-beam through a powered mirror and are
+**not valid hand-off planes**; they are reported for completeness, never gated.
+
+### The two use modes
+
+- **`'collapsed'` (recommended for a hand-off).** Ignore the inter-optic legs;
+  take our exported `E` at each pupil/focus as the starting field for your own
+  downstream propagation. Always valid — no reference-phase ambiguity.
+- **`'s2s'` (replicate our propagation).** Replay the diffraction legs: the
+  through-focus/FarField legs from `spheres`, the direct NFPlane pupil→pupil
+  legs with `prop_propagate`. Model the OAPs as your own `prop_lens`.
+
+### Check-script gate numbers (pinned; MATLAB PROPER, N=1024, 500 nm)
+
+| station kind | `'s2s'` | `'collapsed'` |
+|---|---|---|
+| **focus** (Focus23, FPM, FieldStop, FPA) | corr_I **1.000000** | corr_I **1.000000** |
+| **pupil**, direct NFPlane (Apodizer, Lyot, CheckPoint) | corr_I ≥ **0.9998** | — |
+| **pupil**, all (DM1/DM2/Apodizer/Lyot/CheckPoint/ExitPupil) | — | corr_I ≥ **0.961** |
+| **optic** (OAPs) & OAP-fed pupils | reported, not gated | reported, not gated |
+
+`proper_ctb_check_s2s.png` / `proper_ctb_check_collapsed.png` render the full
+station-by-station bar charts (blue = focus, gated 1.0; green = pupil, gated
+0.94; grey = optic / OAP-fed, informational). Both modes report **focus PASS /
+pupil-gate PASS**.

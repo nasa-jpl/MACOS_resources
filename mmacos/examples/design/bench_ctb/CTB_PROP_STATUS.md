@@ -1,6 +1,63 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-06. Latest work at "SESSION 7" (compact-deck DM1→DM2 fix) below; older kept._
+_Updated 2026-08-06. Latest work at "SESSION 8" (phase-factor export for external PROPER) below; older kept._
+
+## SESSION 8 (2026-08-06) — CTB phase-factor export for external PROPER models
+
+Roadmap item 5 (deck_ctb "Next"): export the CTB **full model**
+(`ctb_s2s_dcr.in`, 44 elts, N=1024, 500 nm) per-plane phase factors so an
+EXTERNAL PROPER user can consume this model's surfaces/fields and check theirs
+plane by plane.  Pure MATLAB; no engine edit.
+
+**SHIPPED:**
+- `ctb_phase_export.m` → `ctb_phase_export_N1024.mat` (`-v7.3`, ~320 MB,
+  gitignored) with `meta / stations(18) / legs(17) / spheres(4) / screens(18)`.
+  Stations = 8 OAPs + 2 DMs + 4 mask/focus planes + ExitPupil + FPA; metres
+  throughout (`dx_at` runtime SI, not dxElt); center px floor(N/2)+1; OPD sign
+  flip stamped (`OPD_m=-angle(E)λ/2π`, opposite `prop_add_phase`); orientation
+  probe baked in (+X pupil ramp → FPA peak dcol=-32).  `legs` classifies every
+  hop (NFPlane p2p / through-focus quartet / FarField / geometric) with sphere
+  radii.  `screens` = per-optic added OPD via the diff-of-consecutive-plane-OPD
+  construction (documented; clean per-optic split not engine-readable).
+- `proper_ctb_check.m` — reads ONLY the `.mat` (no mmacos), PROPER-optional
+  (skip-with-message).  Two modes: `'s2s'` (replay legs) / `'collapsed'`
+  (consume our E as hand-off).
+- Large-file policy (dd8f11b pattern): `.mat` gitignored by explicit path;
+  committed `ctb_phase_export_N1024.fp.json` (87 KB, `jac_fingerprint.m` copied
+  in) + `ctb_phase_export_preview.mat` (96×-downsampled, ~3 MB).  Regen line in
+  README.
+- README "Phase-factor export" section (external-user interface doc: format
+  field-by-field, sign/orientation/units, both modes with run lines, pinned
+  gate numbers) + `proper_ctb_check_{s2s,collapsed}.png`.
+
+**GATE NUMBERS (MATLAB PROPER, N=1024, 500 nm; both modes PASS):**
+- THROUGH-FOCUS + FarField (Focus23/FPM/FieldStop/FPA), replayed from the
+  FEEDING SPHERE: intensity peak-norm **corr_I = 1.000000** — the arbiter class.
+- COLLAPSED-mode pupils (all 6): corr_I ≥ **0.961**.
+- S2S-mode direct-NFPlane pupils (Apodizer/Lyot/CheckPoint): corr_I ≥ **0.9998**.
+
+**TWO INTERFACE FINDINGS (flagged to Dave, documented for users — NOT engine
+bugs):**
+1. **Through-focus legs replay ONLY from the feeding reference sphere.**
+   Seeding PROPER at the optic/mask plane fails (dx mismatch ~4.5×, corr~0);
+   seeding at the EPreturn sphere with its dx + R and `prop_lens(R)+
+   prop_propagate(R)` reproduces macos at corr 1.000000 (the arbiter).  Hence
+   the `spheres` block was ADDED to the export (v1 → v2) as the replay enabler.
+2. **Collimated NFPlane pupil→pupil legs: raw complex fields do NOT match
+   after PROPER `prop_propagate`.**  macos NFPlane reads on a PLANAR reference
+   (curvature re-zeroed); PROPER accumulates the full Fresnel quadratic
+   reference-sphere phase.  So INTENSITY agrees (corr ~0.95) but the raw
+   complex fields differ by a large quadratic term (DM1→DM2 raw corr ≈ −0.8).
+   Convention difference, not error (NF p2p validated 2.4e-14 macos-vs-macos).
+   Consequence: judge collimated legs by intensity, or consume our E directly
+   (the always-valid `collapsed` hand-off).  Powered OAPs are the external
+   user's own `prop_lens` — `optic`-kind stations are mid-beam, not hand-off
+   planes, reported-not-gated.
+
+**Consumes**: the as-committed `ctb_s2s_dcr.in` (untouched).  All artifacts on
+`pol-ifo`, commit-only.
+
+---
 
 ## SESSION 7 (2026-08-06) — compact-deck DM1→DM2 near-field prop fix + comparison re-run
 
