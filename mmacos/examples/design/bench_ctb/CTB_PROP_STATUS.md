@@ -1,6 +1,48 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-05. Latest work at "SESSION 6" (literature mask families) below; older kept._
+_Updated 2026-08-06. Latest work at "SESSION 7" (compact-deck DM1→DM2 fix) below; older kept._
+
+## SESSION 7 (2026-08-06) — compact-deck DM1→DM2 near-field prop fix + comparison re-run
+
+Dave: "the compact model does not have the right setup for the DM1-DM2
+propagation, while the full model does — replace the DM1-DM2 reference
+surfaces / zElts from the full model."
+
+**THE BUG.**  `ctb_dcr.in`'s DM1→DM2 NFPlane leg (`P1_start`/`P1_end`) was
+mis-set: `P1_start` zElt = **−399.94** (too short) and `P1_end` Vpt at
+**x=1528** — one radius BEHIND DM1 (wrong side) — vs the true DM1-DM2
+spacing ~500 mm (DM1 x=1928, DM2 x=2428).
+
+**THE FIX.**  Copied the numerically-correct values from the full model's
+`Prop1_start`/`Prop1_end` (`ctb_s2s_dcr.in`), keeping the compact deck's own
+element names/indices (drivers index by station, not name):
+- `P1_start` zElt  −3.9993878644E+02 → **−4.99923483044516D+02**
+- `P1_end`  Vpt/Rpt (1528.31,−104.90) → **(2428.174,−103.305)** (now AT DM2)
+- `Extinc` 1.0E+22 → **0e0** (both planes)
+The `psiElt`/`KrElt` were already identical between the decks.
+
+**VERIFIED.**  Fixed compact deck now matches the full model bit-for-bit at
+DM1 (sum 1.0000, r 1.062e-2 m) and DM2 (sum 0.9894, r 1.062e-2 m); FPA still
+centred [513,513].  All six mask drivers re-run green; ranking unchanged
+(APLC deepest, vortex best throughput; mask contrasts shifted only in the 3rd
+digit — the masks act at downstream conjugates, so the DM1→DM2 leg only sets
+the pupil field feeding them, e.g. APLC 1.6e-10 → 2.1e-10).
+
+**COMPACT-vs-FULL COMPARISON re-run (N=512, the SESSION-4 metric):**
+- BARE agreement UNCHANGED: peak-norm corr **0.9989**, EE(±10px) diff 0.21%
+  (compact 0.9653 / full 0.9632).  The fix corrects the compact deck's
+  INTERNAL DM planes without moving the terminal-PSF agreement.
+- CORO (apod + 2.70 λ/D hard occulter + Lyot 0.50) suppression: compact
+  **5.09e4** / full **2.90e4** → gap **1.76×**, DOWN from the SESSION-4 2.6×
+  (that pair was at a 3 λ/D occulter).  Correcting the DM1→DM2 near-field
+  prop brings the compact model CLOSER to the full model's diffraction, as
+  expected.  A residual gap remains because the compact deck still omits the
+  OAP→OAP inter-optic p2p legs the full deck carries — the SESSION-4 point;
+  PROPER (FPM-leg corr 1.000000) stays the arbiter, not model-vs-model.
+- Regenerated `ctb_coro_compare_bare.png` / `_coro.png` +
+  `ctb_mask_compare.png`/`.mat` on the fixed deck.
+
+---
 
 ## SESSION 6 (2026-08-05) — literature focal-plane-mask families (Dave's go)
 
