@@ -1,5 +1,15 @@
 # ctb — coronagraph-testbed Bench example
 
+Two layers over the same 8-OAP / 2-DM bench:
+
+| Layer | Built by | Decks | Answers |
+|---|---|---|---|
+| Geometry | `example_ctb.m` | `ctb_planar_stage{A..F}.in` | where the optics sit, and whether the bench reaches the diffraction limit |
+| Diffraction | `ctb_prop_layout.m` | `ctb_dcr.in`, `ctb_s2s_dcr.in` | what the field does through the coronagraph masks |
+
+The geometry layer is described first; the diffraction layer starts at
+[Diffraction layer](#diffraction-layer--the-coronagraph-chain).
+
 A worked `macos.design.Bench` example: build a **DST2R-like, all-reflective
 coronagraph relay** sequentially, then optimize it in physically-staged steps.
 Teaching example — every block in the runner states its **parameters**, the
@@ -100,6 +110,154 @@ Requires `MACOS_HOME` set (the MEX aborts on engine init without
 - `ctb_planar_view_rx.png`, `ctb_planar_view_std.png` — beam renders.
 - `ctb.mat` — `out` struct (params, element indices, per-stage conics, WFE,
   zone-spot map, polarization metrics, PIL results).
+
+---
+
+# Diffraction layer — the coronagraph chain
+
+`ctb_planar_stageF.in` is geometric everywhere: it places the optics but
+propagates no field. The diffraction layer inserts reference and return
+surfaces into that same bench so the complex field can be carried from the
+source to the detector as a chain of near-field and far-field legs, with the
+real optics traced geometrically between them (OPD, including a DM grid
+figure, accumulates onto the field along the way).
+
+Two models, same optics:
+
+| Model | Deck | Elements | Propagated legs |
+|---|---|---|---|
+| compact | `ctb_dcr.in` | 31 | DM1→DM2, the three focal quartets, the terminal |
+| full | `ctb_s2s_dcr.in` | 44 | every inter-optic leg as well |
+
+Station indices differ between them, so every driver takes an `'elt'` map:
+
+```
+compact: DM1=2 DM2=5 Apodizer=13 FPM=17 Lyot=20 ExitPupil=30 FPA=31
+full:    DM1=2 DM2=5 Apodizer=16 FPM=22 Lyot=27 ExitPupil=43 FPA=44
+```
+
+Both decks are pre-aligned — the reference spheres are already placed — so
+they load and produce a centred PSF with no runtime setup.
+
+## The mask block
+
+Each intermediate focus is a **four-surface quartet**, every surface
+`Element=Return`:
+
+| Surface | Type | PropType | Position | zElt |
+|---|---|---|---|---|
+| `<focus>_FPreturn` | Flat | Geometric | at the focus | 1e22 |
+| `<focus>_EPreturn` | Conic, Kr = −R | NF1 | one R before the focus | +R |
+| `<focus>` | Flat | NF2 | at the focus — **the mask plane** | 1e22 |
+| `<focus>_EPreturn2` | Conic, Kr = −R | Geometric | same sphere | +R |
+
+**Both sphere zElt are +R, identical to every digit.** `propsub.F` builds the
+NF1 chirp from `zStart = zElt(sphere)` and `zEnd = zElt(iElt+1)` — the element
+*after* the mask, i.e. `EPreturn2`. Equal zElts give chirp argument zero, so
+the sandwich is transparent and the round trip is the identity; `EPreturn2` at
+−R gives an argument of order 2R, a defocus that no ray check catches. The
+mask element's own zElt is not read by the chirp — the two committed decks
+disagree on it (1e22 compact, +R full) and both are correct. `tCtbProp` pins
+the sphere equality and the round trip.
+
+R is measured, not chosen: it is the exit-pupil conjugate of that focus, found
+by running FEX on a truncated deck ending in the same triple. Committed
+values (BaseUnits mm): Focus23 7017.8526, FPM 1000.0841, FieldStop 415.9278,
+terminal ExitPupil 359.9461.
+
+The terminal is the same pattern with the second sphere dropped: `FP_return`
+(Flat, Geometric) → `ExitPupil` (Conic, FarField, Kr = −R, zElt = +R) → `FPA`.
+`macos.design.Telescope.add_pupil` emits exactly this, `PropType= FarField`
+included.
+
+**Masks are applied in MATLAB, never declared in the deck.** Propagate to the
+mask plane, multiply the complex field (`macos.apodize` for amplitude,
+`macos.apodize_complex` for phase), and continue with
+`'reset_trace', false`. An obscuration declared on a `Reference` element
+clips rays only — the diffraction wavefront passes through it untouched.
+
+## Run
+
+Every driver takes `'model_size'`, `'outdir'`, `'visible'`, and an `'elt'`
+index map; they default to the compact deck.
+
+```
+matlab -batch "run('ctb_prop_layout.m')"                       % regenerate both decks
+matlab -batch "ctb_coro_compare('coro',false)"                 % bare, compact vs full
+matlab -batch "ctb_coro_compare"                               % apodizer + FPM + Lyot
+matlab -batch "ctb_contrast"                                   % dark-zone contrast vs lambda/D
+matlab -batch "ctb_optimize_masks"                             % occulter / Lyot radius sweep
+matlab -batch "ctb_planet('sep_lamD',6,'flux_ratio',1e-3)"     % off-axis companion
+matlab -batch "ctb_bandpass('nwf',5,'band_frac',0.10)"         % finite bandpass
+matlab -batch "ctb_vortex('charge',6)"                         % scalar vortex mask
+matlab -batch "ctb_proper_compare"                             % PROPER arbiter, FPM leg
+matlab -batch "ctb_train_render"                               % bench layout figure
+./../../../run_mmacos_tests.sh ctb                             % tCtbProp, 8 checks
+```
+
+`ctb_prop_layout` writes `ctb_dcr_gen.in` and `ctb_s2s_dcr_gen.in` beside the
+committed decks; the committed ones stay the reference.
+
+## Validated numbers
+
+Bare (no masks), model 512, nGridpts 255, λ = 500 nm. Provenance: the
+`tCtbProp` pins, which reproduce the committed decks.
+
+| Quantity | compact | full |
+|---|---|---|
+| FPA peak intensity | 6.990e-2 | 6.030e-2 |
+| peak pixel (of 512) | [257,257] | [257,257] |
+| detector pitch | 2.4039e-5 m | 2.4039e-5 m |
+| peak-normalised correlation, compact vs full | 0.998895 | |
+
+Model-vs-model agreement is not validation. The arbiter is MATLAB PROPER on
+the FPM through-focus leg at matched sampling (`ctb_proper_compare`, needs
+`~/dev/proper_matlab`): focal pitch ratio 1.0000, peak-normalised correlation
+1.000000, centroid offset 0.000 px.
+
+Coronagraph performance, model 1024, occulter 2.70 λ/D and Lyot 0.50 of the
+pupil (`ctb_optimize_masks`, the interior contrast null of a
+2.0–3.5 λ/D × 0.45–0.75 sweep): dark-zone mean contrast 2.9e-7 over
+3–15 λ/D at 25% throughput. A hard-edge occulter with no apodisation gives
+~1e3 suppression; 1e6-class needs band-limited or apodised masks.
+
+Generated versus committed (`ctb_prop_layout`, same sampling): chief ray at
+all ten real optics 1.64e-11 mm against the bare deck (the committed decks
+give 1.36e-11 mm under the same measure), bare correlation 0.999999 and peak
+ratio 1.000000 on both models.
+
+## Gotchas
+
+- **The focus is the FFT DC pixel, `floor(N/2)+1` (1-based), not `(N-1)/2`.**
+  Every mask must be centred there. The half-pixel error leaked starlight
+  asymmetrically past the occulter and cost a round to find; the vortex, whose
+  singular pixel sits at the centre, suffered most.
+- **Focal masks are rebuilt per wavelength.** The focal-plane pitch scales with
+  λ, so a cached mask array is wrong at every other wavelength.
+- **Broadband sums on one common detector grid.** The FarField FPA re-grids per
+  λ, so each monochromatic PSF occupies the same pixel size on the N×N array
+  and a naive array sum cancels the chromatic effect exactly. `ctb_bandpass`
+  resamples each λ onto the nominal-λ physical pitch, flux-conserving.
+- **`model_size` ≥ `nGridpts`.** The decks declare 255, so model 512 or more.
+  One MATLAB process per model size — a size transition inside a live process
+  can corrupt the engine heap (PLAN.md §0). Batch wrappers end with `exit(0)`;
+  example scripts never do.
+- **Prescription regexes must be line-anchored** (`^\s*` plus `'lineanchors'`).
+  `iElt` is a substring of `psiElt`, so an unanchored `iElt=\s+\d+` eats the
+  leading digit of `psiElt`.
+- **A near-field pair's planes go on their stations, not at a fraction along
+  the segment.** Until 2026-08-06 `ctb_dcr.in` propagated the DM1→DM2 leg over
+  399.94 mm where the chief distance is 499.92 mm — 0.8× it, from a builder
+  that placed the two planes at 10% and 90% along the segment, leaving the end
+  plane 399.94 mm *behind* DM1 and reached by a negative ray length. The leg is
+  collimated pupil-to-pupil, so the only symptom was 0.23% in bare FPA peak;
+  nothing failed. Corrected in place from the full deck's `Prop1` pair, so both
+  committed decks now agree to all digits and the generator reproduces both.
+  Analysis outputs produced before that date carry the 0.23%.
+- **Some installed mexes predate the `'plane'` argument** on
+  `macos.complex_field`; the veneer passes three arguments and errors against
+  them. `ctb_proper_compare` and `tCtbProp` fall back to the two-argument raw
+  dispatch `mmacos('complex_field', iElt, reset)`.
 
 ## Pupil image quality — the zone-spot standard
 
