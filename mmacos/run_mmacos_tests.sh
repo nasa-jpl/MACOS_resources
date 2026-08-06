@@ -172,6 +172,10 @@ SUITE_PROPER_512=$(join_suites "tProperCompareCassFF" "tProperCompareCassFFAberr
 # at model >= 512 (PLAN_POLARIZATION §2c fixture correction).  Its own
 # batch so the model-size transition stays contained.
 SUITE_POL_512=$(join_suites "tPolContrastCoro")
+# CTB coronagraph diffraction chain -- ctb_dcr.in / ctb_s2s_dcr.in declare
+# nGridpts=255 and their drivers run at model 512.  Own batch, same reason
+# as SUITE_POL_512.  Asset-gated: skips itself when bench_ctb is absent.
+SUITE_CTB_512=$(join_suites "tCtbProp")
 SUITE_PROPER_1024=$(join_suites "tProperCompareCoroNFprop" "tProperCompareCoroPhase3" "tProperCompareCoroApodizer" "tProperCompareCoroDMPhase")
 # Aggregate for the `proper` shortcut (runs in two batches — the
 # initial Cass-FF group at 512 then the Coro group at 1024 — to
@@ -200,6 +204,7 @@ case "${1:-}" in
         run_batch "$SUITE_FREEFORM"    "full: freeform (size 256)"  || rc=1
         run_batch "$SUITE_PROPER_512"  "full: proper Cass-FF (512)" || rc=1
         run_batch "$SUITE_POL_512"     "full: pol contrast (512)"   || rc=1
+        run_batch "$SUITE_CTB_512"     "full: ctb diffraction (512)" || rc=1
         run_batch "$SUITE_PROPER_1024" "full: proper Coro (1024)"   || rc=1
         exit $rc
         ;;
@@ -219,6 +224,10 @@ case "${1:-}" in
     proper)
         # Phase 5 PROPER-comparison suite — now one batch.
         run_batch "[$SUITE_PROPER_512, $SUITE_PROPER_1024]" "proper (Cass-FF + Coro NF)"
+        ;;
+    ctb)
+        # CTB coronagraph diffraction chain, size 512.
+        run_batch "$SUITE_CTB_512" "ctb diffraction (size 512)"
         ;;
     polfloor)
         # Phase 2c contrast floor: exactness gates at 256, coronagraph
