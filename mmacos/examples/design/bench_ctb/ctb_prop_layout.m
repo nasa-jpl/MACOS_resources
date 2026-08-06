@@ -1,377 +1,455 @@
-function info = ctb_prop_layout(varargin)
-%CTB_PROP_LAYOUT  Build the CTB diffraction-propagation deck from stageF.
-%   info = CTB_PROP_LAYOUT() reads the geometric CTB prescription
-%   ctb_planar_stageF.in (all PropType=Geometric), traces it to recover the
-%   chief-ray geometry at every station, and writes ctb_planar_prop.in --
-%   the SAME optics with the diffraction reference / return / sphere
-%   surfaces INSERTED so the field can be propagated source->FPA as a
-%   chain of near-field / far-field diffraction legs.
+function info = ctb_prop_layout(opts)
+%CTB_PROP_LAYOUT  Generate the CTB diffraction decks from the bare bench deck.
+%   info = CTB_PROP_LAYOUT() reads the geometric bench prescription
+%   ctb_planar_stageF.in (17 stations, every PropType=Geometric), traces it
+%   for the chief-ray geometry, and writes BOTH validated diffraction
+%   models beside it:
 %
-%   This is a one-time BUILDER (regenerable); the emitted .in is committed.
-%   PropType is a parse-time enum with no runtime setter, so it MUST be
-%   baked into the deck here.  Sphere POSE/CURVATURE are only load-time
-%   seeds -- ctb_propagate.m refines them at runtime with ORS / FEX (the
-%   CoroExample.jou pattern), so the seeds only have to make the Rx load
-%   and trace.
+%     ctb_dcr_gen.in      31 elements -- "compact": the three focal-mask
+%                         quartets and the far-field terminal, plus the one
+%                         DM1->DM2 near-field leg.  Omits the inter-optic
+%                         plane-to-plane propagations.
+%     ctb_s2s_dcr_gen.in  44 elements -- "full" surface-to-surface: the same
+%                         quartets and terminal, plus a near-field pair on
+%                         every inter-optic leg.
 %
-%   The insertion mirrors the canonical encoding of
-%   pymacos/tests/Rx/Rx_Coro.in:
-%     * a DM near-field plane-to-plane leg  (NFPlane -> Geometric),
-%     * a sphere/NF1 -> focus/NF2 -> Return pair bracketing each focus,
-%     * NFPlane markers landing the beam on each intermediate pupil,
-%     * a terminal FarField sphere before the FPA.
+%   The committed hand decks ctb_dcr.in / ctb_s2s_dcr.in stay the reference;
+%   the generated decks are written alongside with the _gen suffix and carry
+%   the same element count, order and station indices, so a driver's index
+%   map works on either.
 %
-%   Name-value:
-%     'src'      source geometric deck (default ctb_planar_stageF.in here)
-%     'out'      output deck            (default ctb_planar_prop.in here)
-%     'ngridpts' diffraction ray grid   (default 255 -- odd, bring-up scale;
-%                bump to 511 for a validation-grade run)
-%     'model'    macos model size       (default 512)
-%     'standoff' sphere daylight off the bounding OAP vertex, BaseUnits mm
-%                (default 60): keeps the reference sphere clear of the real
-%                optic so ORS picks the right ConSrf root.
+%   PropType is a parse-time enum with no runtime setter, so every
+%   propagation choice is baked into the emitted text here.
 %
-%   Returns a struct with the emitted path and the element-index map
-%   (info.ix) that ctb_prop_legs / ctb_propagate consume.
+%   ------------------------------------------------------------------
+%   THE THREE STRUCTURES
+%   ------------------------------------------------------------------
+%   1. FOCAL-MASK QUARTET (one per intermediate focus).  Four surfaces,
+%      all Element=Return, replacing the bare focus marker:
 %
-%   See also: ctb_propagate, ctb_prop_legs, CoroExample.jou.
-    p = inputParser;
+%        <focus>_FPreturn   Flat   Geometric   at the focus   zElt = 1e22
+%        <focus>_EPreturn   Conic  NF1         EP sphere      zElt = +R
+%        <focus>            Flat   NF2         at the focus   zElt = 1e22
+%        <focus>_EPreturn2  Conic  Geometric   SAME sphere    zElt = +R
+%
+%      Kr = -R on both spheres; both zElt are +R, written from one variable
+%      so the digits are identical.  THE SIGN IS LOAD-BEARING.  propsub.F's
+%      NF1 branch (PropType 10) computes the Siegman-Sziklas chirp from
+%      zStart = zElt(sphere) and zEnd = zElt(iElt+1) -- the element AFTER
+%      the mask, i.e. EPreturn2.  Equal zElts give S = 0, so the sandwich is
+%      transparent and the round trip is the identity; EPreturn2 at -R gives
+%      S ~ 2R, which is the spurious-defocus failure.  The mask element's
+%      own zElt is not read by the chirp (the committed hand decks disagree
+%      on it: 1e22 compact, +R full, both correct); 1e22 is emitted here.
+%
+%      R is not a free choice: it is the exit-pupil conjugate of that focus.
+%      It is measured by running FEX on a TRUNCATED deck ending in the
+%      triple <upstream optics> / FPreturn / EPreturn / focus-as-FocalPlane
+%      -- the same geometry the terminal leg uses.  Verified against the
+%      committed decks: the measured radii reproduce Dave's to ratio
+%      1.000000000 (Focus23 7017.8526, FPM 1000.0841, FieldStop 415.9278)
+%      from arbitrary seeds.
+%
+%   2. NEAR-FIELD PAIR (one per propagated inter-optic leg):
+%
+%        Prop<k>_start  Reference Flat  NFPlane    zElt = -L
+%        Prop<k>_end    Reference Flat  Geometric  zElt =  0
+%
+%      L is the chief-ray distance between the two stations; the engine
+%      propagates the zElt DIFFERENCE, so -L then 0.  Both planes sit on the
+%      chief pierce of their station, normal along the chief.
+%
+%   3. FAR-FIELD TERMINAL (three surfaces, replacing the bare FPA):
+%
+%        FP_return  Return     Flat   Geometric  at the FPA  zElt = 1e22
+%        ExitPupil  Return     Conic  FarField   EP sphere   zElt = +R
+%        FPA        FocalPlane Flat   Geometric  at the FPA  zElt = 1e22
+%
+%      Emitted with a seed sphere, then re-measured by FEX on the assembled
+%      deck and rewritten (the two-pass FEX pattern add_pupil uses).
+%
+%   Every inserted surface has its vertex at the traced CHIEF PIERCE of its
+%   station and its axis along the chief -- not at the element vertex, which
+%   on these off-axis parabolas is metres away from the beam.
+%
+%   ------------------------------------------------------------------
+%   Name-value
+%   ------------------------------------------------------------------
+%     'src'       bare geometric deck        (default ctb_planar_stageF.in)
+%     'variant'   'compact' | 'full' | 'both'                 (default both)
+%     'outdir'    where the decks are written        (default this example)
+%     'suffix'    appended to the deck stem                 (default '_gen')
+%     'ngridpts'  diffraction ray grid, odd                    (default 255)
+%     'model'     macos model size, >= ngridpts                (default 512)
+%     'verify'    load each deck, compare the chief ray against the bare
+%                 deck at every real optic, and check the PSF centring
+%                                                              (default true)
+%
+%   Returns a struct array, one entry per generated deck:
+%     .name    'compact' | 'full'
+%     .out     path written
+%     .nElt    element count
+%     .ix      struct, EltName -> 1-based index
+%     .R       struct, focus name (and ExitPupil) -> sphere radius
+%     .chk     verification results (empty when 'verify' is false)
+%
+%   Run:  >> info = ctb_prop_layout;
+%   See also: ctb_coro_compare, tCtbProp, Coro_propagation_summary.md.
+
+    arguments
+        opts.src      (1,:) char   = ''
+        opts.variant  (1,:) char {mustBeMember(opts.variant, ...
+                                  {'compact','full','both'})} = 'both'
+        opts.outdir   (1,:) char   = ''
+        opts.suffix   (1,:) char   = '_gen'
+        opts.ngridpts (1,1) double {mustBeInteger,mustBePositive} = 255
+        opts.model    (1,1) double {mustBeInteger,mustBePositive} = 512
+        opts.verify   (1,1) logical = true
+    end
+
     here = fileparts(mfilename('fullpath'));
-    p.addParameter('src', fullfile(here, 'ctb_planar_stageF.in'));
-    p.addParameter('out', fullfile(here, 'ctb_planar_prop.in'));
-    p.addParameter('ngridpts', 255);
-    p.addParameter('model', 512);
-    p.addParameter('standoff', 60.0);
-    p.parse(varargin{:});
-    o = p.Results;
-
-    addpath(fullfile(here, '..', '..', '..', 'src'));   % mmacos/src
+    if isempty(opts.src),    opts.src    = fullfile(here,'ctb_planar_stageF.in'); end
+    if isempty(opts.outdir), opts.outdir = here;                                  end
+    addpath(fullfile(here, '..', '..', '..', 'src'));      % mmacos/src
+    assert(opts.model >= opts.ngridpts, ...
+        'model_size (%d) must be >= nGridpts (%d)', opts.model, opts.ngridpts);
 
     % ------------------------------------------------------------------
-    % 1) Trace the geometric deck; capture chief pos + dir at each station.
+    % The bare bench, in light order.  KIND drives the whole assembly:
+    %   optic  real powered/flat mirror -- copied verbatim
+    %   marker passive pupil reference  -- copied verbatim
+    %   focus  intermediate focus       -- becomes a quartet
+    %   image  detector                 -- becomes the far-field terminal
     % ------------------------------------------------------------------
-    macos.init(o.model);
-    nE = macos.load_rx(o.src);
-    assert(nE == 17, 'expected 17-element stageF deck, got %d', nE);
+    ST = { 'OAP1','optic'; 'DM1','optic'; 'DM2','optic'; 'OAP2','optic'
+           'Focus23','focus'; 'OAP3','optic'; 'Apodizer','marker'
+           'OAP4','optic'; 'FPM','focus'; 'OAP5','optic'
+           'Lyot','marker'; 'OAP6','optic'; 'FieldStop','focus'
+           'OAP7','optic'; 'Backend','marker'; 'OAP8','optic'
+           'FPA','image' };
+    name = ST(:,1).';  kind = ST(:,2).';  nST = numel(name);
 
-    % Station names in stageF light order (fixed by the builder).
-    name17 = {'OAP1','DM1','DM2','OAP2','Focus23','OAP3','Apodizer', ...
-              'OAP4','FPM','OAP5','Lyot','OAP6','FieldStop','OAP7', ...
-              'Backend','OAP8','FPA'};
-    cp = zeros(3, nE);  cd = zeros(3, nE);
-    for k = 1:nE
-        s = macos.trace(k);
+    % ------------------------------------------------------------------
+    % 1) Chief-ray pierce at every station.
+    %    Segment directions come from the pierce points, never from the
+    %    ray-buffer direction: at a mirror the buffered direction is the
+    %    post-reflection one, and which side of a station it belongs to is
+    %    exactly the ambiguity this avoids.
+    % ------------------------------------------------------------------
+    macos.init(opts.model);
+    nE = macos.load_rx(opts.src);
+    assert(nE == nST, 'expected a %d-station bare deck, got %d', nST, nE);
+    cp = zeros(3, nST);
+    for k = 1:nST
+        s  = macos.trace(k);
         ri = macos.get_ray_info(s.nRays);
         assert(all(ri.ok_trace & ri.ok_pass), ...
-            'stageF: element %d (%s) vignettes', k, name17{k});
-        cp(:, k) = ri.pos(:, 1);
-        d = ri.dir(:, 1);  cd(:, k) = d / norm(d);
+            '%s: station %d (%s) vignettes', opts.src, k, name{k});
+        cp(:,k) = ri.pos(:,1);
     end
-    iof = containers.Map(name17, num2cell(1:nE));   % name -> stageF index
+    uin = @(k) unit_(cp(:,k) - cp(:,k-1));     % beam direction arriving at k
 
     % ------------------------------------------------------------------
-    % 2) Compute the poses of the inserted diffraction surfaces.
-    %    Convention (folded-bench safe -- never a literal [0 0 1]):
-    %      plane refs face the beam;  spheres point at their CoC (the
-    %      focus), Kr = -|vertex - focus|.  All derived from the traced
-    %      chief geometry above.
+    % 2) Leg numbering.  Walk the gaps from DM1 onward; every gap consumes
+    %    a leg index EXCEPT the one leaving a focus (that beam is already
+    %    accounted for by the focus quartet).  This reproduces the hand
+    %    decks' Prop1/2/4/5/7/8/10/11 numbering exactly -- legs 3, 6, 9 are
+    %    the quartets and leg 12 is the terminal.
     % ------------------------------------------------------------------
-    ins = struct('after', {}, 'name', {}, 'element', {}, 'surface', {}, ...
-                 'prop', {}, 'vpt', {}, 'psi', {}, 'kr', {}, 'zElt', {});
-
-    unit = @(v) v / norm(v);
-    % A point a fraction f along the chief segment from element a to b.
-    seg = @(a, b, f) cp(:, iof(a)) + f * (cp(:, iof(b)) - cp(:, iof(a)));
-
-    % --- Leg 1: DM p2p (NFPlane, collimated).  Plane refs after DM1 and
-    %  before DM2.  zElt RULE for plane-to-plane (Rx_Coro Prop_1_start/end):
-    %  the propagation distance is the DIFFERENCE of the two zElts and must
-    %  equal the chief-ray L between them -- start zElt = -L, end zElt = 0
-    %  (NOT both 1e22, NOT both 0).  Kr stays flat (-1e22).
-    d_dm1 = cd(:, iof('DM2'));            % chief leaving DM1 toward DM2
-    Vp1s = seg('DM1', 'DM2', 0.10);  Vp1e = seg('DM1', 'DM2', 0.90);
-    Lp1  = norm(Vp1e - Vp1s);
-    ins(end+1) = mk('DM1', 'P1_start', 'Reference', 'Flat', 'NFPlane', ...
-                    Vp1s,  d_dm1, -1.0e22, -Lp1);      % start zElt = -L
-    ins(end+1) = mk('P1_start', 'P1_end', 'Reference', 'Flat', 'Geometric', ...
-                    Vp1e, -d_dm1, -1.0e22, 0.0);       % end   zElt = 0
-
-    % --- Through-focus spheres bracketing each intermediate focus. -------
-    %  Built as a SYMMETRIC MIRROR PAIR about the focus, matching Rx_Coro's
-    %  1stPropStart / CorMask / 1stPropEnd (elts 8/9/10) EXACTLY:
-    %    Sin  (NF1)          : one radius r UPSTREAM  of the focus,
-    %                          psi = incoming beam dir, Kr=-r, zElt=+r.
-    %    focus(NF2, edited)  : psi = incoming beam dir, zElt=-r  (step 3).
-    %    Sout (Return/Geom)  : one radius r DOWNSTREAM of the focus,
-    %                          psi = -incoming (back toward focus), Kr=-r,
-    %                          zElt=-r.
-    %  The chief legitimately REVERSES across Sout and flips back at the
-    %  next Sin -- this is Rx_Coro's negative-length reference-leg behaviour
-    %  (its elt10 chief dir is +z while the beam runs -z), NOT a bug.
-    %  r is the focus->nearer-bounding-OAP distance minus a standoff, so
-    %  BOTH spheres keep clean daylight to the real optics (ConSrf root).
-    foci = { 'Focus23','OAP2','OAP3';   % focus, feed-OAP (before), pick-OAP (after)
-             'FPM',    'OAP4','OAP5';
-             'FieldStop','OAP6','OAP7' };
-    focus_r = containers.Map('KeyType','char','ValueType','double');
-    for r = 1:size(foci, 1)
-        fc = foci{r,1};  feed = foci{r,2};  pick = foci{r,3};
-        Fv  = cp(:, iof(fc));
-        uin = unit(Fv - cp(:, iof(feed)));           % chief dir INTO the focus
-        % radius: fit inside the nearer of the two OAP gaps, minus standoff.
-        rad = min(norm(Fv - cp(:, iof(feed))), ...
-                  norm(cp(:, iof(pick)) - Fv)) - o.standoff;
-        Vin  = Fv - rad * uin;                        % one radius upstream
-        Vout = Fv + rad * uin;                        % one radius downstream
-        ins(end+1) = mk(feed, [fc '_Sin'], 'Reference', 'Conic', 'NF1', ...
-                        Vin,  uin, -rad, rad);         %#ok<AGROW>  z=+r
-        ins(end+1) = mk(fc,   [fc '_Sout'], 'Return', 'Conic', 'Geometric', ...
-                        Vout, -uin, -rad, -rad);       %#ok<AGROW>  z=-r
-        % _Sret: a FLAT Return placed BACK AT THE FOCUS -- Rx_Coro's
-        % 'CorMaskReturn' (elt 11).  _Sout reverses the chief (+dir); this
-        % flat flips it back to forward so the NEXT OAP sees a correctly-
-        % oriented bundle.  Without it the reversed bundle blows up at the
-        % downstream powered mirror (marginal rays -> infinity).
-        ins(end+1) = mk([fc '_Sout'], [fc '_Sret'], 'Return', 'Flat', ...
-                        'Geometric', Fv, uin, -1.0e22, -1.0e22); %#ok<AGROW>
-        focus_r(fc) = rad;  %#ok<AGROW>  remember for the NF2 zElt in step 3
+    leg = zeros(1, nST);                        % leg index of gap k -> k+1
+    n = 0;
+    for k = 2:nST-1
+        if strcmp(kind{k}, 'focus'), continue; end
+        n = n + 1;  leg(k) = n;
     end
-
-    % --- NFPlane markers landing the beam on each intermediate pupil. ----
-    %  A plane just before the pupil marker; the marker itself carries the
-    %  MATLAB mask and stays Geometric.  Same plane-to-plane zElt RULE: the
-    %  START plane gets zElt=-L (L = chief distance to the pupil marker) and
-    %  the pupil marker (END, reused stageF block) keeps zElt=0.
-    pups = { 'Apodizer','OAP3';   % pupil, feeding OAP (before it)
-             'Lyot',    'OAP5' };
-    for r = 1:size(pups, 1)
-        pu = pups{r,1};  feed = pups{r,2};
-        dpu = cd(:, iof(pu));                 % chief through the pupil
-        Vst = cp(:, iof(pu)) - 0.5*norm(cp(:,iof(pu)) - cp(:,iof(feed))) * dpu;
-        Lpu = norm(cp(:, iof(pu)) - Vst);     % chief L: start plane -> pupil
-        ins(end+1) = mk(feed, [pu '_Pst'], 'Reference', 'Flat', 'NFPlane', ...
-                        Vst, dpu, -1.0e22, -Lpu);              %#ok<AGROW>
-        % the pupil marker (END of this plane-to-plane leg) keeps zElt=0
-        % from stageF -- start(-L) minus end(0) = -L = the propagation dist.
-    end
-
-    % --- Terminal exit-pupil pair before the FPA.  This mirrors
-    %  macos.design.Telescope.add_pupil (Telescope.m:742-758) EXACTLY:
-    %  the far-field transform needs BOTH a flat image-reference at the
-    %  FPA location AND the exit-pupil sphere -- a lone FarField sphere
-    %  gives no valid output plane.  Light order:
-    %     OAP8 -> FP_return (flat, Geometric, at FPA) -> ExitPupil
-    %          (sphere, FarField) -> FPA.
-    %  uIn is the chief OAP8->FPA direction; FP_return faces back up the
-    %  beam (-uIn); ExitPupil is seeded a standoff before the FPA and is
-    %  RE-PLACED at runtime by FEX (ctb_propagate), which also sets the
-    %  EP radius.  zElt (EP<->image hop) is synced to the FEX radius in
-    %  the driver; the seed only has to load.
-    Fv   = cp(:, iof('FPA'));
-    uIn  = unit(Fv - cp(:, iof('OAP8')));
-    rSeed = norm(Fv - cp(:, iof('OAP8'))) - o.standoff;   % EP a standoff before FPA
-    Vep  = Fv - rSeed * uIn;
-    ins(end+1) = mk('OAP8', 'FP_return', 'Return', 'Flat', 'Geometric', ...
-                    Fv,  -uIn, -1.0e22, rSeed);            %#ok<AGROW>
-    ins(end+1) = mk('FP_return', 'ExitPupil', 'Return', 'Conic', 'FarField', ...
-                    Vep, -unit(Fv - Vep), -rSeed, rSeed);  %#ok<AGROW>
 
     % ------------------------------------------------------------------
-    % 3) Splice the inserted blocks into the stageF text, renumber, and
-    %    flip the three focal markers to NF2.  Keeps every original block
-    %    verbatim (TElt, ApVec, coatings ...), only editing what must change.
+    % 3) Sphere radius per focus, by FEX on a truncated deck.
     % ------------------------------------------------------------------
-    txt = fileread(o.src);
-    blocks = split_elements(txt);         % {header; e1; e2; ...; footer}
-    hdr = blocks{1};  foot = blocks{end};
-    ebl = blocks(2:end-1);                % 17 element blocks, in order
-    assert(numel(ebl) == 17, 'parsed %d element blocks, expected 17', numel(ebl));
-
-    % bump nGridpts in the header (ray grid -> diffraction grid).
-    hdr = regexprep(hdr, 'nGridpts=\s+\d+', sprintf('nGridpts=  %d', o.ngridpts));
-
-    % flip focal markers to NF2 (they receive the far-field-focused field)
-    % and set their zElt to -r (Rx_Coro CorMask convention: the NF2 plane
-    % sits one radius from its bracketing spheres).  ALSO re-align each
-    % REUSED diffraction marker to the RULE: axis parallel to the chief ray,
-    % vertex at the chief incidence point (Dave 2026-08-04).  The stageF
-    % markers carry psi=(1,0,0), but the chief arrives tilted by the fold
-    % residual (~0.6 deg); a tilted focal-grid axis throws the far-field PSF
-    % off in one axis.  cd/cp are the traced chief dir/pos from step 1.
-    for fc = {'Focus23','FPM','FieldStop'}
-        j = iof(fc{1});
-        ebl{j} = set_prop(ebl{j}, 'NF2');
-        ebl{j} = set_z(ebl{j}, -focus_r(fc{1}));
-        ebl{j} = set_psi(ebl{j}, cd(:, j));       % axis || chief dir
-        ebl{j} = set_vpt(ebl{j}, cp(:, j));       % vertex at chief pierce
+    blocks = split_elements_(fileread(opts.src));
+    hdr = blocks{1};  foot = blocks{end};  ebl = blocks(2:end-1);
+    tmpd = tempname;  mkdir(tmpd);
+    R = struct();
+    for k = find(strcmp(kind,'focus'))
+        R.(name{k}) = fex_radius_(hdr, foot, ebl, k, cp(:,k), uin(k), ...
+                                  0.5*norm(cp(:,k) - cp(:,k-1)), ...
+                                  name{k}, opts.model, tmpd);
+        fprintf('[ctb_prop_layout] %-10s exit-pupil radius = %.10f (FEX)\n', ...
+                name{k}, R.(name{k}));
     end
-
-    % the terminal FocalPlane: sentinel zElt (the far-field ExitPupil->FPA
-    % hop needs 1e22, matching Rx_Coro) AND axis || chief / vertex at the
-    % chief pierce so the on-axis PSF lands at the grid centre.
-    jF = iof('FPA');
-    ebl{jF} = set_z(ebl{jF}, 1.0e22);
-    ebl{jF} = set_psi(ebl{jF}, cd(:, jF));
-    ebl{jF} = set_vpt(ebl{jF}, cp(:, jF));
-
-    % assemble: walk stageF elements, emitting any inserts anchored 'after'
-    % each one (P1_start is 'after DM1', its _end 'after P1_start' -- handled
-    % by chaining anchors through the running output list).
-    outblocks = {};
-    emitted = containers.Map('KeyType','char','ValueType','logical');
-    function flush_after(anchorName)
-        moved = true;
-        while moved
-            moved = false;
-            for q = 1:numel(ins)
-                if ~isKey(emitted, ins(q).name) && strcmp(ins(q).after, anchorName)
-                    outblocks{end+1} = render_block(ins(q)); %#ok<AGROW>
-                    emitted(ins(q).name) = true;
-                    anchorName = ins(q).name;   % chain (e.g. P1_start->P1_end)
-                    moved = true;
-                end
-            end
-        end
-    end
-    for k = 1:17
-        outblocks{end+1} = ebl{k};                 %#ok<AGROW>
-        flush_after(name17{k});
-    end
-    assert(all(cellfun(@(n) isKey(emitted,n), {ins.name})), ...
-        'not all inserts were placed');
-
-    nOut = numel(outblocks);
-    % renumber iElt sequentially.  LINE-ANCHOR the match: the token 'iElt'
-    % is ALSO a substring of 'psiElt', so an unanchored 'iElt=\s+\d+' also
-    % matches 'ps|iElt=  9...' and clobbers the leading digit of psiElt.
-    % '^\s*iElt=' only fires on the real iElt line.
-    for k = 1:nOut
-        outblocks{k} = regexprep(outblocks{k}, '^(\s*)iElt=\s+\d+', ...
-                                 sprintf('$1iElt=  %d', k), 'lineanchors');
-    end
-    hdr = regexprep(hdr, 'nElt=\s+\d+', sprintf('nElt=  %d', nOut));
-
-    fid = fopen(o.out, 'w');
-    assert(fid > 0, 'cannot write %s', o.out);
-    fprintf(fid, '%s', hdr);
-    for k = 1:nOut, fprintf(fid, '%s', outblocks{k}); end
-    fprintf(fid, '%s', foot);
-    fclose(fid);
 
     % ------------------------------------------------------------------
-    % 4) Element-index map for the augmented deck (name -> new iElt).
+    % 4) Emit each variant.
     % ------------------------------------------------------------------
-    ix = build_index_map(outblocks);
-    info = struct('out', o.out, 'nElt', nOut, 'ix', ix, ...
-                  'ngridpts', o.ngridpts, 'model', o.model);
-    fprintf('[ctb_prop_layout] wrote %s (%d elements, nGridpts=%d)\n', ...
-            o.out, nOut, o.ngridpts);
+    switch opts.variant
+        case 'both',    vs = {'compact','full'};
+        otherwise,      vs = {opts.variant};
+    end
+    info = struct('name',{},'out',{},'nElt',{},'ix',{},'R',{},'chk',{});
+    for v = 1:numel(vs)
+        info(v) = emit_variant_(vs{v}, hdr, foot, ebl, name, kind, leg, ...
+                                cp, R, opts);   %#ok<AGROW>
+    end
 end
 
 % ======================================================================
-function e = mk(after, name, element, surface, prop, vpt, psi, kr, zElt)
-%MK  Build one inserted-surface descriptor.  zElt defaults to 0 (flat
-%   References/foci); the terminal exit-pupil pair passes the EP radius.
-    if nargin < 9, zElt = 0.0; end
-    e = struct('after', after, 'name', name, 'element', element, ...
-               'surface', surface, 'prop', prop, ...
-               'vpt', vpt(:).', 'psi', psi(:).', 'kr', kr, 'zElt', zElt);
+function e = emit_variant_(variant, hdr, foot, ebl, name, kind, leg, ...
+                           cp, R, opts)
+%EMIT_VARIANT_  Assemble, write, FEX the terminal, rewrite, verify.
+    nST = numel(name);
+    uin = @(k) unit_(cp(:,k) - cp(:,k-1));
+    Z_PLANE = 1.0e22;   KR_FLAT = -1.0e22;
+
+    B  = {};                                  % emitted blocks, light order
+    for k = 1:nST
+        switch kind{k}
+            case 'focus'
+                r = R.(name{k});  u = uin(k);  F = cp(:,k);
+                B{end+1} = render_([name{k} '_FPreturn'], 'Return','Flat', ...
+                              'Geometric', F, u, KR_FLAT, Z_PLANE); %#ok<AGROW>
+                B{end+1} = render_([name{k} '_EPreturn'], 'Return','Conic', ...
+                              'NF1', F - r*u, u, -r, r);            %#ok<AGROW>
+                B{end+1} = convert_marker_(ebl{k}, 'Return','Flat','NF2', ...
+                              F, u, KR_FLAT, Z_PLANE);              %#ok<AGROW>
+                B{end+1} = render_([name{k} '_EPreturn2'], 'Return','Conic', ...
+                              'Geometric', F - r*u, u, -r, r);      %#ok<AGROW>
+
+            case 'image'
+                % Seed sphere; FEX re-measures it on the assembled deck.
+                u = uin(k);  F = cp(:,k);
+                rs = 0.5 * norm(cp(:,k) - cp(:,k-1));
+                B{end+1} = render_('FP_return', 'Return','Flat','Geometric', ...
+                              F, -u, KR_FLAT, Z_PLANE);             %#ok<AGROW>
+                B{end+1} = render_('ExitPupil', 'Return','Conic','FarField', ...
+                              F - rs*u, u, -rs, rs);                %#ok<AGROW>
+                B{end+1} = convert_marker_(ebl{k}, '', 'Flat','Geometric', ...
+                              F, u, KR_FLAT, Z_PLANE);              %#ok<AGROW>
+
+            otherwise
+                B{end+1} = ebl{k};                                  %#ok<AGROW>
+        end
+
+        % --- near-field pair on the gap k -> k+1 ----------------------
+        % Skipped on three kinds of gap: the one LEAVING a focus (leg 0 --
+        % that beam belongs to the quartet), the one ENTERING a focus (the
+        % quartet IS its propagation, legs 3/6/9), and the terminal
+        % (leg 12, the far-field triple).
+        if leg(k) == 0 || strcmp(kind{k+1},'focus') || k == nST-1
+            continue
+        end
+        u = unit_(cp(:,k+1) - cp(:,k));
+        L = norm(cp(:,k+1) - cp(:,k));
+        if strcmp(variant,'full')
+            B{end+1} = render_(sprintf('Prop%d_start',leg(k)), 'Reference', ...
+                          'Flat','NFPlane',   cp(:,k),   u, KR_FLAT, -L); %#ok<AGROW>
+            B{end+1} = render_(sprintf('Prop%d_end',leg(k)),   'Reference', ...
+                          'Flat','Geometric', cp(:,k+1), u, KR_FLAT, 0);  %#ok<AGROW>
+        elseif leg(k) == 1
+            % compact: the DM1->DM2 leg is the only propagated one.
+            B{end+1} = render_('P1_start', 'Reference','Flat','NFPlane', ...
+                          cp(:,k),   u, KR_FLAT, -L);                     %#ok<AGROW>
+            B{end+1} = render_('P1_end',   'Reference','Flat','Geometric', ...
+                          cp(:,k+1), u, KR_FLAT, 0);                      %#ok<AGROW>
+        elseif strcmp(name{k+1}, 'Apodizer')
+            % compact: an inert Geometric plane at the leg midpoint, kept
+            % so the compact model's station indices match the committed
+            % ctb_dcr.in.  It carries no propagation.
+            B{end+1} = render_('Apodizer_Pst', 'Reference','Flat','Geometric', ...
+                          cp(:,k) + 0.5*L*u, u, KR_FLAT, Z_PLANE);        %#ok<AGROW>
+        end
+    end
+
+    switch variant
+        case 'compact', stem = 'ctb_dcr';
+        case 'full',    stem = 'ctb_s2s_dcr';
+    end
+    out = fullfile(opts.outdir, sprintf('%s%s.in', stem, opts.suffix));
+    write_deck_(out, hdr, B, foot, opts.ngridpts);
+
+    % --- two-pass FEX on the terminal exit pupil ----------------------
+    macos.init(opts.model);
+    nT = macos.load_rx(out);
+    s  = macos.fex(1);
+    iEP = nT - 1;
+    rEP = abs(s.rad);
+    B{iEP} = render_('ExitPupil', 'Return','Conic','FarField', ...
+                     s.vpt(:), s.psi(:), -rEP, rEP);
+    write_deck_(out, hdr, B, foot, opts.ngridpts);
+    R.ExitPupil = rEP;
+    fprintf('[ctb_prop_layout] %-10s exit-pupil radius = %.10f (FEX)\n', ...
+            'ExitPupil', rEP);
+
+    e = struct('name', variant, 'out', out, 'nElt', numel(B), ...
+               'ix', index_map_(B), 'R', R, 'chk', []);
+    fprintf('[ctb_prop_layout] wrote %s (%d elements, nGridpts=%d)\n', ...
+            out, e.nElt, opts.ngridpts);
+
+    if opts.verify
+        e.chk = verify_deck_(e, name, kind, cp, opts);
+    end
 end
 
 % ----------------------------------------------------------------------
-function s = render_block(e)
-%RENDER_BLOCK  Emit a minimal Reference/Return element block (Rx_Coro form).
-    F = @(v) sprintf('  %.10E  %.10E  %.10E', v(1), v(2), v(3));
-    L = {};
-    L{end+1} = '';
-    L{end+1} = '             iElt=  0';                 % renumbered later
-    L{end+1} = sprintf('          EltName=  %s', e.name);
-    L{end+1} = sprintf('          Element=  %s', e.element);
-    L{end+1} = sprintf('          Surface=  %s', e.surface);
-    L{end+1} = sprintf('            KrElt=%.10E', e.kr);
+function chk = verify_deck_(e, name, kind, cp, opts)
+%VERIFY_DECK_  Chief ray at every real optic vs the bare deck, PSF centring.
+    macos.init(opts.model);
+    nT = macos.load_rx(e.out);
+    assert(nT == e.nElt, '%s: loaded %d elements, emitted %d', ...
+           e.out, nT, e.nElt);
+    dmax = 0;  worst = '';
+    for k = 1:numel(name)
+        if ~strcmp(kind{k},'optic'), continue; end
+        j  = e.ix.(name{k});
+        s  = macos.trace(j);
+        ri = macos.get_ray_info(s.nRays);
+        d  = norm(ri.pos(:,1) - cp(:,k));
+        if d > dmax, dmax = d;  worst = name{k}; end
+    end
+    I = macos.intensity(nT);
+    [pk, idx] = max(I(:));  [r,c] = ind2sub(size(I), idx);
+    ctr = floor(opts.model/2) + 1;
+    chk = struct('chief_max_mm', dmax, 'chief_worst', worst, ...
+                 'psf_peak', pk, 'psf_row', r, 'psf_col', c, ...
+                 'psf_centre', ctr, 'psf_centred', (r==ctr && c==ctr), ...
+                 'dx_fpa_m', macos.dx_at(nT));
+    fprintf(['[ctb_prop_layout] %-8s chief-ray match %.3e mm (worst %s); ' ...
+             'PSF peak %.4e at [%d,%d] (centre %d)\n'], ...
+            e.name, dmax, worst, pk, r, c, ctr);
+end
+
+% ----------------------------------------------------------------------
+function r = fex_radius_(hdr, foot, ebl, k, F, u, rs, nm, model, tmpd)
+%FEX_RADIUS_  Exit-pupil radius conjugate to the focus at station k.
+%   Builds <optics 1..k-1> / FPreturn(flat at the focus) / EPreturn(seed
+%   sphere) / focus-as-FocalPlane and runs FEX, whose radius is the
+%   chief-ray distance from the found pupil to the iElt+1 plane.  The seed
+%   only has to load -- FEX overwrites the radius, pose and vertex -- but
+%   keep it comparable to the incoming leg so the seed sphere has clean
+%   daylight to the real optics: ConSrf picks its intersection root by
+%   |L^2 - mpr| proximity, with no flow-of-light sense.
+    B = ebl(1:k-1);
+    B{end+1} = render_([nm '_FPreturn'], 'Return','Flat','Geometric', ...
+                       F, u, -1.0e22, 1.0e22);
+    B{end+1} = render_([nm '_EPreturn'], 'Return','Conic','Geometric', ...
+                       F - rs*u, u, -rs, rs);
+    B{end+1} = render_(nm, 'FocalPlane','Flat','Geometric', ...
+                       F, u, -1.0e22, 1.0e22);
+    f = fullfile(tmpd, sprintf('fex_%s.in', nm));
+    write_deck_(f, hdr, B, foot, []);          % keep the bare ray grid
+    macos.init(model);
+    macos.load_rx(f);
+    s = macos.fex(1);
+    r = abs(s.rad);
+end
+
+% ----------------------------------------------------------------------
+function write_deck_(path, hdr, B, foot, ngridpts)
+%WRITE_DECK_  Renumber iElt, patch nElt/nGridpts, write.
+%   The iElt substitution MUST be line-anchored: 'iElt' is a substring of
+%   'psiElt', so an unanchored pattern eats the leading digit of psiElt.
+    n = numel(B);
+    for k = 1:n
+        B{k} = regexprep(B{k}, '^(\s*)iElt=\s+\d+', ...
+                         sprintf('$1iElt=  %d', k), 'lineanchors');
+    end
+    hdr = regexprep(hdr, '^(\s*)nElt=\s+\d+', sprintf('$1nElt=  %d', n), ...
+                    'lineanchors');
+    if ~isempty(ngridpts)
+        hdr = regexprep(hdr, '^(\s*)nGridpts=\s+\d+', ...
+                        sprintf('$1nGridpts=  %d', ngridpts), 'lineanchors');
+    end
+    fid = fopen(path, 'w');
+    assert(fid > 0, 'cannot write %s', path);
+    fprintf(fid, '%s', hdr);
+    for k = 1:n, fprintf(fid, '%s', B{k}); end
+    fprintf(fid, '%s', foot);
+    fclose(fid);
+end
+
+% ----------------------------------------------------------------------
+function s = render_(nm, element, surface, prop, vpt, psi, kr, zElt)
+%RENDER_  One inserted surface block.
+%   zElt is written with the same format everywhere, so a quartet's two
+%   spheres -- fed the same variable -- carry byte-identical digits.
+    F = @(v) sprintf('  %.16E  %.16E  %.16E', v(1), v(2), v(3));
+    L = {''};
+    L{end+1} =         '             iElt=  0';
+    L{end+1} = sprintf('          EltName=  %s', nm);
+    L{end+1} = sprintf('          Element=  %s', element);
+    L{end+1} = sprintf('          Surface=  %s', surface);
+    L{end+1} = sprintf('            KrElt=%.16E', kr);
     L{end+1} =         '            KcElt=0.0E+00';
-    L{end+1} = sprintf('           psiElt=%s', F(e.psi));
-    L{end+1} = sprintf('           VptElt=%s', F(e.vpt));
-    L{end+1} = sprintf('           RptElt=%s', F(e.vpt));
+    L{end+1} = sprintf('           psiElt=%s', F(psi));
+    L{end+1} = sprintf('           VptElt=%s', F(vpt));
+    L{end+1} = sprintf('           RptElt=%s', F(vpt));
     L{end+1} =         '           IndRef=1.0E+00';
-    L{end+1} =         '           Extinc=1.0E+22';
+    L{end+1} =         '           Extinc=0.0E+00';
     L{end+1} =         '            nCoat=  0';
     L{end+1} =         '             nObs=  0';
     L{end+1} =         '           ApType=  None';
-    L{end+1} = sprintf('         PropType=  %s', e.prop);
-    L{end+1} = sprintf('             zElt=%.10E', e.zElt);
+    L{end+1} = sprintf('         PropType=  %s', prop);
+    L{end+1} = sprintf('             zElt=%.16E', zElt);
     L{end+1} =         '          nECoord= -6';
     s = [strjoin(L, newline) newline];
 end
 
 % ----------------------------------------------------------------------
-function blk = set_prop(blk, prop)
-%SET_PROP  Replace the PropType value of an element block (line-anchored).
-    blk = regexprep(blk, '^(\s*)PropType=\s+\S+', ...
-                    sprintf('$1PropType=  %s', prop), 'lineanchors');
+function blk = convert_marker_(blk, element, surface, prop, vpt, psi, kr, z)
+%CONVERT_MARKER_  Retype a bare-deck marker in place, keeping every other
+%   field (ApVec, TElt, coating, ...) verbatim.  Pass element='' to leave
+%   Element= alone.  All substitutions are line-anchored (see write_deck_).
+    v3 = @(v) sprintf('  %.16E  %.16E  %.16E', v(1), v(2), v(3));
+    if ~isempty(element)
+        blk = sub_(blk, 'Element',  ['  ' element]);
+    end
+    blk = sub_(blk, 'Surface',  ['  ' surface]);
+    blk = sub_(blk, 'PropType', ['  ' prop]);
+    blk = sub_(blk, 'KrElt',    sprintf('%.16E', kr));
+    blk = sub_(blk, 'zElt',     sprintf('%.16E', z));
+    blk = sub_(blk, 'psiElt',   v3(psi));
+    blk = sub_(blk, 'VptElt',   v3(vpt));
+    blk = sub_(blk, 'RptElt',   v3(vpt));
 end
 
-% ----------------------------------------------------------------------
-function blk = set_z(blk, z)
-%SET_Z  Replace the zElt value of an element block (line-anchored).
-    blk = regexprep(blk, '^(\s*)zElt=\S+', ...
-                    sprintf('$1zElt=%.10E', z), 'lineanchors');
-end
-
-% ----------------------------------------------------------------------
-function blk = set_psi(blk, v)
-%SET_PSI  Replace the psiElt 3-vector of an element block (line-anchored).
-    v = v(:);
-    blk = regexprep(blk, '^(\s*)psiElt=.*$', ...
-        sprintf('$1psiElt=  %.10E  %.10E  %.10E', v(1), v(2), v(3)), ...
-        'lineanchors', 'dotexceptnewline');
-end
-
-% ----------------------------------------------------------------------
-function blk = set_vpt(blk, v)
-%SET_VPT  Replace BOTH VptElt and RptElt of an element block with v.
-    v = v(:);
-    s = sprintf('%.10E  %.10E  %.10E', v(1), v(2), v(3));
-    blk = regexprep(blk, '^(\s*)VptElt=.*$', ['$1VptElt=  ' s], ...
-                    'lineanchors', 'dotexceptnewline');
-    blk = regexprep(blk, '^(\s*)RptElt=.*$', ['$1RptElt=  ' s], ...
+function blk = sub_(blk, key, value)
+%SUB_  Replace one key's value in an element block.  The replacement is
+%   passed through literally -- do NOT regexptranslate it: that escapes
+%   regex metacharacters ('.', '+') which are ordinary text on this side of
+%   the substitution and would land in the deck as backslashes.  Only '$'
+%   and '\' are special in a replacement, and neither occurs in a numeric
+%   or enum value.
+    blk = regexprep(blk, ['^(\s*)' key '=.*$'], ['$1' key '=' value], ...
                     'lineanchors', 'dotexceptnewline');
 end
 
 % ----------------------------------------------------------------------
-function blocks = split_elements(txt)
-%SPLIT_ELEMENTS  Split a prescription into {header; e1..eN; footer} by the
-%   'iElt=' keyword.  Header is everything before the first iElt; footer is
-%   everything from the Output-Coordinate section onward (nOutCord).
+function blocks = split_elements_(txt)
+%SPLIT_ELEMENTS_  {header; e1..eN; footer}, split on iElt= / nOutCord=.
     lines = regexp(txt, '\r?\n', 'split');
-    % locate element starts (lines matching iElt=) and the footer start.
-    isElt = ~cellfun('isempty', regexp(lines, '^\s*iElt=', 'once'));
-    isFoot = ~cellfun('isempty', regexp(lines, '^\s*nOutCord=', 'once'));
-    ei = find(isElt);
-    fi = find(isFoot, 1, 'first');
+    ei = find(~cellfun('isempty', regexp(lines, '^\s*iElt=',     'once')));
+    fi = find(~cellfun('isempty', regexp(lines, '^\s*nOutCord=', 'once')), 1);
     assert(~isempty(ei), 'no iElt= lines found');
     assert(~isempty(fi), 'no nOutCord= footer found');
-    % an element block starts one line above iElt (the blank line) if present.
-    starts = ei;
-    join = @(a, b) [strjoin(lines(a:b), newline) newline];
-    blocks = {};
-    blocks{1} = join(1, starts(1) - 1);         % header (up to first iElt-1)
-    for k = 1:numel(starts)
-        a = starts(k);
-        if k < numel(starts), b = starts(k+1) - 1; else, b = fi - 1; end
-        blocks{end+1} = join(a, b);              %#ok<AGROW>
+    join_ = @(a,b) [strjoin(lines(a:b), newline) newline];
+    blocks = {join_(1, ei(1)-1)};
+    for k = 1:numel(ei)
+        if k < numel(ei), b = ei(k+1)-1; else, b = fi-1; end
+        blocks{end+1} = join_(ei(k), b);                       %#ok<AGROW>
     end
-    blocks{end+1} = join(fi, numel(lines));      % footer
+    blocks{end+1} = join_(fi, numel(lines));
 end
 
 % ----------------------------------------------------------------------
-function ix = build_index_map(outblocks)
-%BUILD_INDEX_MAP  name -> 1-based iElt from the assembled block list.
+function ix = index_map_(B)
     ix = struct();
-    for k = 1:numel(outblocks)
-        nm = regexp(outblocks{k}, 'EltName=\s*(\S+)', 'tokens', 'once');
+    for k = 1:numel(B)
+        nm = regexp(B{k}, '^\s*EltName=\s*(\S+)', 'tokens', 'once', 'lineanchors');
         if isempty(nm), continue; end
-        key = matlab.lang.makeValidName(nm{1});
-        ix.(key) = k;
+        ix.(matlab.lang.makeValidName(nm{1})) = k;
     end
+end
+
+% ----------------------------------------------------------------------
+function u = unit_(v)
+    u = v(:) / norm(v);
 end
