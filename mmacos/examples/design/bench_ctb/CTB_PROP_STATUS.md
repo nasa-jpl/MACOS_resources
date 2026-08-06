@@ -1,6 +1,62 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-05. Latest work at "SESSION 4" below; older diagnosis kept._
+_Updated 2026-08-05. Latest work at "SESSION 5" (performance) below; older kept._
+
+## SESSION 5 (2026-08-05) — performance pass (centering, sampling, mask/Lyot optimize)
+
+Dave: "find better performance -- the hard occulter is not centered, the
+resolution is poor, and I'm not sure of the best mask/Lyot radii for
+3-7 lambda/D; check the literature."  Three fixes + a sweep:
+
+1. **CENTERING BUG (half a pixel) -- FIXED.**  The mask builders centred
+   disks/apodizers on `c=(N-1)/2`, but MACOS's FarField/NF2 focus lands on
+   the FFT DC pixel `floor(N/2)` (0-based) = 1-based N/2+1 (verified: focus
+   at [257,257]/512, [513,513]/1024).  So every occulter sat half a pixel
+   off the beam -> asymmetric residual leak.  Consolidated the duplicated
+   builders into shared `ctb_mask_disk.m` / `ctb_mask_softcircle.m` centred
+   on `floor(N/2)`; the vortex singular pixel and all beam_radius_ centres
+   moved to `floor(N/2)+1` too.  The vortex benefited most (an off-centre
+   singularity leaks badly): its advantage over the hard occulter went
+   1.7x -> 2.9x.
+
+2. **SAMPLING -- default bumped 512 -> 1024.**  lambda/D at the FPA = N/pupil
+   px (pupil fixed at the deck's nGridpts=255): N=512 gave 2.0 px/lambda/D
+   (Nyquist edge, poor), N=1024 gives 4.0 px, N=2048 -> 8.0.  Bumping
+   model_size zero-pads the pupil -> finer PSF, no Rx change.  All analysis
+   drivers (contrast/planet/bandpass/vortex) now default N=1024; the FPA
+   panels resolve clean symmetric Airy rings.
+
+3. **MASK/LYOT OPTIMIZE -- `ctb_optimize_masks.m` (NEW).**  Literature box
+   (Wikipedia Coronagraph; Sivaramakrishnan+ 2001; HCIT class): occulter
+   ~1-3 lambda/D, Lyot ~75-90% pupil.  Pure mean-contrast in 3-7 lambda/D
+   pushes monotonically to bigger occulter + smaller Lyot (both reject more
+   light -> throughput + IWA cost), so the driver also records throughput
+   (Lyot area fraction r_lyot^2) and a contrast/throughput knee.  A WIDENED
+   sweep (occulter 2.0-3.5, Lyot 0.45-0.75) found a ROBUST, ISOLATED
+   contrast null at **r_fpm = 2.70 lambda/D** (a diffraction resonance of
+   this bench's occulter/Lyot structure): C ~ 3-4e-7 there vs ~1e-5 at
+   2.9-3.2 lambda/D.  Confirmed at N=1024 (persists, localises to 2.70,
+   broad in Lyot 0.40-0.50 -> NOT a grid artifact).  **Shipped defaults:
+   r_fpm=2.70 lambda/D, r_lyot=0.50** (deep contrast at 25% throughput;
+   Lyot is the user's throughput dial).  Dave chose "widen the search
+   first"; the sweep box is now wide enough that the optimum is interior,
+   not on an edge.
+
+**NET PERFORMANCE GAIN (old 3.0/0.85 @ N=512 -> new 2.70/0.50 @ N=1024):**
+dark-zone mean contrast 4.6e-6 -> **2.9e-7 (~16x deeper)**, coro FPA peak
+1.9e-5 -> 1.4e-6.  PROPER arbiter still 1.0000 / corr 1.000000 at the finer
+sampling (diffraction layer stays validated).  Bandpass: the deeper, sharper
+2.70 null is MORE chromatic (mono 2.4e-7 -> broadband 4.9e-7, 2.1x over 10%,
+vs the old shallow occulter's 1.02x) -- an honest deep-vs-broadband trade.
+
+4. **TRAIN RENDER ray-gap -- FIXED.**  The both-endpoints-in-window segment
+   test dropped the physical beam segment connecting two real optics that
+   bracket an off-bench reference-sphere detour (beam appeared to vanish
+   between elements).  Now keeps all in-window crossings and draws ONE
+   polyline through them -> continuous fold path DM1->FPA.
+
+---
+
 
 ## SESSION 4 (2026-08-05) — Dave's hand-built decks + comparison driver
 
