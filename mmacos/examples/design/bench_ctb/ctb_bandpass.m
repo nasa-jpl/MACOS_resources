@@ -46,14 +46,14 @@ function out = ctb_bandpass(opts)
         opts.rx            (1,:) char   = ''
         opts.elt           struct = struct('DM1',2,'DM2',5,'Apodizer',13, ...
                                 'FPM',17,'Lyot',20,'ExitPupil',30,'FPA',31)
-        opts.model_size    (1,1) double = 512
+        opts.model_size    (1,1) double = 1024
         opts.nwf           (1,1) double = 5
         opts.band_frac     (1,1) double = 0.10
         opts.fpm_size      (1,:) char {mustBeMember(opts.fpm_size,{'meters','lamD'})} = 'meters'
-        opts.r_fpm_lamD    (1,1) double = 3.0
+        opts.r_fpm_lamD    (1,1) double = 2.70
         opts.r_apod_m      (1,1) double = 15e-3
         opts.r_apod_taper_m(1,1) double = 2e-3
-        opts.r_lyot_frac   (1,1) double = 0.85
+        opts.r_lyot_frac   (1,1) double = 0.50
         opts.inner_lamD    (1,1) double = 3.0
         opts.outer_lamD    (1,1) double = 15.0
         opts.outdir        (1,:) char   = ''
@@ -248,26 +248,12 @@ end
 function rr = beam_radius_(I, dx)
     thr = 0.02*max(I(:)); [yy,xx] = find(I>thr);
     if isempty(xx), rr=0; return; end
-    c = (size(I,1)-1)/2 + 1; rr = max(hypot(xx-c,yy-c))*dx;
+    c = floor(size(I,1)/2) + 1; rr = max(hypot(xx-c,yy-c))*dx;
 end
 
-function M = mask_harddisk_(N, dx, r_m), M = disk_ss_(N,dx,r_m,8); end
+function M = mask_harddisk_(N, dx, r_m), M = ctb_mask_disk(N,dx,r_m,8); end
 function M = mask_softcircle_(N, dx, r0_m, sigma_m)
-    r1 = r0_m + 4*sigma_m; base = disk_ss_(N,dx,r1,8);
-    c=(N-1)/2; [xx,yy]=meshgrid(0:N-1,0:N-1); rr=hypot(xx-c,yy-c)*dx;
-    tap=ones(N); out=rr>r0_m; tap(out)=exp(-((rr(out)-r0_m)/sigma_m).^2);
-    M = base.*tap;
-end
-function M = disk_ss_(N, dx, r_m, K)
-    c=(N-1)/2; off=((0:K-1)-(K-1)/2)/K; M=zeros(N);
-    [ox,oy]=meshgrid(off,off); ox=ox(:).'; oy=oy(:).';
-    for i=1:N
-        yc=(i-1-c); xs=((0:N-1)-c).'; acc=zeros(N,1);
-        for s=1:numel(ox)
-            xx=(xs+ox(s))*dx; yy=(yc+oy(s))*dx; acc=acc+double(xx.^2+yy.^2<=r_m^2);
-        end
-        M(i,:)=acc.'/numel(ox);
-    end
+    M = ctb_mask_softcircle(N,dx,r0_m,sigma_m,8);
 end
 function show_(ax, I, peak, w, ttl)
     In = double(I)/max(peak,eps); L=log10(max(In,1e-12));

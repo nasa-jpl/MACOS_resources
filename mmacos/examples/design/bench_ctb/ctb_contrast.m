@@ -24,13 +24,13 @@ function out = ctb_contrast(opts)
         opts.rx            (1,:) char   = ''
         opts.elt           struct = struct('DM1',2,'DM2',5,'Apodizer',13, ...
                                 'FPM',17,'Lyot',20,'ExitPupil',30,'FPA',31)
-        opts.model_size    (1,1) double = 512
-        opts.r_fpm_lamD    (1,1) double = 3.0
+        opts.model_size    (1,1) double = 1024
+        opts.r_fpm_lamD    (1,1) double = 2.70
         opts.inner_lamD    (1,1) double = 3.0
         opts.outer_lamD    (1,1) double = 15.0
         opts.r_apod_m      (1,1) double = 15e-3
         opts.r_apod_taper_m(1,1) double = 2e-3
-        opts.r_lyot_frac   (1,1) double = 0.85
+        opts.r_lyot_frac   (1,1) double = 0.50
         opts.outdir        (1,:) char   = ''
         opts.visible       (1,1) logical = false
     end
@@ -146,5 +146,5 @@ end
 function rr = beam_radius_(I, dx)
     thr = 0.02*max(I(:)); [yy,xx] = find(I>thr);
     if isempty(xx), rr=0; return; end
-    c = (size(I,1)-1)/2 + 1; rr = max(hypot(xx-c,yy-c))*dx;
+    c = floor(size(I,1)/2) + 1; rr = max(hypot(xx-c,yy-c))*dx;
 end

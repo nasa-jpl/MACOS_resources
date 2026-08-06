@@ -102,19 +102,20 @@ function m = local_model_(name, rx, elt, N)
 end
 
 function draw_panel_(ax, m, xl, yl, want_bar)
-    % rays (muted green, thin) -- polyline per ray over its crossings, but
-    % only segments whose BOTH endpoints lie inside the physical window are
-    % drawn (drops the off-bench EP-return-sphere excursions that would
-    % otherwise streak across the whole panel).
+    % rays (muted green, thin).  Keep only the crossings INSIDE the physical
+    % window, then draw ONE continuous polyline through them: this drops the
+    % off-bench EP-return-sphere excursions (x ~ -3700) WITHOUT dropping the
+    % physical beam segment that connects the two real optics bracketing the
+    % detour (the earlier both-endpoints-in-window test deleted that segment,
+    % so the beam appeared to vanish between elements).  The reference-sphere
+    % legs are geometrically backtracks to the SAME chief pierce, so
+    % connecting the surviving in-window points reproduces the real beam path.
     for r = 1:m.nray
         n = m.nper(r); if n < 2, continue; end
         u = m.U(1:n,r); v = m.V(1:n,r);
-        for s = 1:n-1
-            if u(s)>=xl(1) && u(s)<=xl(2) && u(s+1)>=xl(1) && u(s+1)<=xl(2)
-                plot(ax, u(s:s+1), v(s:s+1), '-', ...
-                    'Color',[0 0.55 0.15 0.35], 'LineWidth',0.4);
-            end
-        end
+        in = u>=xl(1) & u<=xl(2) & v>=yl(1) & v<=yl(2);
+        if nnz(in) < 2, continue; end
+        plot(ax, u(in), v(in), '-', 'Color',[0 0.55 0.15 0.35], 'LineWidth',0.4);
     end
     % mask-plane station markers + labels off the ray lines
     stn = {'DM1','DM2','Apodizer','FPM','Lyot','ExitPupil','FPA'};

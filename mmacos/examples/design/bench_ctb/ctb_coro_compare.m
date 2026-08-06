@@ -31,8 +31,9 @@ function out = ctb_coro_compare(opts)
 %     'lyot'     logical, apply the Lyot stop at the Lyot pupil (true).
 %     'r_apod_m' apodizer soft-edge radius, metres (default 15e-3).
 %     'r_apod_taper_m' apodizer Gaussian edge sigma, metres (2e-3).
-%     'r_fpm_lamD' FPM occulting-spot radius in lambda/D (default 3).
-%     'r_lyot_frac' Lyot radius as a fraction of the pupil beam (0.85).
+%     'r_fpm_lamD' FPM occulting-spot radius in lambda/D (default 2.70,
+%                  the ctb_optimize_masks contrast null; see that driver).
+%     'r_lyot_frac' Lyot radius as a fraction of the pupil beam (0.50).
 %     'outdir'   where to write the figure (default: this example dir).
 %     'visible'  show the figure (default false; headless-safe).
 %
@@ -57,8 +58,8 @@ function out = ctb_coro_compare(opts)
         opts.lyot            (1,1) logical = true
         opts.r_apod_m        (1,1) double = 15e-3
         opts.r_apod_taper_m  (1,1) double = 2e-3
-        opts.r_fpm_lamD      (1,1) double = 3.0
-        opts.r_lyot_frac     (1,1) double = 0.85
+        opts.r_fpm_lamD      (1,1) double = 2.70
+        opts.r_lyot_frac     (1,1) double = 0.50
         opts.outdir          (1,:) char = default_outdir_()
         opts.visible         (1,1) logical = false
     end
@@ -225,43 +226,13 @@ end
 %  the chief-ray pierce for these axis-aligned decks).  Supersampled edges.
 % ======================================================================
 function M = mask_harddisk_(N, dx, r_m, K)
-%MASK_HARDDISK_  1 inside radius r_m, 0 outside; K-supersampled edge.
     if nargin < 4, K = 8; end
-    M = disk_ss_(N, dx, r_m, K);
+    M = ctb_mask_disk(N, dx, r_m, K);                    % shared, beam-centred
 end
 
 function M = mask_softcircle_(N, dx, r0_m, sigma_m, K)
-%MASK_SOFTCIRCLE_  1 inside r0, Gaussian roll-off outside; truncated at
-%   r0+4*sigma.  Amplitude apodizer.
     if nargin < 5, K = 8; end
-    r1 = r0_m + 4*sigma_m;
-    base = disk_ss_(N, dx, r1, K);                       % hard truncation
-    c = (N-1)/2;  [xx,yy] = meshgrid(0:N-1, 0:N-1);
-    rr = hypot(xx-c, yy-c) * dx;
-    tap = ones(N);  out = rr > r0_m;
-    tap(out) = exp(-((rr(out)-r0_m)/sigma_m).^2);
-    M = base .* tap;
-end
-
-function M = disk_ss_(N, dx, r_m, K)
-%DISK_SS_  K x K supersampled binary disk of radius r_m (metres).
-    c = (N-1)/2;
-    off = ((0:K-1) - (K-1)/2) / K;                       % sub-pixel offsets
-    M = zeros(N);
-    [ox, oy] = meshgrid(off, off);
-    ox = ox(:).'; oy = oy(:).';                          % 1 x K^2
-    for i = 1:N
-        yc = (i-1-c);
-        xs = ((0:N-1)-c).';                              % N x 1
-        % accumulate sub-sample hits
-        acc = zeros(N,1);
-        for s = 1:numel(ox)
-            xx = (xs + ox(s)) * dx;
-            yy = (yc + oy(s)) * dx;
-            acc = acc + double(xx.^2 + yy.^2 <= r_m^2);
-        end
-        M(i,:) = acc.' / numel(ox);
-    end
+    M = ctb_mask_softcircle(N, dx, r0_m, sigma_m, K);    % shared, beam-centred
 end
 
 % ======================================================================
