@@ -55,13 +55,22 @@ vs the old shallow occulter's 1.02x) -- an honest deep-vs-broadband trade.
    between elements).  Now keeps all in-window crossings and draws ONE
    polyline through them -> continuous fold path DM1->FPA.
 
-5. **SOURCE->OAP1 leg -- ADDED.**  The window was built only from the
-   DM1..FPA station vertices, so OAP1 (element 1) and the source fell off
-   the left edge.  Now the window also spans OAP1's vertex + the source
-   ChfRayPos (get_src_fov), the source is marked with an orange star, and
-   OAP1 is labelled (dropped lower to clear DM2, which sits at nearly the
-   same X on this folded bench).  Full path source->OAP1->DM1->...->FPA
-   is shown.
+5. **TRAIN RENDER rewritten (full-only, dots on beam, no backtrack).**  Three
+   fixes rolled together:
+   - **Dots ON the beam.**  The old dots were at VptElt = the OAP PARENT-axis
+     vertices at z=0, far from where the off-axis beam strikes (z=-113..-643)
+     -> dots sat on a flat z=0 line, not on the rays.  Now each optic dot is
+     placed at its MEAN RAY CROSSING (from draw_rays), on the beam.
+   - **No "extra bit past DM1".**  OAP2 genuinely sits at x=1774 (left of DM1
+     at 1928) -- that leftward fold is real.  The spurious bit was the
+     Focus23 reference-return PLANE at x=1740 (diffraction bookkeeping) that
+     an all-crossings polyline routed through.  The beam is now drawn through
+     REAL optics only (Reflector + FocalPlane), so it never backtracks to a
+     reference surface.  source->OAP1->DM1->DM2->OAP2->... is clean.
+   - **Full deck only** (Dave: "no need to plot both") + source star + the
+     three mask stations (Apodizer/FPM/Lyot) as magenta rings on the beam.
+     Near-coincident labels (OAP1~DM2, FPM~OAP8, FPA~OAP7 on this folded
+     bench) are staggered onto a lower row so they don't overprint.
 
 ---
 
