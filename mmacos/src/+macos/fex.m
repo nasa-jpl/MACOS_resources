@@ -26,12 +26,32 @@ try
     xp = mmacos('xp_fnd', mode);      % 7-vec [Kr, psi(3), vpt(3)]
 catch
     % The dispatcher raises a terse 'mmacos: xp_fnd failed' when xp_fnd
-    % returns OK=false -- which happens only when the Rx isn't loaded or
-    % (the usual cause) no aperture stop is set, leaving the chief ray and
-    % hence the pupil undefined.  The engine has already printed the same
-    % remedy on stdout; re-throw with an actionable identifier so callers
-    % (dw_d*_multi's reset_xp, pupil_quality, ...) abort cleanly instead
-    % of building a wavefront on a bogus pupil.
+    % returns OK=false.  Two causes reach here, in the engine's own check
+    % order (macos_api_mod.F90 xp_fnd):
+    %   1. element nElt-1 is not a Reference(3)/Return(8) surface, so the
+    %      Rx carries no exit-pupil element for FEX to write.  Before the
+    %      engine's XpEltOrWarn guard this returned PASS with nothing
+    %      written -- a silent stale pupil;
+    %   2. no aperture stop is set, leaving the chief ray and hence the
+    %      pupil undefined.
+    % The engine has already printed the matching remedy on stdout;
+    % re-throw with an identifier that says WHICH, so callers
+    % (dw_d*_multi's reset_xp, pupil_quality, ...) can react instead of
+    % building a wavefront on a bogus pupil.
+    ep = -1;  ep_type = '';
+    try                                 %#ok<TRYNC> % Rx may not be loaded
+        ep   = macos.num_elt() - 1;
+        info = macos.get_elt_info(ep);
+        if any(info.elt_id == [3, 8]); ep = -1; else; ep_type = info.type; end
+    end
+    if ep > 0
+        error('macos:fex:noPupilElt', ...
+            ['fex could not find the exit pupil: element %d (nElt-1) is ' ...
+             'a %s, not a Return/Reference surface, so this Rx has no ' ...
+             'exit-pupil element to place.  Add one -- ' ...
+             'macos.design.Telescope.add_pupil, or the ' ...
+             'FP-Return-before-ExitPupil 2-pass recipe.'], ep, ep_type);
+    end
     error('macos:fex:noStop', ...
         ['fex could not find the exit pupil: no aperture stop is set, ' ...
          'so the chief ray (and hence the pupil) is undefined.  Add ' ...

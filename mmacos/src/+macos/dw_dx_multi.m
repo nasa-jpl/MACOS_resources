@@ -199,31 +199,12 @@ for k = 1:n_fields
         % here -- BEFORE dw_dx builds its channels -- lets a
         % FocalPlaneChannel ('track') save/restore the POST-reset EP pose.
         % FEX and SXP are merged in the engine, so FEX alone is well-posed
-        % for all exit-pupil placements.  FEX needs an aperture stop to
-        % define the chief ray; if none is set (Rx has no ApStop= and the
-        % caller passed no stop_elt / stop_obj_pos) rethrow with an
-        % actionable supervisor-level message.  (A stop-state preflight is
-        % not viable: get_stop_info reports only element-based stops and
-        % errors on an object-space stop, which FEX itself handles fine --
-        % so catching FEX's own verdict is the only false-negative-free
-        % check.)  The stop state is constant across the loop, so this
-        % branch only ever fires on the first field.
-        try
-            macos.fex(1);   % mode 1 = centre on chief ray
-        catch me
-            if strcmp(me.identifier, 'macos:fex:noStop')
-                error('macos:dw_dx_multi:noStop', ...
-                    ['reset_xp=true re-references the exit pupil per ' ...
-                     'field via FEX, which needs an aperture stop, but ' ...
-                     'none is set.  Add "ApStop= 0 0 1" to the Rx header ' ...
-                     '(or 0 0 0 for a stop at the primary), pass ' ...
-                     'stop_elt / stop_obj_pos, or set reset_xp=false to ' ...
-                     'keep the prescription''s frozen EP.']);
-            end
-            rethrow(me);
-        end
+        % for all exit-pupil placements.  The shared guard raises the
+        % supervisor-level no-stop error and absorbs the no-pupil-element
+        % FAIL -- see private/reset_xp_guard.
+        reset_xp_guard('fex', session);
         % Did FEX actually write? (engine writes nElt-1 only for a
-        % Return/Reference surface; elsewhere it declines silently.)  The
+        % Return/Reference surface; elsewhere it declines.)  The
         % shared guard also ERRORS if a write landed on a powered optic.
         reset_ep_moved = reset_xp_guard('check', session, xp0, ...
             reset_ep_moved, ep_is_powered);

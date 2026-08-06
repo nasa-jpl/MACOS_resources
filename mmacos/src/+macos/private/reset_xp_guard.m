@@ -2,15 +2,23 @@ function varargout = reset_xp_guard(action, varargin)
 %RESET_XP_GUARD  Shared no-effect/clobber guard for the reset_xp path.
 %   The four dw_d*_multi supervisors re-reference the exit pupil per field
 %   by calling macos.fex(1), which the engine honors ONLY when nElt-1 is a
-%   Return(EltID 8) or Reference(EltID 3) surface -- for any other type it
-%   declines to write (macos_cmd_loop.inc FEX handler: "Invalid element
-%   type", and xp_fnd still returns PASS), so reset_xp is a silent no-op.
+%   Return(EltID 8) or Reference(EltID 3) surface -- for any other type the
+%   FEX handler declines to write (macos_cmd_loop.inc: "Invalid element
+%   type").  xp_fnd used to return PASS anyway, making reset_xp a silent
+%   no-op; it now prechecks the element type and returns FAIL, which the
+%   'fex' action below absorbs into the same no-effect verdict.
 %   By design (Dave 2026-08-04): the write needs a dedicated exit-pupil
 %   element at nElt-1 -- the structure add_pupil builds (2-pass: FP_return
 %   + ExitPupil inserted before the FocalPlane).  A bare focal deck (a
 %   powered optic at nElt-1, no pupil) has nothing to update.  This helper
 %   detects that no-pupil case (and the dangerous case where a write lands
 %   on a powered optic) so the supervisors report the truth.
+%
+%   reset_xp_guard('fex', session)
+%       the per-field macos.fex(1) call itself.  Raises
+%       macos:dw_dx_multi:noStop when no aperture stop is set; ABSORBS the
+%       no-pupil-element FAIL (macos:fex:noPupilElt) so the loop runs to
+%       completion and 'finalize' issues the single noPupil verdict.
 %
 %   ep_pow = reset_xp_guard('is_powered', session)
 %       true if nElt-1 is a POWERED optic (curved, |Kr|<<1e22, and not a
@@ -42,6 +50,43 @@ switch action
             varargout{1} = false;  return;
         end
         varargout{1} = abs(session.get_elt_kr(ep)) < 1e22;   % curved => powered
+
+    case 'fex'
+        % The per-field exit-pupil re-reference.  FEX needs an aperture
+        % stop to define the chief ray; if none is set (Rx has no ApStop=
+        % and the caller passed no stop_elt / stop_obj_pos) rethrow with
+        % an actionable supervisor-level message.  (A stop-state preflight
+        % is not viable: get_stop_info reports only element-based stops and
+        % errors on an object-space stop, which FEX itself handles fine --
+        % so catching FEX's own verdict is the only false-negative-free
+        % check.)  The stop state is constant across the loop, so that
+        % branch only ever fires on the first field.
+        %   The no-pupil-element case is ABSORBED, not raised: the engine
+        % used to decline the write silently and return PASS, and the
+        % supervisors' contract is built on that -- the loop runs to
+        % completion and 'finalize' reports the no-effect verdict once.
+        % The engine's XpEltOrWarn guard now turns that silent decline
+        % into a clean FAIL (macos:fex:noPupilElt); swallowing it here
+        % keeps the SAME diagnosis rather than aborting the run.
+        try
+            macos.fex(1);   % mode 1 = centre on chief ray
+        catch me
+            switch me.identifier
+                case 'macos:fex:noPupilElt'
+                    % nothing to reset -- 'finalize' warns noPupil
+                case 'macos:fex:noStop'
+                    error('macos:dw_dx_multi:noStop', ...
+                        ['reset_xp=true re-references the exit pupil ' ...
+                         'per field via FEX, which needs an aperture ' ...
+                         'stop, but none is set.  Add "ApStop= 0 0 1" ' ...
+                         'to the Rx header (or 0 0 0 for a stop at the ' ...
+                         'primary), pass stop_elt / stop_obj_pos, or ' ...
+                         'set reset_xp=false to keep the ' ...
+                         'prescription''s frozen EP.']);
+                otherwise
+                    rethrow(me);
+            end
+        end
 
     case 'check'
         [session, xp0, moved, ep_pow] = varargin{1:4};
