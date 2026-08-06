@@ -95,34 +95,50 @@ s = prs.slides.add_slide(BLANK)
 title_bar(s, "The CTB diffraction model these masks hang on",
           "All-reflective 2-DM coronagraph relay — masks applied to the complex field in MATLAB (no engine change)")
 
-# left column: light path + how a mask is applied
-lf = textbox(s, Inches(0.4), Inches(1.15), Inches(6.35), Inches(5.9))
-para(lf, "Light path (compact deck ctb_dcr.in, 31 elts)", size=16, bold=True, color=NAVY, first=True, space_after=6)
+# left column: light path (compact + full) + how a mask is applied
+lf = textbox(s, Inches(0.4), Inches(1.1), Inches(6.35), Inches(6.15))
+para(lf, "Light path — compact deck (ctb_dcr.in, 31 elts)", size=15, bold=True, color=NAVY, first=True, space_after=4)
 para(lf, [("source → OAP1 → ", {}), ("DM1", {"bold":True,"color":ACCENT}),
-          (" → DM2 → OAP2 → [focus] → OAP3 →", {})], size=13)
+          (" →⟨p2p⟩→ DM2 → OAP2 → [focus] → OAP3 →", {})], size=12)
 para(lf, [("→ ", {}), ("apodizer", {"bold":True,"color":ACCENT}),
-          (" (pupil) → OAP4 → ", {}), ("FPM", {"bold":True,"color":ACCENT}),
-          (" (focus) → OAP5 →", {})], size=13)
-para(lf, [("→ ", {}), ("Lyot", {"bold":True,"color":ACCENT}),
-          (" (pupil) → … → ExitPupil → ", {}),
-          ("FPA", {"bold":True,"color":ACCENT}), (" (the PSF)", {})], size=13, space_after=12)
+          (" → OAP4 → ", {}), ("FPM", {"bold":True,"color":ACCENT}),
+          (" [focus] → OAP5 → ", {}), ("Lyot", {"bold":True,"color":ACCENT}), (" →", {})], size=12)
+para(lf, [("→ OAP6 → [field stop] → OAP7 → OAP8 → ExitPupil → ", {}),
+          ("FPA", {"bold":True,"color":ACCENT})], size=12, space_after=2)
+para(lf, [("stations: DM1=2 DM2=5 Apodizer=13 FPM=17 Lyot=20 EP=30 FPA=31", {"size":10.5, "font":"Consolas", "color":GREY})], space_after=2)
+para(lf, "— only DM1→DM2 p2p + the 3 through-focus quartets propagated; other gaps are geometric jumps.",
+     size=10.5, color=GREY, space_after=8)
 
-para(lf, "The three mask stations", size=16, bold=True, color=NAVY, space_after=6)
-para(lf, [("Apodizer", {"bold":True}), (" (pupil) · ", {}),
-          ("FPM", {"bold":True}), (" (focus) · ", {}),
-          ("Lyot", {"bold":True}), (" (pupil)", {})], size=13, space_after=2)
-para(lf, "— passive Reference markers in the deck; masks are added in MATLAB.",
-     size=12, color=GREY, space_after=12)
+para(lf, "Light path — full model (ctb_s2s_dcr.in, 44 elts)", size=15, bold=True, color=BLUE, space_after=4)
+para(lf, [("source → OAP1 ", {}), ("→⟨p2p⟩→", {"bold":True,"color":BLUE}),
+          (" DM1 ", {}), ("→⟨p2p⟩→", {"bold":True,"color":BLUE}),
+          (" DM2 ", {}), ("→⟨p2p⟩→", {"bold":True,"color":BLUE}),
+          (" OAP2 → [focus] →", {})], size=12)
+para(lf, [("→ OAP3 ", {}), ("→⟨p2p⟩→", {"bold":True,"color":BLUE}),
+          (" apodizer ", {}), ("→⟨p2p⟩→", {"bold":True,"color":BLUE}),
+          (" OAP4 → [FPM] → OAP5 ", {}), ("→⟨p2p⟩→", {"bold":True,"color":BLUE}),
+          (" Lyot →", {})], size=12)
+para(lf, [("→⟨p2p⟩→", {"bold":True,"color":BLUE}), (" OAP6 → [field stop] → OAP7 ", {}),
+          ("→⟨p2p⟩→", {"bold":True,"color":BLUE}), (" OAP8 → ExitPupil → ", {}),
+          ("FPA", {"bold":True,"color":ACCENT})], size=12, space_after=2)
+para(lf, [("stations: DM1=2 DM2=5 Apodizer=16 FPM=22 Lyot=27 EP=43 FPA=44", {"size":10.5, "font":"Consolas", "color":GREY})], space_after=2)
+para(lf, [("— EVERY inter-optic leg propagated (8 NFPlane p2p props added); adds the inter-optic diffraction the compact deck omits.",
+           {})], size=10.5, color=BLUE, space_after=8)
 
-para(lf, "How a mask is applied (stage-1 contract)", size=16, bold=True, color=NAVY, space_after=6)
+para(lf, [("Mask stations   ", {"bold":True, "color":NAVY, "size":13}),
+          ("Apodizer (pupil) · FPM (focus) · Lyot (pupil)", {"size":12}),
+          ("  — passive Reference markers; masks added in MATLAB.", {"size":10.5, "color":GREY})],
+     space_after=9)
+
+para(lf, "How a mask is applied (stage-1 contract)", size=13, bold=True, color=NAVY, space_after=3)
 para(lf, [("propagate to the plane → multiply the complex field by the mask "
-           "array → continue.", {})], size=13, bullet="1.", space_after=3)
+           "array → continue.", {})], size=12, bullet="1.", space_after=2)
 para(lf, [mono("macos.apodize"), (" (real 0–1 amplitude) · ", {}),
-          mono("macos.apodize_complex"), (" (complex).", {})], size=13, bullet="2.", space_after=3)
+          mono("macos.apodize_complex"), (" (complex).", {})], size=12, bullet="2.", space_after=2)
 para(lf, [("subsequent reads use ", {}), mono("'reset_trace',false"),
-          (" to keep the mask.", {})], size=13, bullet="3.", space_after=3)
+          (" to keep the mask.", {})], size=12, bullet="3.", space_after=2)
 para(lf, "No source tilt, no reference re-alignment, no engine edit.",
-     size=12, color=GREEN, bullet="✓", space_after=0)
+     size=11, color=GREEN, bullet="✓", space_after=0)
 
 # right column: the numbers / sampling box
 add_box(s, Inches(7.0), Inches(1.2), Inches(5.9), Inches(5.75), fill=LIGHT)
