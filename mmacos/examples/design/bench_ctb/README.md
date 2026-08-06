@@ -205,10 +205,10 @@ Bare (no masks), model 512, nGridpts 255, λ = 500 nm. Provenance: the
 
 | Quantity | compact | full |
 |---|---|---|
-| FPA peak intensity | 7.006e-2 | 6.030e-2 |
+| FPA peak intensity | 6.990e-2 | 6.030e-2 |
 | peak pixel (of 512) | [257,257] | [257,257] |
 | detector pitch | 2.4039e-5 m | 2.4039e-5 m |
-| peak-normalised correlation, compact vs full | 0.998863 | |
+| peak-normalised correlation, compact vs full | 0.998895 | |
 
 Model-vs-model agreement is not validation. The arbiter is MATLAB PROPER on
 the FPM through-focus leg at matched sampling (`ctb_proper_compare`, needs
@@ -223,8 +223,8 @@ pupil (`ctb_optimize_masks`, the interior contrast null of a
 
 Generated versus committed (`ctb_prop_layout`, same sampling): chief ray at
 all ten real optics 1.64e-11 mm against the bare deck (the committed decks
-give 1.36e-11 mm under the same measure), bare correlation 0.999999 on both
-models, peak ratio 1.000000 for the full model.
+give 1.36e-11 mm under the same measure), bare correlation 0.999999 and peak
+ratio 1.000000 on both models.
 
 ## Gotchas
 
@@ -245,12 +245,15 @@ models, peak ratio 1.000000 for the full model.
 - **Prescription regexes must be line-anchored** (`^\s*` plus `'lineanchors'`).
   `iElt` is a substring of `psiElt`, so an unanchored `iElt=\s+\d+` eats the
   leading digit of `psiElt`.
-- **The generated compact deck differs from the committed one by design.**
-  `ctb_dcr.in` propagates the DM1→DM2 leg over 399.94 mm where the chief
-  distance between those stations is 499.92 mm. The generator uses the true
-  distance, which is the whole of the 0.9977 peak ratio between them. The full
-  model, whose committed deck already has the correct length, reproduces
-  bit-for-bit. Flagged, not changed.
+- **A near-field pair's planes go on their stations, not at a fraction along
+  the segment.** Until 2026-08-06 `ctb_dcr.in` propagated the DM1→DM2 leg over
+  399.94 mm where the chief distance is 499.92 mm — 0.8× it, from a builder
+  that placed the two planes at 10% and 90% along the segment, leaving the end
+  plane 399.94 mm *behind* DM1 and reached by a negative ray length. The leg is
+  collimated pupil-to-pupil, so the only symptom was 0.23% in bare FPA peak;
+  nothing failed. Corrected in place from the full deck's `Prop1` pair, so both
+  committed decks now agree to all digits and the generator reproduces both.
+  Analysis outputs produced before that date carry the 0.23%.
 - **Some installed mexes predate the `'plane'` argument** on
   `macos.complex_field`; the veneer passes three arguments and errors against
   them. `ctb_proper_compare` and `tCtbProp` fall back to the two-argument raw

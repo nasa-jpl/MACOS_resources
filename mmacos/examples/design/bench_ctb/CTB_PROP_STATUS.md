@@ -59,17 +59,27 @@ model, peak ratio 1.000000 for the full model, quartet audit identical for
 generated and committed (3 quartets, 3 zElt-equal, spheres centred to
 9.1e-13 mm, 14 Returns, even).
 
-**One difference is deliberate.** The committed COMPACT deck propagates the
-DM1→DM2 leg over 399.94 mm, but the chief distance between those stations is
-499.92 mm — 399.94 is 0.8× it, the old builder's 10%/90% plane placement,
-inherited by the hand deck. The generator uses the true chief distance; that
-is the whole of the 0.9977 peak ratio between generated and committed
-compact. Flagged rather than changed — the committed deck stays the
-reference. **Dave's call whether to adopt the corrected length.**
+**The committed compact deck's DM1→DM2 leg was wrong, and is fixed.** It
+propagated that leg over 399.94 mm where the chief distance between the two
+stations is 499.92 mm — 0.8× it, the old builder's 10%/90% plane placement,
+inherited by the hand deck, with `P1_end` landing 399.94 mm *behind* DM1 and
+reached by a negative ray length. The full deck's `Prop1` pair was already
+correct. Raised as a flag, then fixed on Dave's instruction (2026-08-06) by
+lifting `Prop1_start`'s zElt and `Prop1_end`'s Vpt/Rpt verbatim into
+`P1_start`/`P1_end` — three lines, so the two committed decks now agree on
+that leg to all digits and the generator reproduces both.
+
+Effect: the leg is collimated pupil-to-pupil, so only edge diffraction
+changes. Bare FPA peak 7.006e-2 → **6.990e-2** (0.23%); compact-vs-full
+correlation 0.998863 → **0.998895**; generated-vs-committed compact peak
+ratio 0.9977 → **0.999999**. `tCtbProp` pins updated, 8/8. **Analysis
+outputs committed before 2026-08-06 — the contrast / planet / bandpass /
+vortex figures and their recorded numbers — were produced on the short leg
+and carry that 0.23%.** Not regenerated here (masks work order).
 
 **`tCtbProp`** (8 checks, asset-gated, model 512, own runner batch
 `SUITE_CTB_512` and a `./run_mmacos_tests.sh ctb` shortcut): quartet audit on
-both decks, NF1/NF2 round-trip identity, centred-PSF pins, the 0.998863
+both decks, NF1/NF2 round-trip identity, centred-PSF pins, the 0.998895
 compact-vs-full correlation, the PROPER arbiter (skipped with a message when
 PROPER is absent), and generator-reproduces-committed. 8 pass, 0 fail, none
 skipped; the PROPER leg reproduces the recorded arbiter values exactly. The
