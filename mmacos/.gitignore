@@ -12,3 +12,10 @@
 # The PNGs from verifyall.m ARE checked in as the canonical visual
 # reference for users; only the heavy .mat outputs are skipped.
 examples/sensitivities/**/*.mat
+
+# Large derived products (>= ~20 MB): gitignore + regenerate, NO LFS
+# (public repo, clone-and-run users).  A small <file>.fp.json fingerprint
+# + a downsampled preview .mat are committed in their place.  See the
+# bench_ctb README "Phase-factor export" and jac_fingerprint.m.  Explicit
+# paths (not a blanket *.mat) so small reviewed artifacts stay tracked.
+examples/design/bench_ctb/ctb_phase_export_N1024.mat
