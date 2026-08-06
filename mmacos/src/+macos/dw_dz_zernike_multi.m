@@ -162,7 +162,9 @@ for k = 1:n_fields
         % the poke traces, and a poke's own tilt is retained (the reference
         % is NOT re-fit after poking).  The Zern/MonZern/FFZern pokes act on
         % the powered/Zernike optics, not elt nElt-1.  See dw_dgrid_multi.
-        macos.fex(1);   % mode 1 = centre on chief ray
+        % shared guard: raises the supervisor-level no-stop error and
+        % absorbs the no-pupil-element FAIL -- see private/reset_xp_guard.
+        reset_xp_guard('fex', session);
         reset_ep_moved = reset_xp_guard('check', session, xp0, ...
             reset_ep_moved, ep_is_powered);
     end

@@ -221,7 +221,9 @@ for k = 1:n_fields
         % well-posed path for all EP placements (including the near-EP
         % SegDemo3* layouts that once needed SXP).  reset_xp_method is
         % retained only as a deprecated alias (warned once above).
-        macos.fex(1);   % mode 1 = centre on chief ray
+        % shared guard: raises the supervisor-level no-stop error and
+        % absorbs the no-pupil-element FAIL -- see private/reset_xp_guard.
+        reset_xp_guard('fex', session);
         reset_ep_moved = reset_xp_guard('check', session, xp0, ...
             reset_ep_moved, ep_is_powered);
     end
