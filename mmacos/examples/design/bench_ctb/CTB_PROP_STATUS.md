@@ -1,6 +1,96 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-05. Latest work at "SESSION 5" (performance) below; older kept._
+_Updated 2026-08-05. Latest work at "SESSION 6" (literature mask families) below; older kept._
+
+## SESSION 6 (2026-08-05) — literature focal-plane-mask families (Dave's go)
+
+Dave's work order: build the standard coronagraph mask/apodizer pairings
+from the literature on the existing apodize/apodize_complex + per-lambda-grid
+machinery (no engine work).  All formulae were pulled VERBATIM from the ar5iv
+LaTeX of the source papers (a WebFetch summarizer hallucinated every equation,
+so the raw HTML was the arbiter).  Four families shipped + a comparison table.
+
+**Verified-formula flags baked into the builders (the ones that bite):**
+- **BLC is `1 - sinc` in AMPLITUDE**, not `1 - sinc^2` (that is the intensity
+  `|M-hat|^2`).  `sinc` here = UN-normalised `sin(z)/z`, NOT MATLAB's `sinc`.
+- **Lyot trim = `(1 - epsilon)`** retained diameter (KCG Eq. 2), NOT `1 - 2*eps`
+  (a source showing `1-2eps` uses a half-bandwidth epsilon).
+- **Roddier & Roddier 1997 uses NO apodizer** — extinction is by flux balance
+  (pi spot at 0.53 lambda/D encircling 50% Airy energy).  The prolate-apodized
+  RRPM/ARPM is the LATER Aime/Soummer work.
+- **Dual-zone (N'Diaye 2012) zones are PURE PHASE, non-pi, wavelength-sliding**
+  (phi = 2 pi OPD lambda0/lambda); the amplitude apodization lives in the
+  entrance PUPIL, not the mask.  d1=0.874, d2=1.445 lambda0/D; OPD1=0.309,
+  OPD2=0.678 lambda0 (phi1=1.94, phi2=4.26 rad at lambda0).
+- **Ideal even-charge vortex on a clear pupil** sends on-axis starlight
+  identically outside the geometric pupil (Jenkins 2008 Eq. 1); the Lyot need
+  NOT be undersized as for a hard occulter.
+
+**NEW builders (mask primitives, reusable):**
+- `ctb_mask_bandlimited.m` — K&T 2002 order-4 (`1-sinc` amplitude, Eq. 7) +
+  KCG 2005 order-8 (Eq. 13, m=1/l=3); separable | radial | linear 2-D forms.
+  Unit-tested: order-8 IWA 8.94 lambda/D matches published; near-origin
+  intensity slopes 4.00 / 8.00 confirm the null orders.
+- `ctb_apod_prolate.m` — Soummer 2005 Eq. 3 prolate apodizer by POWER
+  ITERATION of `[pupil] o FT^-1 o [occulter] o FT`; returns the dominant
+  node-less prolate + Lambda0.  Converges to the classic smooth bell.
+- `ctb_mask_phase.m` — R&R 1997 pi-disk + N'Diaye dual-zone complex focal
+  masks (via apodize_complex).
+
+**NEW drivers (each = one mask kind + gates/figure):**
+- `ctb_bandlimited.m` (the PRIORITY).  Gates: (a) ideal null suppression
+  **4.4e5** (floor 2.9e-12), trim rule `(1-eps)R` VERIFIED (99.9% of star
+  flux outside it); (b) contrast+throughput vs epsilon (eps 0.10->0.55:
+  1.2e-8@81% -> 3.3e-8@20%); (c) bandpass — fixed-metres mask **1.1x**
+  chromatic over 10% (BL masks are chromatic BY DESIGN), lambda/D-rescaled
+  mask 1.0x (machinery adds no spurious chromatic error).  Clear pupil, no
+  apodizer.
+- `ctb_vortex_matched.m` (the CHEAPEST WIN).  Ideal charge-6 vortex on the
+  CLEAR pupil sends ~99% of on-axis flux OUTSIDE the geometric pupil (Lyot
+  panel shows the textbook bright ring, dark centre).  The C/T knee opens the
+  Lyot to frac 0.90 -> **3.2x throughput** (charge 6) / 3.6x (charge 4) vs the
+  unmatched frac-0.50 baseline, at 2-2.6x contrast cost.  NOTE: the original
+  `ctb_vortex.m` left the apodizer ON and used the hard-occulter Lyot 0.50,
+  so it saw only a Lyot GRADIENT and 1.7x; the clear-pupil matched-Lyot
+  config here is the correct ideal-vortex demonstration.
+- `ctb_aplc.m`.  Prolate apodizer + 2.8 lambda/D occulter (Soummer 2011 GPI:
+  occulter DIAMETER 5.6 lambda/D, cross-checked arXiv:1103.6085) + near-full
+  Lyot.  DZ mean **1.6e-10** (suppression 3.3e6) — **174x deeper than the
+  throughput-matched BLC** at equal 27% throughput.  The post-occulter Lyot
+  pupil shows the APLC edge-ring signature.
+- `ctb_phase_masks.m`.  R&R pi-mask + dual-zone reported beside the vortex.
+  On the UNMATCHED clear pupil these are shallow (R&R 3.3e2, dual-zone 4.6e2,
+  vortex 6.5e2 suppression) — correct: deep R&R/dual-zone need the matched
+  entrance-pupil apodizer (the ARPM/DZPM), noted in the builders.  Honest
+  sampling caveat: the 0.53 lambda/D R&R spot is only ~2px at N=1024.
+- `ctb_mask_compare.m`.  One ROW per family on the same deck/grid/annulus/
+  normalisation; contrast-vs-throughput scatter + FPA thumbnails + a .mat
+  table.  Ranking (annulus 3-15 lambda/D, Strehl-norm):
+
+  | mask kind        | DZ mean  | suppression | throughput |
+  |------------------|----------|-------------|------------|
+  | APLC             | 1.6e-10  | 3.3e6       | 27%        |
+  | band-limited     | 2.6e-8   | 4.4e5       | 36%        |
+  | hard occulter    | 2.4e-7   | 6.3e4       | 25%        |
+  | vortex (matched) | 2.9e-7   | 6.5e2       | **81%**    |
+  | Roddier pi-mask  | 3.1e-6   | 3.3e2       | 81%        |
+  | dual-zone        | 6.3e-6   | 4.6e2       | 81%        |
+
+  APLC deepest; BLC second; vortex best throughput.  (Throughput = off-axis
+  proxy: Lyot area, times (1-eps)^2 or apodizer Phi^2-fill where applicable.)
+
+**HLC — DEFERRED to the FALCO integration (explicit).**  The hybrid Lyot
+coronagraph's FPM profile (a metal+dielectric complex-amplitude occulter) is a
+CO-OPTIMIZATION product of the FALCO/EFC design loop, NOT a closed-form profile
+you can build from a disk + a phase bump.  Recorded here so nobody hand-waves
+an "HLC" from a formula; it enters when FALCO is wired in.
+
+**All on `pol-ifo`.  Pure MATLAB; no engine change** (the E.1 finding stands:
+`cfield_apodize_complex` / `macos.apodize_complex` already exists).  Every
+driver defaults N=1024, MACOS_HOME-gated, headless-safe (PNGs verified
+numerically colored, not by eye).
+
+---
 
 ## SESSION 5 (2026-08-05) — performance pass (centering, sampling, mask/Lyot optimize)
 
