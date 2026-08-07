@@ -89,7 +89,11 @@ if isempty(infl)
     infl = macos.zernike_grid_basis(nsz, opts.zmodes);
 end
 
-channels = macos.channels.grid_channels(session, infl);
+% Pass the element filter through: grid_channels supports 'elts', and
+% without it `g` was computed, used only to size the default basis, and
+% then discarded -- so 'elts' was silently ignored and the Jacobian came
+% back with a column pair for EVERY grid-bearing element.
+channels = macos.channels.grid_channels(session, infl, 'elts', g);
 wf_func  = @() local_wf(session, wf_elt);
 
 % Create spot_func if LOS computation requested
