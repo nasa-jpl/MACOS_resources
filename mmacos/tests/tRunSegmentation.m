@@ -15,8 +15,7 @@ classdef tRunSegmentation < matlab.unittest.TestCase
         function test_pie_end_to_end(tc)
             here = fileparts(mfilename('fullpath'));
             res_root = fileparts(fileparts(here));
-            bin = fullfile(res_root, 'segmirmaker', ...
-                           'build_release_ifx', 'SegMirMaker');
+            bin = segmirmaker_bin();      % any built tree, not ifx only
             tc.assumeTrue(isfile(bin), 'SegMirMaker not built');
             wd = tempname; mkdir(wd);
             cwd = onCleanup(@() rmdir(wd, 's'));
