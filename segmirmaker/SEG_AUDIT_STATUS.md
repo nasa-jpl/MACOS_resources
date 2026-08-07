@@ -575,22 +575,28 @@ Consequences and options:
 
 Full suite, `MACOS_BUILD_DIR=build_release_gfortran`.
 
-| group | result |
-|---|---|
-| fast (size 128) | 260 pass, **2 fail** |
-| masks (size 128) | 62 pass, 0 fail |
-| freeform (size 256) | 99 pass, 0 fail |
-| proper Cass-FF (512) | 10 pass, 0 fail |
-| pupil aperture (512) | 5 pass, 0 fail |
-| proper Coro (1024) | 13 pass, 0 fail |
-| **total** | **449 pass, 2 fail** |
+As first run (before the two fixes below), and again on `dev-candidate`
+with them in:
 
-The 2 failures are `tSegMirMaker/test_pie_reproduces_committed` and
-`test_hex2_reproduces_committed`, both `MATLAB:fileread:cannotOpenFile`.
-**No reference moved and nothing regressed** — in particular
-`tSegmentRx`, `tDwDx`, `tDwDxGroups`, `tRunSensitivities`, `tFingerprint`
-and `tReadGridFile` are unchanged against the corrected tree, and the
-GMI references (`0e9df7b`) were not touched.
+| group | audit run | dev-candidate |
+|---|---|---|
+| fast (size 128) | 260 pass, **2 fail**, 20 filtered | **288 pass, 0 fail, 0 filtered** |
+| masks (size 128) | 62 pass, 0 fail | 62 pass, 0 fail |
+| freeform (size 256) | 99 pass, 0 fail | 99 pass, 0 fail |
+| proper Cass-FF (512) | 10 pass, 0 fail | 10 pass, 0 fail |
+| pupil aperture (512) | 5 pass, 0 fail | 5 pass, 0 fail |
+| proper Coro (1024) | 13 pass, 0 fail | 13 pass, 0 fail |
+| **total** | **449 pass, 2 fail** | **477 pass, 0 fail** |
+
+GMI regression 6/6 both times (its Rx are `e2e_pie_met` and `Rx_e5hex1`,
+neither touched by the ff_hex2 regeneration).  No reference moved and
+nothing regressed: `tSegmentRx`, `tDwDx`, `tDwDxGroups`,
+`tRunSensitivities`, `tFingerprint` and `tReadGridFile` are unchanged
+against the corrected tree.
+
+The +28 accounts exactly: 2 tests that used to ERROR now pass
+(tSegMirMaker), 20 that used to be "Filtered by assumption" now execute
+and pass, and 6 are the new `tDrawFrameGuard`.
 
 Two test-infrastructure problems surfaced, both **pre-existing and
 unrelated to the routing work**:
@@ -610,16 +616,21 @@ unrelated to the routing work**:
    ERROR; where somebody did, they compare against a local artifact of
    unknown provenance.  (`MACOS_resources` has a pair dated 2026-07-23,
    generated from a branch whose `SegMirMaker.f` differs from `dev`'s.)
-   The test's premise and the ignore rule's stated intent contradict each
-   other; one of them has to give.  Not resolved here — minting a fresh
-   reference would bake in this week's frame re-clocking, which is Dave's
-   call.
+   The test's premise and the ignore rule's stated intent contradicted
+   each other.  **CLOSED** (res_dev `6a7063e`): the four references are
+   minted from the current generator with each test's exact arguments
+   (including the deliberate lowercase `hex`), un-ignored specifically,
+   and committed.  Gate before committing -- fresh vs the pol-core copies
+   differed in NOTHING but the per-segment grid frames, and the `Hx.m`
+   files were byte-identical: exactly 49d0970, no incidental drift.  The
+   class is 3/3 from a clean checkout, verified in a throwaway
+   `git worktree` supplying only the two gitignored build artifacts.
 
 2. **Five test classes could only find an `ifx` SegMirMaker build**, so on
    a gfortran box every segmentation / MET class skipped — and a skip
-   reads as green.  19 tests across `tSegmentRx`, `tEdgeSensors`, `tMet`,
-   `tRunMet` and `tRunSegmentation` were "Filtered by assumption" in the
-   baseline run.  `tSegMirMaker`, `tRunCompare` and `tRunSensitivities`
+   reads as green.  20 tests across `tSegmentRx` (12), `tEdgeSensors` (3),
+   `tRunMet` (3), `tMet` (1) and `tRunSegmentation` (1) were "Filtered by
+   assumption" in the baseline run.  `tSegMirMaker`, `tRunCompare` and `tRunSensitivities`
    already searched all four build trees; the other five hard-coded
    `build_release_ifx`.  **Fixed** here: new
    `mmacos/tests/private/segmirmaker_bin.m` does the four-tree search
@@ -628,14 +639,17 @@ unrelated to the routing work**:
 
    | class | before | after |
    |---|---|---|
-   | `tSegmentRx` | 11 filtered | **12 pass, 0 fail** |
-   | `tMet` | 1 filtered | **7 pass, 0 fail** |
+   | `tSegmentRx` | 12 filtered | **12 pass, 0 fail** |
+   | `tMet` | 1 filtered (of 7) | **7 pass, 0 fail** |
    | `tRunMet` | 3 filtered | **3 pass, 0 fail** |
    | `tEdgeSensors` | 3 filtered | **3 pass, 0 fail** |
    | `tRunSegmentation` | 1 filtered | **1 pass, 0 fail** |
 
-   That is 26 segmentation / MET tests that had never run on a gfortran
-   box, green on the re-clocked decks and the R1 engine.
+   Those five classes now run 26 tests in total, 20 of which had never
+   executed on a gfortran box -- all green on the re-clocked decks and the
+   R1 engine.  (res_dev `168982a`'s message says "26 tests that had never
+   run"; the precise figure is 20 never-run of 26 now running -- `tMet`'s
+   other 6 were already executing.)
 
 ### SegMirMaker emission has drifted, in exactly one respect
 
@@ -726,14 +740,27 @@ MACOS_HOME=~/dev/macos/macos_f90 ../build_release_gfortran/SegMirMaker < e5pie.s
 
 ---
 
-## Open items
+## Closed on `dev-candidate` (2026-08-07)
 
-- Three `Telescope.m` call sites read `draw_rays` `b.U/b.V` as global
-  X/Y (T2 table above).  Safe today only because the design layer pins
-  its emission to `xGrid=(+1,0,0)`; unguarded against a heritage deck or
-  a `segment_rx` output (which flips `xGrid` to `-1`).  Pre-existing;
-  needs Dave's call because touching `realize_apertures` moves saved
-  aperture numbers.
+- **`ff_hex2` regenerated** -- macos `f724e17` / res_dev `d0b6377`.  See
+  the section above.
+- **The tSegMirMaker references are tracked** -- res_dev `6a7063e`.
+- **The three `Telescope.m` draw-frame reads are guarded** -- res_dev
+  `5be6aee`: the sites now call
+  `macos.design.assert_draw_frame_global`, which reads the frame from the
+  ENGINE (`get_src_csys`) and errors naming the actual vectors rather
+  than silently mirroring.  It tests ORIENTATION (dot > cos 8.1 deg), not
+  equality -- an off-axis field point legitimately tilts the frame by the
+  field angle, and `tDesignTelescope`'s 2-arcmin sweep caught an equality
+  test being too strict.  No aperture numbers moved; the guard only
+  asserts.  `tDrawFrameGuard` covers both handedness cases on real corpus
+  decks, cross-checked against `draw_rays3d`.
+- **Five test classes stopped silently skipping** -- res_dev `168982a`
+  added `tests/private/segmirmaker_bin.m`; 26 segmentation / MET tests
+  that had never run on a gfortran box now execute and pass.
+
+## Still open
+
 - The original `e2e` "bit-zero rotation" observation is not reproduced
   through `macos.perturb`; re-scope it to whichever path produced it.
 - The `MACOS_resources` worktree is on branch `pol-core` and still
@@ -751,9 +778,6 @@ MACOS_HOME=~/dev/macos/macos_f90 ../build_release_gfortran/SegMirMaker < e5pie.s
   partner, so instrument B has nothing to compare against.  A
   Flower-specific instrument (or instrument A, if it were given
   per-segment apertures) would be needed.
-- `ff_hex2` (both lineages) is 180 deg permuted and needs a decision:
-  negate its header (measured to fix it) or regenerate.  No consumers, so
-  nothing is blocked on it.
 - Three different `e5pie.in` lineages remain in circulation
   (`de3008b8` south / `2844a5b2` north / `c3049f3a` the 63-pt notes
   deck).  They number their segments 180° apart.  Collapse them, or
