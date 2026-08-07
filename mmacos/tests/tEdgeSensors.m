@@ -33,8 +33,7 @@ classdef tEdgeSensors < matlab.unittest.TestCase
             here = fileparts(mfilename('fullpath'));
             res_root = fileparts(fileparts(here));
             tin = fullfile(res_root, 'segmirmaker', 'test_in');
-            bin = fullfile(res_root, 'segmirmaker', ...
-                           'build_release_ifx', 'SegMirMaker');
+            bin = segmirmaker_bin();      % any built tree, not ifx only
             tc.assumeTrue(isfile(bin), ...
                 'SegMirMaker binary not built (source ./makesegmirmaker.sh)');
             tc.seg = macos.design.segment_rx( ...
