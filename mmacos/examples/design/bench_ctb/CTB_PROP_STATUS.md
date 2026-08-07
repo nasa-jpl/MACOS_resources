@@ -1,6 +1,72 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-06. Latest work at "SESSION 8" (phase-factor export for external PROPER) below; older kept._
+_Updated 2026-08-06. Latest work at "SESSION 9" (end-to-end PROPER hand-off) below; older kept._
+
+## SESSION 9 (2026-08-06) — proper_ctb_run: end-to-end PROPER hand-off (option 1)
+
+Roadmap follow-on to SESSION 8: close the hand-off gap.  `proper_ctb_check`
+verifies the export PER LEG (each re-seeded from our field); a PROPER user
+doing their OWN analysis needs a SINGLE-PASS pure-PROPER model that runs
+end-to-end from our data alone.  Deliverable = the `.mat` + one driver a
+PROPER user runs with no macos: reproduce our bare PSF and our coronagraph
+contrast.  Pure MATLAB; no engine edit.
+
+**STOP-AND-FLAG -> Dave chose OPTION 1.**  A single CONTINUOUS PROPER beam
+DM1->FPA does NOT reproduce macos (FPA pitch ratio **0.71**, corr **0.005**).
+Root cause: macos samples every intermediate focus on the **system
+exit-pupil Fraunhofer pitch** (EP-sphere radii R = 7017/1000/416/360 mm),
+NOT the local geometric focus set by each OAP focal length (f=|Kr|/2 =
+2.47...0.68 m).  Per-station diagnostics: PUPIL planes track macos to
+~1.0-1.15 and PROPER beam diameters match the design pupil sizes
+(42.8->32.5->17->7.1 mm) — imaging is right — but FOCAL pitch diverges 4-10x
+at each focus and compounds.  One grid can't carry both the pupil pitch and
+the focal pitch across an f-f relay; per-leg replay escapes it by re-seeding
+each leg on its own macos-matched grid.  Flagged; Dave picked **option 1**:
+one pure-PROPER *script* seeded from OUR exported fields (single-*script*,
+not single-*beam*).
+
+**SHIPPED:**
+- **`ctb_phase_export.m` -> v2** (`meta.format_version=2`).  Added
+  `stations.EFL_m` (=|Kr|/2 SI for powered OAPs; NaN elsewhere — ExitPupil's
+  focusing radius is its FarField sphere R in `legs`/`spheres`, not |Kr|/2)
+  and a **`masks`** block (4 stand-alone arrays + metre params: Apodizer soft
+  circle r0=15mm sigma=2mm; FPM hard occulter 2.70 lambda/D, array on the
+  macos focal grid FOR REFERENCE, rebuild at consumer focal dx from
+  `radius_m`; Lyot 0.50 of bare pupil; FieldStop OPEN placeholder).  Preview
+  downsampler + `out` struct carry `masks`.  Regen'd `.mat` (312 MB,
+  gitignored) + preview (2.9 MB) + `.fp.json` (0.08 MB).
+- **`proper_ctb_run.m`** (NEW) — reads ONLY the `.mat` + PROPER, asserts the
+  orientation probe at startup, two runs:
+  - **bare** = terminal replay from the exported ExitPupil field
+    (`prop_lens(R)+prop_propagate(R)`, R=0.35995 m);
+  - **coronagraph** = pure-PROPER Fourier cascade seeded at the exported
+    Apodizer pupil field (apodize -> lens(f4)+prop(f4) -> FPM occulter ->
+    prop(f5)+lens(f5) -> Lyot -> lens(f6)+prop(f6) -> FPA), f4/f5/f6 =
+    1.3494/0.6756/0.6355 m from `EFL_m`.
+- **Rider** — `proper_ctb_check.m plot_check_` now colours OAP-fed pupils
+  (DM1, ExitPupil in s2s) **grey/info**, not green/gated; gate logic
+  unchanged; both check PNGs regenerated, both modes still PASS.
+
+**GATES (MATLAB PROPER, N=1024, 500 nm, v2 export; PASS):**
+- **bare**: pitch ratio **1.0000**, intensity corr_I **1.000000** — the
+  exported and PROPER bare PSFs are visually identical.
+- **coronagraph**: dark-zone mean contrast **1.4e-8** over 3-15 lambda/D
+  (lambda/D~3.75 px).  Gate is **ONE-SIDED-DEEP**: upper bound <=2x shipped
+  (5.8e-7) is the real gate; lower bound >=shipped/50 is only a pathology
+  floor.  The cascade is legitimately ~20x DEEPER than the shipped macos
+  value (2.9e-7) because the idealised Fourier relay seeded at the Apodizer
+  carries upstream aberration but OMITS the downstream OAP4->FPA real-optic
+  figure that scatters light in macos (`meta.screen_method`).  Do NOT gate
+  two-sided.
+- **mid-chain Lyot**: REPORTED, NOT GATED — same-grid corr_I 0.93, beam-dia
+  ratio 4.3x (the cascade forms the Lyot on PROPER's own sampling; a raw
+  correlation across that scale gap is not a valid gate — README rule 2).
+
+**Consumes** the as-committed `ctb_s2s_dcr.in` (untouched).  README
+"Hand-off package" subsection + `proper_ctb_run.png` (bare macos-vs-PROPER,
+coro FPA, radial-contrast panel).  All on `pol-ifo`, commit-only.
+
+---
 
 ## SESSION 8 (2026-08-06) — CTB phase-factor export for external PROPER models
 

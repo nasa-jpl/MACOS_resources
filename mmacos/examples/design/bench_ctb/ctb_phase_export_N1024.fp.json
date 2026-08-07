@@ -1,7 +1,7 @@
 {
   "meta": {
     "product": "ctb_phase_export",
-    "upstream_commit": "d848a74",
+    "upstream_commit": "a060ef0",
     "N": 1024,
     "lambda_m": 5E-7,
     "nStations": 18,
