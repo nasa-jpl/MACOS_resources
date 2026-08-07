@@ -1962,19 +1962,25 @@ C  {xMon,yMon,zMon}=segment face triad), emitted below via format 619.
      &	  TRIM(FmtD(yhat(1))),TRIM(FmtD(yhat(2))),TRIM(FmtD(yhat(3)))
 	WRITE(iUnit,'(A,3(2x,A))') '    zMon=',
      &	  TRIM(FmtD(zhat(1))),TRIM(FmtD(zhat(2))),TRIM(FmtD(zhat(3)))
+!-->  Grid frame = the SEGMENT's own clocked Mon triad, not the parent
+!     frame (Dave 2026-08-07): the standing rule is that a segment's
+!     grid frame must equal its clocked Mon frame or per-segment grid
+!     pokes don't localize/orient correctly.  The FF frame above stays
+!     the parent's -- it carries the replicated parent figure.
 	IF (nGridMat_p.GT.0) THEN
 	  WRITE(iUnit,'(A,3(2x,A))') '   pData=',
-     &	    TRIM(FmtD(pData_p(1))),TRIM(FmtD(pData_p(2))),
-     &	    TRIM(FmtD(pData_p(3)))
+     &	    TRIM(FmtD(pr(1))),TRIM(FmtD(pr(2))),
+     &	    TRIM(FmtD(pr(3)))
 	  WRITE(iUnit,'(A,3(2x,A))') '   xData=',
-     &	    TRIM(FmtD(xData_p(1))),TRIM(FmtD(xData_p(2))),
-     &	    TRIM(FmtD(xData_p(3)))
+     &	    TRIM(FmtD(xhat(1))),TRIM(FmtD(xhat(2))),
+     &	    TRIM(FmtD(xhat(3)))
 	  WRITE(iUnit,'(A,3(2x,A))') '   yData=',
-     &	    TRIM(FmtD(yData_p(1))),TRIM(FmtD(yData_p(2))),
-     &	    TRIM(FmtD(yData_p(3)))
+     &	    TRIM(FmtD(yhat(1))),TRIM(FmtD(yhat(2))),
+     &	    TRIM(FmtD(yhat(3)))
 	  WRITE(iUnit,'(A,3(2x,A))') '   zData=',
-     &	    TRIM(FmtD(zData_p(1))),TRIM(FmtD(zData_p(2))),
-     &	    TRIM(FmtD(zData_p(3)))
+     &	    TRIM(FmtD(zhat(1))),TRIM(FmtD(zhat(2))),
+     &	    TRIM(FmtD(zhat(3)))
+!<--
 	END IF
 
 	WRITE(iUnit,'(A)')       '  IndRef=  1d0'
