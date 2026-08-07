@@ -1988,7 +1988,12 @@ classdef Telescope < handle
             for i = 1:size(F,1)
                 obj.spec.trace_field = F(i,:);
                 obj.build('', 'init', false);
-                b = macos.draw_rays('XY', 0, nE);        % U=X, V=Y (pinned plane)
+                % b.U/b.V are the SOURCE-frame projection, not global x,y --
+                % refuse the read if this deck's grid frame is not the global
+                % one (heritage / segment_rx decks carry xGrid=(-1,0,0)).
+                macos.design.assert_draw_frame_global('XY', ...
+                    'aperture_full_field');
+                b = macos.draw_rays('XY', 0, nE);        % U=X, V=Y (frame asserted)
                 for k = 1:nE
                     m = (b.elt == k);
                     if ~any(m(:)), continue; end
@@ -2282,6 +2287,9 @@ classdef Telescope < handle
             if nargin < 8, fans = 'both'; end
             nE = numel(obj.spec.elt);
             if iend <= 0, iend = nE; end
+            % the (cU,cV) mapping below treats b.U/b.V as global components
+            % and differences them against e.Vpt -- assert that holds.
+            macos.design.assert_draw_frame_global(plane, 'draw_plane_');
             b = macos.draw_rays(plane, istart, iend);
             switch upper(plane)            % which 3-D comps map to (U,V)
                 case 'YZ', cU = 3; cV = 2;
@@ -2529,7 +2537,11 @@ classdef Telescope < handle
         %   slope at off-axis height d; R=|Kr|, K=Kc, that = transverse unit).
             obj.build('', 'init', false);              % current (decentered) design
             nE = numel(obj.spec.elt);
-            b  = macos.draw_rays('XY', 0, nE);         % U=X, V=Y (pinned plane)
+            % xc/yc below are differenced against the GLOBAL e.Vpt, so the
+            % draw projection must really be the global frame -- assert it.
+            macos.design.assert_draw_frame_global('XY', ...
+                'resolve_section_poles_');
+            b  = macos.draw_rays('XY', 0, nE);         % U=X, V=Y (frame asserted)
             for k = 1:nE
                 e = obj.spec.elt(k);
                 if ~strcmp(e.kind, 'Reflector'), continue; end
