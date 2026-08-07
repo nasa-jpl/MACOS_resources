@@ -79,6 +79,8 @@ arguments
     opts.src_samp               double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.compute_los            (1,1) logical = false
     opts.spot_elt               double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
+    opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -302,6 +304,7 @@ out.delta                = opts.delta;
 out.method               = opts.method;
 out.wf_elt               = per_field_struct{1}.wf_elt;
 out.kinds                = opts.kinds;
+out = apply_opd_convention(out, opts.orient, opts.sign);
 out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
 
 % Add per-field LOS if SPOT was computed
