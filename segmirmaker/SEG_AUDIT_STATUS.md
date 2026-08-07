@@ -285,9 +285,14 @@ above collapses to "always ok".
 **R3 — deck decision.**  Options, increasing cost:
  - *(a) document only.*  Cheapest.  The permuted decks stay permuted;
    anything built on them stays wrong.
- - *(b) negate `SegXgrid` in the header of the 7 permuted decks.*  Zero
-   geometry change, no regeneration, fixes routing **under today's
-   engine** — but R1 would invert it again.
+ - *(b) negate `SegXgrid` in the header.*  **MEASURED DEAD — do not do
+   this.**  See "the header-negation patch does not work" below.  This
+   supersedes an earlier version of this recommendation.
+ - *(b') permute the ORDINAL mapping* — rotate the `SegCoord` rows (or
+   the element block order) by half a ring, 2↔5 / 3↔6 / 4↔7 for a
+   1-ring tiling.  This is the only deck-side edit that can move
+   `term1` without touching `SegX2`.  Untested — measure it, do not
+   assume it.
  - *(c) R1 + R2, then regenerate the corpus from `e5mono.in`.*  Correct
    end state; moves every pinned number that depends on segment index
    or Mon clocking.
@@ -310,6 +315,81 @@ permutation nor move under R3(b).
 
 **R6 — collapse the three `e5pie` variants** to one, or rename so the
 generation is visible in the filename.
+
+---
+
+## R1 impact — who to warn
+
+`seg_audit.m` now prints an `[R1]` line per deck and an `R1 IMPACT`
+column in the roll-up, so this list is reproducible rather than
+hand-derived.  Swept over all **185** decks in `~/dev` with
+`GridType= Pie|Hex` (182 classified; 3 have no `Element=Segment`):
+
+| R1 impact | paths | note |
+|---|---|---|
+| `none` | 109 | immune |
+| `none (STILL PERMUTED)` | 52 | R1 cannot reach them — 51 Hex + 1 candidate |
+| **`BREAKS`** | **12** | correct today → permuted after |
+| `fixes` | 9 | permuted today → correct after |
+
+**A deck is immune to R1 unless `GridType` is Pie AND `SegX2` is not the
+identity** — i.e. unless `SegXgrid` is non-parallel to `xGrid`.  **88 of
+the 109 Pie decks have `SegX2` = identity and cannot move.**  R1 touches
+`PSEG` only, so no Hex deck can move at all.
+
+The 21 movers are only **5 distinct files** (the trees are clones):
+
+| md5 | R1 | canonical path (+ byte-identical copies) |
+|---|---|---|
+| `a821bd9c` | **BREAKS** | `macos/ZGD_test_files/e5pie.in` — also `docs/macos-manual/FreeFormPieAperture.in`, `MACOS_resources/GMI/ff_pie.in`, `tst_GMI/ff_pie_preswap.in`, + `macos_polfix` copies |
+| `3d0b40c3` | **BREAKS** | `segmirmaker/test_in/xx.in` (×3 trees) |
+| `0c4fa170` | **BREAKS** | `MACOS_sandbox/notes_luis_opd/e5pie.in` (the OPD-note figure deck, `nGridpts=63`) |
+| `c659bd7a` | fixes | `segmirmaker/test_in/e5pie.in` == `mmacos/examples/view_rx_demo/e5pie.in` (×3 trees), `tst_GMI/e5pie.in`, `tst_dir/e5pie.in` |
+| `740a238b` | fixes | `tst_GMI/ff_pie.in` |
+
+So R1 **swaps which of the two `e5pie` lineages is the good one** — and
+the ZGD copy, the one that ships in the manual, is the one that goes bad.
+
+**No nominal number moves.**  All five movers have `SegX2` = exactly
+180° and `nSeg = 7`, and 180° is a symmetry of a 7-segment pie (centre
+hex + 6 wedges at 60°).  R1 therefore permutes segment *indices* only —
+ray counts, gaps, RMS OPD, spot and PSF stay bit-identical.  The GMI
+regression perturbs Elt 8 (M2, a Zernike reflector), never a segment, so
+it is immune to both the permutation and to R1.  `ff_pie.in` has no code
+references — it is an orphan copy.
+
+That safety argument is corpus-specific: a Pie deck whose `SegX2` is not
+a multiple of 60° *would* move the ray grid itself.  None exist today,
+and `seg_audit` flags the case (`MOVES GEOMETRY`) if one appears.
+
+`MACOS_sandbox/old_Rx/` holds five legacy Hex decks (`j18sa`, `j18sc`,
+`j18dcWithStop`, `btc3`, `dmt6seg1313dm_centered`) with `SegX2 = ±90°`,
+outside the 0°/180° range the rule was validated against.  R1 does not
+touch them (Hex), but 90° is not a hex-lattice symmetry, so if anyone
+ever changes `HSEG` these must be measured, not predicted.
+
+`FSEG` (the Flower/petal predicate) uses `xt`/`yt` correctly — `PSEG` is
+the only broken one.
+
+---
+
+## The header-negation patch does not work (measured)
+
+Two untracked candidate decks appeared in the tree during this audit —
+`ZGD_test_files/cand_e5pie_neg.in` and `cand_e5hex1_neg.in`, each the
+original with `SegXgrid` negated and **nothing else changed**.  Measured
+with the full engine probe:
+
+| deck | before | after negating `SegXgrid` |
+|---|---|---|
+| `e5pie.in` (Pie) | **+0.00°** correct | **+180.00°** permuted — *broken* |
+| `e5hex1.in` (Hex) | **−180.00°** permuted | **−180.00°** permuted — *no-op* |
+
+Negating `SegXgrid` flips **both** terms at once: `term1` (which basis
+the ring-1 clock is read against) and `term2` (the sign of `SegX2`).  On
+a Hex deck they cancel, so the XOR is invariant and nothing happens; on
+a Pie deck only `term1` is live today, so the verdict flips the wrong
+way.  **A header-only basis flip cannot fix any deck.**
 
 ---
 
