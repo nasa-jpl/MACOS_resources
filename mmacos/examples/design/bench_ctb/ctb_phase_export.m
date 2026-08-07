@@ -80,8 +80,14 @@ function out = ctb_phase_export(opts)
     fprintf('[export] full deck nElt=%d  nRay=%d  lambda=%.4e m  N=%d\n', nE, nRay, lambda_m, N);
 
     % ---- one forward trace, read every station ------------------------
+    % EFL_m: focal length of a POWERED optic-kind station (an off-axis
+    % parabola), f = |Kr|/2 in SI -- what a PROPER user's prop_lens needs to
+    % model that OAP.  Populated ONLY for optic-kind stations with a finite
+    % Kr; NaN for pupils/foci and for the ExitPupil (whose FarField-sphere
+    % focusing radius R lives in legs.sphere_R_m / spheres, not |Kr|/2).
     stations = struct('name',{},'iElt',{},'kind',{},'E',{},'OPD_m',{}, ...
-                      'AMP',{},'dx_m',{},'z_along_chief_m',{},'chief_pos_m',{});
+                      'AMP',{},'dx_m',{},'z_along_chief_m',{},'chief_pos_m',{}, ...
+                      'EFL_m',{});
     macos.intensity(S{1,1});                              % first full trace
     prev = []; cum = 0;
     for k = 1:nS
@@ -92,13 +98,19 @@ function out = ctb_phase_export(opts)
         p  = ri.pos(:,1) * cbm;                           % chief (ray 1), metres
         if isempty(prev), leg = 0; else, leg = norm(p - prev); cum = cum + leg; end
         prev = p;
+        efl = NaN;                                        % powered-OAP focal length
+        if strcmp(S{k,3},'optic')
+            kr = macos.get_elt_kr(s);
+            if abs(kr) < 1e21, efl = abs(kr) * cbm / 2; end   % OAP f = |Kr|/2
+        end
         stations(k) = struct('name',S{k,2}, 'iElt',s, 'kind',S{k,3}, ...
             'E', cf, ...
             'OPD_m', -angle(cf) * lambda_m/(2*pi), ...    % macos->PROPER sign flip
             'AMP', abs(cf), ...
             'dx_m', abs(macos.dx_at(s)), ...
             'z_along_chief_m', cum, ...
-            'chief_pos_m', p(:).');
+            'chief_pos_m', p(:).', ...
+            'EFL_m', efl);
     end
 
     % ---- legs table ---------------------------------------------------
@@ -132,6 +144,17 @@ function out = ctb_phase_export(opts)
     % OWN grid (same as stations(k).OPD_m); the consumer resamples as needed.
     screens = build_screens_(stations);
 
+    % ---- coronagraph masks AS USED by the shipped chain ---------------
+    % The four masks the ctb_coro_compare / mask-family drivers apply, built
+    % on THE SHIPPED configuration (post centering fix, focus pixel
+    % floor(N/2)+1), stored as arrays so the .mat stands alone (no builder
+    % dependency downstream).  Each carries its plane's dx_m, its station
+    % name, and the provenance (builder + parameters).  The FPM is COMPLEX
+    % in general (a phase occulter); the shipped default is the real 2.70
+    % lambda/D hard occulter, so we store amplitude + phase split (both real)
+    % and note when the phase is trivially zero.  See proper_ctb_run.m.
+    masks = build_masks_(stations, N, lambda_m);
+
     % ---- orientation probe (self-contained, stored in meta) -----------
     orient = orientation_probe_(opts, N, cbm);
 
@@ -139,6 +162,7 @@ function out = ctb_phase_export(opts)
     commit = git_commit_(here);
     meta = struct( ...
         'product','ctb_phase_export', ...
+        'format_version', 2, ...                          % v2: + stations.EFL_m + masks block (v1 = stations/legs/spheres/screens)
         'lambda_m', lambda_m, 'N', N, 'center_px', floor(N/2)+1, ...
         'base_unit_to_metre', cbm, ...
         'opd_sign', 'OPD_m = -angle(E)*lambda/(2*pi); macos OPD is OPPOSITE prop_add_phase (pymacos opd_sign_flip=true). Consumer: prop_add_phase(bm, OPD_m).', ...
@@ -163,11 +187,15 @@ function out = ctb_phase_export(opts)
             'by raw-complex-field correlation.  Either (RECOMMENDED) consume our exported field E ' ...
             'directly at each plane as the hand-off (the "collapsed" mode -- always valid, no ' ...
             'reference-phase ambiguity), or compare on intensity + reference-sphere-removed phase.'], ...
+        'masks_note', ['`masks` carries the four shipped coronagraph masks as stand-alone arrays + ' ...
+            'physical (metres) parameters.  Pupil masks (Apodizer/Lyot) transfer directly; the FPM is ' ...
+            'a FOCUS-plane occulter whose array is on the macos focal grid for reference -- rebuild it ' ...
+            'at the consumer focal dx from radius_m.  stations.EFL_m = |Kr|/2 for powered OAPs (prop_lens).'], ...
         'source_rx', opts.rx, 'upstream_commit', commit, ...
         'nRay', nRay, 'built_by','ctb_phase_export.m');
 
     out = struct('meta',meta, 'stations',stations, 'legs',legs, ...
-                 'spheres',spheres, 'screens',screens);
+                 'spheres',spheres, 'screens',screens, 'masks',masks);
 
     % ---- write full + preview + fingerprint ---------------------------
     if opts.write
@@ -299,6 +327,111 @@ function screens = build_screens_(stations)
     end
 end
 
+% ======================================================================
+function masks = build_masks_(stations, N, lambda_m)
+%BUILD_MASKS_  The coronagraph masks AS USED by the shipped chain
+%   (ctb_coro_compare / the mask-family drivers), captured as stand-alone
+%   arrays + physical parameters so proper_ctb_run.m can apply them with NO
+%   builder dependency.  Runs its OWN init/trace (safe: called after the
+%   export trace + spheres are captured).
+%
+%   Shipped configuration (ctb_coro_compare defaults):
+%     Apodizer  soft circle  r0 = 15 mm, sigma = 2 mm     (amplitude, pupil)
+%     FPM       hard occulter 2.70 lambda/D               (amplitude, focus)
+%     Lyot      hard disk     0.50 * bare geometric pupil  (amplitude, pupil)
+%     FieldStop OPEN in the shipped chain (no mask applied) -- stored as an
+%               explicit all-ones entry with a note, so the four coronagraph
+%               planes are all represented and a user can drop in their own.
+%
+%   THE KEY STAND-ALONE FACT: every mask's defining size is stored in METRES
+%   (radius_m), which is GRID-INDEPENDENT.  Pupil-plane mask arrays (Apodizer,
+%   Lyot) are built on their macos plane dx, which the PROPER cascade
+%   reproduces at a pupil (~1.0 sampling ratio), so they transfer directly.
+%   The FPM sits at a FOCUS, where the PROPER cascade's focal pitch differs
+%   from macos's by ~10x (the interface finding); its array here is on the
+%   macos focal grid FOR REFERENCE, and proper_ctb_run REBUILDS the occulter
+%   at the consumer's own focal dx from radius_m (a hard disk of a physical
+%   radius -- three lines, no builder needed).  All arrays are REAL (the
+%   shipped FPM is a real hard occulter); a complex phase FPM would ship an
+%   AMP + phase split, both real.
+    here = fileparts(mfilename('fullpath'));
+    addpath(here);                                        % ctb_mask_disk/softcircle
+
+    % which macos station each mask sits on (this deck's full-model indices)
+    e = struct('Apodizer',16, 'FPM',22, 'Lyot',27, 'FieldStop',33);
+
+    % shipped mask parameters (ctb_coro_compare defaults)
+    r_apod_m = 15e-3; r_apod_taper_m = 2e-3;             % soft circle
+    r_fpm_lamD = 2.70;                                    % occulter, lambda/D
+    r_lyot_frac = 0.50;                                   % of bare pupil
+
+    % ---- deterministic mask-sizing geometry (own init; = ctb_coro_compare)
+    macos.init(N);
+    macos.load_rx(fullfile(here,'ctb_s2s_dcr.in'));
+    cbm = macos.cbm();
+
+    % FPM leg: NF1 sphere is FPM-1; R = its zElt; feed pitch = dx_at there.
+    macos.intensity(e.FPM);
+    Isph   = macos.intensity(e.FPM-1, 'reset_trace', false);
+    dx_sph = abs(macos.dx_at(e.FPM-1));
+    R_fpm  = abs(macos.get_elt_z(e.FPM-1)) * cbm;
+    Dbeam  = 2 * beam_radius_local_(Isph, dx_sph);
+    dx_f       = lambda_m * R_fpm / (N * dx_sph);         % Fraunhofer focal pitch
+    lamD_fpm_m = lambda_m * R_fpm / Dbeam;                % FPM-local lambda/D (m)
+    r_fpm_m    = r_fpm_lamD * lamD_fpm_m;
+
+    % bare geometric pupil radius at the Lyot (no FPM applied on this pre-pass)
+    Ily = macos.intensity(e.Lyot, 'reset_trace', false);
+    dx_lyot = abs(macos.dx_at(e.Lyot));
+    r_lyot_geom_m = beam_radius_local_(Ily, dx_lyot);
+    r_lyot_m = r_lyot_frac * r_lyot_geom_m;
+
+    % apodizer pupil dx + field-stop plane dx
+    macos.intensity(e.Apodizer);
+    dx_apod = abs(macos.dx_at(e.Apodizer));
+    macos.intensity(e.FieldStop);
+    dx_fstop = abs(macos.dx_at(e.FieldStop));
+
+    % ---- build the arrays (shipped builders, beam-centred) ------------
+    M_apod  = ctb_mask_softcircle(N, dx_apod, r_apod_m, r_apod_taper_m, 8);
+    M_fpm   = 1 - ctb_mask_disk(N, dx_f, r_fpm_m, 8);     % opaque occulter
+    M_lyot  = ctb_mask_disk(N, dx_lyot, r_lyot_m, 8);
+    M_fstop = ones(N);                                    % open in the shipped chain
+
+    masks = struct('name',{},'station',{},'plane_kind',{},'M',{}, ...
+                   'dx_m',{},'radius_m',{},'active',{},'builder',{}, ...
+                   'params',{},'note',{});
+    masks(1) = struct('name','Apodizer','station','Apodizer', ...
+        'plane_kind','amplitude_pupil', 'M',M_apod, 'dx_m',dx_apod, ...
+        'radius_m',r_apod_m, 'active',true, 'builder','ctb_mask_softcircle', ...
+        'params',struct('r0_m',r_apod_m,'sigma_m',r_apod_taper_m,'K',8), ...
+        'note','soft-circle amplitude apodizer; PUPIL plane -> apply array directly (dx matches PROPER pupil sampling).');
+    masks(2) = struct('name','FPM','station','FPM', ...
+        'plane_kind','amplitude_focus', 'M',M_fpm, 'dx_m',dx_f, ...
+        'radius_m',r_fpm_m, 'active',true, 'builder','1 - ctb_mask_disk', ...
+        'params',struct('r_fpm_lamD',r_fpm_lamD,'lamD_fpm_m',lamD_fpm_m, ...
+                        'R_fpm_m',R_fpm,'D_beam_m',Dbeam,'K',8), ...
+        'note',['opaque hard occulter, 2.70 lambda/D.  FOCUS plane: array is on the macos focal grid ' ...
+                'for reference; REBUILD at the consumer focal dx from radius_m (grid-independent metres).']);
+    masks(3) = struct('name','Lyot','station','Lyot', ...
+        'plane_kind','amplitude_pupil', 'M',M_lyot, 'dx_m',dx_lyot, ...
+        'radius_m',r_lyot_m, 'active',true, 'builder','ctb_mask_disk', ...
+        'params',struct('r_lyot_frac',r_lyot_frac,'r_lyot_geom_m',r_lyot_geom_m,'K',8), ...
+        'note','Lyot stop, 0.50 of the bare geometric pupil; PUPIL plane -> apply array directly.');
+    masks(4) = struct('name','FieldStop','station','FieldStop', ...
+        'plane_kind','amplitude_focus', 'M',M_fstop, 'dx_m',dx_fstop, ...
+        'radius_m',NaN, 'active',false, 'builder','none (open)', ...
+        'params',struct(), ...
+        'note','OPEN in the shipped chain (no mask applied); all-ones placeholder so the four coronagraph planes are represented.');
+end
+
+function rr = beam_radius_local_(I, dx)
+    thr = 0.02*max(I(:)); [yy,xx] = find(I>thr);
+    if isempty(xx), rr = 0; return; end
+    c = floor(size(I,1)/2) + 1; rr = max(hypot(xx-c,yy-c))*dx;
+end
+
+% ======================================================================
 function J = resample_opd_(W, dx_src, dx_dst)
 %RESAMPLE_OPD_  Bilinear resample W (pitch dx_src, array-centre origin) onto
 %   the same size with pitch dx_dst (no flux weighting -- OPD is intensive).
@@ -353,6 +486,10 @@ function prev = downsample_(out, n)
     prev.screens = out.screens;
     for k = 1:numel(out.screens)
         prev.screens(k).OPD_add_m = imresize_(out.screens(k).OPD_add_m, n);
+    end
+    prev.masks = out.masks;
+    for k = 1:numel(out.masks)
+        prev.masks(k).M = imresize_(out.masks(k).M, n);   % arrays only; params carried verbatim
     end
 end
 

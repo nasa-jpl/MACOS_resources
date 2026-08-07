@@ -355,7 +355,8 @@ diffraction grid; the array centre / focus pixel is `floor(N/2)+1`.
 
 | var | field | meaning |
 |---|---|---|
-| `meta` | `lambda_m`, `N`, `center_px` | 5.00e-7 m, 1024, 513 |
+| `meta` | `format_version` | **2** (v1 = stations/legs/spheres/screens; v2 adds `stations.EFL_m` + the `masks` block) |
+| | `lambda_m`, `N`, `center_px` | 5.00e-7 m, 1024, 513 |
 | | `base_unit_to_metre` | deck is mm → 1e-3 (CBM) |
 | | `opd_sign` | **`OPD_m = -angle(E)·λ/(2π)`** — macos OPD is **opposite** PROPER `prop_add_phase` (pymacos `opd_sign_flip=true`). A consumer calls `prop_add_phase(bm, OPD_m)` directly. |
 | | `opd_wrapping` | `OPD_m` comes from `angle(E) ∈ [-π,π]`, so it is **wrapped** (`\|OPD\| ≤ λ/2`). `E` is the primary carrier (`AMP·exp(iθ)` reconstructs it exactly); unwrap `OPD_m` before using it as a smooth additive screen. |
@@ -365,6 +366,10 @@ diffraction grid; the array centre / focus pixel is `floor(N/2)+1`.
 | `stations(k)` | `name, iElt, kind` | one per real optic (8 OAPs + 2 DMs), mask plane (Apodizer/FPM/Lyot/FieldStop), and the FPA. `kind ∈ {optic, pupil, focus}`. |
 | | `E, AMP, OPD_m` | complex field, amplitude, wrapped OPD on that plane (`\|E\|² = intensity`). |
 | | `dx_m, z_along_chief_m, chief_pos_m` | plane pitch (SI), cumulative chief-ray path, chief 3-vector. |
+| | `EFL_m` | **(v2)** focal length `\|Kr\|/2` (SI) of a powered `optic` station (OAP) — what a PROPER `prop_lens` needs; `NaN` for pupils/foci and for the ExitPupil (whose focusing radius is its FarField-sphere `R` in `legs`/`spheres`, not `\|Kr\|/2`). |
+| `masks(i)` | `name, station, plane_kind` | **(v2)** the four shipped coronagraph masks as stand-alone arrays: Apodizer / FPM / Lyot / FieldStop. `plane_kind ∈ {amplitude_pupil, amplitude_focus}`. |
+| | `M, dx_m, radius_m, active` | the real `N×N` mask array, its plane pitch, its defining radius in **metres** (grid-independent), and whether it is applied in the shipped chain (FieldStop is `active=false`, an all-ones placeholder). |
+| | `builder, params, note` | provenance: which builder + parameters produced it (e.g. FPM `r_fpm_lamD=2.70`, Lyot `r_lyot_frac=0.50`). **Pupil masks (Apodizer/Lyot) transfer directly; the FPM is a FOCUS-plane occulter whose array is on the macos focal grid for reference — rebuild it at your own focal `dx` from `radius_m`** (`proper_ctb_run` does this). |
 | `legs(j)` | `from, to, chief_len_m, prop_type, sphere_R_m` | the propagation table between consecutive stations: `NFPlane plane-to-plane` \| `through-focus quartet` \| `FarField` \| `geometric jump`. `sphere_R_m` is the reference-sphere radius where the leg is spherical. |
 | `spheres(i)` | `feeds_station, sphere_iElt, E, AMP, OPD_m, dx_sphere_m, R_m` | the **feeding reference sphere** for each through-focus / FarField leg — the plane you seed PROPER from to replay that leg (see below). |
 | `screens(k)` | `at_station, OPD_add_m, dx_m` | the OPD **added** reaching that plane, as the **difference of consecutive-station OPDs** (a clean per-optic split is not directly readable from the engine; the diff construction is what ships — `meta.screen_method`). |
@@ -434,6 +439,69 @@ carry. The `optic`-kind stations sit mid-beam through a powered mirror and are
 | **optic** (OAPs) & OAP-fed pupils | reported, not gated | reported, not gated |
 
 `proper_ctb_check_s2s.png` / `proper_ctb_check_collapsed.png` render the full
-station-by-station bar charts (blue = focus, gated 1.0; green = pupil, gated
-0.94; grey = optic / OAP-fed, informational). Both modes report **focus PASS /
-pupil-gate PASS**.
+station-by-station bar charts (blue = focus, gated 1.0; green = **gated**
+pupil, 0.94; grey = optic / OAP-fed pupil, informational — in `s2s` DM1 and
+ExitPupil are OAP-fed and sit in the grey class). Both modes report **focus
+PASS / pupil-gate PASS**.
+
+## Hand-off package
+
+A PROPER user receives **three files** and needs nothing else (no macos, no
+mmacos, no deck):
+
+| File | What it is | Run |
+|---|---|---|
+| `ctb_phase_export_N1024.mat` | the model: per-plane fields, feeding spheres, OAP focal lengths, coronagraph masks (`format_version` 2). Gitignored (≈312 MB); regenerate with `ctb_phase_export`. The committed `.fp.json` fingerprint + 96×-downsampled `_preview.mat` stand in for review. | — |
+| `proper_ctb_run.m` | **end-to-end model** — reproduces our bare PSF and coronagraph contrast from the `.mat` alone, entirely in PROPER. | `proper_ctb_run('figure',true)` |
+| `proper_ctb_check.m` | **per-plane interface check** — verifies the export plane by plane (`'s2s'` replays each leg; `'collapsed'` consumes our `E` as the hand-off). | `proper_ctb_check('s2s'); proper_ctb_check('collapsed')` |
+
+`proper_ctb_run` is the **validation statement**: *a PROPER user, starting
+from our data alone, reproduces the coronagraph.* `proper_ctb_check` is the
+diagnostic that localises any disagreement to a plane. Both need only
+`addpath ~/dev/proper_matlab`.
+
+### What "end-to-end" means (and why it is not a single continuous beam)
+
+A single continuous PROPER beam DM1→FPA does **not** reproduce macos (FPA
+pitch ratio 0.71, corr 0.005). macos samples every intermediate focus on the
+**system exit-pupil Fraunhofer pitch** (the large EP-sphere radii), not the
+local geometric focus set by each OAP's focal length, so one PROPER grid
+cannot carry both the pupil pitch and the focal pitch across the f–f relay.
+`proper_ctb_run` is therefore a single pure-PROPER **script** that seeds from
+our exported fields — not a single beam:
+
+- **Bare PSF** — a *terminal replay*: seed at the exported ExitPupil pupil
+  field and focus over its FarField-sphere radius R (`prop_lens(R) +
+  prop_propagate(R)`). This is the arbiter recipe.
+- **Coronagraph** — a self-contained PROPER **Fourier cascade** seeded at the
+  exported Apodizer pupil field: apodizer, then `prop_lens/prop_propagate`
+  through the FPM occulter, Lyot stop, and out to the FPA, using the exported
+  `EFL_m` of OAP4/5/6 as the relay lenses. It runs in PROPER's own
+  self-consistent sampling and is validated by the **dark-zone contrast** it
+  produces, not by pixel-matching macos.
+
+### Gate numbers (pinned; MATLAB PROPER, N=1024, 500 nm, v2 export)
+
+| gate | measured | rule | result |
+|---|---|---|---|
+| **bare** FPA vs exported FPA | pitch ratio **1.0000**, corr_I **1.000000** | `\|ratio−1\|≤1e-3` & corr_I ≥ 0.9999 | **PASS** |
+| **coronagraph** dark-zone mean contrast (3–15 λ/D) | **1.4e-8** | ≤ 2× shipped (5.8e-7) **and** ≥ shipped/50 (pathology floor) | **PASS** |
+| **mid-chain** Lyot pupil | same-grid corr_I **0.93**, beam-dia ratio **4.3×** | reported, **not gated** | info |
+
+The coronagraph gate is **one-sided-deep**: the idealised Fourier relay
+seeded at the Apodizer carries the upstream aberration baked into that field
+but omits the downstream OAP4→FPA real-optic figure that scatters extra light
+in macos (the export cannot cleanly split per-OAP figure — see
+`meta.screen_method`), so the PROPER cascade is legitimately **deeper** than
+the shipped macos value (2.9e-7). The upper bound is the real gate; the lower
+bound only catches a collapsed FPA. The **mid-chain Lyot is reported, not
+gated**: the masks-off cascade forms the Lyot on PROPER's own sampling (its
+beam is ~4.3× the exported Lyot diameter, on ~4× the pitch — the same
+sampling reason a single beam is ruled out), so a raw correlation across that
+scale gap is not a valid gate (README rule 2). The two gated statements are
+end-of-chain, where PROPER is self-consistent.
+
+`proper_ctb_run.png` shows the exported (macos) bare PSF beside the
+PROPER-chain bare PSF (visually identical, corr 1.000000), the PROPER
+coronagraph FPA, and the radial contrast profile with the dark-zone annulus
+and the shipped macos level marked.

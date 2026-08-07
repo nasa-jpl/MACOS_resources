@@ -184,6 +184,13 @@ function out = proper_ctb_check(mode, opts)
     fprintf(['[check] (optic stations = mid-beam through a powered OAP; s2s OAP-fed pupils = ', ...
              'user''s own prop_lens -- both reported, not gated. See README.)\n']);
 
+    % Mark which PUPIL rows are actually GATED (vs OAP-fed, reported-only) so
+    % the figure can colour OAP-fed pupils grey (info), matching the gate
+    % logic above.  In collapsed mode every pupil is gated; in s2s only the
+    % direct-NFPlane pupils are.  Non-pupil rows: false.
+    for k = 1:numel(rows), rows(k).gated_pupil = false; end
+    for k = gpup(:).', rows(k).gated_pupil = true; end
+
     out = struct('mode',mode,'rows',rows,'gate_focus',gate_focus, ...
         'gate_pupil',gate_pupil,'lambda_m',lam,'N',N,'mat',opts.mat);
 
@@ -195,13 +202,20 @@ function figpath = plot_check_(out, opts)
 %PLOT_CHECK_  Deck-grade station-by-station agreement figure for one mode.
     rows = out.rows;  n = numel(rows);
     corr_I = [rows.corr_I];  kinds = {rows.kind};
-    % color by station kind
+    % color by station kind AND gate status: focus = blue (gated 1.0),
+    % GATED pupil = green (0.94), everything else = grey (info): optic
+    % stations AND OAP-fed pupils (e.g. DM1, ExitPupil in s2s) that the gate
+    % logic reports-but-does-not-gate belong in the grey info class.
+    gated_pup = false(1,n);
+    if isfield(rows,'gated_pupil'), gated_pup = [rows.gated_pupil]; end
     col = zeros(n,3);
     for k=1:n
-        switch kinds{k}
-            case 'focus', col(k,:) = [0.10 0.45 0.80];   % blue
-            case 'pupil', col(k,:) = [0.20 0.60 0.25];   % green
-            otherwise,    col(k,:) = [0.70 0.70 0.72];   % grey (optic, info)
+        if strcmp(kinds{k},'focus')
+            col(k,:) = [0.10 0.45 0.80];                 % blue
+        elseif strcmp(kinds{k},'pupil') && gated_pup(k)
+            col(k,:) = [0.20 0.60 0.25];                 % green (gated pupil)
+        else
+            col(k,:) = [0.70 0.70 0.72];                 % grey (optic / OAP-fed pupil, info)
         end
     end
     vis='off'; if opts.visible, vis='on'; end
