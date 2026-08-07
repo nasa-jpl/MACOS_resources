@@ -60,6 +60,8 @@ arguments
     opts.src_samp             double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.compute_los          (1,1) logical = false
     opts.spot_elt             double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
+    opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
 end
 
 if opts.reload_rx
@@ -127,6 +129,7 @@ out.wf_elt        = wf_elt;
 out.delta         = opts.delta;
 out.method        = opts.method;
 
+out = apply_opd_convention(out, opts.orient, opts.sign);
 % Add LOS fields if SPOT was computed
 if opts.compute_los
     out.dcdx      = dcdx;

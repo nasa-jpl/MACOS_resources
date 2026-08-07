@@ -3506,15 +3506,35 @@ def opd_val(nGridPts) -> Matrix[np.float64]:
     return opd()
 
 
-def opd() -> Matrix[np.float64]:
+def opd(orient: str = "raw", sign: str = "opl") -> Matrix[np.float64]:
     """Retrieve Optical Path Difference (OPD) at last ray-traced state.
 
     Requirement:
         The OPD can be obtained _after_ running a trace_rays(srf).
         For the OPD at the Exit Pupil, run a 'trace_rays(-2)'.
 
+    Conventions (see mmacos/doc/opd_conventions.md for the full story):
+        The raw array is OPD[i, j] with FIRST index i = global X and
+        SECOND index j = global Y -- identical in the CLI, mmacos and
+        pymacos.  Sign: a ray LONGER than the reference is POSITIVE
+        (optical path difference).  The reference is the chief ray
+        when it survives the trace, else the bundle mean (the map
+        comes back mean-removed).
+
+    Args:
+        orient: "raw" (default) -- the engine array as stored,
+            [i, j] = (X, Y).  "xy" -- transposed so ROWS run along Y
+            and COLUMNS along X (standard image convention); display
+            with plt.imshow(W, origin="lower") for an x-right / y-up
+            view matching the CLI plot.  (Equivalent to W_raw.T)
+        sign: "opl" (default) -- engine convention, longer path
+            positive.  "wavefront" -- negated: the interferometer-
+            style wavefront-error map, and the sign PROPER's
+            prop_add_phase expects.
+
     Raises:
         Exception: MACOS Triggered error
+        ValueError: bad orient / sign value
 
     Returns:
         Matrix[np.float64]:
@@ -3522,8 +3542,13 @@ def opd() -> Matrix[np.float64]:
 
     Example:
         __ = pymacos.trace_rays(-2)  # Trace rays to XP
-        pymacos.opd()                # get OPD map
+        pymacos.opd()                # get OPD map (raw, OPL sign)
+        pymacos.opd(orient="xy", sign="wavefront")
     """
+    if orient not in ("raw", "xy"):
+        raise ValueError(f"opd: orient must be 'raw' or 'xy', got {orient!r}")
+    if sign not in ("opl", "wavefront"):
+        raise ValueError(f"opd: sign must be 'opl' or 'wavefront', got {sign!r}")
     _chk_macos_and_rx_loaded()
 
     # OPD map
@@ -3532,6 +3557,11 @@ def opd() -> Matrix[np.float64]:
 
     if not ok:
         raise Exception("MACOS: 'opd' threw an exception")
+
+    if orient == "xy":
+        opd = opd.T
+    if sign == "wavefront":
+        opd = -opd
 
     return opd
 
@@ -4848,4 +4878,4 @@ def stop_obj(x: float, y: float, z: float) -> None:
 
 # -------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    pass
+    pass
