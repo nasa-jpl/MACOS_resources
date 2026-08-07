@@ -171,13 +171,16 @@ in the header dump the raw array to `Opd_macos.txt` (line j holds
    artifacts: a flattened deck variant, focal-plane OPD (where
    Fermat hides pointing changes), and printed-stats comparison
    instead of map diffs.  No engine defect here.
-   **The real segment gotcha is elsewhere**: on several SegMirMaker
-   decks the ray↔element assignment is permuted 180° around the
-   ring (engine `PSEG` ignores `SegXgrid` on Pie grids ×
-   SegMirMaker writing `SegXgrid` in the wrong frame — two defects
-   that XOR), so a poke on element k acts on the wedge across the
-   ring; nominal traces are unaffected.  See the SegMirMaker audit
-   report.  (The `'elts'` filter of `dw_dz_zernike`/`dw_dgrid`
+   **The real segment gotcha was elsewhere**: the engine's Pie grid
+   type ignored the `SegXgrid` header frame (Hex honored it), so one
+   family of pie decks had the ray↔element assignment permuted 180°
+   around the ring — a poke on element k acted on the wedge across
+   the ring, with nominal traces unaffected.  Fixed in the engine
+   (PSEG); affected decks verified.  Related caution: the
+   `macos.draw_rays` per-crossing element attribution is currently
+   180° off the trace assignment on segmented decks (open engine
+   bug) — do not use it to adjudicate segment identity; use
+   per-segment aperture ray counts or perturbation responses.  (The `'elts'` filter of `dw_dz_zernike`/`dw_dgrid`
    also appears not to restrict the channel set — separate nit.)
 2. The exact gate that keeps the chief-referenced branch dormant on
    these decks (lost chief vs. flag state) was not isolated; measured
