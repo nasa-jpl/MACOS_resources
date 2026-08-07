@@ -159,25 +159,26 @@ in the header dump the raw array to `Opd_macos.txt` (line j holds
 
 ## 6. Open items (flagged, not resolved here)
 
-1. **Rigid-body PERT on `Element= Segment` is a silent no-op in the
-   GLOBAL frame only** (corrected 2026-08-07 — an earlier claim that
-   local frames were also inert came from an aborted probe run and
-   was wrong).  Measured: global-frame rotations AND translations on
-   e5pie/e2e_pie segments are bit-inert even though PERTURB updates
-   the element data (VptElt verified moved); a raw `set_elt_vpt` of
-   the same amount responds hugely (consistency broken).
-   **LOCAL-frame PERTURB works correctly** — rotations about
-   xMon/yMon and translations along zMon respond as physics demands
-   (a 0.25 µm local +zMon piston toward the source measures −419 nm
-   on the wedge vs the −2d(1−f) = −427 nm prediction; 2% =
-   obliquity).  The figure channel (FF-Zernike, grid maps) also
-   works.  Root cause of the global-frame-only cancellation still
-   needs an engine look.  Related deck note: e5pie gives every
-   segment `VptElt=RptElt=(0,0,0)` (the parent vertex), so rigid
-   rotations pivot there unless per-segment `RptElt` is set to the
-   wedge centers (`macos.set_elt_rpt`).  (The `'elts'` filter of
-   `dw_dz_zernike`/`dw_dgrid` also appears not to restrict the
-   channel set — separate nit.)
+1. **RETRACTED (2026-08-07 pm): the "segment rigid pokes are inert"
+   claim, in both its forms.**  Clean re-measurement (real e5pie
+   deck, exit-pupil OPD, map-level diff) shows rigid-body PERT on
+   `Element= Segment` responds in **both** frames and **both**
+   consumers: global-frame rotation 5e-7 rad about Y on Seg2 gives
+   max|dW| = 4.181821e-3 mm in the CLI and in mmacos — the identical
+   number — and translations respond likewise (4.18e-4 mm for
+   0.25 µm).  Local-frame values are the same order (5.51e-3 /
+   4.21e-4).  The original "inert" observations were probe
+   artifacts: a flattened deck variant, focal-plane OPD (where
+   Fermat hides pointing changes), and printed-stats comparison
+   instead of map diffs.  No engine defect here.
+   **The real segment gotcha is elsewhere**: on several SegMirMaker
+   decks the ray↔element assignment is permuted 180° around the
+   ring (engine `PSEG` ignores `SegXgrid` on Pie grids ×
+   SegMirMaker writing `SegXgrid` in the wrong frame — two defects
+   that XOR), so a poke on element k acts on the wedge across the
+   ring; nominal traces are unaffected.  See the SegMirMaker audit
+   report.  (The `'elts'` filter of `dw_dz_zernike`/`dw_dgrid`
+   also appears not to restrict the channel set — separate nit.)
 2. The exact gate that keeps the chief-referenced branch dormant on
    these decks (lost chief vs. flag state) was not isolated; measured
    behavior is mean-mode in every tested configuration.
