@@ -89,6 +89,19 @@ Per-display behavior on the *same* array:
 - **numpy, naive `plt.imshow(W)`**: same transpose class.  Correct:
   `plt.imshow(W.T, origin='lower')`.
 
+**Intensity / diffraction-grid arrays carry their own parity.**  The
+INT/PSF (and complex-field) arrays can be inverted relative to the
+ray-trace axes: the image flips through each intermediate focus, so
+the net parity is DECK-DEPENDENT.  Measured on `e5pie` (segment-tilt
+probe: geometric spot displacement vs secondary-peak offset): the
+intensity array has **i = −X, j = −Y** — the OPD convention rotated
+180°.  Render x-right/y-up on that deck with
+`imagesc(flip(flip(I,1),2).'); axis xy`.  No blanket veneer option is
+offered for `intensity` precisely because the parity varies by deck —
+probe it (tilt one element, compare the geometric spot direction with
+the PSF secondary) before overlaying diffraction arrays on ray-trace
+maps.
+
 ## 3. Veneer options (added 2026-08-07)
 
 `macos.opd` and every `dw_d*` sensitivity driver (`dw_dx`, `dw_dgrid`,
