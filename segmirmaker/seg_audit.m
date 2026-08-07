@@ -37,6 +37,16 @@ function R = seg_audit(decks, varargin)
 %                             inert on Element=Segment (known open engine
 %                             question -- recorded, not chased).
 %
+%   THIS FUNCTION DOES NOT DECIDE RAY->SEGMENT ROUTING.  Its check-2
+%   position/clock offsets live in OPD-ARRAY index space, whose (i,j) ->
+%   (X,Y) map is deck-dependent, so only their SPREADS are meaningful
+%   without a per-deck pin.  For the routing verdict use SEG_ROUTE
+%   (instrument A = per-segment aperture ray count; instrument B =
+%   draw-3d global attribution).  Reading an unpinned offset -- or any
+%   clock measured in the header SegXgrid basis, which rotates with the
+%   patch -- as a verdict is what inverted the round-1 audit tables.
+%   See SEG_AUDIT_STATUS.md, "Instrument doctrine".
+%
 %   Name/value options:
 %     'model_size'  512      macos.init size
 %     'opd_elt'     []       element to take OPD at (default: auto = the
@@ -108,7 +118,7 @@ end
 function r = audit_one(rx, o)
 r = struct('rx', rx, 'ok', false, 'err', '', 'flags', {{}});
 
-D = read_rx_text(rx);                    % header + per-element key/value
+D = seg_read_rx(rx);   % shared reader; also used by seg_route
 r.hdr = D.hdr;
 segs = find(strcmpi(D.eltType, 'Segment'));
 r.iSeg = segs(:).';
@@ -118,13 +128,29 @@ if isempty(segs)
     fprintf('  %s\n', r.err); return
 end
 
-% ---- in-plane parent basis, exactly as SegMirMaker builds it ----------
-psi = D.vecs.psiElt(:, segs(1));
+% ---- two in-plane bases, kept STRICTLY apart -------------------------
+% (a) DECK basis -- built from the parent axis and global x-hat alone.  It
+%     does not move when the header moves, so every geometric quantity
+%     below is reported against a fixed reference.  USE THIS BY DEFAULT.
+% (b) HEADER basis -- the SegMirMaker in-plane basis implied by the header
+%     SegXgrid.  It ROTATES WITH THE PATCH, so a clock measured in it is
+%     blind to exactly the thing a routing audit is looking for.  It is
+%     legitimate for ONE question only: "does the header name the basis the
+%     elements were built in" (the ring1Clk / term1 test).  Anything else
+%     measured in it is a trap -- this is what invalidated the round-1
+%     absolute verdicts.  See SEG_AUDIT_STATUS.md "Instrument doctrine".
+psi = D.vecs.psiElt(:, segs(1)); psi = psi/norm(psi);
+seed = [1;0;0]; if abs(dot(seed,psi)) > 0.9, seed = [0;1;0]; end
+xd = seed - dot(seed,psi)*psi; xd = xd/norm(xd);
+yd = cross(psi, xd);
+r.xd = xd; r.yd = yd; r.psi = psi;
+clk = @(v) atan2d(dot(v,yd), dot(v,xd));           % DECK basis
+
 sxg = getfield_default(D.hdr, 'SegXgrid', [1;0;0]);
 ys  = cross(psi, sxg); ys = ys/norm(ys);
 xs  = cross(ys, psi);  xs = xs/norm(xs);
-r.xs = xs; r.ys = ys; r.psi = psi;
-clk = @(v) atan2d(dot(v,ys), dot(v,xs));
+r.xs = xs; r.ys = ys;
+clkHdr = @(v) atan2d(dot(v,ys), dot(v,xs));        % HEADER basis (term1 only)
 
 % ---------------- static checks (1, 4, 7) -----------------------------
 nSeg = r.nSeg;
@@ -135,9 +161,10 @@ r.xMon = D.vecs.xMon(:, segs);
 r.yMon = D.vecs.yMon(:, segs);
 r.zMon = D.vecs.zMon(:, segs);
 
-r.RptClk = arrayfun(@(k) clk(r.Rpt(:,k)), 1:nSeg);
-r.MonClk = arrayfun(@(k) clk(r.xMon(:,k)), 1:nSeg);
-r.RptRad = arrayfun(@(k) hypot(dot(r.Rpt(:,k),xs), dot(r.Rpt(:,k),ys)), 1:nSeg);
+r.RptClk    = arrayfun(@(k) clk(r.Rpt(:,k)), 1:nSeg);      % deck basis
+r.MonClk    = arrayfun(@(k) clk(r.xMon(:,k)), 1:nSeg);     % deck basis
+r.RptClkHdr = arrayfun(@(k) clkHdr(r.Rpt(:,k)), 1:nSeg);   % header basis
+r.RptRad = arrayfun(@(k) hypot(dot(r.Rpt(:,k),xd), dot(r.Rpt(:,k),yd)), 1:nSeg);
 r.dClk   = wrap180(r.MonClk - r.RptClk);
 r.pMonEqRpt = max(vecnorm(r.pMon - r.Rpt, 2, 1));
 r.zMonDotPsi = arrayfun(@(k) dot(r.zMon(:,k), D.vecs.psiElt(:,segs(k))), 1:nSeg);
@@ -199,7 +226,7 @@ end
 % header-vs-element comparison below does not apply to it.
 r.ring1Clk = NaN; r.segXgridConsistent = NaN; r.smmWalk = false;
 if nSeg > 1 && r.RptRad(2) > 1e-6*max(1,w)
-    r.ring1Clk = r.RptClk(2);
+    r.ring1Clk = r.RptClkHdr(2);   % HEADER basis: this IS a header question
     if abs(wrap180(r.ring1Clk - 60)) < 5
         r.segXgridConsistent = true;  r.smmWalk = true;
     elseif abs(wrap180(r.ring1Clk + 120)) < 5
@@ -215,68 +242,67 @@ r.dClkMedian = median(r.dClk(ring));
 r.gridType = getfield_default(D.hdr, 'GridType', '');
 r.isPie = ~isempty(r.gridType) && any(upper(r.gridType(1)) == 'P');
 r.framesArePieBisector = abs(wrap180(r.dClkMedian)) < 5;
-% predicted ray->element routing under the current engine (see [1b] print)
-% Predicted ray->element permutation under the CURRENT engine.  Two
-% independent 180 deg terms, XOR'd:
-%   term1 -- the DECK: SegMirMaker rotates its in-plane basis 180 deg for a
-%            back-facing parent but (in some generations) still emitted the
-%            un-rotated SegXgrid.  Detected as ring-1 at -120 instead of +60.
-%   term2 -- the ENGINE: sourcsub.F hands the grid-type predicate
-%            SegX2 = (xGrid.SegXgrid, yGrid.SegXgrid).  HSEG applies that
-%            rotation; PSEG computes it into xt/yt and then never uses them.
-%            So Hex rotates and Pie does not -- they diverge whenever
-%            xGrid.SegXgrid < 0.
-% Routing is correct iff the two terms cancel.
+% ---- predicted ray->element routing (CORRECTED, round 2) --------------
+% SegMirMaker PLACES the elements using the in-plane basis implied by the
+% header SegXgrid.  The engine BUILDS the ray->segment map by rotating the
+% grid coordinates by SegX2 = (xGrid.SegXgrid, yGrid.SegXgrid)
+% (sourcsub.F:201) -- the SAME quantity.  So the two agree BY CONSTRUCTION,
+% and routing is correct, provided
+%   (a) the predicate actually applies that rotation, and
+%   (b) the header names the basis the elements were really built in
+%       (term1: ring-1 at +60 deg, not -120 deg).
+% Pre-R1, PSEG computed the rotation into xt/yt and never used it, so (a)
+% failed for GridType=Pie whenever SegX2 was not the identity.  R1 fixed
+% that, leaving term1 as the ONLY live term:
+%   current engine (post-R1):  permuted <=> term1
+%   pre-R1 (historical):       permuted <=> term1 XOR (Pie AND SegX2 ~= 0)
+%
+% Round 1 had term2's SENSE inverted -- it counted the engine APPLYING the
+% rotation as the thing that permutes.  Together with the draw-basis frame
+% slip that produced a self-consistent but wrong table.  This prediction is
+% now confirmed against SEG_ROUTE's physical instruments on 35 classified
+% decks (26 term1=no -> CORRECT, 2 term1=yes -> PERMUTED, 7 non-SMM-walk
+% decks measured directly).  See SEG_AUDIT_STATUS.md.
 xg = getfield_default(D.hdr, 'xGrid', [1;0;0]);
 yg = getfield_default(D.hdr, 'yGrid', [0;1;0]);
 su = sxg(:)/norm(sxg);
-% SegX2 exactly as sourcsub.F:201 builds it -- SegXgrid's direction
-% cosines in the RAY-GRID basis.  The rotation HSEG applies (and PSEG
-% drops) is by this ANGLE, not merely by its sign.
 r.segX2    = [dot(xg(:)/norm(xg), su); dot(yg(:)/norm(yg), su)];
 r.segX2ang = atan2d(r.segX2(2), r.segX2(1));
 r.xGridDotSegXgrid = r.segX2(1);
 
-rotNow   = (~r.isPie) * r.segX2ang;   % today: Hex rotates, Pie does not
-rotAfter = r.segX2ang;                % after R1: both rotate
-r.term2  = abs(wrap180(rotNow)) > 1e-6;
+% did the PRE-R1 engine drop the rotation for this deck?
+r.pseg_dropped = r.isPie && abs(wrap180(r.segX2ang)) > 1e-6;
 if r.smmWalk
-    r.term1     = ~r.segXgridConsistent;
-    r.permNow   = wrap180(180*r.term1 + rotNow);
-    r.permAfter = wrap180(180*r.term1 + rotAfter);
-    r.routingPredOK    = abs(r.permNow)   < 5;
-    r.routingPredOK_R1 = abs(r.permAfter) < 5;
+    r.term1      = ~r.segXgridConsistent;
+    r.permNow    = wrap180(180*r.term1);                          % post-R1
+    r.permPreR1  = wrap180(180*r.term1 + 180*r.pseg_dropped);     % historical
+    r.routingPredOK      = abs(r.permNow)   < 5;
+    r.routingPredOK_preR1= abs(r.permPreR1) < 5;
 else
-    r.term1 = NaN; r.permNow = NaN; r.permAfter = NaN;
-    r.routingPredOK = NaN; r.routingPredOK_R1 = NaN;
+    % not a SegMirMaker walk (pre-SMM SegDemo family, legacy old_Rx): the
+    % header-vs-element test does not apply.  MEASURE it with SEG_ROUTE.
+    r.term1 = NaN; r.permNow = NaN; r.permPreR1 = NaN;
+    r.routingPredOK = NaN; r.routingPredOK_preR1 = NaN;
 end
 
-% ---- R1 impact -------------------------------------------------------
-% R1 = "make PSEG use the xt/yt it already computes", i.e. let the Pie
-% predicate honour SegXgrid the way HSEG does.  It touches PSEG ONLY, so
-% a Hex deck cannot move.  A Pie deck moves iff SegX2 is not the identity
-% -- which is the whole warning: `xGrid .parallel. SegXgrid` => immune.
-% A rotation that is a multiple of 60 deg is a symmetry of the hex/pie
-% lattice, so it permutes segment INDICES only and every nominal number
-% (ray count, RMS OPD, spot, PSF) stays bit-identical.  Anything else
-% physically MOVES the ray grid and will move nominal results too.
-r.r1Rotation      = wrap180(rotAfter - rotNow);
-r.r1MovesGeometry = abs(r.r1Rotation) > 1e-6 && ...
-                    abs(r.r1Rotation - 60*round(r.r1Rotation/60)) > 1e-6;
-if abs(r.r1Rotation) < 1e-6
+% ---- what R1 did to this deck (HISTORICAL -- R1 landed in macos 1ce1f5c)
+r.r1Rotation      = wrap180(180*r.pseg_dropped);
+r.r1MovesGeometry = abs(wrap180(r.segX2ang)) > 1e-6 && r.isPie && ...
+                    abs(r.segX2ang - 60*round(r.segX2ang/60)) > 1e-6;
+if ~r.pseg_dropped
     if ~isnan(r.routingPredOK) && ~r.routingPredOK
-        r.r1Impact = 'none (STILL PERMUTED)';   % R1 does not reach this deck
+        r.r1Impact = 'no change (PERMUTED before and after)';
     else
-        r.r1Impact = 'none';
+        r.r1Impact = 'no change';
     end
 elseif isnan(r.routingPredOK)
-    r.r1Impact = 'rotates (baseline unknown)';
-elseif r.routingPredOK && ~r.routingPredOK_R1
-    r.r1Impact = 'BREAKS';
-elseif ~r.routingPredOK && r.routingPredOK_R1
-    r.r1Impact = 'fixes';
+    r.r1Impact = 'rotated the map (baseline unknown -- measure)';
+elseif r.routingPredOK && ~r.routingPredOK_preR1
+    r.r1Impact = 'FIXED by R1';
+elseif ~r.routingPredOK && r.routingPredOK_preR1
+    r.r1Impact = 'BROKEN by R1 (needs a header re-pin)';
 else
-    r.r1Impact = 'none (STILL PERMUTED)';
+    r.r1Impact = 'no change (PERMUTED before and after)';
 end
 
 % check 7: grid parity
@@ -407,12 +433,16 @@ u = false(size(r.pupilMask));
 for k = 1:nSeg, u = u | masks{k}; end
 r.maskUnionFrac = nnz(u) / r.nPupil;
 
-% consistency of the pupil<->deck rotation (check 2)
-% The OPD array's (i,j) axes need not run along +X/+Y: try both parities
-% (j along +Y and j along -Y) and keep whichever makes the per-segment
-% offset CONSTANT.  A single rigid offset with small spread means every
-% segment's response lands exactly where the deck puts that segment; a
-% large spread -- or one segment out of family -- is the real defect.
+% ---- CONSISTENCY of the pupil<->deck rotation (check 2) ----------------
+% NOT A ROUTING VERDICT.  maskClk lives in OPD-ARRAY index space and the
+% array's (i,j) -> (X,Y) map is deck- and lattice-dependent (the notes
+% 63-pt deck reads (i=-X, j=+Y); test_in at 128 reads (+X,-Y)).  Without a
+% per-deck map pin an absolute offset here is meaningless, and reading one
+% as a verdict is what inverted the round-1 tables.  What IS meaningful
+% without a pin is the SPREAD: a single rigid offset with small spread
+% means every segment responds in a consistent place and every Mon frame
+% is clocked consistently.  The absolute value is reported as UNPINNED.
+% For the routing verdict, call SEG_ROUTE (instruments A/B).
 ring = r.RptRad > 1e-6*max(1,r.width);
 dA = wrap180(r.maskClk - r.RptClk);
 dB = wrap180(-r.maskClk - r.RptClk);
@@ -482,11 +512,14 @@ fprintf('  nSeg=%d  nGridpts=%g (%s)  width=%.6g  gap=%.6g  SegXgrid clock basis
     r.width, r.gap, num2str(r.xs(:).', '%.4g '));
 fprintf('  VptElt: all segments share one vertex = %s (at origin = %s)  [expected for a common parent conic]\n', ...
     tf(r.VptAllShared), tf(r.VptIsOrigin));
-fprintf('  %-4s %-8s %10s %8s %8s %8s %8s %7s %7s %8s\n', ...
-    'iE','name','|Rpt|','r/width','RptClk','MonClk','dClk','zM.psi','hand','zFF.zM');
+fprintf(['  clocks below are in the DECK basis (parent axis + global x-hat), NOT the\n' ...
+         '  header SegXgrid basis; RptClkH is the header-basis value, used ONLY for the\n' ...
+         '  [1b] "does the header name the element basis" test.\n']);
+fprintf('  %-4s %-8s %10s %8s %8s %8s %8s %8s %7s %7s %8s\n', ...
+    'iE','name','|Rpt|','r/width','RptClk','RptClkH','MonClk','dClk','zM.psi','hand','zFF.zM');
 for k = 1:r.nSeg
-    fprintf('  %-4d %-8s %10.4f %8.4f %8.2f %8.2f %8.3f %7.4f %7.2f %8.3f\n', ...
-        r.iSeg(k), '', r.RptRad(k), r.pitchRatio(k), r.RptClk(k), ...
+    fprintf('  %-4d %-8s %10.4f %8.4f %8.2f %8.2f %8.2f %8.3f %7.4f %7.2f %8.3f\n', ...
+        r.iSeg(k), '', r.RptRad(k), r.pitchRatio(k), r.RptClk(k), r.RptClkHdr(k), ...
         r.MonClk(k), r.dClk(k), r.zMonDotPsi(k), r.hand(k), r.zFFdotzMon(k));
 end
 fprintf('  [1] non-central segments at the parent vertex: %s\n', ...
@@ -503,23 +536,23 @@ fprintf('  Mon-triad orthonormality worst = %.2g ; handedness min = %.3f\n', ...
 % computes it into xt/yt and then never uses them -- see
 % SEG_AUDIT_STATUS.md.  On this deck family (xGrid = -xhat, SegXgrid =
 % +xhat) SegX2 is a 180 deg rotation, so the two grid types disagree:
-%   Pie  routes correctly when the header AGREES with the element basis
-%   Hex  routes correctly when the header is 180 deg from it
-% The empirical [1e/2] position offset below is the actual verdict; this
-% is the static prediction of it.
+% Post-R1 BOTH predicates apply it, so the rotation is no longer a source
+% of divergence: routing is correct iff the header names the basis the
+% elements were built in (ring-1 at +60 deg).  The verdict itself comes
+% from SEG_ROUTE's physical instruments -- this is the static prediction.
 if abs(r.segX2ang) < 1e-6
     note = 'identity -- Pie and Hex agree here';
 elseif r.isPie
-    note = 'GridType Pie DROPS this rotation (PSEG bug)';
+    note = 'Pie applies it post-R1 (PSEG DROPPED it before 1ce1f5c)';
 else
-    note = 'GridType Hex applies it (HSEG)';
+    note = 'GridType Hex applies it (HSEG, always did)';
 end
 fprintf('  [1b] SegX2 (SegXgrid in the ray-grid basis, sourcsub.F:201) = %+.2f deg -- %s\n', ...
     r.segX2ang, note);
 if ~r.smmWalk
     fprintf(['       ring-1 segment sits at %+.2f deg, not the SegMirMaker walk (+60 or -120),\n' ...
-             '       so the header-vs-element test does not apply.  Read the measured [1e/2]\n' ...
-             '       position offset below instead.\n'], r.ring1Clk);
+             '       so the header-vs-element test does not apply.  MEASURE this deck with\n' ...
+             '       SEG_ROUTE -- do not predict it.\n'], r.ring1Clk);
 else
     fprintf('       ring-1 segment at %+.2f deg => header %s the element basis\n', ...
         r.ring1Clk, tern(r.segXgridConsistent, 'AGREES with', 'is 180 deg FROM'));
@@ -536,34 +569,38 @@ print_r1(r);
 end
 
 function print_r1(r)
-%PRINT_R1  Impact of R1 (make PSEG honour SegXgrid, as HSEG already does).
+%PRINT_R1  What R1 (make PSEG honour SegXgrid, as HSEG does) did to this
+%   deck.  HISTORICAL: R1 landed in macos 1ce1f5c.  The [1b] line above is
+%   the CURRENT-engine prediction; this is the before/after.
 switch r.r1Impact
-case 'none'
+case 'no change'
     if abs(r.segX2ang) < 1e-6
-        fprintf('  [R1] SegX2 is the identity -> R1 cannot change this deck.\n');
+        fprintf('  [R1] SegX2 is the identity -> R1 could not change this deck.\n');
     elseif r.isPie
         fprintf('  [R1] no change.\n');
     else
-        fprintf('  [R1] GridType=%s: R1 touches PSEG only -> this deck cannot move.\n', r.gridType);
+        fprintf('  [R1] GridType=%s: R1 touched PSEG only -> this deck could not move.\n', r.gridType);
     end
-case 'none (STILL PERMUTED)'
-    fprintf(['  [R1] GridType=%s: R1 touches PSEG only -> this deck cannot move, and it stays\n' ...
-             '       %+.0f deg PERMUTED.  Needs the header patch or regeneration (R2/R3).\n'], ...
-        r.gridType, r.permNow);
-case 'rotates (baseline unknown)'
-    fprintf(['  [R1] **WARNING** R1 rotates this deck''s ray->segment map by %+.0f deg.  Its walk\n' ...
-             '       is not the SegMirMaker one, so the before/after verdict must be MEASURED.\n'], ...
+case 'no change (PERMUTED before and after)'
+    fprintf(['  [R1] R1 could not reach this deck, and it is %+.0f deg PERMUTED.\n' ...
+             '       The header names a basis 180 deg from the one its elements were built\n' ...
+             '       in (stale SegMirMaker generation).  A header flip CANNOT fix it --\n' ...
+             '       regenerate, or rotate the element block order by half a ring.\n'], r.permNow);
+case 'rotated the map (baseline unknown -- measure)'
+    fprintf(['  [R1] **WARNING** R1 rotated this deck''s ray->segment map by %+.0f deg.  Its walk\n' ...
+             '       is not the SegMirMaker one, so the verdict must be MEASURED (seg_route).\n'], ...
         r.r1Rotation);
-case 'fixes'
-    fprintf('  [R1] R1 FIXES this deck: %+.0f deg permuted -> correct.\n', r.permNow);
-case 'BREAKS'
-    fprintf(['  [R1] **R1 BREAKS THIS DECK**: correct today -> %+.0f deg PERMUTED after.\n' ...
-             '       Warn its users, or patch/regenerate it in the same change.\n'], r.permAfter);
+case 'FIXED by R1'
+    fprintf('  [R1] R1 FIXED this deck: %+.0f deg permuted before -> correct now.\n', r.permPreR1);
+case 'BROKEN by R1 (needs a header re-pin)'
+    fprintf(['  [R1] **R1 BROKE THIS DECK**: correct before -> %+.0f deg PERMUTED now.\n' ...
+             '       It needs its header SegXgrid negated (this is what macos ecfda5c did\n' ...
+             '       for test_in/e5pie + view_rx_demo/e5pie).\n'], r.permNow);
 end
 if abs(r.r1Rotation) > 1e-6
     if r.r1MovesGeometry
-        fprintf(['       R1 rotation %+.1f deg is NOT a multiple of 60, so it MOVES the ray grid:\n' ...
-                 '       ray counts, gaps, RMS OPD, spot and PSF all change too.\n'], r.r1Rotation);
+        fprintf(['       R1 rotation %+.1f deg is NOT a multiple of 60, so it MOVED the ray grid:\n' ...
+                 '       ray counts, gaps, RMS OPD, spot and PSF change too.\n'], r.r1Rotation);
     else
         fprintf(['       R1 rotation %+.1f deg is a lattice symmetry -> segment INDICES permute,\n' ...
                  '       every nominal number (rays, RMS OPD, spot, PSF) stays bit-identical.\n'], ...
@@ -601,8 +638,10 @@ fprintf('  [3] wedge dOPD vs -2d(1-f): worst rel err = %.2e\n', ...
     max(abs((r.wedgeMean - r.predMean) ./ r.predMean)));
 fprintf(['  [1e/2] OPD-array parity %+d ; segment POSITION offset %+.2f deg (spread %.3f) ;\n' ...
          '        Mon-frame CLOCK offset %+.2f deg (spread %.3f)\n' ...
-         '        -- a single rigid offset with small spread = every segment responds where\n' ...
-         '           the deck places it, and every Mon frame is clocked as the deck says.\n'], ...
+         '        -- the SPREADS are the finding here: small = every segment responds in a\n' ...
+         '           consistent place and every Mon frame is clocked consistently.  The two\n' ...
+         '           MEAN offsets are UNPINNED (OPD-array (i,j)->(X,Y) is deck-dependent);\n' ...
+         '           they are NOT a routing verdict -- run SEG_ROUTE for that.\n'], ...
     r.arrayParity, r.posOffsetMean, r.posOffsetSpread, r.monOffsetMean, r.monOffsetSpread);
 fprintf('  [7] global-frame piston inert on: %s\n', mat2str(r.iSeg(r.globalInert)));
 end
@@ -634,77 +673,16 @@ for k = 1:numel(R)
         dclk, ps, ms, rt, r.r1Impact, ...
         tern(r.r1MovesGeometry, ' (MOVES GEOMETRY)', ''));
 end
-fprintf(['\nR1 = make PSEG use the xt/yt it already computes (honour SegXgrid, as HSEG does).\n' ...
-         'It touches PSEG ONLY: a deck is immune unless GridType is Pie AND SegX2 is not the\n' ...
-         'identity, i.e. unless SegXgrid is non-parallel to xGrid.\n' ...
-         'routing: ok | +/-N! = predicted permutation today | n/a = not a SegMirMaker walk.\n']);
+fprintf(['\nrouting = STATIC PREDICTION for the CURRENT engine (post-R1): correct iff the header\n' ...
+         'SegXgrid names the basis the elements were built in (ring-1 at +60 deg, not -120).\n' ...
+         '  ok | +/-N! = predicted permutation | n/a = not a SegMirMaker walk -> MEASURE it.\n' ...
+         'R1 IMPACT is HISTORICAL (R1 landed in macos 1ce1f5c): what the PSEG fix did to this\n' ...
+         'deck.  Only GridType=Pie decks with a non-identity SegX2 could move.\n' ...
+         '\nThese are PREDICTIONS.  For the measured verdict run SEG_ROUTE (instrument A =\n' ...
+         'per-segment aperture ray count, instrument B = draw-3d global attribution).\n']);
 end
 
 function s = tf(b)
 if isnan(b), s = 'n/a'; elseif b, s = 'yes'; else, s = 'NO'; end
 end
 function s = tern(c, a, b), if c, s = a; else, s = b; end, end
-
-% ======================================================================
-function D = read_rx_text(rx)
-%READ_RX_TEXT  Minimal MACOS .in reader: header keys + per-element blocks.
-%   Text parsing (not engine getters) on purpose: the audit must see what
-%   the DECK says, including keys the engine silently defaults.
-txt = strsplit(fileread(rx), newline);
-D.hdr = struct(); D.hdrRaw = struct(); D.elt = {}; D.eltType = {};
-cur = struct(); inElt = false; lastKey = '';
-raw = containers.Map('KeyType','char','ValueType','char');
-rawElt = {};
-for n = 1:numel(txt)
-    L = txt{n};
-    p = strfind(L, '%'); if ~isempty(p), L = L(1:p(1)-1); end
-    if isempty(strtrim(L)), continue, end
-    tok = regexp(L, '^\s*([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*)$', 'tokens', 'once');
-    if ~isempty(tok)
-        k = tok{1}; v = strtrim(tok{2});
-        if strcmp(k, 'iElt')
-            if inElt, rawElt{end+1} = raw; end %#ok<AGROW>
-            raw = containers.Map('KeyType','char','ValueType','char');
-            inElt = true;
-        end
-        raw(k) = v; lastKey = k;
-        if ~inElt, D.hdrRaw.(k) = v; end
-    elseif ~isempty(lastKey)
-        raw(lastKey) = [raw(lastKey) ' ' strtrim(L)];
-        if ~inElt, D.hdrRaw.(lastKey) = raw(lastKey); end
-    end
-end
-if inElt, rawElt{end+1} = raw; end
-
-for f = fieldnames(D.hdrRaw).'
-    D.hdr.(f{1}) = str2vec(D.hdrRaw.(f{1}));
-end
-if isfield(D.hdrRaw, 'GridType')
-    D.hdr.GridType = strtrim(D.hdrRaw.GridType);
-else
-    D.hdr.GridType = '';
-end
-
-nE = numel(rawElt);
-D.eltType = repmat({''}, 1, nE);
-keys3 = {'psiElt','VptElt','RptElt','pMon','xMon','yMon','zMon', ...
-         'pFF','xFF','yFF','zFF','pData','xData','yData','zData'};
-for kk = keys3, D.vecs.(kk{1}) = zeros(3, nE); end
-for e = 1:nE
-    m = rawElt{e};
-    if m.isKey('Element'), D.eltType{e} = strtrim(m('Element')); end
-    for kk = keys3
-        if m.isKey(kk{1})
-            v = str2vec(m(kk{1}));
-            if numel(v) >= 3, D.vecs.(kk{1})(:,e) = v(1:3); end
-        end
-    end
-end
-D.raw = rawElt;
-end
-
-function v = str2vec(s)
-s = strrep(strrep(s, 'D', 'E'), 'd', 'e');
-v = sscanf(s, '%f');
-if isempty(v), v = NaN; end
-end
