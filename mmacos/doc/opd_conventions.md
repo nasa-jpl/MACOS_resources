@@ -100,7 +100,13 @@ intensity array has **i = −X, j = −Y** — the OPD convention rotated
 offered for `intensity` precisely because the parity varies by deck —
 probe it (tilt one element, compare the geometric spot direction with
 the PSF secondary) before overlaying diffraction arrays on ray-trace
-maps.
+maps.  Note also that SPOT's `'tout'` frame carries its own in-plane
+axis convention (deck-dependent, from the Tout matrix), so a
+spot-vs-PSF comparison must be made in ONE frame.  DIRECTION (Dave
+2026-08-07): the INT/PSF outputs should be made to follow SPOT's
+orientation conventions — an engine work item; it must be coordinated
+with the consumers pinned to the current layout (PROPER-compare
+suites, the CTB phase-factor export fingerprints).
 
 ## 3. Veneer options (added 2026-08-07)
 
@@ -153,24 +159,25 @@ in the header dump the raw array to `Opd_macos.txt` (line j holds
 
 ## 6. Open items (flagged, not resolved here)
 
-1. **Rigid-body PERT on `Element= Segment` is a silent no-op**
-   (sharpened 2026-08-07): verified on `e5pie` AND `e2e_pie`, with and
-   without a declared/`macos.stop` stop, global and local frames,
-   rotations and translations, CLI and mmacos alike.  PERTURB *does*
-   update the element data (VptElt verified moved), yet the trace is
-   bit-identical; a raw `set_elt_vpt` of the same amount (which moves
-   ONLY the vertex, breaking the element's internal consistency)
-   produces a large global response.  Interpretation: the segmented
-   source registration co-moves with the segment frames, cancelling
-   self-consistent rigid motion exactly.  **Workaround (verified)**:
-   perturb segments through the figure channel — FF-Zernike piston/
-   tilt (`set_elt_ff_zrn_coef`) or grid maps (`elt_grid_add`,
-   `dw_dgrid`) respond correctly; a 0.25 µm FF piston toward the
-   source measures −419 nm on the wedge against the −2d(1−f) =
-   −427 nm prediction (2% = incidence obliquity).  Root cause of the
-   rigid-channel cancellation still needs an engine-level
-   investigation.  (The `'elts'` filter of `dw_dz_zernike`/`dw_dgrid`
-   also appears not to restrict the channel set — separate nit.)
+1. **Rigid-body PERT on `Element= Segment` is a silent no-op in the
+   GLOBAL frame only** (corrected 2026-08-07 — an earlier claim that
+   local frames were also inert came from an aborted probe run and
+   was wrong).  Measured: global-frame rotations AND translations on
+   e5pie/e2e_pie segments are bit-inert even though PERTURB updates
+   the element data (VptElt verified moved); a raw `set_elt_vpt` of
+   the same amount responds hugely (consistency broken).
+   **LOCAL-frame PERTURB works correctly** — rotations about
+   xMon/yMon and translations along zMon respond as physics demands
+   (a 0.25 µm local +zMon piston toward the source measures −419 nm
+   on the wedge vs the −2d(1−f) = −427 nm prediction; 2% =
+   obliquity).  The figure channel (FF-Zernike, grid maps) also
+   works.  Root cause of the global-frame-only cancellation still
+   needs an engine look.  Related deck note: e5pie gives every
+   segment `VptElt=RptElt=(0,0,0)` (the parent vertex), so rigid
+   rotations pivot there unless per-segment `RptElt` is set to the
+   wedge centers (`macos.set_elt_rpt`).  (The `'elts'` filter of
+   `dw_dz_zernike`/`dw_dgrid` also appears not to restrict the
+   channel set — separate nit.)
 2. The exact gate that keeps the chief-referenced branch dormant on
    these decks (lost chief vs. flag state) was not isolated; measured
    behavior is mean-mode in every tested configuration.
