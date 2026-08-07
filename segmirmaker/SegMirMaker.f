@@ -132,10 +132,6 @@ C  here so this .f file needs no CPP.)
 	CHARACTER(len=8)   :: ans
 	LOGICAL :: parentFileExists
 	INTEGER :: lp
-!-->  parent ray-grid axes + emitted SegXgrid (engine-frame rule)
-	REAL*8  :: xgp(3),ygp(3),xsEmit(3)
-	LOGICAL :: ifxgp
-!<--
 
 C  OPDMat / RaySpot / PixArray live in macos_mod only when CMACOS is
 C  defined.  The smacos library is built without CMACOS, so we declare
@@ -306,35 +302,6 @@ C  right-handed.  No-op for nominal +z-facing mirrors.
 	  ys(1) = -ys(1); ys(2) = -ys(2); ys(3) = -ys(3)
 	END IF
 
-!-->  Choose the EMITTED SegXgrid so the R1 engine's tiling frame
-!     matches the placement basis (xs,ys) used below.  Measured engine
-!     law (2026-08-07, PSEG-fixed engine, verified on two independent
-!     deck pairs of the e5mono family with two instruments -- global
-!     draw_rays positions and grid-mapped OPD wedge masks): a deck
-!     routes correctly iff the emitted vector v satisfies
-!         (xGrid.v, yGrid.v) = -(xGrid.xs, yGrid.xs)
-!     i.e. v = MINUS the grid-plane projection of the placement x-axis
-!     (north layout <-> header +x and south layout <-> header -x when
-!     xGrid=-x).  Emitting xs itself -- the pre-2026-08-07 behaviour --
-!     produced 180-deg ray<->element permutations.  The placement basis
-!     (xs,ys and the SegCoord walk) is NOT changed here.  Falls back to
-!     emitting xs on the legacy no-parent path (grid vectors unknown).
-	ifxgp = .FALSE.
-	IF (parentFileExists) THEN
-	  CALL ParentGridXY(TRIM(parentPresc)//'.in',xgp,ygp,ifxgp)
-	END IF
-	IF (ifxgp) THEN
-	  S1 = xgp(1)*xs(1)+xgp(2)*xs(2)+xgp(3)*xs(3)
-	  ds = ygp(1)*xs(1)+ygp(2)*xs(2)+ygp(3)*xs(3)
-	  xsEmit(1) = -(S1*xgp(1) + ds*ygp(1))
-	  xsEmit(2) = -(S1*xgp(2) + ds*ygp(2))
-	  xsEmit(3) = -(S1*xgp(3) + ds*ygp(3))
-	  WRITE(*,*) 'SegXgrid emission: engine-frame rule applied '//
-     &	             '(v = -grid-projection of placement x-axis).'
-	ELSE
-	  xsEmit(1) = xs(1); xsEmit(2) = xs(2); xsEmit(3) = xs(3)
-	END IF
-!<--
 
 	ihat(1)=-psi(1)
 	ihat(2)=-psi(2)
@@ -568,20 +535,24 @@ C  layout).  Segment blocks are already buffered in scratch unit 8.
 	WRITE(9,570) nElt
 	WRITE(9,'(12x,"width=  ",A)') TRIM(FmtD(width))
 	WRITE(9,'(14x,"gap=  ",A)') TRIM(FmtD(gap))
-!-->  Emit xsEmit, the engine-frame SegXgrid computed above (2026-08-07
-!     rule: v = minus the grid-plane projection of the placement x-axis
-!     xs; falls back to xs itself when the parent grid is unknown).
-!     History: the 2026-07-18 fix emitted the post-negation xs so the
-!     header tracked the placement basis; the 2026-08-07 R1-engine
-!     measurements showed the engine tiling frame is the NEGATIVE of
-!     the header's grid projection, so tracking xs directly still left
-!     a 180-deg ray<->element permutation on xGrid=-x parents.  State
-!     consistency requirement unchanged: moving segment k's DOFs moves
-!     the wavefront/edge/MET outputs of segment k, nobody else's.
+!-->  Emit the in-plane basis ACTUALLY USED for segment placement (xs),
+!     not the raw SegXgrid answer: for a back-facing mirror (zs(3)<0)
+!     the basis above is rotated 180 deg (xs=-xs, ys=-ys) and the
+!     frames + SegCoord are built in THAT basis, but the engine tiles
+!     rays (HSEG) in the frame of the EMITTED SegXgrid -- emitting the
+!     pre-negation vector left the ray-to-segment map point-reflected
+!     from the emitted segment frames, so a segment's rays reflected
+!     off the OPPOSITE segment's element (latent in every back-facing
+!     fixture; caught by the e2e s3 aperture traces, 2026-07-18).
+!     2026-08-07: re-verified as the correct emission for the
+!     PSEG-fixed engine too, by the per-segment polygon-aperture
+!     ray-count arbiter (a permuted deck loses ~88% of its rays).
+!     State consistency requires: moving segment k's DOFs moves the
+!     wavefront/edge/MET outputs of segment k, nobody else's.
 	WRITE(9,'(9x,"SegXgrid=",3(2x,A))')
-     &	  TRIM(FmtD(xsEmit(1))),
-     &	  TRIM(FmtD(xsEmit(2))),
-     &	  TRIM(FmtD(xsEmit(3)))
+     &	  TRIM(FmtD(xs(1))),
+     &	  TRIM(FmtD(xs(2))),
+     &	  TRIM(FmtD(xs(3)))
 !<--
 	WRITE(9,574) (SegCoord(i,1),i=1,3)
 	DO 5 iElt=2,nElt
@@ -1999,52 +1970,3 @@ C  {xMon,yMon,zMon}=segment face triad), emitted below via format 619.
 
 C***********************************************************************
 
-!-->
-C  ParentGridXY: scan a MACOS .in file for the 'xGrid=' and 'yGrid='
-C  keys and return both 3-vectors.  found=.FALSE. unless BOTH parse
-C  (older prescriptions without an explicit ray grid).  Used by the
-C  SegXgrid emission rule in the main program.
-	SUBROUTINE ParentGridXY(fname,xg,yg,found)
-	IMPLICIT NONE
-	CHARACTER(len=*) fname
-	REAL*8 xg(3),yg(3)
-	LOGICAL found,fx,fy
-	CHARACTER(len=512) line
-	INTEGER iu,ios,ip
-
-	found=.FALSE.; fx=.FALSE.; fy=.FALSE.
-	xg(1)=0d0; xg(2)=0d0; xg(3)=0d0
-	yg(1)=0d0; yg(2)=0d0; yg(3)=0d0
-	iu=47
-	OPEN(iu,FILE=fname,STATUS='OLD',IOSTAT=ios)
-	IF (ios.NE.0) RETURN
- 10	READ(iu,'(A)',IOSTAT=ios) line
-	IF (ios.NE.0) GO TO 20
-	ip=INDEX(line,'xGrid=')
-	IF (ip.GT.0 .AND. .NOT.fx) THEN
-C  reject 'SegXgrid=' matches: char before 'xGrid=' must be blank
-	  IF (ip.EQ.1) THEN
-	    READ(line(ip+6:),*,IOSTAT=ios) xg(1),xg(2),xg(3)
-	    IF (ios.EQ.0) fx=.TRUE.
-	  ELSE IF (line(ip-1:ip-1).EQ.' ') THEN
-	    READ(line(ip+6:),*,IOSTAT=ios) xg(1),xg(2),xg(3)
-	    IF (ios.EQ.0) fx=.TRUE.
-	  END IF
-	END IF
-	ip=INDEX(line,'yGrid=')
-	IF (ip.GT.0 .AND. .NOT.fy) THEN
-	  IF (ip.EQ.1) THEN
-	    READ(line(ip+6:),*,IOSTAT=ios) yg(1),yg(2),yg(3)
-	    IF (ios.EQ.0) fy=.TRUE.
-	  ELSE IF (line(ip-1:ip-1).EQ.' ') THEN
-	    READ(line(ip+6:),*,IOSTAT=ios) yg(1),yg(2),yg(3)
-	    IF (ios.EQ.0) fy=.TRUE.
-	  END IF
-	END IF
-	IF (fx.AND.fy) GO TO 20
-	GO TO 10
- 20	CLOSE(iu)
-	found = fx.AND.fy
-	RETURN
-	END
-!<--
