@@ -20,7 +20,7 @@
              nSeg=  19
             width=  8.0E-01
               gap=  2.5E-02
-         SegXgrid=  1.0E+00  0.0E+00  0.0E+00
+         SegXgrid=  -1.0E+00  0.0E+00  0.0E+00
          SegCoord=    0    0    0
                       1    2    1
                      -1    1    2
