@@ -67,5 +67,5 @@ mmacos/tests/proper_compare/results/**/*.mat
 mmacos/tests/proper_compare/results/phase*/
 # Sweep-guard: bulky untracked working material that must never ride a
 # broad `git add` (same hazard class as the pymacos/tests entry above).
-mmacos/design/examples/e2e.zip
+mmacos/templates/80_end_to_end/e2e.zip
 *.zip

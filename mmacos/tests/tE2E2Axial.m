@@ -1,7 +1,7 @@
 classdef tE2E2Axial < matlab.unittest.TestCase
 %TE2E2AXIAL  Gates for e2e2 stage 1 -- the Korsch axial starting point.
 %
-%   The stage driver (design/examples/e2e2/s1_axial.m) runs three gates
+%   The stage driver (templates/80_end_to_end/e2e2/s1_axial.m) runs three gates
 %   before it believes any wavefront number, and this class runs the two
 %   cheap ones plus a set of checks on the COMMITTED artifact.  It does not
 %   re-solve: the CALIB solve takes minutes and its result is already
@@ -63,7 +63,7 @@ classdef tE2E2Axial < matlab.unittest.TestCase
             here = fileparts(mfilename('fullpath'));
             root = fileparts(here);
             run(fullfile(root,'mmacos_setup.m'));
-            tc.exdir = fullfile(root,'design','examples','e2e2');
+            tc.exdir = fullfile(root,'templates','80_end_to_end','e2e2');
             addpath(tc.exdir);
             tc.P    = e2e2_params();
             tc.deck = fullfile(tc.exdir,'s1_axial.in');

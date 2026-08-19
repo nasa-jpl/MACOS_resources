@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run_dwdz.sh -- multi-field dw/dz_Zernike example for e2e_pie.in, the
 # 7-segment pie-PM three-mirror telescope emitted by the mmacos design
-# pipeline (design/examples/e2e).
+# pipeline (templates/80_end_to_end/e2e).
 #
 # Unlike a bare conic telescope, e2e_pie carries Zernike (SrfType=8)
 # surfaces on several downstream mirrors (elts 8, 10, 11, 12, 14), so

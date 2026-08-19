@@ -1,4 +1,4 @@
-% s2_fold.m  (mmacos/design/examples/e2e2/ -- stage 2 of 5)
+% s2_fold.m  (mmacos/templates/80_end_to_end/e2e2/ -- stage 2 of 5)
 % =====================================================================
 %  E2E2 STAGE 2 -- FOLD THE BACK END BEHIND THE PRIMARY
 % =====================================================================
@@ -31,7 +31,7 @@
 %  Consumes s1_axial.{in,mat}.  Emits s2_fold.{in,mat}, the extraction
 %  sweep, clearance and AOI gates, report and views.
 %
-%    >> run('.../design/examples/e2e2/s2_fold.m')
+%    >> run('.../templates/80_end_to_end/e2e2/s2_fold.m')
 % =====================================================================
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 mmroot = fileparts(fileparts(fileparts(exdir)));

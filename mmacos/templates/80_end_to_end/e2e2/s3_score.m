@@ -1,4 +1,4 @@
-% s3_score.m  (mmacos/design/examples/e2e2/ -- stage 3 of 3, FINAL)
+% s3_score.m  (mmacos/templates/80_end_to_end/e2e2/ -- stage 3 of 3, FINAL)
 % =====================================================================
 %  E2E2 STAGE 3 -- FINAL SCORING AND DOCUMENTATION
 % =====================================================================
@@ -33,7 +33,7 @@
 %  Then the handoff: the emitted .in feeds the EXISTING segmentation ->
 %  sensitivities -> MET -> compare -> simulator pipeline unchanged.
 %
-%    >> run('.../design/examples/e2e2/s3_score.m')
+%    >> run('.../templates/80_end_to_end/e2e2/s3_score.m')
 % =====================================================================
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 mmroot = fileparts(fileparts(fileparts(exdir)));

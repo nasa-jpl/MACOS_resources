@@ -1,4 +1,4 @@
-% s2_instrument.m  (mmacos/design/examples/e2e/ -- stage 2 of 6)
+% s2_instrument.m  (mmacos/templates/80_end_to_end/e2e/ -- stage 2 of 6)
 % =====================================================================
 %  E2E STAGE 2 -- IMAGING INSTRUMENT: a 3-mirror bench relay widens the
 %  corrected field, solved JOINTLY with the telescope.
@@ -36,7 +36,7 @@
 %    [8] design report + stage-2 addendum -> s2_report.txt.
 %
 %  Run AFTER s1_telescope.m:
-%    >> run('.../design/examples/e2e/s2_instrument.m')
+%    >> run('.../templates/80_end_to_end/e2e/s2_instrument.m')
 % =====================================================================
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/src'));
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/design/src'));

@@ -98,7 +98,7 @@ preserved as `optical_design/AGENT_NOTES.md` (dev-only, in the strip list).
   retractions in place (the study precedent).
 - `mmacos/design/examples/afocal4/{FORM_STUDY,RESULTS,README}.md` — study
   records, same family as the packets.
-- `mmacos/design/examples/e2e2/E2E2_REPORT.md` + e2e2/relay_followon READMEs
+- `mmacos/templates/80_end_to_end/e2e2/E2E2_REPORT.md` + e2e2/relay_followon READMEs
   — worked-example report.
 - `mmacos/templates/30_instruments/bench_ctb/{README,Coro_propagation_summary}.md`
   + `bench_ctb/dst2/README.md` — house rules + the diffraction recipe of

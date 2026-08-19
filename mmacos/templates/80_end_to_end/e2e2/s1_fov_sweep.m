@@ -1,4 +1,4 @@
-% s1_fov_sweep.m  (mmacos/design/examples/e2e2/ -- stage-1 diagnostic)
+% s1_fov_sweep.m  (mmacos/templates/80_end_to_end/e2e2/ -- stage-1 diagnostic)
 % =====================================================================
 %  HOW WIDE A FIELD WILL THIS TELESCOPE ACTUALLY HOLD?
 % =====================================================================
@@ -32,7 +32,7 @@
 %  the verdict rung, Strehl >= P.strehl_min) and writes
 %  s1_fov_sweep.{mat,png} + s1_fov_sweep.txt.
 %
-%    >> run('.../design/examples/e2e2/s1_fov_sweep.m')
+%    >> run('.../templates/80_end_to_end/e2e2/s1_fov_sweep.m')
 % =====================================================================
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 mmroot = fileparts(fileparts(fileparts(exdir)));

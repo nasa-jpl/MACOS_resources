@@ -59,8 +59,8 @@ there, `.FALSE.` on the SMACOS path); **no such deck exists in either repo.**
 | # | item | why affected | expected direction |
 |---|---|---|---|
 | A1 | `design/rodgers1` stages 3 & 4 (`run_epd4060.m`) | the case that found this: +0.5° offset, FPA tilted 14.3°; merit artifact ~22× the WFE | **improves.** His own conics score 115.3 nm max where ours score 181.2 (Addendum 4 §B); his rigid body is 1.83× deeper than ours. Target: S3 ≤ ~115 nm, S4 ≤ ~1.5× his 39.8 |
-| A2 | `design/examples/e2e/s1_telescope.m` | VIS telescope solved at a field bias with an extraction tilt; FP is not normal to the chief | improves; magnitude unknown — s1's reported DL margin is the thing to re-check |
-| A3 | `design/examples/e2e/s2_instrument.m` (Offner relay + extraction tilt, field centre −0.7′) | ring-field relay, deliberately off-axis, tilted image; the ±2′ DL and Strehl ≥0.965 claims rest on the solve | improves or unchanged; the **Strehl/DL headline numbers are the ones to re-derive** |
+| A2 | `templates/80_end_to_end/e2e/s1_telescope.m` | VIS telescope solved at a field bias with an extraction tilt; FP is not normal to the chief | improves; magnitude unknown — s1's reported DL margin is the thing to re-check |
+| A3 | `templates/80_end_to_end/e2e/s2_instrument.m` (Offner relay + extraction tilt, field centre −0.7′) | ring-field relay, deliberately off-axis, tilted image; the ±2′ DL and Strehl ≥0.965 claims rest on the solve | improves or unchanged; the **Strehl/DL headline numbers are the ones to re-derive** |
 | A4 | `templates/10_telescopes/tma_offaxis/tma_offaxis.m` | off-axis by construction | improves |
 | A5 | `templates/10_telescopes/tma_unobscured/{tma_unobscured,tma_unobscured_search}.m` | unobscured ⇒ off-axis field bias | improves |
 | A6 | `templates/10_telescopes/rc_unobscured/rc_unobscured.m` | as A5 | improves |
