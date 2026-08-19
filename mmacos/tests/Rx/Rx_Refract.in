@@ -1,0 +1,199 @@
+% ---------------------------------------------------------------------------------------
+% Rx_Refract -- normal-incidence coated-Refractor radiometry gate prescription.
+% PLAN_POLARIZATION; REVIEW_POL_RADIOMETRIC_2026-07-28.md (coated-branch
+% radiometric normalization).
+%
+% Why this exists.  The coated Refractor branch composed plain Fresnel FIELD
+% coefficients through the Airy recursion while the uncoated branch folded in
+% the radiometric factor sqrt(n2*cos_t/(n1*cos_i)), so that |TP|^2 IS the power
+% transmittance.  An index-matched coating layer is OPTICALLY A BARE INTERFACE
+% and must reproduce the uncoated result exactly; before the fix it was low by
+% 1/sqrt(1.5).  This prescription is the A/B rig for that claim and the carrier
+% for the textbook multilayer-T gates.
+%
+% LAYOUT -- an air/glass/air parallel plate, read at four stations:
+%
+%   1 PupilStop  Obscuring   aperture only; sets the ray grid footprint
+%   2 PreFace    Reference   THE INCIDENT-FIELD PROBE (see below)
+%   3 Face1      Refractor   air -> glass (n=1.5).  The element under test:
+%                            macos.coating() puts the stack HERE.
+%   4 Face2      Refractor   glass -> air.  Makes the air-to-air power closure
+%                            gate possible: for a parallel plate the two
+%                            radiometric factors telescope to sqrt(cos_out/
+%                            cos_in) = 1, so |E4/E2|^2 must equal T1*T2 with
+%                            each T the textbook single-face transmittance.
+%   5 PropStart  Reference   NFPlane -- opens the one physical-optics leg
+%   6 Detector   FocalPlane  Geometric -- closes it
+%
+% THE PreFace REFERENCE IS LOAD-BEARING, not decoration.  Every Fresnel ratio
+% below is formed against the MEASURED incident field at element 2, never
+% against an assumed source amplitude: the engine's launch normalization S
+% (~1/sqrt(nRays)) and the propagation phase exp(-i*2*pi*L*N/lambda) both
+% multiply RayE, and a gate that divides by a hand-computed |E_in| is really
+% gating those instead of the Fresnel coefficient.  This is the IFO slice-1
+% finding-2 rule.  A Reference is passive (RefSrf sets rout=ihat and touches
+% only the propagation phase, |C1|=1 in a lossless medium), so |E| at element 2
+% IS the field incident on element 3 -- and the UNCOATED leg of every gate
+% re-checks that claim against closed-form Fresnel on the way past.
+%
+% THE PHYSICAL-OPTICS LEG IS ALSO LOAD-BEARING.  propsub's CPROPAGATE re-traces
+% the seed rays through its OWN EltID chain, so an element effect can be
+% perfect at ray level and invisible in intensity/complex_field (the Phase-3
+% polarizer finding, tPolElement's test_grid_carries_the_polarizing_train).
+% Both refractor faces precede the leg -- the Tranche-1 validity condition, as
+% in Rx_PolElt.in -- so the detector plane carries their transmittance and the
+% radiometric factor is gated on both dispatch chains.
+%
+% Plate thickness (0.1 m) and spacings are geometrically irrelevant at normal
+% incidence with a collimated beam; they are round numbers on purpose.
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -1.0E+00
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=1.0E-02
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  128
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  6
+
+
+             iElt=  1
+          EltName=  PupilStop
+          Element=  Obscuring
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.0E-03  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  2
+          EltName=  PreFace
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0E-01
+           RptElt=  0.0E+00  0.0E+00  1.0E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-01
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Face1
+          Element=  Refractor
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  2.0E-01
+           RptElt=  0.0E+00  0.0E+00  2.0E-01
+           IndRef=1.5E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=2.0E-01
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Face2
+          Element=  Refractor
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  3.0E-01
+           RptElt=  0.0E+00  0.0E+00  3.0E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=3.0E-01
+          nECoord= -6
+
+             iElt=  5
+          EltName=  PropStart
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  4.0E-01
+           RptElt=  0.0E+00  0.0E+00  4.0E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NFPlane
+             zElt=4.0E-01
+          nECoord= -6
+
+             iElt=  6
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.4E+00
+           RptElt=  0.0E+00  0.0E+00  1.4E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.4E+00
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

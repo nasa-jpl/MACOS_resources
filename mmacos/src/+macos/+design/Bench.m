@@ -79,6 +79,16 @@ classdef Bench < handle
 %                                       'side').  See method help.
 %     add_reference(dist, name)         passive Reference plane marker
 %                                       (e.g. a focal-mask site).
+%     add_polarizer(dist, axis)         ideal linear polarizer (TrPolarizer);
+%                                       AXIS = transmission axis (3-vector).
+%                                       Transmissive + geometrically inert;
+%                                       use in a collimated normal-incidence
+%                                       leg.  Requires ifPol.
+%     add_waveplate(dist, axis, R)      linear retarder (WavePlate); AXIS =
+%                                       fast axis, R = retardance in WAVES at
+%                                       the bench Wavelen (0.25 QWP / 0.5 HWP).
+%                                       A double-passed plate is TWO WavePlate
+%                                       elements sharing one global fast axis.
 %     add_detector(dist, name)          FocalPlane (last element).
 %
 %   Output / inspection:
@@ -323,13 +333,13 @@ methods
         dout = macos.design.Bench.refract(dr, psi, n, 1.0);
 
         e1 = b.blank([bs.name 'bin' opts.tag], 'Refractor');
-        e1.psi = psi;  e1.vpt = Pin;   e1.indref = n;    e1.extinc = 1e22;
+        e1.psi = psi;  e1.vpt = Pin;   e1.indref = n;    e1.extinc = 0;
         b.path_len = b.path_len + sB;   i1 = b.push(e1);
         e2 = b.blank([bs.name 'cref' opts.tag], 'Reflector');
         e2.psi = psi;  e2.vpt = Pr;    e2.indref = n;    e2.extinc = 1e22;
         b.path_len = b.path_len + sf;   i2 = b.push(e2);
         e3 = b.blank([bs.name 'bout' opts.tag], 'Refractor');
-        e3.psi = psi;  e3.vpt = Pout;  e3.indref = 1.0;  e3.extinc = 1e22;
+        e3.psi = psi;  e3.vpt = Pout;  e3.indref = 1.0;  e3.extinc = 0;
         b.path_len = b.path_len + sb2;  i3 = b.push(e3);
         idx = [i1, i2, i3];
         b.pos = Pout;  b.dir = dout;
@@ -341,24 +351,49 @@ methods
         %   An off-axis section in MACOS is the SAME parent conic with
         %   RptElt (the section POLE, where the beam hits) different
         %   from VptElt (the parent VERTEX); psiElt is the parent AXIS.
-        %   The pole is placed DIST along the chief; the parent is
-        %   constructed from the conjugate:
+        %   The pole is placed DIST along the chief.  Specify the parent
+        %   EITHER by its focal length ('f', the usual optical spec) OR by
+        %   the conjugate distance ('focus_dist'):
         %     'mode','collimate' -- the incoming chief diverges from a
         %        focus 'focus_dist' BACK along the incoming chief (for
         %        a source-fed OAP that is the source distance); the
         %        reflected beam is collimated along OUT.
         %     'mode','focus'     -- incoming collimated; the reflected
         %        chief focuses 'focus_dist' ahead along OUT.
+        %
         %   Parent focal length from the polar equation of the parabola
-        %   r = 2f/(1+cos(theta)):  f_parent = focus_dist*(1+cos th)/2,
-        %   with th the full turn angle (cos th = d_in . d_out).
+        %   with the focus at the origin, r = 2f/(1 - cos(theta_polar)),
+        %   where theta_polar is measured from the focus->vertex direction
+        %   (-axis) to the focus->pole direction; since axis is +/-d_in and
+        %   the turn is cth = d_in.OUT, this gives  f_parent = r*(1-cth)/2
+        %   and, inverting, the conjugate that realizes a desired f is
+        %   focus_dist = 2f/(1-cth) = f/cos^2(AOI)  (AOI = angle of
+        %   incidence; turn theta = 180 - 2*AOI).  ARBITRARY fold angles
+        %   are supported -- near-normal (small AOI, e.g. 5 deg) gives a
+        %   nearly on-axis section (pole ~= vertex), 90-deg folds throw the
+        %   vertex fully lateral.
+        %
+        %   HISTORY: through 2026-07 this used (1+cth) -- correct ONLY at
+        %   theta=90 deg (cth=0), the sole regime the OAP tests exercised;
+        %   wrong for every other fold.  Fixed to (1-cth); 90-deg results
+        %   are bit-identical so back-compat holds.
+        %
+        %   'aprad' is kept as metadata (sketch footprint + a builder-side
+        %   vignetting note) but is NOT emitted as a hard aperture: a
+        %   Circular ApVec is applied about VptElt (the parent vertex),
+        %   which for an off-axis section sits far from the beam at the
+        %   pole, so it would block the whole bundle.  Put functional stops
+        %   on flat marker planes (add_reference/add_baffle), whose
+        %   vertex == pole.
+        %
         %   Returns struct O: .i .f_parent .pole .vertex .focus.
         arguments
             b
             dist (1,1) double {mustBePositive}
             out  (3,1) double
             opts.mode (1,:) char {mustBeMember(opts.mode,{'collimate','focus'})} = 'collimate'
-            opts.focus_dist (1,1) double {mustBePositive}
+            opts.focus_dist (1,1) double = NaN   % conjugate distance (mm)
+            opts.f          (1,1) double = NaN   % parent focal length (mm)
             opts.name (1,:) char = 'OAP'
             opts.aprad (1,1) double = 0
         end
@@ -367,8 +402,17 @@ methods
         P = b.step(dist);
         cth = dot(d_in, out);
         assert(cth > -1 + 1e-9, 'Bench.add_oap: retro OAP is degenerate.');
-        r = opts.focus_dist;
-        f_par = r*(1 + cth)/2;
+        % conjugate r: from a pinned focal length 'f', else explicit focus_dist
+        if ~isnan(opts.f)
+            assert(opts.f > 0, 'Bench.add_oap: f must be positive.');
+            r = 2*opts.f/(1 - cth);          % = f/cos^2(AOI)
+        elseif ~isnan(opts.focus_dist)
+            assert(opts.focus_dist > 0, 'Bench.add_oap: focus_dist must be positive.');
+            r = opts.focus_dist;
+        else
+            error('Bench.add_oap: provide ''f'' (parent focal length) or ''focus_dist''.');
+        end
+        f_par = r*(1 - cth)/2;               % parabola polar eqn (see help)
         switch opts.mode
             case 'collimate'    % axis = collimated output direction
                 a = out;   Fpt = P - r*d_in;
@@ -381,7 +425,9 @@ methods
         e.psi = a;            % engine convention: psi = parent axis toward the
                               % open/focus side, paired with KrElt=-|R|
         e.vpt = V;  e.rpt = P;  e.extinc = 1e22;
-        if opts.aprad > 0, e.aptype = 'Circular';  e.aprad = opts.aprad; end
+        e.aprad = opts.aprad; % metadata only (sketch/vignetting); aptype stays
+                              % 'None' -- a vertex-framed Circle would block the
+                              % off-axis beam (see help).
         O.i = b.push(e);
         O.f_parent = f_par;  O.pole = P;  O.vertex = V;  O.focus = Fpt;
         b.dir = out;
@@ -534,11 +580,11 @@ methods
         d2 = macos.design.Bench.refract(d1, psi, bs.n, 1.0);
 
         e1 = b.blank([bs.name 'txf' opts.tag], 'Refractor');
-        e1.psi = psi;  e1.vpt = P1;  e1.indref = bs.n;  e1.extinc = 1e22;
+        e1.psi = psi;  e1.vpt = P1;  e1.indref = bs.n;  e1.extinc = 0;
         b.path_len = b.path_len + ss(1);       % geometric path bookkeeping
         i1 = b.push(e1);
         e2 = b.blank([bs.name 'txb' opts.tag], 'Refractor');
-        e2.psi = psi;  e2.vpt = P2;  e2.indref = 1.0;   e2.extinc = 1e22;
+        e2.psi = psi;  e2.vpt = P2;  e2.indref = 1.0;   e2.extinc = 0;
         b.path_len = b.path_len + s2;
         i2 = b.push(e2);
         idx = [i1, i2];
@@ -556,6 +602,65 @@ methods
         P = b.step(dist);
         e = b.blank(name, 'Reference');
         e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
+        i = b.push(e);
+    end
+
+    % -----------------------------------------------------------------
+    function i = add_polarizer(b, dist, axis, opts)
+        %ADD_POLARIZER  Ideal linear polarizer (TrPolarizer element).
+        %   add_polarizer(DIST, AXIS) places a TrPolarizer a distance DIST
+        %   along the current chief ray.  AXIS is the TRANSMISSION axis as a
+        %   3-vector in global coordinates (need not be unit; the engine
+        %   projects it into each ray's transverse plane).  Transmissive and
+        %   geometrically inert (RefSrf geometry) -- the chief passes
+        %   straight through, so it belongs in a COLLIMATED, NORMAL-INCIDENCE
+        %   leg (psi = the current chief direction), where the off-normal
+        %   material-axis question is identically absent (packet
+        %   REVIEW_POL_ELEMENTS_2026-07-27.md).  Requires ifPol; the .in
+        %   default axis is what emit() writes (the harness may override at
+        %   runtime with macos.polarizer).
+        arguments
+            b
+            dist (1,1) double {mustBePositive}
+            axis (:,1) double
+            opts.name (1,:) char = 'Polarizer'
+        end
+        assert(numel(axis) == 3 && norm(axis) > 0, ...
+            'Bench.add_polarizer: axis must be a non-zero 3-vector.');
+        P = b.step(dist);
+        e = b.blank(opts.name, 'TrPolarizer');
+        e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
+        e.polaxis = axis(:) / norm(axis);
+        i = b.push(e);
+    end
+
+    % -----------------------------------------------------------------
+    function i = add_waveplate(b, dist, axis, retardance, opts)
+        %ADD_WAVEPLATE  Linear retarder (WavePlate element).
+        %   add_waveplate(DIST, AXIS, R) places a WavePlate a distance DIST
+        %   along the chief.  AXIS is the FAST axis (3-vector, global).  R is
+        %   the retardance in WAVES at the bench Wavelen (0.25 = quarter-wave,
+        %   0.5 = half-wave) -- emit() writes Retardance= in waves and the
+        %   parser scales by Wavelen on load, so the plate is fixed glass and
+        %   a wavelength sweep is chromatic (same treatment as Coating=).
+        %   Transmissive and geometrically inert; belongs in a collimated
+        %   normal-incidence leg.  A double-passed physical plate is TWO
+        %   WavePlate elements (one each side of the retro) sharing this axis,
+        %   the same way the compensator is add_bs_transmit'd twice.
+        arguments
+            b
+            dist (1,1) double {mustBePositive}
+            axis (:,1) double
+            retardance (1,1) double
+            opts.name (1,:) char = 'WavePlate'
+        end
+        assert(numel(axis) == 3 && norm(axis) > 0, ...
+            'Bench.add_waveplate: axis must be a non-zero 3-vector.');
+        P = b.step(dist);
+        e = b.blank(opts.name, 'WavePlate');
+        e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
+        e.polaxis = axis(:) / norm(axis);
+        e.retard = retardance;
         i = b.push(e);
     end
 
@@ -611,6 +716,15 @@ methods
             ln{end+1} = sprintf('           psiElt=  %s', F(e.psi));
             ln{end+1} = sprintf('           VptElt=  %s', F(e.vpt));
             ln{end+1} = sprintf('           RptElt=  %s', F(e.rpt));
+            % pol-element keywords (ChkDf2 REQUIRES PolAxis= on both types and
+            % Retardance= on WavePlate, or the load is rejected) -- written in
+            % waves at the bench Wavelen, matching the Rx_PolElt fixture order
+            if strcmp(e.element, 'TrPolarizer') || strcmp(e.element, 'WavePlate')
+                ln{end+1} = sprintf('          PolAxis=  %s', F(e.polaxis));
+            end
+            if strcmp(e.element, 'WavePlate')
+                ln{end+1} = sprintf('       Retardance=  %.10E', e.retard);
+            end
             ln{end+1} = sprintf('           IndRef=  %.6E', e.indref);
             ln{end+1} = sprintf('           Extinc=  %.6E', e.extinc);
             ln{end+1} =         '            nCoat=  0';
@@ -759,6 +873,7 @@ methods (Access = private)
             'rpt', [NaN;NaN;NaN], ...   % NaN = same as vpt (resolved in push)
             'indref', 1.0, 'extinc', 0.0, 'aptype', 'None', 'aprad', 0, ...
             'gridfile', '', 'gridn', 0, 'griddx', 0, ...
+            'polaxis', [1;0;0], 'retard', 0.0, ...   % pol-element fields (TrPolarizer/WavePlate)
             'zelt', 1e22, 's', b.path_len);
     end
 

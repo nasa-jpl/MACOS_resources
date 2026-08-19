@@ -72,12 +72,15 @@ else
   MEXTAG := mexa64
 endif
 
-# Path to a CMake build tree of macos.  On macOS the engine is built with
-# gfortran into build_release_gfortran; Linux legacy default is build_release_giza.
+# Path to a CMake build tree of macos, matched to the compiler choice:
+# gfortran links build_release_gfortran, ifx links build_release.  (The
+# old Linux default pointed at the retired build_release_giza tree.)
 ifeq ($(OS),Darwin)
   MACOS_BUILD_DIR ?= $(HOME)/dev/macos/build_release_gfortran
+else ifeq ($(FC),ifx)
+  MACOS_BUILD_DIR ?= $(HOME)/dev/macos/build_release
 else
-  MACOS_BUILD_DIR ?= $(HOME)/dev/macos/build_release_giza
+  MACOS_BUILD_DIR ?= $(HOME)/dev/macos/build_release_gfortran
 endif
 
 ifeq ($(wildcard $(MACOS_BUILD_DIR)/lib/libsmacos.a),)
