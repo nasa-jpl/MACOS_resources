@@ -36,13 +36,20 @@ PM_REF_ELT    = 1;          % near-pupil Reference (footprint trace target)
 MODES         = 4:15;       % Zernike figure modes per segment
 XP_METHOD     = 'sxp';      % per-field exit-pupil reset: 'fex' | 'sxp'
                             % (SegDemo3-style near-EP layouts need 'sxp')
+%
+%  Bundled demo deck, used when RX is empty.  EXPLICIT path -- the
+%  runner used to reach for examples/<its own name>/, so moving the
+%  asset directory broke it silently.  It is one CONFIG line now.
+DEMO_RX = fullfile(here, 'examples', 'run_dwdgrid_multi_multisegbasis', ...
+                   'SegDemo3conic.in');
 % =====================================================================
 
 if isempty(RX)
-    RX = fullfile(here, 'examples', 'run_dwdgrid_multi_multisegbasis', ...
-                  'SegDemo3conic.in');
+    RX = DEMO_RX;
     fprintf('[demo] RX not set -- using bundled example: %s\n', RX);
 end
+assert(isfile(RX), 'run_dwd:noDeck', ...
+    'prescription not found: %s\n(set RX, or fix DEMO_RX in the CONFIG block)', RX);
 [~, rxstem] = fileparts(RX);
 art = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdgrid", ...
     'ngridpts', NGRIDPTS, 'model_size', MODEL, 'ng', NG, ...
