@@ -1222,8 +1222,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
         function test_design_report_smoke(tc)
             % design_report: one-struct report (first-order f/#s, WFE
             % ladder + Strehl via the FarField EP, FP tilt, packaging).
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
             t.add_pupil();
             rep = design_report(t, 'rings_arcmin', 0.25, 'quiet', true);
@@ -1242,8 +1241,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % offner_layout: concentric 1:1 relay chief geometry --
             % closure (image at -h), path/tilt symmetry, positive
             % vignetting clearance, and exact scale invariance.
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             [L, T, g] = offner_layout(2.0, 0.25);
             tc.verifyEqual(L(1), L(4), 'AbsTol', 1e-9, 'object/image legs');
             tc.verifyEqual(L(2), L(3), 'AbsTol', 1e-9, 'inner legs');
@@ -1258,8 +1256,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % field_zone_lmon: per-mirror field-zone normalization radii
             % (solve doctrine) -- pooled footprint over the field set,
             % growing with field span; M1's zone ~ the half-aperture.
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
             F = macos.design.field_ring(2.0, 'units', 'arcmin');
             lz0 = field_zone_lmon(t, 1:3, zeros(0,2));   % footprint only
@@ -1324,8 +1321,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % known injected Zernike departure back out -- same contract as
             % the CALIB path (test_optimize_freeform_corrects_injected),
             % via one poke-Jacobian + damped step instead of FD-LM.
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             t = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
             t.set_freeform(1, 6, 2e-6);              % inject 2 um astig on M1
             t.build();  s_err = macos.trace();
@@ -1342,8 +1338,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % + the daylight gap.  On the biased [8 2 4] the two bundles
             % overlap near M3 (gap<0) -- the report must SAY so rather than
             % green-light a colliding fold.
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             t = tc.make_tma_();  t.add_focal_plane('FP');
             t.set_field_bias(10);
             t.build();
