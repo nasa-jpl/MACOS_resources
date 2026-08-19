@@ -3,7 +3,7 @@ function fpath = save_coro_workspace(tag, ws, keep)
 %   FPATH = SAVE_CORO_WORKSPACE(TAG, WS) saves struct WS (the full
 %   workspace of a batch run -- including the heavy 1024x1024 intensity
 %   arrays and DM states) to
-%       examples/design/coro/results/<TAG>_<timestamp>.mat
+%       templates/30_instruments/coro_experiments/results/<TAG>_<timestamp>.mat
 %   so post-eval/dialog analysis (new metrics, plots) can resume from
 %   disk instead of re-tracing the multi-minute model-1024 propagation.
 %

@@ -1,5 +1,12 @@
 # Coronagraph division-of-labor experiments (Sprint 1, E1–E4)
 
+> **Not a template.**  These are the four Sprint-1 measurement runs that
+> decided how much of diffraction-based optimization lives in MATLAB vs
+> Fortran; they are kept here (renamed from `coro/` in the 2026-08
+> reorganization) because they belong with the coronagraph thread, not
+> because they are a starting point to copy.  The copy-and-adapt
+> coronagraph template is [`../coro_walkthrough/`](../coro_walkthrough).
+
 MATLAB-side coronagraph scoring + cost characterization on the Phase-5
 `Rx_Coro` corpus, backing `macos/PLAN_DESIGN_LAYER.md` §8 Sprint 1.
 These answer "how much of diffraction-based optimization lives in MATLAB
@@ -16,7 +23,7 @@ vs Fortran" — empirically, with measured numbers.
 
 Run (each ends with `exit(0)` under `-batch`):
 ```matlab
-mmacos_setup; addpath(<mmacos>/examples/coronagraph/coro);
+mmacos_setup; addpath(<mmacos>/templates/30_instruments/coro_experiments);
 out = E1_darkzone_contrast();
 ```
 

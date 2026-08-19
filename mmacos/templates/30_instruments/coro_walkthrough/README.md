@@ -9,7 +9,7 @@ example; reproducible from one script.
 
 ```matlab
 addpath('<mmacos>/src');
-addpath('<mmacos>/examples/coronagraph/coro_walkthrough');
+addpath('<mmacos>/templates/30_instruments/coro_walkthrough');
 coro_walkthrough();                       % -> figures/  (headless OK)
 % or: coro_walkthrough(rx_path, outdir)
 ```

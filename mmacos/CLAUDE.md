@@ -372,7 +372,7 @@ existing `+macos` surface; it does NOT touch Fortran.
   category dirs — `sensitivities/`, `design/` (telescope builder examples
   + `tma_widefield/`), `coronagraph/` (coro_planet_demo, coro_walkthrough,
   `coro/` = the old design/coro E1–E4).  `tCoroContrast`'s path fixture
-  points at `examples/coronagraph/coro`.
+  points at `templates/30_instruments/coro_experiments`.
 
 ### Layout viewer — Telescope.diagram / view_layout (Sprint 4, 2026-06-19)
 For the off-axis-fold work (the coaxial TMA self-obscures — M1 + FP sit

@@ -23,7 +23,7 @@ classdef tCtbProp < matlab.unittest.TestCase
 %   so it gets its own batch in run_mmacos_tests.sh.
 %
 %   See also: ctb_prop_layout, ctb_coro_compare, ctb_proper_compare,
-%   examples/design/bench_ctb/README.md.
+%   templates/30_instruments/bench_ctb/README.md.
 
     properties (Constant)
         ModelSize = 512
@@ -36,14 +36,15 @@ classdef tCtbProp < matlab.unittest.TestCase
     end
 
     properties
-        bench           % examples/design/bench_ctb
+        bench           % templates/30_instruments/bench_ctb
         compact, full   % committed hand decks
     end
 
     methods (TestClassSetup)
         function gate(tc)
             here     = fileparts(mfilename('fullpath'));         % mmacos/tests
-            tc.bench = fullfile(fileparts(here), 'examples', 'design', 'bench_ctb');
+            tc.bench = fullfile(fileparts(here), 'templates', ...
+                                '30_instruments', 'bench_ctb');
             tc.compact = fullfile(tc.bench, 'ctb_dcr.in');
             tc.full    = fullfile(tc.bench, 'ctb_s2s_dcr.in');
             tc.assumeTrue(isfile(tc.compact) && isfile(tc.full), ...

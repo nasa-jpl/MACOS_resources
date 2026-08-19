@@ -42,7 +42,7 @@ mex is loaded — see CLAUDE.md).
 quick and model-size-agnostic.
 
 ² `tCoroContrast` is also pure math (no macos calls) — it pins the
-ported `contrast.py` λ/D machinery in `examples/coronagraph/coro/` against
+ported `contrast.py` λ/D machinery in `templates/30_instruments/coro_experiments/` against
 an analytic Airy pattern; model-size-agnostic, lives in `SUITE_FAST`
 because it's quick.
 

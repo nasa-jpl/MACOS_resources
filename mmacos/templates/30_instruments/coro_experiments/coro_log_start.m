@@ -1,7 +1,7 @@
 function c = coro_log_start(tag)
 %CORO_LOG_START  Start a stable, tail-able diary log for a coro run.
 %   C = CORO_LOG_START(TAG) begins capturing all console output to
-%       examples/design/coro/results/<TAG>.log
+%       templates/30_instruments/coro_experiments/results/<TAG>.log
 %   (overwritten each run), so a run stream can be watched live with
 %       tail -f .../coro/results/<TAG>.log
 %   at ~zero load (no parallel MATLAB / no license-seat contention).

@@ -80,7 +80,7 @@ there, `.FALSE.` on the SMACOS path); **no such deck exists in either repo.**
 | B1 | `templates/10_telescopes/tma_onaxis/tma_onaxis.m` | on-axis, FP normal to the chief ⇒ plane-sampling ≈ wavefront |
 | B2 | `templates/10_telescopes/rc_onaxis/rc_onaxis.m` | as B1 |
 | B3 | `templates/10_telescopes/design_layer_api/example_telescope_design.m`, `example_telescope_align.m`, `example_align_from_rx.m` | on-axis two-mirror demos |
-| B4 | `examples/coronagraph/coro/E3_calib_timing.m` | a **timing** benchmark; the solved values are not a deliverable |
+| B4 | `templates/30_instruments/coro_experiments/E3_calib_timing.m` | a **timing** benchmark; the solved values are not a deliverable |
 | B5 | `pymacos/tests/test_calib.py`, `mmacos/tests/tCalib.m` | deck sets `OptFEX= No` explicitly and asserts wiring, not optical quality |
 | B6 | `mmacos/tests/tDesignOptimize.m`, `tDesignTelescope.m` | assert optimizer plumbing and convergence, not absolute WFE; on-axis fixtures |
 | B7 | `macos/ZGD_test_files/opt_example*.in` | explicit `OptFEX= No`; regression fixtures whose value is bit-stability |
