@@ -25,7 +25,6 @@
 
 here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end
 addpath(fullfile(here, '..', '..', '..', 'src'));   % +macos
-addpath(fullfile(here, '..'));                       % mimg / pad display helpers
 rx = fullfile(here, 'e5hex1_grid.in');   % pData (grid frame) = RptElt per segment
 
 % ====================  KNOBS  ========================================

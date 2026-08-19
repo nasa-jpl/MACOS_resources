@@ -1,9 +1,13 @@
-% -------------------------------------------------------------------
-% [out] = pad(in, npix)     -   Pads input matrix to size npix by npix
-% [out] = pad(in, npix_rows, npix_cols);  % alternate usage
-% -------------------------------------------------------------------
+function [out] = pad(in, npix_rows, npix_cols)
+%MACOS.PAD  Zero-pad (or centre-crop) a matrix to a target size.
+%   OUT = macos.pad(IN, NPIX)              square NPIX-by-NPIX result
+%   OUT = macos.pad(IN, NPIX_ROWS, NPIX_COLS)
+%
+%   The input is centred on the output using the floor(n/2+1) centre
+%   convention; a target smaller than the input centre-crops instead.
+%
+%   See also macos.mimg.
 
-function [out] = pad(in, npix_rows, npix_cols);
 
    if nargin < 3
       npix_cols = npix_rows;

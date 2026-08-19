@@ -21,7 +21,6 @@
 
 here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end
 addpath(fullfile(here, '..', '..', '..', 'src'));   % +macos
-addpath(fullfile(here, '..'));                       % mimg / pad display helpers
 rx = fullfile(here, 'e5hex1_grid.in');   % pData (grid frame) = RptElt per segment
                                           % (the stock e5hex1.in has pData at the PM
                                           % vertex, so segment Zernikes mis-center)
@@ -72,7 +71,7 @@ f1 = figure('Name','dw/d(grid) -- poke sensitivities', ...
             'Position',[40 40 max(640,170*nm) max(480,150*ng)]);
 for k = 1:numel(res.channel_names)
     subplot(ng, nm, k);
-    mimg(macos.v2m(res.dwdg(:,k), res.indx), -1);
+    macos.mimg(macos.v2m(res.dwdg(:,k), res.indx), -1);
     title(res.channel_names{k}, 'FontSize', 8, 'Interpreter','none');
 end
 colormap(parula);
@@ -109,9 +108,9 @@ for r = 1:ng
         c  = (A(v).'*B(v)) / max(norm(A(v))*norm(B(v)), eps);   % SIGNED cosine
         ccs(end+1) = c; %#ok<SAGROW>
         base = (r-1)*2*ns + (q-1)*2;
-        subplot(ng, 2*ns, base+1); mimg(A, -1);
+        subplot(ng, 2*ns, base+1); macos.mimg(A, -1);
             title(sprintf('grid Z%d S%d', j, r), 'FontSize',7);
-        subplot(ng, 2*ns, base+2); mimg(B, -1);
+        subplot(ng, 2*ns, base+2); macos.mimg(B, -1);
             title(sprintf('MonZern Z%d  %.3f', j, c), 'FontSize',7);
     end
 end

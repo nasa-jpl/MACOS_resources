@@ -1,20 +1,25 @@
-
-% --------------------------------------------------
-% data = mimg(image, statistics, cropping, n_decimals, cmap)
-%
-% statistics = 0	no statistics (DEFAULT)
-%	     = +/-1	display RMS and PV in nm
-%	     = +/-2	display peak
-%	     = +/-3	display std
-% statistics < 0 	no axis labels
-% cropping   = 0	no cropping (DEFAULT)
-%	     = 1	crop to nonzero data
-%	     = 2	crop symmetrically
-% n_decimals		number of decimal places to show (3)
-% cmap = jet (DEFAULT)
-% --------------------------------------------------
-
 function mimg(data,stat,crop,ndec,cmap)
+%MACOS.MIMG  Display a 2D map (OPD, Jacobian column, mask) with statistics.
+%   macos.mimg(DATA)
+%   macos.mimg(DATA, STAT, CROP, NDEC, CMAP)
+%
+%   STAT =  0   no statistics (DEFAULT)
+%        = +/-1 display RMS and PV
+%        = +/-2 display peak
+%        = +/-3 display std
+%        < 0    also strip the axis tick labels
+%   CROP =  0   no cropping (DEFAULT)
+%        =  1   crop to the nonzero data
+%        =  2   crop symmetrically (crop, then macos.pad back to square)
+%   NDEC        decimal places in the statistics label (3)
+%   CMAP        colormap name ('jet')
+%
+%   Library display helper -- lived in examples/sensitivities/ until the
+%   2026-08 templates reorganization put every universal helper in the
+%   +macos package.
+%
+%   See also macos.pad, macos.m2v, macos.v2m.
+
 
 if (nargin<=1), stat=0; end
 if (nargin<=2), crop=0; end
