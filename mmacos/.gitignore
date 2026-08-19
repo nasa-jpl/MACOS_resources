@@ -8,10 +8,11 @@
 # ifx -gen-interfaces output
 *__genmod.f90
 
-# Run outputs from examples/ (regenerate via the run_*.m drivers).
-# The PNGs from verifyall.m ARE checked in as the canonical visual
-# reference for users; only the heavy .mat outputs are skipped.
-examples/sensitivities/**/*.mat
+# Run outputs from the sensitivity templates (regenerate via the
+# run_*.m drivers).  The PNGs from verifyall.m ARE checked in as the
+# canonical visual reference for users; only the heavy .mat outputs
+# are skipped.
+templates/50_sensitivities/**/*.mat
 
 # Large derived binary products (>= ~20 MB): NOT committed -- a small
 # committed <file>.fp.json fingerprint (jac_fingerprint) stands in as the

@@ -26,7 +26,7 @@ PARAMS = {'Kr','Kc'};   % surface parameters to perturb
 %  Bundled demo deck, used when RX is empty.  EXPLICIT path -- the
 %  runner used to reach for examples/<its own name>/, so moving the
 %  asset directory broke it silently.  It is one CONFIG line now.
-DEMO_RX = fullfile(here, 'examples', 'run_dwdsurf_multi', ...
+DEMO_RX = fullfile(here, '..', 'templates', '50_sensitivities', 'run_dwdsurf_multi', ...
                    'e5hex1.in');
 % =====================================================================
 

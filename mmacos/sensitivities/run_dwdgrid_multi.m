@@ -36,7 +36,7 @@ INFL   = [];            % optional [N x N x K] influence maps (DM actuators,
 %  Bundled demo deck, used when RX is empty.  EXPLICIT path -- the
 %  runner used to reach for examples/<its own name>/, so moving the
 %  asset directory broke it silently.  It is one CONFIG line now.
-DEMO_RX = fullfile(here, 'examples', 'run_dwdgrid_multi', ...
+DEMO_RX = fullfile(here, '..', 'templates', '50_sensitivities', 'run_dwdgrid_multi', ...
                    'e5hex1_grid.in');
 % =====================================================================
 

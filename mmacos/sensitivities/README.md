@@ -100,7 +100,7 @@ comas Z7/Z8/Z9).
 
 ## See also
 
-- `examples/sensitivities/e5hex1/` — the concrete e5hex1 fixtures and
+- `templates/50_sensitivities/e5hex1/` — the concrete e5hex1 fixtures and
   `verifyall.m` display/round-trip checker.
 - `help macos.dw_dgrid_multi` (and the `dw_dx`/`dw_dz_zernike`/`dw_dsurf`
   siblings) for the full name-value reference, including alternative field
