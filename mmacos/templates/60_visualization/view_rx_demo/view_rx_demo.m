@@ -24,7 +24,7 @@ MODEL  = 512;          % one model size for all cases (avoid transitions)
 NRAYS  = 25;           % bundle ray budget ('rim'/'fans' modes)
 
 here = fileparts(mfilename('fullpath'));
-res_root = fileparts(fileparts(fileparts(here)));      % MACOS_resources
+res_root = fileparts(fileparts(fileparts(fileparts(here))));  % repo root
 man = fullfile(fileparts(res_root), 'macos', 'docs', 'macos-manual', 'examples');
 tin = fullfile(res_root, 'segmirmaker', 'test_in');
 
