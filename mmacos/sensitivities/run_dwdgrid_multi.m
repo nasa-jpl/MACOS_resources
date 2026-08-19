@@ -32,12 +32,20 @@ DELTA  = 1e-6;          % finite-difference step (grid-map amplitude, BaseUnits)
 ZMODES = [4 5 6 7 8 9]; % default poke shapes: MACOS ANSI Zernike indices
 INFL   = [];            % optional [N x N x K] influence maps (DM actuators,
                         % measured figure...) -- overrides ZMODES when set
+%
+%  Bundled demo deck, used when RX is empty.  EXPLICIT path -- the
+%  runner used to reach for examples/<its own name>/, so moving the
+%  asset directory broke it silently.  It is one CONFIG line now.
+DEMO_RX = fullfile(here, 'examples', 'run_dwdgrid_multi', ...
+                   'e5hex1_grid.in');
 % =====================================================================
 
 if isempty(RX)
-    RX = fullfile(here, 'examples', 'run_dwdgrid_multi', 'e5hex1_grid.in');
+    RX = DEMO_RX;
     fprintf('[demo] RX not set -- using bundled example: %s\n', RX);
 end
+assert(isfile(RX), 'run_dwd:noDeck', ...
+    'prescription not found: %s\n(set RX, or fix DEMO_RX in the CONFIG block)', RX);
 [~, rxstem] = fileparts(RX);
 art = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdgrid", ...
     'ngridpts', NGRIDPTS, 'model_size', MODEL, 'ng', NG, ...

@@ -25,12 +25,20 @@ DELTA  = 1e-6;          % finite-difference step (Zernike coefficient)
 KINDS  = {'monzern','zern'};  % subset of {'monzern','ffzern','zern'}
 ZSTART = 4;             % lowest Zernike mode (4 skips piston/tip/tilt)
 ZEND   = 9;             % highest Zernike mode (END mode, not a count)
+%
+%  Bundled demo deck, used when RX is empty.  EXPLICIT path -- the
+%  runner used to reach for examples/<its own name>/, so moving the
+%  asset directory broke it silently.  It is one CONFIG line now.
+DEMO_RX = fullfile(here, 'examples', 'run_dwdz_multi', ...
+                   'e5hex1.in');
 % =====================================================================
 
 if isempty(RX)
-    RX = fullfile(here, 'examples', 'run_dwdz_multi', 'e5hex1.in');
+    RX = DEMO_RX;
     fprintf('[demo] RX not set -- using bundled example: %s\n', RX);
 end
+assert(isfile(RX), 'run_dwd:noDeck', ...
+    'prescription not found: %s\n(set RX, or fix DEMO_RX in the CONFIG block)', RX);
 [~, rxstem] = fileparts(RX);
 art = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdz", ...
     'ngridpts', NGRIDPTS, 'model_size', MODEL, 'delta_z', DELTA, ...

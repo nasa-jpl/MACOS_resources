@@ -24,12 +24,20 @@ NGRIDPTS = 63;          % ray-grid sampling override ([] = keep the .in value)
 FOV    = 1e-4;          % half-field (rad) for the 4 corner field points
 DELTA  = 1e-8;          % finite-difference step (rigid-body)
 DOFS   = (0:5).';       % 0=Rx 1=Ry 2=Rz 3=Tx 4=Ty 5=Tz  (subset allowed)
+%
+%  Bundled demo deck, used when RX is empty.  EXPLICIT path -- the
+%  runner used to reach for examples/<its own name>/, so moving the
+%  asset directory broke it silently.  It is one CONFIG line now.
+DEMO_RX = fullfile(here, 'examples', 'run_dwdx_multi', ...
+                   'e5hex1.in');
 % =====================================================================
 
 if isempty(RX)
-    RX = fullfile(here, 'examples', 'run_dwdx_multi', 'e5hex1.in');
+    RX = DEMO_RX;
     fprintf('[demo] RX not set -- using bundled example: %s\n', RX);
 end
+assert(isfile(RX), 'run_dwd:noDeck', ...
+    'prescription not found: %s\n(set RX, or fix DEMO_RX in the CONFIG block)', RX);
 [~, rxstem] = fileparts(RX);
 art = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdx", ...
     'ngridpts', NGRIDPTS, 'model_size', MODEL, 'delta_x', DELTA, ...
