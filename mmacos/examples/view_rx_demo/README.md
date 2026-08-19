@@ -46,4 +46,4 @@ One runner (`view_rx_demo.m`), four stock cases, PNGs beside it:
 For segmented-primary MET systems the design layer adds annotation on
 top of this scene: `macos.design.met_view` (segment tiles via
 `seg_boundary`, face-on launcher panel, edge clearance, baseline
-overlay) — see `design/examples/e5_seg/`.
+overlay) — see `templates/20_segmentation/e5_seg/`.

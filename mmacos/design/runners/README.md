@@ -42,7 +42,7 @@ differential (no absolute-piston anchor row); `macos.design.
 edge_sensors` ingests the axis/location tags for the MET stage.
 
 Worked examples driving the runners: `design/examples/e2e/` (the full
-six-stage sequence — the canonical template), `design/examples/e5_seg/`
+six-stage sequence — the canonical template), `templates/20_segmentation/e5_seg/`
 + `e5_pie/` (single-stage segmentation/MET narratives on the e5
 fixture).
 

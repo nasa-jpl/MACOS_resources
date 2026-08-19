@@ -1,4 +1,4 @@
-% grid_bug_demo.m  (mmacos/examples/grid_surface/)
+% grid_bug_demo.m  (mmacos/templates/20_segmentation/grid_surface/)
 % =====================================================================
 %  GRAPHICAL demo: a FreeForm-grid figure error in the wavefront
 % =====================================================================

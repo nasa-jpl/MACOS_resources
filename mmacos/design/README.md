@@ -202,8 +202,10 @@ Package-side helpers (in `+macos/+design`, used everywhere):
 
 - **Newest (2026-07):** `e2e/` — the CANONICAL end-to-end worked
   example (design → segmentation → sensitivities → MET → compare →
-  simulate) driving the stage runners in `design/runners/`; `e5_seg/`
-  + `e5_pie/` — single-stage segmentation/MET narratives on the e5
+  simulate) driving the stage runners in `design/runners/`;
+  [`../templates/20_segmentation/e5_seg/`](../templates/20_segmentation/e5_seg)
+  + [`e5_pie/`](../templates/20_segmentation/e5_pie) — single-stage
+  segmentation/MET narratives on the e5
   fixture (hex and pie).  These are the current product-facing
   templates; the progression below is the telescope-design curriculum
   that feeds them.
