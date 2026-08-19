@@ -280,7 +280,10 @@ end
 function p = default_rx()
 % CoroExample.in lives in the macos source tree's manual examples.
 here = fileparts(mfilename('fullpath'));
-p = fullfile(here, '..','..','..','..','macos','docs','macos-manual', ...
+% here = <repo>/mmacos/templates/30_instruments/coro_planet_demo, and the
+% macos source tree is a SIBLING of the repo root -- five levels up, not
+% four (the four-level form shipped here was already off by one).
+p = fullfile(here, '..','..','..','..','..','macos','docs','macos-manual', ...
              'examples','CoroExample.in');
 end
 

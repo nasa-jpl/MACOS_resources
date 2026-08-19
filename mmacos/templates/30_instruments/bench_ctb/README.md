@@ -336,7 +336,7 @@ their model against ours **plane by plane** (an interface check).
 **Generate** (one MATLAB process, ~1 min, needs `MACOS_HOME` + the mmacos MEX):
 
 ```matlab
-cd mmacos/examples/design/bench_ctb
+cd mmacos/templates/30_instruments/bench_ctb
 ctb_phase_export            % writes ctb_phase_export_N1024.mat (+ preview + .fp.json)
 ```
 

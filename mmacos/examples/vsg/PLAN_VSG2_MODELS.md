@@ -5,7 +5,7 @@
 > code.  Also read first: `mmacos/CLAUDE.md` (all of it),
 > `MACOS_resources/pymacos/CLAUDE.md` §"DM phase-imprint validation
 > (Phase 6)" (the apodize-and-propagate pattern this plan reuses), the
-> worked example `examples/coronagraph/coro_walkthrough/coro_walkthrough.m`
+> worked example `templates/30_instruments/coro_walkthrough/coro_walkthrough.m`
 > (the propagation/figure idiom to copy), and the review doc in this
 > directory.  Source hardware docs: `VSG2_Info.pptx` (this dir) and the
 > authoritative ZWFS-upgrade deck `~/Documents/DCR'26/mmacos/VSG2

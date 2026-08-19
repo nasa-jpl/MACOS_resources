@@ -16,7 +16,7 @@ mmacos/design/rodgers1/OPTFEX_REDO_LIST.md
 mmacos/design/rodgers1/SESSION_STATE_2026-07-30.md
 mmacos/examples/vsg/PLAN_VSG2_MODELS.md
 mmacos/examples/vsg/VSG2_review.md
-mmacos/examples/design/bench_ctb/CTB_PROP_STATUS.md
+mmacos/templates/30_instruments/bench_ctb/CTB_PROP_STATUS.md
 mmacos/examples/design/bench_ifo_dm/l2_trade/PLAN_IFO_PUPIL_RELAY.md
 mmacos/examples/design/bench_ifo_pol/CURRENT_SLICE.md
 optical_design/CORONAGRAPH_DESIGN_AGENT_GUIDE.md

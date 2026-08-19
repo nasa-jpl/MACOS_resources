@@ -36,7 +36,7 @@ mmacos/design/rodgers1/OPTFEX_REDO_LIST.md
 mmacos/design/rodgers1/SESSION_STATE_2026-07-30.md
 mmacos/examples/vsg/PLAN_VSG2_MODELS.md
 mmacos/examples/vsg/VSG2_review.md
-mmacos/examples/design/bench_ctb/CTB_PROP_STATUS.md
+mmacos/templates/30_instruments/bench_ctb/CTB_PROP_STATUS.md
 mmacos/examples/design/bench_ifo_dm/l2_trade/PLAN_IFO_PUPIL_RELAY.md
 mmacos/examples/design/bench_ifo_pol/CURRENT_SLICE.md
 optical_design/CORONAGRAPH_DESIGN_AGENT_GUIDE.md
@@ -100,7 +100,7 @@ preserved as `optical_design/AGENT_NOTES.md` (dev-only, in the strip list).
   records, same family as the packets.
 - `mmacos/design/examples/e2e2/E2E2_REPORT.md` + e2e2/relay_followon READMEs
   — worked-example report.
-- `mmacos/examples/design/bench_ctb/{README,Coro_propagation_summary}.md`
+- `mmacos/templates/30_instruments/bench_ctb/{README,Coro_propagation_summary}.md`
   + `bench_ctb/dst2/README.md` — house rules + the diffraction recipe of
   record (technical documentation, not process).
 - `mmacos/examples/design/bench_ifo_dm/l2_trade/TRADE_NOTE.md` — trade-study

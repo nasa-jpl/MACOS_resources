@@ -22,4 +22,4 @@ examples/sensitivities/**/*.mat
 # stage .mat, reports, .in -- stay tracked.
 design/examples/e2e/s4_jacobians.mat
 design/examples/e2e/e2e_pie_met.mat
-examples/design/bench_ctb/ctb_phase_export_N1024.mat
+templates/30_instruments/bench_ctb/ctb_phase_export_N1024.mat

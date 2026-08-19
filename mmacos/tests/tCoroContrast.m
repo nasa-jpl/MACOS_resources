@@ -3,7 +3,7 @@ classdef tCoroContrast < matlab.unittest.TestCase
 %   Pure math, no engine calls — pins the MATLAB port of
 %   macos.radial_profile / macos.first_airy_null /
 %   macos.lambda_over_D_pixels / macos.radial_contrast (+macos library,
-%   hoisted out of examples/coronagraph/coro/ in the 2026-08 reorg)
+%   hoisted out of templates/30_instruments/coro_experiments/ in the 2026-08 reorg)
 %   against an analytic Airy pattern with a known first null.  Guards
 %   the Sprint-1 E1 dark-zone merit from silent regressions in the port.
 %
