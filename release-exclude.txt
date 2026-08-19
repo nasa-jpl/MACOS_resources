@@ -18,7 +18,7 @@ mmacos/templates/40_benches/vsg_wip/PLAN_VSG2_MODELS.md
 mmacos/templates/40_benches/vsg_wip/VSG2_review.md
 mmacos/templates/30_instruments/bench_ctb/CTB_PROP_STATUS.md
 mmacos/templates/40_benches/bench_ifo_dm/l2_trade/PLAN_IFO_PUPIL_RELAY.md
-mmacos/templates/40_benches/bench_ifo_pol/CURRENT_SLICE.md
+mmacos/templates/90_polarization/bench_ifo_pol/CURRENT_SLICE.md
 optical_design/CORONAGRAPH_DESIGN_AGENT_GUIDE.md
 optical_design/OPTICAL_DESIGN_AGENT_GUIDE.md
 optical_design/CORONAGRAPH_DESIGN_RULES.md

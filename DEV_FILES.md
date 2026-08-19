@@ -38,7 +38,7 @@ mmacos/templates/40_benches/vsg_wip/PLAN_VSG2_MODELS.md
 mmacos/templates/40_benches/vsg_wip/VSG2_review.md
 mmacos/templates/30_instruments/bench_ctb/CTB_PROP_STATUS.md
 mmacos/templates/40_benches/bench_ifo_dm/l2_trade/PLAN_IFO_PUPIL_RELAY.md
-mmacos/templates/40_benches/bench_ifo_pol/CURRENT_SLICE.md
+mmacos/templates/90_polarization/bench_ifo_pol/CURRENT_SLICE.md
 optical_design/CORONAGRAPH_DESIGN_AGENT_GUIDE.md
 optical_design/OPTICAL_DESIGN_AGENT_GUIDE.md
 optical_design/CORONAGRAPH_DESIGN_RULES.md
@@ -86,9 +86,10 @@ preserved as `optical_design/AGENT_NOTES.md` (dev-only, in the strip list).
 
 - `README.md`, `GMI/README.md`, `mmacos/README.md`, `pymacos/README.md`
 - `mmacos/doc/README.md`, `mmacos/doc/elt_grid_add.md` (interface doc)
-- `mmacos/design/README.md` + `mmacos/design/examples/*/README.md` + `mmacos/design/runners/README.md`
-- `mmacos/examples/*/README.md` (coro, coro_walkthrough, design, view_rx_demo)
-- `mmacos/sensitivities/README.md` + `mmacos/sensitivities/examples/*/README.md`
+- `mmacos/design/README.md` + `mmacos/design/runners/README.md`
+- `mmacos/templates/00_INDEX.md` + `mmacos/templates/*/*/README.md`
+- `mmacos/challenges/README.md`
+- `mmacos/sensitivities/README.md`
 - `mmacos/tools/fex_sweep/README.md`
 - `GMI/regression/README.md`, `mmacos/tests/README.md`, `pymacos/tests/proper_compare/README.md` (test-run guides — user-usable)
 

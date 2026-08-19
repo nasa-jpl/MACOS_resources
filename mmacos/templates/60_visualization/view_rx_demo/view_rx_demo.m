@@ -101,7 +101,7 @@ close(f);
 % Same 4-panel view_std on the PIE segmentation (center + 6 wedges):
 % pie tiles render as smoothed ray-footprint hulls (the exact-tile
 % path is hex-only so far -- pie wedge outlines via seg_boundary /
-% emitted PolyApVec are the design-layer path, see design/examples/
+% emitted PolyApVec are the design-layer path, see templates/20_segmentation/
 % e5_pie).
 fprintf('[5] e5pie.in (pie segmentation), standard views\n');
 macos.load_rx(fullfile(here, 'e5pie.in'));     % copy committed beside script

@@ -90,7 +90,7 @@ there, `.FALSE.` on the SMACOS path); **no such deck exists in either repo.**
 | # | item | why |
 |---|---|---|
 | C1 | e2e s3–s7 (segmentation, MET layout, linear model, simulator) | all built on the s1/s2 solves (A2/A3). If those move, the MET budgets and the 3.4 nm-class numbers move with them |
-| C2 | `design/examples/*/**_report.txt`, `*.mat`, `*.png` baselines for every A-row | regenerate with the solve |
+| C2 | `templates/*/*/**_report.txt`, `*.mat`, `*.png` baselines for every A-row | regenerate with the solve |
 | C3 | the design-layer sales-pitch numbers quoted in `PLAN_DESIGN_LAYER.md` | sourced from A-row examples |
 
 ---

@@ -368,11 +368,16 @@ existing `+macos` surface; it does NOT touch Fortran.
   hardwires `'frame','local'`): `Ty` is the element's own y, not global
   Y.  The `{'global','local'}` knob in `dw_dx` is `group_coords` (groups
   only).
-- Examples (REORGANIZED 2026-06-19, `d9978d8`): `examples/` now has three
-  category dirs — `sensitivities/`, `design/` (telescope builder examples
-  + `tma_widefield/`), `coronagraph/` (coro_planet_demo, coro_walkthrough,
-  `coro/` = the old design/coro E1–E4).  `tCoroContrast`'s path fixture
-  points at `templates/30_instruments/coro_experiments`.
+- Examples (REORGANIZED AGAIN 2026-08-19, the templates/challenges tree —
+  supersedes the 2026-06-19 `d9978d8` three-category layout): `examples/`
+  and `design/examples/` are GONE.  Copy-and-adapt starting points live in
+  numbered thread dirs under `templates/` (`10_telescopes` … `90_polarization`,
+  index in `templates/00_INDEX.md`); stated-target studies live in
+  `challenges/` (rodgers1, rodgers2, afocal4).  Universal helpers were
+  hoisted OUT of the example dirs into `src/+macos/` (`mimg`, `pad`, and the
+  contrast-scoring family `radial_profile` / `first_airy_null` /
+  `lambda_over_D_pixels` / `radial_contrast` / `dark_zone_metrics`), so
+  `tCoroContrast` no longer needs a PathFixture at all.
 
 ### Layout viewer — Telescope.diagram / view_layout (Sprint 4, 2026-06-19)
 For the off-axis-fold work (the coaxial TMA self-obscures — M1 + FP sit
@@ -832,7 +837,8 @@ git rev-list --objects origin/<branch>..HEAD \
 | `src/+macos/` | Function-package user surface + `+design/` + `+channels/` |
 | `tests/` | matlab.unittest suite; `tests/README.md` maps class→suite→coverage |
 | `tests/private/rx_fixture_path.m` | Shared Rx-corpus locator |
-| `examples/design/` | Design-layer runnable examples (sensitivities, align) |
+| `templates/` | The numbered template threads (T1-T6); `templates/00_INDEX.md` maps thread -> directory |
+| `challenges/` | rodgers1 / rodgers2 / afocal4 -- a stated target plus our worked answer |
 | `run_mmacos_tests.sh` | Bash entrypoint; `fast` / `masks` / `proper` / `<Class>` |
 | `Makefile` | GMI-style build; links libsmacos + slsqplib (+ fits) |
 | `~/dev/macos/macos_f90/macos_api_mod.F90` | Shared backbone (in libsmacos.a) |
