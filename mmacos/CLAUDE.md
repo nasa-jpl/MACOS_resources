@@ -609,6 +609,219 @@ gs bespoke driver) are preserved untracked in
 `~/dev/MACOS_sandbox/segdemo_fixtures/`.  `gen_segment_gridmat` + `mmacos_setup.m`
 shipped earlier (245af94).
 
+## Polarization (PLAN_POLARIZATION)
+
+Engine-side conventions, coating models, the Phase-2 Jones layer and the
+Phase-3a vector chain all live in **`macos/macos_f90/CLAUDE.md`** — read
+that before touching anything polarization-related; do not duplicate it
+here.  mmacos-side facts only:
+
+- Surface: `+macos/{polarization,vector_diffraction,coating,ray_field,
+  jones_pupil,pol_maps,pol_zernike}.m`.  All ride codegen Path A except
+  `ray_field`; `pol_maps`/`pol_zernike` are pure MATLAB (no engine call).
+- **`pol_zernike` (Phase 2b, 2026-07-26)** — Zernike expansion of the
+  Dvec/retvec maps into standard polarization-aberration terms.  Mode
+  indices are the MACOS ANSI 1-based numbers (`MonZernModes=`); the
+  evaluator is shared with `zernike_grid_basis` via
+  **`+macos/private/ansi_zernike_eval.m`** so an influence-basis mode
+  index and an aberration-report mode index cannot drift.  LEAST-SQUARES
+  fit, not a projection — circular Zernikes are non-orthogonal on an
+  obscured pupil.  Expected two-mirror answer: astig0 in s1, astig45 in
+  s2, equal, everything else round-off ("polarization astigmatism").
+- **UNITS TRAP in `tJonesPupil`:** `macos.coating` takes thickness in
+  element **BaseUnits** (documented exception to the SI-metres veneer
+  convention), and the class uses TWO fixtures with different BaseUnits —
+  `Rx_Cass_FarField` is `m`, the Bench-emitted fold rig is `mm`.  One
+  shared constant silently meant 200 um on the Cassegrain; gates still
+  passed (any optically thick layer satisfies them) but the mmacos and
+  pymacos Jones coefficients disagreed in the 8th digit.  Now split into
+  `thkAl` / `thkAlBench`; with that, the two bindings agree to 11 digits.
+- Tests: `tPolarization` (Phase 1 state/round-trip), `tJonesPupil`
+  (Phase 2a/2b), `tVecChain` (Phase 3a Tranche 1) — all in `SUITE_FAST`.
+- **`tests/Rx/` is a new fixture home.**  `rx_fixture_path` searches the
+  shared pymacos corpus FIRST and `mmacos/tests/Rx/` second, so an
+  mmacos-only prescription (currently `Rx_VecChain.in`) resolves by name
+  with no caller change.  `Rx_VecChain.in` is duplicated into
+  `pymacos/tests/Rx/` for the mirrored pytest — keep the two in sync.
+- **Writing a new Rx fixture by hand: two traps.** (1) The file needs the
+  trailing `nOutCord=`/`Tout=` **Output Coordinate System** block or
+  `load_rx` fails with no diagnostic (the parser leaves `nElt=0` and the
+  api's only check is `nElt>0`). (2) MACOS **merges consecutive elements
+  that share a `PropType`** into ONE propagation, so a "two-leg" chain
+  written as two `NFPlane` elements in a row is silently one leg — bracket
+  each hop `NFPlane` → `Geometric` (the `Rx_Coro.in` idiom).
+- **Validation report driver: `tools/pol_validation_report/`** (2026-07-26,
+  PLAN worklist item 7).  `./make_polval.sh` re-runs every polarization
+  validation case, writes `macos/docs/macos-manual/polval/media/*.png` +
+  `generated/numbers.json`, then substitutes into the `polval/*.md.in`
+  prose (which carries **no numeric literals**, only `@@TOKEN@@`).  Build
+  with `make polval` / `polval-pdf` from `docs/macos-manual`;
+  `polval-regen` is the same thing from the docs side.  Three guards:
+  the renderer writes nothing unless every token resolves; the driver
+  asserts 19 gate thresholds mirroring tPolarization/tJonesPupil/tVecChain
+  and ABORTS on regression; `tools/check_polval.py` (prerequisite of
+  `make polval`) rejects a stale template, a figure newer than the
+  numbers, or a surviving placeholder.  Gates this box can't run
+  (pymacos/ifx, GMI, the historical pre-fix engine) live in
+  `external.json` with command + capture date.  **One model size (128),
+  one MATLAB session** — the `macos_init_all()` heap bug applies here
+  like everywhere else.  Adding a phase's evidence section: see the
+  tool's README.
+- **Pre-existing, unrelated:** `Rx_Coro_FPM.in` SIGSEGVs at model size 256
+  (`macos.intensity` at any element).  Verified against the pre-Phase-3a
+  engine — not a polarization bug.  Use `Rx_Coro.in` at 1024 (what the
+  proper_compare suite does) for coronagraph-chain work.
+- **Model size must be ≥ the Rx's `nGridpts` (Dave, 2026-07-27).**
+  `Rx_Coro.in` declares `nGridpts=511`, so it needs model **≥ 512**.  Run it
+  smaller and the engine prints `Too many grid points. Resetting npts to N`
+  and carries on — but that path is not safe: at 128 `macos.intensity(21)`
+  SIGSEGVs in roughly a third of runs (same registers every time) and
+  `trace`-then-`intensity` crashed 3/3.  At 512 and 1024 repeat runs are
+  bit-identical.  There is an `MREset` CLI command (128..8192) for changing
+  model size; it is **not** exposed in `macos_api_mod`, so from mmacos the
+  lever is `macos.init(N)`.  An earlier PLAN note claiming `Rx_Coro` runs at
+  128 is wrong and has been corrected — it appears to work, then doesn't.
+- **FIXED 2026-07-27 — the odd-mirror `r_p` sign defect** (macos `cb29ea5`
+  Reflector + `25c4386` Refractor; resources `9bc2029` fold-gate
+  de-circularization + `fc2e22e` the new gates).  `Reflector`'s
+  reflected-p̂ basis disagreed with its Fresnel `r_p` sign, so ONE on-axis
+  mirror turned x-polarized light into a 50/50 x/y mixture; a mirror PAIR
+  cancelled it EXACTLY (an involution) and the error is unitary, which is
+  why `tJonesPupil` (2-mirror Cassegrain), `tVecChain` (no mirrors) and the
+  coated 45° fold gate all passed.  Odd-mirror polarized results are
+  trustworthy again.  Two lasting lessons: **an "analytic" reference
+  transcribed from the engine's own expression is circular in exactly the
+  sign it should check** (the fold gate's `RPa`, and the same staleness in
+  the polval driver, which its gate guard caught), and **fixture parity
+  matters** — every fixture in the suite had an even mirror count or none.
+  New gates: `tPolarization/test_odd_mirror_crosspol_{pec_analytic,
+  rho2_law}` — the whole PEC single-reflection Jones against a Born&Wolf
+  closed form, with AOI and azimuth taken from RAY DIRECTIONS so no
+  pupil-grid mapping is assumed (median 2.1e-15).  Reproducer:
+  `tools/pol_sp_sign_probe/probe_sp_sign.m`.  Packet (with the closeout
+  entry): `macos/REVIEW_POL_SP_SIGN_2026-07-27.md`; engine detail in
+  `macos/macos_f90/CLAUDE.md`; report evidence in `polval/50_sp_sign`.
+  **Watch out when reading `ray_field`:** `RayE`/`RayDir` are the CURRENT
+  trace state, not a per-element history — `trace(e)` then `ray_field(e)`,
+  or you get the state at whatever element you last traced to.
+- **CLOSED 2026-07-28 (macos `a5e4288`)** — coated and uncoated `Refractor`
+  transmission used DIFFERENT amplitude normalizations (the coated branch
+  omitted the radiometric `sqrt(n2 cos02/(n1 cos01))` factor): a coated lens
+  under-transmitted by ~18% in amplitude vs the same surface uncoated
+  (0.8164965809 = 1/sqrt(1.5) exactly with an index-matched layer; 1/1.5 in
+  INTENSITY at the detector plane).  Fixed by one factor applied ONCE after
+  the Airy recursion; the branch now has `tPolRadiometric` (13 tests,
+  SUITE_FAST) against the Abeles characteristic matrix, on new fixtures
+  `Rx_Refract.in` / `Rx_Refract45.in`.  Binding-side things worth knowing:
+  the 45° fixture tilts the ELEMENT (unlike `Rx_PolElt_Tilt.in`, which
+  tilts the BEAM — a refractor's Fresnel physics depends on the ray-normal
+  angle, which element tilt does change, whereas a straight-through
+  polarizer's does not), and **Macleod's `2*eta0/(eta0*B+C)` is the
+  TANGENTIAL amplitude coefficient**, larger than the ordinary Fresnel
+  `t_p` by `cos_sub/cos_inc` (1.2472 at 45° into n=1.5) — convert before
+  comparing to a measured `E_out/E_in`, or a correct engine looks broken.
+  Engine detail + scope: `macos/macos_f90/CLAUDE.md`; report evidence in
+  `polval/80_radiometric`.
+- **`complex_field(..., 'reset_trace', false)` is bit-identical and ~100×
+  faster** for the 2nd/3rd component plane at the same element (0.01 s vs
+  0.83 s at model 512) — reading Ex/Ey/Ez costs ONE propagation, not three.
+- **Phase 2c (`pol_contrast_floor`, 2026-07-27)** — co/cross/longitudinal
+  split at the DETECTOR on the engine's component planes; analyzer = dominant
+  eigenvector of the pupil coherency matrix (referenced to the mean OUTPUT
+  state, never the input).  Tests `tPolContrast` (model **256**,
+  SUITE_FREEFORM) + `tPolContrastCoro` (model **512**, its own
+  `SUITE_POL_512` batch); `./run_mmacos_tests.sh polfloor` runs both.
+  Three things to know:
+  (1) **The coherency matrix's conjugation order is a trap.**  In MATLAB `'`
+  conjugates its LEFT operand, so `C_12 = Σ E_1 conj(E_2)` is `Ey'*Ex`, NOT
+  `Ex'*Ey`.  Backwards builds `conj(C)`, whose dominant eigenvector is the
+  CONJUGATE analyzer — identical for any LINEAR input state and exactly
+  ORTHOGONAL for a circular one (cross/co 1.4e-6 → 7.1e+05).  The circular
+  input state in `tPolContrast` exists to catch exactly this.
+  (2) **Tranche 1 caps what the floor can see.**  The component planes are
+  seeded from `RayE` at the FIRST physical-optics leg and thereafter only get
+  a common scalar phase, so a polarizing surface after that leg never reaches
+  the grid.  `Rx_Cass_FarField` (mirrors, then one far-field hop) carries the
+  full train; `Rx_Coro` carries 0.84 of the ray-level cross-pol bare, 0.57
+  coated, and reports the coating sensitivity with the WRONG SIGN.  The
+  function measures this itself (`.scope`) and warns.
+  (3) **A coating can be overwritten but never cleared** (`coat_set` takes
+  ≥1 layer), so every set in a `'coatings'` sweep must cover the same
+  elements and the sweep leaves the last set applied — `load_rx` to reset.
+- **Phase 3 elements (`polarizer` / `waveplate` / `elt_jones`, 2026-07-27)** —
+  `TrPolarizer` (EltID 15, finished from a name-table-only stub) and the new
+  `WavePlate` (EltID 18).  Engine detail + all four conventions live in
+  `macos_f90/CLAUDE.md`; mmacos-side facts:
+  (1) **`macos.polarizer`/`macos.waveplate` follow the OVERLOADED
+  query-when-no-opts form** (`coating.m`'s shape), not the `get_`/`set_`
+  split the naming convention prescribes — consistency inside the
+  polarization family beat the general rule, since `polarization`,
+  `vector_diffraction` and `coating` are all overloaded.
+  (2) **Axis storage is deliberately asymmetric**: the API stores the axis
+  as given (a query returns what you wrote), the Rx parser UNITIZES on load
+  (matching `psiElt=`).  So a non-unit axis comes back normalized after a
+  save/reload round trip — `tPolElement/test_save_roundtrip` pins it.
+  Retardance is in WAVES at the current wavelength on both sides but stored
+  physically, so a query after `set_src_wvl` legitimately returns a
+  different number.
+  (3) **Fixtures `tests/Rx/Rx_PolElt.in` + `Rx_PolElt_Ref.in` are a PAIR** —
+  the second is the geometric twin (Reference surfaces in place of the
+  polarizing elements) that makes "polarization-off is bit-identical" a test
+  rather than an inspection.  Any geometric edit to one belongs in the other.
+  (4) Element order in the fixture is load-bearing: all four polarizing
+  elements precede the single physical-optics leg, or the Tranche-1 seed
+  would miss them.
+  (5) Tests: `tPolElement` (27, SUITE_FAST).
+  (6) **The off-normal axis convention is SETTLED (2026-07-27): project the
+  MATERIAL axis.**  For a waveplate that IS the declared (fast) axis; for a
+  polarizer it is the ABSORBING direction `psi x PolAxis`, projected into
+  the ray's transverse plane, extinguished, with its orthogonal partner
+  transmitted.  `PolAxis=` still declares the pass axis.  The alternative
+  (project the pass axis) is Fainman & Shamir's model and was what shipped
+  first; Korger et al., *Opt. Express* **21**, 27032 (2013) Eq. (5)–(6)
+  measured that a real tilted polarizer follows the material-axis one.
+  Three mmacos-side facts: normal incidence is **bit-identical** across the
+  flip (`test_normal_incidence_unchanged_by_the_material_flip` pins the
+  pre-flip values literally); a polarizer's declared axis is now taken
+  modulo its component along the element normal, and an axis parallel to
+  the normal extinguishes; and the gates live on a THIRD fixture,
+  `tests/Rx/Rx_PolElt_Tilt.in`, which tilts the **beam** — tilting the
+  element does nothing to a collimated on-axis bundle, which is why the
+  original packet could only measure the ambiguity in MATLAB.  Section F
+  gates both dispatch chains, the grid side via the crossed-analyzer null,
+  which sits 7.11° apart under the two rules (9.1e-33 vs 1.53e-2 of
+  relative detector power).  Evidence: polval §6.7.
+- **polval driver is now split per model size** (2026-07-27): 128 / 256 / 512,
+  one `matlab -batch` each (the `macos_init_all()` heap bug), each writing
+  `generated/parts/numbers_<size>.json`, merged by `merge_numbers.py`.  Adding
+  a case at a new size = a new branch in `run_pol_validation`'s switch, its own
+  block in `gate_limits()`, and a size in `make_polval.sh`'s `MODELS`.
+
+## Commit hazard: `git add -A` under `pymacos/tests`
+
+`pymacos/tests/` carries LARGE untracked artifact trees that are **not**
+gitignored: `proper_compare/results_cycle4/` and `results_cycle5/` (PROPER
+comparison `.npy` dumps, 56 MiB each), `Rx/IntLog.txt`, and the
+`sensitivities/*/`+`sensitivities/results/` PNG outputs.  Only
+`results/phase<N>/` is ignored.
+
+`git add -A pymacos/tests` therefore stages ~740 MiB of someone's working
+tree.  This happened 2026-07-26 and was caught only because the push to
+`nasa-jpl/MACOS_resources` STALLED -- diagnosed as payload, not network
+(`ssh -T git@github.com` and `git ls-remote` were both instant).  Fixed by
+`git reset --soft` + staging the intended files BY EXPLICIT PATH; payload
+741 MiB -> 1.09 MiB, and the commit was still unpushed so no history
+damage.
+
+**Rule: stage by explicit path in these repos, never `-A` on a directory
+you did not create.**  Before any push, sanity-check the payload:
+
+```sh
+git rev-list --objects origin/<branch>..HEAD \
+  | git cat-file --batch-check='%(objecttype) %(objectsize) %(rest)' \
+  | awk '$1=="blob"{s+=$2} END{printf "%.2f MiB\n", s/1048576}'
+```
+
 ## Key files
 
 | File | Role |

@@ -179,5 +179,143 @@ classdef tBench < matlab.unittest.TestCase
             testCase.verifyLessThan(rImg, 0.2*rM1);
             macos.trace(iDet);
         end
+
+        function test_add_polarizer_waveplate_emit(testCase)
+            % The new pol-element emitters (add_polarizer / add_waveplate):
+            % they must write valid TrPolarizer / WavePlate blocks (PolAxis= /
+            % Retardance= are REQUIRED by ChkDf2 or the load is REJECTED), the
+            % elements must be geometrically inert (chief passes straight), and
+            % the physics must be Malus (crossed polarizers extinguish) and a
+            % QWP-at-45 must make circular light -- closed forms, not read off
+            % the engine.  All at normal incidence in a collimated leg.
+            % beam travels along +x, so ALL pol axes must be TRANSVERSE (in the
+            % y-z plane); an axis along the propagation direction is degenerate.
+            b = macos.design.Bench('tpol', 'aperture', 1e-3, 'ngridpts', 15);
+            b.add_baffle(100, 20);
+            iP  = b.add_polarizer(50, [0 1 0], 'name','Pol');
+            iW  = b.add_waveplate(50, [0 1 1], 0.25, 'name','QWP');   % fast axis at 45 in y-z
+            iA  = b.add_polarizer(50, [0 1 0], 'name','Anz');
+            iD  = b.add_detector(50, 'Det');
+            rx = fullfile(tempname); mkdir(rx);  rxf = fullfile(rx,'tpol.in');
+            b.emit(rxf);
+
+            % the emitted blocks parse and reach elt_mod (else load throws)
+            macos.load_rx(rxf);
+            testCase.verifyEqual(macos.num_elt(), numel(b.E));
+            pv = macos.polarizer(iP);   testCase.verifyEqual(pv.elt_type, 15);
+            wv = macos.waveplate(iW);   testCase.verifyEqual(wv.elt_type, 18);
+            testCase.verifyEqual(wv.retardance, 0.25, 'AbsTol', 1e-9);
+            testCase.verifyEqual(wv.axis, [0;1;1]/sqrt(2), 'AbsTol', 1e-9); % parser unitizes
+
+            % geometrically inert: engine chief crosses every emitted vertex
+            for k = 1:macos.num_elt()
+                sk = macos.trace(k);  info = macos.get_ray_info(sk.nRays);
+                testCase.verifyLessThan(norm(info.pos(:,1) - b.E(k).vpt), 1e-6, ...
+                    sprintf('chief mismatch at elt %d (%s)', k, b.E(k).name));
+            end
+
+            % +x beam: transverse plane is (y,z).  Feed a 45-deg source state
+            % (guaranteed projection onto any transverse axis), and let the
+            % INPUT POLARIZER define the linear state along global y; the
+            % analyzer crossed at global z must extinguish (Malus at 90 deg).
+            macos.polarization('on', 'Ex', [1/sqrt(2) 0], 'Ey', [1/sqrt(2) 0]);
+            macos.waveplate(iW, 'axis', [0 1 0], 'retardance', 0);   % neutral
+            macos.polarizer(iP, 'axis', [0 1 0]);
+            macos.polarizer(iA, 'axis', [0 1 0]);            % parallel first
+            macos.trace(iA);  fa = macos.ray_field(iA);  ma = (fa.status==0);
+            Iopen = sum(abs(fa.Ex(ma)).^2 + abs(fa.Ey(ma)).^2 + abs(fa.Ez(ma)).^2);
+            macos.polarizer(iA, 'axis', [0 0 1]);            % crossed (z vs y)
+            macos.trace(iA);  fa = macos.ray_field(iA);  ma = (fa.status==0);
+            Icross = sum(abs(fa.Ex(ma)).^2 + abs(fa.Ey(ma)).^2 + abs(fa.Ez(ma)).^2);
+            testCase.verifyGreaterThan(Iopen, 1e-3);         % non-vacuity: light gets through
+            testCase.verifyLessThan(Icross, 1e-12*Iopen);    % Malus at 90 deg ~ 0
+                                                             % (floor = transverse-basis
+                                                             %  orthonormality, ~1e-15)
+
+            % QWP fast axis at 45 deg in (y,z) turns the y-linear state (from iP)
+            % into circular: the transverse (y,z) Stokes S3 has |S3|/S0 = 1.
+            macos.polarizer(iP, 'axis', [0 1 0]);
+            macos.waveplate(iW, 'axis', [0 1 1], 'retardance', 0.25);
+            macos.trace(iW);  fw = macos.ray_field(iW);  mw = (fw.status==0);
+            S0 = sum(abs(fw.Ey(mw)).^2 + abs(fw.Ez(mw)).^2);
+            S3 = sum(2*imag(fw.Ey(mw).*conj(fw.Ez(mw))));
+            testCase.verifyGreaterThan(S0, 1e-3);            % non-vacuity
+            testCase.verifyEqual(abs(S3)/S0, 1, 'AbsTol', 1e-9);
+        end
+
+        function test_twyman_green_polarizing(testCase)
+            % twyman_green 'polarizing' variant: (a) DEFAULT false emits
+            % BIT-IDENTICALLY to the non-polarizing rig (all insertions gated);
+            % (b) the polarizing rig loads/traces clean and, with polarization
+            % OFF, its OPD is BIT-IDENTICAL to a Reference-TWIN (pol elements
+            % retyped Reference) -- the tPolElement unpolarized-twin invariant
+            % at bench scale.
+            G0 = macos.design.twyman_green('ngridpts', 15);                 % default
+            Gd = macos.design.twyman_green('ngridpts', 15, 'polarizing', false);
+            rx = fullfile(tempname); mkdir(rx);
+            f0 = fullfile(rx,'g0.in');  fd = fullfile(rx,'gd.in');
+            G0.bt.emit(f0);  Gd.bt.emit(fd);
+            testCase.verifyEqual(fileread(fd), fileread(f0));   % bit-identical off
+
+            Gp = macos.design.twyman_green('ngridpts', 15, 'polarizing', true);
+            fp = fullfile(rx,'gp.in');  Gp.bt.emit(fp);
+            % expect the four inserted pol elements (PolIn + 2 QWP + OutQWP + Analyzer)
+            names = {Gp.bt.E.name};
+            testCase.verifyTrue(any(strcmp(names,'PolIn')));
+            testCase.verifyTrue(any(strcmp(names,'QWPtestIn')) && any(strcmp(names,'QWPtestOut')));
+            testCase.verifyTrue(any(strcmp(names,'OutQWP')) && any(strcmp(names,'Analyzer')));
+
+            macos.load_rx(fp);  macos.polarization('off');
+            sN = macos.trace(Gp.T.iDET);
+            testCase.verifyGreaterThan(sN.nRays, 50);
+            wp = macos.opd();
+
+            % Reference-twin: retype pol elements, strip their keywords
+            L = regexp(fileread(fp), '\n', 'split');
+            L = strrep(L, 'Element=  TrPolarizer', 'Element=  Reference');
+            L = strrep(L, 'Element=  WavePlate',   'Element=  Reference');
+            L = L(~contains(L,'PolAxis=') & ~contains(L,'Retardance='));
+            ft = fullfile(rx,'gp_twin.in');
+            fid = fopen(ft,'w');  fprintf(fid,'%s\n',L{:});  fclose(fid);
+            macos.load_rx(ft);  macos.polarization('off');  macos.trace(Gp.T.iDET);
+            wt = macos.opd();
+            bo = isfinite(wp) & isfinite(wt);
+            testCase.verifyEqual(wp(bo), wt(bo));   % bit-identical pol-off
+        end
+
+        function test_tail_arches(testCase)
+            % l2_trade detector-leg architectures (twyman_green
+            % 'tail_arch'): each builds, emits, traces with zero ray loss,
+            % and the engine chief crosses every emitted vertex.  Params
+            % are the optimized values from l2_trade/TRADE_NOTE.md.
+            archs = { ...
+                {'tail_arch','fieldlens', 'FL_F',25.02100857, ...
+                 'FL_Kc',-2.11278288, 'D_MASK_FL',6.277463741, ...
+                 'DET_TRIM',1.085330067}, ...
+                {'tail_arch','doublet', 'MASK_TRIM',1.614619633, ...
+                 'L2A_Kc',-3.575374653, 'L2B_Kc',2.328903027, ...
+                 'DET_TRIM',2.97066401}};
+            for a = 1:numel(archs)
+                G = macos.design.twyman_green('ngridpts',21, archs{a}{:});
+                rx = fullfile(tempname); mkdir(rx);
+                rxf = fullfile(rx, 'tg_arm.in');
+                G.bt.emit(rxf);
+                macos.load_rx(rxf);
+                nE = macos.num_elt();
+                testCase.verifyEqual(nE, numel(G.bt.E));
+                s1 = macos.trace(1);
+                sN = macos.trace(nE);
+                testCase.verifyEqual(sN.nRays, s1.nRays, ...
+                    sprintf('%s: ray loss through the tail', archs{a}{2}));
+                for k = 1:nE
+                    sk = macos.trace(k);
+                    info = macos.get_ray_info(sk.nRays);
+                    testCase.verifyLessThan( ...
+                        norm(info.pos(:,1) - G.bt.E(k).vpt), 1e-6, ...
+                        sprintf('%s: chief mismatch at elt %d (%s)', ...
+                        archs{a}{2}, k, G.bt.E(k).name));
+                end
+            end
+        end
     end
 end

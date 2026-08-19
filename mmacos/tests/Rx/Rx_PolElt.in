@@ -1,0 +1,215 @@
+% ---------------------------------------------------------------------------------------
+% Rx_PolElt -- polarizer + waveplate gate prescription.
+% PLAN_POLARIZATION Phase 3 (worklist item 4).
+%
+% Why this layout.  Every gate for the new elements is a closed-form Jones
+% identity (Malus, crossed extinction, QWP linear->circular, HWP 2-theta,
+% QWP+QWP==HWP, unitarity), so the geometry is stripped to the point where
+% the ONLY thing that can move the answer is the element Jones:
+%
+%   * collimated, on-axis source (zSource=1e21 -> the UNIFORM engine launch
+%     frame, so every ray carries the same input state and the per-ray
+%     point-source frame never enters -- see ssrcray.inc);
+%   * every element FLAT and at NORMAL INCIDENCE, no coating, no mirror.
+%     At normal incidence the transverse-basis projection in PolElt is
+%     exact and the off-normal convention question (packet
+%     REVIEW_POL_ELEMENTS_2026-07-27.md) is identically absent;
+%   * no Reflector anywhere, so the s/p machinery and the r_p sign fix
+%     (macos cb29ea5) are not in the loop and cannot mask a Jones error.
+%
+% ELEMENT ORDER IS LOAD-BEARING.  All four polarizing elements sit BEFORE
+% the single physical-optics leg (elements 1-5 are PropType Geometric; the
+% leg is bracketed NFPlane(6) -> Geometric(7), the Rx_Coro.in idiom).  That
+% is the Phase-3a Tranche-1 validity condition: the diffraction grid is
+% seeded from RayE at the FIRST physical leg, so a polarizing element placed
+% AFTER that leg would transform rays and never reach the grid.  With the
+% order below, the ray-level gates and the detector-plane gates measure the
+% same train, and both are honest.
+%
+% Layout:  1 PupilStop | 2 Polarizer1 | 3 Retarder1 | 4 Retarder2 |
+%          5 Analyzer  | 6 PropStart(NFPlane) | 7 Detector
+%
+% TWO waveplates, not one, so the composition identity (two quarter-wave
+% plates on a common axis == one half-wave plate) is a gate the engine has
+% to satisfy by cascading real elements rather than by a single Jones the
+% test could have written itself.  Retarder2 defaults to zero retardance,
+% i.e. the identity, so any gate that does not want it simply leaves it.
+%
+% Axis and retardance are set from the test via macos.polarizer /
+% macos.waveplate; the values here are only the parse-time defaults (and
+% they exercise the Rx keyword path, which is itself a gate).
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -1.0E+00
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=1.0E-02
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  128
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  7
+
+
+             iElt=  1
+          EltName=  PupilStop
+          Element=  Obscuring
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.0E-03  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Polarizer1
+          Element=  TrPolarizer
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0E-01
+           RptElt=  0.0E+00  0.0E+00  1.0E-01
+          PolAxis=  1.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-01
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Retarder1
+          Element=  WavePlate
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  2.0E-01
+           RptElt=  0.0E+00  0.0E+00  2.0E-01
+          PolAxis=  1.0E+00  0.0E+00  0.0E+00
+       Retardance=2.5E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=2.0E-01
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Retarder2
+          Element=  WavePlate
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  2.5E-01
+           RptElt=  0.0E+00  0.0E+00  2.5E-01
+          PolAxis=  1.0E+00  0.0E+00  0.0E+00
+       Retardance=0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=2.5E-01
+          nECoord= -6
+
+             iElt=  5
+          EltName=  Analyzer
+          Element=  TrPolarizer
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  3.0E-01
+           RptElt=  0.0E+00  0.0E+00  3.0E-01
+          PolAxis=  1.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=3.0E-01
+          nECoord= -6
+
+             iElt=  6
+          EltName=  PropStart
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  4.0E-01
+           RptElt=  0.0E+00  0.0E+00  4.0E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NFPlane
+             zElt=4.0E-01
+          nECoord= -6
+
+             iElt=  7
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.4E+00
+           RptElt=  0.0E+00  0.0E+00  1.4E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.4E+00
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

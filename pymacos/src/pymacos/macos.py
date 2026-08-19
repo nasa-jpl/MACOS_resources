@@ -4,6 +4,7 @@
 #
 # ------------------------------------------------------------------------------
 import functools
+import math
 import warnings
 from pathlib import Path
 from typing import Any, List, NewType, Tuple, TypeVar, TypeVarTuple
@@ -303,7 +304,10 @@ def model_size() -> int:
         int: model size -1, 128, 256, 512, 1024, 2048 or 4096
              where -1 indicates that MACOS has not yet been initialised
     """
-    return lib.api.currrent_macos_model_size()
+    # currrent_macos_model_size is a FUNCTION and was never wrapped for
+    # f2py (imported but no shim), so call the model_size_get subroutine
+    # wrapper instead.
+    return int(lib.api.model_size_get())
 
 
 def init(model_size: int = 512) -> None:
@@ -3567,7 +3571,8 @@ def opd(orient: str = "raw", sign: str = "opl") -> Matrix[np.float64]:
 
 
 def complex_field(srf: int | np.int32,
-                  reset_trace: bool = True) -> Matrix[np.complex128]:
+                  reset_trace: bool = True,
+                  plane: int = 0) -> Matrix[np.complex128]:
     """Retrieve the diffraction-grid complex field at element `srf`.
 
     Triggers macos's full propagation chain (via the 'INT' command),
@@ -3582,6 +3587,20 @@ def complex_field(srf: int | np.int32,
              values index from the end.
         reset_trace: If True (default), runs MODIFY first so the trace
              starts from the source.
+        plane: 0 (default) returns the element's own wavefront -- the
+             historical behaviour.  1, 2 or 3 returns a single Cartesian
+             FIELD COMPONENT Ex, Ey or Ez.  In vector-diffraction mode
+             the three wavefront storage planes are repurposed as the
+             components of one wavefront, so this is the only way to see
+             how they contribute to a propagated intensity (which sums
+             them).  Requesting 1..3 with vector diffraction OFF raises:
+             in scalar mode plane k is an unrelated wavefront, not a
+             field component, and returning it would invite exactly the
+             misreading the option exists to prevent.
+
+             The planes add in INTENSITY, not amplitude:
+             ``sum(abs(complex_field(s, plane=k))**2 for k in (1,2,3))``
+             equals ``intensity(s)``.
 
     Returns:
         2D complex128 ndarray (N x N) of the complex amplitude at the
@@ -3613,11 +3632,14 @@ def complex_field(srf: int | np.int32,
         raise Exception("MACOS: 'complex_field' propagation failed at "
                         f"Elt {iElt}")
 
-    ok, re_arr, im_arr = lib.api.cfield_get(n, int(iElt))
+    if plane not in (0, 1, 2, 3):
+        raise ValueError(f"complex_field: plane must be 0..3, got {plane}")
+    ok, re_arr, im_arr = lib.api.cfield_plane_get(n, int(iElt), int(plane))
     if not ok:
         raise Exception(
             f"MACOS: complex-field buffer retrieval failed at Elt "
-            f"{iElt} (element may have no diffraction wavefront slot)")
+            f"{iElt} (element may have no diffraction wavefront slot; "
+            f"plane 1..3 additionally requires vector diffraction ON)")
 
     return re_arr + 1j * im_arr
 
@@ -4614,6 +4636,612 @@ def beam(kind: str | None = None,
     if not lib.api.beam_set(_BEAM_CODES[kind], p1, p2):
         raise Exception('MACOS: beam_set failed')
     return None
+
+
+# --- Polarization (PLAN_POLARIZATION Phase 1) --------------------------
+def _single_elt(srf) -> int:
+    """Map a user srf to a single 1-based element ID (raise if multiple)."""
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception(f'expected a single element, got {len(iElt)}')
+        iElt = iElt[0]
+    return int(iElt)
+
+
+def polarization(state: str | None = None,
+                 Ex: complex | Tuple[float, float] = (1.0, 0.0),
+                 Ey: complex | Tuple[float, float] = (0.0, 0.0)) -> dict | None:
+    """POLARIZATION -- enable/disable polarized ray tracing + source state.
+
+    With ``state='on'`` enables polarized tracing (rays carry a complex
+    3-vector E-field, surface coatings become active, and vector
+    diffraction turns on when the model supports it, mWF>=3).  With
+    ``state='off'`` restores scalar tracing.  With ``state=None`` (default)
+    QUERIES the current state.
+
+    Args:
+        state: 'on', 'off', or None (query).
+        Ex, Ey: source Jones amplitudes, complex or (re, im).  Used only
+            when ``state='on'``.  Defaults to x-polarized (Ex=1, Ey=0).
+
+    Returns:
+        None when setting.  When querying, a dict:
+        ``{'on': bool, 'vector': bool, 'Ex': complex, 'Ey': complex}``.
+
+    Raises:
+        Exception: Rx not loaded, bad state, mWF<3 when enabling, or the
+            engine rejected the call.
+    """
+    _chk_macos_and_rx_loaded()
+
+    if state is None:
+        ok, on, vec, exre, exim, eyre, eyim = lib.api.pol_get()
+        if not ok:
+            raise Exception('MACOS: pol_get failed')
+        return {'on': bool(on), 'vector': bool(vec),
+                'Ex': complex(exre, exim), 'Ey': complex(eyre, eyim)}
+
+    s = state.lower()
+    if s == 'off':
+        if not lib.api.pol_set(False, 0.0, 0.0, 0.0, 0.0):
+            raise Exception('MACOS: pol_set (off) failed')
+        return None
+    if s != 'on':
+        raise Exception(f"MACOS: polarization state must be 'on'/'off'/None, "
+                        f"got {state!r}")
+
+    exc = Ex if isinstance(Ex, complex) else complex(*np.atleast_1d(Ex)[:2]) \
+        if hasattr(Ex, '__len__') else complex(Ex)
+    eyc = Ey if isinstance(Ey, complex) else complex(*np.atleast_1d(Ey)[:2]) \
+        if hasattr(Ey, '__len__') else complex(Ey)
+    if not lib.api.pol_set(True, exc.real, exc.imag, eyc.real, eyc.imag):
+        raise Exception('MACOS: pol_set (on) failed -- model may have mWF<3')
+    return None
+
+
+def vector_diffraction(on: bool) -> None:
+    """VECTOR / SCALAR -- toggle 3-component (vector) diffraction.
+
+    ``on=True`` propagates Ex/Ey/Ez as three independent fields.  Since
+    PLAN_POLARIZATION Phase 3a Tranche 1 this covers the WHOLE chain --
+    every near-field, plane-to-plane, spherical, Fresnel and DFT leg, plus
+    ``FFObscure`` and the ray-side aperture masking -- not just the
+    far-field FFT leg.  Intensity / complex-field readouts sum the three
+    components.  ``on=False`` restores single-field scalar diffraction.
+
+    VECTOR requires polarization ON already (:func:`polarization`) and a
+    model with mWF>=3, else raises (the engine would otherwise silently
+    revert to scalar).
+
+    Constraint: vector mode repurposes the model's mWF=3 wavefront planes
+    as Ex/Ey/Ez of ONE wavefront, so only a single wavefront can be in
+    flight -- do not combine it with multi-WF / COMPOSE work.
+
+    Chains with COATED or reflective surfaces BETWEEN physical propagation
+    legs still need Tranche 2 (per-ray running Jones); Tranche 1 is exact
+    when the elements between legs are non-polarizing (Obscuring /
+    Reference / FocalPlane) -- the coronagraph pupil->FPM->Lyot->focal case.
+    """
+    _chk_macos_and_rx_loaded()
+    if not lib.api.vecdif_set(bool(on)):
+        raise Exception('MACOS: vecdif_set failed -- turn polarization on '
+                        'first (and need mWF>=3)')
+
+
+_MCOAT = 10   # mCoat in elt_mod.F
+
+
+def coating(srf: int | np.int32,
+            index: ArrayLike | None = None,
+            extinc: ArrayLike | None = None,
+            thickness: ArrayLike | None = None) -> dict | None:
+    """Set or query the thin-film coating stack on an element (Model A).
+
+    The polarization-path coating (active only under
+    ``polarization('on')``).  Layers are ordered OUTERMOST -> INNERMOST.
+
+    Args:
+        srf: element ID.
+        index, extinc, thickness: equal-length per-layer vectors.  ``index``
+            is the real refractive index n, ``extinc`` the extinction kappa
+            (index = n - i*kappa), ``thickness`` the PHYSICAL layer thickness
+            in element BaseUnits (NOT waves).  Omit all three to QUERY.
+
+    Returns:
+        None when setting.  When querying, a dict:
+        ``{'n_layer': int, 'index': ndarray, 'extinc': ndarray,
+        'thickness': ndarray}`` (physical thickness).
+
+    Raises:
+        Exception: Rx not loaded, bad layer count/length, or engine error.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = _single_elt(srf)
+
+    if index is None and extinc is None and thickness is None:
+        ok, n_layer, idx, ext, thk = lib.api.coat_get(iElt, _MCOAT)
+        if not ok:
+            raise Exception(f'MACOS: coat_get failed at Elt {iElt}')
+        n = int(n_layer)
+        return {'n_layer': n,
+                'index': np.asarray(idx[:n], dtype=float),
+                'extinc': np.asarray(ext[:n], dtype=float),
+                'thickness': np.asarray(thk[:n], dtype=float)}
+
+    n_arr = np.atleast_1d(np.asarray(index, dtype=float))
+    k_arr = np.atleast_1d(np.asarray(extinc, dtype=float))
+    t_arr = np.atleast_1d(np.asarray(thickness, dtype=float))
+    L = n_arr.size
+    if L < 1 or L > _MCOAT:
+        raise Exception(f'MACOS: coating needs 1..{_MCOAT} layers (got {L})')
+    if k_arr.size != L or t_arr.size != L:
+        raise Exception("MACOS: 'index','extinc','thickness' must match length")
+    # f2py derives nlayer from the array shapes (optional trailing arg).
+    if not lib.api.coat_set(iElt, n_arr, k_arr, t_arr):
+        raise Exception(f'MACOS: coat_set failed at Elt {iElt}')
+    return None
+
+
+def ray_field(srf: int | np.int32) -> dict:
+    """Per-ray complex E-field + geometry + status at an element.
+
+    Harvests, on the N x N ray grid at element ``srf`` (N = model size),
+    the per-ray complex field RayE(3,:), the ray direction cosines, the
+    element surface normal, and the per-ray status.  Requires a polarized
+    trace: call :func:`polarization` ('on') and trace first.
+
+    Returns:
+        dict of ndarrays: ``E`` (complex, shape (N, N, 3) = Ex/Ey/Ez),
+        ``k`` (float, (N, N, 3) direction cosines), ``n`` (float, (N, N, 3)
+        surface normal), and ``status`` (int, (N, N); 0=OK..5=Undef).
+
+    Raises:
+        Exception: Rx not loaded or engine error.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = _single_elt(srf)
+    N = model_size()
+    (ok, exre, exim, eyre, eyim, ezre, ezim,
+     kx, ky, kz, nx, ny, nz, status) = lib.api.rayfield_get(N, iElt)
+    if not ok:
+        raise Exception(f'MACOS: rayfield_get failed at Elt {iElt}')
+    E = np.stack([exre + 1j * exim, eyre + 1j * eyim, ezre + 1j * ezim],
+                 axis=-1)
+    k = np.stack([kx, ky, kz], axis=-1)
+    n = np.stack([nx, ny, nz], axis=-1)
+    return {'E': E, 'k': k, 'n': n, 'status': status.astype(int)}
+
+
+def jones_pupil(srf: int | np.int32, basis: str = 'double-pole',
+                axis: ArrayLike | None = None,
+                xref: ArrayLike | None = None) -> dict:
+    """2x2 Jones pupil at an element from two orthogonal polarized traces.
+
+    Traces the loaded prescription twice with source states (Ex0,Ey0) =
+    (1,0) and (0,1), harvests the per-ray vector field at ``srf``
+    (:func:`ray_field`), and assembles the 2x2 complex Jones matrix per
+    ray-grid point: [E_out in exit basis] = J [source state].
+
+    INPUT basis (fixed by the engine): collimated sources launch every
+    ray with E = S*(Ex0*xGrid + Ey0*yGrid) -- the source-frame pair,
+    uniform over the grid; point sources use the per-ray frame
+    yray = unit(RayDir x xGrid), xray = yray x RayDir (ssrcray.inc).
+    S is the engine flux normalization (~1/sqrt(nRays)); J carries this
+    common real scalar (ratios/metrics unaffected).
+
+    Args:
+        srf: element at which to harvest.
+        basis: output transverse basis --
+            'double-pole' (default): Chipman double-pole coordinates,
+            smooth over any physical pupil; use for budget numbers.
+            'local-sp': per-ray s/p relative to the exit axis;
+            coordinate-singular on axis -- diagnostic only.
+            'global': project onto (xref, yref) ignoring ray direction.
+        axis: exit-axis 3-vector (default: mean unit ray direction).
+        xref: reference x direction (default: global +x projected out of
+            the axis; +y fallback).
+
+    Returns:
+        dict: ``J`` (N,N,2,2) complex, NaN at vignetted points; ``mask``
+        (N,N) bool; ``basis``, ``axis``, ``xref``, ``yref``; ``k``
+        (N,N,3) exit unit ray directions; ``leak`` max longitudinal
+        residual |E.k|/|E|; ``singular`` (N,N) bool where the requested
+        basis is coordinate-singular (local-sp only, else all-False).
+
+    The two traces are geometry-identical by construction (asserted
+    bitwise).  The pre-call polarization state is restored on exit.
+    """
+    if basis not in ('double-pole', 'local-sp', 'global'):
+        raise Exception(f"MACOS: jones_pupil basis must be 'double-pole', "
+                        f"'local-sp' or 'global', got {basis!r}")
+    s0 = polarization()
+
+    polarization('on', Ex=1 + 0j, Ey=0 + 0j)
+    trace_rays(srf)
+    rfx = ray_field(srf)
+    polarization('on', Ex=0 + 0j, Ey=1 + 0j)
+    trace_rays(srf)
+    rfy = ray_field(srf)
+
+    if s0['on']:
+        polarization('on', Ex=s0['Ex'], Ey=s0['Ey'])
+    else:
+        polarization('off')
+
+    if (not np.array_equal(rfx['status'], rfy['status'])
+            or not np.array_equal(rfx['k'], rfy['k'])):
+        raise Exception('MACOS: jones_pupil -- x/y-state traces disagree in '
+                        'ray geometry (engine bug?)')
+    mask = (rfx['status'] == 0) & (rfy['status'] == 0)
+    if not mask.any():
+        raise Exception(f'MACOS: jones_pupil -- no unvignetted rays at {srf}')
+    N = mask.shape[0]
+
+    k = rfx['k'].copy()
+    kmag = np.linalg.norm(k, axis=-1)
+    kmag[~mask] = 1.0
+    k /= kmag[..., None]
+
+    if axis is not None:
+        ax = np.asarray(axis, dtype=float)
+        ax = ax / np.linalg.norm(ax)
+    else:
+        ax = k[mask].mean(axis=0)
+        ax = ax / np.linalg.norm(ax)
+
+    if xref is not None:
+        xr = np.asarray(xref, dtype=float)
+    else:
+        xr = np.array([1.0, 0.0, 0.0])
+        if abs(xr @ ax) > 1 - 1e-8:
+            xr = np.array([0.0, 1.0, 0.0])
+    xr = xr - (xr @ ax) * ax
+    xr = xr / np.linalg.norm(xr)
+    yr = np.cross(ax, xr)                      # right-handed: xr x yr = ax
+
+    singular = np.zeros((N, N), dtype=bool)
+    if basis == 'double-pole':
+        # Rodrigues rotation carrying ax -> khat, applied to (xr, yr)
+        cth = k @ ax
+        r = np.cross(np.broadcast_to(ax, k.shape), k)
+        sth = np.linalg.norm(r, axis=-1)
+        onax = sth < 1e-12
+        u = r / np.where(sth[..., None] == 0, 1, sth[..., None])
+
+        def _rotc(v0):
+            cxv = np.stack([u[..., 1] * v0[2] - u[..., 2] * v0[1],
+                            u[..., 2] * v0[0] - u[..., 0] * v0[2],
+                            u[..., 0] * v0[1] - u[..., 1] * v0[0]], axis=-1)
+            ud = u @ v0
+            v = (v0[None, None, :] * cth[..., None] + cxv * sth[..., None]
+                 + u * (ud * (1 - cth))[..., None])
+            v[onax] = v0
+            return v
+        e1 = _rotc(xr)
+        e2 = _rotc(yr)
+    elif basis == 'local-sp':
+        s_ = np.cross(k, np.broadcast_to(ax, k.shape))
+        smag = np.linalg.norm(s_, axis=-1)
+        singular = mask & (smag < 1e-9)
+        s_ /= np.where(smag[..., None] < 1e-9, 1, smag[..., None])
+        e1 = np.cross(s_, k)                   # p (meridional); e1 x e2 = k
+        e2 = s_
+        e1[singular] = xr
+        e2[singular] = yr
+    else:                                      # 'global'
+        e1 = np.broadcast_to(xr, k.shape).copy()
+        e2 = np.broadcast_to(yr, k.shape).copy()
+
+    J = np.full((N, N, 2, 2), np.nan + 1j * np.nan, dtype=complex)
+    J[..., 0, 0] = (e1 * rfx['E']).sum(axis=-1)
+    J[..., 1, 0] = (e2 * rfx['E']).sum(axis=-1)
+    J[..., 0, 1] = (e1 * rfy['E']).sum(axis=-1)
+    J[..., 1, 1] = (e2 * rfy['E']).sum(axis=-1)
+    J[~mask] = np.nan + 1j * np.nan
+
+    leak = 0.0
+    for rf in (rfx, rfy):
+        Edotk = (rf['E'] * k).sum(axis=-1)
+        Emag = np.linalg.norm(rf['E'], axis=-1)
+        lk = np.abs(Edotk) / np.where(Emag == 0, 1, Emag)
+        leak = max(leak, float(lk[mask].max()))
+
+    return {'J': J, 'mask': mask, 'basis': basis, 'axis': ax,
+            'xref': xr, 'yref': yr, 'k': k, 'leak': leak,
+            'singular': singular}
+
+
+def pol_maps(jp: dict) -> dict:
+    """Polarization-aberration decomposition of a Jones pupil.
+
+    Decomposes ``jp`` (from :func:`jones_pupil`, or any dict with ``J``
+    (N,N,2,2) complex and ``mask`` (N,N) bool) via the per-point polar
+    decomposition J = H W (H hermitian >= 0, W unitary), closed-form 2x2
+    Pauli algebra, fully vectorized.
+
+    Pauli ordering: s1 = x/y (0/90 linear), s2 = +/-45 linear,
+    s3 = circular.
+
+    Returns:
+        dict of (N,N) maps (NaN off-mask): ``T`` intensity transmission
+        (carries the engine source normalization -- ratios only), ``D``
+        diattenuation magnitude, ``Dvec`` (N,N,3) components, ``ret``
+        retardance magnitude in [0, pi], ``retvec`` (N,N,3), ``phase``
+        unitary-part global phase (mod pi), ``ambiguous`` bool (ret
+        within 0.2 rad of pi -- branch unresolved, flagged not chosen),
+        ``mask``; plus ``mean`` and ``var_rms`` dicts (T, D, Dvec, ret,
+        retvec), the pupil mean and the RMS of the variation SEPARATELY
+        -- uniform retardance/diattenuation is a state change (and,
+        after folds, the system's geometric rotation), not an
+        aberration; only the variation drives a contrast floor or a PSI
+        systematic.
+
+    Basis dependence: ``D``/``T`` are singular-value invariants
+    (basis-independent); ``ret``/``retvec`` are exactly what the
+    double-pole basis makes artifact-free.
+    """
+    J = jp['J']
+    mask = np.asarray(jp['mask'], dtype=bool)
+    J11, J12 = J[..., 0, 0], J[..., 0, 1]
+    J21, J22 = J[..., 1, 0], J[..., 1, 1]
+    with np.errstate(invalid='ignore', divide='ignore'):
+        return _pol_maps_body(J11, J12, J21, J22, mask)
+
+
+def _pol_maps_body(J11, J12, J21, J22, mask):
+    # off-mask points are NaN by construction (errstate-silenced caller)
+
+    # hermitian product M = J^dag J (Pauli coefficients, real)
+    M11 = np.abs(J11) ** 2 + np.abs(J21) ** 2
+    M22 = np.abs(J12) ** 2 + np.abs(J22) ** 2
+    M12 = np.conj(J11) * J12 + np.conj(J21) * J22
+    t0 = (M11 + M22) / 2
+    t1 = (M11 - M22) / 2
+    t2 = M12.real
+    t3 = -M12.imag
+    tm = np.sqrt(t1 ** 2 + t2 ** 2 + t3 ** 2)
+
+    tiny = np.finfo(float).tiny
+    T = t0
+    D = tm / np.maximum(t0, tiny)
+    Dvec = np.stack([t1, t2, t3], axis=-1) / np.maximum(t0, tiny)[..., None]
+
+    # polar: H = sqrtm(M) closed form; W = J H^-1
+    detM = t0 ** 2 - tm ** 2
+    sq = np.sqrt(np.maximum(detM, 0))
+    den = np.sqrt(np.maximum(2 * t0 + 2 * sq, tiny))
+    H11, H22, H12 = (M11 + sq) / den, (M22 + sq) / den, M12 / den
+    detH = np.maximum(sq, tiny)
+    Hi11, Hi22 = H22 / detH, H11 / detH
+    Hi12, Hi21 = -H12 / detH, -np.conj(H12) / detH
+    W11 = J11 * Hi11 + J12 * Hi21
+    W12 = J11 * Hi12 + J12 * Hi22
+    W21 = J21 * Hi11 + J22 * Hi21
+    W22 = J21 * Hi12 + J22 * Hi22
+
+    # retardance from the unitary part: strip psi (det W = e^{2i psi}),
+    # W' = cos(d/2) I - i sin(d/2) (nhat . sigma)
+    detW = W11 * W22 - W12 * W21
+    psi = np.angle(detW) / 2
+    ph = np.exp(-1j * psi)
+    W11p, W12p, W21p, W22p = W11 * ph, W12 * ph, W21 * ph, W22 * ph
+    c = (W11p + W22p).real / 2
+    sn1 = (W22p - W11p).imag / 2
+    sn2 = -(W12p + W21p).imag / 2
+    sn3 = (W21p - W12p).real / 2
+    neg = c < 0                                # canonicalize d in [0, pi]
+    c = np.where(neg, -c, c)
+    sn1 = np.where(neg, -sn1, sn1)
+    sn2 = np.where(neg, -sn2, sn2)
+    sn3 = np.where(neg, -sn3, sn3)
+    psi = np.where(neg, psi + np.pi, psi)
+    psi = np.mod(psi + np.pi / 2, np.pi) - np.pi / 2
+    snm = np.sqrt(sn1 ** 2 + sn2 ** 2 + sn3 ** 2)
+    delta = 2 * np.arctan2(snm, c)
+    snmn = np.where(snm < tiny, 1, snm)
+    retvec = np.stack([delta * sn1 / snmn, delta * sn2 / snmn,
+                       delta * sn3 / snmn], axis=-1)
+    ambiguous = mask & (delta > np.pi - 0.2)
+
+    off = ~mask
+    for a in (T, D, delta, psi):
+        a[off] = np.nan
+    Dvec[off] = np.nan
+    retvec[off] = np.nan
+
+    def _stat(x):
+        v = x[mask] if x.ndim == 2 else x[mask]
+        mu = v.mean(axis=0)
+        return mu, np.sqrt(((v - mu) ** 2).mean(axis=0))
+
+    mT, vT = _stat(T)
+    mD, vD = _stat(D)
+    mR, vR = _stat(delta)
+    mDv, vDv = _stat(Dvec)
+    mRv, vRv = _stat(retvec)
+
+    return {'T': T, 'D': D, 'Dvec': Dvec, 'ret': delta, 'retvec': retvec,
+            'phase': psi, 'ambiguous': ambiguous, 'mask': mask,
+            'mean': {'T': mT, 'D': mD, 'Dvec': mDv, 'ret': mR,
+                     'retvec': mRv},
+            'var_rms': {'T': vT, 'D': vD, 'Dvec': vDv, 'ret': vR,
+                        'retvec': vRv}}
+
+
+_ANSI_NORM_RMS = (1.0, 2.0, 2.0, np.sqrt(6), np.sqrt(3), np.sqrt(6),
+                  np.sqrt(8), np.sqrt(8), np.sqrt(8), np.sqrt(8),
+                  np.sqrt(10), np.sqrt(10), np.sqrt(5), np.sqrt(10),
+                  np.sqrt(10))
+
+_ANSI_NAMES = ('piston', 'tilt-y', 'tilt-x', 'astig45', 'defocus', 'astig0',
+               'trefoil-y', 'coma-y', 'coma-x', 'trefoil-x', 'quadrafoil-y',
+               'astig45-2', 'spherical', 'astig0-2', 'quadrafoil-x')
+
+
+def _ansi_nm(j: int) -> tuple:
+    """Radial and azimuthal order of MACOS ANSI mode ``j`` (1-based)."""
+    jj = j - 1
+    n = int(np.ceil((-3 + np.sqrt(9 + 8 * jj)) / 2))
+    return n, 2 * jj - n * (n + 2)
+
+
+def _ansi_zernike(j: int, rho, th):
+    """MACOS ANSI Zernike mode ``j`` (1-based, as in MonZernModes=).
+
+    Mirrors mmacos ``+macos/private/ansi_zernike_eval.m`` exactly --
+    ZerntoMon1 convention, m < 0 -> sin(|m|th), RMS-normalized by
+    NORM_RMS_PARAM_ANSI (elt_mod.F:288-299).  The two must agree: a mode
+    index that means different things in the two bindings is a silent
+    cross-language trap.
+    """
+    if j > len(_ANSI_NORM_RMS):
+        raise ValueError(f'NORM_RMS_PARAM_ANSI tabulated to mode '
+                         f'{len(_ANSI_NORM_RMS)} here (got {j})')
+    n, m = _ansi_nm(j)
+    am = abs(m)
+    R = np.zeros_like(rho)
+    for s in range((n - am) // 2 + 1):
+        c = ((-1) ** s * math.factorial(n - s)
+             / (math.factorial(s) * math.factorial((n + am) // 2 - s)
+                * math.factorial((n - am) // 2 - s)))
+        R = R + c * rho ** (n - 2 * s)
+    ang = np.cos(m * th) if m >= 0 else np.sin(am * th)
+    return _ANSI_NORM_RMS[j - 1] * R * ang
+
+
+def pol_zernike(pm: dict, modes=None, center=None, radius=None,
+                orthonormalize: bool = False) -> dict:
+    """Low-order Zernike expansion of polarization-aberration maps.
+
+    Expands the diattenuation and retardance maps in ``pm`` (from
+    :func:`pol_maps`) onto a Zernike basis over the unvignetted pupil,
+    giving the standard polarization-aberration terms -- piston, tilt,
+    defocus, astigmatism and up -- in each Pauli component.  This is what
+    makes a MACOS result comparable term-by-term with the published
+    polarization-aberration literature, which is written in aberration
+    terms rather than as maps.
+
+    For an on-axis rotationally symmetric two-mirror system the theory
+    predicts a specific answer: diattenuation and retardance grow as
+    rho**2 with a 2*theta azimuthal dependence, so the expansion must be
+    dominated by ASTIGMATISM in the two linear Pauli components (mode 6 =
+    astig0 in s1, mode 4 = astig45 in s2, equal magnitude), with no
+    circular (s3) content and no defocus -- "polarization astigmatism".
+
+    The fit is least-squares, which is the correct estimator whether or
+    not the basis is orthogonal over the actual mask; on an obscured
+    (annular) pupil circular Zernikes are NOT orthogonal, so the
+    conditioning is reported in ``cond``.
+
+    Args:
+        pm: dict from :func:`pol_maps` (needs Dvec, retvec, D, ret, mask;
+            uses ``ambiguous`` if present).
+        modes: MACOS ANSI 1-based mode indices.  Default 1..15.
+        center: (i, j) pupil centre in grid indices.  Default: mask
+            centroid.
+        radius: normalization radius in pixels.  Default: the largest
+            mask-point distance from the centre, so rho <= 1.
+        orthonormalize: Gram-Schmidt the basis over the ACTUAL mask before
+            fitting.  Coefficients become mutually independent but are no
+            longer standard Zernike coefficients -- use for energy
+            bookkeeping, not for literature comparison.
+
+    Returns:
+        dict with ``modes``, ``names``, ``nm`` (K,2), ``D`` (K,3),
+        ``ret`` (K,3), ``Dmag`` (K,), ``retmag`` (K,), ``resid_rms``,
+        ``frac`` (fraction of each map's mean square explained),
+        ``cond``, ``recon`` (reconstructed maps, NaN off-mask),
+        ``center``, ``radius``, ``npts``, ``npts_ret``,
+        ``orthonormalized``, ``mask``.
+
+    Mode 1 (piston) is the pupil MEAN; every other mode is variation
+    about it.  Keep the separation -- a uniform diattenuation or
+    retardance is a state change, not an aberration, and only the
+    variation drives a contrast floor or a PSI systematic.
+
+    Retardance caveat: points flagged ``pm['ambiguous']`` (retardance
+    within 0.2 rad of pi, where the branch is unresolved) are EXCLUDED
+    from the retardance fits and counted in ``npts_ret``.
+    """
+    modes = np.arange(1, 16) if modes is None else np.asarray(modes, int)
+    mask = np.asarray(pm['mask'], dtype=bool)
+    if not mask.any():
+        raise ValueError('pupil mask is empty')
+    ii, jj = np.indices(mask.shape).astype(float)   # first index = +x
+    ctr = ((ii[mask].mean(), jj[mask].mean()) if center is None
+           else (float(center[0]), float(center[1])))
+    dx, dy = ii - ctr[0], jj - ctr[1]
+    rr = np.hypot(dx, dy)
+    rad = float(rr[mask].max()) if radius is None else float(radius)
+    if rad <= 0:
+        raise ValueError('pupil radius must be positive')
+    rho, th = rr / rad, np.arctan2(dy, dx)
+
+    basis = np.stack([_ansi_zernike(int(j), rho, th) for j in modes], axis=-1)
+
+    def _design(sel):
+        A = basis[sel]
+        if orthonormalize:
+            A, _ = np.linalg.qr(A)
+            A = A * np.sqrt(A.shape[0])
+        return A
+
+    A = _design(mask)
+    cond = float(np.linalg.cond(basis[mask]))
+
+    retmask = mask
+    amb = pm.get('ambiguous')
+    if amb is not None:
+        a = np.asarray(amb)
+        retmask = mask & ~np.where(np.isnan(a.astype(float)), False,
+                                   a.astype(bool))
+    Ar = A if np.array_equal(retmask, mask) else _design(retmask)
+
+    def _fit(A_, sel, Map):
+        y = np.asarray(Map)[sel]
+        ok = np.isfinite(y)
+        Au, yu = (A_[ok], y[ok]) if not ok.all() else (A_, y)
+        c, *_ = np.linalg.lstsq(Au, yu, rcond=None)
+        r = yu - Au @ c
+        den = ((yu - yu.mean()) ** 2).mean()
+        frac = 1.0 if den <= 0 else 1 - ((r - r.mean()) ** 2).mean() / den
+        recon = np.full(np.asarray(Map).shape, np.nan)
+        idx = np.where(sel)
+        if not ok.all():
+            idx = tuple(v[ok] for v in idx)
+        recon[idx] = Au @ c
+        return c, float(np.sqrt((r ** 2).mean())), float(frac), recon
+
+    cD = np.zeros((len(modes), 3))
+    cR = np.zeros((len(modes), 3))
+    rD = np.zeros(3)
+    rR = np.zeros(3)
+    fD = np.zeros(3)
+    fR = np.zeros(3)
+    reconD = np.full(mask.shape + (3,), np.nan)
+    reconR = np.full(mask.shape + (3,), np.nan)
+    for c in range(3):
+        cD[:, c], rD[c], fD[c], reconD[..., c] = _fit(
+            A, mask, pm['Dvec'][..., c])
+        cR[:, c], rR[c], fR[c], reconR[..., c] = _fit(
+            Ar, retmask, pm['retvec'][..., c])
+    cDm, rDm, fDm, reconDm = _fit(A, mask, pm['D'])
+    cRm, rRm, fRm, reconRm = _fit(Ar, retmask, pm['ret'])
+
+    nm = np.array([_ansi_nm(int(j)) for j in modes])
+    names = [(_ANSI_NAMES[j - 1] if j <= len(_ANSI_NAMES)
+              else f'n{n} m{m:+d}') for j, (n, m) in zip(modes, nm)]
+    return {'modes': modes, 'names': names, 'nm': nm,
+            'D': cD, 'ret': cR, 'Dmag': cDm, 'retmag': cRm,
+            'resid_rms': {'D': rD, 'ret': rR, 'Dmag': rDm, 'retmag': rRm},
+            'frac': {'D': fD, 'ret': fR, 'Dmag': fDm, 'retmag': fRm},
+            'cond': cond,
+            'recon': {'Dvec': reconD, 'retvec': reconR,
+                      'D': reconDm, 'ret': reconRm},
+            'center': ctr, 'radius': rad,
+            'npts': int(mask.sum()), 'npts_ret': int(retmask.sum()),
+            'orthonormalized': orthonormalize, 'mask': mask}
 
 
 def ffp(place_elt: int | np.int32,
