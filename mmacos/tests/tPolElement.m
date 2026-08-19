@@ -812,11 +812,20 @@ classdef tPolElement < matlab.unittest.TestCase
             % transmitted axis, since normalizing an already-unit vector
             % would perturb it by an ULP.
             %
-            % The reference values below were captured from the PRE-FLIP
-            % engine (macos 52c7669, pass-axis projection) and are asserted
-            % BIT-for-bit, so this gate would fail on any change to the
-            % normal-incidence basis construction, including a change that
-            % is merely a rounding difference.
+            % The reference values below are asserted BIT-for-bit, so this
+            % gate fails on any change to the normal-incidence basis
+            % construction, including a mere rounding difference.  History:
+            % first captured on the pre-flip engine (macos 52c7669, which
+            % also predated the PR #70 ColSource pupil fix); re-pinned
+            % 2026-08-18 on the post-#70 engine (macos dev-candidate
+            % 485160a).  The #70 re-pin is a UNIFORM source-normalization
+            % scale -- Ex and Ey moved by the identical real factor
+            % 1.01577535231445 (imag part exactly 0) and every intensity
+            % pin by exactly its square -- and it lands the Malus pins
+            % below on the closed forms [1, 3/4, 1/4, cos^2(0.37)] the
+            % class doctrine calls for.  Any FUTURE drift in these pins
+            % that is not such a uniform scale is a basis-construction
+            % change and must be treated as a defect.
             macos.load_rx(rx_fixture_path(testCase.RxName));
             ax = @(t) [cos(t) sin(t) 0];
             macos.polarization('on', 'Ex', [1/sqrt(3) 0], 'Ey', [0.4 0.6]);
@@ -828,16 +837,16 @@ classdef tPolElement < matlab.unittest.TestCase
             [Ex, Ey, Ez] = testCase.fieldAt(testCase.Anal);
 
             testCase.verifyEqual(numel(Ex), 12453);
-            ref = complex(0.0013237489818033752, -0.0015839368906731888);
+            ref = complex(0.0013446315883672208, -0.0016089240531674163);
             testCase.verifyEqual(Ex, repmat(ref, size(Ex)));       % bitwise
-            ref = complex(0.002600848595771252, -0.0031120553024225508);
+            ref = complex(0.0026418778986860916, -0.0031611490712403255);
             testCase.verifyEqual(Ey, repmat(ref, size(Ey)));       % bitwise
             testCase.verifyEqual(Ez, zeros(size(Ez)));
             testCase.verifyEqual(sum(abs(Ex).^2 + abs(Ey).^2 + abs(Ez).^2), ...
-                                 0.25790747125301317);
+                                 0.26610881700234323);
 
             % and the same on the GRID side -- a Malus curve at the
-            % detector, bit-for-bit against the pre-flip engine
+            % detector, bit-for-bit (post-#70 engine: the textbook cos^2)
             testCase.polOn(1, 0);
             testCase.configure(0, 0, 0, 0, 0, 0);
             I = zeros(1,4);
@@ -847,10 +856,10 @@ classdef tPolElement < matlab.unittest.TestCase
                 macos.trace(testCase.Det);
                 I(k) = sum(macos.intensity(testCase.Det), 'all');
             end
-            testCase.verifyEqual(I, [0.96918048097128195, ...
-                                     0.72688536072846333, ...
-                                     0.24229512024282066, ...
-                                     0.84244489695149771]);       % bitwise
+            testCase.verifyEqual(I, [1, ...
+                                     0.75000000000000022, ...
+                                     0.25000000000000006, ...
+                                     0.86923427936479569]);       % bitwise
         end
     end
 end
