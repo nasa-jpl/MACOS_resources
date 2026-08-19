@@ -12,9 +12,16 @@ end
 %   Fixtures that exist only for mmacos (no pymacos counterpart) live in
 %   mmacos/tests/Rx/ and are found by the same call — the shared corpus is
 %   searched first, the mmacos-local one second.
+%   Roots are anchored to THIS clone first (repo-relative), with the
+%   canonical ~/dev/MACOS_resources checkout as a fallback -- a
+%   hard-coded absolute root made a test in one worktree read another
+%   worktree's fixtures.
+mm    = fileparts(fileparts(fileparts(mfilename('fullpath'))));  % mmacos
+res   = fileparts(mm);                                           % repo root
 roots = { ...
-    fullfile(getenv('HOME'), 'dev', 'MACOS_resources', 'pymacos', 'tests', 'Rx'), ...
-    fullfile(fileparts(fileparts(mfilename('fullpath'))), 'Rx')};
+    fullfile(res, 'pymacos', 'tests', 'Rx'), ...
+    fullfile(mm, 'tests', 'Rx'), ...
+    fullfile(getenv('HOME'), 'dev', 'MACOS_resources', 'pymacos', 'tests', 'Rx')};
 for i = 1:numel(roots)
     p = fullfile(roots{i}, name);
     if exist(p, 'file'), return; end

@@ -12,9 +12,9 @@ function [B, mask, info] = gs_zernike_segment_basis(session, rx_path, opts)
 %   ahead of the segments -- a valid trace target that still carries the
 %   segmented footprint.  Prepare it once (copy a segment's KrElt/KcElt into a
 %   Element=Reference / Surface=Conic block before the first segment); see
-%   examples/run_dwdgrid_multi_singlesegbasis/SegDemo3conic.in (elt 1 = the
-%   PM-conic Reference).  This routine just points at that file -- it does NOT
-%   edit prescriptions.
+%   sensitivities/examples/run_dwdgrid_multi_singlesegbasis/
+%   SegDemo3conic.in (elt 1 = the PM-conic Reference).  This routine
+%   just points at that file -- it does NOT edit prescriptions.
 %
 %   The reference segment's rays are isolated by nearest-centre (Voronoi) over
 %   the segment centres, hull-masked to its aperture, and the Noll Zernikes

@@ -11,11 +11,18 @@ function p = design_fixture_path(name)
     arguments
         name (1,:) char
     end
-    root = fullfile(getenv('HOME'), 'dev', 'MACOS_resources', ...
-        'optical_design', 'fixtures');
-    p = fullfile(root, name);
-    if ~exist(p, 'file')
-        error('design_fixture_path:notFound', ...
-            'optical-design fixture not found: %s', p);
+%   Roots are anchored to THIS clone first (repo-relative), with the
+%   canonical ~/dev/MACOS_resources checkout as a fallback.
+    res   = fileparts(fileparts(fileparts(mfilename('fullpath'))));
+    res   = fileparts(res);                          % repo root
+    roots = { fullfile(res, 'optical_design', 'fixtures'), ...
+              fullfile(getenv('HOME'), 'dev', 'MACOS_resources', ...
+                       'optical_design', 'fixtures') };
+    for i = 1:numel(roots)
+        p = fullfile(roots{i}, name);
+        if exist(p, 'file'), return; end
     end
+    error('design_fixture_path:notFound', ...
+        'optical-design fixture not found: %s (searched %s)', ...
+        name, strjoin(roots, ', '));
 end
