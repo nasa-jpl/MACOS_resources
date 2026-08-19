@@ -63,7 +63,6 @@ function out = ctb_bandpass(opts)
     if isempty(opts.rx),     opts.rx     = fullfile(here,'ctb_dcr.in'); end
     if isempty(opts.outdir), opts.outdir = here; end
     addpath(fullfile(here,'..','..','..','src'));
-    addpath(fullfile(here,'..','..','coronagraph','coro'));    % contrast helpers
     assert(~isempty(getenv('MACOS_HOME')),'MACOS_HOME must be set.');
     e = opts.elt;
 
@@ -116,12 +115,12 @@ function out = ctb_bandpass(opts)
     % ---- contrast: mono vs broadband -----------------------------------
     peak_bare_mono = max(I_bare_mono(:));
     peak_bare_bb   = max(I_bare_bb(:));
-    dz_mono = dark_zone_metrics(I_coro_mono, peak_bare_mono, lamD0, ...
+    dz_mono = macos.dark_zone_metrics(I_coro_mono, peak_bare_mono, lamD0, ...
                                 opts.inner_lamD, opts.outer_lamD);
-    dz_bb   = dark_zone_metrics(I_coro_bb,   peak_bare_bb,   lamD0, ...
+    dz_bb   = macos.dark_zone_metrics(I_coro_bb,   peak_bare_bb,   lamD0, ...
                                 opts.inner_lamD, opts.outer_lamD);
-    [r_m, c_m] = radial_contrast(I_coro_mono, peak_bare_mono, lamD0, opts.outer_lamD+3);
-    [r_b, c_b] = radial_contrast(I_coro_bb,   peak_bare_bb,   lamD0, opts.outer_lamD+3);
+    [r_m, c_m] = macos.radial_contrast(I_coro_mono, peak_bare_mono, lamD0, opts.outer_lamD+3);
+    [r_b, c_b] = macos.radial_contrast(I_coro_bb,   peak_bare_bb,   lamD0, opts.outer_lamD+3);
     fprintf('[band] dark zone %.0f-%.0f lam/D mean contrast:  mono=%.3e  broadband=%.3e (%.1fx)\n', ...
         opts.inner_lamD, opts.outer_lamD, dz_mono.mean, dz_bb.mean, dz_bb.mean/dz_mono.mean);
 

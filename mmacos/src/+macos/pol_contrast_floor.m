@@ -66,7 +66,7 @@ function out = pol_contrast_floor(pupil, det, opts)
 %                  When given, OUT.floor.dark_zone reports mean/median/
 %                  peak peak-normalized contrast per channel there.
 %                  Default [] = skip (no lambda/D convention is assumed;
-%                  use lambda_over_D_pixels from the coronagraph example
+%                  use macos.lambda_over_D_pixels
 %                  helpers to convert).
 %     'pupil_tol'  pixels with transverse intensity below this fraction
 %                  of the pupil peak are excluded from the coherency sum

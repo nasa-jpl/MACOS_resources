@@ -1,6 +1,6 @@
 function r_null = first_airy_null(intensity, search_min_px, search_max_px, ...
                                   bin_size, null_max_fraction_of_peak)
-%FIRST_AIRY_NULL  First Airy null radius (pixels) of a centred PSF.
+%MACOS.FIRST_AIRY_NULL  First Airy null radius (pixels) of a centred PSF.
 %   R = FIRST_AIRY_NULL(INTENSITY) walks outward from the centre of the
 %   radial profile and returns the radius of the first interior local
 %   minimum whose value is below NULL_MAX_FRACTION_OF_PEAK times the
@@ -18,7 +18,7 @@ function r_null = first_airy_null(intensity, search_min_px, search_max_px, ...
         null_max_fraction_of_peak (1,1) double = 0.05
     end
 
-    [r, mean_, ~, ~] = radial_profile(intensity, [], search_max_px, bin_size);
+    [r, mean_, ~, ~] = macos.radial_profile(intensity, [], search_max_px, bin_size);
     peak = max(mean_(isfinite(mean_)));
     if isempty(peak) || peak <= 0 || ~isfinite(peak)
         r_null = [];

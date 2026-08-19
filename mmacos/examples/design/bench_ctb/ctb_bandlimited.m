@@ -67,7 +67,6 @@ function out = ctb_bandlimited(opts)
     if isempty(opts.rx),     opts.rx     = fullfile(here,'ctb_dcr.in'); end
     if isempty(opts.outdir), opts.outdir = here; end
     addpath(fullfile(here,'..','..','..','src'));
-    addpath(fullfile(here,'..','..','coronagraph','coro'));
     addpath(here);
     assert(~isempty(getenv('MACOS_HOME')),'MACOS_HOME must be set.');
     e = opts.elt;
@@ -83,7 +82,7 @@ function out = ctb_bandlimited(opts)
     [Ia, Ilyot_a, ~] = run_blc_(opts, g, opts.epsilon, opts.epsilon);
     peak_coro = max(Ia(:));
     supp = peak_bare / max(peak_coro, eps);
-    dz_a = dark_zone_metrics(Ia, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
+    dz_a = macos.dark_zone_metrics(Ia, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
     fprintf(['[blc] (a) NULL  eps=%.2f: coro peak=%.3e  suppression=%.2e  ', ...
              'DZ mean=%.3e median=%.3e floor=%.3e\n'], ...
         opts.epsilon, peak_coro, supp, dz_a.mean, dz_a.median, dz_a.floor);
@@ -100,7 +99,7 @@ function out = ctb_bandlimited(opts)
     for k = 1:nE
         ep = opts.eps_list(k);
         [Ik, ~, ~] = run_blc_(opts, g, ep, ep);
-        dz = dark_zone_metrics(Ik, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
+        dz = macos.dark_zone_metrics(Ik, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
         Cmean(k) = dz.mean; Cmed(k) = dz.median;
         Thru(k)  = (1-ep)^2;                             % 2-D area throughput
         Supp(k)  = peak_bare / max(max(Ik(:)),eps);
@@ -293,12 +292,12 @@ function bp = bandpass_(opts, g, lamD0, peak_bare)
     peak_bb = max(Ibare(:));
     [Imono, ~, ~] = run_blc_(opts, g, opts.epsilon, opts.epsilon);   % nominal lambda
 
-    bp.dz_mono = dark_zone_metrics(Imono, peak_bare, lamD0, opts.inner_lamD, opts.outer_lamD);
-    bp.dz_fix  = dark_zone_metrics(Ifix,  peak_bb,   lamD0, opts.inner_lamD, opts.outer_lamD);
-    bp.dz_lamD = dark_zone_metrics(IlamD, peak_bb,   lamD0, opts.inner_lamD, opts.outer_lamD);
-    [bp.r_mono,bp.c_mono] = radial_contrast(Imono, peak_bare, lamD0, opts.outer_lamD+3);
-    [bp.r_fix, bp.c_fix ] = radial_contrast(Ifix,  peak_bb,   lamD0, opts.outer_lamD+3);
-    [bp.r_lamD,bp.c_lamD] = radial_contrast(IlamD, peak_bb,   lamD0, opts.outer_lamD+3);
+    bp.dz_mono = macos.dark_zone_metrics(Imono, peak_bare, lamD0, opts.inner_lamD, opts.outer_lamD);
+    bp.dz_fix  = macos.dark_zone_metrics(Ifix,  peak_bb,   lamD0, opts.inner_lamD, opts.outer_lamD);
+    bp.dz_lamD = macos.dark_zone_metrics(IlamD, peak_bb,   lamD0, opts.inner_lamD, opts.outer_lamD);
+    [bp.r_mono,bp.c_mono] = macos.radial_contrast(Imono, peak_bare, lamD0, opts.outer_lamD+3);
+    [bp.r_fix, bp.c_fix ] = macos.radial_contrast(Ifix,  peak_bb,   lamD0, opts.outer_lamD+3);
+    [bp.r_lamD,bp.c_lamD] = macos.radial_contrast(IlamD, peak_bb,   lamD0, opts.outer_lamD+3);
     bp.wvls = wvls;
     fprintf(['[blc] (c) bandpass %d wvls %.0f%%: mono %.3e | fixed-metres %.3e (%.1fx) | ', ...
              'lambda/D-rescaled %.3e (%.1fx)\n'], opts.nwf, 100*opts.band_frac, ...

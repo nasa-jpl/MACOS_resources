@@ -59,7 +59,6 @@ function out = ctb_phase_masks(opts)
     if isempty(opts.rx),     opts.rx     = fullfile(here,'ctb_dcr.in'); end
     if isempty(opts.outdir), opts.outdir = here; end
     addpath(fullfile(here,'..','..','..','src'));
-    addpath(fullfile(here,'..','..','coronagraph','coro'));
     addpath(here);
     assert(~isempty(getenv('MACOS_HOME')),'MACOS_HOME must be set.');
     e = opts.elt;
@@ -77,8 +76,8 @@ function out = ctb_phase_masks(opts)
     R = struct('arm',{},'I_fpa',{},'I_lyot',{},'dz',{},'supp',{},'r',{},'c',{});
     for k = 1:numel(arms)
         [Ifpa, Ilyot] = run_arm_(opts, g, arms{k});
-        dz = dark_zone_metrics(Ifpa, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
-        [rr,cc] = radial_contrast(Ifpa, peak_bare, lamD, opts.outer_lamD+3);
+        dz = macos.dark_zone_metrics(Ifpa, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
+        [rr,cc] = macos.radial_contrast(Ifpa, peak_bare, lamD, opts.outer_lamD+3);
         R(k) = struct('arm',arms{k},'I_fpa',Ifpa,'I_lyot',Ilyot,'dz',dz, ...
             'supp',peak_bare/max(max(Ifpa(:)),eps),'r',rr,'c',cc);
         fprintf('[phase] %-9s DZ mean=%.3e median=%.3e floor=%.3e  suppression=%.2e\n', ...

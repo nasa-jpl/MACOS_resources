@@ -45,7 +45,7 @@ if crop~=0
     ymin=min(ys); ymax=max(ys);
     data = data(ymin:ymax,xmin:xmax);
     if crop==2
-        data = pad(data, length(data));
+        data = macos.pad(data, length(data));
     end
 end
 

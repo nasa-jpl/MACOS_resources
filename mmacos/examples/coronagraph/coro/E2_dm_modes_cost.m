@@ -57,7 +57,7 @@ function out = E2_dm_modes_cost(mode_counts, metric)
     macos.load_rx(rx('Rx_Coro_noLyot.in'));
     I_no    = macos.intensity(DET_ELT);
     peak_no = max(I_no(:));
-    lamD    = lambda_over_D_pixels(I_no);
+    lamD    = macos.lambda_over_D_pixels(I_no);
     fprintf('[E2] lambda/D = %.2f px, no-mask peak = %.4e\n', lamD, peak_no);
 
     % --- Load the DM coronagraph, read DM grid geometry --------------
@@ -67,7 +67,7 @@ function out = E2_dm_modes_cost(mode_counts, metric)
                      zeros(N), 0.0, double(N), double(N));
     fprintf('[E2] DM Elt %d grid = %dx%d, dx = %.4e\n', DM_ELT, N, N, dx);
 
-    metrics_of = @(I) dark_zone_metrics(I, peak_no, lamD, DZ_INNER, DZ_OUTER);
+    metrics_of = @(I) macos.dark_zone_metrics(I, peak_no, lamD, DZ_INNER, DZ_OUTER);
 
     % Flat-DM baseline image + metrics + per-eval baseline.
     t1 = tic;

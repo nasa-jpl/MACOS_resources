@@ -37,7 +37,7 @@ function out = E1_darkzone_contrast()
     macos.load_rx(rx(RX_NOMASK));
     I_no    = macos.intensity(DETECTOR_ELT);
     peak_no = max(I_no(:));
-    lamD    = lambda_over_D_pixels(I_no);
+    lamD    = macos.lambda_over_D_pixels(I_no);
     fprintf('[E1] lambda/D = %.2f px (first null at 1.22 l/D = %.2f px)\n', ...
             lamD, 1.22 * lamD);
     fprintf('[E1] no-mask peak = %.4e\n', peak_no);
@@ -50,8 +50,8 @@ function out = E1_darkzone_contrast()
             peak_co, peak_no / peak_co);
 
     % --- Radial contrast curves (Strehl-normalised to no-mask peak) --
-    [r_no, c_no] = radial_contrast(I_no, peak_no, lamD, 20.0);
-    [r_co, c_co] = radial_contrast(I_co, peak_no, lamD, 20.0);
+    [r_no, c_no] = macos.radial_contrast(I_no, peak_no, lamD, 20.0);
+    [r_co, c_co] = macos.radial_contrast(I_co, peak_no, lamD, 20.0);
 
     % --- Dark-zone digest --------------------------------------------
     fprintf('\n[E1] Radial contrast at key separations:\n');
@@ -85,7 +85,7 @@ function out = E1_darkzone_contrast()
         macos.set_src_wvl(wvl0 * factors(k));
         tic;
         Ik          = macos.intensity(DETECTOR_ELT);   % re-trace + propagate
-        [rk, ck]    = radial_contrast(Ik, peak_no, lamD, 20.0);
+        [rk, ck]    = macos.radial_contrast(Ik, peak_no, lamD, 20.0);
         dzk         = (rk >= DZ_INNER) & (rk <= DZ_OUTER) & isfinite(ck);
         dz_lam(k)   = mean(ck(dzk));
         t_eval(k)   = toc;

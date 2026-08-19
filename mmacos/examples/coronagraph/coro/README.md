@@ -16,18 +16,22 @@ vs Fortran" — empirically, with measured numbers.
 
 Run (each ends with `exit(0)` under `-batch`):
 ```matlab
-addpath(<mmacos>/src); addpath(<mmacos>/examples/coronagraph/coro);
+mmacos_setup; addpath(<mmacos>/examples/coronagraph/coro);
 out = E1_darkzone_contrast();
 ```
 
 ## Scoring machinery (ported from pymacos `contrast.py`)
 
-`radial_profile`, `first_airy_null`, `lambda_over_D_pixels`,
-`radial_contrast`, and `dark_zone_metrics` (per-pixel dark-zone stats:
-mean / peak / floor / median / energy — the **selectable optimization
-objectives**; supports a one-sided `'side'` or `'sector'` region, since
-a 1-DM system digs a deeper one-sided dark zone than a full annulus).
-Pinned by `tests/tCoroContrast.m` (pure math, in `SUITE_FAST`).
+Lives in the **library**, not here: `macos.radial_profile`,
+`macos.first_airy_null`, `macos.lambda_over_D_pixels`,
+`macos.radial_contrast`, and `macos.dark_zone_metrics` (per-pixel
+dark-zone stats: mean / peak / floor / median / energy — the
+**selectable optimization objectives**; supports a one-sided `'side'`
+or `'sector'` region, since a 1-DM system digs a deeper one-sided dark
+zone than a full annulus).  Hoisted into `src/+macos/` by the 2026-08
+templates reorganization — this folder keeps only the E1–E4 drivers
+and their run/log hygiene.  Pinned by `tests/tCoroContrast.m` (pure
+math, in `SUITE_FAST`).
 
 ## Results, logs, and disk hygiene (`results/`)
 

@@ -42,7 +42,6 @@ function out = ctb_mask_compare(opts)
     if isempty(opts.rx),     opts.rx     = fullfile(here,'ctb_dcr.in'); end
     if isempty(opts.outdir), opts.outdir = here; end
     addpath(fullfile(here,'..','..','..','src'));
-    addpath(fullfile(here,'..','..','coronagraph','coro'));
     addpath(here);
     assert(~isempty(getenv('MACOS_HOME')),'MACOS_HOME must be set.');
     e = opts.elt;
@@ -241,7 +240,7 @@ end
 
 % ======================================================================
 function row = mkrow_(name, family, I, peak_bare, lamD, opts, thru, note)
-    dz = dark_zone_metrics(I, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
+    dz = macos.dark_zone_metrics(I, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
     row = struct('name',name,'family',family,'I',I,'dz',dz, ...
         'supp',peak_bare/max(max(I(:)),eps),'thru',thru,'note',note);
 end

@@ -38,8 +38,6 @@ function out = ctb_contrast(opts)
     if isempty(opts.rx),     opts.rx     = fullfile(here,'ctb_dcr.in'); end
     if isempty(opts.outdir), opts.outdir = here; end
     addpath(fullfile(here,'..','..','..','src'));
-    coro = fullfile(here,'..','..','coronagraph','coro');
-    addpath(coro);
     assert(~isempty(getenv('MACOS_HOME')),'MACOS_HOME must be set.');
 
     % ---- bare + coro FPA via the shared driver (same normalisation) ----
@@ -66,11 +64,11 @@ function out = ctb_contrast(opts)
         lamD_px, peak_bare);
 
     % ---- radial contrast curves (bare + coro), Strehl-normalised -------
-    [r_b, c_b] = radial_contrast(I_bare, peak_bare, lamD_px, opts.outer_lamD+3);
-    [r_c, c_c] = radial_contrast(I_coro, peak_bare, lamD_px, opts.outer_lamD+3);
+    [r_b, c_b] = macos.radial_contrast(I_bare, peak_bare, lamD_px, opts.outer_lamD+3);
+    [r_c, c_c] = macos.radial_contrast(I_coro, peak_bare, lamD_px, opts.outer_lamD+3);
 
     % ---- dark-zone metrics over the annulus ----------------------------
-    dz = dark_zone_metrics(I_coro, peak_bare, lamD_px, ...
+    dz = macos.dark_zone_metrics(I_coro, peak_bare, lamD_px, ...
                            opts.inner_lamD, opts.outer_lamD);      % annulus
     fprintf(['[contrast] dark zone %.1f-%.1f lam/D (annulus): ', ...
              'mean=%.3e median=%.3e peak(worst)=%.3e floor(best)=%.3e n=%d\n'], ...

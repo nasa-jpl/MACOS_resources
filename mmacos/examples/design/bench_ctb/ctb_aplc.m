@@ -52,7 +52,6 @@ function out = ctb_aplc(opts)
     if isempty(opts.rx),     opts.rx     = fullfile(here,'ctb_dcr.in'); end
     if isempty(opts.outdir), opts.outdir = here; end
     addpath(fullfile(here,'..','..','..','src'));
-    addpath(fullfile(here,'..','..','coronagraph','coro'));
     addpath(here);
     assert(~isempty(getenv('MACOS_HOME')),'MACOS_HOME must be set.');
     e = opts.elt;
@@ -75,7 +74,7 @@ function out = ctb_aplc(opts)
 
     % ---- run APLC ------------------------------------------------------
     [I_aplc, I_lyot_a] = run_aplc_(opts, g, Phi);
-    dz_aplc = dark_zone_metrics(I_aplc, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
+    dz_aplc = macos.dark_zone_metrics(I_aplc, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
     supp_aplc = peak_bare / max(max(I_aplc(:)),eps);
     thru_aplc = thru_apod * opts.r_lyot_frac^2;          % apodizer * Lyot area
     fprintf('[aplc] APLC: DZ mean=%.3e median=%.3e floor=%.3e  suppression=%.2e  throughput=%.3f\n', ...
@@ -85,7 +84,7 @@ function out = ctb_aplc(opts)
     % BLC 2-D throughput = (1-eps)^2 -> match: eps = 1 - sqrt(thru_aplc).
     eps_match = max(0.02, min(0.9, 1 - sqrt(thru_aplc)));
     [I_blc, ~] = run_blc_(opts, g, eps_match);
-    dz_blc = dark_zone_metrics(I_blc, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
+    dz_blc = macos.dark_zone_metrics(I_blc, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
     supp_blc = peak_bare / max(max(I_blc(:)),eps);
     thru_blc = (1-eps_match)^2;
     fprintf(['[aplc] BLC (throughput-matched, eps=%.3f): DZ mean=%.3e median=%.3e  ', ...
@@ -95,8 +94,8 @@ function out = ctb_aplc(opts)
         thru_aplc, dz_aplc.mean, dz_blc.mean, dz_blc.mean/dz_aplc.mean);
 
     % ---- radial contrast curves ----------------------------------------
-    [r_aplc,c_aplc] = radial_contrast(I_aplc, peak_bare, lamD, opts.outer_lamD+3);
-    [r_blc, c_blc ] = radial_contrast(I_blc,  peak_bare, lamD, opts.outer_lamD+3);
+    [r_aplc,c_aplc] = macos.radial_contrast(I_aplc, peak_bare, lamD, opts.outer_lamD+3);
+    [r_blc, c_blc ] = macos.radial_contrast(I_blc,  peak_bare, lamD, opts.outer_lamD+3);
 
     % ================= figure ===========================================
     vis='off'; if opts.visible, vis='on'; end

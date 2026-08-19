@@ -1,6 +1,6 @@
 function [r_lamD, contrast] = radial_contrast(intensity, peak_unaberrated, ...
         lam_over_D_px, max_lambda_over_D, bins_per_lambda_over_D)
-%RADIAL_CONTRAST  Radially-averaged contrast vs separation in lambda/D.
+%MACOS.RADIAL_CONTRAST  Radially-averaged contrast vs separation in lambda/D.
 %   [R_LAMD, C] = RADIAL_CONTRAST(I, PEAK_UNAB, LAMD_PX) returns the
 %   azimuthally-averaged contrast curve
 %       contrast(r) = mean(intensity in ring at r) / peak_unaberrated
@@ -27,7 +27,7 @@ function [r_lamD, contrast] = radial_contrast(intensity, peak_unaberrated, ...
 
     bin_size_px   = lam_over_D_px / bins_per_lambda_over_D;
     max_radius_px = max_lambda_over_D * lam_over_D_px;
-    [r_px, mean_, ~, ~] = radial_profile(intensity, [], max_radius_px, bin_size_px);
+    [r_px, mean_, ~, ~] = macos.radial_profile(intensity, [], max_radius_px, bin_size_px);
     r_lamD   = r_px / lam_over_D_px;
     contrast = mean_ / peak_unaberrated;
 end
