@@ -9,8 +9,8 @@
 %   dwdzall:  one figure PER ELEMENT, 6×7 grid of 42 Zernike modes.
 %             Subplot title shows the mode index.
 %
-% Helpers (m2v, v2m, mimg, pad) live in the parent sensitivities/
-% directory -- addpath'd at the top so this script can run standalone.
+% Display helpers (macos.m2v/v2m/mimg/pad) are +macos package
+% functions -- run mmacos_setup once per session.
 %
 % Figures stay open in interactive sessions.  In batch mode
 % (`matlab -batch verifyall`) MATLAB is headless; PNGs are written
@@ -28,9 +28,6 @@ here = fileparts(mfilename('fullpath'));
 if isempty(here)
     here = pwd;
 end
-parent_sens = fileparts(here);
-addpath(parent_sens);
-
 mats = dir(fullfile(here, '*all_*.mat'));
 if isempty(mats)
     fprintf('no *all_*.mat files in %s\n', here);
@@ -60,9 +57,9 @@ for k = 1:length(mats)
         S.rx, S.model_size, S.delta);
 
     % --- Tile OPDall round-trip --------------------------------------
-    OPDall = v2m(S.w0_stacked, S.indxall);
+    OPDall = macos.v2m(S.w0_stacked, S.indxall);
     f1 = figure('Position', [100 100 800 800]);
-    mimg(OPDall, -1);
+    macos.mimg(OPDall, -1);
     title(sprintf('OPDall (m2v round-trip) - %s', mats(k).name), ...
         'interpreter', 'none');
     out_png = fullfile(here, ...
@@ -170,8 +167,8 @@ function plot_dwdxall(S, elt_ids, kinds, ~, here, tag_clean)
                 axis off;
                 continue;
             end
-            dwcol = v2m(S.dwdxall(:, idx), S.indxall);
-            mimg(dwcol, -1);
+            dwcol = macos.v2m(S.dwdxall(:, idx), S.indxall);
+            macos.mimg(dwcol, -1);
             title(sprintf('Elt %d %s', unique_elts(ie), ...
                 DOF_ORDER{jd}), 'interpreter', 'none', 'fontsize', 7);
         end
@@ -241,8 +238,8 @@ function plot_dwdzall_compact(S, elt_ids, kinds, modes, here, ...
             sub_k = (pp - 1) * max_modes + jj;
             subplot(n_pairs, max_modes, sub_k);
             ii = idxs_sorted(jj);
-            dwcol = v2m(S.dwdxall(:, ii), S.indxall);
-            mimg(dwcol, -1);
+            dwcol = macos.v2m(S.dwdxall(:, ii), S.indxall);
+            macos.mimg(dwcol, -1);
             if pp == 1
                 title(sprintf('Z%d', ms_sorted(jj)), ...
                     'interpreter', 'none', 'fontsize', 8);
@@ -287,8 +284,8 @@ function plot_dwdzall_separate(S, elt_ids, kinds, modes, here, ...
             end
             ii = idxs_sorted(jj);
             subplot(N_ROWS, N_COLS, jj);
-            dwcol = v2m(S.dwdxall(:, ii), S.indxall);
-            mimg(dwcol, -1);
+            dwcol = macos.v2m(S.dwdxall(:, ii), S.indxall);
+            macos.mimg(dwcol, -1);
             title(sprintf('Z%d', ms_sorted(jj)), ...
                 'interpreter', 'none', 'fontsize', 8);
         end
@@ -338,8 +335,8 @@ function plot_flat(S, here, tag_clean)
         for sub_k = 1:(fig_end - fig_start + 1)
             ii = fig_start + sub_k - 1;
             subplot(nrow, ncol, sub_k);
-            dwcol = v2m(S.dwdxall(:, ii), S.indxall);
-            mimg(dwcol, -1);
+            dwcol = macos.v2m(S.dwdxall(:, ii), S.indxall);
+            macos.mimg(dwcol, -1);
             ttl = char(S.channel_names{ii});
             title(ttl, 'interpreter', 'none', 'fontsize', 8);
         end
