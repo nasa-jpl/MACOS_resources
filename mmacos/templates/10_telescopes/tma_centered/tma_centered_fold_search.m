@@ -1,4 +1,4 @@
-% tma_centered_fold_search.m  (mmacos/design/examples/tma_centered/)
+% tma_centered_fold_search.m  (mmacos/templates/10_telescopes/tma_centered/)
 % =====================================================================
 %  CONSTRAINT FINDER: extract the centered TMA's focal plane from the
 %  beam -- field bias + M3 pushback + a flat fold behind the primary.

@@ -1,4 +1,4 @@
-% tma_3plus1_aoi_search.m  (mmacos/design/examples/tma_3plus1/)
+% tma_3plus1_aoi_search.m  (mmacos/templates/10_telescopes/tma_3plus1/)
 % =====================================================================
 %  CONSTRAINT FINDER: step the PM-SM separation (primary f/#) until
 %  the coronagraph polarization preference is met.

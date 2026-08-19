@@ -1,4 +1,4 @@
-% tma_centered_foldfp.m  (mmacos/design/examples/tma_centered/)
+% tma_centered_foldfp.m  (mmacos/templates/10_telescopes/tma_centered/)
 % =====================================================================
 %  THE FOLDED, FIELD-BIASED CENTERED TMA -- the buildable j18.
 % =====================================================================

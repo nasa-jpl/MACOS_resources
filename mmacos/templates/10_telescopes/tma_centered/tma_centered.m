@@ -1,4 +1,4 @@
-% tma_centered.m  (mmacos/design/examples/ -- an adaptable design study)
+% tma_centered.m  (mmacos/templates/10_telescopes/ -- an adaptable design study)
 % =====================================================================
 %  CENTERED (OBSCURED) THREE-MIRROR ANASTIGMAT -- the j18 / early-JWST
 %  design family -- and WHY it out-fields the unobscured section.
@@ -25,7 +25,7 @@
 %  the SECTION arm of the same recipe and prints the A/B -- the
 %  quantitative answer to "why does j18 do better?".
 %
-%  Run:  >> run('.../design/examples/tma_centered/tma_centered.m')
+%  Run:  >> run('.../templates/10_telescopes/tma_centered/tma_centered.m')
 % =====================================================================
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/src'));
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/design/src'));

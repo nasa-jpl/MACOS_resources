@@ -29,7 +29,7 @@
 %    [3] S1  to FOV/2     -> hold the inner field
 %    [4] S2  to full FOV  -> hold the full field
 %
-%  Run interactively:  >> run('.../design/examples/sz_tma/sz_tma.m')
+%  Run interactively:  >> run('.../templates/10_telescopes/sz_tma/sz_tma.m')
 %  (the design + figures land on disk; MATLAB stays open)
 % =====================================================================
 

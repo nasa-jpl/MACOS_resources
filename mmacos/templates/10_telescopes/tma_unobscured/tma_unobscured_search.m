@@ -1,4 +1,4 @@
-% tma_unobscured_search.m  (mmacos/design/examples/tma_unobscured/)
+% tma_unobscured_search.m  (mmacos/templates/10_telescopes/tma_unobscured/)
 % =====================================================================
 %  CONSTRAINT FINDER: the visible-band UNOBSCURED TMA front end --
 %  how slow does M1 need to be?

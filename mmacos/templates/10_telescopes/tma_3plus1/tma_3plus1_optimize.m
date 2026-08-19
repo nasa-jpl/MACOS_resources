@@ -1,4 +1,4 @@
-% tma_3plus1_optimize.m  (mmacos/design/examples/tma_3plus1/)
+% tma_3plus1_optimize.m  (mmacos/templates/10_telescopes/tma_3plus1/)
 % =====================================================================
 %  POLARIZATION-SAFE 3+1: full optimization at the geometry found by
 %  tma_3plus1_aoi_search.m (run that FIRST -- it writes

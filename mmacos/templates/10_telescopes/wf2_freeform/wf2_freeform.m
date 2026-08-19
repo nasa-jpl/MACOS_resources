@@ -1,4 +1,4 @@
-% wf2_freeform.m  (mmacos/design/examples/ -- a parameterized design driver)
+% wf2_freeform.m  (mmacos/templates/10_telescopes/ -- a parameterized design driver)
 % =====================================================================
 %  WIDE-FIELD 2-MIRROR FREEFORM DESIGNER
 % =====================================================================
@@ -24,7 +24,7 @@
 %  the first order) + §7.3 (NAT: a surface away from the pupil acts
 %  field-dependently).
 %
-%  Run:  >> run('.../design/examples/wf2_freeform/wf2_freeform.m')
+%  Run:  >> run('.../templates/10_telescopes/wf2_freeform/wf2_freeform.m')
 % =====================================================================
 
 addpath('~/dev/MACOS_resources/mmacos/src');

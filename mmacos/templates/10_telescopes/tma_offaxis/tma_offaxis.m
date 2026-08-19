@@ -25,7 +25,7 @@
 %  decentering the used sub-aperture until every mirror body clears, then
 %  re-optimize for the off-axis zone + balance over the field.
 %
-%  Run:  >> run('.../design/examples/tma_offaxis/tma_offaxis.m')
+%  Run:  >> run('.../templates/10_telescopes/tma_offaxis/tma_offaxis.m')
 % ====================================================================
 
 addpath('~/dev/MACOS_resources/mmacos/src');
