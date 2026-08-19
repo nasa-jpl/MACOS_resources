@@ -181,8 +181,13 @@ wins under the cmd name `prb_elt`, codegen emits the single form under
   CONFIG wrappers over `design/runners/run_sensitivities.m`), with
   self-contained per-channel example decks under
   `templates/50_sensitivities/`.
-- **`examples/`** — fixed feature demos (coronagraph, grid surfaces,
-  view_rx, …).
+- **`templates/`** — the numbered TEMPLATE threads: parameterized
+  starting points you copy and adapt, ordered T1 telescopes → T2
+  segmentation → T3 instruments → T4 sensitivities → T5 visualization →
+  T6 simulation, plus benches, the end-to-end flows and polarization.
+  Start at `templates/00_INDEX.md`.
+- **`challenges/`** — stated design targets with our worked answer
+  (rodgers1, rodgers2, afocal4).  Start at `challenges/README.md`.
 
 | File | Role |
 |---|---|

@@ -2,7 +2,7 @@
 
 **Source:** `macos_sandbox/Design/Rodgers/260728-TMA_Offsetfield-jmr.pptx`
 (J.M. Rodgers, ORA / CODE V, 28-Jul-2026), λ = 1000 nm.
-**Driver:** `mmacos/design/rodgers1/rodgers1.m` (parameter-driven; defaults reproduce the study).
+**Driver:** `mmacos/challenges/rodgers1/rodgers1.m` (parameter-driven; defaults reproduce the study).
 **Date:** 2026-07-29.
 
 ---

@@ -1,4 +1,4 @@
-% grid_surface_example.m  (mmacos/examples/)
+% grid_surface_example.m  (mmacos/templates/20_segmentation/)
 % =====================================================================
 %  GRID-DATA SURFACE API walkthrough on FFSegDemoAll.in
 % =====================================================================
