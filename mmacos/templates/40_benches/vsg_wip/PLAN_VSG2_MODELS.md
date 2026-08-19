@@ -116,10 +116,10 @@ the mask (ZWFS) at the focus, (c) produce detector frames.
 
 ## 3. File layout to create
 
-All under `~/dev/MACOS_resources/mmacos/examples/vsg/`:
+All under `~/dev/MACOS_resources/mmacos/templates/40_benches/vsg_wip/`:
 
 ```
-examples/vsg/
+templates/40_benches/vsg_wip/
   README.md              what/why/how-to-run
   vsg2_params.m          SINGLE source of truth: every hardware number.
                          Placeholders carry a TODO(Dave) comment.

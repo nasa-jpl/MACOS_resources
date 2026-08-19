@@ -13,7 +13,7 @@ classdef Bench < handle
 %   The result is a folded 3-D bench prescription with real angles of
 %   incidence (no unfolded paraxial fiction) that loads and traces with
 %   zero vignetting, ready for staged optimization (collimate / focus /
-%   conjugate placement).  See examples/design/bench_layout.
+%   conjugate placement).  See templates/40_benches/bench_layout.
 %
 %   Constructor options (name-value):
 %     'pos'       source point (3x1, BaseUnits=mm).  Default [0;0;0].

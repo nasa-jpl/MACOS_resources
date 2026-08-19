@@ -6,11 +6,11 @@
 > MATLAB-only — **no Fortran, no mex relink**. Do NOT do this work in `pol-core`
 > (that is the polarization-exposure lane; the only contact point is the C3
 > footnote, deferred there). Phase-1 findings this builds on: CC Fable-5 session
-> 2026-07-25, `examples/design/bench_ifo_dm/` + agent memory `project_bench_builder`.
+> 2026-07-25, `templates/40_benches/bench_ifo_dm/` + agent memory `project_bench_builder`.
 
 ## 1. Problem statement
 
-`examples/design/bench_ifo_dm/example_bench_ifo_dm.m` (phase 1, closed 2026-07-25)
+`templates/40_benches/bench_ifo_dm/example_bench_ifo_dm.m` (phase 1, closed 2026-07-25)
 measures a PROPER-modeled DM through a compensated Twyman-Green built by
 `macos.design.twyman_green`. Measured error budget, checkerboard pokes
 `POKE_NM=50`, `SEED=7`, model 256:
@@ -68,7 +68,7 @@ also as **nm-of-error per nm-of-poke** — the transferable figure.
 1. `twyman_green(..., 'tail_arch', A)` with `A ∈ {'singlet' (default, unchanged),
    'fieldlens', 'doublet'}` (+ `'oap'` stretch) — new tail architectures behind an
    option; baseline behavior bit-identical when the option is omitted.
-2. Trade runner `examples/design/bench_ifo_dm/l2_trade/run_l2_trade.m`:
+2. Trade runner `templates/40_benches/bench_ifo_dm/l2_trade/run_l2_trade.m`:
    evaluates every architecture with the §4 metric, writes a results table
    (`.mat` + printed) + one comparison figure.
 3. The winner wired into `example_bench_ifo_dm.m` as a parameter (default =

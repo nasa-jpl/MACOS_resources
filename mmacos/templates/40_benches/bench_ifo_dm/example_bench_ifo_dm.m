@@ -2,7 +2,7 @@
 % ===================================================================
 %  TWYMAN-GREEN IFO TESTBED, PHASE 1: MEASURE A DM (PROPER MODEL)
 % ===================================================================
-%  Follow-on to examples/design/bench_ifo (read that first): the same
+%  Follow-on to templates/40_benches/bench_ifo (read that first): the same
 %  compensated Twyman-Green rig -- now built in ONE call with
 %  macos.design.twyman_green -- with the test optic replaced by a
 %  DEFORMABLE MIRROR carrying random actuator pokes.  The DM surface
