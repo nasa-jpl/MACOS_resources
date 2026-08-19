@@ -25,7 +25,7 @@ re-run in a fresh session from files alone.
 
 | runner | status | in | out |
 |---|---|---|---|
-| `run_design` | PLANNED (today: `design/examples/e2e/s1_telescope.m` + `s2_instrument.m` over `tma_layout`/`offner_layout`) | design params | mono `.in` + report/views |
+| `run_design` | PLANNED (today: `templates/80_end_to_end/e2e/s1_telescope.m` + `s2_instrument.m` over `tma_layout`/`offner_layout`) | design params | mono `.in` + report/views |
 | `run_segmentation` | **SHIPPED** | mono `.in` | segmented `.in` (physical apertures) + `Hx.m` + footprint/views figures + parity report |
 | `run_sensitivities` | **SHIPPED** | (segmented) `.in` | `*_sens.mat` (dwdx/dwdz/dwdgrid, + dwdsurf opt-in) + conditioning report + per-element pages in `*_pages/` |
 | `run_met` | **SHIPPED** | segmented `.in` + `Hx.m` + jac `.mat` | `*_met.in`, `*_metopt.in`, `*_met.mat` (dedx/dldx/gains), report + views |
@@ -41,7 +41,7 @@ x 3 axes (normal + in-plane pair) per shared segment edge, purely
 differential (no absolute-piston anchor row); `macos.design.
 edge_sensors` ingests the axis/location tags for the MET stage.
 
-Worked examples driving the runners: `design/examples/e2e/` (the full
+Worked examples driving the runners: `templates/80_end_to_end/e2e/` (the full
 six-stage sequence — the canonical template), `templates/20_segmentation/e5_seg/`
 + `e5_pie/` (single-stage segmentation/MET narratives on the e5
 fixture).

@@ -1,4 +1,4 @@
-% s3_relay.m  (mmacos/design/examples/e2e2/ -- stage 3 of 4)
+% s3_relay.m  (mmacos/templates/80_end_to_end/e2e2/ -- stage 3 of 4)
 % =====================================================================
 %  E2E2 STAGE 3 -- RELAY + FOCAL PLANE, AND THE FIELD CORRECTOR
 % =====================================================================
@@ -33,10 +33,14 @@
 %
 %  Consumes s2_fold.{in,mat}.  Emits s3_relay.{in,mat}, report and views.
 %
-%    >> run('.../design/examples/e2e2/s3_relay.m')
+%    >> run('.../templates/80_end_to_end/e2e2/s3_relay.m')
 % =====================================================================
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
-mmroot = fileparts(fileparts(fileparts(exdir)));
+% NOTE: this file sits one level BELOW the other e2e2 stages, so mmroot
+% needs four fileparts, not the three they use.  Its e2e2_params /
+% s1_axial.mat / s2_fold.mat reaches still assume exdir == the e2e2
+% directory -- pre-existing, left for the rewalk.
+mmroot = fileparts(fileparts(fileparts(fileparts(exdir))));
 run(fullfile(mmroot,'mmacos_setup.m'));
 addpath(exdir);
 

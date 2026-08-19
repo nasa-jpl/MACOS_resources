@@ -21,6 +21,6 @@ templates/50_sensitivities/**/*.mat
 # clone-and-run users).  Explicit paths (not a blanket *.mat) so small
 # reviewed artifacts -- presets, the ~6 MB s6_compare.mat, s1-s3/s7
 # stage .mat, reports, .in -- stay tracked.
-design/examples/e2e/s4_jacobians.mat
-design/examples/e2e/e2e_pie_met.mat
+templates/80_end_to_end/e2e/s4_jacobians.mat
+templates/80_end_to_end/e2e/e2e_pie_met.mat
 templates/30_instruments/bench_ctb/ctb_phase_export_N1024.mat

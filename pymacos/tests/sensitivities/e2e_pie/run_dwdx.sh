@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run_dwdx.sh -- multi-field dw/dx (rigid-body) example for e2e_pie.in,
 # the 7-segment pie-PM three-mirror telescope emitted by the mmacos
-# design pipeline (design/examples/e2e).  Every Segment / Reflector /
+# design pipeline (templates/80_end_to_end/e2e).  Every Segment / Reflector /
 # Return element gets a 6-DOF (Rx, Ry, Rz, Tx, Ty, Tz) perturbation
 # channel, so the rigid-body Jacobian has plenty to perturb.
 #

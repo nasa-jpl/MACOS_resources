@@ -17,7 +17,7 @@ gated step that emits a committed `.in`, a parameter-delta table, a
 thorough text report, and standard views.  The product is the FLOW —
 reusable stage drivers a user can re-parameterize — not one telescope.
 
-Home: `design/examples/e2e2/` (house rules: save `.in`+`.mat`, README,
+Home: `templates/80_end_to_end/e2e2/` (house rules: save `.in`+`.mat`, README,
 figures in the dir, **no `exit(0)` in example scripts**).  One
 parameter block (`e2e2_params.m`) drives everything, like
 `e2e/e2e_params.m`.

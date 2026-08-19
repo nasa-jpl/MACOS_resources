@@ -1,4 +1,4 @@
-% s1_telescope.m  (mmacos/design/examples/e2e/ -- stage 1 of 6)
+% s1_telescope.m  (mmacos/templates/80_end_to_end/e2e/ -- stage 1 of 6)
 % =====================================================================
 %  E2E STAGE 1 -- TELESCOPE DESIGN (TMA + freeform, on-axis taken
 %  slightly off-axis, back end FOLDED behind the primary) with views
@@ -35,7 +35,7 @@
 %  imaging relay that widens the corrected field.
 %
 %  Run AFTER building mmacos:
-%    >> run('.../design/examples/e2e/s1_telescope.m')
+%    >> run('.../templates/80_end_to_end/e2e/s1_telescope.m')
 % =====================================================================
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/src'));
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/design/src'));

@@ -1,4 +1,4 @@
-% s1_axial.m  (mmacos/design/examples/e2e2/ -- stage 1 of 5)
+% s1_axial.m  (mmacos/templates/80_end_to_end/e2e2/ -- stage 1 of 5)
 % =====================================================================
 %  E2E2 STAGE 1 -- THE KORSCH AXIAL STARTING POINT
 % =====================================================================
@@ -24,7 +24,7 @@
 %  alternating), score, report, save.
 %
 %  Run AFTER building mmacos:
-%    >> run('.../design/examples/e2e2/s1_axial.m')
+%    >> run('.../templates/80_end_to_end/e2e2/s1_axial.m')
 % =====================================================================
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 mmroot = fileparts(fileparts(fileparts(exdir)));     % .../mmacos

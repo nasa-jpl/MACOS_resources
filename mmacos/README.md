@@ -176,7 +176,7 @@ wins under the cmd name `prb_elt`, codegen emits the single form under
   segmentation, metrology, and the **stage-runner pipeline**
   (`design/runners/`: design → segmentation → sensitivities → MET →
   compare → simulate).  Start at `design/README.md`; the canonical
-  end-to-end worked example is `design/examples/e2e/`.
+  end-to-end worked example is `templates/80_end_to_end/e2e/`.
 - **`sensitivities/`** — multi-field `dW/d…` Jacobian drivers (thin
   CONFIG wrappers over `design/runners/run_sensitivities.m`), with
   self-contained per-channel example decks under
