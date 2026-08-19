@@ -280,7 +280,7 @@ classdef tDwDx < matlab.unittest.TestCase
         % (pymacos/tests/Rx/e5hex1.in via rx_fixture_path) declares
         % "ApStop= 0 0 0" in its header, so load_rx sets a stop and FEX
         % always succeeds -- the genuine no-stop path cannot be provoked on
-        % it.  (The stop-less copy under examples/view_rx_demo/e5hex1.in
+        % it.  (The stop-less copy under templates/60_visualization/view_rx_demo/e5hex1.in
         % DOES raise macos:fex:noStop, which the guard rethrows -- verified
         % during development.)  The guard is a pure defensive rethrow, so
         % every reset_xp=true test below passes through it; run_sensitivities
