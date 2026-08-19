@@ -14,11 +14,11 @@
 % Run:  matlab -batch "run('.../example_sensitivities_from_rx.m')"
 % Ends in exit(0) (batch-mode rule, mmacos/CLAUDE.md).
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src'));   % +macos on path
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'src'));   % +macos on path
 
 here = fileparts(mfilename('fullpath'));
 if isempty(here), here = pwd; end
-rx = fullfile(here, '..', 'sensitivities', 'e5hex1', 'e5hex1.in');
+rx = fullfile(here, '..', '..', '50_sensitivities', 'e5hex1', 'e5hex1.in');
 
 % 1. Import (engine readback — no MATLAB text parser).
 s = macos.design.System.from_rx(rx, 'model_size', 128);

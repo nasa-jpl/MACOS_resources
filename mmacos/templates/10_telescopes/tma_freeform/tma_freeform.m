@@ -1,4 +1,4 @@
-% tma_freeform.m  (mmacos/design/examples/ -- a parameterized design driver)
+% tma_freeform.m  (mmacos/templates/10_telescopes/ -- a parameterized design driver)
 % =====================================================================
 %  OFF-AXIS UNOBSCURED THREE-MIRROR FREEFORM DESIGNER
 % =====================================================================
@@ -23,7 +23,7 @@
 %  Freeform breaks the 3-conic limit by ~8x here, to diffraction-
 %  limited over a wide unobscured field.
 %
-%  Run:  >> run('.../design/examples/tma_freeform/tma_freeform.m')
+%  Run:  >> run('.../templates/10_telescopes/tma_freeform/tma_freeform.m')
 % =====================================================================
 
 addpath('~/dev/MACOS_resources/mmacos/src');

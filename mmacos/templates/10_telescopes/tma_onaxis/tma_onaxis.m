@@ -1,4 +1,4 @@
-% tma_onaxis.m  (mmacos/design/examples/ -- a parameterized design driver)
+% tma_onaxis.m  (mmacos/templates/10_telescopes/ -- a parameterized design driver)
 % =====================================================================
 %  PARAMETERIZED THREE-MIRROR ANASTIGMAT DESIGNER (Korsch / j18mono form)
 % =====================================================================
@@ -10,7 +10,7 @@
 %    2. a SLIGHT off-axis field bias tips the focal plane OUT of the M2->M3
 %       beam (the j18 "slightly off-axis detector"); the central obscuration
 %       (M2 in the incoming beam) remains -- this is the obscured baseline,
-%       whose unobscured eccentric-pupil cousin is design/examples/tma_offaxis;
+%       whose unobscured eccentric-pupil cousin is templates/10_telescopes/tma_offaxis;
 %    3. the exit pupil after M3 is ASSESSED (FEX), NOT constrained.
 %
 %  THE BIAS TRADEOFF (why this is a SWEEP).  The bias must be large enough
@@ -28,7 +28,7 @@
 %  optimize('engine','native') over the 3 conics nulls 3rd-order spherical +
 %  coma + astigmatism -> diffraction-limited.
 %
-%  Run:  >> run('.../design/examples/tma_onaxis/tma_onaxis.m')
+%  Run:  >> run('.../templates/10_telescopes/tma_onaxis/tma_onaxis.m')
 % =====================================================================
 
 addpath('~/dev/MACOS_resources/mmacos/src');
@@ -131,7 +131,7 @@ fprintf('\n--------------------------------------------------------------------\
 fprintf(' D=%.2f m | f/%.0f | EFL %.2f m | Cass focus between M1 & M2 | bias %g'' | WFE %.4f wv\n', ...
         D, SYSTEM_FNUM, lay.EFL, bias, wfe_f);
 fprintf(' obscured baseline (M2 central obscuration); FP biased out of beam; EP after M3 assessed.\n');
-fprintf(' Unobscured eccentric-pupil cousin: design/examples/tma_offaxis.\n');
+fprintf(' Unobscured eccentric-pupil cousin: templates/10_telescopes/tma_offaxis.\n');
 fprintf('====================================================================\n');
 
 % ---- helpers --------------------------------------------------------

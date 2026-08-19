@@ -1,4 +1,4 @@
-% rc_onaxis.m  (mmacos/design/examples/ -- a parameterized design driver)
+% rc_onaxis.m  (mmacos/templates/10_telescopes/ -- a parameterized design driver)
 % =====================================================================
 %  PARAMETERIZED ON-AXIS RITCHEY-CHRETIEN DESIGNER
 % =====================================================================
@@ -16,7 +16,7 @@
 %  This is the OBSCURED baseline.  For the unobscured (coronagraph-feed)
 %  version that decenters to an eccentric pupil, see ../rc_unobscured.
 %
-%  Run:  >> run('.../design/examples/rc_onaxis/rc_onaxis.m')
+%  Run:  >> run('.../templates/10_telescopes/rc_onaxis/rc_onaxis.m')
 % =====================================================================
 
 addpath('~/dev/MACOS_resources/mmacos/src');

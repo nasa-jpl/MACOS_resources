@@ -787,7 +787,7 @@ GEOMETRIC layout aid; the DIFFRACTION terminal is the Rx_Coro 2-surface form.
 ## Reference decks
 - `pymacos/tests/Rx/Rx_Coro.in` — the proven NF/FF encoding + working FarField
   terminal (elts 20-21). PSF forms on load.
-- `mmacos/design/examples/tma_onaxis/tma_onaxis.in` — add_pupil FP_return/
+- `mmacos/templates/10_telescopes/tma_onaxis/tma_onaxis.in` — add_pupil FP_return/
   ExitPupil/FP triple, but GEOMETRIC (not the diffraction terminal).
 
 ## Gotchas already burned (don't rediscover)

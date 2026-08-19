@@ -1,4 +1,4 @@
-% freeform_unobscured.m  (mmacos/design/examples/freeform_unobscured/)
+% freeform_unobscured.m  (mmacos/templates/10_telescopes/freeform_unobscured/)
 % =====================================================================
 %  SPHERE + ZERNIKE (freeform) UNOBSCURED TELESCOPE -- the visible-band
 %  3+n front end (coronagraph + imager + spectrometer).
@@ -22,7 +22,7 @@
 %  off the shared field) are the roadmap stages that follow it.
 %
 %  Run AFTER building mmacos:
-%    >> run('.../design/examples/freeform_unobscured/freeform_unobscured.m')
+%    >> run('.../templates/10_telescopes/freeform_unobscured/freeform_unobscured.m')
 % =====================================================================
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/src'));
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/design/src'));

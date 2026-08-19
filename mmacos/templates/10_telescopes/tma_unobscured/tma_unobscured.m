@@ -1,4 +1,4 @@
-% tma_unobscured.m  (mmacos/design/examples/tma_unobscured/)
+% tma_unobscured.m  (mmacos/templates/10_telescopes/tma_unobscured/)
 % =====================================================================
 %  THE VISIBLE-BAND UNOBSCURED TMA -- coronagraph / imager /
 %  spectrometer front end.

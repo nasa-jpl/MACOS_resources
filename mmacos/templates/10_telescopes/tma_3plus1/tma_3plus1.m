@@ -1,4 +1,4 @@
-% tma_3plus1.m  (mmacos/design/examples/ -- an adaptable design study)
+% tma_3plus1.m  (mmacos/templates/10_telescopes/ -- an adaptable design study)
 % =====================================================================
 %  3+1 CORONAGRAPH FRONT END -- unobscured conic TMA + M4 pupil relay
 %  (the j18-geometry DEMO; see tma_3plus1_aoi_search.m /
@@ -41,7 +41,7 @@
 %  needs a slower primary / longer PM-SM separation: that trade study
 %  is tma_3plus1_aoi_search.m.
 %
-%  Run:  >> run('.../design/examples/tma_3plus1/tma_3plus1.m')
+%  Run:  >> run('.../templates/10_telescopes/tma_3plus1/tma_3plus1.m')
 % =====================================================================
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/src'));
 addpath(fullfile(getenv('HOME'),'dev/MACOS_resources/mmacos/design/src'));
