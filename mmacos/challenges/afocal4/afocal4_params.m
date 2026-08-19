@@ -3,7 +3,7 @@ function P = afocal4_params()
 %
 %   Everything the 30x afocal 4-mirror work is specified by, in ONE place
 %   and in SI: no script below this file invents a number.  The benchmark it
-%   answers is J.M. Rodgers' coaxial 3-mirror afocal (design/rodgers2/), so
+%   answers is J.M. Rodgers' coaxial 3-mirror afocal (challenges/rodgers2/), so
 %   the aperture, magnification, wavelength, field box and stop position are
 %   HIS -- a form study that changed them would not be answering him.
 %

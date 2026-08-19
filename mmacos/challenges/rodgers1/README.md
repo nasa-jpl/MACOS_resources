@@ -66,7 +66,7 @@ reproduces the committed EPD-2000 / EPD-4060 artifacts bit-for-bit.
 
 ```matlab
 % from anywhere (the driver sets its own paths):
-run('~/dev/MACOS_resources/mmacos/design/rodgers1/rodgers1.m')   % all 4 stages
+run('~/dev/MACOS_resources/mmacos/challenges/rodgers1/rodgers1.m')   % all 4 stages
 ```
 ```matlab
 rodgers1('stages',[1 2])            % pure-evaluation stages only

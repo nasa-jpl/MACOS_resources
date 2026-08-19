@@ -207,7 +207,7 @@ function txt = emit_(S, V, E, cdir, cpos, apst, ygrid, npts)
     L = {};
     L{end+1} = sprintf('%% MACOS prescription -- Rodgers2 %s (%s)', V.name, V.file);
     L{end+1} = sprintf('%% verbatim transcription of "%s"', V.title);
-    L{end+1} = '% emitted by design/rodgers2/rodgers2_deck.m -- do not hand-edit';
+    L{end+1} = '% emitted by challenges/rodgers2/rodgers2_deck.m -- do not hand-edit';
     L{end+1} = '% Source Definition';
     L{end+1} = ['        ChfRayDir=  ' v3(cdir)];
     L{end+1} = ['        ChfRayPos=  ' v3(cpos)];

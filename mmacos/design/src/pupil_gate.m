@@ -16,7 +16,7 @@ function g = pupil_gate(opts)
 %                                                       -> vs Aperture
 %     .n_outside  rays beyond the declared radius       -> must be 0
 %   never a span.  A +5% pupil read exactly right on both axes for
-%   decades (macos PR #70; design/rodgers1/PACKET.md Addendum 10), and the
+%   decades (macos PR #70; challenges/rodgers1/PACKET.md Addendum 10), and the
 %   extra rays sat at the OUTER pupil where the high-order field
 %   aberration is largest, so the error was amplified rather than
 %   averaged away.
@@ -68,7 +68,7 @@ function g = pupil_gate(opts)
 %   macos.get_src_fov, the source's own chief direction.
 %
 %   See also tests/tPupilAperture.m (the regression class this shares its
-%   measurement with), design/rodgers1/pupil_audit.m (the five-way
+%   measurement with), challenges/rodgers1/pupil_audit.m (the five-way
 %   diagnostic).
 
     arguments

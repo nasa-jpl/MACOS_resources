@@ -41,7 +41,7 @@ classdef tAfocal4 < matlab.unittest.TestCase
         function setup(tc)
             h = fileparts(mfilename('fullpath'));
             run(fullfile(fileparts(h),'mmacos_setup.m'));
-            tc.here = fullfile(fileparts(h),'design','examples','afocal4');
+            tc.here = fullfile(fileparts(h),'challenges','afocal4');
             addpath(tc.here);
             macos.init(256);
             tc.P = afocal4_params();

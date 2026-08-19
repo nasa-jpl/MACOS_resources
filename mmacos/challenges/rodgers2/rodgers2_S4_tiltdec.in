@@ -1,6 +1,6 @@
 % MACOS prescription -- Rodgers2 S4_tiltdec (CentAfo_TiltDecM2M3_06degOffsetFOV_NewConics.seq)
 % verbatim transcription of "Tilt/dec M2 M3.  0.6 deg offset FOV. New conics."
-% emitted by design/rodgers2/rodgers2_deck.m -- do not hand-edit
+% emitted by challenges/rodgers2/rodgers2_deck.m -- do not hand-edit
 % Source Definition
         ChfRayDir=  0.0000000000000000E+00  1.0471784116245792E-02  9.9994516936551214E-01
         ChfRayPos=  0.0000000000000000E+00  -1.4128942604622805E-02  -1.3991653140382154E+00

@@ -445,10 +445,10 @@ end
 
 % =====================================================================
 % Helpers: the rodgers1 wide-field TMA deck (a solved design fixture
-% under design/rodgers1) + an aperture-stripped copy for harvesting.
+% under challenges/rodgers1) + an aperture-stripped copy for harvesting.
 function p = rodgers1_deck_()
 here = fileparts(mfilename('fullpath'));
-p = fullfile(here, '..', 'design', 'rodgers1', 'rodgers1_stage4.in');
+p = fullfile(here, '..', 'challenges', 'rodgers1', 'rodgers1_stage4.in');
 end
 
 function sd = rodgers1_stripped_deck_()

@@ -287,7 +287,7 @@ end
 function C = parent_as_candidate_(P)
 %PARENT_AS_CANDIDATE_  His 3-mirror, wrapped so it goes through exactly the
 %   same build/trace/measure path as the 4-mirror candidates.  A control
-%   that shares no code with the baseline in design/rodgers2 would be
+%   that shares no code with the baseline in challenges/rodgers2 would be
 %   comparing two pipelines, not two designs.
     C.form   = 'parent3';
     C.names  = P.parent.name;

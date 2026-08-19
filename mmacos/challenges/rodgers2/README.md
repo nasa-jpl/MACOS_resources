@@ -40,7 +40,7 @@ what is still open: **`PACKET.md`**.
 ## Run
 
 ```matlab
-run('~/dev/MACOS_resources/mmacos/design/rodgers2/rodgers2.m')  % everything
+run('~/dev/MACOS_resources/mmacos/challenges/rodgers2/rodgers2.m')  % everything
 ```
 ```matlab
 rodgers2('sections',0:1)     % transcription + the WFE ladder only

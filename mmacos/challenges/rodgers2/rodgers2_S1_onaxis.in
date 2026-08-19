@@ -1,6 +1,6 @@
 % MACOS prescription -- Rodgers2 S1_onaxis (CentAfo_Coaxial_OnAxisFOV.seq)
 % verbatim transcription of "Coaxial.  On-axis FOV"
-% emitted by design/rodgers2/rodgers2_deck.m -- do not hand-edit
+% emitted by challenges/rodgers2/rodgers2_deck.m -- do not hand-edit
 % Source Definition
         ChfRayDir=  0.0000000000000000E+00  0.0000000000000000E+00  1.0000000000000000E+00
         ChfRayPos=  0.0000000000000000E+00  0.0000000000000000E+00  -1.3992392936847642E+00

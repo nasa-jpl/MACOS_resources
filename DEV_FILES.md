@@ -30,10 +30,10 @@ doc/mmacos_pymacos_parity.md
 doc/STYLE_REPORTS.md
 mmacos/design/PLAN_AFOCAL4.md
 mmacos/design/PLAN_TMA_E2E2.md
-mmacos/design/examples/afocal4/STATUS_S4B.md
-mmacos/design/examples/afocal4/STATUS_S4C.md
-mmacos/design/rodgers1/OPTFEX_REDO_LIST.md
-mmacos/design/rodgers1/SESSION_STATE_2026-07-30.md
+mmacos/challenges/afocal4/STATUS_S4B.md
+mmacos/challenges/afocal4/STATUS_S4C.md
+mmacos/challenges/rodgers1/OPTFEX_REDO_LIST.md
+mmacos/challenges/rodgers1/SESSION_STATE_2026-07-30.md
 mmacos/templates/40_benches/vsg_wip/PLAN_VSG2_MODELS.md
 mmacos/templates/40_benches/vsg_wip/VSG2_review.md
 mmacos/templates/30_instruments/bench_ctb/CTB_PROP_STATUS.md
@@ -93,10 +93,10 @@ preserved as `optical_design/AGENT_NOTES.md` (dev-only, in the strip list).
 - `GMI/regression/README.md`, `mmacos/tests/README.md`, `pymacos/tests/proper_compare/README.md` (test-run guides — user-usable)
 
 2026-08-06 additions (KEPT — study records and technical documentation):
-- `mmacos/design/rodgers1/{PACKET,README}.md`,
-  `mmacos/design/rodgers2/{PACKET,README}.md` — benchmark-study records,
+- `mmacos/challenges/rodgers1/{PACKET,README}.md`,
+  `mmacos/challenges/rodgers2/{PACKET,README}.md` — benchmark-study records,
   retractions in place (the study precedent).
-- `mmacos/design/examples/afocal4/{FORM_STUDY,RESULTS,README}.md` — study
+- `mmacos/challenges/afocal4/{FORM_STUDY,RESULTS,README}.md` — study
   records, same family as the packets.
 - `mmacos/templates/80_end_to_end/e2e2/E2E2_REPORT.md` + e2e2/relay_followon READMEs
   — worked-example report.

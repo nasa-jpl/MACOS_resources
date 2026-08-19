@@ -2,7 +2,7 @@
 
 > **Status: S1-S5 DELIVERED, then S4 RETRACTED ON PACKAGING and redone as
 > S4b, then S4c (TO, 2026-08-02/04; local on `MACOS_res_dev` `dev`, not
-> pushed).  Results: `design/examples/afocal4/RESULTS.md` (S4 as the
+> pushed).  Results: `challenges/afocal4/RESULTS.md` (S4 as the
 > unconstrained reference, §S4b as the buildable trade, §S4c as the long
 > solve + the RIM pupil convention).**
 >
@@ -24,7 +24,7 @@
 > 4.8x to 4.0x while its 39x wavefront price is unchanged.  One spec should
 > be rewritten in the rim convention -- the interface convergence surface,
 > 12x inside target surface-anchored and 1.08x inside it rim-anchored.
-> Status page: `design/examples/afocal4/STATUS_S4C.md`.
+> Status page: `challenges/afocal4/STATUS_S4C.md`.
 >
 > **THE S4 TRADE IS NOT BUILDABLE.**  Every design on it puts the
 > collimator 200-440 mm in FRONT of M1 -- and with it the field mirror,
@@ -72,9 +72,9 @@
 > deliverable, not a chosen value -- the instrument's interface standoff
 > picks the point, and 140 mm is only the flagged default.
 >
-> Ground truth: `design/rodgers2/PACKET.md` (S1/S2),
-> `design/examples/afocal4/FORM_STUDY.md` (S3),
-> `design/examples/afocal4/RESULTS.md` (S4/S5).
+> Ground truth: `challenges/rodgers2/PACKET.md` (S1/S2),
+> `challenges/afocal4/FORM_STUDY.md` (S3),
+> `challenges/afocal4/RESULTS.md` (S4/S5).
 > Response to Mike Rodgers' Rodgers2 drop
 > (`~/dev/MACOS_sandbox/Design/Rodgers2/`): a 30× afocal 3-mirror
 > telescope, 0.5°×0.5° FOV offset 0.6°, with his verbal finding that
@@ -82,7 +82,7 @@
 > needed for pupil control."  Written for cold implementation by Opus,
 > Sonnet, or a user, one stage per agent run, with Fable/Dave review at
 > each stage gate.  Read this file, `macos/CLAUDE.md`, `mmacos/CLAUDE.md`,
-> `design/rodgers1/README.md` + `PACKET.md` Addendum 10, and the
+> `challenges/rodgers1/README.md` + `PACKET.md` Addendum 10, and the
 > referenced sources before writing any code.
 
 ## What this is
@@ -100,10 +100,10 @@ Two products, one arc:
    verbally, and the 4-mirror ladder that answers it.
 
 Homes:
-- `design/rodgers2/` — the Mike-facing benchmark record (flat dir,
+- `challenges/rodgers2/` — the Mike-facing benchmark record (flat dir,
   rodgers1 shape: transcription `.m`, audit, PACKET.md, README.md,
   committed `.in` + `.png` + `.mat` per variant).
-- `design/examples/afocal4/` — the user-facing staged example
+- `challenges/afocal4/` — the user-facing staged example
   (`afocal4_params.m` + `s1..s4` + README; e2e2 house rules: artifacts
   in the dir, **no `exit(0)` in example scripts**, one `P` struct).
 - Shared kernels in `design/src/`; builder changes in
@@ -154,7 +154,7 @@ The unconstrained S4 results stand as the reference trade, labeled
 NOT BUILDABLE in RESULTS.md; S4b re-derives the trade curve under
 the constraint.
 
-**S4b DELIVERED (2026-08-03).**  `design/examples/afocal4/STATUS_S4B.md`
+**S4b DELIVERED (2026-08-03).**  `challenges/afocal4/STATUS_S4B.md`
 is the one page; `RESULTS.md` section S4b is the detail.  Headlines: the
 constraint does not cost image quality, it SPLITS the S4 design's
 performance and forces a choice, because compliance moves the fourth
@@ -208,7 +208,7 @@ caught two defects doing it.  `tAfocal4` 7/7.
 
 ## The stages
 
-### S0 — Parameters (`design/examples/afocal4/afocal4_params.m`)
+### S0 — Parameters (`challenges/afocal4/afocal4_params.m`)
 Pure `P` struct: EPD 1.0 m, angular magnification M = 30 (exit beam
 33.33 mm), λ = 1 µm, field box 0.5°×0.5° at +0.6° Y bias, coldstop
 interface spec (stop diameter = EPD/M; distance behind last powered
@@ -337,7 +337,7 @@ with primary speed).  The enabler stage; everything else consumes it.
   modifying CALIB becomes a follow-on engine task — NOT part of this
   plan.  **No engine work is expected in this plan.**
 
-### S2 — Rodgers2 baseline reproduction (`design/rodgers2/`)
+### S2 — Rodgers2 baseline reproduction (`challenges/rodgers2/`)
 **DONE** — see PACKET.md.  Headlines: his CODE V field-map RMS = our
 rung 2 (piston + per-field tip/tilt), reproduced 0.952–1.015× max on
 a uniform grid, all four variants (bracketed by rungs 1/3, not
@@ -371,7 +371,7 @@ question queued for Mike.
   `rodgers2_<variant>_<stage>[_metric].{in,mat,png}`.
 
 ### S3 — 4-mirror afocal form + first-order layout
-**FORM STUDY DELIVERED (2026-08-03) — `design/examples/afocal4/FORM_STUDY.md`.
+**FORM STUDY DELIVERED (2026-08-03) — `challenges/afocal4/FORM_STUDY.md`.
 The form CHOICE is a Dave/Fable gate; S4 does not start until it is made.**
 Headline: **the 3-mirror already closes BOTH first-order conditions** —
 M = 30.000, exit pupil 343.363 mm past M3 against the coldstop Mike placed
@@ -466,7 +466,7 @@ prediction before taking a metric.
   at coldstop center for the bias field); pupil gate; view set shows a
   buildable train (no self-obscuration beyond M1 hole + M2 shadow).
 
-### S4 — Optimize + the answer ladder (`design/examples/afocal4/`)
+### S4 — Optimize + the answer ladder (`challenges/afocal4/`)
 - Replay Mike's four-slide ladder WITH the 4th mirror, per doctrine:
   on-axis solve → offset unoptimized (the collapse number) → joint
   conics+radii re-solve at bias → + tilt/dec (M2/M3/M4) joint.  Solve

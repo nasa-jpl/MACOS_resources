@@ -3,7 +3,7 @@
 > **Status: PLANNED (Dave, 2026-08-01).  Not started.**
 > A from-scratch, comprehensive worked example that folds in everything
 > the Rodgers offset-field reproduction taught us
-> (`design/rodgers1/PACKET.md`, Addenda 8–10).  Written for cold
+> (`challenges/rodgers1/PACKET.md`, Addenda 8–10).  Written for cold
 > implementation by Opus, Sonnet, or a user.  Read this file, the root
 > `macos/CLAUDE.md`, `mmacos/CLAUDE.md`, and the referenced runner
 > sources before writing any code.

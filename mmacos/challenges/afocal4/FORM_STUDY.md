@@ -1,6 +1,6 @@
 # S3 FORM STUDY — which fourth mirror, and why
 
-Answers `PLAN_AFOCAL4.md` S3 against the benchmark in `design/rodgers2/PACKET.md`:
+Answers `PLAN_AFOCAL4.md` S3 against the benchmark in `challenges/rodgers2/PACKET.md`:
 J.M. Rodgers' coaxial 30× afocal TMA, EPD 1000 mm, λ = 1 µm, 0.5°×0.5° field box
 offset +0.6° in Y, delivering a collimated beam to an interface pupil — and his verbal
 finding that *"with 3 mirrors the pupil quality is not very good; a 4th mirror is needed

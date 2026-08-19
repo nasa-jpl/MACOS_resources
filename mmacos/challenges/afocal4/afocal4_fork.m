@@ -97,7 +97,7 @@ function R = afocal4_fork(opts)
     R.premise = Pre;
 
     % ---- the rim/stop identity, on the deck that declares a stop --------
-    ad = fullfile(fileparts(fileparts(here)),'rodgers2','rodgers2_S1_onaxis.in');
+    ad = fullfile(fileparts(here),'rodgers2','rodgers2_S1_onaxis.in');
     if isfile(ad)
         orm = pupil_map(ad, P.Fsolve, 'anchor','rim', 'nodes',opts.nodes, ...
                         'init',false);
@@ -195,7 +195,7 @@ function R = afocal4_fork(opts)
     if opts.context
     banner('4.  RODGERS'' OWN LADDER, both conventions (for the PACKET)');
     % =====================================================================
-    rd = fullfile(fileparts(fileparts(here)),'rodgers2');
+    rd = fullfile(fileparts(here),'rodgers2');
     C = struct('name',{},'surf',{},'rim',{});
     for c = {{'S1 on-axis','rodgers2_S1_onaxis.in'}, ...
              {'S2 offset','rodgers2_S2_offset.in'}, ...
