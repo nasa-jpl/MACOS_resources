@@ -456,7 +456,7 @@ rays clip, correct — Dave); `gap/2` = trace-neutral midline.
 'rxpoly'** when every segment block declares PolyApVec — boundary =
 declared polygon MINUS its obscuration (polyshape subtract), so
 add_met/met_view place launchers on Rx-DECLARED edges (works for
-imported segmented Rx).  Worked example: `design/examples/e5_pie/`
+imported segmented Rx).  Worked example: `templates/20_segmentation/e5_pie/`
 (manual-grade, figure per step).  GOTCHA there: the engine OPD grid
 maps x along the ROW index and e5's `xGrid=(−1,0,0)` — overlaying
 tiling geometry on OPD maps needs the affine centroid calibration in
@@ -558,7 +558,7 @@ pure piston (the figure was discarded).  Fixed in the macos engine (sls-dev
   Flat segments are NOT acceptable (Dave: unusable in a real telescope) — the demo
   must carry a real figure.
 - **GridFile resolves from CWD** (engine `GridInit`): run with cwd = the dir
-  holding `zern41em5z155em3.txt` (`examples/grid_surface/`) or co-locate it
+  holding `zern41em5z155em3.txt` (`templates/20_segmentation/grid_surface/`) or co-locate it
   (deferred).  Else "File ... does not exist -sub GridInit" → flat nominal.
 
 Plotting helpers (`sensitivities/`, GENERIC across all dw_d*_multi):

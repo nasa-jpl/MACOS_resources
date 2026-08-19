@@ -11,7 +11,7 @@
 %  zern41em5z155em3.txt alongside).  We cd there so MACOS resolves the
 %  GridFile, which is read by name at load.
 %
-%  Run:  >> run('.../examples/grid_surface/grid_surface_example.m')
+%  Run:  >> run('.../templates/20_segmentation/grid_surface/grid_surface_example.m')
 % =====================================================================
 
 addpath('~/dev/MACOS_resources/mmacos/src');
