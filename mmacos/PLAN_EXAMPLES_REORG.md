@@ -152,7 +152,22 @@ Step 3 — full `run_mmacos_tests.sh`: 0 fail, with asset-gated classes
 - Numbered prefixes: yes.
 - Benches: a numbered rung in the ladder (40_benches), not a side bin.
 
-## Still open
+## EXECUTED 2026-08-19 (branch examples-reorg, 14 commits, merged to
+## dev-candidate b7ab4b1).  Full suite 594/0, asset-gated classes all
+## executing, GMI 6/6.  Dave's calls on the execution flags:
+##   - coro experiment set: STAYS at templates/30_instruments/
+##     coro_experiments (measurement-record README banner).
+##   - the 4 loose design-layer API examples (templates/10_telescopes/
+##     design_layer_api): judged by the Week-2 reruns -- promote or
+##     delete then.
+##   - tFingerprint suite wiring: left as-is (not in any group;
+##     pre-existing).
+## Week-2 carry-overs: e2e *_report.txt regen (old absolute paths are
+## run records -- regenerate, don't edit); the ~50 hard-coded
+## ~/dev/MACOS_resources addpaths sweep; relay_followon exdir asset
+## loads.
+
+## Still open (superseded by the above where they overlap)
 
 - Name check: `templates/` + `challenges/` at mmacos root (proposed
   here) vs everything under one `templates/` root — current proposal
