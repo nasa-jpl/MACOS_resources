@@ -34,11 +34,11 @@ mmacos/design/examples/afocal4/STATUS_S4B.md
 mmacos/design/examples/afocal4/STATUS_S4C.md
 mmacos/design/rodgers1/OPTFEX_REDO_LIST.md
 mmacos/design/rodgers1/SESSION_STATE_2026-07-30.md
-mmacos/examples/vsg/PLAN_VSG2_MODELS.md
-mmacos/examples/vsg/VSG2_review.md
+mmacos/templates/40_benches/vsg_wip/PLAN_VSG2_MODELS.md
+mmacos/templates/40_benches/vsg_wip/VSG2_review.md
 mmacos/templates/30_instruments/bench_ctb/CTB_PROP_STATUS.md
-mmacos/examples/design/bench_ifo_dm/l2_trade/PLAN_IFO_PUPIL_RELAY.md
-mmacos/examples/design/bench_ifo_pol/CURRENT_SLICE.md
+mmacos/templates/40_benches/bench_ifo_dm/l2_trade/PLAN_IFO_PUPIL_RELAY.md
+mmacos/templates/40_benches/bench_ifo_pol/CURRENT_SLICE.md
 optical_design/CORONAGRAPH_DESIGN_AGENT_GUIDE.md
 optical_design/OPTICAL_DESIGN_AGENT_GUIDE.md
 optical_design/CORONAGRAPH_DESIGN_RULES.md
@@ -103,7 +103,7 @@ preserved as `optical_design/AGENT_NOTES.md` (dev-only, in the strip list).
 - `mmacos/templates/30_instruments/bench_ctb/{README,Coro_propagation_summary}.md`
   + `bench_ctb/dst2/README.md` — house rules + the diffraction recipe of
   record (technical documentation, not process).
-- `mmacos/examples/design/bench_ifo_dm/l2_trade/TRADE_NOTE.md` — trade-study
+- `mmacos/templates/40_benches/bench_ifo_dm/l2_trade/TRADE_NOTE.md` — trade-study
   record (result-first).
 - `mmacos/tools/pol_{external_anchor,sp_sign_probe,validation_report}/README.md`
   — tool run guides.

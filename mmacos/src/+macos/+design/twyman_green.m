@@ -1,7 +1,7 @@
 function G = twyman_green(opts)
 %MACOS.DESIGN.TWYMAN_GREEN  Build a compensated Twyman-Green IFO rig.
 %   G = macos.design.twyman_green(...) builds BOTH arms of the generic
-%   Twyman-Green interferometer (the examples/design/bench_ifo layout)
+%   Twyman-Green interferometer (the templates/40_benches/bench_ifo layout)
 %   with the Bench add-optic utilities and returns them ready to emit:
 %
 %     TEST ARM  source -> baffle -> L1 -> BS reflect (45 deg,
@@ -30,7 +30,7 @@ function G = twyman_green(opts)
 %     .det_leg    detector leg length (shared plane)
 %     .P          the resolved parameter struct
 %
-%   See also: macos.design.Bench, examples/design/bench_ifo.
+%   See also: macos.design.Bench, templates/40_benches/bench_ifo.
 
 arguments
     opts.F1 (1,1) double = 500

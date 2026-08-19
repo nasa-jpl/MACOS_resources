@@ -37,7 +37,7 @@
 %  one deliberately mis-modeled point (drop the transit pair) is asserted to
 %  FAIL the same gate.
 %
-%  Run: cd ~/dev/MACOS_resources/mmacos/examples/design/bench_ifo_pol
+%  Run: cd ~/dev/MACOS_resources/mmacos/templates/40_benches/bench_ifo_pol
 %       matlab -batch "run('example_bench_ifo_pol_slice2.m')"
 % ========================================================================
 
