@@ -40,7 +40,7 @@ XP_METHOD     = 'sxp';      % per-field exit-pupil reset: 'fex' | 'sxp'
 %  Bundled demo deck, used when RX is empty.  EXPLICIT path -- the
 %  runner used to reach for examples/<its own name>/, so moving the
 %  asset directory broke it silently.  It is one CONFIG line now.
-DEMO_RX = fullfile(here, 'examples', 'run_dwdgrid_multi_multisegbasis', ...
+DEMO_RX = fullfile(here, '..', 'templates', '50_sensitivities', 'run_dwdgrid_multi_multisegbasis', ...
                    'SegDemo3conic.in');
 % =====================================================================
 

@@ -12,7 +12,7 @@ function [B, mask, info] = gs_zernike_segment_basis(session, rx_path, opts)
 %   ahead of the segments -- a valid trace target that still carries the
 %   segmented footprint.  Prepare it once (copy a segment's KrElt/KcElt into a
 %   Element=Reference / Surface=Conic block before the first segment); see
-%   sensitivities/examples/run_dwdgrid_multi_singlesegbasis/
+%   templates/50_sensitivities/run_dwdgrid_multi_singlesegbasis/
 %   SegDemo3conic.in (elt 1 = the PM-conic Reference).  This routine
 %   just points at that file -- it does NOT edit prescriptions.
 %

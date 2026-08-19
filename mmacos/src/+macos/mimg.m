@@ -14,9 +14,9 @@ function mimg(data,stat,crop,ndec,cmap)
 %   NDEC        decimal places in the statistics label (3)
 %   CMAP        colormap name ('jet')
 %
-%   Library display helper -- lived in examples/sensitivities/ until the
-%   2026-08 templates reorganization put every universal helper in the
-%   +macos package.
+%   Library display helper -- lived in the sensitivity example dir until
+%   the 2026-08 templates reorganization put every universal helper in
+%   the +macos package.
 %
 %   See also macos.pad, macos.m2v, macos.v2m.
 

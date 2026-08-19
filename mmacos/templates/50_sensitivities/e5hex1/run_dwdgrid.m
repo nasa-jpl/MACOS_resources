@@ -16,7 +16,7 @@
 %        Zernike via the coefficient channel are the SAME physical sag, so
 %        they produce the same wavefront SHAPE (cosine ~1, scale-robust).
 %
-%  Run:  >> run('.../examples/sensitivities/e5hex1/run_dwdgrid.m')
+%  Run:  >> run('.../templates/50_sensitivities/e5hex1/run_dwdgrid.m')
 % =====================================================================
 
 here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end

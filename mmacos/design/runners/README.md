@@ -34,7 +34,7 @@ re-run in a fresh session from files alone.
 | estimator/controller loop | PLANNED (Dave 2026-07-19: SINGLE-STEP STATIC estimator — the OSE form x̂ = x̄ + K·(m − m̄) with converged steady-state gains, m = [l; e]; controller = regularized wavefront-nulling on dwdu, recomputed continuously instead of run_simulator's held one-shot u; background: `MACOS_sandbox/Documents/OSE_Eqns_2019.pdf` + the 2025 JATIS HWO paper.  Builds on run_simulator: same ts ingestion, m_hist becomes the estimator input, dwdu the control authority) | run_simulator artifacts | controlled/uncontrolled stats |
 
 The `sensitivities/run_dwd*_multi.m` scripts (and their self-contained
-copies under `sensitivities/examples/`) are thin CONFIG wrappers over
+decks under `templates/50_sensitivities/`) are thin CONFIG wrappers over
 `run_sensitivities` — same user interface, one algorithm source.
 Edge sensors (2026-07-19 model): SegMirMaker emits 2 sensor locations
 x 3 axes (normal + in-plane pair) per shared segment edge, purely

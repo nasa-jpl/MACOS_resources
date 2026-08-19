@@ -179,7 +179,8 @@ wins under the cmd name `prb_elt`, codegen emits the single form under
   end-to-end worked example is `design/examples/e2e/`.
 - **`sensitivities/`** — multi-field `dW/d…` Jacobian drivers (thin
   CONFIG wrappers over `design/runners/run_sensitivities.m`), with
-  self-contained per-channel examples under `sensitivities/examples/`.
+  self-contained per-channel example decks under
+  `templates/50_sensitivities/`.
 - **`examples/`** — fixed feature demos (coronagraph, grid surfaces,
   view_rx, …).
 

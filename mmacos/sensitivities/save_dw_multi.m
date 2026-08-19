@@ -1,6 +1,6 @@
 function save_dw_multi(out, model_size, matpath)
 %SAVE_DW_MULTI  Write a dw_d*_multi result in the canonical .mat layout.
-%   Matches examples/sensitivities/.../run_dwdz.m so the shared verifyall.m
+%   Matches templates/50_sensitivities/.../run_dwdz.m so the shared verifyall.m
 %   lifecycle (m2v / v2m / indxall round-trip) consumes it directly:
 %
 %       wall = dwdxall * x + w0_stacked
