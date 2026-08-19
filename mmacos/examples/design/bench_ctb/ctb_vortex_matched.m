@@ -60,7 +60,6 @@ function out = ctb_vortex_matched(opts)
     if isempty(opts.rx),     opts.rx     = fullfile(here,'ctb_dcr.in'); end
     if isempty(opts.outdir), opts.outdir = here; end
     addpath(fullfile(here,'..','..','..','src'));
-    addpath(fullfile(here,'..','..','coronagraph','coro'));
     addpath(here);
     assert(~isempty(getenv('MACOS_HOME')),'MACOS_HOME must be set.');
     e = opts.elt;
@@ -78,7 +77,7 @@ function out = ctb_vortex_matched(opts)
     for iC = 1:nC
         for iL = 1:nL
             [I, fin] = run_vortex_(opts, g, opts.charges(iC), opts.lyot_fracs(iL));
-            dz = dark_zone_metrics(I, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
+            dz = macos.dark_zone_metrics(I, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
             C(iC,iL) = dz.mean; Med(iC,iL) = dz.median; Fin(iC,iL) = fin;
             fprintf(['[vmatch]   charge %d  Lyot frac %.2f  ->  mean C=%.3e  ', ...
                      'median=%.3e  T=%.3f  (%.1f%% flux inside stop)\n'], ...

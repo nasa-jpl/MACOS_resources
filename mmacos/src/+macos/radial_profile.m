@@ -1,5 +1,5 @@
 function [centers, means, stds, ns] = radial_profile(img, center, max_radius, bin_size)
-%RADIAL_PROFILE  Azimuthally-averaged radial profile of a 2D image.
+%MACOS.RADIAL_PROFILE  Azimuthally-averaged radial profile of a 2D image.
 %   [centers, means, stds, ns] = RADIAL_PROFILE(IMG) returns the bin
 %   centres, per-bin mean, per-bin std, and per-bin pixel count of the
 %   azimuthal average of IMG about its array centre.

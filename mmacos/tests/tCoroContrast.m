@@ -1,23 +1,18 @@
 classdef tCoroContrast < matlab.unittest.TestCase
 %TCOROCONTRAST  Unit tests for the ported contrast.py lambda/D machinery.
-%   Pure math, no macos calls — pins the MATLAB port of radial_profile /
-%   first_airy_null / lambda_over_D_pixels / radial_contrast (in
-%   examples/coronagraph/coro/) against an analytic Airy pattern with a
-%   known first null.  Guards the Sprint-1 E1 dark-zone merit from
-%   silent regressions in the port.
+%   Pure math, no engine calls — pins the MATLAB port of
+%   macos.radial_profile / macos.first_airy_null /
+%   macos.lambda_over_D_pixels / macos.radial_contrast (+macos library,
+%   hoisted out of examples/coronagraph/coro/ in the 2026-08 reorg)
+%   against an analytic Airy pattern with a known first null.  Guards
+%   the Sprint-1 E1 dark-zone merit from silent regressions in the port.
+%
+%   No PathFixture: the helpers are package functions, so src/ (already
+%   on the path for every test run) is all they need.
 
     properties (Constant)
         LamD_true = 8.0           % lambda/D in pixels we build the Airy at
         N         = 192           % grid size
-    end
-
-    methods (TestClassSetup)
-        function addCoroPath(testCase)
-            here = fileparts(mfilename('fullpath'));
-            coro = fullfile(here, '..', 'examples', 'coronagraph', 'coro');
-            testCase.applyFixture( ...
-                matlab.unittest.fixtures.PathFixture(coro));
-        end
     end
 
     methods (Static)
@@ -39,7 +34,7 @@ classdef tCoroContrast < matlab.unittest.TestCase
     methods (Test)
         function test_lambda_over_D_recovers_known(testCase)
             I = tCoroContrast.airy_image(testCase.N, testCase.LamD_true);
-            lamD = lambda_over_D_pixels(I);
+            lamD = macos.lambda_over_D_pixels(I);
             % 1-px radial binning -> first-null radius good to ~half a
             % bin -> lamD good to ~half a bin / 1.22.
             testCase.verifyEqual(lamD, testCase.LamD_true, 'AbsTol', 0.7);
@@ -47,14 +42,14 @@ classdef tCoroContrast < matlab.unittest.TestCase
 
         function test_first_airy_null_near_122_lamD(testCase)
             I = tCoroContrast.airy_image(testCase.N, testCase.LamD_true);
-            r_null = first_airy_null(I);
+            r_null = macos.first_airy_null(I);
             testCase.verifyEqual(r_null, 1.22 * testCase.LamD_true, ...
                 'AbsTol', 1.0);
         end
 
         function test_radial_profile_peak_at_centre(testCase)
             I = tCoroContrast.airy_image(testCase.N, testCase.LamD_true);
-            [r, m, ~, n] = radial_profile(I);
+            [r, m, ~, n] = macos.radial_profile(I);
             % First finite bin (near r=0) must hold the global peak.
             fin = find(isfinite(m));
             testCase.verifyEqual(m(fin(1)), max(m(isfinite(m))));
@@ -65,7 +60,7 @@ classdef tCoroContrast < matlab.unittest.TestCase
         function test_radial_contrast_normalises_to_peak(testCase)
             I = tCoroContrast.airy_image(testCase.N, testCase.LamD_true);
             peak = max(I(:));
-            [rl, c] = radial_contrast(I, peak, testCase.LamD_true, 10.0);
+            [rl, c] = macos.radial_contrast(I, peak, testCase.LamD_true, 10.0);
             % On-axis contrast (first finite bin) is ~1 by construction.
             fin = find(isfinite(c));
             testCase.verifyEqual(c(fin(1)), 1.0, 'RelTol', 0.05);
@@ -77,7 +72,7 @@ classdef tCoroContrast < matlab.unittest.TestCase
             % A flat image -> contrast equals 1/peak everywhere it has
             % data (mean of a constant ring is the constant).
             I = 5.0 * ones(testCase.N);
-            [~, c] = radial_contrast(I, 5.0, testCase.LamD_true, 5.0);
+            [~, c] = macos.radial_contrast(I, 5.0, testCase.LamD_true, 5.0);
             fin = isfinite(c);
             testCase.verifyEqual(c(fin), ones(1, nnz(fin)), 'AbsTol', 1e-12);
         end
@@ -86,7 +81,7 @@ classdef tCoroContrast < matlab.unittest.TestCase
             % Flat image -> every annulus pixel has contrast = const/peak;
             % mean=peak=floor=median equal it, energy = const*n_pix/peak.
             I = 5.0 * ones(testCase.N);
-            m = dark_zone_metrics(I, 5.0, testCase.LamD_true, 3, 7);
+            m = macos.dark_zone_metrics(I, 5.0, testCase.LamD_true, 3, 7);
             testCase.verifyGreaterThan(m.n_pix, 0);
             testCase.verifyEqual(m.mean,   1.0, 'AbsTol', 1e-12);
             testCase.verifyEqual(m.peak,   1.0, 'AbsTol', 1e-12);
@@ -101,8 +96,8 @@ classdef tCoroContrast < matlab.unittest.TestCase
             % mean contrast equals the full-annulus mean.
             I = tCoroContrast.airy_image(testCase.N, testCase.LamD_true);
             pk = max(I(:));
-            full  = dark_zone_metrics(I, pk, testCase.LamD_true, 3, 7);
-            right = dark_zone_metrics(I, pk, testCase.LamD_true, 3, 7, ...
+            full  = macos.dark_zone_metrics(I, pk, testCase.LamD_true, 3, 7);
+            right = macos.dark_zone_metrics(I, pk, testCase.LamD_true, 3, 7, ...
                                       'side', 'right');
             testCase.verifyLessThan(right.n_pix, full.n_pix);
             testCase.verifyGreaterThan(right.n_pix, 0.4 * full.n_pix);
@@ -115,7 +110,7 @@ classdef tCoroContrast < matlab.unittest.TestCase
             % On a real-ish (non-constant) image the metrics must order
             % floor <= median <= mean <= peak, and energy = mean*n_pix.
             I = tCoroContrast.airy_image(testCase.N, testCase.LamD_true);
-            m = dark_zone_metrics(I, max(I(:)), testCase.LamD_true, 3, 7);
+            m = macos.dark_zone_metrics(I, max(I(:)), testCase.LamD_true, 3, 7);
             testCase.verifyLessThanOrEqual(m.floor,  m.median);
             testCase.verifyLessThanOrEqual(m.median, m.mean);
             testCase.verifyLessThanOrEqual(m.mean,   m.peak);

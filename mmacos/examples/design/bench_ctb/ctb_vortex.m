@@ -55,7 +55,6 @@ function out = ctb_vortex(opts)
     if isempty(opts.rx),     opts.rx     = fullfile(here,'ctb_dcr.in'); end
     if isempty(opts.outdir), opts.outdir = here; end
     addpath(fullfile(here,'..','..','..','src'));
-    addpath(fullfile(here,'..','..','coronagraph','coro'));
     assert(~isempty(getenv('MACOS_HOME')),'MACOS_HOME must be set.');
     e = opts.elt;
 
@@ -69,12 +68,12 @@ function out = ctb_vortex(opts)
     [I_vort, I_lyot_v]  = arm_(opts, g, 'vortex');
 
     % contrast metrics (Strehl-norm to bare peak)
-    dz_hard = dark_zone_metrics(I_hard, peak_bare, lamD0, opts.inner_lamD, opts.outer_lamD);
-    dz_vort = dark_zone_metrics(I_vort, peak_bare, lamD0, opts.inner_lamD, opts.outer_lamD);
+    dz_hard = macos.dark_zone_metrics(I_hard, peak_bare, lamD0, opts.inner_lamD, opts.outer_lamD);
+    dz_vort = macos.dark_zone_metrics(I_vort, peak_bare, lamD0, opts.inner_lamD, opts.outer_lamD);
     fprintf('[vortex] dark zone %.0f-%.0f lam/D mean contrast: hard=%.3e  vortex=%.3e (%.1fx deeper)\n', ...
         opts.inner_lamD, opts.outer_lamD, dz_hard.mean, dz_vort.mean, dz_hard.mean/dz_vort.mean);
-    [rh,ch] = radial_contrast(I_hard, peak_bare, lamD0, opts.outer_lamD+3);
-    [rv,cv] = radial_contrast(I_vort, peak_bare, lamD0, opts.outer_lamD+3);
+    [rh,ch] = macos.radial_contrast(I_hard, peak_bare, lamD0, opts.outer_lamD+3);
+    [rv,cv] = macos.radial_contrast(I_vort, peak_bare, lamD0, opts.outer_lamD+3);
 
     % ---- figure --------------------------------------------------------
     vis='off'; if opts.visible, vis='on'; end

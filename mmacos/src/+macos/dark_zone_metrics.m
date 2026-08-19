@@ -1,6 +1,6 @@
 function m = dark_zone_metrics(I, peak_unaberrated, lam_over_D_px, ...
                                inner_lamD, outer_lamD, region)
-%DARK_ZONE_METRICS  Per-pixel dark-zone contrast statistics over a region.
+%MACOS.DARK_ZONE_METRICS  Per-pixel dark-zone contrast statistics over a region.
 %   M = DARK_ZONE_METRICS(I, PEAK_UNAB, LAMD_PX, INNER, OUTER) returns a
 %   struct of scoring metrics over the annular dark zone
 %   [INNER, OUTER] lambda/D of a focal-plane intensity I, each

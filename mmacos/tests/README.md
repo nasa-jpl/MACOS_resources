@@ -75,7 +75,7 @@ excluded for being slow (~31 s) and using a Linux `/proc` RSS probe.
 | tDesignSensitivities | `macos.design.System.sensitivities` — rigid + Zernike blocks bitwise-match standalone dw_dx / dw_dz_zernike (Sprint 2A-i) |
 | tDesignOptimize | `macos.design.System.evaluate` / `optimize` — fmincon recovers a despace misalignment to min WFE; ray-loss guard; family guard (Sprint 2A-i) |
 | tVeneerXP | spot / fex / get_xp / set_xp veneers on a STOP-bearing Rx (e5hex1); + regression that spot-on-stopless fails fast (engine infinite-loop fix) |
-| tCoroContrast | ported `contrast.py` λ/D machinery (radial_profile / first_airy_null / lambda_over_D_pixels / radial_contrast) vs an analytic Airy disk — Sprint-1 E1 dark-zone merit (pure math) |
+| tCoroContrast | ported `contrast.py` λ/D machinery (`macos.radial_profile` / `first_airy_null` / `lambda_over_D_pixels` / `radial_contrast`) vs an analytic Airy disk — Sprint-1 E1 dark-zone merit (pure math) |
 | tEndurance | load/trace endurance — bit-identical rmsWFE + flat memory over many iters (Q5) |
 | tPolarization | PLAN_POLARIZATION Phase 1 — `polarization` / `vector_diffraction` / `coating` (Model A round-trip) / `ray_field` state + geometry gates |
 | tJonesPupil | Phase 2a/2b — two-trace Jones pupil (double-pole / local-sp / global bases) + `pol_maps` polar decomposition + `pol_zernike` low-order expansion; unitarity, Fresnel-analytic fold, 2θ symmetry, and the two-mirror "polarization astigmatism" literature form.  NOTE: uses two fixtures with DIFFERENT BaseUnits (Rx_Cass_FarField = m, Bench fold rig = mm), so the Al thickness is two constants — see `thkAl`/`thkAlBench` |

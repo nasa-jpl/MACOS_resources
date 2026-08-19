@@ -28,7 +28,6 @@ arguments
 end
 
 here = fileparts(mfilename('fullpath'));
-addpath(fullfile(here, '..', 'design', 'coro'));   % radial_contrast, dark_zone_metrics
 if isempty(rx_path)
     rx_path = fullfile(getenv('HOME'), 'dev', 'MACOS_resources', ...
         'pymacos', 'tests', 'Rx', 'Rx_Coro_FPM.in');
@@ -97,13 +96,13 @@ fprintf('[walkthrough] wrote coro_surfaces.png\n');
 macos.load_rx(NO_MASK_RX);
 I_no    = macos.intensity(DET);
 peak_no = max(I_no(:));
-lamD    = lambda_over_D_pixels(I_no);
-[r_no, c_no] = radial_contrast(I_no, peak_no, lamD, 20.0);
+lamD    = macos.lambda_over_D_pixels(I_no);
+[r_no, c_no] = macos.radial_contrast(I_no, peak_no, lamD, 20.0);
 
 macos.load_rx(rx_path);
 I_co = macos.intensity(DET);
-[r_co, c_co] = radial_contrast(I_co, peak_no, lamD, 20.0);
-m_co = dark_zone_metrics(I_co, peak_no, lamD, 7, 10);
+[r_co, c_co] = macos.radial_contrast(I_co, peak_no, lamD, 20.0);
+m_co = macos.dark_zone_metrics(I_co, peak_no, lamD, 7, 10);
 
 fig = figure('Visible','off','Position',[80 80 760 560], 'Color','w');
 semilogy(r_no, max(c_no,1e-14), 'LineWidth',1.5); hold on;

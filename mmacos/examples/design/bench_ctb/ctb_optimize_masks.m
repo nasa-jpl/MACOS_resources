@@ -46,7 +46,6 @@ function out = ctb_optimize_masks(opts)
     if isempty(opts.rx),     opts.rx     = fullfile(here,'ctb_dcr.in'); end
     if isempty(opts.outdir), opts.outdir = here; end
     addpath(fullfile(here,'..','..','..','src'));
-    addpath(fullfile(here,'..','..','coronagraph','coro'));
     assert(~isempty(getenv('MACOS_HOME')),'MACOS_HOME must be set.');
     e = opts.elt;
 
@@ -63,7 +62,7 @@ function out = ctb_optimize_masks(opts)
     for iF = 1:nF
         for iL = 1:nL
             [I, thr] = run_coro_(opts, g, opts.r_fpm_list(iF), opts.r_lyot_list(iL));
-            dz = dark_zone_metrics(I, peak_bare, lamD, opts.band_inner, opts.band_outer);
+            dz = macos.dark_zone_metrics(I, peak_bare, lamD, opts.band_inner, opts.band_outer);
             C(iF,iL) = dz.mean;  T(iF,iL) = thr;
             fprintf('[opt]   r_fpm=%.2f lam/D  r_lyot=%.2f  ->  mean C=%.3e  T=%.3f  C/T=%.3e\n', ...
                 opts.r_fpm_list(iF), opts.r_lyot_list(iL), dz.mean, thr, dz.mean/max(thr,eps));
