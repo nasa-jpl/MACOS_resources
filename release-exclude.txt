@@ -10,10 +10,10 @@ doc/mmacos_pymacos_parity.md
 doc/STYLE_REPORTS.md
 mmacos/design/PLAN_AFOCAL4.md
 mmacos/design/PLAN_TMA_E2E2.md
-mmacos/design/examples/afocal4/STATUS_S4B.md
-mmacos/design/examples/afocal4/STATUS_S4C.md
-mmacos/design/rodgers1/OPTFEX_REDO_LIST.md
-mmacos/design/rodgers1/SESSION_STATE_2026-07-30.md
+mmacos/challenges/afocal4/STATUS_S4B.md
+mmacos/challenges/afocal4/STATUS_S4C.md
+mmacos/challenges/rodgers1/OPTFEX_REDO_LIST.md
+mmacos/challenges/rodgers1/SESSION_STATE_2026-07-30.md
 mmacos/templates/40_benches/vsg_wip/PLAN_VSG2_MODELS.md
 mmacos/templates/40_benches/vsg_wip/VSG2_review.md
 mmacos/templates/30_instruments/bench_ctb/CTB_PROP_STATUS.md

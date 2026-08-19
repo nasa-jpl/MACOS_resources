@@ -15,7 +15,7 @@ function P = e2e2_params()
 % =====================================================================
 %  THE DESIGN POINT (Dave, 2026-08-01)
 % =====================================================================
-%  The Rodgers offset-field coaxial TMA (design/rodgers1/), SCALED to a
+%  The Rodgers offset-field coaxial TMA (challenges/rodgers1/), SCALED to a
 %  D = 3 m aperture: every length x 3/5 from his 5 m .seq geometry.  f/#
 %  is scale-invariant, so the scaled system is still f/20 (EFL 60 m) off
 %  an f/1.2358 primary, and his `CUY UMY -0.025` marginal-angle solve --

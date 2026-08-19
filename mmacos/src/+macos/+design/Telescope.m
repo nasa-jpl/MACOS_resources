@@ -1130,7 +1130,7 @@ classdef Telescope < handle
             % ExitPupil), giving each field a reference sphere centred on ITS
             % chief-ray intercept on the detector.  That is the strict metric;
             % verified numerically equal to it (2.7e-9) by
-            % design/rodgers1/gate0_merit_identity.m.
+            % challenges/rodgers1/gate0_merit_identity.m.
             use_ep = isfield(obj.spec,'pupil') && ~isempty(obj.spec.pupil);
             if use_ep
                 fp_elt = obj.spec.pupil.ep_elt;

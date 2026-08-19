@@ -17,7 +17,7 @@
 %        marginal-angle solve.  They must agree, and that agreement is
 %        an independent check of the builder no de-novo layout can make.
 %    [3] the PUPIL, against the declared Aperture -- greatest chord, not
-%        a span.  See design/rodgers1/PACKET.md Addendum 10 for why a
+%        a span.  See challenges/rodgers1/PACKET.md Addendum 10 for why a
 %        span check cannot see a 5% pupil error.
 %
 %  Then: joint solve (conics + FPA in ONE CALIB DOF set, never

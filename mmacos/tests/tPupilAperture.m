@@ -16,7 +16,7 @@ classdef tPupilAperture < matlab.unittest.TestCase
 %   Measured along either axis it reads EXACTLY the declared aperture; only
 %   the DIAGONAL is oversize, so a span check and a plot both look right.
 %   These gates therefore measure the RADIUS and the DIAGONAL, never a span.
-%   Full diagnosis: design/rodgers1/PACKET.md Addendum 10.
+%   Full diagnosis: challenges/rodgers1/PACKET.md Addendum 10.
 %
 %   A/B against the preserved pre-fix mex (2026-08-01): post-fix 5 pass /
 %   0 fail, pre-fix 1 pass / 4 fail.  All THREE section-A gates go red
