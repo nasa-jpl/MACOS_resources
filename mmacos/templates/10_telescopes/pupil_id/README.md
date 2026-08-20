@@ -7,16 +7,30 @@ point, forced `Kc=0`, one radius. It gives the XP location and the far-field
 propagation distance and **nothing about pupil-imaging quality**: no pupil
 spherical aberration, no pupil astigmatism, no pupil **walk** across field.
 
-This driver takes `tma_onaxis` as a representative telescope (M1 **is** the
-stop, so the entrance pupil is the M1 beam rim), runs the grid-of-cone-sources
-method to find the exit pupil as a fitted **surface**, cross-checks it against
-the engine's two-ray XPS, reports how sharply the EP images to the XP, and
-tracks the pupil walk vs field.
+It is a **general-purpose driver**: give it any telescope Rx (defaults to
+`tma_onaxis`), it runs the grid-of-cone-sources method to find the exit pupil
+as a fitted **surface**, writes a **revised Rx** (the XP reference sphere
+re-placed at the cone-bundle vertex, an improvement on the one-chief-ray FEX
+sphere), cross-checks against the engine's two-ray XPS, reports how sharply the
+EP images to the XP, and tracks the pupil walk vs field.
 
 It **composes existing, test-gated tools** — [`design/src/pupil_map.m`](../../../design/src/pupil_map.m)
 (cone convergence), `macos.pupil_quality` (engine XPS), `macos.pupil_zone_map`
 (zone spots), `macos.fex`/`macos.set_xp` (the XP sphere). **No new engine or
 veneer code.**
+
+## Two layers — a finder and a wrapper
+
+| Layer | File | Role |
+|---|---|---|
+| **core finder** | [`design/src/pupil_find.m`](../../../design/src/pupil_find.m) | Rx in → cone convergence → **`set_xp` into the internal Rx in place, exactly as the engine's FEX modifies engine state** → metrics out. No file I/O, no figures, no printing. |
+| **template wrapper** | `pupil_id.m` (here) | calls `pupil_find`, then does the report, the XPS cross-check, the zone + walk metrics, the figures, and writes the **revised Rx** to disk (`macos.save_rx`). |
+
+The split is so **sensitivity drivers (`run_dwd*.m`) call `pupil_find`
+directly** — it leaves the engine with the improved XP in the loaded Rx, just
+like a FEX call, and returns the metrics — while the wrapper owns everything
+file- and figure-facing. `pupil_find(..., 'place',false)` measures without
+touching the Rx.
 
 ## The two XP radii — do not conflate
 
@@ -52,30 +66,49 @@ the stop, and `pupil_map` (`strip_ap`) plus the design layer both strip
 Return/Reference apertures, so a physical rim stop could not clip a metric ray
 anyway.
 
-## Pipeline (`pupil_id.m`)
+## Pipeline
 
-1. **FEX baseline** — `macos.stop(M1)`, `macos.fex(1)`: the single-chief-ray XP
-   sphere we go beyond.
-2. **EP = M1 rim** — realized by `anchor='rim'`, no element inserted.
-3. **Cone-convergence XP surface** — `pupil_map(deck, field_grid, 'anchor','rim')`
-   (and `'surface'`): the four-part ladder (blur / surface Zernikes / map /
-   wander).
-4. **XP sphere → Rx + pupil-quality departure** — best-fit sphere vertex from
-   the crossing cloud (piston+tilt+curvature removed → the residual is the true
-   departure), written with FEX's propagation radius via `macos.set_xp`.
+`pupil_find` (steps 1–4, the core) → `pupil_id` adds 5–8:
+
+1. **FEX baseline** — `macos.stop(ep_elt)`, `macos.fex(1)`: the single-chief-ray
+   XP sphere we go beyond.
+2. **EP anchor** — `'rim'` (beam rim, default), `'stop'`, or `'surface'`; no
+   element inserted (the anchor is a `pupil_map` argument).
+3. **Cone-convergence XP surface** — `pupil_map` over a `field_grid`: the
+   four-part ladder (blur / surface Zernikes / map / wander).
+4. **XP sphere → internal Rx** — best-fit sphere vertex from the crossing cloud
+   (piston+tilt+curvature removed → the residual is the true departure),
+   `macos.set_xp` with **FEX's propagation radius** — modifies the loaded Rx in
+   place, as FEX does.
 5. **Engine two-ray cross-check** — `macos.pupil_quality` (XPS); `pupil_map`
    `anchor='stop'` reproduces it (the headline agreement).
-6. **EP→XP imaging sharpness** — `macos.pupil_zone_map(M1, XP)` zone spots.
+6. **EP→XP imaging sharpness** — `macos.pupil_zone_map(ep,xp)` zone spots
+   (skipped with a message on a deck whose pupil is not fully lit).
 7. **Pupil walk vs field** — `macos.fex` at a field sweep: XP position and
    radius vs field, the across-field piece FEX gives at only one point.
+8. **Revised Rx → disk** — `macos.save_rx(out_rx)` (default `<rx>_xp.in`).
 
-## Knobs
+## Run
 
-- `FOV_ARCMIN`, `NGRID` (≥3) — the cone field grid.
-- `NODES` — the entrance-surface node lattice.
-- `WALK_ARCMIN` — the field sweep for the walk.
-- Aperture/conics are **fixed by the deck** (`../tma_onaxis/tma_onaxis.in`) —
-  do not edit them here.
+```matlab
+pupil_id                                    % template default: tma_onaxis
+out = pupil_id('/path/to/my_tel.in');       % your telescope -> my_tel_xp.in
+out = pupil_id(rx, 'ep_elt',1, 'xp_elt',5, 'fov_arcmin',3, 'anchor','rim');
+% headless:  matlab -batch "pupil_id('/path/to/my_tel.in'); exit(0)"
+% sensitivity drivers call the core finder directly:
+pf = pupil_find(rx, field_grid);            % modifies the loaded Rx like FEX
+```
+
+## Knobs (name-value)
+
+- `ep_elt` / `xp_elt` — entrance-pupil (stop) / exit-pupil element; `xp_elt`
+  defaults to `nElt-1` and must be a Return/Reference surface.
+- `fov_arcmin`, `ngrid` (≥3) — the cone field grid; `nodes` — the
+  entrance-surface node lattice; `walk_arcmin` — the walk field sweep.
+- `anchor` — `'rim'` | `'surface'` | `'stop'` (see the table above).
+- `write_rx` / `out_rx` / `outdir` / `figures` — output control.
+- Aperture/conics come **from the input Rx** — this driver measures and
+  re-places the XP; it does not edit the optics.
 
 ## Results (tma_onaxis, D=1 m, f/1.5 primary, 1′ bias, model 256, 500 nm)
 
@@ -109,13 +142,9 @@ the finite-field XP vertex coincides with FEX; `anchor.blur_ratio = 0.010`
 - The convergence-surface curvature (0.077 m) is **not** the propagation radius
   (0.147 m); only the latter goes in the Rx.
 
-## Run
+## Requirements
 
-```matlab
-run('.../mmacos/templates/10_telescopes/pupil_id/pupil_id.m')
-% headless:  matlab -batch "run('.../pupil_id.m'); exit(0)"
-```
-
-Requires `MACOS_HOME` set and the mmacos MEX built. Writes
-`pupil_id_results.mat` and `pupil_id_{cloud,zernikes,walk}.png` to this dir.
-One MATLAB process, model size 256 (do not transition sizes in a live process).
+`MACOS_HOME` set and the mmacos MEX built. Writes `pupil_id_<rx>.mat` and
+`pupil_id_{cloud,zernikes,walk}.png` to `outdir` (default the input Rx's dir),
+plus the revised `<rx>_xp.in`. One MATLAB process, model size 256 (do not
+transition sizes in a live process).
