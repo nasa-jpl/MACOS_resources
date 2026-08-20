@@ -127,7 +127,7 @@ function OUT = offset_imager(over)
         stage_banner_('S4  open tilt/decenter + radii under the constraint set');
         X.eliminate = 'R3';          % S4+: Petzval released, EFL still exact
         walls = @(Xc, Gc) wall_check_(Xc, Gc, P);
-        [X, hist4] = oi_solve(X, P, 'S4', 'walls', walls);
+        [X, hist4] = oi_solve(X, P, 'S4', 'walls', walls, 'clear', true);
         [X, G, fo] = close_refit_(X, P, P.offset_deg);
         gt4 = oi_gates(X, G, P, P.offset_deg);
         [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, 's4', X, G, fo, ...
@@ -139,7 +139,7 @@ function OUT = offset_imager(over)
         stage_banner_('S5  open Zernike departures (BornWolf, lMon frozen)');
         X = oi_zern_seed(X, P);
         walls = @(Xc, Gc) wall_check_(Xc, Gc, P);
-        [X, hist5] = oi_solve(X, P, 'S5', 'walls', walls);
+        [X, hist5] = oi_solve(X, P, 'S5', 'walls', walls, 'clear', true);
         [X, G, fo] = close_refit_(X, P, P.offset_deg);
         gt5 = oi_gates(X, G, P, P.offset_deg);
         [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, 's5', X, G, fo, ...

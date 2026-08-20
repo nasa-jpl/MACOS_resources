@@ -60,7 +60,7 @@ function OUT = run_t3()
     Xa.K = [0 0 0];  Xa.asph = zeros(3,3);   % ...but PURE SPHERES
     Xa.fpa_refit = [0 0];
     Xa = oi_zern_seed(Xa, P);         % zero-coefficient Zernike surfaces
-    [Xa, ha] = oi_solve(Xa, P, 'S5', 'walls', @(Xc,Gc) false);
+    [Xa, ha] = oi_solve(Xa, P, 'S5', 'walls', @(Xc,Gc) false, 'clear', true);
     [Xa, Ga] = oi_close(Xa, P);  Xa.fpa = oi_apply_fpa(Xa);  Ga.fpa = Xa.fpa;
     [~, mpa] = oi_map_fig(Xa, Ga, P, P.offset_deg, ...
         'counter (a): sphere+Zernike from the start', ...
@@ -75,7 +75,7 @@ function OUT = run_t3()
     Xb.fpa_refit = [0 0];
     Xb = oi_zern_seed(Xb, P, 'modes', sort([3 5 P.zern_modes]));
     Pb = P;  Pb.zern_modes = sort([3 5 P.zern_modes]);
-    [Xb, hb] = oi_solve(Xb, Pb, 'S5', 'walls', @(Xc,Gc) false);
+    [Xb, hb] = oi_solve(Xb, Pb, 'S5', 'walls', @(Xc,Gc) false, 'clear', true);
     [Xb, Gb] = oi_close(Xb, Pb);  Xb.fpa = oi_apply_fpa(Xb);  Gb.fpa = Xb.fpa;
     [~, mpb] = oi_map_fig(Xb, Gb, Pb, Pb.offset_deg, ...
         'counter (b): S5 with power + y-tilt in the basis', ...

@@ -50,6 +50,7 @@ function [X, hist] = oi_solve(X, P, stage, opts)
         opts.walls = []
         opts.quiet (1,1) logical = false
         opts.debug (1,1) logical = false
+        opts.clear (1,1) logical = false   % S4/S5: clearance hinge rows
     end
     if isnan(opts.iters), opts.iters = P.gn_iters; end
     if isnan(opts.offset)
@@ -67,13 +68,13 @@ function [X, hist] = oi_solve(X, P, stage, opts)
     V = varspec_(stage, X, P, h, lam);
 
     % ---- residual function --------------------------------------------------
-    rfun = @(u) residual_(u, V, X, P, opts.offset, F, opts.walls, 0);
+    rfun = @(u) residual_(u, V, X, P, opts.offset, F, opts.walls, 0, opts.clear);
 
     % ---- Levenberg-damped GN -------------------------------------------------
     u = zeros(numel(V),1);                 % scaled deltas about the incoming X
     [r, Xbest, rq] = rfun(u);
     len0 = numel(r);
-    rfun = @(u) residual_(u, V, X, P, opts.offset, F, opts.walls, len0);
+    rfun = @(u) residual_(u, V, X, P, opts.offset, F, opts.walls, len0, opts.clear);
     rms0 = rq;  rmsb = rms0;
     lamLM = 1e-3;  du_fd = 1e-2;
     hist = struct('rms0',rms0,'iters',0,'accepted',0, ...
@@ -140,7 +141,8 @@ function [X, hist] = oi_solve(X, P, stage, opts)
 end
 
 % =========================================================================
-function [r, Xc, rq] = residual_(u, V, X, P, offset, F, walls, len0)
+function [r, Xc, rq] = residual_(u, V, X, P, offset, F, walls, len0, useclear)
+    if nargin < 9, useclear = false; end
 %RESIDUAL_  Stacked per-ray centroid-rung residual wavefronts (nm) --
 %   TRUE Gauss-Newton residuals (per-ray OPD is nearly linear in the
 %   surface coefficients; a per-field RMS is not, and GN on it stalls).
@@ -170,13 +172,26 @@ function [r, Xc, rq] = residual_(u, V, X, P, offset, F, walls, len0)
     txt = oi_deck(D);
     sc = oi_score(txt, G, F, 'anchor','center', 'resid',true);
     r = sc.resid;
-    % the exit-direction row (appended below) is part of the base length
+    % the exit-direction + clearance rows (appended below) are part of
+    % the base length
     nx = double(isfield(P,'exit_dir') && ~isempty(P.exit_dir) && abs(offset) > 1e-12);
+    if useclear && isfield(P,'clear_m') && ~isempty(P.clear_m), nx = nx + 9; end
     if isempty(r) || (len0 > size(F,1) && numel(r) ~= len0 - nx)
         r = 1e9*ones(len0,1);
         return
     end
     r(~isfinite(r)) = 1e9;
+    % clearance hinge rows (S4/S5): nine fixed leg/obstacle pairs, zero
+    % when compliant, w*(deficit) when a step tries to buy WFE with
+    % glass in the beam.  w = 2e5 nm/m = 200 nm per mm of deficit --
+    % dominant while blocked (a 20 mm deficit outweighs the whole
+    % wavefront), comparable to the WFE rows near compliance so the
+    % last millimetres are a genuine trade, as they are in his r4.
+    if useclear && isfield(P,'clear_m') && ~isempty(P.clear_m)
+        [~, dc] = oi_clear(Xc, G, P, offset);
+        dreq = min(P.clear_m);
+        r = [r; 2e5 * max(0, dreq - dc)];
+    end
     % exit-direction EQUALITY constraint as a weighted residual row
     % (offset stages only -- on axis it is satisfied by symmetry)
     if nx > 0
