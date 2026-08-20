@@ -90,6 +90,8 @@ modified_rx
 n_elt
 obs_set
 opd
+opd_ref_get
+opd_ref_set
 ors_run
 perturb_elt
 perturb_src
