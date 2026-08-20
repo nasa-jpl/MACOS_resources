@@ -4,8 +4,14 @@ function OUT = run_t4()
 %
 %   Parameter choice (and why): EPD 200 mm, F/2.5 (EFL 0.5 m), 10x10-deg
 %   box offset 12 deg, lambda 1 um -- 2.7x the rodgers3 aperture, 1.6x
-%   faster, half the box, roughly half the offset; same constraint style
-%   (exit beam pinned along -z, the two-value clearance list).  A fast
+%   faster, half the box, roughly half the offset; same clearance-list
+%   constraint style.  The exit direction is REPORT-ONLY here: at these
+%   (deliberately arbitrary) spacings the offset chief exits ~4.7 deg
+%   off horizontal for ANY symmetric surfaces -- the exit angle is a
+%   first-order property of EFL + spacings + the stop pose, so pinning
+%   it is a PACKAGING choice, not a surface-solve constraint (the same
+%   structural fact that exposed the rodgers3 slide-F/4-vs-deck-EFL
+%   discrepancy; see challenges/rodgers3/PACKET.md).  A fast
 %   wide-aperture offset imager is the other common corner of this
 %   trade space, and the faster speed moves the asphere/Zernike burden
 %   onto different surfaces than the rodgers3 instance -- if anything
@@ -33,6 +39,5 @@ function OUT = run_t4()
         'box_deg',[10 10], 'offset_deg',12, ...
         'z_m1_m',1.0, 'spacings_m',[-0.10 0 1.10], ...
         'seed_R1_m',15, ...
-        'exit_dir',[0 0 -1], 'exit_tol_deg',0.1, ...
         'gn_iters',15));
 end
