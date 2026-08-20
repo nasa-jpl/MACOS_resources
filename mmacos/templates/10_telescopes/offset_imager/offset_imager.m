@@ -109,8 +109,7 @@ function OUT = offset_imager(over)
         Xf.K = Xs.K;  Xf.asph = Xs.asph;  Xf.R = Xs.R;
         qc = start_qmean_(Xc, P);
         qf = start_qmean_(Xf, P);
-        fprintf('  S3 start candidates: carry %.1f nm, fresh seed %.1f nm -> %s
-', ...
+        fprintf('  S3 start candidates: carry %.1f nm, fresh seed %.1f nm -> %s\n', ...
                 qc, qf, tern_(qf < qc, 'fresh', 'carry'));
         if qf < qc, X = Xf; else, X = Xc; end
         X = pose_stop_once_(X, P);   % re-construct at S3 entry, then free
