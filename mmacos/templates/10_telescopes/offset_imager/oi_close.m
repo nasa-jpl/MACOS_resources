@@ -46,11 +46,23 @@ function [X, G, fo] = oi_close(X, P, opts)
     end
     if isnan(opts.offset_deg), opts.offset_deg = P.offset_deg; end
 
-    % ---- 1. EFL identity: eliminate R3 ------------------------------------
+    % ---- 1. first-order identities ------------------------------------------
+    %   X.eliminate = 'R3'   (default): EFL exact, R3 eliminated.
+    %   X.eliminate = 'R2R3': EFL exact AND Petzval = 0, R2+R3 eliminated
+    %   (the S1/S3 symmetric-stage discipline -- Mike's own r1 sits at
+    %   c1-c2+c3 = -0.035/m, i.e. essentially flat-field; holding the
+    %   identity removes the field-curvature ridge from the solve).
     tnet = [X.spacings(1) + X.spacings(2), X.spacings(3)];
-    c3 = secant_(@(c3) efl_err_(X.R(1), X.R(2), 1/c3, tnet, P.EFL_m), ...
-                 1/X.R(3));
-    X.R(3) = 1/c3;
+    elim = 'R3';
+    if isfield(X,'eliminate') && ~isempty(X.eliminate), elim = X.eliminate; end
+    if strcmp(elim,'R2R3')
+        fo0 = oi_paraxial(X.R(1), tnet, struct('EFL_m', P.EFL_m));
+        X.R(2:3) = fo0.R(2:3);
+    else
+        c3 = secant_(@(c3) efl_err_(X.R(1), X.R(2), 1/c3, tnet, P.EFL_m), ...
+                     1/X.R(3));
+        X.R(3) = 1/c3;
+    end
     fo = oi_paraxial(X.R, tnet);
 
     % ---- stations ----------------------------------------------------------

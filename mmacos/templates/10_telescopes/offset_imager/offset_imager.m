@@ -67,6 +67,7 @@ function OUT = offset_imager(over)
     if any(P.stages == 1)
         stage_banner_('S1  coaxial symmetric-asphere solve, on-axis box');
         X = oi_seed(P);
+        X.eliminate = 'R2R3';        % S1: EFL + Petzval=0 identities
         [X, hist1] = oi_solve(X, P, 'S1', 'offset', 0);
         [X, G, fo] = close_refit_(X, P, 0);
         [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, 's1', X, G, fo, ...
@@ -94,6 +95,7 @@ function OUT = offset_imager(over)
     if any(P.stages == 3)
         stage_banner_('S3  re-solve symmetric aspheres/conics AT the offset field');
         K0 = X.K;
+        X.eliminate = 'R2R3';        % S3: same symmetric-stage identities
         [X, hist3] = oi_solve(X, P, 'S3');
         [X, G, fo] = close_refit_(X, P, P.offset_deg);
         [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, 's3', X, G, fo, ...
@@ -106,6 +108,7 @@ function OUT = offset_imager(over)
     % ================= S4: tilts/decenters + radii, constraints ==============
     if any(P.stages == 4)
         stage_banner_('S4  open tilt/decenter + radii under the constraint set');
+        X.eliminate = 'R3';          % S4+: Petzval released, EFL still exact
         walls = @(Xc, Gc) wall_check_(Xc, Gc, P);
         [X, hist4] = oi_solve(X, P, 'S4', 'walls', walls);
         [X, G, fo] = close_refit_(X, P, P.offset_deg);

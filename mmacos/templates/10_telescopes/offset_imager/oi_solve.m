@@ -60,12 +60,14 @@ function [X, hist] = oi_solve(X, P, stage, opts)
     V = varspec_(stage, X, P, h, lam);
 
     % ---- residual function --------------------------------------------------
-    rfun = @(u) residual_(u, V, X, P, opts.offset, F, opts.walls);
+    rfun = @(u) residual_(u, V, X, P, opts.offset, F, opts.walls, 0);
 
     % ---- Levenberg-damped GN -------------------------------------------------
     u = zeros(numel(V),1);                 % scaled deltas about the incoming X
-    [r, Xbest] = rfun(u);
-    rms0 = qmean_(r);  rmsb = rms0;
+    [r, Xbest, rq] = rfun(u);
+    len0 = numel(r);
+    rfun = @(u) residual_(u, V, X, P, opts.offset, F, opts.walls, len0);
+    rms0 = rq;  rmsb = rms0;
     lamLM = 1e-3;  du_fd = 1e-2;
     hist = struct('rms0',rms0,'iters',0,'accepted',0, ...
                   'vars',{{V.name}}, 'rms_path',rms0);
@@ -95,9 +97,9 @@ function [X, hist] = oi_solve(X, P, stage, opts)
             % trust region in the scaled space (scales are natural units)
             nd = norm(du);
             if nd > 30, du = du*(30/nd); end
-            [rn, Xn] = rfun(u + du);
+            [rn, Xn, rqn] = rfun(u + du);
             if qmean_(rn) < qmean_(r)
-                u = u + du;  r = rn;  Xbest = Xn;  rmsb = qmean_(r);
+                u = u + du;  r = rn;  Xbest = Xn;  rmsb = rqn;
                 lamLM = max(lamLM/3, 1e-7);
                 ok = true;  nacc = nacc + 1;
                 if nacc >= 3, break; end
@@ -121,19 +123,27 @@ function [X, hist] = oi_solve(X, P, stage, opts)
 end
 
 % =========================================================================
-function [r, Xc] = residual_(u, V, X, P, offset, F, walls)
+function [r, Xc, rq] = residual_(u, V, X, P, offset, F, walls, len0)
+%RESIDUAL_  Stacked per-ray centroid-rung residual wavefronts (nm) --
+%   TRUE Gauss-Newton residuals (per-ray OPD is nearly linear in the
+%   surface coefficients; a per-field RMS is not, and GN on it stalls).
+%   rq = quadratic mean of the per-field strict RMS (the human-readable
+%   merit).  Walls return 1e9 rows of the base length so J stays
+%   well-formed across evals.
+    if len0 == 0, len0 = size(F,1); end
+    rq = 1e9;
     Xc = apply_(u, V, X);
     try
         [Xc, G] = oi_close(Xc, P, 'offset_deg', offset);
     catch
         % a candidate the closure cannot even close is a wall, not an error
-        r = 1e9*ones(size(F,1),1);
+        r = 1e9*ones(len0,1);
         return
     end
     Xc.fpa = oi_apply_fpa(Xc);       % FPA refit deltas ride the base pose
     G.fpa  = Xc.fpa;
     if ~isempty(walls) && walls(Xc, G)
-        r = 1e9*ones(size(F,1),1);   % wall: reject the step
+        r = 1e9*ones(len0,1);        % wall: reject the step
         return
     end
     D = fill_(Xc, P);
@@ -141,9 +151,16 @@ function [r, Xc] = residual_(u, V, X, P, offset, F, walls)
         D.sampling = P.solve_sampling;   % coarse grid in the loop only
     end
     txt = oi_deck(D);
-    sc = oi_score(txt, G, F, 'anchor','center');   % solve-loop fast path
-    r = sc.wfe_cen_nm;
-    r(~isfinite(r)) = 1e9;           % lost field = wall
+    sc = oi_score(txt, G, F, 'anchor','center', 'resid',true);
+    r = sc.resid;
+    if isempty(r) || (len0 > size(F,1) && numel(r) ~= len0)
+        r = 1e9*ones(len0,1);
+        return
+    end
+    r(~isfinite(r)) = 1e9;
+    w = sc.wfe_cen_nm;
+    rq = sqrt(mean(w(isfinite(w)).^2));
+    if ~isfinite(rq), rq = 1e9; end
 end
 
 function X = apply_(u, V, X)
@@ -162,14 +179,25 @@ function V = varspec_(stage, X, P, h, lam)
     addv = @(V,name,scale,get,set) [V, struct('name',name,'scale',scale, ...
                                               'get',get,'set',set)];
     geom = ~strcmp(stage,'fpa');
+    symm = strcmp(stage,'S1') || strcmp(stage,'S3');
     if geom
         for m = 1:3
-            V = addv(V, sprintf('K%d',m), 1e-2, ...
+            % conic natural scale: dK giving 0.2 waves of sag at the
+            % footprint edge (sag_K ~ K*c^3*h^4/8); capped -- a nearly
+            % flat mirror's conic is optically irrelevant at any K
+            sK = min(50, 0.2*lam*8*abs(X.R(m))^3 / h(m)^4);
+            V = addv(V, sprintf('K%d',m), sK, ...
                 @(X) X.K(m), @(X,v) setfield_(X,'K',m,v)); %#ok<*GFLD>
         end
-        for m = 1:2                          % R3 is the EFL eliminator
-            V = addv(V, sprintf('R%d',m), 1e-2, ...
-                @(X) X.R(m), @(X,v) setfield_(X,'R',m,v));
+        if symm
+            % S1/S3: Petzval = 0 is a closure IDENTITY (R2,R3 eliminated)
+            V = addv(V, 'R1', 5e-2, ...
+                @(X) X.R(1), @(X,v) setfield_(X,'R',1,v));
+        else
+            for m = 1:2                      % R3 is the EFL eliminator
+                V = addv(V, sprintf('R%d',m), 1e-2, ...
+                    @(X) X.R(m), @(X,v) setfield_(X,'R',m,v));
+            end
         end
         if strcmp(stage,'S5')
             nm = numel(P.zern_modes);
