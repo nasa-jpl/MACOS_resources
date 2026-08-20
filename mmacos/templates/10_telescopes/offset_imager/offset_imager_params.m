@@ -91,6 +91,11 @@ function P = offset_imager_params(over)
 
     P.exit_dir     = [];        % report-only by default; T3 sets Mike's
     P.exit_tol_deg = 1.0;
+    P.exit_wt      = 1e4;       % exit-direction residual weight, nm/deg
+                                % (an EQUALITY constraint solved in the
+                                % least-squares sense from S3 on -- a
+                                % boolean wall would freeze any stage
+                                % that STARTS outside tolerance)
     P.clear_m      = [0.050 0.035];
 
     P.stages     = 1:5;
