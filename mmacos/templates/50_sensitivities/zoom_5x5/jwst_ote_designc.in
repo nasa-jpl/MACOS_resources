@@ -1,0 +1,926 @@
+% JWST Optical Telescope Element -- early 18-segment design ("design c").
+%
+% NOT the flight prescription.  This deck predates design freeze: its
+% segment gap is 15 mm and its segments are 1313.25 mm flat-to-flat,
+% against the flight 7 mm and 1.32 m.  Treat it as a design study.
+%
+% The three powered mirrors ARE the published JWST OTE prescription,
+% agreeing to the published precision (McElwain et al. 2023, PASP 135,
+% 058001, Table 2 -- open access, CC-BY 3.0):
+%
+%       here                          published
+%   PM  RoC 15879.722  K -0.9966605   15,879.7  -0.9967
+%   SM  RoC  1778.913  K -1.659810     1778.9   -1.6598
+%   TM  RoC  3016.227  K -0.6595364    3016.2   -0.6595
+%   FSM flat                           flat
+%   entrance pupil 6605 mm             6.6 m
+%
+% Design source: TRW.
+%
+% The FOLD mirrors are NOT part of the published prescription.  They were
+% added here, in approximate locations, to unfold the train; they carry no
+% design authority and should not be cited.
+%
+% Element 25 is the flat FSM at a pupil -- the element the multi-zoom
+% sensitivity fixture steers.  See mmacos/design/PLAN_CONFIGURATIONS.md
+% section 6.  Element 27 (nElt-1) is the ExitPupil Return, which is what
+% the dw_d* supervisors' reset_xp writes into.  The deck carries no
+% ApStop=, so a driver must set the stop (the FSM itself is the pupil).
+%
+% Derived quantities of the original design, retained for reference:
+%        fElt=   7.946500883D+03
+%        eElt=   9.983288536D-01
+%	 area = 26.68000000000000
+%	 gap =  0.00500000000000
+%	 areahex =  1.48222222222222
+%	 f2f =  1.30825180985837
+%	 p2p =  1.51063906917909
+%	 P2P =  6.60459142651887d3
+%	 width =  1.31325180985837d3
+%        optical gap = 0.015
+% SegMirMaker x=0,1,0 y=-1,0,0
+% Original deck dated 9/24/03; header rewritten 2026-08-19.
+
+ChfRayDir=  4.127703562D-04  2.299469067D-03  9.999972710D-01
+ChfRayPos= -3.0957776715D+00 -1.72460180025D+01 -7.4999795325D+03
+ zSource=   1d22
+  IndRef=   1d0
+  Extinc=  0d0
+BaseUnits= mm            
+WaveUnits= mm            
+ Wavelen=   2.300000000D-03
+    Flux=   1d0
+GridType=   Hex        
+Aperture=   6605d0
+Obscratn=   1000d0
+nGridpts=   1024
+   xGrid=  -9.999999148D-01  9.491527469D-07  4.127692649D-04
+   yGrid=  -1.162764478D-16 -9.999973562D-01  2.299469263D-03
+    nElt=   28
+    nSeg=   19
+   width=   1313.25d0
+     gap=   15d0
+SegXgrid=   1.162764478D-16  9.999973562D-01 -2.299469263D-03
+SegCoord=     0         0         0
+              1         2         1
+             -1         1         2
+             -2        -1         1
+             -1        -2        -1
+              1        -1        -2
+              2         1        -1
+              2         4         2
+              0         3         3
+             -2         2         4
+             -3         0         3
+             -4        -2         2
+             -3        -3         0
+             -2        -4        -2
+              0        -3        -3
+              2        -2        -4
+              3         0        -3
+              4         2        -2
+              3         3         0
+
+    iElt=    1
+ EltName= Spider1         
+ Element= Reference   
+ Surface= Conic   
+   KrElt=  -1d22
+   KcElt=  0d0
+  psiElt=  0d0 0d0  1d0
+  VptElt=  0d0 0d0 -5.62002d+03
+  RptElt=  0d0 0d0 -5.62002d+03
+  IndRef=   1d0
+  Extinc=  0d0
+    nObs=    1
+ ObsType=   Rectangle
+  ObsVec=   0 4000 -50.5 50.5
+    xObs=  0d0  1d0 0d0
+  ApType=   None            
+    zElt=   1d22
+PropType=   Geometric       
+ nECoord=   -6
+
+    iElt=    2
+ EltName= Spider2         
+ Element= Reference   
+ Surface= Conic   
+   KrElt=  -1d22
+   KcElt=  0d0
+  psiElt=  0d0 0d0  1d0
+  VptElt=  0d0 0d0 -5.62002d+03
+  RptElt=  0d0 0d0 -5.62002d+03
+  IndRef=   1d0
+  Extinc=  0d0
+    nObs=    1
+ ObsType=   Rectangle
+  ObsVec=   0 4000 -50.5 50.5
+    xObs=   0.5d0 -0.86602540378d0 0d0
+  ApType=   None            
+    zElt=   1d22
+PropType=   Geometric       
+ nECoord=   -6
+
+    iElt=    3
+ EltName= Spider3         
+ Element= Reference   
+ Surface= Conic   
+   KrElt=  -1d22
+   KcElt=  0d0
+  psiElt=  0d0 0d0  1d0
+  VptElt=  0d0 0d0 -5.62002d+03
+  RptElt=  0d0 0d0 -5.62002d+03
+  IndRef=   1d0
+  Extinc=  0d0
+    nObs=    1
+ ObsType=   Rectangle
+  ObsVec=   0 4000 -50.5 50.5
+    xObs=  -0.5d0 -0.86602540378d0 0d0
+  ApType=   None            
+    zElt=   1d22
+PropType=   Geometric       
+ nECoord=   -6
+
+    iElt=  4
+ EltName=  CenterSegment
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  0d0 0d0 0d0
+  IndRef=  1d0
+  Extinc=   1d22
+    nObs=    1
+ ObsType=   Rectangle
+  ObsVec=   -2000 2000 -2000 2000
+    xObs=   1d0  0d0  0d0
+  ApType=   None            
+    zElt=   7.945389061D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -1d0 0d0 0d0 0d0 0d0 0d0
+           0d0  1d0 0d0 0d0 0d0 0d0
+           0d0 0d0 -1d0 0d0 0d0 0d0
+           0d0 0d0 0d0 -1d0 0d0 0d0
+           0d0 0d0 0d0 0d0  1d0 0d0
+           0d0 0d0 0d0 0d0 0d0 -1d0
+
+    iElt=  5
+ EltName=  Seg2
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=  -1.137309438D+03  6.566259049D+02 -5.430322349D+01
+    xMon=  -8.630789494D-01  4.982988596D-01 -8.241949836D-02
+    yMon=   4.999999968D-01  8.660254056D-01 0d0
+    zMon=   7.137737949D-02 -4.120974892D-02 -9.965977254D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  -1.137309438D+03  6.566259049D+02 -5.430322349D+01
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -8.630789494D-01  4.999999968D-01  7.137737949D-02 0d0 0d0 0d0
+            4.982988596D-01  8.660254056D-01 -4.120974892D-02 0d0 0d0 0d0
+           -8.241949836D-02 0d0 -9.965977254D-01 0d0 0d0 0d0
+           0d0 0d0 0d0 -8.630789494D-01  4.999999968D-01  7.137737949D-02
+           0d0 0d0 0d0  4.982988596D-01  8.660254056D-01 -4.120974892D-02
+           0d0 0d0 0d0 -8.241949836D-02 0d0 -9.965977254D-01
+
+    iElt=  6
+ EltName=  Seg3
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=  -1.137309438D+03 -6.566259049D+02 -5.430322349D+01
+    xMon=  -8.630789494D-01 -4.982988596D-01 -8.241949836D-02
+    yMon=  -4.999999968D-01  8.660254056D-01 0d0
+    zMon=   7.137737949D-02  4.120974892D-02 -9.965977254D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  -1.137309438D+03 -6.566259049D+02 -5.430322349D+01
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -8.630789494D-01 -4.999999968D-01  7.137737949D-02 0d0 0d0 0d0
+           -4.982988596D-01  8.660254056D-01  4.120974892D-02 0d0 0d0 0d0
+           -8.241949836D-02 0d0 -9.965977254D-01 0d0 0d0 0d0
+           0d0 0d0 0d0 -8.630789494D-01 -4.999999968D-01  7.137737949D-02
+           0d0 0d0 0d0 -4.982988596D-01  8.660254056D-01  4.120974892D-02
+           0d0 0d0 0d0 -8.241949836D-02 0d0 -9.965977254D-01
+
+    iElt=  7
+ EltName=  Seg4
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=  -1.527006592D-13 -1.313251810D+03 -5.430322281D+01
+    xMon=  -1.158811498D-16 -9.965977255D-01 -8.241949784D-02
+    yMon=  -1d0  1.162767552D-16 -1.201378644D-33
+    zMon=   9.583471775D-18  8.241949784D-02 -9.965977255D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  -1.527006592D-13 -1.313251810D+03 -5.430322281D+01
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -1.158811498D-16 -1d0  9.583471775D-18 0d0 0d0 0d0
+           -9.965977255D-01  1.162767552D-16  8.241949784D-02 0d0 0d0 0d0
+           -8.241949784D-02 -1.201378644D-33 -9.965977255D-01 0d0 0d0 0d0
+           0d0 0d0 0d0 -1.158811498D-16 -1d0  9.583471775D-18
+           0d0 0d0 0d0 -9.965977255D-01  1.162767552D-16  8.241949784D-02
+           0d0 0d0 0d0 -8.241949784D-02 -1.201378644D-33 -9.965977255D-01
+
+    iElt=  8
+ EltName=  Seg5
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=   1.137309438D+03 -6.566259049D+02 -5.430322349D+01
+    xMon=   8.630789494D-01 -4.982988596D-01 -8.241949836D-02
+    yMon=  -4.999999968D-01 -8.660254056D-01 0d0
+    zMon=  -7.137737949D-02  4.120974892D-02 -9.965977254D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=   1.137309438D+03 -6.566259049D+02 -5.430322349D+01
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=   8.630789494D-01 -4.999999968D-01 -7.137737949D-02 0d0 0d0 0d0
+           -4.982988596D-01 -8.660254056D-01  4.120974892D-02 0d0 0d0 0d0
+           -8.241949836D-02 0d0 -9.965977254D-01 0d0 0d0 0d0
+           0d0 0d0 0d0  8.630789494D-01 -4.999999968D-01 -7.137737949D-02
+           0d0 0d0 0d0 -4.982988596D-01 -8.660254056D-01  4.120974892D-02
+           0d0 0d0 0d0 -8.241949836D-02 0d0 -9.965977254D-01
+
+    iElt=  9
+ EltName=  Seg6
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=   1.137309438D+03  6.566259049D+02 -5.430322349D+01
+    xMon=   8.630789494D-01  4.982988596D-01 -8.241949836D-02
+    yMon=   4.999999968D-01 -8.660254056D-01 0d0
+    zMon=  -7.137737949D-02 -4.120974892D-02 -9.965977254D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=   1.137309438D+03  6.566259049D+02 -5.430322349D+01
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=   8.630789494D-01  4.999999968D-01 -7.137737949D-02 0d0 0d0 0d0
+            4.982988596D-01 -8.660254056D-01 -4.120974892D-02 0d0 0d0 0d0
+           -8.241949836D-02 0d0 -9.965977254D-01 0d0 0d0 0d0
+           0d0 0d0 0d0  8.630789494D-01  4.999999968D-01 -7.137737949D-02
+           0d0 0d0 0d0  4.982988596D-01 -8.660254056D-01 -4.120974892D-02
+           0d0 0d0 0d0 -8.241949836D-02 0d0 -9.965977254D-01
+
+    iElt= 10
+ EltName=  Seg7
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=   1.527006592D-13  1.313251810D+03 -5.430322281D+01
+    xMon=   1.158811498D-16  9.965977255D-01 -8.241949784D-02
+    yMon=   1d0 -1.162767552D-16 -1.201378644D-33
+    zMon=  -9.583471775D-18 -8.241949784D-02 -9.965977255D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=   1.527006592D-13  1.313251810D+03 -5.430322281D+01
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=   1.158811498D-16  1d0 -9.583471775D-18 0d0 0d0 0d0
+            9.965977255D-01 -1.162767552D-16 -8.241949784D-02 0d0 0d0 0d0
+           -8.241949784D-02 -1.201378644D-33 -9.965977255D-01 0d0 0d0 0d0
+           0d0 0d0 0d0  1.158811498D-16  1d0 -9.583471775D-18
+           0d0 0d0 0d0  9.965977255D-01 -1.162767552D-16 -8.241949784D-02
+           0d0 0d0 0d0 -8.241949784D-02 -1.201378644D-33 -9.965977255D-01
+
+    iElt= 11
+ EltName=  Seg8
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=  -2.274618877D+03  1.313251810D+03 -2.172166150D+02
+    xMon=  -8.544160321D-01  4.932973220D-01 -1.631900617D-01
+    yMon=   4.999999968D-01  8.660254056D-01 -1.082013731D-17
+    zMon=   1.413267394D-01 -8.159503035D-02 -9.865946502D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  -2.274618877D+03  1.313251810D+03 -2.172166150D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -8.544160321D-01  4.999999968D-01  1.413267394D-01 0d0 0d0 0d0
+            4.932973220D-01  8.660254056D-01 -8.159503035D-02 0d0 0d0 0d0
+           -1.631900617D-01 -1.082013731D-17 -9.865946502D-01 0d0 0d0 0d0
+           0d0 0d0 0d0 -8.544160321D-01  4.999999968D-01  1.413267394D-01
+           0d0 0d0 0d0  4.932973220D-01  8.660254056D-01 -8.159503035D-02
+           0d0 0d0 0d0 -1.631900617D-01 -1.082013731D-17 -9.865946502D-01
+
+    iElt= 12
+ EltName=  Seg9
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=  -2.274618877D+03  2.644853024D-13 -1.629115316D+02
+    xMon=  -9.898956181D-01  1.151018505D-16 -1.417979737D-01
+    yMon=   1.162767552D-16  1d0 0d0
+    zMon=   1.417979737D-01 -1.648780828D-17 -9.898956181D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  -2.274618877D+03  2.644853024D-13 -1.629115316D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -9.898956181D-01  1.162767552D-16  1.417979737D-01 0d0 0d0 0d0
+            1.151018505D-16  1d0 -1.648780828D-17 0d0 0d0 0d0
+           -1.417979737D-01 0d0 -9.898956181D-01 0d0 0d0 0d0
+           0d0 0d0 0d0 -9.898956181D-01  1.162767552D-16  1.417979737D-01
+           0d0 0d0 0d0  1.151018505D-16  1d0 -1.648780828D-17
+           0d0 0d0 0d0 -1.417979737D-01 0d0 -9.898956181D-01
+
+    iElt= 13
+ EltName=  Seg10
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=  -2.274618877D+03 -1.313251810D+03 -2.172166150D+02
+    xMon=  -8.544160321D-01 -4.932973220D-01 -1.631900617D-01
+    yMon=  -4.999999968D-01  8.660254056D-01 -1.082013731D-17
+    zMon=   1.413267394D-01  8.159503035D-02 -9.865946502D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  -2.274618877D+03 -1.313251810D+03 -2.172166150D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -8.544160321D-01 -4.999999968D-01  1.413267394D-01 0d0 0d0 0d0
+           -4.932973220D-01  8.660254056D-01  8.159503035D-02 0d0 0d0 0d0
+           -1.631900617D-01 -1.082013731D-17 -9.865946502D-01 0d0 0d0 0d0
+           0d0 0d0 0d0 -8.544160321D-01 -4.999999968D-01  1.413267394D-01
+           0d0 0d0 0d0 -4.932973220D-01  8.660254056D-01  8.159503035D-02
+           0d0 0d0 0d0 -1.631900617D-01 -1.082013731D-17 -9.865946502D-01
+
+    iElt= 14
+ EltName=  Seg11
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=  -1.137309438D+03 -1.969877715D+03 -1.629115296D+02
+    xMon=  -4.949478122D-01 -8.572747506D-01 -1.417979729D-01
+    yMon=  -8.660254020D-01  5.000000032D-01  1.249451027D-17
+    zMon=   7.089898688D-02  1.228006465D-01 -9.898956182D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  -1.137309438D+03 -1.969877715D+03 -1.629115296D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -4.949478122D-01 -8.660254020D-01  7.089898688D-02 0d0 0d0 0d0
+           -8.572747506D-01  5.000000032D-01  1.228006465D-01 0d0 0d0 0d0
+           -1.417979729D-01  1.249451027D-17 -9.898956182D-01 0d0 0d0 0d0
+           0d0 0d0 0d0 -4.949478122D-01 -8.660254020D-01  7.089898688D-02
+           0d0 0d0 0d0 -8.572747506D-01  5.000000032D-01  1.228006465D-01
+           0d0 0d0 0d0 -1.417979729D-01  1.249451027D-17 -9.898956182D-01
+
+    iElt= 15
+ EltName=  Seg12
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=  -3.054013185D-13 -2.626503620D+03 -2.172166122D+02
+    xMon=  -1.147180247D-16 -9.865946503D-01 -1.631900607D-01
+    yMon=  -1d0  1.162767552D-16 0d0
+    zMon=   1.897521074D-17  1.631900607D-01 -9.865946503D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  -3.054013185D-13 -2.626503620D+03 -2.172166122D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -1.147180247D-16 -1d0  1.897521074D-17 0d0 0d0 0d0
+           -9.865946503D-01  1.162767552D-16  1.631900607D-01 0d0 0d0 0d0
+           -1.631900607D-01 0d0 -9.865946503D-01 0d0 0d0 0d0
+           0d0 0d0 0d0 -1.147180247D-16 -1d0  1.897521074D-17
+           0d0 0d0 0d0 -9.865946503D-01  1.162767552D-16  1.631900607D-01
+           0d0 0d0 0d0 -1.631900607D-01 0d0 -9.865946503D-01
+
+    iElt= 16
+ EltName=  Seg13
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=   1.137309438D+03 -1.969877715D+03 -1.629115296D+02
+    xMon=   4.949478122D-01 -8.572747506D-01 -1.417979729D-01
+    yMon=  -8.660254020D-01 -5.000000032D-01 0d0
+    zMon=  -7.089898688D-02  1.228006465D-01 -9.898956182D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=   1.137309438D+03 -1.969877715D+03 -1.629115296D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=   4.949478122D-01 -8.660254020D-01 -7.089898688D-02 0d0 0d0 0d0
+           -8.572747506D-01 -5.000000032D-01  1.228006465D-01 0d0 0d0 0d0
+           -1.417979729D-01 0d0 -9.898956182D-01 0d0 0d0 0d0
+           0d0 0d0 0d0  4.949478122D-01 -8.660254020D-01 -7.089898688D-02
+           0d0 0d0 0d0 -8.572747506D-01 -5.000000032D-01  1.228006465D-01
+           0d0 0d0 0d0 -1.417979729D-01 0d0 -9.898956182D-01
+
+    iElt= 17
+ EltName=  Seg14
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=   2.274618877D+03 -1.313251810D+03 -2.172166150D+02
+    xMon=   8.544160321D-01 -4.932973220D-01 -1.631900617D-01
+    yMon=  -4.999999968D-01 -8.660254056D-01 -1.082013731D-17
+    zMon=  -1.413267394D-01  8.159503035D-02 -9.865946502D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=   2.274618877D+03 -1.313251810D+03 -2.172166150D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=   8.544160321D-01 -4.999999968D-01 -1.413267394D-01 0d0 0d0 0d0
+           -4.932973220D-01 -8.660254056D-01  8.159503035D-02 0d0 0d0 0d0
+           -1.631900617D-01 -1.082013731D-17 -9.865946502D-01 0d0 0d0 0d0
+           0d0 0d0 0d0  8.544160321D-01 -4.999999968D-01 -1.413267394D-01
+           0d0 0d0 0d0 -4.932973220D-01 -8.660254056D-01  8.159503035D-02
+           0d0 0d0 0d0 -1.631900617D-01 -1.082013731D-17 -9.865946502D-01
+
+    iElt= 18
+ EltName=  Seg15
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=   2.274618877D+03 -2.644853024D-13 -1.629115316D+02
+    xMon=   9.898956181D-01 -1.151018505D-16 -1.417979737D-01
+    yMon=  -1.162767552D-16 -1d0 0d0
+    zMon=  -1.417979737D-01  1.648780828D-17 -9.898956181D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=   2.274618877D+03 -2.644853024D-13 -1.629115316D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=   9.898956181D-01 -1.162767552D-16 -1.417979737D-01 0d0 0d0 0d0
+           -1.151018505D-16 -1d0  1.648780828D-17 0d0 0d0 0d0
+           -1.417979737D-01 0d0 -9.898956181D-01 0d0 0d0 0d0
+           0d0 0d0 0d0  9.898956181D-01 -1.162767552D-16 -1.417979737D-01
+           0d0 0d0 0d0 -1.151018505D-16 -1d0  1.648780828D-17
+           0d0 0d0 0d0 -1.417979737D-01 0d0 -9.898956181D-01
+
+    iElt= 19
+ EltName=  Seg16
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=   2.274618877D+03  1.313251810D+03 -2.172166150D+02
+    xMon=   8.544160321D-01  4.932973220D-01 -1.631900617D-01
+    yMon=   4.999999968D-01 -8.660254056D-01 -1.082013731D-17
+    zMon=  -1.413267394D-01 -8.159503035D-02 -9.865946502D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=   2.274618877D+03  1.313251810D+03 -2.172166150D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=   8.544160321D-01  4.999999968D-01 -1.413267394D-01 0d0 0d0 0d0
+            4.932973220D-01 -8.660254056D-01 -8.159503035D-02 0d0 0d0 0d0
+           -1.631900617D-01 -1.082013731D-17 -9.865946502D-01 0d0 0d0 0d0
+           0d0 0d0 0d0  8.544160321D-01  4.999999968D-01 -1.413267394D-01
+           0d0 0d0 0d0  4.932973220D-01 -8.660254056D-01 -8.159503035D-02
+           0d0 0d0 0d0 -1.631900617D-01 -1.082013731D-17 -9.865946502D-01
+
+    iElt= 20
+ EltName=  Seg17
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=   1.137309438D+03  1.969877715D+03 -1.629115296D+02
+    xMon=   4.949478122D-01  8.572747506D-01 -1.417979729D-01
+    yMon=   8.660254020D-01 -5.000000032D-01  1.249451027D-17
+    zMon=  -7.089898688D-02 -1.228006465D-01 -9.898956182D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=   1.137309438D+03  1.969877715D+03 -1.629115296D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=   4.949478122D-01  8.660254020D-01 -7.089898688D-02 0d0 0d0 0d0
+            8.572747506D-01 -5.000000032D-01 -1.228006465D-01 0d0 0d0 0d0
+           -1.417979729D-01  1.249451027D-17 -9.898956182D-01 0d0 0d0 0d0
+           0d0 0d0 0d0  4.949478122D-01  8.660254020D-01 -7.089898688D-02
+           0d0 0d0 0d0  8.572747506D-01 -5.000000032D-01 -1.228006465D-01
+           0d0 0d0 0d0 -1.417979729D-01  1.249451027D-17 -9.898956182D-01
+
+    iElt= 21
+ EltName=  Seg18
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=   3.054013185D-13  2.626503620D+03 -2.172166122D+02
+    xMon=   1.147180247D-16  9.865946503D-01 -1.631900607D-01
+    yMon=   1d0 -1.162767552D-16 0d0
+    zMon=  -1.897521074D-17 -1.631900607D-01 -9.865946503D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=   3.054013185D-13  2.626503620D+03 -2.172166122D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=   1.147180247D-16  1d0 -1.897521074D-17 0d0 0d0 0d0
+            9.865946503D-01 -1.162767552D-16 -1.631900607D-01 0d0 0d0 0d0
+           -1.631900607D-01 0d0 -9.865946503D-01 0d0 0d0 0d0
+           0d0 0d0 0d0  1.147180247D-16  1d0 -1.897521074D-17
+           0d0 0d0 0d0  9.865946503D-01 -1.162767552D-16 -1.631900607D-01
+           0d0 0d0 0d0 -1.631900607D-01 0d0 -9.865946503D-01
+
+    iElt= 22
+ EltName=  Seg19
+ Element=   Segment     
+ Surface=   Conic     % GridSurf   
+   KrElt=  -1.587972200D+04
+   KcElt=  -9.966604999D-01
+nGridMat=   37        
+GridFile=   none        
+GridSrfdx=  39.59d0        
+ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+           0d0 0d0 0d0 0d0 0d0 0d0
+    pMon=  -1.137309438D+03  1.969877715D+03 -1.629115296D+02
+    xMon=  -4.949478122D-01  8.572747506D-01 -1.417979729D-01
+    yMon=   8.660254020D-01  5.000000032D-01 0d0
+    zMon=   7.089898688D-02 -1.228006465D-01 -9.898956182D-01
+    lMon=   1.516412585D+03
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 0d0
+  RptElt=  -1.137309438D+03  1.969877715D+03 -1.629115296D+02
+  IndRef=  1d0
+    zElt=   7.946500883D+03
+PropType=   Geometric
+ nECoord= 6
+    TElt=  -4.949478122D-01  8.660254020D-01  7.089898688D-02 0d0 0d0 0d0
+            8.572747506D-01  5.000000032D-01 -1.228006465D-01 0d0 0d0 0d0
+           -1.417979729D-01 0d0 -9.898956182D-01 0d0 0d0 0d0
+           0d0 0d0 0d0 -4.949478122D-01  8.660254020D-01  7.089898688D-02
+           0d0 0d0 0d0  8.572747506D-01  5.000000032D-01 -1.228006465D-01
+           0d0 0d0 0d0 -1.417979729D-01 0d0 -9.898956182D-01
+
+
+    iElt=   23
+ EltName= SM              
+ Element= Reflector   
+ Surface= Conic   
+   KrElt=  -1.778912670D+03
+   KcElt=  -1.659809999D+00
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 0d0 -7.169041556D+03
+  RptElt=  0d0 0d0 -7.169041556D+03
+  IndRef=   1d0
+  Extinc=  0d0
+    nObs=    0
+  ApType=   None            
+    zElt=   7.773825890D+02
+PropType=   Geometric       
+ nECoord=   -6
+
+    iElt=    24
+ EltName= Tertiary Mirror 
+ Element= Reflector   
+ Surface= Conic   
+   KrElt=  -3.016227001D+03
+   KcElt=  -6.595364001D-01
+  psiElt=  0d0 0d0 -1d0
+  VptElt=  0d0 -1.860000000D-01  7.962719229D+02
+  RptElt=  0d0 -1.860000000D-01  7.962719229D+02
+  IndRef=   1d0
+  Extinc=  0d0
+    nObs=    0
+  ApType=   None            
+    zElt=   1.664475618D+03
+PropType=   Geometric       
+ nECoord=   -6
+
+    iElt=    25
+ EltName= FSM             
+ Element= Reflector   
+ Surface= Flat    
+   KrElt=  -1.000000000D+18
+   KcElt=  0d0
+  psiElt=  0d0 0d0  1d0
+  VptElt=  0d0 -2.356547747D+00 -1.047847900D+03
+  RptElt=  0d0 -2.356547747D+00 -1.047847900D+03
+  IndRef=   1d0
+  Extinc=  0d0
+    nObs=    0
+  ApType=   None            
+    zElt=   1.000000000D+18
+PropType=   Geometric       
+ nECoord=   -6
+
+    iElt=   26
+ EltName= FocalReturn     
+ Element= Return      
+ Surface= Conic    
+   KrElt=  -3017.560611d0
+   KcElt=   0d0
+  psiElt=   1.790323563D-02  9.857893159D-02 -9.949681746D-01
+  VptElt=  -5.445256679298e+01 -3.03944255169e+02  1.9540985416e+03
+  RptElt=  -5.445256679298e+01 -3.03944255169e+02  1.9540985416e+03
+  IndRef=   1d0
+  Extinc=   0d0
+    nObs=    0
+  ApType=   None            
+    zElt=   1.000000000D+22
+PropType=   Geometric       
+ nECoord=   -6
+
+    iElt=   27
+ EltName= ExitPupil       
+ Element= Return      
+ Surface= Conic   
+   KrElt=  -3.037064406D+03
+   KcElt=   0.000000000D+00
+  psiElt=  -1.791835945D-02 -9.994302227D-02  9.948318072D-01
+  VptElt=  -3.335509347D-02 -4.108596048D-01 -1.067269730D+03
+  RptElt=  -3.335509347D-02 -4.108596048D-01 -1.067269730D+03
+  IndRef=   1.000000000D+00
+  Extinc=   0.000000000D+00
+    nObs=    0
+  ApType=   None            
+    zElt=   3.037064406D+03
+PropType=   FarField        
+ nECoord=   -6
+
+    iElt=   28
+ EltName= Detector        
+ Element= Reference  
+ Surface= Conic    
+   KrElt=  -3017.560611d0
+   KcElt=   0d0
+  psiElt=   1.790323563D-02  9.857893159D-02 -9.949681746D-01
+  VptElt=  -5.445256679298e+01 -3.03944255169e+02  1.9540985416e+03
+  RptElt=  -5.445256679298e+01 -3.03944255169e+02  1.9540985416e+03
+  IndRef=   1d0
+  Extinc=   0d0
+    nObs=    0
+  ApType=   None            
+    zElt=   1.000000000D+22
+PropType=   Geometric       
+ nECoord=   -6
+
+nOutCord=    5
+    Tout=   9.998395564D-01 -1.188577165D-03  1.787312897D-02  0d0  0d0 0d0 0d0
+           -1.265553616D-03 -9.999899708D-01  4.296132045D-03  0d0 0d0 0d0 0d0
+            0d0 0d0 0d0  9.998395564D-01 -1.188577165D-03  1.787312897D-02 0d0
+            0d0 0d0 0d0 -1.265553616D-03 -9.999899708D-01  4.296132045D-03  0d0
+            0d0 0d0 0d0  0d0  0d0  0d0  1d0
