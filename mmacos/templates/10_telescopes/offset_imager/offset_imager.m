@@ -96,6 +96,15 @@ function OUT = offset_imager(over)
     if any(P.stages == 3)
         stage_banner_('S3  re-solve symmetric aspheres/conics AT the offset field');
         K0 = X.K;
+        % RESTART from the first-order seed: the on-axis-optimized
+        % aspheres are poison at a large offset (measured at 22 deg:
+        % the S1-shape start scores 142 um and the solve crawls; the
+        % fresh Petzval-flat spheres score 25.6 um and descend to
+        % single-digit um within 8 iterations).  Re-solving at the used
+        % field means solving THERE, not walking from the wrong optimum.
+        Xs = oi_seed(P);
+        X.K = Xs.K;  X.asph = Xs.asph;  X.R = Xs.R;
+        X.fpa_refit = [0 0];
         X.eliminate = 'R2R3';        % S3: same symmetric-stage identities
         X = pose_stop_once_(X, P);   % re-construct at S3 entry, then free
         [X, hist3] = oi_solve(X, P, 'S3');
