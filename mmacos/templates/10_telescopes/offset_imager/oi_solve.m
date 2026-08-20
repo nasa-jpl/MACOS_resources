@@ -49,6 +49,7 @@ function [X, hist] = oi_solve(X, P, stage, opts)
         opts.offset (1,1) double = NaN
         opts.walls = []
         opts.quiet (1,1) logical = false
+        opts.debug (1,1) logical = false
     end
     if isnan(opts.iters), opts.iters = P.gn_iters; end
     if isnan(opts.offset)
@@ -89,6 +90,11 @@ function [X, hist] = oi_solve(X, P, stage, opts)
             up = u;  up(j) = up(j) + du_fd;
             rj = rfun(up);
             J(:,j) = (rj - r)/du_fd;
+            if opts.debug
+                fprintf('    dbg J col %-8s: max|rj| %.3e  qmean(rj) %.3e  colnorm %.3e%s\n', ...
+                        V(j).name, max(abs(rj)), sqrt(mean(rj.^2)), norm(J(:,j)), ...
+                        tern_(max(abs(rj)) > 1e8, '  << WALL', ''));
+            end
         end
         % LM steps: try decreasing damping first.  CHORD GN: one J is
         % reused for up to 3 accepted steps (the Zernike stage is near-
@@ -104,6 +110,11 @@ function [X, hist] = oi_solve(X, P, stage, opts)
             nd = norm(du);
             if nd > 30, du = du*(30/nd); end
             [rn, Xn, rqn] = rfun(u + du);
+            if opts.debug
+                fprintf('    dbg step k=%d lam %.1e |du| %.2e: qmean %.6e vs %.6e (%s)\n', ...
+                        k, lamLM, norm(du), qmean_(rn), qmean_(r), ...
+                        tern_(qmean_(rn) < qmean_(r), 'ACCEPT', 'reject'));
+            end
             if qmean_(rn) < qmean_(r)
                 u = u + du;  r = rn;  Xbest = Xn;  rmsb = rqn;
                 lamLM = max(lamLM/3, 1e-7);
@@ -245,6 +256,15 @@ function V = varspec_(stage, X, P, h, lam)
                     @(X) X.ade(m), @(X,v) setfield_(X,'ade',m,v));
             end
         end
+        % offset geometry stages with a pinned exit: the stop decenter is
+        % an explicit variable (the exit residual row drives it jointly
+        % with the shapes); the incoming X must carry stop_fixed = true
+        % with a constructed X.stopC (OFFSET_IMAGER does this at stage
+        % entry via one reposing closure)
+        if isfield(X,'stop_fixed') && X.stop_fixed
+            V = addv(V, 'stop_y', 5e-3, ...
+                @(X) X.stopC(2), @(X,v) setstopy_(X,v));
+        end
     end
     % FPA refit rides every stage (dz along the chief-normal, tilt about x)
     V = addv(V, 'fpa_dz',   1e-3, @(X) fpa_get_(X,1), @(X,v) fpa_set_(X,1,v));
@@ -252,6 +272,7 @@ function V = varspec_(stage, X, P, h, lam)
 end
 
 function X = setfield_(X, f, m, v),  X.(f)(m) = v;  end
+function X = setstopy_(X, v),  X.stopC(2) = v;  end
 function X = setasph_(X, m, i, v),   X.asph(m,i) = v;  end
 function X = setzern_(X, m, q, v),   X.zern{m}.coef(q) = v;  end
 
@@ -291,7 +312,13 @@ function h = footprints_(X, P, offset)
         ri = macos.get_ray_info(tr.nRays);
         ok = ri.ok_trace(:) & ri.ok_pass(:);  ok(1) = false;
         Q = ri.pos(:,ok);
-        h(m) = max(vecnorm(Q(1:2,:) - mean(Q(1:2,:),2), 2, 1));
+        % radial extent about the VERTEX AXIS, not the footprint centre:
+        % aspheres/conics are r^n about the vertex, so an offset beam's
+        % lever arm is |footprint centre| + its radius.  Using the
+        % centred radius under-scales r^8 by (r_axis/r_beam)^8 -- three
+        % orders at the rodgers3 22-deg M1 patch -- and the FD step then
+        % destroys the surface (the A1_3 wall column, 2026-08-19).
+        h(m) = max(hypot(Q(1,:) - 0, Q(2,:) - Xc.yde(m)));
     end
 end
 

@@ -78,6 +78,7 @@ function OUT = offset_imager(over)
     if any(P.stages == 2)
         stage_banner_('S2  the SAME mirrors at the offset box -- FPA refit only');
         X.fpa_refit = [0 0];
+        X = pose_stop_once_(X, P);   % construct at the offset, then freeze
         [X, hist2] = oi_solve(X, P, 'fpa');
         [X, G, fo] = close_refit_(X, P, P.offset_deg);
         [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, 's2', X, G, fo, ...
@@ -96,6 +97,7 @@ function OUT = offset_imager(over)
         stage_banner_('S3  re-solve symmetric aspheres/conics AT the offset field');
         K0 = X.K;
         X.eliminate = 'R2R3';        % S3: same symmetric-stage identities
+        X = pose_stop_once_(X, P);   % re-construct at S3 entry, then free
         [X, hist3] = oi_solve(X, P, 'S3');
         [X, G, fo] = close_refit_(X, P, P.offset_deg);
         [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, 's3', X, G, fo, ...
@@ -151,6 +153,16 @@ function [X, G, fo] = close_refit_(X, P, offset)
     [X, G, fo] = oi_close(X, P, 'offset_deg', offset);
     X.fpa = oi_apply_fpa(X);
     G.fpa = X.fpa;
+end
+
+function X = pose_stop_once_(X, P)
+%POSE_STOP_ONCE_  Construct the offset stop pose ONCE at stage entry
+%   (EP construction + the exit-pointing secant when P.exit_dir is
+%   pinned), then FREEZE it: from here on the stop decenter is an
+%   explicit solve variable driven by the exit residual row.
+    X.stop_fixed = false;
+    [X, ~] = oi_close(X, P, 'offset_deg', P.offset_deg);
+    X.stop_fixed = true;
 end
 
 function bad = wall_check_(Xc, Gc, P) %#ok<INUSD>
