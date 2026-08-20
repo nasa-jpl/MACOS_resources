@@ -23,6 +23,14 @@ function T = run_pupil_id(which)
     addpath(fullfile(here,'..','..','..','src'));           % mmacos/src (pupil_id on this path too)
     addpath(here);                                          % pupil_id.m
 
+    % --- preflight: the engine MEX SEGFAULTS (crashes MATLAB, not an error)
+    % on macos.init if it cannot find macos_param.txt, i.e. MACOS_HOME unset.
+    % GUI MATLAB launched from Finder/Dock does NOT inherit a shell profile,
+    % so MACOS_HOME is commonly empty in an interactive session even when it
+    % is set in the terminal.  Check it HERE, before any engine call, and
+    % self-set it when the param file sits at the standard engine path. ------
+    check_macos_home_();
+
     % test cases: name -> deck path (relative to this template dir)
     cases = struct( ...
         'tma_onaxis', fullfile(here,'..','tma_onaxis','tma_onaxis.in'), ...
@@ -68,3 +76,24 @@ function T = run_pupil_id(which)
 end
 
 function s = plural_(n), if n==1, s=''; else, s='s'; end, end
+
+function check_macos_home_()
+%CHECK_MACOS_HOME_  Fail LOUDLY (never let the MEX segfault) if the engine
+%   cannot find macos_param.txt.  If MACOS_HOME is unset but the file is at
+%   the standard engine source path, self-set it; otherwise error with the
+%   fix.  macos.init reads macos_param.txt from MACOS_HOME; a missing file is
+%   a clean STOP standalone but a SIGSEGV inside the MEX host.
+    h = getenv('MACOS_HOME');
+    if ~isempty(h) && isfile(fullfile(h,'macos_param.txt')), return; end
+    guess = '/Users/dcr/dev/macos/macos_f90';               % this box's engine source
+    if isfile(fullfile(guess,'macos_param.txt'))
+        setenv('MACOS_HOME', guess);
+        fprintf('[run_pupil_id] MACOS_HOME was unset; set to %s\n', guess);
+        return;
+    end
+    error('run_pupil_id:noMacosHome', ['MACOS_HOME is not set (or has no ' ...
+        'macos_param.txt), so the engine MEX would SEGFAULT on macos.init.\n' ...
+        'Fix: in MATLAB run  setenv(''MACOS_HOME'', ''<path to macos/macos_f90>'')  ' ...
+        'before this runner,\nor launch MATLAB from a shell where MACOS_HOME is ' ...
+        'exported.  Current value: [%s]'], getenv('MACOS_HOME'));
+end
