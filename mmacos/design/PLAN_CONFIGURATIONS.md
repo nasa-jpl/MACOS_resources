@@ -170,10 +170,21 @@ worked example uses a deck already in hand.  It is optically meaningless
 by construction; the deliverable is the DRIVER, and the numbers only have
 to be finite, reproducible, and responsive.
 
-**Deck:** `j18sc.in` (18-hex JWST, design c, `MACOS_sandbox/old_Rx/`).
-Element 25 is `FSM`, a flat `Reflector` at a pupil — the steering mirror
-the configuration axis moves.  Element 27 (`nElt-1`) is `ExitPupil`, a
-`Return`, so `reset_xp`'s FEX write has somewhere to land.
+**Deck:** `templates/50_sensitivities/zoom_5x5/jwst_ote_designc.in` —
+staged 2026-08-19 from the sandbox `j18sc.in`, body byte-identical, header
+rewritten.  Element 25 is `FSM`, a flat `Reflector` at a pupil — the
+steering mirror the configuration axis moves.  Element 27 (`nElt-1`) is
+`ExitPupil`, a `Return`, so `reset_xp`'s FEX write has somewhere to land.
+
+Provenance, since the deck is now in a repo whose `dev` and `main` are
+public: the three powered mirrors match the published JWST OTE
+prescription to the published precision (McElwain et al. 2023, PASP 135,
+058001, Table 2 — open access, CC-BY 3.0; design source TRW).  It is NOT
+the flight prescription (15 mm segment gaps and 1313.25 mm flat-to-flat
+segments against the flight 7 mm and 1.32 m — a pre-freeze design study),
+and its fold mirrors are ours, added to unfold the train, carrying no
+design authority.  The original header's "From unfolded LM Rx" was
+incorrect and is removed.
 
 **Configurations (5).**  Centred, then the FSM tilted 0.5 arcmin
 (1.45444e-4 rad) to each corner of a square, applied as a LOCAL-frame
