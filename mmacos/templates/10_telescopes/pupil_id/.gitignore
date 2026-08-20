@@ -1,0 +1,7 @@
+# Generated artifacts.  Regenerate:
+#   matlab -batch "run('pupil_id.m'); exit(0)"
+# The driver consumes ../tma_onaxis/tma_onaxis.in and writes no deck of its
+# own, so (unlike the design drivers) there is no *.in deliverable to track.
+*.png
+*.mat
+__pycache__/
