@@ -27,10 +27,17 @@ function out = oi_score(txt0, G, fields_deg, opts)
 %                ~2.5x faster).  SOLVE-loop use only.
 %     'rays'     false (default) | true: also return per-field ray states
 %                at every element (for layout/clearance gates).
+%     'resid'    false (default) | true: also return .resid -- the
+%                stacked per-ray centroid-rung residual wavefronts (nm,
+%                piston removed per field, FIXED length = K*(nRays-1)
+%                with zeros at dead rays) -- the true Gauss-Newton
+%                residual for the solve loop (per-ray OPD is nearly
+%                LINEAR in surface coefficients where a per-field RMS
+%                is not; strict_rungs column 2).
 %
 %   OUT fields: .wfe_cen_nm, .wfe_chf_nm (K x 1), .nrays (K x 1),
 %   .aim_miss (K x 1, m), .cFP (3 x K chief FP landings), .rays (K x 1
-%   cell of per-element states when requested).
+%   cell of per-element states when requested), .resid (see above).
 %
 %   See also OI_DECK, STRICT_REFS, OFFSET_IMAGER.
 
@@ -41,6 +48,7 @@ function out = oi_score(txt0, G, fields_deg, opts)
         opts.aiming (1,:) char {mustBeMember(opts.aiming,{'native','newton'})} = 'native'
         opts.anchor (1,:) char {mustBeMember(opts.anchor,{'perfield','center'})} = 'perfield'
         opts.rays (1,1) logical = false
+        opts.resid (1,1) logical = false
     end
 
     tmp = [tempname '.in'];
@@ -50,7 +58,9 @@ function out = oi_score(txt0, G, fields_deg, opts)
     K  = size(fields_deg,1);
     out = struct('wfe_cen_nm',nan(K,1), 'wfe_chf_nm',nan(K,1), ...
                  'nrays',zeros(K,1), 'aim_miss',nan(K,1), ...
-                 'cFP',nan(3,K), 'rays',{cell(K,1)}, 'fields_deg',fields_deg);
+                 'cFP',nan(3,K), 'rays',{cell(K,1)}, 'fields_deg',fields_deg, ...
+                 'resid',[]);
+    rcell = cell(K,1);
 
     % shared exit-pupil anchor (solve-loop fast path)
     Xshared = [];
@@ -85,8 +95,18 @@ function out = oi_score(txt0, G, fields_deg, opts)
             X = Xshared;
         end
 
-        rf = strict_refs(sq.pos(:,ok), sq.dir(:,ok), sq.opl(ok), ...
-                         sq.pos(:,1), sq.dir(:,1), Vd, Nd, X);
+        if opts.resid
+            [vr, W] = strict_rungs(sq.pos(:,ok), sq.dir(:,ok), sq.opl(ok), ...
+                                   sq.pos(:,1), sq.dir(:,1), Vd, Nd, X);
+            rf = struct('wfe_centroid', vr(2), 'wfe_chief', vr(1));
+            w2 = W(:,2) - mean(W(:,2));            % piston out, metres
+            rfull = zeros(numel(ok)-1, 1);
+            rfull(ok(2:end)) = w2*1e9;             % nm, by ray id
+            rcell{q} = rfull;
+        else
+            rf = strict_refs(sq.pos(:,ok), sq.dir(:,ok), sq.opl(ok), ...
+                             sq.pos(:,1), sq.dir(:,1), Vd, Nd, X);
+        end
         out.wfe_cen_nm(q) = rf.wfe_centroid*1e9;
         out.wfe_chf_nm(q) = rf.wfe_chief*1e9;
         out.nrays(q)   = nnz(ok);
@@ -97,6 +117,14 @@ function out = oi_score(txt0, G, fields_deg, opts)
         if opts.rays
             out.rays{q} = per_elt_states_(txt0, tmp, G, dq, opts.aiming);
         end
+    end
+    if opts.resid
+        nper = cellfun(@numel, rcell);
+        len = max([nper; 0]);
+        for q = 1:K                       % a lost FIELD becomes a wall row
+            if isempty(rcell{q}), rcell{q} = 1e9*ones(max(len,1),1); end
+        end
+        out.resid = vertcat(rcell{:});
     end
 end
 
