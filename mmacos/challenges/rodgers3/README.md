@@ -54,8 +54,14 @@ numbers — the band is the measurement.
   (`r3_s0_report.txt` is the frozen Stage-0 record; re-runs never
   overwrite it).
 - `probe_native_stop.m` — the native `macos.stop()` aiming A/B vs the
-  runner's Newton aiming (see below).
-- Suite coverage: `tests/tRodgers3.m` (freeform group, size 256).
+  runner's Newton aiming (verdict + table: `probe_native_stop_summary.log`).
+- `r5_negctl.m` — the r5 negative control (C-offset dropped must miss
+  by a large factor; backs the tRodgers3 gate's teeth).
+- `run_t3.m` → `t3/` — the offset_imager TEMPLATE run at Mike's
+  parameters + the two bounded counter-design looks; `PACKET.md` is the
+  head-to-head (his ladder | Stage-0 reproduction | our template).
+- Suite coverage: `tests/tRodgers3.m` + `tests/tOffsetImager.m`
+  (freeform group, size 256).
 
 Stage-0 probe scripts and refuted-hypothesis FAIL logs remain in the
 sandbox record (`~/dev/MACOS_sandbox/Design/Rodgers3/s0/`, pinned
