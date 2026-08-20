@@ -3,10 +3,15 @@ classdef tOpdRef < matlab.unittest.TestCase
 %   Luis Marchen (2026-08-19) traced a spurious cross-segment piston in
 %   rigid-body sensitivity columns to tracesub.F's SUBROUTINE OPD.  It
 %   fills OPDMat with the chief ray's OPL as the reference only when
-%   LUseChfRayIfOK is set AND the chief survives; otherwise it subtracts
-%   DAvgl, the mean over EVERY valid ray in the aperture.  On a segmented
-%   pupil that mean is one scalar shared by all segments, so perturbing
-%   ONE segment moves it and pistons every OTHER segment.
+%   LUseChfRayIfOK is set AND LRayOK(1); otherwise it subtracts DAvgl, the
+%   mean over EVERY valid ray in the aperture.  On a segmented pupil that
+%   mean is one scalar shared by all segments, so perturbing ONE segment
+%   moves it and pistons every OTHER segment.
+%
+%   LRayOK is the GEOMETRIC flag, not LRayPass: an OBSCURED chief ray
+%   still serves as the reference (gated below on CassWithExitPupil,
+%   whose chief is obscured at every element).  Only a geometric failure
+%   -- surface miss, solver bracket -- drops the trace to the mean.
 %
 %   The flag was UNREACHABLE: ray_mod_init_vars inits it .FALSE.; the
 %   LOAD handler (macos_cmd_loop.inc, #ifdef DESIGN_OPTIM) sets it .TRUE.
@@ -157,6 +162,45 @@ classdef tOpdRef < matlab.unittest.TestCase
             testCase.verifyEqual(rms(Wc(v) - mean(Wc(v))), ...
                                  rms(Wm(v) - mean(Wm(v))), 'RelTol', 1e-12, ...
                 'mean-removed RMS must be reference-independent');
+        end
+
+        function test_an_obscured_chief_ray_still_serves(testCase)
+        % The branch gates on LRayOK(1) -- geometric -- NOT on LRayPass(1).
+        % CassWithExitPupil's chief ray lands in the central obscuration at
+        % every element, so it is flagged Obscured and excluded from the
+        % map, yet its path length is defined and IS used as the reference.
+        %
+        % This is the case a 2026-08-07 note got wrong (it read the
+        % structural nPassRays = nRay - 1 -- SUBROUTINE OPD loops from
+        % iRay=2, so the chief is never written into OPDMat -- as the chief
+        % being lost).  Gated here so the reading cannot drift back.
+        %
+        % Rx_Cass_FarField (obscured Cassegrain, model 128 like the rest of
+        % this class) rather than a new fixture: its chief is obscured at
+        % the exit pupil, and it is already in the shared corpus.
+            m2 = testCase.m;
+            m2.load_rx(rx_fixture_path('Rx_Cass_FarField.in'));
+            iE = m2.num_elt() - 1;
+            tr = m2.trace(iE);
+            ri = macos.get_ray_info(tr.nRays);
+            rs = macos.get_ray_status(tr.nRays);
+            testCase.assertTrue(ri.ok_trace(1), ...
+                'fixture chief must trace geometrically');
+            testCase.assertFalse(ri.ok_pass(1), ...
+                'fixture chief must be OBSCURED, or this test is vacuous');
+            testCase.verifyEqual(double(rs.status(1)), 1, ...   % RayStat_Obscured
+                'chief status must be Obscured, not a geometric failure');
+
+            % and the reference is genuinely available: the two maps differ
+            % by a non-zero CONSTANT
+            m2.opd_ref('mean');  m2.trace(iE); Wm = macos.opd();
+            m2.opd_ref('chief'); m2.trace(iE); Wc = macos.opd();
+            v = (Wm ~= 0);
+            d = Wc(v) - Wm(v);
+            testCase.verifyGreaterThan(max(abs(d)), 0, ...
+                'chief reference must change the map of an obscured-chief deck');
+            testCase.verifyLessThan(std(d), 1e-9 * max(abs(d)), ...
+                'the two maps must differ by a constant');
         end
 
         function test_bad_mode_errors(testCase)
