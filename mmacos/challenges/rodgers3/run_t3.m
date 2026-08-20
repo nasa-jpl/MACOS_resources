@@ -28,27 +28,27 @@ function OUT = run_t3()
 
     outdir = fullfile(here,'t3');
 
-    % ---- DECK-TRUTH focal ratio (the F/4 finding) -------------------------
-    % The slide says F/4, but the .seq geometry measures EFL 371.4 mm =
-    % F/4.95 at EPD 75 -- and the exit-horizontal constraint is
-    % STRUCTURALLY infeasible at EFL 300 with his spacings (the offset
-    % chief exits ~10 deg off horizontal for ANY symmetric surfaces; at
-    % his deck EFL it exits at 179.8 deg).  The honest comparison runs at
-    % the DECK-TRUTH focal ratio, computed here from the .seq values
-    % themselves; the slide-vs-deck discrepancy is attributed in
-    % PACKET.md section "Attribution of every difference".
+    % ---- DECK-TRUTH parameters, read from the .seq truth at runtime ------
+    % Nothing hand-copied: the packaging (z_m1, spacings) and the focal
+    % ratio come from rodgers3_seq itself.  The r1 deck measures EFL
+    % 300.003 mm = F/4.00004 -- the slide's F/4 CONFIRMED (and a guard
+    % against exactly the station-vs-spacing transcription slip that
+    % briefly suggested otherwise: the .seq THICKNESSES are th4 = -722.9,
+    % th6 = +740.8 mm; the m1/stop/m3 STATIONS are +665/-58/+683 mm).
     S = rodgers3_seq();
     r1 = S.r1.s([4 6 7]);
     tnet = [S.r1.s(4).th, S.r1.s(6).th]*1e-3;
     fo_deck = oi_paraxial([r1.R]*1e-3, tnet);
     Fno_deck = fo_deck.EFL_m / 0.075;
-    fprintf('deck-truth EFL %.6f m -> F/%.5f (slide says F/4)\n', ...
-            fo_deck.EFL_m, Fno_deck);
+    z_m1  = (S.r1.s(2).th + S.r1.s(3).th)*1e-3;
+    spac  = [S.r1.s(4).th, S.r1.s(5).th, S.r1.s(6).th]*1e-3;
+    fprintf('deck-truth EFL %.6f m -> F/%.5f; z_m1 %.6f; spacings [%g %g %g] m\n', ...
+            fo_deck.EFL_m, Fno_deck, z_m1, spac);
 
     % ================= the main five-stage run ==============================
     OUT = offset_imager(struct( ...
         'name','rodgers3-T3', 'tag','r3t', 'outdir',outdir, ...
-        'Fno', Fno_deck, ...
+        'Fno', Fno_deck, 'z_m1_m', z_m1, 'spacings_m', spac, ...
         'exit_dir',[0 0 -1], 'exit_tol_deg',0.1, ...
         'gn_iters',15));
 

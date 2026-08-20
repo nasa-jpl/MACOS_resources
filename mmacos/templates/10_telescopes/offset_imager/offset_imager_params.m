@@ -35,7 +35,9 @@ function P = offset_imager_params(over)
 %     spacings_m   SIGNED thickness chain [m1->stop, stop->m2, m2->m3], m
 %                  (CODE V sign convention: negative = beam travels -z).
 %                  The rodgers3 defaults put the stop ON the m2 plane
-%                  (stop->m2 = 0), 58 mm upstream of m1.
+%                  (stop->m2 = 0), 723 mm upstream of m1 (the .seq th4;
+%                  the m1/stop/m3 STATIONS are +0.665/-0.058/+0.683 m --
+%                  do not confuse stations with spacings).
 %     bfd_m        [] = back focus free (FP posed at the traced focus);
 %                  a value pins the recenter thickness instead
 %
@@ -86,7 +88,7 @@ function P = offset_imager_params(over)
     P.map_n      = 11;
 
     P.z_m1_m     = 0.6649568;
-    P.spacings_m = [-0.0579400  0  0.6828880];
+    P.spacings_m = [-0.7228968  0  0.7408280];
     P.bfd_m      = [];
 
     P.exit_dir     = [];        % report-only by default; T3 sets Mike's
