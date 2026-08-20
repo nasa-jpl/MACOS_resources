@@ -59,7 +59,7 @@ function out = oi_score(txt0, G, fields_deg, opts)
     out = struct('wfe_cen_nm',nan(K,1), 'wfe_chf_nm',nan(K,1), ...
                  'nrays',zeros(K,1), 'aim_miss',nan(K,1), ...
                  'cFP',nan(3,K), 'rays',{cell(K,1)}, 'fields_deg',fields_deg, ...
-                 'resid',[]);
+                 'resid',[], 'chief_dir',nan(3,K));
     rcell = cell(K,1);
 
     % shared exit-pupil anchor (solve-loop fast path)
@@ -113,6 +113,7 @@ function out = oi_score(txt0, G, fields_deg, opts)
         out.aim_miss(q) = missq;
         p1 = sq.pos(:,1);  d1 = sq.dir(:,1);
         out.cFP(:,q) = p1 + d1*(dot(Nd, Vd - p1)/dot(Nd, d1));
+        out.chief_dir(:,q) = d1;         % post-M3 chief (exit) direction
 
         if opts.rays
             out.rays{q} = per_elt_states_(txt0, tmp, G, dq, opts.aiming);

@@ -153,28 +153,14 @@ function [X, G, fo] = close_refit_(X, P, offset)
     G.fpa = X.fpa;
 end
 
-function bad = wall_check_(Xc, Gc, P)
-%WALL_CHECK_  S4+ constraint walls (step rejection, not penalty).
+function bad = wall_check_(Xc, Gc, P) %#ok<INUSD>
+%WALL_CHECK_  Reserved for genuine packaging WALLS.  The exit-beam
+%   direction is NOT here: it is an EQUALITY constraint carried as a
+%   weighted residual row inside OI_SOLVE (a boolean wall freezes any
+%   stage that starts outside tolerance -- the base Jacobian becomes all
+%   wall rows and no step can be evaluated).  Clearances are report
+%   gates (OI_GATES); promoting one to a wall goes here.
     bad = false;
-    if isempty(P.exit_dir) && isempty(P.clear_m), return; end
-    % cheap subset of oi_gates: exit chief only (clearances are gated in
-    % the report; making them a wall needs the full 5-field trace and is
-    % turned on by giving P.exit_dir AND P.clear_m -- documented choice:
-    % the exit direction is the binding constraint during the solve.
-    if ~isempty(P.exit_dir)
-        gt = exit_only_(Xc, Gc, P);
-        bad = gt.err_deg > P.exit_tol_deg;
-    end
-end
-
-function gt = exit_only_(X, G, P)
-    txt = oi_deck(fill_(X, P));
-    sc = oi_score(txt, G, [0 P.offset_deg], 'anchor','center', 'rays', true);
-    E = sc.rays{1};
-    if isempty(E), gt.err_deg = inf; return; end
-    ex_d = E{4}.dir(:,1);
-    ed = P.exit_dir(:)/norm(P.exit_dir);
-    gt.err_deg = acosd(min(1, dot(ed, ex_d)));
 end
 
 function [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, sid, X, G, fo, ...

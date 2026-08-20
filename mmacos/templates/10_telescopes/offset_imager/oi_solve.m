@@ -2,12 +2,17 @@ function [X, hist] = oi_solve(X, P, stage, opts)
 %OI_SOLVE  Damped Gauss-Newton stage solve of the offset_imager ladder.
 %
 %   [X, HIST] = OI_SOLVE(X, P, STAGE) optimizes the design struct X for
-%   one template stage.  The residual vector is the per-field strict RMS
-%   WFE (nm, centroid reference -- OI_SCORE) over the SOLVE SET (an
-%   nsolve x nsolve grid across the field box; solve set != scoring
-%   set), and every iterate passes through the first-order closure
-%   (OI_CLOSE), so EFL and the stop/FP constructions are IDENTITIES of
-%   every design the optimizer ever sees.
+%   one template stage.  The residual vector is the STACKED PER-RAY
+%   centroid-rung residual wavefronts (nm; strict_rungs column 2, piston
+%   out per field) over the SOLVE SET (an nsolve x nsolve grid across
+%   the field box; solve set != scoring set) -- true Gauss-Newton: the
+%   per-ray OPD is nearly linear in the surface coefficients, where a
+%   per-field RMS is not.  When P.exit_dir is set, the exit-chief
+%   direction error rides as one weighted residual row (an equality
+%   constraint, S3+).  Every iterate passes through the first-order
+%   closure (OI_CLOSE), so EFL (and Petzval = 0 in the symmetric
+%   stages) and the stop/FP constructions are IDENTITIES of every
+%   design the optimizer ever sees.
 %
 %   STAGE and its variable set:
 %     'S1'   on-axis box:  K(1:3), asph(3x3), R(1:2), fpa [dz tilt]
@@ -19,10 +24,11 @@ function [X, hist] = oi_solve(X, P, stage, opts)
 %            at stage start from the traced footprints (the solve
 %            doctrine: lMon fixed, power pinned to radii).
 %
-%   Damped GN with per-variable natural scales (asphere/Zernike scales
-%   are waves-of-sag at the mirror's own footprint edge), forward-FD
-%   Jacobian, Levenberg damping, wall constraints by step rejection
-%   (afocal4 rule: a wall, not a penalty).
+%   Damped chord-GN with per-variable natural scales (asphere / conic /
+%   Zernike scales are waves-of-sag at the mirror's own footprint edge),
+%   forward-FD Jacobian reused for up to 3 accepted steps, Levenberg
+%   damping, trust radius.  Genuine packaging walls reject steps
+%   (afocal4 rule); smooth equality constraints ride the residual.
 %
 %   Name-value:
 %     'iters'     iteration cap (default P.gn_iters)
@@ -153,11 +159,26 @@ function [r, Xc, rq] = residual_(u, V, X, P, offset, F, walls, len0)
     txt = oi_deck(D);
     sc = oi_score(txt, G, F, 'anchor','center', 'resid',true);
     r = sc.resid;
-    if isempty(r) || (len0 > size(F,1) && numel(r) ~= len0)
+    % the exit-direction row (appended below) is part of the base length
+    nx = double(isfield(P,'exit_dir') && ~isempty(P.exit_dir) && abs(offset) > 1e-12);
+    if isempty(r) || (len0 > size(F,1) && numel(r) ~= len0 - nx)
         r = 1e9*ones(len0,1);
         return
     end
     r(~isfinite(r)) = 1e9;
+    % exit-direction EQUALITY constraint as a weighted residual row
+    % (offset stages only -- on axis it is satisfied by symmetry)
+    if nx > 0
+        [~, ic] = min(vecnorm(F - [0 offset], 2, 2));
+        ed = P.exit_dir(:)/norm(P.exit_dir);
+        dc = sc.chief_dir(:,ic);
+        if any(~isfinite(dc))
+            err_deg = 1e3;
+        else
+            err_deg = acosd(max(-1, min(1, dot(ed, dc))));
+        end
+        r = [r; P.exit_wt * err_deg];
+    end
     w = sc.wfe_cen_nm;
     rq = sqrt(mean(w(isfinite(w)).^2));
     if ~isfinite(rq), rq = 1e9; end
