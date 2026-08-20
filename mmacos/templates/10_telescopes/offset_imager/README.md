@@ -56,6 +56,11 @@ figures `oi_s*_{layout,map}.png`, the assembled `oi_REPORT.md`, and
   solve set ≠ scoring set.
 - `oi_gates.m` — exit-beam direction + beam/mirror clearance gates.
 - `oi_map_fig.m` / `oi_layout_fig.m` — the per-stage illustrations.
+  Each stage emits THREE figures: `*_layout.png` (the `macos.view_std`
+  four-panel solid-body hardware render), `*_fields.png` (a Y-Z
+  elevation with per-field beam ENVELOPES — filled patches, not ray
+  spaghetti — plus stations and the exit-chief annotation), and
+  `*_map.png` (the dense strict-WFE-vs-field map).
 
 ## Conventions inherited from the rodgers3 challenge
 
