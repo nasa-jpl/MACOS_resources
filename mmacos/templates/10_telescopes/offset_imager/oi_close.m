@@ -72,7 +72,15 @@ function [X, G, fo] = oi_close(X, P, opts)
     z_stop = X.z_m1 + X.spacings(1);
 
     % ---- 2. stop pose -------------------------------------------------------
-    if opts.repose_stop
+    if isfield(X,'stop_fixed') && X.stop_fixed
+        % the stage owns the stop: keep X.stopC (z pinned to the plane);
+        % stop_y is an explicit solve variable driven by the exit
+        % residual row -- the flat (CodeV-like) formulation.  The nested
+        % exit-pointing secant per iterate made the residual a
+        % composition r(shapes, stop(shapes)) with a linearization range
+        % too short for LM at 22 deg.
+        X.stopC(3) = z_stop;
+    elseif opts.repose_stop
         if abs(opts.offset_deg) < 1e-12
             X.stopC = [0; 0; z_stop];
         else
@@ -188,7 +196,7 @@ function y = stop_for_exit_(X, P, cdir, fo, z_stop)
     ed = P.exit_dir(:)/norm(P.exit_dir);
     tgt = atan2d(ed(2), ed(3));
     f = @(yy) exit_ang_(X, P, cdir, fo, yy, z_stop) - tgt;
-    y0 = X.stopC(2);  y1 = y0 - 0.02;
+    y0 = X.stopC(2);  y0seed = y0;  y1 = y0 - 0.02;
     f0 = f(y0);  f1 = f(y1);
     y = y1;
     for it = 1:12
@@ -199,8 +207,12 @@ function y = stop_for_exit_(X, P, cdir, fo, z_stop)
         y = y1;
     end
     if abs(f1) > 1e-2
-        error('oi_close:exit_stop', ...
-              'exit-pointing stop solve did not converge (err %g deg)', f1);
+        % NON-FATAL: return the EP-construction seed.  Erroring here
+        % turned one bad FD candidate into a 1e9 wall vector that
+        % poisoned the whole Jacobian column and froze the S4 stage;
+        % with the seed returned, the exit residual row reports the
+        % pointing miss SMOOTHLY and the optimizer can steer away.
+        y = y0seed;
     end
 end
 

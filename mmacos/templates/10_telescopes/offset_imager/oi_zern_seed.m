@@ -73,6 +73,10 @@ function h = footprints_(X, P)
     for m = 1:3
         e = E{ie(m)};  ok = e.ok;  ok(1) = false;
         Q = e.pos(1:2,ok);
-        h(m) = max(vecnorm(Q - mean(Q,2), 2, 1));
+        % vertex-radial extent (the Zernike rho is about pMon = the
+        % vertex): the unit disk must COVER the offset footprint or the
+        % peak-normalized modes extrapolate wildly outside rho = 1.
+        % Mike's own NRADIUS values (473/98.6/326 mm) are sized this way.
+        h(m) = max(hypot(Q(1,:) - 0, Q(2,:) - Xc.yde(m)));
     end
 end
