@@ -91,13 +91,19 @@ anyway.
 ## Run
 
 ```matlab
-pupil_id                                    % template default: tma_onaxis
+run_pupil_id                                % the example runner: both bundled cases
+run_pupil_id('tma_onaxis')                  %   one case (or 'sz_tma' / 'both')
+pupil_id                                    % the driver, template default: tma_onaxis
 out = pupil_id('/path/to/my_tel.in');       % your telescope -> my_tel_xp.in
 out = pupil_id(rx, 'ep_elt',1, 'xp_elt',5, 'fov_arcmin',3, 'anchor','rim');
-% headless:  matlab -batch "pupil_id('/path/to/my_tel.in'); exit(0)"
+% headless:  matlab -batch "run_pupil_id('both'); exit(0)"
 % sensitivity drivers call the core finder directly:
 pf = pupil_find(rx, field_grid);            % modifies the loaded Rx like FEX
 ```
+
+`run_pupil_id.m` drives both bundled test telescopes — `tma_onaxis`
+(fully-lit pupil) and `sz_tma` (tilted-Zernike M1, so the zone map
+auto-skips) — and prints a consolidated table across cases.
 
 ## Knobs (name-value)
 
