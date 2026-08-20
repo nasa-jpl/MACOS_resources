@@ -9,7 +9,13 @@ function OUT = run_t4()
 %   (deliberately arbitrary) spacings the offset chief exits ~4.7 deg
 %   off horizontal for ANY symmetric surfaces -- the exit angle is a
 %   first-order property of EFL + spacings + the stop pose, so pinning
-%   it is a PACKAGING choice, not a surface-solve constraint.  A fast
+%   it is a PACKAGING choice, not a surface-solve constraint.  The
+%   clearance spec is likewise the instance's own: >10 / >5 mm, scaled
+%   to this compact bench-class envelope (the measured reachable floor
+%   here is ~10 mm; rodgers3's 50/35 mm belongs to its metre-class
+%   envelope and is unreachable at these spacings -- a solve chasing it
+%   burns wavefront for nothing, which is itself the packaging lesson).
+%   A fast
 %   wide-aperture offset imager is the other common corner of this
 %   trade space, and the faster speed moves the asphere/Zernike burden
 %   onto different surfaces than the rodgers3 instance -- if anything
@@ -37,5 +43,6 @@ function OUT = run_t4()
         'box_deg',[10 10], 'offset_deg',12, ...
         'z_m1_m',1.0, 'spacings_m',[-0.10 0 1.10], ...
         'seed_R1_m',15, ...
+        'clear_m',[0.010 0.005], ...
         'gn_iters',15));
 end
