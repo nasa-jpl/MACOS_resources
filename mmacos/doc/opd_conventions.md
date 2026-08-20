@@ -16,9 +16,11 @@ its probe.  Engine at macos `dev` 443140a._
   when it survives, otherwise the mean"; §1.1 has the measurement that
   disproves it.)_  The chief-ray branch exists but was unreachable: opt
   in per prescription with `UseChfRay4OPD= Y` or per session with
-  `macos.opd_ref('chief')`.  **On a SEGMENTED pupil the mean reference
-  couples the segments** — perturbing one segment pistons all the
-  others — so sensitivity work on segmented decks should opt in.
+  `macos.opd_ref('chief')`.  An **obscured** chief ray still serves as
+  the reference (the gate is `LRayOK`, not `LRayPass`); only a geometric
+  failure drops a trace to the mean.  **On a SEGMENTED pupil the mean
+  reference couples the segments** — perturbing one segment pistons all
+  the others — so sensitivity work on segmented decks should opt in.
 - **The apparent mmacos "90° rotation" is display, not data**: the array
   is `OPD(i,j)` with **first index i = global X, second index j =
   global Y**; MATLAB's `imagesc(W)` draws the first index vertically
@@ -99,12 +101,29 @@ mean maps differ by a **constant**, so RMS WFE, P-V and every
 mean-removed statistic are untouched; what changes is absolute piston —
 which is precisely the content of a per-segment sensitivity column.
 
-**When the chief does not survive**, the engine silently falls back to
-branch 3 for that trace regardless of the flag, and the coupling returns.
-That is the case the note below describes for `CassWithExitPupil` and
-`e5pie`.  `macos.opd_ref()` reports the *requested* reference, not which
-branch a given trace took; check `macos.get_ray_info(n).ok_trace(1)` if
-you need to know.
+### 1.2 An OBSCURED chief ray still serves as the reference
+
+The branch gates on `LRayOK(1)` — the **geometric** trace flag — not on
+`LRayPass(1)`, the flux/obscuration flag.  `LRayOK` is cleared only by a
+geometric failure (a surface miss or a solver bracket failure, the
+`GO TO 98` paths in `CTRACE`, and the non-sequential dispatch failures);
+obscuration sets `L1`/`LRayPass`.  So a chief ray that lands in a central
+hole is excluded from the map but its path length is defined and is used
+as the reference.
+
+**Measured** at the exit pupil, all four decks:
+
+| deck | `LRayOK(1)` | `LRayPass(1)` | `RayStatus(1)` | chief reference available |
+|---|---|---|---|---|
+| `CassWithExitPupil` | 1 | **0** | Obscured | yes — map shifts by 2.44e-12, std of the shift 4.06e-28 |
+| `Rx_Cass_FarField` | 1 | **0** | Obscured | yes |
+| `e5pie` / `e5pie_polyap` | 1 | 1 | OK | yes |
+| `e5hex1` | 1 | 1 | OK | yes |
+
+The engine falls back to branch 3 only on a **geometric** chief failure,
+and it does so silently.  No deck checked here does that.
+`macos.opd_ref()` reports the *requested* reference, not which branch a
+given trace took; read `macos.get_ray_status(n).status(1)` for that.
 
 The textbook definition (Born & Wolf; Welford; Mahajan, *Optical
 Imaging and Aberrations* I) is chief-ray-referenced through a reference
@@ -119,16 +138,20 @@ positive-rim bowl in all three consumers (mean-removed: rim +1.86e-7,
 center −1.85e-7; deck units metres).  A ray shorter than the reference
 is negative, exactly as expected.
 
-**Practical piston**: on `CassWithExitPupil` (obscured), its
-unobscured variant (M1 hole), and `e5pie` (segmented; loses exactly one
-ray — the chief), the chief ray is **lost**, so those decks are
-mean-referenced even with `UseChfRay4OPD= Y` — the fallback in §1.1.
-(The 2026-08-07 measurements above predate the fix and were taken with
-the flag unreachable; they are unaffected, because a lost chief lands on
-branch 3 either way.)  The CLI's printed `Average OPD` is the
-pre-removal diagnostic `DAvgL`, **not** the piston of the returned map —
-though under the chief reference it *is* the constant separating the two
-maps.
+**Practical piston** — _corrected 2026-08-19._  This paragraph
+previously said the chief ray is **lost** on `CassWithExitPupil` and
+`e5pie`, so those decks were mean-referenced by necessity.  That is
+wrong: the chief traces geometrically on both (§1.2), and they were
+mean-referenced only because the flag was unreachable.  The reading came
+from `nPassRays`: `SUBROUTINE OPD` loops `DO iRay=2,nRay`, so ray 1 is
+**never** written into `OPDMat` and `nPassRays = nRay − 1` on a
+fully-passing deck (e5hex1 prints 2413/2412; FFSegDemoAll 49319/49318).
+The missing ray is the chief being excluded from the MAP by construction,
+not the chief failing to trace.  The 2026-08-07 measurements above are
+unaffected — they were taken with the flag unreachable, so branch 3 ran
+either way.  The CLI's printed `Average OPD` is the pre-removal
+diagnostic `DAvgL`, **not** the piston of the returned map — though under
+the chief reference it *is* the constant separating the two maps.
 
 ## 2. Array orientation
 
