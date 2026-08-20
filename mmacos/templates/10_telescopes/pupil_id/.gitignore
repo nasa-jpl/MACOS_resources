@@ -1,7 +1,9 @@
 # Generated artifacts.  Regenerate:
-#   matlab -batch "run('pupil_id.m'); exit(0)"
-# The driver consumes ../tma_onaxis/tma_onaxis.in and writes no deck of its
-# own, so (unlike the design drivers) there is no *.in deliverable to track.
+#   matlab -batch "run_pupil_id('both'); exit(0)"   (or run('pupil_id.m'))
+# The driver consumes ../<case>/<case>.in and writes no deck of its own, so
+# (unlike the design drivers) there is no *.in deliverable to track.  The
+# runner collects every artifact under results/<case>/ (revised Rx included).
 *.png
 *.mat
+results/
 __pycache__/
