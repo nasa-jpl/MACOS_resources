@@ -1,0 +1,52 @@
+Subject: New MACOS/mmacos capability -- exit-pupil identification beyond FEX
+
+A new pupil-identification tool is now available in mmacos.  Give it a
+telescope prescription and it characterizes the EXIT PUPIL as a fitted
+surface -- and hands you back a revised Rx with an improved exit-pupil
+reference sphere.
+
+WHAT IT ADDS OVER FEX
+  FEX ("find exit pupil") gives you a single conjugate sphere from ONE
+  chief ray: the exit-pupil location and the far-field propagation radius,
+  and nothing about pupil-imaging QUALITY.  This tool traces a grid of
+  field cones (the "grid of cone sources") and finds where they converge,
+  so it measures the exit pupil as an aberrated SURFACE across the field:
+
+    - pupil aberration (defocus / astigmatism / coma / spherical),
+    - departure from a perfect reference sphere (the pupil-quality number),
+    - pupil-imaging blur and magnification / distortion,
+    - PUPIL WALK vs field -- how the exit pupil moves as you scan the field,
+      which a single-chief-ray FEX cannot show.
+
+  It then writes a REVISED prescription in which the exit-pupil reference
+  sphere is re-placed at the cone-bundle vertex (an improvement on FEX's
+  one-ray vertex) while keeping FEX's far-field propagation radius -- so
+  the deck stays correct for diffraction propagation.
+
+  Cross-checked against the engine's own two-ray exit-pupil surface
+  (XPS / pupil_quality): the two agree to a few tenths of a percent or
+  better on the representative cases.
+
+HOW TO RUN
+  In MATLAB, with mmacos on the path:
+
+    run_pupil_id('both')          % the two bundled example telescopes
+    out = pupil_id('my_tel.in')   % your prescription -> my_tel_xp.in
+
+  Any telescope Rx works; the exit-pupil element and stop are auto-detected
+  (override with 'ep_elt' / 'xp_elt').  It emits a printed report, three
+  figures (the convergence cloud + departure map, the aberration Zernikes
+  vs the engine, and the pupil walk), and the revised prescription.
+
+  Sensitivity/analysis drivers can call the core finder directly --
+  pupil_find(rx, field_grid) -- which places the improved sphere into the
+  loaded prescription in place, exactly the way FEX does.
+
+WHERE IT LIVES
+  mmacos/templates/10_telescopes/pupil_id/   (the run_pupil_id example)
+  mmacos/design/src/pupil_find.m             (the reusable core finder)
+
+  It composes existing, test-gated tools -- no engine change required.
+
+Questions welcome.
+-- Dave
