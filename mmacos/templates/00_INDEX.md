@@ -21,6 +21,13 @@ target plus our worked answer) live in [`../challenges/`](../challenges).
 | — end-to-end flows | [`80_end_to_end/`](80_end_to_end) | `e2e/` (s1–s7), `e2e2/` |
 | — polarization | [`90_polarization/`](90_polarization) | `bench_ifo_pol/example_bench_ifo_pol.m` |
 
+**Before you transpose or negate an OPD map by hand, read
+[`../doc/opd_conventions.md`](../doc/opd_conventions.md).**  Orientation
+(`macos.opd('orient','xy')`), sign (`'sign','wavefront'`) and the map's
+reference (`macos.opd_ref('chief')`, which matters on segmented pupils)
+are all options on the API — every template uses them rather than
+post-processing the array.
+
 Run any template with the package on the path:
 
 ```matlab

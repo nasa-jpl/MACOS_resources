@@ -11,11 +11,14 @@ its probe.  Engine at macos `dev` 443140a._
   same piston — verified to 3.5e-15 (round-off) on identical pokes.
 - **Sign: a ray longer than the reference is positive.**  Unchanged
   since the original import.
-- **Reference: the chief ray when it survives the trace; otherwise the
-  bundle mean.**  On centrally-obscured or segmented pupils the chief
-  typically does not survive (hole/gap at the pupil center), so
-  **mean-removed piston is the practical norm** — measured on every
-  deck tried.
+- **Reference: the whole-aperture MEAN, always, unless you opt in.**
+  _(Corrected 2026-08-19 — this document previously said "the chief ray
+  when it survives, otherwise the mean"; §1.1 has the measurement that
+  disproves it.)_  The chief-ray branch exists but was unreachable: opt
+  in per prescription with `UseChfRay4OPD= Y` or per session with
+  `macos.opd_ref('chief')`.  **On a SEGMENTED pupil the mean reference
+  couples the segments** — perturbing one segment pistons all the
+  others — so sensitivity work on segmented decks should opt in.
 - **The apparent mmacos "90° rotation" is display, not data**: the array
   is `OPD(i,j)` with **first index i = global X, second index j =
   global Y**; MATLAB's `imagesc(W)` draws the first index vertically
@@ -35,12 +38,73 @@ OPD(i,j) = CumRayL(ray) − Ref            [longer path ⇒ positive]
 
 with `Ref` chosen in priority order:
 
-1. **Chief-ray path length** — when `LUseChfRayIfOK` is set (the
-   `LOAD` command sets it in every consumer) **and the chief ray
-   traced OK**;
+1. **Chief-ray path length** — when `LUseChfRayIfOK` is set **and** the
+   chief ray traced OK (`LRayOK(1)`);
 2. an Rx-declared `OPDRefRayLen`;
 3. otherwise the **bundle mean** — `OPD = L − mean(L)` (mode 3 also
    removes the mean explicitly, so the returned map has zero mean).
+
+### 1.1 Which branch actually runs — and the segmented-pupil coupling
+
+_Added 2026-08-19.  Diagnosis: Luis Marchen; measurement + fix: this
+tree._
+
+**Branch 3 always ran.**  `LUseChfRayIfOK` is initialised `.FALSE.` by
+`ray_mod_init_vars` (`traceutil_mod.F`).  The `LOAD`/`OLD`/`NEW` handler
+in `macos_cmd_loop.inc` does set it `.TRUE.` — but it does so *before*
+calling `MBFile6`, and `MBFile6`'s first statement, in **both**
+`macosio.F` (CLI) and `smacosio.F` (SMACOS, i.e. every binding), is
+`reinitialise_variables()`, which runs `ray_mod_init_vars` again and puts
+the flag straight back to `.FALSE.`.  The Rx parser had a branch only for
+`UseChfRay4OPD= N` — the value that was already in force — so there was
+no way to select branch 1 at all.
+
+**Measured** (`e5hex1.in`, 7 hex segments, model 128, OPD at the exit
+pupil, all five `dw_dx_multi` field points): the chief ray is **alive**
+(`LRayOK(1)=1`, `LRayPass(1)=1`) at every field, and the returned map is
+nonetheless mean-referenced (map mean `4.5e-21` against an RMS of
+`1.07e-05`, i.e. exactly zero).  Chief alive **and** mean-referenced is
+the direct disproof: the gate was the flag, not the chief ray.
+
+**Why it matters on a segmented pupil.**  Branch 3 subtracts `DAvgl`, one
+scalar averaged over *every* valid ray in the aperture.  Perturbing a
+single segment *k* moves that scalar by
+`(N_k/N_total) × (mean local response on k)`, and the shift is then
+subtracted from every ray — so **unperturbed segments report a spurious
+uniform piston**, and the perturbed one is biased by the same constant.
+Measured, Tz = 1e-8 m on one of the seven segments:
+
+| reference | piston on the 6 unpoked segments | peak response |
+|---|---|---|
+| mean (default) | `+2.849e-06` (16.7% of peak) | `1.711e-05` |
+| chief (`opd_ref('chief')`) | `0.000e+00` exactly | `1.996e-05` |
+
+The two peaks differ by exactly the piston (`1.996e-05 − 1.711e-05 =
+2.85e-06`): the contamination was biasing the poked segment too.
+
+**Selecting the reference.**  Per prescription, in the header:
+
+```
+UseChfRay4OPD= Y
+```
+
+or per session, **after** `load_rx` (a load resets it):
+
+```matlab
+macos.opd_ref('chief');    % or 'mean'; macos.opd_ref() reads it back
+```
+
+The two are bit-identical (gated in `tests/tOpdRef.m`).  The chief and
+mean maps differ by a **constant**, so RMS WFE, P-V and every
+mean-removed statistic are untouched; what changes is absolute piston —
+which is precisely the content of a per-segment sensitivity column.
+
+**When the chief does not survive**, the engine silently falls back to
+branch 3 for that trace regardless of the flag, and the coupling returns.
+That is the case the note below describes for `CassWithExitPupil` and
+`e5pie`.  `macos.opd_ref()` reports the *requested* reference, not which
+branch a given trace took; check `macos.get_ray_info(n).ok_trace(1)` if
+you need to know.
 
 The textbook definition (Born & Wolf; Welford; Mahajan, *Optical
 Imaging and Aberrations* I) is chief-ray-referenced through a reference
@@ -57,11 +121,14 @@ is negative, exactly as expected.
 
 **Practical piston**: on `CassWithExitPupil` (obscured), its
 unobscured variant (M1 hole), and `e5pie` (segmented; loses exactly one
-ray — the chief), the chief ray is lost and every consumer returns the
-**mean-removed** map.  The chief-referenced branch engages only on
-decks where the central ray survives (e.g. off-axis/unobstructed
-forms).  The CLI's printed `Average OPD` is the pre-removal diagnostic
-`DAvgL`, **not** the piston of the returned map.
+ray — the chief), the chief ray is **lost**, so those decks are
+mean-referenced even with `UseChfRay4OPD= Y` — the fallback in §1.1.
+(The 2026-08-07 measurements above predate the fix and were taken with
+the flag unreachable; they are unaffected, because a lost chief lands on
+branch 3 either way.)  The CLI's printed `Average OPD` is the
+pre-removal diagnostic `DAvgL`, **not** the piston of the returned map —
+though under the chief reference it *is* the constant separating the two
+maps.
 
 ## 2. Array orientation
 

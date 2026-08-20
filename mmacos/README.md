@@ -31,9 +31,22 @@ addpath('/home/dcr/dev/MACOS_resources/mmacos/src')   % package + mex live in sr
 macos.init(128)
 n = macos.load_rx('/path/Rx_Cass.in')       % accepts .in extension
 s = macos.trace();                           % returns struct(.nRays, .rmsWFE)
-W = macos.opd();                             % N×N real
+W = macos.opd();                             % N×N real, (i,j) = (X,Y)
 I = macos.intensity(n);                      % N×N real
 cf = macos.complex_field(n);                 % N×N complex
+
+% OPD orientation and sign are OPTIONS, not something to fix by hand:
+W = macos.opd('orient','xy');                % rows->Y, cols->X (image order)
+W = macos.opd('sign','wavefront');           % interferometer sign (negated)
+macos.opd_ref('chief');                      % reference to the chief ray, not
+                                             % the aperture mean -- matters on
+                                             % SEGMENTED pupils (cross-segment
+                                             % piston).  Call AFTER load_rx.
+% Full story, including what 'xy' does NOT fix (the +/- sense of each
+% displayed axis, which is per-deck): doc/opd_conventions.md.
+
+macos.unload();                              % give the engine's memory back
+                                             % without quitting MATLAB
 
 % Perturbations: SI metres in / out.  Library converts to BaseUnits internally.
 macos.perturb(2, 'rotation', [1e-6;0;0], 'translation', [0;0;1e-9], ...
@@ -43,7 +56,7 @@ macos.perturb(2, 'rotation', [1e-6;0;0], 'translation', [0;0;1e-9], ...
 dx_mm = macos.dx_at(n, 'mm');                % 'm' default; 'mm', 'cm', 'um', 'native'
 ```
 
-23 functions in `+macos/`.  Validation via `arguments` blocks, struct
+~165 functions in `+macos/`.  Validation via `arguments` blocks, struct
 returns for multi-field results, SI ↔ BaseUnits conversion via CBM,
 split `get_X` / `set_X` so MATLAB autocomplete surfaces both halves
 of each contract.
