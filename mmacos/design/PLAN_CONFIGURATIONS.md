@@ -1,9 +1,13 @@
 # PLAN — a CONFIGURATIONS axis for the sensitivity supervisors
 
 **Status: SKETCH, for Dave's review.  Nothing implemented.**
-Written 2026-08-19 (Luis round 2, item 5).  Gated on two inputs that are
-not in this tree: (a) Dave's sign-off on the API below, and (b) Luis's
-workaround files, which show the call shapes he is hand-weaving today.
+Written 2026-08-19 (Luis round 2, item 5).  Gated on Dave's sign-off on
+the API below, and on the §5 question of whether a compensation state is
+a configuration or a DOF.
+
+The fixture is NOT gated: Luis's zoom decks carry proprietary data, so
+§6 builds one from `j18sc.in` instead, and its feasibility is already
+measured.
 
 ## 1. The requirement, as understood
 
@@ -159,10 +163,91 @@ zoom/compensation schedule naturally arrives in (a spreadsheet).
 4. **Baseline impact:** none, by construction (`configs` absent ⇒
    identical). Confirm that is the acceptance criterion.
 
-## 6. Before implementing
+## 6. The fixture — built here, not sourced
 
-- Get Luis's workaround files (item 5d) and check the sketch's call shape
-  against what he actually wrote.
-- Get a j18-family deck with real steering-mirror compensation states —
-  **there is no j18 prescription anywhere in either repo**, so the worked
-  example (item 5b) cannot be built until one arrives.
+Luis's zoom decks carry proprietary data and cannot be shared, so the
+worked example uses a deck already in hand.  It is optically meaningless
+by construction; the deliverable is the DRIVER, and the numbers only have
+to be finite, reproducible, and responsive.
+
+**Deck:** `j18sc.in` (18-hex JWST, design c, `MACOS_sandbox/old_Rx/`).
+Element 25 is `FSM`, a flat `Reflector` at a pupil — the steering mirror
+the configuration axis moves.  Element 27 (`nElt-1`) is `ExitPupil`, a
+`Return`, so `reset_xp`'s FEX write has somewhere to land.
+
+**Configurations (5).**  Centred, then the FSM tilted 0.5 arcmin
+(1.45444e-4 rad) to each corner of a square, applied as a LOCAL-frame
+rotation `[±0.5', ±0.5', 0]`:
+
+    z0   [ 0      0     ]
+    zUL  [-0.5'  +0.5'  ]      zUR  [+0.5'  +0.5' ]
+    zLL  [-0.5'  -0.5'  ]      zLR  [+0.5'  -0.5' ]
+
+**Fields (5).**  The stock `make_5field_set` at
+`field_x_rad = field_y_rad = 1 arcmin` (2.90888e-4 rad): centre plus four
+corners.  25 blocks.
+
+**Settings.** `model_size 512`, `ngridpts 63` (the deck declares
+`nGridpts=1024`), stop at element 25 — the deck carries no `ApStop=` and
+`reset_xp` requires one.
+
+### Feasibility, measured before planning
+
+Probe at model 512 / ngridpts 63 / stop 25, OPD at element 27:
+
+| state | rays | valid | lost | RMS WFE (mm) |
+|---|---|---|---|---|
+| nominal | 2301 | 2184 | 0 | 6.846e-06 |
+| FSM 0.5' corners (4) | 2301 | 2184 | 0 | 1.457e-02 … 1.460e-02 |
+| field ±1' (4 corners) | 2301 | 2182–2184 | 0 | 6.381e-01 … 6.393e-01 |
+
+No ray loss in any of the 8 perturbed states, and both axes move the
+wavefront by orders of magnitude — the finite-difference machinery has
+something to differentiate.  117 rays are obscured throughout (the
+central obscuration), and the chief ray runs `LRayOK=1, LRayPass=0,
+RayStatus=Obscured`, so the fixture also exercises the obscured-chief OPD
+reference (§1.2 of `doc/opd_conventions.md`).
+
+The ±1 arcmin field WFE is 0.64 mm, about 278 waves at the deck's 2.3 µm.
+That is not a design; it is a load case.  Say so in the driver header so
+no reader mistakes the numbers for a result.
+
+### The modelling point this fixture forces
+
+The configuration element (25) is ALSO one of the elements whose
+rigid-body DOFs are Jacobian channels.  So a configuration moves an
+optic that is itself a variable, and element 25's columns are then
+evaluated about a SHIFTED operating point.  That is not a conflict to
+design around — it is what a zoom-dependent sensitivity *is*.  Two
+consequences the implementation must honour:
+
+- snapshot/restore (§2) must cover the configuration element even though
+  the channel machinery also perturbs it, and the restore assertion must
+  run AFTER the channel loop has finished restoring its own poke, not
+  interleaved with it;
+- the channel list is built once, before the configuration loop, so
+  element 25's channels are the same columns in all 25 blocks.  Assert
+  `channel_names` equality per block; a configuration that changed the
+  element count would silently misalign the stack.
+
+## 7. Deliverables and order
+
+1. `run_dwdx_5zoom_5fov.m` — the driver, in its own template directory
+   with `j18sc.in` copied beside it (self-contained, per the templates
+   rule).  Thin, over `run_sensitivities` with `'configs'`, matching the
+   existing `run_dwdx_multi.m` register.
+2. The `'configs'` option itself — `macos.dw_dx_multi` first, then the
+   `run_sensitivities` pass-through (§3).
+3. `run_dwdz_5zoom_5fov.m`, `run_dwdsurf_5zoom_5fov.m`,
+   `run_dwdgrid_5zoom_5fov.m` once the axis is proven on dwdx.  The grid
+   rung needs `grid_augment_rx` on a 19-segment deck; treat it as its own
+   step, not a copy-paste.
+4. A `tRunSensitivities` case: `'configs'` absent reproduces the current
+   output BYTE-FOR-BYTE (the preserved-surface rule), and a 2-config run
+   stacks to `2*Nw` rows with identical `channel_names` per block.
+
+## 8. Still open before writing code
+
+The four questions in §5 — chiefly whether a compensation state is a
+configuration or a DOF (§5.1), which decides whether this fixture is the
+right shape at all.
