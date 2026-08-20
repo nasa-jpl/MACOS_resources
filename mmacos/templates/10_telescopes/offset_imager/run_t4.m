@@ -9,9 +9,7 @@ function OUT = run_t4()
 %   (deliberately arbitrary) spacings the offset chief exits ~4.7 deg
 %   off horizontal for ANY symmetric surfaces -- the exit angle is a
 %   first-order property of EFL + spacings + the stop pose, so pinning
-%   it is a PACKAGING choice, not a surface-solve constraint (the same
-%   structural fact that exposed the rodgers3 slide-F/4-vs-deck-EFL
-%   discrepancy; see challenges/rodgers3/PACKET.md).  A fast
+%   it is a PACKAGING choice, not a surface-solve constraint.  A fast
 %   wide-aperture offset imager is the other common corner of this
 %   trade space, and the faster speed moves the asphere/Zernike burden
 %   onto different surfaces than the rodgers3 instance -- if anything
