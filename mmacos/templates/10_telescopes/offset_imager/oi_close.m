@@ -8,14 +8,17 @@ function [X, G, fo] = oi_close(X, P, opts)
 %     1  EFL = P.EFL_m EXACTLY -- R3 is eliminated: solved by secant on
 %        the paraxial chain (OI_PARAXIAL) given R1, R2 and the spacings.
 %     2  STOP POSE -- S1 (on-axis box): the stop centre is the axial
-%        point [0 0 z_stop].  Offset box: the ENTRANCE-PUPIL
-%        construction: the EP centre is measured from the engine (the
-%        crossing, in object space, of two aimed near-axis chiefs), the
-%        box-centre chief is launched THROUGH the EP centre, and the
-%        stop centre is where that traced chief crosses the stop plane.
-%        The physical aperture follows the used field the way a real
-%        aperture would -- and on the rodgers3 instance this
-%        construction is what CODE V's stop YDE encodes.
+%        point [0 0 z_stop].  Offset box, P.exit_dir PINNED: the stop
+%        decenter IS the exit-aiming variable -- stop_y is solved by
+%        secant so the aimed box-centre chief exits along P.exit_dir
+%        (Mike's own decks encode exactly this: his r2-r5 stop YDEs of
+%        -55..-57 mm all put the exit chief on [0 0 -1] to <=2e-5 rad,
+%        where the entrance-pupil construction puts the stop at -2 mm
+%        and exits 8.6 deg off).  Offset box, no pin: the
+%        ENTRANCE-PUPIL construction -- the EP centre is measured from
+%        the engine (the crossing, in object space, of two aimed
+%        near-axis chiefs), the box-centre chief is launched THROUGH
+%        it, and the stop centre is its crossing at the stop plane.
 %     3  FP POSE -- the FP is posed ON the traced box-centre exit chief
 %        (recenter by construction), at the paraxial back-focus distance
 %        along it, normal to it.  Stage refits then open [dz, tilt]
@@ -78,10 +81,17 @@ function [X, G, fo] = oi_close(X, P, opts)
             X0.fpa = far_fpa_(X0, fo);
             EP = ep_measure_(X0, P);
             % 2b. box-centre chief through the EP centre; its crossing at
-            %     the stop plane is the stop centre
+            %     the stop plane seeds the stop centre
             cdir = tancomp_(0, opts.offset_deg);
             X.stopC = stop_from_ep_(X0, P, EP, cdir, z_stop);
             fo.EP = EP;
+            % 2c. exit-pointing identity: when the exit direction is
+            %     pinned, the stop DECENTER is the aiming variable --
+            %     solve stop_y so the aimed box-centre chief exits
+            %     along P.exit_dir (secant; seeded by 2b)
+            if isfield(P,'exit_dir') && ~isempty(P.exit_dir)
+                X.stopC(2) = stop_for_exit_(X, P, cdir, fo, z_stop);
+            end
         end
     end
 
@@ -167,6 +177,41 @@ function stopC = stop_from_ep_(X0, P, EP, cdir, z_stop)
     t = (z_stop - p(3))/d(3);
     q = p + d*t;
     stopC = [q(1); q(2); z_stop];
+end
+
+function y = stop_for_exit_(X, P, cdir, fo, z_stop)
+%STOP_FOR_EXIT_  Solve the stop decenter for the exit-pointing identity:
+%   the aimed box-centre chief must exit along P.exit_dir.  Signed error
+%   = Y-Z exit angle minus the pin's; secant from the EP-construction
+%   seed.  Errors > the wall are the caller's problem (the residual row
+%   still guards the solve).
+    ed = P.exit_dir(:)/norm(P.exit_dir);
+    tgt = atan2d(ed(2), ed(3));
+    f = @(yy) exit_ang_(X, P, cdir, fo, yy, z_stop) - tgt;
+    y0 = X.stopC(2);  y1 = y0 - 0.02;
+    f0 = f(y0);  f1 = f(y1);
+    y = y1;
+    for it = 1:12
+        if abs(f1) < 1e-5, return; end
+        if abs(f1 - f0) < eps, break; end
+        y2 = y1 - f1*(y1 - y0)/(f1 - f0);
+        y0 = y1;  f0 = f1;  y1 = y2;  f1 = f(y1);
+        y = y1;
+    end
+    if abs(f1) > 1e-2
+        error('oi_close:exit_stop', ...
+              'exit-pointing stop solve did not converge (err %g deg)', f1);
+    end
+end
+
+function a = exit_ang_(X, P, cdir, fo, yy, z_stop)
+    Xt = X;  Xt.stopC = [0; yy; z_stop];
+    [~, dc] = exit_chief_(Xt, P, cdir, fo);
+    % unwrap into the pin's branch: angles near +/-180 must compare
+    a = atan2d(dc(2), dc(3));
+    ed = P.exit_dir(:)/norm(P.exit_dir);
+    tgt = atan2d(ed(2), ed(3));
+    a = a - 360*round((a - tgt)/360);
 end
 
 function [pc, dc] = exit_chief_(X, P, cdir, fo)
