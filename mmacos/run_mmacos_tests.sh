@@ -155,7 +155,7 @@ SUITE_FAST=$(join_suites \
     "tMet" "tMetView" "tRunMet" "tRunSensitivities" "tRunSegmentation" \
     "tRunCompare" "tSpot" "tDrawFrameGuard" "tDwDgridElts" \
     "tPolarization" "tJonesPupil" "tVecChain" \
-    "tPolElement" "tPolRadiometric" "tPolExternal" "tBench")
+    "tPolElement" "tPolRadiometric" "tPolExternal" "tBench" "tOpdRef")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the
@@ -186,6 +186,10 @@ SUITE_POL_512=$(join_suites "tPolContrastCoro")
 # nGridpts=255 and their drivers run at model 512.  Own batch, same reason
 # as SUITE_POL_512.  Asset-gated: skips itself when bench_ctb is absent.
 SUITE_CTB_512=$(join_suites "tCtbProp")
+# tEngineMemory deliberately walks model 128 <-> 256 to prove macos.unload
+# rebuilds the engine smaller.  Own batch so a size transition it induces
+# cannot seed PLAN.md §0 heap corruption into another group.
+SUITE_MEMORY=$(join_suites "tEngineMemory")
 SUITE_PROPER_1024=$(join_suites "tProperCompareCoroNFprop" "tProperCompareCoroPhase3" "tProperCompareCoroApodizer" "tProperCompareCoroDMPhase")
 # Aggregate for the `proper` shortcut (runs in two batches — the
 # initial Cass-FF group at 512 then the Coro group at 1024 — to
@@ -217,6 +221,7 @@ case "${1:-}" in
         run_batch "$SUITE_POL_512"     "full: pol contrast (512)"   || rc=1
         run_batch "$SUITE_CTB_512"     "full: ctb diffraction (512)" || rc=1
         run_batch "$SUITE_PROPER_1024" "full: proper Coro (1024)"   || rc=1
+        run_batch "$SUITE_MEMORY"      "full: engine memory (128<->256)" || rc=1
         exit $rc
         ;;
     quick)
