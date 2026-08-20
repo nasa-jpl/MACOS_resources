@@ -105,5 +105,60 @@ classdef tMacosSession < matlab.unittest.TestCase
             s = testCase.m.get_stop_info();
             testCase.verifyEqual(s.elt, 2);
         end
+
+        function test_every_stateful_package_function_has_a_delegator(testCase)
+        % Coverage audit, kept honest by making it a gate rather than a
+        % one-off sweep (Luis, 2026-08-19: Session was missing ~40 of the
+        % package surface).  Rule: every +macos function that TOUCHES
+        % ENGINE STATE gets a Session method.  The exceptions below are
+        % the functions that do not -- pure array/file helpers and the
+        % session-lifecycle entry points -- and a new one must be added
+        % here CONSCIOUSLY, with a reason.
+            NOT_SESSION_SCOPED = { ...
+                ... % session lifecycle -- the constructor owns these
+                'init', 'model_sizes', 'model_size_min', ...
+                ... % pure array reshaping
+                'm2v', 'v2m', 'pad', ...
+                ... % pure file I/O, no engine involved
+                'read_grid_file', 'write_grid_file', ...
+                ... % pure math on arrays the caller already holds
+                'zernike_grid_basis', 'first_airy_null', ...
+                'lambda_over_D_pixels', 'radial_profile', ...
+                'radial_contrast', 'dark_zone_metrics', 'mimg', ...
+                ... % inner FD loops driven by the dw_d* supervisors
+                'dwdx_for_current_source', 'dwdz_for_current_source'};
+
+            pkg_dir = fullfile(fileparts(fileparts(mfilename('fullpath'))), ...
+                               'src', '+macos');
+            d = dir(fullfile(pkg_dir, '*.m'));
+            fns = erase({d.name}, '.m');
+            fns = setdiff(fns, [{'Session'}, NOT_SESSION_SCOPED]);
+
+            have = methods('macos.Session');
+            missing = setdiff(fns, have);
+            testCase.verifyEmpty(missing, sprintf( ...
+                ['these +macos functions touch engine state but have no ' ...
+                 'macos.Session method: %s\n(add a delegator, or add the ' ...
+                 'name to NOT_SESSION_SCOPED with a reason)'], ...
+                strjoin(missing, ', ')));
+
+            % and the exception list must not rot: every name on it must
+            % still exist in the package.
+            gone = setdiff(NOT_SESSION_SCOPED, erase({d.name}, '.m'));
+            testCase.verifyEmpty(gone, sprintf( ...
+                'NOT_SESSION_SCOPED names functions that no longer exist: %s', ...
+                strjoin(gone, ', ')));
+        end
+
+        function test_new_delegators_reach_the_package(testCase)
+        % Smoke the delegators added in the 2026-08-19 sweep that are
+        % cheap to call against a loaded Rx.
+            testCase.verifyEqual(testCase.m.met_geom(), macos.met_geom());
+            testCase.verifyEqual(testCase.m.find_powered_elts(testCase.rx_path), ...
+                                 macos.find_powered_elts(testCase.m, testCase.rx_path));
+            testCase.m.load_rx(testCase.rx_path);
+            testCase.m.trace();
+            testCase.verifyEqual(testCase.m.draw_rays(), macos.draw_rays());
+        end
     end
 end
