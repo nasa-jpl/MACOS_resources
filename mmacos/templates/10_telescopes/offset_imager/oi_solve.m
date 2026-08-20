@@ -173,9 +173,12 @@ function [r, Xc, rq] = residual_(u, V, X, P, offset, F, walls, len0, useclear)
     sc = oi_score(txt, G, F, 'anchor','center', 'resid',true);
     r = sc.resid;
     % the exit-direction + clearance rows (appended below) are part of
-    % the base length
-    nx = double(isfield(P,'exit_dir') && ~isempty(P.exit_dir) && abs(offset) > 1e-12);
-    if useclear && isfield(P,'clear_m') && ~isempty(P.clear_m), nx = nx + 9; end
+    % the base length -- track them SEPARATELY: nexit gates the exit
+    % block, their sum only does length bookkeeping
+    nexit = double(isfield(P,'exit_dir') && ~isempty(P.exit_dir) && abs(offset) > 1e-12);
+    nclear = 0;
+    if useclear && isfield(P,'clear_m') && ~isempty(P.clear_m), nclear = 9; end
+    nx = nexit + nclear;
     if isempty(r) || (len0 > size(F,1) && numel(r) ~= len0 - nx)
         r = 1e9*ones(len0,1);
         return
@@ -194,7 +197,7 @@ function [r, Xc, rq] = residual_(u, V, X, P, offset, F, walls, len0, useclear)
     end
     % exit-direction EQUALITY constraint as a weighted residual row
     % (offset stages only -- on axis it is satisfied by symmetry)
-    if nx > 0
+    if nexit > 0
         [~, ic] = min(vecnorm(F - [0 offset], 2, 2));
         ed = P.exit_dir(:)/norm(P.exit_dir);
         dc = sc.chief_dir(:,ic);
