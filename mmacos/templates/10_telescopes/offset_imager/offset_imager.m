@@ -96,16 +96,23 @@ function OUT = offset_imager(over)
     if any(P.stages == 3)
         stage_banner_('S3  re-solve symmetric aspheres/conics AT the offset field');
         K0 = X.K;
-        % RESTART from the first-order seed: the on-axis-optimized
-        % aspheres are poison at a large offset (measured at 22 deg:
-        % the S1-shape start scores 142 um and the solve crawls; the
-        % fresh Petzval-flat spheres score 25.6 um and descend to
-        % single-digit um within 8 iterations).  Re-solving at the used
-        % field means solving THERE, not walking from the wrong optimum.
+        % TWO-CANDIDATE START.  At a large offset the on-axis-optimized
+        % aspheres are poison (22 deg: the S1-shape start scores 142 um
+        % and the solve crawls; fresh Petzval-flat spheres score 25.6 um
+        % and reach single-digit um in 8 iterations) -- but at a mild
+        % offset the carry is the better basin.  Score both at the
+        % offset and start from the winner; re-solving at the used
+        % field means solving THERE, from the better of the two starts.
+        Xc = X;  Xc.fpa_refit = [0 0];  Xc.eliminate = 'R2R3';
+        Xf = Xc;
         Xs = oi_seed(P);
-        X.K = Xs.K;  X.asph = Xs.asph;  X.R = Xs.R;
-        X.fpa_refit = [0 0];
-        X.eliminate = 'R2R3';        % S3: same symmetric-stage identities
+        Xf.K = Xs.K;  Xf.asph = Xs.asph;  Xf.R = Xs.R;
+        qc = start_qmean_(Xc, P);
+        qf = start_qmean_(Xf, P);
+        fprintf('  S3 start candidates: carry %.1f nm, fresh seed %.1f nm -> %s
+', ...
+                qc, qf, tern_(qf < qc, 'fresh', 'carry'));
+        if qf < qc, X = Xf; else, X = Xc; end
         X = pose_stop_once_(X, P);   % re-construct at S3 entry, then free
         [X, hist3] = oi_solve(X, P, 'S3');
         [X, G, fo] = close_refit_(X, P, P.offset_deg);
@@ -163,6 +170,28 @@ function [X, G, fo] = close_refit_(X, P, offset)
     X.fpa = oi_apply_fpa(X);
     G.fpa = X.fpa;
 end
+
+function q = start_qmean_(X, P)
+%START_QMEAN_  Quadratic-mean strict WFE of a candidate S3 start over
+%   the solve set at the offset (fast path).
+    try
+        [Xc, G] = oi_close(X, P, 'offset_deg', P.offset_deg);
+        Xc.fpa = oi_apply_fpa(Xc);  G.fpa = Xc.fpa;
+        D = fill_(Xc, P);
+        if isfield(P,'solve_sampling') && ~isempty(P.solve_sampling)
+            D.sampling = P.solve_sampling;
+        end
+        sc = oi_score(oi_deck(D), G, oi_fieldset(P, P.offset_deg, P.nsolve), ...
+                      'anchor','center');
+        w = sc.wfe_cen_nm;
+        q = sqrt(mean(w(isfinite(w)).^2));
+        if ~isfinite(q), q = 1e9; end
+    catch
+        q = 1e9;
+    end
+end
+
+function s = tern_(c,a,b), if c, s=a; else, s=b; end, end
 
 function X = pose_stop_once_(X, P)
 %POSE_STOP_ONCE_  Construct the offset stop pose ONCE at stage entry
