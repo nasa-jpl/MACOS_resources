@@ -6,7 +6,8 @@ function X = oi_zern_seed(X, P, opts)
 %   (the solve doctrine: lMon fixed), the mode set is P.zern_modes, and
 %   the coefficients are seeded by LEAST-SQUARES REFIT of the current
 %   asphere sag onto the basis's rotationally symmetric members (13, 25,
-%   41 = the BornWolf r^4/r^6/r^8 families).  The r^2 remainder of the
+%   41 = the BornWolf r^4/r^6/r^8 families, NEGATED: asphere sag rides
+%   +psi, Zernike sag rides +zMon = -psi).  The r^2 remainder of the
 %   fit is dropped deliberately -- power belongs to the radii and the
 %   FPA refit, both of which the S5 solve keeps open.
 %
@@ -42,8 +43,15 @@ function X = oi_zern_seed(X, P, opts)
             B = [ones(size(rho)), rho.^2];
             for k = ksym, B = [B, Rsym(k)]; end %#ok<AGROW>
             c = B\sag;
+            % SIGN: engine aspheres sag along +psi (AsphCoef = -ASP, the
+            % Stage-0 convention) while Zernike sag rides +zMon = -psi,
+            % so reproducing the asphere requires NEGATED coefficients.
+            % Verified engine-side (scratch oi_smoke8): un-negated seed
+            % scores 61.5 um on the t4 S4 design, negated 12.9 um (the
+            % remainder is the deliberately dropped r^2 = defocus, which
+            % the S5 solve's own radii + fpa_dz variables absorb).
             for i = 1:numel(ksym)
-                coef(modes == ksym(i)) = c(2+i);
+                coef(modes == ksym(i)) = -c(2+i);
             end
         end
         X.zern{m} = struct('modes', modes, 'coef', coef, 'lMon', lMon);
