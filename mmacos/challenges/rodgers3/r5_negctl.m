@@ -10,6 +10,8 @@ function OUT = r5_negctl()
 %   testing the convention rather than passing vacuously.
 %
 %   OUT: .max_ok_nm, .max_bad_nm, .factor (bad/ok).  Saves nothing.
+%   Requires macos.init to have been called by the caller (tRodgers3's
+%   class setup does; standalone: macos.init(256) first).
 %
 %   See also RODGERS3, BUILD_R3, tests/tRodgers3.m.
 
@@ -37,12 +39,15 @@ end
 % =========================================================================
 function txt = bump_modes_(txt)
 %BUMP_MODES_  ZernModes k -> k+1 on every mirror (drops the C1 offset).
-    txt = regexprep(txt, 'ZernModes=([^\n]*)', '${bump_line_($1)}');
-end
-
-function s = bump_line_(vals)
-    v = sscanf(vals, '%d');
-    s = ['ZernModes=' sprintf(' %d', v + 1)];
+    lines = strsplit(txt, '\n', 'CollapseDelimiters', false);
+    for i = 1:numel(lines)
+        t = lines{i};
+        j = strfind(t, 'ZernModes=');
+        if isempty(j), continue; end
+        v = sscanf(t(j+10:end), '%d');
+        lines{i} = [t(1:j+9) sprintf(' %d', v + 1)];
+    end
+    txt = strjoin(lines, newline);
 end
 
 function w = score9_(txt0, G, R)
