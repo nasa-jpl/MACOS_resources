@@ -61,7 +61,12 @@ end
 % =========================================================================
 function G = leg_(X0, P, iters, label, tag)
     fprintf('\n===== leg %s =====\n', label);
-    X = X0;  X.fpa_refit = [0 0];
+    % X0 = OUT.s4.X AS CLOSED -- do NOT reset fpa_refit: the S5 of
+    % record seeded from exactly this state, and matching its seed is
+    % what makes "same problem, more budget" the claim.  Self-check:
+    % oi_solve must print start ~= 2150.1 nm (the record's S5 start);
+    % an fpa_refit reset moves it to ~18 um (measured, first attempt).
+    X = X0;
     X = oi_zern_seed(X, P);
     [X, hist] = oi_solve(X, P, 'S5', 'clear', true, 'iters', iters);
     [X, Gc] = oi_close(X, P);  X.fpa = oi_apply_fpa(X);  Gc.fpa = X.fpa;
