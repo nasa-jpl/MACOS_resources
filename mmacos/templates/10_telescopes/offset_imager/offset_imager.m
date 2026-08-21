@@ -197,9 +197,28 @@ function X = pose_stop_once_(X, P)
 %   (EP construction + the exit-pointing secant when P.exit_dir is
 %   pinned), then FREEZE it: from here on the stop decenter is an
 %   explicit solve variable driven by the exit residual row.
+%
+%   BOUNDED (2026-08-21): the EP construction intersects two probe
+%   chiefs, and for some surface states that crossing is
+%   ill-conditioned (t4-wide, fresh spheres at 20 deg: the construction
+%   put the stop 33 m off axis and every ray then missed M1, so S3's
+%   first residual was the 1e9 sentinel and the stage froze).  If the
+%   constructed pose moves more than 2x the envelope span from the pose
+%   the state arrived with, keep the ARRIVED pose -- it traced the
+%   previous stage, and the pose is packaging, not physics.
+    old = [];
+    if isfield(X,'stopC') && ~isempty(X.stopC), old = X.stopC; end
     X.stop_fixed = false;
     [X, ~] = oi_close(X, P, 'offset_deg', P.offset_deg);
     X.stop_fixed = true;
+    span = max(1e-3, abs(X.spacings(1)) + abs(X.spacings(3)));
+    if ~isempty(old) && norm(X.stopC - old) > 2*span
+        fprintf(['  pose_stop_once_: constructed stop pose %.3g m from ' ...
+                 'the carried one (span %.3g m) -- degenerate EP ' ...
+                 'construction, keeping the carried pose\n'], ...
+                norm(X.stopC - old), span);
+        X.stopC = old;
+    end
 end
 
 function bad = wall_check_(Xc, Gc, P) %#ok<INUSD>
