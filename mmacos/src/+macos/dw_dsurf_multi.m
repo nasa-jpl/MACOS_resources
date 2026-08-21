@@ -49,6 +49,25 @@ function out = dw_dsurf_multi(session, rx_path, opts)
 %               (RptElt, zElt, fElt, eElt, KcElt) are left as re-derived;
 %               callers who hand-author those own re-asserting them.
 %
+%   'configs'   (default [] = today's single-block call, byte-identical)
+%               a 1xNc struct array of CONFIGURATIONS -- named sets of
+%               element setting overrides ("zoom positions"; in our
+%               systems more often a COMPENSATION state).  Each entry is
+%               .name + .set, a cell of setter invocations
+%               {fname, elt, args...} dispatched against the Session.
+%               The Jacobian is then evaluated per (configuration, field)
+%               and the blocks stack as extra ROWS.  v1 accepts only the
+%               Row COUNT: a configuration that changes ray survival
+%               (a tilt can vignette a field) contributes a different
+%               number of rows, so the stack is sum-over-configurations,
+%               not exactly Nc*Nw.  Slice a block with
+%               out.indxall.config == c -- the blocks are contiguous.
+%               pose setters perturb / set_elt_vpt / set_elt_psi /
+%               set_elt_rpt / set_elt_csys; the runner owns the
+%               modify()-after-setters rule and the snapshot / restore /
+%               ASSERT cycle.  See macos.dw_dx_multi,
+%               private/config_axis.m, design/PLAN_CONFIGURATIONS.md.
+%
 %   OUTPUT STRUCT FIELDS:
 %     dwdsall       Nw x Ns canonical state-vector Jacobian
 %     dwdxall       alias (== dwdsall) -- canonical-form consumers
@@ -82,6 +101,8 @@ arguments
     opts.reset_xp               (1,1) logical = true
     opts.verbose                (1,1) logical = false
     opts.ngridpts               double {mustBeScalarOrEmpty} = []
+    opts.stop_elt               double {mustBeScalarOrEmpty} = []
+    opts.configs                          = []
     opts.src_samp               double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.compute_los            (1,1) logical = false
     opts.spot_elt               double {mustBeScalarOrEmpty, mustBeInteger} = []
@@ -124,6 +145,33 @@ if ~isempty(opts.src_samp)
     session.modify();  % Flush cache so the new sampling takes effect
 end
 
+% Apply the aperture stop here so it survives across the per-field calls
+% (they run reload_rx=false and never touch the stop state).  Mirrors
+% macos.dw_dx_multi's 'stop_elt': a deck that carries no header ApStop=
+% -- the zoom fixture is one -- has nowhere else to get one, and the
+% exit-pupil machinery (reset_xp / FEX) requires a stop.
+if ~isempty(opts.stop_elt)
+    session.stop(int32(opts.stop_elt));
+end
+
+% ---- Configuration axis -------------------------------------------
+% Validated AFTER the load (element ids can be range-checked) and BEFORE
+% anything is applied.  Absent/empty => n_cfg == 1 and every line below
+% degenerates to the pre-configs single-block path.
+ep_elt_chk = [];
+if opts.reset_xp, ep_elt_chk = session.num_elt() - 1; end
+cfgs = config_axis('validate', opts.configs, session.num_elt(), ...
+                    'dw_dsurf_multi', ep_elt_chk);
+has_cfg = ~isempty(cfgs);
+n_cfg   = max(1, numel(cfgs));
+if has_cfg
+    fprintf('[setup] %d configuration(s):\n', n_cfg);
+    for ci = 1:n_cfg
+        fprintf('  config %-8s: %d setter(s) on elt %s\n', cfgs(ci).name, ...
+            numel(cfgs(ci).set), mat2str(cfgs(ci).elts));
+    end
+end
+
 nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
@@ -144,13 +192,23 @@ end
 % modify() to flush the trace cache so the new ChfRayDir takes effect,
 % and passes reload_rx=false to dw_dsurf so it does NOT call load_rx
 % (which would reset ChfRayDir back to the prescription nominal).
-per_field_dwds   = cell(n_fields, 1);
-per_field_w_nom  = cell(n_fields, 1);
-per_field_struct = cell(n_fields, 1);
+per_field_dwds   = cell(n_cfg, n_fields);
+per_field_w_nom  = cell(n_cfg, n_fields);
+per_field_struct = cell(n_cfg, n_fields);
 if opts.compute_los
-    per_field_dcdx = cell(n_fields, 1);
+    per_field_dcdx = cell(n_cfg, n_fields);
 end
 names = {};  iElt_out = [];  param_out = {};
+for ic = 1:n_cfg
+% Order (PLAN_CONFIGURATIONS 2.1): apply the configuration -> modify()
+% once -> run the field loop, whose per-field reset_xp then derives every
+% field's exit pupil FROM THE CONFIGURED GEOMETRY -> restore -> assert.
+if has_cfg
+    snap = config_axis('snapshot', session, cfgs(ic).elts);
+    config_axis('apply', session, cfgs(ic));
+    fprintf('[config %s] applied (%d setter(s))\n', cfgs(ic).name, ...
+        numel(cfgs(ic).set));
+end
 for k = 1:n_fields
     new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
     session.set_src_fov('src_pos', nom.src_pos, 'src_dir', new_dir, ...
@@ -182,14 +240,20 @@ for k = 1:n_fields
         'reload_rx', false, ...
         'compute_los', opts.compute_los, ...
         'spot_elt', opts.spot_elt);    % keep current src_fov state
-    per_field_dwds{k} = sf.dwds;
-    per_field_w_nom{k} = sf.w_nom_2d;
-    per_field_struct{k} = sf;
+    per_field_dwds{ic, k} = sf.dwds;
+    per_field_w_nom{ic, k} = sf.w_nom_2d;
+    per_field_struct{ic, k} = sf;
     if opts.compute_los
-        per_field_dcdx{k} = sf.dcdx;
+        per_field_dcdx{ic, k} = sf.dcdx;
     end
     if isempty(names)
         names = sf.channel_names;  iElt_out = sf.iElt;  param_out = sf.param;
+    elseif ~isequal(names, sf.channel_names)
+        error('macos:dw_dsurf_multi:channelMismatch', ...
+            ['field %s: channel_names differ from the first block ' ...
+             '(%d vs %d channels) -- a configuration must not change ' ...
+             'the channel list.'], fields(k).name, ...
+            numel(sf.channel_names), numel(names));
     end
     col_rms_mean = mean(sqrt(mean(sf.dwds.^2, 1)));
     fprintf('[field %s] dwds shape [%d %d], mean col-RMS %.3e', ...
@@ -199,6 +263,16 @@ for k = 1:n_fields
         fprintf('  mean LOS-RMS %.3e', los_rms_mean);
     end
     fprintf('\n');
+end
+% Restore AFTER the channel loop has undone its own pokes, never
+% interleaved with it.  The assertion is the load-bearing part.
+if has_cfg
+    config_axis('undo', session, cfgs(ic), snap);
+    drift = config_axis('assert', session, snap, cfgs(ic).name, 'dw_dsurf_multi');
+    fprintf(['[config %s] restored + verified '  ...
+             '(worst pose drift %.1f%% of tolerance)\n'], ...
+        cfgs(ic).name, 100 * drift);
+end
 end
 
 % Restore source back to nominal.
@@ -216,33 +290,42 @@ reset_xp_stamp = reset_xp_guard('finalize', opts.reset_xp, ...
     reset_ep_moved, session.num_elt() - 1);
 
 % ---- Tile OPDall + scatter dwdsall --------------------------------
-N = size(per_field_w_nom{1}, 1);
-OPDall = zeros(tile_rows * N, tile_cols * N);
-for k = 1:n_fields
-    r0 = fields(k).tile_row * N;
-    c0 = fields(k).tile_col * N;
-    OPDall(r0+1:r0+N, c0+1:c0+N) = per_field_w_nom{k};
+N = size(per_field_w_nom{1, 1}, 1);
+% Configurations extend the canvas along COLUMNS, not rows: m2v walks it
+% in column-major order, so a configuration laid out horizontally owns a
+% CONTIGUOUS block of stacked rows.  One configuration => today's canvas.
+OPDall = zeros(tile_rows * N, n_cfg * tile_cols * N);
+for ic = 1:n_cfg
+    for k = 1:n_fields
+        assert(size(per_field_w_nom{ic, k}, 1) == N, ...
+            'macos:dw_dsurf_multi:gridSize', ...
+            'block (%d,%d) has a different OPD grid size', ic, k);
+        r0 = fields(k).tile_row * N;
+        c0 = ((ic - 1) * tile_cols + fields(k).tile_col) * N;
+        OPDall(r0+1:r0+N, c0+1:c0+N) = per_field_w_nom{ic, k};
+    end
 end
 
 [w0_stacked, indxall] = macos.m2v(OPDall);
 Nw = numel(w0_stacked);
-Ns = size(per_field_dwds{1}, 2);
+Ns = size(per_field_dwds{1, 1}, 2);
 fprintf('[stack] OPDall [%d %d]; non-zero pixels = %d\n', ...
     size(OPDall, 1), size(OPDall, 2), Nw);
 
 dwdsall = zeros(Nw, Ns);
 indx_i = indxall.i(:);
 indx_j = indxall.j(:);
+for ic = 1:n_cfg
 for k = 1:n_fields
     tr = fields(k).tile_row;
-    tc = fields(k).tile_col;
+    tc = (ic - 1) * tile_cols + fields(k).tile_col;
     in_tile = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
             & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
     i_local = indx_i(in_tile) - tr * N;
     j_local = indx_j(in_tile) - tc * N;
     % Build field-local m2v of this tile so we can map global rows back
     % to the per-field dwds rows.
-    [~, field_indx] = macos.m2v(per_field_w_nom{k});
+    [~, field_indx] = macos.m2v(per_field_w_nom{ic, k});
     field_i = field_indx.i(:);
     field_j = field_indx.j(:);
     flat_local  = (j_local - 1) * N + i_local;
@@ -254,9 +337,10 @@ for k = 1:n_fields
             fields(k).name);
     end
     global_rows = find(in_tile);
-    dwdsall(global_rows, :) = per_field_dwds{k}(loc, :);
+    dwdsall(global_rows, :) = per_field_dwds{ic, k}(loc, :);
     fprintf('[stack] field %s: scattered %d rows into dwdsall\n', ...
         fields(k).name, numel(global_rows));
+end
 end
 
 fprintf('[stack] dwdsall shape [%d %d]; |dwdsall| max = %.3e\n', ...
@@ -266,18 +350,20 @@ fprintf('[stack] dwdsall shape [%d %d]; |dwdsall| max = %.3e\n', ...
 % exactly match its per_field_dwds block (max|diff| = 0 in practice).
 ctr_idx = find_center_field_index(fields);
 if ~isempty(ctr_idx)
+  for ic = 1:n_cfg
     tr = fields(ctr_idx).tile_row;
-    tc = fields(ctr_idx).tile_col;
+    tc = (ic - 1) * tile_cols + fields(ctr_idx).tile_col;
     in_ctr = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
            & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
     dwdsall_ctr = dwdsall(in_ctr, :);
-    dwds_C = per_field_dwds{ctr_idx};
+    dwds_C = per_field_dwds{ic, ctr_idx};
     max_diff = max(abs(dwdsall_ctr(:) - dwds_C(:)));
     fprintf('[check] dwdsall@center-tile vs per_field_dwds[center]: ');
     fprintf('max|diff| = %.3e ([%d %d])\n', ...
         max_diff, size(dwdsall_ctr, 1), size(dwdsall_ctr, 2));
     assert(max_diff == 0, ...
         'scatter bug: dwdsall@center-tile differs from per_field_dwds[center]');
+  end
 else
     fprintf('[check] no (0,0)-offset field -- skipping center-tile check\n');
 end
@@ -298,12 +384,25 @@ out.field_table          = arrayfun( ...
 out.field_table          = vertcat(out.field_table{:});
 out.field_names          = {fields.name}.';
 out.chfraydir_nom        = nom.src_dir(:);
-out.per_field_dwds       = per_field_dwds;
-out.per_field_w_nom_2d   = per_field_w_nom;
+if has_cfg
+    % configuration index per stacked row (kept as VALUES, not derived
+    % from indxall.j, so it survives the 'orient','xy' transpose)
+    indxall.config = floor((indxall.j(:) - 1) / (tile_cols * N)) + 1;
+    out.indxall            = indxall;
+    out.config_table       = cfgs(:);
+    out.config_names       = {cfgs.name}.';
+    out.per_field_dwds       = per_field_dwds;      % Nc x Nf
+    out.per_field_w_nom_2d = per_field_w_nom;     % Nc x Nf
+else
+    % preserved surface: without 'configs' the cells keep their Nf x 1
+    % shape and no configuration fields are added
+    out.per_field_dwds       = per_field_dwds(1, :).';
+    out.per_field_w_nom_2d = per_field_w_nom(1, :).';
+end
 out.rx_path              = rx_path;
 out.delta                = opts.delta;
 out.method               = opts.method;
-out.wf_elt               = per_field_struct{1}.wf_elt;
+out.wf_elt               = per_field_struct{1, 1}.wf_elt;
 out.params               = opts.params;
 out = apply_opd_convention(out, opts.orient, opts.sign);
 out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
