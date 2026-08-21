@@ -65,6 +65,31 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             b = {'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '2x1', ...
                  'ngridpts', 15, 'elts', 8, 'dofs', (0:5).', 'delta', 1e-8};
         end
+
+        function f = zoom_fixture(tc)
+            % The promoted multi-zoom fixture (jwst_ote_designc.in): its
+            % 19 segments are Surface= FreeForm carrying a zero-amplitude
+            % MonZernike figure channel, so the figure rungs (dw/dz,
+            % dw/dgrid) of the configuration-axis family harvest on it.
+            % The promotion (macos.design.promote_segments_freeform) is
+            % gated for inertness below.
+            f = fullfile(tc.res_root, 'mmacos', 'templates', ...
+                '50_sensitivities', 'zoom_5x5', 'jwst_ote_designc.in');
+        end
+
+        function [W, ok] = zoom_opd(tc, rx, stop_elt) %#ok<INUSD>
+            % Exit-pupil (elt 27) OPD of the zoom fixture at a coarse
+            % sampling, with the FSM (elt 25) as the stop.  Shared by the
+            % inertness gate.
+            m = macos.Session(512);
+            m.load_rx(rx);
+            m.set_src_sampling(41);
+            m.stop(int32(25));
+            m.modify();
+            m.trace(27);
+            W = m.opd();
+            ok = isfinite(W);
+        end
     end
 
     methods (Test)
@@ -457,6 +482,139 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             end
             % and the empty outer cells cost no rows
             tc.verifyEqual(nnz(d.OPDall), sum(n));
+        end
+
+        % =============================================================
+        % Promoted zoom fixture -- PLAN_CONFIGURATIONS.md departure #6
+        % (the figure rungs' fixture: Conic segments promoted to
+        % FreeForm so dw/dz MonZernike and dw/dgrid have channels to
+        % harvest, shown optically INERT).
+        % =============================================================
+
+        function test_zoom_fixture_promotion_is_inert(tc)
+            % THE inertness gate, and it is a GATE not a claim: the
+            % committed jwst_ote_designc.in is Surface= FreeForm on its
+            % 19 segments (zero-amplitude MonZernike channels).  Trace it
+            % against the Conic "before" -- reconstructed by swapping
+            % Surface= FreeForm back to Conic, which the engine reads as
+            % the bare conic base (SetFreeFormFlags runs only for
+            % FreeForm, so the leftover Mon lines are inert) -- and the
+            % OPD must match to sub-picometer.  A zero-coefficient
+            % FreeForm computes the identical conic sag; the residual is
+            % the Conic-vs-FreeForm intersection-solver floor (a
+            % closed-form conic solve vs the iterative FreeForm one),
+            % NOT any added wavefront.  Measured 7.3e-11 mm (~3e-8 waves)
+            % on this deck; the gate at 1e-8 mm keeps two decades of
+            % margin over that floor and still fires far below any real
+            % figure effect (a poked mode moves the wavefront by ~1e-4
+            % mm, six decades up).  Not ULP-tight for the same reason
+            % config_axis's restore tolerance is not (different solvers,
+            % not different physics).
+            f = tc.zoom_fixture();
+            L = splitlines(string(fileread(f)));
+            isff = ~cellfun(@isempty, regexp(strtrim(L), ...
+                '^Surface=\s*FreeForm', 'once'));
+            tc.verifyEqual(nnz(isff), 19, ...
+                'the committed fixture must carry 19 FreeForm segments');
+            L(isff) = regexprep(L(isff), 'FreeForm', 'Conic  ');
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            conic = fullfile(wd, 'conic.in');
+            fid = fopen(conic, 'w'); fprintf(fid, '%s\n', L); fclose(fid);
+
+            [Wf, okf] = tc.zoom_opd(f);
+            [Wc, okc] = tc.zoom_opd(conic);
+            tc.verifyTrue(isequal(okf, okc), ...
+                'promotion changed the valid-ray mask');
+            d = max(abs(Wf(okf) - Wc(okc)));
+            tc.verifyLessThan(d, 1e-8, sprintf( ...
+                ['promotion is not optically inert: max|dOPD| = %.3e mm ' ...
+                 '(floor ~7e-11 mm, gate 1e-8 mm)'], d));
+            % NON-VACUITY: the demotion actually removed the FreeForm-ness
+            mc = macos.Session(512);  mc.load_rx(conic);
+            tc.verifyEmpty(mc.find_freeform_elts(), ...
+                'the Conic "before" must have no FreeForm elements');
+        end
+
+        function test_promoted_fixture_feeds_both_figure_rungs(tc)
+            % Departure #6 closes only if BOTH figure rungs actually
+            % harvest on the promoted deck.  find_freeform_elts (dw/dz's
+            % eligibility set) and, after grid augmentation,
+            % find_grid_elts (dw/dgrid's) must be non-empty, and a
+            % trimmed run_sensitivities harvest of each must come back
+            % with the expected channel count.
+            f = tc.zoom_fixture();
+            m = macos.Session(512);  m.load_rx(f);
+            ff = m.find_freeform_elts();
+            tc.verifyEqual(numel(ff), 19, ...
+                'the promoted fixture must expose 19 FreeForm elements');
+
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            % ---- dw/dz MonZernike, trimmed: 3 segs x 2 modes, 1 config -
+            segs = ff(1:3).';
+            oz = run_sensitivities(f, 'fov_rad', 2.9e-4, 'channels', "dwdz", ...
+                'stop_elt', 25, 'ngridpts', 31, 'model_size', 512, ...
+                'zmodes_fig', 4:5, 'elts', segs, 'per_element', [], ...
+                'out_dir', wd, 'name', 'zdz', 'verbose', false);
+            tc.verifyFalse(isempty(oz.oz), 'dw/dz harvested nothing');
+            for s2 = segs
+                tc.verifyEqual(nnz(startsWith(oz.oz.channel_names, ...
+                    sprintf('Elt %d MonZern', s2))), 2, ...
+                    sprintf('segment %d must contribute 2 MonZern modes', s2));
+            end
+            tc.verifyGreaterThan(max(abs(oz.oz.dwdxall), [], 'all'), 0, ...
+                'the MonZernike Jacobian is all zero (channel not live)');
+
+            % ---- dw/dgrid, trimmed: 3 segs x 2 modes, augmented grid ---
+            og = run_sensitivities(f, 'fov_rad', 2.9e-4, 'channels', "dwdgrid", ...
+                'stop_elt', 25, 'ngridpts', 31, 'model_size', 512, ...
+                'zmodes_grid', 4:5, 'ng', 64, 'elts', segs, ...
+                'per_element', [], 'out_dir', wd, 'name', 'zdg', ...
+                'verbose', false);
+            tc.verifyFalse(isempty(og.og), 'dw/dgrid harvested nothing');
+            tc.verifyEqual(size(og.og.dwdgall, 2), 2*numel(segs), ...
+                'dw/dgrid must build 2 modes x 3 segments of channels');
+            tc.verifyGreaterThan(max(abs(og.og.dwdgall), [], 'all'), 0, ...
+                'the grid Jacobian is all zero (channel not live)');
+        end
+
+        function test_promoted_segment_poke_localizes(tc)
+            % PLAN condition 3 (frames before amplitudes), the non-vacuity
+            % check: a MonZernike poke on ONE segment must respond, and
+            % its footprint must be near-disjoint from another segment's
+            % -- the "central dot" failure (a poke that de-localizes to
+            % the aperture centre because the Mon frame is not the
+            % segment's clocked triad) overlaps every segment at the
+            % centre.  Poked here is the CENTRE segment (elt 4, whose
+            % clocked frame was SYNTHESIZED by the promoter) against an
+            % outer segment (elt 5), so the synthesized frame is the one
+            % under test.
+            f = tc.zoom_fixture();
+            [d4, ok4] = tc.poke_dopd_(f, 4, 4, 1e-3);   % centre seg, mode 4
+            [d5, ok5] = tc.poke_dopd_(f, 5, 4, 1e-3);   % outer seg,  mode 4
+            r4 = max(abs(d4(ok4)));  r5 = max(abs(d5(ok5)));
+            tc.verifyGreaterThan(r4, 0, 'centre-segment poke did nothing');
+            tc.verifyGreaterThan(r5, 0, 'outer-segment poke did nothing');
+            s4 = ok4 & (abs(d4) > 0.1*r4);
+            s5 = ok5 & (abs(d5) > 0.1*r5);
+            ov = nnz(s4 & s5) / max(1, min(nnz(s4), nnz(s5)));
+            tc.verifyLessThan(ov, 0.15, sprintf( ...
+                ['segment pokes must localize (overlap %.3f) -- a large ' ...
+                 'overlap is the central-dot de-localization'], ov));
+        end
+    end
+
+    methods (Access = private)
+        function [dW, ok] = poke_dopd_(tc, rx, seg_elt, mode, amp) %#ok<INUSD>
+            % delta-OPD at the exit pupil from poking one MonZern mode.
+            m = macos.Session(512);
+            m.load_rx(rx);  m.set_src_sampling(41);  m.stop(int32(25));
+            m.modify();  m.trace(27);  W0 = m.opd();
+            m.set_elt_mon_zrn_coef(seg_elt, mode, amp);
+            m.modify();  m.trace(27);  W1 = m.opd();
+            ok = isfinite(W0) & isfinite(W1);
+            dW = zeros(size(W0));  dW(ok) = W1(ok) - W0(ok);
         end
     end
 end

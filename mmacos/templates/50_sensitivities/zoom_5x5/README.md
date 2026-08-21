@@ -14,31 +14,33 @@ than per field alone.  Design sketch and open questions:
 |---|---|---|
 | `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | **runs** — 132 channels, 25 blocks |
 | `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — 4 channels, 25 blocks |
-| `run_dwdz_5zoom_5fov.m` | MonZernike figure | needs a FIGURED deck (see below) |
-| `run_dwdgrid_5zoom_5fov.m` | segment grid | needs a FIGURED deck (see below) |
+| `run_dwdz_5zoom_5fov.m` | MonZernike figure | **runs** — segments carry zero-amplitude MonZern channels |
+| `run_dwdgrid_5zoom_5fov.m` | segment grid | **runs** — grid-augmented in each segment's clocked Mon frame |
 
 Every driver is resumable: per-configuration checkpoints land in
 `_resume*/` and are pruned on success.
 
-### The two figure rungs need a figured deck
+### The two figure rungs run on the promoted segments
 
-**Measured 2026-08-20.**  This deck's 19 segments are `Surface= Conic`.
-The MonZernike channel builder targets **FreeForm**-typed elements
-(`find_freeform_elts`, empty here), and the grid channel needs a
-**grid-bearing surface type** — `macos.design.grid_augment_rx` writes the
-grid channel (`nGridMat` / `GridFile` / `GridSrfdx` / `pData..zData`) into
-each Segment block but does **not** promote `Surface=`, so
-`find_grid_elts` is empty before *and* after augmentation.  Both rungs
-therefore harvest **zero channels** here, and both drivers say so with a
-preflight rather than producing an empty result.
+**Since 2026-08-21** the deck's 19 segments are `Surface= FreeForm`
+carrying a per-segment MonZernike figure channel (`MonZernType= BornWolf`,
+zero coefficients) in each segment's own clocked Mon frame — so the
+MonZernike rung (`dw/dz`, which targets `find_freeform_elts`) and, after
+`macos.design.grid_augment_rx`, the segment-grid rung (`dw/dgrid`, which
+targets `find_grid_elts`) both harvest here.  The figure DOFs are
+**zero-amplitude fixture channels with no design authority**; the
+promotion from the original `Surface= Conic` is optically **inert** (a
+zero-coefficient FreeForm computes the identical conic sag — verified to
+~7e-11 mm, sub-picometer, against the Conic trace).
 
-Closing it is a **fixture** decision, not a driver one: promoting the
-segments `Conic → FreeForm` would unlock both rungs at once (FreeForm is
-conic + Mon + FF + grid), but it changes a committed deck and needs its
-own check that the promotion is optically inert.  Until then, point `RX`
-at a figured deck — `../run_dwdx_multi/e5hex1.in` has FreeForm segments —
-which is what the configuration axis is gated on for those two
-supervisors (`tRunSensitivities`).
+The promotion was applied by `macos.design.promote_segments_freeform`
+and is gated three ways in `tRunSensitivities`: the trace is inert
+(`test_zoom_fixture_promotion_is_inert`), both rungs harvest non-empty
+live Jacobians (`test_promoted_fixture_feeds_both_figure_rungs`), and a
+single-mode poke localizes to its segment rather than de-localizing to
+the aperture centre (`test_promoted_segment_poke_localizes`).  The
+rigid-body (`dw/dx`) and prescription-parameter (`dw/dsurf`) rungs are
+unaffected, since the conic base and every element pose are unchanged.
 
 ## The deck
 
