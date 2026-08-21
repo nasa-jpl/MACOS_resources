@@ -9,7 +9,9 @@ here.
 * **§7.1 the option** — `'configs'` on all four `macos.dw_d*_multi`,
   with the §2 whitelist, the §2.1 ordering, and the snapshot / restore /
   assert cycle in `src/+macos/private/config_axis.m`.
-* **§7.2 the gate** — `tRunSensitivities`, **10/10 green**.  The
+* **§7.2 the gate** — `tRunSensitivities`, **10/10 green** at execution
+  (11/11 where a SegMirMaker build is present; **14/14** after the three
+  departure-#6 promotion gates were added 2026-08-21).  The
   preserved-surface rule is verified against a **pre-change git
   worktree**, not merely internally: with `'configs'` absent, dwdx /
   dwdz / dwdsurf come back `isequal` on `dwdxall`, `w0_stacked`,
@@ -17,8 +19,9 @@ here.
 * **§7.3 the driver** — `run_dwdx_5zoom_5fov.m`, RUN over the full 25
   blocks: 54585 × 132, rank **127 stacked vs 124 for the nominal
   configuration alone**.  Resumable, checkpoints pruned on success.
-* **§7.4 the family** — four drivers shipped; **two of the four rungs
-  cannot harvest on the §6 fixture** (see the departure below).
+* **§7.4 the family** — four drivers shipped, **all four now RUN on the
+  §6 fixture** (2026-08-21: the two figure rungs' fixture gap, departure
+  #6, is closed — see below).
 * **§7.5 `configs_from_table`** — landed early, because both the gate
   and the drivers use it.
 
@@ -74,22 +77,57 @@ here.
    the §6 fixture's stop is an ELEMENT and the deck carries no
    `ApStop=`; the third to scope a harvest (and keep the gate cheap).
 
-6. **OPEN — §7.4's figure rungs have no fixture.**  Measured: this
-   deck's 19 segments are `Surface= Conic`, so `find_freeform_elts` is
-   empty (no MonZernike channels) and `find_grid_elts` is empty **before
-   and after** `grid_augment_rx`, which writes the grid channel but does
-   not promote `Surface=`.  `run_dwdz_5zoom_5fov.m` and
-   `run_dwdgrid_5zoom_5fov.m` ship with a preflight that says exactly
-   this instead of returning an empty harvest.  **The axis itself is
-   proven in both supervisors** — gated on `e5hex1` (FreeForm segments)
-   in `tRunSensitivities`.  Closing the fixture gap means promoting the
-   segments `Conic → FreeForm` (which unlocks both rungs at once) and
-   showing the promotion is optically inert — a change to a committed
-   deck, so it is **Dave's call**, not folded in here.
-   A robustness fix WAS needed and landed: `grid_augment_rx` emitted the
-   grid channel at the block's `zMon=` line and read `lMon` from a map
-   filled in file order, so a deck that declares `lMon` AFTER `zMon` —
-   this one — aborted.  It now pre-scans, and parses Fortran `D`
+6. **CLOSED 2026-08-21 — §7.4's figure rungs now have a fixture.**  Was:
+   this deck's 19 segments were `Surface= Conic`, so `find_freeform_elts`
+   was empty (no MonZernike channels) and `find_grid_elts` was empty
+   **before and after** `grid_augment_rx` (which writes the grid channel
+   but does not promote `Surface=`); both figure drivers shipped with a
+   preflight that said so instead of returning an empty harvest.  Dave
+   approved the fixture promotion; it is done.
+
+   * **The promotion.**  A new reusable helper
+     `macos.design.promote_segments_freeform` swaps every segment's
+     `Surface= Conic → FreeForm`, injects a `MonZernType= BornWolf`
+     channel with zero coefficients, drops the fixture's inert Conic-era
+     grid/`ZernCoef` lines (which would go LIVE under FreeForm), and
+     synthesizes a clocked Mon frame + `lMon` for the one frame-less
+     segment (the on-axis centre).  Applied in place to
+     `jwst_ote_designc.in`; the header documents the zero-amplitude
+     fixture channels.  Engine facts it turns on (verified against the
+     Fortran): a FreeForm's Mon channel is live only when `lMon > 0`
+     (`SetFreeFormFlags`: `ifMon = lMon>0` — the sleeper gate);
+     `MonZernType= BornWolf → MonZernTypeL = 2` dispatches `ZerntoMon2`;
+     an all-zero `MonZernCoef` is inert (`MonomialEval` returns zero sag,
+     `ZerntoMon` is a pure linear map).
+
+   * **Inert, and gated (not claimed).**  `test_zoom_fixture_promotion_is_inert`
+     traces the committed FreeForm deck against the Conic "before"
+     (reconstructed by swapping `Surface=` back — the leftover Mon lines
+     are inert on Conic) and pins `max|dOPD| ≤ 1e-8 mm`.  Measured
+     **7.3e-11 mm** (sub-picometer, ~3e-8 waves): the Conic-vs-FreeForm
+     intersection-solver floor, not any added wavefront.  Not ULP-tight
+     for the same reason `config_axis`'s restore RTOL is not — different
+     solvers, not different physics.  The conic base and every pose are
+     unchanged, so `dw/dx` and `dw/dsurf` and their committed artifacts
+     are untouched (not regenerated).
+
+   * **Both rungs RUN.**  `run_dwdz_5zoom_5fov.m` (MonZernike): 54585×57,
+     25 blocks, rank 55.  `run_dwdgrid_5zoom_5fov.m` (segment grid):
+     54585×57, 25 blocks, rank 55 — full modal rank IS the localization
+     gate (a wrong-frame poke collapses it, the e5pie 15/42 failure).
+     The grid rung anchors `segment_grid_basis` at a SEGMENT
+     (`pm_ref_elt = 4`), because this deck's primary is the segmented
+     set with no dedicated near-pupil Reference; the default anchor gave
+     degenerate footprints.  Two gates added:
+     `test_promoted_fixture_feeds_both_figure_rungs` (non-empty, non-zero
+     Jacobian per rung) and `test_promoted_segment_poke_localizes` (a
+     MonZern poke on the synthesized centre-segment frame and an outer
+     segment have near-disjoint support).  `tRunSensitivities` **14/14**.
+
+   A robustness fix landed earlier (before the promotion): `grid_augment_rx`
+   emitted the grid channel at the block's `zMon=` line and read `lMon`
+   from a map filled in file order, so a deck that declares `lMon` AFTER
+   `zMon` — this one — aborted.  It now pre-scans, and parses Fortran `D`
    exponents (`sscanf('%g')` stopped at the `D` and would have returned
    the mantissa).
 
