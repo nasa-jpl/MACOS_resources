@@ -20,7 +20,16 @@
 %  Configurations stack as extra ROWS of the Jacobian -- a configuration
 %  adds observations of the SAME state vector x, exactly as a field point
 %  does -- so run_compare, the MET optimiser and the simulator consume
-%  the result unchanged.  Slice one block with out.indxall.config == c.
+%  the result unchanged.  w for one zoom stacks its FIELDS and w for the
+%  run stacks the ZOOMS, so each zoom owns a contiguous block of rows;
+%  address one with out.indxall.config == c.
+%
+%  The CANVAS is tiled the way the field set is, which is a different
+%  walk from the row order and deliberately so: each zoom state sits at
+%  its own position on an outer 3x3 grid (four corners and the centre),
+%  each cell holding that state's whole five-field canvas.  So
+%  _opdall.png is a quincunx of quincunxes and position on the page means
+%  (zoom state, field point).  See macos.config_canvas.
 %
 %  WHY THE FIVE BLOCKS LOOK ALIKE, AND WHY THAT IS RIGHT.  The
 %  supervisor re-finds the exit pupil PER FIELD (reset_xp, default true),

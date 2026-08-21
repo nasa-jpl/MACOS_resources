@@ -291,38 +291,53 @@ reset_xp_stamp = reset_xp_guard('finalize', opts.reset_xp, ...
 
 % ---- Tile OPDall + scatter dwdzall --------------------------------
 N = size(per_field_w_nom{1, 1}, 1);
-% Configurations extend the canvas along COLUMNS, not rows: m2v walks it
-% in column-major order, so a configuration laid out horizontally owns a
-% CONTIGUOUS block of stacked rows.  One configuration => today's canvas.
-OPDall = zeros(tile_rows * N, n_cfg * tile_cols * N);
+% Each configuration gets its OWN field canvas first; macos.config_canvas
+% then places those canvases -- at their geometric tile positions when the
+% schedule declares them, so a zoom schedule reads as its corners and its
+% centre exactly as the field set does inside one cell -- and builds a
+% CONFIGURATION-MAJOR index.  So w for one configuration stacks its
+% FIELDS, and w for the run stacks the CONFIGURATIONS.  Vectorising the
+% assembled canvas directly would not do that: m2v walks column-major, so
+% any outer layout that varies down a column interleaves the blocks.
+canv = cell(1, n_cfg);
 for ic = 1:n_cfg
+    Cc = zeros(tile_rows * N, tile_cols * N);
     for k = 1:n_fields
         assert(size(per_field_w_nom{ic, k}, 1) == N, ...
             'macos:dw_dz_zernike_multi:gridSize', ...
             'block (%d,%d) has a different OPD grid size', ic, k);
         r0 = fields(k).tile_row * N;
-        c0 = ((ic - 1) * tile_cols + fields(k).tile_col) * N;
-        OPDall(r0+1:r0+N, c0+1:c0+N) = per_field_w_nom{ic, k};
+        c0 = fields(k).tile_col * N;
+        Cc(r0+1:r0+N, c0+1:c0+N) = per_field_w_nom{ic, k};
     end
+    canv{ic} = Cc;
 end
-
-[w0_stacked, indxall] = macos.m2v(OPDall);
+cfg_tiles = [];
+if n_cfg >= 2, cfg_tiles = config_axis('tiles', cfgs); end
+[OPDall, indxall] = macos.config_canvas(canv, cfg_tiles);
+if ~has_cfg
+    % preserved surface: no configuration field on the index struct
+    indxall = rmfield(indxall, 'config');
+end
+w0_stacked = macos.m2v(OPDall, indxall);
 Nw = numel(w0_stacked);
 Nz = size(per_field_dwdz{1, 1}, 2);
 fprintf('[stack] OPDall [%d %d]; non-zero pixels = %d\n', ...
     size(OPDall, 1), size(OPDall, 2), Nw);
 
 dwdzall = zeros(Nw, Nz);
-indx_i = indxall.i(:);
-indx_j = indxall.j(:);
+row0 = 0;
 for ic = 1:n_cfg
+    % this configuration's own rows, in the order config_canvas used
+    [~, ixc] = macos.m2v(canv{ic});
+    ic_i = ixc.i(:);  ic_j = ixc.j(:);
 for k = 1:n_fields
     tr = fields(k).tile_row;
-    tc = (ic - 1) * tile_cols + fields(k).tile_col;
-    in_tile = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
-            & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
-    i_local = indx_i(in_tile) - tr * N;
-    j_local = indx_j(in_tile) - tc * N;
+    tc = fields(k).tile_col;
+    in_tile = (ic_i > tr*N) & (ic_i <= (tr+1)*N) ...
+            & (ic_j > tc*N) & (ic_j <= (tc+1)*N);
+    i_local = ic_i(in_tile) - tr * N;
+    j_local = ic_j(in_tile) - tc * N;
     % Build field-local m2v of this tile so we can map global rows
     % back to the per-field dwdz rows.
     [~, field_indx] = macos.m2v(per_field_w_nom{ic, k});
@@ -337,11 +352,12 @@ for k = 1:n_fields
             'field %s: indxall references pixels outside per-field mask', ...
             fields(k).name);
     end
-    global_rows = find(in_tile);
+    global_rows = row0 + find(in_tile);
     dwdzall(global_rows, :) = per_field_dwdz{ic, k}(loc, :);
     fprintf('[stack] field %s: scattered %d rows into dwdzall\n', ...
         fields(k).name, numel(global_rows));
 end
+    row0 = row0 + numel(ic_i);
 end
 
 fprintf('[stack] dwdzall shape [%d %d]; |dwdzall| max = %.3e\n', ...
@@ -352,12 +368,14 @@ fprintf('[stack] dwdzall shape [%d %d]; |dwdzall| max = %.3e\n', ...
 % bugs (max|diff| = 0 in practice).
 ctr_idx = find_center_field_index(fields);
 if ~isempty(ctr_idx)
+  row0 = 0;
   for ic = 1:n_cfg
+      [~, ixc] = macos.m2v(canv{ic});
     tr = fields(ctr_idx).tile_row;
-    tc = (ic - 1) * tile_cols + fields(ctr_idx).tile_col;
-    in_ctr = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
-           & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
-    dwdzall_ctr = dwdzall(in_ctr, :);
+    tc = fields(ctr_idx).tile_col;
+    in_ctr = (ixc.i(:) > tr*N) & (ixc.i(:) <= (tr+1)*N) ...
+           & (ixc.j(:) > tc*N) & (ixc.j(:) <= (tc+1)*N);
+    dwdzall_ctr = dwdzall(row0 + find(in_ctr), :);
     dwdz_C = per_field_dwdz{ic, ctr_idx};
     max_diff = max(abs(dwdzall_ctr(:) - dwdz_C(:)));
     fprintf('[check] dwdzall@center-tile vs per_field_dwdz[center]: ');
@@ -365,6 +383,7 @@ if ~isempty(ctr_idx)
         max_diff, size(dwdzall_ctr, 1), size(dwdzall_ctr, 2));
     assert(max_diff == 0, ...
         'scatter bug: dwdzall@center-tile differs from per_field_dwdz[center]');
+      row0 = row0 + numel(ixc.i);
   end
 else
     fprintf('[check] no (0,0)-offset field -- skipping center-tile check\n');
@@ -386,10 +405,6 @@ out.field_table          = vertcat(out.field_table{:});
 out.field_names          = {fields.name}.';
 out.chfraydir_nom        = nom.src_dir(:);
 if has_cfg
-    % configuration index per stacked row (kept as VALUES, not derived
-    % from indxall.j, so it survives the 'orient','xy' transpose)
-    indxall.config = floor((indxall.j(:) - 1) / (tile_cols * N)) + 1;
-    out.indxall            = indxall;
     out.config_table       = cfgs(:);
     out.config_names       = {cfgs.name}.';
     out.per_field_dwdz       = per_field_dwdz;      % Nc x Nf

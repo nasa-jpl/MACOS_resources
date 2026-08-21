@@ -66,6 +66,16 @@ Five configurations — centred, then the FSM tilted 0.5 arcmin
 (1.45444e-4 rad) to each corner of a square, LOCAL frame — crossed with
 the stock five-field set at 1 arcmin (2.90888e-4 rad).  25 blocks.
 
+**The canvas is tiled the way the field set is.**  Each zoom state sits
+at its own position on an outer 3×3 grid — four corners and the centre —
+and each of those cells holds that state's whole five-field canvas, so
+`_opdall.png` is a quincunx of quincunxes and position on the page means
+(zoom state, field point).  The stacked ROW order is a different walk and
+deliberately so: `w` for one zoom stacks its **fields**, `w` for the run
+stacks the **zooms**, so each zoom keeps a contiguous block of rows even
+though its tile does not lie along a single canvas column.  Address a
+block with `indxall.config == c`.
+
 ## Measured, at model 512 / `ngridpts` 63 / stop at element 25, OPD at 27
 
 | state | rays | valid | lost | RMS WFE (mm) |

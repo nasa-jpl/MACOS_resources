@@ -17,6 +17,7 @@ function varargout = config_axis(action, varargin)
 %         .set   1xK cell of normalised setter records (struct: fn, elt,
 %                and the per-setter payload)
 %         .elts  sorted unique element ids the list touches
+%         .tile  1x2 [row col] outer tile position (0-based), or []
 %       [] / empty in -> 1x0 struct out (the supervisors then take the
 %       single-block path, which is byte-identical to the pre-configs
 %       call).  ep_elt (pass [] to disable the check) is the exit-pupil
@@ -29,6 +30,15 @@ function varargout = config_axis(action, varargin)
 %       vpt / psi / rpt, the output frame TElt (csys + its two flags),
 %       the aperture frame axis xObs, and -- when the surface carries one
 %       -- the figure frame pMon/xMon/yMon/zMon.
+%
+%   tile_rc = config_axis('tiles', cfgs)
+%       Nc x 2 outer tile positions when EVERY configuration declares
+%       one, else [] (which lays them out left to right).  A
+%       configuration's tile is where its whole field canvas sits on the
+%       assembled canvas -- so a zoom schedule reads as its corners and
+%       its centre, the same way the field set does inside one cell.
+%       macos.design.configs_from_table fills these in for a two-DOF
+%       schedule.  See macos.config_canvas.
 %
 %   config_axis('apply', session, cfg)
 %       Dispatch the setter list against the Session, then modify() ONCE.
@@ -123,6 +133,7 @@ function varargout = config_axis(action, varargin)
 
 switch lower(action)
     case 'validate', [varargout{1:max(nargout,1)}] = do_validate(varargin{:});
+    case 'tiles',    [varargout{1:max(nargout,1)}] = do_tiles(varargin{:});
     case 'snapshot', [varargout{1:max(nargout,1)}] = do_snapshot(varargin{:});
     case 'apply',    do_apply(varargin{:});    varargout = {};
     case 'undo',     do_undo(varargin{:});     varargout = {};
@@ -144,7 +155,7 @@ end
 % =====================================================================
 function cfgs = do_validate(configs, nElt, caller, ep_elt)
 if nargin < 4, ep_elt = []; end
-proto = struct('name', {}, 'set', {}, 'elts', {}, 'raw', {});
+proto = struct('name', {}, 'set', {}, 'elts', {}, 'raw', {}, 'tile', {});
 if isempty(configs)
     cfgs = proto;
     return
@@ -195,8 +206,35 @@ for c = 1:numel(configs)
     c_.set  = rec;                  % normalised setter records
     c_.elts = unique(elts);
     c_.raw  = sl;                   % the caller's list, verbatim
+    c_.tile = parse_tile(configs(c), c, nm, caller);
     cfgs(end+1) = c_; %#ok<AGROW>
 end
+end
+
+
+% ---------------------------------------------------------------------
+function t = parse_tile(cfg, c, nm, caller)
+t = [];
+if ~isfield(cfg, 'tile') || isempty(cfg.tile), return; end
+t = cfg.tile;
+if ~(isnumeric(t) && numel(t) == 2 && all(t >= 0) && all(t == fix(t)))
+    error(sprintf('macos:%s:configTile', caller), ...
+        ['configs(%d) (''%s''): ''tile'' must be a 1x2 [row col] of ' ...
+         'non-negative integers (0-based outer tile position)'], c, nm);
+end
+t = double(t(:).');
+end
+
+
+% ---------------------------------------------------------------------
+function tile_rc = do_tiles(cfgs)
+% Nc x 2 only when EVERY configuration declares a tile -- a partial set
+% would silently pile untiled configurations on top of each other.
+tile_rc = [];
+if isempty(cfgs) || ~isfield(cfgs, 'tile'), return; end
+t = {cfgs.tile};
+if any(cellfun(@isempty, t)), return; end
+tile_rc = vertcat(t{:});
 end
 
 
