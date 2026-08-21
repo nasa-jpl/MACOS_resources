@@ -21,23 +21,42 @@ function [png, png_fields] = oi_layout_fig(X, G, P, offset_deg, stage_lbl, png)
 %
 %   See also OFFSET_IMAGER, MACOS.VIEW_STD, MACOS.VIEW_RX.
 
-    bx = P.box_deg(1)/2;  by = P.box_deg(2)/2; %#ok<NASGU>
+    bx = P.box_deg(1)/2;  by = P.box_deg(2)/2;
     F = [0 offset_deg; 0 offset_deg-by; 0 offset_deg+by];
 
     txt = oi_deck(fill_(X, P));
     sc = oi_score(txt, G, F, 'rays', true);
 
     % ================= 1. the solid hardware view (view_std) ===============
-    % load the deck aimed at the box-centre chief, then render
+    % Harvest the four box-CORNER fields first, then load the deck aimed
+    % at the box centre and render with the corners as extra bundles --
+    % the solid bodies are sized by the UNION footprint, so every mirror
+    % covers the full field box, not the centre field alone (Dave
+    % 2026-08-20: single-field-sized optics misread as the hardware).
     tmp = [tempname '.in'];
     cu  = onCleanup(@() delete_if_(tmp));
+    Fc = [-bx offset_deg-by; bx offset_deg-by; ...
+          -bx offset_deg+by; bx offset_deg+by];
+    hx = cell(1, size(Fc,1));
+    for q = 1:size(Fc,1)
+        cd = tancomp_(Fc(q,1), Fc(q,2));
+        emit_src_(txt, tmp, seed_pos_(G, cd), cd);
+        macos.load_rx(tmp);
+        macos.stop(2, [0 0]);
+        macos.ray_hist('on');
+        tq = macos.trace();
+        hx{q} = macos.ray_hist(tq.nRays);
+        macos.ray_hist('off');
+    end
     cdir = tancomp_(F(1,1), F(1,2));
     emit_src_(txt, tmp, seed_pos_(G, cdir), cdir);
     macos.load_rx(tmp);
     macos.stop(2, [0 0]);
     macos.view_std('save', png, 'visible', false, ...
-        'title', sprintf('%s -- %s', P.name, stage_lbl), ...
-        'args', {'nrings', 2, 'nspokes', 8});
+        'title', sprintf('%s -- %s\ncentre field green, corner fields blue -- optics sized for the full box', ...
+                         P.name, stage_lbl), ...
+        'args', {'nrings', 2, 'nspokes', 8, 'xtra_hist', hx, ...
+                 'xtra_color', repmat([0.15 0.45 0.80], size(Fc,1), 1)});
 
     % ================= 2. the field-envelope elevation ======================
     png_fields = regexprep(png, '_layout\.png$', '_fields.png');
