@@ -22,6 +22,11 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
 %             M2->M3 x {M1,FP};     M3->FP x {M1,M2}
 %
 %   D is the fixed-length 9-vector (m, order above); DMIN = min(D).
+%   SIGNED: a leg that PIERCES an obstacle returns MINUS the deepest
+%   penetration (crossing point to patch boundary), so the solve hinge
+%   max(0, dreq - d) keeps a gradient while blocked -- a zero-at-pierce
+%   measure is flat under small pokes and the solver never moves (the
+%   t4-wide lesson, 2026-08-20).  Positive = true clearance.
 %   The stop (a Reference aperture, not glass) is not an obstacle.
 %
 %   This is the SOLVE-side model backing the S4/S5 clearance hinge rows
@@ -156,6 +161,13 @@ function dm = seg_patch_min_(A, B, dk, ds)
     use_hull = ~isempty(dk.V2) && size(dk.V2, 2) >= 3;
 
     % ---- (1) exact piercing test at the plane crossings -------------------
+    % SIGNED at the crossings: a crossing INSIDE the patch returns MINUS
+    % its in-plane distance to the patch boundary (penetration depth).
+    % Zero-at-pierce is right for a gate but FLAT under small pokes --
+    % the re-run of a fully blocked train converged without moving
+    % because every hinge row was maxed out with no slope.  The signed
+    % depth restores the gradient; oi_solve's deficit max(0, dreq - d)
+    % consumes it unchanged.
     hA = dk.n.'*(A - dk.C);
     hB = dk.n.'*(B - dk.C);
     cx = find(hA.*hB < 0);
@@ -164,12 +176,13 @@ function dm = seg_patch_min_(A, B, dk, ds)
         Q = A(:,cx) + (B(:,cx) - A(:,cx)) .* sstar;
         v = Q - dk.C;
         if use_hull
-            ro = pts_to_poly_([dk.xa.'; dk.ya.'] * v, dk.V2);
+            [db, ins] = poly_bdist_([dk.xa.'; dk.ya.'] * v, dk.V2);
+            sd = db;  sd(ins) = -db(ins);
         else
-            ro = max(vecnorm(v - dk.n*(dk.n.'*v), 2, 1) - dk.r, 0);
+            sd = vecnorm(v - dk.n*(dk.n.'*v), 2, 1) - dk.r;
         end
-        if any(ro == 0), dm = 0; return; end
-        dm = min(ro);      % at a crossing h = 0: in-plane distance is exact
+        dm = min(sd);
+        if dm < 0, return; end     % pierced: deepest penetration, signed
     else
         dm = inf;
     end
@@ -181,8 +194,8 @@ function dm = seg_patch_min_(A, B, dk, ds)
         v = Q - dk.C;
         h = dk.n.'*v;
         if use_hull
-            U2 = [dk.xa.'; dk.ya.'] * v;
-            ro = pts_to_poly_(U2, dk.V2);
+            [db, ins] = poly_bdist_([dk.xa.'; dk.ya.'] * v, dk.V2);
+            ro = db;  ro(ins) = 0;
         else
             Pp = v - dk.n*h;
             rr = vecnorm(Pp, 2, 1);
@@ -192,11 +205,13 @@ function dm = seg_patch_min_(A, B, dk, ds)
     end
 end
 
-function dout = pts_to_poly_(U2, V2)
-%PTS_TO_POLY_  In-plane distance of points U2 (2,N) to convex polygon V2
-%   (2,M, CCW or CW): 0 inside, else min distance to the edge segments.
+function [db, inside] = poly_bdist_(U2, V2)
+%POLY_BDIST_  Distance of points U2 (2,N) to the BOUNDARY of convex
+%   polygon V2 (2,M, either winding) + inside flags.  Boundary distance
+%   is valid on both sides: outside it is the clearance, inside the
+%   penetration depth.
     N = size(U2, 2);  M = size(V2, 2);
-    dout = inf(1, N);
+    db = inf(1, N);
     inside = true(1, N);
     Vn = V2(:, [2:M 1]);
     sgn = sign(sum(V2(1,:).*Vn(2,:) - Vn(1,:).*V2(2,:)));   % winding
@@ -209,9 +224,8 @@ function dout = pts_to_poly_(U2, V2)
         inside = inside & (sgn*cr >= -eps);
         t = max(0, min(1, (ab.'*ap) / max(ab.'*ab, eps)));
         E = a + ab.*t;
-        dout = min(dout, vecnorm(U2 - E, 2, 1));
+        db = min(db, vecnorm(U2 - E, 2, 1));
     end
-    dout(inside) = 0;
 end
 
 function p = seed_pos_(G, cdir)
