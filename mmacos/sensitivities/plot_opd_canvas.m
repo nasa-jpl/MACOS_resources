@@ -8,7 +8,13 @@ function fig = plot_opd_canvas(out, ttl, here, pngname)
 %   See also: plot_dw_channels, macos.dw_dgrid_multi.
 C = out.OPDall;
 C(C == 0) = NaN;                       % mask outside the pupils
-fig = figure('Name', ttl, 'Position', [40 40 760 760]);
+% Follow the canvas aspect when it is WIDE -- a multi-configuration
+% harvest lays the configurations out along columns, and a fixed square
+% figure would strand a 5x-wide strip in a sea of white.  A square or
+% tall canvas keeps the historical 760x760 box exactly.
+ar = size(C, 2) / size(C, 1);
+fig = figure('Name', ttl, ...
+    'Position', [40 40 min(1900, round(760 * max(1, ar))) 760]);
 h = imagesc(C);  set(h, 'AlphaData', ~isnan(C));
 axis image off;  set(gca, 'Color', 'w');
 colormap(parula);  colorbar;

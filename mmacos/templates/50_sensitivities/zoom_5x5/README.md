@@ -6,9 +6,22 @@ than per field alone.  Design sketch and open questions:
 [`../../../design/PLAN_CONFIGURATIONS.md`](../../../design/PLAN_CONFIGURATIONS.md)
 §6.
 
-**Status:** deck staged; the `run_dwd*_5zoom_5fov.m` drivers are not
-written yet — they are gated on the API question in that document's §5.1
-(is a compensation state a configuration, or a DOF?).
+**Status:** shipped.  The `'configs'` option is on all four
+`macos.dw_d*_multi` supervisors and on `run_sensitivities`; the four
+`run_dwd*_5zoom_5fov.m` drivers here are thin wrappers over it.
+
+| driver | rung | scope as shipped |
+|---|---|---|
+| `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | every optic, full 5×5 |
+| `run_dwdz_5zoom_5fov.m` | MonZernike figure | scoped (`MODES`, `ELTS`) |
+| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | every optic, full 5×5 |
+| `run_dwdgrid_5zoom_5fov.m` | segment grid | scoped (`MODES`, `SEGS`) |
+
+The figure and grid rungs ship SCOPED: a full-scope harvest over 22
+segments × a full modal basis × 25 blocks is a multi-day run, so their
+`MODES` / `ELTS` / `SEGS` knobs default to a demonstration and every
+driver is resumable (per-configuration checkpoints in `_resume*/`,
+pruned on success).
 
 ## The deck
 
@@ -50,6 +63,19 @@ throughout (the central obscuration), and the chief ray runs
 exercises the obscured-chief OPD reference
 ([`../../../doc/opd_conventions.md`](../../../doc/opd_conventions.md)
 §1.2).
+
+## Why the five blocks look alike, and why that is right
+
+The supervisors re-find the exit pupil PER FIELD (`reset_xp`, default
+true), and a tilt of a FLAT mirror AT A PUPIL is to first order exactly a
+wavefront tilt — which that re-reference removes.  Measured on this
+fixture with a 0.5′ FSM tilt: the configuration's effect on the nominal
+wavefront collapses from **2.7e-02 mm** (pupil frozen) to **2.3e-07 mm**,
+and its effect on the Jacobian is the second-order residual, **1.7e-05
+relative** (2.4e-05 frozen).  That residual is the quantity a
+compensation-state sensitivity study wants — the first-order term is what
+the compensator is FOR.  The §6 feasibility table below was measured with
+the pupil frozen, which is why its numbers are the larger ones.
 
 ## Two things a driver here must do
 

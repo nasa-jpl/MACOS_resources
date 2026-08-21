@@ -372,8 +372,14 @@ end
 vv = 'off';  if opts.visible, vv = 'on'; end %#ok<NASGU>
 ref = firstnonempty_(ox, oz, og, os);
 if ~isempty(ref)
-    plot_opd_canvas(ref, sprintf('%s -- nominal OPD, %d fields', name, ...
-        size(ref.field_table, 1)), od, [name '_opdall.png']);
+    if ncfg > 0
+        ct = sprintf('%s -- nominal OPD, %d configurations x %d fields', ...
+            name, ncfg, size(ref.field_table, 1));
+    else
+        ct = sprintf('%s -- nominal OPD, %d fields', name, ...
+            size(ref.field_table, 1));
+    end
+    plot_opd_canvas(ref, ct, od, [name '_opdall.png']);
 end
 if ~isempty(SV)
     f = figure('Visible', 'off', 'Position', [0 0 760 520]);
@@ -389,25 +395,31 @@ end
 if ~isempty(SVc)
     chs = unique(cellfun(@(v) string(v.ch), SVc), 'stable');
     f = figure('Visible', 'off', ...
-        'Position', [0 0 380*numel(chs) 460]);
+        'Position', [0 0 max(760, 420*numel(chs)) 500]);
     for q = 1:numel(chs)
         subplot(1, numel(chs), q); hold on
-        sel = find(cellfun(@(v) string(v.ch) == chs(q), SVc));
-        for r = sel(:).'
-            semilogy(SVc{r}.s / SVc{r}.s(1), '-', 'LineWidth', 0.8, ...
-                'DisplayName', SVc{r}.cfg);
-        end
+        % stacked FIRST and thick-but-pale, so the per-configuration
+        % curves -- which is what this figure exists to show -- are not
+        % buried under it.  They separate only in the small-sigma tail,
+        % which is where the rank difference lives.
         is = find(strcmp(tab(:,1), char(chs(q))), 1);
         if ~isempty(is)
-            semilogy(SV{is}/SV{is}(1), 'k-', 'LineWidth', 2, ...
-                'DisplayName', 'stacked');
+            semilogy(SV{is}/SV{is}(1), '-', 'LineWidth', 4, ...
+                'Color', [0.78 0.78 0.78], 'DisplayName', 'stacked');
+        end
+        sel = find(cellfun(@(v) string(v.ch) == chs(q), SVc));
+        for r = sel(:).'
+            semilogy(SVc{r}.s / SVc{r}.s(1), '-', 'LineWidth', 0.9, ...
+                'DisplayName', SVc{r}.cfg);
         end
         set(gca, 'YScale', 'log'); grid on
+        ylim([1e-18 2]);   % below this is round-off, not structure
         legend('Location', 'southwest', 'FontSize', 7);
         xlabel('singular value index'); ylabel('\sigma_i / \sigma_1');
-        title(sprintf('%s', chs(q)));
+        title(char(chs(q)), 'Interpreter', 'none');
     end
-    sgtitle(sprintf('%s: per-configuration vs stacked spectra', name));
+    sgtitle(sprintf('%s: per-configuration vs stacked spectra', name), ...
+        'Interpreter', 'none');
     print(f, fullfile(od, [name '_svspec_configs.png']), '-dpng', '-r120');
     close(f);
     say('per-configuration spectra: %s_svspec_configs.png\n', name);
