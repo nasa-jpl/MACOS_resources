@@ -6,8 +6,11 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
 %   every element and measures, for each of the NINE ordered
 %   leg/obstacle pairs, the minimum distance from any field's leg
 %   segments to the obstacle's GLASS: the union of all three fields'
-%   patch disks (footprint centre + 1.15x footprint radius per field --
-%   the hardware must carry every field).  The FP counts as an obstacle
+%   patches (per field: a disk, footprint centre + 1.15x radius -- the
+%   model of record -- or, with P.clear_footprint = 'hull', the
+%   1.15-scaled convex hull of the footprint, tighter on elongated
+%   off-axis patches; the hardware must carry every field either way).
+%   The FP counts as an obstacle
 %   for legs that do not end on it (an image plane sitting in the
 %   incoming corridor is exactly as unbuildable as a mirror there).
 %   Centre-field-only measurement is NOT enough: the rodgers3 S4
@@ -26,7 +29,17 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
 %   OI_GATES' report-side union disks).  Failure to trace returns
 %   DMIN = 0 (a candidate that cannot trace has no clearance).
 %
-%   See also OI_SOLVE, OI_GATES, OFFSET_IMAGER.
+%   PROMOTED to design/src (Dave, 2026-08-20) from
+%   templates/10_telescopes/offset_imager -- generic to any three-mirror
+%   train scored by OI_SCORE, and shared by its solve hinge rows and
+%   report gates.  Scope: the element map (M1/M2/M3/FP = 1/3/4/5 with a
+%   Reference stop at 2) and the nine ordered pairs are the three-mirror
+%   layout's; an N-mirror generalization parameterizes ie/obst.  NOTE:
+%   builds the deck via OI_DECK, which lives with the template -- callers
+%   outside the template must have that directory on the path (its users
+%   addpath it).
+%
+%   See also OI_SOLVE, OI_GATES, OI_SCORE, OFFSET_IMAGER.
 
     d = zeros(9,1);  dmin = 0;
     tmp = [tempname '.in'];
@@ -62,15 +75,38 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
         end
     end
 
-    % glass per element: one patch disk PER FIELD (centre + 1.15x radius)
+    % glass per element: one patch PER FIELD.  Model per P.clear_footprint:
+    %   'disk' (record): footprint centre + 1.15x max radius
+    %   'hull':          1.15-scaled convex hull of the footprint --
+    %                    tighter where the off-axis patch is elongated
+    %                    (a disk circumscribes it and over-forbids)
+    mdl = 'disk';
+    if isfield(P,'clear_footprint') && ~isempty(P.clear_footprint)
+        mdl = P.clear_footprint;
+    end
     nrm = { [0;0;1], [0;0;1], [0;0;1], G.fpa.psi(:)/norm(G.fpa.psi) };
     pat = cell(1,4);
     for k = 1:4
-        pk = struct('C',{},'n',{},'r',{});
+        pk = struct('C',{},'n',{},'r',{},'xa',{},'ya',{},'V2',{});
         for q = 1:3
             C = mean(S{q,k}, 2);
             r = 1.15 * max(vecnorm(S{q,k} - C, 2, 1));
-            pk(q) = struct('C',C, 'n',nrm{k}, 'r',r);
+            n = nrm{k};
+            [~, i0] = min(abs(n));  xa = zeros(3,1);  xa(i0) = 1;
+            xa = xa - (n.'*xa)*n;  xa = xa/norm(xa);  ya = cross(n, xa);
+            V2 = [];
+            if strcmp(mdl, 'hull')
+                U2 = [xa.'; ya.'] * (S{q,k} - C);
+                try
+                    kk = convhull(U2(1,:).', U2(2,:).');
+                    H2 = U2(:, kk(1:end-1));
+                    c2 = mean(H2, 2);
+                    V2 = 1.15*(H2 - c2) + c2;    % same margin as the disk
+                catch                            % degenerate footprint
+                    V2 = [];                     % falls back to the disk
+                end
+            end
+            pk(q) = struct('C',C, 'n',n, 'r',r, 'xa',xa, 'ya',ya, 'V2',V2);
         end
         pat{k} = pk;
     end
@@ -90,7 +126,7 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
                     A = S{q,L-1};  B = S{q,L};
                 end
                 for pq = 1:3
-                    dm = min(dm, seg_disk_min_(A, B, pat{o}(pq)));
+                    dm = min(dm, seg_patch_min_(A, B, pat{o}(pq)));
                 end
             end
             d(j) = dm;
@@ -100,18 +136,48 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
 end
 
 % =========================================================================
-function dm = seg_disk_min_(A, B, dk)
+function dm = seg_patch_min_(A, B, dk)
+%SEG_PATCH_MIN_  Min distance of leg segments A->B to one field patch:
+%   the convex-hull polygon when dk.V2 is set, else the disk of record.
     ns = 25;
     dm = inf;
+    use_hull = ~isempty(dk.V2) && size(dk.V2, 2) >= 3;
     for s = linspace(0, 1, ns)
         Q = A + s*(B - A);
         v = Q - dk.C;
         h = dk.n.'*v;
-        Pp = v - dk.n*h;
-        rr = vecnorm(Pp, 2, 1);
-        ro = max(rr - dk.r, 0);
+        if use_hull
+            U2 = [dk.xa.'; dk.ya.'] * v;
+            ro = pts_to_poly_(U2, dk.V2);
+        else
+            Pp = v - dk.n*h;
+            rr = vecnorm(Pp, 2, 1);
+            ro = max(rr - dk.r, 0);
+        end
         dm = min(dm, min(hypot(ro, abs(h))));
     end
+end
+
+function dout = pts_to_poly_(U2, V2)
+%PTS_TO_POLY_  In-plane distance of points U2 (2,N) to convex polygon V2
+%   (2,M, CCW or CW): 0 inside, else min distance to the edge segments.
+    N = size(U2, 2);  M = size(V2, 2);
+    dout = inf(1, N);
+    inside = true(1, N);
+    Vn = V2(:, [2:M 1]);
+    sgn = sign(sum(V2(1,:).*Vn(2,:) - Vn(1,:).*V2(2,:)));   % winding
+    if sgn == 0, sgn = 1; end
+    for e = 1:M
+        a = V2(:, e);  b = V2(:, mod(e, M) + 1);
+        ab = b - a;
+        ap = U2 - a;
+        cr = ab(1)*ap(2,:) - ab(2)*ap(1,:);
+        inside = inside & (sgn*cr >= -eps);
+        t = max(0, min(1, (ab.'*ap) / max(ab.'*ab, eps)));
+        E = a + ab.*t;
+        dout = min(dout, vecnorm(U2 - E, 2, 1));
+    end
+    dout(inside) = 0;
 end
 
 function p = seed_pos_(G, cdir)

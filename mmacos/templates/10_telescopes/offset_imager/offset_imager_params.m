@@ -99,6 +99,15 @@ function P = offset_imager_params(over)
                                 % boolean wall would freeze any stage
                                 % that STARTS outside tolerance)
     P.clear_m      = [0.050 0.035];
+    P.clear_footprint = 'disk';   % oi_clear per-field glass model:
+                                  % 'disk' (footprint centre + 1.15x
+                                  % radius -- the model of record) |
+                                  % 'hull' (1.15-scaled convex hull of
+                                  % the footprint; tighter on elongated
+                                  % off-axis patches).  The solve hinge
+                                  % rows and the report gates SHARE this
+                                  % knob -- the solve must pay what the
+                                  % gate measures.
 
     P.stages     = 1:5;
     % S5 Zernike term set, BornWolf ENGINE mode numbers.  Default = the
