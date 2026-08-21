@@ -48,9 +48,12 @@ figures `oi_s*_{layout,map}.png`, the assembled `oi_REPORT.md`, and
   the Stage-0 Newton aiming in `challenges/rodgers3/probe_native_stop.m`
   to ≤0.04 nm).  The header `ApStop=` (StopPos) form is deliberately NOT
   used — it aims with no optics traversal, wrong for a stop behind M1.
-- `oi_score.m` — the metric: strict RMS WFE (design/src kernel),
+- `oi_score` — the metric: strict RMS WFE (design/src kernel),
   centroid reference on the stage's frozen FPA, exit-pupil anchor,
-  piston-only removal.  Stated next to every quoted number.
+  piston-only removal.  Stated next to every quoted number.  PROMOTED
+  to `design/src/oi_score.m` (2026-08-20), with `oi_clear` (the
+  beam-leg/obstacle clearance model; per-field disk of record or
+  `P.clear_footprint = 'hull'` convex hulls) beside it.
 - `oi_solve.m` — damped Gauss–Newton over per-field WFE residuals with
   natural per-variable scales; walls (not penalties) for constraints;
   solve set ≠ scoring set.

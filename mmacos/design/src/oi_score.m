@@ -1,6 +1,11 @@
 function out = oi_score(txt0, G, fields_deg, opts)
 %OI_SCORE  Strict RMS WFE of an offset_imager deck over a field set.
 %
+%   PROMOTED to design/src (Dave, 2026-08-20) from
+%   templates/10_telescopes/offset_imager -- takes deck TEXT, so it has
+%   no dependency on the template; any deck with the G geometry struct
+%   scores under the Stage-0 strict metric.
+%
 %   OUT = OI_SCORE(TXT0, G, FIELDS_DEG) scores the deck text TXT0 (from
 %   OI_DECK) at the K x 2 field list FIELDS_DEG = [XAN YAN] (deg, CODE V
 %   tangent-composed).  G carries the geometry the scorer needs:
