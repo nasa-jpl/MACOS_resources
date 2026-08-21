@@ -38,8 +38,39 @@ function art = run_sensitivities(rx_in, opts)
 %                  (pass 'fields' or 'grid' through to the supervisors
 %                  for other sets)
 %   OPTIONS:
+%     'configs'    1xNc struct array of CONFIGURATIONS (default [] =
+%                  today's single-block call, byte-identical).  Each
+%                  entry is .name + .set, a cell of setter invocations
+%                  {fname, elt, args...} applied to every channel's
+%                  harvest; the Jacobian is then evaluated per
+%                  (configuration, field) and the blocks stack as extra
+%                  ROWS.  Pass-through to the dw_d*_multi supervisors --
+%                  they own validation, the modify()-after-setters rule,
+%                  and the snapshot / restore / ASSERT cycle.  Build one
+%                  with macos.design.configs_from_table.  See
+%                  design/PLAN_CONFIGURATIONS.md.
+%     'resume_dir' checkpoint directory for a long multi-configuration
+%                  harvest (default "" = off).  With more than one
+%                  configuration, each channel's per-configuration block
+%                  is saved there as it completes and reloaded instead of
+%                  recomputed on a restart, then the blocks are stitched
+%                  into exactly the array a single all-configurations
+%                  call produces (gated: the stitch is bit-identical --
+%                  m2v walks the canvas in column-major order and the
+%                  configurations are laid out along columns).  The
+%                  directory is pruned when the run completes.  A 5x5
+%                  harvest at model 512 is a multi-hour run; without this
+%                  a kill at block 24 costs the whole thing.
+%     'stop_elt'   set the aperture stop at this ELEMENT ([] = off).  The
+%                  alternative to injecting a header ApStop= position via
+%                  'stop' -- the zoom fixture's pupil IS an element (its
+%                  steering mirror), and the deck carries no ApStop=.
 %     'channels'   subset of {'dwdx','dwdz','dwdgrid'} (default all)
 %     'dofs'       dwdx DOF subset (default (0:5)': Rx..Tz)
+%     'elts'       element subset for the dwdx / dwdz / dwdgrid channel
+%                  builders ([] = every eligible optic).  A cheap way to
+%                  scope a harvest to the optics you are actually
+%                  budgeting.
 %     'zmodes_fig' dwdz MonZernike modes (default 4:11)
 %     'zmodes_grid' dwdgrid basis modes (default 4:9)
 %     'ng'         grid size for the augmentation (default 256)
@@ -71,8 +102,12 @@ function art = run_sensitivities(rx_in, opts)
 arguments
     rx_in (1,1) string
     opts.fov_rad (1,1) double {mustBePositive}
+    opts.configs = []           % configuration axis (see above)
+    opts.resume_dir (1,1) string = ""   % per-configuration checkpoints
+    opts.stop_elt double = []   % aperture stop AT an element
     opts.channels string = ["dwdx" "dwdz" "dwdgrid"]  % + "dwdsurf" opt-in
     opts.dofs (:,1) double = (0:5).'
+    opts.elts (:,1) double = []   % element subset ([] = all eligible)
     opts.zmodes_fig (1,:) double = 4:11
     opts.zmodes_grid (1,:) double = 4:9
     opts.zkinds cell = {'monzern'}   % dwdz kinds: subset of
@@ -140,10 +175,13 @@ say('field set: center + 4 corners at +-%.4g rad\n', opts.fov_rad);
 
 % preflight: the exit-pupil machinery needs an aperture stop
 txt = fileread(char(rx_in));
-if isempty(regexp(txt, '^\s*ApStop=', 'once', 'lineanchors'))
+if isempty(regexp(txt, '^\s*ApStop=', 'once', 'lineanchors')) ...
+        && isempty(opts.stop_elt)
     assert(~isempty(opts.stop), ['run_sensitivities: %s declares no ' ...
         'ApStop (exit-pupil machinery needs one). Add "ApStop= 0 0 0" ' ...
-        'to the Rx header or pass ''stop'', [0 0 0].'], char(rx_in));
+        'to the Rx header, or pass ''stop'', [0 0 0] to inject that ' ...
+        'position, or ''stop_elt'', N to set the stop AT an element ' ...
+        '(the zoom fixture''s pupil IS an element).'], char(rx_in));
     rx_stop = fullfile(od, [name '_stop.in']);
     ap = sprintf('           ApStop=%s', sprintf('  %.6E', opts.stop));
     L0 = splitlines(string(txt));
@@ -174,13 +212,31 @@ say('segments: %d\n\n', nseg);
 m = macos.Session(opts.model_size);
 FOV = opts.fov_rad;
 sup = {'field_x_rad', FOV, 'field_y_rad', FOV, 'ngridpts', opts.ngridpts};
+if ~isempty(opts.stop_elt)
+    sup = [sup, {'stop_elt', opts.stop_elt}];
+end
+% the configuration axis is passed PER CALL (run_channel_ substitutes a
+% single configuration when checkpointing), never baked into sup
+CF = opts.configs;
+RD = opts.resume_dir;
+ncfg = numel(opts.configs);
+if ncfg > 0
+    say('configurations: %d\n', ncfg);
+    for c = 1:ncfg
+        d = cfg_describe_(opts.configs(c));
+        say('  %-10s %s\n', opts.configs(c).name, d{1});
+        for q = 2:numel(d), say('  %-10s %s\n', '', d{q}); end
+    end
+end
 
 ox = [];  oz = [];  og = [];  os = [];  rxg = '';
 %% dwdx
 if any(opts.channels == "dwdx")
     say('[dwdx] rigid-body 6-DOF per element, LOCAL triads...\n');
     a = {};  if ~isempty(opts.delta_x), a = {'delta', opts.delta_x}; end
-    ox = macos.dw_dx_multi(m, char(rx_in), sup{:}, 'dofs', opts.dofs, a{:});
+    ox = run_channel_(@(cf) macos.dw_dx_multi(m, char(rx_in), sup{:}, ...
+        'configs', cf, 'dofs', opts.dofs, 'elts', opts.elts, a{:}), ...
+        'dwdx', CF, RD, say);
     say('    dwdxall %d x %d over %d fields\n\n', size(ox.dwdxall, 1), ...
         size(ox.dwdxall, 2), size(ox.field_table, 1));
 end
@@ -189,17 +245,18 @@ end
 if any(opts.channels == "dwdz") && nseg > 0
     say('[dwdz] segment-LOCAL MonZernike modes %s...\n', mat2str(opts.zmodes_fig));
     a = {};  if ~isempty(opts.delta_z), a = {'delta', opts.delta_z}; end
-    oz = macos.dw_dz_zernike_multi(m, char(rx_in), sup{:}, ...
-        'kinds', opts.zkinds, 'zmode_start', opts.zmodes_fig(1), ...
-        'n_zcoef', opts.zmodes_fig(end), a{:});
+    oz = run_channel_(@(cf) macos.dw_dz_zernike_multi(m, char(rx_in), sup{:}, ...
+        'configs', cf, 'kinds', opts.zkinds, 'elts', opts.elts, ...
+        'zmode_start', opts.zmodes_fig(1), ...
+        'n_zcoef', opts.zmodes_fig(end), a{:}), 'dwdz', CF, RD, say);
     say('    dwdzall %d x %d\n\n', size(oz.dwdxall, 1), size(oz.dwdxall, 2));
 end
 
 %% dwdsurf (per-element Kr/Kc -- opt-in)
 if any(opts.channels == "dwdsurf")
     say('[dwdsurf] per-element %s...\n', strjoin(opts.surf_params, '/'));
-    os = macos.dw_dsurf_multi(m, char(rx_in), sup{:}, ...
-        'params', opts.surf_params);
+    os = run_channel_(@(cf) macos.dw_dsurf_multi(m, char(rx_in), sup{:}, ...
+        'configs', cf, 'params', opts.surf_params), 'dwdsurf', CF, RD, say);
     say('    dwdsall %d x %d\n\n', size(os.dwdxall, 1), size(os.dwdxall, 2));
 end
 
@@ -233,8 +290,9 @@ if any(opts.channels == "dwdgrid") && (nseg > 0 || ~isempty(opts.influence))
         end
     end
     a = {};  if ~isempty(opts.delta_g), a = {'delta', opts.delta_g}; end
-    og = macos.dw_dgrid_multi(m, rxg, sup{:}, 'influence', sgb, ...
-        'reset_xp_method', opts.reset_xp_method, a{:});
+    og = run_channel_(@(cf) macos.dw_dgrid_multi(m, rxg, sup{:}, ...
+        'configs', cf, 'influence', sgb, 'elts', opts.elts, ...
+        'reset_xp_method', opts.reset_xp_method, a{:}), 'dwdgrid', CF, RD, say);
     % persist the influence basis WITH the harvest: the basis is part
     % of the Jacobian's definition, and rebuilding it in a later
     % session is not bit-stable (the last G-S mode can come out
@@ -249,7 +307,7 @@ end
 say('[conditioning] finite rows only:\n');
 say('    %-8s %12s %6s %10s %10s %10s\n', 'channel', 'size', 'rank', ...
     'sv_max', 'sv_min+', 'cond+');
-tab = {};  SV = {};
+tab = {};  SV = {};  SVc = {};
 J = {'dwdx', ox; 'dwdz', oz; 'dwdgrid', og; 'dwdsurf', os};
 for q = 1:size(J, 1)
     o = J{q, 2};
@@ -261,6 +319,26 @@ for q = 1:size(J, 1)
     tab(end+1, :) = {J{q,1}, size(A), nnz(s > tol), s(1), sp(end), s(1)/sp(end)}; %#ok<AGROW>
     say('    %-8s %5dx%-6d %6d %10.3e %10.3e %10.3e\n', J{q,1}, ...
         size(A,1), size(A,2), nnz(s > tol), s(1), sp(end), s(1)/sp(end));
+    % per-configuration conditioning.  The STACKED number above is the
+    % design-relevant one -- it is the conditioning of the estimation
+    % problem you actually have -- but a single configuration that is
+    % far worse than the stack is worth seeing.
+    if ncfg > 0 && isfield(o, 'indxall') && isfield(o.indxall, 'config')
+        A0 = jmat_(o);
+        for c = 1:ncfg
+            rows = (o.indxall.config == c);
+            Ac = A0(rows, :);  Ac = Ac(all(isfinite(Ac), 2), :);
+            if isempty(Ac), continue; end
+            sc = svd(full(Ac), 'econ');
+            SVc{end+1} = struct('ch', J{q,1}, 'cfg', ...
+                opts.configs(c).name, 's', sc); %#ok<AGROW>
+            tolc = max(size(Ac)) * eps(max(sc));
+            spc = sc(sc > tolc);
+            say('    %-8s cfg %-8s %5dx%-6d %6d %10.3e %10.3e %10.3e\n', ...
+                J{q,1}, opts.configs(c).name, size(Ac,1), size(Ac,2), ...
+                nnz(sc > tolc), sc(1), spc(end), sc(1)/spc(end));
+        end
+    end
     % segment-only restriction: non-segment lMon optics legitimately
     % appear in dwdz but inflate cond+ (e5pie: 9.2e3 -> 5.4)
     if nseg > 0 && ~strcmp(J{q,1}, 'dwdgrid')
@@ -308,6 +386,32 @@ if ~isempty(SV)
     title(sprintf('%s: Jacobian spectra (%d segs)', name, nseg));
     print(f, fullfile(od, [name '_svspec.png']), '-dpng', '-r120'); close(f);
 end
+if ~isempty(SVc)
+    chs = unique(cellfun(@(v) string(v.ch), SVc), 'stable');
+    f = figure('Visible', 'off', ...
+        'Position', [0 0 380*numel(chs) 460]);
+    for q = 1:numel(chs)
+        subplot(1, numel(chs), q); hold on
+        sel = find(cellfun(@(v) string(v.ch) == chs(q), SVc));
+        for r = sel(:).'
+            semilogy(SVc{r}.s / SVc{r}.s(1), '-', 'LineWidth', 0.8, ...
+                'DisplayName', SVc{r}.cfg);
+        end
+        is = find(strcmp(tab(:,1), char(chs(q))), 1);
+        if ~isempty(is)
+            semilogy(SV{is}/SV{is}(1), 'k-', 'LineWidth', 2, ...
+                'DisplayName', 'stacked');
+        end
+        set(gca, 'YScale', 'log'); grid on
+        legend('Location', 'southwest', 'FontSize', 7);
+        xlabel('singular value index'); ylabel('\sigma_i / \sigma_1');
+        title(sprintf('%s', chs(q)));
+    end
+    sgtitle(sprintf('%s: per-configuration vs stacked spectra', name));
+    print(f, fullfile(od, [name '_svspec_configs.png']), '-dpng', '-r120');
+    close(f);
+    say('per-configuration spectra: %s_svspec_configs.png\n', name);
+end
 pages = {'dwdx', ox; 'dwdz', oz; 'dwdgrid', og; 'dwdsurf', os};
 pdir = fullfile(od, [name '_pages']);      % the pages are numerous --
 if ~isempty(opts.per_element) && ~isfolder(pdir), mkdir(pdir); end  % own folder
@@ -329,10 +433,17 @@ cfg = opts;
 save(matp, 'ox', 'oz', 'og', 'os', 'cfg', '-v7.3');
 say('\nDone: %s + %s_sens_report.txt\n', matp, name);
 
+% prune the checkpoints -- the run completed, the combined .mat above is
+% the artifact and the per-block files are just a crash cushion
+if strlength(RD) > 0 && isfolder(char(RD))
+    rmdir(char(RD), 's');
+    say('checkpoints pruned: %s\n', char(RD));
+end
+
 art = struct('ox', ox, 'oz', oz, 'og', og, 'os', os, 'mat', string(matp), ...
     'grid_in', string(rxg), 'report', ...
     string(fullfile(od, [name '_sens_report.txt'])), 'nseg', nseg, ...
-    'conditioning', {tab});
+    'conditioning', {tab}, 'nconfig', ncfg);
 end
 
 % ---------------------------------------------------------------------
@@ -349,6 +460,104 @@ end
 
 function p = fullpath_(p)
 if ~startsWith(p, '/'), p = fullfile(pwd, p); end
+end
+
+function o = run_channel_(fn, tag, cfgs, resume_dir, say)
+%RUN_CHANNEL_  One channel's harvest, optionally checkpointed per config.
+%   Without a resume_dir (or with fewer than two configurations) this is
+%   exactly fn(cfgs) -- ONE supervisor call carrying the whole
+%   configuration axis, which is the normal path.  With both, each
+%   configuration is harvested and saved on its own so a killed run
+%   resumes at the block it died on, and the blocks are stitched back
+%   into the same arrays the single call produces.
+if isempty(cfgs) || numel(cfgs) < 2 || strlength(resume_dir) == 0
+    o = fn(cfgs);
+    return
+end
+rd = char(resume_dir);
+if ~isfolder(rd), mkdir(rd); end
+outs = cell(1, numel(cfgs));
+for c = 1:numel(cfgs)
+    ck = fullfile(rd, sprintf('%s_%s.mat', tag, cfgs(c).name));
+    if isfile(ck)
+        S = load(ck);  outs{c} = S.o;
+        say('    [resume] %s / %s <- %s\n', tag, cfgs(c).name, ck);
+    else
+        o = fn(cfgs(c));
+        save(ck, 'o', '-v7.3');
+        outs{c} = o;
+        say('    [checkpoint] %s / %s -> %s\n', tag, cfgs(c).name, ck);
+    end
+end
+o = stitch_configs_(outs);
+end
+
+
+function o = stitch_configs_(outs)
+%STITCH_CONFIGS_  Reassemble per-configuration blocks into one harvest.
+%   Bit-identical to the single all-configurations call by construction:
+%   the configurations are laid out along canvas COLUMNS, m2v walks the
+%   canvas in column-major order, so concatenating the canvases and
+%   re-vectorising reproduces the stacked row order exactly.
+o = outs{1};
+C = cellfun(@(u) u.OPDall, outs, 'UniformOutput', false);
+o.OPDall = horzcat(C{:});
+wcol = size(outs{1}.OPDall, 2);
+[o.w0_stacked, ix] = macos.m2v(o.OPDall);
+ix.config = floor((ix.j(:) - 1) / wcol) + 1;
+o.indxall = ix;
+for f = intersect(fieldnames(o), ...
+        {'dwdxall','dwdzall','dwdsall','dwdgall'}).'
+    C = cellfun(@(u) u.(f{1}), outs, 'UniformOutput', false);
+    o.(f{1}) = vertcat(C{:});
+end
+for f = fieldnames(o).'
+    if startsWith(f{1}, 'per_field_')
+        C = cellfun(@(u) u.(f{1}), outs, 'UniformOutput', false);
+        o.(f{1}) = vertcat(C{:});          % Nc x Nf
+    end
+end
+C = cellfun(@(u) u.config_table, outs, 'UniformOutput', false);
+o.config_table = vertcat(C{:});
+o.config_names = {o.config_table.name}.';
+end
+
+
+function d = cfg_describe_(cfg)
+% One printable line per setter in a configuration (the report names
+% what each configuration DID).  Accepts either the caller's raw cell
+% list or the supervisors' normalised records.
+sl = cfg.set;
+if isempty(sl), d = {'(no setters -- nominal state)'}; return; end
+d = cell(1, numel(sl));
+for k = 1:numel(sl)
+    e = sl{k};
+    if isstruct(e)
+        switch e.fn
+            case 'perturb'
+                d{k} = sprintf('perturb elt %d rot %s trans %s (%s)', ...
+                    e.elt, mat2str(e.rotation.', 4), ...
+                    mat2str(e.translation.', 4), e.frame);
+            case {'set_elt_vpt','set_elt_psi','set_elt_rpt'}
+                d{k} = sprintf('%s elt %d = %s', e.fn, e.elt, ...
+                    mat2str(e.value.', 6));
+            otherwise
+                d{k} = sprintf('%s elt %d', e.fn, e.elt);
+        end
+    elseif iscell(e) && numel(e) >= 2
+        rest = '';
+        for q = 3:numel(e)
+            if ischar(e{q}) || isstring(e{q})
+                rest = [rest ' ' char(e{q})]; %#ok<AGROW>
+            else
+                rest = [rest ' ' mat2str(reshape(double(e{q}),1,[]), 4)]; %#ok<AGROW>
+            end
+        end
+        d{k} = sprintf('%s elt %d%s', char(e{1}), double(e{2}), rest);
+    else
+        d{k} = '(unrecognised setter entry)';
+    end
+end
 end
 
 function e = find_seg_elts_(txt)
