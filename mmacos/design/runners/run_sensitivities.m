@@ -55,10 +55,11 @@ function art = run_sensitivities(rx_in, opts)
 %                  is saved there as it completes and reloaded instead of
 %                  recomputed on a restart, then the blocks are stitched
 %                  into exactly the array a single all-configurations
-%                  call produces (gated: the stitch is bit-identical --
-%                  m2v walks the canvas in column-major order and the
-%                  configurations are laid out along columns).  The
-%                  directory is pruned when the run completes.  A 5x5
+%                  call produces -- the stitch goes through
+%                  macos.config_canvas, the same function the
+%                  supervisors use, so the tile layout and the
+%                  configuration-major row order come out the same way.
+%                  The directory is pruned when the run completes.  A 5x5
 %                  harvest at model 512 is a multi-hour run; without this
 %                  a kill at block 24 costs the whole thing.
 %     'stop_elt'   set the aperture stop at this ELEMENT ([] = off).  The
@@ -501,23 +502,27 @@ for c = 1:numel(cfgs)
         say('    [checkpoint] %s / %s -> %s\n', tag, cfgs(c).name, ck);
     end
 end
-o = stitch_configs_(outs);
+o = stitch_configs_(outs, cfgs);
 end
 
 
-function o = stitch_configs_(outs)
+function o = stitch_configs_(outs, cfgs)
 %STITCH_CONFIGS_  Reassemble per-configuration blocks into one harvest.
-%   Bit-identical to the single all-configurations call by construction:
-%   the configurations are laid out along canvas COLUMNS, m2v walks the
-%   canvas in column-major order, so concatenating the canvases and
-%   re-vectorising reproduces the stacked row order exactly.
+%   Identical to the single all-configurations call by construction: the
+%   assembly goes through macos.config_canvas, the SAME function the
+%   supervisors use, so the outer tile layout and the
+%   configuration-major row order come out the same way.  Each
+%   checkpointed block is a single-configuration harvest, whose OPDall
+%   is just that configuration's own field canvas.
 o = outs{1};
-C = cellfun(@(u) u.OPDall, outs, 'UniformOutput', false);
-o.OPDall = horzcat(C{:});
-wcol = size(outs{1}.OPDall, 2);
-[o.w0_stacked, ix] = macos.m2v(o.OPDall);
-ix.config = floor((ix.j(:) - 1) / wcol) + 1;
+canv = cellfun(@(u) u.OPDall, outs, 'UniformOutput', false);
+tile_rc = [];
+if isfield(cfgs, 'tile') && ~any(arrayfun(@(c) isempty(c.tile), cfgs))
+    tile_rc = vertcat(cfgs.tile);
+end
+[o.OPDall, ix] = macos.config_canvas(canv, tile_rc);
 o.indxall = ix;
+o.w0_stacked = macos.m2v(o.OPDall, ix);
 for f = intersect(fieldnames(o), ...
         {'dwdxall','dwdzall','dwdsall','dwdgall'}).'
     C = cellfun(@(u) u.(f{1}), outs, 'UniformOutput', false);

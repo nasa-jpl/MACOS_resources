@@ -406,5 +406,57 @@ classdef tRunSensitivities < matlab.unittest.TestCase
                     sprintf('%s: the tilted configuration changed nothing', f));
             end
         end
+
+        function test_configs_tile_geometrically(tc)
+            % The configurations sit where their SCHEDULE says -- a
+            % centre + four corners zoom set lands on the corners and
+            % centre of a 3x3 outer grid, each cell holding that state's
+            % whole field canvas -- while the stacked ROW order stays
+            % configuration-major: w for one configuration stacks its
+            % fields, w for the run stacks the configurations.  Reading
+            % the row order off the assembled canvas would NOT give that
+            % (m2v walks column-major and would interleave the blocks),
+            % which is the whole reason config_canvas builds the index.
+            [m, rx, b] = tc.cfg_fixture();
+            t = 1e-5;
+            T = table(["z0"; "zUL"; "zUR"; "zLL"; "zLR"], ...
+                      [0; -t; +t; -t; +t], [0; +t; +t; -t; -t], ...
+                      'VariableNames', {'name', '8.Rx', '8.Ry'});
+            cfgs = macos.design.configs_from_table(T);
+            % the schedule's own geometry, by the field set's rule
+            tiles = vertcat(cfgs.tile);
+            tc.verifyEqual(tiles, [1 1; 2 0; 2 2; 0 0; 0 2]);
+
+            d = macos.dw_dx_multi(m, rx, b{:}, 'configs', cfgs);
+            % outer grid is 3x3 of the per-configuration field canvas
+            a = macos.dw_dx_multi(m, rx, b{:});
+            tc.verifyEqual(size(d.OPDall), 3 * size(a.OPDall));
+            % ROW ORDER is configuration-major, so each block is still
+            % contiguous even though the tiles are not
+            n = zeros(1, 5);
+            for c = 1:5, n(c) = nnz(d.indxall.config == c); end
+            tc.verifyEqual(size(d.dwdxall, 1), sum(n));
+            tc.verifyTrue(isequal(find(d.indxall.config == 1), (1:n(1)).'));
+            tc.verifyTrue(isequal(find(d.indxall.config == 3), ...
+                (sum(n(1:2)) + (1:n(3))).'));
+            % ... and the nominal block is still bitwise the no-configs
+            % harvest, i.e. tiling changed the LAYOUT, not the numbers
+            tc.verifyTrue(isequal(d.dwdxall(1:n(1), :), a.dwdxall));
+            tc.verifyTrue(isequal(d.w0_stacked(1:n(1)), a.w0_stacked));
+            % the m2v/v2m round trip survives the built index
+            tc.verifyEqual(macos.v2m(d.w0_stacked, d.indxall), d.OPDall, ...
+                'AbsTol', 0);
+            % each configuration's canvas sits at ITS tile
+            [nr, ncol] = size(a.OPDall);
+            for c = 1:5
+                r0 = tiles(c, 1) * nr;
+                c0 = tiles(c, 2) * ncol;
+                blk = d.OPDall(r0+1:r0+nr, c0+1:c0+ncol);
+                tc.verifyEqual(nnz(blk), n(c), ...
+                    sprintf('configuration %d is not at its tile', c));
+            end
+            % and the empty outer cells cost no rows
+            tc.verifyEqual(nnz(d.OPDall), sum(n));
+        end
     end
 end

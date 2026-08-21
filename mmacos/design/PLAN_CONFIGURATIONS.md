@@ -53,11 +53,20 @@ here.
    (measured on e5hex1: 104/104/101/104/89).  Slice a block with
    `indxall.config == c`; the blocks are contiguous.
 
-4. **Configurations extend the canvas along COLUMNS.**  `m2v` walks the
-   canvas column-major, so a horizontal layout is what makes each
-   configuration's rows contiguous — and it leaves the whole m2v/v2m
-   lifecycle, which every downstream consumer and every committed
-   baseline goes through, untouched.
+4. **The canvas is TILED, and the row order is built, not derived**
+   (revised 2026-08-21 on Dave's steer).  The configurations sit on
+   their own outer grid at the positions their schedule implies — a
+   five-state zoom lands on the corners and centre of a 3×3, each cell
+   holding that state's whole field canvas, so the zoom grid reads
+   exactly as the field grid does inside one cell.  The stacked ROW
+   order is built configuration-major instead of being read off that
+   canvas: `w` for one configuration stacks its FIELDS, `w` for the run
+   stacks the CONFIGURATIONS.  Deriving it would break that — `m2v`
+   walks column-major, so any outer layout that varies down a column
+   interleaves the blocks.  Both live in `macos.config_canvas`, which
+   the four supervisors AND `run_sensitivities`' resume stitch share, so
+   the two paths cannot drift apart.  `v2m` scatters by `sub2ind` and is
+   indifferent to row order, so the round trip is exact.
 
 5. **`run_sensitivities` gained `'resume_dir'`, `'stop_elt'` and
    `'elts'`.**  The first because §7.3's resumable-workspace requirement

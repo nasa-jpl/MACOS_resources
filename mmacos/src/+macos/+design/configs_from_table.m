@@ -25,6 +25,18 @@ function cfgs = configs_from_table(T, opts)
 %     'frame'   'local' (default) | 'global' -- the frame the DOFs are
 %               expressed in, passed straight to macos.perturb.
 %     'prefix'  string prepended to every generated name (default '').
+%     'tile'    'auto' (default) | 'none' | an Nc x 2 [row col] matrix.
+%               'auto' gives each configuration an outer TILE POSITION
+%               when the schedule has exactly two DOF columns, by the
+%               SAME rule the field set uses: tile column from the rank
+%               of the first DOF's value among its sorted unique values,
+%               tile row from the second's.  A five-state centre + four
+%               corners schedule therefore lands on the corners and
+%               centre of a 3x3 grid, and the supervisors lay each
+%               configuration's whole field canvas out there -- the zoom
+%               grid reads exactly as the field grid does inside one
+%               cell.  'none' leaves them untiled (left to right).
+%               See macos.config_canvas.
 %
 %   ONE PERTURB PER (ELEMENT, KIND), NOT PER DOF, AND NEVER MIXED
 %   ------------------------------------------------------------
@@ -53,6 +65,7 @@ arguments
     T
     opts.frame  (1,:) char {mustBeMember(opts.frame, {'local','global'})} = 'local'
     opts.prefix (1,:) char = ''
+    opts.tile = 'auto'
 end
 
 if ischar(T) || isstring(T)
@@ -90,7 +103,7 @@ assert(~isempty(cols), 'macos:configs_from_table:noDofs', ...
 elts = unique([cols.elt]);
 
 % ---- one configuration per row ------------------------------------
-cfgs = struct('name', {}, 'set', {});
+cfgs = struct('name', {}, 'set', {}, 'tile', {});
 for r = 1:height(T)
     sl = {};
     for e = elts
@@ -120,8 +133,42 @@ for r = 1:height(T)
     c = struct();
     c.name = [opts.prefix char(strtrim(names(r)))];
     c.set  = sl;
+    c.tile = [];
     cfgs(end+1) = c; %#ok<AGROW>
 end
+
+% ---- outer tile positions -----------------------------------------
+tl = assign_tiles(T, cols, height(T), opts.tile);
+for r = 1:numel(cfgs)
+    if ~isempty(tl), cfgs(r).tile = tl(r, :); end
+end
+end
+
+
+% ---------------------------------------------------------------------
+function tl = assign_tiles(T, cols, nrow, spec)
+%ASSIGN_TILES  Outer [row col] per configuration, or [].
+if isnumeric(spec) && ~isempty(spec)
+    assert(isequal(size(spec), [nrow 2]), 'macos:configs_from_table:tile', ...
+        'configs_from_table: ''tile'' must be %d x 2', nrow);
+    tl = double(spec);  return
+end
+tl = [];
+if ~(ischar(spec) || isstring(spec)) || ~strcmpi(char(spec), 'auto'), return; end
+% Exactly two DOF columns, or there is no 2-D grid to infer.
+if numel(cols) ~= 2, return; end
+v1 = zeros(nrow, 1);  v2 = zeros(nrow, 1);
+for r = 1:nrow
+    a = T{r, cols(1).idx};  if iscell(a), a = a{1}; end
+    b = T{r, cols(2).idx};  if iscell(b), b = b{1}; end
+    v1(r) = double(a);  v2(r) = double(b);
+end
+u1 = unique(v1);  u2 = unique(v2);
+% rank among sorted unique values -- the same rule make_grid_field_set
+% uses for the field set, so the two grids read the same way round
+[~, c_idx] = ismember(v1, u1);
+[~, r_idx] = ismember(v2, u2);
+tl = [r_idx - 1, c_idx - 1];
 end
 
 
