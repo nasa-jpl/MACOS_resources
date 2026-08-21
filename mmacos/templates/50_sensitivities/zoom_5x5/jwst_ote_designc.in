@@ -40,6 +40,21 @@
 %        optical gap = 0.015
 % SegMirMaker x=0,1,0 y=-1,0,0
 % Original deck dated 9/24/03; header rewritten 2026-08-19.
+%
+% SEGMENT SURFACE TYPE (2026-08-21).  The 19 segments are Surface= FreeForm
+% carrying a per-segment MonZernike figure channel (MonZernType= BornWolf,
+% zero coefficients) in each segment's own clocked Mon frame.  These figure
+% DOFs are ZERO-AMPLITUDE FIXTURE CHANNELS with NO design authority: they
+% exist only so the figure rungs of the configuration-axis sensitivity
+% family (dw/dz MonZernike, dw/dgrid) have something to harvest on this
+% deck.  The promotion from the original Surface= Conic is optically INERT
+% -- a zero-coefficient FreeForm computes the identical conic sag (verified
+% to 7e-11 mm, sub-picometer, against the Conic trace; gated in
+% mmacos/tests/tRunSensitivities.m).  The conic base (KrElt/KcElt) and every
+% element pose are unchanged, so the rigid-body (dw/dx) and prescription-
+% parameter (dw/dsurf) rungs are unaffected.  See
+% mmacos/design/PLAN_CONFIGURATIONS.md departure #6 and
+% mmacos/src/+macos/+design/promote_segments_freeform.m.
 
 ChfRayDir=  4.127703562D-04  2.299469067D-03  9.999972710D-01
 ChfRayPos= -3.0957776715D+00 -1.72460180025D+01 -7.4999795325D+03
@@ -144,7 +159,15 @@ PropType=   Geometric
     iElt=  4
  EltName=  CenterSegment
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
+             pMon=  0.0000000000E+00  0.0000000000E+00  0.0000000000E+00
+             xMon=  1.0000000000E+00  0.0000000000E+00  0.0000000000E+00
+             yMon=  0.0000000000E+00  -1.0000000000E+00  0.0000000000E+00
+             zMon=  0.0000000000E+00  0.0000000000E+00  -1.0000000000E+00
+             lMon=  1.5164125850E+03
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
   psiElt=  0d0 0d0 -1d0
@@ -170,20 +193,12 @@ PropType=   Geometric
     iElt=  5
  EltName=  Seg2
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=  -1.137309438D+03  6.566259049D+02 -5.430322349D+01
     xMon=  -8.630789494D-01  4.982988596D-01 -8.241949836D-02
     yMon=   4.999999968D-01  8.660254056D-01 0d0
@@ -206,20 +221,12 @@ PropType=   Geometric
     iElt=  6
  EltName=  Seg3
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=  -1.137309438D+03 -6.566259049D+02 -5.430322349D+01
     xMon=  -8.630789494D-01 -4.982988596D-01 -8.241949836D-02
     yMon=  -4.999999968D-01  8.660254056D-01 0d0
@@ -242,20 +249,12 @@ PropType=   Geometric
     iElt=  7
  EltName=  Seg4
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=  -1.527006592D-13 -1.313251810D+03 -5.430322281D+01
     xMon=  -1.158811498D-16 -9.965977255D-01 -8.241949784D-02
     yMon=  -1d0  1.162767552D-16 -1.201378644D-33
@@ -278,20 +277,12 @@ PropType=   Geometric
     iElt=  8
  EltName=  Seg5
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=   1.137309438D+03 -6.566259049D+02 -5.430322349D+01
     xMon=   8.630789494D-01 -4.982988596D-01 -8.241949836D-02
     yMon=  -4.999999968D-01 -8.660254056D-01 0d0
@@ -314,20 +305,12 @@ PropType=   Geometric
     iElt=  9
  EltName=  Seg6
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=   1.137309438D+03  6.566259049D+02 -5.430322349D+01
     xMon=   8.630789494D-01  4.982988596D-01 -8.241949836D-02
     yMon=   4.999999968D-01 -8.660254056D-01 0d0
@@ -350,20 +333,12 @@ PropType=   Geometric
     iElt= 10
  EltName=  Seg7
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=   1.527006592D-13  1.313251810D+03 -5.430322281D+01
     xMon=   1.158811498D-16  9.965977255D-01 -8.241949784D-02
     yMon=   1d0 -1.162767552D-16 -1.201378644D-33
@@ -386,20 +361,12 @@ PropType=   Geometric
     iElt= 11
  EltName=  Seg8
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=  -2.274618877D+03  1.313251810D+03 -2.172166150D+02
     xMon=  -8.544160321D-01  4.932973220D-01 -1.631900617D-01
     yMon=   4.999999968D-01  8.660254056D-01 -1.082013731D-17
@@ -422,20 +389,12 @@ PropType=   Geometric
     iElt= 12
  EltName=  Seg9
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=  -2.274618877D+03  2.644853024D-13 -1.629115316D+02
     xMon=  -9.898956181D-01  1.151018505D-16 -1.417979737D-01
     yMon=   1.162767552D-16  1d0 0d0
@@ -458,20 +417,12 @@ PropType=   Geometric
     iElt= 13
  EltName=  Seg10
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=  -2.274618877D+03 -1.313251810D+03 -2.172166150D+02
     xMon=  -8.544160321D-01 -4.932973220D-01 -1.631900617D-01
     yMon=  -4.999999968D-01  8.660254056D-01 -1.082013731D-17
@@ -494,20 +445,12 @@ PropType=   Geometric
     iElt= 14
  EltName=  Seg11
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=  -1.137309438D+03 -1.969877715D+03 -1.629115296D+02
     xMon=  -4.949478122D-01 -8.572747506D-01 -1.417979729D-01
     yMon=  -8.660254020D-01  5.000000032D-01  1.249451027D-17
@@ -530,20 +473,12 @@ PropType=   Geometric
     iElt= 15
  EltName=  Seg12
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=  -3.054013185D-13 -2.626503620D+03 -2.172166122D+02
     xMon=  -1.147180247D-16 -9.865946503D-01 -1.631900607D-01
     yMon=  -1d0  1.162767552D-16 0d0
@@ -566,20 +501,12 @@ PropType=   Geometric
     iElt= 16
  EltName=  Seg13
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=   1.137309438D+03 -1.969877715D+03 -1.629115296D+02
     xMon=   4.949478122D-01 -8.572747506D-01 -1.417979729D-01
     yMon=  -8.660254020D-01 -5.000000032D-01 0d0
@@ -602,20 +529,12 @@ PropType=   Geometric
     iElt= 17
  EltName=  Seg14
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=   2.274618877D+03 -1.313251810D+03 -2.172166150D+02
     xMon=   8.544160321D-01 -4.932973220D-01 -1.631900617D-01
     yMon=  -4.999999968D-01 -8.660254056D-01 -1.082013731D-17
@@ -638,20 +557,12 @@ PropType=   Geometric
     iElt= 18
  EltName=  Seg15
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=   2.274618877D+03 -2.644853024D-13 -1.629115316D+02
     xMon=   9.898956181D-01 -1.151018505D-16 -1.417979737D-01
     yMon=  -1.162767552D-16 -1d0 0d0
@@ -674,20 +585,12 @@ PropType=   Geometric
     iElt= 19
  EltName=  Seg16
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=   2.274618877D+03  1.313251810D+03 -2.172166150D+02
     xMon=   8.544160321D-01  4.932973220D-01 -1.631900617D-01
     yMon=   4.999999968D-01 -8.660254056D-01 -1.082013731D-17
@@ -710,20 +613,12 @@ PropType=   Geometric
     iElt= 20
  EltName=  Seg17
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=   1.137309438D+03  1.969877715D+03 -1.629115296D+02
     xMon=   4.949478122D-01  8.572747506D-01 -1.417979729D-01
     yMon=   8.660254020D-01 -5.000000032D-01  1.249451027D-17
@@ -746,20 +641,12 @@ PropType=   Geometric
     iElt= 21
  EltName=  Seg18
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=   3.054013185D-13  2.626503620D+03 -2.172166122D+02
     xMon=   1.147180247D-16  9.865946503D-01 -1.631900607D-01
     yMon=   1d0 -1.162767552D-16 0d0
@@ -782,20 +669,12 @@ PropType=   Geometric
     iElt= 22
  EltName=  Seg19
  Element=   Segment     
- Surface=   Conic     % GridSurf   
+          Surface=  FreeForm
+      MonZernType=  BornWolf
+     nMonZernCoef=  1
+      MonZernCoef=  0.0E+00
    KrElt=  -1.587972200D+04
    KcElt=  -9.966604999D-01
-nGridMat=   37        
-GridFile=   none        
-GridSrfdx=  39.59d0        
-ZernCoef=  0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
-           0d0 0d0 0d0 0d0 0d0 0d0
     pMon=  -1.137309438D+03  1.969877715D+03 -1.629115296D+02
     xMon=  -4.949478122D-01  8.572747506D-01 -1.417979729D-01
     yMon=   8.660254020D-01  5.000000032D-01 0d0
@@ -924,3 +803,4 @@ nOutCord=    5
             0d0 0d0 0d0  9.998395564D-01 -1.188577165D-03  1.787312897D-02 0d0
             0d0 0d0 0d0 -1.265553616D-03 -9.999899708D-01  4.296132045D-03  0d0
             0d0 0d0 0d0  0d0  0d0  0d0  1d0
+
