@@ -239,11 +239,22 @@ D. C. Redding with Claude Code — 20 August 2026.  Source study: M. Rodgers, 26
 - What carried: per-ray Gauss–Newton residuals (per-field-RMS residuals stall); first-order identities re-derived, never penalized; stop decenter as the exit-aiming variable; clearances as hinge rows in the solve; negative controls with teeth at every decode.
 - What taught: clearance judged at the box centre misses edge-field blockage — evaluate over the field; a boolean constraint wall freezes a non-compliant start (hinge rows do not); stations are not spacings — a transcription slip briefly suggested F/4.95, and the runner now reads packaging from the .seq truth file so the comparison cannot drift that way again.
 ::: right
-![The second instrument at S5: the same five-stage flow, different parameters, clearances to its own spec.](t4_layout){{h=3.5}}
-~ {TAG} (this instrument's box).  Reproduce: rodgers3() — the Stage-0 gates; oi_story(...) — ladder + counters + this deck's numbers; suites tRodgers3 + tOffsetImager.  Written record: challenges/rodgers3/PACKET.md.
+![The second instrument at S5 (iso + side): the same five-stage flow at different parameters.](t4_layout){{h=2.9}}
+![S5 field envelopes: centre + YAN-extreme beams clear every mirror at the instrument's own 10/5 mm spec.](t4_fields){{h=2.3}}
+~ {TAG} (this instrument's box).  Reproduce: rodgers3() = the Stage-0 gates, oi_story(...) = ladder + counters; record: challenges/rodgers3/PACKET.md.
 """
 
-MD = MD.replace("(t4_layout)", f"({T4REL}/t4_s5_layout.png)")
+# slide 8's layout figure: crop the 4-panel view_std to its bottom row
+# (iso + side) so the panels stay legible at slide scale
+from PIL import Image
+src = os.path.join(T4DIR, "t4_s5_layout.png")
+crop_name = "deck_t4_layout_isoside.png"
+im = Image.open(src)
+w, hgt = im.size
+im.crop((0, int(0.52*hgt), w, hgt)).save(os.path.join(HERE, crop_name))
+
+MD = MD.replace("(t4_layout)", f"({crop_name})")
+MD = MD.replace("(t4_fields)", f"({T4REL}/t4_s5_fields.png)")
 
 md_path = os.path.join(HERE, "deck_rodgers3.md")
 with open(md_path, "w", encoding="utf-8") as f:
