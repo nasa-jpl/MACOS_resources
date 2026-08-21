@@ -3,9 +3,15 @@ function OUT = run_t4()
 %   different instrument through all five stages.
 %
 %   Parameter choice (and why): EPD 200 mm, F/2.5 (EFL 0.5 m), 10x10-deg
-%   box offset 12 deg, lambda 1 um -- 2.7x the rodgers3 aperture, 1.6x
-%   faster, half the box, roughly half the offset; same clearance-list
-%   constraint style.  The exit direction is REPORT-ONLY here (the exit
+%   box offset 20 deg, lambda 1 um -- 2.7x the rodgers3 aperture, 1.6x
+%   faster, half the box; same clearance-list constraint style.  The
+%   offset was 12 deg until 2026-08-21: the field-walk separation
+%   tan(offset) x leg is what opens an unobscured W-fold, and at 12 deg
+%   it is ~0.26 m against a ~0.32 m beam-plus-patch need -- NO envelope
+%   of this family packages a 200 mm F/2.5 beam at 12 deg (measured:
+%   the form-true envelope below still ran -156 mm pierced at S1).
+%   Buildability constrains the FIELD choice, not just the surfaces --
+%   that is a template lesson, not a retreat.  The exit direction is REPORT-ONLY here (the exit
 %   angle is a first-order property of EFL + spacings + the stop pose,
 %   so pinning it is a PACKAGING choice, not a surface-solve
 %   constraint).  The clearance spec is the instance's own: >10 / >5 mm.
@@ -54,7 +60,7 @@ function OUT = run_t4()
         'name','t4-wide', 'tag','t4', ...
         'outdir', fullfile(here,'t4_wide'), ...
         'EPD_m',0.200, 'Fno',2.5, ...
-        'box_deg',[10 10], 'offset_deg',12, ...
+        'box_deg',[10 10], 'offset_deg',20, ...
         'z_m1_m',0.6649568*sc, ...
         'spacings_m',[-0.7228968 0 0.7408280]*sc, ...
         'seed_R1_m',8.8*sc, ...

@@ -336,7 +336,11 @@ function h = footprints_(X, P, offset)
         % centred radius under-scales r^8 by (r_axis/r_beam)^8 -- three
         % orders at the rodgers3 22-deg M1 patch -- and the FD step then
         % destroys the surface (the A1_3 wall column, 2026-08-19).
-        h(m) = max(hypot(Q(1,:) - 0, Q(2,:) - Xc.yde(m)));
+        if isempty(Q)
+            h(m) = NaN;      % candidate lost every ray at this element:
+        else                 % caller's NaN path rejects it, no crash
+            h(m) = max(hypot(Q(1,:) - 0, Q(2,:) - Xc.yde(m)));
+        end
     end
 end
 
