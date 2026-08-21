@@ -361,5 +361,50 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             tc.verifyTrue(contains(txt, 'configurations: 2'));
             tc.verifyTrue(contains(txt, 'perturb elt 8'));
         end
+
+        function test_configuration_axis_across_the_family(tc)
+            % The axis is not a dw_dx feature: the same validate /
+            % snapshot / apply / undo / assert cycle and the same
+            % column-wise canvas layout are in all four supervisors.
+            % dwdz and dwdsurf are checked here; dwdgrid shares the
+            % identical code path and is checked on the augmented pie
+            % fixture by the end-to-end case above.
+            [m, rx, b] = tc.cfg_fixture(); %#ok<ASGLU>
+            th = 1e-5;
+            cfgs = [struct('name', 'nom', 'set', {{}}), ...
+                    struct('name', 'tilt', 'set', {{ ...
+                        {'perturb', 8, 'rotation', [th; 0; 0], ...
+                         'frame', 'local'} }})];
+            sup = {'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                   'grid', '2x1', 'ngridpts', 15, 'elts', 1};
+            % ---- dwdz (segment-LOCAL MonZernike) --------------------
+            az = macos.dw_dz_zernike_multi(m, rx, sup{:}, ...
+                'zmode_start', 4, 'n_zcoef', 5);
+            dz = macos.dw_dz_zernike_multi(m, rx, sup{:}, ...
+                'zmode_start', 4, 'n_zcoef', 5, 'configs', cfgs);
+            check_(dz, az.dwdzall, 'dwdzall');
+            % ---- dwdsurf (Kr) --------------------------------------
+            % elt 8, not elt 1: dw_dsurf builds channels only for POWERED
+            % Reflector/Refractor optics, and elt 1 is a Segment.
+            sups = [sup(1:end-1), {8}];
+            as = macos.dw_dsurf_multi(m, rx, sups{:}, 'params', {'Kr'});
+            ds = macos.dw_dsurf_multi(m, rx, sups{:}, 'params', {'Kr'}, ...
+                'configs', cfgs);
+            check_(ds, as.dwdsall, 'dwdsall');
+
+            function check_(d, ref, f)
+                n1 = nnz(d.indxall.config == 1);
+                n2 = nnz(d.indxall.config == 2);
+                tc.verifyTrue(isequal(d.(f)(1:n1, :), ref), ...
+                    sprintf('%s: block 1 must be the no-configs harvest', f));
+                tc.verifyTrue(isequal(find(d.indxall.config == 1), (1:n1).'), ...
+                    sprintf('%s: blocks must be contiguous', f));
+                tc.verifyEqual(d.config_names, {'nom'; 'tilt'});
+                k = min(n1, n2);
+                tc.verifyGreaterThan(max(abs( ...
+                    d.(f)(n1+1:n1+k, :) - d.(f)(1:k, :)), [], 'all'), 0, ...
+                    sprintf('%s: the tilted configuration changed nothing', f));
+            end
+        end
     end
 end

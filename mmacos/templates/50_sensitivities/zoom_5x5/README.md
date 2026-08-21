@@ -10,18 +10,35 @@ than per field alone.  Design sketch and open questions:
 `macos.dw_d*_multi` supervisors and on `run_sensitivities`; the four
 `run_dwd*_5zoom_5fov.m` drivers here are thin wrappers over it.
 
-| driver | rung | scope as shipped |
+| driver | rung | on THIS deck |
 |---|---|---|
-| `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | every optic, full 5×5 |
-| `run_dwdz_5zoom_5fov.m` | MonZernike figure | scoped (`MODES`, `ELTS`) |
-| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | every optic, full 5×5 |
-| `run_dwdgrid_5zoom_5fov.m` | segment grid | scoped (`MODES`, `SEGS`) |
+| `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | **runs** — 132 channels, 25 blocks |
+| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — 4 channels, 25 blocks |
+| `run_dwdz_5zoom_5fov.m` | MonZernike figure | needs a FIGURED deck (see below) |
+| `run_dwdgrid_5zoom_5fov.m` | segment grid | needs a FIGURED deck (see below) |
 
-The figure and grid rungs ship SCOPED: a full-scope harvest over 22
-segments × a full modal basis × 25 blocks is a multi-day run, so their
-`MODES` / `ELTS` / `SEGS` knobs default to a demonstration and every
-driver is resumable (per-configuration checkpoints in `_resume*/`,
-pruned on success).
+Every driver is resumable: per-configuration checkpoints land in
+`_resume*/` and are pruned on success.
+
+### The two figure rungs need a figured deck
+
+**Measured 2026-08-20.**  This deck's 19 segments are `Surface= Conic`.
+The MonZernike channel builder targets **FreeForm**-typed elements
+(`find_freeform_elts`, empty here), and the grid channel needs a
+**grid-bearing surface type** — `macos.design.grid_augment_rx` writes the
+grid channel (`nGridMat` / `GridFile` / `GridSrfdx` / `pData..zData`) into
+each Segment block but does **not** promote `Surface=`, so
+`find_grid_elts` is empty before *and* after augmentation.  Both rungs
+therefore harvest **zero channels** here, and both drivers say so with a
+preflight rather than producing an empty result.
+
+Closing it is a **fixture** decision, not a driver one: promoting the
+segments `Conic → FreeForm` would unlock both rungs at once (FreeForm is
+conic + Mon + FF + grid), but it changes a committed deck and needs its
+own check that the promotion is optically inert.  Until then, point `RX`
+at a figured deck — `../run_dwdx_multi/e5hex1.in` has FreeForm segments —
+which is what the configuration axis is gated on for those two
+supervisors (`tRunSensitivities`).
 
 ## The deck
 
