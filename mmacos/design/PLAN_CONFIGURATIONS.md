@@ -1,5 +1,91 @@
 # PLAN — a CONFIGURATIONS axis for the sensitivity supervisors
 
+**Status: EXECUTED 2026-08-20 (branch `dev-candidate`, unpushed —
+Dave reviews before any push).**  §7's five deliverables are in, in
+order, one commit each.  Where the implementation departs from this
+plan, the plan text is left as written and the departure is recorded
+here.
+
+* **§7.1 the option** — `'configs'` on all four `macos.dw_d*_multi`,
+  with the §2 whitelist, the §2.1 ordering, and the snapshot / restore /
+  assert cycle in `src/+macos/private/config_axis.m`.
+* **§7.2 the gate** — `tRunSensitivities`, **10/10 green**.  The
+  preserved-surface rule is verified against a **pre-change git
+  worktree**, not merely internally: with `'configs'` absent, dwdx /
+  dwdz / dwdsurf come back `isequal` on `dwdxall`, `w0_stacked`,
+  `OPDall`, `indxall` and the per-field cells.
+* **§7.3 the driver** — `run_dwdx_5zoom_5fov.m`, RUN over the full 25
+  blocks: 54585 × 132, rank **127 stacked vs 124 for the nominal
+  configuration alone**.  Resumable, checkpoints pruned on success.
+* **§7.4 the family** — four drivers shipped; **two of the four rungs
+  cannot harvest on the §6 fixture** (see the departure below).
+* **§7.5 `configs_from_table`** — landed early, because both the gate
+  and the drivers use it.
+
+### Departures from the plan, and why
+
+1. **Restore is hybrid, not snapshot-only (§2).**  Snapshot write-back
+   is exact for the three absolute setters and is used for them.  It is
+   NOT sufficient for `perturb`: `CPERTURB_PROG` also moves `xObs`, the
+   figure frames `pMon`/`pData`/`pFF`, `CRIncidPosNom`, and the
+   metrology and HOE points, and the veneer can read only some of those
+   and write fewer — so a write-back would leave a rotated aperture
+   frame behind, and the assertion **as originally scoped would not have
+   caught it**, because the quantities it re-reads restore fine.
+   `perturb` is undone by the engine's own inverse (the negated call),
+   which is exact — `Qform` is Rodrigues about the combined axis, the
+   pivot algebra composes to the identity, and it is the mechanism
+   `RigidBodyChannel.restore` already relies on for every Jacobian
+   column.  The snapshot is kept and **widened to `xObs` and the figure
+   frame** as the VERIFIER.  Restore writes; snapshot checks.
+
+2. **The assertion tolerance is not ULP-tight.**  The configuration
+   element is typically also a Jacobian channel, so between apply and
+   assert the channel loop has run ~60 poke/restore cycles on it and
+   left 1.7e-12 in the vertex (measured, e5hex1).  A ULP-tight bound
+   reports that as a configuration failure — it did, first time.  RTOL
+   1e-9 keeps three-plus decades over the observed floor and still fires
+   on anything the size of a configuration; the worst drift is printed
+   every run.
+
+3. **Row count is sum-over-configurations, not `Nc*Nw` (§3.1).**  A
+   configuration that vignettes a field contributes fewer rows
+   (measured on e5hex1: 104/104/101/104/89).  Slice a block with
+   `indxall.config == c`; the blocks are contiguous.
+
+4. **Configurations extend the canvas along COLUMNS.**  `m2v` walks the
+   canvas column-major, so a horizontal layout is what makes each
+   configuration's rows contiguous — and it leaves the whole m2v/v2m
+   lifecycle, which every downstream consumer and every committed
+   baseline goes through, untouched.
+
+5. **`run_sensitivities` gained `'resume_dir'`, `'stop_elt'` and
+   `'elts'`.**  The first because §7.3's resumable-workspace requirement
+   cannot be met from a driver that makes one call; the second because
+   the §6 fixture's stop is an ELEMENT and the deck carries no
+   `ApStop=`; the third to scope a harvest (and keep the gate cheap).
+
+6. **OPEN — §7.4's figure rungs have no fixture.**  Measured: this
+   deck's 19 segments are `Surface= Conic`, so `find_freeform_elts` is
+   empty (no MonZernike channels) and `find_grid_elts` is empty **before
+   and after** `grid_augment_rx`, which writes the grid channel but does
+   not promote `Surface=`.  `run_dwdz_5zoom_5fov.m` and
+   `run_dwdgrid_5zoom_5fov.m` ship with a preflight that says exactly
+   this instead of returning an empty harvest.  **The axis itself is
+   proven in both supervisors** — gated on `e5hex1` (FreeForm segments)
+   in `tRunSensitivities`.  Closing the fixture gap means promoting the
+   segments `Conic → FreeForm` (which unlocks both rungs at once) and
+   showing the promotion is optically inert — a change to a committed
+   deck, so it is **Dave's call**, not folded in here.
+   A robustness fix WAS needed and landed: `grid_augment_rx` emitted the
+   grid channel at the block's `zMon=` line and read `lMon` from a map
+   filled in file order, so a deck that declares `lMon` AFTER `zMon` —
+   this one — aborted.  It now pre-scans, and parses Fortran `D`
+   exponents (`sscanf('%g')` stopped at the `D` and would have returned
+   the mantissa).
+
+**Original plan follows, unchanged.**
+
 **Status: APPROVED FOR EXECUTION (Dave, 2026-08-20).  Nothing
 implemented yet.**  Written 2026-08-19 (Luis round 2, item 5); reviewed
 and amended 2026-08-20 — the §5 questions are SETTLED (answers recorded
