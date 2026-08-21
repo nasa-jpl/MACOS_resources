@@ -45,33 +45,44 @@ function OUT = oi_story(over)
     tag = fullfile(P.outdir, P.tag);
 
     % ================= 2. counter (a): sphere+Zernike start =================
-    fprintf('\n===== counter (a): sphere+Zernike from the start =====\n');
-    Xa = OUT.s3.X;
-    Xa.K = [0 0 0];  Xa.asph = zeros(3,3);
-    Xa.fpa_refit = [0 0];
-    Xa = oi_zern_seed(Xa, P);
-    [Xa, ha] = oi_solve(Xa, P, 'S5', 'clear', true);
-    [Xa, Ga] = oi_close(Xa, P);  Xa.fpa = oi_apply_fpa(Xa);  Ga.fpa = Xa.fpa;
-    [~, mpa] = oi_map_fig(Xa, Ga, P, P.offset_deg, ...
-        'counter (a): sphere+Zernike from the start', [tag '_ca_map.png']);
-    OUT.counter_a = struct('X',Xa,'map',mpa,'hist',ha);
+    % Counters need their source stage in the ladder (a: S3, b: S4); a
+    % truncated P.stages run (smoke, partial re-do) skips them cleanly.
+    mpa = [];  mpb = [];
+    if isfield(OUT, 's3')
+        fprintf('\n===== counter (a): sphere+Zernike from the start =====\n');
+        Xa = OUT.s3.X;
+        Xa.K = [0 0 0];  Xa.asph = zeros(3,3);
+        Xa.fpa_refit = [0 0];
+        Xa = oi_zern_seed(Xa, P);
+        [Xa, ha] = oi_solve(Xa, P, 'S5', 'clear', true);
+        [Xa, Ga] = oi_close(Xa, P);  Xa.fpa = oi_apply_fpa(Xa);  Ga.fpa = Xa.fpa;
+        [~, mpa] = oi_map_fig(Xa, Ga, P, P.offset_deg, ...
+            'counter (a): sphere+Zernike from the start', [tag '_ca_map.png']);
+        OUT.counter_a = struct('X',Xa,'map',mpa,'hist',ha);
+    else
+        fprintf('\n===== counter (a) SKIPPED (no S3 in P.stages) =====\n');
+    end
 
     % ================= 3. counter (b): released term set ====================
-    fprintf('\n===== counter (b): S5 with power + y-tilt released =====\n');
-    Xb = OUT.s4.X;
-    Xb.fpa_refit = [0 0];
-    Pb = P;  Pb.zern_modes = sort([3 5 P.zern_modes]);
-    Xb = oi_zern_seed(Xb, Pb);
-    [Xb, hb] = oi_solve(Xb, Pb, 'S5', 'clear', true);
-    [Xb, Gb] = oi_close(Xb, Pb);  Xb.fpa = oi_apply_fpa(Xb);  Gb.fpa = Xb.fpa;
-    [~, mpb] = oi_map_fig(Xb, Gb, Pb, Pb.offset_deg, ...
-        'counter (b): power + y-tilt released', [tag '_cb_map.png']);
-    OUT.counter_b = struct('X',Xb,'map',mpb,'hist',hb);
+    if isfield(OUT, 's4')
+        fprintf('\n===== counter (b): S5 with power + y-tilt released =====\n');
+        Xb = OUT.s4.X;
+        Xb.fpa_refit = [0 0];
+        Pb = P;  Pb.zern_modes = sort([3 5 P.zern_modes]);
+        Xb = oi_zern_seed(Xb, Pb);
+        [Xb, hb] = oi_solve(Xb, Pb, 'S5', 'clear', true);
+        [Xb, Gb] = oi_close(Xb, Pb);  Xb.fpa = oi_apply_fpa(Xb);  Gb.fpa = Xb.fpa;
+        [~, mpb] = oi_map_fig(Xb, Gb, Pb, Pb.offset_deg, ...
+            'counter (b): power + y-tilt released', [tag '_cb_map.png']);
+        OUT.counter_b = struct('X',Xb,'map',mpb,'hist',hb);
+    else
+        fprintf('\n===== counter (b) SKIPPED (no S4 in P.stages) =====\n');
+    end
 
     % ================= 4. the story summary + deck-asset manifest ===========
     f = fopen([tag '_STORY.md'], 'w');
     cs = onCleanup(@() fclose(f));
-    pr = @(varargin) cellfun(@(fid) fprintf(fid, varargin{:}), {1, f});
+    pr = @(varargin) pr_(f, varargin{:});
     pr('\n# %s -- the story in numbers\n\n', P.name);
     pr(['ladder (dense %dx%d strict-centroid map max, nm; clearance = ' ...
         'min oi_clear pair):\n\n'], P.map_n, P.map_n);
@@ -83,8 +94,12 @@ function OUT = oi_story(over)
            OUT.ladder(k).map_max_nm, gt.clear_min_m*1e3, ...
            pf_(gt.exit_pass), pf_(gt.clear_pass));
     end
-    pr('| counter (a) sz-start | %.1f | -- | same constraint rows |\n', mpa.max_nm);
-    pr('| counter (b) released | %.1f | -- | same constraint rows |\n', mpb.max_nm);
+    if ~isempty(mpa)
+        pr('| counter (a) sz-start | %.1f | -- | same constraint rows |\n', mpa.max_nm);
+    end
+    if ~isempty(mpb)
+        pr('| counter (b) released | %.1f | -- | same constraint rows |\n', mpb.max_nm);
+    end
     pr('\ndeck assets (stage order):\n\n');
     for k = 1:numel(OUT.ladder)
         sid = OUT.ladder(k).stage;
@@ -92,9 +107,18 @@ function OUT = oi_story(over)
            regexprep(OUT.(sid).fig_layout, '_layout\.png$', '_fields.png'), ...
            OUT.(sid).fig_map);
     end
-    pr('- counters: `%s_ca_map.png`, `%s_cb_map.png`\n', tag, tag);
+    if ~isempty(mpa) && ~isempty(mpb)
+        pr('- counters: `%s_ca_map.png`, `%s_cb_map.png`\n', tag, tag);
+    end
     save([tag '_run.mat'], 'OUT');
     fprintf('\nsaved %s_STORY.md + updated %s_run.mat\n', tag, tag);
 end
 
 function s = pf_(p), if p, s = 'PASS'; else, s = 'FAIL'; end, end
+
+function pr_(f, varargin)
+%PR_  Print to stdout AND the story file.  A plain loop, not cellfun:
+%   fprintf-to-fid-1 inside cellfun's uniform-output context errors.
+    fprintf(1, varargin{:});
+    fprintf(f, varargin{:});
+end
