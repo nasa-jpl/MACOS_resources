@@ -57,6 +57,40 @@ function out = dw_dx_multi(session, rx_path, opts)
 %               re-derived; callers who hand-author those own re-asserting
 %               them.
 %
+%   'configs'   (default [] = today's single-block call, byte-identical)
+%               a 1xNc struct array of CONFIGURATIONS -- named sets of
+%               element setting overrides ("zoom positions"; in our
+%               systems more often a COMPENSATION state, e.g. a steering
+%               mirror at a pupil fold re-pointed to cancel pointing
+%               drift).  Each entry is
+%                   .name  char
+%                   .set   cell array of setter invocations, each itself
+%                          a cell {fname, elt, args...} dispatched
+%                          against the Session
+%               e.g.  struct('name','zUR', 'set', {{ ...
+%                       {'perturb', 25, 'rotation', [t;t;0], ...
+%                        'frame','local'} }})
+%               The Jacobian is then evaluated per (configuration, field)
+%               block and the blocks stack as extra ROWS -- a
+%               configuration adds observations of the SAME state vector
+%               x, exactly as a field point does, so every downstream
+%               consumer (run_compare, the MET optimiser, the simulator)
+%               keeps working unchanged.
+%               Row COUNT: a configuration that changes ray survival
+%               (a tilt can vignette a field) contributes a different
+%               number of rows, so the stack is sum-over-configurations,
+%               not exactly Nc*Nw.  Slice a block with
+%               out.indxall.config == c -- the blocks are contiguous.
+%               v1 accepts ONLY the pose setters perturb / set_elt_vpt /
+%               set_elt_psi / set_elt_rpt / set_elt_csys; anything else
+%               is a loud validation error BEFORE anything is applied.
+%               The runner owns the modify()-after-setters rule, and
+%               snapshots / restores / ASSERTS the touched elements
+%               around each block, so a configuration that fails to
+%               restore is a hard error rather than silent contamination
+%               of the next block.  See private/config_axis.m and
+%               design/PLAN_CONFIGURATIONS.md.
+%
 %   OUTPUT STRUCT FIELDS:
 %     dwdxall            Nw x Nz canonical state-vector Jacobian
 %     w0_stacked         Nw x 1 stacked nominal OPDs (m2v of OPDall)
@@ -67,7 +101,12 @@ function out = dw_dx_multi(session, rx_path, opts)
 %     field_names        Nfields x 1 cell
 %     chfraydir_nom      3 x 1
 %     per_field_dwdx     Nfields x 1 cell of single-field blocks
+%                        (Nconfigs x Nfields with 'configs')
 %     per_field_w_nom_2d Nfields x 1 cell of single-field nominal OPDs
+%                        (Nconfigs x Nfields with 'configs')
+%     config_table       (with 'configs' only) Nc x 1 struct: name +
+%                        the setter list, verbatim
+%     indxall.config     (with 'configs' only) per-row configuration index
 %     rx_path / delta / method / wf_elt / rot_output / cbm
 
 arguments
@@ -99,6 +138,7 @@ arguments
                                 {'central','forward'})} = 'central'
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
     opts.reset_xp            (1,1) logical = true
+    opts.configs                          = []
     opts.verbose             (1,1) logical = false
     opts.ngridpts            double {mustBeScalarOrEmpty} = []
     opts.src_samp            double {mustBeScalarOrEmpty, mustBeInteger} = []
@@ -157,6 +197,24 @@ elseif ~isempty(opts.stop_obj_pos)
                       opts.stop_obj_pos(3));
 end
 
+% ---- Configuration axis -------------------------------------------
+% Validated AFTER the load (so element ids can be range-checked) and
+% BEFORE anything is applied.  Absent/empty => n_cfg == 1 and every line
+% below degenerates to the pre-configs single-block path.
+ep_elt_chk = [];
+if opts.reset_xp, ep_elt_chk = session.num_elt() - 1; end
+cfgs = config_axis('validate', opts.configs, session.num_elt(), ...
+                    'dw_dx_multi', ep_elt_chk);
+has_cfg = ~isempty(cfgs);
+n_cfg   = max(1, numel(cfgs));
+if has_cfg
+    fprintf('[setup] %d configuration(s):\n', n_cfg);
+    for ci = 1:n_cfg
+        fprintf('  config %-8s: %d setter(s) on elt %s\n', cfgs(ci).name, ...
+            numel(cfgs(ci).set), mat2str(cfgs(ci).elts));
+    end
+end
+
 nom = session.get_src_fov();
 fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
     nom.src_dir, nom.zSrc);
@@ -174,22 +232,33 @@ if opts.reset_xp
     ep_is_powered = reset_xp_guard('is_powered', session);
 end
 
-% ---- Per-field loop -----------------------------------------------
-per_field_dwdx   = cell(n_fields, 1);
-per_field_w_nom  = cell(n_fields, 1);
-per_field_struct = cell(n_fields, 1);
+% ---- Per-(configuration, field) loop ------------------------------
+per_field_dwdx   = cell(n_cfg, n_fields);
+per_field_w_nom  = cell(n_cfg, n_fields);
+per_field_struct = cell(n_cfg, n_fields);
 if opts.compute_los
-    per_field_dcdx = cell(n_fields, 1);
+    per_field_dcdx = cell(n_cfg, n_fields);
 end
 names = {};
 iElt_out = [];
+for ic = 1:n_cfg
+% Order (PLAN_CONFIGURATIONS §2.1): apply the configuration -> modify()
+% once -> run the field loop, whose per-field reset_xp then derives every
+% field's exit pupil FROM THE CONFIGURED GEOMETRY (a pupil-fold tilt
+% moves the EP; that is physics, not drift) -> restore -> assert.
+if has_cfg
+    snap = config_axis('snapshot', session, cfgs(ic).elts);
+    config_axis('apply', session, cfgs(ic));
+    fprintf('[config %s] applied (%d setter(s))\n', cfgs(ic).name, ...
+        numel(cfgs(ic).set));
+end
 for k = 1:n_fields
     new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
     session.set_src_fov('src_pos', nom.src_pos, 'src_dir', new_dir, ...
                         'zSrc', nom.zSrc);
     session.modify();
-    fprintf('[field %s] ChfRayDir = [%g %g %g]\n', ...
-        fields(k).name, new_dir);
+    fprintf('[%sfield %s] ChfRayDir = [%g %g %g]\n', ...
+        cfg_tag(has_cfg, cfgs, ic), fields(k).name, new_dir);
     if opts.reset_xp
         % Re-reference this field's exit pupil to its OWN chief ray: FEX
         % writes the reference sphere into elt nElt-1 (= wf_elt), so the
@@ -244,21 +313,46 @@ for k = 1:n_fields
              'ApType= clips or widen the field/grid), or the trace is ' ...
              'fully vignetted.'], fields(k).name, sf.wf_elt);
     end
-    per_field_dwdx{k}   = sf.dwdx;
-    per_field_w_nom{k}  = sf.w_nom_2d;
-    per_field_struct{k} = sf;
+    per_field_dwdx{ic, k}   = sf.dwdx;
+    per_field_w_nom{ic, k}  = sf.w_nom_2d;
+    per_field_struct{ic, k} = sf;
     if opts.compute_los
-        per_field_dcdx{k} = sf.dcdx;
+        per_field_dcdx{ic, k} = sf.dcdx;
     end
-    if isempty(names), names = sf.channel_names; iElt_out = sf.iElt; end
+    if isempty(names)
+        names = sf.channel_names; iElt_out = sf.iElt;
+    elseif ~isequal(names, sf.channel_names)
+        % Column identity is ASSERTED, not assumed: the channel list is
+        % built once, before the configuration loop, so a configuration
+        % that changed the element count would silently MISALIGN the
+        % stacked Jacobian's columns.
+        error('macos:dw_dx_multi:channelMismatch', ...
+            ['%sfield %s: channel_names differ from the first block ' ...
+             '(%d vs %d channels) -- a configuration must not change ' ...
+             'the channel list.'], cfg_tag(has_cfg, cfgs, ic), ...
+            fields(k).name, numel(sf.channel_names), numel(names));
+    end
     col_rms_mean = mean(sqrt(mean(sf.dwdx.^2, 1)));
-    fprintf('[field %s] dwdx shape [%d %d], mean col-RMS %.3e', ...
-        fields(k).name, size(sf.dwdx, 1), size(sf.dwdx, 2), col_rms_mean);
+    fprintf('[%sfield %s] dwdx shape [%d %d], mean col-RMS %.3e', ...
+        cfg_tag(has_cfg, cfgs, ic), fields(k).name, ...
+        size(sf.dwdx, 1), size(sf.dwdx, 2), col_rms_mean);
     if opts.compute_los
         los_rms_mean = mean(sqrt(sum(sf.dcdx.^2, 2)));
         fprintf('  mean LOS-RMS %.3e', los_rms_mean);
     end
     fprintf('\n');
+end
+% Restore AFTER the channel loop has finished undoing its own pokes
+% (dw_dx restores every channel before returning), never interleaved with
+% it -- element 25 of the zoom fixture is BOTH the configuration element
+% and a Jacobian channel.  The assertion is the load-bearing part.
+if has_cfg
+    config_axis('undo', session, cfgs(ic), snap);
+    drift = config_axis('assert', session, snap, cfgs(ic).name, 'dw_dx_multi');
+    fprintf(['[config %s] restored + verified '  ...
+             '(worst pose drift %.1f%% of tolerance)\n'], ...
+        cfgs(ic).name, 100 * drift);
+end
 end
 
 session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
@@ -281,31 +375,45 @@ reset_xp_stamp = reset_xp_guard('finalize', opts.reset_xp, ...
     reset_ep_moved, session.num_elt() - 1);
 
 % ---- Tile OPDall + scatter dwdxall --------------------------------
-N = size(per_field_w_nom{1}, 1);
-OPDall = zeros(tile_rows * N, tile_cols * N);
-for k = 1:n_fields
-    r0 = fields(k).tile_row * N;
-    c0 = fields(k).tile_col * N;
-    OPDall(r0+1:r0+N, c0+1:c0+N) = per_field_w_nom{k};
+N = size(per_field_w_nom{1, 1}, 1);
+% Configurations extend the canvas along COLUMNS, not rows: m2v walks
+% the canvas in column-major order, so a configuration laid out
+% horizontally owns a CONTIGUOUS block of stacked rows (rows 1..Nw1 are
+% configuration 1, and so on).  A vertical layout would interleave them.
+% With one configuration this is EXACTLY today's canvas.
+OPDall = zeros(tile_rows * N, n_cfg * tile_cols * N);
+for ic = 1:n_cfg
+    for k = 1:n_fields
+        assert(size(per_field_w_nom{ic, k}, 1) == N, ...
+            'macos:dw_dx_multi:gridSize', ...
+            'block (%d,%d) has a different OPD grid size', ic, k);
+        r0 = fields(k).tile_row * N;
+        c0 = ((ic - 1) * tile_cols + fields(k).tile_col) * N;
+        OPDall(r0+1:r0+N, c0+1:c0+N) = per_field_w_nom{ic, k};
+    end
 end
 
+% ONE m2v over the whole (configurations x fields) canvas keeps the
+% m2v/v2m round-trip -- which every downstream consumer and every
+% committed baseline goes through -- exactly as it is today.
 [w0_stacked, indxall] = macos.m2v(OPDall);
 Nw = numel(w0_stacked);
-Nz = size(per_field_dwdx{1}, 2);
+Nz = size(per_field_dwdx{1, 1}, 2);
 fprintf('[stack] OPDall [%d %d]; non-zero pixels = %d\n', ...
     size(OPDall, 1), size(OPDall, 2), Nw);
 
 dwdxall = zeros(Nw, Nz);
 indx_i = indxall.i(:);
 indx_j = indxall.j(:);
+for ic = 1:n_cfg
 for k = 1:n_fields
     tr = fields(k).tile_row;
-    tc = fields(k).tile_col;
+    tc = (ic - 1) * tile_cols + fields(k).tile_col;
     in_tile = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
             & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
     i_local = indx_i(in_tile) - tr * N;
     j_local = indx_j(in_tile) - tc * N;
-    [~, field_indx] = macos.m2v(per_field_w_nom{k});
+    [~, field_indx] = macos.m2v(per_field_w_nom{ic, k});
     field_i = field_indx.i(:);
     field_j = field_indx.j(:);
     flat_local = (j_local - 1) * N + i_local;
@@ -313,13 +421,14 @@ for k = 1:n_fields
     [tf, loc] = ismember(flat_local, flat_field);
     if ~all(tf)
         error('macos:dw_dx_multi:scatter', ...
-            'field %s: indxall references pixels outside per-field mask', ...
-            fields(k).name);
+            '%sfield %s: indxall references pixels outside per-field mask', ...
+            cfg_tag(has_cfg, cfgs, ic), fields(k).name);
     end
     global_rows = find(in_tile);
-    dwdxall(global_rows, :) = per_field_dwdx{k}(loc, :);
-    fprintf('[stack] field %s: scattered %d rows into dwdxall\n', ...
-        fields(k).name, numel(global_rows));
+    dwdxall(global_rows, :) = per_field_dwdx{ic, k}(loc, :);
+    fprintf('[stack] %sfield %s: scattered %d rows into dwdxall\n', ...
+        cfg_tag(has_cfg, cfgs, ic), fields(k).name, numel(global_rows));
+end
 end
 
 fprintf('[stack] dwdxall shape [%d %d]; |dwdxall| max = %.3e\n', ...
@@ -328,16 +437,19 @@ fprintf('[stack] dwdxall shape [%d %d]; |dwdxall| max = %.3e\n', ...
 % Center-tile sanity check.
 ctr_idx = find_center_field_index(fields);
 if ~isempty(ctr_idx)
-    tr = fields(ctr_idx).tile_row;
-    tc = fields(ctr_idx).tile_col;
-    in_ctr = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
-           & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
-    max_diff = max(abs(dwdxall(in_ctr, :) - per_field_dwdx{ctr_idx}), ...
-                    [], 'all');
-    fprintf('[check] dwdxall@center-tile vs per_field_dwdx[center]: ');
-    fprintf('max|diff| = %.3e\n', max_diff);
-    assert(max_diff == 0, ...
-        'scatter bug: dwdxall@center-tile differs from per_field_dwdx[center]');
+    for ic = 1:n_cfg
+        tr = fields(ctr_idx).tile_row;
+        tc = (ic - 1) * tile_cols + fields(ctr_idx).tile_col;
+        in_ctr = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
+               & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
+        max_diff = max(abs(dwdxall(in_ctr, :) - per_field_dwdx{ic, ctr_idx}), ...
+                        [], 'all');
+        fprintf('[check] %sdwdxall@center-tile vs per_field_dwdx[center]: ', ...
+            cfg_tag(has_cfg, cfgs, ic));
+        fprintf('max|diff| = %.3e\n', max_diff);
+        assert(max_diff == 0, ...
+            'scatter bug: dwdxall@center-tile differs from per_field_dwdx[center]');
+    end
 end
 
 out = struct();
@@ -353,26 +465,49 @@ out.field_table          = arrayfun( ...
 out.field_table          = vertcat(out.field_table{:});
 out.field_names          = {fields.name}.';
 out.chfraydir_nom        = nom.src_dir(:);
-out.per_field_dwdx       = per_field_dwdx;
-out.per_field_w_nom_2d   = per_field_w_nom;
+if has_cfg
+    % configuration index per stacked row (kept as VALUES, not derived
+    % from indxall.i, so it survives the 'orient','xy' transpose)
+    indxall.config = floor((indxall.j(:) - 1) / (tile_cols * N)) + 1;
+    out.indxall          = indxall;
+    out.config_table     = cfgs(:);   % name + setter list (+ .raw verbatim)
+    out.config_names     = {cfgs.name}.';
+    out.per_field_dwdx     = per_field_dwdx;        % Nc x Nf
+    out.per_field_w_nom_2d = per_field_w_nom;       % Nc x Nf
+else
+    % preserved surface: without 'configs' the cells keep their Nf x 1
+    % shape and no configuration fields are added
+    out.per_field_dwdx     = per_field_dwdx(1, :).';
+    out.per_field_w_nom_2d = per_field_w_nom(1, :).';
+end
 out.rx_path              = rx_path;
 out.delta                = opts.delta;
 out.method               = opts.method;
-out.wf_elt               = per_field_struct{1}.wf_elt;
+out.wf_elt               = per_field_struct{1, 1}.wf_elt;
 out.rot_output           = opts.rot_output;
-out.cbm                  = per_field_struct{1}.cbm;
+out.cbm                  = per_field_struct{1, 1}.cbm;
 out = apply_opd_convention(out, opts.orient, opts.sign);
 out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
 
 % Add per-field LOS if SPOT was computed
 if opts.compute_los
-    out.dcdx_per_field = per_field_dcdx;
+    if has_cfg, out.dcdx_per_field = per_field_dcdx;
+    else,       out.dcdx_per_field = per_field_dcdx(1, :).'; end
     if isempty(opts.spot_elt)
         out.spot_elt = session.num_elt();  % Default focal plane
     else
         out.spot_elt = opts.spot_elt;
     end
 end
+end
+
+
+% =====================================================================
+function t = cfg_tag(has_cfg, cfgs, ic)
+% "config <name> / " prefix for the progress lines; EMPTY without
+% 'configs', so the log of a no-configs run is unchanged.
+if has_cfg, t = sprintf('config %s / ', cfgs(ic).name);
+else,       t = ''; end
 end
 
 
