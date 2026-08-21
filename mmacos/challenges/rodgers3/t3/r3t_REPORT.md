@@ -1,6 +1,6 @@
 # rodgers3-T3 -- offset_imager run
 
-2026-08-20 00:23:04.  EPD 75 mm, F/4 (EFL 0.300 m held as an identity), lambda 1.00 um, box 20x20° offset +22°, spacings [-0.722897 0 0.740828] m, model 256, nGridpts 41.
+2026-08-20 10:43:40.  EPD 75 mm, F/4 (EFL 0.300 m held as an identity), lambda 1.00 um, box 20x20° offset +22°, spacings [-0.722897 0 0.740828] m, model 256, nGridpts 41.
 
 Every WFE number below: strict RMS WFE, sphere centred on the spot centroid on the stage's frozen FPA, anchored at the exit pupil, piston-only removal (design/src strict kernel); headline = dense-map MAXIMUM over the box.
 
@@ -21,7 +21,7 @@ Metric: strict RMS WFE, centroid reference on the frozen stage FPA, exit-pupil a
 | **map max** | **37.8 nm** at XAN -6.0 YAN +2.0 |
 | map avg / std / min | 25.8 / 9.2 / 11.2 nm |
 | exit chief | 180.000° in Y-Z; err 0.000° vs pin -> PASS |
-| clearance floor | 0.0 mm (FAIL; gate >= 35 mm; WARN < 50 mm) |
+| clearance floor | 3.4 mm (FAIL; gate >= 35 mm) |
 
 Figures: `r3t_s1_layout.png`, `r3t_s1_map.png`.  Deck: `r3t_s1.in`.
 
@@ -42,7 +42,7 @@ Metric: strict RMS WFE, centroid reference on the frozen stage FPA, exit-pupil a
 | **map max** | **303585.5 nm** at XAN +10.0 YAN +32.0 |
 | map avg / std / min | 67609.0 / 64369.8 / 32517.0 nm |
 | exit chief | -180.000° in Y-Z; err 0.000° vs pin -> PASS |
-| clearance floor | 0.0 mm (FAIL; gate >= 35 mm; WARN < 50 mm) |
+| clearance floor | 27.0 mm (FAIL; gate >= 35 mm) |
 
 Figures: `r3t_s2_layout.png`, `r3t_s2_map.png`.  Deck: `r3t_s2.in`.
 
@@ -65,7 +65,7 @@ Metric: strict RMS WFE, centroid reference on the frozen stage FPA, exit-pupil a
 | **map max** | **252.0 nm** at XAN +0.0 YAN +22.0 |
 | map avg / std / min | 132.9 / 63.2 / 42.3 nm |
 | exit chief | 179.971° in Y-Z; err 0.029° vs pin -> PASS |
-| clearance floor | 0.0 mm (FAIL; gate >= 35 mm; WARN < 50 mm) |
+| clearance floor | 13.2 mm (FAIL; gate >= 35 mm) |
 
 Figures: `r3t_s3_layout.png`, `r3t_s3_map.png`.  Deck: `r3t_s3.in`.
 
@@ -78,19 +78,19 @@ Metric: strict RMS WFE, centroid reference on the frozen stage FPA, exit-pupil a
 | quantity | value |
 |---|---|
 | EFL (identity) | 0.300003 m = EPD 75 mm x F/4 |
-| paraxial BFD | -0.8630 m |
-| petzval c1-c2+c3 | -2.323e-02 1/m |
+| paraxial BFD | -0.8574 m |
+| petzval c1-c2+c3 | -4.513e-02 1/m |
 | plate scale | 87.27 um/arcmin |
-| stop semi-diameter (traced) | 46.7 mm |
-| radii R1..R3 | 6.60089 / -1.26016 / -1.03277 m |
-| conics K1..K3 | -11.784 / 4.9842 / 0.10904 |
-| YDE (mm) | +143.116 / -6.077 / -5.721 |
-| ADE (deg) | -2.5329 / -0.3044 / -0.0647 |
-| solve | s4: 140.4 -> 37.4 nm (qmean over solve set), 30 iters |
-| **map max** | **58.3 nm** at XAN +0.0 YAN +14.0 |
-| map avg / std / min | 37.5 / 9.2 / 22.2 nm |
-| exit chief | -179.979° in Y-Z; err 0.021° vs pin -> PASS |
-| clearance floor | 0.0 mm (FAIL; gate >= 35 mm; WARN < 50 mm) |
+| stop semi-diameter (traced) | 48.4 mm |
+| radii R1..R3 | 6.26952 / -1.31089 / -1.03361 m |
+| conics K1..K3 | -10.237 / 5.3456 / 0.11055 |
+| YDE (mm) | +112.240 / +3.975 / +2.631 |
+| ADE (deg) | +1.5591 / +0.2636 / +0.0355 |
+| solve | s4: 140.4 -> 70.7 nm (qmean over solve set), 30 iters |
+| **map max** | **113.6 nm** at XAN +0.0 YAN +12.0 |
+| map avg / std / min | 68.5 / 20.2 / 34.6 nm |
+| exit chief | -179.995° in Y-Z; err 0.005° vs pin -> PASS |
+| clearance floor | 34.1 mm (PASS; gate >= 35 mm; WARN < 50 mm) |
 
 Figures: `r3t_s4_layout.png`, `r3t_s4_map.png`.  Deck: `r3t_s4.in`.
 
@@ -101,19 +101,19 @@ Metric: strict RMS WFE, centroid reference on the frozen stage FPA, exit-pupil a
 | quantity | value |
 |---|---|
 | EFL (identity) | 0.300003 m = EPD 75 mm x F/4 |
-| paraxial BFD | -0.8679 m |
-| petzval c1-c2+c3 | -1.068e-02 1/m |
+| paraxial BFD | -0.8651 m |
+| petzval c1-c2+c3 | -3.362e-02 1/m |
 | plate scale | 87.27 um/arcmin |
-| stop semi-diameter (traced) | 46.1 mm |
-| radii R1..R3 | 6.66657 / -1.24003 / -1.03400 m |
-| conics K1..K3 | -11.902 / 5.2901 / 0.10742 |
-| YDE (mm) | +214.979 / -6.477 / -8.471 |
-| ADE (deg) | -2.8594 / -0.3801 / -0.1843 |
-| solve | s5: 1387.7 -> 18.8 nm (qmean over solve set), 30 iters |
-| **map max** | **78.4 nm** at XAN -10.0 YAN +28.0 |
-| map avg / std / min | 42.6 / 21.5 / 8.4 nm |
-| exit chief | 179.999° in Y-Z; err 0.001° vs pin -> PASS |
-| clearance floor | 0.0 mm (FAIL; gate >= 35 mm; WARN < 50 mm) |
+| stop semi-diameter (traced) | 47.5 mm |
+| radii R1..R3 | 6.09627 / -1.30605 / -1.03807 m |
+| conics K1..K3 | -11.493 / 6.288 / 0.1051 |
+| YDE (mm) | +106.278 / +6.116 / +0.277 |
+| ADE (deg) | +2.0120 / +0.8457 / -0.0950 |
+| solve | s5: 2150.1 -> 35.0 nm (qmean over solve set), 30 iters |
+| **map max** | **118.2 nm** at XAN -10.0 YAN +16.0 |
+| map avg / std / min | 52.0 / 20.3 / 14.0 nm |
+| exit chief | -180.000° in Y-Z; err 0.000° vs pin -> PASS |
+| clearance floor | 34.6 mm (PASS; gate >= 35 mm; WARN < 50 mm) |
 
 Figures: `r3t_s5_layout.png`, `r3t_s5_map.png`.  Deck: `r3t_s5.in`.
 
@@ -124,5 +124,5 @@ Figures: `r3t_s5_layout.png`, `r3t_s5_map.png`.  Deck: `r3t_s5.in`.
 | s1 | 37.8 | 25.8 | 9.2 |
 | s2 | 303585.5 | 67609.0 | 64369.8 |
 | s3 | 252.0 | 132.9 | 63.2 |
-| s4 | 58.3 | 37.5 | 9.2 |
-| s5 | 78.4 | 42.6 | 21.5 |
+| s4 | 113.6 | 68.5 | 20.2 |
+| s5 | 118.2 | 52.0 | 20.3 |

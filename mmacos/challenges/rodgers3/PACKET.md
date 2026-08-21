@@ -43,32 +43,38 @@ packaging envelope (spacings verbatim — designer inputs), his
 constraint set pinned: exit chief along [0 0 −1] (measured from his own
 decks: r3/r4/r5 hold it to ≤ 2e-5 rad), clearances 50/35 mm.
 
-| stage | freedom | our map max (11×11) | his rung | his nm | ours/his |
-|---|---|---|---|---|---|
-| S1 | conics+aspheres at the on-axis box | 37.8 | r1 | 159 | 0.24 |
-| S2 | offset box, FPA refit only | 303586 | r2 | 8810 | 34.5 |
-| S3 | re-solved at the offset | 252.0 | r3 | 168 | 1.50 |
-| S4 | + tilt/dec (+ radii) | **58.3** | r4 | 117 | **0.50** |
-| S5 | + Zernike (his term set) | 78.4 | r5 | 53 | 1.48 |
+| stage | freedom | our map max (11×11) | clearance (min pair) | his rung | his nm | ours/his |
+|---|---|---|---|---|---|---|
+| S1 | conics+aspheres at the on-axis box | 37.8 | 3.4 mm (n/a) | r1 | 159 | 0.24 |
+| S2 | offset box, FPA refit only | 303586 | 27.0 mm (n/a) | r2 | 8810 | 34.5 |
+| S3 | re-solved at the offset | 252.0 | 13.2 mm (n/a) | r3 | 168 | 1.50 |
+| S4 | + tilt/dec (+ radii), clearances enforced | **113.6** | **34.1 mm PASS** | r4 | 117 | **0.97** |
+| S5 | + Zernike (his term set), clearances enforced | 118.2 | 34.6 mm PASS | r5 | 53 | 2.23 |
 
-Exit chief within 0.03° of horizontal at every stage (the pin).  Three
-honest notes.  (1) Our S2 "disaster" is 34× his: our S1 solves 4×
+Exit chief within 0.03° of horizontal at every stage (the pin).
+Clearances: measured with the OI_CLEAR model (nine leg/obstacle pairs,
+per-field footprint disks ×1.15 over the box centre + YAN extremes,
+the FP counted as an obstacle) — the SAME model the S4/S5 solves pay
+via hinge residual rows.  His constraint binds from r4 on, and so does
+ours: S1–S3 report their (unconstrained) floors for context.
+
+**The S4 story is the headline of this table.**  Unconstrained, our S4
+reached 58.3 nm — with the M3→FP beam parked in M2's patch (min pair
+0.0 mm; Dave's read of the field-envelope figure, confirmed by the
+model).  Enforcing his ≥35 mm moves it to **113.6 nm at 34.1 mm — his
+r4 is 117 nm at his stated ≥35 mm**.  Paying the same constraint lands
+the same number to 3%: strong evidence the two toolchains are
+measuring the same design space, and a clean exhibit of what the
+clearance constraint costs (≈2× in WFE at this rung).
+
+Honest notes.  (1) Our S2 "disaster" is 34× his: our S1 solves 4×
 deeper on-axis than his r1, and harder-tuned on-axis aspheres cost
 proportionally more at the offset — the S2 rung measures the S1 design
-as much as the offset.  (2) Our S5 lands ABOVE our S4 (78.4 vs 58.3):
-82 variables against a 3×3 solve grid, still descending at the
-30-iteration cap — quoted as-solved, not min-taken; the
-more-DOFs-never-worse rule would report min(S4,S5) = 58.3 per branch.
-(3) CLEARANCES ARE NOT COMPARABLE YET, and this cuts against our S4/S5
-numbers.  The gate reads 0.0 mm at every stage.  Part is model
-crudeness (a circular union-footprint disk over-covers the real
-patches; the S4 layout figure shows M1's patch visibly separated from
-the M2→M3 beam by the ~50 mm class his slide claims), but part is
-REAL: in the S4 layout the M3→FP return beam passes through/near M2's
-patch — our solve never paid the clearance constraint his optimizer
-enforced, so our 58.3 nm at S4 is bought with packaging his 117 nm
-respects.  Template follow-up before any head-to-head clearance claim:
-convex-hull footprints + clearance as a solve wall.
+as much as the offset.  (2) Our S5 (118.2) sits at our S4 (113.6), far
+from his 53: 82 Zernike variables against a 3×3 solve grid at a
+30-iteration cap, now also carrying the clearance rows — the stage is
+convergence-limited, not physics-limited (the min-rule branch value is
+113.6).  Closing that gap is solver budget, not convention.
 
 ### Attribution of every difference
 
@@ -96,25 +102,29 @@ convex-hull footprints + clearance as a solve wall.
 
 ## 3. Counter-design looks (bounded, flagged — not iterated)
 
+Both counters run under the SAME constraint set as the main ladder
+(exit pin + the nine clearance hinge rows) and the same 30-iteration
+budget.
+
 **(a) Sphere+Zernike from the start** (sz doctrine): S3's radii, K = 0,
-no aspheres, straight to the S5 Zernike solve.  Result: **27.9 nm map
-max** vs the heritage path's 78.4 — and 1.9× BELOW his 53 nm rung,
-under his own term set and exit constraint.  Verdict: the asphere
-heritage is the burden, not the help — the sphere+Zernike start
-converges deeper in the same 30-iteration budget (20.8 µm → 3.1 nm
-qmean vs the heritage path's stall at 18.8).  This is the sz_tma
-doctrine reproducing on his own problem.  Caveat: both paths are
-iteration-capped, so the 78.4-vs-27.9 split partly measures
-convergence, not just the reachable floor; the 27.9 stands on its own
-against his 53 either way.
+no aspheres, straight to the S5 Zernike solve.  Result: **73.1 nm map
+max** vs the heritage path's 118.2 — a 1.6× win for the sphere+Zernike
+start under identical constraints, landing 1.38× of his 53.  (The
+earlier UNCONSTRAINED run of this counter reached 27.9 nm — with its
+beam through the glass; the clearance constraint is worth ~2.6× on
+this branch too.)  Verdict: the asphere heritage is a burden, not a
+help — same doctrine as sz_tma, now demonstrated on his own problem at
+his own constraints — but the outright beat of his 53 does not survive
+buildability at this solver budget.
 
 **(b) Is his 53 nm term-set-limited?**  He froze thicknesses (piston as
 the surrogate) and held power to the radii.  Releasing power (mode 5)
-and y-tilt (mode 3) into the S5 basis from the S4 design: 78.1 nm vs
-the same-start 78.4 — a wash.  Verdict: NO evidence his 53 nm is
-term-set-limited; the released modes buy nothing the pinned quantities
-(radii, pointing) had not already provided.  Same iteration-cap caveat
-as (a).
+and y-tilt (mode 3) into the S5 basis from the S4 design: 1372.9 nm —
+WORSE than the pinned-set 118.2 under the same budget (88 variables
+against 9 solve fields plus the constraint rows; the freed modes fight
+the pins' jobs and the solve chokes).  Verdict: no evidence his 53 nm
+is term-set-limited, and affirmative evidence for the pinning doctrine
+(power to radii, tilt to pointing) at finite solver budget.
 
 ## 4. Reproduction instructions
 
