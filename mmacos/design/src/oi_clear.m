@@ -61,7 +61,12 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
     yans = offset_deg + [0, -by, +by];
 
     ie = [1 3 4 5];                       % M1 M2 M3 FP element ids
-    S = cell(3,4);  cds = cell(1,3);
+    % Full-grid positions + per-element ok MASKS (ray identity kept):
+    % a leg pairs the SAME ray's crossings at its two ends, so its mask
+    % is the AND of both elements' -- per-element masking alone breaks
+    % (different counts) the moment rays are lost mid-train, which is
+    % exactly when clearance is most in question.
+    SF = cell(3,4);  OKm = cell(3,4);  S = cell(3,4);  cds = cell(1,3);
     for q = 1:3
         cdir = tancomp_(0, yans(q));  cds{q} = cdir;
         emit_src_(txt, tmp, seed_pos_(G, cdir), cdir);
@@ -76,7 +81,9 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
         for k = 1:4
             ok = h.ok(:, ie(k)+1);  ok(1) = false;
             if nnz(ok) < 5, return; end
-            S{q,k} = h.P(:, ok, ie(k)+1);
+            SF{q,k} = h.P(:, :, ie(k)+1);
+            OKm{q,k} = ok(:).';
+            S{q,k} = SF{q,k}(:, ok);      % per-element footprint (patches)
         end
     end
 
@@ -129,9 +136,12 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
             dm = inf;
             for q = 1:3
                 if L == 1
-                    A = S{q,1} - span*cds{q};  B = S{q,1};
+                    m = OKm{q,1};
+                    B = SF{q,1}(:,m);  A = B - span*cds{q};
                 else
-                    A = S{q,L-1};  B = S{q,L};
+                    m = OKm{q,L-1} & OKm{q,L};   % same ray at BOTH ends
+                    if nnz(m) == 0, continue; end
+                    A = SF{q,L-1}(:,m);  B = SF{q,L}(:,m);
                 end
                 for pq = 1:3
                     dm = min(dm, seg_patch_min_(A, B, pat{o}(pq), ds));
