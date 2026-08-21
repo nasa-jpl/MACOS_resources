@@ -111,7 +111,10 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
         pat{k} = pk;
     end
 
-    % nine pairs; each = min over (leg field) x (obstacle field disks)
+    % nine pairs; each = min over (leg field) x (obstacle field disks).
+    % Proximity sampling resolution: a quarter of the tightest clearance
+    % requirement, so sampled minima are accurate at the gate knee.
+    ds = 0.25 * min([P.clear_m(:); 0.020]);
     span = 1.2 * max(1e-3, abs(X.spacings(1)) + abs(X.spacings(3)));
     obst = { [2 3 4], [3 4], [1 4], [1 2] };
     j = 0;
@@ -126,7 +129,7 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
                     A = S{q,L-1};  B = S{q,L};
                 end
                 for pq = 1:3
-                    dm = min(dm, seg_patch_min_(A, B, pat{o}(pq)));
+                    dm = min(dm, seg_patch_min_(A, B, pat{o}(pq), ds));
                 end
             end
             d(j) = dm;
@@ -136,12 +139,43 @@ function [dmin, d] = oi_clear(X, G, P, offset_deg)
 end
 
 % =========================================================================
-function dm = seg_patch_min_(A, B, dk)
+function dm = seg_patch_min_(A, B, dk, ds)
 %SEG_PATCH_MIN_  Min distance of leg segments A->B to one field patch:
 %   the convex-hull polygon when dk.V2 is set, else the disk of record.
-    ns = 25;
-    dm = inf;
+%
+%   TWO-PART measure (the t4-wide lesson, 2026-08-20): the original 25
+%   fixed samples spaced ~60 mm on a 1.4 m leg reported 7 mm "clearance"
+%   for legs that PIERCE the glass between samples -- the S4/S5 hinge
+%   rows were blind to real blockage and the report gate asserted a
+%   buildability the layout figure plainly contradicted.
+%     (1) EXACT PIERCING: every segment that crosses the patch plane is
+%         tested AT its crossing point -- a leg through the glass is 0
+%         at any sampling;
+%     (2) proximity between the plane crossings is sampled at spacing
+%         <= DS (a quarter of the tightest clearance requirement).
     use_hull = ~isempty(dk.V2) && size(dk.V2, 2) >= 3;
+
+    % ---- (1) exact piercing test at the plane crossings -------------------
+    hA = dk.n.'*(A - dk.C);
+    hB = dk.n.'*(B - dk.C);
+    cx = find(hA.*hB < 0);
+    if ~isempty(cx)
+        sstar = hA(cx) ./ (hA(cx) - hB(cx));
+        Q = A(:,cx) + (B(:,cx) - A(:,cx)) .* sstar;
+        v = Q - dk.C;
+        if use_hull
+            ro = pts_to_poly_([dk.xa.'; dk.ya.'] * v, dk.V2);
+        else
+            ro = max(vecnorm(v - dk.n*(dk.n.'*v), 2, 1) - dk.r, 0);
+        end
+        if any(ro == 0), dm = 0; return; end
+        dm = min(ro);      % at a crossing h = 0: in-plane distance is exact
+    else
+        dm = inf;
+    end
+
+    % ---- (2) length-scaled proximity sampling -----------------------------
+    ns = min(4001, max(51, ceil(max(vecnorm(B - A, 2, 1)) / ds)));
     for s = linspace(0, 1, ns)
         Q = A + s*(B - A);
         v = Q - dk.C;
