@@ -1,13 +1,15 @@
 # PLAN — a CONFIGURATIONS axis for the sensitivity supervisors
 
-**Status: SKETCH, for Dave's review.  Nothing implemented.**
-Written 2026-08-19 (Luis round 2, item 5).  Gated on Dave's sign-off on
-the API below, and on the §5 question of whether a compensation state is
-a configuration or a DOF.
+**Status: APPROVED FOR EXECUTION (Dave, 2026-08-20).  Nothing
+implemented yet.**  Written 2026-08-19 (Luis round 2, item 5); reviewed
+and amended 2026-08-20 — the §5 questions are SETTLED (answers recorded
+in place), and four review fixes are folded in: the v1 setter
+whitelist (§2), the reload hatch's session-state obligation (§2), the
+exit-pupil policy per block (§2.1), and the §7 corrections.
 
-The fixture is NOT gated: Luis's zoom decks carry proprietary data, so
-§6 builds one from `j18sc.in` instead, and its feasibility is already
-measured.
+The fixture is committed: Luis's zoom decks carry proprietary data, so
+§6 builds one from `j18sc.in` instead (staged as
+`jwst_ote_designc.in`), and its feasibility is already measured.
 
 ## 1. The requirement, as understood
 
@@ -38,8 +40,22 @@ cfg = struct( ...
 ```
 
 A **list of setter invocations**, each `{fname, args...}` dispatched
-against the Session (`m.(fname)(args{:})`).  Three properties make this
-the right shape rather than, say, a struct of DOF values:
+against the Session (`m.(fname)(args{:})`).
+
+**v1 WHITELIST (review fix, 2026-08-20).**  The snapshot below records
+POSE state only, so v1 accepts only setters whose effects the snapshot
+can restore: `perturb`, `set_elt_vpt`, `set_elt_psi`, `set_elt_rpt`,
+`set_elt_csys`.  Any other name in a configuration list is a LOUD error
+at validation time, before anything is applied.  The Session surface
+also carries `set_elt_kr/kc`, `set_elt_zrn_coef`, `set_elt_grid`,
+grating and `set_src_*` setters — a configuration invoking those would
+apply cleanly and then RESTORE SILENTLY WRONG, which is exactly the
+contamination failure the assertion exists to prevent.  Extending the
+axis to those setters means extending the snapshot per state category
+first; that is a later, separate step.
+
+Three properties make the setter-list the right shape rather than, say,
+a struct of DOF values:
 
 1. **It is the surface we already have.**  Anything a user can do to an
    element between two traces is expressible; nothing new to design.
@@ -62,18 +78,48 @@ mechanisms, and the sketch takes the second:
 - **Snapshot / restore the touched elements.**  Before a configuration,
   record `get_elt_vpt/psi/rpt` (+ `get_elt_csys`) for every element the
   list mentions; after the field loop, write them back.  Element-scoped,
-  setter-agnostic, and verifiable: the runner re-reads the snapshot after
-  restore and asserts it matches, so a configuration that fails to
-  restore is a loud error rather than silent contamination of the NEXT
-  configuration's block.  **This assertion is the load-bearing part of
-  the design** — a per-configuration Jacobian silently computed from the
-  previous configuration's geometry is the failure mode that would be
-  hardest to notice.
+  setter-agnostic (within the §2 whitelist), and verifiable: the runner
+  re-reads the snapshot after restore and asserts it matches, so a
+  configuration that fails to restore is a loud error rather than silent
+  contamination of the NEXT configuration's block.  **This assertion is
+  the load-bearing part of the design** — a per-configuration Jacobian
+  silently computed from the previous configuration's geometry is the
+  failure mode that would be hardest to notice.
+
+Snapshot scope addition (review fix): also record element `nElt-1` (the
+`Return` the exit-pupil machinery writes into — see §2.1) at run START
+and restore it at run END, so the session is left clean; EXCLUDE
+`nElt-1` from the per-configuration assertion, because FEX legitimately
+rewrites it every field.
 
 `reload_rx` per configuration is the brute-force alternative.  It is
-simpler and obviously correct, but it discards the per-field exit-pupil
-state and costs a full parse per configuration; keep it as an escape
-hatch (`'config_restore','reload'`) rather than the default.
+simpler-looking but NOT obviously correct: a reload discards SESSION
+state, not just parse effort — the stop set by `stop_info_set` (the §6
+fixture's stop-at-25 exists ONLY as session state; the deck carries no
+`ApStop=`), the sampling override, and the OPD reference
+(`opd_ref_set` is reset by every load).  An escape hatch
+(`'config_restore','reload'`) that fails to re-apply those produces
+wrong-stop Jacobians that look fine.  If the hatch is kept, it MUST
+re-apply stop/sampling/opd_ref after every reload and assert the stop
+element matches; otherwise drop it.
+
+### 2.1 Exit-pupil policy per configuration block (review fix)
+
+`dw_d*_multi` already re-finds the exit pupil PER FIELD
+(`'reset_xp'` default true; FEX writes the pupil reference into element
+`nElt-1`).  The configuration axis composes with that as follows, and
+the implementation must keep this order:
+
+1. apply the configuration's setter list;
+2. `modify()` once;
+3. call the supervisor for the block — its per-field `reset_xp` then
+   derives every field's exit pupil FROM THE CONFIGURED GEOMETRY (a
+   pupil-fold FSM tilt moves the EP; that is physics, not drift);
+4. restore the snapshot; assert (excluding `nElt-1`).
+
+Consequence of (3): `nElt-1` carries per-(configuration, field) pupil
+state during the run — which is why it is in the run-level snapshot and
+out of the per-configuration assertion.
 
 ## 3. Proposed API
 
@@ -144,24 +190,22 @@ zoom/compensation schedule naturally arrives in (a spreadsheet).
   larger question.
 - **No zoom interpolation.**  Configurations are discrete named states.
 
-## 5. Open questions for Dave
+## 5. Questions — SETTLED (Dave, 2026-08-20, via review)
 
-1. **Is the compensation state a CONFIGURATION or a DOF?**  A steering
-   mirror that compensates pointing is, in a controls sense, part of the
-   plant, not a discrete zoom.  If the intended use is "evaluate the
-   Jacobian at 5 points along a compensator's range", the configuration
-   axis is right.  If it is "solve for the compensator", it is a DOF and
-   belongs in the channel list.  The sketch assumes the former, because
-   that is what "5 zooms × 5 fields" describes.
-2. **Should a configuration be allowed to change the FIELD SET?**  A real
-   zoom changes the field of view.  The sketch shares one field set
-   across configurations (which is what makes row-stacking clean).  If
-   per-configuration fields are needed, `config_table` carries its own
-   field table and the stacked form still works — but `run_compare`'s
-   assumptions need re-checking.
-3. **Restore-by-snapshot vs reload** — the sketch's default (§2).
-4. **Baseline impact:** none, by construction (`configs` absent ⇒
-   identical). Confirm that is the acceptance criterion.
+1. **Configuration, not DOF.**  The requirement is "evaluate the
+   Jacobian at N points along the compensator's range", so the
+   configuration axis is right — AND the same element may
+   simultaneously be a channel column (§6's modelling point); the two
+   roles compose, they do not compete.  If a later use case is "solve
+   for the compensator", that is a channel-list entry, not a
+   configuration.
+2. **One field set shared across configurations.**  Per-configuration
+   field tables are deferred until a real zoom needs them (and then
+   `run_compare`'s assumptions get re-checked first).
+3. **Restore-by-snapshot is the default**; the reload hatch only
+   survives with the session-state re-application obligation of §2.
+4. **Byte-identical when `configs` is absent IS the acceptance
+   criterion** (the preserved-surface rule), gated by the §7 test.
 
 ## 6. The fixture — built here, not sourced
 
@@ -241,24 +285,29 @@ consequences the implementation must honour:
   `channel_names` equality per block; a configuration that changed the
   element count would silently misalign the stack.
 
-## 7. Deliverables and order
+## 7. Deliverables, in BUILD order (review fix: option before driver)
 
-1. `run_dwdx_5zoom_5fov.m` — the driver, in its own template directory
-   with `j18sc.in` copied beside it (self-contained, per the templates
-   rule).  Thin, over `run_sensitivities` with `'configs'`, matching the
-   existing `run_dwdx_multi.m` register.
-2. The `'configs'` option itself — `macos.dw_dx_multi` first, then the
-   `run_sensitivities` pass-through (§3).
-3. `run_dwdz_5zoom_5fov.m`, `run_dwdsurf_5zoom_5fov.m`,
+1. The `'configs'` option itself — `macos.dw_dx_multi` first, then the
+   `run_sensitivities` pass-through (§3), with the §2 whitelist,
+   snapshot/restore/assertion, and the §2.1 ordering.
+2. The `tRunSensitivities` case, WITH deliverable 1: `'configs'` absent
+   reproduces the current output BYTE-FOR-BYTE (the preserved-surface
+   rule), and a 2-config run stacks to `2*Nw` rows with identical
+   `channel_names` per block and a passing restore assertion.
+3. `run_dwdx_5zoom_5fov.m` — the driver, in
+   `templates/50_sensitivities/zoom_5x5/` beside the committed
+   `jwst_ote_designc.in` (self-contained, per the templates rule).
+   Thin, over `run_sensitivities` with `'configs'`, matching the
+   existing `run_dwdx_multi.m` register.  The 25-block run gets the
+   resumable-workspace treatment: save per-block progress into the
+   artifact dir so a killed run resumes, and prune on success.
+4. `run_dwdz_5zoom_5fov.m`, `run_dwdsurf_5zoom_5fov.m`,
    `run_dwdgrid_5zoom_5fov.m` once the axis is proven on dwdx.  The grid
    rung needs `grid_augment_rx` on a 19-segment deck; treat it as its own
-   step, not a copy-paste.
-4. A `tRunSensitivities` case: `'configs'` absent reproduces the current
-   output BYTE-FOR-BYTE (the preserved-surface rule), and a 2-config run
-   stacks to `2*Nw` rows with identical `channel_names` per block.
+   step, not a copy-paste.  dwdgrid also touches grid STATE — check the
+   §2 whitelist interaction before starting (a configuration must still
+   be pose-only there).
 
 ## 8. Still open before writing code
 
-The four questions in §5 — chiefly whether a compensation state is a
-configuration or a DOF (§5.1), which decides whether this fixture is the
-right shape at all.
+Nothing.  §5 is settled; execute §7 in order.
