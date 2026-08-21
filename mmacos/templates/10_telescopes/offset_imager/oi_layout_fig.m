@@ -76,6 +76,7 @@ function [png, png_fields] = oi_layout_fig(X, G, P, offset_deg, stage_lbl, png)
         ok = true(size(E{1}.ok));
         for ie = 1:nE, ok = ok & E{ie}.ok; end
         ok(1) = false;
+        if nnz(ok) < 2, continue; end   % field lost its rays: skip, not crash
         % incoming leg: reconstruct upstream of M1
         cd = tancomp_(F(q,1), F(q,2));
         P1 = E{1}.pos(:,ok);
@@ -100,8 +101,10 @@ function [png, png_fields] = oi_layout_fig(X, G, P, offset_deg, stage_lbl, png)
         for q = 1:3
             E = sc.rays{q};  if isempty(E), continue; end
             e = E{mirror_ie(m)};  ok = e.ok;  ok(1) = false;
+            if nnz(ok) == 0, continue; end
             ylo = min(ylo, min(e.pos(2,ok)));  yhi = max(yhi, max(e.pos(2,ok)));
         end
+        if ~isfinite(ylo), continue; end
         pad = 0.06*(yhi - ylo + 1e-6);
         yy = linspace(ylo - pad, yhi + pad, 80);
         c = 1/X.R(m);  k = X.K(m);
@@ -142,7 +145,11 @@ function [png, png_fields] = oi_layout_fig(X, G, P, offset_deg, stage_lbl, png)
          sprintf('exit chief %.2f%c', atan2d(ex_d(2), ex_d(3)), char(176)), ...
          'Color',[0.8 0.1 0.1], 'FontSize', 10, 'FontWeight','bold');
 
-    legend(ax, hleg, fldlbl, 'Location','best', 'AutoUpdate','off', 'Box','off');
+    vv = isgraphics(hleg);
+    if any(vv)
+        legend(ax, hleg(vv), fldlbl(vv), 'Location','best', ...
+               'AutoUpdate','off', 'Box','off');
+    end
     axis(ax,'equal');  grid(ax,'on');
     % pad the axes so element labels near the data extremes stay on-canvas
     xl = xlim(ax);  yl = ylim(ax);
