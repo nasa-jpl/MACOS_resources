@@ -34,7 +34,18 @@ function gt = oi_gates(X, G, P, offset_deg)
     sc = oi_score(txt, G, F, 'rays', true);
 
     % ---- exit chief -----------------------------------------------------------
+    % (guarded, F6 family: a box-centre field that loses every ray hands
+    % back an empty double -- the exit direction is then UNMEASURABLE and
+    % the gate FAILS with a message, it does not crash)
     Ec = sc.rays{1};
+    if ~iscell(Ec) || numel(Ec) < 4 || isempty(Ec{4}.pos)
+        fprintf(['  oi_gates: box-centre field lost every ray -- exit ' ...
+                 'direction unmeasurable (gate FAIL)\n']);
+        gt.exit_dir = nan(3,1);
+        gt.exit_ang_deg = NaN;
+        gt.exit_err_deg = NaN;
+        gt.exit_pass = false;
+    else
     ex_p = Ec{4}.pos(:,1);  ex_d = Ec{4}.dir(:,1);   %#ok<NASGU> % post-M3 chief
     gt.exit_dir = ex_d;
     gt.exit_ang_deg = atan2d(ex_d(2), ex_d(3));
@@ -45,6 +56,7 @@ function gt = oi_gates(X, G, P, offset_deg)
     else
         gt.exit_err_deg = NaN;
         gt.exit_pass = true;          % report-only
+    end
     end
 
     % ---- clearances (the OI_CLEAR model -- identical to the S4/S5 solve
