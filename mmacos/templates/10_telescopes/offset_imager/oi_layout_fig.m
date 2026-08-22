@@ -137,13 +137,18 @@ function [png, png_fields] = oi_layout_fig(X, G, P, offset_deg, stage_lbl, png)
          'HorizontalAlignment','center', 'FontSize', 11, 'FontWeight','bold');
 
     % ---- exit-chief annotation, placed off the beam -------------------------
-    E = sc.rays{1};  ex_p = E{4}.pos(:,1);  ex_d = E{4}.dir(:,1);
+    % (guarded: a field that loses every ray hands back an empty double,
+    % not a cell -- the t5 attempt-2 crash site)
+    E = sc.rays{1};
+    if iscell(E) && numel(E) >= 4 && ~isempty(E{4}.pos)
+    ex_p = E{4}.pos(:,1);  ex_d = E{4}.dir(:,1);
     a = quiver(ax, ex_p(3)+0.05*ex_d(3), ex_p(2)+0.05*ex_d(2), ...
                0.22*ex_d(3), 0.22*ex_d(2), 0, 'Color',[0.8 0.1 0.1], ...
                'LineWidth', 2, 'MaxHeadSize', 0.9); %#ok<NASGU>
     text(ax, ex_p(3)+0.30*ex_d(3), ex_p(2)+0.30*ex_d(2)-0.03, ...
          sprintf('exit chief %.2f%c', atan2d(ex_d(2), ex_d(3)), char(176)), ...
          'Color',[0.8 0.1 0.1], 'FontSize', 10, 'FontWeight','bold');
+    end
 
     vv = isgraphics(hleg);
     if any(vv)

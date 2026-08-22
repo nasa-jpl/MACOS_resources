@@ -93,5 +93,52 @@ classdef tOffsetImager < matlab.unittest.TestCase
                 'recover (s3 %.0f vs s2 %.0f nm)'], ...
                 tc.OUT.s3.map.max_nm, tc.OUT.s2.map.max_nm));
         end
+        function test_total_ray_loss_reported_not_crashed(tc)
+            % F6/F7 (the t5 unguided experiment): fields that lose every
+            % ray must produce an INVALID map + a diagnosed figure --
+            % never a helper crash.  The fixture is the REAL committed
+            % t5 attempt-2 S1 deck (measured: 1173/1185 Surface miss +
+            % 8 bracket at the box top, ZERO obscured -- deep aspheres
+            % whose steep fields have no intersection; a bare conic
+            % cannot reproduce it).
+            here = fileparts(mfilename('fullpath'));
+            tdir = fullfile(here, '..', 'templates', '10_telescopes', ...
+                            'offset_imager');
+            addpath(tdir);
+            % attempt-2's committed envelope (run_t5b.m, verbatim)
+            P = offset_imager_params(struct('map_n',3, 'sampling',21, ...
+                    'solve_sampling',21, 'tag','tf6', 'outdir',tempdir, ...
+                    'EPD_m',0.150, 'Fno',3.3, 'box_deg',[15 15], ...
+                    'offset_deg',22.5, 'z_m1_m',1.09717872, ...
+                    'spacings_m',[-1.19277972 0 1.2223662], ...
+                    'seed_R1_m',14.52));
+            macos.init(P.model);
+            X = oi_seed(P);
+            [X, G] = oi_close(X, P, 'offset_deg', 0);   % S1's own G: on-axis stop
+            X.fpa = oi_apply_fpa(X);  G.fpa = X.fpa;
+            deck = fileread(fullfile(tdir, 't5_unguided', 'attempt2', ...
+                                     't5_s1.in'));
+
+            % partial loss: a map straddling the traceability edge
+            png1 = fullfile(tempdir, 'tf6_map_partial.png');
+            [~, mp] = oi_map_fig(X, G, P, 50, 'F6 gate partial', png1, deck);
+            tc.assertGreaterThan(mp.n_failed, 0, ...
+                'gate vacuous: the committed t5 deck lost no fields');
+            tc.verifyLessThan(mp.n_failed, mp.n_fields, ...
+                'expected PARTIAL loss at offset 50');
+            tc.verifyFalse(mp.valid);
+            tc.verifyTrue(isfinite(mp.max_nm));
+            tc.verifyTrue(isfile(png1));
+
+            % total loss: every field beyond the edge
+            png2 = fullfile(tempdir, 'tf6_map_total.png');
+            [~, mp2] = oi_map_fig(X, G, P, 65, 'F6 gate total', png2, deck);
+            tc.verifyEqual(mp2.n_failed, mp2.n_fields, ...
+                'expected TOTAL loss at offset 65');
+            tc.verifyFalse(mp2.valid);
+            tc.verifyTrue(isnan(mp2.max_nm));
+            tc.verifyTrue(isfile(png2));
+        end
+
     end
 end

@@ -620,6 +620,10 @@ function [sel, ring3] = pick_bundle_(h, opts)
 %PICK_BUNDLE_  Sparse-but-filled ray selection from the source plane.
 P0 = squeeze(h.P(:, :, 1));
 ok0 = h.ok(:, 1).';
+if ~any(ok0)            % zero-ray trace: no bundle, no source ring
+    sel = zeros(1, 0);  ring3 = zeros(3, 0);
+    return
+end
 c = mean(P0(:, ok0), 2);
 A = P0(:, ok0) - c;
 [Ub, ~, ~] = svd(A, 'econ');
