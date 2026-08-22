@@ -176,23 +176,32 @@ run_s5_signed();   % probe C, honest rows     (~4 h)
 - Every figure in this deck regenerates from the committed .mats without re-solving (the deck generators parse the records — nothing is hand-typed).
 ~ strict RMS WFE, centroid reference on the stage's frozen focal plane, exit-pupil anchor, piston-only removal; quoted statistic = dense 11x11 map MAXIMUM over the field box.
 
-## F15 — Can a new user re-instance it without an agent? | The experiment is running; its protocol is the point
+## F15 — Can a new user re-instance it without an agent? | Measured: FAIL — three attempts, three crashes, none past stage 2 of 5
 ::: left
-- The claim under test: "a re-do at different parameters is ONE CALL."  The instrument: an agent restricted to the COMMITTED docs only (README, packet + addendum, function help) — no lore files, no memory, no fixes allowed — plays the new-user proxy at a fresh instance: EPD 150 mm, F/3.3, 15°x15° at 22.5°, clearances > 40 / > 25 mm, exit horizontal.
-- The PACKAGING ENVELOPE is deliberately left to the docs: whether a documented feasibility screen (the field-walk rule, addendum SSC) gets found and applied is part of the measurement.
-- The deliverable either way: a verdict plus a verbatim FRICTION LIST — every silence, wrong turn, and guess.  A negative result is a valid result.
-- Result: PENDING -- the run is in progress; this slide updates itself from t5_unguided_REPORT.md at the next build.
-::: right
-- Why it matters here: the retired second instance (slide B5's exhibit) failed precisely where documentation had not yet compiled the lesson.  This experiment measures how far the NOW-committed docs and gates carry an unassisted user.
-~ Protocol: BRIEF_oi_unguided (repo-external instrument; the report commits as challenges/rodgers3/t5_unguided_REPORT.md).
+- The protocol: an agent restricted to the COMMITTED docs (README, packet + addendum, function help) — no lore, no memory, no fixes — plays the new-user proxy at a fresh instance (EPD 150 mm, F/3.3, 15°x15° at 22.5°, clearances > 40 / > 25 mm, exit horizontal), envelope and seed left to the docs.
 
-## F16 — Should mmacos embed an agent helper? | Questions for this audience
+| attempt | envelope | reached | died in |
+| 1 | 2× rodgers3 (EPD ratio) | S1 (20.9 nm) | oi_map_fig:43 |
+| 2 | 1.65× rodgers3 (EFL ratio, the rescale the docs name) | S1 (30.6 nm) | oi_layout_fig:140 |
+| 3 | as attempt 2, `stages=[1 3 4 5]` (documented S2 skip) | S1 (30.6 nm) | oi_map_fig:43 |
+- One optical root cause, in the packet's own words: the S1 solve runs far deeper than the source rung (20.9 / 30.6 nm vs the reported 159), and "the S2 rung measures the S1 design as much as the offset" — taken past the point where the offset box traces at all.  The docs NAME the mechanism and offer no guard, cap, or knob.
+::: right
+- The frictions to act on first (of 15, all in the committed report):
+- F7 — a dense-map headline can be computed from ONE surviving field point, with no warning: attempt 2's S2 printed [max 768194.5, avg 768194.5, std 0.0] — one finite point of 121; the failed fraction is never reported.
+- F8 — the flow proceeds from a design it has already scored as unusable: one check there converts three opaque crashes into one accurate sentence.
+- F1/F2 — the README's own run recipe errors on the path, and oi_story is undocumented outside its help.
+- F3/F4 — no documented way to choose the envelope, and seed_R1_m is load-bearing with nothing saying so.
+- F13 — the addendum's 25-solve-field lesson never reached the nsolve default or its help.
+- What WORKED: the constraint conventions were guessable and the gates confirmed the guesses; the packet's t4 retraction kept the user out of the retired trap without opening it.
+~ Instrument: BRIEF_oi_unguided; deliverable: challenges/rodgers3/t5_unguided_REPORT.md (verbatim, committed).  A negative result is a valid result — this one prices the gap between "documented" and "actionable".
+
+## F16 — Should mmacos embed an agent helper? | The F15 result feeds both camps — that is the question
 ::: left
-- The evidence FOR, from this arc: every defect found was a CONCEPTUAL coupling — a frame convention, a metric reference, a constraint model — that documentation had not prevented; agent-in-the-loop found and fixed each in hours; the gotcha corpus already exists and could ship as a runtime advisor (macos.assist: "you are poking a segment whose grid frame differs from its Mon frame — the response will not localize").
-- The evidence AGAINST, from the same arc: every fix COMPILED into a check — the prescription validator, the pose bound, the signed piercing measure, the gate map of D13.  Compiled knowledge is inspectable, testable, and maintenance-stable; a runtime assistant is none of those by default.  Slide F15 measures how far docs + gates alone go.
+- FOR, from this arc: every defect found was a CONCEPTUAL coupling — a frame convention, a metric reference, a constraint model — that documentation had not prevented; agent-in-the-loop found and fixed each in hours.  And F15's one conceptual failure (S1 depth poisoning offset traceability) was DOCUMENTED and still not actionable — the case for advice AT CALL TIME ("your S1 is 8x deeper than the reference; expect the offset box to lose rays").
+- AGAINST, from the same arc: every fix COMPILED into a check — the prescription validator, the pose bound, the signed piercing measure, the gate map — and 13 of F15's 15 frictions compile the same way (guards, caps, doc lines; F8 is literally "one check converts three crashes into one sentence").  Compiled knowledge is inspectable, testable, maintenance-stable; a runtime assistant is none of those by default.
 ::: right
 - Where is the line between knowledge compiled into checks and knowledge served by an assistant?
 - What should a helper catch AT CALL TIME that a validator cannot?
 - Who maintains the helper's knowledge when the engine moves — and how is IT gated?
 - Would you trust a design whose constraint model was chosen by the assistant?
-~ Discussion slide: questions are the deliverable.  Positions welcome; the F15 result will move this debate one way or the other.
+~ Discussion slide: questions are the deliverable.  The measured input: docs + gates, as committed today, did NOT carry an unassisted user through a re-instance — and most of why is compilable.
