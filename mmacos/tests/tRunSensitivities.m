@@ -514,22 +514,33 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             L = splitlines(string(fileread(f)));
             isff = ~cellfun(@isempty, regexp(strtrim(L), ...
                 '^Surface=\s*FreeForm', 'once'));
-            tc.verifyEqual(nnz(isff), 19, ...
-                'the committed fixture must carry 19 FreeForm segments');
+            % 18 real segments (5-22) + SM (23) + TM (24) = 20 FreeForm.
+            % Element 4 (virtual, obscured) stays Conic.
+            tc.verifyEqual(nnz(isff), 20, ...
+                'the committed fixture must carry 20 FreeForm optics (segs+SM+TM)');
+            % demote to the Conic "before"; also drop the grid lines the
+            % promoter wrote onto SM/TM (a grid on Conic is inert, but
+            % GridFile= flat64.txt would still be resolved -- strip to be
+            % clean) is unnecessary: SetFreeFormFlags runs only for
+            % FreeForm, so Conic ignores nGridMat.  Just swap the surface.
             L(isff) = regexprep(L(isff), 'FreeForm', 'Conic  ');
             wd = tempname; mkdir(wd);
             cwd = onCleanup(@() rmdir(wd, 's'));
             conic = fullfile(wd, 'conic.in');
             fid = fopen(conic, 'w'); fprintf(fid, '%s\n', L); fclose(fid);
+            % the grid file the deck references must sit beside the copy
+            copyfile(fullfile(fileparts(f), 'flat64.txt'), ...
+                     fullfile(wd, 'flat64.txt'));
+            copyfile(f, fullfile(wd, 'ff.in'));
 
-            [Wf, okf] = tc.zoom_opd(f);
+            [Wf, okf] = tc.zoom_opd(fullfile(wd, 'ff.in'));
             [Wc, okc] = tc.zoom_opd(conic);
             tc.verifyTrue(isequal(okf, okc), ...
                 'promotion changed the valid-ray mask');
             d = max(abs(Wf(okf) - Wc(okc)));
             tc.verifyLessThan(d, 1e-8, sprintf( ...
                 ['promotion is not optically inert: max|dOPD| = %.3e mm ' ...
-                 '(floor ~7e-11 mm, gate 1e-8 mm)'], d));
+                 '(floor ~5e-11 mm, gate 1e-8 mm)'], d));
             % NON-VACUITY: the demotion actually removed the FreeForm-ness
             mc = macos.Session(512);  mc.load_rx(conic);
             tc.verifyEmpty(mc.find_freeform_elts(), ...
@@ -546,62 +557,121 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             f = tc.zoom_fixture();
             m = macos.Session(512);  m.load_rx(f);
             ff = m.find_freeform_elts();
-            tc.verifyEqual(numel(ff), 19, ...
-                'the promoted fixture must expose 19 FreeForm elements');
+            % 18 real segments + SM (23) + TM (24) = 20; elt 4 stays Conic.
+            tc.verifyEqual(numel(ff), 20, ...
+                'the promoted fixture must expose 20 FreeForm optics (segs+SM+TM)');
+            tc.verifyTrue(all(ismember([23 24], ff)), ...
+                'SM (23) and TM (24) must be FreeForm (dw/dz harvests them)');
+            tc.verifyFalse(ismember(4, ff), ...
+                'the virtual centre (elt 4) must stay Conic, not FreeForm');
 
             wd = tempname; mkdir(wd);
             cwd = onCleanup(@() rmdir(wd, 's'));
-            % ---- dw/dz MonZernike, trimmed: 3 segs x 2 modes, 1 config -
-            segs = ff(1:3).';
+            % ---- dw/dz MonZernike, trimmed: a couple segs + SM + TM ----
+            elts = [ff(1:2).' 23 24];
             oz = run_sensitivities(f, 'fov_rad', 2.9e-4, 'channels', "dwdz", ...
                 'stop_elt', 25, 'ngridpts', 31, 'model_size', 512, ...
-                'zmodes_fig', 4:5, 'elts', segs, 'per_element', [], ...
+                'zmodes_fig', 4:5, 'elts', elts, 'per_element', [], ...
                 'out_dir', wd, 'name', 'zdz', 'verbose', false);
             tc.verifyFalse(isempty(oz.oz), 'dw/dz harvested nothing');
-            for s2 = segs
+            for s2 = elts
                 tc.verifyEqual(nnz(startsWith(oz.oz.channel_names, ...
                     sprintf('Elt %d MonZern', s2))), 2, ...
-                    sprintf('segment %d must contribute 2 MonZern modes', s2));
+                    sprintf('optic %d must contribute 2 MonZern modes', s2));
             end
             tc.verifyGreaterThan(max(abs(oz.oz.dwdxall), [], 'all'), 0, ...
                 'the MonZernike Jacobian is all zero (channel not live)');
 
-            % ---- dw/dgrid, trimmed: 3 segs x 2 modes, augmented grid ---
-            og = run_sensitivities(f, 'fov_rad', 2.9e-4, 'channels', "dwdgrid", ...
+            % ---- dw/dgrid, trimmed: segments (augmented) + SM + TM.  SM/TM
+            % carry their grid in the DECK; segments are grid-augmented.  A
+            % mixed influence struct (shared per-segment basis + a
+            % full-aperture basis per SM/TM) exercises the multi-basis path.
+            rxg = fullfile(wd, 'zdg_grid.in');
+            macos.design.grid_augment_rx(f, rxg, 'ng', 64, 'span_frac', 1.0);
+            copyfile(fullfile(fileparts(f), 'flat64.txt'), ...
+                     fullfile(wd, 'flat64.txt'));
+            sgb = macos.segment_grid_basis(m, rxg, 'pm_ref_elt', 5, ...
+                'modes', 4:5, 'orthogonalize', true);
+            fn = fieldnames(sgb.seg);
+            for e = [23 24]
+                ns = double(macos.get_elt_grid_size(e));
+                s = sgb.seg(1);  for q=1:numel(fn), s.(fn{q}) = []; end
+                s.iElt = e;  s.B = macos.zernike_grid_basis(ns, 4:5);
+                s.mask = true(ns);  s.mask_px = ns*ns;
+                if isfield(s,'R_seg'), s.R_seg = (ns-1)/2; end
+                sgb.seg(end+1) = s;
+            end
+            og = run_sensitivities(rxg, 'fov_rad', 2.9e-4, 'channels', "dwdgrid", ...
                 'stop_elt', 25, 'ngridpts', 31, 'model_size', 512, ...
-                'zmodes_grid', 4:5, 'ng', 64, 'elts', segs, ...
-                'per_element', [], 'out_dir', wd, 'name', 'zdg', ...
-                'verbose', false);
+                'influence', sgb, 'per_element', [], 'out_dir', wd, ...
+                'name', 'zdg', 'verbose', false);
             tc.verifyFalse(isempty(og.og), 'dw/dgrid harvested nothing');
-            tc.verifyEqual(size(og.og.dwdgall, 2), 2*numel(segs), ...
-                'dw/dgrid must build 2 modes x 3 segments of channels');
             tc.verifyGreaterThan(max(abs(og.og.dwdgall), [], 'all'), 0, ...
                 'the grid Jacobian is all zero (channel not live)');
+            % SM & TM must have grid channels too (2 modes each)
+            for e = [23 24]
+                tc.verifyEqual(nnz(og.og.iElt == e), 2, sprintf( ...
+                    'optic %d must contribute 2 grid channels (own basis)', e));
+            end
         end
 
         function test_promoted_segment_poke_localizes(tc)
             % PLAN condition 3 (frames before amplitudes), the non-vacuity
-            % check: a MonZernike poke on ONE segment must respond, and
-            % its footprint must be near-disjoint from another segment's
-            % -- the "central dot" failure (a poke that de-localizes to
-            % the aperture centre because the Mon frame is not the
-            % segment's clocked triad) overlaps every segment at the
-            % centre.  Poked here is the CENTRE segment (elt 4, whose
-            % clocked frame was SYNTHESIZED by the promoter) against an
-            % outer segment (elt 5), so the synthesized frame is the one
-            % under test.
+            % check: a MonZernike poke on ONE optic must respond, and its
+            % footprint must be near-disjoint from another's -- the
+            % "central dot" failure (a poke that de-localizes because the
+            % Mon frame is not the optic's clocked triad) overlaps every
+            % optic at the aperture centre.  Two real segments on opposite
+            % sides (5 and, from find_freeform_elts, one far away) must
+            % have disjoint support.
             f = tc.zoom_fixture();
-            [d4, ok4] = tc.poke_dopd_(f, 4, 4, 1e-3);   % centre seg, mode 4
-            [d5, ok5] = tc.poke_dopd_(f, 5, 4, 1e-3);   % outer seg,  mode 4
-            r4 = max(abs(d4(ok4)));  r5 = max(abs(d5(ok5)));
-            tc.verifyGreaterThan(r4, 0, 'centre-segment poke did nothing');
-            tc.verifyGreaterThan(r5, 0, 'outer-segment poke did nothing');
-            s4 = ok4 & (abs(d4) > 0.1*r4);
-            s5 = ok5 & (abs(d5) > 0.1*r5);
-            ov = nnz(s4 & s5) / max(1, min(nnz(s4), nnz(s5)));
+            m = macos.Session(512);  m.load_rx(f);
+            ff = m.find_freeform_elts();
+            segs = ff(ff <= 22);                 % real segments (exclude SM/TM)
+            eA = segs(1);  eB = segs(end);       % opposite ends of the pupil
+            [dA, okA] = tc.poke_dopd_(f, eA, 4, 1e-3);
+            [dB, okB] = tc.poke_dopd_(f, eB, 4, 1e-3);
+            rA = max(abs(dA(okA)));  rB = max(abs(dB(okB)));
+            tc.verifyGreaterThan(rA, 0, sprintf('segment %d poke did nothing', eA));
+            tc.verifyGreaterThan(rB, 0, sprintf('segment %d poke did nothing', eB));
+            sA = okA & (abs(dA) > 0.1*rA);
+            sB = okB & (abs(dB) > 0.1*rB);
+            ov = nnz(sA & sB) / max(1, min(nnz(sA), nnz(sB)));
             tc.verifyLessThan(ov, 0.15, sprintf( ...
                 ['segment pokes must localize (overlap %.3f) -- a large ' ...
                  'overlap is the central-dot de-localization'], ov));
+            % SM (23) carries a SYNTHESIZED full-aperture frame (footprint-
+            % centred); its poke must respond and localize away from a
+            % segment (they sit at different pupil positions).
+            [dS, okS] = tc.poke_dopd_(f, 23, 4, 1e-3);
+            rS = max(abs(dS(okS)));
+            tc.verifyGreaterThan(rS, 0, 'SM (23) poke did nothing');
+        end
+
+        function test_save_dw_flat_layout(tc)
+            % The saved .mat must be FLAT and CHANNEL-NAMED: the Jacobian
+            % at the top level under its own name (dwdgrid, not the generic
+            % dwdxall alias), indxall / w0_stacked / channel_names beside
+            % it, and NO ox/oz/og/os wrapper and no empty fields.
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            % a minimal, well-formed harvest-like struct
+            og = struct('dwdgall', rand(10, 6), 'dwdxall', rand(10, 6), ...
+                'w0_stacked', rand(10, 1), 'indxall', struct('i', 1), ...
+                'channel_names', {{'Elt 5 GridMode1'}}, ...
+                'config_names', {{'nom'}}, 'rx_path', 'x.in', ...
+                'OPDall', zeros(4), 'sgb', struct('seg', struct('iElt', 5)));
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            mp = fullfile(wd, 'flat.mat');
+            save_dw_flat(og, mp, 'name', 'dwdgrid', 'model_size', 512);
+            S = load(mp);
+            tc.verifyTrue(isfield(S, 'dwdgrid'), 'top-level dwdgrid missing');
+            tc.verifyFalse(isfield(S, 'dwdxall'), ...
+                'the generic dwdxall alias must not be saved');
+            tc.verifyFalse(isfield(S, 'og'), 'no wrapper struct allowed');
+            tc.verifyTrue(isfield(S, 'indxall') && isfield(S, 'w0_stacked'));
+            tc.verifyTrue(isfield(S, 'sgb'), 'dwdgrid must keep its sgb basis');
+            tc.verifyEqual(S.dwdgrid, og.dwdgall);
         end
     end
 

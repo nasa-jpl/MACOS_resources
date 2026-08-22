@@ -12,35 +12,54 @@ than per field alone.  Design sketch and open questions:
 
 | driver | rung | on THIS deck |
 |---|---|---|
-| `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | **runs** — 132 channels, 25 blocks |
-| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — 4 channels, 25 blocks |
-| `run_dwdz_5zoom_5fov.m` | MonZernike figure | **runs** — segments carry zero-amplitude MonZern channels |
-| `run_dwdgrid_5zoom_5fov.m` | segment grid | **runs** — grid-augmented in each segment's clocked Mon frame |
+| `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | **runs** — 126 channels (21 optics × 6), 25 blocks |
+| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — 4 channels (SM + TM), 25 blocks |
+| `run_dwdz_5zoom_5fov.m` | MonZernike figure | **runs** — 20 optics × MODES (segs + SM + TM) |
+| `run_dwdgrid_5zoom_5fov.m` | segment + optic grid | **runs** — segments share a basis, SM/TM each own one |
 
 Every driver is resumable: per-configuration checkpoints land in
-`_resume*/` and are pruned on success.
+`_resume*/` and are pruned on success.  Each writes a **flat**, channel-
+named `<name>.mat`: the Jacobian at the top level under its own name
+(`dwdx` / `dwdz` / `dwdsurf` / `dwdgrid`), with `indxall` / `w0_stacked` /
+`channel_names` / `config_*` beside it — no `ox`/`og` wrapper struct
+(`sensitivities/save_dw_flat`).
 
-### The two figure rungs run on the promoted segments
+### The figure rungs run on the promoted optics
 
-**Since 2026-08-21** the deck's 19 segments are `Surface= FreeForm`
-carrying a per-segment MonZernike figure channel (`MonZernType= BornWolf`,
-zero coefficients) in each segment's own clocked Mon frame — so the
-MonZernike rung (`dw/dz`, which targets `find_freeform_elts`) and, after
-`macos.design.grid_augment_rx`, the segment-grid rung (`dw/dgrid`, which
-targets `find_grid_elts`) both harvest here.  The figure DOFs are
-**zero-amplitude fixture channels with no design authority**; the
-promotion from the original `Surface= Conic` is optically **inert** (a
+**Since 2026-08-21** the deck's 18 real segments (elts 5–22) and the SM
+(elt 23) and TM (elt 24) are `Surface= FreeForm` carrying a MonZernike
+figure channel (`MonZernType= BornWolf`, zero coefficients) — so the
+MonZernike rung (`dw/dz`, targeting `find_freeform_elts`) and the
+segment-grid rung (`dw/dgrid`, targeting `find_grid_elts`) both harvest
+them.  The SM and TM additionally carry a grid channel centred and sized
+to their **traced footprint** (all fields × all zoom configurations — a
+vertex is not the beam centre), and get their **own full-aperture** grid
+basis, while the segments share one bespoke per-segment basis.  The
+figure DOFs are **zero-amplitude fixture channels with no design
+authority**; the promotion from `Surface= Conic` is optically **inert** (a
 zero-coefficient FreeForm computes the identical conic sag — verified to
-~7e-11 mm, sub-picometer, against the Conic trace).
+~5e-11 mm, sub-picometer, against the Conic trace).
+
+**Element 4 (CenterSegment) stays `Surface= Conic`.**  It is a *virtual*
+element — not a real telescope segment, almost entirely obscured (it
+passes only the chief-ray sliver, ~2.5 % of the beam), included to pass
+the chief ray and reference the PM — so its sensitivities are ~zero.  It
+carries no figure channel, and the rungs that would still list it
+(`dw/dx`) drop it **number-free**: `flag_zero_norm_channels` flags any
+all-zero channel group by its *response* (elt 4's dw/dx column norms are
+~1e-7 vs ~0.2 for a real segment), and `drop_channels` removes it — no
+element number is hard-coded in the drivers.
 
 The promotion was applied by `macos.design.promote_segments_freeform`
-and is gated three ways in `tRunSensitivities`: the trace is inert
-(`test_zoom_fixture_promotion_is_inert`), both rungs harvest non-empty
-live Jacobians (`test_promoted_fixture_feeds_both_figure_rungs`), and a
-single-mode poke localizes to its segment rather than de-localizing to
-the aperture centre (`test_promoted_segment_poke_localizes`).  The
-rigid-body (`dw/dx`) and prescription-parameter (`dw/dsurf`) rungs are
-unaffected, since the conic base and every element pose are unchanged.
+(Rx in, frames + lMon derived by tracing) and is gated in
+`tRunSensitivities`: the trace is inert
+(`test_zoom_fixture_promotion_is_inert`), both rungs harvest live
+Jacobians incl. SM/TM (`test_promoted_fixture_feeds_both_figure_rungs`),
+single-mode pokes localize (`test_promoted_segment_poke_localizes`), and
+the flat `.mat` layout is checked (`test_save_dw_flat_layout`).  The
+rigid-body (`dw/dx`, minus the obscured elt 4) and prescription-parameter
+(`dw/dsurf`) rungs are otherwise unaffected — the conic base and every
+pose are unchanged.
 
 ## The deck
 
