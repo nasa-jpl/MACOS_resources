@@ -43,6 +43,12 @@ function fig = view_rx(opts)
 %     'ray_color'  RGB of the traced bundle (default green); overlay
 %               several instrument paths into one 'ax' with distinct
 %               colors to tell the channels apart
+%     'xtra_hist'  cell of pre-harvested ray histories (macos.ray_hist
+%               structs from the SAME deck re-aimed at other fields).
+%               Each draws as an extra bundle AND joins the footprint
+%               union, so body sizes cover every field shown
+%     'xtra_color'  Nx3 RGB rows for the extra bundles (default: an
+%               internal palette)
 %     'show'    layer selection: 'beam' (no MET), 'beam+met' (default),
 %               'met' (no traced bundle); optics always draw.  A ring
 %               circles the beam at the SOURCE plane so a collimated
@@ -79,6 +85,8 @@ arguments
                   {'solid','outline','patch'})} = 'solid'
     opts.thick_frac (1,1) double {mustBePositive} = 1/25
     opts.ray_color (1,3) double = [0.0 0.62 0.10]
+    opts.xtra_hist (1,:) cell   = {}
+    opts.xtra_color (:,3) double = zeros(0,3)
     opts.show    (1,:) char {mustBeMember(opts.show, ...
                   {'beam','beam+met','met'})} = 'beam+met'
     opts.elts    (1,:) double  = []
@@ -109,6 +117,9 @@ macos.ray_hist('on');
 t = macos.trace();
 h = macos.ray_hist(t.nRays);
 macos.ray_hist('off');
+% extra pre-harvested histories (other FIELDS of the same deck): they
+% join the footprint union, so bodies are sized for every bundle shown
+hs = [{h}, opts.xtra_hist];
 fans = {};
 if strcmp(opts.bundle, 'fans')
     fans = {macos.draw_rays3d('YZ', k0, k1), macos.draw_rays3d('XZ', k0, k1)};
@@ -135,7 +146,7 @@ kk = kk(~ismember(kk, opts.hide));
 tile = seg_tiling_(kk);          % exact tiles for Segment elements
 E = struct('k', {}, 'kind', {}, 'B', {}, 'ctr', {});
 for k = kk
-    g = elt_geom_(k, h, tile);
+    g = elt_geom_(k, hs, tile);
     if isempty(g), continue; end
     if strcmp(g.type, 'Return') && ~opts.returns, continue; end
     if     any(strcmp(g.type, SOLID_M)), g.kind = 'mirror';
@@ -287,6 +298,25 @@ else
         plot3(ax, ring3(1,:), ring3(2,:), ring3(3,:), '-', ...
               'Color', 0.7*opts.ray_color, 'LineWidth', 1.4);
     end
+    % extra bundles (other fields, pre-harvested via 'xtra_hist'): same
+    % sparse pattern, their own colors
+    pal = [0.15 0.45 0.80; 0.85 0.50 0.10; 0.55 0.25 0.75; 0.80 0.15 0.35];
+    for ih = 1:numel(opts.xtra_hist)
+        hx = opts.xtra_hist{ih};
+        if ih <= size(opts.xtra_color, 1), cx = opts.xtra_color(ih,:);
+        else, cx = pal(mod(ih-1, 4) + 1, :);
+        end
+        selx = pick_bundle_(hx, opts);
+        for r = selx
+            m = squeeze(hx.ok(r, s0:s1));
+            if nnz(m) < 3, continue; end
+            p = squeeze(hx.P(:, r, s0:s1));
+            p = p(:, m);
+            plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
+                  'Color', [cx 0.8], 'LineWidth', 0.5);
+            ndrawn = ndrawn + 1;
+        end
+    end
 end
 
 % ---- MET paths, when the Rx declares metrology -------------------------
@@ -333,13 +363,15 @@ if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
 end
 
 % ===========================================================================
-function g = elt_geom_(k, h, tile)
+function g = elt_geom_(k, hs, tile)
 %ELT_GEOM_  Per-element drawing geometry from engine truth.
 %   Frame (vpt/psi/xa/ya), aperture boundary in the aperture plane (2 x M,
 %   relative to vpt), the sag-lifted rim polyline (3 x M+1), the sag
 %   function with its sign CALIBRATED against the actual ray crossings,
 %   and a label center.  Returns [] when the element has no usable
-%   boundary (no aperture, no lMon, no ray hits).
+%   boundary (no aperture, no lMon, no ray hits).  HS is a cell of ray
+%   histories (the loaded trace + any 'xtra_hist' fields); the footprint
+%   is their UNION, so bodies cover every bundle drawn.
 info = macos.get_elt_info(k);
 vp = mmacos('elt_vpt', double(k), zeros(3,1), 0, 1);
 ps = mmacos('elt_psi', double(k), zeros(3,1), 0, 1);
@@ -349,10 +381,15 @@ if norm(xa) < 1e-9, [~, i0] = min(abs(ps)); xa = zeros(3,1); xa(i0) = 1; end
 xa = xa - dot(xa, ps)*ps;  xa = xa / norm(xa);
 ya = cross(ps, xa);
 
-% ray crossings at this element (footprint + sag-sign calibration)
-m = h.ok(:, k+1);
-Q = squeeze(h.P(:, m, k+1));
-if isempty(Q), Q = zeros(3,0); end
+% ray crossings at this element, UNION over histories (footprint +
+% sag-sign calibration)
+Q = zeros(3,0);
+for ih = 1:numel(hs)
+    hq = hs{ih};
+    m = hq.ok(:, k+1);
+    Qi = squeeze(hq.P(:, m, k+1));
+    if ~isempty(Qi), Q = [Q, Qi]; end %#ok<AGROW>
+end
 U = [xa.'; ya.'] * (Q - vp);
 
 nb = 48;
