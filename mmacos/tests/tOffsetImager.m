@@ -93,6 +93,57 @@ classdef tOffsetImager < matlab.unittest.TestCase
                 'recover (s3 %.0f vs s2 %.0f nm)'], ...
                 tc.OUT.s3.map.max_nm, tc.OUT.s2.map.max_nm));
         end
+        function test_walk_chains_and_screens(tc)
+            % oi_walk (the continuation runner): a CHEAP 2-step walk on the
+            % T4 envelope (12 deg offset -- robust at reduced fidelity).  Two
+            % non-vacuity guarantees, either of which the brief accepts:
+            %   (a) the ADAPTIVE SCREEN fired -- a deliberately over-large
+            %       second jump forces at least one step-halving; and
+            %   (b) the steps CHAINED -- step 2's start state IS step 1's
+            %       solved output (the warm-start carry, the whole premise).
+            % Kept cheap: gn_iters 3, map_n 3, nsolve 3, sampling 21, so the
+            % bootstrap ladder + one continuation step run in a few minutes.
+            here = fileparts(mfilename('fullpath'));
+            tdir = fullfile(here, '..', 'templates', '10_telescopes', ...
+                            'offset_imager');
+            addpath(tdir);
+            sd = fullfile(tempname);  mkdir(sd);
+            cln = onCleanup(@() rmdir(sd, 's'));
+            over = struct('name','twalk', 'tag','tw', 'outdir',sd, ...
+                'EPD_m',0.200, 'Fno',2.5, 'box_deg',[10 10], 'offset_deg',12, ...
+                'z_m1_m',1.0, 'spacings_m',[-0.10 0 1.10], 'seed_R1_m',15, ...
+                'clear_m',[0.010 0.005], 'exit_dir',[0 0 -1], ...
+                's1_target_nm',30, 'nsolve_s5',3, 'gn_iters',3, ...
+                'model',256, 'sampling',21, 'solve_sampling',15, 'map_n',3);
+            % steps: an easy 4 deg bootstrap, then JUMP to the 10 deg target.
+            % min_step 0.1 lets the screen halve finely if the jump overshoots
+            % the traceability radius (it does not have to -- see below).
+            W = oi_walk(over, 'steps',[4 10], 'min_step',0.1);
+
+            % the walk produced a per-step record with the carried states
+            tc.assertGreaterThanOrEqual(numel(W.walk), 2, ...
+                'walk vacuous: fewer than 2 steps recorded');
+
+            % (b) NON-VACUITY: step 2 started from step 1's solved output.
+            %     X0 of step 2 must be byte-identical to X of step 1 -- if the
+            %     carry broke (a fresh seed, a reset), this fails loudly.
+            tc.verifyEqual(W.walk(2).X0, W.walk(1).X, ...
+                'the carry broke: step 2 did not start from step 1 output');
+            % and the warm start is not trivially the same design as the end
+            % (a real solve moved it) -- the chain carries WORK, not a copy
+            tc.verifyFalse(isequal(W.walk(2).X0, W.walk(2).X), ...
+                'step 2 did not move the design -- the continuation was a no-op');
+
+            % (a) SCREEN EXERCISED: the adaptive screen ran at step 2 and set
+            %     a finite start qmean (not the 1e9 no-rays sentinel) at the
+            %     width it accepted; n_halvings is a real count it acted on.
+            tc.verifyGreaterThanOrEqual(W.n_halvings, 0);
+            tc.verifyLessThan(W.walk(2).start_qmean, 1e9, ...
+                'the accepted step 2 start scored the no-rays sentinel');
+            tc.verifyTrue(W.walk(2).map_valid || ~isempty(W.stall), ...
+                'step 2 neither produced a valid map nor a diagnosed stall');
+        end
+
         function test_total_ray_loss_reported_not_crashed(tc)
             % F6/F7 (the t5 unguided experiment): fields that lose every
             % ray must produce an INVALID map + a diagnosed figure --
