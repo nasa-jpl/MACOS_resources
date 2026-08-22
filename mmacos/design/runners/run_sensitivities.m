@@ -115,6 +115,9 @@ arguments
                                      % {'monzern','ffzern','zern'};
                                      % monzern = the SEGMENT-LOCAL basis
     opts.surf_params cell = {'Kr','Kc'}  % dwdsurf channel parameters
+    opts.surf_remove_ptt (1,1) logical = false  % dwdsurf: project piston +
+                                     % tip + tilt out of each Kr/Kc response
+                                     % (aligned out during assembly)
     opts.grid_basis (1,:) char {mustBeMember(opts.grid_basis, ...
         {'multi','single'})} = 'multi'   % per-segment bespoke basis
                                 % (segment_grid_basis; the general case)
@@ -257,7 +260,8 @@ end
 if any(opts.channels == "dwdsurf")
     say('[dwdsurf] per-element %s...\n', strjoin(opts.surf_params, '/'));
     os = run_channel_(@(cf) macos.dw_dsurf_multi(m, char(rx_in), sup{:}, ...
-        'configs', cf, 'params', opts.surf_params), 'dwdsurf', CF, RD, say);
+        'configs', cf, 'params', opts.surf_params, ...
+        'remove_ptt', opts.surf_remove_ptt), 'dwdsurf', CF, RD, say);
     say('    dwdsall %d x %d\n\n', size(os.dwdxall, 1), size(os.dwdxall, 2));
 end
 

@@ -18,12 +18,12 @@ configurations: 5
 
 [conditioning] finite rows only:
     channel          size   rank     sv_max    sv_min+      cond+
-    dwdsurf  54585x4           4  2.517e+01  1.392e-01  1.807e+02
-    dwdsurf  cfg z0       10917x4           4  1.125e+01  6.227e-02  1.807e+02
-    dwdsurf  cfg zUL      10917x4           4  1.125e+01  6.227e-02  1.807e+02
-    dwdsurf  cfg zUR      10917x4           4  1.125e+01  6.227e-02  1.807e+02
-    dwdsurf  cfg zLL      10917x4           4  1.125e+01  6.227e-02  1.807e+02
-    dwdsurf  cfg zLR      10917x4           4  1.125e+01  6.227e-02  1.807e+02
+    dwdsurf  54585x4           4  2.448e+01  4.609e-04  5.311e+04
+    dwdsurf  cfg z0       10917x4           4  1.095e+01  2.048e-04  5.345e+04
+    dwdsurf  cfg zUL      10917x4           4  1.095e+01  2.062e-04  5.310e+04
+    dwdsurf  cfg zUR      10917x4           4  1.095e+01  2.074e-04  5.278e+04
+    dwdsurf  cfg zLL      10917x4           4  1.095e+01  2.064e-04  5.305e+04
+    dwdsurf  cfg zLR      10917x4           4  1.095e+01  2.058e-04  5.321e+04
 per-configuration spectra: dwdsurf_5zoom_5fov_jwst_ote_designc_svspec_configs.png
 
 figures: dwdsurf_5zoom_5fov_jwst_ote_designc_opdall/svspec/<ch>_channels + per-element pages in dwdsurf_5zoom_5fov_jwst_ote_designc_pages/

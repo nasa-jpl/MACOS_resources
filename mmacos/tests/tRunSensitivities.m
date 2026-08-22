@@ -673,6 +673,43 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             tc.verifyTrue(isfield(S, 'sgb'), 'dwdgrid must keep its sgb basis');
             tc.verifyEqual(S.dwdgrid, og.dwdgall);
         end
+
+        function test_dwdsurf_remove_ptt(tc)
+            % 'remove_ptt' projects piston + tip + tilt out of each Kr/Kc
+            % response (aligned out during assembly).  With it on, every
+            % response column must have ~zero piston/tilt content; with it
+            % OFF (the default), the harvest is byte-identical to before --
+            % the preserved-surface rule for the shared dw/dsurf path.
+            f = tc.zoom_fixture();
+            m = macos.Session(512);
+            b = {'field_x_rad', 2.9e-4, 'field_y_rad', 2.9e-4, ...
+                 'grid', '1x1', 'ngridpts', 41, 'stop_elt', 25};
+            raw = macos.dw_dsurf_multi(m, f, b{:}, 'params', {'Kr','Kc'});
+            ptt = macos.dw_dsurf_multi(m, f, b{:}, 'params', {'Kr','Kc'}, ...
+                'remove_ptt', true);
+            % default is unchanged
+            r2 = macos.dw_dsurf_multi(m, f, b{:}, 'params', {'Kr','Kc'}, ...
+                'remove_ptt', false);
+            tc.verifyTrue(isequal(raw.dwdsall, r2.dwdsall), ...
+                'remove_ptt=false must reproduce the original dw/dsurf');
+            % build the piston+tilt basis over the (single-field) aperture
+            ix = raw.indxall;  x = double(ix.j(:));  y = double(ix.i(:));
+            sc = max([1, max(abs(x-mean(x))), max(abs(y-mean(y)))]);
+            A = [ones(numel(x),1), (x-mean(x))/sc, (y-mean(y))/sc];
+            fracs = zeros(1, size(raw.dwdsall, 2));
+            for s = 1:size(ptt.dwdsall, 2)
+                col = ptt.dwdsall(:, s);  ok = isfinite(col);
+                c = A(ok,:) \ col(ok);
+                fracs(s) = norm(A(ok,:)*c) / max(norm(col(ok)), eps);
+            end
+            tc.verifyLessThan(max(fracs), 1e-8, ...
+                'remove_ptt must leave ~zero piston/tip/tilt in each column');
+            % NON-VACUITY: the raw response had real PTT to remove (a conic/
+            % radius error is mostly refocus+pointing), so removal changed it
+            tc.verifyGreaterThan( ...
+                max(abs(raw.dwdsall - ptt.dwdsall), [], 'all'), 0, ...
+                'remove_ptt changed nothing -- the raw response had no PTT?');
+        end
     end
 
     methods (Access = private)

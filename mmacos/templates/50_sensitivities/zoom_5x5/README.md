@@ -13,7 +13,7 @@ than per field alone.  Design sketch and open questions:
 | driver | rung | on THIS deck |
 |---|---|---|
 | `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | **runs** — 126 channels (21 optics × 6), 25 blocks |
-| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — 4 channels (SM + TM), 25 blocks |
+| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — SM (M2) + TM (M3) each in Kr & Kc = 4 channels, piston/tip/tilt removed |
 | `run_dwdz_5zoom_5fov.m` | MonZernike figure | **runs** — 20 optics × MODES (segs + SM + TM) |
 | `run_dwdgrid_5zoom_5fov.m` | segment + optic grid | **runs** — segments share a basis, SM/TM each own one |
 

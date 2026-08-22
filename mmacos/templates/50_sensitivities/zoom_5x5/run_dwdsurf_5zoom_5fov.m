@@ -7,7 +7,20 @@
 %  fixture provenance and the LOAD-CASE warning.
 %
 %  This is the cheapest rung: two parameters per optic, so the full
-%  25-block harvest over every powered optic runs in one sitting.
+%  25-block harvest over every powered optic runs in one sitting.  On this
+%  deck the powered optics are the SM (M2, elt 23) and TM (M3, elt 24),
+%  each varied in Kr and Kc separately -> 4 channels.  (The segments carry
+%  a finite conic too but are Element= Segment, outside dw/dsurf's
+%  powered-Reflector/Refractor target set -- per-segment Kr/Kc is a later
+%  extension.)
+%
+%  PISTON + TIP + TILT ARE REMOVED.  A radius (Kr) or conic (Kc) error
+%  re-focuses and re-points the beam, and that global piston + pointing is
+%  normally ALIGNED OUT during assembly -- so this driver passes
+%  'surf_remove_ptt', true and each Kr/Kc response has its piston + two
+%  tilts projected out (over the optic's own exit-pupil footprint),
+%  leaving the surviving higher-order figure that a sensitivity budget
+%  actually cares about.
 %
 %  DEAD OPTICS ARE DROPPED, NUMBER-FREE.  dw/dsurf builds a channel for
 %  every powered optic, which includes element 4 (CenterSegment) -- a
@@ -51,7 +64,8 @@ name = ['dwdsurf_5zoom_5fov_' rxstem];
 art = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdsurf", ...
     'configs', cfgs, 'resume_dir', string(fullfile(here, '_resume_dwdsurf')), ...
     'stop_elt', STOP_ELT, 'ngridpts', NGRIDPTS, 'model_size', MODEL, ...
-    'surf_params', PARAMS, 'out_dir', here, 'name', name);
+    'surf_params', PARAMS, 'surf_remove_ptt', true, ...
+    'out_dir', here, 'name', name);
 
 % ---- drop dead (obscured) optics, number-free -----------------------
 % Flag any all-zero channel group (the virtual centre segment), then drop
