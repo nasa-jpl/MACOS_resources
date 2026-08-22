@@ -210,6 +210,15 @@ the blind measure had conceded).  The §2 table's S5 row should be read
 with this addendum; the committed t3 artifacts are unchanged (instance
 of record).
 
+The template-side continuation of this solve-field lesson is
+`oi_walk` (a NARROW box first, then walk `box_deg` outward carrying each
+solution as the next warm start): on the t5 instance — where the cold
+`run_t5r` stalls at 595565 nm / −205 mm — the walk reaches **69.8 nm at
+the 15×15° target box (8531× better, exit PASS), clearance the sole
+binding gate at 17.8 mm**.  See
+`templates/10_telescopes/offset_imager/t5_walk/t5_walk_REPORT.md`
+(driver `run_t5_walk`).
+
 ### C. t4-wide RETIRED (templates/10_telescopes/offset_imager/run_t4.m)
 
 Under the fixed measure the committed t4 gates are false: true floors
@@ -235,7 +244,9 @@ exhibit; their REPORT gates are superseded by this addendum.
 ```matlab
 run_s5_budget();   % legs A+B (pre-fix rows; ~8 h)
 run_s5_signed();   % leg C (fixed rows; ~4 h)
+run_t5_walk();     % the continuation walk (t5 instance; ~2 h)
 ```
-Artifacts: `s5_budget/s5b_run.mat` + per-leg maps.  The oi_clear fixes
-are gated by the r3t reference floors (34.11 / 29.97 mm) reproducing
-exactly, and the freeform suite green.
+Artifacts: `s5_budget/s5b_run.mat` + per-leg maps;
+`templates/10_telescopes/offset_imager/t5_walk/` for the walk.  The
+oi_clear fixes are gated by the r3t reference floors (34.11 / 29.97 mm)
+reproducing exactly, and the freeform suite green.
