@@ -27,6 +27,14 @@ function out = dw_dsurf(session, rx_path, opts)
 %     'exit_pupil_elt' element id at which to evaluate the wavefront;
 %                      default nElt-1 (the XP convention).
 %     'verbose'        logical, prints per-channel RMS.  Default false.
+%     'remove_ptt'     project piston + tip + tilt out of each Kr/Kc
+%                      response column (default false).  A radius/conic
+%                      error re-focuses and re-points; that global piston +
+%                      pointing is normally aligned out during assembly, so
+%                      removing it leaves the surviving higher-order figure
+%                      -- the quantity a sensitivity budget wants.  Fit over
+%                      each column's own aperture footprint (private/
+%                      remove_ptt_columns).
 %     'reload_rx'      reload the Rx first (default true; pass false from a
 %                      multi-field supervisor that has set the source FoV).
 %     'ngridpts'       ray-grid sampling override (nGridPts).  Default [] =
@@ -62,6 +70,10 @@ arguments
     opts.spot_elt             double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
     opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
+    opts.remove_ptt (1,1) logical = false   % project piston+tip+tilt out of
+                                            % each Kr/Kc response (aligned out
+                                            % during assembly) -- default OFF
+                                            % so the raw response is unchanged
 end
 
 if opts.reload_rx
@@ -108,6 +120,17 @@ end
 [dwds, w_nom_2d, w_nom_vec, indx, names, dcdx, spot_pos, spot_neg, spot_nom, spot_pert] = ...
     macos.dwdz_for_current_source(channels, wf_func, opts.delta, ...
         'method', opts.method, 'verbose', opts.verbose, 'spot_func', spot_func);
+
+% Optionally project piston + tip + tilt out of each Kr/Kc response: a
+% radius/conic error re-focuses and re-points, and that global piston +
+% pointing is normally ALIGNED OUT during assembly.  Per column = per
+% (optic, param); each dwdsurf optic (SM/TM) is full-beam, so its footprint
+% is the whole exit-pupil aperture and one plane per column is the per-optic
+% removal.  Done on the raw response, in the orientation indx describes,
+% before the orient/sign convention (a transpose/negate commutes with it).
+if opts.remove_ptt
+    dwds = remove_ptt_columns(dwds, indx);
+end
 
 iElt_out  = zeros(numel(channels), 1);
 param_out = cell(numel(channels), 1);

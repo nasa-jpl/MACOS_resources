@@ -1,4 +1,4 @@
-==== run_sensitivities: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/jwst_ote_designc.in ====
+==== run_sensitivities: /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/jwst_ote_designc.in ====
 field set: center + 4 corners at +-0.0002909 rad
 segments: 19
 
@@ -9,26 +9,26 @@ configurations: 5
   zLL        perturb elt 25 rotation [-0.0001454 -0.0001454 0] translation [0 0 0] frame local
   zLR        perturb elt 25 rotation [0.0001454 -0.0001454 0] translation [0 0 0] frame local
 [dwdx] rigid-body 6-DOF per element, LOCAL triads...
-    [checkpoint] dwdx / z0 -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_z0.mat
-    [checkpoint] dwdx / zUL -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zUL.mat
-    [checkpoint] dwdx / zUR -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zUR.mat
-    [checkpoint] dwdx / zLL -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zLL.mat
-    [checkpoint] dwdx / zLR -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zLR.mat
+    [checkpoint] dwdx / z0 -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_z0.mat
+    [checkpoint] dwdx / zUL -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zUL.mat
+    [checkpoint] dwdx / zUR -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zUR.mat
+    [checkpoint] dwdx / zLL -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zLL.mat
+    [checkpoint] dwdx / zLR -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zLR.mat
     dwdxall 54585 x 132 over 5 fields
 
 [conditioning] finite rows only:
     channel          size   rank     sv_max    sv_min+      cond+
-    dwdx     54585x132       127  1.396e+02  3.798e-06  3.676e+07
-    dwdx     cfg z0       10917x132       124  6.244e+01  8.838e-06  7.065e+06
-    dwdx     cfg zUL      10917x132       127  6.244e+01  2.639e-06  2.366e+07
-    dwdx     cfg zUR      10917x132       126  6.244e+01  2.299e-06  2.716e+07
-    dwdx     cfg zLL      10917x132       126  6.244e+01  2.212e-06  2.822e+07
-    dwdx     cfg zLR      10917x132       127  6.244e+01  2.603e-06  2.398e+07
-    dwdx     segment-only: 54585x96  cond+ 8.289e+17
+    dwdx     54585x132       127  1.396e+02  4.761e-06  2.932e+07
+    dwdx     cfg z0       10917x132       124  6.244e+01  4.048e-06  1.542e+07
+    dwdx     cfg zUL      10917x132       127  6.244e+01  3.149e-06  1.983e+07
+    dwdx     cfg zUR      10917x132       126  6.244e+01  2.636e-06  2.369e+07
+    dwdx     cfg zLL      10917x132       126  6.244e+01  2.596e-06  2.406e+07
+    dwdx     cfg zLR      10917x132       127  6.244e+01  3.250e-06  1.921e+07
+    dwdx     segment-only: 54585x96  cond+ 2.368e+17
 
     dwdx per-segment column norms (rms native-unit per unit DOF):
       seg     rx        ry        rz        tx        ty        tz
-        4   1.56e-07  1.56e-07  1.56e-07  1.56e-07  1.56e-07  1.56e-07 
+        4   7.48e-08  7.48e-08  7.48e-08  7.48e-08  7.48e-08  7.48e-08 
         5   1.61e-01  1.63e-01  2.16e-05  1.01e-02  1.01e-02  4.61e-01 
         6   1.60e-01  1.62e-01  2.14e-05  1.01e-02  1.00e-02  4.59e-01 
         7   1.56e-01  1.59e-01  2.09e-05  9.88e-03  9.77e-03  4.54e-01 
@@ -48,5 +48,5 @@ per-configuration spectra: dwdx_5zoom_5fov_jwst_ote_designc_svspec_configs.png
 
 figures: dwdx_5zoom_5fov_jwst_ote_designc_opdall/svspec/<ch>_channels + per-element pages in dwdx_5zoom_5fov_jwst_ote_designc_pages/
 
-Done: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/dwdx_5zoom_5fov_jwst_ote_designc_sens.mat + dwdx_5zoom_5fov_jwst_ote_designc_sens_report.txt
-checkpoints pruned: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume
+Done: /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/dwdx_5zoom_5fov_jwst_ote_designc_sens.mat + dwdx_5zoom_5fov_jwst_ote_designc_sens_report.txt
+checkpoints pruned: /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume

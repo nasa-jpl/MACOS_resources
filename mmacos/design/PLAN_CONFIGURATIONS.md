@@ -131,6 +131,40 @@ here.
    exponents (`sscanf('%g')` stopped at the `D` and would have returned
    the mantissa).
 
+   **Refinement 2026-08-21 (Dave's review of the shipped drivers).**  Five
+   cleanups, all number-free / Rx-driven:
+   * **Element 4 is not promoted.**  It is a VIRTUAL element (not a real
+     segment; almost entirely obscured, passes ~2.5% of the beam,
+     rigid-body sensitivity ~1e-7 vs ~0.2), included only to pass the
+     chief ray and reference the PM.  It stays `Surface= Conic`, so the
+     figure rungs never list it; `dw/dx` (which still would) drops it via
+     `flag_zero_norm_channels` + `drop_channels` — flagged by its RESPONSE,
+     no element number hard-coded.  So the promoted set is segments 5-22
+     (18) + SM + TM = **20 FreeForm optics**, and `dw/dx` comes back
+     54585×**126** (was 132).
+   * **SM (23) and TM (24) are promoted too**, so all four rungs harvest
+     them.  `dw/dz` is 54585×**60** (20 optics × 3 modes).  `dw/dgrid`
+     uses SEPARATE bases per optic (the `multisegbasis` pattern extended
+     to non-segments): the segments share one bespoke per-segment basis,
+     SM and TM each get their OWN full-aperture `zernike_grid_basis`;
+     `grid_channels` keys them by `iElt`.  Result 54585×60, **rank 60**,
+     cond 5.7.
+   * **Frames + lMon are TRACED, not read off the deck** (Dave: the vertex
+     is not the optic centre, lMon is a real footprint radius).  New
+     `optic_footprints` traces all fields × all zoom configs and returns
+     each optic's footprint CENTROID + RADIUS; the promoter takes them as
+     `pmon`/`lmon` maps for SM/TM (measured SM r≈323 mm, TM r≈153 mm).
+   * **The `.mat` is FLAT and channel-named** (`sensitivities/save_dw_flat`):
+     `dwdx` / `dwdz` / `dwdsurf` / `dwdgrid` + `indxall` + `w0_stacked` at
+     the TOP LEVEL, no `ox`/`og` wrapper, no empty fields.  (The runner's
+     own nested `_sens.mat`, which the pipeline consumes, is untouched.)
+   * The promoter is now Rx-in / everything-derived, with an `elts` set and
+     a `grid` option so it promotes non-segment optics; an in-place-write
+     guard prevents the corrupt-deck footgun.  `pm_ref_elt` moved 4→5 (a
+     real segment).  Gates: `tRunSensitivities` **15/15** (added
+     `test_save_dw_flat_layout`; the promotion/rung gates now assert 20
+     FreeForm, SM/TM present, elt 4 absent).  All four drivers regenerated.
+
 **Original plan follows, unchanged.**
 
 **Status: APPROVED FOR EXECUTION (Dave, 2026-08-20).  Nothing

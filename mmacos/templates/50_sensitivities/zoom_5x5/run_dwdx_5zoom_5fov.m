@@ -65,7 +65,17 @@
 %  and restarted.  The directory is pruned automatically on success.
 %  Delete it by hand to force a cold recompute.
 %
-%  Outputs (this directory): <name>_sens_report.txt + _sens.mat +
+%  DEAD OPTICS DROPPED, NUMBER-FREE.  dw/dx builds 6 DOFs for every actual
+%  optic, including element 4 (CenterSegment) -- a VIRTUAL, almost-entirely
+%  -obscured element (it passes only the chief-ray sliver) whose rigid-body
+%  sensitivity is ~zero.  It is flagged after the harvest by its RESPONSE
+%  (flag_zero_norm_channels, design/src -- not a hard-coded id) and its
+%  channels are dropped from the saved Jacobian.  SM (23) and TM (24) ARE
+%  included (full beam).
+%
+%  Outputs (this directory): <name>.mat is FLAT -- dwdx / indxall /
+%  w0_stacked / channel_names / config_* at the TOP LEVEL, the channel's
+%  own name, no empty wrapper structs -- plus <name>_sens_report.txt +
 %  _opdall/_svspec/_svspec_configs/_dwdx_channels.png + per-element pages.
 % =====================================================================
 
@@ -80,6 +90,8 @@ CFG_ELT  = 25;          % the element the configuration axis steers
 FOV      = 2.90888e-4;  % half-field (rad) = 1 arcmin, 5-field set
 TILT     = 1.45444e-4;  % configuration tilt (rad) = 0.5 arcmin
 DELTA    = 1e-8;        % finite-difference step (rigid-body)
+EXCLUDE  = [];          % element ids to force-drop ([] = drop whatever the
+                        % zero-norm flag reports dead, e.g. the obscured elt 4)
 % =====================================================================
 
 % ---- the configuration schedule -------------------------------------
@@ -102,6 +114,21 @@ art  = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdx", ...
     'stop_elt', STOP_ELT, 'ngridpts', NGRIDPTS, 'model_size', MODEL, ...
     'delta_x', DELTA, 'per_element', "center", ...
     'out_dir', here, 'name', name);
+
+% ---- drop dead (obscured) optics, number-free -----------------------
+% dw/dx builds 6 DOFs for every actual optic, including element 4
+% (CenterSegment) -- a VIRTUAL, almost-entirely-obscured element whose
+% rigid-body sensitivity is ~zero (column norms ~1e-7 vs ~0.2 for a real
+% segment).  Flag it by RESPONSE (flag_zero_norm_channels, not a hard-coded
+% id) and drop its channels.  Set EXCLUDE to force-drop specific ids.
+dead = flag_zero_norm_channels(art.ox);
+drop = EXCLUDE;  if isempty(drop), drop = dead; end
+art.ox = drop_channels(art.ox, drop);
+
+% ---- flat, channel-named .mat (dwdx / indxall / w0_stacked at top
+%      level -- not in an 'ox' struct) ---------------------------------
+save_dw_flat(art.ox, fullfile(here, [name '.mat']), ...
+    'name', 'dwdx', 'model_size', MODEL);
 
 nc = numel(cfgs);
 nf = size(art.ox.field_table, 1);

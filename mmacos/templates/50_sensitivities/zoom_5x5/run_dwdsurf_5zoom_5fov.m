@@ -7,7 +7,31 @@
 %  fixture provenance and the LOAD-CASE warning.
 %
 %  This is the cheapest rung: two parameters per optic, so the full
-%  25-block harvest over the scoped elements runs in one sitting.
+%  25-block harvest over every powered optic runs in one sitting.  On this
+%  deck the powered optics are the SM (M2, elt 23) and TM (M3, elt 24),
+%  each varied in Kr and Kc separately -> 4 channels.  (The segments carry
+%  a finite conic too but are Element= Segment, outside dw/dsurf's
+%  powered-Reflector/Refractor target set -- per-segment Kr/Kc is a later
+%  extension.)
+%
+%  PISTON + TIP + TILT ARE REMOVED.  A radius (Kr) or conic (Kc) error
+%  re-focuses and re-points the beam, and that global piston + pointing is
+%  normally ALIGNED OUT during assembly -- so this driver passes
+%  'surf_remove_ptt', true and each Kr/Kc response has its piston + two
+%  tilts projected out (over the optic's own exit-pupil footprint),
+%  leaving the surviving higher-order figure that a sensitivity budget
+%  actually cares about.
+%
+%  DEAD OPTICS ARE DROPPED, NUMBER-FREE.  dw/dsurf builds a channel for
+%  every powered optic, which includes element 4 (CenterSegment) -- a
+%  VIRTUAL, almost-entirely-obscured element whose sensitivity is ~zero.
+%  Rather than hard-code "skip 4", the harvest is flagged after the fact
+%  by flag_zero_norm_channels (design/src) -- which keys on the RESPONSE,
+%  not an id -- and the flagged element's channels are dropped from the
+%  saved Jacobian.  Set EXCLUDE below to force-drop specific ids instead.
+%
+%  Outputs: <name>.mat is FLAT -- dwdsurf / indxall / w0_stacked /
+%  channel_names / config_* at the TOP LEVEL (not in an 'os' struct).
 %
 %  SETUP: run `mmacos_setup` once per MATLAB session first.
 % =====================================================================
@@ -23,6 +47,8 @@ CFG_ELT  = 25;
 FOV      = 2.90888e-4;
 TILT     = 1.45444e-4;
 PARAMS   = {'Kr', 'Kc'};
+EXCLUDE  = [];          % element ids to force-drop ([] = drop whatever the
+                        % zero-norm flag reports dead, e.g. the obscured elt 4)
 % =====================================================================
 
 sched = table( ...
@@ -34,11 +60,23 @@ sched = table( ...
 cfgs = macos.design.configs_from_table(sched);
 
 [~, rxstem] = fileparts(RX);
+name = ['dwdsurf_5zoom_5fov_' rxstem];
 art = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdsurf", ...
     'configs', cfgs, 'resume_dir', string(fullfile(here, '_resume_dwdsurf')), ...
     'stop_elt', STOP_ELT, 'ngridpts', NGRIDPTS, 'model_size', MODEL, ...
-    'surf_params', PARAMS, 'out_dir', here, ...
-    'name', ['dwdsurf_5zoom_5fov_' rxstem]);
+    'surf_params', PARAMS, 'surf_remove_ptt', true, ...
+    'out_dir', here, 'name', name);
+
+% ---- drop dead (obscured) optics, number-free -----------------------
+% Flag any all-zero channel group (the virtual centre segment), then drop
+% those channels -- or the explicit EXCLUDE set if given.
+dead = flag_zero_norm_channels(art.os);
+drop = EXCLUDE;  if isempty(drop), drop = dead; end
+art.os = drop_channels(art.os, drop);
+
+% ---- flat, channel-named .mat (dwdsurf at top level) ----------------
+save_dw_flat(art.os, fullfile(here, [name '.mat']), ...
+    'name', 'dwdsurf', 'model_size', MODEL);
 
 % ---- per-configuration summary --------------------------------------
 % The blocks are contiguous and indxall.config carries the index per
