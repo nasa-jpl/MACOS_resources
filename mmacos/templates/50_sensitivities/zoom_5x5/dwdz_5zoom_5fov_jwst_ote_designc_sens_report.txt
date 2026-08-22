@@ -14,17 +14,17 @@ configurations: 5
     [checkpoint] dwdz / zUR -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdz/dwdz_zUR.mat
     [checkpoint] dwdz / zLL -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdz/dwdz_zLL.mat
     [checkpoint] dwdz / zLR -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdz/dwdz_zLR.mat
-    dwdzall 54585 x 57
+    dwdzall 54585 x 60
 
 [conditioning] finite rows only:
     channel          size   rank     sv_max    sv_min+      cond+
-    dwdz     54585x57         55  8.937e+01  9.041e-04  9.885e+04
-    dwdz     cfg z0       10917x57         55  3.997e+01  4.060e-04  9.845e+04
-    dwdz     cfg zUL      10917x57         55  3.997e+01  4.012e-04  9.962e+04
-    dwdz     cfg zUR      10917x57         55  3.997e+01  4.065e-04  9.833e+04
-    dwdz     cfg zLL      10917x57         55  3.997e+01  4.009e-04  9.970e+04
-    dwdz     cfg zLR      10917x57         55  3.997e+01  4.069e-04  9.824e+04
-    dwdz     segment-only: 54585x48  cond+ 2.211e+16
+    dwdz     54585x60         60  2.774e+02  8.370e+00  3.315e+01
+    dwdz     cfg z0       10917x60         60  1.241e+02  3.743e+00  3.315e+01
+    dwdz     cfg zUL      10917x60         60  1.241e+02  3.743e+00  3.315e+01
+    dwdz     cfg zUR      10917x60         60  1.241e+02  3.743e+00  3.315e+01
+    dwdz     cfg zLL      10917x60         60  1.241e+02  3.743e+00  3.315e+01
+    dwdz     cfg zLR      10917x60         60  1.241e+02  3.743e+00  3.315e+01
+    dwdz     segment-only: 54585x45  cond+ 1.067e+01
 per-configuration spectra: dwdz_5zoom_5fov_jwst_ote_designc_svspec_configs.png
 
 figures: dwdz_5zoom_5fov_jwst_ote_designc_opdall/svspec/<ch>_channels + per-element pages in dwdz_5zoom_5fov_jwst_ote_designc_pages/

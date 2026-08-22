@@ -108,6 +108,8 @@ arguments
     opts.spot_elt               double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
     opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
+    opts.remove_ptt (1,1) logical = false   % piston+tip+tilt removed per
+                                            % response column (see dw_dsurf)
 end
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
@@ -238,6 +240,7 @@ for k = 1:n_fields
         'exit_pupil_elt', opts.exit_pupil_elt, ...
         'verbose', opts.verbose, ...
         'reload_rx', false, ...
+        'remove_ptt', opts.remove_ptt, ...
         'compute_los', opts.compute_los, ...
         'spot_elt', opts.spot_elt);    % keep current src_fov state
     per_field_dwds{ic, k} = sf.dwds;
