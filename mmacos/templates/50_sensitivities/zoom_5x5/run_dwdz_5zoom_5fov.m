@@ -8,13 +8,16 @@
 %  header FIRST -- it carries the fixture provenance, the tiled-canvas
 %  explanation, and the LOAD-CASE warning, all of which apply here too.
 %
-%  THE FIXTURE CARRIES ZERO-AMPLITUDE FIGURE CHANNELS.  The 19 segments
-%  of jwst_ote_designc.in are Surface= FreeForm with a MonZernike channel
-%  whose coefficients are zero -- an optically inert promotion of the
-%  original Surface= Conic (deck header; PLAN_CONFIGURATIONS.md departure
-%  #6; gated in tRunSensitivities).  So there is a MonZernike channel to
-%  differentiate, and the nominal wavefront is unchanged from the conic
-%  deck.  The DOFs have NO design authority; this is machinery, not optics.
+%  THE FIXTURE CARRIES ZERO-AMPLITUDE FIGURE CHANNELS.  Segments 5-22 and
+%  the SM (elt 23) and TM (elt 24) of jwst_ote_designc.in are Surface=
+%  FreeForm with a MonZernike channel whose coefficients are zero -- an
+%  optically inert promotion of the original Surface= Conic (deck header;
+%  PLAN_CONFIGURATIONS.md departure #6; gated in tRunSensitivities).  So
+%  there is a MonZernike channel to differentiate, and the nominal
+%  wavefront is unchanged from the conic deck.  The DOFs have NO design
+%  authority; this is machinery, not optics.  Element 4 (CenterSegment) is
+%  a VIRTUAL obscured element (Surface= Conic, not FreeForm), so it carries
+%  no figure channel and does not appear here.
 %
 %  *** THE NUMBERS HERE ARE A LOAD CASE, NOT A DESIGN. ***  At +-1 arcmin
 %  the wavefront error is ~0.64 mm (~278 waves at 2.3 um).  The fixture's
@@ -22,27 +25,29 @@
 %  both axes, giving the finite-difference machinery something to
 %  differentiate -- not that the WFE means anything.  See the deck header.
 %
-%  SCOPE.  This harvests the MonZernike channel on ALL 19 segments (the
-%  dw/dz supervisor contract sweeps every FreeForm optic; on this deck the
-%  FreeForm set IS the 19 segments), over the mode range MODES.  MODES is
-%  the scope knob: the shipped 4:6 (three modes -> 57 channels) is a
+%  SCOPE.  This harvests the MonZernike channel on EVERY FreeForm optic
+%  (the dw/dz supervisor contract sweeps them all -- here the 18 real
+%  segments + SM + TM = 20 optics), over the mode range MODES.  MODES is
+%  the scope knob: the shipped 4:6 (three modes -> 60 channels) is a
 %  DEMONSTRATION; widen it toward the supervisor default 4:11 for a fuller
 %  figure basis, at proportionally longer runtime.  The resume directory
 %  carries a long run across restarts.
 %
-%  Note on 'elts': it is NOT a segment filter here -- dw/dz still lists
-%  every FreeForm segment, and 'elts' only picks which of them get the
-%  full MODES range (the rest fall back to their Rx-default single mode).
-%  So this driver leaves it unset and harvests all 19 uniformly, matching
-%  run_dwdx_5zoom_5fov.m, which harvests every element.
+%  Note on 'elts': it is NOT a segment filter here -- dw/dz lists every
+%  FreeForm optic, and 'elts' only picks which of them get the full MODES
+%  range (the rest fall back to their Rx-default single mode).  So this
+%  driver leaves it unset and harvests all 20 uniformly.  An obscured or
+%  dead optic is caught number-free after the harvest by
+%  flag_zero_norm_channels (design/src), not by an element-number filter.
 %
 %  RESUMABLE: each configuration's block is checkpointed into _resume_dwdz/
 %  as it completes and reloaded rather than recomputed on a restart; the
 %  directory is pruned on success.  Delete it by hand to force a cold run.
 %
-%  Outputs (this directory): <name>_sens_report.txt + _sens.mat +
-%  _opdall / _svspec / _svspec_configs / _dwdz_channels.png + per-element
-%  pages.
+%  Outputs (this directory): <name>.mat (FLAT: dwdz / indxall / w0_stacked
+%  / channel_names / config_* at the TOP LEVEL, the channel's own name --
+%  not buried in an 'oz' struct) + <name>_sens_report.txt + _opdall /
+%  _svspec / _svspec_configs / _dwdz_channels.png + per-element pages.
 %
 %  SETUP: run `mmacos_setup` once per MATLAB session first.
 % =====================================================================
@@ -78,6 +83,17 @@ art  = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdz", ...
     'zmodes_fig', MODES, 'per_element', "center", ...
     'out_dir', here, 'name', name);
 
+% ---- flag any dead (all-zero) channel group ------------------------
+% Number-free obscured/vignetted-optic check: keys on the RESPONSE, not on
+% an element id (design/src/flag_zero_norm_channels).  Elt 4 is Conic, so
+% dw/dz never lists it; this catches anything else that stops responding.
+flag_zero_norm_channels(art.oz);
+
+% ---- flat, channel-named .mat (dwdz + indxall + w0_stacked at top
+%      level -- no ox/oz wrapper, no empty structs) --------------------
+save_dw_flat(art.oz, fullfile(here, [name '.mat']), ...
+    'name', 'dwdz', 'model_size', MODEL);
+
 % ---- per-configuration summary --------------------------------------
 % The blocks are contiguous and indxall.config carries the index per row
 % -- that is the supported way to address one configuration's block.
@@ -86,7 +102,7 @@ nc = numel(cfgs);
 nf = size(art.oz.field_table, 1);
 fprintf('=== dw/dz: %d configurations x %d fields = %d blocks ===\n', ...
     nc, nf, nc * nf);
-fprintf('    stacked Jacobian %d x %d over %d channels\n', ...
+fprintf('    stacked Jacobian %d x %d over %d channels (segs + SM + TM)\n', ...
     size(A, 1), size(A, 2), numel(art.oz.channel_names));
 for c = 1:nc
     r = (art.oz.indxall.config == c);

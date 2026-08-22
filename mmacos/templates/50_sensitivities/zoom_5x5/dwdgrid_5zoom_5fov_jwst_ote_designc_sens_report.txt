@@ -1,4 +1,4 @@
-==== run_sensitivities: /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/jwst_ote_designc.in ====
+==== run_sensitivities: /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/dwdgrid_5zoom_5fov_jwst_ote_designc_grid.in ====
 field set: center + 4 corners at +-0.0002909 rad
 segments: 19
 
@@ -8,23 +8,22 @@ configurations: 5
   zUR        perturb elt 25 rotation [0.0001454 0.0001454 0] translation [0 0 0] frame local
   zLL        perturb elt 25 rotation [-0.0001454 -0.0001454 0] translation [0 0 0] frame local
   zLR        perturb elt 25 rotation [0.0001454 -0.0001454 0] translation [0 0 0] frame local
-[dwdgrid] grid-augmenting in the clocked Mon frames...
-    dwdgrid_5zoom_5fov_jwst_ote_designc_grid.in: 28 elts, 152567/160787 rays, gdx 104.8
+[dwdgrid] caller-supplied influence basis on the Rx grids...
     [checkpoint] dwdgrid / z0 -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_z0.mat
     [checkpoint] dwdgrid / zUL -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zUL.mat
     [checkpoint] dwdgrid / zUR -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zUR.mat
     [checkpoint] dwdgrid / zLL -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zLL.mat
     [checkpoint] dwdgrid / zLR -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zLR.mat
-    dwdgall 54585 x 57 (influence basis saved in og.sgb)
+    dwdgall 54585 x 60 (influence basis saved in og.sgb)
 
 [conditioning] finite rows only:
     channel          size   rank     sv_max    sv_min+      cond+
-    dwdgrid  54585x57         55  1.011e+02  9.042e-04  1.118e+05
-    dwdgrid  cfg z0       10917x57         55  4.519e+01  4.061e-04  1.113e+05
-    dwdgrid  cfg zUL      10917x57         55  4.519e+01  4.013e-04  1.126e+05
-    dwdgrid  cfg zUR      10917x57         55  4.519e+01  4.065e-04  1.112e+05
-    dwdgrid  cfg zLL      10917x57         55  4.519e+01  4.009e-04  1.127e+05
-    dwdgrid  cfg zLR      10917x57         55  4.519e+01  4.069e-04  1.111e+05
+    dwdgrid  54585x60         60  4.748e+02  8.263e+01  5.746e+00
+    dwdgrid  cfg z0       10917x60         60  2.123e+02  3.695e+01  5.746e+00
+    dwdgrid  cfg zUL      10917x60         60  2.123e+02  3.695e+01  5.746e+00
+    dwdgrid  cfg zUR      10917x60         60  2.123e+02  3.695e+01  5.746e+00
+    dwdgrid  cfg zLL      10917x60         60  2.123e+02  3.695e+01  5.746e+00
+    dwdgrid  cfg zLR      10917x60         60  2.123e+02  3.695e+01  5.746e+00
 per-configuration spectra: dwdgrid_5zoom_5fov_jwst_ote_designc_svspec_configs.png
 
 figures: dwdgrid_5zoom_5fov_jwst_ote_designc_opdall/svspec/<ch>_channels + per-element pages in dwdgrid_5zoom_5fov_jwst_ote_designc_pages/
