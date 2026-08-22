@@ -166,10 +166,10 @@ Error in oi_layout_fig (line 140)
 (The MATLAB traceback prints the offending source line itself, which is
 enough to read the mechanism: `max(W(fin))` returns `[]` when no field
 is finite, so `assert` gets an empty condition; and an empty ray bundle
-comes back as a double instead of a cell.  No further source reading was
-needed.)  Neither message names the
-optical condition; a new user sees a MATLAB type error, not "every
-field in the box lost all its rays at element 3."
+comes back as a double instead of a cell.  No further source reading
+was needed.)  Neither message names the optical condition; a new user
+sees a MATLAB type error, not "every field in the box lost all its rays
+at element 3."
 
 **F7 — a dense-map headline can be computed from ONE surviving field
 point, with no warning.**  Attempt 2's S2 map figure is captioned, by
