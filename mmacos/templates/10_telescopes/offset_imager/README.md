@@ -18,6 +18,7 @@ OUT = oi_story(struct( ...              % your instrument (see "Choosing an enve
         'EPD_m',0.150,'Fno',3.3,'box_deg',[15 15],'offset_deg',22.5, ...
         'z_m1_m',0.665*1.65,'spacings_m',[-0.7229 0 0.7408]*1.65, ...
         'seed_R1_m',8.8*1.65,'clear_m',[0.040 0.025],'exit_dir',[0 0 -1]));
+OUT = oi_walk(struct(...), 'steps',[5 8 11 13 15]);   % HARD instances: walk the box open
 ```
 
 `oi_story` is the one-call form (ladder + both counter-designs + the
@@ -26,6 +27,21 @@ parameters live in `offset_imager_params.m` (single source of truth,
 the e2e2 pattern).  Artifacts: per-stage decks `<tag>_s*.in`, figures
 `<tag>_s*_{layout,fields,map}.png`, `<tag>_REPORT.md`, `<tag>_run.mat`
 (+ `<tag>_STORY.md` from oi_story).
+
+**For a HARD instance -- a wide box at a large offset -- use `oi_walk`
+(the recommended path).**  A cold `oi_story`/`offset_imager` solve at
+the full box can sit outside the convergent basin and stall (the t5
+instance: cold start 595565 nm, clearance -205 mm, S2 loses 104/121
+fields).  `oi_walk` solves an easy NARROW box first, then WALKS
+`box_deg` outward, carrying the solved design as each step's warm start
+-- the same envelope/offset, a smaller aberration span at each rung.
+It bootstraps step 1 with the full `offset_imager` ladder, screens the
+carried design at each widened box before solving (halving the step if
+it would not trace -- the F8 rule), and scores the final step exactly
+like any `oi_story` run.  On the t5 instance the walk reaches 69.8 nm
+at the target 15x15deg box (8531x better than the cold start, exit gate
+PASS; clearance becomes the binding constraint -- see
+`t5_walk/t5_walk_REPORT.md`).  Driver: `run_t5_walk.m`.
 
 ## Choosing an envelope, offset, and seed (read before a new instance)
 
@@ -52,6 +68,14 @@ Compiled from the t4 retraction and the t5 unguided experiment
 - **Constraints**: `clear_m` is order-free (min = hard knee, max =
   WARN); a three-mirror train exits REVERSED, so "exit horizontal" with
   entry along +z is `exit_dir = [0 0 -1]`.
+- **Hard instance? Walk it.**  If the box is wide AND the offset large,
+  a cold solve at the full box may be outside the convergent basin (the
+  t5 stall).  `oi_walk(over, 'steps',[...])` solves a narrow box first
+  and walks `box_deg` outward, carrying each solution as the next warm
+  start; it isolates whether the residual difficulty is surfaces
+  (aberration, which the walk usually clears) or packaging (clearance /
+  envelope, which no surface solve fixes).  Walk the BOX WIDTH, never
+  the offset (offset-down re-enters the t4 field-walk infeasibility).
 
 ## The stages (each = a solve + a layout figure + a dense WFE map + a report section)
 
