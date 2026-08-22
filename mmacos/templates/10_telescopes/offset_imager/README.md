@@ -11,15 +11,47 @@ is the validation.
 
 ```matlab
 run('<path-to>/mmacos/mmacos_setup.m');
-OUT = offset_imager();                                   % the rodgers3 instance
-OUT = offset_imager(struct('EPD_m',0.200,'Fno',2.5, ...  % your instrument
-        'box_deg',[10 10],'offset_deg',12));
+addpath('<path-to>/mmacos/templates/10_telescopes/offset_imager');  % F1: setup does NOT add templates
+OUT = oi_story();                       % the WHOLE story: ladder + counter-designs + <tag>_STORY.md manifest
+OUT = offset_imager();                  % the five-stage ladder only (rodgers3 instance)
+OUT = oi_story(struct( ...              % your instrument (see "Choosing an envelope" below)
+        'EPD_m',0.150,'Fno',3.3,'box_deg',[15 15],'offset_deg',22.5, ...
+        'z_m1_m',0.665*1.65,'spacings_m',[-0.7229 0 0.7408]*1.65, ...
+        'seed_R1_m',8.8*1.65,'clear_m',[0.040 0.025],'exit_dir',[0 0 -1]));
 ```
 
-All parameters live in `offset_imager_params.m` (single source of
-truth, the e2e2 pattern).  Artifacts: per-stage decks `oi_s*.in`,
-figures `oi_s*_{layout,map}.png`, the assembled `oi_REPORT.md`, and
-`oi_run.mat`.
+`oi_story` is the one-call form (ladder + both counter-designs + the
+deck-asset manifest); `offset_imager` is the ladder alone.  All
+parameters live in `offset_imager_params.m` (single source of truth,
+the e2e2 pattern).  Artifacts: per-stage decks `<tag>_s*.in`, figures
+`<tag>_s*_{layout,fields,map}.png`, `<tag>_REPORT.md`, `<tag>_run.mat`
+(+ `<tag>_STORY.md` from oi_story).
+
+## Choosing an envelope, offset, and seed (read before a new instance)
+
+Compiled from the t4 retraction and the t5 unguided experiment
+(challenges/rodgers3/PACKET.md addendum + t5_unguided_REPORT.md):
+
+- **Feasibility screen first**: the field walk `tan(offset) x
+  |spacings(1)|` is what separates an unobscured W-fold.  Keep it above
+  ~1.5x EPD or expect clearance blocking no surface solve can fix
+  (offset_imager prints an ADVISORY when you are below it).  No
+  envelope of this family packages a fast 200 mm beam at a 12 deg
+  offset — buildability constrains the FIELD choice too.
+- **Envelope**: scale the rodgers3 W-fold by YOUR EFL / 0.3 m
+  (form-true — preserves the focal proportions the seed needs).
+  Aperture-ratio scaling breaks the form when your F# differs.
+- **Seed and S1 depth**: `seed_R1_m` ~ 8.8 x (EFL/0.3).  More
+  important: CAP the S1 depth with `s1_target_nm` near your class's
+  reference (rodgers3 class: ~159 nm).  An uncapped S1 solves far past
+  the reference and the offset box then loses every ray (the S2
+  mechanism past traceability) — the t5 failure mode.
+- **S5 solve grid**: with the full Zernike set (80+ variables) use
+  `nsolve_s5 = 5`; the default 3x3 under-determines the solve (the
+  118.2 -> 45.4 nm lesson).
+- **Constraints**: `clear_m` is order-free (min = hard knee, max =
+  WARN); a three-mirror train exits REVERSED, so "exit horizontal" with
+  entry along +z is `exit_dir = [0 0 -1]`.
 
 ## The stages (each = a solve + a layout figure + a dense WFE map + a report section)
 

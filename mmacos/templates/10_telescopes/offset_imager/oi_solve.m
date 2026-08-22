@@ -32,6 +32,9 @@ function [X, hist] = oi_solve(X, P, stage, opts)
 %
 %   Name-value:
 %     'iters'     iteration cap (default P.gn_iters)
+%     'target'    stop once the solve-set qmean reaches this (nm; [] =
+%                 off).  S1 use: cap the on-axis depth -- a too-deep S1
+%                 makes the offset box untraceable (the S2 mechanism)
 %     'offset'    box-centre YAN, deg (default: 0 for S1, else P.offset_deg)
 %     'walls'     function handle w(X,G) -> true if X violates a wall
 %     'quiet'     false
@@ -46,6 +49,7 @@ function [X, hist] = oi_solve(X, P, stage, opts)
         P struct
         stage (1,:) char
         opts.iters (1,1) double = NaN
+        opts.target double = []            % stop at this qmean (nm)
         opts.offset (1,1) double = NaN
         opts.walls = []
         opts.quiet (1,1) logical = false
@@ -133,6 +137,12 @@ function [X, hist] = oi_solve(X, P, stage, opts)
                     tern_(ok,'',' -- step rejected'));
         end
         if ~ok, break; end
+        if ~isempty(opts.target) && rmsb <= opts.target
+            if ~opts.quiet
+                fprintf('    target %.1f nm reached -- stopping\n', opts.target);
+            end
+            break
+        end
         if it > 2 && (hist.rms_path(end-1) - rmsb) < 1e-3*rmsb, break; end
     end
 

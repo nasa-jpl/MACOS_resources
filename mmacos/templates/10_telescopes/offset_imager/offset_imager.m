@@ -56,6 +56,18 @@ function OUT = offset_imager(over)
 
     macos.init(P.model);
 
+    % packaging advisory (compiled from the t4 retraction): the field
+    % walk tan(offset) x |M1->stop| is what separates an unobscured
+    % W-fold; if it is below the beam-diameter scale, expect blocking.
+    sep = tand(abs(P.offset_deg)) * abs(P.spacings_m(1));
+    if P.offset_deg ~= 0 && sep < 1.5 * P.EPD_m
+        fprintf(['  ADVISORY: field-walk separation tan(%g deg) x %.3g m ' ...
+                 '= %.3f m is below ~1.5x EPD (%.3f m) -- clearance ' ...
+                 'blocking is likely at this offset/envelope ' ...
+                 '(PACKET 2026-08-21 addendum, t4 retraction).\n'], ...
+                P.offset_deg, abs(P.spacings_m(1)), sep, 1.5*P.EPD_m);
+    end
+
     rpt = fopen([tag '_REPORT.md'], 'w');
     cr = onCleanup(@() fclose(rpt));
     hdr_(rpt, P);
@@ -68,7 +80,7 @@ function OUT = offset_imager(over)
         stage_banner_('S1  coaxial symmetric-asphere solve, on-axis box');
         X = oi_seed(P);
         X.eliminate = 'R2R3';        % S1: EFL + Petzval=0 identities
-        [X, hist1] = oi_solve(X, P, 'S1', 'offset', 0);
+        [X, hist1] = oi_solve(X, P, 'S1', 'offset', 0, 'target', P.s1_target_nm);
         [X, G, fo] = close_refit_(X, P, 0);
         [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, 's1', X, G, fo, ...
             0, 'S1 coaxial, on-axis box', hist1, []);
@@ -111,6 +123,18 @@ function OUT = offset_imager(over)
         qf = start_qmean_(Xf, P);
         fprintf('  S3 start candidates: carry %.1f nm, fresh seed %.1f nm -> %s\n', ...
                 qc, qf, tern_(qf < qc, 'fresh', 'carry'));
+        if min(qc, qf) >= 1e9
+            % F8 (t5 experiment): both candidates scored the no-rays
+            % sentinel -- proceeding produces three opaque crashes; one
+            % accurate sentence here replaces them.
+            error('offset_imager:S3untraceable', ...
+                 ['S3: neither start candidate traces the offset box ' ...
+                  '(carry %.3g nm, fresh %.3g nm -- 1e9 = the no-rays ' ...
+                  'sentinel).  The S1 design is likely deeper than the ' ...
+                  'offset can carry (the S2 mechanism, PACKET): cap S1 ' ...
+                  'with P.s1_target_nm (e.g. the reference class depth) ' ...
+                  'or revise the envelope/offset.'], qc, qf);
+        end
         if qf < qc, X = Xf; else, X = Xc; end
         X = pose_stop_once_(X, P);   % re-construct at S3 entry, then free
         [X, hist3] = oi_solve(X, P, 'S3');
@@ -137,9 +161,11 @@ function OUT = offset_imager(over)
     % ================= S5: Zernike departures ================================
     if any(P.stages == 5)
         stage_banner_('S5  open Zernike departures (BornWolf, lMon frozen)');
-        X = oi_zern_seed(X, P);
-        walls = @(Xc, Gc) wall_check_(Xc, Gc, P);
-        [X, hist5] = oi_solve(X, P, 'S5', 'walls', walls, 'clear', true);
+        P5 = P;
+        if ~isempty(P.nsolve_s5), P5.nsolve = P.nsolve_s5; end
+        X = oi_zern_seed(X, P5);
+        walls = @(Xc, Gc) wall_check_(Xc, Gc, P5);
+        [X, hist5] = oi_solve(X, P5, 'S5', 'walls', walls, 'clear', true);
         [X, G, fo] = close_refit_(X, P, P.offset_deg);
         gt5 = oi_gates(X, G, P, P.offset_deg);
         [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, 's5', X, G, fo, ...
@@ -266,8 +292,14 @@ function [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, sid, X, G, fo, ...
     end
     fprintf(rpt, '| solve | %s: %.1f -> %.1f nm (qmean over solve set), %d iters |\n', ...
             sid, hist.rms0, hist.rms, hist.iters);
-    fprintf(rpt, '| **map max** | **%.1f nm** at XAN %+.1f YAN %+.1f |\n', ...
-            mp.max_nm, mp.max_at);
+    if isfield(mp,'valid') && ~mp.valid
+        fprintf(rpt, ['| **map max** | **INVALID -- %d/%d fields lost every ' ...
+                'ray** (finite-only max %.1f nm) |\n'], ...
+                mp.n_failed, mp.n_fields, mp.max_nm);
+    else
+        fprintf(rpt, '| **map max** | **%.1f nm** at XAN %+.1f YAN %+.1f |\n', ...
+                mp.max_nm, mp.max_at);
+    end
     fprintf(rpt, '| map avg / std / min | %.1f / %.1f / %.1f nm |\n', ...
             mp.avg_nm, mp.std_nm, mp.min_nm);
     fprintf(rpt, '| exit chief | %.3f%c in Y-Z%s |\n', gt.exit_ang_deg, char(176), ...
@@ -283,8 +315,14 @@ function [OUT, ladder] = stage_out_(OUT, ladder, rpt, P, tag, sid, X, G, fo, ...
     OUT.(sid) = st;
     ladder(end+1) = struct('stage',sid, 'map_max_nm',mp.max_nm, ...
                            'map_avg_nm',mp.avg_nm, 'map_std_nm',mp.std_nm);
-    fprintf('  %s: map max %.1f nm  avg %.1f  (gates: exit %s, clear %s)\n', ...
-            sid, mp.max_nm, mp.avg_nm, pf_(gt.exit_pass), pf_(gt.clear_pass));
+    if isfield(mp,'valid') && ~mp.valid
+        fprintf(['  %s: map INVALID -- %d/%d fields lost every ray ' ...
+                 '(finite-only max %.1f nm)\n'], sid, mp.n_failed, ...
+                mp.n_fields, mp.max_nm);
+    else
+        fprintf('  %s: map max %.1f nm  avg %.1f  (gates: exit %s, clear %s)\n', ...
+                sid, mp.max_nm, mp.avg_nm, pf_(gt.exit_pass), pf_(gt.clear_pass));
+    end
 end
 
 function hdr_(rpt, P)

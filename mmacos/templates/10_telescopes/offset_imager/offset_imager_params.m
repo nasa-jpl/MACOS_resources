@@ -43,16 +43,22 @@ function P = offset_imager_params(over)
 %
 %   Constraint set (evaluated as report gates; S4+ walls)
 %     exit_dir     [] = report-only; a 1x3 unit vector pins the exit
-%                  chief direction (Mike r2+: exit beam horizontal =
-%                  [0 0 -1] after an odd mirror count ... stated per
-%                  instance)
+%                  chief direction.  A three-mirror train has an ODD
+%                  mirror count, so "exit beam horizontal" with the beam
+%                  entering +z means exit_dir = [0 0 -1] (reversed) --
+%                  the fact the t5 proxy had to guess (F11)
 %     exit_tol_deg tolerance on the exit-chief direction gate, deg
 %     clear_m      list of clearance requirements, m (each is checked as
 %                  min distance of every traced beam leg to every mirror
-%                  edge not on that leg; Mike r4+: >0.050 and >0.035)
+%                  edge not on that leg; Mike r4+: >0.050 and >0.035).
+%                  ORDER-FREE: the gate uses min() and max() of the list
+%                  (min = the hard knee, max = the WARN level)
 %
 %   Surface budget (the ladder; stages can be disabled)
-%     stages       which of S1..S5 to run (default 1:5)
+%     stages       which of S1..S5 to run (default 1:5).  CAVEAT: later
+%                  stages need the earlier ones' state -- skipping S2
+%                  does NOT skip its physics (S3 still starts from the
+%                  same candidates); use it to omit REPORT stages only
 %     zern_modes   S5 Zernike term set (BornWolf engine mode numbers);
 %                  see the default's comment below for the doctrine
 %
@@ -108,6 +114,26 @@ function P = offset_imager_params(over)
                                   % rows and the report gates SHARE this
                                   % knob -- the solve must pay what the
                                   % gate measures.
+
+    P.s1_target_nm = [];          % cap the S1 on-axis depth (qmean, nm;
+                                  % [] = solve to the iteration cap).
+                                  % COMPILED from the t5 experiment: an
+                                  % uncapped S1 solves far past the
+                                  % reference class and the offset box
+                                  % then loses every ray (the S2
+                                  % mechanism past traceability).  At a
+                                  % large offset, set this near the
+                                  % reference depth of your class
+                                  % (rodgers3: his r1 = 159 nm).
+    P.nsolve_s5  = [];            % S5-only solve-grid override ([] =
+                                  % P.nsolve).  The 2026-08-21 addendum
+                                  % lesson: S5's 80+ Zernike variables
+                                  % against a 3x3 grid under-determine
+                                  % the solve (dense map stalls at the
+                                  % S4 level); nsolve_s5 = 5 resolved it
+                                  % (118.2 -> 45.4 nm on the challenge
+                                  % instance).  Default keeps the
+                                  % committed records reproducible.
 
     P.stages     = 1:5;
     % S5 Zernike term set, BornWolf ENGINE mode numbers.  Default = the
