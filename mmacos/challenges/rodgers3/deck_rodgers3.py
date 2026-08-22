@@ -104,13 +104,35 @@ def parse_packet(txt):
     p["cb"] = float(need(re.search(
         r"S5 basis from the S4 design: ([\d.]+) nm", flat), "counter (b)",
         "PACKET").group(1))
+    # 2026-08-21 addendum: corrected clearances + the S5 budget answer
+    p["s5_true_floor"] = float(need(re.search(
+        r"S5 of record \| 34\.6 mm \| \*\*([\d.]+) mm\*\*", flat),
+        "corrected S5 floor", "PACKET addendum").group(1))
+    p["s4_hull"] = float(need(re.search(
+        r"reads the S4 design at \*\*([\d.]+) mm\*\*", flat),
+        "S4 hull floor", "PACKET addendum").group(1))
+    g = need(re.search(
+        r"\| A \| 9 \| 150 \| ([\d.]+) \| ([\d.]+) mm", flat),
+        "leg A", "PACKET addendum")
+    p["legA_nm"], p["legA_mm"] = float(g.group(1)), float(g.group(2))
+    g = need(re.search(
+        r"\| B \| 25 \| 60 \| ([\d.]+) \| ([\d.]+) mm", flat),
+        "leg B", "PACKET addendum")
+    p["legB_nm"], p["legB_mm"] = float(g.group(1)), float(g.group(2))
+    g = need(re.search(
+        r"\| C \| 25 \| 49 \(plateau\) \| \*\*([\d.]+)\*\* \| \*\*([\d.]+) mm\*\*",
+        flat), "leg C", "PACKET addendum")
+    p["legC_nm"], p["legC_mm"] = float(g.group(1)), float(g.group(2))
     return p
 
 
 # ---------------------------------------------------------------- numbers
 gates = parse_gate_table(read(os.path.join(HERE, "r3_s0_report.txt")))
 t3 = parse_report(read(os.path.join(HERE, "t3", "r3t_REPORT.md")))
-t4 = parse_report(read(os.path.join(T4DIR, "t4_REPORT.md")))
+# (the t4-wide REPORT is deliberately NOT parsed: the instance is
+# retired -- its gates were artifacts of the pre-fix clearance measure;
+# see the PACKET 2026-08-21 addendum.  Its fields figure remains as the
+# slide-8 exhibit.)
 pk = parse_packet(read(os.path.join(HERE, "PACKET.md")))
 # ZRN-convention negative-control factor, recorded in the gate itself
 pk["zrn_negctl"] = float(need(re.search(
@@ -208,15 +230,16 @@ D. C. Redding with Claude Code — 20 August 2026.  Source study: M. Rodgers, 26
 ::: right
 ![S4 field envelopes: every beam leg clears every mirror edge (floor {t3['s4']['clear_mm']:.1f} mm).](t3/r3t_s4_fields.png){{h=2.62}}
 ![S4 map: {t3['s4']['max_nm']:.1f} nm max over the box.](t3/r3t_s4_map.png){{h=2.62}}
-~ {TAG}.
+~ {TAG}.  The {t3['s4']['clear_mm']:.1f} mm floor is CONFIRMED at fine sampling under the fixed clearance measure (packet addendum); the truer convex-hull glass model reads the same design at {pk['s4_hull']:.1f} mm — comfortably inside the stated 35.
 
-## 6 — Stage 5, the honest rung | {t3['s5']['max_nm']:.1f} nm vs the reported {his['r5']:.0f} — a solver-budget gap, not physics
+## 6 — Stage 5: diagnosed, then beaten | The gap to the reported {his['r5']:.0f} was the solve-field count; matching it lands {pk['legC_nm']:.1f} nm
 ::: left
-- Adding the Zernike basis (the source study's own varied term set, 82 variables) under the clearance rows moves the ladder {t3['s4']['max_nm']:.1f} to {t3['s5']['max_nm']:.1f} nm: the stage stalls at its S4 level.  The min-rule branch value is {t3['s4']['max_nm']:.1f}.
-- The budget: a 3x3 solve grid and a 30-iteration cap against 82 variables plus the constraint rows.  The stage is convergence-limited — the gap to the reported {his['r5']:.0f} ({s5_ratio:.1f}x) is solver budget, not convention, and one long-budget run is the named follow-on.
-- The term set is not the limit — slide 7, counter (b).
+- The five-stage run closes S5 at {t3['s5']['max_nm']:.1f} nm — stalled at its S4 level, with 82 Zernike variables against only 9 solve fields (the dense map is scored on 121 points; the solve set is what the optimizer sees).
+- The controlled probes, all from the same S4 state: 150 iterations at 9 fields reach {pk['legA_nm']:.1f} nm — iterations are NOT the gap.  25 solve fields at 60 iterations reach {pk['legB_nm']:.1f} — the field count is.  Nine fields under-determine 82 variables: the solve set converges while the dense map stalls.
+- With 25 fields AND the corrected clearance rows (slide 8): **{pk['legC_nm']:.1f} nm at a {pk['legC_mm']:.1f} mm floor** — {pk['legC_nm']/his['r5']:.2f}x the reported {his['r5']:.0f}, exit pin held to 0.008{DEG}.
 ::: right
-![S5 map: {t3['s5']['max_nm']:.1f} nm max; clearance floor {t3['s5']['clear_mm']:.1f} mm ({t3['s5']['clear_pf']}).](t3/r3t_s5_map.png){{h=3.6}}
+![The five-stage S5 of record: {t3['s5']['max_nm']:.1f} nm.  Its recorded {t3['s5']['clear_mm']:.1f} mm floor corrects to {pk['s5_true_floor']:.1f} mm under the fixed clearance measure (packet addendum).](t3/r3t_s5_map.png){{h=2.62}}
+![The honest re-solve: {pk['legC_nm']:.1f} nm max, true floor {pk['legC_mm']:.1f} mm.](s5_budget/s5b_legC_map.png){{h=2.62}}
 ~ {TAG}.
 
 ## 7 — Counter-designs, same constraints, same budget | The sphere+Zernike start wins {ca_win:.1f}x; releasing the pinned terms chokes the solve
@@ -228,33 +251,19 @@ D. C. Redding with Claude Code — 20 August 2026.  Source study: M. Rodgers, 26
 ![Counter (b): power + y-tilt released — {pk['cb']:.0f} nm; the solve chokes.](t3/r3t_cb_map.png){{h=2.62}}
 ~ {TAG}.
 
-## 8 — The same template on a second instrument | EPD 200 mm, F/2.5, 10{DEG}x10{DEG} at 12{DEG}, its own 10/5 mm clearance spec: every stage gates
+## 8 — What carried, what taught | The layout figure that said no — and the constraint-model fixes it forced
 ::: left
-| stage | map max (nm) | clearance (mm) |
-| S1 | {t4['s1']['max_nm']:.1f} | {t4['s1']['clear_mm']:.1f} |
-| S2 | {t4['s2']['max_nm']:.1f} | {t4['s2']['clear_mm']:.1f} |
-| S3 | {t4['s3']['max_nm']:.1f} | {t4['s3']['clear_mm']:.1f} |
-| S4 | {t4['s4']['max_nm']:.1f} | {t4['s4']['clear_mm']:.1f} |
-| S5 | {t4['s5']['max_nm']:.1f} | {t4['s5']['clear_mm']:.1f} |
-- What carried: per-ray Gauss–Newton residuals (per-field-RMS residuals stall); first-order identities re-derived, never penalized; stop decenter as the exit-aiming variable; clearances as hinge rows in the solve; negative controls with teeth at every decode.
-- What taught: clearance judged at the box centre misses edge-field blockage — evaluate over the field; a boolean constraint wall freezes a non-compliant start (hinge rows do not); stations are not spacings — a transcription slip briefly suggested F/4.95, and the runner now reads packaging from the .seq truth file so the comparison cannot drift that way again.
+- What carried: per-ray Gauss–Newton residuals (per-field-RMS residuals stall); first-order identities re-derived, never penalized; stop decenter as the exit-aiming variable; clearances as residual rows in the solve; negative controls with teeth at every decode; a solve set sized to the variable count (slide 6).
+- What taught: the beam-clearance measure must test PIERCING exactly and go NEGATIVE inside the glass — a sampled minimum reported millimetres of clearance for beams THROUGH a mirror, and a zero-at-contact measure gives the optimizer no way out; clearance judged at the box centre misses edge-field blockage — evaluate over the field; buildability constrains the FIELD CHOICE, not just the surfaces (no envelope of this family packages a 200 mm F/2.5 beam at a 12{DEG} offset — the field walk cannot separate the fans); stations are not spacings (the F/4.95 misread, retracted; packaging reads from the .seq truth file).
+- The second instrument (EPD 200 mm, F/2.5) exposed all of it and is retired for re-instancing; its layout figure — not a number — is what caught the defect.
 ::: right
-![The second instrument at S5 (iso + side): the same five-stage flow at different parameters.](t4_layout){{h=2.9}}
-![S5 field envelopes: centre + YAN-extreme beams clear every mirror at the instrument's own 10/5 mm spec.](t4_fields){{h=2.3}}
-~ {TAG} (this instrument's box).  Reproduce: rodgers3() = the Stage-0 gates, oi_story(...) = ladder + counters; record: challenges/rodgers3/PACKET.md.
+![The figure that caught it: the second instrument's beams thread M1 and M2 while the sampled gate reported PASS.  Hardware drawings are gates, not illustrations.](t4_fields_exhibit){{h=4.4}}
+~ {TAG} (slides 1–7).  Reproduce: rodgers3() = the Stage-0 gates, oi_story(...) = ladder + counters, run_s5_budget()/run_s5_signed() = the slide-6 probes; record: challenges/rodgers3/PACKET.md incl. the 2026-08-21 addendum.
 """
 
-# slide 8's layout figure: crop the 4-panel view_std to its bottom row
-# (iso + side) so the panels stay legible at slide scale
-from PIL import Image
-src = os.path.join(T4DIR, "t4_s5_layout.png")
-crop_name = "deck_t4_layout_isoside.png"
-im = Image.open(src)
-w, hgt = im.size
-im.crop((0, int(0.52*hgt), w, hgt)).save(os.path.join(HERE, crop_name))
-
-MD = MD.replace("(t4_layout)", f"({crop_name})")
-MD = MD.replace("(t4_fields)", f"({T4REL}/t4_s5_fields.png)")
+# slide 8's exhibit: the retired second instrument's field-envelope
+# figure -- the drawing that exposed the clearance-model defect
+MD = MD.replace("(t4_fields_exhibit)", f"({T4REL}/t4_s5_fields.png)")
 
 md_path = os.path.join(HERE, "deck_rodgers3.md")
 with open(md_path, "w", encoding="utf-8") as f:

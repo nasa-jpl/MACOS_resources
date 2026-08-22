@@ -136,3 +136,106 @@ run_t3();            % the template at his parameters + counter-designs
 Suite: `./run_mmacos_tests.sh freeform` carries tRodgers3 (coarsened
 5×5 maps + the r5 C-offset negative control) and tOffsetImager (the T4
 second-parameter smoke).
+
+---
+
+## Addendum, 2026-08-21 — clearance-model corrections, the S5 budget
+## answer, and the t4 retraction
+
+**Verdict up front.**  (1) The clearance MEASURE had three defects, all
+fixed and gated; under the fixed measure the S4 headline STANDS and the
+S5-of-record's clearance PASS retracts.  (2) The S5 gap to the reported
+53 nm was the SOLVE-FIELD COUNT, not solver effort; the honest re-solve
+(25 fields, fixed clearance rows) reaches **45.4 nm at a true 33.4 mm
+floor** — better than the reported 53.  (3) The t4-wide second instance
+is RETIRED: its committed gates were artifacts of the blind measure.
+Every number below: strict RMS WFE, centroid reference, dense 11×11 map
+maximum (the packet metric, unchanged).
+
+### A. The clearance measure, corrected (design/src/oi_clear)
+
+Dave caught it ON THE LAYOUT FIGURE: the t4 graphic showed beams
+threading the mirrors while the gate said PASS.  Three defects, each
+found by that thread and fixed (macos_res commits 44dee1e, 6f70d98,
+plus the leg-pairing fix):
+
+1. **Sampled-past-piercing.**  The leg/glass distance was a
+   25-fixed-sample minimum (~60 mm spacing on a 1.4 m leg); a leg that
+   PIERCES an obstacle between samples reported a small positive
+   clearance.  Fixed: every plane crossing is tested AT the crossing
+   point (exact at any sampling) + proximity sampling at ≤ a quarter of
+   the tightest requirement.
+2. **Zero has no gradient.**  A pierced pair returning 0 is flat under
+   small pokes, so the solve hinge rows had no slope and the optimizer
+   never moved (measured: an identical re-converge on a fully blocked
+   train).  Fixed: SIGNED distance — minus the deepest penetration —
+   which the hinge deficit consumes unchanged.
+3. **Unpaired rays.**  Leg endpoints were masked per element; the
+   moment rays are lost mid-train the ends mismatch and the measure
+   throws.  Fixed: each leg pairs the same ray at both ends.
+
+Validated against an ns=2001 reference on every pair of both
+instances.  Under the fixed measure, on the designs of record:
+
+| design | recorded floor | TRUE floor | gate (≥35 − 1.5 knee) |
+|---|---|---|---|
+| S4 of record | 34.1 mm | **34.11 mm — CONFIRMED** | PASS |
+| S5 of record | 34.6 mm | **29.97 mm** | **FAIL — retracted** |
+
+The S4 buildability headline (113.6 nm at 34.1 mm vs the reported 117
+at ≥35) is sampling-safe and stands.  The hull footprint option
+(`P.clear_footprint='hull'`, same 1.15 margin) reads the S4 design at
+**42.0 mm** — under the truer glass model the S4 design clears the
+stated ≥35 comfortably; disk remains the model of record.
+
+### B. The S5 budget probe (s5_budget/, run_s5_budget + run_s5_signed)
+
+All legs seed from the S4-of-record state exactly (start reproduces
+the record's 2150.1 nm).  Legs A/B solved with the PRE-FIX rows
+(their true floors re-gated post-hoc); leg C with the fixed rows.
+
+| leg | solve fields | iters | map max | true floor | note |
+|---|---|---|---|---|---|
+| S5 of record | 9 | 30 (cap) | 118.2 | 29.97 mm | the committed rung |
+| A | 9 | 150 | 110.7 | 28.9 mm | iterations do NOT close the gap |
+| B | 25 | 60 | 54.1 | 28.2 mm | fields DO — 83 vars vs 9 fields was the gap |
+| C | 25 | 49 (plateau) | **45.4** | **33.4 mm** | fixed rows; exit err 0.008° |
+
+The record's "convergence-limited" diagnosis sharpens: the stage was
+SOLVE-FIELD-limited (9 fields under-determine 82 variables — the solve
+set converges while the dense map stalls).  With 25 fields and honest
+clearance rows the template lands at 45.4 nm — 0.86× the reported 53 —
+at a floor 1.6 mm shy of the stated 35 (the rows bought back the ~5 mm
+the blind measure had conceded).  The §2 table's S5 row should be read
+with this addendum; the committed t3 artifacts are unchanged (instance
+of record).
+
+### C. t4-wide RETIRED (templates/10_telescopes/offset_imager/run_t4.m)
+
+Under the fixed measure the committed t4 gates are false: true floors
+are −107..−124 mm — the incoming corridor pierces M2, and the M3 fan
+pierces M1 and M2 (exactly what the layout figure showed).  Re-solving
+with honest rows does not rescue it: the envelope needs a ~65° fold of
+a 100 mm leg (measured: the solve trades ~120 nm of WFE for ~2 mm of a
+126 mm deficit).  A form-true rescale (rodgers3 W-fold × EFL ratio) is
+still −156 mm pierced at S1, and the geometry says why: the field-walk
+separation tan(offset)×leg at 12° is ~0.26 m against a ~0.32 m
+beam-plus-patch need — **no envelope of this family packages a 200 mm
+F/2.5 beam at a 12° offset.  Buildability constrains the field choice,
+not just the surfaces.**  A 20° attempt exposed (and fixed) two more
+robustness gaps — a degenerate offset stop-pose construction, now
+bounded to the envelope span, and the leg-pairing defect — but
+converges too slowly to gate at the smoke budget; re-instancing t4 is
+an open item (run_t4.m's header carries the retraction and the
+lesson).  The committed t4_wide/ artifacts stay as the historical
+exhibit; their REPORT gates are superseded by this addendum.
+
+### D. Reproduction
+
+```matlab
+run_s5_budget();   % legs A+B (pre-fix rows; ~8 h)
+run_s5_signed();   % leg C (fixed rows; ~4 h)
+```
+Artifacts: `s5_budget/s5b_run.mat` + per-leg maps.  The oi_clear fixes
+are gated by the r3t reference floors (34.11 / 29.97 mm) reproducing
+exactly, and the freeform suite green.
