@@ -61,6 +61,51 @@ rigid-body (`dw/dx`, minus the obscured elt 4) and prescription-parameter
 (`dw/dsurf`) rungs are otherwise unaffected — the conic base and every
 pose are unchanged.
 
+### Element groups (rigid-body) — available on the `dw/dx` rung
+
+`run_sensitivities` takes `'groups'` (a `containers.Map` name → column
+vector of element ids) and `'groups_auto'` (parse `EltGrp=` out of the
+deck), plus `group_coords` / `group_fp_mode` / `group_stop_mode` /
+`group_stop_pos`.  They reach the **`dwdx` channel only** — a group is a
+RIGID-BODY group, driven by the engine's `GPERTURB`; `dwdz` / `dwdsurf` /
+`dwdgrid` are figure and surface channel kinds with no group analogue,
+and grouping them is deferred.
+
+A group contributes **6 more columns**, appended **after** the
+per-element block, in every field's block and every configuration's
+block — so the stacked column order is `[per-element] [group]` and the
+supervisor's channel-identity assertion covers the group columns too.
+Group channels carry **no element id**: `out.iElt` is `0` (the value
+source channels also carry) and `out.kind` is `'Group'` — section on
+`kind`, not on `iElt`.  The per-element figure pages do exactly that, and
+give each group its own page, `<name>_grp<NAME>_<mode>.png`.
+
+On THIS deck the natural group is the primary: the 18 real segments
+(elts 5–22) moving as one rigid PM body, alongside their 18 individual
+6-DOF blocks —
+
+```matlab
+grp = containers.Map('KeyType','char','ValueType','any');
+grp('PM') = (5:22).';
+art = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdx", ...
+    'configs', cfgs, 'stop_elt', STOP_ELT, 'groups', grp, ...);
+```
+
+`jwst_ote_designc.in` declares **no** `EltGrp=` lines, so `groups_auto`
+is a no-op here; it is the right switch for a deck that carries its
+groups in the prescription.
+
+**The committed artifacts in this directory were NOT regenerated for
+this capability** — `run_dwdx_5zoom_5fov.m` still runs the ungrouped
+harvest, and its baselines stand.  The living example is the gated case
+`tRunSensitivities/test_groups_reach_the_dwdx_channel`, which runs a
+trimmed grouped harvest end to end.
+
+**Units gotcha, inherited from `dw_dx`/pymacos:** a group TRANSLATION
+column is OPD per **BaseUnit** (the engine's `prb_grp` takes BaseUnits),
+while a per-element translation column is OPD per **metre**.  They differ
+by CBM — 1000× on this millimetre deck.  Rotations are rad on both sides.
+
 ## The deck
 
 `jwst_ote_designc.in` — an early 18-segment JWST OTE design.  Element 25
