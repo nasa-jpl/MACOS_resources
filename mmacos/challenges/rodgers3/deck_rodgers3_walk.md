@@ -195,7 +195,7 @@ run_s5_signed();   % probe C, honest rows     (~4 h)
 - What WORKED: the constraint conventions were guessable and the gates confirmed the guesses; the packet's t4 retraction kept the user out of the retired trap without opening it.
 ~ Instrument: BRIEF_oi_unguided; deliverable: challenges/rodgers3/t5_unguided_REPORT.md (verbatim, committed).  A negative result is a valid result — this one prices the gap between "documented" and "actionable".  Acts 2 and 3 — the fixes, then the walk — next slide.
 
-## F16 — The sequel: fix the frictions, then walk the box | The fixed template diagnoses everything and still stalls; the continuation walk lands 69.8 nm — 8531x better
+## F16 — The sequel: fix the frictions, then walk the box | The walk lands 69.8 nm (8531x better); the endgame re-solve then closes the last gate at NEGATIVE cost — 47.1 nm at 30.9 mm
 ::: left
 - Act 2 — the REDEMPTION rerun (run_t5r): the same instance on the fixed template (S1 depth cap, INVALID-map honesty, sentinel refusal, graceful ray loss).  ZERO crashes, and every failure now diagnoses itself in one line: the capped S1 lands 74.9 nm, S2 prints "INVALID — 104/121 fields lost every ray", the exit gate says "unmeasurable" instead of dying.  But S3–S5 stall at ~596 µm with the beam 205 mm INSIDE the glass: a cold start at the full 15° box is outside the convergent basin.  Robustness redeemed; convergence not — and both counter-designs stall at the same level, so it is the basin, not the freedom path.
 - Act 3 — the WALK (oi_walk): solve an easy 5° box first (diffraction-limited, clears comfortably), then walk the box open toward the target, carrying each solved design as the next step's warm start.  Full freedom + all constraint rows at every step; every carried design is screened at the widened box before solving — it traced first try at every step: the basin moves smoothly with the box.
@@ -206,9 +206,9 @@ run_s5_signed();   % probe C, honest rows     (~4 h)
 | 3 | 11x11° | 27.3 | 25.1 | exit PASS / clear PASS |
 | 4 | 13x13° | 40.0 | 24.6 | exit PASS / clear PASS |
 | 5 | 15x15° | 69.8 | 17.8 | exit PASS / clear FAIL |
-- Exit PASS at every step; the remaining gap is stated separately: the signed clearance floor tightens monotonically as the box opens and crosses the 25 mm knee only at the last step — packaging, not wavefront, is now the binding constraint.
-![The walked design at the full 15° box: 69.8 nm, floor 17.8 mm.](../../templates/10_telescopes/offset_imager/t5_walk/t5_walk_k05_layout.png){h=2.3}
-~ Records: t5_redemption/t5r_REPORT.md + t5_walk/t5_walk_REPORT.md (verdict PARTIAL — on packaging alone); runner: oi_walk.m (template dir).  Every number: the cover's metric contract.
+- Exit PASS at every step — and the last-step clearance residual (17.8 vs 25 mm) CLOSED post-walk: the truer hull model reads the committed design at 28.7 mm (clears as-is), and a restart re-solve in the SAME envelope lands 47.1 nm at a 30.9 mm floor — better than the walk on both axes.  The final step had stopped at 6 iterations on the WFE-only plateau break; clearance was never blocking, just under-solved.
+![The walked design at the full 15° box: 69.8 nm, floor 17.8 mm.](../../templates/10_telescopes/offset_imager/t5_walk/t5_walk_k05_layout.png){h=2.15}
+~ Records: the t5_redemption / t5_walk / t5_endgame REPORTs (offset_imager template dir); runners oi_walk.m + run_t5_endgame.m.  Every number: the cover contract.
 
 ## F17 — Should mmacos embed an agent helper? | The F15/F16 arc feeds both camps — that is the question
 ::: left

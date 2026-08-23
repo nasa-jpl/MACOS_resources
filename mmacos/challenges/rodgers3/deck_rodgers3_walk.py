@@ -23,7 +23,7 @@ import re
 import subprocess
 import sys
 
-from rodgers3_records import load, need, parse_walk, read
+from rodgers3_records import load, need, parse_endgame, parse_walk, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 T4REL = "../../templates/10_telescopes/offset_imager/t4_wide"
@@ -31,6 +31,7 @@ TWREL = "../../templates/10_telescopes/offset_imager/t5_walk"
 
 gates, t3, pk = load()
 wk = parse_walk()
+eg = parse_endgame()
 his = {g["rung"]: g["his"] for g in gates}
 
 DEG, MU, LAM = "°", "µ", "λ"
@@ -257,16 +258,16 @@ run_s5_signed();   % probe C, honest rows     (~4 h)
 - What WORKED: the constraint conventions were guessable and the gates confirmed the guesses; the packet's t4 retraction kept the user out of the retired trap without opening it.
 ~ Instrument: BRIEF_oi_unguided; deliverable: challenges/rodgers3/t5_unguided_REPORT.md (verbatim, committed).  A negative result is a valid result — this one prices the gap between "documented" and "actionable".  Acts 2 and 3 — the fixes, then the walk — next slide.
 
-## F16 — The sequel: fix the frictions, then walk the box | The fixed template diagnoses everything and still stalls; the continuation walk lands {wk['final_nm']:.1f} nm — {wk['factor']}x better
+## F16 — The sequel: fix the frictions, then walk the box | The walk lands {wk['final_nm']:.1f} nm ({wk['factor']}x better); the endgame re-solve then closes the last gate at NEGATIVE cost — {eg['wfe_nm']:.1f} nm at {eg['floor_mm']:.1f} mm
 ::: left
 - Act 2 — the REDEMPTION rerun (run_t5r): the same instance on the fixed template (S1 depth cap, INVALID-map honesty, sentinel refusal, graceful ray loss).  ZERO crashes, and every failure now diagnoses itself in one line: the capped S1 lands {wk['t5r_s1_nm']:.1f} nm, S2 prints "INVALID — {wk['lost']} fields lost every ray", the exit gate says "unmeasurable" instead of dying.  But S3–S5 stall at ~{wk['base_nm']/1e3:.0f} {MU}m with the beam {wk['clear0_mm']:.0f} mm INSIDE the glass: a cold start at the full 15{DEG} box is outside the convergent basin.  Robustness redeemed; convergence not — and both counter-designs stall at the same level, so it is the basin, not the freedom path.
 - Act 3 — the WALK (oi_walk): solve an easy 5{DEG} box first (diffraction-limited, clears comfortably), then walk the box open toward the target, carrying each solved design as the next step's warm start.  Full freedom + all constraint rows at every step; every carried design is screened at the widened box before solving — it traced first try at every step: the basin moves smoothly with the box.
 ::: right
 | step | box | map max (nm) | floor (mm) | gates |
 {WKROWS}
-- Exit PASS at every step; the remaining gap is stated separately: the signed clearance floor tightens monotonically as the box opens and crosses the {wk['knee_mm']:.0f} mm knee only at the last step — packaging, not wavefront, is now the binding constraint.
-![The walked design at the full 15{DEG} box: {wk['final_nm']:.1f} nm, floor {wk['steps'][-1]['clear_mm']:.1f} mm.](walk_layout){{h=2.3}}
-~ Records: t5_redemption/t5r_REPORT.md + t5_walk/t5_walk_REPORT.md (verdict {wk['verdict']} — on packaging alone); runner: oi_walk.m (template dir).  Every number: the cover's metric contract.
+- Exit PASS at every step — and the last-step clearance residual ({wk['steps'][-1]['clear_mm']:.1f} vs {wk['knee_mm']:.0f} mm) CLOSED post-walk: the truer hull model reads the committed design at {eg['hull_k05_mm']:.1f} mm (clears as-is), and a restart re-solve in the SAME envelope lands {eg['wfe_nm']:.1f} nm at a {eg['floor_mm']:.1f} mm floor — better than the walk on both axes.  The final step had stopped at {eg['walk_iters']} iterations on the WFE-only plateau break; clearance was never blocking, just under-solved.
+![The walked design at the full 15{DEG} box: {wk['final_nm']:.1f} nm, floor {wk['steps'][-1]['clear_mm']:.1f} mm.](walk_layout){{h=2.15}}
+~ Records: the t5_redemption / t5_walk / t5_endgame REPORTs (offset_imager template dir); runners oi_walk.m + run_t5_endgame.m.  Every number: the cover contract.
 
 ## F17 — Should mmacos embed an agent helper? | The F15/F16 arc feeds both camps — that is the question
 ::: left
