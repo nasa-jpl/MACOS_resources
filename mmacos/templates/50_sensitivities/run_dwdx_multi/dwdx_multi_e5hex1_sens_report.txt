@@ -1,0 +1,40 @@
+==== run_sensitivities: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/run_dwdx_multi/e5hex1.in ====
+field set: center + 4 corners at +-0.0001 rad
+segments: 7
+
+[dwdx] rigid-body 6-DOF per element, LOCAL triads...
+    + 6 group channel(s) appended after the per-element block
+    dwdxall 12060 x 72 over 5 fields
+
+[conditioning] finite rows only:
+    channel          size   rank     sv_max    sv_min+      cond+
+    dwdx     12060x72         71  1.010e+02  7.286e-08  1.386e+09
+    dwdx     segment-only: 12060x42  cond+ 1.288e+07
+
+    dwdx per-segment column norms (rms native-unit per unit DOF):
+      seg     rx        ry        rz        tx        ty        tz
+        1   5.17e-01  5.19e-01  9.22e-05  1.01e-02  1.00e-02  6.94e-01 
+        2   5.26e-01  5.16e-01  1.69e-04  1.01e-02  1.03e-02  6.97e-01 
+        3   5.19e-01  5.23e-01  1.69e-04  1.02e-02  1.02e-02  6.97e-01 
+        4   5.18e-01  5.16e-01  2.21e-04  1.01e-02  9.94e-03  6.93e-01 
+        5   5.23e-01  5.13e-01  4.77e-04  9.85e-03  9.97e-03  6.90e-01 
+        6   5.13e-01  5.23e-01  4.77e-04  9.86e-03  9.96e-03  6.90e-01 
+        7   5.16e-01  5.19e-01  2.21e-04  1.00e-02  1.00e-02  6.93e-01 
+
+figures: dwdx_multi_e5hex1_opdall/svspec/<ch>_channels + per-element pages in dwdx_multi_e5hex1_pages/
+
+Done: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/run_dwdx_multi/dwdx_multi_e5hex1_sens.mat + dwdx_multi_e5hex1_sens_report.txt
+
+[LensCell exhibit] the CELL against its member SURFACES
+    column RMS of dW/d(DOF): rotations in OPD-metres per rad, translations
+    in OPD-metres per METRE.  The group translation columns are divided by
+    CBM = 0.001 -- prb_grp reads BaseUnits where macos.perturb reads SI
+    metres, so a raw comparison would be 1000x out.
+    channel                         Rx          Ry          Rz          Tx          Ty          Tz
+    Grp[LensCell] (cell)    7.2745e-05  6.9769e-05  3.0282e-05  4.6010e-04  4.7181e-04  2.3293e-04
+    Elt 9 (surface)         5.4550e-04  5.3969e-04  2.7187e-05  4.6007e-04  4.6177e-04  1.6834e-04
+      cell / this surface       0.1334      0.1293      1.1139      1.0001      1.0218      1.3837
+    Elt 10 (surface)        4.7310e-04  4.6882e-04  1.6562e-07  1.6562e-09  1.7677e-09  8.8261e-05
+    (a ratio below 1 is intra-cell COMPENSATION -- the members' responses
+     partly cancel when they move as one body; a ratio at 1 means the other
+     member contributes nothing to that DOF)
