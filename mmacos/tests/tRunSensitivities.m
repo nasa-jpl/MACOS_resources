@@ -710,6 +710,111 @@ classdef tRunSensitivities < matlab.unittest.TestCase
                 max(abs(raw.dwdsall - ptt.dwdsall), [], 'all'), 0, ...
                 'remove_ptt changed nothing -- the raw response had no PTT?');
         end
+
+        % =============================================================
+        % ELEMENT GROUPS -- rigid-body groups on the dwdx channel
+        % =============================================================
+
+        function test_groups_reach_the_dwdx_channel(tc)
+            % The stage runner must plumb 'groups' into dw_dx_multi and
+            % every downstream consumer must tolerate the extra columns:
+            % the indxall row bookkeeping (groups add COLUMNS, never
+            % observations), the conditioning / spectrum figures, and the
+            % per-element pages -- which have to SECTION the group
+            % channels, because a group carries no element id (iElt 0,
+            % the same value a source channel carries) and would
+            % otherwise land unlabelled on the source page.
+            rx = fullfile(tc.res_root, 'mmacos', 'templates', ...
+                '50_sensitivities', 'run_dwdx_multi', 'e5hex1.in');
+            grp = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            grp('SegPair') = [1; 2];
+            % stop_elt is passed EXPLICITLY rather than leaning on the
+            % deck's header ApStop= 0 0 0.  Not cosmetic: this class runs
+            % many decks in ONE engine process, and after the 27-element
+            % zoom fixture has been harvested with its stop at element
+            % 25, re-loading this 13-element deck comes back with
+            % "*** Setting aperture stop failed!" and FEX then raises
+            % macos:fex:noStop.  That leak PREDATES element groups --
+            % reproduced with the plain ungrouped harvest below, which is
+            % run first for exactly that reason -- but there is no reason
+            % to let it decide whether a column-bookkeeping gate runs.
+            base = {'fov_rad', 1e-4, 'channels', "dwdx", 'ngridpts', 15, ...
+                    'elts', [1; 2], 'dofs', (0:5).', 'model_size', 512, ...
+                    'stop_elt', 8, 'per_element', "center", ...
+                    'verbose', false};
+
+            % the ungrouped reference FIRST, so the grouped run cannot be
+            % credited with (or blamed for) anything the plain harvest
+            % already does on this deck
+            wd0 = tempname; mkdir(wd0);
+            c0 = onCleanup(@() rmdir(wd0, 's'));
+            art0 = run_sensitivities(rx, base{:}, ...
+                'out_dir', string(wd0), 'name', "nogrp");
+            tc.verifyEqual(numel(art0.ox.channel_names), 12);
+            tc.verifyFalse(any(strcmp(art0.ox.kind, 'Group')));
+            tc.verifyEmpty(dir(fullfile(wd0, 'nogrp_pages', '*_grp*.png')));
+
+            wd = tempname; mkdir(wd);
+            c = onCleanup(@() rmdir(wd, 's'));
+            art = run_sensitivities(rx, base{:}, 'groups', grp, ...
+                'out_dir', string(wd), 'name', "grp");
+
+            % 2 optics x 6 DOFs = 12 per-element, then 6 group columns
+            ox = art.ox;
+            tc.verifyEqual(numel(ox.channel_names), 18);
+            tc.verifyEqual(size(ox.dwdxall, 2), 18);
+            tc.verifyEqual(nnz(strcmp(ox.kind, 'Group')), 6);
+            for k = 13:18
+                tc.verifyEqual(ox.kind{k}, 'Group', ...
+                    'group channels must be APPENDED after the per-element block');
+                tc.verifyEqual(ox.iElt(k), 0);
+            end
+            tc.verifyGreaterThan(max(abs(ox.dwdxall(:, 13:18)), [], 'all'), 0, ...
+                'non-vacuity: the group columns are all zero');
+
+            % indxall stays a ROW index -- groups add columns, not rows
+            tc.verifyEqual(size(ox.dwdxall, 1), numel(ox.w0_stacked));
+            tc.verifyEqual(size(ox.dwdxall, 1), numel(ox.indxall.i));
+
+            % report + figures built
+            tc.verifyTrue(isfile(art.report));
+            tc.verifyTrue(isfile(art.mat));
+            tc.verifyTrue(isfile(fullfile(wd, 'grp_svspec.png')));
+            tc.verifyTrue(isfile(fullfile(wd, 'grp_dwdx_channels.png')));
+            % the group gets its OWN page, and does NOT masquerade as the
+            % source page (which this harvest has no channels for)
+            tc.verifyTrue(isfile(fullfile(wd, 'grp_pages', ...
+                'grp_dwdx_grpSegPair_center.png')), ...
+                'the group must get its own per-element page');
+            tc.verifyFalse(isfile(fullfile(wd, 'grp_pages', ...
+                'grp_dwdx_src_center.png')), ...
+                'group channels must not land on the source page');
+            for e = [1 2]
+                tc.verifyTrue(isfile(fullfile(wd, 'grp_pages', ...
+                    sprintf('grp_dwdx_elt%d_center.png', e))));
+            end
+
+            % The per-element block is UNDISTURBED -- exactly so at the
+            % first field, and to round-off thereafter.  Not a fudge: the
+            % group channels add six more GPERTURB poke/restore cycles on
+            % elements 1 and 2 per field, and a perturb round-trip leaves
+            % a ULP-level pose residue (the psiElt renormalization
+            % residual tPerturbRoundtrip pins).  That residue persists
+            % into the NEXT field's nominal trace, so the later blocks
+            % agree at ~1e-6 relative rather than bitwise, and the
+            % nominal wavefront itself moves by the same order.  Field C
+            % is harvested first and IS bit-identical, which is what
+            % distinguishes round-off accumulation from a real
+            % contamination.
+            ctr = find(strcmp(ox.field_names, 'C'), 1);
+            tc.verifyTrue(isequal(art0.ox.per_field_dwdx{ctr}, ...
+                                  ox.per_field_dwdx{ctr}(:, 1:12)), ...
+                'the FIRST field''s per-element block must be bit-identical');
+            A = art0.ox.dwdxall;  B = ox.dwdxall(:, 1:12);
+            tc.verifyLessThan(max(abs(A - B), [], 'all') / ...
+                max(abs(A), [], 'all'), 1e-5, ...
+                'adding a group must not disturb the per-element block');
+        end
     end
 
     methods (Access = private)

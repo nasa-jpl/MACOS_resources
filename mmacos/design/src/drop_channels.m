@@ -3,7 +3,8 @@ function out = drop_channels(out, drop_elts, say)
 %   out = drop_channels(OUT, DROP_ELTS) returns OUT with every channel that
 %   belongs to an element in DROP_ELTS removed -- the channel-specific and
 %   generic Jacobians (dwd*all), channel_names, and the per-channel iElt /
-%   map_idx / zmodes arrays are all pruned CONSISTENTLY, so the result is a
+%   kind / dof_idx / map_idx / zmodes arrays are all pruned CONSISTENTLY,
+%   so the result is a
 %   smaller-but-well-formed harvest.  Row-indexed data (w0_stacked, indxall,
 %   OPDall, per_field_*) is untouched: dropping an element removes COLUMNS
 %   (state-vector entries), not observations.
@@ -15,6 +16,12 @@ function out = drop_channels(out, drop_elts, say)
 %   DROP_ELTS  vector of element ids to remove ([] = no-op).
 %   SAY        optional fprintf-like handle for a one-line note (default
 %              command window); pass @()[] to silence.
+%
+%   GROUP channels (dw_dx 'groups') are named Grp[...], so they carry no
+%   'Elt N' tag and are never matched by an element id -- dropping a dead
+%   optic leaves in place a group that CONTAINS it, deliberately: a group
+%   column is a distinct rigid-body motion, not a sum of its members'
+%   columns.
 %
 %   See also: flag_zero_norm_channels, save_dw_flat, macos.dw_dx_multi.
 
@@ -37,7 +44,7 @@ for f = {'dwdxall','dwdzall','dwdsall','dwdgall'}
         out.(f{1}) = out.(f{1})(:, keep);
     end
 end
-for f = {'channel_names','iElt','map_idx','zmodes'}
+for f = {'channel_names','iElt','kind','dof_idx','map_idx','zmodes'}
     if isfield(out, f{1}) && numel(out.(f{1})) == numel(cn)
         v = out.(f{1});  out.(f{1}) = v(keep);
     end
