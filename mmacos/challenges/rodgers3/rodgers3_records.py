@@ -172,6 +172,19 @@ def parse_endgame():
     need(re.search(r"stopped after\s+SIX iterations", te),
          "endgame six-iteration statement", "t5_endgame_REPORT.md")
     e["walk_iters"] = 6
+    e["rows"] = []
+    for m in re.finditer(
+            r"^\| \**(\d+)[^|]*\| \**([\d.]+)\**\s*\| \**([\d.]+)\**\s*\| "
+            r"([\d.]+)\s*\| (\d+ / \d+)\s*\| \**(\w+)\**", te, re.M):
+        e["rows"].append(dict(h=int(m.group(1)), nm=float(m.group(2)),
+                              mm=float(m.group(3)), exit=float(m.group(4)),
+                              ir=m.group(5), ok=m.group(6)))
+    if len(e["rows"]) != 3:
+        sys.exit("deck_rodgers3: endgame price-table parse got %d rows, "
+                 "want 3" % len(e["rows"]))
+    g = need(re.search(r"buys is WFE: ([\d.]+) -> ([\d.]+) nm", te),
+             "endgame env WFE trend", "t5_endgame_REPORT.md")
+    e["env_nm0"], e["env_nm1"] = float(g.group(1)), float(g.group(2))
     return e
 
 
