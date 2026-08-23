@@ -1,0 +1,49 @@
+WARNING: package sun.awt.X11 not in java.desktop
+WARNING: package sun.awt.X11 not in java.desktop
+mmacos: path set from /Users/dcr/dev/MACOS_resources/mmacos
+
+=================================================================
+ TASK 2  price of clearance in WFE (fixed x1.65 envelope)
+=================================================================
+
+--- hinge target 32 mm (clear_m dreq) ---
+  oi_solve S5  : 83 vars, 25 fields, start     48.361 nm
+    it  1:     44.060 nm   (lam 3.7e-05)
+    it  2:     47.637 nm   (lam 1.4e-06)
+    it  3:     47.363 nm   (lam 1.2e-06)
+    it  4:     47.235 nm   (lam 1.1e-06)
+    it  5:     47.273 nm   (lam 9.6e-07)
+  [restart 1] 5 iters -> map max 77.8 nm, disk floor 23.36 mm
+  oi_solve S5  : 83 vars, 25 fields, start     47.273 nm
+    it  1:     46.923 nm   (lam 3.7e-05)
+    it  2:     45.106 nm   (lam 1.4e-06)
+    it  3:     44.963 nm   (lam 3.7e-06)
+    it  4:     44.820 nm   (lam 9.8e-06)
+    it  5:     44.662 nm   (lam 2.6e-05)
+    it  6:     44.384 nm   (lam 6.9e-05)
+    it  7:     43.869 nm   (lam 1.8e-04)
+    it  8:     43.605 nm   (lam 1.6e-04)
+    it  9:     43.225 nm   (lam 1.5e-04)
+    it 10:     42.848 nm   (lam 1.3e-04)
+    it 11:     42.481 nm   (lam 1.2e-04)
+    it 12:     42.113 nm   (lam 1.0e-04)
+    it 13:     41.739 nm   (lam 9.1e-05)
+    it 14:     41.356 nm   (lam 8.1e-05)
+    it 15:     40.960 nm   (lam 7.2e-05)
+    it 16:     40.550 nm   (lam 6.4e-05)
+    it 17:     40.126 nm   (lam 5.7e-05)
+    it 18:     39.688 nm   (lam 5.1e-05)
+    it 19:     39.248 nm   (lam 4.5e-05)
+    it 20:     38.916 nm   (lam 4.0e-05)
+  [restart 2] 20 iters -> map max 55.6 nm, disk floor 31.36 mm
+  RESULT hinge 32 mm: map max 55.6 nm, disk floor 31.36 mm, exit 0.003 deg, 25 iters/2 restarts (reaches 25 mm)
+
+--- hinge target 28 mm (clear_m dreq) ---
+  oi_solve S5  : 83 vars, 25 fields, start     48.361 nm
+    it  1:     42.593 nm   (lam 3.7e-05)
+    it  2:     42.695 nm   (lam 1.4e-06)
+    it  3:     42.631 nm   (lam 1.0e-07)
+    it  4:     42.815 nm   (lam 8.0e-07)
+  [restart 1] 4 iters -> map max 63.3 nm, disk floor 16.45 mm
+  oi_solve S5  : 83 vars, 25 fields, start     42.815 nm
+    it  1:     45.698 nm   (lam 3.7e-05)

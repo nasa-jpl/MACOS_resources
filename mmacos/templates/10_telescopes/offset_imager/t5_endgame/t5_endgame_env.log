@@ -1,0 +1,107 @@
+WARNING: package sun.awt.X11 not in java.desktop
+WARNING: package sun.awt.X11 not in java.desktop
+mmacos: path set from /Users/dcr/dev/MACOS_resources/mmacos
+
+=================================================================
+ TASK 3  price of clearance in envelope (fixed WFE class)
+=================================================================
+
+--- envelope scale x1.75 (train screen qmean 3381.6 nm) ---
+  oi_solve S5  : 83 vars, 25 fields, start   3381.621 nm
+    it  1:    760.808 nm   (lam 3.7e-05)
+    it  2:    376.290 nm   (lam 1.4e-06)
+    it  3:    346.406 nm   (lam 1.0e-07)
+    it  4:    327.186 nm   (lam 1.0e-07)
+    it  5:    307.843 nm   (lam 1.0e-07)
+    it  6:    288.607 nm   (lam 1.0e-07)
+    it  7:    269.645 nm   (lam 1.0e-07)
+    it  8:    250.338 nm   (lam 1.0e-07)
+    it  9:    230.630 nm   (lam 1.0e-07)
+    it 10:    210.387 nm   (lam 1.0e-07)
+    it 11:    202.009 nm   (lam 1.0e-07)
+    it 12:    194.700 nm   (lam 8.0e-07)
+    it 13:    170.832 nm   (lam 8.0e-07)
+    it 14:    147.834 nm   (lam 8.0e-07)
+    it 15:    126.962 nm   (lam 8.0e-07)
+    it 16:    108.866 nm   (lam 8.0e-07)
+    it 17:     91.612 nm   (lam 2.1e-06)
+    it 18:     53.360 nm   (lam 5.7e-06)
+    it 19:     23.805 nm   (lam 1.5e-05)
+    it 20:     23.428 nm   (lam 4.0e-05)
+  [restart 1] 20 iters -> map max 34.9 nm, disk floor 24.41 mm
+  oi_solve S5  : 83 vars, 25 fields, start     23.428 nm
+    it  1:     23.420 nm   (lam 3.7e-05)
+    it  2:     23.336 nm   (lam 3.3e-05)
+    it  3:     23.221 nm   (lam 2.9e-05)
+    it  4:     23.152 nm   (lam 7.8e-05)
+    it  5:     23.092 nm   (lam 2.9e-06)
+    it  6:     22.967 nm   (lam 6.2e-05)
+    it  7:     22.918 nm   (lam 5.5e-05)
+    it  8:     22.908 nm   (lam 3.9e-04)
+  [restart 2] 8 iters -> map max 35.4 nm, disk floor 24.35 mm
+  RESULT x1.75: train 1.460 m, map max 34.9 nm, disk floor 24.41 mm, exit 0.024 deg (SHORT of 25 mm)
+
+--- envelope scale x1.85 (train screen qmean 3862.8 nm) ---
+  oi_solve S5  : 83 vars, 25 fields, start   3862.814 nm
+    it  1:    196.821 nm   (lam 2.7e-03)
+    it  2:     46.405 nm   (lam 2.4e-03)
+    it  3:     30.347 nm   (lam 8.8e-05)
+    it  4:     23.074 nm   (lam 2.3e-04)
+    it  5:     22.286 nm   (lam 2.1e-04)
+    it  6:     21.758 nm   (lam 1.8e-04)
+    it  7:     21.416 nm   (lam 1.6e-04)
+    it  8:     21.146 nm   (lam 1.5e-04)
+    it  9:     20.918 nm   (lam 1.3e-04)
+    it 10:     20.719 nm   (lam 1.2e-04)
+    it 11:     20.544 nm   (lam 1.0e-04)
+    it 12:     20.389 nm   (lam 9.1e-05)
+    it 13:     20.219 nm   (lam 3.4e-06)
+    it 14:     19.782 nm   (lam 9.0e-06)
+    it 15:     19.422 nm   (lam 8.0e-06)
+    it 16:     19.398 nm   (lam 1.7e-04)
+    it 17:     19.396 nm   (lam 6.3e-06)
+  [restart 1] 17 iters -> map max 35.0 nm, disk floor 24.69 mm
+  oi_solve S5  : 83 vars, 25 fields, start     19.396 nm
+    it  1:     19.394 nm   (lam 8.9e-04)
+    it  2:     19.388 nm   (lam 3.3e-05)
+    it  3:     19.352 nm   (lam 2.9e-05)
+    it  4:     19.293 nm   (lam 1.1e-06)
+    it  5:     19.240 nm   (lam 1.8e-04)
+    it  6:     19.225 nm   (lam 6.9e-06)
+  [restart 2] 6 iters -> map max 34.1 nm, disk floor 24.76 mm
+  RESULT x1.85: train 1.510 m, map max 34.1 nm, disk floor 24.76 mm, exit 0.001 deg (SHORT of 25 mm)
+
+--- envelope scale x1.9 (train screen qmean 1873.5 nm) ---
+  oi_solve S5  : 83 vars, 25 fields, start   1873.485 nm
+    it  1:     32.909 nm   (lam 3.7e-05)
+    it  2:     19.505 nm   (lam 9.9e-05)
+    it  3:     19.112 nm   (lam 2.6e-04)
+    it  4:     19.029 nm   (lam 9.8e-06)
+    it  5:     18.929 nm   (lam 2.6e-05)
+    it  6:     18.702 nm   (lam 2.3e-05)
+    it  7:     18.532 nm   (lam 2.1e-05)
+    it  8:     18.425 nm   (lam 1.8e-05)
+    it  9:     18.332 nm   (lam 1.6e-05)
+    it 10:     18.265 nm   (lam 1.4e-05)
+    it 11:     18.187 nm   (lam 1.3e-05)
+    it 12:     18.165 nm   (lam 3.4e-05)
+    it 13:     18.082 nm   (lam 1.3e-06)
+    it 14:     18.056 nm   (lam 7.2e-05)
+    it 15:     18.020 nm   (lam 2.7e-06)
+    it 16:     17.950 nm   (lam 7.1e-06)
+    it 17:     17.936 nm   (lam 1.5e-04)
+  [restart 1] 17 iters -> map max 31.3 nm, disk floor 24.86 mm
+  oi_solve S5  : 83 vars, 25 fields, start     17.936 nm
+    it  1:     17.934 nm   (lam 3.7e-05)
+    it  2:     17.928 nm   (lam 9.9e-05)
+    it  3:     17.902 nm   (lam 3.7e-06)
+    it  4:     17.898 nm   (lam 2.1e-04)
+  [restart 2] 4 iters -> map max 31.1 nm, disk floor 24.86 mm
+  RESULT x1.9: train 1.536 m, map max 31.3 nm, disk floor 24.86 mm, exit 0.003 deg (SHORT of 25 mm)
+  screen: scale too big (q=9.53e+07 nm) -> halve to x1.925 (halving 1)
+ans = 
+  struct with fields:
+
+    task: 'env'
+    when: '2026-08-22 20:16:43'
+     env: [1x1 struct]
