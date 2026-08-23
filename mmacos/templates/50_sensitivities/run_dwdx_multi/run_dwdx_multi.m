@@ -26,51 +26,45 @@
 %  appends the table to <name>_sens_report.txt under "LensCell
 %  exhibit"; read the committed report for the current numbers rather
 %  than trusting a comment.  Every figure quoted below is FROM that
-%  committed report (grep it) except the step-size sweep in the UNITS
-%  TRAP, which is a separate diagnostic measured on this deck.  On the
+%  committed report (grep it); the step-size numbers further down are a
+%  separate convergence diagnostic measured on this deck.  On the
 %  shipped configuration:
 %
-%    TILT is where the compensation shows.  Cell Rx 7.2745e-05 against
+%    TILT is where the compensation shows.  Cell Rx 7.2748e-05 against
 %    surface 9's 5.4550e-04 -- the cell is 7.5x LESS tilt-sensitive
 %    than its own front surface, because surface 9 (5.4550e-04) and
-%    surface 10 (4.7310e-04) respond comparably and largely cancel when
+%    surface 10 (4.7309e-04) respond comparably and largely cancel when
 %    the two tilt together.  Ry is the same story, ratio 0.1293.
 %
 %    DECENTER does NOT compensate on THIS deck, and the reason is worth
 %    knowing before you generalize: element 10 is Surface= Conic with
 %    KrElt = -1E+18, i.e. FLAT.  A flat refracting surface has no
-%    lateral response at all -- its Tx column is 1.6562e-09, five
+%    lateral response at all -- its Tx column is 1.6890e-09, five
 %    decades under surface 9's, i.e. numerically zero -- so e5hex1's
 %    "doublet" is optically a plano-convex SINGLET and there is nothing
-%    for the cell decenter to cancel against.  Cell Tx 4.6010e-04 vs
-%    surface 9's 4.6007e-04, ratio 1.0001.  That agreement to four
+%    for the cell decenter to cancel against.  Cell Tx 4.6007e-04 vs
+%    surface 9's 4.6007e-04, ratio 1.0000.  That agreement to five
 %    digits is not a null result: it is the check that the group
 %    channel is a genuine rigid-body motion of both members (a rigid
 %    translation must equal the member sum, and the member sum here IS
 %    surface 9).  The classic intra-cell decenter compensation needs
 %    two POWERED surfaces; put one in your own Rx and the ratio drops.
 %
-%  UNITS TRAP -- read before comparing any group column with a
-%  per-element one, and before choosing DELTA.  A group TRANSLATION
-%  column is OPD per BASE UNIT (the engine's prb_grp takes BaseUnits),
-%  while a per-element translation column is OPD per METRE.  On this
-%  millimetre deck they are 1000x apart.  Two consequences:
-%    (1) The exhibit divides the group columns by CBM so both sides are
-%        per-metre.  Do the same in your own post-processing
-%        (macos.dw_dx_multi's help documents the convention).
-%    (2) A SCALAR 'delta' pokes the group 1/CBM times SMALLER than the
-%        elements -- 10 pm here against 10 nm -- and at that amplitude
-%        the group columns are finite-difference NOISE, not signal.
-%        Measured on this deck, group column / frame-resolved member sum
-%        went 1.0000 (delta 1e-5) -> 1.0005 (1e-6) -> 1.012 (1e-7) ->
-%        1.657 (1e-8): the error grows as the step shrinks, which is the
-%        signature of a step that is too small, not of physics.  So
-%        DELTA below is the (1,6) form -- rotations 1e-8 rad (rad on
-%        BOTH sides, no mismatch), translations 1e-6, giving 1 um at the
-%        elements and 1 nm at the cell.  Both are in the converged
-%        regime: the per-element translation columns agree with a 1e-5
-%        step to ~1e-5, while the old scalar-1e-8 element step is itself
-%        the outlier by 2.5e-3.
+%  UNITS: group and per-element columns share one convention --
+%  OPD-per-metre for translations, OPD-per-rad for rotations -- so they
+%  are directly comparable and one numeric DELTA is one physical poke
+%  for either.  (GroupedRigidBodyChannel converts SI metres to the
+%  BaseUnits prb_grp wants, exactly as macos.perturb does for the
+%  per-element channel.  It did not always; see the channel's
+%  do_perturb comment and tDwDxGroups/
+%  test_scalar_delta_matches_the_split_step for what that cost.)
+%
+%  WHY DELTA IS A (1,6) VECTOR -- convergence, not units.  Rotations sit
+%  at 1e-8 rad; translations at 1e-6 (1 um) because a 1e-8 m poke is
+%  itself too small on this deck: the per-element translation columns
+%  come out 2.5e-3 away from their converged values at 1e-8, while 1e-6
+%  and 1e-5 agree with each other to ~1e-5.  Rotations show no such
+%  drift, so only the translation entries move.
 %
 %  Group channels carry NO element id -- out.iElt is 0, the value a
 %  source channel also carries -- and out.kind is 'Group'.  Section on
@@ -93,10 +87,10 @@ RX     = fullfile(here, 'e5hex1.in');  % your .in goes here
 MODEL  = 128;           % model size (>= your aperture grid sampling)
 NGRIDPTS = 63;          % ray-grid override ([] = keep the .in value)
 FOV    = 1e-4;          % half-field (rad) for the 4 corner field points
-% Finite-difference step, (1,6) = [Rx Ry Rz Tx Ty Tz].  Rotations rad
-% on both sides; translations SI metres for the per-element channels
-% and BASE UNITS for the group channels -- see the UNITS TRAP above for
-% why this is the vector form and not a scalar.
+% Finite-difference step, (1,6) = [Rx Ry Rz Tx Ty Tz].  Rotations in
+% rad, translations in SI metres, for BOTH the per-element and the
+% group channels -- see "WHY DELTA IS A (1,6) VECTOR" above for why the
+% translation entries are 1e-6 and not the 1e-8 the rotations use.
 DELTA  = [1e-8 1e-8 1e-8 1e-6 1e-6 1e-6];
 % Rigid-body element GROUPS: name -> column vector of member element
 % ids.  [] = none.  Here: the two Refractor surfaces of the doublet

@@ -14,15 +14,9 @@ function group_exhibit(out, groups, report_path, opts)
 %   (the member count) is the opposite and equally expected: a rigid
 %   TRANSLATION of N alike members is the sum of N alike columns.
 %
-%   UNITS -- the reason this helper exists rather than a one-liner.  A
-%   group TRANSLATION column is OPD per BASE UNIT (the engine's prb_grp
-%   takes BaseUnits) while a per-element translation column is OPD per
-%   METRE; on a millimetre deck they are 1000x apart and a raw
-%   comparison is meaningless.  The group translation columns are
-%   divided by CBM here so both sides are per-metre.  Rotations are rad
-%   on both sides and are left alone.  (macos.dw_dx_multi's help
-%   documents the convention; the same asymmetry is why the drivers set
-%   a (1,6) 'delta' rather than a scalar.)
+%   Units: group and per-element columns share one convention --
+%   OPD-per-metre for translations, OPD-per-rad for rotations -- so the
+%   two sides are directly comparable and nothing is rescaled here.
 %
 %   OUT     struct from macos.dw_dx or macos.dw_dx_multi.  Needs
 %           channel_names, kind, cbm and a Jacobian (dwdxall or dwdx).
@@ -54,8 +48,6 @@ else
     return
 end
 
-cbm = 1;
-if isfield(out, 'cbm') && out.cbm > 0, cbm = out.cbm; end
 LAB = {'Rx','Ry','Rz','Tx','Ty','Tz'};
 % column RMS over the rows every channel reached
 rmsn = @(M) sqrt(mean(M(all(isfinite(M), 2), :).^2, 1));
@@ -94,20 +86,13 @@ for gi = 1:numel(gnames)
     say('\n[%s exhibit] the GROUP against its member elements\n', nm);
     say('    members: %s (%d)\n', mat2str(reshape(mem, 1, [])), numel(mem));
     say(['    column RMS of dW/d(DOF): rotations in OPD-metres per rad, ' ...
-         'translations\n    in OPD-metres per METRE.  The group ' ...
-         'translation columns are divided by\n    CBM = %.6g -- ' ...
-         'prb_grp reads BaseUnits where macos.perturb reads SI\n' ...
-         '    metres, so a raw comparison would be %.0fx out.\n'], ...
-        cbm, 1/cbm);
+         'translations\n    in OPD-metres per METRE -- the same ' ...
+         'convention on both sides.\n']);
     hdr = sprintf('%-24s', 'channel');
     for d = 1:6, hdr = [hdr sprintf('%12s', LAB{d})]; end %#ok<AGROW>
     say('    %s\n', hdr);
 
-    gv = zeros(1, 6);
-    for d = 1:6
-        sc = 1;  if d > 3, sc = 1/cbm; end     % dof_idx 3..5 are Tx Ty Tz
-        gv(d) = rmsn(A(:, gc(d))) * sc;
-    end
+    gv = rmsn(A(:, gc(1:6)));
     say('    %-24s%s\n', [tag ' (group)'], sprintf('%12.4e', gv));
     for q = 1:numel(show)
         ev = rmsn(A(:, ec{q}));

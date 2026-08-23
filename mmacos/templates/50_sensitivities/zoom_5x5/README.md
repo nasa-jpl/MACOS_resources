@@ -101,8 +101,7 @@ because a group column is a distinct rigid-body motion and not a sum of
 its members' columns.
 
 **What the PM columns say** (RMS over the 5×5 stack; rotations per rad,
-translations per metre after dividing the group columns by CBM — see the
-units note below):
+translations per metre — the same convention on both sides):
 
 | DOF | PM as one body | one segment (elt 5) | PM / segment |
 |---|---|---|---|
@@ -125,20 +124,24 @@ largely absorbs.  That is exactly the intra-group cancellation a per-element
 budget cannot see — summing 18 large per-segment piston columns does not
 reproduce it.
 
-**Units, and why `DELTA` is a `(1,6)` vector.**  A group TRANSLATION
-column is OPD per **BaseUnit** (the engine's `prb_grp` takes BaseUnits),
-while a per-element translation column is OPD per **metre** — 1000×
-apart on this millimetre deck.  Rotations are rad on both sides.  So a
-*scalar* `delta` pokes the group 1000× smaller than the elements and
-drives its columns toward the finite-difference floor: measured here
-against a converged 1e-4 step, the PM group's translation columns are off
-by 4.0e-03 (Tx) / 3.7e-03 (Ty) / 3.2e-02 (Tz) at `delta` 1e-8, and by
-3.9e-05 / 3.9e-05 / 3.3e-04 at 1e-6.  The driver therefore uses
-`[1e-8 1e-8 1e-8 1e-6 1e-6 1e-6]` — rotations 1e-8 rad, translations 1 µm
-at the elements and 1 nm at the group.  The per-element translation
-columns improve too (worst 1.9e-04 off at the old scalar 1e-8, 1.8e-06 at
-1e-6), and the per-segment column-norm table in the report is unchanged
-to three figures.
+**Units.**  Group and per-element columns share one convention —
+OPD-per-metre for translations, OPD-per-rad for rotations — so the PM row
+and the segment row above are directly comparable and one numeric `delta`
+is one physical poke for either.  `GroupedRigidBodyChannel` converts SI
+metres to the BaseUnits `prb_grp` wants, exactly as `macos.perturb` does
+for the per-element channel.  It did not always: while the group channel
+passed its increment straight through, a scalar `delta` poked a group
+1/CBM times smaller than the elements and drove its columns to the
+finite-difference floor — an artifact that reads as a physical
+compensation ratio.  Closed in the channel; gated by
+`tDwDxGroups/test_scalar_delta_matches_the_split_step`.
+
+**Why `DELTA` is a `(1,6)` vector — convergence, not units.**  Rotations
+sit at 1e-8 rad; translations at 1e-6 (1 µm) because the per-element
+translation columns are still 1.9e-04 away from their converged values at
+a 1e-8 m poke and 1.8e-06 away at 1e-6.  Rotations show no such drift, so
+only the translation entries move.  The per-segment column-norm table in
+the report is unchanged to three figures either way.
 
 **The committed artifacts here WERE regenerated for this** — report,
 PNGs, and the (gitignored) `.mat`.  The 25-block harvest takes about

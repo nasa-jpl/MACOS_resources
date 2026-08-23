@@ -121,18 +121,20 @@
 %  engine.  'groups_auto' would read EltGrp= declarations straight out
 %  of the deck; this one carries none, so the map below is explicit.
 %
-%  UNITS, and why DELTA is a (1,6) vector.  A group TRANSLATION column
-%  is OPD per BASE UNIT (the engine's prb_grp takes BaseUnits) where a
-%  per-element one is OPD per METRE -- 1000x apart on this millimetre
-%  deck.  Rotations are rad on both sides.  So a SCALAR delta pokes the
-%  group 1000x smaller than the elements and drives its columns toward
-%  the finite-difference floor: measured here against a converged 1e-4
-%  step, the PM group's translation columns are off by 4.0e-03 (Tx),
-%  3.7e-03 (Ty) and 3.2e-02 (Tz) at delta 1e-8, and by 3.9e-05 /
-%  3.9e-05 / 3.3e-04 at 1e-6.  DELTA below therefore keeps rotations at
-%  1e-8 rad and puts translations at 1e-6: 1 um at the elements, 1 nm at
-%  the PM group.  The per-element translation columns improve too
-%  (worst 1.9e-04 off at the old scalar 1e-8, 1.8e-06 at 1e-6).
+%  UNITS: group and per-element columns share one convention --
+%  OPD-per-metre for translations, OPD-per-rad for rotations -- so the
+%  PM columns and a segment's are directly comparable and one numeric
+%  DELTA is one physical poke for either.  (GroupedRigidBodyChannel
+%  converts SI metres to the BaseUnits prb_grp wants, exactly as
+%  macos.perturb does for the per-element channel.  It did not always;
+%  see that channel's do_perturb comment and tDwDxGroups/
+%  test_scalar_delta_matches_the_split_step for what that cost.)
+%
+%  WHY DELTA IS A (1,6) VECTOR -- convergence, not units.  Rotations sit
+%  at 1e-8 rad; translations at 1e-6 (1 um) because the per-element
+%  translation columns are still 1.9e-04 away from their converged
+%  values at a 1e-8 m poke and 1.8e-06 away at 1e-6.  Rotations show no
+%  such drift, so only the translation entries move.
 %
 %  Outputs (this directory): <name>.mat is FLAT -- dwdx / indxall /
 %  w0_stacked / channel_names / config_* at the TOP LEVEL, the channel's
@@ -150,10 +152,10 @@ STOP_ELT = 25;          % the FSM IS the pupil; the deck carries no ApStop=
 CFG_ELT  = 25;          % the element the configuration axis steers
 FOV      = 2.90888e-4;  % half-field (rad) = 1 arcmin, 5-field set
 TILT     = 1.45444e-4;  % configuration tilt (rad) = 0.5 arcmin
-% Finite-difference step, (1,6) = [Rx Ry Rz Tx Ty Tz].  Rotations rad
-% on both sides; translations SI metres for the per-element channels and
-% BASE UNITS for the group channels -- see UNITS above for why this is
-% the vector form and not a scalar.
+% Finite-difference step, (1,6) = [Rx Ry Rz Tx Ty Tz].  Rotations in
+% rad, translations in SI metres, for BOTH the per-element and the group
+% channels -- see "WHY DELTA IS A (1,6) VECTOR" above for why the
+% translation entries are 1e-6 and not the 1e-8 the rotations use.
 DELTA    = [1e-8 1e-8 1e-8 1e-6 1e-6 1e-6];
 EXCLUDE  = [];          % element ids to force-drop ([] = drop whatever the
                         % zero-norm flag reports dead, e.g. the obscured elt 4)
