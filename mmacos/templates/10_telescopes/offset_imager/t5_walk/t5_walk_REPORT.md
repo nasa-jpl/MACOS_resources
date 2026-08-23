@@ -37,8 +37,13 @@ table doubles as the instrument's field-vs-packaging frontier in this
 envelope.  Its largest spec-compliant (>= 25 mm) box is **11x11° at
 27.3 nm and a 25.1 mm floor** (`t5_walk_k01..k03.in` are all finished,
 gate-PASS instruments); the 15x15° target is aberration-solved with a
-7.2 mm clearance deficit as the priced residual.  The endgame — hull
-re-score, WFE-for-clearance, or envelope stretch — is queued
-(BRIEF_to_endgame; challenges/rodgers3/PACKET.md addendum §B).
+7.2 mm clearance deficit as the priced residual.  **Endgame
+quantified 2026-08-23 (`t5_endgame/t5_endgame_REPORT.md`): the
+deficit is CLOSED — hull re-score reads this endpoint at 28.74 mm
+(clears as committed), and a restart re-solve in the same envelope
+lands 47.1 nm at a 30.89 mm disk floor (`t5_endgame_wfe.in`), better
+than this table's step 5 on both axes.  Step 5 above is UNDER-SOLVED
+(6 iterations — the WFE-only plateau break fired while the clearance
+hinge still pulled); this table stays as the walk's record.**
 
 Reproduce: `run_t5_walk` (this run: model 256, 41 nGridpts, ~121 min).  Artifacts: per-step decks `t5_walk_k0*.in`, figures `t5_walk_k0*_{layout,fields,map}.png`, `t5_walk_run.mat`, this report.
