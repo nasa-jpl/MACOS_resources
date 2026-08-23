@@ -114,72 +114,9 @@ fprintf('=== dw/dx multi: %d channels x %d fields ===\n', ...
     numel(art.ox.channel_names), size(art.ox.field_table, 1));
 
 % ---- the LensCell exhibit -------------------------------------------
-% Cell vs single surface, all six DOFs, with the group TRANSLATION
-% columns divided by CBM so both sides are per-metre and the
-% BaseUnit/metre convention difference cannot flatter either one.
-% Written into the report so the committed artifact carries the numbers
-% this example is about.
-lens_cell_exhibit(art.ox, GROUPS, fullfile(here, [name '_sens_report.txt']));
-
-
-function lens_cell_exhibit(ox, groups, report_path)
-if ~isa(groups, 'containers.Map') || groups.Count == 0, return; end
-if ~isfield(ox, 'kind') || ~any(strcmp(ox.kind, 'Group')), return; end
-cbm = 1;
-if isfield(ox, 'cbm') && ox.cbm > 0, cbm = ox.cbm; end
-LAB = {'Rx','Ry','Rz','Tx','Ty','Tz'};
-% column RMS over the rows every channel reached
-rmsn = @(A) sqrt(mean(A(all(isfinite(A), 2), :).^2, 1));
-
-fid = fopen(report_path, 'a');
-if fid < 0, return; end
-closer = onCleanup(@() fclose(fid));
-say = @(varargin) fprintf(1, varargin{:}) + fprintf(fid, varargin{:});
-
-gnames = keys(groups);
-for gi = 1:numel(gnames)
-    nm  = gnames{gi};
-    mem = double(groups(nm));  mem = mem(:);
-    tag = sprintf('Grp[%s]', nm);
-    gc  = find(strncmp(ox.channel_names, tag, numel(tag)) ...
-               & strcmp(ox.kind(:), 'Group'));
-    ec  = cell(numel(mem), 1);
-    for q = 1:numel(mem)
-        ec{q} = find(startsWith(ox.channel_names, ...
-                     sprintf('Elt %d ', mem(q))));
-    end
-    if numel(gc) < 6 || any(cellfun(@(v) numel(v) < 6, ec)), continue; end
-
-    say('\n[%s exhibit] the CELL against its member SURFACES\n', nm);
-    say(['    column RMS of dW/d(DOF): rotations in OPD-metres per rad, ' ...
-         'translations\n    in OPD-metres per METRE.  The group ' ...
-         'translation columns are divided by\n    CBM = %.6g -- ' ...
-         'prb_grp reads BaseUnits where macos.perturb reads SI\n' ...
-         '    metres, so a raw comparison would be %.0fx out.\n'], ...
-        cbm, 1/cbm);
-    hdr = sprintf('%-22s', 'channel');
-    for d = 1:6, hdr = [hdr sprintf('%12s', LAB{d})]; end %#ok<AGROW>
-    say('    %s\n', hdr);
-
-    gv = zeros(1, 6);
-    for d = 1:6
-        sc = 1;  if d > 3, sc = 1/cbm; end     % dof 3..5 are Tx Ty Tz
-        gv(d) = rmsn(ox.dwdxall(:, gc(d))) * sc;
-    end
-    say('    %-22s%s\n', [tag ' (cell)'], sprintf('%12.4e', gv));
-    for q = 1:numel(mem)
-        ev = rmsn(ox.dwdxall(:, ec{q}));
-        say('    %-22s%s\n', sprintf('Elt %d (surface)', mem(q)), ...
-            sprintf('%12.4e', ev));
-        if q == 1
-            rat = gv ./ max(ev, realmin);
-            say('    %-22s%s\n', '  cell / this surface', ...
-                sprintf('%12.4f', rat));
-        end
-    end
-    say(['    (a ratio below 1 is intra-cell COMPENSATION -- the ' ...
-         'members'' responses\n     partly cancel when they move as ' ...
-         'one body; a ratio at 1 means the other\n     member ' ...
-         'contributes nothing to that DOF)\n']);
-end
-end
+% Cell vs member surfaces, all six DOFs, appended to the report so the
+% committed artifact carries the numbers this example is about.  The
+% helper divides the group TRANSLATION columns by CBM so both sides are
+% per-metre -- see its header for the units argument.
+group_exhibit(art.ox, GROUPS, ...
+    fullfile(here, [name '_sens_report.txt']));
