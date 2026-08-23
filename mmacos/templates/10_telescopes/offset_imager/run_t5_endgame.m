@@ -134,22 +134,31 @@ function R = task_wfe_(here, outdir, walk, P0)
     % spec so the converged disk floor lands >= 25 mm.  clear_m = [h h] so
     % dreq = h exactly (order-free min/max) and the oi_clear proximity
     % sampling ds = 0.25*min([h;h;0.020]) = 5 mm stays as the committed run.
-    hbrack = [0.030 0.035 0.042];            % m
+    % hinge (clear_m dreq) bracket.  0.025 = the SPEC hinge = exactly the walk
+    % step-5 setting (min([0.040 0.025])), properly converged -- it ISOLATES
+    % the convergence effect from the raised hinge (the walk stopped step 5 at
+    % 6 iters on the WFE-qmean plateau, leaving clearance short).  0.032/0.040
+    % overshoot the 25 mm gate (the hinge max(0,dreq-d) loses its gradient as
+    % d -> dreq, so a dreq at the gate lands slightly under; overshoot keeps a
+    % gradient through 25 mm).  The REPORTED gate stays the 25 mm spec.
+    hbrack = [0.025 0.032 0.040];            % m
     gate_true = 0.025;                       % REPORTED spec gate (unchanged)
     rows = struct('hinge_mm',{},'map_max_nm',{},'disk_floor_mm',{}, ...
-                  'exit_err_deg',{},'iters',{},'restarts',{},'reached',{});
+                  'exit_err_deg',{},'iters',{},'restarts',{},'reached',{},'trace',{});
     baseX = cell(1,numel(hbrack));
     for j = 1:numel(hbrack)
         h = hbrack(j);
         P = P0;  P.box_deg = [15 15];  P.clear_m = [h h];
         P.clear_footprint = 'disk';
+        P.gn_iters = 20;            % plateau ~20 (brief); trims from the walk's 30
         fprintf('\n--- hinge target %.0f mm (clear_m dreq) ---\n', h*1e3);
-        [X, tot, mp, gt] = solve_to_clear_(X0, P, offset, gate_true);
+        [X, tot, mp, gt, tr] = solve_to_clear_(X0, P, offset, gate_true);
         baseX{j} = X;
         row = struct('hinge_mm',h*1e3, 'map_max_nm',mp.max_nm, ...
             'disk_floor_mm',gt.clear_min_m*1e3, 'exit_err_deg',gt.exit_err_deg, ...
             'iters',tot.iters, 'restarts',tot.restarts, ...
-            'reached', gt.clear_min_m >= gate_true && (~isfield(mp,'valid')||mp.valid));
+            'reached', gt.clear_min_m >= gate_true && (~isfield(mp,'valid')||mp.valid), ...
+            'trace',tr);
         rows(j) = row; %#ok<AGROW>
         fprintf(['  RESULT hinge %.0f mm: map max %.1f nm, disk floor %.2f mm, ' ...
                  'exit %.3f deg, %d iters/%d restarts (%s 25 mm)\n'], ...
@@ -196,11 +205,18 @@ function R = task_env_(here, outdir, walk, P0)
     % each scale from the previous scale's solved design; screen before
     % solving and halve the stretch step (F8 rule) if the carried X will
     % not trace the stretched geometry.
-    targets = [1.75 1.85 1.95 2.05];
-    min_dsig = 0.03;                          % smallest scale increment
+    targets = [1.75 1.85 1.90 1.95 2.00 2.10];
+    min_dsig = 0.02;                          % smallest scale increment
+    % screen ceiling: a well-conditioned carried design at the next scale
+    % scores thousands of nm over the solve set (x1.75/x1.85 read ~3400/3900);
+    % a design that has fallen out of the traceable basin scores tens of
+    % MILLIONS (the x1.95 single-hop read 5.2e7).  1e6 cleanly separates a
+    % recoverable perturbation from divergence, so the F8 halving engages
+    % instead of grinding useless iterations on a lost trace.
+    q_screen_max = 1e6;                       % nm
     rows = struct('scale',{},'train_len_m',{},'map_max_nm',{}, ...
                   'disk_floor_mm',{},'exit_err_deg',{},'iters',{}, ...
-                  'restarts',{},'halvings',{},'reached',{});
+                  'restarts',{},'halvings',{},'reached',{},'X',{},'trace',{});
     Xprev = X0;  sig_cur = sig0;  Xwin = [];  sigwin = [];
     ti = 1;  stall = '';
     while ti <= numel(targets)
@@ -209,29 +225,34 @@ function R = task_env_(here, outdir, walk, P0)
         % screen the carried design at the stretched geometry
         [Xs, P] = scale_pkg_(Xprev, P0, base_sp, base_z1, sig_try, offset);
         q = screen_qmean_(Xs, P, offset);
-        while q >= 1e9
+        while q >= q_screen_max
             sig_new = 0.5*(sig_cur + sig_try);
             if (sig_new - sig_cur) < min_dsig
-                stall = sprintf(['carried design will not trace an envelope ' ...
-                    'scale beyond ~x%.3g (increment fell below %.2f)'], ...
-                    sig_cur, min_dsig);
+                stall = sprintf(['the carried design will not TRACE an envelope ' ...
+                    'scale beyond ~x%.3g -- the stretch increment fell below ' ...
+                    'min_dsig %.2f while the screen still scored the no-rays ' ...
+                    'regime.  This is the traceability wall on the envelope axis ' ...
+                    '(the F8 rule): a uniform spacing stretch pulls the design ' ...
+                    'out of the convergent basin faster than it opens the binding ' ...
+                    'clearance pair.'], sig_cur, min_dsig);
                 break;
             end
             sig_try = sig_new;  nhalv = nhalv + 1;
             [Xs, P] = scale_pkg_(Xprev, P0, base_sp, base_z1, sig_try, offset);
-            fprintf('  screen: scale too big -> halve to x%.4g (halving %d)\n', ...
-                    sig_try, nhalv);
+            fprintf('  screen: scale too big (q=%.3g nm) -> halve to x%.4g (halving %d)\n', ...
+                    q, sig_try, nhalv);
             q = screen_qmean_(Xs, P, offset);
         end
         if ~isempty(stall), break; end
         fprintf('\n--- envelope scale x%.4g (train screen qmean %.1f nm) ---\n', ...
                 sig_try, q);
-        [X, tot, mp, gt] = solve_to_clear_(Xs, P, offset, gate_true);
+        [X, tot, mp, gt, tr] = solve_to_clear_(Xs, P, offset, gate_true);
         L = train_len_(X);
         row = struct('scale',sig_try, 'train_len_m',L, 'map_max_nm',mp.max_nm, ...
             'disk_floor_mm',gt.clear_min_m*1e3, 'exit_err_deg',gt.exit_err_deg, ...
             'iters',tot.iters, 'restarts',tot.restarts, 'halvings',nhalv, ...
-            'reached', gt.clear_min_m >= gate_true && (~isfield(mp,'valid')||mp.valid));
+            'reached', gt.clear_min_m >= gate_true && (~isfield(mp,'valid')||mp.valid), ...
+            'X',X, 'trace',tr);
         rows(end+1) = row; %#ok<AGROW>
         fprintf(['  RESULT x%.4g: train %.3f m, map max %.1f nm, disk floor ' ...
                  '%.2f mm, exit %.3f deg (%s 25 mm)\n'], sig_try, L, mp.max_nm, ...
@@ -261,29 +282,64 @@ function R = task_env_(here, outdir, walk, P0)
 end
 
 % =====================================================================
-% shared solve wrapper: restart oi_solve until the disk clearance floor
-% stops improving or reaches the gate.  The single-call oi_solve breaks on
-% a WFE-qmean plateau (oi_solve.m) EVEN while the clearance hinge is still
-% active (the step-5 early stop at 6 iters); restarting rebuilds the base
-% residual and gives the hinge repeated runs.  Warm start = the carried X.
-% =====================================================================
-function [X, tot, mp, gt] = solve_to_clear_(X0, P, offset, gate_true)
-    max_restarts = 4;
+% shared solve wrapper: RESTART oi_solve until BOTH the dense map max and
+% the disk clearance floor have plateaued (regime-agnostic -- works whether
+% clearance or WFE is the binding quantity).  A single oi_solve call breaks
+% on a WFE-qmean plateau (oi_solve.m) even while the clearance hinge is
+% still pulling -- the step-5 early stop at 6 iters that left the walk's
+% floor short; and after an envelope stretch (task 3) clearance is trivial
+% and the binding quantity is WFE recovery instead.  Restarting rebuilds
+% the base residual (the plateau counter resets) and lets EITHER quantity
+% keep moving.  Returns the BEST design seen -- lowest map max among the
+% iterates that satisfy the SPEC gate; if none reaches the gate, the one
+% with the largest floor (closest to feasible).  Warm start = carried X.
+function [Xbest, tot, mpbest, gtbest, trace] = solve_to_clear_(X0, P, offset, gate_true)
+    max_restarts = 6;
     X = X0;  tot = struct('iters',0,'restarts',0);
-    prev_floor = -inf;  mp = [];  gt = [];
+    prev_floor = -inf;  prev_map = inf;
+    Xbest = X0;  mpbest = [];  gtbest = [];  best_key = -inf;
+    trace = struct('restart',{},'iters',{},'map_max_nm',{},'floor_mm',{});
     for rs = 1:max_restarts
         [X, hist] = oi_solve(X, P, 'S5', 'clear', true, 'quiet', false);
         tot.iters = tot.iters + hist.iters;  tot.restarts = rs;
-        [X, G] = oi_close(X, P, 'offset_deg', offset);
-        X.fpa = oi_apply_fpa(X);  G.fpa = X.fpa;
-        gt = oi_gates(X, G, P, offset);
-        mp = score_map_(X, G, P, offset);
-        floor_now = gt.clear_min_m;
+        [Xc, G] = oi_close(X, P, 'offset_deg', offset);
+        Xc.fpa = oi_apply_fpa(Xc);  G.fpa = Xc.fpa;
+        gt = oi_gates(Xc, G, P, offset);
+        mp = score_map_(Xc, G, P, offset);
+        floor_now = gt.clear_min_m;  map_now = mp.max_nm;
+        valid = (~isfield(mp,'valid') || mp.valid);
+        trace(rs) = struct('restart',rs,'iters',hist.iters, ...
+            'map_max_nm',map_now,'floor_mm',floor_now*1e3); %#ok<AGROW>
         fprintf('  [restart %d] %d iters -> map max %.1f nm, disk floor %.2f mm\n', ...
-                rs, hist.iters, mp.max_nm, floor_now*1e3);
-        if floor_now >= gate_true, break; end             % spec met
-        if (floor_now - prev_floor) < 0.3e-3, break; end  % clearance converged
-        prev_floor = floor_now;
+                rs, hist.iters, map_now, floor_now*1e3);
+        % keep the best: prefer gate-feasible designs, then lowest map max;
+        % among infeasible, prefer the largest floor.  key encodes both.
+        if valid
+            if floor_now >= gate_true
+                key = 1e6 - map_now;                 % feasible: minimize map
+            else
+                key = floor_now*1e3;                 % infeasible: maximize floor
+            end
+            if key > best_key
+                best_key = key;  Xbest = Xc;  mpbest = mp;  gtbest = gt;
+            end
+        end
+        % convergence: both quantities plateaued (floor within 0.3 mm AND map
+        % within 1% or 0.5 nm), with the gate already met -- OR pure floor
+        % stall when the gate is unreachable.
+        dfloor = floor_now - prev_floor;
+        dmap = prev_map - map_now;                   % positive = improving
+        map_plateau = dmap < max(0.5, 0.01*map_now);
+        floor_plateau = abs(dfloor) < 0.3e-3;
+        if floor_now >= gate_true && map_plateau && floor_plateau, break; end
+        if floor_now < gate_true && dfloor < 0.3e-3 && rs >= 2, break; end
+        prev_floor = floor_now;  prev_map = map_now;
+    end
+    if isempty(mpbest)          % nothing valid ever -- return the last state
+        [Xc, G] = oi_close(X, P, 'offset_deg', offset);
+        Xc.fpa = oi_apply_fpa(Xc);  G.fpa = Xc.fpa;
+        gtbest = oi_gates(Xc, G, P, offset);  mpbest = score_map_(Xc, G, P, offset);
+        Xbest = Xc;
     end
 end
 
@@ -321,31 +377,39 @@ end
 % task-3 packaging helpers
 % =====================================================================
 function [X, P] = scale_pkg_(Xin, P0, base_sp, base_z1, sig, offset)
-%SCALE_PKG_  Stretch the packaging (z_m1, spacings, stop pose, FP pose) to
-%   envelope scale SIG, carrying the OPTICAL prescription (R1,R2,K,zern).
-%   R3 is re-derived by the closure to hold EFL EXACTLY (F# identity), so a
-%   stretch is packaging, not a redesign.  The stop is RE-POSED for the new
-%   envelope from scratch (EP construction + exit-pointing secant) then
-%   frozen -- the pose is packaging, and a stale carried decenter mis-aims
-%   the stretched train.
+%SCALE_PKG_  Stretch the packaging (z_m1, spacings) to envelope scale SIG,
+%   carrying the OPTICAL prescription (R1,R2,K,zern,yde,ade) from Xin.  The
+%   packaging is set from the FIXED base x1.65 geometry x (sig/1.65), NOT
+%   scaled off the (already stretched) warm start -- so each scale's z_m1/
+%   spacings are exact, independent of the continuation path.  R3 is
+%   re-derived by the closure to hold EFL EXACTLY (F# identity), so a
+%   stretch is packaging, not a redesign.  The stop AND FP are RE-POSED for
+%   the stretched envelope from scratch (oi_close: EP construction + exit-
+%   pointing secant for the stop, traced back-focus for the FP) -- the poses
+%   are packaging, and stale carried ones mis-aim/de-focus the stretched
+%   train.  Stop reposing is BOUNDED (pose_stop_once_): a degenerate EP
+%   construction keeps the seed rather than flinging the stop off axis.
     X = Xin;
-    f = sig / 1.65;                          % relative to the x1.65 design
-    X.z_m1     = base_z1 * sig;
-    X.spacings = base_sp * sig;
-    X.stopC    = X.stopC(:) * f;             % scale the carried pose (seed)
-    if isfield(X,'fpa') && isfield(X.fpa,'Vpt'), X.fpa.Vpt = X.fpa.Vpt(:) * f; end
+    X.z_m1     = base_z1 * sig;               % base = UNSCALED rodgers3 value
+    X.spacings = base_sp * sig;               % so x1.65 reproduces the walk
+    f = sig / 1.65;                           % carried X is at the x1.65 scale
+    old = [];                                 % seed stop from a scaled carry
+    if isfield(X,'stopC') && ~isempty(X.stopC), old = X.stopC(:) * f;  X.stopC = old; end
     P = P0;  P.box_deg = [15 15];  P.clear_footprint = 'disk';  % spec clear_m
-    % re-pose the stop for the stretched envelope (bounded, pose_stop_once_)
-    old = X.stopC;
+    P.gn_iters = 20;               % plateau ~20 (brief); trims from the walk's 30
+    % re-pose stop + FP for the stretched envelope (repose_fpa default true)
     X.stop_fixed = false;
     try
         [X, ~] = oi_close(X, P, 'offset_deg', offset);
     catch
-        X.stopC = old;                       % keep the scaled seed on failure
+        if ~isempty(old), X.stopC = old; end % keep the scaled seed on failure
     end
     X.stop_fixed = true;
-    span = max(1e-3, abs(X.spacings(1)) + abs(X.spacings(3)));
-    if norm(X.stopC - old) > 2*span, X.stopC = old; end
+    if ~isempty(old)
+        span = max(1e-3, abs(X.spacings(1)) + abs(X.spacings(3)));
+        if norm(X.stopC(:) - old) > 2*span, X.stopC = old; end
+    end
+    X.fpa = oi_apply_fpa(X);                  % apply carried refit to the new pose
 end
 
 function P = scale_pkg_P_(P0, ~, ~)
