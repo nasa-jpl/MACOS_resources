@@ -112,6 +112,50 @@ def parse_packet(txt):
     return p
 
 
+def parse_walk():
+    """t5_walk_REPORT.md (+ t5r_REPORT.md) -> the continuation-walk record:
+    the three-act sequel numbers (redemption stall, per-step walk table,
+    headline factor) for deck slides F16 (walk deck) and 8 (story deck)."""
+    tpl = os.path.join(HERE, "..", "..", "templates", "10_telescopes",
+                       "offset_imager")
+    tw = read(os.path.join(tpl, "t5_walk", "t5_walk_REPORT.md"))
+    w = {}
+    w["verdict"] = need(re.search(r"\*\*(FAIL|PASS|PARTIAL)\.\*\*", tw),
+                        "walk verdict", "t5_walk_REPORT.md").group(1)
+    g = need(re.search(
+        r"Final dense-map max \*\*([\d.]+) nm\*\* vs the cold-start "
+        r"baseline ([\d.]+) nm -- \*\*(\d+)x better\*\*", tw),
+        "walk headline", "t5_walk_REPORT.md")
+    w["final_nm"], w["base_nm"], w["factor"] = \
+        float(g.group(1)), float(g.group(2)), int(g.group(3))
+    w["steps"] = []
+    for m in re.finditer(
+            r"^\| (\d) \| (\d+ x \d+) \| (\d+) \| ([\d.]+) \| ([\d.]+) \| "
+            r"([\d.]+) \| ([\d.]+) \| ([\d.]+) \| (.*?) \|$", tw, re.M):
+        w["steps"].append(dict(
+            k=int(m.group(1)), box=m.group(2), halvings=int(m.group(3)),
+            q0=float(m.group(4)), q1=float(m.group(5)),
+            map_nm=float(m.group(6)), clear_mm=float(m.group(7)),
+            exit_deg=float(m.group(8)), gates=m.group(9)))
+    if len(w["steps"]) != 5:
+        sys.exit("deck_rodgers3: walk table parse got %d rows, want 5"
+                 % len(w["steps"]))
+    w["knee_mm"] = float(need(re.search(
+        r"signed clearance floor >= (\d+) mm", tw), "clearance knee",
+        "t5_walk_REPORT.md").group(1))
+    w["lost"] = need(re.search(r"S2 loses (\d+/\d+) fields", tw),
+                     "cold-start lost fields", "t5_walk_REPORT.md").group(1)
+    w["clear0_mm"] = float(need(re.search(
+        r"clearance \*\*\D*(\d+) mm\*\*", tw), "cold-start clearance",
+        "t5_walk_REPORT.md").group(1))
+    # act-2 detail from the redemption record: the capped S1 works
+    t5r = read(os.path.join(tpl, "t5_redemption", "t5r_REPORT.md"))
+    w["t5r_s1_nm"] = float(need(re.search(
+        r"\|\s*\*\*map max\*\*\s*\|\s*\*\*([\d.]+) nm\*\*", t5r),
+        "redemption S1 map max", "t5r_REPORT.md").group(1))
+    return w
+
+
 def load():
     """Parse everything once: (gates, t3, pk) with the negctl folded in."""
     gates = parse_gate_table(read(os.path.join(HERE, "r3_s0_report.txt")))

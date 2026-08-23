@@ -4,7 +4,7 @@
 # Re-Walking the Offset-Field Imager
 A workbook: from the committed truth files to the gated ladder
 D. C. Redding with Claude Code — 22 August 2026.  Companion to the story deck (deck_rodgers3); source study M. Rodgers, 260802-WFOVimager_Offsetfield.  Everything quoted here is parsed from the committed records of MACOS_resources mmacos/challenges/rodgers3 + templates/10_telescopes/offset_imager.
-~ THE METRIC CONTRACT, once for the whole deck: strict RMS WFE, centroid reference on the stage's frozen focal plane, exit-pupil anchor, piston-only removal; quoted statistic = dense 11x11 map MAXIMUM over the field box.  Every WFE number on every slide inherits it.  Workbook genre: 16 content slides in six sections (budget deviation declared, DECK2_PLAN.md).  DRAFT — pending sign-off.
+~ THE METRIC CONTRACT, once for the whole deck: strict RMS WFE, centroid reference on the stage's frozen focal plane, exit-pupil anchor, piston-only removal; quoted statistic = dense 11x11 map MAXIMUM over the field box.  Every WFE number on every slide inherits it.  Workbook genre: 17 content slides in six sections (budget deviation declared, DECK2_PLAN.md).  DRAFT — pending sign-off.
 
 ## A1 — The problem, and everything needed is committed | Three mirrors, a 20°x20° box at 22°, an exit pin, hard clearances — and five reported rungs to meet
 ::: left
@@ -193,15 +193,31 @@ run_s5_signed();   % probe C, honest rows     (~4 h)
 - F3/F4 — no documented way to choose the envelope, and seed_R1_m is load-bearing with nothing saying so.
 - F13 — the addendum's 25-solve-field lesson never reached the nsolve default or its help.
 - What WORKED: the constraint conventions were guessable and the gates confirmed the guesses; the packet's t4 retraction kept the user out of the retired trap without opening it.
-~ Instrument: BRIEF_oi_unguided; deliverable: challenges/rodgers3/t5_unguided_REPORT.md (verbatim, committed).  A negative result is a valid result — this one prices the gap between "documented" and "actionable".
+~ Instrument: BRIEF_oi_unguided; deliverable: challenges/rodgers3/t5_unguided_REPORT.md (verbatim, committed).  A negative result is a valid result — this one prices the gap between "documented" and "actionable".  Acts 2 and 3 — the fixes, then the walk — next slide.
 
-## F16 — Should mmacos embed an agent helper? | The F15 result feeds both camps — that is the question
+## F16 — The sequel: fix the frictions, then walk the box | The fixed template diagnoses everything and still stalls; the continuation walk lands 69.8 nm — 8531x better
+::: left
+- Act 2 — the REDEMPTION rerun (run_t5r): the same instance on the fixed template (S1 depth cap, INVALID-map honesty, sentinel refusal, graceful ray loss).  ZERO crashes, and every failure now diagnoses itself in one line: the capped S1 lands 74.9 nm, S2 prints "INVALID — 104/121 fields lost every ray", the exit gate says "unmeasurable" instead of dying.  But S3–S5 stall at ~596 µm with the beam 205 mm INSIDE the glass: a cold start at the full 15° box is outside the convergent basin.  Robustness redeemed; convergence not — and both counter-designs stall at the same level, so it is the basin, not the freedom path.
+- Act 3 — the WALK (oi_walk): solve an easy 5° box first (diffraction-limited, clears comfortably), then walk the box open toward the target, carrying each solved design as the next step's warm start.  Full freedom + all constraint rows at every step; every carried design is screened at the widened box before solving — it traced first try at every step: the basin moves smoothly with the box.
+::: right
+| step | box | map max (nm) | floor (mm) | gates |
+| 1 | 5x5° | 10.9 | 98.0 | exit PASS / clear PASS |
+| 2 | 8x8° | 21.5 | 67.4 | exit PASS / clear PASS |
+| 3 | 11x11° | 27.3 | 25.1 | exit PASS / clear PASS |
+| 4 | 13x13° | 40.0 | 24.6 | exit PASS / clear PASS |
+| 5 | 15x15° | 69.8 | 17.8 | exit PASS / clear FAIL |
+- Exit PASS at every step; the remaining gap is stated separately: the signed clearance floor tightens monotonically as the box opens and crosses the 25 mm knee only at the last step — packaging, not wavefront, is now the binding constraint.
+![The walked design at the full 15° box: 69.8 nm, floor 17.8 mm.](../../templates/10_telescopes/offset_imager/t5_walk/t5_walk_k05_layout.png){h=2.3}
+~ Records: t5_redemption/t5r_REPORT.md + t5_walk/t5_walk_REPORT.md (verdict PARTIAL — on packaging alone); runner: oi_walk.m (template dir).  Every number: the cover's metric contract.
+
+## F17 — Should mmacos embed an agent helper? | The F15/F16 arc feeds both camps — that is the question
 ::: left
 - FOR, from this arc: every defect found was a CONCEPTUAL coupling — a frame convention, a metric reference, a constraint model — that documentation had not prevented; agent-in-the-loop found and fixed each in hours.  And F15's one conceptual failure (S1 depth poisoning offset traceability) was DOCUMENTED and still not actionable — the case for advice AT CALL TIME ("your S1 is 8x deeper than the reference; expect the offset box to lose rays").
 - AGAINST, from the same arc: every fix COMPILED into a check — the prescription validator, the pose bound, the signed piercing measure, the gate map — and 13 of F15's 15 frictions compile the same way (guards, caps, doc lines; F8 is literally "one check converts three crashes into one sentence").  Compiled knowledge is inspectable, testable, maintenance-stable; a runtime assistant is none of those by default.
+- The F16 sequel is itself an AGAINST exhibit: the continuation STRATEGY — agreed in one discussion — compiled into a runner (oi_walk.m), and the compiled walk then solved unattended the instance the cold start could not.  The walk itself is compiled knowledge.
 ::: right
 - Where is the line between knowledge compiled into checks and knowledge served by an assistant?
 - What should a helper catch AT CALL TIME that a validator cannot?
 - Who maintains the helper's knowledge when the engine moves — and how is IT gated?
 - Would you trust a design whose constraint model was chosen by the assistant?
-~ Discussion slide: questions are the deliverable.  The measured input: docs + gates, as committed today, did NOT carry an unassisted user through a re-instance — and most of why is compilable.
+~ Discussion slide: questions are the deliverable.  The measured input: docs + gates did NOT carry an unassisted user through a COLD re-instance (F15); the compiled walk then did (F16) — most of the gap was compilable, and was compiled.
