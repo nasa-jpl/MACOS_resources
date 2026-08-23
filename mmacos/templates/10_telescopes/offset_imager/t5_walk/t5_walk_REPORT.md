@@ -32,4 +32,13 @@ The **walk SUCCEEDS on aberration**: bootstrapping at an easy 5×5° box (a diff
 
 The **binding constraint is CLEARANCE, not wavefront.** The signed floor tightens monotonically as the box opens (98 → 67 → 25 → 25 → 18 mm) and crosses the 25 mm knee between steps 4 and 5: the final instance clears only 17.8 mm where ≥25 mm is required. This is the honest remaining gap — the aberration problem is solved; packaging a 15×15° box at +22.5° in this envelope needs more room between the beam legs and the mirror edges than the ×1.65 rodgers3 W-fold provides. The walk isolates that: it is a clearance/envelope problem now, not a surface-solve problem (contrast the cold start, where both were failing and neither could be diagnosed past the ray loss).
 
+**The frontier reading (added 2026-08-22, packet §B):** the per-step
+table doubles as the instrument's field-vs-packaging frontier in this
+envelope.  Its largest spec-compliant (>= 25 mm) box is **11x11° at
+27.3 nm and a 25.1 mm floor** (`t5_walk_k01..k03.in` are all finished,
+gate-PASS instruments); the 15x15° target is aberration-solved with a
+7.2 mm clearance deficit as the priced residual.  The endgame — hull
+re-score, WFE-for-clearance, or envelope stretch — is queued
+(BRIEF_ccmac_endgame; challenges/rodgers3/PACKET.md addendum §B).
+
 Reproduce: `run_t5_walk` (this run: model 256, 41 nGridpts, ~121 min).  Artifacts: per-step decks `t5_walk_k0*.in`, figures `t5_walk_k0*_{layout,fields,map}.png`, `t5_walk_run.mat`, this report.

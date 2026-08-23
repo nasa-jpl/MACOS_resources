@@ -219,6 +219,23 @@ binding gate at 17.8 mm**.  See
 `templates/10_telescopes/offset_imager/t5_walk/t5_walk_REPORT.md`
 (driver `run_t5_walk`).
 
+The walk's by-product is the instrument's **field-vs-packaging
+frontier in one run**: 5/8/11/13/15° boxes land 10.9/21.5/27.3/40.0/
+69.8 nm at signed floors 98.0/67.4/25.1/24.6/17.8 mm (every number:
+the §1 metric contract; disk footprint model of record).  Read as a
+frontier, the walk *closes* the t5 instance both ways: the largest
+spec-compliant (≥ 25 mm) box this ×1.65 envelope carries is
+**11×11° at 27.3 nm map max and a 25.1 mm floor** — a finished,
+gate-PASS instrument, committed as `t5_walk_k03.in` — and the full
+15×15° box stands **aberration-solved at 69.8 nm** with its 7.2 mm
+clearance deficit priced separately.  Closing that deficit is the
+open endgame, with three costed routes: re-score under the truer
+convex-hull glass model (free if it reads ≥ 25), buy the millimetres
+with WFE in the fixed envelope, or stretch the envelope at fixed
+WFE class.  Quantifying the second and third is queued
+(BRIEF_ccmac_endgame); the frontier statement above stands on the
+committed walk record either way.
+
 ### C. t4-wide RETIRED (templates/10_telescopes/offset_imager/run_t4.m)
 
 Under the fixed measure the committed t4 gates are false: true floors
