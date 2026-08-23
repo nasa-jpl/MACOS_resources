@@ -22,7 +22,7 @@ import re
 import subprocess
 import sys
 
-from rodgers3_records import load, need, read
+from rodgers3_records import load, need, parse_walk, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 T4DIR = os.path.join(HERE, "..", "..", "templates", "10_telescopes",
@@ -31,6 +31,7 @@ T4DIR = os.path.join(HERE, "..", "..", "templates", "10_telescopes",
 
 # ---------------------------------------------------------------- numbers
 gates, t3, pk = load()
+wk = parse_walk()
 
 his = {g["rung"]: g["his"] for g in gates}       # r1..r5 reported nm
 TAG = ("strict RMS WFE, centroid reference on the stage's frozen focal "
@@ -148,6 +149,7 @@ D. C. Redding with Claude Code — 20 August 2026.  Source study: M. Rodgers, 26
 - What carried: per-ray Gauss–Newton residuals (per-field-RMS residuals stall); first-order identities re-derived, never penalized; stop decenter as the exit-aiming variable; clearances as residual rows in the solve; negative controls with teeth at every decode; a solve set sized to the variable count (slide 6).
 - What taught: the beam-clearance measure must test PIERCING exactly and go NEGATIVE inside the glass — a sampled minimum reported millimetres of clearance for beams THROUGH a mirror, and a zero-at-contact measure gives the optimizer no way out; clearance judged at the box centre misses edge-field blockage — evaluate over the field; buildability constrains the FIELD CHOICE, not just the surfaces (no envelope of this family packages a 200 mm F/2.5 beam at a 12{DEG} offset — the field walk cannot separate the fans); stations are not spacings (the F/4.95 misread, retracted; packaging reads from the .seq truth file).
 - The second instrument (EPD 200 mm, F/2.5) exposed all of it and is retired for re-instancing; its layout figure — not a number — is what caught the defect.
+- And the lessons COMPILE: the continuation runner distilled from this arc (oi_walk — solve an easy field box, then walk it open with warm starts) lands a fresh, harder instance at {wk['final_nm']:.1f} nm unattended, {wk['factor']}x better than its cold start (the full experiment: companion deck, section F).
 ::: right
 ![The figure that caught it: the second instrument's beams thread M1 and M2 while the sampled gate reported PASS.  Hardware drawings are gates, not illustrations.](t4_fields_exhibit){{h=4.4}}
 ~ {TAG} (slides 1–7).  Reproduce: rodgers3() = the Stage-0 gates, oi_story(...) = ladder + counters, run_s5_budget()/run_s5_signed() = the slide-6 probes; record: challenges/rodgers3/PACKET.md incl. the 2026-08-21 addendum.
