@@ -17,8 +17,34 @@ function out = dw_dx_multi(session, rx_path, opts)
 %
 %   FORWARDED TO dw_dx:  dofs, elts, fp_mode, ep_elt, include_source,
 %     src_stop_mode, src_stop_pos, src_stop_elt, include_non_optics,
-%     stop_elt, stop_obj_pos, rot_output, delta, method,
-%     exit_pupil_elt, verbose.
+%     stop_elt, stop_obj_pos, groups, groups_auto, group_coords,
+%     group_fp_mode, group_stop_mode, group_stop_pos, rot_output,
+%     delta, method, exit_pupil_elt, verbose.
+%
+%   ELEMENT GROUPS ('groups' / 'groups_auto' + the four group_* knobs)
+%   declare RIGID-BODY groups -- sets of elements perturbed as one unit
+%   via the engine's GPERTURB -- exactly as in macos.dw_dx.  Their
+%   channels are APPENDED AFTER the per-element block in every field's
+%   block, so the stacked column order is
+%       [source] [per-element] [group]
+%   and every field block carries the SAME group columns in the SAME
+%   order.  That is not an accident of the loop: the group map is
+%   materialized ONCE here (PARSE-ONCE HOIST -- 'groups_auto' reads the
+%   Rx FILE, and forwarding it per field would re-parse it per field),
+%   merged auto-then-explicit with dw_dx's semantics (an explicit entry
+%   overrides an auto one of the same name), and handed down as
+%   'groups' with groups_auto=false.  So every field sees the identical
+%   map object; the group channel COUNT cannot drift between fields
+%   ('group_fp_mode' selects each channel's post-perturbation follow-up,
+%   never how many channels exist).  The column-identity assertion below
+%   gates it anyway.
+%
+%   Group channels carry no single element id: out.iElt is 0 for them
+%   (as it is for source channels) and out.kind is 'Group' -- section
+%   them on kind, not on iElt.  UNIT NOTE, inherited verbatim from
+%   dw_dx / pymacos: a group TRANSLATION column is OPD-per-BaseUnit
+%   (prb_grp takes BaseUnits), while a per-element translation column
+%   is OPD-per-metre -- they differ by CBM.
 %
 %   'delta' can be (1,1) for uniform step or (1,6) for per-DOF steps
 %     [Rx Ry Rz Tx Ty Tz]. Rotations in rad. Translation units set by
@@ -97,6 +123,9 @@ function out = dw_dx_multi(session, rx_path, opts)
 %     indxall            i, j, size struct
 %     OPDall             full tiled OPD canvas
 %     channel_names      Nz x 1 cell
+%     iElt / kind / dof_idx  Nz x 1 per-channel bookkeeping (iElt = 0
+%                        for source AND group channels -- section on
+%                        kind)
 %     field_table        Nfields x 4
 %     field_names        Nfields x 1 cell
 %     chfraydir_nom      3 x 1
@@ -129,6 +158,19 @@ arguments
     opts.include_non_optics  (1,1) logical = false
     opts.stop_elt            double = []
     opts.stop_obj_pos        double = []
+    opts.groups              = []   % containers.Map name -> col vec,
+                                    % or [] = no extras
+    opts.groups_auto         (1,1) logical = false
+    opts.group_coords        (1,:) char {mustBeMember( ...
+                                opts.group_coords, ...
+                                {'global','local'})} = 'global'
+    opts.group_fp_mode       (1,:) char {mustBeMember( ...
+                                opts.group_fp_mode, ...
+                                {'auto','none','sxp','srs'})} = 'auto'
+    opts.group_stop_mode     (1,:) char {mustBeMember( ...
+                                opts.group_stop_mode, ...
+                                {'obj','elt','none'})} = 'obj'
+    opts.group_stop_pos      (1,3) double = [0 0 0]
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
     opts.delta               (:,:) double {mustBeDeltaSize} = 1e-8
@@ -197,6 +239,40 @@ elseif ~isempty(opts.stop_obj_pos)
                       opts.stop_obj_pos(3));
 end
 
+% ---- Element groups: PARSE-ONCE HOIST ------------------------------
+% 'groups_auto' reads the Rx FILE, so forwarding it to every per-field
+% dw_dx call would re-parse the same file per field.  Materialize the
+% merged map ONCE here -- auto first, explicit entries overriding on a
+% name collision, which is dw_dx's own merge order -- and hand it down
+% as 'groups' with groups_auto=false.  Same map object for every field,
+% so the group channel COUNT cannot drift between blocks; the
+% channel-identity assertion in the loop gates that regardless.
+grp_map = containers.Map('KeyType', 'char', 'ValueType', 'any');
+if opts.groups_auto
+    grp_map = macos.channels.parse_rx_groups(rx_path);
+end
+if isa(opts.groups, 'containers.Map')
+    gk = keys(opts.groups);
+    for kk = 1:numel(gk)
+        grp_map(gk{kk}) = opts.groups(gk{kk});
+    end
+elseif ~isempty(opts.groups)
+    error('macos:dw_dx_multi:groups', ...
+        'groups must be a containers.Map (name -> member id column) or []');
+end
+if grp_map.Count > 0
+    gk = keys(grp_map);
+    fprintf('[setup] %d element group(s):\n', grp_map.Count);
+    for kk = 1:numel(gk)
+        fprintf('  group %-10s: elts %s\n', gk{kk}, ...
+            mat2str(reshape(double(grp_map(gk{kk})), 1, [])));
+    end
+else
+    % preserved surface: with no groups the per-field call gets [],
+    % exactly the argument it got before the group opts existed.
+    grp_map = [];
+end
+
 % ---- Configuration axis -------------------------------------------
 % Validated AFTER the load (so element ids can be range-checked) and
 % BEFORE anything is applied.  Absent/empty => n_cfg == 1 and every line
@@ -241,6 +317,8 @@ if opts.compute_los
 end
 names = {};
 iElt_out = [];
+kind_out = {};
+dof_out  = [];
 for ic = 1:n_cfg
 % Order (PLAN_CONFIGURATIONS §2.1): apply the configuration -> modify()
 % once -> run the field loop, whose per-field reset_xp then derives every
@@ -290,6 +368,12 @@ for k = 1:n_fields
         'src_stop_pos', opts.src_stop_pos, ...
         'src_stop_elt', opts.src_stop_elt, ...
         'include_non_optics', opts.include_non_optics, ...
+        'groups', grp_map, ...
+        'groups_auto', false, ...
+        'group_coords', opts.group_coords, ...
+        'group_fp_mode', opts.group_fp_mode, ...
+        'group_stop_mode', opts.group_stop_mode, ...
+        'group_stop_pos', opts.group_stop_pos, ...
         'rot_output', opts.rot_output, ...
         'delta', opts.delta, ...
         'delta_units', opts.delta_units, ...
@@ -321,6 +405,7 @@ for k = 1:n_fields
     end
     if isempty(names)
         names = sf.channel_names; iElt_out = sf.iElt;
+        kind_out = sf.kind; dof_out = sf.dof_idx;
     elseif ~isequal(names, sf.channel_names)
         % Column identity is ASSERTED, not assumed: the channel list is
         % built once, before the configuration loop, so a configuration
@@ -473,6 +558,9 @@ out.indxall              = indxall;
 out.OPDall               = OPDall;
 out.channel_names        = names;
 out.iElt                 = iElt_out;
+out.kind                 = kind_out;   % 'Source'|'RigidBody'|
+                                       % 'FocalPlane'|'Group'
+out.dof_idx              = dof_out;
 out.field_table          = arrayfun( ...
     @(s) [s.dx, s.dy, s.tile_row, s.tile_col], fields, ...
     'UniformOutput', false);
