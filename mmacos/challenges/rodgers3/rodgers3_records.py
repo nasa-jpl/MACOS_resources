@@ -156,6 +156,25 @@ def parse_walk():
     return w
 
 
+def parse_endgame():
+    """t5_endgame_REPORT.md -> the deficit-close numbers for deck F16."""
+    tpl = os.path.join(HERE, "..", "..", "templates", "10_telescopes",
+                       "offset_imager")
+    te = read(os.path.join(tpl, "t5_endgame", "t5_endgame_REPORT.md"))
+    e = {}
+    e["hull_k05_mm"] = float(need(re.search(
+        r"reads \*\*([\d.]+) mm -- it clears", te), "endgame hull k05",
+        "t5_endgame_REPORT.md").group(1))
+    g = need(re.search(
+        r"lands \*\*([\d.]+) nm map max at a ([\d.]+) mm disk floor\*\*",
+        te), "endgame re-solve", "t5_endgame_REPORT.md")
+    e["wfe_nm"], e["floor_mm"] = float(g.group(1)), float(g.group(2))
+    need(re.search(r"stopped after\s+SIX iterations", te),
+         "endgame six-iteration statement", "t5_endgame_REPORT.md")
+    e["walk_iters"] = 6
+    return e
+
+
 def load():
     """Parse everything once: (gates, t3, pk) with the negctl folded in."""
     gates = parse_gate_table(read(os.path.join(HERE, "r3_s0_report.txt")))
