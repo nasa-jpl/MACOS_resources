@@ -155,7 +155,8 @@ SUITE_FAST=$(join_suites \
     "tMet" "tMetView" "tRunMet" "tRunSensitivities" "tRunSegmentation" \
     "tRunCompare" "tSpot" "tDrawFrameGuard" "tDwDgridElts" \
     "tPolarization" "tJonesPupil" "tVecChain" \
-    "tPolElement" "tPolRadiometric" "tPolExternal" "tBench" "tOpdRef")
+    "tPolElement" "tPolRadiometric" "tPolExternal" "tBench" "tOpdRef" \
+    "tStopReload")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the
