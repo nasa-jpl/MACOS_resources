@@ -39,6 +39,6 @@ envelope.  Its largest spec-compliant (>= 25 mm) box is **11x11° at
 gate-PASS instruments); the 15x15° target is aberration-solved with a
 7.2 mm clearance deficit as the priced residual.  The endgame — hull
 re-score, WFE-for-clearance, or envelope stretch — is queued
-(BRIEF_ccmac_endgame; challenges/rodgers3/PACKET.md addendum §B).
+(BRIEF_to_endgame; challenges/rodgers3/PACKET.md addendum §B).
 
 Reproduce: `run_t5_walk` (this run: model 256, 41 nGridpts, ~121 min).  Artifacts: per-step decks `t5_walk_k0*.in`, figures `t5_walk_k0*_{layout,fields,map}.png`, `t5_walk_run.mat`, this report.
