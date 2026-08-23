@@ -61,7 +61,8 @@ S.(name) = out.(jfield);          % the channel-named Jacobian at top level
 %      non-empty (request: no empty structs / absent-run clutter) -------
 copy = {'w0_stacked','indxall','channel_names','field_table', ...
         'field_names','chfraydir_nom','delta','method','wf_elt', ...
-        'config_names','config_table','iElt','map_idx','zmodes','sgb'};
+        'config_names','config_table','iElt','kind','dof_idx', ...
+        'map_idx','zmodes','sgb'};
 for f = copy
     if isfield(out, f{1}) && ~isempty(out.(f{1}))
         S.(f{1}) = out.(f{1});

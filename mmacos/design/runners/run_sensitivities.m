@@ -72,6 +72,24 @@ function art = run_sensitivities(rx_in, opts)
 %                  builders ([] = every eligible optic).  A cheap way to
 %                  scope a harvest to the optics you are actually
 %                  budgeting.
+%     'groups'     containers.Map name -> column vector of element ids:
+%                  RIGID-BODY groups, perturbed as one unit (GPERTURB).
+%                  Their 6 columns per group are APPENDED AFTER the
+%                  per-element block of the dwdx channel.  Default [].
+%     'groups_auto' parse EltGrp= declarations out of RX_IN and add them
+%                  as groups (positive-N explicit lists, deduped by
+%                  member tuple).  Default false.  Merged with 'groups';
+%                  an explicit entry wins a name collision.
+%     'group_coords'    'global' (default) | 'local' (ref-elt TElt frame)
+%     'group_fp_mode'   'auto' (default) | 'none' | 'sxp' | 'srs' --
+%                  post-perturbation follow-up for a group that contains
+%                  the focal plane
+%     'group_stop_mode' 'obj' (default) | 'elt' | 'none'
+%     'group_stop_pos'  1x3 object-space stop coords.  Default [0 0 0].
+%                  SCOPE: groups are RIGID-BODY groups and reach the
+%                  'dwdx' channel ONLY.  dwdz / dwdsurf / dwdgrid are
+%                  figure/surface channel kinds with no group analogue
+%                  in the engine; grouping them is deferred.
 %     'zmodes_fig' dwdz MonZernike modes (default 4:11)
 %     'zmodes_grid' dwdgrid basis modes (default 4:9)
 %     'ng'         grid size for the augmentation (default 256)
@@ -109,6 +127,16 @@ arguments
     opts.channels string = ["dwdx" "dwdz" "dwdgrid"]  % + "dwdsurf" opt-in
     opts.dofs (:,1) double = (0:5).'
     opts.elts (:,1) double = []   % element subset ([] = all eligible)
+    opts.groups = []            % containers.Map name -> member ids
+                                % (rigid-body groups; dwdx channel ONLY)
+    opts.groups_auto (1,1) logical = false   % parse EltGrp= from RX_IN
+    opts.group_coords (1,:) char {mustBeMember(opts.group_coords, ...
+        {'global','local'})} = 'global'
+    opts.group_fp_mode (1,:) char {mustBeMember(opts.group_fp_mode, ...
+        {'auto','none','sxp','srs'})} = 'auto'
+    opts.group_stop_mode (1,:) char {mustBeMember(opts.group_stop_mode, ...
+        {'obj','elt','none'})} = 'obj'
+    opts.group_stop_pos (1,3) double = [0 0 0]
     opts.zmodes_fig (1,:) double = 4:11
     opts.zmodes_grid (1,:) double = 4:9
     opts.zkinds cell = {'monzern'}   % dwdz kinds: subset of
@@ -238,9 +266,23 @@ ox = [];  oz = [];  og = [];  os = [];  rxg = '';
 if any(opts.channels == "dwdx")
     say('[dwdx] rigid-body 6-DOF per element, LOCAL triads...\n');
     a = {};  if ~isempty(opts.delta_x), a = {'delta', opts.delta_x}; end
+    % groups reach the dwdx channel ONLY -- they are RIGID-BODY groups;
+    % the figure/surface channels have no group analogue in the engine
+    g = {'groups', opts.groups, 'groups_auto', opts.groups_auto, ...
+         'group_coords', opts.group_coords, ...
+         'group_fp_mode', opts.group_fp_mode, ...
+         'group_stop_mode', opts.group_stop_mode, ...
+         'group_stop_pos', opts.group_stop_pos};
     ox = run_channel_(@(cf) macos.dw_dx_multi(m, char(rx_in), sup{:}, ...
-        'configs', cf, 'dofs', opts.dofs, 'elts', opts.elts, a{:}), ...
+        'configs', cf, 'dofs', opts.dofs, 'elts', opts.elts, g{:}, a{:}), ...
         'dwdx', CF, RD, say);
+    ngrp = 0;   % isfield guard: a checkpoint written before the
+                % supervisor carried 'kind' resumes without it
+    if isfield(ox, 'kind'), ngrp = nnz(strcmp(ox.kind, 'Group')); end
+    if ngrp > 0
+        say('    + %d group channel(s) appended after the per-element block\n', ...
+            ngrp);
+    end
     say('    dwdxall %d x %d over %d fields\n\n', size(ox.dwdxall, 1), ...
         size(ox.dwdxall, 2), size(ox.field_table, 1));
 end
