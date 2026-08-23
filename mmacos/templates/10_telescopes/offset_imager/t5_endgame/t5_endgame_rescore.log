@@ -1,0 +1,24 @@
+WARNING: package sun.awt.X11 not in java.desktop
+WARNING: package sun.awt.X11 not in java.desktop
+mmacos: path set from /Users/dcr/dev/MACOS_resources/mmacos
+
+=================================================================
+ TASK 1  hull re-score of the five committed walk steps
+=================================================================
+
+step  box          committed disk(recomp)         hull    map max
+1     5x5            98.0124      98.0124     101.1371       10.9
+2     8x8            67.4034      67.4034      70.5718       21.5
+3     11x11          25.0508      25.0508      29.5371       27.3
+4     13x13          24.6021      24.6021      32.4188       40.0
+5     15x15          17.8408      17.8408      28.7390       69.8
+
+SELF-CHECK: max |recomputed disk - committed| = 0 mm (REPRODUCED)
+
+DECISION LINE: k05 (15 deg) hull floor = 28.7390 mm -- CLEARS the 25 mm gate.
+ans = 
+  struct with fields:
+
+       task: 'rescore'
+       when: '2026-08-22 18:42:23'
+    rescore: [1x1 struct]
