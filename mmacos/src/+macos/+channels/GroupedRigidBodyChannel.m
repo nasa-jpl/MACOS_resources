@@ -28,8 +28,12 @@ classdef GroupedRigidBodyChannel < handle
 %
 %   Rotations are in radians; translations are in SI metres (converted
 %   internally to BaseUnits via CBM to match the prb_grp signature).
-%   The 6-vector is [Rx, Ry, Rz, Tx, Ty, Tz] in ref_elt's frame
-%   (coords='global' by default; 'local' = ref_elt's TElt frame).
+%   That is the SAME convention RigidBodyChannel uses -- macos.perturb
+%   does the identical division internally -- so a group column and a
+%   per-element column are both OPD-per-metre and a single numeric FD
+%   'delta' is the same PHYSICAL poke for either.  The 6-vector is
+%   [Rx, Ry, Rz, Tx, Ty, Tz] in ref_elt's frame (coords='global' by
+%   default; 'local' = ref_elt's TElt frame).
 %
 %   Optional FP follow-up for groups containing a focal-plane element
 %   (fp_elt > 0):
@@ -57,6 +61,9 @@ classdef GroupedRigidBodyChannel < handle
         current      (1,1) double = 0
         saved_grp                = []   % column vec or [] before install
         saved_taken  (1,1) logical = false
+        cbm_         (1,1) double = 0   % metres per BaseUnit; captured at
+                                        % construction, resolved lazily if
+                                        % no Rx was loaded yet (0 = unknown)
     end
     properties (Constant)
         DOF_LABELS = {'Rx','Ry','Rz','Tx','Ty','Tz'}
@@ -126,6 +133,16 @@ classdef GroupedRigidBodyChannel < handle
             obj.stop_mode    = opts.stop_mode;
             obj.stop_obj_pos = opts.stop_obj_pos;
             obj.stop_elt     = opts.stop_elt;
+            % CBM for the SI-metres -> BaseUnits translation conversion.
+            % Captured here (the Rx is loaded by the time the builder
+            % runs) but NOT required: a channel constructed before a load
+            % keeps 0 and resolves lazily on its first TRANSLATION poke.
+            % Rotations never need it.
+            try
+                obj.cbm_ = session.cbm();
+            catch
+                obj.cbm_ = 0;
+            end
         end
 
         function apply(obj, value)
@@ -186,16 +203,29 @@ classdef GroupedRigidBodyChannel < handle
 
         function do_perturb(obj, increment)
             obj.install_group();
-            % Mirror pymacos's GroupedRigidBodyChannel exactly: the
-            % increment is passed straight into prb_grp with NO unit
-            % conversion.  Rotation increments are in rad; translation
-            % increments are interpreted in the Rx's BaseUnits
-            % (NOT SI metres).  Per-element RigidBodyChannel translates
-            % SI metres via macos.perturb's internal CBM division, but
-            % GroupedRigidBodyChannel does not -- pymacos chose this
-            % quirk and we match it for bit-identical dw/dx output.
+            % UNITS.  prb_grp's signature is BaseUnits for translations
+            % and rad for rotations, so the SI-metre translation
+            % increment is divided by CBM here -- exactly what
+            % macos.perturb does internally for RigidBodyChannel.  The
+            % two channel classes therefore speak the SAME language: a
+            % group translation column is OPD-per-METRE like a
+            % per-element one, and one numeric 'delta' is one physical
+            % poke for both.
+            %
+            % This USED to pass the increment straight through, matching
+            % a pymacos prototype (tests/sensitivities/channels.py --
+            % test-tree only, never in the shipped package).  The cost
+            % was silent and sharp: a scalar delta poked a group 1/CBM
+            % times smaller than the elements -- 10 pm against 10 nm on
+            % a millimetre deck -- which drove group columns to the
+            % finite-difference floor.  Measured on e5hex1, group column
+            % / frame-resolved member sum ran 1.0000 (delta 1e-5) ->
+            % 1.0005 (1e-6) -> 1.012 (1e-7) -> 1.657 (1e-8): error
+            % GROWING as the step shrinks, the signature of a step that
+            % is too small.  Gated by
+            % tDwDxGroups/test_scalar_delta_matches_the_split_step.
             prb6 = zeros(6, 1);
-            prb6(obj.dof_idx + 1) = increment;
+            prb6(obj.dof_idx + 1) = obj.to_base_units(increment);
             ifGlobal = double(strcmp(obj.coords, 'global'));
             obj.session.prb_grp(obj.ref_elt, prb6, ifGlobal);
             obj.enforce_stop();
@@ -221,6 +251,27 @@ classdef GroupedRigidBodyChannel < handle
                 case 'none'
                     % no-op
             end
+        end
+
+        function v = to_base_units(obj, increment)
+            % Rotations (dof 0..2) are rad on both sides -- untouched.
+            if obj.dof_idx <= 2
+                v = increment;
+                return
+            end
+            if obj.cbm_ <= 0
+                try
+                    obj.cbm_ = obj.session.cbm();
+                catch
+                    obj.cbm_ = 0;
+                end
+            end
+            if obj.cbm_ <= 0
+                error('macos:channels:GroupedRigidBodyChannel:noCBM', ...
+                    ['CBM unavailable (Rx not loaded?) -- cannot ' ...
+                     'convert an SI-metre translation to BaseUnits']);
+            end
+            v = increment / obj.cbm_;
         end
 
         function enforce_stop(obj)
