@@ -228,13 +228,22 @@ spec-compliant (≥ 25 mm) box this ×1.65 envelope carries is
 **11×11° at 27.3 nm map max and a 25.1 mm floor** — a finished,
 gate-PASS instrument, committed as `t5_walk_k03.in` — and the full
 15×15° box stands **aberration-solved at 69.8 nm** with its 7.2 mm
-clearance deficit priced separately.  Closing that deficit is the
-open endgame, with three costed routes: re-score under the truer
-convex-hull glass model (free if it reads ≥ 25), buy the millimetres
-with WFE in the fixed envelope, or stretch the envelope at fixed
-WFE class.  Quantifying the second and third is queued
-(BRIEF_to_endgame); the frontier statement above stands on the
-committed walk record either way.
+clearance deficit priced separately.  **Endgame quantified (2026-08-23, `run_t5_endgame` + report in
+`templates/.../t5_endgame/`): the deficit is CLOSED both ways, at
+negative WFE price.**  (1) Under the truer convex-hull footprints
+the committed walk endpoint already reads **28.74 mm** — clears as
+committed; the deficit was disk-model conservatism.  (2) In the
+unchanged ×1.65 envelope a restart re-solve (the walk's step 5 had
+stopped after 6 iterations on the WFE-only plateau break, with the
+clearance hinge still pulling) lands **47.1 nm map max at a
+30.89 mm disk floor** (`t5_endgame_wfe.in`) — better than the walk
+endpoint on both axes, so the **15×15° instance is now
+spec-compliant of record** and the frontier's every box is closed.
+(3) Envelope stretch is the wrong lever: ×1.75..×1.9 buys WFE
+(34.9→31.3 nm) while the spec-hinge floor asymptotes just under
+25 mm at every scale.  Solver lesson for the template: a clearance
+hinge AT spec undershoots (gradient vanishes at the target) — ask
+the hinge for more than the gate (32 mm for a 25 mm spec here).
 
 ### C. t4-wide RETIRED (templates/10_telescopes/offset_imager/run_t4.m)
 
