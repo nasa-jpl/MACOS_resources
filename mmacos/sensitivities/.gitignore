@@ -1,3 +1,6 @@
 # Generated demo outputs -- regenerable by the run_dwd*_multi.m scripts.
 *.png
 *.mat
+*_sens_report.txt
+*_pages/
+_resume*/
