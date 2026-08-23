@@ -12,7 +12,7 @@ than per field alone.  Design sketch and open questions:
 
 | driver | rung | on THIS deck |
 |---|---|---|
-| `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | **runs** — 126 channels (21 optics × 6), 25 blocks |
+| `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | **runs** — 132 channels (21 optics × 6 + the PM group's 6), 25 blocks |
 | `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — SM (M2) + TM (M3) each in Kr & Kc = 4 channels, piston/tip/tilt removed |
 | `run_dwdz_5zoom_5fov.m` | MonZernike figure | **runs** — 20 optics × MODES (segs + SM + TM) |
 | `run_dwdgrid_5zoom_5fov.m` | segment + optic grid | **runs** — segments share a basis, SM/TM each own one |
@@ -61,7 +61,7 @@ rigid-body (`dw/dx`, minus the obscured elt 4) and prescription-parameter
 (`dw/dsurf`) rungs are otherwise unaffected — the conic base and every
 pose are unchanged.
 
-### Element groups (rigid-body) — available on the `dw/dx` rung
+### Element groups (rigid-body) — ON, on the `dw/dx` rung
 
 `run_sensitivities` takes `'groups'` (a `containers.Map` name → column
 vector of element ids) and `'groups_auto'` (parse `EltGrp=` out of the
@@ -71,40 +71,81 @@ RIGID-BODY group, driven by the engine's `GPERTURB`; `dwdz` / `dwdsurf` /
 `dwdgrid` are figure and surface channel kinds with no group analogue,
 and grouping them is deferred.
 
+**`run_dwdx_5zoom_5fov.m` ships with one group ON: the PM.**  The deck's
+18 real segments (elts 5–22) are declared as `'PM'`, so the harvest
+carries — alongside each segment's own 6 DOFs — the six columns of the
+primary-mirror **backplane** moving as a single body.  That is the
+sensitivity a pointing/alignment budget spends: a backplane thermal tilt
+is one rigid motion of the whole PM, not 18 independent segment motions
+that happen to agree.  Element 4 (CenterSegment) is deliberately **not**
+a member — it is the virtual, almost-entirely-obscured element the
+zero-norm flag drops anyway.
+
+```matlab
+GROUPS = containers.Map('KeyType','char','ValueType','any');
+GROUPS('PM') = (5:22).';
+```
+
 A group contributes **6 more columns**, appended **after** the
 per-element block, in every field's block and every configuration's
 block — so the stacked column order is `[per-element] [group]` and the
 supervisor's channel-identity assertion covers the group columns too.
-Group channels carry **no element id**: `out.iElt` is `0` (the value
-source channels also carry) and `out.kind` is `'Group'` — section on
-`kind`, not on `iElt`.  The per-element figure pages do exactly that, and
-give each group its own page, `<name>_grp<NAME>_<mode>.png`.
+The committed report shows `dwdxall 54585 x 138` (was 132 ungrouped);
+the saved flat `.mat` has **132** channels — 126 per-element after the
+elt-4 drop, plus the group's 6.  Group channels carry **no element id**:
+`out.iElt` is `0` (the value source channels also carry) and `out.kind`
+is `'Group'` — section on `kind`, not on `iElt`.  The per-element figure
+pages do exactly that and give the group its own page,
+`<name>_grpPM_center.png`; `drop_channels` never touches a group,
+because a group column is a distinct rigid-body motion and not a sum of
+its members' columns.
 
-On THIS deck the natural group is the primary: the 18 real segments
-(elts 5–22) moving as one rigid PM body, alongside their 18 individual
-6-DOF blocks —
+**What the PM columns say** (RMS over the 5×5 stack; rotations per rad,
+translations per metre after dividing the group columns by CBM — see the
+units note below):
 
-```matlab
-grp = containers.Map('KeyType','char','ValueType','any');
-grp('PM') = (5:22).';
-art = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdx", ...
-    'configs', cfgs, 'stop_elt', STOP_ELT, 'groups', grp, ...);
-```
+| DOF | PM as one body | one segment (elt 5) | PM / segment |
+|---|---|---|---|
+| Rx | 3.0114e+00 | 1.6132e-01 | 18.6667 |
+| Ry | 3.0948e+00 | 1.6289e-01 | 18.9996 |
+| Rz | 2.4853e-01 | 2.1582e-05 | 11515.6161 |
+| Tx | 1.9317e-01 | 1.0145e-02 | 19.0411 |
+| Ty | 1.8801e-01 | 1.0118e-02 | 18.5822 |
+| Tz | 1.9739e-02 | 4.6090e-01 | **0.0428** |
 
-`jwst_ote_designc.in` declares **no** `EltGrp=` lines, so `groups_auto`
-is a no-op here; it is the right switch for a deck that carries its
-groups in the prescription.
+The table is appended to the committed `_sens_report.txt` by the driver
+(`sensitivities/group_exhibit`), so every figure here is greppable in the
+artifact.  Tilt and decenter come out at ≈ N = 18× a single segment,
+which is what a rigid motion of N alike members must give.  **Piston is
+the interesting one: the whole PM is 23× LESS piston-sensitive than one
+segment.**  A single segment pistoning puts a step into the wavefront;
+the whole PM
+pistoning is a global despace that the exit-pupil reference
+largely absorbs.  That is exactly the intra-group cancellation a per-element
+budget cannot see — summing 18 large per-segment piston columns does not
+reproduce it.
 
-**The committed artifacts in this directory were NOT regenerated for
-this capability** — `run_dwdx_5zoom_5fov.m` still runs the ungrouped
-harvest, and its baselines stand.  The living example is the gated case
-`tRunSensitivities/test_groups_reach_the_dwdx_channel`, which runs a
-trimmed grouped harvest end to end.
-
-**Units gotcha, inherited from `dw_dx`/pymacos:** a group TRANSLATION
+**Units, and why `DELTA` is a `(1,6)` vector.**  A group TRANSLATION
 column is OPD per **BaseUnit** (the engine's `prb_grp` takes BaseUnits),
-while a per-element translation column is OPD per **metre**.  They differ
-by CBM — 1000× on this millimetre deck.  Rotations are rad on both sides.
+while a per-element translation column is OPD per **metre** — 1000×
+apart on this millimetre deck.  Rotations are rad on both sides.  So a
+*scalar* `delta` pokes the group 1000× smaller than the elements and
+drives its columns toward the finite-difference floor: measured here
+against a converged 1e-4 step, the PM group's translation columns are off
+by 4.0e-03 (Tx) / 3.7e-03 (Ty) / 3.2e-02 (Tz) at `delta` 1e-8, and by
+3.9e-05 / 3.9e-05 / 3.3e-04 at 1e-6.  The driver therefore uses
+`[1e-8 1e-8 1e-8 1e-6 1e-6 1e-6]` — rotations 1e-8 rad, translations 1 µm
+at the elements and 1 nm at the group.  The per-element translation
+columns improve too (worst 1.9e-04 off at the old scalar 1e-8, 1.8e-06 at
+1e-6), and the per-segment column-norm table in the report is unchanged
+to three figures.
+
+**The committed artifacts here WERE regenerated for this** — report,
+PNGs, and the (gitignored) `.mat`.  The 25-block harvest takes about
+165 s as shipped (measured 164 s, Linux, gfortran-built engine).  The
+gated case
+`tRunSensitivities/test_groups_reach_the_dwdx_channel` covers the
+bookkeeping; `tDwDxGroups` covers the channel physics.
 
 ## The deck
 
@@ -163,12 +204,19 @@ The supervisors re-find the exit pupil PER FIELD (`reset_xp`, default
 true), and a tilt of a FLAT mirror AT A PUPIL is to first order exactly a
 wavefront tilt — which that re-reference removes.  Measured on this
 fixture with a 0.5′ FSM tilt: the configuration's effect on the nominal
-wavefront collapses from **2.7e-02 mm** (pupil frozen) to **2.3e-07 mm**,
-and its effect on the Jacobian is the second-order residual, **1.7e-05
-relative** (2.4e-05 frozen).  That residual is the quantity a
-compensation-state sensitivity study wants — the first-order term is what
-the compensator is FOR.  The §6 feasibility table below was measured with
-the pupil frozen, which is why its numbers are the larger ones.
+wavefront collapses from **3.033e-02 mm** (pupil frozen) to **4.043e-06
+mm** — a factor 7500 — and its effect on the Jacobian drops to the
+second-order residual, **5.308e-06 relative** against 1.886e-04 frozen.
+Both legs come from one script with the same statistic on each side:
+nominal effect = max over fields and configurations of |W(cfg) − W(z0)|
+at pixels valid in both; Jacobian effect = the same max, relative, over
+the per-element columns.  (Earlier revisions quoted 2.7e-02 / 2.3e-07 /
+1.7e-05 / 2.4e-05 from a statistic that was not recorded; the definition
+above is stated so the numbers can be reproduced.)  That residual is the
+quantity a compensation-state sensitivity study wants — the first-order
+term is what the compensator is FOR.  The §6 feasibility table below was
+measured with the pupil frozen, which is why its numbers are the larger
+ones.
 
 ## Two things a driver here must do
 
