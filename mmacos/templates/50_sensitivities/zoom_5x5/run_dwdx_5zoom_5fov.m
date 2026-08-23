@@ -36,9 +36,17 @@
 %  and a tilt of a FLAT mirror AT A PUPIL is, to first order, exactly a
 %  wavefront tilt -- which that re-reference removes.  So the
 %  configuration's effect on the nominal wavefront collapses from
-%  2.7e-02 mm (measured with the pupil frozen) to 2.3e-07 mm, and its
-%  effect on the Jacobian is the SECOND-ORDER residual: 1.7e-05 relative
-%  (2.4e-05 frozen).  That residual is the quantity a compensation-state
+%  3.033e-02 mm with the pupil FROZEN to 4.043e-06 mm with the per-field
+%  reset -- a factor 7500 -- and its effect on the Jacobian drops to the
+%  SECOND-ORDER residual, 5.308e-06 relative against 1.886e-04 frozen.
+%  Measured on THIS configuration (PM group on, the (1,6) DELTA below),
+%  both legs from one script so the statistic is the same on each side:
+%  nominal effect = max over fields and configurations of |W(cfg)-W(z0)|
+%  at pixels valid in both; Jacobian effect = the same max, relative,
+%  over the PER-ELEMENT columns.  (Earlier revisions of this header
+%  quoted 2.7e-02 / 2.3e-07 / 1.7e-05 / 2.4e-05 from a statistic that
+%  was not recorded; the definition above is stated so the numbers can
+%  be reproduced.)  That residual is the quantity a compensation-state
 %  sensitivity study actually wants -- the first-order term is what the
 %  compensator is FOR.  Pass 'reset_xp', false through if you want the
 %  frozen-pupil view instead; both are gated, neither is a bug.
@@ -59,11 +67,16 @@
 %  ON YOUR OWN SYSTEM, point RX at your .in, set STOP_ELT to your stop
 %  and CFG_ELT to the element your configurations move.
 %
-%  RESUMABLE: a 25-block harvest at model 512 is a multi-hour run, so
-%  each configuration's block is checkpointed into _resume/ as it
-%  completes and reloaded rather than recomputed if the run is killed
-%  and restarted.  The directory is pruned automatically on success.
-%  Delete it by hand to force a cold recompute.
+%  RESUMABLE: each configuration's block is checkpointed into _resume/
+%  as it completes and reloaded rather than recomputed if the run is
+%  killed and restarted.  The directory is pruned automatically on
+%  success; delete it by hand to force a cold recompute.  As shipped the
+%  whole 25-block harvest takes about 165 s (measured 164 s, Linux, gfortran-built
+%  engine, model 512 / NGRIDPTS 63 / 138 channels), so the checkpoints
+%  are cheap insurance rather than a necessity -- they earn their keep
+%  when you raise NGRIDPTS or MODEL, which is where the cost lives.
+%  (This header used to call it "a multi-hour run"; on the shipped
+%  settings it is not.)
 %
 %  DEAD OPTICS DROPPED, NUMBER-FREE.  dw/dx builds 6 DOFs for every actual
 %  optic, including element 4 (CenterSegment) -- a VIRTUAL, almost-entirely
@@ -73,23 +86,53 @@
 %  channels are dropped from the saved Jacobian.  SM (23) and TM (24) ARE
 %  included (full beam).
 %
-%  ELEMENT GROUPS (optional, OFF here).  run_sensitivities also takes
-%  'groups' -- a containers.Map name -> column vector of element ids,
-%  perturbed as ONE rigid body by the engine's GPERTURB -- and
-%  'groups_auto', which parses EltGrp= declarations out of the deck.
-%  Each group appends 6 columns AFTER the per-element block, in every
+%  THE PM AS ONE RIGID BODY -- an ELEMENT GROUP, ON here.  The deck's
+%  18 real segments (elts 5-22) are declared as the group 'PM', so the
+%  harvest carries, alongside each segment's own 6 DOFs, the six columns
+%  of the primary-mirror BACKPLANE moving as a single body.  Those six
+%  are what a pointing/alignment budget actually spends: a backplane
+%  thermal tilt is one rigid motion of the whole PM, not 18 independent
+%  segment motions that happen to agree.  The engine perturbs the
+%  members together via GPERTURB, so the column is the true rigid-body
+%  response rather than a MATLAB sum of 18 individually-large columns.
+%
+%  WHAT THE PM COLUMNS SAY.  The driver appends a "[PM exhibit]" table
+%  to <name>_sens_report.txt -- the group's six column norms beside one
+%  segment's, both per rad / per METRE.  Group/segment comes out at
+%  18.6667 (Rx), 18.9996 (Ry), 19.0411 (Tx), 18.5822 (Ty): a rigid
+%  motion of N=18 alike members is N times one member, as it must be.
+%  PISTON is the one worth the harvest -- 0.0428, i.e. the whole PM is
+%  23x LESS piston-sensitive than a single segment.  A segment pistoning
+%  puts a STEP into the wavefront; the whole PM pistoning is a global
+%  despace the exit-pupil reference largely absorbs.  That cancellation
+%  is what a per-element budget cannot see: summing 18 large per-segment
+%  piston columns does not reproduce it.  (Rz reads 11515.6161 for the
+%  opposite reason -- clocking one near-symmetric segment is nearly
+%  inert, clocking the whole PM about the axis is not.)
+%
+%  Groups append 6 columns AFTER the per-element block, in EVERY
 %  (configuration, field) block, so the stacked column order stays
 %  [per-element] [group] and the supervisor's channel-identity assertion
-%  covers them.  Set GROUPS below to switch it on; it is [] here so this
-%  driver reproduces its COMMITTED baselines byte for byte.  Group
-%  channels carry no element id (iElt 0, like a source channel) -- they
-%  are labelled Grp[<name>] and out.kind is 'Group', which is what the
-%  per-element pages section on to give each group its own page.  Groups
-%  are RIGID-BODY groups and reach the dwdx rung ONLY; the figure /
-%  surface rungs have no group analogue in the engine.
-%  UNITS: a group TRANSLATION column is OPD per BaseUnit (prb_grp takes
-%  BaseUnits) where a per-element one is OPD per metre -- 1000x apart on
-%  this millimetre deck.  Rotations are rad on both sides.
+%  covers them.  Group channels carry no element id (iElt 0, like a
+%  source channel) -- they are labelled Grp[<name>] and out.kind is
+%  'Group', which is what the per-element pages section on to give the
+%  group its own page.  Groups are RIGID-BODY groups and reach the dwdx
+%  rung ONLY; the figure / surface rungs have no group analogue in the
+%  engine.  'groups_auto' would read EltGrp= declarations straight out
+%  of the deck; this one carries none, so the map below is explicit.
+%
+%  UNITS, and why DELTA is a (1,6) vector.  A group TRANSLATION column
+%  is OPD per BASE UNIT (the engine's prb_grp takes BaseUnits) where a
+%  per-element one is OPD per METRE -- 1000x apart on this millimetre
+%  deck.  Rotations are rad on both sides.  So a SCALAR delta pokes the
+%  group 1000x smaller than the elements and drives its columns toward
+%  the finite-difference floor: measured here against a converged 1e-4
+%  step, the PM group's translation columns are off by 4.0e-03 (Tx),
+%  3.7e-03 (Ty) and 3.2e-02 (Tz) at delta 1e-8, and by 3.9e-05 /
+%  3.9e-05 / 3.3e-04 at 1e-6.  DELTA below therefore keeps rotations at
+%  1e-8 rad and puts translations at 1e-6: 1 um at the elements, 1 nm at
+%  the PM group.  The per-element translation columns improve too
+%  (worst 1.9e-04 off at the old scalar 1e-8, 1.8e-06 at 1e-6).
 %
 %  Outputs (this directory): <name>.mat is FLAT -- dwdx / indxall /
 %  w0_stacked / channel_names / config_* at the TOP LEVEL, the channel's
@@ -107,18 +150,20 @@ STOP_ELT = 25;          % the FSM IS the pupil; the deck carries no ApStop=
 CFG_ELT  = 25;          % the element the configuration axis steers
 FOV      = 2.90888e-4;  % half-field (rad) = 1 arcmin, 5-field set
 TILT     = 1.45444e-4;  % configuration tilt (rad) = 0.5 arcmin
-DELTA    = 1e-8;        % finite-difference step (rigid-body)
+% Finite-difference step, (1,6) = [Rx Ry Rz Tx Ty Tz].  Rotations rad
+% on both sides; translations SI metres for the per-element channels and
+% BASE UNITS for the group channels -- see UNITS above for why this is
+% the vector form and not a scalar.
+DELTA    = [1e-8 1e-8 1e-8 1e-6 1e-6 1e-6];
 EXCLUDE  = [];          % element ids to force-drop ([] = drop whatever the
                         % zero-norm flag reports dead, e.g. the obscured elt 4)
-GROUPS   = [];          % rigid-body element groups ([] = none, the
-                        % committed baseline).  To add the 18 real
-                        % segments as ONE rigid PM body -- 6 columns
-                        % appended after the 126 per-element ones:
-                        %   GROUPS = containers.Map('KeyType','char', ...
-                        %                           'ValueType','any');
-                        %   GROUPS('PM') = (5:22).';
-                        % This deck declares no EltGrp=, so 'groups_auto'
-                        % finds nothing on it.
+% Rigid-body element GROUPS: name -> column vector of member element
+% ids ([] = none).  Here: the 18 REAL segments as one PM backplane.
+% Element 4 (CenterSegment) is deliberately NOT a member -- it is a
+% virtual, almost-entirely-obscured element (see DEAD OPTICS below), so
+% including it would add nothing and muddy the story.
+GROUPS   = containers.Map('KeyType', 'char', 'ValueType', 'any');
+GROUPS('PM') = (5:22).';
 % =====================================================================
 
 % ---- the configuration schedule -------------------------------------
@@ -141,6 +186,15 @@ art  = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdx", ...
     'stop_elt', STOP_ELT, 'ngridpts', NGRIDPTS, 'model_size', MODEL, ...
     'delta_x', DELTA, 'per_element', "center", 'groups', GROUPS, ...
     'out_dir', here, 'name', name);
+
+% ---- the PM-group exhibit -------------------------------------------
+% The group's six columns beside one segment's, appended to the report
+% so the committed artifact carries the numbers the README quotes.  One
+% representative member is tabulated -- 18 alike segments do not need 18
+% rows.  The helper divides the group TRANSLATION columns by CBM so both
+% sides are per-metre; see its header for the units argument.
+group_exhibit(art.ox, GROUPS, ...
+    fullfile(here, [name '_sens_report.txt']), 'members', 5);
 
 % ---- drop dead (obscured) optics, number-free -----------------------
 % (group channels are named Grp[...] and carry no 'Elt N' tag, so an
