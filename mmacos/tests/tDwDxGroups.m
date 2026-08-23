@@ -5,6 +5,23 @@ classdef tDwDxGroups < matlab.unittest.TestCase
         ModelSize  = 128
         RxName     = 'e5hex1.in'
         TestGroup  = [9; 10; 12; 13]
+        % Two SEGMENTS of the primary.  The multi-field and
+        % superposition cases below use this pair, not TestGroup, for
+        % two reasons.  (1) GroupedRigidBodyChannel's own header says a
+        % group spanning the exit-pupil Return and the focal plane does
+        % NOT superimpose linearly -- that non-superposition is why the
+        % group channel exists at all -- so TestGroup is the wrong group
+        % to gate linearity on.  (2) Superposition is only MEANINGFUL
+        % when the frames agree: the per-element channels perturb in
+        % each element's OWN local (TElt) frame, so the members must
+        % share an orientation with the group's reference element.
+        % Seg1 and Seg2 carry the SAME psiElt in this deck (they are
+        % segments of one parent surface), so their local triads are
+        % parallel and a group motion in ref-elt-local coords IS the
+        % same motion each member gets.  Elts 9/10 -- the two lens
+        % surfaces -- have OPPOSITE normals and would not superimpose in
+        % any single frame.
+        SegPair    = [1; 2]
     end
 
     properties
@@ -15,6 +32,55 @@ classdef tDwDxGroups < matlab.unittest.TestCase
         function setupClass(testCase)
             testCase.rx_path = rx_fixture_path(testCase.RxName);
             macos.init(testCase.ModelSize);
+        end
+    end
+
+    methods (Access = private)
+        function g = seg_map(testCase)
+            g = containers.Map('KeyType','char','ValueType','any');
+            g('SegPair') = testCase.SegPair;
+        end
+
+        function b = multi_base(~)
+            % A deliberately tiny multi-field harvest: two optics, a
+            % coarse ray grid.  These cases are about COLUMN BOOKKEEPING,
+            % not optics.
+            b = {'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                 'ngridpts', 15, 'elts', [1; 2], 'dofs', (0:5).', ...
+                 'delta', 1e-8};
+        end
+
+        function T = member_triads(testCase, session)
+            % TElt triads of the group members, local axes as COLUMNS in
+            % global coordinates (macos.get_elt_csys returns a 6x6 whose
+            % upper-left 3x3 is that triad -- column 3 is psiElt).
+            cs = session.get_elt_csys(testCase.SegPair);
+            T = cell(numel(testCase.SegPair), 1);
+            for k = 1:numel(T)
+                T{k} = cs.csys(1:3, 1:3, k);
+            end
+        end
+
+        function p = rx_with_eltgrp(testCase, wd)
+            % A copy of the fixture carrying "EltGrp= 2 1 2" in BOTH
+            % member blocks -- macos's own convention, which is what
+            % parse_rx_groups dedups.  Written to a temp dir; the deck's
+            % GridFile= flat.txt is unresolvable from either cwd, so the
+            % copy loads exactly as the original does.
+            L = splitlines(string(fileread(testCase.rx_path)));
+            out = strings(0, 1);
+            for k = 1:numel(L)
+                out(end+1, 1) = L(k); %#ok<AGROW>
+                t = strtrim(L(k));
+                if startsWith(t, "iElt=")
+                    v = sscanf(char(extractAfter(t, "=")), '%d', 1);
+                    if ~isempty(v) && any(v == testCase.SegPair)
+                        out(end+1, 1) = "         EltGrp=  2 1 2"; %#ok<AGROW>
+                    end
+                end
+            end
+            p = fullfile(wd, 'e5hex1_grp.in');
+            fid = fopen(p, 'w');  fprintf(fid, '%s\n', out);  fclose(fid);
         end
     end
 
@@ -88,6 +154,276 @@ classdef tDwDxGroups < matlab.unittest.TestCase
             grp_max = max(max(abs(out.dwdx(:, 34:36))));
             testCase.verifyGreaterThan(grp_max, 0, ...
                 'group columns should be non-zero');
+        end
+        % =============================================================
+        % MULTI-FIELD supervisor -- macos.dw_dx_multi 'groups'
+        % =============================================================
+
+        function test_multi_center_block_matches_single_field(testCase)
+            % GATE 1.  The supervisor builds no channels itself: per
+            % field it calls dw_dx.  So the group columns of the CENTER
+            % block must reproduce dw_dx's group columns for the same
+            % state.  reset_xp is off so the two runs reference the same
+            % (prescription) exit pupil -- with it on the supervisor
+            % re-writes elt nElt-1 and the comparison is not like-for-like.
+            g = testCase.seg_map();
+            b = testCase.multi_base();
+            mm = macos.Session(testCase.ModelSize);
+            om = macos.dw_dx_multi(mm, testCase.rx_path, b{:}, ...
+                'grid', '1x1', 'reset_xp', false, 'groups', g);
+            ms = macos.Session(testCase.ModelSize);
+            os = macos.dw_dx(ms, testCase.rx_path, ...
+                'ngridpts', 15, 'elts', [1; 2], 'dofs', (0:5).', ...
+                'delta', 1e-8, 'groups', g);
+            testCase.verifyEqual(om.channel_names, os.channel_names, ...
+                'multi must expose dw_dx''s channel list verbatim');
+            % 2 optics x 6 DOFs = 12 per-element, then 6 group columns
+            testCase.verifyEqual(numel(om.channel_names), 18);
+            gc = 13:18;
+            A = om.per_field_dwdx{1}(:, gc);
+            B = os.dwdx(:, gc);
+            scale = max(abs(B), [], 'all');
+            testCase.verifyGreaterThan(scale, 0, ...
+                'non-vacuity: the single-field group columns are zero');
+            testCase.verifyLessThan( ...
+                max(abs(A - B), [], 'all') / scale, 1e-10, ...
+                'center-field group columns must match dw_dx''s');
+            % and the stacked Jacobian carries the same block
+            testCase.verifyEqual(size(om.dwdxall, 2), 18);
+        end
+
+        function test_multi_channel_identity_across_fields(testCase)
+            % GATE 2.  The stack assumes every per-field block has the
+            % SAME channels in the SAME order -- group channels included.
+            % The supervisor asserts channel_names equality internally
+            % (it ERRORS on a mismatch), so a run that returns at all has
+            % already passed that; here we pin the shape, the tail
+            % ordering (groups append AFTER the per-element block) and
+            % the bookkeeping arrays, then check the blocks are genuinely
+            % DIFFERENT harvests and not copies of one another.
+            g = testCase.seg_map();
+            b = testCase.multi_base();
+            m = macos.Session(testCase.ModelSize);
+            om = macos.dw_dx_multi(m, testCase.rx_path, b{:}, 'groups', g);
+            nf = numel(om.field_names);
+            testCase.verifyEqual(nf, 5, 'default field set is C + 4 corners');
+            testCase.verifyEqual(numel(om.channel_names), 18);
+            for k = 1:nf
+                testCase.verifyEqual(size(om.per_field_dwdx{k}, 2), 18, ...
+                    sprintf('field %s has a different channel count', ...
+                        om.field_names{k}));
+            end
+            % group channels come LAST, are labelled, and carry no
+            % element id (iElt 0, kind 'Group') -- section on kind
+            for k = 1:12
+                testCase.verifyEqual(om.kind{k}, 'RigidBody');
+            end
+            for k = 13:18
+                testCase.verifyEqual(om.kind{k}, 'Group');
+                testCase.verifyEqual(om.iElt(k), 0);
+                testCase.verifyTrue( ...
+                    startsWith(om.channel_names{k}, 'Grp[SegPair]'));
+            end
+            % dof_idx survives for the group block (the rot_output
+            % scaling keys off it -- gated below)
+            testCase.verifyEqual(om.dof_idx(13:18), (0:5).');
+            % NON-VACUITY: the per-field blocks must be distinct
+            % harvests, not one block replicated
+            ctr = find(strcmp(om.field_names, 'C'), 1);
+            oth = find((1:nf) ~= ctr, 1);
+            d = max(abs(om.per_field_dwdx{ctr}(:, 13:18) - ...
+                        om.per_field_dwdx{oth}(:, 13:18)), [], 'all');
+            testCase.verifyGreaterThan(d, 0, ...
+                'group columns identical at two fields -- blocks copied?');
+        end
+
+        function test_group_translation_is_the_member_sum(testCase)
+            % GATE 3, first half.  A rigid TRANSLATION of the group is
+            % exactly the two members translating together, so to first
+            % order the group column is the sum of the member columns.
+            %
+            % FRAMES -- the part that makes this a real gate rather than
+            % a coincidence.  The per-element channels perturb in each
+            % element's OWN local (TElt) frame, while the group channel
+            % here perturbs in GLOBAL coords (the default).  On this deck
+            % Seg1 and Seg2's triads differ by about 3 deg, and a
+            % segment's PISTON response is tens of times its lateral one,
+            % so ignoring the frames leaks Tz into Tx at O(1) -- a naive
+            % column-vs-column comparison misses by 155%, which reads as
+            % "groups are broken" and is really "wrong frame".  So the
+            % member sum is assembled properly: a global unit
+            % displacement e_j moves member k by (T_k(j,i)) along its own
+            % local axis i, T_k being the element's TElt triad
+            % (get_elt_csys returns it with the local axes as COLUMNS in
+            % global coords).
+            %
+            % UNITS: the group channel passes its increment straight into
+            % prb_grp, which reads translations in BASE UNITS, while the
+            % per-element channel converts SI metres -> base.  So at the
+            % same nominal 'delta' the group is poked CBM times smaller.
+            % Compare at EQUAL PHYSICAL POKE: delta 1e-8 (SI m) for the
+            % members, delta 1e-5 (base = mm) for the group -- both 10 nm
+            % -- and carry the CBM factor explicitly.
+            g = testCase.seg_map();
+            me = macos.Session(testCase.ModelSize);
+            oe = macos.dw_dx(me, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', testCase.SegPair, 'dofs', (0:5).', 'delta', 1e-8);
+            mg = macos.Session(testCase.ModelSize);
+            og = macos.dw_dx(mg, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-5, 'groups', g, ...
+                'group_coords', 'global');
+            T = testCase.member_triads(mg);
+            cbm = oe.cbm;
+            testCase.verifyEqual(og.cbm, cbm);
+            for j = 1:3      % global Tx Ty Tz
+                pred = zeros(size(oe.dwdx, 1), 1);
+                for k = 1:2
+                    base = (k - 1) * 6;      % member k's 6-DOF block
+                    for i = 1:3
+                        pred = pred + T{k}(j, i) * oe.dwdx(:, base + 3 + i);
+                    end
+                end
+                grp = og.dwdx(:, 6 + 3 + j);
+                sc = max(abs(cbm * pred));
+                testCase.verifyGreaterThan(sc, 0, ...
+                    'non-vacuity: the member translation columns are zero');
+                testCase.verifyLessThan( ...
+                    max(abs(grp - cbm * pred)) / sc, 1e-3, ...
+                    sprintf(['group translation along global axis %d must ' ...
+                             'equal the frame-resolved member sum'], j));
+            end
+        end
+
+        function test_group_rotation_is_not_the_member_sum(testCase)
+            % GATE 3, second half -- THE non-vacuity check for the whole
+            % group machinery.  A group ROTATION pivots BOTH members
+            % about the GROUP frame (the reference element), which for an
+            % off-pivot member is a rotation PLUS a lever-arm
+            % translation.  Summing each member's own about-its-own-point
+            % rotation cannot reproduce that -- and this is asserted with
+            % the SAME frame resolution the translation gate uses, so the
+            % difference cannot be dismissed as a frame artifact.  If
+            % these matched, the "group" channel would be a bookkeeping
+            % sum and GPERTURB would be doing nothing a caller could not
+            % do in MATLAB.
+            g = testCase.seg_map();
+            me = macos.Session(testCase.ModelSize);
+            oe = macos.dw_dx(me, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', testCase.SegPair, 'dofs', (0:5).', 'delta', 1e-8);
+            mg = macos.Session(testCase.ModelSize);
+            og = macos.dw_dx(mg, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
+                'group_coords', 'global');
+            T = testCase.member_triads(mg);
+            % rotations are rad on BOTH sides -- no CBM bridge here,
+            % which is itself worth pinning: the unit quirk is
+            % translation-only
+            worst = 0;
+            for j = 1:3      % global Rx Ry Rz
+                pred = zeros(size(oe.dwdx, 1), 1);
+                for k = 1:2
+                    base = (k - 1) * 6;
+                    for i = 1:3
+                        pred = pred + T{k}(j, i) * oe.dwdx(:, base + i);
+                    end
+                end
+                grp = og.dwdx(:, 6 + j);
+                sc = max(abs(pred));
+                if sc == 0, continue; end
+                worst = max(worst, max(abs(grp - pred)) / sc);
+            end
+            testCase.verifyGreaterThan(worst, 1e-2, ...
+                ['group rotations must NOT be the member sum -- they ' ...
+                 'pivot about the group frame, not each element''s own']);
+        end
+
+        function test_rot_output_scaling_reaches_group_channels(testCase)
+            % Standing rule: 'base-per-rad' keys off ch.dof_idx, so it
+            % must reach the GROUPED channel class too -- rotations drop
+            % the CBM factor, translations keep it.
+            g = testCase.seg_map();
+            m1 = macos.Session(testCase.ModelSize);
+            nat = macos.dw_dx(m1, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g);
+            m2 = macos.Session(testCase.ModelSize);
+            bpr = macos.dw_dx(m2, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
+                'rot_output', 'base-per-rad');
+            cbm = nat.cbm;
+            testCase.verifyLessThan(abs(cbm - 1), 1, ...
+                'fixture must NOT be a metre-unit deck or this is vacuous');
+            for d = 1:3      % group rotations: columns 7..9
+                a = nat.dwdx(:, 6 + d);  b = bpr.dwdx(:, 6 + d);
+                sc = max(abs(b));
+                if sc == 0, continue; end
+                testCase.verifyLessThan(max(abs(a - cbm * b)) / sc, 1e-12, ...
+                    'group rotation column must drop CBM under base-per-rad');
+            end
+            for d = 4:6      % group translations: columns 10..12
+                testCase.verifyEqual(nat.dwdx(:, 6 + d), bpr.dwdx(:, 6 + d), ...
+                    'group translation columns must not be rescaled');
+            end
+        end
+
+        function test_groups_auto_and_the_explicit_map_merge(testCase)
+            % The parse-once hoist in dw_dx_multi must reproduce dw_dx's
+            % merge semantics: auto first, an explicit entry OVERRIDING an
+            % auto one of the same name, the union otherwise.
+            wd = tempname;  mkdir(wd);
+            c = onCleanup(@() rmdir(wd, 's'));
+            rx = testCase.rx_with_eltgrp(wd);
+            b = {'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
+                 'ngridpts', 15, 'elts', 1, 'dofs', (0:5).', 'delta', 1e-8};
+
+            % (a) auto alone: EltGrp= 2 9 10 in both member blocks is ONE
+            %     group, named by its member span
+            m1 = macos.Session(testCase.ModelSize);
+            a1 = macos.dw_dx_multi(m1, rx, b{:}, 'groups_auto', true);
+            testCase.verifyEqual(numel(a1.channel_names), 12);
+            for k = 7:12
+                testCase.verifyEqual(a1.kind{k}, 'Group');
+                testCase.verifyTrue(startsWith(a1.channel_names{k}, 'Grp[1-2]'));
+            end
+
+            % (b) union: an explicit group under a DIFFERENT name adds 6
+            m2 = macos.Session(testCase.ModelSize);
+            gx = containers.Map('KeyType','char','ValueType','any');
+            gx('SegPair') = testCase.SegPair;
+            a2 = macos.dw_dx_multi(m2, rx, b{:}, 'groups_auto', true, ...
+                'groups', gx);
+            testCase.verifyEqual(numel(a2.channel_names), 18);
+            testCase.verifyEqual(nnz(strcmp(a2.kind, 'Group')), 12);
+
+            % (c) override: the SAME name with different members keeps the
+            %     count at 6 but changes the motion -- so the columns must
+            %     differ from (a)
+            m3 = macos.Session(testCase.ModelSize);
+            go = containers.Map('KeyType','char','ValueType','any');
+            go('1-2') = [1; 2; 3];
+            a3 = macos.dw_dx_multi(m3, rx, b{:}, 'groups_auto', true, ...
+                'groups', go);
+            testCase.verifyEqual(numel(a3.channel_names), 12);
+            testCase.verifyEqual(nnz(strcmp(a3.kind, 'Group')), 6);
+            d = max(abs(a3.dwdxall(:, 7:12) - a1.dwdxall(:, 7:12)), [], 'all');
+            testCase.verifyGreaterThan(d, 0, ...
+                'an explicit entry must OVERRIDE the auto group of the same name');
+        end
+
+        function test_no_groups_is_the_preserved_surface(testCase)
+            % The six new opts must be inert when unused: a run with no
+            % groups is byte-identical to the same call written without
+            % them.
+            b = testCase.multi_base();
+            m1 = macos.Session(testCase.ModelSize);
+            a = macos.dw_dx_multi(m1, testCase.rx_path, b{:}, 'grid', '1x1');
+            m2 = macos.Session(testCase.ModelSize);
+            e = macos.dw_dx_multi(m2, testCase.rx_path, b{:}, 'grid', '1x1', ...
+                'groups', [], 'groups_auto', false, ...
+                'group_coords', 'global', 'group_fp_mode', 'auto', ...
+                'group_stop_mode', 'obj', 'group_stop_pos', [0 0 0]);
+            testCase.verifyTrue(isequal(a.dwdxall, e.dwdxall));
+            testCase.verifyEqual(numel(a.channel_names), 12);
+            testCase.verifyFalse(any(strcmp(a.kind, 'Group')));
         end
     end
 end
