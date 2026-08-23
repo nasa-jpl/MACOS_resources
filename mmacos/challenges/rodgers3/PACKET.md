@@ -233,7 +233,7 @@ open endgame, with three costed routes: re-score under the truer
 convex-hull glass model (free if it reads ≥ 25), buy the millimetres
 with WFE in the fixed envelope, or stretch the envelope at fixed
 WFE class.  Quantifying the second and third is queued
-(BRIEF_ccmac_endgame); the frontier statement above stands on the
+(BRIEF_to_endgame); the frontier statement above stands on the
 committed walk record either way.
 
 ### C. t4-wide RETIRED (templates/10_telescopes/offset_imager/run_t4.m)
