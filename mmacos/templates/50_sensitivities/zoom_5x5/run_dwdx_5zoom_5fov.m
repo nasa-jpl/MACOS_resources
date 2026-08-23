@@ -73,6 +73,24 @@
 %  channels are dropped from the saved Jacobian.  SM (23) and TM (24) ARE
 %  included (full beam).
 %
+%  ELEMENT GROUPS (optional, OFF here).  run_sensitivities also takes
+%  'groups' -- a containers.Map name -> column vector of element ids,
+%  perturbed as ONE rigid body by the engine's GPERTURB -- and
+%  'groups_auto', which parses EltGrp= declarations out of the deck.
+%  Each group appends 6 columns AFTER the per-element block, in every
+%  (configuration, field) block, so the stacked column order stays
+%  [per-element] [group] and the supervisor's channel-identity assertion
+%  covers them.  Set GROUPS below to switch it on; it is [] here so this
+%  driver reproduces its COMMITTED baselines byte for byte.  Group
+%  channels carry no element id (iElt 0, like a source channel) -- they
+%  are labelled Grp[<name>] and out.kind is 'Group', which is what the
+%  per-element pages section on to give each group its own page.  Groups
+%  are RIGID-BODY groups and reach the dwdx rung ONLY; the figure /
+%  surface rungs have no group analogue in the engine.
+%  UNITS: a group TRANSLATION column is OPD per BaseUnit (prb_grp takes
+%  BaseUnits) where a per-element one is OPD per metre -- 1000x apart on
+%  this millimetre deck.  Rotations are rad on both sides.
+%
 %  Outputs (this directory): <name>.mat is FLAT -- dwdx / indxall /
 %  w0_stacked / channel_names / config_* at the TOP LEVEL, the channel's
 %  own name, no empty wrapper structs -- plus <name>_sens_report.txt +
@@ -92,6 +110,15 @@ TILT     = 1.45444e-4;  % configuration tilt (rad) = 0.5 arcmin
 DELTA    = 1e-8;        % finite-difference step (rigid-body)
 EXCLUDE  = [];          % element ids to force-drop ([] = drop whatever the
                         % zero-norm flag reports dead, e.g. the obscured elt 4)
+GROUPS   = [];          % rigid-body element groups ([] = none, the
+                        % committed baseline).  To add the 18 real
+                        % segments as ONE rigid PM body -- 6 columns
+                        % appended after the 126 per-element ones:
+                        %   GROUPS = containers.Map('KeyType','char', ...
+                        %                           'ValueType','any');
+                        %   GROUPS('PM') = (5:22).';
+                        % This deck declares no EltGrp=, so 'groups_auto'
+                        % finds nothing on it.
 % =====================================================================
 
 % ---- the configuration schedule -------------------------------------
@@ -112,10 +139,13 @@ name = ['dwdx_5zoom_5fov_' rxstem];
 art  = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdx", ...
     'configs', cfgs, 'resume_dir', string(fullfile(here, '_resume')), ...
     'stop_elt', STOP_ELT, 'ngridpts', NGRIDPTS, 'model_size', MODEL, ...
-    'delta_x', DELTA, 'per_element', "center", ...
+    'delta_x', DELTA, 'per_element', "center", 'groups', GROUPS, ...
     'out_dir', here, 'name', name);
 
 % ---- drop dead (obscured) optics, number-free -----------------------
+% (group channels are named Grp[...] and carry no 'Elt N' tag, so an
+% element drop never touches them -- a group column is a distinct rigid
+% -body motion, not a sum of its members' columns)
 % dw/dx builds 6 DOFs for every actual optic, including element 4
 % (CenterSegment) -- a VIRTUAL, almost-entirely-obscured element whose
 % rigid-body sensitivity is ~zero (column norms ~1e-7 vs ~0.2 for a real
@@ -137,6 +167,12 @@ fprintf('=== dw/dx %d configurations x %d fields = %d blocks ===\n', ...
 fprintf('    stacked Jacobian %d x %d over %d channels\n', ...
     size(art.ox.dwdxall, 1), size(art.ox.dwdxall, 2), ...
     numel(art.ox.channel_names));
+if isfield(art.ox, 'kind') && any(strcmp(art.ox.kind, 'Group'))
+    gk = find(strcmp(art.ox.kind, 'Group'));
+    fprintf('    incl. %d group channel(s): %s\n', numel(gk), ...
+        strjoin(unique(regexp(strjoin(art.ox.channel_names(gk).', ' '), ...
+            'Grp\[[^\]]*\]', 'match'), 'stable'), ' '));
+end
 for c = 1:nc
     r = (art.ox.indxall.config == c);
     fprintf('    config %-5s: %6d rows, |dwdx| max %.3e\n', ...
