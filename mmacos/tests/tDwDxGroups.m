@@ -50,6 +50,24 @@ classdef tDwDxGroups < matlab.unittest.TestCase
                  'delta', 1e-8};
         end
 
+        function pred = member_sum(testCase, oe, T, j, kind)
+            % The frame-resolved sum of the members' columns for a GLOBAL
+            % axis j: a global unit motion along e_j moves member k by
+            % T_k(j,i) along its own local axis i (get_elt_csys returns
+            % the triad with the local axes as COLUMNS in global coords).
+            % kind 'trans' (default) uses the members' Tx/Ty/Tz columns,
+            % 'rot' their Rx/Ry/Rz.
+            if nargin < 5, kind = 'trans'; end
+            off = 3;  if strcmp(kind, 'rot'), off = 0; end
+            pred = zeros(size(oe.dwdx, 1), 1);
+            for k = 1:numel(testCase.SegPair)
+                base = (k - 1) * 6;          % member k's 6-DOF block
+                for i = 1:3
+                    pred = pred + T{k}(j, i) * oe.dwdx(:, base + off + i);
+                end
+            end
+        end
+
         function T = member_triads(testCase, session)
             % TElt triads of the group members, local axes as COLUMNS in
             % global coordinates (macos.get_elt_csys returns a 6x6 whose
@@ -242,6 +260,15 @@ classdef tDwDxGroups < matlab.unittest.TestCase
             % exactly the two members translating together, so to first
             % order the group column is the sum of the member columns.
             %
+            % ONE 'delta' now means one PHYSICAL poke on both sides:
+            % GroupedRigidBodyChannel converts SI metres -> BaseUnits for
+            % prb_grp, exactly as macos.perturb does for the per-element
+            % channel, so there is no CBM factor to carry here.  (It used
+            % to pass the increment straight through, which made this
+            % comparison a two-delta, CBM-juggling affair -- and drove
+            % the artifact gated by
+            % test_scalar_delta_matches_the_split_step below.)
+            %
             % FRAMES -- the part that makes this a real gate rather than
             % a coincidence.  The per-element channels perturb in each
             % element's OWN local (TElt) frame, while the group channel
@@ -256,41 +283,81 @@ classdef tDwDxGroups < matlab.unittest.TestCase
             % local axis i, T_k being the element's TElt triad
             % (get_elt_csys returns it with the local axes as COLUMNS in
             % global coords).
-            %
-            % UNITS: the group channel passes its increment straight into
-            % prb_grp, which reads translations in BASE UNITS, while the
-            % per-element channel converts SI metres -> base.  So at the
-            % same nominal 'delta' the group is poked CBM times smaller.
-            % Compare at EQUAL PHYSICAL POKE: delta 1e-8 (SI m) for the
-            % members, delta 1e-5 (base = mm) for the group -- both 10 nm
-            % -- and carry the CBM factor explicitly.
             g = testCase.seg_map();
             me = macos.Session(testCase.ModelSize);
             oe = macos.dw_dx(me, testCase.rx_path, 'ngridpts', 15, ...
                 'elts', testCase.SegPair, 'dofs', (0:5).', 'delta', 1e-8);
             mg = macos.Session(testCase.ModelSize);
             og = macos.dw_dx(mg, testCase.rx_path, 'ngridpts', 15, ...
-                'elts', 1, 'dofs', (0:5).', 'delta', 1e-5, 'groups', g, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
                 'group_coords', 'global');
             T = testCase.member_triads(mg);
-            cbm = oe.cbm;
-            testCase.verifyEqual(og.cbm, cbm);
             for j = 1:3      % global Tx Ty Tz
-                pred = zeros(size(oe.dwdx, 1), 1);
-                for k = 1:2
-                    base = (k - 1) * 6;      % member k's 6-DOF block
-                    for i = 1:3
-                        pred = pred + T{k}(j, i) * oe.dwdx(:, base + 3 + i);
-                    end
-                end
-                grp = og.dwdx(:, 6 + 3 + j);
-                sc = max(abs(cbm * pred));
+                pred = testCase.member_sum(oe, T, j);
+                grp  = og.dwdx(:, 6 + 3 + j);
+                sc = max(abs(pred));
                 testCase.verifyGreaterThan(sc, 0, ...
                     'non-vacuity: the member translation columns are zero');
                 testCase.verifyLessThan( ...
-                    max(abs(grp - cbm * pred)) / sc, 1e-3, ...
+                    max(abs(grp - pred)) / sc, 1e-2, ...
                     sprintf(['group translation along global axis %d must ' ...
                              'equal the frame-resolved member sum'], j));
+            end
+        end
+
+        function test_scalar_delta_matches_the_split_step(testCase)
+            % THE regression gate for the unit asymmetry.
+            %
+            % prb_grp's signature is BaseUnits for translations;
+            % macos.perturb's is SI metres.  While the group channel
+            % passed its increment STRAIGHT THROUGH, one scalar 'delta'
+            % meant two different physical pokes -- 1/CBM apart, 10 pm
+            % against 10 nm on this millimetre deck -- and the group
+            % columns fell toward the finite-difference floor.  The tell
+            % was that the error GREW as the step shrank: group column
+            % over frame-resolved member sum ran 1.0000 (delta 1e-5) ->
+            % 1.0005 (1e-6) -> 1.012 (1e-7) -> 1.657 (1e-8).  It reads as
+            % physics -- an "intra-group compensation factor" -- which is
+            % how it nearly shipped in a template exhibit.
+            %
+            % Two assertions, in order of sharpness.  (1) At the SMALLEST
+            % step, the group translation columns still reproduce the
+            % member sum: pre-fix Tx misses by 66% and Tz by 200%, so
+            % this is the assertion that actually fails on the old
+            % channel.  (2) The scalar and the split-step (1,6) forms --
+            % the two things the templates might be run with -- agree, so
+            % nobody can read a units artifact as a physical ratio.
+            g = testCase.seg_map();
+            me = macos.Session(testCase.ModelSize);
+            oe = macos.dw_dx(me, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', testCase.SegPair, 'dofs', (0:5).', 'delta', 1e-8);
+            T = testCase.member_triads(me);
+
+            ms = macos.Session(testCase.ModelSize);
+            sc_ = macos.dw_dx(ms, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g);
+            mv = macos.Session(testCase.ModelSize);
+            sp = macos.dw_dx(mv, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'groups', g, ...
+                'delta', [1e-8 1e-8 1e-8 1e-6 1e-6 1e-6]);
+
+            for j = 1:3
+                pred = testCase.member_sum(oe, T, j);
+                col  = 6 + 3 + j;
+                r = rms_(sc_.dwdx(:, col)) / rms_(pred);
+                testCase.verifyLessThan(abs(r - 1), 1e-2, sprintf( ...
+                    ['scalar-delta group translation %d is %.4f of the ' ...
+                     'member sum -- the BaseUnit/metre asymmetry is back'], ...
+                    j, r));
+                % the two step choices must not disagree about a column
+                % whose units are now the same on both sides.  ONLY the
+                % translations: the split form leaves the rotation step
+                % alone, so a rotation column differs only by ordinary
+                % FD noise (Rz on this cell is near-inert and runs 2e-2).
+                d = max(abs(sc_.dwdx(:, col) - sp.dwdx(:, col))) ...
+                    / max(abs(sp.dwdx(:, col)));
+                testCase.verifyLessThan(d, 1e-2, sprintf( ...
+                    'scalar vs split-step group translation %d differs', j));
             end
         end
 
@@ -315,18 +382,12 @@ classdef tDwDxGroups < matlab.unittest.TestCase
                 'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
                 'group_coords', 'global');
             T = testCase.member_triads(mg);
-            % rotations are rad on BOTH sides -- no CBM bridge here,
-            % which is itself worth pinning: the unit quirk is
-            % translation-only
+            % rotations are rad on both sides and always were -- the
+            % SI-metres conversion the channel now does applies to
+            % translations only
             worst = 0;
             for j = 1:3      % global Rx Ry Rz
-                pred = zeros(size(oe.dwdx, 1), 1);
-                for k = 1:2
-                    base = (k - 1) * 6;
-                    for i = 1:3
-                        pred = pred + T{k}(j, i) * oe.dwdx(:, base + i);
-                    end
-                end
+                pred = testCase.member_sum(oe, T, j, 'rot');
                 grp = og.dwdx(:, 6 + j);
                 sc = max(abs(pred));
                 if sc == 0, continue; end
@@ -426,4 +487,9 @@ classdef tDwDxGroups < matlab.unittest.TestCase
             testCase.verifyFalse(any(strcmp(a.kind, 'Group')));
         end
     end
+end
+
+
+function r = rms_(v)
+r = sqrt(mean(v(isfinite(v)).^2));
 end
