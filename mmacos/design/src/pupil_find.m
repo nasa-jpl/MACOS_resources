@@ -61,6 +61,8 @@ function pf = pupil_find(rx, Ffield, opts)
         opts.model_size  (1,1) double = 256
         opts.init        (1,1) logical = false
         opts.place       (1,1) logical = true
+        opts.stop_elt    (1,1) double {mustBeInteger} = 0
+        opts.stop_pos    double = []
     end
     assert(isfile(rx), 'Rx not found: %s', rx);
     if opts.init, macos.init(opts.model_size); end
@@ -78,7 +80,8 @@ function pf = pupil_find(rx, Ffield, opts)
 
     % cone-convergence surface (pupil_map re-emits temp decks; needs the path)
     o = pupil_map(rx, Ffield, 'anchor',opts.anchor, 'obj_elt',EP, 'img_elt',XP, ...
-                  'nodes',opts.nodes, 'min_fields',opts.min_fields, 'init',false);
+                  'nodes',opts.nodes, 'min_fields',opts.min_fields, 'init',false, ...
+                  'stop_elt',opts.stop_elt, 'stop_pos',opts.stop_pos);
 
     % best-fit sphere to the crossing cloud, in the exit frame.  Fit
     % w = c0 + b1*u + b2*v + a*rho^2 : the sphere may be positioned (c0) and
