@@ -3,8 +3,10 @@
 % Runs pupil_id.m on one or both bundled test telescopes and emits a
 % consolidated report + the per-case graphics.  This is the "just run it"
 % entry point; pupil_id.m is the general-purpose driver (any Rx in, a
-% revised Rx out) and pupil_find.m (design/src) is the run_dwd*-callable
-% core finder.
+% revised Rx out) and pupil_find.m (design/src) is the reusable core
+% finder (no sensitivity driver calls it yet -- the dw_d*_multi
+% supervisors re-reference the XP per field via reset_xp/macos.fex; see
+% the README's wiring-status note).
 %
 %   run_pupil_id                 % both cases (default)
 %   run_pupil_id('tma_onaxis')   % on-axis Korsch TMA (fully-lit pupil)
