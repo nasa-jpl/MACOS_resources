@@ -197,9 +197,21 @@ function o = fold_(d, aoi_deg, sgn)
 end
 
 function sh = shroud_full_(rx, nE, P, png)
-%SHROUD_FULL_  Radial extent of every element footprint about the launch
-%   axis, measured on the SPLICED deck (no Telescope object exists for
-%   it), and drawn.
+%SHROUD_FULL_  Radial extent of every HARDWARE element's footprint about
+%   the launch axis, measured on the SPLICED deck (no Telescope object
+%   exists for it), and drawn.
+%
+%   Element=Return surfaces are excluded: they are the propagator's
+%   return planes and exit-pupil reference SPHERES, mathematical
+%   surfaces rather than glass anyone builds, and an exit-pupil sphere
+%   sits at a radius with nothing to do with the hardware envelope.
+%   Element=Reference markers ARE kept -- a mask or pupil site is a real
+%   mount.  Read from the deck text, since a spliced deck has no spec.
+    kinds = regexp(fileread(rx), '(?m)^\s*Element=\s*(\S+)', 'tokens');
+    isHW = true(1,nE);
+    for k = 1:min(nE, numel(kinds))
+        isHW(k) = ~strcmpi(kinds{k}{1}, 'Return');
+    end
     macos.ray_hist('on');  s = macos.trace(nE);
     h = macos.ray_hist(s.nRays);  macos.ray_hist('off');
     C = nan(3,nE);  R = nan(1,nE);
@@ -211,9 +223,10 @@ function sh = shroud_full_(rx, nE, P, png)
         R(k) = max(vecnorm(Q - C(:,k), 2, 1));
     end
     ok = isfinite(R);
-    rr = hypot(C(1,ok), C(2,ok)) + R(ok);
-    sh = struct('D', 2*max(rr), 'len', max(C(3,ok)) - min(C(3,ok)), ...
-                'r_elt', rr, 'png', png);
+    rr = hypot(C(1,:), C(2,:)) + R;
+    sh = struct('D', 2*max(rr(ok & isHW)), ...
+                'len', max(C(3,ok)) - min(C(3,ok)), ...
+                'r_elt', rr, 'is_hw', isHW, 'png', png);
     f = figure('Visible','off','Position',[100 100 700 640]);
     ax = axes(f);  hold(ax,'on');  axis(ax,'equal');
     th = linspace(0,2*pi,361);  Rg = P.shroud_D_m/2;
@@ -221,12 +234,14 @@ function sh = shroud_full_(rx, nE, P, png)
     idx = find(ok);  cols = lines(max(numel(idx),7));
     for j = 1:numel(idx)
         k = idx(j);
-        plot(ax, C(1,k)+R(k)*cos(th), C(2,k)+R(k)*sin(th), '-', ...
-             'Color', cols(j,:), 'LineWidth', 1.2);
+        st = '-';  w = 1.2;
+        if ~isHW(k), st = ':';  w = 0.7;  end     % not hardware, not gated
+        plot(ax, C(1,k)+R(k)*cos(th), C(2,k)+R(k)*sin(th), st, ...
+             'Color', cols(j,:), 'LineWidth', w);
     end
     xlabel(ax,'x  [m]');  ylabel(ax,'y  [m]');  grid(ax,'on');  box(ax,'on');
-    title(ax, sprintf(['full train, end-on: union %.3f m against the %.1f m ' ...
-                       'gate (%s)'], sh.D, P.shroud_D_m, ...
+    title(ax, sprintf(['full train, end-on: hardware union %.3f m against ' ...
+                       'the %.1f m gate (%s)'], sh.D, P.shroud_D_m, ...
                       tern_(sh.D <= P.shroud_D_m,'FITS','OVER')));
     lim = 1.3*Rg;  xlim(ax,[-lim lim]);  ylim(ax,[-lim lim]);
     saveas(f, png);  close(f);

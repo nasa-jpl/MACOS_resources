@@ -37,6 +37,20 @@ function out = e2e6m_shroud_fig(t, png, opts)
     dy = 0;
     if isfield(t.spec,'aperture_decenter'), dy = t.spec.aperture_decenter; end
 
+    % HARDWARE ONLY.  add_pupil's terminal quartet contributes Element=Return
+    % surfaces -- a flat return plane and an exit-pupil reference SPHERE.
+    % They are mathematical surfaces the propagator uses, not glass anyone
+    % has to build or fly, and the exit-pupil sphere in particular sits at a
+    % radius that has nothing to do with the hardware envelope.  Counting
+    % them was the difference between 7.450 m (PASS) and 8.306 m (FAIL) on
+    % the same design -- the [4] packaging_report number is taken BEFORE
+    % add_pupil, so the two disagreed.  Mask/pupil MARKERS (Element=
+    % Reference) are kept: those are real mounts.
+    isHW = true(1,nE);
+    for k = 1:nE
+        if strcmp(t.spec.elt(k).kind, 'Return'), isHW(k) = false; end
+    end
+
     byz = macos.draw_rays('YZ', 0, nE);    % y-fan: V=Y, U=Z
     bxz = macos.draw_rays('XZ', 0, nE);    % x-fan: V=X, U=Z
 
@@ -57,7 +71,8 @@ function out = e2e6m_shroud_fig(t, png, opts)
         zlo = min(zlo, min(zz(:)));  zhi = max(zhi, max(zz(:)));
     end
     r_rad = hypot(C(1,:), C(2,:) - dy) + R;      % radial extent per element
-    out = struct('shroud_D_m', 2*max(r_rad), 'r_elt', r_rad, ...
+    r_hw  = r_rad(isHW & isfinite(r_rad));
+    out = struct('shroud_D_m', 2*max(r_hw), 'r_elt', r_rad, 'is_hw', isHW, ...
                  'names', {{t.spec.elt.name}}, ...
                  'length_m', zhi - zlo, 'gate_D_m', opts.shroud_D_m);
     out.pass = out.shroud_D_m <= opts.shroud_D_m;
@@ -72,25 +87,38 @@ function out = e2e6m_shroud_fig(t, png, opts)
     plot(ax1, Rg*cos(th), dy + Rg*sin(th), 'k-', 'LineWidth', 2.0);
     cols = lines(max(nE,7));
     for k = 1:nE
-        plot(ax1, C(1,k)+R(k)*cos(th), C(2,k)+R(k)*sin(th), '-', ...
-             'Color', cols(k,:), 'LineWidth', 1.6);
+        w = 1.6;  st = '-';
+        if ~isHW(k), w = 0.8;  st = ':';  end     % not hardware, not gated
+        plot(ax1, C(1,k)+R(k)*cos(th), C(2,k)+R(k)*sin(th), st, ...
+             'Color', cols(k,:), 'LineWidth', w);
     end
-    % labels on a leader out to the shroud wall, spread by angle, so the
-    % elements crowded into the annulus do not print on top of each other
-    lab_r = 1.06*Rg;
+    % Labels on leaders out to the shroud wall.  Angle-proportional
+    % placement does NOT work here: this design crowds M2/M3/FP and the
+    % pupil markers into one 1 m annulus at the SAME azimuth, so they land
+    % on top of each other.  Give every element its own slot on a uniform
+    % ring instead, ordered by its true azimuth -- guaranteed collision-free
+    % whatever the layout does.  Interpreter 'none': names like FP_return
+    % otherwise render with a subscript.
+    lab_r = 1.10*Rg;
+    ang = atan2(C(2,:) - dy, C(1,:));
+    near = hypot(C(1,:), C(2,:) - dy) < 0.15*Rg;
+    ang(near) = pi/2;                       % an on-axis body has no azimuth
+    [~, ord] = sort(ang);
+    slot = zeros(1,nE);
+    slot(ord) = (0:nE-1) * (2*pi/nE) + ang(ord(1));
     for k = 1:nE
-        a  = atan2(C(2,k) - dy, C(1,k));
-        if hypot(C(1,k), C(2,k)-dy) < 0.15*Rg, a = pi/2; end   % on-axis elt
-        a  = a + (k - (nE+1)/2) * (0.30/max(nE,1)) * pi;
-        px = lab_r*cos(a);  py = dy + lab_r*sin(a);
+        px = lab_r*cos(slot(k));  py = dy + lab_r*sin(slot(k));
         plot(ax1, [C(1,k) px], [C(2,k) py], '-', ...
              'Color', [cols(k,:) 0.45], 'LineWidth', 0.8);
-        ha = 'left';  if px < 0, ha = 'right'; end
+        ha = 'left';  if px < -0.05*Rg, ha = 'right'; end
+        if abs(px) <= 0.05*Rg, ha = 'center'; end
         text(ax1, px, py, [' ' t.spec.elt(k).name ' '], ...
-             'HorizontalAlignment', ha, 'FontSize', 9, 'Color', cols(k,:)*0.7);
+             'HorizontalAlignment', ha, 'FontSize', 9, ...
+             'Color', cols(k,:)*0.7, 'Interpreter', 'none');
     end
     xlabel(ax1,'x  [m]');  ylabel(ax1,'y  [m]');
-    title(ax1, sprintf('end-on: union %.3f m against the %.1f m gate  (%s)', ...
+    title(ax1, sprintf(['end-on: hardware union %.3f m against the %.1f m ' ...
+                       'gate  (%s)\ndotted = propagation surfaces, not gated'], ...
           out.shroud_D_m, opts.shroud_D_m, tern_(out.pass,'FITS','OVER')));
     grid(ax1,'on');  box(ax1,'on');
     lim = 1.45*Rg;  xlim(ax1,[-lim lim]);  ylim(ax1, dy + [-lim lim]);
@@ -111,11 +139,12 @@ function out = e2e6m_shroud_fig(t, png, opts)
     for k = 1:nE
         plot(ax2, C(3,k)+[0 0], C(2,k)+[-R(k) R(k)], '-', ...
              'Color', cols(k,:), 'LineWidth', 3.0);
-        yl = C(2,k) + R(k) + 0.35 + 0.35*mod(k,2);   % alternate heights
-        plot(ax2, C(3,k)+[0 0], [C(2,k)+R(k) yl-0.12], '-', ...
+        yl = C(2,k) + R(k) + 0.30 + 0.40*mod(k,3);   % three label levels
+        plot(ax2, C(3,k)+[0 0], [C(2,k)+R(k) yl-0.10], '-', ...
              'Color', [cols(k,:) 0.45], 'LineWidth', 0.8);
         text(ax2, C(3,k), yl, t.spec.elt(k).name, ...
-             'HorizontalAlignment','center', 'FontSize',9, 'Color',cols(k,:)*0.7);
+             'HorizontalAlignment','center', 'FontSize',9, ...
+             'Color',cols(k,:)*0.7, 'Interpreter','none');
     end
     xlabel(ax2,'z  [m]  (launch axis; beam enters +z)');  ylabel(ax2,'y  [m]');
     title(ax2, sprintf(['elevation: train %.2f m long; entry corridor shaded ' ...

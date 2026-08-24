@@ -55,18 +55,38 @@ function P = e2e6m_params(over)
     % Picked by s1_layout_search against the three gates above; see
     % s1_layout_search.txt for the sweep and e2e6m_LOG.md for why this
     % topology (sphere+Zernike tilted folds) and not the field-offset one.
-    P.tel.R_m     = [38.400, 3.800, 3.500];   % M1 concave, M2 CONVEX, M3
+    P.tel.R_m     = [38.400, 3.800, 2.000];   % M1 concave, M2 CONVEX, M3
+                                              % R3 = 2.0 is the DESIGN
+                                              % POINT (2026-08-24): the
+                                              % layout search picks 3.5 on
+                                              % the base spheres, but the
+                                              % freeform stage spends
+                                              % power, so the design point
+                                              % is chosen on the CORRECTED
+                                              % system.  See the LOG's
+                                              % trade table -- and note
+                                              % the corrected f/# is
+                                              % DISCONTINUOUS in R3
+                                              % (1.4000 -> f/15.5,
+                                              % 1.4050 -> f/25.7), so this
+                                              % is a measured pick, not a
+                                              % point on a smooth curve.
     P.tel.T_m     = [17.500, 14.000];         % M1->M2, M2->M3 along the
                                               % folded chief
     P.tel.tilt_deg = [-5.60, 5.90, 8.00];     % fold about x
     P.tel.convex  = [false true false];
 
     % ---- S1: the freeform correction ------------------------------------
-    P.tel.fov_arcmin = 1.0;        % design HALF-field.  A coronagraph
-                                   % field box is arcminutes; the visible
-                                   % DL bar is 35 nm RMS, so hold a
-                                   % tight field and let the map show the
-                                   % cost of widening it.
+    P.tel.fov_arcmin = 0.35;       % design HALF-field (a 0.7' = 42"
+                                   % box).  Well inside the brief's
+                                   % "<= 0.1 deg", and generous for the
+                                   % use case: the coronagraph science
+                                   % field is a few lambda/D, which at
+                                   % f/25 and 500 nm is ARCSECONDS.  The
+                                   % visible DL bar is 35 nm RMS and the
+                                   % field is where the fight is; +-1'
+                                   % was tried and costs a factor of a
+                                   % few in the residual (LOG).
     P.tel.modes   = [3 4 5 9 10 11 12 13 19 20 21 22 23 24 25];
     P.tel.ztype   = 'BornWolf';
     P.tel.iters   = 200;
