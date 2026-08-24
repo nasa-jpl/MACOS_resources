@@ -1,0 +1,33 @@
+==================== e2e6m S3b -- the APLC coronagraph
+metric: dark-zone contrast, Strehl-normalised to the BARE
+        on-axis peak of the SAME train; annulus 3-15 lambda/D
+        at 500 nm, at the CORONAGRAPH exit pupil (elt ExitPupil),
+        occulter 2.8 lambda/D, Lyot 0.9 of the geometric pupil,
+        model 1024, nGridpts 255
+
+---- seg (19-segment primary) ----
+    diffraction deck 36 elements; chief vs geometric 1.2e-15; PSF CENTRED
+    FEX radii: FPM 0.579161 m, ExitPupil 0.301140 m
+    lambda/D at the FPA 4.028 px | bare on-axis peak 2.4246e+01
+    apodizer throughput 0.123 (prolate Lambda0 1.0000)
+    APLC dark zone 3-15 lambda/D: mean 8.700e-07, median 4.567e-08, floor 1.339e-12
+    on-axis suppression 6.167e+03 | net throughput 0.100
+
+---- mono (monolithic primary) ----
+    diffraction deck 18 elements; chief vs geometric 1.33e-15; PSF CENTRED
+    FEX radii: FPM 0.575717 m, ExitPupil 0.300207 m
+    lambda/D at the FPA 4.025 px | bare on-axis peak 3.0227e+01
+    apodizer throughput 0.123 (prolate Lambda0 1.0000)
+    APLC dark zone 3-15 lambda/D: mean 3.640e-10, median 5.327e-12, floor 2.097e-15
+    on-axis suppression 2.823e+07 | net throughput 0.100
+
+---- what the segment gaps cost ----
+    dark-zone mean   segmented 8.700e-07   monolithic 3.640e-10   ratio 2389.80x
+    dark-zone median segmented 4.567e-08   monolithic 5.327e-12   ratio 8572.69x
+    on-axis suppr    segmented 6.167e+03   monolithic 2.823e+07
+    SAME mask on both trains -- the apodizer is the clear-pupil
+    prolate either way, so the ratio is the gaps and nothing else.
+
+    contrast comparison figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_contrast.png
+
+S3b DONE in 3.0 min

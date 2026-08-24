@@ -45,6 +45,17 @@ function out = ctb_aplc(opts)
         opts.blc_form      (1,:) char {mustBeMember(opts.blc_form,{'separable','radial','linear'})} = 'separable'
         opts.inner_lamD    (1,1) double = 3.0
         opts.outer_lamD    (1,1) double = 15.0
+        opts.prolate_iter  (1,1) double = 200   % power-iteration cap for
+                                                % ctb_apod_prolate.  200 is
+                                                % this example's committed
+                                                % setting; a large pupil on
+                                                % a fine grid can need
+                                                % thousands (measured: the
+                                                % e2e6m 6 m pupil converges
+                                                % at 2387, and at 200 it
+                                                % reports Lambda0 = 1.0017,
+                                                % i.e. ABOVE the eigenvalue's
+                                                % physical bound of 1).
         opts.outdir        (1,:) char   = ''
         opts.visible       (1,1) logical = false
     end
@@ -67,7 +78,8 @@ function out = ctb_aplc(opts)
         N, lamD, r_apod_px, opts.r_occ_lamD, peak_bare);
 
     % ---- build the prolate apodizer ------------------------------------
-    [Phi, pinfo] = ctb_apod_prolate(N, r_apod_px, opts.r_occ_lamD);
+    [Phi, pinfo] = ctb_apod_prolate(N, r_apod_px, opts.r_occ_lamD, ...
+                                    'n_iter', opts.prolate_iter);
     thru_apod = apod_throughput_(Phi, r_apod_px);        % Phi^2-weighted fill
     fprintf('[aplc] prolate: Lambda0=%.4f (conv=%d, %d it)  apodizer throughput=%.3f\n', ...
         pinfo.lambda0, pinfo.converged, pinfo.n_iter_used, thru_apod);
@@ -152,7 +164,10 @@ function out = ctb_aplc(opts)
         'prolate_info',pinfo,'apodizer_throughput',thru_apod, ...
         'dz_aplc',dz_aplc,'supp_aplc',supp_aplc,'thru_aplc',thru_aplc, ...
         'eps_match',eps_match,'dz_blc',dz_blc,'supp_blc',supp_blc,'thru_blc',thru_blc, ...
-        'lamD_px',lamD,'peak_bare',peak_bare,'figure',figpath);
+        'lamD_px',lamD,'peak_bare',peak_bare,'figure',figpath, ...
+        'I_aplc',I_aplc,'I_blc',I_blc);   % the FPA images, so a caller can
+                                          % re-score or re-plot without
+                                          % re-running the chain
 end
 
 % ======================================================================

@@ -77,6 +77,12 @@ function info = prop_layout(src, kinds, opts)
 %                 exist before any mask plane can multiply it.
 %     'ngridpts'  diffraction ray grid, odd ([] = keep SRC's)
 %     'model'     macos model size, >= ngridpts (default 512)
+%     'stop_name' EltName of the aperture stop.  FEX needs a stop -- the
+%                 chief ray, and hence the pupil, is undefined without one
+%                 -- and it is resolved BY NAME because the element's index
+%                 shifts as quartets are inserted.  Default '' = the deck
+%                 declares its own (a Telescope deck carries ApStop= in the
+%                 header; a bare Bench deck does not).
 %     'verify'    trace the result and check the chief ray against SRC at
 %                 every original station (default true)
 %
@@ -93,6 +99,7 @@ function info = prop_layout(src, kinds, opts)
         opts.nf_legs  (1,:) double = []
         opts.ngridpts double = []
         opts.model    (1,1) double {mustBeInteger,mustBePositive} = 512
+        opts.stop_name (1,:) char  = ''
         opts.verify   (1,1) logical = true
     end
     assert(isfile(src), 'prop_layout: %s not found', src);
@@ -151,7 +158,8 @@ function info = prop_layout(src, kinds, opts)
         nm = eltname_(ebl{k}, sprintf('Focus%d', k));
         fnames{k} = nm; %#ok<AGROW>
         R.(matlab.lang.makeValidName(nm)) = fex_radius_(hdr, foot, ebl, k, ...
-            cp(:,k), uin(k), 0.5*norm(cp(:,k)-cp(:,k-1)), nm, opts.model, tmpd);
+            cp(:,k), uin(k), 0.5*norm(cp(:,k)-cp(:,k-1)), nm, opts.model, tmpd, ...
+            opts.stop_name);
         fprintf('[prop_layout] %-12s exit-pupil radius = %.10f (FEX)\n', ...
                 nm, R.(matlab.lang.makeValidName(nm)));
     end
@@ -208,7 +216,8 @@ function info = prop_layout(src, kinds, opts)
         macos.init(opts.model);
         n = macos.load_rx(opts.out);
         iep = find_named_(B, 'ExitPupil');
-        s = macos.fex(1);
+        set_stop_(opts.out, opts.stop_name);
+        s = fex_(1, opts.out);
         rs = abs(s.rad);
         % Take FEX's POSE, not just its radius.  FEX finds where the exit
         % pupil actually is -- vertex and axis -- and imposing the seed's
@@ -287,7 +296,7 @@ function nm = eltname_(blk, dflt)
     if isempty(t), nm = dflt; else, nm = t{1}; end
 end
 
-function r = fex_radius_(hdr, foot, ebl, k, F, u, rs, nm, model, tmpd)
+function r = fex_radius_(hdr, foot, ebl, k, F, u, rs, nm, model, tmpd, stopnm)
 %FEX_RADIUS_  Exit-pupil radius conjugate to the focus at station k.
 %   <optics 1..k-1> / FPreturn(flat at the focus) / EPreturn(seed sphere)
 %   / focus-as-FocalPlane, then FEX -- whose radius is the chief-ray
@@ -307,8 +316,40 @@ function r = fex_radius_(hdr, foot, ebl, k, F, u, rs, nm, model, tmpd)
     write_deck_(f, hdr, B, foot, []);          % keep the bare ray grid
     macos.init(model);
     macos.load_rx(f);
-    s = macos.fex(1);
+    set_stop_(f, stopnm);
+    s = fex_(1, f);
     r = abs(s.rad);
+end
+
+function set_stop_(rx, stopnm)
+%SET_STOP_  Point the engine's stop at the named element in THIS deck.
+%   By name, not index: quartets shift every downstream index, so an
+%   index captured on the source deck is wrong on the emitted one.
+    if isempty(stopnm), return; end
+    nm = regexp(fileread(rx), '^\s*EltName=\s*(\S+)', 'tokens','lineanchors');
+    nm = cellfun(@(c) c{1}, nm, 'UniformOutput', false);
+    i = find(strcmp(nm, stopnm), 1);
+    if isempty(i)
+        error('macos:design:prop_layout:stop', ...
+              'prop_layout: no element named "%s" to use as the stop', stopnm);
+    end
+    macos.stop(i, [0 0]);
+end
+
+function s = fex_(iElt, rx)
+%FEX_  macos.fex with the actionable hint attached.  A missing stop is
+%   the usual cause and the raw message does not say which deck.
+    try
+        s = macos.fex(iElt);
+    catch ME
+        if strcmp(ME.identifier, 'macos:fex:noStop')
+            error('macos:design:prop_layout:nostop', ...
+                ['prop_layout: %s declares no aperture stop, so FEX cannot ' ...
+                 'find the exit pupil.  Pass ''stop_name'' (the EltName of ' ...
+                 'the stop), or emit ApStop= in the deck header.'], rx);
+        end
+        rethrow(ME);
+    end
 end
 
 function write_deck_(path, hdr, B, foot, ngridpts)
