@@ -263,8 +263,8 @@ function out = pupil_map(deck, Ffield, opts)
     if index_group, anc = 'surface'; end
     if isstruct(anc)
         A0 = anc.Vpt(:);   nA = anc.psi(:)/norm(anc.psi);
-        zsrc = regexp(txt,'zSource\s*=\s*([-\d.EeD+]+)','tokens','once');
-        if isempty(zsrc) || str2double(strrep(zsrc{1},'D','E')) < 1e10
+        zsrc = regexp(txt,'zSource\s*=\s*([-\d.EeDd+]+)','tokens','once');
+        if isempty(zsrc) || str2double(strrep(strrep(zsrc{1},'D','E'),'d','e')) < 1e10
             error('macos:design:pupil_map:anchor', ...
                   ['plane anchoring back-projects each ray along the SOURCE ' ...
                    'direction, which is only exact for a collimated source ' ...
@@ -893,14 +893,14 @@ function s = v3_(v),  s = sprintf('%.16E  %.16E  %.16E', v(1), v(2), v(3));  end
 
 function [cdir, cpos, lam] = deck_src_(txt)
     cdir = grab3_(txt,'ChfRayDir');   cpos = grab3_(txt,'ChfRayPos');
-    t = regexp(txt,'(?m)^\s*Wavelen=\s*([-\d.EeD+]+)','tokens','once');
-    lam = str2double(strrep(t{1},'D','E'));
+    t = regexp(txt,'(?m)^\s*Wavelen=\s*([-\d.EeDd+]+)','tokens','once');
+    lam = str2double(strrep(strrep(t{1},'D','E'),'d','e'));
 end
 
 function d = beam_dia_(txt)
 %BEAM_DIA_  The source's declared beam DIAMETER, or NaN if the deck has none.
-    t = regexp(txt,'(?m)^\s*Aperture=\s*([-\d.EeD+]+)','tokens','once');
-    if isempty(t), d = NaN; else, d = str2double(strrep(t{1},'D','E')); end
+    t = regexp(txt,'(?m)^\s*Aperture=\s*([-\d.EeDd+]+)','tokens','once');
+    if isempty(t), d = NaN; else, d = str2double(strrep(strrep(t{1},'D','E'),'d','e')); end
 end
 
 function v = grab3_(txt, key)
@@ -915,7 +915,7 @@ function v = grab3_(txt, key)
                'is an ELEMENT carry no header ApStop= 3-vector -- pass ' ...
                '''stop_elt'' (its element id) or ''stop_pos'' instead.'], key);
     end
-    v = sscanf(strrep(t{1},'D','E'),'%f',3);
+    v = sscanf(strrep(strrep(t{1},'D','E'),'d','e'),'%f',3);
     if numel(v) < 3
         error('macos:design:pupil_map:key', ...
               ['''%s='' line does not carry 3 numbers (got %d).  A ' ...
@@ -931,7 +931,7 @@ function M = grab_all3_(txt, key)
 %   comment would silently SHIFT the element indexing.
     t = regexp(txt,['(?m)^\s*' key '=\s*([^\n]*)'],'tokens');
     M = zeros(3,numel(t));
-    for i = 1:numel(t), M(:,i) = sscanf(strrep(t{i}{1},'D','E'),'%f',3); end
+    for i = 1:numel(t), M(:,i) = sscanf(strrep(strrep(t{i}{1},'D','E'),'d','e'),'%f',3); end
 end
 
 function del_(p),  if exist(p,'file'), delete(p); end,  end
