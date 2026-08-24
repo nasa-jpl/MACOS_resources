@@ -1012,4 +1012,78 @@ ONE-SHOT correction held against a growing drift: it is solved at frame
 where it was solved.  Piston-only control also cannot touch the tilt
 part of the drift.  Both are consequences of decisions recorded above,
 not surprises.
+---
 
+## 2026-08-24 — S6: the deck, and what the figure inventory turned out to be
+
+`deck_e2e6m.py` builds `deck_e2e6m.md` and hands it to the committed
+`make_brief_slides.py`; every number arrives through
+`e2e6m_records.py`, which `sys.exit`s on a parse miss rather than
+printing a plausible default.  Thirteen slides: title + conventions,
+six stage slides, a closer, one plain `Backup Slides` divider, four
+backup slides.  DRAFT.
+
+### The parse-miss rule earned its keep immediately
+
+The first build died on `worst rel err` — because the final S5 run
+had *changed the report*, splitting one worst-case line into two
+(`worst over ALL six DOFs` / `worst over CONTROLLED DOFs`).  A parser
+that fell back to a default would have quietly put the FAIL number on
+a slide labelled PASS.  Both are now parsed and both appear.
+
+### What I found when I went looking for figures to pair
+
+DECK_STYLE wants every result slide to pair a layout figure with its
+map.  Two of the six stage figures were not deck-grade, and the reason
+is worth recording because it is a property of the models, not of
+matplotlib:
+
+- **`s2_segmented_views.png` / any 4-view render.**  Four panels at
+  slide size are unreadable, and the panel labels collide.  Fixed by
+  the DECK_STYLE remedy — `crop_panel()` lifts ONE panel (iso), keeps
+  its content, drops its title (the slide caption carries it).  Nothing
+  is redrawn.
+- **`s4_dwdx_channels.png` is blank at slide size.**  156 channel maps
+  on one axis grid renders as 156 labels over invisible dots.  It is a
+  fine *diagnostic* at full resolution and useless as evidence.  Not
+  used.  (Worth a look at the channel-montage figure's default layout
+  the next time someone touches `run_sensitivities` — it stops being
+  legible somewhere well below 156 channels.)
+
+What replaced it is better anyway: **`s4_svspec.png`**, the singular-value
+spectra of the three Jacobians.  Rigid-body motion collapses seven
+decades across 156 channels (`cond+ 2.162e+06` on the 114 segment-only
+columns) while the figure and influence bases stay inside one decade.
+That is the same fact S5 runs into from the other side — a wavefront
+measurement constrains far fewer directions than the assembly has
+freedoms — so the two slides now argue the same point in sequence
+instead of the error budget slide sitting half empty.
+
+### A figure I built, measured, and did not use
+
+The brief asks for a layout/`print_chain` gate at S3, so `s3_train_fig.m`
+now renders `s3_seg_full.in` (iso + side) and `s3_seg_back.in` (the back
+end alone).  Both are committed as gate artifacts.  **Only the full-train
+iso is in the deck**, and the back-end render is not, for a measured
+reason: the relay mirrors are centimetre-class against a 6 m primary, so
+in the full-train view they are labels with no visible body, and in their
+own view the train is so much longer than it is wide that the render is
+ray lines with specks on them.  The packaging *map* (`s3_seg_shroud.png`)
+carries the instrument slide instead — it is the evidence for the claim
+the slide actually makes.
+
+### One shared-tool change
+
+`make_brief_slides.py` **stripped** `**bold**` instead of rendering it,
+so DECK_STYLE's "compact bullets with bold lead-in labels" could not be
+expressed.  `clean()` now leaves the markers, `para()` splits them into
+alternating runs, `est_text_h()` and the table cells strip them
+themselves.  Backwards-compatible: both heritage rodgers3 decks rebuild
+to scratch paths at unchanged slide counts (19 and 9) and render
+correctly — checked, not assumed.  **Neither committed rodgers3 .pptx was
+regenerated**; `deck_rodgers3_final.pptx` is untouched per the brief.
+
+### Style gate
+
+`STYLE_REPORTS.md` §5 and `DECK_STYLE.md`, run against the built deck —
+reported in-window with the build.
