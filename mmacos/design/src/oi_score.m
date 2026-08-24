@@ -191,7 +191,17 @@ function p = seed_pos_(G, cdir)
     cdR = [cdir(1); cdir(2); -cdir(3)];
     tq  = (G.z_m1 - G.stopC(3))/cdir(3);
     q   = G.stopC - tq*cdR;
-    p   = q - (0.75/cdir(3))*cdir;
+    p   = q - (standoff_(G)/cdir(3))*cdir;
+end
+
+function s = standoff_(S)
+%STANDOFF_  OI_STANDOFF off whatever aperture the struct carries; the
+%   legacy 0.75 m when it carries none (a hand-built geometry struct).
+    if isfield(S,'EPD_m') && ~isempty(S.EPD_m)
+        s = oi_standoff(S.EPD_m);
+    else
+        s = 0.75;
+    end
 end
 
 function [p0, aim] = aim_newton_(txt0, tmp, G, cdir, seed)
