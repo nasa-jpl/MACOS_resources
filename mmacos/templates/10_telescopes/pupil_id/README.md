@@ -26,11 +26,23 @@ veneer code.**
 | **core finder** | [`design/src/pupil_find.m`](../../../design/src/pupil_find.m) | Rx in → cone convergence → **`set_xp` into the internal Rx in place, exactly as the engine's FEX modifies engine state** → metrics out. No file I/O, no figures, no printing. |
 | **template wrapper** | `pupil_id.m` (here) | calls `pupil_find`, then does the report, the XPS cross-check, the zone + walk metrics, the figures, and writes the **revised Rx** to disk (`macos.save_rx`). |
 
-The split is so **sensitivity drivers (`run_dwd*.m`) call `pupil_find`
-directly** — it leaves the engine with the improved XP in the loaded Rx, just
+The split is so a sensitivity driver **could** call `pupil_find`
+directly — it leaves the engine with the improved XP in the loaded Rx, just
 like a FEX call, and returns the metrics — while the wrapper owns everything
 file- and figure-facing. `pupil_find(..., 'place',false)` measures without
 touching the Rx.
+
+**Wiring status (clarified 2026-08-24, after Luis's read):** no
+sensitivity driver calls `pupil_find` today — the template wrapper above is
+its only caller.  The shipped per-field exit-pupil re-reference inside the
+`dw_d*_multi` supervisors is `reset_xp` → `macos.fex(1)` (the
+single-chief-ray engine FEX, wrapped by `reset_xp_guard`), called fresh per
+field and per configuration.  The two mechanisms are different jobs, not
+rivals: `fex` is the cheap placement a harvest calls hundreds of times;
+`pupil_find` is the cone-convergence surface FIT run once per design (this
+template) to identify and place the better sphere.  Adopting `pupil_find`
+as an optional `reset_xp_method` in the supervisors is a possible
+follow-on, not current behavior.
 
 ## The two XP radii — do not conflate
 
