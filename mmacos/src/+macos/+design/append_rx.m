@@ -95,7 +95,7 @@ function info = append_rx(base_in, add_in, out_in, opts)
     end
 
     hdr = regexprep(B.header, '(?m)^(\s*nElt=\s*)\S+', sprintf('$1 %d', n), 'once');
-    txt = [hdr sprintf('\n') strjoin(all_e, sprintf('\n')) sprintf('\n') B.tail];
+    txt = [hdr newline strjoin(all_e, newline) newline B.tail];
     fid = fopen(out_in, 'w');
     assert(fid > 0, 'append_rx: cannot write %s', out_in);
     fprintf(fid, '%s', txt);  fclose(fid);
