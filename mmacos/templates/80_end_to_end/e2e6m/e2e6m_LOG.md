@@ -539,3 +539,105 @@ Worth keeping as a rule: **on a segmented pupil, any per-segment
 measurement needs the chief reference before it means anything.**  A
 mean-referenced map will show every unperturbed segment pistoning, and
 the number looks exactly like a frame bug.
+
+---
+
+## 2026-08-24 — S1 closes: the f/# is not a knob, and the design point is measured
+
+### The closure REFUSED, and the refusal is the result
+
+`s1_close_fno` ran five iterates and met no gate set:
+
+```
+iterate 1: R3 3.5000 -> f/29.10 | 0.0865 waves | shroud 7.333 | clear
+iterate 2: R3 2.9750 -> f/25.14 | 1.4480 waves | shroud 7.327 | clear
+iterate 3: R3 1.4000 -> f/15.54 | 0.4268 waves | shroud 7.290 | clear
+iterate 4: R3 1.4955 -> f/27.20 | 0.0986 waves | shroud 7.502 | clear
+iterate 5: R3 1.4050 -> f/25.74 | 0.3036 waves | shroud 7.271 | clear
+```
+
+Read iterates 3 and 5: **R3 moves 0.36% and the corrected f/# jumps
+15.54 -> 25.74.**  Widen the view with the +-0.35' probes and it is
+worse than non-monotone -- it is not a function of R3 in any useful
+sense:
+
+| R3 (m) | corrected f/# | dense -tilt max (waves) |
+|---|---|---|
+| 1.70 | 20.09 | 0.1611 |
+| 1.78 | **8.56** | 0.3600 |
+| 1.85 | 26.90 | 0.1052 |
+| 2.00 | **25.39** | **0.0473** |
+
+**The corrected f/# is an OUTCOME of which basin the freeform solve
+lands in, not a controllable function of the base layout.**  Each basin
+spends a different amount of optical power, and the basin is chosen by
+the starting geometry in a way no continuous search can steer.  A secant
+was never going to work here; neither would anything else that assumes
+smoothness.  (The log-secant in `s1_close_fno` is kept -- it is the right
+tool for the question it was asked, and its FAILURE is what established
+this.)
+
+### Field width is not a lever either
+
+Tested from a third direction: at the SAME R3 = 1.70, narrowing the
+design field from +-0.35' to +-0.20' made the residual WORSE
+(0.0816 -> 0.2408 waves).  Narrower fields do not monotonically help;
+the basin dominates.  So three independent knobs -- R3, field width, and
+the Zernike mode set -- all show the same signature, which is what makes
+this a property of the solve rather than a coincidence of one sweep.
+
+### The design point, chosen on the CORRECTED system
+
+`R3 = 2.000 m`, field `+-0.35'`, everything else as the layout search
+picked it:
+
+| gate | measured | verdict |
+|---|---|---|
+| dense 7x7 map over +-0.35', -tilt max | **0.0473 waves** (bar 0.071) | **PASS** |
+| shroud diameter | **7.450 m** (gate 8.0) | **PASS** |
+| clearance | 4/4 bodies clear | **PASS** |
+| reload ray count | 1185/1185 | **PASS** |
+| f/# at the FP | **25.39** (band 12-20) | **FAIL** |
+
+Four of five.  The f/# is 27% above the band's top, and the honest
+framing is that it is not reachable at diffraction-limited wavefront on
+this layout family -- the whole trade table above is the evidence.
+Worth saying plainly: **f/25 is not obviously the wrong answer for this
+instrument.**  A slower OTA puts more lambda/D at the coronagraph's
+focal-plane mask, which eases the hardest fabrication in the back end.
+The band was set for a relay that has not been designed yet; this is a
+number for Dave to rule on, with the cost of forcing it now measured.
+
+### The field: +-0.35' is a choice, not a retreat
+
+A 0.7' (42 arcsec) box, well inside the brief's "<= 0.1 deg".  The
+coronagraph science field is a few lambda/D, which at f/25 and 500 nm is
+ARCSECONDS -- the design field is already two orders of magnitude larger
+than the science field.  +-1' was carried through the whole closure and
+costs a factor of a few in residual for field nobody uses.
+
+### A shroud number that disagreed with itself
+
+Caught reading vN2's report: `packaging_report` at stage [4] said
+**7.450 m PASS** and the shroud FIGURE at stage [6] said **8.306 m
+FAIL** -- same design, both "the union of everything".  Stage [4] runs
+BEFORE `add_pupil`; the figure ran after, and was counting the terminal
+quartet's `Element=Return` surfaces.  An exit-pupil REFERENCE SPHERE is
+a mathematical surface the propagator uses, at a radius with nothing to
+do with the hardware envelope.
+
+Both now gate on HARDWARE only (`Element=Return` excluded; `Reference`
+mask and pupil markers KEPT -- those are real mounts), with the
+propagation surfaces drawn dotted and the panel labelled so.  The same
+rule is applied in `s3_backend`, where the kinds are read from the deck
+text because a spliced deck has no spec object.  This was the difference
+between PASS and FAIL on an S1 gate.
+
+### Engine robustness note
+
+CALIB detects "DOFs for optimization are correlated" and then **SIGSEGVs
+rather than returning** -- in a mex that is the host process.  Hit four
+times: every variant that dropped mode 5 from the Zernike set (vD, vE,
+vF), and one plain layout (R3 = 2.5, vN1) that triggered it with the
+stock mode set.  Same class as the AVAR `stop` that used to kill the
+host, closed by the IACCEPT_S sweep.
