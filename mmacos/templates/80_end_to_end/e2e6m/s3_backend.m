@@ -56,7 +56,7 @@ function OUT = s3_backend(over)
     setup_(here);
     P = e2e6m_params(over);
     if isempty(P.outdir), P.outdir = here; end
-    tag = fullfile(P.outdir, 's3');
+    tag = fullfile(P.outdir, ['s3_' P.bk.tag]);
     % BASE DECK: the SEGMENTED telescope when S2 has run.  The coronagraph
     % has to see the segmented pupil -- that is the whole point of putting
     % an APLC behind this telescope, and S4's sensitivities need the

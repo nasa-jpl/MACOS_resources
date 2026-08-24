@@ -132,6 +132,9 @@ function P = e2e6m_params(over)
     % (small AOI) keep each section barely off-axis -- minimum off-axis
     % astigmatism, and they keep the back end inside the annulus the
     % telescope already fills.
+    P.bk.tag      = 'seg';         % artifact-name suffix, so the SEGMENTED
+                                   % and MONOLITHIC trains can both exist
+                                   % (the gap cost is the difference)
     P.bk.base_in  = 's2_segmented.in';  % deck the back end splices onto
                                    % (the SEGMENTED telescope; falls back
                                    % to s1_telescope.in when S2 has not
@@ -160,6 +163,27 @@ function P = e2e6m_params(over)
                                    % (FP_return / ExitPupil / FP) -- the
                                    % back end re-images that focus, and a
                                    % FocalPlane mid-train terminates it
+
+    % ---- S3b: the coronagraph -------------------------------------------
+    P.co.model      = 1024;        % >= ngridpts, and the grid must span
+                                   % ~4 beam diameters for 4 samples per
+                                   % lambda/D at the focal mask (samples
+                                   % per lambda/D = model*dx / D_beam,
+                                   % independent of the sphere radius)
+    P.co.ngridpts   = 255;
+    P.co.r_occ_lamD = 2.8;         % hard occulter radius (Soummer 2011
+                                   % GPI: 5.6 lambda/D diameter)
+    P.co.r_lyot_frac= 0.90;        % APLC uses a near-full Lyot -- the
+                                   % apodizer, not the Lyot, suppresses
+    P.co.prolate_iter = 5000;      % power-iteration cap for the prolate
+                                   % apodizer.  The ctb default of 200 is
+                                   % NOT enough here: at 200 the solver
+                                   % reports Lambda0 = 1.0017, above the
+                                   % eigenvalue's physical bound of 1, and
+                                   % flags itself unconverged.  This pupil
+                                   % converges at 2387 (Lambda0 0.999994).
+    P.co.inner_lamD = 3.0;
+    P.co.outer_lamD = 15.0;
 
     % ---- output ---------------------------------------------------------
     P.outdir      = '';            % '' = the example directory

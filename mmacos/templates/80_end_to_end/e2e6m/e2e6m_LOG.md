@@ -669,3 +669,126 @@ NEWLINE by default.**  `regexp(txt, '(?m)^.*key.*$', 'match','once')`
 swallowed the whole file, so the S2 report came out as six copies of the
 runner's log.  `'dotexceptnewline'` is the option; PCRE habits do not
 transfer.
+
+---
+
+## 2026-08-24 — S3: the back end, and three bugs the gates caught
+
+### The geometric train
+
+`s3_backend.m` builds a 4-OAP coronagraph relay off the telescope focus
+in METRES and appends it with `append_rx`.  It splices onto the
+**SEGMENTED** deck: the coronagraph has to see the segmented pupil, and
+S4's sensitivities need the segments and the back end in ONE train.
+
+```
+[3] spliced: 21 telescope + 8 bench = 29 elements
+[4] loads at 29 elements                              PASS
+    983/985 rays pass (telescope alone 983)           PASS
+    Apodizer elt 23: beam radius 0.023541 m  (pupil)
+    FPM      elt 25: beam radius 0.00044964 m (focus)
+    Lyot     elt 27: beam radius 0.022895 m  (pupil)
+    Science  elt 29: beam radius 0.00094973 m (focus)
+[5] shroud on the full train: 7.451 m vs the 8.0 m gate  PASS
+```
+
+**The back end costs 1 mm of shroud diameter** -- 7.451 m against the
+telescope's own 7.450 m.  The relay lives at |y| ~ 3.5 m with 24 mm
+beams, so its radial extent sits inside the telescope's 4.1 m.  The 1 m
+annulus that the fold optics occupy has room for the instrument.
+
+### Bug 1 -- the conjugate is f/cos^2(AOI), not f
+
+The first spliced train read **5.8921 waves rms** at the exit pupil
+against 0.0055 for the telescope alone.  Decomposed: 5.66 of it pure
+FOCUS, 0.229 reading as astigmatism, 0.0021 left after that.  An
+off-axis parabola's pole-to-focus conjugate is `r = f/cos^2(AOI)` --
+`add_oap`'s own docstring says so and I placed every marker at `f`.
+1.011x at 6 deg is ~10 mm at f/20, and that is the whole 5.89 waves.
+
+With the conjugates right the full geometric train is **0.0045 waves
+raw -- BETTER than the telescope alone** (0.0055), and the 0.229
+"astigmatism" is gone too, so it was a cross-term of the defocus, not
+intrinsic.  At 6 deg AOI these OAPs are effectively aberration-free at
+this beam speed.
+
+The same error threw the science PSF **154 px off-centre**, which I
+first read as a mis-posed exit-pupil sphere.  It was not: FEX's pose
+agreed with the chief-ray construction to **6.7e-16 m and 2.1e-8 rad**.
+A longitudinal error in a converging OFF-AXIS beam displaces the focus
+laterally too -- worth remembering, because "PSF off-centre" reads as a
+pointing or pupil problem and here it was defocus.
+
+### Bug 2 -- `macos.trace(k)` is not a station on a segmented deck
+
+`prop_layout`'s first version harvested chief pierces with a
+per-station `macos.trace(k)` loop, as `ctb_prop_layout` does.  On a
+SEGMENTED deck the first 19 elements are parallel segments of the same
+mirror, so "trace past element 5" is not a station and the engine
+rejects it.  Replaced with ONE traced pass read through `ray_hist`,
+whose ray 1 is the chief.
+
+### Bug 3 -- the prolate apodizer had not converged
+
+`ctb_aplc` reported `Lambda0 = 1.0017 (conv=0, 200 it)`.  The eigenvalue
+of the APLC operator is the fraction of energy the occulter passes and
+is bounded by 1, so **1.0017 is not a number, it is a non-convergence
+flag.**  Measured: this pupil converges at **2387 iterations**
+(Lambda0 = 0.999994); the ctb default cap of 200 is simply too few for a
+6 m pupil on a 1024 grid.
+
+It mattered, and not only to the third digit:
+
+| quantity | 200 it (unconverged) | converged |
+|---|---|---|
+| apodizer throughput | 0.337 | **0.123** |
+| segmented DZ mean | 2.595e-06 | **8.700e-07** |
+| APLC vs throughput-matched BLC, segmented | 0.45x (BLC WINS) | **1.05x (tie)** |
+
+The unconverged apodizer would have had me report that a band-limited
+mask beats an APLC on a segmented pupil.  It does not; that was an
+artifact of stopping the power iteration early.  `prolate_iter` is now a
+pass-through on `ctb_aplc` (default 200, so the committed ctb numbers do
+not move) and e2e6m asks for 5000.
+
+### Gate: `tests/tPropLayout.m` (3/3)
+
+Chief ray preserved to 1e-9 at every original station, PSF on the FFT DC
+pixel, and -- the one that matters -- **an EMPTY focal quartet is the
+IDENTITY**: the pupil after the sandwich reproduces the pupil before it
+to 1e-6 relative.  That is what makes it safe to insert a quartet
+wherever a mask might go.  NON-VACUOUS: flipping `EPreturn2`'s zElt from
++R to -R (the one sign the recipe warns about) must break it, and does.
+
+### The result: what the segment gaps cost a clear-pupil APLC
+
+Same apodizer, same 2.8 lambda/D occulter, same 0.90 Lyot, same
+telescope prescription -- only the primary differs:
+
+| primary | DZ mean (3-15 l/D) | DZ median | on-axis suppression |
+|---|---|---|---|
+| 19-segment | 8.700e-07 | 4.567e-08 | 6.17e+03 |
+| monolithic | **3.640e-10** | 5.327e-12 | 2.82e+07 |
+| **ratio** | **2390x** | **8573x** | 4576x |
+
+The monolithic arm lands at **3.64e-10**, beside `bench_ctb`'s committed
+clear-pupil **2.1e-10** -- an independent check that the whole chain
+(telescope -> `append_rx` -> `prop_layout` -> APLC) is sound, since
+nothing in this arc was tuned to reproduce that number.
+
+The curve shape says where the loss lives: the monolithic contrast falls
+monotonically to ~1e-12 by 15 lambda/D while the segmented one plateaus
+near 1e-6 with lobed structure across the whole dark zone.  That is
+gap-scattered light, not a wavefront residual -- the two trains share a
+0.0045-wave wavefront and differ only in the pupil's high-spatial-
+frequency structure, which the clear-pupil prolate never saw.
+
+APLC vs a throughput-matched band-limited mask, at 0.10 net throughput:
+**109x in the APLC's favour on the monolithic pupil, 1.05x -- a tie --
+on the segmented one.**  The APLC's advantage IS a clear-pupil
+advantage, and the gaps erase it.
+
+**Stated limitation, per the brief:** re-optimizing the apodizer for the
+segmented aperture (a segmented-APLC / SCDA design) is out of scope.
+8.700e-07 is what a CLEAR-PUPIL APLC does on a segmented pupil, and the
+2390x is the size of the prize a segmented design would be chasing.

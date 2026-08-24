@@ -154,7 +154,7 @@ SUITE_FAST=$(join_suites \
     "tCompose" "tSysProp" "tBeam" "tSegMirMaker" "tSegmentRx" "tEdgeSensors" \
     "tMet" "tMetView" "tRunMet" "tRunSensitivities" "tRunSegmentation" \
     "tRunCompare" "tSpot" "tDrawFrameGuard" "tDwDgridElts" \
-    "tApertureFrame" "tAppendRx" \
+    "tApertureFrame" "tAppendRx" "tPropLayout" \
     "tPolarization" "tJonesPupil" "tVecChain" \
     "tPolElement" "tPolRadiometric" "tPolExternal" "tBench" "tOpdRef" \
     "tStopReload")
