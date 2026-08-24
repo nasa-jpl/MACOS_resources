@@ -885,3 +885,131 @@ generation change auditable without the blob).  The first run also wrote
 a **second** 226 MB copy into `s4_run.mat`, because the driver saved the
 runner's `art` struct verbatim; `s4_run.mat` now keeps pointers and
 metadata only.
+
+---
+
+## 2026-08-24 — S5: the time series, and an OPEN discrepancy the check found
+
+MET is **not in scope** here, stated per the brief.  `run_compare` and
+`run_simulator` both REQUIRE the MET products (`run_met`: Stewart truss,
+dedx/dldx, estimator blocks), and standing that up means reconciling
+run_met's body list with a Jacobian harvested on the FULL train --
+integration work this stage does not do.  Consequences, both stated in
+the runner header and the report:
+
+- there is no metrology loop.  The control is **image-based**: it sees
+  the wavefront, not a truss, so the corrected leg is an **optimistic
+  bound**.  A real loop estimates the state from noisy metrology and
+  does worse.
+- `run_compare`'s SUBSTANCE is kept: the driver pokes sample DOFs and
+  checks the ENGINE against the linear model.  What is dropped is the
+  l/e measurement bars, which are metrology.
+
+### The check earned its place immediately
+
+```
+elt  1 dof 0 (Rx): |engine| 9.604e-14  |model| 1.426e-10  rel 1.5e+03
+elt  4 dof 5 (Tz): |engine| 4.438e-10  |model| 4.432e-10  rel 0.0017
+elt  8 dof 3 (Tx): |engine| 2.343e-11  |model| 3.578e-12  rel 1.01
+elt 12 dof 2 (Rz): |engine| 6.952e-14  |model| 7.150e-15  rel 1.03
+elt 16 dof 0 (Rx): |engine| 5.356e-10  |model| 1.401e-10  rel 1.03
+elt 19 dof 5 (Tz): |engine| 4.466e-10  |model| 4.440e-10  rel 0.0061
+```
+
+A linearity ladder over three decades separates two behaviours:
+
+| poke | seg 1 Rx | seg 1 Tz | seg 16 Rx | seg 16 Tz |
+|---|---|---|---|---|
+| 1 nrad/nm | 0.0007 | 1.0003 | 3.8228 | 0.9988 |
+| 10 | 0.0015 | 1.0003 | 3.8242 | 0.9988 |
+| 100 | 0.0141 | 1.0003 | 3.8382 | 0.9988 |
+| 1000 | 0.1409 | 1.0003 | 3.9790 | 0.9988 |
+
+(engine / model, same alignment and units throughout)
+
+- **Tz is exact** -- 1.0003 and 0.9988 at EVERY amplitude, on two
+  different segments.  So the units, the row alignment, the column
+  selection and the perturbation machinery are all right.  Nothing
+  generic is wrong.
+- **The CENTRE segment's Rx is second-order**: the ratio grows ~10x per
+  decade of poke, i.e. the engine response goes as amp^2 and its
+  FIRST-order term is zero.
+- **An outer segment's Rx is linear but 3.82x the column**, constant
+  across all four amplitudes.
+
+Ruled out by measurement, not by argument: the **OPD reference** is not
+the cause -- repeating the whole ladder with the harvest's default
+(mean) reference instead of 'chief' reproduces every number to five
+digits.
+
+**Not resolved.**  It is not a noise floor (the ladder is smooth and
+scale-free), not a units error (Tz would fail too), and not the
+reference.  Two candidates left, both testable and neither tested: the
+harvest's focal-plane TRACKING (`fp_mode='track'`, which removes the
+pointing component of each response, and a segment tilt is largely
+pointing) and the real-ray STOP AIMING (perturbing the element the chief
+bounces off re-aims the whole source bundle -- which would explain why
+the CENTRE segment, the one the chief lands on, is the anomalous one).
+
+### What that costs, and the scope call
+
+**It is not academic.**  With all six DOFs in the control basis the
+corrected leg came out WORSE than the uncorrected one (WFE
+0.0079 -> 0.0223 waves against 0.0046 -> 0.0243) -- the ridge solved on
+columns the engine does not reproduce and pushed the wrong way.
+
+So CONTROL is restricted to the DOF the check validates -- segment
+**piston** -- while the DRIFT still moves all six, because the physics
+does not care what we can control.  Piston is also the physical control
+DOF for a segmented primary (phasing), so this is a real demonstration
+rather than a fallback.  `P.ts.control_dofs` carries the restriction and
+the reason.
+
+**This is the argument FOR the full compare stage.**  A six-DOF control
+basis that makes things worse is exactly what `run_compare` exists to
+catch, and a cut-down check caught it here only because it was pointed
+at the same columns the controller would use.
+
+### Check broadly, control narrowly
+
+First cut of the restriction made the gate sample only the CONTROLLED
+columns -- so it passed at 0.00966 and stopped showing the problem at
+all.  That is the wrong shape for a gate.  The driver now builds TWO
+bases: `Ball` (all six rigid-body DOFs) for the CHECK, and the
+restricted one for CONTROL, and the sampler walks every DOF class rather
+than a linspace over column index (a linear sweep can miss a whole DOF,
+which is exactly how a broken rotation channel hides).  The report now
+reads:
+
+```
+elt 19 dof 0 (Rx): rel 56.9      dof 3 (Tx): rel 1.01
+elt 19 dof 1 (Ry): rel 1.01      dof 4 (Ty): rel 54.8
+elt 19 dof 2 (Rz): rel 1.04      dof 5 (Tz): rel 0.00614
+worst over ALL six DOFs      56.9     [FAIL]
+worst over CONTROLLED DOFs   0.00614  [PASS]
+```
+
+Only piston reproduces.  The stage reports its own failure and states
+what it did about it.
+
+### The series
+
+41 frames at 10 s (a ~400 s soak), random walk 0.3 nm / 0.3 nrad per
+step plus a correlated drift of 6 nm / 6 nrad per 100 s on all six DOFs
+of all 19 segments; contrast scored every 5th frame (9 of 41), each
+point a full 1024-grid propagation through the APLC chain.
+
+| leg | WFE start -> end (waves) | contrast start -> end |
+|---|---|---|
+| uncorrected | 0.0046 -> 0.0243 | 8.601e-07 -> 2.078e-06 |
+| corrected (piston, held from frame 2) | 0.0035 -> 0.0231 | 9.213e-07 -> 1.990e-06 |
+
+Control effort: segment piston rms 88.8 nm, max 90.6 nm.
+
+The correction helps and then fades, which is the honest shape of a
+ONE-SHOT correction held against a growing drift: it is solved at frame
+2 and never updated, so the benefit decays as the state walks away from
+where it was solved.  Piston-only control also cannot touch the tilt
+part of the drift.  Both are consequences of decisions recorded above,
+not surprises.
+
