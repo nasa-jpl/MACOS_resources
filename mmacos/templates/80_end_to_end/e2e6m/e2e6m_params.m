@@ -132,6 +132,10 @@ function P = e2e6m_params(over)
     % (small AOI) keep each section barely off-axis -- minimum off-axis
     % astigmatism, and they keep the back end inside the annulus the
     % telescope already fills.
+    P.bk.base_in  = 's2_segmented.in';  % deck the back end splices onto
+                                   % (the SEGMENTED telescope; falls back
+                                   % to s1_telescope.in when S2 has not
+                                   % run)
     P.bk.fno_in   = NaN;           % f/# feeding the back end
                                    % (NaN = read the measured value out
                                    % of s1_run.mat, which is the CORRECTED

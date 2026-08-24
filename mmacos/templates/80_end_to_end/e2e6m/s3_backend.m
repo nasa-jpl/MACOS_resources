@@ -57,12 +57,20 @@ function OUT = s3_backend(over)
     P = e2e6m_params(over);
     if isempty(P.outdir), P.outdir = here; end
     tag = fullfile(P.outdir, 's3');
-    tel = fullfile(P.outdir, 's1_telescope.in');
-    assert(isfile(tel), 's3_backend: S1 artifact %s not found', tel);
+    % BASE DECK: the SEGMENTED telescope when S2 has run.  The coronagraph
+    % has to see the segmented pupil -- that is the whole point of putting
+    % an APLC behind this telescope, and S4's sensitivities need the
+    % segments and the back end in ONE train.  Falls back to the
+    % monolithic telescope so the stage is runnable without S2.
+    tel = fullfile(P.outdir, P.bk.base_in);
+    if ~isfile(tel)
+        tel = fullfile(P.outdir, 's1_telescope.in');
+    end
+    assert(isfile(tel), 's3_backend: no base deck found in %s', P.outdir);
 
     L = {};  t0 = tic;
     L = say_(L, '==================== e2e6m S3 -- the back end');
-    L = say_(L, 'telescope %s', tel);
+    L = say_(L, 'base deck %s', tel);
 
     % ---- [1] the telescope's exit state ----------------------------------
     macos.init(P.model);
@@ -97,24 +105,39 @@ function OUT = s3_backend(over)
             'aperture', 2*atan(1/(2*fno)), ...
             'ngridpts', P.gridn, 'zsource', back);
 
-    o1 = b.add_oap(back + P.bk.f_oap1, fold_(dF, P.bk.aoi_deg(1), 1), ...
+    % CONJUGATE, NOT FOCAL LENGTH.  An off-axis parabola's pole-to-focus
+    % distance is r = f/cos^2(AOI), not f (add_oap's own docstring: the
+    % conjugate that realizes a desired f is 2f/(1-cos(theta)) =
+    % f/cos^2(AOI)).  Placing the markers at f instead cost 1.011x at
+    % 6 deg -- ~10 mm of defocus at f/20, measured as 5.89 waves rms of
+    % which 5.66 was pure focus.  Every marker distance below is a
+    % CONJUGATE.
+    conj_ = @(f, aoi) f / cosd(aoi)^2;
+    r1 = conj_(P.bk.f_oap1, P.bk.aoi_deg(1));
+    r2 = conj_(P.bk.f_oap2, P.bk.aoi_deg(2));
+    r3 = conj_(P.bk.f_oap3, P.bk.aoi_deg(3));
+    r4 = conj_(P.bk.f_oap4, P.bk.aoi_deg(4));
+
+    o1 = b.add_oap(back + r1, fold_(dF, P.bk.aoi_deg(1), 1), ...
                    'mode','collimate', 'f',P.bk.f_oap1, 'name','OAP1');
     iApod = b.add_reference(P.bk.d_apod, 'Apodizer');
     o2 = b.add_oap(P.bk.d_oap2, fold_(b.dir, P.bk.aoi_deg(2), -1), ...
                    'mode','focus', 'f',P.bk.f_oap2, 'name','OAP2');
-    iFPM  = b.add_reference(P.bk.f_oap2, 'FPM');
-    o3 = b.add_oap(P.bk.f_oap3, fold_(b.dir, P.bk.aoi_deg(3), 1), ...
+    iFPM  = b.add_reference(r2, 'FPM');
+    o3 = b.add_oap(r3, fold_(b.dir, P.bk.aoi_deg(3), 1), ...
                    'mode','collimate', 'f',P.bk.f_oap3, 'name','OAP3');
     iLyot = b.add_reference(P.bk.d_lyot, 'Lyot');
     o4 = b.add_oap(P.bk.d_oap4, fold_(b.dir, P.bk.aoi_deg(4), -1), ...
                    'mode','focus', 'f',P.bk.f_oap4, 'name','OAP4');
-    iSci  = b.add_detector(P.bk.f_oap4, 'Science');
+    iSci  = b.add_detector(r4, 'Science');
 
     bench_in = [tag '_back.in'];
     b.emit(bench_in);
     L = say_(L, '\n[2] bench (metres): %d elements -> %s', numel(b.E), bench_in);
     L = say_(L, '    OAP parent focal lengths (m): %.4f %.4f %.4f %.4f', ...
              o1.f_parent, o2.f_parent, o3.f_parent, o4.f_parent);
+    L = say_(L, '    pole-to-focus conjugates  (m): %.4f %.4f %.4f %.4f', ...
+             r1, r2, r3, r4);
     L = say_(L, '    marker stations: Apodizer %d, FPM %d, Lyot %d, Science %d (bench-local)', ...
              iApod, iFPM, iLyot, iSci);
 
