@@ -817,3 +817,71 @@ pupil for the DMs, `add_reference` for the field stop) and both are
 topology extension is parameter work, not new machinery.  The APLC
 numbers above stand as the open-loop baseline that a DM-controlled
 version will be measured against.
+
+---
+
+## 2026-08-24 — S4: the linear model, and what a rigid PM actually does
+
+`run_sensitivities` on the FULL train (`s3_seg_prop.in` -- segmented
+primary plus coronagraph back end, one deck), 25 perturbed optics
+(19 segments + M2, M3 and the four OAPs), field set = centre + 4 corners
+of the +-0.35' box, OPD at the CORONAGRAPH exit pupil with a per-field
+FEX reset.  31.2 min.
+
+```
+dwdxall 201504 x 156  (150 per-element + 6 GROUP columns)
+dwdzall 201504 x 152  (19 segments x 8 MonZernike modes)
+dwdgall 201504 x 114  (19 segments x 6 influence modes)
+dwdx segment-only cond+ 2.162e+06
+```
+
+Channel counts scale from the e2e s3 heritage (7 segments -> 90/56/42)
+exactly as the segment count does.
+
+**Why the deck is the DIFFRACTION deck.**  Two reasons, both load-
+bearing: it is the deck S5 propagates, so the linear model and the
+contrast series describe the same object; and the OPD needs an
+exit-pupil anchor, which the bare geometric train does not have (its
+nElt-1 is a powered mirror and FEX refuses).  The Return/NF surfaces are
+transparent to rays, so the geometric harvest does not notice them.
+
+### The group exhibit -- three different physics in one table
+
+Column RMS of dW/d(DOF), OPD-metres per rad and per metre:
+
+| DOF | PM group (19 as one body) | one segment | ratio |
+|---|---|---|---|
+| Rx | 2.7555 | 0.14263 | **19.32** |
+| Ry | 2.7397 | 0.14292 | **19.17** |
+| Rz | 0.27056 | 2.4374e-06 | **111004** |
+| Tx | 0.071678 | 0.0037254 | 19.24 |
+| Ty | 0.070540 | 0.0037135 | 19.00 |
+| Tz | 0.014366 | 0.44623 | **0.0322** |
+
+- **Tip/tilt and lateral: ratio ~ 19, the member count.**  A rigid tilt
+  of the assembly is 19 alike columns adding up, so a per-segment budget
+  is neither conservative nor optimistic -- it is right.
+- **Piston: 0.0322, a factor 31 BELOW 1.**  Moving all 19 segments
+  together in piston is very nearly a GLOBAL piston, which the wavefront
+  reference removes.  A per-segment piston budget therefore
+  **overstates** the assembly's sensitivity by ~31x.  This is the
+  intra-group compensation the exhibit exists to find.
+- **Clocking: 111004x.**  An individual segment's Rz response is
+  essentially null (2.4e-06) -- spinning a segment about its own normal
+  on a near-flat parent does nothing -- while clocking the WHOLE PM is a
+  real rotation of the aperture.  The group channel finds a live DOF
+  that per-segment analysis calls dead.
+
+That is the case for groups in one table: for one DOF the per-segment
+budget is right, for another it is 31x pessimistic, and for a third it
+misses the DOF entirely.
+
+### Artifact hygiene
+
+`s4_sens.mat` is **226 MB** -- gitignored, with a committed
+`s4_sens.fp.json` fingerprint standing in (the e2e policy: derived
+binaries >= ~20 MB are rebuilt, not stored, and the fingerprint keeps a
+generation change auditable without the blob).  The first run also wrote
+a **second** 226 MB copy into `s4_run.mat`, because the driver saved the
+runner's `art` struct verbatim; `s4_run.mat` now keeps pointers and
+metadata only.

@@ -108,19 +108,54 @@ function OUT = s4_sensitivities(over)
         L = say_(L, '    %s', strtrim(tail{q}));
     end
 
-    L = say_(L, '\nS4 DONE in %.1f min', toc(t0)/60);
-    txt = strjoin(L, newline);
-    fid = fopen(fullfile(P.outdir,'s4_report.txt'),'w');
-    fprintf(fid,'%s\n',txt);  fclose(fid);
 
-    OUT = struct('P',P, 'art',art, 'optics',optics, 'groups',{{groups}}, ...
-                 'text',txt, 'when',datestr(now,31)); %#ok<TNOW1,DATST>
-    save(fullfile(P.outdir,'s4_run.mat'),'OUT','-v7.3');
+    % The Jacobians live in <name>_sens.mat, which is ~226 MB.  Save only
+    % POINTERS and metadata here -- saving `art` verbatim wrote a second
+    % 226 MB copy of the same matrices.  And per the e2e policy, a derived
+    % binary >= ~20 MB is gitignored with a committed FINGERPRINT standing
+    % in for it, so a generation change stays auditable without the blob.
+    art_light = rmfield_if_(art, {'ox','oz','og','os'});
+    OUT = struct('P',P, 'art',art_light, 'optics',optics, ...
+                 'groups',{{groups}}, 'text','', ...
+                 'when',datestr(now,31)); %#ok<TNOW1,DATST>
+    save(fullfile(P.outdir,'s4_run.mat'),'OUT');
+
+    fp = fullfile(P.outdir,'s4_sens.fp.json');
+    S = struct('dwdxall',art.ox.dwdxall);
+    if ~isempty(art.oz), S.dwdzall = art.oz.dwdxall; end
+    if ~isempty(art.og), S.dwdgall = art.og.dwdxall; end
+    jac_fingerprint('write', fp, S, struct( ...
+        'rx', string(rx), 'fov_arcmin', P.tel.fov_arcmin, ...
+        'model_size', P.sn.model, 'n_optics', numel(optics), ...
+        'n_segments', nseg, 'group', "PM(19)", ...
+        'zmodes_fig', mat2str(P.sn.zmodes_fig), ...
+        'zmodes_grid', mat2str(P.sn.zmodes_grid), ...
+        'when', string(datestr(now,31)))); %#ok<TNOW1,DATST>
+    L = say_(L, '\n[fingerprint] %s (the .mat is %.0f MB and gitignored)', ...
+             fp, dir_mb_(fullfile(P.outdir,'s4_sens.mat')));
+
+    L = say_(L, '\nS4 DONE in %.1f min', toc(t0)/60);
+    txt2 = strjoin(L, newline);
+    fid = fopen(fullfile(P.outdir,'s4_report.txt'),'w');
+    fprintf(fid,'%s\n',txt2);  fclose(fid);
+    OUT.text = txt2;
+    save(fullfile(P.outdir,'s4_run.mat'),'OUT');
 end
 
 % =========================================================================
 function setup_(here)
     run(fullfile(here,'..','..','..','mmacos_setup.m'));
+end
+
+function S = rmfield_if_(S, f)
+    for k = 1:numel(f)
+        if isfield(S, f{k}), S = rmfield(S, f{k}); end
+    end
+end
+
+function mb = dir_mb_(p)
+    d = dir(p);
+    if isempty(d), mb = 0; else, mb = d.bytes/1e6; end
 end
 
 function [idx, kinds] = optic_indices_(rx)
