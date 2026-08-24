@@ -185,6 +185,15 @@ function P = e2e6m_params(over)
     P.co.inner_lamD = 3.0;
     P.co.outer_lamD = 15.0;
 
+    % ---- S4: sensitivities ----------------------------------------------
+    P.sn.rx          = 's3_seg_prop.in';  % the FULL train (segmented
+                                   % primary + coronagraph back end), and
+                                   % the same deck S5 propagates
+    P.sn.zmodes_fig  = 4:11;       % dwdz segment MonZernike modes
+    P.sn.zmodes_grid = 4:9;        % dwdgrid influence-basis modes
+    P.sn.ng          = 256;        % per-segment grid size
+    P.sn.model       = 512;
+
     % ---- output ---------------------------------------------------------
     P.outdir      = '';            % '' = the example directory
 

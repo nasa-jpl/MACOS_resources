@@ -1,0 +1,5 @@
+==== run_sensitivities: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_seg_prop.in ====
+field set: center + 4 corners at +-0.0001018 rad
+segments: 19
+
+[dwdx] rigid-body 6-DOF per element, LOCAL triads...
