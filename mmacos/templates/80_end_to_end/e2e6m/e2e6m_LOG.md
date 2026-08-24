@@ -641,3 +641,31 @@ times: every variant that dropped mode 5 from the Zernike set (vD, vE,
 vF), and one plain layout (R3 = 2.5, vN1) that triggered it with the
 stock mode set.  Same class as the AVAR `stop` that used to kill the
 host, closed by the IACCEPT_S sweep.
+
+---
+
+## 2026-08-24 — S2 on the final S1 deck
+
+Re-run against the closed S1 telescope (R3 = 2.0, +-0.35'):
+
+```
+[0] parent: 1185 src rays, 1185 pass, rmsWFE 2.772e-09
+[1] 19 segments, width 1.2 m flat-to-flat, 24 elements
+    bare segmented: 985 rays, 985 pass, rmsWFE 2.485e-09 (-10.4%)
+[3] physical apertures: 983 pass -- 2 gap/rim rays clip
+[5] standalone reload: 24 elts, 983/985 -> VERIFIED
+[gate] poke: inside rms 1.991e-08 over 52 rays, outside rms 0 over 930
+       ratio out/in 0  PASS
+```
+
+The -10.4% rmsWFE change from parent to segmented is the SOURCE GRID
+changing, not the optics: `segment_rx` switches the source to a Hex grid
+(1185 circular rays -> 985 hex rays), so the two numbers are averages
+over different ray sets.  Worth stating because it reads like a
+segmentation gain otherwise.
+
+One reporting bug fixed here, worth remembering: **MATLAB's `.` matches
+NEWLINE by default.**  `regexp(txt, '(?m)^.*key.*$', 'match','once')`
+swallowed the whole file, so the S2 report came out as six copies of the
+runner's log.  `'dotexceptnewline'` is the option; PCRE habits do not
+transfer.

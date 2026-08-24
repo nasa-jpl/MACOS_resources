@@ -62,10 +62,14 @@ function OUT = s2_segmentation(over)
     L = say_(L, '\n[runner] %s', art.report);
     L = say_(L, '    segmented Rx  %s', art.in);
     L = say_(L, '    edge sidecar  %s', art.hx);
+    % 'dotexceptnewline' is load-bearing: MATLAB's '.' matches NEWLINE by
+    % default, so '^.*key.*$' happily swallows the whole file and the
+    % headline lines come back as six copies of the runner's report.
     rt = fileread(char(art.report));
     for key = ["\[0\] parent", "\[1\] .*segments", "bare segmented", ...
                "\[3\] physical apertures", "first-fail", "\[5\] artifact"]
-        m = regexp(rt, ['(?m)^.*' char(key) '.*$'], 'match', 'once');
+        m = regexp(rt, ['(?m)^.*' char(key) '.*$'], 'match', 'once', ...
+                   'dotexceptnewline');
         if ~isempty(m), L = say_(L, '    %s', strtrim(m)); end
     end
 
