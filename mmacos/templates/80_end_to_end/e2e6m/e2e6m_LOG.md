@@ -487,3 +487,55 @@ contract.  An obscuration declared on a `Reference` clips rays only and
 the diffraction wavefront sails through it untouched: that is the ctb
 README's silent failure mode, and it is how a coronagraph deck can look
 right and suppress nothing.
+
+---
+
+## 2026-08-24 — S2: the segmented primary, and a gate that measured itself
+
+`s2_segmentation.m` is a thin driver over `run_segmentation`: a 2-ring
+HEX tiling of the 6 m primary.  Result on the interim S1 deck:
+
+```
+[1] 19 segments, width 1.2 m flat-to-flat, 24 elements
+    bare segmented: 985 rays, 985 pass, rmsWFE 5.175e-08 m
+                    (parent 6.196e-08, -16.5%)
+[3] physical apertures (pad 0): 983 pass -- 2 gap/rim rays clip
+[5] standalone reload: 24 elts, 983/985 rays -> VERIFIED
+```
+
+**1.2 m flat-to-flat on a 6 m aperture**, the e2e-s3 / JWST class the
+brief asked for, and only 2 of 985 rays lost to the gaps.  The parent's
+solved M1 figure rides onto every segment as a FreeForm channel; the
+footprint figure shows each segment's TRACED footprint inside its
+EMITTED aperture polygon, which is the graphics gate.
+
+### The poke gate found the OPD reference, not a frame error
+
+The one-segment poke-localization check first read
+**ratio out/in = 0.0559 -- FAIL**, with the message "the segment grid
+frame is not its clocked Mon frame".  It was not.  The arithmetic gives
+it away: 52 rays inside out of 982 valid, inside rms 1.886e-8 m, and
+`52/982 x 1.886e-8 = 1.0e-9` against a measured outside rms of
+**1.055e-9**.  The whole of the "leak" was the engine's default
+whole-aperture MEAN OPD reference -- one global scalar, so poking ONE
+segment moves it by `(N_seg/N_total) x (that segment's response)` and
+that shift is subtracted from every ray.  My gate then removed piston
+globally and read the result as leakage.
+
+With `macos.opd_ref('chief')` set AFTER `load_rx` (every load resets it)
+and no global piston removal:
+
+```
+    |dW| inside  the poked segment: rms 1.992e-08 m over  52 rays
+    |dW| outside the poked segment: rms 0        m over 930 rays
+    ratio out/in 0  [PASS]
+```
+
+**Exactly zero** outside, over 930 rays.  The segmentation frames are
+right, the poke is perfectly local, and the inside response is 1.992e-8
+against a 1e-8 piston -- the factor 2 a reflection gives.
+
+Worth keeping as a rule: **on a segmented pupil, any per-segment
+measurement needs the chief reference before it means anything.**  A
+mean-referenced map will show every unperturbed segment pistoning, and
+the number looks exactly like a frame bug.
