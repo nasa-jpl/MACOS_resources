@@ -111,7 +111,8 @@ function [X, G, fo] = oi_close(X, P, opts)
     end
 
     % ---- scorer geometry + first-order extras --------------------------------
-    G = struct('stopC',X.stopC, 'z_m1',X.z_m1, 'fpa',X.fpa);
+    G = struct('stopC',X.stopC, 'z_m1',X.z_m1, 'fpa',X.fpa, ...
+               'EPD_m',P.EPD_m);   % OI_STANDOFF needs the aperture
     fo.stop_semi_m = stop_semi_(X, P);
     fo.plate_um_per_amin = abs(fo.EFL_m)*tand(1/60)*1e6;
 end
@@ -175,7 +176,7 @@ function stopC = stop_from_ep_(X0, P, EP, cdir, z_stop)
     tmp = [tempname '.in'];
     cu  = onCleanup(@() delete_(tmp));
     txt = oi_deck(deck_fill_(X0, P));
-    p0  = EP - (0.75/cdir(3))*cdir;
+    p0  = EP - (oi_standoff(P.EPD_m)/cdir(3))*cdir;
     emit_src_(txt, tmp, p0, cdir);
     macos.load_rx(tmp);
     if ~macos.has_rx(), error('oi_close:load','closure deck failed to load'); end
@@ -272,7 +273,17 @@ function p = seed_pos_(X, cdir)
     cdR = [cdir(1); cdir(2); -cdir(3)];
     tq  = (X.z_m1 - sC(3))/cdir(3);
     q   = sC - tq*cdR;
-    p   = q - (0.75/cdir(3))*cdir;
+    p   = q - (standoff_(X)/cdir(3))*cdir;
+end
+
+function s = standoff_(S)
+%STANDOFF_  OI_STANDOFF off whatever aperture the struct carries; the
+%   legacy 0.75 m when it carries none (a hand-built geometry struct).
+    if isfield(S,'EPD_m') && ~isempty(S.EPD_m)
+        s = oi_standoff(S.EPD_m);
+    else
+        s = 0.75;
+    end
 end
 
 function emit_src_(txt0, tmp, p0, cdir)

@@ -327,7 +327,7 @@ function h = footprints_(X, P, offset)
     cdR = [cdir(1); cdir(2); -cdir(3)];
     tq  = (Xc.z_m1 - z_stop)/cdir(3);
     q   = Xc.stopC - tq*cdR;
-    p0  = q - (0.75/cdir(3))*cdir;
+    p0  = q - (oi_standoff(P.EPD_m)/cdir(3))*cdir;
     s = regexprep(txt, '(ChfRayDir=\s*)[^\n]*', ['$1' v3(cdir)]);
     s = regexprep(s,    '(ChfRayPos=\s*)[^\n]*', ['$1' v3(p0)]);
     fid = fopen(tmp,'w');  fprintf(fid,'%s',s);  fclose(fid);
