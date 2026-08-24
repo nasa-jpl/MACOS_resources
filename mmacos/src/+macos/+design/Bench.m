@@ -129,7 +129,16 @@ classdef Bench < handle
 
 properties
     name     (1,:) char   = 'bench'
-    wavelen  (1,1) double = 6.328e-4    % mm (HeNe)
+    baseunits (1,:) char  = 'mm'        % Rx BaseUnits/WaveUnits.  Every
+                                        % LENGTH handed to this builder --
+                                        % distances, radii, thicknesses,
+                                        % wavelen -- is in these units; the
+                                        % builder never converts.  Default
+                                        % 'mm' keeps every existing bench
+                                        % bit-identical.  Set 'm' to build a
+                                        % bench that splices onto a
+                                        % metre-based telescope deck.
+    wavelen  (1,1) double = 6.328e-4    % baseunits (HeNe in mm)
     aperture (1,1) double = 0.1         % FULL cone angle, radians (point src)
     zsource  (1,1) double = 25
     ngridpts (1,1) double = 63
@@ -151,8 +160,11 @@ methods
             opts.aperture (1,1) double {mustBePositive} = 0.1
             opts.ngridpts (1,1) double {mustBeInteger, mustBePositive} = 63
             opts.zsource  (1,1) double = 25
+            opts.baseunits (1,:) char {mustBeMember(opts.baseunits, ...
+                              {'m','cm','mm','um','nm','in','ft'})} = 'mm'
         end
         b.name     = name;
+        b.baseunits = opts.baseunits;
         b.src_pos  = opts.pos;
         b.src_dir  = macos.design.Bench.unit(opts.dir);
         b.pos      = b.src_pos;
@@ -691,8 +703,8 @@ methods
         ln{end+1} = sprintf('        ChfRayDir=  %s', F(d0));
         ln{end+1} = sprintf('        ChfRayPos=  %s', F(b.src_pos));
         ln{end+1} = sprintf('          zSource=  %.10G', b.zsource);
-        ln{end+1} =         '        BaseUnits=  mm';
-        ln{end+1} =         '        WaveUnits=  mm';
+        ln{end+1} = sprintf('        BaseUnits=  %s', b.baseunits);
+        ln{end+1} = sprintf('        WaveUnits=  %s', b.baseunits);
         ln{end+1} =         '           IndRef=  1.0D+00';
         ln{end+1} =         '           Extinc=  0.0D+00';
         ln{end+1} = sprintf('          Wavelen=  %.9E', b.wavelen);
