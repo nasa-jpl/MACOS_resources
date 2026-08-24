@@ -1950,15 +1950,39 @@ classdef Telescope < handle
         %APERTURE_FULL_FIELD  Per-element clear aperture covering the FULL
         %   FIELD (PLAN_DESIGN_LAYER §8).  Traces a set of field points
         %   spanning the design FoV and, for each element, returns the
-        %   smallest centred circle (centre + radius, in the element's local
-        %   aperture plane) that contains EVERY field point's beam footprint
-        %   -- the essential aperture-sizing output once a design meets its
-        %   other requirements.  Directly emit-ready as ApVec=(radius,xc,yc).
+        %   smallest circle in THAT ELEMENT'S OWN APERTURE PLANE (centre +
+        %   radius) that contains every field point's beam footprint --
+        %   directly emit-ready as ApVec=(radius, xc, yc).
+        %
+        %   FRAME (fixed 2026-08-24, e2e6m).  ApVec is read by the engine as
+        %       rho = intersection - VptElt          (elemsub.F ChkRayTrans)
+        %       px  = xObs . rho,   py = yObs . rho
+        %   with the element aperture triad built in tracesub.F/propsub.F as
+        %       zObs = psiElt,  yObs = unit(zObs x xObs),  xObs = yObs x zObs
+        %   seeded by the parsed xObs or, when none is declared (which is the
+        %   case for every deck this class emits), the ChkDf2 default
+        %   xObs = (psi_z, psi_x, psi_y) (iosub.inc).  This routine used to
+        %   measure the footprint box in GLOBAL x,y from the DRAW meridian
+        %   fans and hand it back as a LOCAL ApVec offset -- two errors at
+        %   once (no shift to VptElt, no rotation into the element frame),
+        %   correct only while an element sits at the global origin with
+        %   psi = (0,0,-1).  Measured on a 6 m tilted-fold design: it
+        %   reported M2's centre at yc = -3.405 m where the true in-plane
+        %   offset is -0.031 m, so the emitted stop landed 3.37 m off the
+        %   beam and the saved .in lost every ray on reload -- the same
+        %   defect REALIZE_APERTURES still carries (see
+        %   CLEAR_REALIZED_APERTURES; it is left alone because the rodgers1
+        %   corpus is scored through it).
+        %
+        %   The footprint now comes from RAY_BUNDLE -- the FULL ray grid at
+        %   every element, not the two meridian fans -- so an elongated
+        %   off-axis patch is measured on its real extent.
         %
         %   Name-value:
-        %     'fields'  Kx2 field points [theta_x theta_y] (rad) to span.
-        %               Default: the bias point plus set_field_points offsets
-        %               (shifted onto the bias), or just the bias alone.
+        %     'fields'  Kx2 field points [theta_x theta_y] (rad), ABSOLUTE
+        %               (i.e. including any field bias), to span.
+        %               Default: the bias point plus set_field_points
+        %               offsets (shifted onto the bias), or the bias alone.
         %     'margin'  fractional radius margin (default 0.05).
         %     'quiet'   suppress the printed table (default false).
         %   rep(k): .name .center [xc yc] .radius .nfield
@@ -1980,44 +2004,39 @@ classdef Telescope < handle
             end
             nE = numel(obj.spec.elt);
 
-            % accumulate per-element footprint bounding box over field points
-            lo = inf(2,nE);  hi = -inf(2,nE);
-            saved = [];
-            if isfield(obj.spec,'trace_field'), saved = obj.spec.trace_field; end
-            restore = onCleanup(@() obj.restore_trace_field_(saved)); %#ok<NASGU>
-            for i = 1:size(F,1)
-                obj.spec.trace_field = F(i,:);
-                obj.build('', 'init', false);
-                % b.U/b.V are the SOURCE-frame projection, not global x,y --
-                % refuse the read if this deck's grid frame is not the global
-                % one (heritage / segment_rx decks carry xGrid=(-1,0,0)).
-                macos.design.assert_draw_frame_global('XY', ...
-                    'aperture_full_field');
-                b = macos.draw_rays('XY', 0, nE);        % U=X, V=Y (frame asserted)
-                for k = 1:nE
-                    m = (b.elt == k);
-                    if ~any(m(:)), continue; end
-                    lo(1,k) = min(lo(1,k), min(b.U(m)));
-                    hi(1,k) = max(hi(1,k), max(b.U(m)));
-                    lo(2,k) = min(lo(2,k), min(b.V(m)));
-                    hi(2,k) = max(hi(2,k), max(b.V(m)));
-                end
-            end
+            % RAY_BUNDLE takes field OFFSETS about the bias and adds the
+            % bias itself; F above is absolute, so hand back the offsets.
+            B = obj.ray_bundle('fields', [F(:,1), F(:,2) - by]);
 
             rep = struct('name',{},'center',{},'radius',{},'nfield',{});
             for k = 1:nE
-                if ~isfinite(lo(1,k))
+                e = obj.spec.elt(k);
+                [xo, yo] = obj.obs_frame_(e.psi);
+                u = [];  v = [];
+                for i = 1:numel(B.pos)
+                    m = B.ok{i}(:,k).';
+                    if ~any(m), continue; end
+                    d = B.pos{i}(:,m,k) - e.Vpt(:);
+                    u = [u, xo.'*d];  v = [v, yo.'*d]; %#ok<AGROW>
+                end
+                if isempty(u)
                     c = [0 0];  r = 0;
                 else
-                    c = [(lo(1,k)+hi(1,k))/2, (lo(2,k)+hi(2,k))/2];
-                    % half-diagonal of the bounding box covers every footprint
-                    r = 0.5*hypot(hi(1,k)-lo(1,k), hi(2,k)-lo(2,k))*(1+opts.margin);
+                    % centre the circle on the footprint bounding box, then
+                    % size it to the farthest sample.  The half-DIAGONAL of
+                    % the box (what this used to return) circumscribes the
+                    % box, so it oversizes a round beam by sqrt(2) -- and an
+                    % oversized clear aperture is not free: it is the
+                    % element that has to be built.
+                    c = [(min(u)+max(u))/2, (min(v)+max(v))/2];
+                    r = max(hypot(u - c(1), v - c(2)))*(1+opts.margin);
                 end
-                rep(k) = struct('name',obj.spec.elt(k).name, 'center',c, ...
+                rep(k) = struct('name',e.name, 'center',c, ...
                                 'radius',r, 'nfield',size(F,1));
             end
             if ~opts.quiet
-                fprintf('aperture_full_field  (%d field point(s), family=%s)\n', ...
+                fprintf(['aperture_full_field  (%d field point(s), family=%s;' ...
+                         ' element-local ApVec frame)\n'], ...
                         size(F,1), obj.spec.family);
                 fprintf('  %-10s %12s %12s %12s\n', 'element','radius','xc','yc');
                 for k = 1:nE
@@ -2025,6 +2044,49 @@ classdef Telescope < handle
                             rep(k).radius, rep(k).center(1), rep(k).center(2));
                 end
             end
+        end
+
+        function rep = apply_full_field_apertures(obj, opts)
+        %APPLY_FULL_FIELD_APERTURES  Size the clear apertures to the FULL
+        %   FIELD and EMIT them.  APERTURE_FULL_FIELD only MEASURES -- spec
+        %   is read-only outside the class, so a caller cannot apply its
+        %   report -- and this is the applying half: it stores the
+        %   frame-correct (radius, xc, yc) on each element and rebuilds, so
+        %   the emitted deck (and the SAVED .in) carries stops that sit on
+        %   the beam.
+        %
+        %   Options are APERTURE_FULL_FIELD's, plus:
+        %     'skip'    cellstr of element NAMES to leave alone (default
+        %               {} ).  Detector and pupil markers usually want no
+        %               stop at all; a Return sphere in a propagation
+        %               quartet must not be clipped.
+        %     'only'    cellstr of element NAMES to aperture ({} = all).
+        %
+        %   ALWAYS follow a save() with a standalone reload ray count: a
+        %   frame error in an emitted stop is invisible in-session (the
+        %   object still holds the right geometry) and total on reload.
+        %
+        %   See also APERTURE_FULL_FIELD, CLEAR_REALIZED_APERTURES.
+            arguments
+                obj
+                opts.fields (:,2) double  = []
+                opts.margin (1,1) double  = 0.05
+                opts.quiet  (1,1) logical = false
+                opts.skip   (1,:) cell    = {}
+                opts.only   (1,:) cell    = {}
+            end
+            rep = obj.aperture_full_field('fields',opts.fields, ...
+                        'margin',opts.margin, 'quiet',opts.quiet);
+            for k = 1:numel(rep)
+                nm = rep(k).name;
+                if ~isempty(opts.only) && ~any(strcmp(nm, opts.only)), continue; end
+                if any(strcmp(nm, opts.skip)), continue; end
+                if ~(rep(k).radius > 0) || ~all(isfinite(rep(k).center)), continue; end
+                obj.spec.elt(k).ap = [rep(k).radius, rep(k).center(1), ...
+                                      rep(k).center(2)];
+                obj.spec.elt(k).ap_rect = [];
+            end
+            obj.build('', 'init', false);
         end
 
         function scan = realize_apertures(obj, opts)
@@ -2457,6 +2519,41 @@ classdef Telescope < handle
                 elseif oc(2) == cW, cwc(k) = 0.5*(min(bo.V(m)) + max(bo.V(m)));
                 end
             end
+        end
+
+        function [xo, yo, zo] = obs_frame_(~, psi, xseed)
+        %OBS_FRAME_  The element APERTURE/OBSCURATION triad, exactly as the
+        %   engine builds it (tracesub.F ~3179 / propsub.F ~361):
+        %       zObs = psiElt
+        %       yObs = unit(zObs x xObs_seed)
+        %       xObs = yObs x zObs
+        %   seeded by the parsed xObs=, or -- when the deck declares none,
+        %   which is the case for everything this class emits -- by the
+        %   ChkDf2 default xObs = (psi_z, psi_x, psi_y) (iosub.inc ~1015).
+        %   That default is NOT orthogonal to psi in general; the two cross
+        %   products above are what make the triad, and reproducing them is
+        %   the whole point of this helper.
+        %
+        %   Aperture offsets (ApVec 2:3) are measured from VptElt along
+        %   xObs/yObs.  Distinct from SURF_FRAME_, which is the TElt
+        %   perturbation frame (built about the surface NORMAL at the pole,
+        %   with a different seed rule) -- do not substitute one for the
+        %   other.
+        %
+        %   See also APERTURE_FULL_FIELD, SURF_FRAME_.
+            zo = psi(:) / norm(psi);
+            if nargin < 3 || isempty(xseed)
+                xseed = [zo(3); zo(1); zo(2)];       % the ChkDf2 default
+            end
+            yo = cross(zo, xseed(:));
+            ny = norm(yo);
+            if ny < 1e-12                            % seed parallel to psi
+                xseed = [1;0;0];
+                if abs(zo(1)) > 0.9, xseed = [0;1;0]; end
+                yo = cross(zo, xseed);  ny = norm(yo);
+            end
+            yo = yo / ny;
+            xo = cross(yo, zo);
         end
 
         function R = surf_frame_(~, psi)
