@@ -173,6 +173,10 @@ function out = pupil_map(deck, Ffield, opts)
 %     'zones'       radial zones for the piecewise kernel (1)
 %     'image_npix'  raster size (256)
 %     'quiet'       (true)
+%     'stop_elt'    element id whose VptElt is the STOP position, for decks
+%                   whose stop is an element (no header ApStop= 3-vector),
+%                   e.g. jwst_ote_designc's FSM.  0 (default) = read the
+%                   header ApStop=.   'stop_pos'  explicit 1x3 override.
 %
 %   See also AFOCAL_LADDER_DECK, MACOS.PUPIL_QUALITY, MACOS.XPS.
 
@@ -193,6 +197,8 @@ function out = pupil_map(deck, Ffield, opts)
         opts.zones      (1,1) double {mustBeInteger,mustBePositive} = 1
         opts.image_npix (1,1) double = 256
         opts.quiet      (1,1) logical = true
+        opts.stop_elt   (1,1) double {mustBeInteger} = 0
+        opts.stop_pos   double = []
     end
 
     K = size(Ffield,1);
@@ -206,10 +212,23 @@ function out = pupil_map(deck, Ffield, opts)
     if opts.strip_ap
         txt = regexprep(txt, '(ApType=\s*)\S+', '$1None');
     end
-    [cdir0, cpos0, apst, lam] = deck_src_(txt);
+    [cdir0, cpos0, lam] = deck_src_(txt);
+    Vs = grab_all3_(txt,'VptElt');   Ps = grab_all3_(txt,'psiElt');
+    % The stop position seeds the cone construction (trace_field_ pivots
+    % the chief about it).  Header ApStop= is a 3-vector; decks whose stop
+    % is an ELEMENT (per-element two-value ApStop=, or set by the driver --
+    % e.g. jwst_ote_designc's FSM) have no such line: pass 'stop_elt' or
+    % 'stop_pos' instead (Luis, 2026-08-24).
+    if ~isempty(opts.stop_pos)
+        apst = opts.stop_pos(:);
+        assert(numel(apst) == 3, 'macos:design:pupil_map:stop_pos must be a 3-vector');
+    elseif opts.stop_elt > 0
+        apst = Vs(:, opts.stop_elt);
+    else
+        apst = grab3_(txt, 'ApStop');
+    end
     stand = dot(apst - cpos0, cdir0);
     bx0 = asin(cdir0(1));   by0 = asin(cdir0(2));
-    Vs = grab_all3_(txt,'VptElt');   Ps = grab_all3_(txt,'psiElt');
     io = opts.obj_elt;
     ii = opts.img_elt;   if ii <= 0, ii = size(Vs,2); end
     V1 = Vs(:,io);   n1 = Ps(:,io)/norm(Ps(:,io));
@@ -702,6 +721,15 @@ function [pe, de, res] = regrid_(m, pe_s, de_s, nod)
 %   field's convex hull come back NaN -- that is a rim PARTIAL cone, kept.
     pe = nan(3, size(nod,2));   de = nan(3, size(nod,2));
     res = zeros(1, size(nod,2));
+    % OBSCURED rays carry non-finite exit data (an 18-segment deck loses
+    % thousands per field to its own gaps) and scatteredInterpolant hard-
+    % errors on them (Luis's jwst_ote_designc run, 2026-08-24).  Drop those
+    % rays; nodes left uncovered come back NaN, which is already the
+    % partial-cone semantics below.
+    ok = all(isfinite(m(1:2,:)), 1) & all(isfinite(pe_s), 1) ...
+         & all(isfinite(de_s), 1);
+    if nnz(ok) < 3, return; end
+    m = m(:,ok);   pe_s = pe_s(:,ok);   de_s = de_s(:,ok);
     for c = 1:3
         Fl = scatteredInterpolant(m(1,:).', m(2,:).', pe_s(c,:).', 'linear','none');
         Fn = scatteredInterpolant(m(1,:).', m(2,:).', pe_s(c,:).', 'natural','none');
@@ -716,7 +744,12 @@ function [pe, de, res] = regrid_(m, pe_s, de_s, nod)
 end
 
 function s = regrid_scalar_(m, val, nod)
-    F = scatteredInterpolant(m(1,:).', m(2,:).', val(:), 'linear','none');
+    % same obscured-ray filter as REGRID_ -- non-finite inputs hard-error.
+    s = nan(1, size(nod,2));
+    ok = all(isfinite(m(1:2,:)), 1) & isfinite(val(:)).';
+    if nnz(ok) < 3, return; end
+    F = scatteredInterpolant(m(1,ok).', m(2,ok).', ...
+                             reshape(val(ok),[],1), 'linear','none');
     s = F(nod(1,:).', nod(2,:).').';
 end
 
@@ -858,10 +891,9 @@ end
 
 function s = v3_(v),  s = sprintf('%.16E  %.16E  %.16E', v(1), v(2), v(3));  end
 
-function [cdir, cpos, apst, lam] = deck_src_(txt)
+function [cdir, cpos, lam] = deck_src_(txt)
     cdir = grab3_(txt,'ChfRayDir');   cpos = grab3_(txt,'ChfRayPos');
-    apst = grab3_(txt,'ApStop');
-    t = regexp(txt,'Wavelen=\s*([-\d.EeD+]+)','tokens','once');
+    t = regexp(txt,'(?m)^\s*Wavelen=\s*([-\d.EeD+]+)','tokens','once');
     lam = str2double(strrep(t{1},'D','E'));
 end
 
@@ -872,12 +904,32 @@ function d = beam_dia_(txt)
 end
 
 function v = grab3_(txt, key)
-    t = regexp(txt,[key '=\s*([^\n]*)'],'tokens','once');
+%GRAB3_  First REAL '<key>= x y z' line of the deck, as a 3-vector.
+%   Line-anchored so a comment MENTIONING the key does not match -- the
+%   unanchored form grabbed '% ApStop=, so a driver must ...' out of
+%   jwst_ote_designc.in and fed prose to sscanf (Luis, 2026-08-24).
+    t = regexp(txt,['(?m)^\s*' key '=\s*([^\n]*)'],'tokens','once');
+    if isempty(t)
+        error('macos:design:pupil_map:key', ...
+              ['deck has no ''%s='' line.  For ApStop: decks whose stop ' ...
+               'is an ELEMENT carry no header ApStop= 3-vector -- pass ' ...
+               '''stop_elt'' (its element id) or ''stop_pos'' instead.'], key);
+    end
     v = sscanf(strrep(t{1},'D','E'),'%f',3);
+    if numel(v) < 3
+        error('macos:design:pupil_map:key', ...
+              ['''%s='' line does not carry 3 numbers (got %d).  A ' ...
+               'per-element ''ApStop= dx dy'' is the element-stop OFFSET ' ...
+               'form, not a stop position -- pass ''stop_elt''/''stop_pos''.'], ...
+              key, numel(v));
+    end
 end
 
 function M = grab_all3_(txt, key)
-    t = regexp(txt,[key '=\s*([^\n]*)'],'tokens');
+%GRAB_ALL3_  Every real '<key>= x y z' line, one column each.  Line-
+%   anchored for the same reason as GRAB3_: an unanchored match on a
+%   comment would silently SHIFT the element indexing.
+    t = regexp(txt,['(?m)^\s*' key '=\s*([^\n]*)'],'tokens');
     M = zeros(3,numel(t));
     for i = 1:numel(t), M(:,i) = sscanf(strrep(t{i}{1},'D','E'),'%f',3); end
 end

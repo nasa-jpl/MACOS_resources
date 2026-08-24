@@ -415,5 +415,26 @@ classdef tPupilMap < matlab.unittest.TestCase
             tc.verifyTrue(contains(p, fullfile('design','src')), ...
                 sprintf('pupil_map resolves to %s, not the shared library', p));
         end
+
+        function test_element_stop_deck_errors_actionably(tc)
+        % A deck whose stop is an ELEMENT (no header ApStop= 3-vector --
+        % jwst_ote_designc: the FSM is the pupil; its only ApStop mentions
+        % are a COMMENT and the per-element two-value offset form) must
+        % raise the actionable key error, not the pre-fix sscanf/size
+        % crash from grab3_ matching inside the comment (Luis,
+        % 2026-08-24).  The remedy named in the message ('stop_elt') is
+        % asserted so the error stays actionable, not merely typed.
+            zdeck = fullfile(tc.root, 'templates', '50_sensitivities', ...
+                             'zoom_5x5', 'jwst_ote_designc.in');
+            tc.assumeTrue(exist(zdeck, 'file') == 2, 'zoom deck not present');
+            F = 2.9e-4 * [0 0; -1 1; 1 1; -1 -1; 1 -1];
+            try
+                pupil_map(zdeck, F, 'anchor', 'stop', 'init', false);
+                tc.verifyFail('expected the missing-ApStop key error');
+            catch e
+                tc.verifyEqual(e.identifier, 'macos:design:pupil_map:key');
+                tc.verifySubstring(e.message, 'stop_elt');
+            end
+        end
     end
 end
