@@ -114,6 +114,16 @@ function pk = poke_localizes_(rx, model, ~)
 %   is what catches a grid frame that is not the clocked Mon frame.
     macos.init(model);
     n = macos.load_rx(rx);
+    % THE CHIEF REFERENCE IS LOAD-BEARING HERE.  The engine's default OPD
+    % reference is the whole-aperture MEAN -- one global scalar shared by
+    % every segment -- so poking ONE segment moves it by
+    % (N_seg/N_total) x (that segment's response) and the shift is then
+    % subtracted from every ray.  Unperturbed segments come back with a
+    % spurious uniform piston, and a gate that removes piston globally
+    % reads that as leakage.  Measured on this deck: 52/982 x 1.886e-8 =
+    % 1.0e-9, against a 1.055e-9 "leak" -- the whole of it.  opd_ref must
+    % be set AFTER load_rx (every load resets it).
+    macos.opd_ref('chief');
     macos.trace(n);
     W0 = macos.opd();
     % the last segment element: segment_rx puts the segments first, so
@@ -133,7 +143,10 @@ function pk = poke_localizes_(rx, model, ~)
     m = isfinite(W0) & isfinite(W1) & W0 ~= 0 & W1 ~= 0 & ...
         abs(W0) < 1e30 & abs(W1) < 1e30;
     dW = zeros(size(W0));  dW(m) = W1(m) - W0(m);
-    dW(m) = dW(m) - mean(dW(m));                 % piston-free
+    % NO global piston removal: with the chief reference the map already
+    % has a fixed per-trace origin, and subtracting a whole-pupil mean
+    % would re-introduce exactly the cross-segment coupling the chief
+    % reference exists to remove.
     a = abs(dW(m));
     thr = 0.25*max(a);
     in  = m;  in(m) = a >= thr;
