@@ -46,9 +46,15 @@ BOTTOM = 7.32
 
 
 def clean(s):
-    s = re.sub(r"\*\*(.+?)\*\*", r"\1", s)
+    # **bold** markers SURVIVE parsing -- para() splits them into bold runs
+    # (DECK_STYLE: "compact bullets with bold lead-in labels").  Anything
+    # that renders text without para() must call strip_bold() itself.
     s = s.replace("`", "")
     return s
+
+
+def strip_bold(s):
+    return re.sub(r"\*\*(.+?)\*\*", r"\1", s)
 
 
 # --------------------------------------------------------------- parsing
@@ -158,19 +164,31 @@ def tb(sl, x, y, w, h):
 def para(tf, text, size=12, bold=False, color=INK, first=False, mono=False,
          space_after=4, align=None):
     p = tf.paragraphs[0] if first else tf.add_paragraph()
-    p.text = text
+    parts = re.split(r"\*\*", text)
+    if len(parts) > 1:
+        want = []
+        for i, seg in enumerate(parts):
+            if not seg:
+                continue
+            r = p.add_run()
+            r.text = seg
+            want.append(bold or (i % 2 == 1))   # odd segments were **bold**
+    else:
+        p.text = text
+        want = [bold] * len(p.runs)
     p.space_after = Pt(space_after)
     if align:
         p.alignment = align
-    for r in p.runs:
+    for r, b in zip(p.runs, want):
         r.font.size = Pt(size)
-        r.font.bold = bold
+        r.font.bold = b
         r.font.color.rgb = color
         r.font.name = "Consolas" if mono else "Arial"
     return p
 
 
 def est_text_h(text, w_in, size):
+    text = strip_bold(text)
     cpl = max(10, w_in * 72.0 / (0.5 * size))
     n = max(1, ceil(len(text) / cpl))
     return n * size * 1.30 / 72.0 + 0.07
@@ -225,7 +243,7 @@ def place_table(sl, rows, x, y, w):
     for r in rows:
         lines = 1
         for c in range(nc):
-            txt = r[c] if c < len(r) else ""
+            txt = strip_bold(r[c] if c < len(r) else "")
             cpl = max(8, cw[c] * 72.0 / (0.52 * size))
             lines = max(lines, ceil(len(txt) / cpl))
         rhs.append(lines * size * 1.35 / 72.0 + 0.10)
@@ -244,7 +262,7 @@ def place_table(sl, rows, x, y, w):
             tf_ = cell.text_frame
             tf_.word_wrap = True
             p = tf_.paragraphs[0]
-            p.text = r[c] if c < len(r) else ""
+            p.text = strip_bold(r[c] if c < len(r) else "")
             for run in p.runs:
                 run.font.size = Pt(size)
                 run.font.name = "Arial"

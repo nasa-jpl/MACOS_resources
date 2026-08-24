@@ -53,7 +53,24 @@ rotation).  Fixed in `macos.design.Telescope` — see the LOG and
 
 | `s3_coro.m` | `s3_backend` on both primaries | the APLC scored on the segmented AND monolithic trains, so the gap cost is a measured difference: `s3_{seg,mono}_prop.in`, `s3_{seg,mono}_aplc.png`, `s3_contrast.png`, `s3_coro_report.txt` |
 
-(S4–S6 land as the campaign proceeds.)
+| `s3_train_fig.m` | `s3_seg_{full,back}.in` | the S3 layout gate: `s3_train_iso.png` (full train), `s3_back_iso.png` (relay alone) |
+| `s4_sensitivities.m` | `s3_seg_full.in` | `dwdx` (with the 19 segments ALSO perturbed as one rigid body), `dwdz`, `dwdgrid` over 5 fields: `s4_sens.mat` (gitignored, `.fp.json` committed), `s4_run.mat`, `s4_*.png`, `s4_{report,sens_report}.txt` |
+| `s5_timeseries.m` | `s4_run.mat` + `s3_seg_prop.in` | the drift series with a held image-based correction, contrast scored every 5th frame through the APLC chain: `s5_series.png`, `s5_run.mat`, `s5_report.txt` |
+| `deck_e2e6m.py` | every stage REPORT | `deck_e2e6m.{md,pptx}` — DRAFT, generator-built, never hand-edited |
+
+**Reading order for the deck:** `e2e6m_records.py` parses the reports and
+`sys.exit`s on any miss, so a stale report is a build failure rather than
+a wrong slide.  `deck_e2e6m.py` writes the slide markdown and calls the
+committed `challenges/rodgers3/make_brief_slides.py`.  Figures are the
+committed stage PNGs, autocropped (and, for the 4-view renders, one panel
+lifted) into a gitignored `deckfig/` — never redrawn.
+
+**Where the S5 result is honest and where it is bounded.**  The linear
+model reproduces the engine for segment PISTON (0.6% relative) and for
+nothing else; control is therefore restricted to piston while the drift
+still moves all six freedoms, and the deck's backup section says so with
+the table.  The correction is image-based and solved once — an optimistic
+bound, not a metrology-loop result.  MET was out of scope.
 
 **Deferred coronagraph capability (Dave, 2026-08-24).**  The `ctb` model
 carries DM1, DM2, apodizer, mask, Lyot stop and a field stop; this back
