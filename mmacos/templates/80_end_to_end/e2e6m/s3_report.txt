@@ -1,0 +1,26 @@
+==================== e2e6m S3 -- the back end
+base deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s2_segmented.in
+
+[1] telescope exit: 24 elements, 983/985 rays
+    focus at [0.0000 -3.5128 -3.8697] m, chief along [0.0000 0.2849 -0.9586]
+    feeding f/25.39 -> collimated pupil 0.0473 m at OAP1 f = 1.200 m
+
+[2] bench (metres): 8 elements -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_back.in
+    OAP parent focal lengths (m): 1.2000 0.9000 0.9000 0.9000
+    pole-to-focus conjugates  (m): 1.2133 0.9099 0.9099 0.9099
+    marker stations: Apodizer 2, FPM 4, Lyot 6, Science 8 (bench-local)
+
+[3] spliced: 21 telescope + 8 bench = 29 elements -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_full.in
+
+[4] gates
+    loads at 29 elements (expected 29)  [PASS]
+    983/985 rays pass (telescope alone 983)  [PASS]
+    Apodizer  elt 23: beam radius 0.023747 m (pupil)
+    FPM       elt 25: beam radius 8.7113e-07 m (focus)
+    Lyot      elt 27: beam radius 0.023755 m (pupil)
+    Science   elt 29: beam radius 8.7113e-07 m (focus)
+
+[5] shroud on the full train: 7.451 m against the 8.0 m gate  [PASS]
+    train length 17.31 m (launch axis)
+
+S3 DONE in 0.1 min
