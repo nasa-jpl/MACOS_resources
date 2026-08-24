@@ -207,7 +207,16 @@ function P = e2e6m_params(over)
     P.ts.walk_rot    = 0.3e-9;     % rad per step
     P.ts.drift_trans = 6e-9;       % correlated drift, m per 100 s
     P.ts.drift_rot   = 6e-9;       % rad per 100 s
-    P.ts.control_elts = 1:19;      % the segments are the control DOFs
+    P.ts.control_elts = 1:19;      % the segments are the control bodies
+    P.ts.control_dofs = 5;         % 0-based: 5 = Tz, segment PISTON.
+                                   % The only DOF the engine-vs-model
+                                   % check reproduces (0.03% over three
+                                   % decades); the rotation columns are
+                                   % an OPEN discrepancy, see the LOG.
+                                   % Piston is also the physical control
+                                   % DOF for a segmented primary --
+                                   % phasing -- so this is a real demo,
+                                   % not a fallback.
     P.ts.wfc_frame   = 2;          % "no system starts perfect": control
                                    % turns on at frame 2, so the first
                                    % points stand at the as-deployed state

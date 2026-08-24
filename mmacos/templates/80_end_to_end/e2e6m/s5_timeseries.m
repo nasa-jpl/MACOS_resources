@@ -78,20 +78,34 @@ function OUT = s5_timeseries(over)
 
     % ---- the control basis, from S4 --------------------------------------
     Z = load(S4, 'ox');
-    [dwdu, ucols, uelts] = control_basis_(Z.ox, P);
-    L = say_(L, '\n[0] control basis: %d rows x %d columns (%d segments x 6 DOF)', ...
-             size(dwdu,1), size(dwdu,2), numel(uelts));
+    % TWO bases, deliberately.  CHECK on all six rigid-body DOFs so the
+    % report carries the honest evidence; CONTROL on the restricted set.
+    % Checking only what we control would make the gate pass trivially
+    % and hide the very discrepancy that forced the restriction.
+    Ball = control_basis_(Z.ox, P, 0:5);
+    B    = control_basis_(Z.ox, P, P.ts.control_dofs);
+    uelts = B.elts(:).';
+    L = say_(L, '\n[0] control basis: centre-field block %d rows x %d cols', ...
+             size(B.A,1), size(B.A,2));
+    L = say_(L, '    %d segments x DOF %s (0-based: 0-2 = Rx Ry Rz, 3-5 = Tx Ty Tz)', ...
+             numel(uelts), mat2str(P.ts.control_dofs));
+    L = say_(L, '    the DRIFT moves all six DOFs; CONTROL uses only the');
+    L = say_(L, '    columns the [1] check reproduces (see the header).');
 
     % ---- [1] engine vs linear model (run_compare's substance) ------------
     L = say_(L, '\n[1] engine vs linear model, %d sample DOFs at %g nm / %g nrad:', ...
              P.ts.n_check, P.ts.d_trans*1e9, P.ts.d_rot*1e9);
-    chk = linear_check_(rx, P, dwdu, ucols, uelts);
-    for k = 1:numel(chk.col)
+    chk = linear_check_(rx, P, Ball);
+    for k = 1:numel(chk.elt)
         L = say_(L, '    elt %2d dof %d: |engine| %.4g  |model| %.4g  rel.err %.3g', ...
                  chk.elt(k), chk.dof(k), chk.n_eng(k), chk.n_mod(k), chk.rel(k));
     end
-    L = say_(L, '    worst relative error %.3g  [%s]', chk.worst, ...
+    ctl = ismember([chk.dof], P.ts.control_dofs);
+    L = say_(L, '    worst over ALL six DOFs      %.3g  [%s]', chk.worst, ...
              gate_(chk.worst < P.ts.tol_linear));
+    L = say_(L, '    worst over CONTROLLED DOFs   %.3g  [%s]', ...
+             max([chk.rel(ctl)]), gate_(max([chk.rel(ctl)]) < P.ts.tol_linear));
+    L = say_(L, '    control is restricted to the DOFs that pass -- see the header.');
 
     % ---- [2] the drift history -------------------------------------------
     rng(P.ts.seed);
@@ -111,28 +125,41 @@ function OUT = s5_timeseries(over)
              C.peak_bare);
 
     L = say_(L, '\n[3] pass 1 of 2: UNCORRECTED');
-    A = play_(rx, P, X, zeros(size(X)), uelts, C);
+    UN = play_(rx, P, X, zeros(size(X)), uelts, C);
     L = say_(L, '    WFE %.4f -> %.4f waves; contrast %.3e -> %.3e (%d scored frames)', ...
-             A.wfe(1), A.wfe(end), A.con(find(isfinite(A.con),1)), ...
-             A.con(find(isfinite(A.con),1,'last')), nnz(isfinite(A.con)));
+             UN.wfe(1), UN.wfe(end), UN.con(find(isfinite(UN.con),1)), ...
+             UN.con(find(isfinite(UN.con),1,'last')), nnz(isfinite(UN.con)));
 
     L = say_(L, '\n    solving the image-based correction on frame %d', P.ts.wfc_frame);
-    U = wfc_(rx, P, X, uelts, ucols, dwdu);
-    L = say_(L, '    control |u| rms %.3g nm / %.3g nrad', ...
-             1e9*rms_(U(4:6:end)), 1e9*rms_(U(1:6:end)));
+    u = wfc_(rx, P, X, B);
+    U = expand_(B, u);
+    % Report the DOFs actually being driven.  Printing a fixed slot (Tx,
+    % Rx) reads "control = 0" whenever the control set does not include
+    % it -- which is exactly the restricted case this stage runs in.
+    dn = {'Rx','Ry','Rz','Tx','Ty','Tz'};
+    for j = unique(B.dof(:).')
+        uj = U(j+1 : 6 : end);
+        if j < 3
+            L = say_(L, '    control %s: rms %.3g nrad, max %.3g nrad', ...
+                     dn{j+1}, 1e9*rms_(uj), 1e9*max(abs(uj)));
+        else
+            L = say_(L, '    control %s: rms %.3g nm, max %.3g nm', ...
+                     dn{j+1}, 1e9*rms_(uj), 1e9*max(abs(uj)));
+        end
+    end
 
     L = say_(L, '\n[3] pass 2 of 2: CORRECTED (control held, history drifts on)');
-    B = play_(rx, P, X, repmat(U,1,size(X,2)), uelts, C);
+    CR = play_(rx, P, X, repmat(U,1,size(X,2)), uelts, C);
     L = say_(L, '    WFE %.4f -> %.4f waves; contrast %.3e -> %.3e', ...
-             B.wfe(1), B.wfe(end), B.con(find(isfinite(B.con),1)), ...
-             B.con(find(isfinite(B.con),1,'last')));
+             CR.wfe(1), CR.wfe(end), CR.con(find(isfinite(CR.con),1)), ...
+             CR.con(find(isfinite(CR.con),1,'last')));
 
     % ---- [4] the payoff figure -------------------------------------------
     png = fullfile(P.outdir,'s5_series.png');
-    series_fig_(tvec, A, B, P, png);
+    series_fig_(tvec, UN, CR, P, png);
     L = say_(L, '\n[4] payoff figure: %s', png);
     L = say_(L, '    contrast scored every %d frames (%d of %d) -- each point is a', ...
-             P.ts.every, nnz(isfinite(A.con)), numel(tvec));
+             P.ts.every, nnz(isfinite(UN.con)), numel(tvec));
     L = say_(L, '    full diffraction propagation plus the APLC mask chain.');
 
     L = say_(L, '\nS5 DONE in %.1f min', toc(t0)/60);
@@ -140,7 +167,7 @@ function OUT = s5_timeseries(over)
     fid = fopen(fullfile(P.outdir,'s5_report.txt'),'w');
     fprintf(fid,'%s\n',txt);  fclose(fid);
 
-    OUT = struct('P',P, 'chk',chk, 'X',X, 't',tvec, 'unc',A, 'cor',B, ...
+    OUT = struct('P',P, 'chk',chk, 'X',X, 't',tvec, 'unc',UN, 'cor',CR, ...
                  'U',U, 'uelts',uelts, 'figure',png, 'text',txt, ...
                  'when',datestr(now,31)); %#ok<TNOW1,DATST>
     save(fullfile(P.outdir,'s5_run.mat'),'OUT','-v7.3');
@@ -151,55 +178,111 @@ function setup_(here)
     run(fullfile(here,'..','..','..','mmacos_setup.m'));
 end
 
-function [dwdu, cols, elts] = control_basis_(ox, P)
-%CONTROL_BASIS_  The SEGMENT columns of dwdx -- the control authority.
-%   The group columns are appended AFTER the per-element block and are
-%   NOT control DOFs (they are the same motion, counted once as a body);
-%   including them would double-count and make the ridge singular.
-    A = ox.dwdxall;
-    isgrp = false(1, size(A,2));
-    if isfield(ox,'kind'), isgrp = strcmp(ox.kind, 'Group'); end
-    e = ox.elt(:).';
-    elts = unique(e(~isgrp & ismember(e, P.ts.control_elts)), 'stable');
-    cols = find(~isgrp & ismember(e, elts));
-    dwdu = A(:, cols);
+function B = control_basis_(ox, P, dofs)
+%CONTROL_BASIS_  The CENTRE-FIELD block of dwdx, restricted to the segment
+%   rigid-body columns -- the control authority, and the rows an engine
+%   OPD map can be aligned to.
+%
+%   Two traps the stacked array invites, both avoided here:
+%
+%   * do NOT slice dwdxall(1:n,:) for "the centre field".  The 201504 rows
+%     are a SCATTERED UNION CANVAS over the five fields, not a
+%     concatenation -- each field's ~40300 rows are scattered into it --
+%     so a leading slice is a mixture of fields.  per_field_dwdx{ic} is
+%     the centre field's own block, and per_field_w_nom_2d{ic} is the map
+%     whose finite pixels ARE its rows.
+%   * do NOT include the GROUP columns.  They are the same 19 segments
+%     counted once as a body; carrying them beside the per-segment columns
+%     double-counts the motion and makes the ridge singular.
+    ic = find(strcmp(ox.field_names, 'C'), 1);
+    assert(~isempty(ic), 's5: no centre field in the harvest');
+    B.Wnom = ox.per_field_w_nom_2d{ic};
+    B.mnom = finite_(B.Wnom);
+    A0     = ox.per_field_dwdx{ic};
+    assert(nnz(B.mnom) == size(A0,1), ...
+        's5: nominal mask (%d px) does not match the Jacobian rows (%d)', ...
+        nnz(B.mnom), size(A0,1));
+    % DOF RESTRICTION, and why.  The [1] check below reproduces the Tz
+    % (piston) columns to 0.03% across three decades on every segment
+    % tried, and does NOT reproduce the rotation columns: the CENTRE
+    % segment's Rx response comes out purely second-order (ratio 0.0007
+    % -> 0.14 as the poke grows a thousandfold) while an outer segment's
+    % is linear but 3.82x the column, at every amplitude.  Until that is
+    % run down, controlling on columns the engine does not reproduce is
+    % not defensible -- and it is not academic: with all six DOFs the
+    % corrected leg came out WORSE than the uncorrected one.
+    % So CONTROL is restricted to the validated DOFs; the DRIFT still
+    % moves all six, because the physics does not care what we can
+    % control.
+    keep = strcmp(ox.kind(:), 'RigidBody') ...
+         & ismember(ox.iElt(:),    P.ts.control_elts(:)) ...
+         & ismember(ox.dof_idx(:), dofs(:));
+    B.cols = find(keep);
+    B.elts = unique(ox.iElt(B.cols), 'stable');
+    B.dof  = ox.dof_idx(B.cols);
+    B.ielt = ox.iElt(B.cols);
+    B.A    = A0(:, B.cols);
 end
 
-function chk = linear_check_(rx, P, dwdu, cols, elts)
-%LINEAR_CHECK_  Poke a sample of control DOFs and compare the ENGINE's
-%   OPD change with the Jacobian column.  This is what says the S4
-%   Jacobian describes THIS deck; without it the whole time series is
-%   an assertion.
+function [v, rows] = align_(B, W)
+%ALIGN_  An engine OPD map -> the vector the Jacobian rows describe.
+%   Pixels finite in BOTH the nominal and the current map; ROWS indexes
+%   the Jacobian to match, so a frame that loses rays still works, on the
+%   pixels the two have in common.
+    mk   = finite_(W);
+    both = B.mnom & mk;
+    idx  = find(B.mnom);
+    rows = find(ismember(idx, find(both)));
+    v    = W(both);
+    v    = v - mean(v);
+end
+
+function chk = linear_check_(rx, P, B)
+%LINEAR_CHECK_  Poke a sample of control DOFs and compare the ENGINE's OPD
+%   change with the matching Jacobian column.  This is what says the S4
+%   Jacobian describes THIS deck; without it the time series is an
+%   assertion.  (It is run_compare's substance, minus the metrology bars.)
     macos.init(P.sn.model);
     n = macos.load_rx(rx);
     macos.opd_ref('chief');
     macos.trace(n);
     W0 = macos.opd();
-    m = finite_(W0);
-    pick = round(linspace(1, numel(cols), P.ts.n_check));
-    chk = struct('col',cols(pick), 'elt',zeros(1,numel(pick)), ...
-                 'dof',zeros(1,numel(pick)), 'n_eng',zeros(1,numel(pick)), ...
-                 'n_mod',zeros(1,numel(pick)), 'rel',zeros(1,numel(pick)));
-    for k = 1:numel(pick)
-        c = cols(pick(k));
-        j = mod(pick(k)-1, 6);                     % 0..5 = Rx..Tz
-        ie = elts(1 + floor((pick(k)-1)/6));
-        d = zeros(6,1);
-        if j < 3, d(j+1) = P.ts.d_rot; else, d(j+1) = P.ts.d_trans; end
-        macos.perturb(ie, 'rotation', d(1:3), 'translation', d(4:6), ...
-                      'frame','local');
+    % Sample EVERY dof class, not a linear sweep of the column index: a
+    % linspace over columns can miss a whole DOF, which is how a broken
+    % rotation channel hides.
+    pick = [];
+    for j = unique(B.dof(:).')
+        q = find(B.dof == j);
+        pick = [pick, q(round(linspace(1, numel(q), ...
+                 max(1, ceil(P.ts.n_check/6)))))]; %#ok<AGROW>
+    end
+    pick = unique(pick, 'stable');
+    np = numel(pick);
+    chk = struct('elt',zeros(1,np), 'dof',zeros(1,np), ...
+                 'n_eng',zeros(1,np), 'n_mod',zeros(1,np), 'rel',zeros(1,np));
+    for k = 1:np
+        q  = pick(k);
+        ie = B.ielt(q);
+        % dof_idx is 0-BASED (run_sensitivities' default is (0:5)'), so
+        % +1 to index a 6-vector: 1..6 = Rx Ry Rz Tx Ty Tz.
+        j  = B.dof(q) + 1;
+        d  = zeros(6,1);
+        amp = P.ts.d_rot;  if j > 3, amp = P.ts.d_trans; end
+        d(j) = amp;
+        macos.perturb(ie, 'rotation', d(1:3), 'translation', d(4:6), 'frame','local');
         macos.modify();  macos.trace(n);
         W1 = macos.opd();
-        macos.perturb(ie, 'rotation', -d(1:3), 'translation', -d(4:6), ...
-                      'frame','local');
+        macos.perturb(ie, 'rotation', -d(1:3), 'translation', -d(4:6), 'frame','local');
         macos.modify();
-        dW = W1(m) - W0(m);
-        amp = P.ts.d_rot;  if j >= 3, amp = P.ts.d_trans; end
-        mod = dwdu(1:nnz(m), pick(k)) * amp;       % centre-field block
-        chk.elt(k) = ie;  chk.dof(k) = j;
+        [v1, rows] = align_(B, W1);
+        v0 = W0(B.mnom & finite_(W1));  v0 = v0 - mean(v0);
+        dW  = v1 - v0;
+        mod = B.A(rows, q) * amp;
+        mod = mod - mean(mod);
+        chk.elt(k)  = ie;   chk.dof(k) = j - 1;
         chk.n_eng(k) = rms_(dW);
         chk.n_mod(k) = rms_(mod);
-        chk.rel(k) = rms_(dW(:) - mod(:)) / max(rms_(dW), realmin);
+        chk.rel(k)   = rms_(dW(:) - mod(:)) / max(rms_(dW), realmin);
     end
     chk.worst = max(chk.rel);
 end
@@ -266,32 +349,43 @@ function apply_(elts, d)
     end
 end
 
-function U = wfc_(rx, P, X, elts, cols, dwdu) %#ok<INUSD>
+function d6 = expand_(B, u)
+%EXPAND_  Control vector on the restricted DOF set -> a full 6-DOF-per-
+%   segment increment, so apply_ can stay dimension-honest.
+    nb = numel(B.elts);
+    d6 = zeros(6*nb, 1);
+    for k = 1:numel(B.cols)
+        b = find(B.elts == B.ielt(k), 1);
+        d6(6*(b-1) + B.dof(k) + 1) = u(k);
+    end
+end
+
+function U = wfc_(rx, P, X, B)
 %WFC_  Image-based wavefront control at one frame: an ITERATED
-%   Tikhonov-ridge least squares on the engine wavefront.  Iterated
+%   Tikhonov-ridge least squares on the ENGINE wavefront.  Iterated
 %   because the state at that frame is not in the linear regime -- one
-%   pinv step off a micron-scale error leaves a large residual.
+%   pinv step off a large error leaves a large residual -- and ridged
+%   because the segment basis is ill-conditioned (piston is nearly a
+%   global piston the reference removes, so its singular values are tiny
+%   and a raw pinv amplifies them).
+    elts = B.elts(:).';
     macos.init(P.sn.model);
     n = macos.load_rx(rx);
     macos.opd_ref('chief');
-    macos.trace(n);
-    W0 = macos.opd();  m = finite_(W0);
     kf = min(P.ts.wfc_frame, size(X,2));
     apply_(elts, X(:,kf));
     macos.modify();  macos.trace(n);
-    nrow = nnz(m);
-    A = dwdu(1:nrow, :);
-    lam = P.ts.ridge * max(vecnorm(A))^2;
-    R = (A.'*A + lam*eye(size(A,2))) \ A.';
-    U = zeros(size(A,2),1);
+    U = zeros(size(B.A,2),1);
     for it = 1:P.ts.wfc_iters
         W = macos.opd();
-        v = W(m) - mean(W(m));
-        du = -R * v(:);
-        apply_(elts, du);  U = U + du;
+        [v, rows] = align_(B, W);
+        A = B.A(rows, :);
+        lam = P.ts.ridge * max(vecnorm(A))^2;
+        du = -((A.'*A + lam*eye(size(A,2))) \ (A.' * v(:)));
+        apply_(elts, expand_(B, du));  U = U + du;
         macos.modify();  macos.trace(n);
     end
-    apply_(elts, -(X(:,kf) + U));  macos.modify();
+    apply_(elts, -(X(:,kf) + expand_(B, U)));  macos.modify();
 end
 
 function C = coro_setup_(rx, P)
@@ -390,20 +484,20 @@ function r = beam_radius_(I, dx)
     r = 0.5 * max(max(rr)-min(rr), max(cc)-min(cc)) * dx;
 end
 
-function png = series_fig_(t, A, B, P, png)
+function png = series_fig_(t, UN, CR, P, png)
     f = figure('Visible','off','Color','w','Position',[80 80 1100 760]);
     ax1 = subplot(2,1,1); hold(ax1,'on'); set(ax1,'YScale','log');
-    plot(ax1, t, A.wfe, '-', 'Color',[0.75 0.15 0.15], 'LineWidth',1.6);
-    plot(ax1, t, B.wfe, '-', 'Color',[0.15 0.35 0.75], 'LineWidth',1.6);
+    plot(ax1, t, UN.wfe, '-', 'Color',[0.75 0.15 0.15], 'LineWidth',1.6);
+    plot(ax1, t, CR.wfe, '-', 'Color',[0.15 0.35 0.75], 'LineWidth',1.6);
     grid(ax1,'on'); box(ax1,'on');
     ylabel(ax1, sprintf('rms WFE  [waves @ %g nm]', P.lambda_m*1e9));
     legend(ax1, {'uncorrected','corrected'}, 'Location','northwest');
     title(ax1, 'wavefront at the coronagraph exit pupil');
     ax2 = subplot(2,1,2); hold(ax2,'on'); set(ax2,'YScale','log');
-    ia = isfinite(A.con);  ib = isfinite(B.con);
-    plot(ax2, t(ia), A.con(ia), 'o-', 'Color',[0.75 0.15 0.15], ...
+    ia = isfinite(UN.con);  ib = isfinite(CR.con);
+    plot(ax2, t(ia), UN.con(ia), 'o-', 'Color',[0.75 0.15 0.15], ...
          'LineWidth',1.6, 'MarkerSize',4);
-    plot(ax2, t(ib), B.con(ib), 'o-', 'Color',[0.15 0.35 0.75], ...
+    plot(ax2, t(ib), CR.con(ib), 'o-', 'Color',[0.15 0.35 0.75], ...
          'LineWidth',1.6, 'MarkerSize',4);
     grid(ax2,'on'); box(ax2,'on');
     xlabel(ax2,'time  [s]');
