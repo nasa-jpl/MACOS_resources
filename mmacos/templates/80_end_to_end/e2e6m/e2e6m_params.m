@@ -194,6 +194,30 @@ function P = e2e6m_params(over)
     P.sn.ng          = 256;        % per-segment grid size
     P.sn.model       = 512;
 
+    % ---- S5: the drift time series --------------------------------------
+    % MET IS NOT IN SCOPE (see s5_timeseries' header): the control is
+    % IMAGE-BASED, so the corrected leg is an optimistic bound.
+    P.ts.seed        = 6;
+    P.ts.frames      = 41;         % history length
+    P.ts.dt          = 10;         % s per frame -> a ~400 s soak
+    P.ts.every       = 5;          % score CONTRAST every Nth frame: each
+                                   % point is a full diffraction
+                                   % propagation plus the APLC chain
+    P.ts.walk_trans  = 0.3e-9;     % random walk, m per step
+    P.ts.walk_rot    = 0.3e-9;     % rad per step
+    P.ts.drift_trans = 6e-9;       % correlated drift, m per 100 s
+    P.ts.drift_rot   = 6e-9;       % rad per 100 s
+    P.ts.control_elts = 1:19;      % the segments are the control DOFs
+    P.ts.wfc_frame   = 2;          % "no system starts perfect": control
+                                   % turns on at frame 2, so the first
+                                   % points stand at the as-deployed state
+    P.ts.wfc_iters   = 3;
+    P.ts.ridge       = 1e-6;       % Tikhonov ridge, relative to |A|^2
+    P.ts.n_check     = 6;          % engine-vs-model sample DOFs
+    P.ts.d_trans     = 1e-9;
+    P.ts.d_rot       = 1e-9;
+    P.ts.tol_linear  = 0.05;       % engine vs linear model, relative
+
     % ---- output ---------------------------------------------------------
     P.outdir      = '';            % '' = the example directory
 

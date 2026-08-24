@@ -3,3 +3,59 @@ field set: center + 4 corners at +-0.0001018 rad
 segments: 19
 
 [dwdx] rigid-body 6-DOF per element, LOCAL triads...
+    + 6 group channel(s) appended after the per-element block
+    dwdxall 201504 x 156 over 5 fields
+
+[dwdz] segment-LOCAL MonZernike modes [4 5 6 7 8 9 10 11]...
+    dwdzall 201504 x 152
+
+[dwdgrid] grid-augmenting in the clocked Mon frames...
+    s4_grid.in: 36 elts, 40303/40357 rays, gdx 0.02353
+    dwdgall 201504 x 114 (influence basis saved in og.sgb)
+
+[conditioning] finite rows only:
+    channel          size   rank     sv_max    sv_min+      cond+
+    dwdx     201504x156       156  1.258e+03  9.547e-05  1.318e+07
+    dwdx     segment-only: 201504x114  cond+ 2.162e+06
+    dwdz     201504x152       152  1.055e+02  3.915e+01  2.695e+00
+    dwdgrid  201504x114       114  2.568e+03  3.051e+02  8.416e+00
+
+    dwdx per-segment column norms (rms native-unit per unit DOF):
+      seg     rx        ry        rz        tx        ty        tz
+        1   1.43e-01  1.43e-01  2.44e-06  3.73e-03  3.71e-03  4.46e-01 
+        2   1.41e-01  1.40e-01  7.46e-06  3.63e-03  3.66e-03  4.42e-01 
+        3   1.39e-01  1.42e-01  7.46e-06  3.67e-03  3.62e-03  4.42e-01 
+        4   1.41e-01  1.41e-01  3.77e-06  3.65e-03  3.68e-03  4.43e-01 
+        5   1.42e-01  1.40e-01  1.91e-06  3.67e-03  3.70e-03  4.44e-01 
+        6   1.40e-01  1.42e-01  1.91e-06  3.72e-03  3.65e-03  4.44e-01 
+        7   1.42e-01  1.40e-01  3.77e-06  3.65e-03  3.68e-03  4.43e-01 
+        8   1.40e-01  1.39e-01  1.40e-05  3.58e-03  3.59e-03  4.38e-01 
+        9   1.42e-01  1.41e-01  1.35e-05  3.61e-03  3.67e-03  4.42e-01 
+       10   1.38e-01  1.40e-01  1.40e-05  3.59e-03  3.58e-03  4.38e-01 
+       11   1.42e-01  1.43e-01  9.39e-06  3.68e-03  3.68e-03  4.44e-01 
+       12   1.42e-01  1.43e-01  7.15e-06  3.70e-03  3.70e-03  4.45e-01 
+       13   1.43e-01  1.43e-01  4.43e-06  3.73e-03  3.72e-03  4.47e-01 
+       14   1.42e-01  1.41e-01  4.37e-06  3.67e-03  3.71e-03  4.45e-01 
+       15   1.44e-01  1.42e-01  3.50e-06  3.73e-03  3.75e-03  4.48e-01 
+       16   1.40e-01  1.42e-01  4.37e-06  3.72e-03  3.65e-03  4.45e-01 
+       17   1.43e-01  1.43e-01  4.43e-06  3.73e-03  3.72e-03  4.47e-01 
+       18   1.43e-01  1.42e-01  7.15e-06  3.71e-03  3.69e-03  4.45e-01 
+       19   1.42e-01  1.43e-01  9.39e-06  3.68e-03  3.68e-03  4.44e-01 
+
+figures: s4_opdall/svspec/<ch>_channels + per-element pages in s4_pages/
+
+Done: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s4_sens.mat + s4_sens_report.txt
+
+[PM exhibit] the GROUP against its member elements
+    members: [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19] (19)
+    column RMS of dW/d(DOF): rotations in OPD-metres per rad, translations
+    in OPD-metres per METRE -- the same convention on both sides.
+    channel                           Rx          Ry          Rz          Tx          Ty          Tz
+    Grp[PM] (group)           2.7555e+00  2.7397e+00  2.7056e-01  7.1678e-02  7.0540e-02  1.4366e-02
+    Elt 1 (member)            1.4263e-01  1.4292e-01  2.4374e-06  3.7254e-03  3.7135e-03  4.4623e-01
+      group / Elt 1              19.3190     19.1686 111003.5995     19.2403     18.9956      0.0322
+    Elt 2 (member)            1.4125e-01  1.4009e-01  7.4581e-06  3.6338e-03  3.6590e-03  4.4194e-01
+    Elt 8 (member)            1.3956e-01  1.3888e-01  1.4021e-05  3.5764e-03  3.5918e-03  4.3837e-01
+    (a ratio BELOW 1 is intra-group COMPENSATION -- the members' responses
+     partly cancel when they move as one body.  A ratio at ~19, the member
+     count, is a rigid motion adding up, which is equally expected.)
