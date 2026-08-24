@@ -51,7 +51,18 @@ rotation).  Fixed in `macos.design.Telescope` — see the LOG and
 | `s2_segmentation.m` | `s1_telescope.in` | 19-segment primary with physical apertures: `s2_segmented.{in,Hx.m}`, footprint/aperture + view figures, `s2_report.txt` |
 | `s3_backend.m` | `s1_telescope.in` | the 4-OAP coronagraph relay, built in METRES and SPLICED onto the telescope (`macos.design.append_rx`) so one train carries a telescope perturbation to a contrast number: `s3_{back,full}.in`, `s3_shroud.png`, `s3_report.txt` |
 
+| `s3_coro.m` | `s3_backend` on both primaries | the APLC scored on the segmented AND monolithic trains, so the gap cost is a measured difference: `s3_{seg,mono}_prop.in`, `s3_{seg,mono}_aplc.png`, `s3_contrast.png`, `s3_coro_report.txt` |
+
 (S4–S6 land as the campaign proceeds.)
+
+**Deferred coronagraph capability (Dave, 2026-08-24).**  The `ctb` model
+carries DM1, DM2, apodizer, mask, Lyot stop and a field stop; this back
+end carries apodizer / mask / Lyot only.  The contrast here is therefore
+an OPEN-LOOP number -- what the optics deliver, not what a
+wavefront-control loop would hold -- and the dark zone is not the
+annulus two DMs would give.  Both are existing `Bench` primitives and
+existing `prop_layout` station kinds, so the extension is parameter
+work.
 
 ## Why this designer
 

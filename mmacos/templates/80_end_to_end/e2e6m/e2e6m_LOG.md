@@ -792,3 +792,28 @@ advantage, and the gaps erase it.
 segmented aperture (a segmented-APLC / SCDA design) is out of scope.
 8.700e-07 is what a CLEAR-PUPIL APLC does on a segmented pupil, and the
 2390x is the size of the prize a segmented design would be chasing.
+
+### Deferred (Dave, 2026-08-24): a more capable coronagraph
+
+The `ctb` model carries **DM1, DM2, apodizer, focal mask, Lyot stop and
+a FIELD STOP**.  The e2e6m back end currently carries apodizer / mask /
+Lyot only -- enough to score the APLC and to give S4/S5 a real
+coronagraph exit pupil, and that is where this stage stops for now.
+
+What is missing and why it matters:
+
+- **DM1 + DM2** are the reason a coronagraph has a controllable dark
+  zone at all.  Without them the contrast here is an OPEN-LOOP number:
+  it is what the optics deliver, not what a wavefront-control loop would
+  hold.  Two DMs also make the dark zone ANNULAR rather than one-sided
+  (see the dark-zone-geometry note in the agent memory), which changes
+  what the 3-15 lambda/D annulus even means.
+- **A field stop** at the post-mask focus removes the light scattered
+  outside the science field before it reaches the detector.
+
+Both are `Bench` primitives already (`add_mirror` on the collimated
+pupil for the DMs, `add_reference` for the field stop) and both are
+`prop_layout` station kinds already ('optic' and 'focus'), so the
+topology extension is parameter work, not new machinery.  The APLC
+numbers above stand as the open-loop baseline that a DM-controlled
+version will be measured against.
