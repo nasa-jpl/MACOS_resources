@@ -518,7 +518,16 @@ end
 end
 
 function p = fullpath_(p)
-if ~startsWith(p, '/'), p = fullfile(pwd, p); end
+%FULLPATH_  Absolute form of P.  The absoluteness test must be
+%   platform-correct: a bare startsWith(p,'/') reads a Windows
+%   'C:\...' as RELATIVE and prepends pwd, producing 'cwd\C:\...'
+%   (Luis, 2026-08-24 -- run_dwdx_5zoom_5fov crashed on Windows while
+%   Linux, where every absolute path starts with '/', never saw it).
+%   Absolute here = leading / or \ (POSIX / drive-rooted), X:\ or X:/
+%   (Windows drive), or \\server (UNC, via the leading-\ case).
+if isempty(regexp(p, '^([/\\]|[A-Za-z]:[/\\])', 'once'))
+    p = fullfile(pwd, p);
+end
 end
 
 function o = run_channel_(fn, tag, cfgs, resume_dir, say)
