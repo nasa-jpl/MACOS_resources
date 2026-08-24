@@ -124,7 +124,10 @@ function out = e2e6m_shroud_fig(t, png, opts)
     xlim(ax2, ze);  ylim(ax2, dy + [-1.35*Rg 1.35*Rg]);
 
     if ~isempty(opts.title)
-        try, sgtitle(f, opts.title, 'FontWeight','bold'); catch, end
+        try
+            sgtitle(f, opts.title, 'FontWeight','bold');
+        catch
+        end
     end
     saveas(f, png);
     if ~opts.visible, close(f); end
