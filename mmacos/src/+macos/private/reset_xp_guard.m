@@ -42,6 +42,54 @@ function varargout = reset_xp_guard(action, varargin)
 %   supervisors -- one identifier family for the whole reset_xp behavior.
 
 switch action
+    case 'pupil_find'
+        % pf = reset_xp_guard('pupil_find', session, Ffield, stop_elt,
+        %                     xp_elt, pf_opts)
+        % ONCE-PER-CONFIGURATION placement of the cone-convergence
+        % best-fit exit-pupil sphere (design/src/pupil_find), for
+        % reset_xp_method='pupil_find'.  A configuration lives in ENGINE
+        % STATE, not the deck file, so the CONFIGURED state is saved to a
+        % temp deck first; pupil_find then loads THAT deck, places the
+        % sphere, and leaves the session on the configured geometry with
+        % the sphere at xp_elt and the stop re-set at stop_elt (its own
+        % macos.stop call) -- exactly the state the field loop needs.
+        % The caller runs its field loop with the per-field 'fex' reset
+        % OFF: the placed sphere is a FROZEN, field-set-wide reference
+        % (an upgrade of the frozen-EP mode, NOT a per-field re-reference).
+        session  = varargin{1};
+        Ffield   = varargin{2};
+        stop_elt = varargin{3};
+        xp_elt   = varargin{4};
+        pf_opts  = varargin{5};
+        if isempty(stop_elt) || ~isscalar(stop_elt) || stop_elt < 1
+            error('macos:dw_dx_multi:pfNeedsStopElt', ...
+                  ['reset_xp_method=''pupil_find'' requires ''stop_elt'' ' ...
+                   '(pupil_find sets the engine stop AT that element; an ' ...
+                   'object-space ApStop deck is not supported by this ' ...
+                   'method yet).']);
+        end
+        if size(Ffield, 1) < 3
+            error('macos:dw_dx_multi:pfNeedsFields', ...
+                  ['reset_xp_method=''pupil_find'' needs >= 3 field ' ...
+                   'points (the cone aperture IS the field set; %d given).'], ...
+                  size(Ffield, 1));
+        end
+        if exist('pupil_find', 'file') ~= 2
+            error('macos:dw_dx_multi:pfNotOnPath', ...
+                  ['pupil_find is not on the path -- addpath ' ...
+                   '<mmacos>/design/src (run_sensitivities does this ' ...
+                   'automatically when the method is selected).']);
+        end
+        tmp = [tempname '.in'];
+        cu  = onCleanup(@() delete_silent_(tmp));
+        macos.save_rx(tmp);                    % the CONFIGURED state
+        pf = pupil_find(tmp, Ffield, 'ep_elt', stop_elt, ...
+                        'xp_elt', xp_elt, 'place', true, ...
+                        'init', false, pf_opts{:});
+        session.modify();
+        varargout{1} = pf;
+        return
+
     case 'is_powered'
         session = varargin{1};
         ep   = session.num_elt() - 1;
@@ -131,4 +179,8 @@ function tf = ep_states_equal_(a, b)
 tf = norm(a.vpt(:) - b.vpt(:)) <= 1e-9 * max(1, norm(b.vpt(:))) ...
    && norm(a.psi(:) - b.psi(:)) <= 1e-12 ...
    && abs(a.rad - b.rad)        <= 1e-9 * max(1, abs(b.rad));
+end
+
+function delete_silent_(p)
+if exist(p, 'file') == 2, delete(p); end
 end

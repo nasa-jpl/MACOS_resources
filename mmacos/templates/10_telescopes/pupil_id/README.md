@@ -40,9 +40,12 @@ single-chief-ray engine FEX, wrapped by `reset_xp_guard`), called fresh per
 field and per configuration.  The two mechanisms are different jobs, not
 rivals: `fex` is the cheap placement a harvest calls hundreds of times;
 `pupil_find` is the cone-convergence surface FIT run once per design (this
-template) to identify and place the better sphere.  Adopting `pupil_find`
-as an optional `reset_xp_method` in the supervisors is a possible
-follow-on, not current behavior.
+template) to identify and place the better sphere.  **Shipped 2026-08-25 (Luis's request):** `pupil_find` is now a real
+`reset_xp_method` in all four supervisors and `run_sensitivities` --
+`'pupil_find'` places the fitted sphere ONCE per configuration (the cone
+aperture IS the field set) and freezes it across the field loop: a
+best-fit upgrade of the frozen-EP mode, not a per-field re-reference.
+Requires `stop_elt`.
 
 ## The two XP radii — do not conflate
 
