@@ -46,6 +46,8 @@ function out = ctb_dm_jacobian(opts)
         opts.inner_lamD (1,1) double = 3.0
         opts.outer_lamD (1,1) double = 15.0
         opts.chain      (1,:) cell = {}
+        opts.tag        (1,:) char = ''
+        opts.a0         (1,:) cell = {}
         opts.save       (1,1) logical = true
         opts.outdir     (1,:) char = ''
         opts.verbose    (1,1) logical = true
@@ -60,12 +62,16 @@ function out = ctb_dm_jacobian(opts)
                    opts.chain{:});
     ndm = numel(opts.dms);
     dm = cell(1, ndm);
+    if isempty(opts.a0)
+        opts.a0 = arrayfun(@(~) zeros(opts.nact^2, 1), 1:ndm, ...
+                           'UniformOutput', false);
+    end
     for k = 1:ndm
         j = opts.dms(k);
         dm{k} = ctb_dm('ielt', r.ielt(j), 'ng', r.ng, 'gdx_mm', r.gdx_mm(j), ...
                        'nact', opts.nact, 'beam_d_mm', opts.beam_d_mm, ...
                        'coupling', opts.coupling);
-        dm{k}.clear();
+        dm{k}.apply(opts.a0{k});          % linearization point (flat default)
     end
 
     % ---- dark zone + nominal field -------------------------------------
@@ -85,9 +91,8 @@ function out = ctb_dm_jacobian(opts)
     t0 = tic;  c = 0;
     for k = 1:ndm
         acts = find(dm{k}.active).';
-        a = zeros(dm{k}.nact^2, 1);
         for j = acts
-            a(:) = 0;  a(j) = h;
+            a = opts.a0{k};  a(j) = a(j) + h;
             dm{k}.apply(a);
             E = ch.run();
             c = c + 1;
@@ -99,7 +104,7 @@ function out = ctb_dm_jacobian(opts)
                     c, ncol, el, el/c, el/c*(ncol-c)/60);
             end
         end
-        dm{k}.clear();
+        dm{k}.apply(opts.a0{k});
     end
     dt = toc(t0);
     fprintf('[jac] done: %d pokes in %.1f min (%.2f s/poke)\n', ncol, dt/60, dt/ncol);
@@ -117,9 +122,11 @@ function out = ctb_dm_jacobian(opts)
         'lamD_px',ch.lamD_px, 'center_px',ch.center_px, 'N',ch.N, ...
         'dm',dmgeo, 'h_mm',h, 'inner_lamD',opts.inner_lamD, ...
         'outer_lamD',opts.outer_lamD, 'contrast0',c0, ...
+        'chain_opts',{ch.config}, 'a0',{opts.a0}, 'tag',opts.tag, ...
         'rx',ch.rx, 'timing_s',dt, 'date',datestr(now)); %#ok<TNOW1,DATST>
     if opts.save
-        mat = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d.mat', ch.N));
+        tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
+        mat = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d%s.mat', ch.N, tg));
         save(mat, '-struct', 'out', '-v7.3');
         try
             meta = struct('rx', out.rx, 'h_mm', h, 'model_size', ch.N, ...
