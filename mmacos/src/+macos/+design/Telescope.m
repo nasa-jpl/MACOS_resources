@@ -710,6 +710,27 @@ classdef Telescope < handle
             rx = obj.build(path, 'validate', false);
         end
 
+        function declare_apertures(obj, names)
+        %DECLARE_APERTURES  Restrict which elements emit a hard aperture.
+        %   T.DECLARE_APERTURES({'M1'}) makes the emitted .in carry an
+        %   ApType/ApVec ONLY on the named elements; every other element
+        %   emits ApType=None.  T.DECLARE_APERTURES({}) declares none.
+        %   Not calling it at all leaves the default policy untouched.
+        %
+        %   WHY THIS EXISTS.  The default fallback stamps a vertex-centred
+        %   Circular stop at e.ap_r on any powered on-axis mirror, and
+        %   e.ap_r is the design-phase BODY radius -- for a 6 m primary
+        %   that is ~3 m on EVERY mirror, including secondaries whose beam
+        %   footprint is ~0.2 m.  Harmless to rays (nothing clips at 15x
+        %   the beam) and invisible in the numbers, but the declaration is
+        %   fiction: view_rx faithfully draws declared apertures, so the
+        %   layout figure shows primary-sized domes where the real optics
+        %   are, and a downstream consumer that trusts ApVec is misled.
+        %   A design solved apertures-off should SAY it carries none.
+            arguments, obj, names (1,:) cell = {}, end
+            obj.spec.declare_apertures = names;
+        end
+
         function save_spec(obj, path)
         %SAVE_SPEC  Persist the design spec struct (re-loadable, §2 Stage 6).
             arguments, obj, path (1,:) char, end
@@ -3060,7 +3081,16 @@ classdef Telescope < handle
                 offaxis = (by ~= 0) || (apst(2) ~= 0);
                 hasRect = isfield(e,'ap_rect') && ~isempty(e.ap_rect);
                 hasCirc = isfield(e,'ap')      && ~isempty(e.ap);
-                if hasRect
+                % An explicit declare_apertures list wins over everything
+                % below, INCLUDING a realized aperture: the caller has
+                % said which elements carry a declaration, and silently
+                % re-adding one would defeat the point.
+                suppressed = isfield(sp,'declare_apertures') && ...
+                             iscell(sp.declare_apertures) && ...
+                             ~any(strcmp(sp.declare_apertures, e.name));
+                if suppressed
+                    L{end+1} = '           ApType=  None';                           %#ok<AGROW>
+                elseif hasRect
                     L{end+1} = '           ApType=  Rectangular';                    %#ok<AGROW>
                     L{end+1} = ['            ApVec=  ' sprintf('%.16E  %.16E  %.16E  %.16E', ...
                                 e.ap_rect(1),e.ap_rect(2),e.ap_rect(3),e.ap_rect(4))]; %#ok<AGROW>

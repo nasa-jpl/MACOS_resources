@@ -1239,3 +1239,131 @@ immediately usable, since the LP itself is validated.
    pre-existing gate).  `ctb_aplc` gained `'apodizer'` and `'skip_blc'`;
    `ctb_apod_prolate` gained `'support'`.  All three default to the
    previous behaviour exactly.
+
+---
+
+## 2026-08-25 — close-out 1: the phantom apertures Dave caught
+
+`s2_segmented_views.png` drew M2 and M3 as primary-sized domes, and the
+figure was right: the DECK said so.
+
+### What was actually wrong
+
+`Telescope`'s emitter has a fallback that stamps a vertex-centred
+`ApType=Circular / ApVec=e.ap_r` on any powered on-axis mirror.  `ap_r`
+is the design-phase BODY radius, which on a 6 m telescope is ~3 m on
+EVERY mirror.  Measured footprints on the real deck:
+
+| element | traced footprint radius | old declaration | fiction |
+|---|---|---|---|
+| M1 | 3.0108 m | 3.3 m | 1.1x (honest margin) |
+| M2 | 0.2740 m | 3.0 m | **11x** |
+| M3 | 0.0138 m | 3.0 m | **218x** |
+
+One correction to the brief's description, from the file rather than
+from memory: only **M2 and M3** carried the fiction.  `FP_return`,
+`ExitPupil` and `FP` already emitted `ApType=None` — the Return and
+FocalPlane branches of the same chain were already right.  So the fix
+is two elements wide, not six.
+
+Nothing clipped (a 3 m stop around a 0.27 m beam is not a stop), which
+is exactly why it survived: no ray moved, no number moved, and the only
+thing that ever complained was a picture.  **The graphics gate is the
+one that fired.**
+
+### The fix
+
+A new public `Telescope.declare_apertures(names)`: only the named
+elements emit a hard aperture, everything else emits `ApType=None`.  It
+wins over a realized aperture too — a caller who says "this element
+carries no declaration" should not be quietly overridden.  Not calling
+it leaves the default policy untouched, so the rodgers1 corpus and every
+other design are unaffected.  `s1_telescope` now calls
+`t.declare_apertures({'M1'})`, which is aperture rule 1 said out loud:
+this design is solved apertures-off, apertures enter at S2 (segmentation,
+for the PM) and S3 (`aperture_full_field`, for the rest).
+
+### Gates
+
+- **The regenerated views render M2/M3 at footprint scale.**  The domes
+  are gone; M2 is a small disc near the focus and M3 a sliver, against a
+  19-segment primary that now dominates the frame as it should.
+- **Reload ray count UNCHANGED**: 1185/1185 on the telescope,
+  983/985 on the segmented deck.
+- **Downstream unchanged, and not by assertion**: S1, S2 and S3 reports
+  regenerated and diffed against the pre-fix copies.  All three are
+  **byte-identical apart from their wall-clock line** — including the
+  S3 contrast table and the 2389.80x gap ratio.  S4 and S5 were
+  therefore NOT re-run: every measured quantity on the path into them is
+  bit-identical, so 35 minutes of regen would have reproduced their
+  inputs exactly.
+
+## 2026-08-25 — close-out 2: the imager leg
+
+The demo's second instrument.  From the shared collimated pupil a
+pick-off sends the beam to its own camera:
+
+    ... telescope ... -> OAP1 (collimate) -> shared pupil
+      -> PICK-OFF fold -> OAP_IM (f 0.90 m) -> imager detector
+
+### A deployable pick-off, not a beamsplitter, and why
+
+A permanent beamsplitter sits in the beam always, so the CORONAGRAPH
+deck would have to carry its two transmitting surfaces — which changes
+`s3_seg_full.in` and invalidates the S4 sensitivities and the S5 series
+already built on it.  The brief allows "a post-pupil fold if a
+beamsplitter fights the packaging", and here it fights.  So the two
+instruments are two CONFIGURATIONS of one observatory (pick-off in /
+pick-off out) — an ordinary instrument idiom — and both legs are counted
+in the shroud gate regardless of which is deployed.  The pick-off folds
+in the chief-Y plane while the coronagraph's OAPs all fold in chief-X,
+so the legs separate instead of competing for the same annulus.
+
+### Numbers
+
+- shared collimated pupil **47.3 mm** (f/25.39 into a 1.20 m collimator);
+  measured at the marker as 0.023747 m radius against 0.023633 asked,
+  0.5% — PASS.
+- camera f 0.90 m -> **f/19.0**, lambda/D **9.52 um** at the imager
+  focus, Nyquist on a 5 um pixel.
+- geometric spot radius at the detector **0.87 um**, i.e. lambda/D is
+  11x larger — the image is diffraction-dominated, not aberration-
+  dominated.
+- **rms WFE 0.0042 waves @ 500 nm, Strehl 0.9993**, at the IMAGER leg's
+  own exit pupil, piston+tip/tilt removed, Strehl exact from the OPD
+  (never a pixel-peak ratio).  Diffraction limit 0.071 waves — PASS by
+  17x.  (S1's 0.0473 waves is the telescope-only record at the
+  TELESCOPE best-focus XP: a different anchor, quoted for reference.)
+- ray count **983/985 — identical to the telescope alone**: the leg
+  loses nothing.
+
+### The shroud, and a measurement bug worth recording
+
+First pass reported 7.448 m for both legs where S3's committed number is
+7.451 m.  Three millimetres, and entirely a METHOD difference: I had
+written a second radial-extent rule that also excluded `Element=Reference`
+and measured max ray radius instead of `hypot(centre)+footprint`.  Two
+shroud numbers measured two ways is how a demo ends up quoting 7.451 on
+one slide and 7.448 on the next.
+
+Promoted S3's rule to **`design/src/shroud_deck.m`** and switched BOTH
+runners to it; S3 re-ran and reproduced **7.451 m** exactly.  The helper
+also takes `'extra'` decks and returns the union.
+
+**Result: imager leg 7.451 m, coronagraph leg 7.451 m, union 7.451 m
+against the 8.0 m gate — PASS.**  The union EQUALS each leg because the
+6 m primary sets the envelope and both instrument legs are
+centimetre-class: **the second instrument costs nothing in shroud
+diameter.**  That is the demo point, and it is measured rather than
+asserted.
+
+A figure bug caught on the way: plotting both decks in full painted the
+second leg exactly over the first (they share ~all their elements), so
+the figure showed one leg while the legend claimed two.  `shroud_deck`
+now draws later decks' UNIQUE elements only, plus a zoom inset on the
+instrument cluster — which is a few pixels at 6 m scale otherwise.
+
+### Suites
+
+`tApertureFrame` + `tAppendRx` + `tPropLayout`: **11 passed, 0 failed,
+0 incomplete.**

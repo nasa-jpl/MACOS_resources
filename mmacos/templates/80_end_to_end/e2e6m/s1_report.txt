@@ -39,4 +39,4 @@ apertures OFF (rule 1); clearance from check_clipping footprints
 
 [7] design report -> s1_design_report.txt
 
-S1 DONE in 9.3 min
+S1 DONE in 7.8 min

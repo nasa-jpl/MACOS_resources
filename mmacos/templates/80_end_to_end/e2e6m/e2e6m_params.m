@@ -182,6 +182,25 @@ function P = e2e6m_params(over)
                                    % eigenvalue's physical bound of 1, and
                                    % flags itself unconverged.  This pupil
                                    % converges at 2387 (Lambda0 0.999994).
+    % ---- S3c: the imager leg (the demo's second instrument) -----------
+    % A DEPLOYABLE PICK-OFF at the shared collimated pupil, not a
+    % beamsplitter: a permanent BS would put two transmitting surfaces in
+    % the coronagraph deck, which would invalidate the S4 sensitivities
+    % and the S5 series already built on it.  Two configurations of one
+    % observatory, both counted in the shroud gate.
+    P.im.f_cam      = 0.90;     % camera focal length, m -> f/19 on the
+                                % 47 mm shared pupil, lambda/D ~ 9.5 um,
+                                % Nyquist on a 5 um pixel
+    P.im.aoi_deg    = 6;        % pick-off and camera fold AOI (matches
+                                % the coronagraph leg's 6 deg)
+    P.im.d_pick     = 0.15;     % shared pupil -> pick-off
+    P.im.d_cam      = 0.25;     % pick-off -> camera OAP
+    P.im.strehl_min = 0.80;     % image-quality gate
+    P.im.s1_wfe_ref = 0.0473;   % S1's telescope-only record at the
+                                % TELESCOPE best-focus XP, reprinted for
+                                % reference -- a DIFFERENT anchor from
+                                % this stage's imager-leg exit pupil
+
     % ---- S3b: the LP apodizer (Carlotti/Vanderbei/Kasdin) -------------
     % Targets are a LADDER, not a single number: the LP is always
     % feasible (A=0 is), so a pupil that cannot reach a target does not
