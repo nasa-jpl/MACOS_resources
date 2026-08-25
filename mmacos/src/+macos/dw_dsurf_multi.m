@@ -222,10 +222,21 @@ if opts.reset_xp && use_pf
     % aperture IS the field set), then run the field loop with the
     % per-field FEX reset OFF.  A frozen, best-fit exit pupil: the
     % per-field tilt reference behaves as reset_xp=false always has.
+    % Restore the NOMINAL source before the fit: the previous
+    % configuration's field loop leaves the session at its LAST field, and
+    % save_rx would bake that direction into the temp deck -- pupil_map
+    % derives its probe standoff from the saved deck's source, so every
+    % configuration after the first got one identical, polluted placement
+    % (measured: cfgs 2..5 dep_rms 5.5e-3 vs 1.9e-3 clean, nominal rows
+    % identical).  Gated by tPupilFindMethod/
+    % test_config_sphere_is_independent_of_predecessors.
+    session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
+                        'zSrc', nom.zSrc);
+    session.modify();
     Fpf = zeros(n_fields, 2);
     for kf = 1:n_fields, Fpf(kf,:) = [fields(kf).dx, fields(kf).dy]; end
     pf_ic = reset_xp_guard('pupil_find', session, Fpf, opts.stop_elt, ...
-                           session.num_elt() - 1, opts.pupil_find_opts);
+                           session.num_elt() - 1, opts.pupil_find_opts, xp0);
     reset_ep_moved = true;              % placed by construction
     fprintf(['[pupil_find] sphere placed: vtx moved %.3g from FEX, ' ...
              'dep_rms %.3g, conv R %.4g\n'], ...
