@@ -23,14 +23,14 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm, referenced to the e
 ![The segmented telescope: 19 hexagons on the primary, feeding the same fold train.](deckfig/s2_iso.png){h=2.9}
 ![Traced footprints against the emitted aperture polygons. Colour is the segment a ray landed on; black is the declared glass.](deckfig/s2_segmented_footprints.png){h=3.2}
 
-## The instrument | One prescription, 29 elements, and 1 mm of extra shroud diameter
+## Two instruments | A second camera costs nothing in shroud diameter
 ::: left
-- **The train.** A four-mirror relay off the telescope focus: collimate to an accessible pupil, focus to the mask, re-collimate to the Lyot stop, focus to the detector. Spliced onto the segmented telescope as 29 elements of one prescription — not a second model.
-- **Why one train.** Only a single model carries a telescope perturbation through to a contrast number. That is what stages four and five then use.
-- **It fits.** 7.451 m against the 8 m shroud, 983 rays through, and the relay lives inside the annulus the fold optics already occupy.
-- **It is faithful.** The chief ray through the diffraction model agrees with the geometric one to 1.2e-15 m.
+- **The coronagraph.** A four-mirror relay off the telescope focus: collimate to an accessible pupil, focus to the mask, re-collimate to the Lyot stop, focus to the detector. Spliced onto the segmented telescope as 29 elements of one prescription — not a second model. Only a single model carries a telescope perturbation through to a contrast number, which is what stages four and five need.
+- **The imager.** A deployable pick-off at the shared pupil feeds its own f/19 camera: 0.0042 waves RMS, Strehl 0.9993, and a 0.87 µm geometric spot against a 9.5 µm diffraction core — the image is limited by diffraction, not by the optics.
+- **Both fit.** 7.451 m against the 8 m shroud, for either leg and for the two together. The 6 m primary sets the envelope; the instruments are centimetre-class.
+- **The models are faithful.** The chief ray through the diffraction model agrees with the geometric one to 1.2e-15 m, and the imager leg loses no rays the telescope did not already lose (983/985).
 ::: right
-![The folded observatory seen down the launch axis, inside the 8 m shroud circle.](deckfig/s3_seg_shroud.png){h=4.6}
+![Both legs down the launch axis, inside the 8 m shroud circle. The instrument optics are the inset — at this scale they are a few pixels.](deckfig/s3_imager_shroud.png){h=4.6}
 
 ## What the segment gaps cost the coronagraph | 2390× in dark-zone contrast, same mask on both apertures
 ::: left
@@ -78,7 +78,7 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm, referenced to the e
 - **Assembly-level freedoms behave differently from their members** — by a factor 31 in one direction and 111004 in another — and the model shows which.
 - **Every gate is in the record.** Where something did not close, the deck says so and prices it.
 ::: right
-![The modelled observatory: 19 segments, three telescope mirrors and the instrument relay, in one prescription.](deckfig/s3_iso.png){h=4.4}
+![The modelled observatory: the 19-segment primary and the beam it feeds, in one prescription. The secondaries and the instrument optics are decimetre- and centimetre-class and do not resolve at 6 m scale.](deckfig/s3_iso.png){h=4.4}
 
 ## Backup Slides
 
@@ -107,6 +107,35 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm, referenced to the e
 | Tz | 4.466e-10 | 4.440e-10 | 0.00614 |
 ~ RMS wavefront change, in metres, for a 1 nm / 1 nrad poke of a single segment. Open item: two untested candidates remain — the focal-plane tracking used when the sensitivities were harvested, and the real-ray stop aiming, which would explain why the centre segment — the one the chief ray lands on — is the anomalous case.
 
+## What the segment gaps cost, and what does not buy it back | The redesign recovers 1.10×
+::: left
+- **The attempt.** Redesign the apodizer for the segmented pupil two ways: the globally optimal transmission mask from a linear program, and the aperture-specific version of the same eigenfunction the incumbent uses.
+- **Neither beats the incumbent.** The aperture-specific mask recovers 1.10× in dark-zone mean and 0.57× in median, at 0.73× the throughput. No rung of the linear program beat it either.
+- **Why, measured.** The design model is a single Fourier transform; the real back end is a multi-leg chain. It reproduces the bare image to 1.2% but floors near 4e-06 against the engine — five times above the contrast the incumbent already reaches.
+- **A negative result, priced.** The gap penalty is real and an apodizer alone does not remove it. What would fix it is a design operator matching the propagation it is scored against — queued, not attempted here.
+::: right
+| configuration | dark-zone mean | throughput |
+|---|---|---|
+| bare segmented (baseline) | 8.700e-07 | 0.100 |
+| aperture-specific mask | 7.909e-07 | 0.073 |
+| linear-program mask | 1.505e-06 | 0.175 |
+| clear-pupil reference | 3.640e-10 | 0.100 |
+~ Same plane, same mask geometry, same 3–15 λ/D annulus as the main-path number.
+
+## How to tell an optimizer is mining its model | The disagreement grows 4.8× → 40.0× as you push it
+::: left
+- **The design model and the engine are not the same code.** One is a single Fourier transform, the other propagates the real multi-leg chain. Ask the optimizer for a deeper dark zone and it spends the difference.
+- **The pattern is the diagnosis.** A fixed offset would be a calibration error. An offset that grows monotonically with the demand is the optimizer finding more of the model's error the harder it is pushed — and it shows up without knowing the true answer.
+- **Isolated in six experiments.** The bare image agrees to 1.2%; the engine applies the mask with residual exactly zero; every diffraction ring lands at the right radius; and feeding the engine's own post-mask field back through the model still lands on the model's floor.
+- **Worth reusing.** Any time a design model is cheaper than the simulator it feeds, run the ladder and watch the trend rather than a single agreement number.
+::: right
+| LP target | model says | engine says | apart by |
+|---|---|---|---|
+| 1e-05 | 1.13e-06 | 5.37e-06 | 4.8× |
+| 3e-06 | 1.92e-07 | 2.61e-06 | 13.6× |
+| 1e-06 | 3.77e-08 | 1.50e-06 | 40.0× |
+~ Dark-zone mean, bare-peak normalised. The model's floor near 4e-06 sits five times above the 8.70e-07 the incumbent already reaches.
+
 ## What is not in this model | Stated, not omitted
 - **No deformable mirrors and no field stop.** The reference testbed model carries both. Without them the contrast here is an open-loop number — what the optics deliver, not what a wavefront-control loop would hold — and the dark zone is not the annulus two deformable mirrors would give.
 - **No metrology loop.** The correction in the drift series is image-based: it sees the wavefront directly rather than estimating it from a truss. The corrected leg is therefore an optimistic bound.
@@ -116,7 +145,7 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm, referenced to the e
 ## How to reproduce | Every number on these slides comes from these runs
 - `s1_layout_search` then `s1_telescope` — the layout pick and the telescope.
 - `s2_segmentation` — the segmented primary and its edge-sensor sidecar.
-- `s3_backend`, `s3_train_fig` then `s3_coro` — the instrument, its layout render, and the coronagraph on both apertures.
+- `s3_backend`, `s3_train_fig`, `s3_coro`, `s3_imager` then `s3b_pupil` + `s3b_apodizer` — the two instruments, the coronagraph on both apertures, and the apodizer redesign.
 - `s4_sensitivities` — the error budget, roughly half an hour.
 - `s5_timeseries` — the drift series.
 - `python3 deck_e2e6m.py` — this deck, from the reports those runs wrote.

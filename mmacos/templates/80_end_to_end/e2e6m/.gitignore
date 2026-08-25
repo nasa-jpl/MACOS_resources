@@ -1,3 +1,4 @@
 deckfig/
 __pycache__/
 .~lock.*#
+run*.log

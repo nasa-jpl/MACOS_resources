@@ -24,6 +24,7 @@ BUILDER = os.path.join(HERE, "..", "..", "..", "challenges", "rodgers3",
                        "make_brief_slides.py")
 
 s1, s2, s3, s4, s5 = R.s1(), R.s2(), R.s3(), R.s4(), R.s5()
+s3b, s3c = R.s3b(), R.s3c()
 
 def crop(name, pad=6):
     """Autocrop a committed stage figure's white margins (DECK_STYLE Figures).
@@ -70,11 +71,20 @@ def crop_panel(name, box, out):
 FIG = {n: crop(n) for n in ("s1_layout.png", "s1_wfe_field.png",
                             "s2_segmented_footprints.png", "s3_seg_shroud.png",
                             "s3_contrast.png", "s5_series.png",
-                            "s4_svspec.png")}
+                            "s4_svspec.png", "s3_imager_shroud.png",
+                            "s3b_apodizer.png")}
+# The panel-title band sits at y 0.524-0.532 and the panel's own ink runs
+# 0.567-0.863 over x 0.004-0.487; crop just below the title so the slide
+# caption is not duplicated inside the figure.  These fractions are
+# MEASURED from the current render -- when the underlying 4-view changes,
+# re-measure rather than nudge (a stale box silently clips the optics).
 FIG["s2_iso.png"] = crop_panel("s2_segmented_views.png",
-                               (0.07, 0.605, 0.47, 0.92), "s2_iso.png")
+                               (0.00, 0.545, 0.50, 0.90), "s2_iso.png")
+# Panel title band 0.299-0.315, panel ink 0.356-0.655 -- measured on the
+# CURRENT render (the aperture fix changed the drawn bodies, which moved
+# the panel; a stale box was still showing the phantom domes).
 FIG["s3_iso.png"] = crop_panel("s3_train_iso.png",
-                               (0.09, 0.262, 0.46, 0.80), "s3_iso.png")
+                               (0.05, 0.330, 0.50, 0.70), "s3_iso.png")
 
 
 LAM = "λ"
@@ -115,14 +125,14 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm, r
 ![The segmented telescope: 19 hexagons on the primary, feeding the same fold train.]({FIG['s2_iso.png']}){{h=2.9}}
 ![Traced footprints against the emitted aperture polygons. Colour is the segment a ray landed on; black is the declared glass.]({FIG['s2_segmented_footprints.png']}){{h=3.2}}
 
-## The instrument | One prescription, {s3['nelt']} elements, and {(s3['shroud_m']-s1['shroud_m'])*1000:.0f} mm of extra shroud diameter
+## Two instruments | A second camera costs nothing in shroud diameter
 ::: left
-- **The train.** A four-mirror relay off the telescope focus: collimate to an accessible pupil, focus to the mask, re-collimate to the Lyot stop, focus to the detector. Spliced onto the segmented telescope as {s3['nelt']} elements of one prescription -- not a second model.
-- **Why one train.** Only a single model carries a telescope perturbation through to a contrast number. That is what stages four and five then use.
-- **It fits.** {s3['shroud_m']:.3f} m against the {s3['shroud_gate']:.0f} m shroud, {s3['rays_pass']} rays through, and the relay lives inside the annulus the fold optics already occupy.
-- **It is faithful.** The chief ray through the diffraction model agrees with the geometric one to {s3['seg']['chief']:.1e} m.
+- **The coronagraph.** A four-mirror relay off the telescope focus: collimate to an accessible pupil, focus to the mask, re-collimate to the Lyot stop, focus to the detector. Spliced onto the segmented telescope as {s3['nelt']} elements of one prescription -- not a second model. Only a single model carries a telescope perturbation through to a contrast number, which is what stages four and five need.
+- **The imager.** A deployable pick-off at the shared pupil feeds its own f/{s3c['fno']:.0f} camera: {s3c['wfe']:.4f} waves RMS, Strehl {s3c['strehl']:.4f}, and a {s3c['spot_um']:.2f} {MU}m geometric spot against a {s3c['lamD_um']:.1f} {MU}m diffraction core -- the image is limited by diffraction, not by the optics.
+- **Both fit.** {s3c['shroud']:.3f} m against the {s3['shroud_gate']:.0f} m shroud, for either leg and for the two together. The {s1['D_m']:.0f} m primary sets the envelope; the instruments are centimetre-class.
+- **The models are faithful.** The chief ray through the diffraction model agrees with the geometric one to {s3['seg']['chief']:.1e} m, and the imager leg loses no rays the telescope did not already lose ({s3c['rays']}/{s3c['rays_tot']}).
 ::: right
-![The folded observatory seen down the launch axis, inside the 8 m shroud circle.]({FIG['s3_seg_shroud.png']}){{h=4.6}}
+![Both legs down the launch axis, inside the 8 m shroud circle. The instrument optics are the inset -- at this scale they are a few pixels.]({FIG['s3_imager_shroud.png']}){{h=4.6}}
 
 ## What the segment gaps cost the coronagraph | {s3['ratio_mean']:.0f}× in dark-zone contrast, same mask on both apertures
 ::: left
@@ -165,7 +175,7 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm, r
 - **Assembly-level freedoms behave differently from their members** -- by a factor {1/s4['ratio'][5]:.0f} in one direction and {s4['ratio'][2]:.0f} in another -- and the model shows which.
 - **Every gate is in the record.** Where something did not close, the deck says so and prices it.
 ::: right
-![The modelled observatory: {s2['nseg']} segments, three telescope mirrors and the instrument relay, in one prescription.]({FIG['s3_iso.png']}){{h=4.4}}
+![The modelled observatory: the {s2['nseg']}-segment primary and the beam it feeds, in one prescription. The secondaries and the instrument optics are decimetre- and centimetre-class and do not resolve at {s1['D_m']:.0f} m scale.]({FIG['s3_iso.png']}){{h=4.4}}
 
 ## Backup Slides
 
@@ -189,6 +199,33 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm, r
 {CHECKROWS}
 ~ RMS wavefront change, in metres, for a 1 nm / 1 nrad poke of a single segment. Open item: two untested candidates remain -- the focal-plane tracking used when the sensitivities were harvested, and the real-ray stop aiming, which would explain why the centre segment -- the one the chief ray lands on -- is the anomalous case.
 
+## What the segment gaps cost, and what does not buy it back | The redesign recovers {s3b['rec_mean']:.2f}×
+::: left
+- **The attempt.** Redesign the apodizer for the segmented pupil two ways: the globally optimal transmission mask from a linear program, and the aperture-specific version of the same eigenfunction the incumbent uses.
+- **Neither beats the incumbent.** The aperture-specific mask recovers {s3b['rec_mean']:.2f}× in dark-zone mean and {s3b['rec_med']:.2f}× in median, at {s3b['rec_thru']:.2f}× the throughput. No rung of the linear program beat it either.
+- **Why, measured.** The design model is a single Fourier transform; the real back end is a multi-leg chain. It reproduces the bare image to 1.2% but floors near 4e-06 against the engine -- five times above the contrast the incumbent already reaches.
+- **A negative result, priced.** The gap penalty is real and an apodizer alone does not remove it. What would fix it is a design operator matching the propagation it is scored against — queued, not attempted here.
+::: right
+| configuration | dark-zone mean | throughput |
+|---|---|---|
+| bare segmented (baseline) | {s3b['rows'][0]['mean']:.3e} | {s3b['rows'][0]['thru']:.3f} |
+| aperture-specific mask | {s3b['rows'][1]['mean']:.3e} | {s3b['rows'][1]['thru']:.3f} |
+| linear-program mask | {s3b['rows'][2]['mean']:.3e} | {s3b['rows'][2]['thru']:.3f} |
+| clear-pupil reference | {s3b['rows'][3]['mean']:.3e} | {s3b['rows'][3]['thru']:.3f} |
+~ Same plane, same mask geometry, same {s3['inner']:.0f}–{s3['outer']:.0f} {LAM}/D annulus as the main-path number.
+
+## How to tell an optimizer is mining its model | The disagreement grows {s3b['ladder'][0]['div']:.1f}× → {s3b['ladder'][-1]['div']:.1f}× as you push it
+::: left
+- **The design model and the engine are not the same code.** One is a single Fourier transform, the other propagates the real multi-leg chain. Ask the optimizer for a deeper dark zone and it spends the difference.
+- **The pattern is the diagnosis.** A fixed offset would be a calibration error. An offset that grows monotonically with the demand is the optimizer finding more of the model's error the harder it is pushed — and it shows up without knowing the true answer.
+- **Isolated in six experiments.** The bare image agrees to 1.2%; the engine applies the mask with residual exactly zero; every diffraction ring lands at the right radius; and feeding the engine's own post-mask field back through the model still lands on the model's floor.
+- **Worth reusing.** Any time a design model is cheaper than the simulator it feeds, run the ladder and watch the trend rather than a single agreement number.
+::: right
+| LP target | model says | engine says | apart by |
+|---|---|---|---|
+{{LADDER}}
+~ Dark-zone mean, bare-peak normalised. The model's floor near 4e-06 sits five times above the {s3b['rows'][0]['mean']:.2e} the incumbent already reaches.
+
 ## What is not in this model | Stated, not omitted
 - **No deformable mirrors and no field stop.** The reference testbed model carries both. Without them the contrast here is an open-loop number -- what the optics deliver, not what a wavefront-control loop would hold -- and the dark zone is not the annulus two deformable mirrors would give.
 - **No metrology loop.** The correction in the drift series is image-based: it sees the wavefront directly rather than estimating it from a truss. The corrected leg is therefore an optimistic bound.
@@ -198,13 +235,17 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm, r
 ## How to reproduce | Every number on these slides comes from these runs
 - `s1_layout_search` then `s1_telescope` -- the layout pick and the telescope.
 - `s2_segmentation` -- the segmented primary and its edge-sensor sidecar.
-- `s3_backend`, `s3_train_fig` then `s3_coro` -- the instrument, its layout render, and the coronagraph on both apertures.
+- `s3_backend`, `s3_train_fig`, `s3_coro`, `s3_imager` then `s3b_pupil` + `s3b_apodizer` -- the two instruments, the coronagraph on both apertures, and the apodizer redesign.
 - `s4_sensitivities` -- the error budget, roughly half an hour.
 - `s5_timeseries` -- the drift series.
 - `python3 deck_e2e6m.py` -- this deck, from the reports those runs wrote.
 ~ All knobs live in one parameter file. The narrative record -- every question raised, every decision and its result, every gate outcome -- is in the campaign log beside the runners.
 """
 
+LADDER = "".join(
+    f"| {r['target']:.0e} | {r['model']:.2e} | {r['engine']:.2e} | {r['div']:.1f}× |\n"
+    for r in s3b["ladder"]).rstrip()
+MD = MD.replace("{LADDER}", LADDER)
 MD = MD.replace(" -- ", " — ")   # house typography (rodgers3 deck)
 
 md_path = os.path.join(HERE, "deck_e2e6m.md")

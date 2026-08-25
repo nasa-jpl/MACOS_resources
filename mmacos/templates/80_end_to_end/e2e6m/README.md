@@ -56,6 +56,7 @@ rotation).  Fixed in `macos.design.Telescope` — see the LOG and
 | `s3_train_fig.m` | `s3_seg_{full,back}.in` | the S3 layout gate: `s3_train_iso.png` (full train), `s3_back_iso.png` (relay alone) |
 | `s4_sensitivities.m` | `s3_seg_full.in` | `dwdx` (with the 19 segments ALSO perturbed as one rigid body), `dwdz`, `dwdgrid` over 5 fields: `s4_sens.mat` (gitignored, `.fp.json` committed), `s4_run.mat`, `s4_*.png`, `s4_{report,sens_report}.txt` |
 | `s5_timeseries.m` | `s4_run.mat` + `s3_seg_prop.in` | the drift series with a held image-based correction, contrast scored every 5th frame through the APLC chain: `s5_series.png`, `s5_run.mat`, `s5_report.txt` |
+| `s3_imager.m` | `s2_segmented.in` + `s3_seg_full.in` | the IMAGER leg (deployable pick-off -> its own camera) and the two-leg shroud gate: `s3_imager_{leg,full,ep}.in`, `s3_imager_{report.txt,run.mat,shroud.png}` |
 | `s3b_pupil.m` | `s3_seg_prop.in` | the pupil AS TRACED at the apodizer plane + its symmetry: `s3b_pupil.{mat,png}` |
 | `s3b_apodizer.m` | `s3b_pupil.mat` | the LP ladder (every rung engine-scored) + the aperture-specific APLC apodizer: `s3b_{report.txt,run.mat,apodizer.png}` |
 | `deck_e2e6m.py` | every stage REPORT | `deck_e2e6m.{md,pptx}` — DRAFT, generator-built, never hand-edited |
@@ -66,6 +67,26 @@ a wrong slide.  `deck_e2e6m.py` writes the slide markdown and calls the
 committed `challenges/rodgers3/make_brief_slides.py`.  Figures are the
 committed stage PNGs, autocropped (and, for the 4-view renders, one panel
 lifted) into a gitignored `deckfig/` — never redrawn.
+
+**Two instruments, one observatory.**  The coronagraph leg and the imager
+leg share the telescope and the OAP1 collimator and diverge at the shared
+collimated pupil, where a DEPLOYABLE PICK-OFF feeds the imager's own
+f/19 camera.  Not a beamsplitter: a permanent one would put two
+transmitting surfaces in the coronagraph deck and invalidate the S4
+sensitivities and S5 series built on it, so the two instruments are two
+CONFIGURATIONS of one observatory -- and both are counted in the shroud
+gate regardless of which is deployed.  Imager: 0.0042 waves RMS, Strehl
+0.9993 at its own exit pupil.  Shroud: 7.451 m for either leg and for
+the union, against the 8 m gate -- the 6 m primary sets the envelope, so
+**the second instrument costs nothing in shroud diameter**.
+
+**Apertures are declared where they are real.**  `s1_telescope` calls
+`Telescope.declare_apertures({'M1'})`, so only the primary emits a hard
+`ApType/ApVec`.  Without it the emitter's fallback stamps each mirror's
+design-phase BODY radius -- ~3 m on M2 and M3, whose beam footprints are
+0.274 m and 0.014 m.  Nothing clipped, so no ray and no number ever
+moved; the layout FIGURE was the only thing that complained, drawing
+primary-sized domes where the secondaries are.  Graphics are gates.
 
 **S3b: the apodizer redesign did not recover the gap cost, and the
 report says so.**  `design/src/apodizer_lp.m` implements the
