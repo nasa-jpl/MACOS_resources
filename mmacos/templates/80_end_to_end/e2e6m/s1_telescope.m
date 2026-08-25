@@ -210,6 +210,18 @@ function OUT = s1_telescope(over)
     t.add_pupil(numel(t.spec.elt));           % EP emits PropType=FarField
     rxfile  = [tag '_telescope.in'];
     matfile = [tag '_telescope.mat'];
+    % Declare an aperture on the PRIMARY only (aperture rule 1: this
+    % design is solved apertures-off).  Without this the emitter's
+    % fallback stamps a vertex-centred Circular stop at each mirror's
+    % design-phase BODY radius -- ~3 m on M2 and M3, whose beam
+    % footprints are ~0.2 m.  Nothing clips at 15x the beam, so no ray
+    % and no number moves; but view_rx draws declared apertures, so the
+    % layout figures showed primary-sized domes where the secondaries
+    % are, and segment_rx carried the fiction downstream into
+    % s2_segmented.in.  Apertures enter this campaign at S2 (the
+    % segmentation, for the PM) and at S3 (aperture_full_field, for the
+    % rest) -- not here.
+    t.declare_apertures({'M1'});
     t.save(rxfile);  t.save_spec(matfile);
     gate = reload_gate_(rxfile, P.model);
     L = say_(L, '\n[5] saved %s (+ .mat)', rxfile);

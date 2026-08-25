@@ -75,8 +75,7 @@
            IndRef=1.0E+00
            Extinc=0.0E+00
              nObs=  0
-           ApType=  Circular
-            ApVec=  3.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+           ApType=  None
          PropType=  Geometric
              zElt=1.4000000000000000E+01
           nECoord=  6
@@ -109,8 +108,7 @@
            IndRef=1.0E+00
            Extinc=0.0E+00
              nObs=  0
-           ApType=  Circular
-            ApVec=  3.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+           ApType=  None
          PropType=  Geometric
              zElt=6.8253968253968300E-01
           nECoord=  6

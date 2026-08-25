@@ -30,4 +30,4 @@ metric: dark-zone contrast, Strehl-normalised to the BARE
 
     contrast comparison figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_contrast.png
 
-S3b DONE in 3.0 min
+S3b DONE in 2.9 min
