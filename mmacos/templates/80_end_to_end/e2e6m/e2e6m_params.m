@@ -182,6 +182,39 @@ function P = e2e6m_params(over)
                                    % eigenvalue's physical bound of 1, and
                                    % flags itself unconverged.  This pupil
                                    % converges at 2387 (Lambda0 0.999994).
+    % ---- S3b: the LP apodizer (Carlotti/Vanderbei/Kasdin) -------------
+    % Targets are a LADDER, not a single number: the LP is always
+    % feasible (A=0 is), so a pupil that cannot reach a target does not
+    % fail -- its throughput collapses.  The ladder is how you find out.
+    P.ap.targets     = [1e-5 3e-6 1e-6];   % the band the design
+                                % model can actually support; deeper
+                                % targets are optimizing its error
+                                % (measured, see the report)
+    P.ap.thru_floor  = 0.05;    % pick the deepest target still above this
+    P.ap.nvar_target = 2500;    % block-constant tiles; the OPERATOR keeps
+                                % the pupil at full resolution (the 25 mm
+                                % gaps are 1.06 px at model 1024 and are
+                                % erased by any coarser pupil grid)
+    P.ap.dz_per_lamD = 2.0;     % dark-zone samples per lambda/D
+    P.ap.n_fpm       = 48;      % occulter-grid samples across its diameter
+    P.ap.onesided    = false;   % annular zone; the escalation if the LP
+                                % gets tight is Por's D-shaped zone
+    P.ap.gate_factor = 3.0;     % model-vs-engine agreement bar (gate 1).
+                                % MEASURED at ~5x on this train -- the gate
+                                % FAILS, deliberately recorded rather than
+                                % relaxed; see s3b_report [5] and the LOG.
+    P.ap.verify_dense = 2;      % re-score the LP solution on a 2x finer
+                                % dark-zone grid: an LP bounds the field
+                                % only AT ITS SAMPLES
+    P.ap.prolate_iter = 6000;   % power-iteration cap for the aperture-
+                                % specific prolate (the segmented support
+                                % converges near 1300; the circular one on
+                                % this pupil needs 2392)
+    P.ap.pupil_phase_rms = 0.108;  % rad, MEASURED at the apodizer plane --
+                                % quoted in the report so the reason the
+                                % operator uses the complex field is on the
+                                % page next to the number
+
     P.co.inner_lamD = 3.0;
     P.co.outer_lamD = 15.0;
 

@@ -56,6 +56,8 @@ rotation).  Fixed in `macos.design.Telescope` — see the LOG and
 | `s3_train_fig.m` | `s3_seg_{full,back}.in` | the S3 layout gate: `s3_train_iso.png` (full train), `s3_back_iso.png` (relay alone) |
 | `s4_sensitivities.m` | `s3_seg_full.in` | `dwdx` (with the 19 segments ALSO perturbed as one rigid body), `dwdz`, `dwdgrid` over 5 fields: `s4_sens.mat` (gitignored, `.fp.json` committed), `s4_run.mat`, `s4_*.png`, `s4_{report,sens_report}.txt` |
 | `s5_timeseries.m` | `s4_run.mat` + `s3_seg_prop.in` | the drift series with a held image-based correction, contrast scored every 5th frame through the APLC chain: `s5_series.png`, `s5_run.mat`, `s5_report.txt` |
+| `s3b_pupil.m` | `s3_seg_prop.in` | the pupil AS TRACED at the apodizer plane + its symmetry: `s3b_pupil.{mat,png}` |
+| `s3b_apodizer.m` | `s3b_pupil.mat` | the LP ladder (every rung engine-scored) + the aperture-specific APLC apodizer: `s3b_{report.txt,run.mat,apodizer.png}` |
 | `deck_e2e6m.py` | every stage REPORT | `deck_e2e6m.{md,pptx}` — DRAFT, generator-built, never hand-edited |
 
 **Reading order for the deck:** `e2e6m_records.py` parses the reports and
@@ -64,6 +66,24 @@ a wrong slide.  `deck_e2e6m.py` writes the slide markdown and calls the
 committed `challenges/rodgers3/make_brief_slides.py`.  Figures are the
 committed stage PNGs, autocropped (and, for the 4-view renders, one panel
 lifted) into a gitignored `deckfig/` — never redrawn.
+
+**S3b: the apodizer redesign did not recover the gap cost, and the
+report says so.**  `design/src/apodizer_lp.m` implements the
+Carlotti/Vanderbei/Kasdin linear program through the existing occulter
+and Lyot, and it is validated (MFT round-trip 7e-8, closed-form Lyot
+kernel, correct solutions on a clear circular pupil).  On THIS train it
+does not beat the incumbent circular prolate, for a measured reason: a
+single-Fourier design model floors near 4e-06 against the engine — five
+times above the 8.7e-07 the incumbent already reaches — and the
+model-vs-engine divergence GROWS with the target (4.8x -> 13.6x -> 40x),
+which is the signature of an optimizer mining its model.  Six isolating
+experiments are in the LOG.  The delivered design is the
+aperture-specific APLC apodizer (Soummer 2005 Eq. 3 over the traced
+aperture): 1.10x in dark-zone mean, 0.57x in median, at 0.73x the
+throughput — essentially no recovery.  Apodizer-only redesign against a
+fixed occulter and Lyot is not enough; the published segmented-APLC
+results come from co-optimizing apodizer x FPM x Lyot, which was
+deferred.
 
 **Where the S5 result is honest and where it is bounded.**  The linear
 model reproduces the engine for segment PISTON (0.6% relative) and for

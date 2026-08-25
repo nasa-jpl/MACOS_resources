@@ -35,6 +35,8 @@ function [Phi, info] = ctb_apod_prolate(N, r_pup_px, r_occ_lamD, opts)
 %     'supersample' occulter edge supersample K (default 8).
 %
 %   INFO fields: .lambda0 (dominant eigenvalue = throughput-behind-mask),
+%     .support_kind ('disc' when the aperture is the default disc,
+%     'supplied' when 'support' was given),
 %     .n_iter_used, .converged, .r_pup_px, .r_occ_px, .lamD_px.
 %
 %   See also: ctb_aplc, ctb_mask_disk, macos.apodize.
@@ -45,13 +47,31 @@ function [Phi, info] = ctb_apod_prolate(N, r_pup_px, r_occ_lamD, opts)
         opts.n_iter      (1,1) double = 200
         opts.tol         (1,1) double = 1e-7
         opts.supersample (1,1) double = 8
+        opts.support     (:,:) double = []   % arbitrary aperture support P
+                                             % (0..1) instead of the disc.
+                                             % Soummer 2005 Eq. 3 defines
+                                             % the APLC eigenfunction over
+                                             % ANY pupil P; passing a
+                                             % segmented aperture here is
+                                             % the aperture-specific APLC
+                                             % apodizer of N'Diaye,
+                                             % Zimmerman & Soummer (2016,
+                                             % ApJ 818, 163) rather than
+                                             % the circular prolate.
     end
     c = floor(N/2)+1;                                    % 1-based beam pixel
     [X,Y] = meshgrid((1:N)-c,(1:N)-c);
     rr = hypot(X,Y);
 
-    % pupil support (supersampled soft edge for a clean operator)
-    P = ctb_mask_disk(N, 1, r_pup_px, opts.supersample);  % dx=1 -> px units
+    % pupil support (supersampled soft edge for a clean operator), or the
+    % caller's own aperture
+    if isempty(opts.support)
+        P = ctb_mask_disk(N, 1, r_pup_px, opts.supersample);  % dx=1 -> px units
+    else
+        P = opts.support;
+        assert(isequal(size(P),[N N]), ...
+            'ctb_apod_prolate: support is %dx%d, N is %d', size(P,1), size(P,2), N);
+    end
     lamD_px = N / (2*r_pup_px);                            % FFT lambda/D
     r_occ_px = r_occ_lamD * lamD_px;
     M = ctb_mask_disk(N, 1, r_occ_px, opts.supersample);  % occulter support
@@ -76,5 +96,8 @@ function [Phi, info] = ctb_apod_prolate(N, r_pup_px, r_occ_lamD, opts)
     Phi = max(min(real(Phi),1),0) .* (P > 0);             % clamp, confine to pupil
 
     info = struct('lambda0',lam,'n_iter_used',used,'converged',converged, ...
-        'r_pup_px',r_pup_px,'r_occ_px',r_occ_px,'lamD_px',lamD_px);
+        'r_pup_px',r_pup_px,'r_occ_px',r_occ_px,'lamD_px',lamD_px, ...
+        'support_kind',tern_(isempty(opts.support),'disc','supplied'));
 end
+
+function s = tern_(c,a,b), if c, s=a; else, s=b; end, end

@@ -1087,3 +1087,155 @@ regenerated**; `deck_rodgers3_final.pptx` is untouched per the brief.
 
 `STYLE_REPORTS.md` §5 and `DECK_STYLE.md`, run against the built deck —
 reported in-window with the build.
+
+---
+
+## 2026-08-25 — S3b: an apodizer for the segmented pupil, and the model that could not design one
+
+S3 measured what the segment gaps cost a clear-pupil APLC (2390×).  This
+slice tried to buy it back with the Carlotti/Vanderbei/Kasdin linear
+program.  **The LP machinery works and is committed; it does not beat the
+incumbent on this train, and the reason is measured rather than
+guessed.**  Both halves are the deliverable.
+
+### What the pupil turned out to be
+
+The brief insisted the mask come from the ENGINE rather than a redrawn
+hexagon, and that was load-bearing three separate times:
+
+- **The pupil is NOT x-symmetric.**  y-flip residual 6.5e-08 (exact);
+  x-flip 2.8e-02.  That asymmetry is the tilted-fold relay's own
+  anamorphism — visible in the apodizer figure as a vertically elongated
+  prolate.  A redrawn hexagon would have been symmetric in both axes and
+  would have permitted a 4× fold that the real pupil does not.
+- **The pupil carries phase**: 0.108 rad rms at the apodizer plane.
+  Small, and not zero — see the cycle it cost below.
+- **The gaps are 1.06 px wide at model 1024 and vanish below it.**  So
+  the brief's escalation step "coarse optimization grid upsampled for
+  application" could NOT be applied to the pupil: coarsening the pupil
+  optimizes against an aperture with no gaps, i.e. against the wrong
+  problem.  It is applied to the VARIABLES instead — block-constant tiles
+  with the operator at full pupil resolution.  2364 variables at block
+  3 px, y-folded.
+
+### The generator
+
+`design/src/apodizer_lp.m`.  Maximize throughput subject to ± bounds on
+Re and Im of the dark-zone field, through the EXISTING occulter and Lyot
+(N'Diaye's APLC operator, still linear, so still an LP).  Babinet puts
+the only fine focal sampling inside the occulter.  The Lyot kernel is
+closed-form by the **projection-slice identity** — the stop is radially
+symmetric, so its focal kernel is the transform of its COLUMN SUMS,
+exact for the array as built.  Solves in 50–94 s at 2364 variables /
+5524 rows.  On a clear circular pupil it returns a shaped-pupil solution
+that meets its target exactly.
+
+Three self-tests, all of which earned their place:
+- **MFT round-trip 7.1e-08.**  Run on a Gaussian, not the pupil: a hard
+  disc's spectrum never fits a finite focal window, so a pupil round-trip
+  measures window truncation (~1e-2) and would hide a real normalisation
+  error underneath it.
+- **Lyot kernel 4.1e-03** against a direct 2-D sum at oblique separations.
+  The first version of the kernel was a Hankel quadrature over a binned
+  radial profile and this test caught it at 2.7e-2.
+- **Origin measured, not assumed**: centroid at [512.45 512.50], i.e.
+  0.746 px from `floor(N/2)+1` and 0.054 px from `(N+1)/2`.  On an even
+  grid those two conventions differ by half a pixel, and half a pixel is
+  a linear phase ramp, i.e. a shifted dark zone.
+
+### Two bugs the gates caught, both worth remembering
+
+**1. The pupil is complex, and I modelled it as real.**  Cost: a full
+cycle.  The amplitude-only operator tracked the engine to ~4× on a
+smooth (prolate) mask — which looked survivable — and the LP then
+optimized against that 4×, producing a mask the model scored at 3.1e-10
+and the engine at 1.7e-6.  **5536× apart, and the mask was WORSE than
+the incumbent it was meant to beat.**  Switching the operator to the
+complex field closed 5536× to 4.6× in one edit.  The lesson is not
+"phase matters" — it is that an optimizer will always find the
+modelling error, so the model has to be right BEFORE it is optimized
+against, and a 4× error on a smooth test case is not reassurance.
+
+**2. The traced field's global phase made the LP return A = 0.**  The
+on-axis field sum came out at 135.2°, so `Re(E00)/|E00| = −0.709` —
+NEGATIVE.  The objective (Por's real-part convexification) was then
+maximizing a negative quantity and the contrast bound `b·Re(E00)` was
+itself negative, so the only feasible apodizer was the zero one.  It
+reads exactly like an infeasible design problem.  A global phase is
+unobservable; `apodizer_lp` now rotates it out internally.
+
+### Localising the disagreement: five experiments
+
+With the complex pupil the model still sat ~4.5–4.9× from the engine on
+smooth masks, so before trusting any LP result I isolated it one
+variable at a time:
+
+| experiment | result | verdict |
+|---|---|---|
+| bare PSF, no masks, model vs engine | median ratio **1.0115** over 1–20 λ/D | MFT, normalisation, λ/D scale all correct |
+| engine's mask application | `‖E1 − E0·Φ‖/‖E0·Φ‖ = **0.0**` | the engine multiplies the field exactly as assumed |
+| radial profile, prolate | every ring lines up in radius; ratio flat at **4.9×** across 4–18 λ/D | a constant factor, NOT a scale error |
+| Babinet term scaled 0 → 4 | answer moves **1%** | the FPM is irrelevant at 3–15 λ/D here |
+| Lyot radius, both threshold rules, both planes | **127.12 px** everywhere | the stop is right |
+| ENGINE's own post-apodizer field through the model | **4.16e-06** vs engine 7.9e-07 | the fault is the PROPAGATION model |
+
+So the model has a **floor near 4e-06 whatever it is handed** — five
+times ABOVE the 8.7e-07 the incumbent prolate already achieves.  A
+single Fourier transform is a ~10–20% approximation to this back end
+(FPM quartet, reference-sphere returns, near-field legs), and an
+apodized dark zone is a ~1000× cancellation, so below a few 1e-6 the
+residual IS the model error.
+
+**The signature to remember:** the model-vs-engine divergence GROWS with
+how hard the optimizer is pushed — 4.8× at target 1e-5, 13.6× at 3e-6,
+40.0× at 1e-6.  That monotone growth is the tell that an optimizer is
+mining a model, and it is visible without knowing the true answer.
+
+### What was delivered instead
+
+The fallback, upgraded.  Rather than importing an arbitrary published
+hex apodizer, apply the **published METHOD to our aperture**: Soummer
+(2005) Eq. 3 defines the APLC apodizer as the dominant eigenfunction of
+the APLC operator over ANY support, so `ctb_apod_prolate` now takes a
+`'support'` argument (N'Diaye et al. 2016 Paper V).  An eigenfunction is
+a robust object rather than a fine-tuned cancellation, so model error
+perturbs it instead of dominating it — and the ENGINE scores it either
+way.  Λ0 = 0.5376 over the segmented aperture, converged in 1301
+iterations.  (Worth noting: the CIRCULAR prolate on this pupil reports
+Λ0 = 1.0000, i.e. saturated at the eigenvalue's physical ceiling.)
+
+| configuration | DZ mean | DZ median | throughput |
+|---|---|---|---|
+| bare segmented APLC (S3 record) | 8.700e-07 | 4.567e-08 | 0.1000 |
+| aperture-specific prolate | 7.909e-07 | 8.081e-08 | 0.0726 |
+| best LP mask (target 1e-6) | 1.505e-06 | 2.052e-07 | 0.1747 |
+| clear-pupil reference (S3 mono) | 3.640e-10 | 5.327e-12 | 0.1000 |
+
+**Recovery: 1.10× in mean, 0.57× in median, at 0.73× the throughput —
+i.e. none.**  No LP rung beat the incumbent either.  Redesigning the
+apodizer ALONE, against a fixed 2.8 λ/D occulter and a 0.90 Lyot, does
+not buy back what the gaps cost.  That is consistent with the
+literature: the segmented-aperture APLC result is a CO-optimization of
+apodizer × FPM × Lyot, which this brief explicitly deferred.
+
+### What would unblock it
+
+Either (a) an engine-faithful design operator — the LP needs columns
+that match the propagation it will be scored against, which for this
+train means the real multi-leg chain, not one Fourier transform; or
+(b) co-optimization of occulter radius and Lyot geometry alongside the
+apodizer, which is where the published segmented-APLC results come from.
+(a) is the larger and more reusable piece: with it, `apodizer_lp` becomes
+immediately usable, since the LP itself is validated.
+
+### Gates
+
+1. **Model vs engine: FAIL at 39.96× against a 3× bar** — recorded, not
+   relaxed.  The disagreement is the finding.
+2. **Recovery: 1.10× mean / 0.57× median at 0.73× throughput**, plane and
+   λ/D range as the S3 record.
+3. **tCtbProp 7 passed, 0 failed**, 1 incomplete (`test_proper_arbiter_fpm_leg`,
+   filtered by assumption — PROPER absent in this environment, a
+   pre-existing gate).  `ctb_aplc` gained `'apodizer'` and `'skip_blc'`;
+   `ctb_apod_prolate` gained `'support'`.  All three default to the
+   previous behaviour exactly.

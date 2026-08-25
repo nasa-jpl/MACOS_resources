@@ -56,6 +56,21 @@ function out = ctb_aplc(opts)
                                                 % reports Lambda0 = 1.0017,
                                                 % i.e. ABOVE the eigenvalue's
                                                 % physical bound of 1).
+        opts.apodizer      (:,:) double = []   % supply an apodizer instead
+                                              % of solving for the prolate.
+                                              % Same N as 'model_size'.
+                                              % Used by the e2e6m LP slice
+                                              % (apodizer_lp) so an
+                                              % externally-designed mask is
+                                              % scored through EXACTLY this
+                                              % chain rather than a copy of
+                                              % it.
+        opts.skip_blc      (1,1) logical = false  % skip the throughput-
+                                              % matched BLC arm (it is a
+                                              % second full propagation and
+                                              % is not part of every
+                                              % question this driver is
+                                              % asked).
         opts.outdir        (1,:) char   = ''
         opts.visible       (1,1) logical = false
     end
@@ -77,12 +92,25 @@ function out = ctb_aplc(opts)
     fprintf('[aplc] N=%d lamD_fpa=%.3f px  r_apod=%.1f px  r_occ=%.2f lam/D  bare peak=%.3e\n', ...
         N, lamD, r_apod_px, opts.r_occ_lamD, peak_bare);
 
-    % ---- build the prolate apodizer ------------------------------------
-    [Phi, pinfo] = ctb_apod_prolate(N, r_apod_px, opts.r_occ_lamD, ...
-                                    'n_iter', opts.prolate_iter);
-    thru_apod = apod_throughput_(Phi, r_apod_px);        % Phi^2-weighted fill
-    fprintf('[aplc] prolate: Lambda0=%.4f (conv=%d, %d it)  apodizer throughput=%.3f\n', ...
-        pinfo.lambda0, pinfo.converged, pinfo.n_iter_used, thru_apod);
+    % ---- the apodizer: supplied, or the prolate -------------------------
+    if ~isempty(opts.apodizer)
+        Phi = opts.apodizer;
+        assert(isequal(size(Phi),[N N]), ...
+            'ctb_aplc: supplied apodizer is %dx%d, model_size is %d', ...
+            size(Phi,1), size(Phi,2), N);
+        pinfo = struct('lambda0',NaN,'converged',NaN,'n_iter_used',0, ...
+                       'supplied',true);
+        thru_apod = apod_throughput_(Phi, r_apod_px);
+        fprintf('[aplc] apodizer SUPPLIED (%dx%d)  apodizer throughput=%.3f\n', ...
+            N, N, thru_apod);
+    else
+        [Phi, pinfo] = ctb_apod_prolate(N, r_apod_px, opts.r_occ_lamD, ...
+                                        'n_iter', opts.prolate_iter);
+        pinfo.supplied = false;
+        thru_apod = apod_throughput_(Phi, r_apod_px);    % Phi^2-weighted fill
+        fprintf('[aplc] prolate: Lambda0=%.4f (conv=%d, %d it)  apodizer throughput=%.3f\n', ...
+            pinfo.lambda0, pinfo.converged, pinfo.n_iter_used, thru_apod);
+    end
 
     % ---- run APLC ------------------------------------------------------
     [I_aplc, I_lyot_a] = run_aplc_(opts, g, Phi);
@@ -95,6 +123,21 @@ function out = ctb_aplc(opts)
     % ---- throughput-matched BLC ----------------------------------------
     % BLC 2-D throughput = (1-eps)^2 -> match: eps = 1 - sqrt(thru_aplc).
     eps_match = max(0.02, min(0.9, 1 - sqrt(thru_aplc)));
+    if opts.skip_blc
+        I_blc = zeros(N); dz_blc = macos.dark_zone_metrics(I_blc, peak_bare, ...
+            lamD, opts.inner_lamD, opts.outer_lamD);
+        supp_blc = NaN; thru_blc = NaN;
+        [r_aplc,c_aplc] = macos.radial_contrast(I_aplc, peak_bare, lamD, opts.outer_lamD+3);
+        out = struct('r_occ_lamD',opts.r_occ_lamD,'r_lyot_frac',opts.r_lyot_frac, ...
+            'prolate_info',pinfo,'apodizer_throughput',thru_apod, ...
+            'dz_aplc',dz_aplc,'supp_aplc',supp_aplc,'thru_aplc',thru_aplc, ...
+            'eps_match',eps_match,'dz_blc',dz_blc,'supp_blc',supp_blc,'thru_blc',thru_blc, ...
+            'lamD_px',lamD,'peak_bare',peak_bare,'figure','', ...
+            'r_aplc',r_aplc,'c_aplc',c_aplc, ...
+            'I_aplc',I_aplc,'I_blc',I_blc,'Phi',Phi,'r_apod_px',r_apod_px);
+        fprintf('[aplc] BLC arm skipped (skip_blc)\n');
+        return
+    end
     [I_blc, ~] = run_blc_(opts, g, eps_match);
     dz_blc = macos.dark_zone_metrics(I_blc, peak_bare, lamD, opts.inner_lamD, opts.outer_lamD);
     supp_blc = peak_bare / max(max(I_blc(:)),eps);
@@ -165,6 +208,7 @@ function out = ctb_aplc(opts)
         'dz_aplc',dz_aplc,'supp_aplc',supp_aplc,'thru_aplc',thru_aplc, ...
         'eps_match',eps_match,'dz_blc',dz_blc,'supp_blc',supp_blc,'thru_blc',thru_blc, ...
         'lamD_px',lamD,'peak_bare',peak_bare,'figure',figpath, ...
+        'r_aplc',r_aplc,'c_aplc',c_aplc,'Phi',Phi,'r_apod_px',r_apod_px, ...
         'I_aplc',I_aplc,'I_blc',I_blc);   % the FPA images, so a caller can
                                           % re-score or re-plot without
                                           % re-running the chain
