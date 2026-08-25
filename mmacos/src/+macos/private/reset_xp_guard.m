@@ -84,8 +84,8 @@ switch action
         cu  = onCleanup(@() delete_silent_(tmp));
         macos.save_rx(tmp);                    % the CONFIGURED state
         pf = pupil_find(tmp, Ffield, 'ep_elt', stop_elt, ...
-                        'xp_elt', xp_elt, 'place', true, ...
-                        'init', false, pf_opts{:});
+                        'stop_elt', stop_elt, 'xp_elt', xp_elt, ...
+                        'place', true, 'init', false, pf_opts{:});
         session.modify();
         varargout{1} = pf;
         return

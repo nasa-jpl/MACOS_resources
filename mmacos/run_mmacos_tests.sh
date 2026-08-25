@@ -188,6 +188,10 @@ SUITE_POL_512=$(join_suites "tPolContrastCoro")
 # nGridpts=255 and their drivers run at model 512.  Own batch, same reason
 # as SUITE_POL_512.  Asset-gated: skips itself when bench_ctb is absent.
 SUITE_CTB_512=$(join_suites "tCtbProp")
+
+# reset_xp_method='pupil_find' gates run the zoom fixture at model 512 --
+# own batch line, same isolation reason as the other 512 groups.
+SUITE_PFM_512=$(join_suites "tPupilFindMethod")
 # tEngineMemory deliberately walks model 128 <-> 256 to prove macos.unload
 # rebuilds the engine smaller.  Own batch so a size transition it induces
 # cannot seed PLAN.md §0 heap corruption into another group.
@@ -222,6 +226,7 @@ case "${1:-}" in
         run_batch "$SUITE_PUPIL_512"   "full: pupil aperture (512)" || rc=1
         run_batch "$SUITE_POL_512"     "full: pol contrast (512)"   || rc=1
         run_batch "$SUITE_CTB_512"     "full: ctb diffraction (512)" || rc=1
+        run_batch "$SUITE_PFM_512"     "full: pupil_find method (512)" || rc=1
         run_batch "$SUITE_PROPER_1024" "full: proper Coro (1024)"   || rc=1
         run_batch "$SUITE_MEMORY"      "full: engine memory (128<->256)" || rc=1
         exit $rc
