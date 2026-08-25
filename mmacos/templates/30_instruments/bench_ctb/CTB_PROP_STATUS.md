@@ -1,6 +1,52 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-25. Latest work at "SESSION 10" (DM layer + EFC dark hole) below; older kept._
+_Updated 2026-08-25. Latest work at "SESSION 11" (binned masks) below; older kept._
+
+## SESSION 11 (2026-08-25) — every mask generated at 8× and binned; the vortex core was the floor
+
+Dave's directive: gray-scale the occulting/apodizing surfaces — generate
+at sub-pixel resolution, bin to the model grid.  Amplitude masks already
+were (ctb_mask_disk/softcircle, K=8 area-weighted edges — verbatim
+"generate high and bin" for a binary shape).  The change is the PHASE
+masks: new shared `ctb_mask_vortex` (8×-binned exp(i·m·θ), the 64
+sub-pixel phasor shifts accumulated at model resolution so no 8N grid is
+built; K=1 = legacy for A/B) now feeds all four former inline copies
+(ctb_vortex, ctb_vortex_matched, ctb_mask_compare, ctb_phase_masks), and
+`ctb_mask_phase` composes gray zone edges from the supersampled disks
+(V = 1 + (e^{iφ}−1)·D(r) per zone).
+
+**Why it matters — the vortex-floor diagnosis (ideal-pupil probe, no
+bench):** the directly-sampled vortex floors at 3.0e-7 REGARDLESS of the
+bench — the mis-phased pixels of the undersampled singularity sit on the
+stellar Airy peak and scatter ~0.2% of the starlight inside the Lyot.
+Complex-binning cancels those phasors (|V|=0 at the core pixel, smooth
+~1-px taper): ideal-pupil floor 3.0e-9 (8×; 4× gives 3.4e-9,
+converged).  An explicit 1 λ/D opaque core dot is WORSE (9.8e-9 — its
+own edge diffracts).  Charge 2 is the counterexample (excision/binning
+medicine is for even charge ≥ 4).
+
+**Bench head-to-head regenerated (ctb_mask_compare, N=1024, annulus
+3–15 λ/D):** APLC 2.11e-10 @27% (unchanged) · **vortex charge-6/Lyot-0.90
+2.9e-7 → 1.41e-8 (21×) @81%** — second-deepest · band-limited 2.72e-8
+@36% (unchanged) · hard 2.47e-7 @25% (unchanged) · Roddier 3.2e-6 →
+2.40e-6 · dual-zone 6.8e-6.  The amplitude rows moving only in the last
+digit is the control: they were already binned.
+
+**The Lyot trade is now real (ctb_vortex_matched sweep):** with the core
+artifact gone, closing the stop buys genuine depth — charge 4: 6.6e-11 @
+frac 0.50 (25% T, APLC-class), 1.9e-9 @ 0.80 (64% T — Pareto-dominates
+band-limited), 8.0e-9 @ 0.90 (81% T); charge 6: 3.0e-10 / 6.4e-9 /
+1.6e-8 at the same fracs.  Flux inside the stop 0.0–0.1% to frac 0.90 —
+the analytic "all light outside" property, visible at last.  The old
+"the Lyot can stay open for free" reading was an artifact of the core
+floor; the driver header records the inversion.  Vortex floor is now set
+by the bench residual (ideal-pupil binned floor 3.0e-9 vs bench 1.4e-8).
+
+Figures regenerated: ctb_mask_compare.{png,mat}, ctb_vortex.png
+(hard-vs-vortex now 1670× at Lyot 0.50), ctb_vortex_matched.png,
+ctb_phase_masks*.png.  Deck slide 5 updated (table re-sorted, vortex
+bullet = the sampling finding).  README "mask sampling rule" paragraph
+added to the mask-block section.
 
 ## SESSION 10 (2026-08-25) — DM layer: actuators, engine-measured Jacobian, EFC dark hole
 

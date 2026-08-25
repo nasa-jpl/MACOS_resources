@@ -211,8 +211,7 @@ function [I,thru] = arm_vortex_(opts, g, m, r_lyot_frac)
     macos.intensity(e.DM1); macos.intensity(e.DM2,'reset_trace',false);
     macos.intensity(e.Apodizer,'reset_trace',false);
     macos.intensity(e.FPM,'reset_trace',false);
-    c=floor(N/2); [xx,yy]=meshgrid((0:N-1)-c,(0:N-1)-c); V=exp(1i*m*atan2(yy,xx)); V(c+1,c+1)=1;
-    macos.apodize_complex(e.FPM, V);
+    macos.apodize_complex(e.FPM, ctb_mask_vortex(N, m));     % 8x complex-binned
     macos.intensity(e.FPM,'reset_trace',false);
     Il = macos.intensity(e.Lyot,'reset_trace',false);
     macos.apodize(e.Lyot, ctb_mask_disk(size(Il,1),abs(macos.dx_at(e.Lyot)),r_lyot_frac*g.r_lyot_geom_m,8));

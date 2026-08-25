@@ -162,8 +162,7 @@ function V = mask_for_(opts, g, arm, N)
                 struct('d1_lamD',opts.dz_d1_lamD,'d2_lamD',opts.dz_d2_lamD, ...
                        'phi1',opts.dz_phi1,'phi2',opts.dz_phi2));
         case 'vortex'
-            c=floor(N/2); [xx,yy]=meshgrid((0:N-1)-c,(0:N-1)-c);
-            V=exp(1i*opts.charge*atan2(yy,xx)); V(c+1,c+1)=1;
+            V = ctb_mask_vortex(N, opts.charge);     % 8x complex-binned
     end
 end
 
