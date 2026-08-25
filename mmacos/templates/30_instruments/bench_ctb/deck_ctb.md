@@ -91,10 +91,10 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 - The DMs become controllable surfaces: each carries a 256-point displacement grid in its own element frame, driven by a 32×32 actuator lattice through Gaussian influence functions (12% nearest-neighbor coupling, 0.67 mm pitch = beam/32; 880 actuators of each DM sit inside the beam).
 - The control matrix is measured, not modeled: every actuator is poked 2 nm and propagated through the full masked chain — 1760 pokes, 11 minutes — so the correction solve has no model error to exploit. Each iteration re-propagates the model, scores the measured contrast, picks the regularization by that measurement, and stops itself when no step improves.
 ::: right
-- Result: 2.9×10⁻⁷ → 8.1×10⁻⁹ (36×) in 19 iterations at 9.9/8.6 nm rms surface stroke. The best any linear solve of the measured matrix can reach is 4.5×10⁻⁹ at 11 nm — the loop lands within 2× of that with a matrix measured once at the flat state; re-measuring it around the corrected state is the next depth increment.
+- Result: 2.9×10⁻⁷ → 8.1×10⁻⁹ (36×) in 19 iterations at 9.9/8.6 nm rms surface stroke. The best any linear solve of the measured matrix can reach is 4.5×10⁻⁹ at 11 nm — the loop lands within 2× of that with a matrix measured once at the flat state; re-measuring it around the corrected state is the next depth increment. Restricted to DM1 alone, the same loop stalls at 1.3×10⁻⁷ (2.3×): the pupil mirror is phase-only control, and the full annulus also needs the amplitude lever the out-of-pupil DM2 supplies.
 - Where the correction works hardest: with the 50% Lyot stop, 32 actuators steer light cleanly to about 8 λ/D on the final image scale — the inner half of the zone deepens 40×, the outer 25×, and the largest strokes ring the Lyot edge image on the mirror.
 ::: full
-![Before and after at the camera, contrast versus iteration, and the DM1 stroke map; dashed circles mark the 3–15 λ/D zone.](ctb_efc.png){h=2.25}
+![Before and after at the camera; contrast versus iteration, with the DM1-only loop overlaid stalling two decades short; the stroke maps commanded on both DMs. Dashed circles mark the 3–15 λ/D zone.](ctb_efc.png){h=2.1}
 ~ Sensing is assumed perfect — the loop reads the model's complex field directly. Estimating that field from camera images alone (pairwise probing, as a testbed must) is the next layer of realism.
 
 ## 9 — Next | Toward a real coronagraph model, in dependency order

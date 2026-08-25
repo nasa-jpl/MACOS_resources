@@ -41,6 +41,8 @@ function out = ctb_efc(opts)
         opts.outdir         (1,:) char = ''
         opts.save           (1,1) logical = true
         opts.visible        (1,1) logical = false
+        opts.replot         (1,:) char = ''     % saved ctb_efc.mat: figure only
+        opts.compare        struct = struct([]) % .contrast + .label overlay
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
@@ -59,6 +61,21 @@ function out = ctb_efc(opts)
             J = load(jp);
         end
     end
+    % ---- replot-only mode: rebuild the figure from a saved run ----------
+    % (DM geometry from the Jacobian; no engine session, no loop)
+    if ~isempty(opts.replot)
+        out = load(opts.replot);
+        dmr = cell(1, numel(J.dm));
+        for k = 1:numel(J.dm)
+            d = J.dm(k);
+            dmr{k} = ctb_dm('ielt', d.ielt, 'ng', d.ng, 'gdx_mm', d.gdx_mm, ...
+                'nact', d.nact, 'pitch_mm', d.pitch_mm, ...
+                'beam_d_mm', d.beam_d_mm, 'coupling', d.coupling);
+        end
+        fig_(out, dmr, opts);
+        return
+    end
+
     G = double(J.G);
     % REAL-stacked system: DM commands are real, so the complex least
     % squares must be solved as [Re G; Im G] da = -[Re e; Im e].  (A
@@ -166,8 +183,8 @@ end
 % ======================================================================
 function fig_(out, dm, opts)
     vis = 'off'; if opts.visible, vis = 'on'; end
-    fig = figure('Visible',vis, 'Color','w', 'Position',[60 60 1500 420]);
-    tl = tiledlayout(fig, 1, 4, 'TileSpacing','compact', 'Padding','compact');
+    fig = figure('Visible',vis, 'Color','w', 'Position',[60 60 1860 420]);
+    tl = tiledlayout(fig, 1, 5, 'TileSpacing','compact', 'Padding','compact');
     title(tl, sprintf(['CTB EFC dark hole -- %d DM actuators, engine-measured ' ...
         'Jacobian, engine-closed loop'], sum(cellfun(@(d) d.nact_active, dm))), ...
         'FontWeight','bold');
@@ -193,16 +210,25 @@ function fig_(out, dm, opts)
     end
 
     nexttile(tl);
-    semilogy(0:numel(out.contrast)-1, out.contrast, 'o-', 'LineWidth', 1.4);
-    grid on; xlabel('EFC iteration'); ylabel('dark-zone mean contrast');
+    semilogy(0:numel(out.contrast)-1, out.contrast, 'o-', 'LineWidth', 1.4, ...
+        'DisplayName', 'DM1 + DM2');
+    grid on; hold on;
+    if ~isempty(opts.compare)
+        semilogy(0:numel(opts.compare.contrast)-1, opts.compare.contrast, ...
+            's--', 'LineWidth', 1.2, 'DisplayName', opts.compare.label);
+        legend('Location', 'northeast');
+    end
+    xlabel('EFC iteration'); ylabel('dark-zone mean contrast');
     title(sprintf('%.2e \\rightarrow %.2e', out.c_before, out.c_after));
 
-    nexttile(tl);
-    d = dm{1};
-    S = reshape(1e6 * out.a{1}, d.nact, d.nact);
-    imagesc(S.'); axis image xy; colormap(gca, parula);
-    cb = colorbar; cb.Label.String = 'nm';
-    title(sprintf('DM1 commands (rms %.2f nm)', out.stroke_rms_nm(1)));
+    for k = 1:numel(out.a)
+        nexttile(tl);
+        d = dm{k};
+        S = reshape(1e6 * out.a{k}, d.nact, d.nact);
+        imagesc(S.'); axis image xy; colormap(gca, parula);
+        cb = colorbar; cb.Label.String = 'nm';
+        title(sprintf('DM%d commands (rms %.2f nm)', k, out.stroke_rms_nm(k)));
+    end
 
     fp = fullfile(opts.outdir, 'ctb_efc.png');
     exportgraphics(fig, fp, 'Resolution', 150);
