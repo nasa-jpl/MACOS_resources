@@ -41,7 +41,9 @@ function pf = pupil_find(rx, Ffield, opts)
 %   Returns pf with fields:
 %     .ep_elt .xp_elt .nElt        the resolved elements
 %     .fex        FEX baseline .vpt/.rad (the one-chief-ray sphere beaten)
-%     .vtx .rad .psi              the sphere WRITTEN (bundle vertex, FEX radius)
+%     .vtx .rad .psi              the sphere WRITTEN (bundle vertex, FEX radius,
+%                                 FEX normal -- the fitted cone normal is only
+%                                 the fit frame; see the sign/normal note below)
 %     .conv_radius                convergence-surface curvature (quality, not Rx)
 %     .dep_rms                    departure-from-sphere RMS (frame terms removed)
 %     .uv .dep                    per-node (u,v) and departure (for a map)
@@ -98,7 +100,23 @@ function pf = pupil_find(rx, Ffield, opts)
     conv_radius = 1/(2*a);
     dep = ww - A*sol;  dep_rms = sqrt(mean(dep.^2));
     vtx = X0 + c0*nn;                                    % bundle XP vertex
-    psi = nn;  if psi(3) > 0, psi = -psi; end            % normal toward the image
+    % Sphere NORMAL: FEX's own psi, verbatim -- pupil_find improves the
+    % VERTEX only (the doc block above: "bundle vertex, FEX radius"); the
+    % fitted cone normal nn is only the FIT FRAME and must not be written.
+    % Two measured failure modes from writing nn (zoom fixture, 0.5' FSM
+    % tilt at the pupil):
+    %   1. the old "if psi(3)>0, psi=-psi" hemisphere rule NEGATED the
+    %      engine's stored normal, reflecting the sphere center to the
+    %      wrong side -- every field carried the full sag as a ~0.45 mm
+    %      RMS bias;
+    %   2. even sign-corrected, nn sits ~18 mrad off the chief-based FEX
+    %      psi (it is the cone-fit axis, not the chief), which swings the
+    %      center ~R*18e-3 = 55 mm and yields a reference whose OPD is
+    %      BLIND to a pupil-mirror tilt (moved the map 3e-7 mm where the
+    %      deck's own EP sphere moves 3e-2 mm).
+    % Gated by tPupilFindMethod/
+    % test_placed_sphere_keeps_the_reference_tilt_sensitive.
+    psi = f0.psi(:);
 
     % place the sphere into the internal Rx (FEX radius, bundle vertex) -- as FEX does
     macos.load_rx(rx);  macos.stop(EP);
