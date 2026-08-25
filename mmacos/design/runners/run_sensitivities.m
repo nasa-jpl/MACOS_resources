@@ -270,6 +270,12 @@ end
 % single configuration when checkpointing), never baked into sup
 CF = opts.configs;
 RD = opts.resume_dir;
+% Checkpoint key: the resume files must be method-aware.  A checkpoint
+% written under fex and resumed under pupil_find is served VERBATIM (the
+% resume key used to be channel+config only), silently making the two
+% methods' outputs identical -- exactly the trap Luis hit.  'fex'/'sxp'
+% keep the historical bare filenames; 'pupil_find' forks its own.
+XK = '';  if strcmp(opts.reset_xp_method, 'pupil_find'), XK = '_pf'; end
 ncfg = numel(opts.configs);
 if ncfg > 0
     say('configurations: %d\n', ncfg);
@@ -294,7 +300,7 @@ if any(opts.channels == "dwdx")
          'group_stop_pos', opts.group_stop_pos};
     ox = run_channel_(@(cf) macos.dw_dx_multi(m, char(rx_in), sup{:}, ...
         'configs', cf, 'dofs', opts.dofs, 'elts', opts.elts, g{:}, a{:}), ...
-        'dwdx', CF, RD, say);
+        'dwdx', CF, RD, say, XK);
     ngrp = 0;   % isfield guard: a checkpoint written before the
                 % supervisor carried 'kind' resumes without it
     if isfield(ox, 'kind'), ngrp = nnz(strcmp(ox.kind, 'Group')); end
@@ -314,7 +320,7 @@ if any(opts.channels == "dwdz") && nseg > 0
     oz = run_channel_(@(cf) macos.dw_dz_zernike_multi(m, char(rx_in), sup{:}, ...
         'configs', cf, 'kinds', opts.zkinds, 'elts', opts.elts, ...
         'zmode_start', opts.zmodes_fig(1), ...
-        'n_zcoef', opts.zmodes_fig(end), a{:}), 'dwdz', CF, RD, say);
+        'n_zcoef', opts.zmodes_fig(end), a{:}), 'dwdz', CF, RD, say, XK);
     say('    dwdzall %d x %d\n\n', size(oz.dwdxall, 1), size(oz.dwdxall, 2));
     say_pf_(say, oz, 'dwdz');
 end
@@ -324,7 +330,7 @@ if any(opts.channels == "dwdsurf")
     say('[dwdsurf] per-element %s...\n', strjoin(opts.surf_params, '/'));
     os = run_channel_(@(cf) macos.dw_dsurf_multi(m, char(rx_in), sup{:}, ...
         'configs', cf, 'params', opts.surf_params, ...
-        'remove_ptt', opts.surf_remove_ptt), 'dwdsurf', CF, RD, say);
+        'remove_ptt', opts.surf_remove_ptt), 'dwdsurf', CF, RD, say, XK);
     say('    dwdsall %d x %d\n\n', size(os.dwdxall, 1), size(os.dwdxall, 2));
     say_pf_(say, os, 'dwdsurf');
 end
@@ -361,7 +367,7 @@ if any(opts.channels == "dwdgrid") && (nseg > 0 || ~isempty(opts.influence))
     a = {};  if ~isempty(opts.delta_g), a = {'delta', opts.delta_g}; end
     og = run_channel_(@(cf) macos.dw_dgrid_multi(m, rxg, sup{:}, ...
         'configs', cf, 'influence', sgb, 'elts', opts.elts, ...
-        a{:}), 'dwdgrid', CF, RD, say);
+        a{:}), 'dwdgrid', CF, RD, say, XK);
     % persist the influence basis WITH the harvest: the basis is part
     % of the Jacobian's definition, and rebuilding it in a later
     % session is not bit-stable (the last G-S mode can come out
@@ -553,7 +559,7 @@ if isempty(regexp(p, '^([/\\]|[A-Za-z]:[/\\])', 'once'))
 end
 end
 
-function o = run_channel_(fn, tag, cfgs, resume_dir, say)
+function o = run_channel_(fn, tag, cfgs, resume_dir, say, key)
 %RUN_CHANNEL_  One channel's harvest, optionally checkpointed per config.
 %   Without a resume_dir (or with fewer than two configurations) this is
 %   exactly fn(cfgs) -- ONE supervisor call carrying the whole
@@ -569,7 +575,7 @@ rd = char(resume_dir);
 if ~isfolder(rd), mkdir(rd); end
 outs = cell(1, numel(cfgs));
 for c = 1:numel(cfgs)
-    ck = fullfile(rd, sprintf('%s_%s.mat', tag, cfgs(c).name));
+    ck = fullfile(rd, sprintf('%s%s_%s.mat', tag, key, cfgs(c).name));
     if isfile(ck)
         S = load(ck);  outs{c} = S.o;
         say('    [resume] %s / %s <- %s\n', tag, cfgs(c).name, ck);
@@ -614,6 +620,14 @@ for f = fieldnames(o).'
 end
 C = cellfun(@(u) u.config_table, outs, 'UniformOutput', false);
 o.config_table = vertcat(C{:});
+% pupil_find placement metrics are per-configuration too: each
+% checkpointed block carries exactly its own configuration's entry, and
+% dropping the merge under-reports every config after the first (caught
+% by tPupilFindMethod/test_resume_checkpoints_are_method_aware).
+if isfield(o, 'pupil_find')
+    C = cellfun(@(u) u.pupil_find, outs, 'UniformOutput', false);
+    o.pupil_find = [C{:}];
+end
 o.config_names = {o.config_table.name}.';
 end
 
