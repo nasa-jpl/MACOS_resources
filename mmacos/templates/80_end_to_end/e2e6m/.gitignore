@@ -2,3 +2,4 @@ deckfig/
 __pycache__/
 .~lock.*#
 run*.log
+deck_e2e6m_view.html
