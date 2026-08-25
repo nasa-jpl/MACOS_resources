@@ -1429,3 +1429,81 @@ asterisks — the builder renders `**bold**` only.
 
 `tApertureFrame` + `tAppendRx` + `tPropLayout` 11/11; `tCtbProp` 7 passed
 0 failed 1 filtered-by-assumption (PROPER absent, pre-existing).
+
+---
+
+## 2026-08-25 — round 1 closes; the round-2 queue is recorded
+
+Round 1 (the DRY RUN) is demo-complete through `5c51371`.  The deck is
+saved three ways: `deck_e2e6m.pptx` (the deliverable),
+`deck_e2e6m.pdf` (reviewable anywhere), and a one-page self-contained
+`deck_e2e6m_view.html`.  All three are DERIVED — `deck_e2e6m.py` is the
+source of truth and nothing downstream of it is ever hand-edited, so
+`deck_view.py` regenerates the last two and reads its contents list from
+`deck_e2e6m.md` rather than keeping its own copy.  The HTML is
+gitignored (2.9 MB of inlined PNG, regenerable in one command); the PDF
+is committed.
+
+### CC Fable's redo notes — recorded, not started
+
+`macos/NOTES_e2e6m_redo.md` (Dave's dry-run feedback, via CC Fable).
+Sequencing is theirs: **CTB coronagraph deepening comes FIRST** —
+DMs/masks/apodizers on the CTB substrate, where the PROPER arbiter and
+`tCtbProp` live — and the e2e6m redo folds the improved approach in
+afterwards.  Six items for round 2: DMs for the coronagraph; a sketch of
+the optical SEQUENCE (PM–SM–TM–… through both legs); a Bench layout
+graphic isolating the optics after M2 at interpretable size; the MET;
+a figure of the MASK itself; a figure of the APODIZER itself.  Plus
+round 1's own two: the slide-11 frame fix below, and the S3b
+engine-faithful design operator (still queued post-demo).
+
+### Their slide-11 diagnosis, checked against my own committed data
+
+Dave's objection — engine and linear model cannot disagree at
+1 nm/1 nrad if the pokes ARE the model — is right, and CC Fable's
+fingerprint reproduces exactly from `s5_report.txt` [1], Seg19:
+
+| | engine | model |
+|---|---|---|
+| Rx | 2.482e-12 | 1.419e-10 |
+| Ry | 9.257e-10 | 1.426e-10 |
+| Tx | 2.389e-11 | 3.682e-12 |
+| Ty | 6.640e-14 | 3.679e-12 |
+| Tz | 4.466e-10 | 4.440e-10 |
+
+- the MODEL is x/y SYMMETRIC: |Rx|/|Ry| = 1.0049, |Tx|/|Ty| = 1.0008 —
+  a hex segment in its own frame, as it should be;
+- the ENGINE is strongly ASYMMETRIC: |Ry|/|Rx| = 373, |Tx|/|Ty| = 360;
+- piston agrees to **0.59%**, because Tz is along the near-shared normal
+  and is therefore basis-invariant.
+
+So the disagreement is a FRAME question, not physics.  That much I can
+confirm from committed numbers without re-running anything.
+
+**One thing their note does not have, from a cross-pairing test I ran
+on the same table.**  If the two frames differed by a pure clocking, the
+magnitudes would survive the swap.  They do not — but the discrepancy is
+strikingly *consistent*:
+
+    engine Ry / model Rx = 6.524      engine Tx / model Ty = 6.494
+    engine Rx / model Ry = 1.74e-02   engine Ty / model Tx = 1.80e-02
+
+The same factor ~6.5 appears for the ROTATION pair and the TRANSLATION
+pair (0.5% apart), and the same ~1.8e-2 for the reverse pairings.  One
+common 2x2 mixing acts on the (x,y) pair identically for rotations and
+translations — which is what a single wrong frame does, and argues the
+fix is ONE transform rather than per-channel debugging.  But a pure
+rotation preserves magnitude and this does not, so a scale or
+normalisation difference rides along with the clocking; do not assume
+the redo only has to rotate.
+
+**Redo's first act, per their note and unchanged by the above:** drive
+the drift and the check through the SAME channel objects that built J
+(or transform explicitly via `get_elt_csys`), and confirm the clocking
+numerically — channel triad against TElt triad on one segment — before
+anything else.  If it closes, the control basis un-shrinks from
+piston-only to all six DOFs and S5's corrected leg is re-run.
+
+NOT STARTED.  Nothing in round 1 is retracted by this: S5's report
+already states the restriction and the reason, and the deck's slide 11
+already carries the failure with its table.
