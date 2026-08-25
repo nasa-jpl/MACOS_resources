@@ -95,9 +95,16 @@ function art = run_sensitivities(rx_in, opts)
 %     'ng'         grid size for the augmentation (default 256)
 %     'span_frac'  grid span fraction of the parent Aperture (1.0 = the dxGrid convention)
 %     'pm_ref_elt' segment_grid_basis footprint target (default 1)
-%     'reset_xp_method'  DEPRECATED.  FEX and SXP are merged in the
-%                  engine, so FEX is used for the per-field exit-pupil
-%                  reset regardless.  'sxp' is accepted as an alias
+%     'reset_xp_method'  'fex' (default) | 'sxp' (deprecated alias of fex
+%                  -- FEX and SXP are merged in the engine) |
+%                  'pupil_find': place the cone-convergence best-fit
+%                  exit-pupil sphere (design/src/pupil_find) ONCE per
+%                  configuration and freeze it across the field loop --
+%                  a field-set-wide upgrade of the frozen-EP mode, NOT a
+%                  per-field re-reference (see dw_dx_multi's help).
+%                  Requires 'stop_elt'; 'pupil_find_opts' forwards
+%                  finder name-values.  Fit metrics land in the report.
+%                  Historical: 'sxp' was accepted as an alias
 %                  (warned once); retained so near-EP legacy decks that
 %                  pass it keep running.
 %     'delta_x','delta_z','delta_g'  FD steps ([] = supervisor default;
@@ -164,7 +171,8 @@ arguments
     opts.span_frac (1,1) double {mustBePositive} = 1.0
     opts.pm_ref_elt (1,1) double {mustBeInteger, mustBePositive} = 1
     opts.reset_xp_method (1,:) char {mustBeMember(opts.reset_xp_method, ...
-        {'fex','sxp'})} = 'fex'
+        {'fex','sxp','pupil_find'})} = 'fex'
+    opts.pupil_find_opts cell = {}
     opts.delta_x double = []
     opts.delta_z double = []
     opts.delta_g double = []
@@ -243,7 +251,18 @@ say('segments: %d\n\n', nseg);
 
 m = macos.Session(opts.model_size);
 FOV = opts.fov_rad;
-sup = {'field_x_rad', FOV, 'field_y_rad', FOV, 'ngridpts', opts.ngridpts};
+sup = {'field_x_rad', FOV, 'field_y_rad', FOV, 'ngridpts', opts.ngridpts, ...
+       'reset_xp_method', opts.reset_xp_method, ...
+       'pupil_find_opts', opts.pupil_find_opts};
+if strcmp(opts.reset_xp_method, 'pupil_find')
+    % the finder lives in design/src, which is not on the default path
+    addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'src'));
+    if isempty(opts.stop_elt)
+        error('macos:run_sensitivities:pfNeedsStopElt', ...
+              ['reset_xp_method=''pupil_find'' requires ''stop_elt'' ' ...
+               '(the finder sets the engine stop at that element).']);
+    end
+end
 if ~isempty(opts.stop_elt)
     sup = [sup, {'stop_elt', opts.stop_elt}];
 end
@@ -285,6 +304,7 @@ if any(opts.channels == "dwdx")
     end
     say('    dwdxall %d x %d over %d fields\n\n', size(ox.dwdxall, 1), ...
         size(ox.dwdxall, 2), size(ox.field_table, 1));
+    say_pf_(say, ox, 'dwdx');
 end
 
 %% dwdz (segment-LOCAL MonZernike)
@@ -296,6 +316,7 @@ if any(opts.channels == "dwdz") && nseg > 0
         'zmode_start', opts.zmodes_fig(1), ...
         'n_zcoef', opts.zmodes_fig(end), a{:}), 'dwdz', CF, RD, say);
     say('    dwdzall %d x %d\n\n', size(oz.dwdxall, 1), size(oz.dwdxall, 2));
+    say_pf_(say, oz, 'dwdz');
 end
 
 %% dwdsurf (per-element Kr/Kc -- opt-in)
@@ -305,6 +326,7 @@ if any(opts.channels == "dwdsurf")
         'configs', cf, 'params', opts.surf_params, ...
         'remove_ptt', opts.surf_remove_ptt), 'dwdsurf', CF, RD, say);
     say('    dwdsall %d x %d\n\n', size(os.dwdxall, 1), size(os.dwdxall, 2));
+    say_pf_(say, os, 'dwdsurf');
 end
 
 %% dwdgrid (per-segment G-S basis on the grid-augmented Rx, or a
@@ -339,7 +361,7 @@ if any(opts.channels == "dwdgrid") && (nseg > 0 || ~isempty(opts.influence))
     a = {};  if ~isempty(opts.delta_g), a = {'delta', opts.delta_g}; end
     og = run_channel_(@(cf) macos.dw_dgrid_multi(m, rxg, sup{:}, ...
         'configs', cf, 'influence', sgb, 'elts', opts.elts, ...
-        'reset_xp_method', opts.reset_xp_method, a{:}), 'dwdgrid', CF, RD, say);
+        a{:}), 'dwdgrid', CF, RD, say);
     % persist the influence basis WITH the harvest: the basis is part
     % of the Jacobian's definition, and rebuilding it in a later
     % session is not bit-stable (the last G-S mode can come out
@@ -348,6 +370,7 @@ if any(opts.channels == "dwdgrid") && (nseg > 0 || ~isempty(opts.influence))
     og.sgb = sgb;
     say('    dwdgall %d x %d (influence basis saved in og.sgb)\n\n', ...
         size(og.dwdgall, 1), size(og.dwdgall, 2));
+    say_pf_(say, og, 'dwdgrid');
 end
 
 %% conditioning report
@@ -637,4 +660,15 @@ function e = find_seg_elts_(txt)
 blk = regexp(txt, 'Element=\s*(\w+)', 'tokens');
 types = string(cellfun(@(c) c{1}, blk, 'UniformOutput', false));
 e = find(types == "Segment");
+end
+
+function say_pf_(say, o, tag)
+%SAY_PF_  One report line per configuration's pupil_find placement.
+if ~isfield(o, 'pupil_find'), return; end
+for i = 1:numel(o.pupil_find)
+    m = o.pupil_find(i);
+    say(['    [%s] pupil_find cfg %d: sphere vtx-FEX %.3g, dep_rms %.3g, ' ...
+         'conv R %.4g, rad %.6g\n'], tag, i, m.vtx_minus_fex, m.dep_rms, ...
+        m.conv_radius, m.rad);
+end
 end

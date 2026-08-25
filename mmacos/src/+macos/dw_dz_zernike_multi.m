@@ -93,6 +93,9 @@ arguments
                                   {'central','forward'})} = 'central'
     opts.exit_pupil_elt         (1,1) double {mustBeInteger} = -1
     opts.reset_xp               (1,1) logical = true
+    opts.reset_xp_method        (1,:) char {mustBeMember( ...
+        opts.reset_xp_method, {'fex','sxp','pupil_find'})} = 'fex'
+    opts.pupil_find_opts        cell = {}
     opts.verbose                (1,1) logical = false
     opts.ngridpts               double {mustBeScalarOrEmpty} = []
     opts.stop_elt               double {mustBeScalarOrEmpty} = []
@@ -176,6 +179,8 @@ fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
 % Reference nElt-1; no-pupil decks are silent no-ops) and guard a
 % powered-optic clobber -- see private/reset_xp_guard.
 reset_ep_moved = false;
+use_pf = strcmp(opts.reset_xp_method, 'pupil_find');
+pf_out = struct([]);
 if opts.reset_xp
     xp0 = macos.get_xp();
     ep_is_powered = reset_xp_guard('is_powered', session);
@@ -208,6 +213,27 @@ if has_cfg
     fprintf('[config %s] applied (%d setter(s))\n', cfgs(ic).name, ...
         numel(cfgs(ic).set));
 end
+if opts.reset_xp && use_pf
+    % reset_xp_method='pupil_find': place the cone-convergence best-fit
+    % sphere ONCE for this configuration (field-set-wide fit -- the cone
+    % aperture IS the field set), then run the field loop with the
+    % per-field FEX reset OFF.  A frozen, best-fit exit pupil: the
+    % per-field tilt reference behaves as reset_xp=false always has.
+    Fpf = zeros(n_fields, 2);
+    for kf = 1:n_fields, Fpf(kf,:) = [fields(kf).dx, fields(kf).dy]; end
+    pf_ic = reset_xp_guard('pupil_find', session, Fpf, opts.stop_elt, ...
+                           session.num_elt() - 1, opts.pupil_find_opts);
+    reset_ep_moved = true;              % placed by construction
+    fprintf(['[pupil_find] sphere placed: vtx moved %.3g from FEX, ' ...
+             'dep_rms %.3g, conv R %.4g\n'], ...
+            norm(pf_ic.vtx(:) - pf_ic.fex.vpt(:)), pf_ic.dep_rms, ...
+            pf_ic.conv_radius);
+    m0 = struct('vtx', pf_ic.vtx(:).', 'rad', pf_ic.rad, ...
+                'fex_vpt', pf_ic.fex.vpt(:).', ...
+                'vtx_minus_fex', norm(pf_ic.vtx(:) - pf_ic.fex.vpt(:)), ...
+                'dep_rms', pf_ic.dep_rms, 'conv_radius', pf_ic.conv_radius);
+    if isempty(pf_out), pf_out = m0; else, pf_out(end+1) = m0; end %#ok<AGROW>
+end
 for k = 1:n_fields
     new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
     session.set_src_fov('src_pos', nom.src_pos, 'src_dir', new_dir, ...
@@ -215,7 +241,7 @@ for k = 1:n_fields
     session.modify();   % flush trace cache so the new dir takes effect
     fprintf('[field %s] ChfRayDir = [%g %g %g]\n', ...
         fields(k).name, new_dir);
-    if opts.reset_xp
+    if opts.reset_xp && ~use_pf
         % Re-reference this field's exit pupil to its OWN chief ray (FEX
         % writes the reference into elt nElt-1 = wf_elt) so the nominal
         % wavefront is tilt-removed.  It persists as element geometry across
@@ -422,6 +448,8 @@ out.wf_elt               = per_field_struct{1, 1}.wf_elt;
 out.kinds                = opts.kinds;
 out = apply_opd_convention(out, opts.orient, opts.sign);
 out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
+out.reset_xp_method      = opts.reset_xp_method;
+if ~isempty(pf_out), out.pupil_find = pf_out; end   % per-config metrics
 
 % Add per-field LOS if SPOT was computed
 if opts.compute_los
