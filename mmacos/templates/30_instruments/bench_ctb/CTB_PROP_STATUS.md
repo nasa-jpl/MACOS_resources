@@ -48,6 +48,18 @@ ctb_phase_masks*.png.  Deck slide 5 updated (table re-sorted, vortex
 bullet = the sampling finding).  README "mask sampling rule" paragraph
 added to the mask-block section.
 
+**Lyot sweep vs the fixed designs (ctb_vortex_lyot_sweep, Dave's ask):**
+dense fraction grid 0.50–0.99 × charges 4/6 against the committed
+APLC/BLC/hard points (same grid/annulus/normalization).  Charge 4
+under-runs every fixed design at every throughput: **0.60 stop =
+8.8e-11 @ 36% T — deeper than the APLC (2.1e-10 @ 27%) at more
+throughput, with no apodizer to fabricate**; 0.70 = 4.1e-10 @ 49%;
+0.90 = 8.0e-9 @ 81%.  Past 0.90 the leak ring arrives inside the stop
+(flux inside 0.1% → 1%) — useful dial range 0.50–0.90.  Charge 4 ~4×
+deeper than charge 6 throughout (smaller pixel-averaged core).  Figure
+ctb_vortex_lyot_sweep.{png,mat}; deck gains main slide 6 (19 slides,
+downstream renumbered).
+
 ## SESSION 10 (2026-08-25) — DM layer: actuators, engine-measured Jacobian, EFC dark hole
 
 Roadmap deepening (Dave: "more specific coronagraph work" on the CTB
