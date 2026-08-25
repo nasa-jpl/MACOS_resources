@@ -546,12 +546,20 @@ column reproducibility (2e-8), predicted-vs-achieved correlation.
 | inner band 3–8 λ/D | 9.62e-7 → 2.40e-8 (40×) |
 | outer band 8–15 λ/D | 6.85e-8 → 2.69e-9 (25×) |
 | DM strokes at the floor (rms) | 9.9 / 8.6 nm |
+| DM1-only control (same G, same loop) | 1.30e-7 (2.3×, stalls) |
+| DM2-only control | 2.55e-7 (1.1×) |
 | linear-achievable floor (top-400 real modes, 11 nm rms) | 4.5e-9 |
 
 The measured floor sits within 2× of the linear-achievable value for a
 Jacobian measured ONCE at the flat state — the remaining gap is
 regularization + fixed-G error, so relinearization (re-measuring G around
 the dug state) is the next depth increment, not a bug hunt.
+
+Both DMs are load-bearing: restricted to either mirror alone the loop
+stalls two decades short (DM1 at the stop is phase-only and cannot reach
+the symmetric half of the speckle field; DM2, 500 mm out of pupil, is
+the amplitude lever but weak alone).  The annular dark zone is a
+two-DM product — one DM buys only a one-sided zone.
 
 Physics worth knowing: with Lyot 0.50 the FPA λ/D is a *post-Lyot* unit —
 a DM ripple of k cycles across the (full) beam lands at k/2 post-Lyot
