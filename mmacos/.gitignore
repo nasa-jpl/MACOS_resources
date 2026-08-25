@@ -24,4 +24,8 @@ templates/50_sensitivities/**/*.mat
 templates/80_end_to_end/e2e/s4_jacobians.mat
 templates/80_end_to_end/e2e/e2e_pie_met.mat
 templates/30_instruments/bench_ctb/ctb_phase_export_N1024.mat
+templates/30_instruments/bench_ctb/ctb_dm_jacobian_N*.mat
+# flat DM seed grids (MB-scale zero matrices): ctb_dm_rx rewrites them
+# whenever absent, and an absent GridFile on a zero-base DM is benign
+templates/30_instruments/bench_ctb/flat*.txt
 templates/80_end_to_end/e2e6m/s4_sens.mat

@@ -1,6 +1,45 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-06. Latest work at "SESSION 9" (end-to-end PROPER hand-off) below; older kept._
+_Updated 2026-08-25. Latest work at "SESSION 10" (DM layer + EFC dark hole) below; older kept._
+
+## SESSION 10 (2026-08-25) — DM layer: actuators, engine-measured Jacobian, EFC dark hole
+
+Roadmap deepening (Dave: "more specific coronagraph work" on the CTB
+substrate, ahead of the e2e6m redo).  The two flat DMs become
+controllable: `ctb_dm_rx` emits `ctb_dm.in` (DM blocks → `Surface=
+GridData`, 256-grid channel in the ELEMENT's own frame — pData=VptElt /
+xData=xObs / zData=psiElt, the localization rule), `ctb_dm` is a 32×32
+influence-function actuator model (pitch 0.666 mm = beam/32, Gaussian,
+12% coupling, 880 active per DM), `ctb_chain` is the reusable masked-chain
+runner (0.4 s/run at N=512), `ctb_dm_jacobian` measures G =
+dE(dark-zone)/d(act) with 1760 forward pokes (h = 2 nm, 11.3 min; 37 MB
+.mat gitignored + .fp.json), and `ctb_efc` closes the EFC loop on the
+engine with a per-iteration α line search against MEASURED contrast.
+
+**Result: dark zone 3–15 λ/D mean 2.934e-7 → 8.055e-9 (36×) in 19
+iterations, strokes 9.9/8.6 nm rms** (3–8 λ/D: 40×; 8–15: 25×; fixed G,
+never relinearized; linear-achievable floor 4.5e-9 at 11 nm rms → the
+measured floor is within 2× of linear-optimal).  Figure `ctb_efc.png`.
+
+Two traps recorded (README "DM layer" section): (1) **the real-stacked
+solve** — complex-SVD EFC commands pass `double` validation and the mex
+silently drops Im(da); achieved field decorrelates (corr 0.13, ratio
+0.17) and the loop crawls at 3%/iter.  Solve `[Re G; Im G] da = −[Re e;
+Im e]`; `ctb_dm.apply` now rejects complex.  (2) **pupil OPD reads at the
+exit pupil** (`macos.trace(30)`), not the FPA default — at the FPA a DM
+bump reads as a global low-order term ~10× its sag (looks like an engine
+grid-amplitude bug; is not).  Engine-side validation along the way: grid
+readback bit-exact, sag→OPD = 2·cos(AOI) within 2%, poke localization
+mirror-exact, superposition 1e-13, chain bit-repeatable.
+
+Gates: `tests/tCtbDm.m` added to SUITE_CTB_512 (emitter frame audit, grid
+readback, sag→OPD scale/sign/location, speckle pair, chain contrast pin
+2.934e-7, Jacobian column linearity, EFC-digs-2×-in-3-iters smoke).
+
+Next (this arc): relinearization schedule (re-measure G around the dug
+state) for the next depth decade; pairwise-probing estimator (lab-facing
+sensing); time-series drift + dark-zone maintenance on the run_simulator
+pattern; the engine-faithful mask/apodizer design operator (S3b unblock).
 
 ## SESSION 9 (2026-08-06) — proper_ctb_run: end-to-end PROPER hand-off (option 1)
 

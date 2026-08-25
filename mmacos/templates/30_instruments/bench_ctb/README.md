@@ -505,3 +505,66 @@ end-of-chain, where PROPER is self-consistent.
 PROPER-chain bare PSF (visually identical, corr 1.000000), the PROPER
 coronagraph FPA, and the radial contrast profile with the dark-zone annulus
 and the shipped macos level marked.
+
+# DM layer — actuators, engine-measured Jacobian, EFC dark hole
+
+The two flat DMs of the bench become *controllable* here: grid-data
+surfaces driven by actuator commands, an EFC Jacobian measured by poking
+every actuator through the full masked diffraction chain, and an
+electric-field-conjugation loop closed on the engine.  Everything is
+engine-in-the-loop — no Fourier model of the bench anywhere, so there is
+no model gap for the optimizer to mine (the e2e6m S3b lesson).
+
+## The pieces
+
+| file | what |
+|---|---|
+| `ctb_dm_rx.m` | emits `ctb_dm.in` from `ctb_dcr.in`: the two DM blocks become `Surface= GridData` with an `nGridMat=256` channel whose frame is the element's own (`pData=VptElt, xData=xObs, zData=psiElt`) — the frame rule that makes pokes localize (the e5 "central dot" lesson). Hand decks untouched; `ctb_dm.in` + `flat256.txt` are derived (the flat grid is gitignored, rewritten on demand). |
+| `ctb_dm.m` | influence-function DM model: 32×32 actuator lattice, pitch = beam/32 = 0.666 mm, Gaussian influence with 12 % nearest-neighbor coupling, commands (mm of surface) → 256×256 grid via local stamps. `apply(a)` REPLACES the element grid (`macos.set_elt_grid`) so there is no accumulation state. 880 active actuators per DM (centers within beam radius + 1 pitch). |
+| `ctb_chain.m` | reusable masked-chain runner: loads the deck once, sizes apodizer/FPM/Lyot once (the deterministic geometry of `ctb_coro_compare`), then `run()` = fresh trace + masks multiplied in place + complex field at the FPA. 0.4 s per run at N=512. |
+| `ctb_dm_jacobian.m` | G = dE(dark zone)/d(actuator): 1760 forward-difference pokes (h = 2 nm surface) through the masked chain, 11.3 min at N=512. Saved to `ctb_dm_jacobian_N512.mat` (37 MB, gitignored) + committed `.fp.json` fingerprint. Regen: `ctb_dm_jacobian()`. |
+| `ctb_efc.m` | the EFC loop: Tikhonov least squares on the dark-zone field, α line-searched each iteration against the MEASURED contrast (runs are 0.4 s — a luxury lab EFC needs probing for), stop when no α improves. Sensing assumed perfect (engine field read directly); pairwise probing is the lab-facing extension. |
+
+## The real-stacked solve (the trap this layer documents)
+
+DM commands are REAL.  The complex least squares must be solved in the
+stacked form `[Re G; Im G] da = −[Re e; Im e]`.  A complex SVD solve
+returns complex `da` — which passes MATLAB's `double` validation and has
+its imaginary part **silently dropped by the mex layer** — so the achieved
+field decorrelates from the prediction (measured: corr 0.13, magnitude
+ratio 0.17) and the line search collapses to ~3 %/iteration crawl.
+`ctb_dm.apply` now rejects complex commands; the diagnosis battery is the
+pattern to reuse: repeatability (bit-exact), superposition (1e-13),
+column reproducibility (2e-8), predicted-vs-achieved correlation.
+
+## Numbers (N=512, 500 nm, shipped mask config: r_fpm 2.70 λ/D, Lyot 0.50)
+
+| quantity | value |
+|---|---|
+| static coronagraph dark zone (3–15 λ/D mean) | 2.934e-7 |
+| EFC floor (19 iterations, fixed G) | **8.055e-9 (36×)** |
+| inner band 3–8 λ/D | 9.62e-7 → 2.40e-8 (40×) |
+| outer band 8–15 λ/D | 6.85e-8 → 2.69e-9 (25×) |
+| DM strokes at the floor (rms) | 9.9 / 8.6 nm |
+| linear-achievable floor (top-400 real modes, 11 nm rms) | 4.5e-9 |
+
+The measured floor sits within 2× of the linear-achievable value for a
+Jacobian measured ONCE at the flat state — the remaining gap is
+regularization + fixed-G error, so relinearization (re-measuring G around
+the dug state) is the next depth increment, not a bug hunt.
+
+Physics worth knowing: with Lyot 0.50 the FPA λ/D is a *post-Lyot* unit —
+a DM ripple of k cycles across the (full) beam lands at k/2 post-Lyot
+λ/D, so 32 actuators control cleanly to ~8 λ/D and weakly beyond.  That
+is why the DM1 command map concentrates stroke in a ring at the
+Lyot-edge image and why the outer band digs 25× where the inner digs 40×.
+
+Gotcha inherited from gate work: pupil OPD must be read at the EXIT PUPIL
+(`macos.trace(30)`); a bare `macos.trace()` traces to the FPA where a DM
+bump smears into a global low-order term ~10× its sag — it looks like a
+grid-amplitude engine bug and is not (`tCtbDm` pins the 2·cos(AOI) scale).
+
+Gates: `tests/tCtbDm.m` (SUITE_CTB_512) — emitter frame audit, grid
+readback, sag→OPD scale/sign/location, speckle-pair symmetry, chain
+contrast pin, Jacobian column linearity, and an EFC smoke that must dig
+≥2× in 3 iterations.

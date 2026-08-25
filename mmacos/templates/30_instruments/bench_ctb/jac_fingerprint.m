@@ -76,6 +76,10 @@ for i = 1:numel(fn)
     v = S.(fn{i});
     if ~isnumeric(v) || isempty(v), continue; end
     v = double(v);
+    % complex arrays (e.g. the EFC Jacobian G): fingerprint |v| -- the
+    % column 2-norms are then the true complex column norms, and
+    % jsonencode (which cannot encode complex) stays happy
+    if ~isreal(v), v = abs(v); end
     e = struct();
     e.name    = fn{i};
     e.size    = size(v);
