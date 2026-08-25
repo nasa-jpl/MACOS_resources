@@ -105,7 +105,21 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ![Before and after at the camera; contrast versus iteration, with the DM1-only loop overlaid stalling two decades short; the stroke maps commanded on both DMs. Dashed circles mark the 3–15 λ/D zone.](ctb_efc.png){h=2.1}
 ~ Sensing is assumed perfect — the loop reads the model's complex field directly. Estimating that field from camera images alone (pairwise probing, as a testbed must) is the next layer of realism.
 
-## 10 — Next | Toward a real coronagraph model, in dependency order
+## 10 — Deeper: the loop on the vortex chain | 1.7×10⁻⁸ → 6.8×10⁻¹⁵ at half-nanometer strokes — this chain leaves nothing the mirrors cannot remove
+::: left
+- The same loop pointed at the slide-6 configuration: charge-4 vortex, Lyot 0.60, no apodizer. Control runs at N=512, where this chain's static floor is 1.7×10⁻⁸ (the slide-6 sweep is N=1024 — the pixel-averaged core covers more of the λ/D scale at coarser sampling).
+- The first iteration removes 300×, and commands never exceed ~0.5 nm rms: the residual field is so small that the measured control matrix is nearly exact, and the solve lands where it points.
+- Going deeper is one re-measurement: rebuild the control matrix about the corrected state (7 minutes of pokes) and continue. The hard-occulter chain gains 2.1× to 3.8×10⁻⁹ and converges — consistent with its linear bound of 4.5×10⁻⁹ — while the vortex chain gains another 86× to 6.8×10⁻¹⁵.
+- The reading: the hard occulter's floor is physics — occulter-edge diffraction the mirrors cannot represent. The vortex chain's floor is arithmetic — the residual field is ~3×10⁻⁸ of the peak amplitude, the roundoff of double-precision propagation. A real bench stops far earlier, at sensing noise and drift; those are the next layers of realism.
+::: right
+| chain | static | fixed matrix | re-measured |
+| hard occulter, Lyot 0.50 | 2.9×10⁻⁷ | 8.1×10⁻⁹ | 3.8×10⁻⁹ |
+| vortex charge 4, Lyot 0.60 | 1.7×10⁻⁸ | 5.8×10⁻¹³ | 6.8×10⁻¹⁵ |
+- Strokes at the floor: 9.9/8.6 nm rms (hard chain), 0.49/0.55 nm rms (vortex chain, before/after re-measurement). Dark zone 3–15 λ/D, both chains, same annulus and normalization throughout.
+::: full
+![The vortex-chain dark hole: before and after (note the color floor at 10⁻¹⁴), convergence, and the sub-nanometer command maps.](ctb_efc_vortex.png){h=2.0}
+
+## 11 — Next | Toward a real coronagraph model, in dependency order
 ::: full
 - Real mirror surfaces. Add measured-quality surface error maps to each of the eight parabolas — random roughness with realistic spatial statistics — so the model scatters light the way real optics do.
 - Deeper control. The native loop is delivered (slide 9); next come re-measuring the control matrix around the corrected state, image-based field estimation (pairwise probing), and driving the same DMs with FALCO, the community's standard wavefront-control software — the hybrid Lyot mask enters there, since its design comes from that control loop.
@@ -114,7 +128,7 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 - Validation against testbed data — the capstone. Needs a named dataset from a real bench and the measured (not design) parameters that produced it.
 ~ Mechanical layer delivered and merged: a prescription generator that reproduces both hand-built models to round-off, regression tests pinning the validated numbers (two suites, 16 checks green), the example README, and the exit-pupil-finder guard in the engine (pushed).
 
-## 11 — References | Sources for the mask families and the control method; every formula taken from the paper itself
+## 12 — References | Sources for the mask families and the control method; every formula taken from the paper itself
 ::: full
 - Band-limited masks: Kuchner & Traub 2002, ApJ 570, 900 (4th order); Kuchner, Crepp & Ge 2005, ApJ 628, 466 (8th order).
 - Apodized-pupil Lyot: Soummer 2005, ApJ 618, L161 (the prolate apodizer); Soummer et al. 2011, ApJ 729, 144 (the GPI instrument configuration used here).

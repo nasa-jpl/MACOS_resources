@@ -43,6 +43,8 @@ function out = ctb_efc(opts)
         opts.visible        (1,1) logical = false
         opts.replot         (1,:) char = ''     % saved ctb_efc.mat: figure only
         opts.compare        struct = struct([]) % .contrast + .label overlay
+        opts.tag            (1,:) char = ''     % suffix for saved .mat/.png
+        opts.a0             (1,:) cell = {}     % warm-start commands (relin)
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
@@ -89,7 +91,9 @@ function out = ctb_efc(opts)
         size(G,1), size(G,2), s(1), s(1)/s(end));
 
     % ---- chain + DM models (must match the Jacobian's config) ----------
-    ch = ctb_chain('rx', J.rx, 'model_size', J.N);
+    cargs = {};
+    if isfield(J, 'chain_opts'), cargs = J.chain_opts; end
+    ch = ctb_chain('rx', J.rx, 'model_size', J.N, cargs{:});
     ndm = numel(J.dm);
     dm = cell(1, ndm);
     for k = 1:ndm
@@ -108,7 +112,14 @@ function out = ctb_efc(opts)
     pb = J.peak_bare;
 
     % ---- EFC loop -------------------------------------------------------
-    a = cellfun(@(d) zeros(d.nact^2, 1), dm, 'UniformOutput', false);
+    if ~isempty(opts.a0)
+        a = opts.a0;                       % warm start (relinearized round)
+    elseif isfield(J, 'a0') && ~isempty(J.a0)
+        a = J.a0;                          % the Jacobian's linearization point
+    else
+        a = cellfun(@(d) zeros(d.nact^2, 1), dm, 'UniformOutput', false);
+    end
+    for k = 1:ndm, dm{k}.apply(a{k}); end
     E = ch.run();
     E_before = E;
     contrast = zeros(1, opts.niter + 1);
@@ -175,7 +186,9 @@ function out = ctb_efc(opts)
     stroke_rms_nm = cellfun(@(x) 1e6 * rms(x(x~=0)), a);
     out.stroke_rms_nm = stroke_rms_nm;
     if opts.save
-        save(fullfile(opts.outdir, 'ctb_efc.mat'), '-struct', 'out', '-v7.3');
+        tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
+        save(fullfile(opts.outdir, ['ctb_efc' tg '.mat']), ...
+             '-struct', 'out', '-v7.3');
         fig_(out, dm, opts);
     end
 end
@@ -192,14 +205,17 @@ function fig_(out, dm, opts)
     c = out.center_px;  w = ceil((out.outer_lamD + 3) * out.lamD_px);
     ix = c-w : c+w;
     lamD_ax = ((ix) - c) / out.lamD_px;
+    % color floor adapts to the achieved depth (a fixed -10 saturates a
+    % 1e-13-class dark hole into a blank panel)
+    lo = max(-16, min(-10, floor(log10(max(out.c_after, 1e-16))) - 1));
     for p = 1:2
         nexttile(tl);
         if p == 1, E = out.E_before; t = sprintf('before  (%.2e)', out.c_before);
         else,      E = out.E_after;  t = sprintf('after  (%.2e)', out.c_after);
         end
-        L = log10(max(abs(E(ix,ix)).^2 / out.peak_bare, 1e-12));
+        L = log10(max(abs(E(ix,ix)).^2 / out.peak_bare, 10^lo));
         imagesc(lamD_ax, lamD_ax, L.'); axis image xy;
-        colormap(gca, parula); clim([-10 -4]);
+        colormap(gca, parula); clim([lo -4]);
         hold on
         th = linspace(0, 2*pi, 200);
         for rr = [out.inner_lamD out.outer_lamD]
@@ -230,7 +246,8 @@ function fig_(out, dm, opts)
         title(sprintf('DM%d commands (rms %.2f nm)', k, out.stroke_rms_nm(k)));
     end
 
-    fp = fullfile(opts.outdir, 'ctb_efc.png');
+    tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
+    fp = fullfile(opts.outdir, ['ctb_efc' tg '.png']);
     exportgraphics(fig, fp, 'Resolution', 150);
     close(fig);
     fprintf('[efc] figure %s\n', fp);

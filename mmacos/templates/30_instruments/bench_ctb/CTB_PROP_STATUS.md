@@ -1,6 +1,46 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-25. Latest work at "SESSION 11" (binned masks) below; older kept._
+_Updated 2026-08-25. Latest work at "SESSION 12" (the loop on the vortex chain) below; older kept._
+
+## SESSION 12 (2026-08-25) — the loop on the vortex chain, and the relinearized floor
+
+Dave's directive: run the DM controls on the vortex/Lyot-0.60
+configuration, record the comparison, then go deeper.  Plumbing:
+`ctb_chain` gains the vortex configuration (`'fpm_kind','vortex'` +
+`'charge'`; complex FPM applied via apodize_complex; config recorded on
+the returned struct); `ctb_dm_jacobian`/`ctb_efc` gain `'tag'` (parallel
+run products), `'a0'` (measure G about a commanded state / warm-start
+the loop — RELINEARIZATION), and chain-config forwarding so the EFC
+always rebuilds the chain the Jacobian was measured through.  The EFC
+figure's color floor now adapts to the achieved depth.
+
+**Results (N=512, 3–15 λ/D, 1760 actuators, perfect sensing):**
+
+| chain | static | EFC fixed G | + relinearized |
+|---|---|---|---|
+| hard occulter, Lyot 0.50 | 2.93e-7 | 8.06e-9 | 3.82e-9 |
+| vortex charge 4, Lyot 0.60 | 1.72e-8 | 5.81e-13 | **6.78e-15** |
+
+Vortex-chain strokes never exceed ~0.5 nm rms (hard chain: 9.9/8.6 nm);
+its first iteration removes 300×.  The static vortex floor at N=512 is
+1.72e-8 (not the N=1024 sweep's 8.8e-11 — at 2 px/λD the binned core
+covers more of the λ/D scale).  READING: the hard chain converges at
+3.8e-9, consistent with its linear-achievable 4.5e-9 — a genuine
+controllability limit (occulter-edge diffraction outside the DM range).
+The vortex chain reaches the NUMERICAL floor of the noiseless model
+(6.8e-15 ⇒ residual field ~3e-8 of peak amplitude — double-precision
+propagation roundoff): nothing physical in that chain is uncontrollable.
+A real bench stops far earlier (sensing noise, incoherent light, drift)
+— the pairwise-probing estimator and drift/maintenance layers are the
+next realism.  Relinearization cost: 7 min of pokes per round.
+
+Deck: new main slide 10 (comparison table + vortex dark-hole figure;
+20 slides, Next/References renumbered).  Tagged run products
+(ctb_efc_*.mat, ctb_dm_jacobian_N512_{vortex,vortex_r1,hard_r1}.mat)
+are gitignored — regen lines: `ctb_dm_jacobian('tag','vortex','chain',
+{'fpm_kind','vortex','charge',4,'apodizer',false,'r_lyot_frac',0.60})`
+then `ctb_efc('jac','ctb_dm_jacobian_N512_vortex.mat','tag','vortex',
+'niter',15)`; relin = same with `'a0', <prev out.a>` and tag `_r1`.
 
 ## SESSION 11 (2026-08-25) — every mask generated at 8× and binned; the vortex core was the floor
 

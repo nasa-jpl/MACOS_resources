@@ -42,6 +42,9 @@ function ch = ctb_chain(opts)
         opts.apodizer        (1,1) logical = true
         opts.fpm             (1,1) logical = true
         opts.lyot            (1,1) logical = true
+        opts.fpm_kind        (1,:) char {mustBeMember(opts.fpm_kind, ...
+                                  {'hard','vortex'})} = 'hard'
+        opts.charge          (1,1) double = 4
         opts.r_fpm_lamD      (1,1) double = 2.70
         opts.r_apod_m        (1,1) double = 15e-3
         opts.r_apod_taper_m  (1,1) double = 2e-3
@@ -90,7 +93,13 @@ function ch = ctb_chain(opts)
                                       opts.r_apod_m, opts.r_apod_taper_m, 8);
     end
     if opts.fpm
-        masks.F = 1 - ctb_mask_disk(N, dx_f, opts.r_fpm_lamD * lamD_fpm_m, 8);
+        switch opts.fpm_kind
+            case 'hard'
+                masks.F = 1 - ctb_mask_disk(N, dx_f, ...
+                                            opts.r_fpm_lamD * lamD_fpm_m, 8);
+            case 'vortex'
+                masks.F = ctb_mask_vortex(N, opts.charge);   % complex, 8x-binned
+        end
     end
     if opts.lyot
         masks.L = ctb_mask_disk(N, abs(macos.dx_at(e.Lyot)), ...
@@ -102,6 +111,10 @@ function ch = ctb_chain(opts)
     % ---- runner --------------------------------------------------------
     ch = struct();
     ch.elt = e;  ch.N = N;  ch.rx = opts.rx;
+    ch.config = {'fpm_kind', opts.fpm_kind, 'charge', opts.charge, ...
+        'apodizer', opts.apodizer, 'fpm', opts.fpm, 'lyot', opts.lyot, ...
+        'r_fpm_lamD', opts.r_fpm_lamD, 'r_apod_m', opts.r_apod_m, ...
+        'r_apod_taper_m', opts.r_apod_taper_m, 'r_lyot_frac', opts.r_lyot_frac};
     ch.lambda_m = lambda_m;  ch.lamD_px = lamD_px;
     ch.center_px = floor(N/2) + 1;
     ch.masks = masks;  ch.coro = opts.coro;
@@ -124,7 +137,11 @@ function ch = ctb_chain(opts)
         end
         macos.intensity(e.FPM, 'reset_trace', false);
         if opts.fpm
-            macos.apodize(e.FPM, masks.F);
+            if isreal(masks.F)
+                macos.apodize(e.FPM, masks.F);
+            else
+                macos.apodize_complex(e.FPM, masks.F);
+            end
         end
         macos.intensity(e.Lyot, 'reset_trace', false);
         if opts.lyot
