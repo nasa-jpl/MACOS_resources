@@ -1367,3 +1367,65 @@ instrument cluster — which is a few pixels at 6 m scale otherwise.
 
 `tApertureFrame` + `tAppendRx` + `tPropLayout`: **11 passed, 0 failed,
 0 incomplete.**
+
+---
+
+## 2026-08-25 — close-out 3: the deck brought current
+
+15 slides: title + 7 main + one plain `Backup Slides` divider + 6
+backup.  Still DRAFT, still generator-built, still every number parsed
+from a stage report.
+
+**What changed on the main path.**  The old "The instrument" slide
+became **"Two instruments | A second camera costs nothing in shroud
+diameter"** — the imager's numbers beside the coronagraph's, and the
+figure swapped for the two-leg shroud view.  That kicker is the
+measured result, not a flourish: both legs and their union all come to
+7.451 m because the 6 m primary sets the envelope.
+
+**The S3b negative went to Backup, as two slides not one.**
+DECK_STYLE is explicit that a slide needing a second table should split
+rather than shrink, and the first draft had two.  So:
+- *"What the segment gaps cost, and what does not buy it back"* — the
+  four-row contrast table and the 1.10× recovery.
+- *"How to tell an optimizer is mining its model"* — the ladder, and
+  the transferable point: a FIXED offset is a calibration error, an
+  offset that GROWS with the demand is the optimizer spending the
+  model's error, and you can see it without knowing the true answer.
+
+**Three stale figures caught by rendering, not by reasoning.**  The
+aperture fix changed what `view_rx` draws, which moved the panels inside
+the multi-view renders — so the committed crop boxes silently clipped.
+Worse, `s3_train_iso.png` had not been regenerated at all, so the
+closing slide was still showing the phantom domes the campaign had just
+removed.  Re-ran `s3_train_fig`, re-MEASURED both panel boxes from the
+current renders (ink-row profiling, not nudging), and noted in the
+generator that a stale box must be re-measured rather than adjusted by
+eye.  **A figure pipeline that crops by fixed fractions needs its
+fractions re-derived whenever the source figure is regenerated** — that
+is now a comment at both call sites.
+
+Also fixed: the closer's caption claimed "three telescope mirrors and
+the instrument relay" when, post-fix, the secondaries and instrument
+optics no longer render as bodies at 6 m scale.  The caption now says
+what the picture shows.  And `*italic*` reached a slide as literal
+asterisks — the builder renders `**bold**` only.
+
+### Style gate (STYLE_REPORTS §5, against both style files)
+
+| item | result |
+|---|---|
+| 1. titles carry the argument | every title is plain descriptive + a kicker carrying a number |
+| 2. sentence without number/mechanism/decision | none |
+| 3. prose restating a table | none — tables are quoted only for interpretation |
+| 4. units + convention + provenance | conventions once on the title slide; both new tables carry their own normalisation line |
+| 5. caveats not buried | the S3b negative is two backup slides, and "What is not in this model" remains |
+| 6. figures deck-grade, captions say what to see | 9 figures, 9 captions, all re-rendered and checked |
+| 7. length in budget | 7 main + 6 backup |
+| 8. register scan | no first person, no superlatives, no ALL-CAPS emphasis |
+| mechanics | all 15 pages rendered; bottom-edge (7.32 in) clip check clean on every one |
+
+### Suites
+
+`tApertureFrame` + `tAppendRx` + `tPropLayout` 11/11; `tCtbProp` 7 passed
+0 failed 1 filtered-by-assumption (PROPER absent, pre-existing).

@@ -197,8 +197,72 @@ def s5():
     return r
 
 
+# ----------------------------------------------------------------- S3c
+def s3c():
+    """The imager leg."""
+    t = read("s3_imager_report.txt")
+    r = {}
+    r["nelt"]   = grab(t, r"spliced: \d+ telescope \+ \d+ bench = (\d+) elements",
+                       "imager element count", "s3_imager_report.txt", int)
+    r["rays"]   = grab(t, r"(\d+)/\d+ rays pass \(telescope alone",
+                       "imager ray count", "s3_imager_report.txt", int)
+    r["rays_tot"] = grab(t, r"\d+/(\d+) rays pass \(telescope alone",
+                       "imager ray total", "s3_imager_report.txt", int)
+    r["dpup_mm"] = 1000*grab(t, r"shared collimated pupil ([\d.eE+-]+) m",
+                       "shared pupil", "s3_imager_report.txt")
+    r["fno"]    = grab(t, r"-> f/([\d.]+), lambda/D", "imager f/#",
+                       "s3_imager_report.txt")
+    r["lamD_um"]= grab(t, r"lambda/D = ([\d.]+) um", "imager lambda/D",
+                       "s3_imager_report.txt")
+    r["spot_um"]= 1e6*grab(t, r"Imager\s+elt\s+\d+: beam radius ([\d.eE+-]+) m",
+                       "imager spot radius", "s3_imager_report.txt")
+    r["wfe"]    = grab(t, r"rms WFE ([\d.]+) waves", "imager WFE",
+                       "s3_imager_report.txt")
+    r["strehl"] = grab(t, r"Strehl ([\d.]+) \(exact", "imager Strehl",
+                       "s3_imager_report.txt")
+    r["shroud_im"] = grab(t, r"imager leg\s+([\d.]+) m", "imager shroud",
+                       "s3_imager_report.txt")
+    r["shroud_co"] = grab(t, r"coronagraph leg\s+([\d.]+) m", "coronagraph shroud",
+                       "s3_imager_report.txt")
+    r["shroud"] = grab(t, r"BOTH legs together ([\d.]+) m", "union shroud",
+                       "s3_imager_report.txt")
+    return r
+
+
+# ----------------------------------------------------------------- S3b
+def s3b():
+    """The apodizer slice -- a negative result with its diagnosis."""
+    t = read("s3b_report.txt")
+    r = {}
+    rows = re.findall(
+        r"target\s+([\d.eE+-]+) \| thru ([\d.]+) \| model ([\d.eE+-]+) "
+        r"\| ENGINE ([\d.eE+-]+) \| divergence\s+([\d.]+)x", t)
+    if not rows:
+        sys.exit("e2e6m_records: no LP ladder rows in s3b_report.txt")
+    r["ladder"] = [dict(target=float(a), thru=float(b), model=float(c),
+                        engine=float(d), div=float(e)) for a,b,c,d,e in rows]
+    tab = re.findall(r"^\s{4}(\S.*?)\s{2,}([\d.eE+-]+)\s+([\d.eE+-]+)\s+([\d.]+)$",
+                     t, flags=re.M)
+    keep = [x for x in tab if not x[0].startswith("configuration")]
+    if len(keep) < 4:
+        sys.exit("e2e6m_records: expected 4 contrast rows in s3b_report.txt, got %d"
+                 % len(keep))
+    r["rows"] = [dict(name=a.strip(), mean=float(b), median=float(c), thru=float(d))
+                 for a,b,c,d in keep[:4]]
+    r["rec_mean"] = grab(t, r"([\d.]+)x in DZ mean", "recovery mean", "s3b_report.txt")
+    r["rec_med"]  = grab(t, r"([\d.]+)x in DZ median", "recovery median", "s3b_report.txt")
+    r["rec_thru"] = grab(t, r"at ([\d.]+)x the throughput", "recovery throughput",
+                         "s3b_report.txt")
+    r["worst"]    = grab(t, r"worst ([\d.]+)x against", "gate worst", "s3b_report.txt")
+    r["bar"]      = grab(t, r"against a ([\d.]+)x bar", "gate bar", "s3b_report.txt")
+    r["lambda0"]  = grab(t, r"Lambda0 = ([\d.]+) \(converged", "aperture-specific Lambda0",
+                         "s3b_report.txt")
+    return r
+
+
 def all_records():
-    return dict(s1=s1(), s2=s2(), s3=s3(), s4=s4(), s5=s5())
+    return dict(s1=s1(), s2=s2(), s3=s3(), s3b=s3b(), s3c=s3c(),
+                s4=s4(), s5=s5())
 
 
 if __name__ == "__main__":
