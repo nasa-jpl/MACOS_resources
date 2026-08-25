@@ -44,7 +44,7 @@ function varargout = reset_xp_guard(action, varargin)
 switch action
     case 'pupil_find'
         % pf = reset_xp_guard('pupil_find', session, Ffield, stop_elt,
-        %                     xp_elt, pf_opts)
+        %                     xp_elt, pf_opts, xp0)
         % ONCE-PER-CONFIGURATION placement of the cone-convergence
         % best-fit exit-pupil sphere (design/src/pupil_find), for
         % reset_xp_method='pupil_find'.  A configuration lives in ENGINE
@@ -61,6 +61,8 @@ switch action
         stop_elt = varargin{3};
         xp_elt   = varargin{4};
         pf_opts  = varargin{5};
+        xp0      = varargin{6};   % PRISTINE deck EP (vpt/psi/rad), from the
+                                  % supervisor's pre-loop macos.get_xp()
         if isempty(stop_elt) || ~isscalar(stop_elt) || stop_elt < 1
             error('macos:dw_dx_multi:pfNeedsStopElt', ...
                   ['reset_xp_method=''pupil_find'' requires ''stop_elt'' ' ...
@@ -80,6 +82,16 @@ switch action
                    '<mmacos>/design/src (run_sensitivities does this ' ...
                    'automatically when the method is selected).']);
         end
+        % Restore the PRISTINE deck EP before saving: without this, the
+        % save_rx below captures the PREVIOUS configuration's pf-written
+        % sphere at nElt-1 (the config snapshot/restore covers only the
+        % configuration's own elements), so every configuration after the
+        % first is fit AND traced on a compounded EP state.  Measured on
+        % the zoom fixture: cfg 1 dep_rms 1.9e-3 / vtx-FEX 0.384, cfgs 2-5
+        % all ~5.4e-3 / 0.254 with identical nominal maps.  Gated by
+        % tPupilFindMethod/test_config_sphere_is_independent_of_predecessors.
+        macos.set_xp(xp0.vpt, xp0.psi, xp0.rad);
+        session.modify();
         tmp = [tempname '.in'];
         cu  = onCleanup(@() delete_silent_(tmp));
         macos.save_rx(tmp);                    % the CONFIGURED state
