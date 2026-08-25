@@ -568,3 +568,14 @@ Gates: `tests/tCtbDm.m` (SUITE_CTB_512) — emitter frame audit, grid
 readback, sag→OPD scale/sign/location, speckle-pair symmetry, chain
 contrast pin, Jacobian column linearity, and an EFC smoke that must dig
 ≥2× in 3 iterations.
+
+# The progress deck — deck_ctb
+
+`deck_ctb.pptx` (17 slides: 10 main + 5 backup behind a divider) records
+the state of the CTB model: bench + prescriptions, PROPER validation,
+mask families head-to-head, planet/bandpass, phase-factor export, the
+pure-PROPER hand-off, and the DM/EFC dark hole.  Source is
+`deck_ctb.md`; regen with `python3 make_brief_slides.py deck_ctb.md`
+(figures are the committed PNGs in this directory).  Style:
+`doc/DECK_STYLE.md` + `doc/STYLE_REPORTS.md` §5 (gate run 2026-08-25,
+clean).
