@@ -66,7 +66,16 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ![Contrast against throughput for all six families — lower-right is better; the apodized-pupil Lyot deepest, the pixel-averaged vortex second at three times its throughput.](ctb_mask_compare.png){h=3.4}
 ~ The hybrid Lyot coronagraph is deferred to the FALCO integration: its focal-plane mask is a product of the design loop, not a formula. Throughput = Lyot open area times apodizer transmission — an off-axis proxy, not an end-to-end planet throughput.
 
-## 6 — Phase-factor export | External PROPER models can consume this model's planes, and check theirs against ours station by station
+## 6 — The vortex against the Lyot stop | Charge 4 under-runs every fixed design at every throughput: 8.8×10⁻¹¹ at the band-limited mask's own 36%
+::: left
+- One mask, one dial: the vortex phase mask is fixed; only the Lyot stop fraction moves. Every point shares the head-to-head's grid, annulus (3–15 λ/D), and normalization, and the fixed-design markers are read from the committed comparison — the same footing, no re-scoring.
+- The trade the cured core revealed: the starlight the vortex rejects piles just outside the geometric pupil edge, so contrast rises steeply as the stop opens toward it — a genuine depth-for-throughput dial where each fixed design is a single point. Charge 4 runs about 4× deeper than charge 6 at every stop (the smaller pixel-averaged core).
+- Readings from the curve: at the apodized-pupil Lyot's operating point, charge 4 with a 0.60 stop is deeper (8.8×10⁻¹¹ vs 2.1×10⁻¹⁰) at more throughput (36% vs 27%) — with no apodizer to fabricate. At the band-limited mask's 36% it is 300× deeper; at 81% throughput it holds 8.0×10⁻⁹, thirty times below the hard occulter's contrast at three times its throughput.
+- The steep rise past 0.90 is the leak ring arriving inside the stop (flux inside grows 0.1% → 1%); the useful range of the dial is 0.50–0.90.
+::: right
+![Dark-zone mean contrast against throughput: the swept vortex (point labels = Lyot fraction) against the three fixed designs from the head-to-head.](ctb_vortex_lyot_sweep.png){h=3.45}
+
+## 7 — Phase-factor export | External PROPER models can consume this model's planes, and check theirs against ours station by station
 ::: left
 - One self-describing file carries the full 44-element model: 18 stations (complex field, amplitude, OPD, grid pitch, all in metres), the 17 propagation legs, the 4 reference spheres, and 18 per-plane phase screens — with the sign, orientation, and centering conventions stamped inside. The orientation is measured, not asserted: a +X pupil phase ramp lands the image peak where the file says it will.
 - A companion PROPER run script reads only the exported file — no macos — and replays the model two ways: every leg propagated, or handing off at the exported fields. Focus stations reproduce at correlation 1.000000 in both modes; gated pupil planes ≥ 0.9998 replayed, ≥ 0.96 handed off.
@@ -76,7 +85,7 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ![Station-by-station intensity correlation of the external PROPER replay against the exported fields (hand-off mode): focus planes at 1.0, gated pupils above 0.96; grey bars are ungated mid-beam planes.](proper_ctb_check_collapsed.png){h=3.1}
 ~ Export ≈320 MB, kept out of git: the committed truth is an 87 KB fingerprint plus a 3 MB downsampled preview, with one-command regeneration. Single wavelength; the exported OPD is wrapped (the complex field is the primary carrier). Per-wavelength export composes with the bandpass machinery when needed.
 
-## 7 — External hand-off: a pure-PROPER run | From the exported data alone, PROPER reproduces the bare image exactly and forms the same dark zone
+## 8 — External hand-off: a pure-PROPER run | From the exported data alone, PROPER reproduces the bare image exactly and forms the same dark zone
 ::: left
 - The package is three files: the exported model (fields, legs, spheres, per-plane screens, mask arrays, all conventions stamped inside), a per-plane check script, and a run script that reads only the export plus PROPER — no macos anywhere. It asserts the orientation probe before trusting any comparison.
 - A finding that shapes any external reconstruction: one single continuous PROPER beam cannot reproduce this model (focal pitch ratio 0.71, correlation 0.005). The model samples every intermediate focus at the system exit-pupil Fraunhofer pitch — set by the exit-pupil sphere radii, not by each parabola's own focal length — and one grid cannot carry both the pupil pitch and that focal pitch across a focus-to-focus relay. The shipped form is one pure-PROPER script seeded from the exported fields.
@@ -85,7 +94,7 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ::: right
 ![Exported (macos) beside pure-PROPER: bare images identical (correlation 1.000000); the PROPER coronagraph forms the dark zone with the shipped macos level marked.](proper_ctb_run.png){h=3.35}
 
-## 8 — The deformable mirrors close the loop | Electric-field conjugation on the model itself: dark-zone mean 2.9×10⁻⁷ → 8.1×10⁻⁹ (36×) at 10 nm strokes
+## 9 — The deformable mirrors close the loop | Electric-field conjugation on the model itself: dark-zone mean 2.9×10⁻⁷ → 8.1×10⁻⁹ (36×) at 10 nm strokes
 ::: left
 - The DMs become controllable surfaces: each carries a 256-point displacement grid in its own element frame, driven by a 32×32 actuator lattice through Gaussian influence functions (12% nearest-neighbor coupling, 0.67 mm pitch = beam/32; 880 actuators of each DM sit inside the beam).
 - The control matrix is measured, not modeled: every actuator is poked 2 nm and propagated through the full masked chain — 1760 pokes, 11 minutes — so the correction solve has no model error to exploit. Each iteration re-propagates the model, scores the measured contrast, picks the regularization by that measurement, and stops itself when no step improves.
@@ -96,22 +105,22 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ![Before and after at the camera; contrast versus iteration, with the DM1-only loop overlaid stalling two decades short; the stroke maps commanded on both DMs. Dashed circles mark the 3–15 λ/D zone.](ctb_efc.png){h=2.1}
 ~ Sensing is assumed perfect — the loop reads the model's complex field directly. Estimating that field from camera images alone (pairwise probing, as a testbed must) is the next layer of realism.
 
-## 9 — Next | Toward a real coronagraph model, in dependency order
+## 10 — Next | Toward a real coronagraph model, in dependency order
 ::: full
 - Real mirror surfaces. Add measured-quality surface error maps to each of the eight parabolas — random roughness with realistic spatial statistics — so the model scatters light the way real optics do.
-- Deeper control. The native loop is delivered (slide 8); next come re-measuring the control matrix around the corrected state, image-based field estimation (pairwise probing), and driving the same DMs with FALCO, the community's standard wavefront-control software — the hybrid Lyot mask enters there, since its design comes from that control loop.
+- Deeper control. The native loop is delivered (slide 9); next come re-measuring the control matrix around the corrected state, image-based field estimation (pairwise probing), and driving the same DMs with FALCO, the community's standard wavefront-control software — the hybrid Lyot mask enters there, since its design comes from that control loop.
 - Motion over time. Apply alignment drifts as a time series and report contrast versus time — how long the dark zone survives between corrections, now measurable against the delivered control loop.
 - Polarized light. Propagate the two polarization components separately, with the phase and amplitude changes each mirror coating imposes; polarization sets the contrast floor no deformable mirror can correct.
 - Validation against testbed data — the capstone. Needs a named dataset from a real bench and the measured (not design) parameters that produced it.
 ~ Mechanical layer delivered and merged: a prescription generator that reproduces both hand-built models to round-off, regression tests pinning the validated numbers (two suites, 16 checks green), the example README, and the exit-pupil-finder guard in the engine (pushed).
 
-## 10 — References | Sources for the mask families and the control method; every formula taken from the paper itself
+## 11 — References | Sources for the mask families and the control method; every formula taken from the paper itself
 ::: full
 - Band-limited masks: Kuchner & Traub 2002, ApJ 570, 900 (4th order); Kuchner, Crepp & Ge 2005, ApJ 628, 466 (8th order).
 - Apodized-pupil Lyot: Soummer 2005, ApJ 618, L161 (the prolate apodizer); Soummer et al. 2011, ApJ 729, 144 (the GPI instrument configuration used here).
 - Phase masks: Roddier & Roddier 1997, PASP 109, 815 (the π-spot); N'Diaye et al. 2012, A&A 538, A55 (the achromatic dual-zone); Soummer, Dohlen & Aime 2003, A&A 403, 369.
 - Vortex: Mawet et al. 2005, ApJ 633, 1191; Foo, Palacios & Swartzlander 2005, Opt. Lett. 30, 3308; Jenkins 2008, MNRAS 384, 515 (the even-charge rejection property).
-- Wavefront control: Give'on et al. 2007, Proc. SPIE 6691 (electric-field conjugation, the correction solve of slide 8).
+- Wavefront control: Give'on et al. 2007, Proc. SPIE 6691 (electric-field conjugation, the correction solve of slide 9).
 - Diffraction reference code: PROPER — Krist 2007, Proc. SPIE 6675 (the arbiter for every propagation cross-check in this deck).
 ~ A companion three-slide deck (ctb_mask_families, committed beside the drivers) carries the code map: which script builds which mask, and the parameters a user can change.
 

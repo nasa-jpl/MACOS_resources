@@ -207,6 +207,7 @@ matlab -batch "ctb_optimize_masks"                             % occulter / Lyot
 matlab -batch "ctb_planet('sep_lamD',6,'flux_ratio',1e-3)"     % off-axis companion
 matlab -batch "ctb_bandpass('nwf',5,'band_frac',0.10)"         % finite bandpass
 matlab -batch "ctb_vortex('charge',6)"                         % scalar vortex mask
+matlab -batch "ctb_vortex_lyot_sweep"                          % Lyot trade vs APLC/BLC
 matlab -batch "ctb_proper_compare"                             % PROPER arbiter, FPM leg
 matlab -batch "ctb_train_render"                               % bench layout figure
 ./../../../run_mmacos_tests.sh ctb                             % tCtbProp, 8 checks
