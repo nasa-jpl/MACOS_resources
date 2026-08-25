@@ -187,7 +187,7 @@ SUITE_POL_512=$(join_suites "tPolContrastCoro")
 # CTB coronagraph diffraction chain -- ctb_dcr.in / ctb_s2s_dcr.in declare
 # nGridpts=255 and their drivers run at model 512.  Own batch, same reason
 # as SUITE_POL_512.  Asset-gated: skips itself when bench_ctb is absent.
-SUITE_CTB_512=$(join_suites "tCtbProp")
+SUITE_CTB_512=$(join_suites "tCtbProp" "tCtbDm")
 
 # reset_xp_method='pupil_find' gates run the zoom fixture at model 512 --
 # own batch line, same isolation reason as the other 512 groups.
