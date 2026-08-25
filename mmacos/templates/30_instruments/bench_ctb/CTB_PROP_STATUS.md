@@ -32,6 +32,13 @@ grid-amplitude bug; is not).  Engine-side validation along the way: grid
 readback bit-exact, sag→OPD = 2·cos(AOI) within 2%, poke localization
 mirror-exact, superposition 1e-13, chain bit-repeatable.
 
+**Both DMs are load-bearing (measured 2026-08-25):** the same loop on
+the same measured G restricted to DM1-only reaches 1.30e-7 (2.3×, stalls
+after 2 iterations — phase-only control at the stop cannot touch the
+symmetric speckle half); DM2-only reaches 2.55e-7 (1.1×); the pair
+reaches 8.06e-9.  The annulus is a two-DM product, as the dark-zone
+geometry rule predicts.
+
 Gates: `tests/tCtbDm.m` added to SUITE_CTB_512 (emitter frame audit, grid
 readback, sag→OPD scale/sign/location, speckle pair, chain contrast pin
 2.934e-7, Jacobian column linearity, EFC-digs-2×-in-3-iters smoke).
