@@ -138,7 +138,7 @@ function varargout = arm_(opts, g, kind)
             r_fpm_m = opts.r_fpm_lamD * g.lamD_fpm_m;
             macos.apodize(e.FPM, 1 - mask_harddisk_(N, g.dx_f, r_fpm_m));
         case 'vortex'
-            V = vortex_mask_(N, opts.charge);            % complex exp(i m theta)
+            V = ctb_mask_vortex(N, opts.charge);         % 8x complex-binned
             macos.apodize_complex(e.FPM, V);
     end
     if ~strcmp(kind,'bare'), macos.intensity(e.FPM,'reset_trace',false); end
@@ -157,16 +157,6 @@ function varargout = arm_(opts, g, kind)
         case 'hard',   varargout = {I_fpa};
         case 'vortex', varargout = {I_fpa, I_lyot};
     end
-end
-
-function V = vortex_mask_(N, m)
-%VORTEX_MASK_  Charge-m scalar vortex exp(i*m*theta), centred on the BEAM
-%   pixel floor(N/2) (0-based) where the NF2 focus lands (centering fix).
-%   Central singular pixel set to phase 0 (transmission 1); O(1/N^2) defect.
-    c = floor(N/2); [xx,yy] = meshgrid((0:N-1)-c, (0:N-1)-c);
-    th = atan2(yy, xx);
-    V = exp(1i * m * th);
-    V(c+1, c+1) = 1;                                    % singular pixel (1-based)
 end
 
 function g = geom_scales_(opts, e)

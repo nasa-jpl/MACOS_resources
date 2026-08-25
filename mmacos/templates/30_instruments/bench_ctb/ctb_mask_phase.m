@@ -1,7 +1,7 @@
 function V = ctb_mask_phase(N, dx_f, lamD_m, kind, p)
 %CTB_MASK_PHASE  Complex focal-plane PHASE mask (Roddier & Roddier / dual-zone).
 %   V = CTB_MASK_PHASE(N, DX_F, LAMD_M, KIND, P) returns an N-by-N COMPLEX
-%   unit-magnitude focal-plane mask (transmission exp(i*phi(r))) for the
+%   focal-plane mask (transmission exp(i*phi(r)), zone edges gray) for the
 %   phase-mask coronagraph families, centred on the beam pixel floor(N/2)
 %   (0-based) = 1-based N/2+1 (the FFT DC pixel where the focus lands).
 %   Applied to the complex field via macos.apodize_complex.
@@ -43,19 +43,25 @@ function V = ctb_mask_phase(N, dx_f, lamD_m, kind, p)
 %     kind    'roddier' | 'dualzone'.
 %     p       parameter struct (see per-kind fields above); [] for defaults.
 %
-%   The singular DC pixel is well-defined for a phase mask (phi(0) is the
-%   inner-zone phase), so no special-casing is needed (unlike the vortex).
+%   Zone-edge pixels carry the pixel-averaged complex transmittance
+%   (8x supersampled area fractions), not a hard phase step -- the same
+%   generate-high-and-bin rule as ctb_mask_vortex.
 %
 %   See also: ctb_phase_masks, macos.apodize_complex, ctb_vortex.
     if nargin < 5 || isempty(p), p = struct(); end
-    c = floor(N/2);                                      % 0-based beam pixel
-    [X,Y] = meshgrid((0:N-1)-c, (0:N-1)-c);
-    r_lamD = hypot(X,Y) * dx_f / lamD_m;                 % separation in lambda/D
+    % Zone edges are GRAY: each phase disk is the K=8 supersampled
+    % area-fraction disk (ctb_mask_disk), and the mask is composed as
+    %   V = 1 + (e^{i*phi}-1) * D(r)
+    % per zone -- the pixel-averaged COMPLEX transmittance of the hard
+    % phase step (generate-at-8x-and-bin, without the 8x grid).
+    % Interior pixels have D=1, so the zone phases are exact.
 
     switch lower(kind)
         case 'roddier'
             rho0 = getdef_(p,'rho0_lamD',0.53);
-            phi  = pi * double(r_lamD < rho0);
+            D = ctb_mask_disk(N, dx_f, rho0*lamD_m, 8);
+            V = 1 + (exp(1i*pi) - 1) * D;
+            return
         case 'dualzone'
             d1 = getdef_(p,'d1_lamD',0.874);             % DIAMETERS (lambda0/D)
             d2 = getdef_(p,'d2_lamD',1.445);
@@ -67,13 +73,13 @@ function V = ctb_mask_phase(N, dx_f, lamD_m, kind, p)
                 phi1 = getdef_(p,'phi1',1.94) * lam_ratio;
                 phi2 = getdef_(p,'phi2',4.26) * lam_ratio;
             end
-            phi = zeros(N);
-            phi(r_lamD <  d1/2)                    = phi1;
-            phi(r_lamD >= d1/2 & r_lamD < d2/2)    = phi2;
+            D1 = ctb_mask_disk(N, dx_f, (d1/2)*lamD_m, 8);
+            D2 = ctb_mask_disk(N, dx_f, (d2/2)*lamD_m, 8);
+            V = 1 + (exp(1i*phi2) - 1) * D2 + (exp(1i*phi1) - exp(1i*phi2)) * D1;
+            return
         otherwise
             error('ctb_mask_phase:kind','unknown kind ''%s''',kind);
     end
-    V = exp(1i*phi);
 end
 
 function v = getdef_(s, f, d)

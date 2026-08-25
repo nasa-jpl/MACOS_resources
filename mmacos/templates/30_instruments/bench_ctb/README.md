@@ -176,6 +176,23 @@ mask plane, multiply the complex field (`macos.apodize` for amplitude,
 `'reset_trace', false`. An obscuration declared on a `Reference` element
 clips rays only — the diffraction wavefront passes through it untouched.
 
+**Mask sampling rule (2026-08-25): every mask surface is generated at 8×
+sub-pixel resolution and binned to the model grid** — the binned value is
+the pixel-averaged transmittance the band-limited field actually
+experiences.  Amplitude masks always were (`ctb_mask_disk` /
+`ctb_mask_softcircle`, K=8 area-weighted edges).  Phase masks now too:
+`ctb_mask_vortex` complex-bins `exp(i·m·θ)` (accumulating the 64
+sub-pixel phasor shifts at model resolution, so no 8N grid is ever
+built) and `ctb_mask_phase` composes gray zone edges from the
+supersampled disks.  This matters most at the vortex core: the
+directly-sampled singularity sits on the stellar Airy peak and floored
+the dark zone at 2.9e-7 regardless of the bench (ideal-pupil probe
+reproduces it); complex-binning zeroes the core pixel smoothly and the
+bench vortex reaches **1.41e-8 (21×) at unchanged 81% throughput** —
+second-deepest mask after the APLC.  The ideal-pupil binned floor is
+3.0e-9, so the bench residual (aberration/amplitude), not the mask, now
+sets the vortex floor.
+
 ## Run
 
 Every driver takes `'model_size'`, `'outdir'`, `'visible'`, and an `'elt'`

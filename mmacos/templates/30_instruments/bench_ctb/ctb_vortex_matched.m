@@ -25,11 +25,18 @@ function out = ctb_vortex_matched(opts)
 %       flux INSIDE r*r_lyot_geom is measured and reported, so the "star ->
 %       ring outside the pupil" claim is verified numerically, not asserted.
 %
-%   VERIFIED on this bench (N=1024, clear pupil):
-%     charge 6 sends ~99% of on-axis flux OUTSIDE the geometric pupil (only
-%     1.2% inside frac=1.0), piling into a ring just beyond the edge.  A
-%     Lyot at frac~0.90 (81% throughput) reaches ~4.3e-7 mean contrast --
-%     vs the unmatched frac=0.50 (25% throughput) number.
+%   VERIFIED on this bench (N=1024, clear pupil, 8x-BINNED vortex --
+%   ctb_mask_vortex; the direct-sampled singular core used to floor every
+%   Lyot fraction at the same 1e-7 class, which made the open Lyot look
+%   free):
+%     flux inside the stop is 0.0-0.1% out to frac 0.90 (the analytic
+%     "all light outside" property, now visible), and the Lyot fraction
+%     is a REAL depth-vs-throughput trade:
+%       charge 4: 6.6e-11 @ frac 0.50 (25% T) -- APLC-class depth;
+%                 1.9e-09 @ 0.80 (64% T);  8.0e-09 @ 0.90 (81% T)
+%       charge 6: 3.0e-10 @ 0.50;  6.4e-09 @ 0.80;  1.6e-08 @ 0.90
+%     The C/T "knee" therefore lands at the deepest swept fraction; the
+%     sweep table is the product, the knee line is vestigial.
 %
 %   out = CTB_VORTEX_MATCHED() sweeps charge 4 and 6.  Name-value:
 %     'rx','elt'        deck + station map (default compact ctb_dcr.in).
@@ -206,9 +213,7 @@ function [I_fpa, frac_inside, I_lyot] = run_vortex_(opts, g, m, lyot_frac)
     % FPM: charge-m scalar vortex
     N = opts.model_size;
     macos.intensity(e.FPM,'reset_trace',false);
-    c = floor(N/2); [xx,yy] = meshgrid((0:N-1)-c, (0:N-1)-c);
-    V = exp(1i*m*atan2(yy,xx)); V(c+1,c+1) = 1;              % singular pixel -> 1
-    macos.apodize_complex(e.FPM, V);
+    macos.apodize_complex(e.FPM, ctb_mask_vortex(N, m));     % 8x complex-binned
     macos.intensity(e.FPM,'reset_trace',false);
     % Lyot plane: measure flux distribution BEFORE applying the stop
     I_lyot = macos.intensity(e.Lyot,'reset_trace',false);

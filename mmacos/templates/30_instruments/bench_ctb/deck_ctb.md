@@ -49,22 +49,21 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ![The companion at 6 λ/D, flux 10⁻³: star residual, star+planet, and the difference panel that recovers it.](ctb_planet.png){h=2.25}
 ![Mono vs 10%-band broadband on the common detector grid: rings wash out, the deep null fills 2.1×.](ctb_bandpass.png){h=2.2}
 
-## 5 — The standard mask families, head-to-head | The apodized-pupil Lyot design is a thousand times deeper than the hard edge; the vortex trades depth for three times the throughput
+## 5 — The standard mask families, head-to-head | The apodized-pupil Lyot design is deepest; the pixel-averaged vortex is second, at three times its throughput
 ::: left
 - Five mask families from the literature, built as reusable mask functions on the existing complex-mask interface — no engine work. Every formula was taken verbatim from the source paper — secondary summaries get them wrong (band-limited masks are 1−sinc in amplitude, not intensity; the Lyot trims by 1−ε, not 1−2ε; the Roddier π-mask uses no apodizer).
-- All six score on one grid, one annulus (3–15 λ/D), one normalization — the hard occulter of slide 3 re-scored on this common footing.
+- All six score on one grid, one annulus (3–15 λ/D), one normalization — the hard occulter of slide 3 re-scored on this common footing. Every mask is generated at 8× sub-pixel resolution and binned to the model grid (area-average for amplitude, complex-average for phase).
 
 | mask | dark-zone mean | throughput |
 | apodized-pupil Lyot (prolate) | 2.1×10⁻¹⁰ | 27% |
+| vortex, matched Lyot | 1.4×10⁻⁸ | 81% |
 | band-limited (4th order) | 2.7×10⁻⁸ | 36% |
 | hard occulter | 2.5×10⁻⁷ | 25% |
-| vortex, matched Lyot | 2.9×10⁻⁷ | 81% |
-| Roddier π-mask | 3.2×10⁻⁶ | 81% |
-| dual-zone phase | 6.4×10⁻⁶ | 81% |
-- The vortex finding: an ideal vortex mask (a spiral phase; even winding number) on an unobstructed pupil sends the starlight outside the pupil entirely, so the Lyot stop opens to 90% — 3.2× the throughput of the earlier configuration (which had left the apodizer in and the Lyot undersized, and saw only a fraction of the effect).
-- The two phase masks are shallow here by physics, not by defect: both need their matched entrance-pupil apodizer to go deep, which is recorded in the mask builders.
+| Roddier π-mask | 2.4×10⁻⁶ | 81% |
+| dual-zone phase | 6.8×10⁻⁶ | 81% |
+- The vortex row moved 21×: the direct-sampled mask's singular core — mis-phased pixels on the stellar image core, a sampling artifact, not vortex physics — had floored it at 2.9×10⁻⁷. Pixel-averaging cures it, and the Lyot becomes a real depth dial: charge 4 reaches 6.6×10⁻¹¹ at a 0.50 stop — apodized-pupil-Lyot class at the same 25% throughput. Full diagnosis in backup.
 ::: right
-![Contrast against throughput for all six families — lower-right is better; the apodized-pupil Lyot stands three decades below the hard edge.](ctb_mask_compare.png){h=3.4}
+![Contrast against throughput for all six families — lower-right is better; the apodized-pupil Lyot deepest, the pixel-averaged vortex second at three times its throughput.](ctb_mask_compare.png){h=3.4}
 ~ The hybrid Lyot coronagraph is deferred to the FALCO integration: its focal-plane mask is a product of the design loop, not a formula. Throughput = Lyot open area times apodizer transmission — an off-axis proxy, not an end-to-end planet throughput.
 
 ## 6 — Phase-factor export | External PROPER models can consume this model's planes, and check theirs against ours station by station
@@ -131,6 +130,20 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ![The Roddier π-spot and dual-zone phase masks; both need their matched entrance apodizer to go deep.](ctb_phase_masks.png){h=3.1}
 ::: right
 ![The vortex with matched Lyot: even winding number on a clear pupil sends starlight outside the reimaged pupil.](ctb_vortex_matched.png){h=3.1}
+
+## The vortex core: sampling set the floor | An ideal-pupil probe with no bench reproduces the shipped 2.9×10⁻⁷ — and pixel-averaging removes it
+::: left
+- The probe: the same sampled charge-6 vortex in a pure Fourier chain on an ideal clear pupil (N=1024, 4 px per λ/D, Lyot 0.90) — no bench optics anywhere. Direct-sampled: 3.0×10⁻⁷, matching the shipped bench number. Supersampling the pupil edge changes nothing. The floor is the mask's own singular core: near the axis the phase wraps faster than the grid, and those mis-phased pixels sit exactly on the stellar image peak, scattering ~0.2% of the starlight back inside the Lyot.
+- Generate-at-K× and complex-bin cancels the core phasors (transmission 0 at the core pixel, a smooth ~1-px taper): 4× gives 3.4×10⁻⁹, 8× gives 3.0×10⁻⁹ (converged). An explicit 1 λ/D opaque core dot is worse (9.8×10⁻⁹ — its own edge diffracts). Charge 2 is the counterexample: the medicine is for even charge ≥ 4.
+- On the bench (8×-binned, charge 6, Lyot 0.90): 1.4×10⁻⁸ — the remaining gap to the ideal-pupil 3.0×10⁻⁹ is the bench's own residual, no longer the mask.
+::: right
+- With the core fixed, flux inside the stop is 0.0–0.1% out to a 0.90 fraction — the analytic "all starlight outside the pupil" property, visible at last — and the Lyot fraction becomes a genuine depth-for-throughput trade (it used to look free because every fraction hit the same artifact floor):
+
+| Lyot fraction | charge 4 | charge 6 | throughput |
+| 0.50 | 6.6×10⁻¹¹ | 3.0×10⁻¹⁰ | 25% |
+| 0.80 | 1.9×10⁻⁹ | 6.4×10⁻⁹ | 64% |
+| 0.90 | 8.0×10⁻⁹ | 1.6×10⁻⁸ | 81% |
+- Charge 4 at a 0.80 stop dominates the band-limited mask in both depth and throughput; at 0.50 it reaches the apodized-pupil Lyot's class.
 
 ## Bare-optics agreement, and the bench | The two prescriptions before any mask, and the geometric layout they share
 ::: left
