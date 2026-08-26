@@ -204,6 +204,73 @@ classdef tPupilFindMethod < matlab.unittest.TestCase
         end
     end
 
+    methods (Test)
+        function test_field_scope_places_per_combo_tilt_absorbing_spheres(tc)
+        % pf_scope='field' (Dave, 2026-08-25): a 3x3 mini-cone fit per
+        % (config, field) block, FEX baseline run at the cone CENTER, so
+        % each combo's sphere axis and radius follow its OWN chief and
+        % the field tilt is absorbed per block.  Measured healthy values
+        % (this grid, ng 41): outer-field nominal 3.8e-3 mm (vs 0.46 mm
+        % when the baseline ran at the deck's nominal chief, and ~0.64 mm
+        % under config scope); across-field vtx spacing 4.0e-4 mm;
+        % across-config spacing 1.1e-5 mm.
+            T = table(["zoomA"; "zoomB"], [tc.TILT; -tc.TILT], ...
+                'VariableNames', {'name', '25.Ry'});
+            cfgs = macos.design.configs_from_table(T);
+            m = macos.Session(512);
+            out = macos.dw_dx_multi(m, tc.rx, 'field_x_rad', tc.FOV, ...
+                'field_y_rad', tc.FOV, 'grid', '3x1', 'elts', 24, ...
+                'dofs', (3:5).', 'configs', cfgs, 'stop_elt', 25, ...
+                'ngridpts', 41, 'reset_xp_method', 'pupil_find', ...
+                'pf_scope', 'field');
+            tc.verifyEqual(out.pf_scope, 'field');
+            tc.assertEqual(numel(out.pupil_find), 6, ...
+                'one placement per (config, field) block expected');
+            P = out.pupil_find;
+            tc.verifyEqual([P.config], [1 1 1 2 2 2]);
+            tc.verifyEqual([P.field],  [1 2 3 1 2 3]);
+            vtx = reshape([P.vtx], 3, []).';
+            tc.verifyGreaterThan(norm(vtx(1,:) - vtx(2,:)), 1e-5, ...
+                'spheres must be DISTINCT across fields');
+            tc.verifyGreaterThan(norm(vtx(1,:) - vtx(4,:)), 1e-6, ...
+                'spheres must be DISTINCT across configurations');
+            r = cellfun(@(W) sqrt(mean(W(W ~= 0).^2)), ...
+                        out.per_field_w_nom_2d);
+            tc.verifyLessThan(max(r(:)), 2e-2, sprintf( ...
+                ['worst per-combo nominal is %.3g mm RMS -- the field ' ...
+                 'tilt was NOT absorbed (config scope leaves ~0.64 mm ' ...
+                 'at these fields; a nominal-chief FEX baseline leaves ' ...
+                 '0.46)'], max(r(:))));
+        end
+
+        function test_field_scope_probe_delta_is_not_load_bearing(tc)
+        % The mini-cone half-width is a conditioning knob, not a result
+        % knob: the fitted vertex must be stable under a 2x change.
+        % Measured: 5.9e-5 mm between delta and 2*delta at the healthy
+        % default (0.15x the field half-width).
+            m = macos.Session(512);                          %#ok<NASGU>
+            nE0 = macos.load_rx(tc.rx);
+            macos.set_src_sampling(41);
+            macos.stop(25);
+            macos.modify();
+            tmp = fullfile(tc.od, 'pf_delta_gate.in');
+            macos.save_rx(tmp);
+            d0 = 0.15 * tc.FOV;
+            V = zeros(2, 3);
+            for j = 1:2
+                [gx, gy] = ndgrid([-1 0 1] * d0 * j);
+                pf = pupil_find(tmp, [gx(:), gy(:)], 'ep_elt', 25, ...
+                    'stop_elt', 25, 'xp_elt', nE0 - 1, ...
+                    'place', false, 'init', false);
+                V(j, :) = pf.vtx;
+            end
+            tc.verifyLessThan(norm(V(1,:) - V(2,:)), 1e-2, sprintf( ...
+                ['fitted vertex moved %.3g mm under a 2x probe ' ...
+                 'half-width change -- the cone fit is ' ...
+                 'ill-conditioned at this delta'], norm(V(1,:) - V(2,:))));
+        end
+    end
+
     methods
         function F = fieldset(tc)
         % The stock 5-field set (center + 4 corners), as (K x 2) rad.
