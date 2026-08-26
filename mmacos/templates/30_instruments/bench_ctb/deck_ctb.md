@@ -1,15 +1,16 @@
-<!-- CTB coronagraph diffraction-model progress deck, v4 2026-08-25.
+<!-- CTB coronagraph diffraction-model progress deck, v5 2026-08-26.
      Build: python3 make_brief_slides.py deck_ctb.md
-     Sources: bench_ctb/CTB_PROP_STATUS.md (sessions 4-10) + committed
+     Sources: bench_ctb/CTB_PROP_STATUS.md (sessions 4-14) + committed
      committed figures in THIS directory (mask families + leg fix +
      export, pol-ifo ab494ec..a060ef0/46d0bc6; DM layer + EFC,
-     dev-candidate ea64552).  Style: doc/DECK_STYLE.md +
-     STYLE_REPORTS.md section 5 (gate run 2026-08-25: clean).       -->
+     dev-candidate ea64552; physics layers + vector vortex,
+     dev-candidate 29edb1d/9ea80e5+).  Style: doc/DECK_STYLE.md +
+     STYLE_REPORTS.md section 5 (gate run 2026-08-26: clean).       -->
 
 # The Coronagraph Testbed Model
 End-to-end diffraction on an all-reflective testbed — eight off-axis parabolas, two deformable mirrors — validated against PROPER
-D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resources dev-candidate, mmacos/templates/30_instruments/bench_ctb (committed, with status record).
-~ The diffraction layer, complete and validated: propagation prescriptions cross-checked against PROPER, dark-zone contrast with the standard mask families head-to-head, an off-axis companion, finite bandpass, a hand-off package an external PROPER user runs with no macos — and now the two deformable mirrors closing a wavefront-control loop on the model itself, digging the dark zone 36× below the static coronagraph.
+D. C. Redding with Claude Code — 26 August 2026. Model + drivers: MACOS_resources dev-candidate, mmacos/templates/30_instruments/bench_ctb (committed, with status record).
+~ The diffraction layer, complete and validated: propagation prescriptions cross-checked against PROPER, dark-zone contrast with the standard mask families head-to-head, an off-axis companion, a hand-off package an external PROPER user runs with no macos, the two deformable mirrors closing a wavefront-control loop on the model itself — and the physics layered on top: finite bandpass, the coated train's polarization, and the vector vortex with a measured verdict on the polarizer-sandwich trade.
 
 ## 1 — The bench and the model | Two prescriptions, one physical train; every mask plane bracketed by its own exit-pupil reference sphere
 ::: left
@@ -145,20 +146,29 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ::: full
 ![The campaign at Lyot 0.60: convergence of each physics configuration (left) and the Lyot trade under full physics (right).](ctb_phys_summary.png){h=2.0}
 
-## 13 — Next | Toward a real coronagraph model, in dependency order
+## 13 — The vector vortex | The retardance leak is uncorrectable but optically removable: a circular sandwich returns to the scalar floor under per-λ control — and a crossed-linear sandwich goes deeper still, at the price of eight planet blind spots
+::: left
+- The machinery: a vector vortex is a rotating half-wave plate — a 2×2 Jones focal-plane mask, not a scalar phase screen. Everything downstream of the mask is linear, so each output component is the coherent sum of two chain runs (the cos mθ and sin mθ entry masks, pixel-averaged at 8×) and the whole family runs with no engine change. The ideal plate (δ=π) validates it: static equals the scalar vortex exactly (leakage 4×10⁻³³), and analyzed, its loop reproduces the scalar floor (4.8×10⁻¹³).
+- The zero-order plate leaks — and no mirror can fix it. δ(λ)=πλ₀/λ leaves cos²(δ/2) of the starlight un-spiraled (10⁻³ at 5%, 10⁻² at 20%), and the loop gains nothing: the leak amplitude flips sign across band center, so one DM setting cannot null both halves of the band. Unpolarized, even the ideal plate floors at 2.0×10⁻⁹ — one surface serving the ±m channels of both input polarizations at once (the two-spiral compromise).
+- The circular sandwich (R in, L analyzed) removes the leak optically: statics return to the mono value at every band; floors 8.3×10⁻¹³ mono → 1.5×10⁻¹⁰ at 20%. The residual above the scalar chain is control, not physics — stacking the per-wavelength targets instead of collapsing them to a band mean recovers 265× at 5% (2.1×10⁻⁹ → 7.9×10⁻¹²), landing on the scalar chain's own floor.
+- Would a crossed linear polarizer do better? On the star side, by two to three decades: the y-analyzed channel of an x-polarized star is the sin mθ mask chain — an eight-octant-mask analogue — statically 240× below the circular sandwich (7×10⁻¹¹) and closing to 6×10⁻¹⁶ mono → 7×10⁻¹³ at 20%, two to three decades below circular everywhere. The price is planetary: transmission ∝ sin²(mθ_p), eight azimuthal blind spots at charge 4 where the circular sandwich is flat — and the coated mirrors' cross-polarization re-injects leak the analyzer cannot strip (full stack 2.2×10⁻⁹ static, 3.4×10⁻¹¹ closed and still descending).
+::: right
+![The verdict on one axis: unpolarized zero-order (leakage-pinned), the circular sandwich (optical leak rejection, per-λ control recovery), the crossed-linear sandwich (deepest star-side floors), against the scalar chain.](ctb_vvc_summary.png){h=3.55}
+
+## 14 — Next | Toward a real coronagraph model, in dependency order
 ::: full
 - Realistic sensing. The loop reads the model's complex field directly; a testbed estimates it from camera images (pairwise probing). That estimator is the remaining step between these floors and lab-representative ones — and FALCO, the community's standard wavefront-control software, can then drive the same DMs (the hybrid Lyot mask enters there, since its design comes from that control loop).
 - Aberrations and drifts. As-built mirror surface maps (measured-quality power spectra), then alignment drifts as a time series against the delivered control loop — dark-zone maintenance, and how long the hole survives between corrections.
-- The vector vortex. The component-chain machinery supports a 2×2 Jones focal-plane mask by linearity — two passes per output component — so the vector vortex runs with no engine work: the ideal plate validates against the scalar result, and the zero-order chromatic plate maps the classic retardance-leakage-vs-bandwidth trade beside the scalar chain.
 - Validation against testbed data — the capstone. Needs a named dataset from a real bench and the measured (not design) parameters that produced it.
 ~ Mechanical layer delivered and merged: a prescription generator that reproduces both hand-built models to round-off, regression tests pinning the validated numbers (two suites, 16 checks green), the example README, and the exit-pupil-finder guard in the engine (pushed).
 
-## 14 — References | Sources for the mask families and the control method; every formula taken from the paper itself
+## 15 — References | Sources for the mask families and the control method; every formula taken from the paper itself
 ::: full
 - Band-limited masks: Kuchner & Traub 2002, ApJ 570, 900 (4th order); Kuchner, Crepp & Ge 2005, ApJ 628, 466 (8th order).
 - Apodized-pupil Lyot: Soummer 2005, ApJ 618, L161 (the prolate apodizer); Soummer et al. 2011, ApJ 729, 144 (the GPI instrument configuration used here).
 - Phase masks: Roddier & Roddier 1997, PASP 109, 815 (the π-spot); N'Diaye et al. 2012, A&A 538, A55 (the achromatic dual-zone); Soummer, Dohlen & Aime 2003, A&A 403, 369.
 - Vortex: Mawet et al. 2005, ApJ 633, 1191; Foo, Palacios & Swartzlander 2005, Opt. Lett. 30, 3308; Jenkins 2008, MNRAS 384, 515 (the even-charge rejection property).
+- Vector vortex: Mawet et al. 2009, Opt. Express 17, 1902 (the liquid-crystal-polymer VVC and its retardance-leakage term); Mawet et al. 2010, ApJ 709, 53 (laboratory results and first light). The 2×2 Jones form on slide 13 is the standard rotating-half-wave-plate algebra, re-derived in the driver's help text.
 - Wavefront control: Give'on et al. 2007, Proc. SPIE 6691 (electric-field conjugation, the correction solve of slide 9).
 - Diffraction reference code: PROPER — Krist 2007, Proc. SPIE 6675 (the arbiter for every propagation cross-check in this deck).
 ~ A companion three-slide deck (ctb_mask_families, committed beside the drivers) carries the code map: which script builds which mask, and the parameters a user can change.
