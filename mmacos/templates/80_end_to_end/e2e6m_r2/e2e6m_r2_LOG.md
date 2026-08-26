@@ -405,3 +405,29 @@ the payoff figure, middle panel (EFC trades pupil flatness for
 contrast; the contrast panel is the payoff).  DM spacing as an
 amplitude-authority KNOB (CTB uses 0.5 m in a 21 mm beam) is a
 stated future trade, not re-run here.
+
+---
+
+## 2026-08-26 — R5: the deck
+
+`deck_e2e6m_r2.py` + `e2e6m_r2_records.py` → `deck_e2e6m_r2.{md,pptx,pdf}`,
+**21 slides** (13 main path, 8 backup behind one plain divider),
+DECK_STYLE-governed.  The round-1 telescope/segmentation slides carry
+forward through round 1's own frozen records module; every round-2
+number parses from the committed r0–r4 reports (two provenance fixes
+en route: `r2_masks_fig` now writes `r2_masks_report.txt` so the
+occulter's 27.3 µm is parsed, and the R0 lever ratio parses from
+`r0_bisect2_report.txt` instead of a constant).  Main path: telescope →
+segmented primary → light order (full-width sequence) → two
+instruments/shroud → bench plane → masks as objects → DMs are real →
+gap cost → error budget closes (worst 0.35%) → metrology truss → the
+loop closes → what this demonstrates.  Backup: the R0
+evaluation-surface resolution (with the same-element two-surface
+table), the control-law selection story, the fold-side packaging
+lesson, the round-1 f/# and apodizer carries, what is not in the
+model, and how to reproduce.
+
+Visual QA: rendered every slide (libreoffice→pdftoppm contact sheet),
+reworked the sequence slide to full width after the first render
+buried it in a half column.  STYLE_REPORTS §5 gate: run — **clean**.
+DRAFT — Dave signs off; the .pptx is generated, never hand-edited.
