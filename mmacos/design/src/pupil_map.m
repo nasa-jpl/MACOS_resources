@@ -199,6 +199,10 @@ function out = pupil_map(deck, Ffield, opts)
         opts.quiet      (1,1) logical = true
         opts.stop_elt   (1,1) double {mustBeInteger} = 0
         opts.stop_pos   double = []
+        opts.obj_hist   (1,1) logical = false  % entrance positions from
+                                               % the ray history at obj_elt
+                                               % (one trace; legal at
+                                               % Segment elements)
     end
 
     K = size(Ffield,1);
@@ -256,7 +260,8 @@ function out = pupil_map(deck, Ffield, opts)
         % from ApStop instead would be right on Rodgers' decks and 50 mm
         % wrong on the ones afocal4_build emits.
         rim = rim_plane_(txt, tmp, apst, stand, bx0 + Ffield(kc,1), ...
-                         by0 + Ffield(kc,2), io, ii, V1, n1, 0.5*beam_dia_(txt));
+                         by0 + Ffield(kc,2), io, ii, V1, n1, ...
+                         0.5*beam_dia_(txt), opts.obj_hist);
         anc = struct('Vpt', (V1 + n1*rim.sag).', 'psi', n1.');
     end
     index_group = ischar(anc) && strcmpi(anc,'index');
@@ -283,7 +288,7 @@ function out = pupil_map(deck, Ffield, opts)
     for k = 1:K
         bx = bx0 + Ffield(k,1);   by = by0 + Ffield(k,2);
         [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, ...
-                                              bx, by, io, ii);
+                                              bx, by, io, ii, opts.obj_hist);
         Q = Pm(:,ok);
         if flat_anchor
             % back-project each ray along the (collimated) source direction
@@ -598,7 +603,7 @@ function R = nan_rim_()
                'fit_resid',NaN, 'stop_offset',NaN, 'stop_minus_rim',NaN);
 end
 
-function R = rim_plane_(txt, tmp, apst, stand, bx, by, io, ii, V1, n1, Rdec)
+function R = rim_plane_(txt, tmp, apst, stand, bx, by, io, ii, V1, n1, Rdec, uh)
 %RIM_PLANE_  The flat plane through the object element's RIM, measured.
 %
 %   One trace of the box-centre field gives every ray's hit point on the
@@ -623,7 +628,7 @@ function R = rim_plane_(txt, tmp, apst, stand, bx, by, io, ii, V1, n1, Rdec)
 %   deck's own stop IS its rim plane.  On a deck that declares the stop at
 %   the vertex it comes back as the sag, which is the honest statement that
 %   the two planes are different there.
-    [Pm, ~, ~, ok] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii);
+    [Pm, ~, ~, ok] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii, uh);
     if nnz(ok) < 8
         error('macos:design:pupil_map:rim', ...
               ['only %d rays reached element %d, which is not enough to ' ...
@@ -670,11 +675,18 @@ function Z = rim_zone_(nod, good, waist, wmax, W, B, frac)
     Z.wander_best_max = max(B.per_node_max(sel));
 end
 
-function [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii)
+function [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii, uh)
 %TRACE_FIELD_  One field: entrance hits, exit ray lines, exit chief.
-%   TWO traces, no reload between them -- macos.trace(k) reports at element
-%   k, and the second call overwrites the first's buffer, so the entrance
-%   data is read out before the exit trace runs.
+%   Default (uh false): TWO traces, no reload between them -- macos.trace(k)
+%   reports at element k, and the second call overwrites the first's buffer,
+%   so the entrance data is read out before the exit trace runs.
+%   uh true: ONE exit trace with the ray-position HISTORY enabled
+%   (macos.ray_hist); the entrance positions are read from the history at
+%   obj_elt.  This is the only legal path when obj_elt is a Segment (the
+%   trace-to-element call evaluates OPD there, which the engine refuses),
+%   and those history positions lie on each ray's INCIDENT line -- exactly
+%   what the plane anchor's source-direction back-projection requires.
+    if nargin < 9, uh = false; end
     cdir = [sin(bx); sin(by); sqrt(max(0, 1 - sin(bx)^2 - sin(by)^2))];
     cpos = apst - stand*cdir;
     s = regexprep(txt, '(ChfRayDir=\s*)[^\n]*', ['$1' v3_(cdir)]);
@@ -685,11 +697,20 @@ function [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, bx, by, i
     if ~macos.has_rx()
         error('macos:design:pupil_map:load','deck failed to load: %s', tmp);
     end
-    tr = macos.trace(io);   ro = macos.get_ray_info(tr.nRays);
-    tr = macos.trace(ii);   re = macos.get_ray_info(tr.nRays);
-    ok = ro.ok_trace(:) & ro.ok_pass(:) & re.ok_trace(:) & re.ok_pass(:);
+    if uh
+        macos.ray_hist('on');
+        tr = macos.trace(ii);   re = macos.get_ray_info(tr.nRays);
+        h  = macos.ray_hist(tr.nRays);
+        Pm = squeeze(h.P(:, :, io + 1));         % element io, incident line
+        ok = h.ok(:, io + 1) & re.ok_trace(:) & re.ok_pass(:);
+    else
+        tr = macos.trace(io);   ro = macos.get_ray_info(tr.nRays);
+        tr = macos.trace(ii);   re = macos.get_ray_info(tr.nRays);
+        Pm = ro.pos;
+        ok = ro.ok_trace(:) & ro.ok_pass(:) & re.ok_trace(:) & re.ok_pass(:);
+    end
     ok(1) = false;                       % the chief is the frame, not a node
-    Pm = ro.pos;   Pe = re.pos;   De = re.dir;
+    Pe = re.pos;   De = re.dir;
     chief = re.dir(:,1)/norm(re.dir(:,1));
 end
 

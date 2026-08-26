@@ -290,19 +290,27 @@ classdef tPupilFindMethod < matlab.unittest.TestCase
                  'with an element stop (the segmented-primary pupil ' ...
                  'collapsed to one segment''s aperture)']);
             % The WRITTEN vertex on a segmented deck must be the FEX
-            % chief crossing -- stop-correct by construction (Dave
-            % 2026-08-26).  The cone-fit vertex is a diagnostic only:
-            % anchored on a post-reflection element it fits the image
-            % of THAT element (measured 52.7 mm axial from the chief
-            % crossing); index grouping improves it to 23 mm, still
-            % 4.5 decades above the zoom deck's healthy 0.6 um -- so
-            % neither may be written.
+            % chief crossing -- the paraxial anchor (Dave 2026-08-26).
+            % The cone fit (stop-plane anchor from the deck ApStop,
+            % entrance positions from the ray history -- Dave's
+            % construction) is the pupil-structure DIAGNOSTIC: on this
+            % deck it measures a real ~23 mm pupil smear (two-singlet
+            % relay; differential chief 1133.3 / finite chief-pair
+            % 1142.3 / annular cone zones 1156.2), which must NOT be
+            % folded into the written reference.
             tc.verifyEqual(pf.vertex, 'chief', ...
                 'segmented decks must force the chief-crossing vertex');
             tc.verifyLessThan(max(abs(pf.vtx_written(:) - pf.fex.vpt(:))), ...
                 1e-9, ['the written vertex is not the FEX chief ' ...
                  'crossing -- a cone-fit vertex reached the Rx on a ' ...
                  'segmented deck']);
+            % the stop-plane/history binning must produce a CLEAN
+            % convergence surface: dep_rms 0.9 um measured; the earlier
+            % index-grouped binning left 4.5 um, the M2-anchored one a
+            % biased cloud -- the bound separates the constructions
+            tc.verifyLessThan(pf.dep_rms, 2e-3, sprintf( ...
+                ['cone-convergence departure %.3g mm RMS -- the ' ...
+                 'stop-plane binning has degraded'], pf.dep_rms));
             % -- B: supervisor flow, no stop_elt
             out = macos.dw_dx_multi(m, rxh, 'field_x_rad', fov, ...
                 'field_y_rad', fov, 'grid', '3x1', 'elts', 8, ...
