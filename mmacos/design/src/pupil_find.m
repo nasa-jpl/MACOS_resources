@@ -41,6 +41,10 @@ function pf = pupil_find(rx, Ffield, opts)
 %     'init'       call macos.init first (default false -- the caller owns init).
 %     'place'      apply set_xp to the internal Rx (default true).  false =
 %                  measure only, leave the Rx untouched (still returns metrics).
+%     'vertex'     written-vertex mode: 'fit_chief' (default; the fitted
+%                  convergence surface's crossing with the chief ray --
+%                  on-chief, carries the measured pupil station),
+%                  'bundle' (raw fit vertex), 'chief' (FEX crossing).
 %
 %   Returns pf with fields:
 %     .ep_elt .xp_elt .nElt        the resolved elements
@@ -70,7 +74,7 @@ function pf = pupil_find(rx, Ffield, opts)
         opts.model_size  (1,1) double = 256
         opts.init        (1,1) logical = false
         opts.place       (1,1) logical = true
-        opts.vertex      (1,:) char {mustBeMember(opts.vertex,{'bundle','chief'})} = 'bundle'
+        opts.vertex      (1,:) char {mustBeMember(opts.vertex,{'fit_chief','bundle','chief'})} = 'fit_chief'
         opts.stop_elt    (1,1) double {mustBeInteger} = 0
         opts.stop_pos    double = []
     end
@@ -101,10 +105,11 @@ function pf = pupil_find(rx, Ffield, opts)
     % two-singlet relay images the pupil badly: differential chief
     % (FEX) 1133.3 / finite +-1e-4 chief-pair 1142.3 / annular cone
     % zones 1156.2 (flat across zones rho 200-1300), a ~23 mm pupil
-    % smear.  The zoom deck, well-imaged, agrees to 0.6 um.  The FEX
-    % chief crossing stays the WRITTEN vertex (the paraxial anchor,
-    % the corpus convention); the cone fit is the pupil-structure
-    % diagnostic that now MEASURES this smear.
+    % smear.  The zoom deck, well-imaged, agrees to 0.6 um.  The
+    % WRITTEN vertex is the fit-surface/chief-ray crossing ('fit_chief',
+    % Dave 2026-08-26): on the chief (no bundle tilt) at the MEASURED
+    % pupil station -- it rides the smear where the beam actually
+    % crosses, and collapses to the FEX point on a well-imaged pupil.
     seg_entrance = macos.get_elt_info(EP).elt_id == 11;  % Segment
     if seg_entrance
         fprintf(['[pupil_find] segmented entrance (elt %d) -- anchor ' ...
@@ -178,23 +183,50 @@ function pf = pupil_find(rx, Ffield, opts)
     % test_placed_sphere_keeps_the_reference_tilt_sensitive.
     psi = f0.psi(:);
 
-    % WRITTEN vertex: 'bundle' (default; the fit vertex above) or 'chief'
-    % (FEX's own crossing).  The bundle vertex sits laterally off the
-    % chief by the cone's coma asymmetry (0.384 mm on the zoom fixture),
-    % and referencing OPD to a sphere centered there injects a PURE TILT
-    % frame term (4.4e-3 mm RMS at the center field) with zero aberration
-    % content -- the map agrees with fex's to 1.2e-8 mm RMS once
-    % tip/tilt+focus are removed.  'chief' keeps the bundle fit as the
-    % pupil-wander DIAGNOSTIC (pf.vtx, pf.dep_rms, pf.wander) and writes
-    % the chief crossing, so w_nom carries no bundle tilt.  The dw_d*
-    % supervisors' pf_scope='field' passes 'chief'.
+    % WRITTEN vertex, three modes (Dave 2026-08-26):
+    %   'fit_chief' (default) -- the FIT-SURFACE / CHIEF-RAY crossing:
+    %      intersect the chief line (through the FEX crossing, along
+    %      psi) with the fitted quadric.  ON the chief by construction,
+    %      so none of the bundle vertex's lateral offset (which injects
+    %      a PURE TILT frame term -- 0.384 mm -> 4.4e-3 mm RMS on the
+    %      zoom fixture), yet it carries the MEASURED pupil station
+    %      (e5hex1: 23 mm from the paraxial FEX point, where the
+    %      annular beam's rays actually cross).  On a well-imaged
+    %      pupil it collapses to the FEX point (zoom: sub-um).
+    %   'bundle' -- the raw fit vertex (lateral offset and all).
+    %   'chief'  -- FEX's own crossing, the pure paraxial anchor; the
+    %      dw_d* supervisors' pf_scope='field' passes this (mini-cone
+    %      fits are noisier, and its zoom gates pin bit-equality).
+    % All three keep FEX's radius and psi (the propagation convention).
     vsel = opts.vertex;
-    if seg_entrance, vsel = 'chief'; end   % the paraxial FEX anchor; the
-                                           % bundle fit measures the pupil
-                                           % smear instead of hiding it in
-                                           % the reference -- see the
-                                           % segmented-entrance note
-    if strcmp(vsel, 'chief'), vw = f0.vpt(:); else, vw = vtx(:); end
+    switch vsel
+        case 'chief'
+            vw = f0.vpt(:);
+        case 'bundle'
+            vw = vtx(:);
+        otherwise   % fit_chief
+            % chief line in the exit frame: p(t) = f0.vpt + t*psi
+            p0 = f0.vpt(:) - X0;
+            u0 = e1.'*p0;   v0 = e2.'*p0;   w0 = nn.'*p0;
+            du = e1.'*psi;  dv = e2.'*psi;  dw = nn.'*psi;
+            b1 = sol(2);  b2 = sol(3);
+            Aq = a*(du^2 + dv^2);
+            Bq = b1*du + b2*dv + 2*a*(u0*du + v0*dv) - dw;
+            Cq = c0 + b1*u0 + b2*v0 + a*(u0^2 + v0^2) - w0;
+            if abs(Aq) < 1e-15 * max(abs(Bq), 1)
+                t = -Cq / Bq;
+            else
+                disc = Bq^2 - 4*Aq*Cq;
+                if disc < 0
+                    t = 0;      % no real crossing: fall back to FEX
+                else
+                    tt = (-Bq + [1 -1]*sqrt(disc)) / (2*Aq);
+                    [~, kmin] = min(abs(tt));
+                    t = tt(kmin);
+                end
+            end
+            vw = f0.vpt(:) + t*psi;
+    end
     macos.load_rx(rx);  set_stop_(rx, opts.stop_elt, EP);
     if opts.place
         macos.set_xp(vw, psi, f0.rad);
