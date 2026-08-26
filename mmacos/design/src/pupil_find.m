@@ -80,47 +80,36 @@ function pf = pupil_find(rx, Ffield, opts)
     % resolve + validate the exit-pupil element
     macos.load_rx(rx);  nE = macos.num_elt();
     EP = opts.ep_elt;   XP = opts.xp_elt;  if XP <= 0, XP = nE - 1; end
-    % SEGMENTED ENTRANCE (Luis/Dave 2026-08-26).  Two constraints meet:
-    % (1) obj_elt cannot be a Segment -- the probe traces evaluate OPD
-    % at it and the engine refuses ("OPD: cannot evaluate at a Segment
-    % element"); (2) the cone binning MUST identify rays through the
-    % same STOP point -- pupil_map's plane anchor does that by
-    % back-projecting positions at obj_elt along the SOURCE direction,
-    % which is only valid when obj_elt is at/before the first
-    % reflection.  Advancing obj_elt past the segments and keeping the
-    % plane anchor bins cones by points ON THE ADVANCED ELEMENT, whose
-    % crossings trace THAT element's image, not the exit pupil
-    % (measured on e5hex1: bundle vertex 52.7 mm axial from the FEX
-    % chief crossing -- the image of M2).  So for a segmented entrance
-    % the cone GROUPING switches to SOURCE-GRID INDEX: the probe decks
-    % are re-aimed about the stop (ChfRayPos = ApStop - standoff*dir),
-    % so ray j of every field pierces the stop plane at the same
-    % transverse offset to O(theta^2)*standoff (2e-4 mm here) --
-    % same-index rays ARE cones through a common stop point, with no
-    % incident-line position needed.  obj_elt still advances (trace
-    % legality + uv labels, which in index mode are cosmetic).  The
-    % STOP itself is unaffected: set_stop_ leaves the deck's
-    % object-space ApStop in force.
-    %   MEASURED (e5hex1 vs the healthy zoom calibration): index
-    % grouping takes the bundle-vs-chief vertex offset from 52.7 mm
-    % (M2-image error, plane anchor at the advanced element) to 23 mm
-    % axial -- far better, still 4.5 decades above the zoom deck's
-    % 0.6 um.  The residual is unattributed, so ON SEGMENTED DECKS THE
-    % WRITTEN VERTEX IS FORCED TO 'chief': the FEX crossing is
-    % stop-correct by construction (same ruling pf_scope='field'
-    % already applies) and the index-grouped cone fit stays a
-    % DIAGNOSTIC (pf.vtx / dep_rms / wander).  True stop-plane binning
-    % (segment hits via the draw_rays getter) is the scoped follow-on
-    % if a segmented deck ever needs the bundle vertex.
+    % SEGMENTED ENTRANCE (Luis/Dave 2026-08-26).  The cone binning must
+    % identify rays through the same STOP point, and the stop of a
+    % segmented primary is the deck's OBJECT-SPACE ApStop -- so the
+    % anchor is the STOP PLANE itself (Dave's construction: the cones'
+    % vertices live on the virtual plane the header ApStop defines),
+    % and the entrance positions come from the ray-position HISTORY at
+    % obj_elt (macos.ray_hist -- one exit trace, legal at Segment
+    % elements where trace-to-element is refused, and the recorded
+    % positions lie on each ray's INCIDENT line, which is what the
+    % plane anchor's source-direction back-projection requires).
+    %   History of this branch, each step measured on e5hex1 against
+    % the FEX chief crossing (bundle-vs-chief vertex): plane anchor at
+    % the first non-Segment element = 52.7 mm (cones binned by M2
+    % points fit the IMAGE OF M2 -- Dave's catch); source-grid index
+    % grouping = 23 mm; stop-plane anchor + history entrance = 23 mm
+    % with dep_rms 0.9 um (vs 4.5 um) -- two independent correct
+    % binnings agreeing on a CLEAN surface.  ATTRIBUTION (measured):
+    % the 23 mm is the DECK's pupil, not the machinery -- e5hex1's
+    % two-singlet relay images the pupil badly: differential chief
+    % (FEX) 1133.3 / finite +-1e-4 chief-pair 1142.3 / annular cone
+    % zones 1156.2 (flat across zones rho 200-1300), a ~23 mm pupil
+    % smear.  The zoom deck, well-imaged, agrees to 0.6 um.  The FEX
+    % chief crossing stays the WRITTEN vertex (the paraxial anchor,
+    % the corpus convention); the cone fit is the pupil-structure
+    % diagnostic that now MEASURES this smear.
     seg_entrance = macos.get_elt_info(EP).elt_id == 11;  % Segment
     if seg_entrance
-        E0 = EP;
-        while EP < nE && macos.get_elt_info(EP).elt_id == 11
-            EP = EP + 1;
-        end
-        fprintf(['[pupil_find] segmented entrance (elt %d) -- cone ' ...
-                 'grouping by source-grid index, uv labels at elt %d, ' ...
-                 'stop unaffected; written vertex forced to ''chief''\n'], E0, EP);
+        fprintf(['[pupil_find] segmented entrance (elt %d) -- anchor ' ...
+                 'on the stop plane (deck ApStop), entrance positions ' ...
+                 'from the ray history\n'], EP);
     end
     xi = macos.get_elt_info(XP);
     assert(any(xi.elt_id == [3 8]), ['xp_elt %d is a %s; the exit pupil must be a ' ...
@@ -150,10 +139,11 @@ function pf = pupil_find(rx, Ffield, opts)
 
     % cone-convergence surface (pupil_map re-emits temp decks; needs the path)
     anch = opts.anchor;
-    if seg_entrance, anch = 'index'; end
+    if seg_entrance, anch = 'stop'; end
     o = pupil_map(rx, Ffield, 'anchor',anch, 'obj_elt',EP, 'img_elt',XP, ...
                   'nodes',opts.nodes, 'min_fields',opts.min_fields, 'init',false, ...
-                  'stop_elt',opts.stop_elt, 'stop_pos',opts.stop_pos);
+                  'stop_elt',opts.stop_elt, 'stop_pos',opts.stop_pos, ...
+                  'obj_hist',seg_entrance);
 
     % best-fit sphere to the crossing cloud, in the exit frame.  Fit
     % w = c0 + b1*u + b2*v + a*rho^2 : the sphere may be positioned (c0) and
@@ -199,8 +189,11 @@ function pf = pupil_find(rx, Ffield, opts)
     % the chief crossing, so w_nom carries no bundle tilt.  The dw_d*
     % supervisors' pf_scope='field' passes 'chief'.
     vsel = opts.vertex;
-    if seg_entrance, vsel = 'chief'; end   % stop-correct by construction;
-                                           % see the segmented-entrance note
+    if seg_entrance, vsel = 'chief'; end   % the paraxial FEX anchor; the
+                                           % bundle fit measures the pupil
+                                           % smear instead of hiding it in
+                                           % the reference -- see the
+                                           % segmented-entrance note
     if strcmp(vsel, 'chief'), vw = f0.vpt(:); else, vw = vtx(:); end
     macos.load_rx(rx);  set_stop_(rx, opts.stop_elt, EP);
     if opts.place
