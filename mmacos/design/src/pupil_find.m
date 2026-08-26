@@ -15,10 +15,12 @@ function pf = pupil_find(rx, Ffield, opts)
 %   improved XP in the internal Rx.
 %
 %   THE TWO XP RADII (kept distinct, like FEX):
-%     - the reference-sphere radius WRITTEN to the Rx is FEX's XP->next-plane
-%       FAR-FIELD radius (what the diffraction propagator uses).  PUPIL_FIND
-%       improves the sphere's VERTEX (the cone-bundle apex) over FEX's single
-%       chief-ray vertex, but keeps FEX's propagation radius.
+%     - the reference-sphere radius WRITTEN to the Rx is the chief-ray
+%       distance from the WRITTEN vertex to the next plane (the far-field
+%       propagation target).  For FEX's own vertex that is FEX's radius;
+%       when 'fit_chief' slides the vertex t along the chief, the radius
+%       follows (fex.rad - t) so the sphere CENTER -- which sits on the
+%       propagation target plane -- is invariant.
 %     - the cone-crossing sag curvature (pf.conv_radius) is the curvature of
 %       the pupil-imaging convergence surface -- a QUALITY diagnostic, a
 %       different quantity, NOT written to the Rx.
@@ -197,8 +199,16 @@ function pf = pupil_find(rx, Ffield, opts)
     %   'chief'  -- FEX's own crossing, the pure paraxial anchor; the
     %      dw_d* supervisors' pf_scope='field' passes this (mini-cone
     %      fits are noisier, and its zoom gates pin bit-equality).
-    % All three keep FEX's radius and psi (the propagation convention).
+    % psi is the chief direction (FEX's, signed per the Return
+    % convention) in all three modes.  The RADIUS follows the vertex
+    % (Dave 2026-08-26): FEX's radius is the chief-ray distance from
+    % ITS vertex to the next plane -- the propagation target, where
+    % the sphere CENTER sits.  When 'fit_chief' slides the vertex t
+    % along the chief, that plane does not move, so rad = fex.rad - t:
+    % the center is INVARIANT.  'chief' (t=0) and 'bundle' (no defined
+    % along-chief t; lateral offset) keep FEX's radius unchanged.
     vsel = opts.vertex;
+    rad_w = f0.rad;
     switch vsel
         case 'chief'
             vw = f0.vpt(:);
@@ -226,16 +236,17 @@ function pf = pupil_find(rx, Ffield, opts)
                 end
             end
             vw = f0.vpt(:) + t*psi;
+            rad_w = f0.rad - t;          % center stays on the next plane
     end
     macos.load_rx(rx);  set_stop_(rx, opts.stop_elt, EP);
     if opts.place
-        macos.set_xp(vw, psi, f0.rad);
+        macos.set_xp(vw, psi, rad_w);
     end
 
     pf = struct('ep_elt',EP, 'xp_elt',XP, 'nElt',nE, 'xp_type',xi.type, ...
         'fex',struct('vpt',f0.vpt(:).', 'rad',f0.rad), ...
         'vtx',vtx(:).', 'vtx_written',vw(:).', 'vertex',vsel, ...
-        'rad',f0.rad, 'psi',psi(:).', ...
+        'rad',rad_w, 'psi',psi(:).', ...
         'conv_radius',conv_radius, 'dep_rms',dep_rms, 'uv',[uu vv], 'dep',dep(:), ...
         'blur',o.blur, 'surface',o.surface, 'map',o.map, 'wander',o.wander, ...
         'anchor',opts.anchor, 'o_rim',o, 'placed',opts.place);
