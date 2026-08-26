@@ -41,9 +41,12 @@ function pf = pupil_find(rx, Ffield, opts)
 %   Returns pf with fields:
 %     .ep_elt .xp_elt .nElt        the resolved elements
 %     .fex        FEX baseline .vpt/.rad (the one-chief-ray sphere beaten)
-%     .vtx .rad .psi              the sphere WRITTEN (bundle vertex, FEX radius,
-%                                 FEX normal -- the fitted cone normal is only
-%                                 the fit frame; see the sign/normal note below)
+%     .vtx                        the BUNDLE fit vertex (pupil-wander diagnostic)
+%     .vtx_written .rad .psi      the sphere WRITTEN ('vertex' option: 'bundle'
+%                                 default = .vtx, or 'chief' = FEX's crossing;
+%                                 FEX radius; FEX normal -- the fitted cone
+%                                 normal is only the fit frame, see the
+%                                 sign/normal note below)
 %     .conv_radius                convergence-surface curvature (quality, not Rx)
 %     .dep_rms                    departure-from-sphere RMS (frame terms removed)
 %     .uv .dep                    per-node (u,v) and departure (for a map)
@@ -63,6 +66,7 @@ function pf = pupil_find(rx, Ffield, opts)
         opts.model_size  (1,1) double = 256
         opts.init        (1,1) logical = false
         opts.place       (1,1) logical = true
+        opts.vertex      (1,:) char {mustBeMember(opts.vertex,{'bundle','chief'})} = 'bundle'
         opts.stop_elt    (1,1) double {mustBeInteger} = 0
         opts.stop_pos    double = []
     end
@@ -136,15 +140,26 @@ function pf = pupil_find(rx, Ffield, opts)
     % test_placed_sphere_keeps_the_reference_tilt_sensitive.
     psi = f0.psi(:);
 
-    % place the sphere into the internal Rx (FEX radius, bundle vertex) -- as FEX does
+    % WRITTEN vertex: 'bundle' (default; the fit vertex above) or 'chief'
+    % (FEX's own crossing).  The bundle vertex sits laterally off the
+    % chief by the cone's coma asymmetry (0.384 mm on the zoom fixture),
+    % and referencing OPD to a sphere centered there injects a PURE TILT
+    % frame term (4.4e-3 mm RMS at the center field) with zero aberration
+    % content -- the map agrees with fex's to 1.2e-8 mm RMS once
+    % tip/tilt+focus are removed.  'chief' keeps the bundle fit as the
+    % pupil-wander DIAGNOSTIC (pf.vtx, pf.dep_rms, pf.wander) and writes
+    % the chief crossing, so w_nom carries no bundle tilt.  The dw_d*
+    % supervisors' pf_scope='field' passes 'chief'.
+    if strcmp(opts.vertex, 'chief'), vw = f0.vpt(:); else, vw = vtx(:); end
     macos.load_rx(rx);  macos.stop(EP);
     if opts.place
-        macos.set_xp(vtx, psi, f0.rad);
+        macos.set_xp(vw, psi, f0.rad);
     end
 
     pf = struct('ep_elt',EP, 'xp_elt',XP, 'nElt',nE, 'xp_type',xi.type, ...
         'fex',struct('vpt',f0.vpt(:).', 'rad',f0.rad), ...
-        'vtx',vtx(:).', 'rad',f0.rad, 'psi',psi(:).', ...
+        'vtx',vtx(:).', 'vtx_written',vw(:).', 'vertex',opts.vertex, ...
+        'rad',f0.rad, 'psi',psi(:).', ...
         'conv_radius',conv_radius, 'dep_rms',dep_rms, 'uv',[uu vv], 'dep',dep(:), ...
         'blur',o.blur, 'surface',o.surface, 'map',o.map, 'wander',o.wander, ...
         'anchor',opts.anchor, 'o_rim',o, 'placed',opts.place);
