@@ -1,6 +1,48 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-25. Latest work at "SESSION 13" (physics layers: band + polarization) below; older kept._
+_Updated 2026-08-26. Latest work at "SESSION 14" (vector vortex, IN FLIGHT) below; older kept._
+
+## SESSION 14 (2026-08-26) — the VECTOR vortex (IN FLIGHT at write; final figure/deck pending)
+
+Machinery: `ctb_mask_vvc` (8×-binned cos/sin mθ entries), `ctb_vvc`
+(2×2 Jones FPM by linear combination of component chains — 2 runs per
+output component; options: tier ideal/chromatic (zero-order
+δ=πλ0/λ), input unpolarized/circular, analyzer none/circular,
+jac_perlam per-λ stacked control, pol=coating screens).  Two cached
+Jacobians (Vc/Vs masks, 26 min) serve every tier;
+`ctb_dm_jacobian_N512_vvc_c4.mat`.
+
+**MEASURED (N=512, 3–15 λ0/D, charge 4, Lyot 0.60):**
+- IDEAL plate: static == scalar EXACTLY (1.716e-8, leak 4e-33 — the
+  validation).  Unpolarized closed loop floors at **2.0e-9** — the
+  TWO-SPIRAL COMPROMISE (one surface serving ±m; strokes 7.5/6.2 nm);
+  with circular analyzer **4.76e-13 = the scalar loop** (proof both ways).
+- ZERO-ORDER, unpolarized: LEAKAGE-PINNED, loop gains nothing —
+  5% 7.8e-8 / 10% 2.05e-7 / 20% 6.4e-7 (leak cos²(δ/2) = 1.0e-3/
+  3.1e-3/1.0e-2, band² scaling; leak amplitude FLIPS SIGN across band
+  center → uncorrectable by a common surface).
+- CIRCULAR SANDWICH (R in, L analyzed): leakage rejected OPTICALLY
+  (statics return to 1.7e-8 mono value); floors **mono 8.3e-13 / 5%
+  2.1e-9 / 10% 1.1e-9 / 20% 1.5e-10** (inverts with band: more colors
+  = better-sampled mean target); full stack +coating screens at 10% =
+  1.4e-9 (~25% coating penalty).  Gap to scalar chain = CONTROL (the
+  collapsed mean-target solve), not physics.
+- TWO LOOP DEFECTS fixed en route: (1) stale-state reduced_ (engine
+  held last α-trial commands at re-measure → one-step-then-stall;
+  restore accepted state first); (2) same class as S13's screen-phase
+  lesson — recorded in ctb_vvc help.
+
+IN FLIGHT: per-λ stacked-control recovery run (5% band, jac_perlam,
+tag circ05_perlam) — prices the mean-null penalty.  QUEUED: crossed
+LINEAR sandwich ladder (reuses cached G_sin; star-side floors expect
+circular-class; planet side has sin²(mθp) azimuthal transmission
+NULLS — 8 blind spots at charge 4 — the circular sandwich's planet
+throughput is flat ½; real-optics counterpoint: circular pol = linear
++ QWP whose chromatic retardance re-leaks ~(ε/2)², linear polarizers
+are the broadband-extinction winners).  THEN: ctb_vvc_summary figure
+(driver committed, reads run .mats incl. optional perlam point), deck
+slide 13, SESSION 14 close.  Run .mats gitignored (regen: ctb_vvc
+with tags ideal/ideal_analyzed/c05/c10/c20/circ00..circ20/circ10s).
 
 ## SESSION 13 (2026-08-25) — the physics layers: 10% band, polarization, rebalanced Lyot
 
