@@ -28,12 +28,17 @@ function out = dw_dx(session, rx_path, opts)
 %     'stop_obj_pos'     set object-space Stop here (mutex w/ stop_elt).
 %                        Default [] (no STOP changed).
 %     'rot_output'       'natural' (default) | 'base-per-rad'.
-%                        natural: every column is OPD-in-metres per SI
-%                        perturbation (translations are dimensionless
-%                        ratios; rotations are m/rad).
-%                        base-per-rad: rotations are OPD-in-BaseUnits
-%                        per rad (not multiplied by CBM).  Translations
-%                        unchanged.
+%                        HISTORICAL NO-OP since 2026-08-25 (Dave): the
+%                        Jacobian's OPD numerator emits in the deck's
+%                        BaseUnits under BOTH settings -- the same units
+%                        as w_nom/opd() and as the dwdz/dwdsurf/dwdgrid
+%                        rungs (dwdx was the odd rung out, scaled to
+%                        OPD-metres; that made `wall = dwdx*x + w0` mix
+%                        units by 1/CBM on non-metre decks).  Columns are
+%                        OPD-BaseUnits per rad (rotations) and
+%                        OPD-BaseUnits per SI METRE (translations --
+%                        the poke denominator is unchanged).  The option
+%                        is retained so existing callers keep running.
 %     'delta'            finite-difference step. Either:
 %                        - (1,1) double: single value for all DOFs
 %                        - (1,6) double: [Rx Ry Rz Tx Ty Tz] deltas
@@ -220,16 +225,15 @@ if isempty(channels)
     error('macos:dw_dx:nochan', 'no channels found');
 end
 
-% Output-scale closure: rotations under 'base-per-rad' keep
-% OPD-in-BaseUnits per rad (scale=1); everything else multiplies
-% by CBM to convert OPD to metres.
-function s = output_scale_fn(ch)
-    if strcmp(opts.rot_output, 'base-per-rad') ...
-            && isprop(ch, 'dof_idx') && ch.dof_idx <= 2 && ch.dof_idx >= 0
-        s = 1;
-    else
-        s = cbm;
-    end
+% Output scale: IDENTITY -- the Jacobian's OPD numerator emits in the
+% deck's BaseUnits (Dave, 2026-08-25), matching w_nom/opd() and the
+% dwdz/dwdsurf/dwdgrid rungs, so `wall = dwdx*x + w0` is unit-consistent
+% on any deck.  (Historically dwdx alone multiplied by CBM to emit
+% OPD-metres, except rotations under 'base-per-rad' -- that option is
+% now a no-op, kept for API compatibility.)  The poke DENOMINATOR is
+% untouched: rad for rotations, SI metres for translations.
+function s = output_scale_fn(~)
+    s = 1;
 end
 
 wf_func = @() local_wf(session, wf_elt);

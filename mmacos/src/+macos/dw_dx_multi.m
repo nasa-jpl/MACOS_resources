@@ -42,9 +42,10 @@ function out = dw_dx_multi(session, rx_path, opts)
 %   Group channels carry no single element id: out.iElt is 0 for them
 %   (as it is for source channels) and out.kind is 'Group' -- section
 %   them on kind, not on iElt.  Units: group and per-element columns
-%   share one convention -- OPD-per-metre for translations, OPD-per-rad
-%   for rotations -- so one numeric 'delta' is one physical poke for
-%   either.
+%   share one convention -- the OPD numerator in the deck's BaseUnits
+%   (matching w0/opd() and the figure rungs, Dave 2026-08-25), per SI
+%   METRE for translations and per rad for rotations -- so one numeric
+%   'delta' is one physical poke for either.
 %
 %   'delta' can be (1,1) for uniform step or (1,6) for per-DOF steps
 %     [Rx Ry Rz Tx Ty Tz]. Rotations in rad. Translation units set by

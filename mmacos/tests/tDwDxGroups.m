@@ -398,10 +398,16 @@ classdef tDwDxGroups < matlab.unittest.TestCase
                  'pivot about the group frame, not each element''s own']);
         end
 
-        function test_rot_output_scaling_reaches_group_channels(testCase)
-            % Standing rule: 'base-per-rad' keys off ch.dof_idx, so it
-            % must reach the GROUPED channel class too -- rotations drop
-            % the CBM factor, translations keep it.
+        function test_jacobian_emits_base_units_rot_output_noop(testCase)
+            % Convention (Dave 2026-08-25): the Jacobian's OPD numerator
+            % emits in the deck's BaseUnits -- the same units as opd()
+            % and the dwdz/dwdsurf/dwdgrid rungs -- so wall = dwdx*x + w0
+            % is unit-consistent on any deck.  'rot_output' is a retained
+            % NO-OP (it existed to un-CBM the rotations of the old
+            % OPD-metres emitter).  Gated two ways on this mm fixture:
+            % the two settings are bit-identical, and a HAND finite
+            % difference in raw opd() units matches the emitted column
+            % (the old emitter would differ by 1/CBM = 1000x here).
             g = testCase.seg_map();
             m1 = macos.Session(testCase.ModelSize);
             nat = macos.dw_dx(m1, testCase.rx_path, 'ngridpts', 15, ...
@@ -410,20 +416,29 @@ classdef tDwDxGroups < matlab.unittest.TestCase
             bpr = macos.dw_dx(m2, testCase.rx_path, 'ngridpts', 15, ...
                 'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
                 'rot_output', 'base-per-rad');
-            cbm = nat.cbm;
-            testCase.verifyLessThan(abs(cbm - 1), 1, ...
+            testCase.verifyLessThan(abs(nat.cbm - 1), 1, ...
                 'fixture must NOT be a metre-unit deck or this is vacuous');
-            for d = 1:3      % group rotations: columns 7..9
-                a = nat.dwdx(:, 6 + d);  b = bpr.dwdx(:, 6 + d);
-                sc = max(abs(b));
-                if sc == 0, continue; end
-                testCase.verifyLessThan(max(abs(a - cbm * b)) / sc, 1e-12, ...
-                    'group rotation column must drop CBM under base-per-rad');
-            end
-            for d = 4:6      % group translations: columns 10..12
-                testCase.verifyEqual(nat.dwdx(:, 6 + d), bpr.dwdx(:, 6 + d), ...
-                    'group translation columns must not be rescaled');
-            end
+            testCase.verifyEqual(nat.dwdx, bpr.dwdx, ...
+                'rot_output must be a no-op -- BaseUnits either way');
+            % hand FD of elt 1 Tz (dof 5 -> column 6), raw opd() units
+            m3 = macos.Session(testCase.ModelSize);
+            m3.load_rx(testCase.rx_path);
+            m3.set_src_sampling(15);
+            m3.modify();
+            nE = m3.num_elt();
+            d = 1e-8;                                     % SI metres
+            macos.perturb(1, 'translation', [0; 0; +d]);
+            m3.modify();  m3.trace(nE - 1);  Wp = m3.opd();
+            macos.perturb(1, 'translation', [0; 0; -2*d]);
+            m3.modify();  m3.trace(nE - 1);  Wm = m3.opd();
+            macos.perturb(1, 'translation', [0; 0; +d]);  % restore
+            m3.modify();
+            v = (Wp ~= 0) & (Wm ~= 0);
+            hand = max(abs(Wp(v) - Wm(v))) / (2 * d);
+            col  = max(abs(nat.dwdx(:, 6)));
+            testCase.verifyEqual(col, hand, 'RelTol', 1e-6, ...
+                ['emitted column scale must match a hand FD in raw ' ...
+                 'opd() units -- a CBM-scaled emitter is 1000x off here']);
         end
 
         function test_groups_auto_and_the_explicit_map_merge(testCase)
