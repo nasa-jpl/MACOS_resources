@@ -356,3 +356,52 @@ on the M2 rim — clustered off-axis as the tilted hub dictates).
 Artifact hygiene: `r3_met_run.mat` saves POINTERS only (the verbatim
 `art` copy was 478 MB — round 1's exact duplication lesson);
 `r3_met.mat` (475 MB, run_met's own artifact) gitignored.
+
+---
+
+## 2026-08-26 — R4: the closed-loop drift series (three mechanization lessons)
+
+The final numbers (`r4_report.txt`, `r4_series.png` — model 512, the
+Jacobian grid, one grid for G/EFC/scoring):
+
+    drift:        rigid-body state 0.3 -> 3.0 nm rms over 400 s
+    RBCS loop:    residual FLAT at 0.36 nm (matches the pure-linear
+                  prediction 0.375 -- the engine leg is faithfully
+                  linear at these amplitudes)
+    open loop:    contrast 4.65e-07 -> 1.72e-06 (3.7x degradation)
+    closed loop:  1.91e-07 -> 2.46e-07 -- the dark zone HELD; 7x
+                  better than open at the end of the soak
+    EFC dig:      4.65e-07 -> 1.90e-07 in 8 damped iterations, then
+                  maintained per scored frame
+
+Three mechanizations were tried and the first two REJECTED BY
+MEASUREMENT — the narrative the backup deck should carry:
+
+1. **Held one-shot MET correction (round 1's idiom + real noise):**
+   at the round-1 wfc frame the drift (0.3 nm) sits BELOW the 1 nm
+   edge noise; the estimate residual exceeded the state and the
+   corrected leg ended WORSE (0.056 vs 0.013 waves).  A noise-free
+   image-based one-shot was fine in round 1; a real MET is not
+   noise-free.
+2. **Per-frame loop on the MMSE-gain slice:** run_met's gain
+   estimates the FULL body state [segs, hub]; its segment SLICE is
+   NON-CONTRACTIVE (spectral radius 1.154) and the loop diverged to
+   19 nm on a 3 nm drift — with the pure-linear simulation
+   (`r4_loop_diag.m`) predicting the engine's divergence to three
+   digits (1.91e-8 both).  The s7 doctrine ("raw estimator loops
+   diverge; weighted-LS/BLUE per Tesch") re-derived by measurement.
+3. **BLUE + ridge on the segment state, gain 0.5:** spectral radius
+   0.9998; converges to the 0.36 nm noise floor.  SHIPPED.
+
+And a fourth, for the EFC: undamped re-solves against the
+amplitude-dominated gap speckle DIVERGE (1.8e-7 → 2.9e-6 over 9
+re-solves) — the 0.15 m DM spacing gives weak Talbot authority
+(z/z_T ≈ 0.4% at 15 λ/D), so ridge solves push strokes along
+near-null directions.  Damping (γ=0.7) + a leaky integrator (µ=0.02)
+bound the null-space accumulation: the dig converges monotonically
+and HOLDS.  The DM strokes' deliberate pupil shaping appears as
+closed-loop "WFE" above the uncorrected line — labeled as such in
+the payoff figure, middle panel (EFC trades pupil flatness for
+contrast; the contrast panel is the payoff).  DM spacing as an
+amplitude-authority KNOB (CTB uses 0.5 m in a 21 mm beam) is a
+stated future trade, not re-run here.
