@@ -48,7 +48,10 @@ function out = ctb_vvc(opts)
 %
 %   Name-value: 'tier' ('chromatic'), 'pol' (false), 'band' (0 = mono;
 %   or fractional bandwidth, colors per the 2.5%-spacing rule),
-%   'charge' (4), 'niter' (12), 'tag', 'save', 'outdir', 'verbose'.
+%   'charge' (4), 'r_lyot_frac' (0.60; a non-default Lyot gets its own
+%   Jacobian cache file, and every cache is verified against its stored
+%   chain_opts stamp on load -- ctb_jac_check), 'niter' (12), 'tag',
+%   'save', 'outdir', 'verbose'.
 %
 %   out: contrast series, c_before/c_after, leak_frac (band-mean
 %   cos^2(d/2)), a (commands), config meta.
@@ -69,6 +72,8 @@ function out = ctb_vvc(opts)
         opts.pol     (1,1) logical = false
         opts.band    (1,1) double {mustBeNonnegative} = 0
         opts.charge  (1,1) double = 4
+        opts.r_lyot_frac (1,1) double = 0.60   % non-default gets its own
+                                               % Jacobian cache (_L<pct>)
         opts.niter   (1,1) double = 12
         opts.alphas  (1,:) double = logspace(-6, -2, 5)
         opts.tag     (1,:) char = ''
@@ -102,7 +107,7 @@ function out = ctb_vvc(opts)
     r  = ctb_dm_rx();
     ch = ctb_chain('rx', r.rx_out, 'model_size', 512, ...
         'fpm_kind','vortex', 'charge',opts.charge, 'apodizer',false, ...
-        'fpm',false, 'r_lyot_frac',0.60);
+        'fpm',false, 'r_lyot_frac',opts.r_lyot_frac);
     N = ch.N;  e = ch.elt;
     lam0 = macos.get_src_wvl();
     restore_wvl = onCleanup(@() macos.set_src_wvl(lam0));
@@ -286,10 +291,17 @@ function out = ctb_vvc(opts)
 
     % ---- the two Jacobians (band center, Vc and Vs masks, no screens) --
     tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
-    jp = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d_vvc_c%d.mat', N, opts.charge));
+    Ls = '';  % non-default Lyot gets its own cache file; the stored
+              % chain_opts stamp is the authority either way (ctb_jac_check)
+    if opts.r_lyot_frac ~= 0.60
+        Ls = sprintf('_L%03d', round(100*opts.r_lyot_frac));
+    end
+    jp = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d_vvc_c%d%s.mat', ...
+        N, opts.charge, Ls));
     dzc = find(rl >= 3 & rl <= 15);
     if isfile(jp)
         JJ = load(jp);
+        ctb_jac_check(JJ, ch.config, jp);
     else
         macos.set_src_wvl(lam0);
         masks2 = {Vc, Vs};
@@ -324,7 +336,7 @@ function out = ctb_vvc(opts)
         end
         JJ = struct('G',G, 'col_dm',col_dm, 'col_act',col_act, ...
             'npix',numel(dzc), 'charge',opts.charge, 'h_mm',opts.h_mm, ...
-            'timing_s',toc(t0));
+            'chain_opts',{ch.config}, 'timing_s',toc(t0));
         save(jp, '-struct', 'JJ', '-v7.3');
         fprintf('[vvc] Jacobian saved: %s (%.1f min)\n', jp, JJ.timing_s/60);
     end
@@ -333,10 +345,11 @@ function out = ctb_vvc(opts)
         assert(strcmp(opts.input, 'circular'), ...
             'ctb_vvc: jac_perlam is implemented for circular input');
         jpl = fullfile(opts.outdir, sprintf( ...
-            'ctb_dm_jacobian_N%d_vvc_c%d_perlam_b%02d.mat', N, ...
-            opts.charge, round(100*opts.band)));
+            'ctb_dm_jacobian_N%d_vvc_c%d%s_perlam_b%02d.mat', N, ...
+            opts.charge, Ls, round(100*opts.band)));
         if isfile(jpl)
             JL = load(jpl);
+            ctb_jac_check(JL, ch.config, jpl);
         else
             masks2 = {Vc, Vs};
             ncols = sum(cellfun(@(d) d.nact_active, dm));
@@ -378,7 +391,8 @@ function out = ctb_vvc(opts)
                 dm{k}.clear();
             end
             JL = struct('G',GL, 'col_dm',col_dm, 'col_act',col_act, ...
-                'npix',numel(dzc), 'lfracs',lfracs, 'timing_s',toc(t0));
+                'npix',numel(dzc), 'lfracs',lfracs, ...
+                'chain_opts',{ch.config}, 'timing_s',toc(t0));
             save(jpl, '-struct', 'JL', '-v7.3');
             fprintf('[vvc] per-lambda Jacobian saved: %s (%.1f min)\n', ...
                 jpl, JL.timing_s/60);
