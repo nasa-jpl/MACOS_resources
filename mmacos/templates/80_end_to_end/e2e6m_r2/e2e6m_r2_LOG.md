@@ -431,3 +431,44 @@ Visual QA: rendered every slide (libreoffice→pdftoppm contact sheet),
 reworked the sequence slide to full width after the first render
 buried it in a half column.  STYLE_REPORTS §5 gate: run — **clean**.
 DRAFT — Dave signs off; the .pptx is generated, never hand-edited.
+
+---
+
+# Coronagraph-family campaign (CF stages, `macos/BRIEF_e2e6m_coro_families.md`)
+
+## 2026-08-26 — CF0: the config-driven chain runner, gated bit-consistent vs R1
+
+`cf_chain.m` = r1_coro's scoring walk lifted into the ctb_chain pattern:
+load once, engine-measured scales once, masks built once (all 8x
+supersampled/binned, bench_ctb primitives IMPORTED), `run()` = fresh
+trace + masks in place + complex field at the Science plane.  Config
+recorded on the struct (`ch.config`, the ctb_jac_check vocabulary) and a
+filesystem tag derived from it (`ch.tag`), so families never collide on
+disk.  Apodizer kinds: none / clear-disc prolate (R1) / **prolate over
+the TRACED gapped pupil** (`ctb_apod_prolate 'support'` -- the
+aperture-matched APLC of N'Diaye, Zimmerman & Soummer 2016; support =
+`Iap > 0.02*max`, the r2_masks_fig recipe) / supplied.  FPM kinds:
+hard / vortex (8x complex-binned) / band-limited (K&T order 4/8).
+
+**The stop-plane lesson (cost one bisect round).**  First build stopped
+the walk at the elements NAMED DM1/DM2 (23/26) and missed R1 by 1.9e-8
+relative (median 3.5e-7) -- deterministic, load-state-independent
+(measured: a fresh `init+load` before the run changes NOTHING; every
+intensity read-and-continue perturbs the field at the 1e-10 level, so
+the STOP SET is part of the measurement).  R1's walk stops at the
+near-field SEED PLANES `Prop23_start/end` (24/25, the planes prop_layout
+put ON the DM1->DM2 leg), not at the named DMs.  `cf_chain` now maps its
+DM1/DM2 stations to the seed planes (fallback: the named elements) and
+carries the named grid elements separately as `ch.dm_elt` for the
+control layer; `run_bare` is ctb_aplc's bare walk exactly (one DM1 stop,
+then the FPA).
+
+**CF0 gates (`cf0_gates.m` -> `cf0_report.txt`): 10 PASS / 0 FAIL.**
+- bare PSF: peak pixel (513,513) = DC both decks; peak_bare rel 0 and
+  lambda/D rel 0 vs the committed R1 values; |E|^2 == intensity read to
+  2.7e-16.
+- pupil sanity: r 127.1/127.2 px; support fill 0.7948 seg (the 25 mm
+  gaps + hex corners must show), 0.9884 mono.
+- R1 reproduced THROUGH the runner: seg DZ mean 4.704624e-07 rel
+  2.25e-16, median rel 1.65e-16; mono mean 3.623558e-10 rel 0, median
+  rel 1.54e-16; apodizer throughput rel 0 both.  Bit-consistent.
