@@ -1,0 +1,22 @@
+==================== e2e6m CF0 -- chain runner gates vs R1
+model 1024, annulus 3-15 lambda/D, occulter 2.8 lambda/D, Lyot 0.9
+
+---- seg (/home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_prop.in) ----
+    config tag p_h280_L090 | lambda/D 4.027627 px | peak_bare 6.695502e+00
+[1] PSF peak pixel (513,513), DC = 513  [PASS]
+    |E|^2 vs intensity read, max rel 2.65e-16  [PASS]
+    peak_bare vs R1 rel 0 | lamD_px vs R1 rel 0  [PASS]
+[2] pupil r 127.1 px, support fill 0.7948 (gaps must show)  [PASS]
+[3] APLC through cf_chain: DZ mean 4.704624e-07 (R1 4.704624e-07, rel 2.25e-16)
+    DZ median 2.001730e-08 (R1 2.001730e-08, rel 1.65e-16) | apod thru 0.123301 (rel 0)  [PASS]
+
+---- mono (/home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_mono_prop.in) ----
+    config tag p_h280_L090 | lambda/D 4.025137 px | peak_bare 8.219456e+00
+[1] PSF peak pixel (513,513), DC = 513  [PASS]
+    |E|^2 vs intensity read, max rel 2.16e-16  [PASS]
+    peak_bare vs R1 rel 0 | lamD_px vs R1 rel 0  [PASS]
+[2] pupil r 127.2 px, support fill 0.9884 (must be full)  [PASS]
+[3] APLC through cf_chain: DZ mean 3.623558e-10 (R1 3.623558e-10, rel 0)
+    DZ median 5.254765e-12 (R1 5.254765e-12, rel 1.54e-16) | apod thru 0.123244 (rel 0)  [PASS]
+
+CF0 gates: 10 PASS, 0 FAIL in 2.2 min
