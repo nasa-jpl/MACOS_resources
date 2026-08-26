@@ -49,12 +49,12 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ![The companion at 6 λ/D, flux 10⁻³: star residual, star+planet, and the difference panel that recovers it.](ctb_planet.png){h=2.25}
 ![Mono vs 10%-band broadband on the common detector grid: rings wash out, the deep null fills 2.1×.](ctb_bandpass.png){h=2.2}
 
-## 5 — The standard mask families, head-to-head | The apodized-pupil Lyot design is deepest; the pixel-averaged vortex is second, at three times its throughput
+## 5 — The standard mask families, head-to-head | Static masks, before any DM control: the apodized-pupil Lyot is deepest; the pixel-averaged vortex second, at three times its throughput
 ::: left
 - Five mask families from the literature, built as reusable mask functions on the existing complex-mask interface — no engine work. Every formula was taken verbatim from the source paper — secondary summaries get them wrong (band-limited masks are 1−sinc in amplitude, not intensity; the Lyot trims by 1−ε, not 1−2ε; the Roddier π-mask uses no apodizer).
 - All six score on one grid, one annulus (3–15 λ/D), one normalization — the hard occulter of slide 3 re-scored on this common footing. Every mask is generated at 8× sub-pixel resolution and binned to the model grid (area-average for amplitude, complex-average for phase).
 
-| mask | dark-zone mean | throughput |
+| mask | static dark-zone mean | throughput |
 | apodized-pupil Lyot (prolate) | 2.1×10⁻¹⁰ | 27% |
 | vortex, matched Lyot | 1.4×10⁻⁸ | 81% |
 | band-limited (4th order) | 2.7×10⁻⁸ | 36% |
@@ -63,7 +63,13 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 | dual-zone phase | 6.8×10⁻⁶ | 81% |
 - The vortex row moved 21×: the direct-sampled mask's singular core — mis-phased pixels on the stellar image core, a sampling artifact, not vortex physics — had floored it at 2.9×10⁻⁷. Pixel-averaging cures it, and the Lyot becomes a real depth dial: charge 4 reaches 6.6×10⁻¹¹ at a 0.50 stop — apodized-pupil-Lyot class at the same 25% throughput. Full diagnosis in backup.
 ::: right
-![Contrast against throughput for all six families — lower-right is better; the apodized-pupil Lyot deepest, the pixel-averaged vortex second at three times its throughput.](ctb_mask_compare.png){h=3.4}
+![Contrast against throughput for all six families, STATIC — lower-right is better; the apodized-pupil Lyot deepest, the pixel-averaged vortex second at three times its throughput.](ctb_mask_compare.png){h=3.0}
+- Everything above is the mask alone. With the two deformable mirrors closed-loop (slides 9–11, control at N=512), the floors drop by decades:
+
+| controlled chain | static | closed-loop floor |
+| hard occulter, Lyot 0.50 (mono) | 2.9×10⁻⁷ | 3.8×10⁻⁹ |
+| vortex charge 4, Lyot 0.60 (mono) | 1.7×10⁻⁸ | 6.8×10⁻¹⁵ |
+| vortex charge 4, Lyot 0.60 (10% band, unpol.) | 2.2×10⁻⁸ | 2.0×10⁻¹¹ |
 ~ The hybrid Lyot coronagraph is deferred to the FALCO integration: its focal-plane mask is a product of the design loop, not a formula. Throughput = Lyot open area times apodizer transmission — an off-axis proxy, not an end-to-end planet throughput.
 
 ## 6 — The vortex against the Lyot stop | Charge 4 under-runs every fixed design at every throughput: 8.8×10⁻¹¹ at the band-limited mask's own 36%
