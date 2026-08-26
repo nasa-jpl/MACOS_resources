@@ -1,0 +1,16 @@
+==================== e2e6m R1 -- DM grid surfaces + poke gate
+
+[1] /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_dm.in: DM elts [23 26], ng 256, grid dx [0.000235 0.000235] m
+
+[2] reload: 47 -> 47 elements, rays 40357 -> 40357  [PASS]
+
+[3] DM1 lattice: 32 x 32, 880 active in the 47.5 mm beam
+    poke: actuator at (11.1, -0.7) mm, 20 nm surface
+    response: peak |dOPD| 3.92e-08 m (2x surface = 4e-08 expected)
+    peak offset from pupil center 0.53 Rpup  [PASS]  (fails = central dot)
+    energy within 0.15 Rpup of the peak: 100%  [PASS]  (fails = piston/wash)
+
+    DM poke gate: [PASS]
+    figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_dm_poke.png
+
+R1 dm DONE in 0.4 min

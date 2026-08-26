@@ -156,3 +156,88 @@ WFE, the check, and the WFC solve at `art.ox.wf_elt`, making the
 "rms OPD at the coronagraph exit pupil" metric tag TRUE.
 
 R0 artifacts committed with this entry; run logs are not committed.
+
+---
+
+## 2026-08-26 — R1: the DM-bearing back end
+
+Dave: "commit the CTB tail and start R0" → R0 closed → "Go!" — R1.
+
+`e2e6m_r2_params.m` + `r1_backend.m`: the CTB topology at observatory
+scale — OAP1 collimator (f 1.20 m → the 47 mm pupil) then seven f 0.90
+1:1 relays with DM1/DM2 (flat folds, 60 mm clear aperture, 0.15 m
+apart) at the collimated pupil, Apodizer / Lyot / Backend pupil
+markers, FPM / FieldStop focus stations, Science.  Spliced with
+`append_rx` onto BOTH round-1 primaries (read-only from `../e2e6m`).
+The pupil is preserved at 47 mm at every pupil station, so masks and
+λ/D bookkeeping stay comparable with round 1's committed numbers.
+
+### The fold-convention lesson (shroud 10.33 → 7.451 m)
+
+First build kept round 1's ALTERNATING fold sides and FAILED the
+shroud at 10.332 m: a near-retro fold turns the chief by 180−2·AOI,
+and because the beam REVERSES at each fold, alternating the geometric
+side adds −2·AOI of net direction rotation per fold — over this
+chain's 10 folds the accordion fanned ~120° and walked to 5.17 m
+radius (position dump in the commit: Science at x −4.26 m).  Round 1
+survived the same rule only because it had 5 folds.  The fix is the
+opposite convention: the SAME side every fold ping-pongs the beam
+between two fixed directions and packs the chain into a leg-sized
+pocket.  Re-measured: **7.451 m — identical to round 1's primary-set
+envelope; the DM-bearing back end costs nothing in shroud diameter.**
+(Known limit, same as round 1: the sequential trace cannot see one
+mirror's BODY shadowing a later leg; the gate set is ray-pass +
+shroud, not a mechanical clearance model.)
+
+### Gates (r1_seg_report.txt)
+
+37 elements as expected; 983/985 rays (= the telescope alone); beam
+radius 23.77 mm at DM1/DM2, 23.75 mm at Apodizer/Lyot/Backend,
+0.87 µm spots at FPM/FieldStop/Science — every station in its
+conjugate.
+
+### The seed moves to the DM leg (r1_coro)
+
+`r1_coro.m` = round 1's s3_coro on the new train with one deliberate
+change: `prop_layout` seeds the near field on the **DM1→DM2 leg**
+(CTB's convention) instead of the apodizer-entering gap, so the
+complex field exists AT the DM planes — the planes the EFC layer
+probes — and `ctb_aplc`'s DM1/DM2 stations are the real planes rather
+than stand-ins.  Mask parameters are round 1's exactly, so R1-vs-round-1
+measures the topology change alone and seg-vs-mono measures the gaps
+alone.  Running.
+
+### R1 RESULTS — the DM-bearing train, gated and scored
+
+`r1_coro` (model 1024, nGridpts 255, round-1 mask parameters):
+
+    seg  DZ mean 4.705e-07  median 2.002e-08  suppression 6.18e+03
+    mono DZ mean 3.624e-10  median 5.255e-12  suppression 2.82e+07
+    gap cost (seg/mono): 1298x mean, 3809x median
+    vs round 1's seg 8.700e-07: topology factor 0.54x -- the DM-bearing
+    train scores slightly BETTER open-loop; the DMs are FLAT here and
+    R4 closes the loop.
+
+Both diffraction decks verify (PSF CENTRED, chief vs geometric
+4.7e-16 / 1.8e-15); the seed sits on the DM1→DM2 leg as designed
+(seg station 23, mono station 5).
+
+`r1_dm` — the DMs are REAL: `ctb_dm_rx` rewrites DM1/DM2 (elts 23/26
+of the seg diffraction deck) as GridData surfaces in their own frames
+(ng 256, dx 0.235 mm on the 60 mm aperture); reload gate PASS
+(47 elements, 40357 rays, unchanged).  Poke gate (the e5 lesson,
+evaluated at the deck's ExitPupil per R0): a single 32×32-lattice
+actuator (880 active in the 47.5 mm beam) poked 20 nm at half a pupil
+radius → peak ΔOPD 3.92e-8 m (2× surface = 4.0e-8 expected), 100% of
+the response energy within 0.15 R_pupil of the peak, peak at
+0.53 R_pupil off center.  PASS — localized, off-center, right
+amplitude.  `r1_dm_poke.png`.
+
+`r1_shroud_union` — both instruments (this coronagraph leg + round
+1's imager configuration, which is optically unchanged: the pick-off
+sits at 0.15 m, DM1 at 0.25 m): union 7.451 m PASS.
+
+Artifact hygiene: `r1_coro_run.mat` PRUNES the derivable heavy arrays
+(Phi / I_aplc / I_blc, 32 MB → 16 KB) before saving — the ≥20 MB
+derived-binary rule round 1 bent; reports + PNGs carry the content
+and the masks rebuild deterministically.
