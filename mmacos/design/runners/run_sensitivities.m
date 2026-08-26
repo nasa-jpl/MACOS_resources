@@ -104,6 +104,14 @@ function art = run_sensitivities(rx_in, opts)
 %                  per-field re-reference (see dw_dx_multi's help).
 %                  Requires 'stop_elt'; 'pupil_find_opts' forwards
 %                  finder name-values.  Fit metrics land in the report.
+%                  'pf_scope' 'config' (default, the above) | 'field':
+%                  one 3x3 MINI-CONE fit per (configuration, field)
+%                  block, half-width 'pf_probe_rad' (NaN = 0.15x the
+%                  field half-width), centered on that field -- the
+%                  sphere axis parallels the combo's own chief, the
+%                  field tilt is absorbed per block, and each block
+%                  subtracts its OWN w_nom (dw_dx_multi's help has the
+%                  full story and the conditioning caveat).
 %                  Historical: 'sxp' was accepted as an alias
 %                  (warned once); retained so near-EP legacy decks that
 %                  pass it keep running.
@@ -173,6 +181,9 @@ arguments
     opts.reset_xp_method (1,:) char {mustBeMember(opts.reset_xp_method, ...
         {'fex','sxp','pupil_find'})} = 'fex'
     opts.pupil_find_opts cell = {}
+    opts.pf_scope (1,:) char {mustBeMember(opts.pf_scope, ...
+        {'config','field'})} = 'config'
+    opts.pf_probe_rad (1,1) double = NaN
     opts.delta_x double = []
     opts.delta_z double = []
     opts.delta_g double = []
@@ -253,7 +264,8 @@ m = macos.Session(opts.model_size);
 FOV = opts.fov_rad;
 sup = {'field_x_rad', FOV, 'field_y_rad', FOV, 'ngridpts', opts.ngridpts, ...
        'reset_xp_method', opts.reset_xp_method, ...
-       'pupil_find_opts', opts.pupil_find_opts};
+       'pupil_find_opts', opts.pupil_find_opts, ...
+       'pf_scope', opts.pf_scope, 'pf_probe_rad', opts.pf_probe_rad};
 if strcmp(opts.reset_xp_method, 'pupil_find')
     % the finder lives in design/src, which is not on the default path
     addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'src'));
@@ -275,7 +287,11 @@ RD = opts.resume_dir;
 % resume key used to be channel+config only), silently making the two
 % methods' outputs identical -- exactly the trap Luis hit.  'fex'/'sxp'
 % keep the historical bare filenames; 'pupil_find' forks its own.
-XK = '';  if strcmp(opts.reset_xp_method, 'pupil_find'), XK = '_pf'; end
+XK = '';
+if strcmp(opts.reset_xp_method, 'pupil_find')
+    XK = '_pf';
+    if strcmp(opts.pf_scope, 'field'), XK = '_pff'; end
+end
 ncfg = numel(opts.configs);
 if ncfg > 0
     say('configurations: %d\n', ncfg);
@@ -626,6 +642,11 @@ o.config_table = vertcat(C{:});
 % by tPupilFindMethod/test_resume_checkpoints_are_method_aware).
 if isfield(o, 'pupil_find')
     C = cellfun(@(u) u.pupil_find, outs, 'UniformOutput', false);
+    for c = 1:numel(C)          % each block ran as its own single-config
+        for q = 1:numel(C{c})   % call, so its entries all say config 1:
+            if isfield(C{c}, 'config'), C{c}(q).config = c; end
+        end                     % renumber to the stitched axis
+    end
     o.pupil_find = [C{:}];
 end
 o.config_names = {o.config_table.name}.';
@@ -677,12 +698,20 @@ e = find(types == "Segment");
 end
 
 function say_pf_(say, o, tag)
-%SAY_PF_  One report line per configuration's pupil_find placement.
+%SAY_PF_  One report line per pupil_find placement (per config, or per
+%   (config, field) block under pf_scope='field').
 if ~isfield(o, 'pupil_find'), return; end
 for i = 1:numel(o.pupil_find)
     m = o.pupil_find(i);
-    say(['    [%s] pupil_find cfg %d: sphere vtx-FEX %.3g, dep_rms %.3g, ' ...
-         'conv R %.4g, rad %.6g\n'], tag, i, m.vtx_minus_fex, m.dep_rms, ...
+    if isfield(m, 'field') && m.field > 0
+        lbl = sprintf('cfg %d fld %d', m.config, m.field);
+    elseif isfield(m, 'config')
+        lbl = sprintf('cfg %d', m.config);
+    else
+        lbl = sprintf('cfg %d', i);   % pre-scope checkpoints
+    end
+    say(['    [%s] pupil_find %s: sphere vtx-FEX %.3g, dep_rms %.3g, ' ...
+         'conv R %.4g, rad %.6g\n'], tag, lbl, m.vtx_minus_fex, m.dep_rms, ...
         m.conv_radius, m.rad);
 end
 end

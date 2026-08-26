@@ -76,8 +76,26 @@ function pf = pupil_find(rx, Ffield, opts)
     assert(any(xi.elt_id == [3 8]), ['xp_elt %d is a %s; the exit pupil must be a ' ...
         'Return or Reference surface (pass ''xp_elt'').'], XP, xi.type);
 
-    % FEX baseline -- the one-chief-ray sphere we improve on (and its radius)
-    macos.stop(EP);  macos.trace(nE);
+    % FEX baseline -- the one-chief-ray sphere we improve on (and its
+    % radius), run at the CONE CENTER.  The written sphere's axis is
+    % f0.psi, so for an off-axis cone (a pf_scope='field' mini-cone
+    % centered on one field of a wide set) the baseline chief must be
+    % THAT combo's own: with the deck's nominal chief instead, the placed
+    % sphere keeps the nominal field's axis and the field tilt is NOT
+    % absorbed (measured on the zoom fixture: 0.46 mm RMS at the +-1'
+    % fields vs 1.2e-5 re-aimed; center field identical either way).  A
+    % centered cone (mean offset 0 -- every symmetric field-set-wide
+    % fit) is bit-unchanged.
+    macos.stop(EP);
+    ctr = mean(Ffield, 1);
+    if any(abs(ctr) > 0)
+        s0 = macos.get_src_fov();
+        dirc = s0.src_dir(:) + [ctr(1); ctr(2); 0];
+        macos.set_src_fov('src_pos', s0.src_pos, ...
+            'src_dir', dirc / norm(dirc), 'zSrc', s0.zSrc);
+        macos.modify();
+    end
+    macos.trace(nE);
     f0 = macos.fex(1);
 
     % cone-convergence surface (pupil_map re-emits temp decks; needs the path)
