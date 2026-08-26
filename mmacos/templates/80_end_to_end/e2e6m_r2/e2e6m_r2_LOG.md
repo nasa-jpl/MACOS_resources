@@ -472,3 +472,48 @@ then the FPA).
 - R1 reproduced THROUGH the runner: seg DZ mean 4.704624e-07 rel
   2.25e-16, median rel 1.65e-16; mono mean 3.623558e-10 rel 0, median
   rel 1.54e-16; apodizer throughput rel 0 both.  Bit-consistent.
+
+## 2026-08-26 — CF1: the families, head-to-head (PRE-CONTROL) — and the APLC surprise, attributed
+
+`cf1_families.m` -> `cf1_report.txt` + `cf1_families.png` /
+`cf1_radial.png` (both PRE-CONTROL-labeled, the slide-5 rule).  Model
+1024, band center, annulus 3-15 lambda/D, one runner (cf_chain), one
+normalisation.  The table:
+
+| family | DZ mean | DZ median | thru | note |
+|---|---|---|---|---|
+| classical Lyot | 1.625e-06 | 5.131e-07 | 25.0% | hard 2.8 + Lyot 0.50, no apodizer |
+| apodized Lyot (R1) | 4.705e-07 | 2.002e-08 | 10.0% | clear-disc prolate (= R1, rel 7e-7 thread) |
+| APLC (ap.-matched) | 5.380e-07 | 5.605e-08 | 8.9% | prolate ON the traced gapped pupil |
+| band-limited 4th | 1.691e-06 | 3.393e-07 | 13.0% | K&T eps 0.40, Lyot 0.60 |
+| vortex chg 4 | 1.818e-05 | 3.219e-06 | 36.0% | gap leak MEASURED: 5 decades off the CTB clear-pupil 8.8e-11 |
+| vortex chg 6 | 2.785e-05 | 5.988e-06 | 36.0% | c6 shallower than c4 (as CTB) |
+| hybrid Lyot | — | — | — | DEFERRED: FALCO co-design (SESSION-6 ruling), no fabricated row |
+
+**The surprise, attributed before building on it (the brief expected the
+aperture-matched APLC to lead; it does NOT):** the segmented-support
+prolate CONVERGED (lambda0 0.957346, 758 iterations — not a numerics
+artifact) and the eigenvalue IS the attribution.  lambda0 is the energy
+fraction the occulter passes for the aperture's dominant prolate:
+0.999994 on the clear disc, 0.957 on the gapped aperture — the 25 mm
+segment gaps diffract ~4% of any support-confined apodizer's energy
+OUTSIDE the 2.8 lambda/D occulter, and the ideal-APLC residual
+(1-lambda0)*Phi grows by ~4 decades.  Physically: the segment grid
+(pitch ~1.24 m, D/pitch ~ 4.8) puts its diffraction orders at ~5
+lambda/D multiples — INSIDE the 3-15 annulus, visible as the blob
+lattice in every thumbnail — and those orders are AMPLITUDE structure
+no entrance apodizer confined to the pupil support can null.  Both
+prolate rows therefore sit on the same gap floor (4.7 vs 5.4e-07, 14%
+apart), and the ranking of amplitude-mask families COMPRESSES on a
+gapped pupil.  The gap floor is EFC's job — S2 measures what the DMs
+recover (Talbot-limited amplitude authority, z/z_T ~ 0.4%).  Round 1's
+S3b LP apodizer (the true N'Diaye-class co-design machine) told the
+same story from the other side: its engine gate failed at ~5x on this
+train (recorded, not relaxed).
+
+The vortex rows are the measured version of the brief's expectation:
+charge 4 leaks 1.8e-05 — five decades off its CTB clear-pupil analog
+(8.8e-11 at the same Lyot 0.60) — pure segment-gap leak on this
+UNOBSCURED train (no secondary; the brief's "gaps + secondary" is half
+right here, stated in the report).  Vortex thumbnails carry the
+hexagonal star of the gap lattice through the vortex null.
