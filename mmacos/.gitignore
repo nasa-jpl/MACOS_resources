@@ -29,6 +29,7 @@ templates/30_instruments/bench_ctb/ctb_dm_jacobian_N*.mat
 # the drivers; the committed truth is the figures + STATUS numbers.
 # (the untagged ctb_efc.mat stays committed -- the slide-9 baseline)
 templates/30_instruments/bench_ctb/ctb_efc_*.mat
+templates/30_instruments/bench_ctb/ctb_pol_screens.mat
 # flat DM seed grids (MB-scale zero matrices): ctb_dm_rx rewrites them
 # whenever absent, and an absent GridFile on a zero-base DM is benign
 templates/30_instruments/bench_ctb/flat*.txt

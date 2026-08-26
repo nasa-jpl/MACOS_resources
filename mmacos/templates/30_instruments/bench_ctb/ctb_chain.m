@@ -120,6 +120,8 @@ function ch = ctb_chain(opts)
     ch.masks = masks;  ch.coro = opts.coro;
     ch.run      = @() run_(opts.coro);
     ch.run_bare = @() run_(false);
+    ch.run_screened      = @(S) run_screened_(opts.coro, S);
+    ch.run_bare_screened = @(S) run_screened_(false, S);
     ch.dz_mask  = @dz_mask_;
 
     % bare on-axis peak (current DM state = as-loaded) for normalization
@@ -145,6 +147,33 @@ function ch = ctb_chain(opts)
         end
         macos.intensity(e.Lyot, 'reset_trace', false);
         if opts.lyot
+            macos.apodize(e.Lyot, masks.L);
+        end
+        E = macos.complex_field(e.FPA, 'reset_trace', false);
+    end
+
+    function E = run_screened_(withMasks, S)
+        % run_ with an extra complex pupil screen multiplied at the
+        % Apodizer plane (a Jones-component screen; [] = none).  The
+        % bare variant keeps the screen but drops the coronagraph masks
+        % -- the per-component normalization runs.
+        macos.intensity(e.Apodizer);
+        if withMasks && opts.apodizer
+            macos.apodize(e.Apodizer, masks.A);
+        end
+        if ~isempty(S)
+            macos.apodize_complex(e.Apodizer, S);
+        end
+        macos.intensity(e.FPM, 'reset_trace', false);
+        if withMasks && opts.fpm
+            if isreal(masks.F)
+                macos.apodize(e.FPM, masks.F);
+            else
+                macos.apodize_complex(e.FPM, masks.F);
+            end
+        end
+        macos.intensity(e.Lyot, 'reset_trace', false);
+        if withMasks && opts.lyot
             macos.apodize(e.Lyot, masks.L);
         end
         E = macos.complex_field(e.FPA, 'reset_trace', false);
