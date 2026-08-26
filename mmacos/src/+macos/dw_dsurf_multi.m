@@ -102,6 +102,9 @@ arguments
     opts.reset_xp_method        (1,:) char {mustBeMember( ...
         opts.reset_xp_method, {'fex','sxp','pupil_find'})} = 'fex'
     opts.pupil_find_opts        cell = {}
+    opts.pf_scope               (1,:) char {mustBeMember( ...
+        opts.pf_scope, {'config','field'})} = 'config'
+    opts.pf_probe_rad           (1,1) double = NaN
     opts.verbose                (1,1) logical = false
     opts.ngridpts               double {mustBeScalarOrEmpty} = []
     opts.stop_elt               double {mustBeScalarOrEmpty} = []
@@ -188,6 +191,34 @@ fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
 % clobber -- see private/reset_xp_guard.
 reset_ep_moved = false;
 use_pf = strcmp(opts.reset_xp_method, 'pupil_find');
+% pf_scope='field' (Dave, 2026-08-25): one mini-cone fit PER (config,
+% field) block -- a 3x3 probe grid of half-width pf_delta centered on
+% each field, so the placed sphere's axis parallels that combo's OWN
+% chief ray and the field tilt is absorbed per block (as fex does), with
+% the bundle-fit vertex instead of the chief crossing.  Residual tilt in
+% w_nom is then the coma channel -- signal, not artifact.
+% pf_scope='config' keeps the field-set-wide fit: one frozen sphere per
+% configuration, per-field tilt retained.
+pf_fld = use_pf && strcmp(opts.pf_scope, 'field');
+pf_delta = opts.pf_probe_rad;
+if pf_fld && isnan(pf_delta)
+    rmax = max(hypot([fields.dx], [fields.dy]));
+    if rmax == 0
+        error('macos:dw_dsurf_multi:pfProbe', ...
+            ['pf_scope=''field'' with an all-on-axis field set: pass ' ...
+             '''pf_probe_rad'' (the 3x3 probe half-width, rad) explicitly.']);
+    end
+    % 0.15x the field half-width: local enough that every combo's fit
+    % runs in the same small-cone regime, large enough that the probe
+    % chief-ray crossings stay well-conditioned (vertex noise scales as
+    % crossing scatter / delta -- the same near-parallel degeneracy
+    % FEX's telecentric guard exists for).
+    pf_delta = 0.15 * rmax;
+end
+if pf_fld
+    fprintf('[setup] pupil_find scope=field: 3x3 probe cone, half-width %.3g rad\n', ...
+        pf_delta);
+end
 pf_out = struct([]);
 if opts.reset_xp
     xp0 = macos.get_xp();
@@ -216,7 +247,7 @@ if has_cfg
     fprintf('[config %s] applied (%d setter(s))\n', cfgs(ic).name, ...
         numel(cfgs(ic).set));
 end
-if opts.reset_xp && use_pf
+if opts.reset_xp && use_pf && ~pf_fld
     % reset_xp_method='pupil_find': place the cone-convergence best-fit
     % sphere ONCE for this configuration (field-set-wide fit -- the cone
     % aperture IS the field set), then run the field loop with the
@@ -242,13 +273,40 @@ if opts.reset_xp && use_pf
              'dep_rms %.3g, conv R %.4g\n'], ...
             norm(pf_ic.vtx(:) - pf_ic.fex.vpt(:)), pf_ic.dep_rms, ...
             pf_ic.conv_radius);
-    m0 = struct('vtx', pf_ic.vtx(:).', 'rad', pf_ic.rad, ...
+    m0 = struct('scope', 'config', 'config', ic, 'field', 0, ...
+                'vtx', pf_ic.vtx(:).', 'rad', pf_ic.rad, ...
                 'fex_vpt', pf_ic.fex.vpt(:).', ...
                 'vtx_minus_fex', norm(pf_ic.vtx(:) - pf_ic.fex.vpt(:)), ...
                 'dep_rms', pf_ic.dep_rms, 'conv_radius', pf_ic.conv_radius);
     if isempty(pf_out), pf_out = m0; else, pf_out(end+1) = m0; end %#ok<AGROW>
 end
 for k = 1:n_fields
+    if opts.reset_xp && pf_fld
+        % Per-combo placement: restore the NOMINAL source first (the deck
+        % standoff derivation -- same hygiene as the per-config scope; the
+        % guard restores the pristine EP into the saved deck each time),
+        % then fit the 3x3 mini-cone centered on THIS field and place.
+        % The sphere persists as element geometry across the block's poke
+        % traces, so the poke's own tilt is retained -- the family
+        % convention.
+        session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
+                            'zSrc', nom.zSrc);
+        session.modify();
+        [pgx, pgy] = ndgrid([-1 0 1] * pf_delta);
+        Fprobe = [fields(k).dx + pgx(:), fields(k).dy + pgy(:)];
+        pf_ic = reset_xp_guard('pupil_find', session, Fprobe, opts.stop_elt, ...
+                               session.num_elt() - 1, opts.pupil_find_opts, xp0);
+        reset_ep_moved = true;          % placed by construction
+        fprintf(['[cfg %d field %s pupil_find] sphere placed: vtx moved ' ...
+                 '%.3g from FEX, dep_rms %.3g\n'], ic, fields(k).name, ...
+                norm(pf_ic.vtx(:) - pf_ic.fex.vpt(:)), pf_ic.dep_rms);
+        m0 = struct('scope', 'field', 'config', ic, 'field', k, ...
+                    'vtx', pf_ic.vtx(:).', 'rad', pf_ic.rad, ...
+                    'fex_vpt', pf_ic.fex.vpt(:).', ...
+                    'vtx_minus_fex', norm(pf_ic.vtx(:) - pf_ic.fex.vpt(:)), ...
+                    'dep_rms', pf_ic.dep_rms, 'conv_radius', pf_ic.conv_radius);
+        if isempty(pf_out), pf_out = m0; else, pf_out(end+1) = m0; end %#ok<AGROW>
+    end
     new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
     session.set_src_fov('src_pos', nom.src_pos, 'src_dir', new_dir, ...
                         'zSrc', nom.zSrc);
@@ -462,6 +520,7 @@ out.params               = opts.params;
 out = apply_opd_convention(out, opts.orient, opts.sign);
 out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
 out.reset_xp_method      = opts.reset_xp_method;
+if use_pf, out.pf_scope = opts.pf_scope; end
 if ~isempty(pf_out), out.pupil_find = pf_out; end   % per-config metrics
 
 % Add per-field LOS if SPOT was computed
