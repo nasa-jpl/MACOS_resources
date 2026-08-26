@@ -58,7 +58,9 @@ function out = dw_dgrid_multi(session, rx_path, opts)
 %   'reset_xp_method'  'fex' (default; 'sxp' = deprecated alias -- FEX and
 %                SXP are merged in the engine) | 'pupil_find' (once-per-
 %                config cone-convergence sphere placement; see
-%                dw_dx_multi's help -- requires 'stop_elt'.  'pf_scope'
+%                dw_dx_multi's help -- needs a stop: 'stop_elt' or a
+%                deck-declared ApStop=, object-space header form
+%                included.  'pf_scope'
 %                'config'|'field' + 'pf_probe_rad' select a per-(config,
 %                field) mini-cone placement instead; dw_dx_multi's help
 %                has the full story).  Historical

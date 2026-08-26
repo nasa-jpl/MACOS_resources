@@ -10,8 +10,10 @@ spherical aberration, no pupil astigmatism, no pupil **walk** across field.
 It is a **general-purpose driver**: give it any telescope Rx (defaults to
 `tma_onaxis`), it runs the grid-of-cone-sources method to find the exit pupil
 as a fitted **surface**, writes a **revised Rx** (the XP reference sphere
-re-placed at the cone-bundle vertex, an improvement on the one-chief-ray FEX
-sphere), cross-checks against the engine's two-ray XPS, reports how sharply the
+re-placed at the fitted-surface / chief-ray crossing -- an on-chief vertex at
+the measured pupil station, with the radius following the vertex so the sphere
+center stays on the propagation-target plane), cross-checks against the
+engine's two-ray XPS, reports how sharply the
 EP images to the XP, and tracks the pupil walk vs field.
 
 It **composes existing, test-gated tools** — [`design/src/pupil_map.m`](../../../design/src/pupil_map.m)
@@ -60,10 +62,12 @@ The prototype surfaced two distinct radii; the example keeps them separate:
   different quantity. It is **not** the propagation radius and is **not**
   written to the Rx.
 
-So the XP sphere written back with `macos.set_xp` uses the **bundle vertex**
-(an improvement on the one-chief-ray vertex) with **FEX's propagation radius**;
+So the XP sphere written back with `macos.set_xp` uses the **fitted-surface /
+chief-ray crossing** ('fit_chief': on the chief -- no bundle lateral offset --
+at the measured pupil station) with the **radius following the vertex**
+(`fex.rad - t`, the sphere center invariant on the propagation-target plane);
 the convergence curvature and the departure-from-sphere are reported as the
-beyond-FEX pupil quality.
+beyond-FEX pupil quality, and the raw bundle vertex stays a diagnostic.
 
 ## Three entrance-pupil conventions, one deck
 
@@ -91,10 +95,10 @@ anyway.
    element inserted (the anchor is a `pupil_map` argument).
 3. **Cone-convergence XP surface** — `pupil_map` over a `field_grid`: the
    four-part ladder (blur / surface Zernikes / map / wander).
-4. **XP sphere → internal Rx** — best-fit sphere vertex from the crossing cloud
-   (piston+tilt+curvature removed → the residual is the true departure),
-   `macos.set_xp` with **FEX's propagation radius** — modifies the loaded Rx in
-   place, as FEX does.
+4. **XP sphere → internal Rx** — the fitted surface's crossing with the chief
+   ray (piston+tilt+curvature removed in the fit → the residual is the true
+   departure), `macos.set_xp` with the **vertex-following radius** — modifies
+   the loaded Rx in place, as FEX does.
 5. **Engine two-ray cross-check** — `macos.pupil_quality` (XPS); `pupil_map`
    `anchor='stop'` reproduces it (the headline agreement).
 6. **EP→XP imaging sharpness** — `macos.pupil_zone_map(ep,xp)` zone spots
