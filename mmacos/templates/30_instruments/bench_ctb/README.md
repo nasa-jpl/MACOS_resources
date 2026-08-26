@@ -599,13 +599,43 @@ readback, sag→OPD scale/sign/location, speckle-pair symmetry, chain
 contrast pin, Jacobian column linearity, and an EFC smoke that must dig
 ≥2× in 3 iterations.
 
+# The physics layers — bandwidth, polarization, the vector vortex
+
+On the vortex/0.60-Lyot chain (the slide-10 configuration), in order of
+addition (drivers: `ctb_efc_physics`, `ctb_vortex_bandwidth`,
+`ctb_vvc`; full record CTB_PROP_STATUS SESSIONS 13–14):
+
+| configuration (N=512, 3–15 λ0/D, charge 4, Lyot 0.60) | closed-loop floor |
+|---|---|
+| scalar vortex, mono | 8.3e-13 (6.8e-15 relinearized) |
+| scalar, 5% / 10% / 20% band (3/5/9 colors at 2.5% spacing) | 9.4e-12 / 2.5e-11 / 5.4e-11 |
+| polarization floor (coated-train Jones screens, any band) | 1.1e-15 (uncontrollable part) |
+| Lyot rebalance under 10%: 0.70 / 0.80 | 6.5e-11 @ 49% / 1.2e-10 @ 64% thru |
+| VECTOR vortex, ideal plate, unpolarized | 2.0e-9 (the two-spiral compromise) |
+| zero-order plate, unpolarized, 5/10/20% | 7.8e-8 / 2.1e-7 / 6.4e-7 (leakage-pinned) |
+| circular sandwich (R in, L analyzed), mono → 20% | 8.3e-13 → 1.5e-10 |
+| circular + per-λ stacked control, 5% | **7.9e-12** (= the scalar floor) |
+| crossed-linear sandwich, mono / 5 / 10 / 20% | **6.4e-16** / 6.1e-12 / 1.7e-12 / 7.0e-13 |
+| crossed-linear full stack (10% + coating screens) | 3.4e-11 (cross-pol re-leak) |
+
+The vector-vortex findings, compressed: the zero-order plate's
+retardance leak is UNCORRECTABLE by the DMs (its amplitude flips sign
+across band center) but OPTICALLY REMOVABLE by a polarizer/analyzer
+sandwich.  The crossed-linear sandwich is the star-side winner (its
+analyzed channel is the sin mθ mask chain — an 8-octant-mask analogue)
+but carries 2m azimuthal planet nulls (8 blind spots at charge 4, mean
+throughput ¼) where the circular sandwich is flat ½.  Verdict figure:
+`ctb_vvc_summary.png` (regen `ctb_vvc_summary` after the `ctb_vvc`
+tag ladder — run states gitignored, regen lines in the status file).
+
 # The progress deck — deck_ctb
 
-`deck_ctb.pptx` (17 slides: 10 main + 5 backup behind a divider) records
+`deck_ctb.pptx` (23 slides: title + 15 main + 6 backup behind a divider) records
 the state of the CTB model: bench + prescriptions, PROPER validation,
 mask families head-to-head, planet/bandpass, phase-factor export, the
-pure-PROPER hand-off, and the DM/EFC dark hole.  Source is
-`deck_ctb.md`; regen with `python3 make_brief_slides.py deck_ctb.md`
-(figures are the committed PNGs in this directory).  Style:
-`doc/DECK_STYLE.md` + `doc/STYLE_REPORTS.md` §5 (gate run 2026-08-25,
-clean).
+pure-PROPER hand-off, the DM/EFC dark hole, the vortex/Lyot trade, the
+physics layers (polarization, bandwidth), and the vector vortex.
+Source is `deck_ctb.md`; regen with `python3 make_brief_slides.py
+deck_ctb.md` (figures are the committed PNGs in this directory).
+Style: `doc/DECK_STYLE.md` + `doc/STYLE_REPORTS.md` §5 (gate run
+2026-08-26, clean).

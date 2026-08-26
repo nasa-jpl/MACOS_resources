@@ -1,8 +1,8 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-26. Latest work at "SESSION 14" (vector vortex, IN FLIGHT) below; older kept._
+_Updated 2026-08-26. Latest work at "SESSION 14" (vector vortex, CLOSED) below; older kept._
 
-## SESSION 14 (2026-08-26) — the VECTOR vortex (IN FLIGHT at write; final figure/deck pending)
+## SESSION 14 (2026-08-26) — the VECTOR vortex (CLOSED: both sandwiches measured, verdict figure + deck slide 13 shipped)
 
 Machinery: `ctb_mask_vvc` (8×-binned cos/sin mθ entries), `ctb_vvc`
 (2×2 Jones FPM by linear combination of component chains — 2 runs per
@@ -32,17 +32,40 @@ Jacobians (Vc/Vs masks, 26 min) serve every tier;
   restore accepted state first); (2) same class as S13's screen-phase
   lesson — recorded in ctb_vvc help.
 
-IN FLIGHT: per-λ stacked-control recovery run (5% band, jac_perlam,
-tag circ05_perlam) — prices the mean-null penalty.  QUEUED: crossed
-LINEAR sandwich ladder (reuses cached G_sin; star-side floors expect
-circular-class; planet side has sin²(mθp) azimuthal transmission
-NULLS — 8 blind spots at charge 4 — the circular sandwich's planet
-throughput is flat ½; real-optics counterpoint: circular pol = linear
-+ QWP whose chromatic retardance re-leaks ~(ε/2)², linear polarizers
-are the broadband-extinction winners).  THEN: ctb_vvc_summary figure
-(driver committed, reads run .mats incl. optional perlam point), deck
-slide 13, SESSION 14 close.  Run .mats gitignored (regen: ctb_vvc
-with tags ideal/ideal_analyzed/c05/c10/c20/circ00..circ20/circ10s).
+- PER-λ RECOVERY (circular sandwich, 5%, jac_perlam=stacked per-λ
+  targets against per-λ Jacobian blocks, 75-min 3-color 2-mask
+  measure): **1.700e-8 → 7.94e-12 (2142×)** — 265× below the
+  collapsed-mean solve's 2.1e-9, ON the scalar chain's own 5% floor
+  (9.4e-12).  CLOSES the attribution: the sandwich's residual gap to
+  scalar was CONTROL, not physics.
+- CROSSED LINEAR SANDWICH (x in, y analyzed — Dave's "would a linear
+  polarizer do better?"): the analyzed channel is the sin(mθ) MASK
+  CHAIN (8-octant-mask analogue at charge 4), G_sin block of the SAME
+  cached Jacobian.  Star side beats circular by 2–3 decades at every
+  band: statics ~7e-11 FLAT across band (leak is co-polarized →
+  rejected optically, statics 240× below circular's 1.7e-8); floors
+  **mono 6.38e-16 / 5% 6.13e-12 / 10% 1.68e-12 / 20% 6.96e-13**
+  (monotone with color count).  FULL STACK (10% + coating screens):
+  static jumps to 2.16e-9 — the mirrors' CROSS-POLARIZATION arrives
+  already y-polarized, carrying leak the analyzer cannot strip — loop
+  to 3.38e-11 (64×, still descending at iter 12, strokes 0.2 nm).
+  PRICE IS PLANETARY: transmission ∝ sin²(mθp)/2 — 2m=8 azimuthal
+  blind spots at charge 4, mean ¼ vs the circular sandwich's flat ½.
+  Real-optics counterpoint retained: circular pol = linear + QWP whose
+  chromatic retardance re-leaks ~(ε/2)²; linear polarizers hold
+  broadband extinction better.
+
+SHIPPED at close: `ctb_vvc` linear input/analyzer options (sin-block
+Jacobian, crossed-channel target; help text carries the planet-null
+caveat), `ctb_vvc_summary` verdict figure (4 curves + recovery/stack
+markers — ctb_vvc_summary.png), deck v5 slide 13 "The vector vortex"
+(Next→14, References→15, VVC refs added; §5 style gate run: clean),
+gitignore now actually covers ctb_vvc_*.mat.  Run .mats gitignored
+(regen: ctb_vvc with tags ideal/ideal_analyzed/c05/c10/c20/
+circ00..circ20/circ10s/lin00..lin20/lin10s/circ05_perlam; the
+perlam Jacobian ctb_dm_jacobian_N512_vvc_c4_perlam_b05.mat, 75 min).
+NEXT ARC (Dave, queued): aberrations (as-built PSD surface maps) +
+drifts / dark-zone maintenance.
 
 ## SESSION 13 (2026-08-25) — the physics layers: 10% band, polarization, rebalanced Lyot
 

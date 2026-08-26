@@ -35,6 +35,17 @@ function out = ctb_vvc(opts)
 %     e_sin = conj(b)(e_yx + e_xy)/(2|b|^2),  weight 2|b|^2
 %   summed over wavelengths, solved against [G_cos; G_sin] real-stacked.
 %
+%   SANDWICHES.  'input','circular' + 'analyzer','circular' is the
+%   R-in / L-analyzed sandwich (leakage rejected optically; science
+%   channel carries BOTH vortex terms, G_cos - i G_sin, planet
+%   transmission flat 1/2).  'input','linear' + 'analyzer','linear'
+%   is the crossed x-in / y-analyzed sandwich: leakage is co-polarized
+%   with the input and equally rejected; the science channel is the
+%   Vs-mask chain alone (G_sin block), and the price sits on the
+%   PLANET side -- transmission sin^2(m*theta_p)/2 has 2m azimuthal
+%   nulls (8 blind spots at charge 4) where the circular sandwich is
+%   flat.  Both reuse the same cached 2-mask Jacobian.
+%
 %   Name-value: 'tier' ('chromatic'), 'pol' (false), 'band' (0 = mono;
 %   or fractional bandwidth, colors per the 2.5%-spacing rule),
 %   'charge' (4), 'niter' (12), 'tag', 'save', 'outdir', 'verbose'.
@@ -47,8 +58,8 @@ function out = ctb_vvc(opts)
 %   See also: ctb_mask_vvc, ctb_efc_physics, ctb_vortex_bandwidth.
     arguments
         opts.tier    (1,:) char {mustBeMember(opts.tier, {'ideal','chromatic'})} = 'chromatic'
-        opts.analyzer (1,:) char {mustBeMember(opts.analyzer, {'none','circular'})} = 'none'
-        opts.input   (1,:) char {mustBeMember(opts.input, {'unpolarized','circular'})} = 'unpolarized'
+        opts.analyzer (1,:) char {mustBeMember(opts.analyzer, {'none','circular','linear'})} = 'none'
+        opts.input   (1,:) char {mustBeMember(opts.input, {'unpolarized','circular','linear'})} = 'unpolarized'
         opts.jac_perlam (1,1) logical = false   % per-wavelength Jacobian
                                                 % blocks + stacked solve
                                                 % (circular input only) --
@@ -70,6 +81,10 @@ function out = ctb_vvc(opts)
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
     if isempty(opts.outdir), opts.outdir = here; end
+    if strcmp(opts.input, 'linear') || strcmp(opts.analyzer, 'linear')
+        assert(strcmp(opts.input, 'linear') && strcmp(opts.analyzer, 'linear'), ...
+            'ctb_vvc: the linear options travel together (crossed polarizer/analyzer sandwich)');
+    end
 
     % control wavelengths: 2.5%-spacing rule
     if opts.band == 0
@@ -137,11 +152,16 @@ function out = ctb_vvc(opts)
     function ef = fields_(dzidx, lf)
         [al, be] = ab_(lf);
         Jm = {al + be*Vc, be*Vs; be*Vs, al - be*Vc};   % Jm{p,c}
-        if strcmp(opts.input, 'circular')
-            % ONE input state, R = (x - i y)/sqrt(2): the component
-            % pupil fields carry weights (1, -i)/sqrt(2) (through the
-            % coating screens when pol is on).  4 runs per wavelength.
-            win = [1, -1i] / sqrt(2);
+        if strcmp(opts.input, 'circular') || strcmp(opts.input, 'linear')
+            % ONE input state: R = (x - i y)/sqrt(2) (circular sandwich)
+            % or x-hat (crossed-linear sandwich).  The component pupil
+            % fields carry the input weights (through the coating
+            % screens when pol is on).
+            if strcmp(opts.input, 'circular')
+                win = [1, -1i] / sqrt(2);
+            else
+                win = [1, 0];
+            end
             ef = cell(2,1);                             % ef{p}
             for p = 1:2
                 acc = 0;
@@ -151,6 +171,7 @@ function out = ctb_vvc(opts)
                         E = run1_(Sc, Jm{p,c});
                         acc = acc + E(dzidx);
                     else
+                        if win(c) == 0, continue; end
                         E = run1_([], Jm{p,c});
                         acc = acc + win(c) * E(dzidx);
                     end
@@ -185,10 +206,15 @@ function out = ctb_vvc(opts)
         macos.set_src_wvl(lam0 * lf);
         % unpolarized bare peak: no FPM, no Lyot -- component chains
         pk_l = 0;
-        if strcmp(opts.input, 'circular')
-            win = [1, -1i] / sqrt(2);
+        if strcmp(opts.input, 'circular') || strcmp(opts.input, 'linear')
+            if strcmp(opts.input, 'circular')
+                win = [1, -1i] / sqrt(2);
+            else
+                win = [1, 0];
+            end
             Eacc = {0, 0};
             for c = 1:2
+                if ~opts.pol && win(c) == 0, continue; end
                 macos.intensity(e.Apodizer);
                 if opts.pol
                     Sc = (Sin{c,1} * win(1) + Sin{c,2} * win(2));
@@ -222,7 +248,11 @@ function out = ctb_vvc(opts)
         for l = 1:nlam
             macos.set_src_wvl(lam0 * lfracs(l));
             efs{l} = fields_(dz{l}, lfracs(l));
-            if strcmp(opts.input, 'circular')
+            if strcmp(opts.input, 'linear')
+                % crossed analyzer: the y channel alone (leakage is
+                % co-polarized with the input and blocked optically)
+                C = C + mean(abs(efs{l}{2}).^2);
+            elseif strcmp(opts.input, 'circular')
                 if strcmp(opts.analyzer, 'circular')
                     eL = (efs{l}{1} - 1i*efs{l}{2}) / sqrt(2);
                     C = C + mean(abs(eL).^2);
@@ -362,6 +392,11 @@ function out = ctb_vvc(opts)
         end
         Gr = [real(Gb); imag(Gb)];
         JJ.col_dm = JL.col_dm;  JJ.col_act = JL.col_act;
+    elseif strcmp(opts.input, 'linear')
+        % x input, crossed analyzer: dE_y = be G_sin da -- the sin
+        % block alone (the cos block never reaches the y channel)
+        Gs_ = double(JJ.G(np+1:2*np, :));
+        Gr = [real(Gs_); imag(Gs_)];
     elseif strcmp(opts.input, 'circular')
         % R input: dE_L = be (G_cos - i G_sin) da -- one complex block
         Gc_ = double(JJ.G(1:np, :));  Gs_ = double(JJ.G(np+1:2*np, :));
@@ -401,6 +436,19 @@ function out = ctb_vvc(opts)
                 ef = fields_(dzsolve, lfracs(l));
                 em((l-1)*np + (1:np)) = (ef{1} - 1i*ef{2}) / sqrt(2);
             end
+            return
+        end
+        if strcmp(opts.input, 'linear')
+            % control the crossed (y) channel of the x input
+            em = 0;  W2 = 0;
+            for l = 1:nlam
+                macos.set_src_wvl(lam0 * lfracs(l));
+                ef = fields_(dzsolve, lfracs(l));
+                [~, be] = ab_(lfracs(l));
+                em = em + conj(be) * ef{2};
+                W2 = W2 + abs(be)^2;
+            end
+            em = em / W2;
             return
         end
         if strcmp(opts.input, 'circular')
@@ -484,6 +532,7 @@ function out = ctb_vvc(opts)
     fprintf('[vvc] final: %.3e -> %.3e (%.1fx)\n', C0, c_final, C0/max(c_final,realmin));
 
     out = struct('tier',opts.tier, 'pol',opts.pol, 'band',opts.band, ...
+        'input',opts.input, 'analyzer',opts.analyzer, ...
         'lfracs',lfracs, 'charge',opts.charge, 'contrast',contrast, ...
         'c_before',C0, 'c_after',c_final, 'leak_frac',lk, 'a',{a}, ...
         'stroke_rms_nm',cellfun(@(x) 1e6*rms(x(x~=0)), a));
