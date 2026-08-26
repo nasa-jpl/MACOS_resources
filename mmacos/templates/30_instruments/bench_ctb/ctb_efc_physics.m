@@ -53,7 +53,8 @@ function out = ctb_efc_physics(opts)
         opts.pol        (1,1) logical = false
         opts.chain      (1,:) cell = {'fpm_kind','vortex','charge',4, ...
                                       'apodizer',false,'r_lyot_frac',0.60}
-        opts.jac        (1,:) char = ''
+        opts.jac        = ''            % path, or a Jacobian struct
+        opts.jac_only   (1,1) logical = false   % measure+save G, skip EFC
         opts.niter      (1,1) double {mustBeInteger,mustBePositive} = 15
         opts.alphas     (1,:) double = logspace(-6, -2, 5)
         opts.a0         (1,:) cell = {}
@@ -187,6 +188,12 @@ function out = ctb_efc_physics(opts)
 
     % ---- Jacobian: one per lambda, no screens --------------------------
     tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
+    if isstruct(opts.jac)
+        JJ = opts.jac;
+        jp_ = '(struct)';
+        fprintf('[phys] Jacobian passed as struct (%d blocks)\n', ...
+            numel(JJ.rowoff) - 1);
+    else
     jp_ = opts.jac;
     if isempty(jp_)
         jp_ = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d_phys%s.mat', N, tg));
@@ -235,6 +242,11 @@ function out = ctb_efc_physics(opts)
             'timing_s',toc(t0));
         save(jp_, '-struct', 'JJ', '-v7.3');
         fprintf('[phys] Jacobian saved: %s (%.1f min)\n', jp_, JJ.timing_s/60);
+    end
+    end
+    if opts.jac_only
+        out = JJ;
+        return
     end
     Gr = [real(double(JJ.G)); imag(double(JJ.G))];
     [U, S, V] = svd(Gr, 'econ');
