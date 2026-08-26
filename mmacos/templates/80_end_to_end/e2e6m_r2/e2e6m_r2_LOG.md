@@ -241,3 +241,41 @@ Artifact hygiene: `r1_coro_run.mat` PRUNES the derivable heavy arrays
 (Phi / I_aplc / I_blc, 32 MB → 16 KB) before saving — the ≥20 MB
 derived-binary rule round 1 bent; reports + PNGs carry the content
 and the masks rebuild deterministically.
+
+---
+
+## 2026-08-26 — R2: the four graphics (Dave items 2, 3, 5, 6)
+
+All four are committed PNGs, each verified by inspection AND
+numerically anchored:
+
+- **`r2_sequence.png`** (item 2) — the light-order schematic, both
+  legs.  Node lists are PARSED FROM THE DECKS (r1_seg_full.in +
+  round 1's s3_imager_leg.in), so the sketch cannot drift from the
+  trains; only the classification (mirror/DM/mask/focus/detector) is
+  local.  Layout: shared trunk + imager leg on the top row ("pick-off
+  deployed"), coronagraph leg serpentining below, an elbow connector
+  routed through clear space — first draft had branch lines crossing
+  boxes; reworked until no line crosses anything.
+- **`r2_back_plane.png`** (item 3) — the back end as a 2D FOLD-PLANE
+  ELEVATION, to scale, elements named and classed.  A 6° near-normal
+  accordion is nearly collinear in 3D — every 3D view renders a stick
+  (tried the default iso AND the computed face-on [180° 17°]); the
+  interpretable picture is the bench drawing in the plane the folds
+  live in, plane found by SVD of the element positions.  The OAP1 →
+  DM-pocket → W-relay structure reads at a glance; span 5.1 × 0.6 m.
+- **`r2_fpm_mask.png`** (item 5) — the occulter itself: opaque disk,
+  radius 2.8 λ/D = 27.3 µm at the FPM focus, transmission map with
+  the λ/D axis and the physical radius stated; scales MEASURED from
+  the engine at the FPM plane (R_EP 0.313 m, 9.75 µm per λ/D at
+  500 nm), the coro_setup_ recipe.
+- **`r2_apodizer.png`** (item 6) — the apodizer two ways: the
+  clear-pupil prolate as manufactured (throughput 0.145 over the
+  traced aperture), and the same profile over the TRACED 19-segment
+  pupil — gaps visible — axes in mm at the apodizer plane (47 mm
+  pupil).  These are the SCORING masks rebuilt with the scoring
+  parameters, not lookalikes.
+
+Plus `r2_train_iso.png` — the full-train 3D render for context (the
+back end is a label-sized cluster against the 6 m PM, which is
+exactly the point item 3 addresses).
