@@ -251,6 +251,55 @@ classdef tPupilFindMethod < matlab.unittest.TestCase
                  'leaves 4-8e-3 of pure tilt'], max(r(:))));
         end
 
+        function test_object_space_apstop_deck_needs_no_stop_elt(tc)
+        % Luis's case (2026-08-26): the stop declared OBJECT-SPACE in the
+        % deck header (ApStop= 3-vector) -- the segmented-primary idiom,
+        % where no single stop ELEMENT exists (e5hex1: 7 hex segments
+        % share the primary).  Two gates, both non-vacuous against the
+        % pre-fix tree:
+        %   A. pupil_find without 'stop_elt' must leave the deck's stop
+        %      in force -- it used to run macos.stop(ep_elt=1), i.e.
+        %      override the pupil with ONE segment's aperture.  The
+        %      discriminator: get_stop_info reports only ELEMENT stops
+        %      and raises on an object-space stop, so post-fix it must
+        %      raise, pre-fix it returned elt 1.
+        %   B. the supervisor flow (Luis's run_sensitivities path) must
+        %      accept reset_xp_method='pupil_find' with NO 'stop_elt' --
+        %      it used to refuse up front (pfNeedsStopElt).
+            here = fileparts(mfilename('fullpath'));
+            root = fileparts(here);
+            rxh = fullfile(root, 'templates', '50_sensitivities', ...
+                           'run_dwdz_multi', 'e5hex1.in');
+            tc.assumeTrue(exist(rxh, 'file') == 2, 'e5hex1 deck not present');
+            fov = 1e-4;
+            m = macos.Session(256);
+            % -- A: direct pupil_find, deck stop preserved
+            nE = macos.load_rx(rxh);
+            macos.set_src_sampling(33);
+            macos.modify();
+            tmp = fullfile(tc.od, 'pf_objstop_gate.in');
+            macos.save_rx(tmp);
+            F = [0 0; -fov fov; fov fov; -fov -fov; fov -fov];
+            pf = pupil_find(tmp, F, 'xp_elt', nE - 1, ...
+                            'place', true, 'init', false);
+            tc.assertTrue(pf.placed);
+            stop_is_elt = true;
+            try, macos.get_stop_info(); catch, stop_is_elt = false; end
+            tc.verifyFalse(stop_is_elt, ...
+                ['pupil_find overrode the deck''s object-space ApStop ' ...
+                 'with an element stop (the segmented-primary pupil ' ...
+                 'collapsed to one segment''s aperture)']);
+            % -- B: supervisor flow, no stop_elt
+            out = macos.dw_dx_multi(m, rxh, 'field_x_rad', fov, ...
+                'field_y_rad', fov, 'grid', '3x1', 'elts', 8, ...
+                'dofs', 3, 'ngridpts', 33, ...
+                'reset_xp_method', 'pupil_find');
+            tc.assertTrue(isfield(out, 'pupil_find') && ...
+                          ~isempty(out.pupil_find), ...
+                ['supervisor pupil_find metrics missing -- the ' ...
+                 'no-stop_elt path did not run the finder']);
+        end
+
         function test_field_scope_probe_delta_is_not_load_bearing(tc)
         % The mini-cone half-width is a conditioning knob, not a result
         % knob: the fitted vertex must be stable under a 2x change.

@@ -93,8 +93,9 @@ function out = dw_dx_multi(session, rx_path, opts)
 %               frozen, field-set-wide best-fit reference, an upgrade of
 %               the frozen-EP mode rather than a per-field re-reference
 %               (the per-field tilt term behaves as reset_xp=false).
-%               REQUIRES 'stop_elt' (pupil_find sets the engine stop at
-%               that element).  'pupil_find_opts' forwards extra
+%               Needs a stop: 'stop_elt', or a deck-declared ApStop=
+%               (object-space header form included -- the segmented-
+%               primary idiom; pupil_find leaves a deck stop in force).  'pupil_find_opts' forwards extra
 %               name-values to the finder (anchor/nodes/...).  Per-config
 %               fit metrics return in out.pupil_find.
 %   'pf_scope'  'config' (default) | 'field'.  Scope of the pupil_find

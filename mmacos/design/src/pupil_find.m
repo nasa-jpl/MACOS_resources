@@ -27,7 +27,11 @@ function pf = pupil_find(rx, Ffield, opts)
 %   exit-pupil element carrying the bundle-fit sphere (get_xp reads it back).
 %
 %   Name-value:
-%     'ep_elt'     entrance-pupil (stop) element (default 1).
+%     'ep_elt'     entrance-pupil (stop) element (default 1).  Only used
+%                  to SET a stop when neither 'stop_elt' is given nor the
+%                  deck declares its own ApStop= -- a deck-declared stop
+%                  (including the object-space header 3-vector, the
+%                  segmented-primary idiom) is left in force.
 %     'xp_elt'     exit-pupil Return/Reference element (default nElt-1); the
 %                  element PUPIL_FIND writes, must be Return(8)/Reference(3).
 %     'anchor'     'rim' (beam rim, default) | 'surface' | 'stop' (see pupil_map).
@@ -76,6 +80,21 @@ function pf = pupil_find(rx, Ffield, opts)
     % resolve + validate the exit-pupil element
     macos.load_rx(rx);  nE = macos.num_elt();
     EP = opts.ep_elt;   XP = opts.xp_elt;  if XP <= 0, XP = nE - 1; end
+    % Segmented entrance: the cone-lattice anchor (pupil_map's obj_elt)
+    % cannot be a Segment element -- the probe traces evaluate OPD at
+    % the anchor and the engine refuses OPD there ("OPD: cannot
+    % evaluate at a Segment element").  Advance to the first
+    % non-Segment element.  The STOP is unaffected: a segmented
+    % primary's stop is the deck's object-space ApStop, which
+    % set_stop_ leaves in force (Luis 2026-08-26).
+    if macos.get_elt_info(EP).elt_id == 11               % Segment
+        E0 = EP;
+        while EP < nE && macos.get_elt_info(EP).elt_id == 11
+            EP = EP + 1;
+        end
+        fprintf(['[pupil_find] elt %d is a Segment -- cone-lattice ' ...
+                 'anchor advanced to elt %d (stop unaffected)\n'], E0, EP);
+    end
     xi = macos.get_elt_info(XP);
     assert(any(xi.elt_id == [3 8]), ['xp_elt %d is a %s; the exit pupil must be a ' ...
         'Return or Reference surface (pass ''xp_elt'').'], XP, xi.type);
@@ -90,7 +109,7 @@ function pf = pupil_find(rx, Ffield, opts)
     % fields vs 1.2e-5 re-aimed; center field identical either way).  A
     % centered cone (mean offset 0 -- every symmetric field-set-wide
     % fit) is bit-unchanged.
-    macos.stop(EP);
+    set_stop_(rx, opts.stop_elt, EP);
     ctr = mean(Ffield, 1);
     if any(abs(ctr) > 0)
         s0 = macos.get_src_fov();
@@ -151,7 +170,7 @@ function pf = pupil_find(rx, Ffield, opts)
     % the chief crossing, so w_nom carries no bundle tilt.  The dw_d*
     % supervisors' pf_scope='field' passes 'chief'.
     if strcmp(opts.vertex, 'chief'), vw = f0.vpt(:); else, vw = vtx(:); end
-    macos.load_rx(rx);  macos.stop(EP);
+    macos.load_rx(rx);  set_stop_(rx, opts.stop_elt, EP);
     if opts.place
         macos.set_xp(vw, psi, f0.rad);
     end
@@ -163,4 +182,18 @@ function pf = pupil_find(rx, Ffield, opts)
         'conv_radius',conv_radius, 'dep_rms',dep_rms, 'uv',[uu vv], 'dep',dep(:), ...
         'blur',o.blur, 'surface',o.surface, 'map',o.map, 'wander',o.wander, ...
         'anchor',opts.anchor, 'o_rim',o, 'placed',opts.place);
+end
+
+function set_stop_(rx, stop_elt, EP)
+%  Stop resolution, in priority order: an EXPLICIT element stop wins;
+%  else a deck-declared ApStop= (header object-space 3-vector or the
+%  element form) GOVERNS and is left alone -- FEX handles object-space
+%  stops, and overriding with macos.stop(EP) would replace e.g. a
+%  segmented-primary object-space stop with ONE segment's aperture
+%  (Luis 2026-08-26); else the legacy default, stop at ep_elt.
+if stop_elt > 0
+    macos.stop(stop_elt);
+elseif isempty(regexp(fileread(rx), '^\s*ApStop\s*=', 'once', 'lineanchors'))
+    macos.stop(EP);
+end
 end
