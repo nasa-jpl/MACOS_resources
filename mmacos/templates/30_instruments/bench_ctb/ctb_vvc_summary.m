@@ -31,30 +31,35 @@ function out = ctb_vvc_summary(opts)
 %   Run:  >> ctb_vvc_summary;
 %   See also: ctb_vvc, ctb_vortex_bandwidth, ctb_mask_vvc.
     arguments
+        opts.suffix  (1,:) char = ''   % study tag suffix on every run
+                                       % state and the output figure
+                                       % (ctb_study non-default configs)
         opts.outdir  (1,:) char = ''
         opts.visible (1,1) logical = false
     end
     here = fileparts(mfilename('fullpath'));
     if isempty(opts.outdir), opts.outdir = here; end
-    need = {'ctb_vvc_ideal.mat','ctb_vvc_ideal_analyzed.mat', ...
-            'ctb_vvc_c05.mat','ctb_vvc_c10.mat','ctb_vvc_c20.mat', ...
-            'ctb_vvc_circ00.mat','ctb_vvc_circ05.mat','ctb_vvc_circ10.mat', ...
-            'ctb_vvc_circ20.mat','ctb_vvc_circ10s.mat', ...
-            'ctb_vortex_bandwidth.mat'};
+    sx = opts.suffix;
+    F  = @(base) sprintf('%s%s.mat', base, sx);
+    need = {F('ctb_vvc_ideal'), F('ctb_vvc_ideal_analyzed'), ...
+            F('ctb_vvc_c05'), F('ctb_vvc_c10'), F('ctb_vvc_c20'), ...
+            F('ctb_vvc_circ00'), F('ctb_vvc_circ05'), F('ctb_vvc_circ10'), ...
+            F('ctb_vvc_circ20'), F('ctb_vvc_circ10s'), ...
+            F('ctb_vortex_bandwidth')};
     for k = 1:numel(need)
         assert(isfile(fullfile(here, need{k})), ...
             'ctb_vvc_summary: %s absent -- regen per CTB_PROP_STATUS SESSION 14', need{k});
     end
     L = @(f) load(fullfile(here, f));
-    I0   = L('ctb_vvc_ideal.mat');          % unpolarized ideal (compromise)
-    IA   = L('ctb_vvc_ideal_analyzed.mat'); % ideal + analyzer (validation)
-    Cu   = cellfun(L, {'ctb_vvc_c05.mat','ctb_vvc_c10.mat','ctb_vvc_c20.mat'});
-    Cc   = cellfun(L, {'ctb_vvc_circ00.mat','ctb_vvc_circ05.mat', ...
-                       'ctb_vvc_circ10.mat','ctb_vvc_circ20.mat'});
-    S10  = L('ctb_vvc_circ10s.mat');        % full stack
-    SW   = L('ctb_vortex_bandwidth.mat');   % scalar sweep
-    linf = {'ctb_vvc_lin00.mat','ctb_vvc_lin05.mat', ...
-            'ctb_vvc_lin10.mat','ctb_vvc_lin20.mat'};
+    I0   = L(F('ctb_vvc_ideal'));           % unpolarized ideal (compromise)
+    IA   = L(F('ctb_vvc_ideal_analyzed'));  % ideal + analyzer (validation)
+    Cu   = cellfun(L, {F('ctb_vvc_c05'), F('ctb_vvc_c10'), F('ctb_vvc_c20')});
+    Cc   = cellfun(L, {F('ctb_vvc_circ00'), F('ctb_vvc_circ05'), ...
+                       F('ctb_vvc_circ10'), F('ctb_vvc_circ20')});
+    S10  = L(F('ctb_vvc_circ10s'));         % full stack
+    SW   = L(F('ctb_vortex_bandwidth'));    % scalar sweep
+    linf = {F('ctb_vvc_lin00'), F('ctb_vvc_lin05'), ...
+            F('ctb_vvc_lin10'), F('ctb_vvc_lin20')};
     has_lin = all(cellfun(@(f) isfile(fullfile(here, f)), linf));
     if has_lin, Cl = cellfun(L, linf); end
 
@@ -74,7 +79,7 @@ function out = ctb_vvc_summary(opts)
         semilogy(ax, 100*[Cl.band], [Cl.c_after], 'v-', 'LineWidth', 1.6, ...
             'DisplayName', 'crossed linear sandwich (star side; planet has 2m nulls)');
     end
-    fls = fullfile(here, 'ctb_vvc_lin10s.mat');
+    fls = fullfile(here, F('ctb_vvc_lin10s'));
     if isfile(fls)
         LS = load(fls);
         semilogy(ax, 100*LS.band, LS.c_after, 'd', 'MarkerSize', 10, ...
@@ -87,7 +92,7 @@ function out = ctb_vvc_summary(opts)
     semilogy(ax, 100*S10.band, S10.c_after, 'd', 'MarkerSize', 10, ...
         'MarkerFaceColor', [1 1 1], 'Color', [0.1 0.1 0.1], ...
         'DisplayName', 'full stack: sandwich + coating screens (10%)');
-    fpl = fullfile(here, 'ctb_vvc_circ05_perlam.mat');
+    fpl = fullfile(here, F('ctb_vvc_circ05_perlam'));
     if isfile(fpl)
         PL = load(fpl);
         semilogy(ax, 100*PL.band, PL.c_after, 'h', 'MarkerSize', 12, ...
@@ -106,7 +111,7 @@ function out = ctb_vvc_summary(opts)
         'charge 4, Lyot 0.60, zero-order plate: \delta(\lambda) = \pi\lambda_0/\lambda'}, ...
         'FontWeight','bold');
     legend(ax, 'Location', 'southeast', 'FontSize', 8);
-    fp = fullfile(opts.outdir, 'ctb_vvc_summary.png');
+    fp = fullfile(opts.outdir, ['ctb_vvc_summary' sx '.png']);
     exportgraphics(fig, fp, 'Resolution', 150);
     close(fig);
     fprintf('[vvcfig] wrote %s\n', fp);

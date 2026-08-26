@@ -64,6 +64,20 @@ gitignore now actually covers ctb_vvc_*.mat.  Run .mats gitignored
 (regen: ctb_vvc with tags ideal/ideal_analyzed/c05/c10/c20/
 circ00..circ20/circ10s/lin00..lin20/lin10s/circ05_perlam; the
 perlam Jacobian ctb_dm_jacobian_N512_vvc_c4_perlam_b05.mat, 75 min).
+REPRODUCIBILITY LAYER (same day, Dave's ask): `ctb_study` — the
+25-step study as ONE config-driven driver (fpm_kind/charge/
+r_lyot_frac/bands/stages/dry/force); shipped config maps to the
+HISTORICAL tags (verified: default live run skipped all 24 states and
+reproduced every deck number in its manifest), any other config gets
+an auto suffix (`_vc6L070`) on every tag/cache/output.  `ctb_jac_check`
+guards every Jacobian cache load against its stored chain_opts stamp
+(file NAME cannot encode mask geometry — a stale G fights the loop
+with plausible numbers; the refusal is loud).  Generalized for it:
+ctb_vvc 'r_lyot_frac' (+ _L<pct> cache suffix + stamps),
+ctb_vortex_bandwidth 'chain'/'tag', ctb_vvc_summary 'suffix',
+ctb_efc_physics verify-on-load.  Deck backup slide "Reconstructing
+the study"; README section.  Limitation on record: ctb_vvc_summary
+assumes the standard band ladder.
 NEXT ARC (Dave, queued): aberrations (as-built PSD surface maps) +
 drifts / dark-zone maintenance.
 

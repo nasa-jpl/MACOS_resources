@@ -161,6 +161,7 @@ D. C. Redding with Claude Code — 26 August 2026. Model + drivers: MACOS_resour
 - Aberrations and drifts. As-built mirror surface maps (measured-quality power spectra), then alignment drifts as a time series against the delivered control loop — dark-zone maintenance, and how long the hole survives between corrections.
 - Validation against testbed data — the capstone. Needs a named dataset from a real bench and the measured (not design) parameters that produced it.
 ~ Mechanical layer delivered and merged: a prescription generator that reproduces both hand-built models to round-off, regression tests pinning the validated numbers (two suites, 16 checks green), the example README, and the exit-pupil-finder guard in the engine (pushed).
+~ Everything on slides 9–13 is reconstructible at other parameters with one call — ctb_study, in the backup section.
 
 ## 15 — References | Sources for the mask families and the control method; every formula taken from the paper itself
 ::: full
@@ -175,7 +176,7 @@ D. C. Redding with Claude Code — 26 August 2026. Model + drivers: MACOS_resour
 
 ## Backup Slides |
 ::: full
-- Galleries, per-family detail, the per-leg replay check, and the control-loop diagnostics.
+- Galleries, per-family detail, the per-leg replay check, the control-loop diagnostics, and how to reconstruct the study at other parameters.
 
 ## The mask families, one by one (1 of 2) | Apodized-pupil Lyot and band-limited
 ::: left
@@ -218,3 +219,10 @@ D. C. Redding with Claude Code — 26 August 2026. Model + drivers: MACOS_resour
 - Commands are real numbers. The correction solve must treat the real and imaginary parts of the field as separate equations; a complex-valued solve returns complex commands whose imaginary half the MATLAB-to-engine interface silently discards. The symptom is quiet: the loop still improves, but crawls at 3% per iteration with the achieved field nearly uncorrelated with the prediction (correlation 0.13). Solved in the split form, the same loop digs 16× in two iterations. The DM model now rejects complex commands outright.
 - Pupil wavefront maps must be read at the exit pupil. Read at the camera (the default), a DM bump smears into a smooth error ten times its physical size — it looks exactly like a surface-amplitude bug in the model and is not. At the exit pupil the response is 2·cos(incidence) times the commanded surface within 2%, at the commanded position to a pixel, with mirror symmetry exact.
 - The validation ladder under the loop, all pinned by the regression suite: commanded surface read back bit-exact; two-poke superposition to 1 part in 10¹²; the propagation chain bit-repeatable run to run; poke response step-size-independent to 5%.
+
+## Reconstructing the study | One config, one call: ctb_study derives every stage, tag, cache, and figure
+::: full
+- The slides-9-through-13 sequence is one driver: `ctb_study()` audits or re-runs the shipped configuration, and name-value overrides — mask kind, charge, Lyot fraction, band ladder — re-run it at a new parameter point. 25 steps in dependency order: Jacobian → control loop → relinearization → physics (polarization / band / both) → bandwidth sweep → the 14-run vector-vortex ladder → verdict figure. About 7.6 hours of engine time from scratch at model 512.
+- Every tag, cache file, and figure derives from the config. The shipped configuration maps to the historical file names; any other gets an automatic suffix (charge 6, Lyot 0.70 → `_vc6L070`), so parameter points never collide on disk. `'dry'` prints the full call plan and cost without touching the engine.
+- Resumable: a stage whose run state exists is skipped and its numbers fold into the manifest — the default run over complete states costs seconds and returns the audit table reproducing every number on slides 9–13 (run at build time for this deck: 24 states verified, all floors matched).
+- The guard that makes cache reuse safe: Jacobian files are keyed by name, and a name cannot encode the full mask geometry — a stale G fights the loop with plausible-looking numbers. Every cache therefore carries a `chain_opts` stamp of the chain it was measured on, and `ctb_jac_check` refuses any load whose stamp mismatches the requested chain, naming the differing fields. The refusal is loud where the failure mode was silent.

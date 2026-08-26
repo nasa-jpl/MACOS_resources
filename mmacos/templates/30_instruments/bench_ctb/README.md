@@ -628,6 +628,29 @@ throughput ¼) where the circular sandwich is flat ½.  Verdict figure:
 `ctb_vvc_summary.png` (regen `ctb_vvc_summary` after the `ctb_vvc`
 tag ladder — run states gitignored, regen lines in the status file).
 
+# Reconstructing the study — ctb_study
+
+The whole slides-9–13 sequence (Jacobian → EFC → relinearization →
+physics layers → bandwidth sweep → vector-vortex ladder → verdict
+figure) is one config-driven driver:
+
+    >> ctb_study('dry', true);                     % the 25-step plan, no engine
+    >> out = ctb_study();                          % audit/resume the shipped study
+    >> out = ctb_study('charge', 6, 'r_lyot_frac', 0.70);   % a new parameter point
+
+Every tag, cache file, and figure derives from the config: the shipped
+configuration maps onto the historical file names, any other gets an
+automatic suffix (`_vc6L070`), so parameter points never collide.
+Stages whose run states exist are skipped and their numbers folded into
+the returned manifest — a default run over complete states costs
+seconds and IS the audit that the deck numbers are reconstructible.
+The cache guard: Jacobian files are keyed by name, which cannot encode
+the mask geometry, so every cache carries a `chain_opts` stamp and
+`ctb_jac_check` refuses a mismatched load loudly (a stale G otherwise
+fights the loop with plausible-looking numbers).  `ctb_vvc_summary`
+takes a `'suffix'`; `ctb_vortex_bandwidth` takes `'chain'`/`'tag'`;
+`ctb_vvc` takes `'r_lyot_frac'` — all default to the shipped study.
+
 # The progress deck — deck_ctb
 
 `deck_ctb.pptx` (23 slides: title + 15 main + 6 backup behind a divider) records

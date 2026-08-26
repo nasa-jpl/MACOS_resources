@@ -191,6 +191,7 @@ function out = ctb_efc_physics(opts)
     if isstruct(opts.jac)
         JJ = opts.jac;
         jp_ = '(struct)';
+        ctb_jac_check(JJ, ch.config, jp_);
         fprintf('[phys] Jacobian passed as struct (%d blocks)\n', ...
             numel(JJ.rowoff) - 1);
     else
@@ -200,6 +201,7 @@ function out = ctb_efc_physics(opts)
     end
     if isfile(jp_)
         JJ = load(jp_);
+        ctb_jac_check(JJ, ch.config, jp_);
         fprintf('[phys] Jacobian loaded: %s\n', jp_);
     else
         ncol = sum(cellfun(@(d) d.nact_active, dm));

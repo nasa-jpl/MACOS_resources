@@ -16,19 +16,33 @@ function out = ctb_vortex_bandwidth(opts)
 %   Figure: floor vs bandwidth (log-log-ish), with the static floors
 %   and the polarization floor for reference.
 %
+%   Name-value 'chain' (ctb_chain config cell) and 'tag' generalize the
+%   sweep to other mask configs: the default tag 'bwsweep' reproduces
+%   the shipped file names exactly; any other tag suffixes every cache
+%   and output so configs never collide.  Cached Jacobians are verified
+%   against their stored chain_opts stamp (ctb_jac_check).
+%
 %   Run:  >> out = ctb_vortex_bandwidth;      (~2 hr total, engine)
-%   See also: ctb_efc_physics, ctb_phys_summary.
+%   See also: ctb_efc_physics, ctb_phys_summary, ctb_study.
     arguments
         opts.bands   (1,:) double = [0 0.05 0.10 0.20]
         opts.colors  (1,:) double = [1 3 5 9]
         opts.niter   (1,1) double = 12
+        opts.chain   (1,:) cell = {'fpm_kind','vortex','charge',4, ...
+                                   'apodizer',false,'r_lyot_frac',0.60}
+        opts.tag     (1,:) char = 'bwsweep'  % non-default keeps its own
+                                             % caches/outputs (_<tag>)
         opts.outdir  (1,:) char = ''
         opts.visible (1,1) logical = false
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
     if isempty(opts.outdir), opts.outdir = here; end
-    chain = {'fpm_kind','vortex','charge',4,'apodizer',false,'r_lyot_frac',0.60};
+    chain = opts.chain;
+    % default tag reproduces the shipped file names exactly; a study tag
+    % suffixes every cache/output so configs never collide
+    dflt = strcmp(opts.tag, 'bwsweep');
+    osfx = '';  if ~dflt, osfx = ['_' opts.tag]; end
 
     % control-wavelength sets per band (uniform grids), and their superset
     assert(numel(opts.colors) == numel(opts.bands));
@@ -43,12 +57,13 @@ function out = ctb_vortex_bandwidth(opts)
     super = unique(round([sets{:}], 6));
 
     % ---- the one Jacobian, superset wavelengths ------------------------
-    jp = fullfile(here, 'ctb_dm_jacobian_N512_phys_bwsweep.mat');
+    jp = fullfile(here, sprintf('ctb_dm_jacobian_N512_phys_%s.mat', opts.tag));
     if isfile(jp)
         JJ = load(jp);
+        ctb_jac_check(JJ, chain, jp);
     else
         JJ = ctb_efc_physics('band', true, 'lfracs', super, ...
-            'chain', chain, 'tag', 'bwsweep', 'jac_only', true);
+            'chain', chain, 'tag', opts.tag, 'jac_only', true);
     end
     assert(isequal(JJ.lfracs(:).', super(:).'), ...
         'ctb_vortex_bandwidth: cached sweep Jacobian has different wavelengths');
@@ -74,6 +89,7 @@ function out = ctb_vortex_bandwidth(opts)
         Jb.rowoff = newoff;
         Jb.lfracs = lf;
         tag = sprintf('bw%02d', round(100*opts.bands(b)));
+        if ~dflt, tag = sprintf('%s_bw%02d', opts.tag, round(100*opts.bands(b))); end
         o = ctb_efc_physics('band', numel(lf) > 1, 'lfracs', lf, ...
             'pol', true, 'chain', chain, 'jac', Jb, 'niter', opts.niter, ...
             'tag', tag);
@@ -101,14 +117,23 @@ function out = ctb_vortex_bandwidth(opts)
             sprintf('%d color%s', opts.colors(b), repmat('s', 1, opts.colors(b)>1)), ...
             'FontSize', 8, 'HorizontalAlignment','center', 'Color',[.35 .35 .35]);
     end
+    cv = @(k, d) chaincfg_(chain, k, d);
     title(ax, {'Polarized vortex chain: performance vs bandwidth', ...
-        'charge 4, Lyot 0.60, 2.5% control-wavelength spacing'}, 'FontWeight','bold');
+        sprintf('charge %d, Lyot %.2f, 2.5%% control-wavelength spacing', ...
+        cv('charge', 4), cv('r_lyot_frac', 0.50))}, 'FontWeight','bold');
     legend(ax, 'Location', 'east');
-    fp = fullfile(opts.outdir, 'ctb_vortex_bandwidth.png');
+    fp = fullfile(opts.outdir, ['ctb_vortex_bandwidth' osfx '.png']);
     exportgraphics(fig, fp, 'Resolution', 150);
     close(fig);
     fprintf('[bw] wrote %s\n', fp);
     out = struct('bands', opts.bands, 'floors', floors, 'statics', statics, ...
         'pol_floors', polfl, 'figure', fp);
-    save(fullfile(opts.outdir, 'ctb_vortex_bandwidth.mat'), '-struct', 'out');
+    save(fullfile(opts.outdir, ['ctb_vortex_bandwidth' osfx '.mat']), '-struct', 'out');
+end
+
+function v = chaincfg_(chain, key, dflt)
+    v = dflt;
+    for i = 1:2:numel(chain)-1
+        if strcmp(chain{i}, key), v = chain{i+1}; end
+    end
 end
