@@ -102,7 +102,9 @@ function art = run_sensitivities(rx_in, opts)
 %                  configuration and freeze it across the field loop --
 %                  a field-set-wide upgrade of the frozen-EP mode, NOT a
 %                  per-field re-reference (see dw_dx_multi's help).
-%                  Requires 'stop_elt'; 'pupil_find_opts' forwards
+%                  Needs a stop: 'stop_elt', or the deck's own ApStop=
+%                  (object-space header form included -- the segmented-
+%                  primary idiom); 'pupil_find_opts' forwards
 %                  finder name-values.  Fit metrics land in the report.
 %                  'pf_scope' 'config' (default, the above) | 'field':
 %                  one 3x3 MINI-CONE fit per (configuration, field)
@@ -269,11 +271,12 @@ sup = {'field_x_rad', FOV, 'field_y_rad', FOV, 'ngridpts', opts.ngridpts, ...
 if strcmp(opts.reset_xp_method, 'pupil_find')
     % the finder lives in design/src, which is not on the default path
     addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'src'));
-    if isempty(opts.stop_elt)
-        error('macos:run_sensitivities:pfNeedsStopElt', ...
-              ['reset_xp_method=''pupil_find'' requires ''stop_elt'' ' ...
-               '(the finder sets the engine stop at that element).']);
-    end
+    % No pfNeedsStopElt refusal here: the general preflight above already
+    % guarantees a stop in SOME form (deck ApStop= header, injected
+    % 'stop', or 'stop_elt'), and pupil_find now honors a deck-declared
+    % stop -- the object-space / segmented-primary idiom (Luis
+    % 2026-08-26).  The guard's own check remains for the truly stopless
+    % configured state.
 end
 if ~isempty(opts.stop_elt)
     sup = [sup, {'stop_elt', opts.stop_elt}];
