@@ -19,32 +19,32 @@ configurations: 5
 
 [conditioning] finite rows only:
     channel          size   rank     sv_max    sv_min+      cond+
-    dwdx     54585x138       132  7.382e+02  6.948e-08  1.062e+10
-    dwdx     cfg z0       10917x138       129  3.301e+02  1.502e-07  2.198e+09
-    dwdx     cfg zUL      10917x138       132  3.301e+02  3.577e-08  9.229e+09
-    dwdx     cfg zUR      10917x138       131  3.301e+02  3.005e-08  1.098e+10
-    dwdx     cfg zLL      10917x138       131  3.301e+02  2.715e-08  1.216e+10
-    dwdx     cfg zLR      10917x138       132  3.301e+02  3.559e-08  9.276e+09
-    dwdx     segment-only: 54585x96  cond+ 1.231e+17
+    dwdx     54585x138       132  7.382e+05  6.948e-05  1.062e+10
+    dwdx     cfg z0       10917x138       129  3.301e+05  1.502e-04  2.198e+09
+    dwdx     cfg zUL      10917x138       132  3.301e+05  3.577e-05  9.229e+09
+    dwdx     cfg zUR      10917x138       131  3.301e+05  3.005e-05  1.098e+10
+    dwdx     cfg zLL      10917x138       131  3.301e+05  2.715e-05  1.216e+10
+    dwdx     cfg zLR      10917x138       132  3.301e+05  3.559e-05  9.276e+09
+    dwdx     segment-only: 54585x96  cond+ 2.525e+16
 
     dwdx per-segment column norms (rms native-unit per unit DOF):
       seg     rx        ry        rz        tx        ty        tz
-        4   5.30e-08  5.30e-08  5.30e-08  5.30e-10  5.30e-10  5.30e-10 
-        5   1.61e-01  1.63e-01  2.16e-05  1.01e-02  1.01e-02  4.61e-01 
-        6   1.60e-01  1.62e-01  2.14e-05  1.01e-02  1.00e-02  4.59e-01 
-        7   1.56e-01  1.59e-01  2.09e-05  9.88e-03  9.77e-03  4.54e-01 
-        8   1.55e-01  1.59e-01  2.00e-05  9.91e-03  9.74e-03  4.54e-01 
-        9   1.61e-01  1.63e-01  2.04e-05  1.02e-02  1.01e-02  4.61e-01 
-       10   1.67e-01  1.54e-01  2.15e-05  9.61e-03  1.04e-02  4.43e-01 
-       11   1.63e-01  1.66e-01  7.96e-05  1.00e-02  1.01e-02  4.60e-01 
-       12   1.61e-01  1.63e-01  5.92e-05  9.96e-03  1.01e-02  4.58e-01 
-       13   1.63e-01  1.66e-01  7.96e-05  1.00e-02  1.01e-02  4.60e-01 
-       14   1.61e-01  1.49e-01  5.79e-05  9.12e-03  1.00e-02  4.34e-01 
-       15   1.59e-01  1.64e-01  7.67e-05  9.94e-03  9.90e-03  4.56e-01 
-       16   1.60e-01  1.49e-01  5.64e-05  9.09e-03  9.99e-03  4.36e-01 
-       17   1.62e-01  1.66e-01  7.75e-05  1.01e-02  1.01e-02  4.60e-01 
-       18   1.61e-01  1.63e-01  5.69e-05  9.98e-03  1.01e-02  4.58e-01 
-       19   1.63e-01  1.66e-01  7.74e-05  1.01e-02  1.01e-02  4.60e-01 
+        4   5.30e-05  5.30e-05  5.30e-05  5.30e-07  5.30e-07  5.30e-07 
+        5   1.61e+02  1.63e+02  2.16e-02  1.01e+01  1.01e+01  4.61e+02 
+        6   1.60e+02  1.62e+02  2.14e-02  1.01e+01  1.00e+01  4.59e+02 
+        7   1.56e+02  1.59e+02  2.09e-02  9.88e+00  9.77e+00  4.54e+02 
+        8   1.55e+02  1.59e+02  2.00e-02  9.91e+00  9.74e+00  4.54e+02 
+        9   1.61e+02  1.63e+02  2.04e-02  1.02e+01  1.01e+01  4.61e+02 
+       10   1.67e+02  1.54e+02  2.15e-02  9.61e+00  1.04e+01  4.43e+02 
+       11   1.63e+02  1.66e+02  7.96e-02  1.00e+01  1.01e+01  4.60e+02 
+       12   1.61e+02  1.63e+02  5.92e-02  9.96e+00  1.01e+01  4.58e+02 
+       13   1.63e+02  1.66e+02  7.96e-02  1.00e+01  1.01e+01  4.60e+02 
+       14   1.61e+02  1.49e+02  5.79e-02  9.12e+00  1.00e+01  4.34e+02 
+       15   1.59e+02  1.64e+02  7.67e-02  9.94e+00  9.90e+00  4.56e+02 
+       16   1.60e+02  1.49e+02  5.64e-02  9.09e+00  9.99e+00  4.36e+02 
+       17   1.62e+02  1.66e+02  7.75e-02  1.01e+01  1.01e+01  4.60e+02 
+       18   1.61e+02  1.63e+02  5.69e-02  9.98e+00  1.01e+01  4.58e+02 
+       19   1.63e+02  1.66e+02  7.74e-02  1.01e+01  1.01e+01  4.60e+02 
 per-configuration spectra: dwdx_5zoom_5fov_jwst_ote_designc_svspec_configs.png
 
 figures: dwdx_5zoom_5fov_jwst_ote_designc_opdall/svspec/<ch>_channels + per-element pages in dwdx_5zoom_5fov_jwst_ote_designc_pages/
@@ -54,11 +54,12 @@ checkpoints pruned: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivitie
 
 [PM exhibit] the GROUP against its member elements
     members: [5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22] (18)
-    column RMS of dW/d(DOF): rotations in OPD-metres per rad, translations
-    in OPD-metres per METRE -- the same convention on both sides.
+    column RMS of dW/d(DOF): rotations in OPD-BaseUnits per rad, translations
+    in OPD-BaseUnits per SI METRE -- the same convention on both sides
+    (the OPD numerator is the deck's BaseUnits, as of 2026-08-25).
     channel                           Rx          Ry          Rz          Tx          Ty          Tz
-    Grp[PM] (group)           3.0114e+00  3.0948e+00  2.4853e-01  1.9317e-01  1.8801e-01  1.9739e-02
-    Elt 5 (member)            1.6132e-01  1.6289e-01  2.1582e-05  1.0145e-02  1.0118e-02  4.6090e-01
+    Grp[PM] (group)           3.0114e+03  3.0948e+03  2.4853e+02  1.9317e+02  1.8801e+02  1.9739e+01
+    Elt 5 (member)            1.6132e+02  1.6289e+02  2.1582e-02  1.0145e+01  1.0118e+01  4.6090e+02
       group / Elt 5              18.6667     18.9996  11515.6161     19.0411     18.5822      0.0428
     (a ratio BELOW 1 is intra-group COMPENSATION -- the members' responses
      partly cancel when they move as one body.  A ratio at ~18, the member

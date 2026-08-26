@@ -47,7 +47,7 @@ the chief ray and reference the PM — so its sensitivities are ~zero.  It
 carries no figure channel, and the rungs that would still list it
 (`dw/dx`) drop it **number-free**: `flag_zero_norm_channels` flags any
 all-zero channel group by its *response* (elt 4's dw/dx column norms are
-~1e-7 vs ~0.2 for a real segment), and `drop_channels` removes it — no
+~1e-4 vs ~200 for a real segment, BaseUnits), and `drop_channels` removes it — no
 element number is hard-coded in the drivers.
 
 The promotion was applied by `macos.design.promote_segments_freeform`
@@ -100,17 +100,18 @@ pages do exactly that and give the group its own page,
 because a group column is a distinct rigid-body motion and not a sum of
 its members' columns.
 
-**What the PM columns say** (RMS over the 5×5 stack; rotations per rad,
-translations per metre — the same convention on both sides):
+**What the PM columns say** (RMS over the 5×5 stack; OPD in the deck's
+BaseUnits — mm here — per rad for rotations and per SI metre for
+translations, the same convention on both sides):
 
 | DOF | PM as one body | one segment (elt 5) | PM / segment |
 |---|---|---|---|
-| Rx | 3.0114e+00 | 1.6132e-01 | 18.6667 |
-| Ry | 3.0948e+00 | 1.6289e-01 | 18.9996 |
-| Rz | 2.4853e-01 | 2.1582e-05 | 11515.6161 |
-| Tx | 1.9317e-01 | 1.0145e-02 | 19.0411 |
-| Ty | 1.8801e-01 | 1.0118e-02 | 18.5822 |
-| Tz | 1.9739e-02 | 4.6090e-01 | **0.0428** |
+| Rx | 3.0114e+03 | 1.6132e+02 | 18.6667 |
+| Ry | 3.0948e+03 | 1.6289e+02 | 18.9996 |
+| Rz | 2.4853e+02 | 2.1582e-02 | 11515.6161 |
+| Tx | 1.9317e+02 | 1.0145e+01 | 19.0411 |
+| Ty | 1.8801e+02 | 1.0118e+01 | 18.5822 |
+| Tz | 1.9739e+01 | 4.6090e+02 | **0.0428** |
 
 The table is appended to the committed `_sens_report.txt` by the driver
 (`sensitivities/group_exhibit`), so every figure here is greppable in the
@@ -124,9 +125,12 @@ largely absorbs.  That is exactly the intra-group cancellation a per-element
 budget cannot see — summing 18 large per-segment piston columns does not
 reproduce it.
 
-**Units.**  Group and per-element columns share one convention —
-OPD-per-metre for translations, OPD-per-rad for rotations — so the PM row
-and the segment row above are directly comparable and one numeric `delta`
+**Units.**  Group and per-element columns share one convention — the
+OPD numerator in the deck's **BaseUnits** (mm here; the same units as
+`w0_stacked`/`opd()` and as the dwdz/dwdsurf/dwdgrid rungs, so
+`wall = dwdx·x + w0` is unit-consistent — as of 2026-08-25), per SI
+metre for translations and per rad for rotations — so the PM row and
+the segment row above are directly comparable and one numeric `delta`
 is one physical poke for either.  `GroupedRigidBodyChannel` converts SI
 metres to the BaseUnits `prb_grp` wants, exactly as `macos.perturb` does
 for the per-element channel.  It did not always: while the group channel

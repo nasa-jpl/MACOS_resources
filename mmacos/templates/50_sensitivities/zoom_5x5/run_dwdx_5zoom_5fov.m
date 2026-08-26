@@ -98,7 +98,8 @@
 %
 %  WHAT THE PM COLUMNS SAY.  The driver appends a "[PM exhibit]" table
 %  to <name>_sens_report.txt -- the group's six column norms beside one
-%  segment's, both per rad / per METRE.  Group/segment comes out at
+%  segment's, both OPD-BaseUnits per rad / per SI METRE.  Group/segment
+%  comes out at
 %  18.6667 (Rx), 18.9996 (Ry), 19.0411 (Tx), 18.5822 (Ty): a rigid
 %  motion of N=18 alike members is N times one member, as it must be.
 %  PISTON is the one worth the harvest -- 0.0428, i.e. the whole PM is
@@ -121,8 +122,10 @@
 %  engine.  'groups_auto' would read EltGrp= declarations straight out
 %  of the deck; this one carries none, so the map below is explicit.
 %
-%  UNITS: group and per-element columns share one convention --
-%  OPD-per-metre for translations, OPD-per-rad for rotations -- so the
+%  UNITS: group and per-element columns share one convention -- the OPD
+%  numerator in the deck's BaseUnits (matching w0_stacked / opd() and
+%  the figure rungs, 2026-08-25), per SI metre for translations and per
+%  rad for rotations -- so the
 %  PM columns and a segment's are directly comparable and one numeric
 %  DELTA is one physical poke for either.  (GroupedRigidBodyChannel
 %  converts SI metres to the BaseUnits prb_grp wants, exactly as

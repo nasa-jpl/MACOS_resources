@@ -30,20 +30,20 @@
 %  separate convergence diagnostic measured on this deck.  On the
 %  shipped configuration:
 %
-%    TILT is where the compensation shows.  Cell Rx 7.2748e-05 against
-%    surface 9's 5.4550e-04 -- the cell is 7.5x LESS tilt-sensitive
-%    than its own front surface, because surface 9 (5.4550e-04) and
-%    surface 10 (4.7309e-04) respond comparably and largely cancel when
+%    TILT is where the compensation shows.  Cell Rx 7.2748e-02 against
+%    surface 9's 5.4550e-01 -- the cell is 7.5x LESS tilt-sensitive
+%    than its own front surface, because surface 9 (5.4550e-01) and
+%    surface 10 (4.7309e-01) respond comparably and largely cancel when
 %    the two tilt together.  Ry is the same story, ratio 0.1293.
 %
 %    DECENTER does NOT compensate on THIS deck, and the reason is worth
 %    knowing before you generalize: element 10 is Surface= Conic with
 %    KrElt = -1E+18, i.e. FLAT.  A flat refracting surface has no
-%    lateral response at all -- its Tx column is 1.6890e-09, five
+%    lateral response at all -- its Tx column is 1.6890e-06, five
 %    decades under surface 9's, i.e. numerically zero -- so e5hex1's
 %    "doublet" is optically a plano-convex SINGLET and there is nothing
-%    for the cell decenter to cancel against.  Cell Tx 4.6007e-04 vs
-%    surface 9's 4.6007e-04, ratio 1.0000.  That agreement to five
+%    for the cell decenter to cancel against.  Cell Tx 4.6007e-01 vs
+%    surface 9's 4.6007e-01, ratio 1.0000.  That agreement to five
 %    digits is not a null result: it is the check that the group
 %    channel is a genuine rigid-body motion of both members (a rigid
 %    translation must equal the member sum, and the member sum here IS
@@ -51,7 +51,8 @@
 %    two POWERED surfaces; put one in your own Rx and the ratio drops.
 %
 %  UNITS: group and per-element columns share one convention --
-%  OPD-per-metre for translations, OPD-per-rad for rotations -- so they
+%  OPD-BaseUnits per SI metre for translations, per rad for rotations
+%  (the numerator is the deck's BaseUnits, 2026-08-25) -- so they
 %  are directly comparable and one numeric DELTA is one physical poke
 %  for either.  (GroupedRigidBodyChannel converts SI metres to the
 %  BaseUnits prb_grp wants, exactly as macos.perturb does for the
