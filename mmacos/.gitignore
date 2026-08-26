@@ -37,3 +37,7 @@ templates/30_instruments/bench_ctb/ctb_study*.mat
 # whenever absent, and an absent GridFile on a zero-base DM is benign
 templates/30_instruments/bench_ctb/flat*.txt
 templates/80_end_to_end/e2e6m/s4_sens.mat
+templates/80_end_to_end/e2e6m_r2/r3_sens.mat
+templates/80_end_to_end/e2e6m_r2/r3_dmjac.mat
+templates/80_end_to_end/e2e6m_r2/r3_met.mat
+templates/80_end_to_end/e2e6m_r2/r4_run.mat
