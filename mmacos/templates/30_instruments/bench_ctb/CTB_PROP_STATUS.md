@@ -1,6 +1,67 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-25. Latest work at "SESSION 12" (the loop on the vortex chain) below; older kept._
+_Updated 2026-08-25. Latest work at "SESSION 13" (physics layers: band + polarization) below; older kept._
+
+## SESSION 13 (2026-08-25) — the physics layers: 10% band, polarization, rebalanced Lyot
+
+Dave's directive: add the next layer of physics — 10% band, then
+polarization, separately and together — push to find the floor again,
+rebalance the Lyot for throughput; aberrations and drifts after.
+
+**Machinery (`ctb_efc_physics` + `ctb_chain.run_screened`):** band =
+per-wavelength propagation (set_src_wvl at 0.95/1.00/1.05 λ0; verified:
+FPA pitch ∝ λ, pupil pitch invariant, vortex mask angle-only — nothing
+rebuilds; the target is the FIXED PHYSICAL annulus, per-λ pixel radii
+[3/lf, 15/lf]).  Polarization = the coated train's ray-traced Jones
+pupil (macos.jones_pupil at the exit pupil; MgF2 90.6 nm over Al 220 nm
+on all 10 reflectors; cross-pol |Jyx/Jxx| ~ 7.5e-5, xx–yy retardance
+~3.4 mrad) applied as per-component pupil screens via apodize_complex —
+the roadmap decomposition; the engine's native vector mode would miss
+the downstream coated OAPs (the Tranche-2 gap).  Screens are <4e-3 from
+identity, so ONE Jacobian per wavelength (no screens) serves all four
+components; the control drives the CO-POLARIZED mean and the component
+spread about it is the measured uncontrollable part (`pol_floor`).
+
+**Floors (N=512, physical annulus 3–15 λ0/D, charge-4 vortex, 1760
+actuators, perfect sensing):**
+
+| config | Lyot (T) | static | EFC floor | pol floor |
+|---|---|---|---|---|
+| polarization only (mono) | 0.60 (36%) | 2.19e-8 | 5.77e-13 | 1.07e-15 |
+| 10% band only | 0.60 (36%) | 1.72e-8 | 1.91e-11 | — |
+| band + polarization | 0.60 (36%) | 2.19e-8 | 2.89e-11 → **1.96e-11** relin | 1.10e-15 |
+| band + polarization | 0.70 (49%) | 3.95e-8 | 6.51e-11 | 1.68e-15 |
+| band + polarization | 0.80 (64%) | 7.33e-8 | 1.21e-10 | 2.75e-15 |
+
+READINGS: (1) **chromaticity owns the floor** — the 10% band stops the
+loop at 2e-11 (one DM setting cannot null three wavelengths; relin
+gains only 1.5× and converges), while polarization is indistinguishable
+from scalar (5.8e-13) with the uncontrollable part at 1e-15 — at CTB
+angles, protected-Al polarization is benign, which is why testbeds fold
+gently.  (2) **the Lyot rebalance under full physics**: 0.70 = 6.5e-11
+@ 49% T, 0.80 = 1.2e-10 @ 64% T — every point decades below the
+hard-occulter chain (3.8e-9 mono).  Figure `ctb_phys_summary.png`
+(driver `ctb_phys_summary.m`, asset-gated on the run states).
+
+**Two defects found by the loop's own diagnostics, fixed in place:**
+(1) SCREEN GLOBAL PHASE — Jones screens normalized by magnitude only
+retain the coating stack's common reflection phase (~143° here); fields
+measured through them rotate by θ against the screen-free Jacobian and
+corrections land with a 2θ error, ADDING energy (measured
+achieved-vs-predicted corr −0.80 at ratio 0.999 — the cos θ signature).
+Normalize by the COMPLEX mean of Jxx (common piston, exact for
+contrast).  (2) BAND NORMALIZATION — the band-mean contrast must divide
+by the band-MEAN peak, not the summed peak (a uniform ×nlam understate;
+loop decisions unaffected; ctb_efc_phys_bb.mat predates the fix and is
+rescaled ×3 wherever quoted).
+
+Regen lines: `ctb_efc_physics('pol',true,'tag','pol')`,
+`('band',true,'tag','bb')`, `('band',true,'pol',true,'tag','bbpol',
+'jac','ctb_dm_jacobian_N512_phys_bb.mat')`, relin = same + `'a0',
+<out.a>` tag `bbpol_r1`, rebalance = combined + `'chain',{...,
+'r_lyot_frac',0.70|0.80}`.  Run products gitignored (ctb_efc_phys*.mat,
+ctb_pol_screens.mat, phys Jacobians).  Deck: new main slide 11 + Next
+refreshed (aberrations/drifts + probing estimator next); 21 slides.
 
 ## SESSION 12 (2026-08-25) — the loop on the vortex chain, and the relinearized floor
 
