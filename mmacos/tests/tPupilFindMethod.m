@@ -289,21 +289,29 @@ classdef tPupilFindMethod < matlab.unittest.TestCase
                 ['pupil_find overrode the deck''s object-space ApStop ' ...
                  'with an element stop (the segmented-primary pupil ' ...
                  'collapsed to one segment''s aperture)']);
-            % The WRITTEN vertex on a segmented deck must be the FEX
-            % chief crossing -- the paraxial anchor (Dave 2026-08-26).
-            % The cone fit (stop-plane anchor from the deck ApStop,
-            % entrance positions from the ray history -- Dave's
-            % construction) is the pupil-structure DIAGNOSTIC: on this
-            % deck it measures a real ~23 mm pupil smear (two-singlet
+            % The WRITTEN vertex is the fit-surface/chief-ray crossing
+            % ('fit_chief', Dave 2026-08-26): ON the chief line (so no
+            % bundle-lateral tilt injection) at the MEASURED pupil
+            % station.  On this deck the cone fit (stop-plane anchor
+            % from the deck ApStop, entrance positions from the ray
+            % history) measures a real ~23 mm pupil smear (two-singlet
             % relay; differential chief 1133.3 / finite chief-pair
-            % 1142.3 / annular cone zones 1156.2), which must NOT be
-            % folded into the written reference.
-            tc.verifyEqual(pf.vertex, 'chief', ...
-                'segmented decks must force the chief-crossing vertex');
-            tc.verifyLessThan(max(abs(pf.vtx_written(:) - pf.fex.vpt(:))), ...
-                1e-9, ['the written vertex is not the FEX chief ' ...
-                 'crossing -- a cone-fit vertex reached the Rx on a ' ...
-                 'segmented deck']);
+            % 1142.3 / annular cone zones 1156.2), so the written
+            % vertex must sit ~23 mm ALONG the chief from the FEX
+            % point -- pure 'chief' mode (0 mm) and the raw bundle
+            % vertex (1.7 mm off-line) both fail these bounds.
+            tc.verifyEqual(pf.vertex, 'fit_chief', ...
+                'default written-vertex mode must be fit_chief');
+            dv_ = pf.vtx_written(:) - pf.fex.vpt(:);
+            ps_ = pf.psi(:);
+            tc.verifyLessThan(norm(dv_ - (ps_.'*dv_)*ps_), 1e-6, ...
+                ['the written vertex is off the chief line -- the ' ...
+                 'bundle lateral offset reached the Rx']);
+            tc.verifyGreaterThan(abs(ps_.'*dv_), 10, ...
+                ['the written vertex ignores the measured pupil ' ...
+                 'station (this deck''s smear is ~23 mm)']);
+            tc.verifyLessThan(abs(ps_.'*dv_), 40, ...
+                'written station beyond the measured smear scale');
             % the stop-plane/history binning must produce a CLEAN
             % convergence surface: dep_rms 0.9 um measured; the earlier
             % index-grouped binning left 4.5 um, the M2-anchored one a
