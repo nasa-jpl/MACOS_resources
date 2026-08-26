@@ -210,6 +210,8 @@ matlab -batch "ctb_vortex('charge',6)"                         % scalar vortex m
 matlab -batch "ctb_vortex_lyot_sweep"                          % Lyot trade vs APLC/BLC
 matlab -batch "ctb_efc_physics('band',true,'pol',true)"        % EFC under band + polarization
 matlab -batch "ctb_phys_summary"                               % physics-campaign figure
+matlab -batch "ctb_vortex_stations"                            % 7-station complex fields, +/- pol
+matlab -batch "ctb_vortex_bandwidth"                           % floor vs bandwidth (2.5% spacing)
 matlab -batch "ctb_proper_compare"                             % PROPER arbiter, FPM leg
 matlab -batch "ctb_train_render"                               % bench layout figure
 ./../../../run_mmacos_tests.sh ctb                             % tCtbProp, 8 checks

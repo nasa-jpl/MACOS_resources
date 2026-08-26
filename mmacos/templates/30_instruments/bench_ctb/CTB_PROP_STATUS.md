@@ -55,6 +55,27 @@ by the band-MEAN peak, not the summed peak (a uniform ×nlam understate;
 loop decisions unaffected; ctb_efc_phys_bb.mat predates the fix and is
 rescaled ×3 wherever quoted).
 
+**Addendum (2026-08-26): visualization + the bandwidth map (Dave's asks).**
+`ctb_vortex_stations` = the 7-station complex-amplitude walk (scalar
+amp/phase — the charge-4 spiral — the coating effect |E_pol−E_scal| per
+station, the cross-pol chain; upstream-of-screens panels blanked);
+`ctb_pol_maps.png` = what the mirrors do at the pupil (pol_maps:
+**retardance 3.4 mrad MEAN / 8.7 µrad rms VARIATION; D 6.1e-4 /
+1.4e-6** — the mean-vs-variation split IS the 1e-15 pol floor,
+quantified).  `ctb_vortex_bandwidth` = floor vs bandwidth at Dave's
+constant-2.5%-spacing rule (5%/3 colors, 10%/5, 20%/9; ONE 9-color
+superset Jacobian, per-band block subsets): **mono 8.3e-13 → 5%
+9.4e-12 → 10% 2.5e-11 → 20% 5.4e-11, pol floor flat at 1.1e-15
+throughout** — only 2× from 10% to 20% when control sampling keeps
+pace.  Deck: the physics slide split into slide 11 (polarization:
+maps + station walk) and slide 12 (bandwidth: the map + campaign
+figure); 22 slides.  QUEUED NEXT (Dave): the VECTOR vortex — a 2×2
+Jones focal-plane mask via linear combination of component chains (2
+runs per output component; J entries 8×-binned), three tiers: ideal
+(δ≡π, validates against scalar), zero-order chromatic (δ=πλ0/λ — the
+classic leakage-vs-bandwidth trade), composed with the coating
+screens.  No engine work required.
+
 Regen lines: `ctb_efc_physics('pol',true,'tag','pol')`,
 `('band',true,'tag','bb')`, `('band',true,'pol',true,'tag','bbpol',
 'jac','ctb_dm_jacobian_N512_phys_bb.mat')`, relin = same + `'a0',
