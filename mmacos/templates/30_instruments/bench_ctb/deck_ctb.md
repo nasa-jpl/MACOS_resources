@@ -64,7 +64,7 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 - The vortex row moved 21×: the direct-sampled mask's singular core — mis-phased pixels on the stellar image core, a sampling artifact, not vortex physics — had floored it at 2.9×10⁻⁷. Pixel-averaging cures it, and the Lyot becomes a real depth dial: charge 4 reaches 6.6×10⁻¹¹ at a 0.50 stop — apodized-pupil-Lyot class at the same 25% throughput. Full diagnosis in backup.
 ::: right
 ![Contrast against throughput for all six families, STATIC — lower-right is better; the apodized-pupil Lyot deepest, the pixel-averaged vortex second at three times its throughput.](ctb_mask_compare.png){h=3.0}
-- Everything above is the mask alone. With the two deformable mirrors closed-loop (slides 9–11, control at N=512), the floors drop by decades:
+- Everything above is the mask alone. With the two deformable mirrors closed-loop (slides 9–12, control at N=512), the floors drop by decades:
 
 | controlled chain | static | closed-loop floor |
 | hard occulter, Lyot 0.50 (mono) | 2.9×10⁻⁷ | 3.8×10⁻⁹ |
@@ -125,25 +125,35 @@ D. C. Redding with Claude Code — 25 August 2026. Model + drivers: MACOS_resour
 ::: full
 ![The vortex-chain dark hole: before and after (note the color floor at 10⁻¹⁴), convergence, and the sub-nanometer command maps.](ctb_efc_vortex.png){h=2.0}
 
-## 11 — The physics layers: band and polarization | The 10% band floors the loop at 2×10⁻¹¹; coating polarization at these angles contributes 10⁻¹⁵ — chromaticity owns the floor
+## 11 — Polarization: what the mirrors do | The coated train's uncontrollable residual is 1.1×10⁻¹⁵ at every bandwidth — a state change, not an aberration
 ::: left
-- The models: per-wavelength propagation at 0.95/1.00/1.05 λ₀ (the vortex mask is a pure angle map, so nothing rebuilds; the target is the fixed physical annulus), and polarization as the coated train's ray-traced Jones pupil — a quarter-wave magnesium-fluoride overcoat on aluminum, all ten mirrors — applied as per-component pupil screens: each of the four Jones components propagates as its own scalar chain, unpolarized input is their half-weighted sum. One control matrix per wavelength drives the co-polarized mean; the component spread about that mean is the measured, uncontrollable polarization part.
-- The floors (charge 4, Lyot 0.60): polarization alone reaches 5.8×10⁻¹³ — indistinguishable from the scalar loop — with the uncontrollable part at 1.1×10⁻¹⁵. The 10% band alone floors at 1.9×10⁻¹¹; together 2.9×10⁻¹¹, and re-measuring the matrix about the corrected state gains only 1.5× more — a converged, genuinely chromatic floor: one mirror setting cannot null three wavelengths.
+- The model: the coated train's Jones pupil, ray-traced to the exit pupil (quarter-wave magnesium fluoride over aluminum, all ten mirrors), applied as per-component pupil screens — each of the four Jones components propagates as its own scalar chain, and unpolarized input is their half-weighted sum. One control matrix drives the co-polarized mean; the component spread about that mean is the measured, uncontrollable part.
+- What the maps show: retardance across the pupil is 3.4 mrad MEAN with only 8.7 µrad rms variation; diattenuation 6.1×10⁻⁴ mean, 1.4×10⁻⁶ variation. The mean is a state change the loop absorbs; only the variation drives a contrast floor — and this train has almost none. Closed loop: 5.8×10⁻¹³, indistinguishable from the scalar result, with the uncontrollable part at 1.1×10⁻¹⁵. At these gentle incidence angles polarization does not set the floor — which is why coronagraph testbeds are folded gently.
+- The station walk (right) makes the effect visible end to end: the coating imprint appears at the screen plane (the diattenuation saddle), propagates through the vortex, and the cross-polarized light — four decades down — carries its own two-lobe pattern to the camera.
+- A measurement lesson, recorded with the drivers: normalize the Jones screens by the COMPLEX mean of the co-polarized element. Magnitude-only normalization leaves the coatings' global reflection phase in the screens, and corrections then land rotated by twice that phase and add energy (the achieved-vs-predicted correlation of −0.80 was the cos θ signature).
 ::: right
-- Rebalancing the Lyot under full physics: the stop can open for throughput — 0.70 holds 6.5×10⁻¹¹ at 49%, 0.80 holds 1.2×10⁻¹⁰ at 64% — every operating point decades below the hard-occulter chain's mono floor.
-- A measurement lesson, recorded with the drivers: the Jones screens must be normalized by the COMPLEX mean of their co-polarized element. Magnitude-only normalization leaves the coatings' global reflection phase in the screens; the loop's corrections then land rotated by twice that phase and add energy (measured: achieved-vs-predicted correlation −0.80). The global phase is common piston — removing it is exact for contrast.
-- What polarization does NOT do here is the finding: at this bench's gentle incidence angles, protected-aluminum coating polarization is a 10⁻¹⁵-class effect — which is exactly why coronagraph testbeds are folded gently.
-::: full
-![Left: convergence of each physics configuration at Lyot 0.60, with the monochromatic floor marked. Right: the floor against throughput as the Lyot opens, with the hard-occulter reference.](ctb_phys_summary.png){h=2.75}
+![What the ten coated mirrors do at the pupil: diattenuation, retardance, cross-polarization ratio, and the co-polarized differential phase.](ctb_pol_maps.png){h=1.45}
+![Station by station, the slide-2 planes: scalar amplitude and phase (the charge-4 spiral at the foci), the coating effect on the propagating field, and the cross-polarized light.](ctb_vortex_stations.png){h=2.75}
 
-## 12 — Next | Toward a real coronagraph model, in dependency order
+## 12 — Bandwidth: the chromatic floor | Mono 8×10⁻¹³ → 5%: 9×10⁻¹² → 10%: 2.5×10⁻¹¹ → 20%: 5.4×10⁻¹¹ — gentle growth once control sampling matches the band
+::: left
+- The model: per-wavelength propagation (the vortex mask is a pure angle map, so nothing rebuilds; the target is the fixed physical annulus), with control wavelengths at constant 2.5% spacing — 3 colors across the 5% band, 5 across 10%, 9 across 20% — so wide bands are not under-sampled between control points. One control matrix, measured over the 9-color superset, serves every band.
+- The map (right): the closed-loop floor grows from 8.3×10⁻¹³ (monochromatic) through 9.4×10⁻¹² (5%) and 2.5×10⁻¹¹ (10%) to 5.4×10⁻¹¹ (20%) — only 2× from 10% to 20% — while the polarization floor rides flat at 1.1×10⁻¹⁵ at every bandwidth. The chromatic penalty is real but gentle when the control sampling keeps pace; re-measuring the matrix about the corrected state adds another ~1.5× (2.0×10⁻¹¹ at 10%).
+- Rebalancing the Lyot under the 10% band: the stop opens for throughput at a measured cost — 0.70 holds 6.5×10⁻¹¹ at 49%, 0.80 holds 1.2×10⁻¹⁰ at 64% — every operating point decades below the hard-occulter chain.
+::: right
+![The bandwidth map: static, closed-loop floor, and the flat polarization floor, with the control-color count at each point.](ctb_vortex_bandwidth.png){h=3.1}
+::: full
+![The campaign at Lyot 0.60: convergence of each physics configuration (left) and the Lyot trade under full physics (right).](ctb_phys_summary.png){h=2.0}
+
+## 13 — Next | Toward a real coronagraph model, in dependency order
 ::: full
 - Realistic sensing. The loop reads the model's complex field directly; a testbed estimates it from camera images (pairwise probing). That estimator is the remaining step between these floors and lab-representative ones — and FALCO, the community's standard wavefront-control software, can then drive the same DMs (the hybrid Lyot mask enters there, since its design comes from that control loop).
 - Aberrations and drifts. As-built mirror surface maps (measured-quality power spectra), then alignment drifts as a time series against the delivered control loop — dark-zone maintenance, and how long the hole survives between corrections.
+- The vector vortex. The component-chain machinery supports a 2×2 Jones focal-plane mask by linearity — two passes per output component — so the vector vortex runs with no engine work: the ideal plate validates against the scalar result, and the zero-order chromatic plate maps the classic retardance-leakage-vs-bandwidth trade beside the scalar chain.
 - Validation against testbed data — the capstone. Needs a named dataset from a real bench and the measured (not design) parameters that produced it.
 ~ Mechanical layer delivered and merged: a prescription generator that reproduces both hand-built models to round-off, regression tests pinning the validated numbers (two suites, 16 checks green), the example README, and the exit-pupil-finder guard in the engine (pushed).
 
-## 13 — References | Sources for the mask families and the control method; every formula taken from the paper itself
+## 14 — References | Sources for the mask families and the control method; every formula taken from the paper itself
 ::: full
 - Band-limited masks: Kuchner & Traub 2002, ApJ 570, 900 (4th order); Kuchner, Crepp & Ge 2005, ApJ 628, 466 (8th order).
 - Apodized-pupil Lyot: Soummer 2005, ApJ 618, L161 (the prolate apodizer); Soummer et al. 2011, ApJ 729, 144 (the GPI instrument configuration used here).
