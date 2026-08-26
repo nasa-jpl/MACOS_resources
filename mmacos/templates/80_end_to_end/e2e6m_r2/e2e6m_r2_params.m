@@ -65,6 +65,15 @@ function P = e2e6m_r2_params(over)
     P.dm.ng   = 256;               % nGridMat (model >= ng)
     P.dm.names = {'DM1','DM2'};
 
+    % ---- the EFC Jacobian (R3) ------------------------------------------
+    P.dj.model    = 512;           % Jacobian grid: scales re-measured at
+                                   % this N, so it is self-consistent and
+                                   % 4x cheaper than the 1024 scoring grid
+    P.dj.nact     = 32;            % actuators across each DM lattice
+    P.dj.coupling = 0.12;          % influence nearest-neighbor coupling
+    P.dj.h        = 2e-9;          % poke, m of surface (OPD nonlinearity
+                                   % quadratic in the poke phase)
+
     % ---- overrides ------------------------------------------------------
     fn = fieldnames(over);
     for i = 1:numel(fn)

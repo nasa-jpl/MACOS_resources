@@ -1,0 +1,62 @@
+==== run_sensitivities: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_prop.in ====
+field set: center + 4 corners at +-0.0001018 rad
+segments: 19
+
+[dwdx] rigid-body 6-DOF per element, LOCAL triads...
+    + 6 group channel(s) appended after the per-element block
+    dwdxall 170286 x 192 over 5 fields
+
+[dwdz] segment-LOCAL MonZernike modes [4 5 6 7 8 9 10 11]...
+    dwdzall 170286 x 152
+
+[dwdgrid] grid-augmenting in the clocked Mon frames...
+    r3_grid.in: 47 elts, 40303/40357 rays, gdx 0.02353
+    dwdgall 170286 x 114 (influence basis saved in og.sgb)
+
+[conditioning] finite rows only:
+    channel          size   rank     sv_max    sv_min+      cond+
+    dwdx     170286x192       192  1.100e+03  1.035e-04  1.063e+07
+    dwdx     segment-only: 170286x114  cond+ 1.964e+06
+    dwdz     170286x152       152  1.050e+02  3.302e+01  3.181e+00
+    dwdgrid  170286x114       114  1.148e+03  3.263e+02  3.517e+00
+
+    dwdx per-segment column norms (rms native-unit per unit DOF):
+      seg     rx        ry        rz        tx        ty        tz
+        1   1.55e-01  1.55e-01  2.65e-06  4.05e-03  4.04e-03  4.83e-01 
+        2   1.52e-01  1.47e-01  7.84e-06  3.81e-03  3.93e-03  4.71e-01 
+        3   1.48e-01  1.51e-01  7.84e-06  3.89e-03  3.85e-03  4.71e-01 
+        4   1.54e-01  1.50e-01  4.02e-06  3.89e-03  4.00e-03  4.77e-01 
+        5   1.54e-01  1.53e-01  2.08e-06  3.99e-03  4.03e-03  4.81e-01 
+        6   1.52e-01  1.55e-01  2.08e-06  4.04e-03  3.98e-03  4.81e-01 
+        7   1.52e-01  1.51e-01  4.01e-06  3.95e-03  3.95e-03  4.77e-01 
+        8   1.27e-01  1.30e-01  1.28e-05  3.35e-03  3.28e-03  4.09e-01 
+        9   1.31e-01  1.34e-01  1.23e-05  3.43e-03  3.39e-03  4.12e-01 
+       10   1.30e-01  1.33e-01  1.28e-05  3.26e-03  3.36e-03  4.09e-01 
+       11   1.37e-01  1.38e-01  8.99e-06  3.55e-03  3.55e-03  4.28e-01 
+       12   1.25e-01  1.26e-01  6.24e-06  3.27e-03  3.26e-03  3.88e-01 
+       13   1.37e-01  1.41e-01  4.15e-06  3.64e-03  3.56e-03  4.31e-01 
+       14   1.37e-01  1.40e-01  4.32e-06  3.65e-03  3.59e-03  4.33e-01 
+       15   1.46e-01  1.40e-01  3.48e-06  3.68e-03  3.82e-03  4.54e-01 
+       16   1.38e-01  1.39e-01  4.32e-06  3.63e-03  3.60e-03  4.33e-01 
+       17   1.36e-01  1.43e-01  4.15e-06  3.64e-03  3.56e-03  4.30e-01 
+       18   1.23e-01  1.28e-01  6.23e-06  3.33e-03  3.19e-03  3.88e-01 
+       19   1.37e-01  1.37e-01  8.99e-06  3.55e-03  3.55e-03  4.28e-01 
+
+figures: r3_opdall/svspec/<ch>_channels + per-element pages in r3_pages/
+
+Done: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r3_sens.mat + r3_sens_report.txt
+
+[PM exhibit] the GROUP against its member elements
+    members: [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19] (19)
+    column RMS of dW/d(DOF): rotations in OPD-BaseUnits per rad, translations
+    in OPD-BaseUnits per SI METRE -- the same convention on both sides
+    (the OPD numerator is the deck's BaseUnits, as of 2026-08-25).
+    channel                           Rx          Ry          Rz          Tx          Ty          Tz
+    Grp[PM] (group)           2.6188e+00  2.5057e+00  2.4747e-01  6.5660e-02  6.7065e-02  1.3597e-02
+    Elt 1 (member)            1.5516e-01  1.5547e-01  2.6540e-06  4.0525e-03  4.0395e-03  4.8275e-01
+      group / Elt 1              16.8782     16.1165  93244.8180     16.2021     16.6020      0.0282
+    Elt 2 (member)            1.5167e-01  1.4703e-01  7.8363e-06  3.8146e-03  3.9294e-03  4.7103e-01
+    Elt 8 (member)            1.2738e-01  1.2988e-01  1.2757e-05  3.3456e-03  3.2796e-03  4.0942e-01
+    (a ratio BELOW 1 is intra-group COMPENSATION -- the members' responses
+     partly cancel when they move as one body.  A ratio at ~19, the member
+     count, is a rigid motion adding up, which is equally expected.)

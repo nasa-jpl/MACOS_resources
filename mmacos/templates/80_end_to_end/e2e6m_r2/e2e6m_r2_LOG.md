@@ -279,3 +279,80 @@ numerically anchored:
 Plus `r2_train_iso.png` — the full-train 3D render for context (the
 back end is a label-sized cluster against the 6 m PM, which is
 exactly the point item 3 addresses).
+
+---
+
+## 2026-08-26 — R3: sensitivities + the EFC Jacobian + the MET
+
+### The harvest (r3_sensitivities, running)
+
+Round 1's S4 on `r1_seg_prop.in`: dwdx now carries DM1/DM2 and the 8
+OAPs as rigid bodies beside the 19 segments + PM group; dwdz/dwdgrid
+unchanged in shape.  NEW stage gate: `jacobian_check` (R0's shared
+fix) runs on the fresh harvest at its own wf_elt, sampling a segment,
+a DM and an OAP over all six DOFs — R0's rule baked into the stage
+rather than trusted.
+
+### The EFC Jacobian (r3_dm_jacobian, running — 0.46 s/poke, 1760 cols)
+
+Engine-measured G = dE(dark zone)/d(actuator) through the FULL masked
+chain, at N=512 (scales re-measured at that N; one grid for G, EFC and
+R4 scoring).  Machinery is the committed CTB core pointed at this
+deck: `ctb_chain` (takes 'rx'+'elt'; the prolate rides in via
+`run_screened` with its own apodizer disabled) + `ctb_dm` influence
+models on r1_dm's GridData surfaces.  The '_mm' fields carry metres
+(deck units) — stated in the header.  Artifact gitignored +
+fingerprinted (`r3_dmjac.fp.json`).
+
+### The MET (r3_met — waiting on the harvest)
+
+Round 1 skipped MET naming "reconciling run_met's body list with a
+full-train Jacobian" as the blocker.  MEASURED, the gap dissolves:
+`run_met` selects dwdx columns BY BODY and tolerates extra columns,
+and the spliced deck preserves the telescope element ids (segments
+1–19, hub M2 = 20).  So the committed runner consumes `r3_sens.mat`
+directly, with round 1's committed `s2_segmented.in` +
+`s2_segmentedHx.m` as the truss substrate.  No aft ring (stated).
+
+### R4's architecture decision — why NOT run_simulator
+
+`run_simulator` (the committed pipeline) plays its engine legs on the
+MET/telescope deck: its per-frame OPD lives at the TELESCOPE exit
+pupil, while the round-2 Jacobian lives at the CORONAGRAPH exit pupil
+on the full train — pairing them would recreate the R0 defect inside
+the committed runner.  R4 therefore stays bespoke ON ONE DECK (the
+DM-augmented full-train diffraction deck): drift, MET-gain correction
+(x̂ = dxdl·l + dxde·e from run_met's MMSE gain, measurements simulated
+from the VALIDATED linear model m = [dldx;dedx]·x + noise — the s6/s7
+result that the engine holds met points rigid), six-DOF control (R0),
+engine WFE at ox.wf_elt, and an EFC step (real-constrained Tikhonov
+normal equations, the ctb_efc idiom, the measured G) re-solved at
+every contrast-scored frame of the corrected pass.  Stated bounds:
+measurement simulation is the linear model, not a truss-Rx trace;
+contrast at N=512 (the Jacobian grid) for series consistency.
+
+### R3 RESULTS
+
+**Harvest** (38.5 min, model 512, 5 fields): dwdxall 170286×192 (31
+optics × 6 + PM group — DM1/DM2 and the 8 OAPs now carry rigid-body
+columns), dwdzall ×152, dwdgall ×114.  The baked-in `jacobian_check`
+gate: **worst rel 0.0035 over 18 (elt,DOF) pairs** (Seg2, DM1=23,
+OAP4=30 × six DOFs, 4 clocking nulls) — R0's closure holds on the new
+train.  269 MB gitignored behind `r3_sens.fp.json`.
+
+**EFC Jacobian** (18.6 min): 1760 columns (2×880 active actuators),
+0.62 s/poke through the full masked chain at N=512; dark zone
+3–15 λ/D; column norms median 4.2e5, min 0.081, ZERO null columns.
+`r3_dmjac.mat` gitignored behind `r3_dmjac.fp.json`.
+
+**MET** (`run_met` on round 1's s2 substrate + THIS harvest): the
+feared body-list integration gap dissolved as predicted — products
+dxde 120×252, dxdl 120×114, dwde/dwdl emitted.  Edge+MET WEM 0.864
+per unit gauge noise (MET-only 84.1 — the edges carry it, as e2e);
+met_layout_opt engine-FD validation 0.00% off; Monte-Carlo 104.3 nm
+vs analytic 101.7 (2.6%).  Truss figures land (114 beams, fiducials
+on the M2 rim — clustered off-axis as the tilted hub dictates).
+
+Artifact hygiene: `r3_met_run.mat` saves POINTERS only (the verbatim
+`art` copy was 478 MB — round 1's exact duplication lesson);
+`r3_met.mat` (475 MB, run_met's own artifact) gitignored.
