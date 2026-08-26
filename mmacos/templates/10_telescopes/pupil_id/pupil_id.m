@@ -9,8 +9,10 @@
 %
 %  This is the next chapter, and it is a GENERAL-PURPOSE driver: give it a
 %  telescope Rx, it finds the exit pupil as a cone-convergence SURFACE, writes
-%  a REVISED Rx (the XP reference sphere re-placed at the cone-bundle vertex,
-%  an improvement on the one-chief-ray FEX sphere), cross-checks against the
+%  a REVISED Rx (the XP reference sphere re-placed at the fitted-surface /
+%  chief-ray crossing -- 'fit_chief': an on-chief vertex at the MEASURED
+%  pupil station, radius following the vertex so the sphere center stays
+%  on the propagation-target plane), cross-checks against the
 %  engine's two-ray XPS, reports how sharply the EP images to the XP, and
 %  tracks the pupil walk vs field.
 %
@@ -80,10 +82,11 @@ function out = pupil_id(rx, opts)
     fprintf('[2] EP at element %d via anchor=''%s'' (%s)\n', EP, opts.anchor, anchor_note_(opts.anchor));
     fprintf('[3] cone field grid: %d cones (%dx%d, +/-%g arcmin); blur.rms=%.3e m  blur_ratio=%.3f\n', ...
         size(F,1), opts.ngrid, opts.ngrid, opts.fov_arcmin, pf.blur.rms, pf.o_rim.anchor.blur_ratio);
-    fprintf(['[4] XP sphere -> Rx: vertex=[% .5f % .5f %.5f] m, propagation rad=%.6f m (FEX)\n' ...
+    fprintf(['[4] XP sphere -> Rx: vertex=[% .5f % .5f %.5f] m (fit_chief), rad=%.6f m (follows vertex)\n' ...
              '    pupil-quality: convergence curvature R=%.5f m, departure-from-sphere RMS=%.3e m\n' ...
-             '    (vertex bundle-vs-FEX: %.2e m)\n'], ...
-        pf.vtx, pf.rad, pf.conv_radius, pf.dep_rms, norm(pf.vtx(:)-pf.fex.vpt(:)));
+             '    (bundle diag vs FEX: %.2e m; written vs FEX along chief: %.2e m)\n'], ...
+        pf.vtx_written, pf.rad, pf.conv_radius, pf.dep_rms, ...
+        norm(pf.vtx(:)-pf.fex.vpt(:)), norm(pf.vtx_written(:)-pf.fex.vpt(:)));
 
     % --------------------------------------------------------------------
     % [5] ENGINE TWO-RAY CROSS-CHECK (XPS) -- pupil_map 'stop' == pupil_quality
@@ -142,10 +145,10 @@ function out = pupil_id(rx, opts)
     % --------------------------------------------------------------------
     if opts.write_rx
         macos.load_rx(rx);  macos.stop(EP);
-        macos.set_xp(pf.vtx(:), pf.psi(:), pf.rad);
+        macos.set_xp(pf.vtx_written(:), pf.psi(:), pf.rad);
         macos.save_rx(opts.out_rx);
         R.out_rx = opts.out_rx;
-        fprintf('[8] revised Rx written: %s (XP vertex + FEX propagation radius)\n', opts.out_rx);
+        fprintf('[8] revised Rx written: %s (fit_chief vertex + vertex-following radius)\n', opts.out_rx);
     else
         R.out_rx = '';
     end
