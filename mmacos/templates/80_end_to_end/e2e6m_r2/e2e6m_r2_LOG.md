@@ -701,3 +701,29 @@ Noted for finalization: two derived ratios (8.9x/5.2x dig ratios,
 2.16x title) are literals pending a records home; the N=512 vs N=1024
 APLC static difference (1.07e-6 vs 2.18e-6) is the cap-limited
 prolate moving with N -- one more face of the standing flag.
+
+## 2026-08-27 — phase 2 (BRIEF_e2e6m_cf_s3b_on): R directives + S3b launch
+
+R1 (BLC stall probe, cf2r1_blc.m): THE STALL IS REAL — 13 alphas over
+1e-7..1e-1, cap 40: 1.636e-6 -> 1.294e-6 in 2 iters (CF2 fixed-G was
+1.347e-6), strokes 1.3/1.5 nm, and the accepted steps are the MOST
+DAMPED on the ladder (3e-2, 1e-1) — the model-mismatch signature: the
+BLC's residual couples to the DMs more weakly than its G's top modes
+suggest.  The la-1.74x gap is bound looseness, not unexploited
+margin; "all six substrate-limited" stands.
+
+R2/R4: cf2_report.txt ADDENDUM block (regeneration-safe) + deck
+language — "APLC-as-implemented ... family DEFERRED" with the named
+machines; lin-ach = rank-curve at achieved stroke, a scale not a
+strict inequality (v6's 0.8x reads consistently).
+
+R3 (cf2r3_apl98.m) + S3b (cf3b_spacing.m) LAUNCHED.  ** RESUME NOTE
+(power-cycle risk flagged by Dave): if either dies, relaunch the same
+driver — every Jacobian is a stamped tag-separated cache (cf2_G_*),
+the emitted spacing decks (r1_seg_dNNN_*) survive on disk, and
+cf2_efc's r1-cache resume pattern applies: a family with _r1 but no
+run state adopts the cached a0.  Launch lines:
+  matlab -batch "cf2r3_apl98"     (in e2e6m_r2/, MACOS_HOME set)
+  matlab -batch "cf3b_spacing"
+S3b spacings 0.15(=CF2 baseline)/0.40/0.70/1.10 m, apl leg all four +
+v4 at 0.15/0.70, Lyot held at the CF2 point (isolates spacing). **
