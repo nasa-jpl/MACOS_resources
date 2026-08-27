@@ -572,3 +572,46 @@ gap speckle the Talbot-weak DM pair cannot reach (the S2/S3 readout).
   attribution (floor vs linear-achievable at the 50 nm stroke bound)
   land with this commit; the S4 memo lambda-correctness gate is baked
   into cf4's band leg.
+
+## 2026-08-26 — CF1b: S1 re-measured under the stop; two attributions closed by measurement
+
+**The stopped S1 table (primary; no-stop columns preserved as "what the
+circular stop buys"):** classical Lyot 3.497e-06 (0.46x -- the stop
+COSTS the bare-occulter family: a circular edge paints a uniform
+diffraction ring through the annulus where the hex edge concentrated
+its energy in six azimuthal spikes, and there is no apodizer to soften
+it); apodized Lyot 4.375e-07 (1.08x, its prolate now designed on the
+true circular pupil, converged 2558); band-limited 1.645e-06 (1.03x,
+neutral); vortex c4 1.641e-05 (1.11x) / c6 1.869e-05 (1.49x) -- the
+DECOMPOSITION the amendment asked for: hex-edge leakage is 10-33% of
+the vortex total; the remaining 1.6-1.9e-05 is GAP leak, which no
+pupil-edge fix touches.
+
+**The stopped aperture-matched APLC is SOLVER-LIMITED, not physics:**
+its prolate hit the iteration cap unconverged (5000: lambda0 0.958867,
+dz 2.179e-06; probe at 20000: lambda0 0.959417, dz 4.095e-06 -- the
+answer MOVES WITH THE CAP, so it is not an eigenfunction and not a
+design).  The no-stop seg-support prolate converged in 758 iterations;
+the circularized support restores the tiling's near-degenerate mode
+pairs and simple power iteration cannot separate them.  Recorded per
+the SESSION-6 HLC precedent: the row stands with the unconverged flag,
+the apodized-Lyot row is the prolate family's stopped representative,
+and the real machines for an aperture-matched stopped design -- a
+block/Lanczos eigensolver in ctb_apod_prolate, or the N'Diaye LP
+co-design -- are DEFERRED, named, and not faked.  (`cf1b_probe.m`.)
+
+**The no-stop closed-loop record is LINEAR-OPTIMAL at achieved strokes
+(`cf2b_linfloor_nostop.m`):** hard 3.18e-07 vs lin-ach 2.67e-07 at its
+achieved 10.1 nm (1.19x); apl 1.29e-07 vs 1.19e-07 @ 8.9 nm (1.08x);
+aplc 2.38e-07 vs 2.22e-07 @ 4.5 nm (1.07x); blc 1.31e-06 vs 7.85e-07
+@ 3.6 nm (1.67x).  ALL within the ~2x criterion: the floors are the
+SUBSTRATE speaking -- amplitude-dominated gap speckle (symmetric
+fraction 0.96-0.99) against Talbot-weak amplitude authority -- and the
+BLC's one-iteration "stall" was the loop already AT its linear optimum.
+The 50 nm-bound curve values (e.g. hard 4.6e-10) are the linear model's
+claim at strokes where 2 nm pokes extrapolate to 1.3 rad of phase --
+NOT physics; the measured line search self-limits at 3.6-10.1 nm, i.e.
+it finds the linearity boundary by itself.  The attribution in cf2 now
+reads the rank curve AT THE ACHIEVED STROKE (the CTB "4.5e-9 at 11 nm"
+pattern).  Consequence for S3: DM spacing is the knob that moves the
+linear-achievable curve itself.
