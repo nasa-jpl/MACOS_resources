@@ -819,3 +819,14 @@ tCfCampaign (tests/, SUITE_CTB_512) 6/6: the CF2 table + la ratios,
 the S3b knee at the baseline, the gate operating point, the toned
 S5 series, the winner static LIVE through the chain, the lambda-memo
 gate LIVE.  Regeneration drift is now loud.
+
+## 2026-08-27 — S6 close: the deck at 27 slides (DRAFT)
+
+Records fns cf3b/cf4/cf5 added (loud-on-miss); r4() re-pointed at the
+PRESERVED 3 nm report (the slide's narrative), cf5() parses the toned
+series.  Two new main slides — "Both dials lose to the operating
+point" (the gate + Lyot stall + spacing inversion, cf3b figure) and
+"The physics layers at the operating point" (pol/band/bandpol, cf4
+figure) — and the loop slide gains the toned-series finding.  §5
+style gate: run, one fix (a doubled word in the gate bullet); the
+kicker still carries the DRAFT marker — Dave's sign-off pass pending.

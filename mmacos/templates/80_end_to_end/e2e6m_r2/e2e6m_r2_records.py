@@ -175,7 +175,9 @@ def r3():
 
 # ----------------------------------------------------------------- R4
 def r4():
-    t = read("r4_report.txt")
+    # the 3 nm story the R4 slide narrates lives in the PRESERVED report;
+    # r4_report.txt now holds the S5 toned series (see cf5)
+    t = read("r4_report_3nm.txt")
     r = {}
     r["frames"] = grab(t, r"history: (\d+) frames", "frames", "r4_report", int)
     r["dt"] = grab(t, r"frames, dt (\d+) s", "dt", "r4_report")
@@ -306,4 +308,53 @@ def cf3a():
             "lyot": [float(p[0]) for p in pts],
             "con":  [float(p[1]) for p in pts],
             "thru": [float(p[2]) for p in pts]}
+    return r
+
+
+def cf3b():
+    """S3b: the spacing sweep's apl floors + the knee verdict."""
+    t = read("cf3b_report.txt")
+    r = {"d": [], "floor": []}
+    for m in re.finditer(r"d=([0-9.]+) m apl : CF2 baseline reused \(([0-9.eE+-]+) relin\)", t):
+        r["d"].append(float(m.group(1)));  r["floor"].append(float(m.group(2)))
+    for m in re.finditer(r"apl : [0-9.eE+-]+ -> [0-9.eE+-]+ -> ([0-9.eE+-]+) \| lin-ach", t):
+        r["floor"].append(float(m.group(1)))
+    for m in re.finditer(r"spacing ([0-9.]+) m: emitting", t):
+        r["d"].append(float(m.group(1)))
+    if len(r["d"]) != len(r["floor"]):
+        sys.exit("e2e6m_r2_records: cf3b d/floor mismatch")
+    r["knee_d"] = grab(t, r"KNEE at d = ([0-9.]+) m", "cf3b knee", "cf3b_report.txt")
+    r["knee_floor"] = grab(t, r"KNEE at d = [0-9.]+ m: floor ([0-9.eE+-]+)", "cf3b knee floor", "cf3b_report.txt")
+    return r
+
+
+def cf4():
+    """S4: pol / band ladder / bandpol at the gate point."""
+    t = read("cf4_report.txt")
+    r = {}
+    r["pol_static"] = grab(t, r"\[pol\] static ([0-9.eE+-]+)", "pol static", "cf4_report.txt")
+    r["pol_floor_c"] = grab(t, r"\[pol\] static [0-9.eE+-]+ -> floor ([0-9.eE+-]+)", "pol floor", "cf4_report.txt")
+    r["pol_floor"] = grab(t, r"pol_floor ([0-9.eE+-]+)", "pol uncontrollable", "cf4_report.txt")
+    r["band"] = {}
+    for m in re.finditer(r"band (\d+)% \((\d+) colors?\) *\| ([0-9.eE+-]+) \| ([0-9.eE+-]+)", t):
+        r["band"][int(m.group(1))] = {"colors": int(m.group(2)),
+                                      "static": float(m.group(3)),
+                                      "floor": float(m.group(4))}
+    if len(r["band"]) < 4:
+        sys.exit("e2e6m_r2_records: cf4 band ladder incomplete")
+    r["bandpol_floor"] = grab(t, r"band 10% \+ pol @ Lyot 0.90 \| [0-9.eE+-]+ \| ([0-9.eE+-]+)", "bandpol", "cf4_report.txt")
+    return r
+
+
+def cf5():
+    """S5: the toned (0.3 nm-class) drift series, from the live r4 report."""
+    t = read("r4_report.txt")
+    r = {}
+    m = re.findall(r"WFE ([0-9.]+) -> ([0-9.]+) waves; contrast ([0-9.eE+-]+) -> ([0-9.eE+-]+)", t)
+    if len(m) < 2:
+        sys.exit("e2e6m_r2_records: cf5 pass lines missing")
+    r["open_c0"], r["open_c1"] = float(m[0][2]), float(m[0][3])
+    r["cl_c0"], r["cl_c1"] = float(m[1][2]), float(m[1][3])
+    r["resid"] = grab(t, r"\|x\+u\| rms ([0-9.eE+-]+)", "cf5 residual", "r4_report.txt")
+    r["xrms"] = grab(t, r"drift \|x\| rms ([0-9.eE+-]+)", "cf5 drift rms", "r4_report.txt")
     return r
