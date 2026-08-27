@@ -25,6 +25,7 @@ BUILDER = os.path.join(HERE, "..", "..", "..", "challenges", "rodgers3",
 
 r0, r1, r3, r4, r2m = R.r0(), R.r1(), R.r3(), R.r4(), R.r2m()
 cf1, cf1c, cf2, cf3a = R.cf1(), R.cf1c(), R.cf2(), R.cf3a()
+cf3b, cf4, cf5 = R.cf3b(), R.cf4(), R.cf5()
 s1, s2, s3c = R.s1(), R.s2(), R.s3c()
 
 
@@ -50,7 +51,7 @@ FIG = {n: crop(n) for n in (
     "r1_contrast.png", "r3_svspec.png", "r3_met_layout.png",
     "r4_series.png", "r1_union_shroud.png",
     "cf1_families.png", "cf2_floors.png", "cf3a_lyot.png",
-    "cf1c_stop_attrib.png")}
+    "cf1c_stop_attrib.png", "cf3b_spacing.png", "cf4_physics.png")}
 for n in ("s1_layout.png", "s1_wfe_field.png", "s2_segmented_footprints.png"):
     FIG[n] = crop(n, src_dir=R1DIR)
 
@@ -163,6 +164,22 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at
 - **The sweep.**  Lyot fraction against contrast AND throughput for the vortex legs and the apodized-Lyot leg, statics under the stop; stars mark the S1 operating points the campaign scored.
 ![Contrast vs Lyot fraction (left) and the contrast-throughput trade with the family operating points (right).]({FIG['cf3a_lyot.png']}){{h=4.2}}
 
+## Both dials lose to the operating point | Lyot 0.90 and 0.15 m spacing were confirmed by measurement, not defaulted
+::: left
+- **The gate.**  The campaign's operating point -- apodized Lyot, {cf2['fam']['apl']['relin']:.2e} floor at 9.5% throughput, spacing 0.15 m -- was put to both of its dials before the physics layers ran.
+- **The Lyot dial stalls closed-loop.**  The static dial is flat (previous slide), but at L=0.98 the loop stops in two iterations at 1.58e-07 -- 1.46x the contrast for 1.19x the throughput, a net loss in a throughput/contrast merit -- and the wide-ladder retry does not dig.  Static-free is not loop-free.
+- **The spacing dial's knee IS the baseline.**  Floors {cf3b['floor'][0]:.2e} / {cf3b['floor'][1]:.2e} / {cf3b['floor'][2]:.2e} / {cf3b['floor'][3]:.2e} at 0.15/0.40/0.70/1.10 m: the Talbot expectation INVERTS -- wider spacing raises the linear-achievable bound and the loop cannot take it, because the STATIC degrades faster than the authority grows.  Attributed by measurement: the added light is the same amplitude-type gap-Fresnel family (symmetric fraction 0.986 at every spacing), evolved over the longer DM1-to-DM2 leg.  Packaging never discriminates (7.451 m shroud at every point, measured).
+::: right
+![The Talbot knob measured: closed-loop floor and linear-achievable vs DM spacing -- the bound deepens as the floor worsens.]({FIG['cf3b_spacing.png']}){{h=4.4}}
+
+## The physics layers at the operating point | Polarization does not set the floor; the chromatic penalty is 1.3x over a 20% band; the layers do not interact
+::: left
+- **Polarization.**  All 31 reflectors coated (protected aluminum), Jones-pupil screens at the exit pupil, complex-mean normalized.  The co-polarized imprint is 9.5% -- twenty times the CTB's gentle train -- yet almost entirely common-mode: the screened floor equals the unscreened one, and the UNCONTROLLABLE polarization floor is {cf4['pol_floor']:.1e}.
+- **Bandwidth.**  One 9-color superset Jacobian, per-band block subsets: floors {cf4['band'][0]['floor']:.2e} / {cf4['band'][5]['floor']:.2e} / {cf4['band'][10]['floor']:.2e} / {cf4['band'][20]['floor']:.2e} at 0/5/10/20% -- the floor is gap-speckle-owned, not chromatic (the inverse of the CTB vortex, whose floor was chromaticity).
+- **Together.**  10% band + screens: {cf4['bandpol_floor']:.2e} -- the band-only floor to three digits.  The mask memoization behind the sweep is gated bit-exact (backup).
+::: right
+![The physics ladder at the gate point: polarization, the band ladder, and band+pol together.]({FIG['cf4_physics.png']}){{h=4.4}}
+
 ## The error budget closes | Engine vs model: worst 0.35% over a segment, a DM and a relay mirror, all six freedoms
 ::: left
 - **The model.** Wavefront sensitivity to every rigid-body freedom of {r3['n_optics']} optics -- the segments, the fold mirrors, the relay and both DMs -- plus segment figure modes and a per-segment influence basis: {r3['dwdx_cols']} + {r3['dwdz_cols']} + {r3['dwdg_cols']} channels over five field points.
@@ -189,6 +206,7 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at
 - **The rigid-body loop.** Edge and gauge readings, a weighted least-squares estimate, an integrating controller on all six freedoms of every segment: the state residual holds at {r4['resid_nm']:.2f} nm while the open-loop drift grows to {r4['drift_nm']:.1f} nm.
 - **The DM loop.** The measured actuator Jacobian digs the dark zone {r4['dig'][0]:.1e} → {r4['dig'][-1]:.1e}, then a damped re-solve at each scored frame holds it: {r4['cor']['con0']:.2e} → {r4['cor']['con1']:.2e} closed, against {r4['unc']['con0']:.2e} → {r4['unc']['con1']:.2e} open.
 - **The honest line.** Closed-loop pupil wavefront is larger than uncorrected -- that is the DM stroke the contrast is bought with, and the figure labels it as such.
+- **Toned down 10x (0.3 nm-class drift): the hold is the mechanization's.**  The open loop no longer degrades ({cf5['open_c0']:.2e} -> {cf5['open_c1']:.2e}) while the closed loop holds {cf5['cl_c1']:.2e} -- identical to the 3 nm hold: the ~2.5e-07 level is the loop's own noise-injection floor, and control cadence/gain becomes the knob at low drift (flagged, not retuned; the estimator still tracks at {cf5['resid']:.1e} against {cf5['xrms']:.1e} of drift).
 ::: right
 ![State, wavefront and contrast against time.  The contrast panel is the payoff: open loop degrades 3.7×; the closed loop holds.]({FIG['r4_series.png']}){{h=4.7}}
 

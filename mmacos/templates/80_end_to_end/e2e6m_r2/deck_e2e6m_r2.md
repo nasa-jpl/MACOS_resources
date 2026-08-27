@@ -75,14 +75,14 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 ## Six coronagraphs, one train | Pre-control: the apodized Lyot leads at 4.4e-07; the vortex pays the gaps ~40x
 ::: left
 - **The design rule that made them comparable.**  On a segmented hex aperture the coronagraph's pupil is a CIRCULAR STOP at the apodizer plane — the telescope's hex envelope is upstream optics, not the coronagraph pupil.  Every family below sees the same circularized, gapped pupil; contrast normalizes to its bare peak, and the stop's ~8% collecting-area cost sits in the throughput column.
-- **The families (dark-zone mean, PRE-CONTROL | throughput):** classical Lyot 3.50e-06 pre-control, 23% throughput; apodized Lyot 4.37e-07 pre-control, 9% throughput; APLC 2.18e-06 pre-control, 8% throughput (aperture-matched prolate: solver-limited, flag stands); band-limited 1.64e-06 pre-control, 12% throughput; vortex c4 1.64e-05 pre-control, 33% throughput; c6 1.87e-05 pre-control, 33% throughput — the vortex passes the segment-gap light the occulting families block.
+- **The families (dark-zone mean, PRE-CONTROL | throughput):** classical Lyot 3.50e-06 pre-control, 23% throughput; apodized Lyot 4.37e-07 pre-control, 9% throughput; APLC-as-implemented 2.18e-06 pre-control, 8% throughput (cap-limited prolate, not design-grade on this pupil; family DEFERRED); band-limited 1.64e-06 pre-control, 12% throughput; vortex c4 1.64e-05 pre-control, 33% throughput; c6 1.87e-05 pre-control, 33% throughput — the vortex passes the segment-gap light the occulting families block.
 - **The stop's 2.16x on the bare occulter, attributed by measurement:** entirely the stop edge at fixed masks (the scale re-reference contributes 1.00x); the Babinet split shows the edge enters by coherent INTERFERENCE with the gap field (cross 6.5e-06 vs the rim's own 2.5e-06) — coherent, hence in the loop's reach.  The next slide cashes that.
 ::: right
 ![The six families, statics on the circularized segmented train.](deckfig/cf1_families.png){h=4.6}
 
 ## The loop on every family | All six floors sit within 2x of their own Jacobian's linear-achievable: the substrate speaks, not the controller
 ::: left
-- **static -> relin floor | linear-achievable at the achieved stroke:** classical Lyot 3.5e-06 -> 3.9e-07 | 2.1e-07; apodized Lyot 4.5e-07 -> 1.1e-07 | 1.1e-07 (the campaign floor); APLC 1.1e-06 -> 7.5e-07 | 7.5e-07; band-limited 1.6e-06 -> 1.3e-06 | 7.2e-07; vortex c4 1.6e-05 -> 5.4e-06 | 5.5e-06; c6 1.8e-05 -> 3.9e-06 | 4.7e-06.
+- **static -> relin floor | linear-achievable at the achieved stroke:** classical Lyot 3.5e-06 -> 3.9e-07 | 2.1e-07; apodized Lyot 4.5e-07 -> 1.1e-07 | 1.1e-07 (the campaign floor); APLC-as-implemented 1.1e-06 -> 7.5e-07 | 7.5e-07 (implementation verdict, not family); band-limited 1.6e-06 -> 1.3e-06 | 7.2e-07; vortex c4 1.6e-05 -> 5.4e-06 | 5.5e-06; c6 1.8e-05 -> 3.9e-06 | 4.7e-06.
 - **The stopped occulter digs 8.9x where its no-stop self dug 5.2x** — the loop claws back most of the coherent edge term the previous slide measured.
 - **The vortices are linear-optimal:** relinearization pays 2.5-3.7x where the fixed Jacobian paid 1.2x (gap-chasing strokes reach the linearity boundary early), and the residual gap leak is uncontrollable at this amplitude authority.
 - **The knob is the DM spacing:** z/z_T = 3.7e-03 at the outer working angle — Talbot-weak amplitude authority is the common ceiling; the spacing trade prices it.
@@ -93,6 +93,22 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 ::: full
 - **The sweep.**  Lyot fraction against contrast AND throughput for the vortex legs and the apodized-Lyot leg, statics under the stop; stars mark the S1 operating points the campaign scored.
 ![Contrast vs Lyot fraction (left) and the contrast-throughput trade with the family operating points (right).](deckfig/cf3a_lyot.png){h=4.2}
+
+## Both dials lose to the operating point | Lyot 0.90 and 0.15 m spacing were confirmed by measurement, not defaulted
+::: left
+- **The gate.**  The campaign's operating point — apodized Lyot, 1.08e-07 floor at 9.5% throughput, spacing 0.15 m — was put to both of its dials before the physics layers ran.
+- **The Lyot dial stalls closed-loop.**  The static dial is flat (previous slide), but at L=0.98 the loop stops in two iterations at 1.58e-07 — 1.46x the contrast for 1.19x the throughput, a net loss in a throughput/contrast merit — and the wide-ladder retry does not dig.  Static-free is not loop-free.
+- **The spacing dial's knee IS the baseline.**  Floors 1.08e-07 / 4.98e-07 / 9.67e-07 / 9.00e-07 at 0.15/0.40/0.70/1.10 m: the Talbot expectation INVERTS — wider spacing raises the linear-achievable bound and the loop cannot take it, because the STATIC degrades faster than the authority grows.  Attributed by measurement: the added light is the same amplitude-type gap-Fresnel family (symmetric fraction 0.986 at every spacing), evolved over the longer DM1-to-DM2 leg.  Packaging never discriminates (7.451 m shroud at every point, measured).
+::: right
+![The Talbot knob measured: closed-loop floor and linear-achievable vs DM spacing — the bound deepens as the floor worsens.](deckfig/cf3b_spacing.png){h=4.4}
+
+## The physics layers at the operating point | Polarization does not set the floor; the chromatic penalty is 1.3x over a 20% band; the layers do not interact
+::: left
+- **Polarization.**  All 31 reflectors coated (protected aluminum), Jones-pupil screens at the exit pupil, complex-mean normalized.  The co-polarized imprint is 9.5% — twenty times the CTB's gentle train — yet almost entirely common-mode: the screened floor equals the unscreened one, and the UNCONTROLLABLE polarization floor is 4.4e-13.
+- **Bandwidth.**  One 9-color superset Jacobian, per-band block subsets: floors 1.62e-07 / 1.64e-07 / 1.72e-07 / 2.07e-07 at 0/5/10/20% — the floor is gap-speckle-owned, not chromatic (the inverse of the CTB vortex, whose floor was chromaticity).
+- **Together.**  10% band + screens: 1.72e-07 — the band-only floor to three digits.  The mask memoization behind the sweep is gated bit-exact (backup).
+::: right
+![The physics ladder at the gate point: polarization, the band ladder, and band+pol together.](deckfig/cf4_physics.png){h=4.4}
 
 ## The error budget closes | Engine vs model: worst 0.35% over a segment, a DM and a relay mirror, all six freedoms
 ::: left
@@ -125,6 +141,7 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 - **The rigid-body loop.** Edge and gauge readings, a weighted least-squares estimate, an integrating controller on all six freedoms of every segment: the state residual holds at 0.36 nm while the open-loop drift grows to 2.9 nm.
 - **The DM loop.** The measured actuator Jacobian digs the dark zone 4.6e-07 → 1.9e-07, then a damped re-solve at each scored frame holds it: 1.91e-07 → 2.46e-07 closed, against 4.65e-07 → 1.72e-06 open.
 - **The honest line.** Closed-loop pupil wavefront is larger than uncorrected — that is the DM stroke the contrast is bought with, and the figure labels it as such.
+- **Toned down 10x (0.3 nm-class drift): the hold is the mechanization's.**  The open loop no longer degrades (4.65e-07 -> 4.63e-07) while the closed loop holds 2.46e-07 — identical to the 3 nm hold: the ~2.5e-07 level is the loop's own noise-injection floor, and control cadence/gain becomes the knob at low drift (flagged, not retuned; the estimator still tracks at 7.2e-11 against 3.0e-10 of drift).
 ::: right
 ![State, wavefront and contrast against time.  The contrast panel is the payoff: open loop degrades 3.7×; the closed loop holds.](deckfig/r4_series.png){h=4.7}
 
@@ -140,7 +157,7 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 ::: left
 - **Method.**  The circular stop applied as a SCREEN on the no-stop chain holds every mask and scale fixed, so E_rim = E_hex - E_screened is exactly the blocked rim's field.  Pins: screened bare peak == stopped bare peak to 0.0e0; both S1 records reproduced under 1%.
 - **The split (dark-zone mean energy):** I_ns 1.09e-05 + rim 2.53e-06 + cross 6.54e-06 — the rim's own ring is ~28% of the increase; the cross term (coherent interference with the pre-existing gap speckle) is 2.6x larger.  Peak renormalization 1.178x; dark-zone energy up 1.83x at fixed masks; the lambda/D re-reference contributes 1.00x.
-- **The APLC flag, restated:** the stopped aperture-matched prolate hit its iteration cap unconverged (the answer moves with the cap — not an eigenfunction, not a design); its row stands flagged, and the block/Lanczos eigensolver or the N'Diaye LP co-design are the named, deferred machines.
+- **The APLC flag, restated:** the stopped aperture-matched prolate hit its iteration cap unconverged (the answer moves with the cap — not an eigenfunction, not a design); its apodizer also moves 2x with grid size (1.07e-6 at N=512 vs 2.18e-6 at 1024) — an implementation verdict, not a family verdict; the family is DEFERRED and the block/Lanczos eigensolver or the N'Diaye LP co-design are the named machines.  Bound reading (all rows): lin-ach is the relin G's rank-curve at the achieved stroke — a scale, not a strict inequality; Tikhonov solutions can undercut it by O(20%) (vortex c6 does).
 ::: right
 ![Where the stop's edge lands: no-stop, stop-as-screen, and the rim field alone.](deckfig/cf1c_stop_attrib.png){h=4.2}
 
