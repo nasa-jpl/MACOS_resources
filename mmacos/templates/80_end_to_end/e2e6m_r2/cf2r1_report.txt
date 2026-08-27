@@ -1,0 +1,10 @@
+==== e2e6m CF2-R1 -- BLC stall probe (alpha 1e-7..1e-1 x13, cap 40)
+CF2 baseline: 1.636e-06 -> 1.347e-06 -> 1.257e-06 at 2.8/1.4 nm (la ratio 1.74)
+probe: 1.636e-06 -> 1.294e-06 in 2 iters | strokes 1.3/1.5 nm
+alpha trail: 3e-02 1e-01
+VERDICT: the stall is REAL.  With 13 alphas over 1e-7..1e-1 and a 40-iteration
+  cap, the loop reaches 1.294e-06 vs CF2's 1.347e-06 -- no alpha buys a further
+  measured-contrast improvement: the BLC's dark-zone residual couples to the
+  DMs more weakly than its G's top modes suggest, and the 1.7x la gap is a
+  bound looseness, not an unexploited control margin.
+CF2-R1 DONE in 0.4 min

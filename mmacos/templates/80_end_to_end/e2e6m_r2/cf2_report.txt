@@ -68,3 +68,23 @@ deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_
   figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf2_floors.png
 
 CF2 DONE in 208.5 min
+
+==== ADDENDUM (review directives R2 + R4, 2026-08-27; appended post-run --
+     a cf2_efc re-run regenerates the table above without this block) ====
+
+R2 -- the APLC row is "APLC AS-IMPLEMENTED": its prolate is cap-limited
+(the apodizer moves with the iteration cap) and 2x grid-dependent
+(static 1.07e-6 at N=512 vs 2.18e-6 at N=1024) -- NOT design-grade on
+the gapped+stopped pupil.  The APLC-loses-to-apodized-Lyot inversion of
+the CTB result is therefore an IMPLEMENTATION verdict, not a family
+verdict.  Family status: DEFERRED (the honest-HLC treatment); the named
+machines are a block/Lanczos eigensolver in ctb_apod_prolate or the
+N'Diaye LP co-design.
+
+R4 -- why vortex c6's floor (3.925e-6) undercuts its printed lin-ach
+(4.656e-6): the bound reads the RELIN G's rank-truncated pseudo-inverse
+curve at the relin-achieved rms stroke (6.8 nm across both DMs) -- a
+specific solution family.  The loop's Tikhonov solution is not confined
+to top-rank subspaces, so the curve is a SCALE for the substrate, not a
+strict inequality; floors can undercut it by O(20%).  The same reading
+applies to every row (the "la 0.8x-1.8x" attributions).
