@@ -104,9 +104,16 @@ function [J, meta] = jacobian_(ch, dm, a0, dz_idx, P, cache)
         J = load(cache);
         ctb_jac_check(J, ch.config, cache);
         stamp_parity_(J, ch.config, cache);
-        a0v = cell2mat(cellfun(@(x) x(:), a0,  'UniformOutput', false));
-        acv = cell2mat(cellfun(@(x) x(:), J.a0, 'UniformOutput', false));
-        assert(max(abs(a0v - acv)) < 1e-15, ...
+        % NOTE the (:) flattens: cell2mat over the 1xK per-DM command
+        % cell yields an N x K MATRIX, so an unflattened max() is a row
+        % vector and assert throws "must be convertible to a scalar
+        % logical" on EVERY cache reload -- first exercised by the
+        % 2026-08-26 restart resume (in-process measure-then-use never
+        % reloads).
+        a0v = cell2mat(cellfun(@(x) x(:), a0(:).',  'UniformOutput', false));
+        acv = cell2mat(cellfun(@(x) x(:), J.a0(:).', 'UniformOutput', false));
+        assert(isequal(size(a0v), size(acv)) && ...
+               max(abs(a0v(:) - acv(:))) < 1e-15, ...
             'cf_efc_lib: %s was measured about a DIFFERENT DM state -- delete or retag', cache);
         fprintf('    [jac] loaded %s (%d cols)\n', cache, size(J.G,2));
         meta = struct('file', cache, 'ncol', size(J.G,2), 'cached', true);

@@ -642,3 +642,39 @@ worth carrying: the stop-edge penalty is not additive light to be
 blocked -- it is a coherent modification of the gap speckle, which is
 exactly the kind of term EFC can address (S2's stopped-hard floors
 are the test).  Radial profile: `cf1c_stop_attrib.png`.
+
+## 2026-08-27 — CF2: EFC floors per family (S2) — every family substrate-limited
+
+**The table (N=512, closed-loop annulus 3–15 λ/D; static → fixed-G →
+relin | lin-ach@achieved-stroke | attribution):**
+- classical Lyot  3.503e-6 → 7.921e-7 → 3.935e-7 | 2.13e-7 | la 1.8x, sym 0.91
+- apodized Lyot   4.485e-7 → 1.623e-7 → 1.081e-7 | 1.09e-7 | la 1.0x, sym 0.96
+- APLC (flagged)  1.074e-6 → 9.176e-7 → 7.519e-7 | 7.54e-7 | la 1.0x, sym 0.59
+- band-limited    1.636e-6 → 1.347e-6 → 1.257e-6 | 7.24e-7 | la 1.7x, sym 0.98
+- vortex c4       1.625e-5 → 1.345e-5 → 5.377e-6 | 5.49e-6 | la 1.0x, sym 0.98
+- vortex c6       1.844e-5 → 1.440e-5 → 3.925e-6 | 4.66e-6 | la 0.8x, sym 0.97
+
+ALL six within ~2x of linear-achievable: substrate-limited across the
+board, none control-limited.  z/z_T(15 λD) = 3.73e-3 — the S3 DM-
+spacing sweep is THE knob.  Readings: (1) the stopped hard family digs
+8.9x where its no-stop self dug 5.2x — the loop claws back most of the
+CF1c coherent edge term (final 3.94e-7 vs no-stop 3.18e-7, 1.24x apart
+despite the 2.16x static penalty); (2) apodized Lyot is the campaign
+floor, 1.08e-7, BETTER than its no-stop self (1.29e-7); (3) the
+vortices are linear-optimal — relin pays 2.5–3.7x where fixed-G pays
+1.2x (large gap-chasing strokes hit the linearity boundary early), and
+the residual 4–5e-6 gap leak is uncontrollable at this Talbot
+authority; (4) aplc's sym 0.59 is the odd one out (substrate- not
+amplitude-limited), consistent with its CF1b solver-limited prolate
+injecting its own structure — the flag stands.
+
+**Restart mechanics (the resume that produced this table):** the
+2026-08-26 restart killed the run mid-apl; two fixes shipped —
+(a) cf_efc_lib's cache-reload a0 assert compared an Nx2 MATRIX
+(row-vector max → "condition must be scalar" on EVERY reload; latent,
+never exercised in-process) — flattened with a shape guard;
+(b) cf2_efc now adopts the dug commands from an existing _r1 cache
+(its stored a0 is the authority; line searches are not
+bit-deterministic across restarts), re-measuring the two endpoints —
+the 'resumed' flag marks affected records (none in this final table:
+apl re-ran from its cached forward G cleanly).

@@ -101,12 +101,36 @@ function OUT = cf2_efc(over)
         a0 = cellfun(@(d) zeros(d.nact^2,1), dm, 'UniformOutput', false);
         [G0, jmeta0] = lib.jacobian(ch, dm, a0, dz_idx, P, ...
             fullfile(P.outdir, sprintf('cf2_G_%s.mat', ch.tag)));
-        [afix, con_fix, alph_fix] = lib.efc(ch, dm, G0, a0, dz_idx, ...
-                                            cf2.niter, cf2.alphas);
-        c_static = con_fix(1);
-        c_fixed  = con_fix(end);
-        L = say_(L, '    fixed-G: %.3e -> %.3e in %d iters', ...
-                 c_static, c_fixed, numel(con_fix)-1);
+        r1cache = fullfile(P.outdir, sprintf('cf2_G_%s_r1.mat', ch.tag));
+        resumed = false;
+        if isfile(r1cache) && ~cf2.force
+            % RESTART RESUME (2026-08-26): a family whose _r1 cache exists
+            % but whose run state does not died between the relin-G
+            % measure and the final save.  The _r1 cache stores the a0 it
+            % was measured about = the fixed-G dug commands, and the line
+            % search is NOT bit-deterministic across a restart (a replay
+            % fails the cache's own 1e-15 a0 assert), so the cache is the
+            % AUTHORITY: adopt its commands, re-measure the two endpoints
+            % the lost process printed, skip the replay.  The round-1
+            % jacobian load then passes its a0 assert BY CONSTRUCTION.
+            Jr = load(r1cache, 'a0');
+            afix = Jr.a0;
+            lib.seta(dm, a0);    E = ch.run();
+            c_static = mean(abs(E(dz_idx)).^2) / ch.peak_bare;
+            lib.seta(dm, afix);  E = ch.run();
+            c_fixed  = mean(abs(E(dz_idx)).^2) / ch.peak_bare;
+            con_fix  = [c_static c_fixed];   alph_fix = NaN;
+            resumed  = true;
+            L = say_(L, '    fixed-G: RESUMED from the r1 cache (endpoints re-measured: %.3e -> %.3e)', ...
+                     c_static, c_fixed);
+        else
+            [afix, con_fix, alph_fix] = lib.efc(ch, dm, G0, a0, dz_idx, ...
+                                                cf2.niter, cf2.alphas);
+            c_static = con_fix(1);
+            c_fixed  = con_fix(end);
+            L = say_(L, '    fixed-G: %.3e -> %.3e in %d iters', ...
+                     c_static, c_fixed, numel(con_fix)-1);
+        end
 
         % ---- round 1: relinearize about the dug state -------------------
         [G1, jmeta1] = lib.jacobian(ch, dm, afix, dz_idx, P, ...
@@ -166,7 +190,8 @@ function OUT = cf2_efc(over)
             'la0', la0, 'la1', la1, 'la1_ach', la1_ach, 'ach_nm', ach_nm, ...
             'circ_stop_frac', ch.circ_stop_frac, 'area_factor', ch.area_factor, ...
             'lamD_px', ch.lamD_px, 'peak_bare', ch.peak_bare, ...
-            'jac0', jmeta0, 'jac1', jmeta1, 'N', P.dj.model);
+            'jac0', jmeta0, 'jac1', jmeta1, 'resumed', resumed, ...
+            'N', P.dj.model);
         save(state, 'res');
         R.(key) = res;
     end
