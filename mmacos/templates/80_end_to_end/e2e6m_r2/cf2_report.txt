@@ -1,0 +1,70 @@
+==================== e2e6m CF2 -- EFC floors per family
+deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_dm.in, model 512, poke 2 nm surface, 15+10 iters, annulus 3-15 lambda/D
+
+---- classical Lyot: SKIP (state exists: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf2_hard_run.mat) ----
+    static 3.503e-06 -> fixed-G 7.921e-07 -> relin 3.935e-07
+
+---- apodized Lyot (R1) ----
+    tag p_h280_L090_c098 | lambda/D 2.014 px | peak_bare 5.6835e+00 | thru 0.095 | stop r 112.7 px (area 0.920)
+    fixed-G: 4.485e-07 -> 1.623e-07 in 2 iters
+    relin:   1.623e-07 -> 1.081e-07 in 10 iters
+    linear-achievable: G1 1.088e-07 at the ACHIEVED 8.4 nm (rank 463)
+    (at the 50 nm bound: G0 1.125e-11 @ 49.8 nm | G1 2.813e-09 @ 50.0 nm -- linear model
+     NOT valid at those strokes; bound values are the model's claim, not physics)
+    strokes rms [8.36 8.35] nm | DZ symmetric fraction 0.99 -> 0.96 | z/z_T(15 lamD) 3.73e-03
+
+---- APLC (ap.-matched) ----
+    tag s_h280_L090_c098 | lambda/D 2.014 px | peak_bare 5.6835e+00 | thru 0.060 | stop r 112.7 px (area 0.920)
+    fixed-G: 1.074e-06 -> 9.176e-07 in 2 iters
+    relin:   9.176e-07 -> 7.519e-07 in 1 iters
+    linear-achievable: G1 7.537e-07 at the ACHIEVED 9.2 nm (rank 248)
+    (at the 50 nm bound: G0 9.213e-10 @ 49.2 nm | G1 3.579e-07 @ 46.8 nm -- linear model
+     NOT valid at those strokes; bound values are the model's claim, not physics)
+    strokes rms [11.13  6.70] nm | DZ symmetric fraction 0.60 -> 0.59 | z/z_T(15 lamD) 3.73e-03
+
+---- band-limited 4th ----
+    tag n_b40_L060_c098 | lambda/D 2.014 px | peak_bare 5.6835e+00 | thru 0.119 | stop r 112.7 px (area 0.920)
+    fixed-G: 1.636e-06 -> 1.347e-06 in 1 iters
+    relin:   1.347e-06 -> 1.257e-06 in 2 iters
+    linear-achievable: G1 7.235e-07 at the ACHIEVED 2.2 nm (rank 271)
+    (at the 50 nm bound: G0 1.977e-10 @ 50.0 nm | G1 1.439e-07 @ 49.3 nm -- linear model
+     NOT valid at those strokes; bound values are the model's claim, not physics)
+    strokes rms [2.84 1.40] nm | DZ symmetric fraction 0.98 -> 0.98 | z/z_T(15 lamD) 3.73e-03
+
+---- vortex chg 4 ----
+    tag n_v4_L060_c098 | lambda/D 2.014 px | peak_bare 5.6835e+00 | thru 0.331 | stop r 112.7 px (area 0.920)
+    fixed-G: 1.625e-05 -> 1.345e-05 in 2 iters
+    relin:   1.345e-05 -> 5.377e-06 in 6 iters
+    linear-achievable: G1 5.489e-06 at the ACHIEVED 8.7 nm (rank 361)
+    (at the 50 nm bound: G0 1.129e-08 @ 49.5 nm | G1 3.370e-06 @ 45.4 nm -- linear model
+     NOT valid at those strokes; bound values are the model's claim, not physics)
+    strokes rms [9.11 8.22] nm | DZ symmetric fraction 0.99 -> 0.98 | z/z_T(15 lamD) 3.73e-03
+
+---- vortex chg 6 ----
+    tag n_v6_L060_c098 | lambda/D 2.014 px | peak_bare 5.6835e+00 | thru 0.331 | stop r 112.7 px (area 0.920)
+    fixed-G: 1.844e-05 -> 1.440e-05 in 1 iters
+    relin:   1.440e-05 -> 3.925e-06 in 3 iters
+    linear-achievable: G1 4.656e-06 at the ACHIEVED 7.1 nm (rank 382)
+    (at the 50 nm bound: G0 2.595e-09 @ 49.3 nm | G1 2.337e-06 @ 46.4 nm -- linear model
+     NOT valid at those strokes; bound values are the model's claim, not physics)
+    strokes rms [7.28 6.83] nm | DZ symmetric fraction 0.99 -> 0.97 | z/z_T(15 lamD) 3.73e-03
+
+==== the S2 table (N=512; static/floors CLOSED-LOOP annulus 3-15 lambda/D) ====
+  family               | static     | fixed-G    | relin      | lin-ach    | stroke nm | attribution
+  ----------------------------------------------------------------------------------------------------------------
+  classical Lyot       | 3.503e-06 | 7.921e-07 | 3.935e-07 | 2.133e-07 | 14.6/14.2 | linear-optimal; amplitude/Talbot-limited (la 1.8x, sym 0.91)
+  apodized Lyot (R1)   | 4.485e-07 | 1.623e-07 | 1.081e-07 | 1.088e-07 |  8.4/ 8.4 | linear-optimal; amplitude/Talbot-limited (la 1.0x, sym 0.96)
+  APLC (ap.-matched)   | 1.074e-06 | 9.176e-07 | 7.519e-07 | 7.537e-07 | 11.1/ 6.7 | linear-optimal; substrate-limited (la 1.0x, sym 0.59)
+  band-limited 4th     | 1.636e-06 | 1.347e-06 | 1.257e-06 | 7.235e-07 |  2.8/ 1.4 | linear-optimal; amplitude/Talbot-limited (la 1.7x, sym 0.98)
+  vortex chg 4         | 1.625e-05 | 1.345e-05 | 5.377e-06 | 5.489e-06 |  9.1/ 8.2 | linear-optimal; amplitude/Talbot-limited (la 1.0x, sym 0.98)
+  vortex chg 6         | 1.844e-05 | 1.440e-05 | 3.925e-06 | 4.656e-06 |  7.3/ 6.8 | linear-optimal; amplitude/Talbot-limited (la 0.8x, sym 0.97)
+  ----------------------------------------------------------------------------------------------------------------
+  lin-ach = linear-achievable floor of the RELIN G at the ACHIEVED
+  stroke -- the measured attribution: a floor within ~2x of lin-ach
+  is the SUBSTRATE speaking, not the controller.
+  z/z_T at 15 lambda/D = 3.73e-03 (DM spacing 0.15 m): amplitude authority is
+  Talbot-weak on this train -- the S3 spacing trade measures the knob.
+
+  figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf2_floors.png
+
+CF2 DONE in 208.5 min
