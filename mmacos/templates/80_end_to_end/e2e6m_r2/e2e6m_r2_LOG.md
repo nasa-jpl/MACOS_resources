@@ -517,3 +517,58 @@ charge 4 leaks 1.8e-05 — five decades off its CTB clear-pupil analog
 UNOBSCURED train (no secondary; the brief's "gaps + secondary" is half
 right here, stated in the report).  Vortex thumbnails carry the
 hexagonal star of the gap lattice through the vortex null.
+
+## 2026-08-26 — CF0b: the circular stop (brief amendment, Dave), gated
+
+**Design change (S0b):** on segmented hex apertures the coronagraph's
+aperture is a CIRCULAR STOP at the apodizer plane; the telescope's hex
+envelope is upstream optics, not the coronagraph pupil.  `cf_chain`
+gains `circ_stop_frac` (P.cf default 0.98 x the hex pupil's INSCRIBED
+radius): the stop is folded into the apodizer plane of EVERY pass —
+bare included, so contrast normalizes to the CIRCULARIZED peak — the
+FPM/FPA lambda/D scales and the geometric Lyot radius are RE-MEASURED
+through the stop, the prolates are designed over the circularized
+pupil ('apl': the circular disc; 'aplc': the circularized gapped
+support), the tag gains `_c098`, and the config stamp gains the knob.
+The inscribed radius is measured from the CONVEX HULL of the traced
+support (min center-to-edge distance) — a polar max-radius scan would
+underestimate along the azimuthal gap lines.
+
+**The stamp-guard lesson (supervisor's check, confirmed by measurement):**
+`ctb_jac_check` PASSES a pre-stop Jacobian cache against a stop request
+— its compare-what-both-have contract skips keys the cached stamp
+lacks (deliberate, for CTB's legacy caches).  The campaign therefore
+carries a STRICT complement (`cf_efc_lib.stamp_parity`): every
+requested config key must exist in the cached stamp; a missing key =
+a stale GENERATION and the load refuses loudly.  `cf0b` demonstrates
+all three behaviors on the real `cf2_G_hard.mat`: ctb_jac_check passes
+it (the documented gap), strict parity refuses it, and it passes
+against its own config.
+
+**Sequencing:** cf2 was paused at the family boundary after four
+no-stop families completed; their results are PRESERVED as the
+"what the circular stop buys" comparison record
+(`cf1_nostop_run.mat` + `cf2_nostop_{hard,apl,aplc,blc}_run.mat`):
+hard 1.637e-06 -> 5.18e-07 fixed -> 3.18e-07 relin; apl 4.74e-07 ->
+1.76e-07 -> 1.29e-07; aplc 5.49e-07 -> 2.88e-07 -> 2.38e-07; blc
+1.68e-06 -> 1.43e-06 -> 1.31e-06.  Dark-zone SYMMETRIC fraction stays
+0.96-0.99 through control in every family — the amplitude-dominated
+gap speckle the Talbot-weak DM pair cannot reach (the S2/S3 readout).
+
+**CF0b gates (`cf0b_report.txt`):**
+- the no-stop path is byte-unchanged: cf0 re-ran 10/10 with the stop
+  machinery in the file;
+- stop sanity, and a geometry CORRECTION en route: the 19-segment
+  tiling envelope is ROUNDER than a pure hexagon — the outer ring
+  scallops the corners — inscribed/corner 0.9046 (pure hex: 0.866),
+  so the stop keeps 0.9202 of the collecting area (the pure-hex
+  pi/(2*sqrt(3))*0.98^2 = 0.871 bound does not apply).  The stopped
+  bare peak confirms it coherently: peak ratio 0.8488 vs area^2 =
+  0.8467.  First gate bounds assumed the pure hexagon and correctly
+  FAILED against the better measured geometry; bounds now pin the
+  tiling envelope.
+- the linear-achievable floor machinery (`cf_efc_lib.linfloor`,
+  closed-form rank curve from each cached G's SVD) + the measured S2
+  attribution (floor vs linear-achievable at the 50 nm stroke bound)
+  land with this commit; the S4 memo lambda-correctness gate is baked
+  into cf4's band leg.

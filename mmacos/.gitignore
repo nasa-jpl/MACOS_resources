@@ -40,4 +40,5 @@ templates/80_end_to_end/e2e6m/s4_sens.mat
 templates/80_end_to_end/e2e6m_r2/r3_sens.mat
 templates/80_end_to_end/e2e6m_r2/r3_dmjac.mat
 templates/80_end_to_end/e2e6m_r2/r3_met.mat
+templates/80_end_to_end/e2e6m_r2/cf2_G_*.mat
 templates/80_end_to_end/e2e6m_r2/deckfig/

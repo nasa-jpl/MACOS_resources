@@ -55,6 +55,12 @@ function OUT = cf1_families(over)
     L = say_(L, 'model %d, %g nm (band center), annulus %g-%g lambda/D, Strehl-normalised', ...
              P.co.model, P.lambda_m*1e9, P.co.inner_lamD, P.co.outer_lamD);
     L = say_(L, 'ALL NUMBERS PRE-CONTROL: DMs flat, open loop (S2 adds the closed-loop column)');
+    if P.cf.circ_stop_frac > 0
+        L = say_(L, 'S0b: circular stop at the apodizer, %.2f x the hex pupil''s inscribed radius;', ...
+                 P.cf.circ_stop_frac);
+        L = say_(L, '     contrast normalized to the CIRCULARIZED bare peak; the collecting-area');
+        L = say_(L, '     penalty is IN the throughput column, never in the normalization.');
+    end
 
     F = struct( ...
       'key',  {'hard',            'apl',                'aplc',               'blc',              'v4',            'v6'}, ...
@@ -78,7 +84,14 @@ function OUT = cf1_families(over)
     for k = 1:numel(F)
         L = say_(L, '\n---- %s ----', F(k).name);
         ch = cf_chain('rx', rx, 'model_size', P.co.model, ...
-                      'prolate_iter', P.co.prolate_iter, F(k).cfg{:});
+                      'prolate_iter', P.co.prolate_iter, ...
+                      'circ_stop_frac', P.cf.circ_stop_frac, F(k).cfg{:});
+        if k == 1 && ch.circ_stop_frac > 0
+            L = say_(L, '    S0b stop: r_inscribed %.1f px (hex corner r %.1f px, ratio %.4f)', ...
+                     ch.r_insc_px, ch.r_apod_px, ch.r_insc_px/ch.r_apod_px);
+            L = say_(L, '    stop r %.1f px (%.2f x inscribed); collecting-area factor %.4f', ...
+                     ch.r_stop_px, ch.circ_stop_frac, ch.area_factor);
+        end
         E  = ch.run();
         I  = abs(E).^2;
         dz = macos.dark_zone_metrics(I, ch.peak_bare, ch.lamD_px, ...
@@ -95,8 +108,8 @@ function OUT = cf1_families(over)
             'prolate_info', ch.prolate_info);
         L = say_(L, '    tag %s | DZ mean %.3e median %.3e | suppr %.3e | thru %.3f', ...
                  ch.tag, dz.mean, dz.median, supp, ch.thru);
-        if strcmp(F(k).key, 'apl')          % consistency thread back to R1
-            R1 = load(fullfile(P.outdir,'r1_coro_run.mat'));
+        if strcmp(F(k).key, 'apl') && P.cf.circ_stop_frac == 0
+            R1 = load(fullfile(P.outdir,'r1_coro_run.mat'));  % thread to R1
             r1m = R1.OUT.V(strcmp({R1.OUT.V.tag},'seg')).res.dz_aplc.mean;
             L = say_(L, '    vs R1 committed %.3e (rel %.3g) [consistency thread]', ...
                      r1m, abs(dz.mean-r1m)/r1m);
@@ -104,15 +117,39 @@ function OUT = cf1_families(over)
     end
 
     % ---- the table ------------------------------------------------------
+    % no-stop comparison record (the pre-S0b measurement, preserved as
+    % cf1_nostop_run.mat): the "what the circular stop buys" column
+    NS = struct();
+    nsf = fullfile(P.outdir, 'cf1_nostop_run.mat');
+    if P.cf.circ_stop_frac > 0 && isfile(nsf)
+        Q = load(nsf);
+        for k = 1:numel(Q.OUT.F)
+            NS.(Q.OUT.F(k).key) = Q.OUT.F(k).res.dz.mean;
+        end
+    end
     L = say_(L, '\n==== the S1 table (PRE-CONTROL, DMs flat; annulus %g-%g lambda/D) ====', ...
              P.co.inner_lamD, P.co.outer_lamD);
-    L = say_(L, '  %-20s | %-10s | %-10s | %-9s | %-6s | %s', ...
-             'family', 'DZ mean', 'DZ median', 'suppress', 'thru', 'note');
-    L = say_(L, '  %s', repmat('-', 1, 108));
+    hasNS = ~isempty(fieldnames(NS));
+    if hasNS
+        L = say_(L, '  %-20s | %-10s | %-10s | %-9s | %-6s | %-10s | %-9s | %s', ...
+                 'family', 'DZ mean', 'DZ median', 'suppress', 'thru', ...
+                 'no-stop', 'stop buys', 'note');
+    else
+        L = say_(L, '  %-20s | %-10s | %-10s | %-9s | %-6s | %s', ...
+                 'family', 'DZ mean', 'DZ median', 'suppress', 'thru', 'note');
+    end
+    L = say_(L, '  %s', repmat('-', 1, 128));
     for k = 1:numel(F)
-        L = say_(L, '  %-20s | %.3e | %.3e | %.3e | %5.1f%% | %s', ...
-                 F(k).name, F(k).res.dz.mean, F(k).res.dz.median, ...
-                 F(k).res.supp, 100*F(k).res.thru, F(k).note);
+        if hasNS && isfield(NS, F(k).key)
+            L = say_(L, '  %-20s | %.3e | %.3e | %.3e | %5.1f%% | %.3e | %8.2fx | %s', ...
+                     F(k).name, F(k).res.dz.mean, F(k).res.dz.median, ...
+                     F(k).res.supp, 100*F(k).res.thru, NS.(F(k).key), ...
+                     NS.(F(k).key)/F(k).res.dz.mean, F(k).note);
+        else
+            L = say_(L, '  %-20s | %.3e | %.3e | %.3e | %5.1f%% | %s', ...
+                     F(k).name, F(k).res.dz.mean, F(k).res.dz.median, ...
+                     F(k).res.supp, 100*F(k).res.thru, F(k).note);
+        end
     end
     L = say_(L, '  %-20s | %s', 'hybrid Lyot', ...
              'DEFERRED -- FALCO co-design product, no validated closed form (SESSION-6 ruling)');
@@ -120,6 +157,10 @@ function OUT = cf1_families(over)
     L = say_(L, '  (throughput = off-axis proxy: apodizer Phi^2-fill x Lyot area');
     L = say_(L, '   x (1-eps)^2 for the BLC -- the ctb_mask_compare convention)');
     L = say_(L, '  This train is UNOBSCURED: vortex leak is segment-gap-driven only.');
+    if hasNS
+        L = say_(L, '  "stop buys" = no-stop/stopped DZ mean.  For the vortex this SEPARATES');
+        L = say_(L, '  hex-edge leakage (removed by the stop) from gap leakage (remains).');
+    end
 
     % ---- figures --------------------------------------------------------
     png1 = fullfile(P.outdir, 'cf1_families.png');
@@ -145,8 +186,9 @@ function fig_summary_(F, P, png)
     set(f,'DefaultAxesFontSize',16,'DefaultTextFontSize',16);
     tl = tiledlayout(f, 2, 5, 'TileSpacing','compact', 'Padding','compact');
     title(tl, sprintf(['e2e6m segmented train -- coronagraph mask families, ' ...
-        'PRE-CONTROL (DMs flat)\nannulus %g-%g \\lambda/D, %g nm, N=%d'], ...
-        P.co.inner_lamD, P.co.outer_lamD, P.lambda_m*1e9, P.co.model), ...
+        'PRE-CONTROL (DMs flat)\nannulus %g-%g \\lambda/D, %g nm, N=%d%s'], ...
+        P.co.inner_lamD, P.co.outer_lamD, P.lambda_m*1e9, P.co.model, ...
+        stoplab_(P)), ...
         'FontWeight','bold', 'Interpreter','tex', 'FontSize',20);
 
     ax = nexttile(tl, [2 2]); hold(ax,'on'); set(ax,'YScale','log');
@@ -207,10 +249,18 @@ function fig_radial_(F, P, png)
            F(k).res.dz.mean), 1:numel(F), 'UniformOutput', false), ...
            'Location','northeastoutside');
     title(ax, sprintf(['mask families on the segmented train -- radial contrast, ' ...
-        'PRE-CONTROL\n(dark zone %g-%g \\lambda/D shaded)'], ...
+        'PRE-CONTROL%s\n(dark zone %g-%g \\lambda/D shaded)'], stoplab_(P), ...
         P.co.inner_lamD, P.co.outer_lamD), 'Interpreter','tex');
     exportgraphics(f, png, 'Resolution', 150);
     close(f);
+end
+
+function t = stoplab_(P)
+    if P.cf.circ_stop_frac > 0
+        t = sprintf(', circular stop %.2f R_{insc}', P.cf.circ_stop_frac);
+    else
+        t = '';
+    end
 end
 
 function o = crop_(img, w)
