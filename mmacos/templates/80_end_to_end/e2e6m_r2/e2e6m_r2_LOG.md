@@ -727,3 +727,23 @@ run state adopts the cached a0.  Launch lines:
   matlab -batch "cf3b_spacing"
 S3b spacings 0.15(=CF2 baseline)/0.40/0.70/1.10 m, apl leg all four +
 v4 at 0.15/0.70, Lyot held at the CF2 point (isolates spacing). **
+
+## 2026-08-27 — R3 + R3b: the L=0.98 closed loop — static-free is not loop-free
+
+R3 (CF2 protocol at L=0.98): 4.486e-7 -> 1.595e-7 -> 1.595e-7 (relin
+flat) at 3.3 nm strokes; lin-ach at that stroke 1.79e-9 — an 89x gap,
+the control-limited signature.  R3b (the R1 treatment: 13 alphas,
+cap 40): does NOT dig — 1.578e-7 in 2 iters.  So the stall is REAL
+(both probes independent), and the la gap is bound optimism at tiny
+strokes: the open Lyot's G carries deep top modes the measured chain
+cannot follow — the BLC substrate class (the extra light the open
+Lyot passes is gap-structured and model-mismatched).
+
+**Supervisor reading for the operating point (overrides the driver's
+coded 1.5x "adopt"):** closed loop, L=0.98 costs 1.46x in contrast
+(1.578e-7 vs 1.081e-7) for 1.19x in throughput (11.2% vs 9.5%) — a
+NET LOSS in a throughput/contrast merit (7.1e5 vs 8.8e5).  CF3a's
+"free throughput" was a STATIC statement; the closed-loop dial has a
+cost, and L=0.90 dominates.  Recommendation for the gate: keep
+L=0.90; an optional 0.94 probe (one Jacobian) would locate the knee
+exactly but cannot beat the L=0.90 point already in hand.
