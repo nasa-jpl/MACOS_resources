@@ -24,6 +24,7 @@ BUILDER = os.path.join(HERE, "..", "..", "..", "challenges", "rodgers3",
                        "make_brief_slides.py")
 
 r0, r1, r3, r4, r2m = R.r0(), R.r1(), R.r3(), R.r4(), R.r2m()
+cf1, cf1c, cf2, cf3a = R.cf1(), R.cf1c(), R.cf2(), R.cf3a()
 s1, s2, s3c = R.s1(), R.s2(), R.s3c()
 
 
@@ -47,7 +48,9 @@ FIG = {n: crop(n) for n in (
     "r2_sequence.png", "r2_back_plane.png", "r2_train_iso.png",
     "r2_apodizer.png", "r2_fpm_mask.png", "r1_dm_poke.png",
     "r1_contrast.png", "r3_svspec.png", "r3_met_layout.png",
-    "r4_series.png", "r1_union_shroud.png")}
+    "r4_series.png", "r1_union_shroud.png",
+    "cf1_families.png", "cf2_floors.png", "cf3a_lyot.png",
+    "cf1c_stop_attrib.png")}
 for n in ("s1_layout.png", "s1_wfe_field.png", "s2_segmented_footprints.png"):
     FIG[n] = crop(n, src_dir=R1DIR)
 
@@ -67,6 +70,7 @@ SURFROWS = "".join(
 MD = f"""# A 6 m unobscured coronagraph, end to end -- with the loop closed
 An optical design, its segmentation, its instrument with deformable mirrors and metrology, its error budget and its corrected drift -- one model, one train
 ~ Built with MACOS / mmacos.  Every number on these slides is parsed from the committed stage reports; no figure was redrawn for the deck.
+~ DRAFT (2026-08-27): the coronagraph-family slides (families / floors / Lyot trade) await Dave's review of the CF1c-CF3a numbers.
 
 Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at the exit pupil of the configuration being quoted -- the telescope's own for the telescope-only slides, the coronagraph's once the instrument is attached (and every model-vs-engine check is evaluated at the surface its sensitivity model was harvested at).  Contrast is the dark-zone mean over {r1['inner']:.0f}–{r1['outer']:.0f} {LAM}/D, normalised to the bare on-axis peak of the same train; static scoring at a 1024 grid, the drift series at {r4['model']:.0f} (its control operator's grid).  The diffraction limit is {s1['dl_bar']:.3f} waves RMS.  Packaging is a deployed, diameter-only fit in an {s1['shroud_gate']:.0f} m launch shroud.
 
@@ -137,6 +141,28 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at
 ::: right
 ![Radial contrast, both apertures, dark zone shaded.  The segmented curve plateaus where the monolithic one keeps falling -- that plateau is gap-scattered light.]({FIG['r1_contrast.png']}){{h=4.6}}
 
+## Six coronagraphs, one train | Pre-control: the apodized Lyot leads at {cf1['fam']['apl']['mean']:.1e}; the vortex pays the gaps ~40x
+::: left
+- **The design rule that made them comparable.**  On a segmented hex aperture the coronagraph's pupil is a CIRCULAR STOP at the apodizer plane -- the telescope's hex envelope is upstream optics, not the coronagraph pupil.  Every family below sees the same circularized, gapped pupil; contrast normalizes to its bare peak, and the stop's ~8% collecting-area cost sits in the throughput column.
+- **The families (dark-zone mean, PRE-CONTROL | throughput):** classical Lyot {cf1['fam']['hard']['mean']:.2e} pre-control, {cf1['fam']['hard']['thru_pct']:.0f}% throughput; apodized Lyot {cf1['fam']['apl']['mean']:.2e} pre-control, {cf1['fam']['apl']['thru_pct']:.0f}% throughput; APLC {cf1['fam']['aplc']['mean']:.2e} pre-control, {cf1['fam']['aplc']['thru_pct']:.0f}% throughput (aperture-matched prolate: solver-limited, flag stands); band-limited {cf1['fam']['blc']['mean']:.2e} pre-control, {cf1['fam']['blc']['thru_pct']:.0f}% throughput; vortex c4 {cf1['fam']['v4']['mean']:.2e} pre-control, {cf1['fam']['v4']['thru_pct']:.0f}% throughput; c6 {cf1['fam']['v6']['mean']:.2e} pre-control, {cf1['fam']['v6']['thru_pct']:.0f}% throughput -- the vortex passes the segment-gap light the occulting families block.
+- **The stop's 2.16x on the bare occulter, attributed by measurement:** entirely the stop edge at fixed masks (the scale re-reference contributes {cf1c['rechain']:.2f}x); the Babinet split shows the edge enters by coherent INTERFERENCE with the gap field (cross {cf1c['cross']:.1e} vs the rim's own {cf1c['rim']:.1e}) -- coherent, hence in the loop's reach.  The next slide cashes that.
+::: right
+![The six families, statics on the circularized segmented train.]({FIG['cf1_families.png']}){{h=4.6}}
+
+## The loop on every family | All six floors sit within 2x of their own Jacobian's linear-achievable: the substrate speaks, not the controller
+::: left
+- **static -> relin floor | linear-achievable at the achieved stroke:** classical Lyot {cf2['fam']['hard']['static']:.1e} -> {cf2['fam']['hard']['relin']:.1e} | {cf2['fam']['hard']['linach']:.1e}; apodized Lyot {cf2['fam']['apl']['static']:.1e} -> {cf2['fam']['apl']['relin']:.1e} | {cf2['fam']['apl']['linach']:.1e} (the campaign floor); APLC {cf2['fam']['aplc']['static']:.1e} -> {cf2['fam']['aplc']['relin']:.1e} | {cf2['fam']['aplc']['linach']:.1e}; band-limited {cf2['fam']['blc']['static']:.1e} -> {cf2['fam']['blc']['relin']:.1e} | {cf2['fam']['blc']['linach']:.1e}; vortex c4 {cf2['fam']['v4']['static']:.1e} -> {cf2['fam']['v4']['relin']:.1e} | {cf2['fam']['v4']['linach']:.1e}; c6 {cf2['fam']['v6']['static']:.1e} -> {cf2['fam']['v6']['relin']:.1e} | {cf2['fam']['v6']['linach']:.1e}.
+- **The stopped occulter digs 8.9x where its no-stop self dug 5.2x** -- the loop claws back most of the coherent edge term the previous slide measured.
+- **The vortices are linear-optimal:** relinearization pays 2.5-3.7x where the fixed Jacobian paid 1.2x (gap-chasing strokes reach the linearity boundary early), and the residual gap leak is uncontrollable at this amplitude authority.
+- **The knob is the DM spacing:** z/z_T = {cf2['zzT']:.1e} at the outer working angle -- Talbot-weak amplitude authority is the common ceiling; the spacing trade prices it.
+::: right
+![Convergence per family (relinearization joins at the dotted lines) and the closed-loop column.]({FIG['cf2_floors.png']}){{h=4.6}}
+
+## The Lyot trade | Throughput is bought with contrast on every leg; the operating points were chosen, not defaulted
+::: full
+- **The sweep.**  Lyot fraction against contrast AND throughput for the vortex legs and the apodized-Lyot leg, statics under the stop; stars mark the S1 operating points the campaign scored.
+![Contrast vs Lyot fraction (left) and the contrast-throughput trade with the family operating points (right).]({FIG['cf3a_lyot.png']}){{h=4.2}}
+
 ## The error budget closes | Engine vs model: worst 0.35% over a segment, a DM and a relay mirror, all six freedoms
 ::: left
 - **The model.** Wavefront sensitivity to every rigid-body freedom of {r3['n_optics']} optics -- the segments, the fold mirrors, the relay and both DMs -- plus segment figure modes and a per-segment influence basis: {r3['dwdx_cols']} + {r3['dwdz_cols']} + {r3['dwdg_cols']} channels over five field points.
@@ -173,6 +199,14 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at
 - **All of it is committed**: prescriptions, runners, reports, and this deck's numbers are one `git clone` away.
 
 ## Backup Slides
+
+## The stop's edge, measured | A Babinet split with 1e-15 closure: the edge interferes, it does not merely add
+::: left
+- **Method.**  The circular stop applied as a SCREEN on the no-stop chain holds every mask and scale fixed, so E_rim = E_hex - E_screened is exactly the blocked rim's field.  Pins: screened bare peak == stopped bare peak to 0.0e0; both S1 records reproduced under 1%.
+- **The split (dark-zone mean energy):** I_ns {cf1c['I_ns']:.2e} + rim {cf1c['rim']:.2e} + cross {cf1c['cross']:.2e} -- the rim's own ring is ~28% of the increase; the cross term (coherent interference with the pre-existing gap speckle) is 2.6x larger.  Peak renormalization {cf1c['pk_ratio']:.3f}x; dark-zone energy up {cf1c['energy_up']:.2f}x at fixed masks; the lambda/D re-reference contributes {cf1c['rechain']:.2f}x.
+- **The APLC flag, restated:** the stopped aperture-matched prolate hit its iteration cap unconverged (the answer moves with the cap -- not an eigenfunction, not a design); its row stands flagged, and the block/Lanczos eigensolver or the N'Diaye LP co-design are the named, deferred machines.
+::: right
+![Where the stop's edge lands: no-stop, stop-as-screen, and the rim field alone.]({FIG['cf1c_stop_attrib.png']}){{h=4.2}}
 
 ## The round-1 disagreement, resolved | The same basis includes the evaluation surface
 ::: left

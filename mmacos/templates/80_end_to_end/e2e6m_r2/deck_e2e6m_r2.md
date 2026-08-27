@@ -1,6 +1,7 @@
 # A 6 m unobscured coronagraph, end to end — with the loop closed
 An optical design, its segmentation, its instrument with deformable mirrors and metrology, its error budget and its corrected drift — one model, one train
 ~ Built with MACOS / mmacos.  Every number on these slides is parsed from the committed stage reports; no figure was redrawn for the deck.
+~ DRAFT (2026-08-27): the coronagraph-family slides (families / floors / Lyot trade) await Dave's review of the CF1c-CF3a numbers.
 
 Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of the configuration being quoted — the telescope's own for the telescope-only slides, the coronagraph's once the instrument is attached (and every model-vs-engine check is evaluated at the surface its sensitivity model was harvested at).  Contrast is the dark-zone mean over 3–15 λ/D, normalised to the bare on-axis peak of the same train; static scoring at a 1024 grid, the drift series at 512 (its control operator's grid).  The diffraction limit is 0.071 waves RMS.  Packaging is a deployed, diameter-only fit in an 8 m launch shroud.
 
@@ -71,6 +72,28 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 ::: right
 ![Radial contrast, both apertures, dark zone shaded.  The segmented curve plateaus where the monolithic one keeps falling — that plateau is gap-scattered light.](deckfig/r1_contrast.png){h=4.6}
 
+## Six coronagraphs, one train | Pre-control: the apodized Lyot leads at 4.4e-07; the vortex pays the gaps ~40x
+::: left
+- **The design rule that made them comparable.**  On a segmented hex aperture the coronagraph's pupil is a CIRCULAR STOP at the apodizer plane — the telescope's hex envelope is upstream optics, not the coronagraph pupil.  Every family below sees the same circularized, gapped pupil; contrast normalizes to its bare peak, and the stop's ~8% collecting-area cost sits in the throughput column.
+- **The families (dark-zone mean, PRE-CONTROL | throughput):** classical Lyot 3.50e-06 pre-control, 23% throughput; apodized Lyot 4.37e-07 pre-control, 9% throughput; APLC 2.18e-06 pre-control, 8% throughput (aperture-matched prolate: solver-limited, flag stands); band-limited 1.64e-06 pre-control, 12% throughput; vortex c4 1.64e-05 pre-control, 33% throughput; c6 1.87e-05 pre-control, 33% throughput — the vortex passes the segment-gap light the occulting families block.
+- **The stop's 2.16x on the bare occulter, attributed by measurement:** entirely the stop edge at fixed masks (the scale re-reference contributes 1.00x); the Babinet split shows the edge enters by coherent INTERFERENCE with the gap field (cross 6.5e-06 vs the rim's own 2.5e-06) — coherent, hence in the loop's reach.  The next slide cashes that.
+::: right
+![The six families, statics on the circularized segmented train.](deckfig/cf1_families.png){h=4.6}
+
+## The loop on every family | All six floors sit within 2x of their own Jacobian's linear-achievable: the substrate speaks, not the controller
+::: left
+- **static -> relin floor | linear-achievable at the achieved stroke:** classical Lyot 3.5e-06 -> 3.9e-07 | 2.1e-07; apodized Lyot 4.5e-07 -> 1.1e-07 | 1.1e-07 (the campaign floor); APLC 1.1e-06 -> 7.5e-07 | 7.5e-07; band-limited 1.6e-06 -> 1.3e-06 | 7.2e-07; vortex c4 1.6e-05 -> 5.4e-06 | 5.5e-06; c6 1.8e-05 -> 3.9e-06 | 4.7e-06.
+- **The stopped occulter digs 8.9x where its no-stop self dug 5.2x** — the loop claws back most of the coherent edge term the previous slide measured.
+- **The vortices are linear-optimal:** relinearization pays 2.5-3.7x where the fixed Jacobian paid 1.2x (gap-chasing strokes reach the linearity boundary early), and the residual gap leak is uncontrollable at this amplitude authority.
+- **The knob is the DM spacing:** z/z_T = 3.7e-03 at the outer working angle — Talbot-weak amplitude authority is the common ceiling; the spacing trade prices it.
+::: right
+![Convergence per family (relinearization joins at the dotted lines) and the closed-loop column.](deckfig/cf2_floors.png){h=4.6}
+
+## The Lyot trade | Throughput is bought with contrast on every leg; the operating points were chosen, not defaulted
+::: full
+- **The sweep.**  Lyot fraction against contrast AND throughput for the vortex legs and the apodized-Lyot leg, statics under the stop; stars mark the S1 operating points the campaign scored.
+![Contrast vs Lyot fraction (left) and the contrast-throughput trade with the family operating points (right).](deckfig/cf3a_lyot.png){h=4.2}
+
 ## The error budget closes | Engine vs model: worst 0.35% over a segment, a DM and a relay mirror, all six freedoms
 ::: left
 - **The model.** Wavefront sensitivity to every rigid-body freedom of 31 optics — the segments, the fold mirrors, the relay and both DMs — plus segment figure modes and a per-segment influence basis: 192 + 152 + 114 channels over five field points.
@@ -112,6 +135,14 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 - **All of it is committed**: prescriptions, runners, reports, and this deck's numbers are one `git clone` away.
 
 ## Backup Slides
+
+## The stop's edge, measured | A Babinet split with 1e-15 closure: the edge interferes, it does not merely add
+::: left
+- **Method.**  The circular stop applied as a SCREEN on the no-stop chain holds every mask and scale fixed, so E_rim = E_hex - E_screened is exactly the blocked rim's field.  Pins: screened bare peak == stopped bare peak to 0.0e0; both S1 records reproduced under 1%.
+- **The split (dark-zone mean energy):** I_ns 1.09e-05 + rim 2.53e-06 + cross 6.54e-06 — the rim's own ring is ~28% of the increase; the cross term (coherent interference with the pre-existing gap speckle) is 2.6x larger.  Peak renormalization 1.178x; dark-zone energy up 1.83x at fixed masks; the lambda/D re-reference contributes 1.00x.
+- **The APLC flag, restated:** the stopped aperture-matched prolate hit its iteration cap unconverged (the answer moves with the cap — not an eigenfunction, not a design); its row stands flagged, and the block/Lanczos eigensolver or the N'Diaye LP co-design are the named, deferred machines.
+::: right
+![Where the stop's edge lands: no-stop, stop-as-screen, and the rim field alone.](deckfig/cf1c_stop_attrib.png){h=4.2}
 
 ## The round-1 disagreement, resolved | The same basis includes the evaluation surface
 ::: left

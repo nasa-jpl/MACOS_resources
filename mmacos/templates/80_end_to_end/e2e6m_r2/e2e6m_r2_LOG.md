@@ -678,3 +678,26 @@ never exercised in-process) — flattened with a shape guard;
 bit-deterministic across restarts), re-measuring the two endpoints —
 the 'resumed' flag marks affected records (none in this final table:
 apl re-ran from its cached forward G cleanly).
+
+## 2026-08-27 — CF3a: the Lyot trade (static) + the DRAFT deck slides
+
+**The sweep (7 fractions x 3 legs, statics under the stop, 8.4 min):**
+the vortex legs rise monotonically as the Lyot opens (v4 9.4e-6 @ 23%
+thru -> 1.09e-4 @ 88%; v6 similar) -- the CTB dial's shape, with the
+depth difference fully explained by gap leak dominating this pupil.
+THE FINDING: **the apodized-Lyot leg's contrast is FLAT across the
+entire dial** (4.25e-7 -> 4.37e-7) while throughput rises 2.8% ->
+10.8% -- the prolate does all the suppression and the Lyot is nearly
+free throughput on this train; the S1 operating point (L=0.90) leaves
+~19% relative throughput on the table vs L=0.98 at zero contrast
+cost.  Pin: the supplied-mask path reproduces the S1 point exactly
+(4.375e-7 at L=0.90).  No stop-rule triggers.
+
+**Deck: three CF main slides + one backup drafted into the generator**
+(records-parsed from cf1/cf1c/cf2/cf3a reports -- new record fns in
+e2e6m_r2_records.py; loud on any miss), rebuilt 25 slides, kicker
+carries the DRAFT marker: numbers await Dave's morning review.
+Noted for finalization: two derived ratios (8.9x/5.2x dig ratios,
+2.16x title) are literals pending a records home; the N=512 vs N=1024
+APLC static difference (1.07e-6 vs 2.18e-6) is the cap-limited
+prolate moving with N -- one more face of the standing flag.
