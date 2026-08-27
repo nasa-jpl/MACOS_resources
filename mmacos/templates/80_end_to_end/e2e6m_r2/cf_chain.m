@@ -80,7 +80,23 @@ function ch = cf_chain(opts)
                                {'separable','radial','linear'})} = 'separable'
         opts.lyot          (1,1) logical = true
         opts.r_lyot_frac   (1,1) double = 0.90
+        opts.circ_stop_frac (1,1) double {mustBeInRange(opts.circ_stop_frac,0,1)} = 0
     end
+    % CIRC_STOP_FRAC (S0b, Dave 2026-08-26): circularize the pupil at the
+    % apodizer plane.  The hex outer edge breaks every family's design
+    % assumption (vortex azimuthal symmetry; the prolates are circular-
+    % aperture constructs) and hex-corner diffraction lands structured
+    % energy in the dark zone.  When > 0, a circular stop of radius
+    % circ_stop_frac x the hex pupil's INSCRIBED radius (measured: convex
+    % hull of the traced support, min center-to-edge distance) is folded
+    % into the apodizer plane of EVERY pass -- including the BARE pass, so
+    % contrast normalizes to the CIRCULARIZED bare peak.  Prolates are
+    % designed over the circularized pupil; the FPM/FPA lambda/D scales
+    % and the geometric Lyot radius are RE-MEASURED through the stop; the
+    % throughput proxy carries the measured collecting-area factor
+    % (inscribed-circle/hex ~ 0.907 before margin -- never hidden in the
+    % normalization).  0 (default) = no stop, byte-identical to the S0
+    % behavior the R1 bit-consistency gate pins.
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
     addpath(fullfile(here, '..', '..', '30_instruments', 'bench_ctb'));
@@ -131,17 +147,57 @@ function ch = cf_chain(opts)
     r_apod_px = beam_radius_(Iap, 1);
     support = double(Iap > 0.02 * max(Iap(:)));   % the TRACED gapped pupil
 
+    % ---- the circular stop (S0b) + scale re-measurement through it -----
+    if opts.circ_stop_frac > 0
+        r_insc_px = inscribed_radius_(support, floor(N/2) + 1);
+        r_stop_px = opts.circ_stop_frac * r_insc_px;
+        Stop = ctb_mask_disk(N, 1, r_stop_px, 8);
+        area_factor = sum(Stop(:) .* support(:)) / max(sum(support(:)), 1);
+        % every scale the masks and metrics depend on is RE-MEASURED with
+        % the stop in the beam -- lambda/D references the circular pupil
+        macos.intensity(e.DM1);
+        macos.intensity(e.Apodizer, 'reset_trace', false);
+        macos.apodize(e.Apodizer, Stop);
+        macos.intensity(e.FPM, 'reset_trace', false);
+        Isph   = macos.intensity(e.FPM-1, 'reset_trace', false);
+        dx_sph = abs(macos.dx_at(e.FPM-1));
+        R_fpm  = abs(macos.get_elt_z(e.FPM-1)) * cbm;
+        Dbeam  = 2 * beam_radius_(Isph, dx_sph);
+        dx_f       = lambda_m * R_fpm / (N * dx_sph);
+        lamD_fpm_m = lambda_m * R_fpm / Dbeam;
+        Ily = macos.intensity(e.Lyot, 'reset_trace', false);
+        r_lyot_geom_m = beam_radius_(Ily, abs(macos.dx_at(e.Lyot)));
+        macos.intensity(e.DM1);
+        macos.intensity(e.Apodizer, 'reset_trace', false);
+        macos.apodize(e.Apodizer, Stop);
+        macos.intensity(e.FPA, 'reset_trace', false);
+        Iep  = macos.intensity(e.ExitPupil, 'reset_trace', false);
+        Dep  = 2 * beam_radius_(Iep, abs(macos.dx_at(e.ExitPupil)));
+        Rfpa = abs(macos.get_elt_z(e.ExitPupil)) * cbm;
+        lamD_px = (lambda_m * Rfpa / Dep) / abs(macos.dx_at(e.FPA));
+    else
+        Stop = [];  r_insc_px = NaN;  r_stop_px = 0;  area_factor = 1;
+    end
+
     % ---- masks, built once (all 8x supersampled/binned) ----------------
     masks = struct();
+    masks.S = Stop;                               % the pupil stop (S0b)
     pinfo = struct('lambda0', NaN, 'converged', NaN, 'n_iter_used', 0);
+    if opts.circ_stop_frac > 0
+        r_design_px = r_stop_px;                  % prolates: circular pupil
+        support_dsn = support .* Stop;            % ...or the circularized
+    else                                          %    gapped support
+        r_design_px = r_apod_px;
+        support_dsn = support;
+    end
     switch opts.apod_kind
         case 'prolate'
-            [masks.A, pinfo] = ctb_apod_prolate(N, r_apod_px, opts.r_fpm_lamD, ...
+            [masks.A, pinfo] = ctb_apod_prolate(N, r_design_px, opts.r_fpm_lamD, ...
                                                 'n_iter', opts.prolate_iter);
         case 'prolate_seg'
-            [masks.A, pinfo] = ctb_apod_prolate(N, r_apod_px, opts.r_fpm_lamD, ...
+            [masks.A, pinfo] = ctb_apod_prolate(N, r_design_px, opts.r_fpm_lamD, ...
                                                 'n_iter', opts.prolate_iter, ...
-                                                'support', support);
+                                                'support', support_dsn);
         case 'supplied'
             assert(isequal(size(opts.apod_mask), [N N]), ...
                 'cf_chain: apod_mask must be %dx%d', N, N);
@@ -170,12 +226,17 @@ function ch = cf_chain(opts)
     masks.r_lyot_geom_m = r_lyot_geom_m;
 
     % ---- off-axis throughput proxy (ctb_mask_compare convention) -------
+    % With the stop: Phi^2-fill over the CIRCULAR pupil disc, times the
+    % MEASURED collecting-area factor the stop keeps of the hex pupil
+    % (inscribed-circle/hex ~ 0.907 before margin) -- the ~10% is in the
+    % throughput column, never hidden in the normalization.
+    if opts.circ_stop_frac > 0, r_fill = r_stop_px; else, r_fill = r_apod_px; end
     if isempty(masks.A)
         thru_apod = 1;
     else
-        thru_apod = phi2_fill_(masks.A, r_apod_px);
+        thru_apod = phi2_fill_(masks.A, r_fill);
     end
-    thru = thru_apod;
+    thru = area_factor * thru_apod;
     if opts.lyot, thru = thru * opts.r_lyot_frac^2; end
     if strcmp(opts.fpm_kind, 'blc')
         % the BLC transmits (1-eps) in amplitude off-axis on top of its Lyot
@@ -189,6 +250,7 @@ function ch = cf_chain(opts)
               'blc_eps', opts.blc_eps, 'blc_order', opts.blc_order, ...
               'blc_form', opts.blc_form, ...
               'lyot', opts.lyot, 'r_lyot_frac', opts.r_lyot_frac, ...
+              'circ_stop_frac', opts.circ_stop_frac, ...
               'support_npx', nnz(support)};
     if strcmp(opts.apod_kind, 'supplied')
         config = [config, {'apod_fro', norm(masks.A(:))}];
@@ -203,6 +265,9 @@ function ch = cf_chain(opts)
     if opts.lyot, lk = sprintf('L%03d', round(100*opts.r_lyot_frac));
     else,         lk = 'L---'; end
     tag = sprintf('%s_%s_%s', ak.(opts.apod_kind), fk, lk);
+    if opts.circ_stop_frac > 0
+        tag = sprintf('%s_c%03d', tag, round(100*opts.circ_stop_frac));
+    end
 
     % ---- runner --------------------------------------------------------
     ch = struct();
@@ -213,12 +278,23 @@ function ch = cf_chain(opts)
     ch.center_px = floor(N/2) + 1;
     ch.masks = masks;  ch.coro = opts.coro;
     ch.r_apod_px = r_apod_px;  ch.support = support;
+    ch.circ_stop_frac = opts.circ_stop_frac;
+    ch.r_stop_px = r_stop_px;  ch.r_insc_px = r_insc_px;
+    ch.area_factor = area_factor;
     ch.prolate_info = pinfo;
     ch.run               = @() run_(opts.coro, []);
     ch.run_bare          = @() run_bare_();
     ch.run_screened      = @(S) run_(opts.coro, S);
     ch.run_bare_screened = @(S) run_(false, S);
     ch.dz_mask = @dz_mask_;
+    % Operating-point setters (S3/S4).  They mutate the CLOSURE masks the
+    % runner reads -- ch.masks stays the as-built copy; the caller owns
+    % the bookkeeping of what it swept.
+    wvl0_native = macos.get_src_wvl();            % deck units, build lambda
+    r_occ_m_fix = opts.r_fpm_lamD * lamD_fpm_m;   % manufactured radius, m
+    Fcache = containers.Map('KeyType','char','ValueType','any');
+    ch.set_lyot   = @(frac) set_lyot_(frac);      % returns the new thru proxy
+    ch.set_lambda = @(lf) set_lambda_(lf);        % lf = lambda/lambda0
 
     % bare on-axis peak (current DM state) -- the contrast normalizer
     Eb = ch.run_bare();
@@ -227,8 +303,14 @@ function ch = cf_chain(opts)
     function E = run_bare_()
         % ctb_aplc's bare_peak_ walk exactly: one DM1 stop, then the FPA
         % -- NO other intermediate stops (each read-and-continue perturbs
-        % the field at the 1e-10 level; measured, cf0).
+        % the field at the 1e-10 level; measured, cf0).  With the S0b
+        % stop the bare pass carries the stop too -- it is the PUPIL, not
+        % a coronagraph mask -- so peak_bare is the CIRCULARIZED peak.
         macos.intensity(e.DM1);                       % fresh trace
+        if ~isempty(masks.S)
+            macos.intensity(e.Apodizer, 'reset_trace', false);
+            macos.apodize(e.Apodizer, masks.S);
+        end
         E = macos.complex_field(e.FPA, 'reset_trace', false);
     end
 
@@ -237,8 +319,13 @@ function ch = cf_chain(opts)
         macos.intensity(e.DM1);                       % fresh trace
         macos.intensity(e.DM2, 'reset_trace', false);
         macos.intensity(e.Apodizer, 'reset_trace', false);
+        if ~isempty(masks.S)
+            macos.apodize(e.Apodizer, masks.S);       % the pupil stop: every pass
+        end
         if withMasks && ~isempty(masks.A)
             macos.apodize(e.Apodizer, masks.A);
+        end
+        if ~isempty(masks.S) || (withMasks && ~isempty(masks.A))
             macos.intensity(e.Apodizer, 'reset_trace', false);
         end
         if ~isempty(S)
@@ -259,6 +346,41 @@ function ch = cf_chain(opts)
             macos.intensity(e.Lyot, 'reset_trace', false);
         end
         E = macos.complex_field(e.FPA, 'reset_trace', false);
+    end
+
+    function thru_new = set_lyot_(frac)
+        % re-size the Lyot stop in place (S3 sweep); pupil-plane, so it
+        % is wavelength-invariant and needs no other rebuild
+        masks.L = ctb_mask_disk(N, abs(macos.dx_at(e.Lyot)), ...
+                                frac * r_lyot_geom_m, 8);
+        thru_new = area_factor * thru_apod * frac^2;
+        if strcmp(opts.fpm_kind, 'blc')
+            thru_new = thru_new * (1 - opts.blc_eps)^2;
+        end
+    end
+
+    function set_lambda_(lf)
+        % move the source wavelength and rebuild the lambda-dependent
+        % masks as FIXED-METRES (manufactured) objects: the FPM-plane
+        % pitch scales with lambda, the physical mask does not (the
+        % SESSION-5 rule).  Pupil masks (apodizer, Lyot) are invariant;
+        % the vortex is angle-only.  The caller owns per-lambda dark-zone
+        % radii and band normalization.
+        macos.set_src_wvl(wvl0_native * lf);
+        if ~any(strcmp(opts.fpm_kind, {'hard','blc'})), return; end
+        keyc = sprintf('%.6f', lf);
+        if isKey(Fcache, keyc)                    % memoized: a lambda sweep
+            masks.F = Fcache(keyc);               % rebuilds each mask ONCE
+            return
+        end
+        switch opts.fpm_kind
+            case 'hard'
+                masks.F = 1 - ctb_mask_disk(N, dx_f * lf, r_occ_m_fix, 8);
+            case 'blc'
+                masks.F = ctb_mask_bandlimited(N, dx_f * lf, lamD_fpm_m, ...
+                              opts.blc_eps, opts.blc_order, opts.blc_form);
+        end
+        Fcache(keyc) = masks.F;
     end
 
     function M = dz_mask_(inner_lamD, outer_lamD)
@@ -294,6 +416,23 @@ function [e, dm_elt] = elt_map_(rx)
         assert(~isempty(e.(f{k})), 'cf_chain: %s not in %s', f{k}, rx);
     end
     dm_elt = [at('DM1'), at('DM2')];
+end
+
+function r = inscribed_radius_(support, c)
+%INSCRIBED_RADIUS_  Inscribed-circle radius (px) of the pupil's OUTER
+%   envelope about the beam pixel c: convex hull of the support (the hex
+%   envelope is convex; the gaps cannot bite the hull), then the minimum
+%   center-to-hull-EDGE distance.  A polar max-radius scan would
+%   underestimate along the azimuthal gap lines; the hull does not.
+    [yy, xx] = find(support > 0.5);
+    k = convhull(xx, yy);
+    hx = xx(k) - c;  hy = yy(k) - c;         % hull vertices about center
+    r = inf;
+    for q = 1:numel(hx)-1
+        p1 = [hx(q); hy(q)];  p2 = [hx(q+1); hy(q+1)];
+        v = p2 - p1;  t = max(0, min(1, -(p1.'*v) / max(v.'*v, eps)));
+        r = min(r, norm(p1 + t*v));          % distance center -> segment
+    end
 end
 
 function rr = beam_radius_(I, dx)

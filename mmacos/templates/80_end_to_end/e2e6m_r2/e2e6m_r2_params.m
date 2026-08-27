@@ -74,6 +74,20 @@ function P = e2e6m_r2_params(over)
     P.dj.h        = 2e-9;          % poke, m of surface (OPD nonlinearity
                                    % quadratic in the poke phase)
 
+    % ---- the coronagraph-family campaign (CF stages) --------------------
+    P.cf.circ_stop_frac = 0.98;    % S0b (Dave 2026-08-26): circularize the
+                                   % pupil at the apodizer -- a circular
+                                   % stop at this fraction of the hex
+                                   % pupil's INSCRIBED radius, folded into
+                                   % every family's apodizer-plane mask
+                                   % (bare pass included; contrast
+                                   % normalizes to the circularized peak).
+                                   % The hex envelope is upstream optics,
+                                   % not the coronagraph pupil.  0 = off
+                                   % (the R1/no-stop configuration).
+    P.cf.stroke_bound_nm = 50;     % linear-achievable floor stroke bound
+                                   % (the ctb_efc stroke_warn class)
+
     % ---- overrides ------------------------------------------------------
     fn = fieldnames(over);
     for i = 1:numel(fn)
