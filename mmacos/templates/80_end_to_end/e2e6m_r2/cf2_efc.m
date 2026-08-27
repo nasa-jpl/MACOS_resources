@@ -118,11 +118,22 @@ function OUT = cf2_efc(over)
                  con_rel(1), c_relin, numel(con_rel)-1);
 
         % ---- linear-achievable floors (MEASURED attribution) ------------
+        % Two readings of the rank curve: at the stroke BOUND (what more
+        % stroke could buy IF the linear model held there -- at 50 nm it
+        % does not: 2 nm pokes extrapolated to 1.3 rad of phase), and at
+        % the ACHIEVED stroke (the honest control-vs-substrate question:
+        % did the loop reach what its own G says is possible at the
+        % strokes it actually used -- the CTB "4.5e-9 at 11 nm" pattern).
         la0 = lib.linfloor(G0, P.cf.stroke_bound_nm);
         la1 = lib.linfloor(G1, P.cf.stroke_bound_nm);
-        L = say_(L, '    linear-achievable: G0 %.3e @ %.1f nm (rank %d) | G1 %.3e @ %.1f nm (rank %d)', ...
-                 la0.floor, la0.stroke_nm, la0.rank, ...
-                 la1.floor, la1.stroke_nm, la1.rank);
+        ach_nm = 1e9 * rms_(cell2mat(cellfun(@(x) x(x~=0), arel(:).', ...
+                                             'UniformOutput', false).'));
+        la1_ach = floor_at_(la1, ach_nm);
+        L = say_(L, '    linear-achievable: G1 %.3e at the ACHIEVED %.1f nm (rank %d)', ...
+                 la1_ach.floor, ach_nm, la1_ach.rank);
+        L = say_(L, '    (at the %g nm bound: G0 %.3e @ %.1f nm | G1 %.3e @ %.1f nm -- linear model', ...
+                 P.cf.stroke_bound_nm, la0.floor, la0.stroke_nm, la1.floor, la1.stroke_nm);
+        L = say_(L, '     NOT valid at those strokes; bound values are the model''s claim, not physics)');
 
         % ---- attribution measurements -----------------------------------
         % dark-zone symmetric-field fraction (about the star): amplitude-
@@ -152,7 +163,7 @@ function OUT = cf2_efc(over)
             'a', {arel}, 'strokes_nm', strokes, ...
             'sym_before', sym_before, 'sym_after', sym_after, ...
             'talbot_zzT', talbot, 'thru', ch.thru, ...
-            'la0', la0, 'la1', la1, ...
+            'la0', la0, 'la1', la1, 'la1_ach', la1_ach, 'ach_nm', ach_nm, ...
             'circ_stop_frac', ch.circ_stop_frac, 'area_factor', ch.area_factor, ...
             'lamD_px', ch.lamD_px, 'peak_bare', ch.peak_bare, ...
             'jac0', jmeta0, 'jac1', jmeta1, 'N', P.dj.model);
@@ -169,14 +180,13 @@ function OUT = cf2_efc(over)
     for f = 1:numel(keys)
         r = R.(keys{f});
         L = say_(L, '  %-20s | %.3e | %.3e | %.3e | %.3e | %4.1f/%4.1f | %s', ...
-                 r.name, r.c_static, r.c_fixed, r.c_relin, r.la1.floor, ...
+                 r.name, r.c_static, r.c_fixed, r.c_relin, r.la1_ach.floor, ...
                  r.strokes_nm(1), r.strokes_nm(2), attrib_(r));
     end
     L = say_(L, '  %s', repmat('-', 1, 112));
-    L = say_(L, '  lin-ach = linear-achievable floor of the RELIN G at the %g nm', ...
-             R.(keys{1}).la1.bound_nm);
-    L = say_(L, '  stroke bound -- the measured attribution: a floor within ~2x of');
-    L = say_(L, '  lin-ach is the SUBSTRATE speaking, not the controller.');
+    L = say_(L, '  lin-ach = linear-achievable floor of the RELIN G at the ACHIEVED');
+    L = say_(L, '  stroke -- the measured attribution: a floor within ~2x of lin-ach');
+    L = say_(L, '  is the SUBSTRATE speaking, not the controller.');
     L = say_(L, '  z/z_T at %g lambda/D = %.2e (DM spacing %g m): amplitude authority is', ...
              P.co.outer_lamD, R.(keys{1}).talbot_zzT, P.b2.d_dm2);
     L = say_(L, '  Talbot-weak on this train -- the S3 spacing trade measures the knob.');
@@ -215,7 +225,7 @@ function a = attrib_(r)
 %   substrate's number (then the symmetric fraction says amplitude/Talbot
 %   vs phase); above = control-limited (the loop under-runs its own G).
     gain_relin = r.c_fixed / max(r.c_relin, realmin);
-    ratio_la = r.c_relin / max(r.la1.floor, realmin);
+    ratio_la = r.c_relin / max(r.la1_ach.floor, realmin);
     if r.c_relin < 1e-13
         a = 'numerical floor (nothing uncontrollable)';
     elseif ratio_la <= 2
@@ -273,6 +283,14 @@ function fig_(R, keys, P, png)
     title(ax,'the closed-loop column');
     exportgraphics(f, png, 'Resolution', 150);
     close(f);
+end
+
+function fa = floor_at_(la, stroke_nm)
+%FLOOR_AT_  Read the linear-achievable rank curve at a queried stroke.
+    ok = la.curve_stroke_nm <= stroke_nm;
+    if ~any(ok), rk = 1; else, rk = find(ok, 1, 'last'); end
+    fa = struct('floor', la.curve_con(rk), 'rank', rk, ...
+                'stroke_nm', la.curve_stroke_nm(rk));
 end
 
 function r = rms_(v), v = v(:); if isempty(v), r = 0; else, r = sqrt(mean(v.^2)); end, end
