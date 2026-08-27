@@ -1,0 +1,41 @@
+==================== e2e6m CF4 -- physics layers on apodized Lyot (R1)
+deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_dm.in, model 512, physical annulus 3-15 lambda0/D
+
+[screens] cached: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf4_pol_screens.mat
+[screens] co-pol identity deviation 0.0938/0.0962; cross-pol peak 0.00107/0.00123
+          (shared-Jacobian argument holds iff co-pol dev << 1; measured above)
+
+[pol] mono + screens, shared S2 Jacobian
+[pol] static 4.473e-07 -> floor 1.604e-07 | pol_floor 4.377e-13
+[memo gate] lf 0.900: build vs memo bit-identical  [PASS]
+[memo gate] lf 1.100: build vs memo bit-identical  [PASS]
+
+[band 0%] 1 colors 1
+[band 0%] static 4.485e-07 -> floor 1.623e-07
+
+[band 5%] 3 colors [0.975 1 1.025]
+[band 5%] static 4.518e-07 -> floor 1.639e-07
+
+[band 10%] 5 colors [0.95 0.975 1 1.025 1.05]
+[band 10%] static 4.563e-07 -> floor 1.716e-07
+
+[band 20%] 9 colors [0.9 0.925 0.95 0.975 1 1.025 1.05 1.075 1.1]
+[band 20%] static 4.643e-07 -> floor 2.066e-07
+
+[bandpol] 10% band + screens at the rebalanced Lyot 0.90
+[bandpol] static 4.551e-07 -> floor 1.718e-07 | pol_floor 4.764e-13 | thru 0.095
+
+==== CF4 physics floors (apodized Lyot (R1), N=512, physical annulus 3-15 lambda0/D) ====
+  leg                        | static     | floor      | pol floor 
+  ------------------------------------------------------------------
+  polarization only (mono)   | 4.473e-07 | 1.604e-07 | 4.377e-13
+  band 0% (1 colors)         | 4.485e-07 | 1.623e-07 | --        
+  band 5% (3 colors)         | 4.518e-07 | 1.639e-07 | --        
+  band 10% (5 colors)        | 4.563e-07 | 1.716e-07 | --        
+  band 20% (9 colors)        | 4.643e-07 | 2.066e-07 | --        
+  band 10% + pol @ Lyot 0.90 | 4.551e-07 | 1.718e-07 | 4.764e-13
+  ------------------------------------------------------------------
+
+  figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf4_physics.png
+
+CF4 DONE in 324.3 min

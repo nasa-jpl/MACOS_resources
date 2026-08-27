@@ -763,3 +763,30 @@ the binding constraint; the static gap-Fresnel level is.
 GATE PROPOSAL (cf_gate_proposal.txt): apl, L=0.90, d=0.15 m — the CF2
 configuration exactly; no bench change.  S4/S5 follow on Dave's
 confirmation.
+
+## 2026-08-27 — S4: the physics layers at the gate point (apl, L=0.90, 0.15 m)
+
+Two stub fixes en route (column-vector coating loop; single-block
+Jacobian wrapped with rowoff for efc_multi_).  Results (324 min):
+- POL: 31 reflectors coated (MgF2/Al), Jones screens at the exit
+  pupil, complex-mean normalized.  Co-pol identity deviation 9.4-9.6%
+  (CTB: <0.4% — 31 folds at 6 deg carry a real imprint) yet almost
+  entirely COMMON-MODE: static with screens 4.473e-7 (unscreened
+  4.485e-7), floor 1.604e-7 == the unscreened fixed-G floor, and the
+  UNCONTROLLABLE pol floor is 4.4e-13.  Same verdict as the CTB at 3x
+  the mirror count: polarization does not set this train's floor.
+- BAND (9-color superset G, per-band block subsets): floors
+  1.623e-7 / 1.639e-7 / 1.716e-7 / 2.066e-7 at 0/5/10/20% — 1.27x
+  across the full 20% band.  The chromatic penalty is a whisper: the
+  floor is gap-speckle-owned, not chromaticity-owned (the inverse of
+  the CTB vortex).
+- BAND+POL at L=0.90 (rebal pinned to the gate point per R3b; the
+  driver's 0.70 default predates CF3a): floor 1.718e-7 == the
+  band-only 10% floor to 3 digits; pol floor 4.8e-13.  The layers do
+  not interact.
+- MEMO GATE (the brief's S4 requirement, cf4_memo_gate.m): memo-hit
+  revisit reproduces the cold-build field to 0.0; cross-lambda 2.5e-2
+  — the set_lambda memoization is lambda-correct, observed end to end.
+Driver note for finalization: when rebal_lyot == the operating point,
+the bandpol leg should SUBSET the superset G instead of re-measuring
+(1.8 h redundant tonight; redundant, not wrong — deterministic).

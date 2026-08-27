@@ -80,7 +80,7 @@ function OUT = cf4_physics(over)
         macos.init(P.dj.model);
         nE = macos.load_rx(rx);
         refl = find_reflectors_(rx);
-        for e = refl
+        for e = refl(:).'
             macos.coating(e, 'index',[1.38 0.77], 'extinc',[0 6.08], ...
                           'thickness',[9.06e-8 2.2e-7]);   % metres (deck units)
         end
@@ -123,6 +123,9 @@ function OUT = cf4_physics(over)
             J2 = load(j2f);
             ctb_jac_check(J2, ch.config, j2f);
             lb = cf_efc_lib();  lb.stamp_parity(J2, ch.config, j2f);
+            % the S2 cache is a SINGLE block; efc_multi_ speaks the
+            % multi-lambda rowoff format -- wrap it as one block
+            if ~isfield(J2, 'rowoff'), J2.rowoff = [0, size(J2.G, 1)]; end
             r = efc_multi_(ch, dm, J2, {1.0}, {dzpix}, screens, wcomp, ctrl, ...
                            cf4.niter, cf4.alphas, L);
             r.leg = 'pol';  save(state, '-struct', 'r');
