@@ -790,3 +790,32 @@ Jacobian wrapped with rowoff for efc_multi_).  Results (324 min):
 Driver note for finalization: when rebal_lyot == the operating point,
 the bandpol leg should SUBSET the superset G instead of re-measuring
 (1.8 h redundant tonight; redundant, not wrong — deterministic).
+
+## 2026-08-27 — S5: the drift series toned down 10x — the hold is the mechanization's
+
+TWO-TERM LESSON first: the history = random walk + a correlated LINEAR
+drift ramp (drift_trans/drift_rot).  The first 0.3 nm attempt scaled
+only the walk and the series barely moved (|x| 2.25 vs 2.95 nm) — the
+ramp dominated.  "Tone the series down 10x" must scale BOTH terms;
+recorded here so the next sweep does not rediscover it.
+
+The corrected series (all four knobs /10; |x| rms 2.95e-10, exactly
+10x down; R4's 3 nm artifacts preserved as r4_*_3nm):
+- OPEN loop: FLAT — 4.646e-7 -> 4.635e-7; 0.3 nm-class drift is
+  invisible over the 41-frame soak.
+- CLOSED loop: 1.910e-7 -> 2.464e-7 — IDENTICAL to the 3 nm hold
+  (2.462e-7).  The ~2.5e-7 hold level is the MECHANIZATION's floor
+  (sensor-noise injection through the gain-0.5 RBCS loop + damped
+  EFC), not drift-driven: at this drift the loop's own noise
+  injection costs more than the drift does.  Estimator tracks
+  cleanly (|x+u| 7.2e-11 vs drift 2.95e-10).  Per note-don't-retune:
+  control CADENCE/GAIN is the flagged knob at low drift, not retuned.
+- Closed-loop WFE 0.0359 waves is the EFC's deliberate DM shaping
+  (contrast-optimal, not WFE-optimal) — not divergence.
+
+## 2026-08-27 — S6: pins
+
+tCfCampaign (tests/, SUITE_CTB_512) 6/6: the CF2 table + la ratios,
+the S3b knee at the baseline, the gate operating point, the toned
+S5 series, the winner static LIVE through the chain, the lambda-memo
+gate LIVE.  Regeneration drift is now loud.
