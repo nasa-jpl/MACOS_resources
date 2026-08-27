@@ -747,3 +747,19 @@ NET LOSS in a throughput/contrast merit (7.1e5 vs 8.8e5).  CF3a's
 cost, and L=0.90 dominates.  Recommendation for the gate: keep
 L=0.90; an optional 0.94 probe (one Jacobian) would locate the knee
 exactly but cannot beat the L=0.90 point already in hand.
+
+## 2026-08-27 — S3b + CF3c + the gate: the knee is the baseline
+
+CF3b (149 min): apl floors 1.081e-7 / 4.977e-7 / 9.670e-7 / 9.005e-7
+at 0.15/0.40/0.70/1.10 m — KNEE AT 0.15; v4 cross-checks (5.38e-6 →
+8.97e-6 at 0.70).  The Talbot expectation INVERTS: lin-ach deepens
+with spacing (6e-11 claimed at 1.10 m) while measured floors worsen —
+bound optimism grows, the loop cannot take the authority.  Shroud
+7.451 m at every spacing (measured; not the discriminator).
+CF3c attribution: static cost is the SAME amplitude-type gap-Fresnel
+family (sym fraction 0.986 at EVERY spacing; broadband radial ratio,
+median 2.74) evolved over the longer DM1->DM2 leg.  Authority is not
+the binding constraint; the static gap-Fresnel level is.
+GATE PROPOSAL (cf_gate_proposal.txt): apl, L=0.90, d=0.15 m — the CF2
+configuration exactly; no bench change.  S4/S5 follow on Dave's
+confirmation.
