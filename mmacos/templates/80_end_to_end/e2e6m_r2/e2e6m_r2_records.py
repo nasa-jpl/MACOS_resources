@@ -229,3 +229,81 @@ def s2():
 
 def s3c():
     return R1.s3c()
+
+
+# ------------------------------------------------- CF (coronagraph families)
+CF_KEYS = ["hard", "apl", "aplc", "blc", "v4", "v6"]
+CF_NAMES = ["classical Lyot", "apodized Lyot (R1)", "APLC (ap.-matched)",
+            "band-limited 4th", "vortex chg 4", "vortex chg 6"]
+_NUM = r"([0-9.eE+-]+)"
+
+
+def cf1():
+    """S1 stopped statics: per-family mean/median/suppression/thru/no-stop/ratio."""
+    t = read("cf1_report.txt")
+    r = {"fam": {}}
+    for key, name in zip(CF_KEYS, CF_NAMES):
+        pat = (re.escape(name) + r"\s*\|\s*" + _NUM + r"\s*\|\s*" + _NUM +
+               r"\s*\|\s*" + _NUM + r"\s*\|\s*" + _NUM + r"%\s*\|\s*" +
+               _NUM + r"\s*\|\s*" + _NUM + r"x\s*\|\s*(.+)$")
+        m = re.search(pat, t, re.M)
+        if not m:
+            sys.exit("e2e6m_r2_records: cf1 row for %s not found" % name)
+        r["fam"][key] = {
+            "name": name, "mean": float(m.group(1)), "median": float(m.group(2)),
+            "suppr": float(m.group(3)), "thru_pct": float(m.group(4)),
+            "nostop_mean": float(m.group(5)), "stop_ratio": float(m.group(6)),
+            "note": m.group(7).strip()}
+    return r
+
+
+def cf1c():
+    """The stop-penalty attribution (fixed-mask Babinet decomposition)."""
+    t = read("cf1c_report.txt")
+    r = {}
+    r["total"] = grab(t, r"c_st/c_ns = " + _NUM, "cf1c total factor", "cf1c_report.txt")
+    r["edge"] = grab(t, r"fixed-mask stop edge " + _NUM, "cf1c edge factor", "cf1c_report.txt")
+    r["rechain"] = grab(t, r"scale-rechain " + _NUM + r"\]", "cf1c rechain factor", "cf1c_report.txt")
+    r["pk_ratio"] = grab(t, r"pk_ns/pk_st = " + _NUM, "cf1c pk ratio", "cf1c_report.txt")
+    r["energy_up"] = grab(t, r"ENERGY at fixed masks up " + _NUM + r"x", "cf1c energy", "cf1c_report.txt")
+    r["rim"] = grab(t, r"rim " + _NUM + r" \+ cross", "cf1c rim term", "cf1c_report.txt")
+    r["cross"] = grab(t, r"cross " + _NUM + r" \(closure", "cf1c cross term", "cf1c_report.txt")
+    r["I_ns"] = grab(t, r"= I_ns " + _NUM, "cf1c I_ns", "cf1c_report.txt")
+    return r
+
+
+def cf2():
+    """S2 per-family floors: static/fixed/relin/lin-ach/strokes/attribution."""
+    t = read("cf2_report.txt")
+    r = {"fam": {}}
+    for key, name in zip(CF_KEYS, CF_NAMES):
+        pat = (re.escape(name) + r"\s*\|\s*" + _NUM + r"\s*\|\s*" + _NUM +
+               r"\s*\|\s*" + _NUM + r"\s*\|\s*" + _NUM +
+               r"\s*\|\s*" + _NUM + r"/\s*" + _NUM + r"\s*\|\s*(.+)$")
+        m = re.search(pat, t, re.M)
+        if not m:
+            sys.exit("e2e6m_r2_records: cf2 row for %s not found" % name)
+        r["fam"][key] = {
+            "name": name, "static": float(m.group(1)), "fixed": float(m.group(2)),
+            "relin": float(m.group(3)), "linach": float(m.group(4)),
+            "s1_nm": float(m.group(5)), "s2_nm": float(m.group(6)),
+            "attrib": m.group(7).strip()}
+    r["zzT"] = grab(t, r"z/z_T at [0-9]+ lambda/D = " + _NUM, "cf2 z/zT", "cf2_report.txt")
+    return r
+
+
+def cf3a():
+    """S3a Lyot sweep: per-leg (lyot, contrast, thru) arrays."""
+    t = read("cf3a_report.txt")
+    r = {"leg": {}}
+    for blk in re.split(r"^-- ", t, flags=re.M)[1:]:
+        key = blk.split()[0]
+        pts = re.findall(r"L=" + _NUM + r": contrast " + _NUM +
+                         r" \| thru " + _NUM, blk)
+        if not pts:
+            sys.exit("e2e6m_r2_records: cf3a leg %s has no points" % key)
+        r["leg"][key] = {
+            "lyot": [float(p[0]) for p in pts],
+            "con":  [float(p[1]) for p in pts],
+            "thru": [float(p[2]) for p in pts]}
+    return r
