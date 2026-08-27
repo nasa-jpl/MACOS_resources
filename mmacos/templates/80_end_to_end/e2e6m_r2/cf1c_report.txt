@@ -1,0 +1,9 @@
+==== e2e6m CF1c -- the hard family's stop penalty, attributed (N=1024)
+bare peaks: no-stop 6.6955e+00 | stop 5.6835e+00 | screened 5.6835e+00 (pin: |screened/stop - 1| = 0.00e+00)
+contrast: c_ns 1.628e-06 (S1 no-stop record 1.625e-06) | c_st 3.512e-06 (S1 stopped record 3.497e-06)
+the 2.1x, factored: c_st/c_ns = 2.16 = [fixed-mask stop edge 2.16] x [scale-rechain 1.00]
+inside those: peak renormalization pk_ns/pk_st = 1.178; dark-zone ENERGY at fixed masks up 1.83x
+Babinet (dz mean energy): I_stX 1.996e-05 = I_ns 1.090e-05 + rim 2.526e-06 + cross 6.537e-06 (closure 1.0e-15)
+verdict: the stop edge enters mostly by INTERFERENCE with the gap field (cross term dominates)
+  figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf1c_stop_attrib.png
+CF1c DONE in 0.8 min

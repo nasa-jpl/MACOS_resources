@@ -615,3 +615,30 @@ it finds the linearity boundary by itself.  The attribution in cf2 now
 reads the rank curve AT THE ACHIEVED STROKE (the CTB "4.5e-9 at 11 nm"
 pattern).  Consequence for S3: DM spacing is the knob that moves the
 linear-achievable curve itself.
+
+## 2026-08-26 — CF1c: the hard family's stop penalty, attributed by measurement
+
+CCL's flag: hard went 1.64e-6 (no stop) -> 3.50e-6 (stop), and the
+circularized-peak renormalization looked like only part of the 2.1x.
+Measured decomposition (`cf1c_stop_attrib.m`): the stop applied as a
+SCREEN on the no-stop chain holds every mask and scale fixed, so
+E_rim = E_hex - E_screened is exactly the blocked rim's field, with two
+free pins (screened bare peak == stopped bare peak to 0.0e0; both S1
+records reproduced to <1%).
+
+**The factorization: 2.16x = [fixed-mask stop edge 2.16] x
+[scale-rechain 1.00].**  The lambda/D re-measure through the stop
+contributes NOTHING -- the whole penalty is the stop edge itself at
+fixed masks.  Inside it: peak renormalization 1.178x (CCL's ~1.3
+estimate, measured), dark-zone ENERGY up 1.83x.
+
+**The presumption OVERTURNED: the edge does not paint its own ring --
+it interferes with the gap field.**  Babinet on the dark zone:
+I_stX 1.996e-5 = I_ns 1.090e-5 + rim 2.53e-6 + cross 6.54e-6
+(closure 1e-15).  The rim's own energy is only ~28% of the increase;
+the CROSS term (coherent interference between the rim field and the
+pre-existing gap-dominated speckle) is 2.6x larger.  Consequence
+worth carrying: the stop-edge penalty is not additive light to be
+blocked -- it is a coherent modification of the gap speckle, which is
+exactly the kind of term EFC can address (S2's stopped-hard floors
+are the test).  Radial profile: `cf1c_stop_attrib.png`.
