@@ -5334,6 +5334,9 @@ def fex(mode=1) -> Tuple[np.float64, Vector[np.float64], Vector[np.float64]]:
         mode (int | np.int32):
             to centre Ref.Srf.: w.r.t. (=1): Chief Ray  (default) OR
                                        (=0): Centroid
+            (chief is also the engine CLI default since 2026-08-27; a
+            centroid axis leaves tip/tilt in the OPD on obscured or
+            segmented beams)
 
     Requirement:
         - The Stop of the Optical System must be set beforehand
