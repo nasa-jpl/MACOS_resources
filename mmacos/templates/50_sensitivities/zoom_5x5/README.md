@@ -108,10 +108,27 @@ translations, the same convention on both sides):
 |---|---|---|---|
 | Rx | 3.0114e+03 | 1.6132e+02 | 18.6667 |
 | Ry | 3.0948e+03 | 1.6289e+02 | 18.9996 |
-| Rz | 2.4853e+02 | 2.1582e-02 | 11515.6161 |
+| Rz | 2.4853e+02 | 2.1583e-02 | 11515.3882 |
 | Tx | 1.9317e+02 | 1.0145e+01 | 19.0411 |
 | Ty | 1.8801e+02 | 1.0118e+01 | 18.5822 |
 | Tz | 1.9739e+01 | 4.6090e+02 | **0.0428** |
+
+> **Regenerated 2026-08-28** for the FEX curved-`iElt+1` radius fix
+> (`macos/REPORT_focal_surface.md`).  This deck is one of the 11 in the
+> corpus whose element 28 is a CURVED focal surface, so its per-field
+> exit-pupil reference moved.  The dw/dx columns are DIFFERENCES taken
+> against a reference that is re-found once per field and then held
+> across that field's pokes, so almost all of it cancels: only the Rz
+> column moved a quoted digit (`2.1582e-02 -> 2.1583e-02`, and the
+> derived ratio `11515.6161 -> 11515.3882`), 5e-5 relative.  The
+> conditioning block's smallest singular values moved a few percent,
+> which is what the smallest singular value of a cond-1e10 matrix does
+> under a 1e-5 perturbation; the dead elt-4 null floor moved
+> `5.30e-05 -> 5.29e-05`.  Attribution is measured, not assumed: the
+> PRE-fix engine reproduces the previously committed report BYTE FOR
+> BYTE.  The dwdz / dwdsurf / dwdgrid artifacts in this directory were
+> NOT regenerated -- same mechanism, same size, but they are separate
+> runs and nothing in this README quotes them.
 
 The table is appended to the committed `_sens_report.txt` by the driver
 (`sensitivities/group_exhibit`), so every figure here is greppable in the
