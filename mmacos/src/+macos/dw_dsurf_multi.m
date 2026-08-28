@@ -103,7 +103,7 @@ arguments
         opts.reset_xp_method, {'fex','sxp','pupil_find'})} = 'fex'
     opts.pupil_find_opts        cell = {}
     opts.pf_scope               (1,:) char {mustBeMember( ...
-        opts.pf_scope, {'config','field'})} = 'config'
+        opts.pf_scope, {'config','field'})} = 'field'
     opts.pf_probe_rad           (1,1) double = NaN
     opts.verbose                (1,1) logical = false
     opts.ngridpts               double {mustBeScalarOrEmpty} = []
@@ -241,6 +241,22 @@ for ic = 1:n_cfg
 % Order (PLAN_CONFIGURATIONS 2.1): apply the configuration -> modify()
 % once -> run the field loop, whose per-field reset_xp then derives every
 % field's exit pupil FROM THE CONFIGURED GEOMETRY -> restore -> assert.
+% pupil_find round-trip hygiene (2026-08-27 w_nom audit): the guard's
+% save_rx -> load_rx round trip compounds across a sequential
+% multi-config call (dw_dx_multi's config loop has the full story) --
+% reload fresh at the top of every configuration after the first so the
+% sequential call matches the checkpointed path by construction.
+if has_cfg && use_pf && ic > 1
+    session.load_rx(rx_path);
+    apply_ngridpts(session, opts.ngridpts, 'dw_dsurf_multi');
+    if ~isempty(opts.src_samp)
+        session.set_src_sampling(opts.src_samp);
+        session.modify();
+    end
+    if ~isempty(opts.stop_elt)
+        session.stop(int32(opts.stop_elt));
+    end
+end
 if has_cfg
     snap = config_axis('snapshot', session, cfgs(ic).elts);
     config_axis('apply', session, cfgs(ic));
