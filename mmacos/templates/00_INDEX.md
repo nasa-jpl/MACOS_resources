@@ -19,7 +19,7 @@ target plus our worked answer) live in [`../challenges/`](../challenges).
 | **T6** time-sequence simulation | [`70_simulation/`](70_simulation) | `../templates/80_end_to_end/e2e/s7_simulate.m` (pointer — see that directory's README) |
 | — benches | [`40_benches/`](40_benches) | `bench_layout/example_bench_layout.m` |
 | — end-to-end flows | [`80_end_to_end/`](80_end_to_end) | `e2e/` (s1–s7), `e2e2/` |
-| — polarization | [`90_polarization/`](90_polarization) | `bench_ifo_pol/example_bench_ifo_pol.m` |
+| — polarization | [`90_polarization/`](90_polarization) | `bench_ifo_pol/example_bench_ifo_pol.m` (Jones + the pol-component error budget); `tg_psi_dm/` = a polarization phase-shifting Twyman-Green gauging a DM, with `demo_tg_psi.m` as its narrated cut |
 
 **Before you transpose or negate an OPD map by hand, read
 [`../doc/opd_conventions.md`](../doc/opd_conventions.md).**  Orientation
