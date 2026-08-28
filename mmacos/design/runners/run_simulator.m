@@ -372,6 +372,13 @@ cbm = m.cbm();
 for s = 1:nseg
     dedx(:, (s-1)*6+(1:3)) = dedx(:, (s-1)*6+(1:3)) * cbm;
 end
+% dwdx units adapter (f5d648f): supervisors emit BaseUnits-OPD; this
+% simulator works in SI metres (dW maps *cbm), so scale the rigid-body
+% columns once -- matches the dwdz/dwdg *cbm at their use sites and
+% run_compare's identical adapter.  Metre decks: no-op.  Absence on a
+% mm deck under-commanded u by 1/cbm (tRunCompare time-history fail,
+% triaged 2026-08-28).
+Bc = Bc * cbm;
 gmet = macos.met_geom();
 dmz = [];  dmg = [];
 if use_z || use_g
