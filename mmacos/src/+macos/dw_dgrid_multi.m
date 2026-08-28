@@ -125,6 +125,8 @@ arguments
     opts.reload_rx              (1,1) logical = true
     opts.reset_xp_method        (1,:) char {mustBeMember(opts.reset_xp_method, ...
                                   {'fex','sxp','pupil_find'})} = 'fex'
+    opts.fex_axis               (1,:) char {mustBeMember( ...
+        opts.fex_axis, {'chief','centroid'})} = 'chief'
     opts.pupil_find_opts        cell = {}
     opts.pf_scope               (1,:) char {mustBeMember( ...
         opts.pf_scope, {'config','field'})} = 'field'
@@ -226,6 +228,12 @@ end
 % clobber -- see private/reset_xp_guard.
 reset_ep_moved = false;
 use_pf = strcmp(opts.reset_xp_method, 'pupil_find');
+if strcmp(opts.fex_axis, 'centroid') && use_pf
+    error('macos:dw_dgrid_multi:fexAxisScope', ...
+        ['fex_axis=''centroid'' applies to the FEX per-field reset ' ...
+         'only; the pupil_find written reference is chief-tied by ' ...
+         'doctrine.  Drop fex_axis or use reset_xp_method=''fex''.']);
+end
 % pf_scope='field' (Dave, 2026-08-25): one mini-cone fit PER (config,
 % field) block -- a 3x3 probe grid of half-width pf_delta centered on
 % each field, so the placed sphere's axis parallels that combo's OWN
@@ -409,7 +417,7 @@ for k = 1:n_fields
         % retained only as a deprecated alias (warned once above).
         % shared guard: raises the supervisor-level no-stop error and
         % absorbs the no-pupil-element FAIL -- see private/reset_xp_guard.
-        reset_xp_guard('fex', session);
+        reset_xp_guard('fex', session, opts.fex_axis);
         reset_ep_moved = reset_xp_guard('check', session, xp0, ...
             reset_ep_moved, ep_is_powered);
     end
@@ -605,6 +613,7 @@ out.zmodes               = opts.zmodes;
 out = apply_opd_convention(out, opts.orient, opts.sign);
 out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
 out.reset_xp_method      = opts.reset_xp_method;
+out.fex_axis             = opts.fex_axis;
 if use_pf, out.pf_scope = opts.pf_scope; end
 if ~isempty(pf_out), out.pupil_find = pf_out; end   % per-config metrics
 

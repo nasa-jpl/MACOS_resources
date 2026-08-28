@@ -148,6 +148,59 @@ classdef tRunSensitivities < matlab.unittest.TestCase
                 'macos:dw_dgrid_multi:resetXpMethodDeprecated');
         end
 
+        function test_fex_axis_is_an_explicit_chief_default(tc)
+            % The FEX pupil-sphere AXIS option (Dave 2026-08-27):
+            % 'fex_axis' 'chief' (default) | 'centroid' -- the engine
+            % CHIEFRAY/CENTROID toggle (api xp_fnd mode 1 | 0) surfaced
+            % through the supervisors and run_sensitivities.  Vertex and
+            % radius are axis-invariant (only psi moves), so on this
+            % segmented, gap-obscured deck the centroid-vs-chief nominal
+            % difference must be (a) NONZERO -- the downstream centroid
+            % walks off the chief (measured 8e-4 mm at the EP on the
+            % e5hex1 CLI, the FEX-axis-ruling reproducer) -- and (b) a
+            % pure tip/tilt(+piston) FRAME term, killed by PTT removal.
+            % pupil_find refuses the option at both layers: its written
+            % reference is chief-tied by doctrine.
+            [m, rx] = tc.cfg_fixture();
+            b = {'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                 'grid', '2x1', 'ngridpts', 15, 'elts', 8, ...
+                 'dofs', 0, 'delta', 1e-8};
+            oc = macos.dw_dx_multi(m, rx, b{:});
+            tc.verifyEqual(oc.fex_axis, 'chief', ...
+                'the default FEX axis must be chief (the axis ruling)');
+            on = macos.dw_dx_multi(m, rx, b{:}, 'fex_axis', 'centroid');
+            tc.verifyEqual(on.fex_axis, 'centroid');
+            dmax = 0;  frac = 0;
+            for k = 1:numel(oc.per_field_w_nom_2d)
+                msk = (oc.per_field_w_nom_2d{k} ~= 0) & ...
+                      (on.per_field_w_nom_2d{k} ~= 0);
+                D = on.per_field_w_nom_2d{k} - oc.per_field_w_nom_2d{k};
+                v = D(msk);
+                dmax = max(dmax, max(abs(v)));
+                [ii, jj] = find(msk);
+                x = ii - mean(ii);  y = jj - mean(jj);
+                r = max(hypot(x, y));
+                A = [ones(size(v)) x/r y/r];
+                frac = max(frac, rms(v - A*(A\v)) / max(rms(v), eps));
+            end
+            tc.verifyGreaterThan(dmax, 1e-8, ...
+                ['centroid axis made no difference on a segmented ' ...
+                 'deck -- the option is not reaching the engine']);
+            tc.verifyLessThan(frac, 0.2, sprintf( ...
+                ['centroid-vs-chief nominal difference is %.0f%% ' ...
+                 'NON-PTT -- the axis change must be a pure frame ' ...
+                 'term (psi-only; vertex and radius are ' ...
+                 'axis-invariant)'], 100*frac));
+            tc.verifyError(@() macos.dw_dx_multi(m, rx, b{:}, ...
+                'fex_axis', 'centroid', ...
+                'reset_xp_method', 'pupil_find'), ...
+                'macos:dw_dx_multi:fexAxisScope');
+            tc.verifyError(@() run_sensitivities(rx, 'fov_rad', 1e-4, ...
+                'channels', "dwdx", 'reset_xp_method', 'pupil_find', ...
+                'fex_axis', 'centroid'), ...
+                'macos:run_sensitivities:fexAxisScope');
+        end
+
         function test_run_sensitivities_end_to_end(tc)
             % trimmed harvest on the SMM pie fixture; the regression
             % gate is dwdgrid FULL RANK + localized pokes (the stale

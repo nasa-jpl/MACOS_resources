@@ -100,6 +100,19 @@ function out = dw_dx_multi(session, rx_path, opts)
 %               primary idiom; pupil_find leaves a deck stop in force).  'pupil_find_opts' forwards extra
 %               name-values to the finder (anchor/nodes/...).  Per-block
 %               fit metrics return in out.pupil_find.
+%   'fex_axis'  'chief' (default) | 'centroid'.  The FEX pupil-sphere
+%               AXIS for the per-field reset (engine CHIEFRAY/CENTROID
+%               toggle; api xp_fnd mode 1 | 0).  The vertex and radius
+%               are axis-invariant -- only psi moves -- and on an
+%               obscured or segmented beam the downstream centroid
+%               walks off the chief, so 'centroid' tilts the reference
+%               sphere and leaves pure tip/tilt (+piston) FRAME terms
+%               in w_nom (Luis 2026-08-27; the FEX-axis ruling made
+%               chief the default on every platform).  A diagnostic
+%               opt-in, echoed in out.fex_axis.  fex/sxp only:
+%               combining it with reset_xp_method='pupil_find' errors
+%               -- the pupil_find written reference is chief-tied by
+%               doctrine.
 %   'pf_scope'  'field' (default; flipped from 'config' 2026-08-27,
 %               the w_nom audit) | 'config'.  Scope of the pupil_find
 %               placement.  'field': one MINI-CONE fit per
@@ -225,6 +238,8 @@ arguments
     opts.reset_xp            (1,1) logical = true
     opts.reset_xp_method     (1,:) char {mustBeMember( ...
         opts.reset_xp_method, {'fex','sxp','pupil_find'})} = 'fex'
+    opts.fex_axis            (1,:) char {mustBeMember( ...
+        opts.fex_axis, {'chief','centroid'})} = 'chief'
     opts.pupil_find_opts     cell = {}
     opts.pf_scope            (1,:) char {mustBeMember( ...
         opts.pf_scope, {'config','field'})} = 'field'
@@ -353,6 +368,13 @@ fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
 % moved the EP element, and refuse to let it CLOBBER a powered optic.
 reset_ep_moved = false;   % did any field's fex() change nElt-1 geometry?
 use_pf = strcmp(opts.reset_xp_method, 'pupil_find');
+if strcmp(opts.fex_axis, 'centroid') && use_pf
+    error('macos:dw_dx_multi:fexAxisScope', ...
+        ['fex_axis=''centroid'' applies to the FEX per-field reset ' ...
+         'only; the pupil_find written reference is chief-tied by ' ...
+         'doctrine (beam-collective quantities are diagnostics, never ' ...
+         'references).  Drop fex_axis or use reset_xp_method=''fex''.']);
+end
 % pf_scope='field' (Dave, 2026-08-25): one mini-cone fit PER (config,
 % field) block -- a 3x3 probe grid of half-width pf_delta centered on
 % each field, so the placed sphere's axis parallels that combo's OWN
@@ -515,7 +537,7 @@ for k = 1:n_fields
         % for all exit-pupil placements.  The shared guard raises the
         % supervisor-level no-stop error and absorbs the no-pupil-element
         % FAIL -- see private/reset_xp_guard.
-        reset_xp_guard('fex', session);
+        reset_xp_guard('fex', session, opts.fex_axis);
         % Did FEX actually write? (engine writes nElt-1 only for a
         % Return/Reference surface; elsewhere it declines.)  The
         % shared guard also ERRORS if a write landed on a powered optic.
@@ -751,6 +773,7 @@ out.cbm                  = per_field_struct{1, 1}.cbm;
 out = apply_opd_convention(out, opts.orient, opts.sign);
 out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
 out.reset_xp_method      = opts.reset_xp_method;
+out.fex_axis             = opts.fex_axis;
 if use_pf, out.pf_scope = opts.pf_scope; end
 if ~isempty(pf_out), out.pupil_find = pf_out; end   % per-config metrics
 
