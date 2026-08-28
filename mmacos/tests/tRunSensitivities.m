@@ -201,6 +201,39 @@ classdef tRunSensitivities < matlab.unittest.TestCase
                 'macos:run_sensitivities:fexAxisScope');
         end
 
+        function test_fex_axis_forks_the_resume_checkpoints(tc)
+            % The resume key must be AXIS-aware, not just method-aware:
+            % a fex/chief checkpoint served verbatim to a fex/centroid
+            % run is the same trap the '_pf' key closed, one level down.
+            % Plant poisoned bare-name (fex/chief) checkpoints; the
+            % centroid run must ignore them (its key carries '_fexc')
+            % and recompute both configurations.
+            [~, rx] = tc.cfg_fixture();
+            th = 1e-5;
+            cfgs = [struct('name', 'nom', 'set', {{}}), ...
+                    struct('name', 'tilt', 'set', {{ ...
+                        {'perturb', 8, 'rotation', [th; 0; 0], ...
+                         'frame', 'local'} }})];
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            rd = fullfile(wd, '_resume');  mkdir(rd);
+            o = struct('poison', 1); %#ok<NASGU>
+            save(fullfile(rd, 'dwdx_nom.mat'), 'o');
+            save(fullfile(rd, 'dwdx_tilt.mat'), 'o');
+            art = run_sensitivities(rx, 'fov_rad', 1e-4, ...
+                'channels', "dwdx", 'configs', cfgs, ...
+                'resume_dir', string(rd), 'fex_axis', 'centroid', ...
+                'ngridpts', 15, 'model_size', 512, 'dofs', 0, ...
+                'elts', 8, 'out_dir', wd, 'name', 'fexcres', ...
+                'per_element', [], 'verbose', false);
+            tc.verifyEqual(art.ox.fex_axis, 'centroid');
+            tc.verifyEqual(art.ox.config_names, {'nom'; 'tilt'}, ...
+                'run served the poisoned fex/chief checkpoints');
+            txt = fileread(char(art.report));
+            tc.verifySubstring(txt, 'dwdx_fexc_nom.mat', ...
+                'fex/centroid checkpoints must carry the axis key');
+        end
+
         function test_run_sensitivities_end_to_end(tc)
             % trimmed harvest on the SMM pie fixture; the regression
             % gate is dwdgrid FULL RANK + localized pokes (the stale

@@ -309,12 +309,15 @@ end
 % single configuration when checkpointing), never baked into sup
 CF = opts.configs;
 RD = opts.resume_dir;
-% Checkpoint key: the resume files must be method-aware.  A checkpoint
-% written under fex and resumed under pupil_find is served VERBATIM (the
-% resume key used to be channel+config only), silently making the two
-% methods' outputs identical -- exactly the trap Luis hit.  'fex'/'sxp'
-% keep the historical bare filenames; 'pupil_find' forks its own.
+% Checkpoint key: the resume files must be method- AND axis-aware.  A
+% checkpoint written under fex and resumed under pupil_find is served
+% VERBATIM (the resume key used to be channel+config only), silently
+% making the two methods' outputs identical -- exactly the trap Luis
+% hit; a fex/chief checkpoint resumed under fex/centroid is the same
+% trap one level down.  fex/chief keeps the historical bare filenames;
+% pupil_find and fex/centroid fork their own.
 XK = '';
+if strcmp(opts.fex_axis, 'centroid'), XK = '_fexc'; end
 if strcmp(opts.reset_xp_method, 'pupil_find')
     XK = '_pf';
     if strcmp(opts.pf_scope, 'field'), XK = '_pff'; end
