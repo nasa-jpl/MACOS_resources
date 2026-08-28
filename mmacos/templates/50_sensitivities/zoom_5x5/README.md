@@ -106,12 +106,12 @@ translations, the same convention on both sides):
 
 | DOF | PM as one body | one segment (elt 5) | PM / segment |
 |---|---|---|---|
-| Rx | 3.0114e+03 | 1.6132e+02 | 18.6667 |
-| Ry | 3.0948e+03 | 1.6289e+02 | 18.9996 |
-| Rz | 2.4853e+02 | 2.1583e-02 | 11515.3882 |
-| Tx | 1.9317e+02 | 1.0145e+01 | 19.0411 |
-| Ty | 1.8801e+02 | 1.0118e+01 | 18.5822 |
-| Tz | 1.9739e+01 | 4.6090e+02 | **0.0428** |
+| Rx | 3.0115e+03 | 1.6136e+02 | 18.6627 |
+| Ry | 3.0946e+03 | 1.6294e+02 | 18.9921 |
+| Rz | 2.4856e+02 | 2.1609e-02 | 11502.4238 |
+| Tx | 1.9316e+02 | 1.0148e+01 | 19.0336 |
+| Ty | 1.8802e+02 | 1.0120e+01 | 18.5783 |
+| Tz | 1.9741e+01 | 4.6086e+02 | **0.0428** |
 
 > **Regenerated 2026-08-28** for the FEX curved-`iElt+1` radius fix
 > (`macos/REPORT_focal_surface.md`).  This deck is one of the 11 in the
@@ -129,6 +129,20 @@ translations, the same convention on both sides):
 > BYTE.  The dwdz / dwdsurf / dwdgrid artifacts in this directory were
 > NOT regenerated -- same mechanism, same size, but they are separate
 > runs and nothing in this README quotes them.
+
+> **Regenerated again 2026-08-28 (pm)** for the STOP-ENFORCED-CHIEF
+> ruling: the supervisors now re-issue the aperture stop after every
+> per-field `set_src_fov`, so the chief re-aims through the stop at
+> that field (the CLI `STOP`/`PERTURB` convention) instead of staying
+> aimed at the nominal one.  The re-aimed bundles sample the optics on
+> a slightly different footprint (10 more surviving rays across the 25
+> blocks, 54585 -> 54595) and the exhibit numbers moved at the
+> 1e-4-relative class (Rz `2.1583e-02 -> 2.1609e-02`, ratio
+> `11515.3882 -> 11502.4238`).  Attribution: the pre-ruling supervisors
+> reproduce the previously committed report; the runner now matches the
+> pty-CLI recipe at every field to <=1.4e-5 relative
+> (`REPORT_wnom_cli_ab` B4 values -- the field-definition gap is
+> closed).
 
 The table is appended to the committed `_sens_report.txt` by the driver
 (`sensitivities/group_exhibit`), so every figure here is greppable in the

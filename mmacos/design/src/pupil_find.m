@@ -139,6 +139,11 @@ function pf = pupil_find(rx, Ffield, opts)
         dirc = s0.src_dir(:) + [ctr(1); ctr(2); 0];
         macos.set_src_fov('src_pos', s0.src_pos, ...
             'src_dir', dirc / norm(dirc), 'zSrc', s0.zSrc);
+        % stop-enforced chief (Dave 2026-08-28): re-issue the stop at the
+        % cone-center field so the FEX baseline below uses the field's
+        % stop-aimed chief -- keeps pupil_find's written sphere consistent
+        % with the supervisors' per-field fex convention.
+        set_stop_(rx, opts.stop_elt, EP);
         macos.modify();
     end
     macos.trace(nE);
@@ -254,14 +259,27 @@ end
 
 function set_stop_(rx, stop_elt, EP)
 %  Stop resolution, in priority order: an EXPLICIT element stop wins;
-%  else a deck-declared ApStop= (header object-space 3-vector or the
-%  element form) GOVERNS and is left alone -- FEX handles object-space
-%  stops, and overriding with macos.stop(EP) would replace e.g. a
-%  segmented-primary object-space stop with ONE segment's aperture
-%  (Luis 2026-08-26); else the legacy default, stop at ep_elt.
+%  else a deck-declared ApStop= GOVERNS -- and since the stop-enforced-
+%  chief ruling (Dave 2026-08-28) its object-space form is RE-ISSUED via
+%  stop_obj rather than merely left in force, so a call AFTER a source
+%  re-aim re-anchors the chief through the stop at the CURRENT field
+%  (overriding with macos.stop(EP) would still be wrong -- it would
+%  replace e.g. a segmented-primary object-space stop with ONE segment's
+%  aperture, Luis 2026-08-26); else the legacy default, stop at ep_elt.
 if stop_elt > 0
     macos.stop(stop_elt);
-elseif isempty(regexp(fileread(rx), '^\s*ApStop\s*=', 'once', 'lineanchors'))
+    return
+end
+tok = regexp(fileread(rx), '^\s*ApStop=\s*([^\n%]*)', 'tokens', ...
+             'once', 'lineanchors');
+if isempty(tok)
     macos.stop(EP);
+    return
+end
+v = sscanf(tok{1}, '%f');
+if numel(v) >= 3
+    macos.stop_obj(v(1), v(2), v(3));
+elseif isscalar(v) && v == round(v) && v >= 1
+    macos.stop(int32(v));
 end
 end

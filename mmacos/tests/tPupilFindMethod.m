@@ -241,8 +241,18 @@ classdef tPupilFindMethod < matlab.unittest.TestCase
             vtx = reshape([P.vtx], 3, []).';
             tc.verifyGreaterThan(norm(vtx(1,:) - vtx(2,:)), 1e-5, ...
                 'spheres must be DISTINCT across fields');
-            tc.verifyGreaterThan(norm(vtx(1,:) - vtx(4,:)), 1e-6, ...
-                'spheres must be DISTINCT across configurations');
+            % Across CONFIGURATIONS the written vertex is now INVARIANT
+            % (measured 2.3e-9): the zoom tilts the FSM -- the STOP
+            % itself -- and the stop-enforced chief (Dave 2026-08-28)
+            % re-aims through its center, so the tilt pivots the beam AT
+            % the pupil and the EP-conjugate chief crossing holds still.
+            % The pre-ruling >1e-6 "distinct across configs" was the
+            % STALE-AIM artifact (the un-re-aimed chief walking on the
+            % tilted FSM), not physics; the configuration distinction
+            % lives in the written AXIS, not the vertex.
+            tc.verifyLessThan(norm(vtx(1,:) - vtx(4,:)), 1e-6, ...
+                ['FSM-at-pupil configurations must share the ' ...
+                 'stop-anchored vertex (stale-aim artifact returned?)']);
             % the WRITTEN vertex is the combo's chief crossing (Dave
             % 2026-08-25): the bundle vertex stays a diagnostic, because
             % writing it injects its lateral offset as a pure-tilt frame

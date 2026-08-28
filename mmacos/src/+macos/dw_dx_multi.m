@@ -302,6 +302,12 @@ elseif ~isempty(opts.stop_obj_pos)
     session.stop_obj(opts.stop_obj_pos(1), opts.stop_obj_pos(2), ...
                       opts.stop_obj_pos(3));
 end
+% Per-field stop re-aim (Dave 2026-08-28): the stop-enforced chief IS
+% the field's chief ray -- the stop is re-issued after EVERY per-field
+% (and nominal-restore) set_src_fov below, so the chief re-aims through
+% the stop at that field instead of staying aimed at the nominal one.
+% Covers all three stop forms; see private/field_stop_reaim.
+reaim = field_stop_reaim(session, rx_path, opts.stop_elt, opts.stop_obj_pos);
 
 % ---- Element groups: PARSE-ONCE HOIST ------------------------------
 % 'groups_auto' reads the Rx FILE, so forwarding it to every per-field
@@ -470,6 +476,7 @@ if opts.reset_xp && use_pf && ~pf_fld
     % test_config_sphere_is_independent_of_predecessors.
     session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
                         'zSrc', nom.zSrc);
+    reaim();   % stop-enforced chief (field_stop_reaim)
     session.modify();
     Fpf = zeros(n_fields, 2);
     for kf = 1:n_fields, Fpf(kf,:) = [fields(kf).dx, fields(kf).dy]; end
@@ -499,6 +506,7 @@ for k = 1:n_fields
         % convention.
         session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
                             'zSrc', nom.zSrc);
+        reaim();   % stop-enforced chief (field_stop_reaim)
         session.modify();
         [pgx, pgy] = ndgrid([-1 0 1] * pf_delta);
         Fprobe = [fields(k).dx + pgx(:), fields(k).dy + pgy(:)];
@@ -520,6 +528,7 @@ for k = 1:n_fields
     new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
     session.set_src_fov('src_pos', nom.src_pos, 'src_dir', new_dir, ...
                         'zSrc', nom.zSrc);
+    reaim();   % stop-enforced chief (field_stop_reaim)
     session.modify();
     fprintf('[%sfield %s] ChfRayDir = [%g %g %g]\n', ...
         cfg_tag(has_cfg, cfgs, ic), fields(k).name, new_dir);
@@ -628,6 +637,7 @@ end
 
 session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
                     'zSrc', nom.zSrc);
+reaim();   % stop-enforced chief (field_stop_reaim)
 session.modify();
 
 % Restore the prescription's exit-pupil reference (undo the per-field FEX
