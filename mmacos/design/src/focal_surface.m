@@ -101,6 +101,19 @@ function fs = focal_surface(rx, opts)
     macos.load_rx(rx);
     macos.set_src_sampling(opts.ngridpts);
     if opts.stop_elt > 0, macos.stop(int32(opts.stop_elt)); end
+    % Deck-declared object-space ApStop (stop_elt == 0): parse the header
+    % ONCE so each point can re-issue it after setting its field -- the
+    % stop-enforced chief ruling (Dave 2026-08-28) applies to this form
+    % too; a fresh load re-aims only at the NOMINAL field.
+    opts.ap_stop_pos = [];
+    if opts.stop_elt == 0
+        tok = regexp(fileread(rx), '^\s*ApStop=\s*([^\n%]*)', ...
+                     'tokens', 'once', 'lineanchors');
+        if ~isempty(tok)
+            v = sscanf(tok{1}, '%f');
+            if numel(v) >= 3, opts.ap_stop_pos = double(v(1:3)); end
+        end
+    end
     nE  = macos.num_elt();
     xpE = opts.xp_elt;  if xpE == 0, xpE = nE - 1; end
     nom = macos.get_src_fov();
@@ -301,12 +314,14 @@ function p = measure_point_(rx, opts, nom, dxy, xpE, nm, cfg)
 %   The Rx is RELOADED for every point, so a configuration never has to be
 %   undone and no field inherits the previous field's written exit pupil.
 %
-%   Stop order: the stop is set AFTER the load and BEFORE the field, which
-%   is run_sensitivities' order.  The A/B report measured that the CLI's
-%   other order (stop re-aimed after the field) writes a radius up to
-%   0.76 mm different but the SAME sphere centre to 8e-5 mm -- and the
-%   centre is exactly what this routine returns, so the choice does not
-%   propagate into the cloud.
+%   Stop order (Dave's ruling 2026-08-28 -- the stop-enforced chief IS
+%   the field's chief ray): the stop is RE-ISSUED after the field is set,
+%   so the chief re-aims through the stop at that field -- the CLI
+%   STOP/PERTURB convention, now also the dw_d* supervisors'.  The A/B
+%   report measured the two orders differ by up to 0.76 mm in the
+%   written radius but hold the sphere CENTRE to 8e-5 mm -- and the
+%   centre is what this routine returns, so the cloud barely moves;
+%   the convention is enforced anyway.  Do the right thing always.
     p = struct('name', nm, 'cfg', cfg_name_(cfg), 'dir', nan(3,1), ...
                'vpt', nan(3,1), 'psi', nan(3,1), 'rad', NaN, 'a4', NaN, ...
                'slope', NaN, 'R_null', NaN, 'a4_resid', NaN, ...
@@ -324,6 +339,14 @@ function p = measure_point_(rx, opts, nom, dxy, xpE, nm, cfg)
         d = v / norm(v);
         p.dir = d;
         macos.set_src_fov('src_pos', nom.src_pos, 'src_dir', d, 'zSrc', nom.zSrc);
+        % stop-enforced chief: re-issue the stop at THIS field (either
+        % form -- the fresh load above aimed it at the NOMINAL field)
+        if opts.stop_elt > 0
+            macos.stop(int32(opts.stop_elt));
+        elseif ~isempty(opts.ap_stop_pos)
+            macos.stop_obj(opts.ap_stop_pos(1), opts.ap_stop_pos(2), ...
+                           opts.ap_stop_pos(3));
+        end
         macos.modify();
 
         macos.fex(xpE);

@@ -61,44 +61,40 @@ classdef tFocalSurface < matlab.unittest.TestCase
 
         function test_null_radii_are_pinned(tc)
             % TIGHT regression pin, measured in this configuration
-            % (runner stop order, model 256, ng 63, 3x3 grid).  Grid order
+            % (STOP-ENFORCED-CHIEF order -- the CLI convention, adopted by
+            % ruling 2026-08-28; model 256, ng 63, 3x3 grid).  Grid order
             % is meshgrid over (dthx,dthy) ascending, so points 1,3,7,9
             % are the corners (LL, UL, LR, UR) in the A/B report's naming.
-            want = [-3018.3069281327, -3017.5792536137, -3016.7606251021, ...
-                    -3018.2711765040, -3017.5444265152, -3016.7268367349, ...
-                    -3018.1946568533, -3017.4699414643, -3016.6546188317];
+            % (The pre-ruling runner-order values differed by up to
+            % 0.72 mm at the -y corners -- the re-aim moves the FEX
+            % vertex; the sphere CENTRE moved only 8e-5 mm.)
+            want = [-3017.5824141975, -3017.5470569491, -3017.5166544465, ...
+                    -3017.5790358204, -3017.5444265155, -3017.5149790258, ...
+                    -3017.5721202838, -3017.5392847693, -3017.5118052792];
             tc.verifyEqual([tc.fs.pt.R_null], want, 'RelTol', 1e-7);
         end
 
-        function test_null_radii_track_the_ab_report_modulo_stop_order(tc)
-            % Coarse cross-check against the A/B report's V4 column
+        function test_null_radii_match_the_ab_report_stop_orders_now_agree(tc)
+            % Cross-check against the A/B report's V4 column
             % (macos/REPORT_wnom_cli_ab.md §5), which measured the
-            % focus-nulling radius independently.
+            % focus-nulling radius independently, in the CLI stop order.
             %
-            % READ THE TOLERANCE.  V4 was measured in the CLI stop order
-            % (stop re-aimed AFTER the field); focal_surface uses the
-            % runner order (stop set once, before the field).  The report
-            % measured that this moves the written RADIUS by up to
-            % 0.76 mm while holding the sphere CENTRE to 8e-5 mm -- so a
-            % radius comparison across the two orders CANNOT be tighter
-            % than that offset, and a 1e-3 relative tolerance at 3017 mm
-            % is 3 mm, i.e. dominated by it.  What this test can honestly
-            % assert is that the offset is present, systematic, and of the
-            % documented SIZE and SIGN pattern; the tight pin lives in
-            % test_null_radii_are_pinned.
+            % HISTORY OF THIS TOLERANCE.  focal_surface originally used
+            % the runner stop order (stop set once, before the field),
+            % which offset these radii by up to 0.76 mm with a systematic
+            % sign pattern (-y corners long, +y short) -- this test used
+            % to assert that offset was present.  The stop-enforced-chief
+            % ruling (Dave 2026-08-28) put BOTH flows in the CLI order,
+            % and the offset closed: measured residual 5.5-6.2e-4 mm,
+            % near-uniform across corners -- the model-256-vs-128 +
+            % report-rounding class, no sign pattern.  The bound sits
+            % ~8x above that measurement and ~150x below the old offset,
+            % so it fails against either the pre-ruling flow or a
+            % returning stop-order asymmetry.
             R = abs([tc.fs.pt.R_null]);
             got  = R([1 3 7 9]);                       % LL UL LR UR
             v4   = [3017.58303, 3017.51721, 3017.57273, 3017.51236];
-            tc.verifyEqual(got, v4, 'RelTol', 1e-3);
-            d = got - v4;
-            tc.verifyLessThan(max(abs(d)), 0.90, ...
-                'the stop-order radius offset must stay inside its documented 0.76 mm class');
-            % the two -y corners run long, the two +y corners short --
-            % a systematic re-aim, not scatter
-            tc.verifyGreaterThan(d(1), 0);   % LL
-            tc.verifyLessThan(   d(2), 0);   % UL
-            tc.verifyGreaterThan(d(3), 0);   % LR
-            tc.verifyLessThan(   d(4), 0);   % UR
+            tc.verifyEqual(got, v4, 'AbsTol', 5e-3);
         end
 
         function test_cloud_is_independent_of_the_engine_fix(tc)
