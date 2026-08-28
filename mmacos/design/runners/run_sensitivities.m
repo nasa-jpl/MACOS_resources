@@ -98,22 +98,25 @@ function art = run_sensitivities(rx_in, opts)
 %     'reset_xp_method'  'fex' (default) | 'sxp' (deprecated alias of fex
 %                  -- FEX and SXP are merged in the engine) |
 %                  'pupil_find': place the cone-convergence best-fit
-%                  exit-pupil sphere (design/src/pupil_find) ONCE per
-%                  configuration and freeze it across the field loop --
-%                  a field-set-wide upgrade of the frozen-EP mode, NOT a
-%                  per-field re-reference (see dw_dx_multi's help).
+%                  exit-pupil sphere (design/src/pupil_find).
 %                  Needs a stop: 'stop_elt', or the deck's own ApStop=
 %                  (object-space header form included -- the segmented-
 %                  primary idiom); 'pupil_find_opts' forwards
 %                  finder name-values.  Fit metrics land in the report.
-%                  'pf_scope' 'config' (default, the above) | 'field':
-%                  one 3x3 MINI-CONE fit per (configuration, field)
-%                  block, half-width 'pf_probe_rad' (NaN = 0.15x the
-%                  field half-width), centered on that field -- the
-%                  sphere axis parallels the combo's own chief, the
-%                  field tilt is absorbed per block, and each block
-%                  subtracts its OWN w_nom (dw_dx_multi's help has the
-%                  full story and the conditioning caveat).
+%                  'pf_scope' 'field' (default; flipped from 'config'
+%                  2026-08-27, the w_nom audit): one 3x3 MINI-CONE fit
+%                  per (configuration, field) block, half-width
+%                  'pf_probe_rad' (NaN = 0.15x the field half-width),
+%                  centered on that field -- the sphere axis parallels
+%                  the combo's own chief, the field tilt is absorbed
+%                  per block, and each block subtracts its OWN w_nom;
+%                  nominals and Jacobian match fex (4e-11 mm / 1e-6).
+%                  'config': ONE frozen field-set-wide sphere per
+%                  configuration -- a frozen-reference / pupil-wander
+%                  DIAGNOSTIC: the per-field tilt stays in w_nom
+%                  (0.64 mm RMS at +-1' on the zoom fixture) and leaks
+%                  3-5% into the rigid-body dwdx columns (dw_dx_multi's
+%                  help has the full story and the conditioning caveat).
 %                  Historical: 'sxp' was accepted as an alias
 %                  (warned once); retained so near-EP legacy decks that
 %                  pass it keep running.
@@ -184,7 +187,7 @@ arguments
         {'fex','sxp','pupil_find'})} = 'fex'
     opts.pupil_find_opts cell = {}
     opts.pf_scope (1,:) char {mustBeMember(opts.pf_scope, ...
-        {'config','field'})} = 'config'
+        {'config','field'})} = 'field'
     opts.pf_probe_rad (1,1) double = NaN
     opts.delta_x double = []
     opts.delta_z double = []

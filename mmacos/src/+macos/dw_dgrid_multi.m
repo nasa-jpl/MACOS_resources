@@ -56,13 +56,14 @@ function out = dw_dgrid_multi(session, rx_path, opts)
 %               re-derived, not rolled back -- callers who hand-author
 %               those on the EP element own re-asserting them afterward.
 %   'reset_xp_method'  'fex' (default; 'sxp' = deprecated alias -- FEX and
-%                SXP are merged in the engine) | 'pupil_find' (once-per-
-%                config cone-convergence sphere placement; see
-%                dw_dx_multi's help -- needs a stop: 'stop_elt' or a
-%                deck-declared ApStop=, object-space header form
-%                included.  'pf_scope'
-%                'config'|'field' + 'pf_probe_rad' select a per-(config,
-%                field) mini-cone placement instead; dw_dx_multi's help
+%                SXP are merged in the engine) | 'pupil_find' (cone-
+%                convergence sphere placement; see dw_dx_multi's help --
+%                needs a stop: 'stop_elt' or a deck-declared ApStop=,
+%                object-space header form included.  'pf_scope' 'field'
+%                (default: per-(config, field) mini-cone, chief-tied
+%                like fex) | 'config' (frozen field-set-wide sphere --
+%                diagnostic; the retained field tilt leaks into the
+%                columns) + 'pf_probe_rad'; dw_dx_multi's help
 %                has the full story).  Historical
 %                note: the alias exists because FEX/SXP were merged
 %               (FEX radius = chief-ray distance to iElt+1 = the FP), so
@@ -126,7 +127,7 @@ arguments
                                   {'fex','sxp','pupil_find'})} = 'fex'
     opts.pupil_find_opts        cell = {}
     opts.pf_scope               (1,:) char {mustBeMember( ...
-        opts.pf_scope, {'config','field'})} = 'config'
+        opts.pf_scope, {'config','field'})} = 'field'
     opts.pf_probe_rad           (1,1) double = NaN
     opts.ngridpts               double {mustBeScalarOrEmpty} = []
     opts.stop_elt               double {mustBeScalarOrEmpty} = []
@@ -296,6 +297,26 @@ for ic = 1:n_cfg
 % Order (PLAN_CONFIGURATIONS 2.1): apply the configuration -> modify()
 % once -> run the field loop, whose per-field reset_xp then derives every
 % field's exit pupil FROM THE CONFIGURED GEOMETRY -> restore -> assert.
+% pupil_find round-trip hygiene (2026-08-27 w_nom audit): the guard's
+% save_rx -> load_rx round trip compounds across a sequential
+% multi-config call (dw_dx_multi's config loop has the full story) --
+% reload fresh at the top of every configuration after the first so the
+% sequential call matches the checkpointed path by construction.
+% Gated on opts.reload_rx: with reload_rx=false the caller pre-installed
+% engine state (macos.elt_grid_add grids) that a fresh load_rx would
+% WIPE -- there the compounding stays (0.11 nm/config class, bounded by
+% the audit) rather than breaking the influence path.
+if has_cfg && use_pf && ic > 1 && opts.reload_rx
+    session.load_rx(rx_path);
+    apply_ngridpts(session, opts.ngridpts, 'dw_dgrid_multi');
+    if ~isempty(opts.src_samp)
+        session.set_src_sampling(opts.src_samp);
+        session.modify();
+    end
+    if ~isempty(opts.stop_elt)
+        session.stop(int32(opts.stop_elt));
+    end
+end
 if has_cfg
     snap = config_axis('snapshot', session, cfgs(ic).elts);
     config_axis('apply', session, cfgs(ic));

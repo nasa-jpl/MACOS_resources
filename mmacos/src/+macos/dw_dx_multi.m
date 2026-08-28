@@ -62,11 +62,15 @@ function out = dw_dx_multi(session, rx_path, opts)
 %               field TILT is removed.  A poke's OWN tilt is retained --
 %               the reference is fixed per field, not re-fit after each
 %               poke.  With a frozen EP (false) the field tilt is
-%               common-mode between w_nom and every poked w, so it
-%               cancels in the FD columns; what reset_xp changes is the
-%               first-order residual d(frame term)/dx -- negligible at
-%               arcminute fields, percent-level on tilt-coupled DOFs at
-%               wide fields.  Matches dw_dz_zernike_multi / dw_dsurf_multi
+%               common-mode between w_nom and every poked w, but it does
+%               NOT fully cancel in the FD columns: a poke remaps rays
+%               slightly, and the remapped rays sample the frame-tilt
+%               gradient, so the columns pick up an error PROPORTIONAL
+%               to the tilt retained in w_nom.  MEASURED (2026-08-27
+%               w_nom audit, zoom fixture, +-1 arcmin): rigid-body
+%               columns off by 3-5% vs a chief-tied reference at
+%               0.64 mm of retained tilt; 1e-6 at 4e-5 mm.
+%               Matches dw_dz_zernike_multi / dw_dsurf_multi
 %               / dw_dgrid_multi (family alignment).  Requires a STOP set
 %               and > 3 elements.  Set false to keep the prescription's
 %               elt nElt-1 reference unchanged (frozen EP).
@@ -87,33 +91,37 @@ function out = dw_dx_multi(session, rx_path, opts)
 %   'reset_xp_method'  'fex' (default) | 'sxp' (alias of fex; the engine
 %               merged them) | 'pupil_find'.  'pupil_find' places the
 %               cone-convergence best-fit exit-pupil sphere
-%               (design/src/pupil_find) ONCE per configuration -- the
-%               cone aperture IS the field set (>=3 fields) -- and runs
-%               the field loop with the per-field FEX reset OFF: a
-%               frozen, field-set-wide best-fit reference, an upgrade of
-%               the frozen-EP mode rather than a per-field re-reference
-%               (the per-field tilt term behaves as reset_xp=false).
+%               (design/src/pupil_find); WHERE it places is set by
+%               'pf_scope' (default 'field': one placement per
+%               (configuration, field) block, so each combo's nominal
+%               is chief-tied exactly as under fex).
 %               Needs a stop: 'stop_elt', or a deck-declared ApStop=
 %               (object-space header form included -- the segmented-
 %               primary idiom; pupil_find leaves a deck stop in force).  'pupil_find_opts' forwards extra
-%               name-values to the finder (anchor/nodes/...).  Per-config
+%               name-values to the finder (anchor/nodes/...).  Per-block
 %               fit metrics return in out.pupil_find.
-%   'pf_scope'  'config' (default) | 'field'.  Scope of the pupil_find
-%               placement.  'config': ONE field-set-wide sphere per
-%               configuration (frozen best-fit EP; per-field tilt
-%               retained in w_nom).  'field': one MINI-CONE fit per
+%   'pf_scope'  'field' (default; flipped from 'config' 2026-08-27,
+%               the w_nom audit) | 'config'.  Scope of the pupil_find
+%               placement.  'field': one MINI-CONE fit per
 %               (configuration, field) block -- a 3x3 probe grid of
 %               half-width 'pf_probe_rad' centered on that field.  The
 %               WRITTEN sphere is that combo's own chief-crossing vertex
 %               + axis + radius (pupil_find 'vertex','chief'), so the
 %               field tilt is absorbed per block and w_nom sits at fex
-%               scale; the mini-cone BUNDLE fit is kept as the
-%               pupil-wander diagnostic (out.pupil_find: bundle_vtx,
+%               scale (measured == fex to 4e-11 mm on the zoom and
+%               e5hex1 fixtures); the mini-cone BUNDLE fit is kept as
+%               the pupil-wander diagnostic (out.pupil_find: bundle_vtx,
 %               vtx_minus_fex, dep_rms) -- writing the bundle vertex
 %               itself injects a pure-tilt frame term (0.38 mm lateral
 %               offset -> 4.4e-3 mm RMS of tilt, zero aberration
 %               content; measured 2026-08-25).  Each block harvests, and
 %               subtracts, its OWN w_nom against its OWN sphere.
+%               'config': ONE field-set-wide sphere per configuration
+%               (frozen best-fit EP) -- a DIAGNOSTIC mode for frozen-
+%               reference / pupil-wander studies: the per-field tilt
+%               stays in w_nom (0.64 mm RMS at +-1 arcmin on the zoom
+%               fixture) and leaks 3-5% into the rigid-body dwdx
+%               columns (see 'reset_xp' above).
 %   'pf_probe_rad'  probe half-width in rad for pf_scope='field'
 %               (default NaN = 0.15x the field half-width).  Too small
 %               is ill-conditioned: the probe chief-ray crossings
@@ -219,7 +227,7 @@ arguments
         opts.reset_xp_method, {'fex','sxp','pupil_find'})} = 'fex'
     opts.pupil_find_opts     cell = {}
     opts.pf_scope            (1,:) char {mustBeMember( ...
-        opts.pf_scope, {'config','field'})} = 'config'
+        opts.pf_scope, {'config','field'})} = 'field'
     opts.pf_probe_rad        (1,1) double = NaN
     opts.configs                          = []
     opts.verbose             (1,1) logical = false
@@ -395,6 +403,29 @@ for ic = 1:n_cfg
 % once -> run the field loop, whose per-field reset_xp then derives every
 % field's exit pupil FROM THE CONFIGURED GEOMETRY (a pupil-fold tilt
 % moves the EP; that is physics, not drift) -> restore -> assert.
+% pupil_find round-trip hygiene (2026-08-27 w_nom audit): every guard
+% placement runs a save_rx -> load_rx round trip, and the config
+% snapshot/undo writes PRE-round-trip pose back onto the POST-round-trip
+% state, so a single sequential call compounds one quantization step per
+% configuration ((c-1) x 1.12e-7 mm at the +-1' zoom corners) while the
+% checkpointed path -- one fresh supervisor call per config -- does not.
+% Reload the Rx fresh at the top of every configuration after the first
+% so the two paths match by construction.  fex has no round trip and
+% measures drift-free (3e-11), so it keeps the cheap snapshot-only path.
+if has_cfg && use_pf && ic > 1
+    session.load_rx(rx_path);
+    apply_ngridpts(session, opts.ngridpts, 'dw_dx_multi');
+    if ~isempty(opts.src_samp)
+        session.set_src_sampling(opts.src_samp);
+        session.modify();
+    end
+    if ~isempty(opts.stop_elt)
+        session.stop(int32(opts.stop_elt));
+    elseif ~isempty(opts.stop_obj_pos)
+        session.stop_obj(opts.stop_obj_pos(1), opts.stop_obj_pos(2), ...
+                          opts.stop_obj_pos(3));
+    end
+end
 if has_cfg
     snap = config_axis('snapshot', session, cfgs(ic).elts);
     config_axis('apply', session, cfgs(ic));
