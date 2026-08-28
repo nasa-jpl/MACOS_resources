@@ -14,8 +14,15 @@ function varargout = reset_xp_guard(action, varargin)
 %   detects that no-pupil case (and the dangerous case where a write lands
 %   on a powered optic) so the supervisors report the truth.
 %
-%   reset_xp_guard('fex', session)
-%       the per-field macos.fex(1) call itself.  Raises
+%   reset_xp_guard('fex', session[, axis])
+%       the per-field macos.fex call itself.  AXIS 'chief' (default) |
+%       'centroid' selects the FEX pupil-sphere AXIS (the engine
+%       CHIEFRAY/CENTROID toggle; api xp_fnd mode 1 | 0).  The radius
+%       and vertex are axis-invariant -- only psi moves -- and on an
+%       obscured or segmented beam the centroid axis leaves pure
+%       tip/tilt (+piston) frame terms in the OPD (Luis 2026-08-27,
+%       the FEX-axis ruling), so 'centroid' is a diagnostic opt-in.
+%       Raises
 %       macos:dw_dx_multi:noStop when no aperture stop is set; ABSORBS the
 %       no-pupil-element FAIL (macos:fex:noPupilElt) so the loop runs to
 %       completion and 'finalize' issues the single noPupil verdict.
@@ -139,8 +146,12 @@ switch action
         % The engine's XpEltOrWarn guard now turns that silent decline
         % into a clean FAIL (macos:fex:noPupilElt); swallowing it here
         % keeps the SAME diagnosis rather than aborting the run.
+        ax = 1;   % xp_fnd mode 1 = chief-ray axis (the default doctrine)
+        if numel(varargin) >= 2 && strcmp(varargin{2}, 'centroid')
+            ax = 0;   % mode 0 = beam-centroid axis (diagnostic opt-in)
+        end
         try
-            macos.fex(1);   % mode 1 = centre on chief ray
+            macos.fex(ax);
         catch me
             switch me.identifier
                 case 'macos:fex:noPupilElt'

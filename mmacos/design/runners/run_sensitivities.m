@@ -117,6 +117,17 @@ function art = run_sensitivities(rx_in, opts)
 %                  (0.64 mm RMS at +-1' on the zoom fixture) and leaks
 %                  3-5% into the rigid-body dwdx columns (dw_dx_multi's
 %                  help has the full story and the conditioning caveat).
+%     'fex_axis'   'chief' (default) | 'centroid': the FEX pupil-sphere
+%                  AXIS for the per-field reset (the engine's
+%                  CHIEFRAY/CENTROID toggle; api xp_fnd mode 1 | 0).
+%                  Vertex and radius are axis-invariant -- only psi
+%                  moves -- and on an obscured or segmented beam the
+%                  centroid axis tilts the reference sphere, leaving
+%                  pure tip/tilt (+piston) frame terms in the nominal
+%                  OPD (Luis 2026-08-27; the FEX-axis ruling made chief
+%                  the default on every platform).  Diagnostic opt-in,
+%                  fex/sxp only -- combining with 'pupil_find' errors
+%                  (its written reference is chief-tied by doctrine).
 %                  Historical: 'sxp' was accepted as an alias
 %                  (warned once); retained so near-EP legacy decks that
 %                  pass it keep running.
@@ -185,6 +196,8 @@ arguments
     opts.pm_ref_elt (1,1) double {mustBeInteger, mustBePositive} = 1
     opts.reset_xp_method (1,:) char {mustBeMember(opts.reset_xp_method, ...
         {'fex','sxp','pupil_find'})} = 'fex'
+    opts.fex_axis (1,:) char {mustBeMember(opts.fex_axis, ...
+        {'chief','centroid'})} = 'chief'
     opts.pupil_find_opts cell = {}
     opts.pf_scope (1,:) char {mustBeMember(opts.pf_scope, ...
         {'config','field'})} = 'field'
@@ -207,6 +220,13 @@ arguments
     opts.per_element string = ["center" "multi"]
 end
 assert(isfile(rx_in), 'run_sensitivities: %s not found', rx_in);
+if strcmp(opts.fex_axis, 'centroid') && ...
+        strcmp(opts.reset_xp_method, 'pupil_find')
+    error('macos:run_sensitivities:fexAxisScope', ...
+        ['fex_axis=''centroid'' applies to the FEX per-field reset ' ...
+         'only; the pupil_find written reference is chief-tied by ' ...
+         'doctrine.  Drop fex_axis or use reset_xp_method=''fex''.']);
+end
 [rx_dir, stem] = fileparts(char(rx_in));
 if strlength(opts.out_dir) == 0, opts.out_dir = string(rx_dir); end
 if strlength(opts.name) == 0, opts.name = string(stem); end
@@ -269,6 +289,7 @@ m = macos.Session(opts.model_size);
 FOV = opts.fov_rad;
 sup = {'field_x_rad', FOV, 'field_y_rad', FOV, 'ngridpts', opts.ngridpts, ...
        'reset_xp_method', opts.reset_xp_method, ...
+       'fex_axis', opts.fex_axis, ...
        'pupil_find_opts', opts.pupil_find_opts, ...
        'pf_scope', opts.pf_scope, 'pf_probe_rad', opts.pf_probe_rad};
 if strcmp(opts.reset_xp_method, 'pupil_find')
