@@ -23,10 +23,32 @@ function G = twyman_green(opts)
 %                     a GridData figure map (e.g. a DM surface built
 %                     with PROPER) in the optic's own local frame.
 %
+%   TWO SPLITTER FLAVOURS ('pbs'):
+%     'plate' (default)  the layout above -- a front-coated perfect-conductor
+%                        plate plus a compensator.  With 'polarizing' the
+%                        polarization split is carried CONCEPTUALLY, by an
+%                        ideal TrPolarizer in each arm.
+%     'cube'             a CEMENTED MacNeille polarizing cube: one coated
+%                        interface at 45 deg between two prisms of the same
+%                        glass.  The split is real coating physics -- the test
+%                        arm transmits out and reflects back, the reference arm
+%                        reflects out and transmits back, each arm's
+%                        double-passed QWP swapping its state between the
+%                        coating's own s and p eigenaxes so both leave by the
+%                        same output port.  Faces are normal to their beams, so
+%                        the cube needs NO compensator: every traversal is
+%                        a/2 -> diagonal -> a/2 whichever port you enter by, and
+%                        the two arms' glass paths are identical by
+%                        construction.  Requires 'polarizing',true.  See
+%                        macos.design.pbs_macneille for the stack and
+%                        templates/90_polarization/tg_psi_dm_v2 for the rig.
+%
 %   All lengths mm.  Returns struct G:
 %     .bt .br     test / reference Bench objects (call .emit yourself)
-%     .T  .R      element-index structs (.iTO/.iRC/.iMASK/.iDET; .iPZT)
-%     .bs         the shared BS plate token
+%     .T  .R      element-index structs (.iTO/.iRC/.iMASK/.iDET; .iPZT;
+%                 cube: .iPBSf/.iPBSr = [face diagonal face] per traversal)
+%     .bs         the shared BS plate token (cube: the cube token)
+%     .pbs        cube only: the macos.design.pbs_macneille design struct
 %     .det_leg    detector leg length (shared plane)
 %     .P          the resolved parameter struct
 %
@@ -54,7 +76,11 @@ arguments
     opts.D_BS_TO (1,1) double = 250
     opts.D_BS_CMP (1,1) double = 100
     opts.D_RECOMB (1,1) double = 5
-    opts.D_RC_L2 (1,1) double = 200
+    opts.D_RC_L2 (1,1) double = NaN   % NaN = 200 (plate); the cube subtracts
+                                      %  its half-side so the Recomb->L2->mask
+                                      %  ->detector conjugate is the SAME
+                                      %  geometry as the plate rig and the
+                                      %  l2_trade tail trims transfer verbatim
     opts.R_TO_AP (1,1) double = 30
     opts.L1_Kr (1,1) double = 236.866
     opts.L1_Kc (1,1) double = -0.5829
@@ -107,15 +133,65 @@ arguments
     % test-optic, PZT and pupil conjugates are unmoved).
     opts.polarizing (1,1) logical = false
     opts.pol_in_deg   (1,1) double = 45     % input polarizer, both arms
-    opts.qwp_test_deg (1,1) double = 0      % test-arm QWP fast axis
-    opts.qwp_ref_deg  (1,1) double = 45     % ref-arm QWP fast axis
-    opts.out_qwp_deg  (1,1) double = 0      % output QWP fast axis (shared leg)
+    opts.qwp_test_deg (1,1) double = NaN    % test-arm QWP fast axis
+    opts.qwp_ref_deg  (1,1) double = NaN    % ref-arm QWP fast axis
+    opts.out_qwp_deg  (1,1) double = NaN    % output QWP fast axis (shared leg)
     opts.analyzer_deg (1,1) double = 0      % analyzer default (stepped at run)
     opts.qwp_ret      (1,1) double = 0.25   % nominal QWP retardance (waves)
     opts.D_QWP        (1,1) double = 25     % arm-QWP standoff from the retro
     opts.D_POL        (1,1) double = 10     % input-polarizer / output-leg standoff
+    % ---- v2: a REAL polarizing beamsplitter (cemented MacNeille cube) ----
+    % 'pbs','plate' (default) is the v1 rig: the splitter is a front-coated
+    % PERFECT-CONDUCTOR plate plus a compensator, and the polarization split
+    % is carried CONCEPTUALLY by an ideal TrPolarizer in each arm.
+    %
+    % 'pbs','cube' replaces that concept with the COMPONENT: one cemented
+    % coated interface at 45 deg INSIDE the glass, and the arms are routed by
+    % real coating physics.  Test arm = TRANSMIT out / REFLECT back; reference
+    % arm = REFLECT out / TRANSMIT back.  Each arm's double-passed QWP is a
+    % net half-wave that swaps its state between the coating's own s and p
+    % eigenaxes, so both arms leave by the SAME output port -- the physical
+    % "all light to the output port" routing, still one sequential deck per
+    % arm because the engine does not split rays.  Requires 'polarizing'.
+    %
+    % Faces are normal to their beams (no deviation, no walk-off, no face
+    % diattenuation) and every traversal is a/2 -> diagonal -> a/2, so the two
+    % arms balance their glass EXACTLY with no compensator plate.
+    opts.pbs (1,:) char {mustBeMember(opts.pbs, {'plate','cube'})} = 'plate'
+    opts.CUBE_SIDE (1,1) double {mustBePositive} = 60   % cube edge, mm
+    opts.CUBE_N    (1,1) double = NaN    % prism index; NaN = the MacNeille
+                                         %  index of the coating pair
+    opts.pbs_coat  (:,3) double = NaN(1,3)  % diagonal stack [n k thk_waves];
+                                         %  NaN = macos.design.pbs_macneille.
+                                         %  Pass zeros(0,3) for an explicitly
+                                         %  BARE cemented interface -- which,
+                                         %  with the same glass either side,
+                                         %  is optically nothing and reflects
+                                         %  no light at all (the tTgPol2
+                                         %  structural gate).  An empty matrix
+                                         %  cannot mean "default" AND "none".
+    opts.pbs_nperiod (1,1) double {mustBeInteger, mustBePositive} = 4
+    opts.ar_faces  (1,1) logical = true   % single-layer MgF2 AR on the faces
+    opts.AR_N      (1,1) double {mustBePositive} = 1.38   % MgF2
 end
 P = opts;
+
+% ---- azimuth defaults, resolved per PBS flavour ----------------------
+% The plate rig leaves the arms at -45/+45 (a half-wave at azimuth a maps a
+% 45-deg input to 2a-45), so its arm plates sit at 0 and 45 and the output
+% QWP at 0.  The CUBE rig leaves each arm on a coating EIGENAXIS -- the test
+% arm on p (local 0), the reference arm on s (local 90) -- so every plate
+% wants to be at 45 deg to its own arm state: 45/45/45.  NaN resolves to the
+% flavour's design value; the plate defaults are unchanged, so a plate build
+% still emits bit-identically.
+cube = strcmp(P.pbs, 'cube');
+if isnan(P.qwp_test_deg), P.qwp_test_deg = 45*cube;      end
+if isnan(P.qwp_ref_deg),  P.qwp_ref_deg  = 45;           end
+if isnan(P.out_qwp_deg),  P.out_qwp_deg  = 45*cube;      end
+% The cube's exit face sits a half-side beyond its centre, where the plate's
+% coating sat, so the whole output leg would otherwise ride 30 mm further
+% from the test optic and the l2_trade tail trims would no longer apply.
+if isnan(P.D_RC_L2),      P.D_RC_L2 = 200 - cube*P.CUBE_SIDE/2; end
 
 % ---- BS fold direction from the AOI ---------------------------------
 % turn = 180 - 2*AOI about +z, applied to the +x chief toward -y.  Pin the
@@ -128,7 +204,75 @@ else
     bs_out = [cosd(turn); -sind(turn); 0];
 end
 
+% =====================================================================
+%  v2: cemented MacNeille cube.  Built first because BOTH arms share one
+%  cube token (absolute geometry), which is what makes their glass paths
+%  identical to the last bit rather than merely equal by arithmetic.
+% =====================================================================
+if cube
+    assert(P.polarizing, ...
+        ['twyman_green: ''pbs'',''cube'' IS the polarization split -- it ' ...
+         'needs ''polarizing'',true (the arm waveplates route the light).']);
+    PBS = macos.design.pbs_macneille('nperiod', P.pbs_nperiod, ...
+                                     'lambda', 6.328e-4, 'aoi', 45);
+    if ~isnan(P.CUBE_N)
+        % Deliberate detune: a real catalogue glass instead of the design
+        % index.  Brewster is then violated at the H/L interfaces, r_p stops
+        % being zero, and the cube starts to rotate the arm states -- the v2
+        % tolerance knob.  Re-solve the stack at the requested index so the
+        % quarter-wave-AT-ANGLE thicknesses stay self-consistent.
+        PBS = macos.design.pbs_macneille('nperiod', P.pbs_nperiod, ...
+                    'lambda', 6.328e-4, 'aoi', 45, 'n_glass', P.CUBE_N);
+    end
+    coat_d = P.pbs_coat;
+    if ~isempty(coat_d) && all(isnan(coat_d(:))), coat_d = PBS.layers; end
+    % Single-layer MgF2 quarter-wave AR on the four faces (Macleod ch. 3;
+    % n = 1.38 is the standard published visible value).  Normal incidence,
+    % so the quarter wave is 0.25 exactly with no angle factor.  Bare glass
+    % at n = 1.6554 loses 6.2% a face; this takes it to 0.49%, and the four
+    % face crossings per arm are what set the output-port efficiency.
+    if P.ar_faces, coat_ar = [P.AR_N, 0, 0.25]; else, coat_ar = zeros(0,3); end
+    n_prism = PBS.n_glass;
+end
+
 % ---- test arm -------------------------------------------------------
+if cube
+    bt = front_end(P, 'ifo_test');
+    bt.add_polarizer(P.D_POL, ax_local(bt.dir, P.pol_in_deg), 'name','PolIn');
+    cubetok = bt.pbs_cube(P.D_L1_BS - P.D_POL, bs_out, 'side',P.CUBE_SIDE, ...
+        'n',n_prism, 'coat',coat_d, 'ar',coat_ar, 'name','PBS');
+    T.iPBSf = bt.add_pbs_pass(cubetok, 'mode','transmit', 'tag','f');
+    leg_to  = P.D_BS_TO - P.CUBE_SIDE/2 - P.D_QWP;
+    assert(leg_to > 0, 'twyman_green: cube too large for D_BS_TO.');
+    qa_t = ax_local(bt.dir, P.qwp_test_deg);
+    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestIn');
+    T.iTO = bt.add_mirror(leg_to, 'name','TestOptic', ...
+        'aprad',P.R_TO_AP, 'Kr',P.to_Kr, 'grid_file',P.to_grid_file, ...
+        'grid_n',P.to_grid_n, 'grid_dx',P.to_grid_dx);
+    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestOut');
+    T.iPBSr = bt.add_pbs_pass(cubetok, 'mode','reflect', 'tag','r');
+    T.iRC = bt.add_reference(P.D_RECOMB, 'Recomb');
+    [T, det_leg] = tail(bt, P, T, T.iTO, []);
+
+    % ---- reference arm ----------------------------------------------
+    br = front_end(P, 'ifo_ref');
+    br.add_polarizer(P.D_POL, ax_local(br.dir, P.pol_in_deg), 'name','PolIn');
+    R.iPBSf = br.add_pbs_pass(cubetok, 'mode','reflect', 'tag','f');
+    qa_r = ax_local(br.dir, P.qwp_ref_deg);
+    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefIn');
+    R.iPZT = br.add_mirror(leg_to, 'name','PZT');
+    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefOut');
+    R.iPBSr = br.add_pbs_pass(cubetok, 'mode','transmit', 'tag','r');
+    d_rc = dot(bt.E(T.iRC).vpt - br.pos, br.dir);
+    assert(d_rc > 0, 'twyman_green: recomb plane behind the reference return');
+    R.iRC = br.add_reference(d_rc, 'Recomb');
+    [R, ~] = tail(br, P, R, [], det_leg);
+
+    G = struct('bt',bt, 'br',br, 'T',T, 'R',R, 'bs',cubetok, ...
+               'det_leg',det_leg, 'P',P, 'pbs',PBS);
+    return
+end
+
 bt = front_end(P, 'ifo_test');
 % input polarizer in the collimated pre-BS leg (slice-3 variant); it steals
 % its standoff from the L1->BS leg so the BS stays put (bit-identical off)
