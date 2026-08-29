@@ -1,11 +1,15 @@
 # Demo beat 22b — the adjacent problem, driven live
 
-_Rehearsal script for the Keysight/CodeV demo (~2026-09-01), slide 22
-beat (b).  CC drives this beat; beat (a) — the Twyman-Green DM gauge —
-is Dave solo on the desktop.  Say the contrast out loud when introducing
-the demo: **(a) is the product in an engineer's hands, (b) is the AI
-driving the design tool.**  That is slide 21's "with or without CC" made
-concrete._
+_Rehearsal script for the Keysight/CodeV demo (~2026-09-01).
+CHOREOGRAPHY REVISED 2026-08-29 (deck restructure, Dave's rulings):
+the ask + kickoff happen at the DEMO-INTRO SLIDE (8), right after the
+challenge-3 frontier; **DAVE switches to MATLAB and launches
+`oi_demo_step(<width>)` himself**; the reveal is slide 21, just before
+the closing discussion (~26–32 min of cover).  The framing on the
+slide: **"no AI in this loop"** — the design knowledge is compiled
+into the driver, the without-AI half of slide 4's objective, running
+live.  The Twyman-Green DM gauge (slides 12–14) is Dave solo on the
+desktop, in a SEPARATE MATLAB from the one running this solve._
 
 ---
 
@@ -89,9 +93,10 @@ already at 1; and dropping the solve grid from 5×5 to 3×3 — the obvious
 saving — puts the 12° answer at 41.0 nm, i.e. WORSE than the committed
 13° row, which is the one result that would undercut the whole beat.
 
-So the solve must be launched **earlier than slide 22** — take the spec
-at the top of the Rodgers section (slide ~16) and reveal at 22.  That is
-~15 slides of cover.  If the spec can only be taken at slide 22, run the
+So the solve must be launched **early** — the deck takes the spec at
+slide 8 (the demo-intro slide, with the frontier fresh on screen) and
+reveals at slide 21: ~26–32 min of cover for the ~15-min solve.  If the
+spec somehow can only be taken late, run the
 beat off the pre-generated bundle and say so plainly ("I ran this one
 this morning") — the claim survives; a stalled console does not.
 
