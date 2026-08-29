@@ -1,0 +1,35 @@
+
+=================================================================
+ VERDICT -- box 7 x 7 deg at YAN +22.5 deg   [PASS]
+=================================================================
+ metric  : strict RMS WFE, sphere on the spot centroid on the
+           frozen FPA, anchored at the exit pupil, piston-only
+           removal; headline = dense 11x11 map MAXIMUM over the
+           box (solve set 5x5 != scoring set).
+
+ warm start        : committed walk step 1 (5 x 5 deg)
+ screen (carried)  : qmean 15.2 nm -- traces
+ solve             : S5 full freedom (conics+Zernike+tilt/dec
+                     +radii+stop_y), 1 of <=1 iters used
+ solve-set qmean   : 15.2 -> 13.6 nm
+
+ DENSE MAP MAX     : 20.0 nm      <-- the headline
+ map avg / valid   : 12.8 nm / VALID (121/121 fields)
+ clearance floor   : 93.8 mm   (spec 25, gate >= 23.5 with the
+                     1.5 mm hinge knee; WARN < 40)  PASS
+ exit direction err: 0.002 deg  (tol 1.0)  PASS
+ gates             : exit PASS / clear PASS
+
+ vs the frontier   : bracketing committed rows 5 deg (10.9 nm /
+                     98.0 mm) and 8 deg (21.5 nm / 67.4 mm)
+                     predicted ~18.0 nm -> measured 20.0 nm (1.11x)
+                     predicted ~77.6 mm -> measured 93.8 mm floor
+                     -> floor 16.2 mm ABOVE the frontier line (hinge dormant here);
+                        wavefront 2.0 nm above it
+
+ wall time         : 14.4 min total (12.7 solve + 1.6 score/figs)
+ artifacts         : demo_adjacent/oi_demo_7deg_map.png
+                     demo_adjacent/oi_demo_7deg_layout.png
+                     demo_adjacent/oi_demo_7deg_fields.png
+                     demo_adjacent/oi_demo_7deg.in
+=================================================================
