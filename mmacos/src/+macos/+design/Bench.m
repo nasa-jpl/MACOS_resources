@@ -604,6 +604,137 @@ methods
     end
 
     % -----------------------------------------------------------------
+    function tok = pbs_cube(b, dist, out, opts)
+        %PBS_CUBE  Define a CEMENTED polarizing beam-splitter cube token.
+        %   TOK = B.PBS_CUBE(DIST, OUT) defines a cube whose CENTRE (the
+        %   centre of the cemented diagonal) sits DIST along the current
+        %   chief, and whose diagonal turns the current chief into OUT.  No
+        %   element is added and the chief is NOT advanced -- feed the token
+        %   to add_pbs_pass, once per traversal, from any port.
+        %
+        %   WHY A CUBE AND NOT A PLATE.  A plate beamsplitter offsets the
+        %   transmitted beam and unbalances the glass path, which is what the
+        %   compensator in the plate rig exists to undo.  A cube has ONE
+        %   cemented interface between two prisms of the SAME glass, so the
+        %   transmitted chief is not displaced at all, and the four ports are
+        %   symmetric: every traversal is (a/2 in glass) -> diagonal ->
+        %   (a/2 in glass), whichever port you enter by.  Two arms that enter
+        %   by different ports therefore balance EXACTLY, by construction,
+        %   with no compensator.
+        %
+        %   The four port axes are +/-d_in and +/-OUT.  Faces are normal to
+        %   their own beams, so every face crossing is at exactly normal
+        %   incidence: no deviation, no walk-off, and (the reason this matters
+        %   for polarization) no face diattenuation at all.  ALL of the
+        %   polarization physics is in the diagonal.
+        %
+        %   OPTIONS
+        %     'side'  cube edge, BaseUnits (default 60 -- must clear the beam)
+        %     'n'     prism glass index (default 1.6554, the MacNeille index
+        %             of the default ZnS/cryolite pair -- a dense flint)
+        %     'coat'  the diagonal's Model-A stack, L-by-3 [n k thk_waves],
+        %             OUTERMOST first, thickness in waves at the deck Wavelen.
+        %             Use macos.design.pbs_macneille.  Empty = a bare cemented
+        %             interface, which with n_in == n_sub is optically NOTHING
+        %             (the cube then splits nothing -- useful as a null).
+        %     'ar'    the four faces' AR stack, same form.  Empty = bare glass.
+        %     'name'  element-name stem (default 'PBS')
+        %
+        %   USE A SYMMETRIC STACK.  r of a multilayer depends on which side it
+        %   is approached from unless the stack is symmetric, and both arms
+        %   use the diagonal from BOTH sides.  pbs_macneille returns H(LH)^N.
+        arguments
+            b
+            dist (1,1) double {mustBePositive}
+            out  (3,1) double
+            opts.side (1,1) double {mustBePositive} = 60
+            opts.n    (1,1) double {mustBePositive} = 1.6554
+            opts.coat (:,3) double = zeros(0,3)
+            opts.ar   (:,3) double = zeros(0,3)
+            opts.name (1,:) char = 'PBS'
+        end
+        d   = b.dir;
+        out = macos.design.Bench.unit(out);
+        assert(abs(dot(d,out)) < 1e-9, ...
+            ['Bench.pbs_cube: the diagonal must turn the chief by 90 deg ' ...
+             '(a cube''s ports are orthogonal); got %.4f deg.'], acosd(dot(d,out)));
+        tok = struct('ctr', b.pos + dist*d, ...
+                     'psi', macos.design.Bench.unit(out - d), ...
+                     'f1', d, 'f2', out, 'side', opts.side, 'n', opts.n, ...
+                     'coat', opts.coat, 'ar', opts.ar, 'name', opts.name);
+    end
+
+    % -----------------------------------------------------------------
+    function idx = add_pbs_pass(b, tok, opts)
+        %ADD_PBS_PASS  One traversal of the cube in token TOK: entrance face
+        %   -> the coated diagonal -> exit face.  Three elements, returned as
+        %   [i_in i_diag i_out].
+        %
+        %     'mode','transmit'  the diagonal is a coated Refractor with the
+        %                        SAME index on both sides, so it is
+        %                        geometrically inert (no bend, no offset) and
+        %                        purely a Jones element.  The chief carries on.
+        %     'mode','reflect'   the diagonal is a coated Reflector; the chief
+        %                        turns onto the other port axis.  Its IndRef is
+        %                        the prism glass (NOT the conductor idiom): the
+        %                        stack's substrate is the second prism, which
+        %                        is what makes it a cemented interface rather
+        %                        than a mirror.
+        %     'tag'              suffix for the element names (distinguish the
+        %                        forward and return traversals).
+        %
+        %   The chief must be running along one of the four port axes; that is
+        %   asserted, not assumed.  A normal-incidence face refraction returns
+        %   the incoming direction EXACTLY (Bench.refract is algebraically
+        %   exact at cos = 1), so a return traversal is still on-axis to the
+        %   last bit.
+        arguments
+            b
+            tok (1,1) struct
+            opts.mode (1,:) char {mustBeMember(opts.mode,{'transmit','reflect'})} = 'transmit'
+            opts.tag  (1,:) char = ''
+        end
+        w  = b.dir;   a2 = tok.side/2;
+        ax = [tok.f1, -tok.f1, tok.f2, -tok.f2];
+        assert(max(w.'*ax) > 1 - 1e-9, ...
+            'Bench.add_pbs_pass: the chief is not on a cube port axis.');
+
+        % --- entrance face (normal incidence, air -> prism glass) ---------
+        s1 = dot(tok.ctr - a2*w - b.pos, w);
+        assert(s1 > 0, 'Bench.add_pbs_pass: the cube is behind the beam.');
+        e1 = b.blank([tok.name 'in' opts.tag], 'Refractor');
+        e1.psi = w;  e1.vpt = b.step(s1);  e1.indref = tok.n;  e1.extinc = 0;
+        e1.coat = tok.ar;
+        i1 = b.push(e1);
+
+        % --- the cemented diagonal ---------------------------------------
+        Pd = b.step(a2);
+        switch opts.mode
+        case 'transmit'
+            e2 = b.blank([tok.name 'tx' opts.tag], 'Refractor');
+            nd = tok.psi;  if dot(nd, w) < 0, nd = -nd; end   % along the beam
+            e2.psi = nd;  e2.indref = tok.n;                  % glass -> glass
+            wout = w;
+        case 'reflect'
+            e2 = b.blank([tok.name 'rf' opts.tag], 'Reflector');
+            wout = macos.design.Bench.reflect(w, tok.psi);
+            e2.psi = macos.design.Bench.unit(wout - w);       % faces the beam
+            e2.indref = tok.n;                                % the 2nd prism
+        end
+        e2.vpt = Pd;  e2.extinc = 0;  e2.coat = tok.coat;
+        i2 = b.push(e2);
+        b.dir = wout;
+
+        % --- exit face (normal incidence, prism glass -> air) -------------
+        e3 = b.blank([tok.name 'out' opts.tag], 'Refractor');
+        e3.psi = wout;  e3.vpt = b.step(a2);  e3.indref = 1.0;  e3.extinc = 0;
+        e3.coat = tok.ar;
+        i3 = b.push(e3);
+
+        idx = [i1, i2, i3];
+    end
+
+    % -----------------------------------------------------------------
     function i = add_reference(b, dist, name)
         %ADD_REFERENCE  Passive Reference plane (e.g. focal-mask site).
         arguments
@@ -740,6 +871,23 @@ methods
             ln{end+1} = sprintf('           IndRef=  %.6E', e.indref);
             ln{end+1} = sprintf('           Extinc=  %.6E', e.extinc);
             ln{end+1} =         '            nCoat=  0';
+            % Model-A thin-film stack (the polarization path).  MUST follow
+            % IndRef=/Extinc= above: the parser snapshots IndRef(iElt-1) and
+            % IndRef(iElt) as the stack's boundary media when it reads
+            % Coating=.  Thickness is written as OPTICAL thickness in waves
+            % at the deck's own Wavelen (the parser multiplies by
+            % Wavelen/IndRef to recover the physical thickness), so the
+            % emitted deck is self-contained -- no runtime coat_set needed.
+            % NB 'nCoat' above is the OTHER coating model (nCoatElt, the
+            % non-sequential refractive path); the two are unrelated and the
+            % parser keys them apart at 5 vs 6 characters.
+            if ~isempty(e.coat)
+                ln{end+1} = sprintf('          Coating=  %d', size(e.coat,1));
+                for q = 1:size(e.coat,1)
+                    ln{end+1} = sprintf('                    %.15E  %.15E  %.15E', ...
+                        e.coat(q,1), e.coat(q,2), e.coat(q,3));
+                end
+            end
             ln{end+1} = sprintf('             xObs=  %s', F(macos.design.Bench.perp(e.psi)));
             ln{end+1} =         '             nObs=  0';
             if ~isempty(e.gridfile)
@@ -886,6 +1034,7 @@ methods (Access = private)
             'indref', 1.0, 'extinc', 0.0, 'aptype', 'None', 'aprad', 0, ...
             'gridfile', '', 'gridn', 0, 'griddx', 0, ...
             'polaxis', [1;0;0], 'retard', 0.0, ...   % pol-element fields (TrPolarizer/WavePlate)
+            'coat', zeros(0,3), ...   % Model-A stack, OUTERMOST first: [n k thk_waves]
             'zelt', 1e22, 's', b.path_len);
     end
 
