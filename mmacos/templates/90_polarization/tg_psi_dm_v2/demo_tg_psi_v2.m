@@ -102,6 +102,40 @@ fprintf('  arm glass paths differ by %.2e mm -- NO compensator plate\n', ...
 fprintf('  every arm azimuth is a DESIGN CONSTANT: pol %g, arm QWPs %g/%g, out QWP %g\n', ...
     G.P.pol_in_deg, G.P.qwp_test_deg, G.P.qwp_ref_deg, G.P.out_qwp_deg);
 
+%  DRAW IT.  Every beat has to put something on the screen -- a beat that
+%  only prints is a dead beat in front of a room.  Beat 1's two pictures are
+%  the two things its text claims: the stack that was just designed, and how
+%  the two arms actually get through the cube.  Neither costs a ray trace.
+f1 = figure('Color','w', 'Position',[80 80 1250 470], 'Visible','off');
+tl1 = tiledlayout(f1, 1, 2, 'TileSpacing','compact', 'Padding','compact');
+nexttile;                                   % index vs depth through the joint
+zt = [0; cumsum(PBS.thk(:))*1e6];           % layer boundaries, nm
+nn = PBS.layers(:,1);
+pad = 0.25*zt(end);
+stairs([-pad; zt], [PBS.n_glass; nn; PBS.n_glass], 'LineWidth',2); hold on;
+plot([zt(end) zt(end)+pad], PBS.n_glass*[1 1], 'LineWidth',2, 'Color',[0 0.447 0.741]);
+yline(PBS.n_glass, ':', sprintf('prism n = %.4f', PBS.n_glass));
+xlim([-pad, zt(end)+pad]); grid on;
+xlabel('depth through the cemented joint (nm)'); ylabel('refractive index');
+title(sprintf('%d layers, ZnS / cryolite, quarter waves AT ANGLE', numel(nn)));
+nexttile;                                   % the four ports
+hold on; axis equal off; xlim([-0.55 0.75]); ylim([-0.55 0.75]);
+rectangle('Position',[0 0 1 1]*0+[-0.35 -0.35 0.7 0.7], 'FaceColor',[.93 .95 .99], ...
+          'EdgeColor',[.4 .4 .4], 'LineWidth',1.2);
+plot([-0.35 0.35], [0.35 -0.35], 'k-', 'LineWidth',2.5);
+text(0.20, 0.22, 'coating', 'FontSize',9, 'Rotation',-45, 'HorizontalAlignment','center');
+q = @(x1,y1,x2,y2,c) quiver(x1,y1,x2-x1,y2-y1, 0, 'Color',c, 'LineWidth',2, 'MaxHeadSize',0.5);
+q(-0.52,0, -0.05,0, [.2 .2 .2]);           text(-0.52,0.06,'IN  45\circ','FontSize',9);
+q(0.05,0, 0.52,0, [0.85 0.33 0.10]);        text(0.30,0.06,'TEST (DM)','FontSize',9,'Color',[0.85 0.33 0.10]);
+q(0,-0.05, 0,-0.52, [0 0.447 0.741]);       text(0.03,-0.42,'REF','FontSize',9,'Color',[0 0.447 0.741]);
+q(0,0.05, 0,0.52, [0.47 0.67 0.19]);        text(0.03,0.45,'OUT','FontSize',9,'Color',[0.47 0.67 0.19]);
+title({'one cemented interface, four ports', ...
+       'test TRANSMITS out and REFLECTS back; reference does the reverse'}, ...
+      'FontSize',9);
+title(tl1, 'The polarizing cube, before a single ray is traced');
+print(f1, 'demo2_beat1_stack.png', '-dpng', '-r150');
+fprintf('  saved demo2_beat1_stack.png\n');
+
 AT = arm_desc('demo2_test.in', G.bt, G.T, G.P.qwp_test_deg);
 AR = arm_desc('demo2_ref.in',  G.br, G.R, G.P.qwp_ref_deg);
 AT = set_pol_align(AT, G.P.qwp_test_deg, G.P.out_qwp_deg);
@@ -111,8 +145,39 @@ AR = set_pol_align(AR, G.P.qwp_ref_deg,  G.P.out_qwp_deg);
 beat(2, 'LAYOUT -- look at it, and follow the light', INTERACTIVE);
 % =========================================================================
 macos.load_rx('demo2_test.in');
-f = macos.view_std('title', 'MacNeille-cube polarization-PSI Twyman-Green, test arm', ...
-                   'save', 'demo2_beat2_layout.png');
+%  TWO NAMED VIEWS.  view_std's four defaults are built for a folded
+%  telescope; this bench lives in the optical-table PLANE, so the panel that
+%  actually shows the routing is the one looking straight DOWN on it.  Both
+%  cameras are set explicitly (the recipe is view_std's own) so each panel
+%  can be labelled for what it is -- a "side view" caption over a top-down
+%  picture is the kind of small lie that costs you the room.
+%  The up-vector must not be parallel to the view direction: for the
+%  top-down panel that rules out the beam-frame vertical, so use the
+%  BROADSIDE axis, which puts the light left-to-right the way an optical
+%  layout is always drawn.  (Using the beam direction as up works too and
+%  runs the light up the page -- correct, but a tall thin picture in a wide
+%  panel.)
+d0 = G.bt.src_dir(:);  [~, i0] = min(abs(d0));
+xb = zeros(3,1);  xb(i0) = 1;  xb = xb - dot(xb,d0)*d0;  xb = xb/norm(xb);
+yb = cross(d0, xb);
+ai = deg2rad([-35 22]);
+VW = { -yb, xb, 'TABLE PLANE -- looking down on the bench' ; ...
+       cos(ai(2))*(cos(ai(1))*xb + sin(ai(1))*d0) + sin(ai(2))*yb, yb, 'ISO view' };
+f = figure('Color','w', 'Position',[40 40 1700 560], 'Visible','off');
+tl2 = tiledlayout(f, 1, 2, 'Padding','tight', 'TileSpacing','tight');
+for q = 1:size(VW,1)
+    ax = nexttile(tl2);
+    macos.view_rx('ax', ax, 'title', VW{q,3});
+    axis(ax, 'equal');
+    xl = xlim(ax);  yl = ylim(ax);  zl = zlim(ax);
+    tgt = [mean(xl); mean(yl); mean(zl)];
+    dd  = 3*max([diff(xl), diff(yl), diff(zl)]);
+    set(ax, 'CameraTarget', tgt.', 'CameraPosition', (tgt - dd*VW{q,1}).', ...
+            'CameraUpVector', VW{q,2}.', 'Projection', 'orthographic');
+    camva(ax, 'auto');  camzoom(ax, 1.45);  axis(ax, 'off');
+end
+title(tl2, 'MacNeille-cube polarization-PSI Twyman-Green, test arm');
+print(f, 'demo2_beat2_layout.png', '-dpng', '-r150');
 fprintf('  source -> baffle -> L1 -> polarizer@45 -> CUBE ->\n');
 fprintf('     TEST arm: the cube TRANSMITS p out to the DM; the double-passed\n');
 fprintf('               QWP turns p into s; the cube REFLECTS s to the output\n');
@@ -123,6 +188,45 @@ fprintf('     field lens -> detector at the DM pupil image\n');
 fprintf('  Both returns leave by the output port -- that is what a PBS buys,\n');
 fprintf('  and it is why the cube delivers ~2.3x the light the plate rig does.\n');
 fprintf('  saved demo2_beat2_layout.png\n');
+%  Point at the PRESCRIPTIONS.  Everything on screen came out of two text
+%  files, and an audience that models optics wants to see them.  Give the
+%  paths, say how an element is found in one (each is a block starting
+%  "iElt= N"), name the handful that matter, and then show the coating
+%  block VERBATIM -- that is the whole of what the engine was told about
+%  the beamsplitter.
+dk = {'demo2_test.in', 'demo2_ref.in'};
+fprintf('\n  the two prescriptions the engine actually reads:\n');
+for q = 1:2
+    L = regexp(fileread(dk{q}), '\n', 'split');
+    fprintf('    %s   (%d elements, %d lines)\n', ...
+            fullfile(pwd, dk{q}), numel(G.bt.E), numel(L));
+end
+fprintf('  each element is a block beginning "iElt= N".  The ones to look at:\n');
+fprintf('    iElt=  4   PolIn        both arms, 45 deg in\n');
+fprintf('    iElt=  6   PBStxf / PBSrff   THE SPLIT: same coating, transmitted / reflected\n');
+fprintf('    iElt=  9   TestOptic / PZT   the DM (GridData) / the reference flat\n');
+fprintf('    iElt= 12   PBSrfr / PBStxr   the same coating again, on the way back\n');
+fprintf('    iElt= 16   Analyzer     the only thing that moves in the whole rig\n');
+%  There are SEVERAL Coating= blocks in the deck -- the cube faces carry a
+%  single AR layer -- so take the one whose layer count matches the
+%  diagonal's, not simply the first.  Print exactly that many rows after it.
+Lt = regexp(fileread('demo2_test.in'), '\n', 'split');
+nL = size(PBS.layers,1);
+kall = find(~cellfun(@isempty, regexp(Lt, '^\s*Coating=', 'once')));
+kc = [];
+for q = kall
+    if str2double(strtrim(extractAfter(strtrim(Lt{q}), 'Coating='))) == nL
+        kc = q;  break;
+    end
+end
+if ~isempty(kc)
+    fprintf('  and this is the beamsplitter coating, verbatim from demo2_test.in\n');
+    fprintf('  (n, extinction, optical thickness in waves; the faces carry a\n');
+    fprintf('   separate single-layer AR block, which is why we match on count):\n');
+    for q = kc : min(kc + nL, numel(Lt))
+        fprintf('    %s\n', strtrim(Lt{q}));
+    end
+end
 
 % =========================================================================
 beat(3, 'COATING -- the engine stack vs the textbook, and the trap', INTERACTIVE);
@@ -173,6 +277,38 @@ fprintf('    test |b/a| %.5f arg %+7.2f | ref |b/a| %.5f arg %+7.2f | <t|r> %.1e
     abs(sr(2)/sr(1)), rad2deg(angle(sr(2)/sr(1))), ...
     abs(st'*sr)/(norm(st)*norm(sr)));
 fprintf('  v1 needed an alignment beat here.  This rig has no knob to turn.\n');
+%  DRAW IT.  The table above is two numbers per stack; the picture is the
+%  whole story -- how R_p behaves either side of the design angle, with the
+%  engine's own measurements dropped on top of the textbook curves.  Pure
+%  analytic sweep, no ray tracing, so it costs nothing.
+aoi = linspace(35, 55, 121);
+Rp1 = zeros(size(aoi));  Rs1 = Rp1;  Rp2 = Rp1;  Rs2 = Rp1;
+L1 = [PBS.layers(:,1)  - 1i*PBS.layers(:,2),  PBS.thk(:)];
+L2 = [PBSq.layers(:,1) - 1i*PBSq.layers(:,2), PBSq.thk(:)];
+for q = 1:numel(aoi)
+    a = macos.design.thinfilm_rt(L1, PBS.n_glass,  PBS.n_glass,  aoi(q), LAM);
+    b = macos.design.thinfilm_rt(L2, PBSq.n_glass, PBSq.n_glass, aoi(q), LAM);
+    Rp1(q) = a.Rp;  Rs1(q) = a.Rs;  Rp2(q) = b.Rp;  Rs2(q) = b.Rs;
+end
+f3 = figure('Color','w', 'Position',[80 80 1250 470], 'Visible','off');
+tl3 = tiledlayout(f3, 1, 2, 'TileSpacing','compact', 'Padding','compact');
+for pn = 1:2
+    nexttile;
+    if pn == 1, Rp = Rp1; Rs = Rs1; Ee = E;  ttl = '(1/2H L 1/2H)^4  -- EVEN, absentee';
+    else,       Rp = Rp2; Rs = Rs2; Ee = Eq; ttl = 'H(LH)^4  -- ODD, quarter-wave layer'; end
+    semilogy(aoi, max(Rs,1e-16), 'LineWidth',1.8); hold on;
+    semilogy(aoi, max(Rp,1e-16), 'LineWidth',1.8);
+    semilogy(45, max(Ee.Rs,1e-16), 'o', 'MarkerSize',10, 'LineWidth',2, 'Color',[0 0.447 0.741]);
+    semilogy(45, max(Ee.Rp,1e-16), 's', 'MarkerSize',10, 'LineWidth',2, 'Color',[0.85 0.33 0.10]);
+    xline(45, ':', 'design angle');
+    grid on; ylim([1e-14 2]); xlabel('angle of incidence in the prism (deg)');
+    ylabel('reflectance');  title(ttl, 'FontSize',10);
+    legend({'R_s (textbook)','R_p (textbook)','R_s (engine)','R_p (engine)'}, ...
+           'Location','east', 'FontSize',8);
+end
+title(tl3, 'Same MacNeille condition, one layer of termination apart -- lines are Macleod, markers are the engine');
+print(f3, 'demo2_beat3_coating.png', '-dpng', '-r150');
+fprintf('  saved demo2_beat3_coating.png\n');
 
 % =========================================================================
 beat(4, 'NULL -- flat DM, and nothing was aligned', INTERACTIVE);
