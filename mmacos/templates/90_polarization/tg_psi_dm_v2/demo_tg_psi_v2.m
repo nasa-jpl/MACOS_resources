@@ -46,12 +46,21 @@ QWP   = 0.25;
 THETAS = [0 45 90 135];
 TAIL = {'tail_arch','fieldlens', 'FL_F',25.02100857, 'FL_Kc',-2.11278288, ...
         'D_MASK_FL',6.277463741, 'DET_TRIM',1.085330067};
-INTERACTIVE = usejava('desktop');   % pause between beats only when a human is here
+%  Pause between beats only when someone is there to press Enter.  The
+%  desktop test is the normal one; TG_DEMO_PAUSE forces it on so the demo can
+%  be driven a beat at a time from OUTSIDE MATLAB -- a persistent session fed
+%  one newline per beat, which is how the dialog cut runs (each "run it" from
+%  the floor is one Enter).  Unset, this is exactly the previous behaviour.
+INTERACTIVE = usejava('desktop') || ~isempty(getenv('TG_DEMO_PAUSE'));
 %  The live animation needs figures, not a human, so it is gated separately --
 %  set TG_DEMO_ANIMATE=1 to exercise that path in batch (it is the one part of
 %  the demo a headless run would otherwise never execute, and the demo is the
 %  thing that has to work in front of a room).
-ANIMATE = INTERACTIVE || ~isempty(getenv('TG_DEMO_ANIMATE'));
+%  The in-MATLAB animation needs a MATLAB window.  Under an external driver
+%  (TG_DEMO_MARKER) there isn't one -- the GIF above is what gets shown -- so
+%  skip it rather than burn 4 s animating into nothing.
+ANIMATE = (INTERACTIVE || ~isempty(getenv('TG_DEMO_ANIMATE'))) ...
+          && isempty(getenv('TG_DEMO_MARKER'));
 NTURNS  = 3;  if ~INTERACTIVE, NTURNS = 1; end
 macos.init(MODEL);
 
@@ -182,6 +191,25 @@ fprintf('  fringe field is FLAT: recovered phase %.3e rad rms in the pupil\n', .
     std(p_null(msk) - median(p_null(msk))));
 fprintf('  = %.4f nm of surface -- the null of a compensated Twyman-Green\n', ...
     1e6*std(p_null(msk)-median(p_null(msk)))*LAM/(4*pi));
+%  SHOW the null.  A beat that prints a number and draws nothing is a dead
+%  beat in front of a room -- and this is the most important number so far,
+%  so it earns a picture.  The point of the picture is that there is nothing
+%  IN it: a featureless fringe field, and a surface map whose full colour
+%  range is a few hundredths of a nanometre.  Both panels are the honest
+%  autoscale, NOT a fixed scale that would flatter the result.
+h_null = (p_null - median(p_null(msk))) * LAM/(4*pi) * 1e6;    % nm of surface
+b4 = beam_box(msk, 6);
+f4 = figure('Color','w', 'Position',[80 80 1180 470], 'Visible','off');
+tl4 = tiledlayout(f4, 1, 2, 'TileSpacing','compact', 'Padding','compact');
+nexttile; imagesc(sub(I_null, b4)); axis image off; colorbar;
+title('the fringe field, flat DM');
+show(h_null, msk, size(h_null,1), b4, [], ...
+     sprintf('recovered surface: %.4f nm rms', std(h_null(msk))));
+title(tl4, sprintf(['nothing to measure -- and the instrument agrees ' ...
+                    '(%.3f nm rms, %.0f pm)'], std(h_null(msk)), ...
+                   1e3*std(h_null(msk))));
+print(f4, 'demo2_beat4_null.png', '-dpng', '-r150');
+fprintf('  saved demo2_beat4_null.png -- the picture is that there is nothing in it\n');
 
 % =========================================================================
 beat(5, 'POKE -- drive one actuator', INTERACTIVE);
@@ -243,6 +271,24 @@ xlabel('across the beam (px)'); ylabel('analyzer angle \theta (deg)');
 title(sprintf('the fringes walk: one cut through the actuator, all %d angles', nsw));
 print(f6, 'demo2_beat6_sweep.png', '-dpng', '-r150');
 fprintf('  saved demo2_beat6_sweep.png\n');
+%  The sweep as an ANIMATED GIF.  MATLAB's own animation loop below needs a
+%  MATLAB window; a GIF plays in any viewer, which is what a driven session
+%  (or a slide) actually has.  Same 36 synthesized frames, same fixed scale
+%  as the panels above -- if the scale floated, the fringes would look like
+%  they were breathing when only the phase is moving.
+gname = 'demo2_beat6_sweep.gif';
+if exist(gname, 'file'), delete(gname); end
+cmg = parula(256);  ghi = max(Isw(:));
+for k = 1:nsw
+    A = sub(Isw(:,:,k), b6);
+    ix = uint8(255*max(0, min(1, A/max(ghi, eps))));
+    if k == 1
+        imwrite(ix, cmg, gname, 'gif', 'LoopCount',Inf, 'DelayTime',0.06);
+    else
+        imwrite(ix, cmg, gname, 'gif', 'WriteMode','append', 'DelayTime',0.06);
+    end
+end
+fprintf('  saved %s -- the sweep, playable outside MATLAB\n', gname);
 if ANIMATE                          % the live animation
     fprintf('  animating the sweep (close the window to stop)...\n');
     fa = figure('Color','w','Position',[200 200 620 620]);
@@ -300,6 +346,139 @@ show(1e6*(best.hm-best.ht), msk, NN, box, [-1 1]*4e6*std(res), ...
 title(tl, 'Polarization-PSI Twyman-Green: a DM measured, and the map it was given');
 print(f7, 'demo2_beat7_recovery.png', '-dpng', '-r150');
 fprintf('  saved demo2_beat7_recovery.png\n');
+
+% =========================================================================
+beat(8, 'CALIBRATE -- and find the edge of the calibration', INTERACTIVE);
+% =========================================================================
+%  Beat 7 left 0.18 nm rms on the table, and it is NOT noise -- it correlates
+%  with the truth, so it is a deterministic function of what went in and can
+%  in principle be calibrated out.  This beat does that properly, which means
+%  three things a single scale factor does not:
+%
+%   (1) CALIBRATE ON A BASIS, not on one shape.  Inject each of a set of
+%       Zernike modes on the DM, one at a time, and build the matrix G that
+%       takes true mode coefficients to measured ones.  Its DIAGONAL is the
+%       per-mode gain; its OFF-DIAGONAL is cross-talk, which a scalar gain
+%       cannot see and a shift-invariant transfer function cannot fix.
+%   (2) CHECK IT IS LINEAR IN AMPLITUDE over the range you care about.  A
+%       gain measured at one amplitude is worthless if the gauge is not
+%       linear; measure it rather than assume it.
+%   (3) VALIDATE OUT OF SAMPLE.  Scoring a calibration on the data that
+%       fitted it measures nothing.  Two held-out tests are run: a random
+%       combination INSIDE the calibrated span, and the beat-7 checkerboard,
+%       which is deliberately OUTSIDE it.  The contrast between those two is
+%       the answer to "over what range of aberrations does this help".
+%
+%  The aperture fraction is MEASURED, not taken from the nominal design: the
+%  registration of beat 7 already gives every detector pixel's position on the
+%  DM (map.Xt/map.Yt), so the illuminated radius is just the largest of those
+%  inside the beam mask.  Reading it off the design would bake in exactly the
+%  kind of assumption this beat exists to avoid.
+MODES = [4 5 6 7 8 9 10 13];
+NAMES = {'astig45','defocus','astig0','trefoil-y','coma-y','coma-x','trefoil-x','spherical'};
+AMP   = 20e-6;                                   % 20 nm rms per mode
+apf   = max(hypot(map.Xt(msk), map.Yt(msk))) / (((N_G-1)/2)*DX_G);
+Bz    = macos.zernike_grid_basis(N_G, MODES, apf);
+axs   = ((1:N_G)-(N_G+1)/2)*DX_G;
+nM    = numel(MODES);
+fprintf('  basis: %d Zernike modes at %g nm rms, aperture fraction %.4f (measured)\n', ...
+        nM, AMP*1e6, apf);
+
+Tt = zeros(nnz(msk), nM);  Mm = zeros(nnz(msk), nM);
+t8 = tic;
+for k = 1:nM
+    Mk = AMP * Bz(:,:,k);
+    hk = meas_surface(AT, QWP, Mk, Sr, p_null, THETAS, LAM);
+    tk = interpn(axs, axs, Mk, map.Xt, map.Yt, 'spline', 0);
+    Mm(:,k) = hk(msk) - mean(hk(msk));
+    Tt(:,k) = tk(msk) - mean(tk(msk));
+end
+G = Tt \ Mm;                        % measured coeffs = G * true coeffs
+fprintf('  %d modes x 3 traces in %.1f s\n', nM, toc(t8));
+fprintf('  %-11s %8s %11s\n', 'mode', 'gain', 'cross-talk');
+for k = 1:nM
+    x = G(:,k);  x(k) = 0;
+    fprintf('  %-11s %8.4f %11.4f\n', NAMES{k}, G(k,k), norm(x));
+end
+
+%  (2) amplitude linearity, on one mode
+ki = find(MODES == 5, 1);            % defocus
+amps = [2 10 30 50]*1e-6;  rec = zeros(size(amps));
+for q = 1:numel(amps)
+    hq = meas_surface(AT, QWP, amps(q)*Bz(:,:,ki), Sr, p_null, THETAS, LAM);
+    c  = Tt \ (hq(msk) - mean(hq(msk)));
+    rec(q) = c(ki)*AMP;              % Tt columns carry the AMP scaling
+end
+pf = polyfit(amps, rec, 1);
+nl = max(abs(rec - polyval(pf, amps)))/max(rec);
+fprintf('  amplitude linearity on defocus, %g to %g nm rms:\n', amps(1)*1e6, amps(end)*1e6);
+fprintf('     injected  '); fprintf('%8.1f', amps*1e6);  fprintf('  nm\n');
+fprintf('     recovered '); fprintf('%8.2f', rec*1e6);   fprintf('  nm\n');
+fprintf('     slope %.5f, departure from a straight line %.2f%% of full scale\n', ...
+        pf(1), 100*nl);
+
+%  (3) out-of-sample validation: inside the span, and outside it
+rng_w = [0.31 -0.62 0.44 0.18 -0.27 0.51 -0.12 0.35];   % fixed, not random --
+w = rng_w(:)/norm(rng_w) * (20e-6/AMP);                 % a demo must repeat
+Min = zeros(N_G);  for k = 1:nM, Min = Min + w(k)*AMP*Bz(:,:,k); end
+val = {'in-span mixture', Min; 'beat-7 checkerboard', Mdm};
+vb = zeros(1,2);  va = zeros(1,2);  rcr = zeros(1,2);
+for v = 1:2
+    hv = meas_surface(AT, QWP, val{v,2}, Sr, p_null, THETAS, LAM);
+    tv = interpn(axs, axs, val{v,2}, map.Xt, map.Yt, 'spline', 0);
+    hv = hv(msk) - mean(hv(msk));   tv = tv(msk) - mean(tv(msk));
+    cc = G \ (Tt \ hv);             % de-calibrate into true coefficients
+    hc = hv - Tt*(Tt\hv) + Tt*cc;    % correct only the part the basis spans
+    vb(v) = 1e6*std(hv - tv);   va(v) = 1e6*std(hc - tv);
+    %  Report the residual as a FRACTION of the input too.  The two test
+    %  shapes are not the same size (20 nm rms vs 6.4), so comparing their
+    %  absolute residuals would say more about the inputs than the gauge.
+    %  And correlate what is LEFT against the truth: if it still correlates,
+    %  there is linear signal the basis did not reach.
+    rc = corrcoef(hc - tv, tv);  rcr(v) = rc(1,2);
+    fprintf('  %-20s %.4f -> %.4f nm rms   (%.2f%% of a %.2f nm input)  resid/truth corr %+.2f\n', ...
+            val{v,1}, vb(v), va(v), 100*va(v)/(1e6*std(tv)), 1e6*std(tv), rc(1,2));
+end
+%  THE HONEST READING, and it is not the one this beat was built expecting.
+gm = mean(diag(G));  gs = std(diag(G));
+xt = G - diag(diag(G));
+fprintf('  ------------------------------------------------------------------\n');
+fprintf('  The gauge''s LINEAR response is essentially ideal over these\n');
+fprintf('  aberrations: gain %.4f +- %.4f across all %d modes, cross-talk\n', ...
+        gm, gs, nM);
+fprintf('  below %.1f%%, and linear in amplitude to %.2f%% from %g to %g nm.\n', ...
+        100*max(abs(xt(:))), 100*nl, amps(1)*1e6, amps(end)*1e6);
+fprintf('  So there is almost nothing to calibrate -- correcting it buys ~%.0f%%.\n', ...
+        100*(1 - va(1)/vb(1)));
+%  The two correlations LOCALISE what is left, which is the real deliverable
+%  here: they say WHERE more calibration would pay and where it would not.
+fprintf('  And the last column says where the leftover error lives.  After\n');
+fprintf('  correction the in-span residual is UNCORRELATED with the truth\n');
+fprintf('  (%+.2f) -- over low-order aberrations this gauge is AT ITS FLOOR and\n', rcr(1));
+fprintf('  no calibration will help it.  The checkerboard''s residual is still\n');
+fprintf('  %+.2f correlated, so at ACTUATOR spatial frequencies there IS signal\n', rcr(2));
+fprintf('  left on the table -- above what an 8-mode basis can reach.\n');
+fprintf('  The answer to "over what range of aberrations": over the low-order\n');
+fprintf('  range it is already at the floor; to do better you widen the BASIS,\n');
+fprintf('  not the gain.\n');
+
+f8 = figure('Color','w', 'Position',[80 80 1500 430], 'Visible','off');
+tl8 = tiledlayout(f8, 1, 3, 'TileSpacing','compact', 'Padding','compact');
+nexttile; imagesc(G); axis image; colorbar; clim([-1 1]*max(abs(G(:))));
+set(gca,'XTick',1:nM, 'XTickLabel',NAMES, 'YTick',1:nM, 'YTickLabel',NAMES);
+xtickangle(45);  title('G: true coefficients -> measured');
+nexttile; plot(amps*1e6, rec*1e6, 'o-', 'LineWidth',1.6); grid on; hold on;
+plot(amps*1e6, polyval(pf,amps)*1e6, 'k--');
+xlabel('injected (nm rms)'); ylabel('recovered (nm rms)');
+title(sprintf('linearity: slope %.4f, %.2f%% departure', pf(1), 100*nl));
+nexttile; bar([vb; va].'); grid on;
+set(gca,'XTickLabel',{'in-span','out-of-span'});
+ylabel('residual (nm rms)'); legend({'raw','calibrated'}, 'Location','northwest');
+title('held-out validation');
+title(tl8, 'Calibrating the gauge -- and the edge of the calibration');
+print(f8, 'demo2_beat8_calibration.png', '-dpng', '-r150');
+fprintf('  saved demo2_beat8_calibration.png\n');
+
 beat(0, '', false);
 fprintf('\n=== demo complete.  Artefacts: demo2_*.in, demo2_beat*.png ===\n');
 
@@ -311,9 +490,21 @@ function beat(n, ttl, interactive)
 %   live demo is "does any beat lose the room", so measure it rather than
 %   estimate: the timer stops on the NEXT banner, and the total prints at the
 %   end (call beat(0,...) to close the last one).
+%
+%   If TG_DEMO_MARKER names a directory, each finished beat also drops an
+%   empty beat<N>.done file there.  A driver outside MATLAB needs a
+%   completion signal it can trust, and stdout to a redirected file is
+%   block-buffered -- the filesystem is not.  The marker is written BEFORE
+%   the next beat's input() blocks, so it means "beat N is finished and the
+%   script is waiting", which is exactly what the driver has to know.
     persistent t0 last
     if ~isempty(t0) && ~isempty(last)
         fprintf('\n   [beat %d took %.2f s]\n', last, toc(t0));
+        md = getenv('TG_DEMO_MARKER');
+        if ~isempty(md)
+            fid = fopen(fullfile(md, sprintf('beat%d.done', last)), 'w');
+            if fid > 0, fclose(fid); end
+        end
     end
     if n == 0, t0 = [];  last = [];  return; end
     fprintf('\n');
@@ -420,6 +611,14 @@ function R = probe_rt(rx_t, iT, rx_r, iR)
     R = struct('Ts',Q.Ts, 'Tp',Q.Tp, 'Rs',Q.Rs, 'Rp',Q.Rp);
 end
 
+function h = meas_surface(A, QWP, M, Sr, p_null, THETAS, LAM)
+%MEAS_SURFACE  Put shape M on the DM, run the four-step measurement against
+%   the reference arm, and return the recovered SURFACE in mm.  Differential
+%   against the flat-DM phase, so every static term cancels.  Three traces.
+    d = angle(exp(1i*(fourstep(analyzer_basis(A, QWP, M), Sr, THETAS) - p_null)));
+    h = d * LAM/(4*pi);
+end
+
 function I = frame(Sx, Sr, th)
     I = sum(abs(synth(Sx,th) + synth(Sr,th)).^2, 3);
 end
@@ -486,16 +685,21 @@ function [best, map] = register_to_dm(A, ix, Mdm, N_G, DX_G, h, msk)
     A1 = cands{best.i,1};  A2 = cands{best.i,2};
     p = fminsearch(@(q) -reg_corr(q,A1,A2,c_d,Fx,Fy,axs,Mdm,hm,msk), [0 0 0 0], ...
                    optimset('TolX',1e-7,'TolFun',1e-10,'Display','off'));
-    [c2, ht2] = reg_corr(p, A1, A2, c_d, Fx, Fy, axs, Mdm, hm, msk);
+    [c2, ht2, Xt, Yt] = reg_corr(p, A1, A2, c_d, Fx, Fy, axs, Mdm, hm, msk);
     if c2 > best.c, best.c = c2;  best.ht = ht2; end
     best.hm = hm;
+    map.Xt = Xt;  map.Yt = Yt;     % the reusable resampler (see reg_corr)
 end
 
-function [c, ht] = reg_corr(p, A1, A2, c_d, Fx, Fy, axs, Mdm, hm, msk)
+function [c, ht, Xt, Yt] = reg_corr(p, A1, A2, c_d, Fx, Fy, axs, Mdm, hm, msk)
+%   XT/YT are each detector pixel's position ON THE DM, in mm.  Returned so
+%   the solved registration can be REUSED to resample any other shape (beat
+%   8 injects a dozen of them) instead of re-solving it every time.
     s = exp(p(4));  ct = cos(p(3));  st = sin(p(3));
     X = s*(ct*A1 - st*A2) + c_d(1) + p(1);
     Y = s*(st*A1 + ct*A2) + c_d(2) + p(2);
-    ht = interpn(axs, axs, Mdm, Fx(X,Y), Fy(X,Y), 'spline', 0);
+    Xt = Fx(X,Y);  Yt = Fy(X,Y);
+    ht = interpn(axs, axs, Mdm, Xt, Yt, 'spline', 0);
     ht = ht - mean(ht(msk));
     cc = corrcoef(hm(msk), ht(msk));  c = cc(1,2);
 end
