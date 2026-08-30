@@ -5,7 +5,7 @@ CHOREOGRAPHY REVISED 2026-08-30 (deck restructure, Dave's rulings):
 the ask + kickoff happen at the DEMO-INTRO SLIDE (9), right after the
 challenge-3 frontier; **DAVE switches to MATLAB and launches
 `oi_demo_step(<width>)` himself**; the reveal is slide 23, just before
-the closing discussion (~26–32 min of cover).  The framing on the
+the closing discussion (~27–33 min of cover).  The framing on the
 slide: **"no AI in this loop"** — the design knowledge is compiled
 into the driver, the without-AI half of slide 5's objective, running
 live.  The Twyman-Green DM gauge (slides 14–16) is Dave solo on the
@@ -109,28 +109,25 @@ this morning") — the claim survives; a stalled console does not.
 > "Give me a field box.  Anything between 5 and 15 degrees full width —
 > it sits at 22½ degrees off axis either way, in a fixed envelope."
 
-Take the number.  Repeat it back.  Then launch, **in a second MATLAB, in
-the background**, so the rest of the demo runs while it solves:
+Take the number.  Repeat it back.  Then launch it yourself, **in the
+solve MATLAB** (the second desktop session — the slide shows these
+exact lines):
 
-```bash
-OI_DEMO_WIDTH=12  MACOS_HOME=/home/dcr/dev/macos/macos_f90 \
-matlab -batch "run('<...>/offset_imager/run_oi_demo.m')" > /tmp/oi_demo.log 2>&1 &
+```
+>> cd ~/dev/MACOS_resources/mmacos/templates/10_telescopes/offset_imager
+>> OUT = oi_demo_step(12)     % the room's width
 ```
 
-Nothing to watch here — the engine's own trace chatter fills the log.
-That is why it goes to a file and the reveal comes from the verdict
-block.
+The rest of the demo runs while it solves in that window.  (Headless
+fallback if the desktop session is lost:
+`OI_DEMO_WIDTH=12 matlab -batch "run('.../run_oi_demo.m')" > /tmp/oi_demo.log 2>&1 &`
+and grep the log instead.)
 
 ### 2 — The prediction, stated BEFORE the answer exists (~40 s)
 
 Within a few seconds of launch — before any solving — the driver prints
-the frontier bracket:
-
-```bash
-grep -A8 'frontier prediction' /tmp/oi_demo.log
-```
-
-Read it out.  **This is the beat.**  The claim is not "the tool can
+the frontier bracket right there in the MATLAB window.  Read it off the
+screen, out loud.  **This is the beat.**  The claim is not "the tool can
 solve it"; it is "the table already told us roughly what the answer must
 be, and the driver goes and confirms it."
 
