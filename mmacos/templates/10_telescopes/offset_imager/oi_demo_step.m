@@ -95,6 +95,7 @@ function OUT = oi_demo_step(width_deg, varargin)
     outdir    = fullfile(here, 'demo_adjacent');
     tag       = '';
     quiet     = false;
+    show_     = usejava('desktop');   % pop the reveal windows on a desktop
     over      = struct();
     kv = varargin;
     if mod(numel(kv), 2) ~= 0
@@ -109,6 +110,7 @@ function OUT = oi_demo_step(width_deg, varargin)
             case 'outdir',    outdir    = kv{i+1};
             case 'tag',       tag       = kv{i+1};
             case 'quiet',     quiet     = kv{i+1};
+            case 'show',      show_     = kv{i+1};
             otherwise,        over.(kv{i}) = kv{i+1};
         end
     end
@@ -271,6 +273,16 @@ function OUT = oi_demo_step(width_deg, varargin)
 
     save(OUT.files.mat, 'OUT');
     say('\nSaved: %s\n', OUT.files.mat);
+
+    % ---- the reveal windows (a display error must never kill the run) ---
+    if show_
+        try
+            oi_demo_show(OUT);
+        catch me
+            warning('oi_demo_step:show', 'reveal render failed: %s', ...
+                    me.message);
+        end
+    end
 end
 
 % =========================================================================
