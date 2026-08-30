@@ -157,14 +157,19 @@ Hand over.  The solve keeps going.
 
 ### 4 — The reveal (~90 s)
 
-```bash
-grep -n 'OI-DEMO DONE' /tmp/oi_demo.log            # it finished
-cat  <the path printed as 'OI-DEMO verdict'>       # the block
+Switch to the solve MATLAB.  If the solve has finished, **the reveal
+windows are already up** — `oi_demo_step` pops them on completion
+(2026-08-30): the LIVE-traced layout of the solved instrument, the
+dense WFE map, and the solve-fields panel, with the verdict block the
+last thing in the command window.  To re-show anything:
+
+```
+>> oi_demo_show(OUT)          % re-render all three windows
+>> type(OUT.files.verdict)    % re-print the block
 ```
 
-Then open the two figures the same line names: `_map.png` (the dense
-strict-WFE map over the box) and `_layout.png` (the four-panel solid
-hardware view).
+(`oi_demo_show()` with no argument renders the NEWEST run on disk —
+it works even from a fresh MATLAB, and after the fact.)
 
 Read the verdict block top to bottom — it is written to be read aloud.
 Land on three things, in this order:

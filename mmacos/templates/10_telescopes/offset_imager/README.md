@@ -58,6 +58,7 @@ gates, and predicted-vs-measured.
 OUT = oi_demo_step(12);                          % the t5 instance, 12x12 deg
 OUT = oi_demo_step(14, 'gn_iters',20);           % more polish, more minutes
 type(OUT.files.verdict)                          % re-print the block any time
+oi_demo_show(OUT);                               % the reveal windows (auto on desktop; no-arg = newest run)
 ```
 
 It refuses in two places rather than reporting a number it cannot stand
