@@ -79,3 +79,16 @@ final presentation. Apply when generating or revising any technical slide deck.
 - Tables: filled header row, alternating row tint, right-aligned numerics.
 - Validate and render every revision; visually QA for caption collisions, clipped
   text at the 7.5 in bottom edge, and figure overlap before delivering.
+
+## Recovered rulings (from Dave's hand-edit passes — append dated)
+
+- 2026-08-30 (deck_keysight edit recovery): **full-width bullet blocks render at
+  15 pt with 13 pt sub-bullets** — 12 pt across the full slide width reads as
+  report text at room scale.  Column (half-width) blocks keep the tighter 12 pt.
+  Also: a short label column beside paragraph cells gets its full unwrapped
+  width (never squeezed into wrapping).
+- Workflow note: Dave edits a COPY of the built deck ( *_edit.pptx ); recovery
+  diffs it against the exact baseline build.  Text diffs fold back verbatim into
+  the .md; font/layout diffs become builder rules; the editor's save-time
+  auto-fit height changes on every text box are noise — ignore geometry deltas
+  that appear on all slides uniformly.
