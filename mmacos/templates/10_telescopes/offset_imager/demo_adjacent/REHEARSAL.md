@@ -4,11 +4,11 @@ _Rehearsal script for the Keysight/CodeV demo (~2026-09-01).
 CHOREOGRAPHY REVISED 2026-08-30 (deck restructure, Dave's rulings):
 the ask + kickoff happen at the DEMO-INTRO SLIDE (9), right after the
 challenge-3 frontier; **DAVE switches to MATLAB and launches
-`oi_demo_step(<width>)` himself**; the reveal is slide 22, just before
+`oi_demo_step(<width>)` himself**; the reveal is slide 23, just before
 the closing discussion (~26–32 min of cover).  The framing on the
 slide: **"no AI in this loop"** — the design knowledge is compiled
 into the driver, the without-AI half of slide 5's objective, running
-live.  The Twyman-Green DM gauge (slides 13–15) is Dave solo on the
+live.  The Twyman-Green DM gauge (slides 14–16) is Dave solo on the
 desktop, in a SEPARATE MATLAB from the one running this solve._
 
 ---
@@ -95,7 +95,7 @@ saving — puts the 12° answer at 41.0 nm, i.e. WORSE than the committed
 
 So the solve must be launched **early** — the deck takes the spec at
 slide 9 (the demo-intro slide, with the frontier fresh on screen) and
-reveals at slide 22: ~26–32 min of cover for the ~15-min solve.  If the
+reveals at slide 23: ~27–33 min of cover for the ~15-min solve.  If the
 spec somehow can only be taken late, run the
 beat off the pre-generated bundle and say so plainly ("I ran this one
 this morning") — the claim survives; a stalled console does not.
