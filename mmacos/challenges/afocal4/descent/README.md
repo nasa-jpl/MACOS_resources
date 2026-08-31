@@ -149,6 +149,66 @@ predictions rank and measurements decide, and the field-walk law's 5–6×
 optimism as a standoff predictor is the standing warning against trusting
 closure arithmetic on its own.
 
+## 3b. A prediction the ladder has to be designed around: DELETE flips parity, RETAIN does not
+
+The descent removes a mirror by driving its power to zero and then either
+**deleting** the flat or **retaining** it as a fold — and Dave's ruling 4 says
+a retained flat is not a mirror, so either way the rung's N goes down by one.
+Under the parity law those two are not cosmetic variants of each other:
+
+* a flat mirror still **reflects**, so retaining it keeps the fold count and
+  therefore the SIGN of every downstream station;
+* deleting it removes a reflection, which **flips the parity of the whole back
+  end** — the same flip S4b measured when a mirror was ADDED.
+
+So the two options land on opposite sides of the 88 % / 0.03 % divide measured
+in § 3. Concretely, stepping from the N = 7 top (odd, 89.7 % compliant) down
+to N = 6:
+
+| how the mirror is removed | reflections | parity | expected compliance |
+|---|---|---|---|
+| **deleted** | 6 | even | **~0.03 %** — the hard side |
+| **retained as a fold** | 7 | odd | **~90 %** — the easy side |
+
+**The descent therefore has a lever the brief did not anticipate**, and it is
+legitimate rather than a dodge: ruling 4 already says a retained flat does not
+count as a mirror, and the packaging round — not this slice — owns whether the
+fold is worth its own cost. If this holds, "N = 6 cannot be built" and "N = 6
+cannot be built *without keeping a flat*" are different statements, and only
+the second is true.
+
+**It is a prediction, not a result.** It follows from arithmetic that has been
+measured (§ 3) applied to a step that has not been taken yet, and this arc's
+standing warning is exactly against that move — the field-walk law was exact
+for the tilt and 5–6× optimistic for the standoff. The ladder will measure
+both options at the first even rung and report which happened.
+
+**The mechanism is in the model, checked.** `stations_` alternates the fold
+direction once per ELEMENT regardless of that element's power, so a retained
+flat does set the parity and a deleted one does flip it — the closure is not
+being asked to represent something it cannot. And the machinery carries a
+zero-power element end to end: a free radius of 1e12 m closes at
+φ = 2e-12 /m, the closure reports *elements 5, powered 4, flats 1 at index 3*
+with residual 2.2e-16, and the deck emits and traces. `descent_remove`
+implements both modes and refuses to touch M1, M2 or the two elements whose
+powers the closure consumes.
+
+> **A first check that came out wrong is recorded rather than dropped.** The
+> first attempt to demonstrate the parity flip used an arbitrary N = 7 base
+> and got NO CLOSURE from *both* modes — because the base itself was
+> non-compliant (its last mirror sat 40 mm in FRONT of the primary). The test
+> needs a compliant, solved base, which is what the top rung is for. A
+> demonstration run on a broken fixture proves nothing in either direction.
+
+> **And a paraxially exact closure can still be a bad telescope.** That same
+> retained-flat probe closed its three conditions at 2.2e-16 and traced
+> **M = 40.45 against a paraxial 30.0000**, with 0.22 rad of collimation
+> error. Nothing is wrong: the closure is a FIRST-ORDER statement, the conics
+> were unsolved, and `paraxial_ok` flagged it. It is worth stating plainly
+> because the closure's residuals are so small that they invite being read as
+> a quality claim, and they are not one — only the solve makes a closure a
+> design.
+
 ## 4. Machinery
 
 | file | what |
