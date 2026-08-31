@@ -1,6 +1,6 @@
 % RUN_DESCENT_TOP  One top-of-ladder attempt at a given N, one process.
 %   DESC_N      powered mirrors (7)
-%   DESC_SEED   seed index among the compliant closures (1)
+%   DESC_RANK   which independent seed to take (1 = the power-economy best)
 %   DESC_EVALS  evaluations per round (600)
 %   DESC_ROUNDS restart rounds (3)
 %   DESC_DOFS   comma list ("conic,spacing,tilt")
@@ -13,6 +13,7 @@ dN   = str2double(getenv('DESC_N'));       if isnan(dN),   dN = 7;   end
 dEv  = str2double(getenv('DESC_EVALS'));   if isnan(dEv),  dEv = 600; end
 dRd  = str2double(getenv('DESC_ROUNDS'));  if isnan(dRd),  dRd = 3;  end
 dTag = getenv('DESC_TAG');                 if isempty(dTag), dTag = sprintf('N%d',dN); end
+dRk  = str2double(getenv('DESC_RANK'));    if isnan(dRk),  dRk = 1;  end
 dDof = getenv('DESC_DOFS');
 if isempty(dDof), dofs = {'conic','spacing','tilt'}; else, dofs = strsplit(dDof,','); end
 
@@ -24,7 +25,7 @@ P.solve.tol_fun = 1e-8;  P.solve.tol_x = 1e-9;  P.solve.tol_opt = 1e-8;
 P.solve.max_fev = dEv;
 
 fprintf('\n==== DESCENT TOP  N = %d  [%s] ====\n', dN, dTag);
-[S0, si] = descent_seed(P, dN, 'quiet',false);
+[S0, si] = descent_seed(P, dN, 'quiet',false, 'rank',dRk);
 if ~si.ok
     error('run_descent_top:seed', 'no compliant %d-mirror seed.', dN);
 end

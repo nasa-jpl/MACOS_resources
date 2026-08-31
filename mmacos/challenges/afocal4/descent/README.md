@@ -230,7 +230,63 @@ packaging station (algebra) → the union body-in-beam floor (a nine-field
 trace, and DEFERRED past the tilts, or it judges the train the tilts exist to
 get away from).
 
-## 5. Still to do
+## 5. The first top-rung attempt (N7a) — and why it is NOT a verdict on seven mirrors
+
+`descent_N7a.mat`, DOFs `{conic, spacing, tilt}` (radii frozen at the seeder's
+grid values), 951 evaluations over 3 rounds:
+
+| row | value | target | verdict |
+|---|---|---|---|
+| WFE rung-2 max | 12422.1 nm | 71.0 | MISSED, 175× |
+| pupil blur | 506.2 µm | 47.0 | MISSED |
+| wander | 530.6 µm | 56.0 | MISSED |
+| breathing | 2.3744 % | 0.4 | MISSED |
+| iface surface (rim) | 0.3433 mm | 0.2 | MISSED |
+| M error | **3.8646 %** | 0.1 | MISSED |
+| union floor | −111.58 mm | ≥ 0 | MISSED |
+| last powered behind M1 | **499.88 mm** | ≥ 500 | MISSED by 0.12 mm |
+
+**It missed every row, and it is still not evidence that seven mirrors cannot
+meet the set.** Four things say the attempt failed, not the topology:
+
+1. **M error 3.86 %.** The closure makes magnification an IDENTITY — its
+   paraxial residual is 1e-16 on this very design. A 3.86 % *traced* error
+   means the layout is so aberrated that real rays have left the paraxial
+   regime; the committed 4-mirror deck sits at 0.0221 %. That is a statement
+   about how bad the design is, not about how many mirrors it has.
+2. **It converged to a STALL.** Round 2 bought 3.4e-4 and round 3 bought
+   4.3e-11, at merit 70.78 — *worse than the four-mirror designs* (30.2
+   committed, 32.7 for the wall slice's best). Meeting the set needs a merit
+   near zero (≈2.4 sitting exactly on every target).
+3. **It walked onto the packaging wall**, ending at 499.88 mm against a
+   500 mm minimum. S4c settled what that means: *90 mm is CONSTRAINED, not
+   unconverged* — a design pinned against that wall has a compromised
+   gradient, and a NaN or a stall there is a constraint, not a failure.
+4. **The radii were frozen.** All three added mirrors sat at the grid's
+   weakest power (R = 3.2 m) with every added spacing at the grid minimum
+   (0.4 m) — a cramped, arbitrary layout the solve was never allowed to
+   loosen.
+
+> **Reporting this as "seven mirrors cannot do it" would repeat both errors
+> this arc has already paid for**: S4b's *a wall needs a compliant seed or it
+> is a cage*, and the wall slice's finding that the committed design missed
+> its own pupil optimum because **the DOF set, not the merit, was the
+> reason**. A stage set up to inherit those lessons does not get to
+> rediscover them.
+
+So the N = 7 question is being answered the way the brief asks — with
+independent seeds and the full DOF set — and N7a is retained as the first
+datum of that spread rather than as its answer.
+
+| run | seed Σφ² | DOFs | status |
+|---|---|---|---|
+| N7a | 26.6 | conic, spacing, tilt | done — every row missed, stalled at 70.78 |
+| N7b | 26.6 | + **radius** | running |
+| N7c | 38.6 | + radius, independent seed | running |
+| N7d | 41.6 | + radius, independent seed | running |
+| N8a | — | + radius, N = **8** | running (the pre-approved "add a mirror" branch) |
+
+## 6. Still to do
 
 Tasks 1–4: the 7-mirror top rung with slack on every requirement row and the
 71 nm wavefront target in the set; the descent itself (rank by |φ| and power
