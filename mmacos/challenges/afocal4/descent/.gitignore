@@ -1,0 +1,4 @@
+# Per-run engine stdout, as in wall/: hundreds of MB of trace chatter, and
+# every number the record quotes lives in the descent_*.mat checkpoints,
+# which ARE committed.
+logs/
