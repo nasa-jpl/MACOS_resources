@@ -1767,25 +1767,57 @@ DOFs were never solved. Neither is chased here; both are recorded.
 > taken the move. The DOF set, not the merit, is the reason. The *finding* (the
 > committed design is not at its own pupil optimum) is unaffected.
 
-### C.7b The pupil-weighted polish — IN FLIGHT, not yet a result
+### C.7b The pupil-weighted polish — the incumbent beats both re-weighted solves, on their own merits
 
 The addendum's second question: at a fixed tilt and wall, does a
-pupil-weighted merit recover any of the blur without giving back wavefront or
-margin?  Two solves at the operating tilt (−8°), standoff pinned at +276 mm
-and DOFs `{conic, front}` so they are directly comparable with `ctl_t-80`
-(6513.9 nm / 279.9 µm / 0.7210 % / +15.18 mm), with `P.weights.{blur, breathe,
-wander}` multiplied by 4 and by 16.
+pupil-weighted merit recover any of § C.7's slack without giving back
+wavefront or margin?  Two solves at the operating tilt (−8°), standoff pinned
+at +276 mm, DOFs `{conic, front}`, wall on at 0 mm — identical in every
+respect to `ctl_t-80` except that `P.weights.{blur, breathe, wander}` are
+multiplied by 4 and by 16.  Every design scored under all three merits:
 
-**Not reported here: both were still solving when this stage handed back.**
-Their checkpoints land as `wall/wall_pw{4,16}_t-80.mat` and the table belongs
-in this section.  What is already recorded is the defect they exposed — a
-fixed-magnitude wall residual stops being a wall once the merit is re-weighted
-(rule 32), which is why the first pair of these runs had to be discarded and
-relaunched.
+| design | m @ ×1 | m @ ×4 | m @ ×16 | WFE (nm) | blur (µm) | breathing (%) | wander (µm) | M | floor (mm) |
+|---|---|---|---|---|---|---|---|---|---|
+| **`ctl_t-80`** — solved at the study's own weights | **32.7** | **229.9** | **3386.5** | 6513.9 | **279.9** | 0.7210 | **284.2** | **30.0150** | +15.18 |
+| `pw4_t-80` — solved AT ×4 | 46.2 | 301.3 | 4383.1 | 6928.0 | 416.5 | **0.6511** | 421.2 | 30.1545 | +55.00 |
+| `pw16_t-80` — solved AT ×16 | 54.5 | 397.5 | 5886.4 | **5318.1** | 570.7 | 1.3141 | 576.7 | 29.7049 | +8.83 |
 
-The merit DOCTRINE is not reopened by this measurement: log-domain residuals
-and walls-not-terms both stand, and `P.weights` has always carried these as
-knobs.  It measures the slack; it does not propose a re-weighting.
+**Answer: no — and the incumbent beats both re-weighted solves on the
+re-weighted solves' OWN objectives.**  229.9 against 301.3 at ×4; 3386.5
+against 5886.4 at ×16.  Neither run found anything the plain solve had not
+already beaten, and the ×16 run **plateaued** there (round-2 gain 1.17e-5,
+814 evaluations) rather than being cut short.
+
+Both also **broke the customer interface** on the way — the one requirement
+nothing in a re-weighting protects because it was previously satisfied
+incidentally: M = 30.1545 (0.515 % off) and M = 29.7049 (0.98 % off) against a
+**0.1 %** target, with collimation 3769 and 3597 µrad against 906.
+
+> **The ×4 row is a PROBE, not a converged point, and is labelled so.**  Its
+> round 2 gained **89 %** (merit 2704.8 → 301.3), i.e. it was still descending
+> hard when its two rounds ran out.  It is reported because the conclusion
+> does not rest on it: it would have to fall a further 24 % merely to reach
+> what the incumbent already scores for free, and the ×16 run — which did
+> converge — settles the question on its own.  Quoting a still-descending
+> number as a result is the exact failure this slice exists to retire
+> (§ C.4c), so it is not quoted as one.
+
+**A re-weighted merit is a different optimisation problem, not a re-ranking of
+the same one.**  The landscape moves, the basins move with it, and the design
+you already have can beat what the re-weighted solve finds — measured on the
+new merit.  The § C.7 slack is real, but this stage did not find a way to
+claim it, and says so.
+
+*The merit doctrine is not reopened by any of this: log-domain residuals and
+walls-not-terms both stand, and `P.weights` has always carried these as knobs.
+The measurement is what the slack is worth, not a proposal to re-weight the
+study.*
+
+**And this pair is where rule 32 came from** — the first attempt had to be
+discarded because at ×16 a sound design scores ~4e4 while the wall residual
+was a constant 5600, so the wall inverted from a barrier into an attractor and
+the solver walked through it, returning a converged point with M3 1051 mm in
+front of the primary.
 
 ## C.8 Leverage 4 — a fifth mirror, priced rather than built
 
@@ -1925,3 +1957,18 @@ Three architectures could do that, and the law says which lever each pulls:
     the delivered −10° sitting past the knee. *A sweep over one parameter
     with a second parameter free is a measurement of the solver, not of the
     parameter.*
+
+34. **A re-weighted merit is a DIFFERENT PROBLEM, not a re-ranking of the
+    same one — so score the design you already have on the new merit before
+    believing the new solve.**
+    Multiplying the pupil weights by 16 to chase § C.7's slack produced a
+    converged, plateaued design scoring **5886.4** on the ×16 merit, where the
+    design the *unweighted* solve had already found scores **3386.5** on that
+    same merit — 74 % better, for free.  The ×4 run says the same: 301.3
+    against the incumbent's 229.9, on the ×4 merit. The re-weighting moved the landscape
+    and the solver landed in a worse basin and stayed. It also drifted the
+    interface magnification to 0.98 % off 30, ten times its target, because
+    nothing in a re-weighting protects a requirement that was previously
+    satisfied incidentally. *Re-weighting is a last resort, and its result has
+    to be compared against the incumbent ON THE NEW MERIT before it is
+    believed.*
