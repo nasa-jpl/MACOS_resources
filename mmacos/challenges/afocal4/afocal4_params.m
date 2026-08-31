@@ -157,7 +157,26 @@ function P = afocal4_params()
         'instr_len',     1.000, ...   % instrument envelope past the pupil, m
         ...                           %   (his AFI -1000: coldstop -> SI)
         'instr_dia',     0.300, ...   % and its diameter, m
-        'm1_keepout',    0.560);      % M1 radius + mount ring, m
+        'm1_keepout',    0.560, ...   % M1 radius + mount ring, m
+        ...  % --- the CLEARING wall (BRIEF_afocal4_wall), default OFF -----
+        ...  % No BODY may stand in a BEAM.  The clearing stage measured the
+        ...  % collimator 79.9 mm inside its own feed cone on the committed
+        ...  % deck, and then measured that a re-solve SPENDS whatever
+        ...  % clearance a remedy wins (-8/-9 deg: +23.3/+42.3 mm walked
+        ...  % down to +2.3/+0.7) because AFOCAL4_SCORE cannot see it.  So
+        ...  % it becomes a wall, on the same terms as the packaging one
+        ...  % above -- never a merit term.
+        ...  %
+        ...  % DEFAULT OFF, and it has to be: with it on AFOCAL4_BUILD could
+        ...  % not re-emit the 343 mm deck the S4b/S4c trade shipped, and
+        ...  % every committed artifact in this study would stop
+        ...  % reproducing.  The wall is switched on by the study that wants
+        ...  % it (AFOCAL4_WALL), exactly as P.pack.enforce = false keeps the
+        ...  % unbuildable S4 reference reproducible.
+        'union_enforce',  false, ...
+        'union_min',      0.000, ...  % floor the wall holds, m
+        'union_body_k',   1.15,  ...  % declared body = this x union footprint
+        'union_body_pad', 0.015);     % ... grown by this, m
 
     % --- the form under solve --------------------------------------------
     % 'field' is the S3 ruling.  'mersenne' is the ONE bounded hedge

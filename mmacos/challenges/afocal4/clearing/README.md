@@ -569,6 +569,18 @@ Three architectures could do that, and the law says which lever each one pulls:
    design is not at its own pupil optimum, and the reason is visible in the
    merit: a wavefront term 130× off target owns the log-domain sum of squares.
    Worth a look independently of clearance.
+
+   > **CORRECTED 2026-08-30 (the wall stage, `../RESULTS.md` § C.7a).** The
+   > finding stands and the optimum is sharper than this — **101.3 µm at +5°**,
+   > 35.5 %, on a 1° grid — but the *reason* given here is wrong. Read off the
+   > residual vector, the wavefront block is **78 %** of the merit, not ~97 %:
+   > `afocal4_score` divides the per-field wavefront residuals by `sqrt(K)`, so
+   > nine fields contribute one term's worth. The merit actually **prefers**
+   > the +5° point (29.40 against 30.22). The solve did not find it because an
+   > extraction tilt **was never in its DOF set** (`{conic, standoff, front}`),
+   > not because the merit was blind. And the move is not free either: what
+   > pays is magnification **breathing**, 0.124 → 0.795 %, i.e. the one pupil
+   > target the committed design meets.
 4. **The re-solves are budget-limited, not converged** (exitflag 0 at 427
    evaluations each). They also ran on the study's default 3e-3 *forward*
    difference — the setting S4c measured as reading the gradient 17 % low on a

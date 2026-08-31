@@ -70,7 +70,22 @@ function R = clear_solve(P, D0, opts)
             S = afocal4_score(P, tmp, 'fields',P.Fsolve, ...
                               'nodes',P.solve.nodes, 'pupil',opts.pupil);
         catch ME
-            r = repmat(20, size(P.Fsolve,1) + 5*opts.pupil, 1);
+            % A WALL IS ONLY A WALL WHILE IT DOMINATES THE MERIT'S OWN SCALE.
+            % A rejected iterate returns a large finite residual so lsqnonlin
+            % backs out of it -- but "large" is relative.  At the study's own
+            % weights a sound design scores ~30 and a constant 20 per
+            % component (merit 5600) is an impassable barrier.  Raise the
+            % pupil weights x16 to measure the addendum's slack and a sound
+            % design scores ~4e4: the SAME constant now looks ATTRACTIVE, and
+            % the solver walks THROUGH the wall on purpose.  Measured, once:
+            % a pupil-weighted run returned a converged x whose closure put
+            % M3 1051 mm in FRONT of the primary, and died in the report
+            % build on the S4b packaging wall.
+            % So the residual scales with the largest merit weight in play.
+            % With the study's own weights max(w) = 1 and this is 20 exactly,
+            % bit-identical to every committed clearing-stage solve.
+            wallr = 20 * max(1, max(cell2mat(struct2cell(P.weights))));
+            r = repmat(wallr, size(P.Fsolve,1) + 5*opts.pupil, 1);
             hist(end+1) = struct('x',xs(:).', 'merit',sum(r.^2), 'worst',Inf, ...
                 'wfe',NaN, 'blur',NaN, 'breathe',NaN, 'wander',NaN); %#ok<SETNU>
             if ~opts.quiet && mod(nfev,25) == 1
@@ -111,7 +126,21 @@ function R = clear_solve(P, D0, opts)
 
     D = unpack_(P, D0, opts.dofs, x, scale, base);
     deck = opts.deck;   if isempty(deck), deck = tmp; end
-    clear_build(P, D, deck, 'axis',opts.axis, 'verify',false);
+    % THE FINAL BUILD IS A REPORT, SO IT MEASURES AND DOES NOT JUDGE.  Walls
+    % belong on ITERATES: inside obj_ a violation is turned into a large
+    % finite residual and the solver backs out of it.  Here there is nobody
+    % to back out -- and the union wall in particular is evaluated at SOLVE
+    % sampling inside the loop and would be re-evaluated at REPORTING
+    % sampling here, where a bigger ray grid makes a bigger union hull and
+    % the floor reads ~2 mm lower.  A converged design sitting ON its wall
+    % therefore throws out of the report path and the whole multi-hour solve
+    % is lost with it.  Measured, once: an hour of a -8 deg walled run.
+    % With every wall off (the default) this is the same call as before.
+    Pr = P;
+    if isfield(Pr,'pack') && isfield(Pr.pack,'union_enforce')
+        Pr.pack.union_enforce = false;
+    end
+    clear_build(Pr, D, deck, 'axis',opts.axis, 'verify',false);
     S = afocal4_score(P, deck, 'fields',P.Fsolve, 'pupil',opts.pupil, ...
                       'nodes',P.solve.nodes_score, 'grid',P.grid_n);
 

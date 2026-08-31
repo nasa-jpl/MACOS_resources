@@ -64,21 +64,39 @@ function out = afocal4_build(P, D, deck, opts)
 %   recomputed here from the trace, by the same rule, on ONE code path for
 %   both.  TAFOCAL4 pins the two against each other at 1e-12.
 %
+%   AND A SECOND WALL, OFF BY DEFAULT: no BODY may stand in a BEAM.  The
+%   clearing stage (BRIEF_afocal4_clear) found the collimator of the
+%   committed 343 mm design inside its own M2 -> field-mirror feed cone, and
+%   then measured that a re-solve SPENDS whatever clearance a remedy wins,
+%   because the merit cannot see it.  P.pack.union_enforce turns the union
+%   body-in-beam floor into a wall exactly like the packaging one above --
+%   see AFOCAL4_UNION_WALL for the cost it carries and why it is default
+%   OFF (with it on, this function could not re-emit the deck the S4b/S4c
+%   trade shipped, which reads -79.9 mm).
+%
 %   Name-value:
 %     'verify'  trace the emitted deck and report M / collimation (true)
+%     'defer_union'  skip the union wall here because the CALLER is about to
+%               move the deck and will apply it afterwards (false).
+%               CLEAR_BUILD sets it: it tilts the emitted deck after this
+%               function returns, so a wall applied here would judge the
+%               untilted train -- i.e. exactly the design the tilt exists
+%               to get away from.
 %     'quiet'   (true)
 %
 %   Returns .file .D .C (the closure) .phi4 .R .t .conic .iface_pred
 %   .coldstop (.Vpt .psi .chief .moved_m) and, with 'verify', .traced
 %   (.mag .exit_dia .collimation_urad .nrays) and .paraxial_ok.
 %
-%   See also AFOCAL4_CLOSE, AFOCAL4_SCORE, AFOCAL4_SOLVE, AFOCAL4_LADDER.
+%   See also AFOCAL4_CLOSE, AFOCAL4_SCORE, AFOCAL4_SOLVE, AFOCAL4_LADDER,
+%   AFOCAL4_UNION_WALL.
 
     arguments
         P (1,1) struct
         D (1,1) struct
         deck (1,:) char
         opts.verify (1,1) logical = true
+        opts.defer_union (1,1) logical = false
         opts.quiet  (1,1) logical = true
     end
 
@@ -196,6 +214,19 @@ function out = afocal4_build(P, D, deck, opts)
               ['the emitted vertex stations differ from the closure''s by ' ...
                '%.3e m: the packaging check judged a layout that was not ' ...
                'built.'], dz);
+    end
+
+    % ---- 3c. UNION: no BODY may stand in a BEAM ---------------------------
+    % The clearing stage's wall, and the LAST thing checked because it is by
+    % far the most expensive (a nine-field re-trace, +51% on an evaluation)
+    % -- a degenerate closure or an unbuildable station must be turned back
+    % on by the cheap algebra above before a ray is traced for this one.
+    % Default OFF: with it on, AFOCAL4_BUILD cannot re-emit the committed
+    % 343 mm deck (-79.9 mm), which is the design the S4b/S4c trade shipped.
+    if ~opts.defer_union
+        out.union = afocal4_union_wall(P, deck, 'quiet',opts.quiet);
+    else
+        out.union = [];
     end
 
     % ---- 4. verify against the closure it was built from -----------------
