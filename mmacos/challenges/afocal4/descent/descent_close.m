@@ -57,9 +57,13 @@ function C = descent_close(P, S, opts)
 %      train it was grown from.  This is AFOCAL4_PHI4's discipline, kept.
 %
 %   S (the free parameters -- everything the closure does NOT consume):
-%     .N        number of POWERED mirrors (>= 3).  A retained flat is not a
-%               mirror (the descent ruling): flats are carried by the
-%               builder, never by the closure.
+%     .N        number of ELEMENTS the closure indexes (>= 3).  A free
+%               element given a near-infinite radius is a FLAT: it still
+%               reflects (so it still sets the packaging parity) but it is
+%               not a powered mirror, and C.n_powered / C.n_flat report the
+%               two counts apart.  Conflating them is how "N = 6 cannot be
+%               built" gets said about a train that can -- see
+%               DESCENT_REMOVE.
 %     .R        1 x (N-2) radius MAGNITUDES, mirrors 1..N-2
 %     .convex   1 x (N-2) logical
 %     .t        1 x (N-2) spacings, mirror k -> k+1
@@ -162,7 +166,15 @@ function C = descent_close(P, S, opts)
     cv = [cf,  phi  < 0,   phiN < 0];
     t  = [tf, b];
 
-    C = struct('found',true, 'N',N, 'names',{names_(N)}, 'R',R, 't',t, ...
+    % A near-zero power is a FLAT, not a mirror (the descent's ruling 4), and
+    % the count that matters for the requirement table is POWERED mirrors --
+    % while the count that matters for the packaging PARITY is elements, i.e.
+    % reflections.  Both are reported, because conflating them is exactly how
+    % "N = 6 cannot be built" gets said about a train that can.
+    isflat = abs(phiAll) < 1e-6;
+    C = struct('found',true, 'N',N, 'n_elements',N, ...
+               'n_powered',nnz(~isflat), 'n_flat',nnz(isflat), ...
+               'flat_at',find(isflat), 'names',{names_(N)}, 'R',R, 't',t, ...
                'convex',cv, 'K',S.K(:).', 'phi',phiAll, 'iface',S.iface, ...
                'y_out_sign',sign(best.yout), 'pupil_dist',best.d);
     C.fo = afocal_first_order(R, t, cv, 'D',P.D, 'stop_ahead',P.stop_ahead);
