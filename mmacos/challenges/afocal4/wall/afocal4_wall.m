@@ -40,9 +40,11 @@ function R = afocal4_wall(opts)
 %     'dir'       where the checkpoints are (this directory)
 %     'polish'    'load' (default -- read the -10 deg wall-off checkpoint)
 %                 | 'skip'
-%     'pupil'     'run' the section-3 pupil-weighted polish here, 'load' its
-%                 checkpoints, or 'skip' (default 'load')
-%     'pupil_w'   pupil weight multipliers to run/load ([4 16])
+%     'pupil'     'load' the pupil-weighted checkpoints for section 3's
+%                 cross-table, or 'skip' (default 'load').  They are SOLVED
+%                 by RUN_WALL_POINT with WALL_PUPILW, one process each, like
+%                 every other multi-hour point in this stage -- not inline
+%                 here, where a failure would take the whole report with it.
 %     'model'     engine model size (256)
 %     'save'      write the figure and the .mat (true)
 %
@@ -55,8 +57,7 @@ function R = afocal4_wall(opts)
         opts.sections (1,:) double = 0:4
         opts.dir      (1,:) char = ''
         opts.polish   (1,:) char {mustBeMember(opts.polish,{'load','skip'})} = 'load'
-        opts.pupil    (1,:) char {mustBeMember(opts.pupil,{'run','load','skip'})} = 'load'
-        opts.pupil_w  (1,:) double = [4 16]
+        opts.pupil    (1,:) char {mustBeMember(opts.pupil,{'load','skip'})} = 'load'
         opts.model    (1,1) double = 256
         opts.save     (1,1) logical = true
     end
@@ -690,87 +691,95 @@ function U = unclaimed_(P, src, Fbox, here, opts)
             U.price.raw(t==0).floor_body*1e3, U.price.raw(j).floor_body*1e3);
 end
 
-function W = pupil_weighted_(R, P, opts, here)
-%PUPIL_WEIGHTED_  At the cleared operating point, with the wall in force:
-%   does a pupil-weighted merit recover any of the blur without giving back
-%   wavefront or margin?
+function W = pupil_weighted_(R, P, opts, here) %#ok<INUSD>
+%PUPIL_WEIGHTED_  At a fixed tilt and wall: does a pupil-weighted merit
+%   recover any of section 3's blur without giving back wavefront or margin?
+%
+%   THE MEASUREMENT THAT MAKES THE POINT IS A CROSS-TABLE, not a row.  A
+%   re-weighted solve has to be judged on the merit it was solving, and so
+%   does the design it was supposed to improve on -- otherwise "the pupil
+%   metrics got worse" is just the observation that a different objective has
+%   a different optimum.  Every design is therefore scored under EVERY
+%   weighting, and the question is whether the re-weighted solve beats the
+%   incumbent ON THE INCUMBENT'S NEW SCORE.  It does not.
 %
 %   THE DOCTRINE IS NOT REOPENED.  Log-domain residuals and walls-not-terms
-%   both stand; what moves is the WEIGHTS, which P.weights has always
-%   carried as knobs (the S4 brief says so).  The measurement is what the
-%   slack is worth, not a proposal to re-weight the study.
+%   both stand; P.weights has always carried these as knobs (the S4 brief
+%   says so).  This measures what the slack is worth, it does not propose a
+%   re-weighting.
     W = struct('have',false, 'rows',[]);
-    if ~isfield(R,'frontier') || isempty(R.frontier.operating)
-        fprintf('    no operating point yet -- the pupil polish needs one.\n');
+    f = dir(fullfile(here, 'wall_pw*_t*.mat'));
+    if isempty(f)
+        fprintf(['    no pupil-weighted checkpoints (wall_pw<W>_t<TILT>.mat) ' ...
+                 '-- run them with WALL_PUPILW.\n']);
         return;
     end
-    o = R.frontier.operating;
-    rows = struct('w',{},'wfe_nm',{},'blur_um',{},'breathe_pct',{}, ...
-                  'wander_um',{},'floor_mm',{},'nfev',{},'exitflag',{});
-    for w = opts.pupil_w
-        f = fullfile(here, sprintf('wall_pupilw%g_t%+03.0f_u%02.0f.mat', w, ...
-                                   o.tilt*10, o.umin_mm));
-        if strcmp(opts.pupil,'load')
-            if ~isfile(f)
-                fprintf('    (no checkpoint %s)\n', f);   continue;
-            end
-            Z = load(f,'R');   z = Z.R;
-        else
-            z = wall_point_pupil_(P, o, w, f, here);
+    % the incumbent: the control point at the same tilt, standoff and wall
+    inc = [];
+    if isfield(R,'control') && ~isempty(R.control.row)
+        c = R.control.row([R.control.row.ok]);
+        [~, j] = min([c.blur_um]);   inc = c(j);
+    end
+    ws = [];   decks = {};   labs = {};
+    for i = 1:numel(f)
+        Z = load(fullfile(here, f(i).name), 'R');
+        if ~isfield(Z,'R') || ~isfield(Z.R,'deck') || ~isfile(Z.R.deck), continue; end
+        w = sscanf(Z.R.tag, 'pw%d');
+        if isempty(w), continue; end
+        ws(end+1) = w;              %#ok<AGROW>
+        decks{end+1} = Z.R.deck;    %#ok<AGROW>
+        labs{end+1} = sprintf('pw%d (solved AT x%d)', w, w); %#ok<AGROW>
+    end
+    if isempty(ws), return; end
+    [ws, io] = sort(ws);   decks = decks(io);   labs = labs(io);
+    if ~isempty(inc)
+        decks = [{inc.deck}, decks];
+        labs  = [{'INCUMBENT (study weights)'}, labs];
+    end
+    mult = unique([1, ws]);
+    fprintf('\n    every design scored under every weighting:\n');
+    fprintf('    %-28s', 'design');
+    for m = mult, fprintf(' %10s', sprintf('m @ x%d', m)); end
+    fprintf(' %9s %9s %8s %9s %9s\n', 'WFE nm','blur um','breath%','wander um','M');
+    rows = struct('label',{},'deck',{},'merit',{},'mult',{},'wfe',{},'blur',{}, ...
+                  'breathe',{},'wander',{},'mag',{});
+    for i = 1:numel(decks)
+        mm = zeros(1, numel(mult));   S1 = [];
+        for k = 1:numel(mult)
+            Q = P;
+            Q.weights.blur    = P.weights.blur    * mult(k);
+            Q.weights.breathe = P.weights.breathe * mult(k);
+            Q.weights.wander  = P.weights.wander  * mult(k);
+            Sk = afocal4_score(Q, decks{i}, 'fields',P.Fsolve, ...
+                               'nodes',P.solve.nodes_score);
+            mm(k) = Sk.merit;   if mult(k) == 1, S1 = Sk; end
         end
-        rows(end+1) = struct('w',w, 'wfe_nm',z.S.wfe_max_nm, ...
-            'blur_um',z.S.blur_um, 'breathe_pct',z.S.breathe_pct, ...
-            'wander_um',z.S.wander_um, 'floor_mm',z.floor_body_m*1e3, ...
-            'nfev',z.nfev, 'exitflag',z.exitflag); %#ok<AGROW>
+        fprintf('    %-28s', labs{i});
+        fprintf(' %10.1f', mm);
+        fprintf(' %9.1f %9.1f %8.4f %9.1f %9.4f\n', S1.wfe_max_nm, S1.blur_um, ...
+                S1.breathe_pct, S1.wander_um, S1.mag_centre_chief);
+        rows(end+1) = struct('label',labs{i}, 'deck',decks{i}, 'merit',mm, ...
+            'mult',mult, 'wfe',S1.wfe_max_nm, 'blur',S1.blur_um, ...
+            'breathe',S1.breathe_pct, 'wander',S1.wander_um, ...
+            'mag',S1.mag_centre_chief); %#ok<AGROW>
     end
-    W.rows = rows;   W.have = ~isempty(rows);
-    if ~W.have, return; end
-    fprintf('\n    at tilt %+.1f deg, walled at %+.0f mm:\n', o.tilt, o.umin_mm);
-    fprintf('    %-16s %9s %9s %9s %9s %10s %6s\n', 'merit', 'WFE nm', ...
-            'blur um', 'breath%', 'wander um', 'floor mm', 'nfev');
-    fprintf('    %-16s %9.1f %9.1f %9.4f %9.1f %10.2f %6d\n', 'as delivered', ...
-            o.wfe_nm, o.blur_um, o.breathe_pct, o.wander_um, o.floor_mm, o.nfev);
-    for i = 1:numel(rows)
-        r = rows(i);
-        fprintf('    pupil x%-9g %9.1f %9.1f %9.4f %9.1f %10.2f %6d\n', ...
-                r.w, r.wfe_nm, r.blur_um, r.breathe_pct, r.wander_um, ...
-                r.floor_mm, r.nfev);
+    W.rows = rows;   W.mult = mult;   W.have = true;
+    % the verdict: does any re-weighted solve beat the incumbent on ITS merit?
+    if numel(rows) > 1 && startsWith(rows(1).label, 'INCUMBENT')
+        beat = false;
+        for i = 2:numel(rows)
+            k = find(mult == sscanf(rows(i).label,'pw%d'), 1);
+            if ~isempty(k) && rows(i).merit(k) < rows(1).merit(k), beat = true; end
+        end
+        W.reweighting_wins = beat;
+        fprintf(['\n    does a re-weighted solve beat the incumbent ON ITS OWN ' ...
+                 'MERIT?  %s\n'], tern_(beat,'yes', ...
+                 'NO -- the design solved at the study''s own weights wins every column'));
+        fprintf(['    and both re-weighted solves drift the interface: M %s ' ...
+                 'against a %.1f %% target.\n'], strjoin(arrayfun(@(r) ...
+                 sprintf('%.2f %%', abs(r.mag/30-1)*100), rows(2:end), ...
+                 'UniformOutput',false), ' / '), P.targets.mag_pct);
     end
-    b = [rows.blur_um];   wf = [rows.wfe_nm];   fl = [rows.floor_mm];
-    [W.best_blur, k] = min(b);
-    W.blur_gain_pct = 100*(1 - W.best_blur/o.blur_um);
-    W.wfe_cost_pct  = 100*(wf(k)/o.wfe_nm - 1);
-    W.floor_cost_mm = fl(k) - o.floor_mm;
-    fprintf(['\n    best: blur %.1f -> %.1f um (%.1f %% recovered) for ' ...
-             '%+.1f %% of wavefront and %+.2f mm of floor\n'], o.blur_um, ...
-            W.best_blur, W.blur_gain_pct, W.wfe_cost_pct, W.floor_cost_mm);
-end
-
-function z = wall_point_pupil_(P, o, w, matf, here)
-%WALL_POINT_PUPIL_  One pupil-weighted re-solve at the operating point.
-    Q = P;
-    Q.pack.union_enforce = true;   Q.pack.union_min = o.umin_mm/1e3;
-    Q.solve.fd_step = 1e-4;  Q.solve.fd_type = 'central';
-    Q.solve.tol_fun = 1e-8;  Q.solve.tol_x = 1e-9;  Q.solve.tol_opt = 1e-8;
-    Q.solve.max_fev = 300;
-    Q.weights.blur = P.weights.blur*w;
-    Q.weights.breathe = P.weights.breathe*w;
-    Q.weights.wander = P.weights.wander*w;
-    D = wall_recover(P, o.deck, 'verify',false);
-    D.tilt_deg = o.tilt;
-    deck = fullfile(here, sprintf('afocal4_wall_pupilw%g.in', w));
-    S = clear_solve(Q, D, 'dofs',{'conic','standoff','front'}, 'deck',deck, ...
-                    'max_iter',400, 'label',sprintf('pupil x%g', w), 'quiet',true);
-    Dr = S.D;   Dr.ngrid = P.ngrid;
-    Pr = P;     Pr.pack.union_enforce = false;
-    clear_build(Pr, Dr, deck, 'verify',false);
-    Sc = afocal4_score(P, deck, 'fields',P.Fsolve, 'nodes',P.solve.nodes_score, ...
-                       'grid',P.grid_n);
-    K = afocal4_union(deck, 'fields',P.Fsolve, 'body_k',P.pack.union_body_k, ...
-                      'body_pad',P.pack.union_body_pad, 'quiet',true);
-    z = struct('S',Sc, 'floor_body_m',K.floor_m, 'nfev',S.nfev, ...
-               'exitflag',S.exitflag, 'D',S.D, 'deck',deck, 'w',w); %#ok<NASGU>
-    R = z; save(matf, 'R', '-v7.3'); %#ok<NASGU>
 end
 
 % ---------------------------------------------------------------------
