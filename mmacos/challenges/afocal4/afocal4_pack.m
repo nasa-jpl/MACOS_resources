@@ -21,6 +21,15 @@ function K = afocal4_pack(P, deck, opts)
 %        P.pack.m1_keepout in front of M1 (z < 0).  This is the part the
 %        S3 packaging check did not have, and the reason the S4 trade is
 %        retracted rather than amended.
+%     4  UNION BODY-IN-BEAM (AFOCAL4_UNION, added 2026-08-30).  Does any
+%        optic's BODY -- its union footprint over the whole field box, with
+%        a declared allowance -- stand inside any other leg's beam?  Parts
+%        1-3 all ask about DAYLIGHT and never size the part they are making
+%        room for, and that blind spot is what let the S4b/S4c trade ship
+%        with the collimator standing in its own M2 -> field-mirror feed
+%        beam by -79.9 mm (BRIEF_afocal4_clear).  A margin is a NUMBER, not
+%        a BODY.  Costs one traced field set (~4 s); pass 'union',false to
+%        skip it in a loop that only wants the station test.
 %
 %   THE FOLD IS NOT INSERTED HERE.  This is the report that says a fold
 %   CAN be inserted and where; AFOCAL4_FOLD builds the folded deck and
@@ -30,26 +39,32 @@ function K = afocal4_pack(P, deck, opts)
 %   re-scored -- runs once.
 %
 %   Name-value:
-%     'fields'  K x 2 field offsets to trace, rad (default: the box centre
-%               only -- the bundle envelope is what matters and the DRAW
-%               fan already spans the pupil)
 %     'zfold'   candidate fold stations, m (default: 12 across the exit leg)
+%     'union'   run part 4 (true).  false reproduces the pre-2026-08-30
+%               verdict exactly, for a loop that only wants parts 1-3.
+%     'fields'  K x 2 field offsets for part 4, rad (default P.Fsolve --
+%               HIS 3x3 box).  Parts 1-3 read the deck's own DRAW fan,
+%               which already spans the pupil at the deck's own field.
 %     'init'    load the deck (true)
 %     'quiet'   (false)
 %
 %   Returns K with .behind_m1 .z .names .ok_station, the station scan
 %   .fold (.z .gap .c_out .hw_out .clear_of), the chosen .fold_pick,
-%   .instr (.z_min .z_max .r_min .clears_m1), .ok and .why.
+%   .instr (.z_min .z_max .r_min .clears_m1), .union (the AFOCAL4_UNION
+%   struct) and .ok_union, .ok and .why.
 %
-%   See also AFOCAL4_BUILD, AFOCAL4_FOLD, AFOCAL4_S4B, FOLD_STATION_REPORT.
+%   See also AFOCAL4_BUILD, AFOCAL4_UNION, AFOCAL4_S4B, PACK_CLEAR.
 
     arguments
         P (1,1) struct
         deck (1,:) char
-        opts.zfold (1,:) double = []
-        opts.init  (1,1) logical = true
-        opts.quiet (1,1) logical = false
+        opts.zfold  (1,:) double = []
+        opts.union  (1,1) logical = true
+        opts.fields (:,2) double = []
+        opts.init   (1,1) logical = true
+        opts.quiet  (1,1) logical = false
     end
+    Fbox = opts.fields;   if isempty(Fbox), Fbox = P.Fsolve; end
     pk = P.pack;
 
     if opts.init || ~macos.has_rx()
@@ -63,6 +78,11 @@ function K = afocal4_pack(P, deck, opts)
     K = struct('deck',deck, 'names',{names}, 'z',V(3,:), ...
                'behind_m1', V(3,nM) - V(3,1), 'ok',false, 'why','');
     K.ok_station = K.behind_m1 >= pk.m3_behind_min;
+    % Part 4 is set up front so the early returns below (a deck whose exit
+    % leg carries no rays at all) still hand back a complete struct.  Not
+    % run = not judged: ok_union is true so it cannot flip a verdict it
+    % never measured, and .union stays empty to say so.
+    K.union = [];   K.ok_union = true;
 
     % ---- the legs, as traced ------------------------------------------
     % One YZ meridian fan gives every leg's polyline.  Segment k is the
@@ -225,8 +245,21 @@ function K = afocal4_pack(P, deck, opts)
     K.aoi = aoi_(b, names, nM);
     K.aoi_max_spread = max([0, K.aoi.spread_deg]);
 
+    % ---- 5. does a BODY stand in a BEAM? -------------------------------
+    % The standing union check.  Parts 2 and 3 ask where there is DAYLIGHT;
+    % this one asks whether a PART is already in the way, union-sized over
+    % the field box, with the allowance declared.  It runs last because it
+    % re-points and re-traces the deck for every field and then restores it
+    % -- everything above reads the deck's own single-field DRAW fan.
+    if opts.union
+        K.union    = afocal4_union(deck, 'fields',Fbox, ...
+                        'body_k',1.15, 'body_pad',pk.fold_margin, ...
+                        'init',false, 'quiet',true);
+        K.ok_union = K.union.ok;
+    end
+
     K.ok = K.ok_station && K.ok_fold && K.instr.clears_m1 && ...
-           K.instr.clears_beams;
+           K.instr.clears_beams && K.ok_union;
     if ~K.ok
         w = {};
         if ~K.ok_station, w{end+1} = sprintf('%s only %.0f mm behind M1', ...
@@ -238,6 +271,9 @@ function K = afocal4_pack(P, deck, opts)
             w{end+1} = sprintf(['instrument envelope %.0f mm off axis vs ' ...
                                 '%.0f mm of beam'], K.instr.r_min*1e3, ...
                                K.instr.x_other*1e3);
+        end
+        if ~K.ok_union
+            w{end+1} = sprintf('body in beam -- %s', K.union.why);
         end
         K.why = strjoin(w, '; ');
     end
@@ -278,6 +314,13 @@ function report_(K, pk)
                 K.instr.clear_m*1e3, K.instr.r_min*1e3, 500*pk.instr_dia, ...
                 K.instr.x_other*1e3, K.instr.dia_max*1e3, ...
                 tick_(K.instr.clears_beams));
+    end
+    if isfield(K,'union') && ~isempty(K.union)
+        U = K.union;
+        fprintf(['    union body-in-beam over %d fields (body %.2f x ' ...
+                 'footprint + %.0f mm): floor %+.2f mm on %s  %s\n'], ...
+                U.nFields, U.body_k, U.body_pad*1e3, U.floor_m*1e3, ...
+                U.worst_name, tick_(U.ok));
     end
     if isfield(K,'aoi') && ~isempty(K.aoi)
         fprintf('    incidence on the powered surfaces (reported, not gated):');
