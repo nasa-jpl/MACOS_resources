@@ -278,13 +278,93 @@ So the N = 7 question is being answered the way the brief asks — with
 independent seeds and the full DOF set — and N7a is retained as the first
 datum of that spread rather than as its answer.
 
-| run | seed Σφ² | DOFs | status |
-|---|---|---|---|
-| N7a | 26.6 | conic, spacing, tilt | done — every row missed, stalled at 70.78 |
-| N7b | 26.6 | + **radius** | running |
-| N7c | 38.6 | + radius, independent seed | running |
-| N7d | 41.6 | + radius, independent seed | running |
-| N8a | — | + radius, N = **8** | running (the pre-approved "add a mirror" branch) |
+| run | seed Σφ² | DOFs | merit | WFE (nm) | verdict |
+|---|---|---|---|---|---|
+| N7a | 26.6 | conic, spacing, tilt | 70.78 | 12422 | every row missed, stalled |
+| N7b | 26.6 | **+ radius** | 70.40 | 11718 | every row missed, stalled |
+| N7c | 38.6 | + radius, independent seed | 707.0 | **3.7e9** | **scrambled — gates MISSED** |
+| N7d | 41.6 | + radius, independent seed | 54.08 | — | running |
+| N8a | — | + radius, N = **8** | — | — | running |
+
+### 5a. My own hypothesis, refuted: the DOF set was not the reason
+
+N7a froze the radii, so the obvious reading was that the solve was
+DOF-limited — the very diagnosis the wall slice had just made about the
+committed design. **Measured, it is wrong.** N7b re-ran the identical seed
+with the radii freed and reached WFE 11718 nm against 12422, merit 70.40
+against 70.78 — **5.7 %**, on a row that needs a factor of 165. Freeing five
+more DOFs bought essentially nothing.
+
+That matters beyond this rung. "The DOF set was the reason" is now a
+*hypothesis this study has seen confirmed once and refuted once*, so it does
+not get to be the reflex explanation for a stalled solve. Here the seed was
+the reason.
+
+### 5b. And S4c's solver-integrity gate earned its keep, immediately
+
+N7c converged — merit 707, plateaued — to a design with **3.7 metres** of
+wavefront error, 1.66 m of pupil blur, M off by 95 %, and an anchoring
+residual of **296 metres**. On the merit alone it would have been reported as
+"a worse rung". The anchoring residual is a VALIDITY check, not a metric
+(S4c: *0.1 µm on every sound design here, 84 mm on a failed solve*), and it
+is the reason the requirement table carries `gates` as a separate kind from
+`targets`: this rung was not measured, it was scrambled, and the table says
+`gates MISSED` rather than quietly ranking it.
+
+### 5c. The fourth parity point, and it is the sharpest
+
+`N8a`'s seeder closed **717 679** eight-mirror front ends and found
+**one** compliant — 0.00014 %. The law now has four points and gets stronger
+with N, because a longer alternating sum gives the closure's own last spacing
+more to fight:
+
+| N | parity | closed | compliant | rate |
+|---|---|---|---|---|
+| 5 | odd | 232 | 205 | **88.4 %** |
+| 6 | even | 7 406 | 2 | 0.03 % |
+| 7 | odd | 95 849 | 86 024 | **89.7 %** |
+| 8 | **even** | 717 679 | **1** | **0.00014 %** |
+
+## 5d. The ASCENT: build the top rung UP from a design that works
+
+Four cold seven-mirror attempts landed at merit 54…707 with ~12 µm of
+wavefront — **worse than the four-mirror family's own 10.4 µm, with more than
+twice the freedom.** The conclusion is not about seven mirrors; it is that a
+cold N-mirror closure with spherical conics is a bad design and local
+optimisation cannot rescue it.
+
+So the top of the ladder is built UP from the committed four-mirror design —
+which already reaches 10.4 µm and passes its own walls — one mirror at a
+time, each step warm-started. That is the rodgers3 continuation walk the
+brief names as this stage's method precedent, applied in the direction that
+makes the top rung reachable. **It is not circular:** the ascent supplies a
+starting design, and every rung of the descent is re-solved and re-judged on
+its own.
+
+**The insertion needs a compliant seed too, and for the same reason as
+everything else here.** The first ascent inserted a near-flat mirror at the
+midpoint of a spacing and the child landed **479 mm in front of** the primary
+with no root for the interface condition at all. Nothing was wrong with the
+arithmetic — splitting t = 2.9285 into 1.464 + 1.464 re-folds the alternating
+sum to `0, −1.042, +0.422, −1.042, b−1.042` — it is the parity law charging
+for the extra reflection. So *where in the spacing the mirror goes* is not a
+detail, it is the compliance knob. `descent_add(..., 'search',true)` scans
+insertion points and split fractions, keeps the closures that clear the
+station, and takes the one closest in power to the parent.
+
+Measured on the first step: **5 of 34 closures compliant**, best at split
+0.70 with the last mirror **+0.693 m** behind the primary and **warmth
+0.000** — the child's powers identical to the parent's, because a flat
+insertion is optically a no-op. That is as warm as a warm start gets.
+
+> **One bug, one rung.** The first fixed ascent still died with
+> `Unrecognized field name "wfe_max_nm"`: `afocal4_score` has its own failure
+> path that returns a MINIMAL struct (resid / merit / worst and nothing
+> else), and `descent_solve`'s history line reached straight past it. A
+> scored-as-bad iterate became a dead run. The history is diagnostic, so a
+> missing column is now a NaN and never an exception. `clear_solve` carries
+> the same unguarded access and has simply never been handed that struct —
+> noted, not chased.
 
 ## 6. Still to do
 
