@@ -87,14 +87,24 @@ function R = descent_solve(P, D0, opts)
             return;
         end
         r = S.resid;
-        hist(end+1) = struct('x',xs(:).', 'merit',sum(r.^2), 'worst',S.worst, ...
-            'wfe',S.wfe_max_nm, 'blur',S.blur_um, 'breathe',S.breathe_pct, ...
-            'wander',S.wander_um); %#ok<SETNU>
+        % AFOCAL4_SCORE HAS ITS OWN FAILURE PATH and it returns a MINIMAL
+        % struct -- resid / merit / worst and nothing else -- when the deck
+        % will not load or the ladder will not build.  Reaching straight for
+        % S.wfe_max_nm there crashes the solve on an "Unrecognized field
+        % name", which turns a scored-as-bad iterate into a dead run.  Cost:
+        % one ascent rung.  The history is diagnostic, so a missing column is
+        % a NaN and never an exception.  (CLEAR_SOLVE carries the same
+        % unguarded access; it has simply never been handed that struct.)
+        hist(end+1) = struct('x',xs(:).', 'merit',sum(r.^2), ...
+            'worst',fld_(S,'worst',Inf), 'wfe',fld_(S,'wfe_max_nm',NaN), ...
+            'blur',fld_(S,'blur_um',NaN), 'breathe',fld_(S,'breathe_pct',NaN), ...
+            'wander',fld_(S,'wander_um',NaN)); %#ok<SETNU>
         if ~opts.quiet && (nfev <= 2 || mod(nfev, 50) == 0)
             fprintf(['    [%4d] merit %9.4f  worst %8.2fx | WFE %9.1f nm  ' ...
                      'blur %7.1f  breathe %6.3f%%  wander %7.1f um\n'], ...
-                    nfev, sum(r.^2), S.worst, S.wfe_max_nm, S.blur_um, ...
-                    S.breathe_pct, S.wander_um);
+                    nfev, sum(r.^2), fld_(S,'worst',Inf), ...
+                    fld_(S,'wfe_max_nm',NaN), fld_(S,'blur_um',NaN), ...
+                    fld_(S,'breathe_pct',NaN), fld_(S,'wander_um',NaN));
         end
     end
 
@@ -194,6 +204,10 @@ function D = unpack_(P, D, dofs, xs, scale, base) %#ok<INUSL>
         for k = 1:N, j = j + 1;  D.tilt_deg(k) = xs(j); end
     end
     if any(strcmp(dofs,'iface')), j = j + 1;  D.iface = xs(j); end
+end
+
+function v = fld_(s, f, d)
+    if isstruct(s) && isfield(s,f), v = s.(f); else, v = d; end
 end
 
 function s = one_line_(m)
