@@ -26,6 +26,16 @@ function out = clear_build(P, D, deck, opts)
 %   clearance and what it costs is pupil quality and the exchange rate is
 %   the deliverable.
 %
+%   THE UNION WALL IS APPLIED HERE, AFTER THE SWING, AND THAT IS THE WHOLE
+%   POINT OF DEFERRING IT.  AFOCAL4_BUILD carries the union body-in-beam
+%   floor as a wall (P.pack.union_enforce, default off), but it emits the
+%   UNTILTED train -- which on this family is the design that fails at
+%   -79.9 mm.  A wall applied there would reject every iterate before the
+%   tilt had a chance to clear the beam: a cage, not a wall.  So the build
+%   is told to defer, the tilt is applied, and AFOCAL4_UNION_WALL then
+%   judges the deck that will actually be scored.  With the wall off (the
+%   default) neither call traces a ray and this file is unchanged.
+%
 %   Name-value:
 %     'axis'   1x3 tilt axis, global (default [1 0 0] -- swings the beam in
 %              the y-z plane the field bias lives in, which CLEAR_SCAN
@@ -36,9 +46,11 @@ function out = clear_build(P, D, deck, opts)
 %     'quiet'  (true)
 %
 %   Returns AFOCAL4_BUILD's struct plus .tilt (the CLEAR_TILT record),
-%   .tilt_deg and, with 'verify', a re-measured .traced.
+%   .tilt_deg, .union (the wall's measurement) and, with 'verify', a
+%   re-measured .traced.
 %
-%   See also AFOCAL4_BUILD, CLEAR_TILT, CLEAR_SOLVE, AFOCAL4_UNION.
+%   See also AFOCAL4_BUILD, CLEAR_TILT, CLEAR_SOLVE, CLEAR_SEED,
+%   AFOCAL4_UNION, AFOCAL4_UNION_WALL.
 
     arguments
         P (1,1) struct
@@ -52,7 +64,8 @@ function out = clear_build(P, D, deck, opts)
 
     if ~isfield(D,'tilt_deg'), D.tilt_deg = 0; end
 
-    b = afocal4_build(P, D, deck, 'verify',false, 'quiet',true);
+    b = afocal4_build(P, D, deck, 'verify',false, 'quiet',true, ...
+                      'defer_union',true);
     out = b;
     out.tilt_deg = D.tilt_deg;
     out.tilt = [];
@@ -64,6 +77,9 @@ function out = clear_build(P, D, deck, opts)
         out.tilt = clear_tilt(tmp, struct('elt',opts.elt, ...
                         'alpha',deg2rad(D.tilt_deg), 'axis',opts.axis), deck);
     end
+
+    % the wall, on the deck that will actually be scored
+    out.union = afocal4_union_wall(P, deck, 'quiet',opts.quiet);
 
     if opts.verify
         macos.load_rx(deck);

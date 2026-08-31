@@ -105,6 +105,24 @@ designs. Deck: `afocal4_b2long_343mm_1fold.in`.
 
 ## 3. Path A — four folds in the collimator feed leg
 
+> **SUPERSEDED 2026-08-30 — Path A is retired as a route, and retained as a
+> measurement.** Path A folds the depth out of a design whose collimator is
+> standing in its own feed beam (§1a), and a fold is an isometry: it carries
+> that interference across unchanged, −79.9 mm before and after. The clearing
+> stage removed the interference instead, with a −10° extraction tilt on the
+> field mirror, and the swing takes the overhang from 0.81× to **0.24×** of the
+> M1–M2 spacing **with no flats at all** — against Path A's 0.86× *deepest-optic*
+> ratio bought with four ~300 mm 45° flats. (Two ratios, named apart: 1.81×/0.86×
+> /1.24× are deepest optic over the M1–M2 spacing; 0.81×/−0.14×/0.24× are the
+> overhang over the same spacing.) On the cleared deck Path A **does not close**:
+> 96 routes searched on that deck's own geometry, 15 satisfied both the route
+> algebra and the plane-intersection bound, and every one of those lost rays —
+> the trombone runs out of leg because the depth it existed to remove is mostly
+> gone. Nothing below is deleted: the pair-step bound, the fold-null assertions
+> and the by-value indexing trap are live machinery, and §1a's "a margin is a
+> number, not a body" is what found the interference in the first place.
+> See `../clearing/README.md` §7a and `../RESULTS.md` § CLEARING.
+
 Deck: **`afocal4_b2pack_343mm.in`**. Driver `afocal4_packaging.m` section 2.
 
 The depth lives in the M2 → field-mirror leg — the field mirror is the deepest

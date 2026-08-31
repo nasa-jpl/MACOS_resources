@@ -666,6 +666,29 @@ crossing the first.
 
 ## S4b.4 The folded demonstration
 
+> **SUPERSEDED 2026-08-30 as a RECIPE; retained as the null demonstration it
+> was.** The single fold below satisfies constraint clause 3 and its
+> fold-is-null check is still the machinery that caught two real defects (see
+> "The check earned its keep twice"). What it is no longer is a packaging
+> answer. The 2026-08-30 packaging stage measured that this flat **does not
+> touch the depth** (the deepest optic is identical to the last digit), costs
+> the shroud (the instrument leaves *radially*, envelope Ø2.779 × 2.626 m
+> against Ø1.120 × 3.825 m unfolded), and **does not itself fit**: over the
+> field box its own footprint is 103.7 mm in radius and it clips the FM→M3
+> feed beam by −73.6 mm, where `afocal4_pack` had measured 17.5 mm of daylight
+> and passed it. *A margin is a number, not a body.* The four-fold Path A that
+> replaced it is in turn superseded — see `packaging/README.md` §3 — because
+> the clearing stage removed the interference by design instead, with an
+> extraction tilt, and the swing packages the back end with **zero** flats.
+> Full account: `clearing/README.md` and § CLEARING below.
+>
+> The interface-pupil coordinates and instrument z-slab quoted below for the
+> FOLDED deck are also under review — `packaging/check_record` re-measures them
+> from the committed file and disagrees. The exact correction wording is with
+> Dave (`macos/BRIEF_afocal4_wall.md` delivery log, Task 5); the *conclusion*
+> those numbers support — the instrument sits entirely behind the primary — is
+> unaffected either way.
+
 Constraint clause 3 says *demonstrated, not asserted*, so the flat is inserted, the
 prescription is emitted, and the design is re-scored on the same kernel — because a
 nominally null fold is not a free fold (e2e2 s3). The subject is the **basin-2 design at
@@ -1087,3 +1110,818 @@ metric is read on.
     score's; adding the rim fields to one branch and not the other would have broken every
     `arr(k) = S` in the ladder — and only when reached, an hour into a sweep. Gated now.
 
+
+---
+
+# CLEARING RESULTS — the collimator was standing in its own feed beam
+
+Answers `macos/BRIEF_afocal4_clear.md` (Dave, 2026-08-30) and its follow-on
+`macos/BRIEF_afocal4_wall.md`. The full numbers-first accounts are
+`clearing/README.md` and `wall/README.md`; this section is the *canonical*
+record — what the defect was, why it is structural, which remedies are retired
+and on what measurement, what the delivered design costs, and what the standing
+gate now refuses.
+
+Every number here is engine truth — traced rays and the engine's own element
+getters — measured over the **whole 0.5° × 0.5° field box**, never the deck's
+own single field. No `.in` file is text-parsed for a geometric claim.
+
+> The one place a prescription IS read as text is design **recovery** —
+> `wall_recover` and `afocal4_clearing`'s `recover_` take the conics, `R_M2`,
+> `t_M1M2` and the interface standoff off a committed deck so the design struct
+> behind it can be rebuilt (RESULTS rule 9). That is not a geometric
+> measurement, and it is not trusted either: the recovered struct is rebuilt and
+> compared with the file **byte for byte** before anything is measured. Read the
+> spacings from `zElt`, never from the vertices — the builder poses the
+> interface plane on the traced chief, so on this deck the last mirror's vertex
+> is 359 mm from the interface vertex while the standoff is 343 mm, and the
+> vertex reading silently rebuilds a different design. It cost the clearing
+> stage a whole scan.
+
+## C.0 The defect, and the number that hid it
+
+On the committed 343 mm family-2 design — `afocal4_b2long_343mm.in`, the deck
+the S4b/S4c trade delivered, **unfolded, before any packaging** — the
+M2 → field-mirror feed beam runs **through the collimator's own glass**.
+
+| what is measured | floor |
+|---|---|
+| declared body model, 1.15 × union footprint + 15 mm | **−79.89 mm** |
+| **bare lit glass**, 1.00 ×, 0 mm | **−55.36 mm** |
+| what **one** field sees | **−5.9 … +26.8 mm** |
+
+**That last row is the whole reason it shipped.** Per field the collimator sits
+inside the feed cone with 10.8 mm of daylight all round, passed in a
+27.8–55.6 mm annulus. But a *monolithic* collimator must cover its **union**
+footprint over the field box — 17.0 mm per field, **87.0 mm** over the nine —
+and that glass is exactly where the other fields' feed beams pass. A
+centre-field check passes the design. `afocal4_pack` ran precisely such a
+check: it asks where there is *daylight* and never asks whether a *part* is
+already in the way.
+
+> **A margin is a number, not a body.** A gate that reports clearance without
+> sizing the part it is making room for can pass a design nobody can build.
+
+Real hardware would vignette a fraction of the field box; the trace does not
+show it, because bodies are not obscuring elements.
+
+## C.1 Why — the field-walk ratio law
+
+On a coaxial train every chief-ray height is proportional to its field angle,
+so a part's union footprint and a beam's union footprint **at the same
+station** are two scaled copies of the *same* field box, anchored on the axis.
+Write each centroid as
+
+```
+    centroid(theta) = c * theta + o
+```
+
+* `c` — the **field-proportional walk**. On a coaxial train this is all there is.
+* `o` — the **field-independent offset**. Identically zero on a coaxial train,
+  and the *only* quantity that can defeat the law.
+
+Two scaled copies of the box `[B−A, B+A]` are disjoint only if
+`c_beam / c_body > (B+A)/(B−A)`. Measured:
+
+| quantity | value |
+|---|---|
+| field box in the bias direction | 0.3500 … 0.8500 deg |
+| **ratio the box demands** | **2.4286** |
+| walk, collimator body | 11.1179 m/rad |
+| walk, feed beam at the collimator's plane | 14.4811 m/rad |
+| **ratio achieved** | **1.3025** |
+| field-independent offset | +4.46 mm (i.e. zero — the train is coaxial) |
+| centre-set gap, minus the two beam radii | **−107.15 mm** |
+| residual of the walk + offset fit | 1.2e-03 m |
+
+**And one of the two scales is pinned by the customer interface.** The chief
+converges from the last powered mirror to the exit pupil `iface` away at the
+exit angular magnification, so
+
+```
+    c_body(collimator) = M * iface = 30 * 0.343 = 10.29 m/rad
+    measured                                      11.12 m/rad   (+8.0 %)
+```
+
+The pin is paraxial and the measurement is a traced footprint centroid, so the
+8 % *is* this design's own pupil aberration — the quantity the fourth mirror
+exists to control. What matters is that the **scale is set by the interface
+specification**, not by anything a layout change can reach. That is why it is
+the *collimator* standing in the beam and not some other part, and why the
+interference worsens with the interface standoff — the same knob the S4 ruling
+already carries as its operating point, now pulling a third way.
+
+**What the law rules out: every remedy whose separation is proportional to
+field.** A different collimator station moves `c_beam` by the chief slope
+alone; a different interface standoff moves `c_body`; a flat fold moves
+*neither*, because an isometry carries both copies together. What it does not
+rule out is a **tilt**, whose `o` does not shrink with the field angle.
+
+## C.2 The three leverages, as measurements
+
+### C.2a Leverage 1 — one flat extraction fold. RETIRED, exactly.
+
+A fold inserted *between* the two conflict partners re-routes one of them, so
+"an isometry carries every clearance across unchanged" genuinely does not
+apply — which is why it was tried first. Let `LEG` be the M2 → field-mirror
+spacing and `B` the field-mirror → collimator spacing; on the folded axis the
+collimator sits **exactly on the flat** when the flat is `LEG − B` along the
+leg (here 2.3654 m, **0.808 of the leg**). Either side of that station:
+
+| where the flat goes | what binds | floor |
+|---|---|---|
+| before 0.808 LEG | the fold has not separated the partners | **−79.89 mm — the parent's own number** |
+| after 0.808 LEG | the return beam comes back through the flat, which is union-sized (~250 mm across) | −76.9 … −103.4 mm |
+| very early | the flat lands in the M1 → M2 beam | −77 … −111 mm |
+
+The two conditions are complementary and meet at a single station, so there is
+no window. **Best over every station and both turn directions: −79.89 mm.** A
+flat buys exactly nothing. The obvious escape — put the flat far enough before
+the focus that the returning beam misses it sideways — is closed by the same
+law: the ratio of those two bundles only reaches 2.43 about a metre *past* the
+field mirror, well beyond where the collimator is allowed to be.
+
+### C.2b Leverage 2 — the collimator station. RETIRED, with the figure.
+
+Sweeping the field-mirror standoff moves the collimator through **1.40 m** of
+z. Over all of it the walk ratio reaches **1.48** against the 2.4286 the field
+box demands; the demanded footprint runs 83.6…100.3 mm against 23.0…34.1 mm
+available. *The curves never cross* (`clearing/afocal4_clear_scan.png`).
+
+Sweeping the interface standoff instead crosses the ratio between 140 and
+90 mm, exactly as the law predicts — but even at 50 mm the declared body still
+does not clear (−13.17 mm on the collimator pair, −39.43 mm on the gate as a
+whole); only bare glass does, by 7 mm.
+
+**Every point of the committed trade curve fails the gate:**
+
+| deck | z_collimator (m) | collimator pair, bare | collimator pair, body | **GATE (all pairs)** | ratio |
+|---|---|---|---|---|---|
+| 50 mm | **+5.2101** | +55.49 | **+36.77** | **−29.04** | 11.74 |
+| 90 mm | +0.5001 | −13.83 | −33.40 | **−33.40** | 3.351 |
+| 140 mm | +0.6829 | −33.43 | −54.18 | **−54.18** | 2.328 |
+| 220 mm | +0.8737 | −45.61 | −67.51 | **−67.51** | 1.660 |
+| 343 mm | +1.3234 | −55.36 | −79.89 | **−79.89** | 1.303 |
+
+At 50 mm the *collimator pair* genuinely clears (+36.8 mm, ratio 11.7) — but
+its collimator sits **5.21 m** behind the primary and its field mirror at
+5.95 m, a back end nearly six times the M1–M2 spacing and not a package; and
+the deck still fails, at −29.0 mm, on a *different* pair. **Retreating along
+the operating point is not a way out**, and that row is why both columns are
+reported: the one-column version of this table reads "50 mm clears".
+
+### C.2c Leverage 3 — the extraction tilt. DELIVERED.
+
+`clear_tilt` swings one mirror about the point **where the chief ray actually
+strikes it** — read from the traced ray history, never from the vertex —
+computes the new outgoing chief from the *rotated local surface normal* (itself
+engine truth, `N = unit(d_in − d_out)`), and re-poses every downstream element
+by the rotation carrying the old outgoing chief onto the new one. Nulls, all at
+machine precision: the chief path up to the swung mirror moves **4.45e-16 m**,
+the chief still lands on the pivot to **4.45e-16 m**, and the beam turns
+**20.0000°** for a 10.0000° tilt.
+
+**Why the law cannot stop it, isolated as a measurement.** At −10° the walk
+ratio is *unchanged* (1.30 → 1.37, still hopeless) and the fitted **offset**
+goes from +4.5 mm to **+195.3 mm**. The tilt does not improve the proportional
+part at all — it adds a term the proportional part cannot see. The offset runs
+**19.35 mm per degree**, dead linear, against the `2αd` the geometry predicts
+(19.66 mm/deg at the 0.5632 m field-mirror → collimator spacing): **1.6 %**.
+
+Two things fall out of the raw sweep that matter beyond this design:
+
+* **The wavefront is not the price.** A mirror at the field conjugate carries
+  1.8 mm of beam per field against a 113 mm union footprint, so swinging it
+  barely touches the wavefront (10407 → 10353 nm, *better* by 0.5 %). What it
+  moves is the **pupil** — the one thing the fourth mirror was added to
+  control.
+* **The bias plane is the cheaper axis, which is not obvious in advance.** A
+  +10° tilt about **y** buys +27.30 mm of floor for 930.6 µm of blur; −10°
+  about **x** buys +57.44 mm for 1195.6 µm — **2.1× the clearance for 1.3× the
+  blur.**
+
+## C.3 The delivered design — the price table
+
+**`clearing/afocal4_clear_343mm.in`** — the committed 343 mm design with a −10°
+extraction tilt on the field mirror and the conics, the field-mirror standoff
+and the front end re-solved around it. Zero rays lost over the field box.
+
+| | committed 343 | **cleared, −10°** | ratio |
+|---|---|---|---|
+| WFE rung 2, max (nm) | 10406.98 | **8992.68** | **0.864** |
+| pupil blur rms (µm) | 157.02 | 553.34 | 3.524 |
+| breathing, chief-normal (%) | 0.1240 | 0.8160 | 6.579 |
+| wander at the refit plane (µm) | 161.23 | 559.87 | 3.472 |
+| surface vs imaged sag (mm) | 0.0174 | 0.0102 | 0.588 |
+| M at the box centre | 30.0066 | 30.0148 | 1.000 |
+| anchoring residual (µm) | 0.0946 | 0.0791 | 0.835 |
+| exit beam diameter (mm) | 33.633 | 33.571 | 0.998 |
+| collimation (µrad) | 1477.1 | 1265.5 | 0.857 |
+| chief AOI on the field mirror (deg) | 2.11 | **10.15** | 4.806 |
+| **max chief AOI, any mirror (deg)** | **12.84** | **10.86** | **0.846** |
+| **union body-in-beam floor (mm)** | **−79.89** | **+37.82** | — |
+| rays lost over the field box | 0 | 0 | — |
+
+**The customer interface is held** — 30.015× at the box centre, a 33.57 mm exit
+beam against 33.63, collimation 14 % *better*. The interface plane is carried
+through the swing by the same rigid motion as the rest of the train, so its
+pose relative to the exit chief is unchanged.
+
+**The AOI reads better, not worse**, which is the opposite of the obvious
+expectation: the field mirror goes 2.1° → 10.1°, but the design's *worst*
+worked mirror improves 12.84° → 10.86°, because the re-solve moved the front
+end. Everything stays under the design drivers' standing 15° rule.
+
+**What it costs, in one line: the fourth mirror's pupil control.** Blur and
+wander 3.5×, breathing 6.6×. The wavefront and the interface do not pay.
+
+> The delivered numbers above came out of a 427-evaluation re-solve that
+> stopped on its budget (exitflag 0) at the study's default 3e-3 **forward**
+> difference — the setting S4c measured as reading this merit's gradient 17 %
+> low. They are re-run to convergence with central differences in § C.4c.
+
+## C.4 The clearance as a WALL — `P.pack.union_enforce`
+
+### C.4a Why the delivered point is a point and not a frontier
+
+The gate could measure the interference but nothing was *holding* it. Measured
+on the clearing stage's own re-solves: at −8° and −9° the raw tilt gives
++23.34 and +42.25 mm of floor, and the re-solve walks them down to **+2.32 and
++0.69 mm** — the solver, free to move the standoff and the front end, walks the
+design back toward the beam it was swung away from, because `afocal4_score`
+cannot see clearance and spending it is free. So the delivered −10° is a point
+that *happens* to hold margin, not a point chosen on a frontier.
+
+> **Read § C.4c before taking the paragraph above at face value.** Those
+> −8°/−9° numbers come from the clearing stage's 427-evaluation
+> forward-difference re-solves. Run the *same* solves to convergence and the
+> margin is **not** spent: +28.05 and +38.67 mm with the wall off. The
+> margin-spending was a stalled solve, not a merit blind to clearance — so the
+> wall's justification is that nothing holds the clearance, not that something
+> was observed taking it.
+
+The fix is the S4b pattern exactly, and it is a **wall, never a merit term**
+(the log-domain merit doctrine is untouched): `afocal4_union`'s floor on the
+**declared body model** enters `afocal4_build` beside `m3_behind_min`.
+
+* `P.pack.union_enforce` (default **false**), `P.pack.union_min` (default 0 m),
+  `P.pack.union_body_k` / `union_body_pad` (1.15, 15 mm).
+* **Default OFF is load-bearing.** With the wall on, `afocal4_build` cannot
+  re-emit the committed 343 mm deck — it reads −79.89 mm — so every S4 / S4b /
+  S4c / clearing artifact would stop reproducing. `P.pack.enforce = false`
+  keeps the unbuildable S4 reference reproducible for the same reason.
+* **`CLEAR_BUILD` defers it past the tilt.** `afocal4_build` emits the
+  *untilted* train and `clear_build` swings it afterwards, so a wall applied
+  inside the build would judge the design the tilt exists to get away from and
+  reject every iterate: a cage, not a wall. Gated in `tAfocal4Wall`, on the
+  same `P`, both halves.
+* **Cost, stated rather than hidden:** the wall is evaluated INSIDE the build,
+  so every iterate the solver sees is compliant. It adds **+51 %** to an
+  evaluation (8.2 s → 12.4 s cold; ~3.4 s → ~5 s in a warm solver loop).
+  Nearly all of it is the nine-field re-trace inside `afocal4_union` — a trace
+  `afocal4_score` has already paid for once. The probe count is almost free
+  (314 probes 4.18 s, 65 probes 3.52 s), so it is not tuned down.
+* **The wall is judged at SOLVE sampling and quoted at REPORTING sampling.**
+  More rays make a bigger union hull, so the wall's number is the *optimistic*
+  one — measured at about **+1.9 mm** on this design. The seeder's 10 mm margin
+  is what covers it, and `tAfocal4Wall` pins the bias below that margin rather
+  than pinning the millimetre.
+
+### C.4b The compliant seeder — and the law is not its predictor
+
+*A wall needs a compliant seed or it is a cage* (S4b rule 10). `wall_seed` is
+`afocal4_pack_seed`'s clearing-stage sibling, and building it produced a
+finding worth keeping:
+
+**The field-walk law is 5–6× optimistic as a predictor of what a STANDOFF
+change buys.** The obvious cheap ranking is `f̂ = f(tilt alone) + 2|α|(d − d₀)`,
+pure closure arithmetic. Measured at −6°, moving the standoff from the parent's
+−38.6 mm to +250 mm takes `d` from 0.563 to 0.680 m; the law predicts the floor
+going −13.00 → +11.45 mm, and it measures **−8.25**. Over the parent's whole
+admitted range the realised sensitivity is **33 mm per metre of `d`** against
+the law's **209**. The law is not wrong — the tilt really does supply `2αd` —
+but a standoff change moves the **field-proportional** part at the same time,
+and the two very nearly cancel. *That is leverage 2 showing up inside leverage
+3*: the station was retired as nearly powerless, and it is nearly powerless
+here too.
+
+So the seeder **measures** instead of predicting: gate the parent's own
+standoff, gate the extreme of the admitted closure range, and if the extreme
+clears, **bisect back toward the parent** for the smallest departure that still
+clears — four to six gate evaluations. Preferences, in order: the tilt alone
+(nothing moved, which is what keeps a frontier point comparable with the
+delivered row); the smallest standoff change on the parent's own front end; a
+different M2 radius; and last, the delivered −10° design's own DOFs, flagged in
+the record as a different basin.
+
+**One trap paid for here, and it is the recurring one.** `P.parent` carries
+*Mike's* raw secondary (R_M2 468.8 mm, t_M1M2 1.0492 m) while the committed
+343 mm deck has a re-solved front end (448.4 mm, 1.0420 m). Filtering seed
+candidates through `P.parent` admitted 21 standoffs of 57 and **not one of them
+was the parent design's own**; carrying `D.R2` and `D.t1` into the closure — as
+`afocal4_build` itself does — admits 54, spanning `d` = 0.255…0.821 m against
+the parent's 0.563.
+
+### C.4c What the converged solves actually said — and the premise they retired
+
+The brief asked for two things here: reproduce the clearing stage's
+margin-spending with the wall off, abolish it with the wall on, and read a
+tilt-vs-price frontier off the result. **Neither half survived measurement,
+and both failures are more useful than the assertions would have been.**
+
+Method: one MATLAB process per point, `wall_point`, seeded compliantly by
+`wall_seed`; conics + field-mirror standoff + front end; **central**
+differences at 1e-4 with `FunctionTolerance` 1e-8 and `StepTolerance` 1e-9;
+restart rounds until `exitflag 1` or a round buys less than 1e-6 of the merit;
+403 evaluations per round, 3 rounds — **1209 evaluations per point** against
+the clearing stage's 427. Every point reports its rounds, its exitflags and
+its gains. Gate and score quoted at REPORTING sampling.
+
+#### The margin is not spent — the clearing stage's solves had stalled
+
+| tilt, 0 mm floor | raw tilt | clearing stage (427 ev, forward) | **wall OFF, converged** | wall ON, converged |
+|---|---|---|---|---|
+| −8° | +23.34 | **+2.32** | **+28.05** | +28.05 *(identical)* |
+| −9° | +42.25 | **+0.69** | **+38.67** | +43.18 |
+| −10° | +57.44 | +37.82 | **+45.07** | +45.07 *(identical)* |
+
+Same tilt, same DOFs, same seed, wall off; the only difference is 427
+budget-capped forward-difference evaluations against 1209 central-difference
+ones. **The converged solve keeps tens of millimetres of margin.** The
+"re-solve spends the clearance" behaviour was a stalled solve on the gradient
+S4c had already measured as 17 % low — not a merit blind to clearance.
+
+At −8° and −10° the wall-on and wall-off runs are identical to the last digit
+of round-1 merit (46.181908 and 50.097881): **the wall never rejected an
+iterate.** It binds only at a +15 mm floor, and at −9° at 0 mm — and in both
+cases it changed the path and landed a *better* design (merit 34.34 against
+36.89 at −8°/+15 mm; 31.47 against 32.89 at −9°). That is not what a cage
+does.
+
+**The wall is still right to have and still non-vacuous** — nothing else holds
+the clearance, it refuses the committed deck at −79.89 mm, and `union_min` is
+a real threshold (§ C.6). But on this design it is **insurance**, and
+**convergence** is what changed the answer.
+
+*(Determinism, checked: the −10° wall-off point ran twice in independent
+processes and reproduced round merits 50.097881 / 47.094653 / 35.998867 both
+times. The divergences above are genuine path differences, not noise.)*
+
+#### The free-standoff sweep is not a tilt-vs-price frontier
+
+Sorting the walled points by the field-mirror standoff their solve reached
+rather than by tilt:
+
+| point | converged s_FM (mm) | K_FM | WFE (nm) | blur (µm) |
+|---|---|---|---|---|
+| −6° | −229.2 | −3.00 | 12076.2 | 535.8 |
+| −8° | +229.7 | −8.25 | 7813.1 | 347.5 |
+| −10° (wall off) | +275.9 | −15.78 | 6744.1 | 352.5 |
+| −9° | +438.8 | −18.53 | 5288.8 | 288.1 |
+| −7° | +535.6 | −25.34 | 3212.5 | 227.8 |
+
+**Wavefront and blur both fall monotonically with the standoff**, across five
+points at five different tilts, walking from the parent's −38.6 mm toward the
++600 mm bound. Every one of those solves was still descending hard at round 3
+(gains 24–43 %, all exitflag 0) except −8° (1.24e-4, a demonstrated plateau).
+So the differences between tilts are mostly **how far each solve walked the
+standoff**, not what the tilt costs — the −7° point is not a better tilt, it
+is the solve that got furthest.
+
+Two consequences, and the second is a design finding rather than a
+methodological one:
+
+1. **A tilt-vs-price curve has to hold the standoff fixed**, which is what
+   `wall_point`'s `'seed_standoff'` + `'dofs'` control does (§ C.4d).
+2. **The committed 343 mm design is nowhere near its own optimum in the
+   standoff DOF either.** Every converged solve walks it hundreds of
+   millimetres positive and the wavefront falls the whole way. That is a
+   second unclaimed quantity beside the pupil one in § C.7, and a larger one:
+   it is worth 3–4× of wavefront error, where the tilt is worth a few percent.
+
+#### The delivered −10° deck, polished — every quoted number moves
+
+The brief asks for this "regardless", and it is the one that touches the deck:
+
+| | as delivered (427 ev, forward) | polished (1209 ev, central) | change |
+|---|---|---|---|
+| WFE rung 2 max (nm) | 8992.68 | **6744.10** | **−25.0 %** |
+| pupil blur rms (µm) | 553.34 | **352.50** | **−36.3 %** |
+| wander (µm) | 559.87 | **357.00** | **−36.2 %** |
+| breathing (%) | 0.8160 | 0.9816 | **+20.3 %** |
+| union floor, declared (mm) | +37.82 | **+45.07** | **+19.2 %** |
+
+**Every one moves far past the 1 % flag threshold, and mostly in the cleared
+design's favour** — a quarter less wavefront error and a third less pupil
+price than the delivered row states, with 7 mm more clearance. The delivered
+numbers were budget artifacts. Anything quoting 8993 / 553 / 0.82 % / +37.8
+should be re-cut or should say it is quoting the budget-capped solve.
+
+
+### C.4d The frontier, with the tilt actually isolated — and the delivered point is past the knee
+
+The fix for § C.4c's confound: pin the field-mirror standoff at **+276 mm**
+for every point (a real, reachable station — the one the −10° polish
+converged to), drop it from the DOF set, and solve `{conic, front}` only. The
+tilt is then the only thing that differs between points, which is what a
+tilt-vs-price curve has to mean. Wall ON at a 0 mm floor, central
+differences, **1628 evaluations over 4 restart rounds** each; round-4 gains
+5.4e-2 / 8.3e-4 / 2.1e-2 / 7.7e-3, against the 24–43 % the free-standoff runs
+were still moving at round 3.
+
+| tilt | floor, declared (mm) | bare (mm) | WFE (nm) | blur (µm) | breathing (%) | wander (µm) | max AOI | M | merit |
+|---|---|---|---|---|---|---|---|---|---|
+| **−8°** | +15.18 | +39.38 | **6513.9** | **279.9** | **0.7210** | **284.2** | 10.68 | 30.0150 | **32.65** |
+| **−9°** | **+45.44** | +63.33 | 7794.7 | 352.0 | 0.9190 | 356.4 | 11.01 | 30.0150 | 36.83 |
+| −10° | +48.54 | +64.85 | 7682.3 | 456.8 | 1.1912 | 460.9 | 11.29 | 29.9846 | 40.52 |
+| −11° | +47.17 | +63.52 | 7464.9 | 482.9 | 1.2044 | 487.0 | 11.34 | 29.9848 | 41.30 |
+
+Zero rays lost at every point; M inside 0.05 % everywhere; every max chief AOI
+inside the 15° standing rule.
+
+**THE CLEARANCE SATURATES BY −9°.** The floor is +45.44 / +48.54 / +47.17 mm at
+−9 / −10 / −11 — flat to ±3 mm — while the pupil price keeps climbing: blur
+352.0 → 456.8 → 482.9 µm, breathing 0.919 → 1.191 → 1.204 %. So **−10° and −11°
+are DOMINATED**: another point clears at least as well for materially less
+blur. The clearing stage read the saturation at −10° from the *raw* sweep;
+converged and with the standoff held, the knee is at **−9°**, and the
+delivered design sits **past** it.
+
+**The operating point is −9°**, and it dominates the delivered −10° row on
+four of five columns:
+
+| | delivered −10° | **−9°, converged, walled** | change |
+|---|---|---|---|
+| WFE rung 2 max (nm) | 8992.7 | **7794.7** | **−13.3 %** |
+| pupil blur (µm) | 553.3 | **352.0** | **−36.4 %** |
+| wander (µm) | 559.9 | **356.4** | **−36.3 %** |
+| union floor, declared (mm) | +37.82 | **+45.44** | **+7.62 mm** |
+| breathing (%) | 0.8160 | 0.9190 | +12.6 % |
+
+Less wavefront error, a third less pupil blur and wander, **and 7.6 mm more
+clearance**, for 13 % more magnification breathing.
+
+**And if the pupil budget is the binding one, −8° is the answer**: blur
+**279.9 µm — 49.4 % below the delivered row** — with breathing also *better*
+(0.7210 against 0.8160) and the wavefront 27.6 % better, while still holding
+**+15.18 mm**, i.e. exactly the declared allowance's own 15 mm pad. That is
+the direct answer to the question this slice was set: *does a walled −8° hold
+real margin at materially less pupil damage than −10°?* **Yes — the declared
+pad, at half the blur.**
+
+What the tilt costs, isolated, is therefore small and one-sided: over −8° to
+−11° the wavefront moves 6514 → 7465 nm (a 15 % band with no monotone trend —
+the clearing stage's "the wavefront is not the price" survives), while blur,
+wander, breathing and AOI all grow monotonically with |tilt|. **Buy exactly as
+much tilt as the clearance needs and not one degree more.**
+
+*Caveat, stated: this curve holds the standoff at one station. § C.4c shows
+the standoff is worth 3–4× of wavefront error on its own, far more than the
+tilt — so this is the tilt's price AT a good station, not the design's
+optimum. Finding the standoff's own operating point is a separate question
+and a larger one.*
+
+## C.5 The packaging consequences — and it packages itself
+
+The swing was not a packaging move, but it re-poses the whole back end, so the
+envelope was re-measured:
+
+| | committed | committed + Path A (4 flats) | **cleared, no flats** |
+|---|---|---|---|
+| M1–M2 spacing, the yardstick (m) | 1.0420 | 1.0420 | 1.0416 |
+| deepest optic behind M1 (m) | 1.8866 | 0.8932 | **1.2874** |
+| … as a multiple of the yardstick | **1.81×** | **0.86×** | **1.24×** |
+| overhang, deepest − yardstick (m) | +0.845 | −0.149 | **+0.246** |
+| … as a multiple of the yardstick | 0.81× | −0.14× | **0.24×** |
+| radius of the optics **behind** M1 (m) | 0.186 | 0.435 | **0.150** |
+| back focal path (m) | 2.808 | 2.808 | **2.192** |
+| extra flats | 0 | **4** | **0** |
+| union body-in-beam floor (mm) | −79.9 | −79.9 | **+37.8** |
+
+> **Two ratios, named apart on purpose.** The packaging stage's headline
+> "1.81×" is the **deepest optic** over the M1–M2 spacing; the **overhang** over
+> the same spacing is 0.81× on the same deck. Quoting one under the other's
+> name makes an improvement look three times bigger than it is. (The
+> whole-train envelope is the primary's own 0.500 m radius on every deck and
+> cannot tell them apart, which is why the "radius behind M1" row exists.)
+
+**The overhang four ~300 mm 45° flats were spent to remove, the swing takes
+from 0.81× to 0.24× with none.** It does not reach Path A's *negative*
+overhang. What it does that Path A does not: the back-end **girth shrinks**
+(0.186 → 0.150 m) where the four folds nearly *tripled* it to 0.435 m; the back
+focal path shortens by **0.62 m** (Path A leaves it — a fold is an isometry);
+and it opens **no** polarization budget, where four 45° reflections in series
+is one the packaging study explicitly did not open.
+
+**Path A does not close on the cleared deck, and does not need to.** The route
+was re-searched over all four of its stated quantities on the cleared deck's
+own geometry: **96 routes tried, 15 satisfied both the route algebra and the
+plane-intersection bound, and every one of those lost rays** (best: −72.74 mm,
+592 rays). The reason is arithmetic — the four-fold trombone needs
+`x_step + return + m3_gap + the next spacing` of leg to work in, and the swing
+has already shortened the feed leg and moved the field mirror 600 mm nearer.
+**The route runs out of leg because the depth it was invented to remove is
+mostly gone.**
+
+**And the rest of `afocal4_pack` passes on the cleared deck**, so this is not a
+design that trades one buildability clause for another: last powered mirror
+**+774 mm** behind M1 (minimum 500); fold daylight on the exit leg **27.1 mm**
+(margin 15); instrument 233 mm off axis with the **largest that fits Ø421 mm**
+against the stated Ø300; union **+37.8 mm**.
+
+## C.6 The standing gate — `afocal4_union`, and its non-vacuity
+
+`afocal4_union.m` sits beside `afocal4_pack` and is now part 4 of it.
+
+* the **union** footprint over the field box, never the deck's own field;
+* a **convex hull**, never a centred disk — a disk of the union's max radius
+  fills exactly where this train's feed beam passes and invents a 107 mm
+  interference belonging to the model, not the design;
+* a **declared** allowance (1.15 × footprint + 15 mm) printed with every
+  answer, and every table also carries **bare lit glass** (1.00 ×, 0 mm), so an
+  interference that survives that one is the design's;
+* both distance measures **sampling-free** — an exact plane crossing for a
+  pierce, an exact ternary search for a clearance (distance to a convex set is
+  convex along a straight segment). That is the only independent check that a
+  fold really is an isometry: a station-sampled model re-samples the same
+  geometry at a different phase after folding and reads 10.6 vs 5.8 mm on a
+  pair an isometry cannot have moved;
+* **through-holes are a requirement, not a collision** — a two-mirror front end
+  sends its beam back through the primary on every deck in this family, so
+  elements listed in `'hole'` report a hole *radius* instead of a pierce;
+* **leg-versus-leg is deliberately not in it.** Light passes through light and
+  on a wide-field system different fields' beams genuinely cross, so a leg-leg
+  zero is not an interference. `pack_clear` reports it; the gate does not,
+  because the gate's verdict has to mean one thing.
+
+`'union',false` reproduces `afocal4_pack`'s previous verdict exactly and the
+three sub-flags `tAfocal4` asserts are untouched — the promotion is additive.
+
+**Non-vacuity, asserted in code and in two senses.** A gate nobody can fail is
+not a gate, and a wall that refuses nothing is decoration:
+
+| assertion | where |
+|---|---|
+| the GATE fails the committed 343 mm deck (−79.89 mm) and passes the cleared one (+37.82 mm), at the same declared allowance | `tAfocal4Clear`, `afocal4_clearing` §6b |
+| bare lit glass is *also* pierced on the committed deck — the interference is the design's, not the body model's | `tAfocal4Clear` |
+| one field would have passed it — the union is what makes the difference | `tAfocal4Clear` |
+| the WALL refuses the committed design *through `afocal4_build`*, with the identifier the solver's catch clause turns into a residual | `tAfocal4Wall` |
+| the WALL admits the swung design — `clear_build` applies it after the tilt, so it is not a cage | `tAfocal4Wall` |
+| `union_min` is a **threshold**, not a boolean: raising it above the cleared deck's own floor refuses that deck too | `tAfocal4Wall` |
+| the wall is OFF by default and `afocal4_build` still rebuilds the committed deck byte for byte | `tAfocal4Wall` |
+| a failure to seed is reported as a **seeding** failure, with the best floor it reached — never as "this tilt has no design" | `tAfocal4Wall` |
+
+## C.7 Addendum — the unclaimed pupil, measured
+
+A *positive* extraction tilt makes the clearance worse and the pupil better.
+The clearing stage found one point of that (blur 157.0 → 102.6 µm at +4°, no
+re-solve at all); here is the whole signed curve on the **committed** deck,
+1° steps, nothing re-solved, every number from the same `clear_price`
+machinery the clearing stage used:
+
+| tilt (deg) | floor, body (mm) | offset (mm) | WFE (nm) | blur (µm) | breathing (%) | wander (µm) |
+|---|---|---|---|---|---|---|
+| −8 | +23.34 | +156.9 | 10358.2 | 843.5 | 0.9890 | 852.5 |
+| −6 | −14.95 | +119.0 | 10366.1 | 558.0 | 0.7137 | 565.1 |
+| −4 | −53.31 | +81.2 | 10376.9 | 346.4 | 0.4409 | 352.0 |
+| −2 | −86.63 | +43.2 | 10390.5 | 214.5 | 0.1701 | 219.1 |
+| −1 | −86.59 | +23.9 | 10398.4 | 178.2 | **0.0381** | 182.6 |
+| **0 (committed)** | **−79.89** | +4.5 | **10407.0** | **157.0** | **0.1240** | **161.2** |
+| +2 | −86.77 | −35.3 | 10426.2 | 131.3 | 0.3929 | 135.3 |
+| +3 | −84.27 | −55.7 | 10436.9 | 116.7 | 0.5271 | 120.7 |
+| +4 | −77.31 | −76.4 | 10448.2 | 102.6 | 0.6613 | 106.5 |
+| **+5** | −86.69 | −97.7 | 10460.3 | **101.3** | 0.7954 | **104.7** |
+| +6 | −86.52 | −119.5 | 10473.1 | 129.4 | 0.9296 | 131.9 |
+| +8 | −47.98 | −164.9 | 10500.9 | 271.4 | 1.1987 | 273.2 |
+
+`wall/afocal4_wall_unclaimed.png`. Three things this says that the two-point
+version did not:
+
+1. **The blur optimum is at +5°, not +4°, and it is 101.3 µm** — 35.5 % below
+   the committed design's, for a tilt and no re-solve. The clearing stage's 2°
+   grid straddled it.
+2. **It is NOT free, and calling it "unclaimed" needs the qualifier.** What
+   moves the other way is **magnification breathing**, which is the one pupil
+   target the committed design actually *meets*: 0.124 % against a 0.4 % target
+   at 0°, and 0.66 / 0.80 % at +4 / +5° — i.e. the blur is bought by breaking
+   the breathing spec. The two are one knob, and the committed point is on the
+   breathing side of it. Wander tracks blur (they are the same measurement at
+   different planes); the wavefront is flat to 0.5 % across the whole sweep.
+3. **The genuinely free move is a SMALL NEGATIVE tilt.** At −1° the breathing
+   reaches **0.0381 %** — three times better than the committed design's, and
+   ten times inside target — while blur worsens only 178.2 vs 157.0 µm and the
+   clearance is no worse. That is the same "the merit's floor cannot see it"
+   observation S4c made at 343 mm about a third seed holding 0.0117 % breathing
+   for nothing measurable.
+
+### C.7a Why the S4 solve did not find it — and it is NOT that the merit is blind
+
+The obvious explanation, and the one the clearing stage offered, is that a
+wavefront term 130× off its target owns the log-domain sum of squares. **Read
+off the residual vector, that is not what happened.** `afocal4_score` divides
+the per-field wavefront residuals by `sqrt(K)`, so the whole wavefront block
+contributes the MEAN squared log-miss — one term's worth, not nine:
+
+| tilt | merit | WFE block | pupil block | blur | breathing | wander |
+|---|---|---|---|---|---|---|
+| −1° | 31.157 | 23.535 (75.5 %) | 7.622 | 4.105 | **0** (floored) | 3.517 |
+| **0° (committed)** | **30.222** | 23.550 (77.9 %) | 6.672 | 3.608 | **0** (floored) | 3.065 |
+| +5° | **29.403** | 23.621 (80.3 %) | 5.782 | 2.135 | 1.906 | 1.741 |
+
+**The merit PREFERS +5° by 2.7 %.** The pupil terms hold ~22 % of it and cast a
+real vote; the wavefront block barely moves across the whole sweep (23.53 →
+23.62, 0.4 %). So the committed design is not sitting at its pupil optimum
+because the merit could not see the move — **it is sitting there because an
+extraction tilt was never in the DOF set that produced it.** The S4b/S4c long
+solves that delivered this deck ran `{conic, standoff, front}`; rigid bodies
+were not among them.
+
+**And the rigid-body tilt rung 4 does carry is a DIFFERENT OPERATION — measured,
+with the opposite sign.** `P.bounds.tilt` allows ±0.05 rad = ±2.86° of x-tilt
+on the field mirror, applied by `rigid_body_` about the element's own **vertex**
+with the train *not* re-posed; `clear_tilt` pivots on the point the **chief**
+strikes and carries the train with it. On this deck, at the same angles:
+
+| operation on the field mirror | WFE (nm) | blur (µm) | breathing (%) | floor (mm) |
+|---|---|---|---|---|
+| committed, nothing moved | 10407.0 | 157.0 | 0.1240 | −79.89 |
+| rung-4 rigid body, +1.00° (vertex) | 10131.4 | 268.7 | 0.1296 | −84.34 |
+| rung-4 rigid body, +2.00° (vertex) | 9931.3 | 455.1 | 0.1345 | −87.00 |
+| rung-4 rigid body, +2.86° (vertex, the bound) | **9818.8** | **613.0** | 0.1381 | −86.19 |
+| extraction tilt, +1.00° (chief, train re-posed) | 10416.3 | **143.6** | 0.2586 | −84.83 |
+| extraction tilt, +3.00° (chief, train re-posed) | 10436.9 | **116.7** | 0.5271 | −84.27 |
+
+They move the two quantities in **opposite directions**: the rigid-body tilt is
+a *wavefront* knob that spends pupil (5.6 % of wavefront for 3.9× the blur at
+the bound); the extraction tilt is a *pupil* knob that spends a little
+wavefront. So the extraction tilt is a genuinely new degree of freedom and not
+one the S4 parameter set already contained under another name — and there is a
+second unclaimed quantity sitting beside it: **a rung-4 rigid-body pass on the
+committed 343 mm deck is worth ~5.6 % of wavefront**, on a design whose rung-4
+DOFs were never solved. Neither is chased here; both are recorded.
+
+> **Correction to the clearing record.** `clearing/README.md` §12.3 and the
+> `BRIEF_afocal4_clear` delivery log attribute the unclaimed pupil to a merit
+> owned by the wavefront term. The residual vector says otherwise — the
+> wavefront block is 78 % of the merit, not ~97 %, and the merit would have
+> taken the move. The DOF set, not the merit, is the reason. The *finding* (the
+> committed design is not at its own pupil optimum) is unaffected.
+
+### C.7b The pupil-weighted polish — IN FLIGHT, not yet a result
+
+The addendum's second question: at a fixed tilt and wall, does a
+pupil-weighted merit recover any of the blur without giving back wavefront or
+margin?  Two solves at the operating tilt (−8°), standoff pinned at +276 mm
+and DOFs `{conic, front}` so they are directly comparable with `ctl_t-80`
+(6513.9 nm / 279.9 µm / 0.7210 % / +15.18 mm), with `P.weights.{blur, breathe,
+wander}` multiplied by 4 and by 16.
+
+**Not reported here: both were still solving when this stage handed back.**
+Their checkpoints land as `wall/wall_pw{4,16}_t-80.mat` and the table belongs
+in this section.  What is already recorded is the defect they exposed — a
+fixed-magnitude wall residual stops being a wall once the merit is re-weighted
+(rule 32), which is why the first pair of these runs had to be discarded and
+relaunched.
+
+The merit DOCTRINE is not reopened by this measurement: log-domain residuals
+and walls-not-terms both stand, and `P.weights` has always carried these as
+knobs.  It measures the slack; it does not propose a re-weighting.
+
+## C.8 Leverage 4 — a fifth mirror, priced rather than built
+
+Stated in the law's own terms rather than by building a design this arc did not
+have time to solve:
+
+```
+    the collimator's walk is PINNED     M * iface = 10.290 m/rad
+                                        measured    11.118  (+8.1 %)
+    to clear with NO field-independent offset the feed's walk would have to
+    reach                                           27.001 m/rad
+    it is                                           14.481, and its ceiling is
+    the intermediate image height itself
+    => a fifth mirror must supply at least          111.6 mm
+    of FIELD-INDEPENDENT separation
+```
+
+**Which is exactly what the −10° tilt already supplies (201.4 mm measured).**
+So a fifth mirror's case does *not* rest on being able to clear the beam — the
+fourth one can, by being swung. It rests on clearing it **without spending the
+pupil control**, i.e. on beating the walled frontier's best point (§ C.4c).
+
+Three architectures could do that, and the law says which lever each pulls:
+
+1. **A powered extraction mirror near the intermediate image** — supplies the
+   offset with an element designed for it, instead of by swinging the one
+   element that sits at the field conjugate. Same lever, better place to pull.
+2. **A relay to a second intermediate image** — the `relay` form of
+   `afocal4_close`, eliminated in S3 on pupil grounds *with four mirrors*. With
+   five, the collimator stops living inside the M2 → field-mirror cone at all,
+   so the ratio law never applies to it.
+3. **A fifth mirror that holds the pupil station**, freeing the field mirror's
+   power — which the four-mirror closure spends *entirely* on that one
+   condition — to put the collimator at the internal chief crossing, where its
+   union footprint collapses to the beam radius. This is the only one of the
+   three that attacks the **pinned** term rather than adding an offset, and the
+   only one that could return the pupil metrics to the committed row's values.
+
+## C.9 Rules earned, each with the alternative it replaced
+
+23. **Ask whether a BODY stands in a BEAM, not whether there is DAYLIGHT.**
+    *Alternative rejected:* the beam-to-beam clearance check `afocal4_pack`
+    already had. It measured 17.5 mm of daylight for a fold whose own flat,
+    sized over the field box, clips the feed beam by −73.6 mm — and it never
+    asked about the collimator at all, which is 79.9 mm inside the feed cone on
+    every point of the delivered trade curve. **A margin is a number, not a
+    body.**
+
+24. **Clearances over the FIELD BOX, and the body is the UNION, hulled.**
+    *Alternative rejected:* the deck's own field, and a centred disk. Per field
+    the collimator has 10.8 mm of daylight; over nine it is 79.9 mm inside the
+    beam — the entire defect lives in that difference. And a centred disk of
+    the union's max radius fills exactly where the feed passes, inventing a
+    107 mm interference that belongs to the model.
+
+25. **Split a separation into a field-PROPORTIONAL walk and a
+    field-INDEPENDENT offset before proposing a remedy.**
+    On a coaxial train the offset is identically zero, so *every* remedy whose
+    separation is proportional to field is bounded by one ratio the field box
+    fixes — `(bias+half)/(bias−half)`. That single statement retires the
+    collimator station, the interface standoff and any flat fold before one is
+    built, and it names the one class that can work. Fit the walk **with an
+    intercept**: forcing it through the origin makes a tilted design report a
+    meaningless "walk" that is silently absorbing the offset, and the offset
+    *is* the remedy.
+
+26. **A wall is a wall only where the artifact it judges is the one that gets
+    scored.** `clear_build` tilts the deck *after* `afocal4_build` emits it, so
+    a union wall inside the build judges the untilted train and rejects every
+    iterate. Deferred past the tilt it bounds the design; applied in the
+    build it is a cage. Both halves gated on one `P`.
+
+27. **A wall that changes a committed answer must default OFF.**
+    With the union wall on, `afocal4_build` cannot re-emit the deck the
+    S4b/S4c trade shipped (−79.89 mm). Defaulting it on would have made every
+    committed artifact in this study unreproducible — the same reason
+    `P.pack.enforce = false` keeps the unbuildable S4 reference alive.
+
+28. **A cheap predictor derived from a law still has to be MEASURED against
+    the law's own domain.** `f̂ = f + 2|α|(d − d₀)` is the field-walk law
+    written out, and it is 5–6× optimistic for a **standoff** change, because
+    moving the station moves the field-proportional part too and the two nearly
+    cancel. The seeder probes and bisects on measurements instead. *A law that
+    is exact for one knob is not a predictor for a different knob.*
+
+29. **Re-pose a closure on the DESIGN's front end, never on `P.parent`.**
+    `P.parent` is Mike's raw secondary; a committed deck has a re-solved one.
+    Filtering seed candidates through `P.parent` admitted 21 standoffs of 57
+    and not one of them was the parent design's own.
+
+30. **When a record explains a finding, check the explanation separately from
+    the finding.** The unclaimed pupil is real (35.5 % of the blur, at +5°);
+    the reason recorded for it — "a wavefront term 130× off target owns the sum
+    of squares" — is not what the residual vector says (78 %, and the merit
+    *prefers* the move). The real reason is that an extraction tilt was never
+    in the DOF set. A right finding with a wrong mechanism will be generalised
+    wrongly the next time.
+
+31. **A wall belongs on ITERATES, never on the REPORT that follows them.**
+    `clear_solve` built its final, quotable deck through the same walled
+    builder the objective used. Inside the objective a violation becomes a
+    large finite residual and the solver backs out of it; in the report path
+    there is nobody to back out. Worse, the union wall is evaluated at SOLVE
+    sampling inside the loop and would be re-evaluated at REPORTING sampling
+    there, where a bigger ray grid makes a bigger union hull and the floor
+    reads ~2.5 mm lower — so **a converged design sitting on its wall throws
+    out of its own report and takes the whole solve with it.** Measured, once:
+    an hour of a −8 deg walled run, lost. The report path now measures and
+    does not judge, and each restart round is guarded so a round that throws
+    costs a round rather than a night.
+
+32. **A wall is only a wall while it dominates the merit's own SCALE.**
+    `clear_solve` rejects a wall-violating iterate with a constant residual
+    of 20 per component — merit 5600. At the study's own weights a sound
+    design scores ~30, so that is an impassable barrier. Multiply the pupil
+    weights by 16 to measure § C.7's slack and a *sound* design scores ~4e4:
+    the same constant now looks **attractive**, and the solver walks through
+    the wall deliberately. Measured: the ×16 run returned a converged point
+    whose closure put M3 **1051 mm in front of the primary**. The
+    walls-not-terms doctrine holds in principle, but implementing a wall as a
+    fixed large residual quietly makes it *tradeable* once the merit outgrows
+    it. The residual now scales with the largest merit weight in play; at the
+    study's own weights it is exactly 20, bit-identical to every committed
+    solve. **Any change to the merit's scale — a re-weighting, a
+    regularizer, a new term — has to be checked against every wall's
+    residual.**
+
+33. **Isolate the variable before calling a sweep a curve.**
+    The walled sweep was run with the field-mirror standoff in the DOF set,
+    as the brief specified. Its points then ordered by the standoff each
+    solve *reached* (−229 → +536 mm), not by tilt, with wavefront and blur
+    falling monotonically along the way and every solve still descending
+    24–43 % per round. Read as a tilt-vs-price curve it would have said −7°
+    is a far better tilt; it is simply the solve that got furthest. Pinning
+    the standoff and re-running made the tilt the only difference — and gave
+    the opposite ordering, with the price rising monotonically in |tilt| and
+    the delivered −10° sitting past the knee. *A sweep over one parameter
+    with a second parameter free is a measurement of the solver, not of the
+    parameter.*
