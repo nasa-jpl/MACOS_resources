@@ -44,6 +44,14 @@ function [S, info] = descent_seed(P, N, opts)
 %     'convex'   convexity patterns to try ('auto' = both per added mirror)
 %     't'        spacings to try (default 0.4:0.2:1.4 m)
 %     'iface'    interface standoff (default P.iface_dist)
+%     'rank'     return the RANK-th best compliant closure instead of the
+%                best (1).  The S4b basin lesson demands independent seeds --
+%                "a trade curve swept in one basin is a statement about that
+%                basin, and saying so requires having looked at another" --
+%                and one tie-breaker returns one point.  Ranks are spread
+%                deliberately across the compliant set rather than taken
+%                adjacent, so seed 2 is a different LAYOUT and not the same
+%                one a millimetre away.
 %     'ncand'    most closures to keep and rank (20000)
 %     'zmax'     upper bound on the last powered mirror's station, m
 %                (default 3x the M1-M2 spacing).  The packaging wall bounds
@@ -72,6 +80,7 @@ function [S, info] = descent_seed(P, N, opts)
         opts.iface  (1,1) double = NaN
         opts.ncand  (1,1) double = 20000
         opts.zmax   (1,1) double = NaN
+        opts.rank   (1,1) double = 1
         opts.quiet  (1,1) logical = true
     end
     t0 = tic;
@@ -102,6 +111,7 @@ function [S, info] = descent_seed(P, N, opts)
     gt = unique([opts.t, P.parent.t, abs(diff(P.parent.z))], 'stable');
     gR = opts.R;
     best = [];   nclosed = 0;   ncomp = 0;   capped = false;
+    pool = struct('S',{},'C',{},'sp',{});
     % grids over the ADDED mirrors' radii/convexity and every free spacing
     Rsets = combos_(gR, nadd);
     Csets = combos_([0 1], nadd);
@@ -123,15 +133,28 @@ function [S, info] = descent_seed(P, N, opts)
                 if C.behind_m1 < need || C.behind_m1 > zmax, continue; end
                 ncomp = ncomp + 1;
                 sp = sum(C.phi.^2);
-                if isempty(best) || sp < best.sp
-                    best = struct('S',Sc, 'C',C, 'sp',sp);
-                end
+                pool(end+1) = struct('S',Sc, 'C',C, 'sp',sp); %#ok<AGROW>
                 if nclosed >= opts.ncand, capped = true; break; end
             end
         end
     end
     info.capped = capped;
-    info.n_closed = nclosed;   info.n_compliant = ncomp;   info.seconds = toc(t0);
+    info.n_closed = nclosed;   info.n_compliant = ncomp;
+    % Rank by the power-economy tie-breaker, then SPREAD the requested rank
+    % across the compliant set: adjacent ranks are the same layout jittered,
+    % and three seeds a millimetre apart are one seed reported three times.
+    if ~isempty(pool)
+        [~, io] = sort([pool.sp]);   pool = pool(io);
+        if opts.rank <= 1
+            best = pool(1);
+        else
+            step = max(1, floor(numel(pool)/max(opts.rank,1)));
+            idx  = min(numel(pool), 1 + (opts.rank-1)*step);
+            best = pool(idx);
+        end
+        info.rank = opts.rank;   info.pool_size = numel(pool);
+    end
+    info.seconds = toc(t0);
     if isempty(best)
         if ~opts.quiet
             fprintf(['  descent_seed N=%d: NO COMPLIANT CLOSURE over %d closed ' ...
