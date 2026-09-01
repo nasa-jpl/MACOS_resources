@@ -2760,3 +2760,46 @@ its CPU returned to the three arms that carry the experiment. One thing it did
 show in passing, consistent with § O.5: at `h = 0.55` the same spoiled closure
 starts at **264 054 nm with M = 31.30**, against `h = 0`'s 542 865 nm and
 M = 26.73 — the off-axis version of that closure is the better-behaved one.
+
+### O.7b A prediction, recorded BEFORE the h > 0 floors landed
+
+Written while the `h = 0.55` solves were still running, so that it is a
+prediction and not a rationalisation.
+
+§ O.6b establishes that the binding term is **field curvature**. Classical
+aberration theory then says something specific about what a pupil decenter can
+do to it. Under a **stop shift**, the Seidel sums transform as
+
+```
+S_I   -> S_I                       (spherical:   INVARIANT)
+S_II  -> S_II  + Q S_I             (coma)
+S_III -> S_III + 2Q S_II + Q^2 S_I (astigmatism)
+S_IV  -> S_IV                      (PETZVAL:     INVARIANT)
+S_V   -> ...                       (distortion)
+```
+
+**Petzval is invariant under stop shift** — it depends on the surface
+curvatures and powers, not on which part of each surface the beam uses. Taking
+an off-axis section of a rotationally symmetric parent is exactly a change in
+the used region, so:
+
+> **Prediction: an off-axis section cannot relieve field curvature.** If the
+> residual really is Petzval-dominated, the wavefront floor should be
+> essentially unmoved by `h` — and where it moves it should get *worse*, from
+> the coma and astigmatism the shift newly introduces, not better.
+
+**This prediction is already half-confirmed by data taken before it was
+written**, which is why it is worth stating: § O.6's third reading measured the
+bare Mersenne's decenter buying **at most −3.9 %, and a small COST at
+f1 = 1.25** across h from 0 to 1.5 m. At the time that read as an unexplained
+flatness; it is exactly what stop-shift invariance requires.
+
+**What would falsify it:** any `h > 0` floor landing materially *below* its own
+`h = 0` control. That would mean the residual is not Petzval-dominated after
+all, and § O.6b would need reopening.
+
+**What it does NOT claim.** It says nothing about whether an off-axis design
+built *from scratch* — different curvatures, hence a different Petzval sum —
+can do better. That is a different question from the one this experiment asks,
+and it remains open; § O.6c's search for a curvature-sum cure was the first
+attempt at it and did not succeed.
