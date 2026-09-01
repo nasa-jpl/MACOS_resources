@@ -11,8 +11,17 @@ mirror at a time, and measure what each removal costs.**
 Time box: 48 h from 2026-08-31. Every rung is a finished, checked design; if
 the box runs out mid-ladder the completed rungs stand.
 
-**Status: Task 0 (the N-mirror closure and builder) is done and verified.**
-The ladder itself has not started.
+**Status: DELIVERED 2026-09-01.** Canonical record: `../RESULTS.md`
+§ DESCENT (D.1–D.7). Delivery log: the foot of
+`macos/BRIEF_afocal4_descent.md`. Gate `tAfocal4Descent` 6/6.
+
+**The top rung was never reached, and that is the result.** No mirror count in
+this family meets the requirement set: with the pupil requirement abandoned
+entirely and every DOF free, seven mirrors floor at **3424 nm against a 71 nm
+target (48×)**, and three extra mirrors buy **11 %** over four. The descent
+proper — walking *down* from a rung that meets the set — was not run because
+no such rung exists; the removal machinery is built, gated, and its first step
+measured (§ 3b).
 
 ---
 
@@ -488,9 +497,27 @@ The stage has now killed two of its own explanations, and both were the
 A lesson that has been confirmed once does not become the explanation for the
 next stall. Both times here, the SEED was the reason.
 
-## 7. Still to do
+## 7. Files
 
-Tasks 1–4: the 7-mirror top rung with slack on every requirement row and the
-71 nm wavefront target in the set; the descent itself (rank by |φ| and power
-economy, probe, commit, control); the ladder table and figures; the record,
-`tAfocal4Descent`, and the delivery log.
+| file | what |
+|---|---|
+| `descent_close.m` | the N-mirror first-order closure (three conditions, one root) |
+| `descent_build.m` | close → emit → pose the interface on the traced chief → tilts upstream-first → the three walls |
+| `descent_seed.m` | a buildable N-mirror front end; cheap algebra filters, the two-sided station decides, weakest total power breaks ties, `rank` spreads independent seeds |
+| `descent_require.m` | the requirement set on one footing: TARGETS / WALLS / GATES |
+| `descent_solve.m` | the outer loop, N-generic; `pupil` false asks the wavefront question alone |
+| `descent_remove.m` / `descent_add.m` | the rung moves, both with the parity consequence stated |
+| `run_descent_{top,rung,ascent,wfe}.m` | one artifact per process, checkpointed |
+| `mk_ladder_fig.m` | the ladder figure |
+| `afocal4_descent_ladder.png` | **the one page** |
+| `descent_*.mat` | every rung and every floor |
+| `../../../tests/tAfocal4Descent.m` | the gates (6, `SUITE_FREEFORM`) |
+
+## 8. Still open — and it is not a solve
+
+The requirement set is not reachable by mirror count here, so the next move is
+a judgement about what the work is for: **the spec** (71 nm was set at ≥ 10×
+Rodgers' best three-mirror; nothing in this arc has come within 48× of it) or
+**the family** (a coaxial all-reflective afocal whose interface-pupil
+condition consumes the last two powers — now priced at a factor of 2.7 of
+wavefront, § D.4). Dave's call.
