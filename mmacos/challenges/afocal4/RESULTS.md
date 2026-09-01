@@ -2903,14 +2903,32 @@ labelled as one.
 
 ### O.7e The isolation table, and a reporting weakness found while reading it
 
-| N | h = 0 control | h = 0.55 floor | best round seen | off-axis gain |
+| N | h = 0 control | h = 0.55 floor | best round seen | off-axis change |
 |---|---|---|---|---|
-| 4 | 4497.7 (= § D.3) | **2846.9** | 2846.9 | **1.58×** |
-| 5 | 8077.4 (= § D.3) | 3847.1 | *3275.1* | **2.10×** (2.47× at best round) |
-| 7 | 3424.2 (= § D.3) | *pending* | | |
+| 4 | 4497.7 (= § D.3) | **2846.9** | 2846.9 | **1.58× better** |
+| 5 | 8077.4 (= § D.3) | 3847.1 | *3275.1* | **2.10× better** (2.47× at best round) |
+| 7 | 3424.2 (= § D.3) | 4545.5 | 3707.9 (r1) | **1.33× WORSE** |
 
-**Every measured arm improves off axis**, and the two whose controls reproduce
-§ D.3 exactly improve by 1.58× and 2.10×.
+**The result is MIXED, not uniform — corrected here from an earlier draft of
+this table that read "every measured arm improves off axis", which was true of
+the two arms then in hand and is false of the three.** N = 7 is the arm whose
+control is the best coaxial number in the study, and off axis it gets worse.
+
+What the three rows do show is a **tightening**, and it is worth stating with
+its own weakness attached (n = 3):
+
+| | best | worst | spread |
+|---|---|---|---|
+| coaxial h = 0 | 3424.2 | 8077.4 | 2.36× |
+| off-axis h = 0.55 | 2846.9 | 4545.5 | **1.60×** |
+
+The off-axis results cluster more tightly and their best beats the coaxial best
+by 17 %, but the arm that was already good got worse. A reading consistent with
+all three rows is that the decenter **re-seeds the solver into a different and
+more uniform basin** rather than removing an aberration — which would also
+explain § O.7c's N = 5 result without appealing to off-axis geometry at all,
+and is the reading § O.7c flagged as unseparated. **It remains unseparated**,
+and § O.7f's magnification finding is the second reason not to settle it here.
 
 **The weakness, found by reading the N = 5 rounds rather than the summary.**
 Round 1 reached 3275.1 nm and round 2 came back at 3847.1 — *worse* — and the
