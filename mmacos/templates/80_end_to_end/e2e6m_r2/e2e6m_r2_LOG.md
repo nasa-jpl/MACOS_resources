@@ -886,3 +886,21 @@ deck_keysight* decks"): new slide after the drift-series slide —
 as fig_cf3d_ladder.png); the drift slide's honest-gap bullet now
 scopes its 2.5e-7 hold as the loop mechanization's, pointing forward;
 the closing slide's restart-ladder claim quantified 1.2e-6 → 1.1e-9.
+
+### CF3d stations (2026-09-01) — internal performance, the ctb_coro_compare model
+
+`cf3d_stations.m` replays cf_chain's scoring walk with complex-field
+reads at the stations the walk already stops at (no new stations — the
+cf0 read-and-continue lesson) and renders the seven key planes, DMs
+FLAT vs the DUG state: pupil, post-apodizer, FPM plane pre/post
+occulter, Lyot pre/post stop, science-plane contrast.  In-walk DZ
+means reproduce the campaign numbers EXACTLY (1.215e-6 / 1.133e-9) —
+the capture is bit-faithful to the scoring walk.  Figures:
+`cf3d_stations.png` + `cf3d_dm_state.png` (DM1 33.7 / DM2 31.8 nm rms,
+peaks ~160 nm).  Two readables the panels surface: (1) DM1's command
+map carries the HEX-GAP LATTICE — the controller is visibly doing the
+gap work itself, direct evidence for the no-apodizer A/B in the
+apodizer-trade plan; (2) the 0.90 Lyot stop removes only ~0.1% of the
+post-FPM Lyot-plane energy in both states — this train's rejected
+light is INTERIOR (gap-structured), not edge-ringed, so the Lyot
+radius is not where the suppression happens.
