@@ -73,12 +73,16 @@ function OUT = cf3d_deepdig(over)
     % ---- resume or start ------------------------------------------------
     ckpt = fullfile(P.outdir, 'cf3d_run.mat');
     hist = struct('round',{}, 'c_start',{}, 'c_end',{}, 'alpha',{}, ...
-                  'stroke_nm',{}, 'la_floor',{}, 'minutes',{});
+                  'stroke_nm',{}, 'la_floor',{}, 'la_unbound',{}, ...
+                  'stroke_unbound',{}, 'minutes',{});
     a = cellfun(@(dd) zeros(dd.nact^2,1), dm, 'UniformOutput', false);
     r0 = 1;
     if isfile(ckpt)
         C = load(ckpt);
         a = C.a;  hist = C.hist;  r0 = numel(hist) + 1;
+        if ~isfield(hist, 'la_unbound')      % pre-release checkpoints
+            [hist.la_unbound] = deal(NaN);  [hist.stroke_unbound] = deal(NaN);
+        end
         logf_(rep, 'RESUMED at round %d (last floor %.3e)', r0, hist(end).c_end);
     end
 
@@ -93,6 +97,7 @@ function OUT = cf3d_deepdig(over)
         end
         [G, ~] = lib.jacobian(ch, dm, a, dz_idx, P, Gc);
         la = lib.linfloor(G, P.cf.stroke_bound_nm);
+        laU = lib.linfloor(G, 1e9);          % stroke limit RELEASED (Dave 2026-09-01)
         [a, cvec, alph] = lib.efc(ch, dm, G, a, dz_idx, c3.niter, c3.alphas);
         if isempty(alph)
             logf_(rep, '[round %d] NO ACCEPTED STEP (line search exhausted at %.3e)', ...
@@ -103,10 +108,12 @@ function OUT = cf3d_deepdig(over)
                                           'UniformOutput', false).'));
         hist(end+1) = struct('round',r, 'c_start',cvec(1), 'c_end',cvec(end), ...
             'alpha',alph(end), 'stroke_nm',ach, 'la_floor',la.floor, ...
+            'la_unbound',laU.floor, 'stroke_unbound',laU.stroke_nm, ...
             'minutes',toc(tr)/60); %#ok<AGROW>
         save(ckpt, 'a', 'hist', 'tag');
-        logf_(rep, '[round %d] %.3e -> %.3e | alpha %.1e | stroke %.1f nm | la(G) %.3e | %.1f min', ...
-              r, cvec(1), cvec(end), alph(end), ach, la.floor, toc(tr)/60);
+        logf_(rep, '[round %d] %.3e -> %.3e | alpha %.1e | stroke %.1f nm | la(G) %.3e | laU %.3e @ %.0f nm | %.1f min', ...
+              r, cvec(1), cvec(end), alph(end), ach, la.floor, ...
+              laU.floor, laU.stroke_nm, toc(tr)/60);
         if c3.target > 0 && hist(end).c_end < c3.target
             logf_(rep, 'TARGET REACHED: %.3e < %.1e -- stopping', hist(end).c_end, c3.target);
             break
