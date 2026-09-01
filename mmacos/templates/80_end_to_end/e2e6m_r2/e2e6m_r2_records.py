@@ -397,3 +397,22 @@ def cf3d():
         sys.exit("e2e6m_r2_records: cf3d Lyot frac-kept lines missing")
     r["lyot_kept"] = [float(k) for k in kept[-2:]]
     return r
+
+
+def cf5b():
+    """CF5b: the JWST-class drift series on the dug state."""
+    t = read("cf5b_report.txt")
+    r = {}
+    r["rate"] = grab(t, r"drift ([0-9.]+) nm/hr", "cf5b rate", "cf5b_report.txt")
+    r["hours"] = grab(t, r"= ([0-9.]+) h;", "cf5b hours", "cf5b_report.txt")
+    r["open_c0"] = grab(t, r"pass 1 of 2: OPEN.*\n\s*contrast ([0-9.eE+-]+) ->", "cf5b open c0", "cf5b_report.txt")
+    r["open_c1"] = grab(t, r"pass 1 of 2: OPEN.*\n\s*contrast [0-9.eE+-]+ -> ([0-9.eE+-]+)", "cf5b open c1", "cf5b_report.txt")
+    r["cl_c0"] = grab(t, r"pass 2 of 2: CLOSED.*\n\s*contrast ([0-9.eE+-]+) ->", "cf5b closed c0", "cf5b_report.txt")
+    r["cl_c1"] = grab(t, r"pass 2 of 2: CLOSED.*\n\s*contrast [0-9.eE+-]+ -> ([0-9.eE+-]+)", "cf5b closed c1", "cf5b_report.txt")
+    r["resid_nm"] = grab(t, r"\|x\+u\| rms ([0-9.]+) nm", "cf5b resid", "cf5b_report.txt")
+    r["drift_nm"] = grab(t, r"vs drift ([0-9.]+) nm", "cf5b drift", "cf5b_report.txt")
+    r["efc_taken"] = grab(t, r"EFC steps: (\d+) taken", "cf5b efc taken", "cf5b_report.txt", cast=int)
+    r["efc_rev"] = grab(t, r"(\d+) reverted", "cf5b efc reverted", "cf5b_report.txt", cast=int)
+    r["hold"] = grab(t, r"median, scored frames after hour 2\): ([0-9.eE+-]+)", "cf5b hold", "cf5b_report.txt")
+    r["gate_ratio"] = grab(t, r"\(ratio ([0-9.]+)\)", "cf5b gate", "cf5b_report.txt")
+    return r

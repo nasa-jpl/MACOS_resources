@@ -135,16 +135,6 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 ::: right
 ![The as-built truss: beams from the 19 segments to the hub fiducials; edge sensors on the segment boundaries.](deckfig/r3_met_layout.png){h=4.5}
 
-## The loop closes | The dark zone held under drift: 2.5e-07 against 1.7e-06 open-loop
-::: left
-- **The drift.** 41 frames over 7 minutes: random walk plus correlated drift on every freedom of all 19 segments, played through the engine on the full train.
-- **The rigid-body loop.** Edge and gauge readings, a weighted least-squares estimate, an integrating controller on all six freedoms of every segment: the state residual holds at 0.36 nm while the open-loop drift grows to 2.9 nm.
-- **The DM loop.** The measured actuator Jacobian digs the dark zone 4.6e-07 → 1.9e-07, then a damped re-solve at each scored frame holds it: 1.91e-07 → 2.46e-07 closed, against 4.65e-07 → 1.72e-06 open.
-- **The honest line.** Closed-loop pupil wavefront is larger than uncorrected — that is the DM stroke the contrast is bought with, and the figure labels it as such.
-- **Toned down 10x (0.3 nm-class drift): the hold is the mechanization's.**  The open loop no longer degrades (4.65e-07 -> 4.63e-07) while the closed loop holds 2.46e-07 — identical to the 3 nm hold: the ~2.5e-07 level is the loop's own noise-injection floor, and control cadence/gain becomes the knob at low drift (flagged, not retuned; the estimator still tracks at 7.2e-11 against 3.0e-10 of drift).
-::: right
-![State, wavefront and contrast against time.  The contrast panel is the payoff: open loop degrades 3.7×; the closed loop holds.](deckfig/r4_series.png){h=4.7}
-
 ## The restart ladder | The controller was the bottleneck: 1.2e-06 → 1.13e-09 at d = 1.10 m, with the substrate still pricing 3.5e-11
 ::: left
 - **The recipe (rinse and repeat):** EFC to a floor, relinearize about the dug state, restart at that floor.  10 digging rounds over 4.6 h unattended; 3 stall rounds then prove the plateau — no accepted step at any Tikhonov α down to 1e-10, and two independent G measurements at the unchanged state agree to four digits.
@@ -160,9 +150,18 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 - **Two measured readables:** DM1's command map carries the hex-gap lattice — the DMs are doing the gap work themselves (the no-apodizer A/B is the scoped follow-on); and the 0.90 Lyot stop removes only ~0.1% of the post-FPM energy — this train's rejected light is interior gap structure, not edge rings.
 ![The dug command state: DM1 imprints the gap lattice; strokes ~33 nm rms, peaks ~160 nm.](deckfig/cf3d_dm_state.png){h=1.7}
 
+## The loop closes | JWST-class drift on the dug dark hole: open loop decays 4.5 decades in a day; the loop holds 2.0e-09
+::: left
+- **The series starts at the new solution** — frame one reproduces the CF3d floor to 1.001× (a built-in gate) — and runs a JWST-experience disturbance: a 10 nm/hr correlated drift ramp plus a 0.5 nm/step walk, 24 hours at 30-minute frames, on the d = 1.10 m train.
+- **Open loop (DMs frozen dug):** 1.1e-09 → 3.9e-05.  The first decade is lost to the first nanometre of drift — at 1e-9, continuous control is not optional.
+- **Closed loop:** the RBCS loop (BLUE + ridge, gain 0.5, six DOFs) holds the segment state at 1.2 nm against 23 nm of drift; a guarded EFC hold (one damped step per hour about the dug-state G; 25 steps taken, 0 reverted) keeps the dark zone at 2.0e-09 for the full day.
+- **Mechanization pedigree (the 3 nm series, kept in the record):** the held one-shot and the sliced-MMSE gain both fail measured (noise injection; spectral radius 1.154); BLUE + ridge + integrator is the loop that survives — and at 0.3 nm-class drift the ~2.5e-07 hold on the d = 0.15 train was the loop's own noise floor, which is why this series holds 100× deeper: it starts deeper, drifts slower, and the EFC hold is guarded.
+::: right
+![Twenty-four hours under JWST-class drift, both passes starting at the dug dark hole: segment state, exit-pupil wavefront, science-plane contrast.](deckfig/cf5b_jwst.png){h=4.7}
+
 ## What this demonstrates | One model, from surface figure to a held dark zone
 - **A design becomes an instrument becomes an error budget becomes a controlled observatory**, without leaving the model or re-entering the geometry anywhere.
-- **The gap penalty is measured, not assumed** — 1298× open loop — and the control loop that answers it is measured too: 1.7e-06 open against 2.5e-07 closed at the end of the soak.
+- **The gap penalty is measured, not assumed** — 1298× open loop — and the control loop that answers it is measured too: under JWST-class drift the open loop decays to 3.9e-05 in a day while the closed loop holds 2.0e-09 — starting from, and keeping, the dug dark hole.
 - **Every model-vs-engine comparison closes** — worst 0.0035 across segments, DMs and relay optics — because the comparison is made at the surface the model lives on.  Where a build disagreed, the deck says why and what fixed it.
 - **All of it is committed**: prescriptions, runners, reports, and this deck's numbers are one `git clone` away.
 
@@ -225,6 +224,6 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 - `r2_sequence_fig`, `r2_bench_fig`, `r2_masks_fig` — the four exhibit graphics.
 - `r3_sensitivities`, `r3_dm_jacobian`, `r3_met` — the error budget, the actuator Jacobian, the metrology stage.
 - `r4_timeseries` — the closed-loop drift series.
-- `cf_chain` + `cf1_families`..`cf4_physics` — the coronagraph-family campaign; `cf3d_deepdig` + `cf3d_stations` — the restart ladder and its station graphics.
+- `cf_chain` + `cf1_families`..`cf4_physics` — the coronagraph-family campaign; `cf3d_deepdig` + `cf3d_stations` — the restart ladder and its station graphics; `cf5b_jwst_series` — the JWST-class drift series on the dug state.
 - `python3 deck_e2e6m_r2.py` — this deck, from the reports those runs wrote.
 ~ All knobs live in one parameter file.  The narrative record — every question, decision and gate — is the campaign log beside the runners.

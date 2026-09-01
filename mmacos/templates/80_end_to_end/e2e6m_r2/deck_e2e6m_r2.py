@@ -27,6 +27,7 @@ r0, r1, r3, r4, r2m = R.r0(), R.r1(), R.r3(), R.r4(), R.r2m()
 cf1, cf1c, cf2, cf3a = R.cf1(), R.cf1c(), R.cf2(), R.cf3a()
 cf3b, cf4, cf5 = R.cf3b(), R.cf4(), R.cf5()
 cf3d = R.cf3d()
+cf5b = R.cf5b()
 s1, s2, s3c = R.s1(), R.s2(), R.s3c()
 
 
@@ -53,7 +54,8 @@ FIG = {n: crop(n) for n in (
     "r4_series.png", "r1_union_shroud.png",
     "cf1_families.png", "cf2_floors.png", "cf3a_lyot.png",
     "cf1c_stop_attrib.png", "cf3b_spacing.png", "cf4_physics.png",
-    "cf3d_dig.png", "cf3d_stations_wide.png", "cf3d_dm_state.png")}
+    "cf3d_dig.png", "cf3d_stations_wide.png", "cf3d_dm_state.png",
+    "cf5b_jwst.png")}
 for n in ("s1_layout.png", "s1_wfe_field.png", "s2_segmented_footprints.png"):
     FIG[n] = crop(n, src_dir=R1DIR)
 
@@ -202,16 +204,6 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at
 ::: right
 ![The as-built truss: beams from the 19 segments to the hub fiducials; edge sensors on the segment boundaries.]({FIG['r3_met_layout.png']}){{h=4.5}}
 
-## The loop closes | The dark zone held under drift: {r4['cor']['con1']:.1e} against {r4['unc']['con1']:.1e} open-loop
-::: left
-- **The drift.** {r4['frames']} frames over {r4['frames']*r4['dt']/60:.0f} minutes: random walk plus correlated drift on every freedom of all {s2['nseg']} segments, played through the engine on the full train.
-- **The rigid-body loop.** Edge and gauge readings, a weighted least-squares estimate, an integrating controller on all six freedoms of every segment: the state residual holds at {r4['resid_nm']:.2f} nm while the open-loop drift grows to {r4['drift_nm']:.1f} nm.
-- **The DM loop.** The measured actuator Jacobian digs the dark zone {r4['dig'][0]:.1e} → {r4['dig'][-1]:.1e}, then a damped re-solve at each scored frame holds it: {r4['cor']['con0']:.2e} → {r4['cor']['con1']:.2e} closed, against {r4['unc']['con0']:.2e} → {r4['unc']['con1']:.2e} open.
-- **The honest line.** Closed-loop pupil wavefront is larger than uncorrected -- that is the DM stroke the contrast is bought with, and the figure labels it as such.
-- **Toned down 10x (0.3 nm-class drift): the hold is the mechanization's.**  The open loop no longer degrades ({cf5['open_c0']:.2e} -> {cf5['open_c1']:.2e}) while the closed loop holds {cf5['cl_c1']:.2e} -- identical to the 3 nm hold: the ~2.5e-07 level is the loop's own noise-injection floor, and control cadence/gain becomes the knob at low drift (flagged, not retuned; the estimator still tracks at {cf5['resid']:.1e} against {cf5['xrms']:.1e} of drift).
-::: right
-![State, wavefront and contrast against time.  The contrast panel is the payoff: open loop degrades 3.7×; the closed loop holds.]({FIG['r4_series.png']}){{h=4.7}}
-
 ## The restart ladder | The controller was the bottleneck: {cf3d['c0']:.1e} → {cf3d['c1']:.2e} at d = 1.10 m, with the substrate still pricing {cf3d['la1']:.1e}
 ::: left
 - **The recipe (rinse and repeat):** EFC to a floor, relinearize about the dug state, restart at that floor.  {cf3d['dig']} digging rounds over {cf3d['hours']:.1f} h unattended; {cf3d['stall']} stall rounds then prove the plateau — no accepted step at any Tikhonov α down to 1e-10, and two independent G measurements at the unchanged state agree to four digits.
@@ -227,9 +219,18 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at
 - **Two measured readables:** DM1's command map carries the hex-gap lattice — the DMs are doing the gap work themselves (the no-apodizer A/B is the scoped follow-on); and the 0.90 Lyot stop removes only ~{100*(1-min(cf3d['lyot_kept'])):.1f}% of the post-FPM energy — this train's rejected light is interior gap structure, not edge rings.
 ![The dug command state: DM1 imprints the gap lattice; strokes ~33 nm rms, peaks ~160 nm.]({FIG['cf3d_dm_state.png']}){{h=1.7}}
 
+## The loop closes | JWST-class drift on the dug dark hole: open loop decays 4.5 decades in a day; the loop holds {cf5b['hold']:.1e}
+::: left
+- **The series starts at the new solution** — frame one reproduces the CF3d floor to {cf5b['gate_ratio']:.3f}× (a built-in gate) — and runs a JWST-experience disturbance: a {cf5b['rate']:.0f} nm/hr correlated drift ramp plus a 0.5 nm/step walk, {cf5b['hours']:.0f} hours at 30-minute frames, on the d = 1.10 m train.
+- **Open loop (DMs frozen dug):** {cf5b['open_c0']:.1e} → {cf5b['open_c1']:.1e}.  The first decade is lost to the first nanometre of drift — at 1e-9, continuous control is not optional.
+- **Closed loop:** the RBCS loop (BLUE + ridge, gain 0.5, six DOFs) holds the segment state at {cf5b['resid_nm']:.1f} nm against {cf5b['drift_nm']:.0f} nm of drift; a guarded EFC hold (one damped step per hour about the dug-state G; {cf5b['efc_taken']} steps taken, {cf5b['efc_rev']} reverted) keeps the dark zone at {cf5b['hold']:.1e} for the full day.
+- **Mechanization pedigree (the 3 nm series, kept in the record):** the held one-shot and the sliced-MMSE gain both fail measured (noise injection; spectral radius 1.154); BLUE + ridge + integrator is the loop that survives — and at 0.3 nm-class drift the ~2.5e-07 hold on the d = 0.15 train was the loop's own noise floor, which is why this series holds 100× deeper: it starts deeper, drifts slower, and the EFC hold is guarded.
+::: right
+![Twenty-four hours under JWST-class drift, both passes starting at the dug dark hole: segment state, exit-pupil wavefront, science-plane contrast.]({FIG['cf5b_jwst.png']}){{h=4.7}}
+
 ## What this demonstrates | One model, from surface figure to a held dark zone
 - **A design becomes an instrument becomes an error budget becomes a controlled observatory**, without leaving the model or re-entering the geometry anywhere.
-- **The gap penalty is measured, not assumed** -- {r1['ratio_mean']:.0f}× open loop -- and the control loop that answers it is measured too: {r4['unc']['con1']:.1e} open against {r4['cor']['con1']:.1e} closed at the end of the soak.
+- **The gap penalty is measured, not assumed** -- {r1['ratio_mean']:.0f}× open loop -- and the control loop that answers it is measured too: under JWST-class drift the open loop decays to {cf5b['open_c1']:.1e} in a day while the closed loop holds {cf5b['hold']:.1e} — starting from, and keeping, the dug dark hole.
 - **Every model-vs-engine comparison closes** -- worst {r3['closure_worst']:.2g} across segments, DMs and relay optics -- because the comparison is made at the surface the model lives on.  Where a build disagreed, the deck says why and what fixed it.
 - **All of it is committed**: prescriptions, runners, reports, and this deck's numbers are one `git clone` away.
 
@@ -287,7 +288,7 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at
 - `r2_sequence_fig`, `r2_bench_fig`, `r2_masks_fig` -- the four exhibit graphics.
 - `r3_sensitivities`, `r3_dm_jacobian`, `r3_met` -- the error budget, the actuator Jacobian, the metrology stage.
 - `r4_timeseries` -- the closed-loop drift series.
-- `cf_chain` + `cf1_families`..`cf4_physics` -- the coronagraph-family campaign; `cf3d_deepdig` + `cf3d_stations` -- the restart ladder and its station graphics.
+- `cf_chain` + `cf1_families`..`cf4_physics` -- the coronagraph-family campaign; `cf3d_deepdig` + `cf3d_stations` -- the restart ladder and its station graphics; `cf5b_jwst_series` -- the JWST-class drift series on the dug state.
 - `python3 deck_e2e6m_r2.py` -- this deck, from the reports those runs wrote.
 ~ All knobs live in one parameter file.  The narrative record -- every question, decision and gate -- is the campaign log beside the runners.
 """
