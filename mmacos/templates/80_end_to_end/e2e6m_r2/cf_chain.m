@@ -67,7 +67,8 @@ function ch = cf_chain(opts)
         opts.model_size    (1,1) double {mustBeInteger,mustBePositive} = 1024
         opts.coro          (1,1) logical = true
         opts.apod_kind     (1,:) char {mustBeMember(opts.apod_kind, ...
-                               {'none','prolate','prolate_seg','supplied'})} = 'prolate'
+                               {'none','prolate','prolate_seg','supplied','feather'})} = 'prolate'
+        opts.feather_px    (1,1) double {mustBePositive} = 2
         opts.apod_mask     (:,:) double = []
         opts.prolate_iter  (1,1) double = 5000
         opts.fpm_kind      (1,:) char {mustBeMember(opts.fpm_kind, ...
@@ -202,6 +203,14 @@ function ch = cf_chain(opts)
             assert(isequal(size(opts.apod_mask), [N N]), ...
                 'cf_chain: apod_mask must be %dx%d', N, N);
             masks.A = opts.apod_mask;
+        case 'feather'
+            % Gaussian edge feather (Dave 2026-09-01): roll transmission
+            % to ZERO at every hard edge of the design pupil -- segment
+            % edges, gaps AND the circular stop -- reaching unity ~2 sigma
+            % inside.  Blur-then-remap, NOT blur alone: a plain blur
+            % leaves a half-height step at the edge (the field is already
+            % zero outside; only the inside taper matters).
+            masks.A = feather_(support_dsn, opts.feather_px);
         case 'none'
             masks.A = [];
     end
@@ -255,7 +264,11 @@ function ch = cf_chain(opts)
     if strcmp(opts.apod_kind, 'supplied')
         config = [config, {'apod_fro', norm(masks.A(:))}];
     end
-    ak = struct('none','n', 'prolate','p', 'prolate_seg','s', 'supplied','u');
+    if strcmp(opts.apod_kind, 'feather')
+        config = [config, {'feather_px', opts.feather_px}];
+    end
+    ak = struct('none','n', 'prolate','p', 'prolate_seg','s', 'supplied','u', ...
+                'feather', sprintf('f%02d', round(10*opts.feather_px)));
     switch opts.fpm_kind
         case 'hard',   fk = sprintf('h%03d', round(100*opts.r_fpm_lamD));
         case 'vortex', fk = sprintf('v%d', opts.charge);
@@ -452,4 +465,15 @@ function t = phi2_fill_(Phi, r_pup_px)
     [X, Y] = meshgrid((1:N) - c, (1:N) - c);
     P = hypot(X, Y) <= r_pup_px;
     t = sum(Phi(P).^2) / max(sum(P(:)), 1);
+end
+
+function A = feather_(B, sig)
+%FEATHER_  Gaussian edge roll-off of a binary pupil: blur with sigma px,
+%   then remap [0.5,1] -> [0,1] so transmission reaches ZERO at the
+%   binary edge and unity ~2 sigma inside.  Separable conv2, zero-padded
+%   (outside the pupil is dark anyway).
+    r = ceil(3*sig);  x = -r:r;
+    k = exp(-x.^2/(2*sig^2));  k = k/sum(k);
+    Bf = conv2(k, k, B, 'same');
+    A = min(1, max(0, (Bf - 0.5)/0.5));
 end
