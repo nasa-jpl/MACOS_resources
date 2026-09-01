@@ -683,10 +683,9 @@ crossing the first.
 > Full account: `clearing/README.md` and § CLEARING below.
 >
 > The interface-pupil coordinates and instrument z-slab quoted below for the
-> FOLDED deck are also under review — `packaging/check_record` re-measures them
-> from the committed file and disagrees. The exact correction wording is with
-> Dave (`macos/BRIEF_afocal4_wall.md` delivery log, Task 5); the *conclusion*
-> those numbers support — the instrument sits entirely behind the primary — is
+> FOLDED deck do not reproduce from the committed file. The dated correction is
+> at the foot of this section (signed off 2026-08-31); the *conclusion* those
+> numbers support — the instrument sits entirely behind the primary — is
 > unaffected either way.
 
 Constraint clause 3 says *demonstrated, not asserted*, so the flat is inserted, the
@@ -734,6 +733,21 @@ number is not trustworthy there, and the fold-is-null check is what says so** �
 as a conditioning check on the pupil metric. The affected row is the one already flagged as
 "his three-mirror wearing a flat"; its pupil column should be read as the three-mirror's,
 which is what §S4b.3 says it is.
+
+
+> **DATED CORRECTION (2026-08-31).**  The interface-pupil coordinates and the
+> instrument z-slab quoted above for the FOLDED deck do not reproduce from the
+> committed file.  Measured by `packaging/check_record` on
+> `afocal4_b_final_folded.in`: interface pupil **[+0.2483, −0.0051,
+> +1.3782] m**, envelope ending **[+1.1990, −0.3151, +1.3782] m**, z-slab
+> **+1.2282 … +1.5282 m**; the fold and the interface plane are both at
+> z = +1.3782 m.  The statement the numbers support is unaffected — every z is
+> positive, so the instrument is entirely behind the primary — and the
+> fold-is-null result is a measurement of a different quantity.  The recipe
+> itself is superseded (see the head of this section), so this corrects the
+> historical record, not a live design.
+>
+> *(Signed off by Dave 2026-08-31 via CC; `macos/BRIEF_afocal4_wall.md` §7.)*
 
 ## S4b.5 The Mersenne, closed a second time
 
@@ -2134,3 +2148,51 @@ solve.** Two candidates, and the choice is not the study's to make:
   § D.4 now prices that: a factor of 2.7 of wavefront at the 343 mm operating
   point.
 
+
+## D.8 The off-axis probe — what it did and did NOT establish
+
+The descent's answer (§ D.1) is about the **coaxial** family: every design in
+that ladder puts all mirrors on one axis, so the aberration field is centred
+on it while the 0.5° box is used in an annular zone offset 0.6°. S4 identified
+the residual as **field-varying astigmatism** (1108 → 3312 → 6809 nm across
+the box) and found rigid bodies bought 0.4 % — but that was measured inside a
+**perturbation** bound, `P.bounds.tilt = ±0.05 rad = ±2.86°` and
+`P.bounds.dec = ±50 mm`, i.e. alignment tolerances rather than design
+freedoms, and the rigid bodies were never in the DOF set that produced the
+committed deck. Tilting and decentring *moves the aberration field centre*,
+which is the standard tool for exactly that residual.
+
+So the bounds were opened to design scale (±15°, ±300 mm), the DOF scales
+moved with them, and the committed deck re-solved over
+`{conic, standoff, front, rb}` in two arms:
+
+| arm | WFE (nm) | × target | M error (%) | blur (µm) | rigid bodies USED |
+|---|---|---|---|---|---|
+| wavefront only | 5157.0 | 73× | **1.0291** | 532.0 | dec [+3.1, +0.4, −0.2] mm · tilt [−0.92, +0.16, −0.07]° |
+| full set | 10191.2 | 144× | 0.0204 | 157.7 | dec [+0.3, +0.3, +0.1] mm · tilt [−0.05, +0.03, −0.01]° |
+
+**The solver barely used the freedom it was given.** Against bounds of ±15°
+and ±300 mm it moved at most **0.92° and 3.1 mm**, and in the full arm
+essentially nothing.
+
+**What that establishes, stated precisely: the coaxial point is a LOCAL
+OPTIMUM UNDER RIGID-BODY PERTURBATION.** It does **not** establish that an
+off-axis family cannot meet the requirement set. A gradient solver started at
+rigid-body zero will not walk ten degrees away, because the path is uphill;
+off-axis nodal-aberration designs are a **different basin**, not a
+perturbation of the coaxial one. This stage has already been taught that twice
+(§ 5a, § 6d) and does not get to forget it here.
+
+Two details that make the probe trustworthy rather than merely negative:
+
+* **the wavefront-only arm landed WORSE than the coaxial floor** (5157 against
+  3841.8 nm) — basin scatter, a different and poorer local minimum, which is
+  itself evidence that the rigid-body landscape is rough rather than flat;
+* **it broke magnification to 1.03 %**, ten times its target, which is the
+  cheat flagged *in advance*: with the pupil ladder unscored the `mag` term is
+  unscored too, so a large tilt can buy wavefront by ceasing to be a 30×
+  telescope. M and collimation are printed on every result for that reason,
+  and **a floor reached by breaking M is not a design**.
+
+**The family question therefore remains open**, and answering it needs a
+design SEEDED off-axis rather than perturbed there — `macos/BRIEF_afocal4_offaxis.md`.

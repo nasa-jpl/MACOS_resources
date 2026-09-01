@@ -62,6 +62,20 @@ buildable curve.
 * **Package**: interface pupil at [+0.304, −0.004, +0.614] m, the stated 1000 mm envelope
   running to [+1.304, −0.017, +0.614] m, z-slab **+0.464 … +0.764 m, entirely behind the
   primary**, closest approach of any other traced bundle **+137 mm**.
+> **DATED CORRECTION (2026-08-31).**  The interface-pupil coordinates and the
+> instrument z-slab quoted above for the FOLDED deck do not reproduce from the
+> committed file.  Measured by `packaging/check_record` on
+> `afocal4_b_final_folded.in`: interface pupil **[+0.2483, −0.0051,
+> +1.3782] m**, envelope ending **[+1.1990, −0.3151, +1.3782] m**, z-slab
+> **+1.2282 … +1.5282 m**; the fold and the interface plane are both at
+> z = +1.3782 m.  The statement the numbers support is unaffected — every z is
+> positive, so the instrument is entirely behind the primary — and the
+> fold-is-null result is a measurement of a different quantity.  The recipe
+> itself is superseded (see the head of this section), so this corrects the
+> historical record, not a live design.
+>
+> *(Signed off by Dave 2026-08-31 via CC; `macos/BRIEF_afocal4_wall.md` §7.)*
+
 * Renders: `afocal4_b_layout_{unfolded,folded}.png` (yz + xz with the envelope drawn);
   deck-grade `rodgers2_final_{layout,folded,trade}.png`.
 
