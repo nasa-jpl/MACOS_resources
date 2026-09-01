@@ -2704,9 +2704,17 @@ floor **to the decimal**:
 |---|---|---|
 | N = 4 start | 10407 | 10407.0 |
 | N = 4 floor, + tilt | **4497.7** | **4497.7** |
+| N = 5 start | 10775 | 10774.9 |
+| N = 5 floor, + tilt | **8077.4** | **8077.4** |
 
-An exact reproduction of a two-round, 814-evaluation solve is a strong
-statement about the whole chain — the closure, the emitter, the merit, the
+**Two of two, to the decimal**, on solves of 814 and 800-odd evaluations that
+descend by 56.8 % and 25.0 % respectively — and note that N = 5 reproduces the
+*non-monotonic* rung too, the one § D.3 called basin scatter. Reproducing a
+scattered result is a sharper check than reproducing a smooth one: it means
+the same basin is being found, not merely a similar number.
+
+An exact reproduction of solves that long is a strong statement about the
+whole chain — the closure, the emitter, the merit, the
 solver settings, the solve/report sampling split and the starting design are
 all confirmed to be the ones that produced the record, so a difference in the
 `h > 0` column cannot be laid at any of them.
