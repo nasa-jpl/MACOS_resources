@@ -2695,8 +2695,21 @@ control and must reproduce the descent's own recorded starts; `h > 0` is the
 same design used off axis. Any difference between the columns is attributable
 to the decenter and to nothing else.
 
-**The control reproduces**, which is what licenses the rest: start values
-10407.0 / 10774.9 / 7894.1 nm at N = 4 / 5 / 7, identical to § D.3's.
+**The control reproduces, and not merely to within a tolerance.** Start values
+10407.0 / 10774.9 / 7894.1 nm at N = 4 / 5 / 7, identical to § D.3's — and the
+N = 4 control **floors at 4497.7 nm**, which is § D.3's recorded N = 4 "+ tilt"
+floor **to the decimal**:
+
+| | § D.3 recorded | § O.7 h = 0 control |
+|---|---|---|
+| N = 4 start | 10407 | 10407.0 |
+| N = 4 floor, + tilt | **4497.7** | **4497.7** |
+
+An exact reproduction of a two-round, 814-evaluation solve is a strong
+statement about the whole chain — the closure, the emitter, the merit, the
+solver settings, the solve/report sampling split and the starting design are
+all confirmed to be the ones that produced the record, so a difference in the
+`h > 0` column cannot be laid at any of them.
 
 **Two asymmetries were checked rather than assumed** before any comparison was
 drawn: the fitted off-axis apertures clip nothing (§ O.3d, difference exactly
