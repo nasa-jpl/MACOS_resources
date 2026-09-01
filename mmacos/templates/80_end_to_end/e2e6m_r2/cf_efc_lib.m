@@ -26,6 +26,7 @@ function h = cf_efc_lib()
 %   ctb_jac_check, jac_fingerprint.
     h.jacobian     = @jacobian_;
     h.efc          = @efc_;
+    h.push         = @push_;
     h.seta         = @seta_;
     h.sym_frac     = @sym_frac_;
     h.stamp_parity = @stamp_parity_;
@@ -33,6 +34,62 @@ function h = cf_efc_lib()
 end
 
 % =========================================================================
+function [a, cvec, info] = push_(ch, dm, J, a_in, dz_idx, targets_nm)
+%PUSH_  Stroke-RELEASED step (Dave 2026-09-01, "release the stroke
+%   constraint!"): the monotone per-iteration line search never accepts
+%   the large steps the released-la solution needs (a single big
+%   Tikhonov step always loses one measured shot -- the CF3d plateau
+%   lesson), so this walks the TRUNCATED-SVD solution at a TARGET
+%   stroke in ~25 nm sub-steps, re-tracing between, NON-MONOTONE along
+%   the walk, and accept-rejects the best visited state against the
+%   start.  Each target in targets_nm (rms, over all actuators) is an
+%   independent probe from a_in.  Returns the best state, the visited
+%   contrast trace, and info (c0, c1, chosen target, stroke reached).
+    G = double(J.G);
+    Gr = [real(G); imag(G)];
+    [U, S, V] = svd(Gr, 'econ');
+    s = diag(S);
+    seta_(dm, a_in);
+    E = ch.run();  pb = ch.peak_bare;
+    c0 = mean(abs(E(dz_idx)).^2) / pb;
+    e = double(E(dz_idx));
+    coef = (U' * [real(e); imag(e)]) ./ s;
+    stroke_r = 1e9 * sqrt(cumsum(coef.^2) / size(Gr, 2));
+    best = struct('c', c0, 'a', {a_in}, 'target', 0, 'stroke', NaN);
+    cvec = c0;
+    for T = targets_nm(:).'
+        r = find(stroke_r <= T, 1, 'last');
+        if isempty(r) || r < 2, continue; end
+        da = -V(:,1:r) * coef(1:r);
+        nsub = max(4, ceil(T / 25));
+        at = a_in;
+        for ss = 1:nsub
+            for k = 1:numel(dm)
+                sel = J.col_dm == k;
+                at{k}(J.col_act(sel)) = at{k}(J.col_act(sel)) + da(sel)/nsub;
+            end
+            seta_(dm, at);
+            Et = ch.run();
+            c = mean(abs(Et(dz_idx)).^2) / pb;
+            cvec(end+1) = c; %#ok<AGROW>
+            if c < best.c
+                st = 1e9 * rms_(cell2mat(cellfun(@(x) x(x~=0), at(:).', ...
+                                                 'UniformOutput', false).'));
+                best = struct('c', c, 'a', {at}, 'target', T, 'stroke', st);
+            end
+        end
+        fprintf('    [push] target %.0f nm: best so far %.3e\n', T, best.c);
+    end
+    a = best.a;
+    seta_(dm, a);  ch.run();               % engine = accepted state
+    info = struct('c0', c0, 'c1', best.c, 'target', best.target, ...
+                  'stroke', best.stroke);
+end
+
+function v = rms_(x)
+    v = sqrt(mean(double(x(:)).^2));
+end
+
 function stamp_parity_(J, config, src)
 %STAMP_PARITY_  The campaign's STRICT complement to ctb_jac_check: every
 %   key of the REQUESTED config must exist in the cached stamp.  Our own
