@@ -54,6 +54,12 @@ Hs  = str2double(strsplit(getenv_d('OW_H','0,0.55,0.75,1.0'), ','));
 wEv = str2double(getenv_d('OW_EVALS','400'));
 wRd = str2double(getenv_d('OW_ROUNDS','2'));
 tag = getenv_d('OW_TAG','OAW');
+% OW_PUPIL=1 scores the FULL requirement set instead of the wavefront alone.
+% The difference between the two is this family's PUPIL PRICE, which is the
+% number the brief asks to compare against the coaxial 2.7x at 343 mm.  It is
+% run SECOND and never instead: a pupil price is defined relative to a
+% wavefront floor, so the floor has to exist before the price means anything.
+pup = ~isempty(getenv('OW_PUPIL')) && ~strcmp(getenv('OW_PUPIL'),'0');
 
 macos.init(256);
 P = afocal4_params();
@@ -64,7 +70,8 @@ P.solve.max_fev = wEv;
 dofs = {'conic','radius','spacing','tilt'};
 
 fprintf('\n==== OFF-AXIS WAVEFRONT FLOOR vs PUPIL DECENTER ====\n');
-fprintf('  DOFs %s; pupil ladder NOT scored.\n', strjoin(dofs,', '));
+fprintf('  DOFs %s; pupil ladder %s.\n', strjoin(dofs,', '), ...
+        tern_(pup,'SCORED (full requirement set)','NOT scored'));
 fprintf(['  coaxial reference (D.3, same DOFs incl. tilt): N=4 4497.7, ' ...
          'N=5 8077.4,\n  N=6 5689.0, N=7 3424.2 nm.  Target 71 nm.\n\n']);
 
@@ -91,7 +98,7 @@ for N = Ns
         end
         lost0 = 0;  if ~isempty(o0.offaxis), lost0 = o0.offaxis.nlost; end
         S0 = afocal4_score(P, d0, 'fields',P.Fsolve, ...
-                           'nodes',P.solve.nodes_score, 'pupil',false);
+                           'nodes',P.solve.nodes_score, 'pupil',pup);
         fprintf(['  N=%d h=%.2f m  start WFE %10.1f nm | traced M %8.4f, ' ...
                  'coll %9.1f urad, %d ray(s) lost\n'], N, h, S0.wfe_max_nm, ...
                 o0.traced.mag, o0.traced.collimation_urad, lost0);
@@ -102,7 +109,7 @@ for N = Ns
         for r = 1:wRd
             try
                 Rr = descent_solve(P, Dc, 'dofs',dofs, 'deck',deck, ...
-                         'pupil',false, 'max_iter',400, ...
+                         'pupil',pup, 'max_iter',400, ...
                          'label',sprintf('%s r%d',lbl,r), 'quiet',true);
             catch ME
                 fprintf('    round %d FAILED: %s\n', r, ME.message);
@@ -120,7 +127,7 @@ for N = Ns
         o1 = descent_build(Pr, Dr, deck, 'oa_fields',P.Fsolve, ...
                            'verify',true, 'quiet',true);
         S1 = afocal4_score(P, deck, 'fields',P.Fsolve, ...
-                           'nodes',P.solve.nodes_score, 'pupil',false);
+                           'nodes',P.solve.nodes_score, 'pupil',pup);
         K  = afocal4_union(deck, 'fields',P.Fsolve, ...
                  'body_k',  getf_(P.pack,'union_body_k',1.15), ...
                  'body_pad',getf_(P.pack,'union_body_pad',0.015), 'quiet',true);
@@ -187,4 +194,5 @@ function D = start_design_(P, N, up, here, src)
 end
 
 function v = getenv_d(k,d), v = getenv(k); if isempty(v), v = d; end, end
+function s = tern_(c,a,b), if c, s = a; else, s = b; end, end
 function v = getf_(s,f,d), if isstruct(s)&&isfield(s,f), v=s.(f); else, v=d; end, end
