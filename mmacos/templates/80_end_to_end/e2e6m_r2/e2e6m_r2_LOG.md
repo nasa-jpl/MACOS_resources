@@ -913,3 +913,54 @@ bottom row only).  Deck placement: campaign deck gains two slides
 ("The restart ladder" + "Inside the dig") via a loud-on-miss
 `cf3d()` records fn; keysight deck slide 29 carries the strip + the
 DM command maps.
+
+## 2026-09-01 — CF5b: the drift series re-posed at the operating point (JWST-class)
+
+Dave's re-pose of the S5/R4 series, all three knobs: START from the
+new solution, disturbances ~10 nm/hr, time scale longer per JWST
+experience.  `cf5b_jwst_series.m`: the d=1.10 train through the CF3d
+chain config (so the normalizer is CF3d's own), BOTH passes starting
+at the dug DM state; 49 frames x 1800 s = 24.5 h; a 10 nm/hr (+10
+nrad/hr) correlated ramp along a random direction + 0.5 nm/step walk
+(|x| rms 22.7 nm at 24 h — the rms-state rate is ~1 nm/hr; the 10 is
+the per-direction ramp rate.  FLAGGED: if Dave meant rms-state 10
+nm/hr, scale rate_trans by ~10x and re-run — 2.4 min).
+
+RESULT (cf5b_report.txt, cf5b_jwst.png): GATE frame-1 closed contrast
+1.134e-9 vs the CF3d floor 1.133e-9 (ratio 1.001) — the series
+genuinely starts at the new solution.  OPEN loop (DMs frozen dug):
+1.133e-9 -> 3.876e-5 — 4.5 decades in a day, and the first decade is
+gone with the FIRST NANOMETRE of drift (frame 2, 7e-8): at 1e-9,
+continuous control is not optional.  CLOSED loop: RBCS (R4's BLUE +
+ridge, gain 0.5, six DOFs) holds the state at 1.21 nm vs 22.7 nm
+drift; the GUARDED EFC hold (one damped step/hour about the r13
+dug-state G, gam 0.7, NO leak — a leak would drain the dug solution;
+accept-reject scored) took 25/25 steps, 0 reverted, and holds the
+dark zone at 1.978e-9 median for the full day (end 2.256e-9).  WFE
+closed 0.0674 -> 0.0678 waves.  100x deeper than the d=0.15 3 nm hold
+(2.5e-7): starts deeper, drifts slower, guarded hold.  2.4 min run.
+
+Design notes worth keeping: the EFC hold REUSES the ladder's final
+Jacobian (a0-checked against the checkpoint state), and the guard is
+the ladder's monotone-acceptance lesson transplanted (no line search
+in a hold loop).  First cut failed loud on the G cache name — cf3d
+prefixes `seg_d110_` onto ch.tag for its caches; ch.tag alone is the
+bare chain config.
+
+Deck folds: keysight drift slide re-cut around CF5b (order now ladder
+-> stations -> drift, Dave's re-order); campaign "The loop closes"
+re-led with CF5b (r4/cf5 mechanization lessons kept as pedigree);
+"What this demonstrates" soak numbers updated.
+
+## 2026-09-01 — CF3e LAUNCHED: the unapodized d=1.10 ladder (the no-apodizer A/B)
+
+Dave: "launch the unapodized 1.10 run.  Make sure the circular pupil
+mask is in at the apodizer location."  `cf3e_noapod.m` = cf3d with
+apod_kind 'none', everything else HELD (hard occulter, L=0.90 — the
+choice that isolates the APODIZER alone; the classical family's own
+L=0.50 point is a separate rung), and the c098 circular stop asserted
+present at the apodizer plane (masks.S non-empty, masks.A empty —
+both loud).  Widened alphas from the start, target 5e-11, wall 6 h.
+Chain up: tag seg_d110_n_h280_L090_c098, **THRU 0.745 vs apl 0.091 —
+8.2x the throughput** is the prize if the DMs can do the gap work the
+prolate was buying.  Running detached (cf3e_report.txt).
