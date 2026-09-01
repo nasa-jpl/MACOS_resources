@@ -63,6 +63,10 @@ function out = descent_build(P, D, deck, opts)
 %                     bits -- and saying so is more honest than widening a
 %                     tolerance until the check passes.
 %     'defer_union'   skip the union wall here (false)
+%     'oa_fields'     field points the OFF-AXIS aperture fit must span, rad
+%                     (default: the deck's bias point alone).  Pass P.Fsolve
+%                     for a design that will be QUOTED -- apertures fitted on
+%                     one field vignette the corners of the box.
 %     'verify'        re-trace and report M / collimation (true)
 %     'quiet'         (true)
 %
@@ -80,6 +84,7 @@ function out = descent_build(P, D, deck, opts)
         opts.window      (1,2) double = [-1.5 9]
         opts.npts        (1,1) double = 241
         opts.defer_union (1,1) logical = false
+        opts.oa_fields   (:,2) double  = []
         opts.verify      (1,1) logical = true
         opts.quiet       (1,1) logical = true
     end
@@ -143,12 +148,25 @@ function out = descent_build(P, D, deck, opts)
     if D.bias_deg ~= 0, t.set_field_bias(D.bias_deg*60); end
     t.build(deck);
 
+    % ---- 2b. OFF-AXIS: displace the pupil, re-fit the apertures ----------
+    % Ordered here for a reason.  It must follow the emit (there is no deck
+    % before it) and PRECEDE the interface pose and the tilts, both of which
+    % read the TRACED chief: posing the interface on the coaxial chief and
+    % then decentering would leave the plane off the beam it is meant to
+    % receive.  A decenter of zero does nothing, not even a file read.
+    out_oa = [];
+    if D.decenter ~= 0
+        out_oa = offaxis_decenter(deck, D.decenter, 'fields',opts.oa_fields, ...
+                                  'quiet',opts.quiet);
+    end
+
     % ---- 3. the interface pose, then the tilts ---------------------------
     cs  = place_coldstop_(deck, D.iface, N);
     out = struct('file',deck, 'D',D, 'C',C, 'R',C.R, 't',C.t, 'conic',C.K, ...
                  'names',{C.names}, 'iface',D.iface, 'z',C.z, ...
                  'behind_m1',C.behind_m1, 'coldstop',cs, 'tilt',[], ...
-                 'union',[], 'traced',[], 'paraxial_ok',true);
+                 'union',[], 'traced',[], 'paraxial_ok',true, ...
+                 'offaxis',out_oa);
 
     % ---- 3b. the EMITTED stations must be the ones the wall judged --------
     zi = grab_all3_(fileread(deck), 'VptElt');
@@ -209,6 +227,11 @@ function D = fill_(P, D)
     if ~isfield(D,'bias_deg'), D.bias_deg = P.bias_deg; end
     if ~isfield(D,'ngrid'),    D.ngrid = P.ngrid;    end
     if ~isfield(D,'tilt_deg') || isempty(D.tilt_deg), D.tilt_deg = zeros(1,D.N); end
+    % .decenter: pupil displacement off the parent axis, m.  ZERO is the
+    % coaxial train this stage was written for and takes the IDENTICAL code
+    % path -- no deck edit is attempted at all -- so every committed descent
+    % result is unaffected, and the N = 4 byte-identity check guards it.
+    if ~isfield(D,'decenter') || isempty(D.decenter), D.decenter = 0; end
     if numel(D.tilt_deg) ~= D.N
         error('macos:design:descent_build:tilt', ...
               'D.tilt_deg must be 1x%d (one per powered mirror).', D.N);

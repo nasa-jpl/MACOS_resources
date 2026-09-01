@@ -171,7 +171,7 @@ SUITE_QUICK=$(join_suites \
 # + tAfocalKernel + tPupilMap + tDesignAfocal + tAfocal4 + tAfocal4Clear
 # + tAfocal4Wall + tAfocal4Descent
 # + tE2E2Axial + tPolContrast + tRodgers3 + tOffsetImager at 256
-SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tOptFex" "tStrictKernel" "tAfocalKernel" "tPupilMap" "tDesignAfocal" "tAfocal4" "tAfocal4Clear" "tAfocal4Wall" "tAfocal4Descent" "tE2E2Axial" "tPolContrast" "tRodgers3" "tOffsetImager")
+SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tOptFex" "tStrictKernel" "tAfocalKernel" "tPupilMap" "tDesignAfocal" "tAfocal4" "tAfocal4Clear" "tAfocal4Wall" "tAfocal4Descent" "tAfocal4Offaxis" "tE2E2Axial" "tPolContrast" "tRodgers3" "tOffsetImager")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
 # group; lives in "fast" because it's quick.
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")

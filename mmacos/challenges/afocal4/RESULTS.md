@@ -2196,3 +2196,231 @@ Two details that make the probe trustworthy rather than merely negative:
 
 **The family question therefore remains open**, and answering it needs a
 design SEEDED off-axis rather than perturbed there — `macos/BRIEF_afocal4_offaxis.md`.
+
+---
+
+# OFF-AXIS RESULTS — is the FAMILY the wall?
+
+*`BRIEF_afocal4_offaxis.md`, 24 h box from 2026-09-01. Additive: everything
+new lives in `challenges/afocal4/offaxis/`. The one change outside it is an
+optional `D.decenter` field on `descent_build`, which defaults to 0 and takes
+the identical code path when it is 0 — no deck edit is attempted at all — so
+every committed descent result is untouched.*
+
+## O.1 What this stage had to fix about the previous answer
+
+§ D.8 measured, correctly, that the coaxial point is a **local optimum under
+rigid-body perturbation**: given ±15° and ±300 mm the solver used 0.92° and
+3.1 mm and came back. That is a statement about a solver's basin. The family
+question needs a design **seeded** off-axis, and the variable that a
+rigid-body probe structurally cannot vary is the one that matters:
+
+> **A decenter is not reachable by perturbing the mirrors.** Tilting and
+> shifting bodies moves the optics; going off-axis moves the **pupil** — it
+> changes *which part of each parent surface the light uses*. The probe was
+> free to move every mirror and had no way to ask for that.
+
+## O.2 The off-axis section construction — and why it is exact
+
+An off-axis section is **not a different optical system from its parent**; it
+is the same system used away from its axis. Paraxially the powers, the
+spacings, and therefore the afocal condition, the magnification and the pupil
+conjugate are all **identical** to the coaxial train's. What changes is the
+aberration, the obscuration, and the parts you have to build.
+
+Two consequences, and both are load-bearing:
+
+1. **The whole descent machinery applies unchanged** — `descent_close`'s three
+   exact closures, the merit, the walls, the scorer. Going off axis is a deck
+   edit (`offaxis_decenter`), not a new closure. This is why the isolation
+   experiment in § O.7 can hold *everything* fixed but `h`.
+2. **A confocal parabola pair is exact off axis.** A parabola takes a
+   collimated beam to its focus from any part of its surface, so a Mersenne
+   stays afocal and stays 30× at any decenter — **by construction, not by
+   convergence**. Measured on the f1/f2 = 30 pair, on axis, at decenters of
+   0, 0.6, 0.8 and 1.0 m: **collimation 0.00 µrad at every decenter**, to the
+   last bit.
+
+That last point is worth contrasting with the descent's standing warning. A
+*cold closure* is a specification and not a design — one descent probe traced
+M = 40.45 against a paraxial 30. A *Mersenne* is the exception: its two hard
+properties are identities of the geometry, so it is the one seed that needs no
+convergence before it can be trusted.
+
+## O.3 Two traps, closed at resolution time
+
+**(a) The measuring pass must REMOVE the apertures, not widen them.** To fit
+an off-axis clear aperture you must first trace unclipped. Widening every
+`ApVec` to something that comfortably holds a decentered 1 m pupil looks
+equivalent to removing them and is not: a clear aperture is read against the
+**surface it sits on**, and a Mersenne secondary at M = 30 has |Kr| = 0.083 m
+while carrying a 33 mm beam. A 6.2 m aperture asks the engine to intersect
+that parabola ~75 radii from its own vertex, and it answers — correctly — with
+a surface miss.
+
+| measuring pass | rays traced | outcome |
+|---|---|---|
+| widen `ApVec` to 4(h+1) | **0 of 1185** | 522 surface miss, 663 obscured |
+| `ApType= None` | **1185 of 1185** | every ray geometrically valid *and* unvignetted |
+
+**(b) A clipped beam does not report as clipped — it reports as a different
+telescope.** The emitted coaxial deck centres each `ApVec` on the element
+*vertex*, so a decentered beam walks off the primary, and the survivors still
+trace, still collimate, and still hand back a magnification:
+
+| decenter | rays surviving | reported M |
+|---|---|---|
+| 0.00 m | 1184 / 1185 | 30.07 |
+| 0.60 m | 408 / 1185 | **37.65** |
+| 0.80 m | 174 / 1185 | **46.80** |
+| 1.00 m | 12 / 1185 | **106.36** |
+
+This is why **every quoted number in this section carries its ray count**, and
+why the aperture fit runs before any metric is taken rather than after.
+
+**(c) The ray count itself had to be fixed at the source.** The first version
+of this instrumentation took its loss count from `ray_hist`'s `ok` flag — and
+that flag is **geometric validity**. An obscured ray keeps a perfectly valid
+intersection (the engine sets the flux flag and leaves `RayPos` alone, the same
+principle behind the SPOT `LocalCoord` and OPD-reference rulings), so a count
+taken from it reports a **fully vignetted beam as lossless**. The guard was
+measuring the wrong thing. Loss is now taken from `ray_info`'s
+`ok_trace .AND. ok_pass`, in `offaxis_decenter` and in the gate alike, and the
+two counts are reported separately: `.nmiss` (geometric, during the
+aperture-free measuring pass) and `.nlost` (throughput, on the fitted deck).
+
+**(d) On these decks the fitted apertures are DESCRIPTIVE, not constraining —
+and the isolation experiment needed that checked, not assumed.** The
+afocal4/descent family emits `ApType= None` on every element, so the coaxial
+control carries no clear apertures at all while a decentered deck would carry
+fitted ones. That is a second difference between the two columns of § O.7, and
+an unexamined one would have made "the decenter is the only variable" false.
+Measured on the committed 4-mirror design, wavefront-only over the field box:
+
+| decenter | fitted apertures | apertures removed | difference |
+|---|---|---|---|
+| h = 0.55 m | 22365.46 nm, 1185 pass | 22365.46 nm, 1185 pass | **0.000e+00** |
+| h = 1.00 m | 53658.67 nm, 1185 pass | 53658.67 nm, 1185 pass | **0.000e+00** |
+
+Exactly zero, with every ray passing either way: the fitted apertures are sized
+to the measured footprint plus a margin and therefore clip nothing. The
+asymmetry is null and the isolation holds. The fit earns its keep for
+**realizability** — it is what says how big each off-axis parent has to be —
+not for the wavefront.
+
+## O.4 The mirror count is set by packaging PARITY, not by aberrations
+
+`descent_close`'s last spacing **absorbs the free tail spacing exactly**.
+Scanned over t2 from 0.3 m to 6.0 m with an N = 4 Mersenne front end, the last
+powered mirror sits at `behind_m1 = −1388.7 mm` for **every** t2 (t3 tracks t2
+with a constant offset of 0.1803 m). The packaging station is therefore not a
+knob at all — it is a **constant of the front end**, and for a Mersenne it is
+on the wrong side of the primary.
+
+The parity law `z_N = Σ (−1)^k t_k` says why, and says what to do: one more
+reflection flips the sign of the whole back end. Measured across form × f1 × N
+(cass/greg × f1 ∈ {0.75, 1.25, 2.5} × N ∈ {4, 5, 6}), on a (t2, t3) grid:
+
+| N | packaging-compliant closures |
+|---|---|
+| 4 | **none** on the grid |
+| 5 | **essentially the whole grid** |
+| 6 | **none** on the grid |
+
+**Keep this apart from image quality.** N = 4 off-axis is not ruled out
+because it images badly — it is ruled out because its back end lands in front
+of its own primary. The coaxial study reached N = 4 comfortably because its
+front end is *not* a Mersenne: there t1 is a fraction of f1, where a
+Mersenne's is f1 − f2, essentially the whole focal length.
+
+## O.5 `descent_close` is singular on a front end that has already closed the spec
+
+This is the finding that redirected the slice, and it is a statement about
+where the closure's **parameterization** is well-posed, not a defect in it.
+
+The closure solves the last two powers from the marginal state after the free
+mirrors: `u2 = um − ym·φ`, `b = (yout − ym)/u2`, `φ_N = u2/yout`. Marched by
+hand through a Mersenne pair (f1 = 1.25, cass):
+
+```
+after free mirror 1:  y  0.016667 m,  u  -0.400000
+after free mirror 2:  y  0.016667 m,  u   0.000000     <-- already collimated,
+yout target        =  0.016667 m                            already at height
+numerator (yout-ym)= -0.000000
+```
+
+**The specification is already met at mirror 2**, so the magnification lever's
+numerator vanishes. Handed a five-mirror spec the closure does not fail — it
+inserts a strong third mirror (φ₃ = −1.2308 /m) that **breaks** the Mersenne
+(y → 0.0372, u → 0.0205) and then re-closes it with a 2.74 m lever. The result
+is paraxially exact — residuals `[6.9e-18, −5.6e-16, −3.1e-16]`, paraxial
+mag `30.000000` — and traces at **M = 26.73 with 25445 µrad of collimation
+error**, because the intermediate beam grows to 1.6 m across on mirrors of
+1.8 m radius.
+
+**The check that ruled out the obvious wrong explanation.** The natural
+suspicion is that the decenter broke it. It did not — the *coaxial* build of
+the identical closure is **worse**:
+
+| build | traced M | error | collimation |
+|---|---|---|---|
+| cass N=5, h = 0 (coaxial control) | 26.73 | **−10.89 %** | 25445 µrad |
+| cass N=5, h = 0.55 (off axis) | 31.30 | −4.33 % | 16887 µrad |
+
+So the Mersenne seed is measured **directly** (§ O.6) and the closure-based
+comparison is run on front ends the closure is well-posed for (§ O.7). The two
+answer different questions and neither substitutes for the other.
+
+## O.6 The bare off-axis Mersenne — the family with the pupil requirement dropped
+
+A two-mirror Mersenne has **no free parameter left**: both powers are consumed
+by the magnification and the collimation, so its exit pupil lands where the
+geometry puts it and cannot be moved. It therefore *cannot* meet the
+interface-pupil requirement — which is exactly why it is worth measuring. It
+separates two questions the full set fuses:
+
+* **Q1** — is the off-axis family capable of 71 nm *at all*?
+* **Q2** — is it capable of it *while also* placing the exit pupil?
+
+Wavefront-only (rung 2), nine-field box, ray counts complete unless noted:
+
+| form | f1 (m) | h = 0 | h = 0.55 | h = 0.75 | h = 1.00 | h = 1.50 | best × target |
+|---|---|---|---|---|---|---|---|
+| cass | 1.25 | 60200 | 62629 | 62671 | 62323 | 60765 | 848× |
+| cass | 2.50 | 38267 | 37682 | 37415 | 37051 | **36246** | 511× |
+| cass | 5.00 | 20994 | 20703 | 20592 | 20453 | **20168** | **284×** |
+| greg | 1.25 | 2.06e7 | 1.58e7 | 1.28e7 † | 8.6e6 † | 3.8e6 † | 53972× |
+| greg | 2.50 | 4.37e6 | 4.18e6 | 3.93e6 | 3.56e6 | 2.65e6 | 37291× |
+| greg | 5.00 | 1.26e6 | 1.27e6 | 1.26e6 | 1.23e6 | — | 17333× |
+
+*(nm, rung-2 max over the field box. † rays lost — 168, 1830 and 7982 of
+10665 — so those cells are not comparable and are shown only to record that
+the Gregorian branch degenerates rather than to rank it.)*
+
+Three readings, and the third is the one that matters:
+
+1. **The Gregorian Mersenne is not a viable seed** at this magnification.
+   Its real internal focus sits between the mirrors and at 30× the beam
+   through it is violent; the branch loses rays and never comes within four
+   orders of the target.
+2. **Speed dominates.** Slowing the primary from f1 = 1.25 to 5.0 m — a 4×
+   change — improves the wavefront by 2.87×. That is the front end's own
+   aberration, and it is the largest lever in the table by far.
+3. **The decenter itself buys almost nothing: at most −3.9 % (f1 = 5.0) and
+   −5.3 % (f1 = 2.5), and at f1 = 1.25 it is a small COST (+0.9 %).** On a
+   two-mirror system with no correction freedom, moving off axis is very
+   nearly wavefront-neutral.
+
+**Q1 is answered no, for the bare pair**: 284× the target at its best, against
+a coaxial four-mirror family that reaches 7.5 µm and a coaxial seven-mirror
+wavefront-only floor of 3841.8 nm. A Mersenne has no correction freedom, so
+this bounds the *seed*, not the family after solving — which is § O.7's job.
+
+**Realizability note, recorded rather than hidden:** almost every row is
+*obscured* (union floor −57 to −81 mm), and not by the secondary. The
+secondary clears easily — at h = 0.55 the entering beam spans y ∈ [76, 1022]
+mm while M2's body sits at y ≤ 50 mm. What stands in the beam is the
+**interface plane itself**, 140 mm past M2, whose footprint over the field box
+reaches back into the M1→M2 leg. A two-mirror afocal puts its interface where
+its own beam is; only two rows in the sweep clear (cass f1 = 1.25 at h = 1.50,
++8.3 mm; greg f1 = 2.50 at h = 1.50, +28.8 mm).
