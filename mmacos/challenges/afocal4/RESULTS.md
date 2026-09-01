@@ -2411,12 +2411,51 @@ Three readings, and the third is the one that matters:
    two-mirror system with no correction freedom, moving off axis is very
    nearly wavefront-neutral.
 
-**Q1 is answered no, for the bare pair**: 284× the target at its best, against
+**Q1 is answered no, for the bare pair**: 284× the target at its best (255× at
+the coaxial family's 343 mm standoff — see § O.6f, which corrects the
+comparison), against
 a coaxial four-mirror family that reaches 7.5 µm and a coaxial seven-mirror
 wavefront-only floor of 3424.2 nm (§ D.3; 3841.8 nm is the N = 4 floor with
 tilt withheld, not the seven-mirror number — corrected here at the point of
 use). A Mersenne has no correction freedom, so
 this bounds the *seed*, not the family after solving — which is § O.7's job.
+
+### O.6f The standoff is NOT neutral — a correction to the table above
+
+The § O.6 sweep was built at `P.iface` = **140 mm**, while the coaxial
+comparators (§ D.3, § D.4, and the h = 0 controls of § O.7, which recover
+`iface` from the committed deck) sit at **343 mm**. § D.4 warns in terms that
+this distinction matters — the same A/B gives 4 % at 140 mm and a factor of
+2.7 at 343 mm — so the two columns were not directly comparable.
+
+The reasoning that said it was safe: a bare Mersenne cannot *move* its pupil,
+so its interface is only a **reporting** plane, and a collimated output's
+wavefront should not care where that plane sits. **Measured, that reasoning is
+wrong**, and how it is wrong is itself a confirmation:
+
+| deck | standoff | rung 2 | rung 3 | union floor |
+|---|---|---|---|---|
+| off-axis Mersenne f1 = 2.5, h = 1.5 | 140 mm | 36246 | 9396 | −68.7 mm |
+| | 343 mm | **29737** (−18 %) | 8725 (−7 %) | −82.6 mm |
+| off-axis Mersenne f1 = 5.0, h = 1.5 | 140 mm | 20168 | 2778 | −81.1 mm |
+| | 343 mm | **18127** (−10 %) | 2753 (**−0.9 %**) | −111.1 mm |
+
+**Rung 2 moves by 10–18 % with the plane; rung 3 barely moves at all.** That is
+exactly what § O.6b predicts and could not have been arranged: the output is
+*not* collimated — its power varies with field — so sliding the evaluation
+plane along the beam adds and removes **defocus and nothing else** to first
+order. Remove the power term and the plane-dependence goes with it. The
+premise "the output is collimated, so the plane does not matter" fails for
+precisely the reason the whole section is about.
+
+**What changes in the conclusions: nothing, and the corrected figure is
+stated.** At the matched 343 mm standoff the best bare off-axis Mersenne is
+**18127 nm = 255× target** rather than 284×. Still hundreds of times off, still
+98 % power, and § O.6b's rung-3 comparison is the one that was already
+standoff-robust (2778 vs 2753 nm, 0.9 %). Read the § O.6 table as a *relative*
+sweep over form, speed and decenter — which is what it was built for — and
+take absolute cross-family comparisons from the rung-3 column or from matched
+standoffs.
 
 **Realizability note, recorded rather than hidden:** almost every row is
 *obscured* (union floor −57 to −81 mm), and not by the secondary. The
