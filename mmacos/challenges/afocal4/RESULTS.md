@@ -1972,3 +1972,165 @@ Three architectures could do that, and the law says which lever each pulls:
     satisfied incidentally. *Re-weighting is a last resort, and its result has
     to be compared against the incumbent ON THE NEW MERIT before it is
     believed.*
+
+---
+
+# DESCENT RESULTS — how many mirrors does the requirement set need?
+
+Answers `macos/BRIEF_afocal4_descent.md` (Dave, 2026-08-31). The numbers-first
+account is `descent/README.md`; this is the canonical record.
+
+The stage was set up to start at seven powered mirrors where the whole
+requirement set is met with margin, remove one at a time, and measure what
+each removal costs. **The top rung was never reached.** What the stage
+delivers instead is the reason, measured three independent ways.
+
+## D.1 The answer, in one line
+
+**No mirror count in this family reaches the requirement set**, and the
+wavefront half is not close: with the pupil requirement **abandoned entirely**
+and every degree of freedom free, seven mirrors floor at **3424 nm against a
+71 nm target — 48×**, and three extra mirrors buy **11 %** over four.
+
+## D.2 What was built, and what every route said
+
+| route | N | merit | WFE (nm) | blur (µm) | M err (%) | verdict |
+|---|---|---|---|---|---|---|
+| committed (S4b/S4c) | 4 | 30.2 | 10407 | **157** | 0.0221 | the delivered design |
+| cold seed | 7 | 70.78 | 12422 | 506 | 3.86 | missed, stalled |
+| cold seed, radii freed | 7 | 70.40 | 11718 | 534 | 3.68 | missed, stalled |
+| cold seed 2 | 7 | 707 | 3.7e9 | 1.7e6 | 95 | **scrambled — gates caught it** |
+| cold seed 3 | 7 | 53.57 | — | — | — | missed, worst 177× |
+| cold seed | 8 | 146.7 | — | — | — | missed, worst 1768× |
+| ascent (warm) | 5 | 37.39 | 10775 | 332 | 0.1379 | missed |
+| ascent (warm) | 6 | 44.20 | 9137 | 721 | 0.0651 | missed |
+| ascent (warm) | 7 | 42.66 | **7894** | 705 | 0.0632 | missed |
+
+The ascent rungs are the sound ones — M error 0.06–0.14 % against the cold
+seeds' 3.9–95 % — and their wavefront does improve with N. It improves by
+**24 % over four mirrors where the target needs 99 %**, charged at **4.5× the
+pupil blur** (157 → 705 µm), with a body in the beam at every rung (union
+floor ≈ −105 mm). Figure: `descent/afocal4_descent_ladder.png`.
+
+## D.3 The decisive measurement — the wavefront floor, pupil requirement abandoned
+
+A full solve is a COMPETITION, so a wavefront that will not move might merely
+be losing an argument to the pupil terms. These solves score the wavefront
+ALONE, every DOF free. It is the most optimistic wavefront the family can
+produce, because it gives up the entire reason the fourth mirror exists.
+
+| N | DOFs | start (nm) | **floor (nm)** | × target |
+|---|---|---|---|---|
+| 4 | conic, radius, spacing | 10407 | **3841.8** | 54× |
+| 4 | + tilt | 10407 | 4497.7 | 63× |
+| 5 | + tilt | 10775 | 8077.4 | 114× |
+| 6 | + tilt | 9137 | 5689.0 | 80× |
+| 7 | + tilt | 7894 | **3424.2** | **48×** |
+
+**Three extra mirrors buy 11 %**, and the trend is not monotonic — N = 5 is the
+worst of the set, which is basin scatter rather than a curve going anywhere.
+
+> **Upper bounds, and labelled so.** Several rounds were still gaining 18–25 %
+> when their budget ran out, so deeper solves would lower these. It does not
+> touch the conclusion: closing 48× needs every rung to fall two orders of
+> magnitude, where S4c's 17×-budget long solves moved the same designs by
+> 0.02–10.8 %.
+
+## D.4 A cleaner number than S4 had: what the pupil requirement costs
+
+At the **343 mm** operating point, dropping the pupil requirement takes the
+wavefront **10407 → 3842 nm — a factor of 2.7**.
+
+S4 ran this same A/B at the **140 mm** operating point, got 8467 against a
+frozen 8835 (4 %), and generalized it as *the DOFs do not touch it*. **That
+generalization is operating-point specific and should not be carried.** At
+343 mm — the standoff the packaging constraint forced this study to adopt —
+the DOFs touch the wavefront a great deal, and it is the **pupil requirement,
+not the optics**, that costs it the factor of 2.7.
+
+## D.5 The packaging station obeys a parity law
+
+The vertex stations are an alternating sum `z_N = Σ (−1)^k t_k`, so the
+closure's own last spacing — the one the magnification condition fixes, and
+typically the largest — enters with sign `(−1)^(N−1)`. Measured as a
+compliance rate over a common grid of front ends:
+
+| N | parity | closed | compliant | rate |
+|---|---|---|---|---|
+| 5 | odd | 232 | 205 | **88.4 %** |
+| 6 | even | 7 406 | 2 | 0.03 % |
+| 7 | odd | 95 849 | 86 024 | **89.7 %** |
+| 8 | **even** | 717 679 | **1** | **0.00014 %** |
+
+A factor of ~3000 between adjacent N, from one sign. This is S4b's *one extra
+mirror flips the parity of the back end* stated as a law with a rate attached,
+and it says the odd rungs are cheap to seed while the even ones are where the
+packaging wall bites.
+
+**It is a population statement, and it does NOT transfer to a single
+removal** — measured, after being predicted too strongly. On the ascent's N = 7
+rung, removing each free mirror both ways:
+
+| mirror removed | retain (parity held) | delete (parity flipped) |
+|---|---|---|
+| M3 | +1.894 m clears | +0.122 m **fails** |
+| M4 | +1.990 m clears | −0.149 m **fails** |
+| M5 | +1.772 m clears | **+1.493 m clears** |
+
+Retain clears 3 of 3, delete 1 of 3, and deleting typically costs 1.5–2.1 m of
+station — the effect is real and large. But deleting element *k* does not drop
+a term, it **merges** `t_{k−1} + t_k` and re-signs every spacing after it, so
+which mirror is removed decides how the sum re-assembles. **"N = 6 cannot be
+built" is false**: from that base there are at least four routes to a
+compliant six-mirror layout.
+
+## D.6 Rules earned
+
+35. **A law measured over a POPULATION does not transfer to an INDIVIDUAL
+    case without being re-measured there.**
+    The parity law is exact as a rate (88 % / 0.03 % / 89.7 % / 0.00014 %) and
+    merely *usual* for one removal — 1 of 3 deletes cleared anyway. It is the
+    same shape of error as the field-walk law, which is exact for a tilt and
+    5–6× optimistic for a standoff. Predict with the law; decide with a
+    measurement.
+
+36. **A lesson confirmed once does not become the explanation for the next
+    stall.**
+    The wall slice found the committed design missed its pupil optimum because
+    the DOF set lacked a tilt. This stage reached for that twice and was wrong
+    twice: freeing the radii bought **5.7 %** on a row needing 165×, and the
+    wavefront-only control *without* tilts floors **better** (3841.8 vs
+    4497.7 nm) than with them. Tilts are a pupil knob, not a wavefront knob.
+    Both times the **seed** was the reason.
+
+37. **A cold closure is a specification, not a design.**
+    Four cold seven-mirror seeds landed at merit 54…707 with ~12 µm of
+    wavefront — *worse than the four-mirror family with twice the freedom* —
+    while the same machinery warm-started from the committed design produced
+    sound rungs (M error 0.06–0.14 % against 3.9–95 %). A closure holding its
+    three conditions at 1e-16 says nothing about quality: one such probe
+    traced **M = 40.45 against a paraxial 30.0000**. Build ladders from a
+    design that works.
+
+38. **A wall with only one side is not a constraint.**
+    The S4b packaging wall bounds the last mirror's station from BELOW only,
+    and the power-economy tie-breaker rewards weak mirrors, which are exactly
+    the ones that need distance. The first N = 7 seed put the last powered
+    mirror **10.96 m** behind the primary and was compliant by every check in
+    the study. Bounds are stated in the study's own unit — multiples of the
+    M1–M2 spacing, the way the packaging record measures depth.
+
+## D.7 Open, and for Dave
+
+**The requirement set is not reachable by mirror count in this family, so the
+useful next move is a judgement about what the work is for, not another
+solve.** Two candidates, and the choice is not the study's to make:
+
+* **the spec** — 71 nm was set at ≥ 10× Rodgers' best three-mirror variant
+  (PLAN_AFOCAL4 S3 gate review). Nothing in this arc has come within 48× of
+  it, with the pupil requirement abandoned and up to seven mirrors;
+* **the family** — this is a coaxial all-reflective afocal, and the condition
+  that keeps costing is the interface pupil consuming the last two powers.
+  § D.4 now prices that: a factor of 2.7 of wavefront at the 343 mm operating
+  point.
+
