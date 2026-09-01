@@ -2845,3 +2845,58 @@ against a 4497.7 control, i.e. **worse**, which is the § O.7b direction.
 whether N = 4 and N = 7 also floor below their controls. Written here at the
 moment the number appeared, before those arms landed, so that the record shows
 the challenge arriving ahead of its resolution rather than after it.
+
+### O.7d § O.7b IS FALSIFIED — and the scope error that produced it
+
+The deciding arm landed. **N = 4, whose control is not a scatter outlier and
+which reproduces § D.3 to the decimal, floors 1.58× BELOW its own control when
+the pupil is decentered.**
+
+| N = 4 | start (nm) | floor (nm) | × target | traced M |
+|---|---|---|---|---|
+| h = 0 (control, = § D.3) | 10407.0 | 4497.7 | 63× | 29.7336 |
+| **h = 0.55 (off axis)** | 22365.5 | **2846.9** | **40×** | 29.6264 |
+
+And against the whole coaxial study:
+
+| | mirrors | WFE (nm) | × target |
+|---|---|---|---|
+| best coaxial, § D.3 N = 7 | 7 | 3424.2 | 48× |
+| **off-axis N = 4, h = 0.55** | **4** | **2846.9** | **40×** |
+
+**The best wavefront in this study is now an off-axis FOUR-mirror design, and
+it beats the coaxial SEVEN-mirror result by 17 % with three fewer mirrors.**
+
+**Why the prediction failed, stated precisely — it was MIS-SCOPED, by me.**
+Stop-shift invariance of the Petzval sum holds for a **fixed design** viewed
+through a shifted stop. This experiment does not do that: after the decenter
+the solver re-optimises conic, radius, spacing and tilt, so the off-axis result
+is **a different design with different curvatures and therefore a different
+Petzval sum** — not the coaxial design seen from a new pupil. § O.7b even
+carried the caveat ("it says nothing about an off-axis design built from
+scratch — different curvatures, hence a different Petzval sum") and I failed
+to notice that the isolation experiment falls *inside* that caveat, because
+the solver re-optimises. The invariance argument was correct and applied to
+the wrong experiment.
+
+**What survives from § O.6b, and what does not.**
+
+* **Survives:** the residual *is* power-dominated, the θ² law, the exact 0.00
+  nm on axis, and the standoff behaviour of § O.6f — all measurements, none of
+  them touched by this.
+* **Survives:** the bare Mersenne's near-flat response to `h` (−3.9 % at best).
+  That *is* a near-fixed-design stop shift — two parabolas with no free
+  parameter — so the invariance argument applies there and is confirmed.
+* **Does NOT survive:** the inference that field curvature therefore makes the
+  off-axis family a dead end. **Given freedom to re-solve, a decentered pupil
+  reaches a materially better basin**, and it does so at every N measured so
+  far.
+
+**Guards, applied rather than assumed.** Traced M sits at 1.245 % on the winner
+against a **0.1 % target** — but so does every floor in this arm, controls
+included (0.888 %, 0.914 %, 1.682 %), because M is unscored when the pupil
+ladder is off. The winner is **better on M than the coaxial N = 7 reference it
+beats** (1.245 % vs 1.682 %), so the comparison is not being bought with
+magnification. The full requirement set and the realizability gates are run on
+the winning deck separately; this row is the wavefront-only floor and is
+labelled as one.
