@@ -358,3 +358,42 @@ def cf5():
     r["resid"] = grab(t, r"\|x\+u\| rms ([0-9.eE+-]+)", "cf5 residual", "r4_report.txt")
     r["xrms"] = grab(t, r"drift \|x\| rms ([0-9.eE+-]+)", "cf5 drift rms", "r4_report.txt")
     return r
+
+
+def cf3d():
+    """CF3d: the restart ladder at d=1.10 + the stations capture."""
+    t = read("cf3d_report.txt")
+    r = {"round": [], "c": [], "la": [], "stroke": [], "alpha": [], "min": []}
+    pat = (r"\[round (\d+)\] [0-9.eE+-]+ -> ([0-9.eE+-]+) \| alpha "
+           r"([0-9.eE+-]+|NaN) \| stroke ([0-9.]+) nm \| la\(G\) "
+           r"([0-9.eE+-]+) \| ([0-9.]+) min")
+    for m in re.finditer(pat, t):
+        r["round"].append(int(m.group(1)))
+        r["c"].append(float(m.group(2)))
+        r["alpha"].append(m.group(3))
+        r["stroke"].append(float(m.group(4)))
+        r["la"].append(float(m.group(5)))
+        r["min"].append(float(m.group(6)))
+    if len(r["round"]) < 13:
+        sys.exit("e2e6m_r2_records: cf3d rounds incomplete (%d)" % len(r["round"]))
+    done = re.findall(r"CF3d DONE in [0-9.]+ h: ([0-9.eE+-]+) -> "
+                      r"([0-9.eE+-]+) over (\d+) rounds \(lin-ach ([0-9.eE+-]+)\)", t)
+    if not done:
+        sys.exit("e2e6m_r2_records: cf3d DONE line missing")
+    r["c0"], r["c1"] = float(done[-1][0]), float(done[-1][1])
+    r["nround"], r["la1"] = int(done[-1][2]), float(done[-1][3])
+    r["stall"] = sum(1 for a in r["alpha"] if a == "NaN")
+    r["dig"] = r["nround"] - r["stall"]
+    r["hours"] = sum(r["min"]) / 60.0
+    # dug-state la range (rounds 3+; rounds 1-2 are flat-state optimism)
+    r["la_lo"], r["la_hi"] = min(r["la"][2:]), max(r["la"][2:])
+    r["stroke1"] = r["stroke"][-1]
+    dz = re.findall(r"DZ mean in-walk: flat ([0-9.eE+-]+) \| dug ([0-9.eE+-]+)", t)
+    if not dz:
+        sys.exit("e2e6m_r2_records: cf3d stations DZ line missing")
+    r["dz_flat"], r["dz_dug"] = float(dz[-1][0]), float(dz[-1][1])
+    kept = re.findall(r"frac kept ([0-9.]+)", t)
+    if len(kept) < 2:
+        sys.exit("e2e6m_r2_records: cf3d Lyot frac-kept lines missing")
+    r["lyot_kept"] = [float(k) for k in kept[-2:]]
+    return r

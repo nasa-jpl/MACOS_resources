@@ -26,6 +26,7 @@ BUILDER = os.path.join(HERE, "..", "..", "..", "challenges", "rodgers3",
 r0, r1, r3, r4, r2m = R.r0(), R.r1(), R.r3(), R.r4(), R.r2m()
 cf1, cf1c, cf2, cf3a = R.cf1(), R.cf1c(), R.cf2(), R.cf3a()
 cf3b, cf4, cf5 = R.cf3b(), R.cf4(), R.cf5()
+cf3d = R.cf3d()
 s1, s2, s3c = R.s1(), R.s2(), R.s3c()
 
 
@@ -51,7 +52,8 @@ FIG = {n: crop(n) for n in (
     "r1_contrast.png", "r3_svspec.png", "r3_met_layout.png",
     "r4_series.png", "r1_union_shroud.png",
     "cf1_families.png", "cf2_floors.png", "cf3a_lyot.png",
-    "cf1c_stop_attrib.png", "cf3b_spacing.png", "cf4_physics.png")}
+    "cf1c_stop_attrib.png", "cf3b_spacing.png", "cf4_physics.png",
+    "cf3d_dig.png", "cf3d_stations_wide.png", "cf3d_dm_state.png")}
 for n in ("s1_layout.png", "s1_wfe_field.png", "s2_segmented_footprints.png"):
     FIG[n] = crop(n, src_dir=R1DIR)
 
@@ -210,6 +212,21 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at
 ::: right
 ![State, wavefront and contrast against time.  The contrast panel is the payoff: open loop degrades 3.7×; the closed loop holds.]({FIG['r4_series.png']}){{h=4.7}}
 
+## The restart ladder | The controller was the bottleneck: {cf3d['c0']:.1e} → {cf3d['c1']:.2e} at d = 1.10 m, with the substrate still pricing {cf3d['la1']:.1e}
+::: left
+- **The recipe (rinse and repeat):** EFC to a floor, relinearize about the dug state, restart at that floor.  {cf3d['dig']} digging rounds over {cf3d['hours']:.1f} h unattended; {cf3d['stall']} stall rounds then prove the plateau — no accepted step at any Tikhonov α down to 1e-10, and two independent G measurements at the unchanged state agree to four digits.
+- **What it removed:** the single-linearization stall at {cf3b['floor'][-1]:.1e} (the spacing sweep's d = 1.10 m entry) — four decades above the linear bound at this spacing.
+- **What remains, priced:** la(G) holds {cf3d['la_lo']:.1e}–{cf3d['la_hi']:.1e} at every dug state; the plateau at {cf3d['c1']:.2e} is the monotone full-Tikhonov step rule — the measured case for FALCO-grade step machinery.  Strokes end at {cf3d['stroke1']:.0f} nm rms of the 50 nm bound.
+::: right
+![The ladder: achieved floor by restart round against the linear-achievable substrate re-measured at every dug state.  The early linear claims (rounds 1–2) are flat-state optimism; they settle once the linearization is honest.]({FIG['cf3d_dig.png']}){{h=4.5}}
+
+## Inside the dig, station by station | The controller does the gap work: the DM commands imprint the hex-gap lattice
+::: full
+![Seven planes, DMs flat against the dug state: pupil, apodizer, FPM before/after the occulter, Lyot before/after the stop, science-plane contrast.  The in-walk dark-zone means reproduce the scored record exactly ({cf3d['dz_flat']:.2e} / {cf3d['dz_dug']:.2e}).]({FIG['cf3d_stations_wide.png']}){{h=2.8}}
+- **Reading the strip:** the flat row's segment-lattice speckle becomes the dug row's sculpted field; the science panel shows the full {r1['inner']:.0f}–{r1['outer']:.0f} {LAM}/D annular dark hole carved to the 1e-9 floor.
+- **Two measured readables:** DM1's command map carries the hex-gap lattice — the DMs are doing the gap work themselves (the no-apodizer A/B is the scoped follow-on); and the 0.90 Lyot stop removes only ~{100*(1-min(cf3d['lyot_kept'])):.1f}% of the post-FPM energy — this train's rejected light is interior gap structure, not edge rings.
+![The dug command state: DM1 imprints the gap lattice; strokes ~33 nm rms, peaks ~160 nm.]({FIG['cf3d_dm_state.png']}){{h=1.7}}
+
 ## What this demonstrates | One model, from surface figure to a held dark zone
 - **A design becomes an instrument becomes an error budget becomes a controlled observatory**, without leaving the model or re-entering the geometry anywhere.
 - **The gap penalty is measured, not assumed** -- {r1['ratio_mean']:.0f}× open loop -- and the control loop that answers it is measured too: {r4['unc']['con1']:.1e} open against {r4['cor']['con1']:.1e} closed at the end of the soak.
@@ -270,6 +287,7 @@ Conventions, stated once.  Wavefront error is RMS at {s1['lambda_nm']:.0f} nm at
 - `r2_sequence_fig`, `r2_bench_fig`, `r2_masks_fig` -- the four exhibit graphics.
 - `r3_sensitivities`, `r3_dm_jacobian`, `r3_met` -- the error budget, the actuator Jacobian, the metrology stage.
 - `r4_timeseries` -- the closed-loop drift series.
+- `cf_chain` + `cf1_families`..`cf4_physics` -- the coronagraph-family campaign; `cf3d_deepdig` + `cf3d_stations` -- the restart ladder and its station graphics.
 - `python3 deck_e2e6m_r2.py` -- this deck, from the reports those runs wrote.
 ~ All knobs live in one parameter file.  The narrative record -- every question, decision and gate -- is the campaign log beside the runners.
 """
