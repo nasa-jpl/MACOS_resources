@@ -2561,6 +2561,39 @@ three mirrors plus refractive correctors. **So the difficulty is not the
 forces the small, strongly curved final mirror that the `C` table keeps
 pointing at.
 
+### O.6e Realizability — what an off-axis section actually costs to build
+
+`run_offaxis_gates` scores `descent_require`'s full requirement set and adds
+two columns the coaxial tables have no counterpart for. On the decks § O.6
+quotes:
+
+| deck | max chief AOI | union floor | behind M1 | primary PARENT radius |
+|---|---|---|---|---|
+| off-axis Mersenne f1 = 2.5, h = 1.5 | **16.07°** ✗ | −68.7 mm | −2417 mm | 2023 mm |
+| off-axis Mersenne f1 = 5.0, h = 1.5 | 7.92° ✓ | −81.1 mm | −4833 mm | 2023 mm |
+| cass-cass cascade m1 = 15, h = 0.55 | 8.81° ✓ | −82.1 mm | −2117 mm | **1074 mm** |
+
+**The parent is the off-axis family's bill, and it is the size of the
+decenter.** An off-axis section of radius *r* taken at height *h* must be cut
+from a parent of radius |h| + r, and that parent is the part somebody has to
+figure and test. At the minimum clearing decenter h = 0.55 m the primary's
+parent is **2.15 m in diameter for a 1 m beam** — the textbook ≈ 2h + D — and
+at h = 1.5 m it is **4.05 m**. Nothing in the wavefront tables shows this, and
+it is the first thing a fabricator would ask about.
+
+**The AOI trade is real and it bites the fast forms first.** Decentering moves
+the chief off *every* parent axis at once, so incidence grows on every surface
+together — unlike a fold tilt, which spends its angle at one station. The
+f1 = 2.5 Mersenne at h = 1.5 m **breaks the 15° standing rule at 16.07°**;
+slowing to f1 = 5.0 at the same decenter brings it to 7.92°. **Reported broken
+and named rather than dropped from the table** — a design that fails a
+realizability wall is a finding about the family.
+
+**Packaging fails on all three**, at −2117 to −4833 mm, which is § O.4's parity
+law doing exactly what it says: these are two- and four-mirror forms with a
+Mersenne front end, and that count cannot put its back end behind its own
+primary at any spacing. Layout renders written per deck.
+
 ### O.6a Against the arc's own prior Mersenne work — a refinement, not a contradiction
 
 The double Mersenne was examined twice before, **coaxially**, and both verdicts
