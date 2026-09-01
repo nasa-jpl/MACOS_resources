@@ -2416,6 +2416,48 @@ a coaxial four-mirror family that reaches 7.5 µm and a coaxial seven-mirror
 wavefront-only floor of 3841.8 nm. A Mersenne has no correction freedom, so
 this bounds the *seed*, not the family after solving — which is § O.7's job.
 
+### O.6a Against the arc's own prior Mersenne work — a refinement, not a contradiction
+
+The double Mersenne was examined twice before, **coaxially**, and both verdicts
+sharpen what is measured here rather than conflicting with it.
+
+**§ 4 measured the form's wavefront floor with the conics free.** Holding the
+confocal spacings and relaxing all four conics took it from 59 370 nm to
+35 050 nm — *a factor of 1.7 where a factor of 500 was needed*. The number
+worth carrying forward is the other one in that section: solved **on axis**,
+where a coaxial design carries **no field aberration at all**, the
+conic-relaxed double Mersenne still reaches only **3955 nm**.
+
+That is the honest bound on my § O.6 table. The bare pair measured here is
+*parabolas only* and *over the field box*, so its 20 168 nm best is not
+comparable with 3955 nm — but § 4 has already established that freeing the
+conics of a Mersenne is worth a factor of ~1.7, not a factor of 500. **Nothing
+in the off-axis construction changes that**, because relaxing a conic is a
+pupil-independent freedom: it is the same surface figure whichever part of it
+the beam uses.
+
+**§ S4b.5 closed it a second time, structurally**, and this is where § O.4 is a
+genuine refinement. That section recorded that the double Mersenne puts M4 at
+z = −0.942 m, *942 mm in front of the primary*, and that **"no gap, stage split
+or conic moves them behind it, because the form's entire compression happens
+before the beam ever gets back to M1."**
+
+That claim is now **measured and explained**, and one word of it is too strong:
+
+* **Explained** — the mechanism is the closure's last spacing absorbing the
+  free tail spacing exactly, so `behind_m1` is a *constant of the front end*
+  (§ O.4: −1388.7 mm for every t2 from 0.3 m to 6.0 m). "No gap moves them"
+  is not a heuristic about compression; it is an algebraic identity.
+* **Refined** — *one* thing does move them, and it is neither a gap nor a
+  conic: the **parity of the element count**. `z_N = Σ(−1)^k t_k`, so one more
+  reflection flips the sign of the entire back end. N = 5 complies over
+  essentially the whole (t2, t3) grid where N = 4 and N = 6 comply nowhere.
+
+So the S4b.5 verdict stands exactly as recorded for the form it was about — a
+*four*-mirror double Mersenne — and it should not be read as "a Mersenne front
+end can never be packaged." It can, at odd element counts. What closes the
+Mersenne route here is § 4's wavefront bound, not the packaging one.
+
 **Realizability note, recorded rather than hidden:** almost every row is
 *obscured* (union floor −57 to −81 mm), and not by the secondary. The
 secondary clears easily — at h = 0.55 the entering beam spans y ∈ [76, 1022]
