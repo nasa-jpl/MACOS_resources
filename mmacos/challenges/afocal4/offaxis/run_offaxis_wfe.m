@@ -8,18 +8,27 @@
 %   used OFF AXIS.  Any difference between the two columns is attributable to
 %   the decenter and to nothing else.
 %
-%   WHY THIS AND NOT A MERSENNE SEED.  The off-axis Mersenne is the textbook
-%   off-axis afocal seed and it is measured separately by
-%   RUN_OFFAXIS_MERSENNE -- but it cannot be carried through DESCENT_CLOSE,
-%   which is singular on a front end that has already met the specification
-%   (measured: the pair arrives at mirror 2 with y = 0.016667 m and
-%   u = 0.000000, so the closure's b = (yout - ym)/u2 has a zero numerator;
-%   handed five mirrors it inserts a strong third mirror to BREAK the
-%   Mersenne and then re-closes with a 2.74 m lever, giving a design that is
-%   paraxially exact and traces at M = 26.73).  So the Mersenne answers "what
-%   can the family do with the pupil requirement dropped" and THIS answers
-%   "what does moving off axis buy, all else equal".  Neither substitutes for
-%   the other and the pair of them is the slice's evidence.
+%   WHY THE DEFAULT SEED IS THE COMMITTED DESIGN AND NOT A MERSENNE.  The
+%   off-axis Mersenne is the textbook off-axis afocal seed, and DESCENT_CLOSE
+%   is SINGULAR on it: the pair arrives at mirror 2 with y = 0.016667 m and
+%   u = 0.000000 -- already at the exit height and already collimated -- so
+%   the closure's b = (yout - ym)/u2 has a zero numerator.  Handed five
+%   mirrors it inserts a strong third mirror to BREAK the Mersenne and then
+%   re-closes with a 2.74 m lever: paraxially exact, traces at M = 26.73
+%   (section O.5).  The COAXIAL control of that same closure is worse still,
+%   which is what rules out "the decenter broke it".
+%
+%   So the slice takes three cuts at the question and none replaces another:
+%     RUN_OFFAXIS_MERSENNE   the pair DIRECTLY, no closure -- what the family
+%                            can do with the pupil requirement dropped;
+%     this, OW_SRC=committed  the ISOLATION -- what the decenter buys with
+%                            everything else held fixed;
+%     this, OW_SRC=mersenne   a DIFFERENT BASIN -- the Mersenne front end
+%                            handed to a solver with radius, conic, spacing
+%                            and tilt free, which CAN walk away from the
+%                            closure's spoiled starting point.  One seed is
+%                            one basin, and the rigid-body probe already
+%                            demonstrated that this landscape has scatter.
 %
 %   THE RIGID-BODY PROBE IS THE THING THIS SUPERSEDES.  That probe was free to
 %   move each mirror by +-15 deg and +-300 mm and used 0.92 deg / 3.1 mm --
@@ -32,6 +41,7 @@
 %   OW_H        comma list of decenters, m ("0,0.55,0.75,1.0")
 %   OW_EVALS    evaluations per round (400)
 %   OW_ROUNDS   restart rounds (2)
+%   OW_SRC      'committed' (default) or 'mersenne' -- which basin to start in
 %   OW_TAG      artifact prefix ('OAW')
 run('/home/dcr/dev/MACOS_res_dev/mmacos/mmacos_setup.m');
 here = fileparts(mfilename('fullpath'));   up = fileparts(here);
@@ -39,6 +49,7 @@ addpath(here); addpath(up); addpath(fullfile(up,'clearing'));
 addpath(fullfile(up,'wall')); addpath(fullfile(up,'descent'));
 
 Ns  = str2double(strsplit(getenv_d('OW_N','4,5,7'), ','));
+src = getenv_d('OW_SRC','committed');   % 'committed' | 'mersenne'
 Hs  = str2double(strsplit(getenv_d('OW_H','0,0.55,0.75,1.0'), ','));
 wEv = str2double(getenv_d('OW_EVALS','400'));
 wRd = str2double(getenv_d('OW_ROUNDS','2'));
@@ -54,12 +65,13 @@ dofs = {'conic','radius','spacing','tilt'};
 
 fprintf('\n==== OFF-AXIS WAVEFRONT FLOOR vs PUPIL DECENTER ====\n');
 fprintf('  DOFs %s; pupil ladder NOT scored.\n', strjoin(dofs,', '));
-fprintf('  coaxial reference: 3841.8 nm (N=7, no-tilt control); target 71 nm.\n\n');
+fprintf(['  coaxial reference (D.3, same DOFs incl. tilt): N=4 4497.7, ' ...
+         'N=5 8077.4,\n  N=6 5689.0, N=7 3424.2 nm.  Target 71 nm.\n\n']);
 
 rows = struct('N',{},'h',{},'wfe0',{},'wfe',{},'gain_pct',{},'M',{}, ...
               'coll',{},'lost',{},'union',{},'nfev',{},'deck',{},'ok',{});
 for N = Ns
-    D = start_design_(P, N, up, here);
+    D = start_design_(P, N, up, here, src);
     if isempty(D), fprintf('  N=%d: no starting design -- skipped\n', N); continue; end
     D.ngrid = P.ngrid;   D.bias_deg = P.bias_deg;
 
@@ -137,10 +149,26 @@ fprintf('\n  coaxial control is the h = 0 row of each N.\n');
 exit(0);
 
 % =====================================================================
-function D = start_design_(P, N, up, here)
+function D = start_design_(P, N, up, here, src)
 %START_DESIGN_  The same starting designs RUN_DESCENT_WFE uses, so the h = 0
 %   column is a reproduction of a recorded number and not a new experiment.
+%
+%   SRC = 'mersenne' instead seeds from a confocal parabola pair -- a
+%   genuinely different basin, and the brief's "one seed is one basin" point.
+%   The closure is SINGULAR on that front end (section O.5): it spoils the
+%   Mersenne with a strong third mirror and re-closes with a long lever.  That
+%   is fine HERE and only here, because the solver holds radius, conic,
+%   spacing and tilt free and is therefore able to walk away from the closure's
+%   starting choice -- which is exactly the question this arm asks.  What it
+%   must not be used for is a cold quoted number; the § O.6 table exists for
+%   that and takes the pair directly.
     D = [];
+    if nargin >= 5 && strcmpi(src,'mersenne')
+        S = offaxis_seed(P, 'cass', 'N',N, 'f1',1.25);
+        D = struct('N',N, 'R',S.R, 'convex',S.convex, 't',S.t, ...
+                   'K',S.K, 'iface',S.iface, 'tilt_deg',zeros(1,N));
+        return;
+    end
     if N == 4
         src = fullfile(up,'afocal4_b2long_343mm.in');
         if ~isfile(src), return; end
