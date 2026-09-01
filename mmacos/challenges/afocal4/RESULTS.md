@@ -2413,8 +2413,153 @@ Three readings, and the third is the one that matters:
 
 **Q1 is answered no, for the bare pair**: 284× the target at its best, against
 a coaxial four-mirror family that reaches 7.5 µm and a coaxial seven-mirror
-wavefront-only floor of 3841.8 nm. A Mersenne has no correction freedom, so
+wavefront-only floor of 3424.2 nm (§ D.3; 3841.8 nm is the N = 4 floor with
+tilt withheld, not the seven-mirror number — corrected here at the point of
+use). A Mersenne has no correction freedom, so
 this bounds the *seed*, not the family after solving — which is § O.7's job.
+
+### O.6b What the 20 µm actually IS — and it is not what it looks like
+
+The § O.6 table reports the committed metric, rung 2 (piston + per-field
+tip/tilt removed). **Rung 3 also removes POWER**, so the difference between
+them is the residual *defocus* — the amount by which the real traced beam
+fails to be collimated, field by field. Scored on the same decks, same box:
+
+| deck | rung 2, box | rung 3, box | variance in POWER | traced collimation |
+|---|---|---|---|---|
+| committed 4-mirror | 10407 | 6555 | 60 % | 1477 µrad |
+| descent rung N = 5 | 10775 | 5983 | 69 % | 1635 µrad |
+| descent rung N = 6 | 9137 | 5670 | 61 % | 1281 µrad |
+| descent rung N = 7 | 7894 | 4710 | 64 % | 1548 µrad |
+| **off-axis Mersenne** f1 = 5, h = 1.5 | **20168** | **2778** | **98 %** | 4352 µrad |
+
+*(nm; "variance in POWER" is 1 − (rung3/rung2)², on the max-field basis — the
+two maxima need not fall at the same field, so read it as indicative.)*
+
+**Read the last row again.** The off-axis Mersenne looks like the worst design
+in this study at rung 2 and has **the best rung-3 number in the table** —
+2778 nm, better than the coaxial *seven*-mirror floor of 4710 nm, from **two
+mirrors with no free parameter at all**. Essentially all of its 20 µm is
+power: it is a beam compressor whose output collimation varies across the
+field, i.e. **field curvature**.
+
+That reverses the conclusion § O.6 would support on its own, and the
+distinction matters because the two errors have different cures:
+
+* **field-varying POWER is what a third and fourth powered mirror are for.**
+  A Mersenne pair has no freedom to correct it — both powers are spent on
+  magnification and on-axis collimation — so its 20 µm is a statement about
+  *how few mirrors it has*, not about the off-axis geometry.
+* **the coaxial family's residual is only ~60–70 % power**, and the rest is
+  higher-order and sits at 4.7 µm at N = 7 after three added mirrors. That
+  part did not fall as mirrors were added (§ D.3's finding, now decomposed).
+
+**So the two families are failing for different reasons**, which is exactly
+the thing a single rung-2 number hides. Stated carefully, because it is the
+most consequential claim in this section and it is a decomposition rather than
+a solve: *on this evidence* the off-axis route is **not** closed by the
+Mersenne's 20 µm, and the arm that matters is a Mersenne front end with enough
+back end to correct field curvature — which is what the Mersenne-seeded solve
+in § O.7 runs.
+
+**The zero that anchors it.** At *true* on-axis — the field offset (0, −bias),
+which cancels the deck's 0.6° bias — the off-axis Mersenne scores **0.00 nm**,
+exactly. A confocal parabola pair is a perfect afocal compressor for a
+collimated on-axis beam and the engine reproduces that to the last bit at
+h = 1.5 m, which is one more independent confirmation that the off-axis
+construction of § O.2 is exact. The coaxial decks read 2.3–3.6 µm at the same
+point, but that is **not** a fair comparison and is recorded here so nobody
+draws it: those designs are corrected at the 0.6° bias with a ±0.25° box, so
+true on-axis is 2.4 box-half-widths *outside* their design field.
+
+### O.6c Chasing the defocus to its source — one refuted hypothesis, one self-correction
+
+§ O.6b says the residual is field curvature. The textbook source of field
+curvature is the **Petzval sum**, which needs *signed* curvatures, and a
+Cassegrain compressor (convex secondary) and a Gregorian one (concave)
+contribute opposite signs. The arc's existing double Mersenne is **two
+Cassegrain stages**, so its contributions add — a sufficient explanation for
+why relaxing four conics bought it only 1.7× (§ 4). **Nobody had built the
+mixed pair.** So it was built: two confocal parabola pairs in cascade, stage 1
+Cassegrain and stage 2 Gregorian, exact at m1·m2 = 30 by construction (no
+closure, so § O.5's singularity does not arise), scanning the split m1.
+
+**The hypothesis is refuted as built, and the A/B is what refutes it** —
+`cass_greg` against `cass_cass` at matched splits, h = 0:
+
+| m1 | cass_cass rung 2 | cass_greg rung 2 | cass_cass % power | cass_greg % power |
+|---|---|---|---|---|
+| 2 | 38246 | 56104 | 99.9 | 99.9 |
+| 5 | 38040 | 56499 | 99.9 | 99.9 |
+| 10 | 36846 | 57056 | 99.2 | 99.5 |
+| 15 | **34450** | 56942 | 97.8 | 98.4 |
+
+The mixed pair is **worse at every split**, both curves are **monotone with no
+interior minimum** (the signature cancellation would leave), and the power
+fraction stays **94.7–99.9 % for both forms everywhere**. Mixing the signs did
+not touch the defocus.
+
+**The confound, stated rather than buried:** a Gregorian stage has a REAL
+internal focus, and at these speeds it is an f/2.5 focus in a 0.5 m beam. That
+is the same feature that made the single Gregorian Mersenne catastrophic in
+§ O.6 (1.15e6 nm, four orders off). So this experiment does not cleanly
+isolate Petzval — it measures Petzval *plus* a large internal-focus penalty,
+and the penalty is bigger than any benefit. **The honest verdict is that the
+mixed pair does not help here, not that Petzval balancing cannot help.**
+
+*(These cascades trace M = 28.0–33.2 and 8500–11800 µrad of collimation error;
+they are family probes, not designs, and their absolute numbers should be read
+only against each other.)*
+
+**The self-correction, made before anything was recorded.** The natural next
+step was to compute each design's Petzval sum and correlate it with the
+measured defocus. The routine that does this **was written as a Petzval sum
+and is not one**: MACOS emits `KrElt = −|R|` for *every* mirror and carries
+convexity in the **geometry**, so a sum built from the radii the engine returns
+cannot tell a convex secondary from a concave one. The corpus proves it —
+`cass_greg` and `cass_cass` come back with the **identical** value 11.600
+while their defocus differs by 47 %. The quantity is now reported under its own
+name, `C = Σ ±2/|R_k|`, a curvature-**magnitude** sum, and no Petzval claim is
+made from it.
+
+What `C` does show is still worth having, because at 30× the final mirror is
+necessarily the smallest and most strongly curved in the train and dominates
+it:
+
+| deck | C (/m) | R_last (m) | defocus (nm) |
+|---|---|---|---|
+| **descent ascent rung N = 7** | **1.663** | −0.946 | **6335** |
+| descent ascent rung N = 5 | 2.973 | −1.247 | 8961 |
+| committed 4-mirror | 4.260 | −1.207 | 8083 |
+| off-axis Mersenne f1 = 5 | 5.800 | −0.333 | ~20500 |
+| four-parabola cascades | 11.600 | −0.167 | 34000–57000 |
+| arc double Mersenne | 16.000 | −0.133 | 59297 |
+| off-axis Mersenne f1 = 1.25 | 23.200 | −0.083 | ~60700 |
+
+Spearman |C| vs defocus **+0.683** over 40 decks — moderate, and heavily
+tie-degraded (27 of 40 share just two `C` values), so the rank statistic
+understates a group-mean relationship that is monotone. **The best design in
+the entire study has the smallest |C| of any deck measured.** Establishing the
+signed statement needs convexity the decks do not carry in `Kr`; that is left
+**open** rather than guessed.
+
+### O.6d The spec is not unreasonable on étendue grounds
+
+Worth settling, because "the spec is the wall" should not be reached for
+before the arithmetic is done. At D = 1 m, ±0.25° half-field, λ = 1 µm:
+
+* Lagrange invariant **H = (D/2)·u = 2.18e-3 m·rad**
+* resolvable points per dimension **2H/λ = 4363**, i.e. ~19 million resolution
+  elements
+* the target, 71 nm rms at 1 µm, is **λ/14.1 rms** — a Maréchal-class
+  criterion, not an exotic one
+
+For scale, LSST's invariant is ~0.128 m·rad, **59× larger**, and it is met with
+three mirrors plus refractive correctors. **So the difficulty is not the
+étendue.** What is unusual here is the *combination*: all-reflective, afocal at
+30×, with the exit pupil placed at a specified standoff — and the 30× is what
+forces the small, strongly curved final mirror that the `C` table keeps
+pointing at.
 
 ### O.6a Against the arc's own prior Mersenne work — a refinement, not a contradiction
 
