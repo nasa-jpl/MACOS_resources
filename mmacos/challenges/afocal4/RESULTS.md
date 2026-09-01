@@ -2803,3 +2803,45 @@ built *from scratch* — different curvatures, hence a different Petzval sum —
 can do better. That is a different question from the one this experiment asks,
 and it remains open; § O.6c's search for a curvature-sum cure was the first
 attempt at it and did not succeed.
+
+### O.7c THE FALSIFIER FIRED — recorded the moment it did
+
+§ O.7b named one falsifier: *any `h > 0` floor landing materially below its own
+`h = 0` control*. **It fired, on the N = 5 arm, at round 1.**
+
+| N = 5 | WFE (nm) | vs its own control |
+|---|---|---|
+| h = 0 control, final floor | 8077.4 | — |
+| **h = 0.55, round 1** (round 2 still running) | **3275.1** | **2.47× better** |
+
+And against the study's best coaxial number, from § D.3's seven-mirror rung:
+
+| | mirrors | WFE (nm) | × target |
+|---|---|---|---|
+| best coaxial, N = 7, h = 0 | 7 | 3424.2 | 48× |
+| **off-axis N = 5, h = 0.55, round 1** | **5** | **3275.1** | **46×** |
+
+**4.4 % better than the best coaxial design in the study, with two fewer
+mirrors, and not yet converged.**
+
+**The confound, named immediately, because it is severe.** The N = 5 coaxial
+control is § D.3's own **basin-scatter outlier** — that section flags N = 5 as
+"the worst of the set, which is basin scatter rather than a curve going
+anywhere". So a 2.47× win over *that* control has two available readings and
+this measurement does not separate them:
+
+1. **the decenter genuinely relieves the residual**, falsifying § O.7b; or
+2. **the decenter kicked the solver out of a bad basin into a good one** —
+   a re-seeding effect, which would say nothing about off-axis geometry at all
+   and everything about N = 5's coaxial start being unlucky.
+
+Reading 2 is not a way of explaining the result away: it is exactly what
+§ D.3 predicted this rung would do, and it is why the N = 4 and N = 7 arms —
+whose controls are *not* scatter outliers and which reproduce D.3 exactly —
+are the ones that decide. N = 4's h = 0.55 stands at 5917.3 after round 1
+against a 4497.7 control, i.e. **worse**, which is the § O.7b direction.
+
+**Status: § O.7b is CHALLENGED, not yet overturned.** What settles it is
+whether N = 4 and N = 7 also floor below their controls. Written here at the
+moment the number appeared, before those arms landed, so that the record shows
+the challenge arriving ahead of its resolution rather than after it.
