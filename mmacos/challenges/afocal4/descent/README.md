@@ -366,7 +366,91 @@ insertion is optically a no-op. That is as warm as a warm start gets.
 > the same unguarded access and has simply never been handed that struct —
 > noted, not chased.
 
-## 6. Still to do
+## 6. THE ANSWER, and it is not a rung count: 71 nm is not reachable in this family
+
+The descent's question is *how many mirrors does the full requirement set
+actually need*. The measurements say: **no number of them, in this family.**
+
+### 6a. Nothing meets the set at any N
+
+Every rung built, by every route, misses every target:
+
+| route | N | merit | WFE (nm) | blur (µm) | M err (%) | verdict |
+|---|---|---|---|---|---|---|
+| committed | 4 | 30.2 | 10407 | **157** | 0.0221 | the S4b/S4c delivery |
+| cold seed | 7 | 70.78 | 12422 | 506 | 3.86 | missed, stalled |
+| cold seed + radius | 7 | 70.40 | 11718 | 534 | 3.68 | missed, stalled |
+| cold seed, seed 2 | 7 | 707 | 3.7e9 | 1.7e6 | 95 | **scrambled, gates caught it** |
+| cold seed, seed 3 | 7 | 53.57 | — | — | — | missed, worst 177× |
+| cold seed | 8 | 146.7 | — | — | — | missed, worst 1768× |
+| **ascent** | 5 | 37.39 | 10775 | 332 | 0.1379 | missed |
+| **ascent** | 6 | 44.20 | 9137 | 721 | 0.0651 | missed |
+| **ascent** | 7 | 42.66 | **7894** | 705 | 0.0632 | missed |
+
+The ascent's rungs are the sound ones (M error 0.06–0.14 % against the cold
+seeds' 3.9–95 %), and their wavefront does improve with N — 10775 → 9137 →
+7894 — so mirrors buy *something*. They buy 24 % over four mirrors while the
+target needs 99 %, and they charge 4.5× the pupil blur for it (157 → 705 µm).
+Every ascent rung also has a body in its own beam (union floor ≈ −105 mm).
+
+### 6b. The decisive measurement: the wavefront floor, with the pupil requirement abandoned
+
+A full solve is a COMPETITION, so a wavefront that will not move might merely
+be losing an argument. These solves score the wavefront ALONE — the pupil
+ladder is not in the merit at all — with every DOF free. It is the most
+optimistic wavefront the family can produce, because it gives up the entire
+reason the fourth mirror exists.
+
+| N | start (nm) | **floor (nm)** | × target | DOFs |
+|---|---|---|---|---|
+| 4 | 10407 | **3841.8** | **54×** | conic, radius, spacing |
+| 4 | 10407 | 4497.7 | 63× | + tilt |
+| 5 | 10775 | 8077.4 | 114× | + tilt |
+| 6 | 9137 | 5689.0 | 80× | + tilt |
+| 7 | 7894 | **3424.2** | **48×** | + tilt |
+
+**Three extra mirrors buy 11 %** (3842 → 3424 nm). The target needs a factor
+of 48. The trend is not even monotonic — N = 5 is the worst of the set — which
+is basin scatter, not a curve going anywhere.
+
+> **These floors are UPPER bounds and are labelled so.** Several rounds were
+> still gaining 18–25 % when their budget ran out, so deeper solves would
+> lower them. That does not touch the conclusion: closing a factor of 48
+> would require every remaining rung to fall by two orders of magnitude, and
+> the arc's own history says otherwise — S4 found the wavefront "floors near
+> 8.5 µm", and S4c's 17×-budget long solves moved the same designs by
+> 0.02–10.8 %.
+
+### 6c. What the pupil requirement actually costs — a cleaner number than S4 had
+
+At the 343 mm operating point, dropping the pupil requirement takes the
+wavefront **10407 → 3842 nm, a factor of 2.7**.
+
+S4 ran this same A/B at the **140 mm** operating point and got 8467 against a
+frozen 8835 — 4 % — and generalized it as *the DOFs do not touch it*. At
+343 mm they touch it a great deal. The generalization was operating-point
+specific and should not be carried: **the pupil requirement, not the optics,
+is what costs the wavefront its factor of 2.7 at the standoff the packaging
+constraint forced this study to adopt.**
+
+### 6d. Two more of my own hypotheses, refuted
+
+The stage has now killed two of its own explanations, and both were the
+*reflex* explanation from the slice before it:
+
+* **"the DOF set is the reason"** (the wall slice's finding). N7b re-ran N7a's
+  seed with the radii freed: 11718 vs 12422 nm, **5.7 %** on a row needing a
+  factor of 165.
+* **"the tilts are the missing freedom"** (the wall slice again). The
+  wavefront-only control at N = 4 *without* tilts floors at **3841.8 nm**,
+  BETTER than the 4497.7 nm with them — four extra DOFs landed the solve
+  slightly worse. The tilts are a pupil knob, exactly as the clearing stage
+  measured; they are not a wavefront knob.
+
+A lesson that has been confirmed once does not become the explanation for the
+next stall. Both times here, the SEED was the reason.
+
+## 7. Still to do
 
 Tasks 1–4: the 7-mirror top rung with slack on every requirement row and the
 71 nm wavefront target in the set; the descent itself (rank by |φ| and power

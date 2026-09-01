@@ -40,6 +40,14 @@ function R = descent_solve(P, D0, opts)
 %     'label'     for the progress line
 %     'max_iter'  lsqnonlin iterations (P.solve.max_iter)
 %     'axis'      tilt axis handed to DESCENT_BUILD ([1 0 0])
+%     'pupil'     score the pupil ladder as well as the wavefront (true).
+%                 FALSE asks the wavefront question ALONE, which is the only
+%                 way to find out whether a wavefront floor is a property of
+%                 the OPTICS or of the competition for freedom: with the
+%                 pupil terms in, a wavefront that will not move might simply
+%                 be losing an argument.  S4 ran exactly this A/B at N = 4
+%                 and measured the floor at 8467 nm against a frozen 8835 --
+%                 4 %, i.e. the DOFs do not touch it.
 %     'quiet'     (false)
 %
 %   Returns R with .D .S .x .names .scale .base .hist .exitflag .nfev
@@ -55,6 +63,7 @@ function R = descent_solve(P, D0, opts)
         opts.label    (1,:) char = 'descent solve'
         opts.max_iter (1,1) double = 0
         opts.axis     (1,3) double = [1 0 0]
+        opts.pupil    (1,1) logical = true
         opts.quiet    (1,1) logical = false
     end
     if opts.max_iter <= 0, opts.max_iter = P.solve.max_iter; end
@@ -68,7 +77,7 @@ function R = descent_solve(P, D0, opts)
     nfev = 0;   t0 = tic;
     % rule 32: the wall residual has to out-scale the merit it is bounding.
     wallr = 20 * max(1, max(cell2mat(struct2cell(P.weights))));
-    nres  = size(P.Fsolve,1) + 5;
+    nres  = size(P.Fsolve,1) + 5*opts.pupil;
 
     function r = obj_(xs)
         nfev = nfev + 1;
@@ -76,7 +85,8 @@ function R = descent_solve(P, D0, opts)
         D.ngrid = P.solve.ngrid;
         try
             descent_build(P, D, tmp, 'axis',opts.axis, 'verify',false);
-            S = afocal4_score(P, tmp, 'fields',P.Fsolve, 'nodes',P.solve.nodes);
+            S = afocal4_score(P, tmp, 'fields',P.Fsolve, 'nodes',P.solve.nodes, ...
+                              'pupil',opts.pupil);
         catch ME
             r = repmat(wallr, nres, 1);
             hist(end+1) = struct('x',xs(:).', 'merit',sum(r.^2), 'worst',Inf, ...
@@ -133,7 +143,7 @@ function R = descent_solve(P, D0, opts)
     if isfield(Pr.pack,'union_enforce'), Pr.pack.union_enforce = false; end
     descent_build(Pr, D, deck, 'axis',opts.axis, 'verify',false);
     S = afocal4_score(P, deck, 'fields',P.Fsolve, 'nodes',P.solve.nodes_score, ...
-                      'grid',P.grid_n);
+                      'grid',P.grid_n, 'pupil',opts.pupil);
     R = struct('D',D, 'S',S, 'x0',x0, 'x',x, 'names',{names}, 'scale',scale, ...
                'base',base, 'lo',lo, 'hi',hi, 'hist',hist, 'exitflag',exitflag, ...
                'nfev',nfev, 'seconds',toc(t0), 'deck',deck, 'dofs',{opts.dofs});
