@@ -112,6 +112,18 @@ function OUT = cf3f_feather(over)
                   r, cvec(end));
             alph = NaN;
         end
+        % stroke RELEASED (Dave 2026-09-01): non-monotone large-step walk
+        ach0 = 1e9 * rms_(cell2mat(cellfun(@(x) x(x~=0), a(:).', ...
+                                           'UniformOutput', false).'));
+        ptargets = unique(round(min([2 4 8] * max(ach0, 50), 8000)));
+        [a, pvec, pinfo] = lib.push(ch, dm, G, a, dz_idx, ptargets);
+        if pinfo.c1 < pinfo.c0
+            logf_(rep, '[round %d PUSH] %.3e -> %.3e | target %.0f nm | stroke %.1f nm | %d runs', ...
+                  r, pinfo.c0, pinfo.c1, pinfo.target, pinfo.stroke, numel(pvec)-1);
+            if pinfo.c1 < cvec(end), cvec(end+1) = pinfo.c1; end %#ok<AGROW>
+        else
+            logf_(rep, '[round %d PUSH] no gain at targets %s nm', r, mat2str(ptargets));
+        end
         ach = 1e9 * rms_(cell2mat(cellfun(@(x) x(x~=0), a(:).', ...
                                           'UniformOutput', false).'));
         hist(end+1) = struct('round',r, 'c_start',cvec(1), 'c_end',cvec(end), ...
