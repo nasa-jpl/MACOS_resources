@@ -2684,3 +2684,55 @@ law doing exactly what it says: these are two- and four-mirror forms with a
 Mersenne front end, and that count cannot put its back end behind its own
 primary at any spacing. Layout renders written per deck.
 
+
+## O.7 The isolation experiment — the wavefront floor vs the pupil decenter
+
+Everything in this experiment is the descent's committed machinery — same
+closure, same merit, same DOFs (`conic, radius, spacing, tilt`), same solver
+settings, same starting designs at the same 343 mm standoff — with exactly
+**one** variable changed: the pupil decenter `h`. `h = 0` is the coaxial
+control and must reproduce the descent's own recorded starts; `h > 0` is the
+same design used off axis. Any difference between the columns is attributable
+to the decenter and to nothing else.
+
+**The control reproduces**, which is what licenses the rest: start values
+10407.0 / 10774.9 / 7894.1 nm at N = 4 / 5 / 7, identical to § D.3's.
+
+**Two asymmetries were checked rather than assumed** before any comparison was
+drawn: the fitted off-axis apertures clip nothing (§ O.3d, difference exactly
+`0.000e+00`), and the standoff is matched at 343 mm throughout (§ O.6f is the
+correction that established this matters).
+
+### O.7a The Mersenne-seeded arm — reported UNUSABLE, not as a result
+
+A third arm started from the Mersenne front end instead of the committed
+designs, on the brief's "one seed is one basin" point. **It diverged, and the
+divergence is not diagnosed, so no conclusion is drawn from it:**
+
+| | start | round 1 | round 2 | final |
+|---|---|---|---|---|
+| WFE (nm) | 542 865 | 26 618 366 | 26 786 007 | **26 786 007** |
+| traced M | 26.73 | | | **0.8175** |
+
+`M = 0.8175` against a required 30 says the end point is **not a telescope**,
+and the M-guard — printed on every result for exactly this reason — is what
+caught it.
+
+**Why it is not being read as "the Mersenne basin diverges".** `lsqnonlin`
+returns its best iterate and the objective's failure path scores *high*
+(`wallr`), so there is no attractor in the failures; the solve genuinely
+reduced its own residual while the reported wavefront rose 49×. The available
+explanation is the **solve/report sampling gap** — the merit is evaluated at
+`P.solve.ngrid = 21` (≈ 317 rays) and the report at `P.ngrid = 41` (1185) —
+which is small for a well-behaved design and can be arbitrarily large for a
+pathological one. **That gap has bitten this arc before** (the wall slice's
+report-versus-iterate wall). It was not run down here because the arm was a
+secondary probe and the finding it was meant to support — § O.5's closure
+singularity — is established *directly*, from the closure's own algebra, and
+does not depend on it.
+
+The arm was **stopped** rather than run out over its remaining decenters, and
+its CPU returned to the three arms that carry the experiment. One thing it did
+show in passing, consistent with § O.5: at `h = 0.55` the same spoiled closure
+starts at **264 054 nm with M = 31.30**, against `h = 0`'s 542 865 nm and
+M = 26.73 — the off-axis version of that closure is the better-behaved one.
