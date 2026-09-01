@@ -904,3 +904,12 @@ apodizer-trade plan; (2) the 0.90 Lyot stop removes only ~0.1% of the
 post-FPM Lyot-plane energy in both states — this train's rejected
 light is INTERIOR (gap-structured), not edge-ringed, so the Lyot
 radius is not where the suppression happens.
+
+Horizontal variant (Dave 2026-09-01): station fields now cached to
+cf3d_stations.mat (untracked, ~67 MB — the G-cache convention) so
+figures re-render without a re-capture; `cf3d_stations_fig('wide')`
+emits the 2x7 slide strip `cf3d_stations_wide.png` (colorbars on the
+bottom row only).  Deck placement: campaign deck gains two slides
+("The restart ladder" + "Inside the dig") via a loud-on-miss
+`cf3d()` records fn; keysight deck slide 29 carries the strip + the
+DM command maps.

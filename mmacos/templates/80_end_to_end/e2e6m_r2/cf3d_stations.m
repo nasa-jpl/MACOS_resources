@@ -15,10 +15,14 @@ function OUT = cf3d_stations()
 %     6  Lyot plane after the 0.90 stop
 %     7  science plane, log10(I / bare peak) = CONTRAST, dark zone
 %        annotated with the 3-15 lambda/D mean
-%   Writes cf3d_stations.png + cf3d_dm_state.png (the dug DM surfaces);
-%   appends the measured station numbers to cf3d_report.txt.
+%   Caches the station fields to cf3d_stations.mat and renders via
+%   CF3D_STATIONS_FIG (both orientations: cf3d_stations.png tall,
+%   cf3d_stations_wide.png 2x7 slide strip) + cf3d_dm_state.png (the
+%   dug DM surfaces); appends measured station numbers to
+%   cf3d_report.txt.  Re-render figures WITHOUT a re-capture:
+%   cf3d_stations_fig('wide'|'tall'|'both').
 %
-%   See also CF3D_DEEPDIG, CF_CHAIN, ctb_coro_compare.
+%   See also CF3D_STATIONS_FIG, CF3D_DEEPDIG, CF_CHAIN, ctb_coro_compare.
 
     here = fileparts(mfilename('fullpath'));
     run(fullfile(here,'..','..','..','mmacos_setup.m'));
@@ -60,48 +64,11 @@ function OUT = cf3d_stations()
     czf = mean(abs(S(1).fpa(dz_idx)).^2) / pb;
     czd = mean(abs(S(2).fpa(dz_idx)).^2) / pb;
 
-    % ---- the stations figure (ctb_coro_compare layout) -----------------
-    N = ch.N;  c = ch.center_px;  w = round(N/8);           % focal crop
-    fr = max(1,round(c-w)) : min(N,round(c+w));
-    rows = { ...
-      'pupil (Apodizer plane, before masks)',  'pup',   'amp', []; ...
-      'after circular stop + prolate apodizer','apod',  'amp', []; ...
-      'FPM plane, before occulter',            'fpm0',  'log', fr; ...
-      'FPM plane, after occulter',             'fpm1',  'log', fr; ...
-      'Lyot plane, before stop',               'lyot0', 'log', []; ...
-      'Lyot plane, after 0.90 stop',           'lyot1', 'log', []; ...
-      'science plane -- CONTRAST',             'fpa',   'con', fr};
-    fig = figure('Position',[40 40 760 2200], 'Color','w', 'Visible','off');
-    tl = tiledlayout(fig, size(rows,1), 2, 'TileSpacing','compact', ...
-                     'Padding','compact');
-    title(tl, sprintf(['e2e6m CF3d internal stations -- d=1.10 m apl, %s | ' ...
-        'DZ 3-15 lambda/D: flat %.2e -> dug %.2e'], ch.tag, czf, czd), ...
-        'Interpreter','none', 'FontSize', 10, 'FontWeight','bold');
-    for r = 1:size(rows,1)
-        for s = 1:2
-            ax = nexttile(tl);
-            E = S(s).(rows{r,2});
-            if ~isempty(rows{r,4}), E = E(rows{r,4}, rows{r,4}); end
-            switch rows{r,3}
-                case 'amp'
-                    imagesc(ax, abs(E));  colormap(ax, gray);
-                case 'log'
-                    imagesc(ax, log10(abs(E).^2 / max(abs(E(:)).^2) + 1e-12));
-                    colormap(ax, parula);  clim(ax, [-10 0]);
-                    cb = colorbar(ax);  cb.Label.String = 'log_{10} norm I';
-                case 'con'
-                    imagesc(ax, log10(abs(E).^2 / pb + 1e-14));
-                    colormap(ax, parula);  clim(ax, [-11 -3]);
-                    cb = colorbar(ax);  cb.Label.String = 'log_{10} contrast';
-            end
-            axis(ax, 'image', 'off');
-            if s == 1, title(ax, rows{r,1}, 'FontSize', 8, ...
-                             'FontWeight','normal'); end
-            if r == 1, subtitle(ax, S(s).name, 'FontSize', 9, ...
-                                'FontWeight','bold'); end
-        end
-    end
-    exportgraphics(fig, fullfile(here,'cf3d_stations.png'), 'Resolution',130);
+    % station fields cached so figures re-render without a re-capture
+    N = ch.N;  c = ch.center_px;  tag = ch.tag;
+    save(fullfile(here,'cf3d_stations.mat'), 'S','pb','czf','czd', ...
+         'N','c','tag', '-v7.3');
+    cf3d_stations_fig('both');
 
     % ---- the dug DM surfaces -------------------------------------------
     fig2 = figure('Position',[40 40 900 380], 'Color','w', 'Visible','off');

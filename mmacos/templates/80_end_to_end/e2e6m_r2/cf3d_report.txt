@@ -31,3 +31,8 @@ DZ mean in-walk: flat 1.215e-06 | dug 1.133e-09 (report round 10: 1.133e-09)
 DMs flat       | Lyot-plane energy: pre-stop 9.5341e-03 post-stop 9.5287e-03 (frac kept 0.999)
 CF3d dug state | Lyot-plane energy: pre-stop 2.0082e-02 post-stop 2.0076e-02 (frac kept 1.000)
 figures: cf3d_stations.png + cf3d_dm_state.png
+---- cf3d_stations (2026-09-01 06:25:38) ----
+DZ mean in-walk: flat 1.215e-06 | dug 1.133e-09 (report round 10: 1.133e-09)
+DMs flat       | Lyot-plane energy: pre-stop 9.5341e-03 post-stop 9.5287e-03 (frac kept 0.999)
+CF3d dug state | Lyot-plane energy: pre-stop 2.0082e-02 post-stop 2.0076e-02 (frac kept 1.000)
+figures: cf3d_stations.png + cf3d_dm_state.png

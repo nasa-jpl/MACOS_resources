@@ -145,6 +145,21 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 ::: right
 ![State, wavefront and contrast against time.  The contrast panel is the payoff: open loop degrades 3.7×; the closed loop holds.](deckfig/r4_series.png){h=4.7}
 
+## The restart ladder | The controller was the bottleneck: 1.2e-06 → 1.13e-09 at d = 1.10 m, with the substrate still pricing 3.5e-11
+::: left
+- **The recipe (rinse and repeat):** EFC to a floor, relinearize about the dug state, restart at that floor.  10 digging rounds over 4.6 h unattended; 3 stall rounds then prove the plateau — no accepted step at any Tikhonov α down to 1e-10, and two independent G measurements at the unchanged state agree to four digits.
+- **What it removed:** the single-linearization stall at 9.0e-07 (the spacing sweep's d = 1.10 m entry) — four decades above the linear bound at this spacing.
+- **What remains, priced:** la(G) holds 2.0e-11–3.8e-11 at every dug state; the plateau at 1.13e-09 is the monotone full-Tikhonov step rule — the measured case for FALCO-grade step machinery.  Strokes end at 33 nm rms of the 50 nm bound.
+::: right
+![The ladder: achieved floor by restart round against the linear-achievable substrate re-measured at every dug state.  The early linear claims (rounds 1–2) are flat-state optimism; they settle once the linearization is honest.](deckfig/cf3d_dig.png){h=4.5}
+
+## Inside the dig, station by station | The controller does the gap work: the DM commands imprint the hex-gap lattice
+::: full
+![Seven planes, DMs flat against the dug state: pupil, apodizer, FPM before/after the occulter, Lyot before/after the stop, science-plane contrast.  The in-walk dark-zone means reproduce the scored record exactly (1.22e-06 / 1.13e-09).](deckfig/cf3d_stations_wide.png){h=2.8}
+- **Reading the strip:** the flat row's segment-lattice speckle becomes the dug row's sculpted field; the science panel shows the full 3–15 λ/D annular dark hole carved to the 1e-9 floor.
+- **Two measured readables:** DM1's command map carries the hex-gap lattice — the DMs are doing the gap work themselves (the no-apodizer A/B is the scoped follow-on); and the 0.90 Lyot stop removes only ~0.1% of the post-FPM energy — this train's rejected light is interior gap structure, not edge rings.
+![The dug command state: DM1 imprints the gap lattice; strokes ~33 nm rms, peaks ~160 nm.](deckfig/cf3d_dm_state.png){h=1.7}
+
 ## What this demonstrates | One model, from surface figure to a held dark zone
 - **A design becomes an instrument becomes an error budget becomes a controlled observatory**, without leaving the model or re-entering the geometry anywhere.
 - **The gap penalty is measured, not assumed** — 1298× open loop — and the control loop that answers it is measured too: 1.7e-06 open against 2.5e-07 closed at the end of the soak.
@@ -210,5 +225,6 @@ Conventions, stated once.  Wavefront error is RMS at 500 nm at the exit pupil of
 - `r2_sequence_fig`, `r2_bench_fig`, `r2_masks_fig` — the four exhibit graphics.
 - `r3_sensitivities`, `r3_dm_jacobian`, `r3_met` — the error budget, the actuator Jacobian, the metrology stage.
 - `r4_timeseries` — the closed-loop drift series.
+- `cf_chain` + `cf1_families`..`cf4_physics` — the coronagraph-family campaign; `cf3d_deepdig` + `cf3d_stations` — the restart ladder and its station graphics.
 - `python3 deck_e2e6m_r2.py` — this deck, from the reports those runs wrote.
 ~ All knobs live in one parameter file.  The narrative record — every question, decision and gate — is the campaign log beside the runners.
