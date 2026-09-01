@@ -2939,3 +2939,44 @@ Three things follow, and the first is the one that matters:
 Both values are given above so neither reading is hidden. The best-round column
 is *italic* to mark that it is an observation from the round log and not the
 runner's own reported floor.
+
+### O.7f CORRECTION — the off-axis win is partly bought with magnification
+
+§ O.7d argued the win was not bought with M, on the basis that traced M sat at
+1.245 % against the control's 0.888 %. **That used the wrong M.** The traced
+figure is a crude proxy — the exit bundle's diameter perpendicular to its mean
+direction — and on an aberrated beam it is not the magnification. The scored
+quantity is `mag_centre_chief`, and `descent_require` run on both decks says:
+
+| N = 4 | WFE rung 2 (nm) | **M error** (target 0.1 %) | max chief AOI | primary PARENT r |
+|---|---|---|---|---|
+| h = 0 control | 4497.7 | **0.2255 %** | 10.57° | 524.7 mm |
+| h = 0.55 off axis | **2846.9** | **1.3592 %** | 14.20° | 1073.6 mm |
+
+**The winner's magnification error is 6.0× the control's**, not 1.4× as the
+traced proxy suggested. Both miss the 0.1 % target; the off-axis one misses it
+by 13.6×.
+
+**This is the pre-flagged cheat, and it is now on the winning row.** With the
+pupil ladder off, M is unscored, so a solver may buy wavefront by ceasing to be
+a 30× telescope — the exact failure that discounted the rigid-body probe in
+§ D.8 (which broke M to 1.03 %). The off-axis arm had more room to take that
+trade and took more of it.
+
+**What this does and does not change.**
+
+* **Does not change:** that every off-axis arm floors below its control, or
+  that the h = 0 controls reproduce § D.3 exactly. Those are measurements.
+* **Does change:** the *attribution*. How much of the 1.58× is off-axis
+  geometry and how much is 6× more magnification error **is not separated by
+  this experiment**, and no claim should be made that it is.
+* **Consequence:** the pupil-ladder arm — the full requirement set, in which M
+  **is** scored — stops being supplementary and becomes **the deciding
+  measurement**. It is the queued run, and § O.7d's verdict must be read as
+  provisional until it lands.
+
+**Two further costs the wavefront table does not show**, both from the same
+scoring run: the decenter spends **3.6° of chief AOI** (10.57° → 14.20°,
+leaving 0.80° of the 15° rule) and **doubles the primary's parent** (524.7 →
+1073.6 mm radius, i.e. a 2.15 m parent for a 1 m beam). Neither breaks a wall,
+and both belong beside the 1.58×.
