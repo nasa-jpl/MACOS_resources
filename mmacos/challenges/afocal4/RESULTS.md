@@ -2998,3 +2998,44 @@ scoring run: the decenter spends **3.6° of chief AOI** (10.57° → 14.20°,
 leaving 0.80° of the 15° rule) and **doubles the primary's parent** (524.7 →
 1073.6 mm radius, i.e. a 2.15 m parent for a 1 m beam). Neither breaks a wall,
 and both belong beside the 1.58×.
+
+### O.7g The completed decenter sweep — a DOSE-RESPONSE, which re-seeding does not predict
+
+Both N = 4 and N = 5 finished all three decenters. The full sweep, wavefront
+only, all DOFs free, controls reproducing § D.3 to the decimal:
+
+| N | h = 0 | h = 0.55 | h = 1.00 | trend |
+|---|---|---|---|---|
+| **4** | 4497.7 (63×) | 2846.9 (40×) | **2180.7 (31×)** | **monotone, 2.06× total** |
+| **5** | 8077.4 (114×) | 3847.1 (54×) | 3830.2 (54×) | monotone, 2.11×, plateaus |
+| 7 | 3424.2 (48×) | 4545.5 (64×) | *running* | worse at 0.55 |
+
+**`afocal4_OAW4_N4_h1.in` at 2180.7 nm is the best wavefront in this entire
+study** — 36 % below § D.3's best coaxial result, which used **seven** mirrors
+to this one's **four**.
+
+**Why the monotonicity matters more than any single row.** § O.7e offered
+re-seeding as an explanation consistent with the three-point mixed picture: a
+decenter perturbs the start, the solver lands elsewhere, and on a rough
+landscape elsewhere is sometimes better. **That explanation does not predict a
+dose-response.** A random kick has no reason to improve monotonically with the
+*size* of the kick; N = 4 does, across a 2× range of decenter, and N = 5 does
+until it plateaus. Two of three arms showing an ordered response to the
+magnitude of the perturbation is qualitatively different evidence from two of
+three arms simply landing lower.
+
+**It does not settle it**, and the coaxial multi-start (§ O.7h) is still the
+control that speaks to re-seeding directly. But the prior has moved: the
+decenter now looks like a **knob with a direction**, not a die-roll.
+
+**The N = 7 exception stands and is not explained.** It is the arm whose
+coaxial control is the study's best, and at h = 0.55 it degrades. One available
+reading — that an arm already in a good basin has less to gain and more to lose
+from a large perturbation — is consistent with all three arms but is a story
+fitted after the fact, and is recorded as such rather than as a finding.
+
+**Guard, unchanged and still binding:** traced M sits at 29.6264 / 29.6437 on
+the N = 4 off-axis rows against 29.7336 on its control, and § O.7f showed the
+*scored* M error is the one to watch (1.36 % vs 0.23 % at h = 0.55). The
+pupil-ladder arm, which scores M, is sequenced to run when the decenters finish
+(Dave 2026-09-01) and remains the deciding measurement on attribution.
