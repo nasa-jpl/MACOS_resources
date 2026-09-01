@@ -183,6 +183,44 @@ standing warning is exactly against that move — the field-walk law was exact
 for the tilt and 5–6× optimistic for the standoff. The ladder will measure
 both options at the first even rung and report which happened.
 
+### MEASURED (2026-08-31): confirmed in direction, REFUTED as a rule
+
+On the ascent's N = 7 rung — a real, solved, compliant base with its last
+mirror +1.764 m behind the primary — removing each free mirror both ways:
+
+| mirror removed | **retain** (parity held) | **delete** (parity flipped) |
+|---|---|---|
+| M3 | +1.894 m — clears | +0.122 m — **fails** |
+| M4 | +1.990 m — clears | −0.149 m — **fails** |
+| M5 | +1.772 m — clears | **+1.493 m — clears** |
+
+**Retain clears 3 of 3; delete clears 1 of 3.** The effect is real and large —
+deleting typically costs 1.5–2.1 m of station — but **M5's delete is a
+counterexample to the universal reading, and the prediction as I wrote it was
+too strong.**
+
+The reason is in the arithmetic I had already written down and then
+over-generalized. `z_N = Σ (−1)^k t_k`, and deleting element k does not merely
+drop a term: it MERGES `t_{k−1} + t_k` into one, which re-signs every spacing
+after it. So which mirror is removed decides how the sum re-assembles, and the
+last free mirror — whose merge touches the fewest downstream terms — can come
+out on the good side. The parity law is a statement about the RATE over a
+POPULATION of front ends (§ 3's 88 % / 0.03 % / 89.7 % / 0.00014 %), not a
+guarantee for an individual removal.
+
+> That is the same failure mode this arc keeps paying for: the field-walk law
+> is exact for a tilt and 5–6× optimistic for a standoff; here the parity law
+> is exact for a population and merely usual for one removal. **A law measured
+> over a population does not transfer to a single case without being
+> re-measured there** — which is why the ladder runs both modes at every rung
+> rather than reasoning about which to use.
+
+**And it kills the pessimistic reading outright.** From this N = 7 base there
+are at least four routes to a compliant six-mirror layout — any of the three
+retains, plus M5's delete. So "N = 6 cannot be built" is simply false; the
+question was always *which removal*, and the answer is available by
+measurement in seconds because the closure is algebra.
+
 **The mechanism is in the model, checked.** `stations_` alternates the fold
 direction once per ELEMENT regardless of that element's power, so a retained
 flat does set the parity and a deleted one does flip it — the closure is not
