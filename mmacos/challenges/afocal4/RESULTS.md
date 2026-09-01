@@ -2900,3 +2900,42 @@ beats** (1.245 % vs 1.682 %), so the comparison is not being bought with
 magnification. The full requirement set and the realizability gates are run on
 the winning deck separately; this row is the wavefront-only floor and is
 labelled as one.
+
+### O.7e The isolation table, and a reporting weakness found while reading it
+
+| N | h = 0 control | h = 0.55 floor | best round seen | off-axis gain |
+|---|---|---|---|---|
+| 4 | 4497.7 (= § D.3) | **2846.9** | 2846.9 | **1.58×** |
+| 5 | 8077.4 (= § D.3) | 3847.1 | *3275.1* | **2.10×** (2.47× at best round) |
+| 7 | 3424.2 (= § D.3) | *pending* | | |
+
+**Every measured arm improves off axis**, and the two whose controls reproduce
+§ D.3 exactly improve by 1.58× and 2.10×.
+
+**The weakness, found by reading the N = 5 rounds rather than the summary.**
+Round 1 reached 3275.1 nm and round 2 came back at 3847.1 — *worse* — and the
+runner reports the **last** round, so 3847.1 is what the table above carries.
+This is not a trace or sampling artifact: `lsqnonlin` monotonically decreases
+the **merit**, which is a sum of squared residuals over nine fields, while the
+quoted number is the **max** over those fields. A round can lower the sum and
+raise the max, and that is exactly what happened.
+
+Three things follow, and the first is the one that matters:
+
+1. **The comparison is unaffected.** `run_descent_wfe` — which produced § D.3's
+   recorded floors — has the identical round structure, and my controls
+   reproduce those floors to the decimal. Both columns are subject to the same
+   effect, so the ratios stand.
+2. **The off-axis case is understated, not overstated.** N = 5's best observed
+   is 3275.1 and its reported floor is 3847.1; N = 4's rounds improved
+   monotonically so its 2846.9 is both. Correcting the reporting would widen
+   the off-axis gains, not narrow them.
+3. **A max-metric optimised through a sum-of-squares merit is not guaranteed to
+   descend.** Worth carrying: it is a property of every solve in this arc, not
+   of this stage, and it is the reason "the floor" should be read as *the last
+   iterate of a merit-descending sequence* rather than as a minimum of the
+   quoted quantity.
+
+Both values are given above so neither reading is hidden. The best-round column
+is *italic* to mark that it is an observation from the round log and not the
+runner's own reported floor.
