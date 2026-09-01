@@ -82,7 +82,8 @@ function S = offaxis_seed(P, form, opts)
 %     'f1'     primary focal length, m (default 2.5 -- P.D/2/f1 = f/2.5,
 %              the committed study's own front-end speed class).
 %     'h'      pupil decenter, m (default: DEFAULT_H_, the clearing value).
-%     'iface'  interface standoff, m (default P.iface).
+%     'iface'  interface standoff, m (default 343 mm -- the operating point
+%              the coaxial comparators use, NOT P.iface; see the note below).
 %     'tail_R' radius magnitudes for the mirrors past the Mersenne pair
 %              (default: a mild concave/convex alternation scaled off f1;
 %              only the FREE ones matter, the closure sets the last two).
@@ -113,7 +114,18 @@ function S = offaxis_seed(P, form, opts)
     if isnan(h), h = default_h_(P, f2); end
 
     iface = opts.iface;
-    if isnan(iface), iface = getf_(P, 'iface', 0.343); end
+    if isnan(iface), iface = 0.343; end
+    % THE DEFAULT IS 343 mm AND DELIBERATELY NOT P.iface, WHICH IS 140.  The
+    % coaxial comparators every off-axis number is set beside -- the committed
+    % four-mirror deck and all three descent ascent rungs -- carry iface =
+    % 0.3430 m, recovered from the decks themselves; P.iface is a 140 mm
+    % default that no design in the comparison actually uses.  The distinction
+    % is NOT cosmetic: section D.4 measures the same A/B at 4 % on the 140 mm
+    % point and a factor of 2.7 on the 343 mm one, and section O.6f measures
+    % the standoff moving a bare Mersenne's rung 2 by 10-18 % (while moving
+    % its rung 3 by under 1 %, which is what identifies the difference as pure
+    % defocus).  The section O.6 sweep was generated before this was caught and
+    % is recorded at 140 mm with its corrected 343 mm figures beside it.
 
     N = opts.N;
     if N < 2
