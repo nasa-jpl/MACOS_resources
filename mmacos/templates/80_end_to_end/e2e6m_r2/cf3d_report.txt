@@ -1,0 +1,28 @@
+==== e2e6m CF3d -- deep dig, d=1.10 m apl (restart ladder) 2026-08-31 17:05:00
+chain seg_d110_p_h280_L090_c098 | dz 2756 px | niter 20 | alphas 1e-08..1e-02 | budget 6.0 h
+[round 1] 1.215e-06 -> 1.068e-06 | alpha 1.0e-02 | stroke 5.5 nm | la(G) 2.205e-13 | 0.6 min
+[round 2] 1.068e-06 -> 7.462e-07 | alpha 1.0e-02 | stroke 16.4 nm | la(G) 8.762e-13 | 25.0 min
+[round 3] 7.462e-07 -> 1.814e-07 | alpha 1.0e-02 | stroke 20.1 nm | la(G) 3.842e-11 | 26.2 min
+[round 4] 1.814e-07 -> 5.413e-08 | alpha 1.0e-02 | stroke 22.5 nm | la(G) 2.481e-11 | 24.0 min
+[round 5] 5.413e-08 -> 1.527e-08 | alpha 1.0e-03 | stroke 26.3 nm | la(G) 3.038e-11 | 24.2 min
+[round 6] 1.527e-08 -> 7.177e-09 | alpha 1.0e-03 | stroke 28.2 nm | la(G) 2.587e-11 | 23.9 min
+[round 7] 7.177e-09 -> 3.767e-09 | alpha 1.0e-02 | stroke 29.5 nm | la(G) 2.038e-11 | 25.7 min
+[round 8] 3.767e-09 -> 3.666e-09 | alpha 1.0e-02 | stroke 29.6 nm | la(G) 3.421e-11 | 26.3 min
+CONVERGED: <3% over the last round -- floor 3.666e-09
+CF3d DONE in 2.9 h: 1.215e-06 -> 3.666e-09 over 8 rounds (lin-ach 3.421e-11)
+==== e2e6m CF3d -- deep dig, d=1.10 m apl (restart ladder) 2026-08-31 20:01:40
+chain seg_d110_p_h280_L090_c098 | dz 2756 px | niter 20 | alphas 1e-08..1e-02 | budget 9.0 h
+RESUMED at round 9 (last floor 3.666e-09)
+[round 9] 3.666e-09 -> 1.405e-09 | alpha 1.0e-04 | stroke 32.4 nm | la(G) 3.310e-11 | 25.7 min
+[round 10] 1.405e-09 -> 1.133e-09 | alpha 1.0e-02 | stroke 32.8 nm | la(G) 2.108e-11 | 25.0 min
+==== e2e6m CF3d -- deep dig, d=1.10 m apl (restart ladder) 2026-08-31 21:18:14
+chain seg_d110_p_h280_L090_c098 | dz 2756 px | niter 30 | alphas 1e-10..1e-02 | budget 7.5 h
+RESUMED at round 11 (last floor 1.133e-09)
+[round 11] NO ACCEPTED STEP (line search exhausted at 1.133e-09)
+[round 11] 1.133e-09 -> 1.133e-09 | alpha NaN | stroke 32.8 nm | la(G) 3.521e-11 | 0.2 min
+[round 12] NO ACCEPTED STEP (line search exhausted at 1.133e-09)
+[round 12] 1.133e-09 -> 1.133e-09 | alpha NaN | stroke 32.8 nm | la(G) 3.521e-11 | 23.2 min
+[round 13] NO ACCEPTED STEP (line search exhausted at 1.133e-09)
+[round 13] 1.133e-09 -> 1.133e-09 | alpha NaN | stroke 32.8 nm | la(G) 3.521e-11 | 23.4 min
+CONVERGED: <3% over two consecutive rounds -- floor 1.133e-09
+CF3d DONE in 0.8 h: 1.215e-06 -> 1.133e-09 over 13 rounds (lin-ach 3.521e-11)

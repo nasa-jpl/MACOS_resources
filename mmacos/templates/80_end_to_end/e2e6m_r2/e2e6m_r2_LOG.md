@@ -830,3 +830,59 @@ point" (the gate + Lyot stall + spacing inversion, cf3b figure) and
 figure) — and the loop slide gains the toned-series finding.  §5
 style gate: run, one fix (a doubled word in the gate bullet); the
 kicker still carries the DRAFT marker — Dave's sign-off pass pending.
+
+## 2026-08-31 — CF3d: the restart ladder digs d=1.10 three decades (Dave's recipe, measured)
+
+Dave's ask on the R4/S5 slide: "most solutions use multiple EFC
+resets... rinse and repeat. Can we try that?" — then, mid-run: "keep
+going to try to get below 5e-11 — that's HWO target level.  But no
+more than 9 hours more."  CF3d is that ladder, on the spacing study's
+best linear substrate: the d=1.10 m two-DM apl leg (L=0.90, c098,
+cf3b's decks + cached round-1 G), each round = relinearize about the
+dug state, then EFC with a widened Tikhonov schedule.
+
+RESULT (cf3d_report.txt, cf3d_run.mat, cf3d_dig.png): **1.215e-6 →
+1.133e-9 — three decades, >1000x, in 10 digging rounds / 4.6 h of
+unattended engine time**, DM strokes ending at 32.8 nm rms of the
+50 nm bound.  Phase 1 (niter 20, alphas 1e-8..1e-2) walked 8 rounds
+to 3.666e-9 in 2.9 h; the extension (Dave's 5e-11 target armed,
+budget 9 h) took rounds 9–10 to 1.133e-9; rounds 11–13 accepted NO
+step at any alpha down to 1e-10 with niter 30 — the plateau is
+proven, not assumed (two fresh G measurements at the unchanged state
+agree to 4 digits: la(G) 3.521e-11 both times).
+
+ATTRIBUTION — the plateau is the CONTROLLER, still: the relinearized
+substrate holds la(G) = 2.0–3.8e-11 at every dug state, so ~1.5
+decades to the HWO-class 5e-11 remain priced-in and unclaimed.  What
+the ladder removed was the single-linearization stall (9.0e-7 at this
+spacing in cf3b — four decades above bound); what remains is the
+monotone full-Tikhonov step rule itself (steps that must never
+increase contrast, full-basis, single alpha per round).  This is the
+measured case for FALCO-grade step machinery (beta-bumping,
+constrained strokes, per-mode regularization) on this same model —
+queued post-demo.
+
+BOUND-OPTIMISM TRAJECTORY, now measured rather than argued: la(G)
+claims 2.2e-13 at the FLAT state (round 1) and 8.8e-13 at round 2 —
+fantasy numbers, far below anything reachable — then settles at
+2–4e-11 once the state is dug and the linearization is honest.
+CF3b's "bound optimism grows with spacing" lesson is the same
+phenomenon; the ladder shows it as a trajectory within one config.
+
+Mechanization lessons (write-at-resolution): (1) `lib.efc` returns
+EMPTY alpha when the line search accepts nothing — the first plateau
+crashed the driver at `alph(end)`; guarded (log NO ACCEPTED STEP,
+alpha=NaN) so a stall is a recorded observation, not a crash.
+(2) The resume path resets r0, so the two-stall convergence rule
+costs two fresh ~23-min G measurements at an unchanged state before
+it fires; correct but slow — a resumed run could seed `stall` from
+the checkpoint's trailing no-step rounds.  (3) The r11 G cache
+survived the crash, so its round cost 0.2 min — the fp.json-keyed
+Jacobian caching pays off exactly here.
+
+Deck fold (Dave pre-authorized "redo the e2e6m_r2 reports and the
+deck_keysight* decks"): new slide after the drift-series slide —
+"Digging the dark hole: the overnight restart ladder" (cf3d_dig.png
+as fig_cf3d_ladder.png); the drift slide's honest-gap bullet now
+scopes its 2.5e-7 hold as the loop mechanization's, pointing forward;
+the closing slide's restart-ladder claim quantified 1.2e-6 → 1.1e-9.
