@@ -3119,6 +3119,32 @@ price" is quoted in the arc as a single number and is in fact two.
 **The number a reader should take away from the coaxial column: with every
 requirement scored, four mirrors reach 9176.1 nm, 129× the 71 nm target.**
 
+### O.8b The coaxial pupil baseline, all three N — and the price is strongly N-dependent
+
+| N | wavefront only | **full requirement set** | × target | pupil price |
+|---|---|---|---|---|
+| 4 | 4497.7 | 9176.1 | 129× | **2.04×** |
+| 5 | 8077.4 | 10182.4 | 143× | **1.26×** |
+| 7 | 3424.2 | 7763.5 | 109× | **2.27×** |
+
+Two things worth carrying out of this table, both new:
+
+1. **The best coaxial design under the FULL requirement set is N = 7 at
+   7763.5 nm, 109× target.** The arc's headline coaxial figure, 48×, is a
+   wavefront-only number; with the pupil ladder scored the same design is
+   109×. Quote whichever is meant, but not one for the other.
+2. **The pupil price is not a constant of the problem** — 1.26× at N = 5
+   against 2.27× at N = 7, an 80 % spread across mirror count. § D.4 already
+   established it is operating-point specific (4 % at 140 mm, 2.7× at 343 mm);
+   it is *mirror-count* specific too. There is no single "what the pupil
+   requirement costs" in this study.
+
+Note also that N = 5 barely moved under the full set (5.5 % below its start,
+and round 2 came back **worse** than round 1 — the § O.7e effect again, a max
+metric optimised through a sum-of-squares merit). N = 7 moved 1.7 %. The full
+requirement set is a much harder problem for the solver than the wavefront
+alone, which is the honest reading of those small descents.
+
 ### O.7i The re-seeding control — it does not suffice, and the sharpest form of that is a matched-badness pair
 
 The coaxial multi-start (§ O.7h's outstanding control) finished. Three starts
