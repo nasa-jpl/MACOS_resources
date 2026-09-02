@@ -2134,6 +2134,38 @@ compliant six-mirror layout.
     the study. Bounds are stated in the study's own unit — multiples of the
     M1–M2 spacing, the way the packaging record measures depth.
 
+39. **Freedom flows to the unscored quantity — score the full set, or the gain
+    is an artifact.**
+    Whenever a solve is given a new degree of freedom and a merit that ignores
+    part of the specification, the freedom goes into the part being ignored,
+    and the reported number improves for a reason that will not survive.
+    Measured **three independent ways in this stage**, each of which looked
+    like a different problem at the time:
+
+    * **Magnification.** The wavefront-only off-axis winner carried **1.36 %**
+      scored M error against its control's 0.23 %, and § O.7f warned the gain
+      was bought with it. Scoring M did not shrink the gain — the M error fell
+      to **0.31 %**, *better than the control*, and the wavefront advantage
+      **grew from 1.58× to 3.09×**. The solver had been spending M because
+      nothing stopped it.
+    * **The pupil ladder itself.** § D.3's headline coaxial figure, **48×** at
+      N = 7, is a wavefront-only number. The same design under the full
+      requirement set is **109×** (§ O.8b). The freedom the dropped pupil
+      terms released went straight into the terms that were dropped.
+    * **A sign reversal.** N = 7 *degrades* off axis on the wavefront-only
+      merit (3424.2 → 4545.5) and *improves* off axis under full scoring
+      (7763.5 → 5633.5, § O.7j). The same design change is a loss or a gain
+      depending only on what is being scored.
+
+    *Alternative rejected:* scoring a reduced set "to isolate the physics".
+    That is exactly what § O.7 did, deliberately and correctly — the isolation
+    experiment needed one variable — and the reduced-set numbers were still
+    **the wrong ones to quote**. The rule is not "never optimise a subset";
+    it is that a subset-optimised number is a diagnostic and never a result,
+    and the two must not be quoted for each other. This stage nearly did:
+    § O.7d's verdict stood for three hours on a number that the full scoring
+    later moved by 3×.
+
 ## D.7 Open, and for Dave
 
 **The requirement set is not reachable by mirror count in this family, so the
@@ -3296,3 +3328,79 @@ If that holds when the arm completes, then:
 That is a simpler and stronger claim than "the sign depends on N", and it is
 **pending, not established** — it rests on one round-1 number. The N = 7 pupil
 floor decides it.
+
+---
+
+# § OFFAXIS WRAP — the four-count full-scoring table
+
+*Written 2026-09-01 for the morning. Everything below is measured; cells marked
+`pending` were still solving at the time of writing and are filled in place
+when they land. **Read this section alone if you read nothing else.***
+
+## THE TABLE — every requirement scored, 343 mm standoff, nine-field box
+
+| mirrors | coaxial (h = 0) | **off axis (h = 0.55)** | off-axis gain |
+|---|---|---|---|
+| **4** | 9176.1 nm — **129×** | **2967.4 nm — 42×** | **3.09×** |
+| **5** | 10182.4 nm — **143×** | **3771.5 nm — 53×** | **2.70×** |
+| **6** | *pending* | *pending* | *pending* |
+| **7** | 7763.5 nm — **109×** | *pending (5633.5 at round 1 → 1.38×)* | *pending* |
+
+**The one-line answer: an off-axis FOUR-mirror design reaches 42× the 71 nm
+target, where the best COAXIAL design in the study — at SEVEN mirrors —
+reaches 109×.** That is **2.62× better on three fewer mirrors**, with every
+requirement scored including magnification.
+
+**The target is still missed by 42×.** Nothing in this study reaches 71 nm.
+What changed is which lever matters.
+
+## THE THREE THINGS TO SAY ABOUT IT
+
+1. **The pupil location is a bigger lever than mirror count, and the arc had
+   never varied it.** The descent measured mirror count: three extra mirrors
+   bought **11 %**. A pupil decenter buys **2.7–3.1× at fixed mirror count**.
+2. **The gain is real, not solver noise, and not bought with magnification.**
+   Three independent controls: ordered **dose-responses** in decenter
+   magnitude (§ O.7h), a random-perturbation control that **cannot reach it**
+   at any jitter tried (§ O.7i), and full scoring in which the magnification
+   error **improves** while the wavefront gain **grows** (§ O.8c).
+3. **The costs are real and are not in the wavefront table.** The primary must
+   be cut from a parent **2.15 m across for a 1 m beam** (§ O.6e), chief AOI
+   rises 3.6° to 14.2° against a 15° rule, and the packaging parity law
+   (§ O.4) constrains which mirror counts can be packaged at all.
+
+## WHAT IS SOLID vs WHAT IS PROVISIONAL
+
+**Solid — measured, controlled, reproducible:**
+
+* **Four of four** `h = 0` controls reproduce § D.3 **to the decimal**
+  (N = 4/5/6/7 → 4497.7 / 8077.4 / 5689.0 / 3424.2), including the
+  non-monotonic N = 5 rung and § D.3's best-in-study N = 7.
+* The full-scoring gains at N = 4 and N = 5 (3.09×, 2.70×).
+* The dose-response and re-seeding controls.
+* The **field-curvature decomposition** (§ O.6b): 60–99.7 % of every design's
+  wavefront variance is power, θ² law confirmed at 5.11 measured vs 5.90
+  predicted, and exactly **0.00 nm on axis** for a Mersenne pair.
+
+**Provisional — labelled as such in place:**
+
+* N = 7 and N = 6 under full scoring (solving).
+* Any *mechanism* for why the decenter helps. Three explanations have been
+  offered and **all three were falsified or scope-corrected** — stop-shift
+  invariance (§ O.7b, mis-scoped by me), the mirror-count crossover (§ O.7h,
+  killed by N = 6), and Petzval balancing via a mixed Cassegrain/Gregorian
+  pair (§ O.6c, refuted with its confound named). **The effect is measured;
+  the reason is not known.**
+
+## IF ASKED WHAT IT MEANS FOR THE SPEC
+
+The étendue is not the obstacle — H = 2.18e-3 m·rad, ~4363 resolvable points
+per dimension, and 71 nm at 1 µm is λ/14.1 rms, Maréchal-class. LSST's
+invariant is **59× larger** and is met with three mirrors plus correctors
+(§ O.6d). What is unusual is the *combination*: all-reflective, afocal at 30×,
+with the exit pupil at a specified standoff — and the 30× forces a small,
+strongly curved final mirror that dominates the curvature sum (§ O.6c).
+
+**The honest position: the spec is not met, by 42×, and the study now has a
+lever it had not tried. Whether that closes the remaining factor is unknown,
+and this stage does not claim it does.**
