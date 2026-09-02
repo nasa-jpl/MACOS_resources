@@ -3432,3 +3432,35 @@ falsified § O.7h story wanted but on the correct side of zero.
 This is the third and cleanest instance of **rule 39**: the wavefront-only arm
 did not merely understate the off-axis gain at N = 7, it **reported its sign
 backwards**.
+
+## O.7k The full wavefront-only sweep, all four counts — the OPTIMAL decenter shifts with N
+
+N = 6's sweep completed, giving all twelve wavefront-only cells:
+
+| N | h = 0 | h = 0.55 | h = 1.00 | best at |
+|---|---|---|---|---|
+| 4 | 4497.7 | 2846.9 | **2180.7** | h ≥ 1.00 |
+| 5 | 8077.4 | 3847.1 | **3830.2** | h ≈ 0.55–1.00 (flat) |
+| 6 | 5689.0 | **3079.7** | 3377.2 | h ≈ 0.55 |
+| 7 | **3424.2** | 4545.5 | 9668.8 | h = 0 |
+
+**The optimal decenter decreases monotonically with mirror count** — ≥1.00,
+~0.55–1.00, ~0.55, 0 — across four counts. That is a cleaner ordering than any
+of the single-column comparisons, and it was not visible until the fourth count
+was run.
+
+**Read this as a diagnostic, per rule 39.** These are wavefront-only numbers,
+and § O.8e showed the wavefront-only merit reports N = 7's off-axis *sign*
+backwards. So the h = 0 entry for N = 7 in the "best at" column is an artifact
+of this arm, not a property of the design: under full scoring N = 7 prefers
+h = 0.55 like the others. The **trend** — more mirrors, less decenter wanted —
+survives that correction in direction if not in its endpoint, because the
+full-scoring gains fall in the same order (3.09×, 2.70×, ?, 1.43×).
+
+**What it suggests, stated as a hypothesis and not a finding:** mirror count
+and pupil decenter are **substitutes** — two ways of buying the same
+correction freedom — so a design with fewer mirrors wants more decenter and
+vice versa. That is testable (it predicts the N = 6 full-scoring gain lands
+between N = 5's 2.70× and N = 7's 1.43×) and the N = 6 pupil arm now running
+is the test. **No mechanism is claimed**; three mechanism stories have already
+been falsified in this stage (§ O.6c, § O.7b, § O.7h).
