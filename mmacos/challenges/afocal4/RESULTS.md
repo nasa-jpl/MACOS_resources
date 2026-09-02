@@ -3118,3 +3118,51 @@ price" is quoted in the arc as a single number and is in fact two.
 
 **The number a reader should take away from the coaxial column: with every
 requirement scored, four mirrors reach 9176.1 nm, 129× the 71 nm target.**
+
+### O.7i The re-seeding control — it does not suffice, and the sharpest form of that is a matched-badness pair
+
+The coaxial multi-start (§ O.7h's outstanding control) finished. Three starts
+jittered by σ = 3 % on the free radii and spacings, solved at h = 0 with the
+identical machinery:
+
+| start | start WFE (nm) | floor (nm) | × target | traced M |
+|---|---|---|---|---|
+| J0 unjittered reference | 10407.0 | **4497.7** | 63× | 29.7336 |
+| J1 | 9197.2 | 4872.6 | 69× | 29.7225 |
+| J2 | 999404.0 | 346227.0 | 4876× | **21.05** |
+| J3 | 32643.6 | 32643.6 | 460× | 30.1598 |
+
+**No coaxial jitter came near the off-axis result.** Best jittered floor
+4872.6 nm, against off-axis floors of 2846.9 (h = 0.55) and **2180.7**
+(h = 1.00). The best jitter is *worse* than the unjittered reference it
+perturbs.
+
+**The sharpest form of the argument is a matched-badness pair**, and it is
+sharper than the range comparison because it removes "the off-axis start was
+simply better" as an explanation — it wasn't:
+
+| start | start WFE | floor | what happened |
+|---|---|---|---|
+| J3, coaxial jitter | 32643.6 | **32643.6** | solver never moved it |
+| N = 4, h = 1.00 decenter | 53658.7 | **2180.7** | descended 95.9 % |
+
+**The decentered start is nearly twice as bad and floors fifteen times
+lower.** A decenter is therefore not "a perturbation that happens to help": it
+is a perturbation *into a basin the solver can work in*, which a random kick of
+comparable or larger size is not.
+
+**The control's own weakness, stated.** σ = 3 % on radii and spacings turned
+out to be a **coarse** kick for this design, not a gentle re-seed — J2 diverged
+outright (M = 21.05, not a telescope) and J3 was left stuck at its start. So
+this control demonstrates that *coarse* random perturbation does not reproduce
+the off-axis gain; it does not sample the small-perturbation regime, and a
+finer jitter series would be the stronger version of the experiment. That said,
+the matched-badness pair above is drawn from precisely the regime where the
+comparison is fair, and it is unambiguous.
+
+**Verdict, combining § O.7h and this.** Two independent lines now say the same
+thing: three ordered dose-responses whose sign is set by mirror count, and a
+random-perturbation control that cannot reach the result at any jitter tried.
+**The pupil decenter is a real design variable, not solver noise.** What
+remains open is only the § O.7f attribution — whether its benefit survives
+scoring M — which § O.8 is measuring.
