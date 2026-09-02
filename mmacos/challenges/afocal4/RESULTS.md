@@ -3083,3 +3083,38 @@ running N = 6, which was not done.**
 this table comes from an arm where M is unscored, and the winner carried 6× its
 control's M error at h = 0.55. The pupil ladder — which scores M — started at
 17:22 on all three N and is the deciding measurement on attribution.
+
+## O.8 The pupil ladder — the deciding arm on attribution
+
+§ O.7f established that every number in § O.7 comes from an arm where **M is
+unscored**, and that the h = 0.55 winner carried 6× its control's magnification
+error. This arm scores the full requirement set, so the comparison is honest.
+
+### O.8a The coaxial control first — and a refinement to § D.4's pupil price
+
+| N = 4 coaxial, same start (10407.0), same DOFs incl. tilt | floor | × target |
+|---|---|---|
+| wavefront only (§ O.7 control, = § D.3) | 4497.7 | 63× |
+| **full requirement set** | **9176.1** | **129×** |
+
+**The pupil price at N = 4 coaxial is 2.04×**, measured floor-against-floor.
+
+§ D.4 records this price as **2.7×**, from 10407 → 3842. The difference is not
+a disagreement about the physics — it is that the two ratios compare different
+things, and it is worth writing down which:
+
+* § D.4's pupil-scored point is the **committed deck as delivered** (10407),
+  not a re-converged one. Re-solving the full set from that deck with two
+  rounds and ~850 evaluations reaches **9176.1**, so the committed deck was
+  **11.8 % short of its own converged full-set floor**.
+* § D.4's wavefront point is the **no-tilt** floor (3842); the matched-DOF
+  wavefront floor is 4497.7.
+
+Both differences inflate the ratio, and together they account for 2.7 against
+2.04. **§ D.4's number is a fair statement of what the delivered design cost;
+2.04× is what the requirement costs a converged design.** Neither supersedes
+the other so long as each says which it is — recorded here because "the pupil
+price" is quoted in the arc as a single number and is in fact two.
+
+**The number a reader should take away from the coaxial column: with every
+requirement scored, four mirrors reach 9176.1 nm, 129× the 71 nm target.**
