@@ -69,3 +69,10 @@ mmacos/tests/proper_compare/results/phase*/
 # broad `git add` (same hazard class as the pymacos/tests entry above).
 mmacos/templates/80_end_to_end/e2e.zip
 *.zip
+# Raw solver/run logs are REPRODUCIBLE and can reach 50+ MB (the afocal4
+# wall slice pushed three past GitHub's warning line, 2026-09-01).  The
+# record's distillate is the committed *_report.txt / RESULTS.md files;
+# raw .log stdout stays local.  Force-add (-f) a specific log only on
+# Dave's word.  Already-tracked small logs are unaffected (gitignore
+# never touches tracked files).
+*.log
