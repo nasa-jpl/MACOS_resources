@@ -3192,3 +3192,49 @@ random-perturbation control that cannot reach the result at any jitter tried.
 **The pupil decenter is a real design variable, not solver noise.** What
 remains open is only the § O.7f attribution — whether its benefit survives
 scoring M — which § O.8 is measuring.
+
+### O.8c THE ATTRIBUTION IS SETTLED — the off-axis gain SURVIVES scoring M, and grows
+
+The N = 4 pupil-ladder arm completed. Every requirement scored, including
+magnification:
+
+| N = 4, FULL requirement set | start | floor | × target | **M error** |
+|---|---|---|---|---|
+| h = 0 coaxial | 10407.0 | 9176.1 | 129× | 0.79 % |
+| **h = 0.55 off axis** | 22365.5 | **2967.4** | **42×** | **0.31 %** |
+
+**3.09× better off axis — larger than the 1.58× the wavefront-only arm
+showed** — and against the best coaxial design in the study under the same
+full scoring (N = 7, 7763.5 nm, 109×), it is **2.62× better with three fewer
+mirrors**.
+
+**§ O.7f is closed, and it closed the opposite way to the worry.** That section
+found the wavefront-only winner carrying 1.36 % scored M error against its
+control's 0.23 %, and warned the gain might be bought with magnification. With
+M actually scored:
+
+* the off-axis design's M error **falls to 0.31 %** — it is now **better on M
+  than its own coaxial control** (0.79 %), the reverse of the wavefront-only
+  arm;
+* and the wavefront advantage **grows**, from 1.58× to 3.09×.
+
+So the magnification error in § O.7f was **the solver spending an unscored
+quantity because nothing stopped it**, not a hidden cost of going off axis.
+Score it, and the solver keeps M *and* delivers a bigger wavefront gain. This
+is the cleanest possible answer to the question the arm was built to ask, and
+it is worth noting it could have gone the other way: the same experiment would
+have shown the gain collapsing if the cheat had been load-bearing.
+
+**Where this leaves the study's headline numbers**, all under the full
+requirement set at the 343 mm standoff:
+
+| design | mirrors | WFE (nm) | × target |
+|---|---|---|---|
+| best coaxial (N = 7) | 7 | 7763.5 | 109× |
+| best coaxial (N = 4) | 4 | 9176.1 | 129× |
+| **off-axis N = 4, h = 0.55** | **4** | **2967.4** | **42×** |
+
+**The requirement set is still missed by 42×.** Nothing here reaches 71 nm.
+What has changed is the *shape* of the problem: the descent measured mirror
+count as the lever and found it worth 11 %; the pupil location is worth 3.09×
+at fixed mirror count, and is a variable the arc had never varied.
