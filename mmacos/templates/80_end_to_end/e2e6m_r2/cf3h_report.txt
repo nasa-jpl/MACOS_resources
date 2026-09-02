@@ -1,0 +1,38 @@
+==== e2e6m CF3h -- feather-sigma pareto (Mac arms) 2026-09-01 21:55:11
+sigma |  thru | floor(c_end) |   la@50nm  |    laU     | strk_nm | strkU_nm | rounds
+   1.0 | 0.636 |    8.808e-05 |  4.247e-09 |  8.358e-11 |     6.2 |   2506.3 |      3
+   3.0 | 0.587 |    1.093e-05 |  3.310e-10 |  2.422e-12 |   503.6 |    873.1 |      9
+   4.0 | 0.571 |    7.134e-06 |  7.886e-07 |  5.816e-11 |    74.2 |   4293.9 |      9
+
+---- CONSOLIDATED PARETO (final, annotated by CC 2026-09-02) ----
+sigma |  thru | floor(c_end) |   la@50nm  |    laU     | strk_nm | strkU_nm | rounds | status
+  1.0 | 0.636 |   8.808e-05  |  4.247e-09 |  8.358e-11 |    6.2  |  2506.3  |    3   | CONVERGED (1-px feather too soft to open a deep zone)
+  2.0 | 0.607 |  [3.7e-06]   |     --     |     --     |    --   |    --    |   --   | LINUX arm, still digging; Mac gate static = 9.976e-05
+  3.0 | 0.587 |   1.093e-05  |  4.474e-10 |  2.374e-12 |   503.6 |   832.9  |   12   | CONVERGED (resumed to r12; floor unchanged from r9)
+  4.0 | 0.571 |   7.134e-06  |  7.886e-07 |  5.816e-11 |    74.2 |  4293.9  |    9   | WALL-LIMITED @2h, STILL DESCENDING (r9: 1.49e-5 -> 7.13e-6)
+
+  corners (Linux, for context):
+    prolate    thru 0.091   floor 1.13e-09   (cf3d)
+    bare stop  thru 0.745   floor 4.48e-06   (cf3e)
+
+NOTES (CC 2026-09-02):
+- Throughput is monotone-decreasing in sigma (0.636 / 0.607 / 0.587 / 0.571
+  for sigma 1/2/3/4): a wider Gaussian feather blocks more light.  This is
+  the clean price axis of the trade.
+- The DUG floors (c_end) are NOT directly comparable across arms -- each
+  stopped in a different state: sigma1 CONVERGED shallow, sigma3 CONVERGED
+  at 1.09e-5, sigma4 was WALL-LIMITED and still dropping fast at the 2 h
+  cut, sigma2 is the Linux arm mid-dig.  sigma4 is the arm most worth more
+  wall (its last round nearly halved the floor).
+- la@50 / laU are per-round SVD quantities measured at the CURRENT dug
+  state, so they move with the state (easy modes get spent as the dig
+  deepens) -- read them as each feather's achievable-depth character, not a
+  fixed floor.
+- Headline trade: the feathers recover ~6-7x the prolate's throughput
+  (0.57-0.64 vs 0.091) but their dug contrast sits between the bare stop
+  (4.48e-6) and the prolate (1.13e-9), not at the prolate.  The prolate
+  still owns deep contrast; the feather buys most of the light back at a
+  contrast cost.
+- GATE: sigma=2 reproduced the committed cf3f header to every digit
+  (tag seg_d110_f20_h280_L090_c098, THRU 0.607, round-1 static 9.976e-05)
+  -- the Mac diffraction chain is validated for this configuration.
