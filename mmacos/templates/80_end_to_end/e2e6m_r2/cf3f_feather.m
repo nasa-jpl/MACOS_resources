@@ -30,6 +30,8 @@ function OUT = cf3f_feather(over)
     if ~isfield(c3,'niter'),      c3.niter = 20; end
     if ~isfield(c3,'alphas'),     c3.alphas = logspace(-10,-2,9); end
     if ~isfield(c3,'target'),     c3.target = 5e-11; end
+    if ~isfield(c3,'bump_alphas'), c3.bump_alphas = [1e-4 1e-6]; end
+    if ~isfield(c3,'bump_nrec'),   c3.bump_nrec = 8; end
     addpath(fullfile(here,'..','..','30_instruments','bench_ctb'));
     lib = cf_efc_lib();
 
@@ -124,7 +126,7 @@ function OUT = cf3f_feather(over)
         else
             logf_(rep, '[round %d PUSH] no gain at targets %s nm', r, mat2str(ptargets));
             % beta bump (Dave): accept a worse aggressive step, recover
-            [a, binfo] = lib.bump(ch, dm, G, a, dz_idx, [1e-4 1e-6], 8, c3.alphas);
+            [a, binfo] = lib.bump(ch, dm, G, a, dz_idx, c3.bump_alphas, c3.bump_nrec, c3.alphas);
             if binfo.c1 < binfo.c0
                 logf_(rep, '[round %d BUMP] %.3e -> kick %.3e -> %.3e | alpha_b %.0e', ...
                       r, binfo.c0, binfo.c_kick, binfo.c1, binfo.alpha_bump);
