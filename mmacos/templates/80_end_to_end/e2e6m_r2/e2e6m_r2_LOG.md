@@ -1005,3 +1005,21 @@ bare is a 4000× gap no remedy closed.
 CF3f (feather σ=2, thru 0.607) runs overnight with the bump armed;
 last state 1.583e-5 at round 12 and still descending.  Three-way
 table + figure + the trade verdict follow when it closes.
+
+## 2026-09-02 — CF3f CLOSED: the three-way apodizer pareto, complete
+
+Feather σ=2 converged at **9.527e-7 over 22 rounds** (la@50 5.7e-9,
+laU 1.155e-11 @ 6.3 µm, strokes 94.6 nm — the push/bump leg carried it
+well past both siblings' stall behavior).  THE TABLE (d=1.10, hard
+occulter, L=0.90, c098 stop, 50 nm la convention):
+
+  arm          thru    floor      la@50     laU (stroke)
+  prolate      0.091   1.133e-9   3.5e-11   4.6e-14 @ 11.5 µm
+  feather σ2   0.607   9.527e-7   5.7e-9    1.2e-11 @ 6.3 µm
+  bare stop    0.745   4.480e-6   2.4e-8    4.4e-11 @ 5.4 µm
+
+Monotone pareto: each rung of edge control buys collectable floor at a
+throughput price; the SUBSTRATE (laU) is 1e-11-class everywhere — the
+apodizer's purchase is the stroke price and the collectability, never
+the substrate.  Feather-σ sweep (σ=1,3,4) running on CCMac's Mac
+(cf3h_s*; parity gate passed).  Demo-morning quotable set.
