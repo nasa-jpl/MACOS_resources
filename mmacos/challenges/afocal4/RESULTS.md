@@ -3234,6 +3234,23 @@ requirement set at the 343 mm standoff:
 | best coaxial (N = 4) | 4 | 9176.1 | 129× |
 | **off-axis N = 4, h = 0.55** | **4** | **2967.4** | **42×** |
 
+### O.8d N = 5 confirms it — two of three pupil arms, same direction
+
+| N | coaxial (full set) | off axis h = 0.55 | change |
+|---|---|---|---|
+| 4 | 9176.1 (129×) | **2967.4 (42×)** | **3.09× better** |
+| 5 | 10182.4 (143×) | **3771.5 (53×)** | **2.70× better** |
+| 7 | 7763.5 (109×) | *5633.5 at round 1* | *1.38× better, pending* |
+
+Both completed arms improve off axis under full scoring, by 3.09× and 2.70×.
+The wavefront-only arm gave 1.58× and 2.10× for the same two N — so **scoring
+the whole requirement set makes the off-axis advantage LARGER at both**, not
+smaller. That is the § O.8c finding reproduced on an independent mirror count.
+
+*(N = 5's traced M is 29.6258 against N = 4's 29.9069; the scored M error is
+the one that matters and is read from `descent_require`, not from this column.
+It is checked per quoted design in § O.6e's runner.)*
+
 **The requirement set is still missed by 42×.** Nothing here reaches 71 nm.
 What has changed is the *shape* of the problem: the descent measured mirror
 count as the lever and found it worth 11 %; the pupil location is worth 3.09×
