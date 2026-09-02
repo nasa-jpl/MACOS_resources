@@ -964,3 +964,44 @@ both loud).  Widened alphas from the start, target 5e-11, wall 6 h.
 Chain up: tag seg_d110_n_h280_L090_c098, **THRU 0.745 vs apl 0.091 —
 8.2x the throughput** is the prize if the DMs can do the gap work the
 prolate was buying.  Running detached (cf3e_report.txt).
+
+## 2026-09-01 — CF3e CLOSED: the unapodized d=1.10 ladder — the apodizer's purchase, measured three ways
+
+Dave's A/B ("launch the unapodized 1.10 run.  Make sure the circular
+pupil mask is in at the apodizer location") ran the CF3d ladder with
+apod_kind 'none', the c098 stop asserted present, L=0.90 held.
+**RESULT: 6.856e-5 → 4.480e-6 over 15 rounds (12 productive), thru
+0.745 — CONVERGED with every stall remedy exhausted.**  Against the
+prolate arm (1.133e-9 at thru 0.091): **the apodizer buys ~4000× of
+achieved contrast for 8.2× of light on this train.**
+
+Three controller escalations were built DURING this arm (Dave's
+directives), each answering the previous plateau:
+1. **Stroke limit released** ("release the stroke constraint!"):
+   there was no clamp — the ~48 nm saturation was the monotone line
+   search refusing large steps.  `lib.push` (truncated-SVD walk at a
+   target stroke, ~25 nm sub-steps, non-monotone inside, accept-reject
+   at the end) broke CF3f's round-5 stall (7.12→6.70e-5) and preceded
+   CF3e's best rounds (strokes 43→62 nm, floors -31%, -56%/round).
+2. **Beta bump** (Dave: "is this where beta bumping can help?"):
+   `lib.bump` — accept ONE aggressive low-alpha step even though
+   worse (mode starvation: gain s/(s²+α) never commands weak modes),
+   recover with 8 monotone iterations, round-level accept-reject.
+3. **The la sweep released for all** (`cf_la_sweep`): la at
+   50/100/200/500 nm + unbounded per cached round G.
+
+**The terminal plateau at 4.480e-6 survives ALL THREE** — fresh G
+(byte-identical la across rounds 11–15), push (125/249/499 nm), bump
+(1e-4/1e-6 kicks) — while la@50 claims 2.37e-8 and laU claims
+4.36e-11 @ 5.4 µm.  The bound's claim is not collectable by any step
+machinery we have: at this stroke regime (62 nm rms accumulated) the
+linear model's own validity is the wall.  The released-la table is
+where the trade's real content lives: the SUBSTRATE is
+apodizer-independent (4e-11-class everywhere) — **what the prolate
+buys is the stroke price of collecting it** (33 nm vs microns) —
+but the collectable-by-EFC floor is NOT: 1.1e-9 apodized vs 4.5e-6
+bare is a 4000× gap no remedy closed.
+
+CF3f (feather σ=2, thru 0.607) runs overnight with the bump armed;
+last state 1.583e-5 at round 12 and still descending.  Three-way
+table + figure + the trade verdict follow when it closes.
