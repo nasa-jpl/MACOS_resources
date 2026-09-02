@@ -1023,3 +1023,37 @@ throughput price; the SUBSTRATE (laU) is 1e-11-class everywhere — the
 apodizer's purchase is the stroke price and the collectability, never
 the substrate.  Feather-σ sweep (σ=1,3,4) running on CCMac's Mac
 (cf3h_s*; parity gate passed).  Demo-morning quotable set.
+
+## 2026-09-02 — CF3h: the feather-σ sweep closes (CCMac Mac arms + the Linux σ=2 anchor)
+
+CCMac's overnight assignment complete (their commits `8de7757` +
+`b91943a`, local on their fork pending merge).  All four arms
+converged; parity gate for cross-machine ranking PASSED before the
+sweep (σ=2 chain reproduced tag f20 / THRU 0.607 / static 9.976e-5
+byte-identical on the Mac), so the arms rank on one footing.
+
+| σ (px) | thru  | dug floor  | status                              | machine |
+|--------|-------|------------|-------------------------------------|---------|
+| 1      | 0.636 | 8.808e-5   | converged (too soft)                | Mac     |
+| 2      | 0.607 | 9.527e-7   | CONVERGED 22 rounds (CF3f)          | Linux   |
+| 3      | 0.587 | 1.093e-5   | converged (incl. parallel resume)   | Mac     |
+| 4      | 0.571 | 7.134e-6   | converged 12 rounds (r9 = last gain)| Mac     |
+
+σ=4 released diagnostics at convergence: la@50 1.416e-8, laU
+4.270e-11, strokes 74.2 / 4231.7 nm — the substrate stays
+1e-11-class, consistent with the apodizer-independence finding.
+
+**Finding — the sweep is PEAKED, not monotone.**  CCMac's Mac-only
+reading ("wider feather buys deeper contrast at less light") held
+among σ=1/3/4, but the completed σ=2 arm breaks it: 9.527e-7 is an
+ORDER OF MAGNITUDE deeper than σ=3 (1.09e-5) and σ=4 (7.13e-6) at
+HIGHER throughput (0.607 vs 0.587/0.571).  σ=2 is the interior
+optimum of this family — the sweet-spot flag in CCMac's report
+resolves in σ=2's favor now that it has converged.  (CCMac's table
+carried σ=2 as "[3.7e-6] still digging" — stale; the Linux arm
+closed at 00:17 with laU 1.155e-11 @ 6264 nm.)
+
+Three-way pareto update: the σ=2 feather remains the deployed
+feather point (prolate 0.091/1.13e-9 · feather σ2 0.607/9.53e-7 ·
+bare 0.745/4.48e-6); the sweep establishes it was not an arbitrary
+width choice but near the family's optimum.
