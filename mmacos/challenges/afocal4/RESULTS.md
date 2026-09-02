@@ -3343,13 +3343,18 @@ when they land. **Read this section alone if you read nothing else.***
 |---|---|---|---|
 | **4** | 9176.1 nm — **129×** | **2967.4 nm — 42×** | **3.09×** |
 | **5** | 10182.4 nm — **143×** | **3771.5 nm — 53×** | **2.70×** |
-| **6** | *pending* | *pending* | *pending* |
+| **6** | 8302.4 nm — **117×** | **2344.5 nm — 33×** ← best | **3.54×** ← largest |
 | **7** | 7763.5 nm — **109×** | **5440.9 nm — 77×** | **1.43×** |
 
-**The one-line answer: an off-axis FOUR-mirror design reaches 42× the 71 nm
-target, where the best COAXIAL design in the study — at SEVEN mirrors —
-reaches 109×.** That is **2.62× better on three fewer mirrors**, with every
-requirement scored including magnification.
+**The one-line answer: every mirror count improves off axis, by 1.4× to 3.5×,
+with every requirement scored including magnification.** Two framings, both
+true, pick by the question:
+
+* **Best design:** off-axis **six** mirrors at **2344.5 nm, 33×** — against
+  the best coaxial design in the study (seven mirrors, 109×), **3.31× better
+  on one fewer mirror**.
+* **Mirror economy:** off-axis **four** mirrors at **2967.4 nm, 42×** —
+  **2.62× better than the best coaxial, on three fewer mirrors.**
 
 **The target is still missed by 42×.** Nothing in this study reaches 71 nm.
 What changed is which lever matters.
@@ -3358,8 +3363,8 @@ What changed is which lever matters.
 
 1. **The pupil location is a bigger lever than mirror count, and the arc had
    never varied it.** The descent measured mirror count: three extra mirrors
-   bought **11 %**. A pupil decenter buys **1.4–3.1× at fixed mirror count**,
-   and it improves **every mirror count measured** (4, 5 and 7; 6 pending).
+   bought **11 %**. A pupil decenter buys **1.4–3.5× at fixed mirror count**,
+   and it improves **all four mirror counts measured**.
 2. **The gain is real, not solver noise, and not bought with magnification.**
    Three independent controls: ordered **dose-responses** in decenter
    magnitude (§ O.7h), a random-perturbation control that **cannot reach it**
@@ -3377,7 +3382,7 @@ What changed is which lever matters.
 * **Four of four** `h = 0` controls reproduce § D.3 **to the decimal**
   (N = 4/5/6/7 → 4497.7 / 8077.4 / 5689.0 / 3424.2), including the
   non-monotonic N = 5 rung and § D.3's best-in-study N = 7.
-* The full-scoring gains at N = 4 and N = 5 (3.09×, 2.70×).
+* The full-scoring gains at all four counts (3.09× / 2.70× / 3.54× / 1.43×).
 * The dose-response and re-seeding controls.
 * The **field-curvature decomposition** (§ O.6b): 60–99.7 % of every design's
   wavefront variance is power, θ² law confirmed at 5.11 measured vs 5.90
@@ -3385,8 +3390,8 @@ What changed is which lever matters.
 
 **Provisional — labelled as such in place:**
 
-* N = 6 under full scoring (solving). **N = 7 landed and confirmed** — see
-  the sign reversal below.
+* *(Nothing. All four counts landed under full scoring; the table is
+  complete.)*
 * Any *mechanism* for why the decenter helps. Three explanations have been
   offered and **all three were falsified or scope-corrected** — stop-shift
   invariance (§ O.7b, mis-scoped by me), the mirror-count crossover (§ O.7h,
@@ -3464,3 +3469,34 @@ vice versa. That is testable (it predicts the N = 6 full-scoring gain lands
 between N = 5's 2.70× and N = 7's 1.43×) and the N = 6 pupil arm now running
 is the test. **No mechanism is claimed**; three mechanism stories have already
 been falsified in this stage (§ O.6c, § O.7b, § O.7h).
+
+## O.8f N = 6 completes the table — and falsifies a FOURTH mechanism story
+
+| N | coaxial (full set) | off axis h = 0.55 | gain |
+|---|---|---|---|
+| 4 | 9176.1 (129×) | 2967.4 (42×) | 3.09× |
+| 5 | 10182.4 (143×) | 3771.5 (53×) | 2.70× |
+| **6** | 8302.4 (117×) | **2344.5 (33×)** | **3.54×** |
+| 7 | 7763.5 (109×) | 5440.9 (77×) | 1.43× |
+
+**N = 6 gives both the largest gain and the best absolute design in the
+study** — 2344.5 nm, 33× target, six mirrors, every requirement scored.
+
+**§ O.7k's "substitutes" hypothesis is falsified.** It predicted the N = 6 gain
+would fall *between* N = 5's 2.70× and N = 7's 1.43×, because fewer mirrors
+should want more decenter and the two should trade off smoothly. N = 6 came in
+at **3.54×, above all of them.** The gains are 3.09 / 2.70 / 3.54 / 1.43 —
+**not ordered by mirror count at all**; only N = 7 is low, and it is low on a
+merit where it was previously *negative*.
+
+**That is the fourth mechanism story falsified in this stage**, after Petzval
+balancing (§ O.6c), stop-shift invariance (§ O.7b), and the mirror-count
+crossover (§ O.7h). The pattern is worth naming: **every attempt to explain
+WHY the decenter helps has failed, while every attempt to measure WHETHER it
+helps has succeeded and agreed.** Four counts, two merits, three controls,
+twelve wavefront-only cells and eight fully-scored ones all say the same thing;
+no account of the mechanism has survived contact with the next measurement.
+
+**The honest summary for the record: this stage found a large, reproducible,
+well-controlled effect that it cannot explain.** Recording that plainly is
+better than shipping the fifth story.
