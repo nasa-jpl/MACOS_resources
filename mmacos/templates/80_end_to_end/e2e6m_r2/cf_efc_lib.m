@@ -27,6 +27,7 @@ function h = cf_efc_lib()
     h.jacobian     = @jacobian_;
     h.efc          = @efc_;
     h.push         = @push_;
+    h.bump         = @bump_;
     h.seta         = @seta_;
     h.sym_frac     = @sym_frac_;
     h.stamp_parity = @stamp_parity_;
@@ -34,6 +35,47 @@ function h = cf_efc_lib()
 end
 
 % =========================================================================
+function [a, info] = bump_(ch, dm, J, a_in, dz_idx, bump_alphas, nrec, alphas)
+%BUMP_  Beta bump (Dave 2026-09-01): ACCEPT one aggressive low-alpha
+%   Tikhonov step even though it worsens measured contrast -- the
+%   monotone rule starves weak modes (gain s/(s^2+alpha) never commands
+%   them) and the floor parks on exactly those modes -- then recover
+%   with nrec ordinary monotone line-search iterations FROM THE KICKED
+%   STATE.  Each bump_alphas entry is an independent kick from a_in;
+%   the best recovered endpoint is accept-rejected against the start,
+%   so the ROUND stays monotone while the interior may climb.
+    G = double(J.G);
+    Gr = [real(G); imag(G)];
+    [U, S, V] = svd(Gr, 'econ');
+    s = diag(S);
+    seta_(dm, a_in);
+    E = ch.run();  pb = ch.peak_bare;
+    c0 = mean(abs(E(dz_idx)).^2) / pb;
+    e = double(E(dz_idx));
+    Ue = U' * [real(e); imag(e)];
+    best = struct('c', c0, 'a', {a_in}, 'ab', NaN, 'ckick', NaN);
+    for ab = bump_alphas(:).'
+        alpha = ab * s(1)^2;
+        da = -V * ((s ./ (s.^2 + alpha)) .* Ue);
+        at = a_in;
+        for k = 1:numel(dm)
+            sel = J.col_dm == k;
+            at{k}(J.col_act(sel)) = at{k}(J.col_act(sel)) + da(sel);
+        end
+        seta_(dm, at);
+        Ek = ch.run();
+        ck = mean(abs(Ek(dz_idx)).^2) / pb;      % the accepted-worse state
+        [ar, cvec, ~] = efc_(ch, dm, J, at, dz_idx, nrec, alphas);
+        if cvec(end) < best.c
+            best = struct('c', cvec(end), 'a', {ar}, 'ab', ab, 'ckick', ck);
+        end
+    end
+    a = best.a;
+    seta_(dm, a);  ch.run();
+    info = struct('c0', c0, 'c1', best.c, 'alpha_bump', best.ab, ...
+                  'c_kick', best.ckick);
+end
+
 function [a, cvec, info] = push_(ch, dm, J, a_in, dz_idx, targets_nm)
 %PUSH_  Stroke-RELEASED step (Dave 2026-09-01, "release the stroke
 %   constraint!"): the monotone per-iteration line search never accepts

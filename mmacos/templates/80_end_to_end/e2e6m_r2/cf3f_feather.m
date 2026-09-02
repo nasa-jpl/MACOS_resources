@@ -123,6 +123,15 @@ function OUT = cf3f_feather(over)
             if pinfo.c1 < cvec(end), cvec(end+1) = pinfo.c1; end %#ok<AGROW>
         else
             logf_(rep, '[round %d PUSH] no gain at targets %s nm', r, mat2str(ptargets));
+            % beta bump (Dave): accept a worse aggressive step, recover
+            [a, binfo] = lib.bump(ch, dm, G, a, dz_idx, [1e-4 1e-6], 8, c3.alphas);
+            if binfo.c1 < binfo.c0
+                logf_(rep, '[round %d BUMP] %.3e -> kick %.3e -> %.3e | alpha_b %.0e', ...
+                      r, binfo.c0, binfo.c_kick, binfo.c1, binfo.alpha_bump);
+                if binfo.c1 < cvec(end), cvec(end+1) = binfo.c1; end %#ok<AGROW>
+            else
+                logf_(rep, '[round %d BUMP] no gain', r);
+            end
         end
         ach = 1e9 * rms_(cell2mat(cellfun(@(x) x(x~=0), a(:).', ...
                                           'UniformOutput', false).'));
