@@ -3238,3 +3238,44 @@ requirement set at the 343 mm standoff:
 What has changed is the *shape* of the problem: the descent measured mirror
 count as the lever and found it worth 11 %; the pupil location is worth 3.09×
 at fixed mirror count, and is a variable the arc had never varied.
+
+### O.7j N = 6 run — the crossover story is FALSIFIED, and a better reading appears
+
+§ O.7h offered a post-hoc story for why the decenter helped at N = 4/5 and hurt
+at N = 7: a freedom-starved design gains from the field-asymmetric terms a
+decenter opens, an already-corrected one only pays their aberration cost. It
+predicted the sign flips somewhere between N = 5 and N = 7, so **N = 6 should
+be intermediate**. Dave asked for it; it was run; it is not.
+
+| N | h = 0 (all = § D.3) | h = 0.55 | change |
+|---|---|---|---|
+| 4 | 4497.7 | 2846.9 | 1.58× better |
+| 5 | 8077.4 | 3847.1 | 2.10× better |
+| **6** | **5689.0** | **3079.7** (best round *2540.4*) | **1.85× better** |
+| 7 | 3424.2 | 4545.5 | 1.33× worse |
+
+**N = 6 helps as much as the others.** The flip is not a smooth function of
+mirror count with a crossover to be located — it is **abrupt, and N = 7 is
+alone on its side**. The story is falsified in the form it was written, which
+is what it was written to allow.
+
+*(N = 6's h = 0 control reproduces § D.3's 5689.0 **to the decimal** — the
+fourth of four exact control reproductions in this stage, at N = 4, 5, 6, 7.
+And its round 2 again came back worse than round 1, 2540.4 → 3079.7: the
+§ O.7e max-versus-sum effect, so the 1.85× is the conservative reading.)*
+
+**A better reading is now available, and it makes N = 7 stop being an
+exception.** § O.8's pupil-ladder arm has N = 7 at **5633.5 nm off axis against
+a 7763.5 coaxial control** (round 1) — i.e. **N = 7 improves off axis once the
+FULL requirement set is scored**, reversing its wavefront-only degradation.
+
+If that holds when the arm completes, then:
+
+> **All four mirror counts improve off axis under full scoring**, and N = 7's
+> wavefront-only degradation was an artifact of optimising a wavefront alone —
+> the same class of artifact as § O.7f's magnification error, where an unscored
+> quantity absorbed the freedom the decenter opened.
+
+That is a simpler and stronger claim than "the sign depends on N", and it is
+**pending, not established** — it rests on one round-1 number. The N = 7 pupil
+floor decides it.
