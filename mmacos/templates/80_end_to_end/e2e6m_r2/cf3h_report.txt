@@ -9,7 +9,7 @@ sigma |  thru | floor(c_end) |   la@50nm  |    laU     | strk_nm | strkU_nm | ro
   1.0 | 0.636 |   8.808e-05  |  4.247e-09 |  8.358e-11 |    6.2  |  2506.3  |    3   | CONVERGED (1-px feather too soft to open a deep zone)
   2.0 | 0.607 |  [3.7e-06]   |     --     |     --     |    --   |    --    |   --   | LINUX arm, still digging; Mac gate static = 9.976e-05
   3.0 | 0.587 |   1.093e-05  |  4.474e-10 |  2.374e-12 |   503.6 |   832.9  |   12   | CONVERGED (resumed to r12; floor unchanged from r9)
-  4.0 | 0.571 |   7.134e-06  |  7.886e-07 |  5.816e-11 |    74.2 |  4293.9  |    9   | WALL-LIMITED @2h, STILL DESCENDING (r9: 1.49e-5 -> 7.13e-6)
+  4.0 | 0.571 |   7.134e-06  |  1.416e-08 |  4.270e-11 |    74.2 |  4231.7  |   12   | CONVERGED (resumed to r12; last gain was r9, r10-12 flat)
 
   corners (Linux, for context):
     prolate    thru 0.091   floor 1.13e-09   (cf3d)
@@ -19,11 +19,16 @@ NOTES (CC 2026-09-02):
 - Throughput is monotone-decreasing in sigma (0.636 / 0.607 / 0.587 / 0.571
   for sigma 1/2/3/4): a wider Gaussian feather blocks more light.  This is
   the clean price axis of the trade.
-- The DUG floors (c_end) are NOT directly comparable across arms -- each
-  stopped in a different state: sigma1 CONVERGED shallow, sigma3 CONVERGED
-  at 1.09e-5, sigma4 was WALL-LIMITED and still dropping fast at the 2 h
-  cut, sigma2 is the Linux arm mid-dig.  sigma4 is the arm most worth more
-  wall (its last round nearly halved the floor).
+- All three Mac arms are now CONVERGED (sigma4 resumed to r12: its r9 drop
+  was the last gain, r10-12 flat -> settled, NOT still-descending).  Among
+  the converged Mac arms the dug floor DECREASES monotonically with sigma:
+  8.81e-5 (s1) -> 1.09e-5 (s3) -> 7.13e-6 (s4).  So a wider feather buys
+  deeper contrast at lower throughput -- the clean pareto.
+- The one caveat is sigma2: it is the Linux arm, still digging at 3.7e-6,
+  i.e. ALREADY below the converged Mac s3/s4 floors at HIGHER throughput
+  (0.607).  It may be the throughput-favorable sweet spot -- but it is a
+  different machine and not yet converged, so do not rank it against the
+  Mac arms until it settles.
 - la@50 / laU are per-round SVD quantities measured at the CURRENT dug
   state, so they move with the state (easy modes get spent as the dig
   deepens) -- read them as each feather's achievable-depth character, not a
