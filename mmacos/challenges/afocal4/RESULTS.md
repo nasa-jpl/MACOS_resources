@@ -3039,3 +3039,47 @@ the N = 4 off-axis rows against 29.7336 on its control, and § O.7f showed the
 *scored* M error is the one to watch (1.36 % vs 0.23 % at h = 0.55). The
 pupil-ladder arm, which scores M, is sequenced to run when the decenters finish
 (Dave 2026-09-01) and remains the deciding measurement on attribution.
+
+### O.7h The completed sweep — THREE dose-responses, and the sign depends on N
+
+All nine cells. Wavefront only, all DOFs free, every `h = 0` control
+reproducing § D.3 to the decimal.
+
+| N | h = 0 | h = 0.55 | h = 1.00 | response to decenter |
+|---|---|---|---|---|
+| **4** | 4497.7 (63×) | 2846.9 (40×) | **2180.7 (31×)** | **monotone BETTER, 2.06×** |
+| **5** | 8077.4 (114×) | 3847.1 (54×) | 3830.2 (54×) | better, then plateaus, 2.11× |
+| **7** | 3424.2 (48×) | 4545.5 (64×) | 9668.8 (136×) | **monotone WORSE, 2.82×** |
+
+**`afocal4_OAW4_N4_h1.in`, 2180.7 nm, 31× target, FOUR mirrors** — the best
+wavefront in the study, 36 % below § D.3's best coaxial result at seven.
+
+**This is what kills the re-seeding explanation.** § O.7e raised it and § O.7g
+weakened it; the completed sweep closes it. Re-seeding predicts *scatter*: a
+kick lands you somewhere else, sometimes better, sometimes worse, with no
+relation to the size of the kick. What the sweep shows instead is **three
+ordered responses** — N = 4 monotonically better across a 2× range of decenter,
+N = 7 monotonically worse across the same range, N = 5 better then flat. A
+random perturbation does not produce a monotone trend in the magnitude of the
+perturbation, and it certainly does not produce two monotone trends of
+*opposite sign* sorted by mirror count.
+
+**So the decenter is a real knob, and its SIGN depends on the mirror count.**
+That is the substantive finding of § O.7, and it is a different statement from
+anything the arc had before — the descent asked *how many mirrors*, and the
+answer here is that the useful pupil location is not independent of that
+choice.
+
+**A reading, labelled as a story and not a finding.** A four-mirror coaxial
+design is freedom-starved for this specification, and moving the pupil off axis
+opens degrees of freedom (the field-asymmetric terms) that it can spend; a
+seven-mirror design already has enough freedom to correct coaxially, so the
+decenter's added coma and astigmatism are a net cost. This fits all three rows
+and predicts that the crossover sits between N = 5 and N = 7 — but it was
+constructed after seeing the data and is recorded as such. **Testing it means
+running N = 6, which was not done.**
+
+**What is still NOT settled:** § O.7f's magnification finding. Every number in
+this table comes from an arm where M is unscored, and the winner carried 6× its
+control's M error at h = 0.55. The pupil ladder — which scores M — started at
+17:22 on all three N and is the deciding measurement on attribution.
