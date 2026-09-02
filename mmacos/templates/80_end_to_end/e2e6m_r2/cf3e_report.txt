@@ -1,0 +1,68 @@
+==== e2e6m CF3e -- UNAPODIZED d=1.10 restart ladder 2026-09-01 06:49:13
+chain seg_d110_n_h280_L090_c098 | dz 2756 px | THRU 0.745 (apl: 0.091) | niter 20 | alphas 1e-10..1e-02 | budget 6.0 h
+[round 1] 6.856e-05 -> 6.665e-05 | alpha 1.0e-03 | stroke 3.1 nm | la(G) 2.540e-09 | 22.5 min
+[round 2] 6.665e-05 -> 6.096e-05 | alpha 1.0e-03 | stroke 24.5 nm | la(G) 2.655e-09 | 25.6 min
+[round 3] 6.096e-05 -> 4.615e-05 | alpha 1.0e-02 | stroke 30.3 nm | la(G) 2.001e-05 | 24.7 min
+---- cf3e la sweep, stroke bound released (2026-09-01 08:06:23) ----
+round |    la@50nm     la@100     la@200     la@500 |   la@UNBOUND @   stroke (rank)
+    1 |  2.540e-09  7.646e-10  1.709e-10  7.228e-11 |    4.196e-11 @   1854 nm (1760)
+    2 |  2.655e-09  1.092e-09  3.876e-10  1.135e-10 |    4.663e-11 @   1805 nm (1760)
+    3 |  2.001e-05  7.196e-08  2.032e-09  8.766e-10 |    1.652e-10 @   3953 nm (1760)
+[round 4] 4.615e-05 -> 3.186e-05 | alpha 1.0e-02 | stroke 43.7 nm | la(G) 2.448e-08 | 24.3 min
+[round 5] 3.186e-05 -> 2.459e-05 | alpha 1.0e-03 | stroke 45.7 nm | la(G) 2.573e-07 | 23.2 min
+==== e2e6m CF3e -- UNAPODIZED d=1.10 restart ladder 2026-09-01 12:49:31
+chain seg_d110_n_h280_L090_c098 | dz 2756 px | THRU 0.745 (apl: 0.091) | niter 20 | alphas 1e-10..1e-02 | budget 6.0 h
+RESUMED at round 6 (last floor 2.459e-05)
+[round 6] 2.459e-05 -> 1.825e-05 | alpha 1.0e-02 | stroke 48.3 nm | la(G) 5.385e-08 | laU 1.444e-10 @ 4669 nm | 0.6 min
+[round 7] 1.825e-05 -> 1.607e-05 | alpha 1.0e-02 | stroke 48.6 nm | la(G) 4.515e-08 | laU 8.202e-11 @ 3992 nm | 25.4 min
+==== e2e6m CF3e -- UNAPODIZED d=1.10 restart ladder 2026-09-01 13:23:56
+chain seg_d110_n_h280_L090_c098 | dz 2756 px | THRU 0.745 (apl: 0.091) | niter 20 | alphas 1e-10..1e-02 | budget 6.0 h
+RESUMED at round 8 (last floor 1.607e-05)
+[round 8 PUSH] no gain at targets [100 200 400] nm
+[round 8] 1.607e-05 -> 1.503e-05 | alpha 1.0e-02 | stroke 49.1 nm | la(G) 4.613e-08 | laU 1.035e-10 @ 4429 nm | 25.4 min
+[round 9 PUSH] no gain at targets [103 205 411] nm
+[round 9] 1.503e-05 -> 1.024e-05 | alpha 1.0e-02 | stroke 51.3 nm | la(G) 7.140e-08 | laU 1.219e-10 @ 4937 nm | 207.9 min
+[round 10 PUSH] no gain at targets [125 249 499] nm
+[round 10] 1.024e-05 -> 4.480e-06 | alpha 1.0e-02 | stroke 62.3 nm | la(G) 1.469e-06 | laU 7.836e-11 @ 4679 nm | 25.2 min
+[round 11] NO ACCEPTED STEP (line search exhausted at 4.480e-06)
+[round 11 PUSH] no gain at targets [125 249 499] nm
+[round 11] 4.480e-06 -> 4.480e-06 | alpha NaN | stroke 62.3 nm | la(G) 2.370e-08 | laU 4.361e-11 @ 5435 nm | 25.5 min
+[round 12] NO ACCEPTED STEP (line search exhausted at 4.480e-06)
+[round 12 PUSH] no gain at targets [125 249 499] nm
+[round 12] 4.480e-06 -> 4.480e-06 | alpha NaN | stroke 62.3 nm | la(G) 2.370e-08 | laU 4.361e-11 @ 5435 nm | 25.2 min
+CONVERGED: <3% over two consecutive rounds -- floor 4.480e-06
+CF3e DONE in 5.2 h: 6.856e-05 -> 4.480e-06 over 12 rounds (lin-ach 2.370e-08; thru 0.745 vs apl 0.091)
+==== e2e6m CF3e -- UNAPODIZED d=1.10 restart ladder 2026-09-01 18:33:32
+chain seg_d110_n_h280_L090_c098 | dz 2756 px | THRU 0.745 (apl: 0.091) | niter 20 | alphas 1e-10..1e-02 | budget 12.0 h
+RESUMED at round 13 (last floor 4.480e-06)
+[round 13] NO ACCEPTED STEP (line search exhausted at 4.480e-06)
+[round 13 PUSH] no gain at targets [125 249 499] nm
+[round 13 BUMP] no gain
+[round 13] 4.480e-06 -> 4.480e-06 | alpha NaN | stroke 62.3 nm | la(G) 2.370e-08 | laU 4.361e-11 @ 5435 nm | 26.9 min
+[round 14] NO ACCEPTED STEP (line search exhausted at 4.480e-06)
+[round 14 PUSH] no gain at targets [125 249 499] nm
+[round 14 BUMP] no gain
+[round 14] 4.480e-06 -> 4.480e-06 | alpha NaN | stroke 62.3 nm | la(G) 2.370e-08 | laU 4.361e-11 @ 5435 nm | 26.8 min
+[round 15] NO ACCEPTED STEP (line search exhausted at 4.480e-06)
+[round 15 PUSH] no gain at targets [125 249 499] nm
+[round 15 BUMP] no gain
+[round 15] 4.480e-06 -> 4.480e-06 | alpha NaN | stroke 62.3 nm | la(G) 2.370e-08 | laU 4.361e-11 @ 5435 nm | 26.8 min
+CONVERGED: <3% over two consecutive rounds -- floor 4.480e-06
+CF3e DONE in 1.3 h: 6.856e-05 -> 4.480e-06 over 15 rounds (lin-ach 2.370e-08; thru 0.745 vs apl 0.091)
+---- cf3e la sweep, stroke bound released (2026-09-01 19:54:31) ----
+round |    la@50nm     la@100     la@200     la@500 |   la@UNBOUND @   stroke (rank)
+    1 |  2.540e-09  7.646e-10  1.709e-10  7.228e-11 |    4.196e-11 @   1854 nm (1760)
+    2 |  2.655e-09  1.092e-09  3.876e-10  1.135e-10 |    4.663e-11 @   1805 nm (1760)
+    3 |  2.001e-05  7.196e-08  2.032e-09  8.766e-10 |    1.652e-10 @   3953 nm (1760)
+    4 |  2.448e-08  9.857e-09  3.860e-09  1.276e-09 |    1.816e-10 @   4378 nm (1760)
+    5 |  2.573e-07  1.626e-08  4.734e-09  1.135e-09 |    1.316e-10 @   4232 nm (1760)
+    6 |  5.385e-08  1.817e-08  5.979e-09  1.392e-09 |    1.444e-10 @   4669 nm (1760)
+    7 |  4.515e-08  1.731e-08  5.651e-09  1.392e-09 |    8.202e-11 @   3992 nm (1760)
+    8 |  4.613e-08  1.971e-08  6.431e-09  1.370e-09 |    1.035e-10 @   4429 nm (1760)
+    9 |  7.140e-08  1.869e-08  5.931e-09  1.591e-09 |    1.219e-10 @   4937 nm (1760)
+   10 |  1.469e-06  8.282e-08  5.687e-09  1.080e-09 |    7.836e-11 @   4679 nm (1760)
+   11 |  2.370e-08  9.766e-09  3.299e-09  5.984e-10 |    4.361e-11 @   5435 nm (1760)
+   12 |  2.370e-08  9.766e-09  3.299e-09  5.984e-10 |    4.361e-11 @   5435 nm (1760)
+   13 |  2.370e-08  9.766e-09  3.299e-09  5.984e-10 |    4.361e-11 @   5435 nm (1760)
+   14 |  2.370e-08  9.766e-09  3.299e-09  5.984e-10 |    4.361e-11 @   5435 nm (1760)
+   15 |  2.370e-08  9.766e-09  3.299e-09  5.984e-10 |    4.361e-11 @   5435 nm (1760)
