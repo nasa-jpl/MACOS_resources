@@ -2134,6 +2134,38 @@ compliant six-mirror layout.
     the study. Bounds are stated in the study's own unit — multiples of the
     M1–M2 spacing, the way the packaging record measures depth.
 
+39. **Freedom flows to the unscored quantity — score the full set, or the gain
+    is an artifact.**
+    Whenever a solve is given a new degree of freedom and a merit that ignores
+    part of the specification, the freedom goes into the part being ignored,
+    and the reported number improves for a reason that will not survive.
+    Measured **three independent ways in this stage**, each of which looked
+    like a different problem at the time:
+
+    * **Magnification.** The wavefront-only off-axis winner carried **1.36 %**
+      scored M error against its control's 0.23 %, and § O.7f warned the gain
+      was bought with it. Scoring M did not shrink the gain — the M error fell
+      to **0.31 %**, *better than the control*, and the wavefront advantage
+      **grew from 1.58× to 3.09×**. The solver had been spending M because
+      nothing stopped it.
+    * **The pupil ladder itself.** § D.3's headline coaxial figure, **48×** at
+      N = 7, is a wavefront-only number. The same design under the full
+      requirement set is **109×** (§ O.8b). The freedom the dropped pupil
+      terms released went straight into the terms that were dropped.
+    * **A sign reversal.** N = 7 *degrades* off axis on the wavefront-only
+      merit (3424.2 → 4545.5) and *improves* off axis under full scoring
+      (7763.5 → 5633.5, § O.7j). The same design change is a loss or a gain
+      depending only on what is being scored.
+
+    *Alternative rejected:* scoring a reduced set "to isolate the physics".
+    That is exactly what § O.7 did, deliberately and correctly — the isolation
+    experiment needed one variable — and the reduced-set numbers were still
+    **the wrong ones to quote**. The rule is not "never optimise a subset";
+    it is that a subset-optimised number is a diagnostic and never a result,
+    and the two must not be quoted for each other. This stage nearly did:
+    § O.7d's verdict stood for three hours on a number that the full scoring
+    later moved by 3×.
+
 ## D.7 Open, and for Dave
 
 **The requirement set is not reachable by mirror count in this family, so the
@@ -3192,3 +3224,279 @@ random-perturbation control that cannot reach the result at any jitter tried.
 **The pupil decenter is a real design variable, not solver noise.** What
 remains open is only the § O.7f attribution — whether its benefit survives
 scoring M — which § O.8 is measuring.
+
+### O.8c THE ATTRIBUTION IS SETTLED — the off-axis gain SURVIVES scoring M, and grows
+
+The N = 4 pupil-ladder arm completed. Every requirement scored, including
+magnification:
+
+| N = 4, FULL requirement set | start | floor | × target | **M error** |
+|---|---|---|---|---|
+| h = 0 coaxial | 10407.0 | 9176.1 | 129× | 0.79 % |
+| **h = 0.55 off axis** | 22365.5 | **2967.4** | **42×** | **0.31 %** |
+
+**3.09× better off axis — larger than the 1.58× the wavefront-only arm
+showed** — and against the best coaxial design in the study under the same
+full scoring (N = 7, 7763.5 nm, 109×), it is **2.62× better with three fewer
+mirrors**.
+
+**§ O.7f is closed, and it closed the opposite way to the worry.** That section
+found the wavefront-only winner carrying 1.36 % scored M error against its
+control's 0.23 %, and warned the gain might be bought with magnification. With
+M actually scored:
+
+* the off-axis design's M error **falls to 0.31 %** — it is now **better on M
+  than its own coaxial control** (0.79 %), the reverse of the wavefront-only
+  arm;
+* and the wavefront advantage **grows**, from 1.58× to 3.09×.
+
+So the magnification error in § O.7f was **the solver spending an unscored
+quantity because nothing stopped it**, not a hidden cost of going off axis.
+Score it, and the solver keeps M *and* delivers a bigger wavefront gain. This
+is the cleanest possible answer to the question the arm was built to ask, and
+it is worth noting it could have gone the other way: the same experiment would
+have shown the gain collapsing if the cheat had been load-bearing.
+
+**Where this leaves the study's headline numbers**, all under the full
+requirement set at the 343 mm standoff:
+
+| design | mirrors | WFE (nm) | × target |
+|---|---|---|---|
+| best coaxial (N = 7) | 7 | 7763.5 | 109× |
+| best coaxial (N = 4) | 4 | 9176.1 | 129× |
+| **off-axis N = 4, h = 0.55** | **4** | **2967.4** | **42×** |
+
+### O.8d N = 5 confirms it — two of three pupil arms, same direction
+
+| N | coaxial (full set) | off axis h = 0.55 | change |
+|---|---|---|---|
+| 4 | 9176.1 (129×) | **2967.4 (42×)** | **3.09× better** |
+| 5 | 10182.4 (143×) | **3771.5 (53×)** | **2.70× better** |
+| 7 | 7763.5 (109×) | *5633.5 at round 1* | *1.38× better, pending* |
+
+Both completed arms improve off axis under full scoring, by 3.09× and 2.70×.
+The wavefront-only arm gave 1.58× and 2.10× for the same two N — so **scoring
+the whole requirement set makes the off-axis advantage LARGER at both**, not
+smaller. That is the § O.8c finding reproduced on an independent mirror count.
+
+*(N = 5's traced M is 29.6258 against N = 4's 29.9069; the scored M error is
+the one that matters and is read from `descent_require`, not from this column.
+It is checked per quoted design in § O.6e's runner.)*
+
+**The requirement set is still missed by 42×.** Nothing here reaches 71 nm.
+What has changed is the *shape* of the problem: the descent measured mirror
+count as the lever and found it worth 11 %; the pupil location is worth 3.09×
+at fixed mirror count, and is a variable the arc had never varied.
+
+### O.7j N = 6 run — the crossover story is FALSIFIED, and a better reading appears
+
+§ O.7h offered a post-hoc story for why the decenter helped at N = 4/5 and hurt
+at N = 7: a freedom-starved design gains from the field-asymmetric terms a
+decenter opens, an already-corrected one only pays their aberration cost. It
+predicted the sign flips somewhere between N = 5 and N = 7, so **N = 6 should
+be intermediate**. Dave asked for it; it was run; it is not.
+
+| N | h = 0 (all = § D.3) | h = 0.55 | change |
+|---|---|---|---|
+| 4 | 4497.7 | 2846.9 | 1.58× better |
+| 5 | 8077.4 | 3847.1 | 2.10× better |
+| **6** | **5689.0** | **3079.7** (best round *2540.4*) | **1.85× better** |
+| 7 | 3424.2 | 4545.5 | 1.33× worse |
+
+**N = 6 helps as much as the others.** The flip is not a smooth function of
+mirror count with a crossover to be located — it is **abrupt, and N = 7 is
+alone on its side**. The story is falsified in the form it was written, which
+is what it was written to allow.
+
+*(N = 6's h = 0 control reproduces § D.3's 5689.0 **to the decimal** — the
+fourth of four exact control reproductions in this stage, at N = 4, 5, 6, 7.
+And its round 2 again came back worse than round 1, 2540.4 → 3079.7: the
+§ O.7e max-versus-sum effect, so the 1.85× is the conservative reading.)*
+
+**A better reading is now available, and it makes N = 7 stop being an
+exception.** § O.8's pupil-ladder arm has N = 7 at **5633.5 nm off axis against
+a 7763.5 coaxial control** (round 1) — i.e. **N = 7 improves off axis once the
+FULL requirement set is scored**, reversing its wavefront-only degradation.
+
+If that holds when the arm completes, then:
+
+> **All four mirror counts improve off axis under full scoring**, and N = 7's
+> wavefront-only degradation was an artifact of optimising a wavefront alone —
+> the same class of artifact as § O.7f's magnification error, where an unscored
+> quantity absorbed the freedom the decenter opened.
+
+That is a simpler and stronger claim than "the sign depends on N", and it is
+**pending, not established** — it rests on one round-1 number. The N = 7 pupil
+floor decides it.
+
+---
+
+# § OFFAXIS WRAP — the four-count full-scoring table
+
+*Written 2026-09-01 for the morning. Everything below is measured; cells marked
+`pending` were still solving at the time of writing and are filled in place
+when they land. **Read this section alone if you read nothing else.***
+
+## THE TABLE — every requirement scored, 343 mm standoff, nine-field box
+
+| mirrors | coaxial (h = 0) | **off axis (h = 0.55)** | off-axis gain |
+|---|---|---|---|
+| **4** | 9176.1 nm — **129×** | **2967.4 nm — 42×** | **3.09×** |
+| **5** | 10182.4 nm — **143×** | **3771.5 nm — 53×** | **2.70×** |
+| **6** | 8302.4 nm — **117×** | **2344.5 nm — 33×** ← best | **3.54×** ← largest |
+| **7** | 7763.5 nm — **109×** | **5440.9 nm — 77×** | **1.43×** |
+
+**The one-line answer: every mirror count improves off axis, by 1.4× to 3.5×,
+with every requirement scored including magnification.** Two framings, both
+true, pick by the question:
+
+* **Best design:** off-axis **six** mirrors at **2344.5 nm, 33×** — against
+  the best coaxial design in the study (seven mirrors, 109×), **3.31× better
+  on one fewer mirror**.
+* **Mirror economy:** off-axis **four** mirrors at **2967.4 nm, 42×** —
+  **2.62× better than the best coaxial, on three fewer mirrors.**
+
+**The target is still missed by 42×.** Nothing in this study reaches 71 nm.
+What changed is which lever matters.
+
+## THE THREE THINGS TO SAY ABOUT IT
+
+1. **The pupil location is a bigger lever than mirror count, and the arc had
+   never varied it.** The descent measured mirror count: three extra mirrors
+   bought **11 %**. A pupil decenter buys **1.4–3.5× at fixed mirror count**,
+   and it improves **all four mirror counts measured**.
+2. **The gain is real, not solver noise, and not bought with magnification.**
+   Three independent controls: ordered **dose-responses** in decenter
+   magnitude (§ O.7h), a random-perturbation control that **cannot reach it**
+   at any jitter tried (§ O.7i), and full scoring in which the magnification
+   error **improves** while the wavefront gain **grows** (§ O.8c).
+3. **The costs are real and are not in the wavefront table.** The primary must
+   be cut from a parent **2.15 m across for a 1 m beam** (§ O.6e), chief AOI
+   rises 3.6° to 14.2° against a 15° rule, and the packaging parity law
+   (§ O.4) constrains which mirror counts can be packaged at all.
+
+## WHAT IS SOLID vs WHAT IS PROVISIONAL
+
+**Solid — measured, controlled, reproducible:**
+
+* **Four of four** `h = 0` controls reproduce § D.3 **to the decimal**
+  (N = 4/5/6/7 → 4497.7 / 8077.4 / 5689.0 / 3424.2), including the
+  non-monotonic N = 5 rung and § D.3's best-in-study N = 7.
+* The full-scoring gains at all four counts (3.09× / 2.70× / 3.54× / 1.43×).
+* The dose-response and re-seeding controls.
+* The **field-curvature decomposition** (§ O.6b): 60–99.7 % of every design's
+  wavefront variance is power, θ² law confirmed at 5.11 measured vs 5.90
+  predicted, and exactly **0.00 nm on axis** for a Mersenne pair.
+
+**Provisional — labelled as such in place:**
+
+* *(Nothing. All four counts landed under full scoring; the table is
+  complete.)*
+* Any *mechanism* for why the decenter helps. Three explanations have been
+  offered and **all three were falsified or scope-corrected** — stop-shift
+  invariance (§ O.7b, mis-scoped by me), the mirror-count crossover (§ O.7h,
+  killed by N = 6), and Petzval balancing via a mixed Cassegrain/Gregorian
+  pair (§ O.6c, refuted with its confound named). **The effect is measured;
+  the reason is not known.**
+
+## IF ASKED WHAT IT MEANS FOR THE SPEC
+
+The étendue is not the obstacle — H = 2.18e-3 m·rad, ~4363 resolvable points
+per dimension, and 71 nm at 1 µm is λ/14.1 rms, Maréchal-class. LSST's
+invariant is **59× larger** and is met with three mirrors plus correctors
+(§ O.6d). What is unusual is the *combination*: all-reflective, afocal at 30×,
+with the exit pupil at a specified standoff — and the 30× forces a small,
+strongly curved final mirror that dominates the curvature sum (§ O.6c).
+
+**The honest position: the spec is not met, by 42×, and the study now has a
+lever it had not tried. Whether that closes the remaining factor is unknown,
+and this stage does not claim it does.**
+
+## O.8e N = 7 lands — the sign reversal is CONFIRMED, and it strengthens rule 39
+
+N = 7 was the one arm that got **worse** off axis on the wavefront-only merit.
+Under the full requirement set it gets **better**:
+
+| N = 7 | coaxial | off axis h = 0.55 | change |
+|---|---|---|---|
+| wavefront only | 3424.2 | 4545.5 | **1.33× WORSE** |
+| **full requirement set** | 7763.5 | **5440.9** | **1.43× BETTER** |
+
+**The same design change is a loss or a gain depending only on what is being
+scored.** § O.7j proposed this from a single round-1 number and flagged it as
+pending; the completed arm confirms it.
+
+So **all three completed pupil arms improve off axis** — 3.09× (N = 4), 2.70×
+(N = 5), 1.43× (N = 7) — and the "sign depends on mirror count" reading of
+§ O.7h is retired: it was an artifact of the wavefront-only merit, exactly as
+§ O.7j anticipated. Off-axis helps at every mirror count measured; only the
+*size* of the help varies, and it is largest where the coaxial design has least
+freedom (N = 4) and smallest where it has most (N = 7), which is the shape the
+falsified § O.7h story wanted but on the correct side of zero.
+
+This is the third and cleanest instance of **rule 39**: the wavefront-only arm
+did not merely understate the off-axis gain at N = 7, it **reported its sign
+backwards**.
+
+## O.7k The full wavefront-only sweep, all four counts — the OPTIMAL decenter shifts with N
+
+N = 6's sweep completed, giving all twelve wavefront-only cells:
+
+| N | h = 0 | h = 0.55 | h = 1.00 | best at |
+|---|---|---|---|---|
+| 4 | 4497.7 | 2846.9 | **2180.7** | h ≥ 1.00 |
+| 5 | 8077.4 | 3847.1 | **3830.2** | h ≈ 0.55–1.00 (flat) |
+| 6 | 5689.0 | **3079.7** | 3377.2 | h ≈ 0.55 |
+| 7 | **3424.2** | 4545.5 | 9668.8 | h = 0 |
+
+**The optimal decenter decreases monotonically with mirror count** — ≥1.00,
+~0.55–1.00, ~0.55, 0 — across four counts. That is a cleaner ordering than any
+of the single-column comparisons, and it was not visible until the fourth count
+was run.
+
+**Read this as a diagnostic, per rule 39.** These are wavefront-only numbers,
+and § O.8e showed the wavefront-only merit reports N = 7's off-axis *sign*
+backwards. So the h = 0 entry for N = 7 in the "best at" column is an artifact
+of this arm, not a property of the design: under full scoring N = 7 prefers
+h = 0.55 like the others. The **trend** — more mirrors, less decenter wanted —
+survives that correction in direction if not in its endpoint, because the
+full-scoring gains fall in the same order (3.09×, 2.70×, ?, 1.43×).
+
+**What it suggests, stated as a hypothesis and not a finding:** mirror count
+and pupil decenter are **substitutes** — two ways of buying the same
+correction freedom — so a design with fewer mirrors wants more decenter and
+vice versa. That is testable (it predicts the N = 6 full-scoring gain lands
+between N = 5's 2.70× and N = 7's 1.43×) and the N = 6 pupil arm now running
+is the test. **No mechanism is claimed**; three mechanism stories have already
+been falsified in this stage (§ O.6c, § O.7b, § O.7h).
+
+## O.8f N = 6 completes the table — and falsifies a FOURTH mechanism story
+
+| N | coaxial (full set) | off axis h = 0.55 | gain |
+|---|---|---|---|
+| 4 | 9176.1 (129×) | 2967.4 (42×) | 3.09× |
+| 5 | 10182.4 (143×) | 3771.5 (53×) | 2.70× |
+| **6** | 8302.4 (117×) | **2344.5 (33×)** | **3.54×** |
+| 7 | 7763.5 (109×) | 5440.9 (77×) | 1.43× |
+
+**N = 6 gives both the largest gain and the best absolute design in the
+study** — 2344.5 nm, 33× target, six mirrors, every requirement scored.
+
+**§ O.7k's "substitutes" hypothesis is falsified.** It predicted the N = 6 gain
+would fall *between* N = 5's 2.70× and N = 7's 1.43×, because fewer mirrors
+should want more decenter and the two should trade off smoothly. N = 6 came in
+at **3.54×, above all of them.** The gains are 3.09 / 2.70 / 3.54 / 1.43 —
+**not ordered by mirror count at all**; only N = 7 is low, and it is low on a
+merit where it was previously *negative*.
+
+**That is the fourth mechanism story falsified in this stage**, after Petzval
+balancing (§ O.6c), stop-shift invariance (§ O.7b), and the mirror-count
+crossover (§ O.7h). The pattern is worth naming: **every attempt to explain
+WHY the decenter helps has failed, while every attempt to measure WHETHER it
+helps has succeeded and agreed.** Four counts, two merits, three controls,
+twelve wavefront-only cells and eight fully-scored ones all say the same thing;
+no account of the mechanism has survived contact with the next measurement.
+
+**The honest summary for the record: this stage found a large, reproducible,
+well-controlled effect that it cannot explain.** Recording that plainly is
+better than shipping the fifth story.
