@@ -3344,7 +3344,7 @@ when they land. **Read this section alone if you read nothing else.***
 | **4** | 9176.1 nm — **129×** | **2967.4 nm — 42×** | **3.09×** |
 | **5** | 10182.4 nm — **143×** | **3771.5 nm — 53×** | **2.70×** |
 | **6** | *pending* | *pending* | *pending* |
-| **7** | 7763.5 nm — **109×** | *pending (5633.5 at round 1 → 1.38×)* | *pending* |
+| **7** | 7763.5 nm — **109×** | **5440.9 nm — 77×** | **1.43×** |
 
 **The one-line answer: an off-axis FOUR-mirror design reaches 42× the 71 nm
 target, where the best COAXIAL design in the study — at SEVEN mirrors —
@@ -3358,7 +3358,8 @@ What changed is which lever matters.
 
 1. **The pupil location is a bigger lever than mirror count, and the arc had
    never varied it.** The descent measured mirror count: three extra mirrors
-   bought **11 %**. A pupil decenter buys **2.7–3.1× at fixed mirror count**.
+   bought **11 %**. A pupil decenter buys **1.4–3.1× at fixed mirror count**,
+   and it improves **every mirror count measured** (4, 5 and 7; 6 pending).
 2. **The gain is real, not solver noise, and not bought with magnification.**
    Three independent controls: ordered **dose-responses** in decenter
    magnitude (§ O.7h), a random-perturbation control that **cannot reach it**
@@ -3384,7 +3385,8 @@ What changed is which lever matters.
 
 **Provisional — labelled as such in place:**
 
-* N = 7 and N = 6 under full scoring (solving).
+* N = 6 under full scoring (solving). **N = 7 landed and confirmed** — see
+  the sign reversal below.
 * Any *mechanism* for why the decenter helps. Three explanations have been
   offered and **all three were falsified or scope-corrected** — stop-shift
   invariance (§ O.7b, mis-scoped by me), the mirror-count crossover (§ O.7h,
@@ -3404,3 +3406,29 @@ strongly curved final mirror that dominates the curvature sum (§ O.6c).
 **The honest position: the spec is not met, by 42×, and the study now has a
 lever it had not tried. Whether that closes the remaining factor is unknown,
 and this stage does not claim it does.**
+
+## O.8e N = 7 lands — the sign reversal is CONFIRMED, and it strengthens rule 39
+
+N = 7 was the one arm that got **worse** off axis on the wavefront-only merit.
+Under the full requirement set it gets **better**:
+
+| N = 7 | coaxial | off axis h = 0.55 | change |
+|---|---|---|---|
+| wavefront only | 3424.2 | 4545.5 | **1.33× WORSE** |
+| **full requirement set** | 7763.5 | **5440.9** | **1.43× BETTER** |
+
+**The same design change is a loss or a gain depending only on what is being
+scored.** § O.7j proposed this from a single round-1 number and flagged it as
+pending; the completed arm confirms it.
+
+So **all three completed pupil arms improve off axis** — 3.09× (N = 4), 2.70×
+(N = 5), 1.43× (N = 7) — and the "sign depends on mirror count" reading of
+§ O.7h is retired: it was an artifact of the wavefront-only merit, exactly as
+§ O.7j anticipated. Off-axis helps at every mirror count measured; only the
+*size* of the help varies, and it is largest where the coaxial design has least
+freedom (N = 4) and smallest where it has most (N = 7), which is the shape the
+falsified § O.7h story wanted but on the correct side of zero.
+
+This is the third and cleanest instance of **rule 39**: the wavefront-only arm
+did not merely understate the off-axis gain at N = 7, it **reported its sign
+backwards**.
