@@ -515,6 +515,21 @@ function out = pupil_map(deck, Ffield, opts)
     % question about where on the pupil you look, which is independent of
     % what the cones were anchored to.
     rimz = rim_zone_(nod, good, waist, wmax, wander, bestpl, opts.rim_zone);
+    % The rim AS A BODY: where the imaged pupil EDGE sits per field, and how
+    % far that centre translates across the box.  WANDER_ above answers a
+    % different question -- at ONE node, how far does that node's image move
+    % with field -- and its rim-zone RMS mixes the edge's translation with the
+    % edge's breathing.  A coldstop feels those as two separate failures.
+    % TWO FRAMES, and the record's wander convention is the REFIT one.  The
+    % deck's own plane is what a fixed stop sees; the refit plane (shift +
+    % tilt, the coldstop-DAR analogue) is what a stop you are allowed to
+    % ALIGN sees, and it is the frame AFOCAL4_SCORE quotes wander on
+    % (S.wander_um = pm.best_plane.rms).  Reporting one under the other's
+    % name is a factor of several here -- quote the frame with the number.
+    rimz.centroid      = rim_centroid_(PE, DE, plane.Vpt(:), npl, ...
+                                       b1, b2, rimz.sel, Rex);
+    rimz.centroid_best = rim_centroid_(PE, DE, bestpl.Vpt(:), bestpl.psi(:), ...
+                                       b1, b2, rimz.sel, Rex);
 
     % ---- diffraction floor --------------------------------------------------
     na = sin(max(halfang(good)));
@@ -592,6 +607,12 @@ function report_(o)
              '(r %.1f .. %.1f mm)\n'], o.rim_zone.wander_rms*1e6, ...
         o.rim_zone.wander_best_rms*1e6, o.rim_zone.r_inner*1e3, ...
         o.rim_zone.r_outer*1e3);
+    c = o.rim_zone.centroid;   cb = o.rim_zone.centroid_best;
+    fprintf(['  (5) edge centroid  placed rms %8.3f um (%.3f%% of stop RADIUS)   ' ...
+             'refit rms %8.3f um (%.3f%%)\n'], ...
+        c.rms*1e6, 100*c.frac_rms, cb.rms*1e6, 100*cb.frac_rms);
+    fprintf(['      (the rim as a BODY -- its translation on the stop; ' ...
+             '%d fields, %d rim nodes)\n'], c.n_fields, c.n_nodes);
 end
 
 % =====================================================================
@@ -651,6 +672,51 @@ function R = rim_plane_(txt, tmp, apst, stand, bx, by, io, ii, V1, n1, Rdec, uh)
                 'fit_resid', max(abs(ax(:) - A*c)), ...
                 'stop_offset', n1.'*(apst(:) - V1));
     R.stop_minus_rim = R.stop_offset - R.sag;
+end
+
+function C = rim_centroid_(PE, DE, Vp, np, b1, b2, sel, Rex)
+%RIM_CENTROID_  The imaged pupil EDGE as a body: its centre per field, and how
+%   far that centre translates across the field box.
+%
+%   For each FIELD, every rim-zone node's ray bundle is pierced onto the placed
+%   plane and the centroid of those piercings is that field's rim centre.  The
+%   returned .rms/.max are the spread of those centres about their own mean --
+%   i.e. the RIGID displacement of the pupil edge on the stop.
+%
+%   NOT the same quantity as WANDER_'s rim-zone RMS, and the difference is
+%   physical.  WANDER_ asks, at one node, how far that node's image moves with
+%   field; RMS'd over rim nodes it charges edge TRANSLATION and edge BREATHING
+%   together.  A coldstop leaks for two independent reasons -- the pupil walks
+%   off the mask (this number) or its edge smears (the blur number) -- and a
+%   margin written against the sum of them is written against neither.
+%
+%   .frac_* are fractions of the EXIT PUPIL RADIUS (Rex), which is the
+%   radiometric currency: undersizing a stop by frac costs 1-(1-frac)^2 of
+%   throughput.  Quote the radius convention explicitly -- a fraction of the
+%   DIAMETER is the same defect reported at half its size.
+    C = struct('per_field',[], 'centre',[NaN;NaN], 'rms',NaN, 'max',NaN, ...
+               'frac_rms',NaN, 'frac_max',NaN, ...
+               'n_fields',0, 'n_nodes',nnz(sel));
+    if ~any(sel), return; end
+    K  = size(PE,3);
+    uv = nan(2,K);
+    for k = 1:K
+        p = reshape(PE(:,sel,k), 3, []);   d = reshape(DE(:,sel,k), 3, []);
+        okk = all(isfinite(p),1) & all(isfinite(d),1);
+        if ~any(okk), continue; end
+        p = p(:,okk);   d = d(:,okk);
+        t = (np.'*(Vp - p)) ./ (np.'*d);
+        q = p + d.*t;
+        c = mean(q,2);
+        uv(:,k) = [b1.'*(c - Vp); b2.'*(c - Vp)];
+    end
+    okf = all(isfinite(uv),1);
+    if ~any(okf), return; end
+    C.per_field = uv;   C.n_fields = nnz(okf);
+    c0 = mean(uv(:,okf),2);
+    e  = vecnorm(uv(:,okf) - c0);
+    C.centre = c0;   C.rms = rms(e);   C.max = max(e);
+    C.frac_rms = C.rms/Rex;   C.frac_max = C.max/Rex;
 end
 
 function Z = rim_zone_(nod, good, waist, wmax, W, B, frac)
