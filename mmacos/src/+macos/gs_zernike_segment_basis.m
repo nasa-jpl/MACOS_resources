@@ -18,7 +18,7 @@ function [B, mask, info] = gs_zernike_segment_basis(session, rx_path, opts)
 %
 %   The reference segment's rays are isolated by nearest-centre (Voronoi) over
 %   the segment centres, hull-masked to its aperture, and the Noll Zernikes
-%   (zernike_mode) are modified-Gram-Schmidt orthonormalized over that mask.
+%   (noll_mode, self-contained) are modified-Gram-Schmidt orthonormalized over that mask.
 %   ONE basis covers all like-shaped segments -- each segment's local
 %   (xMon,yMon) frame is already clocked to its orientation, so the basis is
 %   applied in the local frame everywhere.
@@ -32,14 +32,14 @@ function [B, mask, info] = gs_zernike_segment_basis(session, rx_path, opts)
 %     'remove_rigid_body' project each mode against piston+tip+tilt over the
 %                  segment, so the pokes are zero-mean / zero-tilt figure modes
 %                  (no per-segment rigid-body offset in dW).  Default true.
-%     'matlab_dir' folder holding zernike_mode.  Default ~/matlab.
+%     'matlab_dir' DEPRECATED, ignored (Noll is now self-contained).
 %
 %   Returns B [N x N x numel(modes)] (orthonormal over MASK, unit RMS), the
 %   logical aperture MASK, and an INFO struct.  Leaves RX_PATH loaded in
 %   SESSION (the caller loads the working prescription afterwards).  Pass B as
 %   the 'influence' basis to macos.dw_dgrid[_multi].
 %
-%   See also: macos.dw_dgrid_multi, zernike_mode, macos.find_grid_elts.
+%   See also: macos.dw_dgrid_multi, macos.find_grid_elts.
 arguments
     session
     rx_path        (1,:) char
@@ -50,7 +50,6 @@ arguments
     opts.remove_rigid_body (1,1) logical = true   % project out piston+tip+tilt
     opts.matlab_dir(1,:) char = fullfile(getenv('HOME'), 'matlab')
 end
-addpath(opts.matlab_dir);                       % zernike_mode (Noll)
 session.load_rx(rx_path);
 txt = fileread(rx_path);
 
@@ -92,7 +91,7 @@ if opts.remove_rigid_body, rb = setdiff([1 2 3], opts.modes); else, rb = []; end
 allmodes = [rb, opts.modes];
 nz = numel(allmodes);  mv = mask(:);  Ball = zeros(N, N, nz);
 for k = 1:nz
-    zk = zernike_mode(double(mask), allmodes(k)) .* mask;
+    zk = macos.noll_mode(double(mask), allmodes(k)) .* mask;
     for j = 1:k-1
         bj = Ball(:,:,j);
         zk = zk - (sum(zk(mv).*bj(mv)) / sum(bj(mv).^2)) * bj;
