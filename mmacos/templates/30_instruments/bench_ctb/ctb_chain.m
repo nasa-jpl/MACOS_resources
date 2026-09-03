@@ -49,6 +49,7 @@ function ch = ctb_chain(opts)
         opts.r_apod_m        (1,1) double = 15e-3
         opts.r_apod_taper_m  (1,1) double = 2e-3
         opts.r_lyot_frac     (1,1) double = 0.50
+        opts.vortex_K        (1,1) double {mustBeInteger,mustBePositive} = 8
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
@@ -98,7 +99,7 @@ function ch = ctb_chain(opts)
                 masks.F = 1 - ctb_mask_disk(N, dx_f, ...
                                             opts.r_fpm_lamD * lamD_fpm_m, 8);
             case 'vortex'
-                masks.F = ctb_mask_vortex(N, opts.charge);   % complex, 8x-binned
+                masks.F = ctb_mask_vortex(N, opts.charge, opts.vortex_K);   % complex, K-binned
         end
     end
     if opts.lyot
@@ -114,7 +115,8 @@ function ch = ctb_chain(opts)
     ch.config = {'fpm_kind', opts.fpm_kind, 'charge', opts.charge, ...
         'apodizer', opts.apodizer, 'fpm', opts.fpm, 'lyot', opts.lyot, ...
         'r_fpm_lamD', opts.r_fpm_lamD, 'r_apod_m', opts.r_apod_m, ...
-        'r_apod_taper_m', opts.r_apod_taper_m, 'r_lyot_frac', opts.r_lyot_frac};
+        'r_apod_taper_m', opts.r_apod_taper_m, 'r_lyot_frac', opts.r_lyot_frac, ...
+        'vortex_K', opts.vortex_K};
     ch.lambda_m = lambda_m;  ch.lamD_px = lamD_px;
     ch.center_px = floor(N/2) + 1;
     ch.masks = masks;  ch.coro = opts.coro;
@@ -179,11 +181,24 @@ function ch = ctb_chain(opts)
         E = macos.complex_field(e.FPA, 'reset_trace', false);
     end
 
-    function M = dz_mask_(inner_lamD, outer_lamD)
+    function M = dz_mask_(inner_lamD, outer_lamD, region)
+        % scoring region: 'annulus' (default, full 360-deg ring) or
+        % 'halfplane' (D-shaped one-sided dark hole, x>0 half -- the DST
+        % VVC protocol, Llop-Sayson 2024).  Both share the radial bounds.
+        if nargin < 3 || isempty(region), region = 'annulus'; end
         c = ch.center_px;
         [ii, jj] = ndgrid(1:N, 1:N);
         rl = hypot(ii - c, jj - c) / lamD_px;
         M = rl >= inner_lamD & rl <= outer_lamD;
+        switch lower(region)
+            case 'annulus'
+                % full annulus (default)
+            case 'halfplane'
+                M = M & (jj > c);          % right half-plane (x>0)
+            otherwise
+                error('ctb_chain:region', ...
+                      'unknown scoring region "%s" (annulus|halfplane)', region);
+        end
     end
 end
 
