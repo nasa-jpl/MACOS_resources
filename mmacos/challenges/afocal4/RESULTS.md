@@ -48,10 +48,22 @@ and only to 3955 nm even on axis. Its 59 µm was never mostly about the parabola
 
 **The answer to Rodgers.** He is right that three mirrors do not control the pupil, and
 this is the first quantitative statement of by how much: his best three-mirror runs blur
-469 µm and wander 557 µm, and a fourth mirror takes those to 43 and 44 µm. What his deck
-does not say — because it has no pupil column — is that on this prescription the two
-qualities are in direct exchange, and the instrument's interface standoff is what sets the
-rate.
+469 µm and wander 557 µm, and a fourth mirror takes those to **153 and 156 µm** — a
+factor of **3.0**. What his deck does not say — because it has no pupil column — is that
+on this prescription the two qualities are in direct exchange, and the instrument's
+interface standoff is what sets the rate.
+
+> **CORRECTION (2026-09-02, edge-only re-score slice).**  This sentence read
+> *"a fourth mirror takes those to 43 and 44 µm"* — a **10.8× improvement**.
+> That pairing crosses conditions and overstates the gain by 3.6×.  The 469/557
+> three-mirror numbers are its **offset field box, conic re-solve + tilt/dec**
+> (`deck_rodgers2.md` three-mirror table, col. 4); 43.4/44.0 is the four-mirror's
+> **rung 1, which is ON AXIS** (§2 table).  The matched off-axis four-mirror row
+> is rung 4 — **152.9 / 156.4 µm**, quoted above, and the 343 mm basin-2 design
+> agrees at 157.0 / 161.2.  Ratio **3.0×**, which is what the decks have always
+> carried.  No table, figure or deck number changes; only this summary sentence
+> was wrong.  Frame before angle — a metric is meaningless without its field
+> condition.
 
 **Status: delivered.** The machinery and its ruling §0, controls §1, the four rungs and
 their parameter provenance §2, the wavefront-only bracket §2.1, the merit A/B §2.2, the
