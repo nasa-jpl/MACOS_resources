@@ -106,13 +106,14 @@ floor 1.07e-15); 10% band + pol @ Lyot 0.60 **1.96e-11** relin; @ Lyot
 
 **Verdict: we do not "match" them — we undercut them, by exactly the
 amount their non-idealities explain.**
-**CAUTION (CCMac S1 finding, 2026-09-02): the mono "~420×" is a
-charge-4 / Lyot-0.60 / annulus number.  At the MATCHED DST config
-(charge 6 / Lyot 0.80 / half-plane 3–8) the idealized N=512 floor
-measured ~4e-10 — only ~1.6× below DST.  Suspected owner: the N=512
-pixelated vortex core through the open Lyot (the Session-11/12 195×
-static sampling effect at charge 4); attribution probes in flight.
-Do not quote the 420× at matched config until this resolves.**
+**RESOLVED (CCMac S1, 2026-09-03, commit 9092766): the matched-config
+N=512 floor (~4e-10, only 1.6× below DST) was a COARSE-GRID VORTEX-CORE
+ARTIFACT — the suspected Session-11/12 sampling effect, confirmed by
+probes.  At N=1024 the idealized matched-config baseline (charge 6 /
+Lyot 0.80) is DEEP: annulus 3.33e-14, half-plane 3–8 λ/D **2.04e-14 ≈
+12,000× below DST's 2.44e-10**.  Rule for this campaign: every
+matched-config defect run is N=1024; N=512 charge-6/open-Lyot numbers
+are not quotable.**
 - Mono: ours 5.8e-13 vs their 2.44e-10 → **~420× deeper**, consistent
   with their own attribution (retardance leak + DM electronics — both
   ABSENT in our ideal model; our pol floor 1e-15 is the coated-train
