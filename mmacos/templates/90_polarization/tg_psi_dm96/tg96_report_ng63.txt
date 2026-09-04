@@ -1,0 +1,41 @@
+=== TG96: optimized plate gauge for a Xinetics 96x96 (96 mm) ===
+uniform scale s = 1.7143 from the 56 mm v1 rig; model 1024, grid 384x0.28 mm
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 6.88 deg -> BS_AOI = 7 deg
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   688 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   564 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   523 mm
+  chosen DM leg 700 mm; achieved separations and margins there:
+  DM arm vs ref beam          separation  169.3 mm, margin  +27.9 mm (spec >= 25)
+  ref arm vs DM beam          separation  169.3 mm, margin  +57.9 mm (spec >= 25)
+  camera leg vs source beam   separation  169.3 mm, margin  +67.9 mm (spec >= 25)
+
+Stage B -- rig built at BS_AOI 7 deg; emitted tg96_{test,ref}.in
+
+Stage C -- battery (design azimuths, unaligned):
+  arm azimuths: test -44.8566, ref +45.0000 -> departure +0.1434 deg
+  null: 9.0582 nm rms surface (9058.2 pm) with nothing aligned
+  20 nm piston: |gain| 1.00115 (unaligned scale error +0.115%)
+  single actuator at 150 nm: recovered peak 73.4 nm
+  96x96 checkerboard closure: truth 6.387 nm rms, measured 6.674, residual 2.788 nm rms, corr 0.909814
+  registration: mag 10.6625, anamorphism 0.00%, nonlinearity 0.0022 mm
+
+Stage D -- transfer curve on the 96x96 lattice (Nyquist 48 cyc/pupil):
+  12 modes x 3 traces in 209.6 s
+  mode(p,q)  cyc/pup     gain  cross-talk
+    1,1          0.7   0.9993      0.0032
+    2,2          1.4  -0.9987      0.0010
+    4,4          2.8  -0.9915      0.0038
+    8,8          5.7  -0.9666      0.0077
+   16,16        11.3  -0.8669      0.0126
+   24,24        17.0  -0.7075      0.0163
+   32,32        22.6  -0.5005      0.0293
+   48,48        33.9   0.0007      0.0182
+   64,64        45.3   0.5065      0.0157
+   80,80        56.6   0.8140      0.0018
+   96,96        67.9   0.9505      0.0045
+   48,0         24.0  -0.0008      0.0165
+  held-out random: 43.6446 -> 4827.8449 nm rms (input 30.69 nm rms, resid/truth corr -0.03)
+
+wrote tg96_report.txt + tg96_run.mat + figures
