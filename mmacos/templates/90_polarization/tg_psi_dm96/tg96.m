@@ -106,6 +106,19 @@ assert(MODEL >= 2*NGRID, 'sampling budget: grid %d gives < 2x padding on a %d-px
 % ---- Stage B: build at the solved geometry -----------------------
 macos.init(MODEL);
 assert(N_G <= macos.grid_size_max(), 'N_G %d exceeds mGridMat %d at this model size', N_G, macos.grid_size_max());
+% detector-tail parameters: the re-tuned set from tg96_tail.m when
+% present (Dave 2026-09-04), else the geometrically scaled v1 winner.
+T_FL_F = s*25.02100857;  T_FL_Kc = -2.11278288;
+T_DMF  = s*6.277463741;  T_TRIM  = s*1.085330067;
+if isfile('tg96_tail.mat')
+    tl = load('tg96_tail.mat');
+    T_FL_F = tl.out.FL_F;  T_FL_Kc = tl.out.FL_Kc;
+    T_DMF  = tl.out.D_MASK_FL;  T_TRIM = tl.out.DET_TRIM;
+    say('Tail: RE-TUNED set (null %.3f nm at opt res; seed was %.3f)\n', ...
+        tl.out.null_nm, tl.out.seed_null_nm);
+else
+    say('Tail: geometrically scaled v1 set (tg96_tail.mat not found)\n');
+end
 macos.write_grid_file('tg96_flat.txt', zeros(N_G));
 mk = @(gf) macos.design.twyman_green('polarizing',true, 'ngridpts',NGRID, ...
     'BS_AOI',AOI, ...
@@ -116,8 +129,8 @@ mk = @(gf) macos.design.twyman_green('polarizing',true, 'ngridpts',NGRID, ...
     'to_grid_file',gf, 'to_grid_n',N_G, 'to_grid_dx',DX_G, ...
     'qwp_ret',QWP, 'pol_in_deg',45, 'qwp_test_deg',0, 'qwp_ref_deg',45, ...
     'out_qwp_deg',0, 'analyzer_deg',0, ...
-    'tail_arch','fieldlens', 'FL_F',s*25.02100857, 'FL_Kc',-2.11278288, ...
-    'FL_D',s*12, 'D_MASK_FL',s*6.277463741, 'DET_TRIM',s*1.085330067);
+    'tail_arch','fieldlens', 'FL_F',T_FL_F, 'FL_Kc',T_FL_Kc, ...
+    'FL_D',s*12, 'D_MASK_FL',T_DMF, 'DET_TRIM',T_TRIM);
 Gf = mk('tg96_flat.txt');
 Gf.bt.emit('tg96_test.in');  Gf.br.emit('tg96_ref.in');
 say('Stage B -- rig built at BS_AOI %d deg; emitted tg96_{test,ref}.in\n\n', AOI);
@@ -219,6 +232,34 @@ hc2 = hv2 - Tt*(Tt\hv2) + Tt*c2;
 r2  = corrcoef(hc2-tv2, tv2);
 say('  held-out random: %.4f -> %.4f nm rms (input %.2f nm rms, resid/truth corr %+.2f)\n', ...
     1e6*std(hv2-tv2), 1e6*std(hc2-tv2), 1e6*std(tv2), r2(1,2));
+
+% ---- Stage E: the DIFFERENTIAL metric (Dave 2026-09-04) -----------
+%  The instrument's product is a DEVIATION: measure state B, measure
+%  B+delta, difference the MEASUREMENTS, score against delta.  The
+%  common systematic cancels to first order; what survives is its
+%  dependence on the surface -- the number a ZWFS comparison needs.
+say('Stage E -- differential metric (deviation measured about a working state):\n');
+d_sng = dm_influence_map(N_G, DX_G, 'nact',NACT, 'pitch',PITCH, ...
+                         'pattern','single', 'poke',10e-6);
+d_rnd = dm_influence_map(N_G, DX_G, 'nact',NACT, 'pitch',PITCH, ...
+                         'pattern','random', 'seed',23, 'poke',16e-6);
+bases = {'flat', zeros(N_G), S0; 'random 30 nm', Mrnd, []};
+devs  = {'single act 10 nm', d_sng; 'random 10 nm rms', d_rnd};
+say('  %-14s %-18s %8s %10s %10s %8s\n', 'base', 'deviation', 'gain', 'resid nm', 'resid %', 'corr');
+for bi = 1:2
+    if isempty(bases{bi,3}), Sb = analyzer_basis(AT, QWP, bases{bi,2});
+    else, Sb = bases{bi,3}; end
+    p_B = fourstep(Sb, Sr, THETAS);
+    for di = 1:2
+        Sd = analyzer_basis(AT, QWP, bases{bi,2} + devs{di,2});
+        dmeas = reg.sign * angle(exp(1i*(fourstep(Sd,Sr,THETAS) - p_B))) * LAM/(4*pi);
+        dt = interpn(axs, axs, devs{di,2}, map.Xt, map.Yt, 'spline', 0);
+        a = 1e6*(dmeas(msk)-mean(dmeas(msk)));  b = 1e6*(dt(msk)-mean(dt(msk)));
+        g = b\a;  res = std(a - g*b);  cco = corrcoef(a, b);
+        say('  %-14s %-18s %8.4f %10.4f %9.1f%% %8.4f\n', ...
+            bases{bi,1}, devs{di,1}, g, res, 100*res/std(b), cco(1,2));
+    end
+end
 
 fig = figure('Visible','off','Position',[60 60 640 430]);
 dg = zeros(1,11);  for k=1:11, dg(k) = G(k,k); end
