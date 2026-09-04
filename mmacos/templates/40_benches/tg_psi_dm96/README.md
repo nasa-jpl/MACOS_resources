@@ -7,6 +7,13 @@ clearance solve (margins printed as numbers), Stage A2 sampling budget
 (asserted — Dave 2026-09-03: sampling is part of the design), Stage B
 scaled build, Stage C battery, Stage D actuator-lattice transfer curve.
 
+## Ultimate target (Dave 2026-09-04)
+
+Measurement error ~ 1 pm.  The run-10 map-space numbers (single-poke
+0.049 nm = 49 pm; differential 0.021 nm = 21 pm) are 20-50x above it;
+the pm road runs through the differential protocol + actuator-space
+scoring (Stage E').
+
 ## Findings so far (reports are the record)
 
 - `tg96_report_ng63.txt` — 63 px across the pupil: detector-blind at

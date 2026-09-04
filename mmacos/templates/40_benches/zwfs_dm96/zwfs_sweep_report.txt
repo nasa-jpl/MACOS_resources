@@ -1,0 +1,14 @@
+=== ZWFS sampling sweep (model 1024, DM 96x96): where does it all work? ===
+cases: center actuator 20 nm; defocus 8 nm on the illuminated radius.
+target context (Dave): measurement error ~ 1 pm ultimate.
+ NGRID   spot | dimplePx  illumPx  nyqMarg |   pokeG  pokeE_pm |    defG   defE_pm
+   129   1.06 |     6.29      128     1.68 |  -0.381     613.4 |   1.030     182.2
+   129   2.00 |    11.88      128     1.68 |   0.450     280.8 |   0.986     136.8
+   129   3.00 |    17.81      128     1.68 |   0.585     242.6 |   0.794     702.0
+   193   2.00 |     7.92      192     2.52 |   0.445     285.8 |   0.986     159.7
+   193   3.00 |    11.88      192     2.52 |   0.587     243.7 |   0.794     706.9
+   257   2.00 |     5.94      256     3.35 |   0.445     282.2 |   0.983     184.6
+   257   3.00 |     8.91      256     3.35 |   0.589     239.8 |   0.791     721.3
+   385   3.00 |     5.94      384     5.03 |   0.585     243.1 |   0.780     756.5
+reference: IFO at NGRID 385 -- poke 0.984 / 49 pm, defocus 1.024 / 86 pm.
+sweep done in 1.2 min
