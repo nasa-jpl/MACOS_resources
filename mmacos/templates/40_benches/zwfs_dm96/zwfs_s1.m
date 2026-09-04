@@ -236,8 +236,15 @@ say_(rep, '   (S_CONV = %+d, pinned round 5)\n', S_CONV);
 assert(abs(g - 1) <= 0.15, 'G3 FAIL: gain %+.4f', g);
 say_(rep, 'G3 PASS\n');
 
-% instrument property (ungated): the defocus response -- low-order
-% attenuation of the self-referenced ZWFS (round 5: 0.54).
+% instrument property (ungated): the defocus response.  NOTE (round 11,
+% full-res wf-figs): earlier "attenuation" readings (0.54, 0.32) were
+% PATTERN-RADIUS bias -- the source cone fills ~74% of the aperture, and
+% patterns defined on R_BEAM overhang the light.  On the measured
+% illuminated radius, defocus reads ~0.99 (spot 2.0, full res): the
+% self-reference attenuation lives at piston/tilt class, not defocus.
+R_ILL = prctile_supp_(rd(msk)) * abs(dxd_mm) * mag;
+say_(rep, 'illuminated radius %.2f mm (aperture %.2f)\n', R_ILL, R_BEAM);
+h_defoc = A_MM * (2*(rr/R_ILL).^2 - 1) .* double(rr <= R_ILL);
 macos.set_elt_grid(iTO, sp, h_defoc);
 macos.intensity(iMASK);
 macos.apodize_complex(iMASK, V);
@@ -245,7 +252,7 @@ Ed = macos.complex_field(iDET, 'reset_trace', false);
 phi_d = zeros(N_WF);
 phi_d(msk) = (abs(Ed(msk)).^2 - I_flat(msk)) ./ den(msk);
 h_d = S_CONV * phi_d * LAM/(4*pi);
-t_d = A_MM * (2*(r_dm/R_BEAM).^2 - 1);
+t_d = A_MM * (2*(r_dm/R_ILL).^2 - 1);
 g_d = t_d(fitm) \ h_d(fitm);
 say_(rep, 'defocus response (property, ungated): gain %+.4f -- ZWFS low-order attenuation\n', g_d);
 macos.set_elt_grid(iTO, sp, h_true);           % restore G3/G4 state
@@ -265,6 +272,10 @@ out = struct('dia_px',dia_px, 'rel_super',rel, 'core_frac',core_frac, ...
              'gain',g, 'resid_nm',res, 'gain_nodimple',g_bad, 's_conv',S_CONV);
 save('zwfs_s1_run.mat', 'out');
 fprintf('wrote zwfs_s1_report.txt + zwfs_s1_run.mat\n');
+end
+
+function v = prctile_supp_(x)
+    x = sort(x(:));  v = x(max(1, round(0.98*numel(x))));
 end
 
 function say_(rep, fmt, varargin)
