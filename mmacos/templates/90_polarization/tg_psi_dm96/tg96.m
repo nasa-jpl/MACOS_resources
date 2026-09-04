@@ -38,7 +38,14 @@ say = @(varargin) say_(rep, varargin{:});
 NACT = 96;  PITCH = 1.0;  DM_MM = NACT*PITCH;      % 96 mm aperture
 s    = DM_MM/56;                                   % uniform scale vs v1
 LAM  = 6.328e-4;  QWP = 0.25;  THETAS = [0 45 90 135];
-MODEL = 1024;  NGRID = 63;  N_G = 384;  DX_G = 0.28;  % 3.57 px/actuator
+MODEL = 1024;  NGRID = 385;  N_G = 384;  DX_G = 0.28;  % 3.57 px/actuator
+% NGRID 385 (Dave 2026-09-03, 'a detector capable of resolving the
+% imagery, up to 1 Mpix square'): the wavefront seed inherits the ray
+% grid's sampling, so the pupil image spans ~NGRID px at the detector.
+% 63 px gave detector Nyquist 31.5 cyc/pupil -- BLIND at the 96x96 DM's
+% 48 (the run of record for that finding is tg96_report_ng63.txt).
+% 385 px -> ~4 px/actuator, Nyquist ~192 cyc/pupil, inside the 1024^2
+% (1 Mpix) grid with FFT padding.
 % MODEL 1024 is LOAD-BEARING: mGridMat is NOT the model size -- 512 caps
 % grids at 256 (macos_param.txt) and the nGridMat= parse is unguarded
 % (BRIEF_gridmat_guard.md), so a 384 grid on model 512 corrupts the heap.
@@ -79,6 +86,22 @@ for k = 1:size(legs,1)
         legs{k,1}, D_BS_TO*sind(2*AOI), m, MARGIN);
 end
 say('\n');
+
+% ---- Stage A2: sampling budget (Dave 2026-09-03: sampling is part of
+%      the DESIGN -- size every interface in the signal chain against
+%      the finest feature it must carry, and assert the margin) ------
+act_nyq = NACT/2;                                  % cyc/pupil the DM commands
+det_nyq = NGRID/2;                                 % pupil image spans ~NGRID px
+grid_ppa = PITCH/DX_G;                             % surface-grid px per actuator
+say('Stage A2 -- sampling budget (finest feature: actuator Nyquist %.0f cyc/pupil):\n', act_nyq);
+say('  detector: ~%d px across pupil -> Nyquist %5.1f cyc/pup  margin %4.1fx (need >= 2)\n', ...
+    NGRID, det_nyq, det_nyq/act_nyq);
+say('  DM surface grid: %.2f px/actuator                        (need >= 3)\n', grid_ppa);
+say('  diffraction grid: %d^2 for a %d-px image                (padding %4.1fx)\n\n', ...
+    MODEL, NGRID, MODEL/NGRID);
+assert(det_nyq >= 2*act_nyq, 'sampling budget: detector Nyquist %.1f < 2x actuator Nyquist %.1f', det_nyq, act_nyq);
+assert(grid_ppa >= 3, 'sampling budget: %.2f grid px/actuator < 3', grid_ppa);
+assert(MODEL >= 2*NGRID, 'sampling budget: grid %d gives < 2x padding on a %d-px image', MODEL, NGRID);
 
 % ---- Stage B: build at the solved geometry -----------------------
 macos.init(MODEL);
@@ -126,11 +149,29 @@ Mp = dm_influence_map(N_G, DX_G, 'nact',NACT, 'pitch',PITCH, ...
 hp = meas_surface(AT, QWP, Mp, Sr, p_null, THETAS, LAM);
 say('  single actuator at 150 nm: recovered peak %.1f nm\n', 1e6*max(abs(hp(msk))));
 
+% REGISTRATION BY TWO POKES (deterministic -- no correlation search).
+% Runs 3-6 taught: the checkerboard's correlation landscape ripples at
+% every integer actuator, so any refiner can park an arbitrary integer
+% offset (run 6 measured 2.25 actuators); and a center poke cannot pick
+% parity (it is parity-invariant).  So: ray affine -> scale/rotation;
+% poke A (center, parity-invariant) -> translation EXACTLY by blob
+% centroid match; poke B (off-center) -> parity, by direct overlap, and
+% the selection metric doubles as the gate.
+A2c = zeros(NACT);  A2c(30,64) = 1;
+Mp2 = dm_influence_map(N_G, DX_G, 'nact',NACT, 'pitch',PITCH, 'act', 150e-6*A2c);
+hp2 = meas_surface(AT, QWP, Mp2, Sr, p_null, THETAS, LAM);
 Mdm = dm_influence_map(N_G, DX_G, 'nact',NACT, 'pitch',PITCH, ...
                        'pattern','checker', 'poke',POKE);
 hm = meas_surface(AT, QWP, Mdm, Sr, p_null, THETAS, LAM);
-[~, map] = register_to_dm(AT, Gf.T, Mdm, N_G, DX_G, hm, msk);
 axs = ((1:N_G)-(N_G+1)/2)*DX_G;
+[map, reg] = register_two_pokes(AT, Gf.T, Mp, hp, Mp2, hp2, N_G, DX_G, msk);
+say('  registration by two pokes: parity %d of 8, meas sign %+d; |pokeB corr| %.4f (runner-up %.4f)\n', ...
+    reg.par, reg.sign, abs(reg.pokeB_corr), reg.runner_up);
+say('  parity corr table: %s\n', sprintf('%.3f ', reg.table));
+assert(abs(reg.pokeB_corr) >= 0.8, 'registration gate FAILED: |pokeB corr| %.3f', abs(reg.pokeB_corr));
+assert(abs(reg.pokeB_corr) - reg.runner_up >= 0.3, 'registration gate FAILED: parity separation %.3f', ...
+       abs(reg.pokeB_corr) - reg.runner_up);
+hm = reg.sign * hm;                    % gauge sign calibration, applied
 tt = interpn(axs, axs, Mdm, map.Xt, map.Yt, 'spline', 0);
 hv = 1e6*(hm(msk) - mean(hm(msk)));  tv = 1e6*(tt(msk) - mean(tt(msk)));
 cc = corrcoef(hv, tv);
@@ -155,7 +196,7 @@ for k = 1:nM
     p = PQ(k,1); q = PQ(k,2);
     Ak = cos(pi*p*ii/NACT) * cos(pi*q*ii/NACT)';  Ak = Ak/max(abs(Ak(:)));
     Mk = dm_influence_map(N_G, DX_G, 'nact',NACT, 'pitch',PITCH, 'act', POKE*Ak);
-    hk = meas_surface(AT, QWP, Mk, Sr, p_null, THETAS, LAM);
+    hk = reg.sign * meas_surface(AT, QWP, Mk, Sr, p_null, THETAS, LAM);
     tk = interpn(axs, axs, Mk, map.Xt, map.Yt, 'spline', 0);
     Mm(:,k) = hk(msk) - mean(hk(msk));
     Tt(:,k) = tk(msk) - mean(tk(msk));
@@ -170,7 +211,7 @@ for k = 1:nM
 end
 Mrnd = dm_influence_map(N_G, DX_G, 'nact',NACT, 'pitch',PITCH, 'poke',POKE, ...
                         'pattern','random', 'seed',11);
-hv2 = meas_surface(AT, QWP, Mrnd, Sr, p_null, THETAS, LAM);
+hv2 = reg.sign * meas_surface(AT, QWP, Mrnd, Sr, p_null, THETAS, LAM);
 tv2 = interpn(axs, axs, Mrnd, map.Xt, map.Yt, 'spline', 0);
 hv2 = hv2(msk)-mean(hv2(msk));  tv2 = tv2(msk)-mean(tv2(msk));
 c2  = G \ (Tt \ hv2);
@@ -322,7 +363,9 @@ function h = meas_surface(A, QWP, M, Sr, p_null, THETAS, LAM)
     h = d * LAM/(4*pi);
 end
 
-function [best, map] = register_to_dm(A, ix, Mdm, N_G, DX_G, h, msk)
+function [map, reg] = register_two_pokes(A, ix, MpA, hpA, MpB, hpB, N_G, DX_G, msk)
+%  Ray affine (scale/rotation) + poke-A blob centroid (translation, exact)
+%  + poke-B overlap (parity selection among 8; doubles as the gate).
     macos.load_rx(A.rx);
     s1 = macos.trace(ix.iTO);   ito  = macos.get_ray_info(s1.nRays);
     s2 = macos.trace(ix.iDET);  idet = macos.get_ray_info(s2.nRays);
@@ -340,28 +383,42 @@ function [best, map] = register_to_dm(A, ix, Mdm, N_G, DX_G, h, msk)
     nl  = xy_to - (Lm*xy_d + Aaf(3,:).');
     map = struct('mag', sqrt(abs(det(Lm))), 'anam_pct', 100*(sm(1)/sm(2)-1), ...
                  'nonlin_mm', sqrt(mean(sum(nl.^2,1))));
-    Fx = scatteredInterpolant(xy_d(1,:).', xy_d(2,:).', xy_to(1,:).', 'linear','linear');
-    Fy = scatteredInterpolant(xy_d(1,:).', xy_d(2,:).', xy_to(2,:).', 'linear','linear');
-    N = size(h,1);  [cg, rg] = meshgrid(1:N, 1:N);
+    N = size(hpA,1);  [cg, rg] = meshgrid(1:N, 1:N);
     cx = sum(cg(msk))/nnz(msk);  cy = sum(rg(msk))/nnz(msk);
     dxp = macos.dx_at(ix.iDET, 'mm');
     a1 = (cg-cx)*dxp;  a2 = (rg-cy)*dxp;
-    c_d = mean(xy_d, 2);
     axs = ((1:N_G)-(N_G+1)/2)*DX_G;
-    hm = h - mean(h(msk));
+    sc = map.mag;                        % isotropic (anam ~0): DM mm per det mm
+    % measured blob-A centroid in detector-plane coords (weighted, top 5%)
+    w = abs(hpA - median(hpA(msk)));  w(~msk) = 0;
+    w(w < 0.05*max(w(:))) = 0;
+    bx = sum(a1(:).*w(:))/sum(w(:));  by = sum(a2(:).*w(:))/sum(w(:));
+    % truth blob positions on the DM (mm)
+    [~,iA] = max(abs(MpA(:)));  [rA, cA] = ind2sub(size(MpA), iA);
+    pA = [axs(cA) axs(rA)];
+    hpB0 = hpB(msk) - mean(hpB(msk));
     cands = {a1,a2; a1,-a2; -a1,a2; -a1,-a2; a2,a1; a2,-a1; -a2,a1; -a2,-a1};
-    best = struct('c',-inf, 'i',1);
-    for c = 1:size(cands,1)
-        [cc, ht] = reg_corr([0 0 0 0], cands{c,1}, cands{c,2}, c_d, Fx, Fy, axs, Mdm, hm, msk);
-        if cc > best.c, best = struct('c',cc, 'ht',ht, 'i',c); end
+    % blob-A centroid under each parity: parity acts on (a1,a2), and the
+    % centroid transforms the same way -- evaluate directly.
+    bA = {[bx by]; [bx -by]; [-bx by]; [-bx -by]; [by bx]; [by -bx]; [-by bx]; [-by -bx]};
+    reg = struct('pokeB_corr',0,'par',0);  tab = zeros(1,8);  best_abs = -1;
+    for c = 1:8
+        Xc = sc*cands{c,1};  Yc = sc*cands{c,2};
+        Xc = Xc - (sc*bA{c}(1) - pA(1));      % translation: blob A -> truth A
+        Yc = Yc - (sc*bA{c}(2) - pA(2));
+        tps = interpn(axs, axs, MpB, Xc, Yc, 'spline', 0);
+        cc = corrcoef(hpB0, tps(msk)-mean(tps(msk)));
+        tab(c) = cc(1,2);
+        if abs(cc(1,2)) > best_abs
+            best_abs = abs(cc(1,2));
+            reg.pokeB_corr = cc(1,2);  reg.par = c;  reg.Xt = Xc;  reg.Yt = Yc;
+        end
     end
-    A1 = cands{best.i,1};  A2 = cands{best.i,2};
-    p = fminsearch(@(q) -reg_corr(q,A1,A2,c_d,Fx,Fy,axs,Mdm,hm,msk), [0 0 0 0], ...
-                   optimset('TolX',1e-7,'TolFun',1e-10,'Display','off'));
-    [c2, ht2, Xt, Yt] = reg_corr(p, A1, A2, c_d, Fx, Fy, axs, Mdm, hm, msk);
-    if c2 > best.c, best.c = c2;  best.ht = ht2; end
-    best.hm = hm;
-    map.Xt = Xt;  map.Yt = Yt;
+    st = sort(abs(tab), 'descend');  reg.runner_up = st(2);  reg.table = tab;
+    % The four-step sign is DECK-DEPENDENT (the v1 example's h = +-psi
+    % lambda/4pi gate); the poke-B overlap sign IS that calibration.
+    reg.sign = sign(reg.pokeB_corr);
+    map.Xt = reg.Xt;  map.Yt = reg.Yt;
 end
 
 function [c, ht, Xt, Yt] = reg_corr(p, A1, A2, c_d, Fx, Fy, axs, Mdm, hm, msk)
