@@ -40,3 +40,34 @@ are ann 3.33e-14 / hp 2.04e-14 -- decades below DST (hp ~12000x below their
 2.44e-10 mono), restoring the S1 premise.  BASELINE IS N=1024.  (The N=512
 rows above are retained as the artifact record; do not use them as the
 baseline.)
+==== DST Lane S1 -- charge-6 NARROWBAND sweep (mono-at-center approx) | N=1024 | Lyot 0.80 | 2026-09-03 15:43:02
+center nm  region     | dz px | static     | EFC(r0)    | la@50nm    | stroke nm
+  615 nm    annulus   | 10944 |  5.925e-09 |  5.743e-12 |  3.017e-19 | [0.8 0.8]
+  615 nm    halfplane |  1380 |  1.912e-08 |  3.282e-13 |  4.027e-22 | [0.3 0.3]
+  625 nm    annulus   | 10944 |  5.960e-09 |  5.816e-12 |  3.424e-19 | [0.9 0.8]
+  625 nm    halfplane |  1380 |  1.925e-08 |  3.461e-13 |  4.848e-22 | [0.4 0.3]
+  635 nm    annulus   | 10944 |  6.011e-09 |  4.731e-12 |  3.143e-19 | [1.0 0.9]
+  635 nm    halfplane |  1380 |  1.939e-08 |  3.663e-13 |  4.366e-22 | [0.4 0.4]
+  645 nm    annulus   | 10944 |  6.059e-09 |  4.696e-12 |  3.054e-19 | [1.0 0.9]
+  645 nm    halfplane |  1380 |  1.948e-08 |  3.749e-13 |  4.249e-22 | [0.4 0.4]
+  655 nm    annulus   | 10944 |  6.077e-09 |  4.514e-12 |  4.395e-19 | [1.0 1.0]
+  655 nm    halfplane |  1380 |  1.947e-08 |  3.648e-13 |  4.571e-22 | [0.4 0.4]
+(mono-at-center approx for the achromatic idealized mask; r0 fixed-G; N=1024.)
+
+==== DST Lane S1 -- charge-6 BROADBAND 10% @ 625 nm | N=1024 | Lyot 0.80 | 2026-09-03 ====
+region     scoring   | static     | EFC floor  | note
+ annulus   3-15      | 5.823e-09  | 9.773e-11  | 5-color band [0.95..1.05], chromaticity-limited
+ halfplane 3- 8      | 5.796e-09  | 6.645e-11  | 5-color band [0.95..1.05], chromaticity-limited
+(ctb_efc_physics band=true; the 10% floor is ~3 decades above mono -- one DM
+ setting cannot null 5 colors -- the Session-13 chromatic wall, charge-6 twin.)
+
+==== S1 BASELINE OF RECORD -- idealized charge-6 / Lyot 0.80 / N=1024 (control==truth, perfect sensing) ====
+band                | annulus 3-15 | half-plane 3-8 | DST measured    | headroom
+ mono               | 3.33e-14 *   | 2.04e-14 *     | 2.44e-10        | ~12000x below
+ narrowband 1% (r0) | ~4.5-5.8e-12 | ~3.3-3.7e-13   | 4.3-11e-10 (RH) | ~100-1000x below, FLAT vs center
+ broadband 10%      | 9.77e-11     | 6.65e-11       | ~1.5e-9 (RH)    | ~15-20x below
+ * mono = relin-ladder-converged (ctb_dst_s1); narrowband is r0 fixed-G per
+   center (flat across 615-655 -> achromatic mask); broadband is fixed-G,
+   chromaticity-limited.  Every row DECADES below DST -- the headroom the
+   defect lanes (2c) and quantization (2e) will spend.  All matched-config
+   runs N=1024 (N=512 charge-6/open-Lyot is a grid artifact; see ATTRIBUTION).

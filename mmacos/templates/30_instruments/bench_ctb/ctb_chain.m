@@ -50,6 +50,7 @@ function ch = ctb_chain(opts)
         opts.r_apod_taper_m  (1,1) double = 2e-3
         opts.r_lyot_frac     (1,1) double = 0.50
         opts.vortex_K        (1,1) double {mustBeInteger,mustBePositive} = 8
+        opts.lam_m           (1,1) double {mustBeNonnegative} = 0
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
@@ -65,6 +66,10 @@ function ch = ctb_chain(opts)
     nE = macos.load_rx(opts.rx);
     assert(nE == e.FPA, 'ctb_chain: nElt=%d but FPA index=%d', nE, e.FPA);
     cbm      = macos.cbm();
+    % center-wavelength override (deck default 500 nm; DST protocol 610-660
+    % nm -> set the source so all downstream scales are self-consistent at
+    % the requested center).  lam_m in metres; 0 = deck default.
+    if opts.lam_m > 0, macos.set_src_wvl(opts.lam_m / cbm); end
     lambda_m = macos.get_src_wvl() * cbm;
 
     % FPM leg scales (Fraunhofer on the NF1 sphere; finding-2 pattern)
@@ -116,7 +121,7 @@ function ch = ctb_chain(opts)
         'apodizer', opts.apodizer, 'fpm', opts.fpm, 'lyot', opts.lyot, ...
         'r_fpm_lamD', opts.r_fpm_lamD, 'r_apod_m', opts.r_apod_m, ...
         'r_apod_taper_m', opts.r_apod_taper_m, 'r_lyot_frac', opts.r_lyot_frac, ...
-        'vortex_K', opts.vortex_K};
+        'vortex_K', opts.vortex_K, 'lam_m', opts.lam_m};
     ch.lambda_m = lambda_m;  ch.lamD_px = lamD_px;
     ch.center_px = floor(N/2) + 1;
     ch.masks = masks;  ch.coro = opts.coro;

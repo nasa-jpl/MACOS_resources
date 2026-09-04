@@ -65,6 +65,8 @@ function out = ctb_efc_physics(opts)
         opts.h_mm       (1,1) double = 2e-6
         opts.inner_lamD (1,1) double = 3.0
         opts.outer_lamD (1,1) double = 15.0
+        opts.region     (1,:) char {mustBeMember(opts.region, ...
+                             {'annulus','halfplane'})} = 'annulus'
         opts.save       (1,1) logical = true
         opts.outdir     (1,:) char = ''
         opts.verbose    (1,1) logical = true
@@ -149,6 +151,7 @@ function out = ctb_efc_physics(opts)
     for l = 1:nlam
         lf = opts.lfracs(l);
         dzM{l} = rl >= opts.inner_lamD/lf & rl <= opts.outer_lamD/lf;
+        if strcmpi(opts.region, 'halfplane'), dzM{l} = dzM{l} & (jj > c); end
         dz{l} = find(dzM{l});
         macos.set_src_wvl(lam0 * lf);
         pk_l = 0;
