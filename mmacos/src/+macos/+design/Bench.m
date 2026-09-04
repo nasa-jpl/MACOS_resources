@@ -735,16 +735,35 @@ methods
     end
 
     % -----------------------------------------------------------------
-    function i = add_reference(b, dist, name)
+    function i = add_reference(b, dist, name, opts)
         %ADD_REFERENCE  Passive Reference plane (e.g. focal-mask site).
+        %   Options (all default to the legacy plane emission, so existing
+        %   decks are bit-identical):
+        %     'surface'  'Flat' (default) | 'Conic' -- a Conic with 'kr'
+        %                = -d is a reference SPHERE concentric with a focus
+        %                d downstream (the NF1/NF2 sandwich idiom; see
+        %                bench_ctb/ctb_dcr.in FPM_EPreturn1/2).
+        %     'kr'       KrElt (default -1e22 = flat)
+        %     'proptype' PropType= for the leg FROM this element (default
+        %                'Geometric'; 'NF1' sphere->plane, 'NF2'
+        %                plane->sphere -- prop_defs.inc names)
+        %     'zelt'     zElt= (default 0, the legacy reference emission;
+        %                the NF sandwich wants the sphere-to-focus distance
+        %                on spheres and 1e22 on the focal flat)
         arguments
             b
             dist (1,1) double {mustBePositive}
             name (1,:) char = 'Ref'
+            opts.surface (1,:) char {mustBeMember(opts.surface, {'Flat','Conic'})} = 'Flat'
+            opts.kr (1,1) double = -1e22
+            opts.proptype (1,:) char = 'Geometric'
+            opts.zelt (1,1) double = 0
         end
         P = b.step(dist);
         e = b.blank(name, 'Reference');
-        e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
+        e.psi = b.dir;  e.vpt = P;  e.zelt = opts.zelt;
+        e.surface = opts.surface;  e.Kr = opts.kr;
+        e.proptype = opts.proptype;
         i = b.push(e);
     end
 
@@ -904,7 +923,7 @@ methods
             if strcmp(e.aptype, 'Circular')
                 ln{end+1} = sprintf('            ApVec=  %.10E  0.0D+00  0.0D+00', e.aprad);
             end
-            ln{end+1} =         '         PropType=  Geometric';
+            ln{end+1} = sprintf('         PropType=  %s', e.proptype);
             ln{end+1} = sprintf('             zElt=  %.6G', e.zelt);
             ln{end+1} =         '          nECoord=  -6';
         end
@@ -1035,6 +1054,7 @@ methods (Access = private)
             'gridfile', '', 'gridn', 0, 'griddx', 0, ...
             'polaxis', [1;0;0], 'retard', 0.0, ...   % pol-element fields (TrPolarizer/WavePlate)
             'coat', zeros(0,3), ...   % Model-A stack, OUTERMOST first: [n k thk_waves]
+            'proptype', 'Geometric', ...   % per-element PropType= (leg FROM this element)
             'zelt', 1e22, 's', b.path_len);
     end
 
