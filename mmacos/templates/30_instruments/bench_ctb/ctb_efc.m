@@ -45,6 +45,15 @@ function out = ctb_efc(opts)
         opts.compare        struct = struct([]) % .contrast + .label overlay
         opts.tag            (1,:) char = ''     % suffix for saved .mat/.png
         opts.a0             (1,:) cell = {}     % warm-start commands (relin)
+        opts.quant_nm       (1,1) double {mustBeNonnegative} = 0  % Lane 2e:
+                            % DM LSB noise, nm.  0 = off.  PLANT ONLY -- the
+                            % controller solves in continuous strokes; the
+                            % engine is commanded with fresh U(+/-LSB/2)
+                            % dither per actuator per evaluation (DM
+                            % electronics noise, Ruane 2020).  The solved
+                            % state stays continuous; only ch.run() sees the
+                            % dithered command.
+        opts.quant_seed     (1,1) double = 1      % rng seed for the dither
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
@@ -119,7 +128,12 @@ function out = ctb_efc(opts)
     else
         a = cellfun(@(d) zeros(d.nact^2, 1), dm, 'UniformOutput', false);
     end
-    for k = 1:ndm, dm{k}.apply(a{k}); end
+    if opts.quant_nm > 0
+        rng(opts.quant_seed);
+        fprintf('[efc] PLANT LSB dither %.2f nm (seed %d) -- controller stays continuous\n', ...
+                opts.quant_nm, opts.quant_seed);
+    end
+    papply_(dm, a, opts.quant_nm);
     E = ch.run();
     E_before = E;
     contrast = zeros(1, opts.niter + 1);
@@ -139,8 +153,8 @@ function out = ctb_efc(opts)
             for k = 1:ndm
                 sel = dmof == k;
                 at{k}(J.col_act(sel)) = at{k}(J.col_act(sel)) + da(sel);
-                dm{k}.apply(at{k});
             end
+            papply_(dm, at, opts.quant_nm);
             Et = ch.run();
             c = mean(abs(Et(dz)).^2) / pb;
             if c < best.c
@@ -153,7 +167,7 @@ function out = ctb_efc(opts)
             contrast = contrast(1:it);
             alpha_used = alpha_used(1:it-1);
             % restore best-so-far state
-            for k = 1:ndm, dm{k}.apply(a{k}); end
+            papply_(dm, a, opts.quant_nm);
             E = ch.run();
             break;
         end
@@ -170,7 +184,7 @@ function out = ctb_efc(opts)
         end
     end
     % ensure engine state = final commands (line search may have left a trial)
-    for k = 1:ndm, dm{k}.apply(a{k}); end
+    papply_(dm, a, opts.quant_nm);
     E_after = ch.run();
     c_final = mean(abs(E_after(dz)).^2) / pb;
     fprintf('[efc] final: %.3e -> %.3e (%.1fx) in %d iterations\n', ...
@@ -182,7 +196,8 @@ function out = ctb_efc(opts)
         'c_before',contrast(1), 'c_after',c_final, ...
         'lamD_px',J.lamD_px, 'center_px',J.center_px, 'N',J.N, ...
         'inner_lamD',J.inner_lamD, 'outer_lamD',J.outer_lamD, ...
-        'peak_bare',pb, 'dz_idx',dz, 'jac_h_mm',J.h_mm);
+        'peak_bare',pb, 'dz_idx',dz, 'jac_h_mm',J.h_mm, ...
+        'quant_nm',opts.quant_nm, 'quant_seed',opts.quant_seed);
     stroke_rms_nm = cellfun(@(x) 1e6 * rms(x(x~=0)), a);
     out.stroke_rms_nm = stroke_rms_nm;
     if opts.save
@@ -190,6 +205,22 @@ function out = ctb_efc(opts)
         save(fullfile(opts.outdir, ['ctb_efc' tg '.mat']), ...
              '-struct', 'out', '-v7.3');
         fig_(out, dm, opts);
+    end
+end
+
+% ======================================================================
+function papply_(dm, cmd, quant_nm)
+%PAPPLY_  Apply a command to the PLANT, with optional LSB dither (Lane 2e).
+%   quant_nm > 0 adds fresh U(+/-quant_nm/2) nm noise per actuator (DM
+%   electronics LSB noise, Ruane 2020; commands are mm so nm*1e-6).  The
+%   controller's solved state is unchanged -- only what the engine is
+%   commanded here -- so this is a PLANT-only perturbation.
+    for k = 1:numel(dm)
+        c = cmd{k};
+        if quant_nm > 0
+            c = c + (rand(size(c)) - 0.5) * quant_nm * 1e-6;
+        end
+        dm{k}.apply(c);
     end
 end
 
