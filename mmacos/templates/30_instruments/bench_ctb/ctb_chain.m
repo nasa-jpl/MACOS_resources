@@ -50,6 +50,10 @@ function ch = ctb_chain(opts)
         opts.r_apod_taper_m  (1,1) double = 2e-3
         opts.r_lyot_frac     (1,1) double = 0.50
         opts.vortex_K        (1,1) double {mustBeInteger,mustBePositive} = 8
+        opts.lam_m           (1,1) double {mustBeNonnegative} = 0
+        opts.fpm_defect_lamD   (1,1) double {mustBeNonnegative} = 0
+        opts.fpm_incl_lamD     (1,1) double {mustBeNonnegative} = 0
+        opts.fpm_incl_pos_lamD (1,1) double {mustBeNonnegative} = 0
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
@@ -65,6 +69,10 @@ function ch = ctb_chain(opts)
     nE = macos.load_rx(opts.rx);
     assert(nE == e.FPA, 'ctb_chain: nElt=%d but FPA index=%d', nE, e.FPA);
     cbm      = macos.cbm();
+    % center-wavelength override (deck default 500 nm; DST protocol 610-660
+    % nm -> set the source so all downstream scales are self-consistent at
+    % the requested center).  lam_m in metres; 0 = deck default.
+    if opts.lam_m > 0, macos.set_src_wvl(opts.lam_m / cbm); end
     lambda_m = macos.get_src_wvl() * cbm;
 
     % FPM leg scales (Fraunhofer on the NF1 sphere; finding-2 pattern)
@@ -101,6 +109,19 @@ function ch = ctb_chain(opts)
             case 'vortex'
                 masks.F = ctb_mask_vortex(N, opts.charge, opts.vortex_K);   % complex, K-binned
         end
+        % Lane 2c: central amplitude defect (opaque disk at the vortex
+        % centre) + a point inclusion at a working separation, multiplied
+        % onto the FPM amplitude (K=8 area-weighted edges).  In ch.config
+        % -> present in BOTH plant and Jacobian (a known mask feature).
+        if opts.fpm_defect_lamD > 0
+            masks.F = masks.F .* (1 - ctb_mask_disk(N, dx_f, ...
+                                       opts.fpm_defect_lamD * lamD_fpm_m, 8));
+        end
+        if opts.fpm_incl_lamD > 0
+            masks.F = masks.F .* (1 - offset_disk_(N, dx_f, ...
+                opts.fpm_incl_lamD * lamD_fpm_m, ...
+                opts.fpm_incl_pos_lamD * lamD_fpm_m, 8));
+        end
     end
     if opts.lyot
         masks.L = ctb_mask_disk(N, abs(macos.dx_at(e.Lyot)), ...
@@ -116,7 +137,10 @@ function ch = ctb_chain(opts)
         'apodizer', opts.apodizer, 'fpm', opts.fpm, 'lyot', opts.lyot, ...
         'r_fpm_lamD', opts.r_fpm_lamD, 'r_apod_m', opts.r_apod_m, ...
         'r_apod_taper_m', opts.r_apod_taper_m, 'r_lyot_frac', opts.r_lyot_frac, ...
-        'vortex_K', opts.vortex_K};
+        'vortex_K', opts.vortex_K, 'lam_m', opts.lam_m, ...
+        'fpm_defect_lamD', opts.fpm_defect_lamD, ...
+        'fpm_incl_lamD', opts.fpm_incl_lamD, ...
+        'fpm_incl_pos_lamD', opts.fpm_incl_pos_lamD};
     ch.lambda_m = lambda_m;  ch.lamD_px = lamD_px;
     ch.center_px = floor(N/2) + 1;
     ch.masks = masks;  ch.coro = opts.coro;
@@ -209,4 +233,21 @@ function rr = footprint_radius_(I, dx)
     if isempty(xx), rr = 0; return; end
     c = (size(I,1)-1)/2 + 1;
     rr = max(hypot(xx - c, yy - c)) * dx;
+end
+
+function D = offset_disk_(N, dx, rad_m, off_m, K)
+%OFFSET_DISK_  K-x supersampled binary disk of radius rad_m centred off_m
+%   (metres) along +x from the beam pixel floor(N/2) -- the Lane 2c point
+%   inclusion.  Returns fractional coverage in [0,1] (area-weighted edge).
+    c = floor(N/2);
+    [xx, yy] = meshgrid((0:N-1) - c, (0:N-1) - c);
+    offpx = off_m / dx;  rpx = rad_m / dx;
+    o = ((0:K-1) - (K-1)/2) / K;
+    D = zeros(N);
+    for a = 1:K
+        for b = 1:K
+            D = D + double(hypot(xx + o(a) - offpx, yy + o(b)) <= rpx);
+        end
+    end
+    D = D / K^2;
 end
