@@ -54,6 +54,12 @@ function out = ctb_efc(opts)
                             % state stays continuous; only ch.run() sees the
                             % dithered command.
         opts.quant_seed     (1,1) double = 1      % rng seed for the dither
+        opts.plant_chain    (1,:) cell = {}   % Lane 2c-b: override the PLANT
+                            % chain config while the controller keeps the
+                            % loaded (defect-free) Jacobian G -- control !=
+                            % truth in exactly one respect (the controller
+                            % does not model this feature).  {} = plant
+                            % matches the Jacobian (the usual control==truth).
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
@@ -102,6 +108,10 @@ function out = ctb_efc(opts)
     % ---- chain + DM models (must match the Jacobian's config) ----------
     cargs = {};
     if isfield(J, 'chain_opts'), cargs = J.chain_opts; end
+    if ~isempty(opts.plant_chain)          % 2c-b: plant != controller model
+        cargs = opts.plant_chain;
+        fprintf('[efc] PLANT chain overridden (control != truth): G is the loaded (defect-free) Jacobian\n');
+    end
     ch = ctb_chain('rx', J.rx, 'model_size', J.N, cargs{:});
     ndm = numel(J.dm);
     dm = cell(1, ndm);
