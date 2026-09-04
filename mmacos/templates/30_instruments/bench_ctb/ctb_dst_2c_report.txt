@@ -1,0 +1,32 @@
+==== DST Lane 2c -- central defect (0.2 lamD) + inclusion (0.2 lamD @ 5) | N=1024 | 625 nm | Lyot 0.80 | hp 3-8 | 2026-09-03 21:50:16
+MONO  defect ON : static 5.463e-08 -> EFC(r0) 3.189e-13 | defect OFF ref 3.461e-13 | ratio 0.92x
+BBAND defect ON : static 1.505e-08 -> EFC     7.307e-11 | defect OFF ref 6.645e-11 | ratio 1.10x
+GATE 2c: mono ~unchanged (0.92x, PASS) AND broadband degrades (1.10x, FAIL) -> FAIL
+(defect in plant AND Jacobian; OFF ref = S1 same-config baselines = the recovery leg.)
+
+FRAME CHECK (TG96 immunization, run after the gate): the 2c config path with
+the defect keys PRESENT but = 0 (fresh Jacobian) recovers the baseline to the
+digit -- mono defect-OFF r0 = 3.461e-13, ratio 1.000 vs the S1 nb625 hp
+reference.  So the frame is clean: the defect keys do not perturb the chain
+when off, and the defect-ON numbers are real physics, not an analysis-frame
+artifact.
+
+INTERPRETATION (the "gate FAIL" is the finding, not a bug):
+ - The defect BITES on the static: mono 5.46e-8 vs 1.93e-8 off (2.8x),
+   broadband 1.50e-8 vs 5.80e-9 off (2.6x) -- it is applied and diffracting.
+ - But it is in the JACOBIAN (a known, measurable mask feature, per the
+   brief), so EFC nulls its coherent part almost entirely: mono 0.92x
+   (fully corrected), broadband 1.10x (only the small chromatic residual
+   survives -- and that residual is sub-dominant to the intrinsic 10%-band
+   chromaticity wall, 6.65e-11).
+ - VERDICT: a PERFECTLY-KNOWN central defect is highly correctable.  DST's
+   "severely limiting" central defect is severe because THEIR controller
+   does not perfectly know it -- i.e. the severity lives in ESTIMATION
+   ERROR (the S4 pairwise-probing / knowledge-error phase), NOT in the
+   defect geometry with perfect sensing.  2c + S4 together reproduce the
+   DST chromatic-defect severity; 2c alone (perfect knowledge) does not.
+ - The bb>3x threshold was CC's; the qualitative gate (mono ~unchanged,
+   broadband degrades, off-recovers) is met (0.92x / 1.10x / 1.000), the
+   quantitative "measurable" is only 10% under perfect knowledge.
+   Gate framing = supervisor's call (accept with S4 caveat, or re-pose 2c
+   plant-only / larger defect for a stronger coherent signature).
