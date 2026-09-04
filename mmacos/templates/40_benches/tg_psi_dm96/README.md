@@ -121,6 +121,27 @@ GRID px; the illuminated pupil is 74% of that**, so real margins are
 ~0.74× the printed ones (385 px → 143-illuminated-px classes at
 NGRID 193 configs fall UNDER the 2× rule).  Count illuminated px.
 
+## Stage E' (tg96_eprime.m, 2026-09-04): the differential benchmark in
+   actuator currency
+
+Scoring-ruling option (b): fit the TRUE influence kernel to the
+measured maps (Tikhonov lattice deconvolution); the residual is the
+instrument error in actuator commands.  Registration re-derived
+(parity 1, sign -1 in this script's basis; 0.934 vs 0.0002).  Rows
+(differenced measurements, scored over 3228 lit actuators):
+
+  base           deviation            gain    resid     raw
+  flat           single act 10 nm    0.860    40 pm    47 pm
+  random 30 nm   single act 10 nm    0.869    38 pm    45 pm
+  flat           random 10 nm rms    0.769   3567 pm  4234 pm
+  random 30 nm   random 10 nm rms    0.769   3570 pm  4235 pm
+
+Base-independence holds in the new currency.  The random-row deficit
+(gain 0.77) is the instrument's high-frequency roll-off carried into
+actuator space — by design under option (b).  THE HEAD-TO-HEAD
+CURRENCY: IFO differential single-actuator = ~40 pm; the 1 pm target
+is 40x below it.
+
 ## Next configurations (Dave, 2026-09-03)
 
 1. **All-reflective: replace the lenses with OAPs.**  Bench builder

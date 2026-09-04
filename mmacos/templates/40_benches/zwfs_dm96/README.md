@@ -139,4 +139,21 @@ reflection doubles height; sign pinned by gate, not convention).
   round-10 defocus property (0.324) is SUPERSEDED by round 11
   (pattern-radius bias; corrected 0.986).  q=5 read 0.675 at dev res
   = dev sampling rolloff — transfer curves belong to S3 at full res.
+- **S2 GREEN (zwfs_s2.m, 0.3 min): registration + measured-kernel
+  reconstructor.**  Two-poke registration at 20 nm strokes: parity 1,
+  sign +1 in this script's candidate basis (deck-dependent, as
+  doctrine says; selection 0.527 vs 0.025 runner-up — the gate is
+  SELECTION CONFIDENCE, not map fidelity: the ringed ZWFS kernel caps
+  raw correlation near 0.5 by physics, so the IFO's 0.8 bar does not
+  transfer).  Calibration by the multiplexed-poke doctrine (measured
+  response kernel + lattice deconvolution, Tikhonov pcg): held-out
+  poke recovers at **gain 0.903, 132 pm** (raw transfer was 0.445);
+  kernel spatial variation measured at 13% (poke B via A's kernel:
+  0.868) — the single-kernel bound; field-dependent kernels are the
+  refinement if S3 needs it.  **Dense-random single-shot remains
+  transfer-limited**: the λ scan is monotonic to λ=3.2 with gain
+  collapsing (0.75→0.21) — no optimum, and fit-removed resid rewards
+  over-smoothing (metric caveat recorded).  The treatment is S3's
+  MODAL calibration (measure the transfer on the lattice modes), not
+  more λ.
 - (further stages appended; reports are the record)
