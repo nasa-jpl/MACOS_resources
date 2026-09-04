@@ -153,3 +153,17 @@ at their measured magnitudes (the four line plots — Figs. 7, 9, 10,
 This is exactly the "full model based on the measurements presented
 here" the paper itself names as needed future work — and the
 knowledge-error phase Marx flagged the paper as guidance for.
+
+**AMENDMENT (CCMac lane 2c, 2026-09-04, commit 2df2cca): a
+perfectly-KNOWN central defect is highly correctable** — mono 0.92× /
+broadband 1.10× vs defect-off under control ≡ truth (the defect bites
+the static 2.6–2.8× but EFC nulls its coherent part because it is in
+the Jacobian).  The DST's "severely limiting" defect is severe because
+their controller does NOT know it perfectly: the severity is
+ESTIMATION/KNOWLEDGE error, not defect geometry.  Consequence for S3's
+gates: under perfect knowledge, the composite masks will reproduce the
+INCOHERENT floors (retardance leak, ghosts) but NOT the full
+chromatic-defect severity of Figs. 13/15 — that reproduction needs the
+S4 estimation layer.  S3 success criterion 3 is re-scoped accordingly;
+lane 2c-b (same defect, plant-only) measures the unknown-defect half
+of the pair.
