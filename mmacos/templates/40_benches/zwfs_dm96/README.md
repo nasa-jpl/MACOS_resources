@@ -7,6 +7,11 @@ base-independent — tg_psi_dm96 run 10)?
 
 ## Rulings (Dave 2026-09-04)
 
+- **Ultimate target: measurement error ~ 1 pm.**  Report errors in pm
+  everywhere; the pm road = differential protocol + actuator-space
+  fitting + illuminated-pupil-compliant sampling + reconstructors
+  beyond linear as needed.
+
 - Scale: 96×96 rig; reduced-resolution dev runs allowed; **real work
   at 48×48 and 96×96** (battery + differential at both).
 - Mask: single dimple first; **phase 2 = polarizing metasurface**
@@ -104,16 +109,28 @@ reflection doubles height; sign pinned by gate, not convention).
   passband is ~0.5 cyc/pupil and defocus sits above it — the true
   self-reference attenuation lives at piston/tip/tilt class.  The S3
   transfer curve measures the real low-frequency edge.
-- **Round 11, the poke and the sampling catch:** one-frame single
-  actuator (20 nm) reads at gain 0.445 (0.286 nm rms) at this config
-  — and part of that is a sampling-budget violation the beam-fill
-  factor hid: 74% fill × NGRID 193 = 143 px across the ILLUMINATED
-  pupil → detector margin 1.49×, under the 2× rule that "NGRID 193 =
-  2.01×" appeared to satisfy.  **The A2 budget must count illuminated
-  px, not grid px.**  Compliant 96×96 ZWFS config: NGRID 385 + spot
-  3.0 (12 px dimple) — the S3 configuration.  IFO same cases, same
-  frames: poke 0.984 / 0.049 nm, defocus 1.024 / 0.086 nm
-  (tg_psi_dm96/tg96_wf_figs.m).
+- **Round 11, the poke:** one-frame single actuator (20 nm) reads at
+  gain 0.445 (0.286 nm rms) at NGRID 193/spot 2.0.  Initially blamed
+  in part on the illuminated-px sampling margin (1.49×) — **REFUTED
+  by round 12's sweep**.  The illuminated-px accounting rule stands
+  as doctrine (count lit px, not grid px), but it is not what limits
+  the poke.  IFO same cases, same frames: poke 0.984 / 0.049 nm,
+  defocus 1.024 / 0.086 nm (tg_psi_dm96/tg96_wf_figs.m).
+- **Round 12 (zwfs_sweep.m, Dave's ask): sampling is NOT the binder —
+  the SPOT is a band-select lever.**  Across NGRID 129→385 (detector
+  margin 1.7×→5.0×; DM-side 1.3→3.7 rays/actuator) the poke gain is
+  FLAT at fixed spot: 0.445 (spot 2.0, three configs), 0.585–0.589
+  (spot 3.0, four configs).  It moves with the SPOT, in opposite
+  directions per band: poke −0.381 → 0.445 → 0.585 as the spot grows
+  1.06 → 2.0 → 3.0, while defocus FALLS 1.030 → 0.986 → 0.79.  The
+  1.06 hardware spot sign-inverts the high-frequency response.  No
+  single spot serves both bands with the fixed flat-state linear
+  reconstructor — the transfer is stable and calibratable, which is
+  exactly what the actuator-space fit (Dave's scoring ruling) and a
+  measured interaction matrix absorb; that is S3's reconstructor
+  path.  Errors in pm: poke 240–286, defocus 137–757, vs IFO 49/86
+  and the 1 pm ultimate target — the pm road is calibration +
+  differential, not raw single-frame transfer.
 - **S1 GREEN (round 10, 20 s/run):** dimple 6.29 px (G0); masked field
   == E0 + c·Eb at 3.3e-16 (G1); core fraction 0.2801 ≈ Airy encircled
   energy for 1.06 λ/D (G2); q=2 radial cosine at 8 nm recovers gain
