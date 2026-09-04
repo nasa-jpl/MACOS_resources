@@ -48,6 +48,27 @@ scaled build, Stage C battery, Stage D actuator-lattice transfer curve.
   Checkerboard closure 0.79 corr / 4.31 nm on 6.41 reflects that floor
   plus the 0.835 gain at the pattern's own frequency.
 
+## Run 10 (tuned tail + Stage E, 2026-09-04) — the trade surfaces
+
+- **Tail retune VALIDATED at full scale: null 9.11 → 0.1345 nm rms**
+  (tg96_tail.m optimum, found at reduced res, transfers to 4 digits).
+- **Stage E, the differential metric (Dave): deviations are measured
+  BASE-INDEPENDENTLY.**  A 10 nm single-actuator deviation reads to
+  0.021 nm rms (corr 0.991) about the flat and 0.024 nm about a 30 nm
+  working state — the common systematic cancels as designed.  A 10 nm
+  rms random deviation reads 3.67 nm rms (37%) — identically about
+  both bases — so the differential error is INSTRUMENT TRANSFER, not
+  systematic coupling.
+- **The trade:** the null-only tail objective bought its 68× by moving
+  the imaging conjugate — pupil MTF fell (checkerboard gain 0.835 →
+  0.504) and mapping nonlinearity rose 0.0022 → 0.136 mm (~1.3
+  actuators of warp).  Closure corr 0.54 and held-out 11.9 nm are that
+  MTF/distortion, not gauge phase error.  NEXT tail iteration needs a
+  JOINT objective (null + transfer + distortion); and Stage E scoring
+  should apply the measured transfer before declaring residuals.
+- ZWFS framing: the differential floor is now instrument-MTF-limited —
+  the quantity a ZWFS arm competes against on the same truth.
+
 ## Registration doctrine (earned across runs 3–9; the failure series
    is preserved as tg96_report_*_fail.txt)
 
