@@ -82,15 +82,10 @@ reflection doubles height; sign pinned by gate, not convention).
   settable center stays (harmless; measures 257.00 and centers there).
   Focused: core fraction 0.280 for the 1.06 λ/D disk — Airy encircled
   energy, as physics wants.
-- **S1 round 5 (G3): defocus reads at gain 0.54 — real ZWFS
-  low-order attenuation, not a bug.**  The reference wave is built
-  from the aberrated field's own core, so aberration content inside
-  the dimple's ~0.5 cyc/pupil passband leaks into the reference and
-  self-subtracts.  Sign pinned: S_CONV = −1.  The G3 gate pattern
-  moved to a radial cosine above the cutoff; the defocus response is
-  printed as an instrument property.  Expect the S3 transfer curve to
-  roll off at LOW frequency — the mirror image of PSI's high-frequency
-  rolloff; the actuator-space scoring (Dave's ruling) must carry it.
+- **S1 round 5 (G3): defocus read at gain 0.54 — SUPERSEDED, see
+  round 11.**  Interpreted at the time as ZWFS low-order
+  self-referencing attenuation; the sign pin (S_CONV = −1) and the
+  G3 move to a radial cosine stand.
 - **S1 rounds 8–9: the truth FRAME was 25% off — ray affine fixes it.**
   The support-area pupil-radius estimate implied k = 0.754 of truth (a
   q=5 cosine decorrelates at half a rim cycle, so the fit read gain
@@ -99,13 +94,32 @@ reflection doubles height; sign pinned by gate, not convention).
   tg96) gives mag 10.158, anam 0.00%, nonlin 0.086 mm; a diagnostic
   scale sweep about the ray frame peaks at k* = 1.005, |corr| 0.997.
   Frame-before-angle, once more.
+- **Round 11 (wf-figs, full res): the "low-order attenuation" was a
+  THIRD frame artifact — pattern radius.**  The source cone fills
+  only ~74% of the aperture (illuminated radius ~38 mm vs R_BEAM
+  51.4), so every pattern defined on R_BEAM overhung the light and
+  biased its fitted gain low (0.54 round 5; 0.324 round 10).  On the
+  measured illuminated radius, **defocus reads at 0.986** (spot 2.0,
+  model 1024/NGRID 193): with a ~1 λ/D-radius dimple the reference
+  passband is ~0.5 cyc/pupil and defocus sits above it — the true
+  self-reference attenuation lives at piston/tip/tilt class.  The S3
+  transfer curve measures the real low-frequency edge.
+- **Round 11, the poke and the sampling catch:** one-frame single
+  actuator (20 nm) reads at gain 0.445 (0.286 nm rms) at this config
+  — and part of that is a sampling-budget violation the beam-fill
+  factor hid: 74% fill × NGRID 193 = 143 px across the ILLUMINATED
+  pupil → detector margin 1.49×, under the 2× rule that "NGRID 193 =
+  2.01×" appeared to satisfy.  **The A2 budget must count illuminated
+  px, not grid px.**  Compliant 96×96 ZWFS config: NGRID 385 + spot
+  3.0 (12 px dimple) — the S3 configuration.  IFO same cases, same
+  frames: poke 0.984 / 0.049 nm, defocus 1.024 / 0.086 nm
+  (tg_psi_dm96/tg96_wf_figs.m).
 - **S1 GREEN (round 10, 20 s/run):** dimple 6.29 px (G0); masked field
   == E0 + c·Eb at 3.3e-16 (G1); core fraction 0.2801 ≈ Airy encircled
   energy for 1.06 λ/D (G2); q=2 radial cosine at 8 nm recovers gain
   +0.932, resid 0.45 nm (G3, ray frame); no-dimple frame reads −0.07
-  (G4 — the signal is the dimple's).  S_CONV = −1 pinned.  **Defocus
-  property in the correct frame: gain 0.324** — the ZWFS low-order
-  self-referencing attenuation (round-5's 0.54 was frame-biased).
-  q=5 reads 0.675 at dev res = dev sampling rolloff (65-px pupil),
-  not instrument — transfer curves belong to S3 at full res.
+  (G4 — the signal is the dimple's).  S_CONV = −1 pinned.  The
+  round-10 defocus property (0.324) is SUPERSEDED by round 11
+  (pattern-radius bias; corrected 0.986).  q=5 read 0.675 at dev res
+  = dev sampling rolloff — transfer curves belong to S3 at full res.
 - (further stages appended; reports are the record)

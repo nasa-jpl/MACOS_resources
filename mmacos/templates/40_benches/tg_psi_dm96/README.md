@@ -68,6 +68,15 @@ scaled build, Stage C battery, Stage D actuator-lattice transfer curve.
   should apply the measured transfer before declaring residuals.
 - ZWFS framing: the differential floor is now instrument-MTF-limited —
   the quantity a ZWFS arm competes against on the same truth.
+- **Scoring ruling (Dave 2026-09-04): score DM-state recovery in
+  ACTUATOR space** — fit the DM actuation model to the measurement
+  (or to the recovered WF), score actuator CHANGES.  The run-10
+  battery/differential numbers above are MAP-space and stand as the
+  map-space record; **Stage E′ (actuator-space rescore) is queued**
+  and supersedes the "apply measured transfer first" plan — the
+  influence-function fit absorbs instrument roll-off inside the DM
+  band.  The ZWFS campaign (40_benches/zwfs_dm96) scores this way
+  from the start.
 
 ## Registration doctrine (earned across runs 3–9; the failure series
    is preserved as tg96_report_*_fail.txt)
@@ -91,6 +100,19 @@ actuator (any refiner parks arbitrary offsets — 2.25 actuators in run
 6); a delta target gives a correlation refiner no gradient (run 4
 diverged to ±1e5 gains); selection must be on |corr| or a
 deck-negative sign hides the right parity (run 7).
+
+## WF-estimate figures + the illuminated-fill catch (2026-09-04)
+
+`tg96_wf_figs.m` (deck figures, cases matched to zwfs_dm96): traced-rig
+render + applied/sensed/error triptychs.  Center actuator at 20 nm:
+gain 0.984, 0.049 nm rms.  Defocus at 8 nm amplitude: gain 1.024,
+0.086 nm rms.  Display doctrine earned there: apply the deck-measured
+meas-sign (−1 here); define radial patterns on the ILLUMINATED radius
+(~38 mm — the source cone fills 74% of the 51.4 mm aperture), not the
+aperture.  **Sampling-budget amendment: A2's "px across pupil" counts
+GRID px; the illuminated pupil is 74% of that**, so real margins are
+~0.74× the printed ones (385 px → 143-illuminated-px classes at
+NGRID 193 configs fall UNDER the 2× rule).  Count illuminated px.
 
 ## Next configurations (Dave, 2026-09-03)
 

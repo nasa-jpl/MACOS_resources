@@ -15,7 +15,8 @@ G3 sweep about ray frame: k* = 1.005, |corr| 0.997 (diagnostic)
 G3 radial cosine (q=2) 8 nm figure: gain +0.9319, resid 0.4469 nm (gate |gain-1| <= 0.15)
    (S_CONV = -1, pinned round 5)
 G3 PASS
-defocus response (property, ungated): gain +0.3238 -- ZWFS low-order attenuation
+illuminated radius 38.40 mm (aperture 51.43)
+defocus response (property, ungated): gain +0.9701 -- ZWFS low-order attenuation
 G4 no-dimple frame: gain -0.0685 (gate |gain| < 0.2 -- plain pupil imaging is phase-blind)
 G4 PASS
-S1 complete in 20.1 s
+S1 complete in 20.0 s
