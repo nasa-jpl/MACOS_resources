@@ -1,0 +1,11 @@
+=== TG96 Stage E': differential benchmark in ACTUATOR space (pm) ===
+ray affine: mag 9.8793 DM-mm/det-mm
+registration: parity 1, sign -1, |corr| 0.9344 (runner-up 0.0002)
+true-kernel stencil; 3228 lit actuators (r < 0.85 x 37.7 mm)
+base           deviation              gain   resid_pm     raw_pm
+flat           single act 10 nm     0.8602       40.2       47.1
+flat           random 10 nm rms     0.7689     3566.9     4234.1
+random 30 nm   single act 10 nm     0.8687       38.0       44.5
+random 30 nm   random 10 nm rms     0.7691     3569.7     4235.2
+(map-space run-10 record: single 21 pm / random 3670 pm -- different currency)
+E' complete in 3.7 min
