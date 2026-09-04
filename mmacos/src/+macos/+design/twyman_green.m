@@ -95,6 +95,17 @@ arguments
     % original singlet, bit-identical when these are omitted) -------------
     opts.tail_arch (1,:) char {mustBeMember(opts.tail_arch, ...
         {'singlet','fieldlens','doublet'})} = 'singlet'
+    opts.mask_prop (1,:) char {mustBeMember(opts.mask_prop, ...
+        {'geometric','nf'})} = 'geometric'
+                                         % 'nf': bracket the FocalMask with
+                                         %  reference SPHERES carrying NF1/
+                                         %  NF2 legs (the ctb_dcr.in FPM
+                                         %  idiom) so the wavefront lands on
+                                         %  a focal-scale grid there -- for
+                                         %  lambda/D-class focal masks (the
+                                         %  ZWFS dimple).  'geometric'
+                                         %  (default) = bit-identical legacy
+                                         %  emission.  fieldlens arch only.
     opts.DET_TRIM (1,1) double = 0       % additive trim on det_leg (all arches)
     opts.MASK_TRIM (1,1) double = 0      % additive trim on the FocalMask
                                          %  position (thin-lens seed -> true
@@ -351,6 +362,8 @@ function [ix, det_leg] = tail(b, P, ix, conj_elt, det_leg)
 % rotating analyzer.  They steal 2*D_POL from the Recomb->L2 leg so L2 and
 % the pupil conjugate stay put.  ix.iOutQWP / ix.iAnalyzer are exposed.
 d_rc_l2 = P.D_RC_L2;
+assert(strcmp(P.mask_prop, 'geometric') || strcmp(P.tail_arch, 'fieldlens'), ...
+    'twyman_green: mask_prop=''nf'' is implemented for tail_arch=''fieldlens'' only.');
 if P.polarizing
     ix.iOutQWP   = b.add_waveplate(P.D_POL, ax_local(b.dir, P.out_qwp_deg), ...
                                    P.qwp_ret, 'name','OutQWP');
@@ -375,10 +388,30 @@ case 'fieldlens'                   % C1: field lens just behind the mask
     L2 = b.add_lens(d_rc_l2, P.F2, P.D_LENS, 'mode','focus', ...
                     'n',P.N_GLASS, 'name','L2');
     b.E(L2.i_pow).Kr = P.L2_Kr;  b.E(L2.i_pow).Kc = P.L2_Kc;
-    ix.iMASK = b.add_reference(P.F2 - L2.thickness + P.MASK_TRIM, 'FocalMask');
+    dmask = P.F2 - L2.thickness + P.MASK_TRIM;
+    if strcmp(P.mask_prop, 'nf')
+        % NF1/NF2 sandwich (ctb_dcr.in FPM idiom): a reference SPHERE
+        % concentric with the focus carries the sphere->plane leg onto
+        % the FocalMask -- the wavefront lands there on a focal-scale
+        % grid, so a lambda/D-class complex mask (ZWFS dimple) is
+        % representable -- and the mask's own leg goes plane->sphere
+        % onto a matching sphere behind it; geometric from there.
+        d_in = 0.85 * dmask;
+        b.add_reference(dmask - d_in, 'MaskSphereIn', 'surface','Conic', ...
+            'kr',-d_in, 'proptype','NF1', 'zelt',d_in);
+        ix.iMASK = b.add_reference(d_in, 'FocalMask', ...
+            'proptype','NF2', 'zelt',1e22);
+        d_out = 0.6 * P.D_MASK_FL;
+        b.add_reference(d_out, 'MaskSphereOut', 'surface','Conic', ...
+            'kr',-d_out, 'zelt',d_out);
+        d_fl = P.D_MASK_FL - d_out;
+    else
+        ix.iMASK = b.add_reference(dmask, 'FocalMask');
+        d_fl = P.D_MASK_FL;
+    end
     fl_args = {'mode','focus', 'n',P.N_GLASS, 'name','FL'};
     if ~isnan(P.FL_Kc), fl_args = [fl_args {'Kc', P.FL_Kc}]; end
-    FL = b.add_lens(P.D_MASK_FL, P.FL_F, P.FL_D, fl_args{:});
+    FL = b.add_lens(d_fl, P.FL_F, P.FL_D, fl_args{:});
     if ~isempty(conj_elt)
         s_o  = b.E(L2.i_pow).s - b.E(conj_elt).s;
         s_i1 = 1/(1/P.F2 - 1/s_o);                 % DM image via L2

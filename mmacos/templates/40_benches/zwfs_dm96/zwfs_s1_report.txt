@@ -1,0 +1,21 @@
+=== ZWFS S1: mask + response gates (dev res, model 512, NGRID 65) ===
+dimple: phi = 1.5710 rad (0.250 waves), dia 1.06 lambda/D (VSG2 spot 9)
+MASK_TRIM = -5.582 mm (mask-plane peak/sum 1.222e-02; focused class >= 1e-2)
+bench: test arm only, iTO=7 iMASK=16 iDET=20
+ray frame: mag 10.1584 DM-mm/det-mm, anam 0.00%, nonlin 0.0860 mm
+G0 sampling: WF grid 512^2, dx(mask) 4.440e-07 m, lambda F/D 2.637e-03 mm, dimple 2.795e-03 mm = 6.29 px
+G0 PASS
+spot at (col 257.00, row 257.00), DC pixel 257: offset (-0.0, 0.0) px = (-0.0, 0.0) um
+G1 superposition |Em - (E0 + c*Eb)|/|E0| = 3.280e-16 (gate < 1e-9)
+G1 PASS
+G2 reference wave: core power fraction 0.2801 (gate in [0.01, 0.99])
+G2 PASS
+G3 frame: ray scale implies k = 0.754 of the area estimate (round-8 sweep pinned at 0.80)
+G3 sweep about ray frame: k* = 1.005, |corr| 0.997 (diagnostic)
+G3 radial cosine (q=2) 8 nm figure: gain +0.9319, resid 0.4469 nm (gate |gain-1| <= 0.15)
+   (S_CONV = -1, pinned round 5)
+G3 PASS
+defocus response (property, ungated): gain +0.3238 -- ZWFS low-order attenuation
+G4 no-dimple frame: gain -0.0685 (gate |gain| < 0.2 -- plain pupil imaging is phase-blind)
+G4 PASS
+S1 complete in 20.1 s
