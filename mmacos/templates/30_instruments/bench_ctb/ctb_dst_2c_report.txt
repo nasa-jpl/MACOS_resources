@@ -30,3 +30,23 @@ INTERPRETATION (the "gate FAIL" is the finding, not a bug):
    quantitative "measurable" is only 10% under perfect knowledge.
    Gate framing = supervisor's call (accept with S4 caveat, or re-pose 2c
    plant-only / larger defect for a stronger coherent signature).
+
+==== 2c-b: defect PLANT-ONLY (control != truth in one respect) | 625 nm | hp | 2026-09-04 ====
+The decisive attribution variant: the same defect in the PLANT only; the
+controller keeps the defect-free nb625-hp Jacobian G (it does NOT model the
+defect).  Perfect sensing throughout (it senses the true, defected field).
+ defect-off (control==truth, no defect)      : 3.461e-13   (1.00x)
+ known   defect (in plant AND Jacobian)       : 3.189e-13   (0.92x)
+ UNKNOWN defect (plant only, G defect-free)   : 6.398e-13   (1.85x)  static 5.46e-8 -> 6.40e-13 (85000x)
+
+FINDING (falsifies the "unknown defect -> DST-class severity" prediction):
+ under PERFECT SENSING the closed loop corrects even an UNMODELED defect to
+ within 2x -- the defect-free G is good enough because the loop nulls the
+ TRUE measured field; control-model ignorance costs only ~2x, not decades.
+ So the DST "severely limiting" central defect is set by NEITHER geometry
+ (known 0.92x) NOR control-model ignorance (unknown 1.85x): the severity
+ must live in IMPERFECT SENSING itself -- pairwise-probing estimation error
+ (S4), the one thing not exercised here.  This is a sharper attribution than
+ the earlier "2c + S4" caveat: it is S4 (sensing), specifically, that owns
+ the severity; the defect geometry is a red herring under perfect sensing.
+ (Another gate/prediction falsified by honest physics -- a result.)
