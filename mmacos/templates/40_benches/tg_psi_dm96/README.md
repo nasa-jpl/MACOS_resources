@@ -160,6 +160,24 @@ the actuator-space estimator: transfer smooth and monotonic (1.02 at
 piston 0.98/1.02; held-out poke corrected 0.92 / 92 pm (96²), 0.95 /
 67 pm (48²); held-out random 10 nm: 4.2 nm (96²), 1.7 nm (48²).
 
+## S4 (tg96_s4.m, 2026-09-05): head-to-head rows + break scale
+
+Machinery factored into `../dm_gauge_lib` (one copy; `tg96_s3.m`
+retrofitted and re-run -- report identical to the 10cf593 record).
+Four differential rows through the calibrated estimator (true kernel +
+radial Wiener from tg96_s3.mat), wrap-safe four-step differential:
+
+    single 10 nm: 0.9175 / 46 pm (96x96), 0.9522 / 33 pm (48x48)
+    random 10 nm: 0.826 / 4.17 nm, 0.922 / 1.71 nm
+    -- IDENTICAL on flat and 30 nm working state (base-independent).
+
+**Break scale: the IFO does not break.**  Base ladder 30..480 nm rms,
+single-act 10 nm differential: gain 0.915→0.873, floor 44→55 pm
+(96x96; SNR 210→160).  A 480 nm rms working state costs ~5% gain and
+~25% floor.  The ZWFS twin (zwfs_dm96/zwfs_s4.m) folds beyond a
+30-60 nm rms working state -- the working-state axis belongs to the
+IFO; the ZWFS's remaining card is photon economy (noise stage).
+
 ## Next configurations (Dave, 2026-09-03)
 
 1. **All-reflective: replace the lenses with OAPs.**  Bench builder
