@@ -1,11 +1,7 @@
 % Rx_Cass_NSseq.in -- sequential A/B twin of Rx_Cass_NS.in: identical
-% deck (annular launch included) except the Primary is Element=
-% Reflector.  The NS deck must reproduce this deck ray-for-ray.
-% Chief-ray note: the chief launches at r = 0 (inside the NS wrong-turn
-% zone) and goes geometrically dead on the NS twin (the deck's one
-% expected surface miss; obscured-class anyway, OPD unaffected).  Do
-% NOT use FEX / reset_xp machinery on Rx_Cass_NS.in until the engine
-% follow-on resolves -- single-field gates only.
+% deck (annular launch and M2 aperture included) except the Primary is
+% Element= Reflector.  The NS deck must reproduce this deck ray-for-ray
+% on the annular launch (see Rx_Cass_NS.in header).
 
 % ---------------------------------------------------------------------------------------
 % Source Definition
@@ -97,7 +93,8 @@
            Extinc=1.0E+22
             nCoat=  0
              nObs=  0
-           ApType=  None
+           ApType=  Circular
+            ApVec=  5.2E-01  0.0E+00  0.0E+00
          PropType=  Geometric
              zElt=1.338854098E+00
           nECoord= -6
