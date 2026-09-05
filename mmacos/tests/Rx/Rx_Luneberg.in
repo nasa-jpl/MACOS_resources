@@ -1,0 +1,350 @@
+% Luneberg.in -- verbatim copy of macos docs/macos-manual/examples/Luneberg.in
+% (the manual's non-sequential examples), fixture for tNsFlowOfLight.
+
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -2.121332605E-01
+          zSource=-1.0E-02
+
+        BaseUnits=  (default-unit)
+        WaveUnits=  none
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=2.15E-02
+             Flux=1.0E+00
+
+         Aperture=1.75E+00
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  33
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  17
+
+
+             iElt=  1
+          EltName=  Shell1
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-2.0353E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -2.0353E-01
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.056692495E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Shell2
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-1.887578424E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.887578424E-01
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.08480542E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Shell3
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-1.872644104E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.872644104E-01
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.147803142E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Shell4
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-1.771655689E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.771655689E-01
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.182543332E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  5
+          EltName=  Shell5
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-1.529604025E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.529604025E-01
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.23541561E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  6
+          EltName=  Shell6
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-1.387929631E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.387929631E-01
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.26559324E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  7
+          EltName=  Shell7
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-1.297999186E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.297999186E-01
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.283513736E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  8
+          EltName=  Shell8
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-1.087287483E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.087287483E-01
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.312911218E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  9
+          EltName=  Shell9
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-9.780754704E-02
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -9.780754704E-02
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.34094791E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  10
+          EltName=  Shell10
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-8.777974769999999E-02
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -8.777974769999999E-02
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.338212289E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  11
+          EltName=  Shell11
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-7.94357399E-02
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -7.94357399E-02
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.371777076E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  12
+          EltName=  Shell12
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-6.183854602E-02
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -6.183854602E-02
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.386006296E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  13
+          EltName=  Shell13
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-4.663931773E-02
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.663931773E-02
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.40291109E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  14
+          EltName=  Shell14
+          Element=  NSRefractor
+          Surface=  Conic
+            KrElt=-2.956340242E-02
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -2.956340242E-02
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.412E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  15
+          EltName=  Aperture
+          Element=  Return
+          Surface=  Conic
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  2.221359167E-01
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0488E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+01
+          nECoord= -6
+
+             iElt=  16
+          EltName=  ExitPupil
+          Element=  Return
+          Surface=  Conic
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0488E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  FarField
+             zElt=1.0E+01
+          nECoord= -6
+
+             iElt=  17
+          EltName=  FP
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0E+03
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00
