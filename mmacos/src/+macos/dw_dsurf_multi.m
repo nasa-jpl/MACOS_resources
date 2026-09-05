@@ -11,7 +11,10 @@ function out = dw_dsurf_multi(session, rx_path, opts)
 %
 %   where wall is the column-major vectorisation of OPDall via m2v, and
 %   x is the stacked (Kr, Kc) state of every POWERED optic (Element=
-%   Reflector / Refractor with |Kr| << the flat sentinel).
+%   Reflector / Refractor / NSReflector / NSRefractor / Segment with
+%   |Kr| << the flat sentinel; engine-queried -- macos.find_powered_elts).
+%   An id passed in 'elts' that is not powered-capable ERRORS with a named
+%   reason rather than being dropped silently.
 %
 %   The powered-surface (radius + conic) companion to
 %   macos.dw_dz_zernike_multi, built on the same field-loop + tiling

@@ -1,54 +1,45 @@
-function pe = find_powered_elts(session, rx_path, opts)
+function [pe, kinds] = find_powered_elts(session, rx_path, opts)
 %MACOS.FIND_POWERED_ELTS  Indices of POWERED optics in the beam train.
 %   pe = macos.find_powered_elts(SESSION, RX_PATH) returns a column vector
-%   of 1-based element ids for every POWERED optic in RX_PATH: an
-%   Element= Reflector or Refractor whose base radius is real
-%   (|Kr| << the flat sentinel 1e22).  Flats (fold mirrors, FocalPlane,
-%   Reference, Return) carry the ~1e22 sentinel and are excluded.
+%   of 1-based element ids for every POWERED optic in the LOADED Rx: an
+%   element of a powered-capable Element= kind whose base radius is real
+%   (|Kr| << the flat sentinel 1e22).
 %
-%   The Element= type is parsed from the Rx text (no mex query exists, as
-%   in find_zern_elts); the powered (finite-Kr) filter is applied via the
-%   engine (RX_PATH must already be loaded on SESSION).  Used by
-%   surf_channels() to build the dw/dKr, dw/dKc eligibility set.
+%   Powered-capable kinds: Reflector, Refractor, NSReflector, NSRefractor,
+%   Segment.  Reference/Return/FocalPlane/Obscuring are excluded even with
+%   finite Kr (a powered exit-pupil Return sphere is a reference, not an
+%   optic to perturb).  Gratings/HOE/TrGrating also carry base conics but
+%   are EXCLUDED for now (Dave's ruling 2026-09-05, BRIEF_luis_round3 --
+%   revisit when a grating sensitivity user appears).
+%
+%   Element kinds are read from the ENGINE (macos.get_elt_info /
+%   elt_info_get), not by parsing the .in text -- text parsing silently
+%   dropped NSReflector (Luis 2026-09-05), and decks whose declared nElt
+%   disagrees with their Element-block count mis-index a text parse (the
+%   FEX blast-radius lesson).  RX_PATH is kept for signature compatibility
+%   and error context only; it must already be loaded on SESSION.
+%
+%   [pe, kinds] = ... also returns the powered-capable kind list (cellstr)
+%   so callers can compose eligibility messages from the same authority.
 %
 %   Name-value:
 %     'kr_max'  |Kr| below this counts as powered.  Default 1e21.
 %
-%   See also: macos.find_zern_elts, macos.channels.surf_channels.
+%   See also: macos.get_elt_info, macos.find_zern_elts,
+%             macos.channels.surf_channels.
     arguments
         session
-        rx_path (1,:) char {mustBeNonempty}
+        rx_path (1,:) char {mustBeNonempty} %#ok<INUSA> engine state is the authority
         opts.kr_max (1,1) double = 1e21
     end
 
-    % --- parse Element= Reflector / Refractor (the powered-capable optics)
-    optic = zeros(0,1);  cur = NaN;
-    fid = fopen(rx_path, 'r');
-    if fid < 0
-        error('macos:find_powered_elts:open', 'cannot open Rx file: %s', rx_path);
-    end
-    cleanup_obj = onCleanup(@() fclose(fid));
-    while true
-        ln = fgetl(fid);
-        if ~ischar(ln); break; end
-        s = strtrim(ln);
-        if startsWith(s, 'iElt=')
-            v = sscanf(strtrim(extractAfter(s, '=')), '%d', 1);
-            if ~isempty(v), cur = v; else, cur = NaN; end
-        elseif startsWith(s, 'Element=') && ~isnan(cur)
-            toks = regexp(strtrim(extractAfter(s, '=')), '\s+', 'split');
-            if ~isempty(toks) && any(strcmpi(toks{1}, {'Reflector','Refractor'}))
-                optic(end+1, 1) = cur; %#ok<AGROW>
-            end
-        end
-    end
-    optic = unique(optic);
-
-    % --- keep only the POWERED ones (finite curvature), via the engine
+    kinds = {'Reflector','Refractor','NSReflector','NSRefractor','Segment'};
     pe = zeros(0,1);
-    for k = 1:numel(optic)
-        if abs(macos.get_elt_kr(optic(k))) < opts.kr_max
-            pe(end+1, 1) = optic(k); %#ok<AGROW>
+    for k = 1:session.num_elt()
+        info = macos.get_elt_info(k);
+        if any(strcmp(info.type, kinds)) && ...
+                abs(macos.get_elt_kr(k)) < opts.kr_max
+            pe(end+1, 1) = k; %#ok<AGROW>
         end
     end
 end

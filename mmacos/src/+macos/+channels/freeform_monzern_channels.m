@@ -21,10 +21,8 @@ arguments
     opts.elts          (:,1) double = []
 end
 ff = session.find_freeform_elts();
-targets = ff(:);
-if ~isempty(opts.elts)
-    targets = intersect(targets, opts.elts(:));
-end
+targets = require_elts(ff(:), opts.elts, 'freeform-monzern', ...
+    @(id) 'not a FreeForm-typed element per the Rx (find_freeform_elts)');
 rx_modes = parse_rx_modes_(rx_path, 'nMonZernCoef', 'MonZernModes');
 chans = build_channels_(session, targets, rx_modes, opts.modes_per_elt, ...
     @(s, ie, m) macos.channels.MonZernChannel(s, ie, m));
