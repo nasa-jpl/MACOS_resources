@@ -156,4 +156,34 @@ reflection doubles height; sign pinned by gate, not convention).
   over-smoothing (metric caveat recorded).  The treatment is S3's
   MODAL calibration (measure the transfer on the lattice modes), not
   more λ.
+- **Sensitivity stage (zwfs_sens.m / tg96_sens.m twins, Dave's ask):
+  NO additive floor down to 0.1 pm in the noiseless model.**  Across
+  10 nm → 0.1 pm (single poke + 47-site grid poke × flat/30 nm base,
+  differential, actuator space): gain constant, accuracy = (1−g)·amp
+  exactly, unpoked floor PROPORTIONAL to amplitude (crosstalk, not
+  noise), so detection SNR is amplitude-independent.  SNRs: IFO
+  single 207 / grid 19.6 (base-independent); ZWFS single 59 flat /
+  11.5 on base; grid 11 flat / **1.64 on base = the one UNDETECTED
+  scenario** (36% proportional leakage — the linear reading's
+  base-induced crosstalk).  First numerics whisper: ~0.1–0.3% gain
+  jitter at the 0.1 pm rows only.  The 1 pm objective in the no-noise
+  limit: met by linearity everywhere except ZWFS-grid-on-base;
+  ACCURACY is multiplicative — calibrate the constant gain and the
+  residual is gain stability (~0.1%).
+- **S2b (zwfs_s2b.m): multi-DEPTH mask phase stepping (Dave's ask).**
+  STRUCTURAL FINDING: |c|² = −2Re(c) identically, so a depth ladder
+  yields only TWO observables per pixel — |Eb|² is NOT
+  self-calibrating from depth steps (one-time calibration, or a
+  diameter change; hardware note for the multi-depth substrate).
+  Rank-2 solve is exact (frame consistency 6e-16).  Results: poke
+  gain 0.519 vs 0.445 linear (the linearization error removed; the
+  remaining deficit is optical and calibrates); **RANGE: a 150 nm
+  poke (3.0 rad — the linear reading folds) recovers within 9% of
+  the 20 nm gain**; defocus-on-base reads 0.743 — the self-reference
+  attenuation reappears under EXACT retrieval because the reference
+  core MOVES with a low-order deviation, while the frozen-reference
+  linear reading (0.986) avoids it.  **Doctrine: the reconstructors
+  are complementary — stepped for range/exactness/high-f, frozen-
+  reference linear for small low-order differentials.**  4 frames
+  per measurement vs the IFO's 6 traces.
 - (further stages appended; reports are the record)
