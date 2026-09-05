@@ -1,8 +1,10 @@
 function out = dw_dsurf(session, rx_path, opts)
 %MACOS.DW_DSURF  Single-field dw/dKr + dw/dKc sensitivity driver.
 %   out = macos.dw_dsurf(SESSION, RX_PATH) loads RX_PATH on SESSION,
-%   discovers the POWERED optics (Element= Reflector / Refractor with
-%   |Kr| << the flat sentinel 1e22), builds one channel per (optic, param)
+%   discovers the POWERED optics (Element= Reflector / Refractor /
+%   NSReflector / NSRefractor / Segment with |Kr| << the flat sentinel
+%   1e22 -- engine-queried, see macos.find_powered_elts), builds one
+%   channel per (optic, param)
 %   with param in {Kr, Kc}, runs the finite-difference sweep at the current
 %   source state, and returns a struct of the result.
 %
@@ -16,10 +18,11 @@ function out = dw_dsurf(session, rx_path, opts)
 %   Name-value pairs:
 %     'params'         cellstr subset of {'Kr','Kc'}.  Default {'Kr','Kc'}.
 %     'elts'           Vector of element IDs to include in the sensitivity
-%                      calculation.  Only powered optics (Reflector/Refractor
-%                      with |Kr| << 1e22) that are also in this list will be
-%                      perturbed.  Default [] (auto-detect all powered optics
-%                      from the loaded prescription).
+%                      calculation.  Default [] (auto-detect all powered
+%                      optics from the loaded prescription).  An explicitly
+%                      requested id that is not powered-capable ERRORS with
+%                      a named reason (macos:channels:eltNotEligible) -- it
+%                      is never dropped silently.
 %                      Example: 'elts', [2; 4; 6] includes only elements 2, 4, 6.
 %     'delta'          finite-difference step (Kr in BaseUnits, Kc
 %                      dimensionless).  Default 1e-6.
@@ -85,8 +88,8 @@ channels = macos.channels.surf_channels(session, rx_path, ...
     'elts', opts.elts);
 if isempty(channels)
     error('macos:dw_dsurf:nochan', ...
-        'no powered optics (Reflector/Refractor, |Kr|<<1e22) found in %s', ...
-        rx_path);
+        ['no powered optics (Reflector/Refractor/NSReflector/' ...
+         'NSRefractor/Segment, |Kr|<<1e22) found in %s'], rx_path);
 end
 
 wf_func = @() local_wf(session, wf_elt);

@@ -22,10 +22,8 @@ arguments
     influence                          % [N×N×K] | segment_grid_basis struct | cell
     opts.elts (:,1) double = []
 end
-g = macos.find_grid_elts();
-if ~isempty(opts.elts)
-    g = intersect(g, opts.elts(:));
-end
+g = require_elts(macos.find_grid_elts(), opts.elts, 'grid', ...
+    @(id) 'no grid surface on this element (nGridMat = 0 -- find_grid_elts)');
 % A per-segment basis struct is authoritative for WHICH elements get channels:
 % restrict to the elements it covers.  find_grid_elts keys on nGridMat alone,
 % so it also lists grid-bearing non-candidates -- a conforming Reference (a
