@@ -1,19 +1,22 @@
 % Rx_Cass_NS.in -- NS twin of Rx_Cass_FarField.in: the Primary is
 % Element= NSReflector (single-member non-sequential group; geometry
-% identical to the sequential twin Rx_Cass_NSseq.in, which differs in
-% that one token only).  Fixture for the dw_dsurf NSReflector
-% eligibility gate (tDwDsurf).
-% Obscratn= 2.4 (annular launch, r_in 1.2): with a full disk, every
-% ray inside r ~ 1.005 takes a wrong turn through the NS dispatch on
-% this deep-conic train and dies (surface miss at elt 4) while the
-% annulus is piston-exact vs sequential -- suspected ConSrf
-% root-by-proximity via the NS block; engine follow-on filed in
-% macos/BRIEF_luis_round3.md.  Repro: set Obscratn= 0 here.
-% Chief-ray note: the chief launches at r = 0 (inside the NS wrong-turn
-% zone) and goes geometrically dead on the NS twin (the deck's one
-% expected surface miss; obscured-class anyway, OPD unaffected).  Do
-% NOT use FEX / reset_xp machinery on Rx_Cass_NS.in until the engine
-% follow-on resolves -- single-field gates only.
+% identical to the sequential twin Rx_Cass_NSseq.in, one Element= token
+% apart).  Fixture for the dw_dsurf NSReflector eligibility gate
+% (tDwDsurf) and the NS flow-of-light gate (tNsFlowOfLight).
+% M2 carries its PHYSICAL aperture (ApVec 0.52): under flow-of-light NS
+% candidate selection an UNBOUNDED next-element conic's back-crossing is
+% a real first intersection and would shadow the train -- NS decks must
+% bound competing surfaces (the iris-segment idiom).  Rays inside the
+% secondary shadow (launch r < 0.52) legitimately strike the secondary's
+% BACK first and die -- physics the sequential form cannot express, and
+% why the twins are compared on an annular launch (Obscratn= 2.4,
+% r_in 1.2).  The chief (r = 0, shadow class, obscured anyway) is
+% geometrically dead on this twin: expect exactly one surface miss; do
+% not use FEX / reset_xp machinery on this deck.
+% History: pre-fix engines (before surfsub LNSFlowL, 2026-09-05) ran the
+% NS candidate probe on the |L^2-mpr| proximity metric and lost EVERY
+% ray inside launch r ~ 1.005 on this deck (razor-sharp wrong-turn
+% boundary; macos/BRIEF_luis_round3.md).
 
 % ---------------------------------------------------------------------------------------
 % Source Definition
@@ -105,7 +108,8 @@
            Extinc=1.0E+22
             nCoat=  0
              nObs=  0
-           ApType=  None
+           ApType=  Circular
+            ApVec=  5.2E-01  0.0E+00  0.0E+00
          PropType=  Geometric
              zElt=1.338854098E+00
           nECoord= -6
