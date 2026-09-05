@@ -36,4 +36,4 @@ null: 0.00 pm rms (estimator on the flat state)
 piston 20 nm: mean gain 1.0166
 held-out poke (30,20) 20 nm: raw gain 0.9596, modal-corrected 0.9524, err 66.8 pm
 held-out random 10 nm: raw gain 0.9303 / 1694 pm; modal-corrected 0.9216 / 1709 pm
-S3 complete in 11.9 min
+S3 complete in 12.3 min

@@ -206,4 +206,28 @@ reflection doubles height; sign pinned by gate, not convention).
   a stepped-retrieval kernel) for dense-command fine-scale work; or
   concede that axis to the IFO — the instruments are complementary
   by measurement, not by assumption.
-- (further stages appended; reports are the record)
+- **Machinery factored (2026-09-05): `../dm_gauge_lib` is the ONE copy**
+  of the scoring machinery (registration / sampling / actuator fit /
+  modal correction / both instruments' measurement factories).
+  `zwfs_s3.m` retrofitted onto it and re-run: report IDENTICAL to the
+  10cf593 record (the equivalence gate).  S1/S2/S2b/sens keep their
+  private copies as history; S4 consumes the lib only.
+- **S4 (zwfs_s4.m): the head-to-head rows + break scale, in pm.**
+  Four differential rows through the CALIBRATED estimator (measured
+  kernel + separable Wiener from zwfs_s3.mat), BOTH readings per row:
+  flat/single 144 pm (linear) / 125 pm (stepped); on the 30 nm working
+  state the linear gain collapses to 0.66 while STEPPED HOLDS 1.13
+  (773 pm) -- the complementary-reconstructor doctrine in actuator
+  currency.  Dense random stays the weak axis (10-42 nm).  BREAK
+  SCALE (single-act 10 nm differential on a growing base): linear
+  folds beyond ~30 nm rms working state; stepped keeps a usable gain
+  to ~60 nm (0.68 at 96x96) and beyond ~120 nm both readings stop
+  being MEASUREMENTS (sign-flipped / aliased single-site recoveries
+  that still clear a formal detection SNR -- detection without
+  measurement; quote the gain column, not SNR, past the fold).
+  VERDICT vs the IFO (tg96_s4): the IFO does not break -- 46 pm
+  single-row, base-independent, and a 480 nm rms working state costs
+  it ~5% gain / ~25% floor.  The scalar ZWFS serves flat-ish states
+  and small working states via stepped; it cannot follow the IFO into
+  large working states.  Its remaining card is photon economy (4
+  frames vs 6 traces) -- the noise stage decides its niche.

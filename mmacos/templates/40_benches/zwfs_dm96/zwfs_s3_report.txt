@@ -44,4 +44,4 @@ held-out poke (30,20) 20 nm: raw gain 0.8588, modal-corrected 0.8604, err 244.5 
 held-out random 10 nm: raw gain 0.7459 / 5520 pm; modal-corrected 0.7579 / 5767 pm
 RESCUE grid(11)-on-30nm-base at 1 nm: stepped SNR 9.15 (linear -1.23; sens stage 1.64)
   stepped: gain 0.9387, floor 97 pm
-S3 complete in 1.0 min
+S3 complete in 0.9 min
