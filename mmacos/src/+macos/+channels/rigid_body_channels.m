@@ -40,9 +40,8 @@ elt_kinds = parse_rx_actual_optic_elts_(rx_path, ...
     opts.include_non_optics);
 
 target_elts = sort(double(cell2mat(keys(elt_kinds))));
-if ~isempty(opts.elts)
-    target_elts = intersect(target_elts, opts.elts(:));
-end
+target_elts = require_elts(target_elts(:), opts.elts, 'rigid-body', ...
+    @(id) rb_reason(session, id));
 
 if isempty(target_elts)
     chans = {};
@@ -65,4 +64,20 @@ for k = 1:numel(target_elts)
         chans{end+1, 1} = ch; %#ok<AGROW>
     end
 end
+end
+
+function r = rb_reason(session, id)
+% Why a requested element is not in the rigid-body eligibility set.
+    n = session.num_elt();
+    if id < 1 || id ~= round(id) || id > n
+        r = sprintf('element id out of range (nElt = %d)', n);
+        return;
+    end
+    t = macos.get_elt_info(id).type;
+    if any(strcmp(t, {'Reference','Return'}))
+        r = sprintf(['Element= %s is excluded from rigid-body channels ' ...
+                     '(pass ''include_non_optics'', true to include it)'], t);
+    else
+        r = sprintf('Element= %s not in the discovered eligibility set -- report this', t);
+    end
 end
