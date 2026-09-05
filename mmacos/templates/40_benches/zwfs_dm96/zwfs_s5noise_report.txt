@@ -1,0 +1,13 @@
+=== ZWFS S5: photon-noise pricing of the 1 pm target ===
+scenario: single act (60,40) 10 nm differential on the 30 nm base, 96x96
+axis: photons per DM STATE (linear splits over 1 frame, stepped over 4)
+frames captured (0.4 min); Monte-Carlo is trace-free
+   N/state |    sig_lin    flr_lin    g_lin |    sig_stp    flr_stp    g_stp
+   1.0e+06 |  31894.7 pm  40619.3 pm    0.591 |  92356.8 pm  76248.7 pm    4.635
+   1.0e+08 |   2601.1 pm   4138.2 pm    0.595 |   5607.7 pm   8904.7 pm    0.843
+   1.0e+10 |    290.3 pm    844.9 pm    0.648 |    691.4 pm   1102.3 pm    1.138
+   1.0e+12 |     52.0 pm    743.9 pm    0.660 |     83.7 pm    780.3 pm    1.132
+   1.0e+14 |      5.5 pm    742.2 pm    0.660 |      5.8 pm    773.0 pm    1.131
+linear: sigma ~ 3.7e+07/sqrt(N) pm  ->  N(1 pm) ~ 1.37e+15 photons/state
+stepped: sigma ~ 7.04e+07/sqrt(N) pm  ->  N(1 pm) ~ 4.95e+15 photons/state
+S5 noise complete in 0.6 min
