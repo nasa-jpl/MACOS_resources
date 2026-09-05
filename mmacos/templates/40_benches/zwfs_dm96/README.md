@@ -186,4 +186,24 @@ reflection doubles height; sign pinned by gate, not convention).
   are complementary — stepped for range/exactness/high-f, frozen-
   reference linear for small low-order differentials.**  4 frames
   per measurement vs the IFO's 6 traces.
+- **S3 (zwfs_s3.m / tg96_s3.m): the modal-calibrated battery, both
+  DM sizes (96×96 @ 1 mm; 48×48 @ 2 mm, DST-class, same bench).**
+  IFO: smooth monotonic transfer (1.02→0.58 by 57 cyc/ap; near-
+  isotropic), corrected poke 0.92 / 92 pm (96²) and 0.95 / 67 pm
+  (48²), random 10 nm at 4.2 / 1.7 nm, piston 0.98.  ZWFS: transfer
+  SEPARABLE (validated ~2%) but OSCILLATORY at fine scales — the
+  ringed kernel's FFT crosses zero ((64,0) −0.52, (80,0) +1.04), so
+  interpolated modal corrections destabilize there; the low end dips
+  where modes enter the dimple passband ((2,0) at 1 cyc/ap: 0.50);
+  piston structurally invisible (expected).  Corrected poke 1.01 /
+  157 pm; dense random stays the weak axis (12.5 / 5.5 nm).
+  **THE RESCUE: grid-on-30nm-base — the sensitivity stage's one
+  undetected scenario (SNR 1.64) — is DETECTED at 48×48 through the
+  phase-stepped retrieval: SNR 9.15 (linear reading: −1.23), floor
+  97 pm on 1 nm pokes.**  At 96×96 stepped reaches 2.32 — fine-pitch
+  content is where the sensor genuinely dims.  OPEN (named path):
+  dense per-frequency 1-D calibration (~95 frames along one axis, or
+  a stepped-retrieval kernel) for dense-command fine-scale work; or
+  concede that axis to the IFO — the instruments are complementary
+  by measurement, not by assumption.
 - (further stages appended; reports are the record)
