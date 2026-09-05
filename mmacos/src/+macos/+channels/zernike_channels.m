@@ -19,10 +19,8 @@ arguments
     opts.elts          (:,1) double = []
 end
 ze = session.find_zern_elts(rx_path);
-targets = ze(:);
-if ~isempty(opts.elts)
-    targets = intersect(targets, opts.elts(:));
-end
+targets = require_elts(ze(:), opts.elts, 'zernike', ...
+    @(id) 'no Zernike surface/modes on this element per the Rx (find_zern_elts)');
 rx_modes = parse_rx_modes_(rx_path, 'nZernCoef', 'ZernModes');
 chans = build_channels_(session, targets, rx_modes, opts.modes_per_elt, ...
     @(s, ie, m) macos.channels.ZernChannel(s, ie, m));
