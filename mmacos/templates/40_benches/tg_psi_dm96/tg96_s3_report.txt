@@ -1,0 +1,39 @@
+=== IFO S3: modal-calibrated battery ===
+
+---- DM 96x96, pitch 1.0 mm ----
+modal transfer (through the actuator-space estimator):
+  mode( 1, 1)    0.7 cyc/ap  gain  1.0150
+  mode( 2, 2)    1.4 cyc/ap  gain  0.9691
+  mode( 4, 4)    2.8 cyc/ap  gain  0.9776
+  mode( 8, 8)    5.7 cyc/ap  gain  0.9644
+  mode(16,16)   11.3 cyc/ap  gain  0.9547
+  mode(24,24)   17.0 cyc/ap  gain  0.9342
+  mode(32,32)   22.6 cyc/ap  gain  0.8929
+  mode(48,48)   33.9 cyc/ap  gain  0.8004
+  mode(64,64)   45.3 cyc/ap  gain  0.6774
+  mode(80,80)   56.6 cyc/ap  gain  0.5756
+  mode(96,96)   67.9 cyc/ap  gain -0.0000
+  mode(48, 0)   24.0 cyc/ap  gain  0.8996
+null: 0.00 pm rms (estimator on the flat state)
+piston 20 nm: mean gain 0.9792
+held-out poke (60,40) 20 nm: raw gain 0.8521, modal-corrected 0.9171, err 91.8 pm
+held-out random 10 nm: raw gain 0.7689 / 4234 pm; modal-corrected 0.8254 / 4171 pm
+
+---- DM 48x48, pitch 2.0 mm ----
+modal transfer (through the actuator-space estimator):
+  mode( 1, 1)    0.7 cyc/ap  gain  1.0737
+  mode( 2, 2)    1.4 cyc/ap  gain  1.0023
+  mode( 4, 4)    2.8 cyc/ap  gain  1.0144
+  mode( 8, 8)    5.7 cyc/ap  gain  0.9977
+  mode(12,12)    8.5 cyc/ap  gain  1.0114
+  mode(16,16)   11.3 cyc/ap  gain  0.9833
+  mode(24,24)   17.0 cyc/ap  gain  0.9637
+  mode(32,32)   22.6 cyc/ap  gain  0.9088
+  mode(40,40)   28.3 cyc/ap  gain  0.7922
+  mode(48,48)   33.9 cyc/ap  gain  0.0000
+  mode(24, 0)   12.0 cyc/ap  gain  0.9955
+null: 0.00 pm rms (estimator on the flat state)
+piston 20 nm: mean gain 1.0166
+held-out poke (30,20) 20 nm: raw gain 0.9596, modal-corrected 0.9524, err 66.8 pm
+held-out random 10 nm: raw gain 0.9303 / 1694 pm; modal-corrected 0.9216 / 1709 pm
+S3 complete in 11.9 min

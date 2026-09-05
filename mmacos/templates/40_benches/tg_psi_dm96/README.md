@@ -151,6 +151,15 @@ additive floor in the noiseless model; numerics whisper ~0.3% gain
 jitter at 0.1 pm.  With the constant gain calibrated, absolute
 accuracy ~0.1–0.3% of the change — pm-class on nm-class changes.
 
+## S3 (tg96_s3.m): modal-calibrated battery, both DM sizes
+
+96×96 @ 1 mm and 48×48 @ 2 mm (DST-class) on the same bench, through
+the actuator-space estimator: transfer smooth and monotonic (1.02 at
+0.7 cyc/ap → 0.58 at 56.6; near-isotropic — (48,0) 0.900 vs (32,32)
+0.893), radial Wiener correction valid.  Battery (pm): null 0;
+piston 0.98/1.02; held-out poke corrected 0.92 / 92 pm (96²), 0.95 /
+67 pm (48²); held-out random 10 nm: 4.2 nm (96²), 1.7 nm (48²).
+
 ## Next configurations (Dave, 2026-09-03)
 
 1. **All-reflective: replace the lenses with OAPs.**  Bench builder

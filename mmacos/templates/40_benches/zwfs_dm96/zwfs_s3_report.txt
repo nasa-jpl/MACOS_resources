@@ -1,0 +1,47 @@
+=== ZWFS S3: modal-calibrated battery (frozen-linear + stepped rescue) ===
+
+---- DM 96x96, pitch 1.0 mm ----
+modal transfer (through the actuator-space estimator):
+  mode( 1, 0)    0.5 cyc/ap  gain  0.7106
+  mode( 2, 0)    1.0 cyc/ap  gain  0.4989
+  mode( 4, 0)    2.0 cyc/ap  gain  1.0607
+  mode( 8, 0)    4.0 cyc/ap  gain  1.0367
+  mode(16, 0)    8.0 cyc/ap  gain  0.9995
+  mode(24, 0)   12.0 cyc/ap  gain  0.9462
+  mode(32, 0)   16.0 cyc/ap  gain  0.8912
+  mode(48, 0)   24.0 cyc/ap  gain  0.6216
+  mode(64, 0)   32.0 cyc/ap  gain -0.5189
+  mode(80, 0)   40.0 cyc/ap  gain  1.0353
+  mode( 8, 8)    5.7 cyc/ap  gain  1.0982
+  mode(24,24)   17.0 cyc/ap  gain  0.9111
+  separability check (8,8): measured 1.0982, g1(8)^2 = 1.0748
+  separability check (24,24): measured 0.9111, g1(24)^2 = 0.8952
+null: 0.00 pm rms (estimator on the flat state)
+piston 20 nm: mean gain -0.0006 (piston is INVISIBLE to a ZWFS -- expected 0; the IFO reads 0.98)
+held-out poke (60,40) 20 nm: raw gain 0.9029, modal-corrected 1.1814, err 211.6 pm
+held-out random 10 nm: raw gain 0.7473 / 12466 pm; modal-corrected 0.9683 / 16751 pm
+RESCUE grid(47)-on-30nm-base at 1 nm: stepped SNR 2.32 (linear 1.51; sens stage 1.64)
+  stepped: gain 0.7377, floor 425 pm
+
+---- DM 48x48, pitch 2.0 mm ----
+modal transfer (through the actuator-space estimator):
+  mode( 1, 0)    0.5 cyc/ap  gain  0.8323
+  mode( 2, 0)    1.0 cyc/ap  gain  0.5806
+  mode( 4, 0)    2.0 cyc/ap  gain  1.1674
+  mode( 8, 0)    4.0 cyc/ap  gain  1.0234
+  mode(12, 0)    6.0 cyc/ap  gain  1.0315
+  mode(16, 0)    8.0 cyc/ap  gain  1.0672
+  mode(24, 0)   12.0 cyc/ap  gain  1.0124
+  mode(32, 0)   16.0 cyc/ap  gain  1.0228
+  mode(40, 0)   20.0 cyc/ap  gain  0.7620
+  mode( 8, 8)    5.7 cyc/ap  gain  1.1036
+  mode(16,16)   11.3 cyc/ap  gain  1.0531
+  separability check (8,8): measured 1.1036, g1(8)^2 = 1.0474
+  separability check (16,16): measured 1.0531, g1(16)^2 = 1.1389
+null: 0.00 pm rms (estimator on the flat state)
+piston 20 nm: mean gain -0.0025 (piston is INVISIBLE to a ZWFS -- expected 0; the IFO reads 0.98)
+held-out poke (30,20) 20 nm: raw gain 0.8588, modal-corrected 0.8604, err 244.5 pm
+held-out random 10 nm: raw gain 0.7459 / 5520 pm; modal-corrected 0.7579 / 5767 pm
+RESCUE grid(11)-on-30nm-base at 1 nm: stepped SNR 9.15 (linear -1.23; sens stage 1.64)
+  stepped: gain 0.9387, floor 97 pm
+S3 complete in 1.0 min
