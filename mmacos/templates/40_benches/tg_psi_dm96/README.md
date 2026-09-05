@@ -142,6 +142,15 @@ actuator space — by design under option (b).  THE HEAD-TO-HEAD
 CURRENCY: IFO differential single-actuator = ~40 pm; the 1 pm target
 is 40x below it.
 
+## Sensitivity (tg96_sens.m, 2026-09-04): linear to 0.1 pm
+
+Differential single/grid pokes on flat and 30 nm base, 10 nm → 0.1 pm:
+gain constant (0.853 single / 0.783 grid, base-independent), floor
+proportional to amplitude, SNR flat (207 single / 19.6 grid).  No
+additive floor in the noiseless model; numerics whisper ~0.3% gain
+jitter at 0.1 pm.  With the constant gain calibrated, absolute
+accuracy ~0.1–0.3% of the change — pm-class on nm-class changes.
+
 ## Next configurations (Dave, 2026-09-03)
 
 1. **All-reflective: replace the lenses with OAPs.**  Bench builder

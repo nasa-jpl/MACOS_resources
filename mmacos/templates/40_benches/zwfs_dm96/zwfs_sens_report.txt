@@ -1,0 +1,30 @@
+=== ZWFS sensitivity: smallest detectable change (differential, actuator space) ===
+config: model 1024, NGRID 193, spot 2.0; estimator = S2 measured kernel, lambda 0.05
+base      scenario          amp |     gain     acc_pm  floor_pm       SNR
+flat      single             10 |   0.8881  -1.12e+03      97.4      91.2
+flat      single              1 |   0.8687       -131      14.1      61.7
+flat      single            0.1 |   0.8665      -13.4      1.45      59.6
+flat      single           0.01 |   0.8663      -1.34     0.146      59.4
+flat      single          0.001 |   0.8662     -0.134    0.0146      59.4
+flat      single         0.0001 |   0.8674    -0.0133   0.00146      59.6
+flat      grid(47)           10 |   0.9285       -715       728      12.8
+flat      grid(47)            1 |   0.9152      -84.8        82      11.2
+flat      grid(47)          0.1 |   0.9136      -8.64       8.3        11
+flat      grid(47)         0.01 |   0.9134     -0.866     0.831        11
+flat      grid(47)        0.001 |   0.9134    -0.0866    0.0831        11
+flat      grid(47)       0.0001 |   0.9138   -0.00862   0.00836      10.9
+rand30nm  single             10 |   0.5618  -4.38e+03       495      11.3
+rand30nm  single              1 |   0.5598       -440      48.8      11.5
+rand30nm  single            0.1 |   0.5594      -44.1      4.87      11.5
+rand30nm  single           0.01 |   0.5595      -4.41     0.487      11.5
+rand30nm  single          0.001 |   0.5524     -0.448    0.0486      11.4
+rand30nm  single         0.0001 |   0.5436    -0.0456   0.00495        11
+rand30nm  grid(47)           10 |   0.5820  -4.18e+03  4.47e+03       1.3
+rand30nm  grid(47)            1 |   0.5931       -407       360      1.65
+rand30nm  grid(47)          0.1 |   0.5919      -40.8        36      1.64
+rand30nm  grid(47)         0.01 |   0.5918      -4.08       3.6      1.64
+rand30nm  grid(47)        0.001 |   0.5916     -0.408      0.36      1.64
+rand30nm  grid(47)       0.0001 |   0.5927    -0.0407    0.0361      1.64
+(amp in nm; acc = recovered-minus-true at poked sites; floor = rms of unpoked
+ lit actuators; SNR = poked/floor, detected at SNR >= 5; noiseless model)
+sensitivity run in 0.5 min
