@@ -176,6 +176,7 @@ if opts.compute_los
     per_field_dcdx = cell(n_cfg, n_fields);
 end
 names = {};  meta = [];
+n_empty = 0;
 for ic = 1:n_cfg
 % Order (PLAN_CONFIGURATIONS 2.1): apply the configuration -> modify()
 % once -> field loop (per-field reset_xp derives every field's exit
@@ -271,17 +272,29 @@ for k = 1:n_fields
             reset_ep_moved, ep_is_powered);
     end
     sf = F.single(session, rx_path, opts, hoist);
-    % An empty OPD at the read surface (no surviving rays) yields a
-    % zero-row block that scatters to nothing and later trips the
-    % center-tile check with an opaque error.  Fail loudly here.
-    % (Formerly dw_dx_multi only; now guards every family.)
+    % An empty OPD at the read surface (no surviving rays at this field)
+    % contributes ZERO ROWS to the stacked Jacobian (m2v keeps only
+    % non-zero pixels -- 0 is the no-ray mask sentinel).  WARN once per
+    % run, never error, never flood (Dave 2026-09-07): long-standing
+    % practice completes such runs, and zero OPDs can be physical; the
+    % run proceeds exactly as the pre-guard tools did, and further empty
+    % blocks are counted into ONE end-of-run note.  (dw_dx_multi's
+    % former HARD error is deliberately softened by this ruling.)  The
+    % distinct case -- a zero RESPONSE column, e.g. a rotation about
+    % psi of a symmetric shape -- was never gated and stays in the
+    % matrices.
     if nnz(sf.w_nom_2d) == 0
-        error(eid_(F, 'emptyOPD'), ...
-            ['field %s: OPD at the read surface (elt %d) has no non-zero ' ...
-             'samples -- 0 rays survived there.  Likely the beam footprint ' ...
-             'overflows a tight clip aperture at this field (strip the ' ...
-             'ApType= clips or widen the field/grid), or the trace is ' ...
-             'fully vignetted.'], fields(k).name, sf.wf_elt);
+        n_empty = n_empty + 1;
+        if n_empty == 1
+            warning(eid_(F, 'emptyOPD'), ...
+                ['%sfield %s: OPD at the read surface (elt %d) has no ' ...
+                 'non-zero samples -- 0 rays survived there; this block ' ...
+                 'contributes 0 rows to the stacked Jacobian.  Usual ' ...
+                 'cause if unintended: a tight clip aperture or full ' ...
+                 'vignetting at this field.  Further empty blocks in ' ...
+                 'this run are counted, not re-warned.'], ...
+                cfg_tag(has_cfg, cfgs, ic, F), fields(k).name, sf.wf_elt);
+        end
     end
     per_field_jac{ic, k}    = sf.(F.jac);
     per_field_w_nom{ic, k}  = sf.w_nom_2d;
@@ -321,6 +334,12 @@ if has_cfg
              '(worst pose drift %.1f%% of tolerance)\n'], ...
         cfgs(ic).name, 100 * drift);
 end
+end
+
+if n_empty > 0
+    fprintf(['[note] %d of %d (configuration, field) block(s) had empty ' ...
+             'OPD support and contribute 0 rows (first occurrence warned ' ...
+             'above)\n'], n_empty, n_cfg*n_fields);
 end
 
 % Restore source back to nominal.
