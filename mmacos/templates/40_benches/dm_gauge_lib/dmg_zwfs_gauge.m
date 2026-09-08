@@ -48,6 +48,46 @@ ZW.measL    = @(M) measL_(M, iTO, iMASK, iDET, V, I_flat, den, msk, ...
                           S_CONV, LAM, N_WF);
 ZW.steppedX = @(M) steppedX_(M, iTO, iMASK, iDET, VK, M2i, b2cal, N_WF);
 ZW.stepdiff = @(X1, X0) S_CONV * angle(X1 .* conj(X0)) * LAM/(4*pi);
+% ---- frame-level access (noise stage): raw intensity frames + the
+% pure-MATLAB reconstructions, so shot noise can be injected between
+% capture and reconstruction without re-tracing.
+ZW.frameL   = @(M) frameL_(M, iTO, iMASK, iDET, V, N_WF);
+ZW.framesS  = @(M) framesS_(M, iTO, iMASK, iDET, VK, N_WF);
+ZW.reconL   = @(Ia) reconL_(Ia, I_flat, den, msk, S_CONV, LAM, N_WF);
+ZW.reconS   = @(Fr) reconS_(Fr, M2i, b2cal);
+end
+
+% ---- frame capture + pure-MATLAB reconstructions (noise stage) -------
+function Ia = frameL_(M, iTO, iMASK, iDET, V, N_WF) %#ok<INUSD>
+macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
+macos.intensity(iMASK);
+macos.apodize_complex(iMASK, V);
+Ia = abs(macos.complex_field(iDET, 'reset_trace', false)).^2;
+end
+
+function Fr = framesS_(M, iTO, iMASK, iDET, VK, N_WF)
+% Fr(:,:,1) = unmasked; Fr(:,:,2:4) = the three depth frames.
+macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
+Fr = zeros(N_WF, N_WF, 4);
+Fr(:,:,1) = abs(macos.complex_field(iDET)).^2;
+for k = 1:3
+    macos.intensity(iMASK);
+    macos.apodize_complex(iMASK, VK{k});
+    Fr(:,:,k+1) = abs(macos.complex_field(iDET, 'reset_trace', false)).^2;
+end
+end
+
+function h = reconL_(Ia, I_flat, den, msk, S_CONV, LAM, N_WF)
+phi = zeros(N_WF);
+phi(msk) = (Ia(msk) - I_flat(msk)) ./ den(msk);
+h = S_CONV*phi*LAM/(4*pi);
+end
+
+function X = reconS_(Fr, M2i, b2)
+d1 = Fr(:,:,2)-Fr(:,:,1);  d2 = Fr(:,:,3)-Fr(:,:,1);  d3 = Fr(:,:,4)-Fr(:,:,1);
+p = M2i(1,1)*d1 + M2i(1,2)*d2 + M2i(1,3)*d3;
+q = M2i(2,1)*d1 + M2i(2,2)*d2 + M2i(2,3)*d3;
+X = (b2 - p) + 1i*q;
 end
 
 % ---- frozen-linear measurement (verbatim) ----------------------------

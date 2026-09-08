@@ -20,6 +20,17 @@ IFO.I0     = I0;
 IFO.p_null = p_null;
 IFO.Sr     = Sr;
 IFO.meas   = @(M) meas_surface(AT, QWP, M, Sr, p_null, THETAS, LAM);
+% ---- frame-level access (noise stage): the four analyzer frames for a
+% DM state + the pure-MATLAB reconstruction, so shot noise can be
+% injected between capture and reconstruction without re-tracing.
+IFO.frames = @(M) frames4_(analyzer_basis(AT, QWP, M), Sr, THETAS);
+IFO.recon  = @(Fr) angle(exp(1i*(atan2(Fr(:,:,2)-Fr(:,:,4), ...
+                 Fr(:,:,1)-Fr(:,:,3)) - p_null))) * LAM/(4*pi);
+end
+
+function Fr = frames4_(Sx, Sr, th)
+Fr = cat(3, frame(Sx,Sr,th(1)), frame(Sx,Sr,th(2)), ...
+            frame(Sx,Sr,th(3)), frame(Sx,Sr,th(4)));
 end
 
 % ==== the PSI chain (verbatim) ========================================

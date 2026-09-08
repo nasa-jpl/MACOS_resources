@@ -231,3 +231,23 @@ reflection doubles height; sign pinned by gate, not convention).
   and small working states via stepped; it cannot follow the IFO into
   large working states.  Its remaining card is photon economy (4
   frames vs 6 traces) -- the noise stage decides its niche.
+- **S5 (zwfs_s5noise.m / tg96_s5noise.m): photon noise prices the
+  1 pm target -- and settles the economy question.**  Method: the
+  optical fields are noise-independent, so noiseless frames are
+  captured once per DM state and shot noise is Monte-Carloed
+  numerically (trace-free); calibration is treated as noiseless (the
+  long-exposure assumption); axis = photons per DM STATE, split across
+  each reading's frames (linear 1, stepped 4, four-step 4) -- equal
+  light, equal time.  On the head-to-head scenario (single 10 nm act
+  on the 30 nm base, 96x96): noise sigma at the poked site follows
+  1/sqrt(N) cleanly, and each instrument's high-N floor converges to
+  its S4 systematic floor (internal consistency).  PRICES:
+  IFO four-step sigma ~ 2.8e7/sqrt(N) pm -> N(1 pm) ~ 8e14
+  photons/state; ZWFS linear ~ 3.7e7/sqrt(N) -> 1.4e15; ZWFS stepped
+  ~ 7.0e7/sqrt(N) -> 5e15.  VERDICT: per unit light the modalities
+  are within ~2x of each other -- photon economy does NOT
+  discriminate; the discriminator is systematics (the IFO's
+  working-state immunity).  And ~1e15 photons/state at 633 nm is
+  ~0.3 mJ -- trivial for a bench source -- so photon noise is NOT the
+  1 pm blocker; gain stability (~0.1%, the sensitivity-stage finding)
+  and the systematic floors are.
