@@ -68,9 +68,19 @@ classdef tFocalSurface < matlab.unittest.TestCase
             % (The pre-ruling runner-order values differed by up to
             % 0.72 mm at the -y corners -- the re-aim moves the FEX
             % vertex; the sphere CENTRE moved only 8e-5 mm.)
-            want = [-3017.5824141975, -3017.5470569491, -3017.5166544465, ...
-                    -3017.5790358204, -3017.5444265155, -3017.5149790258, ...
-                    -3017.5721202838, -3017.5392847693, -3017.5118052792];
+            % RE-PINNED 2026-09-08 (Dave) for the frame-independent FEX
+            % (macos 82d8148): the exit pupil is now the MEDIAL of the
+            % tangential and sagittal crossings, where the legacy single
+            % probe about xGrid measured the tangential one.  On this
+            % off-axis deck that moves every null radius by +0.68..1.23 mm
+            % (2.3e-4..4.1e-4), corner-dependent because the T/S split
+            % varies with field.  Pre-2026-09-08 values, for the record:
+            % -3017.5824141975 -3017.5470569491 -3017.5166544465
+            % -3017.5790358204 -3017.5444265155 -3017.5149790258
+            % -3017.5721202838 -3017.5392847693 -3017.5118052792.
+            want = [-3018.294046905456, -3018.498628590386, -3018.741995392694, ...
+                    -3018.258488525377, -3018.463827907055, -3018.708161372023, ...
+                    -3018.184402661122, -3018.391536261128, -3018.637862125112];
             tc.verifyEqual([tc.fs.pt.R_null], want, 'RelTol', 1e-7);
         end
 
@@ -91,9 +101,20 @@ classdef tFocalSurface < matlab.unittest.TestCase
             % ~8x above that measurement and ~150x below the old offset,
             % so it fails against either the pre-ruling flow or a
             % returning stop-order asymmetry.
+            %
+            % RE-PINNED 2026-09-08: the A/B report's V4 column (3017.58303,
+            % 3017.51721, 3017.57273, 3017.51236) was measured with the
+            % legacy tangential FEX probe; the frame-independent FEX
+            % (macos 82d8148) writes the MEDIAL pupil, +0.711 / +1.225 /
+            % +0.612 / +1.126 mm at these corners.  The values below are
+            % V4 carried by that shift, i.e. the same stop-order-agreement
+            % statement under the current pupil definition; the 5e-3
+            % bound keeps its purpose (a returning 0.76 mm stop-order
+            % asymmetry fails it).
             R = abs([tc.fs.pt.R_null]);
             got  = R([1 3 7 9]);                       % LL UL LR UR
-            v4   = [3017.58303, 3017.51721, 3017.57273, 3017.51236];
+            v4   = [3018.294046905456, 3018.741995392694, ...
+                    3018.184402661122, 3018.637862125112];
             tc.verifyEqual(got, v4, 'AbsTol', 5e-3);
         end
 
@@ -180,7 +201,8 @@ classdef tFocalSurface < matlab.unittest.TestCase
             % on axis the fitted-surface leg and the old one differ by the
             % vertex shift only -- a few microns -- so pin loosely but
             % non-vacuously against the ORIGINAL deck's on-axis radius.
-            tc.verifyEqual(abs(xp.rad), 3017.5444, 'AbsTol', 1e-2);
+            % (re-pinned 2026-09-08 for the medial FEX: was 3017.5444)
+            tc.verifyEqual(abs(xp.rad), 3018.4638, 'AbsTol', 1e-2);
         end
 
         function test_emitted_deck_nulls_the_corner_focus(tc)
