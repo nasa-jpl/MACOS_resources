@@ -67,10 +67,7 @@ if ~isempty(opts.src_samp)
     session.modify();  % Flush cache so the new sampling takes effect
 end
 
-wf_elt = opts.exit_pupil_elt;
-if wf_elt < 0
-    wf_elt = session.num_elt() - 1;
-end
+wf_elt = wf_elt_auto(session, opts.exit_pupil_elt);   % EP read; errors on a pupil-less powered nElt-1
 
 g = macos.find_grid_elts();
 if ~isempty(opts.elts)
