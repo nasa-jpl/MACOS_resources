@@ -789,8 +789,12 @@ classdef Telescope < handle
         %     'mode'      FEX mode (1 = chief-ray centred, default).
         %
         %   The exit pupil is the DELIVERABLE handle for downstream
-        %   instruments; the optimiser does NOT need it -- the FP OPD over
-        %   the ray grid is already the exit-pupil-referenced wavefront.
+        %   instruments AND the surface every wavefront READ must use
+        %   (Dave 2026-09-08): the FP OPD is the path to each ray's
+        %   landing point and is blind to tilt (a displaced perfect image
+        %   has equal paths), so it serves the optimiser's WFE objective
+        %   only; sensitivities, PSFs and every diffraction calculation
+        %   take the OPD at this sphere.  See macos/REPORT_ep_dome_review.md.
             arguments
                 obj
                 ielt (1,1) double = -1
