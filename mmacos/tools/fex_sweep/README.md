@@ -16,11 +16,14 @@ Built for the 2026-07-03 FEX EP-radius rework (Dave's spec):
 - The legacy `iEm1→EP` distance is the **fallback** (no next element /
   degenerate plane) and the autoswitch alternative.
 - Guards exercised by the sweep: telecentric detection (parallel probe
-  chief rays), beam-footprint sanity autoswitch (reference sphere
-  smaller than the beam ⇒ mass "surface miss"), and the noisy Rx-order
-  flag (a Return immediately preceding the EP return usually marks an
-  intermediate focus that should be a passive **Reference**; correct
-  pattern: `Reference (FP), Return (EP), Return (FP)`).
+  chief rays) and beam-footprint sanity autoswitch (reference sphere
+  smaller than the beam ⇒ mass "surface miss").  A third, the
+  "Rx-order flag", was REMOVED from the engine 2026-09-08: it warned
+  whenever the element before the EP return was a Return and prescribed
+  a `Reference (FP), Return (EP), Return (FP)` pattern that exists
+  nowhere — the documented sequence is Return (FP), Return (EP),
+  FocalPlane, so it fired on every conforming deck.  Older sweep logs
+  carry those lines; ignore them.
 
 **Key compatibility fact:** on a conforming double-pass Rx the element
 before the EP return sits AT the focus, so the two legs are equal by

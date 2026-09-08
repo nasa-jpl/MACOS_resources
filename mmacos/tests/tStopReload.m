@@ -58,5 +58,47 @@ classdef tStopReload < matlab.unittest.TestCase
             testCase.verifyEqual(s1.rad, s0.rad, 'AbsTol', 1e-9, ...
                 'reloaded deck must reproduce the cold-load pupil');
         end
+
+        function test_stop_accepts_a_segment_element(testCase)
+            % Engine 2026-09-08 (Dave): STOP on a Segment element (EltID
+            % 11) used to be refused -- CLI 'Invalid element type = 11',
+            % api stop_info_set returned FAIL before setting StopElt.  Now
+            % the veto keeps only the non-sequential types and the chief
+            % ray is mapped to the segment for the aiming trace.
+            % e5hex1's segments all carry the PARENT vertex as VptElt, so a
+            % Segment stop at offset [0 0] must land the chief ray where the
+            % deck's own object-space ApStop (0,0,0) puts it: same chief-ray
+            % direction at the pupil, pupil vertex on the same line.
+            % The element-stop path rebuilds the source frame right-handed
+            % (xGrid -1 -> +1 on this left-handed deck); with the legacy
+            % single FEX probe about xGrid that moved the pupil radius by
+            % 6.2e-4 (1.58 mm).  Since the frame-independent four-probe FEX
+            % (engine 2026-09-08, FEXProbeCross) the two stops agree to
+            % round-off -- asserted at 1e-9 below.  See macos_f90/CLAUDE.md
+            % 'FEX probe is FRAME-INDEPENDENT'.
+            % Non-vacuity: get_stop_info must report the segment -- pre-fix
+            % the refused call left the object stop in force.
+            m = macos.Session(testCase.ModelSize);
+            m.load_rx(testCase.rx_path);
+            s0 = macos.fex(1);                  % the deck's ApStop= 0 0 0
+
+            m.load_rx(testCase.rx_path);
+            iSeg = 1;                           % Seg1: Element= Segment
+            macos.stop(iSeg, [0 0]);            % refused before the fix
+            si = macos.get_stop_info();
+            testCase.verifyEqual(si.elt, iSeg, ...
+                'stop_info_set must accept a Segment element');
+            testCase.verifyEqual(si.offset, [0 0], 'AbsTol', 0, ...
+                'offset must round-trip');
+
+            s1 = macos.fex(1);
+            testCase.verifyEqual(s1.psi, s0.psi, 'AbsTol', 1e-9, ...
+                'Segment stop at the parent vertex must reproduce the chief-ray direction');
+            dv = s1.vpt - s0.vpt;
+            testCase.verifyLessThan(norm(cross(dv, s0.psi)), 1e-3, ...
+                'pupil vertex may move only ALONG the chief ray (frame-sign probe effect)');
+            testCase.verifyEqual(s1.rad, s0.rad, 'RelTol', 1e-9, ...
+                'pupil radius must not depend on the source-frame handedness');
+        end
     end
 end
