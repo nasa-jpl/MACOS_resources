@@ -250,9 +250,20 @@ classdef tPupilFindMethod < matlab.unittest.TestCase
             % STALE-AIM artifact (the un-re-aimed chief walking on the
             % tilted FSM), not physics; the configuration distinction
             % lives in the written AXIS, not the vertex.
-            tc.verifyLessThan(norm(vtx(1,:) - vtx(4,:)), 1e-6, ...
-                ['FSM-at-pupil configurations must share the ' ...
-                 'stop-anchored vertex (stale-aim artifact returned?)']);
+            % RE-PINNED 2026-09-08 (Dave): with the frame-independent FEX
+            % (macos 82d8148) the written vertex is the MEDIAL of the
+            % tangential and sagittal crossings.  The FSM zoom tilts
+            % about y and deflects the beam in x; the tangential
+            % (y-plane) crossing is symmetric under that -- hence the
+            % old 2.3e-9 invariance -- but the sagittal one sees it, so
+            % the medial vertex differs across the two configs by
+            % 5.536e-4 mm.  Pinned at that value: still 3 orders below
+            % the stale-aim artifact, and a pin catches a change in
+            % either direction.
+            tc.verifyEqual(norm(vtx(1,:) - vtx(4,:)), 5.535915533367345e-4, ...
+                'RelTol', 1e-6, ...
+                ['FSM-at-pupil configurations: medial-vertex separation ' ...
+                 'pinned (stale-aim artifact or a FEX definition change?)']);
             % the WRITTEN vertex is the combo's chief crossing (Dave
             % 2026-08-25): the bundle vertex stays a diagnostic, because
             % writing it injects its lateral offset as a pure-tilt frame
@@ -326,11 +337,18 @@ classdef tPupilFindMethod < matlab.unittest.TestCase
             tc.verifyLessThan(norm(dv_ - (ps_.'*dv_)*ps_), 1e-6, ...
                 ['the written vertex is off the chief line -- the ' ...
                  'bundle lateral offset reached the Rx']);
-            tc.verifyGreaterThan(abs(ps_.'*dv_), 10, ...
-                ['the written vertex ignores the measured pupil ' ...
-                 'station (this deck''s smear is ~23 mm)']);
-            tc.verifyLessThan(abs(ps_.'*dv_), 40, ...
-                'written station beyond the measured smear scale');
+            % RE-PINNED 2026-09-08 (Dave): the ~23 mm 'smear' above was
+            % measured against the legacy tangential FEX probe.  The
+            % frame-independent FEX (macos 82d8148) writes the MEDIAL
+            % pupil, 24 mm further along the chief on this deck, and the
+            % cone-fit station now sits 1.302 mm from it -- the two
+            % independent finders AGREE, and most of the old gap was the
+            % tangential-vs-medial offset.  Pinned at the measured value:
+            % pure 'chief' mode (0 mm) still fails, the raw bundle vertex
+            % still fails the on-line check above.
+            tc.verifyEqual(abs(ps_.'*dv_), 1.302150897497270, 'RelTol', 1e-6, ...
+                ['the written vertex must sit at the measured pupil ' ...
+                 'station (fit-vs-FEX gap pinned)']);
             % the RADIUS follows the vertex (rad = fex.rad - t): the
             % sphere CENTER sits on the propagation-target plane and
             % must not move when the vertex slides along the chief --
