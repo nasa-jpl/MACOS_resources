@@ -82,11 +82,7 @@ if ~isempty(opts.src_samp)
 end
 
 n_elt = session.num_elt();
-if opts.exit_pupil_elt < 0
-    wf_elt = n_elt - 1;
-else
-    wf_elt = opts.exit_pupil_elt;
-end
+wf_elt = wf_elt_auto(session, opts.exit_pupil_elt);   % EP read; errors on a pupil-less powered nElt-1
 
 target_modes = (opts.zmode_start : opts.n_zcoef).';
 if isempty(target_modes)
