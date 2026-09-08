@@ -5430,7 +5430,11 @@ def stop(srf: None | int | Tuple[int] | np.int32 = None,
 
     The stop surface cannot be defined at
         -- the image plane or at the XP or at the object
-        -- None-Sequential or Segment Surface
+        -- a Non-Sequential surface (NSReflector / NSRefractor)
+    Segment surfaces ARE accepted (engine 2026-09-08): the STOP command
+    maps the chief ray to that segment for the aiming trace.  Note that
+    in segment-class decks every segment's VptElt is the parent vertex,
+    so offset (0,0) on any segment is the parent vertex.
 
     Args:
         srf (None | int | Tuple[int] | np.int32, optional): Defaults to None.
@@ -5488,8 +5492,8 @@ def stop_obj(x: float, y: float, z: float) -> None:
     Use cases:
         - Prescriptions that declare an object-space stop via
           ``ApStop= x y z`` (e.g. Rx_e5hex1.in, where the segmented
-          primary is the natural stop and pymacos's :func:`stop`
-          refuses Segment surfaces).
+          primary is the natural stop; :func:`stop` on a Segment
+          surface is also accepted since the 2026-09-08 engine).
         - Re-aiming the chief ray after a source perturbation
           (``perturb_src``) when an object-space stop is in use --
           for an element-based stop, re-call :func:`stop` instead.
