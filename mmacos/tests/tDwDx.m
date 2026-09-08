@@ -349,54 +349,85 @@ classdef tDwDx < matlab.unittest.TestCase
         % ---- empty-OPD guard + single-field identity --------------------
 
         function test_emptyOPD_guard_on_clipped_read_surface(testCase)
-            % A deck whose read surface (nElt-1) clips the whole beam at a
-            % field yields an empty per-field OPD.  dw_dx_multi must fail
-            % LOUDLY (macos:dw_dx_multi:emptyOPD), not trip the opaque
-            % center-tile scalar-logical assert.  rodgers1_stage4 is a
-            % solved TMA carrying post-realize_apertures clip apertures
-            % (M3 ApVec r=0.17 vs M1 r=1.04); the full source grid
-            % overflows M3 -> 0 rays at the read surface.
-            rx = rodgers1_deck_();
-            testCase.assumeTrue(isfile(rx), 'rodgers1_stage4.in not reachable');
-            m = macos.Session(256);
-            testCase.verifyError(@() macos.dw_dx_multi(m, rx, ...
-                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
-                'dofs', (0:5).', 'reset_xp', false), ...
-                'macos:dw_dx_multi:emptyOPD');
+            % A deck whose read surface (nElt-1, the exit-pupil Return)
+            % clips the whole beam yields an empty per-field OPD.  Under
+            % Dave's 2026-09-07 ruling the supervisor WARNS once
+            % (macos:dw_dx_multi:emptyOPD) and completes with 0 rows from
+            % that block -- never errors.  Fixture: the e5hex1 pupil deck
+            % with a 0.1 mm circular aperture on its ExitPupil Return, so
+            % every ray is clipped exactly at the read surface (committed
+            % fixture; the former rodgers1_stage4 deck is not in the repo).
+            txt = fileread(testCase.rx_path);
+            k = strfind(txt, 'EltName=  exitpupil');
+            testCase.assumeTrue(~isempty(k), 'e5hex1 exitpupil block not found');
+            blk = txt(k(1):end);
+            blk = regexprep(blk, '(ApType=\s*)None', ...
+                ['$1Circular' newline '            ApVec=  1.0E-04  0.0E+00  0.0E+00'], 'once');
+            tmp = [tempname '_clipxp.in'];
+            fid = fopen(tmp, 'w');  fwrite(fid, [txt(1:k(1)-1) blk]);  fclose(fid);
+            c = onCleanup(@() delete(tmp));
+            m = macos.Session(testCase.ModelSize);
+            f = @() macos.dw_dx_multi(m, tmp, 'field_x_rad', 1e-4, ...
+                'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
+                'reset_xp', false);
+            out = testCase.verifyWarning(f, 'macos:dw_dx_multi:emptyOPD');
+            testCase.verifyEqual(nnz(out.per_field_w_nom_2d{1}), 0, ...
+                'the clipped read surface must yield an empty nominal OPD');
         end
 
         function test_reset_xp_single_field_identity(testCase)
-            % Cheapest invariant that reset_xp acts ONLY through the field
-            % loop: on a SINGLE on-axis field, FEX re-references to the same
-            % chief ray the deck already points at, so reset==frozen bit-
-            % identical.  (Apertures stripped so the wide-bias deck traces.)
-            rx = rodgers1_stripped_deck_();
-            testCase.assumeTrue(isfile(rx), 'stripped rodgers1 unavailable');
-            m = macos.Session(256);
-            oR = macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
+            % reset_xp acts ONLY through the pupil placement: on a single
+            % field, a reset_xp harvest of the pupil deck must equal a
+            % FROZEN harvest of the same deck whose ExitPupil was FEX'd at
+            % that field beforehand (same stop-enforced chief, same FEX).
+            % Non-vacuous: the committed e5hex1 carries a legacy
+            % single-probe pupil (rad 2548.00) and FEX now places the
+            % medial one (2523.74), so frozen-on-the-committed-deck would
+            % NOT match.
+            m = macos.Session(testCase.ModelSize);
+            m.load_rx(testCase.rx_path);
+            macos.stop_obj(0, 0, 0);           % the deck's own ApStop, re-enforced
+            macos.trace(macos.num_elt());
+            macos.fex(1);
+            tmp = [tempname '_fexed.in'];
+            macos.save_rx(tmp);
+            c = onCleanup(@() delete(tmp));
+            oR = macos.dw_dx_multi(m, testCase.rx_path, 'field_x_rad', 1e-4, ...
                 'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
                 'reset_xp', true);
-            oF = macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
+            oF = macos.dw_dx_multi(m, tmp, 'field_x_rad', 1e-4, ...
                 'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
                 'reset_xp', false);
             testCase.verifyEqual(oR.per_field_dwdx{1}, oF.per_field_dwdx{1}, ...
-                'single on-axis field: reset_xp must be a no-op (identity)');
+                'RelTol', 1e-8, 'AbsTol', 1e-15, ...
+                'reset_xp at the nominal field must equal frozen-on-the-FEXed deck');
         end
 
-        function test_reset_xp_no_pupil_warns_and_stamps(testCase)
-            % reset_xp=true on a bare focal deck (no exit-pupil element at
-            % nElt-1 -- rodgers1's M3 is a powered Reflector) must WARN
-            % (macos:dw_dx_multi:noPupil, FEX found nothing to write) and
-            % stamp out.reset_xp = 'no-effect' so run_compare sees the truth.
-            rx = rodgers1_stripped_deck_();
-            testCase.assumeTrue(isfile(rx), 'stripped rodgers1 unavailable');
-            m = macos.Session(256);
-            f = @() macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
+        function test_no_pupil_element_refuses_before_the_loop(testCase)
+            % Dave 2026-09-08: the wavefront is read at the PUPIL by default.
+            % A bare-focal deck (e2e6m s3_imager_full: nElt-1 = OAPim, a
+            % powered Reflector, no pupil element) must be REFUSED up front
+            % with macos:dw_dx_multi:noPupil, reset_xp or not -- not read at
+            % the powered optic (the one-signed dome), not warned-and-
+            % stamped 'no-effect', and never redirected to the FocalPlane
+            % (blind to tilt).  Supersedes test_reset_xp_no_pupil_warns_and_
+            % stamps.  An explicit exit_pupil_elt at the deck's collimated
+            % SharedPupil Reference (elt 23) is the sanctioned override.
+            here = fileparts(mfilename('fullpath'));
+            rx = fullfile(fileparts(here), 'templates', '80_end_to_end', ...
+                          'e2e6m', 's3_imager_full.in');
+            testCase.assumeTrue(isfile(rx), 's3_imager_full.in not present');
+            m = macos.Session(testCase.ModelSize);
+            for rst = [true false]
+                testCase.verifyError(@() macos.dw_dx_multi(m, rx, ...
+                    'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
+                    'dofs', (0:5).', 'reset_xp', rst), 'macos:dw_dx_multi:noPupil');
+            end
+            out = macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
                 'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
-                'reset_xp', true);
-            out = testCase.verifyWarning(f, 'macos:dw_dx_multi:noPupil');
-            testCase.verifyEqual(out.reset_xp, 'no-effect', ...
-                'no-pupil deck must stamp reset_xp = ''no-effect''');
+                'reset_xp', false, 'exit_pupil_elt', 23);
+            testCase.verifyEqual(out.wf_elt, 23, ...
+                'an explicit collimated-pupil Reference must be honoured');
         end
 
         function test_reset_xp_stamps_true_on_pupiled_deck(testCase)

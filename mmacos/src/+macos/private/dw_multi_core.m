@@ -165,6 +165,43 @@ if opts.reset_xp
     ep_is_powered = reset_xp_guard('is_powered', session);
 end
 
+% ---- Read-surface preflight (Dave 2026-09-08: the wavefront is read at
+% the PUPIL by default -- it is the OPD every PSF / diffraction calc uses).
+% With no explicit exit_pupil_elt the read lands on nElt-1, which is a
+% valid reference ONLY when it is a Return/Reference surface (the
+% add_pupil pair, a bench pupil, a collimated-pupil Reference).  A powered
+% optic there gives the one-signed 'dome' (path to a curved mirror), and
+% the FocalPlane is no alternative: its OPD is the path to each ray's
+% landing point and is BLIND to tilt (segment tilt -> segment piston;
+% macos/REPORT_ep_dome_review.md).  Refuse up front, once, with the
+% remedies, instead of letting the per-field single-DOF call throw
+% mid-loop or reset_xp report a soft 'no-effect'.  ERROR, not warn: a
+% column read there is not a mis-scaled sensitivity, it is the wrong
+% basis vector (Dave's ruling supersedes the warn-and-read path).
+if opts.exit_pupil_elt < 0
+    ep_rd  = session.num_elt() - 1;
+    ep_inf = macos.get_elt_info(ep_rd);
+    if ~any(ep_inf.elt_id == [3, 8])
+        error(eid_(F, 'noPupil'), ...
+            ['%s: no exit-pupil element -- nElt-1 (elt %d) is a %s, not a ' ...
+             'Return/Reference surface, so there is no pupil to read the ' ...
+             'wavefront at (a powered optic there yields a one-signed ' ...
+             'dome; the FocalPlane is blind to tilt).  Remedies: place one ' ...
+             'with macos.design.Telescope.add_pupil or the ' ...
+             'FP_return/ExitPupil recipe (mmacos/tools/ep_dome_probe/' ...
+             'make_pupil_deck.py), or pass ''exit_pupil_elt'' naming a ' ...
+             'Reference at a COLLIMATED pupil plane.'], ...
+            F.name, ep_rd, ep_inf.type);
+    elseif abs(session.get_elt_kr(ep_rd)) >= 1e22
+        warning(eid_(F, 'flatPupil'), ...
+            ['%s: the read surface nElt-1 (elt %d) is a FLAT %s.  A flat ' ...
+             'reference is a valid wavefront read only in COLLIMATED ' ...
+             'space (a pupil-plane Reference); in converging space the ' ...
+             'read must be a sphere centred on the image (add_pupil).'], ...
+            F.name, ep_rd, ep_inf.type);
+    end
+end
+
 % ---- Per-(configuration, field) loop ------------------------------
 % Each iteration sets the source ABSOLUTELY (set_src_fov + reaim +
 % modify), then calls the family single with reload_rx=false so the
@@ -444,7 +481,11 @@ if ~isempty(ctr_idx)
                & (ixc.j(:) > tc*N) & (ixc.j(:) <= (tc+1)*N);
         jac_ctr = jac_all(row0 + find(in_ctr), :);
         jac_C   = per_field_jac{ic, ctr_idx};
-        max_diff = max(abs(jac_ctr(:) - jac_C(:)));
+        d_ctr = abs(jac_ctr(:) - jac_C(:));
+        % An EMPTY centre block (0 rows: the emptyOPD case, warned above)
+        % is consistent with itself; max([]) is [] and would trip the
+        % scalar-logical assert that the warn-and-complete ruling forbids.
+        if isempty(d_ctr), max_diff = 0; else, max_diff = max(d_ctr); end
         fprintf('[check] %s@center-tile vs per-field[center]: ', F.all_names{1});
         fprintf('max|diff| = %.3e ([%d %d])\n', ...
             max_diff, size(jac_ctr, 1), size(jac_ctr, 2));
