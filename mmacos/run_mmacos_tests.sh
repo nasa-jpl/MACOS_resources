@@ -174,6 +174,11 @@ SUITE_QUICK=$(join_suites \
 SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tOptFex" "tStrictKernel" "tAfocalKernel" "tPupilMap" "tDesignAfocal" "tAfocal4" "tAfocal4Clear" "tAfocal4Wall" "tAfocal4Descent" "tAfocal4Offaxis" "tE2E2Axial" "tPolContrast" "tRodgers3" "tOffsetImager")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
 # group; lives in "fast" because it's quick.
+# EP-dome ruling gate (Dave 2026-09-08): sensitivity OPD read at the exit
+# pupil, never the tilt-blind FocalPlane.  Model 256 (the e2e6m s3 imager
+# fixtures) -- own batch line so it neither drags a 256 deck into the 128
+# groups nor rides a size transition.
+SUITE_EPDOME=$(join_suites "tEpDomeGate")
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
 SUITE_PROPER_512=$(join_suites "tProperCompareCassFF" "tProperCompareCassFFAberrations")
 # tPupilAperture (the macos PR #70 ColSource gates) runs every probe at
@@ -223,6 +228,7 @@ case "${1:-}" in
         run_batch "$SUITE_FAST"        "full: fast (size 128)"      || rc=1
         run_batch "$SUITE_MASKS"       "full: masks (size 128)"     || rc=1
         run_batch "$SUITE_FREEFORM"    "full: freeform (size 256)"  || rc=1
+        run_batch "$SUITE_EPDOME"      "full: ep-dome gate (256)"   || rc=1
         run_batch "$SUITE_PROPER_512"  "full: proper Cass-FF (512)" || rc=1
         run_batch "$SUITE_PUPIL_512"   "full: pupil aperture (512)" || rc=1
         run_batch "$SUITE_POL_512"     "full: pol contrast (512)"   || rc=1
