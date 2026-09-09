@@ -404,7 +404,13 @@ classdef tPupilMap < matlab.unittest.TestCase
                           -9.9077446988243323e-01, 'RelTol',1e-12);
             tc.verifyEqual(o.surface.defocus, -2.6051612418968729e-05, ...
                           'RelTol',1e-12);
-            tc.verifyEqual(o.anchor.resid_max, 1.6398283460283825e-09, ...
+            % RE-PINNED 2026-09-08 (Dave): the only value here that moved
+            % when re-traces were made idempotent (macos OrthoSrcFrame --
+            % the source frame used to alternate by 1 ulp between traces).
+            % A sub-nm residual of ~1e-2-scale positions, it changed by
+            % 2.1e-9 relative = round-off; the seven pins above did not
+            % move at 1e-12.  Was 1.6398283460283825e-09.
+            tc.verifyEqual(o.anchor.resid_max, 1.639828342558936e-09, ...
                           'RelTol',1e-12);
             tc.verifyEqual(o.anchor_mode, 'surface');
         end

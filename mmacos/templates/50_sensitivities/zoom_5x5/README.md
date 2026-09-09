@@ -266,3 +266,53 @@ ones.
   zoom-dependent sensitivity IS, but the snapshot/restore must cover it,
   and the restore assertion must run *after* the channel loop has undone
   its own poke.
+
+## Oddities, resolved
+
+### The dw/dsurf "centre-channel speckle" (Luis 2026-09-08 — RESOLVED, not a bug in the harvest)
+
+A low-level salt-and-pepper pattern in the `dw/dsurf` columns, **fixed for a
+given (zoom, field)**, visible in the element-4 (CenterSegment) channels.
+Measured attribution in `macos/REPORT_sens_noise_center.md`: it is the
+**finite-difference noise floor**, not a response.
+
+* **The floor is under EVERY column, in the 5 centre-field blocks only.**  A
+  zero-poke difference (two traces, no perturbation, ÷ 2·delta) gives rms
+  1.18–1.25e-06 at `f0` in all five zoom states and **exactly 0** in all 20
+  off-axis blocks.  In a live column it is invisible: segment 5's own response
+  is 3.8e-01 on its 124-pixel footprint while the other 2060 pixels — which its
+  poke cannot reach — carry 1.1916e-06, the same floor.  Elt 4 is the only
+  channel whose response never rises above it.
+* **Cause: the re-traced OPD is not idempotent on this deck at its nominal
+  field.**  Ten nominal traces with `modify()` between alternate in a strict
+  2-cycle, max 2.1828e-11 mm = 6.00 ulp of the 24 459 mm accumulated path, on
+  379 of 2184 rays.  Reproduces bit-for-bit in the interactive CLI, so it is
+  engine-side.  Independent of Luis's three header lines
+  (`UseChfRay4OPD=`/`ApStop=`/`PgplotImage=`), of the stop, and of the FreeForm
+  promotion (the pre-promotion `8316b68` deck toggles too); `e5hex1` and
+  `Rx_Cass_NS` are exactly idempotent.  *What alternates inside the trace is
+  still open — Dave/CCL.*
+* **The step is what sets the floor.**  It scales exactly as 1/delta
+  (`1.19335e-06` at 1e-6 → `1.19335e-08` at 1e-4, same mantissa) while every
+  live column is unchanged — the whole 1e-6-vs-1e-4 column difference IS the
+  1e-6 run's floor (5.9e-03 measured vs 5.3e-03 predicted for Elt 5 Kr, and
+  likewise for all six live channels).  **Raising this rung's `delta` to 1e-4
+  is the recommendation.**
+
+**Two bookkeeping consequences worth knowing before reading the artifacts here:**
+
+1. **`flag_zero_norm_channels` does NOT drop elt 4 on the dw/dsurf rung at the
+   current `delta = 1e-6`.**  Its threshold is `1e-6 × median live block RMS`
+   and elt 4 sits at 2.617e-06 of the median — five decades down, not six — so
+   `run_dwdsurf_5zoom_5fov.m`'s drop step returns `[]` and the two elt-4 noise
+   columns ship.  (The number-free claim above is stated for the **dw/dx**
+   rung, where elt 4 really is ~5e-7 of live and the flag does fire.)  At
+   `delta = 1e-4` the ratio falls to 2.617e-08 and the existing, unmodified
+   flag catches it.
+2. **The committed dw/dsurf artifacts are stale.**  `find_powered_elts` now
+   returns elts 4–24 (21 optics, **42 channels**) since `Segment` became
+   powered-capable (Dave 2026-09-05), and `run_sensitivities` passes no
+   `'elts'`.  The committed `dwdsurf_..._sens_report.txt` records `54585x4` —
+   four channels, and the pre-stop-enforced-chief row count.  The driver header
+   and the `dw/dsurf` row of the table at the top of this README say the same
+   stale thing.  Not regenerated (out of scope for that investigation).
