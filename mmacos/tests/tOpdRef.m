@@ -203,6 +203,64 @@ classdef tOpdRef < matlab.unittest.TestCase
                 'the two maps must differ by a constant');
         end
 
+        function test_driver_single_segment_poke_is_local_under_chief(testCase)
+            % Luis 2026-09-09: one segment poked (Kr, Kc) through the
+            % sensitivity DRIVER, orient xy, no PTT removal -- the OTHER
+            % segments must read 0.  Under the engine-default 'mean'
+            % reference they read a CONSTANT, -(N_k/N)*mean(poked column)
+            % (12-15% of the poked segment's rms on e5hex1); under 'chief'
+            % exactly 0.  The drivers/fronts/runner now take 'opd_ref'
+            % (re-applied after every reload).  The one case 'chief' does
+            % not localise is the chief ray's OWN segment (its reference
+            % moves with the poke) -- recorded as a diagnostic, not gated.
+            args = {'params', {'Kr','Kc'}, 'ngridpts', testCase.NGrid, ...
+                    'orient', 'xy', 'remove_ptt', false};
+            oc = macos.dw_dsurf(testCase.m, testCase.rx_path, 'elts', testCase.Poke, ...
+                                args{:}, 'opd_ref', 'chief');
+            om = macos.dw_dsurf(testCase.m, testCase.rx_path, 'elts', testCase.Poke, ...
+                                args{:}, 'opd_ref', 'mean');
+            testCase.verifyEqual(string(macos.opd_ref()), "mean");   % last call wins
+            for c = 1:size(oc.dwds, 2)
+                vc = oc.dwds(:, c);  vm = om.dwds(:, c);
+                ok = isfinite(vc) & isfinite(vm);
+                supp = ok & abs(vc) > 1e-9*max(abs(vc(ok)));   % the poked segment's rays
+                oth  = ok & ~supp;
+                % chief: the other six segments read EXACTLY zero, and the
+                % support is one segment of seven
+                testCase.verifyEqual(max(abs(vc(oth))), 0);
+                testCase.verifyEqual(nnz(supp)/nnz(ok), 1/7, 'AbsTol', 0.02);
+                % mean: the others carry one constant = -(N_k/N)*mean(poked, chief)
+                cst = -nnz(supp)/nnz(ok) * mean(vc(supp));
+                testCase.verifyLessThan(std(vm(oth)), 1e-10*abs(cst));
+                testCase.verifyEqual(mean(vm(oth)), cst, 'RelTol', 1e-9);
+                % and the two maps differ by that same constant everywhere
+                % (finite-difference round-off: measured 9e-12 relative)
+                testCase.verifyEqual(vm(ok) - vc(ok), cst*ones(nnz(ok),1), 'AbsTol', 1e-9*abs(cst));
+                % the leak is material: >5% of the poked segment's rms
+                testCase.verifyGreaterThan(abs(cst)/rms(vc(supp)), 0.05);
+                testCase.log(1, sprintf('%s: mean-ref leak on the other segments = %.4f of the poked rms', ...
+                    oc.channel_names{c}, abs(cst)/rms(vc(supp))));
+            end
+            % the chief ray's own segment (elt 1): the chief reference moves
+            % with the poke, so the others read -m(chief) -- diagnostic only
+            o1 = macos.dw_dsurf(testCase.m, testCase.rx_path, 'elts', 1, ...
+                                'params', {'Kr'}, 'ngridpts', testCase.NGrid, ...
+                                'orient', 'xy', 'remove_ptt', false, 'opd_ref', 'chief');
+            v1 = o1.dwds(:, 1);  ok = isfinite(v1);
+            ix = o1.indx;                                     % m2v bookkeeping (.i/.j/.size)
+            w1 = nan(ix.size);  w1(sub2ind(ix.size, ix.i, ix.j)) = v1;
+            % centre-segment support: the rays whose chief-ref value is NOT the
+            % common outer constant
+            outer = mode(round(v1(ok) / max(abs(v1(ok))) * 1e9));   % the constant, quantised
+            is_out = round(v1 / max(abs(v1(ok))) * 1e9) == outer;
+            testCase.log(1, sprintf(['centre segment Kr under chief: %d px on the constant %.3e ' ...
+                '(%.4f of the centre-segment rms); a nominal-anchored fixed-length reference ' ...
+                '(engine OPDRefRayLen branch, opd_ref_len_set) would zero it'], ...
+                nnz(is_out & ok), outer*max(abs(v1(ok)))/1e9, ...
+                abs(outer*max(abs(v1(ok)))/1e9)/rms(v1(ok & ~is_out))));
+            testCase.verifyTrue(all(isfinite(w1(sub2ind(ix.size, ix.i, ix.j)))));
+        end
+
         function test_bad_mode_errors(testCase)
             testCase.verifyError(@() macos.opd_ref('centroid'), ...
                 'MATLAB:validators:mustBeMember');

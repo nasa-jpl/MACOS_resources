@@ -177,6 +177,22 @@ arguments
     opts.surf_remove_ptt (1,1) logical = false  % dwdsurf: project piston +
                                      % tip + tilt out of each Kr/Kc response
                                      % (aligned out during assembly)
+    opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'
+                                     % OPD array orientation, ALL channels
+                                     % (doc/opd_conventions.md): 'xy' = index
+                                     % 1 along global X (imagesc-ready)
+    opts.sign (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl'
+                                     % OPD sign convention, ALL channels
+    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'mean'
+                                     % OPD reference, ALL channels
+                                     % (macos.opd_ref): 'mean' = whole-
+                                     % aperture mean (engine default) --
+                                     % on a SEGMENTED deck a single-segment
+                                     % poke then pistons every OTHER segment
+                                     % by -(N_k/N)*mean(poked response);
+                                     % 'chief' = chief-ray reference, the
+                                     % other segments read exactly 0
+                                     % (PLAN 0.x; Luis 2026-08-19/09-09)
     opts.grid_basis (1,:) char {mustBeMember(opts.grid_basis, ...
         {'multi','single'})} = 'multi'   % per-segment bespoke basis
                                 % (segment_grid_basis; the general case)
@@ -248,6 +264,7 @@ else
 end
 say('==== run_sensitivities: %s ====\n', char(rx_in));
 say('field set: center + 4 corners at +-%.4g rad\n', opts.fov_rad);
+say('OPD conventions: orient=%s sign=%s opd_ref=%s\n', opts.orient, opts.sign, opts.opd_ref);
 
 % preflight: the exit-pupil machinery needs an aperture stop
 txt = fileread(char(rx_in));
@@ -288,6 +305,7 @@ say('segments: %d\n\n', nseg);
 m = macos.Session(opts.model_size);
 FOV = opts.fov_rad;
 sup = {'field_x_rad', FOV, 'field_y_rad', FOV, 'ngridpts', opts.ngridpts, ...
+       'orient', opts.orient, 'sign', opts.sign, 'opd_ref', opts.opd_ref, ...
        'reset_xp_method', opts.reset_xp_method, ...
        'fex_axis', opts.fex_axis, ...
        'pupil_find_opts', opts.pupil_find_opts, ...

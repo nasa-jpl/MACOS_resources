@@ -36,6 +36,7 @@ function out = dw_multi_core(session, rx_path, opts, F)
 
 stop_obj_pos = getf_(opts, 'stop_obj_pos', []);
 do_reload    = getf_(opts, 'reload_rx', true);
+opd_ref_mode = getf_(opts, 'opd_ref', 'mean');   % re-applied after EVERY load below
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
     error(eid_(F, 'fov'), 'field_x_rad and field_y_rad are required');
@@ -67,6 +68,7 @@ end
 if do_reload
     session.load_rx(rx_path);
 end
+session.opd_ref(opd_ref_mode);    % a load resets the OPD reference to 'mean'
 apply_ngridpts(session, opts.ngridpts, F.name);
 if ~isempty(opts.src_samp)
     session.set_src_sampling(opts.src_samp);
@@ -226,6 +228,7 @@ for ic = 1:n_cfg
 % engine state must survive.
 if has_cfg && use_pf && ic > 1 && do_reload
     session.load_rx(rx_path);
+    session.opd_ref(opd_ref_mode);
     apply_ngridpts(session, opts.ngridpts, F.name);
     if ~isempty(opts.src_samp)
         session.set_src_sampling(opts.src_samp);
