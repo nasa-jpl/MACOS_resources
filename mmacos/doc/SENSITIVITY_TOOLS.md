@@ -40,6 +40,38 @@ dwdz_for_current_source        ← the ONE finite-difference engine
 Session / mmacos mex → SMACOS engine (trace + opd)
 ```
 
+## OPD conventions carried by every driver (orient / sign / opd_ref)
+
+All eight `dw_d*` drivers (four singles, four `_multi` fronts), the
+supervisor core and `run_sensitivities` take the same three options and
+record them in the output (`opd_orient`, `opd_sign`; the reference is
+re-applied after EVERY Rx reload, because a load resets it):
+
+| option | values | what it does |
+|---|---|---|
+| `orient` | `raw` (default) / `xy` | array layout; `xy` = index 1 along global X, `imagesc`-ready (doc/opd_conventions.md) |
+| `sign` | `opl` (default) / `wavefront` | negate every wavefront-valued output |
+| `opd_ref` | `mean` (default) / `chief` | the OPD reference: whole-aperture mean OPL, or the chief ray's own OPL (`macos.opd_ref`, PLAN 0.x) |
+
+**Why `opd_ref` matters on a SEGMENTED deck (Luis 2026-09-09, the
+"residual on the other segments" report).**  A Jacobian column is an OPD
+DIFFERENCE, and each OPD map is referenced.  Under `mean`, poking ONE
+segment shifts the aperture mean, so every OTHER segment reads the
+constant `-(N_k/N) * mean(poked response)` -- measured through
+`macos.dw_dsurf` on e5hex1 (segment 2, Kr / Kc, orient xy, no PTT
+removal): 4.32e-4 / 2.04e-2 per unit parameter, i.e. 14.7% / 12.0% of
+the poked segment's rms, identical on all six other segments to 3e-16.
+Under `chief` the other segments read EXACTLY 0.  The one case `chief`
+does not localise is the chief ray's OWN segment: its reference moves
+with the poke and the others read `-m(chief)` (measured: -2.18e-5 per unit
+Kr on e5hex1, 5.0% of the centre segment's own rms).  A nominal-anchored
+FIXED-LENGTH reference (the engine's `OPDRefRayLen` branch, one api
+wrapper away) would localise every column; until then use
+`'opd_ref','chief'` and read the centre-segment column knowing that.
+`surf_remove_ptt` / `remove_ptt` is NOT a substitute: it fits global
+piston/tip/tilt to the whole column, which the poked segment biases.
+Gate: `tOpdRef/test_driver_single_segment_poke_is_local_under_chief`.
+
 ## Where eligibility is decided (the class of bug you are chasing)
 
 * An element missing from a Jacobian, with `'elts'` passed explicitly →
