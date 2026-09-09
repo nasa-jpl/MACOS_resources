@@ -29,6 +29,8 @@ Files: dmg_frame (ray-affine mag), dmg_anchor (poke-A translation),
 dmg_register (8-parity + sign search), dmg_samp (parity-aware DM-frame
 sampling), dmg_stencil (kernel stencil), dmg_lit (illuminated-actuator
 mask), dmg_act_fit (Tikhonov lattice deconvolution), dmg_modal_corr
-(Wiener, radial | separable), dmg_ifo_gauge (four-step PSI
-measurement factory), dmg_zwfs_gauge (dimple mask + frozen-linear +
-phase-stepped factory), dmg_say (report tee).
+(Wiener, radial | separable), dmg_color_comb (multi-COLOR multi-channel
+Wiener on the lattice: a_hat = sum_k G_k A_k / (sum_k G_k^2 + beta^2),
+S6 color stage, 2026-09-08), dmg_ifo_gauge (four-step PSI measurement
+factory), dmg_zwfs_gauge (dimple mask + frozen-linear + phase-stepped
+factory), dmg_say (report tee).
