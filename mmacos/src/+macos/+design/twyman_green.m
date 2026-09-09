@@ -96,16 +96,35 @@ arguments
     opts.tail_arch (1,:) char {mustBeMember(opts.tail_arch, ...
         {'singlet','fieldlens','doublet'})} = 'singlet'
     opts.mask_prop (1,:) char {mustBeMember(opts.mask_prop, ...
-        {'geometric','nf'})} = 'geometric'
+        {'geometric','nf','nf_legacy'})} = 'geometric'
                                          % 'nf': bracket the FocalMask with
                                          %  reference SPHERES carrying NF1/
                                          %  NF2 legs (the ctb_dcr.in FPM
                                          %  idiom) so the wavefront lands on
                                          %  a focal-scale grid there -- for
                                          %  lambda/D-class focal masks (the
-                                         %  ZWFS dimple).  'geometric'
-                                         %  (default) = bit-identical legacy
-                                         %  emission.  fieldlens arch only.
+                                         %  ZWFS dimple).  The exit sphere
+                                         %  carries the ENTRANCE sphere's
+                                         %  zElt/Kr (SYMMETRIC sandwich, as
+                                         %  ctb_dcr.in) so the round trip is
+                                         %  the exact identity and the tail
+                                         %  sees the DM-CONJUGATE pupil.
+                                         % 'nf_legacy': the 2026-09-04..08
+                                         %  emission (exit sphere zElt/Kr =
+                                         %  0.6*D_MASK_FL): ASYMMETRIC, so
+                                         %  the engine's sphere-to-plane leg
+                                         %  applies a focal quadratic phase
+                                         %  ~ (Z2-Z1)*Z1/Z2 = a Fresnel
+                                         %  DEFOCUS of the reimaged pupil
+                                         %  (z_eff 4.86 m on the zwfs_dm96
+                                         %  rig: 16% flat-pupil change, 29%
+                                         %  rms amplitude modulation under a
+                                         %  30 nm DM state, ringed poke
+                                         %  kernel).  Kept ONLY to reproduce
+                                         %  the S1-S6 zwfs_dm96 record.
+                                         % 'geometric' (default) =
+                                         %  bit-identical legacy emission.
+                                         %  fieldlens arch only.
     opts.DET_TRIM (1,1) double = 0       % additive trim on det_leg (all arches)
     opts.MASK_TRIM (1,1) double = 0      % additive trim on the FocalMask
                                          %  position (thin-lens seed -> true
@@ -363,7 +382,7 @@ function [ix, det_leg] = tail(b, P, ix, conj_elt, det_leg)
 % the pupil conjugate stay put.  ix.iOutQWP / ix.iAnalyzer are exposed.
 d_rc_l2 = P.D_RC_L2;
 assert(strcmp(P.mask_prop, 'geometric') || strcmp(P.tail_arch, 'fieldlens'), ...
-    'twyman_green: mask_prop=''nf'' is implemented for tail_arch=''fieldlens'' only.');
+    'twyman_green: mask_prop=''nf''/''nf_legacy'' is implemented for tail_arch=''fieldlens'' only.');
 if P.polarizing
     ix.iOutQWP   = b.add_waveplate(P.D_POL, ax_local(b.dir, P.out_qwp_deg), ...
                                    P.qwp_ret, 'name','OutQWP');
@@ -389,7 +408,7 @@ case 'fieldlens'                   % C1: field lens just behind the mask
                     'n',P.N_GLASS, 'name','L2');
     b.E(L2.i_pow).Kr = P.L2_Kr;  b.E(L2.i_pow).Kc = P.L2_Kc;
     dmask = P.F2 - L2.thickness + P.MASK_TRIM;
-    if strcmp(P.mask_prop, 'nf')
+    if strcmp(P.mask_prop, 'nf') || strcmp(P.mask_prop, 'nf_legacy')
         % NF1/NF2 sandwich (ctb_dcr.in FPM idiom): a reference SPHERE
         % concentric with the focus carries the sphere->plane leg onto
         % the FocalMask -- the wavefront lands there on a focal-scale
@@ -401,9 +420,31 @@ case 'fieldlens'                   % C1: field lens just behind the mask
             'kr',-d_in, 'proptype','NF1', 'zelt',d_in);
         ix.iMASK = b.add_reference(d_in, 'FocalMask', ...
             'proptype','NF2', 'zelt',1e22);
-        d_out = 0.6 * P.D_MASK_FL;
+        d_out = 0.6 * P.D_MASK_FL;               % the exit sphere's STATION
+        if strcmp(P.mask_prop, 'nf')
+            % SYMMETRIC sandwich: the exit sphere carries the ENTRANCE
+            % sphere's zElt/Kr.  The engine's SPH2PL (NF1) multiplies the
+            % focal field by exp(i*S*(m^2+n^2)) with S ~ (Z2-Z1)*Z1/Z2
+            % (Z1 = zElt of the entrance sphere, Z2 = zElt of the element
+            % after the mask) and PL2SPH (NF2) is a plain shifted FFT, so
+            % Z2 == Z1 makes the unmasked round trip the exact identity
+            % (measured 1.8e-15) and the geometric tail (identity on the
+            % grid, per index) hands the detector the DM-conjugate pupil
+            % with only the mask's action on it -- the textbook ZWFS.  The
+            % sphere's physical sag over the beam at d_out is um-class; the
+            % ray bookkeeping (dx labels, registration affine) is unchanged
+            % (measured: dx_at(iDET) and the ray magnification identical to
+            % the legacy emission).  ctb_dcr.in's FPM sandwich is symmetric
+            % the same way (both EPreturn spheres at the same zElt).
+            z_out = d_in;
+        else
+            % LEGACY (nf_legacy): Z2 = d_out ~= Z1 -> the round trip is a
+            % Fresnel defocus of the pupil by z_eff = Z1*(Z1-Z2)/Z2 (4.86 m
+            % on the zwfs_dm96 rig).  Reproduces the S1-S6 record only.
+            z_out = d_out;
+        end
         b.add_reference(d_out, 'MaskSphereOut', 'surface','Conic', ...
-            'kr',-d_out, 'zelt',d_out);
+            'kr',-z_out, 'zelt',z_out);
         d_fl = P.D_MASK_FL - d_out;
     else
         ix.iMASK = b.add_reference(dmask, 'FocalMask');

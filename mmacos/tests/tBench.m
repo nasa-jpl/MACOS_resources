@@ -283,6 +283,44 @@ classdef tBench < matlab.unittest.TestCase
             testCase.verifyEqual(wp(bo), wt(bo));   % bit-identical pol-off
         end
 
+        function test_twyman_green_nf_sandwich(testCase)
+            % 'mask_prop','nf': the FocalMask sits between two reference
+            % spheres carrying NF1/NF2 legs.  The exit sphere MUST carry the
+            % entrance sphere's zElt/Kr (SYMMETRIC sandwich, the ctb_dcr.in
+            % FPM idiom): the engine's SPH2PL multiplies the focal field by
+            % exp(i*S*(m^2+n^2)) with S ~ (Z2-Z1)*Z1/Z2, so Z2 ~= Z1
+            % Fresnel-DEFOCUSES the reimaged pupil (zwfs_dm96 rig: 16%
+            % flat-pupil change, 29% rms amplitude modulation under a 30 nm
+            % DM state, ringed poke kernel -- the S1-S6 record, 2026-09-09
+            % finding).  'nf_legacy' reproduces that emission (exit zElt/Kr
+            % = 0.6*D_MASK_FL) and NOTHING else moves.
+            arch = {'tail_arch','fieldlens', 'FL_F',25.02100857, ...
+                    'FL_Kc',-2.11278288, 'D_MASK_FL',6.277463741, ...
+                    'DET_TRIM',1.085330067, 'ngridpts',15};
+            Gs = macos.design.twyman_green(arch{:}, 'mask_prop','nf');
+            Gl = macos.design.twyman_green(arch{:}, 'mask_prop','nf_legacy');
+            nm = @(G) {G.bt.E.name};
+            iin  = find(strcmp(nm(Gs), 'MaskSphereIn'), 1);
+            iout = find(strcmp(nm(Gs), 'MaskSphereOut'), 1);
+            testCase.verifyNotEmpty(iin);  testCase.verifyNotEmpty(iout);
+            testCase.verifyEqual(Gs.bt.E(iout).zelt, Gs.bt.E(iin).zelt);   % symmetric
+            testCase.verifyEqual(Gs.bt.E(iout).Kr,   Gs.bt.E(iin).Kr);
+            testCase.verifyEqual(Gl.bt.E(iout).zelt,  0.6*6.277463741, 'AbsTol', 1e-12);
+            testCase.verifyEqual(Gl.bt.E(iout).Kr,   -0.6*6.277463741, 'AbsTol', 1e-12);
+            testCase.verifyEqual(Gl.bt.E(iin).zelt,   Gs.bt.E(iin).zelt);  % entrance unchanged
+            testCase.verifyEqual([Gl.bt.E.s], [Gs.bt.E.s]);                % stations identical
+            % the emitted decks differ ONLY on the exit sphere's KrElt/zElt
+            rx = tempname;  mkdir(rx);
+            fs = fullfile(rx,'s.in');  fl = fullfile(rx,'l.in');
+            Gs.bt.emit(fs);  Gl.bt.emit(fl);
+            Ls = regexp(fileread(fs), '\n', 'split');
+            Ll = regexp(fileread(fl), '\n', 'split');
+            testCase.verifyEqual(numel(Ls), numel(Ll));
+            d = find(~strcmp(Ls, Ll));
+            testCase.verifyEqual(numel(d), 2);
+            testCase.verifyTrue(all(contains(Ls(d), 'KrElt=') | contains(Ls(d), 'zElt=')));
+        end
+
         function test_tail_arches(testCase)
             % l2_trade detector-leg architectures (twyman_green
             % 'tail_arch'): each builds, emits, traces with zero ray loss,

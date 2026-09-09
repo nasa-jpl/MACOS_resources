@@ -333,7 +333,7 @@
           EltName=  MaskSphereOut
           Element=  Reference
           Surface=  Conic
-            KrElt=  -2.3861640000E+01
+            KrElt=  -3.5268646928E+02
             KcElt=  0.0000000000E+00
            psiElt=  0.970295726275996  0.241921895599668  0
            VptElt=  1749.30073656468  158.218473892685  0
@@ -345,7 +345,7 @@
              nObs=  0
            ApType=  None
          PropType=  Geometric
-             zElt=  23.8616
+             zElt=  352.686
           nECoord=  -6
 
              iElt=  18
