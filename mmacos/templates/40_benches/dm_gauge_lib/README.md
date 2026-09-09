@@ -25,6 +25,33 @@ flat disk-frame; BETA 0.1; seeds rng(7) base / rng(23) random dev.
 `dmg_zwfs_gauge` calls `zwfs_mask` — run ZWFS scripts with
 `zwfs_dm96/` as cwd (all campaign scripts cd to their own dir).
 
+**Third ZWFS reading (2026-09-09, `zwfs_s7iter`): `measI` / `reconI` /
+`solveI` — the ITERATED-REFERENCE exact solve** (literature import #1,
+`macos/REPORT_zwfs_lit_scan.md`).  Per pixel (Ruane 2020 eq 36-37 /
+N'Diaye 2013 eq 6-7, general complex `E0`, `b`, `c`):
+`cos(phi - Theta) = (I - A^2 - |c|^2|b|^2) / (2 A |c| |b|)`,
+`Theta = arg c + arg b - arg E0`, principal branch `phi = Theta -
+acos(.)` (the quarter-wave sensor's -pi/4 .. 3pi/4); the reference
+wave `b` is re-propagated from the estimate through the FFT surrogate
+of the mask model `b(E) = T(D .* Ti(E))`, `T = fftshift(fft2(fftshift
+(.)))/N` (= the engine's PL2SPH; the geometric tail is the identity on
+the grid), `NITER` times (opt.NITER, default 5; 0 = exact solve with a
+FROZEN b).  ONE masked frame; `A = |E0|` (the flat's amplitude — exact
+only on a DM-CONJUGATE pupil, see `gate.roundtrip`; pass the state's
+own unmasked frame as `I0` otherwise).  `reconI(Ia, I0, plus, b0,
+niter)`: `plus` = per-pixel logical selecting the OTHER branch (from
+`plusFromX(X)` of a stepped retrieval of the base — the 'I+' protocol:
+the base costs 4 frames once, every differential frame is one);
+`b0`/`niter` = seed b / iteration override (an ORACLE solve seeds the
+engine's Eb of the state itself).  `solveI` returns `[phi, info]`
+(info.dphi = rms update per iteration, nclamp = clamped px, b).
+`frameI == frameL` (the same frame).  Gates the factory now carries:
+`gate.bsur` (surrogate vs the engine's Eb on msk, 1e-15 class) and
+`gate.roundtrip` (unmasked entrance->exit sphere identity; WARNS once
+if > 1e-9: an asymmetric sandwich Fresnel-defocuses the pupil —
+`twyman_green` 'nf_legacy', the S1-S6 record — and A = |E0| no longer
+holds under a DM state).
+
 Files: dmg_frame (ray-affine mag), dmg_anchor (poke-A translation),
 dmg_register (8-parity + sign search), dmg_samp (parity-aware DM-frame
 sampling), dmg_stencil (kernel stencil), dmg_lit (illuminated-actuator
@@ -32,5 +59,5 @@ mask), dmg_act_fit (Tikhonov lattice deconvolution), dmg_modal_corr
 (Wiener, radial | separable), dmg_color_comb (multi-COLOR multi-channel
 Wiener on the lattice: a_hat = sum_k G_k A_k / (sum_k G_k^2 + beta^2),
 S6 color stage, 2026-09-08), dmg_ifo_gauge (four-step PSI measurement
-factory), dmg_zwfs_gauge (dimple mask + frozen-linear + phase-stepped
-factory), dmg_say (report tee).
+factory), dmg_zwfs_gauge (dimple mask + frozen-linear + iterated-reference exact +
+phase-stepped factory), dmg_say (report tee).
