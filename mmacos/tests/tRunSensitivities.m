@@ -234,6 +234,29 @@ classdef tRunSensitivities < matlab.unittest.TestCase
                 'fex/centroid checkpoints must carry the axis key');
         end
 
+        function test_dwdsurf_channel_honours_elts_orient_and_opd_ref(tc)
+            % Luis round 4 (2026-09-09): the runner forwarded 'elts' to
+            % dwdx/dwdz/dwdgrid but NOT to dwdsurf (a one-segment Kr/Kc
+            % request harvested all 42 channels on jwst_ote_designc), and
+            % forwarded neither 'orient' nor 'sign' nor the OPD reference
+            % to any channel.  All four now reach the dwdsurf channel and
+            % the report header names the conventions in use.
+            [~, rx] = tc.cfg_fixture();
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            art = run_sensitivities(rx, 'fov_rad', 1e-4, 'ngridpts', 15, ...
+                'channels', "dwdsurf", 'elts', 3, 'orient', 'xy', ...
+                'opd_ref', 'chief', 'sign', 'wavefront', ...
+                'model_size', 512, 'out_dir', wd, 'name', 'eltsurf', ...
+                'verbose', false);
+            tc.verifyEqual(art.os.channel_names(:), {'Elt 3 Kr'; 'Elt 3 Kc'});
+            tc.verifyEqual(art.os.opd_orient, 'xy');
+            tc.verifyEqual(art.os.opd_sign, 'wavefront');
+            txt = fileread(art.report);
+            tc.verifyTrue(contains(txt, 'opd_ref=chief'));
+            tc.verifyTrue(contains(txt, 'orient=xy'));
+        end
+
         function test_run_sensitivities_end_to_end(tc)
             % trimmed harvest on the SMM pie fixture; the regression
             % gate is dwdgrid FULL RANK + localized pokes (the stale

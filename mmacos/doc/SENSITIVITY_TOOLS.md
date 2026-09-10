@@ -71,6 +71,9 @@ wrapper away) would localise every column; until then use
 `surf_remove_ptt` / `remove_ptt` is NOT a substitute: it fits global
 piston/tip/tilt to the whole column, which the poked segment biases.
 Gate: `tOpdRef/test_driver_single_segment_poke_is_local_under_chief`.
+**Also fixed the same day:** `run_sensitivities` did not forward `elts`
+to the dwdsurf channel (the other three channels had it), so a runner
+call asking for one segment's Kr/Kc harvested every powered element.
 
 ## Where eligibility is decided (the class of bug you are chasing)
 
