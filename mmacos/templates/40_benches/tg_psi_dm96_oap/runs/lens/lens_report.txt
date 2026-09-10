@@ -1,0 +1,54 @@
+=== TG96 gauge (lens optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "lens"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 6.88 deg -> BS_AOI = 7 deg
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   688 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   564 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   523 mm
+  chosen DM leg 700 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  169.3 mm, margin  +27.9 mm (spec >= 25)
+  ref arm vs DM beam          separation  169.3 mm, margin  +57.9 mm (spec >= 25)
+  camera leg vs source beam   separation  169.3 mm, margin  +67.9 mm (spec >= 25)
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/lens_tail.mat (null 0.134 nm at opt res; seed 9.100)
+Stage B -- lens rig built (BS_AOI 7); emitted lens_{test,ref}.in
+
+Stage C -- battery (design azimuths, unaligned):
+  arm azimuths: test -44.8566, ref +45.0000 -> departure +0.1434 deg
+  null: 0.1345 nm rms surface (134.5 pm) with nothing aligned
+  20 nm piston: |gain| 1.00145 (unaligned scale error +0.145%)
+  single actuator at 150 nm: recovered peak 146.1 nm
+  registration: parity 5 of 8, meas sign -1; |pokeB corr| 0.9341 (runner-up 0.0021)
+  96x96 closure: truth 6.409, measured 6.031, residual 6.006 nm rms, corr 0.535262
+  registration: mag 9.8793, anamorphism 0.00%, nonlinearity 0.1360 mm
+
+Stage D -- transfer curve (Nyquist 48 cyc/pupil):
+  mode(p,q)  cyc/pup     gain  cross-talk
+    1,1          0.7   1.0184      0.0018
+    2,2          1.4   1.0060      0.0093
+    4,4          2.8   1.0003      0.0296
+    8,8          5.7   0.9984      0.0145
+   16,16        11.3   0.9845      0.0130
+   24,24        17.0   0.9604      0.0176
+   32,32        22.6   0.9311      0.0222
+   48,48        33.9   0.8509      0.0227
+   64,64        45.3   0.7433      0.0067
+   80,80        56.6   0.6052      0.0040
+   96,96        67.9   0.5039      0.0138
+   48,0         24.0   0.9013      0.0100
+  held-out random: 11.8914 nm rms resid (input 30.59, resid/truth corr -0.21)
+
+Stage E -- differential rows (deviation about a working state):
+  base         deviation          gain   resid pm     corr
+  flat         single 10nm      0.9654       21.0   0.9906
+  flat         random 10nm      0.9203     2293.3   0.9264
+  random 16nm  single 10nm      0.9772       23.5   0.9886
+  random 16nm  random 10nm      0.9209     2298.7   0.9262
+
+wrote lens_report.txt + lens.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/lens
