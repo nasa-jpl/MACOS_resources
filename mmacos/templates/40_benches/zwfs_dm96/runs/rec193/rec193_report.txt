@@ -1,0 +1,149 @@
+=== ZWFS runner: tag rec193  (2026-09-10 08:21) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: battery figs | readings: L F I I+ S
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4)
+
+---- bench ----
+deck rec193_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.817e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.967e-15   (gate < 1e-10)
+frame: ray magnification 10.1583 DM-mm per detector-mm, detector px 3.9135e-02 mm -> 0.3976 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 7.92 px across at the mask plane (min 6)  -> PASS
+  DM 96x96: 2.52 detector px per actuator (min 2)  -> PASS
+  DM 48x48: 5.03 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 4.120e-16   (gate < 1e-12: A = |E0| is exact)
+registration: center-poke anchor at detector px (511.67, 511.67) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.979, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.98 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7509, corr(map, truth) 0.9800
+bench stage 0.2 min
+
+---- battery: DM 96x96, pitch 1.0 mm ----
+lit actuators 3252; hold-out (60,40); center-poke kernel per class [raw peak gain, ring min/peak, corr]:  L [0.751 -0.001 0.980]  I [0.928 -0.001 0.995]  S [0.928 -0.001 0.995]
+modal transfer (actuator-space estimator, RAW):
+     mode  cyc/ap |       L       I       S
+  ( 1, 0)     0.5 |  0.7199  1.0577  0.6428
+  ( 2, 0)     1.0 |  0.5000  0.4622  0.4551
+  ( 4, 0)     2.0 |  1.0629  1.0279  0.9559
+  ( 8, 0)     4.0 |  1.0453  1.0361  0.9551
+  (16, 0)     8.0 |  1.0437  0.9982  0.9343
+  (24, 0)    12.0 |  1.0417  0.9888  0.9315
+  (32, 0)    16.0 |  1.0686  0.9939  0.9450
+  (40, 0)    20.0 |  1.0826  0.9828  0.9446
+  (48, 0)    24.0 |  1.0916  0.9657  0.9365
+  (56, 0)    28.0 |  1.1054  0.9539  0.9328
+  (64, 0)    32.0 |  1.1753  0.9415  0.9277
+  (72, 0)    36.0 |  1.1447  0.9224  0.9134
+  (80, 0)    40.0 |  1.1376  0.8939  0.8876
+  ( 8, 8)     5.7 |  1.1122  1.0126  0.9827   (separability row)
+  (24,24)    17.0 |  1.0933  0.9878  0.9647   (separability row)
+min |g| over the (p,0) rows:  L 0.500  I 0.462  S 0.455
+rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+row               rd  |   g_raw    e_raw  flr_raw  SNRraw |   g_cor    e_cor  flr_cor  SNRcor
+flat/hold20       L   |  0.9197       68       62  296.81 |  0.8788      104       95  184.63
+                  F   |  0.8998       61       49  365.36 |  0.9392       87       84  222.64
+                  I   |  0.8999       61       49  365.40 |  0.9393       87       84  222.81
+                  I+  |  0.8999       61       49  365.40 |  0.9393       87       84  222.81
+                  S   |  0.8998       61       49  365.33 |  1.0795      110      107  202.14
+flat/rand10       L   |  1.1171     3844        -       - |  1.0590     4020        -       -
+                  F   |  0.8785     2270        -       - |  0.9127     2751        -       -
+                  I   |  0.8845     2242        -       - |  0.9189     2736        -       -
+                  I+  |  0.8845     2242        -       - |  0.9189     2736        -       -
+                  S   |  0.8647     2293        -       - |  1.0371     3301        -       -
+rand30/single10   L   |  0.5379      105       67   80.29 |  0.5101      105       61   84.14
+                  F   |  0.5794       80       30  191.72 |  0.6045       79       37  161.44
+                  I   |  0.7403       58       36  204.12 |  0.7736       62       48  161.64
+                  I+  |  0.7878       40       13  583.99 |  0.8214       44       31  265.23
+                  S   |  0.7048       56       23  312.22 |  0.8435       50       42  201.67
+rand30/grid@1nm   L   |  0.9461      105       67   14.07 |  0.9089       96       60   15.20
+                  F   |  0.6318       92       53   11.89 |  0.6245       95       55   11.43
+                  I   |  0.6952       86       52   13.44 |  0.6877       89       53   12.91
+                  I+  |  0.8522       35       25   33.53 |  0.8425       36       26   31.87
+                  S   |  0.7295       39       20   36.74 |  0.8947       36       33   27.43
+rand30/rand10     L   |  0.7816     9595        -       - |  0.7409     8964        -       -
+                  F   |  0.5863     8246        -       - |  0.6124     8465        -       -
+                  I   |  0.6309     8399        -       - |  0.6588     8655        -       -
+                  I+  |  0.7791     5794        -       - |  0.8101     6060        -       -
+                  S   |  0.7220     3293        -       - |  0.8663     3254        -       -
+(beyond-fold fraction of msk on the working-state base, prior passes: 0.0479 0.0768 0.0781 )
+break scale (single act 10 nm differential on a growing base; corrected estimates; g at the poked site, floor pm, SNR; fold0/fold = beyond-fold fraction from the plain / refined stepped prior; past the fold quote GAIN, not SNR):
+    base  fold0   fold | L: g flr SNR          | F: g flr SNR          | I: g flr SNR          | I+: g flr SNR         | S: g flr SNR          |
+   30 nm 0.0471 0.0765 |  0.5134     60    85.2|  0.6038     37   161.3|  0.7983     43   185.0|  0.8480     32   265.7|  0.8467     42   201.8|
+   40 nm 0.0723 0.1261 |  0.4083     77    52.9|  0.7308     67   108.4|  0.0873     79    11.1|  0.8617     43   200.9|  0.7288     38   193.5|
+   50 nm 0.0861 0.1663 |  0.3212     92    34.8|  0.2394     97    24.8|  0.0854     73    11.8|  0.9138     51   178.7|  0.6147     47   131.3|
+   60 nm 0.0869 0.1945 |  0.2409     99    24.4|  0.0316     67     4.7|  0.0021     68     0.3|  0.8624     59   146.9|  0.5554     54   102.5|
+  120 nm 0.0000 0.0000 | -0.0218     41     5.3| -0.0662     24    27.7| -0.0672     24    27.8| -0.0672     24    27.8|  0.0865     28    30.9|
+  240 nm 0.0000 0.0000 | -0.0618     30    20.3| -0.0858     25    33.7| -0.0863     26    33.7| -0.0863     26    33.7| -0.1092     18    61.2|
+  480 nm 0.0000 0.0000 |  0.2685     41    65.9|  0.2019     26    76.8|  0.2031     26    76.8|  0.2031     26    76.8|  0.2041     57    35.8|
+SPEC: flat hold-out RAW gain, reading I  (one frame, no Wiener): 0.8999 -> not met (within 3% of 1)
+SPEC: flat hold-out RAW gain, reading I+ (one frame, no Wiener): 0.8999 -> not met (within 3% of 1)
+SPEC: grid-on-base SNR, reading L : raw  14.07 / corrected  15.20 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading F : raw  11.89 / corrected  11.43 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading I : raw  13.44 / corrected  12.91 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading I+: raw  33.53 / corrected  31.87 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading S : raw  36.74 / corrected  27.43 -> DETECTED (>= 5)
+DM 96x96 battery 1.5 min
+
+---- battery: DM 48x48, pitch 2.0 mm ----
+lit actuators 812; hold-out (30,20); center-poke kernel per class [raw peak gain, ring min/peak, corr]:  L [0.789 -0.004 0.996]  I [0.960 -0.003 0.998]  S [0.960 -0.003 0.998]
+modal transfer (actuator-space estimator, RAW):
+     mode  cyc/ap |       L       I       S
+  ( 1, 0)     0.5 |  0.8412  1.2121  0.7413
+  ( 2, 0)     1.0 |  0.5829  0.5268  0.5228
+  ( 4, 0)     2.0 |  1.1788  1.1282  1.0531
+  ( 8, 0)     4.0 |  1.0389  1.0283  0.9517
+  (12, 0)     6.0 |  1.0642  1.0025  0.9460
+  (16, 0)     8.0 |  1.1208  1.0380  0.9891
+  (24, 0)    12.0 |  1.1208  1.0037  0.9725
+  (32, 0)    16.0 |  1.2887  1.0294  1.0139
+  (40, 0)    20.0 |  1.1638  0.9393  0.9319
+  ( 8, 8)     5.7 |  1.1269  1.0188  0.9926   (separability row)
+  (16,16)    11.3 |  1.1462  1.0115  0.9950   (separability row)
+min |g| over the (p,0) rows:  L 0.583  I 0.527  S 0.523
+rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+row               rd  |   g_raw    e_raw  flr_raw  SNRraw |   g_cor    e_cor  flr_cor  SNRcor
+flat/hold20       L   |  0.9494       65       50  378.43 |  0.8785      187      165  106.41
+                  F   |  0.9965       39       34  593.70 |  0.9913      157      155  127.87
+                  I   |  0.9968       39       34  587.90 |  0.9915      157      155  128.18
+                  I+  |  0.9968       39       34  587.90 |  0.9915      157      155  128.18
+                  S   |  0.9964       39       34  591.48 |  1.1562      224      194  119.30
+flat/rand10       L   |  1.1900     3882        -       - |  1.0921     3661        -       -
+                  F   |  0.9555     1428        -       - |  0.9557     2511        -       -
+                  I   |  0.9651     1379        -       - |  0.9649     2516        -       -
+                  I+  |  0.9651     1379        -       - |  0.9649     2516        -       -
+                  S   |  0.9435     1274        -       - |  1.0944     2992        -       -
+rand30/single10   L   | -0.8187      772      434  -18.86 | -0.6554      676      346  -18.92
+                  F   | -1.4286      986      497  -28.76 | -1.3678      955      471  -29.06
+                  I   | -2.0669     1260      655  -31.54 | -1.9850     1217      620  -32.03
+                  I+  |  1.0092       24       22  466.49 |  1.0026       77       76  132.19
+                  S   |  0.8396       63       27  315.03 |  0.9686       75       73  132.18
+rand30/grid@1nm   L   |  0.9768       91       60   16.38 |  0.8531       79       49   17.43
+                  F   |  0.5489      143       63    8.76 |  0.4969      143       61    8.21
+                  I   |  0.7162       96       49   14.75 |  0.6515       98       48   13.63
+                  I+  |  0.9564       14        8  115.45 |  0.8699       22       13   66.90
+                  S   |  0.7831       29        8   98.99 |  0.8721       26       17   49.90
+rand30/rand10     L   |  0.7820    10623        -       - |  0.7135     9384        -       -
+                  F   |  0.6280     8724        -       - |  0.6258     8626        -       -
+                  I   |  0.6802     8763        -       - |  0.6779     8674        -       -
+                  I+  |  0.8810    14151        -       - |  0.8797    13894        -       -
+                  S   |  0.7879     2435        -       - |  0.9142     2647        -       -
+(beyond-fold fraction of msk on the working-state base, prior passes: 0.0501 0.0819 0.0837 )
+break scale (single act 10 nm differential on a growing base; corrected estimates; g at the poked site, floor pm, SNR; fold0/fold = beyond-fold fraction from the plain / refined stepped prior; past the fold quote GAIN, not SNR):
+    base  fold0   fold | L: g flr SNR          | F: g flr SNR          | I: g flr SNR          | I+: g flr SNR         | S: g flr SNR          |
+   30 nm 0.0479 0.0794 | -0.6234    341    18.3| -1.1447    423    27.1| -1.8848    598    31.5|  1.0024     76   132.2|  0.9741     74   131.9|
+   40 nm 0.0719 0.1325 | -1.0032    397    25.3| -1.6312    541    30.2| -1.4638    460    31.8|  1.0693    110    97.0|  0.8876     67   132.0|
+   50 nm 0.0863 0.1759 | -1.1990    409    29.3| -1.1346    309    36.8| -1.2170    344    35.4|  1.0125     77   132.1|  0.7603     62   121.7|
+   60 nm 0.0876 0.2053 | -1.2265    384    32.0| -0.9744    258    37.8| -1.0081    266    37.8|  1.0543     96   110.2|  0.5244     80    65.3|
+  120 nm 0.0000 0.0000 | -0.1666     71    23.4| -0.0976     51    19.2| -0.0994     51    19.4| -0.0994     51    19.4| -0.5283    123    43.0|
+  240 nm 0.0000 0.0000 |  0.0316     39     8.1|  0.0208     27     7.8|  0.0208     27     7.8|  0.0208     27     7.8|  0.2348     58    40.4|
+  480 nm 0.0000 0.0000 | -0.1820     51    35.8| -0.1481     35    42.1| -0.1486     35    42.2| -0.1486     35    42.2|  0.0717     14    49.6|
+SPEC: flat hold-out RAW gain, reading I  (one frame, no Wiener): 0.9968 -> PASS (within 3% of 1)
+SPEC: flat hold-out RAW gain, reading I+ (one frame, no Wiener): 0.9968 -> PASS (within 3% of 1)
+SPEC: grid-on-base SNR, reading L : raw  16.38 / corrected  17.43 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading F : raw   8.76 / corrected   8.21 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading I : raw  14.75 / corrected  13.63 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading I+: raw 115.45 / corrected  66.90 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading S : raw  98.99 / corrected  49.90 -> DETECTED (>= 5)
+DM 48x48 battery 1.2 min
+run complete in 2.9 min
