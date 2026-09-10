@@ -118,7 +118,7 @@ for ip = 1:np
         if ~isfolder(pdir), mkdir(pdir); end
         file = fullfile(pdir, sprintf('%s_p%02d%s', stem, ip, ext));
     end
-    sgtitle(head, 'Interpreter', 'none', 'FontSize', opts.fontsize + 2);
+    dw_page_title(p.fig_in, head, opts.fontsize + 2);
     print(f, file, '-dpng', '-r140');
     close(f);
     fprintf('wrote %s\n', file);
