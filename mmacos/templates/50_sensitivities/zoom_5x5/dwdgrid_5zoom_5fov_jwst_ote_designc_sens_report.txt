@@ -1,5 +1,6 @@
-==== run_sensitivities: /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/dwdgrid_5zoom_5fov_jwst_ote_designc_grid.in ====
+==== run_sensitivities: /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/dwdgrid_5zoom_5fov_jwst_ote_designc_grid.in ====
 field set: center + 4 corners at +-0.0002909 rad
+OPD conventions: orient=raw sign=opl opd_ref=mean
 segments: 19
 
 configurations: 5
@@ -9,24 +10,24 @@ configurations: 5
   zLL        perturb elt 25 rotation [-0.0001454 -0.0001454 0] translation [0 0 0] frame local
   zLR        perturb elt 25 rotation [0.0001454 -0.0001454 0] translation [0 0 0] frame local
 [dwdgrid] caller-supplied influence basis on the Rx grids...
-    [checkpoint] dwdgrid / z0 -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_z0.mat
-    [checkpoint] dwdgrid / zUL -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zUL.mat
-    [checkpoint] dwdgrid / zUR -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zUR.mat
-    [checkpoint] dwdgrid / zLL -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zLL.mat
-    [checkpoint] dwdgrid / zLR -> /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zLR.mat
-    dwdgall 54585 x 60 (influence basis saved in og.sgb)
+    [checkpoint] dwdgrid / z0 -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_z0.mat
+    [checkpoint] dwdgrid / zUL -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zUL.mat
+    [checkpoint] dwdgrid / zUR -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zUR.mat
+    [checkpoint] dwdgrid / zLL -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zLL.mat
+    [checkpoint] dwdgrid / zLR -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid/dwdgrid_zLR.mat
+    dwdgall 54595 x 60 (influence basis saved in og.sgb)
 
 [conditioning] finite rows only:
     channel          size   rank     sv_max    sv_min+      cond+
-    dwdgrid  54585x60         60  4.748e+02  8.263e+01  5.746e+00
-    dwdgrid  cfg z0       10917x60         60  2.123e+02  3.695e+01  5.746e+00
-    dwdgrid  cfg zUL      10917x60         60  2.123e+02  3.695e+01  5.746e+00
-    dwdgrid  cfg zUR      10917x60         60  2.123e+02  3.695e+01  5.746e+00
-    dwdgrid  cfg zLL      10917x60         60  2.123e+02  3.695e+01  5.746e+00
-    dwdgrid  cfg zLR      10917x60         60  2.123e+02  3.695e+01  5.746e+00
+    dwdgrid  54595x60         60  4.762e+02  8.332e+01  5.716e+00
+    dwdgrid  cfg z0       10919x60         60  2.130e+02  3.726e+01  5.716e+00
+    dwdgrid  cfg zUL      10919x60         60  2.130e+02  3.726e+01  5.716e+00
+    dwdgrid  cfg zUR      10919x60         60  2.130e+02  3.726e+01  5.716e+00
+    dwdgrid  cfg zLL      10919x60         60  2.130e+02  3.726e+01  5.716e+00
+    dwdgrid  cfg zLR      10919x60         60  2.130e+02  3.726e+01  5.716e+00
 per-configuration spectra: dwdgrid_5zoom_5fov_jwst_ote_designc_svspec_configs.png
 
-figures: dwdgrid_5zoom_5fov_jwst_ote_designc_opdall/svspec/<ch>_channels + per-element pages in dwdgrid_5zoom_5fov_jwst_ote_designc_pages/
+figures: dwdgrid_5zoom_5fov_jwst_ote_designc_opdall/svspec + 61 dW pages in dwdgrid_5zoom_5fov_jwst_ote_designc_pages/ (>= 3.5 in per OPD map, 1.2 in per field tile) -- index: dwdgrid_5zoom_5fov_jwst_ote_designc_pages_index.txt
 
-Done: /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/dwdgrid_5zoom_5fov_jwst_ote_designc_sens.mat + dwdgrid_5zoom_5fov_jwst_ote_designc_sens_report.txt
-checkpoints pruned: /Users/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid
+Done: /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/dwdgrid_5zoom_5fov_jwst_ote_designc_sens.mat + dwdgrid_5zoom_5fov_jwst_ote_designc_sens_report.txt
+checkpoints pruned: /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdgrid
