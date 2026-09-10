@@ -141,7 +141,7 @@ for ib = 1:numel(blocks)
             else
                 png = sprintf('%s_%s_%s.png', prefix, tag{cols(1)}, B.suffix);
             end
-            sgtitle(head, 'Interpreter', 'none', 'FontSize', opts.fontsize + 2);
+            dw_page_title(p.fig_in, head, opts.fontsize + 2);
             if ~isfolder(here), mkdir(here); end
             print(f, fullfile(here, png), '-dpng', '-r140');
             close(f);
