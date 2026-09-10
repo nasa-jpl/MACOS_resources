@@ -86,6 +86,21 @@ arguments
     opts.L1_Kc (1,1) double = -0.5829
     opts.L2_Kr (1,1) double = -124.076
     opts.L2_Kc (1,1) double = -0.5826
+    % ---- powered-optic type: 'lens' (default; the record) | 'oap' ---------
+    % 'oap' replaces the two lenses L1 (collimator) and L2 (focuser) with
+    % off-axis parabola sections (macos.design.Bench.add_oap), all-reflective.
+    % The folds are kept ENTIRELY in the source->OAP1 and OAP2->detector legs
+    % and OAP1 re-emits along the lens rig's post-L1 direction (+x), so the BS,
+    % both arms and the recomb plane are geometrically UNCHANGED -- the Stage-A
+    % clearance, the sampling budget and the tail conjugate bookkeeping all
+    % carry over.  Both OAPs fold IN THE BS PLANE (x-y).  OAP conics are set by
+    % add_oap (Kr=-2*f_par, Kc=-1); the L1_Kr/L1_Kc/L2_Kr/L2_Kc lens seeds are
+    % ignored in 'oap' mode.  'lens' emits BIT-IDENTICALLY to the pre-oap rig.
+    opts.optics (1,:) char {mustBeMember(opts.optics,{'lens','oap'})} = 'lens'
+    opts.OAP1_AOI (1,1) double {mustBePositive} = 15   % collimator fold AOI, deg
+    opts.OAP2_AOI (1,1) double {mustBePositive} = 15   % focuser  fold AOI, deg
+    opts.OAP1_SIDE (1,1) double {mustBeMember(opts.OAP1_SIDE,[-1 1])} = 1
+    opts.OAP2_SIDE (1,1) double {mustBeMember(opts.OAP2_SIDE,[-1 1])} = 1
     opts.ngridpts (1,1) double = 63
     opts.to_Kr (1,1) double = 0
     opts.to_grid_file (1,:) char = ''
@@ -363,11 +378,55 @@ end
 % ---------------------------------------------------------------------
 function b = front_end(P, name)
     AP = 2*atan(P.R_BAFFLE/P.D_SB)*P.FILL;
-    b = macos.design.Bench(name, 'aperture', AP, 'ngridpts', P.ngridpts);
-    b.add_baffle(P.D_SB, P.R_BAFFLE);
-    L1 = b.add_lens(P.F1 - P.D_SB, P.F1, P.D_LENS, 'mode','collimate', ...
-                    'n',P.N_GLASS, 'name','L1');
-    b.E(L1.i_pow).Kr = P.L1_Kr;  b.E(L1.i_pow).Kc = P.L1_Kc;
+    if strcmp(P.optics, 'oap')
+        % Reflective collimator.  Keep the fold ENTIRELY in the source->OAP1
+        % leg: place the source off-axis so its diverging chief, after OAP1's
+        % in-BS-plane fold at OAP1_AOI, emerges collimated along +x -- the
+        % exact post-L1 direction of the lens rig -- with OAP1's POLE at the
+        % same point [F1;0;0] the lens L1 surface occupied.  Then the BS leg
+        % begins at the identical (pos,dir) and everything downstream of the
+        % collimator is geometrically unchanged.
+        d_out = [1; 0; 0];
+        dev   = deg2rad(180 - 2*P.OAP1_AOI);          % chief turn = 180 - 2*AOI
+        a     = P.OAP1_SIDE * dev;                    % rotate d_out by -turn to
+        c = cos(-a); s = sin(-a);                     %  recover the incoming dir
+        d_in  = [c*d_out(1) - s*d_out(2); s*d_out(1) + c*d_out(2); 0];
+        pole  = [P.F1; 0; 0];                         % == lens-rig L1 pole
+        src   = pole - P.F1*d_in;                     % focus one conjugate back
+        b = macos.design.Bench(name, 'aperture', AP, 'ngridpts', P.ngridpts, ...
+                               'pos', src, 'dir', d_in);
+        b.add_baffle(P.D_SB, P.R_BAFFLE);
+        b.add_oap(P.F1 - P.D_SB, d_out, 'mode','collimate', ...
+                  'focus_dist', P.F1, 'name','L1', 'aprad', P.D_LENS/2);
+    else
+        b = macos.design.Bench(name, 'aperture', AP, 'ngridpts', P.ngridpts);
+        b.add_baffle(P.D_SB, P.R_BAFFLE);
+        L1 = b.add_lens(P.F1 - P.D_SB, P.F1, P.D_LENS, 'mode','collimate', ...
+                        'n',P.N_GLASS, 'name','L1');
+        b.E(L1.i_pow).Kr = P.L1_Kr;  b.E(L1.i_pow).Kc = P.L1_Kc;
+    end
+end
+
+function L = add_focuser(b, dist, P)
+%ADD_FOCUSER  L2 as a lens (default) or an OAP (P.optics=='oap').  Returns a
+%   uniform descriptor L: .idx (powered-surface element index), .s (its path
+%   station), .thk (glass thickness; 0 for an OAP), .F (design focal = F2), so
+%   the tail conjugate math is identical for both.  The OAP folds the
+%   recomb->detector leg in the BS plane at OAP2_AOI; mask/FL/detector follow.
+    if strcmp(P.optics, 'oap')
+        d_rc = b.dir;
+        dev  = deg2rad(180 - 2*P.OAP2_AOI);
+        a    = P.OAP2_SIDE * dev;  c = cos(a); s = sin(a);
+        out  = [c*d_rc(1) - s*d_rc(2); s*d_rc(1) + c*d_rc(2); 0];
+        O = b.add_oap(dist, out, 'mode','focus', 'focus_dist', P.F2, ...
+                      'name','L2', 'aprad', P.D_LENS/2);
+        L = struct('idx',O.i, 's',b.E(O.i).s, 'thk',0, 'F',P.F2);
+    else
+        L2 = b.add_lens(dist, P.F2, P.D_LENS, 'mode','focus', ...
+                        'n',P.N_GLASS, 'name','L2');
+        b.E(L2.i_pow).Kr = P.L2_Kr;  b.E(L2.i_pow).Kc = P.L2_Kc;
+        L = struct('idx',L2.i_pow, 's',b.E(L2.i_pow).s, 'thk',L2.thickness, 'F',P.F2);
+    end
 end
 
 function [ix, det_leg] = tail(b, P, ix, conj_elt, det_leg)
@@ -392,22 +451,18 @@ if P.polarizing
 end
 switch P.tail_arch
 case 'singlet'                     % original architecture (default)
-    L2 = b.add_lens(d_rc_l2, P.F2, P.D_LENS, 'mode','focus', ...
-                    'n',P.N_GLASS, 'name','L2');
-    b.E(L2.i_pow).Kr = P.L2_Kr;  b.E(L2.i_pow).Kc = P.L2_Kc;
-    ix.iMASK = b.add_reference(P.F2 - L2.thickness + P.MASK_TRIM, 'FocalMask');
+    L2 = add_focuser(b, d_rc_l2, P);
+    ix.iMASK = b.add_reference(L2.F - L2.thk + P.MASK_TRIM, 'FocalMask');
     if ~isempty(conj_elt)
-        s_o = b.E(L2.i_pow).s - b.E(conj_elt).s;
-        s_i = 1/(1/P.F2 - 1/s_o);
-        det_leg = s_i - (b.E(ix.iMASK).s - b.E(L2.i_pow).s) + P.DET_TRIM;
+        s_o = L2.s - b.E(conj_elt).s;
+        s_i = 1/(1/L2.F - 1/s_o);
+        det_leg = s_i - (b.E(ix.iMASK).s - L2.s) + P.DET_TRIM;
     end
     ix.iDET = b.add_detector(det_leg, 'Detector');
 
 case 'fieldlens'                   % C1: field lens just behind the mask
-    L2 = b.add_lens(d_rc_l2, P.F2, P.D_LENS, 'mode','focus', ...
-                    'n',P.N_GLASS, 'name','L2');
-    b.E(L2.i_pow).Kr = P.L2_Kr;  b.E(L2.i_pow).Kc = P.L2_Kc;
-    dmask = P.F2 - L2.thickness + P.MASK_TRIM;
+    L2 = add_focuser(b, d_rc_l2, P);
+    dmask = L2.F - L2.thk + P.MASK_TRIM;
     if strcmp(P.mask_prop, 'nf') || strcmp(P.mask_prop, 'nf_legacy')
         % NF1/NF2 sandwich (ctb_dcr.in FPM idiom): a reference SPHERE
         % concentric with the focus carries the sphere->plane leg onto
@@ -454,9 +509,9 @@ case 'fieldlens'                   % C1: field lens just behind the mask
     if ~isnan(P.FL_Kc), fl_args = [fl_args {'Kc', P.FL_Kc}]; end
     FL = b.add_lens(d_fl, P.FL_F, P.FL_D, fl_args{:});
     if ~isempty(conj_elt)
-        s_o  = b.E(L2.i_pow).s - b.E(conj_elt).s;
-        s_i1 = 1/(1/P.F2 - 1/s_o);                 % DM image via L2
-        d12  = b.E(FL.i_pow).s - b.E(L2.i_pow).s;
+        s_o  = L2.s - b.E(conj_elt).s;
+        s_i1 = 1/(1/L2.F - 1/s_o);                 % DM image via L2
+        d12  = b.E(FL.i_pow).s - L2.s;
         s_o2 = d12 - s_i1;                         % <0 = virtual object
         s_i2 = 1/(1/P.FL_F - 1/s_o2);
         det_leg = s_i2 - FL.thickness + P.DET_TRIM;
@@ -464,6 +519,8 @@ case 'fieldlens'                   % C1: field lens just behind the mask
     ix.iDET = b.add_detector(det_leg, 'Detector');
 
 case 'doublet'                     % C2: L2 as two air-spaced singlets
+    assert(~strcmp(P.optics,'oap'), ...
+        'twyman_green: optics=''oap'' supports tail_arch singlet/fieldlens only.');
     aA = {'mode','focus', 'n',P.N_GLASS, 'name','L2A'};
     if ~isnan(P.L2A_Kc), aA = [aA {'Kc', P.L2A_Kc}]; end
     A = b.add_lens(d_rc_l2, P.L2A_F, P.D_LENS, aA{:});
