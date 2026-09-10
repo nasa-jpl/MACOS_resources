@@ -46,6 +46,55 @@ from the estimate through the FFT surrogate of the mask model; 1
 frame; 'I+' adds a one-time stepped retrieval of the working state as
 a branch prior).
 
+## Run it yourself (`zwfs_run`)
+
+One entry point drives the whole system; the per-stage scripts
+(`zwfs_s1.m` .. `zwfs_s7iter.m`) are the historical record, not the way
+to run it.  The defaults in `zwfs_params.m` are the values of record, so
+a bare call reproduces the S7 battery -- the runner's own equivalence
+gate: `runs/rec193/rec193_report.txt` against `zwfs_s7iter_report.txt`,
+64 row/ladder lines compared, 8 differ in the last printed digit only
+(the actuator fit's pcg tolerance), every gate value identical.
+
+    cd templates/40_benches/zwfs_dm96
+    out = zwfs_run;                                    % bench + battery + figs, defaults
+    out = zwfs_run('tag','ng385', 'NGRID',385);        % the 1 Mpix-class detector
+    out = zwfs_run('tag','s3', 'mask.DIA_LAMD',3, 'stages',{'battery','color','noise','figs'});
+    P = zwfs_params;  P.dm = P.dm(1);  P.readings = {'L','I+'};  out = zwfs_run(P, 'tag','quick');
+
+Headless, memory-capped, logged (a MODEL 1024 run takes ~11 GB; run
+ONE at a time -- two model-1024 MATLABs have taken this box down):
+
+    ./zwfs_batch.sh ng385 "'NGRID',385, 'stages',{'battery','figs'}"     # log: runs/ng385.log
+    ZWFS_MEMMAX=20G ./zwfs_batch.sh m2048 "'MODEL',2048, 'NGRID',385, 'param_file','macos_param_2048.txt'"
+
+Everything lands in `runs/<tag>/`: `<tag>_report.txt` (every number,
+every gate with its threshold), `<tag>.mat` (`out` = P + bench + battery
++ color + noise), the emitted deck(s), and the PNGs
+(`zwfs_run_figs(out)` or `zwfs_run_figs('runs/<tag>/<tag>.mat')`
+re-draws them from a saved run).
+
+| knob (`zwfs_params`) | default | what it does |
+|---|---|---|
+| `stages` | bench battery figs | add `color` (the multi-wavelength combination) and `noise` (photon pricing) |
+| `readings` | L F I I+ S | any subset: linear / exact frozen-b / exact iterated-b / I with the base's refined stepped prior / phase-stepped |
+| `MODEL`, `NGRID` | 1024, 193 | engine grid, ray grid across the aperture (385 = the 1 Mpix-class detector) |
+| `param_file` | `''` | a custom engine size table (`macos_param.txt` namelists) copied into the run dir, where the engine looks FIRST; `'macos_param_2048.txt'` (this dir) trims MODEL 2048 to fit a 30 GB box -- `mGridSrf` 200 -> 4, `mpts` -> 512, `mElt` -> 64, and `mGridMat` UP to 512 for the 384-across DM grid (the stock 2048 entry's 128 corrupts the heap) |
+| `LAM` | 632.8 nm | the record color; `color.lams_nm` lists the others, record color FIRST |
+| `bench.*` | the tg96 test arm | every `twyman_green` option: lenses, legs, tuned tail, `mask_prop` (`'nf'` = the corrected symmetric sandwich; `'nf_legacy'` = the Fresnel-defocused S1-S6 sensor) |
+| `mask.*` | 346.2 nm etch, 2.0 lam/D | etch depth, substrate index (`'malitson'` or a number), dimple diameter, the phase-stepped depth ladder, `NITER` |
+| `samp.*` | 6 px dimple, 2 px/actuator | the sampling-budget lines the bench stage asserts; `enforce` = `'warn'` or `'error'` |
+| `reg.*` | `'search'` | parity + sign from an off-center poke (two-poke doctrine; the selection metric is the gate), or `'record'` to take `PARb`/`sgn` as given |
+| `dm(i)` | 96x96 @ 1 mm; 48x48 @ 2 mm | actuator count, pitch, hold-out site, modal probes -- each config gets the full battery |
+| `battery.*` | 30 nm base; 10 nm devs; 1 nm grid | amplitudes, seeds, Wiener beta, Tikhonov weight, the break-scale ladder, which rows |
+| `color.*`, `noise.*` | 5 colors; 1e6..1e14 photons/state | the optional stages' own knobs (readings, rows, combiner form; realizations, prior treatment) |
+
+Rules: one engine model size per MATLAB process (a second `macos.init`
+at another size corrupts the heap); `exit(0)` lives only in the batch
+wrapper `zwfs_run_batch`, never in `zwfs_run`; the sampling budget
+WARNS by default so a deliberate dev grid still runs -- read the
+budget lines before quoting a number.
+
 ## Stages / gates
 
 - **S1** (`zwfs_s1.m`): mask + response.  G0 focal-plane sampling
@@ -411,3 +460,65 @@ a branch prior).
   noise too); deck fold.  Figure `zwfs_s7iter.png`; report
   `zwfs_s7iter_report.txt`; `zwfs_test_legacy.in` re-emitted by the
   script (gitignored).
+
+- **S8 (zwfs_run, 2026-09-10, Dave: "work down the open list; a
+  parameterized runner users can modify and rerun without AI"): the
+  RUNNER, and the three open items measured through it.**  Runs are in
+  `runs/<tag>/` (report, .mat, deck, PNGs); every number below is from
+  those reports.  *Equivalence gate:* `runs/rec193` (defaults) against
+  `zwfs_s7iter_report.txt` -- 64 row/ladder lines, 8 differ in the last
+  printed digit (pcg tolerance), every gate value identical.
+  *NGRID 385 (open item 2):* three configurations -- `ng385` (model
+  1024, spot 2.0: dimple 3.96 px at the mask, FAILS the 6-px line;
+  5.03 px/actuator), `ng385s3` (1024, spot 3.0: 5.94 px), and `m2048`
+  (MODEL 2048 via the trimmed size table `macos_param_2048.txt`, spot
+  2.0: 7.92 px AND 5.03 px/actuator -- the first fully COMPLIANT run;
+  32.5 min, < 4 GB resident).  Findings: (i) the 96x96 hold-out raw gain
+  moves 0.900 -> 0.935 from NGRID 193 to 385 and is then IDENTICAL at
+  model 1024 and 2048 (0.9348 / 0.9348) and spot-independent (0.9347 at
+  spot 3.0); at 48x48 it moves the other way (0.997 -> 0.964).  So the
+  S7 "sampling" attribution was half right: NGRID moves it, the dimple
+  sampling does not, and the remaining 6.5% is neither -- the named
+  suspect is kernel spatial variation between the centre (where the
+  kernel is measured) and the hold-out site (S2 measured 13% on the
+  legacy model).  (ii) Every actuator-space row at 385 is the same at
+  model 1024 and 2048 to the third digit (I+ single-on-base 0.913/25 pm/
+  SNR 359 vs 0.914/26/355; grid-on-base 37.4 vs 37.3) even though the
+  reference-wave profile |Eb|/|E0| (the new bench-stage diagnostic; a
+  function of lam/D only, so it must not depend on the ray grid) differs
+  by 2.5% at pupil centre between the 4-px and 8-px dimples -- the
+  gray-edged 4-px dimple is adequate for actuator-space results at the
+  1% level; the 6-px rule stays as the budget line.  (iii) THE SAMPLING
+  TRADE (Dave): mask-plane px per lam/D = fill*MODEL/NGRID (0.74 here),
+  detector px per actuator ~ NGRID -- the two lines pull opposite ways
+  in NGRID; only MODEL buys both.  (iv) Spot 3.0 only deepens the
+  dimple-passband dip below 2 cyc/ap (min gain 0.22 vs 0.50), transfer
+  identical above -- spot 2.0 stays the sensor of record.  (v) The
+  break-scale ladder on 47 grid sites (`battery.ladder_sites` 'grid';
+  the record's single hold-out site made "I+ holds to 60 nm" a
+  one-site statement): at 96x96 I+ holds to 40 nm rms (gain 0.81-0.85,
+  SNR 26-30) and collapses at 50-60 (floor 0.7-3 nm: a subset of sites
+  beyond the fold), the stepped reading holds to 50-60 (0.83/0.66);
+  at 48x48 I+ holds to 50 (0.84-0.89) and S to 50 (0.87-0.99).  The
+  multi-site floor (300-600 pm) is the crosstalk of 47 simultaneous
+  10 nm pokes, a different quantity from the single-site floor.
+  *S6 colour re-run on the corrected model (item 3, `rec193full`):*
+  colour is NOT a lever any more.  The chromatic transfer null left with
+  the Talbot artefact, so the 5-colour combination's minimum transfer
+  (0.991) beats the best single colour (0.962 at 632.8) by 3% instead of
+  3x; on the rows the combination is neutral for I+/S (single-on-base
+  SNR 269 -> 183, grid 31.8 -> 32.4) and WORSE for L (the 480 nm channel
+  reads NEGATIVE on the 30 nm base, |c| = 1.73, 2.1 rad dimple, and the
+  equal-weight combiner inherits it).  What stays chromatic is RANGE:
+  780 nm is the best single colour on nearly every row (smaller phase
+  per nm of height, 1.62 lam/D dimple), best pair 700+780.
+  *S5 noise pricing of I+ (item 4, `rec193full`):* photons per DM
+  state for 1 pm -- L 5.4e13, F 3.7e13, I 6.4e13, I+ 8.8e13 (the prior's
+  own shot noise costs 5%: 8.4e13 with a noiseless prior), S 1.0e14;
+  all within a factor 3, all ~25x cheaper than the legacy defocused-model
+  pricing (1.4e15 / 5e15); high-N floors converge to the battery's
+  systematic floors (L 61 / F 37 / I 48 / I+ 31 / S 42 pm).  Photon
+  noise is not the blocker; the 6.5% hold-out gain and the 25-60 pm
+  systematic floors are.  *Open:* the hold-out-site kernel check
+  (measure the kernel AT the hold-out site); deck fold (deck_zwfs still
+  tells the legacy-model S1-S6 story).
