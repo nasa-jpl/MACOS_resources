@@ -64,7 +64,7 @@ for b = 1:nrow
         dw_draw_map(ax, macos.v2m(J(:, ks(c)), indx), lab, [], 7);
     end
 end
-sgtitle(tlines, 'Interpreter', 'none', 'FontSize', 9);
+dw_page_title([W H], tlines, 9);
 print(fig, file, '-dpng', '-r140');
 close(fig);
 fprintf('wrote %s\n', file);
