@@ -80,6 +80,8 @@ for i = 1:2:numel(varargin)
     parts = strsplit(varargin{i}, '.');
     P = setfield(P, parts{:}, varargin{i+1}); %#ok<SFLD>
 end
+if ~isempty(P.dm_use), P.dm = P.dm(P.dm_use); end
+if ~isempty(P.hold), for i = 1:numel(P.dm), P.dm(i).hold = P.hold; end; end
 ok = {'L','F','I','I+','S'};
 assert(all(ismember(P.readings, ok)), 'zwfs_run: readings must be a subset of %s', strjoin(ok, ' '));
 assert(all(ismember(P.stages, {'bench','battery','color','noise','figs'})), 'zwfs_run: unknown stage');
@@ -302,7 +304,15 @@ end
 
 function C = calibrate_(P, S, ZW, cfg, classes, lit)
 % per-class registration anchor + measured response kernel + estimator
-% (the S2/S3 recipe): class 1 linear map, 2 exact map, 3 stepped map
+% (the S2/S3 recipe): class 1 linear map, 2 exact map, 3 stepped map.
+% P.battery.calib_surface: 'flat' (the record) or 'base' -- the kernel and
+%   the modal transfer are measured DIFFERENTIALLY on the working surface
+%   (P.battery.base_rms, seed_base), the class-2 map read with the base's
+%   refined sign map (I+).
+% P.reg.kernel_site: 'center' (the record), 'hold' (cfg.hold) or [r c] --
+%   where the response kernel is measured.  The registration ANCHOR always
+%   comes from the centre poke (doctrine: translation from a symmetric
+%   site); a second poke at the kernel site supplies the stencil.
 N_G = P.grid.N_G;  xg = S.xg;
 C.dmap = @(act) dm_influence_map(N_G, P.grid.DX_G, 'nact', cfg.nact, 'pitch', cfg.pitch, 'act', act);
 [C.axg, C.ayg] = meshgrid(((1:cfg.nact)-(cfg.nact+1)/2)*cfg.pitch);
@@ -311,36 +321,96 @@ C.lit = lit;
 POKE = P.reg.POKE;
 ic = cfg.nact/2;  Aa = zeros(cfg.nact);  Aa(ic,ic) = 1;  C.Ma = C.dmap(POKE*Aa);
 needS = any(classes == 3);
-C.Fflat = frames_(ZW, zeros(N_G), needS);
-Fa = frames_(ZW, C.Ma, needS);
-kmap = {@() ZW.reconL(Fa.Ia), @() ZW.reconI(Fa.Ia), @() ZW.stepdiff(Fa.X, C.Fflat.X)};
+% ---- the calibration surface -----------------------------------------
+C.surface = P.battery.calib_surface;
+onbase = strcmp(C.surface, 'base');
+if onbase
+    rng(P.battery.seed_base);  Ab = zeros(cfg.nact);  Ab(lit) = P.battery.base_rms*randn(nnz(lit),1);
+    C.Abase = Ab;  C.F0 = frames_(ZW, C.dmap(Ab), true);  C.plus = ZW.priorS(C.F0.Ia, C.F0.Fr);
+    C.Fflat = frames_(ZW, zeros(N_G), needS);
+else
+    C.Abase = zeros(cfg.nact);  C.Fflat = frames_(ZW, zeros(N_G), needS);  C.F0 = C.Fflat;  C.plus = [];
+end
+% class maps of a state F relative to the calibration surface
+if onbase
+    C.cmap = @(F, k) cmap_base_(ZW, F, C.F0, C.plus, k);
+else
+    C.cmap = @(F, k) cmap_flat_(ZW, F, C.Fflat, k);
+end
+% ---- the kernel site ----------------------------------------------------
+ks = P.reg.kernel_site;
+if ischar(ks) || isstring(ks)
+    switch char(ks)
+        case 'center', ks = [ic ic];
+        case 'hold',   ks = cfg.hold;
+        otherwise,     error('zwfs_run: reg.kernel_site must be ''center'', ''hold'' or [r c]');
+    end
+end
+C.kernel_site = ks;
+Ak = zeros(cfg.nact);  Ak(ks(1), ks(2)) = 1;  C.Mk = C.dmap(POKE*Ak);
+Fa = frames_(ZW, C.dmap(C.Abase + POKE*Aa), needS);           % centre poke: the anchor
+if isequal(ks, [ic ic]), Fk = Fa;  else, Fk = frames_(ZW, C.dmap(C.Abase + POKE*Ak), needS); end
 C.R = cell(1,3);  C.stn = cell(1,3);  C.est = cell(1,3);  C.kinfo = nan(3,3);
 for k = classes(:).'
     R = struct('P', S.PARb, 'tax',0, 'tay',0, 'bx',0, 'by',0, 'dxd_mm',S.dxd_mm, 'mag',S.mag, ...
                'msk',ZW.msk, 'N_WF',ZW.N_WF, 'gxd',S.gxd, 'gyd',S.gyd);
-    hK = kmap{k}();
-    [R.bx, R.by, R.tax, R.tay] = dmg_anchor(hK, C.Ma, ZW.msk, ZW.N_WF, xg);
+    hA = C.cmap(Fa, k);
+    [R.bx, R.by, R.tax, R.tay] = dmg_anchor(hA, C.Ma, ZW.msk, ZW.N_WF, xg);
+    if isequal(ks, [ic ic])
+        hK = hA;  tax = R.tax;  tay = R.tay;  Mtruth = C.Ma;
+    else
+        hK = C.cmap(Fk, k);
+        [~, ~, tax, tay] = dmg_anchor(hK, C.Mk, ZW.msk, ZW.N_WF, xg);   % the kernel site's truth peak
+        Mtruth = C.Mk;
+    end
+    if strcmp(P.reg.stencil_site, 'lattice')
+        % sample the stencil about the EXACT actuator centre (the lattice point
+        % nearest the poke's peak) instead of the map-grid point dmg_anchor
+        % returns (up to half a grid pitch, 0.14 mm, off the centre the fit
+        % samples at)
+        lat = ((1:cfg.nact)-(cfg.nact+1)/2)*cfg.pitch;
+        [~, i1] = min(abs(lat - tax));  tax = lat(i1);
+        [~, i2] = min(abs(lat - tay));  tay = lat(i2);
+    end
     hd = S.sgn*dmg_samp(hK, R);  hd(isnan(hd)) = 0;
-    stn = dmg_stencil(hd, xg, R.tax, R.tay, cfg.pitch, P.reg.hw) / POKE;
-    cpm = corrcoef(hd(:), C.Ma(:));
-    C.kinfo(k,:) = [max(hd(:))/max(C.Ma(:)), min(stn(:))/max(stn(:)), cpm(1,2)];
+    stn = dmg_stencil(hd, xg, tax, tay, cfg.pitch, P.reg.hw) / POKE;
+    cpm = corrcoef(hd(:), Mtruth(:));
+    C.kinfo(k,:) = [max(hd(:))/max(Mtruth(:)), min(stn(:))/max(stn(:)), cpm(1,2)];
     C.R{k} = R;  C.stn{k} = stn;
     C.est{k} = @(h) dmg_act_fit(S.sgn*dmg_samp(h, R), xg, C.axg, C.ayg, stn, lit, P.battery.act_lam);
 end
 end
 
+function h = cmap_flat_(ZW, F, Fflat, k)
+% absolute class map on the flat (the record's form)
+switch k
+    case 1, h = ZW.reconL(F.Ia);
+    case 2, h = ZW.reconI(F.Ia);
+    case 3, h = ZW.stepdiff(F.X, Fflat.X);
+end
+end
+
+function h = cmap_base_(ZW, F, F0, plus, k)
+% class map DIFFERENTIAL to the working surface; class 2 = I+ on the base
+switch k
+    case 1, h = ZW.reconL(F.Ia) - ZW.reconL(F0.Ia);
+    case 2, h = ZW.reconI(F.Ia, [], plus) - ZW.reconI(F0.Ia, [], plus);
+    case 3, h = ZW.stepdiff(F.X, F0.X);
+end
+end
+
 function gk = transfer_(P, ZW, C, cfg, classes, AMPM)
-% modal transfer through each class's estimator on the probes cfg.PQ
+% modal transfer through each class's estimator on the probes cfg.PQ,
+% measured on the calibration surface (flat: absolute; base: differential)
 nm = size(cfg.PQ, 1);  gk = nan(nm, 3);
 [ii, jj] = meshgrid((0.5:cfg.nact)/cfg.nact);
 needS = any(classes == 3);
 for m = 1:nm
     p = cfg.PQ(m,1);  q = cfg.PQ(m,2);
     Ak = cos(pi*p*ii).*cos(pi*q*jj);
-    F = frames_(ZW, C.dmap(AMPM*Ak), needS);
-    hm = {@() ZW.reconL(F.Ia), @() ZW.reconI(F.Ia), @() ZW.stepdiff(F.X, C.Fflat.X)};
+    F = frames_(ZW, C.dmap(C.Abase + AMPM*Ak), needS);
     for k = classes(:).'
-        a = C.est{k}(hm{k}());  gk(m,k) = (AMPM*Ak(C.lit)) \ a(C.lit);
+        a = C.est{k}(C.cmap(F, k));  gk(m,k) = (AMPM*Ak(C.lit)) \ a(C.lit);
     end
 end
 end
@@ -388,11 +458,15 @@ for icfg = 1:numel(P.dm)
     C = calibrate_(P, S, ZW, cfg, classes);
     lit = C.lit;
     kk = find(~isnan(C.kinfo(:,1))).';
-    assert(all(C.kinfo(kk,3) > 0.9), 'registration sanity: kernel/truth correlation < 0.9');
-    dmg_say(rep, 'lit actuators %d; hold-out (%d,%d); center-poke kernel per class [raw peak gain, ring min/peak, corr]:', nnz(lit), cfg.hold(1), cfg.hold(2));
+    dmg_say(rep, 'calibration: surface %s%s, kernel measured at actuator (%d,%d); test actuator (%d,%d)\n', C.surface, ifelse_(strcmp(C.surface,'base'), sprintf(' (%g nm rms, seed %d)', P.battery.base_rms*1e6, P.battery.seed_base), ''), C.kernel_site(1), C.kernel_site(2), cfg.hold(1), cfg.hold(2));
+    dmg_say(rep, 'lit actuators %d; kernel per class [raw peak gain, ring min/peak, corr]:', nnz(lit));
     cn = {'L', 'I', 'S'};
     for k = kk, dmg_say(rep, '  %s [%.3f %.3f %.3f]', cn{k}, C.kinfo(k,:)); end
     dmg_say(rep, '\n');
+    if any(C.kinfo(kk,3) < 0.9)
+        dmg_say(rep, 'NOTE: a kernel/truth correlation is below 0.9 (registration sanity line; on a working surface the differential kernel carries the surface''s crosstalk) -- read the rows with that in mind\n');
+        if strcmp(C.surface, 'flat'), error('zwfs_run:registration', 'kernel/truth correlation < 0.9 on the flat: registration is suspect'); end
+    end
     % ---- modal transfer -------------------------------------------------
     gk = transfer_(P, ZW, C, cfg, classes, P.battery.AMPM);
     is1d = cfg.PQ(:,2) == 0;  pk1 = cfg.PQ(is1d,1);
@@ -422,6 +496,14 @@ for icfg = 1:numel(P.dm)
             if any(strcmp(RD, 'I+')), [plusb, pinf] = ZW.priorS(F0.Ia, F0.Fr); end
         end
         F1 = frames_(ZW, C.dmap(base + dev), needS);
+        if any(strcmp(RD, 'I+')) && any(base(:) ~= 0)
+            % fold-crossing diagnostic: pixels whose side of the quarter-wave fold
+            % differs between the base and base+change (the base's sign map is
+            % wrong there for the one-frame I+ reading of the changed state)
+            plus1 = ZW.priorS(F1.Ia, F1.Fr);
+            dmg_say(rep, '  [%s] pixels that cross the fold under the change: %d of %d beyond-fold (%.2f%% of msk)\n', ...
+                ROWS{r,1}, nnz(plus1 ~= plusb), nnz(plusb), 100*nnz(plus1 ~= plusb)/nnz(msk));
+        end
         for k = 1:numel(RD)
             araw = C.est{KC(k)}(diff_(ZW, RD{k}, F1, F0, plusb));  acor = corrk(araw, KC(k));
             [gr, er, fr, sr] = score_(araw, dev, lit);  [gc, ec, fc, sc] = score_(acor, dev, lit);

@@ -54,7 +54,10 @@ to run it.  The defaults in `zwfs_params.m` are the values of record, so
 a bare call reproduces the S7 battery -- the runner's own equivalence
 gate: `runs/rec193/rec193_report.txt` against `zwfs_s7iter_report.txt`,
 64 row/ladder lines compared, 8 differ in the last printed digit only
-(the actuator fit's pcg tolerance), every gate value identical.
+(the actuator fit's pcg tolerance), every gate value identical.  Since
+2026-09-10 ONE default differs from the S7 record on purpose --
+`reg.stencil_site` 'lattice' (S9 bullet); pass `'reg.stencil_site','grid'`
+to reproduce S7 exactly.
 
     cd templates/40_benches/zwfs_dm96
     out = zwfs_run;                                    % bench + battery + figs, defaults
@@ -522,3 +525,58 @@ budget lines before quoting a number.
   systematic floors are.  *Open:* the hold-out-site kernel check
   (measure the kernel AT the hold-out site); deck fold (deck_zwfs still
   tells the legacy-model S1-S6 story).
+
+- **S9 (zwfs_run, 2026-09-10, Dave: "go ahead with ZWFS next steps"):
+  the two calibration questions, measured -- and a real fix to the
+  actuator fit.**  Runner knobs added for them: `reg.kernel_site`
+  ('center' | 'hold' | [r c]: where the response kernel is measured;
+  the registration anchor always comes from the centre poke),
+  `battery.calib_surface` ('flat' | 'base': kernel + modal transfer
+  measured differentially on the working surface, the exact class read
+  with the base's refined sign map), `reg.stencil_site` ('grid' |
+  'lattice'), `dm_use`, `hold`, and a per-row fold-crossing diagnostic
+  (pixels whose side of the quarter-wave fold differs between the base
+  and base+change).  All at NGRID 193 / model 1024, 96x96, unless stated;
+  runs/ks_hold, ks_hold_tc, ks_hold_hw12, ks_hold_lat, cal_base,
+  fold_diag, rec193_lat, ng385_lat.
+  *(1) Where the kernel is measured.*  Centre kernel tested at (60,40):
+  0.900 (the record).  Kernel at (60,40) tested at the centre: 0.987.
+  Kernel at (60,40) tested at (60,40): 0.958 -- NOT 1: even at its own
+  site the fit recovered 96%.  Widening the stencil (half-width 12 vs 6)
+  changed nothing (0.9576 both).  THE CAUSE: `dmg_anchor` returns the
+  poke's peak on the 0.28 mm MAP grid (`tax = xg(tc)`), so the stencil
+  was sampled up to half a grid pitch (0.14 mm) off the actuator centre
+  the fit samples at.  Snapping the stencil site to the exact lattice
+  point (`reg.stencil_site` 'lattice', now the DEFAULT; 'grid'
+  reproduces S7) gives own-site 0.9915 / floor 5 pm / SNR 4200 (the
+  near-identity check it should be), record configuration 0.900 ->
+  0.946 (floor 49 -> 37 pm), and at NGRID 385 / model 1024 the
+  test-actuator gain 0.935 -> **0.9963** -- the 3%-of-1 spec is MET at
+  the 1 Mpix-class sampling; I+ on the 30 nm surface there 0.913 / 25 pm
+  / SNR 359 -> **0.975 / 18 pm / 529**, grid-on-base SNR 37 -> 45.  So
+  the "remaining 6.5%" was ~5% stencil-site quantization + ~1-5% true
+  site variation (kernel at (60,40) vs centre: raw peak 0.911 vs 0.928,
+  a broader shape), the latter absorbed by a kernel measured where it
+  is used.  The interferometer's tg96_s3/s4 sample the TRUE kernel the
+  same way -- flagged to CCMac for the tg96 runner (BRIEF_ccmac_tg96_oap
+  addendum).
+  *(2) Calibrating on the working surface* does NOT recover the
+  working-surface gain deficit: I+ on the 30 nm surface 0.736 with the
+  on-surface calibration vs 0.788 flat-calibrated (S 0.767 vs 0.705; the
+  linear class cannot be calibrated on a 30 nm surface at all -- kernel
+  corr -0.28).  Multi-site ladder on-surface: I+ 0.73 / 0.75 / 0.39 /
+  0.59 vs flat-calibrated 0.79 / 0.82 / 0.76 / 0.31 at 30/40/50/60 nm.
+  So the deficit is in the READINGS on a working surface, not in the
+  calibration.  Fold crossings are NOT it for a single change: 3 of
+  2258 beyond-fold pixels move under a single 10 nm change (0.01% of
+  msk), 10 under the 47-site 1 nm grid, but 946 (3.3%) under a dense
+  10 nm random change -- the mechanism that makes the stepped reading
+  own dense commands.  With the lattice stencil the single-site
+  working-surface deficit at NGRID 385 is 2.5% (I+ 0.975 vs 0.996 flat);
+  the 47-site ladder keeps its shape (I+ 0.80 / 0.83 / 0.74 / 0.34).
+  Open, named: the single-site 2.5% and the 47-site 20% on a working
+  surface (the stepped reading's flat-DM |Eb|^2 calibration, 14% off on
+  a 30 nm surface, is the S-class suspect; for I+ the differential of
+  two exact readings whose map error is 2.8e-4 rad rms should be
+  smaller than measured -- the actuator-fit stage on a working surface
+  is the next place to look).
