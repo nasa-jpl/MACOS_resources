@@ -161,7 +161,7 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
     % tail params: re-tuned set from <tag>_tail.mat / tg96_tail.mat if present
     b = P.bench;
     T_FL_F = s*b.FL_F;  T_FL_Kc = b.FL_Kc;  T_DMF = s*b.D_MASK_FL;  T_TRIM = s*b.DET_TRIM;
-    tailf = [P.tag '_tail.mat'];
+    tailf = fullfile(exdir, [P.tag '_tail.mat']);   % tg96_tail writes here
     if isfile(tailf)
         tl = load(tailf);
         T_FL_F = tl.out.FL_F;  T_FL_Kc = tl.out.FL_Kc;
