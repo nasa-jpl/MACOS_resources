@@ -91,6 +91,72 @@ raw-orientation map and remaps it with the same rule as
 Rule: never rebuild an index from a map that an orientation option may
 have transposed -- use `indxall` (multi) or `per_field_indx` (per field).
 
+## The figures: size first, count second (2026-09-10)
+
+Dave: *"change the way dwd\* data is plotted to make the plots large
+enough to be interpretable, even with large numbers of segments.  This
+will mean many more plots and pages."*
+
+The panel size is fixed FIRST and the panels per page follow from it --
+never the other way round.  `sensitivities/dw_page_layout.m` owns the
+rule and every dW plotter goes through it:
+
+| floor | default | what it measures |
+|---|---|---|
+| `panel_in` | 3.5 in | the smaller side of ONE OPD map, at print resolution |
+| `tile_in` | 1.2 in | ONE FIELD TILE inside a multi-field canvas panel |
+
+A canvas panel is its tile count times `tile_in`, grown if that would
+leave it under `panel_in` -- so a single-field map is a 1x1 canvas and
+the two rules are one rule.  The floor is a MINIMUM: a page with room to
+spare grows its panels to fill the 16:9 envelope (`page_in`), so a
+two-panel page is not drawn small.  A page may grow to `page_max_in`
+(32 x 20 in) to keep ONE element's channels together -- an element's Kr
+and Kc, or its six DOFs, are read against each other -- and only a block
+too big for even that is split onto `_p02`.
+
+Why it matters, measured on `templates/50_sensitivities/zoom_5x5`
+(jwst_ote_designc, 5 configurations x 5 fields = a **9 x 9 tile**
+canvas, 63-ray maps):
+
+* the dwdsurf all-channels sheet was 42 panels on one 700 x 1678 px
+  page -- each field tile about **3 px**.  It is now 21 pages, one per
+  optic, Kr and Kc side by side, each tile about **165 px**.
+* the per-element `multi` page drew its canvas at 4.3 in inside a
+  2042 x 1386 px page (the rest was SUBPLOT margin); it is now the page.
+* `dwdx` is 138 channels: hundreds of pages, which is the point.
+
+Three consequences worth knowing:
+
+1. **Pages are sized in INCHES with a manual `PaperPosition`**
+   (`dw_page_fig`).  With MATLAB's default `PaperPositionMode 'auto'` the
+   printed size is the figure's PIXEL size over `ScreenPixelsPerInch`, so
+   the same script printed a different page on a different screen, and a
+   tall figure was clamped to the screen height first.
+2. **Axes are placed explicitly** (`dw_page_axes` + `dw_draw_map`), not
+   by `subplot`, whose default margins give away about 30% of every cell;
+   the colorbar goes in a reserved gutter because `colorbar` otherwise
+   SHRINKS its own axes.
+3. **`plot_dw_channels` returns a manifest, not a figure handle.**
+   `<name>_<ch>_channels.png` is always written -- the single page when
+   one suffices, else the INDEX contact sheet (the dense sheet it used to
+   be, each thumbnail labelled with its page), with the full-size pages
+   in `<name>_pages/`.  The harvest-wide `<name>_pages_index.txt` lists
+   every file.
+
+`per_element` gained the **`field`** mode: one page per element per
+(configuration, field), single-field maps at full size -- the mode for a
+many-segment deck.  It is opt-in and warns with the page count.
+
+Gates: `tRunSensitivities/test_page_layout_sizes_before_it_counts`,
+`..._pagination_keeps_element_blocks_whole`,
+`..._page_grows_to_the_envelope_when_panels_are_few`,
+`..._small_deck_keeps_one_page_and_its_filename`,
+`..._many_channels_paginate_with_an_index`,
+`..._field_mode_pages_every_configuration_and_field`,
+`..._per_field_indx_is_configuration_aware`,
+`..._runner_writes_the_page_folder_and_index`.
+
 ## Where eligibility is decided (the class of bug you are chasing)
 
 * An element missing from a Jacobian, with `'elts'` passed explicitly →
