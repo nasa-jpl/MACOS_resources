@@ -141,7 +141,25 @@ function art = run_sensitivities(rx_in, opts)
 %                  ["center" "multi"]; [] = skip the pages).  The pages
 %                  are numerous, so they land in the <name>_pages/
 %                  subfolder; the top level keeps only the overview
-%                  figures (Dave 2026-07-19)
+%                  figures (Dave 2026-07-19).  "field" adds one page per
+%                  element per (configuration, field) -- every field's
+%                  own single-field maps at full size, the mode for a
+%                  many-segment deck; opt-in, and it warns with the page
+%                  count before drawing.
+%     'panel_in'   MINIMUM size, inches at print resolution, of one OPD
+%                  map on a page (default 3.5).  The panel size is fixed
+%                  FIRST and the panels per page follow from it -- never
+%                  the other way round -- so a 19-segment harvest is
+%                  readable at the cost of many more pages (Dave
+%                  2026-09-10).  See sensitivities/dw_page_layout.
+%     'tile_in'    minimum size of ONE FIELD TILE inside a multi-field
+%                  canvas panel (default 1.2).  The zoom fixture's
+%                  5 configurations x 5 fields is a 9 x 9 tile canvas, so
+%                  a canvas panel is sized by its tile count, not as one
+%                  map.
+%     'page_in','page_max_in','max_per_page'  page envelope, how far a
+%                  page may grow to keep one element's channels whole,
+%                  and the hard panel cap (defaults [16 9], [32 20], 24)
 %
 %   art: ox/oz/og + artifact paths + conditioning table.
 %
@@ -234,6 +252,11 @@ arguments
     opts.visible (1,1) logical = false
     opts.verbose (1,1) logical = true
     opts.per_element string = ["center" "multi"]
+    opts.panel_in (1,1) double {mustBePositive} = 3.5
+    opts.tile_in (1,1) double {mustBePositive} = 1.2
+    opts.page_in (1,2) double {mustBePositive} = [16 9]
+    opts.page_max_in (1,2) double {mustBePositive} = [32 20]
+    opts.max_per_page (1,1) double {mustBePositive} = 24
 end
 assert(isfile(rx_in), 'run_sensitivities: %s not found', rx_in);
 if strcmp(opts.fex_axis, 'centroid') && ...
@@ -564,20 +587,38 @@ if ~isempty(SVc)
     close(f);
     say('per-configuration spectra: %s_svspec_configs.png\n', name);
 end
-pages = {'dwdx', ox; 'dwdz', oz; 'dwdgrid', og; 'dwdsurf', os};
-pdir = fullfile(od, [name '_pages']);      % the pages are numerous --
-if ~isempty(opts.per_element) && ~isfolder(pdir), mkdir(pdir); end  % own folder
-for q = 1:size(pages, 1)
-    o = pages{q, 2};
+chans = {'dwdx', ox; 'dwdz', oz; 'dwdgrid', og; 'dwdsurf', os};
+pdir = fullfile(od, [name '_pages']);      % the pages are numerous, so
+                                           % they get their own folder;
+                                           % the plotters create it when
+                                           % they actually write one
+% SIZE FIRST, COUNT SECOND: every dW panel is drawn at or above
+% 'panel_in' (one map) / 'tile_in' (one field tile of a canvas) and the
+% pages follow.  A 19-segment harvest is hundreds of readable pages
+% instead of one sheet of specks -- Dave 2026-09-10.
+pgopt = {'panel_in', opts.panel_in, 'tile_in', opts.tile_in, ...
+         'page_in', opts.page_in, 'page_max_in', opts.page_max_in, ...
+         'max_per_page', opts.max_per_page};
+man = [];
+for q = 1:size(chans, 1)
+    o = chans{q, 2};
     if isempty(o), continue; end
-    plot_dw_channels(o, sprintf('%s %s -- each channel', name, pages{q,1}), ...
-        od, [name '_' pages{q,1} '_channels.png']);
+    man = [man, plot_dw_channels(o, ...
+        sprintf('%s %s -- each channel', name, chans{q,1}), ...
+        od, [name '_' chans{q,1} '_channels.png'], ...
+        'page_dir', pdir, pgopt{:})];  %#ok<AGROW>
     for pm = opts.per_element(:).'
-        plot_dw_per_element(o, char(pm), pdir, [name '_' pages{q,1}]);
+        man = [man, plot_dw_per_element(o, char(pm), pdir, ...
+            [name '_' chans{q,1}], pgopt{:})];  %#ok<AGROW>
     end
 end
-say('\nfigures: %s_opdall/svspec/<ch>_channels + per-element pages in %s_pages/\n', ...
-    name, name);
+if ~isempty(man)
+    write_page_index(man, fullfile(od, [name '_pages_index.txt']), name);
+end
+say(['\nfigures: %s_opdall/svspec + %d dW pages in %s_pages/ ' ...
+     '(>= %.2g in per OPD map, %.2g in per field tile) -- index: %s\n'], ...
+    name, numel(man), name, opts.panel_in, opts.tile_in, ...
+    [name '_pages_index.txt']);
 
 %% save
 matp = fullfile(od, [name '_sens.mat']);
@@ -596,6 +637,8 @@ art = struct('ox', ox, 'oz', oz, 'og', og, 'os', os, 'mat', string(matp), ...
     'grid_in', string(rxg), 'report', ...
     string(fullfile(od, [name '_sens_report.txt'])), 'nseg', nseg, ...
     'conditioning', {tab}, 'nconfig', ncfg);
+art.pages = man;                                   % figure manifest
+art.page_index = string(fullfile(od, [name '_pages_index.txt']));
 end
 
 % ---------------------------------------------------------------------

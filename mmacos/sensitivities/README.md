@@ -12,7 +12,8 @@ produces a canonical state-vector Jacobian plus figures.
 > The CONFIG-block interfaces are unchanged. What you gain from the
 > runner: a conditioning report (all-column AND segment-only),
 > per-segment column norms, piston-removed plots with per-element
-> pages collected in a `<name>_pages/` folder, automatic ApStop
+> pages collected in a `<name>_pages/` folder and indexed in
+> `<name>_pages_index.txt`, automatic ApStop
 > injection for stop-less (SMM-corpus) fixtures, and — for `dwdgrid`
 > — grid augmentation in each segment's CLOCKED Mon frame with the
 > span sized from the parent Aperture, replacing the stale
@@ -31,8 +32,9 @@ produces a canonical state-vector Jacobian plus figures.
 > **Self-contained examples + `mmacos_setup` (2026-06).** Per-driver copies in
 > `examples/` each ship their own `.in`, set the path via the repo-root
 > `mmacos_setup` (run once per MATLAB session — no `addpath` in the script), and
-> also emit single-page-**per-element** *center* and *multi* plots via the generic
-> `plot_dw_per_element` helper (one page per optic/segment, parula + zero-mask).
+> also emit **per-element** *center* and *multi* plots via the generic
+> `plot_dw_per_element` helper (one page per optic/segment, jet + zero-mask,
+> sized so the maps are readable at any segment count).
 
 ## Use it on your own system
 
@@ -71,9 +73,22 @@ Run with `>> run('run_dwdgrid_multi.m')` (or any of the five).
 - `<name>_opdall.png` — the nominal OPD at every field point (tiled
   field canvas); `<name>_svspec.png` — singular-value spectra.
 - `<name>_<ch>_channels.png` — each channel's multi-field sensitivity,
-  one subplot per (element, DOF), piston removed.
-- `<name>_pages/` — the per-element single-page maps (center AND
-  multi field; the pages are numerous, so they get their own folder).
+  one panel per (element, DOF), piston removed.  **Size first, count
+  second (2026-09-10):** panels are drawn at or above a minimum size
+  (`panel_in`, 3.5 in per OPD map; `tile_in`, 1.2 in per field tile of a
+  multi-field canvas) and the sheet PAGINATES on element boundaries when
+  they no longer fit — `<name>_pages/<name>_<ch>_channels_p01.png` …  This
+  filename is ALWAYS written: it is the single page when one suffices,
+  and the INDEX contact sheet (the dense one-sheet view, each channel
+  labelled with the page it is drawn on) once the set paginates.  Nothing
+  that referenced it stops resolving.
+- `<name>_pages/` — the per-element pages (center AND multi field, and
+  `field` on request: one page per element per (configuration, field) at
+  full map size).  The pages are numerous — hundreds on a 19-segment
+  deck, which is the point — so they get their own folder.
+- `<name>_pages_index.txt` — every figure the harvest wrote: kind, mode,
+  element/group, panel count, page number, file, and the channels on it.
+  Grep this to find a channel's page.
 - `<name>_sens.mat` — the supervisor outputs (`ox`/`oz`/`og`/`os`) in
   the canonical state-vector layout
 

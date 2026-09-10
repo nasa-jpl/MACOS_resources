@@ -567,12 +567,37 @@ pure piston (the figure was discarded).  Fixed in the macos engine (sls-dev
   (deferred).  Else "File ... does not exist -sub GridInit" → flat nominal.
 
 Plotting helpers (`sensitivities/`, GENERIC across all dw_d*_multi):
-- **`plot_dw_channels`** — all-channels overview.
-- **`plot_dw_per_element(out, 'center'|'multi', here, prefix)`** (NEW) — one page
-  PER ELEMENT (= per segment for grid; per optic for dwdx/dwdz/dwdsurf),
-  center-field AND multi-field, parula + zero-mask, no thresholding/caxis band-aids
-  (retired — the dW is localized now).  Auto-detects the per-field cell
-  (`per_field_dwd{x,z,s,g}`); wired into all the `run_dwd*_multi` examples.
+- **SIZE FIRST, COUNT SECOND (2026-09-10, Dave).**  `dw_page_layout.m` fixes the
+  panel size (`panel_in` 3.5 in per OPD map, `tile_in` 1.2 in per FIELD TILE of a
+  multi-field canvas) and derives the panels per page from it; pages paginate on
+  ELEMENT boundaries, grow to `page_max_in` to keep one element's channels
+  together, and only then split onto `_p02`.  A sparse page grows its panels to
+  fill the 16:9 `page_in` envelope, so nothing comes out smaller than it used to.
+  Four traps this closed, all worth remembering:
+  (1) **`print` with the default `PaperPositionMode 'auto'` sizes the page from
+  the figure's PIXELS over `ScreenPixelsPerInch`** (96 here) — screen-dependent,
+  and a tall figure is CLAMPED to the screen first.  `dw_page_fig` sets inches +
+  a manual `PaperPosition`, so `-r140` gives exactly `inches*140` px anywhere.
+  (2) **`subplot`'s default margins eat ~30% of every cell** — the old 2042x1386
+  per-element page drew its canvas at 4.3 in.  `dw_page_axes` places axes
+  explicitly.  (3) **`colorbar` SHRINKS its own axes** — restore the axes Position
+  and put the bar in the reserved gutter (`dw_draw_map`).  (4) **the per-field
+  cells are `Nc x Nf` with a configuration axis** — `per_field_dwdx{k}` is
+  (config k, field 1), the centre field only because 'C' is listed first; index
+  them 2-D (`per_field_indx(out, ic, k)`, `plot_dw_per_element` local_per_field).
+- **`plot_dw_channels`** — all-channels overview, now paginated; returns a
+  MANIFEST (not a figure handle).  `<name>_<ch>_channels.png` is ALWAYS written:
+  the single page when one suffices, else the INDEX contact sheet (the dense
+  sheet it used to be, each thumbnail labelled with its page) with the full-size
+  pages in `<name>_pages/..._p01.png`.  Nothing that referenced that name breaks.
+  `write_page_index` writes the harvest-wide `<name>_pages_index.txt`.
+- **`plot_dw_per_element(out, 'center'|'multi'|'field', here, prefix)`** — one page
+  PER ELEMENT (= per segment for grid; per optic for dwdx/dwdz/dwdsurf), jet +
+  zero-mask, piston removed, no thresholding/caxis band-aids.  `'field'` (2026-09-10)
+  = one page per element per (configuration, field), single-field maps at full
+  size — the mode for a many-segment deck; opt-in, warns with the page count.
+  Auto-detects the per-field cell (`per_field_dwd{x,z,s,g}`); wired into all the
+  `run_dwd*_multi` examples.
 - **`macos.gs_zernike_segment_basis`** — GS-orthonormalized Zernike basis over a
   segment's true (irregular) aperture, piston/tip/tilt projected out; one basis
   covers all clocked segments.  Trace to the PM Reference (can't trace a Segment).

@@ -13,7 +13,7 @@ than per field alone.  Design sketch and open questions:
 | driver | rung | on THIS deck |
 |---|---|---|
 | `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | **runs** — 132 channels (21 optics × 6 + the PM group's 6), 25 blocks |
-| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — SM (M2) + TM (M3) each in Kr & Kc = 4 channels, piston/tip/tilt removed |
+| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — every powered optic (elts 4–24: the 19 segments + SM + TM) in Kr & Kc = **42 channels**, piston/tip/tilt removed |
 | `run_dwdz_5zoom_5fov.m` | MonZernike figure | **runs** — 20 optics × MODES (segs + SM + TM) |
 | `run_dwdgrid_5zoom_5fov.m` | segment + optic grid | **runs** — segments share a basis, SM/TM each own one |
 
@@ -180,7 +180,34 @@ the report is unchanged to three figures either way.
 
 **The committed artifacts here WERE regenerated for this** — report,
 PNGs, and the (gitignored) `.mat`.  The 25-block harvest takes about
-165 s as shipped (measured 164 s, Linux, gfortran-built engine).  The
+165 s as shipped (measured 164 s, Linux, gfortran-built engine).
+
+## The dW figures on THIS deck (2026-09-10)
+
+This is the fixture the page-size work was aimed at.  The field set is 5
+configurations x 5 fields, so the multi-field canvas is **9 x 9 tiles**
+of 63-ray maps — a channel drawn at one map's size shows each field at a
+ninth of it.  Since 2026-09-10 the panel size is fixed first and the
+pages follow (`sensitivities/dw_page_layout`, `panel_in` 3.5 in per map /
+`tile_in` 1.2 in per tile):
+
+* the full-size pages are a SET in `<name>_pages/`
+  (`..._channels_p01.png` …), one page per optic — Kr and Kc, or the six
+  DOFs, side by side.  `<name>_<ch>_channels.png` keeps its place at the
+  top level and becomes the INDEX: the dense sheet it used to be, each
+  thumbnail labelled with the page it is drawn on.
+* `<name>_pages_index.txt` lists every page with its element, channels
+  and file.
+* dwdsurf: 42 channels, previously ONE 700 x 1678 px sheet on which each
+  channel's whole 567 x 567 canvas was drawn in a **14 x 15 px box
+  holding 40 non-white pixels** (a ~9:1 subsample — most of the map was
+  never rendered).  Now 21 pages, canvas ~1500 px across, ~167 px per
+  field point.  The per-element centre page went from 635 to 999 px of
+  drawn map on a page with FEWER total pixels (recovered `subplot`
+  margin).  Plotting is the cost, not tracing: the whole dwdsurf run
+  (harvest + 63 pages) is ~200 s and dwdx (harvest + 92 pages) ~330 s.
+* `per_element` also takes `"field"` here: one page per optic per
+  (zoom state, field), single-field maps at full size.  The
 gated case
 `tRunSensitivities/test_groups_reach_the_dwdx_channel` covers the
 bookkeeping; `tDwDxGroups` covers the channel physics.
@@ -309,10 +336,12 @@ Measured attribution in `macos/REPORT_sens_noise_center.md`: it is the
    rung, where elt 4 really is ~5e-7 of live and the flag does fire.)  At
    `delta = 1e-4` the ratio falls to 2.617e-08 and the existing, unmodified
    flag catches it.
-2. **The committed dw/dsurf artifacts are stale.**  `find_powered_elts` now
-   returns elts 4–24 (21 optics, **42 channels**) since `Segment` became
-   powered-capable (Dave 2026-09-05), and `run_sensitivities` passes no
-   `'elts'`.  The committed `dwdsurf_..._sens_report.txt` records `54585x4` —
-   four channels, and the pre-stop-enforced-chief row count.  The driver header
-   and the `dw/dsurf` row of the table at the top of this README say the same
-   stale thing.  Not regenerated (out of scope for that investigation).
+2. **The committed dw/dsurf artifacts were stale — REGENERATED 2026-09-10.**
+   `find_powered_elts` returns elts 4–24 (21 optics, **42 channels**) since
+   `Segment` became powered-capable (Dave 2026-09-05), and
+   `run_sensitivities` passes no `'elts'`; the old committed
+   `dwdsurf_..._sens_report.txt` recorded `54585x4` — four channels, and the
+   pre-stop-enforced-chief row count.  Re-running the driver with the
+   page-size work gives `54595x42`; the table row above and the driver header
+   are corrected to match.  The row count moved with the engine
+   (stop-enforced chief / OrthoSrcFrame), not with the plotting.

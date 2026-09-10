@@ -14,6 +14,7 @@ classdef tRunSensitivities < matlab.unittest.TestCase
         seg = []
         smm_bin = ''
         res_root = ''
+        pagefx = []
     end
 
     methods (TestClassSetup)
@@ -64,6 +65,25 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             m = macos.Session(512);
             b = {'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '2x1', ...
                  'ngridpts', 15, 'elts', 8, 'dofs', (0:5).', 'delta', 1e-8};
+        end
+
+        function o = page_fixture(tc)
+            % ONE small multi-CONFIGURATION harvest, cached and shared by
+            % the paging cases: 1 optic x 6 DOFs, 2 fields x 2
+            % configurations, coarse grid.  Straight off the supervisor
+            % (no runner) because these cases are about the PLOTTERS, and
+            % it is the cheapest struct that carries a 2-D Nc x Nf
+            % per-field cell -- the shape the per-field indexing has to
+            % get right.
+            if isempty(tc.pagefx)
+                [m, rx, b] = tc.cfg_fixture();
+                cfgs = [struct('name', 'c0', 'set', {{}}), ...
+                        struct('name', 'c1', 'set', {{ ...
+                            {'perturb', 8, 'rotation', [1e-5; 0; 0], ...
+                             'frame', 'local'} }})];
+                tc.pagefx = macos.dw_dx_multi(m, rx, b{:}, 'configs', cfgs);
+            end
+            o = tc.pagefx;
         end
 
         function f = zoom_fixture(tc)
@@ -282,9 +302,263 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             Mbad = macos.v2m(xy.os.per_field_dwds{1}(:, c), bad);
             tc.verifyGreaterThan(max(abs(Mbad(:) - reshape(Mraw.', [], 1))), ...
                 0.1*max(abs(Mraw(:))));                        % scrambled
-            % and the page plotter runs on the xy harvest
-            plot_dw_per_element(xy.os, 'center', wd, 'pxy');
-            tc.verifyNotEmpty(dir(fullfile(wd, 'pxy*elt3*center*.png')));
+            % EVERY page mode carries the same identity, and every mode
+            % draws on the xy harvest (BRIEF_dwd_plot_size gate): the
+            % multi canvas through indxall, each field through its own
+            % per_field_indx.
+            Cxy = macos.v2m(xy.os.dwdxall(:, c),  xy.os.indxall);
+            Craw = macos.v2m(raw.os.dwdxall(:, c), raw.os.indxall);
+            tc.verifyEqual(Cxy, Craw.');
+            for k = 1:numel(raw.os.field_names)
+                Fr = macos.v2m(raw.os.per_field_dwds{k}(:, c), ...
+                    per_field_indx(raw.os, 1, k));
+                Fx = macos.v2m(xy.os.per_field_dwds{k}(:, c), ...
+                    per_field_indx(xy.os, 1, k));
+                tc.verifyEqual(Fx, Fr.', sprintf('field %d', k));
+            end
+            for md = ["center" "multi" "field"]
+                plot_dw_per_element(xy.os, char(md), wd, 'pxy');
+                tc.verifyNotEmpty(dir(fullfile(wd, ...
+                    sprintf('pxy*elt3*%s*.png', char(md)))), char(md));
+            end
+        end
+
+        % =============================================================
+        % PAGE SIZE + PAGINATION -- BRIEF_dwd_plot_size (Dave 2026-09-10):
+        % "make the plots large enough to be interpretable, even with
+        % large numbers of segments.  This will mean many more plots and
+        % pages."  Size is fixed FIRST and the count follows.
+        % =============================================================
+
+        function test_page_layout_sizes_before_it_counts(tc)
+            % The jwst zoom shape, without the engine: 23 blocks x 6 DOFs
+            % on a 9 x 9 tile canvas (5 configurations x 5 fields, 63 px
+            % maps).  Every panel must meet the tile floor, every channel
+            % must appear exactly once, and the set must PAGINATE -- one
+            % sheet of 138 panels is the thing being fixed.
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            key = cell(138, 1);
+            for e = 1:23
+                for d = 1:6, key{(e-1)*6 + d} = sprintf('elt:%d', e + 4); end
+            end
+            pg = dw_page_layout(key, [567 567], [9 9]);
+            tc.verifyGreaterThan(numel(pg), 1, 'must paginate');
+            for k = 1:numel(pg)
+                tile = min(pg(k).panel_in) / 9;
+                tc.verifyGreaterThanOrEqual(tile, 1.2 - 1e-9, ...
+                    sprintf('page %d draws a field tile at %.2f in', k, tile));
+            end
+            all_idx = sort([pg.idx]);
+            tc.verifyEqual(all_idx, 1:138, 'every channel exactly once');
+            % and the single-map floor holds for a single-field harvest
+            pg1 = dw_page_layout(key, [63 63], [1 1]);
+            tc.verifyGreaterThanOrEqual(min([pg1.panel_in]), 3.5 - 1e-9);
+        end
+
+        function test_pagination_keeps_element_blocks_whole(tc)
+            % An element's DOF block is the readable unit: it is never
+            % split while it fits a page, even when that means growing
+            % the page past the envelope.  A block too big for even the
+            % grown page splits, and says so (part/nparts).
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            key = cell(30, 1);
+            for e = 1:5
+                for d = 1:6, key{(e-1)*6 + d} = sprintf('elt:%d', e); end
+            end
+            pg = dw_page_layout(key, [63 63], [1 1]);
+            for k = 1:numel(pg)
+                blk = unique(key([pg(k).idx]));
+                tc.verifyEqual(numel(blk), 1, ...
+                    'a page must not mix elements when each block fits');
+            end
+            tc.verifyEqual(numel(pg), 5, 'one page per element');
+            % 60 channels on ONE element: bigger than any page -> split,
+            % and every page still carries only that element
+            big = repmat({'elt:9'}, 60, 1);
+            pb = dw_page_layout(big, [63 63], [1 1]);
+            tc.verifyGreaterThan(numel(pb), 1);
+            tc.verifyEqual([pb.nparts], repmat(numel(pb), 1, numel(pb)));
+            tc.verifyEqual(sort([pb.idx]), 1:60);
+        end
+
+        function test_row_per_block_slots_match_the_page_grid(tc)
+            % "rows = element, cols = that element's channels" is the
+            % overview's reading.  When two blocks share a page the slot
+            % of each panel must be computed against the PAGE'S column
+            % count -- against the envelope's instead, the second block
+            % lands a row too low and the page carries a gap row.
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            key = {'elt:1'; 'elt:1'; 'elt:2'; 'elt:2'};
+            pg = dw_page_layout(key, [63 63], [1 1], ...
+                'row_per_block', true, 'page_in', [9 9]);
+            tc.verifyEqual(numel(pg), 1);
+            tc.verifyEqual(pg.nc, 2);
+            tc.verifyEqual(pg.nr, 2);
+            tc.verifyEqual(sort(pg.slot), 1:4, 'slots must fill the grid');
+            tc.verifyLessThanOrEqual(max(pg.slot), pg.nr*pg.nc);
+            rows = ceil(pg.slot / pg.nc);
+            tc.verifyEqual(rows(1), rows(2), 'a block shares one row');
+            tc.verifyEqual(rows(3), rows(4));
+            tc.verifyNotEqual(rows(1), rows(3), ...
+                'the two blocks must be on DIFFERENT rows');
+        end
+
+        function test_page_grows_to_the_envelope_when_panels_are_few(tc)
+            % The floor is a MINIMUM.  A two-panel page on a 16 x 9 sheet
+            % must USE the sheet -- otherwise the new pages would come
+            % out SMALLER than the ones they replace, which is the
+            % opposite of the point.
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            pg = dw_page_layout({'elt:3'; 'elt:3'}, [63 63], [1 1]);
+            tc.verifyEqual(numel(pg), 1);
+            tc.verifyGreaterThan(min(pg.panel_in), 3.5, ...
+                'a sparse page must grow its panels past the floor');
+            tc.verifyLessThanOrEqual(pg.fig_in(1), 16 + 1e-9);
+            tc.verifyLessThanOrEqual(pg.fig_in(2), 9 + 1e-9);
+            % ... and it is at least as big as the page it replaces: the
+            % legacy per-element page was 1400 x 950 px at 96 px/in with
+            % SUBPLOT margins, i.e. about 3.2 in of drawn map for a
+            % 6-panel grid and 4.3 in measured for a 2-panel one.
+            tc.verifyGreaterThanOrEqual(min(pg.panel_in), 4.3);
+        end
+
+        function test_small_deck_keeps_one_page_and_its_filename(tc)
+            % Existing small-deck artifacts and READMEs reference these
+            % names: a harvest that fits ONE page keeps the historical
+            % <prefix>_<tag>_<mode>.png and the top-level
+            % <name>_<ch>_channels.png -- no _pNN, no index sheet.
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            o = tc.page_fixture();
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            m1 = plot_dw_channels(o, 'small -- each channel', wd, ...
+                'small_dwdx_channels.png');
+            tc.verifyEqual(numel(m1), 1);
+            tc.verifyTrue(isfile(fullfile(wd, 'small_dwdx_channels.png')));
+            tc.verifyEmpty(dir(fullfile(wd, '*_p0*.png')), ...
+                'one page must not be written as a page SET');
+            tc.verifyEqual(char(m1.kind), 'channels', ...
+                'a single page is the page itself, not an index');
+            m2 = plot_dw_per_element(o, 'center', wd, 'small_dwdx');
+            tc.verifyEqual(numel(m2), 1);
+            tc.verifyTrue(isfile(fullfile(wd, 'small_dwdx_elt8_center.png')));
+            % the printed page IS the planned page: pixels = inches x 140
+            pg = dw_page_layout(repmat({'elt:8'}, 6, 1), o.indxall.size, ...
+                dw_canvas_tiles(o));
+            i1 = imfinfo(fullfile(wd, 'small_dwdx_elt8_center.png'));
+            tc.verifyTrue(i1.Width > 1200 && i1.Height > 600, ...
+                'the per-element page must be a full-size sheet');
+        end
+
+        function test_many_channels_paginate_with_an_index(tc)
+            % Squeeze the page envelope instead of harvesting a big deck:
+            % the same 6-DOF block on a small sheet must split into
+            % _p01.. and leave an index contact sheet beside them.
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            o = tc.page_fixture();
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            pdir = fullfile(wd, 'pages');
+            man = plot_dw_channels(o, 'squeezed', wd, 'sq_dwdx_channels.png', ...
+                'page_dir', pdir, 'page_in', [5 4], 'page_max_in', [5 4]);
+            files = dir(fullfile(pdir, 'sq_dwdx_channels_p*.png'));
+            tc.verifyGreaterThan(numel(files), 1, 'must paginate');
+            % the historical name is ALWAYS written -- as the index
+            % contact sheet once the set paginates, so nothing that
+            % referenced it stops resolving
+            tc.verifyTrue(isfile(fullfile(wd, 'sq_dwdx_channels.png')), ...
+                'the historical channels filename must still be written');
+            tc.verifyEqual(char(man(end).kind), 'index');
+            tc.verifyEqual(char(man(end).file), ...
+                fullfile(wd, 'sq_dwdx_channels.png'));
+            tc.verifyEqual(numel(man), numel(files) + 1);   % + the index
+            % the manifest is what the harvest index is written from
+            idx = fullfile(wd, 'idx.txt');
+            write_page_index(man, idx, 'sq');
+            txt = fileread(idx);
+            tc.verifyTrue(contains(txt, 'sq_dwdx_channels_p01.png'));
+            tc.verifyTrue(contains(txt, 'Rx'), 'channels must be listed');
+        end
+
+        function test_field_mode_pages_every_configuration_and_field(tc)
+            % 'field' mode is the many-segment answer: one page per
+            % element per (configuration, field), single-field maps at
+            % full size.  2 configurations x 2 fields = 4 pages here, and
+            % they must carry DIFFERENT data -- a linear {k} index into
+            % the Nc x Nf per-field cell would silently repeat blocks.
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            o = tc.page_fixture();
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            man = plot_dw_per_element(o, 'field', wd, 'fm_dwdx');
+            nc = numel(o.config_names);  nf = numel(o.field_names);
+            tc.verifyEqual(numel(man), nc*nf);
+            for ic = 1:nc
+                for k = 1:nf
+                    f = sprintf('fm_dwdx_elt8_%s_field%s.png', ...
+                        o.config_names{ic}, o.field_names{k});
+                    tc.verifyTrue(isfile(fullfile(wd, f)), f);
+                end
+            end
+            % non-vacuity: the two configurations differ in the DATA, so
+            % their pages must differ in bytes
+            a = fileread(fullfile(wd, sprintf('fm_dwdx_elt8_%s_field%s.png', ...
+                o.config_names{1}, o.field_names{1})));
+            b = fileread(fullfile(wd, sprintf('fm_dwdx_elt8_%s_field%s.png', ...
+                o.config_names{2}, o.field_names{1})));
+            tc.verifyNotEqual(a, b, ...
+                'the two configurations must not draw the same page');
+        end
+
+        function test_per_field_indx_is_configuration_aware(tc)
+            % With a configuration axis the per-field cells are Nc x Nf.
+            % Indexing them LINEARLY lands on (configuration k, field 1),
+            % which is the centre field only because 'C' happens to be
+            % listed first -- so both the data and its index are taken
+            % 2-D now.  The two-argument form stays configuration 1.
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            o = tc.page_fixture();
+            tc.verifyEqual(size(o.per_field_dwdx), ...
+                [numel(o.config_names) numel(o.field_names)]);
+            tc.verifyEqual(per_field_indx(o, 2), per_field_indx(o, 1, 2));
+            for ic = 1:numel(o.config_names)
+                for k = 1:numel(o.field_names)
+                    ix = per_field_indx(o, ic, k);
+                    tc.verifyEqual(ix.size, size(o.per_field_w_nom_2d{ic, k}));
+                    tc.verifyEqual(numel(ix.i), ...
+                        size(o.per_field_dwdx{ic, k}, 1), ...
+                        'the index must address ITS OWN block''s rows');
+                end
+            end
+        end
+
+        function test_runner_writes_the_page_folder_and_index(tc)
+            % The runner side of the paging work: every dW page lands in
+            % <name>_pages/, the harvest gets ONE greppable index naming
+            % them, and the manifest comes back on the artifact struct.
+            [~, rx] = tc.cfg_fixture();
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            art = run_sensitivities(rx, 'fov_rad', 1e-4, 'ngridpts', 15, ...
+                'channels', "dwdsurf", 'elts', 3, 'model_size', 512, ...
+                'out_dir', wd, 'name', 'pgidx', 'verbose', false);
+            idx = fullfile(wd, 'pgidx_pages_index.txt');
+            tc.verifyTrue(isfile(idx));
+            tc.verifyEqual(char(art.page_index), idx);
+            tc.verifyNotEmpty(art.pages);
+            txt = fileread(idx);
+            for k = 1:numel(art.pages)
+                [~, b, e] = fileparts(char(art.pages(k).file));
+                tc.verifyTrue(contains(txt, [b e]), [b e]);
+                tc.verifyTrue(isfile(char(art.pages(k).file)), [b e]);
+            end
+            tc.verifyTrue(contains(txt, 'Elt 3 Kr'), ...
+                'the index must name the channels on each page');
+            % the per-element pages live in <name>_pages/, the overview
+            % keeps the top level (Dave 2026-07-19)
+            tc.verifyTrue(isfile(fullfile(wd, 'pgidx_dwdsurf_channels.png')));
+            tc.verifyTrue(isfile(fullfile(wd, 'pgidx_pages', ...
+                'pgidx_dwdsurf_elt3_center.png')));
         end
 
         function test_run_sensitivities_end_to_end(tc)

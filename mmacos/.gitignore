@@ -13,6 +13,13 @@
 # canonical visual reference for users; only the heavy .mat outputs
 # are skipped.
 templates/50_sensitivities/**/*.mat
+# ... and, since the 2026-09-10 page-size work, the dW PAGE SETS: a
+# 19-segment harvest writes hundreds of full-size pages (that is the
+# point -- BRIEF_dwd_plot_size).  The committed visual reference is the
+# one-sheet <name>_<ch>_channels_index.png beside them plus
+# <name>_pages_index.txt, which names every page.
+templates/50_sensitivities/**/*_pages/
+templates/50_sensitivities/**/_resume*/
 
 # Large derived binary products (>= ~20 MB): NOT committed -- a small
 # committed <file>.fp.json fingerprint (jac_fingerprint) stands in as the
@@ -42,3 +49,7 @@ templates/80_end_to_end/e2e6m_r2/r3_dmjac.mat
 templates/80_end_to_end/e2e6m_r2/r3_met.mat
 templates/80_end_to_end/e2e6m_r2/cf2_G_*.mat
 templates/80_end_to_end/e2e6m_r2/deckfig/
+
+# zwfs_dm96 runner artifacts: logs + the all-zero flat grid each run re-writes
+templates/40_benches/zwfs_dm96/runs/*.log
+templates/40_benches/zwfs_dm96/runs/*/zwfs_flat.txt
