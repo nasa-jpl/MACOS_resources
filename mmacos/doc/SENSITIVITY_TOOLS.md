@@ -74,6 +74,18 @@ Gate: `tOpdRef/test_driver_single_segment_poke_is_local_under_chief`.
 **Also fixed the same day:** `run_sensitivities` did not forward `elts`
 to the dwdsurf channel (the other three channels had it), so a runner
 call asking for one segment's Kr/Kc harvested every powered element.
+**And the one Luis was actually looking at (2026-09-10):** the per-element
+CENTRE-FIELD page (`plot_dw_per_element(..., 'center', ...)`, the
+`<name>_pages/*_center.png` files) rebuilt its pixel index with `m2v` on
+`per_field_w_nom_2d`, which `orient xy` has transposed, while the
+per-field Jacobian rows stay in the raw m2v order -- so under `xy` a
+single-segment poke smeared into diagonal streaks (the raw page was
+clean).  `sensitivities/per_field_indx.m` builds the index on the
+raw-orientation map and remaps it with the same rule as
+`apply_opd_convention`; the page is now the raw page transposed, exactly
+(gate `tRunSensitivities/test_per_element_page_index_follows_orient_xy`).
+Rule: never rebuild an index from a map that an orientation option may
+have transposed -- use `indxall` (multi) or `per_field_indx` (per field).
 
 ## Where eligibility is decided (the class of bug you are chasing)
 
