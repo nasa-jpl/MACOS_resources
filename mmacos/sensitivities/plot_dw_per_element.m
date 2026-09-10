@@ -34,7 +34,7 @@ function plot_dw_per_element(out, fieldmode, here, prefix)
 
 if strcmpi(fieldmode, 'center')
     ctr = find(strcmp(out.field_names, 'C'), 1);  if isempty(ctr), ctr = 1; end
-    [~, idx] = macos.m2v(out.per_field_w_nom_2d{ctr});
+    idx = per_field_indx(out, ctr);               % orientation-aware (see per_field_indx)
     src = local_per_field(out, ctr);              % per-field cell (name varies)
     tag = 'center field';
 elseif strcmpi(fieldmode, 'multi')
