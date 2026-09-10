@@ -257,6 +257,36 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             tc.verifyTrue(contains(txt, 'orient=xy'));
         end
 
+        function test_per_element_page_index_follows_orient_xy(tc)
+            % Luis round 4 (2026-09-10): the per-element CENTRE-FIELD page
+            % rebuilt its pixel index with m2v on the (transposed) nominal
+            % map under 'orient','xy', while the per-field Jacobian rows stay
+            % in the raw m2v order -- a single-segment Kr poke smeared into
+            % diagonal streaks (the "residual" in his xy plots).  The
+            % orientation-aware per_field_indx makes the xy page the raw page
+            % transposed, exactly; the old recipe does not (non-vacuity).
+            [~, rx] = tc.cfg_fixture();
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            addpath(fullfile(tc.res_root, 'mmacos', 'sensitivities'));
+            a = {'fov_rad', 1e-4, 'ngridpts', 15, 'channels', "dwdsurf", ...
+                 'elts', 3, 'model_size', 512, 'out_dir', wd, 'verbose', false};
+            raw = run_sensitivities(rx, a{:}, 'orient', 'raw', 'name', 'praw');
+            xy  = run_sensitivities(rx, a{:}, 'orient', 'xy',  'name', 'pxy');
+            c = find(strcmp(raw.os.channel_names, 'Elt 3 Kr'), 1);
+            Mraw = macos.v2m(raw.os.per_field_dwds{1}(:, c), per_field_indx(raw.os, 1));
+            Mxy  = macos.v2m(xy.os.per_field_dwds{1}(:, c),  per_field_indx(xy.os, 1));
+            tc.verifyEqual(Mxy, Mraw.');                      % exact
+            % the old recipe: m2v of the transposed nominal map
+            [~, bad] = macos.m2v(xy.os.per_field_w_nom_2d{1});
+            Mbad = macos.v2m(xy.os.per_field_dwds{1}(:, c), bad);
+            tc.verifyGreaterThan(max(abs(Mbad(:) - reshape(Mraw.', [], 1))), ...
+                0.1*max(abs(Mraw(:))));                        % scrambled
+            % and the page plotter runs on the xy harvest
+            plot_dw_per_element(xy.os, 'center', wd, 'pxy');
+            tc.verifyNotEmpty(dir(fullfile(wd, 'pxy*elt3*center*.png')));
+        end
+
         function test_run_sensitivities_end_to_end(tc)
             % trimmed harvest on the SMM pie fixture; the regression
             % gate is dwdgrid FULL RANK + localized pokes (the stale
