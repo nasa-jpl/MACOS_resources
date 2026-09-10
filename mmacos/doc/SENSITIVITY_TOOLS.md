@@ -54,8 +54,10 @@ re-applied after EVERY Rx reload, because a load resets it):
 | `opd_ref` | `mean` (default) / `chief` | the OPD reference: whole-aperture mean OPL, or the chief ray's own OPL (`macos.opd_ref`, PLAN 0.x) |
 
 **Why `opd_ref` matters on a SEGMENTED deck (Luis 2026-09-09, the
-"residual on the other segments" report).**  A Jacobian column is an OPD
-DIFFERENCE, and each OPD map is referenced.  Under `mean`, poking ONE
+"residual on the other segments" report).**  Neither reference is wrong:
+the two columns are the SAME correct data differing by one constant
+(Dave 2026-09-10) -- what changes is what the unpoked segments READ.  A
+Jacobian column is an OPD DIFFERENCE, and each OPD map is referenced.  Under `mean`, poking ONE
 segment shifts the aperture mean, so every OTHER segment reads the
 constant `-(N_k/N) * mean(poked response)` -- measured through
 `macos.dw_dsurf` on e5hex1 (segment 2, Kr / Kc, orient xy, no PTT
@@ -68,8 +70,10 @@ Kr on e5hex1, 5.0% of the centre segment's own rms).  A nominal-anchored
 FIXED-LENGTH reference (the engine's `OPDRefRayLen` branch, one api
 wrapper away) would localise every column; until then use
 `'opd_ref','chief'` and read the centre-segment column knowing that.
-`surf_remove_ptt` / `remove_ptt` is NOT a substitute: it fits global
-piston/tip/tilt to the whole column, which the poked segment biases.
+`surf_remove_ptt` / `remove_ptt` is a further convention on the same
+data: it fits global piston/tip/tilt to the whole column (which the
+poked segment biases), so the unpoked segments then show a tilt instead
+of a flat offset, identically under either reference.
 Gate: `tOpdRef/test_driver_single_segment_poke_is_local_under_chief`.
 **Also fixed the same day:** `run_sensitivities` did not forward `elts`
 to the dwdsurf channel (the other three channels had it), so a runner

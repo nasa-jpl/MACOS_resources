@@ -61,7 +61,7 @@ for r = 1:nrow
         title(ttl_k, 'FontSize', 7, 'Interpreter', 'none');
     end
 end
-colormap(parula);
+colormap(jet);
 sgtitle(ttl, 'Interpreter', 'none');
 
 if nargin >= 4 && ~isempty(pngname)

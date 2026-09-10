@@ -236,9 +236,11 @@ classdef tOpdRef < matlab.unittest.TestCase
                 % and the two maps differ by that same constant everywhere
                 % (finite-difference round-off: measured 9e-12 relative)
                 testCase.verifyEqual(vm(ok) - vc(ok), cst*ones(nnz(ok),1), 'AbsTol', 1e-9*abs(cst));
-                % the leak is material: >5% of the poked segment's rms
+                % the reference offset is material: >5% of the poked segment's rms
+                % (a CONVENTION, not an error -- the same data under the mean
+                % reference; Dave 2026-09-10)
                 testCase.verifyGreaterThan(abs(cst)/rms(vc(supp)), 0.05);
-                testCase.log(1, sprintf('%s: mean-ref leak on the other segments = %.4f of the poked rms', ...
+                testCase.log(1, sprintf('%s: mean-reference offset on the other segments = %.4f of the poked rms', ...
                     oc.channel_names{c}, abs(cst)/rms(vc(supp))));
             end
             % the chief ray's own segment (elt 1): the chief reference moves

@@ -17,7 +17,7 @@ fig = figure('Name', ttl, ...
     'Position', [40 40 min(1900, round(760 * max(1, ar))) 760]);
 h = imagesc(C);  set(h, 'AlphaData', ~isnan(C));
 axis image off;  set(gca, 'Color', 'w');
-colormap(parula);  colorbar;
+colormap(jet);  colorbar;
 title(ttl, 'Interpreter', 'none');
 if nargin >= 4 && ~isempty(pngname)
     if nargin < 3 || isempty(here), here = pwd; end

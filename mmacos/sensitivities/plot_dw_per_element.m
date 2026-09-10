@@ -13,7 +13,7 @@ function plot_dw_per_element(out, fieldmode, here, prefix)
 %   FIELDMODE = 'center' : the CENTER-field dW (single-field image).
 %             = 'multi'  : the MULTI-field tiled canvas.
 %
-%   Display matches plot_dw_channels: parula, zeros masked white, each subplot
+%   Display matches plot_dw_channels: jet (Dave 2026-09-10), zeros masked white, each subplot
 %   auto-scaled -- no thresholding / caxis band-aids.
 %
 %   OUT     struct from any macos.dw_d*_multi call.  Uses the canonical fields
@@ -64,7 +64,7 @@ for ip = 1:numel(upg)
                                                   % convention, Dave 2026-07-19)
         subplot(nr, nc, j);
         h = imagesc(M);  set(h, 'AlphaData', ~isnan(M));
-        axis image off;  set(gca, 'Color', 'w');  colorbar;  colormap(parula);
+        axis image off;  set(gca, 'Color', 'w');  colorbar;  colormap(jet);
         title(strtrim(char(out.channel_names{c})), 'FontSize', 8, 'Interpreter', 'none');
     end
     sgtitle(sprintf('%s -- dW, %s, %s (piston removed)', prefix, ttl_e, tag), ...
