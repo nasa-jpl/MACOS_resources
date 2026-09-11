@@ -26,5 +26,6 @@ Stage C -- battery (design azimuths, unaligned):
   arm azimuths: test -44.8566, ref +45.0000 -> departure +0.1434 deg
   null: 12.8930 nm rms surface (12893.0 pm) with nothing aligned
   20 nm piston: |gain| 1.00180 (unaligned scale error +0.180%)
-  single actuator at 150 nm: recovered peak 0.0 nm
-  registration: parity 2 of 8, meas sign +1; |pokeB corr| 0.0014 (runner-up 0.0014)
+  OAP in-pupil pokes: centroid (48,49) half-extent (41,41) -> pokeA [36 61] pokeB [63 34]
+  single actuator at 150 nm: recovered peak 143.2 nm
+  registration: parity 4 of 8, meas sign +1; |pokeB corr| 0.0014 (runner-up 0.0014)
