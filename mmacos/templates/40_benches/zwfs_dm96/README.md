@@ -70,6 +70,7 @@ ONE at a time -- two model-1024 MATLABs have taken this box down):
 
     ./zwfs_batch.sh ng385 "'NGRID',385, 'stages',{'battery','figs'}"     # log: runs/ng385.log
     ZWFS_MEMMAX=20G ./zwfs_batch.sh m2048 "'MODEL',2048, 'NGRID',385, 'param_file','macos_param_2048.txt'"
+    ./zwfs_batch.sh loop193 "'stages',{'bench','loop','figs'}"                # the closed-loop hold metric (S11), ~80 min
 
 Everything lands in `runs/<tag>/`: `<tag>_report.txt` (every number,
 every gate with its threshold), `<tag>.mat` (`out` = P + bench + battery
@@ -79,7 +80,7 @@ re-draws them from a saved run).
 
 | knob (`zwfs_params`) | default | what it does |
 |---|---|---|
-| `stages` | bench battery figs | add `color` (the multi-wavelength combination) and `noise` (photon pricing) |
+| `stages` | bench battery figs | add `color` (the multi-wavelength combination), `noise` (photon pricing) and `loop` (the closed-loop HOLD metric, S11) |
 | `readings` | L F I I+ S | any subset: linear / exact frozen-b / exact iterated-b / I with the base's refined stepped prior / phase-stepped |
 | `MODEL`, `NGRID` | 1024, 193 | engine grid, ray grid across the aperture (385 = the 1 Mpix-class detector) |
 | `param_file` | `''` | a custom engine size table (`macos_param.txt` namelists) copied into the run dir, where the engine looks FIRST; `'macos_param_2048.txt'` (this dir) trims MODEL 2048 to fit a 30 GB box -- `mGridSrf` 200 -> 4, `mpts` -> 512, `mElt` -> 64, and `mGridMat` UP to 512 for the 384-across DM grid (the stock 2048 entry's 128 corrupts the heap) |
@@ -91,6 +92,7 @@ re-draws them from a saved run).
 | `dm(i)` | 96x96 @ 1 mm; 48x48 @ 2 mm | actuator count, pitch, hold-out site, modal probes -- each config gets the full battery |
 | `battery.*` | 30 nm base; 10 nm devs; 1 nm grid | amplitudes, seeds, Wiener beta, Tikhonov weight, the break-scale ladder, which rows |
 | `color.*`, `noise.*` | 5 colors; 1e6..1e14 photons/state | the optional stages' own knobs (readings, rows, combiner form; realizations, prior treatment) |
+| `loop.*` | L I+ S; g 0.5; 60 cycles; 1e12..1e15 photons/cycle | the closed-loop hold stage: readings, set point (`'base'` = the working surface with the matrix ON it), gain, cycles, photon levels, drift models (`walk_sigma` 2 pm/actuator/cycle, `thermal_rate` 5 pm/cycle), noiseless `steps`, the noise-only `floor`, reference frames `'noiseless'` or `'noisy'`, the drift `seed` (shared with the IFO), `hold_spec` 3 pm |
 
 Rules: one engine model size per MATLAB process (a second `macos.init`
 at another size corrupts the heap); `exit(0)` lives only in the batch
@@ -123,6 +125,73 @@ budget lines before quoting a number.
   steer.
 
 ## Findings
+- **S11 (zwfs_run stage 'loop', 2026-09-11, Dave: "on-orbit the DM
+  surface needs to remain constant to << 10 pm, with frequent
+  remeasurement and closed-loop DM actuator servo control -- how can
+  performance in this mode be made into a metric?"): the CLOSED-LOOP
+  HOLD metric.**  The DM is held at the 30 nm working surface by a
+  proportional loop (gain 0.5, 60 cycles) closed through ONE reading:
+  each cycle the state is traced, photon noise injected (N photons per
+  state, a reading's frames share it), the differential to the set
+  point's frames fitted through the response matrix measured ON that
+  surface (S10), and g times the estimate removed.  The loop code is
+  shared with the interferometer (`../dm_gauge_lib/dmg_loop.m`, gated by
+  `tests/tDmgLoop.m` on a synthetic instrument: contraction 1 - gG,
+  noise-only steady state sigma_n sqrt(g/(2-g)), the random-walk and
+  ramp laws, a biased reading converging to a non-zero surface, seeded
+  drift, a single-shot reference as a fixed bias).  The metric: the
+  steady-state hold error (rms over lit, pm) against a drift, as a curve
+  in photons per cycle; the ONE number = photons per cycle to hold 3 pm.
+  Drifts: random walk 2 pm per actuator per cycle; thermal ramp 5 pm rms
+  per cycle of defocus + astigmatism; noiseless steps of 1 and 10 nm
+  (time constant, dynamic range); the noise-only floor.  `P.loop.*`;
+  `runs/loop193` (98 min, 2562 traced states; 385-ray confirmation
+  `runs/loop385`).
+  *What closed loop changes, measured:* the loop propagates noise
+  exactly as theory says on the real instrument (noise-only: L 4.39 /
+  1.39 / 0.44 / 0.14 pm at 1e12..1e15 photons per cycle vs 4.25 / 1.35 /
+  0.43 / 0.13 from the in-run single-shot noise; S 4.81 / 1.52 / 0.48 /
+  0.15 vs 4.72 / 1.49 / 0.47 / 0.15), and the random walk likewise (L
+  5.02 / 2.77 / 2.42 / 2.38 vs 4.84 / 2.67 / 2.35 / 2.31; S 5.33 / 2.77 /
+  2.36 / 2.32 vs 5.26 / 2.75 / 2.36 / 2.31: the 2.31 pm floor is the walk
+  itself at g = 0.5, sigma_d / sqrt(g(2-g))).  So the per-photon
+  comparison in this mode is the single-shot noise: **L and S are the
+  same per photon per state** (sig_n 7.4 vs 8.2 pm at 1e12), and both
+  hold 3 pm from ~2e12 photons per cycle (noise only) / ~7.4e12 (walk).
+  *What discriminates is the SYSTEMATIC term, the thing the loop was
+  built to expose:* (1) **the stepped reading S has NO noiseless floor**
+  -- a 1 nm and a 10 nm step both converge to 0.000 pm (rho 0.61-0.63,
+  tau ~2 cycles), and its thermal hold is 10.05 pm = exactly the
+  proportional-loop lag rate/g of a unit-gain reading (theory 10.00;
+  low-order gain 0.995).  (2) **The linear one-frame reading L holds the
+  walk and the noise like S but not a persistent low-order residual**:
+  its thermal hold is 27.6 pm and still creeping at cycle 60 -- 9 pm of
+  the same lag plus 26 pm of HIGH-frequency error (> 12 cyc/ap) that the
+  loop imprints on the DM, distributed (15 pm with the worst 100
+  actuators removed; two 4-actuator clusters at 0.5-0.8 nm), and its
+  noiseless steps decay with a slow mode (rho 0.82-0.83: 1.2 pm left at
+  cycle 60 from 1 nm, 9.8 from 10 nm).  Mechanism: on the working
+  surface the linear reading's local sensitivity is near zero at some
+  sites, the loop is nearly open there, and any crosstalk from a
+  persistent residual integrates to bias/(g G_site) -- a zero-mean walk
+  does not excite it, a ramp does.  (3) **The exact one-frame reading
+  with the set point's branch prior (I+) DIVERGES**: a 1 nm step grows
+  to 99 nm in 60 cycles, a 10 nm step to 178 nm, and even the noise-only
+  loop at 1e15 photons wanders to 0.9 nm -- actuators whose footprint
+  sits beyond the quarter-wave fold read with the wrong sign (S10's fold
+  sensitivity), the loop pushes them the wrong way, and the fixed branch
+  prior gets wronger as they move; no gain fixes a negative gain.  I+ is
+  not a loop reading on a 30 nm surface (`P.loop.rmax` now stops such
+  runs at 1 um).  *The one-number table (photons per cycle to hold 3 pm
+  rms):* noise-only L 2.1e12 / S 2.6e12 / I+ diverged; walk L 7.3e12 / S
+  7.5e12 / I+ diverged; thermal: no photon count reaches 3 pm at g = 0.5
+  (a proportional loop lags a ramp by rate/g = 10 pm), the floors are L
+  27.6 / S 10.0 / I+ diverged -- an integral term or a higher gain is the
+  thermal fix, and the same loop code takes it.  DOCTRINE for the
+  head-to-head: run the IFO through the identical `dmg_loop` (same
+  seeds, drifts, gains, photon levels; CCMac, brief oap2 addendum) and
+  compare the three rows of that table plus the noiseless floor and the
+  held residual's spectrum.
 
 > **MODEL CORRECTION (2026-09-09, found building S7's reconstructor;
 > details in the S7 bullet at the end): every ZWFS number in S1-S6 was

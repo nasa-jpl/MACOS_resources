@@ -170,7 +170,7 @@ if isfield(out, 'loop')
     ylabel(ax, 'steady-state hold error over lit, pm rms', 'Color', ink2);
     title(ax, 'Hold error vs photons per cycle (drift: dotted none, solid walk, dashed thermal)', 'Color', ink, 'FontWeight', 'normal');
     grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);
-    legend(ax, 'Location', 'southwest', 'TextColor', ink, 'Color', surf_c, 'EdgeColor', axis_c, 'FontSize', 8);
+    legend(ax, 'Location', 'best', 'TextColor', ink, 'Color', surf_c, 'EdgeColor', axis_c, 'FontSize', 8);
     fn = fullfile(P.outdir, sprintf('%s_loop.png', P.tag));
     exportgraphics(f, fn, 'Resolution', 110, 'BackgroundColor', surf_c);  close(f);
     fprintf('wrote %s\n', fn);
