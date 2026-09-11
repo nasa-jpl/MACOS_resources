@@ -48,6 +48,14 @@ a branch prior).
 
 ## Run it yourself (`zwfs_run`)
 
+Terminology (Dave 2026-09-11): photon budgets are quoted **per
+measurement** -- one DM shape measured once, every photon the camera
+detects over the pupil image, summed over the frames that reading needs
+(1 for L/F/I/I+, 4 for S).  Earlier record text and the S1-S7 scripts say
+"per state" for the same quantity; "state" was retired because it
+collides with state-vector controls terminology.  The knob
+`noise.nstates` keeps its name.
+
 One entry point drives the whole system; the per-stage scripts
 (`zwfs_s1.m` .. `zwfs_s7iter.m`) are the historical record, not the way
 to run it.  The defaults in `zwfs_params.m` are the values of record, so
@@ -91,7 +99,7 @@ re-draws them from a saved run).
 | `reg.*` | `'search'` | parity + sign from an off-center poke (two-poke doctrine; the selection metric is the gate), or `'record'` to take `PARb`/`sgn` as given |
 | `dm(i)` | 96x96 @ 1 mm; 48x48 @ 2 mm | actuator count, pitch, hold-out site, modal probes -- each config gets the full battery |
 | `battery.*` | 30 nm base; 10 nm devs; 1 nm grid | amplitudes, seeds, Wiener beta, Tikhonov weight, the break-scale ladder, which rows |
-| `color.*`, `noise.*` | 5 colors; 1e6..1e14 photons/state | the optional stages' own knobs (readings, rows, combiner form; realizations, prior treatment) |
+| `color.*`, `noise.*` | 5 colors; 1e6..1e14 photons/measurement | the optional stages' own knobs (readings, rows, combiner form; realizations, prior treatment) |
 | `loop.*` | L I+ S; g 0.5; 60 cycles; 1e12..1e15 photons/cycle | the closed-loop hold stage: readings, set point (`'base'` = the working surface with the matrix ON it), gain, cycles, photon levels, drift models (`walk_sigma` 2 pm/actuator/cycle, `thermal_rate` 5 pm/cycle), noiseless `steps`, the noise-only `floor`, reference frames `'noiseless'` or `'noisy'`, the drift `seed` (shared with the IFO), `hold_spec` 3 pm |
 
 Rules: one engine model size per MATLAB process (a second `macos.init`
@@ -158,7 +166,7 @@ budget lines before quoting a number.
   2.36 / 2.32 vs 5.26 / 2.75 / 2.36 / 2.31: the 2.31 pm floor is the walk
   itself at g = 0.5, sigma_d / sqrt(g(2-g))).  So the per-photon
   comparison in this mode is the single-shot noise: **L and S are the
-  same per photon per state** (sig_n 7.4 vs 8.2 pm at 1e12), and both
+  same per photon per measurement** (sig_n 7.4 vs 8.2 pm at 1e12), and both
   hold 3 pm from ~2e12 photons per cycle (noise only) / ~7.4e12 (walk).
   *What discriminates is the SYSTEMATIC term, the thing the loop was
   built to expose:* (1) **the stepped reading S has NO noiseless floor**

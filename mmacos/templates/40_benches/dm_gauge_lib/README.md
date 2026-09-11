@@ -56,7 +56,7 @@ holds under a DM state).
 servo mode as ONE shared loop.**  `dmg_loop(ins, opt)` holds a DM at a
 set point against a drift ('walk' | 'thermal' | 'step') by a
 proportional loop closed through an instrument given as four handles
-(`measure` -> noiseless frames, `noisy` -> photon noise at N per state,
+(`measure` -> noiseless frames, `noisy` -> photon noise at N per measurement,
 `diff` -> the reading's differential map, `est` -> actuator changes) and
 a lit mask; it scores the steady-state hold error (rms over lit), the
 bias with the noise averaged out, the in-run single-shot noise, the

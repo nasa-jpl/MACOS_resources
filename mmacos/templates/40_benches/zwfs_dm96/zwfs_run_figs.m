@@ -7,7 +7,7 @@ function zwfs_run_figs(out)
 %                                 working-state ladder per reading (right), per DM config
 %     <tag>_color.png             per-color modal transfer per class + the K-color
 %                                 combination's transfer
-%     <tag>_noise.png             photon-noise sigma vs photons per state, per reading
+%     <tag>_noise.png             photon-noise sigma vs photons per measurement, per reading
 %     <tag>_loop.png              closed-loop hold: residual vs cycle per photon level
 %                                 (left, the walk drift) and the steady-state hold error
 %                                 vs photons per cycle per reading and drift, with the
@@ -111,7 +111,7 @@ if isfield(out, 'noise')
     yline(ax, 1, ':', 'Color', muted, 'LineWidth', 1.5, 'HandleVisibility', 'off');
     text(ax, N.nstates(1)*1.5, 1.25, '1 pm target', 'Color', ink2, 'FontSize', 10);
     set(ax, 'XScale', 'log', 'YScale', 'log');
-    xlabel(ax, 'photons per DM state (a reading''s frames share it)', 'Color', ink2);
+    xlabel(ax, 'photons per measurement (one DM shape measured once; a reading''s frames share it)', 'Color', ink2);
     ylabel(ax, 'noise sigma of the poked-actuator estimate, pm', 'Color', ink2);
     title(ax, sprintf('%s: photon-noise pricing of the single-actuator differential', P.tag), 'Color', ink, 'FontWeight', 'normal');
     grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);
@@ -166,7 +166,7 @@ if isfield(out, 'loop')
     yl = ylim(ax);  ylim(ax, [min(yl(1), LO.hold_spec*1e9/3), max(yl(2), LO.hold_spec*1e9*3)]);
     yline(ax, LO.hold_spec*1e9, ':', 'Color', ink2, 'LineWidth', 1.5, 'HandleVisibility', 'off');
     text(ax, NPH(1)*1.3, LO.hold_spec*1e9*1.25, sprintf('%g pm hold spec', LO.hold_spec*1e9), 'Color', ink2, 'FontSize', 10);
-    xlabel(ax, 'photons per cycle (per DM state; a reading''s frames share it)', 'Color', ink2);
+    xlabel(ax, 'photons per cycle (one measurement per cycle; a reading''s frames share it)', 'Color', ink2);
     ylabel(ax, 'steady-state hold error over lit, pm rms', 'Color', ink2);
     title(ax, 'Hold error vs photons per cycle (drift: dotted none, solid walk, dashed thermal)', 'Color', ink, 'FontWeight', 'normal');
     grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);

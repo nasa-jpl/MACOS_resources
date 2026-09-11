@@ -11,7 +11,7 @@ function L = dmg_loop(ins, opt)
 %   nact x nact).  Its frames are captured ONCE as the reference.  Per
 %   cycle k: the disturbance advances (drift), the surface s = cmd + dist
 %   is measured (frames captured noiseless, photon noise injected for
-%   opt.nph photons per state), the reading's DIFFERENTIAL to the
+%   opt.nph photons per measurement), the reading's DIFFERENTIAL to the
 %   reference is fitted to actuator changes a_hat, and cmd <- cmd -
 %   g*a_hat.  The residual r_k = s - A0 is recorded at measurement time
 %   (the error that exists during the cycle).  Differencing against the
@@ -34,7 +34,8 @@ function L = dmg_loop(ins, opt)
 %   ins -- the instrument (function handles; any frame type):
 %     ins.measure(cmd)         frames of the DM at command cmd, NOISELESS
 %     ins.noisy(F, nph, seed)  the frames with photon noise for nph photons
-%                              per state (the reading's frames share it);
+%                              per measurement (one DM shape measured once;
+%                              the reading's frames share it);
 %                              nph = Inf returns F unchanged
 %     ins.diff(F1, F0)         the reading's differential map, F1 minus F0
 %     ins.est(map)             actuator-space estimate (nact x nact) of a map
@@ -43,7 +44,7 @@ function L = dmg_loop(ins, opt)
 %     .A0     set point, nact x nact                      [zeros]
 %     .g      loop gain                                   [0.5]
 %     .K      cycles                                      [60]
-%     .nph    photons per state per cycle (Inf = noiseless) [Inf]
+%     .nph    photons per measurement, one per cycle (Inf = noiseless) [Inf]
 %     .seed   seeds the drift stream (opt.seed) and the per-cycle noise
 %             seeds (a hash of opt.seed and the cycle, disjoint between
 %             run seeds): the drift realization is the same at every
