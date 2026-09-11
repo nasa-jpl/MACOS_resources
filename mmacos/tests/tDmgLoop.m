@@ -26,6 +26,8 @@ classdef tDmgLoop < matlab.unittest.TestCase
 %     G5  a single-shot (noisy) reference is a fixed bias of size sigma_n;
 %         a noiseless one leaves the bias at the 1/sqrt(nss) level
 %     G6  Parseval: the spectrum's bands sum to the steady-state mean square
+%     G7  a reading with NEGATIVE gain diverges at (1 + g|G|) per cycle and
+%         the guard (opt.rmax) stops the run and flags it
 
     properties (Constant)
         NACT = 24
@@ -174,6 +176,19 @@ classdef tDmgLoop < matlab.unittest.TestCase
             testCase.verifyEqual(Ln.bias, Ln.sig_n, 'RelTol', 0.15, 'noisy reference: the held surface carries its single-shot noise as a bias');
             testCase.verifyLessThan(L0.bias, 0.25*L0.sig_n, 'noiseless reference: no such bias');
             testCase.verifyEqual(Ln.ss^2 - Ln.bias^2, L0.ss^2, 'RelTol', 0.3, 'the fluctuation about the bias is the same loop noise');
+        end
+
+        function test_G7_negative_gain_diverges_and_is_flagged(testCase)
+            ins_ = testCase.mkins(-0.5, zeros(testCase.NPIX^2, 1));
+            o = struct('g', 0.5, 'K', 60, 'nph', Inf, 'seed', 1, 'drift', struct('kind', 'step', 'amp', 1e-6), 'rmax', 1e-3);
+            L = dmg_loop(ins_, o);
+            testCase.verifyTrue(L.diverged, 'flagged');
+            testCase.verifyEqual(L.k_end, 32, 'stopped at the first cycle above rmax: 1.25^31 x 1 nm > 1 um');
+            testCase.verifyEqual(L.rms(2:10) ./ L.rms(1:9), 1.25*ones(1, 9), 'AbsTol', 1e-9, 'grows at 1 + g|G|');
+            testCase.verifyTrue(all(isnan(L.rms(33:end))), 'the cycles not run are NaN');
+            testCase.verifyTrue(isnan(L.rho), 'no transient fit on a diverged run');
+            L0 = dmg_loop(testCase.ins, o);
+            testCase.verifyFalse(L0.diverged, 'the unit-gain reading on the same options does not trip the guard');
         end
 
         function test_G6_spectrum_bands_sum_to_the_steady_state(testCase)

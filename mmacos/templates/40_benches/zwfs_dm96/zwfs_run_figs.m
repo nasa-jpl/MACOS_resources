@@ -141,9 +141,10 @@ if isfield(out, 'loop')
     end
     i = find(strcmp({res.rd}, RD{j0}) & strcmp({res.drift}, 'step'), 1);
     if ~isempty(i), semilogy(ax, 1:LO.K, res(i).L.rms*1e9, '--', 'Color', muted, 'LineWidth', 1.5, 'DisplayName', sprintf('noiseless %g nm step', res(i).amp*1e6)); end
+    set(ax, 'YScale', 'log');
+    yl = ylim(ax);  ylim(ax, [min(yl(1), LO.hold_spec*1e9/3), max(yl(2), LO.hold_spec*1e9*3)]);
     yline(ax, LO.hold_spec*1e9, ':', 'Color', ink2, 'LineWidth', 1.5, 'HandleVisibility', 'off');
     text(ax, 2, LO.hold_spec*1e9*1.3, sprintf('%g pm hold spec', LO.hold_spec*1e9), 'Color', ink2, 'FontSize', 10);
-    set(ax, 'YScale', 'log');
     xlabel(ax, 'cycle', 'Color', ink2);  ylabel(ax, 'residual surface error over lit, pm rms', 'Color', ink2);
     title(ax, sprintf('Reading %s, %s drift: residual per cycle', RD{j0}, kshow), 'Color', ink, 'FontWeight', 'normal');
     grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);
@@ -161,9 +162,10 @@ if isfield(out, 'loop')
                 'MarkerFaceColor', colof(RD{j}), 'MarkerEdgeColor', surf_c, 'DisplayName', sprintf('%s, %s', lbl.(name(RD{j})), kinds{kd}));
         end
     end
+    set(ax, 'XScale', 'log', 'YScale', 'log');
+    yl = ylim(ax);  ylim(ax, [min(yl(1), LO.hold_spec*1e9/3), max(yl(2), LO.hold_spec*1e9*3)]);
     yline(ax, LO.hold_spec*1e9, ':', 'Color', ink2, 'LineWidth', 1.5, 'HandleVisibility', 'off');
     text(ax, NPH(1)*1.3, LO.hold_spec*1e9*1.25, sprintf('%g pm hold spec', LO.hold_spec*1e9), 'Color', ink2, 'FontSize', 10);
-    set(ax, 'XScale', 'log', 'YScale', 'log');
     xlabel(ax, 'photons per cycle (per DM state; a reading''s frames share it)', 'Color', ink2);
     ylabel(ax, 'steady-state hold error over lit, pm rms', 'Color', ink2);
     title(ax, 'Hold error vs photons per cycle (drift: dotted none, solid walk, dashed thermal)', 'Color', ink, 'FontWeight', 'normal');
