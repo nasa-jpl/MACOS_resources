@@ -8,6 +8,10 @@ function zwfs_run_figs(out)
 %     <tag>_color.png             per-color modal transfer per class + the K-color
 %                                 combination's transfer
 %     <tag>_noise.png             photon-noise sigma vs photons per state, per reading
+%     <tag>_loop.png              closed-loop hold: residual vs cycle per photon level
+%                                 (left, the walk drift) and the steady-state hold error
+%                                 vs photons per cycle per reading and drift, with the
+%                                 hold spec line (right)
 %   Palette: the dataviz categorical order used across the campaign figures.
 if ischar(out) || isstring(out), q = load(out);  out = q.out; end
 P = out.P;
@@ -113,6 +117,59 @@ if isfield(out, 'noise')
     grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);
     legend(ax, 'Location', 'southwest', 'TextColor', ink, 'Color', surf_c, 'EdgeColor', axis_c);
     fn = fullfile(P.outdir, sprintf('%s_noise.png', P.tag));
+    exportgraphics(f, fn, 'Resolution', 110, 'BackgroundColor', surf_c);  close(f);
+    fprintf('wrote %s\n', fn);
+end
+
+% ---- loop ------------------------------------------------------------------
+if isfield(out, 'loop')
+    LO = out.loop;  res = LO.res;  NPH = LO.nph;  RD = LO.readings;
+    kinds = LO.drifts;  kshow = kinds{end};                 % the last drift model on the left panel
+    if any(strcmp(kinds, 'walk')), kshow = 'walk'; end
+    ramp = [ [209 229 240]; [146 197 222]; [67 147 195]; [33 102 172]; [8 48 107] ]/255;   % ordinal blues, light = few photons
+    f = figure('Color', surf_c, 'Position', [100 100 1500 620], 'Visible', 'off');
+    tl = tiledlayout(1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
+    tl.Title.String = sprintf('%s: closed-loop hold at gain %.2f on the %s, %d cycles, matrix calibration', P.tag, LO.g, LO.surface, LO.K);
+    tl.Title.FontSize = 13;  tl.Title.Color = ink;
+    ax = nexttile;  hold(ax, 'on');
+    j0 = find(strcmp(RD, 'S'), 1);  if isempty(j0), j0 = numel(RD); end   % the stepped reading if run
+    for q = 1:numel(NPH)
+        i = find(strcmp({res.rd}, RD{j0}) & strcmp({res.drift}, kshow) & [res.nph] == NPH(q), 1);
+        if isempty(i), continue; end
+        cc = ramp(max(1, round((q-1)/max(numel(NPH)-1,1)*(size(ramp,1)-1))+1), :);
+        semilogy(ax, 1:LO.K, res(i).L.rms*1e9, '-', 'Color', cc, 'LineWidth', 1.8, 'DisplayName', sprintf('%.0e photons per cycle', NPH(q)));
+    end
+    i = find(strcmp({res.rd}, RD{j0}) & strcmp({res.drift}, 'step'), 1);
+    if ~isempty(i), semilogy(ax, 1:LO.K, res(i).L.rms*1e9, '--', 'Color', muted, 'LineWidth', 1.5, 'DisplayName', sprintf('noiseless %g nm step', res(i).amp*1e6)); end
+    yline(ax, LO.hold_spec*1e9, ':', 'Color', ink2, 'LineWidth', 1.5, 'HandleVisibility', 'off');
+    text(ax, 2, LO.hold_spec*1e9*1.3, sprintf('%g pm hold spec', LO.hold_spec*1e9), 'Color', ink2, 'FontSize', 10);
+    set(ax, 'YScale', 'log');
+    xlabel(ax, 'cycle', 'Color', ink2);  ylabel(ax, 'residual surface error over lit, pm rms', 'Color', ink2);
+    title(ax, sprintf('Reading %s, %s drift: residual per cycle', RD{j0}, kshow), 'Color', ink, 'FontWeight', 'normal');
+    grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);
+    legend(ax, 'Location', 'northeast', 'TextColor', ink, 'Color', surf_c, 'EdgeColor', axis_c);
+    ax = nexttile;  hold(ax, 'on');
+    lst = struct('none', ':', 'walk', '-', 'thermal', '--');
+    for j = 1:numel(RD)
+        for kd = 1:numel(kinds)
+            ss = nan(1, numel(NPH));
+            for q = 1:numel(NPH)
+                i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, kinds{kd}) & [res.nph] == NPH(q), 1);
+                if ~isempty(i), ss(q) = res(i).L.ss*1e9; end
+            end
+            loglog(ax, NPH, ss, [lst.(kinds{kd}) 'o'], 'Color', colof(RD{j}), 'LineWidth', 2, 'MarkerSize', 6, ...
+                'MarkerFaceColor', colof(RD{j}), 'MarkerEdgeColor', surf_c, 'DisplayName', sprintf('%s, %s', lbl.(name(RD{j})), kinds{kd}));
+        end
+    end
+    yline(ax, LO.hold_spec*1e9, ':', 'Color', ink2, 'LineWidth', 1.5, 'HandleVisibility', 'off');
+    text(ax, NPH(1)*1.3, LO.hold_spec*1e9*1.25, sprintf('%g pm hold spec', LO.hold_spec*1e9), 'Color', ink2, 'FontSize', 10);
+    set(ax, 'XScale', 'log', 'YScale', 'log');
+    xlabel(ax, 'photons per cycle (per DM state; a reading''s frames share it)', 'Color', ink2);
+    ylabel(ax, 'steady-state hold error over lit, pm rms', 'Color', ink2);
+    title(ax, 'Hold error vs photons per cycle (drift: dotted none, solid walk, dashed thermal)', 'Color', ink, 'FontWeight', 'normal');
+    grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);
+    legend(ax, 'Location', 'southwest', 'TextColor', ink, 'Color', surf_c, 'EdgeColor', axis_c, 'FontSize', 8);
+    fn = fullfile(P.outdir, sprintf('%s_loop.png', P.tag));
     exportgraphics(f, fn, 'Resolution', 110, 'BackgroundColor', surf_c);  close(f);
     fprintf('wrote %s\n', fn);
 end

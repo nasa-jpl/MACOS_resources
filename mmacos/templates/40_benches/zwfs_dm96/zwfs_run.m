@@ -13,9 +13,13 @@ function out = zwfs_run(varargin)
 %   registers the camera to the DM by the two-poke doctrine, calibrates
 %   each reading's response kernel and modal transfer, and measures the
 %   differential rows and the working-state ladder -- in ACTUATOR space,
-%   all errors in pm.  Optional stages add the multi-color combination and
-%   the photon-noise pricing.  Every number goes to the report; every
-%   gate prints its value and its threshold.
+%   all errors in pm.  Optional stages add the multi-color combination,
+%   the photon-noise pricing and the closed-loop HOLD metric (stage
+%   'loop': the DM held at the working surface by a servo closed through
+%   one reading, scored as the steady-state hold error vs photons per
+%   cycle -- dm_gauge_lib/dmg_loop, shared with the interferometer).
+%   Every number goes to the report; every gate prints its value and its
+%   threshold.
 %
 %   OUTPUTS (in <this dir>/runs/<tag>/ unless P.outdir is set):
 %     <tag>_report.txt    the record (console is tee'd)
@@ -59,6 +63,7 @@ out.bench = S.summary;
 if want('battery'), out.battery = stage_battery_(P, S, rep); end
 if want('color'),   out.color   = stage_color_(P, S, rep);   end
 if want('noise'),   out.noise   = stage_noise_(P, S, out, rep); end
+if want('loop'),    out.loop    = stage_loop_(P, S, rep);  end
 dmg_say(rep, 'run complete in %.1f min\n', toc(t_all)/60);
 fclose(rep);
 save(sprintf('%s.mat', P.tag), 'out');
@@ -84,7 +89,7 @@ if ~isempty(P.dm_use), P.dm = P.dm(P.dm_use); end
 if ~isempty(P.hold), for i = 1:numel(P.dm), P.dm(i).hold = P.hold; end; end
 ok = {'L','F','I','I+','S'};
 assert(all(ismember(P.readings, ok)), 'zwfs_run: readings must be a subset of %s', strjoin(ok, ' '));
-assert(all(ismember(P.stages, {'bench','battery','color','noise','figs'})), 'zwfs_run: unknown stage');
+assert(all(ismember(P.stages, {'bench','battery','color','noise','loop','figs'})), 'zwfs_run: unknown stage');
 end
 
 function n = index_(P, lam_mm)
@@ -938,4 +943,172 @@ for c = 1:nc
 end
 dmg_say(rep, 'noise stage %.1f min\n', toc(t0)/60);
 NO = struct('cols',{lab}, 'nstates',NS, 'nreal',NR, 'sig_pm',sig, 'flr_pm',flr, 'g',gm, 'n_1pm',n1pm);
+end
+
+% =====================================================================
+%  stage: loop -- the closed-loop hold metric (Dave 2026-09-11)
+% =====================================================================
+function LO = stage_loop_(P, S, rep)
+t0 = tic;
+ZW = S.ZW;  cfg = P.dm(1);  NACT = cfg.nact;
+RD = P.loop.readings;  assert(all(ismember(RD, P.readings)), 'loop.readings must be a subset of P.readings');
+KC = cellfun(@class_, RD);  classes = unique(KC);
+g = P.loop.g;  K = P.loop.K;  NPH = P.loop.nph(:).';  DR = P.loop.drifts;
+dmg_say(rep, '\n---- loop: closed-loop hold, DM %dx%d, readings %s ----\n', NACT, NACT, strjoin(RD, ' '));
+dmg_say(rep, 'loop: gain %.2f, %d cycles (steady state = last %d), set point = %s, reference frames %s, drift seed %d; each cycle = ONE traced state + the reading''s frames with photon noise, differential to the set point through the measured matrix\n', ...
+    g, K, floor(K/2), P.loop.surface, P.loop.ref, P.loop.seed);
+dmg_say(rep, 'dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)\n');
+% ---- calibration ON the set point --------------------------------------
+Pl = P;  Pl.battery.calib_surface = ifelse_(strcmp(P.loop.surface, 'base'), 'base', 'flat');
+C = calibrate_(Pl, S, ZW, cfg, classes);
+lit = C.lit;  A0 = C.Abase;
+dmg_say(rep, 'calibration: %s on the %s (%s); lit actuators %d\n', ifelse_(strcmp(P.battery.calib_mode,'matrix'), 'measured response matrix', 'kernel'), ...
+    Pl.battery.calib_surface, ifelse_(strcmp(Pl.battery.calib_surface,'base'), sprintf('%g nm rms, seed %d', P.battery.base_rms*1e6, P.battery.seed_base), 'flat DM'), nnz(lit));
+if ~strcmp(P.battery.calib_mode, 'matrix')
+    dmg_say(rep, 'NOTE: kernel calibration -- the loop stage is specified for the measured matrix (battery.calib_mode ''matrix''); the modal correction is NOT applied here\n');
+end
+% the set point's stepped frames (once): the I+ prior for every cycle
+F0ref = frames_(ZW, C.dmap(A0), true);
+plusb = [];  if any(strcmp(RD, 'I+')), plusb = ZW.priorS(F0ref.Ia, F0ref.Fr); end
+% ---- the runs ---------------------------------------------------------------
+res = struct('rd',{}, 'drift',{}, 'nph',{}, 'amp',{}, 'L',{});
+nrun = numel(RD) * (numel(P.loop.steps) + numel(NPH)*(P.loop.floor + numel(DR)));
+dmg_say(rep, '%d loop runs of %d states each (%d traced states)\n', nrun, K+1, nrun*(K+1));
+irun = 0;
+for j = 1:numel(RD)
+    rd = RD{j};  kc = KC(j);
+    ins = struct('lit', lit, ...
+        'measure', @(cmd) frames_(ZW, C.dmap(cmd), strcmp(rd, 'S')), ...
+        'noisy',   @(F, nph, seed) noisy_frames_(ZW, F, nph, seed, rd), ...
+        'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb), ...
+        'est',     C.est{kc});
+    base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref);
+    % noiseless steps: time constant + dynamic range
+    for amp = P.loop.steps
+        o = base;  o.nph = Inf;  o.drift = struct('kind', 'step', 'amp', amp);
+        L = dmg_loop(ins, o);  irun = irun + 1;
+        res(end+1) = struct('rd',rd, 'drift','step', 'nph',Inf, 'amp',amp, 'L',L); %#ok<AGROW>
+        fprintf('[loop %d/%d] %s step %g nm: rho %.3f, residual at K %.2f pm (%.1f min)\n', irun, nrun, rd, amp*1e6, L.rho, L.rms(end)*1e9, toc(t0)/60);
+    end
+    for nph = NPH
+        kinds = DR;  if P.loop.floor, kinds = [{'none'} DR]; end
+        for kd = 1:numel(kinds)
+            o = base;  o.nph = nph;
+            switch kinds{kd}
+                case 'none',    o.drift = struct('kind', 'none');  amp = 0;
+                case 'walk',    o.drift = struct('kind', 'walk', 'sigma', P.loop.walk_sigma);  amp = P.loop.walk_sigma;
+                case 'thermal', o.drift = struct('kind', 'thermal', 'rate', P.loop.thermal_rate);  amp = P.loop.thermal_rate;
+                otherwise,      error('zwfs_run: loop.drifts must be a subset of walk | thermal');
+            end
+            L = dmg_loop(ins, o);  irun = irun + 1;
+            res(end+1) = struct('rd',rd, 'drift',kinds{kd}, 'nph',nph, 'amp',amp, 'L',L); %#ok<AGROW>
+            fprintf('[loop %d/%d] %s %s @ %.0e photons: ss %.2f pm, bias %.2f pm, sig_n %.2f pm (%.1f min)\n', irun, nrun, rd, kinds{kd}, nph, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, toc(t0)/60);
+        end
+    end
+end
+% ---- tables -------------------------------------------------------------------
+pm = @(x) x*1e9;
+dmg_say(rep, '\nstep response (noiseless; a step of the given rms at cycle 1).  rho = fitted per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, r(K/2) and r(K) = residual (pm) at cycles %d and %d -- a residual that stops falling is the reading''s noiseless bias floor on this surface\n', floor(K/2), K);
+dmg_say(rep, '%8s |', 'step');
+for j = 1:numel(RD), dmg_say(rep, ' %-38s|', sprintf('%s: rho tau k1e r(K/2) r(K)', RD{j})); end
+dmg_say(rep, '\n');
+for amp = P.loop.steps
+    dmg_say(rep, '%5.0f nm |', amp*1e6);
+    for j = 1:numel(RD)
+        i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, 'step') & [res.amp] == amp, 1);  L = res(i).L;
+        dmg_say(rep, ' %6.3f %6.1f %4s %10.3f %10.3f |', L.rho, L.tau, fmt0_(L.k_1e), pm(L.rms(floor(K/2))), pm(L.rms(end)));
+    end
+    dmg_say(rep, '\n');
+end
+kinds = DR;  if P.loop.floor, kinds = [{'none'} DR]; end
+for kd = 1:numel(kinds)
+    switch kinds{kd}
+        case 'none',    lab = 'noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g))';
+        case 'walk',    lab = sprintf('random walk, %g pm per actuator per cycle', P.loop.walk_sigma*1e9);
+        case 'thermal', lab = sprintf('thermal ramp, %g pm rms per cycle (defocus + astigmatism)', P.loop.thermal_rate*1e9);
+    end
+    dmg_say(rep, '\nhold error vs photons per cycle -- %s.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n\n', lab);
+    dmg_say(rep, '%9s |', 'N/cycle');
+    for j = 1:numel(RD), dmg_say(rep, ' %-30s|', sprintf('%s: ss bias sig_n th', RD{j})); end
+    dmg_say(rep, '\n');
+    for nph = NPH
+        dmg_say(rep, '%9.1e |', nph);
+        for j = 1:numel(RD)
+            i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, kinds{kd}) & [res.nph] == nph, 1);  L = res(i).L;
+            switch kinds{kd}
+                case 'none',    th = L.theory.ss_noise;
+                case 'walk',    th = L.theory.ss_walk;
+                case 'thermal', th = hypot(L.theory.lag_ramp, L.theory.ss_noise);
+            end
+            dmg_say(rep, ' %7.2f %6.2f %6.2f %6.2f |', pm(L.ss), pm(L.bias), pm(L.sig_n), pm(th));
+        end
+        dmg_say(rep, '\n');
+    end
+end
+% ---- the one number: photons per cycle to hold the spec ------------------------
+spec = P.loop.hold_spec;
+dmg_say(rep, '\nphotons per cycle to hold %.1f pm rms (log-log interpolation of ss over N; ''floor x'' = not reached: the noise-free residual sits at x pm):\n', spec*1e9);
+dmg_say(rep, '%-8s |', 'drift');
+for j = 1:numel(RD), dmg_say(rep, ' %-14s|', RD{j}); end
+dmg_say(rep, '\n');
+n_hold = nan(numel(kinds), numel(RD));
+for kd = 1:numel(kinds)
+    dmg_say(rep, '%-8s |', kinds{kd});
+    for j = 1:numel(RD)
+        ss = nan(1, numel(NPH));  bias = ss;
+        for q = 1:numel(NPH)
+            i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, kinds{kd}) & [res.nph] == NPH(q), 1);
+            ss(q) = res(i).L.ss;  bias(q) = res(i).L.bias;
+        end
+        [n_hold(kd,j), txt] = hold_photons_(NPH, ss, bias, spec);
+        dmg_say(rep, ' %-14s|', txt);
+    end
+    dmg_say(rep, '\n');
+end
+% ---- spectrum of the held residual at the highest photon level ------------------
+dmg_say(rep, '\nspectrum of the held residual at %.0e photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture\n', NPH(end));
+for kd = 1:numel(kinds)
+    dmg_say(rep, '%-8s |', kinds{kd});
+    for j = 1:numel(RD)
+        i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, kinds{kd}) & [res.nph] == NPH(end), 1);
+        dmg_say(rep, ' %s: %5.2f %5.2f %5.2f |', RD{j}, pm(res(i).L.spec.band));
+    end
+    dmg_say(rep, '\n');
+end
+dmg_say(rep, 'loop stage %.1f min (%d traced states)\n', toc(t0)/60, nrun*(K+1));
+macos.set_elt_grid(S.iTO, macos.get_elt_grid_spacing(S.iTO), zeros(P.grid.N_G));
+LO = struct('readings',{RD}, 'drifts',{kinds}, 'nph',NPH, 'steps',P.loop.steps, 'g',g, 'K',K, ...
+    'surface',P.loop.surface, 'hold_spec',spec, 'n_hold',n_hold, 'lit',lit, 'A0',A0, 'res',res);
+end
+
+function Fn = noisy_frames_(ZW, F, nph, seed, rd)
+% photon noise on a captured state's frames: nph photons per STATE, split
+% over the reading's frames (L / I+ one frame at nph; S four at nph/4),
+% the S5 model; the stepped retrieval X is redone from the noisy frames
+Fn = F;
+if ~isfinite(nph), return; end
+rs = RandStream('mt19937ar', 'Seed', seed);
+shot = @(I, n) I .* (1 + randn(rs, size(I)) ./ sqrt(max(I / sum(I(:)) * n, 1)));
+if strcmp(rd, 'S')
+    for k = 1:size(F.Fr, 3), Fn.Fr(:,:,k) = shot(F.Fr(:,:,k), nph/4); end
+    Fn.X = ZW.reconS(Fn.Fr);
+else
+    Fn.Ia = shot(F.Ia, nph);
+end
+end
+
+function [n, txt] = hold_photons_(NPH, ss, bias, spec)
+% photons per cycle at which the steady-state rms crosses spec (log-log
+% interpolation); NaN + a reason when the curve never crosses
+n = NaN;
+if all(ss > spec)
+    txt = sprintf('floor %.1f', min(ss)*1e9);
+    if ss(end) > spec && bias(end) < spec, txt = sprintf('> %.0e', NPH(end)); end
+    return
+end
+if ss(1) <= spec, n = NPH(1);  txt = sprintf('< %.0e', NPH(1));  return; end
+q = find(ss <= spec, 1);                                     % first point at or under spec
+x = log(NPH(q-1:q));  y = log(ss(q-1:q));
+n = exp(x(1) + (log(spec) - y(1)) * (x(2)-x(1)) / (y(2)-y(1)));
+txt = sprintf('%.1e', n);
 end

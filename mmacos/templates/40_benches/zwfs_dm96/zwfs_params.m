@@ -23,6 +23,7 @@ P.stages = {'bench', 'battery', 'figs'};
                              %           (per DM config in P.dm)
                              % 'color'   the multi-wavelength stage (P.color; P.dm(1) only)
                              % 'noise'   photon-shot pricing of every reading (P.noise)
+                             % 'loop'    the closed-loop HOLD metric (P.loop): on-orbit servo mode
                              % 'figs'    PNGs of whatever ran
 P.readings = {'L', 'F', 'I', 'I+', 'S'};
                              % L  frozen-reference linear, 1 frame
@@ -181,4 +182,33 @@ P.noise.prior   = {'split', 'noiseless'};     % I+ prior frames: 'split' = the b
                                               % 'full' = N per frame; 'noiseless' = the prior
                                               % treated as calibration
 P.noise.seed = 1000;
+
+% ---- closed-loop hold stage (Dave 2026-09-11: the on-orbit metric) ----------
+% The DM is held at the working surface by a proportional loop closed through
+% ONE reading: each cycle the state is traced, photon noise injected, the
+% differential to the set point's frames fitted through the measured matrix,
+% and g times the estimate removed.  Shared loop code: dm_gauge_lib/dmg_loop
+% (the IFO runs the identical loop, drift realizations and scoring).  The
+% metric = steady-state rms surface error over lit (pm) against each drift,
+% as a curve in photons per cycle; the ONE number = photons per cycle to hold
+% P.loop.hold_spec.  Cost: K+1 traced states per (reading, drift, photon level).
+P.loop.readings = {'L', 'I+', 'S'};           % subset of P.readings (1 / 1 / 4 frames per state)
+P.loop.surface  = 'base';                     % the set point: 'base' = the working surface
+                                              % (battery.base_rms, seed_base) with the matrix
+                                              % calibrated ON it (S10) | 'flat'
+P.loop.g        = 0.5;                        % loop gain
+P.loop.K        = 60;                         % cycles (steady state = the last K/2)
+P.loop.nph      = [1e12 1e13 1e14 1e15];      % photons per DM STATE per cycle (a reading's frames share it)
+P.loop.drifts   = {'walk', 'thermal'};        % drift models run at every photon level
+P.loop.walk_sigma   = 2e-9;                   % mm per actuator per cycle (2 pm random walk)
+P.loop.thermal_rate = 5e-9;                   % mm rms per cycle of a defocus + astigmatism ramp (5 pm)
+P.loop.steps    = [1e-6 10e-6];               % mm rms: NOISELESS step disturbances at cycle 1 -- the
+                                              % time constant (G1) and the dynamic range (a step the
+                                              % reading cannot track leaves a residual)
+P.loop.floor    = true;                       % also the noise-only loop at every photon level (G2)
+P.loop.ref      = 'noiseless';                % set-point frames: 'noiseless' (calibration-grade,
+                                              % averaged) | 'noisy' (ONE exposure at nph: its noise
+                                              % is a fixed bias the loop converges to)
+P.loop.seed     = 77;                         % the drift realization (the IFO uses the same seed)
+P.loop.hold_spec = 3e-9;                      % mm: the hold level priced in photons per cycle (3 pm)
 end
