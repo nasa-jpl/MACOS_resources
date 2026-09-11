@@ -97,12 +97,24 @@ P.reg.POKE = 20e-6;          % registration/kernel poke, mm (20 nm: inside the l
 P.reg.min_corr = 0.4;        % selection gate: |corr| of the winning parity
 P.reg.min_sep  = 0.3;        % and its separation from the runner-up
 P.reg.hw = 6;                % kernel stencil half-width, actuators
+P.reg.stencil_site = 'lattice';
+                             % where the kernel stencil is sampled about the poke: 'lattice' =
+                             % the exact actuator centre (default since 2026-09-10: own-site
+                             % gain 0.958 -> 0.992, test-actuator gain 0.900 -> 0.946 at 193);
+                             % 'grid' = the map-grid point nearest the poke's peak (up to half
+                             % a grid pitch, 0.14 mm, off centre) -- the S1-S8 record; use it to
+                             % reproduce zwfs_s7iter_report.txt
+P.reg.kernel_site = 'center';% where the response kernel is measured: 'center' (the record),
+                             % 'hold' (the test actuator, P.dm(i).hold) or [row col].  The
+                             % registration anchor always comes from the centre poke.
 
 % ---- DM configurations (each gets the full battery) ---------------------
 P.dm(1).nact  = 96;  P.dm(1).pitch = 1.0;  P.dm(1).hold = [60 40];
 P.dm(1).PQ = [1 0;2 0;4 0;8 0;16 0;24 0;32 0;40 0;48 0;56 0;64 0;72 0;80 0;8 8;24 24];
 P.dm(2).nact  = 48;  P.dm(2).pitch = 2.0;  P.dm(2).hold = [30 20];
 P.dm(2).PQ = [1 0;2 0;4 0;8 0;12 0;16 0;24 0;32 0;40 0;8 8;16 16];
+P.dm_use = [];               % which P.dm entries to run ([] = all; e.g. 1 = 96x96 only)
+P.hold   = [];               % if set, replaces every P.dm(i).hold (the test actuator)
                              % hold = the held-out single actuator (row, col);
                              % PQ = modal probes cos(pi p x) cos(pi q y): (p,0) rows carry the
                              % separable transfer, (p,p) rows are the separability check
@@ -126,6 +138,32 @@ P.battery.ladder_sites = 'hold';
                              % (grid_step) -- gain and floor over ~50 sites, the robust form
 P.battery.rows = {'flat/hold', 'flat/rand', 'base/single', 'base/grid', 'base/rand'};
                              % the differential rows; any subset in this order
+P.battery.calib_mode = 'matrix';
+                             % 'matrix' (default since 2026-09-10, Dave) = the MEASURED response
+                             % matrix dw/da: every lit actuator poked once in sparse multiplexed
+                             % grids (matrix_step), its response cut from its own detector
+                             % window, the sensor's piston null carried as a rank-one term;
+                             % estimator = regularized least squares on that matrix -- no
+                             % single-site kernel, no frequency correction (measured response
+                             % 0.98-1.07 at every frequency; single-actuator test 0.994 / 4 pm);
+                             % 'kernel' = one measured response kernel (at reg.kernel_site) +
+                             % lattice deconvolution + the modal correction -- the S1-S9 record
+P.battery.matrix_step = 8;   % grid step of the multiplexed pokes (no response overlap at 8)
+P.battery.matrix_lam  = 1e-3;% Tikhonov weight relative to the median column energy of J
+P.battery.matrix_sign = 'same';
+                             % 'same' = all pokes positive (default: single-actuator test 0.994 /
+                             % 4 pm vs 0.987 / 11 pm alternating; the linear reading's +/-
+                             % asymmetry costs it 0.67 under alternation); 'alternate' =
+                             % checkerboard of +/- pokes over each grid -- zero-mean pattern, no
+                             % shared pedestal, and on a real bench common-mode drift cancels
+                             % between the sets (Dave 2026-09-10); the piston-null term handles
+                             % the pedestal in either case
+P.battery.calib_surface = 'flat';
+                             % 'flat' = kernel + modal transfer measured on the flat DM (the
+                             % record); 'base' = measured on the working surface itself
+                             % (base_rms, seed_base), differentially, the exact class read
+                             % with the base's refined sign map -- the calibration a bench
+                             % would make in place
 
 % ---- multi-color stage (Dave 2026-09-08) ---------------------------------
 P.color.lams_nm  = [632.8 480 532 700 780];   % P.LAM's color FIRST (lit + bases + record tie-in)

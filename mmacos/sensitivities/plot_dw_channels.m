@@ -108,13 +108,13 @@ for ip = 1:np
     end
     rng = local_range(lbl(p.idx));
     if p.nparts > 1                      % one block over several pages
-        rng = sprintf('%s [%d of %d]', rng, p.part, p.nparts);
+        rng = sprintf('%s [part %d of %d]', rng, p.part, p.nparts);
     end
     if np == 1
         head = ttl;
         file = fullfile(here, pngname);
     else
-        head = sprintf('%s -- %s (p%d/%d)', ttl, rng, ip, np);
+        head = sprintf('%s -- %s (pg %d of %d)', ttl, rng, ip, np);
         if ~isfolder(pdir), mkdir(pdir); end
         file = fullfile(pdir, sprintf('%s_p%02d%s', stem, ip, ext));
     end
