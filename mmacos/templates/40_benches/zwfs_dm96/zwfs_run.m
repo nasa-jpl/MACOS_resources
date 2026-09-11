@@ -861,7 +861,7 @@ ZW = S.ZW;  cfg = P.dm(1);  NACT = cfg.nact;
 RD = P.noise.readings;  assert(all(ismember(RD, P.readings)), 'noise.readings must be a subset of P.readings');
 KC = cellfun(@class_, RD);  classes = unique(KC);
 dmg_say(rep, '\n---- noise: DM %dx%d, readings %s ----\n', NACT, NACT, strjoin(RD, ' '));
-dmg_say(rep, 'scenario: single act (%d,%d) %g nm differential on the %g nm rms working state; axis = photons per DM STATE (a reading''s frames share it: L/F/I/I+ 1 frame, S 4)\n', ...
+dmg_say(rep, 'scenario: single act (%d,%d) %g nm differential on the %g nm rms working state; axis = photons per MEASUREMENT (one DM shape measured once; a reading''s frames share it: L/F/I/I+ 1 frame, S 4)\n', ...
     cfg.hold(1), cfg.hold(2), P.battery.dev_single*1e6, P.battery.base_rms*1e6);
 dmg_say(rep, 'I+ prior frames (the base''s 4 stepped frames, taken once): %s\n', strjoin(P.noise.prior, ' / '));
 fn = sprintf('n%d', NACT);
@@ -891,7 +891,7 @@ for j = 1:numel(RD)
 end
 nc = size(cols,1);
 lab = cellfun(@(r, p) ifelse_(isempty(p), r, sprintf('%s(%s)', r, p)), cols(:,1), cols(:,2), 'UniformOutput', false);
-dmg_say(rep, '%10s |', 'N/state');
+dmg_say(rep, '%10s |', 'N/meas');
 for c = 1:nc, dmg_say(rep, ' %-24s|', sprintf('%s: sig flr g', lab{c})); end
 dmg_say(rep, '\n');
 NS = P.noise.nstates;  NR = P.noise.nreal;
@@ -938,7 +938,7 @@ for c = 1:nc
     if nnz(use) >= 2
         cc = exp(mean(log(sig(use,c)) + 0.5*log(NS(use).')));
         n1pm(c) = cc^2;
-        dmg_say(rep, '%-14s sigma ~ %.3g/sqrt(N) pm  ->  N(1 pm) ~ %.2e photons/state\n', lab{c}, cc, cc^2);
+        dmg_say(rep, '%-14s sigma ~ %.3g/sqrt(N) pm  ->  N(1 pm) ~ %.2e photons/measurement\n', lab{c}, cc, cc^2);
     end
 end
 dmg_say(rep, 'noise stage %.1f min\n', toc(t0)/60);
@@ -955,7 +955,7 @@ RD = P.loop.readings;  assert(all(ismember(RD, P.readings)), 'loop.readings must
 KC = cellfun(@class_, RD);  classes = unique(KC);
 g = P.loop.g;  K = P.loop.K;  NPH = P.loop.nph(:).';  DR = P.loop.drifts;
 dmg_say(rep, '\n---- loop: closed-loop hold, DM %dx%d, readings %s ----\n', NACT, NACT, strjoin(RD, ' '));
-dmg_say(rep, 'loop: gain %.2f, %d cycles (steady state = last %d), set point = %s, reference frames %s, drift seed %d; each cycle = ONE traced state + the reading''s frames with photon noise, differential to the set point through the measured matrix\n', ...
+dmg_say(rep, 'loop: gain %.2f, %d cycles (steady state = last %d), set point = %s, reference frames %s, drift seed %d; each cycle = ONE measurement (the DM shape traced once, the reading''s frames with N photons), differential to the set point through the measured matrix\n', ...
     g, K, floor(K/2), P.loop.surface, P.loop.ref, P.loop.seed);
 dmg_say(rep, 'dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)\n');
 % ---- calibration ON the set point --------------------------------------
@@ -1028,7 +1028,7 @@ for kd = 1:numel(kinds)
         case 'walk',    lab = sprintf('random walk, %g pm per actuator per cycle', P.loop.walk_sigma*1e9);
         case 'thermal', lab = sprintf('thermal ramp, %g pm rms per cycle (defocus + astigmatism)', P.loop.thermal_rate*1e9);
     end
-    dmg_say(rep, '\nhold error vs photons per cycle -- %s.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n\n', lab);
+    dmg_say(rep, '\nhold error vs photons per cycle (= per measurement, one per cycle) -- %s.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n\n', lab);
     dmg_say(rep, '%9s |', 'N/cycle');
     for j = 1:numel(RD), dmg_say(rep, ' %-30s|', sprintf('%s: ss bias sig_n th', RD{j})); end
     dmg_say(rep, '\n');
@@ -1093,7 +1093,8 @@ if L.diverged, t = sprintf(' DIVERGED at cycle %d', L.k_end); else, t = ''; end
 end
 
 function Fn = noisy_frames_(ZW, F, nph, seed, rd)
-% photon noise on a captured state's frames: nph photons per STATE, split
+% photon noise on a captured state's frames: nph photons per MEASUREMENT (one
+% DM shape measured once), split
 % over the reading's frames (L / I+ one frame at nph; S four at nph/4),
 % the S5 model; the stepped retrieval X is redone from the noisy frames
 Fn = F;

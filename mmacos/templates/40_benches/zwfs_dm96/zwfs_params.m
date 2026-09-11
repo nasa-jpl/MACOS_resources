@@ -7,7 +7,8 @@ function P = zwfs_params()
 %       zwfs_run('NGRID',385, 'mask.DIA_LAMD',3, 'stages',{'battery','figs'})
 %
 %   UNITS: lengths mm (the bench decks' BaseUnits), wavelengths mm, DM
-%   heights mm (20e-6 = 20 nm), phases rad, photons per DM state.
+%   heights mm (20e-6 = 20 nm), phases rad, photons per MEASUREMENT (one DM
+%   shape measured once; a reading's frames share the count).
 %
 %   The defaults reproduce the S7 record (zwfs_s7iter_report.txt) when
 %   run with stages {'bench','battery'}: same bench, same seeds, same
@@ -174,7 +175,8 @@ P.color.BETA     = 0.1;
 P.color.dc       = 'unit';                    % combiner DC form: 'unit' (g(0)=1) | 'record'
 
 % ---- photon-noise stage ----------------------------------------------------
-P.noise.nstates = 10.^(6:2:14);               % photons per DM STATE (split over a reading's frames)
+P.noise.nstates = 10.^(6:2:14);               % photons per MEASUREMENT of one DM shape (split over a
+                                              % reading's frames; the knob keeps its historical name)
 P.noise.nreal   = 8;                          % Monte-Carlo realizations per point
 P.noise.readings = {'L', 'F', 'I', 'I+', 'S'};
 P.noise.prior   = {'split', 'noiseless'};     % I+ prior frames: 'split' = the base's 4 stepped
@@ -192,13 +194,13 @@ P.noise.seed = 1000;
 % metric = steady-state rms surface error over lit (pm) against each drift,
 % as a curve in photons per cycle; the ONE number = photons per cycle to hold
 % P.loop.hold_spec.  Cost: K+1 traced states per (reading, drift, photon level).
-P.loop.readings = {'L', 'I+', 'S'};           % subset of P.readings (1 / 1 / 4 frames per state)
+P.loop.readings = {'L', 'I+', 'S'};           % subset of P.readings (1 / 1 / 4 frames per measurement)
 P.loop.surface  = 'base';                     % the set point: 'base' = the working surface
                                               % (battery.base_rms, seed_base) with the matrix
                                               % calibrated ON it (S10) | 'flat'
 P.loop.g        = 0.5;                        % loop gain
 P.loop.K        = 60;                         % cycles (steady state = the last K/2)
-P.loop.nph      = [1e12 1e13 1e14 1e15];      % photons per DM STATE per cycle (a reading's frames share it)
+P.loop.nph      = [1e12 1e13 1e14 1e15];      % photons per MEASUREMENT, one per cycle (a reading's frames share it)
 P.loop.drifts   = {'walk', 'thermal'};        % drift models run at every photon level
 P.loop.walk_sigma   = 2e-9;                   % mm per actuator per cycle (2 pm random walk)
 P.loop.thermal_rate = 5e-9;                   % mm rms per cycle of a defocus + astigmatism ramp (5 pm)
