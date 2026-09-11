@@ -19,13 +19,22 @@ imaging is an open design item (below) — handed back for a fold-relay decision
 - **OAP finding 2 (null):** the OAP flat-DM null floors at **12.9 nm** (lens
   0.134 nm) — a low-order (mostly defocus) ARM-DIFFERENCE the rotationally-
   symmetric field-lens tail (common to both arms) cannot null.
-- **OAP finding 3 (OPEN, the blocker):** the OAP rig **cannot image the DM
-  pupil** — a single-actuator poke recovers ≈0 nm (lens: 146 nm) and
-  registration fails. A detector-conjugate sweep finds **no plane** that images
-  the poke faithfully (peak grows monotonically, never near the true poke
-  height), so refocusing alone (option 1) does not recover it — consistent with
-  off-axis-focuser astigmatism on the large DM pupil. Needs option 2 (a
-  reflective pupil relay) or option 3 (field lens as the on-axis pupil imager).
+- **OAP finding 3 (RESOLVED — the reflective gauge WORKS):** the earlier
+  "cannot image" was a **poke-placement artifact**, not an optical defect.
+  `macos.pupil_quality` (Dave's rodgers2 metric) first ruled out the
+  astigmatism/defocus hypotheses: the OAP exit pupil is **cleaner than the
+  lens** (|astig| **0.144** / sag 0.273 mm vs **1.025** / 1.161 mm) and the
+  detector sits at the true pupil vertex (0.000 mm offset). Then, per Dave, the
+  OAP illuminated pupil is **smaller** (mask 18376 vs 28917 px) and shifted, so
+  a circular beam on the square DM leaves the **center actuator OUTSIDE** the
+  pupil. Measured recovery vs actuator radius (OAP rig): center (48,48) **0.0
+  nm**, but (48,56)…(48,88) recover **129→135 nm** — i.e. **in-pupil actuators
+  image as well as the lens (131 nm)**. The battery aborted only because its
+  hardcoded `'single'`/registration pokes assume the (larger) lens pupil and
+  land on/near the center. **Fix (runner-level):** place the OAP calibration
+  pokes on illuminated actuators (via `dm_gauge_lib/dmg_lit`, the msk→DM
+  mapping), not a fixed center. Then the OAP battery runs. No relay, no engine
+  work, no astigmatism problem.
 
 ## Lens equivalence gate (model 1024) — EXACT
 
@@ -65,15 +74,17 @@ flat-DM null (the tail's tuning objective) is blind to it. This is the
 "significant effect from same-plane folds" the brief asked us to measure —
 here it is significant enough to prevent pupil imaging with the single-OAP tail.
 
-## Recommendation / handoff
+## Resolution / next step
 
-The pupil relay is a design decision (Dave's option list): **(2)** add a
-reflective pupil relay in the tail (a second OAP or an Offner `add_relay`) so
-the DM re-images without astigmatism, or **(3)** re-derive the (transmissive)
-field lens as the on-axis pupil imager after the OAP focus. Option 1 (retune the
-existing tail on sharpness) does not converge — the sweep shows no faithful
-pupil plane exists for the single-OAP tail. Recommend option 2 (all-reflective,
-matches the intent) as a focused follow-on.
+No relay, no engine work: the reflective gauge images the DM as well as the lens
+rig for in-pupil actuators. The one runner change is **poke placement**: for the
+OAP rig the calibration/registration pokes (Stage C) must be chosen from the
+illuminated actuators (the OAP pupil is smaller and shifted; the center is
+outside it), using `dm_gauge_lib/dmg_lit` to map the illuminated mask back to DM
+actuators. With that, the OAP battery (Stage C–E, side-by-side pm table) runs.
+The ~12.9 nm flat-DM null remains a same-plane-fold cost worth reporting, but it
+is a low-order common systematic the differential rows cancel — to be quantified
+once the in-pupil battery runs.
 
 ## Deliverable status vs the brief
 
