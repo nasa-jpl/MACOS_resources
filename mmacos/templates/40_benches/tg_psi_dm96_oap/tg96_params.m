@@ -82,4 +82,44 @@ P.battery.diff_rand_nm   = 10;     % dense-random deviation
 P.battery.diff_rand_seed = 23;
 P.battery.base_rand_nm   = 16;     % working-state random base (rms-ish)
 P.battery.base_rand_seed = 11;
+
+% ---- calibration mode (Dave 2026-09-10; the ZWFS S10 default) ---------
+%   'matrix' = the MEASURED response matrix dw/da: poke every matrix_step-th
+%     actuator on a sparse grid (no response overlap), step through the
+%     matrix_step^2 offsets so every lit actuator is poked once, cut each
+%     response from its OWN detector-pixel window placed by the ray affine
+%     (dmg_frame + tg96_place), assemble J (detector px x lit act) and
+%     estimate commands by regularized least squares.  Registration only
+%     PLACES the windows -- the columns carry the actual response, so the
+%     fold's flip/rotation/scale and a real DM's irregularities are in the
+%     calibration by construction.  Comparisons are in ACTUATOR units (pm).
+%   'kernel' = the record: register_two_pokes + one interpolated truth map,
+%     compared in detector-pixel space (Stage C-E as first shipped).
+P.battery.calib_mode  = 'matrix';  % 'matrix' (default) | 'kernel' (the record)
+P.battery.matrix_step = 8;         % sparse-poke grid step (no overlap at 8; hw < step/2 pitch)
+P.battery.matrix_lam  = 1e-3;      % Tikhonov weight, relative to median column energy of J
+P.battery.matrix_sign = 'same';    % 'same' | 'alternate' (zero-mean checkerboard; halos cancel)
+P.battery.matrix_states = inf;     % cap on J-build states (inf = all step^2 = every lit act once)
+P.battery.break_ladder = [30 60 120 240 480];   % base working-state rms (nm) for the break ladder
+% ---- D4 alignment sensitivity (OAP rig): perturb OAP1/OAP2, re-read --------
+P.battery.d4 = false;              % true => Stage D4 (OAP1/OAP2 decenter + tilt sensitivity)
+P.battery.d4_dec_um   = 10;        % decenter perturbation (micron)
+P.battery.d4_tilt_urad = 10;       % tilt perturbation (microradian)
+P.battery.calib_surface = 'flat';  % 'flat' (the record) | 'base' (differential on a working state)
+P.battery.base_rms    = 30e-6;     % working-state rms (mm) for calib_surface 'base' (seed_base)
+P.battery.seed_base   = 7;
+
+% ---- window placement (the affine route; Dave 2026-09-11) ------------
+P.place.mode      = 'affine';      % 'affine' = ray-affine + resolved field parity (both rigs)
+P.place.gate_px   = 2;             % D1 gate: response CoM within gate_px of predicted (u,v)
+P.place.gate_frac = 0.99;          % ... for >= this fraction of lit actuators
+P.place.resolve   = true;          % resolve the field-array parity against a reference poke
+P.place.poly_deg  = 1;             % refit degree: 1=affine (both rigs; fit is robust to outliers)
+P.place.gate_max_states = inf;     % cap the D1-gate sweep states (dev: sample a few)
+P.place.boot_states = 8;           % states for the placement bootstrap/refit (few suffice)
+P.place.gate_assert = true;        % dev: false continues past a failed gate (saves .mat)
+
+% ---- dev / smoke -----------------------------------------------------
+P.smoke = false;                   % true => Stage-A2 sampling asserts become warnings
+                                   %   (code-path checks at coarse MODEL/NGRID; NOT a result)
 end

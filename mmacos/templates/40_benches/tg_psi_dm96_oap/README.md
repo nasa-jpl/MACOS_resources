@@ -57,15 +57,44 @@ dir via `P.param_file` (keep `mGridMat ≥` the DM grid, 384 here).
 
 | file | role |
 |---|---|
-| `tg96_params.m` | every knob of record + `bench.optics` and the OAP fold AOIs |
-| `tg96_run.m`    | Stage A–E, parameterized; drives lens and OAP through one path |
+| `tg96_params.m` | every knob of record + `bench.optics`, OAP fold AOIs, `calib_mode`, `place.*`, `d4` |
+| `tg96_run.m`    | Stage A–E + Stage PLACE (D1) + Stage MATRIX (D2) + Stage D4, one path for lens+OAP |
+| `tg96_place.m`  | window placement from the ray affine (`dmg_frame`) + directional-parity + robust affine refit |
+| `tg96_apply_parity.m` | detector-mm → field pixel under the resolved field-array parity |
 | `tg96_tail.m`   | re-tune FL_F/FL_Kc/D_MASK_FL/DET_TRIM per optics (unaligned null) |
 | `tg96_run_batch.m` / `tg96_batch.sh` | `matlab -batch` wrapper (exit only here) + launcher |
 
+## Calibration mode (Dave 2026-09-10, the ZWFS-S10 default)
+
+`battery.calib_mode`:
+- **`matrix`** (default) — the MEASURED response matrix dw/da: poke every
+  `matrix_step`-th actuator on a sparse grid, step through the offsets so every lit
+  actuator is poked once, cut each response from its own detector window (placed by
+  the ray affine, `tg96_place`), assemble J and estimate commands by regularized LS.
+  Windows are placed by the affine + a robust refit, NOT a parity search — this is
+  what lets the folded OAP rig register where `register_two_pokes` cannot. On the lens
+  it BEATS the kernel record (flat/single-10nm 0.9916/2.2pm vs 0.9654/21pm;
+  flat/random 0.9894 vs 0.9203) with flat modal transfer 0.96–0.99 across the band.
+- **`kernel`** — the record: `register_two_pokes` + one interpolated truth map,
+  compared in detector-pixel space (Stage C–E as first shipped).
+
+## D1 window-placement gate + D4 alignment sensitivity
+
+- `tg96_run('bench.optics','oap','stages',{'bench','place'})` runs the D1 gate:
+  response CoM vs the affine-predicted pixel for every lit actuator, with a
+  non-vacuity check (the old axis-aligned mapping fails). **Lens 100% within 2px;
+  OAP 75% (window containment 98.9%)** — the OAP shortfall is the fold's astigmatism
+  (physical: single-poke == multiplexed; the exact-centre poke reads 0).
+- `battery.d4=true` (OAP) runs Stage D4: perturb OAP1/OAP2 by `d4_dec_um` /
+  `d4_tilt_urad` and re-read the null shift + the single-actuator differential. The
+  null moves ~1.5 nm/µm and ~10 nm/µrad but the differential gain stays 0.99 — the
+  null and alignment drift are common-mode and cancel in the differential.
+
 ## Results
 
-_(Filled by the model-1024 runs: lens equivalence gate vs the `../tg_psi_dm96`
-S3/S4 record, then the OAP rig side-by-side — null before/after tail retune,
-arm-state departure, single-actuator + dense-random differential rows in pm,
-the modal transfer, the same-plane-fold effect on the 0.136 mm distortion row,
-and the OAP alignment-sensitivity table. See `REPORT_oap.md`.)_
+Lens equivalence gate EXACT (model 1024); matrix calibration beats the kernel record;
+the OAP reflective gauge images the DM, reads a localized differential as well as the
+lens (single 0.9948/2.2pm), and its differential is robust to the 12.9 nm null and to
+OAP misalignment — the fold's cost is astigmatism cross-talk (~0.42) on dense/high-
+order patterns (random-10nm 0.75 vs lens 0.99). Full numbers + tables + departures in
+**`REPORT_oap.md`**.
