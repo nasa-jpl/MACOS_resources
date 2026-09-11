@@ -96,6 +96,10 @@ arguments
     % carry over.  Both OAPs fold IN THE BS PLANE (x-y).  OAP conics are set by
     % add_oap (Kr=-2*f_par, Kc=-1); the L1_Kr/L1_Kc/L2_Kr/L2_Kc lens seeds are
     % ignored in 'oap' mode.  'lens' emits BIT-IDENTICALLY to the pre-oap rig.
+    % emit an ExitPupil Reference just before the detector (for
+    % macos.pupil_quality / fex, which need a Return/Reference at nElt-1).
+    % OFF by default -> byte-identical to the pre-oap rig.
+    opts.ep_ref (1,1) logical = false
     opts.optics (1,:) char {mustBeMember(opts.optics,{'lens','oap'})} = 'lens'
     opts.OAP1_AOI (1,1) double {mustBePositive} = 15   % collimator fold AOI, deg
     opts.OAP2_AOI (1,1) double {mustBePositive} = 15   % focuser  fold AOI, deg
@@ -516,7 +520,12 @@ case 'fieldlens'                   % C1: field lens just behind the mask
         s_i2 = 1/(1/P.FL_F - 1/s_o2);
         det_leg = s_i2 - FL.thickness + P.DET_TRIM;
     end
-    ix.iDET = b.add_detector(det_leg, 'Detector');
+    if P.ep_ref
+        ix.iEP  = b.add_reference(det_leg, 'ExitPupil');   % nElt-1 for pupil_quality
+        ix.iDET = b.add_detector(1e-6, 'Detector');
+    else
+        ix.iDET = b.add_detector(det_leg, 'Detector');
+    end
 
 case 'doublet'                     % C2: L2 as two air-spaced singlets
     assert(~strcmp(P.optics,'oap'), ...
