@@ -216,11 +216,44 @@ function battery = stage_CDE_(P, s, G, bench, say)
     gain = median(dp(msk))/(4*pi*P.battery.piston_nm*1e-6/LAM);
     say('  %d nm piston: |gain| %.5f (unaligned scale error %+.3f%%)\n', ...
         P.battery.piston_nm, abs(gain), 100*(abs(gain)-1));
-    Mp = dm_influence_map(N_G, DX_G, 'nact',NACT,'pitch',PITCH,'pattern','single','poke',P.battery.single_nm*1e-6);
+    % In-pupil calibration-poke placement.  A circular beam on the square DM
+    % leaves the geometric-center actuator outside the illuminated footprint for
+    % the OAP rig (smaller/shifted pupil; measured: center 0 nm, off-centre
+    % 130 nm).  LENS keeps the record's fixed placement (equivalence-exact); OAP
+    % places poke A at the DM footprint CENTROID and poke B a radial offset off
+    % it -- both clearly in-pupil (Dave 2026-09-11).
+    if strcmp(P.bench.optics,'oap')
+        macos.load_rx(rxT);  sTO = macos.trace(AT.iTO);  rTO = macos.get_ray_info(sTO.nRays);
+        okT = rTO.ok_trace(:) & rTO.ok_pass(:);
+        psiTO = macos.get_elt_psi(AT.iTO);  vptTO = macos.get_elt_vpt(AT.iTO);
+        u1 = macos.design.Bench.perp(psiTO);  u2 = cross(psiTO, u1);
+        dd = rTO.pos(:,okT) - vptTO;
+        au = (u1.'*dd)/PITCH + (NACT+1)/2;  av = (u2.'*dd)/PITCH + (NACT+1)/2;
+        acc = median(au);  acr = median(av);
+        % the EXACT footprint centre recovers 0 (four-step chief/central-pixel
+        % reference), and the OAP footprint is elliptical (fold foreshortening),
+        % so use the measured PER-AXIS half-extents and place both pokes
+        % off-centre, non-colinear, well inside both extents (measured: in-pupil
+        % actuators image ~130 nm).  clamp to [1,NACT].
+        hw_c = 0.5*(max(au)-min(au));  hw_r = 0.5*(max(av)-min(av));
+        cl = @(x) min(max(round(x),1),NACT);
+        pokeA = [cl(acr - 0.30*hw_r), cl(acc + 0.30*hw_c)];
+        pokeB = [cl(acr + 0.35*hw_r), cl(acc - 0.35*hw_c)];
+        say('  OAP in-pupil pokes: centroid (%.0f,%.0f) half-extent (%.0f,%.0f) -> pokeA %s pokeB %s\n', ...
+            acr, acc, hw_r, hw_c, mat2str(pokeA), mat2str(pokeB));
+    else
+        pokeA = [];  pokeB = P.battery.reg_act;   % [] => dm_influence_map center
+    end
+    if isempty(pokeA)
+        Mp = dm_influence_map(N_G, DX_G, 'nact',NACT,'pitch',PITCH,'pattern','single','poke',P.battery.single_nm*1e-6);
+    else
+        AA = zeros(NACT);  AA(pokeA(1),pokeA(2)) = 1;
+        Mp = dm_influence_map(N_G, DX_G, 'nact',NACT,'pitch',PITCH,'act',P.battery.single_nm*1e-6*AA);
+    end
     hp = meas_surface(AT, QWP, Mp, Sr, p_null, THETAS, LAM);
     say('  single actuator at %d nm: recovered peak %.1f nm\n', P.battery.single_nm, 1e6*max(abs(hp(msk))));
     % registration (two pokes)
-    A2c = zeros(NACT);  A2c(P.battery.reg_act(1), P.battery.reg_act(2)) = 1;
+    A2c = zeros(NACT);  A2c(pokeB(1), pokeB(2)) = 1;
     Mp2 = dm_influence_map(N_G, DX_G, 'nact',NACT,'pitch',PITCH,'act',P.battery.single_nm*1e-6*A2c);
     hp2 = meas_surface(AT, QWP, Mp2, Sr, p_null, THETAS, LAM);
     Mdm = dm_influence_map(N_G, DX_G, 'nact',NACT,'pitch',PITCH,'pattern','checker','poke',P.POKE);

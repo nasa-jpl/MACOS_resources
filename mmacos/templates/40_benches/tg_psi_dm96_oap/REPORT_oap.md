@@ -74,17 +74,29 @@ flat-DM null (the tail's tuning objective) is blind to it. This is the
 "significant effect from same-plane folds" the brief asked us to measure —
 here it is significant enough to prevent pupil imaging with the single-OAP tail.
 
-## Resolution / next step
+## Where it stands (imaging works; registration is the remaining item)
 
-No relay, no engine work: the reflective gauge images the DM as well as the lens
-rig for in-pupil actuators. The one runner change is **poke placement**: for the
-OAP rig the calibration/registration pokes (Stage C) must be chosen from the
-illuminated actuators (the OAP pupil is smaller and shifted; the center is
-outside it), using `dm_gauge_lib/dmg_lit` to map the illuminated mask back to DM
-actuators. With that, the OAP battery (Stage C–E, side-by-side pm table) runs.
-The ~12.9 nm flat-DM null remains a same-plane-fold cost worth reporting, but it
-is a low-order common systematic the differential rows cancel — to be quantified
-once the in-pupil battery runs.
+**The reflective gauge IMAGES the DM as well as the lens rig.** With in-pupil
+pokes (placed at the DM footprint centroid ± a per-axis-extent offset — the
+exact centre recovers 0 due to the four-step chief/central-pixel reference), the
+OAP single-actuator recovers **143 nm** (lens 146/131 nm). The footprint is
+circular (half-extent 41 act), centred on the DM; the pupil is optically clean
+(pupil_quality above). So the reflective optics are validated.
+
+**Remaining blocker: registration for the folded mapping.** `tg96`'s inline
+two-poke registration (a ray affine + 8-parity blob search, tuned for the lens
+rig) returns `|corr| 0.0014` on the OAP rig — the fold's detector→DM pixel
+mapping (flip/rotation/scale; the OAP pupil is 0.8× the lens linear size, mask
+18376 vs 28917 px) is not resolved by the lens-tuned search. The DM images fine;
+only the pixel→actuator registration fails, which gates the closure/transfer/
+differential rows.
+
+Next step (focused): use the robust `dm_gauge_lib/dmg_register` + `dmg_frame`
+(the 8-DOF-class registration the S3/S4 stages use) in place of `tg96`'s inline
+`register_two_pokes` for the OAP rig, so the fold's mapping is picked up. Then
+the OAP battery (Stage C–E, side-by-side pm table) runs. The ~12.9 nm flat-DM
+null remains a same-plane-fold cost (low-order common systematic the differential
+should cancel) to quantify then. No relay, no engine work.
 
 ## Deliverable status vs the brief
 
