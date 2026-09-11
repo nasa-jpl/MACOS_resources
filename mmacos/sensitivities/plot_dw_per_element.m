@@ -135,7 +135,7 @@ for ib = 1:numel(blocks)
             head = sprintf('%s -- dW, %s, %s (piston removed)', ...
                 prefix, lbl{cols(1)}, B.tag);
             if np > 1
-                head = sprintf('%s  [p%d/%d]', head, q, np);
+                head = sprintf('%s  [pg %d of %d]', head, q, np);
                 png = sprintf('%s_%s_%s_p%02d.png', prefix, ...
                     tag{cols(1)}, B.suffix, q);
             else

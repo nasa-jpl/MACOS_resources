@@ -1,5 +1,6 @@
-==== run_sensitivities: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/jwst_ote_designc.in ====
+==== run_sensitivities: /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/jwst_ote_designc.in ====
 field set: center + 4 corners at +-0.0002909 rad
+OPD conventions: orient=raw sign=opl opd_ref=mean
 segments: 19
 
 configurations: 5
@@ -9,27 +10,27 @@ configurations: 5
   zLL        perturb elt 25 rotation [-0.0001454 -0.0001454 0] translation [0 0 0] frame local
   zLR        perturb elt 25 rotation [0.0001454 -0.0001454 0] translation [0 0 0] frame local
 [dwdx] rigid-body 6-DOF per element, LOCAL triads...
-    [checkpoint] dwdx / z0 -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_z0.mat
-    [checkpoint] dwdx / zUL -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zUL.mat
-    [checkpoint] dwdx / zUR -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zUR.mat
-    [checkpoint] dwdx / zLL -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zLL.mat
-    [checkpoint] dwdx / zLR -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zLR.mat
+    [checkpoint] dwdx / z0 -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_z0.mat
+    [checkpoint] dwdx / zUL -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zUL.mat
+    [checkpoint] dwdx / zUR -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zUR.mat
+    [checkpoint] dwdx / zLL -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zLL.mat
+    [checkpoint] dwdx / zLR -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume/dwdx_zLR.mat
     + 6 group channel(s) appended after the per-element block
     dwdxall 54595 x 138 over 5 fields
 
 [conditioning] finite rows only:
     channel          size   rank     sv_max    sv_min+      cond+
-    dwdx     54595x138       132  7.382e+05  6.790e-05  1.087e+10
-    dwdx     cfg z0       10919x138       129  3.301e+05  1.495e-04  2.208e+09
-    dwdx     cfg zUL      10919x138       132  3.301e+05  3.446e-05  9.580e+09
-    dwdx     cfg zUR      10919x138       131  3.301e+05  2.830e-05  1.167e+10
-    dwdx     cfg zLL      10919x138       131  3.301e+05  2.794e-05  1.181e+10
-    dwdx     cfg zLR      10919x138       132  3.301e+05  3.386e-05  9.751e+09
-    dwdx     segment-only: 54595x96  cond+ 2.603e+16
+    dwdx     54595x138       129  7.382e+05  3.665e-05  2.015e+10
+    dwdx     cfg z0       10919x138       127  3.301e+05  1.344e-04  2.456e+09
+    dwdx     cfg zUL      10919x138       129  3.301e+05  2.591e-05  1.274e+10
+    dwdx     cfg zUR      10919x138       128  3.301e+05  4.256e-05  7.757e+09
+    dwdx     cfg zLL      10919x138       128  3.301e+05  4.260e-05  7.750e+09
+    dwdx     cfg zLR      10919x138       129  3.301e+05  2.565e-05  1.287e+10
+    dwdx     segment-only: 54595x96  cond+ Inf
 
     dwdx per-segment column norms (rms native-unit per unit DOF):
       seg     rx        ry        rz        tx        ty        tz
-        4   5.30e-05  5.30e-05  5.30e-05  5.30e-07  5.30e-07  5.30e-07 
+        4   0.00e+00  8.58e-16  0.00e+00  2.84e-16  1.56e-16  0.00e+00 
         5   1.61e+02  1.63e+02  2.16e-02  1.01e+01  1.01e+01  4.61e+02 
         6   1.59e+02  1.62e+02  2.15e-02  1.01e+01  9.97e+00  4.58e+02 
         7   1.56e+02  1.59e+02  2.09e-02  9.91e+00  9.78e+00  4.54e+02 
@@ -47,10 +48,10 @@ configurations: 5
        19   1.63e+02  1.67e+02  7.75e-02  1.01e+01  1.01e+01  4.60e+02 
 per-configuration spectra: dwdx_5zoom_5fov_jwst_ote_designc_svspec_configs.png
 
-figures: dwdx_5zoom_5fov_jwst_ote_designc_opdall/svspec/<ch>_channels + per-element pages in dwdx_5zoom_5fov_jwst_ote_designc_pages/
+figures: dwdx_5zoom_5fov_jwst_ote_designc_opdall/svspec + 93 dW pages in dwdx_5zoom_5fov_jwst_ote_designc_pages/ (>= 3.5 in per OPD map, 1.2 in per field tile) -- index: dwdx_5zoom_5fov_jwst_ote_designc_pages_index.txt
 
-Done: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/dwdx_5zoom_5fov_jwst_ote_designc_sens.mat + dwdx_5zoom_5fov_jwst_ote_designc_sens_report.txt
-checkpoints pruned: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivities/zoom_5x5/_resume
+Done: /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/dwdx_5zoom_5fov_jwst_ote_designc_sens.mat + dwdx_5zoom_5fov_jwst_ote_designc_sens_report.txt
+checkpoints pruned: /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume
 
 [PM exhibit] the GROUP against its member elements
     members: [5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22] (18)
@@ -59,8 +60,8 @@ checkpoints pruned: /home/dcr/dev/MACOS_res_dev/mmacos/templates/50_sensitivitie
     (the OPD numerator is the deck's BaseUnits, as of 2026-08-25).
     channel                           Rx          Ry          Rz          Tx          Ty          Tz
     Grp[PM] (group)           3.0115e+03  3.0946e+03  2.4856e+02  1.9316e+02  1.8802e+02  1.9741e+01
-    Elt 5 (member)            1.6136e+02  1.6294e+02  2.1609e-02  1.0148e+01  1.0120e+01  4.6086e+02
-      group / Elt 5              18.6627     18.9921  11502.4238     19.0336     18.5783      0.0428
+    Elt 5 (member)            1.6136e+02  1.6294e+02  2.1608e-02  1.0148e+01  1.0120e+01  4.6086e+02
+      group / Elt 5              18.6627     18.9921  11502.7014     19.0336     18.5783      0.0428
     (a ratio BELOW 1 is intra-group COMPENSATION -- the members' responses
      partly cancel when they move as one body.  A ratio at ~18, the member
      count, is a rigid motion adding up, which is equally expected.)

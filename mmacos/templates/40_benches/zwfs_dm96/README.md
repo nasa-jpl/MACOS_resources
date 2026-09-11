@@ -54,7 +54,10 @@ to run it.  The defaults in `zwfs_params.m` are the values of record, so
 a bare call reproduces the S7 battery -- the runner's own equivalence
 gate: `runs/rec193/rec193_report.txt` against `zwfs_s7iter_report.txt`,
 64 row/ladder lines compared, 8 differ in the last printed digit only
-(the actuator fit's pcg tolerance), every gate value identical.
+(the actuator fit's pcg tolerance), every gate value identical.  Since
+2026-09-10 ONE default differs from the S7 record on purpose --
+`reg.stencil_site` 'lattice' (S9 bullet); pass `'reg.stencil_site','grid'`
+to reproduce S7 exactly.
 
     cd templates/40_benches/zwfs_dm96
     out = zwfs_run;                                    % bench + battery + figs, defaults
@@ -522,3 +525,145 @@ budget lines before quoting a number.
   systematic floors are.  *Open:* the hold-out-site kernel check
   (measure the kernel AT the hold-out site); deck fold (deck_zwfs still
   tells the legacy-model S1-S6 story).
+
+- **S9 (zwfs_run, 2026-09-10, Dave: "go ahead with ZWFS next steps"):
+  the two calibration questions, measured -- and a real fix to the
+  actuator fit.**  Runner knobs added for them: `reg.kernel_site`
+  ('center' | 'hold' | [r c]: where the response kernel is measured;
+  the registration anchor always comes from the centre poke),
+  `battery.calib_surface` ('flat' | 'base': kernel + modal transfer
+  measured differentially on the working surface, the exact class read
+  with the base's refined sign map), `reg.stencil_site` ('grid' |
+  'lattice'), `dm_use`, `hold`, and a per-row fold-crossing diagnostic
+  (pixels whose side of the quarter-wave fold differs between the base
+  and base+change).  All at NGRID 193 / model 1024, 96x96, unless stated;
+  runs/ks_hold, ks_hold_tc, ks_hold_hw12, ks_hold_lat, cal_base,
+  fold_diag, rec193_lat, ng385_lat.
+  *(1) Where the kernel is measured.*  Centre kernel tested at (60,40):
+  0.900 (the record).  Kernel at (60,40) tested at the centre: 0.987.
+  Kernel at (60,40) tested at (60,40): 0.958 -- NOT 1: even at its own
+  site the fit recovered 96%.  Widening the stencil (half-width 12 vs 6)
+  changed nothing (0.9576 both).  THE CAUSE: `dmg_anchor` returns the
+  poke's peak on the 0.28 mm MAP grid (`tax = xg(tc)`), so the stencil
+  was sampled up to half a grid pitch (0.14 mm) off the actuator centre
+  the fit samples at.  Snapping the stencil site to the exact lattice
+  point (`reg.stencil_site` 'lattice', now the DEFAULT; 'grid'
+  reproduces S7) gives own-site 0.9915 / floor 5 pm / SNR 4200 (the
+  near-identity check it should be), record configuration 0.900 ->
+  0.946 (floor 49 -> 37 pm), and at NGRID 385 / model 1024 the
+  test-actuator gain 0.935 -> **0.9963** -- the 3%-of-1 spec is MET at
+  the 1 Mpix-class sampling; I+ on the 30 nm surface there 0.913 / 25 pm
+  / SNR 359 -> **0.975 / 18 pm / 529**, grid-on-base SNR 37 -> 45.  So
+  the "remaining 6.5%" was ~5% stencil-site quantization + ~1-5% true
+  site variation (kernel at (60,40) vs centre: raw peak 0.911 vs 0.928,
+  a broader shape), the latter absorbed by a kernel measured where it
+  is used.  The interferometer's tg96_s3/s4 sample the TRUE kernel the
+  same way -- flagged to CCMac for the tg96 runner (BRIEF_ccmac_tg96_oap
+  addendum).
+  *(2) Calibrating on the working surface* does NOT recover the
+  working-surface gain deficit: I+ on the 30 nm surface 0.736 with the
+  on-surface calibration vs 0.788 flat-calibrated (S 0.767 vs 0.705; the
+  linear class cannot be calibrated on a 30 nm surface at all -- kernel
+  corr -0.28).  Multi-site ladder on-surface: I+ 0.73 / 0.75 / 0.39 /
+  0.59 vs flat-calibrated 0.79 / 0.82 / 0.76 / 0.31 at 30/40/50/60 nm.
+  So the deficit is in the READINGS on a working surface, not in the
+  calibration.  Fold crossings are NOT it for a single change: 3 of
+  2258 beyond-fold pixels move under a single 10 nm change (0.01% of
+  msk), 10 under the 47-site 1 nm grid, but 946 (3.3%) under a dense
+  10 nm random change -- the mechanism that makes the stepped reading
+  own dense commands.  With the lattice stencil the single-site
+  working-surface deficit at NGRID 385 is 2.5% (I+ 0.975 vs 0.996 flat);
+  the 47-site ladder keeps its shape (I+ 0.80 / 0.83 / 0.74 / 0.34).
+  Open, named: the single-site 2.5% and the 47-site 20% on a working
+  surface (the stepped reading's flat-DM |Eb|^2 calibration, 14% off on
+  a 30 nm surface, is the S-class suspect; for I+ the differential of
+  two exact readings whose map error is 2.8e-4 rad rms should be
+  smaller than measured -- the actuator-fit stage on a working surface
+  is the next place to look).
+
+- **S10 (zwfs_run, 2026-09-10, Dave: "modes can also be measured -- and
+  should be when using a real DM: poke the actuators in grids wide enough
+  that there is no overlap, then measure, to obtain dw/da"): the
+  MEASURED response matrix is now the default calibration.**
+  `battery.calib_mode` 'matrix' (`calib_matrix_`): every 8th actuator
+  poked in a sparse grid, the 64 grid offsets stepped so every lit
+  actuator is poked once (64 states for 3252 actuators), each response
+  cut from its own +/-half-step detector window (registration only
+  PLACES the windows), columns per reading class, estimator = a
+  regularized least-squares solve on J (dense 3252x3252 normal matrix,
+  Cholesky).  No single-site kernel, no shift-invariance, no frequency
+  correction.  `matrix_step` 8, `matrix_lam` 1e-3 of the median column
+  energy, `matrix_sign` 'same' | 'alternate'.
+  *The one property of THIS sensor the method must carry:* the ZWFS
+  cannot see piston, so every reading is mean-referenced over the pupil
+  and a multiplexed frame carries the pokes' shared negative pedestal.
+  Cut naively, each column gets its halo concentrated in an 8-actuator
+  cell instead of spread over the pupil, and the estimator over-responds
+  2-4x to patterns below ~12 cycles/aperture (runs/mat193: 2.1 / 2.2 /
+  3.7 / 3.2 / 1.6 at 0.5-8 cyc/ap for L).  Fix (runs/mat193b): subtract
+  the frame's pedestal (its median over the mask) before cutting, and
+  give each column its own volume spread over the mask -- J'J = Jl'Jl -
+  v v'/A_mask, J'm = Jl'm - v (1'm)/A_mask (a rank-one term; the uniform
+  command is nulled as the sensor nulls it).  With it the exact
+  reading's response through the matrix is **0.99-1.08 at EVERY probed
+  frequency (0.5-40 cyc/ap) with no correction**; S 0.66 at 0.5 cyc/ap
+  (its flat-DM |Eb|^2) and 0.93-1.02 above; L 0.74 at 0.5 then a slow
+  rise to 1.28 at 40 (its own nonlinearity).
+  *Rows (193 rays, 96x96, matrix vs kernel-lattice):* flat single
+  actuator **0.994 / floor 4 pm / SNR 5500** (kernel: 0.946 / 37 pm /
+  515); 30 nm surface, single 10 nm change: I+ 0.73 / 42 pm (kernel:
+  0.82 / 13 pm), S 0.75 / 17 pm (0.74 / 17); 47-site 1 nm grid on the
+  surface: I+ SNR 60 (kernel 36), S 82 (37); dense random I+ 0.90 / 4.6
+  nm (0.82 / 6.1), S 0.82 / 2.1 nm (0.74 / 3.5); 47-site 10 nm ladder at
+  30 / 40 nm rms: I+ 0.68 / 34 pm / SNR 200 and 0.67 / 47 / 143 (kernel
+  0.80 / 290 / 27.5 and 0.83 / 250 / 33) -- the FLOOR falls 6-10x, the
+  GAIN on a working surface falls.  So the matrix removes the crosstalk
+  entirely and isolates the working-surface gain loss as a READING
+  effect.  Its mechanisms, now with evidence: for I+ the few pixels that
+  cross the quarter-wave fold under a change (3 per single change) sit
+  INSIDE the changed actuator's footprint, where they are a large
+  fraction of its pixels at 2.5 px/actuator (site-dependent: the (60,40)
+  site at 385 rays loses only 2.5%); for S the flat-DM |Eb|^2
+  calibration is 14% off on a 30 nm surface.  Both are fixes in the
+  readings (a fold-aware branch choice near the change; b2cal on the
+  working surface), the next work.
+  *Alternating +/- pokes (Dave's question, runs/mat193c):* the exact
+  readings are neutral to slightly worse in the model (flat single
+  actuator 0.987 / 11 pm vs 0.994 / 4 pm; surface rows identical); the
+  linear reading's +/- asymmetry costs it (0.67); the piston-null term
+  handles the pedestal in either case.  On a real bench alternating
+  cancels common-mode drift between sets (the Steeves 2020 protocol), so
+  it stays as `matrix_sign` 'alternate'; 'same' is the model default.
+  `runs/mat385`: the 385-ray matrix run (the deck's numbers).
+  *The matrix ON THE WORKING SURFACE (runs/matbase: `calib_mode` 'matrix'
+  + `calib_surface` 'base'; the operating-point interaction matrix, 64
+  states x 4 frames once per working state) -- THE result of the day:*
+  the map-space diagnostic (runs/mapdiag; the same change read on the
+  flat vs its differential on the surface, over the changed actuator's
+  window) showed EVERY reading's differential map 29-60% off in rms and
+  0.49-0.82 in amplitude on the surface (L 0.60 / 0.49, F 0.57 / 0.65, I
+  0.35 / 0.82, I+ 0.36 / 0.78, S 0.29 / 0.73): the sensor's local
+  sensitivity depends on the local phase of the working surface (the
+  per-pixel sensitivity factor of the Ruane budget form).  A matrix
+  measured on that surface carries each actuator's local sensitivity,
+  which a single-site kernel could not (why S9's on-surface kernel
+  calibration failed).  Rows at 193 rays, 30 nm surface, on-surface
+  matrix (flat matrix in brackets): **S single 10 nm change 0.989 / 5 pm
+  / SNR 2160** [0.75 / 17 / 444]; S 47-site 1 nm grid 0.999 / 4 pm / SNR
+  284 [0.83 / 10 / 82]; S dense random 10 nm 0.98 / 0.68 nm [0.82 /
+  2.1]; **L (linear, one frame) single 1.04 / 21 pm / SNR 492** [0.32 /
+  140 / 23], grid 1.05 / 22 pm / 47, dense 1.04 / 4.7 nm; the exact
+  one-frame readings do NOT benefit (I+ 0.69, I 0.81, F 0.76): their
+  surface error is the fold sensitivity, which moves with the change
+  itself (the multiplexed pokes cross the fold on different pixels than
+  the test change).  Ladder on 47 sites with the 30 nm-surface matrix:
+  S 1.08 / 0.98 / 0.92 / 0.70 at 30 / 40 / 50 / 60 nm rms (floors 243 /
+  228 / 399 / 664 pm), L 1.03 / 0.96 / 0.83 / 0.68 -- a calibration
+  made at 30 nm degrades slowly (0.92 at 50).  DOCTRINE, updated: on a
+  working surface, measure the response matrix ON that surface (256
+  frames once), then the four-frame stepped reading reads changes at
+  the 5 pm floor with gain 0.99; the linear one-frame reading is then
+  usable at 21 pm; the exact one-frame readings stay the flat-surface
+  tools.  The 1 pm target: for 1 nm changes on the 47-site grid the S
+  reading is at 1 pm of gain error + 4 pm of floor.  runs/matbase385:
+  the same at 385 rays.
