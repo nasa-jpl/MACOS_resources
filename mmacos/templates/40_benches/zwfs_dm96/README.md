@@ -580,3 +580,90 @@ budget lines before quoting a number.
   two exact readings whose map error is 2.8e-4 rad rms should be
   smaller than measured -- the actuator-fit stage on a working surface
   is the next place to look).
+
+- **S10 (zwfs_run, 2026-09-10, Dave: "modes can also be measured -- and
+  should be when using a real DM: poke the actuators in grids wide enough
+  that there is no overlap, then measure, to obtain dw/da"): the
+  MEASURED response matrix is now the default calibration.**
+  `battery.calib_mode` 'matrix' (`calib_matrix_`): every 8th actuator
+  poked in a sparse grid, the 64 grid offsets stepped so every lit
+  actuator is poked once (64 states for 3252 actuators), each response
+  cut from its own +/-half-step detector window (registration only
+  PLACES the windows), columns per reading class, estimator = a
+  regularized least-squares solve on J (dense 3252x3252 normal matrix,
+  Cholesky).  No single-site kernel, no shift-invariance, no frequency
+  correction.  `matrix_step` 8, `matrix_lam` 1e-3 of the median column
+  energy, `matrix_sign` 'same' | 'alternate'.
+  *The one property of THIS sensor the method must carry:* the ZWFS
+  cannot see piston, so every reading is mean-referenced over the pupil
+  and a multiplexed frame carries the pokes' shared negative pedestal.
+  Cut naively, each column gets its halo concentrated in an 8-actuator
+  cell instead of spread over the pupil, and the estimator over-responds
+  2-4x to patterns below ~12 cycles/aperture (runs/mat193: 2.1 / 2.2 /
+  3.7 / 3.2 / 1.6 at 0.5-8 cyc/ap for L).  Fix (runs/mat193b): subtract
+  the frame's pedestal (its median over the mask) before cutting, and
+  give each column its own volume spread over the mask -- J'J = Jl'Jl -
+  v v'/A_mask, J'm = Jl'm - v (1'm)/A_mask (a rank-one term; the uniform
+  command is nulled as the sensor nulls it).  With it the exact
+  reading's response through the matrix is **0.99-1.08 at EVERY probed
+  frequency (0.5-40 cyc/ap) with no correction**; S 0.66 at 0.5 cyc/ap
+  (its flat-DM |Eb|^2) and 0.93-1.02 above; L 0.74 at 0.5 then a slow
+  rise to 1.28 at 40 (its own nonlinearity).
+  *Rows (193 rays, 96x96, matrix vs kernel-lattice):* flat single
+  actuator **0.994 / floor 4 pm / SNR 5500** (kernel: 0.946 / 37 pm /
+  515); 30 nm surface, single 10 nm change: I+ 0.73 / 42 pm (kernel:
+  0.82 / 13 pm), S 0.75 / 17 pm (0.74 / 17); 47-site 1 nm grid on the
+  surface: I+ SNR 60 (kernel 36), S 82 (37); dense random I+ 0.90 / 4.6
+  nm (0.82 / 6.1), S 0.82 / 2.1 nm (0.74 / 3.5); 47-site 10 nm ladder at
+  30 / 40 nm rms: I+ 0.68 / 34 pm / SNR 200 and 0.67 / 47 / 143 (kernel
+  0.80 / 290 / 27.5 and 0.83 / 250 / 33) -- the FLOOR falls 6-10x, the
+  GAIN on a working surface falls.  So the matrix removes the crosstalk
+  entirely and isolates the working-surface gain loss as a READING
+  effect.  Its mechanisms, now with evidence: for I+ the few pixels that
+  cross the quarter-wave fold under a change (3 per single change) sit
+  INSIDE the changed actuator's footprint, where they are a large
+  fraction of its pixels at 2.5 px/actuator (site-dependent: the (60,40)
+  site at 385 rays loses only 2.5%); for S the flat-DM |Eb|^2
+  calibration is 14% off on a 30 nm surface.  Both are fixes in the
+  readings (a fold-aware branch choice near the change; b2cal on the
+  working surface), the next work.
+  *Alternating +/- pokes (Dave's question, runs/mat193c):* the exact
+  readings are neutral to slightly worse in the model (flat single
+  actuator 0.987 / 11 pm vs 0.994 / 4 pm; surface rows identical); the
+  linear reading's +/- asymmetry costs it (0.67); the piston-null term
+  handles the pedestal in either case.  On a real bench alternating
+  cancels common-mode drift between sets (the Steeves 2020 protocol), so
+  it stays as `matrix_sign` 'alternate'; 'same' is the model default.
+  `runs/mat385`: the 385-ray matrix run (the deck's numbers).
+  *The matrix ON THE WORKING SURFACE (runs/matbase: `calib_mode` 'matrix'
+  + `calib_surface` 'base'; the operating-point interaction matrix, 64
+  states x 4 frames once per working state) -- THE result of the day:*
+  the map-space diagnostic (runs/mapdiag; the same change read on the
+  flat vs its differential on the surface, over the changed actuator's
+  window) showed EVERY reading's differential map 29-60% off in rms and
+  0.49-0.82 in amplitude on the surface (L 0.60 / 0.49, F 0.57 / 0.65, I
+  0.35 / 0.82, I+ 0.36 / 0.78, S 0.29 / 0.73): the sensor's local
+  sensitivity depends on the local phase of the working surface (the
+  per-pixel sensitivity factor of the Ruane budget form).  A matrix
+  measured on that surface carries each actuator's local sensitivity,
+  which a single-site kernel could not (why S9's on-surface kernel
+  calibration failed).  Rows at 193 rays, 30 nm surface, on-surface
+  matrix (flat matrix in brackets): **S single 10 nm change 0.989 / 5 pm
+  / SNR 2160** [0.75 / 17 / 444]; S 47-site 1 nm grid 0.999 / 4 pm / SNR
+  284 [0.83 / 10 / 82]; S dense random 10 nm 0.98 / 0.68 nm [0.82 /
+  2.1]; **L (linear, one frame) single 1.04 / 21 pm / SNR 492** [0.32 /
+  140 / 23], grid 1.05 / 22 pm / 47, dense 1.04 / 4.7 nm; the exact
+  one-frame readings do NOT benefit (I+ 0.69, I 0.81, F 0.76): their
+  surface error is the fold sensitivity, which moves with the change
+  itself (the multiplexed pokes cross the fold on different pixels than
+  the test change).  Ladder on 47 sites with the 30 nm-surface matrix:
+  S 1.08 / 0.98 / 0.92 / 0.70 at 30 / 40 / 50 / 60 nm rms (floors 243 /
+  228 / 399 / 664 pm), L 1.03 / 0.96 / 0.83 / 0.68 -- a calibration
+  made at 30 nm degrades slowly (0.92 at 50).  DOCTRINE, updated: on a
+  working surface, measure the response matrix ON that surface (256
+  frames once), then the four-frame stepped reading reads changes at
+  the 5 pm floor with gain 0.99; the linear one-frame reading is then
+  usable at 21 pm; the exact one-frame readings stay the flat-surface
+  tools.  The 1 pm target: for 1 nm changes on the 47-site grid the S
+  reading is at 1 pm of gain error + 4 pm of floor.  runs/matbase385:
+  the same at 385 rays.

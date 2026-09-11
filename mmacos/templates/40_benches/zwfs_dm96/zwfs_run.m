@@ -303,7 +303,11 @@ else, d = readmap_(ZW, rd, F1, plus, []) - readmap_(ZW, rd, F0, plus, []); end
 end
 
 function C = calibrate_(P, S, ZW, cfg, classes, lit)
-% per-class registration anchor + measured response kernel + estimator
+% per-class registration anchor + measured response kernel + estimator.
+% P.battery.calib_mode 'matrix' (Dave 2026-09-10) replaces the single-site
+%   kernel by the MEASURED response matrix dw/da: see calib_matrix_.
+if nargin < 6, lit = []; end
+if strcmp(P.battery.calib_mode, 'matrix'), C = calib_matrix_(P, S, ZW, cfg, classes, lit); return; end
 % (the S2/S3 recipe): class 1 linear map, 2 exact map, 3 stepped map.
 % P.battery.calib_surface: 'flat' (the record) or 'base' -- the kernel and
 %   the modal transfer are measured DIFFERENTIALLY on the working surface
@@ -379,6 +383,126 @@ for k = classes(:).'
     C.R{k} = R;  C.stn{k} = stn;
     C.est{k} = @(h) dmg_act_fit(S.sgn*dmg_samp(h, R), xg, C.axg, C.ayg, stn, lit, P.battery.act_lam);
 end
+end
+
+function C = calib_matrix_(P, S, ZW, cfg, classes, lit)
+%CALIB_MATRIX_  The measured response matrix dw/da (Dave 2026-09-10).
+%   Poke every STEP-th actuator in a sparse grid so no two responses
+%   overlap, step through the STEP^2 grid offsets so every lit actuator is
+%   poked once (STEP^2 states instead of one per actuator), and cut each
+%   actuator's response out of its own window in DETECTOR pixels.  The
+%   columns form J (detector px x lit actuators) per reading class; the
+%   estimator solves min |J a - m|^2 + l2 |a|^2 by a sparse direct solve.
+%   No single-site kernel, no shift-invariance, no frequency correction;
+%   registration only PLACES the windows (half a grid step wide, so a
+%   few-pixel error is harmless) -- the columns carry the actual response
+%   wherever it lands, so position dependence and irregularities of a real
+%   DM are in the calibration by construction.  On a working surface
+%   (calib_surface 'base') the pokes ride on the base and the class maps
+%   are differential, exactly as in kernel mode.
+N_G = P.grid.N_G;  xg = S.xg;  nact = cfg.nact;
+C.dmap = @(act) dm_influence_map(N_G, P.grid.DX_G, 'nact', nact, 'pitch', cfg.pitch, 'act', act);
+[C.axg, C.ayg] = meshgrid(((1:nact)-(nact+1)/2)*cfg.pitch);
+if isempty(lit), lit = dmg_lit(ZW.msk, S.dxd_mm, S.mag, C.axg, C.ayg); end
+C.lit = lit;  C.mode = 'matrix';
+POKE = P.reg.POKE;  step = P.battery.matrix_step;
+ic = nact/2;  Aa = zeros(nact);  Aa(ic,ic) = 1;  C.Ma = C.dmap(POKE*Aa);
+needS = any(classes == 3);
+C.surface = P.battery.calib_surface;  onbase = strcmp(C.surface, 'base');
+if onbase
+    rng(P.battery.seed_base);  Ab = zeros(nact);  Ab(lit) = P.battery.base_rms*randn(nnz(lit),1);
+    C.Abase = Ab;  C.F0 = frames_(ZW, C.dmap(Ab), true);  C.plus = ZW.priorS(C.F0.Ia, C.F0.Fr);
+    C.Fflat = frames_(ZW, zeros(N_G), needS);
+    C.cmap = @(F, k) cmap_base_(ZW, F, C.F0, C.plus, k);
+else
+    C.Abase = zeros(nact);  C.Fflat = frames_(ZW, zeros(N_G), needS);  C.F0 = C.Fflat;  C.plus = [];
+    C.cmap = @(F, k) cmap_flat_(ZW, F, C.Fflat, k);
+end
+% ---- window placement from the bench registration (anchor from the
+% centre poke, parity/sign from the bench stage): DM lattice -> detector px
+Fa = frames_(ZW, C.dmap(C.Abase + POKE*Aa), needS);
+k1 = classes(1);
+hA = C.cmap(Fa, k1);
+[bx, by, tax, tay] = dmg_anchor(hA, C.Ma, ZW.msk, ZW.N_WF, xg);
+lat = ((1:nact)-(nact+1)/2)*cfg.pitch;
+Pp = S.PARb;  sc = S.dxd_mm*S.mag;
+[cc_, rr_] = meshgrid(1:nact, 1:nact);            % actuator (r,c): x = lat(c), y = lat(r)
+off = {lat(cc_) - tax, lat(rr_) - tay};
+U = Pp(3)*off{Pp(1)}/sc + bx;  V = Pp(4)*off{Pp(2)}/sc + by;   % detector (col,row) of every actuator
+hw_px = floor(0.5*step*cfg.pitch/sc);                            % half a grid step, px
+C.win = struct('U',U, 'V',V, 'hw_px',hw_px, 'step',step);
+% ---- the multiplexed poke sets ------------------------------------------
+N = ZW.N_WF;  ilit = find(lit);  nlit = numel(ilit);  col_of = zeros(nact);  col_of(ilit) = 1:nlit;
+I = cell(1,3);  Jc = cell(1,3);  V3 = cell(1,3);
+for k = classes(:).', I{k} = {};  Jc{k} = {};  V3{k} = {}; end
+nstates = 0;  npoked = 0;  pk = zeros(1,3);  nclip = 0;
+t0 = tic;
+for ox = 1:step
+    for oy = 1:step
+        A = zeros(nact);  A(ox:step:nact, oy:step:nact) = 1;  A = A .* lit;
+        if strcmp(P.battery.matrix_sign, 'alternate')
+            % checkerboard of +/- pokes over the grid sites (Dave 2026-09-10): the
+            % multiplexed pattern is zero-mean, so the sensor's piston null puts
+            % no shared pedestal into the frame and the halos cancel pairwise
+            [rr2, cc2] = find(A);
+            sgnA = 1 - 2*mod((rr2-ox)/step + (cc2-oy)/step, 2);
+            A(sub2ind([nact nact], rr2, cc2)) = sgnA;
+        end
+        if ~any(A(:)), continue; end
+        F = frames_(ZW, C.dmap(C.Abase + POKE*A), needS);  nstates = nstates + 1;
+        [pr, pc] = find(A);
+        for k = classes(:).'
+            h = C.cmap(F, k) / POKE;                            % response per unit command
+            % THE SENSOR CANNOT SEE PISTON: every reading is mean-referenced over
+            % the pupil, so the multiplexed frame carries the pokes' shared
+            % negative pedestal (-sum of blob volumes / mask area).  Remove it
+            % before cutting (the median over the mask: the blobs cover ~10% of
+            % the pixels), and give each column its OWN pedestal spread over the
+            % whole mask below (v = column volume; a rank-one term in J'J).
+            h = h - median(h(ZW.msk));
+            for q = 1:numel(pr)
+                r = pr(q);  c = pc(q);
+                u0 = round(U(r,c));  v0 = round(V(r,c));
+                rows = max(1, v0-hw_px):min(N, v0+hw_px);  cols = max(1, u0-hw_px):min(N, u0+hw_px);
+                if numel(rows) < 2*hw_px+1 || numel(cols) < 2*hw_px+1, nclip = nclip + 1; end
+                [CC, RR] = meshgrid(cols, rows);
+                blk = h(rows, cols) * A(r,c);  blk(~ZW.msk(rows, cols)) = 0;   % per unit +command
+                I{k}{end+1} = RR(:) + (CC(:)-1)*N;  Jc{k}{end+1} = col_of(r,c)*ones(numel(blk),1);  V3{k}{end+1} = blk(:);
+                if k == classes(1), npoked = npoked + 1; end
+                pk(k) = max(pk(k), max(abs(blk(:))));
+            end
+        end
+    end
+end
+C.J = cell(1,3);  C.JtJ = cell(1,3);  C.est = cell(1,3);  C.kinfo = nan(3,3);
+Am = nnz(ZW.msk);
+for k = classes(:).'
+    J = sparse(vertcat(I{k}{:}), vertcat(Jc{k}{:}), vertcat(V3{k}{:}), N*N, nlit);
+    v = full(sum(J, 1)).';                                  % column volumes
+    % full column = local window - v/Am over the mask (the piston null), so
+    % J'J = Jl'Jl - v v'/Am  (rank one; the uniform command is nulled, as the
+    % sensor nulls it -- the regularization carries that direction)
+    JtJ = full(J.'*J) - (v*v.')/Am;  d = diag(JtJ);
+    l2 = P.battery.matrix_lam * median(d(d > 0));
+    Rf = chol(JtJ + l2*eye(nlit));
+    C.J{k} = J;  C.JtJ{k} = JtJ;
+    C.est{k} = @(h) est_matrix_(h, J, v, Am, Rf, ilit, nact, ZW.msk);
+    % kinfo: [mean column peak (per unit command), fraction of columns clipped, column-norm spread]
+    cn = sqrt(d);
+    C.kinfo(k,:) = [mean(full(max(abs(J), [], 1))), nclip/max(npoked,1), std(cn)/mean(cn)];
+end
+C.matrix = struct('nstates',nstates, 'npoked',npoked, 'nlit',nlit, 'hw_px',hw_px, ...
+                  'step',step, 'tmin',toc(t0)/60, 'nclip',nclip);
+C.R = {};  C.stn = {};  C.kernel_site = [NaN NaN];
+end
+
+function a = est_matrix_(h, J, v, Am, Rf, ilit, nact, msk)
+% actuator commands from a detector-space map by the measured matrix
+% (columns = local window - v/Am over the mask; J'm = Jl'm - v (1'm)/Am)
+h(~msk) = 0;
+b = J.' * h(:) - v * (sum(h(msk))/Am);
+x = Rf \ (Rf.' \ b);
+a = zeros(nact);  a(ilit) = x;
 end
 
 function h = cmap_flat_(ZW, F, Fflat, k)
@@ -459,11 +583,17 @@ for icfg = 1:numel(P.dm)
     lit = C.lit;
     kk = find(~isnan(C.kinfo(:,1))).';
     dmg_say(rep, 'calibration: surface %s%s, kernel measured at actuator (%d,%d); test actuator (%d,%d)\n', C.surface, ifelse_(strcmp(C.surface,'base'), sprintf(' (%g nm rms, seed %d)', P.battery.base_rms*1e6, P.battery.seed_base), ''), C.kernel_site(1), C.kernel_site(2), cfg.hold(1), cfg.hold(2));
+    if strcmp(P.battery.calib_mode, 'matrix')
+        dmg_say(rep, 'MATRIX calibration: %d multiplexed states (grid step %d), %d actuators poked once each, windows +/-%d px; J built in %.1f min; %d clipped windows\n', ...
+            C.matrix.nstates, C.matrix.step, C.matrix.npoked, C.matrix.hw_px, C.matrix.tmin, C.matrix.nclip);
+        dmg_say(rep, 'lit actuators %d; per class [mean column peak per unit command, clipped fraction, column-norm spread]:', nnz(lit));
+    else
     dmg_say(rep, 'lit actuators %d; kernel per class [raw peak gain, ring min/peak, corr]:', nnz(lit));
+    end
     cn = {'L', 'I', 'S'};
     for k = kk, dmg_say(rep, '  %s [%.3f %.3f %.3f]', cn{k}, C.kinfo(k,:)); end
     dmg_say(rep, '\n');
-    if any(C.kinfo(kk,3) < 0.9)
+    if ~strcmp(P.battery.calib_mode, 'matrix') && any(C.kinfo(kk,3) < 0.9)
         dmg_say(rep, 'NOTE: a kernel/truth correlation is below 0.9 (registration sanity line; on a working surface the differential kernel carries the surface''s crosstalk) -- read the rows with that in mind\n');
         if strcmp(C.surface, 'flat'), error('zwfs_run:registration', 'kernel/truth correlation < 0.9 on the flat: registration is suspect'); end
     end
@@ -503,6 +633,24 @@ for icfg = 1:numel(P.dm)
             plus1 = ZW.priorS(F1.Ia, F1.Fr);
             dmg_say(rep, '  [%s] pixels that cross the fold under the change: %d of %d beyond-fold (%.2f%% of msk)\n', ...
                 ROWS{r,1}, nnz(plus1 ~= plusb), nnz(plusb), 100*nnz(plus1 ~= plusb)/nnz(msk));
+        end
+        if any(base(:) ~= 0) && nnz(dev) == 1
+            % map-space diagnostic: the same change on the FLAT, read the same way,
+            % vs its differential on the working surface, over the changed
+            % actuator's own window (the matrix mode's window; +/-4 actuators)
+            Ff = frames_(ZW, C.dmap(dev), needS);  Fz = frames_(ZW, zeros(P.grid.N_G), needS);
+            [rd_, cd_] = find(dev);
+            if isfield(C, 'win'), u0 = round(C.win.U(rd_, cd_));  v0 = round(C.win.V(rd_, cd_));  hwp = C.win.hw_px;
+            else, u0 = round(ZW.N_WF/2);  v0 = u0;  hwp = round(4*cfg.pitch/(S.dxd_mm*S.mag)); end
+            rws = max(1, v0-hwp):min(ZW.N_WF, v0+hwp);  cls = max(1, u0-hwp):min(ZW.N_WF, u0+hwp);
+            dmg_say(rep, '  [%s] differential map on the surface vs the same change on the flat, over the changed actuator''s window (rel rms diff / amplitude ratio):', ROWS{r,1});
+            for k = 1:numel(RD)
+                if strcmp(RD{k}, 'I+'), pz = false(ZW.N_WF); else, pz = []; end
+                db = diff_(ZW, RD{k}, F1, F0, plusb);  df = diff_(ZW, RD{k}, Ff, Fz, pz);
+                wb = db(rws, cls);  wf = df(rws, cls);
+                dmg_say(rep, '  %s %.3f / %.3f', RD{k}, norm(wb(:)-wf(:))/max(norm(wf(:)), eps), (wf(:).'*wb(:))/max(wf(:).'*wf(:), eps));
+            end
+            dmg_say(rep, '\n');
         end
         for k = 1:numel(RD)
             araw = C.est{KC(k)}(diff_(ZW, RD{k}, F1, F0, plusb));  acor = corrk(araw, KC(k));

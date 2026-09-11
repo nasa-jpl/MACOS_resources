@@ -138,6 +138,26 @@ P.battery.ladder_sites = 'hold';
                              % (grid_step) -- gain and floor over ~50 sites, the robust form
 P.battery.rows = {'flat/hold', 'flat/rand', 'base/single', 'base/grid', 'base/rand'};
                              % the differential rows; any subset in this order
+P.battery.calib_mode = 'matrix';
+                             % 'matrix' (default since 2026-09-10, Dave) = the MEASURED response
+                             % matrix dw/da: every lit actuator poked once in sparse multiplexed
+                             % grids (matrix_step), its response cut from its own detector
+                             % window, the sensor's piston null carried as a rank-one term;
+                             % estimator = regularized least squares on that matrix -- no
+                             % single-site kernel, no frequency correction (measured response
+                             % 0.98-1.07 at every frequency; single-actuator test 0.994 / 4 pm);
+                             % 'kernel' = one measured response kernel (at reg.kernel_site) +
+                             % lattice deconvolution + the modal correction -- the S1-S9 record
+P.battery.matrix_step = 8;   % grid step of the multiplexed pokes (no response overlap at 8)
+P.battery.matrix_lam  = 1e-3;% Tikhonov weight relative to the median column energy of J
+P.battery.matrix_sign = 'same';
+                             % 'same' = all pokes positive (default: single-actuator test 0.994 /
+                             % 4 pm vs 0.987 / 11 pm alternating; the linear reading's +/-
+                             % asymmetry costs it 0.67 under alternation); 'alternate' =
+                             % checkerboard of +/- pokes over each grid -- zero-mean pattern, no
+                             % shared pedestal, and on a real bench common-mode drift cancels
+                             % between the sets (Dave 2026-09-10); the piston-null term handles
+                             % the pedestal in either case
 P.battery.calib_surface = 'flat';
                              % 'flat' = kernel + modal transfer measured on the flat DM (the
                              % record); 'base' = measured on the working surface itself
