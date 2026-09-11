@@ -60,6 +60,8 @@ function L = dmg_loop(ins, opt)
 %     .track_noise  also estimate the noiseless frames each cycle to
 %             measure the single-shot noise sigma_n in-run (one more
 %             est call per cycle)                                [true if nph finite]
+%     .rmax   residual rms above which the loop is declared DIVERGED and
+%             stopped (the remaining cycles NaN; L.diverged true)   [Inf]
 %   L -- the record (surface units are the instrument's; ZWFS = mm):
 %     .rms      1 x K residual rms over lit at each cycle
 %     .ss       steady-state rms: root mean square of .rms over the last nss cycles
@@ -77,6 +79,8 @@ function L = dmg_loop(ins, opt)
 %               = rms in [<4, 4-12, >12] cycles/aperture
 %     .theory   .ss_noise, .ss_walk, .lag_ramp as above from .sig_n and
 %               the drift (NaN where not applicable)
+%     .diverged true when the residual exceeded opt.rmax (scores then use
+%               the cycles that ran); .k_end the last cycle run
 %     .r_final  the last residual map; .cmd the last command; .drift_rms
 %               per-cycle rms over lit of the drift increments; .nstates
 %               states measured (K + 1 reference); .opt the options used
@@ -87,7 +91,7 @@ function L = dmg_loop(ins, opt)
 % ---- options ------------------------------------------------------------
 lit = logical(ins.lit);  nact = size(lit, 1);
 o = struct('A0', zeros(nact), 'g', 0.5, 'K', 60, 'nph', Inf, 'seed', 1, ...
-           'drift', struct('kind', 'none'), 'ref', 'noiseless', 'nss', [], 'track_noise', []);
+           'drift', struct('kind', 'none'), 'ref', 'noiseless', 'nss', [], 'track_noise', [], 'rmax', Inf);
 if nargin > 1
     fn = fieldnames(opt);
     for i = 1:numel(fn), o.(fn{i}) = opt.(fn{i}); end
@@ -130,11 +134,13 @@ nstates = 1;
 % ---- the loop -----------------------------------------------------------
 cmd = o.A0;  dist = zeros(nact);
 rms = nan(1, o.K);  drms = nan(1, o.K);  en = nan(1, o.K);  enu = nan(1, o.K);
-R = zeros(nact, nact, o.nss);                                % residual maps of the tail
+R = zeros(nact, nact, o.nss);  nR = 0;                       % residual maps of the tail
+diverged = false;  k_end = o.K;
 for k = 1:o.K
     d = gen(k);  dist = dist + d;  drms(k) = rmsl(d);
     s = cmd + dist;  r = s - o.A0;  rms(k) = rmsl(r);
-    if k > o.K - o.nss, R(:,:,k-(o.K-o.nss)) = r; end
+    if rms(k) > o.rmax, diverged = true;  k_end = k;  break; end
+    if k > o.K - o.nss, nR = nR + 1;  R(:,:,nR) = r; end
     F = ins.measure(s);  nstates = nstates + 1;
     Fn = ins.noisy(F, o.nph, nseed(k));
     a = ins.est(ins.diff(Fn, Fref));
@@ -146,13 +152,17 @@ for k = 1:o.K
 end
 
 % ---- scores ---------------------------------------------------------------
-L = struct('rms', rms, 'drift_rms', drms, 'nstates', nstates, 'opt', o);
-tail = o.K-o.nss+1:o.K;
+L = struct('rms', rms, 'drift_rms', drms, 'nstates', nstates, 'opt', o, 'diverged', diverged, 'k_end', k_end);
+if diverged
+    tail = max(1, k_end-o.nss+1):k_end;  R = R(:,:,1:max(nR,1));   % what ran
+else
+    tail = o.K-o.nss+1:o.K;
+end
 L.ss = sqrt(mean(rms(tail).^2));
 L.bias_map = mean(R, 3);  L.bias = rmsl(L.bias_map);
-L.sig_n = sqrt(mean(en.^2));  L.sig_n_unlit = sqrt(mean(enu.^2));
+ok = ~isnan(en);  L.sig_n = sqrt(mean(en(ok).^2));  L.sig_n_unlit = sqrt(mean(enu(ok).^2));
 L.r_final = r;  L.cmd = cmd;
-if strcmp(dr.kind, 'step'), [L.rho, L.tau, L.k_1e] = decay_(rms(dr.at:end), L.ss);
+if strcmp(dr.kind, 'step') && ~diverged, [L.rho, L.tau, L.k_1e] = decay_(rms(dr.at:end), L.ss);
 else, L.rho = NaN;  L.tau = NaN;  L.k_1e = NaN; end          % a transient is fitted on a step run only
 L.spec = spec_(L.bias_map, R, lit, nact);
 gG = o.g;                                                     % G folded into rho when measured

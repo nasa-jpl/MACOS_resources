@@ -982,13 +982,13 @@ for j = 1:numel(RD)
         'noisy',   @(F, nph, seed) noisy_frames_(ZW, F, nph, seed, rd), ...
         'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb), ...
         'est',     C.est{kc});
-    base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref);
+    base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref, 'rmax', P.loop.rmax);
     % noiseless steps: time constant + dynamic range
     for amp = P.loop.steps
         o = base;  o.nph = Inf;  o.drift = struct('kind', 'step', 'amp', amp);
         L = dmg_loop(ins, o);  irun = irun + 1;
         res(end+1) = struct('rd',rd, 'drift','step', 'nph',Inf, 'amp',amp, 'L',L); %#ok<AGROW>
-        fprintf('[loop %d/%d] %s step %g nm: rho %.3f, residual at K %.2f pm (%.1f min)\n', irun, nrun, rd, amp*1e6, L.rho, L.rms(end)*1e9, toc(t0)/60);
+        fprintf('[loop %d/%d] %s step %g nm: rho %.3f, residual at K %.2f pm%s (%.1f min)\n', irun, nrun, rd, amp*1e6, L.rho, L.rms(L.k_end)*1e9, div_(L), toc(t0)/60);
     end
     for nph = NPH
         kinds = DR;  if P.loop.floor, kinds = [{'none'} DR]; end
@@ -1002,7 +1002,7 @@ for j = 1:numel(RD)
             end
             L = dmg_loop(ins, o);  irun = irun + 1;
             res(end+1) = struct('rd',rd, 'drift',kinds{kd}, 'nph',nph, 'amp',amp, 'L',L); %#ok<AGROW>
-            fprintf('[loop %d/%d] %s %s @ %.0e photons: ss %.2f pm, bias %.2f pm, sig_n %.2f pm (%.1f min)\n', irun, nrun, rd, kinds{kd}, nph, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, toc(t0)/60);
+            fprintf('[loop %d/%d] %s %s @ %.0e photons: ss %.2f pm, bias %.2f pm, sig_n %.2f pm%s (%.1f min)\n', irun, nrun, rd, kinds{kd}, nph, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, div_(L), toc(t0)/60);
         end
     end
 end
@@ -1016,7 +1016,8 @@ for amp = P.loop.steps
     dmg_say(rep, '%5.0f nm |', amp*1e6);
     for j = 1:numel(RD)
         i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, 'step') & [res.amp] == amp, 1);  L = res(i).L;
-        dmg_say(rep, ' %6.3f %6.1f %4s %10.3f %10.3f |', L.rho, L.tau, fmt0_(L.k_1e), pm(L.rms(floor(K/2))), pm(L.rms(end)));
+        if L.diverged, dmg_say(rep, ' %-38s|', sprintf('DIVERGED at cycle %d (%.0f pm)', L.k_end, pm(L.rms(L.k_end))));
+        else, dmg_say(rep, ' %6.3f %6.1f %4s %10.3f %10.3f |', L.rho, L.tau, fmt0_(L.k_1e), pm(L.rms(floor(K/2))), pm(L.rms(end))); end
     end
     dmg_say(rep, '\n');
 end
@@ -1040,7 +1041,8 @@ for kd = 1:numel(kinds)
                 case 'walk',    th = L.theory.ss_walk;
                 case 'thermal', th = hypot(L.theory.lag_ramp, L.theory.ss_noise);
             end
-            dmg_say(rep, ' %7.2f %6.2f %6.2f %6.2f |', pm(L.ss), pm(L.bias), pm(L.sig_n), pm(th));
+            if L.diverged, dmg_say(rep, ' %-30s|', sprintf('DIVERGED at cycle %d', L.k_end));
+            else, dmg_say(rep, ' %7.2f %6.2f %6.2f %6.2f |', pm(L.ss), pm(L.bias), pm(L.sig_n), pm(th)); end
         end
         dmg_say(rep, '\n');
     end
@@ -1060,7 +1062,12 @@ for kd = 1:numel(kinds)
             i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, kinds{kd}) & [res.nph] == NPH(q), 1);
             ss(q) = res(i).L.ss;  bias(q) = res(i).L.bias;
         end
-        [n_hold(kd,j), txt] = hold_photons_(NPH, ss, bias, spec);
+        dv = false(1, numel(NPH));
+        for q = 1:numel(NPH)
+            i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, kinds{kd}) & [res.nph] == NPH(q), 1);  dv(q) = res(i).L.diverged;
+        end
+        if all(dv), txt = 'DIVERGED';  n_hold(kd,j) = NaN;
+        else, [n_hold(kd,j), txt] = hold_photons_(NPH, ss, bias, spec); end
         dmg_say(rep, ' %-14s|', txt);
     end
     dmg_say(rep, '\n');
@@ -1079,6 +1086,10 @@ dmg_say(rep, 'loop stage %.1f min (%d traced states)\n', toc(t0)/60, nrun*(K+1))
 macos.set_elt_grid(S.iTO, macos.get_elt_grid_spacing(S.iTO), zeros(P.grid.N_G));
 LO = struct('readings',{RD}, 'drifts',{kinds}, 'nph',NPH, 'steps',P.loop.steps, 'g',g, 'K',K, ...
     'surface',P.loop.surface, 'hold_spec',spec, 'n_hold',n_hold, 'lit',lit, 'A0',A0, 'res',res);
+end
+
+function t = div_(L)
+if L.diverged, t = sprintf(' DIVERGED at cycle %d', L.k_end); else, t = ''; end
 end
 
 function Fn = noisy_frames_(ZW, F, nph, seed, rd)

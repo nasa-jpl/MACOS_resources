@@ -211,4 +211,7 @@ P.loop.ref      = 'noiseless';                % set-point frames: 'noiseless' (c
                                               % is a fixed bias the loop converges to)
 P.loop.seed     = 77;                         % the drift realization (the IFO uses the same seed)
 P.loop.hold_spec = 3e-9;                      % mm: the hold level priced in photons per cycle (3 pm)
+P.loop.rmax     = 1e-3;                       % mm: a residual above this declares the run DIVERGED and
+                                              % stops it (the exact one-frame reading I+ diverges on the
+                                              % 30 nm surface: runs/loop193); Inf = never
 end
