@@ -145,8 +145,10 @@ budget lines before quoting a number.
   Drifts: random walk 2 pm per actuator per cycle; thermal ramp 5 pm rms
   per cycle of defocus + astigmatism; noiseless steps of 1 and 10 nm
   (time constant, dynamic range); the noise-only floor.  `P.loop.*`;
-  `runs/loop193` (98 min, 2562 traced states; 385-ray confirmation
-  `runs/loop385`).
+  `runs/loop193` (98 min, 2562 traced states); the 385-ray check
+  `runs/loop385` (L + S, 52 min) reproduces it: 3 pm at 2.1e12 / 2.6e12
+  (noise-only) and 7.2e12 / 7.7e12 (walk), thermal floors 24.7 / 10.1 pm,
+  S steps to 0.000 pm, L 1.08 pm at cycle 60.
   *What closed loop changes, measured:* the loop propagates noise
   exactly as theory says on the real instrument (noise-only: L 4.39 /
   1.39 / 0.44 / 0.14 pm at 1e12..1e15 photons per cycle vs 4.25 / 1.35 /
