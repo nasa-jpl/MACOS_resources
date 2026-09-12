@@ -133,6 +133,35 @@ budget lines before quoting a number.
   steer.
 
 ## Findings
+- **V2 (2026-09-12): the metasurface's retardance error, priced -- NOT a
+  term in the differential or servo budget.**  A real geometric-phase
+  mask has retardance pi + err; it converts eta = cos^2(err/2) of the
+  light with the +-phi geometric phase and leaks the rest unshifted.
+  With the bench's linearly polarized laser the leaked and converted
+  light in one output channel are COHERENT, so each channel's field is
+  sqrt(eta) E_masked + sqrt(1-eta) e^{i alpha} E_unmasked: one complex
+  constant kappa = sqrt(eta) + sqrt(1-eta) e^{i alpha} on E0 in the
+  per-pixel model (`dmg_zwfs_gauge` opt V_RET_ERR / V_LEAK_PHASE /
+  V_CAL; `P.mask.v_ret_err`, `v_leak_phase`, `v_cal`).  Measured
+  (runs/v2g_*, v2e10a, v2e10afit, v2e20a, v2loop): (1) *uncalibrated
+  ('ideal' solver), absolute reading of the G4 figure (12 nm rms):* leak
+  IN PHASE (alpha 0) = an amplitude scale -> bias 153 / 380 / 750 /
+  1461 pm at err 0.02 / 0.05 / 0.10 / 0.20 rad (1.3x the leaked
+  amplitude, linear); leak in QUADRATURE (alpha pi/2) = mostly a piston
+  the sensor cannot see -> 0.7 / 4.5 / 18 / 75 pm (quadratic).  (2) *a
+  three-number calibration on the flat DM's two images (`ZW.calV`, what
+  a bench does)* recovers kappa and eta to five digits (0.99875 +
+  0.04998i, 0.99750 at err 0.10 / alpha pi/2) and the gate figure reads
+  to 0.048 pm, the ideal-mask number.  (3) *differential rows through
+  the matrix measured on the working surface, UNCALIBRATED, err 0.10 and
+  0.20:* single 10 nm 0.9934 / 4 pm, grid 0.9992 / 3, dense 0.9999 /
+  331 pm, ladder 0.997 / 0.982 at 30 / 60 -- the ideal mask's numbers
+  to the printed digit; the loop likewise (contraction 0.509, noise-only
+  1.18 / 0.12 pm at 1e13 / 1e15, walk 2.60 / 2.32) -- the matrix is
+  measured through the same reading and carries the constant as gain.
+  Caveat carried: a spatially UNIFORM error (the dimple is a few lambda/D
+  wide, the leak phase one number); the chromatic slope of eta is the
+  broadband question, not this laser's.
 - **V1 (2026-09-11, Dave: "polarized dimple?" -- "Begin!"): the VECTOR
   (polarized-dimple) reading V, ideal metasurface, stage one.**  A
   geometric-phase dimple puts +phi on one circular polarization and -phi
