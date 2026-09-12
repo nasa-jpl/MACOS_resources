@@ -107,7 +107,7 @@ if isfield(out.bench, 'g567') && isfield(out.bench.g567, 'figdata')
     f = figure('Color', surf_c, 'Position', [100 100 1500 900], 'Visible', 'off');
     tl = tiledlayout(2, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
     tl.Title.String = sprintf('%s: point-diffraction readings -- the focal plane, the reference, the fringes', P.tag);
-    tl.Title.FontSize = 13;  tl.Title.Color = ink;
+    tl.Title.FontSize = 13;  tl.Title.Color = ink;  tl.Title.Interpreter = 'none';
     % (1) the focal spot with the pinhole, the dimple and the waveguide mode
     ax = nexttile;  hold(ax, 'on');
     nwin = size(fd.spot, 1);  xl = ((1:nwin) - (nwin+1)/2) / fd.px_per_lamd;
@@ -116,16 +116,17 @@ if isfield(out.bench, 'g567') && isfield(out.bench.g567, 'figdata')
     contour(ax, xl, xl, fd.dimple, [0.5 0.5], '--', 'Color', pal.S, 'LineWidth', 1.5);
     if ~isempty(fd.mode), contour(ax, xl, xl, fd.mode / max(fd.mode(:)), exp(-1)*[1 1], 'Color', pal.PF, 'LineWidth', 2); end
     xlabel(ax, 'focal plane, lambda/D', 'Color', ink2);  ylabel(ax, 'lambda/D', 'Color', ink2);
-    title(ax, sprintf('Focal spot (flat DM); pinhole %.2f lam/D (red), dimple %.2f (green dashed), waveguide mode 1/e (brown)', fd.pin_dia_lamd, fd.dimple_dia_lamd), 'Color', ink, 'FontWeight', 'normal', 'FontSize', 9);
+    title(ax, sprintf('Focal spot, flat DM: pinhole %.2g lam/D (red), dimple %.2g (green), mode 1/e (brown)', fd.pin_dia_lamd, fd.dimple_dia_lamd), 'Color', ink, 'FontWeight', 'normal', 'FontSize', 9);
     style_(ax, grid_c, axis_c, ink2, surf_c);
     % (2) reference amplitude across the pupil (center row through the mask)
     ax = nexttile;  hold(ax, 'on');
     [ry, rx] = find(fd.msk);  cy = round(mean(ry));  cols = min(rx):max(rx);
+    xn = (cols - mean(cols)) / ((max(rx) - min(rx))/2);            % normalized pupil coordinate
     row = @(map) map(cy, cols) / sqrt(mean(map(fd.msk).^2));       % the centre row, in units of the rms over the pupil
-    plot(ax, cols, row(fd.E0), 'Color', ink2, 'LineWidth', 2, 'DisplayName', 'the beam |E|');
-    plot(ax, cols, row(fd.Eb), 'Color', pal.P, 'LineWidth', 2, 'DisplayName', 'pinhole-diffracted reference |b|');
-    if ~isempty(fd.Rfib), plot(ax, cols, row(fd.Rfib), 'Color', pal.PF, 'LineWidth', 2, 'DisplayName', 'waveguide-mode reference |R|'); end
-    xlim(ax, [cols(1) cols(end)]);  xlabel(ax, 'detector column (4x decimated)', 'Color', ink2);  ylabel(ax, 'amplitude / rms over the pupil', 'Color', ink2);
+    plot(ax, xn, row(fd.E0), 'Color', ink2, 'LineWidth', 2, 'DisplayName', 'the beam |E|');
+    plot(ax, xn, row(fd.Eb), 'Color', pal.P, 'LineWidth', 2, 'DisplayName', 'pinhole-diffracted reference |b|');
+    if ~isempty(fd.Rfib), plot(ax, xn, row(fd.Rfib), 'Color', pal.PF, 'LineWidth', 2, 'DisplayName', 'waveguide-mode reference |R|'); end
+    xlim(ax, [-1 1]);  xlabel(ax, 'position across the pupil image (radius = 1)', 'Color', ink2);  ylabel(ax, 'amplitude / rms over the pupil', 'Color', ink2);
     title(ax, 'Reference amplitude across the pupil image, flat DM', 'Color', ink, 'FontWeight', 'normal');
     grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);  legend(ax, 'Location', 'south', 'TextColor', ink, 'Color', surf_c, 'EdgeColor', axis_c, 'FontSize', 8);
     % (3) the reference's motion under the working state vs pinhole diameter
@@ -138,14 +139,16 @@ if isfield(out.bench, 'g567') && isfield(out.bench.g567, 'figdata')
     title(ax, sprintf('How much the reference moves under the %g nm rms working surface', P.battery.base_rms*1e6), 'Color', ink, 'FontWeight', 'normal');
     grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);  legend(ax, 'Location', 'best', 'TextColor', ink, 'Color', surf_c, 'EdgeColor', axis_c, 'FontSize', 8);
     % (4-5) visibility maps on the flat, (6) a first frame
+    mg = 3;  rr_ = max(1, min(ry)-mg):min(size(fd.msk,1), max(ry)+mg);  cc_ = max(1, min(rx)-mg):min(size(fd.msk,2), max(rx)+mg);
+    crop = @(v) v(rr_, cc_);
     for j = 1:min(2, numel(rds))
-        ax = nexttile;  v = fd.(['vis_' rds{j}]);  v(~fd.msk) = NaN;
+        ax = nexttile;  v = fd.(['vis_' rds{j}]);  v(~fd.msk) = NaN;  v = crop(v);
         imagesc(ax, v, 'AlphaData', ~isnan(v));  axis(ax, 'image');  set(ax, 'YDir', 'normal');  colormap(ax, jet);  caxis(ax, [0 1]);  cb = colorbar(ax);  cb.Color = ink2;
         title(ax, sprintf('%s: fringe visibility on the flat (mean %.3f, throughput %.3f)', rds{j}, g.(rds{j}).vis, g.(rds{j}).throughput), 'Color', ink, 'FontWeight', 'normal', 'FontSize', 9);
         set(ax, 'XTick', [], 'YTick', []);  style_(ax, grid_c, axis_c, ink2, surf_c);
     end
     if ~isempty(rds)
-        ax = nexttile;  v = fd.(['frame0_' rds{end}]);  v(~fd.msk) = NaN;
+        ax = nexttile;  v = fd.(['frame0_' rds{end}]);  v(~fd.msk) = NaN;  v = crop(v);
         imagesc(ax, v, 'AlphaData', ~isnan(v));  axis(ax, 'image');  set(ax, 'YDir', 'normal');  colormap(ax, jet);  cb = colorbar(ax);  cb.Color = ink2;
         title(ax, sprintf('%s: first phase-step frame on the flat DM', rds{end}), 'Color', ink, 'FontWeight', 'normal', 'FontSize', 9);
         set(ax, 'XTick', [], 'YTick', []);  style_(ax, grid_c, axis_c, ink2, surf_c);
