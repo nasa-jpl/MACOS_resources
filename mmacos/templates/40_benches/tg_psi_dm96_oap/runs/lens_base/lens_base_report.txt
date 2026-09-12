@@ -1,5 +1,5 @@
 === TG96 gauge (lens optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
-uniform scale s = 1.7143; tag "lens"
+uniform scale s = 1.7143; tag "lens_base"
 
 Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
   binding angle 6.88 deg -> BS_AOI = 7 deg
@@ -17,7 +17,7 @@ Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
   diffraction grid 1024^2 padding  2.7x
 
 Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/lens_tail.mat (null 0.134 nm at opt res; seed 9.100)
-Stage B -- lens rig built (BS_AOI 7); emitted lens_{test,ref}.in
+Stage B -- lens rig built (BS_AOI 7); emitted lens_base_{test,ref}.in
 
 Stage PLACE -- affine window placement (lens rig):
   ray affine: mag 9.8793 DM-mm/det-mm, det 97.6015, in-plane rotation -180.00 deg, dxd 2.0054e-02 mm
@@ -36,38 +36,38 @@ Stage PLACE -- affine window placement (lens rig):
 Stage MATRIX -- measured response matrix dw/da (lens rig, step 8, sign same):
   flat-DM null: 0.1345 nm rms surface (134.5 pm) [tail expects 0.1343] -- the same-plane-fold arm difference
   J: 64 states, 3228 columns (lit), window 41 px, reg lambda 1.00e-03 (of median col energy)
-  Stage C single actuator @150nm: gain 0.9968, off-target floor 98.8 pm
+  Stage C single actuator @150nm: gain 0.9873, off-target floor 97.8 pm
 Stage D -- modal transfer (matrix estimator):
   mode(p,q)  cyc/pup     gain  cross-talk
-    1,1          0.7   0.9877      0.0049
-    2,2          1.4   0.9908      0.0028
-    4,4          2.8   0.9884      0.0065
-    8,8          5.7   0.9887      0.0049
-   16,16        11.3   0.9886      0.0090
-   24,24        17.0   0.9888      0.0158
-   32,32        22.6   0.9889      0.0284
-   48,48        33.9   0.9895      0.0563
-   64,64        45.3   0.9909      0.0048
-   80,80        56.6   0.9848      0.0043
-   96,96        67.9   0.9639      0.0106
-   48,0         24.0   0.9918      0.0621
+    1,1          0.7   0.9882      0.0837
+    2,2          1.4   0.9911      0.0441
+    4,4          2.8   0.9887      0.0695
+    8,8          5.7   0.9887      0.0426
+   16,16        11.3   0.9885      0.1068
+   24,24        17.0   0.9891      0.1114
+   32,32        22.6   0.9880      0.0800
+   48,48        33.9   0.9889      0.0748
+   64,64        45.3   0.9886      0.0634
+   80,80        56.6   0.9744      0.0891
+   96,96        67.9   0.9467      0.0720
+   48,0         24.0   0.9910      0.0933
 Stage E -- differential rows (matrix estimator; actuator space, pm):
   base           deviation          gain   resid pm     corr
-  flat           single 10nm      0.9916        2.2   1.0000
-  flat           random 10nm      0.9893      169.2   0.9999
-  random 16nm    single 10nm      0.9969        2.7   0.9999
-  random 16nm    random 10nm      0.9894      231.3   0.9998
+  flat           single 10nm      0.9818        4.5   0.9998
+  flat           random 10nm      0.9882      672.8   0.9977
+  random 16nm    single 10nm      0.9871        3.9   0.9998
+  random 16nm    random 10nm      0.9882      686.1   0.9976
 Stage E break ladder -- single 10nm differential vs base rms (lens):
   base rms       gain   floor pm     corr  note
-      30 nm   1.0013        4.5   0.9997  
-      60 nm   1.0103        9.3   0.9987  
-     120 nm   1.0258       19.3   0.9946  
-     240 nm   1.9271      394.0   0.6872  
-     480 nm   1.5849      419.1   0.5661  
+      30 nm   0.9917        4.8   0.9997  
+      60 nm   1.0008        8.7   0.9988  
+     120 nm   1.0168       18.4   0.9949  
+     240 nm   1.9302      392.9   0.6893  
+     480 nm   1.5652      429.9   0.5501  
 Stage E reg sweep -- dense random 10nm gain vs matrix_lam (bright vs dark 25% columns):
   lambda          all   bright     dark
-  1e-03        0.9893   0.9890   0.9906
-  1e-04        0.9944   0.9941   0.9953
-  1e-05        0.9949   0.9946   0.9958
+  1e-03        0.9882   0.9846   0.9993
+  1e-04        0.9932   0.9897   1.0043
+  1e-05        0.9937   0.9902   1.0048
 
-wrote lens_report.txt + lens.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/lens
+wrote lens_base_report.txt + lens_base.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/lens_base

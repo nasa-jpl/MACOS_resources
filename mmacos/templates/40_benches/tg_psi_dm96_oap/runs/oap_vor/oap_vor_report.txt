@@ -1,5 +1,5 @@
 === TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
-uniform scale s = 1.7143; tag "oap"
+uniform scale s = 1.7143; tag "oap_vor"
 
 Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
   binding angle 6.88 deg -> BS_AOI = 7 deg
@@ -19,8 +19,8 @@ Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
   DM surface grid 3.57 px/actuator             (need >= 3)
   diffraction grid 1024^2 padding  2.7x
 
-Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/oap_tail.mat (null 12.887 nm at opt res; seed 12.901)
-Stage B -- oap rig built (BS_AOI 7); emitted oap_{test,ref}.in
+Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/oap_vor_tail.mat (null 12.887 nm at opt res; seed 12.901)
+Stage B -- oap rig built (BS_AOI 7); emitted oap_vor_{test,ref}.in
 
 Stage PLACE -- affine window placement (oap rig):
   ray affine: mag 10.7036 DM-mm/det-mm, det -114.5672, in-plane rotation -0.00 deg, dxd 1.9859e-02 mm
@@ -47,7 +47,7 @@ Stage D -- modal transfer (matrix estimator):
     4,4          2.8   0.6381      0.4772
     8,8          5.7   0.7664      0.4224
    16,16        11.3   0.7789      0.4106
-   24,24        17.0   0.7610      0.4213
+   24,24        17.0   0.7611      0.4213
    32,32        22.6   0.7681      0.4189
    48,48        33.9   0.7614      0.4207
    64,64        45.3   0.7542      0.4202
@@ -71,12 +71,6 @@ Stage E reg sweep -- dense random 10nm gain vs matrix_lam (bright vs dark 25% co
   lambda          all   bright     dark
   1e-03        0.7486   0.9932   0.0494
   1e-04        0.7652   0.9994   0.0953
-  1e-05        0.7752   1.0003   0.1318
-Stage D4 -- OAP alignment sensitivity (10 um decenter, 10 urad tilt, one at a time):
-  perturb           null nm         sens  sng gain   resid pm
-  OAP1 decenter      16.121    1.612 nm/um    0.9929        2.4
-  OAP1 tilt          94.557    9.456 nm/urad    0.9929        5.8
-  OAP2 decenter      15.318    1.532 nm/um    0.9932        2.3
-  OAP2 tilt         102.687   10.269 nm/urad    0.9915        2.5
+  1e-05        0.7753   1.0003   0.1318
 
-wrote oap_report.txt + oap.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oap
+wrote oap_vor_report.txt + oap_vor.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oap_vor

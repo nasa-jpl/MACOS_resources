@@ -1,5 +1,5 @@
 === TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
-uniform scale s = 1.7143; tag "oap"
+uniform scale s = 1.7143; tag "oap_base"
 
 Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
   binding angle 6.88 deg -> BS_AOI = 7 deg
@@ -20,7 +20,7 @@ Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
   diffraction grid 1024^2 padding  2.7x
 
 Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/oap_tail.mat (null 12.887 nm at opt res; seed 12.901)
-Stage B -- oap rig built (BS_AOI 7); emitted oap_{test,ref}.in
+Stage B -- oap rig built (BS_AOI 7); emitted oap_base_{test,ref}.in
 
 Stage PLACE -- affine window placement (oap rig):
   ray affine: mag 10.7036 DM-mm/det-mm, det -114.5672, in-plane rotation -0.00 deg, dxd 1.9859e-02 mm
@@ -39,44 +39,38 @@ Stage PLACE -- affine window placement (oap rig):
 Stage MATRIX -- measured response matrix dw/da (oap rig, step 8, sign same):
   flat-DM null: 12.8930 nm rms surface (12893.0 pm) [tail expects 12.8873] -- the same-plane-fold arm difference
   J: 64 states, 3388 columns (lit), window 37 px, reg lambda 1.00e-03 (of median col energy)
-  Stage C single actuator @150nm: gain 0.9927, off-target floor 22.4 pm
+  Stage C single actuator @150nm: gain 0.9917, off-target floor 22.7 pm
 Stage D -- modal transfer (matrix estimator):
   mode(p,q)  cyc/pup     gain  cross-talk
-    1,1          0.7   0.9493      0.2202
-    2,2          1.4   0.6315      0.4754
-    4,4          2.8   0.6381      0.4772
-    8,8          5.7   0.7664      0.4224
-   16,16        11.3   0.7789      0.4106
-   24,24        17.0   0.7610      0.4213
-   32,32        22.6   0.7681      0.4189
-   48,48        33.9   0.7614      0.4207
-   64,64        45.3   0.7542      0.4202
-   80,80        56.6   0.7270      0.4133
-   96,96        67.9   0.6910      0.4040
-   48,0         24.0   0.7653      0.4195
+    1,1          0.7   0.9493      0.2439
+    2,2          1.4   0.6317      0.4788
+    4,4          2.8   0.6380      0.4862
+    8,8          5.7   0.7666      0.4283
+   16,16        11.3   0.7791      0.4188
+   24,24        17.0   0.7611      0.4250
+   32,32        22.6   0.7678      0.4274
+   48,48        33.9   0.7616      0.4208
+   64,64        45.3   0.7524      0.4273
+   80,80        56.6   0.7193      0.4164
+   96,96        67.9   0.6765      0.4013
+   48,0         24.0   0.7653      0.4255
 Stage E -- differential rows (matrix estimator; actuator space, pm):
   base           deviation          gain   resid pm     corr
-  flat           single 10nm      0.9948        2.2   0.9999
-  flat           random 10nm      0.7486     4848.5   0.8706
-  random 16nm    single 10nm      0.9958        2.3   0.9999
-  random 16nm    random 10nm      0.7486     4848.3   0.8706
+  flat           single 10nm      0.9938        2.4   0.9999
+  flat           random 10nm      0.7471     4870.3   0.8693
+  random 16nm    single 10nm      0.9948        2.6   0.9999
+  random 16nm    random 10nm      0.7471     4870.1   0.8693
 Stage E break ladder -- single 10nm differential vs base rms (oap):
   base rms       gain   floor pm     corr  note
-      30 nm   0.9967        2.5   0.9999  
-      60 nm   0.9987        3.1   0.9998  
-     120 nm   0.9617      489.6   0.3199  
-     240 nm   0.4779      510.8   0.1613  BROKE (wrap: base reads 1.00 of lambda/4)
-     480 nm   1.0192       15.3   0.9964  
+      30 nm   0.9957        2.8   0.9999  
+      60 nm   0.9976        3.5   0.9998  
+     120 nm   0.9593      489.3   0.3194  
+     240 nm   0.4754      509.9   0.1608  BROKE (wrap: base reads 1.00 of lambda/4)
+     480 nm   1.0180       15.6   0.9962  
 Stage E reg sweep -- dense random 10nm gain vs matrix_lam (bright vs dark 25% columns):
   lambda          all   bright     dark
-  1e-03        0.7486   0.9932   0.0494
-  1e-04        0.7652   0.9994   0.0953
-  1e-05        0.7752   1.0003   0.1318
-Stage D4 -- OAP alignment sensitivity (10 um decenter, 10 urad tilt, one at a time):
-  perturb           null nm         sens  sng gain   resid pm
-  OAP1 decenter      16.121    1.612 nm/um    0.9929        2.4
-  OAP1 tilt          94.557    9.456 nm/urad    0.9929        5.8
-  OAP2 decenter      15.318    1.532 nm/um    0.9932        2.3
-  OAP2 tilt         102.687   10.269 nm/urad    0.9915        2.5
+  1e-03        0.7471   0.9911   0.0495
+  1e-04        0.7638   0.9973   0.0963
+  1e-05        0.7742   0.9981   0.1341
 
-wrote oap_report.txt + oap.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oap
+wrote oap_base_report.txt + oap_base.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oap_base
