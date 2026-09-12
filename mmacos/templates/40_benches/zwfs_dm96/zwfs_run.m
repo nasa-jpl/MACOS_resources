@@ -342,12 +342,13 @@ if ~isempty(fieldnames(ZW.PD))
         dmg_say(rep, '%s: %s; frames per measurement %d; eta_pin %.4f; throughput (detected/incident, flat) %.4f; visibility on the flat %.4f; surrogate vs engine reference %.2e; the flat reads %.2e rad rms, amplitude %.2e rel\n', ...
             rd, desc, pd.nframes, pd.eta_pin, pd.throughput, pd.vis, pd.gate.bsur, pd.gate.flat, pd.gate.amp);
         assert(pd.gate.bsur < 1e-10, '%s: reference surrogate gate FAIL (%.2e)', rd, pd.gate.bsur);
-        assert(pd.gate.flat < 1e-9, '%s: the flat does not read zero (%.2e rad rms)', rd, pd.gate.flat);
+        priced = pd.step_err ~= 0;          % a deliberate step error is being PRICED: the gates print, they do not assert
+        if ~priced, assert(pd.gate.flat < 1e-9, '%s: the flat does not read zero (%.2e rad rms)', rd, pd.gate.flat); end
         hP = pd.height(pd.frames(dmap(Afig)));
         e5 = sqrt(mean((pm_(hP) - pm_(h_t)).^2))*1e9;
-        dmg_say(rep, 'G5 %s on %g nm single-actuator pokes every 8th actuator (%.0f pm rms on msk, %.2f%% of msk beyond the one-frame fold): rms error %.3f pm (gate < 0.1%% of the figure)   -> %s\n', ...
-            rd, P.mask.v_gate_nm, rmsfig, 100*beyond, e5, ifelse_(e5 < 1e-3*rmsfig, 'PASS', 'FAIL'));
-        assert(e5 < 1e-3*rmsfig, 'G5 FAIL: %s does not reproduce the figure', rd);
+        dmg_say(rep, 'G5 %s on %g nm single-actuator pokes every 8th actuator (%.0f pm rms on msk, %.2f%% of msk beyond the one-frame fold): rms error %.3f pm (gate < 0.1%% of the figure)   -> %s%s\n', ...
+            rd, P.mask.v_gate_nm, rmsfig, 100*beyond, e5, ifelse_(e5 < 1e-3*rmsfig, 'PASS', 'FAIL'), ifelse_(priced, sprintf(' (not asserted: a %+.3f step error is being priced -- the flat reads %.2e rad rms, this error IS the number)', pd.step_err, pd.gate.flat), ''));
+        if ~priced, assert(e5 < 1e-3*rmsfig, 'G5 FAIL: %s does not reproduce the figure', rd); end
         gP.(rd) = struct('e5', e5, 'throughput', pd.throughput, 'vis', pd.vis, 'nframes', pd.nframes);
     end
     % G6: reference motion under the working state (E1 traced at G3), by diameter
