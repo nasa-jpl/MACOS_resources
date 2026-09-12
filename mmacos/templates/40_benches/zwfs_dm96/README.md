@@ -391,7 +391,22 @@ budget lines before quoting a number.
   head-to-head: run the IFO through the identical `dmg_loop` (same
   seeds, drifts, gains, photon levels; CCMac, brief oap2 addendum) and
   compare the three rows of that table plus the noiseless floor and the
-  held residual's spectrum.
+  held residual's spectrum.  *DONE 2026-09-12 (CCMac, `tg_psi_dm96_oap`
+  runs/loop_lens, loop_oap; identical loop code, seed 77):* the IFO's
+  four-step reading on the LENS rig holds 3 pm from 5.5e12 photons per
+  cycle noise-only / 2.0e13 under the 2 pm walk (single-shot noise 12.0
+  pm at 1e12 vs S 8.2 / V 6.4: ~1.5x noisier per photon, ~2x the light;
+  the S5 single-actuator pricing's 15x was the kernel-era estimator on a
+  different scenario), thermal 13.1 pm (10 of lag + ~8.5 of fixed
+  error), and a noiseless 1 nm step floors at 87 pm and RISES -- a ~9 %
+  fixed error (its fine-pattern roll-off + cross-talk in closed loop),
+  so the IFO behaves like the ZWFS linear reading, not its stepped one.
+  The REFLECTIVE rig (bare aluminum; the ideal-reflector null was an
+  idealization -- exactly zero retardance variation -- and bare Al
+  fills it, retiring the D3 uncoated numbers) cannot hold the 2 pm walk
+  to 3 pm at ANY light (floor 4.1 pm), thermal 39 pm, step floor 276 pm:
+  its remaining fold cross-talk (0.18 open-loop) is a hard wall in hold
+  mode, which the open-loop battery could not see.  Deck slide 16.
 
 > **MODEL CORRECTION (2026-09-09, found building S7's reconstructor;
 > details in the S7 bullet at the end): every ZWFS number in S1-S6 was
