@@ -159,6 +159,72 @@ OVERSTATE the fold cost because they use an ideal reflector; a real coated mirro
 calibrates dense patterns at ~0.95. Whether the uncoated null is a physical
 bare-metal reflection or a model idealization is the open modelling point.
 
+## D7 — the closed-loop hold metric (lens rig; `runs/loop_lens`)
+
+The on-orbit servo mode: the DM held at the 30 nm working surface by a
+proportional loop (gain 0.5, 60 cycles) closed through the four-step PSI reading
+and its measured matrix (calibrated ON that surface, S10). The loop code is the
+**shared** `../dm_gauge_lib/dmg_loop.m` — the identical file the ZWFS runs, gated
+by `tests/tDmgLoop.m` (9 synthetic-instrument gates). Same knobs, same drift
+`seed 77`, so the two gauges see the identical realizations. `tg96_run` stage
+`'loop'`; 14 runs × 61 states = 854 traced states, 73 min at model 1024.
+
+**The comparison (same seeds, same drifts, same scoring; ZWFS rows from
+`zwfs_dm96` S11/V1):**
+
+| reading | 3 pm held, noise only | 3 pm held, 2 pm walk | thermal floor | noiseless step at cycle 60 |
+|---|---|---|---|---|
+| ZWFS linear L (1 frame) | 2.1e12 | 7.3e12 | 27.6 pm | 1.2 pm, still falling |
+| ZWFS exact one-frame I+ | diverges | diverges | diverges | 99 nm |
+| ZWFS stepped S (4 frames) | 2.6e12 | 7.5e12 | 10.0 pm | 0.000 pm |
+| ZWFS polarized pair V (2 frames) | 1.5e12 | 5.3e12 | 9.9 pm | 0.000 pm |
+| **T-G IFO four-step, lens** | **5.5e12** | **2.0e13** | **13.1 pm** | **87 pm** (1 nm step; ~8.6% floor, slightly rising 66→87) |
+| T-G IFO four-step, OAP | *pending (D7 OAP row, after item B)* | | | |
+
+**Per-photon precision (the thing that sets the crossings).** The loop
+propagates noise EXACTLY as theory says — steady-state ss vs the theory line
+`sig_n·sqrt(g/(2−g))`: 7.01/6.91, 2.22/2.19, 0.70/0.69, 0.22/0.22 pm at
+1e12…1e15 photons per measurement; the walk likewise (7.38/7.29 … 2.41/2.32,
+the 2.4 pm floor being the walk itself at g=0.5). The single-shot estimate noise
+is **sig_n 11.97 pm at 1e12 photons per measurement** → 1 pm at **~1.4e14
+photons**. The ZWFS reads 1 pm at ~5.5e13 (L) / ~6e13 (S), so **the IFO needs
+~2.6× more photons per measurement for the same precision** — its 3 pm noise-only
+crossing sits ~2.6× to the right of ZWFS L (5.5e12 vs 2.1e12), its walk crossing
+~2.7× right of S (2.0e13 vs 7.5e12). (The brief's S5-based estimate was ~8e14 /
+~15×; the loop-measured penalty is milder, ~2.6×.)
+
+**Thermal.** A proportional loop lags a ramp by `rate/(gG)`; with G≈0.98 that is
+~10.4 pm, and the measured hold is 13.1 pm (bias 12.9, the lag; the extra ~8 pm
+is high-order — spectrum >12 cyc/ap = 8.7 pm). No photon count reaches 3 pm
+against a ramp at g=0.5 — the same result as every ZWFS reading (S 10.0, V 9.9,
+L 27.6); an integral term or higher gain is the thermal fix, and the same loop
+code takes it. The IFO's 13.1 pm sits between S/V (~10) and L (27.6).
+
+**The departure to flag (this is what the loop exposes).** Unlike the *ideal*
+ZWFS stepped reading S — which drives a noiseless step to **0.000 pm** — the IFO
+four-step reading has a **noiseless step FLOOR**: a 1 nm random step decays 15×
+(rho 0.511, tau 1.5, below 1/e by cycle 3) then settles at **~87 pm ≈ 8.6% of
+the step**, and *slightly rises* over the last 30 cycles (66→87 pm; the 10 nm
+step scales linearly, 864 pm). It decays first and never trips the divergence
+guard, so it is NOT a sign error (a mis-signed reading grows from cycle 1, cf.
+tDmgLoop G7). It is the **gauge's geometric roll-off + modal cross-talk surfacing
+in closed loop**: the four-step + matrix reads the resolved modes at 0.96–0.99
+(Stage D) but with cross-talk rising to ~6% at mid-order, and in closed loop the
+coupled system's steady state (estimate=0) is not truth=0 for those modes — a
+persistent high-order residual (the held-residual spectrum is >12 cyc/ap
+dominated: none 0.22, walk 2.29, thermal 8.69 pm). This is the IFO four-step
+behaving **more like the ZWFS linear L reading (a persistent high-order imprint)
+than like the ideal stepped S** — a real physical cost of the interferometric
+gauge that the idealized ZWFS sim does not carry. The random walk and the photon
+noise, which do not excite that coupled mode persistently, are held cleanly (2.6×
+the ZWFS photons).
+
+Figure: `runs/loop_lens/loop_lens_loop.png` (residual per cycle per photon level
++ the noiseless step; hold error vs photons for none/walk/thermal). Reproduce:
+
+    tg96_run('stages',{'bench','loop','figs'},'tag','loop_lens')     % lens
+    ./tg96_batch.sh loop_lens "'stages',{'bench','loop','figs'}"     # headless
+
 ## Deliverable status vs the brief
 
 - D1 `dmg_frame` affine + `tg96_place` + gate — **DONE**; lens GREEN, OAP reported
@@ -170,8 +236,11 @@ bare-metal reflection or a model idealization is the open modelling point.
 - D4 OAP alignment sensitivity — **DONE** (null cancels in the differential).
 - D5 coated-Al OAPs — **DONE**; recovers the dense gain (the ideal-reflector reframe).
 - D6 README + this report — **DONE**.
-- D7 closed-loop hold metric — **BLOCKED**: `dm_gauge_lib/dmg_loop.m` not yet on
-  `origin/dev-candidate` (awaits Dave's push); stage 'loop' to follow.
+- D7 closed-loop hold metric — **DONE (lens); OAP row pending**. `tg96_run` stage
+  `'loop'` on the shared `dm_gauge_lib/dmg_loop.m`; lens comparison row filled
+  (holds noise/walk at ~2.6× the ZWFS photons, thermal floor 13.1 pm, and a
+  noiseless step FLOOR ~8.6% — the gauge roll-off surfacing in closed loop, L-like
+  not S-like). The OAP row follows item B (which coating the answer says).
 
 ## Reproduce
 

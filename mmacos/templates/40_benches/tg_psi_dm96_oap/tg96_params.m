@@ -121,6 +121,34 @@ P.place.gate_max_states = inf;     % cap the D1-gate sweep states (dev: sample a
 P.place.boot_states = 8;           % states for the placement bootstrap/refit (few suffice)
 P.place.gate_assert = true;        % dev: false continues past a failed gate (saves .mat)
 
+% ---- closed-loop hold metric (D7; Dave 2026-09-11, BRIEF_loop_metric) ----
+%   The on-orbit servo mode: the DM held at the working surface by a
+%   proportional loop closed through the four-step reading and its measured
+%   matrix (calibrated ON the working surface, S10). ONE reading here (the
+%   four-step PSI map), so no readings dimension -- the ZWFS runs L/I+/S/V.
+%   The loop code is shared: ../dm_gauge_lib/dmg_loop.m (gated by
+%   tests/tDmgLoop.m). Same knobs and seed as the ZWFS P.loop so the two
+%   instruments run the IDENTICAL drift realizations. Cost: K+1 traced
+%   states per (drift, photon level) -- an hour-class job at MODEL 1024.
+P.loop.surface  = 'base';          % set point: 'base' = the 30 nm working
+                                   %   surface with the matrix ON it (base_rms,
+                                   %   seed_base); 'flat' = the flat DM
+P.loop.g        = 0.5;             % loop gain
+P.loop.K        = 60;              % cycles (steady state = the last K/2)
+P.loop.nph      = [1e12 1e13 1e14 1e15];  % photons per MEASUREMENT, one per
+                                   %   cycle (the four frames share it, nph/4 each)
+P.loop.drifts   = {'walk', 'thermal'};    % drift models run at every photon level
+P.loop.walk_sigma   = 2e-9;        % mm per actuator per cycle (2 pm random walk)
+P.loop.thermal_rate = 5e-9;        % mm rms per cycle of a defocus + astigmatism ramp (5 pm)
+P.loop.steps    = [1e-6 10e-6];    % mm rms: NOISELESS step disturbances at cycle 1
+                                   %   (time constant + dynamic range)
+P.loop.floor    = true;            % also the noise-only loop at every photon level (G2)
+P.loop.ref      = 'noiseless';     % set-point frames: 'noiseless' (calibration-grade)
+                                   %   | 'noisy' (single-shot; a fixed bias)
+P.loop.seed     = 77;              % drift realization (SHARED with the ZWFS)
+P.loop.hold_spec = 3e-9;           % mm: the hold level priced in photons per cycle (3 pm)
+P.loop.rmax     = 1e-3;            % mm: a residual above this declares the run DIVERGED
+
 % ---- dev / smoke -----------------------------------------------------
 P.smoke = false;                   % true => Stage-A2 sampling asserts become warnings
                                    %   (code-path checks at coarse MODEL/NGRID; NOT a result)

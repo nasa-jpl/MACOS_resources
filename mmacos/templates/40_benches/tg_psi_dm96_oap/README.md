@@ -57,8 +57,8 @@ dir via `P.param_file` (keep `mGridMat ≥` the DM grid, 384 here).
 
 | file | role |
 |---|---|
-| `tg96_params.m` | every knob of record + `bench.optics`, OAP fold AOIs, `calib_mode`, `place.*`, `d4` |
-| `tg96_run.m`    | Stage A–E + Stage PLACE (D1) + Stage MATRIX (D2) + Stage D4, one path for lens+OAP |
+| `tg96_params.m` | every knob of record + `bench.optics`, OAP fold AOIs, `calib_mode`, `place.*`, `d4`, `loop.*` |
+| `tg96_run.m`    | Stage A–E + Stage PLACE (D1) + Stage MATRIX (D2) + Stage D4 + Stage LOOP (D7), one path for lens+OAP |
 | `tg96_place.m`  | window placement from the ray affine (`dmg_frame`) + directional-parity + robust affine refit |
 | `tg96_apply_parity.m` | detector-mm → field pixel under the resolved field-array parity |
 | `tg96_tail.m`   | re-tune FL_F/FL_Kc/D_MASK_FL/DET_TRIM per optics (unaligned null) |
@@ -98,3 +98,19 @@ lens (single 0.9948/2.2pm), and its differential is robust to the 12.9 nm null a
 OAP misalignment — the fold's cost is astigmatism cross-talk (~0.42) on dense/high-
 order patterns (random-10nm 0.75 vs lens 0.99). Full numbers + tables + departures in
 **`REPORT_oap.md`**.
+
+## Closed-loop hold metric (D7) — the on-orbit servo mode
+
+`tg96_run('stages',{'bench','loop','figs'})` runs Stage LOOP: the DM held at the
+30 nm working surface by a proportional loop (gain 0.5, 60 cycles) closed through
+the four-step reading and its measured matrix (calibrated ON that surface). The
+loop code is the **shared** `../dm_gauge_lib/dmg_loop.m` — the identical file the
+ZWFS runs (`P.loop.*` knobs, drift `seed 77` shared with the ZWFS so both gauges
+see the same realizations). Cost: K+1 traced states per (drift, photon level), an
+hour-class job at model 1024 (`tg96_batch.sh`). **Lens result** (`runs/loop_lens`):
+holds the walk and the photon noise like the ZWFS stepped/vector readings but at
+**~2.6× the photons per measurement** (3 pm from 5.5e12 noise-only / 2.0e13 walk;
+thermal floor 13.1 pm = the rate/g lag). **Departure:** the IFO four-step has a
+**noiseless step floor ~8.6%** (unlike the ideal ZWFS stepped reading's 0.000) —
+the gauge's geometric roll-off + modal cross-talk surfacing in closed loop
+(L-like, not S-like). Numbers + the ZWFS comparison table in **`REPORT_oap.md`**.
