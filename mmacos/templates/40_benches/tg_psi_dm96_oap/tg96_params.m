@@ -69,6 +69,21 @@ P.oap.OAP1_AOI    = [];            % [] => Stage-A solved; deg
 P.oap.OAP2_AOI    = [];
 P.oap.OAP1_SIDE   = 1;   P.oap.OAP2_SIDE = 1;
 
+% ---- OAP coating (D5 / brief item B): the polarization-cost row ------
+%   'none'        ideal reflector (RS=-1, RP=+1, zero retardance) -- the D3
+%                 baseline; the lens/OAP comparison stays geometric.
+%   'bareAl'      a single opaque aluminium layer (n - i*kappa at HeNe
+%                 632.8 nm, Rakic 1998); the physical bare-metal reflection.
+%   'protectedAl' MgF2 half-wave overcoat over opaque Al (the realistic
+%                 mirror). Applied via macos.coating (= coat_set) to BOTH
+%                 OAPs (L1 collimator, L2 focuser) in BOTH arms -- shared
+%                 tail optics, so its retardance is a common-mode term.
+%   Thickness in mm (bench BaseUnits). Ignored when bench.optics ~= 'oap'.
+P.bench.coat_oap  = 'none';        % 'none' | 'bareAl' | 'protectedAl'
+P.bench.coat_bareAl      = struct('index',1.373, 'extinc',7.62, 'thickness',1.0e-4);
+P.bench.coat_protectedAl = struct('index',[1.38 1.373], 'extinc',[0 7.62], ...
+                                  'thickness',[2.293e-4 1.0e-4]);  % [MgF2 lambda/2 ; Al opaque]
+
 % ---- battery selection ----------------------------------------------
 P.battery.piston_nm  = 20;
 P.battery.single_nm  = 150;        % Stage-C single-actuator poke

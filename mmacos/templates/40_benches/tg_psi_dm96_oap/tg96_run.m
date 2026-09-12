@@ -72,7 +72,7 @@ assert(P.grid.N_G <= macos.grid_size_max(), ...
     'N_G %d exceeds mGridMat %d at model %d', P.grid.N_G, macos.grid_size_max(), P.MODEL);
 macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G));
 bench = struct('geom', geom, 's', s);
-if want('bench') || want('battery') || want('loop')
+if want('bench') || want('battery') || want('loop') || want('jones')
     [G, bench] = stage_B_(P, s, geom, say, exdir);
 end
 
@@ -91,13 +91,18 @@ if want('loop')
     loop = stage_loop_(P, s, G, bench, say, place);
 end
 
+jones = struct();
+if want('jones')
+    jones = stage_jones_(P, s, G, bench, say);
+end
+
 if want('figs')
     draw_layout_(geom, s, P);
     if isfield(loop, 'res'), draw_loop_(loop, P); end
 end
 
 out = struct('P', P, 'geom', geom, 'bench', bench, 'battery', battery, ...
-    'place', place, 'loop', loop, 's', s);
+    'place', place, 'loop', loop, 'jones', jones, 's', s);
 save([P.tag '.mat'], 'out');
 say('\nwrote %s_report.txt + %s.mat + figures in %s\n', P.tag, P.tag, P.outdir);
 end
@@ -238,6 +243,12 @@ function C = arm_setup_(P, G)
     C.rxT = [P.tag '_test.in'];  C.rxR = [P.tag '_ref.in'];
     C.AT = arm_desc(C.rxT, G.bt, G.T, 0);
     C.AR = arm_desc(C.rxR, G.br, G.R, 45);
+    % OAP coating (brief item B): attach to the OAPs of BOTH arms so the
+    % reference/null below already carry it. load_arm applies it each trace.
+    cs = oap_coat_stack_(P);
+    if ~isempty(cs)
+        C.AT = set_oap_coat_(C.AT, cs);  C.AR = set_oap_coat_(C.AR, cs);
+    end
     C.Sr = analyzer_basis(C.AR, C.QWP, []);
     C.S0 = analyzer_basis(C.AT, C.QWP, []);
     C.I0 = frame(C.S0, C.Sr, 0);  C.msk = C.I0 > 0.1*max(C.I0(:));
@@ -400,6 +411,9 @@ function battery = stage_matrix_(P, s, G, bench, say, place)
     N = size(msk,1);  Am = nnz(msk);  nact = cfg.nact;  POKE = P.POKE;
     say('Stage MATRIX -- measured response matrix dw/da (%s rig, step %d, sign %s):\n', ...
         P.bench.optics, P.battery.matrix_step, P.battery.matrix_sign);
+    if ~isempty(oap_coat_stack_(P))
+        say('  OAP coating: %s on L1+L2, both arms (macos.coating)\n', P.bench.coat_oap);
+    end
     % flat-DM null (the arm-difference the common tail cannot remove; 0.134 nm
     % lens / 12.9 nm OAP) -- reported beside the differential rows (Dave)
     hn = (ctx.p_null - median(ctx.p_null(msk))) * ctx.LAM/(4*pi) * 1e6;
@@ -724,6 +738,54 @@ LO = struct('drifts',{kinds}, 'nph',NPH, 'steps',P.loop.steps, 'g',g, 'K',K, ...
     'A0',A0, 'null_nm',null_nm, 'nlit',nlit, 'nstates',ns, 'res',res);
 end
 
+% =====================================================================
+%  Stage JONES (item B): OAP-fold retardance + fringe visibility
+% =====================================================================
+function JZ = stage_jones_(P, s, G, bench, say) %#ok<INUSD>
+% The mechanism run behind the D5 reframe (brief oap3 item B): is the OAP
+% dense-loss null the perfect conductor's (a knife-edge idealization) or a real
+% fold cost?  For ideal / bareAl / protectedAl OAPs, report (a) the retardance
+% of L1 -- the collimating fold, element 2, BEFORE PolIn, so jones_pupil harvests
+% the pure fold Jones -- via macos.jones_pupil + macos.pol_maps (double-pole
+% basis; the mean is a state, only the VARIATION is an aberration), and (b) the
+% four-step fringe visibility V = 2*AC/DC of the flat-DM gauge, in the central
+% band (where the ideal null darkens the pupil, D5) vs the pupil edge.  A single
+% opaque Al layer that fills the band settles the question numbers-first.
+JZ = struct('case',{},'ret_mean_mrad',{},'ret_var_mrad',{},'V_band',{},'V_edge',{},'lit_band',{},'lit_edge',{});
+if ~strcmp(P.bench.optics,'oap'), say('\nStage JONES: OAP rig only; skipped.\n'); return; end
+QWP = P.QWP;  THETAS = P.THETAS;
+rxT = [P.tag '_test.in'];  rxR = [P.tag '_ref.in'];
+cases = {'ideal',[]; 'bareAl',P.bench.coat_bareAl; 'protectedAl',P.bench.coat_protectedAl};
+say('\n---- Stage JONES (item B): OAP-fold retardance + fringe visibility ----\n');
+say(['L1 (collimating OAP fold) retardance via jones_pupil+pol_maps (double-pole, mrad; ' ...
+    'mean = a state, var = the aberration), and the four-step fringe visibility ' ...
+    'V=2*AC/DC (flat DM) in the central band vs the pupil edge, plus the lit fraction there\n']);
+say('  %-12s %10s %10s %9s %9s %9s %9s\n','coating','ret mean','ret var','V band','V edge','lit band','lit edge');
+for c = 1:size(cases,1)
+    cs = cases{c,2};
+    AT = arm_desc(rxT, G.bt, G.T, 0);  AR = arm_desc(rxR, G.br, G.R, 45);
+    if ~isempty(cs), AT = set_oap_coat_(AT,cs);  AR = set_oap_coat_(AR,cs); end
+    Sr = analyzer_basis(AR, QWP, []);
+    Sx = analyzer_basis(AT, QWP, []);
+    Fr = frames4_(Sx, Sr, THETAS);
+    I1 = Fr(:,:,1);  I2 = Fr(:,:,2);  I3 = Fr(:,:,3);  I4 = Fr(:,:,4);
+    DC = I1+I2+I3+I4;  AC = sqrt((I1-I3).^2 + (I2-I4).^2);
+    msk = DC > 0.1*max(DC(:));  V = 2*AC ./ max(DC, eps);
+    [rr,cc] = find(msk);  r0 = mean(rr);  c0 = mean(cc);
+    [CG,RG] = meshgrid(1:size(DC,2), 1:size(DC,1));  rad = hypot(CG-c0, RG-r0);
+    R = max(rad(msk));  band = rad < 0.20*R;  edge = rad >= 0.80*R & rad <= R;
+    litb = mean(msk(band));  lite = mean(msk(edge));
+    Vb = mean(V(band & msk));  Ve = mean(V(edge & msk));
+    load_arm(AT, QWP, 0, []);                       % load coated rx for jones_pupil
+    iL1 = find(strcmp({AT.b.E.name},'L1'), 1);
+    pm = macos.pol_maps(macos.jones_pupil(iL1));
+    rm = 1e3*pm.mean.ret;  rv = 1e3*pm.var_rms.ret;
+    say('  %-12s %10.2f %10.2f %9.3f %9.3f %9.2f %9.2f\n', cases{c,1}, rm, rv, Vb, Ve, litb, lite);
+    JZ(end+1) = struct('case',cases{c,1}, 'ret_mean_mrad',rm, 'ret_var_mrad',rv, ...
+        'V_band',Vb, 'V_edge',Ve, 'lit_band',litb, 'lit_edge',lite); %#ok<AGROW>
+end
+end
+
 function Fr = frames4_(Sx, Sr, th)
 % the four analyzer-step intensity frames (noiseless) for a test-arm state Sx
 % against the fixed reference-arm basis Sr
@@ -902,6 +964,29 @@ function h = meanref_(h, msk)
 end
 
 function s = iff_(c, a, b), if c, s = a; else, s = b; end, end
+
+function cs = oap_coat_stack_(P)
+% the selected OAP coating stack (struct .index/.extinc/.thickness), or [] for
+% the ideal reflector / non-OAP rig (brief item B).
+cs = [];
+if ~strcmp(P.bench.optics,'oap') || ~isfield(P.bench,'coat_oap'), return; end
+switch P.bench.coat_oap
+    case {'none',''},   cs = [];
+    case 'bareAl',      cs = P.bench.coat_bareAl;
+    case 'protectedAl', cs = P.bench.coat_protectedAl;
+    otherwise, error('tg96_run: bench.coat_oap must be none | bareAl | protectedAl');
+end
+end
+
+function A = set_oap_coat_(A, cs)
+% attach the coating stack cs to the arm's OAP mirrors L1 (collimator) and L2
+% (focuser), for load_arm to apply each trace.
+nm = {A.b.E.name};  iL = [find(strcmp(nm,'L1'),1), find(strcmp(nm,'L2'),1)];
+A.coat = struct('iElt',{}, 'n',{}, 'k',{}, 't',{});
+for j = 1:numel(iL)
+    A.coat(end+1) = struct('iElt',iL(j), 'n',cs.index, 'k',cs.extinc, 't',cs.thickness); %#ok<AGROW>
+end
+end
 
 function rc = pick_lit_(PL, cfg, ~)
 % an in-pupil actuator OFF the footprint centroid (for the single-poke tests):
@@ -1205,6 +1290,14 @@ function load_arm(A, QWP, an_deg, grid)
     end
     if nargin >= 4 && ~isempty(grid)
         macos.set_elt_grid(A.iTO, macos.get_elt_grid_spacing(A.iTO), grid);
+    end
+    % OAP coating (item B): thin-film stack on the listed OAPs, applied after
+    % the reload so it persists (active with polarization on). A.coat = struct
+    % array {iElt, n[1xL], k[1xL], t[1xL]} outermost->innermost.
+    if isfield(A,'coat') && ~isempty(A.coat)
+        for cq = 1:numel(A.coat)
+            macos.coating(A.coat(cq).iElt, 'index',A.coat(cq).n, 'extinc',A.coat(cq).k, 'thickness',A.coat(cq).t);
+        end
     end
     macos.polarizer(A.iPol, 'axis', lax(b.E(A.iPol).psi, 45));
     qa = lax(b.E(A.iQ(1)).psi, A.qwp_deg);
