@@ -17,14 +17,17 @@ if ischar(out) || isstring(out), q = load(out);  out = q.out; end
 P = out.P;
 if ~exist(P.outdir, 'dir'), mkdir(P.outdir); end
 pal = struct('L',[42 120 214]/255, 'F',[137 135 129]/255, 'I',[235 104 52]/255, ...
-             'Ip',[237 161 0]/255, 'S',[27 175 122]/255, 'V',[124 58 237]/255);
+             'Ip',[237 161 0]/255, 'S',[27 175 122]/255, 'V',[124 58 237]/255, ...
+             'P',[186 60 60]/255, 'PF',[120 90 40]/255);
 ink = [11 11 11]/255;  ink2 = [82 81 78]/255;  muted = [137 135 129]/255;
 grid_c = [225 224 217]/255;  axis_c = [195 194 183]/255;  surf_c = [252 252 251]/255;
-cls_c = {pal.L, pal.I, pal.S, pal.V};  cls_n = {'linear map (L)', 'exact map (I class)', 'stepped map (S)', 'vector pair (V)'};
+cls_c = {pal.L, pal.I, pal.S, pal.V, pal.P, pal.PF};
+cls_n = {'linear map (L)', 'exact map (I class)', 'stepped map (S)', 'vector pair (V)', 'point-diffraction, pinhole (P)', 'point-diffraction, fiber reference (PF)'};
 name = @(rd) strrep(rd, '+', 'p');
 colof = @(rd) pal.(name(rd));
 lbl = struct('L','linear (L)', 'F','exact, frozen b (F)', 'I','exact, iterated b (I)', ...
-             'Ip','I + refined base prior (I+)', 'S','phase-stepped (S)', 'V','vector pair (V)');
+             'Ip','I + refined base prior (I+)', 'S','phase-stepped (S)', 'V','vector pair (V)', ...
+             'P','point-diffraction, pinhole (P)', 'PF','point-diffraction, fiber reference (PF)');
 
 % ---- battery ------------------------------------------------------------
 if isfield(out, 'battery')

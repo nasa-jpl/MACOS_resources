@@ -12,14 +12,30 @@ args="${*:-}"
 export MACOS_HOME="${MACOS_HOME:-$HOME/dev/macos/macos_f90}"
 mkdir -p "$here/runs"
 log="$here/runs/$tag.log"
+: > "$log"
 if [ -n "$args" ]; then call="zwfs_run_batch('tag','$tag', $args)"; else call="zwfs_run_batch('tag','$tag')"; fi
-echo "[$(date '+%F %T')] $call" | tee "$log"
 cd "$here"
+# ONE engine MATLAB at a time (2026-09-12 near-miss: a sequence script from an
+# earlier session chained into a loop run while a second sequence started --
+# 27 of 30 GB, 0 free).  Serialize: wait while any batch MATLAB of the DM-gauge
+# runners is alive (pattern excludes this script's own command line), then hold
+# a lock for the run itself so two waiting launchers cannot start together.
+# ZWFS_NOWAIT=1 bypasses (dev-res jobs that fit beside a model-1024 run).
+if [ -z "${ZWFS_NOWAIT:-}" ]; then
+    while pgrep -f 'MATLAB -batch (zwfs|tg96)_run_batch' >/dev/null 2>&1; do
+        echo "[$(date '+%F %T')] waiting: another DM-gauge batch MATLAB is running" >> "$log"
+        sleep $((20 + RANDOM % 20))
+    done
+    lockcmd="flock $here/runs/.batch.lock"
+else
+    lockcmd=""
+fi
+echo "[$(date '+%F %T')] $call" | tee -a "$log"
 if command -v systemd-run >/dev/null 2>&1; then
-    systemd-run --user --scope -q -p MemoryMax=${ZWFS_MEMMAX:-14G} \
+    $lockcmd systemd-run --user --scope -q -p MemoryMax=${ZWFS_MEMMAX:-14G} \
         matlab -batch "$call" >> "$log" 2>&1
 else
-    matlab -batch "$call" >> "$log" 2>&1
+    $lockcmd matlab -batch "$call" >> "$log" 2>&1
 fi
 rc=$?
 echo "[$(date '+%F %T')] exit $rc" | tee -a "$log"
