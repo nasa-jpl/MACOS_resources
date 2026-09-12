@@ -56,7 +56,7 @@ dmg_say(rep, '=== ZWFS runner: tag %s  (%s) ===\n', P.tag, datestr(now, 'yyyy-mm
 dmg_say(rep, 'model %d, NGRID %d, lambda %.1f nm, mask_prop %s, spot %.2f lam/D, etch %.1f nm, NITER %d\n', ...
     P.MODEL, P.NGRID, P.LAM*1e6, P.bench.mask_prop, P.mask.DIA_LAMD, P.mask.ETCH_MM*1e6, P.mask.NITER);
 dmg_say(rep, 'stages: %s | readings: %s\n', strjoin(P.stages, ' '), strjoin(P.readings, ' '));
-dmg_say(rep, 'readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base''s refined stepped branch prior (1; base 4 once) | S phase-stepped (4)\n');
+dmg_say(rep, 'readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base''s refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames)\n');
 
 S = stage_bench_(P, rep);
 out.bench = S.summary;
@@ -87,7 +87,7 @@ for i = 1:2:numel(varargin)
 end
 if ~isempty(P.dm_use), P.dm = P.dm(P.dm_use); end
 if ~isempty(P.hold), for i = 1:numel(P.dm), P.dm(i).hold = P.hold; end; end
-ok = {'L','F','I','I+','S'};
+ok = {'L','F','I','I+','S','V'};
 assert(all(ismember(P.readings, ok)), 'zwfs_run: readings must be a subset of %s', strjoin(ok, ' '));
 assert(all(ismember(P.stages, {'bench','battery','color','noise','loop','figs'})), 'zwfs_run: unknown stage');
 end
@@ -116,11 +116,12 @@ g = struct('LAM', lam_mm, 'F2', P.bench.F2, 'R_BEAM', P.bench.R_TO_AP, ...
 end
 
 function k = class_(rd)
-% kernel / transfer class of a reading: 1 = linear map, 2 = exact map, 3 = stepped
+% kernel / transfer class of a reading: 1 = linear map, 2 = exact map, 3 = stepped, 4 = vector pair
 switch rd
     case 'L',          k = 1;
     case {'F','I','I+'}, k = 2;
     case 'S',          k = 3;
+    case 'V',          k = 4;
 end
 end
 
@@ -239,7 +240,32 @@ dmg_say(rep, 'G3 %.0f nm rms working state (DM %dx%d, lit %d): detector |E|/|E_f
     P.battery.base_rms*1e6, cfg.nact, cfg.nact, nnz(lit), std(rr));
 g3 = std(rr) < 1e-12;
 if ~strcmp(P.bench.mask_prop, 'nf_legacy'), assert(g3, 'G3 FAIL'); end
-
+% ---- G4 (vector reading): exact beyond the one-frame fold, no branch ---
+% Sparse-grid single-actuator pokes of P.mask.v_gate_nm (every 8th
+% actuator): the reference wave barely moves (the core is intact) while
+% the poked pixels sit beyond the quarter-wave sensor's -pi/4 fold, so
+% the +phi/-phi pair must solve them exactly and the single +phi frame's
+% principal branch must not.  Truth = the engine's own unmasked detector
+% field phase; errors with the mean over msk removed (piston is the one
+% direction the sensor cannot see).  A whole-pupil figure of that height
+% is NOT a fold test: the core collapses (the 30-40 nm cliff, S7).
+gV = struct('eV', NaN, 'eI', NaN, 'beyond', NaN, 'rmsfig', NaN);
+if any(strcmp(P.readings, 'V'))
+    Afig = zeros(cfg.nact);  Afig(4:8:end, 4:8:end) = P.mask.v_gate_nm*1e-6;
+    macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(Afig));
+    Et = macos.complex_field(iDET);
+    phi_t = angle(Et .* conj(ZW.E0));  h_t = P.mask.S_CONV*phi_t*P.LAM/(4*pi);
+    [Ip, Im] = ZW.frameV(dmap(Afig));
+    hV = ZW.reconV(Ip, Im);  hI = ZW.reconI(Ip);
+    pm_ = @(x) x(msk) - mean(x(msk));
+    gV.rmsfig = std(h_t(msk))*1e9;
+    gV.eV = sqrt(mean((pm_(hV) - pm_(h_t)).^2))*1e9;  gV.eI = sqrt(mean((pm_(hI) - pm_(h_t)).^2))*1e9;
+    gV.beyond = mean(phi_t(msk) < -pi/4 | phi_t(msk) > 3*pi/4);
+    dmg_say(rep, 'G4 vector pair on %g nm single-actuator pokes every 8th actuator (%.0f pm rms on msk, peak %.2f rad; %.2f%% of msk beyond the one-frame fold): V rms error %.3f pm (gate < 0.1%% of the figure), one-frame exact I %.0f pm (non-vacuity: must exceed 10x)   -> %s\n', ...
+        P.mask.v_gate_nm, gV.rmsfig, max(abs(phi_t(msk))), 100*gV.beyond, gV.eV, gV.eI, ifelse_(gV.eV < 1e-3*gV.rmsfig && gV.eI > 10*gV.eV, 'PASS', 'FAIL'));
+    assert(gV.eV < 1e-3*gV.rmsfig, 'G4 FAIL: the vector pair does not reproduce the figure');
+    assert(gV.beyond > 0.005 && gV.eI > 10*gV.eV, 'G4 is vacuous: the single frame passes too -- raise mask.v_gate_nm');
+end
 % ---- registration: two-poke doctrine on P.dm(1), linear reading -------
 POKE = P.reg.POKE;
 ic0 = cfg.nact/2;  Aa = zeros(cfg.nact);  Aa(ic0,ic0) = 1;  Ma = dmap(POKE*Aa);
@@ -274,17 +300,24 @@ S = struct('G',G, 'deck',deck, 'iTO',iTO, 'iMASK',iMASK, 'iDET',iDET, 'ZW',ZW, '
     'mag',mag, 'dxd_mm',dxd_mm, 'xg',xg, 'gxd',gxd, 'gyd',gyd, 'PARb',PARb, 'sgn',sgn);
 S.summary = struct('deck',deck, 'Z1',Z1, 'Z2',Z2, 'phi_m',gopt.PHI_M, 'dia_lamd',gopt.DIA_LAMD, ...
     'dimple_px',dimple_px, 'nmsk',nnz(msk), 'roundtrip',ZW.gate.roundtrip, 'bsur',ZW.gate.bsur, 'bprof',bprof, ...
-    'ampmod_std',std(rr), 'mag',mag, 'dxd_mm',dxd_mm, 'px_per_act',ppa, 'PARb',PARb, 'sgn',sgn, ...
+    'ampmod_std',std(rr), 'g4',gV, 'mag',mag, 'dxd_mm',dxd_mm, 'px_per_act',ppa, 'PARb',PARb, 'sgn',sgn, ...
     'kernel_peak',max(hAd(:))/max(Ma(:)), 'kernel_corr',cpm(1,2), 'anchor',[R.bx R.by R.tax R.tay]);
 end
 
 % =====================================================================
 %  frames and readings
 % =====================================================================
-function F = frames_(ZW, M, needS)
-% capture the frames one DM state needs: Ia (the one masked frame), and
-% when needS the stepped set Fr + its rank-2 retrieval X
-F = struct('Ia', ZW.frameL(M), 'Fr', [], 'X', []);
+function F = frames_(ZW, M, needS, needV)
+% capture the frames one DM state needs: Ia (the one masked frame), when
+% needS the stepped set Fr + its rank-2 retrieval X, and when needV the
+% -phi image Im of the vector pair (Ia is its +phi image)
+if nargin < 4, needV = false; end
+if needV
+    [Ia, Im] = ZW.frameV(M);
+else
+    Ia = ZW.frameL(M);  Im = [];
+end
+F = struct('Ia', Ia, 'Im', Im, 'Fr', [], 'X', []);
 if needS
     F.Fr = ZW.framesS(M);  F.X = ZW.reconS(F.Fr);
 end
@@ -298,6 +331,7 @@ switch rd
     case 'I',  h = ZW.reconI(F.Ia);
     case 'I+', h = ZW.reconI(F.Ia, [], plus);
     case 'S',  h = ZW.stepdiff(F.X, Xref);
+    case 'V',  h = ZW.reconV(F.Ia, F.Im);
 end
 end
 
@@ -313,6 +347,7 @@ function C = calibrate_(P, S, ZW, cfg, classes, lit)
 %   kernel by the MEASURED response matrix dw/da: see calib_matrix_.
 if nargin < 6, lit = []; end
 if strcmp(P.battery.calib_mode, 'matrix'), C = calib_matrix_(P, S, ZW, cfg, classes, lit); return; end
+assert(~any(classes == 4), 'zwfs_run: the vector reading V is supported in battery.calib_mode ''matrix'' only');
 % (the S2/S3 recipe): class 1 linear map, 2 exact map, 3 stepped map.
 % P.battery.calib_surface: 'flat' (the record) or 'base' -- the kernel and
 %   the modal transfer are measured DIFFERENTIALLY on the working surface
@@ -359,7 +394,7 @@ C.kernel_site = ks;
 Ak = zeros(cfg.nact);  Ak(ks(1), ks(2)) = 1;  C.Mk = C.dmap(POKE*Ak);
 Fa = frames_(ZW, C.dmap(C.Abase + POKE*Aa), needS);           % centre poke: the anchor
 if isequal(ks, [ic ic]), Fk = Fa;  else, Fk = frames_(ZW, C.dmap(C.Abase + POKE*Ak), needS); end
-C.R = cell(1,3);  C.stn = cell(1,3);  C.est = cell(1,3);  C.kinfo = nan(3,3);
+C.R = cell(1,4);  C.stn = cell(1,4);  C.est = cell(1,4);  C.kinfo = nan(4,3);
 for k = classes(:).'
     R = struct('P', S.PARb, 'tax',0, 'tay',0, 'bx',0, 'by',0, 'dxd_mm',S.dxd_mm, 'mag',S.mag, ...
                'msk',ZW.msk, 'N_WF',ZW.N_WF, 'gxd',S.gxd, 'gyd',S.gyd);
@@ -412,20 +447,20 @@ if isempty(lit), lit = dmg_lit(ZW.msk, S.dxd_mm, S.mag, C.axg, C.ayg); end
 C.lit = lit;  C.mode = 'matrix';
 POKE = P.reg.POKE;  step = P.battery.matrix_step;
 ic = nact/2;  Aa = zeros(nact);  Aa(ic,ic) = 1;  C.Ma = C.dmap(POKE*Aa);
-needS = any(classes == 3);
+needS = any(classes == 3);  needV = any(classes == 4);
 C.surface = P.battery.calib_surface;  onbase = strcmp(C.surface, 'base');
 if onbase
     rng(P.battery.seed_base);  Ab = zeros(nact);  Ab(lit) = P.battery.base_rms*randn(nnz(lit),1);
-    C.Abase = Ab;  C.F0 = frames_(ZW, C.dmap(Ab), true);  C.plus = ZW.priorS(C.F0.Ia, C.F0.Fr);
-    C.Fflat = frames_(ZW, zeros(N_G), needS);
+    C.Abase = Ab;  C.F0 = frames_(ZW, C.dmap(Ab), true, needV);  C.plus = ZW.priorS(C.F0.Ia, C.F0.Fr);
+    C.Fflat = frames_(ZW, zeros(N_G), needS, needV);
     C.cmap = @(F, k) cmap_base_(ZW, F, C.F0, C.plus, k);
 else
-    C.Abase = zeros(nact);  C.Fflat = frames_(ZW, zeros(N_G), needS);  C.F0 = C.Fflat;  C.plus = [];
+    C.Abase = zeros(nact);  C.Fflat = frames_(ZW, zeros(N_G), needS, needV);  C.F0 = C.Fflat;  C.plus = [];
     C.cmap = @(F, k) cmap_flat_(ZW, F, C.Fflat, k);
 end
 % ---- window placement from the bench registration (anchor from the
 % centre poke, parity/sign from the bench stage): DM lattice -> detector px
-Fa = frames_(ZW, C.dmap(C.Abase + POKE*Aa), needS);
+Fa = frames_(ZW, C.dmap(C.Abase + POKE*Aa), needS, needV);
 k1 = classes(1);
 hA = C.cmap(Fa, k1);
 [bx, by, tax, tay] = dmg_anchor(hA, C.Ma, ZW.msk, ZW.N_WF, xg);
@@ -438,9 +473,9 @@ hw_px = floor(0.5*step*cfg.pitch/sc);                            % half a grid s
 C.win = struct('U',U, 'V',V, 'hw_px',hw_px, 'step',step);
 % ---- the multiplexed poke sets ------------------------------------------
 N = ZW.N_WF;  ilit = find(lit);  nlit = numel(ilit);  col_of = zeros(nact);  col_of(ilit) = 1:nlit;
-I = cell(1,3);  Jc = cell(1,3);  V3 = cell(1,3);
+I = cell(1,4);  Jc = cell(1,4);  V3 = cell(1,4);
 for k = classes(:).', I{k} = {};  Jc{k} = {};  V3{k} = {}; end
-nstates = 0;  npoked = 0;  pk = zeros(1,3);  nclip = 0;
+nstates = 0;  npoked = 0;  pk = zeros(1,4);  nclip = 0;
 t0 = tic;
 for ox = 1:step
     for oy = 1:step
@@ -454,7 +489,7 @@ for ox = 1:step
             A(sub2ind([nact nact], rr2, cc2)) = sgnA;
         end
         if ~any(A(:)), continue; end
-        F = frames_(ZW, C.dmap(C.Abase + POKE*A), needS);  nstates = nstates + 1;
+        F = frames_(ZW, C.dmap(C.Abase + POKE*A), needS, needV);  nstates = nstates + 1;
         [pr, pc] = find(A);
         for k = classes(:).'
             h = C.cmap(F, k) / POKE;                            % response per unit command
@@ -479,7 +514,7 @@ for ox = 1:step
         end
     end
 end
-C.J = cell(1,3);  C.JtJ = cell(1,3);  C.est = cell(1,3);  C.kinfo = nan(3,3);
+C.J = cell(1,4);  C.JtJ = cell(1,4);  C.est = cell(1,4);  C.kinfo = nan(4,3);
 Am = nnz(ZW.msk);
 for k = classes(:).'
     J = sparse(vertcat(I{k}{:}), vertcat(Jc{k}{:}), vertcat(V3{k}{:}), N*N, nlit);
@@ -516,6 +551,7 @@ switch k
     case 1, h = ZW.reconL(F.Ia);
     case 2, h = ZW.reconI(F.Ia);
     case 3, h = ZW.stepdiff(F.X, Fflat.X);
+    case 4, h = ZW.reconV(F.Ia, F.Im);
 end
 end
 
@@ -525,19 +561,20 @@ switch k
     case 1, h = ZW.reconL(F.Ia) - ZW.reconL(F0.Ia);
     case 2, h = ZW.reconI(F.Ia, [], plus) - ZW.reconI(F0.Ia, [], plus);
     case 3, h = ZW.stepdiff(F.X, F0.X);
+    case 4, h = ZW.reconV(F.Ia, F.Im) - ZW.reconV(F0.Ia, F0.Im);
 end
 end
 
 function gk = transfer_(P, ZW, C, cfg, classes, AMPM)
 % modal transfer through each class's estimator on the probes cfg.PQ,
 % measured on the calibration surface (flat: absolute; base: differential)
-nm = size(cfg.PQ, 1);  gk = nan(nm, 3);
+nm = size(cfg.PQ, 1);  gk = nan(nm, 4);
 [ii, jj] = meshgrid((0.5:cfg.nact)/cfg.nact);
-needS = any(classes == 3);
+needS = any(classes == 3);  needV = any(classes == 4);
 for m = 1:nm
     p = cfg.PQ(m,1);  q = cfg.PQ(m,2);
     Ak = cos(pi*p*ii).*cos(pi*q*jj);
-    F = frames_(ZW, C.dmap(C.Abase + AMPM*Ak), needS);
+    F = frames_(ZW, C.dmap(C.Abase + AMPM*Ak), needS, needV);
     for k = classes(:).'
         a = C.est{k}(C.cmap(F, k));  gk(m,k) = (AMPM*Ak(C.lit)) \ a(C.lit);
     end
@@ -595,7 +632,7 @@ for icfg = 1:numel(P.dm)
     else
     dmg_say(rep, 'lit actuators %d; kernel per class [raw peak gain, ring min/peak, corr]:', nnz(lit));
     end
-    cn = {'L', 'I', 'S'};
+    cn = {'L', 'I', 'S', 'V'};
     for k = kk, dmg_say(rep, '  %s [%.3f %.3f %.3f]', cn{k}, C.kinfo(k,:)); end
     dmg_say(rep, '\n');
     if ~strcmp(P.battery.calib_mode, 'matrix') && any(C.kinfo(kk,3) < 0.9)
@@ -619,7 +656,7 @@ for icfg = 1:numel(P.dm)
     corrk = @(a, k) dmg_modal_corr(a, 'separable', pk1, gk(is1d,k), BETA, NACT);
     % ---- the rows ------------------------------------------------------
     ROWS = rows_(P, cfg, lit, P.battery.rows);
-    needS = any(KC == 3) || any(strcmp(RD, 'I+'));
+    needS = any(KC == 3) || any(strcmp(RD, 'I+'));  needV = any(KC == 4);
     dmg_say(rep, 'rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr\n');
     dmg_say(rep, '%-17s %-3s | %7s %8s %8s %7s | %7s %8s %8s %7s\n', 'row', 'rd', 'g_raw', 'e_raw', 'flr_raw', 'SNRraw', 'g_cor', 'e_cor', 'flr_cor', 'SNRcor');
     res = struct('row',{},'rd',{},'raw',{},'cor',{},'fold',{});
@@ -627,10 +664,10 @@ for icfg = 1:numel(P.dm)
     for r = 1:size(ROWS,1)
         base = ROWS{r,2};  dev = ROWS{r,3};
         if r == 1 || ~isequal(base, ROWS{r-1,2})
-            F0 = frames_(ZW, C.dmap(base), needS);
+            F0 = frames_(ZW, C.dmap(base), needS, needV);
             if any(strcmp(RD, 'I+')), [plusb, pinf] = ZW.priorS(F0.Ia, F0.Fr); end
         end
-        F1 = frames_(ZW, C.dmap(base + dev), needS);
+        F1 = frames_(ZW, C.dmap(base + dev), needS, needV);
         if any(strcmp(RD, 'I+')) && any(base(:) ~= 0)
             % fold-crossing diagnostic: pixels whose side of the quarter-wave fold
             % differs between the base and base+change (the base's sign map is
@@ -643,7 +680,7 @@ for icfg = 1:numel(P.dm)
             % map-space diagnostic: the same change on the FLAT, read the same way,
             % vs its differential on the working surface, over the changed
             % actuator's own window (the matrix mode's window; +/-4 actuators)
-            Ff = frames_(ZW, C.dmap(dev), needS);  Fz = frames_(ZW, zeros(P.grid.N_G), needS);
+            Ff = frames_(ZW, C.dmap(dev), needS, needV);  Fz = frames_(ZW, zeros(P.grid.N_G), needS, needV);
             [rd_, cd_] = find(dev);
             if isfield(C, 'win'), u0 = round(C.win.U(rd_, cd_));  v0 = round(C.win.V(rd_, cd_));  hwp = C.win.hw_px;
             else, u0 = round(ZW.N_WF/2);  v0 = u0;  hwp = round(4*cfg.pitch/(S.dxd_mm*S.mag)); end
@@ -662,8 +699,8 @@ for icfg = 1:numel(P.dm)
             [gr, er, fr, sr] = score_(araw, dev, lit);  [gc, ec, fc, sc] = score_(acor, dev, lit);
             dmg_say(rep, '%-17s %-3s | %7.4f %8.0f %8s %7s | %7.4f %8.0f %8s %7s\n', ifelse_(k==1, ROWS{r,1}, ''), RD{k}, ...
                 gr, er, fmt0_(fr), fmt2_(sr), gc, ec, fmt0_(fc), fmt2_(sc));
-            res(end+1) = struct('row',ROWS{r,1}, 'rd',RD{k}, 'raw',[gr er fr sr], 'cor',[gc ec fc sc], ...
-                                'fold',ifelse_(isempty(plusb), NaN, mean(plusb(msk)))); %#ok<AGROW>
+            if isempty(plusb), foldv = NaN; else, foldv = mean(plusb(msk)); end   % (ifelse_ evaluates both arms)
+            res(end+1) = struct('row',ROWS{r,1}, 'rd',RD{k}, 'raw',[gr er fr sr], 'cor',[gc ec fc sc], 'fold',foldv); %#ok<AGROW>
         end
     end
     if any(strcmp(RD, 'I+'))
@@ -683,9 +720,9 @@ for icfg = 1:numel(P.dm)
     lad = struct('amp',{},'fold',{},'fold0',{},'g',{},'flr',{},'snr',{});
     for amp = P.battery.ladder
         Ab = amp*Bfield;
-        F0 = frames_(ZW, C.dmap(Ab), needS);
+        F0 = frames_(ZW, C.dmap(Ab), needS, needV);
         if any(strcmp(RD, 'I+')), [plusb, pinf] = ZW.priorS(F0.Ia, F0.Fr); else, pinf = struct('frac', [NaN NaN]); end
-        F1 = frames_(ZW, C.dmap(Ab + Asng), needS);
+        F1 = frames_(ZW, C.dmap(Ab + Asng), needS, needV);
         g = nan(1,numel(RD));  fl = g;  sn = g;
         for k = 1:numel(RD)
             a = corrk(C.est{KC(k)}(diff_(ZW, RD{k}, F1, F0, plusb)), KC(k));
@@ -731,7 +768,7 @@ dmg_say(rep, 'ONE physical mask (%.1f nm etch, %.2f lam/D at %.1f nm); per-color
     P.mask.ETCH_MM*1e6, P.mask.DIA_LAMD, P.LAM*1e6, BETA, P.color.dc);
 decks = cell(1,K);  for k = 1:K, decks{k} = color_deck_(S.deck, LAMS(k)); end
 is1d = cfg.PQ(:,2) == 0;  pk1 = cfg.PQ(is1d,1);
-gk = nan(size(cfg.PQ,1), 3, K);
+gk = nan(size(cfg.PQ,1), 4, K);
 col = struct('nm',{},'phi',{},'absc',{},'dia_lamd',{},'dimple_px',{},'nmsk',{},'roundtrip',{},'bsur',{},'kinfo',{},'tmin',{});
 RAW = cell(0, K);  lit = [];  ROWS = {};
 for k = 1:K
@@ -749,22 +786,22 @@ for k = 1:K
         ROWS = rows_(P, cfg, lit, P.color.rows);
         RAW = cell(size(ROWS,1), K);
         dmg_say(rep, 'lit actuators %d; hold-out (%d,%d)\n', nnz(lit), cfg.hold(1), cfg.hold(2));
-        dmg_say(rep, '%6s | %7s %6s %8s %9s %7s %9s %9s | %s\n', 'nm', 'phi_m', '|c|', 'dia_l/D', 'dimplePx', 'msk_px', 'roundtrip', 'bsur', 'kernel peak per class L I S');
+        dmg_say(rep, '%6s | %7s %6s %8s %9s %7s %9s %9s | %s\n', 'nm', 'phi_m', '|c|', 'dia_l/D', 'dimplePx', 'msk_px', 'roundtrip', 'bsur', 'kernel peak per class L I S V');
     end
     kk = find(~isnan(C.kinfo(:,1))).';
     dmg_say(rep, '%6g | %7.4f %6.3f %8.3f %9.2f %7d %9.1e %9.1e |', LAMS(k), gopt.PHI_M, abs(ZW.cc), gopt.DIA_LAMD, dimple_px, nnz(ZW.msk), ZW.gate.roundtrip, ZW.gate.bsur);
-    for c = 1:3, if any(kk == c), dmg_say(rep, ' %.3f', C.kinfo(c,1)); else, dmg_say(rep, '     -'); end; end
+    for c = 1:4, if any(kk == c), dmg_say(rep, ' %.3f', C.kinfo(c,1)); else, dmg_say(rep, '     -'); end; end
     dmg_say(rep, '\n');
     gk(:,:,k) = transfer_(P, ZW, C, cfg, classes, P.battery.AMPM);
-    needS = any(KC == 3) || any(strcmp(RD, 'I+'));
+    needS = any(KC == 3) || any(strcmp(RD, 'I+'));  needV = any(KC == 4);
     plusb = [];
     for r = 1:size(ROWS,1)
         base = ROWS{r,2};  dev = ROWS{r,3};
         if r == 1 || ~isequal(base, ROWS{r-1,2})
-            F0 = frames_(ZW, C.dmap(base), needS);
+            F0 = frames_(ZW, C.dmap(base), needS, needV);
             if any(strcmp(RD, 'I+')), plusb = ZW.priorS(F0.Ia, F0.Fr); end
         end
-        F1 = frames_(ZW, C.dmap(base + dev), needS);
+        F1 = frames_(ZW, C.dmap(base + dev), needS, needV);
         A = struct();
         for j = 1:numel(RD)
             A.(fld_(RD{j})) = C.est{KC(j)}(diff_(ZW, RD{j}, F1, F0, plusb));
@@ -777,8 +814,8 @@ for k = 1:K
     fprintf('color %g nm done in %.1f min\n', LAMS(k), toc(tk)/60);
 end
 % ---- transfer tables per class + the combination's transfer ------------
-cn = {'L', 'I', 'S'};
-Gc = nan(nnz(is1d), 3);  G1 = nan(nnz(is1d), 3, K);
+cn = {'L', 'I', 'S', 'V'};
+Gc = nan(nnz(is1d), 4);  G1 = nan(nnz(is1d), 4, K);
 for c = classes(:).'
     g1 = squeeze(gk(is1d, c, :));  if K == 1, g1 = g1(:); end
     G1(:,c,:) = reshape(g1.^2 ./ (g1.^2 + BETA^2), [], 1, K);
@@ -861,7 +898,7 @@ ZW = S.ZW;  cfg = P.dm(1);  NACT = cfg.nact;
 RD = P.noise.readings;  assert(all(ismember(RD, P.readings)), 'noise.readings must be a subset of P.readings');
 KC = cellfun(@class_, RD);  classes = unique(KC);
 dmg_say(rep, '\n---- noise: DM %dx%d, readings %s ----\n', NACT, NACT, strjoin(RD, ' '));
-dmg_say(rep, 'scenario: single act (%d,%d) %g nm differential on the %g nm rms working state; axis = photons per MEASUREMENT (one DM shape measured once; a reading''s frames share it: L/F/I/I+ 1 frame, S 4)\n', ...
+dmg_say(rep, 'scenario: single act (%d,%d) %g nm differential on the %g nm rms working state; axis = photons per MEASUREMENT (one DM shape measured once; a reading''s frames share it: L/F/I/I+ 1 frame, S 4, V 2)\n', ...
     cfg.hold(1), cfg.hold(2), P.battery.dev_single*1e6, P.battery.base_rms*1e6);
 dmg_say(rep, 'I+ prior frames (the base''s 4 stepped frames, taken once): %s\n', strjoin(P.noise.prior, ' / '));
 fn = sprintf('n%d', NACT);
@@ -876,7 +913,8 @@ lit = C.lit;  is1d = cfg.PQ(:,2) == 0;  pk1 = cfg.PQ(is1d,1);
 corrk = @(a, k) dmg_modal_corr(a, 'separable', pk1, gk(is1d,k), P.battery.BETA, NACT);
 rng(P.battery.seed_base);  Ab = zeros(NACT);  Ab(lit) = P.battery.base_rms*randn(nnz(lit),1);
 Asng = zeros(NACT);  Asng(cfg.hold(1), cfg.hold(2)) = P.battery.dev_single;
-F0 = frames_(ZW, C.dmap(Ab), true);  F1 = frames_(ZW, C.dmap(Ab + Asng), true);
+needV = any(KC == 4);
+F0 = frames_(ZW, C.dmap(Ab), true, needV);  F1 = frames_(ZW, C.dmap(Ab + Asng), true, needV);
 dmg_say(rep, 'frames captured (%.1f min); the Monte-Carlo is trace-free\n', toc(t0)/60);
 noisy = @(I, nph) I .* (1 + randn(size(I)) ./ sqrt(max(I / sum(I(:)) * nph, 1)));
 un = lit;  un(cfg.hold(1), cfg.hold(2)) = false;
@@ -902,6 +940,9 @@ for in = 1:numel(NS)
     for r = 1:NR
         rng(P.noise.seed + r + in*100);
         Ia0 = noisy(F0.Ia, n);  Ia1 = noisy(F1.Ia, n);
+        if needV                                              % vector pair: N/2 per image
+            Ip0 = noisy(F0.Ia, n/2);  Im0 = noisy(F0.Im, n/2);  Ip1 = noisy(F1.Ia, n/2);  Im1 = noisy(F1.Im, n/2);
+        end
         Fr0q = F0.Fr;  Fr1q = F1.Fr;  Fr0f = F0.Fr;          % stepped at N/4 per frame; prior at N per frame
         for k = 1:4
             Fr0q(:,:,k) = noisy(F0.Fr(:,:,k), n/4);  Fr1q(:,:,k) = noisy(F1.Fr(:,:,k), n/4);
@@ -921,6 +962,7 @@ for in = 1:numel(NS)
                     end
                     d = ZW.reconI(Ia1, [], plus) - ZW.reconI(Ia0, [], plus);
                 case 'S',  d = ZW.stepdiff(ZW.reconS(Fr1q), ZW.reconS(Fr0q));
+                case 'V',  d = ZW.reconV(Ip1, Im1) - ZW.reconV(Ip0, Im0);
             end
             a = corrk(C.est{kc}(d), kc);
             pk(r,c) = a(cfg.hold(1), cfg.hold(2));  fl(r,c) = std(a(un));
@@ -968,7 +1010,7 @@ if ~strcmp(P.battery.calib_mode, 'matrix')
     dmg_say(rep, 'NOTE: kernel calibration -- the loop stage is specified for the measured matrix (battery.calib_mode ''matrix''); the modal correction is NOT applied here\n');
 end
 % the set point's stepped frames (once): the I+ prior for every cycle
-F0ref = frames_(ZW, C.dmap(A0), true);
+F0ref = frames_(ZW, C.dmap(A0), true, false);
 plusb = [];  if any(strcmp(RD, 'I+')), plusb = ZW.priorS(F0ref.Ia, F0ref.Fr); end
 % ---- the runs ---------------------------------------------------------------
 res = struct('rd',{}, 'drift',{}, 'nph',{}, 'amp',{}, 'L',{});
@@ -978,7 +1020,7 @@ irun = 0;
 for j = 1:numel(RD)
     rd = RD{j};  kc = KC(j);
     ins = struct('lit', lit, ...
-        'measure', @(cmd) frames_(ZW, C.dmap(cmd), strcmp(rd, 'S')), ...
+        'measure', @(cmd) frames_(ZW, C.dmap(cmd), strcmp(rd, 'S'), strcmp(rd, 'V')), ...
         'noisy',   @(F, nph, seed) noisy_frames_(ZW, F, nph, seed, rd), ...
         'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb), ...
         'est',     C.est{kc});
@@ -1094,18 +1136,21 @@ end
 
 function Fn = noisy_frames_(ZW, F, nph, seed, rd)
 % photon noise on a captured state's frames: nph photons per MEASUREMENT (one
-% DM shape measured once), split
-% over the reading's frames (L / I+ one frame at nph; S four at nph/4),
-% the S5 model; the stepped retrieval X is redone from the noisy frames
+% DM shape measured once), split over the reading's frames (L / I+ one frame
+% at nph; S four at nph/4; V two at nph/2), the S5 model; the stepped
+% retrieval X is redone from the noisy frames
 Fn = F;
 if ~isfinite(nph), return; end
 rs = RandStream('mt19937ar', 'Seed', seed);
 shot = @(I, n) I .* (1 + randn(rs, size(I)) ./ sqrt(max(I / sum(I(:)) * n, 1)));
-if strcmp(rd, 'S')
-    for k = 1:size(F.Fr, 3), Fn.Fr(:,:,k) = shot(F.Fr(:,:,k), nph/4); end
-    Fn.X = ZW.reconS(Fn.Fr);
-else
-    Fn.Ia = shot(F.Ia, nph);
+switch rd
+    case 'S'
+        for k = 1:size(F.Fr, 3), Fn.Fr(:,:,k) = shot(F.Fr(:,:,k), nph/4); end
+        Fn.X = ZW.reconS(Fn.Fr);
+    case 'V'
+        Fn.Ia = shot(F.Ia, nph/2);  Fn.Im = shot(F.Im, nph/2);
+    otherwise
+        Fn.Ia = shot(F.Ia, nph);
 end
 end
 

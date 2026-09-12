@@ -26,13 +26,18 @@ P.stages = {'bench', 'battery', 'figs'};
                              % 'noise'   photon-shot pricing of every reading (P.noise)
                              % 'loop'    the closed-loop HOLD metric (P.loop): on-orbit servo mode
                              % 'figs'    PNGs of whatever ran
-P.readings = {'L', 'F', 'I', 'I+', 'S'};
+P.readings = {'L', 'F', 'I', 'I+', 'S', 'V'};
                              % L  frozen-reference linear, 1 frame
                              % F  exact solve, frozen reference wave, 1 frame
                              % I  exact solve, iterated reference wave, 1 frame
                              % I+ I with the base's refined stepped branch prior
                              %    (the base costs 4 frames ONCE; each differential frame is 1)
                              % S  phase-stepped (3 depths + clear), 4 frames
+                             % V  VECTOR pair: the polarized (geometric-phase) dimple gives a +phi
+                             %    and a -phi pupil image AT ONCE (one per circular polarization);
+                             %    exact per-pixel solve with no branch fold, 2 simultaneous frames
+                             %    (the photons split between them).  Ideal metasurface: each image
+                             %    is the scalar sensor with its own dimple sign (stage V1, 2026-09-11)
 
 % ---- engine + sampling ------------------------------------------------
 P.MODEL = 1024;              % engine model size (ONE per MATLAB process -- see README)
@@ -83,7 +88,10 @@ P.mask.PHIS_REC = [pi/2, pi, 3*pi/2];
                              % phase-stepped depth ladder, phases at P.LAM; each depth is
                              % fixed glass, so at other colors they scale as (n-1)/lambda
 P.mask.S_CONV = -1;          % height sign convention (pinned by the S1 sign gate)
-P.mask.NITER  = 5;           % reference-wave iterations of the exact reading
+P.mask.NITER  = 5;           % reference-wave iterations of the exact readings (I, V)
+P.mask.v_gate_nm = 100;      % G4 (V only): single-actuator pokes (every 8th actuator) of this height
+                             % put their pixels beyond the one-frame fold (peak 1.9 rad, 3% of msk);
+                             % the pair must reproduce them (< 0.1%), the single frame must not
 
 % ---- sampling budget (asserted at the bench stage) ---------------------
 P.samp.min_dimple_px  = 6;   % dimple diameter at the mask plane, px (S1 G0 rule)
@@ -178,7 +186,7 @@ P.color.dc       = 'unit';                    % combiner DC form: 'unit' (g(0)=1
 P.noise.nstates = 10.^(6:2:14);               % photons per MEASUREMENT of one DM shape (split over a
                                               % reading's frames; the knob keeps its historical name)
 P.noise.nreal   = 8;                          % Monte-Carlo realizations per point
-P.noise.readings = {'L', 'F', 'I', 'I+', 'S'};
+P.noise.readings = {'L', 'F', 'I', 'I+', 'S', 'V'};
 P.noise.prior   = {'split', 'noiseless'};     % I+ prior frames: 'split' = the base's 4 stepped
                                               % frames share ONE state budget (N/4 each);
                                               % 'full' = N per frame; 'noiseless' = the prior
@@ -194,7 +202,7 @@ P.noise.seed = 1000;
 % metric = steady-state rms surface error over lit (pm) against each drift,
 % as a curve in photons per cycle; the ONE number = photons per cycle to hold
 % P.loop.hold_spec.  Cost: K+1 traced states per (reading, drift, photon level).
-P.loop.readings = {'L', 'I+', 'S'};           % subset of P.readings (1 / 1 / 4 frames per measurement)
+P.loop.readings = {'L', 'I+', 'S', 'V'};      % subset of P.readings (1 / 1 / 4 / 2 frames per measurement)
 P.loop.surface  = 'base';                     % the set point: 'base' = the working surface
                                               % (battery.base_rms, seed_base) with the matrix
                                               % calibrated ON it (S10) | 'flat'
