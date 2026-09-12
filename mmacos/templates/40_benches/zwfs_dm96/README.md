@@ -96,7 +96,7 @@ re-draws them from a saved run).
 | `LAM` | 632.8 nm | the record color; `color.lams_nm` lists the others, record color FIRST |
 | `bench.*` | the tg96 test arm | every `twyman_green` option: lenses, legs, tuned tail, `mask_prop` (`'nf'` = the corrected symmetric sandwich; `'nf_legacy'` = the Fresnel-defocused S1-S6 sensor) |
 | `mask.*` | 346.2 nm etch, 2.0 lam/D | etch depth, substrate index (`'malitson'` or a number), dimple diameter, the phase-stepped depth ladder, `NITER` |
-| `mask.v_*` | ideal metasurface, ideal arm | the vector reading's imperfections: `v_ret_err` / `v_leak_phase` (V2: the metasurface's retardance error, the leak's phase), `v_arm` (V3: the arm's polarization aberration per circular channel -- `'engine'` = the bench's own Jones pupil from two polarized vector traces at the laser angle `v_laser_deg`, optionally AR-coated faces `v_arm_ar`; `'synthetic'` = astigmatic maps of `v_arm_dphase` rad rms differential PHASE between the channels (the diattenuation-type term) and `v_arm_damp` differential AMPLITUDE (the retardance-type term)), `v_cal` = the solver's model: `'ideal'` (uncalibrated), `'fit'` (per-channel constants and eta fitted on the flat's two images), `'map'` (the true maps: a polarimetrically calibrated bench), `v_gate_nm` (G4's poke height) |
+| `mask.v_*` | ideal metasurface, ideal arm | the vector reading's imperfections: `v_ret_err` / `v_leak_phase` (V2: the metasurface's retardance error, the leak's phase), `v_arm` (V3: the arm's polarization aberration per circular channel -- `'engine'` = the bench's own Jones pupil from two polarized vector traces at the laser angle `v_laser_deg`, optionally AR-coated faces `v_arm_ar`; `'synthetic'` = astigmatic maps of `v_arm_dphase` rad rms differential PHASE between the channels (the diattenuation-type term) and `v_arm_damp` differential AMPLITUDE (the retardance-type term)), `v_cal` = what the solver knows: `'ideal'` (nothing: the raw size of a term), `'amp'` (the per-channel unmasked reference frames' amplitude maps), `'fit'` (amp + per-channel constants and eta fitted on the flat's two masked images), `'map'` (the true maps: a polarimetrically calibrated bench), `v_gate_nm` (G4's poke height) |
 | `samp.*` | 6 px dimple, 2 px/actuator | the sampling-budget lines the bench stage asserts; `enforce` = `'warn'` or `'error'` |
 | `reg.*` | `'search'` | parity + sign from an off-center poke (two-poke doctrine; the selection metric is the gate), or `'record'` to take `PARb`/`sgn` as given |
 | `dm(i)` | 96x96 @ 1 mm; 48x48 @ 2 mm | actuator count, pitch, hold-out site, modal probes -- each config gets the full battery |
@@ -145,6 +145,90 @@ budget lines before quoting a number.
   priced error and the line says so.
 
 ## Findings
+- **V3 (2026-09-12): the arm's polarization aberration per channel,
+  priced -- a diattenuation-type term the sensor cannot calibrate away,
+  small on the lens rig, and a retardance-type term it removes for free.**
+  The metasurface converts L -> R with the +phi dimple and R -> L with
+  -phi, so the two images are of DIFFERENT pupil fields: the laser state's
+  L and R components through the arm's Jones pupil, qL.*E and qR.*E.
+  *Maps from the engine* (`dm_gauge_lib/dmg_arm_maps`): two polarized
+  vector traces of the bench (x, y source states), the 2x2 J at every
+  pixel of the diffraction grid at the mask sandwich's entrance sphere
+  (the detector's grid, gate G1; every arm optic, not the mask or the
+  field lens behind it), in the basis the mask acts in -- its own axes
+  projected into each ray's transverse plane (the ray direction from the
+  pixel's two field vectors; the engine's settled convention for thin
+  polarizing elements, Korger 2013; the double-pole pair would add a
+  (theta^2/4) sin 2 alpha rotation per pixel = 1.6 mrad rms of fake
+  channel difference on this 5-deg cone) -- the common scalar stripped
+  by J/sqrt(det J): the vector-mode field is the scalar trace's exact
+  CONJUGATE on this train (common phase slope -2.0000, residual 4e-9) and
+  carries the Fresnel losses the scalar trace never applies (T 0.665),
+  neither being polarization physics; then normalized to the ideal 50/50
+  split and to unit mean power for the laser state.  *Frames*: each
+  channel's map at the entrance sphere, then the dimple (the engine's
+  chained apodization; G8 = 0 with a unit map, 4e-15 against the
+  surrogate); with retardance error the leaked light in one output
+  channel is the OTHER input channel's.  *Solver* per pixel per channel
+  (kappa+-, qL, qR; V2's constant-kappa shift was 2 arg kappa -- a piston,
+  invisible to every mean-referenced number -- corrected to arg kappa);
+  four levels of what the bench knows (`mask.v_cal`): `'ideal'` nothing
+  (the raw size of a term), `'amp'` the per-channel UNMASKED reference
+  frames every Zernike-sensor bench takes (the amplitude maps, not the
+  polarization phases), `'fit'` = amp + 5 constants on the flat's masked
+  images, `'map'` the truth (a polarimetrically calibrated bench).
+  *The lens rig's arm (runs/v3arm, _l0, _l90, _ar, _amp, _fit, _map,
+  _l90amp, _base; 193 rays):* diattenuation 5.1e-3 mean (six 7-deg glass
+  faces), 1.1e-3 rms over the pupil (the lenses' rho^2), 7.8e-3 max;
+  retardance 0.9 mrad mean, 0.7 rms, 2.8 max; a REAL J gives conjugate
+  circular components, so the channels differ in PHASE only: 1.63 mrad
+  rms (PV 8.0) with the laser at 45 deg to the fold plane (the worst
+  case), 2.31 at 0 deg, 2.1e-5 at 90 deg (the tilted faces' s axis, an
+  eigenaxis); quarter-wave MgF2 on all 12 faces halves the diattenuation
+  (2.2e-3 mean, T 0.87), leaves the retardance, channel difference 1.26
+  mrad.  Uncalibrated absolute reading of the G4 figure (100 nm pokes, 12
+  nm rms): **9.0 pm at 45 deg** (ideal 0.053), 17.2 at 0, 11.2 at 90 --
+  the last from the COMMON amplitude map (5.7e-4 rms), which the unmasked
+  reference frames remove: `'amp'` 0.11 pm at 90 deg, 9.5 at 45 (the
+  phase difference survives every calibration short of polarimetry);
+  `'fit'` finds nothing constant to fit (kappa 0.99998, eta 0.99996, 9.5
+  pm); the oracle reads 0.053 pm; AR-coated 5.0 pm.  *Through the matrix
+  on the working surface* (v3arm_base, uncalibrated): single 10 nm 0.9935
+  / 4 pm / 2840, grid 0.9992 / 3 / 346, dense 0.9999 / 331 pm, ladder
+  0.9969 / 0.9809 at 30 / 60 -- the ideal record to the printed digit.
+  *The design scan (synthetic astigmatic maps, rms over the pupil;
+  runs/v3s_p* phase = the diattenuation-type term, v3s_a* amplitude ratio
+  = the retardance-type term; uncalibrated):* G4 absolute error 59 / 178
+  / 597 / 1877 pm at 0.01 / 0.03 / 0.1 / 0.3 rad of channel phase
+  difference (linear, 6 nm per rad) and 226 / 677 / 2268 / 7106 pm at
+  0.01 / 0.03 / 0.1 / 0.3 of amplitude ratio (3.8x per unit); through
+  the on-surface matrix the rows hold to 0.1 rad / 0.1 (phase 0.1: single
+  0.9948 / 4, grid 1.0013 / 4 / 326, dense 441 pm, ladder 0.9980 / 0.9889;
+  amplitude 0.1: 0.9933 / 4, 0.9996 / 3 / 327, 429 pm, 0.9969 / 0.9979)
+  and bend at 0.3 (phase: grid 1.0068 / 8 / 193, dense 962 pm, ladder
+  1.0009 / 39, 1.0111 / 179; amplitude: grid 0.9994 / 6 / 222, dense 900,
+  ladder 0.9966 / 31, 1.0452 / 232).  The oracle at 0.3 rad reproduces
+  the ideal record to the digit (0.057 pm; v3s_p0.3map); `'amp'` at 0.3
+  amplitude ratio does too (0.054 pm, every row; v3s_a0.3amp) -- **the
+  retardance-type term is removed by the per-channel unmasked frames the
+  sensor takes anyway**, and `'amp'` at 0.3 rad phase changes nothing
+  (v3s_p0.3amp = v3s_p0.3).  *Loop* (v3loop: 0.3 rad phase, uncalibrated,
+  same seeds as vloop193): contraction 0.554 (ideal 0.509: a 10% gain
+  loss), steps -> 0.000 pm, noise-only 1.20 / 0.12 pm at 1e13 / 1e15
+  (ideal 1.17 / 0.12), walk 2.62 / 2.32 (2.60 / 2.32), 3 pm held below
+  1e13 on both lines -- not a servo-budget term even at 0.3 rad.  Design
+  rule: for a vector Zernike sensor the arm's pupil-varying DIATTENUATION
+  (through a linear laser: channel phase difference = D sin 2(axis -
+  laser)) is the term to specify -- 0.1 rad rms costs nothing through the
+  on-surface matrix, 0.3 rad costs the grid row 2.6x and the loop 10% of
+  its gain -- and the laser should sit on the arm's dominant eigenaxis
+  (nil on this rig); its pupil-varying RETARDANCE (channel amplitude
+  difference) is calibrated by the unmasked reference frames.  The OAP
+  rig's bare-aluminum retardance band (CCMac D5) is the amplitude-type
+  term.  Not modeled: the metasurface's own oblique-incidence terms over
+  the f/4.2 cone (retardance and geometric phase both ~theta^2, 0.7% at
+  the edge) -- a pupil-varying eta and dimple phase, V2-type; the
+  vector-mode/scalar conjugate is documented in macos_f90/CLAUDE.md.
 - **V2 (2026-09-12): the metasurface's retardance error, priced -- NOT a
   term in the differential or servo budget.**  A real geometric-phase
   mask has retardance pi + err; it converts eta = cos^2(err/2) of the

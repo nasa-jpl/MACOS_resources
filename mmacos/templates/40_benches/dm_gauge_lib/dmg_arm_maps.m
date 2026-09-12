@@ -13,8 +13,8 @@ function [qL, qR, info] = dmg_arm_maps(iSRF, msk, laser_deg)
 %   the polarized trace's own amplitude and phase go), applies the laser's
 %   linear state e_in = (cos, sin) of laser_deg from the source x axis, and
 %   returns the two circular components normalized to the ideal 50/50
-%   split:
-%       qL = sqrt(2) <L| Jhat e_in>,   qR = sqrt(2) <R| Jhat e_in>
+%   split and to unit mean power over msk for that state:
+%       qL = sqrt(2) <L| Jhat e_in> / sqrt(T),   qR = sqrt(2) <R| Jhat e_in> / sqrt(T)
 %   (|q| = 1 and qL = qR for a polarization-neutral arm), unit outside msk.
 %   A vector Zernike sensor whose metasurface converts L -> R with the
 %   +phi dimple and R -> L with -phi sees the pupil field qL.*E in one
@@ -30,13 +30,16 @@ function [qL, qR, info] = dmg_arm_maps(iSRF, msk, laser_deg)
 %   does not.  Neither is polarization physics; the record's field is the
 %   scalar trace's, the maps carry only what polarization adds to it.
 %
-%   info: .axis/.xref/.yref (the exit basis; the per-pixel pair is this
-%   pair carried to each pixel's own ray direction, Chipman double-pole,
-%   the direction taken from the two traces' field vectors), .leak (max
+%   info: .axis/.xref/.yref (the exit basis; the per-pixel pair is xref
+%   projected into each pixel's own transverse plane and completed by the
+%   ray direction -- the mask's axes as the ray sees them -- the direction
+%   taken from the two traces' field vectors), .leak (max
 %   |E.k|/|E| on msk: the longitudinal residual, 1e-14 class), .cone_deg
 %   (the beam's half-cone at iSRF), .iSRF, .D (per-pixel
 %   diattenuation map, NaN off msk), .ret (retardance map, rad), .T (mean
-%   transmittance |sqrt(det J)|^2 on msk, the Fresnel budget), .common_slope
+%   transmittance |sqrt(det J)|^2 on msk, the Fresnel budget), .T_state
+%   (the laser state's relative transmission through the polarization part,
+%   divided out of the maps), .common_slope
 %   (the fitted slope of the common phase vs the pupil phase; -2 = the
 %   conjugate convention above), .stats (means/rms/max of D, ret; the
 %   per-channel phase and amplitude variation; the channel difference),
@@ -65,9 +68,17 @@ E0 = macos.complex_field(iSRF);                           % the scalar field aga
 % converging cone, so a single transverse pair mis-projects the edge
 % pixels (a 9% longitudinal residual there fakes a 0.4% diattenuation, the
 % size of the physics).  Each pixel's ray direction is the normal to the
-% plane its two field vectors span, k = unit(E(x) x E(y)); the reference
-% pair is carried to it along the great circle (Chipman double-pole: the
-% converging beam's geometric rotation removed, the Fresnel physics kept).
+% plane its two field vectors span, k = unit(E(x) x E(y)).  The pair is
+% the MASK's own axes projected into that ray's transverse plane (x' =
+% unit(xr - (xr.k) k), y' = k x x'): the basis a thin polarizing element
+% acts in at oblique incidence (the engine's settled convention for its
+% own polarizers and waveplates -- project the material axis; Korger et
+% al. 2013), so the L / R channels are the ones the metasurface converts.
+% NOT the double-pole pair: carrying (xr, yr) along the great circle adds
+% a rotation (theta^2/4) sin 2 alpha per pixel that the mask never sees --
+% 1.6 mrad rms of fake channel difference on this 5-deg cone (measured
+% 2026-09-12 with the laser on the tilted faces' s axis, where the
+% projected basis gives 2e-5).
 kx = real(Jx{2}.*conj(Jy{3}) - Jx{3}.*conj(Jy{2}));
 ky = real(Jx{3}.*conj(Jy{1}) - Jx{1}.*conj(Jy{3}));
 kz = real(Jx{1}.*conj(Jy{2}) - Jx{2}.*conj(Jy{1}));
@@ -76,16 +87,11 @@ kx = kx./kn;  ky = ky./kn;  kz = kz./kn;
 sg = sign(kx*ax(1) + ky*ax(2) + kz*ax(3));  sg(sg == 0) = 1;
 kx = kx.*sg;  ky = ky.*sg;  kz = kz.*sg;
 kx(~msk) = ax(1);  ky(~msk) = ax(2);  kz(~msk) = ax(3);
-cth = ax(1)*kx + ax(2)*ky + ax(3)*kz;                    % rotation ax -> k about u = ax x k
-ux = ax(2)*kz - ax(3)*ky;  uy = ax(3)*kx - ax(1)*kz;  uz = ax(1)*ky - ax(2)*kx;
-sth = sqrt(ux.^2 + uy.^2 + uz.^2);  on = sth < 1e-12;  sn = sth;  sn(on) = 1;
-ux = ux./sn;  uy = uy./sn;  uz = uz./sn;
-rot = @(v) deal( ...                                     % Rodrigues: v cos + (u x v) sin + u (u.v)(1 - cos)
-    v(1)*cth + (uy*v(3) - uz*v(2)).*sth + ux.*(ux*v(1) + uy*v(2) + uz*v(3)).*(1 - cth), ...
-    v(2)*cth + (uz*v(1) - ux*v(3)).*sth + uy.*(ux*v(1) + uy*v(2) + uz*v(3)).*(1 - cth), ...
-    v(3)*cth + (ux*v(2) - uy*v(1)).*sth + uz.*(ux*v(1) + uy*v(2) + uz*v(3)).*(1 - cth));
-[e1x, e1y, e1z] = rot(xr);  [e2x, e2y, e2z] = rot(yr);
-e1x(on) = xr(1);  e1y(on) = xr(2);  e1z(on) = xr(3);  e2x(on) = yr(1);  e2y(on) = yr(2);  e2z(on) = yr(3);
+cth = ax(1)*kx + ax(2)*ky + ax(3)*kz;
+xk = xr(1)*kx + xr(2)*ky + xr(3)*kz;                     % xr projected out of k, normalized
+e1x = xr(1) - xk.*kx;  e1y = xr(2) - xk.*ky;  e1z = xr(3) - xk.*kz;
+en = sqrt(e1x.^2 + e1y.^2 + e1z.^2);  e1x = e1x./en;  e1y = e1y./en;  e1z = e1z./en;
+e2x = ky.*e1z - kz.*e1y;  e2y = kz.*e1x - kx.*e1z;  e2z = kx.*e1y - ky.*e1x;   % y' = k x x'
 proj = @(Ec, vx, vy, vz) Ec{1}.*vx + Ec{2}.*vy + Ec{3}.*vz;
 J11 = proj(Jx, e1x, e1y, e1z);  J21 = proj(Jx, e2x, e2y, e2z);
 J12 = proj(Jy, e1x, e1y, e1z);  J22 = proj(Jy, e2x, e2y, e2z);
@@ -118,6 +124,13 @@ info.D = D;  info.ret = ret;
 e = [cosd(laser_deg); sind(laser_deg)];  info.e_in = e;
 Ex = Jh{1,1}*e(1) + Jh{1,2}*e(2);  Ey = Jh{2,1}*e(1) + Jh{2,2}*e(2);
 qL = (Ex - 1i*Ey);  qR = (Ex + 1i*Ey);                    % sqrt(2) <L|.>, sqrt(2) <R|.>
+% unit mean power over the pupil for THIS laser state: the arm's throughput
+% and the diattenuation's state-dependent transmission (0.25% along the
+% tilted faces' s axis here) are the photon budget's business -- a bench
+% takes its reference amplitude from the light it has -- not a pupil
+% aberration; what stays is the pupil-VARYING part and the channel split
+info.T_state = mean(abs(qL(msk)).^2 + abs(qR(msk)).^2) / 2;
+qL = qL / sqrt(info.T_state);  qR = qR / sqrt(info.T_state);
 qL(~msk) = 1;  qR(~msk) = 1;
 r = qR(msk) ./ qL(msk);  r = r / mean(r);
 pL = angle(qL(msk) / mean(qL(msk)));  pR = angle(qR(msk) / mean(qR(msk)));

@@ -328,7 +328,13 @@ if any(strcmp(P.readings, 'V'))
         dmg_say(rep, 'G8 chained pupil-map + dimple apodization: unit map vs the plain frame %.1e (gate < 1e-12); channel map vs the surrogate |qE0 + c b(qE0)|^2 on msk %.1e (gate < 1e-10)   -> %s\n', ...
             ZW.gate.chain, ZW.gate.chain_sur, ifelse_(ZW.gate.chain < 1e-12 && ZW.gate.chain_sur < 1e-10, 'PASS', 'FAIL'));
         assert(ZW.gate.chain < 1e-12 && ZW.gate.chain_sur < 1e-10, 'G8 FAIL');
-        dmg_say(rep, '  solver arm model: %s\n', ifelse_(strcmp(P.mask.v_cal, 'map'), 'the true maps (polarimetrically calibrated bench)', ifelse_(strcmp(P.mask.v_cal, 'fit'), 'per-channel constants fitted on the flat', 'ideal (uncalibrated: the maps'' bias IS the number)')));
+        switch P.mask.v_cal
+            case 'map',  armnote = 'the true maps (polarimetrically calibrated bench)';
+            case 'fit',  armnote = 'per-channel unmasked amplitude maps + constants fitted on the flat''s masked images';
+            case 'amp',  armnote = 'per-channel unmasked amplitude maps (the reference frames every bench takes; polarization phases unknown)';
+            otherwise,   armnote = 'ideal (knows nothing of the arm: the raw size of the term)';
+        end
+        dmg_say(rep, '  solver arm model: %s\n', armnote);
     end
     Afig = zeros(cfg.nact);  Afig(4:8:end, 4:8:end) = P.mask.v_gate_nm*1e-6;
     macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(Afig));
@@ -1359,19 +1365,34 @@ function Fn = noisy_frames_(ZW, F, nph, seed, rd, unit, cam)
 % dmg_loop's camera drift) the j-th of nf frames also gets the detector
 % offset o + (j-1)/(nf-1) d, electrons per pixel, converted to frame units by
 % that frame's photon scale (sum(I)/photons per frame) when unit is 'e', or
-% as a FRACTION of the frame's mean photons per lit pixel when unit is 'rel'
-% (a bias / gain drift scaled to the signal: at >= 1e13 photons per
+% as a FRACTION of the SCAN's mean photons per lit pixel per frame when unit
+% is 'rel' (a bias drift scaled to the signal level: at >= 1e13 photons per
 % measurement a pixel holds ~1e8 photons per frame and an electron-class
-% offset is 1e-4 of the shot noise -- runs/pcam193); a frame is in the scan
-% order the reading captures it (S: clear then the three depths; V: the two
-% images at once, so both get o; P / PF: the steps in order).
+% offset is 1e-4 of the shot noise -- runs/pcam193).  The scale is ONE
+% number per scan (the mean over the reading's frames), so the offset is the
+% same electrons on every frame of a scan, as a camera bias is -- scaling by
+% each frame's own mean (runs/pcam193r_perframe) gave frames of one scan
+% different offsets and broke the zero-sum readings' exact immunity (S / P /
+% PF read 32 / 34 / 130 pm floors instead of their noise-only values).  A
+% frame is in the scan order the reading captures it (S: clear then the
+% three depths; V: the two images at once, so both get o; P / PF: the steps
+% in order).
 Fn = F;
 if ~isfinite(nph), return; end
 if nargin < 6 || isempty(unit), unit = 'e'; end
 if nargin < 7, cam = []; end
 rs = RandStream('mt19937ar', 'Seed', seed);
 shot = @(I, n) I .* (1 + randn(rs, size(I)) ./ sqrt(max(I / sum(I(:)) * n, 1)));
-off = @(I, n, j, nf) offset_(I, n, j, nf, cam, unit, ZW.msk);
+switch rd
+    case 'S',  scanI = F.Fr;
+    case 'V',  scanI = cat(3, F.Ia, F.Im);
+    case 'P',  scanI = F.FP;
+    case 'PF', scanI = F.FF;
+    otherwise, scanI = F.Ia;
+end
+m3 = repmat(ZW.msk, [1 1 size(scanI, 3)]);
+scan_mean = mean(scanI(m3));                                  % the scan's mean over the lit pixels, all frames
+off = @(I, n, j, nf) offset_(I, n, j, nf, cam, unit, scan_mean);
 switch rd
     case 'S'
         nf = size(F.Fr, 3);
@@ -1388,15 +1409,15 @@ switch rd
 end
 end
 
-function O = offset_(I, n, j, nf, cam, unit, msk)
+function O = offset_(I, n, j, nf, cam, unit, scan_mean)
 % the camera offset of frame j of nf in this frame's units: 'e' = electrons
 % per pixel x (frame units per photon = sum(I)/n); 'rel' = a fraction of the
-% frame's mean over the lit pixels
+% SCAN's mean over the lit pixels (one scale for every frame of the scan)
 if isempty(cam), O = 0;  return; end
 w = 0;  if nf > 1, w = (j-1)/(nf-1); end
 switch unit
     case 'e',   sc = sum(I(:))/n;
-    case 'rel', sc = mean(I(msk));
+    case 'rel', sc = scan_mean;
     otherwise,  error('zwfs_run: loop.cam_unit must be ''e'' or ''rel''');
 end
 O = (cam.o + w*cam.d) * sc;

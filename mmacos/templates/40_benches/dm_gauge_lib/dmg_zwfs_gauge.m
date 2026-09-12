@@ -63,9 +63,12 @@ function ZW = dmg_zwfs_gauge(iTO, iMASK, iDET, opt)
 % retardance error the leaked (unconverted) light in one output channel
 % comes from the OTHER input channel: I+ = |sqrt(eta)(qL E)_masked +
 % sqrt(1-eta) e^{i alpha} qR E|^2, and vice versa.  The solver carries
-% per-channel constants kappa+, kappa- (V_CAL 'fit': fitted on the flat's
-% two images, 5 real parameters) or the true maps (V_CAL 'map': a
-% polarimetrically calibrated bench); 'ideal' prices an uncalibrated one.
+% per-channel amplitude maps (V_CAL 'amp': |qL|, |qR| from the per-channel
+% UNMASKED reference frames every bench takes; the polarization phases
+% unknown), plus constants kappa+, kappa-, eta (V_CAL 'fit': fitted on the
+% flat's two masked images, 5 real parameters), or the true maps (V_CAL
+% 'map': a polarimetrically calibrated bench); 'ideal' knows nothing of
+% the arm (kappa 1: the raw size of the term).
 LAM = opt.LAM;  PHIS = opt.PHIS;  S_CONV = opt.S_CONV;
 if isfield(opt, 'NITER'), NITER = opt.NITER; else, NITER = 5; end
 % V2 (2026-09-12): a REAL geometric-phase metasurface has retardance pi +
@@ -213,13 +216,24 @@ ZW.v_scalar_equiv = (eta_true == 1) && strcmp(arm.mode, 'none');   % the +phi im
 ZW.frameV   = @(M) frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm);  % -> [Ip, Im]
 ZW.calV     = @(Ip, Im) calV_(Ip, Im, C);                            % -> [kapP, kapM, eta, info]: the flat's images
 kap_true = sqrt(eta_true) + sqrt(1-eta_true)*exp(1i*vla);
+if any(strcmp(vcal, {'amp', 'fit'})) && ~strcmp(arm.mode, 'none')
+    % the per-channel UNMASKED reference frames (the mask substrate's clear
+    % area, what every Zernike-sensor bench takes): the amplitude maps |qL|,
+    % |qR| are measured, the polarization phases are not
+    C.qL = abs(arm.qL);  C.qR = abs(arm.qR);
+    C.kapP = abs(arm.qL);  C.kapM = abs(arm.qR);
+    C.EbP0 = bsur(C.qL .* E0f);  C.EbM0 = bsur(C.qR .* E0f);
+end
 switch vcal
     case 'ideal'
+    case 'amp'
     case 'fit'
         % calibrate on the FLAT DM (what a bench does): fit the per-channel
-        % constants kappa+, kappa- (complex) and eta from the flat's two images
+        % constants kappa+, kappa- (complex) and eta from the flat's two
+        % masked images, on top of the unmasked amplitude maps
         [Ipf, Imf] = frameV_(zeros(macos.get_elt_grid_size(iTO)), iTO, iMASK, iDET, V, Vm, N_WF, leak, arm);
-        [C.kapP, C.kapM, C.eta, ZW.calV_info] = calV_(Ipf, Imf, C);
+        [kP, kM, C.eta, ZW.calV_info] = calV_(Ipf, Imf, C);
+        C.kapP = kP * C.kapP;  C.kapM = kM * C.kapM;
     case 'map'
         % the solver is told the truth: the arm maps and the metasurface
         % constants (a polarimetrically calibrated bench)
@@ -233,7 +247,7 @@ switch vcal
             C.EbP0 = bsur(arm.qL .* E0f);  C.EbM0 = bsur(arm.qR .* E0f);
         end
     otherwise
-        error('dmg_zwfs_gauge: V_CAL must be ''ideal'', ''fit'' or ''map''');
+        error('dmg_zwfs_gauge: V_CAL must be ''ideal'', ''amp'', ''fit'' or ''map''');
 end
 ZW.vcal = struct('mode', vcal, 'kapP', C.kapP, 'kapM', C.kapM, 'eta', C.eta, 'eta_true', eta_true, ...
                  'kap_true', kap_true);
@@ -295,14 +309,18 @@ E = macos.complex_field(iDET, 'reset_trace', false);
 end
 
 function [kapP, kapM, eta, info] = calV_(Ip, Im, C)
-% fit the per-channel constants on the flat DM's two images: model
-% I+ = |kappa+ E0 + sqrt(eta) c+ Eb0|^2, I- = |kappa- E0 + sqrt(eta) c- Eb0|^2
+% fit the per-channel constants on the flat DM's two masked images: model
+% I+ = |kappa+ aP E0 + sqrt(eta) c+ bP0|^2, I- = |kappa- aM E0 + sqrt(eta) c- bM0|^2
 % per pixel, 5 real parameters (|kappa+|, arg kappa+, |kappa-|, arg kappa-,
-% eta).  With an ideal arm kappa+ = kappa- = kappa (V2's 3-parameter fit).
-m = C.msk;  E0 = C.E0(m);  b = C.Eb0(m);  ip = Ip(m);  im = Im(m);
+% eta) on top of the solver's base amplitude maps aP, aM (1, or the
+% unmasked per-channel reference frames' |q|) and their reference waves.
+% With an ideal arm kappa+ = kappa- = kappa (V2's 3-parameter fit).
+m = C.msk;  ip = Ip(m);  im = Im(m);
+aP = C.kapP;  aM = C.kapM;  if isscalar(aP), aP = aP*ones(size(C.E0)); end;  if isscalar(aM), aM = aM*ones(size(C.E0)); end
+EP = aP(m) .* C.E0(m);  EM = aM(m) .* C.E0(m);  bP = C.EbP0(m);  bM = C.EbM0(m);   % the base model's fields + reference waves
 sc = mean(ip);
-f = @(q) sum((abs(q(1)*exp(1i*q(2))*E0 + sqrt(max(q(5),0))*C.cc*b).^2 - ip).^2 + ...
-             (abs(q(3)*exp(1i*q(4))*E0 + sqrt(max(q(5),0))*C.ccm*b).^2 - im).^2) / sc^2;
+f = @(q) sum((abs(q(1)*exp(1i*q(2))*EP + sqrt(max(q(5),0))*C.cc*bP).^2 - ip).^2 + ...
+             (abs(q(3)*exp(1i*q(4))*EM + sqrt(max(q(5),0))*C.ccm*bM).^2 - im).^2) / sc^2;
 [q, fv] = fminsearch(f, [1 0 1 0 1], optimset('TolX', 1e-10, 'TolFun', 1e-14, 'MaxFunEvals', 8000, 'MaxIter', 8000, 'Display', 'off'));
 kapP = q(1)*exp(1i*q(2));  kapM = q(3)*exp(1i*q(4));  eta = q(5);
 info = struct('resid', sqrt(fv/numel(ip)), 'q', q);
