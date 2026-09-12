@@ -22,6 +22,9 @@ function out = tg96_run(varargin)
 %   Stage C  null / piston / single-actuator / registration / closure
 %   Stage D  transfer curve to the DM Nyquist + held-out random
 %   Stage E  differential rows (the pm product; base x deviation)
+%   Stage LOOP  closed-loop HOLD metric (D7): the DM held at the working
+%     surface by a proportional loop closed through the four-step reading and
+%     its measured matrix; the shared dmg_loop. stages {'bench','loop','figs'}.
 
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 if isempty(which('macos.init'))
@@ -69,7 +72,7 @@ assert(P.grid.N_G <= macos.grid_size_max(), ...
     'N_G %d exceeds mGridMat %d at model %d', P.grid.N_G, macos.grid_size_max(), P.MODEL);
 macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G));
 bench = struct('geom', geom, 's', s);
-if want('bench') || want('battery')
+if want('bench') || want('battery') || want('loop')
     [G, bench] = stage_B_(P, s, geom, say, exdir);
 end
 
@@ -83,11 +86,18 @@ if want('battery')
     battery = stage_CDE_(P, s, G, bench, say, place);
 end
 
-if want('figs')
-    draw_layout_(geom, s, P);
+loop = struct();
+if want('loop')
+    loop = stage_loop_(P, s, G, bench, say, place);
 end
 
-out = struct('P', P, 'geom', geom, 'bench', bench, 'battery', battery, 'place', place, 's', s);
+if want('figs')
+    draw_layout_(geom, s, P);
+    if isfield(loop, 'res'), draw_loop_(loop, P); end
+end
+
+out = struct('P', P, 'geom', geom, 'bench', bench, 'battery', battery, ...
+    'place', place, 'loop', loop, 's', s);
 save([P.tag '.mat'], 'out');
 say('\nwrote %s_report.txt + %s.mat + figures in %s\n', P.tag, P.tag, P.outdir);
 end
@@ -547,6 +557,268 @@ function d4 = stage_D4_(P, ctx, PL, h0, msk, d_sng, litmask, est, say)
         rows(end+1,:) = {P4{k,1}, null_nm, null_nm/P4{k,5}, g, r}; %#ok<AGROW>
     end
     d4 = struct('rows',{rows}, 'dec_um',P.battery.d4_dec_um, 'tilt_urad',P.battery.d4_tilt_urad);
+end
+
+% =====================================================================
+%  Stage LOOP (D7): the closed-loop hold metric (Dave 2026-09-11)
+% =====================================================================
+function LO = stage_loop_(P, s, G, bench, say, place)
+% The on-orbit servo mode (BRIEF_loop_metric): the DM held at the working
+% surface by a proportional loop of gain g, closed through the four-step PSI
+% reading and its measured response matrix (calibrated ON the working surface,
+% S10). ONE reading here (the four-step map), so no readings dimension -- the
+% ZWFS runs L/I+/S/V. The loop code is SHARED: ../dm_gauge_lib/dmg_loop.m,
+% gated by tests/tDmgLoop.m on a synthetic instrument. This stage assembles the
+% instrument handles + the run matrix EXACTLY as zwfs_run's stage_loop_ and the
+% same drift seed, so the two gauges run the identical realizations. Numbers in
+% actuator surface units (pm over lit).
+t0 = tic;
+cfg = P.dm(1);  nact = cfg.nact;
+g = P.loop.g;  K = P.loop.K;  NPH = P.loop.nph(:).';  DR = P.loop.drifts;
+say('\n---- loop: closed-loop hold, DM %dx%d, four-step reading ----\n', nact, nact);
+say(['loop: gain %.2f, %d cycles (steady state = last %d), set point = %s, ' ...
+    'reference frames %s, drift seed %d; each cycle = ONE measurement (the DM ' ...
+    'shape traced once, the four frames with N photons split nph/4), differential ' ...
+    'to the set point through the measured matrix\n'], g, K, floor(K/2), P.loop.surface, P.loop.ref, P.loop.seed);
+say(['dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = ' ...
+    'sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ' ...
+    'ramp lag = rate/(gG)\n']);
+
+% ---- placement (reuse or bootstrap the windows the matrix needs) ---------
+if ~isfield(place, 'PL')
+    Pp = P;  Pp.place.gate_assert = false;
+    Pp.place.gate_max_states = P.place.boot_states;
+    place = stage_place_(Pp, s, G, bench, say);
+end
+ctx = place.ctx;  PL = place.PL;  h0 = place.h0;
+msk = ctx.msk;  N_G = ctx.N_G;  DX_G = ctx.DX_G;  LAM = ctx.LAM;  QWP = ctx.QWP;
+THETAS = ctx.THETAS;  Am = nnz(msk);  AT = ctx.AT;  Sr = ctx.Sr;
+
+% flat-DM null (the same-plane-fold arm difference; reported for context) --
+hn = (ctx.p_null - median(ctx.p_null(msk))) * LAM/(4*pi) * 1e6;
+null_nm = std(hn(msk));
+say('  flat-DM null: %.4f nm rms surface (%.1f pm) -- the same-plane-fold arm difference\n', null_nm, 1e3*null_nm);
+
+% ---- calibration ON the set point (matrix measured on the working surface) -
+Pl = P;  Pl.battery.calib_surface = iff_(strcmp(P.loop.surface, 'base'), 'base', 'flat');
+[J, ilit, vcol, hw, ns] = build_J_(ctx, cfg, PL, msk, Pl, h0);
+nlit = numel(ilit);
+JtJ = full(J.'*J) - (vcol*vcol.')/Am;            % mean-referenced (piston-nulled)
+dd = diag(JtJ);  l2 = P.battery.matrix_lam * median(dd(dd > 0));
+Rf = chol(JtJ + l2*eye(nlit));
+est = @(h) est_matrix_tg(h, J, vcol, Am, Rf, ilit, nact, msk);
+litmask = false(nact);  litmask(ilit) = true;
+say(['calibration: measured response matrix on the %s (%s); lit actuators %d, ' ...
+    'J %d states x %d columns, window %d px, reg lambda %.2e\n'], ...
+    Pl.battery.calib_surface, iff_(strcmp(Pl.battery.calib_surface,'base'), ...
+    sprintf('%g nm rms, seed %d', P.battery.base_rms*1e6, P.battery.seed_base), 'flat DM'), ...
+    nnz(litmask), ns, nlit, 2*hw+1, P.battery.matrix_lam);
+
+% ---- the set point command A0 (== the Abase build_J_ calibrated on) -------
+if strcmp(Pl.battery.calib_surface, 'base')
+    rng(P.battery.seed_base);  A0 = zeros(nact);
+    A0(litmask) = P.battery.base_rms*randn(nnz(litmask), 1);   % matches build_J_ (same seed/rms)
+else
+    A0 = zeros(nact);
+end
+
+% ---- the instrument (four-step PSI reading; frame-level so noise injects) --
+dmap = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
+ins = struct('lit', litmask, ...
+    'measure', @(cmd) frames4_(analyzer_basis(AT, QWP, dmap(cmd)), Sr, THETAS), ...
+    'noisy',   @(F, nph, seed) noisy4_(F, nph, seed), ...
+    'diff',    @(F1, F0) meanref_(fsdiff_(F1, F0, LAM), msk), ...
+    'est',     est);
+base = struct('A0',A0, 'g',g, 'K',K, 'seed',P.loop.seed, 'ref',P.loop.ref, 'rmax',P.loop.rmax);
+
+% ---- the runs --------------------------------------------------------------
+res = struct('drift',{}, 'nph',{}, 'amp',{}, 'L',{});
+kinds = DR;  if P.loop.floor, kinds = [{'none'} DR]; end
+nrun = numel(P.loop.steps) + numel(NPH)*numel(kinds);
+say('%d loop runs of %d states each (%d traced states)\n', nrun, K+1, nrun*(K+1));
+irun = 0;
+% noiseless steps: time constant + dynamic range
+for amp = P.loop.steps
+    o = base;  o.nph = Inf;  o.drift = struct('kind','step', 'amp',amp);
+    L = dmg_loop(ins, o);  irun = irun + 1;
+    res(end+1) = struct('drift','step', 'nph',Inf, 'amp',amp, 'L',L); %#ok<AGROW>
+    fprintf('[loop %d/%d] step %g nm: rho %.3f, residual at K %.2f pm%s (%.1f min)\n', ...
+        irun, nrun, amp*1e6, L.rho, L.rms(L.k_end)*1e9, div_(L), toc(t0)/60);
+end
+for nph = NPH
+    for kd = 1:numel(kinds)
+        o = base;  o.nph = nph;
+        switch kinds{kd}
+            case 'none',    o.drift = struct('kind','none');  amp = 0;
+            case 'walk',    o.drift = struct('kind','walk', 'sigma',P.loop.walk_sigma);  amp = P.loop.walk_sigma;
+            case 'thermal', o.drift = struct('kind','thermal', 'rate',P.loop.thermal_rate);  amp = P.loop.thermal_rate;
+            otherwise,      error('tg96_run: loop.drifts must be a subset of walk | thermal');
+        end
+        L = dmg_loop(ins, o);  irun = irun + 1;
+        res(end+1) = struct('drift',kinds{kd}, 'nph',nph, 'amp',amp, 'L',L); %#ok<AGROW>
+        fprintf('[loop %d/%d] %s @ %.0e photons: ss %.2f pm, bias %.2f pm, sig_n %.2f pm%s (%.1f min)\n', ...
+            irun, nrun, kinds{kd}, nph, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, div_(L), toc(t0)/60);
+    end
+end
+
+% ---- tables ----------------------------------------------------------------
+pm = @(x) x*1e9;
+say(['\nstep response (noiseless; a step of the given rms at cycle 1). rho = fitted ' ...
+    'per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, ' ...
+    'r(K/2)/r(K) = residual (pm) at cycles %d and %d -- a residual that stops falling ' ...
+    'is the noiseless bias floor on this surface\n'], floor(K/2), K);
+say('  %6s %8s %8s %6s %11s %11s\n','step','rho','tau','k1e','r(K/2) pm','r(K) pm');
+for amp = P.loop.steps
+    i = find(strcmp({res.drift},'step') & [res.amp]==amp, 1);  L = res(i).L;
+    if L.diverged
+        say('  %4.0f nm  DIVERGED at cycle %d (%.0f pm)\n', amp*1e6, L.k_end, pm(L.rms(L.k_end)));
+    else
+        say('  %4.0f nm %8.3f %8.1f %6s %11.3f %11.3f\n', amp*1e6, L.rho, L.tau, fmt0_(L.k_1e), pm(L.rms(floor(K/2))), pm(L.rms(end)));
+    end
+end
+for kd = 1:numel(kinds)
+    switch kinds{kd}
+        case 'none',    lab = 'noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g))';
+        case 'walk',    lab = sprintf('random walk, %g pm per actuator per cycle', P.loop.walk_sigma*1e9);
+        case 'thermal', lab = sprintf('thermal ramp, %g pm rms per cycle (defocus + astigmatism)', P.loop.thermal_rate*1e9);
+    end
+    say(['\nhold error vs photons per cycle (= per measurement, one per cycle) -- %s. ' ...
+        'ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged ' ...
+        'out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n\n'], lab);
+    say('  %9s %8s %8s %9s %8s\n','N/cycle','ss pm','bias pm','sig_n pm','th pm');
+    for nph = NPH
+        i = find(strcmp({res.drift},kinds{kd}) & [res.nph]==nph, 1);  L = res(i).L;
+        switch kinds{kd}
+            case 'none',    th = L.theory.ss_noise;
+            case 'walk',    th = L.theory.ss_walk;
+            case 'thermal', th = hypot(L.theory.lag_ramp, L.theory.ss_noise);
+        end
+        if L.diverged, say('  %9.1e  DIVERGED at cycle %d\n', nph, L.k_end);
+        else, say('  %9.1e %8.2f %8.2f %9.2f %8.2f\n', nph, pm(L.ss), pm(L.bias), pm(L.sig_n), pm(th)); end
+    end
+end
+% the one number: photons per cycle to hold the spec
+spec = P.loop.hold_spec;
+say(['\nphotons per cycle to hold %.1f pm rms (log-log interpolation of ss over N; ' ...
+    '''floor x'' = not reached: the noise-free residual sits at x pm):\n'], spec*1e9);
+n_hold = nan(numel(kinds),1);
+for kd = 1:numel(kinds)
+    ss = nan(1,numel(NPH));  bias = ss;  dv = false(1,numel(NPH));
+    for q = 1:numel(NPH)
+        i = find(strcmp({res.drift},kinds{kd}) & [res.nph]==NPH(q), 1);
+        ss(q) = res(i).L.ss;  bias(q) = res(i).L.bias;  dv(q) = res(i).L.diverged;
+    end
+    if all(dv), txt = 'DIVERGED';  n_hold(kd) = NaN;
+    else, [n_hold(kd), txt] = hold_photons_(NPH, ss, bias, spec); end
+    say('  %-8s %s\n', kinds{kd}, txt);
+end
+% spectrum of the held residual at the highest photon level
+say('\nspectrum of the held residual at %.0e photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture\n', NPH(end));
+for kd = 1:numel(kinds)
+    i = find(strcmp({res.drift},kinds{kd}) & [res.nph]==NPH(end), 1);
+    say('  %-8s %6.2f %6.2f %6.2f\n', kinds{kd}, pm(res(i).L.spec.band));
+end
+say('loop stage %.1f min (%d traced states)\n', toc(t0)/60, nrun*(K+1));
+LO = struct('drifts',{kinds}, 'nph',NPH, 'steps',P.loop.steps, 'g',g, 'K',K, ...
+    'surface',P.loop.surface, 'hold_spec',spec, 'n_hold',n_hold, 'lit',litmask, ...
+    'A0',A0, 'null_nm',null_nm, 'nlit',nlit, 'nstates',ns, 'res',res);
+end
+
+function Fr = frames4_(Sx, Sr, th)
+% the four analyzer-step intensity frames (noiseless) for a test-arm state Sx
+% against the fixed reference-arm basis Sr
+Fr = cat(3, frame(Sx,Sr,th(1)), frame(Sx,Sr,th(2)), frame(Sx,Sr,th(3)), frame(Sx,Sr,th(4)));
+end
+
+function Fn = noisy4_(F, nph, seed)
+% photon noise on the four captured frames: nph photons per MEASUREMENT split
+% nph/4 over the four frames (the S5 shot model, lifted from zwfs noisy_frames_).
+% nph = Inf returns F unchanged.
+Fn = F;
+if ~isfinite(nph), return; end
+rs = RandStream('mt19937ar', 'Seed', seed);
+for k = 1:size(F,3)
+    I = F(:,:,k);
+    Fn(:,:,k) = I .* (1 + randn(rs, size(I)) ./ sqrt(max(I / sum(I(:)) * (nph/4), 1)));
+end
+end
+
+function d = fsdiff_(F1, F0, LAM)
+% the four-step differential surface map (mm): the phase DIFFERENCE wrapped
+% (the V1 lesson -- wrap the difference, not each absolute map at +/-pi).
+p1 = atan2(F1(:,:,2)-F1(:,:,4), F1(:,:,1)-F1(:,:,3));
+p0 = atan2(F0(:,:,2)-F0(:,:,4), F0(:,:,1)-F0(:,:,3));
+d = angle(exp(1i*(p1 - p0))) * LAM/(4*pi);
+end
+
+function t = div_(L)
+if L.diverged, t = sprintf(' DIVERGED at cycle %d', L.k_end); else, t = ''; end
+end
+
+function s = fmt0_(x)
+if isnan(x), s = '-'; else, s = sprintf('%d', x); end
+end
+
+function [n, txt] = hold_photons_(NPH, ss, bias, spec)
+% (verbatim from zwfs_run) photons per cycle at which the steady-state rms
+% crosses spec (log-log interpolation); NaN + a reason when it never crosses
+n = NaN;
+if all(ss > spec)
+    txt = sprintf('floor %.1f', min(ss)*1e9);
+    if ss(end) > spec && bias(end) < spec, txt = sprintf('> %.0e', NPH(end)); end
+    return
+end
+if ss(1) <= spec, n = NPH(1);  txt = sprintf('< %.0e', NPH(1));  return; end
+q = find(ss <= spec, 1);                                     % first point at or under spec
+x = log(NPH(q-1:q));  y = log(ss(q-1:q));
+n = exp(x(1) + (log(spec) - y(1)) * (x(2)-x(1)) / (y(2)-y(1)));
+txt = sprintf('%.1e', n);
+end
+
+function draw_loop_(LO, P)
+% the loop figure (mirror of zwfs_run_figs's loop panels, single reading):
+% residual per cycle per photon level (+ the noiseless step), and the hold
+% error vs photons per cycle for each drift.
+res = LO.res;  NPH = LO.nph;  kinds = LO.drifts;  K = LO.K;
+kshow = 'walk';  if ~any(strcmp(kinds,'walk')), kshow = kinds{end}; end
+ramp = [209 229 240; 146 197 222; 67 147 195; 33 102 172; 8 48 107]/255;   % ordinal blues
+f = figure('Color','w','Position',[100 100 1400 560],'Visible','off');
+tl = tiledlayout(1,2,'Padding','compact','TileSpacing','compact');
+tl.Title.String = sprintf('%s: closed-loop hold at gain %.2f on the %s, %d cycles, matrix calibration', P.tag, LO.g, LO.surface, K);
+tl.Title.Interpreter = 'none';
+ax = nexttile;  hold(ax,'on');
+for q = 1:numel(NPH)
+    i = find(strcmp({res.drift},kshow) & [res.nph]==NPH(q), 1);
+    if isempty(i), continue; end
+    cc = ramp(max(1, round((q-1)/max(numel(NPH)-1,1)*(size(ramp,1)-1))+1), :);
+    semilogy(ax, 1:K, res(i).L.rms*1e9, '-', 'Color',cc, 'LineWidth',1.8, 'DisplayName',sprintf('%.0e photons/cycle',NPH(q)));
+end
+i = find(strcmp({res.drift},'step'), 1);
+if ~isempty(i), semilogy(ax, 1:K, res(i).L.rms*1e9, '--', 'Color',[.5 .5 .5], 'LineWidth',1.5, 'DisplayName',sprintf('noiseless %g nm step',res(i).amp*1e6)); end
+set(ax,'YScale','log');  grid(ax,'on');
+yline(ax, LO.hold_spec*1e9, ':', sprintf('%g pm hold spec',LO.hold_spec*1e9), 'HandleVisibility','off');
+xlabel(ax,'cycle');  ylabel(ax,'residual surface error over lit, pm rms');
+title(ax, sprintf('four-step reading, %s drift: residual per cycle', kshow));
+legend(ax,'Location','northeast');
+ax = nexttile;  hold(ax,'on');
+lst = struct('none',':', 'walk','-', 'thermal','--', 'step','-.');
+for kd = 1:numel(kinds)
+    ss = nan(1,numel(NPH));
+    for q = 1:numel(NPH)
+        i = find(strcmp({res.drift},kinds{kd}) & [res.nph]==NPH(q), 1);
+        if ~isempty(i), ss(q) = res(i).L.ss*1e9; end
+    end
+    loglog(ax, NPH, ss, [lst.(kinds{kd}) 'o'], 'LineWidth',2, 'MarkerSize',6, 'DisplayName',kinds{kd});
+end
+set(ax,'XScale','log','YScale','log');  grid(ax,'on');
+yline(ax, LO.hold_spec*1e9, ':', sprintf('%g pm hold spec',LO.hold_spec*1e9), 'HandleVisibility','off');
+xlabel(ax,'photons per cycle (one measurement per cycle; the four frames share it)');
+ylabel(ax,'steady-state hold error over lit, pm rms');
+title(ax,'hold error vs photons per cycle (dotted none, solid walk, dashed thermal)');
+legend(ax,'Location','best');
+fn = [P.tag '_loop.png'];
+exportgraphics(f, fn, 'Resolution',110);  close(f);
+fprintf('wrote %s\n', fn);
 end
 
 function [J, ilit, vcol, hw, ns, np] = build_J_(ctx, cfg, PL, msk, P, h0)
