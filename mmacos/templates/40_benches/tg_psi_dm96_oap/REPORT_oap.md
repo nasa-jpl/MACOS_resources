@@ -232,7 +232,7 @@ by `tests/tDmgLoop.m` (9 synthetic-instrument gates). Same knobs, same drift
 | ZWFS stepped S (4 frames) | 2.6e12 | 7.5e12 | 10.0 pm | 0.000 pm |
 | ZWFS polarized pair V (2 frames) | 1.5e12 | 5.3e12 | 9.9 pm | 0.000 pm |
 | **T-G IFO four-step, lens** | **5.5e12** | **2.0e13** | **13.1 pm** | **87 pm** (1 nm step; ~8.6% floor, slightly rising 66→87) |
-| T-G IFO four-step, OAP | *pending (D7 OAP row, after item B)* | | | |
+| **T-G IFO four-step, OAP (bare Al)** | **3.4e13** | **floor 4.1 pm** (never 3) | **39.0 pm** | **276 pm** (1 nm step; ~27.6% floor, rising 210→276) |
 
 **Per-photon precision (the thing that sets the crossings).** The loop
 propagates noise EXACTLY as theory says — steady-state ss vs the theory line
@@ -272,7 +272,28 @@ gauge that the idealized ZWFS sim does not carry. The random walk and the photon
 noise, which do not excite that coupled mode persistently, are held cleanly (2.6×
 the ZWFS photons).
 
-Figure: `runs/loop_lens/loop_lens_loop.png` (residual per cycle per photon level
+**The OAP row (bare Al; `runs/loop_oap`) — where the loop metric earns its keep.**
+Open loop, the realistic reflective gauge looked nearly as good as the lens
+(item B: dense-random gain 0.95 vs 0.99, cross-talk ~0.18 vs < 0.06). CLOSED
+loop, that residual fold cross-talk becomes the DOMINANT floor — a persistent
+bias the loop cannot remove: noise-only holds 3 pm only at **3.4e13 photons**
+(~6× the lens, ~16× ZWFS L; sig_n 22.2 pm at 1e12 → 1 pm at ~4.9e14, ~3.5× the
+lens), the 2 pm walk **floors at 4.1 pm and never reaches 3 pm at any photon
+count** (the cross-talk bias, bias 3.25 pm at 1e15, adds in quadrature to the
+walk floor), the thermal hold is **39 pm** (bias 37; the >12 cyc/ap band alone
+is 33 pm), and the noiseless step **floors at ~27.6 %** (276 pm from 1 nm,
+rising 210→276) — three times the lens's already-nonzero 8.6 %. So the D7 verdict
+sharpens item B: a fold cost that is a modest 4 % gain drop and a 0.18 cross-talk
+open-loop is a HARD wall in the on-orbit hold mode, because the loop integrates
+the cross-talk into a fixed surface bias. The reflective gauge reads a localized
+change and the photon noise like the lens, but it cannot HOLD a drifting surface
+to the < 10 pm on-orbit spec through its measured matrix without first flattening
+that cross-talk (a modal-decoupling correction on the matrix, as the ZWFS L
+reading needed — the same loop code would take it). This is the number the
+head-to-head needed: **lens holds, OAP does not**, and the loop is what
+distinguishes them where the open-loop battery did not.
+
+Figure: `runs/loop_lens/loop_lens_loop.png` and `runs/loop_oap/loop_oap_loop.png` (residual per cycle per photon level
 + the noiseless step; hold error vs photons for none/walk/thermal). Reproduce:
 
     tg96_run('stages',{'bench','loop','figs'},'tag','loop_lens')     % lens
@@ -293,11 +314,13 @@ Figure: `runs/loop_lens/loop_lens_loop.png` (residual per cycle per photon level
   0.00 mrad for the ideal reflector vs 0.55 mrad for real metal -- the singular
   idealization. D3's uncoated dense numbers are RETIRED.
 - D6 README + this report — **DONE**.
-- D7 closed-loop hold metric — **DONE (lens); OAP row pending**. `tg96_run` stage
-  `'loop'` on the shared `dm_gauge_lib/dmg_loop.m`; lens comparison row filled
-  (holds noise/walk at ~2.6× the ZWFS photons, thermal floor 13.1 pm, and a
-  noiseless step FLOOR ~8.6% — the gauge roll-off surfacing in closed loop, L-like
-  not S-like). The OAP row follows item B (which coating the answer says).
+- D7 closed-loop hold metric — **DONE (lens + OAP)**. `tg96_run` stage `'loop'`
+  on the shared `dm_gauge_lib/dmg_loop.m`; both comparison rows filled. Lens holds
+  noise/walk at ~2.6× the ZWFS photons (step floor ~8.6%, L-like). OAP (bare Al):
+  the residual fold cross-talk becomes the dominant closed-loop floor — 3 pm
+  noise-only at 3.4e13, the 2 pm walk floors at 4.1 pm (never 3), thermal 39 pm,
+  step floor ~27.6%. The loop DISTINGUISHES lens (holds) from OAP (does not) where
+  the open-loop battery did not.
 
 ## Reproduce
 

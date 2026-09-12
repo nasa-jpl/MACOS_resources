@@ -113,4 +113,9 @@ holds the walk and the photon noise like the ZWFS stepped/vector readings but at
 thermal floor 13.1 pm = the rate/g lag). **Departure:** the IFO four-step has a
 **noiseless step floor ~8.6%** (unlike the ideal ZWFS stepped reading's 0.000) —
 the gauge's geometric roll-off + modal cross-talk surfacing in closed loop
-(L-like, not S-like). Numbers + the ZWFS comparison table in **`REPORT_oap.md`**.
+(L-like, not S-like). **OAP row** (`runs/loop_oap`, bare Al): the residual fold
+cross-talk (a benign-looking 0.95 dense gain open-loop) becomes the DOMINANT
+closed-loop floor — 3 pm noise-only at 3.4e13, the 2 pm walk floors at 4.1 pm
+(never 3), thermal 39 pm, step floor ~27.6%. **The loop distinguishes the lens
+(holds) from the OAP (does not) where the open-loop battery did not.** Numbers +
+the ZWFS comparison table in **`REPORT_oap.md`**.
