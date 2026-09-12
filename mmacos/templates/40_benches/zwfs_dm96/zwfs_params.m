@@ -38,6 +38,13 @@ P.readings = {'L', 'F', 'I', 'I+', 'S', 'V'};
                              %    exact per-pixel solve with no branch fold, 2 simultaneous frames
                              %    (the photons split between them).  Ideal metasurface: each image
                              %    is the scalar sensor with its own dimple sign (stage V1, 2026-09-11)
+                             % P  POINT-DIFFRACTION interferometer, common path: a stepped PINHOLE
+                             %    mask at the FocalMask (surround attenuated to t, K phase steps),
+                             %    exact linear four-step solve, no fold (P.pdi; opt-in, 2026-09-12)
+                             % PF point-diffraction, fiber reference: the pinhole reference in its
+                             %    own arm with a photonic phase shifter, recombined with the
+                             %    unattenuated beam (Dube et al. 2024); exact, state-independent
+                             %    reference (P.pdi; opt-in)
 
 % ---- engine + sampling ------------------------------------------------
 P.MODEL = 1024;              % engine model size (ONE per MATLAB process -- see README)
@@ -99,6 +106,26 @@ P.mask.v_cal = 'ideal';      % V2: the solver's metasurface model: 'ideal' (kapp
 P.mask.v_gate_nm = 100;      % G4 (V only): single-actuator pokes (every 8th actuator) of this height
                              % put their pixels beyond the one-frame fold (peak 1.9 rad, 3% of msk);
                              % the pair must reproduce them (< 0.1%), the single frame must not
+
+% ---- the point-diffraction readings P / PF (opt-in; dm_gauge_lib/dmg_pdi_gauge) -
+P.pdi.DIA_LAMD = 2.0;        % pinhole diameter, lam/D at P.LAM (fixed physical size); 2.0 = the
+                             % dimple's size (P at t = 1 is then the stepped ZWFS reading S);
+                             % smaller = a cleaner reference (P.pdi sweep) at fewer px per pinhole
+                             % (the budget line: 3.96 px per lam/D at 1024/193)
+P.pdi.t_surr   = 'auto';     % P: amplitude transmission of the surround; 'auto' = the reference's
+                             % rms amplitude over the pupil / the beam's (visibility ~ 1), or a number
+P.pdi.thetas   = [0 pi/2 pi 3*pi/2];
+                             % the phase steps, rad (K frames per measurement; any K >= 3)
+P.pdi.b2       = 'flat';     % P: |b|^2 of the pinhole reference: 'flat' = the flat DM's pinhole-only
+                             % frame once (K frames per state, |b|^2 then iterated with the phase);
+                             % 'state' = a pinhole-only frame per state (K+1 frames, exact)
+P.pdi.NITER    = 3;          % P: reference-wave iterations (0 = frozen flat reference)
+P.pdi.pickoff  = 0.5;        % PF: fraction of the beam POWER sent to the reference arm
+P.pdi.a_ref    = 'auto';     % PF: reference amplitude; 'auto' = min(visibility-1 match, the pickoff
+                             % budget a^2 sum|R|^2 <= pickoff * eta_pin * sum|E|^2), or a number
+P.pdi.refstab_dia = [0.5 1 1.5 2 3];
+                             % bench stage: the reference's motion under the working state, printed
+                             % for these pinhole diameters (lam/D) -- the PDI's argument, measured
 
 % ---- sampling budget (asserted at the bench stage) ---------------------
 P.samp.min_dimple_px  = 6;   % dimple diameter at the mask plane, px (S1 G0 rule)
@@ -193,7 +220,7 @@ P.color.dc       = 'unit';                    % combiner DC form: 'unit' (g(0)=1
 P.noise.nstates = 10.^(6:2:14);               % photons per MEASUREMENT of one DM shape (split over a
                                               % reading's frames; the knob keeps its historical name)
 P.noise.nreal   = 8;                          % Monte-Carlo realizations per point
-P.noise.readings = {'L', 'F', 'I', 'I+', 'S', 'V'};
+P.noise.readings = {'L', 'F', 'I', 'I+', 'S', 'V', 'P', 'PF'};   % those also in P.readings
 P.noise.prior   = {'split', 'noiseless'};     % I+ prior frames: 'split' = the base's 4 stepped
                                               % frames share ONE state budget (N/4 each);
                                               % 'full' = N per frame; 'noiseless' = the prior
