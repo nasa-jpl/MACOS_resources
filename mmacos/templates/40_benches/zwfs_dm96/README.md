@@ -313,12 +313,22 @@ budget lines before quoting a number.
   `loop.cam_walk` electrons per pixel per cycle, constant within a scan
   unless `cam_intra`); readings whose step weights sum to zero (S, P,
   PF) subtract it exactly (tDmgLoop G8), the single-frame readings and
-  the simultaneous pair imprint it on the DM.  Pending in this record:
+  the simultaneous pair imprint it on the DM.  *Closed loop
+  (runs/ploop193, P and PF on the S11 seeds, the matrix on the working
+  surface; 82 min):* both contract at 0.509 per cycle (reading gain 0.98
+  at loop gain 0.5, as V) and take the 1 and 10 nm steps to 0.000 pm --
+  no fixed error; noise-only hold 3 pm from **P 2.3e12** (S 2.6e12, V
+  1.5e12, L 2.1e12) and **PF 7.0e12** photons per cycle; under the 2 pm
+  walk **P 7.0e12** (S 7.5e12, V 5.3e12) and **PF 2.5e13**; thermal
+  floor 9.9 pm for both (the proportional loop's lag, as every exact
+  reading); the held residual's spectrum under the walk identical to
+  V's (0.25 / 0.72 / 2.2 pm in the three bands).  PF's single-shot noise
+  is 1.7x P's at every level (sig_n 13.5 vs 7.8 pm at 1e12), the 60/40
+  split again.  Pending in this record:
   pdi193se_ls / se_sh5 (2% step error, least squares vs Schwider-
   Hariharan: the first attempt showed the flat reading 6.9e-2 rad rms
   under ls and 1.3e-5 under sh5 before the exactness gate aborted it;
-  the gates are informational under a step error now), ploop193
-  (the loop rows for P / PF), pcam193 / pcam193i (the camera drift, all
+  the gates are informational under a step error now), pcam193 / pcam193i (the camera drift, all
   six readings, within-scan 0 / 1).  Figure: `<tag>_pdi.png` (the focal
   spot with pinhole, dimple and mode; the reference amplitudes; the
   reference's motion by diameter; the visibility maps).  Deck:
