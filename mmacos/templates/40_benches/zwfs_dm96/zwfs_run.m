@@ -124,7 +124,9 @@ function po = pdi_opt_(P, lam_mm)
 po = struct('LAM', lam_mm, 'F2', P.bench.F2, 'R_BEAM', P.bench.R_TO_AP, ...
     'DIA_LAMD', P.pdi.DIA_LAMD * P.LAM/lam_mm, 'THETAS', P.pdi.thetas, ...
     'T_SURR', P.pdi.t_surr, 'B2', P.pdi.b2, 'NITER', P.pdi.NITER, ...
-    'PICKOFF', P.pdi.pickoff, 'A_REF', P.pdi.a_ref, 'S_CONV', P.mask.S_CONV);
+    'PICKOFF', P.pdi.pickoff, 'A_REF', P.pdi.a_ref, 'S_CONV', P.mask.S_CONV, ...
+    'REF_SHAPE', P.pdi.ref_shape, 'FIB_V', P.pdi.fib_V, 'FIB_B', P.pdi.fib_b, 'FIB_A_LAMD', P.pdi.fib_a_lamd, ...
+    'SCHEME', P.pdi.scheme, 'STEP_ERR', P.pdi.step_err);
 end
 
 function PD = pdi_build_(P, lam_mm, iTO, iMASK, iDET)
@@ -326,7 +328,13 @@ if ~isempty(fieldnames(ZW.PD))
         rd = pdn{1};  pd = ZW.PD.(rd);
         switch pd.mode
             case 'pinhole', desc = sprintf('pinhole %.2f lam/D, surround t %.4f, %d steps, |b|^2 %s, NITER %d', P.pdi.DIA_LAMD, pd.t, pd.K, pd.b2mode, pd.NITER);
-            case 'fiber',   desc = sprintf('fiber reference (pinhole %.2f lam/D shape), pickoff %.2f, a %.4g (match %.4g, budget %.4g), %d steps', P.pdi.DIA_LAMD, pd.f, pd.a, pd.a_match, pd.a_budget, pd.K);
+            case 'fiber'
+                switch pd.refshape
+                    case 'fiber',   shp = sprintf('LP01 mode V %.2f b %.2f core radius %.2f lam/D, coupling eta_c %.4f on the flat', P.pdi.fib_V, P.pdi.fib_b, P.pdi.fib_a_lamd, pd.eta_c);
+                    case 'pinhole', shp = sprintf('pinhole %.2f lam/D shape', P.pdi.DIA_LAMD);
+                end
+                desc = sprintf('P/SRI, reference = %s; pickoff %.2f, a %.4g (match %.4g, budget %.4g), %d steps (%s%s), |kappa| %s', ...
+                    shp, pd.f, pd.a, pd.a_match, pd.a_budget, pd.K, pd.scheme, ifelse_(pd.step_err ~= 0, sprintf(', step error %+.3f', pd.step_err), ''), pd.b2mode);
         end
         dmg_say(rep, '%s: %s; frames per measurement %d; eta_pin %.4f; throughput (detected/incident, flat) %.4f; visibility on the flat %.4f; surrogate vs engine reference %.2e; the flat reads %.2e rad rms, amplitude %.2e rel\n', ...
             rd, desc, pd.nframes, pd.eta_pin, pd.throughput, pd.vis, pd.gate.bsur, pd.gate.flat, pd.gate.amp);
@@ -340,7 +348,17 @@ if ~isempty(fieldnames(ZW.PD))
         gP.(rd) = struct('e5', e5, 'throughput', pd.throughput, 'vis', pd.vis, 'nframes', pd.nframes);
     end
     % G6: reference motion under the working state (E1 traced at G3), by diameter
-    pd1 = ZW.PD.(pdn{1});  dias = P.pdi.refstab_dia;
+    % (the pinhole-shaped reference: from the P factory, else a pinhole-shaped PF)
+    pd1 = [];
+    for pdn2 = fieldnames(ZW.PD).', if strcmp(ZW.PD.(pdn2{1}).refshape, 'pinhole'), pd1 = ZW.PD.(pdn2{1}); end, end
+    if isfield(ZW.PD, 'PF') && strcmp(ZW.PD.PF.refshape, 'fiber')
+        [~, ~, kap] = ZW.PD.PF.refstab(E1);
+        dmg_say(rep, 'G6 P/SRI fiber reference under the %.0f nm rms working state: shape FIXED by construction (the mode''s); coupling relative to the flat |kappa| %.5f, arg %+.4f rad (an amplitude scale + a piston; the solver takes kappa = 1 in |kappa| ''flat'' mode)\n', ...
+            P.battery.base_rms*1e6, abs(kap), angle(kap));
+        gP.kappa = kap;
+    end
+    if isempty(pd1), pd1 = dmg_pdi_gauge(iTO, iMASK, iDET, setfield(setfield(pdi_opt_(P, P.LAM), 'MODE', 'pinhole'), 'NITER', 0)); macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), zeros(P.grid.N_G)); end %#ok<SFLD>
+    dias = P.pdi.refstab_dia;
     [rs, rsh, scl] = pd1.refstab(E1, dias);
     [rd_, rdh, sdl] = pd1.refstab(E1, P.mask.DIA_LAMD);
     dmg_say(rep, 'G6 reference motion under the %.0f nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:\n%8s %8s %8s %8s   %s\n', ...

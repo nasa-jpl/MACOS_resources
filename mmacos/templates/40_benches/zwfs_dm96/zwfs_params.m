@@ -120,9 +120,24 @@ P.pdi.b2       = 'flat';     % P: |b|^2 of the pinhole reference: 'flat' = the f
                              % frame once (K frames per state, |b|^2 then iterated with the phase);
                              % 'state' = a pinhole-only frame per state (K+1 frames, exact)
 P.pdi.NITER    = 3;          % P: reference-wave iterations (0 = frozen flat reference)
-P.pdi.pickoff  = 0.5;        % PF: fraction of the beam POWER sent to the reference arm
+P.pdi.pickoff  = 0.6;        % PF: fraction of the beam POWER sent to the reference arm (Dube 2024
+                             % example: beamsplitter R 0.6 to the photonic channel, T 0.4 test)
 P.pdi.a_ref    = 'auto';     % PF: reference amplitude; 'auto' = min(visibility-1 match, the pickoff
-                             % budget a^2 sum|R|^2 <= pickoff * eta_pin * sum|E|^2), or a number
+                             % budget a^2 sum|R|^2 <= pickoff * coupled power), or a number
+P.pdi.ref_shape = 'fiber';   % PF: the reference's shape: 'fiber' = the recollimated LP01 mode of a
+                             % single-mode waveguide (Dube 2024 P/SRI: Gaussian-like, scaled by the
+                             % state's coupling into the mode -- a complex SCALAR, shape fixed);
+                             % 'pinhole' = the pinhole-diffracted flat field (the first idealization)
+P.pdi.fib_V = 2.3;  P.pdi.fib_b = 0.5;  P.pdi.fib_a_lamd = 0.5;
+                             % PF: step-index fiber V number, normalized propagation constant b, core
+                             % radius in lam/D at the focus -- Dube's matched set (Thorlabs UV fiber:
+                             % core radius 0.5 lam/D; do not change one without the others)
+P.pdi.scheme   = 'ls';       % step scheme: 'ls' = least-squares fit over P.pdi.thetas (any K >= 3);
+                             % 'sh5' = the five-frame Schwider-Hariharan scan (-pi..pi, de Groot
+                             % weights; bias-immune, first-order immune to a step-size error) as
+                             % in Dube 2024 -- overrides thetas
+P.pdi.step_err = 0;          % fractional phase-step miscalibration applied to the FRAMES only (the
+                             % solve keeps the nominal steps): the scheme trade (0.02 = 2%)
 P.pdi.refstab_dia = [0.5 1 1.5 2 3];
                              % bench stage: the reference's motion under the working state, printed
                              % for these pinhole diameters (lam/D) -- the PDI's argument, measured
