@@ -436,10 +436,19 @@ budget lines before quoting a number.
   V's (0.25 / 0.72 / 2.2 pm in the three bands).  PF's single-shot noise
   is 1.7x P's at every level (sig_n 13.5 vs 7.8 pm at 1e12), the 60/40
   split again.  Pending in this record:
-  pdi193se_ls / se_sh5 (2% step error, least squares vs Schwider-
-  Hariharan: the first attempt showed the flat reading 6.9e-2 rad rms
-  under ls and 1.3e-5 under sh5 before the exactness gate aborted it;
-  the gates are informational under a step error now), pcam193 / pcam193i (the camera drift, all
+  pdi193se_sh5 (the five-frame Schwider-Hariharan half of the step-
+  error trade).  *A 2% step-size error, four-step least squares
+  (runs/pdi193se_ls, matrix on the 30 nm surface):* the ABSOLUTE
+  reading carries it -- the flat reads 6.9e-2 rad rms (P) / 5.7e-2 (PF)
+  instead of 1e-15, and the 12 nm sparse-poke figure comes back with
+  421 / 251 pm rms error (3.5% / 2.1%) -- while the DIFFERENTIAL rows
+  barely move: single 10 nm P 0.9918 / 4 pm, PF 0.9908 / 4 (0.9935 / 4
+  without the error); grid 0.998 / 3 and 1.002 / 3; dense 0.998 / 354
+  and 1.004 / 353 (338 / 330); ladder at 60 nm P 0.94, PF 1.02.  The
+  first attempt at this pair showed the Schwider-Hariharan scan's flat
+  reading at 1.3e-5 rad rms for the same error (5000x smaller): its
+  differential rows are the pending run.  Pending: pcam193r / pcam193ri
+  (the relative camera drift, corrected scale), pdi193se_sh5; pcam193 / pcam193i (the camera drift, all
   six readings, within-scan 0 / 1).  Figure: `<tag>_pdi.png` (the focal
   spot with pinhole, dimple and mode; the reference amplitudes; the
   reference's motion by diameter; the visibility maps).  Deck:
