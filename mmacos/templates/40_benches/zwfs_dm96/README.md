@@ -89,7 +89,7 @@ re-draws them from a saved run).
 | knob (`zwfs_params`) | default | what it does |
 |---|---|---|
 | `stages` | bench battery figs | add `color` (the multi-wavelength combination), `noise` (photon pricing) and `loop` (the closed-loop HOLD metric, S11) |
-| `readings` | L F I I+ S | any subset: linear / exact frozen-b / exact iterated-b / I with the base's refined stepped prior / phase-stepped |
+| `readings` | L F I I+ S V | any subset: linear / exact frozen-b / exact iterated-b / I with the base's refined stepped prior / phase-stepped / the VECTOR pair (polarized dimple: +phi and -phi images at once, exact, no fold; V1, 2026-09-11) |
 | `MODEL`, `NGRID` | 1024, 193 | engine grid, ray grid across the aperture (385 = the 1 Mpix-class detector) |
 | `param_file` | `''` | a custom engine size table (`macos_param.txt` namelists) copied into the run dir, where the engine looks FIRST; `'macos_param_2048.txt'` (this dir) trims MODEL 2048 to fit a 30 GB box -- `mGridSrf` 200 -> 4, `mpts` -> 512, `mElt` -> 64, and `mGridMat` UP to 512 for the 384-across DM grid (the stock 2048 entry's 128 corrupts the heap) |
 | `LAM` | 632.8 nm | the record color; `color.lams_nm` lists the others, record color FIRST |
@@ -133,6 +133,76 @@ budget lines before quoting a number.
   steer.
 
 ## Findings
+- **V1 (2026-09-11, Dave: "polarized dimple?" -- "Begin!"): the VECTOR
+  (polarized-dimple) reading V, ideal metasurface, stage one.**  A
+  geometric-phase dimple puts +phi on one circular polarization and -phi
+  on the other; a polarization splitter behind the pupil relay gives the
+  two pupil images AT ONCE (Doelman 2019).  For an ideal metasurface each
+  image is the scalar sensor with its own dimple sign, so the reading is
+  two scalar traces through the existing factory: `dmg_zwfs_gauge`
+  `frameV` / `reconV` / `solveV` (the same per-pixel model as the exact
+  reading for each image, I+- = |E + c+- b|^2 with c- = conj(c+); the
+  pair gives cos and sin of the phase at once, `u = atan2`, NO branch, no
+  clamp; the reference wave b iterated as for I).  Runner class 4 through
+  the battery, color, noise and loop stages; photons split N/2 per image.
+  *G4, the fold gate (bench stage):* 100 nm single-actuator pokes every
+  8th actuator (12 nm rms on msk, peak 1.93 rad, 3.1% of the pupil beyond
+  the quarter-wave fold) -- V reproduces the engine's own field phase to
+  **0.053 pm** (piston removed), the single +phi frame errs by 9.0 nm.
+  Two things learned making the gate: (1) a WHOLE-PUPIL figure of that
+  height is not a fold test -- the focal core collapses (b changes by
+  >100% for every mode at 1.2 rad rms) and every reading fails: the
+  30-40 nm cliff of S7, a range limit the pair does not move; (2) the
+  b iteration is exact only modulo PISTON (the one direction the sensor
+  cannot see; the fixed-point family), so the gate compares mean-
+  referenced maps, as every differential row already does.
+  *Flat-matrix battery (runs/v193flat; V == I+ on the flat, as it must:
+  nothing beyond the fold there):* flat single 20 nm 0.9941 / 4 pm;
+  with the FLAT matrix on the 30 nm surface V is already the best
+  reading: single 10 nm **0.939 / 25 pm** (I+ 0.73 / 63, S 0.75 / 47),
+  47-site 1 nm grid **0.997 / 12 pm** (I+ 0.97 / 21, S 0.83 / 24), dense
+  random 10 nm **0.999 / 1.07 nm** (I+ 0.90 / 4.6, S 0.82 / 2.1); the
+  hold-out ladder 0.84 / 0.82 / 0.79 / 0.76 at 30-60 nm rms (S 0.77 /
+  0.66 / 0.55 / 0.48).  *Matrix ON the working surface (runs/v193base,
+  the S10 doctrine):* single 10 nm **0.9935 / 4 pm / SNR 2830** (S 0.989
+  / 5 / 2160), grid 1 nm **0.9992 / 3 pm / 345** (S 0.9993 / 4 / 284),
+  dense random 10 nm **0.9999 / 0.33 nm** (S 0.984 / 0.68 nm) -- the
+  stepped reading's numbers at half the frames, and half its dense error.
+  Its local sensitivity moves least with the surface (map-space
+  diagnostic, single change on the surface vs the flat: V 0.15 rel /
+  0.90 amplitude; S 0.29 / 0.73; L 0.60 / 0.49).  *Ladder (47 sites, 10 nm changes, the 30 nm
+  matrix, RAW):* **V 0.997 / 20 pm, 0.996 / 41, 0.991 / 74, 0.981 / 113
+  at 30 / 40 / 50 / 60 nm rms** (S 0.999 / 24, 0.908 / 74, 0.859 / 373,
+  0.657 / 669; L 1.03 / 149, 0.96 / 291, 0.83 / 509, 0.67 / 647): the
+  calibration ages five times slower than the stepped reading's; every
+  reading is gone by 120 nm (the core).  Two runner points that
+  surfaced: V's differential is the WRAPPED phase difference (`diffV`,
+  as `stepdiff`): the absolute maps wrap at +-pi individually and a
+  50 nm base's tails reach it (floor 4.8 nm at 50 before; 74 pm after);
+  and matrix mode now reports RAW estimates -- the kernel-era Wiener
+  correction penalized a transfer above 1 (V 0.994 raw read 0.89
+  'corrected'), and S10's quoted ladders were the corrected values.  *Photons (runs/v193noise; the S5 scenario, flat matrix, raw):* sigma
+  of the changed actuator's estimate ~ 6.9e6/sqrt(N) pm for V (S 7.5e6, L
+  5.7e6, I+ 6.4e6): N(1 pm) = 4.7e13 photons per measurement (S 5.6e13)
+  -- two frames of N/2 carry more information than four of N/4, and the
+  gain on the surface with the flat matrix is V 0.84 (S 0.77, I+ 0.65,
+  L 0.28).
+  *Closed loop (runs/vloop193, S and V on the same seeds; L / I+ from
+  loop193; the S rows reproduce loop193 to the digit):* V is the best
+  loop reading on every line -- contraction 0.509 per cycle (reading
+  gain 0.98 at loop gain 0.5; S 0.61), steps of 1 and 10 nm to 0.000 pm,
+  noise-only 3.72 / 1.17 / 0.37 / 0.12 pm at 1e12..1e15 (S 4.81 / 1.52 /
+  0.48 / 0.15; theory 3.66 / 1.16 / 0.37 / 0.12), walk 4.38 / 2.60 / 2.35
+  / 2.32 (S 5.33 / 2.77 / 2.36 / 2.32), thermal 9.9 pm = the lag.  **The
+  one number: 3 pm rms held from 1.5e12 photons per cycle (noise only)
+  and 5.3e12 (2 pm walk), against S 2.6e12 / 7.5e12 and L 2.1e12 /
+  7.3e12** -- and at two simultaneous frames, so the reference-intensity
+  drift that a real bench adds to S between its four frames does not
+  arise (V4 will price that term).
+  Next (V2-V4): metasurface retardance error and leakage as a knob;
+  the arm's polarization aberrations from the Jones pupil applied per
+  channel; the stepped reading's reference-intensity drift in the loop,
+  the term the simultaneous pair is for.
 - **S11 (zwfs_run stage 'loop', 2026-09-11, Dave: "on-orbit the DM
   surface needs to remain constant to << 10 pm, with frequent
   remeasurement and closed-loop DM actuator servo control -- how can
