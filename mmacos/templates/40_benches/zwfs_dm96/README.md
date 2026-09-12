@@ -337,7 +337,9 @@ budget lines before quoting a number.
   over 12 h).  Hence `loop.cam_unit 'rel'`: the walk as a fraction of
   the mean photons per lit pixel per frame (a bias / gain drift scaled
   to the signal), runs/pcam193r (1e-3 per cycle) and pcam193ri (the
-  whole step within each scan).  I+ on this base floors at 885 pm
+  whole step within each scan); the electron form with the whole step
+  within each scan (runs/pcam193i) is equally invisible, every entry
+  the noise-only value.  I+ on this base floors at 885 pm
   regardless (its fold-flipped sites, S11).  *Closed loop
   (runs/ploop193, P and PF on the S11 seeds, the matrix on the working
   surface; 82 min):* both contract at 0.509 per cycle (reading gain 0.98
