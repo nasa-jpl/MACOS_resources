@@ -337,8 +337,11 @@ end
 
 function d = diff_(ZW, rd, F1, F0, plus)
 % differential height map between two captured states
-if strcmp(rd, 'S'), d = ZW.stepdiff(F1.X, F0.X);
-else, d = readmap_(ZW, rd, F1, plus, []) - readmap_(ZW, rd, F0, plus, []); end
+switch rd
+    case 'S', d = ZW.stepdiff(F1.X, F0.X);
+    case 'V', d = ZW.diffV(F1.Ia, F1.Im, F0.Ia, F0.Im);          % wrapped phase difference
+    otherwise, d = readmap_(ZW, rd, F1, plus, []) - readmap_(ZW, rd, F0, plus, []);
+end
 end
 
 function C = calibrate_(P, S, ZW, cfg, classes, lit)
@@ -561,7 +564,7 @@ switch k
     case 1, h = ZW.reconL(F.Ia) - ZW.reconL(F0.Ia);
     case 2, h = ZW.reconI(F.Ia, [], plus) - ZW.reconI(F0.Ia, [], plus);
     case 3, h = ZW.stepdiff(F.X, F0.X);
-    case 4, h = ZW.reconV(F.Ia, F.Im) - ZW.reconV(F0.Ia, F0.Im);
+    case 4, h = ZW.diffV(F.Ia, F.Im, F0.Ia, F0.Im);
 end
 end
 
@@ -654,6 +657,14 @@ for icfg = 1:numel(P.dm)
     for k = kk, dmg_say(rep, '  %s %.3f', cn{k}, min(abs(gk(is1d,k)))); end
     dmg_say(rep, '\n');
     corrk = @(a, k) dmg_modal_corr(a, 'separable', pk1, gk(is1d,k), BETA, NACT);
+    if strcmp(P.battery.calib_mode, 'matrix')
+        % the measured matrix carries the response at every frequency (S10);
+        % the kernel-era Wiener correction would only re-shape it (a reading
+        % whose transfer exceeds 1 gets penalized), so matrix mode reports
+        % RAW estimates: the cor columns and the ladder equal raw
+        corrk = @(a, k) a;
+        dmg_say(rep, 'matrix mode: no modal correction applied (cor columns and the ladder = raw estimates)\n');
+    end
     % ---- the rows ------------------------------------------------------
     ROWS = rows_(P, cfg, lit, P.battery.rows);
     needS = any(KC == 3) || any(strcmp(RD, 'I+'));  needV = any(KC == 4);
@@ -895,7 +906,8 @@ end
 function NO = stage_noise_(P, S, out, rep)
 t0 = tic;
 ZW = S.ZW;  cfg = P.dm(1);  NACT = cfg.nact;
-RD = P.noise.readings;  assert(all(ismember(RD, P.readings)), 'noise.readings must be a subset of P.readings');
+RD = P.noise.readings(ismember(P.noise.readings, P.readings));    % the stage prices the readings run
+assert(~isempty(RD), 'noise.readings has nothing in common with P.readings');
 KC = cellfun(@class_, RD);  classes = unique(KC);
 dmg_say(rep, '\n---- noise: DM %dx%d, readings %s ----\n', NACT, NACT, strjoin(RD, ' '));
 dmg_say(rep, 'scenario: single act (%d,%d) %g nm differential on the %g nm rms working state; axis = photons per MEASUREMENT (one DM shape measured once; a reading''s frames share it: L/F/I/I+ 1 frame, S 4, V 2)\n', ...
@@ -962,7 +974,7 @@ for in = 1:numel(NS)
                     end
                     d = ZW.reconI(Ia1, [], plus) - ZW.reconI(Ia0, [], plus);
                 case 'S',  d = ZW.stepdiff(ZW.reconS(Fr1q), ZW.reconS(Fr0q));
-                case 'V',  d = ZW.reconV(Ip1, Im1) - ZW.reconV(Ip0, Im0);
+                case 'V',  d = ZW.diffV(Ip1, Im1, Ip0, Im0);
             end
             a = corrk(C.est{kc}(d), kc);
             pk(r,c) = a(cfg.hold(1), cfg.hold(2));  fl(r,c) = std(a(un));

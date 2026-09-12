@@ -139,6 +139,16 @@ ZW.frameV   = @(M) frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF);        % -> [Ip, I
 ZW.reconV   = @(Ip, Im, varargin) reconV_(Ip, Im, C, varargin{:});   % (Ip, Im, I0, b0, niter)
 ZW.solveV   = @(Ip, Im, varargin) solveV_(Ip, Im, C, varargin{:});   % -> [phi, info]
 ZW.measV    = @(M) measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C);
+% differential height between two states, the phase DIFFERENCE wrapped
+% (as stepdiff does): the absolute maps wrap at +-pi individually, so on a
+% large working surface a differential of two maps carries 2 pi jumps
+% where the base sits near the wrap; the wrapped difference does not
+ZW.diffV    = @(Ip1, Im1, Ip0, Im0) diffV_(Ip1, Im1, Ip0, Im0, C);
+end
+
+function d = diffV_(Ip1, Im1, Ip0, Im0, C)
+p1 = solveV_(Ip1, Im1, C);  p0 = solveV_(Ip0, Im0, C);
+d = C.S_CONV * atan2(sin(p1 - p0), cos(p1 - p0)) * C.LAM/(4*pi);
 end
 
 % ---- vector reading: frames + solve ------------------------------------

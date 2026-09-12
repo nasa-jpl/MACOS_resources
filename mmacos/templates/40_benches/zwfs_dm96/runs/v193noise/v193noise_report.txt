@@ -1,0 +1,40 @@
+=== ZWFS runner: tag v193noise  (2026-09-12 00:02) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench noise figs | readings: L I+ S V
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames)
+
+---- bench ----
+deck v193noise_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.817e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.967e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9539 0.9510 0.9452 0.9369 0.9260 0.9120 0.8957 0.8770 0.8561 0.8328 0.8071 0.7798 0.7511 0.7206 0.6885 0.6554 0.6215 0.5867 0.5514 0.5156 
+frame: ray magnification 10.1583 DM-mm per detector-mm, detector px 3.9135e-02 mm -> 0.3976 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 7.92 px across at the mask plane (min 6)  -> PASS
+  DM 96x96: 2.52 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 4.120e-16   (gate < 1e-12: A = |E0| is exact)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, peak 1.93 rad; 3.06% of msk beyond the one-frame fold): V rms error 0.053 pm (gate < 0.1% of the figure), one-frame exact I 8975 pm (non-vacuity: must exceed 10x)   -> PASS
+registration: center-poke anchor at detector px (511.67, 511.67) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.979, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.98 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7509, corr(map, truth) 0.9800
+bench stage 0.3 min
+
+---- noise: DM 96x96, readings L I+ S V ----
+scenario: single act (60,40) 10 nm differential on the 30 nm rms working state; axis = photons per MEASUREMENT (one DM shape measured once; a reading's frames share it: L/F/I/I+ 1 frame, S 4, V 2)
+I+ prior frames (the base's 4 stepped frames, taken once): split / noiseless
+calibration: kernels + modal transfer measured here
+frames captured (5.2 min); the Monte-Carlo is trace-free
+    N/meas | L: sig flr g            | I+(split): sig flr g    | I+(noiseless): sig flr g| S: sig flr g            | V: sig flr g            |
+   1.0e+06 |   6407.8    7853  -0.084|   7030.9    6680   0.262|   7766.3    6611   0.479|   7093.1    9712   0.148|   8029.1    8179   0.391|
+   1.0e+08 |    539.8     789   0.239|    510.2     726   0.624|    512.5     725   0.624|    841.2     978   0.724|    961.6     822   0.833|
+   1.0e+10 |     58.5     134   0.280|     74.5     100   0.652|     74.5     100   0.652|    114.4     100   0.769|     67.9      82   0.836|
+   1.0e+12 |      5.4     109   0.279|      6.0      39   0.651|      6.0      39   0.651|      4.3      23   0.770|      4.2      22   0.839|
+   1.0e+14 |      0.4     109   0.278|      0.7      37   0.650|      0.7      37   0.650|      0.8      21   0.770|      0.7      20   0.839|
+L              sigma ~ 5.74e+06/sqrt(N) pm  ->  N(1 pm) ~ 3.29e+13 photons/measurement
+I+(split)      sigma ~ 6.44e+06/sqrt(N) pm  ->  N(1 pm) ~ 4.15e+13 photons/measurement
+I+(noiseless)  sigma ~ 6.59e+06/sqrt(N) pm  ->  N(1 pm) ~ 4.34e+13 photons/measurement
+S              sigma ~ 7.45e+06/sqrt(N) pm  ->  N(1 pm) ~ 5.56e+13 photons/measurement
+V              sigma ~ 6.85e+06/sqrt(N) pm  ->  N(1 pm) ~ 4.69e+13 photons/measurement
+noise stage 8.2 min
+run complete in 8.5 min
