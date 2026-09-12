@@ -89,7 +89,8 @@ re-draws them from a saved run).
 | knob (`zwfs_params`) | default | what it does |
 |---|---|---|
 | `stages` | bench battery figs | add `color` (the multi-wavelength combination), `noise` (photon pricing) and `loop` (the closed-loop HOLD metric, S11) |
-| `readings` | L F I I+ S V | any subset: linear / exact frozen-b / exact iterated-b / I with the base's refined stepped prior / phase-stepped / the VECTOR pair (polarized dimple: +phi and -phi images at once, exact, no fold; V1, 2026-09-11) |
+| `readings` | L F I I+ S V | any subset: linear / exact frozen-b / exact iterated-b / I with the base's refined stepped prior / phase-stepped / the VECTOR pair (polarized dimple: +phi and -phi images at once, exact, no fold; V1, 2026-09-11); opt-in **P** (point-diffraction, a stepped PINHOLE at the FocalMask, common path) and **PF** (the P/SRI of Dube et al. 2024: waveguide reference, photonic phase steps) -- `pdi_params` / `pdi_run` set them (2026-09-12) |
+| `pdi.*` | 2 lam/D pinhole, t auto, 4 steps, LP01 reference, pickoff 0.6 | the point-diffraction readings' knobs: pinhole diameter, surround transmission, phase steps and scheme ('ls' / 'sh5'), |b|^2 mode ('flat' / 'state' = a shutter frame per state), reference iterations, the waveguide mode (V, b, core radius), pickoff, reference amplitude, a step-size error, the reference-motion diameters (G6) |
 | `MODEL`, `NGRID` | 1024, 193 | engine grid, ray grid across the aperture (385 = the 1 Mpix-class detector) |
 | `param_file` | `''` | a custom engine size table (`macos_param.txt` namelists) copied into the run dir, where the engine looks FIRST; `'macos_param_2048.txt'` (this dir) trims MODEL 2048 to fit a 30 GB box -- `mGridSrf` 200 -> 4, `mpts` -> 512, `mElt` -> 64, and `mGridMat` UP to 512 for the 384-across DM grid (the stock 2048 entry's 128 corrupts the heap) |
 | `LAM` | 632.8 nm | the record color; `color.lams_nm` lists the others, record color FIRST |
@@ -100,7 +101,7 @@ re-draws them from a saved run).
 | `dm(i)` | 96x96 @ 1 mm; 48x48 @ 2 mm | actuator count, pitch, hold-out site, modal probes -- each config gets the full battery |
 | `battery.*` | 30 nm base; 10 nm devs; 1 nm grid | amplitudes, seeds, Wiener beta, Tikhonov weight, the break-scale ladder, which rows |
 | `color.*`, `noise.*` | 5 colors; 1e6..1e14 photons/measurement | the optional stages' own knobs (readings, rows, combiner form; realizations, prior treatment) |
-| `loop.*` | L I+ S; g 0.5; 60 cycles; 1e12..1e15 photons/cycle | the closed-loop hold stage: readings, set point (`'base'` = the working surface with the matrix ON it), gain, cycles, photon levels, drift models (`walk_sigma` 2 pm/actuator/cycle, `thermal_rate` 5 pm/cycle), noiseless `steps`, the noise-only `floor`, reference frames `'noiseless'` or `'noisy'`, the drift `seed` (shared with the IFO), `hold_spec` 3 pm |
+| `loop.*` | L I+ S; g 0.5; 60 cycles; 1e12..1e15 photons/cycle | the closed-loop hold stage: readings, set point (`'base'` = the working surface with the matrix ON it), gain, cycles, photon levels, drift models (`walk_sigma` 2 pm/actuator/cycle, `thermal_rate` 5 pm/cycle, and `'cam'` = the CAMERA 1/f drift: a per-pixel offset random-walking `cam_walk` electrons per pixel per cycle, `cam_intra` of each step within a scan), noiseless `steps`, the noise-only `floor`, reference frames `'noiseless'` or `'noisy'`, the drift `seed` (shared with the IFO), `hold_spec` 3 pm |
 
 Rules: one engine model size per MATLAB process (a second `macos.init`
 at another size corrupts the heap); `exit(0)` lives only in the batch
@@ -232,6 +233,82 @@ budget lines before quoting a number.
   the arm's polarization aberrations from the Jones pupil applied per
   channel; the stepped reading's reference-intensity drift in the loop,
   the term the simultaneous pair is for.
+- **P / PF (2026-09-12, Dave: "another sensor, using a point-diffraction
+  IFO approach -- see papers by Brandon Dube"): the point-diffraction
+  readings, on the same bench.**  Plan and literature:
+  `macos/BRIEF_pdi_campaign.md`; the paper is Dube, Nejadriahi, Sidick,
+  Jewell, Redding, Lou, Basinger, SPIE 13092-178 (2024) -- the phase-
+  shifting self-referenced interferometer (P/SRI): a non-common-path
+  interferometer whose reference is the mode of a single-mode waveguide
+  in a photonic chip, phase-shifted thermo-optically, read by the five-
+  frame Schwider-Hariharan scan, the change taken by complex division so
+  it never wraps.  Two readings in `dm_gauge_lib/dmg_pdi_gauge`, both
+  threaded through every stage of this runner (classes 5 / 6; the deck
+  and the sheet: `pdi_params` / `pdi_run`):
+  **P**, the stepped pinhole (common path): mask `t + (e^{i theta_k} -
+  t) D` at the FocalMask (`D` the pinhole disk, `t` the surround
+  amplitude transmission, 'auto' = the reference's rms amplitude / the
+  beam's), the classical step fit per pixel, `|b|^2` from the flat's
+  pinhole-only frame (iterated with the phase) or a frame per state, the
+  reference phase iterated as the exact readings do.  **PF**, the P/SRI
+  as their MATLAB model has it: the recollimated LP01 mode (step-index
+  J0/K0 field, V 2.3, b 0.5, core radius 0.5 lam/D at the focus -- the
+  paper's Thorlabs set) at unit rms over the pupil, scaled by the
+  state's overlap coupling into the mode relative to the flat's (kappa,
+  a complex SCALAR: the shape is fixed by construction), pickoff 0.6
+  (their beamsplitter R), reference amplitude = min(visibility-1 match,
+  the pickoff budget f |c0|^2); exact in one pass, no |b|^2 degeneracy.
+  Both: the wrapped differential; photons counted at the camera with
+  `throughput` printed.  *Gates (bench stage):* G5 the same 100 nm sparse
+  pokes as G4 -- P 0.33 pm, PF 0.000 pm of a 12 nm figure; **G7: at
+  t = 1 and the dimple's diameter the pinhole reading IS the stepped
+  reading S (5.2e-15)**; G6 the reference's motion under the 30 nm
+  surface split into a Strehl-class amplitude SCALE (0.86 at every
+  diameter) and the SHAPE change: **0.10% at 0.5 lam/D, 0.26% at 1,
+  0.58% at 1.5, 1.06% at 2 (the dimple), 2.6% at 3** -- the PDI
+  argument in one table; the waveguide's shape change is 0, its
+  coupling 0.86 with 0.025 rad.  Sampling: the pinhole gets the
+  dimple's rule (>= 6 px at the mask plane: 7.9 px at 2 lam/D here; a
+  1 lam/D pinhole is 3.96 px and warns).  *Record 1 (runs/pdi193, flat
+  matrix; its PF carried the pinhole-shaped reference, the first
+  idealization):* on the 30 nm surface V / P / PF agree -- single
+  0.939 / 0.933 / 0.940 (25 pm), grid 0.997 / 0.992 / 0.998, dense
+  0.999 / 0.993 / 1.001 -- where S reads 0.752 / 0.829 / 0.818; N(1 pm)
+  at the camera S 5.4e13, V 4.7e13, **P 3.3e13**, PF 2.1e14.  *Record 2
+  (runs/pdi193f flat, runs/pdi193fbase the matrix ON the surface; PF =
+  the LP01 reference, visibility 0.863, throughput 0.752):* flat matrix
+  PF 0.940 / 25 pm single, 0.998 grid, 1.001 dense; ladder 0.77 at 120
+  nm, 0.55 at 240 where S / V / P fold; N(1 pm) PF 1.9e14 (S 5.4e13, V
+  4.7e13, P 3.3e13): per DETECTED photon the waveguide form is the most
+  expensive -- with the 60/40 split 60% of the light goes to an arm
+  that returns 59% of it as reference and the test beam keeps 40%, so
+  the modulation is a smaller fraction of the detected flux than the
+  stepped pinhole's, whose reference rides on the same beam (divide by
+  0.75 / 0.82 for incident photons).  **Matrix on the surface: single
+  10 nm S 0.9885 / 5 pm / SNR 2120, V 0.9935 / 4 / 2835, P 0.9935 / 4 /
+  2790, PF 0.9935 / 4 / 2842; grid 1 nm all four 0.999 / 3-4 pm; dense
+  10 nm S 0.984 / 681 pm, V 0.9999 / 331, P 0.9985 / 338, PF 1.0002 /
+  330** -- the three exact readings are indistinguishable at the
+  operating point.  *Ladder (47 sites, the 30 nm matrix):* 60 nm S 0.66,
+  V 0.98, P 0.94, PF 1.006; **120 nm S / V / P fold (-0.01), PF 1.02;
+  240 nm PF 1.06; 480 nm PF 1.13** (floor 1.6 nm: the 30 nm matrix on a
+  16x surface).  A reference that does not depend on the surface has no
+  fold: the P/SRI's range is the wrap of the DIFFERENCE, not of the
+  surface.  P folds with V because its reference amplitude collapses
+  with the Strehl and its flat |b|^2 assumption breaks (the per-state
+  shutter frame, `pdi.b2 'state'`, is runs/pdi193state).  Camera 1/f
+  drift in the loop: `dmg_loop` opt.cam (an offset random-walking
+  `loop.cam_walk` electrons per pixel per cycle, constant within a scan
+  unless `cam_intra`); readings whose step weights sum to zero (S, P,
+  PF) subtract it exactly (tDmgLoop G8), the single-frame readings and
+  the simultaneous pair imprint it on the DM.  Pending in this record:
+  runs/pdi193state (shutter frame), pdi193d1 (1 lam/D), pdi193se_ls /
+  se_sh5 (2% step error, least squares vs Schwider-Hariharan), ploop193
+  (the loop rows for P / PF), pcam193 / pcam193i (the camera drift, all
+  six readings, within-scan 0 / 1).  Figure: `<tag>_pdi.png` (the focal
+  spot with pinhole, dimple and mode; the reference amplitudes; the
+  reference's motion by diameter; the visibility maps).  Deck:
+  `macos/demo_session/deck_pdi.md` (DRAFT).
 - **S11 (zwfs_run stage 'loop', 2026-09-11, Dave: "on-orbit the DM
   surface needs to remain constant to << 10 pm, with frequent
   remeasurement and closed-loop DM actuator servo control -- how can
