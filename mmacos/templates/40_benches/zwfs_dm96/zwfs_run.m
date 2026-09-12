@@ -75,8 +75,11 @@ end
 %  parameters
 % =====================================================================
 function P = parse_(varargin)
-if ~isempty(varargin) && isstruct(varargin{1})
-    P = varargin{1};  varargin(1) = [];
+% a parameter struct may sit anywhere in the argument list (the batch
+% wrapper puts 'tag', TAG first: zwfs_batch.sh TAG "pdi_params, ...")
+is = find(cellfun(@isstruct, varargin), 1);
+if ~isempty(is)
+    P = varargin{is};  varargin(is) = [];
 else
     P = zwfs_params();
 end
@@ -379,6 +382,27 @@ if ~isempty(fieldnames(ZW.PD))
         assert(e7 < 1e-2, 'G7 FAIL: the pinhole reading does not reduce to S at t = 1');
         gP.e7 = e7;
     end
+    % ---- figure data for zwfs_run_figs (<tag>_pdi.png): the focal plane with
+    % the pinhole, the dimple and the waveguide mode; the reference amplitudes
+    % across the pupil; the visibility maps on the flat (4x decimated)
+    fd = struct();
+    wf = 24;  r0 = round(pd1.ctr(2));  c0 = round(pd1.ctr(1));
+    rr = max(1, r0-wf):min(N_WF, r0+wf);  cc = max(1, c0-wf):min(N_WF, c0+wf);
+    Efoc = pd1.C.Ti(ZW.E0);
+    fd.px_per_lamd = (P.LAM*P.bench.F2/(2*P.bench.R_TO_AP)) / abs(macos.dx_at(iMASK)*1e3);
+    fd.spot = abs(Efoc(rr, cc));  fd.pinhole = pd1.D(rr, cc);  fd.dimple = ZW.D(rr, cc);
+    fd.pin_dia_lamd = P.pdi.DIA_LAMD;  fd.dimple_dia_lamd = P.mask.DIA_LAMD;
+    if isfield(ZW.PD, 'PF') && ~isempty(ZW.PD.PF.mode_f), fd.mode = abs(ZW.PD.PF.mode_f(rr, cc)); else, fd.mode = []; end
+    dec = @(x) x(1:4:end, 1:4:end);
+    fd.E0 = dec(abs(ZW.E0));  fd.Eb = dec(abs(pd1.Eb0));  fd.msk = dec(msk);
+    if isfield(ZW.PD, 'PF'), fd.Rfib = dec(abs(ZW.PD.PF.R)); else, fd.Rfib = []; end
+    for pdn = fieldnames(ZW.PD).'
+        pd = ZW.PD.(pdn{1});  Fr0 = pd.frames0(:,:,1:pd.K);
+        Imax = max(Fr0, [], 3);  Imin = min(Fr0, [], 3);
+        fd.(['vis_' pdn{1}]) = dec((Imax - Imin) ./ max(Imax + Imin, realmin));
+        fd.(['frame0_' pdn{1}]) = dec(Fr0(:,:,1));
+    end
+    gP.figdata = fd;
 end
 % ---- registration: two-poke doctrine on P.dm(1), linear reading -------
 POKE = P.reg.POKE;
@@ -1162,12 +1186,13 @@ dmg_say(rep, '%d loop runs of %d states each (%d traced states)\n', nrun, K+1, n
 irun = 0;
 for j = 1:numel(RD)
     rd = RD{j};  kc = KC(j);
-    ins = struct('lit', lit, ...
+    ins = struct('lit', lit, 'npix', ZW.N_WF, ...
         'measure', @(cmd) frames_(ZW, C.dmap(cmd), strcmp(rd, 'S'), strcmp(rd, 'V'), [strcmp(rd, 'P') strcmp(rd, 'PF')]), ...
-        'noisy',   @(F, nph, seed) noisy_frames_(ZW, F, nph, seed, rd), ...
+        'noisy',   @(F, nph, seed, varargin) noisy_frames_(ZW, F, nph, seed, rd, varargin{:}), ...
         'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb), ...
         'est',     C.est{kc});
-    base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref, 'rmax', P.loop.rmax);
+    base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref, 'rmax', P.loop.rmax, ...
+                  'cam', struct('walk', 0, 'intra', P.loop.cam_intra));
     % noiseless steps: time constant + dynamic range
     for amp = P.loop.steps
         o = base;  o.nph = Inf;  o.drift = struct('kind', 'step', 'amp', amp);
@@ -1183,7 +1208,8 @@ for j = 1:numel(RD)
                 case 'none',    o.drift = struct('kind', 'none');  amp = 0;
                 case 'walk',    o.drift = struct('kind', 'walk', 'sigma', P.loop.walk_sigma);  amp = P.loop.walk_sigma;
                 case 'thermal', o.drift = struct('kind', 'thermal', 'rate', P.loop.thermal_rate);  amp = P.loop.thermal_rate;
-                otherwise,      error('zwfs_run: loop.drifts must be a subset of walk | thermal');
+                case 'cam',     o.drift = struct('kind', 'none');  o.cam.walk = P.loop.cam_walk;  amp = P.loop.cam_walk;
+                otherwise,      error('zwfs_run: loop.drifts must be a subset of walk | thermal | cam');
             end
             L = dmg_loop(ins, o);  irun = irun + 1;
             res(end+1) = struct('rd',rd, 'drift',kinds{kd}, 'nph',nph, 'amp',amp, 'L',L); %#ok<AGROW>
@@ -1212,6 +1238,7 @@ for kd = 1:numel(kinds)
         case 'none',    lab = 'noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g))';
         case 'walk',    lab = sprintf('random walk, %g pm per actuator per cycle', P.loop.walk_sigma*1e9);
         case 'thermal', lab = sprintf('thermal ramp, %g pm rms per cycle (defocus + astigmatism)', P.loop.thermal_rate*1e9);
+        case 'cam',     lab = sprintf('CAMERA drift, no DM drift: a per-pixel offset random-walking %g electrons per pixel per cycle (%.0f%% of each step within the scan); zero-sum readings (S, P, PF) subtract a within-scan-constant offset exactly, single-frame readings (L, I+, V) imprint o_k - o_0 on the DM', P.loop.cam_walk, 100*P.loop.cam_intra);
     end
     dmg_say(rep, '\nhold error vs photons per cycle (= per measurement, one per cycle) -- %s.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n\n', lab);
     dmg_say(rep, '%9s |', 'N/cycle');
@@ -1225,6 +1252,7 @@ for kd = 1:numel(kinds)
                 case 'none',    th = L.theory.ss_noise;
                 case 'walk',    th = L.theory.ss_walk;
                 case 'thermal', th = hypot(L.theory.lag_ramp, L.theory.ss_noise);
+                case 'cam',     th = L.theory.ss_noise;          % the immune reading's line; the excess is the camera's
             end
             if L.diverged, dmg_say(rep, ' %-30s|', sprintf('DIVERGED at cycle %d', L.k_end));
             else, dmg_say(rep, ' %7.2f %6.2f %6.2f %6.2f |', pm(L.ss), pm(L.bias), pm(L.sig_n), pm(th)); end
@@ -1277,28 +1305,44 @@ function t = div_(L)
 if L.diverged, t = sprintf(' DIVERGED at cycle %d', L.k_end); else, t = ''; end
 end
 
-function Fn = noisy_frames_(ZW, F, nph, seed, rd)
+function Fn = noisy_frames_(ZW, F, nph, seed, rd, cam)
 % photon noise on a captured state's frames: nph photons per MEASUREMENT (one
 % DM shape measured once), split over the reading's frames (L / I+ one frame
-% at nph; S four at nph/4; V two at nph/2), the S5 model; the stepped
-% retrieval X is redone from the noisy frames
+% at nph; S four at nph/4; V two at nph/2; P / PF nf at nph/nf), the S5 model;
+% the stepped retrieval X is redone from the noisy frames.  With cam (from
+% dmg_loop's camera drift) the j-th of nf frames also gets the detector
+% offset o + (j-1)/(nf-1) d, electrons per pixel, converted to frame units by
+% that frame's photon scale (sum(I)/photons per frame); a frame is in the
+% scan order the reading captures it (S: clear then the three depths; V: the
+% two images at once, so both get o; P / PF: the steps in order).
 Fn = F;
 if ~isfinite(nph), return; end
+if nargin < 6, cam = []; end
 rs = RandStream('mt19937ar', 'Seed', seed);
 shot = @(I, n) I .* (1 + randn(rs, size(I)) ./ sqrt(max(I / sum(I(:)) * n, 1)));
+off = @(I, n, j, nf) offset_(I, n, j, nf, cam);
 switch rd
     case 'S'
-        for k = 1:size(F.Fr, 3), Fn.Fr(:,:,k) = shot(F.Fr(:,:,k), nph/4); end
+        nf = size(F.Fr, 3);
+        for k = 1:nf, Fn.Fr(:,:,k) = shot(F.Fr(:,:,k), nph/nf) + off(F.Fr(:,:,k), nph/nf, k, nf); end
         Fn.X = ZW.reconS(Fn.Fr);
     case 'V'
-        Fn.Ia = shot(F.Ia, nph/2);  Fn.Im = shot(F.Im, nph/2);
+        Fn.Ia = shot(F.Ia, nph/2) + off(F.Ia, nph/2, 1, 1);  Fn.Im = shot(F.Im, nph/2) + off(F.Im, nph/2, 1, 1);
     case 'P'
-        nf = size(F.FP, 3);  for k = 1:nf, Fn.FP(:,:,k) = shot(F.FP(:,:,k), nph/nf); end
+        nf = size(F.FP, 3);  for k = 1:nf, Fn.FP(:,:,k) = shot(F.FP(:,:,k), nph/nf) + off(F.FP(:,:,k), nph/nf, k, nf); end
     case 'PF'
-        nf = size(F.FF, 3);  for k = 1:nf, Fn.FF(:,:,k) = shot(F.FF(:,:,k), nph/nf); end
+        nf = size(F.FF, 3);  for k = 1:nf, Fn.FF(:,:,k) = shot(F.FF(:,:,k), nph/nf) + off(F.FF(:,:,k), nph/nf, k, nf); end
     otherwise
-        Fn.Ia = shot(F.Ia, nph);
+        Fn.Ia = shot(F.Ia, nph) + off(F.Ia, nph, 1, 1);
 end
+end
+
+function O = offset_(I, n, j, nf, cam)
+% the camera offset of frame j of nf in this frame's units: electrons per
+% pixel x (frame units per photon = sum(I)/n)
+if isempty(cam), O = 0;  return; end
+w = 0;  if nf > 1, w = (j-1)/(nf-1); end
+O = (cam.o + w*cam.d) * (sum(I(:))/n);
 end
 
 function [n, txt] = hold_photons_(NPH, ss, bias, spec)

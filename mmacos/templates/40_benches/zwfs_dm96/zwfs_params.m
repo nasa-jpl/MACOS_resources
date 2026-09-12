@@ -258,7 +258,8 @@ P.loop.surface  = 'base';                     % the set point: 'base' = the work
 P.loop.g        = 0.5;                        % loop gain
 P.loop.K        = 60;                         % cycles (steady state = the last K/2)
 P.loop.nph      = [1e12 1e13 1e14 1e15];      % photons per MEASUREMENT, one per cycle (a reading's frames share it)
-P.loop.drifts   = {'walk', 'thermal'};        % drift models run at every photon level
+P.loop.drifts   = {'walk', 'thermal'};        % drift models run at every photon level; add 'cam' for the
+                                              % camera drift (no DM drift; P.loop.cam_walk / cam_intra)
 P.loop.walk_sigma   = 2e-9;                   % mm per actuator per cycle (2 pm random walk)
 P.loop.thermal_rate = 5e-9;                   % mm rms per cycle of a defocus + astigmatism ramp (5 pm)
 P.loop.steps    = [1e-6 10e-6];               % mm rms: NOISELESS step disturbances at cycle 1 -- the
@@ -269,6 +270,16 @@ P.loop.ref      = 'noiseless';                % set-point frames: 'noiseless' (c
                                               % averaged) | 'noisy' (ONE exposure at nph: its noise
                                               % is a fixed bias the loop converges to)
 P.loop.seed     = 77;                         % the drift realization (the IFO uses the same seed)
+P.loop.cam_walk = 0.13;                       % CAMERA 1/f drift (drift kind 'cam'; Dube 2024: Roman LOWFS is
+                                              % limited by ~1 electron per pixel of internal camera drift over
+                                              % 12 h): a per-pixel additive offset random-walking this many
+                                              % ELECTRONS per pixel per cycle -- 0.13 accumulates ~1 e over the
+                                              % 60-cycle run, the paper's 12 h compressed.  Temporal PSI (S, P,
+                                              % PF: weights sum to zero within a scan) subtracts it; the
+                                              % single-frame readings (L, I+) and the simultaneous pair (V) do not
+P.loop.cam_intra = 0;                         % fraction of each camera step that develops WITHIN a scan (frame
+                                              % to frame): 0 = constant within a scan (the immune case is exact);
+                                              % 1 = the whole step across the frames (what within-scan 1/f costs)
 P.loop.hold_spec = 3e-9;                      % mm: the hold level priced in photons per cycle (3 pm)
 P.loop.rmax     = 1e-3;                       % mm: a residual above this declares the run DIVERGED and
                                               % stops it (the exact one-frame reading I+ diverges on the
