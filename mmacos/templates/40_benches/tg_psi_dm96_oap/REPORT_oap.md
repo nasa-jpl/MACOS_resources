@@ -159,6 +159,59 @@ OVERSTATE the fold cost because they use an ideal reflector; a real coated mirro
 calibrates dense patterns at ~0.95. Whether the uncoated null is a physical
 bare-metal reflection or a model idealization is the open modelling point.
 
+## Item B (brief oap3 addendum) — the open modelling point, SETTLED: the band FILLS IN
+
+Two one-command runs answer whether the dense-loss null is the conductor's
+physics or the ideal-reflector idealization (`runs/oap_bareAl`, `runs/oap_jones`;
+via `macos.coating` = coat_set, and `macos.jones_pupil` + `macos.pol_maps`).
+
+**Run 1 — bare aluminium on both OAPs** (single opaque Al layer, n = 1.373,
+kappa = 7.62 at HeNe, Rakic 1998), same rows as D5:
+
+| Stage-E, OAP | ideal reflector | **bare Al** | protected Al |
+|---|---|---|---|
+| flat / single-10nm | 0.9948 / 2.2 pm | **0.9950 / 2.1 pm** | 0.9950 / 2.1 pm |
+| flat / **random**-10nm | 0.7486 / 4848 pm | **0.9497 / 2099 pm** | 0.9488 / 2118 pm |
+| dense-random, **dark-25% cols** | **0.05** | **0.82** | 0.82 |
+| modal cross-talk | ~0.42 | **~0.18** | — |
+| flat-DM null | 12.893 nm | 13.089 nm | 13.092 nm |
+
+**Bare Al fills the band** — dense gain 0.75 → 0.95, the dark columns 0.05 → 0.82,
+essentially IDENTICAL to protected Al. Per the brief's own criterion, *the band
+fills in → the "ideal reflector" idiom was the idealization and D3 is retired.*
+It is NOT the coating's protection; it is realism. No test-arm QWP-azimuth
+re-solve is needed (the brief's alternative fix): a realistic mirror already
+calibrates dense patterns at ~0.95.
+
+**Run 2 — the Jones pupil of the fold** (`macos.jones_pupil` at L1, the
+collimating OAP that precedes PolIn, + `macos.pol_maps`, double-pole basis;
+the mean retardance is a state, only the VARIATION is an aberration):
+
+| coating | L1 retardance mean | **retardance VARIATION** | fringe V (where lit) | central-band lit frac |
+|---|---|---|---|---|
+| ideal | π (3141.6 mrad) | **0.00 mrad** | — (band extinguished) | **0.00** |
+| bare Al | 3139.7 mrad | **0.55 mrad** | 0.999 | 0.04 |
+| protected Al | 3139.7 mrad | 0.53 mrad | 0.999 | 0.03 |
+
+**The mechanism, in numbers, instead of "polarization artifact":** the OAP fold
+is a half-wave reflector (retardance ≈ π, the r_s = −1 / r_p = +1 sign flip; a
+common state, not an aberration). The perfect conductor's retardance is EXACTLY
+uniform — variation **0.00 mrad** — a SINGULAR idealization that extinguishes
+the central band completely (lit fraction 0.00; the D5 dark band; battery gain
+0.05 there). Any real metal carries a small NONZERO retardance variation
+(~0.55 mrad ≈ 0.03° across the pupil) that breaks the exact null: the band goes
+dim-but-COHERENT, so the matrix recovers it (dark-25% gain 0.82, dense 0.95).
+Where the pupil is lit, the fringe visibility is essentially perfect (V ≈ 1.0)
+in every case — the null was a THROUGHPUT/coherence null at the very centre, not
+a loss of fringe contrast.
+
+**Conclusion.** The ideal-reflector idiom was the idealization; **D3's uncoated
+dense numbers (0.75 / cross-talk 0.42) are retired.** The realistic reflective
+gauge (bare OR protected Al — indistinguishable) calibrates dense patterns at
+~0.95, leaving a small GENUINE same-plane-fold cross-talk (~0.18 vs the lens
+< 0.06; dense 0.95 vs 0.99). The OAP loop row (D7) therefore uses a realistic
+coating (bare Al).
+
 ## D7 — the closed-loop hold metric (lens rig; `runs/loop_lens`)
 
 The on-orbit servo mode: the DM held at the 30 nm working surface by a
@@ -235,6 +288,10 @@ Figure: `runs/loop_lens/loop_lens_loop.png` (residual per cycle per photon level
   dense loss decomposed (items 3a/3b: bright 0.99, dark faint — not truncation/reg).
 - D4 OAP alignment sensitivity — **DONE** (null cancels in the differential).
 - D5 coated-Al OAPs — **DONE**; recovers the dense gain (the ideal-reflector reframe).
+- Item B (bare-Al + Jones pupil) — **DONE, settled**: bare Al fills the band too
+  (dense 0.95, dark-25% 0.82 == protected Al); L1 retardance variation is EXACTLY
+  0.00 mrad for the ideal reflector vs 0.55 mrad for real metal -- the singular
+  idealization. D3's uncoated dense numbers are RETIRED.
 - D6 README + this report — **DONE**.
 - D7 closed-loop hold metric — **DONE (lens); OAP row pending**. `tg96_run` stage
   `'loop'` on the shared `dm_gauge_lib/dmg_loop.m`; lens comparison row filled
@@ -248,7 +305,9 @@ Figure: `runs/loop_lens/loop_lens_loop.png` (residual per cycle per photon level
     tg96_run('bench.optics','oap','battery.calib_mode','matrix','battery.d4',true,'tag','oap')
     tg96_run('bench.optics','oap','battery.matrix_window','voronoi','tag','oap_vor')   % item 3a
     tg96_run('bench.optics','oap','battery.calib_surface','base','tag','oap_base')     % item 6
-    tg96_run('bench.optics','oap','bench.coat_oap',true,'tag','oap_coat')              % D5
+    tg96_run('bench.optics','oap','bench.coat_oap','bareAl','tag','oap_bareAl')        % item B run 1
+    tg96_run('bench.optics','oap','stages',{'bench','jones'},'tag','oap_jones')        % item B run 2
+    tg96_run('bench.optics','oap','bench.coat_oap','bareAl','stages',{'bench','loop','figs'},'tag','loop_oap')  % D7 OAP row
     % D1 error + column-norm picture (both rigs), from the saved run .mat:
     tg96_d1_picture('runs/lens/lens.mat','runs/oap/oap.mat','runs/oap/d1_picture.png')
 
