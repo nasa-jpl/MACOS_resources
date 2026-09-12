@@ -314,8 +314,8 @@ if any(strcmp(P.readings, 'V'))
         switch ZW.arm.mode
             case 'engine'
                 st = ai.stats;
-                dmg_say(rep, 'V3 arm (engine Jones pupil, laser %.1f deg from the source x): exit axis [%.4f %.4f %.4f], longitudinal residual %.1e, common-phase slope vs the pupil phase %+.4f (resid %.1e; -2 = the vector trace is the scalar''s conjugate), transmittance %.4f\n', ...
-                    ai.laser_deg, ai.axis, ai.leak, ai.common_slope, ai.common_resid, ai.T);
+                dmg_say(rep, 'V3 arm (engine Jones pupil at elt %d, the mask sandwich''s entrance sphere; laser %.1f deg from the source x): exit axis [%.4f %.4f %.4f], beam half-cone %.1f deg, longitudinal residual %.1e, common-phase slope vs the pupil phase %+.4f (resid %.1e; -2 = the vector trace is the scalar''s conjugate), transmittance %.4f\n', ...
+                    ai.iSRF, ai.laser_deg, ai.axis, ai.cone_deg, ai.leak, ai.common_slope, ai.common_resid, ai.T);
                 dmg_say(rep, '  diattenuation mean %.2e, rms %.2e, max %.2e; retardance mean %.2e rad, rms %.2e, max %.2e\n', ...
                     st.D_mean, st.D_rms, st.D_max, st.ret_mean, st.ret_rms, st.ret_max);
                 dmg_say(rep, '  per channel: |qL| %.5f (rms %.1e), |qR| %.5f (rms %.1e); phase about mean L %.2e rad rms, R %.2e; channel DIFFERENCE: phase %.2e rad rms (PV %.2e), amplitude ratio %.1e rms (PV %.1e)\n', ...
@@ -1231,9 +1231,9 @@ dmg_say(rep, '%d loop runs of %d states each (%d traced states)\n', nrun, K+1, n
 irun = 0;
 for j = 1:numel(RD)
     rd = RD{j};  kc = KC(j);
-    ins = struct('lit', lit, 'npix', ZW.N_WF, ...
+    ins = struct('lit', lit, 'npix', ZW.N_WF, 'cam_unit', P.loop.cam_unit, ...
         'measure', @(cmd) frames_(ZW, C.dmap(cmd), strcmp(rd, 'S'), strcmp(rd, 'V'), [strcmp(rd, 'P') strcmp(rd, 'PF')]), ...
-        'noisy',   @(F, nph, seed, varargin) noisy_frames_(ZW, F, nph, seed, rd, varargin{:}), ...
+        'noisy',   @(F, nph, seed, varargin) noisy_frames_(ZW, F, nph, seed, rd, P.loop.cam_unit, varargin{:}), ...
         'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb), ...
         'est',     C.est{kc});
     base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref, 'rmax', P.loop.rmax, ...
@@ -1283,7 +1283,8 @@ for kd = 1:numel(kinds)
         case 'none',    lab = 'noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g))';
         case 'walk',    lab = sprintf('random walk, %g pm per actuator per cycle', P.loop.walk_sigma*1e9);
         case 'thermal', lab = sprintf('thermal ramp, %g pm rms per cycle (defocus + astigmatism)', P.loop.thermal_rate*1e9);
-        case 'cam',     lab = sprintf('CAMERA drift, no DM drift: a per-pixel offset random-walking %g electrons per pixel per cycle (%.0f%% of each step within the scan); zero-sum readings (S, P, PF) subtract a within-scan-constant offset exactly, single-frame readings (L, I+, V) imprint o_k - o_0 on the DM', P.loop.cam_walk, 100*P.loop.cam_intra);
+        case 'cam',     lab = sprintf('CAMERA drift, no DM drift: a per-pixel offset random-walking %g %s per cycle (%.0f%% of each step within the scan); zero-sum readings (S, P, PF) subtract a within-scan-constant offset exactly, single-frame readings (L, I+, V) imprint o_k - o_0 on the DM', ...
+                            P.loop.cam_walk, ifelse_(strcmp(P.loop.cam_unit, 'rel'), 'x the mean photons per lit pixel per FRAME (the relative form: a bias / gain drift scaled to the signal)', 'electrons per pixel'), 100*P.loop.cam_intra);
     end
     dmg_say(rep, '\nhold error vs photons per cycle (= per measurement, one per cycle) -- %s.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n\n', lab);
     dmg_say(rep, '%9s |', 'N/cycle');
@@ -1350,22 +1351,27 @@ function t = div_(L)
 if L.diverged, t = sprintf(' DIVERGED at cycle %d', L.k_end); else, t = ''; end
 end
 
-function Fn = noisy_frames_(ZW, F, nph, seed, rd, cam)
+function Fn = noisy_frames_(ZW, F, nph, seed, rd, unit, cam)
 % photon noise on a captured state's frames: nph photons per MEASUREMENT (one
 % DM shape measured once), split over the reading's frames (L / I+ one frame
 % at nph; S four at nph/4; V two at nph/2; P / PF nf at nph/nf), the S5 model;
 % the stepped retrieval X is redone from the noisy frames.  With cam (from
 % dmg_loop's camera drift) the j-th of nf frames also gets the detector
 % offset o + (j-1)/(nf-1) d, electrons per pixel, converted to frame units by
-% that frame's photon scale (sum(I)/photons per frame); a frame is in the
-% scan order the reading captures it (S: clear then the three depths; V: the
-% two images at once, so both get o; P / PF: the steps in order).
+% that frame's photon scale (sum(I)/photons per frame) when unit is 'e', or
+% as a FRACTION of the frame's mean photons per lit pixel when unit is 'rel'
+% (a bias / gain drift scaled to the signal: at >= 1e13 photons per
+% measurement a pixel holds ~1e8 photons per frame and an electron-class
+% offset is 1e-4 of the shot noise -- runs/pcam193); a frame is in the scan
+% order the reading captures it (S: clear then the three depths; V: the two
+% images at once, so both get o; P / PF: the steps in order).
 Fn = F;
 if ~isfinite(nph), return; end
-if nargin < 6, cam = []; end
+if nargin < 6 || isempty(unit), unit = 'e'; end
+if nargin < 7, cam = []; end
 rs = RandStream('mt19937ar', 'Seed', seed);
 shot = @(I, n) I .* (1 + randn(rs, size(I)) ./ sqrt(max(I / sum(I(:)) * n, 1)));
-off = @(I, n, j, nf) offset_(I, n, j, nf, cam);
+off = @(I, n, j, nf) offset_(I, n, j, nf, cam, unit, ZW.msk);
 switch rd
     case 'S'
         nf = size(F.Fr, 3);
@@ -1382,12 +1388,18 @@ switch rd
 end
 end
 
-function O = offset_(I, n, j, nf, cam)
-% the camera offset of frame j of nf in this frame's units: electrons per
-% pixel x (frame units per photon = sum(I)/n)
+function O = offset_(I, n, j, nf, cam, unit, msk)
+% the camera offset of frame j of nf in this frame's units: 'e' = electrons
+% per pixel x (frame units per photon = sum(I)/n); 'rel' = a fraction of the
+% frame's mean over the lit pixels
 if isempty(cam), O = 0;  return; end
 w = 0;  if nf > 1, w = (j-1)/(nf-1); end
-O = (cam.o + w*cam.d) * (sum(I(:))/n);
+switch unit
+    case 'e',   sc = sum(I(:))/n;
+    case 'rel', sc = mean(I(msk));
+    otherwise,  error('zwfs_run: loop.cam_unit must be ''e'' or ''rel''');
+end
+O = (cam.o + w*cam.d) * sc;
 end
 
 function [n, txt] = hold_photons_(NPH, ss, bias, spec)

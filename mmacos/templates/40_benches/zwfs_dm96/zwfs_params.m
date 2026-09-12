@@ -100,9 +100,30 @@ P.mask.v_ret_err = 0;        % V2: metasurface retardance error, rad (pi + err);
                              % of the light, leaks the rest unshifted -- coherent with the converted
                              % light for a linearly polarized laser (0.1 rad = 5.7 deg, 5% amplitude)
 P.mask.v_leak_phase = 0;     % V2: phase of the leaked light relative to the converted, rad
-P.mask.v_cal = 'ideal';      % V2: the solver's metasurface model: 'ideal' (kappa 1, eta 1 -- an
-                             % uncalibrated metasurface's bias) | 'fit' (kappa, eta fitted on the
-                             % flat DM's two images, what a bench calibration does)
+P.mask.v_cal = 'ideal';      % V2/V3: the solver's model of the metasurface + arm: 'ideal' (kappa 1,
+                             % eta 1, both channels the same field -- an uncalibrated sensor's bias) |
+                             % 'fit' (per-channel constants kappa+, kappa- and eta fitted on the flat
+                             % DM's two images: what a bench calibration does) | 'map' (the true
+                             % per-channel pupil maps and constants: a polarimetrically calibrated
+                             % bench, the oracle)
+P.mask.v_arm = 'none';       % V3: the test arm's polarization aberration, seen per circular channel
+                             % (the +phi image is of the L component's pupil field, the -phi image of
+                             % the R component's): 'none' (both channels see the scalar field) |
+                             % 'engine' (the arm's Jones pupil from two polarized vector traces of the
+                             % bench, common scalar stripped, at the laser angle below; dmg_arm_maps) |
+                             % 'synthetic' (astigmatic maps of the two sizes below: the design scan)
+P.mask.v_laser_deg = 45;     % V3 'engine': laser linear polarization angle from the source x axis, deg.
+                             % 90 = along the fold-plane normal = the tilted faces' s axis (an eigenaxis:
+                             % the channels see the same field); 45 = the diattenuation term's worst case
+P.mask.v_arm_dphase = 0;     % V3 'synthetic': differential PHASE between the channels, rad rms over the
+                             % pupil (rho^2 cos 2theta): what a pupil-varying DIATTENUATION does to a
+                             % linear laser (dphi = D sin 2(theta_axis - theta_laser))
+P.mask.v_arm_damp = 0;       % V3 'synthetic': differential AMPLITUDE ratio between the channels, rms over
+                             % the pupil (same shape): what a pupil-varying RETARDANCE does (da = delta
+                             % sin 2(theta_axis - theta_laser)); the OAP rig's term
+P.mask.v_arm_ar = false;     % V3 'engine': quarter-wave single-layer AR on every refracting face (index
+                             % v_ar_n): the coated arm's retardance / diattenuation instead of bare glass
+P.mask.v_ar_n = 1.38;        % V3: the AR layer's index (MgF2)
 P.mask.v_gate_nm = 100;      % G4 (V only): single-actuator pokes (every 8th actuator) of this height
                              % put their pixels beyond the one-frame fold (peak 1.9 rad, 3% of msk);
                              % the pair must reproduce them (< 0.1%), the single frame must not
@@ -277,6 +298,13 @@ P.loop.cam_walk = 0.13;                       % CAMERA 1/f drift (drift kind 'ca
                                               % 60-cycle run, the paper's 12 h compressed.  Temporal PSI (S, P,
                                               % PF: weights sum to zero within a scan) subtracts it; the
                                               % single-frame readings (L, I+) and the simultaneous pair (V) do not
+P.loop.cam_unit = 'e';                        % the walk's unit: 'e' = electrons per pixel per cycle (the paper's
+                                              % number; runs/pcam193: at >= 1e13 photons per measurement a pixel
+                                              % holds ~1e8 photons per frame, so 1 e is 1e-4 of the shot noise and
+                                              % NO reading sees it); 'rel' = a fraction of the mean photons per lit
+                                              % pixel per FRAME, per cycle (a bias / gain drift scaled to the
+                                              % signal: 1e-3 per cycle = 0.8% over the run) -- the form that prices
+                                              % the immunity at the campaign's photon levels
 P.loop.cam_intra = 0;                         % fraction of each camera step that develops WITHIN a scan (frame
                                               % to frame): 0 = constant within a scan (the immune case is exact);
                                               % 1 = the whole step across the frames (what within-scan 1/f costs)
