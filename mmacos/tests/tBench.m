@@ -283,6 +283,55 @@ classdef tBench < matlab.unittest.TestCase
             testCase.verifyEqual(wp(bo), wt(bo));   % bit-identical pol-off
         end
 
+        function test_twyman_green_optics(testCase)
+            % twyman_green 'optics' variant: (a) DEFAULT 'lens' emits
+            % BIT-IDENTICALLY to explicit 'lens' on BOTH arms (the refractive
+            % record is untouched); (b) 'oap' builds all-reflective -- each OAP
+            % pole->focus equals its conjugate (F1 collimator, F2 focuser),
+            % Kc=-1 (parabola), the chief crosses each OAP POLE (RptElt), the
+            % rig traces clean, and the collimated beam radius at the BS matches
+            % the lens rig (the fold is confined to the collimator/focuser legs,
+            % so the BS + arms + recomb geometry is preserved).
+            G0 = macos.design.twyman_green('ngridpts', 15);                 % default
+            Gl = macos.design.twyman_green('ngridpts', 15, 'optics','lens');
+            rx = fullfile(tempname); mkdir(rx);
+            f0t=fullfile(rx,'l0t.in'); f0r=fullfile(rx,'l0r.in');
+            flt=fullfile(rx,'llt.in'); flr=fullfile(rx,'llr.in');
+            G0.bt.emit(f0t); G0.br.emit(f0r);  Gl.bt.emit(flt); Gl.br.emit(flr);
+            testCase.verifyEqual(fileread(flt), fileread(f0t));   % lens byte-identical
+            testCase.verifyEqual(fileread(flr), fileread(f0r));
+
+            Go = macos.design.twyman_green('ngridpts', 15, 'optics','oap');
+            % pole->focus from emitted parabola geometry: f_par=-Kr/2,
+            % focus = vpt + f_par*psi, pole = rpt.
+            poi = @(E) norm(E.rpt(:) - (E.vpt(:) + (-E.Kr/2)*E.psi(:)));
+            iL1 = find(strcmp({Go.bt.E.name},'L1'),1);
+            iL2 = find(strcmp({Go.bt.E.name},'L2'),1);
+            testCase.verifyEqual(poi(Go.bt.E(iL1)), Go.P.F1, 'AbsTol', 1e-6);
+            testCase.verifyEqual(poi(Go.bt.E(iL2)), Go.P.F2, 'AbsTol', 1e-6);
+            testCase.verifyEqual(Go.bt.E(iL1).Kc, -1.0);
+            testCase.verifyEqual(Go.bt.E(iL2).Kc, -1.0);
+
+            fot=fullfile(rx,'ot.in'); Go.bt.emit(fot);  macos.load_rx(fot);
+            for ii = [iL1 iL2]
+                sk = macos.trace(ii);  ik = macos.get_ray_info(sk.nRays);
+                testCase.verifyLessThan(norm(ik.pos(:,1)-Go.bt.E(ii).rpt(:)), 1e-6);
+            end
+            s = macos.trace(Go.T.iDET);
+            testCase.verifyGreaterThan(s.nRays, 50);
+
+            % Collimated beam radius at the BS.  focus_dist=F1 preserves the
+            % CONJUGATE exactly (asserted above), but the same-plane fold gives
+            % the OAP collimator a slightly different beam magnification than a
+            % lens at the same conjugate -- a measured fold effect (~few %, the
+            % deck-dependent registration absorbs the scale), NOT a bug.  Gate
+            % only that it is in the same ballpark (catches gross regressions);
+            % the exact ratio is quantified in the OAP report.
+            rbs = @(rxf, G) beam_radius_at_(rxf, G, 'BSrefl');
+            r_oap = rbs(fot,Go);  r_lens = rbs(flt,Gl);
+            testCase.verifyEqual(r_oap, r_lens, 'RelTol', 0.10);
+        end
+
         function test_twyman_green_nf_sandwich(testCase)
             % 'mask_prop','nf': the FocalMask sits between two reference
             % spheres carrying NF1/NF2 legs.  The exit sphere MUST carry the
@@ -356,4 +405,19 @@ classdef tBench < matlab.unittest.TestCase
             end
         end
     end
+end
+
+% ---- file-local helpers -------------------------------------------------
+function r = beam_radius_at_(rxf, G, elt_name)
+%BEAM_RADIUS_AT_  Max transverse ray radius (mm) of the traced bundle at the
+%   element named ELT_NAME in arm G.bt, measured perpendicular to the chief.
+    ie = find(strcmp({G.bt.E.name}, elt_name), 1);
+    assert(~isempty(ie), 'beam_radius_at_: element %s not found', elt_name);
+    macos.load_rx(rxf);
+    s = macos.trace(ie);  info = macos.get_ray_info(s.nRays);
+    ok = info.ok_trace(:) & info.ok_pass(:);
+    p  = info.pos(:,ok) - info.pos(:,1);
+    d0 = info.dir(:,1)/norm(info.dir(:,1));
+    p  = p - d0*(d0.'*p);
+    r  = max(sqrt(sum(p.^2, 1)));
 end
