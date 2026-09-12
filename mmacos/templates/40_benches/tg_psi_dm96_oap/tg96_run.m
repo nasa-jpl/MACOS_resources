@@ -176,18 +176,25 @@ function assert_or_warn_(P, c, varargin)
 end
 
 function [G, bench] = stage_B_(P, s, geom, say, exdir)
-    % tail params: re-tuned set from <tag>_tail.mat / tg96_tail.mat if present
+    % tail params.  Lookup order: <tag>_tail.mat (explicit per-tag override),
+    % then <optics>_tail.mat (the tuned set of record, keyed by bench.optics),
+    % else the geometric seed.  Keying by OPTICS means a non-canonical run tag
+    % does NOT silently fall back to the seed on the wrong bench (item 2).
     b = P.bench;
     T_FL_F = s*b.FL_F;  T_FL_Kc = b.FL_Kc;  T_DMF = s*b.D_MASK_FL;  T_TRIM = s*b.DET_TRIM;
-    tailf = fullfile(exdir, [P.tag '_tail.mat']);   % tg96_tail writes here
-    if isfile(tailf)
+    cand = {fullfile(exdir,[P.tag '_tail.mat']), fullfile(exdir,[b.optics '_tail.mat'])};
+    tailf = '';  for ci = 1:numel(cand), if isfile(cand{ci}), tailf = cand{ci}; break; end, end
+    bench.expected_null = [];
+    if ~isempty(tailf)
         tl = load(tailf);
         T_FL_F = tl.out.FL_F;  T_FL_Kc = tl.out.FL_Kc;
         T_DMF  = tl.out.D_MASK_FL;  T_TRIM = tl.out.DET_TRIM;
+        bench.expected_null = tl.out.null_nm;
         say('Tail: RE-TUNED set from %s (null %.3f nm at opt res; seed %.3f)\n', ...
             tailf, tl.out.null_nm, tl.out.seed_null_nm);
     else
-        say('Tail: geometrically-scaled seed (%s not found -- RE-RUN tg96_tail for oap)\n', tailf);
+        say('Tail: geometrically-scaled seed (no %s_tail.mat / %s_tail.mat) -- RE-RUN tg96_tail for %s\n', ...
+            P.tag, b.optics, b.optics);
     end
     oapargs = {};
     if strcmp(b.optics,'oap')
@@ -231,7 +238,7 @@ end
 function battery = stage_CDE_(P, s, G, bench, say, place)
     if nargin < 6, place = struct(); end
     if strcmp(P.battery.calib_mode, 'matrix')
-        battery = stage_matrix_(P, s, G, say, place);  return;   % Route 2 (D2)
+        battery = stage_matrix_(P, s, G, bench, say, place);  return;   % Route 2 (D2)
     end
     ctx = arm_setup_(P, G);
     N_G = ctx.N_G;  DX_G = ctx.DX_G;  LAM = ctx.LAM;  QWP = ctx.QWP;
@@ -364,7 +371,7 @@ end
 % =====================================================================
 %  Stage MATRIX (D2/Route 2): the measured response matrix dw/da
 % =====================================================================
-function battery = stage_matrix_(P, s, G, say, place)
+function battery = stage_matrix_(P, s, G, bench, say, place)
 % Calibration by the MEASURED response matrix (Dave 2026-09-10; the ZWFS S10
 % default).  Poke every matrix_step-th actuator on a sparse grid, step through
 % the offsets so every lit actuator is poked once, cut each response from its
@@ -376,7 +383,7 @@ function battery = stage_matrix_(P, s, G, say, place)
     if ~isfield(place, 'PL')
         Pp = P;  Pp.place.gate_assert = false;       % do not die on the OAP D1 gate here
         Pp.place.gate_max_states = P.place.boot_states;  % placement needs only a few states
-        place = stage_place_(Pp, s, G, [], say);
+        place = stage_place_(Pp, s, G, bench, say);
     end
     ctx = place.ctx;  PL = place.PL;  h0 = place.h0;  cfg = P.dm(1);
     msk = ctx.msk;  N_G = ctx.N_G;  DX_G = ctx.DX_G;  LAM = ctx.LAM;
@@ -387,7 +394,13 @@ function battery = stage_matrix_(P, s, G, say, place)
     % lens / 12.9 nm OAP) -- reported beside the differential rows (Dave)
     hn = (ctx.p_null - median(ctx.p_null(msk))) * ctx.LAM/(4*pi) * 1e6;
     null_nm = std(hn(msk));
-    say('  flat-DM null: %.4f nm rms surface (%.1f pm) -- the same-plane-fold arm difference\n', null_nm, 1e3*null_nm);
+    exp_null = [];  if isstruct(bench) && isfield(bench,'expected_null'), exp_null = bench.expected_null; end
+    if ~isempty(exp_null) && (null_nm > 10*exp_null || null_nm < 0.1*exp_null)
+        warning('tg96_run:null_off', ['measured null %.4f nm is >10x off the tail''s %.4f nm -- ' ...
+            'wrong tail? (tail keyed by bench.optics; a non-canonical tag with no <optics>_tail.mat runs the seed)'], null_nm, exp_null);
+    end
+    say('  flat-DM null: %.4f nm rms surface (%.1f pm)%s -- the same-plane-fold arm difference\n', ...
+        null_nm, 1e3*null_nm, iff_(~isempty(exp_null), sprintf(' [tail expects %.4f]', exp_null), ''));
     % ---- build J over the multiplexed poke sets --------------------------
     [J, ilit, vcol, hw, ns, np] = build_J_(ctx, cfg, PL, msk, P, h0);
     nlit = numel(ilit);
@@ -455,16 +468,40 @@ function battery = stage_matrix_(P, s, G, say, place)
     % ---- break ladder: single-10nm differential vs increasing working state -
     say('Stage E break ladder -- single %dnm differential vs base rms (%s):\n', ...
         P.battery.diff_single_nm, P.bench.optics);
-    say('  %-10s %8s %10s %8s\n','base rms','gain','floor pm','corr');
-    lad = P.battery.break_ladder;  brk = zeros(numel(lad),3);
+    say('  %-10s %8s %10s %8s  %s\n','base rms','gain','floor pm','corr','note');
+    lad = P.battery.break_ladder;  brk = zeros(numel(lad),5);
+    qwave = ctx.LAM/4;                               % per-pixel four-step wrap threshold (surface)
     for j = 1:numel(lad)
         rng(P.battery.base_rand_seed);  bb = zeros(nact);
         bb(litmask) = lad(j)*1e-6*randn(nnz(litmask),1);
         hb = measr(bb);  hbd = measr(bb + d_sng);
         adev = est(hbd - hb);  tv = d_sng(litmask);  av = adev(litmask);
         g = (tv.'*av)/(tv.'*tv);  r = 1e9*sqrt(mean((av-tv).^2));  cc = corrcoef(av,tv);
-        say('  %6.0f nm %8.4f %10.1f %8.4f\n', lad(j), g, r, cc(1,2));
-        brk(j,:) = [lad(j) g r];
+        pwrap = max(abs(hb(msk)));                    % how far the base reading reaches vs lambda/4
+        broke = ~isfinite(g) || g < 0 || g > 3 || cc(1,2) < 0.3;   % estimator diverged (the WRAP symptom)
+        note = iff_(broke, sprintf('BROKE (wrap: base reads %.2f of lambda/4)', pwrap/qwave), '');
+        say('  %6.0f nm %8.4f %10.1f %8.4f  %s\n', lad(j), g, r, cc(1,2), note);
+        brk(j,:) = [lad(j) g r cc(1,2) double(broke)];
+    end
+    % ---- item 3b: regularization sweep on the dense-random row; is the OAP
+    %      dense loss the reg shrinking the DIM (dark ~25%) columns? report the
+    %      gain over bright vs dark columns separately, for a few matrix_lam ----
+    cn = sqrt(diag(JtJ));                             % per-lit-column energy
+    md = median(cn(cn>0).^2);
+    darkc = cn < prctile(cn, 25);                     % bottom-25% column energy = the dim columns
+    dk = false(nact);  dk(ilit(darkc)) = true;  br = false(nact);  br(ilit(~darkc)) = true;
+    cn_map = zeros(nact);  cn_map(ilit) = cn;          % column norms over the lattice (item 4 picture)
+    hrnd = measr(d_rnd) - measr(zeros(nact));          % flat/random-10nm differential response
+    lamsw = P.battery.matrix_lam_sweep;  regrows = zeros(numel(lamsw),4);
+    say('Stage E reg sweep -- dense random %dnm gain vs matrix_lam (bright vs dark 25%% columns):\n', P.battery.diff_rand_nm);
+    say('  %-10s %8s %8s %8s\n','lambda','all','bright','dark');
+    for li = 1:numel(lamsw)
+        Rf_l = chol(JtJ + lamsw(li)*md*eye(nlit));
+        est_l = @(h) est_matrix_tg(h, J, vcol, Am, Rf_l, ilit, nact, msk);
+        a_l = est_l(hrnd);
+        gg = @(m) (d_rnd(m).'*a_l(m))/(d_rnd(m).'*d_rnd(m));
+        regrows(li,:) = [lamsw(li) gg(litmask) gg(br) gg(dk)];
+        say('  %-10.0e %8.4f %8.4f %8.4f\n', regrows(li,1),regrows(li,2),regrows(li,3),regrows(li,4));
     end
     % ---- Stage D4: OAP alignment sensitivity (perturb OAP1/OAP2, re-read) ---
     d4 = [];
@@ -473,7 +510,9 @@ function battery = stage_matrix_(P, s, G, say, place)
     end
     battery = struct('mode','matrix', 'place',place, 'null_nm',null_nm, 'g_sng',g_sng, 'fl_sng_pm',fl_sng, ...
         'PQ',PQ, 'frq',frq, 'transfer_gain',gt, 'transfer_xtalk',xt, 'diff_rows',{rows}, ...
-        'break_ladder',brk, 'd4',d4, 'nlit',nlit, 'nstates',ns, 'hw',hw);
+        'break_ladder',brk, 'reg_sweep',regrows, 'cn_map',cn_map, 'darkmask',{dk}, ...
+        'window',P.battery.matrix_window, 'calib_surface',P.battery.calib_surface, ...
+        'd4',d4, 'nlit',nlit, 'nstates',ns, 'hw',hw);
 end
 
 function d4 = stage_D4_(P, ctx, PL, h0, msk, d_sng, litmask, est, say)
@@ -513,12 +552,30 @@ end
 function [J, ilit, vcol, hw, ns, np] = build_J_(ctx, cfg, PL, msk, P, h0)
 % assemble the sparse response matrix J (detector px x lit actuators): each
 % multiplexed poke's response, per unit command, cut from its affine-placed
-% window and zeroed outside the mask.  (Lift of the ZWFS calib_matrix_ inner
-% loop, meas_surface as the map primitive, mean-referenced over the mask.)
+% window, zeroed outside the mask, mean-referenced over the mask.  Lift of the
+% ZWFS calib_matrix_ inner loop, meas_surface as the map primitive.
+%   P.battery.matrix_window 'box' (default; +/-half-step window) | 'voronoi'
+%     (assign every mask pixel to its NEAREST poked actuator of the frame --
+%     nothing truncated, nothing double-counted; item 3a truncation test).
+%   P.battery.calib_surface 'flat' (default) | 'base' (pokes ride a base
+%     working state, measured differentially -- S10 doctrine; item 6).
     step = P.battery.matrix_step;  N = size(msk,1);  nact = cfg.nact;  POKE = P.POKE;
     hw = max(3, floor(0.5*step*cfg.pitch/(PL.mag*PL.dxd_mm)));
+    win = 'box';  if isfield(P.battery,'matrix_window'), win = P.battery.matrix_window; end
     lit = PL.lit;  ilit = find(lit);  nlit = numel(ilit);
     col_of = zeros(nact);  col_of(ilit) = 1:nlit;  U = PL.U;  V = PL.V;
+    dmap = @(A) dm_influence_map(ctx.N_G,ctx.DX_G,'nact',nact,'pitch',cfg.pitch,'act',A);
+    % base working surface for calib_surface 'base' (differential calibration)
+    hbase = h0;
+    if isfield(P.battery,'calib_surface') && strcmp(P.battery.calib_surface,'base')
+        rng(P.battery.seed_base);  Abase = zeros(nact);
+        Abase(lit) = P.battery.base_rms*randn(nnz(lit),1);
+        hbase = ctx.measf(dmap(Abase));  base_cmd = Abase;
+    else
+        base_cmd = zeros(nact);
+    end
+    % mask pixel coordinates (col,row) for the voronoi assignment
+    [mr, mc] = find(msk);  mUV = [mc, mr];  mlin = mr + (mc-1)*N;
     I = {};  Jc = {};  V3 = {};  ns = 0;  np = 0;  maxst = P.battery.matrix_states;
     for ox = 1:step
       for oy = 1:step
@@ -530,16 +587,27 @@ function [J, ilit, vcol, hw, ns, np] = build_J_(ctx, cfg, PL, msk, P, h0)
             A(sub2ind([nact nact],rr,cc)) = sg;
         end
         ns = ns + 1;
-        h = ctx.measf(dm_influence_map(ctx.N_G,ctx.DX_G,'nact',nact,'pitch',cfg.pitch,'act',POKE*A)) - h0;
+        h = ctx.measf(dmap(base_cmd + POKE*A)) - hbase;
         h = (h - median(h(msk))) / POKE;              % response per unit command
-        [pr, pc] = find(A);
-        for q = 1:numel(pr)
-            r = pr(q);  c = pc(q);  np = np + 1;
-            u0 = round(U(r,c));  v0 = round(V(r,c));
-            rows = max(1,v0-hw):min(N,v0+hw);  cols = max(1,u0-hw):min(N,u0+hw);
-            [CC, RR] = meshgrid(cols, rows);
-            blk = h(rows,cols) * A(r,c);  blk(~msk(rows,cols)) = 0;   % per unit +command
-            I{end+1} = RR(:) + (CC(:)-1)*N;  Jc{end+1} = col_of(r,c)*ones(numel(blk),1);  V3{end+1} = blk(:); %#ok<AGROW>
+        [pr, pc] = find(A);  npk = numel(pr);
+        if strcmp(win,'voronoi')
+            pUV = [U(sub2ind([nact nact],pr,pc)), V(sub2ind([nact nact],pr,pc))];
+            near = dsearchn(pUV, mUV);                % nearest poke per mask pixel
+            for q = 1:npk
+                sel = near == q;  if ~any(sel), continue; end
+                r = pr(q);  c = pc(q);  np = np + 1;  s = A(r,c);
+                I{end+1} = mlin(sel);  Jc{end+1} = col_of(r,c)*ones(nnz(sel),1); ...
+                    V3{end+1} = h(mlin(sel))*s; %#ok<AGROW>
+            end
+        else
+            for q = 1:npk
+                r = pr(q);  c = pc(q);  np = np + 1;
+                u0 = round(U(r,c));  v0 = round(V(r,c));
+                rows = max(1,v0-hw):min(N,v0+hw);  cols = max(1,u0-hw):min(N,u0+hw);
+                [CC, RR] = meshgrid(cols, rows);
+                blk = h(rows,cols) * A(r,c);  blk(~msk(rows,cols)) = 0;   % per unit +command
+                I{end+1} = RR(:) + (CC(:)-1)*N;  Jc{end+1} = col_of(r,c)*ones(numel(blk),1);  V3{end+1} = blk(:); %#ok<AGROW>
+            end
         end
       end
     end
@@ -560,6 +628,8 @@ end
 function h = meanref_(h, msk)
     h(~msk) = 0;  h = h - median(h(msk));
 end
+
+function s = iff_(c, a, b), if c, s = a; else, s = b; end, end
 
 function rc = pick_lit_(PL, cfg, ~)
 % an in-pupil actuator OFF the footprint centroid (for the single-poke tests):
@@ -674,23 +744,32 @@ function place = stage_place_(P, s, G, bench, say)
     [~, Sv, Vv] = svd(frm.Lm);  offax = atan2d(abs(Vv(2,1)), abs(Vv(1,1)));
     say('  ray-affine SVD: DM-mm/det-mm %.3f / %.3f, anamorphism %.2f%%, principal axis %+.2f deg off the DM axes\n', ...
         Sv(1,1), Sv(2,2), 100*(Sv(1,1)/Sv(2,2)-1), offax);
-    % ---- non-vacuity: the OLD lens-tuned assumption is an AXIS-ALIGNED,
-    %      SHEAR-FREE map (a parity + per-axis scale + offset -- all the 8-parity
-    %      search of register_two_pokes can express).  Fit the best such map to
-    %      the SAME measured CoMs and gate it.  On the lens (no fold) it fits;
-    %      on OAP the fold's off-axis rotation/shear leaves large residuals.
-    [fracO, med_errO] = axis_aligned_gate_(PL.axg(gd), PL.ayg(gd), comU(gd), comV(gd), P.place.gate_px);
-    place.old = struct('frac',fracO, 'med_err',med_errO);
-    say('  NON-VACUITY (best axis-aligned parity+scale map, no shear): %.2f%% within %g px, median err %.2f px\n', ...
-        100*fracO, P.place.gate_px, med_errO);
-    if ~isfield(P.place,'gate_assert') || P.place.gate_assert
+    % ---- non-vacuity: the best AXIS-ALIGNED (shear-free parity+scale) map --
+    %  Fit it to the finite CoMs and gate over the SAME poked set (NaN=miss) so
+    %  it is directly comparable to the affine's %frac.  This is what a
+    %  parity+scale registration can express (register_two_pokes' family).
+    %  VACUOUS on the lens (its mapping IS axis-aligned -> both pass); the
+    %  meaningful comparison is on the OAP.  Note (item 5, item 4): for these
+    %  near-normal OAP folds the map is near-axis-aligned (SVD anamorphism ~0),
+    %  so the affine's edge over a WELL-ANCHORED parity map is modest -- the
+    %  dominant reason register_two_pokes failed on the OAP was its CENTRE-poke
+    %  anchor reading 0 (the four-step chief-pixel reference), which the affine
+    %  route sidesteps with an off-centre anchor + the ray-fit linear part.
+    [Ua, Va] = axis_aligned_map_(PL.axg, PL.ayg, comU, comV, gd);
+    ea = hypot(comU(pk)-Ua(pk), comV(pk)-Va(pk));
+    fracO = mean(ea <= P.place.gate_px);
+    place.old = struct('frac',fracO, 'med_err',median(ea(isfinite(ea))));
+    if strcmp(P.bench.optics,'lens')
+        say('  NON-VACUITY (axis-aligned map): %.2f%% within %g px -- VACUOUS on the lens (its mapping is axis-aligned)\n', ...
+            100*fracO, P.place.gate_px);
+    else
+        say('  NON-VACUITY (axis-aligned map, OAP): %.2f%% within %g px vs affine %.2f%% (same %d poked); register_two_pokes centre anchor reads 0\n', ...
+            100*fracO, P.place.gate_px, 100*frac, nnz(pk));
+    end
+    if (~isfield(P.place,'gate_assert') || P.place.gate_assert)
         assert(frac >= P.place.gate_frac, ...
             'D1 window-placement gate FAILED (%s rig): %.2f%% < %.1f%%', ...
             P.bench.optics, 100*frac, 100*P.place.gate_frac);
-        if strcmp(P.bench.optics,'oap')
-            assert(fracO < P.place.gate_frac, ...
-                'D1 non-vacuity FAILED: old parity mapping passed on OAP (%.2f%%)', 100*fracO);
-        end
     end
 end
 
@@ -771,18 +850,23 @@ function B = poly_basis_(x, y, deg)
     end
 end
 
-function [frac, med_err] = axis_aligned_gate_(x, y, u, v, gate_px)
-% best AXIS-ALIGNED shear-free map lattice(x,y) -> pixel(col=u,row=v): a
-% per-axis scale + offset under the better of the two dihedral assignments
-% (col<-x/row<-y or col<-y/row<-x).  Signs fall out of the linear fit.  This
-% is everything a parity + scale registration can express; the residual is the
-% off-axis (rotation/shear) content it CANNOT.
-    o = ones(numel(x),1);  best = inf;  frac = 0;  med_err = inf;
+function [U, V] = axis_aligned_map_(axg, ayg, comU, comV, gd)
+% best AXIS-ALIGNED shear-free map lattice(x,y) -> pixel(col,row): a per-axis
+% scale + offset under the better of the two dihedral assignments (col<-x/row<-y
+% or col<-y/row<-x); signs fall out of the linear fit.  Everything a parity +
+% scale registration can express; the off-axis (rotation/shear) content is what
+% it CANNOT.  Fit on the finite CoMs (gd); evaluate over the whole lattice.
+    x = axg(gd);  y = ayg(gd);  u = comU(gd);  v = comV(gd);  o = ones(numel(x),1);
+    best = inf;  U = nan(size(axg));  V = nan(size(axg));
     for asn = 1:2
-        if asn == 1, pu = [x o]\u;  pv = [y o]\v;  ur = [x o]*pu;  vr = [y o]*pv;
-        else,        pu = [y o]\u;  pv = [x o]\v;  ur = [y o]*pu;  vr = [x o]*pv;  end
-        e = hypot(u-ur, v-vr);
-        if median(e) < best, best = median(e);  frac = mean(e <= gate_px);  med_err = median(e); end
+        if asn == 1
+            pu = [x o]\u;  pv = [y o]\v;  m = median(hypot([x o]*pu-u, [y o]*pv-v));
+            Uc = pu(1)*axg + pu(2);  Vc = pv(1)*ayg + pv(2);
+        else
+            pu = [y o]\u;  pv = [x o]\v;  m = median(hypot([y o]*pu-u, [x o]*pv-v));
+            Uc = pu(1)*ayg + pu(2);  Vc = pv(1)*axg + pv(2);
+        end
+        if m < best, best = m;  U = Uc;  V = Vc;  end
     end
 end
 

@@ -100,6 +100,8 @@ P.battery.matrix_step = 8;         % sparse-poke grid step (no overlap at 8; hw 
 P.battery.matrix_lam  = 1e-3;      % Tikhonov weight, relative to median column energy of J
 P.battery.matrix_sign = 'same';    % 'same' | 'alternate' (zero-mean checkerboard; halos cancel)
 P.battery.matrix_states = inf;     % cap on J-build states (inf = all step^2 = every lit act once)
+P.battery.matrix_window = 'box';   % 'box' (+/-half-step window) | 'voronoi' (nearest-poke cells; item 3a)
+P.battery.matrix_lam_sweep = [1e-3 1e-4 1e-5];  % reg sweep on the dense-random row (bright vs dark; item 3b)
 P.battery.break_ladder = [30 60 120 240 480];   % base working-state rms (nm) for the break ladder
 % ---- D4 alignment sensitivity (OAP rig): perturb OAP1/OAP2, re-read --------
 P.battery.d4 = false;              % true => Stage D4 (OAP1/OAP2 decenter + tilt sensitivity)
