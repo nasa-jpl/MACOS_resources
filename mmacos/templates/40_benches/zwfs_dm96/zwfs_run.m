@@ -116,7 +116,9 @@ g = struct('LAM', lam_mm, 'F2', P.bench.F2, 'R_BEAM', P.bench.R_TO_AP, ...
     'PHI_M', 2*pi*(n-1)*P.mask.ETCH_MM/lam_mm, ...
     'PHIS', P.mask.PHIS_REC * (n-1)/(n0-1) * (P.LAM/lam_mm), ...
     'S_CONV', P.mask.S_CONV, 'NITER', P.mask.NITER, ...
-    'V_RET_ERR', P.mask.v_ret_err, 'V_LEAK_PHASE', P.mask.v_leak_phase, 'V_CAL', P.mask.v_cal);
+    'V_RET_ERR', P.mask.v_ret_err, 'V_LEAK_PHASE', P.mask.v_leak_phase, 'V_CAL', P.mask.v_cal, ...
+    'V_ARM', P.mask.v_arm, 'V_LASER_DEG', P.mask.v_laser_deg, ...
+    'V_ARM_DPHASE', P.mask.v_arm_dphase, 'V_ARM_DAMP', P.mask.v_arm_damp);
 end
 
 function po = pdi_opt_(P, lam_mm)
@@ -217,11 +219,24 @@ Z1 = G.bt.E(iMASK-1).zelt;  Z2 = G.bt.E(iMASK+1).zelt;
 dmg_say(rep, 'deck %s: TO elt %d, FocalMask %d, Detector %d; mask sandwich spheres zElt %.3f / %.3f mm (%s)\n', ...
     deck, iTO, iMASK, iDET, Z1, Z2, ifelse_(abs(Z1-Z2) < 1e-9, 'SYMMETRIC', 'ASYMMETRIC -- Fresnel-defocused pupil'));
 
+% ---- V3: AR coats on the refracting faces (polarization-mode physics only:
+% the scalar traces never see a coating; the arm maps do)
+if P.mask.v_arm_ar
+    nar = 0;
+    for k = 1:macos.num_elt()
+        ei = macos.get_elt_info(k);
+        if strcmp(ei.type, 'Refractor')
+            macos.coating(k, 'index', P.mask.v_ar_n, 'extinc', 0, 'thickness', P.LAM/(4*P.mask.v_ar_n));  nar = nar + 1;
+        end
+    end
+    dmg_say(rep, 'V3 arm: quarter-wave AR (n %.3f, %.1f nm) on %d refracting faces\n', P.mask.v_ar_n, P.LAM/(4*P.mask.v_ar_n)*1e6, nar);
+end
 % ---- the measurement factory + sensor gates --------------------------
 gopt = gauge_opt_(P, P.LAM);
 if strcmp(P.bench.mask_prop, 'nf_legacy'), warning('off', 'dmg_zwfs_gauge:roundtrip'); end
 ZW = dmg_zwfs_gauge(iTO, iMASK, iDET, gopt);
 warning('on', 'dmg_zwfs_gauge:roundtrip');
+ZW.need_scalar = any(ismember(P.readings, {'L', 'F', 'I', 'I+'}));   % frames_: re-capture Ia when V's model is not the scalar sensor
 ZW.PD = pdi_build_(P, P.LAM, iTO, iMASK, iDET);          % the point-diffraction readings (flat DM)
 msk = ZW.msk;  N_WF = ZW.N_WF;
 dimple_px = ZW.dia_mm*1e-3 / abs(macos.dx_at(iMASK));
@@ -286,11 +301,34 @@ if ~strcmp(P.bench.mask_prop, 'nf_legacy'), assert(g3, 'G3 FAIL'); end
 % is NOT a fold test: the core collapses (the 30-40 nm cliff, S7).
 gV = struct('eV', NaN, 'eI', NaN, 'beyond', NaN, 'rmsfig', NaN);
 if any(strcmp(P.readings, 'V'))
-    if ZW.leak.eta < 1 || strcmp(P.mask.v_cal, 'fit')
+    if ZW.leak.eta < 1 || ~strcmp(P.mask.v_cal, 'ideal')
         if isfield(ZW, 'calV_info'), fitnote = sprintf(' (fit on the flat, resid %.1e)', ZW.calV_info.resid); else, fitnote = ''; end
-        dmg_say(rep, 'V2 metasurface: retardance error %.3f rad -> converts eta %.5f, leaks %.4f amplitude at phase %.2f rad (kappa_true %.5f %+.5fi); solver %s: kappa %.5f %+.5fi, eta %.5f%s\n', ...
+        kP = mean(ZW.vcal.kapP(:));  kM = mean(ZW.vcal.kapM(:));   % maps in 'map' mode: their means
+        dmg_say(rep, 'V2 metasurface: retardance error %.3f rad -> converts eta %.5f, leaks %.4f amplitude at phase %.2f rad (kappa_true %.5f %+.5fi); solver %s: kappa+ %.5f %+.5fi, kappa- %.5f %+.5fi, eta %.5f%s\n', ...
             P.mask.v_ret_err, ZW.leak.eta, sqrt(1-ZW.leak.eta), P.mask.v_leak_phase, real(ZW.vcal.kap_true), imag(ZW.vcal.kap_true), ...
-            ZW.vcal.mode, real(ZW.vcal.kap), imag(ZW.vcal.kap), ZW.vcal.eta, fitnote);
+            ZW.vcal.mode, real(kP), imag(kP), real(kM), imag(kM), ZW.vcal.eta, fitnote);
+    end
+    % ---- V3: the arm's per-channel maps ---------------------------------
+    if ~strcmp(ZW.arm.mode, 'none')
+        ai = ZW.arm.info;
+        switch ZW.arm.mode
+            case 'engine'
+                st = ai.stats;
+                dmg_say(rep, 'V3 arm (engine Jones pupil, laser %.1f deg from the source x): exit axis [%.4f %.4f %.4f], longitudinal residual %.1e, common-phase slope vs the pupil phase %+.4f (resid %.1e; -2 = the vector trace is the scalar''s conjugate), transmittance %.4f\n', ...
+                    ai.laser_deg, ai.axis, ai.leak, ai.common_slope, ai.common_resid, ai.T);
+                dmg_say(rep, '  diattenuation mean %.2e, rms %.2e, max %.2e; retardance mean %.2e rad, rms %.2e, max %.2e\n', ...
+                    st.D_mean, st.D_rms, st.D_max, st.ret_mean, st.ret_rms, st.ret_max);
+                dmg_say(rep, '  per channel: |qL| %.5f (rms %.1e), |qR| %.5f (rms %.1e); phase about mean L %.2e rad rms, R %.2e; channel DIFFERENCE: phase %.2e rad rms (PV %.2e), amplitude ratio %.1e rms (PV %.1e)\n', ...
+                    st.aL_mean, st.aL_rms, st.aR_mean, st.aR_rms, st.pL_rms, st.pR_rms, st.dphase_rms, st.dphase_pv, st.damp_rms, st.damp_pv);
+            case 'synthetic'
+                dmg_say(rep, 'V3 arm (synthetic astigmatic maps): channel differential phase %.4f rad rms, differential amplitude %.4f rms over msk\n', ai.dphase_rms, ai.damp_rms);
+            otherwise
+                dmg_say(rep, 'V3 arm: given maps\n');
+        end
+        dmg_say(rep, 'G8 chained pupil-map + dimple apodization: unit map vs the plain frame %.1e (gate < 1e-12); channel map vs the surrogate |qE0 + c b(qE0)|^2 on msk %.1e (gate < 1e-10)   -> %s\n', ...
+            ZW.gate.chain, ZW.gate.chain_sur, ifelse_(ZW.gate.chain < 1e-12 && ZW.gate.chain_sur < 1e-10, 'PASS', 'FAIL'));
+        assert(ZW.gate.chain < 1e-12 && ZW.gate.chain_sur < 1e-10, 'G8 FAIL');
+        dmg_say(rep, '  solver arm model: %s\n', ifelse_(strcmp(P.mask.v_cal, 'map'), 'the true maps (polarimetrically calibrated bench)', ifelse_(strcmp(P.mask.v_cal, 'fit'), 'per-channel constants fitted on the flat', 'ideal (uncalibrated: the maps'' bias IS the number)')));
     end
     Afig = zeros(cfg.nact);  Afig(4:8:end, 4:8:end) = P.mask.v_gate_nm*1e-6;
     macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(Afig));
@@ -304,11 +342,13 @@ if any(strcmp(P.readings, 'V'))
     gV.beyond = mean(phi_t(msk) < -pi/4 | phi_t(msk) > 3*pi/4);
     dmg_say(rep, 'G4 vector pair on %g nm single-actuator pokes every 8th actuator (%.0f pm rms on msk, peak %.2f rad; %.2f%% of msk beyond the one-frame fold): V rms error %.3f pm (gate < 0.1%% of the figure), one-frame exact I %.0f pm (non-vacuity: must exceed 10x)   -> %s\n', ...
         P.mask.v_gate_nm, gV.rmsfig, max(abs(phi_t(msk))), 100*gV.beyond, gV.eV, gV.eI, ifelse_(gV.eV < 1e-3*gV.rmsfig && gV.eI > 10*gV.eV, 'PASS', 'FAIL'));
-    if ZW.leak.eta == 1 || strcmp(P.mask.v_cal, 'fit')
+    priced = (ZW.leak.eta < 1 && strcmp(P.mask.v_cal, 'ideal')) || ...
+             (~strcmp(ZW.arm.mode, 'none') && ~strcmp(P.mask.v_cal, 'map'));
+    if ~priced
         assert(gV.eV < 1e-3*gV.rmsfig, 'G4 FAIL: the vector pair does not reproduce the figure');
         assert(gV.beyond > 0.005 && gV.eI > 10*gV.eV, 'G4 is vacuous: the single frame passes too -- raise mask.v_gate_nm');
     else
-        dmg_say(rep, '  (G4 not asserted: an uncalibrated metasurface error is being priced -- the V error above IS the number)\n');
+        dmg_say(rep, '  (G4 not asserted: an uncalibrated metasurface / arm error is being priced -- the V error above IS the number)\n');
     end
 end
 % ---- G5-G7 (point-diffraction readings) ---------------------------------
@@ -373,6 +413,7 @@ if ~isempty(fieldnames(ZW.PD))
     % G7: t = 1 at the dimple diameter, frozen reference == the stepped reading S
     if isfield(ZW.PD, 'P')
         po = pdi_opt_(P, P.LAM);  po.MODE = 'pinhole';  po.DIA_LAMD = P.mask.DIA_LAMD;  po.T_SURR = 1;  po.NITER = 0;  po.B2 = 'flat';
+        po.SCHEME = 'ls';  po.THETAS = [0 pi/2 pi 3*pi/2];  po.STEP_ERR = 0;      % the identity is tested with S's own steps, no priced error
         macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), zeros(P.grid.N_G));
         pdS = dmg_pdi_gauge(iTO, iMASK, iDET, po);
         Aq = zeros(cfg.nact);  Aq(4:8:end, 4:8:end) = P.reg.POKE;
@@ -447,18 +488,21 @@ end
 %  frames and readings
 % =====================================================================
 function F = frames_(ZW, M, needS, needV, needP)
-% capture the frames one DM state needs: Ia (the one masked frame), when
-% needS the stepped set Fr + its rank-2 retrieval X, when needV the
-% -phi image Im of the vector pair (Ia is its +phi image), and when
-% needP = [P PF] the point-diffraction frame sets FP (pinhole) / FF (fiber)
+% capture the frames one DM state needs: Ia (the one masked frame of the
+% scalar readings), when needS the stepped set Fr + its rank-2 retrieval
+% X, when needV the vector pair Ip / Im (+phi / -phi images; Ip IS the
+% scalar frame when the V model is the scalar sensor -- ideal metasurface,
+% no arm maps -- and Ia is then not re-captured), and when needP = [P PF]
+% the point-diffraction frame sets FP (pinhole) / FF (fiber)
 if nargin < 4, needV = false; end
 if nargin < 5, needP = [false false]; end
 if needV
-    [Ia, Im] = ZW.frameV(M);
+    [Ip, Im] = ZW.frameV(M);
+    if ZW.v_scalar_equiv || ~ZW.need_scalar, Ia = Ip; else, Ia = ZW.frameL(M); end
 else
-    Ia = ZW.frameL(M);  Im = [];
+    Ia = ZW.frameL(M);  Ip = [];  Im = [];
 end
-F = struct('Ia', Ia, 'Im', Im, 'Fr', [], 'X', [], 'FP', [], 'FF', []);
+F = struct('Ia', Ia, 'Ip', Ip, 'Im', Im, 'Fr', [], 'X', [], 'FP', [], 'FF', []);
 if needS
     F.Fr = ZW.framesS(M);  F.X = ZW.reconS(F.Fr);
 end
@@ -474,7 +518,7 @@ switch rd
     case 'I',  h = ZW.reconI(F.Ia);
     case 'I+', h = ZW.reconI(F.Ia, [], plus);
     case 'S',  h = ZW.stepdiff(F.X, Xref);
-    case 'V',  h = ZW.reconV(F.Ia, F.Im);
+    case 'V',  h = ZW.reconV(F.Ip, F.Im);
     case 'P',  h = ZW.PD.P.height(F.FP);
     case 'PF', h = ZW.PD.PF.height(F.FF);
 end
@@ -484,7 +528,7 @@ function d = diff_(ZW, rd, F1, F0, plus)
 % differential height map between two captured states
 switch rd
     case 'S', d = ZW.stepdiff(F1.X, F0.X);
-    case 'V', d = ZW.diffV(F1.Ia, F1.Im, F0.Ia, F0.Im);          % wrapped phase difference
+    case 'V', d = ZW.diffV(F1.Ip, F1.Im, F0.Ip, F0.Im);          % wrapped phase difference
     case 'P',  d = ZW.PD.P.diff(F1.FP, F0.FP);                     % wrapped phase difference
     case 'PF', d = ZW.PD.PF.diff(F1.FF, F0.FF);
     otherwise, d = readmap_(ZW, rd, F1, plus, []) - readmap_(ZW, rd, F0, plus, []);
@@ -701,7 +745,7 @@ switch k
     case 1, h = ZW.reconL(F.Ia);
     case 2, h = ZW.reconI(F.Ia);
     case 3, h = ZW.stepdiff(F.X, Fflat.X);
-    case 4, h = ZW.reconV(F.Ia, F.Im);
+    case 4, h = ZW.reconV(F.Ip, F.Im);
     case 5, h = ZW.PD.P.height(F.FP);
     case 6, h = ZW.PD.PF.height(F.FF);
 end
@@ -713,7 +757,7 @@ switch k
     case 1, h = ZW.reconL(F.Ia) - ZW.reconL(F0.Ia);
     case 2, h = ZW.reconI(F.Ia, [], plus) - ZW.reconI(F0.Ia, [], plus);
     case 3, h = ZW.stepdiff(F.X, F0.X);
-    case 4, h = ZW.diffV(F.Ia, F.Im, F0.Ia, F0.Im);
+    case 4, h = ZW.diffV(F.Ip, F.Im, F0.Ip, F0.Im);
     case 5, h = ZW.PD.P.diff(F.FP, F0.FP);
     case 6, h = ZW.PD.PF.diff(F.FF, F0.FF);
 end
@@ -1105,7 +1149,7 @@ for in = 1:numel(NS)
         rng(P.noise.seed + r + in*100);
         Ia0 = noisy(F0.Ia, n);  Ia1 = noisy(F1.Ia, n);
         if needV                                              % vector pair: N/2 per image
-            Ip0 = noisy(F0.Ia, n/2);  Im0 = noisy(F0.Im, n/2);  Ip1 = noisy(F1.Ia, n/2);  Im1 = noisy(F1.Im, n/2);
+            Ip0 = noisy(F0.Ip, n/2);  Im0 = noisy(F0.Im, n/2);  Ip1 = noisy(F1.Ip, n/2);  Im1 = noisy(F1.Im, n/2);
         end
         if needP(1), nfP = size(F0.FP, 3);  FP0 = F0.FP;  FP1 = F1.FP;  for k = 1:nfP, FP0(:,:,k) = noisy(F0.FP(:,:,k), n/nfP);  FP1(:,:,k) = noisy(F1.FP(:,:,k), n/nfP); end; end
         if needP(2), nfF = size(F0.FF, 3);  FF0 = F0.FF;  FF1 = F1.FF;  for k = 1:nfF, FF0(:,:,k) = noisy(F0.FF(:,:,k), n/nfF);  FF1(:,:,k) = noisy(F1.FF(:,:,k), n/nfF); end; end
@@ -1328,7 +1372,7 @@ switch rd
         for k = 1:nf, Fn.Fr(:,:,k) = shot(F.Fr(:,:,k), nph/nf) + off(F.Fr(:,:,k), nph/nf, k, nf); end
         Fn.X = ZW.reconS(Fn.Fr);
     case 'V'
-        Fn.Ia = shot(F.Ia, nph/2) + off(F.Ia, nph/2, 1, 1);  Fn.Im = shot(F.Im, nph/2) + off(F.Im, nph/2, 1, 1);
+        Fn.Ip = shot(F.Ip, nph/2) + off(F.Ip, nph/2, 1, 1);  Fn.Im = shot(F.Im, nph/2) + off(F.Im, nph/2, 1, 1);
     case 'P'
         nf = size(F.FP, 3);  for k = 1:nf, Fn.FP(:,:,k) = shot(F.FP(:,:,k), nph/nf) + off(F.FP(:,:,k), nph/nf, k, nf); end
     case 'PF'
