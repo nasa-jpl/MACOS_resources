@@ -18,6 +18,19 @@ function ZW = dmg_zwfs_gauge(iTO, iMASK, iDET, opt)
 %                      branch per pixel via a prior (ZW.reconI(Ia,[],plus),
 %                      plus from ZW.priorS(Ia, Fr): the stepped frames of
 %                      the same state, refined with the iterated |b|^2).
+%     ZW.measV(M)      VECTOR (polarized-dimple) exact height map (mm):
+%                      TWO simultaneous pupil images, one through a +PHI_M
+%                      dimple and one through -PHI_M (a geometric-phase
+%                      metasurface splits the two circular polarizations;
+%                      Doelman 2019).  Per pixel the pair gives cos and sin
+%                      of (phi - beta) at once, so the solve is exact with
+%                      NO branch choice (no quarter-wave fold); the
+%                      reference wave b is iterated as for measI.  Ideal
+%                      metasurface: each channel is the scalar sensor with
+%                      its own dimple sign (dmg_zwfs_gauge:V, 2026-09-11).
+%                      ZW.frameV(M) -> [Ip, Im]; ZW.reconV(Ip, Im, I0, b0,
+%                      niter); ZW.solveV -> [phi, info] (info.rcons = rms
+%                      of the amplitude-consistency |cos^2+sin^2 - 1|).
 %     ZW.steppedX(M)   rank-2 phase-stepped complex retrieval X (S2b:
 %                      |c|^2 = -2 Re(c) identically, so depth steps give
 %                      TWO observables/px; |Eb|^2 from the one-time
@@ -44,6 +57,8 @@ Iw = If(rows, cols);
 ctr = [sum(sum(Iw,1).*cols)/sum(Iw(:)), sum(sum(Iw,2).'.*rows)/sum(Iw(:))];
 [V, D] = zwfs_mask(N_WF, dx_mask_m*1e3, dia_mm, opt.PHI_M, ctr);
 cc = exp(1i*opt.PHI_M) - 1;
+Vm = zwfs_mask(N_WF, dx_mask_m*1e3, dia_mm, -opt.PHI_M, ctr);     % the -phi channel (vector reading)
+ccm = exp(-1i*opt.PHI_M) - 1;
 macos.intensity(iMASK);  macos.apodize_complex(iMASK, D);
 Ebf = macos.complex_field(iDET, 'reset_trace', false);
 b2cal = abs(Ebf).^2;
@@ -88,7 +103,7 @@ if iMASK > 1
 else
     gate.roundtrip = NaN;
 end
-C = struct('E0',E0f, 'Eb0',Ebf, 'cc',cc, 'msk',msk, 'N_WF',N_WF, ...
+C = struct('E0',E0f, 'Eb0',Ebf, 'cc',cc, 'ccm',ccm, 'msk',msk, 'N_WF',N_WF, ...
            'NITER',NITER, 'bsur',bsur, 'S_CONV',S_CONV, 'LAM',LAM);
 
 ZW = struct();
@@ -118,6 +133,73 @@ ZW.plusFromX = @(X) plusFromX_(X, C);
 % the REFINED prior: stepped frames of the same state re-solved with the
 % iterated reading's own |b|^2 (the 'I+' definition since zwfs_s7iter)
 ZW.priorS   = @(Ia, Fr, varargin) priorS_(Ia, Fr, C, M2i, varargin{:});   % (Ia, Fr, nref) -> [plus, info]
+% ---- vector (polarized-dimple) reading: the +phi / -phi image pair -----
+ZW.Vm = Vm;  ZW.ccm = ccm;
+ZW.frameV   = @(M) frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF);        % -> [Ip, Im]
+ZW.reconV   = @(Ip, Im, varargin) reconV_(Ip, Im, C, varargin{:});   % (Ip, Im, I0, b0, niter)
+ZW.solveV   = @(Ip, Im, varargin) solveV_(Ip, Im, C, varargin{:});   % -> [phi, info]
+ZW.measV    = @(M) measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C);
+end
+
+% ---- vector reading: frames + solve ------------------------------------
+function [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF) %#ok<INUSD>
+% the two pupil images of one DM state: +phi dimple (== frameL's frame)
+% and -phi dimple, from the same trace
+macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
+macos.intensity(iMASK);
+macos.apodize_complex(iMASK, V);
+Ip = abs(macos.complex_field(iDET, 'reset_trace', false)).^2;
+macos.intensity(iMASK);
+macos.apodize_complex(iMASK, Vm);
+Im = abs(macos.complex_field(iDET, 'reset_trace', false)).^2;
+end
+
+function h = measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C)
+[Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF);
+h = reconV_(Ip, Im, C);
+end
+
+function [h, info] = reconV_(Ip, Im, C, varargin)
+[phi, info] = solveV_(Ip, Im, C, varargin{:});
+h = C.S_CONV*phi*C.LAM/(4*pi);
+end
+
+function [phi, info] = solveV_(Ip, Im, C, I0, b0, niter)
+%SOLVEV_  Per-pixel exact solve from the +phi / -phi image pair.
+%   Same model as solveI_ for each image, I+- = |E + c+- b|^2 with
+%   c- = conj(c+) (a real dimple phase of either sign), so with
+%   x+- = (I+- - A^2 - |c|^2|b|^2) / (2 A |c| |b|) = cos(u -/+ tc),
+%   u = phi - (arg b - th0), tc = arg c+:
+%       cos u = (x+ + x-) / (2 cos tc),   sin u = (x+ - x-) / (2 sin tc),
+%   u = atan2(sin u, cos u): the full circle, no branch, no clamp.  b is
+%   iterated from the estimate as in solveI_ (NITER; 0 = frozen b).
+%   info: dphi (rms update per iteration), rcons (rms of sqrt(cos^2 +
+%   sin^2) - 1 on msk: the two images' consistency with the model; 0 for
+%   an exact model), b (final).
+if nargin < 4, I0 = []; end
+if nargin < 5 || isempty(b0), b0 = C.Eb0; end
+if nargin < 6 || isempty(niter), niter = C.NITER; end
+N = C.N_WF;  m = C.msk;
+wrap = @(p) atan2(sin(p), cos(p));
+if isempty(I0), A = abs(C.E0); else, A = sqrt(max(I0, 0)); end
+th0 = angle(C.E0);  ac = abs(C.cc);  tc = angle(C.cc);
+b = b0;  phi = zeros(N);
+info = struct('dphi', zeros(1, niter+1), 'rcons', zeros(1, niter+1));
+for it = 0:niter
+    den = max(2*A.*ac.*abs(b), realmin);
+    xp = (Ip - A.^2 - ac^2*abs(b).^2) ./ den;
+    xm = (Im - A.^2 - ac^2*abs(b).^2) ./ den;
+    cu = (xp + xm) / (2*cos(tc));  su = (xp - xm) / (2*sin(tc));
+    r = hypot(cu, su);  info.rcons(it+1) = sqrt(mean((r(m) - 1).^2));
+    ph = wrap(atan2(su, cu) + angle(b) - th0);
+    ph(~m) = 0;
+    info.dphi(it+1) = sqrt(mean((ph(m) - phi(m)).^2));
+    phi = ph;
+    if it < niter
+        b = C.bsur(A .* exp(1i*(th0 + phi)));
+    end
+end
+info.b = b;
 end
 
 function plus = plusFromX_(X, C)
