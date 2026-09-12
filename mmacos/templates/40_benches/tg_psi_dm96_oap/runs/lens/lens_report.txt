@@ -19,36 +19,55 @@ Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
 Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/lens_tail.mat (null 0.134 nm at opt res; seed 9.100)
 Stage B -- lens rig built (BS_AOI 7); emitted lens_{test,ref}.in
 
-Stage C -- battery (design azimuths, unaligned):
-  arm azimuths: test -44.8566, ref +45.0000 -> departure +0.1434 deg
-  null: 0.1345 nm rms surface (134.5 pm) with nothing aligned
-  20 nm piston: |gain| 1.00145 (unaligned scale error +0.145%)
-  single actuator at 150 nm: recovered peak 146.1 nm
-  registration: parity 5 of 8, meas sign -1; |pokeB corr| 0.9341 (runner-up 0.0021)
-  96x96 closure: truth 6.409, measured 6.031, residual 6.006 nm rms, corr 0.535262
-  registration: mag 9.8793, anamorphism 0.00%, nonlinearity 0.1360 mm
-
-Stage D -- transfer curve (Nyquist 48 cyc/pupil):
+Stage PLACE -- affine window placement (lens rig):
+  ray affine: mag 9.8793 DM-mm/det-mm, det 97.6015, in-plane rotation -180.00 deg, dxd 2.0054e-02 mm
+  anchor: blob px (495.50,490.53) <-> DM (-3.500,-4.620) mm; field parity [t=1 su=-1 sv=-1] (ref-poke err 2.84 px)
+  lit actuators: 3228 of 9216
+  bootstrap (ray affine): 73.48% within 2 px, median 1.27 px (396 of 396 blobs caught)
+  fit residual: affine 0.08 px, deg-2 0.08 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 396 CoMs): fit residual 0.08 px
+  refined pass 2 (deg-1, 396 of 396 caught): fit residual 0.08 px, gate 100.00% within 2 px, median 0.07 px
+  D1 GATE: 100.00% of lit within 2 px (need >= 99.0%), median err 0.07 px
+  by radius (mm):           6.4   12.8   19.2   25.6   32.0 
+    within2px    1.00   1.00   1.00   1.00   1.00 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.00 
+  ray-affine SVD: DM-mm/det-mm 9.879 / 9.879, anamorphism 0.00%, principal axis +90.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map): 100.00% within 2 px -- VACUOUS on the lens (its mapping is axis-aligned)
+Stage MATRIX -- measured response matrix dw/da (lens rig, step 8, sign same):
+  flat-DM null: 0.1345 nm rms surface (134.5 pm) [tail expects 0.1343] -- the same-plane-fold arm difference
+  J: 64 states, 3228 columns (lit), window 41 px, reg lambda 1.00e-03 (of median col energy)
+  Stage C single actuator @150nm: gain 0.9968, off-target floor 98.8 pm
+Stage D -- modal transfer (matrix estimator):
   mode(p,q)  cyc/pup     gain  cross-talk
-    1,1          0.7   1.0184      0.0018
-    2,2          1.4   1.0060      0.0093
-    4,4          2.8   1.0003      0.0296
-    8,8          5.7   0.9984      0.0145
-   16,16        11.3   0.9845      0.0130
-   24,24        17.0   0.9604      0.0176
-   32,32        22.6   0.9311      0.0222
-   48,48        33.9   0.8509      0.0227
-   64,64        45.3   0.7433      0.0067
-   80,80        56.6   0.6052      0.0040
-   96,96        67.9   0.5039      0.0138
-   48,0         24.0   0.9013      0.0100
-  held-out random: 11.8914 nm rms resid (input 30.59, resid/truth corr -0.21)
-
-Stage E -- differential rows (deviation about a working state):
-  base         deviation          gain   resid pm     corr
-  flat         single 10nm      0.9654       21.0   0.9906
-  flat         random 10nm      0.9203     2293.3   0.9264
-  random 16nm  single 10nm      0.9772       23.5   0.9886
-  random 16nm  random 10nm      0.9209     2298.7   0.9262
+    1,1          0.7   0.9877      0.0049
+    2,2          1.4   0.9908      0.0028
+    4,4          2.8   0.9884      0.0065
+    8,8          5.7   0.9887      0.0049
+   16,16        11.3   0.9886      0.0090
+   24,24        17.0   0.9888      0.0158
+   32,32        22.6   0.9889      0.0284
+   48,48        33.9   0.9895      0.0563
+   64,64        45.3   0.9909      0.0048
+   80,80        56.6   0.9848      0.0043
+   96,96        67.9   0.9639      0.0106
+   48,0         24.0   0.9918      0.0621
+Stage E -- differential rows (matrix estimator; actuator space, pm):
+  base           deviation          gain   resid pm     corr
+  flat           single 10nm      0.9916        2.2   1.0000
+  flat           random 10nm      0.9893      169.2   0.9999
+  random 16nm    single 10nm      0.9969        2.7   0.9999
+  random 16nm    random 10nm      0.9894      231.3   0.9998
+Stage E break ladder -- single 10nm differential vs base rms (lens):
+  base rms       gain   floor pm     corr  note
+      30 nm   1.0013        4.5   0.9997  
+      60 nm   1.0103        9.3   0.9987  
+     120 nm   1.0258       19.3   0.9946  
+     240 nm   1.9271      394.0   0.6872  
+     480 nm   1.5849      419.1   0.5661  
+Stage E reg sweep -- dense random 10nm gain vs matrix_lam (bright vs dark 25% columns):
+  lambda          all   bright     dark
+  1e-03        0.9893   0.9890   0.9906
+  1e-04        0.9944   0.9941   0.9953
+  1e-05        0.9949   0.9946   0.9958
 
 wrote lens_report.txt + lens.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/lens
