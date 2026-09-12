@@ -33,10 +33,20 @@ function L = dmg_loop(ins, opt)
 %
 %   ins -- the instrument (function handles; any frame type):
 %     ins.measure(cmd)         frames of the DM at command cmd, NOISELESS
-%     ins.noisy(F, nph, seed)  the frames with photon noise for nph photons
+%     ins.noisy(F, nph, seed [, cam])
+%                              the frames with photon noise for nph photons
 %                              per measurement (one DM shape measured once;
 %                              the reading's frames share it);
-%                              nph = Inf returns F unchanged
+%                              nph = Inf returns F unchanged.  When the loop
+%                              runs a CAMERA drift (opt.cam) it passes cam =
+%                              struct('o', 'd'): the detector's additive
+%                              offset at the start of this measurement's
+%                              scan and its increment over the scan, in
+%                              ELECTRONS per pixel (ins.npix x ins.npix);
+%                              the instrument adds o + (j-1)/(nf-1) d to its
+%                              j-th frame (nf frames), converted to frame
+%                              units by its own photon scale
+%     ins.npix                 (with opt.cam) the camera's side, pixels
 %     ins.diff(F1, F0)         the reading's differential map, F1 minus F0
 %     ins.est(map)             actuator-space estimate (nact x nact) of a map
 %     ins.lit                  logical nact x nact: the actuators scored
@@ -63,6 +73,24 @@ function L = dmg_loop(ins, opt)
 %             est call per cycle)                                [true if nph finite]
 %     .rmax   residual rms above which the loop is declared DIVERGED and
 %             stopped (the remaining cycles NaN; L.diverged true)   [Inf]
+%     .cam    CAMERA 1/f drift (Dube et al. 2024: Roman LOWFS's error budget
+%             is dominated by internal camera drift, ~1 electron per pixel
+%             over 12 h, which temporal PSI high-pass filters because its
+%             weights sum to zero within a scan): struct
+%               .walk   electrons per pixel per CYCLE, the rms increment of
+%                       a per-pixel random-walk offset (the 1/f model at
+%                       the loop's time scale)                       [0 = off]
+%               .intra  fraction of the next increment that develops WITHIN
+%                       a measurement's scan (frame to frame; 0 = the
+%                       offset is constant within a scan, so a zero-sum
+%                       reading is exactly immune; 1 = the whole step
+%                       develops across the frames)                  [0]
+%               .seed   its own stream                        [opt.seed + 1]
+%             The offset walks on the full ins.npix^2 camera; the reference
+%             frames carry the offset at cycle 0 when .ref is 'noisy', none
+%             when 'noiseless' (a calibration-grade reference), so a
+%             reading that is NOT immune sees o_k - o_0, a random walk it
+%             imprints on the DM
 %   L -- the record (surface units are the instrument's; ZWFS = mm):
 %     .rms      1 x K residual rms over lit at each cycle
 %     .ss       steady-state rms: root mean square of .rms over the last nss cycles
@@ -83,7 +111,9 @@ function L = dmg_loop(ins, opt)
 %     .diverged true when the residual exceeded opt.rmax (scores then use
 %               the cycles that ran); .k_end the last cycle run
 %     .r_final  the last residual map; .cmd the last command; .drift_rms
-%               per-cycle rms over lit of the drift increments; .nstates
+%               per-cycle rms over lit of the drift increments; .cam_rms
+%               per-cycle rms of the camera offset (electrons; NaN when
+%               off); .nstates
 %               states measured (K + 1 reference); .opt the options used
 %
 %   Cost: K + 1 instrument states (the reference plus one per cycle), each
@@ -92,7 +122,8 @@ function L = dmg_loop(ins, opt)
 % ---- options ------------------------------------------------------------
 lit = logical(ins.lit);  nact = size(lit, 1);
 o = struct('A0', zeros(nact), 'g', 0.5, 'K', 60, 'nph', Inf, 'seed', 1, ...
-           'drift', struct('kind', 'none'), 'ref', 'noiseless', 'nss', [], 'track_noise', [], 'rmax', Inf);
+           'drift', struct('kind', 'none'), 'ref', 'noiseless', 'nss', [], 'track_noise', [], 'rmax', Inf, ...
+           'cam', struct('walk', 0, 'intra', 0, 'seed', []));
 if nargin > 1
     fn = fieldnames(opt);
     for i = 1:numel(fn), o.(fn{i}) = opt.(fn{i}); end
@@ -125,16 +156,33 @@ switch dr.kind
         error('dmg_loop: drift.kind must be none | walk | thermal | step');
 end
 o.drift = dr;
+cm = o.cam;
+if ~isfield(cm, 'walk') || isempty(cm.walk), cm.walk = 0; end
+if ~isfield(cm, 'intra') || isempty(cm.intra), cm.intra = 0; end
+if ~isfield(cm, 'seed') || isempty(cm.seed), cm.seed = o.seed + 1; end
+o.cam = cm;
+camon = cm.walk > 0;
+if camon
+    assert(isfield(ins, 'npix') && ~isempty(ins.npix), 'dmg_loop: opt.cam needs ins.npix (the camera side, pixels)');
+    sc = RandStream('mt19937ar', 'Seed', cm.seed);           % the camera stream
+    np = ins.npix;  ocam = zeros(np);                         % the offset at cycle 0
+    camstep = @() cm.walk * randn(sc, np);
+    dnext = camstep();                                        % the increment that develops over cycle 1
+    camarg = @(oo, dd) {struct('o', oo, 'd', cm.intra*dd)};
+else
+    camarg = @(oo, dd) {};
+    ocam = [];  dnext = [];
+end
 
 % ---- the reference (set point) --------------------------------------------
 Fref = ins.measure(o.A0);
 nseed = @(k) double(mod(uint64(o.seed)*100003 + 7919 + uint64(k), 2^32));   % per-cycle noise seed
-if strcmp(o.ref, 'noisy'), Fref = ins.noisy(Fref, o.nph, nseed(0)); end
+if strcmp(o.ref, 'noisy'), ca = camarg(ocam, dnext);  Fref = ins.noisy(Fref, o.nph, nseed(0), ca{:}); end
 nstates = 1;
 
 % ---- the loop -----------------------------------------------------------
 cmd = o.A0;  dist = zeros(nact);
-rms = nan(1, o.K);  drms = nan(1, o.K);  en = nan(1, o.K);  enu = nan(1, o.K);
+rms = nan(1, o.K);  drms = nan(1, o.K);  en = nan(1, o.K);  enu = nan(1, o.K);  crms = nan(1, o.K);
 R = zeros(nact, nact, o.nss);  nR = 0;                       % residual maps of the tail
 diverged = false;  k_end = o.K;
 for k = 1:o.K
@@ -143,7 +191,8 @@ for k = 1:o.K
     if rms(k) > o.rmax, diverged = true;  k_end = k;  break; end
     if k > o.K - o.nss, nR = nR + 1;  R(:,:,nR) = r; end
     F = ins.measure(s);  nstates = nstates + 1;
-    Fn = ins.noisy(F, o.nph, nseed(k));
+    if camon, ocam = ocam + dnext;  dnext = camstep();  crms(k) = sqrt(mean(ocam(:).^2)); end    % the offset at this cycle's scan
+    ca = camarg(ocam, dnext);  Fn = ins.noisy(F, o.nph, nseed(k), ca{:});
     a = ins.est(ins.diff(Fn, Fref));
     if o.track_noise
         a0 = ins.est(ins.diff(F, Fref));  e = a - a0;
@@ -153,7 +202,7 @@ for k = 1:o.K
 end
 
 % ---- scores ---------------------------------------------------------------
-L = struct('rms', rms, 'drift_rms', drms, 'nstates', nstates, 'opt', o, 'diverged', diverged, 'k_end', k_end);
+L = struct('rms', rms, 'drift_rms', drms, 'cam_rms', crms, 'nstates', nstates, 'opt', o, 'diverged', diverged, 'k_end', k_end);
 if diverged
     tail = max(1, k_end-o.nss+1):k_end;  R = R(:,:,1:max(nR,1));   % what ran
 else

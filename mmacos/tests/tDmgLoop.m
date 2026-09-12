@@ -28,6 +28,13 @@ classdef tDmgLoop < matlab.unittest.TestCase
 %     G6  Parseval: the spectrum's bands sum to the steady-state mean square
 %     G7  a reading with NEGATIVE gain diverges at (1 + g|G|) per cycle and
 %         the guard (opt.rmax) stops the run and flags it
+%     G8  CAMERA drift (opt.cam, 2026-09-12): a per-pixel offset random-
+%         walking between cycles.  A zero-sum two-frame reading (frames
+%         +F + B and -F + B, read as their half difference) is EXACTLY
+%         immune (its run with the drift equals its run without, same
+%         seeds); a single-frame reading imprints o_k - o_0 on the DM (its
+%         steady-state rms grows above its noise floor and its bias map
+%         tracks minus the camera walk through the estimator)
 
     properties (Constant)
         NACT = 24
@@ -77,6 +84,29 @@ classdef tDmgLoop < matlab.unittest.TestCase
                 randn(RandStream('mt19937ar', 'Seed', seed), size(F));
             ins.diff = @(F1, F0) F1 - F0 + bias;
             ins.est = @(m) est_local(m, Jp_, G, il, n);
+        end
+
+        function ins = mkins_cam(testCase, immune)
+            % instruments for the camera-drift gate (G8): frames in PHOTON
+            % units (1 electron = 1 frame unit), noisy adds shot noise and the
+            % camera offset.  immune = false: one frame, diff = F1 - F0.
+            % immune = true: two frames [+F + B, -F + B] with a bias B (the
+            % phase-step analog), diff = half their difference, the offset
+            % common to the scan (intra 0) cancels exactly.
+            J_ = testCase.J;  Jp_ = testCase.Jp;  lit_ = testCase.lit;  n = testCase.NACT;  np = testCase.NPIX;
+            il = find(lit_);  s0 = testCase.SIG0;  B = 5e-5;
+            ins.lit = lit_;  ins.npix = np;
+            sh = @(F, nph, rs) F + (isfinite(nph)) * s0/sqrt(nph/1e12) * randn(rs, size(F));
+            if immune
+                ins.measure = @(cmd) [J_*cmd(il) + B, -J_*cmd(il) + B];
+                ins.noisy = @(F, nph, seed, varargin) noisy2(F, nph, seed, sh, np, varargin{:});
+                ins.diff = @(F1, F0) (F1(:,1) - F1(:,2))/2 - (F0(:,1) - F0(:,2))/2;
+            else
+                ins.measure = @(cmd) J_*cmd(il) + B;
+                ins.noisy = @(F, nph, seed, varargin) noisy1(F, nph, seed, sh, np, varargin{:});
+                ins.diff = @(F1, F0) F1 - F0;
+            end
+            ins.est = @(m) est_local(m, Jp_, 1, il, n);
         end
         function s = sig_single(testCase, nph, nshot)
             % independent single-shot noise: rms over lit of est(noise) over nshot shots
@@ -191,6 +221,22 @@ classdef tDmgLoop < matlab.unittest.TestCase
             testCase.verifyFalse(L0.diverged, 'the unit-gain reading on the same options does not trip the guard');
         end
 
+        function test_G8_camera_drift_zero_sum_reading_immune_single_frame_not(testCase)
+            o = struct('g', 0.5, 'K', 40, 'nph', 1e13, 'seed', 5, 'drift', struct('kind', 'none'));
+            oc = o;  oc.cam = struct('walk', 2e-6, 'intra', 0);          % electrons = map units here
+            im0 = dmg_loop(testCase.mkins_cam(true), o);
+            im1 = dmg_loop(testCase.mkins_cam(true), oc);
+            testCase.verifyEqual(im1.rms, im0.rms, 'RelTol', 1e-10, ...
+                'a zero-sum reading must not see a within-scan-constant camera offset');
+            sf0 = dmg_loop(testCase.mkins_cam(false), o);
+            sf1 = dmg_loop(testCase.mkins_cam(false), oc);
+            testCase.verifyGreaterThan(sf1.ss, 3*sf0.ss, 'the single-frame reading must imprint the camera walk');
+            % the imprint IS the camera walk through the estimator: the bias
+            % map over the tail tracks minus est(o_k - o_0)
+            testCase.verifyTrue(isfield(sf1, 'cam_rms') && sf1.cam_rms(end) > 0, 'the record carries the camera walk');
+            testCase.verifyGreaterThan(sf1.bias, 3*sf0.bias);
+        end
+
         function test_G6_spectrum_bands_sum_to_the_steady_state(testCase)
             o = struct('g', 0.5, 'K', 200, 'nph', 1e12, 'seed', 8, 'drift', struct('kind', 'walk', 'sigma', 2e-6));
             L = dmg_loop(testCase.ins, o);
@@ -199,6 +245,21 @@ classdef tDmgLoop < matlab.unittest.TestCase
             testCase.verifyEqual(sqrt(sum(rb.^2)), L.ss, 'RelTol', 1e-10, 'Parseval over the radial bins');
         end
     end
+end
+
+function Fn = noisy1(F, nph, seed, sh, np, cam)
+rs = RandStream('mt19937ar', 'Seed', seed);
+Fn = sh(F, nph, rs);
+if nargin >= 6 && ~isempty(cam), Fn = Fn + reshape(cam.o, np*np, 1); end
+end
+
+function Fn = noisy2(F, nph, seed, sh, np, cam)
+rs = RandStream('mt19937ar', 'Seed', seed);
+Fn = [sh(F(:,1), nph/2, rs), sh(F(:,2), nph/2, rs)];
+if nargin >= 6 && ~isempty(cam)
+    o = reshape(cam.o, np*np, 1);  d = reshape(cam.d, np*np, 1);
+    Fn = Fn + [o, o + d];                                    % frame 2 gets the within-scan increment
+end
 end
 
 function a = est_local(m, Jp, G, il, n)
