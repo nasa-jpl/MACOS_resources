@@ -41,9 +41,31 @@ function ZW = dmg_zwfs_gauge(iTO, iMASK, iDET, opt)
 %             cc, bsur (the surrogate b operator), gate (roundtrip,
 %             bsur = surrogate-vs-engine Eb on msk)
 %   opt fields: LAM, F2 (mask-leg focal, mm), R_BEAM (mm), DIA_LAMD,
-%   PHI_M, PHIS (3 depths), S_CONV, NITER (default 5).  Requires zwfs_mask
-%   on the path (run from zwfs_dm96/).  L/S verbatim from zwfs_s3 @
-%   10cf593; the iterated reading added 2026-09-09 (zwfs_s7iter).
+%   PHI_M, PHIS (3 depths), S_CONV, NITER (default 5); V2: V_RET_ERR,
+%   V_LEAK_PHASE, V_CAL ('ideal' | 'fit' | 'map'); V3: V_ARM ('none' |
+%   'engine' | 'synthetic' | a struct with qL, qR), V_LASER_DEG,
+%   V_ARM_DPHASE, V_ARM_DAMP.  Requires zwfs_mask on the path (run from
+%   zwfs_dm96/).  L/S verbatim from zwfs_s3 @ 10cf593; the iterated
+%   reading added 2026-09-09 (zwfs_s7iter).
+%
+% V3 (2026-09-12): the ARM's polarization aberration per channel.  The
+% metasurface converts L -> R with the +phi dimple and R -> L with -phi, so
+% the two images are of DIFFERENT pupil fields, qL.*E and qR.*E, where
+% qL, qR are the laser state's circular components through the arm's Jones
+% pupil (dmg_arm_maps: the engine's two polarized vector traces, common
+% scalar stripped, normalized to the ideal 50/50 split; or synthetic
+% astigmatic maps of a given rms: V_ARM_DPHASE rad of differential PHASE
+% between the channels -- the diattenuation-type term -- and V_ARM_DAMP of
+% differential AMPLITUDE -- the retardance-type term).  Frames: each
+% channel's pupil map is applied at the mask sandwich's entrance sphere
+% (identical to the detector field, gate G1) and the dimple follows -- the
+% engine's chained apodization, gated against the surrogate.  With
+% retardance error the leaked (unconverted) light in one output channel
+% comes from the OTHER input channel: I+ = |sqrt(eta)(qL E)_masked +
+% sqrt(1-eta) e^{i alpha} qR E|^2, and vice versa.  The solver carries
+% per-channel constants kappa+, kappa- (V_CAL 'fit': fitted on the flat's
+% two images, 5 real parameters) or the true maps (V_CAL 'map': a
+% polarimetrically calibrated bench); 'ideal' prices an uncalibrated one.
 LAM = opt.LAM;  PHIS = opt.PHIS;  S_CONV = opt.S_CONV;
 if isfield(opt, 'NITER'), NITER = opt.NITER; else, NITER = 5; end
 % V2 (2026-09-12): a REAL geometric-phase metasurface has retardance pi +
@@ -61,6 +83,11 @@ if isfield(opt, 'V_RET_ERR'),    vre = opt.V_RET_ERR; end
 if isfield(opt, 'V_LEAK_PHASE'), vla = opt.V_LEAK_PHASE; end
 if isfield(opt, 'V_CAL'),        vcal = opt.V_CAL; end
 eta_true = cos(vre/2)^2;  leak = struct('eta', eta_true, 'alpha', vla);
+varm = 'none';  vlaser = 45;  vdph = 0;  vdam = 0;
+if isfield(opt, 'V_ARM'),        varm = opt.V_ARM; end
+if isfield(opt, 'V_LASER_DEG'),  vlaser = opt.V_LASER_DEG; end
+if isfield(opt, 'V_ARM_DPHASE'), vdph = opt.V_ARM_DPHASE; end
+if isfield(opt, 'V_ARM_DAMP'),   vdam = opt.V_ARM_DAMP; end
 E0f = macos.complex_field(iDET);  N_WF = size(E0f,1);
 dx_mask_m = abs(macos.dx_at(iMASK));
 lamD_mm = LAM*opt.F2/(2*opt.R_BEAM);  dia_mm = opt.DIA_LAMD*lamD_mm;
@@ -118,9 +145,40 @@ if iMASK > 1
 else
     gate.roundtrip = NaN;
 end
+% ---- V3: the arm's per-channel pupil maps -----------------------------
+arm = struct('mode', 'none', 'qL', [], 'qR', [], 'info', struct());
+if isstruct(varm)
+    arm.mode = 'given';  arm.qL = varm.qL;  arm.qR = varm.qR;
+elseif strcmp(varm, 'engine')
+    arm.mode = 'engine';
+    [arm.qL, arm.qR, arm.info] = dmg_arm_maps(iMASK-1, msk, vlaser);   % at the sandwich's entrance sphere: every arm optic, not the mask or the field lens
+elseif strcmp(varm, 'synthetic')
+    arm.mode = 'synthetic';
+    [cy, cx] = find(msk);  c0 = [mean(cx) mean(cy)];
+    [XX, YY] = meshgrid(1:N_WF, 1:N_WF);
+    rr = hypot(XX - c0(1), YY - c0(2));  rr = rr / prctile(rr(msk), 99);
+    Z = rr.^2 .* cos(2*atan2(YY - c0(2), XX - c0(1)));  Z = Z / std(Z(msk));   % astigmatic, unit rms on msk
+    dph = vdph*Z;  dam = vdam*Z;
+    arm.qL = (1 - dam/2) .* exp(-1i*dph/2);  arm.qR = (1 + dam/2) .* exp(+1i*dph/2);
+    arm.qL(~msk) = 1;  arm.qR(~msk) = 1;
+    arm.info = struct('dphase_rms', vdph, 'damp_rms', vdam);
+elseif ~strcmp(varm, 'none')
+    error('dmg_zwfs_gauge: V_ARM must be ''none'', ''engine'', ''synthetic'' or a struct with qL, qR');
+end
+if ~strcmp(arm.mode, 'none')
+    % the chained apodization (pupil map at iMASK-1, dimple at iMASK) must
+    % reproduce the plain frame with a unit map and the surrogate with the
+    % channel map: the frames of the vector reading go through it
+    I1 = chain_(zeros(macos.get_elt_grid_size(iTO)), ones(N_WF), V, iTO, iMASK, iDET);
+    gate.chain = nrm(abs(I1).^2 - I_flat) / nrm(I_flat);
+    Eq = arm.qL .* E0f;
+    IL = chain_(zeros(macos.get_elt_grid_size(iTO)), arm.qL, V, iTO, iMASK, iDET);
+    gate.chain_sur = nrm((abs(IL).^2 - abs(Eq + cc*bsur(Eq)).^2).*msk) / nrm(abs(Eq + cc*bsur(Eq)).^2.*msk);
+end
 C = struct('E0',E0f, 'Eb0',Ebf, 'cc',cc, 'ccm',ccm, 'msk',msk, 'N_WF',N_WF, ...
            'NITER',NITER, 'bsur',bsur, 'S_CONV',S_CONV, 'LAM',LAM, ...
-           'kap', 1, 'eta', 1);                       % the solver's metasurface model (ideal)
+           'kapP', 1, 'kapM', 1, 'eta', 1, 'qL', [], 'qR', [], ...     % the solver's model: ideal metasurface, ideal arm
+           'EbP0', Ebf, 'EbM0', Ebf);                                   % per-channel flat reference waves
 
 ZW = struct();
 ZW.msk = msk;  ZW.den = den;  ZW.I_flat = I_flat;  ZW.b2cal = b2cal;
@@ -150,22 +208,38 @@ ZW.plusFromX = @(X) plusFromX_(X, C);
 % iterated reading's own |b|^2 (the 'I+' definition since zwfs_s7iter)
 ZW.priorS   = @(Ia, Fr, varargin) priorS_(Ia, Fr, C, M2i, varargin{:});   % (Ia, Fr, nref) -> [plus, info]
 % ---- vector (polarized-dimple) reading: the +phi / -phi image pair -----
-ZW.Vm = Vm;  ZW.ccm = ccm;  ZW.leak = leak;
-ZW.frameV   = @(M) frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak);  % -> [Ip, Im]
-ZW.calV     = @(Ip, Im) calV_(Ip, Im, C);                            % -> [kap, eta, info]: the flat's images
-if strcmp(vcal, 'fit')
-    % calibrate the metasurface on the FLAT DM (what a bench does): fit
-    % kappa (complex) and eta from the flat's two images
-    [Ipf, Imf] = frameV_(zeros(macos.get_elt_grid_size(iTO)), iTO, iMASK, iDET, V, Vm, N_WF, leak);
-    [C.kap, C.eta, ZW.calV_info] = calV_(Ipf, Imf, C);
-elseif ~strcmp(vcal, 'ideal')
-    error('dmg_zwfs_gauge: V_CAL must be ''ideal'' or ''fit''');
+ZW.Vm = Vm;  ZW.ccm = ccm;  ZW.leak = leak;  ZW.arm = arm;
+ZW.v_scalar_equiv = (eta_true == 1) && strcmp(arm.mode, 'none');   % the +phi image IS the scalar frame
+ZW.frameV   = @(M) frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm);  % -> [Ip, Im]
+ZW.calV     = @(Ip, Im) calV_(Ip, Im, C);                            % -> [kapP, kapM, eta, info]: the flat's images
+kap_true = sqrt(eta_true) + sqrt(1-eta_true)*exp(1i*vla);
+switch vcal
+    case 'ideal'
+    case 'fit'
+        % calibrate on the FLAT DM (what a bench does): fit the per-channel
+        % constants kappa+, kappa- (complex) and eta from the flat's two images
+        [Ipf, Imf] = frameV_(zeros(macos.get_elt_grid_size(iTO)), iTO, iMASK, iDET, V, Vm, N_WF, leak, arm);
+        [C.kapP, C.kapM, C.eta, ZW.calV_info] = calV_(Ipf, Imf, C);
+    case 'map'
+        % the solver is told the truth: the arm maps and the metasurface
+        % constants (a polarimetrically calibrated bench)
+        C.eta = eta_true;
+        if strcmp(arm.mode, 'none')
+            C.kapP = kap_true;  C.kapM = kap_true;
+        else
+            lk = sqrt(1-eta_true)*exp(1i*vla);  se = sqrt(eta_true);
+            C.qL = arm.qL;  C.qR = arm.qR;
+            C.kapP = se*arm.qL + lk*arm.qR;  C.kapM = se*arm.qR + lk*arm.qL;
+            C.EbP0 = bsur(arm.qL .* E0f);  C.EbM0 = bsur(arm.qR .* E0f);
+        end
+    otherwise
+        error('dmg_zwfs_gauge: V_CAL must be ''ideal'', ''fit'' or ''map''');
 end
-ZW.vcal = struct('mode', vcal, 'kap', C.kap, 'eta', C.eta, 'eta_true', eta_true, ...
-                 'kap_true', sqrt(eta_true) + sqrt(1-eta_true)*exp(1i*vla));
+ZW.vcal = struct('mode', vcal, 'kapP', C.kapP, 'kapM', C.kapM, 'eta', C.eta, 'eta_true', eta_true, ...
+                 'kap_true', kap_true);
 ZW.reconV   = @(Ip, Im, varargin) reconV_(Ip, Im, C, varargin{:});   % (Ip, Im, I0, b0, niter)
 ZW.solveV   = @(Ip, Im, varargin) solveV_(Ip, Im, C, varargin{:});   % -> [phi, info]
-ZW.measV    = @(M) measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C);
+ZW.measV    = @(M) measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C, leak, arm);
 % differential height between two states, the phase DIFFERENCE wrapped
 % (as stepdiff does): the absolute maps wrap at +-pi individually, so on a
 % large working surface a differential of two maps carries 2 pi jumps
@@ -179,12 +253,17 @@ d = C.S_CONV * atan2(sin(p1 - p0), cos(p1 - p0)) * C.LAM/(4*pi);
 end
 
 % ---- vector reading: frames + solve ------------------------------------
-function [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak) %#ok<INUSD>
+function [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm) %#ok<INUSD>
 % the two pupil images of one DM state: +phi dimple (== frameL's frame
 % when the metasurface is ideal) and -phi dimple, from the same trace.
-% With retardance error (leak.eta < 1) each channel is the COHERENT sum
-% sqrt(eta) E_masked + sqrt(1-eta) e^{i alpha} E_unmasked (linear laser).
+% With retardance error (leak.eta < 1) each output channel is the COHERENT
+% sum sqrt(eta) E_masked + sqrt(1-eta) e^{i alpha} E_unmasked (linear
+% laser).  With arm maps (V3) the +phi channel's masked light is the L
+% input's, qL.*E, its leaked light the R input's, qR.*E (unconverted, no
+% dimple), and vice versa; the maps are applied at the sandwich's entrance
+% sphere before the dimple (chain_).
 if nargin < 8 || isempty(leak), leak = struct('eta', 1, 'alpha', 0); end
+if nargin < 9 || isempty(arm), arm = struct('mode', 'none', 'qL', [], 'qR', []); end
 macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
 if leak.eta < 1
     E0s = macos.complex_field(iDET);                       % the state's unmasked field
@@ -192,28 +271,45 @@ if leak.eta < 1
 else
     E0s = 0;  lk = 0;  se = 1;
 end
-macos.intensity(iMASK);
-macos.apodize_complex(iMASK, V);
-Ip = abs(se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s).^2;
-macos.intensity(iMASK);
-macos.apodize_complex(iMASK, Vm);
-Im = abs(se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s).^2;
+if strcmp(arm.mode, 'none')
+    macos.intensity(iMASK);
+    macos.apodize_complex(iMASK, V);
+    Ip = abs(se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s).^2;
+    macos.intensity(iMASK);
+    macos.apodize_complex(iMASK, Vm);
+    Im = abs(se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s).^2;
+else
+    Ip = abs(se*chain_(M, arm.qL, V,  iTO, iMASK, iDET) + lk*arm.qR.*E0s).^2;
+    Im = abs(se*chain_(M, arm.qR, Vm, iTO, iMASK, iDET) + lk*arm.qL.*E0s).^2;
+end
 end
 
-function [kap, eta, info] = calV_(Ip, Im, C)
-% fit the metasurface constants on the flat DM's two images: model
-% I+- = |kappa E0 + sqrt(eta) c+- Eb0|^2 per pixel, 3 real parameters
+function E = chain_(M, q, VV, iTO, iMASK, iDET)
+% the detector field of DM state M with the pupil map q applied at the
+% mask sandwich's entrance sphere (iMASK-1, identical to the detector's
+% unmasked field: gate G1) and the dimple VV at the mask
+macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
+macos.intensity(iMASK-1);  macos.apodize_complex(iMASK-1, q);
+macos.intensity(iMASK, 'reset_trace', false);  macos.apodize_complex(iMASK, VV);
+E = macos.complex_field(iDET, 'reset_trace', false);
+end
+
+function [kapP, kapM, eta, info] = calV_(Ip, Im, C)
+% fit the per-channel constants on the flat DM's two images: model
+% I+ = |kappa+ E0 + sqrt(eta) c+ Eb0|^2, I- = |kappa- E0 + sqrt(eta) c- Eb0|^2
+% per pixel, 5 real parameters (|kappa+|, arg kappa+, |kappa-|, arg kappa-,
+% eta).  With an ideal arm kappa+ = kappa- = kappa (V2's 3-parameter fit).
 m = C.msk;  E0 = C.E0(m);  b = C.Eb0(m);  ip = Ip(m);  im = Im(m);
 sc = mean(ip);
-f = @(q) sum((abs(q(1)*exp(1i*q(2))*E0 + sqrt(max(q(3),0))*C.cc*b).^2 - ip).^2 + ...
-             (abs(q(1)*exp(1i*q(2))*E0 + sqrt(max(q(3),0))*C.ccm*b).^2 - im).^2) / sc^2;
-[q, fv] = fminsearch(f, [1 0 1], optimset('TolX', 1e-10, 'TolFun', 1e-14, 'MaxFunEvals', 4000, 'Display', 'off'));
-kap = q(1)*exp(1i*q(2));  eta = q(3);
+f = @(q) sum((abs(q(1)*exp(1i*q(2))*E0 + sqrt(max(q(5),0))*C.cc*b).^2 - ip).^2 + ...
+             (abs(q(3)*exp(1i*q(4))*E0 + sqrt(max(q(5),0))*C.ccm*b).^2 - im).^2) / sc^2;
+[q, fv] = fminsearch(f, [1 0 1 0 1], optimset('TolX', 1e-10, 'TolFun', 1e-14, 'MaxFunEvals', 8000, 'MaxIter', 8000, 'Display', 'off'));
+kapP = q(1)*exp(1i*q(2));  kapM = q(3)*exp(1i*q(4));  eta = q(5);
 info = struct('resid', sqrt(fv/numel(ip)), 'q', q);
 end
 
-function h = measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C)
-[Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF);
+function h = measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C, leak, arm)
+[Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm);
 h = reconV_(Ip, Im, C);
 end
 
@@ -231,38 +327,51 @@ function [phi, info] = solveV_(Ip, Im, C, I0, b0, niter)
 %       cos u = (x+ + x-) / (2 cos tc),   sin u = (x+ - x-) / (2 sin tc),
 %   u = atan2(sin u, cos u): the full circle, no branch, no clamp.  b is
 %   iterated from the estimate as in solveI_ (NITER; 0 = frozen b).
-%   With the metasurface constants (C.kap complex, C.eta) the model per
-%   channel is I = |kap E0 e^{i phi} + sqrt(eta) c+- b|^2, i.e. the same
-%   algebra with A -> |kap| A, |c| -> sqrt(eta)|c|/|kap| and the solved
-%   angle shifted by 2 arg(kap); kap = 1, eta = 1 is the ideal mask.
+%   General per-channel model (V2 metasurface constants, V3 arm maps):
+%       I+ = |kappa+ A e^{i phi'} + sqrt(eta) c+ b+|^2,   b+ = bsur(qL E)
+%       I- = |kappa- A e^{i phi'} + sqrt(eta) c- b-|^2,   b- = bsur(qR E)
+%   with phi' = th0 + phi, E = A0 e^{i phi'}; kappa+-, qL, qR scalars or
+%   per-pixel maps (C.kapP, C.kapM, C.qL, C.qR; 1, 1, [], [] = the ideal
+%   sensor).  Then x+ = cos(psi - t), x- = cos(psi + t) with
+%       s+- = arg kappa+- - arg b+-,  m = (s+ + s-)/2,  d = (s+ - s-)/2,
+%       psi = phi' + m,  t = tc - d,
+%   the same two-image algebra per pixel with (psi, t) for (u, tc).
+%   (V2 wrote the constant-kappa shift as 2 arg kappa: a piston, invisible
+%   to every mean-referenced number; it is arg kappa, corrected here.)
 %   info: dphi (rms update per iteration), rcons (rms of sqrt(cos^2 +
 %   sin^2) - 1 on msk: the two images' consistency with the model; 0 for
-%   an exact model), b (final).
+%   an exact model), b (final, the + channel's), bM (the - channel's).
 if nargin < 4, I0 = []; end
-if nargin < 5 || isempty(b0), b0 = C.Eb0; end
+if nargin < 5, b0 = []; end
 if nargin < 6 || isempty(niter), niter = C.NITER; end
 N = C.N_WF;  m = C.msk;
 wrap = @(p) atan2(sin(p), cos(p));
 if isempty(I0), A0 = abs(C.E0); else, A0 = sqrt(max(I0, 0)); end
 th0 = angle(C.E0);  tc = angle(C.cc);
-A = abs(C.kap) * A0;  ac = sqrt(C.eta) * abs(C.cc) / abs(C.kap);  ak = angle(C.kap);
-b = b0;  phi = zeros(N);
+if isempty(C.qL), qL = 1; else, qL = C.qL; end
+if isempty(C.qR), qR = 1; else, qR = C.qR; end
+if isempty(b0), bP = C.EbP0;  bM = C.EbM0; else, bP = b0;  bM = b0; end
+aP = abs(C.kapP) .* A0;  aM = abs(C.kapM) .* A0;  ac = sqrt(C.eta) * abs(C.cc);
+sP0 = angle(C.kapP);  sM0 = angle(C.kapM);
+phi = zeros(N);
 info = struct('dphi', zeros(1, niter+1), 'rcons', zeros(1, niter+1));
 for it = 0:niter
-    den = max(2*A.*ac.*abs(b), realmin);
-    xp = (Ip - A.^2 - ac^2*abs(b).^2) ./ den;
-    xm = (Im - A.^2 - ac^2*abs(b).^2) ./ den;
-    cu = (xp + xm) / (2*cos(tc));  su = (xp - xm) / (2*sin(tc));
+    xp = (Ip - aP.^2 - ac^2*abs(bP).^2) ./ max(2*aP.*ac.*abs(bP), realmin);
+    xm = (Im - aM.^2 - ac^2*abs(bM).^2) ./ max(2*aM.*ac.*abs(bM), realmin);
+    sP = sP0 - angle(bP);  sM = sM0 - angle(bM);
+    mm = (sP + sM)/2;  t = tc - (sP - sM)/2;
+    cu = (xp + xm) ./ (2*cos(t));  su = (xp - xm) ./ (2*sin(t));
     r = hypot(cu, su);  info.rcons(it+1) = sqrt(mean((r(m) - 1).^2));
-    ph = wrap(atan2(su, cu) + angle(b) - th0 - 2*ak);
+    ph = wrap(atan2(su, cu) - mm - th0);
     ph(~m) = 0;
     info.dphi(it+1) = sqrt(mean((ph(m) - phi(m)).^2));
     phi = ph;
     if it < niter
-        b = C.bsur(A0 .* exp(1i*(th0 + phi)));          % the reference wave from the true-amplitude field
+        E = A0 .* exp(1i*(th0 + phi));                   % the reference waves from the true-amplitude field
+        bP = C.bsur(qL .* E);  bM = C.bsur(qR .* E);
     end
 end
-info.b = b;
+info.b = bP;  info.bM = bM;
 end
 
 function plus = plusFromX_(X, C)

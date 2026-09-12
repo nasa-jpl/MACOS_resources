@@ -78,4 +78,8 @@ Wiener on the lattice: a_hat = sum_k G_k A_k / (sum_k G_k^2 + beta^2),
 S6 color stage, 2026-09-08), dmg_loop (the closed-loop hold metric,
 2026-09-11), dmg_ifo_gauge (four-step PSI measurement
 factory), dmg_zwfs_gauge (dimple mask + frozen-linear + iterated-reference exact +
-phase-stepped factory), dmg_say (report tee).
+phase-stepped + vector-pair factory), dmg_arm_maps (the arm's polarization
+aberration per circular channel from the engine's two polarized vector
+traces: Jones pupil on the diffraction grid in the per-pixel double-pole
+basis, common scalar stripped, the laser state's L / R components
+normalized to the ideal split; V3, 2026-09-12), dmg_say (report tee).
