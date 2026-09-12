@@ -96,6 +96,7 @@ re-draws them from a saved run).
 | `LAM` | 632.8 nm | the record color; `color.lams_nm` lists the others, record color FIRST |
 | `bench.*` | the tg96 test arm | every `twyman_green` option: lenses, legs, tuned tail, `mask_prop` (`'nf'` = the corrected symmetric sandwich; `'nf_legacy'` = the Fresnel-defocused S1-S6 sensor) |
 | `mask.*` | 346.2 nm etch, 2.0 lam/D | etch depth, substrate index (`'malitson'` or a number), dimple diameter, the phase-stepped depth ladder, `NITER` |
+| `mask.v_*` | ideal metasurface, ideal arm | the vector reading's imperfections: `v_ret_err` / `v_leak_phase` (V2: the metasurface's retardance error, the leak's phase), `v_arm` (V3: the arm's polarization aberration per circular channel -- `'engine'` = the bench's own Jones pupil from two polarized vector traces at the laser angle `v_laser_deg`, optionally AR-coated faces `v_arm_ar`; `'synthetic'` = astigmatic maps of `v_arm_dphase` rad rms differential PHASE between the channels (the diattenuation-type term) and `v_arm_damp` differential AMPLITUDE (the retardance-type term)), `v_cal` = the solver's model: `'ideal'` (uncalibrated), `'fit'` (per-channel constants and eta fitted on the flat's two images), `'map'` (the true maps: a polarimetrically calibrated bench), `v_gate_nm` (G4's poke height) |
 | `samp.*` | 6 px dimple, 2 px/actuator | the sampling-budget lines the bench stage asserts; `enforce` = `'warn'` or `'error'` |
 | `reg.*` | `'search'` | parity + sign from an off-center poke (two-poke doctrine; the selection metric is the gate), or `'record'` to take `PARb`/`sgn` as given |
 | `dm(i)` | 96x96 @ 1 mm; 48x48 @ 2 mm | actuator count, pitch, hold-out site, modal probes -- each config gets the full battery |
@@ -132,6 +133,16 @@ budget lines before quoting a number.
   (Stage E′ in tg_psi_dm96) so the head-to-head is one currency.
 - **S5**: trades (spot table, etch error, leakage, chromaticity) on
   steer.
+- **Vector-reading gates (bench stage, `zwfs_run`):** G4 the fold gate
+  (100 nm single-actuator pokes every 8th actuator: the pair must read
+  them to 0.1% of the figure, the single frame must not); G8 (V3, when
+  arm maps are on) the chained apodization -- the channel's pupil map at
+  the mask sandwich's entrance sphere, then the dimple -- must reproduce
+  the plain frame with a unit map (< 1e-12) and the surrogate
+  |qE0 + c b(qE0)|^2 with the channel map (< 1e-10).  G4 is asserted
+  only when nothing uncalibrated is being priced (`v_cal` `'map'`, or an
+  ideal metasurface with no arm maps); otherwise its number IS the
+  priced error and the line says so.
 
 ## Findings
 - **V2 (2026-09-12): the metasurface's retardance error, priced -- NOT a
@@ -313,7 +324,21 @@ budget lines before quoting a number.
   `loop.cam_walk` electrons per pixel per cycle, constant within a scan
   unless `cam_intra`); readings whose step weights sum to zero (S, P,
   PF) subtract it exactly (tDmgLoop G8), the single-frame readings and
-  the simultaneous pair imprint it on the DM.  *Closed loop
+  the simultaneous pair imprint it on the DM.  *Camera drift, the
+  paper's number (runs/pcam193, all six readings, 0.13 e per pixel per
+  cycle = ~1 e over the run, 1e13 and 1e15 photons per cycle):*
+  **invisible to every reading** -- hold error, bias and spectrum equal
+  to the noise-only rows to the printed digit (L 1.39 / 0.14 pm at 1e13
+  / 1e15 with and without it; S 1.52 / 0.15; V 1.17 / 0.12; P 1.45 /
+  0.14; PF 2.50 / 0.25).  Why: at 1e13 photons per measurement a lit
+  pixel collects ~3e8 photons per frame, so an electron is 1e-4 of its
+  shot noise; the immunity argument lives in the photon-starved regime
+  of Roman's LOWFS (per-pixel counts of 1e2-1e3 per frame, integrated
+  over 12 h).  Hence `loop.cam_unit 'rel'`: the walk as a fraction of
+  the mean photons per lit pixel per frame (a bias / gain drift scaled
+  to the signal), runs/pcam193r (1e-3 per cycle) and pcam193ri (the
+  whole step within each scan).  I+ on this base floors at 885 pm
+  regardless (its fold-flipped sites, S11).  *Closed loop
   (runs/ploop193, P and PF on the S11 seeds, the matrix on the working
   surface; 82 min):* both contract at 0.509 per cycle (reading gain 0.98
   at loop gain 0.5, as V) and take the 1 and 10 nm steps to 0.000 pm --

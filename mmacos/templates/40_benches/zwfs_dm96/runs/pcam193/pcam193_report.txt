@@ -1,0 +1,67 @@
+=== ZWFS runner: tag pcam193  (2026-09-12 11:06) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench loop figs | readings: L I+ S V P PF
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+deck pcam193_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.817e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.967e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9539 0.9510 0.9452 0.9369 0.9260 0.9120 0.8957 0.8770 0.8561 0.8328 0.8071 0.7798 0.7511 0.7206 0.6885 0.6554 0.6215 0.5867 0.5514 0.5156 
+frame: ray magnification 10.1583 DM-mm per detector-mm, detector px 3.9135e-02 mm -> 0.3976 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 7.92 px across at the mask plane (min 6)  -> PASS
+  pinhole 7.92 px across at the mask plane (min 6; the dimple's rule)  -> PASS
+  DM 96x96: 2.52 detector px per actuator (min 2)  -> PASS
+  DM 48x48: 5.03 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 4.120e-16   (gate < 1e-12: A = |E0| is exact)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, peak 1.93 rad; 3.06% of msk beyond the one-frame fold): V rms error 0.053 pm (gate < 0.1% of the figure), one-frame exact I 8975 pm (non-vacuity: must exceed 10x)   -> PASS
+P: pinhole 2.00 lam/D, surround t 0.7193, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.6820; throughput (detected/incident, flat) 0.8214; visibility on the flat 0.5496; surrogate vs engine reference 1.97e-15; the flat reads 1.89e-15 rad rms, amplitude 3.70e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, 3.06% of msk beyond the one-frame fold): rms error 0.333 pm (gate < 0.1% of the figure)   -> PASS
+PF: P/SRI, reference = LP01 mode V 2.30 b 0.50 core radius 0.50 lam/D, coupling eta_c 0.5869 on the flat; pickoff 0.60, a 0.002712 (match 0.003719, budget 0.002712), 4 steps (ls), |kappa| flat; frames per measurement 4; eta_pin 0.6820; throughput (detected/incident, flat) 0.7522; visibility on the flat 0.8633; surrogate vs engine reference 1.97e-15; the flat reads 3.19e-16 rad rms, amplitude 1.44e-16 rel
+G5 PF on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, 3.06% of msk beyond the one-frame fold): rms error 0.000 pm (gate < 0.1% of the figure)   -> PASS
+G6 P/SRI fiber reference under the 30 nm rms working state: shape FIXED by construction (the mode's); coupling relative to the flat |kappa| 0.85990, arg +0.0251 rad (an amplitude scale + a piston; the solver takes kappa = 1 in |kappa| 'flat' mode)
+G6 reference motion under the 30 nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:
+   lam/D    total  |scale|    SHAPE   (total = |b1-b0|/|b0|; scale = best complex factor, a Strehl-class amplitude drop the |b|^2 frame / iteration absorbs; shape = the rest, what the solve must iterate out)
+    0.50   0.1327   0.8689   0.0010
+    1.00   0.1350   0.8667   0.0026
+    1.50   0.1391   0.8628   0.0058
+    2.00   0.1446   0.8577   0.0106
+    3.00   0.1581   0.8465   0.0256
+    2.00   0.1446   0.8577   0.0106   <- the ZWFS dimple
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 5.15e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (511.67, 511.67) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.979, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.98 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7509, corr(map, truth) 0.9800
+bench stage 0.7 min
+
+---- loop: closed-loop hold, DM 96x96, readings L I+ S V P PF ----
+loop: gain 0.50, 60 cycles (steady state = last 30), set point = base, reference frames noiseless, drift seed 77; each cycle = ONE measurement (the DM shape traced once, the reading's frames with N photons), differential to the set point through the measured matrix
+dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)
+calibration: measured response matrix on the base (30 nm rms, seed 7); lit actuators 3252
+24 loop runs of 61 states each (1464 traced states)
+
+step response (noiseless; a step of the given rms at cycle 1).  rho = fitted per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, r(K/2) and r(K) = residual (pm) at cycles 30 and 60 -- a residual that stops falling is the reading's noiseless bias floor on this surface
+    step | L: rho tau k1e r(K/2) r(K)            | I+: rho tau k1e r(K/2) r(K)           | S: rho tau k1e r(K/2) r(K)            | V: rho tau k1e r(K/2) r(K)            | P: rho tau k1e r(K/2) r(K)            | PF: rho tau k1e r(K/2) r(K)           |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g)).  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | L: ss bias sig_n th           | I+: ss bias sig_n th          | S: ss bias sig_n th           | V: ss bias sig_n th           | P: ss bias sig_n th           | PF: ss bias sig_n th          |
+  1.0e+13 |    1.39   0.47   2.33   1.35 | 5926.55 3540.55   3.36   1.94 |    1.52   0.46   2.59   1.49 |    1.17   0.37   2.01   1.16 |    1.45   0.43   2.46   1.42 |    2.50   0.76   4.26   2.46 |
+  1.0e+15 |    0.14   0.05   0.23   0.13 |  885.00 495.81   0.35   0.20 |    0.15   0.05   0.26   0.15 |    0.12   0.04   0.20   0.12 |    0.14   0.04   0.25   0.14 |    0.25   0.08   0.43   0.25 |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- CAMERA drift, no DM drift: a per-pixel offset random-walking 0.13 electrons per pixel per cycle (0% of each step within the scan); zero-sum readings (S, P, PF) subtract a within-scan-constant offset exactly, single-frame readings (L, I+, V) imprint o_k - o_0 on the DM.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | L: ss bias sig_n th           | I+: ss bias sig_n th          | S: ss bias sig_n th           | V: ss bias sig_n th           | P: ss bias sig_n th           | PF: ss bias sig_n th          |
+  1.0e+13 |    1.39   0.47   2.33   1.35 | 5926.73 3540.69   3.36   1.94 |    1.52   0.46   2.59   1.49 |    1.17   0.37   2.01   1.16 |    1.45   0.43   2.46   1.42 |    2.50   0.76   4.26   2.46 |
+  1.0e+15 |    0.14   0.05   0.23   0.13 |  884.59 495.59   0.35   0.20 |    0.15   0.05   0.26   0.15 |    0.12   0.04   0.20   0.12 |    0.14   0.04   0.25   0.14 |    0.25   0.08   0.43   0.25 |
+
+photons per cycle to hold 3.0 pm rms (log-log interpolation of ss over N; 'floor x' = not reached: the noise-free residual sits at x pm):
+drift    | L             | I+            | S             | V             | P             | PF            |
+none     | < 1e+13       | floor 885.0   | < 1e+13       | < 1e+13       | < 1e+13       | < 1e+13       |
+cam      | < 1e+13       | floor 884.6   | < 1e+13       | < 1e+13       | < 1e+13       | < 1e+13       |
+
+spectrum of the held residual at 1e+15 photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture
+none     | L:  0.00  0.01  0.14 | I+: 17.39 46.59 883.60 | S:  0.00  0.01  0.15 | V:  0.00  0.01  0.12 | P:  0.00  0.01  0.14 | PF:  0.01  0.02  0.25 |
+cam      | L:  0.00  0.01  0.14 | I+: 17.39 46.56 883.19 | S:  0.00  0.01  0.15 | V:  0.00  0.01  0.12 | P:  0.00  0.01  0.14 | PF:  0.01  0.02  0.25 |
+loop stage 73.1 min (1464 traced states)
+run complete in 73.7 min
