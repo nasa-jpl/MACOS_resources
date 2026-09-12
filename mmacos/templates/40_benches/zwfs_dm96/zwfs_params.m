@@ -101,11 +101,13 @@ P.mask.v_ret_err = 0;        % V2: metasurface retardance error, rad (pi + err);
                              % light for a linearly polarized laser (0.1 rad = 5.7 deg, 5% amplitude)
 P.mask.v_leak_phase = 0;     % V2: phase of the leaked light relative to the converted, rad
 P.mask.v_cal = 'ideal';      % V2/V3: the solver's model of the metasurface + arm: 'ideal' (kappa 1,
-                             % eta 1, both channels the same field -- an uncalibrated sensor's bias) |
-                             % 'fit' (per-channel constants kappa+, kappa- and eta fitted on the flat
-                             % DM's two images: what a bench calibration does) | 'map' (the true
-                             % per-channel pupil maps and constants: a polarimetrically calibrated
-                             % bench, the oracle)
+                             % eta 1, both channels the same field: knows nothing -- the raw size of
+                             % a term) | 'amp' (the per-channel UNMASKED reference frames every bench
+                             % takes: the amplitude maps |qL|, |qR| known, the polarization phases
+                             % not) | 'fit' ('amp' + per-channel constants kappa+, kappa- and eta
+                             % fitted on the flat DM's two masked images: what a bench calibration
+                             % does) | 'map' (the true per-channel pupil maps and constants: a
+                             % polarimetrically calibrated bench, the oracle)
 P.mask.v_arm = 'none';       % V3: the test arm's polarization aberration, seen per circular channel
                              % (the +phi image is of the L component's pupil field, the -phi image of
                              % the R component's): 'none' (both channels see the scalar field) |
