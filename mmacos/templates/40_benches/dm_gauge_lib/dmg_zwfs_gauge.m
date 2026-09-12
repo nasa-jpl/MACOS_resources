@@ -46,6 +46,21 @@ function ZW = dmg_zwfs_gauge(iTO, iMASK, iDET, opt)
 %   10cf593; the iterated reading added 2026-09-09 (zwfs_s7iter).
 LAM = opt.LAM;  PHIS = opt.PHIS;  S_CONV = opt.S_CONV;
 if isfield(opt, 'NITER'), NITER = opt.NITER; else, NITER = 5; end
+% V2 (2026-09-12): a REAL geometric-phase metasurface has retardance pi +
+% V_RET_ERR; it converts eta = cos^2(err/2) of the light (with the +-phi
+% geometric phase) and leaks the rest unshifted.  With a linearly
+% polarized laser the leaked and converted light in one output channel
+% are COHERENT, so each channel's field is sqrt(eta)*E_masked +
+% sqrt(1-eta)*exp(i*V_LEAK_PHASE)*E_unmasked -- one complex constant
+% kappa = sqrt(eta) + sqrt(1-eta) e^{i alpha} on E0 in the per-pixel model.
+% V_CAL 'ideal' solves with the ideal model (kappa 1, eta 1: the bias of
+% an uncalibrated metasurface); 'fit' fits (|kappa|, arg kappa, eta) on
+% the flat DM's two images (ZW.calV) and solves with them.
+vre = 0;  vla = 0;  vcal = 'ideal';
+if isfield(opt, 'V_RET_ERR'),    vre = opt.V_RET_ERR; end
+if isfield(opt, 'V_LEAK_PHASE'), vla = opt.V_LEAK_PHASE; end
+if isfield(opt, 'V_CAL'),        vcal = opt.V_CAL; end
+eta_true = cos(vre/2)^2;  leak = struct('eta', eta_true, 'alpha', vla);
 E0f = macos.complex_field(iDET);  N_WF = size(E0f,1);
 dx_mask_m = abs(macos.dx_at(iMASK));
 lamD_mm = LAM*opt.F2/(2*opt.R_BEAM);  dia_mm = opt.DIA_LAMD*lamD_mm;
@@ -104,7 +119,8 @@ else
     gate.roundtrip = NaN;
 end
 C = struct('E0',E0f, 'Eb0',Ebf, 'cc',cc, 'ccm',ccm, 'msk',msk, 'N_WF',N_WF, ...
-           'NITER',NITER, 'bsur',bsur, 'S_CONV',S_CONV, 'LAM',LAM);
+           'NITER',NITER, 'bsur',bsur, 'S_CONV',S_CONV, 'LAM',LAM, ...
+           'kap', 1, 'eta', 1);                       % the solver's metasurface model (ideal)
 
 ZW = struct();
 ZW.msk = msk;  ZW.den = den;  ZW.I_flat = I_flat;  ZW.b2cal = b2cal;
@@ -134,8 +150,19 @@ ZW.plusFromX = @(X) plusFromX_(X, C);
 % iterated reading's own |b|^2 (the 'I+' definition since zwfs_s7iter)
 ZW.priorS   = @(Ia, Fr, varargin) priorS_(Ia, Fr, C, M2i, varargin{:});   % (Ia, Fr, nref) -> [plus, info]
 % ---- vector (polarized-dimple) reading: the +phi / -phi image pair -----
-ZW.Vm = Vm;  ZW.ccm = ccm;
-ZW.frameV   = @(M) frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF);        % -> [Ip, Im]
+ZW.Vm = Vm;  ZW.ccm = ccm;  ZW.leak = leak;
+ZW.frameV   = @(M) frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak);  % -> [Ip, Im]
+ZW.calV     = @(Ip, Im) calV_(Ip, Im, C);                            % -> [kap, eta, info]: the flat's images
+if strcmp(vcal, 'fit')
+    % calibrate the metasurface on the FLAT DM (what a bench does): fit
+    % kappa (complex) and eta from the flat's two images
+    [Ipf, Imf] = frameV_(zeros(macos.get_elt_grid_size(iTO)), iTO, iMASK, iDET, V, Vm, N_WF, leak);
+    [C.kap, C.eta, ZW.calV_info] = calV_(Ipf, Imf, C);
+elseif ~strcmp(vcal, 'ideal')
+    error('dmg_zwfs_gauge: V_CAL must be ''ideal'' or ''fit''');
+end
+ZW.vcal = struct('mode', vcal, 'kap', C.kap, 'eta', C.eta, 'eta_true', eta_true, ...
+                 'kap_true', sqrt(eta_true) + sqrt(1-eta_true)*exp(1i*vla));
 ZW.reconV   = @(Ip, Im, varargin) reconV_(Ip, Im, C, varargin{:});   % (Ip, Im, I0, b0, niter)
 ZW.solveV   = @(Ip, Im, varargin) solveV_(Ip, Im, C, varargin{:});   % -> [phi, info]
 ZW.measV    = @(M) measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C);
@@ -152,16 +179,37 @@ d = C.S_CONV * atan2(sin(p1 - p0), cos(p1 - p0)) * C.LAM/(4*pi);
 end
 
 % ---- vector reading: frames + solve ------------------------------------
-function [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF) %#ok<INUSD>
-% the two pupil images of one DM state: +phi dimple (== frameL's frame)
-% and -phi dimple, from the same trace
+function [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak) %#ok<INUSD>
+% the two pupil images of one DM state: +phi dimple (== frameL's frame
+% when the metasurface is ideal) and -phi dimple, from the same trace.
+% With retardance error (leak.eta < 1) each channel is the COHERENT sum
+% sqrt(eta) E_masked + sqrt(1-eta) e^{i alpha} E_unmasked (linear laser).
+if nargin < 8 || isempty(leak), leak = struct('eta', 1, 'alpha', 0); end
 macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
+if leak.eta < 1
+    E0s = macos.complex_field(iDET);                       % the state's unmasked field
+    lk = sqrt(1 - leak.eta) * exp(1i*leak.alpha);  se = sqrt(leak.eta);
+else
+    E0s = 0;  lk = 0;  se = 1;
+end
 macos.intensity(iMASK);
 macos.apodize_complex(iMASK, V);
-Ip = abs(macos.complex_field(iDET, 'reset_trace', false)).^2;
+Ip = abs(se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s).^2;
 macos.intensity(iMASK);
 macos.apodize_complex(iMASK, Vm);
-Im = abs(macos.complex_field(iDET, 'reset_trace', false)).^2;
+Im = abs(se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s).^2;
+end
+
+function [kap, eta, info] = calV_(Ip, Im, C)
+% fit the metasurface constants on the flat DM's two images: model
+% I+- = |kappa E0 + sqrt(eta) c+- Eb0|^2 per pixel, 3 real parameters
+m = C.msk;  E0 = C.E0(m);  b = C.Eb0(m);  ip = Ip(m);  im = Im(m);
+sc = mean(ip);
+f = @(q) sum((abs(q(1)*exp(1i*q(2))*E0 + sqrt(max(q(3),0))*C.cc*b).^2 - ip).^2 + ...
+             (abs(q(1)*exp(1i*q(2))*E0 + sqrt(max(q(3),0))*C.ccm*b).^2 - im).^2) / sc^2;
+[q, fv] = fminsearch(f, [1 0 1], optimset('TolX', 1e-10, 'TolFun', 1e-14, 'MaxFunEvals', 4000, 'Display', 'off'));
+kap = q(1)*exp(1i*q(2));  eta = q(3);
+info = struct('resid', sqrt(fv/numel(ip)), 'q', q);
 end
 
 function h = measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C)
@@ -183,6 +231,10 @@ function [phi, info] = solveV_(Ip, Im, C, I0, b0, niter)
 %       cos u = (x+ + x-) / (2 cos tc),   sin u = (x+ - x-) / (2 sin tc),
 %   u = atan2(sin u, cos u): the full circle, no branch, no clamp.  b is
 %   iterated from the estimate as in solveI_ (NITER; 0 = frozen b).
+%   With the metasurface constants (C.kap complex, C.eta) the model per
+%   channel is I = |kap E0 e^{i phi} + sqrt(eta) c+- b|^2, i.e. the same
+%   algebra with A -> |kap| A, |c| -> sqrt(eta)|c|/|kap| and the solved
+%   angle shifted by 2 arg(kap); kap = 1, eta = 1 is the ideal mask.
 %   info: dphi (rms update per iteration), rcons (rms of sqrt(cos^2 +
 %   sin^2) - 1 on msk: the two images' consistency with the model; 0 for
 %   an exact model), b (final).
@@ -191,8 +243,9 @@ if nargin < 5 || isempty(b0), b0 = C.Eb0; end
 if nargin < 6 || isempty(niter), niter = C.NITER; end
 N = C.N_WF;  m = C.msk;
 wrap = @(p) atan2(sin(p), cos(p));
-if isempty(I0), A = abs(C.E0); else, A = sqrt(max(I0, 0)); end
-th0 = angle(C.E0);  ac = abs(C.cc);  tc = angle(C.cc);
+if isempty(I0), A0 = abs(C.E0); else, A0 = sqrt(max(I0, 0)); end
+th0 = angle(C.E0);  tc = angle(C.cc);
+A = abs(C.kap) * A0;  ac = sqrt(C.eta) * abs(C.cc) / abs(C.kap);  ak = angle(C.kap);
 b = b0;  phi = zeros(N);
 info = struct('dphi', zeros(1, niter+1), 'rcons', zeros(1, niter+1));
 for it = 0:niter
@@ -201,12 +254,12 @@ for it = 0:niter
     xm = (Im - A.^2 - ac^2*abs(b).^2) ./ den;
     cu = (xp + xm) / (2*cos(tc));  su = (xp - xm) / (2*sin(tc));
     r = hypot(cu, su);  info.rcons(it+1) = sqrt(mean((r(m) - 1).^2));
-    ph = wrap(atan2(su, cu) + angle(b) - th0);
+    ph = wrap(atan2(su, cu) + angle(b) - th0 - 2*ak);
     ph(~m) = 0;
     info.dphi(it+1) = sqrt(mean((ph(m) - phi(m)).^2));
     phi = ph;
     if it < niter
-        b = C.bsur(A .* exp(1i*(th0 + phi)));
+        b = C.bsur(A0 .* exp(1i*(th0 + phi)));          % the reference wave from the true-amplitude field
     end
 end
 info.b = b;

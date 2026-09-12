@@ -89,6 +89,13 @@ P.mask.PHIS_REC = [pi/2, pi, 3*pi/2];
                              % fixed glass, so at other colors they scale as (n-1)/lambda
 P.mask.S_CONV = -1;          % height sign convention (pinned by the S1 sign gate)
 P.mask.NITER  = 5;           % reference-wave iterations of the exact readings (I, V)
+P.mask.v_ret_err = 0;        % V2: metasurface retardance error, rad (pi + err); converts cos^2(err/2)
+                             % of the light, leaks the rest unshifted -- coherent with the converted
+                             % light for a linearly polarized laser (0.1 rad = 5.7 deg, 5% amplitude)
+P.mask.v_leak_phase = 0;     % V2: phase of the leaked light relative to the converted, rad
+P.mask.v_cal = 'ideal';      % V2: the solver's metasurface model: 'ideal' (kappa 1, eta 1 -- an
+                             % uncalibrated metasurface's bias) | 'fit' (kappa, eta fitted on the
+                             % flat DM's two images, what a bench calibration does)
 P.mask.v_gate_nm = 100;      % G4 (V only): single-actuator pokes (every 8th actuator) of this height
                              % put their pixels beyond the one-frame fold (peak 1.9 rad, 3% of msk);
                              % the pair must reproduce them (< 0.1%), the single frame must not

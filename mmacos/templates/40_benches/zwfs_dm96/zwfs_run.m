@@ -112,7 +112,8 @@ g = struct('LAM', lam_mm, 'F2', P.bench.F2, 'R_BEAM', P.bench.R_TO_AP, ...
     'DIA_LAMD', P.mask.DIA_LAMD * P.LAM/lam_mm, ...
     'PHI_M', 2*pi*(n-1)*P.mask.ETCH_MM/lam_mm, ...
     'PHIS', P.mask.PHIS_REC * (n-1)/(n0-1) * (P.LAM/lam_mm), ...
-    'S_CONV', P.mask.S_CONV, 'NITER', P.mask.NITER);
+    'S_CONV', P.mask.S_CONV, 'NITER', P.mask.NITER, ...
+    'V_RET_ERR', P.mask.v_ret_err, 'V_LEAK_PHASE', P.mask.v_leak_phase, 'V_CAL', P.mask.v_cal);
 end
 
 function k = class_(rd)
@@ -251,6 +252,12 @@ if ~strcmp(P.bench.mask_prop, 'nf_legacy'), assert(g3, 'G3 FAIL'); end
 % is NOT a fold test: the core collapses (the 30-40 nm cliff, S7).
 gV = struct('eV', NaN, 'eI', NaN, 'beyond', NaN, 'rmsfig', NaN);
 if any(strcmp(P.readings, 'V'))
+    if ZW.leak.eta < 1 || strcmp(P.mask.v_cal, 'fit')
+        if isfield(ZW, 'calV_info'), fitnote = sprintf(' (fit on the flat, resid %.1e)', ZW.calV_info.resid); else, fitnote = ''; end
+        dmg_say(rep, 'V2 metasurface: retardance error %.3f rad -> converts eta %.5f, leaks %.4f amplitude at phase %.2f rad (kappa_true %.5f %+.5fi); solver %s: kappa %.5f %+.5fi, eta %.5f%s\n', ...
+            P.mask.v_ret_err, ZW.leak.eta, sqrt(1-ZW.leak.eta), P.mask.v_leak_phase, real(ZW.vcal.kap_true), imag(ZW.vcal.kap_true), ...
+            ZW.vcal.mode, real(ZW.vcal.kap), imag(ZW.vcal.kap), ZW.vcal.eta, fitnote);
+    end
     Afig = zeros(cfg.nact);  Afig(4:8:end, 4:8:end) = P.mask.v_gate_nm*1e-6;
     macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(Afig));
     Et = macos.complex_field(iDET);
@@ -263,8 +270,12 @@ if any(strcmp(P.readings, 'V'))
     gV.beyond = mean(phi_t(msk) < -pi/4 | phi_t(msk) > 3*pi/4);
     dmg_say(rep, 'G4 vector pair on %g nm single-actuator pokes every 8th actuator (%.0f pm rms on msk, peak %.2f rad; %.2f%% of msk beyond the one-frame fold): V rms error %.3f pm (gate < 0.1%% of the figure), one-frame exact I %.0f pm (non-vacuity: must exceed 10x)   -> %s\n', ...
         P.mask.v_gate_nm, gV.rmsfig, max(abs(phi_t(msk))), 100*gV.beyond, gV.eV, gV.eI, ifelse_(gV.eV < 1e-3*gV.rmsfig && gV.eI > 10*gV.eV, 'PASS', 'FAIL'));
-    assert(gV.eV < 1e-3*gV.rmsfig, 'G4 FAIL: the vector pair does not reproduce the figure');
-    assert(gV.beyond > 0.005 && gV.eI > 10*gV.eV, 'G4 is vacuous: the single frame passes too -- raise mask.v_gate_nm');
+    if ZW.leak.eta == 1 || strcmp(P.mask.v_cal, 'fit')
+        assert(gV.eV < 1e-3*gV.rmsfig, 'G4 FAIL: the vector pair does not reproduce the figure');
+        assert(gV.beyond > 0.005 && gV.eI > 10*gV.eV, 'G4 is vacuous: the single frame passes too -- raise mask.v_gate_nm');
+    else
+        dmg_say(rep, '  (G4 not asserted: an uncalibrated metasurface error is being priced -- the V error above IS the number)\n');
+    end
 end
 % ---- registration: two-poke doctrine on P.dm(1), linear reading -------
 POKE = P.reg.POKE;
