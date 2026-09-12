@@ -296,14 +296,28 @@ budget lines before quoting a number.
   fold: the P/SRI's range is the wrap of the DIFFERENCE, not of the
   surface.  P folds with V because its reference amplitude collapses
   with the Strehl and its flat |b|^2 assumption breaks (the per-state
-  shutter frame, `pdi.b2 'state'`, is runs/pdi193state).  Camera 1/f
+  shutter frame, `pdi.b2 'state'`, is runs/pdi193state).  *Shutter
+  frame per state (runs/pdi193state, 5 frames):* P becomes PF's twin on
+  every row AND the ladder -- **1.02 / 1.06 / 1.13 at 120 / 240 / 480
+  nm** -- so P's fold was the flat |b|^2 assumption, not the pinhole.
+  *A 1 lam/D pinhole (runs/pdi193d1; 3.96 px at the mask plane, the
+  budget line warns):* t_auto 0.28, eta_pin 0.24, throughput 0.29,
+  visibility 0.94, G5 0.002 pm (the reference iteration converges 100x
+  better than at 2 lam/D); rows identical to PF's (0.9935 / 4 pm; 0.9992
+  / 3; 1.0002 / 330) and **no fold with the flat |b|^2 (1.02 / 1.06 /
+  1.13 at 120 / 240 / 480 nm)**: the classical pinhole regime buys the
+  P/SRI's range in the common path, for 29% of the light (N(1 pm) at the
+  camera 2.9e14 vs S 1.0e14 with this run's on-surface matrix; 1e15
+  incident).  Camera 1/f
   drift in the loop: `dmg_loop` opt.cam (an offset random-walking
   `loop.cam_walk` electrons per pixel per cycle, constant within a scan
   unless `cam_intra`); readings whose step weights sum to zero (S, P,
   PF) subtract it exactly (tDmgLoop G8), the single-frame readings and
   the simultaneous pair imprint it on the DM.  Pending in this record:
-  runs/pdi193state (shutter frame), pdi193d1 (1 lam/D), pdi193se_ls /
-  se_sh5 (2% step error, least squares vs Schwider-Hariharan), ploop193
+  pdi193se_ls / se_sh5 (2% step error, least squares vs Schwider-
+  Hariharan: the first attempt showed the flat reading 6.9e-2 rad rms
+  under ls and 1.3e-5 under sh5 before the exactness gate aborted it;
+  the gates are informational under a step error now), ploop193
   (the loop rows for P / PF), pcam193 / pcam193i (the camera drift, all
   six readings, within-scan 0 / 1).  Figure: `<tag>_pdi.png` (the focal
   spot with pinhole, dimple and mode; the reference amplitudes; the
