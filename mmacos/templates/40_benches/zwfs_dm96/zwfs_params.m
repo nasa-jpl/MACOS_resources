@@ -78,6 +78,12 @@ P.bench.tail_arch = 'fieldlens';                         % pupil-relay field len
 P.bench.MASK_TRIM = -5.582;  % thin-lens seed -> true focus (S1 rounds 2-5)
 P.bench.FL_F   = 42.5325;    P.bench.FL_Kc = -2.58764;  P.bench.FL_D = s*12;
 P.bench.D_MASK_FL = 39.7694; P.bench.DET_TRIM = -1.2473; % tuned tail (tg96_tail)
+P.bench.coat_oap = 'none';   % the OAP rig only (bench.optics 'oap'): mirror coating on L1 and L2 --
+                             % 'none' | 'bareAl' | 'protectedAl' (CCMac's tg96 stacks below); applied
+                             % after every deck load; active under polarization only, i.e. for the
+                             % vector reading's arm maps (mask.v_arm 'engine'); not a builder option
+P.bench.coat_bareAl      = struct('index',1.373, 'extinc',7.62, 'thickness',1.0e-4);
+P.bench.coat_protectedAl = struct('index',[1.38 1.373], 'extinc',[0 7.62], 'thickness',[2.293e-4 1.0e-4]);
 P.bench.mask_prop = 'nf';    % 'nf' = SYMMETRIC reference-sphere sandwich about the mask
                              % (the corrected model, S7); 'nf_legacy' reproduces the
                              % Fresnel-DEFOCUSED S1-S6 sensor (record only)
