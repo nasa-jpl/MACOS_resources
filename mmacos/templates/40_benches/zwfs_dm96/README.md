@@ -46,7 +46,9 @@ from the estimate through the FFT surrogate of the mask model; 1
 frame; 'I+' adds a one-time stepped retrieval of the working state as
 a branch prior).  Note the spot: stage 1 used spot 9 (1.06 λ/D); the
 record since S5 is the 2.0 λ/D spot (`mask.DIA_LAMD`), 5.3 µm here,
-7.9 px across at 193 rays / 1024 and 15.8 px at 385 / 2048; the runner's
+7.9 px across at 3.96 px per λF/D -- the same at 193 rays / 1024 and at
+385 / 2048 (the larger grid doubles the pupil sampling, not the focal
+one; S8's sampling trade), 70.7% of the focused light enclosed; the runner's
 `<tag>_mask.png` draws the focal spot and the mask at the run's own
 sampling, with the light the dimple encloses printed in the bench stage.
 
@@ -484,10 +486,14 @@ budget lines before quoting a number.
   barely move: single 10 nm P 0.9918 / 4 pm, PF 0.9908 / 4 (0.9935 / 4
   without the error); grid 0.998 / 3 and 1.002 / 3; dense 0.998 / 354
   and 1.004 / 353 (338 / 330); ladder at 60 nm P 0.94, PF 1.02.  The
-  first attempt at this pair showed the Schwider-Hariharan scan's flat
-  reading at 1.3e-5 rad rms for the same error (5000x smaller): its
-  differential rows are the pending run.  Pending: pcam193r / pcam193ri
-  (the relative camera drift, corrected scale), pdi193se_sh5; pcam193 / pcam193i (the camera drift, all
+  *The five-frame Schwider-Hariharan scan under the same 2% step error
+  (runs/pdi193se_sh5):* the flat reads 1.3e-5 rad rms, the 12 nm figure
+  comes back with **4.9 / 2.2 pm** rms error (P / PF; 421 / 251 under
+  least squares), and the differential rows are the error-free ones to
+  the digit (single 0.9935 / 4 pm, grid 0.9992 / 3, dense 0.9985 / 338
+  and 1.0002 / 330; ladder 60 nm P 0.94, PF 1.005).  de Groot's
+  zero-sum weights buy first-order immunity to the step size for one
+  extra frame -- the paper's scheme, confirmed.  pcam193 / pcam193i (the camera drift, all
   six readings, within-scan 0 / 1).  Figure: `<tag>_pdi.png` (the focal
   spot with pinhole, dimple and mode; the reference amplitudes; the
   reference's motion by diameter; the visibility maps).  Deck:

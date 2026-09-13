@@ -1,4 +1,4 @@
-=== ZWFS runner: tag pdi193se_ls  (2026-09-12 15:39) ===
+=== ZWFS runner: tag pdi193se_ls  (2026-09-12 19:01) ===
 model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
 stages: bench battery | readings: P PF
 readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
@@ -6,6 +6,7 @@ readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b 
 ---- bench ----
 deck pdi193se_ls_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
 mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+focal spot: 0.666 um per px at the mask plane, 3.96 px per lam F/D; the dimple encloses 70.6% of the flat DM's focal-plane light
 G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.817e-15   (gate < 1e-12)
 G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.967e-15   (gate < 1e-10)
 reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9539 0.9510 0.9452 0.9369 0.9260 0.9120 0.8957 0.8770 0.8561 0.8328 0.8071 0.7798 0.7511 0.7206 0.6885 0.6554 0.6215 0.5867 0.5514 0.5156 
@@ -36,7 +37,7 @@ bench stage 0.6 min
 
 ---- battery: DM 96x96, pitch 1.0 mm ----
 calibration: surface base (30 nm rms, seed 7), kernel measured at actuator (NaN,NaN); test actuator (60,40)
-MATRIX calibration: 64 multiplexed states (grid step 8), 3252 actuators poked once each, windows +/-10 px; J built in 4.0 min; 0 clipped windows
+MATRIX calibration: 64 multiplexed states (grid step 8), 3252 actuators poked once each, windows +/-10 px; J built in 4.2 min; 0 clipped windows
 lit actuators 3252; per class [mean column peak per unit command, clipped fraction, column-norm spread]:  P [0.935 0.000 0.044]  PF [0.928 0.000 0.050]
 modal transfer (actuator-space estimator, RAW):
      mode  cyc/ap |       P      PF
@@ -70,7 +71,8 @@ break scale (10 nm differential on 47 grid sites (every 8 actuators), on a growi
     base  fold0   fold | P: g flr SNR          | PF: g flr SNR         |
    30 nm    NaN    NaN |  0.9964     21   476.3|  0.9981     20   493.7|
    60 nm    NaN    NaN |  0.9419    148    63.8|  1.0194    115    88.7|
+capture range to 10% (largest base rms with the gain within 0.9..1.1; matrix on the 30 nm surface; log-interpolated crossing):  P 60 nm+ (holds at the last rung) |  PF 60 nm+ (holds at the last rung) |
 SPEC: grid-on-base SNR, reading P : raw 332.99 / corrected 332.99 -> DETECTED (>= 5)
 SPEC: grid-on-base SNR, reading PF: raw 351.46 / corrected 351.46 -> DETECTED (>= 5)
-DM 96x96 battery 5.9 min
-run complete in 6.5 min
+DM 96x96 battery 6.2 min
+run complete in 6.8 min
