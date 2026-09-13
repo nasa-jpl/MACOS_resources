@@ -27,7 +27,7 @@ what is measured and what is running:
 | 6. layouts and parts | **done** (`pdi_layout.png`, `psri_layout.png`, `psri_render.png`, `pdi_vfig_util`; parts tables in the README) |
 | 7. conclusions; README | **done** for what sections 1, 4 and 8 settle; the conclusions section below, README beside it |
 | 8. unwrap the differential (`BRIEF_to_capture.md`) | **done and gated** — `dm_gauge_lib/dmg_unwrap.m`, tDmgLoop G13, 15/15; section 8 |
-| 9. the start-rms ladder, both ways | `cap_nouw`, `cap_uw`, `cap_nouw_recal`, `cap_uw_recal`; section 9 |
+| 9. the start-rms ladder, both ways | `cap_nouw`, `cap_uw`, `cap_*_recal`, `cap_state_*`; section 9 |
 
 ---
 
@@ -527,7 +527,12 @@ against `runs/pfdeck_smoke2`).
 Starts 30 / 60 / 100 / 150 / 200 / 300 nm rms, the matrix measured at
 each start, gain 0.5, `recal_every` 10 and never, 1e13 and 1e15 photons
 per cycle, readings L, S, V, P, PF — run with the unwrapper off and on.
-Runs: `cap_nouw`, `cap_uw`, `cap_nouw_recal`, `cap_uw_recal`.
+Runs: `cap_nouw`, `cap_uw`, `cap_nouw_recal`, `cap_uw_recal`, and —
+because `gcap` runs P in its RECORD configuration (a flat `|b|²`, four
+frames, which is what folds it at 120 nm) while section 0 recommends the
+SHUTTER form — `cap_state_uw` and `cap_state_nouw`, the same ladder for
+P with `pdi.b2 'state'`.  The slide has to quote the capture of the
+configuration it shows.
 
 **[departure] 193 rays, not 385.**  The box is the limit: the 385-ray
 ladder is ~4× these states and the queue behind it (the within-scan

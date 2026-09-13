@@ -57,6 +57,7 @@ sequence stands alone and can be re-run on its own.
 | `runs/gseq1.sh` | `pfdeck`, `pfdeck_frz`, `pfdeck_loop`, `cap385p`, `cap385p_b60/90/120/160`, `noise193p_b30/60/120/160` | **the P/SRI with both arms traced** (rows, photons, loop) against the synthesized reference, with the frozen-reference control; **capture range and photons** for P and PF |
 | `runs/gseq2.sh` | `pin20_1024`, `pin20_loop`, `pin10_2048`, `pin10_loop` | **the pinhole diameter of record**: 2.0 λ/D at model 1024 / 193 rays against 1.0 λ/D at 2048 / 385 |
 | `runs/gcap.sh` | `cap_nouw`, `cap_uw`, `cap_nouw_recal`, `cap_uw_recal` | **the start-rms ladder both ways**: how large an initial figure each reading can capture, with the unwrapper off and on — the deck's capture slide |
+| `runs/gseq3.sh` (a2) | `cap_state_uw`, `cap_state_nouw` | the same ladder for P in the SHUTTER configuration the deck shows, not the record's flat `\|b\|²` |
 | `runs/gseq3.sh` | `descent193s`, `descent193f`, `intra193_0`, `intra193` | the descent at 100 nm for P's shutter form, the fast-recal probe, and the **within-measurement DM drift** |
 | `runs/gseq4.sh` | `rw193_1e3`, `rw193_1e2`, `rw193_1e1` | **the reference arm's own drift** (P/SRI), three sizes, with P as the common-path control |
 | `runs/gfigs.sh` | — | the two layout figures |
