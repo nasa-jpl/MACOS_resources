@@ -396,8 +396,25 @@ of the start) will not; the steady-state tail is still 20 cycles.
 *The runner also prints, per start and reading, the OPENING
 differential: its wrapped rms, the residue count inside the mask, the
 largest wrapped gradient in rad per pixel, and the rms the unwrapper
-returns against the truth.  That line is the direct evidence for the
-wrap diagnosis, independent of whether the loop then converges.*
+returns — against the truth, which is printed beside it.  That line is
+the direct evidence, independent of whether the loop then converges.*
+
+**It also separates the TWO ways a descent can fail, which the ladder
+alone would confuse.**  A reading can fail because its differential is
+FOLDED — it is returning nearly the right map, wrapped — or because its
+REFERENCE has collapsed: at a large working surface the focal core is
+gone, and then the reading returns a small, wrong map that is not
+wrapped at all.  Unwrapping answers the first and cannot touch the
+second.  The diagnostic tells them apart: a folded reading shows a
+wrapped rms near the wrapped-random value (π/√3 × 50.4 nm ≈ 91 nm of
+surface) with residues, and an unwrapped rms that recovers the truth; a
+collapsed reference shows a wrapped rms FAR BELOW the truth with no
+residues, and unwrapping changes nothing.  The dev-resolution smoke
+(`runs/sm_cap`, 48×48 DM, 1.7 px per actuator) shows the second: from a
+150 nm start, truth 119 nm, S and P both read ~25–29 nm with zero
+residues, and the unwrapper returns the same — their references are
+gone, not folded.  Which failure each reading meets, and at what start,
+is what the record ladder measures.
 
 ---
 
