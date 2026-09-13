@@ -268,6 +268,78 @@ Runs: `rw193_1e3`, `rw193_1e2`, `rw193_1e1`.
 
 ---
 
+## 6. Conclusions for `deck_pdi`
+
+What the point-diffraction lane has settled, in the form the deck can
+carry.  Each line names its record.
+
+1. **At the operating point the three exact readings are one reading.**
+   On the 30 nm working surface with the matrix measured there, a 10 nm
+   change on one actuator reads 0.9935 / 4 pm for V, P and PF alike,
+   where the stepped Zernike reading S reads 0.9885 / 5 pm
+   (`pdi193fbase`).  Nothing separates them at null; everything that
+   separates them is range, light and systematics.
+
+2. **P is the cheapest picometre.**  N(1 pm) at the detector: **P
+   3.3e13**, V 4.7e13, S 5.4e13, PF 1.9-2.0e14 (`pdi193f`, `pfdeck`).
+   The P/SRI form costs ~6× the common-path pinhole because 60% of the
+   beam goes to an arm that returns a fraction of it as reference while
+   the test beam keeps 40%.  In closed loop the same ordering holds:
+   3 pm held from **P 2.3e12** / PF 7.0e12 photons per cycle noise-only,
+   **P 7.0e12** / PF 2.5e13 under a 2 pm walk (`ploop193`).
+
+3. **P's fold was the flat |b|² assumption, not the pinhole.**  With a
+   pinhole-only (shutter) frame per state — 5 frames instead of 4 — P
+   becomes PF's twin on every row AND the ladder, 1.02 / 1.06 / 1.13 at
+   120 / 240 / 480 nm (`pdi193state`).  The same range in the common
+   path, for one extra frame.
+
+4. **The P/SRI's range survives being built.**  With both arms traced,
+   the gain stays inside 0.7% out to a 480 nm rms working surface —
+   flatter than the synthesized model of it, and far past where S and P
+   (with a flat |b|²) fold at 120 nm (`pfdeck`).
+
+5. **The non-common-path reference is priced, and it is small at the
+   operating point.**  Absolutely, the reference moving with the state
+   costs 5.9 pm on a 13 nm figure; differentially it is a 10%-class
+   effect on the noise floor and nothing on the gain or the range
+   (`pfdeck` vs `pfdeck_frz`).  What it is NOT immune to is its own
+   drift — section 5.
+
+6. **The five-frame scan buys step-size immunity for one frame.**  Under
+   a 2% phase-step error, four-step least squares turns a 12 nm figure
+   into 421 / 251 pm of error (P / PF) and the flat stops reading zero;
+   the Schwider–Hariharan five-frame scan of the paper reads **4.9 /
+   2.2 pm** and its differential rows are the error-free ones to the
+   digit (`pdi193se_ls`, `pdi193se_sh5`).
+
+7. **Camera drift: a temporal PSI is exactly immune to a bias constant
+   within its scan, and pays only for what develops between its own
+   frames.**  At the campaign's photon levels the paper's 1 electron per
+   pixel is invisible to every reading (`pcam193`); in the relative form
+   the single-frame reading L imprints 10.8 nm and the simultaneous pair
+   V 89 pm, while S / P / PF read their noise-only values to the digit
+   (`pcam193r`).  With the whole step developing WITHIN each scan
+   (`pcam193ri`) S / P / PF pay 5.4 / 5.3 / 10.7 pm at 1e15 — 2000×
+   less than the single-frame reading and 17× less than the pair.
+
+8. *(the pinhole diameter of record — section 3)*
+
+9. *(capturing the initial figure — section 4b)*
+
+**The recommendation the lane supports**, for the deck's main body:
+**the point-diffraction approach's best configuration is the stepped
+pinhole P with a shutter frame per state and the five-frame scan** — the
+common path's light and the P/SRI's range and step immunity in one
+instrument, at ~1/6 the photons of the waveguide form and with no
+reference arm to drift.  The P/SRI's own value is that its reference
+does not depend on the surface AT ALL, which is what makes it the
+capture instrument rather than the hold instrument; sections 3 and 4
+say whether that holds at the diameters and the initial figures that
+matter.
+
+---
+
 ## Method notes carried by every section
 
 - **Currency.**  Actuator-space rows on a 96×96 DM, 1 mm pitch, at the

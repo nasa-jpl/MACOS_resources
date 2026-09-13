@@ -126,24 +126,21 @@ pdi_vfig_util('label', ax2, { ...
     M3,  [ 0.03  0.24], 'M3, onto BS3'}, 16);
 print(f, 'psri_layout.png', '-dpng', '-r130');  close(f);
 fprintf('wrote psri_layout.png\n');
-% ---- the traced render: the same two decks, table plane and ISO ------------
-d0 = G.bt.src_dir(:);  [~, i0] = min(abs(d0));
-xb = zeros(3,1);  xb(i0) = 1;  xb = xb - dot(xb,d0)*d0;  xb = xb/norm(xb);  yb = cross(d0, xb);
-ai = deg2rad([-35 22]);
-VW = { -yb, xb, 'The bench from above the table' ; ...
-       cos(ai(2))*(cos(ai(1))*xb + sin(ai(1))*d0) + sin(ai(2))*yb, yb, 'The same rig in perspective' };
-f = figure('Color','w', 'Position',[40 40 1800 700], 'Visible','off');
+% ---- the traced render: the same two decks, from above and in perspective --
+% Plain view() + axis tight, NOT a hand-placed camera: the hand-placed one
+% left both panels a tenth of their tile (the first pass), which is exactly
+% the failure the recipe is about.
+VW = {[0 90],  'The bench from above the table'; ...
+      [-35 22], 'The same rig in perspective'};
+f = figure('Color','w', 'Position',[40 40 1800 760], 'Visible','off');
 tl2 = tiledlayout(f, 1, 2, 'Padding','tight', 'TileSpacing','tight');
 for q = 1:size(VW,1)
     ax = nexttile(tl2);
     macos.load_rx('psri_test.in');  macos.view_rx('ax', ax, 'title', '', 'labels', false, 'ray_color', green);
     macos.load_rx('psri_ref.in');   macos.view_rx('ax', ax, 'title', '', 'labels', false, 'ray_color', blue);
-    title(ax, VW{q,3}, 'Color', ink, 'FontWeight', 'normal', 'FontSize', 15);
-    axis(ax, 'equal');
-    xl = xlim(ax);  yl = ylim(ax);  zl = zlim(ax);
-    tgt = [mean(xl); mean(yl); mean(zl)];  dd = 3*max([diff(xl), diff(yl), diff(zl)]);
-    set(ax, 'CameraTarget', tgt.', 'CameraPosition', (tgt - dd*VW{q,1}).', 'CameraUpVector', VW{q,2}.', 'Projection', 'orthographic');
-    camva(ax, 'auto');  camzoom(ax, 1.05 + 0.55*(q == 2));  axis(ax, 'off');
+    view(ax, VW{q,1}(1), VW{q,1}(2));
+    axis(ax, 'equal');  axis(ax, 'tight');  axis(ax, 'off');
+    title(ax, VW{q,2}, 'Color', ink, 'FontWeight', 'normal', 'FontSize', 15);
 end
 print(f, 'psri_render.png', '-dpng', '-r130');  close(f);
 fprintf('wrote psri_render.png\n');

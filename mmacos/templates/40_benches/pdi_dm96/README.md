@@ -86,6 +86,41 @@ The full tables, with every run tag, are in **`REPORT_gauge_pdi.md`**
 beside this file.  So the two cannot drift apart, the NUMBERS live in
 the report and this section states the FINDINGS.
 
+- **The P/SRI's reference arm, TRACED** (`pdi.bench 'psri'`;
+  `runs/pfdeck`, `runs/pfdeck_frz`).  The reading now has a bench on
+  which the reference is not modeled: `psri_ref.in` carries the state
+  through Lr1, the physical pinhole in its near-field sphere bracket,
+  Lr2 and BS3 to its own camera, while `psri_test.in` carries the test
+  beam to the same camera plane.  Two traces per state.  *The control
+  that makes it a measurement:* `pdi.ref_frozen` traces the arm ONCE on
+  the flat and holds it — same bench, same lenses, same aberrations,
+  only still.  It reads **0.000 pm** where the moving arm reads **5.889
+  pm** on a 13 nm figure, so that error is ENTIRELY the reference moving
+  with the state; and **the synthesized LP01 model sits exactly with the
+  frozen one**, because a reference whose state dependence is one
+  complex scalar is, to a solver that takes κ = 1, a frozen reference.
+  Differentially the motion is a 10%-class effect on the noise floor
+  (dense row 129 → 144 pm) and nothing at all on the gain or the range.
+  **The P/SRI's argument survives being built:** gain inside 0.7% out to
+  a 480 nm rms working surface, flatter than the model of it (+12.8%
+  there) and far past where S and P fold at 120 nm.  N(1 pm) 2.00e14
+  traced vs 1.9e14 synthesized — the reference model does not set the
+  photon cost; the 60/40 pickoff does.  *Trap worth keeping:*
+  `macos.dx_at` at a plane returns 0 until the field has been
+  PROPAGATED there — call `complex_field` first, or the pinhole disk
+  comes out all-ones and the "reference" is the whole beam.
+
+- **Four shared loop knobs** in `../dm_gauge_lib/dmg_loop.m`, gated on
+  the synthetic instrument in `mmacos/tests/tDmgLoop.m` (G9–G12): the
+  descent (`start_rms`), on-surface re-calibration (`recal_every`, with
+  the `ins.recal(cmd)` contract CCMac mirrors), the drift developing
+  WITHIN one measurement's scan (`intra`, `aux.dstep`) and a
+  non-common-path reference arm's phase walk (`ref_walk`,
+  `aux.ref_phase`).  `aux` reaches an instrument only when a knob is on,
+  and the drift increments are now drawn once ahead of the loop in the
+  same order from the same stream, so **every run taken before this
+  reproduces bit-for-bit**.
+
 ### The readings, and the record through 2026-09-12
 
 *(Moved verbatim from `../zwfs_dm96/README.md`.)*

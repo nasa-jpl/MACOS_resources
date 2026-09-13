@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Continue the chain after gseq1: 3 (gseq2), then 5 (gseq4 -- a whole
-# deliverable for ~75 min), then 4 (gseq3, the longest by far).  Deliverable
-# 5 is ahead of 4 deliberately: if the box runs out of day, the cheap
-# complete answer should be the one that landed.
+# Continue the chain after gseq1, CHEAPEST COMPLETE DELIVERABLE FIRST:
+# 5 (gseq4, ~75 min), then 3 (gseq2, ~4 h -- its value is all in the
+# model-2048 leg), then 4 (gseq3, the descent and the within-scan drift,
+# ~7 h).  If the box runs out of day, the deliverables that landed should
+# be whole ones.
 #
 # gmaster.sh was edited while it was running (its loop list was already
 # parsed, so the edit could not take effect and the byte offsets moved).
@@ -12,7 +13,7 @@ while pgrep -x -f 'bash ./gseq1.sh' >/dev/null 2>&1 || pgrep -f 'MATLAB -batch (
     sleep 60
 done
 echo "[$(date '+%F %T')] gseq1 finished; continuing"
-for s in gseq2 gseq4 gseq3; do
+for s in gseq4 gseq2 gseq3; do
     echo "[$(date '+%F %T')] === $s ==="
     ./$s.sh || { echo "[$(date '+%F %T')] $s FAILED -- chain stopped"; exit 1; }
 done
