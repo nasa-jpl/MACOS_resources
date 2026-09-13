@@ -12,6 +12,8 @@ function zwfs_run_figs(out)
 %                                 (left, the walk drift) and the steady-state hold error
 %                                 vs photons per cycle per reading and drift, with the
 %                                 hold spec line (right)
+%     <tag>_mask.png              the focal spot (log10 intensity, flat DM) with the dimple's
+%                                 footprint, and the mask's phase, at the run's own sampling
 %   Palette: the dataviz categorical order used across the campaign figures.
 if ischar(out) || isstring(out), q = load(out);  out = q.out; end
 P = out.P;
@@ -28,6 +30,28 @@ colof = @(rd) pal.(name(rd));
 lbl = struct('L','linear (L)', 'F','exact, frozen b (F)', 'I','exact, iterated b (I)', ...
              'Ip','I + refined base prior (I+)', 'S','phase-stepped (S)', 'V','vector pair (V)', ...
              'P','point-diffraction, pinhole (P)', 'PF','point-diffraction, fiber reference (PF)');
+
+% ---- the mask and the focal spot at the run's sampling --------------------
+if isfield(out, 'bench') && isfield(out.bench, 'maskfig')
+    M = out.bench.maskfig;
+    f = figure('Color', surf_c, 'Position', [100 100 1150 460], 'Visible', 'off');
+    tl = tiledlayout(1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
+    ax = nexttile;  imagesc(ax, log10(M.If + 1e-12));  axis(ax, 'image');
+    colormap(ax, 'parula');  clim(ax, [-6 0]);  cb = colorbar(ax);  cb.Label.String = 'log_{10} intensity';
+    hold(ax, 'on');  th = linspace(0, 2*pi, 200);
+    plot(ax, M.ctr(1) + cos(th)*M.dia_px/2, M.ctr(2) + sin(th)*M.dia_px/2, 'w-', 'LineWidth', 1.6);
+    title(ax, sprintf('Focal spot (flat DM) and the dimple''s footprint: %.2f lam F/D = %.2f um = %.1f px', ...
+        M.dia_lamd, M.dia_px*M.px_um, M.dia_px), 'Color', ink, 'FontWeight', 'normal');
+    xlabel(ax, sprintf('px at the mask plane (%.3f um per px, %.2f px per lam F/D; %d rays, grid %d)', ...
+        M.px_um, M.px_per_lamd, P.NGRID, P.MODEL), 'Color', ink2);
+    ax = nexttile;  imagesc(ax, M.mask_phase);  axis(ax, 'image');
+    colormap(ax, 'gray');  clim(ax, [0 max(M.phi_m, eps)]);  cb = colorbar(ax);  cb.Label.String = 'phase, rad';
+    title(ax, sprintf('The mask: %.3f rad (%.1f nm etch in fused silica), area-weighted edges', M.phi_m, M.etch_nm), ...
+        'Color', ink, 'FontWeight', 'normal');
+    xlabel(ax, 'px at the mask plane (gray edge = area-weighted supersampling)', 'Color', ink2);
+    fn = fullfile(P.outdir, sprintf('%s_mask.png', P.tag));
+    exportgraphics(f, fn, 'Resolution', 110, 'BackgroundColor', surf_c);  close(f);
+end
 
 % ---- battery ------------------------------------------------------------
 if isfield(out, 'battery')

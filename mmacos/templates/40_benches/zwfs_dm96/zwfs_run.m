@@ -242,6 +242,18 @@ msk = ZW.msk;  N_WF = ZW.N_WF;
 dimple_px = ZW.dia_mm*1e-3 / abs(macos.dx_at(iMASK));
 dmg_say(rep, 'mask: phase %.4f rad (|c| %.3f), dimple %.3f lam/D = %.4e mm = %.2f px at the mask plane; msk %d px\n', ...
     gopt.PHI_M, abs(ZW.cc), gopt.DIA_LAMD, ZW.dia_mm, dimple_px, nnz(msk));
+% the focal spot and the mask as the run samples them (flat DM; for the
+% figure <tag>_mask.png -- the record's own resolution, not stage 1's)
+dxm = abs(macos.dx_at(iMASK));  If = abs(macos.complex_field(iMASK)).^2;
+hw = 24;  zc = round(ZW.ctr(1));  zr = round(ZW.ctr(2));
+rz = max(1,zr-hw):min(N_WF,zr+hw);  cz = max(1,zc-hw):min(N_WF,zc+hw);
+enc = sum(sum(If .* ZW.D)) / sum(If(:));                 % the light the dimple encloses (area-weighted disk)
+maskfig = struct('If', If(rz, cz)/max(If(:)), 'mask_phase', gopt.PHI_M*ZW.D(rz, cz), ...
+    'ctr', [ZW.ctr(1)-cz(1)+1, ZW.ctr(2)-rz(1)+1], 'dia_px', dimple_px, 'px_um', dxm*1e6, ...
+    'px_per_lamd', dimple_px/gopt.DIA_LAMD, 'dia_lamd', gopt.DIA_LAMD, 'phi_m', gopt.PHI_M, ...
+    'etch_nm', P.mask.ETCH_MM*1e6, 'enclosed', enc);
+dmg_say(rep, 'focal spot: %.3f um per px at the mask plane, %.2f px per lam F/D; the dimple encloses %.1f%% of the flat DM''s focal-plane light\n', ...
+    dxm*1e6, dimple_px/gopt.DIA_LAMD, 100*enc);
 dmg_say(rep, 'G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): %.3e   (gate < 1e-12)\n', ZW.gate.roundtrip);
 dmg_say(rep, 'G2 reference-wave surrogate T(D Ti(E0)) vs the engine''s Eb on msk: %.3e   (gate < 1e-10)\n', ZW.gate.bsur);
 g1 = ZW.gate.roundtrip < 1e-12;  g2 = ZW.gate.bsur < 1e-10;
@@ -488,6 +500,7 @@ S.summary = struct('deck',deck, 'Z1',Z1, 'Z2',Z2, 'phi_m',gopt.PHI_M, 'dia_lamd'
     'dimple_px',dimple_px, 'nmsk',nnz(msk), 'roundtrip',ZW.gate.roundtrip, 'bsur',ZW.gate.bsur, 'bprof',bprof, ...
     'ampmod_std',std(rr), 'g4',gV, 'g567',gP, 'pin_px',pin_px, 'mag',mag, 'dxd_mm',dxd_mm, 'px_per_act',ppa, 'PARb',PARb, 'sgn',sgn, ...
     'kernel_peak',max(hAd(:))/max(Ma(:)), 'kernel_corr',cpm(1,2), 'anchor',[R.bx R.by R.tax R.tay]);
+S.summary.maskfig = maskfig;                     % the focal spot + mask windows for <tag>_mask.png
 end
 
 % =====================================================================
