@@ -19,7 +19,7 @@ what is measured and what is running:
 
 | item | state |
 |---|---|
-| 1. PF through the two decks | **done** (`pfdeck`, `pfdeck_frz`, `pfdeck_loop`) |
+| 1. PF through the two decks | **done** — rows, photons and the loop rows, plus the frozen-reference control (`pfdeck`, `pfdeck_frz`, `pfdeck_loop`) |
 | 2. capture range and photons, P and PF | `cap385p*`, `noise193p_b*` |
 | 3. the pinhole diameter of record | `pin20_*`, `pin10_*` |
 | 4. the four shared loop knobs + gates | **built and gated** (tDmgLoop G9–G12, 14/14); the DESCENT and WITHIN-SCAN runs are `descent193*`, `intra193*` |
@@ -251,13 +251,44 @@ runner prints it after every ladder.  Two calibrations are scored
 separately: one measured once at 30 nm and left to AGE as the surface
 grows, and one RE-MEASURED on each surface.
 
-*(a) Aging from 30 nm — `cap385p`, 385 rays.*
+### 2a. A calibration that AGES — the matrix measured once at 30 nm (`cap385p`, 385 rays)
+
+A 10 nm change on the 47 grid sites, read on a growing working surface,
+with the response matrix left at the one measured on the 30 nm surface.
+
+| base rms | P: gain / floor / SNR | PF: gain / floor / SNR |
+|---|---|---|
+| 30 nm | 0.9970 / 20 pm / 492 | 0.9967 / 20 pm / 493 |
+| 40 | 0.9858 / 41 / 242 | 0.9989 / 40 / 247 |
+| 50 | 0.9678 / 78 / 123 | 1.0012 / 72 / 140 |
+| 60 | 0.9425 / 142 / 67 | 1.0034 / 105 / 96 |
+| 80 | **0.4674** / 873 / 5.4 | 1.0078 / 171 / 59 |
+| 100 | 0.0618 / 488 / 1.3 | 1.0122 / 239 / 42 |
+| 120 | **−0.0147** (folded) | 1.0166 / 306 / 33 |
+| 160 | −0.0417 | 1.0255 / 441 / 23 |
+| 240 | −0.0182 | 1.0431 / 711 / 15 |
+| 480 | −0.0094 | **1.0962** / 1522 / 7.2 |
+| **capture range to 10%** | **62 nm** | **480 nm+ (holds at the last rung)** |
+
+**Beside the Zernike readings on the same ladder** (`../zwfs_dm96/runs/cap385`):
+
+| reading | L | I+ | S | V | **P** | **PF** |
+|---|---|---|---|---|---|---|
+| capture range to 10%, aging from 30 nm | 44 nm | 36 nm | 42 nm | 70 nm | **62 nm** | **480 nm+** |
+
+That row is the deck's capture slide in one line.  Everything with a
+reference that depends on the surface dies between 36 and 70 nm; the one
+whose reference does not is still within 1% at 100 nm and within 10% at
+480.  P sits with the Zernike readings here because its `|b|²` is taken
+from the FLAT state — with a shutter frame per state it moves to PF's
+column (conclusion 3, `pdi193state`).
 
 *(b) Re-measured on the surface — `cap385p_b60/90/120/160`, rows
 `{'base/grid'}` with the matrix on that surface.*
 
-*(c) Photons for 1 pm at 30 / 60 / 120 / 160 nm — `noise193p_b*`,
-193 rays, `noise.nstates 10.^(8:2:14)`, `noise.nreal 6`.*
+### 2b. The matrix RE-MEASURED on the surface (`cap385p_b60/90/120/160`)
+
+### 2c. Photons for 1 pm at 30 / 60 / 120 / 160 nm (`noise193p_b*`, 193 rays)
 
 ---
 
