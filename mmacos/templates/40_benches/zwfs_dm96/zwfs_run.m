@@ -165,6 +165,38 @@ g = struct('LAM', lam_mm, 'F2', P.bench.F2, 'R_BEAM', P.bench.R_TO_AP, ...
     'V_ARM_DPHASE', P.mask.v_arm_dphase, 'V_ARM_DAMP', P.mask.v_arm_damp);
 end
 
+function bargs = bench_args_(P)
+% P.bench as twyman_green name/value pairs, minus the runner-side fields the
+% builder does not take: the OAP coating (applied after each load, coat_oap_)
+skip = {'coat_oap', 'coat_bareAl', 'coat_protectedAl'};
+bf = setdiff(fieldnames(P.bench), skip, 'stable');  bargs = cell(1, 2*numel(bf));
+for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = P.bench.(bf{i}); end
+end
+
+function coat_oap_(P, bt, rep)
+% the OAP rig's mirror coating (CCMac's tg96_run item B, same stacks): a
+% Model-A thin-film stack on the elements named L1 and L2 (the OAPs), applied
+% AFTER a deck load (a load clears it).  Active only under polarization, i.e.
+% for the vector reading's arm maps (mask.v_arm 'engine'); the scalar traces
+% never see a coating.  bench.coat_oap 'none' | 'bareAl' | 'protectedAl'.
+if ~isfield(P.bench, 'coat_oap') || any(strcmp(P.bench.coat_oap, {'none', ''})), return; end
+assert(isfield(P.bench, 'optics') && strcmp(P.bench.optics, 'oap'), 'zwfs_run: bench.coat_oap needs bench.optics ''oap''');
+switch P.bench.coat_oap
+    case 'bareAl',      cs = P.bench.coat_bareAl;
+    case 'protectedAl', cs = P.bench.coat_protectedAl;
+    otherwise, error('zwfs_run: bench.coat_oap must be none | bareAl | protectedAl');
+end
+nm = {bt.E.name};  iL = [find(strcmp(nm, 'L1'), 1), find(strcmp(nm, 'L2'), 1)];
+assert(numel(iL) == 2, 'zwfs_run: elements L1 and L2 not found for the OAP coating');
+for j = 1:2
+    macos.coating(iL(j), 'index', cs.index, 'extinc', cs.extinc, 'thickness', cs.thickness);
+end
+if ~isempty(rep)
+    dmg_say(rep, 'OAP coating: %s on L1 (elt %d) and L2 (elt %d), %d layer(s); active under polarization (the vector reading''s arm maps)\n', ...
+        P.bench.coat_oap, iL(1), iL(2), numel(cs.index));
+end
+end
+
 function po = pdi_opt_(P, lam_mm)
 % dmg_pdi_gauge options at wavelength lam_mm: ONE physical pinhole (fixed
 % diameter, so lam/D moves with color); the phase steps are the photonic /
@@ -255,8 +287,7 @@ elseif exist('macos_param.txt', 'file')
 end
 macos.init(P.MODEL);
 macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G));
-bf = fieldnames(P.bench);  bargs = cell(1, 2*numel(bf));
-for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = P.bench.(bf{i}); end
+bargs = bench_args_(P);
 G = macos.design.twyman_green(bargs{:}, 'ngridpts', P.NGRID, ...
     'to_grid_file', P.grid.flat_file, 'to_grid_n', P.grid.N_G, 'to_grid_dx', P.grid.DX_G);
 G.bt.wavelen = P.LAM;
@@ -264,6 +295,7 @@ deck = sprintf('%s_test.in', P.tag);
 G.bt.emit(deck);
 iTO = G.T.iTO;  iMASK = G.T.iMASK;  iDET = G.T.iDET;
 macos.load_rx(deck);
+coat_oap_(P, G.bt, rep);                                   % the OAP rig's mirror coating (bench.coat_oap), if any
 wl = macos.get_src_wvl();
 assert(abs(wl - P.LAM) < 1e-9*P.LAM, 'deck %s did not take Wavelen (%g vs %g)', deck, wl, P.LAM);
 Z1 = G.bt.E(iMASK-1).zelt;  Z2 = G.bt.E(iMASK+1).zelt;
@@ -687,7 +719,7 @@ R.P = PARb;
 hAd = sgn*dmg_samp(hA, R);  hAd(isnan(hAd)) = 0;
 cpm = corrcoef(hAd(:), Ma(:));
 dmg_say(rep, '  center poke in the DM frame: raw peak gain %.4f, corr(map, truth) %.4f\n', max(hAd(:))/max(Ma(:)), cpm(1,2));
-macos.load_rx(deck);
+macos.load_rx(deck);  coat_oap_(P, G.bt, []);
 macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), zeros(P.grid.N_G));
 dmg_say(rep, 'bench stage %.1f min\n', toc(t0)/60);
 S = struct('G',G, 'deck',deck, 'rdeck',rdeck, 'dk',dk, 'iTO',iTO, 'iMASK',iMASK, 'iDET',iDET, 'ZW',ZW, ...
@@ -1262,7 +1294,7 @@ col = struct('nm',{},'phi',{},'absc',{},'dia_lamd',{},'dimple_px',{},'nmsk',{},'
 RAW = cell(0, K);  lit = [];  ROWS = {};
 for k = 1:K
     tk = tic;
-    macos.load_rx(decks{k});
+    macos.load_rx(decks{k});  coat_oap_(P, S.G.bt, []);
     LAM = LAMS(k)*1e-6;  wl = macos.get_src_wvl();
     assert(abs(wl - LAM) < 1e-9*LAM, 'deck %s did not take Wavelen (%g)', decks{k}, wl);
     gopt = gauge_opt_(P, LAM);
@@ -1370,7 +1402,7 @@ for j = 1:numel(RD)
     end
 end
 dmg_say(rep, 'color stage %.1f min\n', toc(t0)/60);
-macos.load_rx(S.deck);                                  % back to the record color
+macos.load_rx(S.deck);  coat_oap_(P, S.G.bt, []);       % back to the record color
 CO = struct('lams_nm',LAMS, 'readings',{RD}, 'PQ',cfg.PQ, 'gk',gk, 'Gc',Gc, 'G1',G1, 'col',col, ...
     'rows',{ROWS(:,1)}, 'RAW',{RAW}, 'lit',lit, 'res',res, 'beta',BETA);
 end
