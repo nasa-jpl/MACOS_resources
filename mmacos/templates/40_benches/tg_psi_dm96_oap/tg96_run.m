@@ -107,6 +107,7 @@ if want('figs')
         fr = bench.G.br.sketch('title', sprintf('TG96 %s reference arm -- optics layout (XY plane)', P.bench.optics));
         exportgraphics(fr, [P.tag '_sketch_ref.png'], 'Resolution', 140);  close(fr);
         fprintf('wrote %s_sketch.png + %s_sketch_ref.png (Bench.sketch)\n', P.tag, P.tag);
+        draw_render_(bench, P);      % full raytrace render (view_rx): table plane + ISO
     end
 end
 
@@ -1274,6 +1275,41 @@ function draw_layout_(geom, s, P)
 end
 function n = nrm(p1,p2,r,i)
     d = p2-p1;  v = [-d(2) d(1)]/norm(d)*r;  n = v(i);
+end
+
+function draw_render_(bench, P)
+% FULL RAYTRACE-BASED rendering to check clearances (macos.view_rx): the loaded
+% test-arm Rx traced to the detector, optics as solid bodies on their real
+% conic sag + apertures, the beam as a filled ray bundle read back from the
+% engine's ray history -- correct for the folded OAP legs.  Two panels, the
+% TABLE PLANE (looking down on the bench) and an ISO view, exactly the
+% zwfs_dm96/zwfs_wf_figs recipe (deck_zwfs slide 4).
+G = bench.G;  rxT = [P.tag '_test.in'];
+macos.load_rx(rxT);
+iDET = G.T.iDET;
+macos.trace(iDET);                                   % populate the ray history view_rx reads
+d0 = G.bt.src_dir(:);  [~, i0] = min(abs(d0));       % transverse basis about the source dir
+xb = zeros(3,1);  xb(i0) = 1;  xb = xb - dot(xb,d0)*d0;  xb = xb/norm(xb);
+yb = cross(d0, xb);
+ai = deg2rad([-35 22]);                              % ISO camera azimuth/elevation
+VW = { -yb, xb, 'TABLE PLANE -- looking down on the bench' ; ...
+       cos(ai(2))*(cos(ai(1))*xb + sin(ai(1))*d0) + sin(ai(2))*yb, yb, 'ISO view' };
+f = figure('Color','w', 'Position',[40 40 1700 620], 'Visible','off');
+tl = tiledlayout(f, 1, 2, 'Padding','tight', 'TileSpacing','tight');
+for q = 1:size(VW,1)
+    ax = nexttile(tl);
+    macos.view_rx('ax', ax, 'title', VW{q,3});
+    axis(ax, 'equal');
+    xl = xlim(ax);  yl = ylim(ax);  zl = zlim(ax);
+    tgt = [mean(xl); mean(yl); mean(zl)];
+    dd  = 3*max([diff(xl), diff(yl), diff(zl)]);
+    set(ax, 'CameraTarget',tgt.', 'CameraPosition',(tgt - dd*VW{q,1}).', ...
+            'CameraUpVector',VW{q,2}.', 'Projection','orthographic');
+    camva(ax, 'auto');  camzoom(ax, 1.7);  axis(ax, 'off');
+end
+title(tl, sprintf('TG96 %s test arm: raytrace layout (table plane + ISO)', P.bench.optics));
+print(f, [P.tag '_render.png'], '-dpng', '-r150');  close(f);
+fprintf('wrote %s_render.png (view_rx: table plane + ISO)\n', P.tag);
 end
 
 function A = arm_desc(rx, b, ix, base_deg)

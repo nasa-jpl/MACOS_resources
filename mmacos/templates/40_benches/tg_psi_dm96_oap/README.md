@@ -50,11 +50,18 @@ matlab -batch "tg96_tail('tag','oap','bench.optics','oap')"
 ```
 Outputs land in `runs/<tag>/`: `<tag>_report.txt`, `<tag>.mat`,
 `<tag>_{test,ref}.in`, `<tag>_layout.png`, `<tag>_closure.png`,
-`<tag>_transfer.png`. The `figs` stage also renders the real optics layout via
-the **`Bench.sketch`** method — `<tag>_sketch.png` (test arm) and
-`<tag>_sketch_ref.png` (reference arm): the chief-ray polyline through every
-element, aperture-sized footprint bars, element names and leg lengths (the OAP
-rig shows L1/L2 folding the beam off-axis; the lens rig is near-collinear). Memory-bound? drop a trimmed `macos_param.txt` in the run
+`<tag>_transfer.png`. The `figs` stage also renders the optics layout two ways:
+- **`<tag>_render.png`** — the FULL RAYTRACE render via **`macos.view_rx`**: the
+  test arm traced to the detector, optics as solid bodies on their real conic
+  sag + apertures, the beam as a filled ray bundle read back from the engine
+  (correct for the folded OAP legs), in two panels — **TABLE PLANE** (looking
+  down on the bench) and **ISO** — for checking beam-vs-edge clearances. This is
+  the deck_zwfs slide-4 recipe (`zwfs_dm96/zwfs_wf_figs.m`).
+- **`<tag>_sketch.png`** / `_sketch_ref.png` — the lighter `Bench.sketch`
+  schematic (chief-ray polyline, aperture-sized footprint bars, element names +
+  leg lengths), test and reference arms.
+
+The OAP rig shows L1/L2 folding the beam off-axis; the lens rig is near-collinear. Memory-bound? drop a trimmed `macos_param.txt` in the run
 dir via `P.param_file` (keep `mGridMat ≥` the DM grid, 384 here).
 
 ## Files
