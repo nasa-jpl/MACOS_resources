@@ -26,3 +26,33 @@ loop: gain 0.50, 60 cycles (steady state = last 30), set point = base, reference
 dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)
 calibration: measured response matrix on the base (30 nm rms, seed 7); lit actuators 3252
 10 loop runs of 61 states each (610 traced states)
+
+step response (noiseless; a step of the given rms at cycle 1).  rho = fitted per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, r(K/2) and r(K) = residual (pm) at cycles 30 and 60 -- a residual that stops falling is the reading's noiseless bias floor on this surface
+    step | PF: rho tau k1e r(K/2) r(K)           |
+    1 nm |  0.511    1.5    3      0.000      0.000 |
+   10 nm |  0.510    1.5    3      0.000      0.000 |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g)).  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | PF: ss bias sig_n th          |
+  1.0e+12 |    6.78   2.13  11.67   6.74 |
+  1.0e+13 |    2.15   0.67   3.69   2.13 |
+  1.0e+14 |    0.68   0.21   1.17   0.67 |
+  1.0e+15 |    0.21   0.07   0.37   0.21 |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- random walk, 2 pm per actuator per cycle.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | PF: ss bias sig_n th          |
+  1.0e+12 |    7.15   2.27  11.67   7.12 |
+  1.0e+13 |    3.15   1.00   3.69   3.14 |
+  1.0e+14 |    2.41   0.76   1.17   2.41 |
+  1.0e+15 |    2.33   0.73   0.37   2.32 |
+
+photons per cycle to hold 3.0 pm rms (log-log interpolation of ss over N; 'floor x' = not reached: the noise-free residual sits at x pm):
+drift    | PF            |
+none     | 5.1e+12       |
+walk     | 1.5e+13       |
+
+spectrum of the held residual at 1e+15 photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture
+none     | PF:  0.01  0.02  0.21 |
+walk     | PF:  0.25  0.72  2.20 |
+loop stage 137.0 min (610 traced states)
+run complete in 138.5 min
