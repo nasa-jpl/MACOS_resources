@@ -423,7 +423,17 @@ budget lines before quoting a number.
   to the signal), runs/pcam193r (1e-3 per cycle) and pcam193ri (the
   whole step within each scan); the electron form with the whole step
   within each scan (runs/pcam193i) is equally invisible, every entry
-  the noise-only value.  I+ on this base floors at 885 pm
+  the noise-only value.  **The relative form (runs/pcam193r, the offset
+  walking 1e-3 of the mean photons per lit pixel per frame, per cycle,
+  ONE scale per scan -- the first attempt scaled per frame and is kept
+  as runs/pcam193r_perframe, superseded): the single-frame reading L
+  imprints the walk at 10.8 nm hold error (noise-only 1.4 / 0.14 pm at
+  1e13 / 1e15), the simultaneous pair V at 89 pm, and the zero-sum
+  readings S / P / PF read their noise-only values to the printed digit
+  (1.52 / 1.45 / 2.50 pm at 1e13, 0.15 / 0.14 / 0.25 at 1e15; spectra
+  identical).**  The PSI immunity, measured on the bench: a camera bias
+  that is constant within a scan cannot reach a reading whose step
+  weights sum to zero.  I+ on this base floors at 885 pm
   regardless (its fold-flipped sites, S11).  *Closed loop
   (runs/ploop193, P and PF on the S11 seeds, the matrix on the working
   surface; 82 min):* both contract at 0.509 per cycle (reading gain 0.98
