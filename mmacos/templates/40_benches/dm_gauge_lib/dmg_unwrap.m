@@ -47,6 +47,16 @@ function [phi, info] = dmg_unwrap(psi, mask, opt)
 %   so that mean(phi - psi) over the mask is the nearest multiple of 2 pi,
 %   which makes phi == psi exactly wherever nothing was wrapped.
 %
+%   APPLYING IT TO A READING.  The gauges return HEIGHT, not phase, so
+%   undo and redo the factor around this function -- h = S_CONV * phi *
+%   lambda / (4 pi), i.e. hpr = S_CONV*LAM/(4*pi) and
+%       d_unwrapped = hpr * dmg_unwrap(d_wrapped / hpr, msk);
+%   `zwfs_run`'s unwrap_fn_ is exactly that, and it is applied in BOTH
+%   the measurement differential and the calibration's class maps, so
+%   the response matrix and the measurement always agree.  The
+%   interferometer's four-step differential (tg96_run's fsdiff_) wraps at
+%   the same +-pi and takes the same treatment.
+%
 %   opt (optional):
 %     .pcg    run the masked refinement          [true when the mask excludes]
 %     .tol    PCG relative tolerance                                 [1e-14]
