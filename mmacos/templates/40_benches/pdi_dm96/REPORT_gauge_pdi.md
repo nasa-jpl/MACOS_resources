@@ -437,7 +437,9 @@ loops inside the mask: a map beyond the pixel-gradient limit is
 **reported, not silently wrong**.  `info.maxgrad` is the largest wrapped
 gradient, in rad per pixel, which is the limit itself.
 
-**Gates** (`tests/tDmgLoop.m`, G13; **15 of 15 pass**):
+**Gates** (`tests/tDmgLoop.m`, G13; **15 of 15 pass**, and the whole
+mmacos fast suite is **469 pass / 0 fail** with these changes in — the
+push gate the brief named):
 
 | gate | result |
 |---|---|

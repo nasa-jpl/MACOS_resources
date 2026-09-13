@@ -158,7 +158,7 @@ the report and this section states the FINDINGS.
   less than π — and the DM's surface is smooth at that scale.  Gates:
   tDmgLoop G13 (a ramp exact to 8.5e-14 rad; 1.5 and 3.0 waves PV on a
   disc to 6.7e-13 and 1.3e-12 with zero residues; 40 waves PV reports
-  644 residues).  Knob `battery.unwrap`, **default off so every earlier
+  644 residues); the mmacos fast suite is 469/0 with all of this in.  Knob `battery.unwrap`, **default off so every earlier
   record reproduces** (`runs/uwoff_ref` is bit-identical, v3dev G4 =
   0.296 pm); `loop.unwrap` is `'auto'` and turns it on exactly when
   `loop.start_rms` is set.
