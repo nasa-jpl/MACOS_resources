@@ -12,12 +12,10 @@
 cd "$(dirname "$0")/.."
 RD="'readings',{'L','S','V','P','PF'}, 'loop.readings',{'L','S','V','P','PF'}, 'dm_use',1"
 
-# (a) the LADDER: how large an initial figure can a loop actually capture?
-# P in its shutter-frame configuration (the one with the P/SRI's range) and
-# PF, one photon level, no re-calibration -- the reading alone.
-for s in 40 50 60 80 100; do
-    ./pdi_batch.sh descent193_s$s "pdi_params, 'stages',{'bench','loop'}, 'readings',{'P','PF'}, 'loop.readings',{'P','PF'}, 'dm_use',1, 'pdi.b2','state', 'loop.start_rms',${s}e-6, 'loop.recal_list',[0], 'loop.nph',[1e15], 'loop.drifts',{}, 'loop.floor',false, 'loop.steps',[], 'loop.K',30"
-done
+# (a) the LADDER moved to runs/gcap.sh (deliverable 9: both ways, the
+#     start vector in one invocation).  What is left here is the descent
+#     at 100 nm for P in its shutter-frame configuration, the fast-recal
+#     probe, and the within-scan drift.
 
 # (b) the brief's descent at 100 nm: every reading, re-calibrated every 10
 # cycles and never, two photon levels, K 60.

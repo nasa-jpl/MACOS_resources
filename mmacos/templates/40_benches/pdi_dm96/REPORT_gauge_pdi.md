@@ -9,7 +9,25 @@ the brief are flagged **[departure]**.
 Sheet and runner: `pdi_params` / `pdi_run` (the code is shared —
 `zwfs_run` + `../dm_gauge_lib`, nothing copied).  Headless:
 `./pdi_batch.sh TAG "pdi_params, <args>"`.  The full chain that produced
-this report is `runs/gmaster.sh` (`gsmoke` → `gseq1` … `gseq4`).
+this report is `runs/gmaster.sh` (`gsmoke` → `gseq1` → `gseq4` →
+`gseq2` → `gseq3`; the session's continuation after `gseq1` is
+`runs/gmaster2.sh`).  Order is cheapest-complete-deliverable-first
+after `gseq1`, so that what lands is whole.
+
+**Status of the brief's seven items** — stated here so the reader knows
+what is measured and what is running:
+
+| item | state |
+|---|---|
+| 1. PF through the two decks | **done** (`pfdeck`, `pfdeck_frz`, `pfdeck_loop`) |
+| 2. capture range and photons, P and PF | `cap385p*`, `noise193p_b*` |
+| 3. the pinhole diameter of record | `pin20_*`, `pin10_*` |
+| 4. the four shared loop knobs + gates | **built and gated** (tDmgLoop G9–G12, 14/14); the DESCENT and WITHIN-SCAN runs are `descent193*`, `intra193*` |
+| 5. the reference arm's own drift | `rw193_*` |
+| 6. layouts and parts | **done** (`pdi_layout.png`, `psri_layout.png`, `psri_render.png`, `pdi_vfig_util`; parts tables in the README) |
+| 7. conclusions; README | **done** for what sections 1, 4 and 8 settle; the conclusions section below, README beside it |
+| 8. unwrap the differential (`BRIEF_to_capture.md`) | **done and gated** — `dm_gauge_lib/dmg_unwrap.m`, tDmgLoop G13, 15/15; section 8 |
+| 9. the start-rms ladder, both ways | `cap_nouw`, `cap_uw`, `cap_nouw_recal`, `cap_uw_recal`; section 9 |
 
 ---
 
@@ -36,9 +54,16 @@ arm does to the reference — amplitude, **shape**, piston — is an error
 the reading has to live with, not a model input.
 
 The bench is the one `psri_layout_fig` solves and emits, unchanged:
-chief optical paths equal to 0 mm (4453.1061 mm each), compensator
-21.857 mm, exit chiefs 0 mm apart, camera planes 2.3e-13 mm apart,
-3210 of 3210 rays through each arm.
+the two chief optical paths from source to camera are **4453.1061 mm
+each, difference 0.00e+00 mm**, bought with a 21.857 mm lens-glass
+compensator in the test arm; the exit chiefs coincide after BS3 to
+0.00e+00 mm and the two camera planes to 2.3e-13 mm.  (At the layout
+figure's own resolution, 65 rays, both decks put 3210 of 3210 rays on
+that camera; the record runs at 193.)  Its reference lens Lr1 is f 300
+mm, F/2.92 on the 102.9 mm beam, conic **−0.5784** solved on the trace,
+with the pinhole seat **+1.096 mm** past the thin-lens focus — the
+values of record now live in `pdi_params` (`P.pdi.psri`) and
+`psri_layout_fig('solve', false)` uses them.
 
 **The control that separates the two things a real arm does.**
 `pdi.ref_frozen` traces the reference arm ONCE, on the flat, and reuses
@@ -268,10 +293,118 @@ Runs: `rw193_1e3`, `rw193_1e2`, `rw193_1e1`.
 
 ---
 
-## 6. Conclusions for `deck_pdi`
+## 8. Unwrapping the differential
+
+*Added by `macos/BRIEF_to_capture.md` (Dave / CCL, 2026-09-13) after the
+descent finding was accepted: capture is a wrap problem, and it is the
+same problem for every approach — the interferometer's four-step
+included, since its phase wraps at the same ±π.*
+
+**What was wrong before.**  Every phase reading in the campaign returns
+a WRAPPED differential: `stepdiff` for S, `diffV` for V, the PDI `diff`
+for P and PF are all `angle(X₁ conj X₀)`.  So a change larger than ±π of
+phase — **±158 nm of surface** at 632.8 nm double-pass — comes back
+folded *whatever the reading's absolute range is*.  That is why nothing
+descended from a 100 nm surface toward a 30 nm set point: the opening
+differential is ~70 nm rms of surface, ~1.4 waves, and every reading's
+map was wrapped before the estimator ever saw it.
+
+**`dm_gauge_lib/dmg_unwrap.m`.**  Two-dimensional least-squares phase
+unwrapping on a mask (Ghiglia & Romero, *JOSA A* **11**, 107 (1994)), in
+two stages:
+
+1. the **unweighted** solve — the Poisson equation whose source is the
+   divergence of the wrapped gradients, with Neumann boundaries, solved
+   directly by mirroring the source into an even-symmetric 2M×2N array
+   and dividing its FFT by the discrete Laplacian's eigenvalues.  That
+   is the FFT form of their DCT solution; `dct2` is a toolbox function
+   and this tree must run with **no external dependency** (the release
+   gate), so it is written out.
+2. the **masked** refinement — the weighted normal equations (weights =
+   the mask, so no phase crosses the boundary) by preconditioned
+   conjugate gradients with stage 1 as the preconditioner, their §5.
+   Without it the region outside the mask, where there is no data, pulls
+   on the answer inside it.
+
+The work is done on the mask's bounding box: the pupil is ~NGRID px
+across a MODEL-px frame, so this is a ~200×200 solve, not 1024×1024, and
+it costs ~30 ms per differential — nothing beside a trace.
+
+**Residues.**  A wrapped field is consistent only where every 2×2 loop
+of wrapped differences sums to zero.  Least squares *spreads* an
+inconsistency rather than failing on it, so `info.nres` counts those
+loops inside the mask: a map beyond the pixel-gradient limit is
+**reported, not silently wrong**.  `info.maxgrad` is the largest wrapped
+gradient, in rad per pixel, which is the limit itself.
+
+**Gates** (`tests/tDmgLoop.m`, G13; **15 of 15 pass**):
+
+| gate | result |
+|---|---|
+| a wrapped ramp, 1.5 waves across a full box | exact to **8.5e-14 rad**, 0 residues |
+| a band-limited random surface, 1.5 waves PV, on a DISC mask | **6.7e-13 rad**, 0 residues, max gradient 0.90 rad/px, 16 PCG iterations |
+| the same at 3.0 waves PV | **1.3e-12 rad**, 0 residues, max gradient 1.81 rad/px |
+| a map that was never wrapped | passes through to **5.4e-14**, and reports `wrapped = false` |
+| 40 waves PV — beyond the pixel-gradient limit | **644 residues reported**, max gradient 3.14 = π |
+
+**Where the limit moves to.**  From the wrap (±158 nm of surface) to the
+**pixel gradient**: adjacent detector pixels must differ by less than π,
+i.e. by less than 158 nm of surface *between neighbouring pixels*.  The
+DM's surface is smooth at that scale — 4 detector px per actuator at 385
+rays, 2.5 at 193 — so the limit becomes several hundred nm rms.  The
+ladder of section 9 measures where it actually lands.
+
+**The knob, and what it does not disturb.**  `battery.unwrap` (default
+**false**, so every record taken before 2026-09-13 reproduces) applies
+it to the four wrapped readings — S, V, P, PF — before the estimator,
+in the measurement differential AND in the calibration's class maps, so
+the matrix and the measurement always agree.  `loop.unwrap` is `'auto'`
+by default: the loop turns it on exactly when `loop.start_rms` is set,
+which is the case it exists for.  **L is untouched** (a linear map, no
+wrap); so are F, I and I+ — they solve an absolute phase and are
+differenced afterwards, which unwrapping the difference cannot mend.
+
+*Non-disturbance, measured:* with the knob off, the dev-resolution bench
+record is **bit-identical** to the pre-unwrapper run — G3, G4, G5, G6 and
+G7 reproduce exactly, **v3dev G4 = 0.296 pm** (`runs/uwoff_ref` against
+`runs/pfsmoke_ref`), and the battery rows likewise (`runs/uwoff_bat`
+against `runs/pfdeck_smoke2`).
+
+---
+
+## 9. The start-rms ladder, both ways
+
+Starts 30 / 60 / 100 / 150 / 200 / 300 nm rms, the matrix measured at
+each start, gain 0.5, `recal_every` 10 and never, 1e13 and 1e15 photons
+per cycle, readings L, S, V, P, PF — run with the unwrapper off and on.
+Runs: `cap_nouw`, `cap_uw`, `cap_nouw_recal`, `cap_uw_recal`.
+
+**[departure] 193 rays, not 385.**  The box is the limit: the 385-ray
+ladder is ~4× these states and the queue behind it (the within-scan
+drift, the reference-arm walk, the pinhole trade) would not run at all.
+The wrap is a property of the PHASE, so the threshold the unwrapped-off
+arm measures does not depend on the ray count; the pixel-gradient limit
+the unwrapper trades it for DOES (4 px per actuator at 385, 2.5 at 193),
+so **193 is the pessimistic choice for the unwrapped arm** — a 385-ray
+ladder can only do better.
+
+**[departure] K 40, not 60.**  At gain 0.5 the contraction is 0.5 per
+cycle, so a descent that has not reached 3 pm by cycle 40 (0.5⁴⁰ = 9e-13
+of the start) will not; the steady-state tail is still 20 cycles.
+
+*The runner also prints, per start and reading, the OPENING
+differential: its wrapped rms, the residue count inside the mask, the
+largest wrapped gradient in rad per pixel, and the rms the unwrapper
+returns against the truth.  That line is the direct evidence for the
+wrap diagnosis, independent of whether the loop then converges.*
+
+---
+
+## Conclusions for `deck_pdi` (the brief's item 7)
 
 What the point-diffraction lane has settled, in the form the deck can
-carry.  Each line names its record.
+carry.  Each line names its record.  (Placed last because it draws on
+every section above.)
 
 1. **At the operating point the three exact readings are one reading.**
    On the 30 nm working surface with the matrix measured there, a 10 nm
@@ -325,7 +458,8 @@ carry.  Each line names its record.
 
 8. *(the pinhole diameter of record — section 3)*
 
-9. *(capturing the initial figure — section 4b)*
+9. *(capturing the initial figure — sections 8 and 9: the unwrapper, and
+   the ladder that says how large a figure each reading can capture)*
 
 **The recommendation the lane supports**, for the deck's main body:
 **the point-diffraction approach's best configuration is the stepped
