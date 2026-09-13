@@ -493,6 +493,12 @@ every section above.)
 
 2. **P is the cheapest picometre.**  N(1 pm) at the detector: **P
    3.3e13**, V 4.7e13, S 5.4e13, PF 1.9-2.0e14 (`pdi193f`, `pfdeck`).
+   *Read photon numbers only against others taken on the SAME
+   calibration surface* — the same readings priced through a matrix
+   measured ON the 30 nm surface come out ~1.7× higher (S 9.25e13 in
+   `pdi193state`), so the 5-frame shutter form's 1.34e14 there is NOT
+   4× the 4-frame 3.3e13; `noise193p_b30` supplies the like-for-like
+   pair.
    The P/SRI form costs ~6× the common-path pinhole because 60% of the
    beam goes to an arm that returns a fraction of it as reference while
    the test beam keeps 40%.  In closed loop the same ordering holds:
@@ -509,10 +515,15 @@ every section above.)
    120 / 240 / 480 nm (`pdi193state`).  The same range in the common
    path, for one extra frame.
 
-4. **The P/SRI's range survives being built.**  With both arms traced,
-   the gain stays inside 0.7% out to a 480 nm rms working surface —
-   flatter than the synthesized model of it, and far past where S and P
-   (with a flat |b|²) fold at 120 nm (`pfdeck`).
+4. **The P/SRI's range survives being built, and it is the only reading
+   on this bench that has one.**  Capture range to 10% with the matrix
+   left at the 30 nm surface (`cap385p`, and `../zwfs_dm96/runs/cap385`
+   for the Zernike readings): **I+ 36, S 42, L 44, P 62, V 70 nm — and
+   PF 480 nm+**, still within 1% of unit gain at 100 nm.  With both arms
+   traced the gain stays inside 0.7% over that whole 16× range, flatter
+   than the synthesized model of it (`pfdeck`).  Every reading whose
+   reference depends on the surface dies between 36 and 70 nm; the one
+   whose reference does not, does not.
 
 5. **The non-common-path reference is priced, and it is small at the
    operating point.**  Absolutely, the reference moving with the state
