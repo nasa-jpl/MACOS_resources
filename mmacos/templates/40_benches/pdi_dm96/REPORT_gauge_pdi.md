@@ -47,7 +47,7 @@ the shared front end.
 | what the configuration buys | number | record |
 |---|---|---|
 | a 10 nm change on one actuator, matrix on the 30 nm surface | **0.9935 gain, 4 pm error, SNR 2790** — indistinguishable from the vector Zernike reading and from the P/SRI | `pdi193fbase` |
-| photons for 1 pm | **3.3e13** at the detector — the cheapest reading in the campaign (V 4.7e13, S 5.4e13, PF 1.9e14) | `pdi193f` |
+| photons for 1 pm | **3.3e13** at the detector through a flat-calibrated matrix (V 4.7e13, S 5.4e13, PF 1.9e14); through the matrix measured ON the working surface — the campaign's operating point — **9.8e13, level with S at 9.3e13** and 3.8× cheaper than the P/SRI's 3.7e14 | `pdi193f`, `noise193p_b30` |
 | closed-loop hold of 3 pm | **2.3e12** photons per cycle noise-only, **7.0e12** under a 2 pm-per-actuator walk; steps to 0.000 pm, no fixed error | `ploop193` |
 | capture range to 10% with the calibration left to age | **1.02 / 1.06 / 1.13 at 120 / 240 / 480 nm** — the P/SRI's range, in the common path, for the one extra frame | `pdi193state` |
 | a 2% phase-step error | **4.9 pm** on a 12 nm figure, and the differential rows are the error-free ones to the digit (four-step least squares gives 421 pm) | `pdi193se_sh5` |
@@ -553,14 +553,31 @@ every section above.)
    (`pdi193fbase`).  Nothing separates them at null; everything that
    separates them is range, light and systematics.
 
-2. **P is the cheapest picometre.**  N(1 pm) at the detector: **P
-   3.3e13**, V 4.7e13, S 5.4e13, PF 1.9-2.0e14 (`pdi193f`, `pfdeck`).
-   *Read photon numbers only against others taken on the SAME
-   calibration surface* — the same readings priced through a matrix
-   measured ON the 30 nm surface come out ~1.7× higher (S 9.25e13 in
-   `pdi193state`), so the 5-frame shutter form's 1.34e14 there is NOT
-   4× the 4-frame 3.3e13; `noise193p_b30` supplies the like-for-like
-   pair.
+2. **P is the cheapest of the point-diffraction forms, and at worst
+   level with the stepped Zernike reading.**  N(1 pm) at the detector
+   depends strongly on which calibration the reading is priced through,
+   so the two conditions are separated:
+
+   | calibration | P | S | V | PF |
+   |---|---|---|---|---|
+   | matrix on the FLAT (`pdi193f`) | **3.3e13** | 5.4e13 | 4.7e13 | 1.9e14 |
+   | matrix ON the 30 nm working surface (`noise193p_b30`, `pdi193state`) | 9.8e13 | 9.3e13 | — | 3.7e14 |
+
+   **The campaign's operating point is the second row** (the response
+   matrix measured on the working surface is the default since S10), and
+   there **P and S cost the same light** — P's 1.6× advantage is a
+   flat-matrix artefact, and quoting 3.3e13 against 9.25e13 would
+   compare two different calibrations.  What survives both rows is the
+   ORDER of magnitude between the common-path forms and the P/SRI: the
+   waveguide form is 3.8–5.8× either of them, because 60% of the beam
+   goes to an arm that returns a fraction of it as reference while the
+   test beam keeps 40%.  In closed loop (on-surface matrix throughout)
+   3 pm is held from **V 1.5e12 < P 2.3e12 < S 2.6e12 ≪ PF 7.0e12**
+   noise-only, and **V 5.3e12 < P 7.0e12 < S 7.5e12 ≪ PF 2.5e13** under
+   a 2 pm walk (`ploop193`).  With the arm actually TRACED the P/SRI is
+   cheaper than its own model — 5.1e12 and 1.5e13 (`pfdeck_loop`),
+   because the physical pinhole couples more of the focal light than the
+   waveguide mode's overlap does — but still ~2–3× the common path.
    The P/SRI form costs ~6× the common-path pinhole because 60% of the
    beam goes to an arm that returns a fraction of it as reference while
    the test beam keeps 40%.  In closed loop the same ordering holds:
