@@ -62,7 +62,7 @@ both 20.7 mm behind the cube at the pupil image (the cube's glass
 lengthens the 32.4 mm image distance by 5.0 mm; both ports get it).
 The engine does not split rays, so the channels are two decks,
 `zwfs_v_camA.in` / `zwfs_v_camB.in`, and the figure `zwfs_vlayout.png`
-is both traced with `macos.view_rx` (deck_zwfs slide 16).  Two cameras
+is both traced with `macos.view_rx` (deck_zwfs slide 17).  Two cameras
 rather than one with a Wollaston: the 9.4 mm pupil image sits 32 mm
 behind the field lens, so side-by-side images would need a 17° split, a
 calcite prism's limit; the cube's ports are identical legs by
@@ -168,6 +168,56 @@ budget lines before quoting a number.
   priced error and the line says so.
 
 ## Findings
+- **Capture range (Dave 2026-09-12: "they will not be operating at
+  null -- the range where they can be used to 10% accuracy should be
+  recorded").**  Definition: the largest working-surface rms at which a
+  10 nm change on 47 grid sites (every 8th actuator) reads within 10% of
+  its size (gain in 0.9..1.1), the crossing log-interpolated between
+  ladder rungs; the runner prints it after every ladder ("capture range
+  to 10%").  Raw matrix estimates throughout (the modal correction is
+  off in matrix mode since V1; the S10 draft's ladder rows were the
+  corrected values).  385 rays, 96x96.  *(a) A calibration that ages --
+  the matrix measured once on the 30 nm surface (runs/cap385):* gains
+  at 30 / 40 / 50 / 60 / 80 / 100 nm rms: L 1.027 / 0.956 / 0.828 /
+  0.675 / 0.389 / 0.19; I+ 0.962 / 0.866 / 0.655 / 0.540 / 0.261 / 0.10;
+  S 0.999 / 0.909 / 0.862 / 0.658 / 0.222 / 0.06; V 0.997 / 0.996 /
+  0.991 / 0.982 / 0.827 / 0.06 -- **capture range L 44 nm, I+ 36, S 42,
+  V 70**, every reading dead by 100 nm (2 rad rms of phase: the focal
+  core, and with it the reference wave, is gone; the vector pair lasts
+  longest because it has no fold to cross first).  With the matrix
+  measured on the FLAT (runs/cap385_flat, the calibration aging from
+  zero): L 0.936 / 0.753 / 0.570 / 0.412, I+ 0.915 / 0.943 / 0.737 /
+  0.658, S 0.831 / 0.756 / 0.722 / 0.537, V 0.993 / 0.989 / 0.981 /
+  0.969 at 30 / 40 / 50 / 60 -- range L 32, I+ 42, S below 30, V 68 nm:
+  the vector pair's range does not depend on where its matrix was
+  measured (its response is linear across it); the stepped reading's
+  does.
+  *(b) The matrix re-measured on the working surface, 1 nm on the 47
+  sites (runs/cap385_b60 .. b160):* gain / floor at 60 / 90 / 120 /
+  160 nm: L 0.962 / 25 pm, 0.954 / 21, 0.963 / 17, 0.968 / 13; I+ 0.827
+  / 150, 0.950 / 20, 0.962 / 17, 0.968 / 13; S 0.934 / 59, 0.960 / 29,
+  0.970 / 22, 0.968 / 20; V 1.000 / 3, 0.957 / 47, 0.969 / 23, 0.967 /
+  21 -- within 5% at every rung to 160 nm (I+ within 10% from 90 up).
+  That is not the sensor recovering: with noiseless frames a matrix
+  measured on the surface carries the weakened response and the
+  inversion scales it back up.  The price is photons -- N(1 pm), single
+  10 nm differential, matrix on the surface (193 rays; runs/noise193_b30
+  .. b160): 30 nm L 9.2e13 / S 8.8e13 / V 6.1e13; 60 nm 1.8e14 / 6.1e15
+  / 1.1e14; 120 nm 6.2e14 / 1.3e15 / 2.2e15; 160 nm 4.6e14 / 3.4e15 /
+  2.4e15 -- 5x (linear) to 40x (vector pair) the light of the 30 nm
+  point at 120-160 nm rms (six realizations per point; the S 60 nm
+  value is a fold outlier).  *(c) The interferometer (CCMac's lens rig,
+  runs in tg_psi_dm96_oap: lens_base, single 10 nm on the base, matrix
+  on the 30 nm surface):* 0.992 / 1.001 / 1.017 at 30 / 60 / 120 nm,
+  1.93 at 240 (the four-step wraps at lambda/4 of surface, 158 nm) --
+  range between 120 and 158 nm; its bare-aluminum OAP rig 0.996 / 0.998
+  at 30 / 60, 0.959 at 120 with the map correlation already down to 0.32,
+  0.475 at 240 -- range between 60 and 120.  Rule: with a calibration
+  aging from 30 nm the vector pair holds to 70 nm rms and the scalar
+  readings to about 40, the interferometer to its wrap near 150; a
+  matrix re-measured on the surface (the S10 doctrine, what a servo
+  does) holds every ZWFS reading's gain to 160 nm and moves the cost to
+  photons.  Deck slides 11-12.
 - **V3 (2026-09-12): the arm's polarization aberration per channel,
   priced -- a diattenuation-type term the sensor cannot calibrate away,
   small on the lens rig, and a retardance-type term it removes for free.**
