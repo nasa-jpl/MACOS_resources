@@ -161,6 +161,35 @@ the floor and SNR columns carry a bench term as well as a reference
 term.  The run that separates them is `pfdeck_frz` — the same bench,
 the reference traced ONCE on the flat and held — below.
 
+### 1e. The loop rows (`pfdeck_loop`)
+
+The same closed-loop hold metric as the rest of the campaign — gain 0.5,
+60 cycles, the set point the 30 nm working surface with the matrix
+measured on it, one measurement per cycle — with both arms traced.
+610 traced states, 138 min.
+
+| | PF, reference **traced** | PF, **synthesized** (`ploop193`) | P (`ploop193`) |
+|---|---|---|---|
+| noiseless step 1 nm / 10 nm, residual at cycle 60 | **0.000 / 0.000 pm** | 0.000 / 0.000 | 0.000 / 0.000 |
+| per-cycle contraction ρ | 0.511 / 0.510 | 0.509 | 0.509 |
+| photons per cycle for a 3 pm hold, noise only | **5.1e12** | 7.0e12 | 2.3e12 |
+| … under a 2 pm-per-actuator walk | **1.5e13** | 2.5e13 | 7.0e12 |
+| σ_n at 1e12 photons | 11.7 pm | 13.5 pm | 7.8 pm |
+| held residual's spectrum under the walk, [<4, 4–12, >12] cycles/aperture | 0.25 / 0.72 / 2.20 pm | 0.25 / 0.72 / 2.2 | as V |
+
+**No fixed error** — the traced reference takes both noiseless steps to
+0.000 pm, so nothing about the real arm biases the held surface.
+
+**And the built arm is CHEAPER in light than the model of it**, by 1.37×
+noise-only and 1.67× under the walk.  That is not a modelling surprise
+once the bench numbers are in hand: the physical pinhole couples 0.677
+of the flat's focal light where the LP01 mode's overlap takes 0.587, so
+the reference amplitude is larger, σ_n is 1.16× smaller, and photons go
+as σ_n² (1.16² = 1.35, against the 1.37 measured).  **The synthesized
+model was pessimistic about the P/SRI, not optimistic.**  It remains ~2×
+the light of the common-path pinhole P, which is the 60/40 pickoff and
+nothing else.
+
 ### 1d. What the reference's MOTION costs differentially (`pfdeck_frz`)
 
 Same bench, same everything, the traced arm held still.  This is the
@@ -437,7 +466,11 @@ every section above.)
    beam goes to an arm that returns a fraction of it as reference while
    the test beam keeps 40%.  In closed loop the same ordering holds:
    3 pm held from **P 2.3e12** / PF 7.0e12 photons per cycle noise-only,
-   **P 7.0e12** / PF 2.5e13 under a 2 pm walk (`ploop193`).
+   **P 7.0e12** / PF 2.5e13 under a 2 pm walk (`ploop193`).  With the
+   arm actually TRACED the P/SRI is cheaper than its own model — 5.1e12
+   and 1.5e13 (`pfdeck_loop`), because the physical pinhole couples more
+   of the focal light than the waveguide mode's overlap does — but still
+   ~2× the common-path pinhole.
 
 3. **P's fold was the flat |b|² assumption, not the pinhole.**  With a
    pinhole-only (shutter) frame per state — 5 frames instead of 4 — P
@@ -454,8 +487,9 @@ every section above.)
    operating point.**  Absolutely, the reference moving with the state
    costs 5.9 pm on a 13 nm figure; differentially it is a 10%-class
    effect on the noise floor and nothing on the gain or the range
-   (`pfdeck` vs `pfdeck_frz`).  What it is NOT immune to is its own
-   drift — section 5.
+   (`pfdeck` vs `pfdeck_frz`); in closed loop it costs no fixed error at
+   all — both noiseless steps go to 0.000 pm (`pfdeck_loop`).  What it
+   is NOT immune to is its own drift — section 5.
 
 6. **The five-frame scan buys step-size immunity for one frame.**  Under
    a 2% phase-step error, four-step least squares turns a 12 nm figure

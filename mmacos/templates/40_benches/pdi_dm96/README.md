@@ -107,7 +107,13 @@ the report and this section states the FINDINGS.
   a 480 nm rms working surface, flatter than the model of it (+12.8%
   there) and far past where S and P fold at 120 nm.  N(1 pm) 2.00e14
   traced vs 1.9e14 synthesized — the reference model does not set the
-  photon cost; the 60/40 pickoff does.  *Trap worth keeping:*
+  photon cost; the 60/40 pickoff does.  In closed loop the built arm is
+  CHEAPER than the model of it — 3 pm held from 5.1e12 photons per cycle
+  noise-only and 1.5e13 under a 2 pm walk, against 7.0e12 / 2.5e13
+  synthesized — because the physical pinhole couples 0.677 of the focal
+  light where the mode overlap takes 0.587, and photons go as σ_n².
+  **The synthesized model was pessimistic about the P/SRI, not
+  optimistic.**  No fixed error: both noiseless steps go to 0.000 pm.  *Trap worth keeping:*
   `macos.dx_at` at a plane returns 0 until the field has been
   PROPAGATED there — call `complex_field` first, or the pinhole disk
   comes out all-ones and the "reference" is the whole beam.
