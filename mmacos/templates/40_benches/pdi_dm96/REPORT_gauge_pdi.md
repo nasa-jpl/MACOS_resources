@@ -306,8 +306,9 @@ for P and PF are all `angle(X₁ conj X₀)`.  So a change larger than ±π of
 phase — **±158 nm of surface** at 632.8 nm double-pass — comes back
 folded *whatever the reading's absolute range is*.  That is why nothing
 descended from a 100 nm surface toward a 30 nm set point: the opening
-differential is ~70 nm rms of surface, ~1.4 waves, and every reading's
-map was wrapped before the estimator ever saw it.
+differential is ~70 nm rms of surface = **~1.4 rad rms of phase**, whose
+peaks run well past ±π, so a large fraction of the map was wrapped
+before the estimator ever saw it.
 
 **`dm_gauge_lib/dmg_unwrap.m`.**  Two-dimensional least-squares phase
 unwrapping on a mask (Ghiglia & Romero, *JOSA A* **11**, 107 (1994)), in
