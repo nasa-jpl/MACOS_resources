@@ -53,3 +53,10 @@ templates/80_end_to_end/e2e6m_r2/deckfig/
 # zwfs_dm96 runner artifacts: logs + the all-zero flat grid each run re-writes
 templates/40_benches/zwfs_dm96/runs/*.log
 templates/40_benches/zwfs_dm96/runs/*/zwfs_flat.txt
+templates/40_benches/zwfs_dm96/zwfs_flat.txt
+# pdi_dm96 (the point-diffraction split, 2026-09-13): the same artifacts, plus
+# the scan deck psri_layout_fig re-emits at every step of its bench solve
+templates/40_benches/pdi_dm96/runs/*.log
+templates/40_benches/pdi_dm96/runs/*/zwfs_flat.txt
+templates/40_benches/pdi_dm96/zwfs_flat.txt
+templates/40_benches/pdi_dm96/psri_ref_scan.in

@@ -22,7 +22,7 @@ cd "$here"
 # a lock for the run itself so two waiting launchers cannot start together.
 # ZWFS_NOWAIT=1 bypasses (dev-res jobs that fit beside a model-1024 run).
 if [ -z "${ZWFS_NOWAIT:-}" ]; then
-    while pgrep -f 'MATLAB -batch (zwfs|tg96)_run_batch' >/dev/null 2>&1; do
+    while pgrep -f 'MATLAB -batch (zwfs|tg96|pdi)_run_batch' >/dev/null 2>&1; do
         echo "[$(date '+%F %T')] waiting: another DM-gauge batch MATLAB is running" >> "$log"
         sleep $((20 + RANDOM % 20))
     done

@@ -35,6 +35,23 @@ classdef tDmgLoop < matlab.unittest.TestCase
 %         seeds); a single-frame reading imprints o_k - o_0 on the DM (its
 %         steady-state rms grows above its noise floor and its bias map
 %         tracks minus the camera walk through the estimator)
+%     G9  DESCENT (opt.start_rms, 2026-09-13): the loop opened at a surface
+%         of the requested rms -- the set point's own field, rescaled, so
+%         r(1) = |start_rms - rms(A0)| -- contracts at (1 - gG) from there,
+%         .surf_rms reports the starting SURFACE, and .k_reach dates the
+%         first cycle at or below each opt.reach level
+%     G10 RE-CALIBRATION (opt.recal_every): ins.recal is called at exactly
+%         those cycles, its estimator takes effect from the next cycle (a
+%         mis-scaled reading whose recal returns the right scale changes its
+%         contraction there), and its cost is added to .nstates
+%     G11 WITHIN-MEASUREMENT DRIFT (opt.intra): intra 0 reproduces the run
+%         without the knob to the last bit; with intra 1 a reading whose
+%         frames are taken in sequence reads the MIDDLE of its own scan and
+%         holds worse, while a simultaneous reading (which ignores
+%         aux.dstep) is unchanged
+%     G12 REFERENCE-ARM WALK (opt.ref_walk): a non-common-path phase walk
+%         reaching the differential as a piston sets a hold floor that
+%         scales with the walk, and .ref_phase is that walk
 
     properties (Constant)
         NACT = 24
@@ -108,6 +125,50 @@ classdef tDmgLoop < matlab.unittest.TestCase
             end
             ins.est = @(m) est_local(m, Jp_, 1, il, n);
         end
+        function ins = mkins_recal(testCase, G0, G1)
+            % a MIS-SCALED reading (estimator gain G0) whose on-surface
+            % re-calibration returns the right one (G1): the contraction
+            % changes at the recal cycle and nowhere else
+            J_ = testCase.J;  Jp_ = testCase.Jp;  lit_ = testCase.lit;  n = testCase.NACT;
+            il = find(lit_);
+            ins.lit = lit_;
+            ins.measure = @(cmd) J_ * cmd(il);
+            ins.noisy = @(F, nph, seed, varargin) F;
+            ins.diff = @(F1, F0) F1 - F0;
+            ins.est = @(m) est_local(m, Jp_, G0, il, n);
+            ins.recal = @(cmd) struct('est', @(m) est_local(m, Jp_, G1, il, n), 'nstates', 7);
+        end
+
+        function ins = mkins_intra(testCase, sequential)
+            % sequential = true: a two-frame reading whose frames are taken
+            % at the two ENDS of its scan, read as their mean -- so a DM
+            % advancing across the scan is read at its middle.
+            % sequential = false: the same two frames captured at ONE
+            % instant (a simultaneous pair), which ignores aux.dstep.
+            J_ = testCase.J;  Jp_ = testCase.Jp;  lit_ = testCase.lit;  n = testCase.NACT;
+            il = find(lit_);  s0 = testCase.SIG0;
+            ins.lit = lit_;  ins.npix = testCase.NPIX;
+            ins.measure = @(cmd, varargin) meas_intra(cmd, J_, il, sequential, varargin{:});
+            ins.noisy = @(F, nph, seed, varargin) F + (isfinite(nph)) * s0/sqrt(nph/1e12) * ...
+                randn(RandStream('mt19937ar', 'Seed', seed), size(F));
+            ins.diff = @(F1, F0) mean(F1, 2) - mean(F0, 2);
+            ins.est = @(m) est_local(m, Jp_, 1, il, n);
+        end
+
+        function ins = mkins_refwalk(testCase, sees)
+            % sees = true: a NON-COMMON-PATH reading whose reference phase
+            % lands on its map as a piston; false: a common-path one, which
+            % has no such arm and ignores aux.ref_phase
+            J_ = testCase.J;  Jp_ = testCase.Jp;  lit_ = testCase.lit;  n = testCase.NACT;
+            il = find(lit_);  s0 = testCase.SIG0;
+            ins.lit = lit_;
+            ins.measure = @(cmd, varargin) meas_refwalk(cmd, J_, il, sees, varargin{:});
+            ins.noisy = @(F, nph, seed, varargin) F + (isfinite(nph)) * s0/sqrt(nph/1e12) * ...
+                randn(RandStream('mt19937ar', 'Seed', seed), size(F));
+            ins.diff = @(F1, F0) F1 - F0;
+            ins.est = @(m) est_local(m, Jp_, 1, il, n);
+        end
+
         function s = sig_single(testCase, nph, nshot)
             % independent single-shot noise: rms over lit of est(noise) over nshot shots
             ins_ = testCase.ins;  F = ins_.measure(zeros(testCase.NACT));
@@ -237,6 +298,100 @@ classdef tDmgLoop < matlab.unittest.TestCase
             testCase.verifyGreaterThan(sf1.bias, 3*sf0.bias);
         end
 
+        function test_G9_descent_opens_at_the_requested_surface(testCase)
+            n = testCase.NACT;  lit_ = testCase.lit;
+            rng(3);  A0 = zeros(n);  A0(lit_) = 30e-6*randn(nnz(lit_), 1);
+            A0(lit_) = A0(lit_) / sqrt(mean(A0(lit_).^2)) * 30e-6;      % exactly 30 nm rms
+            o = struct('A0', A0, 'g', 0.5, 'K', 60, 'nph', Inf, 'seed', 3, ...
+                       'drift', struct('kind', 'none'), 'start_rms', 100e-6, ...
+                       'reach', [10e-6 3e-9]);
+            L = dmg_loop(testCase.ins, o);
+            testCase.verifyEqual(L.surf_rms, 100e-6, 'RelTol', 1e-12, 'the STARTING surface has the requested rms');
+            testCase.verifyEqual(L.rms(1), 70e-6, 'RelTol', 1e-12, 'so the residual to a 30 nm set point opens at 70 nm');
+            testCase.verifyEqual(L.rms(2)/L.rms(1), 0.5, 'AbsTol', 1e-9, 'and contracts at 1 - gG from there');
+            % k_reach: 70 nm x 0.5^k <= 10 nm at k = 4, so cycle 5; 3 pm at cycle 15
+            k10 = find(L.rms <= 10e-6, 1);  k3 = find(L.rms <= 3e-9, 1);
+            testCase.verifyEqual(L.k_reach, [k10 k3], 'the reach levels are dated from the residual history');
+            testCase.verifyEqual(L.k_reach(1), 4, 'cycle 4 for 10 nm (70 x 0.5^3 = 8.75 nm)');
+            testCase.verifyEqual(L.rho, 0.5, 'AbsTol', 1e-6, 'a descent gets a transient fit, as a step does');
+            % with no start_rms the same options start AT the set point
+            o2 = rmfield(o, 'start_rms');  L2 = dmg_loop(testCase.ins, o2);
+            testCase.verifyLessThan(L2.rms(1), 1e-18, 'without the knob the loop opens at the set point');
+            testCase.verifyEqual(L2.surf_rms, 30e-6, 'RelTol', 1e-12);
+        end
+
+        function test_G10_recalibration_runs_on_schedule_and_takes_effect(testCase)
+            ins_ = testCase.mkins_recal(0.5, 1.0);
+            o = struct('g', 0.5, 'K', 40, 'nph', Inf, 'seed', 3, ...
+                       'drift', struct('kind', 'step', 'amp', 1e-6), 'recal_every', 10);
+            L = dmg_loop(ins_, o);
+            testCase.verifyEqual(L.k_recal, [10 20 30], 'recal at every tenth cycle, never at the last');
+            testCase.verifyEqual(L.n_recal, 3);
+            testCase.verifyEqual(L.nstates, o.K + 1 + 3*7, 'each re-calibration''s states are counted');
+            rat = L.rms(2:end) ./ L.rms(1:end-1);
+            testCase.verifyEqual(rat(2:9), 0.75*ones(1, 8), 'AbsTol', 1e-9, 'before the first recal: 1 - g*0.5');
+            testCase.verifyEqual(rat(12:19), 0.50*ones(1, 8), 'AbsTol', 1e-9, 'after it: 1 - g*1.0');
+            % non-vacuity: the same reading without the knob never improves
+            o0 = o;  o0.recal_every = 0;  L0 = dmg_loop(ins_, o0);
+            testCase.verifyEqual(L0.n_recal, 0);
+            testCase.verifyEqual(L0.rms(2:end) ./ L0.rms(1:end-1), 0.75*ones(1, o.K-1), 'AbsTol', 1e-9);
+            testCase.verifyLessThan(L.rms(end), 1e-3*L0.rms(end), 'and it is what makes the difference');
+        end
+
+        function test_G11_within_measurement_drift_reaches_a_sequential_reading(testCase)
+            % WHAT IS GATED IS THE CONTRACT, not a sign.  A reading whose
+            % frames straddle the scan reads the MIDDLE of its own scan to
+            % first order, and under a pure random walk that half-step of
+            % prediction can HELP as easily as hurt -- which way it goes is
+            % the instrument's business and is measured on the engine, not
+            % asserted here.  What the loop code must guarantee: the map
+            % handed to the instrument is opt.intra times the NEXT cycle's
+            % drift increment, intra 0 changes nothing, and a reading that
+            % ignores aux.dstep is untouched.
+            sq = testCase.mkins_intra(true);  sim = testCase.mkins_intra(false);
+            d = struct('kind', 'walk', 'sigma', 2e-6);
+            o = struct('g', 0.5, 'K', 60, 'nph', 1e13, 'seed', 7, 'drift', d);
+            a0 = dmg_loop(sq, o);
+            o0 = o;  o0.intra = 0;  b0 = dmg_loop(sq, o0);
+            testCase.verifyEqual(b0.rms, a0.rms, 'AbsTol', 0, 'intra 0 is the run without the knob');
+            % capture what the instrument is handed
+            seen = {};
+            sq2 = sq;  m0f = sq.measure;
+            sq2.measure = @(cmd, varargin) grab(m0f, cmd, varargin{:});
+            o1 = o;  o1.intra = 0.5;
+            s1 = dmg_loop(sq2, o1);
+            seen = grab();                                  % the aux of every cycle, in order
+            testCase.verifyEqual(numel(seen), o.K, 'one aux per cycle');
+            lit_ = testCase.lit;  rl = @(m) sqrt(mean(m(lit_).^2));
+            got = cellfun(@(a) rl(a.dstep), seen);
+            testCase.verifyEqual(got(1:o.K-1), 0.5*a0.drift_rms(2:o.K), 'RelTol', 1e-12, ...
+                'cycle k is handed intra x the increment of cycle k+1');
+            testCase.verifyNotEqual(s1.ss, a0.ss, 'and it reaches a sequential reading');
+            m1 = dmg_loop(sim, o1);  m0 = dmg_loop(sim, o);
+            testCase.verifyEqual(m1.rms, m0.rms, 'AbsTol', 0, 'a simultaneous reading ignores aux.dstep entirely');
+        end
+
+        function test_G12_reference_arm_walk_sets_a_floor_that_scales(testCase)
+            % noiseless, no DM drift: whatever residual is left IS the
+            % reference arm's, so the floor and its scaling are unambiguous
+            o = struct('g', 0.5, 'K', 400, 'nph', Inf, 'seed', 5, 'drift', struct('kind', 'none'));
+            sees = testCase.mkins_refwalk(true);  blind = testCase.mkins_refwalk(false);
+            L0 = dmg_loop(sees, o);
+            testCase.verifyLessThan(L0.ss, 1e-18, 'with no walk the noiseless loop holds exactly');
+            w = [1e-8 1e-7];                              % map units per cycle (the synthetic's "rad")
+            ss = zeros(size(w));
+            for i = 1:numel(w)
+                oi = o;  oi.ref_walk = w(i);  Li = dmg_loop(sees, oi);  ss(i) = Li.ss;
+                testCase.verifyEqual(std(diff([0 Li.ref_phase])), w(i), 'RelTol', 0.15, 'the walk has the requested rms increment');
+            end
+            testCase.verifyGreaterThan(ss(1), 1e-12, 'the reference arm''s walk sets a floor of its own');
+            testCase.verifyEqual(ss(2)/ss(1), 10, 'RelTol', 1e-9, 'and the floor is linear in the walk');
+            % non-vacuity: a common-path reading has no such arm
+            ob = o;  ob.ref_walk = w(2);
+            Lb = dmg_loop(blind, ob);  Lb0 = dmg_loop(blind, o);
+            testCase.verifyEqual(Lb.rms, Lb0.rms, 'AbsTol', 0, 'a common-path reading is untouched by it');
+        end
+
         function test_G6_spectrum_bands_sum_to_the_steady_state(testCase)
             o = struct('g', 0.5, 'K', 200, 'nph', 1e12, 'seed', 8, 'drift', struct('kind', 'walk', 'sigma', 2e-6));
             L = dmg_loop(testCase.ins, o);
@@ -264,4 +419,30 @@ end
 
 function a = est_local(m, Jp, G, il, n)
 a = zeros(n);  a(il) = G * (Jp * m);
+end
+
+function out = grab(f, cmd, varargin)
+% record the aux each cycle hands the instrument, then measure as usual
+persistent seen
+if nargin == 0, out = seen;  seen = {};  return; end
+if ~isempty(varargin), seen{end+1} = varargin{1}; end %#ok<AGROW>
+out = f(cmd, varargin{:});
+end
+
+function F = meas_intra(cmd, J_, il, sequential, varargin)
+% two frames: at the start of the scan and, when the reading is sequential
+% and the DM is advancing (aux.dstep), at its end
+d = zeros(size(cmd));
+if sequential && ~isempty(varargin) && ~isempty(varargin{1}) && isfield(varargin{1}, 'dstep') ...
+        && ~isempty(varargin{1}.dstep), d = varargin{1}.dstep; end
+F = [J_*cmd(il), J_*(cmd(il) + d(il))];
+end
+
+function F = meas_refwalk(cmd, J_, il, sees, varargin)
+% the reference arm's phase reaches a non-common-path reading's map as a
+% piston; a common-path reading has no such arm
+p = 0;
+if sees && ~isempty(varargin) && ~isempty(varargin{1}) && isfield(varargin{1}, 'ref_phase') ...
+        && ~isempty(varargin{1}.ref_phase), p = varargin{1}.ref_phase; end
+F = J_*cmd(il) + p;
 end

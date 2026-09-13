@@ -50,6 +50,23 @@ function L = dmg_loop(ins, opt)
 %     ins.diff(F1, F0)         the reading's differential map, F1 minus F0
 %     ins.est(map)             actuator-space estimate (nact x nact) of a map
 %     ins.lit                  logical nact x nact: the actuators scored
+%     ins.measure(cmd, aux)    (only when opt.intra or opt.ref_walk is on)
+%                              the same capture, with the measurement's OWN
+%                              drift: aux.dstep is a DM map that develops
+%                              ACROSS the scan -- frame j of nf sees cmd +
+%                              (j-1)/(nf-1) aux.dstep, so a simultaneous or
+%                              single-frame reading sees NOTHING of it and a
+%                              temporally stepped one does; aux.ref_phase is
+%                              a phase (rad) added to the reference arm of a
+%                              NON-COMMON-PATH reading for this measurement
+%                              (the P/SRI's reference walk), zero for a
+%                              common-path one
+%     ins.recal(cmd)           (only when opt.recal_every > 0) re-measure the
+%                              response matrix on the surface the loop is
+%                              holding NOW, through the instrument's own
+%                              calibration at DM command cmd; returns
+%                              struct('est', <new estimator handle>,
+%                              'nstates', <states it cost> [optional])
 %   opt -- the loop (all optional; defaults in brackets):
 %     .A0     set point, nact x nact                      [zeros]
 %     .g      loop gain                                   [0.5]
@@ -66,6 +83,31 @@ function L = dmg_loop(ins, opt)
 %             'step'    .amp    rms over lit of one disturbance at cycle
 %                               .at [1]; .shape a map ([] = seeded random
 %                               over lit)                       [none]
+%     .start_rms  the loop STARTS from a surface of this rms (mm) instead of
+%             from the set point -- the DM's initial figure, the capture
+%             problem (Dave 2026-09-13): the starting surface is
+%             start_rms * unit(.start_shape), so the residual at cycle 1 is
+%             |start_rms - rms(A0)| when the shape is the set point's own.
+%             [] or 0 = start at the set point
+%     .start_shape  the starting surface's shape ([] = the set point A0
+%             itself, rescaled -- "the same random field as the base,
+%             scaled"; a seeded random field over lit when A0 is zero)
+%     .recal_every  cycles between re-measurements of the response matrix ON
+%             the loop's current surface, through ins.recal (0 = never: the
+%             matrix measured once, at the start, is used throughout).  A
+%             recalibration costs instrument states, counted in .nstates
+%     .intra  fraction of the NEXT cycle's drift increment that develops
+%             WITHIN one measurement's scan (the DM / thermal analogue of
+%             cam.intra; 0 = the DM is still while a scan is taken).  What a
+%             temporally stepped reading cannot remove, and what a
+%             simultaneous one is for                                    [0]
+%     .ref_walk  rms (rad per cycle) of a random walk of the reference
+%             arm's phase relative to the test arm -- the NON-COMMON-PATH
+%             term of a P/SRI, which no common-path reading has.  Passed to
+%             the instrument as aux.ref_phase                            [0]
+%     .ref_seed  its own stream                              [opt.seed + 2]
+%     .reach  rms levels (mm) whose first cycle is reported in .k_reach --
+%             the descent question ("how many cycles to 10 nm, to 3 pm")
 %     .ref    'noiseless' | 'noisy' reference frames            ['noiseless']
 %     .nss    cycles at the end averaged as the steady state     [floor(K/2)]
 %     .track_noise  also estimate the noiseless frames each cycle to
@@ -108,6 +150,10 @@ function L = dmg_loop(ins, opt)
 %               = rms in [<4, 4-12, >12] cycles/aperture
 %     .theory   .ss_noise, .ss_walk, .lag_ramp as above from .sig_n and
 %               the drift (NaN where not applicable)
+%     .k_reach  first cycle at or below each opt.reach level (NaN if never);
+%               .surf_rms the rms of the STARTING surface (= rms(A0 + the
+%               start offset)); .n_recal, .k_recal the recalibrations and
+%               their cycles; .ref_phase the reference-arm phase per cycle
 %     .diverged true when the residual exceeded opt.rmax (scores then use
 %               the cycles that ran); .k_end the last cycle run
 %     .r_final  the last residual map; .cmd the last command; .drift_rms
@@ -117,13 +163,18 @@ function L = dmg_loop(ins, opt)
 %               states measured (K + 1 reference); .opt the options used
 %
 %   Cost: K + 1 instrument states (the reference plus one per cycle), each
-%   one measure + one noisy + one diff + one est (+ one est when tracking).
+%   one measure + one noisy + one diff + one est (+ one est when tracking),
+%   plus whatever each recalibration costs.  With opt.intra a stepped
+%   reading's measurement traces its frames separately -- the instrument's
+%   cost, not the loop's.
 
 % ---- options ------------------------------------------------------------
 lit = logical(ins.lit);  nact = size(lit, 1);
 o = struct('A0', zeros(nact), 'g', 0.5, 'K', 60, 'nph', Inf, 'seed', 1, ...
            'drift', struct('kind', 'none'), 'ref', 'noiseless', 'nss', [], 'track_noise', [], 'rmax', Inf, ...
-           'cam', struct('walk', 0, 'intra', 0, 'seed', []));
+           'cam', struct('walk', 0, 'intra', 0, 'seed', []), ...
+           'start_rms', [], 'start_shape', [], 'recal_every', 0, ...
+           'intra', 0, 'ref_walk', 0, 'ref_seed', [], 'reach', []);
 if nargin > 1
     fn = fieldnames(opt);
     for i = 1:numel(fn), o.(fn{i}) = opt.(fn{i}); end
@@ -156,6 +207,12 @@ switch dr.kind
         error('dmg_loop: drift.kind must be none | walk | thermal | step');
 end
 o.drift = dr;
+% the increments are drawn ONCE, in cycle order, for cycles 1..K+1: the extra
+% one is the increment that develops across cycle K's scan under opt.intra.
+% Drawing them ahead does not change the realization (same stream, same
+% order), so every record taken before the intra knob existed reproduces.
+D = zeros(nact, nact, o.K + 1);
+for k = 1:o.K+1, D(:,:,k) = gen(k); end
 cm = o.cam;
 if ~isfield(cm, 'walk') || isempty(cm.walk), cm.walk = 0; end
 if ~isfield(cm, 'intra') || isempty(cm.intra), cm.intra = 0; end
@@ -174,6 +231,31 @@ else
     ocam = [];  dnext = [];
 end
 
+% ---- the reference arm's own phase walk (non-common path) -------------------
+if isempty(o.ref_seed), o.ref_seed = o.seed + 2; end
+psi = zeros(1, o.K);
+if o.ref_walk > 0
+    sr = RandStream('mt19937ar', 'Seed', o.ref_seed);
+    psi = cumsum(o.ref_walk * randn(sr, 1, o.K));      % a random walk from the reference capture
+end
+aux_on = (o.intra > 0) || (o.ref_walk > 0);
+if aux_on
+    nm_ = nargin(ins.measure);            % 2 = (cmd, aux); negative = varargin
+    assert(nm_ == 2 || nm_ < 0, ...
+        'dmg_loop: opt.intra / opt.ref_walk need an instrument whose measure takes (cmd, aux)');
+end
+
+% ---- the starting surface (the DM's initial figure) -------------------------
+% dist carries the surface's departure from the command, so a start offset is
+% simply the disturbance the loop opens with: s(1) = start_rms * unit(shape).
+d0 = zeros(nact);
+if ~isempty(o.start_rms) && o.start_rms > 0
+    shp = o.start_shape;
+    if isempty(shp), shp = o.A0; end
+    if rmsl(shp) == 0, shp = randn(sd, nact) .* lit; end    % a flat set point: a seeded field
+    d0 = o.start_rms * (shp / rmsl(shp)) - o.A0;
+end
+
 % ---- the reference (set point) --------------------------------------------
 Fref = ins.measure(o.A0);
 nseed = @(k) double(mod(uint64(o.seed)*100003 + 7919 + uint64(k), 2^32));   % per-cycle noise seed
@@ -181,24 +263,36 @@ if strcmp(o.ref, 'noisy'), ca = camarg(ocam, dnext);  Fref = ins.noisy(Fref, o.n
 nstates = 1;
 
 % ---- the loop -----------------------------------------------------------
-cmd = o.A0;  dist = zeros(nact);
+cmd = o.A0;  dist = d0;
 rms = nan(1, o.K);  drms = nan(1, o.K);  en = nan(1, o.K);  enu = nan(1, o.K);  crms = nan(1, o.K);
 R = zeros(nact, nact, o.nss);  nR = 0;                       % residual maps of the tail
 diverged = false;  k_end = o.K;
+est = ins.est;  k_recal = [];                                % the estimator in force
 for k = 1:o.K
-    d = gen(k);  dist = dist + d;  drms(k) = rmsl(d);
+    d = D(:,:,k);  dist = dist + d;  drms(k) = rmsl(d);
     s = cmd + dist;  r = s - o.A0;  rms(k) = rmsl(r);
     if rms(k) > o.rmax, diverged = true;  k_end = k;  break; end
     if k > o.K - o.nss, nR = nR + 1;  R(:,:,nR) = r; end
-    F = ins.measure(s);  nstates = nstates + 1;
+    if aux_on
+        F = ins.measure(s, struct('dstep', o.intra * D(:,:,k+1), 'ref_phase', psi(k)));
+    else
+        F = ins.measure(s);
+    end
+    nstates = nstates + 1;
     if camon, ocam = ocam + dnext;  dnext = camstep();  crms(k) = sqrt(mean(ocam(:).^2)); end    % the offset at this cycle's scan
     ca = camarg(ocam, dnext);  Fn = ins.noisy(F, o.nph, nseed(k), ca{:});
-    a = ins.est(ins.diff(Fn, Fref));
+    a = est(ins.diff(Fn, Fref));
     if o.track_noise
-        a0 = ins.est(ins.diff(F, Fref));  e = a - a0;
+        a0 = est(ins.diff(F, Fref));  e = a - a0;
         en(k) = rmsl(e);  un = ~lit;  enu(k) = sqrt(mean(e(un).^2));
     end
     cmd = cmd - o.g * a;
+    if o.recal_every > 0 && mod(k, o.recal_every) == 0 && k < o.K
+        % re-measure the response matrix ON the surface the loop holds now
+        rc = ins.recal(cmd);
+        est = rc.est;  k_recal(end+1) = k; %#ok<AGROW>
+        if isfield(rc, 'nstates') && ~isempty(rc.nstates), nstates = nstates + rc.nstates; end
+    end
 end
 
 % ---- scores ---------------------------------------------------------------
@@ -212,8 +306,17 @@ L.ss = sqrt(mean(rms(tail).^2));
 L.bias_map = mean(R, 3);  L.bias = rmsl(L.bias_map);
 ok = ~isnan(en);  L.sig_n = sqrt(mean(en(ok).^2));  L.sig_n_unlit = sqrt(mean(enu(ok).^2));
 L.r_final = r;  L.cmd = cmd;
-if strcmp(dr.kind, 'step') && ~diverged, [L.rho, L.tau, L.k_1e] = decay_(rms(dr.at:end), L.ss);
-else, L.rho = NaN;  L.tau = NaN;  L.k_1e = NaN; end          % a transient is fitted on a step run only
+L.surf_rms = rmsl(o.A0 + d0);                                 % the STARTING surface
+L.n_recal = numel(k_recal);  L.k_recal = k_recal;  L.ref_phase = psi;
+L.k_reach = nan(1, numel(o.reach));                           % cycles to each level
+for q = 1:numel(o.reach)
+    i = find(rms <= o.reach(q), 1);  if ~isempty(i), L.k_reach(q) = i; end
+end
+descent = ~isempty(o.start_rms) && o.start_rms > 0;
+if (strcmp(dr.kind, 'step') || descent) && ~diverged
+    k0 = 1;  if strcmp(dr.kind, 'step'), k0 = dr.at; end      % a descent starts at cycle 1
+    [L.rho, L.tau, L.k_1e] = decay_(rms(k0:end), L.ss);
+else, L.rho = NaN;  L.tau = NaN;  L.k_1e = NaN; end          % a transient is fitted on a step / descent run only
 L.spec = spec_(L.bias_map, R, lit, nact);
 gG = o.g;                                                     % G folded into rho when measured
 if ~isnan(L.rho), gG = 1 - L.rho; end
