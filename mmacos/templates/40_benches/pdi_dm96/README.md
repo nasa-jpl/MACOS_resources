@@ -118,6 +118,26 @@ the report and this section states the FINDINGS.
   PROPAGATED there — call `complex_field` first, or the pinhole disk
   comes out all-ones and the "reference" is the whole beam.
 
+- **Capture range to 10%, the calibration left to AGE** (`runs/cap385p`,
+  385 rays; the Zernike readings on the same ladder are
+  `../zwfs_dm96/runs/cap385`).  **I+ 36, S 42, L 44, P 62, V 70 nm — and
+  PF 480 nm+**, still within 1% of unit gain at 100 nm and within 10% at
+  480.  Every reading whose reference depends on the working surface
+  dies between 36 and 70 nm; the one whose reference does not, does not.
+  P sits with the Zernike readings only because its `|b|²` is taken from
+  the FLAT state: with a shutter frame per state it moves to PF's column
+  (`../zwfs_dm96/runs/pdi193state`).
+
+- **The two ways a descent fails, and only one of them is a wrap.**  A
+  reading can be returning nearly the right map, FOLDED — or its
+  REFERENCE can have collapsed, the focal core gone, in which case it
+  returns a small wrong map that is not wrapped at all.  Unwrapping
+  answers the first and cannot touch the second.  The loop stage's
+  opening-differential print tells them apart: a fold shows a wrapped
+  rms near the wrapped-random value with residues, and unwraps back to
+  the truth; a collapsed reference shows a wrapped rms far BELOW the
+  truth, no residues, and unwrapping changes nothing.
+
 - **Capture is a WRAP problem, and `dmg_unwrap` is the answer**
   (`BRIEF_to_capture.md`; `runs/cap_nouw`, `cap_uw`, `cap_*_recal`).
   Every phase reading here returns a *wrapped* differential — `stepdiff`,
