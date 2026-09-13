@@ -52,6 +52,14 @@ classdef tDmgLoop < matlab.unittest.TestCase
 %     G12 REFERENCE-ARM WALK (opt.ref_walk): a non-common-path phase walk
 %         reaching the differential as a piston sets a hold floor that
 %         scales with the walk, and .ref_phase is that walk
+%     G13 THE UNWRAPPER (dmg_unwrap, 2026-09-13).  Capture is a WRAP
+%         problem -- every phase reading returns a wrapped differential --
+%         so the least-squares unwrapper is gated here, beside the loop it
+%         serves: a wrapped ramp and a band-limited random surface of 1.5
+%         and 3 waves peak-to-valley unwrap to the truth to 1e-12 with
+%         zero residues; a map that was never wrapped passes through
+%         unchanged; and a gradient beyond pi per pixel is REPORTED as
+%         residues rather than silently unwrapped wrong
 
     properties (Constant)
         NACT = 24
@@ -392,6 +400,44 @@ classdef tDmgLoop < matlab.unittest.TestCase
             testCase.verifyEqual(Lb.rms, Lb0.rms, 'AbsTol', 0, 'a common-path reading is untouched by it');
         end
 
+        function test_G13_unwrapper_is_exact_below_the_pixel_gradient_limit(testCase)
+            W = @(x) atan2(sin(x), cos(x));
+            N = 64;  [x, y] = meshgrid(linspace(-1, 1, N));
+            % (a) a wrapped ramp on a full box: the unweighted solve is exact
+            t = 3*pi*(0.6*x + 0.4*y);                        % 1.5 waves across
+            [u, i1] = dmg_unwrap(W(t), true(N));
+            testCase.verifyEqual(i1.nres, 0, 'a ramp has no residues');
+            testCase.verifyEqual(u - mean(u(:)), t - mean(t(:)), 'AbsTol', 1e-12, ...
+                'a wrapped ramp unwraps to the truth');
+            % (b) a band-limited random surface on a DISC mask, 1.5 and 3
+            % waves peak to valley -- the masked (PCG) solve
+            msk = hypot(x, y) <= 0.9;
+            s = bandlimited(N, 4, 7);  s = s - mean(s(msk));
+            for amp = [1.5 3.0]
+                t2 = 2*pi*amp * s / (max(s(msk)) - min(s(msk)));
+                [u2, i2] = dmg_unwrap(W(t2), msk);
+                d = (u2(msk) - mean(u2(msk))) - (t2(msk) - mean(t2(msk)));
+                testCase.verifyEqual(i2.nres, 0, sprintf('%g waves PV: no residues', amp));
+                testCase.verifyLessThan(i2.maxgrad, pi, 'and it is inside the pixel-gradient limit');
+                testCase.verifyEqual(max(abs(d)), 0, 'AbsTol', 1e-12, ...
+                    sprintf('%g waves PV on a disc unwraps to the truth', amp));
+                testCase.verifyTrue(i2.wrapped, 'and it reports that it did work');
+            end
+            % (c) a map that was never wrapped comes back unchanged
+            s4 = 0.4*sin(2*pi*x).*cos(2*pi*y);
+            [u4, i4] = dmg_unwrap(s4, msk);
+            testCase.verifyEqual(max(abs(u4(msk) - s4(msk))), 0, 'AbsTol', 1e-12, ...
+                'an unwrapped map passes through');
+            testCase.verifyFalse(i4.wrapped, 'and it says so');
+            testCase.verifyEqual(nnz(u4(~msk)), 0, 'off the mask it returns zero');
+            % (d) beyond the pixel-gradient limit: REPORTED, not silently wrong
+            t5 = 2*pi*40 * s / (max(s(msk)) - min(s(msk)));
+            [~, i5] = dmg_unwrap(W(t5), msk);
+            testCase.verifyGreaterThan(i5.nres, 0, ...
+                'a gradient beyond pi per pixel must be reported as residues');
+            testCase.verifyGreaterThan(i5.maxgrad, 3.0, 'the gradient itself is at the wrap');
+        end
+
         function test_G6_spectrum_bands_sum_to_the_steady_state(testCase)
             o = struct('g', 0.5, 'K', 200, 'nph', 1e12, 'seed', 8, 'drift', struct('kind', 'walk', 'sigma', 2e-6));
             L = dmg_loop(testCase.ins, o);
@@ -415,6 +461,19 @@ if nargin >= 6 && ~isempty(cam)
     o = reshape(cam.o, np*np, 1);  d = reshape(cam.d, np*np, 1);
     Fn = Fn + [o, o + d];                                    % frame 2 gets the within-scan increment
 end
+end
+
+function s = bandlimited(N, nc, seed)
+% a random surface with nc cycles across the grid -- smooth at the pixel
+% scale, as a DM's surface is (4 detector px per actuator at 385 rays)
+rng(seed);
+F = zeros(N);
+for p = -nc:nc
+    for q = -nc:nc
+        F(mod(p, N)+1, mod(q, N)+1) = (randn + 1i*randn) * exp(-(p^2 + q^2)/(2*(nc/2)^2));
+    end
+end
+s = real(ifft2(F));
 end
 
 function a = est_local(m, Jp, G, il, n)

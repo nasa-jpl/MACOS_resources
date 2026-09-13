@@ -101,6 +101,12 @@ P = setdef_(P, 'loop', 'recal_every', 0);       % cycles between on-surface re-c
 P = setdef_(P, 'loop', 'recal_list',  []);      % descent: the recal_every values to compare ([] = [recal_every])
 P = setdef_(P, 'loop', 'intra',       0);       % fraction of the cycle's drift developing WITHIN a scan
 P = setdef_(P, 'loop', 'reach', [10e-6 3e-9]);  % descent: the levels whose cycle count is reported
+P = setdef_(P, 'battery', 'unwrap', false);     % unwrap every WRAPPED differential (S V P PF) before
+                                                % the estimator (dm_gauge_lib/dmg_unwrap); default OFF
+                                                % so every record taken before 2026-09-13 reproduces
+P = setdef_(P, 'loop', 'unwrap', 'auto');       % the loop stage's own setting: 'auto' = battery.unwrap,
+                                                % or ON whenever loop.start_rms is set (a descent is the
+                                                % case the unwrapper exists for); true / false force it
 P = setdef_(P, 'pdi',  'bench',  'zwfs');       % 'zwfs' = the ZWFS test arm; 'psri' = the two P/SRI decks
 P = setdef_(P, 'pdi',  'ref_frozen', false);    % pdi.bench 'psri': hold the traced reference at
                                                % the flat state (the control run)
@@ -111,6 +117,26 @@ end
 
 function P = setdef_(P, grp, fld, val)
 if ~isfield(P, grp) || ~isfield(P.(grp), fld), P.(grp).(fld) = val; end
+end
+
+function tf = wrapped_(rd)
+% the readings whose DIFFERENTIAL is a wrapped phase difference.  L is a
+% linear map and has no wrap; F / I / I+ solve an ABSOLUTE phase and are
+% differenced afterwards, which the unwrapper cannot mend, so they are
+% left alone too (Dave / CCL 2026-09-13).
+tf = any(strcmp(rd, {'S', 'V', 'P', 'PF'}));
+end
+
+function uw = unwrap_fn_(P, ZW)
+%UNWRAP_FN_  [] when off, else a handle taking a WRAPPED height map (mm)
+%   and returning the unwrapped one.  The readings return height, not
+%   phase, so the factor is undone and redone around dmg_unwrap:
+%   h = S_CONV * phi * lambda / (4 pi).
+uw = [];
+if ~P.battery.unwrap, return; end
+hpr = P.mask.S_CONV * P.LAM / (4*pi);            % height per radian
+msk = ZW.msk;
+uw = @(d) hpr * dmg_unwrap(d/hpr, msk);
 end
 
 function n = index_(P, lam_mm)
@@ -738,8 +764,11 @@ switch rd
 end
 end
 
-function d = diff_(ZW, rd, F1, F0, plus)
-% differential height map between two captured states
+function d = diff_(ZW, rd, F1, F0, plus, uw)
+% differential height map between two captured states.  uw (optional) is
+% the unwrapper from unwrap_fn_: the four wrapped readings get it, the
+% others do not (wrapped_).
+if nargin < 6, uw = []; end
 switch rd
     case 'S', d = ZW.stepdiff(F1.X, F0.X);
     case 'V', d = ZW.diffV(F1.Ip, F1.Im, F0.Ip, F0.Im);          % wrapped phase difference
@@ -747,6 +776,7 @@ switch rd
     case 'PF', d = ZW.PD.PF.diff(F1.FF, F0.FF);
     otherwise, d = readmap_(ZW, rd, F1, plus, []) - readmap_(ZW, rd, F0, plus, []);
 end
+if ~isempty(uw) && wrapped_(rd), d = uw(d); end
 end
 
 function C = calibrate_(P, S, ZW, cfg, classes, lit, Abase)
@@ -771,7 +801,7 @@ N_G = P.grid.N_G;  xg = S.xg;
 C.dmap = @(act) dm_influence_map(N_G, P.grid.DX_G, 'nact', cfg.nact, 'pitch', cfg.pitch, 'act', act);
 [C.axg, C.ayg] = meshgrid(((1:cfg.nact)-(cfg.nact+1)/2)*cfg.pitch);
 if nargin < 6 || isempty(lit), lit = dmg_lit(ZW.msk, S.dxd_mm, S.mag, C.axg, C.ayg); end
-C.lit = lit;
+C.lit = lit;  C.uw = unwrap_fn_(P, ZW);
 POKE = P.reg.POKE;
 ic = cfg.nact/2;  Aa = zeros(cfg.nact);  Aa(ic,ic) = 1;  C.Ma = C.dmap(POKE*Aa);
 needS = any(classes == 3);
@@ -787,9 +817,9 @@ else
 end
 % class maps of a state F relative to the calibration surface
 if onbase
-    C.cmap = @(F, k) cmap_base_(ZW, F, C.F0, C.plus, k);
+    C.cmap = @(F, k) cmap_base_(ZW, F, C.F0, C.plus, k, C.uw);
 else
-    C.cmap = @(F, k) cmap_flat_(ZW, F, C.Fflat, k);
+    C.cmap = @(F, k) cmap_flat_(ZW, F, C.Fflat, k, C.uw);
 end
 % ---- the kernel site ----------------------------------------------------
 ks = P.reg.kernel_site;
@@ -854,7 +884,7 @@ N_G = P.grid.N_G;  xg = S.xg;  nact = cfg.nact;
 C.dmap = @(act) dm_influence_map(N_G, P.grid.DX_G, 'nact', nact, 'pitch', cfg.pitch, 'act', act);
 [C.axg, C.ayg] = meshgrid(((1:nact)-(nact+1)/2)*cfg.pitch);
 if isempty(lit), lit = dmg_lit(ZW.msk, S.dxd_mm, S.mag, C.axg, C.ayg); end
-C.lit = lit;  C.mode = 'matrix';
+C.lit = lit;  C.mode = 'matrix';  C.uw = unwrap_fn_(P, ZW);
 POKE = P.reg.POKE;  step = P.battery.matrix_step;
 ic = nact/2;  Aa = zeros(nact);  Aa(ic,ic) = 1;  C.Ma = C.dmap(POKE*Aa);
 needS = any(classes == 3);  needV = any(classes == 4);  needP = [any(classes == 5) any(classes == 6)];
@@ -871,10 +901,10 @@ if onbase
     C.Abase = Ab;  C.F0 = frames_(ZW, C.dmap(Ab), needS0, needV, needP);
     if has_step, C.plus = ZW.priorS(C.F0.Ia, C.F0.Fr); else, C.plus = []; end
     C.Fflat = frames_(ZW, zeros(N_G), needS, needV, needP);
-    C.cmap = @(F, k) cmap_base_(ZW, F, C.F0, C.plus, k);
+    C.cmap = @(F, k) cmap_base_(ZW, F, C.F0, C.plus, k, C.uw);
 else
     C.Abase = zeros(nact);  C.Fflat = frames_(ZW, zeros(N_G), needS, needV, needP);  C.F0 = C.Fflat;  C.plus = [];
-    C.cmap = @(F, k) cmap_flat_(ZW, F, C.Fflat, k);
+    C.cmap = @(F, k) cmap_flat_(ZW, F, C.Fflat, k, C.uw);
 end
 % ---- window placement from the bench registration (anchor from the
 % centre poke, parity/sign from the bench stage): DM lattice -> detector px
@@ -963,8 +993,9 @@ x = Rf \ (Rf.' \ b);
 a = zeros(nact);  a(ilit) = x;
 end
 
-function h = cmap_flat_(ZW, F, Fflat, k)
+function h = cmap_flat_(ZW, F, Fflat, k, uw)
 % absolute class map on the flat (the record's form)
+if nargin < 5, uw = []; end
 switch k
     case 1, h = ZW.reconL(F.Ia);
     case 2, h = ZW.reconI(F.Ia);
@@ -973,10 +1004,12 @@ switch k
     case 5, h = ZW.PD.P.height(F.FP);
     case 6, h = ZW.PD.PF.height(F.FF);
 end
+if ~isempty(uw) && k >= 3, h = uw(h); end
 end
 
-function h = cmap_base_(ZW, F, F0, plus, k)
+function h = cmap_base_(ZW, F, F0, plus, k, uw)
 % class map DIFFERENTIAL to the working surface; class 2 = I+ on the base
+if nargin < 6, uw = []; end
 switch k
     case 1, h = ZW.reconL(F.Ia) - ZW.reconL(F0.Ia);
     case 2, h = ZW.reconI(F.Ia, [], plus) - ZW.reconI(F0.Ia, [], plus);
@@ -985,6 +1018,7 @@ switch k
     case 5, h = ZW.PD.P.diff(F.FP, F0.FP);
     case 6, h = ZW.PD.PF.diff(F.FF, F0.FF);
 end
+if ~isempty(uw) && k >= 3, h = uw(h); end
 end
 
 function gk = transfer_(P, ZW, C, cfg, classes, AMPM)
@@ -1118,14 +1152,14 @@ for icfg = 1:numel(P.dm)
             dmg_say(rep, '  [%s] differential map on the surface vs the same change on the flat, over the changed actuator''s window (rel rms diff / amplitude ratio):', ROWS{r,1});
             for k = 1:numel(RD)
                 if strcmp(RD{k}, 'I+'), pz = false(ZW.N_WF); else, pz = []; end
-                db = diff_(ZW, RD{k}, F1, F0, plusb);  df = diff_(ZW, RD{k}, Ff, Fz, pz);
+                db = diff_(ZW, RD{k}, F1, F0, plusb, C.uw);  df = diff_(ZW, RD{k}, Ff, Fz, pz, C.uw);
                 wb = db(rws, cls);  wf = df(rws, cls);
                 dmg_say(rep, '  %s %.3f / %.3f', RD{k}, norm(wb(:)-wf(:))/max(norm(wf(:)), eps), (wf(:).'*wb(:))/max(wf(:).'*wf(:), eps));
             end
             dmg_say(rep, '\n');
         end
         for k = 1:numel(RD)
-            araw = C.est{KC(k)}(diff_(ZW, RD{k}, F1, F0, plusb));  acor = corrk(araw, KC(k));
+            araw = C.est{KC(k)}(diff_(ZW, RD{k}, F1, F0, plusb, C.uw));  acor = corrk(araw, KC(k));
             [gr, er, fr, sr] = score_(araw, dev, lit);  [gc, ec, fc, sc] = score_(acor, dev, lit);
             dmg_say(rep, '%-17s %-3s | %7.4f %8.0f %8s %7s | %7.4f %8.0f %8s %7s\n', ifelse_(k==1, ROWS{r,1}, ''), RD{k}, ...
                 gr, er, fmt0_(fr), fmt2_(sr), gc, ec, fmt0_(fc), fmt2_(sc));
@@ -1155,7 +1189,7 @@ for icfg = 1:numel(P.dm)
         F1 = frames_(ZW, C.dmap(Ab + Asng), needS, needV, needP);
         g = nan(1,numel(RD));  fl = g;  sn = g;
         for k = 1:numel(RD)
-            a = corrk(C.est{KC(k)}(diff_(ZW, RD{k}, F1, F0, plusb)), KC(k));
+            a = corrk(C.est{KC(k)}(diff_(ZW, RD{k}, F1, F0, plusb, C.uw)), KC(k));
             [g(k), ~, fl(k), sn(k)] = score_(a, Asng, lit);
         end
         dmg_say(rep, '%5.0f nm %6.4f %6.4f |', amp*1e6, pinf.frac(1), pinf.frac(end));
@@ -1260,7 +1294,7 @@ for k = 1:K
         F1 = frames_(ZW, C.dmap(base + dev), needS, needV, needP);
         A = struct();
         for j = 1:numel(RD)
-            A.(fld_(RD{j})) = C.est{KC(j)}(diff_(ZW, RD{j}, F1, F0, plusb));
+            A.(fld_(RD{j})) = C.est{KC(j)}(diff_(ZW, RD{j}, F1, F0, plusb, C.uw));
         end
         RAW{r,k} = A;
     end
@@ -1429,6 +1463,7 @@ for in = 1:numel(NS)
                 case 'P',  d = ZW.PD.P.diff(FP1, FP0);
                 case 'PF', d = ZW.PD.PF.diff(FF1, FF0);
             end
+            if ~isempty(C.uw) && wrapped_(rd), d = C.uw(d); end
             a = corrk(C.est{kc}(d), kc);
             pk(r,c) = a(cfg.hold(1), cfg.hold(2));  fl(r,c) = std(a(un));
         end
@@ -1466,7 +1501,15 @@ dmg_say(rep, 'loop: gain %.2f, %d cycles (steady state = last %d), set point = %
     g, K, floor(K/2), P.loop.surface, P.loop.ref, P.loop.seed);
 dmg_say(rep, 'dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)\n');
 % ---- calibration ON the set point --------------------------------------
+SR = P.loop.start_rms(:).';
+descent = ~isempty(SR) && any(SR > 0);  SR = SR(SR > 0);
 Pl = P;  Pl.battery.calib_surface = ifelse_(strcmp(P.loop.surface, 'base'), 'base', 'flat');
+if ischar(P.loop.unwrap) || isstring(P.loop.unwrap)
+    assert(strcmpi(P.loop.unwrap, 'auto'), 'zwfs_run: loop.unwrap must be true, false or ''auto''');
+    Pl.battery.unwrap = P.battery.unwrap || descent;   % a descent is what the unwrapper is for
+else
+    Pl.battery.unwrap = logical(P.loop.unwrap);
+end
 C = calibrate_(Pl, S, ZW, cfg, classes);
 lit = C.lit;  A0 = C.Abase;
 dmg_say(rep, 'calibration: %s on the %s (%s); lit actuators %d\n', ifelse_(strcmp(P.battery.calib_mode,'matrix'), 'measured response matrix', 'kernel'), ...
@@ -1485,25 +1528,57 @@ end
 % on-surface re-calibration, the drift developing WITHIN a stepped scan, and
 % the P/SRI's own reference-arm walk
 RECL = P.loop.recal_list;  if isempty(RECL), RECL = P.loop.recal_every; end
-descent = ~isempty(P.loop.start_rms) && P.loop.start_rms > 0;
+dmg_say(rep, 'wrapped-differential UNWRAPPING (dm_gauge_lib/dmg_unwrap, least squares on the lit mask): %s for the readings whose differential is a wrapped phase difference (S, V, P, PF); L, F, I and I+ are untouched\n', ...
+    ifelse_(Pl.battery.unwrap, 'ON', 'off'));
 if P.loop.intra > 0
     dmg_say(rep, 'WITHIN-MEASUREMENT DRIFT: %.0f%% of each cycle''s drift increment develops ACROSS one measurement''s scan -- frame j of nf at (j-1)/(nf-1) of it.  The stepped readings (S, P, PF) capture their frames one at a time and pay for it; the single-frame (L, I+) and simultaneous (V) readings see one instant and do not\n', 100*P.loop.intra);
 end
 if P.pdi.ref_walk > 0
     dmg_say(rep, 'REFERENCE-ARM WALK: the P/SRI''s reference phase random-walks %.3g rad per cycle relative to the test arm (the non-common-path term).  Common-path readings (L, I+, S, V, P) do not have this arm and ignore it\n', P.pdi.ref_walk);
 end
-Astart = [];
+Astart = {};  Cst = {};
 if descent
     assert(numel(P.loop.reach) == 2, 'zwfs_run: loop.reach must name exactly two levels (the descent table''s columns)');
     assert(strcmp(P.loop.surface, 'base') && P.battery.base_rms > 0, ...
         'zwfs_run: a descent needs loop.surface ''base'' (the starting surface is the set point''s own field, rescaled)');
-    Astart = A0 * (P.loop.start_rms / sqrt(mean(A0(lit).^2)));   % exactly what dmg_loop opens at
-    dmg_say(rep, 'DESCENT: the DM starts at a surface of %.0f nm rms (the set point''s field, rescaled; %.0f nm WFE) and must reach the hold regime.  The response matrix is measured THERE, on the starting surface -- not on the set point the loop has yet to reach -- and then re-measured on the loop''s CURRENT surface every %s cycles (0 = never).  Reach levels %s nm\n', ...
-        P.loop.start_rms*1e6, 2*P.loop.start_rms*1e6, mat2str(RECL), mat2str(P.loop.reach*1e6));
+    dmg_say(rep, 'DESCENT: the DM starts at a surface of %s nm rms (the set point''s field, rescaled; %s nm WFE) and must reach the hold regime.  The response matrix is measured THERE, on each starting surface -- not on the set point the loop has yet to reach -- and then re-measured on the loop''s CURRENT surface every %s cycles (0 = never).  Reach levels %s nm\n', ...
+        mat2str(SR*1e6), mat2str(2*SR*1e6), mat2str(RECL), mat2str(P.loop.reach*1e6));
+    % ONE start matrix per starting surface, covering every class at once --
+    % the calibration a bench would make in place, and 1/numel(RD) of the
+    % cost of building it per reading
+    a0r = sqrt(mean(A0(lit).^2));
+    for q = 1:numel(SR)
+        ts = tic;  Astart{q} = A0 * (SR(q)/a0r); %#ok<AGROW>
+        Pq = Pl;  Pq.battery.calib_surface = 'base';
+        Cst{q} = calib_matrix_(Pq, S, ZW, cfg, classes, lit, Astart{q}); %#ok<AGROW>
+        dmg_say(rep, 'descent: the starting matrix on the %.0f nm surface -- %d states, %.1f min\n', ...
+            SR(q)*1e6, Cst{q}.matrix.nstates, toc(ts)/60);
+    end
+    % what the OPENING differential looks like to each reading: the wrapped
+    % phase difference between the starting surface and the set point, and
+    % how much of it the unwrapper can make consistent
+    hpr = P.mask.S_CONV*P.LAM/(4*pi);
+    F0d = frames_(ZW, C.dmap(A0), has_step, any(KC == 4), [any(KC == 5) any(KC == 6)]);
+    dmg_say(rep, 'the OPENING differential (the starting surface against the set point), per reading: rms of the WRAPPED map, 2 pi residues inside the mask, largest wrapped gradient (rad per px), and the rms the unwrapper returns -- the truth is %s nm\n', mat2str(round((SR - a0r)*1e6)));
+    for q = 1:numel(SR)
+        F1d = frames_(ZW, C.dmap(Astart{q}), has_step, any(KC == 4), [any(KC == 5) any(KC == 6)]);
+        dmg_say(rep, '  start %3.0f nm |', SR(q)*1e6);
+        for j = 1:numel(RD)
+            dw = diff_(ZW, RD{j}, F1d, F0d, plusb, []);
+            if wrapped_(RD{j})
+                [du, iu] = dmg_unwrap(dw/hpr, ZW.msk);
+                dmg_say(rep, ' %s: %6.1f nm wrapped, %5d res, grad %.2f, %7.1f nm unwrapped |', ...
+                    RD{j}, std(dw(ZW.msk))*1e6, iu.nres, iu.maxgrad, std(du(ZW.msk)*hpr)*1e6);
+            else
+                dmg_say(rep, ' %s: %6.1f nm (no wrap) |', RD{j}, std(dw(ZW.msk))*1e6);
+            end
+        end
+        dmg_say(rep, '\n');
+    end
 end
 % ---- the runs ---------------------------------------------------------------
-res = struct('rd',{}, 'drift',{}, 'nph',{}, 'amp',{}, 'L',{});
-nrun = numel(RD) * (numel(P.loop.steps) + numel(NPH)*(P.loop.floor + numel(DR) + descent*numel(RECL)));
+res = struct('rd',{}, 'drift',{}, 'nph',{}, 'amp',{}, 'L',{}, 'start',{});
+nrun = numel(RD) * (numel(P.loop.steps) + numel(NPH)*(P.loop.floor + numel(DR) + descent*numel(RECL)*numel(SR)));
 dmg_say(rep, '%d loop runs of %d states each (%d traced states)\n', nrun, K+1, nrun*(K+1));
 irun = 0;
 for j = 1:numel(RD)
@@ -1512,7 +1587,7 @@ for j = 1:numel(RD)
     ins = struct('lit', lit, 'npix', ZW.N_WF, 'cam_unit', P.loop.cam_unit, ...
         'measure', @(cmd, varargin) meas_loop_(ZW, C, cmd, nd, varargin{:}), ...
         'noisy',   @(F, nph, seed, varargin) noisy_frames_(ZW, F, nph, seed, rd, P.loop.cam_unit, varargin{:}), ...
-        'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb), ...
+        'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb, C.uw), ...
         'est',     C.est{kc}, ...
         'recal',   @(cmd) recal_loop_(P, S, ZW, cfg, kc, cmd, lit));
     base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref, 'rmax', P.loop.rmax, ...
@@ -1524,7 +1599,7 @@ for j = 1:numel(RD)
     for amp = P.loop.steps
         o = base;  o.nph = Inf;  o.drift = struct('kind', 'step', 'amp', amp);
         L = dmg_loop(ins, o);  irun = irun + 1;
-        res(end+1) = struct('rd',rd, 'drift','step', 'nph',Inf, 'amp',amp, 'L',L); %#ok<AGROW>
+        res(end+1) = struct('rd',rd, 'drift','step', 'nph',Inf, 'amp',amp, 'L',L, 'start',0); %#ok<AGROW>
         fprintf('[loop %d/%d] %s step %g nm: rho %.3f, residual at K %.2f pm%s (%.1f min)\n', irun, nrun, rd, amp*1e6, L.rho, L.rms(L.k_end)*1e9, div_(L), toc(t0)/60);
     end
     for nph = NPH
@@ -1539,25 +1614,23 @@ for j = 1:numel(RD)
                 otherwise,      error('zwfs_run: loop.drifts must be a subset of walk | thermal | cam');
             end
             L = dmg_loop(ins, o);  irun = irun + 1;
-            res(end+1) = struct('rd',rd, 'drift',kinds{kd}, 'nph',nph, 'amp',amp, 'L',L); %#ok<AGROW>
+            res(end+1) = struct('rd',rd, 'drift',kinds{kd}, 'nph',nph, 'amp',amp, 'L',L, 'start',0); %#ok<AGROW>
             fprintf('[loop %d/%d] %s %s @ %.0e photons: ss %.2f pm, bias %.2f pm, sig_n %.2f pm%s (%.1f min)\n', irun, nrun, rd, kinds{kd}, nph, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, div_(L), toc(t0)/60);
         end
     end
-    % the descent: from the DM's initial figure down to the hold regime
+    % the descent ladder: from the DM's initial figure down to the hold regime
     if descent
-        % the matrix a bench would have: measured on the 100 nm surface the
-        % DM actually presents, not on the set point it has yet to reach
-        tr = tic;  rcs = recal_loop_(P, S, ZW, cfg, kc, Astart, lit);
-        insd = ins;  insd.est = rcs.est;
-        dmg_say(rep, 'descent %-2s: the starting matrix measured on the %.0f nm surface (%d states, %.1f min)\n', rd, P.loop.start_rms*1e6, rcs.nstates, toc(tr)/60);
-        for rc = RECL
-            for nph = NPH
-                o = base;  o.nph = nph;  o.drift = struct('kind', 'none');
-                o.start_rms = P.loop.start_rms;  o.recal_every = rc;
-                L = dmg_loop(insd, o);  irun = irun + 1;
-                res(end+1) = struct('rd',rd, 'drift','descent', 'nph',nph, 'amp',rc, 'L',L); %#ok<AGROW>
-                fprintf('[loop %d/%d] %s descent (recal %d) @ %.0e photons: r(1) %.1f nm -> r(K) %.2f pm, %d recals%s (%.1f min)\n', ...
-                    irun, nrun, rd, rc, nph, L.rms(1)*1e6, L.rms(L.k_end)*1e9, L.n_recal, div_(L), toc(t0)/60);
+        for q = 1:numel(SR)
+            insd = ins;  insd.est = Cst{q}.est{kc};     % the matrix measured on THAT start
+            for rc = RECL
+                for nph = NPH
+                    o = base;  o.nph = nph;  o.drift = struct('kind', 'none');
+                    o.start_rms = SR(q);  o.recal_every = rc;
+                    L = dmg_loop(insd, o);  irun = irun + 1;
+                    res(end+1) = struct('rd',rd, 'drift','descent', 'nph',nph, 'amp',rc, 'L',L, 'start',SR(q)); %#ok<AGROW>
+                    fprintf('[loop %d/%d] %s descent from %.0f nm (recal %d) @ %.0e photons: r(1) %.1f nm -> r(K) %.2f pm, %d recals%s (%.1f min)\n', ...
+                        irun, nrun, rd, SR(q)*1e6, rc, nph, L.rms(1)*1e6, L.rms(L.k_end)*1e9, L.n_recal, div_(L), toc(t0)/60);
+                end
             end
         end
     end
@@ -1633,23 +1706,44 @@ for kd = 1:numel(kinds)
 end
 % ---- the descent table ---------------------------------------------------------
 if descent
-    dmg_say(rep, '\nDESCENT from a %.0f nm rms surface (%.0f nm WFE) to the set point, matrix measured at the start.  r(1) = the residual the loop opens with (pm), k(10 nm) / k(3 pm) = the first cycle at or below those levels (- = never within %d cycles), r(K) = the residual at cycle %d, rho = the fitted per-cycle contraction, recals = on-surface re-calibrations run\n', ...
-        P.loop.start_rms*1e6, 2*P.loop.start_rms*1e6, K, K);
-    dmg_say(rep, '%-4s %9s %6s | %11s %8s %8s %11s %6s %6s\n', 'rd', 'N/cycle', 'recal', 'r(1) nm', 'k(10nm)', 'k(3pm)', 'r(K) pm', 'rho', 'recals');
+    dmg_say(rep, '\nDESCENT LADDER to the set point, the matrix measured at each start, unwrapping %s.  start = the DM''s initial surface rms (its WFE is twice that); r(1) = the residual the loop opens with (nm); k(10 nm) / k(3 pm) = the first cycle at or below those levels (- = never within %d cycles); r(K) = the residual at cycle %d (pm); rho = the fitted per-cycle contraction; recals = on-surface re-calibrations run\n', ...
+        ifelse_(Pl.battery.unwrap, 'ON', 'OFF'), K, K);
+    dmg_say(rep, '%-4s %6s %9s %6s | %9s %8s %8s %13s %6s %6s\n', 'rd', 'start', 'N/cycle', 'recal', 'r(1) nm', 'k(10nm)', 'k(3pm)', 'r(K) pm', 'rho', 'recals');
     for j = 1:numel(RD)
-        for rc = RECL
-            for nph = NPH
-                i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, 'descent') & [res.nph] == nph & [res.amp] == rc, 1);
-                L = res(i).L;
-                if L.diverged
-                    dmg_say(rep, '%-4s %9.1e %6s | %11.2f %8s %8s %11s %6s %6d\n', RD{j}, nph, ifelse_(rc == 0, 'never', sprintf('%d', rc)), ...
-                        L.rms(1)*1e6, '-', '-', sprintf('DIVERGED@%d', L.k_end), '-', L.n_recal);
-                else
-                    dmg_say(rep, '%-4s %9.1e %6s | %11.2f %8s %8s %11.3f %6.3f %6d\n', RD{j}, nph, ifelse_(rc == 0, 'never', sprintf('%d', rc)), ...
-                        L.rms(1)*1e6, fmt0_(L.k_reach(1)), fmt0_(L.k_reach(2)), L.rms(L.k_end)*1e9, L.rho, L.n_recal);
+        for q = 1:numel(SR)
+            for rc = RECL
+                for nph = NPH
+                    i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, 'descent') & [res.nph] == nph & [res.amp] == rc & [res.start] == SR(q), 1);
+                    if isempty(i), continue; end
+                    L = res(i).L;
+                    if L.diverged
+                        dmg_say(rep, '%-4s %5.0f %9.1e %6s | %9.2f %8s %8s %13s %6s %6d\n', RD{j}, SR(q)*1e6, nph, ifelse_(rc == 0, 'never', sprintf('%d', rc)), ...
+                            L.rms(1)*1e6, '-', '-', sprintf('DIVERGED@%d', L.k_end), '-', L.n_recal);
+                    else
+                        dmg_say(rep, '%-4s %5.0f %9.1e %6s | %9.2f %8s %8s %13.3f %6.3f %6d\n', RD{j}, SR(q)*1e6, nph, ifelse_(rc == 0, 'never', sprintf('%d', rc)), ...
+                            L.rms(1)*1e6, fmt0_(L.k_reach(1)), fmt0_(L.k_reach(2)), L.rms(L.k_end)*1e9, L.rho, L.n_recal);
+                    end
                 end
             end
         end
+    end
+    % the one number the capture slide needs: the largest start that got there
+    dmg_say(rep, '\nthe largest start that CONVERGES (reaches %g pm within %d cycles), per reading and setting:\n%-4s |', P.loop.reach(2)*1e9, K, 'rd');
+    for rc = RECL, for nph = NPH, dmg_say(rep, ' recal %-5s @ %-7.0e|', ifelse_(rc == 0, 'never', sprintf('%d', rc)), nph); end, end
+    dmg_say(rep, '\n');
+    for j = 1:numel(RD)
+        dmg_say(rep, '%-4s |', RD{j});
+        for rc = RECL
+            for nph = NPH
+                best = NaN;
+                for q = 1:numel(SR)
+                    i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, 'descent') & [res.nph] == nph & [res.amp] == rc & [res.start] == SR(q), 1);
+                    if ~isempty(i) && ~res(i).L.diverged && ~isnan(res(i).L.k_reach(2)), best = SR(q); end
+                end
+                dmg_say(rep, ' %18s|', ifelse_(isnan(best), 'none', sprintf('%.0f nm', best*1e6)));
+            end
+        end
+        dmg_say(rep, '\n');
     end
 end
 % ---- spectrum of the held residual at the highest photon level ------------------
@@ -1666,7 +1760,7 @@ dmg_say(rep, 'loop stage %.1f min (%d traced states)\n', toc(t0)/60, nrun*(K+1))
 macos.set_elt_grid(S.iTO, macos.get_elt_grid_spacing(S.iTO), zeros(P.grid.N_G));
 LO = struct('readings',{RD}, 'drifts',{kinds}, 'nph',NPH, 'steps',P.loop.steps, 'g',g, 'K',K, ...
     'surface',P.loop.surface, 'hold_spec',spec, 'n_hold',n_hold, 'lit',lit, 'A0',A0, 'res',res, ...
-    'start_rms',P.loop.start_rms, 'recal_list',RECL, 'intra',P.loop.intra, 'ref_walk',P.pdi.ref_walk);
+    'start_rms',SR, 'recal_list',RECL, 'intra',P.loop.intra, 'ref_walk',P.pdi.ref_walk, 'unwrap',Pl.battery.unwrap);
 end
 
 function t = div_(L)
