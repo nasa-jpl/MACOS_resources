@@ -72,7 +72,7 @@ assert(P.grid.N_G <= macos.grid_size_max(), ...
     'N_G %d exceeds mGridMat %d at model %d', P.grid.N_G, macos.grid_size_max(), P.MODEL);
 macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G));
 bench = struct('geom', geom, 's', s);
-if want('bench') || want('battery') || want('loop') || want('jones')
+if want('bench') || want('battery') || want('deck') || want('loop') || want('jones')
     [G, bench] = stage_B_(P, s, geom, say, exdir);
 end
 
@@ -84,6 +84,11 @@ end
 battery = struct();
 if want('battery')
     battery = stage_CDE_(P, s, G, bench, say, place);
+end
+
+deck = struct();
+if want('deck')
+    deck = stage_deck_(P, s, G, bench, say, place);
 end
 
 loop = struct();
@@ -112,7 +117,7 @@ if want('figs')
 end
 
 out = struct('P', P, 'geom', geom, 'bench', bench, 'battery', battery, ...
-    'place', place, 'loop', loop, 'jones', jones, 's', s);
+    'deck', deck, 'place', place, 'loop', loop, 'jones', jones, 's', s);
 save([P.tag '.mat'], 'out');
 say('\nwrote %s_report.txt + %s.mat + figures in %s\n', P.tag, P.tag, P.outdir);
 end
@@ -264,6 +269,13 @@ function C = arm_setup_(P, G)
     C.I0 = frame(C.S0, C.Sr, 0);  C.msk = C.I0 > 0.1*max(C.I0(:));
     C.p_null = fourstep(C.S0, C.Sr, C.THETAS);
     C.measf = @(M) meas_surface(C.AT, C.QWP, M, C.Sr, C.p_null, C.THETAS, C.LAM);
+    % raw four-step phase of a grid (before wrapping against the null): the
+    % primitive for the WRAPPED-DIFFERENCE differential (the V1 lesson -- wrap
+    % the DIFFERENCE of two phases, never subtract two separately-wrapped absolute
+    % maps).  On a base that exceeds lambda/4 the absolute map wraps but a small
+    % differential does not, so calibration pokes and rows must difference-then-
+    % wrap.  Deck/loop override phasef with the step-erred (THg) version.
+    C.phasef = @(M) fourstep(analyzer_basis(C.AT, C.QWP, M), C.Sr, C.THETAS);
 end
 
 function battery = stage_CDE_(P, s, G, bench, say, place)
@@ -584,6 +596,202 @@ function d4 = stage_D4_(P, ctx, PL, h0, msk, d_sng, litmask, est, say)
 end
 
 % =====================================================================
+%  Stage DECK (deck items 1+2): the ZWFS-currency rows on the 30 nm working
+%  surface with the matrix measured ON it -- gain/floor/SNR (score_), the
+%  47-site grid row, capture range to 10% (aging + re-measured), and the S5
+%  photons for 1 pm.  The four-step is the PZT form when P.pzt.step_err ~= 0.
+% =====================================================================
+function DK = stage_deck_(P, s, G, bench, say, place)
+t0 = tic;  cfg = P.dm(1);  nact = cfg.nact;
+se = P.pzt.step_err;
+% ---- placement (windows the matrix needs) --------------------------------
+if ~isfield(place, 'PL')
+    Pp = P;  Pp.place.gate_assert = false;  Pp.place.gate_max_states = P.place.boot_states;
+    place = stage_place_(Pp, s, G, bench, say);
+end
+ctx = place.ctx;  PL = place.PL;  h0 = place.h0;
+msk = ctx.msk;  N_G = ctx.N_G;  DX_G = ctx.DX_G;  LAM = ctx.LAM;  QWP = ctx.QWP;
+Am = nnz(msk);  AT = ctx.AT;  Sr = ctx.Sr;
+% the PZT four-step: the FRAMES step by THg (nominal * (1+se)); the atan2 solve
+% stays the nominal quadrature (positional), TO's pdi.step_err pattern.  The
+% same miscalibration rides the calibration and the null (build J through ctx2).
+THg = P.THETAS .* (1 + se);
+ctx2 = ctx;
+ctx2.p_null = fourstep(ctx.S0, Sr, THg);
+ctx2.measf  = @(M) meas_surface(AT, QWP, M, Sr, ctx2.p_null, THg, LAM);
+ctx2.phasef = @(M) fourstep(analyzer_basis(AT, QWP, M), Sr, THg);   % raw phase (THg)
+dmap  = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
+% the differential to a base command as the WRAPPED PHASE DIFFERENCE (V1 lesson):
+% difference the raw four-step phases THEN wrap, so a small differential on a base
+% that itself exceeds lambda/4 (wraps) is still clean.  On a base < lambda/4 this
+% equals ctx2.measf(target) - ctx2.measf(base) bit-for-bit.
+wdiff = @(target, base) meanref_(angle(exp(1i*(ctx2.phasef(dmap(target)) - ctx2.phasef(dmap(base))))) * LAM/(4*pi), msk);
+
+say('\n---- deck: rows on the %g nm working surface, matrix ON it (four-step%s) ----\n', ...
+    P.battery.base_rms*1e6, iff_(se~=0, sprintf(', PZT step error %+.0f%%', 100*se), ''));
+hn = (ctx2.p_null - median(ctx2.p_null(msk))) * LAM/(4*pi) * 1e6;
+say('  flat-DM null: %.4f nm rms surface (%.1f pm)%s\n', std(hn(msk)), 1e3*std(hn(msk)), ...
+    iff_(se~=0, ' [under the step error]', ''));
+
+% ---- the matrix on the 30 nm surface + its estimator ---------------------
+[est30, litmask, ns30, nlit] = calib_on_(ctx2, cfg, PL, msk, P, h0, P.battery.base_rms);
+say('  matrix on %g nm surface (seed %d): %d states, %d lit columns\n', ...
+    P.battery.base_rms*1e6, P.battery.seed_base, ns30, nlit);
+
+% ---- the rows (single at the hold-out site / 1 nm on the 47 grid / dense) --
+ic = pick_lit_(PL, cfg, 0.0);                                 % the in-pupil hold-out actuator
+gs = P.battery.grid_step;  Pg = false(nact);  Pg(4:gs:nact, 4:gs:nact) = true;  Pg = Pg & litmask;
+d_sng = zeros(nact);  d_sng(ic(1),ic(2)) = P.battery.dev_single;
+d_grd = P.battery.grid_amp * Pg;
+rng(P.battery.seed_dev);  d_rnd = zeros(nact);  d_rnd(litmask) = P.battery.dev_rand*randn(nnz(litmask),1);
+A0 = surf_(nact, litmask, P.battery.seed_base, P.battery.base_rms);
+say('  rows: hold-out actuator (%d,%d); grid = %d sites (every %d, 4:%d:%d); g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr\n', ...
+    ic(1), ic(2), nnz(Pg), gs, gs, nact);
+say('  %-24s %8s %10s %10s %8s\n', 'row', 'gain', 'err pm', 'flr pm', 'SNR');
+rowspec = {sprintf('rand%g/single%g', P.battery.base_rms*1e6, P.battery.dev_single*1e6), d_sng; ...
+           sprintf('rand%g/grid@%gnm',  P.battery.base_rms*1e6, P.battery.grid_amp*1e6),  d_grd; ...
+           sprintf('rand%g/rand%g',      P.battery.base_rms*1e6, P.battery.dev_rand*1e6),   d_rnd};
+rows = {};
+for r = 1:size(rowspec,1)
+    dev = rowspec{r,2};
+    adev = est30(wdiff(A0 + dev, A0));
+    [g,e,fl,snr] = score_(adev, dev, litmask);
+    say('  %-24s %8.4f %10.1f %10s %8s\n', rowspec{r,1}, g, e, fmt0d_(fl), fmt2d_(snr));
+    rows(end+1,:) = {rowspec{r,1}, g, e, fl, snr}; %#ok<AGROW>
+end
+
+% ---- capture range, aging: matrix once on 30 nm, gain vs base rms.  TWO
+%   metrics, they answer different questions (CCL 2026-09-13): a DISTRIBUTED
+%   10 nm pattern on the 47-site grid, and a SINGLE 10 nm poke at the hold-out
+%   site (the single-site number is larger -- one concentrated poke keeps SNR on
+%   a growing base where a distributed pattern does not).
+lad = P.battery.cap_ladder;  d_grd10 = P.battery.dev_single * Pg;   % 10 nm on the grid
+d_one = zeros(nact);  d_one(ic(1),ic(2)) = P.battery.dev_single;    % 10 nm at the hold-out site
+say('\n  capture range (aging: matrix once on %g nm; gain vs base rms, %d-site grid | single site):\n', ...
+    P.battery.base_rms*1e6, nnz(Pg));
+say('  %-10s %8s %10s %8s | %8s %10s %8s\n', 'base rms', 'g(grid)', 'flr pm', 'SNR', 'g(1site)', 'flr pm', 'SNR');
+gcap = nan(1,numel(lad));  gone = nan(1,numel(lad));  agerows = {};
+for j = 1:numel(lad)
+    base = surf_(nact, litmask, P.battery.seed_base, lad(j));
+    ag = est30(wdiff(base + d_grd10, base));   [gg,~,flg,sng] = score_(ag, d_grd10, litmask);
+    a1 = est30(wdiff(base + d_one,   base));   [g1,~,fl1,sn1] = score_(a1, d_one,   litmask);
+    gcap(j) = gg;  gone(j) = g1;
+    say('  %6.0f nm %8.4f %10s %8s | %8.4f %10s %8s\n', lad(j)*1e6, gg, fmt0d_(flg), fmt2d_(sng), g1, fmt0d_(fl1), fmt2d_(sn1));
+    agerows(end+1,:) = {lad(j), gg, flg, sng, g1, fl1, sn1}; %#ok<AGROW>
+end
+[r10_age,  note_age]  = capture10_(lad, gcap);
+[r10_one,  note_one]  = capture10_(lad, gone);
+say('  capture range to 10%%: %d-site grid %.0f nm%s ; single site %.0f nm%s\n', ...
+    nnz(Pg), r10_age*1e6, note_age, r10_one*1e6, note_one);
+
+% ---- capture range, re-measured: matrix rebuilt on each surface, 1 nm grid --
+recs = P.battery.recap_surf;
+say('\n  capture range (re-measured: matrix rebuilt on each surface, %g nm grid row; wrapped-difference):\n', P.battery.grid_amp*1e6);
+say('  %-10s %8s %10s %8s %8s %6s\n', 'surface', 'gain', 'flr pm', 'SNR', 'corr', 'states');
+recaprows = {};
+for j = 1:numel(recs)
+    [est_s, lm_s, ns_s] = calib_on_(ctx2, cfg, PL, msk, P, h0, recs(j));
+    Pgs = Pg & lm_s;  dgrid = P.battery.grid_amp * Pgs;
+    base = surf_(nact, lm_s, P.battery.seed_base, recs(j));
+    adev = est_s(wdiff(base + dgrid, base));
+    [g,e,fl,snr] = score_(adev, dgrid, lm_s);  cc = corrcoef(adev(lm_s), dgrid(lm_s));
+    say('  %6.0f nm %8.4f %10s %8s %8.4f %6d\n', recs(j)*1e6, g, fmt0d_(fl), fmt2d_(snr), cc(1,2), ns_s);
+    recaprows(end+1,:) = {recs(j), g, fl, snr, cc(1,2)}; %#ok<AGROW>
+end
+
+% ---- photons for 1 pm (S5 form): sigma ~ c/sqrt(N), matrix on each surface --
+photons = {};
+if P.battery.noise
+    NPH = P.battery.noise_nph(:).';  NR = P.battery.noise_nreal;
+    say('\n  photons for 1 pm (S5 form: single %g nm at the hold-out on the surface, matrix on it; sigma ~ c/sqrt(N) -> N(1 pm) = c^2):\n', P.battery.dev_single*1e6);
+    say('  (this is NOT the loop''s sig_n -- a single-shot estimate at one photon level; the report states both)\n');
+    for j = 1:numel(P.battery.noise_surf)
+        rms_ = P.battery.noise_surf(j);
+        [est_s, lm_s] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_);
+        base = surf_(nact, lm_s, P.battery.seed_base, rms_);
+        Asng = zeros(nact);  Asng(ic(1),ic(2)) = P.battery.dev_single;
+        F0 = frames4_(analyzer_basis(AT, QWP, dmap(base)),        Sr, THg);
+        F1 = frames4_(analyzer_basis(AT, QWP, dmap(base + Asng)), Sr, THg);
+        sig = nan(1,numel(NPH));  un = lm_s;  un(ic(1),ic(2)) = false;
+        for in = 1:numel(NPH)
+            n = NPH(in);  pk = zeros(NR,1);
+            for rr = 1:NR
+                a = est_s(meanref_(fsdiff_(noisy4_(F1,n,P.battery.noise_seed+rr+in*100), ...
+                                          noisy4_(F0,n,P.battery.noise_seed+rr+in*100+7), LAM), msk));
+                pk(rr) = a(ic(1),ic(2));
+            end
+            sig(in) = std(pk)*1e9;   % pm
+        end
+        use = sig > 0.5;  n1pm = NaN;  cc = NaN;
+        if nnz(use) >= 2
+            cc = exp(mean(log(sig(use)) + 0.5*log(NPH(use))));  n1pm = cc^2;
+        end
+        say('  %6.0f nm surface: sigma ~ %.3g/sqrt(N) pm -> N(1 pm) ~ %.2e photons/measurement\n', rms_*1e6, cc, n1pm);
+        photons(end+1,:) = {rms_, cc, n1pm, sig}; %#ok<AGROW>
+    end
+end
+
+say('deck stage %.1f min\n', toc(t0)/60);
+DK = struct('step_err',se, 'base_rms',P.battery.base_rms, 'ic',ic, 'nlit',nlit, ...
+    'rows',{rows}, 'age',{agerows}, 'gcap',gcap, 'gone',gone, 'cap_ladder',lad, ...
+    'r10_age',r10_age, 'r10_one',r10_one, ...
+    'recap',{recaprows}, 'recap_surf',recs, 'photons',{photons}, 'lit',litmask);
+end
+
+function [est, litmask, ns, nlit] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_)
+% the measured response matrix built on a base surface of the given rms
+% (seed_base), and the regularized estimator -- mirrors stage_loop_/stage_matrix_.
+    Pc = P;  Pc.battery.calib_surface = 'base';  Pc.battery.base_rms = rms_;
+    [J, ilit, vcol, hw, ns] = build_J_(ctx2, cfg, PL, msk, Pc, h0); %#ok<ASGLU>
+    nlit = numel(ilit);  Am = nnz(msk);
+    JtJ = full(J.'*J) - (vcol*vcol.')/Am;
+    d = diag(JtJ);  l2 = P.battery.matrix_lam * median(d(d > 0));
+    Rf = chol(JtJ + l2*eye(nlit));
+    est = @(h) est_matrix_tg(h, J, vcol, Am, Rf, ilit, cfg.nact, msk);
+    litmask = false(cfg.nact);  litmask(ilit) = true;
+end
+
+function A = surf_(nact, litmask, seed, rms_)
+% a random working-surface command (mm) of the given rms over the lit set
+    rng(seed);  A = zeros(nact);  A(litmask) = rms_*randn(nnz(litmask),1);
+end
+
+function [g, e, fl, snr] = score_(a, Ad, lit)
+% actuator-space score (verbatim from zwfs_run): gain, rms err (pm), unpoked
+% floor (pm), SNR = mean(poked)/floor.  Floor/SNR only when the poked set is a
+% minority (< 1/4 of lit) so an unpoked population exists.
+    g = Ad(lit) \ a(lit);
+    e = sqrt(mean((a(lit) - Ad(lit)).^2))*1e9;
+    pk = (Ad ~= 0) & lit;  un = lit & ~pk;
+    if nnz(pk) < nnz(lit)/4
+        fl = std(a(un))*1e9;  snr = mean(a(pk)) / max(std(a(un)), eps);
+    else
+        fl = NaN;  snr = NaN;
+    end
+end
+
+function [r10, note] = capture10_(amps, G)
+% capture range to 10% (verbatim from zwfs_run): the largest base rms with
+% |g-1| <= 0.1; the crossing log-interpolated in rms when the next rung breaks.
+    r10 = NaN;  note = '';
+    ok = abs(G(:) - 1) <= 0.1;
+    if ok(1)
+        j = find(~ok, 1);
+        if isempty(j)
+            r10 = amps(end);  note = ' + (holds at the last rung)';
+        else
+            e0 = abs(G(j-1) - 1);  e1 = abs(G(j) - 1);
+            r10 = exp(log(amps(j-1)) + (0.1 - e0)/(e1 - e0) * (log(amps(j)) - log(amps(j-1))));
+        end
+    else
+        note = ' (outside 10% at the first rung)';
+    end
+end
+
+function s = fmt0d_(x), if isnan(x), s = '-'; else, s = sprintf('%.0f', x); end, end
+function s = fmt2d_(x), if isnan(x), s = '-'; else, s = sprintf('%.2f', x); end, end
+
+% =====================================================================
 %  Stage LOOP (D7): the closed-loop hold metric (Dave 2026-09-11)
 % =====================================================================
 function LO = stage_loop_(P, s, G, bench, say, place)
@@ -617,15 +825,24 @@ end
 ctx = place.ctx;  PL = place.PL;  h0 = place.h0;
 msk = ctx.msk;  N_G = ctx.N_G;  DX_G = ctx.DX_G;  LAM = ctx.LAM;  QWP = ctx.QWP;
 THETAS = ctx.THETAS;  Am = nnz(msk);  AT = ctx.AT;  Sr = ctx.Sr;
+% PZT step error (item 3): the four frames step by THg = nominal*(1+se); the
+% atan2 solve stays nominal (positional).  The same miscalibration rides the
+% calibration and the null (build J + measure through ctx2/THg).  se = 0 =>
+% THg = THETAS => byte-identical to the record loop rows.
+se = P.pzt.step_err;  THg = THETAS .* (1 + se);
+ctx2 = ctx;  ctx2.p_null = fourstep(ctx.S0, Sr, THg);
+ctx2.measf = @(M) meas_surface(AT, QWP, M, Sr, ctx2.p_null, THg, LAM);
+ctx2.phasef = @(M) fourstep(analyzer_basis(AT, QWP, M), Sr, THg);   % wrapped-diff calib (build_J_)
+if se ~= 0, say('  PZT four-step step error %+.0f%% (frames stepped, solve nominal)\n', 100*se); end
 
 % flat-DM null (the same-plane-fold arm difference; reported for context) --
-hn = (ctx.p_null - median(ctx.p_null(msk))) * LAM/(4*pi) * 1e6;
+hn = (ctx2.p_null - median(ctx2.p_null(msk))) * LAM/(4*pi) * 1e6;
 null_nm = std(hn(msk));
 say('  flat-DM null: %.4f nm rms surface (%.1f pm) -- the same-plane-fold arm difference\n', null_nm, 1e3*null_nm);
 
 % ---- calibration ON the set point (matrix measured on the working surface) -
 Pl = P;  Pl.battery.calib_surface = iff_(strcmp(P.loop.surface, 'base'), 'base', 'flat');
-[J, ilit, vcol, hw, ns] = build_J_(ctx, cfg, PL, msk, Pl, h0);
+[J, ilit, vcol, hw, ns] = build_J_(ctx2, cfg, PL, msk, Pl, h0);
 nlit = numel(ilit);
 JtJ = full(J.'*J) - (vcol*vcol.')/Am;            % mean-referenced (piston-nulled)
 dd = diag(JtJ);  l2 = P.battery.matrix_lam * median(dd(dd > 0));
@@ -648,12 +865,13 @@ end
 
 % ---- the instrument (four-step PSI reading; frame-level so noise injects) --
 dmap = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
-ins = struct('lit', litmask, ...
-    'measure', @(cmd) frames4_(analyzer_basis(AT, QWP, dmap(cmd)), Sr, THETAS), ...
-    'noisy',   @(F, nph, seed) noisy4_(F, nph, seed), ...
+ins = struct('lit', litmask, 'npix', size(msk,1), 'cam_unit', P.loop.cam_unit, ...
+    'measure', @(cmd) frames4_(analyzer_basis(AT, QWP, dmap(cmd)), Sr, THg), ...
+    'noisy',   @(F, nph, seed, varargin) noisy4_(F, nph, seed, msk, P.loop.cam_unit, varargin{:}), ...
     'diff',    @(F1, F0) meanref_(fsdiff_(F1, F0, LAM), msk), ...
     'est',     est);
-base = struct('A0',A0, 'g',g, 'K',K, 'seed',P.loop.seed, 'ref',P.loop.ref, 'rmax',P.loop.rmax);
+base = struct('A0',A0, 'g',g, 'K',K, 'seed',P.loop.seed, 'ref',P.loop.ref, 'rmax',P.loop.rmax, ...
+    'cam', struct('walk',0, 'intra',P.loop.cam_intra));
 
 % ---- the runs --------------------------------------------------------------
 res = struct('drift',{}, 'nph',{}, 'amp',{}, 'L',{});
@@ -676,7 +894,8 @@ for nph = NPH
             case 'none',    o.drift = struct('kind','none');  amp = 0;
             case 'walk',    o.drift = struct('kind','walk', 'sigma',P.loop.walk_sigma);  amp = P.loop.walk_sigma;
             case 'thermal', o.drift = struct('kind','thermal', 'rate',P.loop.thermal_rate);  amp = P.loop.thermal_rate;
-            otherwise,      error('tg96_run: loop.drifts must be a subset of walk | thermal');
+            case 'cam',     o.drift = struct('kind','none');  o.cam.walk = P.loop.cam_walk;  amp = P.loop.cam_walk;
+            otherwise,      error('tg96_run: loop.drifts must be a subset of walk | thermal | cam');
         end
         L = dmg_loop(ins, o);  irun = irun + 1;
         res(end+1) = struct('drift',kinds{kd}, 'nph',nph, 'amp',amp, 'L',L); %#ok<AGROW>
@@ -705,6 +924,7 @@ for kd = 1:numel(kinds)
         case 'none',    lab = 'noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g))';
         case 'walk',    lab = sprintf('random walk, %g pm per actuator per cycle', P.loop.walk_sigma*1e9);
         case 'thermal', lab = sprintf('thermal ramp, %g pm rms per cycle (defocus + astigmatism)', P.loop.thermal_rate*1e9);
+        case 'cam',     lab = sprintf('camera 1/f offset walk, %g %s per cycle, intra %g%% (zero-sum four-step immune when intra 0)', P.loop.cam_walk, iff_(strcmp(P.loop.cam_unit,'rel'),'x scan-mean/pixel/frame','electrons/pixel'), 100*P.loop.cam_intra);
     end
     say(['\nhold error vs photons per cycle (= per measurement, one per cycle) -- %s. ' ...
         'ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged ' ...
@@ -716,6 +936,7 @@ for kd = 1:numel(kinds)
             case 'none',    th = L.theory.ss_noise;
             case 'walk',    th = L.theory.ss_walk;
             case 'thermal', th = hypot(L.theory.lag_ramp, L.theory.ss_noise);
+            case 'cam',     th = L.theory.ss_noise;   % the camera walk is not in the sig_n theory line
         end
         if L.diverged, say('  %9.1e  DIVERGED at cycle %d\n', nph, L.k_end);
         else, say('  %9.1e %8.2f %8.2f %9.2f %8.2f\n', nph, pm(L.ss), pm(L.bias), pm(L.sig_n), pm(th)); end
@@ -802,16 +1023,38 @@ function Fr = frames4_(Sx, Sr, th)
 Fr = cat(3, frame(Sx,Sr,th(1)), frame(Sx,Sr,th(2)), frame(Sx,Sr,th(3)), frame(Sx,Sr,th(4)));
 end
 
-function Fn = noisy4_(F, nph, seed)
+function Fn = noisy4_(F, nph, seed, msk, unit, cam)
 % photon noise on the four captured frames: nph photons per MEASUREMENT split
 % nph/4 over the four frames (the S5 shot model, lifted from zwfs noisy_frames_).
-% nph = Inf returns F unchanged.
+% nph = Inf returns F unchanged.  With cam (from dmg_loop's camera drift; item
+% 3) frame j of nf also gets the detector offset o + (j-1)/(nf-1) d, converted
+% to frame units by that frame's photon scale (unit 'e' = electrons per pixel x
+% sum(I)/n) or the scan's mean over the lit pixels (unit 'rel'; ONE scale per
+% scan, so a within-scan-CONSTANT offset is exactly zero-sum immune).  Called
+% 3-arg (no camera) by the deck photon fit, 6-arg by the loop.
 Fn = F;
 if ~isfinite(nph), return; end
+if nargin < 5 || isempty(unit), unit = 'e'; end
+if nargin < 6, cam = []; end
 rs = RandStream('mt19937ar', 'Seed', seed);
-for k = 1:size(F,3)
+nf = size(F,3);
+scan_mean = NaN;
+if ~isempty(cam) && strcmp(unit,'rel') && nargin >= 4 && ~isempty(msk)
+    m3 = repmat(logical(msk), [1 1 nf]);  scan_mean = mean(F(m3));
+end
+for k = 1:nf
     I = F(:,:,k);
-    Fn(:,:,k) = I .* (1 + randn(rs, size(I)) ./ sqrt(max(I / sum(I(:)) * (nph/4), 1)));
+    In = I .* (1 + randn(rs, size(I)) ./ sqrt(max(I / sum(I(:)) * (nph/nf), 1)));
+    if ~isempty(cam)
+        w = 0;  if nf > 1, w = (k-1)/(nf-1); end
+        switch unit
+            case 'e',   sc = sum(I(:))/(nph/nf);
+            case 'rel', sc = scan_mean;
+            otherwise,  error('tg96_run: loop.cam_unit must be ''e'' or ''rel''');
+        end
+        In = In + (cam.o + w*cam.d) * sc;
+    end
+    Fn(:,:,k) = In;
 end
 end
 
@@ -909,12 +1152,23 @@ function [J, ilit, vcol, hw, ns, np] = build_J_(ctx, cfg, PL, msk, P, h0)
     lit = PL.lit;  ilit = find(lit);  nlit = numel(ilit);
     col_of = zeros(nact);  col_of(ilit) = 1:nlit;  U = PL.U;  V = PL.V;
     dmap = @(A) dm_influence_map(ctx.N_G,ctx.DX_G,'nact',nact,'pitch',cfg.pitch,'act',A);
-    % base working surface for calib_surface 'base' (differential calibration)
-    hbase = h0;
+    % base working surface for calib_surface 'base' (differential calibration).
+    % On a base that exceeds lambda/4 the absolute map ctx.measf WRAPS, so the
+    % calibration poke response must be the WRAPPED PHASE DIFFERENCE (difference
+    % the raw phases, THEN wrap) -- not measf(base+poke) - measf(base), which
+    % subtracts two separately-wrapped maps and tears at the 2*pi jumps (the
+    % re-measured-collapse bug, CCL 2026-09-13).  On a base < lambda/4 (e.g. the
+    % 30 nm set point) neither wraps and the two forms are bit-identical.
+    hbase = h0;  use_wd = false;  pbase = [];
     if isfield(P.battery,'calib_surface') && strcmp(P.battery.calib_surface,'base')
         rng(P.battery.seed_base);  Abase = zeros(nact);
         Abase(lit) = P.battery.base_rms*randn(nnz(lit),1);
-        hbase = ctx.measf(dmap(Abase));  base_cmd = Abase;
+        base_cmd = Abase;
+        if isfield(ctx,'phasef') && ~isempty(ctx.phasef)
+            use_wd = true;  pbase = ctx.phasef(dmap(base_cmd));   % raw base phase (once)
+        else
+            hbase = ctx.measf(dmap(Abase));
+        end
     else
         base_cmd = zeros(nact);
     end
@@ -931,7 +1185,11 @@ function [J, ilit, vcol, hw, ns, np] = build_J_(ctx, cfg, PL, msk, P, h0)
             A(sub2ind([nact nact],rr,cc)) = sg;
         end
         ns = ns + 1;
-        h = ctx.measf(dmap(base_cmd + POKE*A)) - hbase;
+        if use_wd
+            h = angle(exp(1i*(ctx.phasef(dmap(base_cmd + POKE*A)) - pbase))) * ctx.LAM/(4*pi);
+        else
+            h = ctx.measf(dmap(base_cmd + POKE*A)) - hbase;
+        end
         h = (h - median(h(msk))) / POKE;              % response per unit command
         [pr, pc] = find(A);  npk = numel(pr);
         if strcmp(win,'voronoi')
@@ -1278,38 +1536,99 @@ function n = nrm(p1,p2,r,i)
 end
 
 function draw_render_(bench, P)
-% FULL RAYTRACE-BASED rendering to check clearances (macos.view_rx): the loaded
-% test-arm Rx traced to the detector, optics as solid bodies on their real
-% conic sag + apertures, the beam as a filled ray bundle read back from the
-% engine's ray history -- correct for the folded OAP legs.  Two panels, the
-% TABLE PLANE (looking down on the bench) and an ISO view, exactly the
-% zwfs_dm96/zwfs_wf_figs recipe (deck_zwfs slide 4).
-G = bench.G;  rxT = [P.tag '_test.in'];
-macos.load_rx(rxT);
-iDET = G.T.iDET;
-macos.trace(iDET);                                   % populate the ray history view_rx reads
-d0 = G.bt.src_dir(:);  [~, i0] = min(abs(d0));       % transverse basis about the source dir
-xb = zeros(3,1);  xb(i0) = 1;  xb = xb - dot(xb,d0)*d0;  xb = xb/norm(xb);
-yb = cross(d0, xb);
-ai = deg2rad([-35 22]);                              % ISO camera azimuth/elevation
-VW = { -yb, xb, 'TABLE PLANE -- looking down on the bench' ; ...
-       cos(ai(2))*(cos(ai(1))*xb + sin(ai(1))*d0) + sin(ai(2))*yb, yb, 'ISO view' };
-f = figure('Color','w', 'Position',[40 40 1700 620], 'Visible','off');
-tl = tiledlayout(f, 1, 2, 'Padding','tight', 'TileSpacing','tight');
-for q = 1:size(VW,1)
-    ax = nexttile(tl);
-    macos.view_rx('ax', ax, 'title', VW{q,3});
-    axis(ax, 'equal');
-    xl = xlim(ax);  yl = ylim(ax);  zl = zlim(ax);
-    tgt = [mean(xl); mean(yl); mean(zl)];
-    dd  = 3*max([diff(xl), diff(yl), diff(zl)]);
-    set(ax, 'CameraTarget',tgt.', 'CameraPosition',(tgt - dd*VW{q,1}).', ...
-            'CameraUpVector',VW{q,2}.', 'Projection','orthographic');
-    camva(ax, 'auto');  camzoom(ax, 1.7);  axis(ax, 'off');
+% Deck-quality raytrace layout in the zwfs_dm96/zwfs_vlayout recipe (Dave
+% 2026-09-13): macos.view_rx with labels OFF and the passive Reference planes
+% hidden, the fold plane seen from above (view 0,90, axis equal), BOTH arms
+% overlaid (test blue, reference orange -- shows the reference arm + the PZT
+% flat), elements named by a text with a leader line placed off the beam
+% (15-17 pt in an 1800-px figure), and the crowded node (BS + compensator; the
+% OAP folds) as a second panel cropped to it.  Writes <tag>_vlayout.png.
+G = bench.G;  oap = strcmp(P.bench.optics,'oap');
+blue = [30 90 190]/255;  orange = [214 96 24]/255;  ink = [15 15 15]/255;
+arms = {[P.tag '_test.in'], G.bt, G.T.iDET, blue; ...
+        [P.tag '_ref.in'],  G.br, G.R.iDET, orange};
+Et = G.bt.E;  nmt = {Et.name};
+NI = @(cands) name_idx_(nmt, cands);            % element idx by first matching name (0 if none)
+coll = iff_(oap,'OAP1 (collimator)','collimator L1');
+foc  = iff_(oap,'OAP2 (focuser)','focuser L2');
+% whole-train labels (elements spread along x): {idx, text, [dx dy] mm}.  The
+% offsets are per-rig: the OAP folds relocate the collimator/focuser/tail (OAP1
+% and the field lens/camera cluster top-left, OAP2 far top-right), so the lens
+% offsets do not fit the reflective layout.
+if oap
+    Ltrain = { NI({'L1','OAP1'}),   coll,                    [ -70   70]; ...
+               NI({'TestOptic'}),   '96\times96 DM',         [  75  -55]; ...
+               NI({'BSrefl','BS'}), 'beamsplitter',          [  55   95]; ...
+               NI({'L2','OAP2'}),   foc,                     [  10   65]; ...
+               NI({'FLpow','FL'}),  'field lens',            [ 105  -30]; ...
+               NI({'Detector'}),    'camera (385 px/pupil)', [ -95  -55] };
+else
+    Ltrain = { NI({'L1pow','L1'}),  coll,                    [ -20  100]; ...
+               NI({'TestOptic'}),   '96\times96 DM',         [  75  -55]; ...
+               NI({'BSrefl','BS'}), 'beamsplitter',          [   0  100]; ...
+               NI({'L2pow','L2'}),  foc,                     [ -10   85]; ...
+               NI({'FLpow','FL'}),  'field lens',            [-110   35]; ...
+               NI({'Detector'}),    'camera (385 px/pupil)', [  25  105] };
 end
-title(tl, sprintf('TG96 %s test arm: raytrace layout (table plane + ISO)', P.bench.optics));
-print(f, [P.tag '_render.png'], '-dpng', '-r150');  close(f);
-fprintf('wrote %s_render.png (view_rx: table plane + ISO)\n', P.tag);
+% node-crop labels (the crowded BS / compensator / polarization tail)
+Lnode  = { NI({'PolIn'}),              'input polarizer',       [ -60  -55]; ...
+           NI({'BSrefl','BS'}),        'beamsplitter',          [  15   80]; ...
+           NI({'Comptxfd','Comp'}),    'compensator',           [  30  -65]; ...
+           NI({'Recomb'}),             'recombination',         [  45   60]; ...
+           NI({'OutQWP'}),             'output QWP',            [ -35   65]; ...
+           NI({'Analyzer'}),           'analyzer',              [  65   30] };
+f = figure('Color','w','Position',[40 40 1800 1080],'Visible','off');
+tl = tiledlayout(f, 5, 1, 'Padding','compact','TileSpacing','compact');
+ax1 = nexttile(tl,[2 1]);  ax2 = nexttile(tl,[3 1]);
+for a = 1:size(arms,1)
+    macos.load_rx(arms{a,1});  macos.trace(arms{a,3});
+    Ea = arms{a,2}.E;  passive = find(strcmp({Ea.element},'Reference'));
+    for ax = [ax1 ax2]
+        macos.view_rx('ax', ax, 'ray_color', arms{a,4}, 'title','', 'labels',false, 'hide',passive);
+    end
+end
+% top panel: the whole train from above, all major elements labelled
+axis(ax1,'equal');  view(ax1,0,90);  axis(ax1,'off');
+label_(ax1, Et, Ltrain, ink, 15);
+title(ax1, sprintf('TG96 %s interferometer -- test arm (blue), reference arm + PZT flat (orange), from above', ...
+    iff_(oap,'reflective (OAP)','lens')), 'Color',ink,'FontWeight','normal','FontSize',14);
+% bottom panel: cropped tight to the beamsplitter / recombination / polarization node
+axis(ax2,'equal');  view(ax2,0,90);  set(ax2,'FontSize',13);
+nodei = [NI({'PolIn'}) NI({'BSrefl','BS'}) NI({'Comptxfd','Comp'}) NI({'Recomb'}) NI({'OutQWP'}) NI({'Analyzer'})];
+nodei = nodei(nodei > 0);
+if ~isempty(nodei)
+    vx = arrayfun(@(i) Et(i).vpt(1), nodei);  vy = arrayfun(@(i) Et(i).vpt(2), nodei);
+    padx = 0.25*(max(vx)-min(vx)+eps) + 95;   pady = 0.25*(max(vy)-min(vy)+eps) + 95;
+    xlim(ax2,[min(vx)-padx max(vx)+padx]);  ylim(ax2,[min(vy)-pady max(vy)+pady]);
+end
+label_(ax2, Et, Lnode, ink, 16);
+xlabel(ax2,'bench x, mm','Color',ink,'FontSize',14);  ylabel(ax2,'bench y, mm','Color',ink,'FontSize',14);
+title(ax2, sprintf('The crowded node: beamsplitter, compensator and the polarization tail (%s rig)', P.bench.optics), ...
+    'Color',ink, 'FontWeight','normal', 'FontSize',15);
+grid(ax2,'on');  set(ax2,'GridColor',[225 224 217]/255,'Color','w');
+print(f, [P.tag '_vlayout.png'], '-dpng', '-r130');  close(f);
+fprintf('wrote %s_vlayout.png (view_rx vlayout recipe: labelled, from above, both arms + node crop)\n', P.tag);
+end
+
+function i = name_idx_(nmt, cands)
+% first element index whose name matches a candidate (0 if none) -- handles the
+% lens (L1pow/L2pow/Comptxfd/FLpow) vs OAP name sets in one call.
+    i = 0;
+    for k = 1:numel(cands)
+        j = find(strcmp(nmt, cands{k}), 1);
+        if ~isempty(j), i = j;  return; end
+    end
+end
+
+function label_(ax, Et, L, ink, fs)
+% leader-line + text labels off the beam (skips missing elements, idx 0)
+    for k = 1:size(L,1)
+        i = L{k,1};  if i <= 0, continue; end
+        p = Et(i).vpt(:);  d = L{k,3};
+        plot3(ax, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.3 0.3], '-', 'Color',[140 138 132]/255, 'LineWidth',1.0);
+        text(ax, p(1)+d(1), p(2)+d(2), 0.4, L{k,2}, 'Color',ink, 'FontSize',fs, ...
+            'HorizontalAlignment','center', 'VerticalAlignment','middle', 'BackgroundColor','w', 'Margin',1, 'Clipping','on');
+    end
 end
 
 function A = arm_desc(rx, b, ix, base_deg)
