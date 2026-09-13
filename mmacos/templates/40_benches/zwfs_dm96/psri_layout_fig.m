@@ -79,7 +79,8 @@ for k = k0:numel(br.E)
         text(ax, e.rpt(1) + 8, e.rpt(2) - 14, sprintf('%d:%s', k, e.name), 'FontSize', 9, 'FontWeight', 'bold', 'Color', [0.1 0.35 0.8], 'Interpreter', 'none');
     end
 end
-set(ax, 'FontSize', 12);  axis(ax, 'equal');
+set(findobj(fs, 'Type', 'text'), 'FontSize', 11);  set(findobj(fs, 'Type', 'line'), 'LineWidth', 1.8);
+set(ax, 'FontSize', 13);  axis(ax, 'equal');
 xl = xlim(ax);  yl = ylim(ax);  set(ax, 'XLim', [xl(1)-20 xl(2)+40], 'YLim', [yl(1)-40 yl(2)+40]);
 exportgraphics(fs, 'psri_layout.png', 'Resolution', 220);  close(fs);
 fprintf('wrote psri_layout.png\n');
