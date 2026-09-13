@@ -53,9 +53,11 @@ sequence stands alone and can be re-run on its own.
 | sequence | runs | what they answer |
 |---|---|---|
 | `runs/gsmoke.sh` | `sm_psri_nl`, `sm_knobs` | dev-resolution (model 512, 65 rays, 48×48 DM) smoke of every path the record uses: the P/SRI bench through noise AND loop, and the three new loop knobs |
+| `runs/gsmoke.sh` (2) | `uwoff_ref`, `uwoff_bat` | the unwrapper's non-disturbance: with `battery.unwrap` off, bit-identical to the pre-unwrapper records |
 | `runs/gseq1.sh` | `pfdeck`, `pfdeck_frz`, `pfdeck_loop`, `cap385p`, `cap385p_b60/90/120/160`, `noise193p_b30/60/120/160` | **the P/SRI with both arms traced** (rows, photons, loop) against the synthesized reference, with the frozen-reference control; **capture range and photons** for P and PF |
 | `runs/gseq2.sh` | `pin20_1024`, `pin20_loop`, `pin10_2048`, `pin10_loop` | **the pinhole diameter of record**: 2.0 λ/D at model 1024 / 193 rays against 1.0 λ/D at 2048 / 385 |
-| `runs/gseq3.sh` | `descent193`, `descent193s`, `descent193f`, `intra193_0`, `intra193` | **the descent** (capturing the DM's initial figure) and the **within-measurement DM drift** |
+| `runs/gcap.sh` | `cap_nouw`, `cap_uw`, `cap_nouw_recal`, `cap_uw_recal` | **the start-rms ladder both ways**: how large an initial figure each reading can capture, with the unwrapper off and on — the deck's capture slide |
+| `runs/gseq3.sh` | `descent193s`, `descent193f`, `intra193_0`, `intra193` | the descent at 100 nm for P's shutter form, the fast-recal probe, and the **within-measurement DM drift** |
 | `runs/gseq4.sh` | `rw193_1e3`, `rw193_1e2`, `rw193_1e1` | **the reference arm's own drift** (P/SRI), three sizes, with P as the common-path control |
 | `runs/gfigs.sh` | — | the two layout figures |
 
@@ -109,6 +111,31 @@ the report and this section states the FINDINGS.
   `macos.dx_at` at a plane returns 0 until the field has been
   PROPAGATED there — call `complex_field` first, or the pinhole disk
   comes out all-ones and the "reference" is the whole beam.
+
+- **Capture is a WRAP problem, and `dmg_unwrap` is the answer**
+  (`BRIEF_to_capture.md`; `runs/cap_nouw`, `cap_uw`, `cap_*_recal`).
+  Every phase reading here returns a *wrapped* differential — `stepdiff`,
+  `diffV` and both PDI `diff`s are `angle(X₁ conj X₀)` — so a change
+  larger than ±π of phase (**±158 nm of surface** at 632.8 nm double
+  pass) comes back folded whatever the reading's ABSOLUTE range is.
+  That, not gain, is why nothing descended from a 100 nm surface toward
+  a 30 nm set point: the opening differential is ~70 nm rms of surface =
+  **~1.4 rad rms of phase**, whose peaks run well past ±π.  It is the
+  same problem for every approach on this bench, the interferometer's
+  four-step included.  `../dm_gauge_lib/dmg_unwrap.m` is a masked
+  two-dimensional least-squares unwrapper (Ghiglia & Romero 1994 — the
+  unweighted Poisson solve by mirrored FFT, then their §5 PCG
+  refinement on the weighted equations; no toolbox, the release gate),
+  which **counts residues** so a map beyond the pixel-gradient limit is
+  reported rather than silently unwrapped wrong.  It moves the limit
+  from the wrap to the pixel gradient — adjacent pixels must differ by
+  less than π — and the DM's surface is smooth at that scale.  Gates:
+  tDmgLoop G13 (a ramp exact to 8.5e-14 rad; 1.5 and 3.0 waves PV on a
+  disc to 6.7e-13 and 1.3e-12 with zero residues; 40 waves PV reports
+  644 residues).  Knob `battery.unwrap`, **default off so every earlier
+  record reproduces** (`runs/uwoff_ref` is bit-identical, v3dev G4 =
+  0.296 pm); `loop.unwrap` is `'auto'` and turns it on exactly when
+  `loop.start_rms` is set.
 
 - **Four shared loop knobs** in `../dm_gauge_lib/dmg_loop.m`, gated on
   the synthetic instrument in `mmacos/tests/tDmgLoop.m` (G9–G12): the
