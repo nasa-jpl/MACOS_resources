@@ -497,7 +497,32 @@ budget lines before quoting a number.
   six readings, within-scan 0 / 1).  Figure: `<tag>_pdi.png` (the focal
   spot with pinhole, dimple and mode; the reference amplitudes; the
   reference's motion by diameter; the visibility maps).  Deck:
-  `macos/demo_session/deck_pdi.md` (DRAFT).
+  `macos/demo_session/deck_pdi.md` (DRAFT).  *The P/SRI as a BUILDABLE
+  bench (Dave 2026-09-12: "separate but balanced arms, the reference
+  through the pinhole / phase shifter"):* `macos.design.psri_bench` +
+  `psri_layout_fig.m` (`psri_layout.png`, `psri_render.png`,
+  `psri_test.in`, `psri_ref.in`) -- the TG96 front end, then a
+  Mach-Zehnder in the returned chief's frame: BS2 splits; the test arm
+  transmits, folds (M1), carries a normal-incidence glass compensator and
+  reflects off BS3's front face; the reference arm reflects to Lr1 (f
+  300, F/2.9), the pinhole seat in its NF sphere bracket at the true
+  focus (+1.10 mm), Lr2 (Lr1 mirrored about the pinhole), fold M3, and
+  transmits BS3; both exit on ONE chief into the tuned tail.  Solved on
+  construction: the compensator (21.9 mm) for equal chief optical paths
+  (4453.1 mm each), M3 for coincident exit chiefs (2e-13 mm); both decks
+  trace 3210 / 3210 rays to one camera plane (chiefs 2e-12 mm apart,
+  footprints 3.60 / 3.29 mm).  Lr1's conic -0.578 solved on the trace
+  (0.1 um ray blur; the add_lens seed gives 0.31 mm).  Traps recorded:
+  the F/2.9 diffraction focus is ~20 um deep (find the ray focus first);
+  the engine's OPD at a tilted fold reads geometry and at the camera the
+  tail's convergence dominates (measure collimation on a plane normal to
+  the beam); the collimated beam behind the DM carries the front end's
+  5.8 um rms residual (L1), which the tuned tail cancels for the test arm
+  and the pinhole filters for the reference -- so Lr2 must be Lr1's
+  mirror image (reversibility: the recollimated wave reproduces the
+  recombination plane's, 5.78 vs 5.80 um), never "solved" against that
+  residual.  NEXT: the PF reading on the two decks (reference from
+  psri_ref.in through the pinhole) instead of the synthesized reference.
 - **S11 (zwfs_run stage 'loop', 2026-09-11, Dave: "on-orbit the DM
   surface needs to remain constant to << 10 pm, with frequent
   remeasurement and closed-loop DM actuator servo control -- how can
