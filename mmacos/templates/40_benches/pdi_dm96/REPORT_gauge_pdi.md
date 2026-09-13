@@ -20,7 +20,7 @@ what is measured and what is running:
 | item | state |
 |---|---|
 | 1. PF through the two decks | **done** — rows, photons and the loop rows, plus the frozen-reference control (`pfdeck`, `pfdeck_frz`, `pfdeck_loop`) |
-| 2. capture range and photons, P and PF | `cap385p*`, `noise193p_b*` |
+| 2. capture range and photons, P and PF | **done** — sections 2a, 2b, 2c (`cap385p`, `cap385p_b*`, `noise193p_b*`) |
 | 3. the pinhole diameter of record | `pin20_*`, `pin10_*` |
 | 4. the four shared loop knobs + gates | **built and gated** (tDmgLoop G9–G12, 14/14); the DESCENT and WITHIN-SCAN runs are `descent193*`, `intra193*` |
 | 5. the reference arm's own drift | `rw193_*` |
@@ -349,6 +349,32 @@ stopping it.
 **What it costs is light**, which is 2c.
 
 ### 2c. Photons for 1 pm at 30 / 60 / 120 / 160 nm (`noise193p_b*`, 193 rays)
+
+What the re-measured calibration of 2b COSTS.  N(1 pm) at the detector,
+each priced through the matrix measured on that surface,
+`noise.nstates 10.^(8:2:14)`, `noise.nreal 6`.
+
+| working surface | P | × its 30 nm value | PF | × its 30 nm value |
+|---|---|---|---|---|
+| 30 nm | 9.77e13 | 1.0 | 3.72e14 | 1.0 |
+| 60 | 1.73e14 | 1.8 | 4.13e14 | 1.1 |
+| 120 | 2.95e15 | **30** | 6.58e14 | 1.8 |
+| 160 | 1.75e15 | **18** | 3.67e14 | **0.99** |
+
+**The reading whose reference does not depend on the surface does not
+pay for the surface in light either.**  PF's picometre costs the same at
+160 nm as at 30 — within 1% — while P's costs 18–30× more.  P's ×30 at
+120 nm against ×18 at 160 is NOT smooth, and is not smoothed here: the
+same non-monotonicity shows in 2b's floor column (41 pm at 90 nm, 19 at
+120, 17 at 160), so the 120 nm point should be read as "tens of times
+worse", not as a number.
+
+That factor sits ON TOP of the capture range: re-measuring gets P from
+62 nm to 160 nm of working surface (2b), and the picometre there costs
+~18× the light.  Both numbers belong on the slide.  For comparison the
+Zernike readings pay 5× (L) to 40× (V) over the same span
+(`../zwfs_dm96/runs/noise193_b*`), so P is inside that family and PF is
+not in it at all.
 
 ---
 
