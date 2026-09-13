@@ -201,34 +201,20 @@ the floor and SNR columns carry a bench term as well as a reference
 term.  The run that separates them is `pfdeck_frz` — the same bench,
 the reference traced ONCE on the flat and held — below.
 
-### 1e. The loop rows (`pfdeck_loop`)
+### 1c. Photons (`pfdeck` noise stage)
 
-The same closed-loop hold metric as the rest of the campaign — gain 0.5,
-60 cycles, the set point the 30 nm working surface with the matrix
-measured on it, one measurement per cycle — with both arms traced.
-610 traced states, 138 min.
+**N(1 pm) = 2.00e14 photons per measurement at the detector**, against
+**1.9e14** for the synthesized reference on the ZWFS arm
+(`../zwfs_dm96/runs/pdi193f`) — the same number to the digit the
+comparison supports.  **Modeling the reference arm or tracing it does
+not change what a picometre costs; the 60/40 pickoff does.**  Divide by
+the run's throughput (0.806 here, 0.752 there) for incident photons.
+For scale, on the same bench family: P 3.3e13, V 4.7e13, S 5.4e13 —
+the P/SRI form is ~6× the light of the common-path pinhole, because
+60% of the beam goes to an arm that returns a fraction of it as
+reference while the test beam keeps only 40%.
 
-| | PF, reference **traced** | PF, **synthesized** (`ploop193`) | P (`ploop193`) |
-|---|---|---|---|
-| noiseless step 1 nm / 10 nm, residual at cycle 60 | **0.000 / 0.000 pm** | 0.000 / 0.000 | 0.000 / 0.000 |
-| per-cycle contraction ρ | 0.511 / 0.510 | 0.509 | 0.509 |
-| photons per cycle for a 3 pm hold, noise only | **5.1e12** | 7.0e12 | 2.3e12 |
-| … under a 2 pm-per-actuator walk | **1.5e13** | 2.5e13 | 7.0e12 |
-| σ_n at 1e12 photons | 11.7 pm | 13.5 pm | 7.8 pm |
-| held residual's spectrum under the walk, [<4, 4–12, >12] cycles/aperture | 0.25 / 0.72 / 2.20 pm | 0.25 / 0.72 / 2.2 | as V |
-
-**No fixed error** — the traced reference takes both noiseless steps to
-0.000 pm, so nothing about the real arm biases the held surface.
-
-**And the built arm is CHEAPER in light than the model of it**, by 1.37×
-noise-only and 1.67× under the walk.  That is not a modelling surprise
-once the bench numbers are in hand: the physical pinhole couples 0.677
-of the flat's focal light where the LP01 mode's overlap takes 0.587, so
-the reference amplitude is larger, σ_n is 1.16× smaller, and photons go
-as σ_n² (1.16² = 1.35, against the 1.37 measured).  **The synthesized
-model was pessimistic about the P/SRI, not optimistic.**  It remains ~2×
-the light of the common-path pinhole P, which is the 60/40 pickoff and
-nothing else.
+---
 
 ### 1d. What the reference's MOTION costs differentially (`pfdeck_frz`)
 
@@ -261,20 +247,34 @@ vs 0.00271, both pickoff-budget-limited) and the visibility (0.873 vs
 claims is only what the frozen/moving pair isolates, which is the one
 comparison with a single variable.
 
-### 1c. Photons (`pfdeck` noise stage)
+### 1e. The loop rows (`pfdeck_loop`)
 
-**N(1 pm) = 2.00e14 photons per measurement at the detector**, against
-**1.9e14** for the synthesized reference on the ZWFS arm
-(`../zwfs_dm96/runs/pdi193f`) — the same number to the digit the
-comparison supports.  **Modeling the reference arm or tracing it does
-not change what a picometre costs; the 60/40 pickoff does.**  Divide by
-the run's throughput (0.806 here, 0.752 there) for incident photons.
-For scale, on the same bench family: P 3.3e13, V 4.7e13, S 5.4e13 —
-the P/SRI form is ~6× the light of the common-path pinhole, because
-60% of the beam goes to an arm that returns a fraction of it as
-reference while the test beam keeps only 40%.
+The same closed-loop hold metric as the rest of the campaign — gain 0.5,
+60 cycles, the set point the 30 nm working surface with the matrix
+measured on it, one measurement per cycle — with both arms traced.
+610 traced states, 138 min.
 
----
+| | PF, reference **traced** | PF, **synthesized** (`ploop193`) | P (`ploop193`) |
+|---|---|---|---|
+| noiseless step 1 nm / 10 nm, residual at cycle 60 | **0.000 / 0.000 pm** | 0.000 / 0.000 | 0.000 / 0.000 |
+| per-cycle contraction ρ | 0.511 / 0.510 | 0.509 | 0.509 |
+| photons per cycle for a 3 pm hold, noise only | **5.1e12** | 7.0e12 | 2.3e12 |
+| … under a 2 pm-per-actuator walk | **1.5e13** | 2.5e13 | 7.0e12 |
+| σ_n at 1e12 photons | 11.7 pm | 13.5 pm | 7.8 pm |
+| held residual's spectrum under the walk, [<4, 4–12, >12] cycles/aperture | 0.25 / 0.72 / 2.20 pm | 0.25 / 0.72 / 2.2 | as V |
+
+**No fixed error** — the traced reference takes both noiseless steps to
+0.000 pm, so nothing about the real arm biases the held surface.
+
+**And the built arm is CHEAPER in light than the model of it**, by 1.37×
+noise-only and 1.67× under the walk.  That is not a modelling surprise
+once the bench numbers are in hand: the physical pinhole couples 0.677
+of the flat's focal light where the LP01 mode's overlap takes 0.587, so
+the reference amplitude is larger, σ_n is 1.16× smaller, and photons go
+as σ_n² (1.16² = 1.35, against the 1.37 measured).  **The synthesized
+model was pessimistic about the P/SRI, not optimistic.**  It remains ~2×
+the light of the common-path pinhole P, which is the 60/40 pickoff and
+nothing else.
 
 ---
 
@@ -667,10 +667,13 @@ every section above.)
    (`pcam193ri`) S / P / PF pay 5.4 / 5.3 / 10.7 pm at 1e15 — 2000×
    less than the single-frame reading and 17× less than the pair.
 
-8. *(the pinhole diameter of record — section 3)*
+8. *Pending: the pinhole diameter of record (section 3, `pin20_*` /
+   `pin10_*`).  It cannot unseat the stepped pinhole; it decides whether
+   the deck quotes 2.0 λ/D at model 1024 or 1.0 at 2048.*
 
-9. *(capturing the initial figure — sections 8 and 9: the unwrapper, and
-   the ladder that says how large a figure each reading can capture)*
+9. *Pending: capturing the initial figure (sections 8 and 9).  The
+   unwrapper is built and gated; the ladder that says how large a figure
+   each reading can actually capture, with it off and on, is running.*
 
 **The recommendation the lane supports**, for the deck's main body:
 **the point-diffraction approach's best configuration is the stepped
