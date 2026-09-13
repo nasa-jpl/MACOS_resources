@@ -18,6 +18,13 @@ if isempty(which('macos.init')), run(fullfile(exdir, '..', '..', '..', 'mmacos_s
 addpath(fullfile(exdir, '..', 'zwfs_dm96'));                % zwfs_params, zwfs_mask
 cd(exdir);
 MODEL = 512;  NGRID = 65;  N_G = 256;  DX_G = 0.42;
+% 'solve', false takes the SOLVED values of record from pdi_params
+% (P.pdi.psri) instead of re-running the search -- the figure then costs one
+% bench build instead of ~90, which is what makes a layout iterable.  The
+% solve is the source of those values; keep them in step.
+dosolve = true;
+k = find(strcmp(varargin, 'solve'), 1);
+if ~isempty(k), dosolve = varargin{k+1};  varargin(k:k+1) = []; end
 macos.init(MODEL);
 macos.write_grid_file('zwfs_flat.txt', zeros(N_G));
 base = [{'ngridpts', NGRID, 'to_grid_file', 'zwfs_flat.txt', 'to_grid_n', N_G, 'to_grid_dx', DX_G}, varargin];
@@ -31,6 +38,7 @@ base = [{'ngridpts', NGRID, 'to_grid_file', 'zwfs_flat.txt', 'to_grid_n', N_G, '
 % mm rms ray blur at the best focus; the ZWFS's L2 carries a tuned conic for
 % the same reason): Lr1's conic and the seat trim by the ray blur at the
 % pinhole, then Lr2's conic by the reference arm's wavefront at the camera.
+if dosolve
 J1 = @(x) ref_rayrms(base, x(1), x(2), NaN);
 x1 = fminsearch(J1, [3, -2.25], optimset('TolX', 1e-3, 'TolFun', 1e-7, 'MaxFunEvals', 90, 'Display', 'off'));
 trim_ray = x1(1);  kc1 = x1(2);
@@ -49,11 +57,16 @@ trim = fminbnd(pk, trim_ray - 0.3, trim_ray + 0.3, optimset('TolX', 2e-3, 'MaxFu
 [w_rc, w_chk, w_pin] = ref_wfe(base, trim, kc1, kc2);
 fprintf('P/SRI bench: Lr1 conic %.4f, ray focus at REF_TRIM %+.3f mm (rms ray radius %.4f mm); Lr2 = Lr1 mirrored (conic %.4f); diffraction focus at %+.3f mm\n', kc1, trim_ray, J1(x1), kc2, trim);
 fprintf('  geometric wavefront (WaveUnits mm -> nm rms): at the recombination plane %.1f nm (the front end''s collimation residual, filtered by the pinhole), recollimated after Lr2 %.1f nm (the same wave: reversibility), at the pinhole %.1f nm\n', w_rc*1e6, w_chk*1e6, w_pin*1e6);
+else
+    P0 = pdi_params();
+    kc1 = P0.pdi.psri.LR1_Kc;  kc2 = P0.pdi.psri.LR2_Kc;  trim = P0.pdi.psri.REF_TRIM;
+    fprintf('P/SRI bench: the SOLVED values of record, from pdi_params (Lr1 = Lr2 conic %.4f, REF_TRIM %+.4f mm) -- re-solve with psri_layout_fig(''solve'', true)\n', kc1, trim);
+end
 base = [base, {'LR1_Kc', kc1, 'LR2_Kc', kc2}];
 G = macos.design.psri_bench(base{:}, 'REF_TRIM', trim);
 G.bt.emit('psri_test.in');  G.br.emit('psri_ref.in');
 B = G.balance;
-fprintf('P/SRI bench: REF_TRIM %+.3f mm (mask-plane peak/sum %.3e)\n', trim, -pk(trim));
+if dosolve, fprintf('P/SRI bench: REF_TRIM %+.3f mm (mask-plane peak/sum %.3e)\n', trim, -pk(trim)); end
 fprintf('  chief optical path, source -> camera: test %.4f mm, reference %.4f mm, difference %.2e mm\n', B.opl_test_mm, B.opl_ref_mm, B.dopl_mm);
 fprintf('  lens-glass compensator in the test arm: %.3f mm of n = %.2f glass\n', B.t_comp_mm, G.P.N_GLASS);
 fprintf('  exit chiefs after BS3: transverse offset %.2e mm; directions test %s / ref %s\n', B.exit_offset_mm, mat2str(B.test_dir_at_exit, 6), mat2str(B.ref_dir_at_exit, 6));
@@ -88,28 +101,29 @@ for ax = [ax1 ax2]
 end
 TO = Et(G.T.iTO).vpt;  BS1 = Et(4).vpt;  M1 = Et(G.T.iM1).vpt;
 BS2 = Et(G.T.iBS2).vpt;  BS3 = Et(G.T.iBS3).vpt;  CAM = Et(G.T.iDET).vpt;
+SRC = Et(1).vpt;  L2 = Et(G.T.iL2).vpt;
 LR1 = Er(G.R.iLR1).vpt;  PIN = Er(G.R.iPIN).vpt;  LR2 = Er(G.R.iLR2).vpt;  M3 = Er(G.R.iM3).vpt;
 pdi_vfig_util('flat', ax1, ...
     'The P/SRI on the DM-gauge bench: the shared front end, then two balanced arms -- the test arm unfiltered (green) and the reference arm through its own pinhole (blue) -- recombined into one camera', 15);
+pdi_vfig_util('frame', ax1, [SRC TO CAM BS2 PIN M1 M3], [0.02 0.02 0.06 0.12]);
 axis(ax1, 'off');
 pdi_vfig_util('label', ax1, { ...
-    TO,  [0  -180], '96 mm deformable mirror (retro)'; ...
-    BS1, [60  170], 'beamsplitter, 7 deg'; ...
-    BS2, [130 -140], 'BS2: the split'; ...
-    PIN, [-80 -160], 'pinhole + phase shifter'; ...
-    CAM, [110 130], 'camera at the pupil image'}, 15);
-pdi_vfig_util('flat', ax2, sprintf(['The reference arm: Lr1 (f %.0f mm, F/%.1f) focuses onto the pinhole seat in its near-field sphere bracket, the photonic phase shifter steps it, ' ...
-    'Lr2 -- Lr1 mirrored about the pinhole -- recollimates, and M3 folds it onto BS3.  The test arm carries %.1f mm of compensating glass so the two chief paths are equal to %.0e mm'], ...
-    G.P.F_REF, G.P.F_REF/(2*G.P.R_TO_AP), B.t_comp_mm, max(abs(B.dopl_mm), 1e-16)), 15);
-pdi_vfig_util('frame', ax2, [LR1 PIN LR2 M3 BS2 BS3], [40 40 40 40]);
+    TO,  [-0.06 -0.26], '96 mm deformable mirror (retro)'; ...
+    BS1, [-0.03  0.15], 'beamsplitter, 7 deg'; ...
+    BS2, [ 0.13  0.07], 'BS2: the split'; ...
+    PIN, [-0.03 -0.27], 'pinhole + phase shifter'; ...
+    CAM, [ 0.03  0.14], 'camera at the pupil image'}, 15);
+% panel 2: the reference arm's node, the crowded part a builder has to get
+% right -- Lr1, the pinhole seat at the true focus, Lr2, and the fold onto BS3
+pdi_vfig_util('flat', ax2, sprintf(['The reference arm: Lr1 (f %.0f mm, F/%.1f) focuses onto the pinhole seat in its near-field sphere bracket, the phase shifter steps it, ' ...
+    'Lr2 -- Lr1 mirrored about the pinhole -- recollimates, and M3 folds it onto BS3.  The test arm carries %.1f mm of compensating glass, which equalizes the two chief paths to %.0e mm.  (The fold plane, turned 90 deg in the page)'], ...
+    G.P.F_REF, G.P.F_REF/(2*G.P.R_TO_AP), B.t_comp_mm, max(abs(B.dopl_mm), 1e-16)), 15, 90);
+pdi_vfig_util('frame', ax2, [LR1 PIN LR2 M3], [0.10 0.10 0.45 0.45]);
 pdi_vfig_util('label', ax2, { ...
-    BS2, [ 22  34], 'BS2'; ...
-    LR1, [-34 -26], 'Lr1'; ...
-    PIN, [ 40 -30], 'pinhole seat (the true focus)'; ...
-    LR2, [-34  26], 'Lr2'; ...
-    M3,  [ 26 -30], 'M3'; ...
-    M1,  [-26  30], 'M1 (test arm)'; ...
-    BS3, [ 30  26], 'BS3: recombination'}, 16);
+    LR1, [-0.02 -0.26], 'Lr1'; ...
+    PIN, [ 0.00  0.26], 'pinhole seat (the true focus)'; ...
+    LR2, [ 0.02 -0.26], 'Lr2'; ...
+    M3,  [ 0.03  0.24], 'M3, onto BS3'}, 16);
 print(f, 'psri_layout.png', '-dpng', '-r130');  close(f);
 fprintf('wrote psri_layout.png\n');
 % ---- the traced render: the same two decks, table plane and ISO ------------
