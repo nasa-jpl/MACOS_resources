@@ -17,6 +17,15 @@ RD="'readings',{'L','S','V','P','PF'}, 'loop.readings',{'L','S','V','P','PF'}, '
 #     at 100 nm for P in its shutter-frame configuration, the fast-recal
 #     probe, and the within-scan drift.
 
+# (a2) the capture ladder for P in the configuration the deck will SHOW.
+# gcap runs P in its record configuration -- a flat |b|^2, four frames --
+# which is what folds it at 120 nm.  Section 0 recommends the SHUTTER form
+# (pdi.b2 'state', five frames), and that is the one whose capture the
+# slide has to quote.  One reading, so the six start matrices are cheap.
+LAD="'loop.start_rms',[30 60 100 150 200 300]*1e-6, 'loop.nph',[1e13 1e15], 'loop.drifts',{}, 'loop.floor',false, 'loop.steps',[], 'loop.K',40, 'loop.recal_list',[0]"
+./pdi_batch.sh cap_state_uw   "pdi_params, 'stages',{'bench','loop'}, 'readings',{'P'}, 'loop.readings',{'P'}, 'dm_use',1, 'pdi.b2','state', $LAD, 'loop.unwrap',true"
+./pdi_batch.sh cap_state_nouw "pdi_params, 'stages',{'bench','loop'}, 'readings',{'P'}, 'loop.readings',{'P'}, 'dm_use',1, 'pdi.b2','state', $LAD, 'loop.unwrap',false"
+
 # (b) the brief's descent at 100 nm: every reading, re-calibrated every 10
 # cycles and never, two photon levels, K 60.
 DESC="'loop.start_rms',100e-6, 'loop.nph',[1e13 1e15], 'loop.drifts',{}, 'loop.floor',false, 'loop.steps',[], 'loop.K',60"
