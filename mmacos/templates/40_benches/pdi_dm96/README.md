@@ -126,7 +126,13 @@ the report and this section states the FINDINGS.
   dies between 36 and 70 nm; the one whose reference does not, does not.
   P sits with the Zernike readings only because its `|b|²` is taken from
   the FLAT state: with a shutter frame per state it moves to PF's column
-  (`../zwfs_dm96/runs/pdi193state`).
+  (`../zwfs_dm96/runs/pdi193state`).  **Re-measured on the surface**
+  (`runs/cap385p_b*`) P holds gain within 5% to 160 nm and PF within
+  0.2% — but re-measuring restores the GAIN, not the photon cost:
+  N(1 pm) goes 9.8e13 → 1.8e15 for P across 30 → 160 nm and stays at
+  3.7e14 for PF, within 1% (`runs/noise193p_b*`).  **The reading whose
+  reference does not depend on the surface does not pay for the surface
+  in light either**, and it is the only one on this bench that does not.
 
 - **The two ways a descent fails, and only one of them is a wrap.**  A
   reading can be returning nearly the right map, FOLDED — or its

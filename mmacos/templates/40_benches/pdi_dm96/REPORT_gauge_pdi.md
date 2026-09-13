@@ -56,7 +56,8 @@ the shared front end.
 **Why not the P/SRI (`PF`), which the paper builds.**  Its reference does
 not depend on the working surface at all, and that is real: traced
 end-to-end it holds gain inside 0.7% over a 16× range of surface where
-every other reading here folds (section 1).  But the stepped pinhole
+every other reading here folds (section 1), and its picometre costs the
+same at 160 nm as at 30 while P's costs 18× more (section 2c).  But the stepped pinhole
 with a shutter frame *buys the same range in the common path*, and the
 P/SRI's price is ~2× the light (5.1e12 / 1.5e13 photons per cycle
 traced), a second arm to build and balance, and the one systematic no
@@ -628,7 +629,13 @@ every section above.)
    traced the gain stays inside 0.7% over that whole 16× range, flatter
    than the synthesized model of it (`pfdeck`).  Every reading whose
    reference depends on the surface dies between 36 and 70 nm; the one
-   whose reference does not, does not.
+   whose reference does not, does not.  **And it does not pay for the
+   surface in LIGHT either**: N(1 pm) is 3.7e14 at 30 nm and 3.7e14 at
+   160 nm — within 1% — where P's goes from 9.8e13 to 1.8e15, 18×
+   (`noise193p_b*`).  Re-measuring the matrix on the surface restores
+   every reading's GAIN (P within 5% to 160 nm, 2b) but not its photon
+   cost; that factor is the real price of operating far from null, and
+   only the P/SRI escapes it.
 
 5. **The non-common-path reference is priced, and it is small at the
    operating point.**  Absolutely, the reference moving with the state
