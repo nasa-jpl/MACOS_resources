@@ -99,6 +99,15 @@ end
 if want('figs')
     draw_layout_(geom, s, P);
     if isfield(loop, 'res'), draw_loop_(loop, P); end
+    % the real optics layout via the Bench renderer (chief-ray polyline through
+    % every element, aperture-sized footprint bars, element names + leg lengths)
+    if isfield(bench, 'G')
+        f = bench.G.bt.sketch('title', sprintf('TG96 %s test arm -- optics layout (XY plane)', P.bench.optics));
+        exportgraphics(f, [P.tag '_sketch.png'], 'Resolution', 140);  close(f);
+        fr = bench.G.br.sketch('title', sprintf('TG96 %s reference arm -- optics layout (XY plane)', P.bench.optics));
+        exportgraphics(fr, [P.tag '_sketch_ref.png'], 'Resolution', 140);  close(fr);
+        fprintf('wrote %s_sketch.png + %s_sketch_ref.png (Bench.sketch)\n', P.tag, P.tag);
+    end
 end
 
 out = struct('P', P, 'geom', geom, 'bench', bench, 'battery', battery, ...

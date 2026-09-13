@@ -50,7 +50,11 @@ matlab -batch "tg96_tail('tag','oap','bench.optics','oap')"
 ```
 Outputs land in `runs/<tag>/`: `<tag>_report.txt`, `<tag>.mat`,
 `<tag>_{test,ref}.in`, `<tag>_layout.png`, `<tag>_closure.png`,
-`<tag>_transfer.png`. Memory-bound? drop a trimmed `macos_param.txt` in the run
+`<tag>_transfer.png`. The `figs` stage also renders the real optics layout via
+the **`Bench.sketch`** method — `<tag>_sketch.png` (test arm) and
+`<tag>_sketch_ref.png` (reference arm): the chief-ray polyline through every
+element, aperture-sized footprint bars, element names and leg lengths (the OAP
+rig shows L1/L2 folding the beam off-axis; the lens rig is near-collinear). Memory-bound? drop a trimmed `macos_param.txt` in the run
 dir via `P.param_file` (keep `mGridMat ≥` the DM grid, 384 here).
 
 ## Files
