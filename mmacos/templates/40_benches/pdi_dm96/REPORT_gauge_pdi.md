@@ -325,7 +325,28 @@ column (conclusion 3, `pdi193state`).
 *(b) Re-measured on the surface — `cap385p_b60/90/120/160`, rows
 `{'base/grid'}` with the matrix on that surface.*
 
-### 2b. The matrix RE-MEASURED on the surface (`cap385p_b60/90/120/160`)
+### 2b. The matrix RE-MEASURED on the surface (`cap385p_b60/90/120/160`, 385 rays)
+
+The same 1 nm change on the 47 grid sites, but with the response matrix
+measured ON the surface the DM is actually holding — the calibration a
+bench would make in place.
+
+| working surface | P: gain / floor / SNR | PF: gain / floor / SNR |
+|---|---|---|
+| 60 nm | 1.0003 / 3 pm / 297 | 0.9999 / 3 pm / 378 |
+| 90 nm | 0.9581 / 41 pm / 23 | 1.0007 / 2 pm / 415 |
+| 120 nm | 0.9687 / 19 pm / 51 | 1.0014 / 2 pm / 458 |
+| 160 nm | 0.9670 / 17 pm / 56 | 1.0021 / 2 pm / 516 |
+
+**Re-measuring buys P a factor of ~2.6 in working surface** — from a
+62 nm aging range to gain within 5% at 160 nm — and costs PF nothing it
+did not already have (0.2% at 160 nm).  That is the same conclusion the
+Zernike readings reached (`../zwfs_dm96/runs/cap385_b*`: gain within 5%
+to 160 nm for all of them), and it is *not* what makes the descent
+work: section 9 shows re-calibration helping and the wrap still
+stopping it.
+
+**What it costs is light**, which is 2c.
 
 ### 2c. Photons for 1 pm at 30 / 60 / 120 / 160 nm (`noise193p_b*`, 193 rays)
 
