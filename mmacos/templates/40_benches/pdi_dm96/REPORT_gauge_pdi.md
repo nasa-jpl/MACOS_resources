@@ -33,7 +33,46 @@ what is measured and what is running:
 
 ## 0. The best configuration, and why
 
-*(filled at the end, from sections 1-5)*
+*Dave 2026-09-13: the deck's main body shows each approach ONCE, in its
+best-performing configuration; everything else is backup.  So this
+section names it and gives the numbers that make it the best; the route
+there is sections 1-9 and the backup slides.*
+
+**The point-diffraction approach's best configuration is the STEPPED
+PINHOLE `P`, with a pinhole-only (shutter) frame per state and the
+five-frame Schwider–Hariharan scan.**  Six frames a measurement, all in
+the common path, one plate in the mask seat and nothing else added to
+the shared front end.
+
+| what the configuration buys | number | record |
+|---|---|---|
+| a 10 nm change on one actuator, matrix on the 30 nm surface | **0.9935 gain, 4 pm error, SNR 2790** — indistinguishable from the vector Zernike reading and from the P/SRI | `pdi193fbase` |
+| photons for 1 pm | **3.3e13** at the detector — the cheapest reading in the campaign (V 4.7e13, S 5.4e13, PF 1.9e14) | `pdi193f` |
+| closed-loop hold of 3 pm | **2.3e12** photons per cycle noise-only, **7.0e12** under a 2 pm-per-actuator walk; steps to 0.000 pm, no fixed error | `ploop193` |
+| capture range to 10% with the calibration left to age | **1.02 / 1.06 / 1.13 at 120 / 240 / 480 nm** — the P/SRI's range, in the common path, for the one extra frame | `pdi193state` |
+| a 2% phase-step error | **4.9 pm** on a 12 nm figure, and the differential rows are the error-free ones to the digit (four-step least squares gives 421 pm) | `pdi193se_sh5` |
+| camera bias drifting within the servo | exactly immune while it is constant across a scan; pays only for what develops BETWEEN its frames (5.3 pm at 1e15 with the whole step inside the scan) | `pcam193r`, `pcam193ri` |
+
+**Why not the P/SRI (`PF`), which the paper builds.**  Its reference does
+not depend on the working surface at all, and that is real: traced
+end-to-end it holds gain inside 0.7% over a 16× range of surface where
+every other reading here folds (section 1).  But the stepped pinhole
+with a shutter frame *buys the same range in the common path*, and the
+P/SRI's price is ~2× the light (5.1e12 / 1.5e13 photons per cycle
+traced), a second arm to build and balance, and the one systematic no
+common-path form has — its own reference drifting (section 5).  **Its
+place in the deck is as the CAPTURE instrument, not the hold
+instrument**, which is what sections 8 and 9 test.
+
+**Why not the 4-step scan or the flat `|b|²`.**  Both are strictly worse
+for one frame each: the flat `|b|²` is what makes P fold at 120 nm
+(conclusion 3), and four-step least squares is what turns a 2% step
+error into 421 pm (conclusion 6).
+
+*Open at the time of writing, and marked in the sections: the pinhole
+DIAMETER of record (section 3) and the capture ladder (section 9).
+Neither can unseat the stepped pinhole on the numbers above; both change
+what the deck says about its range.*
 
 ---
 
