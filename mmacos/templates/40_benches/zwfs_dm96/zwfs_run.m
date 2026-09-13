@@ -958,6 +958,31 @@ for icfg = 1:numel(P.dm)
         dmg_say(rep, '\n');
         lad(end+1) = struct('amp',amp, 'fold',pinf.frac(end), 'fold0',pinf.frac(1), 'g',g, 'flr',fl, 'snr',sn); %#ok<AGROW>
     end
+    % ---- capture range: the working surface a reading holds to 10% ----------
+    % (Dave 2026-09-12: the devices do not operate at null) -- the largest
+    % ladder rung with |g - 1| <= 0.1 and, when the next rung is beyond it,
+    % the crossing interpolated in log(rms); 'beyond' when the last rung holds.
+    if numel(lad) >= 2
+        amps = [lad.amp];  G = reshape([lad.g], numel(RD), []).';
+        dmg_say(rep, 'capture range to 10%% (largest base rms with the gain within 0.9..1.1; matrix on %s; log-interpolated crossing):', ...
+            ifelse_(strcmp(C.surface, 'base'), sprintf('the %.0f nm surface', P.battery.base_rms*1e6), 'the flat'));
+        for k = 1:numel(RD)
+            ok = abs(G(:,k) - 1) <= 0.1;  r10 = NaN;  note = '';
+            if ok(1)
+                j = find(~ok, 1);
+                if isempty(j)
+                    r10 = amps(end);  note = '+ (holds at the last rung)';
+                else
+                    e0 = abs(G(j-1,k) - 1);  e1 = abs(G(j,k) - 1);
+                    r10 = exp(log(amps(j-1)) + (0.1 - e0)/(e1 - e0) * (log(amps(j)) - log(amps(j-1))));
+                end
+            else
+                note = ' (outside 10% at the first rung)';
+            end
+            dmg_say(rep, '  %s %.0f nm%s |', RD{k}, r10*1e6, note);
+        end
+        dmg_say(rep, '\n');
+    end
     % ---- verdict lines ----------------------------------------------------
     for k = find(strcmp(RD, 'I') | strcmp(RD, 'I+'))
         i = find(strcmp({res.row}, ROWS{1,1}) & strcmp({res.rd}, RD{k}), 1);
