@@ -44,6 +44,29 @@ solves the reference lens's conic and the pinhole seat's trim, emits
 common-path form's layout).  Both draw in the deck recipe
 (`pdi_vfig_util`).
 
+## Reproducing the record
+
+Every number in `REPORT_gauge_pdi.md` and in the findings below comes
+from one of these runs.  The whole chain is `runs/gmaster.sh`; each
+sequence stands alone and can be re-run on its own.
+
+| sequence | runs | what they answer |
+|---|---|---|
+| `runs/gsmoke.sh` | `sm_psri_nl`, `sm_knobs` | dev-resolution (model 512, 65 rays, 48×48 DM) smoke of every path the record uses: the P/SRI bench through noise AND loop, and the three new loop knobs |
+| `runs/gseq1.sh` | `pfdeck`, `pfdeck_frz`, `pfdeck_loop`, `cap385p`, `cap385p_b60/90/120/160`, `noise193p_b30/60/120/160` | **the P/SRI with both arms traced** (rows, photons, loop) against the synthesized reference, with the frozen-reference control; **capture range and photons** for P and PF |
+| `runs/gseq2.sh` | `pin20_1024`, `pin20_loop`, `pin10_2048`, `pin10_loop` | **the pinhole diameter of record**: 2.0 λ/D at model 1024 / 193 rays against 1.0 λ/D at 2048 / 385 |
+| `runs/gseq3.sh` | `descent193`, `descent193s`, `descent193f`, `intra193_0`, `intra193` | **the descent** (capturing the DM's initial figure) and the **within-measurement DM drift** |
+| `runs/gseq4.sh` | `rw193_1e3`, `rw193_1e2`, `rw193_1e1` | **the reference arm's own drift** (P/SRI), three sizes, with P as the common-path control |
+| `runs/gfigs.sh` | — | the two layout figures |
+
+The comparison baselines are the pre-split records in
+`../zwfs_dm96/runs/`: `pdi193fbase` (the rows with the matrix on the 30
+nm surface), `pdi193f` (photons), `ploop193` (the loop), `pdi193state`
+(P with a shutter frame per state), `pdi193d1` (the 1 λ/D pinhole),
+`pdi193se_ls` / `pdi193se_sh5` (the step-scheme trade), `pcam193*` (the
+camera drift), `cap385` / `noise193_b*` (the ZWFS readings' capture
+range and photons, for the side-by-side).
+
 ## The two benches
 
 | | test field | reference | cost per state |
@@ -250,7 +273,9 @@ width, 15-17 pt type in an 1800 px figure.  The recipe itself is
   seat, so the figure says that in the caption instead of drawing a
   second bench.  *(The pre-2026-09-13 version was a `Bench.sketch` with
   E-number labels at 9-11 pt — it did not meet the recipe and was
-  redone.)*
+  redone.  Its companion `pdi_layout_tail.png` is gone: the recipe puts
+  the crowded node in the SAME figure as a cropped panel, so a second
+  file would be a second thing to keep in step.)*
 - `psri_layout.png` / `psri_render.png` (`psri_layout_fig`) — the
   two-arm P/SRI: panel 1 the whole bench with both arms' own traces
   overlaid (green test, blue reference), panel 2 the reference arm's
