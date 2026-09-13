@@ -1,0 +1,51 @@
+=== ZWFS runner: tag noise193p_b120  (2026-09-13 13:28) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench noise | readings: P PF
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+deck noise193p_b120_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+focal spot: 0.666 um per px at the mask plane, 3.96 px per lam F/D; the dimple encloses 70.6% of the flat DM's focal-plane light
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.817e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.967e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9539 0.9510 0.9452 0.9369 0.9260 0.9120 0.8957 0.8770 0.8561 0.8328 0.8071 0.7798 0.7511 0.7206 0.6885 0.6554 0.6215 0.5867 0.5514 0.5156 
+frame: ray magnification 10.1583 DM-mm per detector-mm, detector px 3.9135e-02 mm -> 0.3976 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 7.92 px across at the mask plane (min 6)  -> PASS
+  pinhole 7.92 px across at the mask plane (min 6; the dimple's rule)  -> PASS
+  DM 96x96: 2.52 detector px per actuator (min 2)  -> PASS
+G3 120 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 6.407e-16   (gate < 1e-12: A = |E0| is exact)
+P: pinhole 2.00 lam/D, surround t 0.7193, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.6820; throughput (detected/incident, flat) 0.8214; visibility on the flat 0.5496; surrogate vs engine reference 1.97e-15; the flat reads 1.89e-15 rad rms, amplitude 3.70e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, 3.06% of msk beyond the one-frame fold): rms error 0.333 pm (gate < 0.1% of the figure)   -> PASS
+PF: P/SRI, reference = LP01 mode V 2.30 b 0.50 core radius 0.50 lam/D, coupling eta_c 0.5869 on the flat; pickoff 0.60, a 0.002712 (match 0.003719, budget 0.002712), 4 steps (ls), |kappa| flat; frames per measurement 4; eta_pin 0.6820; throughput (detected/incident, flat) 0.7522; visibility on the flat 0.8633; surrogate vs engine reference 1.97e-15; the flat reads 3.19e-16 rad rms, amplitude 1.44e-16 rel
+G5 PF on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, 3.06% of msk beyond the one-frame fold): rms error 0.000 pm (gate < 0.1% of the figure)   -> PASS
+G6 P/SRI fiber reference under the 120 nm rms working state: shape FIXED by construction (the mode's); coupling relative to the flat |kappa| 0.26108, arg +0.0907 rad (an amplitude scale + a piston; the solver takes kappa = 1 in |kappa| 'flat' mode)
+G6 reference motion under the 120 nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:
+   lam/D    total  |scale|    SHAPE   (total = |b1-b0|/|b0|; scale = best complex factor, a Strehl-class amplitude drop the |b|^2 frame / iteration absorbs; shape = the rest, what the solve must iterate out)
+    0.50   0.6962   0.3051   0.0004
+    1.00   0.7071   0.2942   0.0012
+    1.50   0.7263   0.2751   0.0033
+    2.00   0.7514   0.2502   0.0090
+    3.00   0.8083   0.1953   0.0524
+    2.00   0.7514   0.2502   0.0090   <- the ZWFS dimple
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 5.15e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (511.67, 511.67) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.979, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.98 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7509, corr(map, truth) 0.9800
+bench stage 0.6 min
+
+---- noise: DM 96x96, readings P PF ----
+scenario: single act (60,40) 10 nm differential on the 120 nm rms working state; axis = photons per MEASUREMENT (one DM shape measured once; a reading's frames share it: L/F/I/I+ 1 frame, S 4, V 2, P/PF K = 4; PDI throughput is printed at the bench stage -- divide by it for incident photons)
+I+ prior frames (the base's 4 stepped frames, taken once): split / noiseless
+calibration: kernels + modal transfer measured here
+frames captured (5.3 min); the Monte-Carlo is trace-free
+    N/meas | P: sig flr g            | PF: sig flr g           |
+   1.0e+08 |   3840.7    4991   0.792|   3021.5    3265   0.884|
+   1.0e+10 |    504.8     498   0.948|    266.8     318   0.865|
+   1.0e+12 |     57.3      69   0.963|     21.0      33   0.887|
+   1.0e+14 |      7.9      48   0.964|      2.6       5   0.887|
+P              sigma ~ 5.44e+07/sqrt(N) pm  ->  N(1 pm) ~ 2.95e+15 photons/measurement
+PF             sigma ~ 2.57e+07/sqrt(N) pm  ->  N(1 pm) ~ 6.58e+14 photons/measurement
+noise stage 5.8 min
+run complete in 6.5 min
