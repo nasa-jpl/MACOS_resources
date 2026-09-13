@@ -15,6 +15,7 @@ function G = psri_layout_fig(varargin)
 %   Run from this dir:  matlab -batch "psri_layout_fig"
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 if isempty(which('macos.init')), run(fullfile(exdir, '..', '..', '..', 'mmacos_setup.m')); end
+addpath(fullfile(exdir, '..', 'zwfs_dm96'));                % zwfs_params, zwfs_mask
 cd(exdir);
 MODEL = 512;  NGRID = 65;  N_G = 256;  DX_G = 0.42;
 macos.init(MODEL);
@@ -66,44 +67,73 @@ for k = 1:2
     fprintf('  %s: %d of %d rays reach the camera; footprint radius %.3f mm\n', decks{k}, nnz(ok), t.nRays, rf(k));
 end
 fprintf('  chief rays at the camera: separation %.3e mm\n', norm(c(:,1) - c(:,2)));
-% ---- the sketch: test deck + the reference arm overlaid --------------------
-fs = G.bt.sketch('title', 'P/SRI on the DM-gauge bench: test arm (orange) and reference arm through the pinhole (blue), recombined into one camera');
-set(fs, 'Position', [50 50 1700 900]);
-ax = findobj(fs, 'Type', 'axes');  hold(ax, 'on');
-br = G.br;  k0 = G.R.iBS2;  pts = cat(2, br.E(k0-1:end).rpt);
-plot(ax, pts(1,:), pts(2,:), '-', 'Color', [0.1 0.35 0.8], 'LineWidth', 1.4);
-for k = k0:numel(br.E)
-    e = br.E(k);  w = macos.design.Bench.perp(e.psi);  hl = 12;  if e.aprad > 0, hl = e.aprad; end
-    plot(ax, [e.rpt(1)-hl*w(1), e.rpt(1)+hl*w(1)], [e.rpt(2)-hl*w(2), e.rpt(2)+hl*w(2)], '-', 'Color', [0.1 0.35 0.8], 'LineWidth', 2);
-    if any(k == [G.R.iBS2, G.R.iLR1, G.R.iPIN, G.R.iLR2, G.R.iM3])
-        text(ax, e.rpt(1) + 8, e.rpt(2) - 14, sprintf('%d:%s', k, e.name), 'FontSize', 9, 'FontWeight', 'bold', 'Color', [0.1 0.35 0.8], 'Interpreter', 'none');
-    end
+% ---- the figures, in the deck recipe (pdi_vfig_util) -----------------------
+% Panel 1: the whole bench from above the fold plane, both arms' own traces
+% overlaid (green test, blue reference), passive planes hidden, hardware
+% named with leader lines.  Panel 2: the reference arm's node -- Lr1, the
+% pinhole seat, Lr2, M3 -- cropped at full width, the crowded part of the
+% bench a builder has to get right.
+Et = G.bt.E;  Er = G.br.E;
+green = [0 0.62 0.10];  blue = [0.10 0.35 0.80];  ink = [11 11 11]/255;
+pass_t = find(strcmp({Et.element}, 'Reference'));
+pass_r = find(strcmp({Er.element}, 'Reference'));
+f = figure('Color', 'w', 'Position', [40 40 1800 1010], 'Visible', 'off');
+tl = tiledlayout(f, 5, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+ax1 = nexttile(tl, [2 1]);  ax2 = nexttile(tl, [3 1]);
+for ax = [ax1 ax2]
+    macos.load_rx('psri_test.in');
+    macos.view_rx('ax', ax, 'ray_color', green, 'title', '', 'labels', false, 'hide', pass_t);
+    macos.load_rx('psri_ref.in');
+    macos.view_rx('ax', ax, 'ray_color', blue,  'title', '', 'labels', false, 'hide', pass_r);
 end
-set(findobj(fs, 'Type', 'text'), 'FontSize', 11);  set(findobj(fs, 'Type', 'line'), 'LineWidth', 1.8);
-set(ax, 'FontSize', 13);  axis(ax, 'equal');
-xl = xlim(ax);  yl = ylim(ax);  set(ax, 'XLim', [xl(1)-20 xl(2)+40], 'YLim', [yl(1)-40 yl(2)+40]);
-exportgraphics(fs, 'psri_layout.png', 'Resolution', 220);  close(fs);
+TO = Et(G.T.iTO).vpt;  BS1 = Et(4).vpt;  M1 = Et(G.T.iM1).vpt;
+BS2 = Et(G.T.iBS2).vpt;  BS3 = Et(G.T.iBS3).vpt;  CAM = Et(G.T.iDET).vpt;
+LR1 = Er(G.R.iLR1).vpt;  PIN = Er(G.R.iPIN).vpt;  LR2 = Er(G.R.iLR2).vpt;  M3 = Er(G.R.iM3).vpt;
+pdi_vfig_util('flat', ax1, ...
+    'The P/SRI on the DM-gauge bench: the shared front end, then two balanced arms -- the test arm unfiltered (green) and the reference arm through its own pinhole (blue) -- recombined into one camera', 15);
+axis(ax1, 'off');
+pdi_vfig_util('label', ax1, { ...
+    TO,  [0  -180], '96 mm deformable mirror (retro)'; ...
+    BS1, [60  170], 'beamsplitter, 7 deg'; ...
+    BS2, [130 -140], 'BS2: the split'; ...
+    PIN, [-80 -160], 'pinhole + phase shifter'; ...
+    CAM, [110 130], 'camera at the pupil image'}, 15);
+pdi_vfig_util('flat', ax2, sprintf(['The reference arm: Lr1 (f %.0f mm, F/%.1f) focuses onto the pinhole seat in its near-field sphere bracket, the photonic phase shifter steps it, ' ...
+    'Lr2 -- Lr1 mirrored about the pinhole -- recollimates, and M3 folds it onto BS3.  The test arm carries %.1f mm of compensating glass so the two chief paths are equal to %.0e mm'], ...
+    G.P.F_REF, G.P.F_REF/(2*G.P.R_TO_AP), B.t_comp_mm, max(abs(B.dopl_mm), 1e-16)), 15);
+pdi_vfig_util('frame', ax2, [LR1 PIN LR2 M3 BS2 BS3], [40 40 40 40]);
+pdi_vfig_util('label', ax2, { ...
+    BS2, [ 22  34], 'BS2'; ...
+    LR1, [-34 -26], 'Lr1'; ...
+    PIN, [ 40 -30], 'pinhole seat (the true focus)'; ...
+    LR2, [-34  26], 'Lr2'; ...
+    M3,  [ 26 -30], 'M3'; ...
+    M1,  [-26  30], 'M1 (test arm)'; ...
+    BS3, [ 30  26], 'BS3: recombination'}, 16);
+print(f, 'psri_layout.png', '-dpng', '-r130');  close(f);
 fprintf('wrote psri_layout.png\n');
-% ---- the traced render: both decks into the same axes ---------------------
+% ---- the traced render: the same two decks, table plane and ISO ------------
 d0 = G.bt.src_dir(:);  [~, i0] = min(abs(d0));
 xb = zeros(3,1);  xb(i0) = 1;  xb = xb - dot(xb,d0)*d0;  xb = xb/norm(xb);  yb = cross(d0, xb);
 ai = deg2rad([-35 22]);
-VW = { -yb, xb, 'TABLE PLANE -- looking down on the bench' ; ...
-       cos(ai(2))*(cos(ai(1))*xb + sin(ai(1))*d0) + sin(ai(2))*yb, yb, 'ISO view' };
-f = figure('Color','w', 'Position',[40 40 2000 700], 'Visible','off');
+VW = { -yb, xb, 'The bench from above the table' ; ...
+       cos(ai(2))*(cos(ai(1))*xb + sin(ai(1))*d0) + sin(ai(2))*yb, yb, 'The same rig in perspective' };
+f = figure('Color','w', 'Position',[40 40 1800 700], 'Visible','off');
 tl2 = tiledlayout(f, 1, 2, 'Padding','tight', 'TileSpacing','tight');
 for q = 1:size(VW,1)
     ax = nexttile(tl2);
-    macos.load_rx('psri_test.in');  macos.view_rx('ax', ax, 'title', VW{q,3}, 'ray_color', [0.0 0.62 0.10]);
-    macos.load_rx('psri_ref.in');   macos.view_rx('ax', ax, 'title', VW{q,3}, 'ray_color', [0.1 0.35 0.8], 'labels', false);
+    macos.load_rx('psri_test.in');  macos.view_rx('ax', ax, 'title', '', 'labels', false, 'ray_color', green);
+    macos.load_rx('psri_ref.in');   macos.view_rx('ax', ax, 'title', '', 'labels', false, 'ray_color', blue);
+    title(ax, VW{q,3}, 'Color', ink, 'FontWeight', 'normal', 'FontSize', 15);
     axis(ax, 'equal');
     xl = xlim(ax);  yl = ylim(ax);  zl = zlim(ax);
     tgt = [mean(xl); mean(yl); mean(zl)];  dd = 3*max([diff(xl), diff(yl), diff(zl)]);
     set(ax, 'CameraTarget', tgt.', 'CameraPosition', (tgt - dd*VW{q,1}).', 'CameraUpVector', VW{q,2}.', 'Projection', 'orthographic');
-    camva(ax, 'auto');  camzoom(ax, 1.05 + 0.55*(q == 2));  axis(ax, 'off');   % the table view whole, the ISO view closer
+    camva(ax, 'auto');  camzoom(ax, 1.05 + 0.55*(q == 2));  axis(ax, 'off');
 end
-print(f, 'psri_render.png', '-dpng', '-r150');  close(f);
+print(f, 'psri_render.png', '-dpng', '-r130');  close(f);
 fprintf('wrote psri_render.png\n');
+macos.unload();
 end
 
 function r = ref_rayrms(base, trim, kc1, kc2)

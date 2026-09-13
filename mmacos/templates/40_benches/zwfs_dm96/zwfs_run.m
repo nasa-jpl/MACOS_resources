@@ -93,6 +93,24 @@ if ~isempty(P.hold), for i = 1:numel(P.dm), P.dm(i).hold = P.hold; end; end
 ok = {'L','F','I','I+','S','V','P','PF'};
 assert(all(ismember(P.readings, ok)), 'zwfs_run: readings must be a subset of %s', strjoin(ok, ' '));
 assert(all(ismember(P.stages, {'bench','battery','color','noise','loop','figs'})), 'zwfs_run: unknown stage');
+% knobs added with the gauge-deck slice (2026-09-13).  They default HERE so
+% an unedited zwfs_params sheet still runs every stage; pdi_params.m carries
+% their documentation and the PDI record's values.
+P = setdef_(P, 'loop', 'start_rms',   []);      % descent: the DM's initial figure, mm rms
+P = setdef_(P, 'loop', 'recal_every', 0);       % cycles between on-surface re-calibrations (0 = never)
+P = setdef_(P, 'loop', 'recal_list',  []);      % descent: the recal_every values to compare ([] = [recal_every])
+P = setdef_(P, 'loop', 'intra',       0);       % fraction of the cycle's drift developing WITHIN a scan
+P = setdef_(P, 'loop', 'reach', [10e-6 3e-9]);  % descent: the levels whose cycle count is reported
+P = setdef_(P, 'pdi',  'bench',  'zwfs');       % 'zwfs' = the ZWFS test arm; 'psri' = the two P/SRI decks
+P = setdef_(P, 'pdi',  'ref_frozen', false);    % pdi.bench 'psri': hold the traced reference at
+                                               % the flat state (the control run)
+P = setdef_(P, 'pdi',  'ref_walk', 0);          % PF: reference-arm phase walk, rad per cycle rms
+P = setdef_(P, 'pdi',  'ref_seed', 0);          % its stream (0 = dmg_loop's default)
+P = setdef_(P, 'pdi',  'psri', struct());       % macos.design.psri_bench overrides (pdi.bench 'psri')
+end
+
+function P = setdef_(P, grp, fld, val)
+if ~isfield(P, grp) || ~isfield(P.(grp), fld), P.(grp).(fld) = val; end
 end
 
 function n = index_(P, lam_mm)
@@ -132,6 +150,12 @@ po = struct('LAM', lam_mm, 'F2', P.bench.F2, 'R_BEAM', P.bench.R_TO_AP, ...
     'PICKOFF', P.pdi.pickoff, 'A_REF', P.pdi.a_ref, 'S_CONV', P.mask.S_CONV, ...
     'REF_SHAPE', P.pdi.ref_shape, 'FIB_V', P.pdi.fib_V, 'FIB_B', P.pdi.fib_b, 'FIB_A_LAMD', P.pdi.fib_a_lamd, ...
     'SCHEME', P.pdi.scheme, 'STEP_ERR', P.pdi.step_err);
+end
+
+function po = pdi_opt_deck_(P, lam_mm, dk)
+% pdi_opt_ with the reference arm TRACED through the two P/SRI decks
+po = pdi_opt_(P, lam_mm);  po.MODE = 'fiber';  po.REF_SHAPE = 'deck';  po.DECKS = dk;
+po.REF_FROZEN = P.pdi.ref_frozen;
 end
 
 function PD = pdi_build_(P, lam_mm, iTO, iMASK, iDET)
@@ -190,6 +214,7 @@ end
 %  stage: bench -- build, gates, sampling budget, frame, registration
 % =====================================================================
 function S = stage_bench_(P, rep)
+if strcmp(P.pdi.bench, 'psri'), S = stage_bench_psri_(P, rep);  return; end
 t0 = tic;
 dmg_say(rep, '\n---- bench ----\n');
 if ~isempty(P.param_file)
@@ -504,9 +529,161 @@ S.summary.maskfig = maskfig;                     % the focal spot + mask windows
 end
 
 % =====================================================================
+%  stage: bench -- the P/SRI's own bench (pdi.bench 'psri', 2026-09-13)
+% =====================================================================
+function S = stage_bench_psri_(P, rep)
+%STAGE_BENCH_PSRI_  The buildable P/SRI (macos.design.psri_bench): the TG96
+%   front end, then a Mach-Zehnder whose REFERENCE arm carries the pinhole
+%   and the phase shifter.  The reading is PF with its reference physically
+%   traced through the reference deck -- no synthesized mode, no surrogate.
+%   Only PF lives here: the test arm's own seat is empty (the P/SRI filters
+%   in the other arm), so the dimple readings (L F I I+ S V) and the
+%   common-path pinhole P have no mask to sit in and are refused.
+t0 = tic;
+dmg_say(rep, '\n---- bench: the P/SRI, two traced arms ----\n');
+assert(isequal(P.readings, {'PF'}), ...
+    'zwfs_run: pdi.bench ''psri'' carries the PF reading only (the test arm''s seat is empty); readings = {''PF''}');
+if ~isempty(P.param_file)
+    pf = P.param_file;
+    if ~isfile(pf), pf = fullfile(fileparts(mfilename('fullpath')), P.param_file); end
+    if ~isfile(pf), pf = which(P.param_file); end
+    assert(~isempty(pf) && isfile(pf), 'zwfs_run: param_file %s not found', P.param_file);
+    copyfile(pf, 'macos_param.txt');
+    dmg_say(rep, 'engine size table: %s (copied into the run dir as macos_param.txt)\n', pf);
+elseif exist('macos_param.txt', 'file')
+    delete('macos_param.txt');
+end
+macos.init(P.MODEL);
+macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G));
+% the bench: the front end's values are the ZWFS record's (P.bench, minus the
+% keys twyman_green owns and psri_bench does not), plus P.pdi.psri
+bf = intersect(fieldnames(P.bench), fieldnames(psri_opts_()));
+bargs = {};
+for i = 1:numel(bf), bargs = [bargs, {bf{i}, P.bench.(bf{i})}]; end %#ok<AGROW>
+pf2 = fieldnames(P.pdi.psri);
+for i = 1:numel(pf2), bargs = [bargs, {pf2{i}, P.pdi.psri.(pf2{i})}]; end %#ok<AGROW>
+G = macos.design.psri_bench(bargs{:}, 'ngridpts', P.NGRID, ...
+    'to_grid_file', P.grid.flat_file, 'to_grid_n', P.grid.N_G, 'to_grid_dx', P.grid.DX_G);
+G.bt.wavelen = P.LAM;  G.br.wavelen = P.LAM;
+deck = sprintf('%s_test.in', P.tag);  rdeck = sprintf('%s_ref.in', P.tag);
+G.bt.emit(deck);  G.br.emit(rdeck);
+iTO = G.T.iTO;  iDET = G.T.iDET;  iMASK = G.T.iSEAT;      % the seat: empty on this arm
+macos.load_rx(deck);
+wl = macos.get_src_wvl();
+assert(abs(wl - P.LAM) < 1e-9*P.LAM, 'deck %s did not take Wavelen (%g vs %g)', deck, wl, P.LAM);
+B = G.balance;
+dmg_say(rep, 'decks %s / %s: TO elt %d, Detector %d (test); Pinhole %d, Detector %d (reference)\n', ...
+    deck, rdeck, iTO, iDET, G.R.iPIN, G.R.iDET);
+dmg_say(rep, 'balance: chief optical path test %.4f mm, reference %.4f mm (difference %.2e); compensator %.3f mm of n = %.2f; exit chiefs %.2e mm apart; camera planes %.2e mm apart\n', ...
+    B.opl_test_mm, B.opl_ref_mm, B.dopl_mm, B.t_comp_mm, G.P.N_GLASS, B.exit_offset_mm, B.det_offset_mm);
+dmg_say(rep, 'reference arm: Lr1 f %.1f mm (F/%.2f on the %.1f mm beam), conic %.4f; pinhole seat trim %+.3f mm; Lr2 = Lr1 mirrored (conic %.4f)\n', ...
+    G.P.F_REF, G.P.F_REF/(2*G.P.R_TO_AP), 2*G.P.R_TO_AP, G.P.LR1_Kc, G.P.REF_TRIM, G.P.LR2_Kc);
+% ---- the PF factory with BOTH arms traced ---------------------------------
+dk = struct('test', fullfile(pwd, deck), 'ref', fullfile(pwd, rdeck), 'iTO', iTO, ...
+            'iDET_test', iDET, 'iPIN', G.R.iPIN, 'iDET_ref', G.R.iDET, ...
+            'F_PIN', G.P.F_REF, 'R_PIN', G.P.R_TO_AP);
+pd = dmg_pdi_gauge(iTO, iMASK, iDET, pdi_opt_deck_(P, P.LAM, dk));
+msk = pd.msk;  N_WF = pd.N_WF;
+ZW = struct('msk', msk, 'N_WF', N_WF, 'E0', pd.E0, 'Eb0', pd.Eb0, 'D', pd.D, ...
+            'has_scalar', false, 'has_step', false, 'need_scalar', false, 'v_scalar_equiv', false, ...
+            'dia_mm', pd.dia_mm, 'ctr', pd.ctr, 'gate', pd.gate, 'PD', struct('PF', pd));
+ZW.measL = @(M) pd.height(pd.frames(M));                  % the reading is its own registration map
+pin_px = pd.dia_mm / pd.dx_mask_mm;
+dmg_say(rep, 'PF: pinhole %.3f lam/D of the reference lens = %.4e mm = %.2f px at its focus (%.3f um per px); coupling eta %.4f; reference amplitude a %.4g (match %.4g, budget %.4g); %d steps (%s); frames per measurement %d\n', ...
+    P.pdi.DIA_LAMD, pd.dia_mm, pin_px, pd.dx_mask_mm*1e3, pd.eta_pin, pd.a, pd.a_match, pd.a_budget, pd.K, pd.scheme, pd.nframes);
+dmg_say(rep, 'PF: throughput (detected/incident, flat) %.4f; visibility on the flat %.4f; msk %d px; the flat reads %.2e rad rms, amplitude %.2e rel\n', ...
+    pd.throughput, pd.vis, nnz(msk), pd.gate.flat, pd.gate.amp);
+if pd.frozen
+    dmg_say(rep, 'PF: REFERENCE FROZEN at the flat state (pdi.ref_frozen) -- the traced arm is captured once and reused, so this run carries the real arm''s SHAPE but not its MOTION: the control that separates the two\n');
+end
+priced = P.pdi.step_err ~= 0;
+if ~priced, assert(pd.gate.flat < 1e-9, 'PF: the flat does not read zero (%.2e rad rms)', pd.gate.flat); end
+budget_(P, rep, pin_px >= P.samp.min_dimple_px, '  pinhole %.2f px across at the reference focus (min %g; the dimple''s rule)', pin_px, P.samp.min_dimple_px);
+% ---- frame + sampling budget ----------------------------------------------
+[mag, dxd_mm] = dmg_frame(iTO, iDET);
+xg = ((0:P.grid.N_G-1)-(P.grid.N_G-1)/2)*P.grid.DX_G;
+[gxd, gyd] = meshgrid(xg, xg);
+dmg_say(rep, 'frame: ray magnification %.4f DM-mm per detector-mm, detector px %.4e mm -> %.4f DM-mm per px\n', mag, dxd_mm, mag*dxd_mm);
+ppa = zeros(1, numel(P.dm));
+for ic = 1:numel(P.dm)
+    ppa(ic) = P.dm(ic).pitch / (mag*dxd_mm);
+    budget_(P, rep, ppa(ic) >= P.samp.min_px_per_act, '  DM %dx%d: %.2f detector px per actuator (min %g)', ...
+        P.dm(ic).nact, P.dm(ic).nact, ppa(ic), P.samp.min_px_per_act);
+end
+% ---- G3 / G5 / G6 ----------------------------------------------------------
+cfg = P.dm(1);
+dmap = @(act) dm_influence_map(P.grid.N_G, P.grid.DX_G, 'nact', cfg.nact, 'pitch', cfg.pitch, 'act', act);
+[axg, ayg] = meshgrid(((1:cfg.nact)-(cfg.nact+1)/2)*cfg.pitch);
+lit = dmg_lit(msk, dxd_mm, mag, axg, ayg);
+rng(P.battery.seed_base);  Ab = zeros(cfg.nact);  Ab(lit) = P.battery.base_rms*randn(nnz(lit),1);
+macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(Ab));
+E1 = macos.complex_field(iDET);
+rr = abs(E1(msk))./abs(pd.E0(msk));
+dmg_say(rep, 'G3 %g nm rms working state (DM %dx%d, lit %d): detector |E|/|E_flat| on msk std %.3e   (gate < 1e-12)\n', ...
+    P.battery.base_rms*1e6, cfg.nact, cfg.nact, nnz(lit), std(rr));
+Afig = zeros(cfg.nact);  Afig(4:8:end, 4:8:end) = P.mask.v_gate_nm*1e-6;
+macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(Afig));
+Et = macos.complex_field(iDET);
+phi_t = angle(Et .* conj(pd.E0));  h_t = P.mask.S_CONV*phi_t*P.LAM/(4*pi);
+pm_ = @(x) x(msk) - mean(x(msk));
+rmsfig = std(h_t(msk))*1e9;  beyond = mean(phi_t(msk) < -pi/4 | phi_t(msk) > 3*pi/4);
+hP = pd.height(pd.frames(dmap(Afig)));
+e5 = sqrt(mean((pm_(hP) - pm_(h_t)).^2))*1e9;
+dmg_say(rep, 'G5 PF on %g nm single-actuator pokes every 8th actuator (%.0f pm rms on msk, %.2f%% beyond the one-frame fold): rms error %.3f pm = %.3f%% of the figure   -> %s\n', ...
+    P.mask.v_gate_nm, rmsfig, 100*beyond, e5, 100*e5/rmsfig, ifelse_(e5 < 1e-3*rmsfig, 'within the 0.1% ideal-reference line', 'ABOVE the 0.1% ideal-reference line'));
+dmg_say(rep, '     (on this bench G5 is a MEASUREMENT, not a gate: the reference arm is TRACED, so it moves with the state while the solver uses the flat''s R0 -- the synthesized reference reads 0.000 pm here by construction.  The assert is the 1%% sanity line)\n');
+if ~priced, assert(e5 < 1e-2*rmsfig, 'G5 FAIL: PF does not reproduce the figure at all (%.1f%%)', 100*e5/rmsfig); end
+[r6, rsh6, scl6] = pd.refstab(dmap(Ab));
+dmg_say(rep, 'G6 the TRACED reference arm under the %g nm rms working state: total change %.4f, best complex scale |%.5f| arg %+.4f rad (the solver absorbs it through the shutter frame + a piston), SHAPE change %.4f -- the part nothing absorbs\n', ...
+    P.battery.base_rms*1e6, r6, abs(scl6), angle(scl6), rsh6);
+gP = struct('PF', struct('e5', e5, 'throughput', pd.throughput, 'vis', pd.vis, 'nframes', pd.nframes), ...
+            'kappa', scl6, 'refstab_deck', [r6 rsh6], 'pin_px', pin_px, 'balance', B);
+% ---- registration ---------------------------------------------------------
+POKE = P.reg.POKE;
+ic0 = cfg.nact/2;  Aa = zeros(cfg.nact);  Aa(ic0,ic0) = 1;  Ma = dmap(POKE*Aa);
+hA = ZW.measL(Ma);
+R = struct('P', P.reg.PARb, 'tax',0, 'tay',0, 'bx',0, 'by',0, 'dxd_mm',dxd_mm, 'mag',mag, ...
+           'msk',msk, 'N_WF',N_WF, 'gxd',gxd, 'gyd',gyd);
+[R.bx, R.by, R.tax, R.tay] = dmg_anchor(hA, Ma, msk, N_WF, xg);
+dmg_say(rep, 'registration: center-poke anchor at detector px (%.2f, %.2f) <-> DM (%.2f, %.2f) mm\n', R.bx, R.by, R.tax, R.tay);
+if strcmp(P.reg.mode, 'search')
+    Ab_ = zeros(cfg.nact);  Ab_(cfg.hold(1), cfg.hold(2)) = 1;  Mb = dmap(POKE*Ab_);
+    hB = ZW.measL(Mb);
+    [PARb, sgn, cb, cn, ccs] = dmg_register(hB, Mb, R);
+    dmg_say(rep, '  parity search on the off-center poke (%d,%d): winner [%s] sign %+d, |corr| %.3f, runner-up %.3f (gates >= %.2f, sep >= %.2f); all 8: %s\n', ...
+        cfg.hold(1), cfg.hold(2), num2str(PARb), sgn, cb, cn, P.reg.min_corr, P.reg.min_sep, sprintf('%.2f ', ccs));
+    assert(cb >= P.reg.min_corr && cb - cn >= P.reg.min_sep, 'registration selection gate FAIL');
+else
+    PARb = P.reg.PARb;  sgn = P.reg.sgn;
+    dmg_say(rep, '  parity [%s] sign %+d taken from P.reg (mode record)\n', num2str(PARb), sgn);
+end
+R.P = PARb;
+hAd = sgn*dmg_samp(hA, R);  hAd(isnan(hAd)) = 0;
+cpm = corrcoef(hAd(:), Ma(:));
+dmg_say(rep, '  center poke in the DM frame: raw peak gain %.4f, corr(map, truth) %.4f\n', max(hAd(:))/max(Ma(:)), cpm(1,2));
+macos.load_rx(deck);
+macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), zeros(P.grid.N_G));
+dmg_say(rep, 'bench stage %.1f min\n', toc(t0)/60);
+S = struct('G',G, 'deck',deck, 'rdeck',rdeck, 'dk',dk, 'iTO',iTO, 'iMASK',iMASK, 'iDET',iDET, 'ZW',ZW, ...
+    'gopt',struct(), 'mag',mag, 'dxd_mm',dxd_mm, 'xg',xg, 'gxd',gxd, 'gyd',gyd, 'PARb',PARb, 'sgn',sgn);
+S.summary = struct('deck',deck, 'rdeck',rdeck, 'bench','psri', 'nmsk',nnz(msk), 'g567',gP, ...
+    'pin_px',pin_px, 'mag',mag, 'dxd_mm',dxd_mm, 'px_per_act',ppa, 'PARb',PARb, 'sgn',sgn, ...
+    'ampmod_std',std(rr), 'balance',B, 'kernel_peak',max(hAd(:))/max(Ma(:)), 'kernel_corr',cpm(1,2), ...
+    'anchor',[R.bx R.by R.tax R.tay]);
+end
+
+function o = psri_opts_()
+% the psri_bench option names the ZWFS bench sheet shares (front end + tail)
+o = struct('F1',0, 'F2',0, 'BS_AOI',0, 'D_LENS',0, 'N_GLASS',0, 'R_BAFFLE',0, 'D_SB',0, 'FILL',0, ...
+           'BS_T',0, 'D_L1_BS',0, 'D_BS_TO',0, 'D_BS_CMP',0, 'D_RECOMB',0, 'R_TO_AP',0, ...
+           'L1_Kr',0, 'L1_Kc',0, 'L2_Kr',0, 'L2_Kc',0, 'to_Kr',0, ...
+           'MASK_TRIM',0, 'FL_F',0, 'FL_Kc',0, 'FL_D',0, 'D_MASK_FL',0, 'DET_TRIM',0);
+end
+
+% =====================================================================
 %  frames and readings
 % =====================================================================
-function F = frames_(ZW, M, needS, needV, needP)
+function F = frames_(ZW, M, needS, needV, needP, aux)
 % capture the frames one DM state needs: Ia (the one masked frame of the
 % scalar readings), when needS the stepped set Fr + its rank-2 retrieval
 % X, when needV the vector pair Ip / Im (+phi / -phi images; Ip IS the
@@ -515,18 +692,36 @@ function F = frames_(ZW, M, needS, needV, needP)
 % the point-diffraction frame sets FP (pinhole) / FF (fiber)
 if nargin < 4, needV = false; end
 if nargin < 5, needP = [false false]; end
+if nargin < 6, aux = []; end
+has_scalar = ~isfield(ZW, 'has_scalar') || ZW.has_scalar;    % the P/SRI bench has neither the
+has_step   = ~isfield(ZW, 'has_step')   || ZW.has_step;      % dimple's frame nor its stepped set
+ds = [];  if ~isempty(aux) && isfield(aux, 'dstep') && any(aux.dstep(:) ~= 0), ds = aux.dstep; end
 if needV
-    [Ip, Im] = ZW.frameV(M);
+    [Ip, Im] = ZW.frameV(M);                                 % simultaneous: no within-scan drift
     if ZW.v_scalar_equiv || ~ZW.need_scalar, Ia = Ip; else, Ia = ZW.frameL(M); end
-else
+elseif has_scalar
     Ia = ZW.frameL(M);  Ip = [];  Im = [];
+else
+    Ia = [];  Ip = [];  Im = [];
 end
 F = struct('Ia', Ia, 'Ip', Ip, 'Im', Im, 'Fr', [], 'X', [], 'FP', [], 'FF', []);
-if needS
-    F.Fr = ZW.framesS(M);  F.X = ZW.reconS(F.Fr);
+if needS && has_step
+    if isempty(ds)
+        F.Fr = ZW.framesS(M);
+    else
+        % the DM advancing across the scan: frame j at its own state.  The
+        % gauge captures a whole set per state and we keep the j-th, so the
+        % four frames are the four states' -- what a stepped reading on a
+        % drifting DM actually gets (cost: 4 captures, 4 traces).
+        F.Fr = ZW.framesS(M);
+        for j = 2:4
+            Fj = ZW.framesS(M + (j-1)/3 * ds);  F.Fr(:,:,j) = Fj(:,:,j);
+        end
+    end
+    F.X = ZW.reconS(F.Fr);
 end
-if needP(1), F.FP = ZW.PD.P.frames(M); end
-if needP(2), F.FF = ZW.PD.PF.frames(M); end
+if needP(1), F.FP = ZW.PD.P.frames(M, aux); end
+if needP(2), F.FF = ZW.PD.PF.frames(M, aux); end
 end
 
 function h = readmap_(ZW, rd, F, plus, Xref)
@@ -554,12 +749,14 @@ switch rd
 end
 end
 
-function C = calibrate_(P, S, ZW, cfg, classes, lit)
+function C = calibrate_(P, S, ZW, cfg, classes, lit, Abase)
 % per-class registration anchor + measured response kernel + estimator.
 % P.battery.calib_mode 'matrix' (Dave 2026-09-10) replaces the single-site
 %   kernel by the MEASURED response matrix dw/da: see calib_matrix_.
 if nargin < 6, lit = []; end
-if strcmp(P.battery.calib_mode, 'matrix'), C = calib_matrix_(P, S, ZW, cfg, classes, lit); return; end
+if nargin < 7, Abase = []; end
+if strcmp(P.battery.calib_mode, 'matrix'), C = calib_matrix_(P, S, ZW, cfg, classes, lit, Abase); return; end
+assert(isempty(Abase), 'zwfs_run: an explicit calibration surface needs battery.calib_mode ''matrix''');
 assert(~any(classes >= 4), 'zwfs_run: the vector reading V and the point-diffraction readings P / PF are supported in battery.calib_mode ''matrix'' only');
 % (the S2/S3 recipe): class 1 linear map, 2 exact map, 3 stepped map.
 % P.battery.calib_surface: 'flat' (the record) or 'base' -- the kernel and
@@ -638,7 +835,7 @@ for k = classes(:).'
 end
 end
 
-function C = calib_matrix_(P, S, ZW, cfg, classes, lit)
+function C = calib_matrix_(P, S, ZW, cfg, classes, lit, Abase)
 %CALIB_MATRIX_  The measured response matrix dw/da (Dave 2026-09-10).
 %   Poke every STEP-th actuator in a sparse grid so no two responses
 %   overlap, step through the STEP^2 grid offsets so every lit actuator is
@@ -662,9 +859,17 @@ POKE = P.reg.POKE;  step = P.battery.matrix_step;
 ic = nact/2;  Aa = zeros(nact);  Aa(ic,ic) = 1;  C.Ma = C.dmap(POKE*Aa);
 needS = any(classes == 3);  needV = any(classes == 4);  needP = [any(classes == 5) any(classes == 6)];
 C.surface = P.battery.calib_surface;  onbase = strcmp(C.surface, 'base');
+if nargin >= 7 && ~isempty(Abase), onbase = true;  C.surface = 'current'; end
+has_step = ~isfield(ZW, 'has_step') || ZW.has_step;     % the P/SRI bench has no stepped set
+needS0 = has_step;                                      % (the prior the I+ reading needs)
 if onbase
-    rng(P.battery.seed_base);  Ab = zeros(nact);  Ab(lit) = P.battery.base_rms*randn(nnz(lit),1);
-    C.Abase = Ab;  C.F0 = frames_(ZW, C.dmap(Ab), true, needV, needP);  C.plus = ZW.priorS(C.F0.Ia, C.F0.Fr);
+    if nargin >= 7 && ~isempty(Abase)
+        Ab = Abase;                                     % the surface the loop holds NOW (ins.recal)
+    else
+        rng(P.battery.seed_base);  Ab = zeros(nact);  Ab(lit) = P.battery.base_rms*randn(nnz(lit),1);
+    end
+    C.Abase = Ab;  C.F0 = frames_(ZW, C.dmap(Ab), needS0, needV, needP);
+    if has_step, C.plus = ZW.priorS(C.F0.Ia, C.F0.Fr); else, C.plus = []; end
     C.Fflat = frames_(ZW, zeros(N_G), needS, needV, needP);
     C.cmap = @(F, k) cmap_base_(ZW, F, C.F0, C.plus, k);
 else
@@ -1166,7 +1371,9 @@ corrk = @(a, k) dmg_modal_corr(a, 'separable', pk1, gk(is1d,k), P.battery.BETA, 
 rng(P.battery.seed_base);  Ab = zeros(NACT);  Ab(lit) = P.battery.base_rms*randn(nnz(lit),1);
 Asng = zeros(NACT);  Asng(cfg.hold(1), cfg.hold(2)) = P.battery.dev_single;
 needV = any(KC == 4);  needP = [any(KC == 5) any(KC == 6)];
-F0 = frames_(ZW, C.dmap(Ab), true, needV, needP);  F1 = frames_(ZW, C.dmap(Ab + Asng), true, needV, needP);
+has_scalar = ~isfield(ZW, 'has_scalar') || ZW.has_scalar;
+has_step   = ~isfield(ZW, 'has_step')   || ZW.has_step;
+F0 = frames_(ZW, C.dmap(Ab), has_step, needV, needP);  F1 = frames_(ZW, C.dmap(Ab + Asng), has_step, needV, needP);
 dmg_say(rep, 'frames captured (%.1f min); the Monte-Carlo is trace-free\n', toc(t0)/60);
 noisy = @(I, nph) I .* (1 + randn(size(I)) ./ sqrt(max(I / sum(I(:)) * nph, 1)));
 un = lit;  un(cfg.hold(1), cfg.hold(2)) = false;
@@ -1191,16 +1398,18 @@ for in = 1:numel(NS)
     pk = zeros(NR, nc);  fl = zeros(NR, nc);
     for r = 1:NR
         rng(P.noise.seed + r + in*100);
-        Ia0 = noisy(F0.Ia, n);  Ia1 = noisy(F1.Ia, n);
+        if has_scalar, Ia0 = noisy(F0.Ia, n);  Ia1 = noisy(F1.Ia, n); end
         if needV                                              % vector pair: N/2 per image
             Ip0 = noisy(F0.Ip, n/2);  Im0 = noisy(F0.Im, n/2);  Ip1 = noisy(F1.Ip, n/2);  Im1 = noisy(F1.Im, n/2);
         end
         if needP(1), nfP = size(F0.FP, 3);  FP0 = F0.FP;  FP1 = F1.FP;  for k = 1:nfP, FP0(:,:,k) = noisy(F0.FP(:,:,k), n/nfP);  FP1(:,:,k) = noisy(F1.FP(:,:,k), n/nfP); end; end
         if needP(2), nfF = size(F0.FF, 3);  FF0 = F0.FF;  FF1 = F1.FF;  for k = 1:nfF, FF0(:,:,k) = noisy(F0.FF(:,:,k), n/nfF);  FF1(:,:,k) = noisy(F1.FF(:,:,k), n/nfF); end; end
         Fr0q = F0.Fr;  Fr1q = F1.Fr;  Fr0f = F0.Fr;          % stepped at N/4 per frame; prior at N per frame
-        for k = 1:4
-            Fr0q(:,:,k) = noisy(F0.Fr(:,:,k), n/4);  Fr1q(:,:,k) = noisy(F1.Fr(:,:,k), n/4);
-            Fr0f(:,:,k) = noisy(F0.Fr(:,:,k), n);
+        if has_step
+            for k = 1:4
+                Fr0q(:,:,k) = noisy(F0.Fr(:,:,k), n/4);  Fr1q(:,:,k) = noisy(F1.Fr(:,:,k), n/4);
+                Fr0f(:,:,k) = noisy(F0.Fr(:,:,k), n);
+            end
         end
         for c = 1:nc
             rd = cols{c,1};  kc = class_(rd);
@@ -1266,22 +1475,51 @@ if ~strcmp(P.battery.calib_mode, 'matrix')
     dmg_say(rep, 'NOTE: kernel calibration -- the loop stage is specified for the measured matrix (battery.calib_mode ''matrix''); the modal correction is NOT applied here\n');
 end
 % the set point's stepped frames (once): the I+ prior for every cycle
-F0ref = frames_(ZW, C.dmap(A0), true, false);
-plusb = [];  if any(strcmp(RD, 'I+')), plusb = ZW.priorS(F0ref.Ia, F0ref.Fr); end
+has_step = ~isfield(ZW, 'has_step') || ZW.has_step;
+plusb = [];
+if has_step
+    F0ref = frames_(ZW, C.dmap(A0), true, false);
+    if any(strcmp(RD, 'I+')), plusb = ZW.priorS(F0ref.Ia, F0ref.Fr); end
+end
+% the knobs this slice added (Dave 2026-09-13): the DM's initial figure, the
+% on-surface re-calibration, the drift developing WITHIN a stepped scan, and
+% the P/SRI's own reference-arm walk
+RECL = P.loop.recal_list;  if isempty(RECL), RECL = P.loop.recal_every; end
+descent = ~isempty(P.loop.start_rms) && P.loop.start_rms > 0;
+if P.loop.intra > 0
+    dmg_say(rep, 'WITHIN-MEASUREMENT DRIFT: %.0f%% of each cycle''s drift increment develops ACROSS one measurement''s scan -- frame j of nf at (j-1)/(nf-1) of it.  The stepped readings (S, P, PF) capture their frames one at a time and pay for it; the single-frame (L, I+) and simultaneous (V) readings see one instant and do not\n', 100*P.loop.intra);
+end
+if P.pdi.ref_walk > 0
+    dmg_say(rep, 'REFERENCE-ARM WALK: the P/SRI''s reference phase random-walks %.3g rad per cycle relative to the test arm (the non-common-path term).  Common-path readings (L, I+, S, V, P) do not have this arm and ignore it\n', P.pdi.ref_walk);
+end
+Astart = [];
+if descent
+    assert(numel(P.loop.reach) == 2, 'zwfs_run: loop.reach must name exactly two levels (the descent table''s columns)');
+    assert(strcmp(P.loop.surface, 'base') && P.battery.base_rms > 0, ...
+        'zwfs_run: a descent needs loop.surface ''base'' (the starting surface is the set point''s own field, rescaled)');
+    Astart = A0 * (P.loop.start_rms / sqrt(mean(A0(lit).^2)));   % exactly what dmg_loop opens at
+    dmg_say(rep, 'DESCENT: the DM starts at a surface of %.0f nm rms (the set point''s field, rescaled; %.0f nm WFE) and must reach the hold regime.  The response matrix is measured THERE, on the starting surface -- not on the set point the loop has yet to reach -- and then re-measured on the loop''s CURRENT surface every %s cycles (0 = never).  Reach levels %s nm\n', ...
+        P.loop.start_rms*1e6, 2*P.loop.start_rms*1e6, mat2str(RECL), mat2str(P.loop.reach*1e6));
+end
 % ---- the runs ---------------------------------------------------------------
 res = struct('rd',{}, 'drift',{}, 'nph',{}, 'amp',{}, 'L',{});
-nrun = numel(RD) * (numel(P.loop.steps) + numel(NPH)*(P.loop.floor + numel(DR)));
+nrun = numel(RD) * (numel(P.loop.steps) + numel(NPH)*(P.loop.floor + numel(DR) + descent*numel(RECL)));
 dmg_say(rep, '%d loop runs of %d states each (%d traced states)\n', nrun, K+1, nrun*(K+1));
 irun = 0;
 for j = 1:numel(RD)
     rd = RD{j};  kc = KC(j);
+    nd = [strcmp(rd, 'S'), strcmp(rd, 'V'), strcmp(rd, 'P'), strcmp(rd, 'PF')];
     ins = struct('lit', lit, 'npix', ZW.N_WF, 'cam_unit', P.loop.cam_unit, ...
-        'measure', @(cmd) frames_(ZW, C.dmap(cmd), strcmp(rd, 'S'), strcmp(rd, 'V'), [strcmp(rd, 'P') strcmp(rd, 'PF')]), ...
+        'measure', @(cmd, varargin) meas_loop_(ZW, C, cmd, nd, varargin{:}), ...
         'noisy',   @(F, nph, seed, varargin) noisy_frames_(ZW, F, nph, seed, rd, P.loop.cam_unit, varargin{:}), ...
         'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb), ...
-        'est',     C.est{kc});
+        'est',     C.est{kc}, ...
+        'recal',   @(cmd) recal_loop_(P, S, ZW, cfg, kc, cmd, lit));
     base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref, 'rmax', P.loop.rmax, ...
-                  'cam', struct('walk', 0, 'intra', P.loop.cam_intra));
+                  'cam', struct('walk', 0, 'intra', P.loop.cam_intra), ...
+                  'intra', P.loop.intra, 'ref_walk', ifelse_(strcmp(rd, 'PF'), P.pdi.ref_walk, 0), ...
+                  'reach', P.loop.reach);
+    if P.pdi.ref_seed > 0, base.ref_seed = P.pdi.ref_seed; end
     % noiseless steps: time constant + dynamic range
     for amp = P.loop.steps
         o = base;  o.nph = Inf;  o.drift = struct('kind', 'step', 'amp', amp);
@@ -1303,6 +1541,24 @@ for j = 1:numel(RD)
             L = dmg_loop(ins, o);  irun = irun + 1;
             res(end+1) = struct('rd',rd, 'drift',kinds{kd}, 'nph',nph, 'amp',amp, 'L',L); %#ok<AGROW>
             fprintf('[loop %d/%d] %s %s @ %.0e photons: ss %.2f pm, bias %.2f pm, sig_n %.2f pm%s (%.1f min)\n', irun, nrun, rd, kinds{kd}, nph, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, div_(L), toc(t0)/60);
+        end
+    end
+    % the descent: from the DM's initial figure down to the hold regime
+    if descent
+        % the matrix a bench would have: measured on the 100 nm surface the
+        % DM actually presents, not on the set point it has yet to reach
+        tr = tic;  rcs = recal_loop_(P, S, ZW, cfg, kc, Astart, lit);
+        insd = ins;  insd.est = rcs.est;
+        dmg_say(rep, 'descent %-2s: the starting matrix measured on the %.0f nm surface (%d states, %.1f min)\n', rd, P.loop.start_rms*1e6, rcs.nstates, toc(tr)/60);
+        for rc = RECL
+            for nph = NPH
+                o = base;  o.nph = nph;  o.drift = struct('kind', 'none');
+                o.start_rms = P.loop.start_rms;  o.recal_every = rc;
+                L = dmg_loop(insd, o);  irun = irun + 1;
+                res(end+1) = struct('rd',rd, 'drift','descent', 'nph',nph, 'amp',rc, 'L',L); %#ok<AGROW>
+                fprintf('[loop %d/%d] %s descent (recal %d) @ %.0e photons: r(1) %.1f nm -> r(K) %.2f pm, %d recals%s (%.1f min)\n', ...
+                    irun, nrun, rd, rc, nph, L.rms(1)*1e6, L.rms(L.k_end)*1e9, L.n_recal, div_(L), toc(t0)/60);
+            end
         end
     end
 end
@@ -1375,6 +1631,27 @@ for kd = 1:numel(kinds)
     end
     dmg_say(rep, '\n');
 end
+% ---- the descent table ---------------------------------------------------------
+if descent
+    dmg_say(rep, '\nDESCENT from a %.0f nm rms surface (%.0f nm WFE) to the set point, matrix measured at the start.  r(1) = the residual the loop opens with (pm), k(10 nm) / k(3 pm) = the first cycle at or below those levels (- = never within %d cycles), r(K) = the residual at cycle %d, rho = the fitted per-cycle contraction, recals = on-surface re-calibrations run\n', ...
+        P.loop.start_rms*1e6, 2*P.loop.start_rms*1e6, K, K);
+    dmg_say(rep, '%-4s %9s %6s | %11s %8s %8s %11s %6s %6s\n', 'rd', 'N/cycle', 'recal', 'r(1) nm', 'k(10nm)', 'k(3pm)', 'r(K) pm', 'rho', 'recals');
+    for j = 1:numel(RD)
+        for rc = RECL
+            for nph = NPH
+                i = find(strcmp({res.rd}, RD{j}) & strcmp({res.drift}, 'descent') & [res.nph] == nph & [res.amp] == rc, 1);
+                L = res(i).L;
+                if L.diverged
+                    dmg_say(rep, '%-4s %9.1e %6s | %11.2f %8s %8s %11s %6s %6d\n', RD{j}, nph, ifelse_(rc == 0, 'never', sprintf('%d', rc)), ...
+                        L.rms(1)*1e6, '-', '-', sprintf('DIVERGED@%d', L.k_end), '-', L.n_recal);
+                else
+                    dmg_say(rep, '%-4s %9.1e %6s | %11.2f %8s %8s %11.3f %6.3f %6d\n', RD{j}, nph, ifelse_(rc == 0, 'never', sprintf('%d', rc)), ...
+                        L.rms(1)*1e6, fmt0_(L.k_reach(1)), fmt0_(L.k_reach(2)), L.rms(L.k_end)*1e9, L.rho, L.n_recal);
+                end
+            end
+        end
+    end
+end
 % ---- spectrum of the held residual at the highest photon level ------------------
 dmg_say(rep, '\nspectrum of the held residual at %.0e photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture\n', NPH(end));
 for kd = 1:numel(kinds)
@@ -1388,11 +1665,37 @@ end
 dmg_say(rep, 'loop stage %.1f min (%d traced states)\n', toc(t0)/60, nrun*(K+1));
 macos.set_elt_grid(S.iTO, macos.get_elt_grid_spacing(S.iTO), zeros(P.grid.N_G));
 LO = struct('readings',{RD}, 'drifts',{kinds}, 'nph',NPH, 'steps',P.loop.steps, 'g',g, 'K',K, ...
-    'surface',P.loop.surface, 'hold_spec',spec, 'n_hold',n_hold, 'lit',lit, 'A0',A0, 'res',res);
+    'surface',P.loop.surface, 'hold_spec',spec, 'n_hold',n_hold, 'lit',lit, 'A0',A0, 'res',res, ...
+    'start_rms',P.loop.start_rms, 'recal_list',RECL, 'intra',P.loop.intra, 'ref_walk',P.pdi.ref_walk);
 end
 
 function t = div_(L)
 if L.diverged, t = sprintf(' DIVERGED at cycle %d', L.k_end); else, t = ''; end
+end
+
+function F = meas_loop_(ZW, C, cmd, nd, varargin)
+% one cycle's capture.  dmg_loop hands the within-scan drift in ACTUATOR
+% space; the influence map is linear in the commands, so it converts here
+% and frames_ adds the per-frame fraction of it.
+aux = [];
+if ~isempty(varargin) && ~isempty(varargin{1})
+    aux = varargin{1};
+    if isfield(aux, 'dstep') && ~isempty(aux.dstep) && any(aux.dstep(:) ~= 0)
+        aux.dstep = C.dmap(aux.dstep);
+    else
+        aux.dstep = [];
+    end
+end
+F = frames_(ZW, C.dmap(cmd), nd(1), nd(2), nd(3:4), aux);
+end
+
+function rc = recal_loop_(P, S, ZW, cfg, kc, cmd, lit)
+% re-measure the response matrix ON the surface the loop is holding now --
+% the instrument's own calibration, run in place (Dave 2026-09-13: how a
+% device that cannot be taken to null gets from capture to hold)
+Pr = P;  Pr.battery.calib_surface = 'base';
+Cr = calib_matrix_(Pr, S, ZW, cfg, kc, lit, cmd);
+rc = struct('est', Cr.est{kc}, 'nstates', Cr.matrix.nstates + 2);
 end
 
 function Fn = noisy_frames_(ZW, F, nph, seed, rd, unit, cam)
