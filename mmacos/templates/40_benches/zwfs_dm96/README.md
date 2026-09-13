@@ -454,7 +454,15 @@ budget lines before quoting a number.
   (1.52 / 1.45 / 2.50 pm at 1e13, 0.15 / 0.14 / 0.25 at 1e15; spectra
   identical).**  The PSI immunity, measured on the bench: a camera bias
   that is constant within a scan cannot reach a reading whose step
-  weights sum to zero.  I+ on this base floors at 885 pm
+  weights sum to zero.  *The whole step developing WITHIN each scan
+  (runs/pcam193ri, cam_intra 1):* the zero-sum readings now pay for the
+  frame-to-frame part -- S 5.4 pm, P 5.3 pm, PF 10.7 pm hold error at
+  1e15 (spectra 0.14 / 0.41 / 5.4 pm in the three bands for S and P) --
+  2000x less than the single-frame reading's 10.8 nm and 17x less than
+  the pair's 89 pm, both unchanged.  What a temporal PSI cannot remove is
+  the drift between its own frames; the cure on hardware is the scan
+  rate (the paper's continuous triangle-wave scans).  I+ on this base
+  floors at 885 pm
   regardless (its fold-flipped sites, S11).  *Closed loop
   (runs/ploop193, P and PF on the S11 seeds, the matrix on the working
   surface; 82 min):* both contract at 0.509 per cycle (reading gain 0.98
