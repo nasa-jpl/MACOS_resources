@@ -34,6 +34,16 @@ P.POKE = 50e-6;                    % mm (50 nm calibration commands)
 P.QWP    = 0.25;                   % quarter-wave retardance
 P.THETAS = [0 45 90 135];          % analyzer four-step
 
+% ---- phase-shift form (deck item 3): the four frames are the same in the
+%      model; the forms differ in what they get wrong.  The PZT four-step is
+%      SEQUENTIAL, so it carries a phase-step miscalibration and within-scan
+%      drift; the polarization snapshot takes all four at once (no within-scan
+%      drift) but carries polarization systematics.  step_err is TO's
+%      pdi.step_err pattern: a fractional error applied to the step sizes in
+%      the FRAMES only (the atan2 solve assumes the nominal pi/2 quadrature).
+%      Default 0 => frames at the nominal steps => byte-identical to the record.
+P.pzt.step_err = 0;                % fractional four-step phase-step error (0 | 0.02 | 0.05 ...)
+
 % ---- Stage-A clearance solve (folded layout re-solve for OAP) --------
 P.clear.beam_r  = [];              % [] => s*30 (scaled R_TO_AP)
 P.clear.HW_DM   = 90;   P.clear.HW_REF = 60;  P.clear.HW_CAM = 50;
@@ -118,6 +128,31 @@ P.battery.matrix_states = inf;     % cap on J-build states (inf = all step^2 = e
 P.battery.matrix_window = 'box';   % 'box' (+/-half-step window) | 'voronoi' (nearest-poke cells; item 3a)
 P.battery.matrix_lam_sweep = [1e-3 1e-4 1e-5];  % reg sweep on the dense-random row (bright vs dark; item 3b)
 P.battery.break_ladder = [30 60 120 240 480];   % base working-state rms (nm) for the break ladder
+% ---- deck rows (item 1) + capture range (item 2), the ZWFS convention -------
+%   Stage DECK reproduces the ZWFS currency on the SAME 30 nm working surface
+%   (base_rms, seed_base) with the matrix measured ON it: rows scored by
+%   gain / floor / SNR exactly as zwfs_run's score_, the 47-site grid row
+%   (dmg_lit + every-8th actuator), the capture-range-to-10% print, the
+%   re-measured ladder, and the S5 photons-for-1-pm fit.  Off by default; the
+%   deck runs turn it on ('battery.deck',true) at MODEL 1024.
+P.battery.deck        = false;                   % true => Stage DECK (rows + capture + photons)
+P.battery.dev_single  = 10e-6;                   % single-actuator differential, mm (10 nm at the hold-out site)
+P.battery.dev_rand    = 10e-6;                   % dense-random differential, mm rms (seed seed_dev)
+P.battery.grid_amp    = 1e-6;                    % grid-poke differential, mm (1 nm on the 47 sites)
+P.battery.grid_step   = 8;                       % grid pokes every N actuators (Afig(4:8:end,4:8:end))
+P.battery.seed_dev    = 23;                      % dense-random differential seed
+P.battery.cap_ladder  = [30 40 50 60 80 100 120 160 240 480]*1e-6;  % aging ladder (matrix once on 30 nm)
+P.battery.recap_surf  = [60 90 120 160]*1e-6;    % re-measured surfaces (matrix rebuilt on each; the 1 nm grid row)
+% ---- photons for 1 pm (item 2; the S5 noise-stage form) ---------------------
+%   sigma ~ c/sqrt(N) fit of the single-10-nm-on-the-surface estimate noise,
+%   matrix on the surface; N(1 pm) = c^2.  Run at each of noise_surf.  This is
+%   NOT the loop's sig_n (a single-shot estimate at one photon level) -- the
+%   report states both.
+P.battery.noise       = false;                   % true => append the S5 photon fit to Stage DECK
+P.battery.noise_nph   = [1e11 1e12 1e13 1e14 1e15];  % photons per measurement swept for the fit
+P.battery.noise_nreal = 24;                      % Monte-Carlo realizations per photon level
+P.battery.noise_seed  = 91;                      % noise realization seed
+P.battery.noise_surf  = [30 60 120 160]*1e-6;    % working-surface rms at which N(1 pm) is fit
 % ---- D4 alignment sensitivity (OAP rig): perturb OAP1/OAP2, re-read --------
 P.battery.d4 = false;              % true => Stage D4 (OAP1/OAP2 decenter + tilt sensitivity)
 P.battery.d4_dec_um   = 10;        % decenter perturbation (micron)
@@ -163,6 +198,19 @@ P.loop.ref      = 'noiseless';     % set-point frames: 'noiseless' (calibration-
 P.loop.seed     = 77;              % drift realization (SHARED with the ZWFS)
 P.loop.hold_spec = 3e-9;           % mm: the hold level priced in photons per cycle (3 pm)
 P.loop.rmax     = 1e-3;            % mm: a residual above this declares the run DIVERGED
+% ---- item 3: within-scan drifts of the PZT four-step (sequential form) ------
+%   The polarization snapshot takes the four frames at once and is immune; the
+%   PZT four-step steps them in time and is not.  Two drifts sit within a scan:
+%   the CAMERA 1/f offset (dmg_loop 'cam'; Dube 2024) and -- once TO lands
+%   loop.intra in dmg_loop -- the DM's own walk within the four frames.  A
+%   zero-sum four-step is exactly immune to a within-scan-CONSTANT offset
+%   (cam_intra 0); cam_intra > 0 develops the offset frame-to-frame and breaks
+%   the immunity.  Add 'cam' to P.loop.drifts to price it.  The PZT step error
+%   (P.pzt.step_err) is priced in the loop too when set.
+P.loop.cam_walk  = 0.13;           % CAMERA offset random-walk, per cycle (unit below)
+P.loop.cam_unit  = 'rel';          % 'e' = electrons per pixel per cycle | 'rel' = fraction of the
+                                   %   scan's mean photons per lit pixel per frame (a signal-scaled bias)
+P.loop.cam_intra = 0;              % fraction of each camera step that develops WITHIN a scan (0 = immune)
 
 % ---- dev / smoke -----------------------------------------------------
 P.smoke = false;                   % true => Stage-A2 sampling asserts become warnings

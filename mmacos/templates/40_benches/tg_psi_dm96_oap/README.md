@@ -64,12 +64,42 @@ Outputs land in `runs/<tag>/`: `<tag>_report.txt`, `<tag>.mat`,
 The OAP rig shows L1/L2 folding the beam off-axis; the lens rig is near-collinear. Memory-bound? drop a trimmed `macos_param.txt` in the run
 dir via `P.param_file` (keep `mGridMat ≥` the DM grid, 384 here).
 
+## Parts lists (for the gauge deck; geometry from Stage A, scale s = 96/56)
+
+**Lens rig — shared front end + interferometer:**
+
+| part | size / f / AOI | coating | count | for |
+|---|---|---|---|---|
+| source (filtered HeNe 632.8 nm) | 51 mm beam radius (collimated) | — | 1 | illumination |
+| collimator L1 | f 857 mm, ⌀ 103 mm | AR | 1 | collimate onto the DM |
+| beamsplitter (plate) | AOI 7°, 2.6 mm thick | polarizing 50/50 | 1 | split the arms |
+| compensator plate | matched, 171 mm from BS | AR | 1 | balance the BS glass path |
+| 96×96 DM (test object) | 96 mm, 1 mm pitch, 700 mm leg | protected Al | 1 | surface under test |
+| reference flat + PZT | ⌀ ≥ 103 mm, ~564 mm leg | protected Al | 1 | reference return + PZT four-step |
+| focuser L2 | f 429 mm, ⌀ 103 mm | AR | 1 | image the DM pupil |
+| field lens FL | f 43 mm, ⌀ 21 mm | AR | 1 | pupil-imaging tail |
+| camera | 385 px per pupil | — | 1 | pupil-image detector |
+| snapshot optics: PolIn, arm QWPs, OutQWP, analyzer | quarter-wave; 45/0/45/0/0° | — | 5 | polarization four-step |
+| v2 snapshot: MacNeille cube (replaces plate BS + comp + polarizers) | 12.7 mm, ZnS/cryolite on n_g 1.655, symmetric stack | MacNeille | 1 | diattenuation-free split |
+
+**OAP rig — reflective front end (replaces L1, L2):**
+
+| part | off-axis dist / f / AOI | coating | count | for |
+|---|---|---|---|---|
+| OAP1 (collimator) | f 857 mm, AOI 5°, off-axis 149 mm (+22 mm margin) | bare / protected Al | 1 | collimate + fold source→DM |
+| OAP2 (focuser) | f 429 mm, AOI 9°, off-axis 132 mm (+6 mm margin) | bare / protected Al | 1 | image + fold DM→camera |
+
+The OAPs fold in the BS plane (off-axis dist = f·|sin(180−2·AOI)|); the tail is
+re-tuned for the OAP focuser. BS, DM, reference flat, field lens, camera and the
+polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.md`**.
+
 ## Files
 
 | file | role |
 |---|---|
-| `tg96_params.m` | every knob of record + `bench.optics`, OAP fold AOIs, `calib_mode`, `place.*`, `d4`, `loop.*` |
-| `tg96_run.m`    | Stage A–E + Stage PLACE (D1) + Stage MATRIX (D2) + Stage D4 + Stage LOOP (D7), one path for lens+OAP |
+| `tg96_params.m` | every knob of record + `bench.optics`, OAP fold AOIs, `calib_mode`, `place.*`, `d4`, `loop.*`, `battery.deck`/`noise`, `pzt.step_err`, `loop.cam_*` |
+| `tg96_run.m`    | Stage A–E + Stage PLACE (D1) + Stage MATRIX (D2) + Stage DECK (deck items 1+2: rows/capture/photons) + Stage D4 + Stage LOOP (D7, +PZT step error, +camera drift), one path for lens+OAP |
+| `REPORT_gauge_ifo.md` | the gauge-deck report (the IFO lanes): rows on the 30 nm surface, capture range, the three phase-shift forms, lenses-vs-OAPs, parts lists |
 | `tg96_place.m`  | window placement from the ray affine (`dmg_frame`) + directional-parity + robust affine refit |
 | `tg96_apply_parity.m` | detector-mm → field pixel under the resolved field-array parity |
 | `tg96_tail.m`   | re-tune FL_F/FL_Kc/D_MASK_FL/DET_TRIM per optics (unaligned null) |
