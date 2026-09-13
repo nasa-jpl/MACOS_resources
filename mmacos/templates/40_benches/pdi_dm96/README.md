@@ -80,6 +80,12 @@ reading and no common-path P on it.
 
 ## Findings
 
+### The gauge-deck record (2026-09-13)
+
+The full tables, with every run tag, are in **`REPORT_gauge_pdi.md`**
+beside this file.  So the two cannot drift apart, the NUMBERS live in
+the report and this section states the FINDINGS.
+
 ### The readings, and the record through 2026-09-12
 
 *(Moved verbatim from `../zwfs_dm96/README.md`.)*
