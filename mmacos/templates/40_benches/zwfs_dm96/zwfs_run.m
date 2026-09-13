@@ -1536,7 +1536,7 @@ end
 if P.pdi.ref_walk > 0
     dmg_say(rep, 'REFERENCE-ARM WALK: the P/SRI''s reference phase random-walks %.3g rad per cycle relative to the test arm (the non-common-path term).  Common-path readings (L, I+, S, V, P) do not have this arm and ignore it\n', P.pdi.ref_walk);
 end
-Astart = {};  Cst = {};
+Astart = {};
 if descent
     assert(numel(P.loop.reach) == 2, 'zwfs_run: loop.reach must name exactly two levels (the descent table''s columns)');
     assert(strcmp(P.loop.surface, 'base') && P.battery.base_rms > 0, ...
@@ -1545,15 +1545,13 @@ if descent
         mat2str(SR*1e6), mat2str(2*SR*1e6), mat2str(RECL), mat2str(P.loop.reach*1e6));
     % ONE start matrix per starting surface, covering every class at once --
     % the calibration a bench would make in place, and 1/numel(RD) of the
-    % cost of building it per reading
+    % cost of building it per reading.  Built ONE AT A TIME in the descent
+    % block below and dropped after use: each carries a Cholesky factor and
+    % a sparse J PER CLASS (~750 MB for five readings at NGRID 193), so
+    % holding the whole ladder's worth at once costs GB and took the box
+    % out with an OOM kill on 2026-09-13.
     a0r = sqrt(mean(A0(lit).^2));
-    for q = 1:numel(SR)
-        ts = tic;  Astart{q} = A0 * (SR(q)/a0r); %#ok<AGROW>
-        Pq = Pl;  Pq.battery.calib_surface = 'base';
-        Cst{q} = calib_matrix_(Pq, S, ZW, cfg, classes, lit, Astart{q}); %#ok<AGROW>
-        dmg_say(rep, 'descent: the starting matrix on the %.0f nm surface -- %d states, %.1f min\n', ...
-            SR(q)*1e6, Cst{q}.matrix.nstates, toc(ts)/60);
-    end
+    for q = 1:numel(SR), Astart{q} = A0 * (SR(q)/a0r); end %#ok<AGROW>
     % what the OPENING differential looks like to each reading: the wrapped
     % phase difference between the starting surface and the set point, and
     % how much of it the unwrapper can make consistent
@@ -1583,20 +1581,8 @@ dmg_say(rep, '%d loop runs of %d states each (%d traced states)\n', nrun, K+1, n
 irun = 0;
 for j = 1:numel(RD)
     rd = RD{j};  kc = KC(j);
-    nd = [strcmp(rd, 'S'), strcmp(rd, 'V'), strcmp(rd, 'P'), strcmp(rd, 'PF')];
-    ins = struct('lit', lit, 'npix', ZW.N_WF, 'cam_unit', P.loop.cam_unit, ...
-        'measure', @(cmd, varargin) meas_loop_(ZW, C, cmd, nd, varargin{:}), ...
-        'noisy',   @(F, nph, seed, varargin) noisy_frames_(ZW, F, nph, seed, rd, P.loop.cam_unit, varargin{:}), ...
-        'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb, C.uw), ...
-        'est',     C.est{kc}, ...
-        'recal',   @(cmd) recal_loop_(Pl, S, ZW, cfg, kc, cmd, lit));   % Pl, not P:
-                                            % a mid-run re-calibration must use the SAME unwrap
-                                            % setting as the measurements it will be applied to
-    base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref, 'rmax', P.loop.rmax, ...
-                  'cam', struct('walk', 0, 'intra', P.loop.cam_intra), ...
-                  'intra', P.loop.intra, 'ref_walk', ifelse_(strcmp(rd, 'PF'), P.pdi.ref_walk, 0), ...
-                  'reach', P.loop.reach);
-    if P.pdi.ref_seed > 0, base.ref_seed = P.pdi.ref_seed; end
+    ins = mk_ins_(P, Pl, S, ZW, C, cfg, lit, plusb, rd, kc);
+    base = mk_base_(P, A0, g, K, rd);
     % noiseless steps: time constant + dynamic range
     for amp = P.loop.steps
         o = base;  o.nph = Inf;  o.drift = struct('kind', 'step', 'amp', amp);
@@ -1620,10 +1606,26 @@ for j = 1:numel(RD)
             fprintf('[loop %d/%d] %s %s @ %.0e photons: ss %.2f pm, bias %.2f pm, sig_n %.2f pm%s (%.1f min)\n', irun, nrun, rd, kinds{kd}, nph, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, div_(L), toc(t0)/60);
         end
     end
-    % the descent ladder: from the DM's initial figure down to the hold regime
-    if descent
-        for q = 1:numel(SR)
-            insd = ins;  insd.est = Cst{q}.est{kc};     % the matrix measured on THAT start
+end
+% ---- the descent ladder: from the DM's initial figure down to the hold
+% regime.  The START loop is OUTSIDE the reading loop on purpose: the
+% matrix measured on a starting surface covers every class at once, so it
+% is built once per start and every reading uses it -- and then it is
+% DROPPED before the next start is built, which is what keeps the ladder
+% inside the box's memory.
+if descent
+    for q = 1:numel(SR)
+        ts = tic;
+        Pq = Pl;  Pq.battery.calib_surface = 'base';
+        Cq = calib_matrix_(Pq, S, ZW, cfg, classes, lit, Astart{q});
+        Cq.JtJ = {};  Cq.F0 = [];  Cq.Fflat = [];  Cq.Fa = [];   % keep only what est needs
+        dmg_say(rep, 'descent: the starting matrix on the %.0f nm surface -- %d states, %.1f min\n', ...
+            SR(q)*1e6, Cq.matrix.nstates, toc(ts)/60);
+        for j = 1:numel(RD)
+            rd = RD{j};  kc = KC(j);
+            insd = mk_ins_(P, Pl, S, ZW, C, cfg, lit, plusb, rd, kc);
+            insd.est = Cq.est{kc};                     % the matrix measured on THAT start
+            base = mk_base_(P, A0, g, K, rd);
             for rc = RECL
                 for nph = NPH
                     o = base;  o.nph = nph;  o.drift = struct('kind', 'none');
@@ -1635,6 +1637,7 @@ for j = 1:numel(RD)
                 end
             end
         end
+        clear Cq insd                                  % before the next start is built
     end
 end
 % ---- tables -------------------------------------------------------------------
@@ -1783,6 +1786,30 @@ if ~isempty(varargin) && ~isempty(varargin{1})
     end
 end
 F = frames_(ZW, C.dmap(cmd), nd(1), nd(2), nd(3:4), aux);
+end
+
+function ins = mk_ins_(P, Pl, S, ZW, C, cfg, lit, plusb, rd, kc)
+% the instrument one reading presents to dmg_loop.  Its estimator is the
+% SET POINT's by default; the descent replaces it with the matrix measured
+% on the starting surface.  Pl, not P, for the re-calibration: a mid-run
+% re-calibration must use the SAME unwrap setting as the measurements it
+% will be applied to.
+nd = [strcmp(rd, 'S'), strcmp(rd, 'V'), strcmp(rd, 'P'), strcmp(rd, 'PF')];
+ins = struct('lit', lit, 'npix', ZW.N_WF, 'cam_unit', P.loop.cam_unit, ...
+    'measure', @(cmd, varargin) meas_loop_(ZW, C, cmd, nd, varargin{:}), ...
+    'noisy',   @(F, nph, seed, varargin) noisy_frames_(ZW, F, nph, seed, rd, P.loop.cam_unit, varargin{:}), ...
+    'diff',    @(F1, F0) diff_(ZW, rd, F1, F0, plusb, C.uw), ...
+    'est',     C.est{kc}, ...
+    'recal',   @(cmd) recal_loop_(Pl, S, ZW, cfg, kc, cmd, lit));
+end
+
+function base = mk_base_(P, A0, g, K, rd)
+% the loop options every run of one reading shares
+base = struct('A0', A0, 'g', g, 'K', K, 'seed', P.loop.seed, 'ref', P.loop.ref, 'rmax', P.loop.rmax, ...
+              'cam', struct('walk', 0, 'intra', P.loop.cam_intra), ...
+              'intra', P.loop.intra, 'ref_walk', ifelse_(strcmp(rd, 'PF'), P.pdi.ref_walk, 0), ...
+              'reach', P.loop.reach);
+if P.pdi.ref_seed > 0, base.ref_seed = P.pdi.ref_seed; end
 end
 
 function rc = recal_loop_(P, S, ZW, cfg, kc, cmd, lit)
