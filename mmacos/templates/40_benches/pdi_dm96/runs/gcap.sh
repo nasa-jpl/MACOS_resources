@@ -21,6 +21,12 @@
 #    descent that has not reached 3 pm by cycle 40 (0.5^40 = 9e-13 of the
 #    start) is not going to; the steady-state tail is still 20 cycles.
 cd "$(dirname "$0")/.."
+# 20G, not the 14G default: the ladder holds the set point's calibration and
+# ONE starting surface's at a time (each a Cholesky factor and a sparse J per
+# reading), on top of the engine's ~10 GB at model 1024.  The first attempt
+# held all six starts' calibrations at once and was OOM-killed at 14:07 on
+# 2026-09-13; zwfs_run now builds them one at a time, and this is headroom.
+export ZWFS_MEMMAX=20G
 RD="'readings',{'L','S','V','P','PF'}, 'loop.readings',{'L','S','V','P','PF'}, 'dm_use',1"
 LAD="'loop.start_rms',[30 60 100 150 200 300]*1e-6, 'loop.nph',[1e13 1e15], 'loop.drifts',{}, 'loop.floor',false, 'loop.steps',[], 'loop.K',40, 'loop.recal_list',[0]"
 
