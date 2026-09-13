@@ -44,7 +44,28 @@ and since S7 the ITERATED-REFERENCE EXACT reading I (per-pixel exact
 solve, Ruane 2020 / N'Diaye 2013, with the reference wave re-propagated
 from the estimate through the FFT surrogate of the mask model; 1
 frame; 'I+' adds a one-time stepped retrieval of the working state as
-a branch prior).
+a branch prior).  Note the spot: stage 1 used spot 9 (1.06 λ/D); the
+record since S5 is the 2.0 λ/D spot (`mask.DIA_LAMD`), 5.3 µm here,
+7.9 px across at 193 rays / 1024 and 15.8 px at 385 / 2048; the runner's
+`<tag>_mask.png` draws the focal spot and the mask at the run's own
+sampling, with the light the dimple encloses printed in the bench stage.
+
+**The vector sensor's layout (`zwfs_vlayout.m`, 2026-09-12):** the same
+arm with the geometric-phase metasurface in the etched plate's seat;
+behind the field lens a quarter-wave plate (fast axis 45° between the
+cube's s and p) and a 12.7 mm cemented MacNeille cube
+(`macos.design.Bench.pbs_cube` + `pbs_macneille`) put the +φ image on
+camera A (transmitted port) and the −φ image on camera B (reflected),
+both 20.7 mm behind the cube at the pupil image (the cube's glass
+lengthens the 32.4 mm image distance by 5.0 mm; both ports get it).
+The engine does not split rays, so the channels are two decks,
+`zwfs_v_camA.in` / `zwfs_v_camB.in`, and the figure `zwfs_vlayout.png`
+is both traced with `macos.view_rx` (deck_zwfs slide 16).  Two cameras
+rather than one with a Wollaston: the 9.4 mm pupil image sits 32 mm
+behind the field lens, so side-by-side images would need a 17° split, a
+calcite prism's limit; the cube's ports are identical legs by
+construction, and its coated diagonal is the channel-leakage term to
+price next (it is a real coating in the decks).
 
 ## Run it yourself (`zwfs_run`)
 
