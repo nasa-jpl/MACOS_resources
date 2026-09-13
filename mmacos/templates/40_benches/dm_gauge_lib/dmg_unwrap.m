@@ -67,6 +67,10 @@ phi = zeros(M0, N0);
 info = struct('nres', 0, 'res', [], 'maxgrad', 0, 'iters', 0, 'relres', 0, ...
               'box', [1 M0 1 N0], 'wrapped', false);
 if ~any(mask(:)), return; end
+assert(all(isfinite(psi(mask))), 'dmg_unwrap: non-finite phase inside the mask');
+% A mask in several disconnected pieces is unwrapped piece by piece with
+% an arbitrary constant EACH -- the pupil masks here are simply connected,
+% and the estimator is mean-referenced, but do not assume otherwise.
 
 % ---- crop to the mask's bounding box (one pixel of margin) --------------
 [rr, cc] = find(mask);
