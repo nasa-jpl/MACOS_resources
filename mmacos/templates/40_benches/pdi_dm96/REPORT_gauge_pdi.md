@@ -9,23 +9,27 @@ the brief are flagged **[departure]**.
 Sheet and runner: `pdi_params` / `pdi_run` (the code is shared —
 `zwfs_run` + `../dm_gauge_lib`, nothing copied).  Headless:
 `./pdi_batch.sh TAG "pdi_params, <args>"`.  The full chain that produced
-this report is `runs/gmaster.sh` (`gsmoke` → `gseq1` → `gseq4` →
-`gseq2` → `gseq3`; the session's continuation after `gseq1` is
-`runs/gmaster2.sh`).  Order is cheapest-complete-deliverable-first
-after `gseq1`, so that what lands is whole.
+this report is, IN THE ORDER IT ACTUALLY RAN: `runs/gsmoke.sh` →
+`gseq1.sh` (deliverables 1 and 2) → `gcap.sh` (9) → `gseq3.sh` (4b and
+the rest of 9) → `gseq4.sh` (5) → `gseq2.sh` (3).  The drivers that
+sequenced it were `gmaster.sh` and then `gmaster3.sh` / `gmaster4.sh`,
+re-launched twice as the brief's priorities changed and once after an
+OOM; `gmaster2.sh` is superseded.  Order was
+cheapest-complete-deliverable-first, so that what landed was whole.
 
-**Status of the brief's seven items** — stated here so the reader knows
-what is measured and what is running:
+**Status of the brief's nine items** (seven from
+`BRIEF_to_gauge_deck.md`, two added by `BRIEF_to_capture.md`) — stated
+here so the reader knows what is measured and what is still running:
 
 | item | state |
 |---|---|
 | 1. PF through the two decks | **done** — rows, photons and the loop rows, plus the frozen-reference control (`pfdeck`, `pfdeck_frz`, `pfdeck_loop`) |
 | 2. capture range and photons, P and PF | **done** — sections 2a, 2b, 2c (`cap385p`, `cap385p_b*`, `noise193p_b*`) |
-| 3. the pinhole diameter of record | `pin20_*`, `pin10_*` |
-| 4. the four shared loop knobs + gates | **built and gated** (tDmgLoop G9–G12, 14/14); the DESCENT and WITHIN-SCAN runs are `descent193*`, `intra193*` |
+| 3. the pinhole diameter of record | **the only item still running** — `pin20_1024` and `pin20_loop` are in; the model-2048 legs `pin10_2048` / `pin10_loop` are the remaining compute.  Section 3 |
+| 4. the four shared loop knobs + gates | **done** — built, gated (tDmgLoop G9–G13, 15/15) and run: the descent in section 9, the within-scan drift in **4b** (`intra193_0`, `intra193`) |
 | 5. the reference arm's own drift | **done** — section 5 (`rw193_1e3/1e2/1e1`) |
 | 6. layouts and parts | **done** (`pdi_layout.png`, `psri_layout.png`, `psri_render.png`, `pdi_vfig_util`; parts tables in the README) |
-| 7. conclusions; README | **done** for what sections 1, 4 and 8 settle; the conclusions section below, README beside it |
+| 7. conclusions; README | **done** — the conclusions section below (which Dave ruled CCL lifts into the deck), README beside it |
 | 8. unwrap the differential (`BRIEF_to_capture.md`) | **done and gated** — `dm_gauge_lib/dmg_unwrap.m`, tDmgLoop G13, 15/15; section 8 |
 | 9. the start-rms ladder, both ways | **done** — sections 9a–9d (`cap_nouw`, `cap_uw`, `cap_*_recal`, `cap_state_*`, `descent193`, `descent193s/f`) |
 
