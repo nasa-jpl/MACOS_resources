@@ -27,7 +27,7 @@ what is measured and what is running:
 | 6. layouts and parts | **done** (`pdi_layout.png`, `psri_layout.png`, `psri_render.png`, `pdi_vfig_util`; parts tables in the README) |
 | 7. conclusions; README | **done** for what sections 1, 4 and 8 settle; the conclusions section below, README beside it |
 | 8. unwrap the differential (`BRIEF_to_capture.md`) | **done and gated** — `dm_gauge_lib/dmg_unwrap.m`, tDmgLoop G13, 15/15; section 8 |
-| 9. the start-rms ladder, both ways | `cap_nouw`, `cap_uw`, `cap_*_recal`, `cap_state_*`; section 9 |
+| 9. the start-rms ladder, both ways | **done** — sections 9a-9c (`cap_nouw`, `cap_uw`, `cap_*_recal`, `cap_state_*`, `descent193`); `cap_state_uw_recal` queued |
 
 ---
 
@@ -52,6 +52,8 @@ the shared front end.
 | capture range to 10% with the calibration left to age | **1.02 / 1.06 / 1.13 at 120 / 240 / 480 nm** — the P/SRI's range, in the common path, for the one extra frame | `pdi193state` |
 | a 2% phase-step error | **4.9 pm** on a 12 nm figure, and the differential rows are the error-free ones to the digit (four-step least squares gives 421 pm) | `pdi193se_sh5` |
 | camera bias drifting within the servo | exactly immune while it is constant across a scan; pays only for what develops BETWEEN its frames (5.3 pm at 1e15 with the whole step inside the scan) | `pcam193r`, `pcam193ri` |
+
+| capture — the largest initial surface it can bring to 3 pm | **60 nm** on the reading alone; **100 nm (200 nm WFE) with unwrapping AND on-surface re-calibration**, which is where P-with-a-shutter tracks the P/SRI to four digits | `cap_state_uw`, `cap_uw_recal` |
 
 **Why not the P/SRI (`PF`), which the paper builds.**  Its reference does
 not depend on the working surface at all, and that is real: traced
@@ -572,6 +574,86 @@ is what the record ladder measures.
 
 ---
 
+### 9a. The result, and it reverses the premise for four of the five readings
+
+**`BRIEF_to_capture.md` accepted that "capture is a wrap problem, not a
+gain problem ... S and P diverge, PF barely moves".  At record
+resolution that is true of PF and FALSE of S, V and P.**
+
+The opening-differential diagnostic (`cap_nouw`, 193 rays, 96×96, the
+matrix measured at each start) says so directly.  Truth is the
+differential the reading is being asked for:
+
+| start | truth | S | V | P | PF |
+|---|---|---|---|---|---|
+| 60 nm | 30 nm | 16.4 nm, **8 res**, grad 3.14 | 25.6, 0 res, 1.97 | 23.3, 0 res, 1.77 | 27.0, 0 res, 2.08 |
+| 100 | 70 | 22.3, **0 res**, 1.83 | 26.5, 0 res, 2.10 | 26.3, 0 res, 2.09 | 59.8, **70 res**, 3.14 |
+| 150 | 120 | 24.1, **0 res**, 1.58 | 28.5, 0 res, 1.79 | 28.4, 0 res, 1.78 | 75.4, **928 res**, 3.14 |
+| 200 | 170 | 24.2, **0 res**, 1.62 | 28.7, 0 res, 1.88 | 28.5, 0 res, 1.88 | 77.2, **2580 res**, 3.14 |
+| 300 | 270 | 24.0, **0 res**, 1.48 | 28.4, 0 res, 1.66 | 28.3, 0 res, 1.65 | 77.8, **4928 res**, 3.14 |
+
+*(rms of the wrapped map, 2π residues inside the mask, largest wrapped
+gradient in rad per pixel.)*
+
+**S, V and P are not folded — they are blind.**  Past ~60 nm they return
+~24–28 nm whatever the truth is (70, 120, 170, 270), with **zero**
+residues and a peak gradient well under π.  There is nothing to unwrap.
+Their focal-plane references have collapsed: the core that makes the
+reference is gone at that surface.  **Only PF wraps**, because it is the
+only reading whose reference survives a large surface, so it is the only
+one still returning a large map — and that map genuinely folds, 70 →
+4928 residues with the gradient pinned at π.
+
+**And the ladder confirms it: unwrapping alone moves nothing.**
+`cap_uw` against `cap_nouw`, largest start that reaches 3 pm in 40
+cycles, at 1e13 and 1e15 photons per cycle alike:
+
+| reading | L | S | V | P | PF |
+|---|---|---|---|---|---|
+| unwrap **off** | 30 nm | 30 nm | 60 nm | 60 nm | 60 nm |
+| unwrap **on** | 30 nm | 30 nm | 60 nm | 60 nm | 60 nm |
+
+The S, V and P rows are bit-identical between the two arms, as they must
+be for a map with no residues.  For PF the unwrapper does real work
+short of convergence — from a 100 nm start the final residual goes
+64 095 → 5 383 pm and the loop starts CONTRACTING (ρ 0.615, reaching
+10 nm at cycle 6) where it had diverged — but 3 pm stays out of reach.
+
+### 9b. What DOES raise it: unwrapping AND re-calibration, together
+
+| PF from a 100 nm start (200 nm WFE), 1e15 photons per cycle | final residual | k(10 nm) | k(3 pm) |
+|---|---|---|---|
+| neither (`cap_nouw`) | 64 095 pm | — | — |
+| unwrap only (`cap_uw`) | 5 383 pm | 6 | — |
+| re-calibrate only (`cap_nouw_recal`) | 63 520 pm | — | — |
+| **both** (`cap_uw_recal`, `descent193`) | **0.245 pm** | **6** | **26** |
+
+**Neither alone does anything; together they take PF's capture from 60
+nm of surface to 100 nm — 200 nm WFE, the top of the DM's stated initial
+figure.**  The mechanism is legible: the unwrapper makes the FIRST
+estimate good enough to move the surface at all, and the re-calibration
+then keeps the matrix valid as the surface changes underneath it.  It
+works at **1e13 as well as 1e15** photons per cycle (3 pm at cycle 28
+against 26), so capture at 100 nm is reference-limited, not light-limited.
+
+**The brief's own descent question, answered** (`descent193`, all five
+readings from 100 nm, K 60, recal 0 and 10, both photon levels): **only
+PF captures, and only with re-calibration.**  L, S, V and P diverge
+without it and stall at 170 000–450 000 pm with it.
+
+### 9c. The recommended configuration captures too — P with a shutter frame IS PF here
+
+`cap_state_uw` / `cap_state_nouw` run P with `pdi.b2 'state'`, the
+configuration section 0 recommends.  It tracks PF to four digits at
+every rung: 5 383.2 pm against PF's 5 383.4 at a 100 nm start with
+unwrapping, 64 092 against 64 095 without, ρ 0.615 both.  So the
+common-path form inherits the capture behaviour along with the range.
+*Its capture WITH re-calibration is being measured (`cap_state_uw_recal`)
+rather than inferred from the twin, because the recommendation rests on
+it.*
+
+---
+
 ## Conclusions for `deck_pdi` (the brief's item 7)
 
 What the point-diffraction lane has settled, in the form the deck can
@@ -671,9 +753,23 @@ every section above.)
    `pin10_*`).  It cannot unseat the stepped pinhole; it decides whether
    the deck quotes 2.0 λ/D at model 1024 or 1.0 at 2048.*
 
-9. *Pending: capturing the initial figure (sections 8 and 9).  The
-   unwrapper is built and gated; the ladder that says how large a figure
-   each reading can actually capture, with it off and on, is running.*
+9. **Capturing the initial figure: only the surface-independent
+   reference captures, and only with BOTH unwrapping and
+   re-calibration.**  The largest initial surface a loop closed through
+   each reading can bring to 3 pm: L 30, S 30, V 60, P 60, PF 60 nm —
+   **and unwrapping alone changes none of them** (`cap_nouw` vs
+   `cap_uw`, bit-identical for S, V and P).  The premise it was built on
+   is right only for PF: past ~60 nm S, V and P return ~24–28 nm
+   whatever the truth is, with ZERO 2π residues — they are BLIND, not
+   folded, their focal references gone.  PF is the only reading still
+   returning a large map, and that map does fold (4 928 residues at a
+   300 nm start).  **Unwrapping AND re-calibrating together take PF from
+   60 nm to 100 nm of surface — 200 nm WFE, the top of the DM's stated
+   initial figure — where neither alone moves it** (0.245 pm against
+   5 383 and 63 520; `cap_uw_recal`, `descent193`).  It works at 1e13 as
+   well as 1e15 photons per cycle, so capture there is reference-limited,
+   not light-limited.  P with a shutter frame tracks PF to four digits
+   (`cap_state_uw`), so the recommended configuration inherits this.
 
 **The recommendation the lane supports**, for the deck's main body:
 **the point-diffraction approach's best configuration is the stepped
