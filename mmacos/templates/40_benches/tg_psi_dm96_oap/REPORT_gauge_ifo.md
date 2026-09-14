@@ -6,21 +6,36 @@ Numbers first; departures flagged; every figure and run tag listed. Companion:
 `REPORT_oap.md` (the reflective build-out — D1–D7, item B — cited here, not
 repeated). No engine work; `'lens'` byte-identical (tBench 9/9).
 
-## The best configuration, named
+## The interferometer's role in the deck: CAPTURE
 
-**The interferometer's best configuration for the bench is the lens rig read by
-the polarization snapshot four-step, calibrated by a PZT four-step.** That is the
-hybrid: the polarization snapshot takes the four frames at once — no within-scan
-camera or DM drift, no phase-step miscalibration in the change measurement — while
-a PZT four-step supplies the absolute step calibration the snapshot's fixed
-azimuths do not. The snapshot removes the sequential form's two error classes; the
-PZT removes the snapshot's one. The lens rig (not the OAP) because the reflective
-front end's same-plane fold leaves a residual cross-talk (~0.18 vs the lens <0.06)
-that the open-loop rows tolerate but the closed loop turns into a hard hold-mode
-wall (below, and `REPORT_oap.md` D7).
+**The interferometer's edge is CAPTURE, not hold.** Its external reference (the
+reference arm) makes it the one gauge here that takes the DM's initial figure —
+100–600 nm WFE — all the way to picometers: unwrap the four-step differential and
+close the loop, and every start 60–300 nm surface converges to the ~2 pm hold
+floor in tens of cycles, no recalibration (§5). The focal-plane sensors cannot —
+their reading is wrap-limited and their capture dies by ~160 nm of surface.
 
-The route there — the three phase-shift forms priced, the OAP front end measured,
-the rows and capture range on the working surface — is the backup material below.
+**In HOLD the sensors beat it.** On the same 30 nm working surface the stepped (S)
+and vector (V) Zernike readings hold 3 pm at **1.5–2.6e12 photons per measurement**
+against the interferometer's **5.5e12**, and with **no fixed noiseless-step error**
+against the four-step's **~9 %** (its geometric roll-off surfacing in closed loop,
+§4 / `REPORT_oap.md` D7). The interferometer is the more expensive, lower-precision
+holder.
+
+**So the deck's line is the HYBRID BENCH: capture with the interferometer, hold
+with the sensor.** The interferometer acquires the figure the wrap-limited sensors
+can't, hands off inside the sensor's capture range, and the sensor holds it at a
+third of the light. (This is a different hybrid from the interferometer's own best
+phase-shift form — the polarization snapshot calibrated by a PZT four-step — which
+is the best *internal* IFO configuration and is priced in §3 as backup.)
+
+**Lens, not OAP.** The reflective front end's same-plane fold leaves a residual
+cross-talk (~0.18 vs the lens <0.06) that the open-loop rows tolerate but that
+walls both the hold (§4) and the capture (§5): the OAP interferometer is an
+open-loop / differential instrument, not a servo one.
+
+The route — the rows and capture range on the working surface, the three
+phase-shift forms priced, the OAP front end measured, the descent — is below.
 
 ## 1. Rows on the 30 nm working surface (matrix measured ON it)
 
@@ -279,21 +294,25 @@ the `twyman_green` OAP-tail fix, §4.)
 
 ## 6. Layouts and parts lists
 
-Layout figures redone in the `zwfs_dm96/zwfs_vlayout.m` recipe (`macos.view_rx`
-with `labels` off, passive Reference planes hidden, the fold plane seen from above
-`view(0,90)` axis-equal, both arms overlaid — test blue, reference + PZT flat
-orange — elements named by `text` with leader lines off the beam at 15–17 pt in an
-1800-px figure, and the crowded node as a second panel cropped to it):
-- **`lens_vlayout.png`** — the lens rig: top, the whole train (collimator L1, 96×96
-  DM, beamsplitter, focuser L2, field lens, camera) with the reference arm + PZT
-  flat; bottom, the BS / compensator / polarization-tail node (input polarizer,
-  compensator, output QWP, beamsplitter, recombination, analyzer).
+Layout figures in the `zwfs_dm96/zwfs_vlayout.m` recipe (`macos.view_rx`,
+`labels` off, passive Reference planes hidden, fold plane from above `view(0,90)`
+axis-equal, both arms overlaid — test blue, reference + PZT orange — named by
+`text` leaders at 22 pt, `'bundle','rim'` so the crossing beams don't merge into a
+false focus, `'bodies','outline'` plus a mirror bar at each reflector's pole since
+view_rx draws an off-axis parabola's body on its parent vertex). **Three panels:**
+the whole train, the BS/compensator/polarization node, and the tail (focuser →
+mask seat → field lens → camera) — the last on its own panel because the OAP tail
+folds back over the front end (CCL QA 2026-09-14):
+- **`lens_vlayout.png`** — the lens rig (collimator L1, DM, beamsplitter, focuser
+  L2, mask seat, field lens, camera; reference flat + PZT).
 - **`oap_vlayout.png`** — the reflective rig: OAP1 (collimator) and OAP2 (focuser)
-  fold the beam in the BS plane (now seen from above, not edge-on); same node panel.
+  fold the beam in the BS plane, seen from above.
 
 Regenerate: `tg96_run('stages',{'bench','figs'})` (writes `<tag>_vlayout.png` in
 `runs/<tag>/`; the drawing is geometry, so MODEL 512 suffices). CCL QAs at slide
-size; the OAP2 label sits close to the title — a candidate tweak.
+size. (On the OAP tail panel the fold brings OAP1 into view unlabeled and the
+camera/mask-seat labels sit close — inherent to the reflective fold; the lens
+tail is clean.)
 
 ### Parts list — lens rig (shared front end + interferometer)
 
