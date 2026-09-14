@@ -738,6 +738,13 @@ What the point-diffraction lane has settled, in the form the deck can
 carry.  Each line names its record.  (Placed last because it draws on
 every section above.)
 
+**This section IS the deck text for CCL to lift** — `deck_pdi.md` and
+`deck_pdi.pptx` are deliberately left untouched: they are the lane's
+DRAFT record awaiting Dave's sign-off, the .pptx is built from the .md,
+and editing one without re-syncing the other splits them.  The gauge
+deck (`deck_gauges`) is CCL's to assemble, and these numbered
+conclusions plus section 0's configuration table are what it needs.
+
 1. **At the operating point the three exact readings are one reading.**
    On the 30 nm working surface with the matrix measured there, a 10 nm
    change on one actuator reads 0.9935 / 4 pm for V, P and PF alike,
