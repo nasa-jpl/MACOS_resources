@@ -114,8 +114,15 @@ wrong. Priced with existing machinery on the lens rig.
   (`loop_lens_cam`) costs little**: 3 pm held at 6.1e12 photons vs 5.4e12
   noise-only (~13% more light), the held spectrum [<4, 4-12, >12 cyc/ap] = [0.02,
   0.07, 0.93] pm; at `cam_intra 0` it is exactly immune. The **DM's own within-scan
-  walk** (`loop.intra`, now landed on origin — TO) is the temporally-stepped
-  analogue and is priced next (a walk drift with `loop.intra 0.25`).
+  walk** (`loop.intra`, TO's knob; `loop_lens_intra`) is likewise minor: a 2 pm/cycle
+  walk with 25% developing across the four-frame scan holds 3 pm at **1.6e13**
+  photons, essentially the `intra 0` record (1.7–2.0e13; ss 3.11 vs 3.21 pm at
+  1e13) — the within-scan component (~0.5 pm across the scan) partially averages in
+  the four-step. **In sum, the four-step is robust to all three sequential-form
+  systematics in hold mode** (step error common-mode, camera and DM within-scan
+  drift small/averaged) — the sequential PZT form pays little; the snapshot's
+  simultaneity buys correspondingly little in the closed loop, which is why the
+  hybrid's value is mainly the absolute calibration, not drift immunity.
 
 ### Polarization snapshot — all four frames at once, so no within-scan drift
 
