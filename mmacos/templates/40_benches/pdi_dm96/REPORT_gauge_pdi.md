@@ -552,7 +552,9 @@ gradient, in rad per pixel, which is the limit itself.
 
 **Gates** (`tests/tDmgLoop.m`, G13; **15 of 15 pass**, and the whole
 mmacos fast suite is **469 pass / 0 fail** with these changes in — the
-push gate the brief named):
+push gate the brief named, re-run on 2026-09-14 against the tree that is
+now on origin, i.e. including the OOM fix to the descent's calibration
+handling):
 
 | gate | result |
 |---|---|
