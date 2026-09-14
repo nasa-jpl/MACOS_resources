@@ -264,8 +264,18 @@ hold floor within 60 cycles, with NO recalibration needed.**
 
 So the route from the DM's initial figure to the hold regime is: unwrap the
 four-step differential, close the loop on a start-surface matrix at gain 0.5, and
-it converges in tens of cycles with no recal. (OAP descent is backup; the
-mask-based gauges' descent is gated on the `twyman_green` OAP-tail fix, §4.)
+it converges in tens of cycles with no recal.
+
+**The OAP does NOT capture (backup, `descent_oap`, bare Al):** from a 60 nm start
+it briefly reaches 10 nm (cycle 3) then stalls at ~5.9 nm and never reaches the pm
+hold; from 150 / 300 nm it never reaches 10 nm (stalls at 24 / 53 nm). The same
+fold cross-talk that walls the OAP hold (D7 — walk floors at 4.1 pm, never 3)
+walls the descent: over the large excursions the cross-talk leakage in the
+measured matrix accumulates and the loop cannot drive down. So the lens captures
+600 nm of WFE to 2 pm; the OAP front end captures neither the hold nor the initial
+figure — the reflective gauge is an open-loop / differential instrument, not a
+servo one (§4). (The mask-based gauges' descent on the OAP is separately gated on
+the `twyman_green` OAP-tail fix, §4.)
 
 ## 6. Layouts and parts lists
 
