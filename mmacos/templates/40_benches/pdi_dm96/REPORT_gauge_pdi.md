@@ -401,6 +401,12 @@ being 6 px.  Only MODEL buys both resolutions at once, which is why the
 
 Runs: `pin20_1024`, `pin20_loop`, `pin10_2048`, `pin10_loop`.
 
+*Run-record note:* `pin10_2048` was killed by a SIGTERM from another
+lane sixteen minutes in on 2026-09-14 (exit 143), so `gseq2` moved on to
+`pin10_loop` and the battery leg was re-queued behind it (`runs/gpin.sh`).
+Its timestamp is therefore LATER than `pin10_loop`'s, which is why, not
+a re-run after a failure of its own.
+
 ---
 
 ## 4. The shared loop knobs — the contract CCMac mirrors
