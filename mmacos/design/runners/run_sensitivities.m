@@ -86,6 +86,14 @@ function art = run_sensitivities(rx_in, opts)
 %                  the focal plane
 %     'group_stop_mode' 'obj' (default) | 'elt' | 'none'
 %     'group_stop_pos'  1x3 object-space stop coords.  Default [0 0 0].
+%     'group_smart_stop' true (default) | false.  When true, a group
+%                  whose members are ALL strictly downstream of the stop
+%                  element skips the per-poke chief-ray re-aim (a rigid
+%                  move there cannot change the aim) -- a large speedup
+%                  for interior/downstream groups with the Jacobian
+%                  unchanged.  The stop element is resolved from the
+%                  ENGINE (get_stop_info); when it is ambiguous the
+%                  re-aim is kept.  false = always re-aim (old behavior).
 %                  SCOPE: groups are RIGID-BODY groups and reach the
 %                  'dwdx' channel ONLY.  dwdz / dwdsurf / dwdgrid are
 %                  figure/surface channel kinds with no group analogue
@@ -186,6 +194,11 @@ arguments
     opts.group_stop_mode (1,:) char {mustBeMember(opts.group_stop_mode, ...
         {'obj','elt','none'})} = 'obj'
     opts.group_stop_pos (1,3) double = [0 0 0]
+    opts.group_smart_stop (1,1) logical = true   % WS1 Fix B: auto-skip the
+                                % per-poke chief-ray re-aim for groups strictly
+                                % downstream of the stop (big speedup for
+                                % interior/downstream groups; numerics
+                                % unchanged).  false = always re-aim (old).
     opts.zmodes_fig (1,:) double = 4:11
     opts.zmodes_grid (1,:) double = 4:9
     opts.zkinds cell = {'monzern'}   % dwdz kinds: subset of
@@ -384,7 +397,8 @@ if any(opts.channels == "dwdx")
          'group_coords', opts.group_coords, ...
          'group_fp_mode', opts.group_fp_mode, ...
          'group_stop_mode', opts.group_stop_mode, ...
-         'group_stop_pos', opts.group_stop_pos};
+         'group_stop_pos', opts.group_stop_pos, ...
+         'group_smart_stop', opts.group_smart_stop};
     ox = run_channel_(@(cf) macos.dw_dx_multi(m, char(rx_in), sup{:}, ...
         'configs', cf, 'dofs', opts.dofs, 'elts', opts.elts, g{:}, a{:}), ...
         'dwdx', CF, RD, say, XK);

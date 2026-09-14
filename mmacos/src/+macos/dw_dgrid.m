@@ -43,6 +43,11 @@ arguments
     rx_path (1,:) char = ''
     opts.influence              = []   % [NxNxK] | per-segment struct | cell
     opts.zmodes         (1,:) double = [4 5 6 7 8 11]
+    opts.zconv          (1,:) char {mustBeMember(opts.zconv, ...
+                            {'ansi','noll','bornwolf'})} = 'ansi'
+                            % Zernike ordering of the DEFAULT basis (used only
+                            % when 'influence' is not supplied): matches
+                            % MonZernType=Norm<conv>.  Recorded in out.zconv.
     opts.elts           (:,1) double = []
     opts.exit_pupil_elt (1,1) double = -1
     opts.delta          (1,1) double = 1e-6
@@ -91,9 +96,11 @@ end
 % Influence basis: caller-supplied, else a default Zernike-on-grid basis at
 % the first eligible element's grid size (all eligible elements must share it).
 infl = opts.influence;
+basis_conv = '';                       % '' = caller-supplied influence
 if isempty(infl)
     nsz  = double(mmacos('elt_srf_grid_size', g(1), 1));
-    infl = macos.zernike_grid_basis(nsz, opts.zmodes);
+    infl = macos.zernike_grid_basis(nsz, opts.zmodes, 1.0, opts.zconv);
+    basis_conv = opts.zconv;
 end
 
 % Pass the element filter through: grid_channels supports 'elts', and
@@ -139,6 +146,12 @@ out.rx_path       = rx_path;
 out.wf_elt        = wf_elt;
 out.delta         = opts.delta;
 out.method        = opts.method;
+out.zconv         = basis_conv;   % Zernike ordering of the default basis
+                                  % ('' when a caller-supplied influence was
+                                  % used); self-documents a saved influence map.
+if ~isempty(basis_conv)
+    out.zmodes    = opts.zmodes;
+end
 
 out = apply_opd_convention(out, opts.orient, opts.sign);
 % Add LOS fields if SPOT was computed

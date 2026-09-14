@@ -55,6 +55,18 @@ classdef GroupedRigidBodyChannel < handle
         stop_mode    (1,:) char   = 'obj'
         stop_obj_pos (1,3) double = [0 0 0]
         stop_elt     (1,1) double = 0
+        smart_stop   (1,1) logical = true    % WS1 Fix B on/off.  true (default):
+                                        % skip enforce_stop when the group is
+                                        % provably downstream of the stop.
+                                        % false: always re-aim on +/- pokes
+                                        % (old behavior) -- an escape hatch and
+                                        % the A/B reference for the gate test.
+        is_group_tail (1,1) logical = false  % LAST (group,DOF) channel of its
+                                        % group in the harvest list: on its
+                                        % restore() it settles the session
+                                        % back to the NOMINAL aim/pupil (the
+                                        % per-poke re-aim is skipped on every
+                                        % restore for speed -- WS1 Fix A).
         session
     end
     properties (Access = private)
@@ -64,6 +76,11 @@ classdef GroupedRigidBodyChannel < handle
         cbm_         (1,1) double = 0   % metres per BaseUnit; captured at
                                         % construction, resolved lazily if
                                         % no Rx was loaded yet (0 = unknown)
+        reaim_       (1,1) double = -1  % WS1 Fix B cache: -1 unknown, 0 = the
+                                        % group is strictly downstream of the
+                                        % stop so its rigid motion cannot change
+                                        % the chief-ray aim (skip enforce_stop),
+                                        % 1 = re-aim required (or ambiguous).
     end
     properties (Constant)
         DOF_LABELS = {'Rx','Ry','Rz','Tx','Ty','Tz'}
@@ -89,6 +106,7 @@ classdef GroupedRigidBodyChannel < handle
                                       {'obj','elt','none'})} = 'obj'
                 opts.stop_obj_pos (1,3) double = [0 0 0]
                 opts.stop_elt     (1,1) double {mustBeInteger} = 0
+                opts.smart_stop   (1,1) logical = true
             end
             if numel(members) < 2
                 error('macos:channels:GroupedRigidBodyChannel:size', ...
@@ -133,6 +151,7 @@ classdef GroupedRigidBodyChannel < handle
             obj.stop_mode    = opts.stop_mode;
             obj.stop_obj_pos = opts.stop_obj_pos;
             obj.stop_elt     = opts.stop_elt;
+            obj.smart_stop   = opts.smart_stop;
             % CBM for the SI-metres -> BaseUnits translation conversion.
             % Captured here (the Rx is loaded by the time the builder
             % runs) but NOT required: a channel constructed before a load
@@ -152,14 +171,50 @@ classdef GroupedRigidBodyChannel < handle
             end
             increment = value - obj.current;
             if increment ~= 0
-                obj.do_perturb(increment);
+                % value == 0 is the central/forward-difference restore step
+                % (return to nominal, no measurement follows).  WS1 Fix A:
+                % skip the stop re-aim + FP follow-up there -- it is pure
+                % waste, and the group's TAIL channel re-establishes the
+                % nominal aim once (see restore()).
+                obj.do_perturb(increment, value == 0);
             end
             obj.current = value;
         end
 
         function restore(obj)
-            obj.apply(0);
+            obj.apply(0);           % moves frames back to nominal (no re-aim)
             obj.restore_group();
+            % WS1 Fix A: once per group (this is its last DOF channel), settle
+            % the session back to the NOMINAL chief-ray aim / exit pupil that
+            % the per-poke restores deliberately skipped, so nothing read after
+            % the group harvest sees a stale (last -delta) aim.
+            if obj.is_group_tail
+                if obj.need_reaim()
+                    obj.enforce_stop();
+                    obj.session.modify();
+                end
+                if ~strcmp(obj.fp_mode, 'none')
+                    obj.fp_follow_up();
+                end
+            end
+        end
+
+        function set_group_tail(obj, tf)
+            % Marked by grouped_rigid_body_channels for the last (group,DOF)
+            % channel of each group.
+            arguments
+                obj
+                tf (1,1) logical
+            end
+            obj.is_group_tail = tf;
+        end
+
+        function tf = reaim_required(obj)
+            % Public query of the WS1 Fix B gate (resolves + caches on first
+            % call): TRUE if this group's rigid motion can change the
+            % chief-ray aim, so enforce_stop is kept.  Exposed for tests and
+            % diagnostics.
+            tf = obj.need_reaim();
         end
 
         function s = name(obj)
@@ -201,7 +256,10 @@ classdef GroupedRigidBodyChannel < handle
             end
         end
 
-        function do_perturb(obj, increment)
+        function do_perturb(obj, increment, is_nominal)
+            if nargin < 3
+                is_nominal = false;
+            end
             obj.install_group();
             % UNITS.  prb_grp's signature is BaseUnits for translations
             % and rad for rotations, so the SI-metre translation
@@ -228,9 +286,24 @@ classdef GroupedRigidBodyChannel < handle
             prb6(obj.dof_idx + 1) = obj.to_base_units(increment);
             ifGlobal = double(strcmp(obj.coords, 'global'));
             obj.session.prb_grp(obj.ref_elt, prb6, ifGlobal);
-            obj.enforce_stop();
+            % WS1 Fix B: enforce_stop re-aims the chief ray (ChiefRayAiming +
+            % full source-grid rebuild) -- the dominant cost.  Only needed when
+            % the group's rigid motion can change which ray hits the stop, i.e.
+            % when a member is at/upstream of the stop element.  WS1 Fix A: and
+            % never on the restore-to-nominal poke.
+            if ~is_nominal && obj.need_reaim()
+                obj.enforce_stop();
+            end
             obj.session.modify();
 
+            % FP follow-up (trace + exit-pupil re-find) also skipped on the
+            % restore poke; the group tail settles the nominal pupil once.
+            if ~is_nominal
+                obj.fp_follow_up();
+            end
+        end
+
+        function fp_follow_up(obj)
             switch obj.fp_mode
                 case 'sxp'
                     obj.session.trace(obj.ref_elt);
@@ -251,6 +324,45 @@ classdef GroupedRigidBodyChannel < handle
                 case 'none'
                     % no-op
             end
+        end
+
+        function tf = need_reaim(obj)
+            % WS1 Fix B.  TRUE unless the group is provably downstream of the
+            % stop (then a rigid group move cannot change the chief-ray aim).
+            % Resolve the stop element FROM THE ENGINE (get_stop_info), never
+            % the deck text; keep the current behavior (re-aim) whenever the
+            % stop element is ambiguous.  Cached: geometry does not change
+            % across the +/-/restore pokes of a column.
+            if obj.reaim_ >= 0
+                tf = obj.reaim_ > 0;
+                return
+            end
+            if ~obj.smart_stop
+                obj.reaim_ = 1;                 % escape hatch: always re-aim
+                tf = true;
+                return
+            end
+            tf = true;                          % conservative default
+            switch obj.stop_mode
+                case 'none'
+                    tf = false;                 % nothing re-aims anyway
+                case 'elt'
+                    stop_e = obj.stop_elt;
+                    if stop_e > 0
+                        tf = ~all(obj.members > stop_e);
+                    end
+                case 'obj'
+                    try
+                        si = obj.session.get_stop_info();
+                        stop_e = si.elt;
+                        if stop_e > 0
+                            tf = ~all(obj.members > stop_e);
+                        end
+                    catch
+                        tf = true;              % ambiguous -> re-aim
+                    end
+            end
+            obj.reaim_ = double(tf);
         end
 
         function v = to_base_units(obj, increment)
