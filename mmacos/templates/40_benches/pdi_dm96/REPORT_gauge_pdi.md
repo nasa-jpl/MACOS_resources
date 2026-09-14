@@ -27,7 +27,7 @@ what is measured and what is running:
 | 6. layouts and parts | **done** (`pdi_layout.png`, `psri_layout.png`, `psri_render.png`, `pdi_vfig_util`; parts tables in the README) |
 | 7. conclusions; README | **done** for what sections 1, 4 and 8 settle; the conclusions section below, README beside it |
 | 8. unwrap the differential (`BRIEF_to_capture.md`) | **done and gated** — `dm_gauge_lib/dmg_unwrap.m`, tDmgLoop G13, 15/15; section 8 |
-| 9. the start-rms ladder, both ways | **done** — sections 9a-9c (`cap_nouw`, `cap_uw`, `cap_*_recal`, `cap_state_*`, `descent193`); `cap_state_uw_recal` queued |
+| 9. the start-rms ladder, both ways | **done** — sections 9a–9d (`cap_nouw`, `cap_uw`, `cap_*_recal`, `cap_state_*`, `descent193`, `descent193s/f`) |
 
 ---
 
@@ -53,7 +53,8 @@ the shared front end.
 | a 2% phase-step error | **4.9 pm** on a 12 nm figure, and the differential rows are the error-free ones to the digit (four-step least squares gives 421 pm) | `pdi193se_sh5` |
 | camera bias drifting within the servo | exactly immune while it is constant across a scan; pays only for what develops BETWEEN its frames (5.3 pm at 1e15 with the whole step inside the scan) | `pcam193r`, `pcam193ri` |
 
-| capture — the largest initial surface it can bring to 3 pm | **60 nm** on the reading alone; **100 nm (200 nm WFE) with unwrapping AND on-surface re-calibration**, which is where P-with-a-shutter tracks the P/SRI to four digits | `cap_state_uw`, `cap_uw_recal` |
+| capture — the largest initial surface it can bring to 3 pm | **60 nm** on the reading alone; **100 nm (200 nm WFE) with unwrapping AND on-surface re-calibration every 10 cycles** — 0.207 pm at 1e15 and 2.066 pm at 1e13, 3 pm at cycle 26 | `cap_state_uw`, `cap_state_uw_recal` |
+| within-scan DM / thermal drift | **helps**, 26–32% less hold error than a still DM, because a scan reads the surface at its midpoint | `intra193` |
 
 **Why not the P/SRI (`PF`), which the paper builds.**  Its reference does
 not depend on the working surface at all, and that is real: traced
@@ -419,6 +420,41 @@ last bit**: the drift increments are now drawn once, ahead of the loop,
 in the same order from the same stream (gate: `tDmgLoop/G4`, plus the
 `intra 0` identity in G11).
 
+### 4b. The within-measurement DM drift (V4) — it HELPS, and the camera case does not
+
+`intra193_0` against `intra193`: the same loop with the DM still during
+a scan, and with the whole cycle's drift developing across it.  Hold
+error (pm rms over lit) at 1e15 photons per cycle:
+
+| drift | | L | S | V | P | PF |
+|---|---|---|---|---|---|---|
+| 2 pm walk | DM still | 2.38 | 2.32 | 2.32 | 2.32 | 2.33 |
+| | drift across the scan | 2.38 | **1.57** | 2.32 | **1.58** | **1.71** |
+| 5 pm thermal ramp | DM still | 27.64 | 10.05 | 9.87 | 9.86 | 9.88 |
+| | drift across the scan | 27.64 | **7.16** | 9.87 | **6.70** | **7.30** |
+
+**The single-frame reading L and the simultaneous pair V are unchanged
+to the last digit**, which is the plumbing gate: they see one instant
+and the knob cannot reach them.  **The stepped readings improve by
+26–32%.**
+
+*Why, and why this is the opposite of the camera result.*  A reading
+whose frames straddle its scan measures the surface at the scan's
+MIDPOINT, which is half a measurement closer to "now" than its start —
+a free half-step of prediction against any smooth drift.  Under the
+ramp, where the lag is rate/(gG) ≈ 10 pm, that is worth a third of it.
+The camera's within-scan drift (`pcam193ri`) costs 5.3–10.7 pm because
+it is ADDITIVE BIAS on the detector, the thing a zero-sum step scheme
+exists to cancel and can only cancel while it is constant across the
+scan.  **DM drift within a scan is SIGNAL read at the right moment;
+camera drift within a scan is bias read at the wrong one.**  Same knob,
+opposite signs, for legible and different reasons.
+
+This is why `tDmgLoop` G11 gates the CONTRACT and refuses to assert a
+sign: on a synthetic instrument under a pure random walk the half-step
+can help as easily as hurt, and which way it goes is the instrument's
+business.  Measured on the engine, it helps.
+
 **What G11 does NOT assert, deliberately.**  A reading whose frames
 straddle its scan reads the MIDDLE of that scan to first order, and
 under a pure random walk that half-step of prediction can help as
@@ -648,9 +684,24 @@ configuration section 0 recommends.  It tracks PF to four digits at
 every rung: 5 383.2 pm against PF's 5 383.4 at a 100 nm start with
 unwrapping, 64 092 against 64 095 without, ρ 0.615 both.  So the
 common-path form inherits the capture behaviour along with the range.
-*Its capture WITH re-calibration is being measured (`cap_state_uw_recal`)
-rather than inferred from the twin, because the recommendation rests on
-it.*
+**Measured, not inferred** (`cap_state_uw_recal`, `descent193s`): P with
+a shutter frame, unwrapping and re-calibration every 10 cycles captures
+a **100 nm** surface at BOTH photon levels — 0.207 pm at 1e15 and
+2.066 pm at 1e13, 3 pm at cycle 26–27, ρ 0.716, 3 re-calibrations.  At
+150 nm it reaches 10 nm at cycle 22 but not 3 pm (9 324 pm), so the
+ceiling sits between 100 and 150 nm of surface.  **The configuration the
+deck recommends captures the DM's stated initial figure and then holds
+it.**
+
+### 9d. The re-calibration CADENCE is not the binding constraint
+
+`descent193f` probes it (P shutter, unwrapping, 1e15, K 20): every 2
+cycles gives 6.5 pm at cycle 20 for **9** re-calibrations, every 5 gives
+11.2 pm for **3**.  Both contract; neither reaches 3 pm, because K 20 is
+short of the ~26 cycles the descent needs at ρ ≈ 0.7.  **Every 10 cycles
+is enough** — a faster cadence buys a little early speed at 3× the
+calibration cost, and what actually sets the time to 3 pm is the cycle
+count, not the cadence.
 
 ---
 
@@ -748,6 +799,12 @@ every section above.)
    (`pcam193r`).  With the whole step developing WITHIN each scan
    (`pcam193ri`) S / P / PF pay 5.4 / 5.3 / 10.7 pm at 1e15 — 2000×
    less than the single-frame reading and 17× less than the pair.
+   **The DM's own drift within a scan is the opposite case and HELPS**
+   (`intra193` vs `intra193_0`): the stepped readings gain 26–32%
+   because a scan measures the surface at its midpoint, half a
+   measurement closer to now, while L and V are unchanged to the digit.
+   Camera drift within a scan is bias read at the wrong moment; DM drift
+   within a scan is signal read at the right one.
 
 8. *Pending: the pinhole diameter of record (section 3, `pin20_*` /
    `pin10_*`).  It cannot unseat the stepped pinhole; it decides whether
