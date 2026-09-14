@@ -44,6 +44,9 @@ arguments
                                   {'obj','elt','none'})} = 'obj'
     opts.stop_obj_pos         (1,3) double = [0 0 0]
     opts.stop_elt             (1,1) double {mustBeInteger} = 0
+    opts.smart_stop           (1,1) logical = true   % WS1 Fix B: auto-skip the
+                                  % chief-ray re-aim for groups downstream of
+                                  % the stop.  false = always re-aim (old).
 end
 
 % Discover FP elements from the Rx text, if a path was given.
@@ -101,7 +104,14 @@ for gi = 1:numel(gnames)
             'coords', opts.coords, ...
             'stop_mode', opts.stop_mode, ...
             'stop_obj_pos', opts.stop_obj_pos, ...
-            'stop_elt', opts.stop_elt); %#ok<AGROW>
+            'stop_elt', opts.stop_elt, ...
+            'smart_stop', opts.smart_stop); %#ok<AGROW>
+    end
+    % WS1 Fix A: the LAST DOF channel of this group settles the nominal aim/
+    % pupil once, after the group's columns are harvested.  (Guard for the
+    % pathological empty-dofs case.)
+    if ~isempty(opts.dofs)
+        chans{end}.set_group_tail(true);
     end
 end
 end

@@ -501,6 +501,128 @@ classdef tDwDxGroups < matlab.unittest.TestCase
             testCase.verifyEqual(numel(a.channel_names), 12);
             testCase.verifyFalse(any(strcmp(a.kind, 'Group')));
         end
+
+        % =============================================================
+        % WS1 -- grouped dw/dx speedup (smart stop gate + tail settle)
+        % =============================================================
+
+        function test_reaim_gate_downstream_vs_upstream(testCase)
+            % WS1 Fix B decision.  The gate resolves the stop element from
+            % the engine (get_stop_info) for stop_mode 'obj', or uses the
+            % declared stop_elt for 'elt', and skips the chief-ray re-aim
+            % only when EVERY member is strictly downstream of it.  Driven
+            % on a COUNTING STUB so the decision is pinned deterministically
+            % regardless of any deck's stop machinery (get_stop_info only
+            % resolves an ELEMENT stop; an object-space-only deck is the
+            % ambiguous case, handled below).
+            s = StubGroupSession(5, 20);   % engine reports the stop at elt 5
+            % obj mode, downstream group -> skip
+            dn = macos.channels.GroupedRigidBodyChannel(s, [9; 10], 0, ...
+                'stop_mode', 'obj');
+            testCase.verifyFalse(dn.reaim_required(), ...
+                'downstream group (obj stop resolved) must skip the re-aim');
+            % obj mode, touches an early element (<= stop) -> keep
+            up = macos.channels.GroupedRigidBodyChannel(s, [1; 2], 0, ...
+                'stop_mode', 'obj');
+            testCase.verifyTrue(up.reaim_required(), ...
+                'group at/upstream of the stop must keep the re-aim');
+            % ambiguous: engine reports NO element stop -> keep (conservative)
+            s0 = StubGroupSession(0, 20);
+            amb = macos.channels.GroupedRigidBodyChannel(s0, [9; 10], 0, ...
+                'stop_mode', 'obj');
+            testCase.verifyTrue(amb.reaim_required(), ...
+                'unresolvable stop must keep the re-aim (keep-when-ambiguous)');
+            % elt mode uses the declared stop_elt (no engine query)
+            el = macos.channels.GroupedRigidBodyChannel(s0, [9; 10], 0, ...
+                'stop_mode', 'elt', 'stop_elt', 5);
+            testCase.verifyFalse(el.reaim_required(), ...
+                'elt mode: downstream of stop_elt must skip');
+            % escape hatch: smart_stop=false forces keep even downstream
+            dnf = macos.channels.GroupedRigidBodyChannel(s, [9; 10], 0, ...
+                'stop_mode', 'obj', 'smart_stop', false);
+            testCase.verifyTrue(dnf.reaim_required(), ...
+                'smart_stop=false must always re-aim (escape hatch)');
+            % stop_mode none -> nothing re-aims anyway
+            nn = macos.channels.GroupedRigidBodyChannel(s, [9; 10], 0, ...
+                'stop_mode', 'none');
+            testCase.verifyFalse(nn.reaim_required());
+        end
+
+        function test_smart_gate_preserves_jacobian(testCase)
+            % WS1 Fix B safety gate.  For a DOWNSTREAM group the smart gate
+            % skips the per-poke re-aim; that skip must leave the Jacobian
+            % unchanged.  A/B: gate ON (default) vs OFF (always re-aim).
+            g = containers.Map('KeyType','char','ValueType','any');
+            g('Lens') = [9; 10];
+            mon = macos.Session(testCase.ModelSize);
+            on = macos.dw_dx(mon, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g);
+            moff = macos.Session(testCase.ModelSize);
+            off = macos.dw_dx(moff, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
+                'group_smart_stop', false);
+            gc = 7:12;    % 1 elt x 6 DOF per-element, then 6 group columns
+            A = on.dwdx(:, gc);  B = off.dwdx(:, gc);
+            scale = max(abs(B), [], 'all');
+            testCase.verifyGreaterThan(scale, 0, ...
+                'non-vacuity: the group columns are zero');
+            testCase.verifyLessThan(max(abs(A - B), [], 'all') / scale, 1e-8, ...
+                'the smart-gate skip must not change the group Jacobian');
+        end
+
+        function test_group_flow_counts(testCase)
+            % WS1 Fix A + Fix B control flow, pinned on the counting stub.
+            % A central-difference column drives apply(+d) -> apply(-d) ->
+            % restore(), i.e. THREE prb_grp increments (+d, -2d, +d).  The
+            % re-aim / FP follow-up must run only on the two MEASURED pokes,
+            % never on the restore, and the group TAIL must settle once.
+            d = 1e-6;
+
+            % (1) UPSTREAM group, TAIL: re-aim on +d and -d (2) + one tail
+            %     settle (1) = 3 stop_obj; prb_grp on all 3 pokes.
+            su = StubGroupSession(11, 20);          % stop at elt 11
+            chu = macos.channels.GroupedRigidBodyChannel(su, [1; 2], 0, ...
+                'stop_mode', 'obj');
+            chu.set_group_tail(true);
+            chu.apply(+d);  chu.apply(-d);  chu.restore();
+            testCase.verifyEqual(su.count('prb_grp'), 3, ...
+                'prb_grp must run on +d, -2d and the restore');
+            testCase.verifyEqual(su.count('stop_obj'), 3, ...
+                'upstream tail: re-aim on +d, -d, then one tail settle');
+
+            % (2) DOWNSTREAM group, TAIL: gate skips ALL re-aims (0 stop_obj),
+            %     tail settle also skipped (need_reaim false); prb_grp still 3.
+            sd = StubGroupSession(1, 20);           % stop at elt 1
+            chd = macos.channels.GroupedRigidBodyChannel(sd, [9; 10], 0, ...
+                'stop_mode', 'obj');
+            chd.set_group_tail(true);
+            chd.apply(+d);  chd.apply(-d);  chd.restore();
+            testCase.verifyEqual(sd.count('stop_obj'), 0, ...
+                'downstream group must skip every re-aim');
+            testCase.verifyEqual(sd.count('prb_grp'), 3);
+
+            % (3) UPSTREAM group, NON-tail: re-aim on +d and -d only (2),
+            %     NO tail settle.
+            sn = StubGroupSession(11, 20);
+            chn = macos.channels.GroupedRigidBodyChannel(sn, [1; 2], 0, ...
+                'stop_mode', 'obj');                % is_group_tail defaults false
+            chn.apply(+d);  chn.apply(-d);  chn.restore();
+            testCase.verifyEqual(sn.count('stop_obj'), 2, ...
+                'non-tail: re-aim on the two measured pokes, none on restore');
+
+            % (4) FP follow-up obeys the same is_nominal + tail rule: sxp on
+            %     +d and -d (2) + one tail settle (1) = 3; none on restore.
+            sf = StubGroupSession(1, 20);
+            chf = macos.channels.GroupedRigidBodyChannel(sf, [9; 10], 0, ...
+                'stop_mode', 'none', 'fp_elt', 10, 'fp_mode', 'sxp');
+            chf.set_group_tail(true);
+            chf.apply(+d);  chf.apply(-d);  chf.restore();
+            testCase.verifyEqual(sf.count('sxp'), 3, ...
+                'FP follow-up: on +d, -d and the tail settle, not the restore');
+            testCase.verifyEqual(sf.count('trace'), 3);
+            testCase.verifyEqual(sf.count('stop_obj'), 0, ...
+                'stop_mode none: no re-aim at all');
+        end
     end
 end
 

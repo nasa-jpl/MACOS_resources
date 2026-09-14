@@ -104,6 +104,11 @@ arguments
                                 opts.group_stop_mode, ...
                                 {'obj','elt','none'})} = 'obj'
     opts.group_stop_pos      (1,3) double = [0 0 0]
+    opts.group_smart_stop    (1,1) logical = true  % WS1 Fix B: auto-skip the
+                                % per-poke chief-ray re-aim for groups strictly
+                                % downstream of the stop (a rigid move there
+                                % cannot change the aim).  false = always
+                                % re-aim (old behavior / escape hatch).
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
     opts.delta               (:,:) double {mustBeDeltaSize} = 1e-8
@@ -223,7 +228,8 @@ if groups.Count > 0
         'coords', opts.group_coords, ...
         'stop_mode', opts.group_stop_mode, ...
         'stop_obj_pos', opts.group_stop_pos, ...
-        'stop_elt', 0);
+        'stop_elt', 0, ...
+        'smart_stop', opts.group_smart_stop);
     channels = [channels; grp_chans];
 end
 
