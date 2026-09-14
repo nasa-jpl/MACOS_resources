@@ -97,18 +97,25 @@ wrong. Priced with existing machinery on the lens rig.
 
 - **Phase-step miscalibration** (`P.pzt.step_err`, TO's `pdi.step_err` pattern: the
   four frames step with the error, the atan2 solve assumes the nominal π/2
-  quadrature). On the surface rows and in the loop.
-  <!-- FILL from runs/lens_deck_se2 / _se5 (rows) and runs/loop_lens_se2 (loop) -->
-  _pending: rows at 2% / 5%, and the loop's hold under 2%._
+  quadrature). **A gain error on the absolute rows, ~1:1 with the step size, and
+  it self-cancels in the differential hold.** On the 30 nm surface rows (tags
+  `lens_deck_se2`/`_se5`): 2% step → single-actuator gain **0.9743** (−2.6%), grid
+  0.9905, dense 0.9885, floor 2→5 pm; 5% step → single **0.9543** (−4.6%), grid
+  0.9962, dense 0.9915, floor →9 pm. The single (localized) read carries the gain
+  error; the distributed grid/dense rows average it out. **In hold mode
+  (`loop_lens_se2`) the 2% step error is negligible** — 3 pm noise-only at 5.4e12
+  and the 2 pm walk at 1.7e13, essentially the record 5.5e12 / 2.0e13: the fixed
+  step error rides both the reference and the measurement, so it is common-mode in
+  the closed loop. A known step error is a known (calibratable) gain.
 - **Within-scan drift.** The camera 1/f offset (`dmg_loop` `cam`, Dube et al. 2024:
   Roman LOWFS is camera-drift dominated). A zero-sum four-step is exactly immune to
-  an offset that is CONSTANT within a scan; only the fraction that develops
-  frame-to-frame (`cam_intra`) breaks the immunity.
-  <!-- FILL from runs/loop_lens (drift 'cam') -->
-  _pending: what a 1e-3-of-signal camera walk does to the hold._
-  The DM's own within-scan walk (`loop.intra`) is **blocked on TO** (the shared
-  `dmg_loop` knob is not yet landed — only the camera's `cam_intra` shipped); it is
-  the same class of error and will be priced when it lands.
+  an offset CONSTANT within a scan; only the fraction that develops frame-to-frame
+  (`cam_intra`) breaks it. **A 1e-3-of-signal walk with 25% within-scan
+  (`loop_lens_cam`) costs little**: 3 pm held at 6.1e12 photons vs 5.4e12
+  noise-only (~13% more light), the held spectrum [<4, 4-12, >12 cyc/ap] = [0.02,
+  0.07, 0.93] pm; at `cam_intra 0` it is exactly immune. The **DM's own within-scan
+  walk** (`loop.intra`, now landed on origin — TO) is the temporally-stepped
+  analogue and is priced next (a walk drift with `loop.intra 0.25`).
 
 ### Polarization snapshot — all four frames at once, so no within-scan drift
 
@@ -183,35 +190,75 @@ clearance-bound bench it is an open-loop / differential-grade instrument, and th
 lens rig reaches the on-orbit hold with none of this (which is why the lens is the
 recommended IFO configuration).
 
-**The other gauges on the OAP rig** (run `zwfs_run` on the OAP test arm,
-`bench.optics 'oap'`, `bench.coat_oap 'bareAl'`; readings L/S/V/P/PF; stages bench
-+ battery + noise + loop; V arm maps `mask.v_arm 'engine'`). The bench gates G1
-(mask-sandwich round trip) and G3 (DM-conjugate pupil) may fail on an OAP tail; if
-they do, the numbers are reported and the run stops — the gates are not forced.
-Run tag `zwfs_oap`.
-<!-- FILL from runs/zwfs_oap -->
-_pending: the ZWFS/vZWFS/PDI readings' rows on the OAP front end, beside the lens
-rig's — the deck's slide 15._
+**The other gauges on the OAP rig** (`zwfs_run` on the OAP test arm; readings
+L/S/V/P/PF; stages bench + battery + noise + loop; V arm maps `mask.v_arm
+'engine'`). The bench gates G1 (mask-sandwich round trip) and G3 (DM-conjugate
+pupil) may fail on an OAP tail; if they do, the numbers are reported and the run
+stops — the gates are not forced. Run tag `zwfs_oap`.
 
-## 5. The descent run (capturing the initial figure) — BLOCKED on TO
+**`coat_oap` wired (CCL, `a360faf`); the run STOPS before the gates — the mask
+gauges do not set up on the OAP front end (a `twyman_green` OAP-tail issue, for
+CCL).** With `bench.optics='oap'`, `bench.coat_oap='bareAl'`, `OAP1_AOI 5` /
+`OAP2_AOI 9`, the bareAl coating applies (L1, L2) but the gauge setup fails at
+`dmg_zwfs_gauge: mask plane not focused` — the FocalMask does not reach the OAP2
+focus. Diagnosed (not forced, per the brief):
+- **Not fold astigmatism.** It fails even at `OAP2_AOI 1°` (near-normal, minimal
+  astigmatism).
+- **Not a reachable defocus.** Scanning `MASK_TRIM` from −200 to +200 (mask sphere
+  swept 194→534 mm, ±170 mm around the ~360 mm nominal) never focuses; the lens
+  focuses at its nominal trim (−5.582), so the harness is sound.
+- **It is the OAP tail's mask-plane geometry in `twyman_green`.** The reflective
+  tail (`L2.F − L2.thk + MASK_TRIM` from an OAP2 mirror) does not converge the beam
+  to a tight focus at the FocalMask. tg96's IFO tail never checks mask focus (it
+  reads the pupil), so this surfaced only under the ZWFS gauge.
 
-Capturing the DM's initial figure (100–200 nm WFE) is a WRAP problem (TO's
-finding, accepted): the differential from a 100 nm rms surface to the 30 nm set
-point is ~2 rad rms, so every reading's wrapped difference — the four-step
-included — wraps. The fix is a 2-D least-squares phase unwrap on the lit mask
-(`dm_gauge_lib/dmg_unwrap.m`, residue count returned) with a `battery.unwrap` knob;
-TO is landing it (`BRIEF_to_capture.md`). **Two things blocked on TO's origin push:**
-(a) `dmg_unwrap` + `battery.unwrap`; (b) the shared loop knobs `loop.start_rms`,
-`loop.recal_every`, `loop.intra`, `ins.recal`, `ins.measure(cmd, aux)`.
+**Consequence for slide 15.** The interferometer runs on the OAP front end (the
+tg96 OAP deck rows / loop / D4 / item B above). The focal-plane MASK gauges
+(ZWFS dimple, vZWFS metasurface, PDI pinhole) cannot be set up on the OAP front
+end until `twyman_green` places the FocalMask at the OAP2 focus for the reflective
+tail — a builder fix on CCL's side. Flagged; the IFO-on-each comparison (the main
+lenses-vs-OAPs content) is complete without it.
 
-When they land, `tg96_run` will: mirror the unwrap in its differential path
-(`fsdiff_` → unwrap when `loop.start_rms` is set or `battery.unwrap` is on), **gate
-that the record reproduces bit-for-bit with it off**, and run the start-rms ladder
-BOTH ways for the four-step (lens and OAP): start 30 / 60 / 100 / 150 / 200 / 300
-nm, matrix at the start, recal every 10 and never, 1e13 / 1e15 photons per cycle,
-K 60 — reporting the largest converging start, cycles to 10 nm and 3 pm, and the
-residue count at the first cycle. (The loop stage already threads `P.loop` verbatim
-into `dmg_loop`, so mirroring is a small change.)
+## 5. The descent run (capturing the initial figure) — the IFO captures it
+
+Capturing the DM's initial figure is a WRAP problem: the differential from a
+100 nm rms surface to the 30 nm set point is ~2 rad, so the four-step's wrapped
+difference folds. TO's 2-D least-squares unwrapper (`dm_gauge_lib/dmg_unwrap`, on
+the lit mask) removes it — the limit moves from the λ/4 wrap to the pixel gradient,
+and the DM is smooth at 4 detector-px/actuator. `tg96_run`'s loop stage mirrors it
+(`fsdiff_` → unwrap when `loop.start_rms` is set or `battery.unwrap` is on),
+byte-identical with it off (the record loop rows reproduce). The loop stage also
+mirrors `loop.start_rms` / `recal_every` / `intra` / `ins.recal` / the
+`ins.measure(cmd, aux)` within-scan term.
+
+**Result (lens rig, PZT four-step, unwrapping ON, tag `descent_lens`): the IFO
+captures a 60–300 nm initial surface (120–600 nm WFE) and drives it to the ~2 pm
+hold floor within 60 cycles, with NO recalibration needed.**
+
+| start rms (WFE) | r(1) | k to 10 nm | k to 3 pm | r(K), 1e13 / 1e15 | ρ |
+|---|---|---|---|---|---|
+| 60 nm (120) | 29.7 nm | 3 | 16 | 2.15 / 0.22 pm | 0.51 |
+| 100 nm (200) | 69.7 nm | 4 | 18 | 2.14 / 0.21 pm | 0.53 |
+| 150 nm (300) | 119.7 nm | 6 | 21 | 2.12 / 0.21 pm | 0.57 |
+| 200 nm (400) | 169.7 nm | 7 | 25 | 2.11 / 0.21 pm | 0.62 |
+| 300 nm (600) | 269.7 nm | 25 | 43 | 2.09 / 0.21 pm | 0.84 |
+
+- **Every start converges** to the hold floor (2.1 pm at 1e13 photons, 0.21 at
+  1e15 — the noise floor, not a capture limit). The largest tested start (300 nm
+  surface / 600 nm WFE) still reaches 3 pm by cycle 43 (of 60); the convergence
+  contraction ρ rises 0.51→0.84 with start size, so 300 nm is near the K=60 edge.
+- **Recalibration is not needed:** recal-every-10 and never give identical results
+  (e.g. 300 nm: k(3 pm) 45 vs 43, r(K) 2.25 vs 2.09 pm) — the start matrix stays
+  valid through the descent, because the loop drives the surface monotonically back
+  toward the set point the matrix was measured on.
+- The photon level sets the floor, not the capture: 1e13 and 1e15 follow the same
+  cycles-to-reach path (deterministic contraction), differing only in the final
+  floor (2.1 vs 0.21 pm).
+
+So the route from the DM's initial figure to the hold regime is: unwrap the
+four-step differential, close the loop on a start-surface matrix at gain 0.5, and
+it converges in tens of cycles with no recal. (OAP descent is backup; the
+mask-based gauges' descent is gated on the `twyman_green` OAP-tail fix, §4.)
 
 ## 6. Layouts and parts lists
 

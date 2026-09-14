@@ -211,6 +211,22 @@ P.loop.cam_walk  = 0.13;           % CAMERA offset random-walk, per cycle (unit 
 P.loop.cam_unit  = 'rel';          % 'e' = electrons per pixel per cycle | 'rel' = fraction of the
                                    %   scan's mean photons per lit pixel per frame (a signal-scaled bias)
 P.loop.cam_intra = 0;              % fraction of each camera step that develops WITHIN a scan (0 = immune)
+% ---- item 3 within-scan DM drift + item 5 descent (TO's shared dmg_loop knobs,
+%      landed 2026-09-13; mirrored here verbatim into the loop stage) ----------
+P.loop.intra     = 0;              % fraction of the NEXT cycle's DM drift that develops WITHIN a scan
+                                   %   (the four-step steps its frames in time and pays for it; 0 = DM still)
+P.loop.ref_walk  = 0;              % rms (rad/cycle) of a reference-arm (PZT-flat) phase walk -- the IFO's
+                                   %   non-common-path term (default off; not asked for the deck)
+% ---- descent (item 5): capture the DM's initial figure, ~100-200 nm WFE -------
+P.loop.start_rms   = [];           % [] = no descent; else the loop STARTS from a surface of this rms
+                                   %   (mm; a vector runs the ladder), matrix measured AT the start
+P.loop.start_shape = [];           % [] = the set point's own field rescaled ("the same field, scaled")
+P.loop.recal_every = 0;            % cycles between on-surface re-calibrations (0 = never)
+P.loop.recal_list  = [];           % descent: recal_every values to compare ([] => [recal_every])
+P.loop.reach       = [10e-6 3e-9]; % descent columns: first cycle to 10 nm, to 3 pm (mm)
+P.loop.unwrap      = 'auto';       % 'auto' = battery.unwrap OR a descent (start_rms set); true/false force
+% ---- unwrap the wrapped four-step differential before the estimator (item 5) --
+P.battery.unwrap   = false;        % dm_gauge_lib/dmg_unwrap (2-D least squares on the lit mask); default OFF
 
 % ---- dev / smoke -----------------------------------------------------
 P.smoke = false;                   % true => Stage-A2 sampling asserts become warnings

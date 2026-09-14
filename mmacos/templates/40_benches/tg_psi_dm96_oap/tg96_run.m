@@ -863,27 +863,47 @@ else
     A0 = zeros(nact);
 end
 
-% ---- the instrument (four-step PSI reading; frame-level so noise injects) --
+% ---- the instrument (four-step PSI reading; frame-level so noise/drift inject) --
 dmap = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
+% the four-step differential is a WRAPPED phase difference; unwrap it (dmg_unwrap,
+% 2-D least squares on the lit mask) when a descent is run or battery.unwrap is on
+% -- moves the capture limit from the lambda/4 wrap to the pixel gradient (the DM
+% surface is smooth at 4 detector px/actuator).  Readings return HEIGHT, so undo /
+% redo the LAM/4pi factor around dmg_unwrap.
+descent = ~isempty(P.loop.start_rms) && any(P.loop.start_rms(:) > 0);
+if ischar(P.loop.unwrap) || isstring(P.loop.unwrap)
+    assert(strcmpi(P.loop.unwrap,'auto'), 'tg96_run: loop.unwrap must be true, false or ''auto''');
+    do_uw = P.battery.unwrap || descent;      % a descent is what the unwrapper is for
+else
+    do_uw = logical(P.loop.unwrap);
+end
+hpr = LAM/(4*pi);
+if do_uw, uw = @(d) hpr * dmg_unwrap(d/hpr, msk);  else, uw = @(d) d;  end
+if do_uw, say('  UNWRAPPING the four-step differential (dmg_unwrap, lit mask): %s\n', iff_(descent,'descent','battery.unwrap')); end
+if P.loop.intra > 0, say('  WITHIN-SCAN DM drift: %.0f%% of each cycle''s increment develops across the four-frame scan\n', 100*P.loop.intra); end
 ins = struct('lit', litmask, 'npix', size(msk,1), 'cam_unit', P.loop.cam_unit, ...
-    'measure', @(cmd) frames4_(analyzer_basis(AT, QWP, dmap(cmd)), Sr, THg), ...
+    'measure', @(cmd, varargin) measure4_(AT, QWP, dmap, Sr, THg, cmd, varargin{:}), ...
     'noisy',   @(F, nph, seed, varargin) noisy4_(F, nph, seed, msk, P.loop.cam_unit, varargin{:}), ...
-    'diff',    @(F1, F0) meanref_(fsdiff_(F1, F0, LAM), msk), ...
-    'est',     est);
+    'diff',    @(F1, F0) meanref_(uw(fsdiff_(F1, F0, LAM)), msk), ...
+    'est',     est, ...
+    'recal',   @(cmd) recal_build_(ctx2, cfg, PL, msk, Pl, h0, cmd, P.battery.matrix_lam));
 base = struct('A0',A0, 'g',g, 'K',K, 'seed',P.loop.seed, 'ref',P.loop.ref, 'rmax',P.loop.rmax, ...
-    'cam', struct('walk',0, 'intra',P.loop.cam_intra));
+    'cam', struct('walk',0, 'intra',P.loop.cam_intra), ...
+    'intra',P.loop.intra, 'ref_walk',P.loop.ref_walk, 'reach',P.loop.reach);
 
 % ---- the runs --------------------------------------------------------------
-res = struct('drift',{}, 'nph',{}, 'amp',{}, 'L',{});
+res = struct('drift',{}, 'nph',{}, 'amp',{}, 'start',{}, 'L',{});
 kinds = DR;  if P.loop.floor, kinds = [{'none'} DR]; end
-nrun = numel(P.loop.steps) + numel(NPH)*numel(kinds);
-say('%d loop runs of %d states each (%d traced states)\n', nrun, K+1, nrun*(K+1));
+SR = P.loop.start_rms(:).';
+RECL = P.loop.recal_list;  if isempty(RECL), RECL = P.loop.recal_every; end
+nrun = numel(P.loop.steps) + numel(NPH)*numel(kinds) + descent*numel(SR)*numel(RECL)*numel(NPH);
+say('%d loop runs of %d states each (%d traced states, + recals)\n', nrun, K+1, nrun*(K+1));
 irun = 0;
 % noiseless steps: time constant + dynamic range
 for amp = P.loop.steps
     o = base;  o.nph = Inf;  o.drift = struct('kind','step', 'amp',amp);
     L = dmg_loop(ins, o);  irun = irun + 1;
-    res(end+1) = struct('drift','step', 'nph',Inf, 'amp',amp, 'L',L); %#ok<AGROW>
+    res(end+1) = struct('drift','step', 'nph',Inf, 'amp',amp, 'start',0, 'L',L); %#ok<AGROW>
     fprintf('[loop %d/%d] step %g nm: rho %.3f, residual at K %.2f pm%s (%.1f min)\n', ...
         irun, nrun, amp*1e6, L.rho, L.rms(L.k_end)*1e9, div_(L), toc(t0)/60);
 end
@@ -898,9 +918,36 @@ for nph = NPH
             otherwise,      error('tg96_run: loop.drifts must be a subset of walk | thermal | cam');
         end
         L = dmg_loop(ins, o);  irun = irun + 1;
-        res(end+1) = struct('drift',kinds{kd}, 'nph',nph, 'amp',amp, 'L',L); %#ok<AGROW>
+        res(end+1) = struct('drift',kinds{kd}, 'nph',nph, 'amp',amp, 'start',0, 'L',L); %#ok<AGROW>
         fprintf('[loop %d/%d] %s @ %.0e photons: ss %.2f pm, bias %.2f pm, sig_n %.2f pm%s (%.1f min)\n', ...
             irun, nrun, kinds{kd}, nph, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, div_(L), toc(t0)/60);
+    end
+end
+% ---- the descent ladder (item 5): from the DM's initial figure down to the
+% set point.  The matrix is measured AT each start (on that surface), through
+% ins.recal on the current surface every recal_every cycles; the differential
+% is unwrapped.  Built one start at a time (memory).  A0's field, rescaled, is
+% the start shape unless loop.start_shape is set.
+if descent
+    A0f = A0;  if norm(A0(litmask)) == 0, rng(P.battery.seed_base); A0f(litmask) = randn(nnz(litmask),1); end
+    ushape = P.loop.start_shape;  if isempty(ushape), ushape = A0f; end
+    ushape = ushape / sqrt(mean(ushape(litmask).^2));            % unit rms over lit
+    for q = 1:numel(SR)
+        Astart = SR(q) * ushape;                                 % the starting surface command
+        rc0 = recal_build_(ctx2, cfg, PL, msk, Pl, h0, Astart, P.battery.matrix_lam);
+        insd = ins;  insd.est = rc0.est;                         % matrix measured ON this start
+        say('  descent: matrix on the %.0f nm start (%d states)\n', SR(q)*1e6, rc0.nstates);
+        for rc = RECL
+            for nph = NPH
+                o = base;  o.nph = nph;  o.drift = struct('kind','none');
+                o.start_rms = SR(q);  o.start_shape = ushape;  o.recal_every = rc;
+                L = dmg_loop(insd, o);  irun = irun + 1;
+                res(end+1) = struct('drift','descent', 'nph',nph, 'amp',rc, 'start',SR(q), 'L',L); %#ok<AGROW>
+                fprintf('[loop %d/%d] descent from %.0f nm (recal %s) @ %.0e ph: r(1) %.1f nm -> r(K) %.2f pm, %d recals%s (%.1f min)\n', ...
+                    irun, nrun, SR(q)*1e6, iff_(rc==0,'never',sprintf('%d',rc)), nph, L.rms(1)*1e6, L.rms(L.k_end)*1e9, L.n_recal, div_(L), toc(t0)/60);
+            end
+        end
+        clear insd rc0
     end
 end
 
@@ -963,10 +1010,36 @@ for kd = 1:numel(kinds)
     i = find(strcmp({res.drift},kinds{kd}) & [res.nph]==NPH(end), 1);
     say('  %-8s %6.2f %6.2f %6.2f\n', kinds{kd}, pm(res(i).L.spec.band));
 end
+% ---- the descent table (item 5) --------------------------------------------
+if descent
+    say(['\nDESCENT LADDER to the set point, matrix measured at each start, unwrapping %s. ' ...
+        'start = the DM''s initial surface rms (WFE = 2x); r(1) = the residual the loop opens with (nm); ' ...
+        'k(10 nm) / k(3 pm) = first cycle at or below (- = never within %d); r(K) = residual at cycle %d (pm); ' ...
+        'rho = fitted contraction; recals = on-surface recalibrations\n'], iff_(do_uw,'ON','OFF'), K, K);
+    say('  %6s %9s %6s | %8s %8s %8s %11s %6s %6s\n', 'start','N/cyc','recal','r(1)nm','k(10nm)','k(3pm)','r(K)pm','rho','recals');
+    for q = 1:numel(SR)
+      for rc = RECL
+        for nph = NPH
+            i = find(strcmp({res.drift},'descent') & [res.nph]==nph & [res.amp]==rc & [res.start]==SR(q), 1);
+            if isempty(i), continue; end
+            L = res(i).L;  kr = L.k_reach;  if numel(kr) < 2, kr = [kr nan(1,2-numel(kr))]; end
+            if L.diverged
+                say('  %5.0f %9.1e %6s | %8.1f %8s %8s %11s %6s %6d\n', SR(q)*1e6, nph, iff_(rc==0,'never',sprintf('%d',rc)), ...
+                    L.rms(1)*1e6, '-', '-', sprintf('DIV@%d',L.k_end), '-', L.n_recal);
+            else
+                say('  %5.0f %9.1e %6s | %8.1f %8s %8s %11.3f %6.3f %6d\n', SR(q)*1e6, nph, iff_(rc==0,'never',sprintf('%d',rc)), ...
+                    L.rms(1)*1e6, fmt0_(kr(1)), fmt0_(kr(2)), pm(L.rms(end)), L.rho, L.n_recal);
+            end
+        end
+      end
+    end
+end
 say('loop stage %.1f min (%d traced states)\n', toc(t0)/60, nrun*(K+1));
 LO = struct('drifts',{kinds}, 'nph',NPH, 'steps',P.loop.steps, 'g',g, 'K',K, ...
     'surface',P.loop.surface, 'hold_spec',spec, 'n_hold',n_hold, 'lit',litmask, ...
-    'A0',A0, 'null_nm',null_nm, 'nlit',nlit, 'nstates',ns, 'res',res);
+    'A0',A0, 'null_nm',null_nm, 'nlit',nlit, 'nstates',ns, 'res',res, ...
+    'descent',descent, 'start_rms',SR, 'recal_list',RECL, 'reach',P.loop.reach, ...
+    'intra',P.loop.intra, 'unwrap',do_uw);
 end
 
 % =====================================================================
@@ -1021,6 +1094,55 @@ function Fr = frames4_(Sx, Sr, th)
 % the four analyzer-step intensity frames (noiseless) for a test-arm state Sx
 % against the fixed reference-arm basis Sr
 Fr = cat(3, frame(Sx,Sr,th(1)), frame(Sx,Sr,th(2)), frame(Sx,Sr,th(3)), frame(Sx,Sr,th(4)));
+end
+
+function F = measure4_(AT, QWP, dmap, Sr, THg, cmd, aux)
+% the four-step frames of the DM at command cmd (noiseless), ins.measure for the
+% loop.  With aux (dmg_loop's within-scan / non-common-path term): aux.dstep is a
+% DM map that develops ACROSS the scan -- frame j of 4 sees cmd + (j-1)/3 dstep,
+% so the temporally stepped four-step captures it (a simultaneous/one-frame
+% reading would not); aux.ref_phase is a phase (rad) added to the reference arm
+% for this measurement.  Without aux (or with zero terms) it is the cheap
+% single-analyzer-basis frames4_ (byte-identical to the plain path).
+ds = [];  rph = 0;
+if nargin >= 7 && ~isempty(aux)
+    if isfield(aux,'dstep') && ~isempty(aux.dstep) && any(aux.dstep(:) ~= 0), ds = aux.dstep; end
+    if isfield(aux,'ref_phase') && ~isempty(aux.ref_phase), rph = aux.ref_phase; end
+end
+if isempty(ds) && rph == 0
+    F = frames4_(analyzer_basis(AT, QWP, dmap(cmd)), Sr, THg);
+else
+    F = [];
+    for j = 1:4
+        w = (j-1)/3;
+        cj = cmd;  if ~isempty(ds), cj = cmd + w*ds; end
+        Sx = analyzer_basis(AT, QWP, dmap(cj));
+        Fj = frame_rp_(Sx, Sr, THg(j), rph);
+        if isempty(F), F = zeros(size(Fj,1), size(Fj,2), 4); end
+        F(:,:,j) = Fj;
+    end
+end
+end
+
+function I = frame_rp_(Sx, Sr, th, rph)
+% recombined intensity at analyzer angle th with a reference-arm phase rph (rad);
+% rph = 0 reduces to frame(Sx,Sr,th).
+if rph == 0, I = frame(Sx, Sr, th);  return; end
+I = sum(abs(synth(Sx,th) + exp(1i*rph)*synth(Sr,th)).^2, 3);
+end
+
+function r = recal_build_(ctx2, cfg, PL, msk, P, h0, cmd, lam_reg)
+% ins.recal: re-measure the response matrix on the surface at DM command cmd (the
+% loop's current surface), wrapped-difference calibration, returning the new
+% estimator + the states it cost.  Mirrors calib_on_ with an explicit base.
+Pc = P;  Pc.battery.calib_surface = 'base';  Pc.battery.base_cmd_map = cmd;
+[J, ilit, vcol, hw, ns] = build_J_(ctx2, cfg, PL, msk, Pc, h0); %#ok<ASGLU>
+nlit = numel(ilit);  Am = nnz(msk);
+JtJ = full(J.'*J) - (vcol*vcol.')/Am;
+d = diag(JtJ);  l2 = lam_reg * median(d(d > 0));
+Rf = chol(JtJ + l2*eye(nlit));
+est = @(h) est_matrix_tg(h, J, vcol, Am, Rf, ilit, cfg.nact, msk);
+r = struct('est', est, 'nstates', ns);
 end
 
 function Fn = noisy4_(F, nph, seed, msk, unit, cam)
@@ -1161,13 +1283,17 @@ function [J, ilit, vcol, hw, ns, np] = build_J_(ctx, cfg, PL, msk, P, h0)
     % 30 nm set point) neither wraps and the two forms are bit-identical.
     hbase = h0;  use_wd = false;  pbase = [];
     if isfield(P.battery,'calib_surface') && strcmp(P.battery.calib_surface,'base')
-        rng(P.battery.seed_base);  Abase = zeros(nact);
-        Abase(lit) = P.battery.base_rms*randn(nnz(lit),1);
-        base_cmd = Abase;
+        if isfield(P.battery,'base_cmd_map') && ~isempty(P.battery.base_cmd_map)
+            base_cmd = P.battery.base_cmd_map;    % explicit base surface (ins.recal / descent start)
+        else
+            rng(P.battery.seed_base);  Abase = zeros(nact);
+            Abase(lit) = P.battery.base_rms*randn(nnz(lit),1);
+            base_cmd = Abase;
+        end
         if isfield(ctx,'phasef') && ~isempty(ctx.phasef)
             use_wd = true;  pbase = ctx.phasef(dmap(base_cmd));   % raw base phase (once)
         else
-            hbase = ctx.measf(dmap(Abase));
+            hbase = ctx.measf(dmap(base_cmd));
         end
     else
         base_cmd = zeros(nact);
