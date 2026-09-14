@@ -218,28 +218,47 @@ L/S/V/P/PF; stages bench + battery + noise + loop; V arm maps `mask.v_arm
 pupil) may fail on an OAP tail; if they do, the numbers are reported and the run
 stops — the gates are not forced. Run tag `zwfs_oap`.
 
-**`coat_oap` wired (CCL, `a360faf`); the run STOPS before the gates — the mask
-gauges do not set up on the OAP front end (a `twyman_green` OAP-tail issue, for
-CCL).** With `bench.optics='oap'`, `bench.coat_oap='bareAl'`, `OAP1_AOI 5` /
-`OAP2_AOI 9`, the bareAl coating applies (L1, L2) but the gauge setup fails at
-`dmg_zwfs_gauge: mask plane not focused` — the FocalMask does not reach the OAP2
-focus. Diagnosed (not forced, per the brief):
-- **Not fold astigmatism.** It fails even at `OAP2_AOI 1°` (near-normal, minimal
-  astigmatism).
-- **Not a reachable defocus.** Scanning `MASK_TRIM` from −200 to +200 (mask sphere
-  swept 194→534 mm, ±170 mm around the ~360 mm nominal) never focuses; the lens
-  focuses at its nominal trim (−5.582), so the harness is sound.
-- **It is the OAP tail's mask-plane geometry in `twyman_green`.** The reflective
-  tail (`L2.F − L2.thk + MASK_TRIM` from an OAP2 mirror) does not converge the beam
-  to a tight focus at the FocalMask. tg96's IFO tail never checks mask focus (it
-  reads the pupil), so this surfaced only under the ZWFS gauge.
+**The mask gauges DO set up on the OAP front end once the seat trim is solved —
+but the focus is marginal and alignment-critical, and it splits the readings by
+how focus-critical their mask feature is.** (`coat_oap` wired, CCL `a360faf`.) The
+earlier `dmg_zwfs_gauge: mask plane not focused` was an UNSOLVED seat trim, not a
+geometry defect: the OAP focus is razor-sharp — best at `MASK_TRIM ≈ 6.14`, and
+peak/sum falls from 0.0104 there to ~0.002 within ±0.1 mm — so the lens's default
+(−5.58) and a 0.25-mm scan straddle the peak and miss it. Diagnosis
+(`oap_focus_probe.m`, model 512, flat DM):
+- **The blur is fold coma, ∝ AOI, and near diffraction-limited at best focus.**
+  Best-focus ray blur vs OAP2 AOI: 0.17 / 0.31 / 0.47 / 0.65 / **0.82** λF/D at
+  1 / 3 / 5 / 7 / 9°. The earlier "8 µm / 3 λF/D" was pure defocus — at NA 0.069 a
+  0.11 mm trim error adds ~7.6 µm.
+- **OAP2 is fed exactly on-axis** (incoming chief anti-parallel to the parabola
+  axis to 0.000°), so it is not an off-axis feed. The ~6 mm trim offset is OAP1's
+  residual collimation defocus (a 0.056° convergence, focus ~52 m) refocused by
+  OAP2 (`F2²/52 m ≈ 6–10 mm`).
+- **With the trim solved (`MASK_TRIM 6.14`, model 1024): G1 = 2.1e-15, G3 =
+  4.2e-16 — both PASS.** Best-focus blur 2.94 µm (1.1 λF/D), peak/sum 0.0104 —
+  right at the gauge's 0.01 gate (the lens has margin).
 
-**Consequence for slide 15.** The interferometer runs on the OAP front end (the
-tg96 OAP deck rows / loop / D4 / item B above). The focal-plane MASK gauges
-(ZWFS dimple, vZWFS metasurface, PDI pinhole) cannot be set up on the OAP front
-end until `twyman_green` places the FocalMask at the OAP2 focus for the reflective
-tail — a builder fix on CCL's side. Flagged; the IFO-on-each comparison (the main
-lenses-vs-OAPs content) is complete without it.
+**Reading-by-reading on the OAP (tag `zoap`, bare Al, matrix ON the 30 nm surface,
+S10):** the more focus-critical the mask feature, the worse the fold coma.
+- **Scalar / stepped dimple (ZWFS L, S) — survive the fold, comparable to the
+  lens.** On the 30 nm surface: single 10 nm L 1.044 / 22 pm, **S 1.000 / 4 pm**;
+  1 nm on the 47 grid sites L 0.998 / SNR 5.9, **S 0.967 / SNR 221** (both
+  DETECTED ≥ 5); dense 10 nm L 0.985 / S 0.952; capture range L 42 nm / S 38 nm.
+  Against the lens ZWFS (S single 0.989 / 5 pm, grid 0.9993, dense 0.984, capture
+  42 nm) the OAP dimple readings hold — the marginal focus is tolerable for the
+  broad dimple once the matrix is measured on the surface.
+- **Vector dimple (vZWFS V):** G4 FAIL — V rms error **19.6 pm** vs the 12 pm gate
+  (0.1 % of the figure); the fold coma corrupts the polarized pair's one-frame fold.
+- **Pinhole (PDI P, PF):** G5 FAIL — P rms error **94 pm** vs 12 pm; the pinhole is
+  the most focus-critical feature and the OAP fold breaks it worst.
+
+**Deck statement (slide 15):** the interferometer runs on the OAP front end (the
+tg96 OAP rows/loop/D4/item B above); the mask gauges run only with the seat trim
+solved to ~0.05 mm, on a marginal focus (fold coma at the gauge's tolerance) that
+carries the dimple readings but degrades the vector and breaks the pinhole. **The
+OAP seat trim should be trace-solved in `twyman_green`'s OAP path** (the ZWFS S1
+recipe: ray focus → diffraction focus → `MASK_TRIM`), rather than the hand-solved
+6.14 used here — flagged for the builder; the root is OAP1's collimation defocus.
 
 ## 5. The descent run (capturing the initial figure) — the IFO captures it
 
