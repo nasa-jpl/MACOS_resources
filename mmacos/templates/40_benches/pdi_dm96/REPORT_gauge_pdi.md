@@ -23,7 +23,7 @@ what is measured and what is running:
 | 2. capture range and photons, P and PF | **done** — sections 2a, 2b, 2c (`cap385p`, `cap385p_b*`, `noise193p_b*`) |
 | 3. the pinhole diameter of record | `pin20_*`, `pin10_*` |
 | 4. the four shared loop knobs + gates | **built and gated** (tDmgLoop G9–G12, 14/14); the DESCENT and WITHIN-SCAN runs are `descent193*`, `intra193*` |
-| 5. the reference arm's own drift | `rw193_*` |
+| 5. the reference arm's own drift | **done** — section 5 (`rw193_1e3/1e2/1e1`) |
 | 6. layouts and parts | **done** (`pdi_layout.png`, `psri_layout.png`, `psri_render.png`, `pdi_vfig_util`; parts tables in the README) |
 | 7. conclusions; README | **done** for what sections 1, 4 and 8 settle; the conclusions section below, README beside it |
 | 8. unwrap the differential (`BRIEF_to_capture.md`) | **done and gated** — `dm_gauge_lib/dmg_unwrap.m`, tDmgLoop G13, 15/15; section 8 |
@@ -472,7 +472,34 @@ cycle rms of a random walk, applied to PF only, in the loop under the
 2 pm-per-actuator walk drift.  P rides along in the same runs as the
 common-path control — it has no such arm and must be untouched.
 
-Runs: `rw193_1e3`, `rw193_1e2`, `rw193_1e1`.
+Runs: `rw193_1e3`, `rw193_1e2`, `rw193_1e1` — 1e-3, 1e-2 and 1e-1 rad
+per cycle, a hundredfold range.  P rides along as the common-path
+control.
+
+| | P (common path) | PF, ref walk 1e-3 | 1e-2 | 1e-1 |
+|---|---|---|---|---|
+| hold, noise only, 1e13 | 1.45 pm | 2.50 | 2.51 | 2.53 |
+| hold, noise only, 1e15 | 0.14 | 0.25 | 0.25 | 0.25 |
+| hold under the 2 pm DM walk, 1e13 | 2.72 | 3.42 | — | 3.44 |
+| photons per cycle to hold 3 pm under the walk | < 1e13 | 4.8e13 | 4.9e13 | **5.0e13** |
+
+**The floor it sets is 4% in photons for a HUNDREDFOLD range of walk.**
+P is bit-identical across all three, as it must be — it has no such arm.
+
+*Why it is nearly free, and the scope of that.*  A path-length change
+between two arms is a PISTON on the retrieved phase: the solve returns
+`X e^{-iψ}`, so ψ subtracts uniformly.  And piston is exactly the mode
+the actuator estimator nulls — the sensor cannot see it, and since S10
+the response matrix carries that null explicitly as a rank-one term.  So
+the P/SRI's most-feared systematic lands entirely in the one mode a DM
+servo neither observes nor controls.
+
+**This is benign FOR A DM SURFACE SERVO and not in general.**  For the
+paper's own application — absolute complex E-field reconstruction — the
+same walk is a direct piston error on the answer, with nothing to null
+it.  And the model is a path-length change: anything that TILTS or
+distorts the reference arm rather than translating it is not a piston
+and is outside this scope.
 
 ---
 
@@ -780,8 +807,15 @@ every section above.)
    costs 5.9 pm on a 13 nm figure; differentially it is a 10%-class
    effect on the noise floor and nothing on the gain or the range
    (`pfdeck` vs `pfdeck_frz`); in closed loop it costs no fixed error at
-   all — both noiseless steps go to 0.000 pm (`pfdeck_loop`).  What it
-   is NOT immune to is its own drift — section 5.
+   all — both noiseless steps go to 0.000 pm (`pfdeck_loop`).  **And its
+   own reference-arm drift turns out to be nearly free for a DM servo**:
+   a hundredfold range of walk (1e-3 to 1e-1 rad per cycle) costs 4% in
+   photons, because a path-length change between arms is a PISTON and
+   piston is the one mode the actuator estimator nulls (`rw193_*`).
+   That is benign for a surface servo and NOT in general — for the
+   paper's absolute E-field reconstruction the same walk is a direct
+   error, and a reference arm that tilts rather than translates is
+   outside the model.
 
 6. **The five-frame scan buys step-size immunity for one frame.**  Under
    a 2% phase-step error, four-step least squares turns a 12 nm figure
