@@ -1,0 +1,57 @@
+=== TG96 gauge (lens optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "lens_deck_se2"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 6.88 deg -> BS_AOI = 7 deg
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   688 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   564 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   523 mm
+  chosen DM leg 700 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  169.3 mm, margin  +27.9 mm (spec >= 25)
+  ref arm vs DM beam          separation  169.3 mm, margin  +57.9 mm (spec >= 25)
+  camera leg vs source beam   separation  169.3 mm, margin  +67.9 mm (spec >= 25)
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/lens_tail.mat (null 0.134 nm at opt res; seed 9.100)
+Stage B -- lens rig built (BS_AOI 7); emitted lens_deck_se2_{test,ref}.in
+
+Stage PLACE -- affine window placement (lens rig):
+  ray affine: mag 9.8793 DM-mm/det-mm, det 97.6015, in-plane rotation -180.00 deg, dxd 2.0054e-02 mm
+  anchor: blob px (495.50,490.53) <-> DM (-3.500,-4.620) mm; field parity [t=1 su=-1 sv=-1] (ref-poke err 2.84 px)
+  lit actuators: 3228 of 9216
+  bootstrap (ray affine): 73.48% within 2 px, median 1.27 px (396 of 396 blobs caught)
+  fit residual: affine 0.08 px, deg-2 0.08 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 396 CoMs): fit residual 0.08 px
+  refined pass 2 (deg-1, 396 of 396 caught): fit residual 0.08 px, gate 100.00% within 2 px, median 0.07 px
+  D1 GATE: 100.00% of lit within 2 px (need >= 99.0%), median err 0.07 px
+  by radius (mm):           6.4   12.8   19.2   25.6   32.0 
+    within2px    1.00   1.00   1.00   1.00   1.00 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.00 
+  ray-affine SVD: DM-mm/det-mm 9.879 / 9.879, anamorphism 0.00%, principal axis +90.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map): 100.00% within 2 px -- VACUOUS on the lens (its mapping is axis-aligned)
+
+---- deck: rows on the 30 nm working surface, matrix ON it (four-step, PZT step error +2%) ----
+  flat-DM null: 0.1412 nm rms surface (141.2 pm) [under the step error]
+  matrix on 30 nm surface (seed 7): 64 states, 3228 lit columns
+  rows: hold-out actuator (58,58); grid = 52 sites (every 8, 4:8:96); g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+  row                          gain     err pm     flr pm      SNR
+  rand30/single10            0.9743        5.2          2  3900.77
+  rand30/grid@1nm            0.9905        3.5          2   452.54
+  rand30/rand10              0.9885      300.9          -        -
+
+  capture range (aging: matrix once on 30 nm; gain vs base rms, 52-site grid | single site):
+  base rms    g(grid)     flr pm      SNR | g(1site)     flr pm      SNR
+      30 nm   0.9922         18   539.59 |   0.9743          2  3900.77
+      60 nm   0.9815         47   210.61 |   0.9568          8  1245.40
+     120 nm   0.9865        123    80.39 |   0.9840         12   795.10
+  capture range to 10%: 52-site grid 120 nm + (holds at the last rung) ; single site 120 nm + (holds at the last rung)
+
+  capture range (re-measured: matrix rebuilt on each surface, 1 nm grid row; wrapped-difference):
+  surface        gain     flr pm      SNR     corr states
+deck stage 7.9 min
+
+wrote lens_deck_se2_report.txt + lens_deck_se2.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/lens_deck_se2
