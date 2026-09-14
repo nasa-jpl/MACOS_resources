@@ -1670,70 +1670,114 @@ function draw_render_(bench, P)
 % (15-17 pt in an 1800-px figure), and the crowded node (BS + compensator; the
 % OAP folds) as a second panel cropped to it.  Writes <tag>_vlayout.png.
 G = bench.G;  oap = strcmp(P.bench.optics,'oap');
-blue = [30 90 190]/255;  orange = [214 96 24]/255;  ink = [15 15 15]/255;
+blue = [30 90 190]/255;  orange = [214 96 24]/255;  ink = [15 15 15]/255;  mgy = [55 55 55]/255;
 arms = {[P.tag '_test.in'], G.bt, G.T.iDET, blue; ...
         [P.tag '_ref.in'],  G.br, G.R.iDET, orange};
-Et = G.bt.E;  nmt = {Et.name};
+Et = G.bt.E;  nmt = {Et.name};  Er = G.br.E;  nmr = {Er.name};
 NI = @(cands) name_idx_(nmt, cands);            % element idx by first matching name (0 if none)
+br_ = 0.8 * bench.geom.beam_r;                  % mirror-symbol half-length
 coll = iff_(oap,'OAP1 (collimator)','collimator L1');
 foc  = iff_(oap,'OAP2 (focuser)','focuser L2');
-% whole-train labels (elements spread along x): {idx, text, [dx dy] mm}.  The
-% offsets are per-rig: the OAP folds relocate the collimator/focuser/tail (OAP1
-% and the field lens/camera cluster top-left, OAP2 far top-right), so the lens
-% offsets do not fit the reflective layout.
+FS = 22;  TS = 22;                              % label / title point size (deck-readable at 3250 px)
+% whole-train labels (per rig; the OAP fold relocates the collimator/focuser/tail)
 if oap
-    Ltrain = { NI({'L1','OAP1'}),   coll,                    [ -70   70]; ...
-               NI({'TestOptic'}),   '96\times96 DM',         [  75  -55]; ...
-               NI({'BSrefl','BS'}), 'beamsplitter',          [  55   95]; ...
-               NI({'L2','OAP2'}),   foc,                     [  10   65]; ...
-               NI({'FLpow','FL'}),  'field lens',            [ 105  -30]; ...
-               NI({'Detector'}),    'camera (385 px/pupil)', [ -95  -55] };
+    Ltrain = { NI({'L1','OAP1'}),   coll,             [ -90   95]; ...
+               NI({'TestOptic'}),   '96\times96 DM',  [  95  -65]; ...
+               NI({'BSrefl','BS'}), 'beamsplitter',   [  60  115]; ...
+               NI({'L2','OAP2'}),   foc,              [  45  120] };
 else
-    Ltrain = { NI({'L1pow','L1'}),  coll,                    [ -20  100]; ...
-               NI({'TestOptic'}),   '96\times96 DM',         [  75  -55]; ...
-               NI({'BSrefl','BS'}), 'beamsplitter',          [   0  100]; ...
-               NI({'L2pow','L2'}),  foc,                     [ -10   85]; ...
-               NI({'FLpow','FL'}),  'field lens',            [-110   35]; ...
-               NI({'Detector'}),    'camera (385 px/pupil)', [  25  105] };
+    Ltrain = { NI({'L1pow','L1'}),  coll,             [ -30  125]; ...
+               NI({'TestOptic'}),   '96\times96 DM',  [  95  -65]; ...
+               NI({'BSrefl','BS'}), 'beamsplitter',   [   0  125]; ...
+               NI({'L2pow','L2'}),  foc,              [ -20  105] };
 end
-% node-crop labels (the crowded BS / compensator / polarization tail)
-Lnode  = { NI({'PolIn'}),              'input polarizer',       [ -60  -55]; ...
-           NI({'BSrefl','BS'}),        'beamsplitter',          [  15   80]; ...
-           NI({'Comptxfd','Comp'}),    'compensator',           [  30  -65]; ...
-           NI({'Recomb'}),             'recombination',         [  45   60]; ...
-           NI({'OutQWP'}),             'output QWP',            [ -35   65]; ...
-           NI({'Analyzer'}),           'analyzer',              [  65   30] };
-f = figure('Color','w','Position',[40 40 1800 1080],'Visible','off');
-tl = tiledlayout(f, 5, 1, 'Padding','compact','TileSpacing','compact');
-ax1 = nexttile(tl,[2 1]);  ax2 = nexttile(tl,[3 1]);
+iPZT = name_idx_(nmr, {'PZT'});                 % reference flat + PZT (reference arm)
+Lnode  = { NI({'PolIn'}),           'input polarizer',[ -75  -75]; ...
+           NI({'BSrefl','BS'}),     'beamsplitter',   [  20  100]; ...
+           NI({'Comptxfd','Comp'}), 'compensator',    [  40  -85]; ...
+           NI({'Recomb'}),          'recombination',  [  60   80]; ...
+           NI({'OutQWP'}),          'output QWP',      [ -50   85]; ...
+           NI({'Analyzer'}),        'analyzer',        [  85   45] };
+if oap
+    Ltail = { NI({'L2','OAP2'}), foc,        [  55  -55]; ...
+              NI({'FocalMask'}), 'mask seat',[  55  -55]; ...
+              NI({'FLpow'}),     'field lens',[ -20   70]; ...
+              NI({'Detector'}),  'camera (385 px/pupil)', [ 15 -58] };
+else
+    Ltail = { NI({'L2pow','L2'}),foc,        [   0   95]; ...
+              NI({'FocalMask'}), 'mask seat',[ -45  -75]; ...
+              NI({'FLpow','FL'}),'field lens',[ 45   75]; ...
+              NI({'Detector'}),  'camera (385 px/pupil)', [ 0  -85] };
+end
+% ---- 3 panels (whole train / node / tail), all from above ----
+f = figure('Color','w','Position',[20 20 1900 1560],'Visible','off');
+tl = tiledlayout(f, 3, 1, 'Padding','compact','TileSpacing','compact');
+axT = nexttile(tl);  axN = nexttile(tl);  axL = nexttile(tl);
 for a = 1:size(arms,1)
     macos.load_rx(arms{a,1});  macos.trace(arms{a,3});
     Ea = arms{a,2}.E;  passive = find(strcmp({Ea.element},'Reference'));
-    for ax = [ax1 ax2]
-        macos.view_rx('ax', ax, 'ray_color', arms{a,4}, 'title','', 'labels',false, 'hide',passive);
+    for ax = [axT axN axL]
+        % 'rim' = marginal ring only (a filled bundle merges the out/return beams
+        % into a false focus at the compensator); 'outline' = optic rims only
+        macos.view_rx('ax',ax,'ray_color',arms{a,4},'title','','labels',false, ...
+            'hide',passive,'bundle','rim','bodies','outline');
     end
 end
-% top panel: the whole train from above, all major elements labelled
-axis(ax1,'equal');  view(ax1,0,90);  axis(ax1,'off');
-label_(ax1, Et, Ltrain, ink, 15);
-title(ax1, sprintf('TG96 %s interferometer -- test arm (blue), reference arm + PZT flat (orange), from above', ...
-    iff_(oap,'reflective (OAP)','lens')), 'Color',ink,'FontWeight','normal','FontSize',14);
-% bottom panel: cropped tight to the beamsplitter / recombination / polarization node
-axis(ax2,'equal');  view(ax2,0,90);  set(ax2,'FontSize',13);
-nodei = [NI({'PolIn'}) NI({'BSrefl','BS'}) NI({'Comptxfd','Comp'}) NI({'Recomb'}) NI({'OutQWP'}) NI({'Analyzer'})];
-nodei = nodei(nodei > 0);
-if ~isempty(nodei)
-    vx = arrayfun(@(i) Et(i).vpt(1), nodei);  vy = arrayfun(@(i) Et(i).vpt(2), nodei);
-    padx = 0.25*(max(vx)-min(vx)+eps) + 95;   pady = 0.25*(max(vy)-min(vy)+eps) + 95;
-    xlim(ax2,[min(vx)-padx max(vx)+padx]);  ylim(ax2,[min(vy)-pady max(vy)+pady]);
+% manual mirror symbols for every Reflector (both arms): view_rx draws the
+% off-axis-parabola body on the parent vertex, off the pole, so the OAPs read as
+% empty space -- a short bar at the pole (normal to psi) marks each mirror
+for a = 1:size(arms,1)
+    Ea = arms{a,2}.E;
+    for i = 1:numel(Ea)
+        if strcmp(Ea(i).element,'Reflector')
+            for ax = [axT axN axL], mirror_sym_(ax, Ea(i).vpt(:), Ea(i).psi(:), br_, mgy); end
+        end
+    end
 end
-label_(ax2, Et, Lnode, ink, 16);
-xlabel(ax2,'bench x, mm','Color',ink,'FontSize',14);  ylabel(ax2,'bench y, mm','Color',ink,'FontSize',14);
-title(ax2, sprintf('The crowded node: beamsplitter, compensator and the polarization tail (%s rig)', P.bench.optics), ...
-    'Color',ink, 'FontWeight','normal', 'FontSize',15);
-grid(ax2,'on');  set(ax2,'GridColor',[225 224 217]/255,'Color','w');
-print(f, [P.tag '_vlayout.png'], '-dpng', '-r130');  close(f);
-fprintf('wrote %s_vlayout.png (view_rx vlayout recipe: labelled, from above, both arms + node crop)\n', P.tag);
+% panel T: the whole train
+axis(axT,'equal');  view(axT,0,90);  axis(axT,'off');
+label_(axT, Et, Ltrain, ink, FS);
+if iPZT > 0
+    p = Er(iPZT).vpt(:);
+    plot3(axT,[p(1) p(1)],[p(2) p(2)-120],[0.4 0.4],'-','Color',[150 120 60]/255,'LineWidth',1.2);
+    text(axT,p(1),p(2)-125,0.5,'reference flat + PZT','Color',orange,'FontSize',FS, ...
+        'HorizontalAlignment','right','VerticalAlignment','top','BackgroundColor','w','Margin',1,'Clipping','off');
+end
+title(axT, sprintf('TG96 %s interferometer, from above -- test arm (blue), reference arm + PZT (orange)', ...
+    iff_(oap,'reflective (OAP)','lens')), 'Color',ink,'FontWeight','normal','FontSize',TS);
+% panel N: the node
+axis(axN,'equal');  view(axN,0,90);  set(axN,'FontSize',16);
+crop_(axN, Et, {'PolIn','BSrefl','Comptxfd','Recomb','OutQWP','Analyzer'}, 90, 90);
+label_(axN, Et, Lnode, ink, FS);
+title(axN,'The node: beamsplitter, compensator, recombination, polarization optics','Color',ink,'FontWeight','normal','FontSize',TS);
+grid(axN,'on');  set(axN,'GridColor',[225 224 217]/255,'Color','w');  ylabel(axN,'y, mm','FontSize',16);  xlabel(axN,'');
+% panel L: the tail (own panel -- the OAP tail folds back over the front end)
+axis(axL,'equal');  view(axL,0,90);  set(axL,'FontSize',16);
+crop_(axL, Et, {'L2pow','L2','FocalMask','FLpow','Detector'}, 60, 75);
+label_(axL, Et, Ltail, ink, FS);
+title(axL,'The tail: focuser -> mask seat -> field lens -> camera','Color',ink,'FontWeight','normal','FontSize',TS);
+grid(axL,'on');  set(axL,'GridColor',[225 224 217]/255,'Color','w');
+xlabel(axL,'bench x, mm','FontSize',16);  ylabel(axL,'y, mm','FontSize',16);
+print(f, [P.tag '_vlayout.png'], '-dpng', '-r150');  close(f);
+fprintf('wrote %s_vlayout.png (3 panels: train / node / tail, both arms, mirror symbols)\n', P.tag);
+end
+
+function crop_(ax, Et, names, padx, pady)
+% crop an axis to the bounding box of the named elements (+pad, mm)
+    vx = [];  vy = [];
+    for k = 1:numel(names)
+        i = find(strcmp({Et.name}, names{k}), 1);
+        if ~isempty(i), vx(end+1) = Et(i).vpt(1);  vy(end+1) = Et(i).vpt(2); end %#ok<AGROW>
+    end
+    if isempty(vx), return; end
+    xlim(ax, [min(vx)-padx max(vx)+padx]);  ylim(ax, [min(vy)-pady max(vy)+pady]);
+end
+
+function mirror_sym_(ax, p, psi, r, col)
+% a short bar at pole p normal to psi (in the bench xy plane) -- a mirror symbol
+    d = [-psi(2); psi(1)];  n = norm(d);  if n < eps, d = [1;0]; else, d = d/n; end
+    plot3(ax, [p(1)-r*d(1) p(1)+r*d(1)], [p(2)-r*d(2) p(2)+r*d(2)], [0.35 0.35], ...
+        '-', 'Color',col, 'LineWidth',3.5);
 end
 
 function i = name_idx_(nmt, cands)
