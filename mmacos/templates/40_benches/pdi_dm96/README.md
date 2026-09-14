@@ -170,6 +170,52 @@ the report and this section states the FINDINGS.
   0.296 pm); `loop.unwrap` is `'auto'` and turns it on exactly when
   `loop.start_rms` is set.
 
+- **Capture, measured both ways — and the wrap premise holds for ONE
+  reading only** (`runs/cap_nouw`, `cap_uw`, `cap_*_recal`,
+  `cap_state_*`, `descent193`).  Largest initial surface a loop closed
+  through each reading brings to 3 pm: **L 30, S 30, V 60, P 60, PF
+  60 nm — identical with the unwrapper off and on**, the S/V/P rows
+  bit-identical between the arms.  The diagnostic says why: past ~60 nm
+  those three return 24–28 nm *whatever* the truth is (70, 120, 170,
+  270 nm) with **zero 2π residues** — they are BLIND, not folded, their
+  focal references collapsed.  Only PF still returns a large map, and it
+  does fold (4 928 residues at a 300 nm start).  **What raises the
+  ceiling is unwrapping AND on-surface re-calibration TOGETHER**: from a
+  100 nm surface PF gives 64 095 pm with neither, 5 383 with unwrapping
+  only, 63 520 with re-calibration only, and **0.245 pm with both** —
+  3 pm by cycle 26, at 1e13 as well as 1e15, so capture there is
+  reference-limited, not light-limited.  **The recommended configuration
+  inherits it**: P with a shutter frame captures 100 nm (200 nm WFE, the
+  DM's stated initial figure) at 0.207 pm (`cap_state_uw_recal`); the
+  ceiling is between 100 and 150 nm.  The re-calibration *cadence* is
+  not the constraint — every 10 cycles is enough, every 2 buys a little
+  early speed for 3× the calibration cost (`descent193f`).
+
+- **The DM's drift WITHIN a scan helps; the camera's hurts**
+  (`runs/intra193` vs `intra193_0`).  With the whole cycle's drift
+  developing across the scan, the stepped readings improve 26–32% (S
+  2.32 → 1.57 pm under the walk, 10.05 → 7.16 under the ramp) while L
+  and V are unchanged to the last digit.  A scan measures the surface at
+  its **midpoint**, half a measurement closer to now — a free half-step
+  of prediction against any smooth drift.  The camera's within-scan
+  drift costs 5.3–10.7 pm because it is additive **bias**, the thing a
+  zero-sum scheme exists to cancel and can only cancel while it is
+  constant across the scan.  *Same knob, opposite signs: DM drift within
+  a scan is signal read at the right moment, camera drift is bias read
+  at the wrong one.*
+
+- **The P/SRI's reference-arm walk is nearly free for a DM servo**
+  (`runs/rw193_*`).  A hundredfold range of walk (1e-3 → 1e-1 rad per
+  cycle) costs **4%** in photons (4.8e13 → 5.0e13 per cycle to hold 3 pm
+  under the 2 pm DM walk); P, the common-path control, is bit-identical
+  across all three.  A path-length change between arms is a **piston**,
+  and piston is exactly the mode the actuator estimator nulls (the
+  sensor cannot see it; since S10 the matrix carries that null as a
+  rank-one term).  **Benign for a surface servo, not in general** — for
+  the paper's absolute E-field reconstruction the same walk is a direct
+  error, and a reference arm that tilts rather than translates is
+  outside the model.
+
 - **Four shared loop knobs** in `../dm_gauge_lib/dmg_loop.m`, gated on
   the synthetic instrument in `mmacos/tests/tDmgLoop.m` (G9–G12): the
   descent (`start_rms`), on-surface re-calibration (`recal_every`, with
