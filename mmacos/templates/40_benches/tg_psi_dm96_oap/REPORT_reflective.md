@@ -30,6 +30,7 @@ records its exit code in `runs/<tag>.log`. Read this table, then
 | `oapifo` | `runs/ifoseq.sh` | the interferometer's rows on the 30 nm surface + the clearance table | **running** |
 | `oapifol` | `runs/ifoseq.sh` | the closed-loop hold metric (hour-class) | queued behind `oapifo` |
 | `oapsens22` | `zwfs_dm96/runs/oapsensseq.sh` | item 5: the mask sensors S / V / P on the designed bench, bench + battery, model 1024 / 193 rays, matched to the lens gate run `gate22_193` | queued (the batch wrappers serialize) |
+| `oapdesc` | `runs/descseq.sh` | item 4's descent: the same 60 / 150 / 300 nm ladder the record's `descent_oap` stalls on (5856 / 23557 / 53150 pm, never reaching 10 nm from 150 or 300) | queued |
 
 `runs/ifoseq.sh` waits (up to 2 h) for `oap22d_tail.mat`, copies it under each
 tag, and aborts loudly rather than falling back to the record's 7-degree
