@@ -28,9 +28,11 @@ records its exit code in `runs/<tag>.log`. Read this table, then
 |---|---|---|---|
 | `oap22d_tail` | `runs/tailseq.sh` | `oap22d_tail.mat` — the reflective tail re-fit on the designed geometry | **done**: null 0.0223 nm, poke recovered 150.0 of 150 nm |
 | `oapifo` | `runs/ifoseq.sh` | the interferometer's rows on the 30 nm surface + the clearance table | **running** |
-| `oapifol` | `runs/ifoseq.sh` | the closed-loop hold metric (hour-class) | queued behind `oapifo` |
-| `oapsens22` | `zwfs_dm96/runs/oapsensseq.sh` | item 5: the mask sensors S / V / P on the designed bench, bench + battery, model 1024 / 193 rays, matched to the lens gate run `gate22_193` | queued (the batch wrappers serialize) |
-| `oapdesc` | `runs/descseq.sh` | item 4's descent: the same 60 / 150 / 300 nm ladder the record's `descent_oap` stalls on (5856 / 23557 / 53150 pm, never reaching 10 nm from 150 or 300) | queued |
+| `oapifol` | `runs/ifoseq.sh` | the closed-loop hold metric (hour-class) | **DEFERRED** — it would spend an hour measuring the known-broken reading (§4.2). Re-queue after the tail is fixed |
+| `oapdesc` | `runs/descseq.sh` | item 4's descent: the same 60 / 150 / 300 nm ladder the record's `descent_oap` stalls on (5856 / 23557 / 53150 pm, never reaching 10 nm from 150 or 300) | **DEFERRED** — same reason |
+| `tailA` / `tailB` | `runs/tailabseq.sh` | **the decisive diagnostic**: the design at model 512 with the TUNED tail vs the GEOMETRIC SEED (§4.2) | running |
+| `oapsens22` | `zwfs_dm96/runs/oapsensseq.sh` | item 5's mask sensors — **independent of the tg96 tail** (the ZWFS carries its own tuned tail and `MASK_TRIM` 0), so it is unaffected by §4.2 and still worth its run | queued |
+| `polA` / `polB` | `runs/polabseq.sh` | the polarizer A/B | **dropped** — redundant with `tailA`/`tailB` once the polarizer stopped being the leading suspect (§4.1). The script is kept; re-run it if the tail is exonerated |
 
 `runs/ifoseq.sh` waits (up to 2 h) for `oap22d_tail.mat`, copies it under each
 tag, and aborts loudly rather than falling back to the record's 7-degree
