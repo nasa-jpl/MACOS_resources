@@ -1196,3 +1196,90 @@ tail.** `tailB` proves it reads at 0.98 with a clean ladder, and `oapifo2` has
 already run the full-resolution battery on it. The reflective bench needs no
 tuned tail; the tuner is the thing that is broken, and it is broken in a way
 this session has not diagnosed.
+
+### 4.6 Item 4, resolution-matched, on the seed tail — `oapifo2`
+
+Model 1024, grid 384×0.28, NGRID 385, detector Nyquist 192.5 cyc/pup — the
+**same** resolution as the record's `oap` and `lens` runs. Geometric seed tail.
+Magnification 10.437 DM-mm/det-mm (lens 9.879, record reflective 10.704); 3680
+lit actuators; clearance re-confirmed at worst **+33.4 mm** over 9 parts.
+
+**Modal transfer — the record's central reflective-vs-lens claim, reversed:**
+
+| mode | cyc/pup | **`oapifo2` gain / cross-talk** | record reflective | lens |
+|---|---|---|---|---|
+| 1,1 | 0.7 | **0.9978 / 0.0063** | 0.9493 / 0.2202 | 0.9877 / 0.0049 |
+| 4,4 | 2.8 | **0.9893 / 0.0105** | 0.6381 / 0.4772 | 0.9884 / 0.0065 |
+| 16,16 | 11.3 | **0.9916 / 0.0109** | 0.7789 / 0.4106 | 0.9886 / 0.0090 |
+| 32,32 | 22.6 | **0.9939 / 0.0161** | 0.7681 / 0.4189 | 0.9889 / 0.0284 |
+| 80,80 | 56.6 | **0.9660 / 0.0078** | — | — |
+
+The record calls its 0.22–0.48 cross-talk *"the same-plane fold's astigmatism
+cross-talk … only the geometry can move it"* and concludes the reflective rig is
+an open-loop/differential-grade instrument. **Measured on the designed bench the
+cross-talk is 0.006–0.021 — the lens rig's own figure, and ~20× below the
+record's reflective rig.** Fed at its focus and laid out to clear its beams, the
+fold costs essentially nothing in cross-talk.
+
+**Differential rows, and the flat-DM null:**
+
+| base → deviation | **`oapifo2`** | record reflective | lens |
+|---|---|---|---|
+| flat → single 10 nm | 0.9915 / 2.4 pm / 0.9999 | 0.9948 / 2.2 / 0.9999 | 0.9916 / 2.2 |
+| **flat → random 10 nm** | **0.9905 / 161.2 pm / 0.9999** | **0.7486 / 4848.5 / 0.8706** | 0.9893 |
+| random 16 nm → single | 0.9952 / 2.1 / 0.9999 | 0.9958 / 2.3 / 0.9999 | — |
+| **random 16 nm → random** | **0.9892 / 189.8 pm / 0.9999** | **0.7486 / 4848.3 / 0.8706** | — |
+| flat-DM null | **28.9 pm** | 12 893 / 13 089 pm | 134.5 pm |
+| reg sweep all / bright / dark | **0.9905 / 0.9906 / 0.9900** | 0.7486 / 0.9932 / **0.0494** | 0.9893 / 0.9890 / 0.9906 |
+
+Dense-random residual **161 pm against the record's 4848 — 30× smaller** — and
+the regularization sweep is uniform across bright and dark columns (0.9906 /
+0.9900) where the record's reflective rig collapses to 0.0494 in the dark.
+
+**The one place the designed bench is WORSE than both, and it must not be
+buried: the break ladder.**
+
+| base rms | **`oapifo2`** | record reflective | lens |
+|---|---|---|---|
+| 30 nm | **0.9965 / 2.0 pm** | 0.9967 / 2.5 | 1.0013 / 4.5 |
+| 60 nm | **0.9929 / 2.0 pm** | 0.9987 / 3.1 | 1.0103 / 9.3 |
+| 120 nm | **0.3698 / 437.9 — BROKE** | 0.9617 / 489.6 | 1.0258 / 19.3 |
+| 240 nm | **−0.9009 — BROKE** | 0.4779 — BROKE | 1.9271 / 394.0 |
+| 480 nm | **−4.9780 — BROKE** | 1.0192 / 15.3 | 1.5849 / 419.1 |
+
+It wraps from **120 nm**, where the record's reflective rig holds to 120 and
+breaks at 240, and the lens rig never flags. **The designed bench has a smaller
+capture range on a deep surface.** This also **corrects §4.3's model-512
+indication**, which showed a clean ladder to 480 nm and led me to say it "beats
+the lens rig at the top of the ladder" — that was the resolution mismatch I
+flagged, and the matched run does not support it. On the 30 nm working surface
+the record actually operates on, the bench is clean.
+
+### 5. Item 5 — the mask sensors on the designed bench (`oapsens22`)
+
+Model 1024, NGRID 193, bare-Al coating, `mask.v_arm 'engine'`, matched to the
+lens gate run `gate22_193`. Sandwich and reference gates all pass at 1e-15:
+G1 1.83e-15, G2 1.98e-15, G3 3.92e-16, G7 2.26e-15, G8 4.0e-15.
+
+| reading | record (7° reflective) | **designed bench** | gate |
+|---|---|---|---|
+| stepped dimple S | survives | (rows in the run) | — |
+| **vector pair V** | FAIL, 19.6 pm | **FAIL, 633.97 pm** | < 12 pm |
+| **pinhole P** | FAIL, 94 pm | **PASS, 0.269 pm** | < 12 pm |
+
+**The pinhole recovers, and it is not marginal: 94 pm → 0.269 pm, a 350×
+improvement, from FAIL to PASS.** That answers item 6's question — *does the
+pinhole recover?* — **yes**, and by fixing the conjugate rather than by opening
+the fold, which is the opposite of the lever the brief proposed.
+
+**The vector pair gets worse, 19.6 → 634 pm**, and the likely reason is
+physical rather than a defect: bare aluminium's diattenuation and retardance
+grow with incidence angle, and the clearance-driven folds are **20° / 25°**
+against the record's 5° / 9°. If that is the cause, it is a genuine cost of the
+buildable layout and belongs in the trade, not in a fix. **Untested** — the
+discriminator is the same run with `coat_oap 'none'`, which removes the
+coating's polarization while keeping the geometry, and it is queued.
+
+One sampling note from the run: **2.37 detector px per actuator** against a
+minimum of 2 — the 96×96 DM is close to the floor at NGRID 193 on this bench's
+larger pupil image. It passes, but it is the thinnest margin in the budget.
