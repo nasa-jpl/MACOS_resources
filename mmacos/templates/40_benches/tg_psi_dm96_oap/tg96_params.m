@@ -52,10 +52,13 @@ P.clear.MARGIN  = 25;   P.clear.LEG_CAP = 700;
 % ---- the bench (macos.design.twyman_green options; s = 96/56 applied
 %      in tg96_run so the whole rig scales uniformly off the 56 mm v1) --
 P.bench.polarizing = true;
-P.bench.BS_AOI     = [];           % [] => Stage-A solved AOI (=7 at record)
+P.bench.BS_AOI     = 22.5;         % Dave 2026-09-15: pinned (the Stage-A solve's 7 deg cleared only the
+                                   % end bodies; the node parts need >= 22.5: dmg_bench_clearance)
+P.bench.D_RECOMB   = 150;          % physical mm (NOT scaled by s): the recomb plane and the output
+P.bench.D_RC_L2    = 55;           % optics 150 mm behind the splitter, L2 at 150 + 55 = 205 as before
 P.bench.F1 = 500;   P.bench.F2 = 250;      % *s in the runner
 P.bench.D_LENS = 60;  P.bench.R_BAFFLE = 12.5;  P.bench.D_SB = 250;
-P.bench.BS_T = 1.5;   P.bench.D_L1_BS = 150;    P.bench.D_BS_CMP = 100;
+P.bench.BS_T = 1.5;   P.bench.D_L1_BS = 150;    P.bench.D_BS_CMP = 200/(96/56);   % compensator at 200 mm physical (x s in the runner)
 P.bench.D_BS_TO = [];              % [] => Stage-A solved DM leg
 P.bench.R_TO_AP = 30;
 P.bench.L1_Kr = 236.866;  P.bench.L1_Kc = -0.5829;   % lens seeds (ignored oap)
