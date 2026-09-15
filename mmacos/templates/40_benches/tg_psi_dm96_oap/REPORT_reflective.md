@@ -862,6 +862,17 @@ full-resolution run.
    it is the two metrics measuring different things, which is exactly the
    `max(abs(h))`-anywhere weakness read off the code above.
 
+**A caveat on reading the wrap flag as a cause.** `tailA`'s ladder reports
+"base reads 1.00 of λ/4" at **every** rung — 30, 60, 120 and 240 nm alike —
+whereas a genuinely surface-proportional wrap grows with the base (the record's
+reflective rig is clean at 30 and 60 and only breaks at 240). A ratio pinned at
+1.00 from the smallest base is equally consistent with a map that is simply
+**random**: a random map saturates the range trivially. So the wrap flag may be
+a *symptom* of a reading that carries no information rather than the *cause* of
+one, and it should not be quoted as the mechanism until something distinguishes
+the two. What it does establish, independently, is that the map is not a
+faithful image of the commanded surface.
+
 `tailB` (the geometric seed) now says whether the *tuned numbers* are the
 defect or the *reading on this bench* is. If the seed reads, the fix is the
 tail objective and the geometry stands — items 1–3 were measured with no tail
