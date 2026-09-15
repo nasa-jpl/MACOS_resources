@@ -798,11 +798,67 @@ grid**, not the polarization chain.
   separates it (at the cost of ~11 % of its rays into the plate, so `polB` is a
   diagnostic, never a candidate design).
 
+### 4.2 The runner diagnoses it: the map WRAPS, and the tail is the suspect
+
+The break ladder — the single 10 nm differential against an increasing base
+surface — names the failure outright:
+
+| base rms | lens rig | record reflective | **designed bench** |
+|---|---|---|---|
+| 30 nm | 1.0013 | 0.9967 | **0.2816 — BROKE (wrap: base reads 1.00 of λ/4)** |
+| 60 nm | 1.0103 | 0.9987 | **0.2437 — BROKE** |
+| 120 nm | 1.0258 | 0.9617 | **−0.9554 — BROKE** |
+| 240 nm | 1.9271 | 0.4779 — BROKE | 0.5738 |
+| 480 nm | 1.5849 | 1.0192 | **0.1995 — BROKE** |
+
+The record's rigs read a 30 nm base cleanly and wrap only at 240 nm. **This
+bench wraps at the FIRST rung**: a 30 nm base already saturates the four-step's
+unambiguous range, `|h| < λ/4 = 158.2 nm` — about 8× too easily, which is the
+size of the gain deficit.
+
+And the regularization sweep shows *where* the information went:
+
+| matrix λ | | all | bright 25 % | dark 25 % |
+|---|---|---|---|---|
+| lens rig | 1e-03 | 0.9893 | 0.9890 | 0.9906 |
+| record reflective | 1e-03 | 0.7486 | **0.9932** | 0.0494 |
+| **designed bench** | 1e-03 | 0.1044 | **−0.0048** | **0.4739** |
+
+On both working rigs the **bright** (well-illuminated) columns carry the signal
+and the dark ones do not. Here it is **inverted**: the bright columns read
+essentially zero and the dark ones carry what little there is. That is not a
+gauge reading a surface badly; it is a map that is not a pupil image of the DM.
+
+**Leading hypothesis: the tail retune, and specifically its objective.**
+`tg96_tail`'s `'oap'` objective is `sharpness` — the recovered single-poke peak
+— which rewards a sharp poke image but **does not constrain the detector to the
+DM's pupil conjugate**. Its winner moved `DET_TRIM` to **+45.96 mm** (the lens
+rig's is −1.25) and §4 already measured the pupil magnification changing
+**1.95×**. A detector off the conjugate carries field curvature into the
+measured map: that saturates λ/4, scrambles which actuator owns which pixel,
+and leaves exactly these erratic sign-flipping rows — while leaving the *null*
+tiny (an arm difference, common-mode, it cancels) and the *poke peak* sharp.
+**Which is why the tuner reported 0.0223 nm and 150.0 / 150 nm and looked like
+a triumph.** §4's opening rows are consistent with a tail that is optically
+sharp and metrologically wrong.
+
+**The A/B, queued** (`runs/tailabseq.sh`): `tailA` = the design with the tuned
+tail, `tailB` = the same with the **geometric seed** (`bench.tail_from_mat`
+false), both at model 512 / NGRID 193. If `tailB` reads and `tailA` does not,
+the defect is the tail objective and the fix is to constrain the retune on the
+pupil conjugate — not to change the geometry, which items 1–3 measured
+independently of any tail.
+
+`bench.tail_from_mat` is new and closes a real gap: the tail lookup falls back
+to `<optics>_tail.mat`, so simply not writing a per-tag mat picks up **another
+bench's** tail. Seed-vs-tuned was previously unrunnable.
+
 **Until this is settled: §7's deck guidance stands with this added — do not put
 the reflective rig's reading performance on a slide in either direction, and do
-not read §4's geometric rows (D1, the null, the seat, the tail) as a verdict on
-the instrument. They are optical measurements and they are sound; they do not
-license a claim about the gauge.**
+not read §4's geometric rows (D1, the null, the seat, the tail null) as a
+verdict on the instrument. They are optical measurements and they are sound;
+they do not license a claim about the gauge, and at least one of them (the tail
+null) is now suspected of being sharp for the wrong reason.**
 
 The rows, the servo and the descent follow it, queued in `runs/ifoseq.sh`:
 `oapifo` (bench + battery + figs + clearance — the rows on the 30 nm surface
