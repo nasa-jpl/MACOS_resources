@@ -12,7 +12,7 @@ carries its run tag. Companions: `REPORT_oap.md` (CCMac's 7° history, kept),
 |---|---|
 | 1 — the drawing defect diagnosed and fixed; the lens rig unchanged | **done** — §1; `lens22g` (gate, pixel-identical), `oap22` |
 | 2 — the design: fold angles and off-axis distances from a clearance solve | **done** — §2; the design is OAP1 20° / OAP2 25°, sides +1/−1, polarizer in the source leg, output optics 125 mm ahead of OAP2, collimator at its focus: **worst +33.4 mm over 8 parts**, no ray loss. Tags `fold1`–`fold4`, `loss`, `loss_src`, `loss_a2`, `conj`, `oap22d`; tail retune `oap22d_tail` |
-| 3 — the layout in the recipe; the parts list | not started |
+| 3 — the layout in the recipe; the parts list | **done** — §3; auto-placed labels on the OAP rig (lens figure untouched), parts list printed by the runner (`oap22d`, `oapdraw3`) |
 | 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | not started |
 | 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | not started |
 | 6 — the fold-angle lever: half OAP2's angle; does the pinhole recover? | not started |
@@ -530,3 +530,76 @@ both arms, mirrors on the beam. The source leg now enters steeply from outside
 the node and the tail drops away from it, which is the whole point of the fold
 angles. The labels are still placed for the lens geometry and collide; item 3
 re-places them.
+
+## 3. The layout and the parts list
+
+**The figure** is `tg96_run`'s own three-panel render (the `zwfs_vlayout`
+recipe: `macos.view_rx` from above, both arms overlaid, passive planes hidden,
+a mirror bar at every reflector) — the tool's own output file, not a
+re-rendering. Design run: `runs/oap22d/oap22d_vlayout.png` at the record's
+resolution; `runs/oapdraw3/` is the same figure at dev resolution.
+
+Two changes were needed beyond §1's station fix:
+
+- **The labels place themselves on the reflective rig.** The offsets in
+  `draw_render_`'s `Ltrain` / `Lnode` / `Ltail` tables were hand-tuned for the
+  lens geometry and collided once the folds moved — three labels on top of each
+  other in the node panel. For `optics 'oap'`, `label_` now *places* each
+  label: eight compass directions at three standoffs, scored by distance to the
+  nearest element station, to every label already placed, and to the
+  hand-placed PZT leader, with candidates outside the panel heavily penalised
+  and a mild preference for a short leader. The separation metric is
+  **anisotropic** (`diag([0.35, 1])`) because a label is wide and short, so a
+  given horizontal gap buys less than the same vertical one. The lens rig
+  still takes the hand offsets — `auto = oap` — so its figure does not move.
+- **The node and tail panels crop wider on the OAP rig** (150 / 130 mm of pad
+  against 90 / 60), because the folded legs put the parts further apart.
+
+**The parts list** is now printed by the runner at Stage B, for either optics
+(`parts_list_`). For an off-axis section it gives the four numbers that specify
+the *optic* rather than the layout — and they are not free: for a parabola fed
+at conjugate `r`, parent focal length `= r·cos²AOI` and off-axis distance
+`= r·sin 2·AOI`, so choosing the fold chooses both. The clear radius quoted is
+the **traced footprint**, since `add_oap` leaves an off-axis section with no
+declared aperture on purpose (§1.2).
+
+From `oapdraw3_report.txt` — the test arm, station measured along the chief
+from the source:
+
+| element | type | station, mm | clear r | |
+|---|---|---|---|---|
+| Baffle | Obscuration | 428.6 | 21.4 | source baffle |
+| PolIn | TrPolarizer | 438.6 | — | input polarizer, in the diverging leg |
+| **L1** | Reflector | **882.1** | 51.4 | **off-axis parabola (collimator): fold 20°, parent f 756.9 mm (Kr −1513.8), off-axis 551.0 mm, conjugate 857.1 mm** |
+| BSrefl | Reflector | 1139.3 | — | plate splitter, 22.5° |
+| Comptxfd/bd | Refractor | 1336.5 / 1339.2 | — | compensator |
+| QWPtestIn | WavePlate | 1561.6 | — | test-arm quarter-wave plate |
+| TestOptic | Reflector | 1586.6 | 51.4 | the 96×96 DM |
+| QWPtestOut | WavePlate | 1611.6 | — | the same plate, second pass |
+| Recomb | Reference | 2186.6 | — | recombination plane |
+| OutQWP | WavePlate | 2196.6 | — | output quarter-wave plate |
+| Analyzer | TrPolarizer | 2206.6 | — | analyzer |
+| **L2** | Reflector | **2311.6** | 51.4 | **off-axis parabola (focuser): fold 25°, parent f 352.0 mm (Kr −704.1), off-axis 328.3 mm, conjugate 428.6 mm** |
+| FocalMask | Reference | 2740.1 | — | the mask seat |
+| FLpow/flat | Refractor | 2750.9 / 2755.2 | — | field lens |
+| Detector | FocalPlane | 2792.9 | — | camera at the pupil image |
+
+Two readings fall out of the table and are worth stating plainly:
+
+- **`L2` at 2311.6 and the mask seat at 2740.1 are 428.5 mm apart — `F2`
+  exactly.** The mask-seat trim on this bench is **zero**, as §2.5 predicted.
+- **`L1` sits 882.1 mm from the source, not 857.1** — `F1` plus the 25 mm
+  `zSource`, which is `SRC_AT_FOCUS` doing its job: the pole has not moved, the
+  source has.
+
+Both mirrors carry the same coating (`bench.coat_oap`), and each needs a
+tip/tilt mount; the runner prints that, and prints which leg the input
+polarizer is in and whether the source is at the collimator's focus, so a
+parts list can never silently describe a different bench from the one traced.
+
+**Gate: the lens figure still does not move.** `lens22h` re-renders it with the
+auto-placer, the wider crops and the re-ordered PZT leader in place. Its
+decompressed pixel stream is **21 717 704 bytes, SHA-256
+`9009d2d95df8737286c87557…` — byte-for-byte the value `lens22` and `lens22g`
+carry.** So the lens rig's figure is unchanged across *both* item 1's station
+fix and item 3's label work.
