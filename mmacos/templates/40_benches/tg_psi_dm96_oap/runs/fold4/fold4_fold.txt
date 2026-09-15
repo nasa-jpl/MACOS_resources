@@ -1,0 +1,67 @@
+=== OAP fold solve: the fold angles from the MEASURED clearance ===
+bench 22.5 deg node (BS_AOI 22.5), DM leg 450, beam radius 51.4 mm, mount +8, spec >= 25 mm
+physical bodies (radius before the mount, mm): Baffle 50  Detector 50  TestOptic 90  PZT 60  
+input polarizer: source leg; output optics -> OAP2 standoff D_RC_L2 = 125 mm
+collimator fed at its TRUE focus (SRC_AT_FOCUS)
+model 512, 65 rays; 6 x 5 angles x 4 side pairs = 120 builds
+
+--- sides OAP1 +1 / OAP2 +1 ---
+ A1\A2      25      30      35      40      45   binding part at the best A2
+    14     -89    -100     -90     -62     -52   Baffle
+    16     -56     -67     -82     -90     -22   Baffle
+    18     -22     -31     -46     -74     -14   Baffle
+    20      15       8      -5     -40       6   Baffle
+    22      34      42      44       5      60   Comp
+    24      34      42      47      53      25   Comp
+
+--- sides OAP1 +1 / OAP2 -1 ---
+ A1\A2      25      30      35      40      45   binding part at the best A2
+    14     -56     -55     -54     -53     -52   Baffle
+    16     -26     -25     -24     -23     -26   Baffle
+    18       4       5       6       6     -26   Baffle
+    20      33      35      35      36     -26   Baffle
+    22      33      41      46      52     -27   Comp
+    24      33      40      45      51     -27   Comp
+
+--- sides OAP1 -1 / OAP2 +1 ---
+ A1\A2      25      30      35      40      45   binding part at the best A2
+    14      -0       4       9      15      21   Comp
+    16     -11      -7      -2       4      10   Comp
+    18     -23     -19     -14      -9      -2   Comp
+    20     -39     -35     -30     -24     -18   Comp
+    22     -59     -55     -50     -45     -39   Comp
+    24     -87     -83     -78     -73     -67   Comp
+
+--- sides OAP1 -1 / OAP2 -1 ---
+ A1\A2      25      30      35      40      45   binding part at the best A2
+    14       1       5      10      15     -26   Comp
+    16     -10      -5      -0       5     -26   Comp
+    18     -22     -18     -13      -7     -26   Comp
+    20     -38     -33     -29     -23     -26   Comp
+    22     -58     -54     -49     -43     -37   Comp
+    24     -86     -82     -77     -71     -65   Comp
+
+120 builds in 7.9 min (4.0 s each)
+
+SOLVED: OAP1 20 deg / OAP2 25 deg, sides +1/-1 -- worst +33.4 mm (Analyzer)
+  OAP1 off-axis 551.0 mm, parent f 756.9 mm; OAP2 off-axis 328.3 mm, parent f 352.0 mm
+
+element                type         arm     a+mnt  r_beam  clear mm  against
+Analyzer               TrPolarizer  test     59.9    46.9      33.4  test: L2 -> FocalMask
+Baffle                 Obscuration  test     58.0    21.9      34.6  test: Analyzer -> L2
+Comp                   Refractor    test     63.7    50.7      37.0  test: L1 -> BSrefl
+OutQWP                 WavePlate    test     59.9    46.9      47.2  test: L2 -> FocalMask
+Pol                    TrPolarizer  test     35.4    22.4      58.5  test: Analyzer -> L2
+BS                     Reflector    test     63.7    50.7      75.1  test: PolIn -> L1
+L1                     Reflector    test     59.4    50.0     149.3  test: QWPtestOut -> Comptxfu
+L2                     Reflector    test     59.4    51.4     170.1  ref: BStxbf -> QWPrefIn
+FL                     Refractor    test     14.2     1.2     463.3  test: Comptxbd -> QWPtestIn
+QWPtest                WavePlate    test     59.9    46.9       NaN  (no other beam crosses its plane)
+TestOptic              Reflector    test     98.0    46.9       NaN  (no other beam crosses its plane)
+Detector               FocalPlane   test     58.0     4.6       NaN  (no other beam crosses its plane)
+QWPref                 WavePlate    ref      59.9    46.9       NaN  (no other beam crosses its plane)
+PZT                    Reflector    ref      68.0    46.9       NaN  (no other beam crosses its plane)
+* = the trace loses rays at that fold (vignetting / surface miss); such
+  a point is never SOLVED however well it clears.
+
+wrote fold4_fold.{txt,mat,png} in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/fold4

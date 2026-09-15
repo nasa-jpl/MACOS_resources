@@ -60,6 +60,21 @@ P.clear.node    = true;            % solve the splitter angle against the NODE p
                                    %  bodies.  Dave 2026-09-15: at the record's 7 deg
                                    %  eight of nine node parts sat in another beam --
                                    %  "this is not buildable".
+P.clear.BODY = struct();           % the parts' PHYSICAL bodies (part stem ->
+                                   %  radius before the mount, mm) for the
+                                   %  measured clearance table.  EMPTY = the
+                                   %  record: apertures only, which omits the
+                                   %  SOURCE head entirely (its builder element
+                                   %  is an Obscuring baffle, not an optic) and
+                                   %  scores the camera at its pupil-image
+                                   %  size.  The reflective runs pass the
+                                   %  Stage-A rule's own half-widths --
+                                   %  struct('Baffle',50,'Detector',50,
+                                   %  'TestOptic',90,'PZT',60) -- so the screen
+                                   %  and the measurement describe the same
+                                   %  parts.  Left empty by default so the
+                                   %  lens rig's recorded table (REPORT_bench_
+                                   %  realism section 2) reproduces exactly.
 P.clear.plate_over = 5;            % a builder plate carries no aperture: its radius
                                    %  is the beam + this (dmg_bench_clearance's rule)
 

@@ -11,5 +11,5 @@ set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$here"
 D="'bench.optics','oap','bench.POL_IN','source','bench.SRC_AT_FOCUS',true,'bench.D_RC_L2',125,'oap.OAP1_AOI',20,'oap.OAP2_AOI',25,'oap.OAP1_SIDE',1,'oap.OAP2_SIDE',-1"
-./tg96_batch.sh oap22d "$D,'stages',{'bench','figs','clearance'}"
+./tg96_batch.sh oap22d "$D,'clear.BODY',struct('Baffle',50,'Detector',50,'TestOptic',90,'PZT',60),'stages',{'bench','figs','clearance'}"
 echo "[designseq] done"
