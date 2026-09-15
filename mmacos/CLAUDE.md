@@ -469,6 +469,30 @@ tiling geometry on OPD maps needs the affine centroid calibration in
 ±R/N pixel map.  Tests: tSegmentRx test_emit_apertures_and_rxpoly +
 test_seg_apertures_hex.
 
+### An off-axis section's VptElt is the PARENT vertex -- ask `Bench.station` (2026-09-15)
+`add_oap` emits an off-axis parabola as the SAME parent conic with `RptElt`
+(the section POLE, where the beam lands) different from `VptElt` (the parent
+VERTEX) and `psiElt` = the parent axis.  The two are **`r*sin(2*AOI)` apart**
+-- 149 mm (OAP1) and 133 mm (OAP2) on the TG96 reflective rig -- and that
+distance IS the optic's off-axis distance; the parent focal length is
+`r*cos^2(AOI)`.  **Anything asking "where is this element on the bench" must
+ask `macos.design.Bench.station(e)`**, which returns `rpt` (push() resolves it
+to `vpt` for every ordinary element, so it is the vertex everywhere else).
+Reading `.vpt` is silent and wrong: it put `tg96_run/draw_render_`'s mirror
+symbols, crop boxes and label anchors 133-149 mm off the rays (the defect in
+the old `oap_vlayout.png`), and it made `dmg_bench_clearance` build its beam
+SEGMENTS between parent vertices -- the source leg ended 149 mm off OAP1 and a
+**150 mm phantom leg** ran from that vertex to the input polarizer, which three
+node parts were then scored against.  `Bench.sketch` always used `rpt`; the
+downstream consumers drifted.  **`view_rx` is CORRECT and needs nothing**:
+`add_oap` deliberately leaves the element with NO declared aperture (a Circular
+`ApVec` is applied about `VptElt` and would block the whole bundle), so
+`elt_geom_` falls to the ray-footprint hull, which is on the beam by
+construction -- measured 1.07 / 1.51 mm from the poles.  Gate:
+`tBench/test_station_is_the_pole`.  Still reading `.vpt` and correct only
+because their rigs have no off-axis section: `pdi_layout_fig`,
+`psri_layout_fig`, `psri_bench`, `zwfs_vlayout`, `dmg_analyzer_maps`.
+
 ### Optical-design reference & fixtures (Sprint 2A-ii builder)
 The de-novo `macos.design.Telescope` builder (closed-form Cass / RC /
 Gregorian / DK layout + conics) is backed by a self-checked reference

@@ -1,0 +1,17 @@
+=== where the reflective rig loses rays vs the OAP1 fold ===
+OAP2 fixed at 9 deg, sides +1/+1, input polarizer in the collimated leg
+model 512, 65 rays
+
+ AOI1     nRay     lost |  obscured    miss  bracket  maxiter   undef | first failing element(s)
+    5     3210        0 |         0       0        0        0       0 | 
+   10     3210        0 |         0       0        0        0       0 | 
+   15     3210       66 |         0      66        0        0       0 | 3:PolIn(66) 
+   20     3210      343 |         0     343        0        0       0 | 3:PolIn(343) 
+   25     3210      600 |         0     600        0        0       0 | 3:PolIn(600) 
+   30     3210      769 |         0     769        0        0       0 | 3:PolIn(769) 
+   35     3210      887 |         0     887        0        0       0 | 3:PolIn(887) 
+   40     3210     1009 |         0    1009        0        0       0 | 3:PolIn(1009) 
+   45     3210     1070 |         0    1070        0        0       0 | 3:PolIn(1070) 
+
+status codes: 1 Obscured, 2 Miss, 3 Bracket, 4 MaxIter, 5 Undef (elt_mod RayStat_*)
+wrote loss_loss.{txt,mat} in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/loss

@@ -19,7 +19,7 @@ echo "[tg96_batch] $call  (MemoryMax=${TG96_MEMMAX:-14G})" | tee "$log"
 # VS Code and the gate run.  TG96_NOWAIT=1 bypasses (dev-resolution jobs
 # that fit beside a model-1024 run; a 64 GB box).
 if [ -z "${TG96_NOWAIT:-}" ]; then
-    while pgrep -f 'MATLAB -batch (zwfs|tg96|pdi)_run_batch' >/dev/null 2>&1; do
+    while pgrep -f 'MATLAB -batch (zwfs|tg96|pdi|oap)[a-z0-9_]*batch' >/dev/null 2>&1; do
         echo "[$(date '+%F %T')] waiting: another DM-gauge batch MATLAB is running" >> "$log"
         sleep $((20 + RANDOM % 20))
     done

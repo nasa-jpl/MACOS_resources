@@ -92,6 +92,25 @@ P.bench.FL_D = 12;  P.bench.D_MASK_FL = 6.277463741;  P.bench.DET_TRIM = 1.08533
 %   OAP2->detector legs (near-normal preferred; must clear the bodies inside
 %   LEG_CAP).  [] => the Stage-A solved value; a number pins it.
 P.bench.optics    = 'lens';        % 'lens' | 'oap'
+% Where the input polarizer lives.  'collimated' (the record) puts it D_POL
+% past the collimator.  That works for a LENS, whose conjugate leg is on-axis;
+% an OAP collimator's conjugate leg comes BACK along the collimated axis, and
+% at 10 mm past the pole the two legs are 10*tan(2*AOI) apart, so the
+% polarizer sits inside the incoming cone at EVERY fold angle -- measured
+% -102 mm of clearance at 5 deg and still -80 mm at 30 deg (oap_fold_solve,
+% runs/fold1).  'source' puts it in the diverging leg, D_POL past the baffle,
+% which is where a real reflective bench polarizes anyway.  Ignored for 'lens'.
+P.bench.POL_IN    = 'collimated';  % 'collimated' | 'source' (oap only)
+% Feed the collimator at its TRUE focus.  Bench emits zSource (25 mm) and the
+% engine puts the real point source at ChfRayPos + zSource*ChfRayDir, so the
+% source sits 25 mm inside the parabola's focus -- measured 926 urad rms of
+% residual convergence (a 28.8 m focus), which an OAP turns into coma LINEAR in
+% the fold angle: 0.13 / 0.37 / 0.65 / 1.08 lambda F/D of best-focus blur at
+% 1 / 5 / 9 / 15 deg, and a 6.46 mm mask-seat trim at EVERY angle -- CCMac's
+% 6.14 mm.  Corrected: 0.000 lambda F/D and 0.00 mm trim at every angle
+% (oap_conj_probe, runs/conj).  The LENS rig hides the same error in its tuned
+% L1 figures, so this is 'oap' only and default false = the record.
+P.bench.SRC_AT_FOCUS = false;      % true => the collimator is fed at its focus
 P.oap.OAP1_AOI    = [];            % [] => Stage-A solved; deg
 P.oap.OAP2_AOI    = [];
 P.oap.OAP1_SIDE   = 1;   P.oap.OAP2_SIDE = 1;

@@ -20,7 +20,7 @@ log="$here/runs/$tag.log"
 if [ -n "$args" ]; then call="pdi_run_batch('tag','$tag', $args)"; else call="pdi_run_batch('tag','$tag')"; fi
 cd "$here"
 if [ -z "${ZWFS_NOWAIT:-}" ]; then
-    while pgrep -f 'MATLAB -batch (zwfs|tg96|pdi)_run_batch' >/dev/null 2>&1; do
+    while pgrep -f 'MATLAB -batch (zwfs|tg96|pdi|oap)[a-z0-9_]*batch' >/dev/null 2>&1; do
         echo "[$(date '+%F %T')] waiting: another DM-gauge batch MATLAB is running" >> "$log"
         sleep $((20 + RANDOM % 20))
     done

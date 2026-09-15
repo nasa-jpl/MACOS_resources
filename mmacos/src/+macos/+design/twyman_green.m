@@ -101,6 +101,8 @@ arguments
     % OFF by default -> byte-identical to the pre-oap rig.
     opts.ep_ref (1,1) logical = false
     opts.optics (1,:) char {mustBeMember(opts.optics,{'lens','oap'})} = 'lens'
+    % see POL_IN below: an OAP collimator's conjugate leg comes back along
+    % the collimated axis, so the input polarizer's station is not free.
     opts.OAP1_AOI (1,1) double {mustBePositive} = 15   % collimator fold AOI, deg
     opts.OAP2_AOI (1,1) double {mustBePositive} = 15   % focuser  fold AOI, deg
     opts.OAP1_SIDE (1,1) double {mustBeMember(opts.OAP1_SIDE,[-1 1])} = 1
@@ -189,6 +191,38 @@ arguments
     opts.qwp_ret      (1,1) double = 0.25   % nominal QWP retardance (waves)
     opts.D_QWP        (1,1) double = 25     % arm-QWP standoff from the retro
     opts.D_POL        (1,1) double = 10     % input-polarizer / output-leg standoff
+    % ---- where the input polarizer lives (reflective rigs) --------------
+    % 'collimated' (default, the record): D_POL past the collimator, in the
+    %   collimated pre-splitter leg.  Fine for a LENS collimator, whose
+    %   conjugate leg is on-axis, so nothing travels the other way there.
+    % 'source': in the DIVERGING source leg, D_POL past the baffle.  An OAP
+    %   collimator's conjugate leg comes BACK along the collimated axis, and
+    %   at 10 mm past the pole the two are 10*tan(2*AOI) apart -- 1.7 mm at
+    %   5 deg -- so a polarizer there sits inside the incoming cone at ANY
+    %   fold angle (measured: -102 mm of clearance at 5 deg, still -80 mm at
+    %   30 deg, oap_fold_solve/fold1).  Polarizing the SOURCE is what a real
+    %   reflective bench does anyway.  Costs: the leg is f/8.3, so the ray
+    %   normal-incidence assumption in add_polarizer's help is broken at the
+    %   sin^2(3.4 deg) = 0.4 % level, and OAP1's own diattenuation now acts
+    %   on an already-polarized beam.  'oap' optics only.
+    opts.POL_IN (1,:) char {mustBeMember(opts.POL_IN,{'collimated','source'})} = 'collimated'
+    % ---- feed the collimator at its TRUE focus (reflective rigs) --------
+    % Bench emits zSource and the engine puts the real point source at
+    % ChfRayPos + zSource*ChfRayDir (sourcsub.F:38), so the source sits
+    % 'zsource' mm DOWNSTREAM of the point front_end computes -- while
+    % add_oap builds the parabola for a focus AT that point.  The collimator
+    % is therefore fed 25 mm inside its focus, and the collimated beam
+    % carries a 926 urad rms residual (a 28.8 m focus).
+    % A LENS rig hides that in its TUNED figures (L1_Kr / L1_Kc from
+    % l2_trade); a parabola has no such freedom, so the same error surfaces
+    % as the reflective rig's "fold coma" -- measured 0.13 / 0.24 / 0.37
+    % lambda F/D of best-focus blur at 1 / 3 / 5 deg, and EXACTLY ZERO at
+    % every angle once the source is moved back (oap_conj_probe, runs/conj).
+    % SRC_AT_FOCUS true adds zsource to the source distance so the effective
+    % point source lands on the parabola's focus.  'oap' only; default false
+    % = the record, so no existing number moves silently.
+    opts.SRC_AT_FOCUS (1,1) logical = false
+    opts.zsource      (1,1) double  = 25   % the Rx zSource both arms emit
     % ---- v2: a REAL polarizing beamsplitter (cemented MacNeille cube) ----
     % 'pbs','plate' (default) is the v1 rig: the splitter is a front-coated
     % PERFECT-CONDUCTOR plate plus a compensator, and the polarization split
@@ -325,11 +359,11 @@ end
 bt = front_end(P, 'ifo_test');
 % input polarizer in the collimated pre-BS leg (slice-3 variant); it steals
 % its standoff from the L1->BS leg so the BS stays put (bit-identical off)
-if P.polarizing
+if P.polarizing && ~pol_at_source_(P)
     bt.add_polarizer(P.D_POL, ax_local(bt.dir, P.pol_in_deg), 'name','PolIn');
     d_l1_bs = P.D_L1_BS - P.D_POL;
 else
-    d_l1_bs = P.D_L1_BS;
+    d_l1_bs = P.D_L1_BS;   % POL_IN 'source': front_end already placed it
 end
 [~, bs] = bt.add_bs_reflect(d_l1_bs, bs_out, 'thickness',P.BS_T, 'n',P.N_GLASS);
 cmp = bt.plate(P.D_BS_CMP, bs.psi, 'thickness',P.BS_T, 'n',P.N_GLASS, 'name','Comp');
@@ -360,7 +394,7 @@ T.iRC = bt.add_reference(P.D_RECOMB, 'Recomb');
 
 % ---- reference arm --------------------------------------------------
 br = front_end(P, 'ifo_ref');
-if P.polarizing
+if P.polarizing && ~pol_at_source_(P)
     br.add_polarizer(P.D_POL, ax_local(br.dir, P.pol_in_deg), 'name','PolIn');
 end
 br.add_bs_transmit(bs, 'tag','f');
@@ -384,6 +418,14 @@ G = struct('bt',bt, 'br',br, 'T',T, 'R',R, 'bs',bs, 'det_leg',det_leg, 'P',P);
 end
 
 % ---------------------------------------------------------------------
+function tf = pol_at_source_(P)
+%POL_AT_SOURCE_  true when the input polarizer belongs in the diverging leg.
+%   Only meaningful on a reflective front end; a lens collimator has no
+%   conjugate leg coming back along the collimated axis, so the option is
+%   ignored (and 'lens' stays bit-identical to the record).
+tf = strcmp(P.optics, 'oap') && strcmp(P.POL_IN, 'source');
+end
+
 function b = front_end(P, name)
     AP = 2*atan(P.R_BAFFLE/P.D_SB)*P.FILL;
     if strcmp(P.optics, 'oap')
@@ -400,14 +442,47 @@ function b = front_end(P, name)
         c = cos(-a); s = sin(-a);                     %  recover the incoming dir
         d_in  = [c*d_out(1) - s*d_out(2); s*d_out(1) + c*d_out(2); 0];
         pole  = [P.F1; 0; 0];                         % == lens-rig L1 pole
-        src   = pole - P.F1*d_in;                     % focus one conjugate back
+        % one conjugate back -- plus zSource when SRC_AT_FOCUS, so the
+        % EFFECTIVE point source (ChfRayPos + zSource*ChfRayDir) lands on the
+        % parabola's focus rather than zSource mm inside it.
+        d_src = P.F1;
+        if P.SRC_AT_FOCUS, d_src = P.F1 + P.zsource; end
+        src   = pole - d_src*d_in;
         b = macos.design.Bench(name, 'aperture', AP, 'ngridpts', P.ngridpts, ...
-                               'pos', src, 'dir', d_in);
+                               'pos', src, 'dir', d_in, 'zsource', P.zsource);
         b.add_baffle(P.D_SB, P.R_BAFFLE);
-        b.add_oap(P.F1 - P.D_SB, d_out, 'mode','collimate', ...
+        d_pole = d_src - P.D_SB;
+        if P.polarizing && pol_at_source_(P)
+            % The input polarizer in the DIVERGING leg, D_POL past the baffle:
+            % it is then (d_pole - D_POL) before the pole, where the outgoing
+            % collimated beam is that distance x tan(2*AOI1) away -- a real
+            % separation, unlike the 10 mm station in collimated space.
+            %
+            % Its axis is REFLECTED back through OAP1 so the state arriving at
+            % the splitter is the record's.  A plane mirror maps a transverse
+            % vector by a = a - 2(a.n)n about its normal, and that map is an
+            % involution, so the incoming axis that becomes ax_local(d_out,
+            % pol_in_deg) after the fold is that same expression applied to it.
+            % Without this, "45 deg" in the source leg is 45 deg about a
+            % DIFFERENT local x (ax_local seeds from perp(dir)) and the fold
+            % flips the in-plane component -- a real change of input state, not
+            % a labelling one.  A COATED OAP1 (coat_oap) then acts on an
+            % already-polarized beam: its diattenuation and retardance are a
+            % genuine cost of this arrangement, not an artifact.
+            a_out = ax_local(d_out, P.pol_in_deg);
+            nh = d_out - d_in;  nh = nh/norm(nh);        % pole normal (bisector)
+            a_in = a_out - 2*dot(a_out, nh)*nh;
+            b.add_polarizer(P.D_POL, a_in, 'name','PolIn');
+            d_pole = d_pole - P.D_POL;
+        end
+        b.add_oap(d_pole, d_out, 'mode','collimate', ...
                   'focus_dist', P.F1, 'name','L1', 'aprad', P.D_LENS/2);
     else
-        b = macos.design.Bench(name, 'aperture', AP, 'ngridpts', P.ngridpts);
+        % the lens rig: unchanged, including the conjugate.  Its tuned L1
+        % figures absorbed the zSource offset, so "correcting" it here would
+        % move the record.  SRC_AT_FOCUS is deliberately ignored.
+        b = macos.design.Bench(name, 'aperture', AP, 'ngridpts', P.ngridpts, ...
+                               'zsource', P.zsource);
         b.add_baffle(P.D_SB, P.R_BAFFLE);
         L1 = b.add_lens(P.F1 - P.D_SB, P.F1, P.D_LENS, 'mode','collimate', ...
                         'n',P.N_GLASS, 'name','L1');
