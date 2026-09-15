@@ -45,7 +45,17 @@ macos.init(MODEL);
 % macOS home directory, so on Linux it only warned and the tuner ran on
 % whatever happened to be on the path; resolve it from this file instead.
 addpath(fullfile(exdir, '..', '..', '90_polarization', 'tg_psi_dm'));
-macos.write_grid_file('tail_flat.txt', zeros(N_G));
+% UNIQUE scratch names per process.  These were fixed strings -- tail_flat.txt,
+% tail_test.in, tail_ref.in -- in the template directory, so two tg96_tail runs
+% in the same folder read and wrote each other's decks.  That is not
+% hypothetical: on 2026-09-15 two cost probes launched together reported
+% DIFFERENT nulls for IDENTICAL parameters (71.80 nm vs 0.0289 nm) and the
+% gate built on them had to be thrown away.  dmg_bench_clearance took the same
+% fix on 2026-09-15 (b55d15a) for the same reason.
+scr = sprintf('tail_%d_%s', feature('getpid'), P.tag);
+f_flat = [scr '_flat.txt'];  f_test = [scr '_test.in'];  f_ref = [scr '_ref.in'];
+cleanscr = onCleanup(@() delete_if_(( {f_flat, f_test, f_ref} )));
+macos.write_grid_file(f_flat, zeros(N_G));
 b = P.bench;
 % Objective: 'null' minimizes the flat-DM null (the lens rig; reproduces the
 % record).  'sharpness' ALSO images a single-actuator poke and rewards the
@@ -64,7 +74,8 @@ if isfield(b,'D_RECOMB') && ~isempty(b.D_RECOMB), nodeargs = [nodeargs, {'D_RECO
 if isfield(b,'D_RC_L2')  && ~isempty(b.D_RC_L2),  nodeargs = [nodeargs, {'D_RC_L2',  b.D_RC_L2}];  end
 if isfield(b,'POL_IN')   && ~isempty(b.POL_IN),   nodeargs = [nodeargs, {'POL_IN',   b.POL_IN}];   end
 if isfield(b,'SRC_AT_FOCUS') && ~isempty(b.SRC_AT_FOCUS), nodeargs = [nodeargs, {'SRC_AT_FOCUS', b.SRC_AT_FOCUS}]; end
-C = struct('s',s,'AOI',AOI,'D_BS_TO',D_BS_TO,'NGRID',NGRID,'N_G',N_G,'DX_G',DX_G, ...
+C = struct('f_flat',f_flat,'f_test',f_test,'f_ref',f_ref, ...
+           's',s,'AOI',AOI,'D_BS_TO',D_BS_TO,'NGRID',NGRID,'N_G',N_G,'DX_G',DX_G, ...
            'QWP',QWP,'THETAS',THETAS,'LAM',LAM,'seed',seed,'optics',b.optics, ...
            'oapargs',{oapargs},'nodeargs',{nodeargs},'bench',b,'objective',objective, ...
            'poke_nm',100);   % 0.63 of lambda/4 -- a healthy map then reads ~0.63
@@ -98,13 +109,13 @@ function [r, null_nm, peak_nm] = cost_(q, C)
             'F1',s*b.F1,'F2',s*b.F2,'D_LENS',s*b.D_LENS,'R_BAFFLE',s*b.R_BAFFLE,'D_SB',s*b.D_SB, ...
             'BS_T',s*b.BS_T,'D_L1_BS',s*b.D_L1_BS,'D_BS_TO',C.D_BS_TO,'D_BS_CMP',s*b.D_BS_CMP, ...
             'R_TO_AP',s*b.R_TO_AP,'L1_Kr',s*b.L1_Kr,'L1_Kc',b.L1_Kc,'L2_Kr',-s*abs(b.L2_Kr),'L2_Kc',b.L2_Kc, ...
-            'to_grid_file','tail_flat.txt','to_grid_n',C.N_G,'to_grid_dx',C.DX_G, ...
+            'to_grid_file',C.f_flat,'to_grid_n',C.N_G,'to_grid_dx',C.DX_G, ...
             'qwp_ret',C.QWP,'pol_in_deg',b.pol_in_deg,'qwp_test_deg',b.qwp_test_deg, ...
             'qwp_ref_deg',b.qwp_ref_deg,'out_qwp_deg',b.out_qwp_deg,'analyzer_deg',b.analyzer_deg, ...
             'tail_arch','fieldlens','FL_F',p(1),'FL_Kc',p(2),'FL_D',s*b.FL_D,'D_MASK_FL',p(3),'DET_TRIM',p(4));
-        G.bt.emit('tail_test.in');  G.br.emit('tail_ref.in');
-        AT = arm_desc('tail_test.in', G.bt, G.T, 0);
-        AR = arm_desc('tail_ref.in',  G.br, G.R, 45);
+        G.bt.emit(C.f_test);  G.br.emit(C.f_ref);
+        AT = arm_desc(C.f_test, G.bt, G.T, 0);
+        AR = arm_desc(C.f_ref,  G.br, G.R, 45);
         Sr = analyzer_basis(AR, C.QWP, []);  S0 = analyzer_basis(AT, C.QWP, []);
         I0 = frame(S0, Sr, 0);  msk = I0 > 0.1*max(I0(:));
         if nnz(msk) < 500, return; end
@@ -238,4 +249,11 @@ end
 function h = meas_surface(A, QWP, M, Sr, p_null, THETAS, LAM)
     d = angle(exp(1i*(fourstep(analyzer_basis(A,QWP,M), Sr, THETAS) - p_null)));
     h = d * LAM/(4*pi);
+end
+
+function delete_if_(fs)
+%DELETE_IF_  remove this run's scratch decks, quietly
+for i = 1:numel(fs)
+    if isfile(fs{i}), delete(fs{i}); end
+end
 end
