@@ -747,13 +747,62 @@ gradient can fold it; and the estimator is a 64-state matrix over 3672 lit
 columns whose per-column support scales with the pupil magnification, which
 this bench changed by 1.95×.
 
-**Status: open.** Stages D and E — the modal transfer and the differential rows
-on the 30 nm surface, which are what the brief actually asks for — are still
-running. If they are clean, Stage C is an estimator artifact on this
-magnification and must be explained rather than quoted; if they are not, the
-design has a defect and the earlier rows do not redeem it. **Until that is
-settled, §7's deck guidance stands with this added: do not put the reflective
-rig's reading performance on a slide in either direction.**
+**Stages D and E are worse, and they settle the "artifact?" question: no.**
+
+Modal transfer, gain and cross-talk by spatial frequency:
+
+| mode | cyc/pup | lens gain | record OAP gain | **designed gain** | **designed cross-talk** |
+|---|---|---|---|---|---|
+| 1,1 | 0.7 | 0.9877 | 0.9493 | **0.1579** | 0.3649 |
+| 4,4 | 2.8 | 0.9884 | 0.6381 | **0.1078** | 0.3455 |
+| 16,16 | 11.3 | 0.9886 | 0.7789 | **0.1182** | 0.4551 |
+| 32,32 | 22.6 | 0.9889 | 0.7681 | **0.1025** | 0.4625 |
+| 64,64 | 45.3 | — | — | **0.1465** | 0.4104 |
+| 96,96 | 67.9 | — | — | **0.0292** | 0.1483 |
+
+Differential rows (actuator space):
+
+| base | deviation | **designed** gain / resid pm / corr | record OAP gain / resid / corr |
+|---|---|---|---|
+| flat | single 10 nm | **−0.4079 / 304.1 / −0.3243** | 0.9948 / 2.2 / 0.9999 |
+| flat | random 10 nm | **0.1044 / 10569.0 / 0.1757** | 0.7486 / 4848.5 / 0.8706 |
+| random 16 nm | single 10 nm | **0.5414 / 374.0 / 0.2367** | 0.9958 / 2.3 / 0.9999 |
+| random 16 nm | random 10 nm | **0.0987 / 11605.5 / 0.1293** | 0.7486 / 4848.3 / 0.8706 |
+
+**The reading is not attenuated, it is broken.** The gains are erratic
+(−0.41, 0.10, 0.54, 0.10) rather than a constant factor, one is NEGATIVE, and
+the correlations are 0.13–0.24 with one at −0.32. That is a reading carrying
+almost no information about the surface it is asked about.
+
+**The hypothesis I formed first — that this is the input polarizer's
+relocation — is WEAKENED by evidence already on disk, and must not be
+asserted.** `tg96_tail` drives the *same* four-step machinery
+(`analyzer_basis` → `fourstep` → `meas_surface`) on the *same* geometry with
+the *same* `POL_IN 'source'`, and it returned a 0.0223 nm null and recovered
+**150.0 of a 150 nm poke** — gain 1.00. If the polarization state at the
+splitter were wrong, that could not have happened.
+
+What differs between the tuner and the battery is **resolution**: the tail
+tuned at model 512 / NGRID 193; `oapifo` runs model 1024 / NGRID 385. Combined
+with §4's measured 1.95× change in pupil magnification, the live hypothesis is
+now a **sampling or registration failure at the full-resolution detector
+grid**, not the polarization chain.
+
+**The discriminating run is already queued** (`runs/polabseq.sh`, tags `polA` /
+`polB`): the designed geometry at **model 512 / NGRID 193**, once with
+`POL_IN 'source'` and once with `'collimated'`.
+- If `polA` is clean at 512 — as the tail tuner suggests — the polarizer is
+  exonerated and the defect is resolution-dependent; the next experiment is
+  `oapifo`'s settings at 512 vs 1024 with everything else pinned.
+- If `polA` is broken at 512 too, the polarizer returns as a suspect and `polB`
+  separates it (at the cost of ~11 % of its rays into the plate, so `polB` is a
+  diagnostic, never a candidate design).
+
+**Until this is settled: §7's deck guidance stands with this added — do not put
+the reflective rig's reading performance on a slide in either direction, and do
+not read §4's geometric rows (D1, the null, the seat, the tail) as a verdict on
+the instrument. They are optical measurements and they are sound; they do not
+license a claim about the gauge.**
 
 The rows, the servo and the descent follow it, queued in `runs/ifoseq.sh`:
 `oapifo` (bench + battery + figs + clearance — the rows on the 30 nm surface
