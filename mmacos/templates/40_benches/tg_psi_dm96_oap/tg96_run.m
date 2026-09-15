@@ -389,6 +389,15 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
     b = P.bench;
     T_FL_F = s*b.FL_F;  T_FL_Kc = b.FL_Kc;  T_DMF = s*b.D_MASK_FL;  T_TRIM = s*b.DET_TRIM;
     cand = {fullfile(exdir,[P.tag '_tail.mat']), fullfile(exdir,[b.optics '_tail.mat'])};
+    % bench.tail_from_mat false forces the GEOMETRIC SEED even when a tuned mat
+    % exists.  A tuned tail is four fitted numbers, and tg96_tail's 'oap'
+    % objective is SHARPNESS (the recovered poke peak) -- which rewards a sharp
+    % image without enforcing that the detector stays at the DM's pupil
+    % conjugate.  When a reading misbehaves, seed-vs-tuned is the A/B that
+    % separates "the geometry is wrong" from "the tail wandered", and there was
+    % no way to run it: the lookup falls back to <optics>_tail.mat, so simply
+    % not writing a per-tag mat picks up ANOTHER bench's tail (2026-09-15).
+    if isfield(b,'tail_from_mat') && ~b.tail_from_mat, cand = {}; end
     tailf = '';  for ci = 1:numel(cand), if isfile(cand{ci}), tailf = cand{ci}; break; end, end
     bench.expected_null = [];
     if ~isempty(tailf)

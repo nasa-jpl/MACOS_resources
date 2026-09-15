@@ -126,6 +126,11 @@ P.bench.POL_IN    = 'collimated';  % 'collimated' | 'source' (oap only)
 % (oap_conj_probe, runs/conj).  The LENS rig hides the same error in its tuned
 % L1 figures, so this is 'oap' only and default false = the record.
 P.bench.SRC_AT_FOCUS = false;      % true => the collimator is fed at its focus
+P.bench.tail_from_mat = true;      % false => use the GEOMETRIC SEED tail even if
+                                   %  <tag>_tail.mat / <optics>_tail.mat exists.
+                                   %  The seed-vs-tuned A/B when a reading
+                                   %  misbehaves; without it the lookup falls
+                                   %  back to another bench's tail.
 P.oap.OAP1_AOI    = [];            % [] => Stage-A solved; deg
 P.oap.OAP2_AOI    = [];
 P.oap.OAP1_SIDE   = 1;   P.oap.OAP2_SIDE = 1;
