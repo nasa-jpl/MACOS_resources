@@ -69,6 +69,9 @@ classdef Bench < handle
 %                                       add_bs_transmit per pass.
 %     add_fold(dist, out)               fold mirror (OUT required).
 %     add_oap(dist, out, ...)           off-axis parabola section
+%                                       (vertex != pole -- ask
+%                                       Bench.station(e) for its beam
+%                                       position, never .vpt)
 %                                       (RptElt=pole, VptElt=parent
 %                                       vertex); 'mode' 'collimate' or
 %                                       'focus', 'focus_dist' sets the
@@ -397,6 +400,13 @@ methods
         %   pole, so it would block the whole bundle.  Put functional stops
         %   on flat marker planes (add_reference/add_baffle), whose
         %   vertex == pole.
+        %
+        %   CONSUMERS: this element's position ON THE BEAM is .rpt, NOT
+        %   .vpt -- ask macos.design.Bench.station(e), which returns vpt
+        %   for every ordinary element and the pole here.  Reading .vpt
+        %   puts a layout body, a label anchor or a clearance test
+        %   133-149 mm off the beam on the TG96 reflective rig
+        %   (measured 2026-09-15).
         %
         %   Returns struct O: .i .f_parent .pole .vertex .focus.
         arguments
@@ -1068,6 +1078,32 @@ end
 
 % =====================================================================
 methods (Static)
+    function p = station(e)
+        %STATION  Where element E sits ON THE BEAM: its pole (RptElt).
+        %   For every ordinary element the pole IS the vertex -- push()
+        %   resolves rpt = vpt -- so this returns vpt and nothing changes.
+        %   For an OFF-AXIS SECTION (add_oap) the vertex is the PARENT
+        %   conic's vertex, which sits far off the beam: 149 mm (OAP1)
+        %   and 133 mm (OAP2) on the TG96 reflective rig.  The beam meets
+        %   the mirror at the POLE.
+        %
+        %   Anything that asks "where is this element on the bench" --
+        %   a layout symbol, a label anchor, a crop box, a clearance
+        %   test, a beam-segment endpoint -- must ask THIS, not .vpt.
+        %   Measured 2026-09-15 (the defect this closes): reading .vpt
+        %   made dmg_bench_clearance model the source leg as ending
+        %   149 mm off OAP1 plus a 150 mm PHANTOM leg from that vertex
+        %   down to the input polarizer, and that phantom was the beam
+        %   three node parts were then scored against.  Bench's own
+        %   sketch() has always drawn mirrors at rpt; the downstream
+        %   consumers are what drifted.
+        p = e.vpt(:);
+        if isfield(e, 'rpt') && numel(e.rpt) == 3 && all(isfinite(e.rpt)) ...
+                && (any(e.rpt(:) ~= 0) || all(e.vpt(:) == 0))
+            p = e.rpt(:);
+        end
+    end
+
     function u = unit(v)
         n = norm(v);  assert(n > 0, 'Bench: zero vector.');
         u = v(:)/n;

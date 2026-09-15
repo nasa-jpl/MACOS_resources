@@ -10,7 +10,11 @@ function out = dmg_bench_clearance(varargin)
 %   Negative = the element sits in that beam.  Prints a table, worst first.
 %   Records of one physical part (a plate's two faces, a plate's two passes)
 %   are grouped by name stem and never tested against their own beam; a
-%   beam counts only where it CROSSES the element's plane.  The beam radius
+%   beam counts only where it CROSSES the element's plane.  Every position
+%   -- the part's centre and both endpoints of every beam segment -- is the
+%   element's POLE (macos.design.Bench.station), which is the vertex for an
+%   ordinary element and the beam footprint's centre for an off-axis
+%   parabola section, whose parent vertex lies far off the beam.  The beam radius
 %   is the DM aperture (the traced footprint is the outermost ray, scaled).
 %   Options: 'MOUNT' (mm beyond the aperture radius, 8), 'MODEL' (512),
 %   'NGRID' (65), 'quiet' (false), 'draw' ('' | a PNG path: the train from
@@ -71,7 +75,16 @@ for a = 1:2
             rb = max(hypot(sp.pts(:,1) - mean(sp.pts(:,1)), sp.pts(:,2) - mean(sp.pts(:,2))));
         catch
         end
-        recs(end+1) = struct('name', e.name, 'element', e.element, 'arm', tag{a}, 'k', k, 'vpt', e.vpt(:), 'psi', e.psi(:), 'aprad', e.aprad, 'rbeam', rb, 'part', ''); %#ok<AGROW>
+        % 'vpt' here is the element's position ON THE BEAM -- its POLE.
+        % For every ordinary element the pole IS the vertex; for an
+        % off-axis parabola section (add_oap) the vertex is the PARENT
+        % conic's vertex, 133-149 mm off the beam on the TG96 reflective
+        % rig.  Reading e.vpt there both mislocated the mirror and, worse,
+        % moved the ENDPOINTS of the beam segments below -- the source leg
+        % ended 149 mm off OAP1 and a 150 mm phantom leg ran from that
+        % vertex to the input polarizer, and three node parts were scored
+        % against the phantom (measured 2026-09-15).
+        recs(end+1) = struct('name', e.name, 'element', e.element, 'arm', tag{a}, 'k', k, 'vpt', macos.design.Bench.station(e), 'psi', e.psi(:), 'aprad', e.aprad, 'rbeam', rb, 'part', ''); %#ok<AGROW>
     end
 end
 % the traced footprint is the outermost RAY (39 mm at 65 rays); the beam is the
@@ -182,5 +195,5 @@ end
 function v = vpt_(E, nm, n)
 %VPT_  the vertex of the element named n, or [] when this rig has no such part.
     i = find(strcmp(nm, n), 1);
-    if isempty(i), v = []; else, v = E(i).vpt; end
+    if isempty(i), v = []; else, v = macos.design.Bench.station(E(i)); end
 end

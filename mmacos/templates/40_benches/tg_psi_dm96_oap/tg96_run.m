@@ -1885,14 +1885,19 @@ for a = 1:size(arms,1)
             'hide',passive,'bundle','rim','bodies','outline');
     end
 end
-% manual mirror symbols for every Reflector (both arms): view_rx draws the
-% off-axis-parabola body on the parent vertex, off the pole, so the OAPs read as
-% empty space -- a short bar at the pole (normal to psi) marks each mirror
+% manual mirror symbols for every Reflector (both arms): a short bar at the
+% POLE, normal to psi.  view_rx itself is CORRECT on an off-axis section --
+% it builds the body from the ray-footprint hull, measured 2026-09-15 at
+% 1.1 mm (OAP1) / 1.5 mm (OAP2) from the pole -- but this bar was being drawn
+% at Ea(i).vpt, the PARENT conic's vertex, 149 / 133 mm off the beam.  That
+% bar is what sits away from the rays in the old oap_vlayout.png.  Use
+% Bench.station: the vertex for every ordinary mirror, the pole for an OAP.
 for a = 1:size(arms,1)
     Ea = arms{a,2}.E;
     for i = 1:numel(Ea)
         if strcmp(Ea(i).element,'Reflector')
-            for ax = [axT axN axL], mirror_sym_(ax, Ea(i).vpt(:), Ea(i).psi(:), br_, mgy); end
+            p = macos.design.Bench.station(Ea(i));
+            for ax = [axT axN axL], mirror_sym_(ax, p, Ea(i).psi(:), br_, mgy); end
         end
     end
 end
@@ -1900,7 +1905,7 @@ end
 axis(axT,'equal');  view(axT,0,90);  axis(axT,'off');
 label_(axT, Et, Ltrain, ink, FS);
 if iPZT > 0
-    p = Er(iPZT).vpt(:);
+    p = macos.design.Bench.station(Er(iPZT));
     plot3(axT,[p(1) p(1)],[p(2) p(2)-120],[0.4 0.4],'-','Color',[150 120 60]/255,'LineWidth',1.2);
     text(axT,p(1),p(2)-125,0.5,'reference flat + PZT','Color',orange,'FontSize',FS, ...
         'HorizontalAlignment','right','VerticalAlignment','top','BackgroundColor','w','Margin',1,'Clipping','off');
@@ -1929,7 +1934,9 @@ function crop_(ax, Et, names, padx, pady)
     vx = [];  vy = [];
     for k = 1:numel(names)
         i = find(strcmp({Et.name}, names{k}), 1);
-        if ~isempty(i), vx(end+1) = Et(i).vpt(1);  vy(end+1) = Et(i).vpt(2); end %#ok<AGROW>
+        % the element's beam position is its POLE (Bench.station): an OAP's
+        % vertex is the parent conic's and would drag the crop box off the beam
+        if ~isempty(i), q = macos.design.Bench.station(Et(i));  vx(end+1) = q(1);  vy(end+1) = q(2); end %#ok<AGROW>
     end
     if isempty(vx), return; end
     xlim(ax, [min(vx)-padx max(vx)+padx]);  ylim(ax, [min(vy)-pady max(vy)+pady]);
@@ -1956,7 +1963,7 @@ function label_(ax, Et, L, ink, fs)
 % leader-line + text labels off the beam (skips missing elements, idx 0)
     for k = 1:size(L,1)
         i = L{k,1};  if i <= 0, continue; end
-        p = Et(i).vpt(:);  d = L{k,3};
+        p = macos.design.Bench.station(Et(i));  d = L{k,3};   % pole, not vertex (OAPs)
         plot3(ax, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.3 0.3], '-', 'Color',[140 138 132]/255, 'LineWidth',1.0);
         text(ax, p(1)+d(1), p(2)+d(2), 0.4, L{k,2}, 'Color',ink, 'FontSize',fs, ...
             'HorizontalAlignment','center', 'VerticalAlignment','middle', 'BackgroundColor','w', 'Margin',1, 'Clipping','on');
