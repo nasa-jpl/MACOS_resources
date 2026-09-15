@@ -278,9 +278,17 @@ function c = stage_clearance_(P, bench, say)
     end
     addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'dm_gauge_lib'));
     MOUNT = 8;  if isfield(P.clear,'MOUNT') && ~isempty(P.clear.MOUNT), MOUNT = P.clear.MOUNT; end
+    % P.clear.BODY: a part's PHYSICAL body is not its clear aperture, and the
+    % source head is not an optic at all (the builder's source-side element is
+    % an Obscuring baffle), so without this the table silently omits the source
+    % and scores the camera at its pupil-image size.  Default: the Stage-A
+    % rule's own half-widths, so the rule and the measurement describe the same
+    % parts.
+    BODY = struct();
+    if isfield(P.clear,'BODY') && ~isempty(P.clear.BODY), BODY = P.clear.BODY; end
     png = [P.tag '_clearance.png'];
     c = dmg_bench_clearance('G', bench.G, 'MODEL', P.MODEL, 'NGRID', P.NGRID, ...
-        'MOUNT', MOUNT, 'LAM', P.LAM, 'quiet', true, 'draw', png);
+        'MOUNT', MOUNT, 'BODY', BODY, 'LAM', P.LAM, 'quiet', true, 'draw', png);
     r = c.rows;  v = cell2mat(r(:,6));  vf = v;  vf(isnan(vf)) = inf;
     say('Clearance -- every physical part vs every beam it is not in (mount +%g mm):\n', MOUNT);
     say('  %-22s %-12s %-5s %7s %7s %9s  %s\n', 'element', 'type', 'arm', 'a+mnt', 'r_beam', 'clear mm', 'against');
@@ -338,6 +346,15 @@ function nd = node_parts_(P, s, beam_r)
            'output QWP',       d_rc + D_POL,   r_plate, 'beam'
            'analyzer',         d_rc + 2*D_POL, r_plate, 'beam'
            'focuser L2',       d_rc + d_l2,    r_lens,  'beam' };
+    % POL_IN 'source' takes the input polarizer OUT of the node entirely: it
+    % then sits in the diverging leg, D_POL past the baffle, and its clearance
+    % is against the collimated beam at the fold angle, not against the
+    % opposing arm at the splitter angle.  This screening rule has nothing to
+    % say about it -- dmg_bench_clearance's measured table does.  Leaving the
+    % row in would report a part that is not there (2026-09-15).
+    if isfield(b,'POL_IN') && strcmp(b.POL_IN,'source') && strcmp(b.optics,'oap')
+        nd(strcmp(nd(:,1), 'input polarizer'), :) = [];
+    end
 end
 
 function stage_A2_(P, say)

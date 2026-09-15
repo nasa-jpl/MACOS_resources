@@ -11,7 +11,7 @@ carries its run tag. Companions: `REPORT_oap.md` (CCMac's 7° history, kept),
 | item | state |
 |---|---|
 | 1 — the drawing defect diagnosed and fixed; the lens rig unchanged | **done** — §1; `lens22g` (gate, pixel-identical), `oap22` |
-| 2 — the design: fold angles and off-axis distances from a clearance solve | **in flight** — §2.1–2.7 written (`fold1`–`fold4`, `loss`, `loss_src`, `loss_a2`, `conj`); full-resolution verification + tail retune next (`runs/designseq.sh`) |
+| 2 — the design: fold angles and off-axis distances from a clearance solve | **done** — §2; the design is OAP1 20° / OAP2 25°, sides +1/−1, polarizer in the source leg, output optics 125 mm ahead of OAP2, collimator at its focus: **worst +33.4 mm over 8 parts**, no ray loss. Tags `fold1`–`fold4`, `loss`, `loss_src`, `loss_a2`, `conj`, `oap22d`; tail retune `oap22d_tail` |
 | 3 — the layout in the recipe; the parts list | not started |
 | 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | not started |
 | 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | not started |
@@ -166,7 +166,7 @@ geometry and the bodies are right.
 **Run tags.** `lens22g` (gate), `oap22` (the corrected OAP rig), launched by
 `runs/refseq.sh`; both exit 0.
 
-## 2. The design (in flight)
+## 2. The design
 
 ### 2.1 The instrument: solve the folds FROM the measured clearance
 
@@ -453,3 +453,80 @@ at 20 deg.
 
 Both are ordinary catalogue shapes -- a 40-deg-off-axis and a 50-deg-off-axis
 section, each carrying a 103 mm beam.
+
+**The solver's verdict and the measured clearance table** (`fold4`, model 512 /
+65 rays, mount +8 mm, bodies: source and camera 50, DM 90, reference flat 60):
+
+> SOLVED: OAP1 20 deg / OAP2 25 deg, sides +1/-1 -- worst **+33.4 mm** (Analyzer)
+> OAP1 off-axis 551.0 mm, parent f 756.9 mm; OAP2 off-axis 328.3 mm, parent f 352.0 mm
+
+| element | type | a+mount | beam r | **clearance, mm** | against |
+|---|---|---|---|---|---|
+| analyzer | TrPolarizer | 59.9 | 46.9 | **+33.4** | test: L2 -> FocalMask |
+| source head | Obscuration | 58.0 | 21.9 | **+34.6** | test: Analyzer -> L2 |
+| compensator | Refractor | 63.7 | 50.7 | **+37.0** | test: L1 -> BSrefl |
+| output QWP | WavePlate | 59.9 | 46.9 | +47.2 | test: L2 -> FocalMask |
+| input polarizer | TrPolarizer | 35.4 | 22.4 | +58.5 | test: Analyzer -> L2 |
+| splitter | Reflector | 63.7 | 50.7 | +75.1 | test: PolIn -> L1 |
+| OAP1 | Reflector | 59.4 | 50.0 | +149.3 | test: QWPtestOut -> Comptxfu |
+| OAP2 | Reflector | 59.4 | 51.4 | +170.1 | ref: BStxbf -> QWPrefIn |
+| field lens | Refractor | 14.2 | 1.2 | +463.3 | test: Comptxbd -> QWPtestIn |
+| test QWP, DM, camera, reference QWP, PZT flat | | | | — | no other beam crosses their plane |
+
+**Worst +33.4 mm over 9 scored parts; spec >= +25. The reflective bench is
+buildable.** The source head is in the table for the first time (the `BODY`
+option), at +34.6 mm with its 50 mm body; so is the camera, which no beam
+crosses.
+
+**What changed from the bench of record, and why each change is forced:**
+
+| change | from | to | forced by |
+|---|---|---|---|
+| input polarizer's leg | collimated, 10 mm past the collimator | the diverging source leg, 10 mm past the baffle | it is inside the incoming cone at every angle, AND inside the mirror's sag envelope |
+| output optics standoff `D_RC_L2` | 55 mm | **125 mm** | OAP2's sag envelope (+-50 mm at a 40 deg fold) and its returning tail |
+| collimator conjugate `SRC_AT_FOCUS` | the record (25 mm inside focus) | at the focus | it is the whole of the "fold coma" and the whole of the 6.14 mm seat trim |
+| OAP1 fold / side | 5 deg, +1 | **20 deg, +1** | clearance |
+| OAP2 fold / side | 9 deg, +1 | **25 deg, -1** | clearance |
+| mask-seat trim | 6.14 mm | **0.00 mm** | falls out of the conjugate fix |
+
+Nothing else moves: the splitter stays at 22.5 deg, both arms and the recomb
+plane are the lens rig's, the DM leg is 450 mm, and the tail architecture is
+unchanged (it is re-tuned, not re-designed).
+
+### 2.8 The design at full resolution
+
+`oap22d` — the same bench built by `tg96_run` at the record's own resolution
+(model 1024, NGRID 385), stages bench + figs + clearance. It reproduces the
+sweep's table to the tenth of a millimetre:
+
+> Clearance -- every physical part vs every beam it is not in (mount +8 mm):
+> Analyzer **+33.4**, Comp +37.0, OutQWP +47.2, Pol +58.5, BS +75.1, L1 +149.3,
+> L2 +170.2, FL +463.3; test QWP / DM / camera / reference QWP / PZT flat have
+> no other beam crossing their plane.
+> **worst +33.4 mm over 8 parts (spec >= 25 mm)**
+
+Stage A's own screening rule agrees at the node — every node part ≥ +25.6 mm —
+and the fold solve now prints the design's lateral clearances: OAP1 at 20°
+gives 551.0 mm (margin +424.5), OAP2 at 25° gives 328.3 mm (+201.9).
+
+Two bookkeeping fixes went in with it, both in the direction of "the screen and
+the measurement should describe the same bench":
+
+- **`P.clear.BODY`** is now forwarded from the runner into
+  `dmg_bench_clearance`, so the measured table can carry physical bodies. It
+  defaults to **empty** — the record — so `REPORT_bench_realism` §2's lens
+  table (worst +38.2 over 10 parts) reproduces exactly; the reflective runs
+  pass the Stage-A rule's own half-widths (source and camera 50, DM 90,
+  reference flat 60). Worth knowing either way: **with apertures only, the
+  source head is not in the table at all** (its builder element is an Obscuring
+  baffle, not an optic) and the camera is scored at its pupil-image size, 4.6 mm.
+- **`node_parts_` drops the input-polarizer row when `POL_IN` is `'source'`.**
+  The screening rule is about parts at the splitter, measured against the
+  opposing arm at the splitter angle; a polarizer in the diverging leg is not
+  one of those, and leaving the row in reported a part that is not there.
+
+**Figure:** `runs/oap22d/oap22d_vlayout.png` — the train, the node and the tail,
+both arms, mirrors on the beam. The source leg now enters steeply from outside
+the node and the tail drops away from it, which is the whole point of the fold
+angles. The labels are still placed for the lens geometry and collide; item 3
+re-places them.
