@@ -171,7 +171,8 @@ switch opts.bodies
         e = 1;  si = 0;
         while e <= numel(E)
             if strcmp(E(e).kind, 'glass') && e < numel(E) && ...
-               strcmp(E(e+1).kind, 'glass') && E(e+1).k == E(e).k + 1
+               strcmp(E(e+1).kind, 'glass') && E(e+1).k == E(e).k + 1 && ...
+               joinable_(E(e).B, E(e+1).B)
                 lens_(ax, E(e).B, E(e+1).B);          % joined glass solid
                 e = e + 2;
             elseif strcmp(E(e).kind, 'passive')
@@ -568,6 +569,19 @@ plot3(ax, Rb(1,:), Rb(2,:), Rb(3,:), '-', ...
 if do_prof
     profiles_(ax, g, {zeros(3,1), -g.ps*tt});        % both faces
 end
+end
+
+function tf = joinable_(g1, g2)
+%JOINABLE_  Two consecutive refracting faces are one piece of glass (a lens,
+%   a plate) only when their normals agree within 5 deg and they sit closer
+%   than half the larger aperture.  Otherwise they are separate parts that
+%   happen to be adjacent in the deck -- e.g. a polarizer followed by a
+%   tilted splitter -- and joining them drew a twisted 250 mm "lens" between
+%   the two (Dave 2026-09-15, the gauge bench's node figure).
+n1 = g1.ps/norm(g1.ps);  n2 = g2.ps/norm(g2.ps);
+d  = norm(g2.vp - g1.vp);
+a  = max([g1.D, g2.D, 1]);                        % the larger aperture
+tf = abs(dot(n1, n2)) > cosd(5) && d < 0.5*a;
 end
 
 function lens_(ax, g1, g2)

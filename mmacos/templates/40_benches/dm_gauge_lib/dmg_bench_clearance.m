@@ -147,7 +147,7 @@ if ~isempty(o.draw)
         text(ax2, p(1)+d(1), p(2)+d(2), 0.3, lab2{k,3}, 'Color', ink, 'FontSize', 14, 'HorizontalAlignment', 'center', 'BackgroundColor', 'w', 'Margin', 1);
     end
     v = cell2mat(rows(:,6));  nbad = nnz(v < 0);
-    title(ax2, sprintf('The node, +-320 mm about the splitter: %d of %d parts sit in another beam (worst %.0f mm); beams %.0f mm, mounts +%g mm', nbad, nnz(~isnan(v)), min(v), 2*bp.R_TO_AP, o.MOUNT), 'FontWeight', 'normal', 'FontSize', 15);
+    title(ax2, sprintf('The node at %g deg, +-320 mm about the splitter: %d of %d parts sit in another beam (worst %.0f mm); beams %.0f mm, mounts +%g mm', bp.BS_AOI, nbad, nnz(~isnan(v)), min(v), 2*bp.R_TO_AP, o.MOUNT), 'FontWeight', 'normal', 'FontSize', 15);
     print(f, o.draw, '-dpng', '-r130');  close(f);
     fprintf('wrote %s\n', o.draw);
 end
