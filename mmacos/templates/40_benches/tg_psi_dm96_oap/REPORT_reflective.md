@@ -26,8 +26,8 @@ records its exit code in `runs/<tag>.log`. Read this table, then
 
 | job | script | what it produces | state |
 |---|---|---|---|
-| `oap22d_tail` | `runs/tailseq.sh` | `oap22d_tail.mat` — the reflective tail re-fit on the designed geometry | running (seed 0.0289 nm null; ~150 evals) |
-| `oapifo` | `runs/ifoseq.sh` | the interferometer's rows on the 30 nm surface + the clearance table | queued behind the tail |
+| `oap22d_tail` | `runs/tailseq.sh` | `oap22d_tail.mat` — the reflective tail re-fit on the designed geometry | **done**: null 0.0223 nm, poke recovered 150.0 of 150 nm |
+| `oapifo` | `runs/ifoseq.sh` | the interferometer's rows on the 30 nm surface + the clearance table | **running** |
 | `oapifol` | `runs/ifoseq.sh` | the closed-loop hold metric (hour-class) | queued behind `oapifo` |
 
 `runs/ifoseq.sh` waits (up to 2 h) for `oap22d_tail.mat`, copies it under each
@@ -646,12 +646,16 @@ objective `sharpness`, model 512 / NGRID 193) — and its **seed already reads**
 |---|---|---|
 | the record's *tuned* OAP tail (`oap_tail.mat`) | 12.887 nm | — |
 | the lens rig's *tuned* tail (`lens_tail.mat`) | 0.134 nm | — |
-| **this bench's geometric SEED** | **0.0289 nm** | **134.8 nm (90 %)** |
+| this bench's geometric SEED | **0.0289 nm** | 134.8 nm (90 %) |
+| **this bench, TUNED** (`oap22d_tail.mat`) | **0.0223 nm** | **150.0 nm (100 %)** |
 
-The designed reflective bench's *untuned* tail beats the record's tuned
-reflective tail by **446×** and the lens rig's tuned tail by **4.6×**. The
-optimizer is still running (`runs/oap22d_tail.log`; 0.0229 nm and 135.4 nm by
-eval 24).
+The designed reflective bench's *untuned* tail already beats the record's tuned
+reflective tail by **446×** and the lens rig's tuned tail by **4.6×**; tuned, it
+is **578×** and **6.0×**, and it recovers the single-actuator poke **in full**.
+Winner: `FL_F` 38.0937, `FL_Kc` −2.64620, `D_MASK_FL` 1.9836, `DET_TRIM`
+45.9613 (`runs/oap22d_tail.log`; the field lens moves a long way from the lens
+rig's seed, which is what one would expect once the focuser is a parabola at
+its exact conjugate rather than a tuned singlet).
 
 The rows, the servo and the descent follow it, queued in `runs/ifoseq.sh`:
 `oapifo` (bench + battery + figs + clearance — the rows on the 30 nm surface
