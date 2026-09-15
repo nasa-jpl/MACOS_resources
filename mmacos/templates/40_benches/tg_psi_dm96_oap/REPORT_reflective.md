@@ -707,3 +707,54 @@ recover. The lever that mattered was the conjugate, and it has been pulled.
 The empirical half of the item — "does the pinhole recover?" — is answered by
 item 5's P reading on this bench, not by a second fold angle. It is left open
 until that run lands.
+
+## 7. For the deck: what the two slides should say
+
+The brief builds two slides out of this report -- the existing "lenses or
+off-axis mirrors" table and a new "reflective rig: layout". CCL assembles;
+this section is the input, and it is deliberately blunt about which of the
+record's claims survive.
+
+### "Lenses or off-axis mirrors" -- the table needs rewriting, not updating
+
+The record's version of this slide compares a lens rig against a reflective rig
+that was **fed 25 mm inside its collimator's focus** and whose input polarizer
+was **inside the mirror**. Those are not properties of choosing mirrors over
+lenses; they are two build errors, and both are now fixed. Every reflective row
+in `REPORT_oap.md` -- the 0.18 modal cross-talk against the lens's < 0.06, the
+servo that never reaches the 2 pm walk, the 27.6 % noiseless step floor, the
+19.6 pm vector and 94 pm pinhole gate failures, the 6.14 mm seat trim -- sits
+downstream of a 1.1 lambda F/D blur at the mask seat that need not exist.
+**Do not carry those numbers onto a slide about mirrors.** They are being
+re-measured (`oapifo`, `oapifol`, `oapsens22`); until they land, the slide can
+say what is already settled:
+
+| | lens rig | reflective rig, as designed here |
+|---|---|---|
+| buildable at the 22.5 deg node | yes, worst +38.2 mm over 10 parts | **yes, worst +33.4 mm over 8 parts** |
+| mask-seat blur at best focus | diffraction-limited | **0.000 lambda F/D** |
+| mask-seat trim | -5.582 mm (thin-lens seed correction) | **0.00 mm** (the parabola's exact conjugate) |
+| tail flat-DM null, tuned | 0.134 nm | **0.0223 nm** |
+| single 150 nm poke recovered | -- | **150.0 nm (100 %)** |
+| the optics | two tuned singlets, conic figures fit per rig | two off-axis parabolas: **f 756.9 / 352.0 mm parent, 551.0 / 328.3 mm off-axis, 40 and 50 deg off-axis catalogue shapes** |
+| chromatic | no (a tuned singlet at one wavelength) | **achromatic by construction** |
+| what it cost | -- | the input polarizer moves into the source leg; the output optics move 70 mm; the folds are 20 and 25 deg, not 5 and 9 |
+
+The honest headline is not "mirrors are as good as lenses" and not the
+record's "the lens is the recommended configuration" either. It is: **the
+reflective front end was never given a fair test. Fed at its focus and laid
+out so its parts clear its beams, its tail is 6x better than the lens rig's and
+it recovers a single actuator in full.**
+
+### "Reflective rig: layout"
+
+Figure: `runs/oap22d/oap22d_vlayout.png` -- three panels (train, node, tail),
+both arms, the mirrors drawn where the beam hits them. It is the runner's own
+output file; do not re-render or re-colour it (Dave's rule). The parts list for
+the slide's callouts is section 3's table.
+
+The one sentence the layout slide needs: **the source enters from outside the
+node and the tail leaves away from it** -- that is what the 20 and 25 degree
+folds buy, and it is why the earlier 5 and 9 degree version put the source
+587 mm past the splitter with its beam running back through every part of the
+node.
