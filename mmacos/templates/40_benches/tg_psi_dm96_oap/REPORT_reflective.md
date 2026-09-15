@@ -844,12 +844,29 @@ tiny (an arm difference, common-mode, it cancels) and the *poke peak* sharp.
 a triumph.** §4's opening rows are consistent with a tail that is optically
 sharp and metrologically wrong.
 
-**The A/B, queued** (`runs/tailabseq.sh`): `tailA` = the design with the tuned
-tail, `tailB` = the same with the **geometric seed** (`bench.tail_from_mat`
-false), both at model 512 / NGRID 193. If `tailB` reads and `tailA` does not,
-the defect is the tail objective and the fix is to constrain the retune on the
-pupil conjugate — not to change the geometry, which items 1–3 measured
-independently of any tail.
+**The A/B** (`runs/tailabseq.sh`): `tailA` = the design with the tuned tail,
+`tailB` = the same with the **geometric seed** (`bench.tail_from_mat` false),
+both at model 512 / NGRID 193.
+
+**`tailA` is in, and it settles two things at once.** Stage C gain
+**0.0338**, off-target floor 467.9 pm, at model 512 / NGRID 193 — the same
+pupil magnification (5.477) and the same 3672 lit actuators as the
+full-resolution run.
+
+1. **The resolution hypothesis is dead.** The failure reproduces at 512 / 193.
+   It is not a full-resolution sampling effect.
+2. **The tuner and the battery disagree about the SAME bench at the SAME
+   resolution** — `tg96_tail` scored this configuration `poke-peak 150.0 / 150`
+   (frac 1.00) and the battery reads 0.0338 of the same 150 nm poke. Two
+   measurements of one thing, differing by 30×. That is not a bench property;
+   it is the two metrics measuring different things, which is exactly the
+   `max(abs(h))`-anywhere weakness read off the code above.
+
+`tailB` (the geometric seed) now says whether the *tuned numbers* are the
+defect or the *reading on this bench* is. If the seed reads, the fix is the
+tail objective and the geometry stands — items 1–3 were measured with no tail
+in the loop. If the seed fails too, the defect is deeper than the retune and
+the geometry itself has to go back under the microscope.
 
 `bench.tail_from_mat` is new and closes a real gap: the tail lookup falls back
 to `<optics>_tail.mat`, so simply not writing a per-tag mat picks up **another
