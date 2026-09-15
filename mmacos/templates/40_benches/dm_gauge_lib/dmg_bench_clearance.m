@@ -14,34 +14,54 @@ function out = dmg_bench_clearance(varargin)
 %   is the DM aperture (the traced footprint is the outermost ray, scaled).
 %   Options: 'MOUNT' (mm beyond the aperture radius, 8), 'MODEL' (512),
 %   'NGRID' (65), 'quiet' (false), 'draw' ('' | a PNG path: the train from
-%   above, both arms, parts named, plus the node panel).  Any other
+%   above, both arms, parts named, plus the node panel), 'G' (an already-built
+%   twyman_green result: measure THAT rig instead of rebuilding one from
+%   zwfs_params -- what tg96_run's clearance stage passes, so the table
+%   describes the bench the run actually used), 'LAM' (mm).  Any other
 %   name/value pair overrides zwfs_params' bench block (twyman_green
 %   options: BS_AOI, D_L1_BS, D_BS_CMP, D_RECOMB, D_RC_L2, D_POL, D_QWP ...).
 %   Returns rows {part, type, arm, a+mount, r_beam, clearance, against}, G.
 %   Written 2026-09-15 after Dave found the 7-deg record bench unbuildable
 %   (the node parts sat in each other's beams); the Stage-A solve in
 %   tg96_run cleared only the three end bodies.
-o = struct('MOUNT', 8, 'MODEL', 512, 'NGRID', 65, 'quiet', false, 'draw', '');
+o = struct('MOUNT', 8, 'MODEL', 512, 'NGRID', 65, 'quiet', false, 'draw', '', 'G', [], 'LAM', []);
 ov = struct();
 for i = 1:2:numel(varargin)
     if isfield(o, varargin{i}), o.(varargin{i}) = varargin{i+1}; else, ov.(varargin{i}) = varargin{i+1}; end
 end
-zd = fullfile(fileparts(mfilename('fullpath')), '..', 'zwfs_dm96');
-addpath(zd);
-P = zwfs_params();
-if ~isfile(P.grid.flat_file), P.grid.flat_file = fullfile(zd, P.grid.flat_file); end
-bp = rmfield(P.bench, intersect(fieldnames(P.bench), {'coat_oap','coat_bareAl','coat_protectedAl'}));
-bp.polarizing = true;  bp.pol_in_deg = 45;  bp.qwp_test_deg = 0;  bp.qwp_ref_deg = 45;  bp.out_qwp_deg = 0;  bp.analyzer_deg = 0;  bp.qwp_ret = 0.25;
-f = fieldnames(ov);  for i = 1:numel(f), bp.(f{i}) = ov.(f{i}); end
-bf = fieldnames(bp);  bargs = cell(1, 2*numel(bf));
-for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = bp.(bf{i}); end
-if ~isfile(P.grid.flat_file), macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G)); end
-G = macos.design.twyman_green(bargs{:}, 'ngridpts', o.NGRID, 'to_grid_file', P.grid.flat_file, 'to_grid_n', 256, 'to_grid_dx', P.grid.DX_G*P.grid.N_G/256);
+LAM = o.LAM;
+if isempty(o.G)
+    zd = fullfile(fileparts(mfilename('fullpath')), '..', 'zwfs_dm96');
+    addpath(zd);
+    P = zwfs_params();
+    if ~isfile(P.grid.flat_file), P.grid.flat_file = fullfile(zd, P.grid.flat_file); end
+    if isempty(LAM), LAM = P.LAM; end
+    bp = rmfield(P.bench, intersect(fieldnames(P.bench), {'coat_oap','coat_bareAl','coat_protectedAl'}));
+    bp.polarizing = true;  bp.pol_in_deg = 45;  bp.qwp_test_deg = 0;  bp.qwp_ref_deg = 45;  bp.out_qwp_deg = 0;  bp.analyzer_deg = 0;  bp.qwp_ret = 0.25;
+    f = fieldnames(ov);  for i = 1:numel(f), bp.(f{i}) = ov.(f{i}); end
+    bf = fieldnames(bp);  bargs = cell(1, 2*numel(bf));
+    for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = bp.(bf{i}); end
+    if ~isfile(P.grid.flat_file), macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G)); end
+    G = macos.design.twyman_green(bargs{:}, 'ngridpts', o.NGRID, 'to_grid_file', P.grid.flat_file, 'to_grid_n', 256, 'to_grid_dx', P.grid.DX_G*P.grid.N_G/256);
+else
+    % an already-built rig (tg96_run's clearance stage hands its own G): measure
+    % THAT bench, not a rebuild of it from another param file.  Its resolved
+    % options are G.P, which is where BS_AOI and the scaled R_TO_AP come from.
+    assert(isempty(fieldnames(ov)), 'dmg_bench_clearance: overrides are meaningless with ''G'' -- set them on the rig you build');
+    G = o.G;  bp = G.P;
+    if isempty(LAM)
+        LAM = 6.328e-4;
+        try
+            if ~isempty(G.bt.wavelen), LAM = G.bt.wavelen; end
+        catch
+        end
+    end
+end
 arms = {G.bt, G.br};  tag = {'test', 'ref'};  decks = cell(1, 2);
 recs = struct('name', {}, 'element', {}, 'arm', {}, 'k', {}, 'vpt', {}, 'psi', {}, 'aprad', {}, 'rbeam', {}, 'part', {});
 macos.init(o.MODEL);
 for a = 1:2
-    bt = arms{a};  bt.wavelen = P.LAM;
+    bt = arms{a};  bt.wavelen = LAM;
     dk = [tempname, sprintf('_dmg_clr_%s.in', tag{a})];  bt.emit(dk);  macos.load_rx(dk);  decks{a} = dk;   % unique per call: two sessions may run this at once
     n = numel(bt.E);
     for k = 1:n
@@ -121,8 +141,11 @@ if ~isempty(o.draw)
         macos.view_rx('ax', ax1, 'ray_color', col, 'title', '', 'labels', false, 'hide', passive);
         macos.view_rx('ax', ax2, 'ray_color', col, 'title', '', 'labels', false, 'hide', passive);
     end
-    nm = {Et.name};  vp = @(n) Et(find(strcmp(nm, n), 1)).vpt;
-    nr = {Er.name};  vr = @(n) Er(find(strcmp(nr, n), 1)).vpt;
+    % a name the rig does not carry (the OAP variant renames its collimator,
+    % another rig may have no compensator) yields [] and its label is skipped,
+    % so the picture degrades rather than erroring.
+    nm = {Et.name};  vp = @(n) vpt_(Et, nm, n);
+    nr = {Er.name};  vr = @(n) vpt_(Er, nr, n);
     for ax = [ax1 ax2]
         axes(ax);  axis(ax, 'equal');  view(ax, 0, 90);  grid(ax, 'on');  set(ax, 'GridColor', [225 224 217]/255, 'FontSize', 12);
         xlabel(ax, 'bench x, mm', 'FontSize', 13);  ylabel(ax, 'bench y, mm', 'FontSize', 13);
@@ -132,6 +155,7 @@ if ~isempty(o.draw)
             vp('TestOptic'), [0 -80], '96 mm DM'; vr('PZT'), [0 -80], 'reference flat + PZT'; vp('L2pow'), [0 90], 'focuser L2'; vp('Detector'), [0 60], 'camera'};
     for k = 1:size(lab1, 1)
         p = lab1{k,1};  d = lab1{k,2};
+        if isempty(p), continue; end
         plot3(ax1, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.2 0.2], '-', 'Color', [137 135 129]/255, 'LineWidth', 1.0);
         text(ax1, p(1)+d(1), p(2)+d(2), 0.3, lab1{k,3}, 'Color', ink, 'FontSize', 15, 'HorizontalAlignment', 'center', 'BackgroundColor', 'w', 'Margin', 1);
     end
@@ -143,6 +167,7 @@ if ~isempty(o.draw)
     % (the arm quarter-wave plates sit D_QWP before the DM and the flat since 2026-09-15; they are outside the node panel)
     for k = 1:size(lab2, 1)
         p = lab2{k,1};  d = lab2{k,2};
+        if isempty(p), continue; end
         plot3(ax2, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.2 0.2], '-', 'Color', [137 135 129]/255, 'LineWidth', 1.0);
         text(ax2, p(1)+d(1), p(2)+d(2), 0.3, lab2{k,3}, 'Color', ink, 'FontSize', 14, 'HorizontalAlignment', 'center', 'BackgroundColor', 'w', 'Margin', 1);
     end
@@ -152,4 +177,10 @@ if ~isempty(o.draw)
     fprintf('wrote %s\n', o.draw);
 end
 
+end
+
+function v = vpt_(E, nm, n)
+%VPT_  the vertex of the element named n, or [] when this rig has no such part.
+    i = find(strcmp(nm, n), 1);
+    if isempty(i), v = []; else, v = E(i).vpt; end
 end

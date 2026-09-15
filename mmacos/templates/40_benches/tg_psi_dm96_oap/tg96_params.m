@@ -12,7 +12,10 @@ function P = tg96_params()
 % ---- run control -----------------------------------------------------
 P.tag    = 'lens';                 % names runs/<tag>/<tag>_report.txt
 P.outdir = '';                     % '' => <this dir>/runs/<tag>
-P.stages = {'bench','battery','figs'};   % bench | battery | figs
+P.stages = {'bench','battery','figs'};   % clearance | bench | battery | figs
+                                   %  'clearance' prints dmg_bench_clearance's
+                                   %  part-by-part table into the report (it traces
+                                   %  both arms at P.MODEL before Stage B builds)
 
 % ---- engine + sampling (LOAD-BEARING; see tg96.m Stage A2) -----------
 P.MODEL  = 1024;                   % mGridMat caps grids at 256 on model 512;
@@ -48,6 +51,17 @@ P.pzt.step_err = 0;                % fractional four-step phase-step error (0 | 
 P.clear.beam_r  = [];              % [] => s*30 (scaled R_TO_AP)
 P.clear.HW_DM   = 90;   P.clear.HW_REF = 60;  P.clear.HW_CAM = 50;
 P.clear.MARGIN  = 25;   P.clear.LEG_CAP = 700;
+P.clear.MOUNT   = 8;               % mount ring beyond a part's aperture radius --
+                                   %  the same 8 mm dmg_bench_clearance uses, so the
+                                   %  Stage-A rule and the tool's table agree
+P.clear.node    = true;            % solve the splitter angle against the NODE parts
+                                   %  too (L1, input polarizer, compensator, output
+                                   %  QWP, analyzer, L2), not just the three end
+                                   %  bodies.  Dave 2026-09-15: at the record's 7 deg
+                                   %  eight of nine node parts sat in another beam --
+                                   %  "this is not buildable".
+P.clear.plate_over = 5;            % a builder plate carries no aperture: its radius
+                                   %  is the beam + this (dmg_bench_clearance's rule)
 
 % ---- the bench (macos.design.twyman_green options; s = 96/56 applied
 %      in tg96_run so the whole rig scales uniformly off the 56 mm v1) --

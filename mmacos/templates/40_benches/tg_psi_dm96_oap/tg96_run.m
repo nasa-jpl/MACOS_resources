@@ -16,8 +16,15 @@ function out = tg96_run(varargin)
 %   <tag>_transfer.png.  Reuses ../dm_gauge_lib is NOT required -- tg96.m's
 %   verbatim polarization-PSI helpers are file-local here (same as tg96.m).
 %
-%   Stage A  clearance solve (folded for OAP: source->OAP1 + OAP2->detector)
+%   Stage A  clearance solve: the splitter angle against the three END bodies
+%     (DM, reference flat, camera) inside LEG_CAP AND against the NODE parts
+%     packed around the splitter -- L1, the input polarizer, the compensator,
+%     the output QWP, the analyzer, L2 -- each of which clears the leg it is
+%     not in only if d*sin(2*AOI) covers beam + part + mount + margin.  The
+%     folded source->OAP1 / OAP2->detector legs are re-solved for OAP.
 %   Stage A2 sampling budget (asserted)
+%   Stage CLEARANCE  the measured part-by-part table (dmg_bench_clearance on
+%     this run's own rig) -- runs LAST; stages {'bench','clearance'}.
 %   Stage B  build via macos.design.twyman_green(..., 'optics', ...)
 %   Stage C  null / piston / single-actuator / registration / closure
 %   Stage D  transfer curve to the DM Nyquist + held-out random
@@ -116,8 +123,19 @@ if want('figs')
     end
 end
 
+% ---- Clearance: does every physical part clear every beam it is not in? ---
+%  LAST, deliberately: the tool traces both arms through its own temporary
+%  decks and leaves the engine on them, so no stage downstream may depend on
+%  which deck is loaded.  It measures THIS run's rig (passed as 'G'), not a
+%  rebuild of it from another param file.
+clearout = struct();
+if want('clearance')
+    clearout = stage_clearance_(P, bench, say);
+end
+
 out = struct('P', P, 'geom', geom, 'bench', bench, 'battery', battery, ...
-    'deck', deck, 'place', place, 'loop', loop, 'jones', jones, 's', s);
+    'deck', deck, 'place', place, 'loop', loop, 'jones', jones, 's', s, ...
+    'clearance', clearout);
 save([P.tag '.mat'], 'out');
 say('\nwrote %s_report.txt + %s.mat + figures in %s\n', P.tag, P.tag, P.outdir);
 end
@@ -133,11 +151,54 @@ function [geom, legs] = stage_A_(P, s, say)
             'camera leg vs source beam',P.clear.HW_CAM};
     say('Stage A -- clearance solve (beam_r %.1f, margin %.0f, leg cap %.0f):\n', ...
         beam_r, MARGIN, LEG_CAP);
+    MOUNT = 8;  if isfield(P.clear,'MOUNT') && ~isempty(P.clear.MOUNT), MOUNT = P.clear.MOUNT; end
     need = cellfun(@(h) beam_r + h + MARGIN, legs(:,2));
-    th_min = max(asind(need/LEG_CAP))/2;
+    th_end = max(asind(min(1, need/LEG_CAP)))/2;
+    % ---- the NODE parts.  Stage A used to solve the angle against the three
+    %  END bodies only (DM, reference flat, camera) inside LEG_CAP, and never
+    %  looked at the parts packed around the splitter: at the record's 7 deg
+    %  eight of the nine node parts sat inside a beam they are not in (Dave
+    %  2026-09-15, "this is not buildable"; measured by dmg_bench_clearance).
+    %  A part on one leg at distance d from the splitter clears the OTHER leg
+    %  when the two are separated by more than the beam radius plus the part's
+    %  own radius, its mount and the margin.  Those d are fixed by the bench
+    %  block, so this constrains the ANGLE and not a leg length -- which is
+    %  exactly why the end-body solve could not see it (that one buys its
+    %  separation by making the DM leg longer).
+    %  The separation is measured IN THE PART'S PLANE, which is what sets the
+    %  law.  Put the splitter at the origin with the input beam along +x: the
+    %  test arm runs +x, the reference arm leaves at 2*AOI, and the output leg
+    %  is opposite the reference arm.  A part whose plane is NORMAL TO ITS OWN
+    %  BEAM is crossed by the opposing leg at lateral distance d*tan(2*AOI) --
+    %  not d*sin(2*AOI), which measures across the other beam instead of along
+    %  the part.  A plate held PARALLEL TO THE SPLITTER -- the compensator, by
+    %  construction -- tilts its plane by the AOI, which shortens the crossing;
+    %  d*sin(2*AOI) is the conservative stand-in there.
+    %  Checked against the traced bench at 22.5 deg (dmg_bench_clearance,
+    %  model 512 / 65 rays), rule vs measured, mm: L1 146.3 / 153.1, input
+    %  polarizer 131.3 / 137.5, output QWP 44.2 / 53.6, analyzer 54.2 / 63.8,
+    %  L2 94.2 / 99.3, compensator 25.6 / 38.2.  Conservative on every part,
+    %  by 6-9 mm where the plane is normal to the beam and by 13 mm on the
+    %  tilted compensator.  The tool is the measurement; this is the screen
+    %  that picks the angle before there is anything to trace.
+    nd = node_parts_(P, s, beam_r);
+    th_node = 0;
+    if ~isempty(nd)
+        r_nd    = cell2mat(nd(:,3));
+        d_nd    = cell2mat(nd(:,2));
+        need_nd = beam_r + r_nd + MOUNT + MARGIN;
+        th_node = 0;
+        for k = 1:numel(d_nd)
+            q = min(1, need_nd(k)/d_nd(k));
+            if strcmp(nd{k,4}, 'bs'), t = asind(q)/2; else, t = atand(need_nd(k)/d_nd(k))/2; end
+            th_node = max(th_node, t);
+        end
+    end
+    th_min = max(th_end, th_node);
     AOI = P.bench.BS_AOI;  if isempty(AOI), AOI = ceil(th_min); end
     Lreq = need/sind(2*AOI);
-    say('  binding angle %.2f deg -> BS_AOI = %g deg\n', th_min, AOI);
+    say('  binding angle %.2f deg (end bodies %.2f, node %.2f) -> BS_AOI = %.4g deg%s\n', ...
+        th_min, th_end, th_node, AOI, pin_(P.bench.BS_AOI));
     for k = 1:size(legs,1)
         say('  %-27s need %6.1f mm sep -> leg >= %5.0f mm\n', legs{k,1}, need(k), Lreq(k));
     end
@@ -149,7 +210,30 @@ function [geom, legs] = stage_A_(P, s, say)
         say('  %-27s separation %6.1f mm, margin %+6.1f mm (spec >= %.0f)\n', ...
             legs{k,1}, D_BS_TO*sind(2*AOI), m, MARGIN);
     end
+    if ~isempty(nd)
+        say(['  node parts (d from the splitter; the separation in the part''s own plane, ' ...
+             'd*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):\n']);
+        nbad = 0;  mnode = inf(size(nd,1),1);
+        for k = 1:size(nd,1)
+            if strcmp(nd{k,4}, 'bs'), sep = nd{k,2}*sind(2*AOI); else, sep = nd{k,2}*tand(2*AOI); end
+            mnode(k) = sep - (beam_r + nd{k,3} + MOUNT);
+            if mnode(k) < MARGIN, nbad = nbad + 1; end
+            say('  %-27s d %6.1f, part r %5.1f -> separation %6.1f mm, margin %+6.1f mm (spec >= %.0f)\n', ...
+                nd{k,1}, nd{k,2}, nd{k,3}, sep, mnode(k), MARGIN);
+        end
+        say('  %d of %d node parts under the %g mm margin; beam radius %.1f, mount +%g\n', ...
+            nbad, size(nd,1), MARGIN, beam_r, MOUNT);
+        if nbad > 0
+            warning('tg96_run:node_clearance', ...
+                ['%d node part(s) under the %g mm margin at BS_AOI %g deg ' ...
+                 '(the Stage-A solve wants %g deg) -- worst %+.1f mm'], ...
+                nbad, MARGIN, AOI, ceil(th_min), min(mnode));
+        end
+        geom.node = nd;  geom.node_margin = mnode;
+    end
     geom.AOI = AOI;  geom.D_BS_TO = D_BS_TO;  geom.beam_r = beam_r;
+    geom.th_end = th_end;  geom.th_node = th_node;  geom.th_min = th_min;
+    geom.MOUNT = MOUNT;
     % ---- OAP folded-layout clearance: the source->OAP1 and OAP2->detector
     %  legs are new.  Near-normal preferred; solve the smallest fold AOI whose
     %  lateral source/detector offset clears the collimated beam + body inside
@@ -179,6 +263,81 @@ function a = solve_fold_(F, need_off)
         if F*abs(sind(180-2*a)) >= need_off, return; end
     end
     a = 45;   % fall back to the right-angle fold
+end
+
+function c = stage_clearance_(P, bench, say)
+%STAGE_CLEARANCE_  dmg_bench_clearance's part-by-part table, on THIS run's
+%   rig.  The Stage-A rule is a design rule (a part at distance d clears the
+%   other leg when d*sin(2*AOI) covers beam + part + mount); this is the
+%   measurement -- it traces both arms and takes each beam's chief where it
+%   actually crosses each part's plane.  When the two disagree, the tool is
+%   right and the Stage-A table says which part to look at.
+    c = struct();
+    if ~isfield(bench, 'G')
+        say('Clearance -- skipped: no rig built (add ''bench'' to P.stages)\n\n');  return;
+    end
+    addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'dm_gauge_lib'));
+    MOUNT = 8;  if isfield(P.clear,'MOUNT') && ~isempty(P.clear.MOUNT), MOUNT = P.clear.MOUNT; end
+    png = [P.tag '_clearance.png'];
+    c = dmg_bench_clearance('G', bench.G, 'MODEL', P.MODEL, 'NGRID', P.NGRID, ...
+        'MOUNT', MOUNT, 'LAM', P.LAM, 'quiet', true, 'draw', png);
+    r = c.rows;  v = cell2mat(r(:,6));  vf = v;  vf(isnan(vf)) = inf;
+    say('Clearance -- every physical part vs every beam it is not in (mount +%g mm):\n', MOUNT);
+    say('  %-22s %-12s %-5s %7s %7s %9s  %s\n', 'element', 'type', 'arm', 'a+mnt', 'r_beam', 'clear mm', 'against');
+    for i = 1:size(r, 1)
+        say('  %-22s %-12s %-5s %7.1f %7.1f %9.1f  %s\n', r{i,1}, r{i,2}, r{i,3}, r{i,4}, r{i,5}, r{i,6}, r{i,7});
+    end
+    say('  worst %+.1f mm over %d parts (spec >= %g mm); wrote %s\n\n', ...
+        min(vf), nnz(~isnan(v)), P.clear.MARGIN, png);
+    if min(vf) < P.clear.MARGIN
+        warning('tg96_run:clearance', ...
+            'worst part clearance %+.1f mm is under the %g mm spec', min(vf), P.clear.MARGIN);
+    end
+end
+
+function t = pin_(v)
+%PIN_  say whether the angle in force was solved or pinned in the param file.
+    if isempty(v), t = ' (solved)'; else, t = ' (pinned)'; end
+end
+
+function nd = node_parts_(P, s, beam_r)
+%NODE_PARTS_  {name, distance from the splitter (mm), part radius (mm)} for
+%   every part packed around the node.  The distances follow twyman_green's
+%   own placement: the collimator sits D_L1_BS ahead of the splitter with the
+%   input polarizer D_POL in front of it; the compensator D_BS_CMP into the
+%   test arm; the output quarter-wave plate and the analyzer D_POL and
+%   2*D_POL behind the recombination plane, which is itself D_RECOMB behind
+%   the splitter; the focuser L2 D_RC_L2 behind that plane.  The runner
+%   scales the rig's own lengths by s and leaves the output-optics distances
+%   physical (they are set in mm in the param file), so this table mixes the
+%   two exactly as stage_B_ does.
+%   A builder plate carries no aperture, so its radius is the beam +
+%   plate_over -- the rule dmg_bench_clearance uses when it reads aprad 0.
+%   The ARM quarter-wave plates are deliberately absent: since 2026-09-15
+%   each sits at its retro's end (D_QWP before the DM / the flat), outside
+%   the node, and each is in its own arm's beam only.
+    nd = {};
+    if ~isfield(P.clear,'node') || ~P.clear.node, return; end
+    b = P.bench;
+    D_POL = 10;                                  % twyman_green's standoff default
+    if isfield(b,'D_POL') && ~isempty(b.D_POL), D_POL = b.D_POL; end
+    over = 5;
+    if isfield(P.clear,'plate_over') && ~isempty(P.clear.plate_over), over = P.clear.plate_over; end
+    d_rc = 5;                                    % twyman_green's D_RECOMB default
+    if isfield(b,'D_RECOMB') && ~isempty(b.D_RECOMB), d_rc = b.D_RECOMB; end
+    d_l2 = 200;                                  % twyman_green's D_RC_L2 default
+    if isfield(b,'D_RC_L2') && ~isempty(b.D_RC_L2), d_l2 = b.D_RC_L2; end
+    r_lens  = s*b.D_LENS/2;                      % L1 / L2 clear aperture (the OAP
+    r_plate = beam_r + over;                     %  rig's mirrors carry the same)
+    d_l1    = s*b.D_L1_BS;
+    %  column 4 = how the part is held: 'beam' = its plane normal to its own
+    %  beam; 'bs' = parallel to the splitter (the compensator, by construction).
+    nd = { 'collimator L1',    d_l1,           r_lens,  'beam'
+           'input polarizer',  d_l1 - D_POL,   r_plate, 'beam'
+           'compensator',      s*b.D_BS_CMP,   r_plate, 'bs'
+           'output QWP',       d_rc + D_POL,   r_plate, 'beam'
+           'analyzer',         d_rc + 2*D_POL, r_plate, 'beam'
+           'focuser L2',       d_rc + d_l2,    r_lens,  'beam' };
 end
 
 function stage_A2_(P, say)
