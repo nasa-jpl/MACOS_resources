@@ -66,7 +66,11 @@ if isfield(b,'POL_IN')   && ~isempty(b.POL_IN),   nodeargs = [nodeargs, {'POL_IN
 if isfield(b,'SRC_AT_FOCUS') && ~isempty(b.SRC_AT_FOCUS), nodeargs = [nodeargs, {'SRC_AT_FOCUS', b.SRC_AT_FOCUS}]; end
 C = struct('s',s,'AOI',AOI,'D_BS_TO',D_BS_TO,'NGRID',NGRID,'N_G',N_G,'DX_G',DX_G, ...
            'QWP',QWP,'THETAS',THETAS,'LAM',LAM,'seed',seed,'optics',b.optics, ...
-           'oapargs',{oapargs},'nodeargs',{nodeargs},'bench',b,'objective',objective,'poke_nm',150);
+           'oapargs',{oapargs},'nodeargs',{nodeargs},'bench',b,'objective',objective, ...
+           'poke_nm',100);   % 0.63 of lambda/4 -- a healthy map then reads ~0.63
+                             % on the wrap meter and a PINNED one reads 1.00.
+                             % At the old 150 nm (0.95 of the range) the guard
+                             % could not separate them.
 [r0, n0, k0] = cost_(q0, C);
 fprintf('TAIL SEED: cost %.4f (null %.4f nm, poke-peak %.1f nm) [objective %s]\n', r0, n0, k0, objective);
 [qb, rb] = fminsearch(@(q) cost_(q, C), q0, ...
@@ -87,6 +91,7 @@ function [r, null_nm, peak_nm] = cost_(q, C)
     persistent neval;  if isempty(neval), neval = 0; end
     s = C.s;  b = C.bench;  p = [C.seed(1)*exp(q(1)), q(2), q(3), q(4)];
     null_nm = 1e6;  peak_nm = 0;  r = 1e6;
+    conc = NaN;  wrapf = NaN;     % reported per eval so a tune is auditable
     try
         G = macos.design.twyman_green('polarizing',true,'ngridpts',C.NGRID, ...
             'optics',C.optics, C.oapargs{:}, 'BS_AOI',C.AOI, C.nodeargs{:}, ...
@@ -114,15 +119,59 @@ function [r, null_nm, peak_nm] = cost_(q, C)
             hp = meas_surface(AT, C.QWP, Mp, Sr, pn, C.THETAS, C.LAM);
             peak_nm = 1e6*max(abs(hp(msk)));
             frac = peak_nm / C.poke_nm;                 % 1.0 = sharp, 0 = lost
-            % sharpness dominant; keep the null sane
-            r = (1 - min(frac,1.2))^2 + (null_nm/2.0)^2;
+            % --- LOCALIZATION and a WRAP GUARD (2026-09-15) -----------------
+            % peak alone is NOT sharpness: max(abs(h)) is the largest value
+            % ANYWHERE in the pupil, tied to neither the poked actuator nor to
+            % the response being localized.  A defocused or mis-registered map
+            % can supply a large maximum, and a WRAPPED map is guaranteed one,
+            % since wrapping throws values to the ends of the lambda/4 range.
+            % The cost was therefore MAXIMIZED by the failure it should reject:
+            % the winner it picked (DET_TRIM +45.96) had walked the detector
+            % off the DM's pupil conjugate -- magnification 5.477 DM-mm/det-mm
+            % against 10.4 for the same bench on the geometric seed -- scored
+            % frac 1.00, and read actuators at gain 0.034 where the seed reads
+            % 0.98 (A/B: runs/tailA vs runs/tailB).
+            %
+            % conc: the fraction of the map's ENERGY within a few actuator
+            %   pitches of its own peak.  Mapping-free -- the pupil's diameter
+            %   in pixels comes from the mask, and one actuator should occupy
+            %   1/nact of it -- so it needs no DM->detector affine, which is
+            %   the very thing a bad tail corrupts.
+            % wrapf: how close the map runs to the four-step's unambiguous
+            %   range.  A map at 1.00 of lambda/4 carries no surface.
+            [~, imax] = max(abs(hp(:)) .* double(msk(:)));
+            [ri, ci] = ind2sub(size(hp), imax);
+            d_pup = sqrt(4*nnz(msk)/pi);                % pupil diameter, px
+            w = max(2, ceil(3*d_pup/b_nact_(b)));       % ~3 actuator pitches
+            box = false(size(hp));
+            box(max(1,ri-w):min(size(hp,1),ri+w), max(1,ci-w):min(size(hp,2),ci+w)) = true;
+            E = sum(hp(msk).^2);
+            conc = sum(hp(msk & box).^2) / max(E, eps);
+            wrapf = 1e6*max(abs(hp(msk))) / (1e6*C.LAM/4);
+            % LOCALIZATION dominant, then height; the null BOUNDED, not
+            % minimized; a wrapped map refused.
+            %
+            % The null's weight is the point.  The old cost carried
+            % (null_nm/2)^2, and THAT is what drove the defect: the optimizer
+            % bought a 0.0223 nm null by walking the detector off the DM's
+            % pupil conjugate, which is free as far as an arm DIFFERENCE is
+            % concerned (both arms share the tail, so a common misplacement
+            % cancels in the null) and fatal to the reading.  Measured under
+            % the first version of this fix: the geometric seed, which READS at
+            % gain 0.99, scored 1262.9 against the broken tail's 1.39 -- the
+            % null term alone, 71 nm vs 0.022 nm.  A 71 nm null is perfectly
+            % fine for reading.  So the null is scaled to 200 nm here: it keeps
+            % a wildly mis-built tail out, and buys nothing below that.
+            r = (1 - min(frac,1.2))^2 + 4*(1 - conc)^2 ...
+                + 10*max(0, wrapf - 0.8)^2 + (null_nm/200)^2;
         end
     catch
         r = 1e6;
     end
     neval = neval + 1;
-    fprintf('TAILEVAL %3d: FL_F %.3f Kc %.4f D_MASK %.3f TRIM %.3f -> null %.4f nm, peak %.1f nm, cost %.4f\n', ...
-            neval, p(1), p(2), p(3), p(4), null_nm, peak_nm, r);
+    fprintf(['TAILEVAL %3d: FL_F %.3f Kc %.4f D_MASK %.3f TRIM %.3f -> null %.4f nm, ' ...
+             'peak %.1f nm, conc %.3f, wrap %.2f of lambda/4, cost %.4f\n'], ...
+            neval, p(1), p(2), p(3), p(4), null_nm, peak_nm, conc, wrapf, r);
 end
 function n = b_nact_(~), n = 96; end
 function n = b_pitch_(~), n = 1.0; end
