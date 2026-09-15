@@ -42,7 +42,7 @@ recs = struct('name', {}, 'element', {}, 'arm', {}, 'k', {}, 'vpt', {}, 'psi', {
 macos.init(o.MODEL);
 for a = 1:2
     bt = arms{a};  bt.wavelen = P.LAM;
-    dk = fullfile(tempdir, sprintf('dmg_clr_%s.in', tag{a}));  bt.emit(dk);  macos.load_rx(dk);  decks{a} = dk;
+    dk = [tempname, sprintf('_dmg_clr_%s.in', tag{a})];  bt.emit(dk);  macos.load_rx(dk);  decks{a} = dk;   % unique per call: two sessions may run this at once
     n = numel(bt.E);
     for k = 1:n
         e = bt.E(k);  rb = NaN;
