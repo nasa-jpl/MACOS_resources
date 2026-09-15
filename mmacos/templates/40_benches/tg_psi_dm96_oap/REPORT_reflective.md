@@ -14,7 +14,7 @@ carries its run tag. Companions: `REPORT_oap.md` (CCMac's 7° history, kept),
 | 2 — the design: fold angles and off-axis distances from a clearance solve | **done** — §2; the design is OAP1 20° / OAP2 25°, sides +1/−1, polarizer in the source leg, output optics 125 mm ahead of OAP2, collimator at its focus: **worst +33.4 mm over 8 parts**, no ray loss. Tags `fold1`–`fold4`, `loss`, `loss_src`, `loss_a2`, `conj`, `oap22d`; tail retune `oap22d_tail` |
 | 3 — the layout in the recipe; the parts list | **done** — §3; auto-placed labels on the OAP rig (lens figure untouched), parts list printed by the runner (`oap22d`, `oapdraw3`) |
 | 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | **running** — `runs/ifoseq.sh`: tail retune `oap22d_tail` (in flight, seed already 0.0289 nm null), then `oapifo` (bench+battery+figs+clearance) and `oapifol` (bench+loop+figs, hour-class). Harvest: `runs/<tag>/<tag>_report.txt`, exit codes in `runs/<tag>.log` |
-| 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | **precondition measured**, §5: the ZWFS seat is 0.000 λF/D at trim 0 on this bench (`zseat`, `zseat2`), against the record's 1.1 λF/D at 6.14 mm. The runs themselves are next |
+| 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | **precondition measured + run queued**, §5: the ZWFS seat is 0.000 λF/D at trim 0 on this bench (`zseat`, `zseat2`) against the record's 1.1 λF/D at 6.14 mm; `oapsens22` queued (`zwfs_dm96/runs/oapsensseq.sh`) |
 | 6 — the fold-angle lever: half OAP2's angle; does the pinhole recover? | **reframed**, §6: the blur is LINEAR in the angle and is 0.000 λF/D at both 20° and 25° once the conjugate is right, so the trade the item assumes does not exist. Its empirical half waits on item 5's P reading |
 | 7 — the P/SRI bench through the clearance tool | **done** — recorded in `pdi_dm96/REPORT_gauge_pdi.md` (its own brief): PASS at 22.5° (+36.9 mm), FAIL at 7°; the Mach-Zehnder node clear by 227–383 mm at both. Runner `psri_clearance.m`, tag `psriclear2` |
 
@@ -29,6 +29,7 @@ records its exit code in `runs/<tag>.log`. Read this table, then
 | `oap22d_tail` | `runs/tailseq.sh` | `oap22d_tail.mat` — the reflective tail re-fit on the designed geometry | **done**: null 0.0223 nm, poke recovered 150.0 of 150 nm |
 | `oapifo` | `runs/ifoseq.sh` | the interferometer's rows on the 30 nm surface + the clearance table | **running** |
 | `oapifol` | `runs/ifoseq.sh` | the closed-loop hold metric (hour-class) | queued behind `oapifo` |
+| `oapsens22` | `zwfs_dm96/runs/oapsensseq.sh` | item 5: the mask sensors S / V / P on the designed bench, bench + battery, model 1024 / 193 rays, matched to the lens gate run `gate22_193` | queued (the batch wrappers serialize) |
 
 `runs/ifoseq.sh` waits (up to 2 h) for `oap22d_tail.mat`, copies it under each
 tag, and aborts loudly rather than falling back to the record's 7-degree
