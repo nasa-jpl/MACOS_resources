@@ -1151,3 +1151,48 @@ node and the tail leaves away from it** -- that is what the 20 and 25 degree
 folds buy, and it is why the earlier 5 and 9 degree version put the source
 587 mm past the splitter with its beam running back through every part of the
 node.
+
+### 4.5 The sequential gate FAILS the fix — and retracts §4.4's mechanism
+
+Re-measured with `tg96_tail`'s per-process scratch names and strictly one run
+at a time (`runs/gateseq2.sh`):
+
+| | `conc` | wrap | null | **cost** | **actually reads at** |
+|---|---|---|---|---|---|
+| `objseed3` — geometric seed | 1.000 | 0.57 | 0.0289 nm | **0.0089** | **0.9809** (`tailB`) |
+| `objwin3` — the old winner | **1.000** | **0.66** | 0.0223 nm | **0.0015** | **0.0338** (`tailA`) |
+
+**The fixed objective still prefers the tail that does not read**, 0.0015 against
+0.0089. The fix is **not proven; it is disproven.**
+
+**And §4.4's mechanism goes with it.** Measured cleanly, the old winner's map is
+**localized (`conc` 1.000) and unwrapped (0.66 of λ/4)**. The `conc` 0.006 /
+wrap 1.00 that appeared to confirm "the detector walked off the pupil conjugate
+and the map wraps" came from the contaminated concurrent probe. So:
+
+- the **wrap** story is retracted — the old winner's map does not wrap;
+- the **null-term-is-the-driver** story is retracted — the seed's true null is
+  0.0289 nm, so `(null/2)²` was 0.0002, never dominant (§4.4 computed it from a
+  contaminated 71.80 nm);
+- the **localization** story is retracted — both configurations are localized.
+
+**What survives, because it comes only from clean sequential runs** (`tailA` /
+`tailB`, per-tag deck names, run one after the other):
+
+> The old tuned tail reads a single actuator at **0.0338**. The geometric seed
+> reads it at **0.9809**, with a clean break ladder to 480 nm. The tail
+> parameters decide whether this bench reads.
+
+**What is now open:** *why*. Every quantity `tg96_tail` computes about its own
+candidate — null, peak, localization, wrap — says the old winner is healthy,
+while the battery says it reads at 3 %. The tuner is therefore optimizing
+something **orthogonal to readability**, and no reweighting of those four terms
+can fix that; the objective needs to measure what the battery measures — the
+recovered gain in **actuator space**, through the affine — rather than any
+detector-space proxy. That is a real piece of work and it is not started.
+
+**The practical answer for item 4, available now:** **use the geometric seed
+tail.** `tailB` proves it reads at 0.98 with a clean ladder, and `oapifo2` has
+already run the full-resolution battery on it. The reflective bench needs no
+tuned tail; the tuner is the thing that is broken, and it is broken in a way
+this session has not diagnosed.
