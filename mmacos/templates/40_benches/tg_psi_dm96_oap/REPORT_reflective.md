@@ -692,6 +692,33 @@ is left is six times better than a pair of tuned singlets. The record's D4
 finding — that the 13 nm null is benign because it cancels in the differential
 — is still true, but on this bench there is essentially no null to cancel.
 
+**A consequence to carry into the realism round: the pupil image is nearly
+twice as big.** The ray-affine magnification, DM-mm per detector-mm:
+
+| | DM-mm / det-mm | pupil image across |
+|---|---|---|
+| lens rig | 9.879 | 9.7 mm |
+| reflective rig, the record | 10.704 | 9.0 mm |
+| **reflective rig, as designed here** | **5.477** | **17.5 mm** |
+
+That follows from the retuned tail (`FL_F` 38.09 against the lens rig's 42.53,
+`DET_TRIM` +45.96 against −1.25), not from the front end as such. It is good
+for sampling — a 6.5 µm sCMOS lays **2692 pixels** across this pupil against
+1446 on the lens rig — but **it does not fit the 2048 × 6.5 µm sensor**
+(13.3 mm) that `BRIEF_ccmac_bench_realism` §4 names: 17.5 mm needs a larger
+format, or the tail re-tuned with the image size as a constraint rather than a
+free outcome. That is realism item 5's business (the camera) and is flagged
+here, not resolved.
+
+Also worth recording because it changes what a gate means: the D1 non-vacuity
+check — "the best axis-aligned shear-free map fails where the affine
+succeeds" — is **vacuous on this bench**. It reports 100.00 % for the
+axis-aligned map against 100.00 % for the affine, because the mapping is now a
+clean 0.00 % anamorphism at +0.00° off the DM axes. On the record's reflective
+rig the same check was meaningful (the fold's flip plus rotation). A gate that
+discriminates only when the thing it guards against is present is not evidence
+here either way.
+
 The rows, the servo and the descent follow it, queued in `runs/ifoseq.sh`:
 `oapifo` (bench + battery + figs + clearance — the rows on the 30 nm surface
 with the matrix measured on that surface) and `oapifol` (bench + loop + figs —
