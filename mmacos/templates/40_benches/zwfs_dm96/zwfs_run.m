@@ -170,8 +170,9 @@ end
 function bargs = bench_args_(P)
 % P.bench as twyman_green name/value pairs, minus the runner-side fields the
 % builder does not take: the OAP coating (applied after each load, coat_oap_)
-skip = {'coat_oap', 'coat_bareAl', 'coat_protectedAl'};
-bf = setdiff(fieldnames(P.bench), skip, 'stable');  bargs = cell(1, 2*numel(bf));
+% runner knobs, not builder arguments -- matched by PREFIX so a new coat_*
+% stack (coat_qwAl, ...) cannot be forgotten in one of the five strip lists.
+bf = fieldnames(P.bench);  bf = bf(~strncmp(bf, 'coat_', 5));  bargs = cell(1, 2*numel(bf));
 for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = P.bench.(bf{i}); end
 end
 
@@ -183,11 +184,11 @@ function coat_oap_(P, bt, rep)
 % never see a coating.  bench.coat_oap 'none' | 'bareAl' | 'protectedAl'.
 if ~isfield(P.bench, 'coat_oap') || any(strcmp(P.bench.coat_oap, {'none', ''})), return; end
 assert(isfield(P.bench, 'optics') && strcmp(P.bench.optics, 'oap'), 'zwfs_run: bench.coat_oap needs bench.optics ''oap''');
-switch P.bench.coat_oap
-    case 'bareAl',      cs = P.bench.coat_bareAl;
-    case 'protectedAl', cs = P.bench.coat_protectedAl;
-    otherwise, error('zwfs_run: bench.coat_oap must be none | bareAl | protectedAl');
-end
+fld = ['coat_' P.bench.coat_oap];
+assert(isfield(P.bench, fld), ...
+    'zwfs_run: bench.coat_oap ''%s'' has no stack P.bench.%s (none | bareAl | protectedAl | qwAl)', ...
+    P.bench.coat_oap, fld);
+cs = P.bench.(fld);
 nm = {bt.E.name};  iL = [find(strcmp(nm, 'L1'), 1), find(strcmp(nm, 'L2'), 1)];
 assert(numel(iL) == 2, 'zwfs_run: elements L1 and L2 not found for the OAP coating');
 for j = 1:2

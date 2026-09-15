@@ -44,7 +44,7 @@ if isempty(o.G)
     P = zwfs_params();
     if ~isfile(P.grid.flat_file), P.grid.flat_file = fullfile(zd, P.grid.flat_file); end
     if isempty(LAM), LAM = P.LAM; end
-    bp = rmfield(P.bench, intersect(fieldnames(P.bench), {'coat_oap','coat_bareAl','coat_protectedAl'}));
+    bn = fieldnames(P.bench);  bp = rmfield(P.bench, bn(strncmp(bn, 'coat_', 5)));
     bp.polarizing = true;  bp.pol_in_deg = 45;  bp.qwp_test_deg = 0;  bp.qwp_ref_deg = 45;  bp.out_qwp_deg = 0;  bp.analyzer_deg = 0;  bp.qwp_ret = 0.25;
     f = fieldnames(ov);  for i = 1:numel(f), bp.(f{i}) = ov.(f{i}); end
     bf = fieldnames(bp);  bargs = cell(1, 2*numel(bf));

@@ -81,15 +81,28 @@ P.bench.D_BS_CMP = 200;      P.bench.R_TO_AP = s*30;     % compensator 200 mm do
 P.bench.L1_Kr = s*236.866;   P.bench.L1_Kc = -0.5829;    % tuned lens figures (l2_trade)
 P.bench.L2_Kr = -s*124.076;  P.bench.L2_Kc = -0.5826;
 P.bench.tail_arch = 'fieldlens';                         % pupil-relay field lens behind the mask
+P.bench.PLATE_SUB   = [];    % realism item 3: [n t], the SUBSTRATE every thin polarizing element is
+                             % really made on (input polarizer, arm QWPs, output plate, analyzer) --
+                             % two refracting faces around the ideal element, which keeps its own
+                             % station.  ABSOLUTE mm, not scaled.  [] = the record's ideal elements.
+P.bench.EDGE_MARGIN = 2.0;   % singlet edge thickness, ABSOLUTE mm (add_lens centre = sag + this)
 P.bench.MASK_TRIM = -5.582;  % thin-lens seed -> true focus (S1 rounds 2-5)
 P.bench.FL_F   = 42.5325;    P.bench.FL_Kc = -2.58764;  P.bench.FL_D = s*12;
 P.bench.D_MASK_FL = 39.7694; P.bench.DET_TRIM = -1.2473; % tuned tail (tg96_tail)
 P.bench.coat_oap = 'none';   % the OAP rig only (bench.optics 'oap'): mirror coating on L1 and L2 --
-                             % 'none' | 'bareAl' | 'protectedAl' (CCMac's tg96 stacks below); applied
-                             % after every deck load; active under polarization only, i.e. for the
-                             % vector reading's arm maps (mask.v_arm 'engine'); not a builder option
+                             % 'none' | 'bareAl' | 'protectedAl' | 'qwAl' (CCMac's tg96 stacks below,
+                             % plus the quarter-wave overcoat); applied after every deck load; active
+                             % under polarization only, i.e. for the vector reading's arm maps
+                             % (mask.v_arm 'engine'); not a builder option.  Any field named coat_*
+                             % is a runner knob, not a builder argument (bench_args_ strips them by
+                             % prefix), so a new stack needs no edit anywhere else.
 P.bench.coat_bareAl      = struct('index',1.373, 'extinc',7.62, 'thickness',1.0e-4);
 P.bench.coat_protectedAl = struct('index',[1.38 1.373], 'extinc',[0 7.62], 'thickness',[2.293e-4 1.0e-4]);
+P.bench.coat_qwAl        = struct('index',[1.38 1.373], 'extinc',[0 7.62], 'thickness',[1.1464e-4 1.0e-4]);
+                             % MgF2 at a QUARTER wave of 632.8 nm (114.6 nm physical = half the
+                             % 'protectedAl' film, which is a HALF wave there) over the same opaque Al.
+                             % The engine's measured overcoat rule: the polarization trade REVERSES
+                             % across the quarter-wave condition (macos_f90/CLAUDE.md).
 P.bench.mask_prop = 'nf';    % 'nf' = SYMMETRIC reference-sphere sandwich about the mask
                              % (the corrected model, S7); 'nf_legacy' reproduces the
                              % Fresnel-DEFOCUSED S1-S6 sensor (record only)
