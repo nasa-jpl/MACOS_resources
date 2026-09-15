@@ -25,7 +25,7 @@ here so the reader knows what is measured and what is still running:
 |---|---|
 | 1. PF through the two decks | **done** — rows, photons and the loop rows, plus the frozen-reference control (`pfdeck`, `pfdeck_frz`, `pfdeck_loop`) |
 | 2. capture range and photons, P and PF | **done** — sections 2a, 2b, 2c (`cap385p`, `cap385p_b*`, `noise193p_b*`) |
-| 3. the pinhole diameter of record | **the only item still running** — `pin20_1024` and `pin20_loop` are in; the model-2048 legs `pin10_2048` / `pin10_loop` are the remaining compute.  Section 3 |
+| 3. the pinhole diameter of record | **done** — sections 3a–3c; **2.0 λ/D stays the diameter of record**, both recorded (`pin20_1024`, `pin20_loop`, `pin10_2048`, `pin10_loop`) |
 | 4. the four shared loop knobs + gates | **done** — built, gated (tDmgLoop G9–G13, 15/15) and run: the descent in section 9, the within-scan drift in **4b** (`intra193_0`, `intra193`) |
 | 5. the reference arm's own drift | **done** — section 5 (`rw193_1e3/1e2/1e1`) |
 | 6. layouts and parts | **done** (`pdi_layout.png`, `psri_layout.png`, `psri_render.png`, `pdi_vfig_util`; parts tables in the README) |
@@ -77,10 +77,14 @@ for one frame each: the flat `|b|²` is what makes P fold at 120 nm
 (conclusion 3), and four-step least squares is what turns a 2% step
 error into 421 pm (conclusion 6).
 
-*Open at the time of writing, and marked in the sections: the pinhole
-DIAMETER of record (section 3) and the capture ladder (section 9).
-Neither can unseat the stepped pinhole on the numbers above; both change
-what the deck says about its range.*
+**The pinhole diameter is 2.0 λ/D** (section 3).  Against 1.0 λ/D the
+30 nm rows are indistinguishable and the loop is not close — 3 pm from
+< 1e13 photons per cycle against 3.6e13, the small pinhole passing 0.294
+of the light against 0.821.  Its one advantage, range, is what the
+shutter frame already buys here for free.
+
+*Every item of both briefs is now measured; nothing in section 0 is
+pending.*
 
 ---
 
@@ -399,13 +403,69 @@ across and 1.0 λ/D at the second is 3.96 px, the budget line's floor
 being 6 px.  Only MODEL buys both resolutions at once, which is why the
 1.0 λ/D leg needs 2048.
 
-Runs: `pin20_1024`, `pin20_loop`, `pin10_2048`, `pin10_loop`.
+### 3a. The two legs
 
-*Run-record note:* `pin10_2048` was killed by a SIGTERM from another
-lane sixteen minutes in on 2026-09-14 (exit 143), so `gseq2` moved on to
-`pin10_loop` and the battery leg was re-queued behind it (`runs/gpin.sh`).
-Its timestamp is therefore LATER than `pin10_loop`'s, which is why, not
-a re-run after a failure of its own.
+| | **2.0 λ/D**, model 1024 / 193 rays | **1.0 λ/D**, model 2048 / 385 rays |
+|---|---|---|
+| surround transmission `t` | 0.719 | **0.283** |
+| pinhole coupling η | 0.682 | **0.240** |
+| throughput (detected / incident) | **0.821** | 0.294 |
+| pinhole at the mask plane | 7.92 px (PASS) | 3.96 px (**NOT MET**) |
+| detector px per actuator | 2.52 | 5.03 |
+| **rows** 10 nm on one actuator | 0.9935 / 4 pm / SNR 2790 | 0.9937 / 4 pm / SNR 2967 |
+| 1 nm on 47 grid sites | 0.9992 / 3 pm | 0.9990 / 3 pm |
+| dense random 10 nm | 0.9985 / 338 pm | 0.9997 / 330 pm |
+| **ladder** 30 nm | 0.9971 / 20 pm | 0.9967 / 20 pm |
+| 60 nm | 0.9380 / 146 | **1.0024** / 104 |
+| 120 nm | **−0.013 (folded)** | **1.0175** / 306 |
+| **capture range to 10%** | **62 nm** | **120 nm+ (holds)** |
+| N(1 pm), on-surface matrix | **9.8e13** | 2.1e14 |
+| photons per cycle to hold 3 pm under the 2 pm walk | **< 1e13** | 3.6e13 |
+
+*Runs: `pin20_1024`, `pin20_loop`, `pin10_2048`, `pin10_loop`.*
+
+### 3b. The range is the DIAMETER's, not the sampling's
+
+The two legs differ in two variables at once — diameter AND model/rays —
+so the range could in principle be the better pupil sampling.  It is
+not: `../zwfs_dm96/runs/pdi193d1` runs 1.0 λ/D at **1024 / 193**, the
+same sampling as the 2.0 λ/D leg, and it also does not fold (1.02 / 1.06
+/ 1.13 at 120 / 240 / 480 nm).  With sampling held fixed, the small
+pinhole still buys the range.  **A cleaner reference is what a smaller
+pinhole is for**, and the measurement says so.
+
+### 3c. The choice: 2.0 λ/D stays the diameter of record
+
+**On the brief's own two criteria the answer is not close.**  On the
+30 nm-surface rows the two are indistinguishable — 0.9935 against
+0.9937, 4 pm both.  On the loop 2.0 λ/D wins by more than 3.6×: 3 pm
+held from **< 1e13** photons per cycle against **3.6e13**.  The small
+pinhole passes 0.294 of the light where the large one passes 0.821, and
+that is the whole story of its photon cost (2.2× on N(1 pm), > 3.6× in
+the loop).
+
+**Its one advantage — range — is available at 2.0 λ/D for one extra
+frame.**  The 1.0 λ/D pinhole's 120 nm+ capture range against 62 nm is
+real, and it is bought by having a reference the surface cannot corrupt.
+But a pinhole-only (shutter) frame per state buys exactly that at 2.0
+λ/D (conclusion 3, `pdi193state`: P becomes PF's twin on every row AND
+the ladder), for a fifth frame and no change in throughput.  **Paying
+2.8× in light for what a fifth frame gives free is the wrong trade**, so
+**2.0 λ/D is the diameter of record** and the deck quotes it.
+
+*Both are recorded, as the ruling asked.*  If a future bench cannot
+afford the extra frame — a shutter has to be actuated, and at some scan
+rate that matters — the 1.0 λ/D pinhole is the fallback that reaches the
+same range with no moving part, at 2.8× the light.
+
+*Run-record note:* `pin10_2048` was killed by a SIGTERM from another lane
+sixteen minutes into its first attempt (exit 143), so `gseq2` moved on to
+`pin10_loop` and the battery leg was re-queued behind it (`runs/gpin.sh`)
+— which is why its timestamp is later.  Both model-2048 runs then ended
+with **exit 137, which is NOT a failure here**: it is the documented
+model-2048 crash AT EXIT, after everything is written (the campaign has
+met it before, `../zwfs_dm96/runs/mask385`).  Both reports end "run
+complete" (123.6 and 69.5 min) and both are intact.
 
 ---
 
@@ -860,9 +920,17 @@ configuration table are what it needs.
    Camera drift within a scan is bias read at the wrong moment; DM drift
    within a scan is signal read at the right one.
 
-8. *Pending: the pinhole diameter of record (section 3, `pin20_*` /
-   `pin10_*`).  It cannot unseat the stepped pinhole; it decides whether
-   the deck quotes 2.0 λ/D at model 1024 or 1.0 at 2048.*
+8. **The pinhole diameter of record is 2.0 λ/D.**  Against 1.0 λ/D the
+   30 nm rows are indistinguishable (0.9935 vs 0.9937, 4 pm both) and
+   the loop is not close — 3 pm held from **< 1e13** photons per cycle
+   against **3.6e13**, because the small pinhole passes 0.294 of the
+   light where the large one passes 0.821.  The small pinhole's one
+   advantage is range (capture 120 nm+ against 62 nm, and it is the
+   DIAMETER's doing, not the sampling's — `pdi193d1` shows it at matched
+   sampling), and **a shutter frame buys exactly that at 2.0 λ/D for one
+   extra frame and no light**.  Paying 2.8× in light for what a fifth
+   frame gives free is the wrong trade.  The 1.0 λ/D pinhole stays
+   recorded as the fallback for a bench that cannot actuate a shutter.
 
 9. **Capturing the initial figure: only the surface-independent
    reference captures, and only with BOTH unwrapping and
