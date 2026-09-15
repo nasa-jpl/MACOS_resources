@@ -675,6 +675,23 @@ dark or elongated, worst at centre"*, and cites it as the same-plane-fold
 effect. It is not: on the corrected bench every one of the 466 lit actuators
 lands within 2 px, exactly as on the lens rig.
 
+**Second row: the flat-DM null, at full resolution.** The record calls this
+*"the same-plane-fold arm difference"* and it is the number the reflective
+rig's differential has to cancel:
+
+| | flat-DM null |
+|---|---|
+| reflective rig, the record (`runs/oap`, `runs/descent_oap`) | **12.893 nm / 13.089 nm** (12 893 / 13 089 pm) |
+| lens rig (`runs/lens`) | 0.1345 nm (134.5 pm) |
+| **reflective rig, as designed here** (`oapifo`, model 1024) | **0.0223 nm (22.3 pm)**, and the tail predicted 0.0223 |
+
+**578× smaller than the record's reflective null, and 6.0× smaller than the
+LENS rig's.** The "same-plane-fold arm difference" was not the fold: two
+parabolas fed at their conjugates have almost nothing to differ about, and what
+is left is six times better than a pair of tuned singlets. The record's D4
+finding — that the 13 nm null is benign because it cancels in the differential
+— is still true, but on this bench there is essentially no null to cancel.
+
 The rows, the servo and the descent follow it, queued in `runs/ifoseq.sh`:
 `oapifo` (bench + battery + figs + clearance — the rows on the 30 nm surface
 with the matrix measured on that surface) and `oapifol` (bench + loop + figs —
