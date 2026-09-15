@@ -13,7 +13,7 @@ carries its run tag. Companions: `REPORT_oap.md` (CCMac's 7° history, kept),
 | 1 — the drawing defect diagnosed and fixed; the lens rig unchanged | **done** — §1; `lens22g` (gate, pixel-identical), `oap22` |
 | 2 — the design: fold angles and off-axis distances from a clearance solve | **done** — §2; the design is OAP1 20° / OAP2 25°, sides +1/−1, polarizer in the source leg, output optics 125 mm ahead of OAP2, collimator at its focus: **worst +33.4 mm over 8 parts**, no ray loss. Tags `fold1`–`fold4`, `loss`, `loss_src`, `loss_a2`, `conj`, `oap22d`; tail retune `oap22d_tail` |
 | 3 — the layout in the recipe; the parts list | **done** — §3; auto-placed labels on the OAP rig (lens figure untouched), parts list printed by the runner (`oap22d`, `oapdraw3`) |
-| 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | **running**, §4. Tail retune **done** (null 0.0223 nm, poke recovered 150.0/150). First row in: D1 window placement **100.00 % within 2 px, 466 of 466** against the record's 72.77. `oapifo` (rows) running; `oapifol` (servo) and `oapdesc` (descent) queued. Harvest: `runs/<tag>/<tag>_report.txt`, exit codes in `runs/<tag>.log` |
+| 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | **running, and one row is BAD**, §4. Good: tail null 0.0223 nm, D1 100.00 % within 2 px, flat-DM null 22.3 pm. **Bad: Stage C single-actuator gain 0.0879 against 0.9927 / 0.9968 — open, §4.1.** `oapifo` in Stage D; `oapifol` and `oapdesc` queued |
 | 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | **precondition measured + run queued**, §5: the ZWFS seat is 0.000 λF/D at trim 0 on this bench (`zseat`, `zseat2`) against the record's 1.1 λF/D at 6.14 mm; `oapsens22` queued (`zwfs_dm96/runs/oapsensseq.sh`) |
 | 6 — the fold-angle lever: half OAP2's angle; does the pinhole recover? | **reframed**, §6: the blur is LINEAR in the angle and is 0.000 λF/D at both 20° and 25° once the conjugate is right, so the trade the item assumes does not exist. Its empirical half waits on item 5's P reading |
 | 7 — the P/SRI bench through the clearance tool | **done** — recorded in `pdi_dm96/REPORT_gauge_pdi.md` (its own brief): PASS at 22.5° (+36.9 mm), FAIL at 7°; the Mach-Zehnder node clear by 227–383 mm at both. Runner `psri_clearance.m`, tag `psriclear2` |
@@ -718,6 +718,42 @@ clean 0.00 % anamorphism at +0.00° off the DM axes. On the record's reflective
 rig the same check was meaningful (the fold's flip plus rotation). A gate that
 discriminates only when the thing it guards against is present is not evidence
 here either way.
+
+### 4.1 STOP — Stage C regresses, and it is like-for-like
+
+**Not every row goes the designed bench's way.** The single-actuator gain in
+actuator space, the measured matrix's own estimate of a 150 nm poke:
+
+| | Stage C gain | off-target floor |
+|---|---|---|
+| lens rig (`runs/lens`) | 0.9968 | 98.8 pm |
+| reflective rig, the record (`runs/oap`) | 0.9927 | 22.4 pm |
+| **reflective rig, as designed here** (`oapifo`) | **0.0879** | **199.8 pm** |
+
+Same stage, same line of the same runner, same 150 nm poke: the designed bench
+recovers **8.8 %** of the actuator it is asked about. That is a regression, not
+a win, and it is reported here before the rows that went the other way are read
+as a verdict.
+
+**What it is not.** Not window clipping: the calibration window is 37 px here
+and 37 px on the record's reflective rig (41 on the lens), and the lit-actuator
+count went *up*, 3388 → 3672, so the pupil is not being cut. Not placement:
+D1 is 100.00 % within 2 px. Not the null: 22.3 pm here against 13 089 pm on the
+record's bench.
+
+**What it might be, untested:** the 150 nm poke sits at 0.95 of the four-step's
+unambiguous range (`|h| < λ/4 = 158.2 nm`), so any change in the local phase
+gradient can fold it; and the estimator is a 64-state matrix over 3672 lit
+columns whose per-column support scales with the pupil magnification, which
+this bench changed by 1.95×.
+
+**Status: open.** Stages D and E — the modal transfer and the differential rows
+on the 30 nm surface, which are what the brief actually asks for — are still
+running. If they are clean, Stage C is an estimator artifact on this
+magnification and must be explained rather than quoted; if they are not, the
+design has a defect and the earlier rows do not redeem it. **Until that is
+settled, §7's deck guidance stands with this added: do not put the reflective
+rig's reading performance on a slide in either direction.**
 
 The rows, the servo and the descent follow it, queued in `runs/ifoseq.sh`:
 `oapifo` (bench + battery + figs + clearance — the rows on the 30 nm surface
