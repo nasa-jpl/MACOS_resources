@@ -659,6 +659,22 @@ Winner: `FL_F` 38.0937, `FL_Kc` −2.64620, `D_MASK_FL` 1.9836, `DET_TRIM`
 rig's seed, which is what one would expect once the focuser is a parabola at
 its exact conjugate rather than a tuned singlet).
 
+**First row in, and it is the record's sharpest reflective-vs-lens claim
+reversed.** `oapifo`'s Stage PLACE -- the D1 window-placement gate, response
+centre-of-mass against the affine-predicted pixel for every lit actuator:
+
+| | within 2 px | median error | blobs caught |
+|---|---|---|---|
+| lens rig (the record's control) | 100.00 % | 0.07 px | -- |
+| **reflective rig, the record** | **72.77 %** | 0.16 px | -- |
+| **reflective rig, as designed here** | **100.00 %** | **0.70 px** | **466 of 466** |
+
+The record calls its 72.77 % *"physical, not a code artifact -- the single
+off-axis OAP images the pupil with astigmatism, so ~20-25 % of actuators image
+dark or elongated, worst at centre"*, and cites it as the same-plane-fold
+effect. It is not: on the corrected bench every one of the 466 lit actuators
+lands within 2 px, exactly as on the lens rig.
+
 The rows, the servo and the descent follow it, queued in `runs/ifoseq.sh`:
 `oapifo` (bench + battery + figs + clearance — the rows on the 30 nm surface
 with the matrix measured on that surface) and `oapifol` (bench + loop + figs —
