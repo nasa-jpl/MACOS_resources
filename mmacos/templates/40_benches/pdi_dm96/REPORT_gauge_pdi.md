@@ -980,3 +980,68 @@ matter.
   choices, kept so the two campaigns' tables can sit side by side.
 - Each run's own report carries every line quoted here; the tables below
   are transcriptions, not re-computations.
+
+## The P/SRI bench through the clearance tool (item 7, TO, 2026-09-15)
+
+`BRIEF_to_psri_clearance.md`. Dave ruled the 7-degree TG96 node unbuildable and
+the bench of record is now 22.5 degrees; the P/SRI rig had never been checked
+the same way, and its reference arm's node -- the two relay lenses, the pinhole
+seat and the bottom fold -- had never been checked at all.
+
+**Answer, in one line: the P/SRI bench PASSES at 22.5 degrees and FAILS at the
+record's 7 -- and the failure is entirely in the shared FRONT END, not in the
+Mach-Zehnder.** Run tag `psriclear2` (model 512, 65 rays, mount +8 mm,
+spec >= +25; bodies: source and camera 50 mm, DM 90, the two fold mirrors 75).
+
+| part | 7 deg | **22.5 deg** | against |
+|---|---|---|---|
+| compensator | **-47.3** | **+36.9** | test: L1pow -> BSrefl |
+| collimator L1 | **-22.9** | **+172.0** | test: Comptxbd -> TestOptic |
+| Lr2 (reference relay out) | +227.4 | +227.4 | test: CompLenstxb -> BS3refl |
+| lens-glass compensator | +230.6 | +230.6 | ref: BS2refl -> Lr1pow |
+| Lr1 (reference relay in) | +237.5 | +237.5 | test: CompLenstxb -> BS3refl |
+| BS2 (the pickoff) | +352.6 | +352.6 | test: CompLenstxb -> BS3refl |
+| BS3 (the recombiner) | +382.6 | +382.6 | ref: RefSphereOut -> Lr2flat |
+| source head, front splitter, DM, M1, L2, field lens, camera, M3 | -- | -- | no other beam crosses their plane |
+| **worst** | **-47.3 (compensator) FAIL** | **+36.9 (compensator) PASS** | |
+
+Three readings:
+
+1. **The Mach-Zehnder node is clean at both angles**, by a wide margin: the
+   reference arm's relay lenses at +227 and +238 mm, the pickoff and recombiner
+   at +353 and +383, and the pinhole seat, the two fold mirrors, L2, the field
+   lens and the camera have no other beam crossing their plane at all. The
+   45-degree pickoff does exactly what one would hope. That is the part of the
+   rig nobody had looked at, and it is fine.
+2. **The only failures are the compensator and the collimator, which the P/SRI
+   inherits from the TG96 front end** -- the same two parts, failing the same
+   way, that Dave's finding was about. Raising the front-end splitter to the
+   ruled 22.5 degrees fixes both, and nothing in the Mach-Zehnder moves.
+3. **No fix is proposed here**, per the brief: the number is the deliverable.
+   None is needed -- the bench of record already carries 22.5 degrees.
+
+**The route.** `macos.design.psri_bench` returns the same `{bt, br, P}` shape
+`twyman_green` does, so `dmg_bench_clearance` measures it directly through its
+existing `'G'` option. No fork of the tool, no bending the TG96 builder.
+Runner: `psri_clearance.m` (+ `psri_clearance_batch.m`); figures
+`runs/psriclear2/psriclear2_bs7.png` and `..._bs22.5.png`.
+
+**One tool bug found and fixed on the way.** `dmg_bench_clearance` groups a
+physical part's records by name stem so a plate is never scored against its own
+beam, and the suffix list did not cover the P/SRI's face tags (`txft` / `txbt`
+/ `txfr` / `txbr` on the Mach-Zehnder plates, bare `txf` / `txb` on its
+lens-glass compensator). BS2's transmitted face and BS2's reflection therefore
+read as two different parts, each scored against the other's beam: a spurious
+**-114.9 mm** on BS2 and **-113.7** on BS3, in a rig that is actually clear by
+350 mm there. The four-character forms must precede the three-character ones in
+the alternation, since the first alternative that matches wins -- `Comptxfd`
+has to lose `txfd`, not `txf`. **No TG96 name ends in a bare `txf` / `txb`, and
+that is asserted, not assumed: `node22v` re-runs the TG96 clearance stage
+post-fix and its table is IDENTICAL to the recorded `node22t`, line for line
+(worst +38.2 mm over 10 parts).**
+
+Also used here, and new with the reflective work: the tool's opt-in `'BODY'`
+option (part stem -> physical body radius), which is how the source head gets
+into the table at all -- its builder element is an Obscuring baffle, not an
+optic -- and how the camera is scored at its package size rather than its
+4.6 mm pupil image.

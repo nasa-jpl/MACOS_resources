@@ -1,0 +1,47 @@
+=== P/SRI bench clearance: does every part clear every beam it is not in? ===
+macos.design.psri_bench through dmg_bench_clearance's 'G' option.
+model 512, 65 rays; mount +8 mm; spec >= 25 mm
+physical bodies (radius before the mount, mm): Baffle 50  Detector 50  TestOptic 90  M1 75  M3 75  
+the solved reference optics of record (pdi_params): Lr1 = Lr2 conic -0.5784, REF_TRIM +1.0960 mm
+
+--- front-end splitter at 7 deg (the Mach-Zehnder pickoff and recombiner are at 45) ---
+element                type         arm     a+mnt  r_beam  clear mm  against
+Comp                   Refractor    test     50.6    37.6     -47.3  test: L1pow -> BSrefl
+L1                     Refractor    test     50.7    37.7     -22.9  test: Comptxbd -> TestOptic
+Lr2                    Refractor    ref      48.4    35.4     227.4  test: CompLenstxb -> BS3refl
+CompLens               Refractor    test     48.6    35.6     230.6  ref: BS2refl -> Lr1pow
+Lr1                    Refractor    ref      49.0    36.0     237.5  test: CompLenstxb -> BS3refl
+BS2                    Refractor    test     64.0    51.0     352.6  test: CompLenstxb -> BS3refl
+BS3                    Reflector    test     62.3    49.3     382.6  ref: RefSphereOut -> Lr2flat
+Baffle                 Obscuration  test     58.0    18.4       NaN  (no other beam crosses its plane)
+BS                     Reflector    test     50.8    37.8       NaN  (no other beam crosses its plane)
+TestOptic              Reflector    test     98.0    36.8       NaN  (no other beam crosses its plane)
+M1                     Reflector    test     83.0    50.5       NaN  (no other beam crosses its plane)
+L2                     Refractor    test     47.6    34.6       NaN  (no other beam crosses its plane)
+FL                     Refractor    test     16.3     3.3       NaN  (no other beam crosses its plane)
+Detector               FocalPlane   test     58.0     3.5       NaN  (no other beam crosses its plane)
+M3                     Reflector    ref      83.0    51.0       NaN  (no other beam crosses its plane)
+worst -47.3 mm (Comp) over 7 parts; spec >= 25 -- FAIL
+wrote /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/pdi_dm96/runs/psriclear2/psriclear2_bs7.png
+
+--- front-end splitter at 22.5 deg (the Mach-Zehnder pickoff and recombiner are at 45) ---
+element                type         arm     a+mnt  r_beam  clear mm  against
+Comp                   Refractor    test     53.4    40.4      36.9  test: L1pow -> BSrefl
+L1                     Refractor    test     50.7    37.7     172.0  test: Comptxbd -> TestOptic
+Lr2                    Refractor    ref      48.4    35.4     227.4  test: CompLenstxb -> BS3refl
+CompLens               Refractor    test     48.6    35.6     230.6  ref: BS2refl -> Lr1pow
+Lr1                    Refractor    ref      49.0    36.0     237.5  test: CompLenstxb -> BS3refl
+BS2                    Refractor    test     64.0    51.0     352.6  test: CompLenstxb -> BS3refl
+BS3                    Reflector    test     62.3    49.3     382.6  ref: RefSphereOut -> Lr2flat
+Baffle                 Obscuration  test     58.0    18.4       NaN  (no other beam crosses its plane)
+BS                     Reflector    test     53.6    40.6       NaN  (no other beam crosses its plane)
+TestOptic              Reflector    test     98.0    36.8       NaN  (no other beam crosses its plane)
+M1                     Reflector    test     83.0    50.5       NaN  (no other beam crosses its plane)
+L2                     Refractor    test     47.6    34.6       NaN  (no other beam crosses its plane)
+FL                     Refractor    test     16.3     3.3       NaN  (no other beam crosses its plane)
+Detector               FocalPlane   test     58.0     3.5       NaN  (no other beam crosses its plane)
+M3                     Reflector    ref      83.0    51.0       NaN  (no other beam crosses its plane)
+worst +36.9 mm (Comp) over 7 parts; spec >= 25 -- PASS
+wrote /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/pdi_dm96/runs/psriclear2/psriclear2_bs22.5.png
+
+wrote psriclear2_clear.{txt,mat} + the figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/pdi_dm96/runs/psriclear2
