@@ -138,6 +138,8 @@ P.mask.v_analyzer = 'none';  % V4: the analyzer's leak between the two images: '
                              % plate's errors below) | a struct with lA, cA, lB, cB
 P.mask.v_qwp_err = 0;        % the plate's retardance error, waves (a zero-order plate: 1/300 typical spec)
 P.mask.v_qwp_az  = 0;        % the plate's fast-axis azimuth error, degrees
+P.mask.v_clear = false;      % V5 (plan 11.2): the V reading takes the state's CLEAR frame too (3 frames) and reads amplitude and phase; false = the phase-only pair of record
+P.mask.v_dip = [];           % V5 gate G9: pupil amplitude dips (fractions, e.g. [0.05 0.20]) the vector pair must read through; [] = skip
 P.mask.v_gate_nm = 100;      % G4 (V only): single-actuator pokes (every 8th actuator) of this height
                              % put their pixels beyond the one-frame fold (peak 1.9 rad, 3% of msk);
                              % the pair must reproduce them (< 0.1%), the single frame must not
