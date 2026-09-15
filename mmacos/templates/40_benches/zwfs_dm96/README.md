@@ -119,7 +119,7 @@ re-draws them from a saved run).
 | `LAM` | 632.8 nm | the record color; `color.lams_nm` lists the others, record color FIRST |
 | `bench.*` | the tg96 test arm | every `twyman_green` option: lenses, legs, tuned tail, `mask_prop` (`'nf'` = the corrected symmetric sandwich; `'nf_legacy'` = the Fresnel-defocused S1-S6 sensor) |
 | `mask.*` | 346.2 nm etch, 2.0 lam/D | etch depth, substrate index (`'malitson'` or a number), dimple diameter, the phase-stepped depth ladder, `NITER` |
-| `mask.v_*` | ideal metasurface, ideal arm | the vector reading's imperfections: `v_ret_err` / `v_leak_phase` (V2: the metasurface's retardance error, the leak's phase), `v_arm` (V3: the arm's polarization aberration per circular channel -- `'engine'` = the bench's own Jones pupil from two polarized vector traces at the laser angle `v_laser_deg`, optionally AR-coated faces `v_arm_ar`; `'synthetic'` = astigmatic maps of `v_arm_dphase` rad rms differential PHASE between the channels (the diattenuation-type term) and `v_arm_damp` differential AMPLITUDE (the retardance-type term)), `v_cal` = what the solver knows: `'ideal'` (nothing: the raw size of a term), `'amp'` (the per-channel unmasked reference frames' amplitude maps), `'fit'` (amp + per-channel constants and eta fitted on the flat's two masked images), `'map'` (the true maps: a polarimetrically calibrated bench), `v_gate_nm` (G4's poke height), `v_analyzer` (V4: the quarter-wave plate + cube analyzer's leak between the two images -- `'engine'` = `dmg_analyzer_maps` on the two channel decks with the plate errors `v_qwp_err` (waves) and `v_qwp_az` (deg); or a struct lA, cA, lB, cB) |
+| `mask.v_*` | ideal metasurface, ideal arm | the vector reading's imperfections: `v_ret_err` / `v_leak_phase` (V2: the metasurface's retardance error, the leak's phase), `v_arm` (V3: the arm's polarization aberration per circular channel -- `'engine'` = the bench's own Jones pupil from two polarized vector traces at the laser angle `v_laser_deg`, optionally AR-coated faces `v_arm_ar`; `'synthetic'` = astigmatic maps of `v_arm_dphase` rad rms differential PHASE between the channels (the diattenuation-type term) and `v_arm_damp` differential AMPLITUDE (the retardance-type term)), `v_cal` = what the solver knows: `'ideal'` (nothing: the raw size of a term), `'amp'` (the per-channel unmasked reference frames' amplitude maps), `'fit'` (amp + per-channel constants and eta fitted on the flat's two masked images), `'map'` (the true maps: a polarimetrically calibrated bench), `v_gate_nm` (G4's poke height), `v_analyzer` (V4: the quarter-wave plate + cube analyzer's leak between the two images -- `'engine'` = `dmg_analyzer_maps` on the two channel decks with the plate errors `v_qwp_err` (waves) and `v_qwp_az` (deg); or a struct lA, cA, lB, cB), `v_clear` (V5: the V reading takes the state's clear frame too and reads amplitude and phase), `v_dip` (gate G9's pupil amplitude dips, e.g. [0.05 0.20]; [] = skip) |
 | `samp.*` | 6 px dimple, 2 px/actuator | the sampling-budget lines the bench stage asserts; `enforce` = `'warn'` or `'error'` |
 | `reg.*` | `'search'` | parity + sign from an off-center poke (two-poke doctrine; the selection metric is the gate), or `'record'` to take `PARb`/`sgn` as given |
 | `dm(i)` | 96x96 @ 1 mm; 48x48 @ 2 mm | actuator count, pitch, hold-out site, modal probes -- each config gets the full battery |
@@ -218,6 +218,33 @@ budget lines before quoting a number.
   matrix re-measured on the surface (the S10 doctrine, what a servo
   does) holds every ZWFS reading's gain to 160 nm and moves the cost to
   photons.  Deck slides 11-12.
+- **V5 (2026-09-14, plan 11.2): the complex amplitude from the vector
+  sensor -- the pair alone is ambiguous at gauge-level phases; the pair
+  plus the state's clear frame reads amplitude and phase exactly.**  The
+  two images are two circles in the complex plane, |E + c+ b+|^2 = I+ and
+  |E + c- b-|^2 = I- (centers -c+- b, radii sqrt(I+-)); their two
+  intersections are mirror images across the line of centers (Re E = |b|
+  for the pi/2 dimple), so the pair measures A sin(phi) and |A cos(phi) -
+  b|: amplitude and phase together are ambiguous where A cos(phi) crosses
+  the reference wave (100 nm pokes reach 1.9 rad and do), and the
+  amplitude is a square-root observable near it.  Measured (`ZW.solveVA`,
+  the circle intersection, kept for the record): exact on the flat
+  (2e-15), a 0.3 rad blob with the TRUE reference wave 3e-4 rad / 8e-4
+  amplitude, and the reference-wave iteration DIVERGES in amplitude (10%
+  after five passes); on the G4 pokes 5.8 nm.  The phase-only solve of
+  record fixes the amplitude at the flat's and is exact for phase -- and
+  misreads when the pupil amplitude changes: gate G9 (`mask.v_dip`, a
+  Gaussian well of 5% / 20% over a quarter of the pupil on the G4 poke
+  field, surrogate frames == the engine's, G8) 241 / 967 pm.  With the
+  STATE's clear frame (`mask.v_clear`: the unmasked intensity, a third
+  exposure per state, into the solver's I0) 0.35 / 0.50 pm at dev
+  resolution, and the battery rows on the 30 nm surface unchanged to the
+  digit (0.9942 / 5, 0.9961 / 2: the bench's pupil amplitude does not
+  move with the DM).  So the complex amplitude of the pupil = the clear
+  frame (amplitude) + the pair (phase), three frames; the record at 1024
+  / 193 = `runs/an193_clear` (v5seq.sh).  Not wired: the noise and loop
+  stages' frames (they read the pair only).
+
 - **V4 (2026-09-14): the analyzer's leak between the two images, priced
   -- the cube's extinction is a non-term; a quarter-wave plate error is an
   absolute term the response matrix absorbs.**  The polarizing cube does

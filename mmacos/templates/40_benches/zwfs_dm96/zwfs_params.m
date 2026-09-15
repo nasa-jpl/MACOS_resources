@@ -132,6 +132,12 @@ P.mask.v_arm_damp = 0;       % V3 'synthetic': differential AMPLITUDE ratio betw
 P.mask.v_arm_ar = false;     % V3 'engine': quarter-wave single-layer AR on every refracting face (index
                              % v_ar_n): the coated arm's retardance / diattenuation instead of bare glass
 P.mask.v_ar_n = 1.38;        % V3: the AR layer's index (MgF2)
+P.mask.v_analyzer = 'none';  % V4: the analyzer's leak between the two images: 'none' (ideal cube and
+                             % quarter-wave plate) | 'engine' (dmg_analyzer_maps: the engine's polarized
+                             % traces of the two channel decks -- the MacNeille cube's extinction and the
+                             % plate's errors below) | a struct with lA, cA, lB, cB
+P.mask.v_qwp_err = 0;        % the plate's retardance error, waves (a zero-order plate: 1/300 typical spec)
+P.mask.v_qwp_az  = 0;        % the plate's fast-axis azimuth error, degrees
 P.mask.v_gate_nm = 100;      % G4 (V only): single-actuator pokes (every 8th actuator) of this height
                              % put their pixels beyond the one-frame fold (peak 1.9 rad, 3% of msk);
                              % the pair must reproduce them (< 0.1%), the single frame must not
