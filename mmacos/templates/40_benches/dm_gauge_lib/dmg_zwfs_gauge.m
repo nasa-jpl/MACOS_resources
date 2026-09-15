@@ -87,6 +87,21 @@ if isfield(opt, 'V_LEAK_PHASE'), vla = opt.V_LEAK_PHASE; end
 if isfield(opt, 'V_CAL'),        vcal = opt.V_CAL; end
 eta_true = cos(vre/2)^2;  leak = struct('eta', eta_true, 'alpha', vla);
 varm = 'none';  vlaser = 45;  vdph = 0;  vdam = 0;
+% V4 (2026-09-14): the ANALYZER (quarter-wave plate + polarizing cube) mixes
+% the two masked images: camera A (Ip) sees P_main*(|a+|^2 + lA |a-|^2 +
+% 2 Re(a+ conj(a-) cA)), camera B (Im) the same with (lB, cB) and the roles
+% swapped -- l the incoherent leak (the cube's finite extinction), c the
+% coherent one (a plate retardance error delta gives |c| = delta/2, an
+% azimuth error theta gives |c| = theta; opposite signs in the two ports).
+% V_ANALYZER: a struct with lA, cA, lB, cB (dmg_analyzer_maps: the engine's
+% polarized traces of the two channel decks), or 'none'.  The solver knows
+% nothing of it: the error it produces is the price of an uncalibrated
+% analyzer.
+ana = struct('mode', 'none', 'lA', 0, 'cA', 0, 'lB', 0, 'cB', 0);
+if isfield(opt, 'V_ANALYZER') && isstruct(opt.V_ANALYZER)
+    ana = struct('mode', 'maps', 'lA', opt.V_ANALYZER.lA, 'cA', opt.V_ANALYZER.cA, ...
+                 'lB', opt.V_ANALYZER.lB, 'cB', opt.V_ANALYZER.cB);
+end
 if isfield(opt, 'V_ARM'),        varm = opt.V_ARM; end
 if isfield(opt, 'V_LASER_DEG'),  vlaser = opt.V_LASER_DEG; end
 if isfield(opt, 'V_ARM_DPHASE'), vdph = opt.V_ARM_DPHASE; end
@@ -211,9 +226,9 @@ ZW.plusFromX = @(X) plusFromX_(X, C);
 % iterated reading's own |b|^2 (the 'I+' definition since zwfs_s7iter)
 ZW.priorS   = @(Ia, Fr, varargin) priorS_(Ia, Fr, C, M2i, varargin{:});   % (Ia, Fr, nref) -> [plus, info]
 % ---- vector (polarized-dimple) reading: the +phi / -phi image pair -----
-ZW.Vm = Vm;  ZW.ccm = ccm;  ZW.leak = leak;  ZW.arm = arm;
+ZW.Vm = Vm;  ZW.ccm = ccm;  ZW.leak = leak;  ZW.arm = arm;  ZW.ana = ana;
 ZW.v_scalar_equiv = (eta_true == 1) && strcmp(arm.mode, 'none');   % the +phi image IS the scalar frame
-ZW.frameV   = @(M) frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm);  % -> [Ip, Im]
+ZW.frameV   = @(M) frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm, ana);  % -> [Ip, Im]
 ZW.calV     = @(Ip, Im) calV_(Ip, Im, C);                            % -> [kapP, kapM, eta, info]: the flat's images
 kap_true = sqrt(eta_true) + sqrt(1-eta_true)*exp(1i*vla);
 if any(strcmp(vcal, {'amp', 'fit'})) && ~strcmp(arm.mode, 'none')
@@ -231,7 +246,7 @@ switch vcal
         % calibrate on the FLAT DM (what a bench does): fit the per-channel
         % constants kappa+, kappa- (complex) and eta from the flat's two
         % masked images, on top of the unmasked amplitude maps
-        [Ipf, Imf] = frameV_(zeros(macos.get_elt_grid_size(iTO)), iTO, iMASK, iDET, V, Vm, N_WF, leak, arm);
+        [Ipf, Imf] = frameV_(zeros(macos.get_elt_grid_size(iTO)), iTO, iMASK, iDET, V, Vm, N_WF, leak, arm, ana);
         [kP, kM, C.eta, ZW.calV_info] = calV_(Ipf, Imf, C);
         C.kapP = kP * C.kapP;  C.kapM = kM * C.kapM;
     case 'map'
@@ -253,7 +268,7 @@ ZW.vcal = struct('mode', vcal, 'kapP', C.kapP, 'kapM', C.kapM, 'eta', C.eta, 'et
                  'kap_true', kap_true);
 ZW.reconV   = @(Ip, Im, varargin) reconV_(Ip, Im, C, varargin{:});   % (Ip, Im, I0, b0, niter)
 ZW.solveV   = @(Ip, Im, varargin) solveV_(Ip, Im, C, varargin{:});   % -> [phi, info]
-ZW.measV    = @(M) measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C, leak, arm);
+ZW.measV    = @(M) measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C, leak, arm, ana);
 % differential height between two states, the phase DIFFERENCE wrapped
 % (as stepdiff does): the absolute maps wrap at +-pi individually, so on a
 % large working surface a differential of two maps carries 2 pi jumps
@@ -267,7 +282,7 @@ d = C.S_CONV * atan2(sin(p1 - p0), cos(p1 - p0)) * C.LAM/(4*pi);
 end
 
 % ---- vector reading: frames + solve ------------------------------------
-function [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm) %#ok<INUSD>
+function [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm, ana) %#ok<INUSD>
 % the two pupil images of one DM state: +phi dimple (== frameL's frame
 % when the metasurface is ideal) and -phi dimple, from the same trace.
 % With retardance error (leak.eta < 1) each output channel is the COHERENT
@@ -278,6 +293,7 @@ function [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm) %#ok<IN
 % sphere before the dimple (chain_).
 if nargin < 8 || isempty(leak), leak = struct('eta', 1, 'alpha', 0); end
 if nargin < 9 || isempty(arm), arm = struct('mode', 'none', 'qL', [], 'qR', []); end
+if nargin < 10 || isempty(ana), ana = struct('mode', 'none'); end
 macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
 if leak.eta < 1
     E0s = macos.complex_field(iDET);                       % the state's unmasked field
@@ -288,13 +304,19 @@ end
 if strcmp(arm.mode, 'none')
     macos.intensity(iMASK);
     macos.apodize_complex(iMASK, V);
-    Ip = abs(se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s).^2;
+    EA = se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s;    % camera A's field: the +phi image
     macos.intensity(iMASK);
     macos.apodize_complex(iMASK, Vm);
-    Im = abs(se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s).^2;
+    EB = se*macos.complex_field(iDET, 'reset_trace', false) + lk*E0s;    % camera B's: the -phi image
 else
-    Ip = abs(se*chain_(M, arm.qL, V,  iTO, iMASK, iDET) + lk*arm.qR.*E0s).^2;
-    Im = abs(se*chain_(M, arm.qR, Vm, iTO, iMASK, iDET) + lk*arm.qL.*E0s).^2;
+    EA = se*chain_(M, arm.qL, V,  iTO, iMASK, iDET) + lk*arm.qR.*E0s;
+    EB = se*chain_(M, arm.qR, Vm, iTO, iMASK, iDET) + lk*arm.qL.*E0s;
+end
+if strcmp(ana.mode, 'none')
+    Ip = abs(EA).^2;  Im = abs(EB).^2;
+else   % V4: the analyzer mixes the two images (dmg_analyzer_maps' model, main-channel gain removed)
+    Ip = abs(EA).^2 + ana.lA*abs(EB).^2 + 2*real(EA.*conj(EB)*ana.cA);
+    Im = abs(EB).^2 + ana.lB*abs(EA).^2 + 2*real(EB.*conj(EA)*ana.cB);
 end
 end
 
@@ -326,8 +348,8 @@ kapP = q(1)*exp(1i*q(2));  kapM = q(3)*exp(1i*q(4));  eta = q(5);
 info = struct('resid', sqrt(fv/numel(ip)), 'q', q);
 end
 
-function h = measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C, leak, arm)
-[Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm);
+function h = measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C, leak, arm, ana)
+[Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm, ana);
 h = reconV_(Ip, Im, C);
 end
 

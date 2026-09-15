@@ -163,6 +163,7 @@ g = struct('LAM', lam_mm, 'F2', P.bench.F2, 'R_BEAM', P.bench.R_TO_AP, ...
     'V_RET_ERR', P.mask.v_ret_err, 'V_LEAK_PHASE', P.mask.v_leak_phase, 'V_CAL', P.mask.v_cal, ...
     'V_ARM', P.mask.v_arm, 'V_LASER_DEG', P.mask.v_laser_deg, ...
     'V_ARM_DPHASE', P.mask.v_arm_dphase, 'V_ARM_DAMP', P.mask.v_arm_damp);
+if isstruct(P.mask.v_analyzer), g.V_ANALYZER = P.mask.v_analyzer; end   % V4 (resolved from 'engine' in the bench stage)
 end
 
 function bargs = bench_args_(P)
@@ -304,6 +305,13 @@ dmg_say(rep, 'deck %s: TO elt %d, FocalMask %d, Detector %d; mask sandwich spher
 
 % ---- V3: AR coats on the refracting faces (polarization-mode physics only:
 % the scalar traces never see a coating; the arm maps do)
+if ischar(P.mask.v_analyzer) && strcmp(P.mask.v_analyzer, 'engine')     % V4: the analyzer's leak from the engine
+    ana = dmg_analyzer_maps(P, 'qwp_err', P.mask.v_qwp_err, 'qwp_az', P.mask.v_qwp_az, 'NGRID', P.NGRID, 'MODEL', P.MODEL, 'deck_dir', pwd);   % the run's own size: no model-size transition in this process
+    P.mask.v_analyzer = ana;  analyzer = ana;
+    macos.load_rx(deck);  coat_oap_(P, G.bt, rep);                                   % back to the record deck
+else
+    analyzer = [];
+end
 if P.mask.v_arm_ar
     nar = 0;
     for k = 1:macos.num_elt()
@@ -431,6 +439,18 @@ if any(strcmp(P.readings, 'V'))
         end
         dmg_say(rep, '  solver arm model: %s\n', armnote);
     end
+    if ~strcmp(ZW.ana.mode, 'none')
+        if ~isempty(analyzer)
+            sa = analyzer.stats;
+            dmg_say(rep, 'V4 analyzer (engine: quarter-wave plate retardance error %.4f waves, azimuth error %.2f deg, MacNeille cube; cone at the pupil image %.2f deg): camera A main %s %.4f, incoherent leak %.2e (rms %.1e, max %.1e), coherent %.2e at %+.2f rad; camera B main %s %.4f, incoherent %.2e (rms %.1e, max %.1e), coherent %.2e at %+.2f rad; split A/B %.4f\n', ...
+                analyzer.qwp_err, analyzer.qwp_az, analyzer.cone_deg, ...
+                sa.A.main, sa.A.Pmain, sa.A.leak_mean, sa.A.leak_rms, sa.A.leak_max, abs(ZW.ana.cA), angle(ZW.ana.cA), ...
+                sa.B.main, sa.B.Pmain, sa.B.leak_mean, sa.B.leak_rms, sa.B.leak_max, abs(ZW.ana.cB), angle(ZW.ana.cB), analyzer.split);
+        else
+            dmg_say(rep, 'V4 analyzer (given): lA %.2e, cA %.2e at %+.2f rad; lB %.2e, cB %.2e at %+.2f rad\n', ZW.ana.lA, abs(ZW.ana.cA), angle(ZW.ana.cA), ZW.ana.lB, abs(ZW.ana.cB), angle(ZW.ana.cB));
+        end
+        dmg_say(rep, '  the solver knows nothing of the analyzer: the V error below is its price\n');
+    end
     Afig = zeros(cfg.nact);  Afig(4:8:end, 4:8:end) = P.mask.v_gate_nm*1e-6;
     macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(Afig));
     Et = macos.complex_field(iDET);
@@ -444,12 +464,13 @@ if any(strcmp(P.readings, 'V'))
     dmg_say(rep, 'G4 vector pair on %g nm single-actuator pokes every 8th actuator (%.0f pm rms on msk, peak %.2f rad; %.2f%% of msk beyond the one-frame fold): V rms error %.3f pm (gate < 0.1%% of the figure), one-frame exact I %.0f pm (non-vacuity: must exceed 10x)   -> %s\n', ...
         P.mask.v_gate_nm, gV.rmsfig, max(abs(phi_t(msk))), 100*gV.beyond, gV.eV, gV.eI, ifelse_(gV.eV < 1e-3*gV.rmsfig && gV.eI > 10*gV.eV, 'PASS', 'FAIL'));
     priced = (ZW.leak.eta < 1 && strcmp(P.mask.v_cal, 'ideal')) || ...
-             (~strcmp(ZW.arm.mode, 'none') && ~strcmp(P.mask.v_cal, 'map'));
+             (~strcmp(ZW.arm.mode, 'none') && ~strcmp(P.mask.v_cal, 'map')) || ...
+             ~strcmp(ZW.ana.mode, 'none');
     if ~priced
         assert(gV.eV < 1e-3*gV.rmsfig, 'G4 FAIL: the vector pair does not reproduce the figure');
         assert(gV.beyond > 0.005 && gV.eI > 10*gV.eV, 'G4 is vacuous: the single frame passes too -- raise mask.v_gate_nm');
     else
-        dmg_say(rep, '  (G4 not asserted: an uncalibrated metasurface / arm error is being priced -- the V error above IS the number)\n');
+        dmg_say(rep, '  (G4 not asserted: an uncalibrated metasurface / arm / analyzer error is being priced -- the V error above IS the number)\n');
     end
 end
 % ---- G5-G7 (point-diffraction readings) ---------------------------------
@@ -584,6 +605,7 @@ S.summary = struct('deck',deck, 'Z1',Z1, 'Z2',Z2, 'phi_m',gopt.PHI_M, 'dia_lamd'
     'ampmod_std',std(rr), 'g4',gV, 'g567',gP, 'pin_px',pin_px, 'mag',mag, 'dxd_mm',dxd_mm, 'px_per_act',ppa, 'PARb',PARb, 'sgn',sgn, ...
     'kernel_peak',max(hAd(:))/max(Ma(:)), 'kernel_corr',cpm(1,2), 'anchor',[R.bx R.by R.tax R.tay]);
 S.summary.maskfig = maskfig;                     % the focal spot + mask windows for <tag>_mask.png
+S.summary.analyzer = analyzer;                   % V4: the analyzer's leak maps and stats ([] when 'none')
 end
 
 % =====================================================================
