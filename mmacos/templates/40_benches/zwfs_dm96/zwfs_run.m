@@ -502,6 +502,17 @@ if any(strcmp(P.readings, 'V'))
         dmg_say(rep, '  (G4 not asserted: an uncalibrated metasurface / arm / analyzer error is being priced -- the V error above IS the number)\n');
     end
 end
+% ---- the station walk-through figures (Dave 2026-09-15: the key signals
+% along the train, the Keysight deck's station-by-station model): for each
+% of S / V / P present, two rows -- the flat DM and the 30 nm working
+% surface -- across the mirror command, the focal spot with the mask's
+% footprint, the mask, the reference wave, two camera frames, the
+% recovered surface and its residual against the engine's own field.
+if ~isfield(P, 'figs') || ~isfield(P.figs, 'stations') || P.figs.stations
+    for rd_ = intersect({'S', 'V', 'P'}, P.readings, 'stable')
+        stations_fig_(rd_{1}, P, rep, ZW, dmap, Ab, iTO, iMASK, iDET, msk, gopt, rz, cz);
+    end
+end
 % ---- G5-G7 (point-diffraction readings) ---------------------------------
 % G5: exact beyond the fold on the SAME sparse pokes as G4 (truth = the
 % engine's unmasked field phase); G6: the reference's motion under the
@@ -1984,4 +1995,85 @@ q = find(ss <= spec, 1);                                     % first point at or
 x = log(NPH(q-1:q));  y = log(ss(q-1:q));
 n = exp(x(1) + (log(spec) - y(1)) * (x(2)-x(1)) / (y(2)-y(1)));
 txt = sprintf('%.1e', n);
+end
+
+function stations_fig_(rd, P, rep, ZW, dmap, Ab, iTO, iMASK, iDET, msk, gopt, rz, cz)
+%STATIONS_FIG_  The key signals along the train for one reading, two states.
+%   Row 1 the flat DM, row 2 the working surface (P.battery.base_rms rms,
+%   seed_base).  Columns: the mirror command (nm), the focal spot at the
+%   mask (log10, the mask's footprint drawn), the mask (phase or
+%   transmission), the reference wave |b| at the detector, two camera
+%   frames, the recovered surface (nm) and its residual against the
+%   engine's field (pm).  Frames from the gauge's own handles; the truth
+%   from macos.complex_field at the detector.  Writes <tag>_stations_<rd>.png.
+N = ZW.N_WF;  cvt = @(phi) P.mask.S_CONV*phi*P.LAM/(4*pi);   % rad of phase -> mm of surface
+[mr, mc] = find(msk);  pw = 4;                                  % the pupil's box on the detector grid
+pr = max(1, min(mr)-pw):min(N, max(mr)+pw);  pc = max(1, min(mc)-pw):min(N, max(mc)+pw);
+states = {zeros(size(Ab)), Ab};  rown = {'flat DM', sprintf('%.0f nm rms working surface', P.battery.base_rms*1e6)};
+E0 = ZW.E0;  th0 = angle(E0);
+f = figure('Color', 'w', 'Position', [40 40 2000 640], 'Visible', 'off');
+tl = tiledlayout(f, 2, 8, 'Padding', 'compact', 'TileSpacing', 'tight');
+ink = [11 11 11]/255;
+switch rd
+    case 'S', fr_names = {'clear frame', 'first depth frame'};  mask_name = 'dimple phase, rad';
+    case 'V', fr_names = {'camera A: +phi image', 'camera B: -phi image'};  mask_name = 'metasurface: +phi (and -phi), rad';
+    case 'P', fr_names = {'first step frame', 'shutter frame (pinhole only)'};  mask_name = 'pinhole transmission';
+end
+resid_pm = [NaN NaN];
+for r = 1:2
+    A = states{r};  M = dmap(A);
+    macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
+    Et = macos.complex_field(iDET);                            % the state's unmasked field: the truth
+    h_t = cvt(atan2(sin(angle(Et) - th0), cos(angle(Et) - th0)));
+    If = abs(macos.complex_field(iMASK)).^2;  If = If(rz, cz)/max(If(:));
+    b = ZW.bsur(Et);                                           % the reference wave (gate G2: == the engine's)
+    switch rd
+        case 'S'
+            Fr = ZW.framesS(M);  Fr0 = ZW.framesS(zeros(size(M)));
+            fr = {Fr(:,:,1), Fr(:,:,2)};
+            h = ZW.stepdiff(ZW.reconS(Fr), ZW.reconS(Fr0));
+            mk = gopt.PHI_M*ZW.D(rz, cz);
+        case 'V'
+            [Ip, Im] = ZW.frameV(M);  fr = {Ip, Im};
+            h = ZW.reconV(Ip, Im);
+            mk = gopt.PHI_M*ZW.D(rz, cz);   % the +phi image's dimple; the -phi image sees its negative
+        case 'P'
+            pd = ZW.PD.P;  Fr = pd.frames(M);  fr = {Fr(:,:,1), Fr(:,:,end)};
+            h = pd.diff(Fr, pd.frames0);
+            mk = abs(pd.D(rz, cz));
+    end
+    res = (h - h_t);  res = res - mean(res(msk));  resid_pm(r) = std(res(msk))*1e9;
+    hm = h - mean(h(msk));  ht = h_t - mean(h_t(msk));
+    panels = {M*1e6, 'mirror command, nm', 'lin'; ...
+              If, 'focal spot at the mask, log', 'log'; ...
+              mk, mask_name, 'lin'; ...
+              abs(b)/max(abs(E0(:))), 'reference wave |b|', 'lin'; ...
+              fr{1}/max(fr{1}(:)), fr_names{1}, 'lin'; ...
+              fr{2}/max(fr{2}(:)), fr_names{2}, 'lin'; ...
+              hm*1e6, 'recovered surface, nm', 'map'; ...
+              res*1e9, sprintf('raw map minus the engine, pm: %.0f rms', resid_pm(r)), 'map'};
+    for c = 1:8
+        ax = nexttile(tl, (r-1)*8 + c);
+        Z = panels{c,1};
+        if strcmp(panels{c,3}, 'log'), Z = log10(max(Z, 1e-10)); end
+        if c >= 4 && c <= 8, Z(~msk) = NaN;  Z = Z(pr, pc); end   % the pupil only
+        imagesc(ax, Z);  axis(ax, 'image', 'off');
+        if strcmp(panels{c,3}, 'map'), colormap(ax, 'parula'); else, colormap(ax, 'gray'); end
+        if strcmp(panels{c,3}, 'log'), colormap(ax, 'parula'); caxis(ax, [-6 0]); end
+        if c == 2   % the mask's footprint on the spot
+            hold(ax, 'on');  t = linspace(0, 2*pi, 90);  rr = ZW.dia_mm*1e-3/abs(macos.dx_at(iMASK))/2;
+            cx = ZW.ctr(1)-cz(1)+1;  cy = ZW.ctr(2)-rz(1)+1;
+            plot(ax, cx + rr*cos(t), cy + rr*sin(t), 'w-', 'LineWidth', 1.2);
+        end
+        if strcmp(panels{c,3}, 'map') || c == 2 || c == 4, cb = colorbar(ax); cb.FontSize = 11; end
+        title(ax, panels{c,2}, 'FontSize', 13, 'FontWeight', 'normal', 'Color', ink);
+        if c == 1, ylabel(ax, rown{r}, 'FontSize', 14, 'FontWeight', 'bold', 'Visible', 'on'); end
+    end
+end
+desc = struct('S', 'the stepped Zernike dimple, four frames', 'V', 'the polarized dimple, two frames at once', 'P', 'the stepped pinhole with a shutter frame');
+title(tl, sprintf('%s: reading %s (%s), station by station: the mirror, the focus, the mask, the reference, two frames, the recovered surface, the residual', P.tag, rd, desc.(rd)), 'FontSize', 15, 'Color', ink, 'Interpreter', 'none');
+out = sprintf('%s_stations_%s.png', P.tag, rd);
+print(f, out, '-dpng', '-r130');  close(f);
+dmg_say(rep, 'stations figure %s: residual vs the engine''s field on msk %.2f pm (flat), %.2f pm (%s)\n', out, resid_pm(1), resid_pm(2), rown{2});
+macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(zeros(size(Ab))));   % leave the DM flat
 end
