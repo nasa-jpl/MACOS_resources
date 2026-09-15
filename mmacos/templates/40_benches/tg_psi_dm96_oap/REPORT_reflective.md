@@ -855,6 +855,30 @@ independently of any tail.
 to `<optics>_tail.mat`, so simply not writing a per-tag mat picks up **another
 bench's** tail. Seed-vs-tuned was previously unrunnable.
 
+**And the objective has a readable weakness, independent of what the A/B
+says.** `tg96_tail`'s sharpness cost is
+
+```
+peak_nm = 1e6*max(abs(hp(msk)));      frac = peak_nm / poke_nm;
+r = (1 - min(frac,1.2))^2 + (null_nm/2.0)^2;
+```
+
+`max(abs(hp(msk)))` is the largest value **anywhere in the pupil**. Nothing ties
+it to the actuator that was poked, and nothing asks whether the response is
+*localized*. A map that is defocused, wrapped, or mis-registered can carry a
+large maximum somewhere and score as "sharp"; a wrapped map in particular is
+*guaranteed* a large maximum, since wrapping throws values to the ends of the
+λ/4 range. So the cost is maximized, not merely tolerated, by exactly the
+failure §4.2 measures — and the reported `poke-peak 150.0 nm` (frac = 1.00) is
+what that looks like from inside the tuner.
+
+The fix this implies — reward a response that is **localized** as well as tall
+(peak plus the fraction of |h| energy in the blob around it), and refuse any
+candidate whose map approaches λ/4 — is **not being landed until the A/B
+confirms the tail is the cause.** A speculative fix to an objective, applied
+before the diagnosis closes, is how the first wrong attribution got written
+down.
+
 **Until this is settled: §7's deck guidance stands with this added — do not put
 the reflective rig's reading performance on a slide in either direction, and do
 not read §4's geometric rows (D1, the null, the seat, the tail null) as a
