@@ -116,7 +116,18 @@ phys = {'Refractor', 'Reflector', 'TrPolarizer', 'WavePlate', 'FocalPlane', 'NSR
 % exactly, so the lens rig's recorded table does not move.  The TG96 rule's
 % own half-widths are HW_CAM 50 (source, camera), HW_DM 90, HW_REF 60.
 bodynm = fieldnames(o.BODY);
-part_ = @(nm) regexprep(nm, '(pow|flat|txff|txbf|txfo|txbo|crefr|refl|binr|boutr|txfd|txbd|txfu|txbu|In|Out)$', '');
+% Group a physical part's RECORDS by name stem, so a plate is never scored
+% against its own beam.  The suffixes are the builders' face / pass tags.  The
+% four-character forms must precede the three-character ones, since the first
+% alternative that matches at a position wins: 'Comptxfd' has to lose 'txfd',
+% not 'txf'.  The P/SRI tags (txft / txbt / txfr / txbr on the Mach-Zehnder
+% plates, bare txf / txb on its lens-glass compensator) were missing, so
+% BS2's transmitted face and BS2's reflection read as two different parts and
+% each was scored against the other's beam -- -114.9 mm of pure bookkeeping
+% (2026-09-15).  No TG96 name ends in a bare txf / txb, so the TG96 tables do
+% not move; checked against the recorded lens table.
+part_ = @(nm) regexprep(nm, ['(pow|flat|txff|txbf|txfo|txbo|txft|txbt|txfr|txbr|' ...
+                             'txfd|txbd|txfu|txbu|crefr|refl|binr|boutr|txf|txb|In|Out)$'], '');
 for i = 1:numel(recs), recs(i).part = part_(recs(i).name); end
 for s = 1:numel(segs)
     segs(s).parts = {part_(regexprep(segs(s).lab, '^.*: (.*) -> (.*)$', '$1')), part_(regexprep(segs(s).lab, '^.*: (.*) -> (.*)$', '$2'))};
