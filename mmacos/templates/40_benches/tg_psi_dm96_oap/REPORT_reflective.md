@@ -965,18 +965,36 @@ The 150 nm poke was the second half of the problem: at 0.95 of λ/4 a **healthy*
 map already reads 0.93 on the wrap meter, so the guard could not separate
 health from saturation. At 100 nm (0.63 of the range) it separates cleanly.
 
-**The gate, re-run on v2:**
+**RETRACTED — both gate tables below are CONTAMINATED, and so is the v1 table
+above.** `tg96_tail` wrote **fixed** scratch filenames (`tail_flat.txt`,
+`tail_test.in`, `tail_ref.in`) into the template directory, and I ran each gate
+pair **concurrently** — objseed/objwin both finished at 10:52:48, objseed2 and
+objwin2 at 11:29:11 and 11:29:28. Two processes were reading and writing each
+other's decks. The tell was immediate once the re-tune ran alone: the
+**identical** seed parameters that the contaminated probe scored at a 71.80 nm
+null score **0.0289 nm** when nothing else is running — and 0.0289 is the value
+the original tune recorded for the same seed. The numbers below are kept only
+so the retraction is checkable; **they are not evidence for or against the
+fix**, which must be re-gated sequentially.
+
+`tg96_tail` now builds per-process scratch names
+(`tail_<pid>_<tag>_{flat,test,ref}`) and deletes them on exit —
+`dmg_bench_clearance` took exactly this fix on 2026-09-15 (`b55d15a`) for
+exactly this reason, and the tuner was never given it.
+
+**The (contaminated) v2 numbers:**
 
 | | `conc` | wrap | peak (of 100 nm) | null | **cost, v2** |
 |---|---|---|---|---|---|
 | geometric seed — **reads at 0.99** | 1.000 | **0.52** | 81.5 | 71.8 nm | **0.1629** |
 | old winner — **reads at 0.03** | 0.006 | **1.00** (pinned at λ/4) | 158.2 | 0.0223 nm | **4.3944** |
 
-**The fixed objective rejects the configuration the old one chose, by 27×**, and
-every diagnostic separates the two cases on its own: localization 1.000 vs
-0.006, the wrap meter 0.52 vs 1.00, and the "peak" that fooled v0 exposed as
-158.2 nm = λ/4 **exactly** — the map pinned at the wrap limit, which is what the
-old cost was reading as perfect sharpness.
+The *shape* of the discrimination — localization 1.000 vs 0.006, the wrap meter
+0.52 vs 1.00, the "peak" exposed as 158.2 nm = λ/4 exactly — is what the fix is
+designed to produce, and the two configurations differ so grossly that
+cross-contamination is unlikely to have manufactured it. **But "unlikely to have
+manufactured it" is not a measurement.** The gate is re-run sequentially after
+the tune; until it is, the fix is reasoned and unproven.
 
 `conc` and `wrapf` now print on every `TAILEVAL` line, so a tune is auditable
 rather than a single scalar.
