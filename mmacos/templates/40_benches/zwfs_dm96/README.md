@@ -168,6 +168,27 @@ budget lines before quoting a number.
   priced error and the line says so.
 
 ## Findings
+- **Bench of record = the 22.5-degree splitter (Dave 2026-09-15; runs/
+  gate22_193, model 1024, 193 rays, 96x96, the matrix on the 30 nm
+  surface).**  The record's 7-degree node was not buildable (eight of nine
+  node parts sat in another beam: `dm_gauge_lib/dmg_bench_clearance`);
+  the sheet now carries `BS_AOI 22.5`, `D_RECOMB 150`, `D_RC_L2 55` (the
+  output plate and analyzer 160 / 170 mm behind the splitter, L2 unchanged
+  at 205), the compensator at 200 mm; every part clears by >= 38 mm.  The
+  sensors do not care -- G1 1.8e-15, G2 2.0e-15, and the rows hold to the
+  digit (7-degree record in parentheses: matbase / v193base / pdi193fbase):
+  single 10 nm S 0.9888 / 5 pm / SNR 2299 (0.9885 / 5 / 2160), V 0.9938 /
+  3 / 3163 (0.9935 / 4 / 2834), P 0.9937 / 3 / 3101 (0.9935 / 4 / 2790);
+  grid 1 nm on 47 sites S 0.9982 / 4 (0.9993 / 4), V 0.9980 / 3 (0.9992 /
+  3), P 0.9980 / 3 (0.9992 / 3); dense random 10 nm S 0.9826 / 657
+  (0.9839 / 680), V 0.9986 / 278 (0.9999 / 331), P 0.9972 / 287 (0.9985 /
+  338) -- within 0.2% and 1 pm on the single and grid rows, the dense
+  errors 3-16% lower.  Capture range to 10% at this sampling: S 37, V 62,
+  P 54 nm (48x48: 39 / 63 / 63).  The plate's diattenuation is 5.5% at
+  22.5 degrees (0.5% at 7) but uniform over the pupil, so the vector
+  reading's channel phase moves 1.63 -> 1.66 mrad rms and nothing reaches
+  the matrix.  The 7-degree records below stand as the record of the
+  READINGS; the bench they are quoted on is this one.
 - **Capture range (Dave 2026-09-12: "they will not be operating at
   null -- the range where they can be used to 10% accuracy should be
   recorded").**  Definition: the largest working-surface rms at which a
