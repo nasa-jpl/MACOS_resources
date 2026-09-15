@@ -6,7 +6,46 @@ parabola sections, on the node angle Dave ruled. Numbers first; every claim
 carries its run tag. Companions: `REPORT_oap.md` (CCMac's 7° history, kept),
 `REPORT_bench_realism.md` (the node round), `REPORT_gauge_ifo.md` (the lanes).
 
-## Status
+## Status — `BRIEF_to_gauge_close` (live)
+
+The close-out brief's seven items. CCL folds each landed item into the deck;
+Dave pushes. The realism and field-servo reports link back to this table.
+
+| item | what | report | state |
+|---|---|---|---|
+| 0 | commit the untracked record files | — | **done** — the tag census below |
+| 1 | vector pair on the redesign: rows, overcoat, verdict | §5 | not started |
+| 2 | item 4's loop + descent + the 120 nm wrap explained | §4 | not started |
+| 3 | tail tuner gated by a battery row; README | §4.7 | not started |
+| 4 | realism 3–5: thicknesses, substrates, camera | `REPORT_bench_realism.md` | not started |
+| 5 | realism 6: snapshot polarization at the built angles | `REPORT_bench_realism.md` | not started |
+| 6 | realism 8: the interferometer's station figure, both rigs | `REPORT_bench_realism.md` | not started |
+| 7 | the coronagraph field servo, three steps | `bench_ctb/REPORT_field_servo.md` | not started |
+
+### Item 0 — what was committed, and what was deleted
+
+Every run tag the three reports (`REPORT_reflective.md`,
+`REPORT_bench_realism.md`, `pdi_dm96/REPORT_gauge_pdi.md`) cite now has its run
+directory committed: `clear22`, `lens22h`, `node22t`, `node22v`, `nodesolve`,
+`oapdraw3`, `oapifo`, `oapifo2`, `tailA`, `tailB`, `oapsens22`, `oapsens22n`,
+`psriclear2`, plus the `oap22d` re-render (the auto-placed one — its
+`_report.txt` carries the `parts_list_` block §3 quotes, and the emitted deck is
+byte-identical, so the re-render changed the drawing and the printout, not the
+bench). The tail mats §4 cites are committed as evidence: `tailA`, `objseed3`,
+`objwin3`, `oapifo`, `oapifol`.
+
+Deleted, because nothing cites them and every one is regenerable from a
+committed script: run dirs `foldsmoke`, `node22s`, `oapdraw`, `oapdraw2`,
+`oapfixb` (`runs/verifyseq.sh`), the aborted `oapifol` stub (killed at Stage
+PLACE, no result in it — item 2 re-runs it), `pdi_dm96`'s `psriclear` and
+`pfdeck_smoke` (superseded by `psriclear2` / `pfdeck_smoke2`); the seven tail
+mats §4 does not cite; all `runs/*.nohup` stdout captures (the `.log` carries
+the exit code, and neither is tracked in this tree); every `*_sketch*.png` (no
+report shows one); the tuner's scratch decks `tail_{ref,test}.in` and
+`zwfs_flat.txt`. An uncommitted artifact is an unverifiable claim; a committed
+artifact nothing cites is noise.
+
+## Status — `BRIEF_to_reflective` (closed)
 
 | item | state |
 |---|---|
@@ -27,11 +66,11 @@ records its exit code in `runs/<tag>.log`. Read this table, then
 | job | script | what it produces | state |
 |---|---|---|---|
 | `oap22d_tail` | `runs/tailseq.sh` | `oap22d_tail.mat` — the reflective tail re-fit on the designed geometry | **done**: null 0.0223 nm, poke recovered 150.0 of 150 nm |
-| `oapifo` | `runs/ifoseq.sh` | the interferometer's rows on the 30 nm surface + the clearance table | **running** |
-| `oapifol` | `runs/ifoseq.sh` | the closed-loop hold metric (hour-class) | **DEFERRED** — it would spend an hour measuring the known-broken reading (§4.2). Re-queue after the tail is fixed |
-| `oapdesc` | `runs/descseq.sh` | item 4's descent: the same 60 / 150 / 300 nm ladder the record's `descent_oap` stalls on (5856 / 23557 / 53150 pm, never reaching 10 nm from 150 or 300) | **DEFERRED** — same reason |
-| `tailA` / `tailB` | `runs/tailabseq.sh` | **the decisive diagnostic**: the design at model 512 with the TUNED tail vs the GEOMETRIC SEED (§4.2) | running |
-| `oapsens22` | `zwfs_dm96/runs/oapsensseq.sh` | item 5's mask sensors — **independent of the tg96 tail** (the ZWFS carries its own tuned tail and `MASK_TRIM` 0), so it is unaffected by §4.2 and still worth its run | queued |
+| `oapifo` | `runs/ifoseq.sh` | the interferometer's rows on the 30 nm surface + the clearance table | **done** (exit 0); superseded at record resolution by `oapifo2`, §4.6 |
+| `oapifol` | `runs/ifoseq.sh` | the closed-loop hold metric (hour-class) | **re-queued as close-out item 2** on the geometric seed tail; the first attempt was killed at Stage PLACE and its stub deleted (item 0) |
+| `oapdesc` | `runs/descseq.sh` | item 4's descent: the same 60 / 150 / 300 nm ladder the record's `descent_oap` stalls on (5856 / 23557 / 53150 pm, never reaching 10 nm from 150 or 300) | **re-queued as close-out item 2**, on the seed tail |
+| `tailA` / `tailB` | `runs/tailabseq.sh` | **the decisive diagnostic**: the design at model 512 with the TUNED tail vs the GEOMETRIC SEED (§4.2) | **done** (both exit 0): 0.0338 vs 0.9809, §4.5 |
+| `oapsens22` | `zwfs_dm96/runs/oapsensseq.sh` | item 5's mask sensors — **independent of the tg96 tail** (the ZWFS carries its own tuned tail and `MASK_TRIM` 0), so it is unaffected by §4.2 and still worth its run | **done** (exit 0), §5; discriminator `oapsens22n` too |
 | `polA` / `polB` | `runs/polabseq.sh` | the polarizer A/B | **dropped** — redundant with `tailA`/`tailB` once the polarizer stopped being the leading suspect (§4.1). The script is kept; re-run it if the tail is exonerated |
 
 `runs/ifoseq.sh` waits (up to 2 h) for `oap22d_tail.mat`, copies it under each
