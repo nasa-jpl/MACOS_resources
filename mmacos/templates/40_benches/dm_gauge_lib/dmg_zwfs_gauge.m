@@ -98,6 +98,21 @@ varm = 'none';  vlaser = 45;  vdph = 0;  vdam = 0;
 % nothing of it: the error it produces is the price of an uncalibrated
 % analyzer.
 ana = struct('mode', 'none', 'lA', 0, 'cA', 0, 'lB', 0, 'cB', 0);
+% V5 (2026-09-14, plan 11.2): the COMPLEX AMPLITUDE from the vector
+% sensor.  The pair alone cannot: the two images are two circles in the
+% complex plane (|E + r+|^2 = I+/|kappa+|^2, |E + r-|^2 = I-/|kappa-|^2,
+% r+- = sqrt(eta) c+- b+- / kappa+-) whose two intersections are mirror
+% images across the line of centers (Re E = |b| for the pi/2 dimple): the
+% pair measures A sin(phi) and |A cos(phi) - b|, so amplitude and phase
+% are ambiguous where A cos(phi) crosses b (100 nm pokes do), and the
+% amplitude is a square-root observable near it (ZW.solveVA keeps the
+% intersection for the record of that).  With the STATE'S CLEAR FRAME
+% (the unmasked intensity, a third exposure) the amplitude is measured
+% directly and the pair gives the phase exactly: V_CLEAR true makes the
+% V reading take that frame per state (measV_: I0 = |E_state|^2 into the
+% solver's I0).  Default false: the phase-only reading of record (the
+% flat's amplitude).
+vclear = false;  if isfield(opt, 'V_CLEAR'), vclear = logical(opt.V_CLEAR); end
 if isfield(opt, 'V_ANALYZER') && isstruct(opt.V_ANALYZER)
     ana = struct('mode', 'maps', 'lA', opt.V_ANALYZER.lA, 'cA', opt.V_ANALYZER.cA, ...
                  'lB', opt.V_ANALYZER.lB, 'cB', opt.V_ANALYZER.cB);
@@ -196,7 +211,8 @@ end
 C = struct('E0',E0f, 'Eb0',Ebf, 'cc',cc, 'ccm',ccm, 'msk',msk, 'N_WF',N_WF, ...
            'NITER',NITER, 'bsur',bsur, 'S_CONV',S_CONV, 'LAM',LAM, ...
            'kapP', 1, 'kapM', 1, 'eta', 1, 'qL', [], 'qR', [], ...     % the solver's model: ideal metasurface, ideal arm
-           'EbP0', Ebf, 'EbM0', Ebf);                                   % per-channel flat reference waves
+           'EbP0', Ebf, 'EbM0', Ebf, ...                                % per-channel flat reference waves
+           'V_CLEAR', vclear);                                          % V5: the clear frame per state (complex amplitude)
 
 ZW = struct();
 ZW.msk = msk;  ZW.den = den;  ZW.I_flat = I_flat;  ZW.b2cal = b2cal;
@@ -267,6 +283,8 @@ end
 ZW.vcal = struct('mode', vcal, 'kapP', C.kapP, 'kapM', C.kapM, 'eta', C.eta, 'eta_true', eta_true, ...
                  'kap_true', kap_true);
 ZW.reconV   = @(Ip, Im, varargin) reconV_(Ip, Im, C, varargin{:});   % (Ip, Im, I0, b0, niter)
+ZW.solveVA  = @(Ip, Im, varargin) solveVA_(Ip, Im, C, varargin{:});  % V5: the pair-only complex solve, [phi, info] with info.A, info.E (Ip, Im, Eprior, niter) -- ambiguous at gauge-level phases, kept for the record
+ZW.frameV_sur = @(E) deal(abs(E + cc*bsur(E)).^2, abs(E + ccm*bsur(E)).^2);   % the pair from a detector-plane field (ideal channels; == the engine's chained frames, gate G8)
 ZW.solveV   = @(Ip, Im, varargin) solveV_(Ip, Im, C, varargin{:});   % -> [phi, info]
 ZW.measV    = @(M) measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C, leak, arm, ana);
 % differential height between two states, the phase DIFFERENCE wrapped
@@ -350,12 +368,65 @@ end
 
 function h = measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C, leak, arm, ana)
 [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm, ana);
-h = reconV_(Ip, Im, C);
+if isfield(C, 'V_CLEAR') && C.V_CLEAR                      % V5: the state's clear frame -> the amplitude
+    macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
+    I0 = abs(macos.complex_field(iDET)).^2;
+    h = reconV_(Ip, Im, C, I0);
+else
+    h = reconV_(Ip, Im, C);
+end
 end
 
 function [h, info] = reconV_(Ip, Im, C, varargin)
 [phi, info] = solveV_(Ip, Im, C, varargin{:});
 h = C.S_CONV*phi*C.LAM/(4*pi);
+end
+
+function [phi, info] = solveVA_(Ip, Im, C, Eprior, niter)
+%SOLVEVA_  Per-pixel exact solve of the COMPLEX field from the image pair.
+%   Same per-channel model as solveV_ (kappa+-, eta, c+-, b+-, qL, qR):
+%       I+ = |kappa+|^2 |E + r+|^2,  r+ = sqrt(eta) c+ b+ / kappa+
+%       I- = |kappa-|^2 |E + r-|^2,  r- = sqrt(eta) c- b- / kappa-
+%   Two circles in the complex plane, centers -r+-, radii sqrt(I+-)/|kappa+-|;
+%   E is at their intersection (two points, mirror images across the line
+%   of centers; the one nearest the prior is taken; when noise leaves the
+%   circles apart, the nearest points' midpoint).  Amplitude AND phase
+%   per pixel; the reference waves b+- iterated from the solved field.
+%   Eprior: the complex field the root choice starts from (default the
+%   flat's, C.E0).  info.A = |E| (the amplitude map), info.E, info.phi
+%   unwrapped against the flat, info.dphi, info.sep (rms of the circles'
+%   gap, |d - R1 - R2| where they do not meet, 0 for an exact model).
+if nargin < 4 || isempty(Eprior), Eprior = C.E0; end
+if nargin < 5 || isempty(niter), niter = C.NITER; end
+N = C.N_WF;  m = C.msk;
+wrap = @(p) atan2(sin(p), cos(p));
+th0 = angle(C.E0);
+if isempty(C.qL), qL = 1; else, qL = C.qL; end
+if isempty(C.qR), qR = 1; else, qR = C.qR; end
+bP = C.EbP0;  bM = C.EbM0;
+kP = C.kapP;  kM = C.kapM;  se = sqrt(C.eta);
+if isscalar(kP), kP = kP*ones(N); end;  if isscalar(kM), kM = kM*ones(N); end
+E = Eprior;  phi = zeros(N);
+info = struct('dphi', zeros(1, niter+1), 'sep', zeros(1, niter+1));
+for it = 0:niter
+    c1 = -se*C.cc*bP./kP;   c2 = -se*C.ccm*bM./kM;          % the circles' centers
+    R1 = sqrt(max(Ip, 0))./abs(kP);  R2 = sqrt(max(Im, 0))./abs(kM);
+    dv = c2 - c1;  d = max(abs(dv), realmin);  u = dv./d;
+    a = (R1.^2 - R2.^2 + d.^2) ./ (2*d);
+    h2 = R1.^2 - a.^2;  gap = zeros(N);  gap(h2 < 0) = abs(d(h2 < 0) - R1(h2 < 0) - R2(h2 < 0));
+    h = sqrt(max(h2, 0));
+    p = c1 + a.*u;
+    z1 = p + 1i*h.*u;  z2 = p - 1i*h.*u;
+    pick = abs(z1 - E) <= abs(z2 - E);
+    Enew = z2;  Enew(pick) = z1(pick);  Enew(~m) = 0;
+    ph = wrap(angle(Enew) - th0);  ph(~m) = 0;
+    info.dphi(it+1) = sqrt(mean((ph(m) - phi(m)).^2));  info.sep(it+1) = sqrt(mean(gap(m).^2));
+    phi = ph;  E = Enew;
+    if it < niter
+        bP = C.bsur(qL .* E);  bM = C.bsur(qR .* E);       % the reference waves from the SOLVED field
+    end
+end
+info.A = abs(E);  info.E = E;  info.phi = phi;  info.b = bP;  info.bM = bM;
 end
 
 function [phi, info] = solveV_(Ip, Im, C, I0, b0, niter)

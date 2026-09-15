@@ -237,12 +237,13 @@ budget lines before quoting a number.
   Gaussian well of 5% / 20% over a quarter of the pupil on the G4 poke
   field, surrogate frames == the engine's, G8) 241 / 967 pm.  With the
   STATE's clear frame (`mask.v_clear`: the unmasked intensity, a third
-  exposure per state, into the solver's I0) 0.35 / 0.50 pm at dev
-  resolution, and the battery rows on the 30 nm surface unchanged to the
-  digit (0.9942 / 5, 0.9961 / 2: the bench's pupil amplitude does not
-  move with the DM).  So the complex amplitude of the pupil = the clear
-  frame (amplitude) + the pair (phase), three frames; the record at 1024
-  / 193 = `runs/an193_clear` (v5seq.sh).  Not wired: the noise and loop
+  exposure per state, into the solver's I0) 0.016 / 0.128 pm at the
+  record's resolution (`runs/an193_clear`, 1024 / 193: the flat's
+  amplitude 237 / 952 pm, the pair alone 5.5 / 5.7 nm), and the battery
+  rows on the 30 nm surface unchanged to the digit (0.9935 / 4, 0.9992 /
+  3: the bench's pupil amplitude does not move with the DM).  So the
+  complex amplitude of the pupil = the clear frame (amplitude) + the pair
+  (phase), three frames.  Not wired: the noise and loop
   stages' frames (they read the pair only).
 
 - **V4 (2026-09-14): the analyzer's leak between the two images, priced
@@ -268,16 +269,22 @@ budget lines before quoting a number.
   magnitude but ZERO MEAN (the plate's axis projected onto the converging
   rays, a sin 2 alpha pattern: the scalar model drops it, a uniform bound
   is run instead); plate lambda/300 |c| 1.05e-2, lambda/100 3.1e-2, 1 deg
-  azimuth 1.7e-2.  *Priced* (dev resolution 512 / 65, `runs/an_*` in the
-  scratch tree; the record at 1024 / 193 = `runs/an193_*`, v4seq.sh):
-  uncalibrated G4 (100 nm pokes, 11.8 nm rms) 0.30 pm ideal -> 3.6 cube
-  alone, 23 the zero-mean bound taken as uniform, 162 at lambda/300, 264
-  at 1 deg, 487 at lambda/100 -- linear at 15 nm per unit of |c|, 1.4% of
-  the figure at lambda/300.  Through the matrix measured on the 30 nm
-  working surface: single 10 nm 0.9942 / 5 pm -> 0.9919 / 6 (lambda/300),
-  0.9938 / 5 (bound); grid 1 nm 0.9961 / 2 -> 0.9975 / 2, 0.9963 / 2.
+  azimuth 1.7e-2.  *Priced at the record's resolution* (1024 / 193,
+  `runs/an193_ref`, `_cube`, `_q300`, `_q100`, `_az1`, `_bound`,
+  v4seq.sh): uncalibrated G4 (100 nm pokes, 12.0 nm rms) 0.053 pm ideal
+  -> 3.5 cube alone, 23 the zero-mean bound taken as uniform, 165 at
+  lambda/300, 263 at 1 deg, 496 at lambda/100 -- linear at 16 nm per
+  unit of |c|, 1.4% of the figure at lambda/300.  Through the matrix
+  measured on the 30 nm working surface (DM 1 / DM 2): single 10 nm
+  0.9935 / 4 pm and 0.9948 / 4 ideal -> 0.9932 / 4 and 0.9924 / 5 at
+  lambda/300, 0.9928 / 4 and 0.9877 / 8 at lambda/100, 0.9932 / 4 and
+  0.9914 / 6 at 1 deg; grid 1 nm 0.9992 / 3 and 0.9961 / 1 -> 1.0001 / 3
+  and 0.9976 / 1 at lambda/300, 1.0019 / 3 and 1.0006 / 2 at lambda/100.
+  (Dev resolution 512 / 65 gave the same picture: 0.30 -> 3.6 / 162 /
+  264 / 487 pm; rows 0.9942 / 5 -> 0.9919 / 6.)
   Verdict, as for the arm (V3): an uncalibrated absolute term, a gain the
-  sensor's own matrix calibrates; specify the plate's retardance
+  sensor's own matrix calibrates (within 0.7%, floors within 4 pm at
+  lambda/100); specify the plate's retardance
   (lambda/300 class, zero order) and put it in a slower beam or calibrate
   the analyzer per pixel if the absolute reading must hold to 0.1%.
   Model limits: an ideal retarder (a real plate's retardance also varies

@@ -164,6 +164,7 @@ g = struct('LAM', lam_mm, 'F2', P.bench.F2, 'R_BEAM', P.bench.R_TO_AP, ...
     'V_ARM', P.mask.v_arm, 'V_LASER_DEG', P.mask.v_laser_deg, ...
     'V_ARM_DPHASE', P.mask.v_arm_dphase, 'V_ARM_DAMP', P.mask.v_arm_damp);
 if isstruct(P.mask.v_analyzer), g.V_ANALYZER = P.mask.v_analyzer; end   % V4 (resolved from 'engine' in the bench stage)
+g.V_CLEAR = P.mask.v_clear;                                              % V5
 end
 
 function bargs = bench_args_(P)
@@ -466,6 +467,34 @@ if any(strcmp(P.readings, 'V'))
     priced = (ZW.leak.eta < 1 && strcmp(P.mask.v_cal, 'ideal')) || ...
              (~strcmp(ZW.arm.mode, 'none') && ~strcmp(P.mask.v_cal, 'map')) || ...
              ~strcmp(ZW.ana.mode, 'none');
+    % ---- G9 (V5, plan 11.2): the pair read through a pupil AMPLITUDE dip.
+    % The dip multiplies the unmasked poke field at the pupil image (a
+    % Gaussian well of depth d over a quarter of the pupil, off center); the
+    % frames are the surrogate's (== the engine's chained frames, G8).  The
+    % phase-only solve with the FLAT's amplitude misreads by the dip; with
+    % the STATE's clear frame (I0) it must not; the pair-only complex solve
+    % (solveVA_) is printed for the record: ambiguous where A cos(phi)
+    % crosses the reference wave, which 100 nm pokes do.
+    if ~isempty(P.mask.v_dip)
+        [ii, jj] = ndgrid(1:N_WF, 1:N_WF);  rp = sqrt(nnz(msk)/pi);
+        cy = ZW.ctr(1) + 0.45*rp;  cx = ZW.ctr(2) + 0.30*rp;  sg = 0.25*rp;
+        well = exp(-((ii-cy).^2 + (jj-cx).^2)/(2*sg^2));
+        A0m = abs(ZW.E0);
+        for d = P.mask.v_dip(:)'
+            Adip = 1 - d*well;
+            Ed = Adip .* Et;                                      % the G4 poke field with the dip
+            [Ipd, Imd] = ZW.frameV_sur(Ed);
+            hF = ZW.reconV(Ipd, Imd);                             % the flat's amplitude
+            hC = ZW.reconV(Ipd, Imd, abs(Ed).^2);                 % the state's clear frame
+            [phA, ia] = ZW.solveVA(Ipd, Imd, [], 0);  hA = P.mask.S_CONV*phA*P.LAM/(4*pi);   % the pair alone, one pass
+            eF = sqrt(mean((pm_(hF) - pm_(h_t)).^2))*1e9;  eC = sqrt(mean((pm_(hC) - pm_(h_t)).^2))*1e9;
+            eA = sqrt(mean((pm_(hA) - pm_(h_t)).^2))*1e9;  eAmp = sqrt(mean((ia.A(msk)./A0m(msk) - Adip(msk)).^2));
+            ok = eC < 1e-3*gV.rmsfig && eF > 10*eC;
+            dmg_say(rep, 'G9 vector pair through a %.0f%% pupil amplitude dip (Gaussian, sigma 0.25 of the pupil radius, off center): the flat''s amplitude %.2f pm; the state''s clear frame %.3f pm (gate < 0.1%% of the figure; non-vacuity: the flat''s > 10x); the pair alone %.0f pm, its amplitude %.1e rms off (ambiguous: A cos phi crosses b at these pokes)   -> %s\n', ...
+                100*d, eF, eC, eA, eAmp, ifelse_(ok, 'PASS', 'FAIL'));
+            assert(ok, 'G9 FAIL at a %.0f%% dip', 100*d);
+        end
+    end
     if ~priced
         assert(gV.eV < 1e-3*gV.rmsfig, 'G4 FAIL: the vector pair does not reproduce the figure');
         assert(gV.beyond > 0.005 && gV.eI > 10*gV.eV, 'G4 is vacuous: the single frame passes too -- raise mask.v_gate_nm');
