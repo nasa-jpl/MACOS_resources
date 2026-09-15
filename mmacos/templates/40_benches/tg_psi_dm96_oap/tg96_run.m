@@ -431,8 +431,62 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
     G.bt.emit([P.tag '_test.in']);  G.br.emit([P.tag '_ref.in']);
     say('Stage B -- %s rig built (BS_AOI %g); emitted %s_{test,ref}.in\n\n', ...
         b.optics, geom.AOI, P.tag);
+    parts_list_(P, s, geom, G, say);
     bench.G = G;  bench.geom = geom;  bench.s = s;
     bench.n_elt = numel(G.bt.E);
+end
+
+function parts_list_(P, s, geom, G, say)
+%PARTS_LIST_  What a buyer would order.  Every element of the test arm with
+%   the station it sits at, what holds it and how big it is -- and, for an
+%   off-axis section, the four numbers that specify the OPTIC rather than the
+%   layout: the fold angle, the parent focal length, the off-axis distance and
+%   the section size.  Those are not free parameters: for a parabola fed at
+%   conjugate distance r, the parent focal length is r*cos^2(AOI) and the
+%   off-axis distance is r*sin(2*AOI), so choosing the fold chooses both.
+%   The clear aperture quoted is the TRACED footprint, not the declared one:
+%   add_oap leaves an off-axis section with no aperture on purpose (a Circular
+%   ApVec is applied about the PARENT vertex and would block the bundle), so
+%   the declared value would be meaningless there.
+    E = G.bt.E;  nm = {E.name};
+    say('Parts (test arm; station = distance along the chief from the source):\n');
+    say('  %-14s %-12s %9s %9s  %s\n', 'element', 'type', 'station', 'clear r', 'notes');
+    oap = strcmp(P.bench.optics, 'oap');
+    for k = 1:numel(E)
+        e = E(k);
+        r = e.aprad;  note = '';
+        if r <= 0, r = NaN; end
+        if oap && any(strcmp(e.name, {'L1','L2'}))
+            if strcmp(e.name,'L1'), a = geom.OAP1_AOI;  conj = s*P.bench.F1;  which = 'collimator';
+            else,                   a = geom.OAP2_AOI;  conj = s*P.bench.F2;  which = 'focuser';   end
+            fpar = conj*cosd(a)^2;  off = conj*sind(2*a);
+            note = sprintf(['off-axis parabola (%s): fold AOI %g deg, parent f %.1f mm ' ...
+                            '(Kr %.1f), off-axis %.1f mm, conjugate %.1f mm'], ...
+                           which, a, fpar, -2*fpar, off, conj);
+        elseif strcmp(e.element, 'Reflector')
+            note = 'flat mirror';
+        elseif strcmp(e.element, 'FocalPlane')
+            note = 'camera (see the sampling budget for the pixel count)';
+        elseif strcmp(e.element, 'Obscuring')
+            note = 'source baffle';
+        end
+        if isnan(r)
+            say('  %-14s %-12s %9.1f %9s  %s\n', e.name, e.element, e.s, '--', note);
+        else
+            say('  %-14s %-12s %9.1f %9.1f  %s\n', e.name, e.element, e.s, r, note);
+        end
+    end
+    if oap
+        say(['  the two mirrors carry the same coating (bench.coat_oap = %s); ' ...
+             'each needs a tip/tilt mount\n'], P.bench.coat_oap);
+        if isfield(P.bench,'POL_IN') && strcmp(P.bench.POL_IN,'source')
+            say('  the input polarizer is in the DIVERGING source leg (POL_IN ''source'')\n');
+        end
+        if isfield(P.bench,'SRC_AT_FOCUS') && P.bench.SRC_AT_FOCUS
+            say('  the source sits at the collimator''s TRUE focus (SRC_AT_FOCUS)\n');
+        end
+    end
+    say('\n');
 end
 
 function C = arm_setup_(P, G)
@@ -1926,25 +1980,31 @@ for a = 1:size(arms,1)
 end
 % panel T: the whole train
 axis(axT,'equal');  view(axT,0,90);  axis(axT,'off');
-label_(axT, Et, Ltrain, ink, FS);
+% the PZT leader is hand-placed, so draw it FIRST and hand its position to the
+% auto-placer as occupied -- otherwise the two land on top of each other
+occT = zeros(2,0);
 if iPZT > 0
     p = macos.design.Bench.station(Er(iPZT));
     plot3(axT,[p(1) p(1)],[p(2) p(2)-120],[0.4 0.4],'-','Color',[150 120 60]/255,'LineWidth',1.2);
     text(axT,p(1),p(2)-125,0.5,'reference flat + PZT','Color',orange,'FontSize',FS, ...
         'HorizontalAlignment','right','VerticalAlignment','top','BackgroundColor','w','Margin',1,'Clipping','off');
+    occT = [p(1); p(2)-125];
 end
+label_(axT, Et, Ltrain, ink, FS, oap, occT);
 title(axT, sprintf('TG96 %s interferometer, from above -- test arm (blue), reference arm + PZT (orange)', ...
     iff_(oap,'reflective (OAP)','lens')), 'Color',ink,'FontWeight','normal','FontSize',TS);
 % panel N: the node
 axis(axN,'equal');  view(axN,0,90);  set(axN,'FontSize',16);
-crop_(axN, Et, {'PolIn','BSrefl','Comptxfd','Recomb','OutQWP','Analyzer'}, 90, 90);
-label_(axN, Et, Lnode, ink, FS);
+crop_(axN, Et, {'PolIn','BSrefl','Comptxfd','Recomb','OutQWP','Analyzer'}, ...
+      iff_(oap,150,90), iff_(oap,150,90));
+label_(axN, Et, Lnode, ink, FS, oap);
 title(axN,'The node: beamsplitter, compensator, recombination, polarization optics','Color',ink,'FontWeight','normal','FontSize',TS);
 grid(axN,'on');  set(axN,'GridColor',[225 224 217]/255,'Color','w');  ylabel(axN,'y, mm','FontSize',16);  xlabel(axN,'');
 % panel L: the tail (own panel -- the OAP tail folds back over the front end)
 axis(axL,'equal');  view(axL,0,90);  set(axL,'FontSize',16);
-crop_(axL, Et, {'L2pow','L2','FocalMask','FLpow','Detector'}, 60, 75);
-label_(axL, Et, Ltail, ink, FS);
+crop_(axL, Et, {'L2pow','L2','FocalMask','FLpow','Detector'}, ...
+      iff_(oap,130,60), iff_(oap,130,75));
+label_(axL, Et, Ltail, ink, FS, oap);
 title(axL,'The tail: focuser -> mask seat -> field lens -> camera','Color',ink,'FontWeight','normal','FontSize',TS);
 grid(axL,'on');  set(axL,'GridColor',[225 224 217]/255,'Color','w');
 xlabel(axL,'bench x, mm','FontSize',16);  ylabel(axL,'y, mm','FontSize',16);
@@ -1982,13 +2042,67 @@ function i = name_idx_(nmt, cands)
     end
 end
 
-function label_(ax, Et, L, ink, fs)
-% leader-line + text labels off the beam (skips missing elements, idx 0)
+function label_(ax, Et, L, ink, fs, auto, occ)
+% leader-line + text labels off the beam (skips missing elements, idx 0).
+% AUTO (default false) replaces the hand-tuned offsets in L(:,3) with a placed
+% one: the hand offsets were tuned for the LENS geometry and collide badly once
+% the folds move (the OAP rig's node panel had three labels on top of each
+% other).  The placer tries eight compass directions at two standoffs and keeps
+% the candidate furthest from (a) every beam leg, approximated by the polyline
+% through the element stations, and (b) every label already placed.  The lens
+% rig still passes auto=false, so its figure does not move.
+    if nargin < 6, auto = false; end
+    if nargin < 7, occ = zeros(2,0); end    % label positions already taken by
+                                            %  hand-drawn text (the PZT leader)
+    P0 = zeros(2, size(L,1));  ok = false(1, size(L,1));
     for k = 1:size(L,1)
         i = L{k,1};  if i <= 0, continue; end
-        p = macos.design.Bench.station(Et(i));  d = L{k,3};   % pole, not vertex (OAPs)
-        plot3(ax, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.3 0.3], '-', 'Color',[140 138 132]/255, 'LineWidth',1.0);
-        text(ax, p(1)+d(1), p(2)+d(2), 0.4, L{k,2}, 'Color',ink, 'FontSize',fs, ...
+        q = macos.design.Bench.station(Et(i));  P0(:,k) = q(1:2);  ok(k) = true;
+    end
+    if ~any(ok), return; end
+    % the beam polyline: every element station, in order
+    S = zeros(2, numel(Et));
+    for i = 1:numel(Et), q = macos.design.Bench.station(Et(i));  S(:,i) = q(1:2); end
+    span = max(max(S,[],2) - min(S,[],2));
+    % a label is WIDE and short, so measure separation anisotropically: a given
+    % horizontal gap counts for less than the same vertical one, which pushes
+    % neighbouring labels apart in y instead of letting them overlap in x.
+    W = diag([0.35, 1]);
+    xl = xlim(ax);  yl = ylim(ax);  manual = strcmp(get(ax,'XLimMode'),'manual');
+    placed = occ;
+    for k = 1:size(L,1)
+        if ~ok(k), continue; end
+        p = P0(:,k);
+        if auto
+            best = [];  bestscore = -inf;
+            for r = [0.09 0.14 0.20]*span
+                for th = (0:11)*pi/6
+                    c = p + r*[cos(th); sin(th)];
+                    inb = 0;
+                    if manual
+                        % keep the label inside the panel, with a margin: a
+                        % clipped label is worse than a long leader
+                        mx = 0.06*diff(xl);  my = 0.06*diff(yl);
+                        if c(1) < xl(1)+mx || c(1) > xl(2)-mx || ...
+                           c(2) < yl(1)+my || c(2) > yl(2)-my, inb = -1e6; end
+                    end
+                    db = min(vecnorm(W*(S - c)));              % to the nearest station
+                    dl = inf;
+                    if ~isempty(placed), dl = min(vecnorm(W*(placed - c))); end
+                    dp = inf;
+                    for q = 1:size(P0,2)
+                        if ok(q) && q ~= k, dp = min(dp, norm(W*(P0(:,q) - c))); end
+                    end
+                    sc = min([db, dl, dp]) - 0.25*r + inb;     % prefer the shorter leader
+                    if sc > bestscore, bestscore = sc;  best = c; end
+                end
+            end
+            c = best;  placed(:,end+1) = c; %#ok<AGROW>
+        else
+            d = L{k,3};  c = p + d(:);
+        end
+        plot3(ax, [p(1) c(1)], [p(2) c(2)], [0.3 0.3], '-', 'Color',[140 138 132]/255, 'LineWidth',1.0);
+        text(ax, c(1), c(2), 0.4, L{k,2}, 'Color',ink, 'FontSize',fs, ...
             'HorizontalAlignment','center', 'VerticalAlignment','middle', 'BackgroundColor','w', 'Margin',1, 'Clipping','on');
     end
 end
