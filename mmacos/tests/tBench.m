@@ -133,6 +133,50 @@ classdef tBench < matlab.unittest.TestCase
             testCase.verifyLessThan(max(sqrt(sum(d.^2,1))), 3.0);
         end
 
+        function test_station_is_the_pole(testCase)
+            % Bench.station(e) is where the element sits ON THE BEAM.  For
+            % every ordinary element that is its vertex; for an off-axis
+            % section the vertex is the PARENT conic's and lies far off the
+            % beam.  Reading .vpt instead made dmg_bench_clearance model a
+            % 150 mm phantom leg from OAP1's parent vertex, and put the TG96
+            % reflective layout's mirror symbols 133-149 mm off the rays
+            % (2026-09-15).  Non-vacuous: the two OAPs below have vertices
+            % tens of mm off their poles, so .vpt fails the last assertion.
+            b = macos.design.Bench('tstn', ...
+                'aperture', 2*atan(8/200)*0.9, 'ngridpts', 21);
+            b.add_baffle(200, 8);
+            b.add_oap(100, [0;1;0], 'mode','collimate', 'focus_dist',300, ...
+                      'name','OAP1');
+            b.add_fold(200, [1;0;0], 'name','Fold1');
+            b.add_oap(200, [0;-1;0], 'mode','focus', 'focus_dist',250, ...
+                      'name','OAP2');
+            b.add_detector(250, 'Detector');
+            rx = fullfile(tempname); mkdir(rx);
+            rxf = fullfile(rx, 'tstn.in');  b.emit(rxf);  macos.load_rx(rxf);
+            nE = macos.num_elt();
+            off = 0;
+            for k = 1:nE
+                p = macos.design.Bench.station(b.E(k));
+                testCase.verifyEqual(p, b.E(k).rpt(:), 'AbsTol', 0, ...
+                    sprintf('station is not the pole at elt %d', k));
+                isoap = ~isempty(strfind(b.E(k).name, 'OAP'));
+                if ~isoap                                  % ordinary: pole == vertex
+                    testCase.verifyEqual(p, b.E(k).vpt(:), 'AbsTol', 0, ...
+                        sprintf('station moved an ordinary element at %d', k));
+                else
+                    off = max(off, norm(b.E(k).vpt(:) - p));
+                end
+                % the station is ON the beam: the chief passes through it
+                sk = macos.trace(k);
+                info = macos.get_ray_info(sk.nRays);
+                testCase.verifyLessThan(norm(info.pos(:,1) - p), 1e-6, ...
+                    sprintf('station off the chief at elt %d (%s)', k, b.E(k).name));
+            end
+            % the vertices really are elsewhere -- otherwise the test above
+            % would pass just as well reading .vpt
+            testCase.verifyGreaterThan(off, 20);
+        end
+
         function test_offner_relay(testCase)
             % source -> baffle -> Offner 3-mirror concentric relay ->
             % image Reference -> detector.  Chief agreement validates the
