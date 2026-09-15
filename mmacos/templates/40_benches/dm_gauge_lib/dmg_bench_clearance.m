@@ -1,0 +1,155 @@
+function out = dmg_bench_clearance(varargin)
+%DMG_BENCH_CLEARANCE  Does every physical part clear every beam it is not in?
+%   out = dmg_bench_clearance('BS_AOI', 7, 'D_BS_CMP', 171, ...) builds the TG96
+%   interferometer (both arms, polarizing) with zwfs_params' bench block plus
+%   overrides, traces each arm (model 512, 65 rays) for the beam footprint at
+%   every element, and for every physical element (lens, plate, polarizer,
+%   plate, mirror, camera) finds the smallest clearance to any beam segment
+%   it is not an endpoint of: (distance from the element's center to the
+%   segment's chief line) - (beam radius there) - (element radius + mount).
+%   Negative = the element sits in that beam.  Prints a table, worst first.
+%   Records of one physical part (a plate's two faces, a plate's two passes)
+%   are grouped by name stem and never tested against their own beam; a
+%   beam counts only where it CROSSES the element's plane.  The beam radius
+%   is the DM aperture (the traced footprint is the outermost ray, scaled).
+%   Options: 'MOUNT' (mm beyond the aperture radius, 8), 'MODEL' (512),
+%   'NGRID' (65), 'quiet' (false), 'draw' ('' | a PNG path: the train from
+%   above, both arms, parts named, plus the node panel).  Any other
+%   name/value pair overrides zwfs_params' bench block (twyman_green
+%   options: BS_AOI, D_L1_BS, D_BS_CMP, D_RECOMB, D_RC_L2, D_POL, D_QWP ...).
+%   Returns rows {part, type, arm, a+mount, r_beam, clearance, against}, G.
+%   Written 2026-09-15 after Dave found the 7-deg record bench unbuildable
+%   (the node parts sat in each other's beams); the Stage-A solve in
+%   tg96_run cleared only the three end bodies.
+o = struct('MOUNT', 8, 'MODEL', 512, 'NGRID', 65, 'quiet', false, 'draw', '');
+ov = struct();
+for i = 1:2:numel(varargin)
+    if isfield(o, varargin{i}), o.(varargin{i}) = varargin{i+1}; else, ov.(varargin{i}) = varargin{i+1}; end
+end
+zd = fullfile(fileparts(mfilename('fullpath')), '..', 'zwfs_dm96');
+addpath(zd);
+P = zwfs_params();
+if ~isfile(P.grid.flat_file), P.grid.flat_file = fullfile(zd, P.grid.flat_file); end
+bp = rmfield(P.bench, intersect(fieldnames(P.bench), {'coat_oap','coat_bareAl','coat_protectedAl'}));
+bp.polarizing = true;  bp.pol_in_deg = 45;  bp.qwp_test_deg = 0;  bp.qwp_ref_deg = 45;  bp.out_qwp_deg = 0;  bp.analyzer_deg = 0;  bp.qwp_ret = 0.25;
+f = fieldnames(ov);  for i = 1:numel(f), bp.(f{i}) = ov.(f{i}); end
+bf = fieldnames(bp);  bargs = cell(1, 2*numel(bf));
+for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = bp.(bf{i}); end
+if ~isfile(P.grid.flat_file), macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G)); end
+G = macos.design.twyman_green(bargs{:}, 'ngridpts', o.NGRID, 'to_grid_file', P.grid.flat_file, 'to_grid_n', 256, 'to_grid_dx', P.grid.DX_G*P.grid.N_G/256);
+arms = {G.bt, G.br};  tag = {'test', 'ref'};  decks = cell(1, 2);
+recs = struct('name', {}, 'element', {}, 'arm', {}, 'k', {}, 'vpt', {}, 'psi', {}, 'aprad', {}, 'rbeam', {}, 'part', {});
+macos.init(o.MODEL);
+for a = 1:2
+    bt = arms{a};  bt.wavelen = P.LAM;
+    dk = fullfile(tempdir, sprintf('dmg_clr_%s.in', tag{a}));  bt.emit(dk);  macos.load_rx(dk);  decks{a} = dk;
+    n = numel(bt.E);
+    for k = 1:n
+        e = bt.E(k);  rb = NaN;
+        try
+            sp = macos.spot(k, 'ref', 'telt', 'at', 'elt');
+            rb = max(hypot(sp.pts(:,1) - mean(sp.pts(:,1)), sp.pts(:,2) - mean(sp.pts(:,2))));
+        catch
+        end
+        recs(end+1) = struct('name', e.name, 'element', e.element, 'arm', tag{a}, 'k', k, 'vpt', e.vpt(:), 'psi', e.psi(:), 'aprad', e.aprad, 'rbeam', rb, 'part', ''); %#ok<AGROW>
+    end
+end
+% the traced footprint is the outermost RAY (39 mm at 65 rays); the beam is the
+% DM's full aperture (R_TO_AP): scale every footprint up by that ratio
+sc = bp.R_TO_AP / max([recs.rbeam]);  for i = 1:numel(recs), recs(i).rbeam = recs(i).rbeam*sc; end
+% fill missing beam radii by neighbors
+for i = 1:numel(recs), if isnan(recs(i).rbeam), j = find(~isnan([recs.rbeam]), 1); recs(i).rbeam = recs(j).rbeam; end, end
+% beam segments: consecutive records within each arm
+segs = struct('p1', {}, 'p2', {}, 'r1', {}, 'r2', {}, 'arm', {}, 'lab', {}, 'parts', {});
+for a = 1:2
+    ia = find(strcmp({recs.arm}, tag{a}));
+    for q = 1:numel(ia)-1
+        r1 = recs(ia(q));  r2 = recs(ia(q+1));
+        if norm(r2.vpt - r1.vpt) < 1e-6, continue; end
+        segs(end+1) = struct('p1', r1.vpt, 'p2', r2.vpt, 'r1', r1.rbeam, 'r2', r2.rbeam, 'arm', tag{a}, 'lab', sprintf('%s: %s -> %s', tag{a}, r1.name, r2.name), 'parts', {{}}); %#ok<AGROW>
+    end
+end
+phys = {'Refractor', 'Reflector', 'TrPolarizer', 'WavePlate', 'FocalPlane', 'NSRefractor'};
+part_ = @(nm) regexprep(nm, '(pow|flat|txff|txbf|txfo|txbo|crefr|refl|binr|boutr|txfd|txbd|txfu|txbu|In|Out)$', '');
+for i = 1:numel(recs), recs(i).part = part_(recs(i).name); end
+for s = 1:numel(segs)
+    segs(s).parts = {part_(regexprep(segs(s).lab, '^.*: (.*) -> (.*)$', '$1')), part_(regexprep(segs(s).lab, '^.*: (.*) -> (.*)$', '$2'))};
+end
+rows = {};  done = {};
+for i = 1:numel(recs)
+    e = recs(i);
+    if ~any(strcmp(e.element, phys)), continue; end
+    if any(strcmp(done, e.part)), continue; end
+    done{end+1} = e.part; %#ok<AGROW>
+    aelt = e.aprad;  if aelt <= 0, aelt = e.rbeam + 5; end   % plates: the beam + 5 mm
+    aelt = aelt + o.MOUNT;
+    n = e.psi/norm(e.psi);
+    worst = inf;  wlab = '';
+    for s = 1:numel(segs)
+        sg = segs(s);
+        if any(strcmp(sg.parts, e.part)), continue; end      % the part's own beam (either pass, either face)
+        h1 = dot(sg.p1 - e.vpt, n);  h2 = dot(sg.p2 - e.vpt, n);
+        if h1*h2 > 0, continue; end                           % does not cross the element's plane
+        t = h1/(h1 - h2);  q = sg.p1 + t*(sg.p2 - sg.p1);     % the crossing point
+        lat = norm(q - e.vpt);
+        rb = sg.r1 + (sg.r2 - sg.r1)*t;
+        c = lat - rb - aelt;
+        if c < worst, worst = c;  wlab = sg.lab; end
+    end
+    if isinf(worst), worst = NaN; wlab = '(no other beam crosses its plane)'; end
+    rows(end+1, :) = {e.part, e.element, e.arm, aelt, e.rbeam, worst, wlab}; %#ok<AGROW>
+end
+v = cell2mat(rows(:,6)); v(isnan(v)) = inf; [~, ord] = sort(v);  rows = rows(ord, :);
+out = struct('rows', {rows}, 'G', G, 'recs', recs, 'segs', segs, 'decks', {decks}, 'bp', bp);
+if ~o.quiet
+    fprintf('%-22s %-12s %-5s %7s %7s %9s  %s\n', 'element', 'type', 'arm', 'a+mnt', 'r_beam', 'clear mm', 'against');
+    for i = 1:size(rows, 1)
+        fprintf('%-22s %-12s %-5s %7.1f %7.1f %9.1f  %s\n', rows{i,1}, rows{i,2}, rows{i,3}, rows{i,4}, rows{i,5}, rows{i,6}, rows{i,7});
+    end
+end
+
+if ~isempty(o.draw)
+    blue = [30 90 190]/255;  orange = [214 96 24]/255;  ink = [11 11 11]/255;
+    f = figure('Color', 'w', 'Position', [40 40 1800 1100], 'Visible', 'off');
+    tl = tiledlayout(f, 5, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+    ax1 = nexttile(tl, [2 1]);  ax2 = nexttile(tl, [3 1]);
+    Et = G.bt.E;  Er = G.br.E;
+    for a = 1:2
+        macos.load_rx(decks{a});
+        E = arms{a}.E;  passive = find(strcmp({E.element}, 'Reference'));
+        col = blue;  if a == 2, col = orange; end
+        macos.view_rx('ax', ax1, 'ray_color', col, 'title', '', 'labels', false, 'hide', passive);
+        macos.view_rx('ax', ax2, 'ray_color', col, 'title', '', 'labels', false, 'hide', passive);
+    end
+    nm = {Et.name};  vp = @(n) Et(find(strcmp(nm, n), 1)).vpt;
+    nr = {Er.name};  vr = @(n) Er(find(strcmp(nr, n), 1)).vpt;
+    for ax = [ax1 ax2]
+        axes(ax);  axis(ax, 'equal');  view(ax, 0, 90);  grid(ax, 'on');  set(ax, 'GridColor', [225 224 217]/255, 'FontSize', 12);
+        xlabel(ax, 'bench x, mm', 'FontSize', 13);  ylabel(ax, 'bench y, mm', 'FontSize', 13);
+    end
+    pbs = vp('BSrefl');
+    lab1 = {vp('L1pow'), [-60 110], 'collimator L1'; pbs, [120 120], sprintf('plate splitter, %g deg', bp.BS_AOI); vp('Comptxfd'), [-60 -110], 'compensator'; ...
+            vp('TestOptic'), [0 -80], '96 mm DM'; vr('PZT'), [0 -80], 'reference flat + PZT'; vp('L2pow'), [0 90], 'focuser L2'; vp('Detector'), [0 60], 'camera'};
+    for k = 1:size(lab1, 1)
+        p = lab1{k,1};  d = lab1{k,2};
+        plot3(ax1, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.2 0.2], '-', 'Color', [137 135 129]/255, 'LineWidth', 1.0);
+        text(ax1, p(1)+d(1), p(2)+d(2), 0.3, lab1{k,3}, 'Color', ink, 'FontSize', 15, 'HorizontalAlignment', 'center', 'BackgroundColor', 'w', 'Margin', 1);
+    end
+    title(ax1, sprintf('The bench from above: splitter at %g deg, test arm blue, reference arm orange', bp.BS_AOI), 'FontWeight', 'normal', 'FontSize', 15);
+    % node panel: +-320 mm about the splitter
+    xlim(ax2, [pbs(1)-340, pbs(1)+340]);  ylim(ax2, [pbs(2)-260, pbs(2)+260]);
+    lab2 = {vp('L1pow'), [0 75], 'L1'; vp('PolIn'), [10 -80], 'input polarizer'; pbs, [-60 150], 'splitter'; vp('Comptxfd'), [-90 -60], 'compensator'; ...
+            vp('QWPtestIn'), [-120 40], 'test-arm QWP (a builder placement: physically at the DM)'; vr('QWPrefIn'), [90 -120], 'reference QWP (a builder placement: physically at the flat)'; ...
+            vp('OutQWP'), [110 -40], 'output QWP'; vp('Analyzer'), [130 -80], 'analyzer'; vp('L2pow'), [-120 60], 'focuser L2'};
+    for k = 1:size(lab2, 1)
+        p = lab2{k,1};  d = lab2{k,2};
+        plot3(ax2, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.2 0.2], '-', 'Color', [137 135 129]/255, 'LineWidth', 1.0);
+        text(ax2, p(1)+d(1), p(2)+d(2), 0.3, lab2{k,3}, 'Color', ink, 'FontSize', 14, 'HorizontalAlignment', 'center', 'BackgroundColor', 'w', 'Margin', 1);
+    end
+    v = cell2mat(rows(:,6));  nbad = nnz(v < 0);
+    title(ax2, sprintf('The node, +-320 mm about the splitter: %d of %d parts sit in another beam (worst %.0f mm); beams %.0f mm, mounts +%g mm', nbad, nnz(~isnan(v)), min(v), 2*bp.R_TO_AP, o.MOUNT), 'FontWeight', 'normal', 'FontSize', 15);
+    print(f, o.draw, '-dpng', '-r130');  close(f);
+    fprintf('wrote %s\n', o.draw);
+end
+
+end
