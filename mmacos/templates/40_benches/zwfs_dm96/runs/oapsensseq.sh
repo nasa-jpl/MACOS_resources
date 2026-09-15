@@ -13,9 +13,21 @@
 #
 # The input polarizer does not appear: zwfs_params sets polarizing = false (the
 # ZWFS is the test arm alone), so POL_IN is a non-term for these runs.
+#
+# D_RC_L2 STAYS AT THE ZWFS RECORD'S 55, not the interferometer's 125.  The
+# interferometer needed 125 because OAP2's sag envelope (+-50 mm at a 40-deg
+# fold) swallowed the ANALYZER 35 mm ahead of its pole -- and the ZWFS has no
+# analyzer.  Its element before L2 is the recombination plane, 55 mm ahead,
+# against a +-25 mm sag envelope at the design's 25 deg: clear, and measured
+# clear (oap_loss_probe runs/loss_a2, 0 rays lost at A2 <= 35 with D_RC_L2 55).
+# Moving it to 125 would push L2 from 205 to 275 mm behind the splitter and
+# take the ZWFS's TUNED tail (FL_F 42.5325, D_MASK_FL 39.7694, DET_TRIM
+# -1.2473) off its station, confounding the front-end measurement this item is
+# for with an untuned tail.  The sensors and the interferometer share a
+# front-end DESIGN, not a tail.
 set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$here"
-D="'bench.optics','oap','bench.OAP1_AOI',20,'bench.OAP2_AOI',25,'bench.OAP1_SIDE',1,'bench.OAP2_SIDE',-1,'bench.SRC_AT_FOCUS',true,'bench.D_RC_L2',125,'bench.MASK_TRIM',0,'bench.coat_oap','bareAl'"
+D="'bench.optics','oap','bench.OAP1_AOI',20,'bench.OAP2_AOI',25,'bench.OAP1_SIDE',1,'bench.OAP2_SIDE',-1,'bench.SRC_AT_FOCUS',true,'bench.MASK_TRIM',0,'bench.coat_oap','bareAl'"
 ./zwfs_batch.sh oapsens22 "$D, 'MODEL',1024, 'NGRID',193, 'readings',{'S','V','P'}, 'stages',{'bench','battery'}, 'battery.rows',{'base/single','base/grid','base/rand'}, 'battery.calib_surface','base', 'mask.v_arm','engine'"
 echo "[oapsensseq] done"
