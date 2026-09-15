@@ -13,7 +13,7 @@ carries its run tag. Companions: `REPORT_oap.md` (CCMac's 7° history, kept),
 | 1 — the drawing defect diagnosed and fixed; the lens rig unchanged | **done** — §1; `lens22g` (gate, pixel-identical), `oap22` |
 | 2 — the design: fold angles and off-axis distances from a clearance solve | **done** — §2; the design is OAP1 20° / OAP2 25°, sides +1/−1, polarizer in the source leg, output optics 125 mm ahead of OAP2, collimator at its focus: **worst +33.4 mm over 8 parts**, no ray loss. Tags `fold1`–`fold4`, `loss`, `loss_src`, `loss_a2`, `conj`, `oap22d`; tail retune `oap22d_tail` |
 | 3 — the layout in the recipe; the parts list | **done** — §3; auto-placed labels on the OAP rig (lens figure untouched), parts list printed by the runner (`oap22d`, `oapdraw3`) |
-| 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | **running, and one row is BAD**, §4. Good: tail null 0.0223 nm, D1 100.00 % within 2 px, flat-DM null 22.3 pm. **Bad: Stage C single-actuator gain 0.0879 against 0.9927 / 0.9968 — open, §4.1.** `oapifo` in Stage D; `oapifol` and `oapdesc` queued |
+| 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | **defect found and RESOLVED to its cause**, §4.1–4.3. The reading broke (gain 0.03, erratic, wrapping); a controlled A/B shows it was **my tail retune**, not the geometry: the same bench with the geometric seed tail reads **0.9809**. Fix the tail objective, then re-run. `oapifol` / `oapdesc` deferred until then |
 | 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | **precondition measured + run queued**, §5: the ZWFS seat is 0.000 λF/D at trim 0 on this bench (`zseat`, `zseat2`) against the record's 1.1 λF/D at 6.14 mm; `oapsens22` queued (`zwfs_dm96/runs/oapsensseq.sh`) |
 | 6 — the fold-angle lever: half OAP2's angle; does the pinhole recover? | **reframed**, §6: the blur is LINEAR in the angle and is 0.000 λF/D at both 20° and 25° once the conjugate is right, so the trade the item assumes does not exist. Its empirical half waits on item 5's P reading |
 | 7 — the P/SRI bench through the clearance tool | **done** — recorded in `pdi_dm96/REPORT_gauge_pdi.md` (its own brief): PASS at 22.5° (+36.9 mm), FAIL at 7°; the Mach-Zehnder node clear by 227–383 mm at both. Runner `psri_clearance.m`, tag `psriclear2` |
@@ -861,6 +861,44 @@ full-resolution run.
    measurements of one thing, differing by 30×. That is not a bench property;
    it is the two metrics measuring different things, which is exactly the
    `max(abs(h))`-anywhere weakness read off the code above.
+
+### 4.3 RESOLVED: the tail retune was the defect. The geometry reads.
+
+`tailB` — the **identical** bench with the **geometric seed** tail — against
+`tailA`, the same bench with the tuned tail. One variable.
+
+| | `tailA` (tuned tail) | **`tailB` (seed tail)** | lens rig | record reflective |
+|---|---|---|---|---|
+| Stage C single-actuator gain | **0.0338** | **0.9809** | 0.9968 | 0.9927 |
+| off-target floor | 467.9 pm | **53.8 pm** | 98.8 pm | 22.4 pm |
+| **DM-mm / det-mm** | **5.477** | **10.437** | 9.879 | 10.704 |
+| lit actuators | 3672 | 3680 | 3228 | 3388 |
+
+**The designed reflective geometry reads at 0.98 — comparable to the lens rig's
+0.997 and the record's reflective 0.993. The defect was entirely my tail
+retune.**
+
+And the magnification column is the mechanism, measured rather than argued:
+the seed tail puts the detector at **10.437** DM-mm per detector-mm, in family
+with both working rigs (9.879 and 10.704); the tuned tail put it at **5.477**,
+nearly half. The retune walked the detector off the DM's pupil conjugate — the
+pupil image doubling from 9 to 17.5 mm was the visible symptom I flagged in §4
+and mis-filed as a packaging consequence — and a detector off the conjugate
+cannot read actuators.
+
+**What this vindicates and what it does not.** Items 1–3 are untouched: they
+were measured with no tail in the loop, and `tailB` now shows the geometry they
+produced reads properly. §4's opening rows — D1 at 100 %, the 22.3 pm flat-DM
+null — were measured *through* the broken tail and must be re-taken on the
+fixed one before they mean anything. The tail null of 0.0223 nm in particular
+is now explained: a detector off the conjugate still nulls two arms that share
+the same wrong tail.
+
+**The fix, now that the diagnosis is closed** (§4.2 read it off the code before
+the A/B and deliberately did not land it): `tg96_tail`'s sharpness objective
+rewards `max(abs(h))` anywhere in the pupil, which a defocused or wrapped map
+supplies for free. It needs to reward a **localized, correctly-scaled**
+response and to refuse a candidate whose map approaches λ/4.
 
 **A caveat on reading the wrap flag as a cause.** `tailA`'s ladder reports
 "base reads 1.00 of λ/4" at **every** rung — 30, 60, 120 and 240 nm alike —
