@@ -137,7 +137,7 @@ function [geom, legs] = stage_A_(P, s, say)
     th_min = max(asind(need/LEG_CAP))/2;
     AOI = P.bench.BS_AOI;  if isempty(AOI), AOI = ceil(th_min); end
     Lreq = need/sind(2*AOI);
-    say('  binding angle %.2f deg -> BS_AOI = %d deg\n', th_min, AOI);
+    say('  binding angle %.2f deg -> BS_AOI = %g deg\n', th_min, AOI);
     for k = 1:size(legs,1)
         say('  %-27s need %6.1f mm sep -> leg >= %5.0f mm\n', legs{k,1}, need(k), Lreq(k));
     end
@@ -231,6 +231,9 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
         oapargs = {'OAP1_AOI',geom.OAP1_AOI, 'OAP2_AOI',geom.OAP2_AOI, ...
                    'OAP1_SIDE',P.oap.OAP1_SIDE, 'OAP2_SIDE',P.oap.OAP2_SIDE};
     end
+    rcargs = {};                                   % the recomb plane / output optics (physical mm, unscaled)
+    if isfield(b, 'D_RECOMB') && ~isempty(b.D_RECOMB), rcargs = [rcargs, {'D_RECOMB', b.D_RECOMB}]; end
+    if isfield(b, 'D_RC_L2') && ~isempty(b.D_RC_L2),   rcargs = [rcargs, {'D_RC_L2', b.D_RC_L2}]; end
     mk = @(gf) macos.design.twyman_green('polarizing',b.polarizing, 'ngridpts',P.NGRID, ...
         'optics',b.optics, oapargs{:}, 'BS_AOI',geom.AOI, ...
         'F1',s*b.F1, 'F2',s*b.F2, 'D_LENS',s*b.D_LENS, 'R_BAFFLE',s*b.R_BAFFLE, ...
@@ -241,10 +244,10 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
         'qwp_ret',P.QWP, 'pol_in_deg',b.pol_in_deg, 'qwp_test_deg',b.qwp_test_deg, ...
         'qwp_ref_deg',b.qwp_ref_deg, 'out_qwp_deg',b.out_qwp_deg, 'analyzer_deg',b.analyzer_deg, ...
         'tail_arch',b.tail_arch, 'FL_F',T_FL_F, 'FL_Kc',T_FL_Kc, 'FL_D',s*b.FL_D, ...
-        'D_MASK_FL',T_DMF, 'DET_TRIM',T_TRIM);
+        'D_MASK_FL',T_DMF, 'DET_TRIM',T_TRIM, rcargs{:});
     G = mk(P.grid.flat_file);
     G.bt.emit([P.tag '_test.in']);  G.br.emit([P.tag '_ref.in']);
-    say('Stage B -- %s rig built (BS_AOI %d); emitted %s_{test,ref}.in\n\n', ...
+    say('Stage B -- %s rig built (BS_AOI %g); emitted %s_{test,ref}.in\n\n', ...
         b.optics, geom.AOI, P.tag);
     bench.G = G;  bench.geom = geom;  bench.s = s;
     bench.n_elt = numel(G.bt.E);
@@ -1652,7 +1655,7 @@ function draw_layout_(geom, s, P)
     db([0 0],Pdm,[.25 .45 .8]); db([0 0],Pout,[.35 .65 .35]);
     rectangle('Position',[Pdm(1)-P.clear.HW_DM Pdm(2)-20 2*P.clear.HW_DM 40],'FaceColor',[.75 .82 1],'EdgeColor','k');
     plot(0,0,'ks','MarkerSize',12,'MarkerFaceColor','y');
-    ttl = sprintf('TG96 %s layout: BS %d\\circ, DM leg %d mm, beam %.0f mm', P.bench.optics, geom.AOI, L_dm, 2*br);
+    ttl = sprintf('TG96 %s layout: BS %g\\circ, DM leg %d mm, beam %.0f mm', P.bench.optics, geom.AOI, L_dm, 2*br);
     if strcmp(P.bench.optics,'oap'), ttl=[ttl sprintf(', OAP fold %d/%d\\circ',geom.OAP1_AOI,geom.OAP2_AOI)]; end
     title(ttl); xlabel('mm'); ylabel('mm'); grid on;
     print(f,[P.tag '_layout.png'],'-dpng','-r130');

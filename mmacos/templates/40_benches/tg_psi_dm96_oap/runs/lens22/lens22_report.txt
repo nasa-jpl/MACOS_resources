@@ -1,0 +1,23 @@
+=== TG96 gauge (lens optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "lens22"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 6.88 deg -> BS_AOI = 2.250000e+01 deg
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   235 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   193 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   179 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +176.8 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +206.8 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +216.8 mm (spec >= 25)
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/lens_tail.mat (null 0.134 nm at opt res; seed 9.100)
+Stage B -- lens rig built (BS_AOI 2.250000e+01); emitted lens22_{test,ref}.in
+
+
+wrote lens22_report.txt + lens22.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/lens22

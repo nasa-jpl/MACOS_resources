@@ -294,8 +294,8 @@ if cube
     leg_to  = P.D_BS_TO - P.CUBE_SIDE/2 - P.D_QWP;
     assert(leg_to > 0, 'twyman_green: cube too large for D_BS_TO.');
     qa_t = ax_local(bt.dir, P.qwp_test_deg);
-    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestIn');
-    T.iTO = bt.add_mirror(leg_to, 'name','TestOptic', ...
+    bt.add_waveplate(leg_to, qa_t, P.qwp_ret, 'name','QWPtestIn');   % one plate, D_QWP before the retro (both passes)
+    T.iTO = bt.add_mirror(P.D_QWP, 'name','TestOptic', ...
         'aprad',P.R_TO_AP, 'Kr',P.to_Kr, 'grid_file',P.to_grid_file, ...
         'grid_n',P.to_grid_n, 'grid_dx',P.to_grid_dx);
     bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestOut');
@@ -308,8 +308,8 @@ if cube
     br.add_polarizer(P.D_POL, ax_local(br.dir, P.pol_in_deg), 'name','PolIn');
     R.iPBSf = br.add_pbs_pass(cubetok, 'mode','reflect', 'tag','f');
     qa_r = ax_local(br.dir, P.qwp_ref_deg);
-    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefIn');
-    R.iPZT = br.add_mirror(leg_to, 'name','PZT');
+    br.add_waveplate(leg_to, qa_r, P.qwp_ret, 'name','QWPrefIn');    % one plate, D_QWP before the flat
+    R.iPZT = br.add_mirror(P.D_QWP, 'name','PZT');
     br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefOut');
     R.iPBSr = br.add_pbs_pass(cubetok, 'mode','transmit', 'tag','r');
     d_rc = dot(bt.E(T.iRC).vpt - br.pos, br.dir);
@@ -337,11 +337,15 @@ bt.add_bs_transmit(cmp, 'tag','d');
 leg_to = P.D_BS_TO - P.D_BS_CMP - P.BS_T;
 if P.polarizing
     % double-passed QWP: SAME global fast axis both passes -> net half-wave,
-    % rotating this arm's linear state.  The forward pass steals D_QWP from
-    % the retro leg; the return pass rides the geometry-absolute comp transit.
+    % rotating this arm's linear state.  ONE physical plate, D_QWP before
+    % the retro: the forward pass ('In') is placed there too, so the
+    % emitted deck shows the plate where it is (2026-09-15: the 'In'
+    % record used to sit D_QWP after the compensator, inside the node,
+    % where it read as a part in another beam); the return pass ('Out')
+    % rides the geometry-absolute comp transit.
     qa_t = ax_local(bt.dir, P.qwp_test_deg);
-    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestIn');
-    leg_to = leg_to - P.D_QWP;
+    bt.add_waveplate(leg_to - P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestIn');
+    leg_to = P.D_QWP;
 end
 T.iTO = bt.add_mirror(leg_to, 'name','TestOptic', ...
     'aprad',P.R_TO_AP, 'Kr',P.to_Kr, 'grid_file',P.to_grid_file, ...
@@ -363,8 +367,8 @@ br.add_bs_transmit(bs, 'tag','f');
 leg_pzt = P.D_BS_TO;
 if P.polarizing
     qa_r = ax_local(br.dir, P.qwp_ref_deg);
-    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefIn');
-    leg_pzt = leg_pzt - P.D_QWP;
+    br.add_waveplate(leg_pzt - P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefIn');   % one plate, at the flat's end
+    leg_pzt = P.D_QWP;
 end
 R.iPZT = br.add_mirror(leg_pzt, 'name','PZT');
 if P.polarizing

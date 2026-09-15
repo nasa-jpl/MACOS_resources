@@ -139,8 +139,8 @@ if ~isempty(o.draw)
     % node panel: +-320 mm about the splitter
     xlim(ax2, [pbs(1)-340, pbs(1)+340]);  ylim(ax2, [pbs(2)-260, pbs(2)+260]);
     lab2 = {vp('L1pow'), [0 75], 'L1'; vp('PolIn'), [10 -80], 'input polarizer'; pbs, [-60 150], 'splitter'; vp('Comptxfd'), [-90 -60], 'compensator'; ...
-            vp('QWPtestIn'), [-120 40], 'test-arm QWP (a builder placement: physically at the DM)'; vr('QWPrefIn'), [90 -120], 'reference QWP (a builder placement: physically at the flat)'; ...
             vp('OutQWP'), [110 -40], 'output QWP'; vp('Analyzer'), [130 -80], 'analyzer'; vp('L2pow'), [-120 60], 'focuser L2'};
+    % (the arm quarter-wave plates sit D_QWP before the DM and the flat since 2026-09-15; they are outside the node panel)
     for k = 1:size(lab2, 1)
         p = lab2{k,1};  d = lab2{k,2};
         plot3(ax2, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.2 0.2], '-', 'Color', [137 135 129]/255, 'LineWidth', 1.0);
