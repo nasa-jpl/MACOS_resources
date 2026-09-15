@@ -170,6 +170,21 @@ the report and this section states the FINDINGS.
   0.296 pm); `loop.unwrap` is `'auto'` and turns it on exactly when
   `loop.start_rms` is set.
 
+- **The pinhole diameter of record is 2.0 λ/D** (`runs/pin20_1024`,
+  `pin20_loop`, `pin10_2048`, `pin10_loop`; Dave's ruling 2 asked for
+  both to be recorded and the choice stated).  Against 1.0 λ/D at model
+  2048 / 385 rays, the 30 nm rows are indistinguishable (0.9935 vs
+  0.9937, 4 pm both) and the loop is not close: 3 pm held from **< 1e13**
+  photons per cycle against **3.6e13**, because the small pinhole passes
+  0.294 of the light where the large one passes 0.821.  The small
+  pinhole's one advantage is RANGE — capture 120 nm+ against 62 nm — and
+  that is the diameter's doing, not the better sampling's
+  (`../zwfs_dm96/runs/pdi193d1` shows it at matched sampling).  **But a
+  shutter frame buys exactly that range at 2.0 λ/D for one extra frame
+  and no light**, so paying 2.8× in light for it is the wrong trade.
+  1.0 λ/D stays recorded as the fallback for a bench that cannot
+  actuate a shutter.
+
 - **Capture, measured both ways — and the wrap premise holds for ONE
   reading only** (`runs/cap_nouw`, `cap_uw`, `cap_*_recal`,
   `cap_state_*`, `descent193`).  Largest initial surface a loop closed
