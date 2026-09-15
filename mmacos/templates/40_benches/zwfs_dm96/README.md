@@ -119,7 +119,7 @@ re-draws them from a saved run).
 | `LAM` | 632.8 nm | the record color; `color.lams_nm` lists the others, record color FIRST |
 | `bench.*` | the tg96 test arm | every `twyman_green` option: lenses, legs, tuned tail, `mask_prop` (`'nf'` = the corrected symmetric sandwich; `'nf_legacy'` = the Fresnel-defocused S1-S6 sensor) |
 | `mask.*` | 346.2 nm etch, 2.0 lam/D | etch depth, substrate index (`'malitson'` or a number), dimple diameter, the phase-stepped depth ladder, `NITER` |
-| `mask.v_*` | ideal metasurface, ideal arm | the vector reading's imperfections: `v_ret_err` / `v_leak_phase` (V2: the metasurface's retardance error, the leak's phase), `v_arm` (V3: the arm's polarization aberration per circular channel -- `'engine'` = the bench's own Jones pupil from two polarized vector traces at the laser angle `v_laser_deg`, optionally AR-coated faces `v_arm_ar`; `'synthetic'` = astigmatic maps of `v_arm_dphase` rad rms differential PHASE between the channels (the diattenuation-type term) and `v_arm_damp` differential AMPLITUDE (the retardance-type term)), `v_cal` = what the solver knows: `'ideal'` (nothing: the raw size of a term), `'amp'` (the per-channel unmasked reference frames' amplitude maps), `'fit'` (amp + per-channel constants and eta fitted on the flat's two masked images), `'map'` (the true maps: a polarimetrically calibrated bench), `v_gate_nm` (G4's poke height) |
+| `mask.v_*` | ideal metasurface, ideal arm | the vector reading's imperfections: `v_ret_err` / `v_leak_phase` (V2: the metasurface's retardance error, the leak's phase), `v_arm` (V3: the arm's polarization aberration per circular channel -- `'engine'` = the bench's own Jones pupil from two polarized vector traces at the laser angle `v_laser_deg`, optionally AR-coated faces `v_arm_ar`; `'synthetic'` = astigmatic maps of `v_arm_dphase` rad rms differential PHASE between the channels (the diattenuation-type term) and `v_arm_damp` differential AMPLITUDE (the retardance-type term)), `v_cal` = what the solver knows: `'ideal'` (nothing: the raw size of a term), `'amp'` (the per-channel unmasked reference frames' amplitude maps), `'fit'` (amp + per-channel constants and eta fitted on the flat's two masked images), `'map'` (the true maps: a polarimetrically calibrated bench), `v_gate_nm` (G4's poke height), `v_analyzer` (V4: the quarter-wave plate + cube analyzer's leak between the two images -- `'engine'` = `dmg_analyzer_maps` on the two channel decks with the plate errors `v_qwp_err` (waves) and `v_qwp_az` (deg); or a struct lA, cA, lB, cB) |
 | `samp.*` | 6 px dimple, 2 px/actuator | the sampling-budget lines the bench stage asserts; `enforce` = `'warn'` or `'error'` |
 | `reg.*` | `'search'` | parity + sign from an off-center poke (two-poke doctrine; the selection metric is the gate), or `'record'` to take `PARb`/`sgn` as given |
 | `dm(i)` | 96x96 @ 1 mm; 48x48 @ 2 mm | actuator count, pitch, hold-out site, modal probes -- each config gets the full battery |
@@ -218,6 +218,44 @@ budget lines before quoting a number.
   matrix re-measured on the surface (the S10 doctrine, what a servo
   does) holds every ZWFS reading's gain to 160 nm and moves the cost to
   photons.  Deck slides 11-12.
+- **V4 (2026-09-14): the analyzer's leak between the two images, priced
+  -- the cube's extinction is a non-term; a quarter-wave plate error is an
+  absolute term the response matrix absorbs.**  The polarizing cube does
+  not split perfectly and the quarter-wave plate before it is not exact,
+  so camera A's image carries some of camera B's light and vice versa.
+  *From the engine* (`dm_gauge_lib/dmg_analyzer_maps`): the record deck
+  and the two channel decks of `zwfs_vlayout` (plate, cemented MacNeille
+  cube, `macos.design.pbs_macneille`) traced in polarization mode
+  (`macos.jones_pupil`), the analyzer's Jones per ray = the camera's
+  divided by the record's, the two circular states pushed through it.
+  Two terms per camera: the INCOHERENT leak l (the other state's power,
+  orthogonally polarized at the camera: the cube's finite extinction) and
+  the COHERENT one c (the other image's field in the SAME polarization: a
+  plate retardance error delta gives |c| = delta/2, an azimuth error theta
+  gives |c| = theta, engine-exact to three digits, with opposite signs in
+  the two ports).  Camera intensity I_A = |a+|^2 + l_A |a-|^2 + 2 Re(a+
+  conj(a-) c_A) (`mask.v_analyzer` `'engine'` | a struct; `v_qwp_err`
+  waves, `v_qwp_az` deg); the solver knows nothing of it.  *The lens rig*
+  (65 rays for the maps): cube alone l_A 4.2e-4 (uniform), l_B 6.3e-4
+  (varying with the cone's angle of incidence to 2.6e-3), c 1.5e-3 in
+  magnitude but ZERO MEAN (the plate's axis projected onto the converging
+  rays, a sin 2 alpha pattern: the scalar model drops it, a uniform bound
+  is run instead); plate lambda/300 |c| 1.05e-2, lambda/100 3.1e-2, 1 deg
+  azimuth 1.7e-2.  *Priced* (dev resolution 512 / 65, `runs/an_*` in the
+  scratch tree; the record at 1024 / 193 = `runs/an193_*`, v4seq.sh):
+  uncalibrated G4 (100 nm pokes, 11.8 nm rms) 0.30 pm ideal -> 3.6 cube
+  alone, 23 the zero-mean bound taken as uniform, 162 at lambda/300, 264
+  at 1 deg, 487 at lambda/100 -- linear at 15 nm per unit of |c|, 1.4% of
+  the figure at lambda/300.  Through the matrix measured on the 30 nm
+  working surface: single 10 nm 0.9942 / 5 pm -> 0.9919 / 6 (lambda/300),
+  0.9938 / 5 (bound); grid 1 nm 0.9961 / 2 -> 0.9975 / 2, 0.9963 / 2.
+  Verdict, as for the arm (V3): an uncalibrated absolute term, a gain the
+  sensor's own matrix calibrates; specify the plate's retardance
+  (lambda/300 class, zero order) and put it in a slower beam or calibrate
+  the analyzer per pixel if the absolute reading must hold to 0.1%.
+  Model limits: an ideal retarder (a real plate's retardance also varies
+  with the angle of incidence, in the same sin 2 alpha family); the maps
+  are pupil means.
 - **V3 (2026-09-12): the arm's polarization aberration per channel,
   priced -- a diattenuation-type term the sensor cannot calibrate away,
   small on the lens rig, and a retardance-type term it removes for free.**
