@@ -13,10 +13,41 @@ carries its run tag. Companions: `REPORT_oap.md` (CCMac's 7° history, kept),
 | 1 — the drawing defect diagnosed and fixed; the lens rig unchanged | **done** — §1; `lens22g` (gate, pixel-identical), `oap22` |
 | 2 — the design: fold angles and off-axis distances from a clearance solve | **done** — §2; the design is OAP1 20° / OAP2 25°, sides +1/−1, polarizer in the source leg, output optics 125 mm ahead of OAP2, collimator at its focus: **worst +33.4 mm over 8 parts**, no ray loss. Tags `fold1`–`fold4`, `loss`, `loss_src`, `loss_a2`, `conj`, `oap22d`; tail retune `oap22d_tail` |
 | 3 — the layout in the recipe; the parts list | **done** — §3; auto-placed labels on the OAP rig (lens figure untouched), parts list printed by the runner (`oap22d`, `oapdraw3`) |
-| 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | not started |
-| 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | not started |
-| 6 — the fold-angle lever: half OAP2's angle; does the pinhole recover? | not started |
-| 7 — the P/SRI bench through the clearance tool | not started |
+| 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | **running** — `runs/ifoseq.sh`: tail retune `oap22d_tail` (in flight, seed already 0.0289 nm null), then `oapifo` (bench+battery+figs+clearance) and `oapifol` (bench+loop+figs, hour-class). Harvest: `runs/<tag>/<tag>_report.txt`, exit codes in `runs/<tag>.log` |
+| 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | **precondition measured**, §5: the ZWFS seat is 0.000 λF/D at trim 0 on this bench (`zseat`, `zseat2`), against the record's 1.1 λF/D at 6.14 mm. The runs themselves are next |
+| 6 — the fold-angle lever: half OAP2's angle; does the pinhole recover? | **reframed**, §6: the blur is LINEAR in the angle and is 0.000 λF/D at both 20° and 25° once the conjugate is right, so the trade the item assumes does not exist. Its empirical half waits on item 5's P reading |
+| 7 — the P/SRI bench through the clearance tool | **done** — recorded in `pdi_dm96/REPORT_gauge_pdi.md` (its own brief): PASS at 22.5° (+36.9 mm), FAIL at 7°; the Mach-Zehnder node clear by 227–383 mm at both. Runner `psri_clearance.m`, tag `psriclear2` |
+
+## What is running, and how to pick it up
+
+Detached jobs, all launched from `runs/`; each writes `runs/<tag>/<tag>_*` and
+records its exit code in `runs/<tag>.log`. Read this table, then
+`grep exit runs/*.log`, then continue from the first item not done.
+
+| job | script | what it produces | state |
+|---|---|---|---|
+| `oap22d_tail` | `runs/tailseq.sh` | `oap22d_tail.mat` — the reflective tail re-fit on the designed geometry | running (seed 0.0289 nm null; ~150 evals) |
+| `oapifo` | `runs/ifoseq.sh` | the interferometer's rows on the 30 nm surface + the clearance table | queued behind the tail |
+| `oapifol` | `runs/ifoseq.sh` | the closed-loop hold metric (hour-class) | queued behind `oapifo` |
+
+`runs/ifoseq.sh` waits (up to 2 h) for `oap22d_tail.mat`, copies it under each
+tag, and aborts loudly rather than falling back to the record's 7-degree
+`oap_tail.mat` — which was fit **with** the conjugate error and would measure
+the old bench.
+
+**The design, in one line, for anything that needs to rebuild it:**
+
+```
+tg96_run('bench.optics','oap', 'bench.POL_IN','source', ...
+         'bench.SRC_AT_FOCUS',true, 'bench.D_RC_L2',125, ...
+         'oap.OAP1_AOI',20, 'oap.OAP2_AOI',25, ...
+         'oap.OAP1_SIDE',1, 'oap.OAP2_SIDE',-1, ...
+         'clear.BODY',struct('Baffle',50,'Detector',50,'TestOptic',90,'PZT',60), ...)
+```
+
+and for the sensors (item 5), the same `bench.*` knobs through `zwfs_run`'s
+generic forwarding, **plus `'bench.MASK_TRIM',0`** — `zwfs_params` carries the
+lens rig's −5.582.
 
 ## 1. The OAP bodies were drawn at the parent parabola's vertex
 
@@ -603,3 +634,71 @@ decompressed pixel stream is **21 717 704 bytes, SHA-256
 `9009d2d95df8737286c87557…` — byte-for-byte the value `lens22` and `lens22g`
 carry.** So the lens rig's figure is unchanged across *both* item 1's station
 fix and item 3's label work.
+
+## 4. The interferometer on it — running
+
+The tail had to be re-fit first: the record's `oap_tail.mat` was tuned on the
+7-degree bench **with the 25 mm conjugate error in it**, so reusing it would
+measure the old bench. `tg96_tail` on the designed geometry (tag `oap22d_tail`,
+objective `sharpness`, model 512 / NGRID 193) — and its **seed already reads**:
+
+| | flat-DM null | single-poke peak recovered (150 nm poke) |
+|---|---|---|
+| the record's *tuned* OAP tail (`oap_tail.mat`) | 12.887 nm | — |
+| the lens rig's *tuned* tail (`lens_tail.mat`) | 0.134 nm | — |
+| **this bench's geometric SEED** | **0.0289 nm** | **134.8 nm (90 %)** |
+
+The designed reflective bench's *untuned* tail beats the record's tuned
+reflective tail by **446×** and the lens rig's tuned tail by **4.6×**. The
+optimizer is still running (`runs/oap22d_tail.log`; 0.0229 nm and 135.4 nm by
+eval 24).
+
+The rows, the servo and the descent follow it, queued in `runs/ifoseq.sh`:
+`oapifo` (bench + battery + figs + clearance — the rows on the 30 nm surface
+with the matrix measured on that surface) and `oapifol` (bench + loop + figs —
+the closed-loop hold metric, hour-class). Each copies the retuned
+`oap22d_tail.mat` under its own tag first, so neither can silently fall back to
+the 7-degree tail.
+
+## 5. The mask sensors on it — the precondition is measured, the runs are next
+
+CCMac's record has the reflective rig **breaking** the two focus-critical mask
+readings: the vector dimple at 19.6 pm against a 12 pm gate (G4 FAIL) and the
+pinhole at 94 pm (G5 FAIL), on a marginal seat focus — "the more focus-critical
+the mask feature, the worse the fold coma".
+
+§2.5 says there is no fold coma, and the ZWFS seat is where that claim has to
+pay off. `oap_focus_probe` (extended to take the design and the conjugate
+switch; tags `zseat`, `zseat2`) scans `MASK_TRIM` for the best ray blur at the
+seat on the **ZWFS** rig, at the design point:
+
+| OAP1 / OAP2 fold | best blur | best `MASK_TRIM` |
+|---|---|---|
+| 20° / 20° | **0.00 µm = 0.000 λF/D** | **−0.00 mm** |
+| 25° / 25° | **0.00 µm = 0.000 λF/D** | **−0.00 mm** |
+| **20° / 25° (the design)** | **0.00 µm = 0.000 λF/D** | **−0.00 mm** |
+
+against the record's 2.94 µm (1.1 λF/D) at `MASK_TRIM` 6.14, right on the
+gauge's 0.01 peak/sum gate. **The reflective rig's mask seat is diffraction-
+perfect at zero trim.** So the sensors' runs are not a re-measurement of a
+marginal focus; they are a measurement of a good one, and G4 / G5 should have
+no focus reason to fail. The runs themselves are the next item.
+
+**Note for the runs:** `zwfs_params` carries `MASK_TRIM = −5.582`, which is the
+*lens* rig's seed-to-focus correction. On this bench it must be **0** — pass
+`'bench.MASK_TRIM',0` along with the design, or the sensors will be seated
+5.6 mm from focus.
+
+## 6. The fold-angle lever — reframed by §2.5, pending item 5
+
+The brief asks for the same battery at half OAP2's angle, on the reasoning that
+astigmatism scales as the fold angle squared, so halving it buys a factor of 4
+at the price of a 1.33× longer leg. **That trade does not exist on this bench.**
+The blur is linear in the angle, not quadratic (0.071 λF/D per degree,
+`conj`), and it is not the fold at all — at the design point the seat blur is
+**0.000 λF/D at 20° and at 25°**, so there is nothing for a smaller angle to
+recover. The lever that mattered was the conjugate, and it has been pulled.
+
+The empirical half of the item — "does the pinhole recover?" — is answered by
+item 5's P reading on this bench, not by a second fold angle. It is left open
+until that run lands.
