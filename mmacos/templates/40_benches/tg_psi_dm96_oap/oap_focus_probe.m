@@ -32,7 +32,7 @@ lamFD = P.LAM * P.bench.F2 / (2*P.bench.R_TO_AP);   % lambda F/D at the seat (mm
 fprintf('lambda F/D at the seat = %.4f mm (%.2f um); gate: peak/sum >= 0.01, blur < 1 lambdaF/D\n', lamFD, lamFD*1e3);
 macos.init(P.MODEL);
 if ~isfile(P.grid.flat_file), macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G)); end
-skip = {'coat_oap','coat_bareAl','coat_protectedAl'};
+skip = {};   % coat_* fields are stripped by prefix below (runner knobs, not builder args)
 % is the blur reducible by the fold angle?  fine-optimize MASK_TRIM per AOI.
 fprintf('sides %+d/%+d; collimator fed at its %s\n', o.SIDE(1), o.SIDE(2), ...
         iff_(o.SRC_AT_FOCUS,'TRUE focus','record conjugate (25 mm inside)'));
@@ -61,7 +61,7 @@ function blur = probe_blur_(P, skip, aoi, mt, o)
   else,               P.bench.OAP1_AOI=aoi;    P.bench.OAP2_AOI=aoi;    end
   P.bench.OAP1_SIDE=o.SIDE(1); P.bench.OAP2_SIDE=o.SIDE(2); P.bench.MASK_TRIM=mt;
   bf = fieldnames(P.bench);  ba = {};
-  for i=1:numel(bf), if ~any(strcmp(bf{i},skip)), ba(end+1:end+2)={bf{i},P.bench.(bf{i})}; end, end
+  for i=1:numel(bf), if ~any(strcmp(bf{i},skip)) && ~strncmp(bf{i},'coat_',5), ba(end+1:end+2)={bf{i},P.bench.(bf{i})}; end, end
   try
     G = macos.design.twyman_green(ba{:}, 'ngridpts',P.NGRID, ...
         'to_grid_file',P.grid.flat_file,'to_grid_n',P.grid.N_G,'to_grid_dx',P.grid.DX_G);

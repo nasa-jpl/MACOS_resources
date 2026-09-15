@@ -47,7 +47,7 @@ if ~isfile(P.grid.flat_file), macos.write_grid_file(P.grid.flat_file, zeros(P.gr
 out = struct();
 modes = {'transmit', 'reflect'};  cams = {'A', 'B'};
 for c = 1:2
-    bp = rmfield(P.bench, intersect(fieldnames(P.bench), {'coat_oap', 'coat_bareAl', 'coat_protectedAl'}));   % runner-level knobs, not twyman_green's (zwfs_run bench_args_)
+    bn = fieldnames(P.bench);  bp = rmfield(P.bench, bn(strncmp(bn, 'coat_', 5)));   % runner-level knobs, not twyman_green's (zwfs_run bench_args_)
     bf = fieldnames(bp);  bargs = cell(1, 2*numel(bf));
     for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = bp.(bf{i}); end
     G = macos.design.twyman_green(bargs{:}, 'ngridpts', o.NGRID, ...

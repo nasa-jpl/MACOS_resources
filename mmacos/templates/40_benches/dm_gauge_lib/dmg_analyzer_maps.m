@@ -42,7 +42,7 @@ o = struct('qwp_err', 0, 'qwp_az', 0, 'NGRID', 65, 'MODEL', 512, ...
 for i = 1:2:numel(varargin), o.(varargin{i}) = varargin{i+1}; end
 gridn = 256;  griddx = P.grid.DX_G * P.grid.N_G / gridn;
 if ~isfile(P.grid.flat_file), macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G)); end
-bp = rmfield(P.bench, intersect(fieldnames(P.bench), {'coat_oap', 'coat_bareAl', 'coat_protectedAl'}));
+bn = fieldnames(P.bench);  bp = rmfield(P.bench, bn(strncmp(bn, 'coat_', 5)));
 bf = fieldnames(bp);  bargs = cell(1, 2*numel(bf));
 for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = bp.(bf{i}); end
 names = {'record', 'A', 'B'};  modes = {'', 'transmit', 'reflect'};

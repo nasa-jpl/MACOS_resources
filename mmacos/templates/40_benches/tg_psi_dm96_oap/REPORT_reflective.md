@@ -14,7 +14,7 @@ Dave pushes. The realism and field-servo reports link back to this table.
 | item | what | report | state |
 |---|---|---|---|
 | 0 | commit the untracked record files | — | **done** — the tag census below |
-| 1 | vector pair on the redesign: rows, overcoat, verdict | §5 | not started |
+| 1 | vector pair on the redesign: rows, overcoat, verdict | §5.1 | **done** — rows hold uncalibrated; G4 634 bare / 319 quarter-wave overcoat / 199 bench-calibrated / **0.054 pm PASS** polarimetric. The variable is the channel PHASE, not the amplitude; fold lever stays unpulled. `vqw22` `vmap22` `vfit22` `vamp22` |
 | 2 | item 4's loop + descent + the 120 nm wrap explained | §4 | not started |
 | 3 | tail tuner gated by a battery row; README | §4.7 | not started |
 | 4 | realism 3–5: thicknesses, substrates, camera | `REPORT_bench_realism.md` | not started |
@@ -1351,3 +1351,118 @@ in both directions.
 One sampling note from the run: **2.37 detector px per actuator** against a
 minimum of 2 — the 96×96 DM is close to the floor at NGRID 193 on this bench's
 larger pupil image. It passes, but it is the thinnest margin in the budget.
+
+### 5.1 Item 1 — the vector pair on the redesigned rig: rows, overcoat, verdict
+
+Four runs at the `oapsens22` settings (model 1024, NGRID 193, OAP1 20° / OAP2 25°,
+`MASK_TRIM` 0, `mask.v_arm 'engine'`, laser 45°), each changing ONE thing:
+`oapsens22` (bare Al, uncalibrated solver) is the reference, `oapsens22n` removes
+the coating, `vqw22` changes the coating, `vmap22` changes the solver.
+
+| | `oapsens22n` | `vqw22` | `oapsens22` | `vmap22` |
+|---|---|---|---|---|
+| coating on L1/L2 | **none** (ideal reflectors) | **`qwAl`** λ/4 MgF₂ | `bareAl` | `bareAl` |
+| solver (`mask.v_cal`) | ideal | ideal | ideal | **`map`** |
+| **G4, V rms error** | **208.24 pm** | **318.79 pm** | **633.97 pm** | **0.054 pm PASS** |
+| channel phase difference | 6.15e-2 rad | 6.16e-2 | 6.20e-2 | 6.20e-2 |
+| channel amplitude \|qL\|/\|qR\| | **1.0000** | **1.0313** | **1.0849** | 1.0849 |
+| diattenuation / retardance mean | 5.46e-2 / 5.22e-2 rad | 5.39e-2 / 6.37e-2 | 4.00e-2 / 1.01e-1 | 4.00e-2 / 1.01e-1 |
+| transmittance | 0.7804 | 0.5583 | 0.6513 | 0.6513 |
+| row: single 10 nm | 0.9963 / 3 pm | 0.9982 / 3 | 1.0022 / 4 | 0.9940 / 3 |
+| row: grid @1 nm | — | 1.0028 / 3 | 1.0100 / 5 | 0.9978 / 3 |
+| **row: dense random 10 nm** | — | **1.0018 / 374 pm** | **1.0086 / 633 pm** | **0.9976 / 289 pm** |
+| ladder 30 / 40 / 50 / 60 nm | .9964 .9873 .9661 .9275 | .9984 .9842 .9608 .9215 | .9928 .9784 .9491 .9037 | .9941 .9873 .9686 .9322 |
+| capture range to 10 % | 61 nm | 61 nm | 60 nm | 62 nm |
+
+**The rung the brief reads the 634 pm against is not the variable on this rig.**
+The brief places G4 on the zwfs record's channel-PHASE scale (README V3: 59 / 178 /
+597 / 1877 pm at 0.01 / 0.03 / 0.1 / 0.3 rad) and infers ~0.1 rad. Measured, the
+channel phase difference is **6.15–6.20e-2 rad in all four configurations** — it
+does not move at all — while G4 moves 208 → 319 → 634 pm. What the coating moves is
+the channel AMPLITUDE imbalance, 1.0000 → 1.0313 → 1.0849. `zwfs_params` says as
+much in its own comment beside `v_arm_damp`: *"the OAP rig's term"*. So the
+redesigned rig sits at a FIXED 0.062 rad of channel phase — a rung whose record
+value is ~370 pm — and the spread around it is amplitude, not phase. Reading the
+634 against the phase ladder would have put the rig at 0.1 rad and the fold lever
+in play; it is at 0.062 rad on every coating, and the lever is not what moves it.
+
+**The rows hold, uncalibrated, on all three coatings.** Single 0.996–1.002, grid
+1.003–1.010, ladder 0.98–0.99 out to 40 nm, capture 60–62 nm: bare Al, the
+quarter-wave overcoat and no coating at all are indistinguishable at the row level.
+The vector pair's regression on this rig is confined to exactly two numbers — the
+G4 single-poke absolute and the dense-random residual — and both are *uncalibrated*
+quantities.
+
+**The overcoat at a quarter wave of 632.8 nm halves it, and the record's
+"protected Al" is not at a quarter wave.** `coat_protectedAl` is 229.3 nm of MgF₂:
+n·t = 1.38 × 229.3 = 316.4 nm = **0.500 λ at 632.8** — a HALF wave, which
+`tg96_params` already calls it. The new `coat_qwAl` is 114.6 nm = 0.250 λ, the
+quarter wave of the bench's own working wavelength. It takes G4 from 633.97 to
+**318.79 pm (1.99×)** and the dense row from 633 to 374 pm, i.e. it removes **half**
+of the coating's excess over the coating-free floor (3.04× → 1.53× of 208.24 pm).
+That is real and it is the right specification, but it is NOT the 0.05× the engine's
+overcoat rule gives (`macos_f90/CLAUDE.md`): that rule is measured on
+cross-polarized POWER on a two-mirror Cassegrain, and this is the reading error of
+an uncalibrated circular-channel solver on a 20°/25° fold pair. The two quantities
+are not the same number and should not be expected to agree; what survives is the
+SIGN and the mechanism — a quarter-wave overcoat helps, an off-quarter-wave one
+costs. The engine's own caution applies: the film is fixed glass, so the condition
+belongs to the pair (stack, λ), not to the stack.
+
+**The calibrated bench removes essentially all of it.** With the true per-channel
+maps and constants (`v_cal 'map'`, the polarimetric oracle) G4 is **0.054 pm —
+PASS against the < 12 pm gate**, from 633.97, and the dense row falls to 289 pm.
+So the vector pair on the redesigned rig is not limited by the fold angles or by
+the coating. It is limited by a solver that does not know its own two channels,
+and the thing it does not know is very nearly a per-channel CONSTANT.
+
+**And it is the channel PHASES, not the amplitudes, that the bench has to
+learn.** Two more legs separate the oracle from what a bench can actually
+measure:
+
+| solver (`mask.v_cal`), bare Al | what it knows | G4 | dense row |
+|---|---|---|---|
+| `ideal` | nothing | 633.97 pm | 633 pm |
+| `fit` (`vfit22`) | per-channel CONSTANTS κ₊, κ₋, η fitted on the flat DM's two masked images — a bench calibration | **199.45 pm** | 327 pm |
+| `amp` (`vamp22`) | the per-channel unmasked amplitude MAPS \|qL\|, \|qR\| — the reference frames every bench already takes | **199.39 pm** | 327 pm |
+| `map` (`vmap22`) | the same maps **plus the polarization phases** | **0.054 pm** | 289 pm |
+
+(rows for `fit` / `amp`: single 0.9962 / 0.9963, grid 0.9985 / 0.9984, capture
+62 / 61 nm — the rows do not separate them either.)
+
+`fit` and `amp` land on the same number to 0.03 %. Amplitude information —
+constants or full maps, cheap or free — buys a factor 3.2 and then stops dead.
+The remaining **factor of 3700 is entirely the two channels' polarization
+PHASES**, which neither a flat-DM fit nor an unmasked reference frame can see.
+So the redesigned rig's vector pair does not need more of the data a bench
+already takes; it needs a **polarimetric** calibration, and that is a line item
+with hardware behind it, not a free byproduct of the frames.
+
+**Which puts item 6's fold lever back in the picture — as a fallback, not the
+fix.** The quantity that survives every amplitude calibration is the channel
+phase difference, 0.0615 rad, and that is *fold-set*: it is the same to three
+figures with bare Al, with the quarter-wave overcoat and with no coating at all
+(6.20 / 6.16 / 6.15e-2), so the geometry sets it and the coating does not touch
+it. The 208 pm coating-free floor is that term. Halving OAP2's fold is therefore
+aimed at exactly the right quantity — the brief's premise is sound — but it buys
+a factor of a few where the polarimetric calibration buys 3700. **The lever
+stays unpulled**: it is the answer only if a polarimetric calibration is ruled
+out, and it would cost the clearance solve that §2 shows has no slack at 5°/9°.
+
+**The line for the deck's redesigned-rig slide:**
+
+> Vector pair on the redesigned reflective rig: the rows hold uncalibrated
+> (single 1.002, grid 1.010, capture 60 nm — the lens rig's own figures), and
+> the single-poke absolute is **634 pm** bare, **319 pm** with a quarter-wave
+> MgF₂ overcoat, **199 pm** with the calibration a bench already performs, and
+> **0.054 pm — PASS** with a polarimetric one. What the calibration has to
+> supply is the two channels' PHASES; their amplitudes are free and buy only
+> 3.2×.
+
+Run tags: `oapsens22` / `oapsens22n` (item 5 of the previous brief), `vqw22`,
+`vmap22`, `vfit22`, `vamp22`; launchers `zwfs_dm96/runs/vcloseseq.sh`,
+`vfitseq.sh`, `vampseq.sh`. The new coating option is `bench.coat_oap 'qwAl'`
+(`coat_qwAl`, MgF₂ 114.6 nm on 100 nm Al); any `P.bench.coat_<name>` struct is
+now a valid choice, and the five places that had to strip `coat_*` fields by
+name match them by prefix instead, so a new stack cannot be forgotten in one of
+them.
