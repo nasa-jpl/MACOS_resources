@@ -41,7 +41,10 @@ else
 end
 
 macos.init(MODEL);
-addpath('/Users/dcr/dev/MACOS_resources/mmacos/templates/90_polarization/tg_psi_dm');
+% dm_influence_map (the same path tg96_run adds).  This was hard-coded to a
+% macOS home directory, so on Linux it only warned and the tuner ran on
+% whatever happened to be on the path; resolve it from this file instead.
+addpath(fullfile(exdir, '..', '..', '90_polarization', 'tg_psi_dm'));
 macos.write_grid_file('tail_flat.txt', zeros(N_G));
 b = P.bench;
 % Objective: 'null' minimizes the flat-DM null (the lens rig; reproduces the
@@ -52,9 +55,18 @@ objective = P.bench.optics;   % 'lens' -> null ; 'oap' -> sharpness
 if strcmp(objective,'oap'), objective = 'sharpness'; else, objective = 'null'; end
 seed = [s*b.FL_F, b.FL_Kc, s*b.D_MASK_FL, s*b.DET_TRIM];
 q0 = [0, seed(2), seed(3), seed(4)];   % FL_F = seed(1)*exp(q1) keeps positive
+% the node the runner builds: the recomb plane / output-optics distances and
+% the input polarizer's leg.  Omitting these tuned the tail on a DIFFERENT
+% bench from the one tg96_run then used (the output optics sat 17/27 mm behind
+% the splitter instead of 160/170 after the 22.5 deg round).
+nodeargs = {};
+if isfield(b,'D_RECOMB') && ~isempty(b.D_RECOMB), nodeargs = [nodeargs, {'D_RECOMB', b.D_RECOMB}]; end
+if isfield(b,'D_RC_L2')  && ~isempty(b.D_RC_L2),  nodeargs = [nodeargs, {'D_RC_L2',  b.D_RC_L2}];  end
+if isfield(b,'POL_IN')   && ~isempty(b.POL_IN),   nodeargs = [nodeargs, {'POL_IN',   b.POL_IN}];   end
+if isfield(b,'SRC_AT_FOCUS') && ~isempty(b.SRC_AT_FOCUS), nodeargs = [nodeargs, {'SRC_AT_FOCUS', b.SRC_AT_FOCUS}]; end
 C = struct('s',s,'AOI',AOI,'D_BS_TO',D_BS_TO,'NGRID',NGRID,'N_G',N_G,'DX_G',DX_G, ...
            'QWP',QWP,'THETAS',THETAS,'LAM',LAM,'seed',seed,'optics',b.optics, ...
-           'oapargs',{oapargs},'bench',b,'objective',objective,'poke_nm',150);
+           'oapargs',{oapargs},'nodeargs',{nodeargs},'bench',b,'objective',objective,'poke_nm',150);
 [r0, n0, k0] = cost_(q0, C);
 fprintf('TAIL SEED: cost %.4f (null %.4f nm, poke-peak %.1f nm) [objective %s]\n', r0, n0, k0, objective);
 [qb, rb] = fminsearch(@(q) cost_(q, C), q0, ...
@@ -77,7 +89,7 @@ function [r, null_nm, peak_nm] = cost_(q, C)
     null_nm = 1e6;  peak_nm = 0;  r = 1e6;
     try
         G = macos.design.twyman_green('polarizing',true,'ngridpts',C.NGRID, ...
-            'optics',C.optics, C.oapargs{:}, 'BS_AOI',C.AOI, ...
+            'optics',C.optics, C.oapargs{:}, 'BS_AOI',C.AOI, C.nodeargs{:}, ...
             'F1',s*b.F1,'F2',s*b.F2,'D_LENS',s*b.D_LENS,'R_BAFFLE',s*b.R_BAFFLE,'D_SB',s*b.D_SB, ...
             'BS_T',s*b.BS_T,'D_L1_BS',s*b.D_L1_BS,'D_BS_TO',C.D_BS_TO,'D_BS_CMP',s*b.D_BS_CMP, ...
             'R_TO_AP',s*b.R_TO_AP,'L1_Kr',s*b.L1_Kr,'L1_Kc',b.L1_Kc,'L2_Kr',-s*abs(b.L2_Kr),'L2_Kc',b.L2_Kc, ...

@@ -17,7 +17,11 @@ function out = dmg_bench_clearance(varargin)
 %   parabola section, whose parent vertex lies far off the beam.  The beam radius
 %   is the DM aperture (the traced footprint is the outermost ray, scaled).
 %   Options: 'MOUNT' (mm beyond the aperture radius, 8), 'MODEL' (512),
-%   'NGRID' (65), 'quiet' (false), 'draw' ('' | a PNG path: the train from
+%   'NGRID' (65), 'BODY' (struct part-stem -> physical body radius in mm: the
+%   part is scored at max(aperture, body) and is scored even if its element
+%   type is not an optic -- this is how the SOURCE head, whose builder element
+%   is an Obscuring baffle, and the camera package get into the table at all;
+%   default empty = today's behaviour), 'quiet' (false), 'draw' ('' | a PNG path: the train from
 %   above, both arms, parts named, plus the node panel), 'G' (an already-built
 %   twyman_green result: measure THAT rig instead of rebuilding one from
 %   zwfs_params -- what tg96_run's clearance stage passes, so the table
@@ -28,7 +32,7 @@ function out = dmg_bench_clearance(varargin)
 %   Written 2026-09-15 after Dave found the 7-deg record bench unbuildable
 %   (the node parts sat in each other's beams); the Stage-A solve in
 %   tg96_run cleared only the three end bodies.
-o = struct('MOUNT', 8, 'MODEL', 512, 'NGRID', 65, 'quiet', false, 'draw', '', 'G', [], 'LAM', []);
+o = struct('MOUNT', 8, 'MODEL', 512, 'NGRID', 65, 'quiet', false, 'draw', '', 'G', [], 'LAM', [], 'BODY', struct());
 ov = struct();
 for i = 1:2:numel(varargin)
     if isfield(o, varargin{i}), o.(varargin{i}) = varargin{i+1}; else, ov.(varargin{i}) = varargin{i+1}; end
@@ -103,6 +107,15 @@ for a = 1:2
     end
 end
 phys = {'Refractor', 'Reflector', 'TrPolarizer', 'WavePlate', 'FocalPlane', 'NSRefractor'};
+% 'BODY': a part's PHYSICAL body is not its clear aperture.  The source head
+% and the camera package are the cases that matter -- and the source is not
+% even scored by default, because the builder's source-side element is an
+% Obscuring baffle, which is not an optic.  BODY is a struct part-stem ->
+% body radius (mm, before MOUNT): a named part is scored whatever its element
+% type, with radius max(aperture, body).  Default empty => today's behaviour
+% exactly, so the lens rig's recorded table does not move.  The TG96 rule's
+% own half-widths are HW_CAM 50 (source, camera), HW_DM 90, HW_REF 60.
+bodynm = fieldnames(o.BODY);
 part_ = @(nm) regexprep(nm, '(pow|flat|txff|txbf|txfo|txbo|crefr|refl|binr|boutr|txfd|txbd|txfu|txbu|In|Out)$', '');
 for i = 1:numel(recs), recs(i).part = part_(recs(i).name); end
 for s = 1:numel(segs)
@@ -111,10 +124,12 @@ end
 rows = {};  done = {};
 for i = 1:numel(recs)
     e = recs(i);
-    if ~any(strcmp(e.element, phys)), continue; end
+    ib = find(strcmp(bodynm, e.part), 1);
+    if ~any(strcmp(e.element, phys)) && isempty(ib), continue; end
     if any(strcmp(done, e.part)), continue; end
     done{end+1} = e.part; %#ok<AGROW>
     aelt = e.aprad;  if aelt <= 0, aelt = e.rbeam + 5; end   % plates: the beam + 5 mm
+    if ~isempty(ib), aelt = max(aelt, o.BODY.(bodynm{ib})); end   % physical body
     aelt = aelt + o.MOUNT;
     n = e.psi/norm(e.psi);
     worst = inf;  wlab = '';

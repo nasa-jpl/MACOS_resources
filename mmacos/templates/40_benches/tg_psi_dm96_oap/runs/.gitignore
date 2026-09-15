@@ -7,3 +7,8 @@
 *_tail.mat
 */*_layout.png
 */*_transfer.png
+# the fold/loss/conj probes' scratch grid + their per-angle decks (regenerable;
+# the committed record is the <tag>_*.txt table and its figure)
+*/fold_flat.txt
+*/loss_flat.txt
+*/loss_a[0-9]*.in

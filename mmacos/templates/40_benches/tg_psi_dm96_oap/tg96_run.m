@@ -389,6 +389,12 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
     if strcmp(b.optics,'oap')
         oapargs = {'OAP1_AOI',geom.OAP1_AOI, 'OAP2_AOI',geom.OAP2_AOI, ...
                    'OAP1_SIDE',P.oap.OAP1_SIDE, 'OAP2_SIDE',P.oap.OAP2_SIDE};
+        if isfield(b,'POL_IN') && ~isempty(b.POL_IN)
+            oapargs = [oapargs, {'POL_IN', b.POL_IN}];
+        end
+        if isfield(b,'SRC_AT_FOCUS') && ~isempty(b.SRC_AT_FOCUS)
+            oapargs = [oapargs, {'SRC_AT_FOCUS', b.SRC_AT_FOCUS}];
+        end
     end
     rcargs = {};                                   % the recomb plane / output optics (physical mm, unscaled)
     if isfield(b, 'D_RECOMB') && ~isempty(b.D_RECOMB), rcargs = [rcargs, {'D_RECOMB', b.D_RECOMB}]; end
