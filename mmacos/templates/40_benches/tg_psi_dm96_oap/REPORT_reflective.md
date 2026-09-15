@@ -886,6 +886,43 @@ pupil image doubling from 9 to 17.5 mm was the visible symptom I flagged in §4
 and mis-filed as a packaging consequence — and a detector off the conjugate
 cannot read actuators.
 
+**And with the seed tail the bench does not merely read — it reads better than
+the record's reflective rig on exactly the rows the record calls irreducible.**
+`tailB`, Stage E:
+
+| base → deviation | **`tailB` (designed + seed tail)** | record reflective | lens rig |
+|---|---|---|---|
+| flat → single 10 nm | 0.9900 / 3.0 pm / 0.9999 | 0.9948 / 2.2 / 0.9999 | 0.9916 / 2.2 |
+| **flat → random 10 nm** | **0.9890 / 202.9 pm / 0.9998** | **0.7486 / 4848.5 / 0.8706** | 0.9893 |
+| random 16 nm → single | 0.9937 / 2.7 / 0.9999 | 0.9958 / 2.3 / 0.9999 | — |
+| **random 16 nm → random** | **0.9878 / 228.7 pm / 0.9998** | **0.7486 / 4848.3 / 0.8706** | — |
+
+Break ladder — clean at **every** rung:
+
+| base rms | 30 | 60 | 120 | 240 | 480 nm |
+|---|---|---|---|---|---|
+| **`tailB`** | 0.9951 / 2.5 pm | 0.9923 / 2.5 | 0.9702 / 5.8 | **0.9552 / 9.1** | **0.9525 / 10.9** |
+| record reflective | 0.9967 / 2.5 | 0.9987 / 3.1 | 0.9617 / 489.6 | 0.4779 — BROKE | 1.0192 / 15.3 |
+| lens rig | 1.0013 / 4.5 | 1.0103 / 9.3 | 1.0258 / 19.3 | 1.9271 / 394.0 | 1.5849 / 419.1 |
+
+The dense-random rows are the headline. The record's reflective rig reads them
+at **0.7486 with a 4848 pm residual** and calls the gap *"the same-plane fold's
+astigmatism cross-talk … only the geometry can move it"* — a property of
+choosing mirrors. The designed bench reads the same rows at **0.989 with a
+203 pm residual**, a **24× smaller residual**, matching the lens rig. And at the
+deep end of the ladder (240 and 480 nm) it holds 0.955 / 0.953 at single-digit
+picometres where the record's reflective rig breaks and the **lens rig** runs
+away to 1.93 and 1.58 with ~400 pm residuals.
+
+**CAVEAT, and it is not a small one: these are NOT resolution-matched.**
+`tailB` is model 512 / NGRID 193; every record number in the tables above is
+model 1024 / NGRID 385. The comparison is indicative, not decided. Claiming
+parity with the lens rig — let alone superiority — requires the
+full-resolution re-run, which is queued as `oapifo2` (the design, seed tail,
+model 1024 / NGRID 385). **Nothing from this block goes on a slide until that
+lands.** Making a cross-configuration claim from a resolution-mismatched pair
+is the same error class as the two attributions already retracted in §4.1–4.2.
+
 **What this vindicates and what it does not.** Items 1–3 are untouched: they
 were measured with no tail in the loop, and `tailB` now shows the geometry they
 produced reads properly. §4's opening rows — D1 at 100 %, the 22.3 pm flat-DM
@@ -894,11 +931,55 @@ fixed one before they mean anything. The tail null of 0.0223 nm in particular
 is now explained: a detector off the conjugate still nulls two arms that share
 the same wrong tail.
 
-**The fix, now that the diagnosis is closed** (§4.2 read it off the code before
-the A/B and deliberately did not land it): `tg96_tail`'s sharpness objective
-rewards `max(abs(h))` anywhere in the pupil, which a defocused or wrapped map
-supplies for free. It needs to reward a **localized, correctly-scaled**
-response and to refuse a candidate whose map approaches λ/4.
+### 4.4 The fix, and the gate that caught the first version of it
+
+`tg96_tail`'s `'oap'` objective now reads
+
+```
+r = (1 - min(frac,1.2))^2 + 4*(1 - conc)^2 + 10*max(0, wrapf - 0.8)^2 + (null_nm/200)^2
+```
+
+with `conc` = the fraction of the map's energy within ~3 actuator pitches of
+its own peak (mapping-free: the pupil diameter comes from the mask and one
+actuator is 1/nact of it, so it needs no DM→detector affine — the very thing a
+bad tail corrupts), and `wrapf` = how close the map runs to λ/4. The tuning
+poke drops **150 → 100 nm**.
+
+**The first version of this fix FAILED its gate, and the failure found the real
+driver.** Evaluating both parameter sets under it:
+
+| | `conc` | wrap | null | cost, **v1** |
+|---|---|---|---|---|
+| geometric seed — reads at 0.99 | 1.000 | 0.93 | 71.07 nm | **1262.9** |
+| old winner — reads at 0.03 | 0.006 | 1.00 | 0.0223 nm | **1.39** |
+
+v1 still *preferred the broken tail*, because it kept the old `(null_nm/2)^2`
+term — and **that term is the defect's driver.** Minimizing the null is free
+for a misplaced detector: both arms share the tail, so a common misplacement
+cancels in an arm *difference* while being fatal to the reading. The optimizer
+bought a 0.0223 nm null by walking off the pupil conjugate, and the cost
+thanked it. A **71 nm null reads perfectly well** (`tailB`, gain 0.99), so the
+null is now *bounded* at a 200 nm scale rather than minimized.
+
+The 150 nm poke was the second half of the problem: at 0.95 of λ/4 a **healthy**
+map already reads 0.93 on the wrap meter, so the guard could not separate
+health from saturation. At 100 nm (0.63 of the range) it separates cleanly.
+
+**The gate, re-run on v2:**
+
+| | `conc` | wrap | peak (of 100 nm) | null | **cost, v2** |
+|---|---|---|---|---|---|
+| geometric seed — **reads at 0.99** | 1.000 | **0.52** | 81.5 | 71.8 nm | **0.1629** |
+| old winner — **reads at 0.03** | 0.006 | **1.00** (pinned at λ/4) | 158.2 | 0.0223 nm | **4.3944** |
+
+**The fixed objective rejects the configuration the old one chose, by 27×**, and
+every diagnostic separates the two cases on its own: localization 1.000 vs
+0.006, the wrap meter 0.52 vs 1.00, and the "peak" that fooled v0 exposed as
+158.2 nm = λ/4 **exactly** — the map pinned at the wrap limit, which is what the
+old cost was reading as perfect sharpness.
+
+`conc` and `wrapf` now print on every `TAILEVAL` line, so a tune is auditable
+rather than a single scalar.
 
 **A caveat on reading the wrap flag as a cause.** `tailA`'s ladder reports
 "base reads 1.00 of λ/4" at **every** rung — 30, 60, 120 and 240 nm alike —
