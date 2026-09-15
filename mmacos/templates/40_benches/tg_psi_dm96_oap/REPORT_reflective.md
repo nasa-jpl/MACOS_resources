@@ -14,8 +14,8 @@ carries its run tag. Companions: `REPORT_oap.md` (CCMac's 7° history, kept),
 | 2 — the design: fold angles and off-axis distances from a clearance solve | **done** — §2; the design is OAP1 20° / OAP2 25°, sides +1/−1, polarizer in the source leg, output optics 125 mm ahead of OAP2, collimator at its focus: **worst +33.4 mm over 8 parts**, no ray loss. Tags `fold1`–`fold4`, `loss`, `loss_src`, `loss_a2`, `conj`, `oap22d`; tail retune `oap22d_tail` |
 | 3 — the layout in the recipe; the parts list | **done** — §3; auto-placed labels on the OAP rig (lens figure untouched), parts list printed by the runner (`oap22d`, `oapdraw3`) |
 | 4 — the interferometer on it (rows on the 30 nm surface, servo, descent) | **defect found and RESOLVED to its cause**, §4.1–4.3. The reading broke (gain 0.03, erratic, wrapping); a controlled A/B shows it was **my tail retune**, not the geometry: the same bench with the geometric seed tail reads **0.9809**. Fix the tail objective, then re-run. `oapifol` / `oapdesc` deferred until then |
-| 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | **precondition measured + run queued**, §5: the ZWFS seat is 0.000 λF/D at trim 0 on this bench (`zseat`, `zseat2`) against the record's 1.1 λF/D at 6.14 mm; `oapsens22` queued (`zwfs_dm96/runs/oapsensseq.sh`) |
-| 6 — the fold-angle lever: half OAP2's angle; does the pinhole recover? | **reframed**, §6: the blur is LINEAR in the angle and is 0.000 λF/D at both 20° and 25° once the conjugate is right, so the trade the item assumes does not exist. Its empirical half waits on item 5's P reading |
+| 5 — the mask sensors on it (S / V / P, bench + battery, stations figures) | **done**, §5 (`oapsens22`, `oapsens22n`). Seat 0.000 λF/D at trim 0; all sandwich/reference gates 1e-15. **Pinhole RECOVERS: 94 pm FAIL → 0.269 pm PASS.** Vector pair worsens 19.6 → 634 pm; coating accounts for 3.0× of it (208 pm with `coat none`), the fold angles for the rest |
+| 6 — the fold-angle lever: half OAP2's angle; does the pinhole recover? | **answered**, §6 + §5: **yes the pinhole recovers** — but by fixing the CONJUGATE, not by opening the fold (blur is 0.000 λF/D at both 20° and 25°, so the lever the item assumes does not exist). The fold angles' real cost is the VECTOR pair, split 3:10 coating:geometry |
 | 7 — the P/SRI bench through the clearance tool | **done** — recorded in `pdi_dm96/REPORT_gauge_pdi.md` (its own brief): PASS at 22.5° (+36.9 mm), FAIL at 7°; the Mach-Zehnder node clear by 227–383 mm at both. Runner `psri_clearance.m`, tag `psriclear2` |
 
 ## What is running, and how to pick it up
@@ -1272,13 +1272,42 @@ improvement, from FAIL to PASS.** That answers item 6's question — *does the
 pinhole recover?* — **yes**, and by fixing the conjugate rather than by opening
 the fold, which is the opposite of the lever the brief proposed.
 
-**The vector pair gets worse, 19.6 → 634 pm**, and the likely reason is
-physical rather than a defect: bare aluminium's diattenuation and retardance
-grow with incidence angle, and the clearance-driven folds are **20° / 25°**
-against the record's 5° / 9°. If that is the cause, it is a genuine cost of the
-buildable layout and belongs in the trade, not in a fix. **Untested** — the
-discriminator is the same run with `coat_oap 'none'`, which removes the
-coating's polarization while keeping the geometry, and it is queued.
+**The vector pair gets worse, 19.6 → 634 pm**, and the discriminator has now
+run (`oapsens22n`: identical except `coat_oap 'none'` — ideal reflectors,
+RS = −1, RP = +1, zero retardance — so the coating's polarization is removed
+and the geometry is kept):
+
+| | V rms error | gate < 12 pm |
+|---|---|---|
+| `bareAl`, folds **20° / 25°** | **633.97 pm** | FAIL |
+| **`none`, same geometry** | **208.24 pm** | **FAIL** |
+| the record: `bareAl`, folds 5° / 9° | 19.6 pm | FAIL |
+
+**Both causes are real, and the split is about 3 : 10.** Removing the coating
+recovers **3.0×** — so bare aluminium at 20° / 25° is roughly two-thirds of the
+excess, and *that* part is specifiable: a protected-Al or dielectric stack can
+be written against it. But **208 pm with ideal reflectors is still 17× over the
+gate** and 10× worse than the record's figure, with no coating in play. The
+clearance-driven fold angles themselves are what the vector pair cannot take.
+
+The effect is polarization-only, which is what the coating hypothesis predicts
+and the run confirms: between the two, the **capture range is 61 vs 60 nm** and
+the scalar imaging is **identical to four figures** (center-poke raw peak gain
+0.7487, corr(map, truth) 0.9879 in both). Transmittance moves 0.6513 → 0.7804,
+as removing an absorbing metal should.
+
+**Caveat on the third row.** The record's 19.6 pm was measured on the 7° bench
+*with* the 25 mm conjugate error and its own tail, so it is not a clean
+geometry-only control. The clean control would be this bench at 5° / 9° folds —
+which is exactly what §2 shows is **not buildable**. So "the fold angles cost
+the vector pair ~10×" is the right reading of the evidence available, not a
+number isolated by experiment.
+
+**For the trade, not for a fix.** The reflective front end buys the pinhole
+(94 pm FAIL → 0.269 pm PASS) and the interferometer's cross-talk (0.22–0.48 →
+0.006–0.021, §4.6); it costs the vector pair, two-thirds of that cost being
+coating and specifiable. That is the honest shape of item 6's trade, measured
+in both directions.
 
 One sampling note from the run: **2.37 detector px per actuator** against a
 minimum of 2 — the 96×96 DM is close to the floor at NGRID 193 on this bench's
