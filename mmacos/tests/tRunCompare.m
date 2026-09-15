@@ -300,6 +300,69 @@ classdef tRunCompare < matlab.unittest.TestCase
             cc = corrcoef(dg(sel), dz(sel));
             tc.verifyGreaterThan(cc(1, 2), 0.995);
         end
+
+        function test_zern_grid_conventions_engine_equivalence(tc)
+            % WS3 ACCEPTANCE GATE (CCL 2026-09-14).  For each non-ANSI
+            % convention macos.zernike_grid_basis offers, a grid poke of its
+            % mode map (through elt_grid_add / GridChannel) must reproduce the
+            % engine's MonZernCoef poke of the SAME mode under the matching
+            % MonZernType (NormNoll / NormBornWolf).  This is the definitive
+            % engine-exactness check -- ordering AND per-mode normalization --
+            % beyond the (n,m) cross-check in tZernikeGridBasis.  A coma/
+            % trefoil mode (j=8) is used so a wrong ordering fails outright.
+            old = cd(tc.wd); restore = onCleanup(@() cd(old));
+            ga = macos.design.grid_augment_rx(fullfile(tc.wd, 'pie.in'), ...
+                fullfile(tc.wd, 'pie_grid.in'), 'ng', 128);
+            base = fileread(fullfile(tc.wd, 'pie_grid.in'));
+            s = 2;  elt = tc.seg.seg_elts(s);  mode = 8;
+            f = tc.seg.frames(s);
+            N = ga.ng;  gdx = ga.gdx(min(s, numel(ga.gdx)));
+            ap_frac = f.lmon / (((N - 1)/2) * gdx);
+
+            cases = {'noll', 'NormNoll'; 'bornwolf', 'NormBornWolf'};
+            for ci = 1:size(cases, 1)
+                conv = cases{ci, 1};  montype = cases{ci, 2};
+                % variant deck: retype every segment's Mon channel to the
+                % normalised convention (only `elt` is poked; the rest carry
+                % MonZernCoef=0 so they are inert).
+                vtxt = regexprep(base, 'MonZernType=\s*\w+', ...
+                    ['MonZernType=  ' montype]);
+                vin = fullfile(tc.wd, sprintf('pie_grid_%s.in', conv));
+                fid = fopen(vin, 'w');  fwrite(fid, vtxt);  fclose(fid);
+
+                m = macos.Session(512);
+                m.load_rx(vin);
+                m.set_src_sampling(31);
+                wf = m.num_elt() - 1;
+                map = macos.zernike_grid_basis(N, mode, ap_frac, conv);
+                m.trace(wf);  W0 = m.opd();
+                c = 1e-4;                          % 100 nm in mm BaseUnits
+                gc = macos.channels.GridChannel(m, elt, map);
+                gc.apply(c);  m.trace(wf);  Wg = m.opd();  gc.restore();
+                zc = macos.channels.MonZernChannel(m, elt, mode);
+                zc.apply(c);  m.trace(wf);  Wz = m.opd();  zc.restore();
+
+                mk = W0 ~= 0 & Wg ~= 0 & Wz ~= 0;
+                dg = Wg(mk) - W0(mk);  dz = Wz(mk) - W0(mk);
+                % Gate WITHIN the influence map's confined disk (rho<=lMon):
+                % zernike_grid_basis zeros the mode outside rho=1, while the
+                % engine's MonZern poke evaluates the polynomial across the
+                % whole grid (unclipped, growing outward).  The two agree
+                % exactly inside the disk -- which is where the influence
+                % basis is defined -- so select on the grid map's own support,
+                % not on the (outward-dominated) engine response.
+                sel = abs(dg) > 0.1 * max(abs(dg));
+                tc.verifyGreaterThan(nnz(sel), 10, ...
+                    sprintf('%s: too little support to gate', conv));
+                scale = dg(sel) \ dz(sel);
+                tc.verifyEqual(scale, 1, 'AbsTol', 2e-2, sprintf( ...
+                    ['%s grid map must reproduce the MonZernType=%s ' ...
+                     'coefficient poke (scale)'], conv, montype));
+                cc = corrcoef(dg(sel), dz(sel));
+                tc.verifyGreaterThan(cc(1, 2), 0.99, sprintf( ...
+                    '%s grid map vs %s poke correlation', conv, montype));
+            end
+        end
     end
 end
 

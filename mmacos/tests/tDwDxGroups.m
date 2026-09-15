@@ -526,12 +526,14 @@ classdef tDwDxGroups < matlab.unittest.TestCase
                 'stop_mode', 'obj');
             testCase.verifyTrue(up.reaim_required(), ...
                 'group at/upstream of the stop must keep the re-aim');
-            % ambiguous: engine reports NO element stop -> keep (conservative)
+            % object-space / no element stop: the chief is aimed from the
+            % fixed source through a fixed global point, invariant under any
+            % element motion -> the re-aim is a no-op -> skip (CCL follow-up).
             s0 = StubGroupSession(0, 20);
             amb = macos.channels.GroupedRigidBodyChannel(s0, [9; 10], 0, ...
                 'stop_mode', 'obj');
-            testCase.verifyTrue(amb.reaim_required(), ...
-                'unresolvable stop must keep the re-aim (keep-when-ambiguous)');
+            testCase.verifyFalse(amb.reaim_required(), ...
+                'object-space stop (no element) -> re-aim is a no-op -> skip');
             % elt mode uses the declared stop_elt (no engine query)
             el = macos.channels.GroupedRigidBodyChannel(s0, [9; 10], 0, ...
                 'stop_mode', 'elt', 'stop_elt', 5);

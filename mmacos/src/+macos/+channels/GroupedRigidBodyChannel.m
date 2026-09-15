@@ -352,14 +352,27 @@ classdef GroupedRigidBodyChannel < handle
                         tf = ~all(obj.members > stop_e);
                     end
                 case 'obj'
+                    % The stop is defined at an ELEMENT only when the engine
+                    % can report one (get_stop_info -> EltStopSet).  Then the
+                    % aim depends on the optics up to that element, so gate on
+                    % strictly-downstream.  Otherwise the "stop" is an
+                    % OBJECT-SPACE point (STOP OBJ) or unset: the chief ray is
+                    % aimed from the fixed source through a fixed global point,
+                    % which NO element motion can change -- so the re-aim is a
+                    % no-op and is skipped unconditionally (CCL 2026-09-14).
+                    % Gated by tDwDxGroups/test_smart_gate_preserves_jacobian
+                    % on the object-space-stop e5hex1 fixture.
+                    stop_e = 0;
                     try
                         si = obj.session.get_stop_info();
                         stop_e = si.elt;
-                        if stop_e > 0
-                            tf = ~all(obj.members > stop_e);
-                        end
                     catch
-                        tf = true;              % ambiguous -> re-aim
+                        stop_e = 0;             % object-space / no element stop
+                    end
+                    if stop_e > 0
+                        tf = ~all(obj.members > stop_e);
+                    else
+                        tf = false;             % object-space aim is invariant
                     end
             end
             obj.reaim_ = double(tf);
