@@ -95,6 +95,19 @@ P.bench.L2_Kr = -124.076; P.bench.L2_Kc = -0.5826;
 P.bench.qwp_ret = 0.25;  P.bench.pol_in_deg = 45;
 P.bench.qwp_test_deg = 0;  P.bench.qwp_ref_deg = 45;
 P.bench.out_qwp_deg = 0;   P.bench.analyzer_deg = 0;
+% ---- realism: real glass (BRIEF_ccmac_bench_realism item 3) ----------
+% PLATE_SUB = [n t]: the substrate every thin polarizing element is really
+% made on -- the input polarizer, both arm quarter-wave plates, the output
+% plate and the analyzer.  Two refracting faces around the ideal element,
+% which keeps its own station; stations DOWNSTREAM shift by t/2 per upstream
+% plate (measured: FocalMask +5.0 mm for five 2 mm plates), which the tail
+% retune absorbs.  ABSOLUTE mm, NOT scaled by s: a 2 mm fused-silica window
+% is 2 mm whatever the beam diameter.  [] = the record's ideal zero-thickness
+% elements.
+P.bench.PLATE_SUB   = [];          % e.g. [1.4585 2.0] for 2 mm fused silica
+P.bench.EDGE_MARGIN = 2.0;         % singlet edge thickness, ABSOLUTE mm
+                                   % (add_lens: centre = sag + this).  2.0 is
+                                   % the record; a 103 mm singlet wants 3-5.
 P.bench.tail_arch = 'fieldlens';
 % l2_trade tail winner (scaled *s in the runner); re-tuned per optics from
 % tg96_tail.mat when present (the tail was fit to L2 -- MUST re-run for OAP)
@@ -144,11 +157,42 @@ P.oap.OAP1_SIDE   = 1;   P.oap.OAP2_SIDE = 1;
 %                 mirror). Applied via macos.coating (= coat_set) to BOTH
 %                 OAPs (L1 collimator, L2 focuser) in BOTH arms -- shared
 %                 tail optics, so its retardance is a common-mode term.
+%   'qwAl'        the SAME stack at a QUARTER wave of the bench's own
+%                 632.8 nm (MgF2 n 1.38 -> 114.6 nm physical, half the
+%                 'protectedAl' thickness).  The engine's measured overcoat
+%                 rule (macos_f90/CLAUDE.md, "overcoat quarter-wave
+%                 reversal") is that the trade REVERSES across the
+%                 quarter-wave condition: at the true quarter wave of the
+%                 WORKING wavelength the coating's cross-polarization is
+%                 ~0.05x of bare, while off it the overcoat costs.  A film
+%                 is fixed glass and coat_set takes PHYSICAL thickness, so
+%                 the condition is a property of the pair (stack, lambda),
+%                 not of the stack alone.
 %   Thickness in mm (bench BaseUnits). Ignored when bench.optics ~= 'oap'.
-P.bench.coat_oap  = 'none';        % 'none' | 'bareAl' | 'protectedAl'
+P.bench.coat_oap  = 'none';        % 'none' | 'bareAl' | 'protectedAl' | 'qwAl'
 P.bench.coat_bareAl      = struct('index',1.373, 'extinc',7.62, 'thickness',1.0e-4);
 P.bench.coat_protectedAl = struct('index',[1.38 1.373], 'extinc',[0 7.62], ...
                                   'thickness',[2.293e-4 1.0e-4]);  % [MgF2 lambda/2 ; Al opaque]
+P.bench.coat_qwAl        = struct('index',[1.38 1.373], 'extinc',[0 7.62], ...
+                                  'thickness',[1.1464e-4 1.0e-4]);  % [MgF2 lambda/4 at 632.8 ; Al opaque]
+
+% ---- the camera (BRIEF_ccmac_bench_realism item 4) -------------------
+% The model's NGRID pixels across the pupil image are a SAMPLING FLOOR, not a
+% camera.  A real camera is named here, and the runner prints what it gives on
+% the pupil image this bench actually forms: raw pixels across the pupil, and
+% the binning that lands on the modeled count.  Shrinking the image to fit a
+% small-pitch sensor 1:1 would need an F/0.7 field lens; the right answer is
+% to keep the image and bin, which also helps the well depth (smaller pixels
+% spread the same photons over more wells).
+P.cam.name        = 'sCMOS 2048x2048';
+P.cam.pitch_um    = 6.5;           % the four-step / scalar camera
+P.cam.bin         = 4;             % binning that lands near P.NGRID
+P.cam.pol_name    = 'polarization sCMOS (micro-polarizer array, 0/45/90/135)';
+P.cam.pol_pitch_um = 3.45;         % the SNAPSHOT analyzer (item 3b): four
+                                   % orientations interleaved on the pixels,
+                                   % so one orientation gets every 2nd pixel
+                                   % in each direction -- the four frames are
+                                   % simultaneous, which is the whole point.
 
 % ---- battery selection ----------------------------------------------
 P.battery.piston_nm  = 20;

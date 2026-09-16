@@ -120,6 +120,13 @@ if want('figs')
         exportgraphics(fr, [P.tag '_sketch_ref.png'], 'Resolution', 140);  close(fr);
         fprintf('wrote %s_sketch.png + %s_sketch_ref.png (Bench.sketch)\n', P.tag, P.tag);
         draw_render_(bench, P);      % full raytrace render (view_rx): table plane + ISO
+        % A figure bug must NOT destroy an hour of loop results: this stage
+        % runs AFTER them and the run's value is already on disk.
+        try
+            stations_ifo_(P, bench.G, say);   % the station-by-station figure
+        catch ME
+            say('stations figure SKIPPED: %s\n', ME.message);
+        end
     end
 end
 
@@ -429,6 +436,7 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
         'optics',b.optics, oapargs{:}, 'BS_AOI',geom.AOI, ...
         'F1',s*b.F1, 'F2',s*b.F2, 'D_LENS',s*b.D_LENS, 'R_BAFFLE',s*b.R_BAFFLE, ...
         'D_SB',s*b.D_SB, 'BS_T',s*b.BS_T, 'D_L1_BS',s*b.D_L1_BS, ...
+        'PLATE_SUB',b.PLATE_SUB, 'EDGE_MARGIN',b.EDGE_MARGIN, ...
         'D_BS_TO',geom.D_BS_TO, 'D_BS_CMP',s*b.D_BS_CMP, 'R_TO_AP',s*b.R_TO_AP, ...
         'L1_Kr',s*b.L1_Kr, 'L1_Kc',b.L1_Kc, 'L2_Kr',-s*abs(b.L2_Kr), 'L2_Kc',b.L2_Kc, ...
         'to_grid_file',gf, 'to_grid_n',P.grid.N_G, 'to_grid_dx',P.grid.DX_G, ...
@@ -762,7 +770,14 @@ function battery = stage_matrix_(P, s, G, bench, say, place)
     % ---- break ladder: single-10nm differential vs increasing working state -
     say('Stage E break ladder -- single %dnm differential vs base rms (%s):\n', ...
         P.battery.diff_single_nm, P.bench.optics);
-    say('  %-10s %8s %10s %8s  %s\n','base rms','gain','floor pm','corr','note');
+    % the WRAP fraction is printed at EVERY rung, not only where the estimator
+    % breaks.  It used to ride inside the BROKE note, so a rig that held could
+    % not be compared with one that wrapped -- exactly the comparison item 2 of
+    % BRIEF_to_gauge_close needs (the OAP seed tail wraps from 120 nm where the
+    % lens rig never flags).  max|h| over the lit pupil in units of lambda/4:
+    % 1.00 means the base reading has saturated the four-step's unambiguous
+    % range and carries no surface there.
+    say('  %-10s %8s %10s %8s %7s  %s\n','base rms','gain','floor pm','corr','wrap','note');
     lad = P.battery.break_ladder;  brk = zeros(numel(lad),5);
     qwave = ctx.LAM/4;                               % per-pixel four-step wrap threshold (surface)
     for j = 1:numel(lad)
@@ -773,8 +788,8 @@ function battery = stage_matrix_(P, s, G, bench, say, place)
         g = (tv.'*av)/(tv.'*tv);  r = 1e9*sqrt(mean((av-tv).^2));  cc = corrcoef(av,tv);
         pwrap = max(abs(hb(msk)));                    % how far the base reading reaches vs lambda/4
         broke = ~isfinite(g) || g < 0 || g > 3 || cc(1,2) < 0.3;   % estimator diverged (the WRAP symptom)
-        note = iff_(broke, sprintf('BROKE (wrap: base reads %.2f of lambda/4)', pwrap/qwave), '');
-        say('  %6.0f nm %8.4f %10.1f %8.4f  %s\n', lad(j), g, r, cc(1,2), note);
+        note = iff_(broke, 'BROKE', '');
+        say('  %6.0f nm %8.4f %10.1f %8.4f %7.2f  %s\n', lad(j), g, r, cc(1,2), pwrap/qwave, note);
         brk(j,:) = [lad(j) g r cc(1,2) double(broke)];
     end
     % ---- item 3b: regularization sweep on the dense-random row; is the OAP
@@ -1307,7 +1322,8 @@ JZ = struct('case',{},'ret_mean_mrad',{},'ret_var_mrad',{},'V_band',{},'V_edge',
 if ~strcmp(P.bench.optics,'oap'), say('\nStage JONES: OAP rig only; skipped.\n'); return; end
 QWP = P.QWP;  THETAS = P.THETAS;
 rxT = [P.tag '_test.in'];  rxR = [P.tag '_ref.in'];
-cases = {'ideal',[]; 'bareAl',P.bench.coat_bareAl; 'protectedAl',P.bench.coat_protectedAl};
+cases = {'ideal',[]; 'bareAl',P.bench.coat_bareAl; 'protectedAl',P.bench.coat_protectedAl; ...
+         'qwAl',P.bench.coat_qwAl};   % the quarter-wave overcoat: the half-wave film's partner
 say('\n---- Stage JONES (item B): OAP-fold retardance + fringe visibility ----\n');
 say(['L1 (collimating OAP fold) retardance via jones_pupil+pol_maps (double-pole, mrad; ' ...
     'mean = a state, var = the aberration), and the four-step fringe visibility ' ...
@@ -1616,7 +1632,8 @@ switch P.bench.coat_oap
     case {'none',''},   cs = [];
     case 'bareAl',      cs = P.bench.coat_bareAl;
     case 'protectedAl', cs = P.bench.coat_protectedAl;
-    otherwise, error('tg96_run: bench.coat_oap must be none | bareAl | protectedAl');
+    case 'qwAl',        cs = P.bench.coat_qwAl;
+    otherwise, error('tg96_run: bench.coat_oap must be none | bareAl | protectedAl | qwAl');
 end
 end
 
@@ -1662,11 +1679,13 @@ function place = stage_place_(P, s, G, bench, say)
     % ---- bootstrap: the ray affine (carries the fold rotation) --------------
     PL = tg96_place(ctx.AT, G.T, cfg, msk, N_G, DX_G, P.POKE, ctx.measf, P.place, h0);
     frm = PL.frm;  ang = atan2d(frm.Lm(2,1), frm.Lm(1,1));
-    say('  ray affine: mag %.4f DM-mm/det-mm, det %.4f, in-plane rotation %+.2f deg, dxd %.4e mm\n', ...
-        PL.mag, det(frm.Lm), ang, PL.dxd_mm);
+    say(['  ray affine: mag %.4f DM-mm/det-mm, det %.4f, in-plane rotation %+.2f deg, ' ...
+         'dxd %.4e mm -> %.3f detector px per actuator\n'], ...
+        PL.mag, det(frm.Lm), ang, PL.dxd_mm, cfg.pitch/(PL.mag*PL.dxd_mm));
     say('  anchor: blob px (%.2f,%.2f) <-> DM (%.3f,%.3f) mm; field parity [t=%d su=%+d sv=%+d] (ref-poke err %.2f px)\n', ...
         PL.anchor(1),PL.anchor(2),PL.anchor(3),PL.anchor(4), PL.parity(1),PL.parity(2),PL.parity(3), PL.ref.err(PL.ref.ib));
     say('  lit actuators: %d of %d\n', nnz(PL.lit), nact^2);
+    cam_line_(P, say, PL.dxd_mm, msk);
     % ---- ONE measurement pass: each lit actuator's response CoM, windows
     %      centred on the bootstrap placement (generous, half-inter-poke) -----
     mmpx = PL.mag * PL.dxd_mm;                          % DM-mm per detector pixel
@@ -2221,4 +2240,121 @@ function [map, reg] = register_two_pokes(A, ix, MpA, hpA, MpB, hpB, N_G, DX_G, m
     end
     st = sort(abs(tab),'descend');  reg.runner_up = st(2);  reg.table = tab;  reg.sign = sign(reg.pokeB_corr);
     map.Xt = reg.Xt;  map.Yt = reg.Yt;
+end
+
+function cam_line_(P, say, dxd_mm, msk)
+%CAM_LINE_  The camera, on the pupil image this bench actually forms.
+%   The modeled pixel is dxd_mm; the pupil's diameter comes from the lit mask
+%   (equal-area circle), so this is the traced image, not a design intent.
+%   Realism item 4: name the camera, give its pitch, and say what binning
+%   lands on the modeled pixel count -- the model's NGRID is a sampling floor,
+%   not a sensor.
+if ~isfield(P, 'cam'), return; end
+d_pup_px = sqrt(4*nnz(msk)/pi);
+d_pup_mm = d_pup_px * dxd_mm;
+raw = d_pup_mm / (P.cam.pitch_um*1e-3);
+say(['  camera: pupil image %.2f mm across (%.0f modeled px at %.1f um); ' ...
+     '%s at %.2f um -> %.0f raw px across the pupil, binned %d = %.0f ' ...
+     '(modeled %.0f)\n'], ...
+    d_pup_mm, d_pup_px, dxd_mm*1e3, P.cam.name, P.cam.pitch_um, raw, ...
+    P.cam.bin, raw/P.cam.bin, d_pup_px);
+if isfield(P.cam, 'pol_pitch_um')
+    say(['    snapshot analyzer: %s at %.2f um -> %.0f px across the pupil, ' ...
+         '%.0f per orientation (four simultaneous frames, no rotating stage)\n'], ...
+        P.cam.pol_name, P.cam.pol_pitch_um, d_pup_mm/(P.cam.pol_pitch_um*1e-3), ...
+        d_pup_mm/(P.cam.pol_pitch_um*1e-3)/2);
+end
+end
+
+function stations_ifo_(P, G, say)
+%STATIONS_IFO_  The key signals along the interferometer, two states.
+%   BRIEF_ccmac_bench_realism item 8 / BRIEF_to_gauge_close item 6: the
+%   sensors have this figure (zwfs_run's stations_fig_); this is its
+%   interferometer twin, so a reader can follow one measurement from the
+%   mirror command to the picometers of residual without taking the gauge on
+%   faith.
+%
+%   Row 1 the flat DM, row 2 the working surface (battery.base_rms rms, seed
+%   battery.seed_base).  Seven columns: the mirror command (nm); the TEST
+%   arm's pupil field at the detector (intensity, that arm alone); the
+%   REFERENCE arm's; two of the four phase-stepped frames (the first two
+%   steps); the recovered surface (nm); and the recovered map minus the
+%   ENGINE's own field at the detector (pm) -- the last is the gauge's error,
+%   not a model of it.
+%
+%   Every panel is the tool's own output: no re-rendering, no colour-scale
+%   surgery (Dave's deck rule).  The pupil is cropped to its box so the
+%   panels are not mostly black.
+ctx = arm_setup_(P, G);
+msk = ctx.msk;  LAM = ctx.LAM;  QWP = ctx.QWP;  TH = ctx.THETAS;
+N_G = P.grid.N_G;  DX_G = P.grid.DX_G;  cfg = P.dm(1);
+[mr, mc] = find(msk);  pw = 4;
+pr = max(1,min(mr)-pw):min(size(msk,1), max(mr)+pw);
+pc = max(1,min(mc)-pw):min(size(msk,2), max(mc)+pw);
+crop = @(A) A(pr, pc);
+rng(P.battery.seed_base);
+nact = cfg.nact;
+Ab = P.battery.base_rms * randn(nact);          % the working surface's command
+states = {zeros(nact), Ab};
+rown = {'flat DM', sprintf('%.0f nm rms working surface', P.battery.base_rms*1e6)};
+dmap = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
+
+f = figure('Color','w', 'Position',[40 40 1800 560], 'Visible','off');
+tl = tiledlayout(f, 2, 7, 'Padding','compact', 'TileSpacing','tight');
+resid_pm = [NaN NaN];
+for r = 1:2
+    A = states{r};  M = dmap(A);
+    Sx = analyzer_basis(ctx.AT, QWP, M);            % the test arm, this state
+    It = sum(abs(synth(Sx, 0)).^2, 3);              % that arm ALONE
+    Ir = sum(abs(synth(ctx.Sr, 0)).^2, 3);          % the reference arm alone
+    F1 = frame(Sx, ctx.Sr, TH(1));  F2 = frame(Sx, ctx.Sr, TH(2));
+    h  = meas_surface(ctx.AT, QWP, M, ctx.Sr, ctx.p_null, TH, LAM);
+    % the engine's own field at the detector for this state, same arm
+    load_arm(ctx.AT, QWP, 0, M);
+    Et = macos.complex_field(ctx.AT.iDET);
+    load_arm(ctx.AT, QWP, 0, zeros(N_G));
+    E0 = macos.complex_field(ctx.AT.iDET);
+    ht = angle(exp(1i*(angle(Et) - angle(E0)))) * LAM/(4*pi);
+    d  = h - ht;  d = d - median(d(msk));
+    resid_pm(r) = 1e9*sqrt(mean(d(msk).^2));
+
+    pan(tl, 1e6*interp_to_(A, size(msk)), [], 'mirror command, nm', rown{r}, crop, msk, false);
+    pan(tl, It, [], 'test arm at the detector', '', crop, msk, true);
+    pan(tl, Ir, [], 'reference arm', '', crop, msk, true);
+    % THETAS are ANALYZER angles; in this polarization four-step they are the
+    % phase steps 0, pi/2, pi, 3pi/2 -- so these two panels are the first two
+    % steps, which is what the brief asks to show.
+    pan(tl, F1, [], sprintf('frame: analyzer %.0f deg (step 0)', TH(1)), '', crop, msk, true);
+    pan(tl, F2, [], sprintf('frame: analyzer %.0f deg (step pi/2)', TH(2)), '', crop, msk, true);
+    pan(tl, 1e6*h, msk, 'recovered surface, nm', '', crop, msk, false);
+    pan(tl, 1e9*d, msk, sprintf('minus the engine, pm (%.1f rms)', resid_pm(r)), '', crop, msk, false);
+end
+title(tl, sprintf('TG96 %s rig -- one measurement, station by station (tag %s)', ...
+      P.bench.optics, P.tag), 'Interpreter','none', 'FontSize',13);
+exportgraphics(f, [P.tag '_stations.png'], 'Resolution', 150);  close(f);
+say('stations figure %s_stations.png: recovered minus the engine''s field on msk %.2f pm (flat), %.2f pm (%.0f nm rms)\n', ...
+    P.tag, resid_pm(1), resid_pm(2), P.battery.base_rms*1e6);
+end
+
+function pan(tl, A, m, ttl, ylab, crop, msk, logscale)
+%PAN  one station panel: the tool's own image, cropped to the pupil box.
+ax = nexttile(tl);
+B = A;
+if ~isempty(m), B(~msk) = NaN; end
+if logscale, B = log10(max(B, max(B(:))*1e-6)); end
+imagesc(ax, crop(B));  axis(ax, 'image', 'off');
+colormap(ax, 'parula');  colorbar(ax, 'southoutside', 'FontSize',9);
+title(ax, ttl, 'Interpreter','none', 'FontSize',10);
+if ~isempty(ylab)
+    text(ax, -0.08, 0.5, ylab, 'Units','normalized', 'Rotation',90, ...
+         'HorizontalAlignment','center', 'Interpreter','none', 'FontSize',11);
+end
+end
+
+function B = interp_to_(A, sz)
+%INTERP_TO_  the actuator command shown on the detector's own grid size, so
+%   the first panel lines up visually with the rest.  Nearest-neighbour: this
+%   is a COMMAND, a lattice of numbers, not a surface.
+[x, y] = meshgrid(linspace(1, size(A,2), sz(2)), linspace(1, size(A,1), sz(1)));
+B = interp2(1:size(A,2), (1:size(A,1)).', A, x, y, 'nearest', 0);
 end
