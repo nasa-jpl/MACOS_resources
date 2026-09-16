@@ -15,11 +15,11 @@ Dave pushes. The realism and field-servo reports link back to this table.
 |---|---|---|---|
 | 0 | commit the untracked record files | — | **done** — the tag census below |
 | 1 | vector pair on the redesign: rows, overcoat, verdict | §5.1 | **done** — rows hold uncalibrated; G4 634 bare / 319 quarter-wave overcoat / 199 bench-calibrated / **0.054 pm PASS** polarimetric. The variable is the channel PHASE, not the amplitude; fold lever stays unpulled. `vqw22` `vmap22` `vfit22` `vamp22` |
-| 2 | item 4's loop + descent + the 120 nm wrap explained | 4.7 | **(b) and the servo DONE; descent running; (a) staged** -- premise overturned (the record's lens ladder is a 7 deg bench); sampling and measurement amplitude EXCLUDED by measurement. Servo: **1.7e13 photons/cycle for 3 pm under the 2 pm walk**, thermal floors at 10.0 pm and is LOW-ORDER (9.24 of it below 4 cyc/ap). Both drift floors analytic, engine reproduces them to 1%. `oapuw2` `lensuw2` `oapifol2` done |
+| 2 | item 4's loop + descent + the 120 nm wrap explained | 4.7, **4.7(a)** | **DONE** -- (a) closed 2026-09-16: the break is the BASE READING WRAPPING and BOTH rigs do it between 60 and 120 nm, saturating at the analytic 316.4/sqrt(12) = **91.34 nm**; "the reflective rig has a smaller capture range" comes OFF the deck. The ladder's dA-vs-dD arithmetic is innocent (n_cross <= 5 px in 1e5), but each crossing is a full lambda/2 and swamps any second moment -- read n_cross, never corr. Servo: **1.7e13 photons/cycle for 3 pm under the 2 pm walk**, thermal floors at 10.0 pm and is LOW-ORDER (9.24 of it below 4 cyc/ap). Descent: both starts converged (r(K) 2.344 / 2.345 pm, rho 0.502 / 0.515, 0 recals); its exit 1 was `draw_loop_` on an empty drift list AFTER the results, now guarded. `oapuw2` `lensuw2` `oapifol2` `oapdesc2` `wrapoap` `wraplens` |
 | 3 | tail tuner gated by a battery row; README | README + 4.5 | **NOT DONE -- the gate failed its own two-leg test.** `objwin3` (battery 0.0338) was ACCEPTED at 0.9804; `lens_tail` (battery 0.9968) was REFUSED at -0.8285. A POINT SAMPLE at the actuator's pixel tracks MAGNIFICATION, not readability (the broken tail's mag 6.125 vs the seed's 10.44 dilutes less and reads higher). Made ADVISORY before item 4 could use it. Needs `dmg_act_fit` over the lattice; the same two legs are the test |
 | 4 | realism 3-5: thicknesses, substrates, camera | `REPORT_bench_realism.md` | **builder + runner in**, runs queued (`runs/item4seq.sh`): `substrate` / `MASK_SUB` / `EDGE_MARGIN` on Bench + twyman_green, `bench.MASK_TRIM 'scan'` so the mask re-finds its focus under glass, the camera printed from `P.cam` |
 | 5 | realism 6: snapshot polarization at the built angles | `REPORT_bench_realism.md` | **tool in**, queued (`runs/aoiseq.sh`): `tg_aoi_ladder` gained the OAP rig and two columns -- the analyzer-sweep CORRECTION (free: the basis already spans every angle) and the RESIDUAL a measured matrix cannot absorb |
-| 6 | realism 8: the interferometer's station figure, both rigs | `REPORT_bench_realism.md` | **runner in** (`stations_ifo_`, 2x7, guarded so a figure bug cannot destroy an hour of loop results); produced by the `figs` stage of `oapifol2` / `oapdesc2` |
+| 6 | realism 8: the interferometer's station figure, both rigs | `REPORT_bench_realism.md` | **DONE** -- both rigs at the width the brief asks for: `stnoap` / `stnlens`, **1800 x 560 px** (the pre-patch `oapifol2` figure was 2558 x 838; `exportgraphics` at Resolution 150 does not land at the figure's pixel width, `print -dpng -r96` on this 96 dpi box does, and it is the ZWFS sibling's own mechanism, which the deck holds beside it) |
 | 7 | the coronagraph field servo, three steps | `bench_ctb/REPORT_field_servo.md` | **step 0 open and probed** -- the note's 33-cycle separability prediction pairs a 0.67 mm pitch with a 42.8 mm beam, and 32 x 0.67 = 21.4; the CTB documents contradict each other on radius vs diameter, so `ctb_beam_probe.m` asks the engine. Steps 1-3 not started |
 
 **Reading order.** Sections are appended in DISCOVERY order, not numeric order,
@@ -1917,3 +1917,55 @@ own 2.31 pm floor and is the term that decides whether 3 pm is met.
 
 Rows of record for the reflective rig are therefore `oapifo2` (§4.6) + this,
 with `oapdesc2` to follow for the descent.
+
+### 4.7(a) RESOLVED — the break is the BASE READING WRAPPING, and both rigs do it at the same rung
+
+`wrapoap` / `wraplens`, the new `wrap` stage: the ladder differential formed
+BOTH ways at every rung, with the two quantities the saturating `max|h|` meter
+could not supply. λ/4 = 158.2 nm of surface; the deviation is a 10 nm
+single actuator.
+
+| base rms | OAP meas rms | lens meas rms | OAP n_cross | lens n_cross |
+|---|---|---|---|---|
+| 30 nm | 33.0 nm | 31.1 nm | 0 | 0 |
+| 60 nm | 64.1 nm | 61.5 nm | 0 | 0 |
+| 120 nm | **90.2 nm** | **88.7 nm** | 2 (0.002 %) | 0 |
+| 240 nm | **92.1 nm** | **91.0 nm** | 0 | 1 (0.001 %) |
+| 480 nm | **91.9 nm** | **90.9 nm** | 0 | 5 (0.004 %) |
+
+**The measured rms SATURATES at 91 nm, and the saturation value is analytic.**
+A four-step reading is the surface modulo λ/2 = 316.4 nm, so a base the sensor
+cannot follow is a reading distributed uniformly across that range, whose rms
+is 316.4/√12 = **91.34 nm**. Measured: 90.2 / 92.1 / 91.9 on the OAP rig and
+88.7 / 91.0 / 90.9 on the lens rig. There is no fitted constant here — the
+number is the width of the unambiguous range and nothing else, which is why
+both rigs land on it.
+
+**Both rigs break between 60 and 120 nm, and by 120 nm both are saturated**
+(98.8 % and 97.1 % of the analytic value). The rungs at 30 and 60 nm track the
+commanded surface on both (the OAP rig reads 10.0 % and 6.8 % high, the lens
+rig 3.7 % and 2.5 %; the excess falls with the rung, so it is not a fixed
+additive background, and it is not pursued here). **"The reflective rig has a
+smaller capture range" therefore comes off the deck** — the capture range is
+λ/2 of surface on both, it is set by the four-step reading and not by the
+optics, and the rig-to-rig difference in which rung the battery flagged is not
+a capture-range difference. With sampling already excluded twice over (7 %, and
+in the wrong direction, §4.7 above), nothing rig-specific survives.
+
+**The ladder's own arithmetic is innocent.** dA (the difference of two wrapped
+absolutes) and dD (the wrapped difference of the two phases) agree pixel for
+pixel at every rung but three, where they differ at 2, 1 and 5 pixels out of a
+~10⁵-pixel mask.
+
+**But a handful of crossings still poisons a second-moment meter, and that is
+the caution worth carrying.** Each crossing is a FULL λ/2, so it dominates any
+rms or correlation taken over the mask. Two crossed pixels in 10⁵ predict an
+rms(dA−dD) of √(2·316.4²/10⁵) = 1.41 nm against 1.31 nm measured; the lens
+rig's five in 1.25·10⁵ predict 2.00 nm against 2.08 nm measured. The same two
+pixels take corr(dA,dD) from exactly 1.00000 to −0.098 — against a 10 nm
+deviation signal, two 316 nm outliers swamp the second moment. So `n_cross` is
+the meter to read, and a correlation collapse on a ladder rung should be read
+as "a few pixels crossed", never as "the differential is wrong".
+
+Tags `wrapoap`, `wraplens`. This closes item 2(a); the wrap mechanism needed a
+meter that does not saturate, which is what the staged patch supplied.
