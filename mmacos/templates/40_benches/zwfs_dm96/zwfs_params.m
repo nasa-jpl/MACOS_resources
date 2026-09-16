@@ -86,6 +86,11 @@ P.bench.PLATE_SUB   = [];    % realism item 3: [n t], the SUBSTRATE every thin p
                              % two refracting faces around the ideal element, which keeps its own
                              % station.  ABSOLUTE mm, not scaled.  [] = the record's ideal elements.
 P.bench.EDGE_MARGIN = 2.0;   % singlet edge thickness, ABSOLUTE mm (add_lens centre = sag + this)
+P.bench.MASK_SUB    = [];    % [n t]: the MASK's own plate, in the CONVERGING beam.  Defined here for
+                             % documentation -- zwfs_run sweeps P.bench into twyman_green, so an
+                             % override reaches the builder whether or not the field pre-exists.
+                             % tg96_run does NOT sweep: it forwards an explicit list, which is how
+                             % MASK_SUB came to be accepted by the sheet and silently dropped there.
 P.bench.MASK_TRIM = -5.582;  % thin-lens seed -> true focus (S1 rounds 2-5).  The string 'scan'
                              % re-finds it at run time (maximize the mask-plane peak/sum) --
                              % use it whenever the GLASS moves the focus: PLATE_SUB or a mask
