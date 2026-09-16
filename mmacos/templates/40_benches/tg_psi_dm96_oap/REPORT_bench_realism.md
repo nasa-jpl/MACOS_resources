@@ -274,3 +274,55 @@ to change the PROJECTION — using the measured azimuths to build non-uniform
 steps, or rescaling by the arms' non-orthogonality — not to rotate all four
 angles together. The `resid` column is unaffected by any of this, since it is
 computed from the gain map's own scatter about its median.
+
+## 6. Item 6 — the interferometer's station figure, both rigs (`stnoap`, `stnlens`)
+
+Both figures exist, at the width the brief asks for: **1800 × 560 px**. The
+pre-patch figure was 2558 × 838 — `exportgraphics` at `Resolution 150` does not
+land on a figure's pixel width, `print -dpng -r96` does on this 96 dpi box, and
+that is the mechanism the ZWFS sibling already uses, which the deck holds beside
+this one.
+
+**The OAP figure is unchanged by the patch, and that is asserted rather than
+assumed.** `stnoap` reports `0.00 pm (flat), 626.43 pm (30 nm rms)` — bit for
+bit what `oapifol2` reported before the patch and before the item-3 gate work.
+So the width change and the `MASK_SUB`/camera edits are inert on this path.
+
+### OPEN — the lens leg's station residual is 100× the OAP leg's, and it is new information
+
+| rig | flat DM | 30 nm rms working surface |
+|---|---|---|
+| OAP (`stnoap`, `oapifol2`) | 0.00 pm | **626.43 pm** |
+| lens (`stnlens`) | 0.00 pm | **62 067.17 pm = 62.1 nm** |
+
+This is the **first lens station figure ever made** (the brief asked for it
+precisely because there was none), so there is no baseline it regressed from,
+and the OAP leg's bit-identical number rules out the patch as the cause.
+
+**What the number is.** The last panel is `d = h − ht`: the four-step recovered
+surface minus the ENGINE's own phase difference at the detector,
+`ht = angle(exp(i·(∠Et − ∠E0)))·λ/4π`. Both are wrapped quantities with an
+unambiguous range of ±λ/4 = ±158.2 nm of surface. It is the gauge's error, not
+a model of it.
+
+**What the signature says.** The residual is **exactly 0.00 pm at the flat DM on
+both rigs** and only diverges once there is structure to disagree about; on the
+lens rig the residual panel is ±200 nm while the recovered surface is ±100 nm,
+i.e. the difference is LARGER than either map — which is what two uncorrelated
+maps of the same rms give (√2 × 44 nm ≈ 62 nm). A residual that vanishes at
+flat and reaches √2 × the map with structure is the signature of a **lateral
+misregistration between the recovered map and the engine field**, not of a noise
+floor or of an amplitude error.
+
+**Not chased here, deliberately.** The queue's item 6 is the figure and the
+figure is delivered; this is a separate defect on a leg that had never been
+measured. The next step is cheap and specific: correlate `d` against `h` shifted
+over a few pixels and read off the offset, then decide whether it is the lens
+rig's `MASK_TRIM` (`zwfs_params` carries −5.582 for this rig where the OAP needs
+0) or the engine-field comparison picking a different pupil station.
+
+**For the deck: do not put the two numbers side by side yet.** The OAP slide's
+626 pm stands. The lens figure is sound as a picture of the signal chain — the
+first six panels are the tool's own output and read correctly — but its seventh
+panel's headline number is an open defect, and 626 pm against 62 067 pm on one
+slide would assert a rig-to-rig quality difference that is not established.
