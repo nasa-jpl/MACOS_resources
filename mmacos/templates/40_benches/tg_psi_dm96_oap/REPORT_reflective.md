@@ -69,23 +69,29 @@ artifact nothing cites is noise.
 
 ## What is running, and how to pick it up
 
-**THE CLOSE-OUT QUEUE (current).** Everything is chained so it runs unattended;
-each job writes `runs/<tag>/<tag>_*` and its exit code to `runs/<tag>.log`.
-Read this table, then `grep exit runs/*.log`, then continue from the first row
-not done.
+**THE CLOSE-OUT QUEUE — DRAINED 2026-09-16 09:19.** Every job below finished
+with exit 0. Kept as the record of what produced what.
 
 | # | job | script | state |
 |---|---|---|---|
-| 1 | `oapuw2`, `lensuw2` | `runs/item2seq.sh` | **done** — item 2(b), §4.7 |
-| 2 | `oapifol2` (the servo, 14 loop runs) | `runs/item2seq.sh` | **running**, ~22 min/run |
-| 3 | `oapdesc2` (the descent, 2 starts) | `runs/item2dseq.sh` | queued |
-| 4 | `gate3_win`, `gate3_lens` | `runs/gateseq3.sh` ← `closechain4` | queued — item 3's gate |
-| 5 | `aoi_lens22`, `aoi_oap22` | `runs/aoiseq.sh` ← `closechain4` | queued — item 5 |
-| 6 | item 4's six runs | `runs/item4seq.sh` ← `closechain5` | queued |
-| 7 | `ctb_beam_probe` | `closechain5` | queued — item 7 step 0 |
-| 8 | `wrapoap`, `wraplens` | `runs/item2bseq.sh` ← `closechain6` | queued — **needs the staged patch applied first**; the chain refuses to start without it |
+| 1 | `oapuw2`, `lensuw2` | `runs/item2seq.sh` | done — item 2(b), §4.7 |
+| 2 | `oapifol2` (the servo, 14 loop runs) | `runs/item2seq.sh` | done — §4.7 |
+| 3 | `oapdesc2` (the descent, 2 starts) | `runs/item2dseq.sh` | done — both starts converged (r(K) 2.344 / 2.345 pm, ρ 0.502 / 0.515, 0 recals). Its `exit 1` was `draw_loop_` on an empty drift list AFTER the results; guarded since |
+| 4 | `gate3_win`, `gate3_lens` | `runs/gateseq3.sh` | superseded by the 3-leg `closefinal4.sh` (§4.8) |
+| 5 | `aoi_lens22`, `aoi_oap22` | `runs/aoiseq.sh` | done — item 5 |
+| 6 | item 4's six runs | `runs/item4seq.sh` | done |
+| 7 | `ctb_beam_probe` | `closefinal5` | done — item 7 step 0, the retraction |
+| 8 | **the staged patch** | `runs/apply_tg96_pending.py` | **APPLIED 2026-09-16**, `7aac1d8` |
+| 9 | `wrapoap`, `wraplens` | `runs/item2bseq.sh` ← `closefinal2` | done — **item 2(a) closed**, §4.7(a) |
+| 10 | `stnoap`, `stnlens` | `runs/item2bseq.sh` ← `closefinal2` | done — item 6's figures at 1800 px |
+| 11 | `thk22_tail`, `thk22` | `runs/item4bseq.sh` ← `closefinal2` | done — item 4's rows on the TUNED tail |
+| 12 | `gate3_win`, `gate3_lens`, `gate3_thk` | `runs/closefinal4.sh` | done — item 3's measure, §4.8 |
 
-**THE ONE MANUAL STEP.** `runs/apply_tg96_pending.py` (with `stage_wrap.m.txt`
+`closefinal2.sh` chained steps 2 and 3 gating on each wrapper's own `] exit`
+marker; `closefinal4.sh` added the third gate leg (the battery calibration) and
+ran all three after `thk22`.
+
+**THE ONE MANUAL STEP — DONE 2026-09-16 (`7aac1d8`).** `runs/apply_tg96_pending.py` (with `stage_wrap.m.txt`
 beside it) patches `tg96_run.m`, `tg96_params.m` and `tg96_tail.m` — the
 saturating ladder meter, the `wrap` stage, the camera line, the dropped
 `MASK_SUB`, the stations figure's width. It is NOT applied automatically because
