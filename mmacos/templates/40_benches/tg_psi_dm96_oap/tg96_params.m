@@ -12,7 +12,7 @@ function P = tg96_params()
 % ---- run control -----------------------------------------------------
 P.tag    = 'lens';                 % names runs/<tag>/<tag>_report.txt
 P.outdir = '';                     % '' => <this dir>/runs/<tag>
-P.stages = {'bench','battery','figs'};   % clearance | bench | battery | figs
+P.stages = {'bench','battery','figs'};   % clearance | bench | battery | figs | loop | wrap
                                    %  'clearance' prints dmg_bench_clearance's
                                    %  part-by-part table into the report (it traces
                                    %  both arms at P.MODEL before Stage B builds)
@@ -105,6 +105,13 @@ P.bench.out_qwp_deg = 0;   P.bench.analyzer_deg = 0;
 % is 2 mm whatever the beam diameter.  [] = the record's ideal zero-thickness
 % elements.
 P.bench.PLATE_SUB   = [];          % e.g. [1.4585 2.0] for 2 mm fused silica
+P.bench.MASK_SUB    = [];          % [n t]: the MASK's own plate, in the CONVERGING
+                                   % beam -- the one place a plane-parallel plate is not
+                                   % just path.  Its faces go ahead of the sandwich's
+                                   % entrance sphere and INSIDE the existing gap, so the
+                                   % mask does not move and the cost (W040 + a t*(1-1/n)
+                                   % focus shift) is measurable rather than mixed with a
+                                   % geometry change.  ABSOLUTE mm.
 P.bench.EDGE_MARGIN = 2.0;         % singlet edge thickness, ABSOLUTE mm
                                    % (add_lens: centre = sag + this).  2.0 is
                                    % the record; a 103 mm singlet wants 3-5.
