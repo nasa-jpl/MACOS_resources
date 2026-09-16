@@ -314,12 +314,24 @@ flat and reaches √2 × the map with structure is the signature of a **lateral
 misregistration between the recovered map and the engine field**, not of a noise
 floor or of an amplitude error.
 
+**One clue, from the two runs' own printouts.** The legs did not run on the same
+kind of tail: `stnoap` used the **geometric seed** (`Tail: geometrically-scaled
+seed (no oap_tail.mat)`) — the OAP rig's tail of record — while `stnlens` used
+the **re-tuned** `lens_tail.mat` (`null 0.134 nm at opt res; seed 9.100`). So the
+leg that reads 62 nm is the tuned one and the leg that reads 626 pm is the seed
+one. That is a correlation and not yet a cause — the station figure's `h − ht`
+comparison is a different path from the battery that certifies `lens_tail` at
+0.9968 — but it is the first thing to vary, and it is free to vary
+(`bench.tail_from_mat false` on the lens leg).
+
 **Not chased here, deliberately.** The queue's item 6 is the figure and the
 figure is delivered; this is a separate defect on a leg that had never been
-measured. The next step is cheap and specific: correlate `d` against `h` shifted
-over a few pixels and read off the offset, then decide whether it is the lens
-rig's `MASK_TRIM` (`zwfs_params` carries −5.582 for this rig where the OAP needs
-0) or the engine-field comparison picking a different pupil station.
+measured. The next steps are cheap and specific, in order: re-run `stnlens` with
+`bench.tail_from_mat false` and see whether the residual collapses to the OAP's
+order; then correlate `d` against `h` shifted over a few pixels and read off the
+offset; then decide whether it is the lens rig's `MASK_TRIM` (`zwfs_params`
+carries −5.582 for this rig where the OAP needs 0) or the engine-field
+comparison picking a different pupil station.
 
 **For the deck: do not put the two numbers side by side yet.** The OAP slide's
 626 pm stands. The lens figure is sound as a picture of the signal chain — the
