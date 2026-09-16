@@ -79,13 +79,17 @@ assert(P.grid.N_G <= macos.grid_size_max(), ...
     'N_G %d exceeds mGridMat %d at model %d', P.grid.N_G, macos.grid_size_max(), P.MODEL);
 macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G));
 bench = struct('geom', geom, 's', s);
-if want('bench') || want('battery') || want('deck') || want('loop') || want('jones')
+if want('bench') || want('battery') || want('deck') || want('loop') || want('jones') || want('wrap')
     [G, bench] = stage_B_(P, s, geom, say, exdir);
 end
 
 place = struct();
 if want('place')
     place = stage_place_(P, s, G, bench, say);
+end
+
+if want('wrap')
+    stage_wrap_(P, s, G, bench, say);
 end
 
 battery = struct();
@@ -436,7 +440,7 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
         'optics',b.optics, oapargs{:}, 'BS_AOI',geom.AOI, ...
         'F1',s*b.F1, 'F2',s*b.F2, 'D_LENS',s*b.D_LENS, 'R_BAFFLE',s*b.R_BAFFLE, ...
         'D_SB',s*b.D_SB, 'BS_T',s*b.BS_T, 'D_L1_BS',s*b.D_L1_BS, ...
-        'PLATE_SUB',b.PLATE_SUB, 'EDGE_MARGIN',b.EDGE_MARGIN, ...
+        'PLATE_SUB',b.PLATE_SUB, 'EDGE_MARGIN',b.EDGE_MARGIN, 'MASK_SUB',b.MASK_SUB, ...
         'D_BS_TO',geom.D_BS_TO, 'D_BS_CMP',s*b.D_BS_CMP, 'R_TO_AP',s*b.R_TO_AP, ...
         'L1_Kr',s*b.L1_Kr, 'L1_Kc',b.L1_Kc, 'L2_Kr',-s*abs(b.L2_Kr), 'L2_Kc',b.L2_Kc, ...
         'to_grid_file',gf, 'to_grid_n',P.grid.N_G, 'to_grid_dx',P.grid.DX_G, ...
@@ -777,8 +781,9 @@ function battery = stage_matrix_(P, s, G, bench, say, place)
     % lens rig never flags).  max|h| over the lit pupil in units of lambda/4:
     % 1.00 means the base reading has saturated the four-step's unambiguous
     % range and carries no surface there.
-    say('  %-10s %8s %10s %8s %7s  %s\n','base rms','gain','floor pm','corr','wrap','note');
-    lad = P.battery.break_ladder;  brk = zeros(numel(lad),5);
+    say('  %-10s %8s %10s %8s %9s %7s  %s\n', 'base rms','gain','floor pm','corr', ...
+        'meas rms','fold','note');
+    lad = P.battery.break_ladder;  brk = zeros(numel(lad),7);
     qwave = ctx.LAM/4;                               % per-pixel four-step wrap threshold (surface)
     for j = 1:numel(lad)
         rng(P.battery.base_rand_seed);  bb = zeros(nact);
@@ -786,11 +791,24 @@ function battery = stage_matrix_(P, s, G, bench, say, place)
         hb = measr(bb);  hbd = measr(bb + d_sng);
         adev = est(hbd - hb);  tv = d_sng(litmask);  av = adev(litmask);
         g = (tv.'*av)/(tv.'*tv);  r = 1e9*sqrt(mean((av-tv).^2));  cc = corrcoef(av,tv);
-        pwrap = max(abs(hb(msk)));                    % how far the base reading reaches vs lambda/4
+        % The base reading's MEASURED rms, and the FRACTION of the lit pupil
+        % within 2 % of the four-step fold.  max|h| was the meter here and it
+        % SATURATES: measured on oapuw2 it reads 1.00 of lambda/4 at 60, 120,
+        % 240 and 480 nm alike, so it cannot tell a rung that holds from one
+        % that breaks.  The fraction is what the ZWFS battery reports
+        % (fold0/fold) and what the wrapped-absolute subtraction actually
+        % scales with -- the difference measr(bb+d)-measr(bb) is exact wherever
+        % both maps wrapped equally and wrong by lambda/2 at the pixels the
+        % poke pushes across a boundary.  The measured rms sits beside it
+        % because what wraps is the MEASURED map, not the commanded surface,
+        % and the two rigs differ there.
+        meas_rms = std(hb(msk));
+        fold_fr  = mean(abs(hb(msk)) > 0.98*qwave);
         broke = ~isfinite(g) || g < 0 || g > 3 || cc(1,2) < 0.3;   % estimator diverged (the WRAP symptom)
         note = iff_(broke, 'BROKE', '');
-        say('  %6.0f nm %8.4f %10.1f %8.4f %7.2f  %s\n', lad(j), g, r, cc(1,2), pwrap/qwave, note);
-        brk(j,:) = [lad(j) g r cc(1,2) double(broke)];
+        say('  %6.0f nm %8.4f %10.1f %8.4f %8.1f nm %6.3f  %s\n', ...
+            lad(j), g, r, cc(1,2), 1e6*meas_rms, fold_fr, note);
+        brk(j,:) = [lad(j) g r cc(1,2) double(broke) meas_rms fold_fr];
     end
     % ---- item 3b: regularization sweep on the dense-random row; is the OAP
     %      dense loss the reg shrinking the DIM (dark ~25%) columns? report the
@@ -1695,7 +1713,7 @@ function place = stage_place_(P, s, G, bench, say)
     say('  anchor: blob px (%.2f,%.2f) <-> DM (%.3f,%.3f) mm; field parity [t=%d su=%+d sv=%+d] (ref-poke err %.2f px)\n', ...
         PL.anchor(1),PL.anchor(2),PL.anchor(3),PL.anchor(4), PL.parity(1),PL.parity(2),PL.parity(3), PL.ref.err(PL.ref.ib));
     say('  lit actuators: %d of %d\n', nnz(PL.lit), nact^2);
-    cam_line_(P, say, PL.dxd_mm, msk);
+    if isfield(P,'cam'), dmg_cam_line(say, P.cam, PL.dxd_mm, msk); end
     % ---- ONE measurement pass: each lit actuator's response CoM, windows
     %      centred on the bootstrap placement (generous, half-inter-poke) -----
     mmpx = PL.mag * PL.dxd_mm;                          % DM-mm per detector pixel
@@ -2252,30 +2270,6 @@ function [map, reg] = register_two_pokes(A, ix, MpA, hpA, MpB, hpB, N_G, DX_G, m
     map.Xt = reg.Xt;  map.Yt = reg.Yt;
 end
 
-function cam_line_(P, say, dxd_mm, msk)
-%CAM_LINE_  The camera, on the pupil image this bench actually forms.
-%   The modeled pixel is dxd_mm; the pupil's diameter comes from the lit mask
-%   (equal-area circle), so this is the traced image, not a design intent.
-%   Realism item 4: name the camera, give its pitch, and say what binning
-%   lands on the modeled pixel count -- the model's NGRID is a sampling floor,
-%   not a sensor.
-if ~isfield(P, 'cam'), return; end
-d_pup_px = sqrt(4*nnz(msk)/pi);
-d_pup_mm = d_pup_px * dxd_mm;
-raw = d_pup_mm / (P.cam.pitch_um*1e-3);
-say(['  camera: pupil image %.2f mm across (%.0f modeled px at %.1f um); ' ...
-     '%s at %.2f um -> %.0f raw px across the pupil, binned %d = %.0f ' ...
-     '(modeled %.0f)\n'], ...
-    d_pup_mm, d_pup_px, dxd_mm*1e3, P.cam.name, P.cam.pitch_um, raw, ...
-    P.cam.bin, raw/P.cam.bin, d_pup_px);
-if isfield(P.cam, 'pol_pitch_um')
-    say(['    snapshot analyzer: %s at %.2f um -> %.0f px across the pupil, ' ...
-         '%.0f per orientation (four simultaneous frames, no rotating stage)\n'], ...
-        P.cam.pol_name, P.cam.pol_pitch_um, d_pup_mm/(P.cam.pol_pitch_um*1e-3), ...
-        d_pup_mm/(P.cam.pol_pitch_um*1e-3)/2);
-end
-end
-
 function stations_ifo_(P, G, say)
 %STATIONS_IFO_  The key signals along the interferometer, two states.
 %   BRIEF_ccmac_bench_realism item 8 / BRIEF_to_gauge_close item 6: the
@@ -2341,7 +2335,7 @@ for r = 1:2
 end
 title(tl, sprintf('TG96 %s rig -- one measurement, station by station (tag %s)', ...
       P.bench.optics, P.tag), 'Interpreter','none', 'FontSize',13);
-exportgraphics(f, [P.tag '_stations.png'], 'Resolution', 150);  close(f);
+print(f, [P.tag '_stations.png'], '-dpng', '-r96');  close(f);   % 1800 px wide
 say('stations figure %s_stations.png: recovered minus the engine''s field on msk %.2f pm (flat), %.2f pm (%.0f nm rms)\n', ...
     P.tag, resid_pm(1), resid_pm(2), P.battery.base_rms*1e6);
 end
@@ -2367,4 +2361,76 @@ function B = interp_to_(A, sz)
 %   is a COMMAND, a lattice of numbers, not a surface.
 [x, y] = meshgrid(linspace(1, size(A,2), sz(2)), linspace(1, size(A,1), sz(1)));
 B = interp2(1:size(A,2), (1:size(A,1)).', A, x, y, 'nearest', 0);
+end
+
+function stage_wrap_(P, s, G, bench, say)
+%STAGE_WRAP_  Does the break ladder break the BENCH, or its own arithmetic?
+%   The ladder forms its differential as measr(base+dev) - measr(base): the
+%   difference of two SEPARATELY WRAPPED absolute maps.  Every other site in
+%   this runner differences BEFORE wrapping (build_J_, the deck stage), which
+%   is what this file's own comment beside ctx.phasef prescribes -- "wrap the
+%   DIFFERENCE of two phases, never subtract two separately-wrapped absolute
+%   maps".  This stage measures what that costs, rung by rung.
+%
+%   At each rung it forms the SAME differential both ways:
+%     dA  = measf(base+dev) - measf(base)                  the ladder's form
+%     dD  = angle(exp(1i*(phasef(base+dev) - phasef(base)))) * lambda/(4pi)
+%                                                           the correct form
+%   and reports where they part company.  A pixel the poke pushes across a
+%   wrap boundary is wrong by a full lambda/2 = 316 nm in dA against a 10 nm
+%   signal -- 31x the thing being measured -- while dD never wraps, because
+%   the difference itself is small everywhere.
+%
+%     n_cross   pixels where |dA - dD| > lambda/8: the count the ladder gets
+%               wrong.  The ZWFS battery reports the same idea for its own
+%               one-frame prior ("pixels that cross the fold under the
+%               change"); the tg96 ladder never has.
+%     rms(dA-dD)  how much that is worth over the pupil.
+%     corr(dA,dD) 1.000 while the two forms agree.
+%
+%   NO MATRIX AND NO AFFINE: the two forms are compared against EACH OTHER, so
+%   no estimator and no DM->detector mapping enter, and nothing here can be
+%   blamed on either.  Cost is one phase pair per rung -- six polarized traces,
+%   about half the full battery's, because the 64-state matrix build is what
+%   the battery mostly pays for and this stage skips it.
+%
+%   The ladder's measr also subtracts h0 and mean-references each map; both are
+%   common to the pair or a piston, so neither changes a crossing count, and
+%   they are left out here to keep the two forms differing in ONE thing.
+%
+%   stages {'bench','wrap'}.
+    ctx = arm_setup_(P, G);
+    msk = ctx.msk;  LAM = ctx.LAM;  qwave = LAM/4;
+    cfg = P.dm(1);  nact = cfg.nact;
+    N_G = P.grid.N_G;  DX_G = P.grid.DX_G;
+    dmap = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
+    litmask = true(nact);
+    lad = P.battery.break_ladder;
+    ic = round(nact/2);
+    dev = zeros(nact);  dev(ic, ic) = P.battery.diff_single_nm*1e-6;
+    say(['\nStage WRAP -- the ladder differential, formed BOTH ways (lambda/4 = ' ...
+         '%.1f nm of surface, %d nm single-actuator deviation):\n'], ...
+        1e6*qwave, P.battery.diff_single_nm);
+    say(['  dA = measf(base+dev) - measf(base)   (the ladder: two wrapped absolutes)\n' ...
+         '  dD = wrapped DIFFERENCE of the two phases   (build_J_ and the deck stage)\n']);
+    say('  %-9s %9s %11s %12s %11s %11s\n', ...
+        'base rms','meas rms','n_cross','% of msk','rms(dA-dD)','corr(dA,dD)');
+    for j = 1:numel(lad)
+        rng(P.battery.base_rand_seed);
+        bb = zeros(nact);  bb(litmask) = lad(j)*1e-6*randn(nnz(litmask),1);
+        pb = ctx.phasef(dmap(bb));
+        pd = ctx.phasef(dmap(bb + dev));
+        hb = angle(exp(1i*(pb - ctx.p_null))) * LAM/(4*pi);
+        hd = angle(exp(1i*(pd - ctx.p_null))) * LAM/(4*pi);
+        dA = hd - hb;                                   % the ladder's form
+        dD = angle(exp(1i*(pd - pb))) * LAM/(4*pi);     % the correct form
+        bad = abs(dA(msk) - dD(msk)) > qwave/2;
+        cc  = corrcoef(dA(msk), dD(msk));
+        say('  %6.0f nm %8.1f nm %11d %11.3f%% %8.2f nm %11.5f\n', ...
+            lad(j), 1e6*std(hb(msk)), nnz(bad), 100*mean(bad), ...
+            1e6*sqrt(mean((dA(msk)-dD(msk)).^2)), cc(1,2));
+    end
+    say(['  A rung whose n_cross is 0 has a ladder result that cannot be blamed ' ...
+         'on the arithmetic; one with a large n_cross has a result that is mostly ' ...
+         'the arithmetic, whatever the bench does.\n']);
 end
