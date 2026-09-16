@@ -195,3 +195,61 @@ Step 2's measurement is well posed either way if it is reported as a PERIOD in
 mm rather than in cycles across the beam — a period needs no beam-size
 convention. That is how it will be reported, with the cycle conversion given
 once the probe has fixed the beam.
+
+## 1. The reading at the apodizer conjugate — the prescription, not yet built
+
+Written out so the build is a transcription rather than a design, and so the
+sizing can be checked before anything is traced. **Nothing here has been run.**
+
+### The pupil the gauge sees is settled independently of the DM question
+
+Re-deriving the generator's own chain from `P.F_OAP = [2500 1524 1143 1350 675
+635 635 762]` and `w_DM = R_DM·FILL`:
+
+| plane | radius | |
+|---|---|---|
+| DM1 / DM2 | 21.38 mm | `w_DM` |
+| **apodizer** | **16.03 mm** | `w_DM·F₃/F₂` |
+| Lyot | 8.02 mm | `·F₅/F₄` |
+| backend | 8.02 mm | `·F₇/F₆` |
+
+That reproduces the README's printed *"DM 21.4 → apod 16.0 → Lyot 8.0 → backend
+8.0"* to three figures, which is a **third** independent confirmation that the
+chain is radii: the prose, the code, and now the arithmetic agreeing. So the
+gauge's input pupil is **32.06 mm across**, and — importantly — this number does
+not depend on the `beam_d_mm` question at all. That question is about the DM
+LATTICE, not about the beam, so step 1 is not blocked by it. Step 2 is.
+
+### The branch
+
+A dichroic at `Apodizer_Pst` (already a `Reference` in the committed deck, one
+element ahead of `Apodizer`, so no new station has to be invented) sends the
+out-of-band light to:
+
+| element | what | sized by |
+|---|---|---|
+| focusing lens, f = 300 mm | brings the 32.06 mm collimated pupil to a focus | F/9.4 |
+| the ZWFS mask at that focus | λ/D = **5.92 µm** at 632.8 nm | dimple at the record's 2.0 λ/D = **11.8 µm** across |
+| a pupil reimage behind it | back to a camera | the `zwfs_dm96` NF1/NF2 sandwich idiom, `dmg_zwfs_gauge` |
+
+`f = 200` and `400 mm` give F/6.2 and F/12.5 with λ/D of 3.95 and 7.89 µm; 300
+is the middle and puts the dimple at a size the VSG2 mask already has.
+
+**Detector sampling is not the constraint here, and that is worth saying,**
+because it is on the tg96 rig. The field being read is the coronagraph's input
+field and the actuators that correct it are the two 32-across DMs, so the
+reimaged pupil needs ~2 px per actuator — 64+ px across — where `zwfs_dm96`
+needs 193 for a 96×96 DM. The gauge camera is not the hard part of this build.
+
+### What it must be gated against
+
+The brief's gate: the reading reproduces the engine's complex field at the
+apodizer to the V5 record (0.016 / 0.128 pm through 5 / 20 % amplitude dips).
+`mask.v_clear` is the reading that returns amplitude AND phase, which is what a
+field servo needs and what the phase-only pair of record does not give.
+
+Out of band is **632.8 nm against the CTB's 550 nm science band**, and the
+chromatic transfer the note's bound 3 describes applies: surface phase carries
+as OPD, amplitude made by out-of-pupil phase scales as λ, so the servo holds a
+MODEL-propagated target rather than the sensed map. That is the deck's
+second-color slide's physics and it is the same engine two-plane propagation.
