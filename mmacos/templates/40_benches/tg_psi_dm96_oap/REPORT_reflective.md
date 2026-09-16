@@ -1764,3 +1764,31 @@ pupil is past it and the estimate collapses.
 161 pm, the cross-talk, the reg sweep, the dense-random residuals. What is in
 question is the ladder's deep rungs and therefore the CAPTURE RANGE line, not
 the reading itself.
+
+#### Two things `oapifol2` has already settled, before its last rungs land
+
+**The thermal term is not photon-limited, and the runner's own formula predicts
+it exactly.** Across three decades of photons the thermal steady state barely
+moves — 12.20 → 10.24 → 10.03 pm at 1e12 / 1e13 / 1e14 — while its *bias*
+converges on 10.23 → 10.03 → **10.00 pm**. The report's header gives the law:
+`ramp lag = rate/(gG)`. With the sheet's 5 pm-per-cycle ramp and gain 0.5 that
+is **10.00 pm at G = 1**, which is what the measurement converges to as the
+noise term is driven out (sig_n 11.92 → 3.77 → 1.19).
+
+So the thermal drift has a **hard floor set by gain and cycle rate, not by
+photons**: buying light does nothing for it, and the only levers are a higher
+gain or a faster cycle. The WALK term behaves oppositely — 3.21 → 2.43 pm from
+1e13 to 1e14 — and is genuinely photon-limited, which is the term the brief
+asks about. Worth keeping the two apart on any slide: one is a light budget,
+the other is a control-bandwidth budget.
+
+**And the descent already carries the unwrapper, which gives item 2(a) a second
+route.** `do_uw = P.battery.unwrap || descent` — the knob never reaches the
+battery's ladder (above), but a DESCENT sets `descent` true and therefore
+unwraps. `oapdesc2` starts the loop from 100 and 200 nm rms, i.e. from
+**above** the 120 nm rung where the un-unwrapped ladder breaks. So it is a
+de-facto test of whether unwrapping rescues a deep surface on this bench,
+arriving by a different road than the ladder re-run part (a) asks for — and it
+is already queued. If the descent captures from 200 nm while the ladder breaks
+at 120, the unwrapper is the difference and part (a) is answered without
+touching the ladder at all.
