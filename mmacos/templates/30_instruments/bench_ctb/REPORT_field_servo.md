@@ -124,3 +124,41 @@ the pitch on a 42.75 mm beam is 1.336 mm. The
 rest of section C+ — what the pickoff cannot see, the chromatic transfer, and
 the stellar photon table — does not depend on this and stands as the note has
 it.
+
+### Corroboration: the e2e6m model does NOT have this slip
+
+**Checked in the SOURCE, not in the note** -- the same document-trust that
+produced this problem would be a poor way to close it. `e2e6m_r2/r1_dm.m:57`:
+
+```matlab
+beam_d = 2 * 0.023771;              % measured pupil at the DMs (r1 gate)
+...
+dm = <dm model>('nact', 32, 'beam_d_mm', beam_d, 'pitch_mm', beam_d/32);
+```
+
+It takes the MEASURED pupil radius and **doubles it** before filling
+`beam_d_mm`, then divides by 32 for the pitch: 47.54 / 32 = 1.486 mm, which is
+the note's 1.48. (That model works in metres throughout -- a 20 nm poke is
+written `20e-9` -- so the `_mm` suffix is carrying metres there; internally
+consistent, and beside the point, which is the doubling.) The CTB call fills
+the same field with the radius and does not double.
+
+So the two benches, the same field name, the same helper: one doubles, one does
+not. That is what localizes the error to one bench and shows what the correct
+relationship is:
+
+| | CTB | e2e6m space relay |
+|---|---|---|
+| measured pupil RADIUS | 21.375 mm (generator) | 23.771 mm (`r1` gate) |
+| what reaches `beam_d_mm` | **21.3 — the radius** | **47.54 — the radius DOUBLED** |
+| actuators x pitch | 32 x 0.67 = **21.4 mm** | 32 x 1.48 = **47.4 mm** |
+| does the lattice span the beam? | **no — it spans the RADIUS** | **yes — it spans the DIAMETER** |
+
+So the convention
+the CTB model should follow is already in use next door: `nact x pitch` equals
+the beam DIAMETER. On the CTB that would make the pitch 1.336 mm, and the
+note's 0.67 mm is the radius divided by the actuator count.
+
+This also means item 7 step 2's prediction transfers unchanged for the e2e6m
+package (the note's 900 / 144 / 36 / 14 / 4 stroke table) and needs re-deriving
+only for the CTB.
