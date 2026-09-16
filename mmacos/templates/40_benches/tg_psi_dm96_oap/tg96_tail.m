@@ -97,7 +97,8 @@ C = struct('f_flat',f_flat,'f_test',f_test,'f_ref',f_ref, ...
            'oapargs',{oapargs},'nodeargs',{nodeargs},'bench',b,'objective',objective, ...
            'poke_nm',100, ...
            'place',P.place,'POKE',P.POKE,'gate_gain',0.95, ...
-           'stn_hw',6,'act_lam',0.05);
+           'stn_hw',6,'act_lam',0.05, ...
+           'gate_rel',0.90,'gate_seed_floor',0.30);
 % poke_nm 100 = 0.63 of lambda/4: a healthy map then reads ~0.63 on the wrap
 %   meter and a PINNED one reads 1.00.  At the old 150 nm (0.95 of the range)
 %   the guard could not separate them.
@@ -113,18 +114,33 @@ if isfield(P, 'verify_tail') && ~isempty(P.verify_tail)
     V = load(P.verify_tail);  vo = V.out;
     pv = [vo.FL_F, vo.FL_Kc, vo.D_MASK_FL, vo.DET_TRIM];
     [gv, iv] = row_gain_(pv, C);
+    % The verify path runs the SAME decision as a tune, so it must measure the
+    % SAME reference: this bench's geometric seed, through the same estimator.
+    % Verifying against an absolute number here while a tune gates on a ratio
+    % would make the test and the thing it tests two different gates.
+    ps = [seed(1)*exp(q0(1)), q0(2), q0(3), q0(4)];
+    [gsv, isv] = row_gain_(ps, C);
+    [vpass, vwhy, vseed_ok] = gate_decide_(gv, gsv, C);
     if ~isfinite(gv)
         verdict = 'GATE COULD NOT MEASURE';      % NOT the same as a bad tail
-    elseif abs(gv) >= C.gate_gain
+    elseif ~vseed_ok
+        verdict = 'UNGATED (seed does not read)';
+    elseif vpass
         verdict = 'ACCEPTED';
     else
         verdict = 'REFUSED';
     end
+    vratio = NaN;  if isfinite(gv) && vseed_ok, vratio = abs(gv)/abs(gsv); end
     fprintf(['TAIL VERIFY %s (optics %s): FL_F %.4f FL_Kc %.5f D_MASK_FL %.4f ' ...
-             'DET_TRIM %.4f -> actuator-space gain %.4f (gate >= %.2f) -> %s\n  [%s]\n'], ...
-            P.verify_tail, b.optics, pv(1), pv(2), pv(3), pv(4), gv, C.gate_gain, verdict, iv);
+             'DET_TRIM %.4f -> gain %.4f, seed %.4f, ratio %.4f (gate >= %.2f) -> %s\n' ...
+             '  [%s]\n  [seed: %s]\n'], ...
+            P.verify_tail, b.optics, pv(1), pv(2), pv(3), pv(4), gv, gsv, vratio, ...
+            C.gate_rel, verdict, iv, isv);
+    fprintf('  %s\n', vwhy);
     out = struct('verify_tail',P.verify_tail,'gain',gv,'info',iv, ...
-                 'threshold',C.gate_gain,'pass',strcmp(verdict,'ACCEPTED'), ...
+                 'seed_gain',gsv,'seed_info',isv,'ratio',vratio, ...
+                 'rel',C.gate_rel,'threshold',C.gate_gain, ...
+                 'pass',strcmp(verdict,'ACCEPTED'),'seed_usable',vseed_ok, ...
                  'FL_F',pv(1),'FL_Kc',pv(2),'D_MASK_FL',pv(3),'DET_TRIM',pv(4), ...
                  'optics',b.optics);
     delete_if_({f_flat, f_test, f_ref});
@@ -150,30 +166,44 @@ fprintf('TAIL WINNER (%s): FL_F %.4f FL_Kc %.5f D_MASK_FL %.4f DET_TRIM %.4f -> 
 % is a separate open question (README, "the tuner's objective").
 [gw, iw] = row_gain_(pb, C);
 fprintf('TAIL GATE: winner reads gain %.4f in actuator space [%s]\n', gw, iw);
-% ---- THE GATE IS ADVISORY (2026-09-16) -------------------------------
-% Its two-leg test FAILED BOTH LEGS, in opposite directions: objwin3, which the
-% battery reads at 0.0338, was ACCEPTED at 0.9804; lens_tail, which the battery
-% reads at 0.9968, was REFUSED at -0.8285.  So row_gain_ is not measuring what
-% the battery measures.  Diagnosis from the two prints: the broken OAP tail has
-% mag 6.125 DM-mm/det-mm against the seed's 10.44, i.e. a LARGER image of each
-% actuator, so a POINT SAMPLE at the actuator's predicted pixel is diluted less
-% and reads HIGHER -- the measure tracks magnification, not readability.  The
-% battery instead DECONVOLVES the influence-function stencil over the actuator
-% lattice, which is what makes it sensitive to the response's shape.
+% The SEED is measured through the SAME estimator, every tune, because the
+% gate's criterion is now the RATIO (see gate_decide_).  It used to be
+% measured only on the refusal path, which is what made an ABSOLUTE
+% threshold the only option available at the moment of the decision.
+ps = [seed(1)*exp(q0(1)), q0(2), q0(3), q0(4)];
+[gs, is_] = row_gain_(ps, C);
+fprintf('TAIL GATE: geometric seed reads gain %.4f [%s]\n', gs, is_);
+% ---- THE GATE IS RELATIVE TO THE SEED (2026-09-16, Dave) -------------
+% Two absolute thresholds failed before this one.  The POINT-SAMPLE measure
+% INVERTED the verdict (it tracked magnification: objwin3, battery 0.0338,
+% read 0.9804 while lens_tail, battery 0.9968, read -0.8285).  The LATTICE
+% measure orders tails correctly but does not share the battery's SCALE --
+% measured -0.1621 / 0.8074 / 0.9104 against battery 0.0338 / 0.9968 /
+% 0.9885 -- so an absolute 0.95 refused two good tails.  That is not the
+% regularizer: the act_lam sweep is flat to ~1 % from 0.05 to 0.002.
 %
-% Until row_gain_ does that, the gate REPORTS and never refuses: a measure that
-% inverts the verdict would fall back to the seed on a good tail, and item 4's
-% substrate runs would then measure the glass AND a tail regression together.
-% Enforcing a wrong gate is worse than not gating.
-gate_pass = true;
-gate_measured = isfinite(gw) && abs(gw) >= C.gate_gain;
-if ~gate_measured
-    fprintf(['TAIL GATE (ADVISORY): row reads %.4f, below %.2f -- NOT enforced, ' ...
-             'because the two-leg test showed this measure tracks magnification ' ...
-             'rather than readability.  Winner kept.\n'], gw, C.gate_gain);
+% So stop asking for an absolute number.  The gate's actual decision is
+% "keep the winner, or hand back the GEOMETRIC SEED", and the seed is
+% measurable through the very same estimator.  A RATIO of two
+% identically-estimated quantities cancels the systematic bias exactly,
+% which no recalibration of an absolute threshold can promise.
+gate_ratio = NaN;
+[gate_pass, gate_why, seed_usable] = gate_decide_(gw, gs, C);
+if isfinite(gw) && isfinite(gs) && seed_usable, gate_ratio = abs(gw)/abs(gs); end
+fprintf('TAIL GATE: %s\n', gate_why);
+if isfinite(gw) && isfinite(gs) && sign(gw) ~= sign(gs)
+    % Not a failure: the four-step sign is a deck convention the battery
+    % resolves by registration.  But winner and seed are the SAME bench and
+    % the SAME convention, so a flip BETWEEN them is a change, not a
+    % convention, and it is worth a line in the log.
+    fprintf(['  NOTE: winner and seed recover with OPPOSITE sign (%.4f vs ' ...
+             '%.4f) on the same bench -- the magnitudes are what the gate ' ...
+             'compares, but this is worth a look.\n'], gw, gs);
 end
-gate = struct('gain',gw,'info',iw,'threshold',C.gate_gain,'pass',gate_measured,'advisory',true, ...
-              'seed_gain',NaN,'seed_info','','fellback',false);
+gate = struct('gain',gw,'info',iw,'threshold',C.gate_gain,'pass',gate_pass, ...
+              'advisory',false,'rel',C.gate_rel,'ratio',gate_ratio, ...
+              'seed_usable',seed_usable,'why',gate_why, ...
+              'seed_gain',gs,'seed_info',is_,'fellback',false);
 if ~isfinite(gw)
     % A gate that cannot MEASURE is not the same as a tail that does not
     % read, and it must never pass for one: unmeasured, it refuses every
@@ -186,17 +216,17 @@ if ~isfinite(gw)
          'before reading anything into this run.'], iw);
 end
 if ~gate_pass
-    ps = [seed(1)*exp(q0(1)), q0(2), q0(3), q0(4)];
-    [gs, is_] = row_gain_(ps, C);
-    gate.seed_gain = gs;  gate.seed_info = is_;  gate.fellback = true;
-    fprintf(['TAIL GATE REFUSED the winner: actuator-space gain %.4f < %.2f. ' ...
-             'Falling back to the GEOMETRIC SEED (gain %.4f).\n'], gw, C.gate_gain, gs);
+    gate.fellback = true;                    % gs / is_ measured above already
+    fprintf(['TAIL GATE REFUSED the winner: it reads %.4f against the seed''s ' ...
+             '%.4f (ratio %.4f < %.2f). Falling back to the GEOMETRIC SEED.\n'], ...
+            gw, gs, gate_ratio, C.gate_rel);
     fprintf(['  Why this gate and not the cost: the cost''s four terms (null %.4f nm, ' ...
              'poke-peak %.1f nm, localization, wrap) all preferred this winner, and ' ...
              'they are orthogonal to readability.\n'], nb, kb);
-    if isfinite(gs) && abs(gs) < C.gate_gain
-        fprintf(['  WARNING: the seed does not read either (%.4f). The tail is not ' ...
-                 'the whole story on this bench -- do not treat the seed as gated.\n'], gs);
+    if ~seed_usable
+        fprintf(['  WARNING: the seed does not read either (%.4f, floor %.2f). The ' ...
+                 'tail is not the whole story on this bench -- do not treat the ' ...
+                 'seed as gated.\n'], gs, C.gate_seed_floor);
     end
     pb = ps;  nb = n0;  kb = k0;   % the seed's own numbers, already measured
     fprintf(['  the tail of record is now the geometric seed: FL_F %.4f FL_Kc %.5f ' ...
@@ -536,4 +566,61 @@ function delete_if_(fs)
 for i = 1:numel(fs)
     if isfile(fs{i}), delete(fs{i}); end
 end
+end
+
+function [pass, why, seed_usable] = gate_decide_(gw, gs, C)
+%GATE_DECIDE_  The winner gate's criterion: does the winner read AT LEAST AS
+% WELL AS THE SEED, measured through the same estimator?
+%
+% WHY A RATIO.  The gate's decision is not "is this tail good in the
+% abstract" -- it is "keep the winner, or hand back the geometric seed".  The
+% seed is the alternative, it is measurable, and comparing the two through one
+% estimator cancels whatever systematic scale that estimator carries.  Two
+% absolute thresholds failed here first: a point-sample measure that inverted
+% the verdict, and a lattice measure that orders tails correctly but reads
+% 8-19 % below the battery, so 0.95 refused tails the battery certifies at
+% 0.99.  A ratio needs neither measure to be calibrated, only CONSISTENT.
+%
+% THE TWO CONSTANTS, and what each is allowed to decide:
+%   gate_rel (0.90) is the gate.  The winner must recover at least 90 % of
+%     what the seed recovers.  It is deliberately loose because the signal it
+%     has to catch is enormous -- the case that motivated the gate read 0.0338
+%     against the seed's 0.9809, a factor of 29 -- while the two rows are
+%     independently placed measurements with their own noise.  Verified by
+%     sweep (t_gate): every verdict is unchanged for gate_rel 0.30 to 0.90,
+%     and only at 0.95 does a winner reading 95 % of its seed start to be
+%     refused -- so 0.90 sits inside the stable band rather than at its edge.
+%     This number is a noise margin, not a discrimination threshold.
+%   gate_seed_floor (0.30) is NOT the gate.  It decides only whether the SEED
+%     is a usable REFERENCE, never whether the winner passes.  Measured
+%     through this estimator, tails that read sit at 0.81-0.92 and one that
+%     does not reads -0.16, so 0.30 sits in the gap with wide margin either
+%     way.
+%
+% WHEN THE SEED ITSELF DOES NOT READ the gate cannot certify anything, and
+% refusing would hand back a fallback that is no better than what it refused.
+% It KEEPS the winner and says so loudly, rather than failing closed and
+% looking like it worked -- an unmeasurable gate that refuses everything is
+% the failure mode this file has already been bitten by once.
+    seed_usable = isfinite(gs) && abs(gs) >= C.gate_seed_floor;
+    if ~isfinite(gw)
+        pass = false;
+        why = 'the winner could not be measured -- refusing on no number, not on evidence';
+        return
+    end
+    if ~seed_usable
+        pass = true;
+        why = sprintf(['the SEED does not read either (%.4f, floor %.2f) -- no usable ' ...
+                       'reference, so the winner is KEPT UNGATED'], gs, C.gate_seed_floor);
+        return
+    end
+    r = abs(gw)/abs(gs);
+    pass = r >= C.gate_rel;
+    if pass
+        why = sprintf('winner/seed = %.4f >= %.2f -- winner reads as well as the seed, KEPT', ...
+                      r, C.gate_rel);
+    else
+        why = sprintf('winner/seed = %.4f < %.2f -- winner reads WORSE than the seed', ...
+                      r, C.gate_rel);
+    end
 end
