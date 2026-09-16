@@ -100,8 +100,13 @@ par = cand(ib,:);
 [U, V] = tg96_apply_parity(du, dv, dxd_mm, bx, by, par);
 bR = bRc;  bx2 = bxc;  by2 = byc;                   % (kept for the ref diagnostic)
 
+% hA / MaA: the ANCHOR poke's measured map and its truth, kept so a caller
+% that needs the bench's own measured influence STENCIL does not have to pay
+% for a second poke -- this one is already traced above.  (item 3's lattice
+% gate: dmg_stencil wants a DM-frame measured kernel.)
 PL = struct('U',U, 'V',V, 'frm',frm, 'mag',mag, 'dxd_mm',dxd_mm, 'lit',lit, ...
     'anchor',[bx by tax tay], 'parity',par, 'axg',axg, 'ayg',ayg, 'xg',{xg}, 'lat',{lat}, ...
+    'hA',hA, 'MaA',MaA, 'aR',aR, ...
     'ref',struct('aR',aR, 'bR',bR, 'meas',[bx2 by2], 'cand',cand, 'err',errc, 'ib',ib));
 end
 
