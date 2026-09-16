@@ -149,8 +149,29 @@ fprintf('TAIL WINNER (%s): FL_F %.4f FL_Kc %.5f D_MASK_FL %.4f DET_TRIM %.4f -> 
 % is a separate open question (README, "the tuner's objective").
 [gw, iw] = row_gain_(pb, C);
 fprintf('TAIL GATE: winner reads gain %.4f in actuator space [%s]\n', gw, iw);
-gate_pass = isfinite(gw) && abs(gw) >= C.gate_gain;
-gate = struct('gain',gw,'info',iw,'threshold',C.gate_gain,'pass',gate_pass, ...
+% ---- THE GATE IS ADVISORY (2026-09-16) -------------------------------
+% Its two-leg test FAILED BOTH LEGS, in opposite directions: objwin3, which the
+% battery reads at 0.0338, was ACCEPTED at 0.9804; lens_tail, which the battery
+% reads at 0.9968, was REFUSED at -0.8285.  So row_gain_ is not measuring what
+% the battery measures.  Diagnosis from the two prints: the broken OAP tail has
+% mag 6.125 DM-mm/det-mm against the seed's 10.44, i.e. a LARGER image of each
+% actuator, so a POINT SAMPLE at the actuator's predicted pixel is diluted less
+% and reads HIGHER -- the measure tracks magnification, not readability.  The
+% battery instead DECONVOLVES the influence-function stencil over the actuator
+% lattice, which is what makes it sensitive to the response's shape.
+%
+% Until row_gain_ does that, the gate REPORTS and never refuses: a measure that
+% inverts the verdict would fall back to the seed on a good tail, and item 4's
+% substrate runs would then measure the glass AND a tail regression together.
+% Enforcing a wrong gate is worse than not gating.
+gate_pass = true;
+gate_measured = isfinite(gw) && abs(gw) >= C.gate_gain;
+if ~gate_measured
+    fprintf(['TAIL GATE (ADVISORY): row reads %.4f, below %.2f -- NOT enforced, ' ...
+             'because the two-leg test showed this measure tracks magnification ' ...
+             'rather than readability.  Winner kept.\n'], gw, C.gate_gain);
+end
+gate = struct('gain',gw,'info',iw,'threshold',C.gate_gain,'pass',gate_measured,'advisory',true, ...
               'seed_gain',NaN,'seed_info','','fellback',false);
 if ~isfinite(gw)
     % A gate that cannot MEASURE is not the same as a tail that does not
