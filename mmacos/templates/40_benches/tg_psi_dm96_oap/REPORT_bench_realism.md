@@ -162,14 +162,32 @@ the tails. So `thk22_tail.mat` holds the **seed** and `thk22` ran on it. Its own
 report line is the tell: *"RE-TUNED set … (null 75.242 nm at opt res; seed
 75.242)"* — a retune whose null equals its seed's did not retune.
 
-**And the seed tail moves more than the null.** `thk22`'s camera line reads
-*pupil image 5.79 mm across (298 modeled px at 19.5 um)* against `lensuw2`'s
-*7.78 mm (384 px at 20.3 um)* — a 26 % smaller pupil image and 3.1 detector px
-per actuator instead of 4.0. That is a real consequence of something, but it
-**cannot be attributed to the plates** from this run: the tail sets the pupil
-relay's magnification, and this run carries the seed tail rather than the
-retuned one. Separating the glass from the tail is precisely what the re-run is
-for.
+**And the pupil image moved — but the sampling did not, and the two do not yet
+add up.** Measured, `lensuw2` (no thick plates, tuned tail) against `thk22`
+(10 mm plates, seed tail):
+
+| | mag | dxd mm | **px / actuator** | lit actuators | pupil image |
+|---|---|---|---|---|---|
+| `lensuw2` | 9.8411 | 2.0263e−2 | **5.015** | 3260 | 7.78 mm (384 px) |
+| `thk22` | 10.3490 | 1.9452e−2 | **4.967** | **3364** | **5.79 mm (298 px)** |
+
+*(An earlier note here said "3.1 px per actuator instead of 4.0". That was
+wrong — it divided the pupil's pixel count by the actuator count instead of
+reading the affine, which is what actually sets the sampling. The sampling is
+essentially unchanged, 5.015 → 4.967.)*
+
+**There is a tension in these three columns that this report does not resolve.**
+The pupil image is 22 % smaller in pixels, yet the pixels per actuator are the
+same to 1 % and MORE actuators are lit (3364 against 3260). A smaller pupil at
+unchanged sampling should light fewer actuators, not more. So the detector mask
+used for the camera line and the lit-actuator set from `dmg_lit` are not
+measuring the same region, and until that is understood none of these three
+numbers should be read as a thickness result.
+
+It is recorded because it is what the runs say, not because it is understood —
+and because the re-run on the tuned tail (`item4bseq`) is the experiment that
+separates the glass from the tail and will either reproduce the tension or
+remove it.
 
 `runs/item4bseq.sh` re-runs both with the advisory gate in place. **The 20.09 nm
 figure above stands** — it is what the tuner measured before the refusal — but
