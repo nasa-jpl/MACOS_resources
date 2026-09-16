@@ -2122,8 +2122,14 @@ ba = bench_args_(Pt);
 G = macos.design.twyman_green(ba{:}, 'ngridpts', P.NGRID, ...
     'to_grid_file', P.grid.flat_file, 'to_grid_n', P.grid.N_G, 'to_grid_dx', P.grid.DX_G);
 G.bt.wavelen = P.LAM;
-G.bt.emit('zwfs_trimscan.in');
-macos.load_rx('zwfs_trimscan.in');
+% UNIQUE scratch name per tag.  A fixed 'zwfs_trimscan.in' is the same trap
+% tg96_tail hit on 2026-09-15, where two tuners in one directory read and wrote
+% each other's decks and reported different nulls for identical parameters.
+% Runs are serialized here, so this is belt and braces -- but the cost is one
+% sprintf and the failure mode was a gate that had to be thrown away.
+f = sprintf('%s_trimscan.in', P.tag);
+G.bt.emit(f);
+macos.load_rx(f);
 If = abs(macos.complex_field(G.T.iMASK)).^2;
 pk = max(If(:)) / sum(If(:));
 end
