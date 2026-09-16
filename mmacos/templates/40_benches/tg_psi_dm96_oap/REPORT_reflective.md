@@ -15,7 +15,7 @@ Dave pushes. The realism and field-servo reports link back to this table.
 |---|---|---|---|
 | 0 | commit the untracked record files | — | **done** — the tag census below |
 | 1 | vector pair on the redesign: rows, overcoat, verdict | §5.1 | **done** — rows hold uncalibrated; G4 634 bare / 319 quarter-wave overcoat / 199 bench-calibrated / **0.054 pm PASS** polarimetric. The variable is the channel PHASE, not the amplitude; fold lever stays unpulled. `vqw22` `vmap22` `vfit22` `vamp22` |
-| 2 | item 4's loop + descent + the 120 nm wrap explained | 4.7 | **(b) DONE, (a) and the loop/descent running** -- the premise did not survive the control: the record's lens ladder is a **7 deg** bench, today's is 22.5, and measured like with like the lens rig DOES flag (at 240 nm) while the OAP breaks at 120. Sampling and measurement amplitude both EXCLUDED by measurement; the estimator's conditioning (3680 unknowns in 37 px windows vs 3260 in 41) is the one candidate left. `oapuw2` `lensuw2` done; `oapifol2` `oapdesc2` running |
+| 2 | item 4's loop + descent + the 120 nm wrap explained | 4.7 | **(b) and the servo DONE; descent running; (a) staged** -- premise overturned (the record's lens ladder is a 7 deg bench); sampling and measurement amplitude EXCLUDED by measurement. Servo: **1.7e13 photons/cycle for 3 pm under the 2 pm walk**, thermal floors at 10.0 pm and is LOW-ORDER (9.24 of it below 4 cyc/ap). Both drift floors analytic, engine reproduces them to 1%. `oapuw2` `lensuw2` `oapifol2` done |
 | 3 | tail tuner gated by a battery row; README | README + 4.5 | **code in, gate re-run queued** -- the first run refused BOTH legs with gain NaN (`dmg_frame` off `tg96_tail`'s path: the gate was failing CLOSED and refusing everything). Paths fixed; an unmeasurable gate now warns loudly instead of passing for a bad tail. `runs/gateseq3.sh` re-queued |
 | 4 | realism 3-5: thicknesses, substrates, camera | `REPORT_bench_realism.md` | **builder + runner in**, runs queued (`runs/item4seq.sh`): `substrate` / `MASK_SUB` / `EDGE_MARGIN` on Bench + twyman_green, `bench.MASK_TRIM 'scan'` so the mask re-finds its focus under glass, the camera printed from `P.cam` |
 | 5 | realism 6: snapshot polarization at the built angles | `REPORT_bench_realism.md` | **tool in**, queued (`runs/aoiseq.sh`): `tg_aoi_ladder` gained the OAP rig and two columns -- the analyzer-sweep CORRECTION (free: the basis already spans every angle) and the RESIDUAL a measured matrix cannot absorb |
@@ -1865,3 +1865,46 @@ The noise-only column is clean 1/√N across four decades (6.99 / 2.21 / 0.70 /
 the above is believed. Log-log interpolation puts the 3 pm crossing under the
 walk at **≈1.8e13 photons per cycle**; the runner prints its own interpolation
 when the last rung lands, and that is the number for the slide.
+
+#### Item 2(1), the servo: `oapifol2`, the seed tail at record resolution
+
+14 loop runs, 854 traced states, 331.8 min. Gain 0.50, 60 cycles, steady state
+over the last 30, set point = the 30 nm working surface, one measurement per
+cycle (the DM traced once, four frames sharing N photons).
+
+**The number the brief asks for — photons per cycle to hold 3.0 pm rms:**
+
+| drift | photons per cycle |
+|---|---|
+| noise only | **5.4e12** |
+| **random walk, 2 pm per actuator per cycle** | **1.7e13** |
+| thermal ramp, 5 pm rms per cycle | **floor 10.0 pm — never reached** |
+
+So on the redesigned reflective bench the servo holds 3 pm against the 2 pm
+walk at **1.7e13 photons per cycle**, and cannot hold 3 pm against the thermal
+ramp at any photon level, because that term's floor is 10.0 pm.
+
+**And the residual's SPECTRUM says where each floor lives**, which is what
+turns the thermal result from a wall into a design lever. Held residual at 1e15
+photons, rms in pm by spatial frequency:
+
+| drift | < 4 cyc/ap | 4–12 | > 12 |
+|---|---|---|---|
+| none | 0.00 | 0.01 | 0.22 |
+| walk | 0.24 | 0.67 | **2.22** |
+| thermal | **9.24** | 3.12 | 2.22 |
+
+The walk's residual is **high-order** (2.22 of 2.33 pm above 12 cycles), as a
+per-actuator random walk must be. The thermal residual is **low-order** — 9.24
+of its 10.0 pm sits below 4 cycles per aperture, which is exactly what a
+defocus-plus-astigmatism ramp leaves behind.
+
+**That is the actionable part.** The 10 pm thermal floor is `rate/(gG)`, a
+bandwidth limit, and it is almost entirely in the first few Zernikes. It does
+not need the full 96×96 loop run faster: a low-order servo, or simply a higher
+gain on the low-order modes, addresses the whole of it. Nothing about the light
+budget changes. The walk, by contrast, is genuinely photon-limited down to its
+own 2.31 pm floor and is the term that decides whether 3 pm is met.
+
+Rows of record for the reflective rig are therefore `oapifo2` (§4.6) + this,
+with `oapdesc2` to follow for the descent.
