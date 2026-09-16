@@ -1,0 +1,112 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "oapuw2"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 22.39 deg (end bodies 6.88, node 22.39) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   235 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   193 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   179 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +176.8 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +206.8 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +216.8 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  51.4 -> separation  257.1 mm, margin +146.3 mm (spec >= 25)
+  compensator                 d  200.0, part r  56.4 -> separation  141.4 mm, margin  +25.6 mm (spec >= 25)
+  output QWP                  d  160.0, part r  56.4 -> separation  160.0 mm, margin  +44.1 mm (spec >= 25)
+  analyzer                    d  170.0, part r  56.4 -> separation  170.0 mm, margin  +54.1 mm (spec >= 25)
+  focuser L2                  d  275.0, part r  51.4 -> separation  275.0 mm, margin +164.1 mm (spec >= 25)
+  0 of 5 node parts under the 25 mm margin; beam radius 51.4, mount +8
+  OAP fold solve (need lateral clearance 126.4 mm):
+  OAP1 (collimator F1=857): AOI 20 deg -> lateral  551.0 mm, margin +424.5
+  OAP2 (focuser   F2=429): AOI 25 deg -> lateral  328.3 mm, margin +201.9
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: geometrically-scaled seed (no oapuw2_tail.mat / oap_tail.mat) -- RE-RUN tg96_tail for oap
+Stage B -- oap rig built (BS_AOI 22.5); emitted oapuw2_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      21.4  
+  PolIn          TrPolarizer      438.6        --  
+  L1             Reflector        882.1      51.4  off-axis parabola (collimator): fold AOI 20 deg, parent f 756.9 mm (Kr -1513.8), off-axis 551.0 mm, conjugate 857.1 mm
+  BSrefl         Reflector       1139.3        --  flat mirror
+  Comptxfd       Refractor       1336.5        --  
+  Comptxbd       Refractor       1339.2        --  
+  QWPtestIn      WavePlate       1561.6        --  
+  TestOptic      Reflector       1586.6      51.4  flat mirror
+  QWPtestOut     WavePlate       1611.6        --  
+  Comptxfu       Refractor       1834.0        --  
+  Comptxbu       Refractor       1836.7        --  
+  BStxfo         Refractor       2033.9        --  
+  BStxbo         Refractor       2036.6        --  
+  Recomb         Reference       2186.6        --  
+  OutQWP         WavePlate       2196.6        --  
+  Analyzer       TrPolarizer     2206.6        --  
+  L2             Reflector       2311.6      51.4  off-axis parabola (focuser): fold AOI 25 deg, parent f 352.0 mm (Kr -704.1), off-axis 328.3 mm, conjugate 428.6 mm
+  FocalMask      Reference       2740.1        --  
+  FLpow          Refractor       2750.9        --  
+  FLflat         Refractor       2755.2        --  
+  Detector       FocalPlane      2792.8        --  camera (see the sampling budget for the pixel count)
+  the two mirrors carry the same coating (bench.coat_oap = none); each needs a tip/tilt mount
+  the input polarizer is in the DIVERGING source leg (POL_IN 'source')
+  the source sits at the collimator's TRUE focus (SRC_AT_FOCUS)
+
+Stage PLACE -- affine window placement (oap rig):
+  ray affine: mag 10.4370 DM-mm/det-mm, det -108.9315, in-plane rotation -0.00 deg, dxd 2.0309e-02 mm -> 4.718 detector px per actuator
+  anchor: blob px (496.50,534.02) <-> DM (-3.500,-4.620) mm; field parity [t=1 su=+1 sv=+1] (ref-poke err 1.99 px)
+  lit actuators: 3680 of 9216
+  camera: pupil image 7.80 mm across (384 modeled px at 20.3 um); sCMOS 2048x2048 at 6.50 um -> 1200 raw px across the pupil, binned 4 = 300 (modeled 384)
+    snapshot analyzer: polarization sCMOS (micro-polarizer array, 0/45/90/135) at 3.45 um -> 2260 px across the pupil, 1130 per orientation (four simultaneous frames, no rotating stage)
+  bootstrap (ray affine): 90.60% within 2 px, median 0.86 px (468 of 468 blobs caught)
+  fit residual: affine 0.80 px, deg-2 0.10 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 468 CoMs): fit residual 0.80 px
+  refined pass 2 (deg-1, 468 of 468 caught): fit residual 0.80 px, gate 100.00% within 2 px, median 0.68 px
+  D1 GATE: 100.00% of lit within 2 px (need >= 99.0%), median err 0.68 px
+  by radius (mm):           6.8   13.7   20.5   27.4   34.2 
+    within2px    1.00   1.00   1.00   1.00   1.00 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.00 
+  ray-affine SVD: DM-mm/det-mm 10.437 / 10.437, anamorphism 0.00%, principal axis +0.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map, OAP): 96.79% within 2 px vs affine 100.00% (same 468 poked); register_two_pokes centre anchor reads 0
+Stage MATRIX -- measured response matrix dw/da (oap rig, step 8, sign same):
+  flat-DM null: 0.0289 nm rms surface (28.9 pm) -- the same-plane-fold arm difference
+  J: 64 states, 3680 columns (lit), window 37 px, reg lambda 1.00e-03 (of median col energy)
+  Stage C single actuator @150nm: gain 0.9810, off-target floor 46.5 pm
+Stage D -- modal transfer (matrix estimator):
+  mode(p,q)  cyc/pup     gain  cross-talk
+    1,1          0.7   0.9978      0.0063
+    2,2          1.4   0.9981      0.0040
+    4,4          2.8   0.9893      0.0105
+    8,8          5.7   0.9906      0.0103
+   16,16        11.3   0.9916      0.0109
+   24,24        17.0   0.9928      0.0127
+   32,32        22.6   0.9939      0.0161
+   48,48        33.9   0.9946      0.0213
+   64,64        45.3   0.9901      0.0020
+   80,80        56.6   0.9660      0.0078
+   96,96        67.9   0.9250      0.0205
+   48,0         24.0   0.9919      0.0220
+Stage E -- differential rows (matrix estimator; actuator space, pm):
+  base           deviation          gain   resid pm     corr
+  flat           single 10nm      0.9915        2.4   0.9999
+  flat           random 10nm      0.9905      161.2   0.9999
+  random 16nm    single 10nm      0.9952        2.1   0.9999
+  random 16nm    random 10nm      0.9892      189.8   0.9999
+Stage E break ladder -- single 10nm differential vs base rms (oap):
+  base rms       gain   floor pm     corr    wrap  note
+      30 nm   0.9965        2.0   0.9999    0.93  
+      60 nm   0.9929        2.0   0.9999    1.00  
+     120 nm   0.3698      437.9   0.1418    1.00  BROKE
+     240 nm  -0.9009      591.9  -0.2836    1.00  BROKE
+     480 nm  -4.9780     1296.4  -0.6978    1.00  BROKE
+Stage E reg sweep -- dense random 10nm gain vs matrix_lam (bright vs dark 25% columns):
+  lambda          all   bright     dark
+  1e-03        0.9905   0.9906   0.9900
+  1e-04        0.9952   0.9951   0.9957
+  1e-05        0.9957   0.9955   0.9963
+
+wrote oapuw2_report.txt + oapuw2.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oapuw2

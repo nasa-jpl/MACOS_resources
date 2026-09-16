@@ -15,12 +15,12 @@ Dave pushes. The realism and field-servo reports link back to this table.
 |---|---|---|---|
 | 0 | commit the untracked record files | — | **done** — the tag census below |
 | 1 | vector pair on the redesign: rows, overcoat, verdict | §5.1 | **done** — rows hold uncalibrated; G4 634 bare / 319 quarter-wave overcoat / 199 bench-calibrated / **0.054 pm PASS** polarimetric. The variable is the channel PHASE, not the amplitude; fold lever stays unpulled. `vqw22` `vmap22` `vfit22` `vamp22` |
-| 2 | item 4's loop + descent + the 120 nm wrap explained | §4 | not started |
-| 3 | tail tuner gated by a battery row; README | §4.7 | not started |
-| 4 | realism 3–5: thicknesses, substrates, camera | `REPORT_bench_realism.md` | not started |
-| 5 | realism 6: snapshot polarization at the built angles | `REPORT_bench_realism.md` | not started |
-| 6 | realism 8: the interferometer's station figure, both rigs | `REPORT_bench_realism.md` | not started |
-| 7 | the coronagraph field servo, three steps | `bench_ctb/REPORT_field_servo.md` | not started |
+| 2 | item 4's loop + descent + the 120 nm wrap explained | 4.7 | **(b) DONE, (a) and the loop/descent running** -- the premise did not survive the control: the record's lens ladder is a **7 deg** bench, today's is 22.5, and measured like with like the lens rig DOES flag (at 240 nm) while the OAP breaks at 120. Sampling and measurement amplitude both EXCLUDED by measurement; the estimator's conditioning (3680 unknowns in 37 px windows vs 3260 in 41) is the one candidate left. `oapuw2` `lensuw2` done; `oapifol2` `oapdesc2` running |
+| 3 | tail tuner gated by a battery row; README | README + 4.5 | **code in, gate re-run queued** -- the first run refused BOTH legs with gain NaN (`dmg_frame` off `tg96_tail`'s path: the gate was failing CLOSED and refusing everything). Paths fixed; an unmeasurable gate now warns loudly instead of passing for a bad tail. `runs/gateseq3.sh` re-queued |
+| 4 | realism 3-5: thicknesses, substrates, camera | `REPORT_bench_realism.md` | **builder + runner in**, runs queued (`runs/item4seq.sh`): `substrate` / `MASK_SUB` / `EDGE_MARGIN` on Bench + twyman_green, `bench.MASK_TRIM 'scan'` so the mask re-finds its focus under glass, the camera printed from `P.cam` |
+| 5 | realism 6: snapshot polarization at the built angles | `REPORT_bench_realism.md` | **tool in**, queued (`runs/aoiseq.sh`): `tg_aoi_ladder` gained the OAP rig and two columns -- the analyzer-sweep CORRECTION (free: the basis already spans every angle) and the RESIDUAL a measured matrix cannot absorb |
+| 6 | realism 8: the interferometer's station figure, both rigs | `REPORT_bench_realism.md` | **runner in** (`stations_ifo_`, 2x7, guarded so a figure bug cannot destroy an hour of loop results); produced by the `figs` stage of `oapifol2` / `oapdesc2` |
+| 7 | the coronagraph field servo, three steps | `bench_ctb/REPORT_field_servo.md` | **step 0 open and probed** -- the note's 33-cycle separability prediction pairs a 0.67 mm pitch with a 42.8 mm beam, and 32 x 0.67 = 21.4; the CTB documents contradict each other on radius vs diameter, so `ctb_beam_probe.m` asks the engine. Steps 1-3 not started |
 
 ### Item 0 — what was committed, and what was deleted
 
@@ -1157,17 +1157,24 @@ in `REPORT_oap.md` -- the 0.18 modal cross-talk against the lens's < 0.06, the
 servo that never reaches the 2 pm walk, the 27.6 % noiseless step floor, the
 19.6 pm vector and 94 pm pinhole gate failures, the 6.14 mm seat trim -- sits
 downstream of a 1.1 lambda F/D blur at the mask seat that need not exist.
-**Do not carry those numbers onto a slide about mirrors.** They are being
-re-measured (`oapifo`, `oapifol`, `oapsens22`); until they land, the slide can
-say what is already settled:
+**Do not carry those numbers onto a slide about mirrors.** They have been
+re-measured (`oapifo2`, `oapsens22`, `oapsens22n`, §4.6 and §5), with the loop
+and descent re-queued on the seed tail as close-out item 2. What is settled:
+
+**Two numbers in an earlier version of this table came from the TUNED tail and
+have been removed** — its 0.0223 nm null and its "150.0 nm poke recovered
+(100 %)". §4.5 measured that tail reading a single actuator at **0.0338**; the
+0.0223 null is real and is exactly what made it win the tuner's objective, which
+is the finding, not a credential. The rows below are the geometric seed's, which
+is what this bench actually runs.
 
 | | lens rig | reflective rig, as designed here |
 |---|---|---|
 | buildable at the 22.5 deg node | yes, worst +38.2 mm over 10 parts | **yes, worst +33.4 mm over 8 parts** |
 | mask-seat blur at best focus | diffraction-limited | **0.000 lambda F/D** |
 | mask-seat trim | -5.582 mm (thin-lens seed correction) | **0.00 mm** (the parabola's exact conjugate) |
-| tail flat-DM null, tuned | 0.134 nm | **0.0223 nm** |
-| single 150 nm poke recovered | -- | **150.0 nm (100 %)** |
+| tail flat-DM null | 0.134 nm (tuned) | **0.0289 nm** (the GEOMETRIC SEED — the tail of record here) |
+| single actuator recovered, actuator space | — | **0.9915, 2.4 pm** (`oapifo2`, record resolution) |
 | the optics | two tuned singlets, conic figures fit per rig | two off-axis parabolas: **f 756.9 / 352.0 mm parent, 551.0 / 328.3 mm off-axis, 40 and 50 deg off-axis catalogue shapes** |
 | chromatic | no (a tuned singlet at one wavelength) | **achromatic by construction** |
 | what it cost | -- | the input polarizer moves into the source leg; the output optics move 70 mm; the folds are 20 and 25 deg, not 5 and 9 |
@@ -1466,3 +1473,242 @@ Run tags: `oapsens22` / `oapsens22n` (item 5 of the previous brief), `vqw22`,
 now a valid choice, and the five places that had to strip `coat_*` fields by
 name match them by prefix instead, so a new stack cannot be forgotten in one of
 them.
+
+### 4.7 Item 2 — the 120 nm wrap, read like with like
+
+**The comparison the brief asks for could not be made from the committed
+reports, and that is a defect in the instrument, not in the benches.** The
+ladder's wrap meter — `max|h|` over the lit pupil in units of λ/4, 1.00 meaning
+the base reading has saturated the four-step's unambiguous range — was printed
+ONLY inside the `BROKE` note. A rig that holds therefore printed no wrap number
+at all, so "the OAP seed tail wraps from 120 nm where the lens rig never flags"
+compares a measured quantity against a blank. `tg96_run` now prints the wrap
+fraction as a column at EVERY rung, and `runs/lensuw2` re-runs the lens rig
+through today's code so there is a control measured the same way.
+
+**The sampling difference, measured, is 7 % — and the brief's hypothesis (a)
+predicts the wrong sign.** The ray affine now prints detector pixels per
+actuator directly:
+
+| | mag, DM-mm/det-mm | dxd, mm | **detector px per actuator** |
+|---|---|---|---|
+| OAP seed tail (`oapifo2`, `oapuw2`) | 10.4370 | 2.0309e-02 | **4.718** |
+| lens rig (`lens`, the record) | 9.8793 | 2.0054e-02 | **5.047** |
+
+The lens rig gets 7.0 % more pixels per actuator. Hypothesis (a) — *fewer
+pixels per actuator → a larger phase step per pixel at the same surface* — is
+arithmetically right about the step and **backwards about the consequence for
+the wrap meter**: fewer pixels per actuator means MORE blur per actuator, a
+LOWER `max|h|`, and therefore LESS saturation, not more. And 7 % is not a
+plausible size for a difference that turns "holds at 120 nm" into "broke at
+120 nm"; the ladder doubles at each rung.
+
+So the two runs are set up to discriminate, not to confirm: `oapuw2` re-reads
+the OAP ladder with `battery.unwrap` on (CCMac's lens_deck captured from 150 nm
+with the unwrapper alone, so the record's own comparison was already unlike),
+and `lensuw2` supplies the lens rig's wrap fractions through the same code.
+**Running; the numbers land here.**
+
+**`battery.unwrap` does not reach the battery — found while the run was in
+flight.** The knob is read in exactly one place, `stage_loop_`
+(`do_uw = P.battery.unwrap || descent`); neither `stage_CDE_` nor
+`stage_matrix_`, which own the break ladder, consults it. So `oapuw2` is
+running with NO unwrapper and is, for part (a) of this item, **vacuous** — it
+reproduces `oapifo2`'s ladder. It is being left to finish because it is not
+worthless: it supplies the OAP rig's wrap fraction at every rung, which is half
+of what part (b) needs, and `lensuw2` supplies the other half. Part (a) needs
+the knob to work first.
+
+**And reading the ladder's code to find that turned up a better hypothesis than
+either of the two the brief offers.** The ladder measures
+
+```
+hb = measr(bb);  hbd = measr(bb + d_sng);  adev = est(hbd - hb);
+```
+
+`measr` goes through `ctx.measf`, which is `angle(exp(1i*(fourstep - p_null)))`
+— a **separately wrapped absolute map**. So the ladder subtracts one wrapped
+absolute from another, which is precisely what this file's own comment beside
+`ctx.phasef` says never to do: *"the V1 lesson -- wrap the DIFFERENCE of two
+phases, never subtract two separately-wrapped absolute maps. On a base that
+exceeds lambda/4 the absolute map wraps but a small differential does not, so
+calibration pokes and rows must difference-then-wrap."* The 10 nm differential
+never wraps; the 120 nm **base** does.
+
+That predicts the break precisely, and it predicts it without any appeal to
+sampling: the rig whose base reading reaches 1.00 of λ/4 first is the rig that
+breaks first, and 7 % of pixels-per-actuator has nothing to do with it. The
+wrap column now measures exactly that quantity on both rigs, so the two runs
+in flight discriminate between this and the brief's hypotheses rather than
+merely confirming a break. If it holds, the fix for part (a) is not the
+unwrapper at all — it is to difference before wrapping in the ladder, the way
+the rows already do.
+
+**And the ladder is the ONLY place left that does it.** Everything else in this
+runner already differences before wrapping:
+
+| site | form |
+|---|---|
+| `build_J_` (the matrix calibration), `tg96_run.m:1557-1579` | `angle(exp(1i*(phasef(base+poke) - pbase)))` — wrapped DIFFERENCE |
+| the deck stage, `:885-891` | `wdiff = angle(exp(1i*(phasef(target) - phasef(base))))` — wrapped DIFFERENCE |
+| **the break ladder, `:786` (`measr`, `:716`)** | **`measr(bb + d_sng) - measr(bb)` — two wrapped ABSOLUTES** |
+
+So the ladder is the outlier, and the quantity it reports as "the bench broke"
+is measured differently from the quantity every other row reports. The
+suspicion this raises is concrete: **the 120 nm break may be an artifact of the
+ladder's own differencing rather than a property of the bench** — and if so the
+record's reflective rig "holding to 120 and breaking at 240" and the lens rig
+"never flagging" are both measurements of where each rig's base map crosses
+λ/4, not of capture range.
+
+That is a claim about the instrument, so it does not go on a slide until it is
+measured. The two runs in flight give the wrap fractions; the test after them
+is to run one ladder rung both ways on the same bench. If the wrapped-difference
+form holds where the absolute form breaks, the ladder changes and every capture
+number on the deck is re-read — including the lens rig's, which would then be
+understating nothing and the OAP rig's, which would be understating a lot.
+
+#### The OAP rig's wrap column, and why the meter I added is not good enough
+
+`oapuw2`, the seed tail at record resolution, with the wrap fraction now printed
+at every rung:
+
+| base rms | gain | floor pm | corr | **wrap** | |
+|---|---|---|---|---|---|
+| 30 nm | 0.9965 | 2.0 | 0.9999 | **0.93** | |
+| 60 nm | 0.9929 | 2.0 | 0.9999 | **1.00** | |
+| 120 nm | 0.3698 | 437.9 | 0.1418 | **1.00** | BROKE |
+| 240 nm | −0.9009 | 591.9 | −0.2836 | **1.00** | BROKE |
+| 480 nm | −4.9780 | 1296.4 | −0.6978 | **1.00** | BROKE |
+
+**The base reading saturates at 60 nm and the ladder does not break until 120.**
+So saturation is necessary and nowhere near sufficient, and `max|h|/(λ/4)`
+**cannot discriminate 60 nm from 480 nm** — it reads 1.00 at all of them. The
+meter I promoted to a column is the wrong statistic: `max` over the pupil hits
+1.00 the moment a SINGLE pixel wraps. The right one is the FRACTION of the lit
+pupil beyond the fold, which is what the ZWFS battery has always reported
+(`fold0 / fold`) and what the tg96 ladder does not. Changing it means editing
+`tg96_run.m`, which is the file the runs in flight are executing, so it waits
+for them -- it is planned, not queued.
+
+**What the two numbers together already say about the mechanism.** For a
+Gaussian base of rms σ the fraction of the pupil beyond λ/4 = 158.2 nm is
+`erfc(158.2/(σ√2))`: 1.4e-7 at 30 nm, **0.8 % at 60 nm**, **19 % at 120 nm**,
+51 % at 240. (The ladder's rungs are ACTUATOR commands, and the surface a
+random command field makes is about 3 % larger in rms at 12 % coupling, so these
+are the right numbers to a few per cent.) The ladder holds at 0.8 % and breaks
+at 19 %. That is the
+signature of the wrapped-absolute subtraction, not of a capture limit: the
+difference `measr(bb+d) − measr(bb)` is correct at every pixel where BOTH maps
+wrapped the same number of times, and wrong by a full λ/2 at the pixels the
+10 nm poke pushes across a wrap boundary. The count of such pixels scales with
+how much of the pupil sits near a boundary, which is what the erfc tracks. It
+does not scale with pixels per actuator at all.
+
+`lensuw2` is the control: if the lens rig's break also lands near 19 % of its
+own measured map, the ladder is measuring its own arithmetic on both rigs and
+the "reflective rig has a smaller capture range" line comes off the deck.
+
+**A tension the OAP data alone does not settle, stated before the control
+lands.** *(Superseded below: the record's lens ladder turned out to be a 7°
+bench, so this paragraph's comparison is not like-with-like. Kept because the
+reasoning it sets up — that measurement amplitude had to be tested — is what
+the control then excluded.)* The lens rig's record ladder (`runs/lens`) holds at
+120 nm — gain 1.0258, corr 0.9946 — and only degrades at 240. On the COMMANDED surface those
+rungs are the same 19 % and 51 % beyond λ/4 for both rigs. So a purely
+arithmetic account ("the subtraction fails once ~19 % of the pupil has wrapped")
+predicts the lens rig should break at 120 too, and it does not.
+
+Two candidate resolutions, and they make opposite predictions for the control:
+
+1. **The measured maps differ in amplitude.** What wraps is the MEASURED `h`,
+   not the commanded surface. If the lens rig's measurement attenuates more —
+   a lower raw gain on the same true surface — fewer of its pixels reach λ/4
+   and it breaks later. The OAP rig's center-poke raw peak gain is 0.7487
+   (`oapsens22`); the lens rig's is the number to put beside it.
+2. **Sampling**, the brief's hypothesis — which is already excluded twice over:
+   the lens rig has 7 % MORE pixels per actuator (5.047 vs 4.718), so it should
+   resolve more of the surface and wrap EARLIER, not later, and 7 % cannot move
+   a break by a factor of two on a ladder that doubles.
+
+`lensuw2` measures (1) directly, because the wrap column is computed on each
+rig's own measured map. **This is also what makes the saturating meter
+expensive:** `max|h|/(λ/4)` reads 1.00 for both rigs at 120 nm and answers
+nothing. The ladder needs the MEASURED base rms and the beyond-fold FRACTION
+printed per rung — both one-liners in `tg96_run.m`, both waiting on the runs in
+flight to release the file.
+
+**A third instrument point: the `BROKE` flag is loose.** *(The numbers below are
+the 7° record run; the flag's looseness is real and general, the "flatters the
+lens rig" reading is not — on today's bench the lens rig's 240 nm rung reads
+−1.6631 and IS flagged.)* The test is
+`g < 0 || g > 3 || corr < 0.3`. The lens rig's 240 nm rung reads **gain 1.9271,
+corr 0.6872** — wrong by 93 % — and is not flagged, because 1.93 is under 3 and
+0.687 is over 0.3. Its 480 nm rung, 1.5849 / 0.5661, likewise. So "the lens rig
+never flags" is partly the flag's generosity: by the stricter criterion the
+capture line already uses elsewhere (gain within 0.9–1.1), the lens rig fails at
+**240 nm** and the OAP rig at **120 nm** — a factor of two, not the "holds
+everywhere versus breaks at 120" the unflagged table suggests.
+
+And the measured modal transfer says the difference is NOT in how hard each rig
+attenuates the surface it is reading: `oapifo2` gives 0.9978 / 0.9893 / 0.9916 /
+0.9939 at 0.7 / 2.8 / 11.3 / 22.6 cyc per pupil against the lens rig's 0.9877 /
+0.9884 / 0.9886 / 0.9889 — within 1 % of each other, and if anything the LENS
+rig attenuates slightly more. A 1 % difference in measured amplitude cannot move
+a break by a factor of two either. So of the three candidate explanations —
+sampling, measurement amplitude, and the ladder's own arithmetic — the first two
+are now excluded by measurement, and the wrap stage tests the third directly.
+
+#### The control lands, and the premise of item 2(b) does not survive it
+
+`lensuw2` — the lens rig through today's code, on today's 22.5° bench:
+
+| base rms | gain | floor pm | corr | wrap | |
+|---|---|---|---|---|---|
+| 30 nm | 0.9930 | 4.8 | 0.9996 | **0.92** | |
+| 60 nm | 0.9990 | 8.3 | 0.9989 | **1.00** | |
+| 120 nm | 1.0250 | 15.2 | 0.9967 | **1.00** | |
+| 240 nm | −1.6631 | 613.0 | −0.5910 | 1.00 | **BROKE** |
+| 480 nm | −0.1862 | 363.6 | −0.1088 | 1.00 | **BROKE** |
+
+**Two things, and the first invalidates the comparison the item is built on.**
+
+**1. The record's lens ladder is a DIFFERENT BENCH.** `runs/lens` reports
+`binding angle 6.88 deg -> BS_AOI = 7 deg`; `lensuw2` reports `BS_AOI = 22.5
+deg (pinned)`. So "the seed tail wraps at 120 nm where the lens rig never
+flags" compares a 22.5° reflective rig against a **7° lens rig** — the same
+class of mismatch as §4.6's resolution error, and it is why the record's 240 nm
+rung reads +1.9271 where today's reads −1.6631. Measured like with like, **the
+lens rig does flag** — at 240 nm. The brief's "never flags" is an artifact of
+the comparison, not a property of lenses. Anything on a slide that contrasts
+the two rigs' capture must use `lensuw2` and `oapuw2`, not `lens` and
+`oapifo2`.
+
+**2. The wrap column is IDENTICAL on the two rigs** — 0.92 and 0.93 at 30 nm,
+1.00 at every rung above. Both rigs' measured maps reach λ/4 at the same base
+rms. Combined with the modal transfer agreeing to 1 %, that **excludes
+measurement amplitude** as the difference, which was the leading candidate after
+sampling was excluded. Neither rig's measurement is attenuating the surface more
+than the other's.
+
+**What is left, and it is now the only candidate standing.** The real
+difference between the two runs is in the ESTIMATOR's conditioning:
+
+| | lit actuators (unknowns) | window per actuator | Stage C gain |
+|---|---|---|---|
+| `oapuw2` | **3680** | **37 px** (1369 px²) | 0.9810 |
+| `lensuw2` | 3260 | 41 px (1681 px²) | 1.0135 |
+
+The OAP rig solves **13 % more unknowns from 23 % fewer pixels each** — a
+consequence of its larger magnification (10.437 vs 9.841 DM-mm per detector-mm),
+which puts more of the DM on the same detector. A wrap-corrupted pixel is off by
+λ/2 = 316 nm against a 10 nm signal, i.e. 31× the thing being measured, so the
+solve's tolerance for them scales with pixels per unknown. That is a mechanism
+consistent with every measurement now in hand, and it is NOT what the brief's
+hypothesis (a) says: the direction is the same (the OAP rig is worse off per
+unknown) but the quantity is pixels per ACTUATOR IN THE SOLVE, not the phase
+step per pixel, and the size is 23 % rather than 7 %.
+
+**It is a candidate, not a conclusion.** The wrap stage measures the fold
+FRACTION that feeds it, on both rigs, and that is the number that would turn
+this into an account rather than a plausible story.
