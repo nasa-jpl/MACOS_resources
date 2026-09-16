@@ -416,6 +416,22 @@ function [g, info] = row_gain_(p, C)
         % ---- deconvolve to actuator commands, then the battery's own gain --
         aa = dmg_act_fit(hd1, xg, PL.axg, PL.ayg, stn, PL.lit, C.act_lam);
         [g, e, fl, snr] = score_gain_(aa, Ad, PL.lit);
+        % REGULARIZATION SWEEP -- is this gain tail-limited or ridge-limited?
+        % Nearly free: the trace, placement and poked map are done; only the
+        % pcg solve repeats.  A PLATEAU as lam falls means the tail sets the
+        % number; a gain still climbing at the smallest lam means the
+        % REGULARIZER does, and then the 0.95 threshold (set against the
+        % battery's est_matrix_tg, a different estimator) is what is wrong,
+        % not the tail.
+        lams = [C.act_lam 0.02 0.01 0.005 0.002];
+        gl = nan(size(lams));
+        for q = 1:numel(lams)
+            gl(q) = score_gain_(dmg_act_fit(hd1, xg, PL.axg, PL.ayg, stn, ...
+                                            PL.lit, lams(q)), Ad, PL.lit);
+        end
+        fprintf('  act_lam sweep:');
+        fprintf(' %.3f->%.4f', [lams; gl]);
+        fprintf('  (plateau = tail-limited; still climbing = ridge-limited)\n');
         info = sprintf(['%d sites, mag %.4f DM-mm/det-mm, %d lit, stencil hw %d ' ...
                         'from anchor (%d,%d); err %.1f pm, floor %.1f pm, SNR %.1f'], ...
                        size(ic,1), PL.mag, nnz(PL.lit), C.stn_hw, PL.aR(1), PL.aR(2), ...

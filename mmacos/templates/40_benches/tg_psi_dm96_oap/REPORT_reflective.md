@@ -16,7 +16,7 @@ Dave pushes. The realism and field-servo reports link back to this table.
 | 0 | commit the untracked record files | — | **done** — the tag census below |
 | 1 | vector pair on the redesign: rows, overcoat, verdict | §5.1 | **done** — rows hold uncalibrated; G4 634 bare / 319 quarter-wave overcoat / 199 bench-calibrated / **0.054 pm PASS** polarimetric. The variable is the channel PHASE, not the amplitude; fold lever stays unpulled. `vqw22` `vmap22` `vfit22` `vamp22` |
 | 2 | item 4's loop + descent + the 120 nm wrap explained | 4.7, **4.7(a)** | **DONE** -- (a) closed 2026-09-16: the break is the BASE READING WRAPPING and BOTH rigs do it between 60 and 120 nm, saturating at the analytic 316.4/sqrt(12) = **91.34 nm**; "the reflective rig has a smaller capture range" comes OFF the deck. The ladder's dA-vs-dD arithmetic is innocent (n_cross <= 5 px in 1e5), but each crossing is a full lambda/2 and swamps any second moment -- read n_cross, never corr. Servo: **1.7e13 photons/cycle for 3 pm under the 2 pm walk**, thermal floors at 10.0 pm and is LOW-ORDER (9.24 of it below 4 cyc/ap). Descent: both starts converged (r(K) 2.344 / 2.345 pm, rho 0.502 / 0.515, 0 recals); its exit 1 was `draw_loop_` on an empty drift list AFTER the results, now guarded. `oapuw2` `lensuw2` `oapifol2` `oapdesc2` `wrapoap` `wraplens` |
-| 3 | tail tuner gated by a battery row; README | README + 4.5 | **NOT DONE -- the gate failed its own two-leg test.** `objwin3` (battery 0.0338) was ACCEPTED at 0.9804; `lens_tail` (battery 0.9968) was REFUSED at -0.8285. A POINT SAMPLE at the actuator's pixel tracks MAGNIFICATION, not readability (the broken tail's mag 6.125 vs the seed's 10.44 dilutes less and reads higher). Made ADVISORY before item 4 could use it. Needs `dmg_act_fit` over the lattice; the same two legs are the test |
+| 3 | tail tuner gated by a battery row; README | README + 4.5 + **4.8** | **MEASURE FIXED, STILL ADVISORY.** The point-sample measure INVERTED the verdict (it tracked magnification); the lattice measure (`dmg_act_fit` over the illuminated lattice, stencil from tg96_place's anchor poke, `score_`'s gain verbatim) no longer does -- objwin3 **-0.1621**, lens_tail **0.8074**, thk22_tail **0.9104** against battery 0.0338 / 0.9968 / 0.9885. Ordering right, separation wide, but the SCALE is not the battery's, so 0.95 still refuses two good tails and enforcement stays OFF. **Not the regularizer:** the act_lam sweep is flat (1.1 / 0.9 / 1.4 % from 0.05 to 0.002). Live hypothesis = the single-site stencil against the battery's per-actuator matrix; recommended fix = gate the winner against the SEED through the same estimator (scale-free), NOT a lower threshold. `gate3_win` `gate3_lens` `gate3_thk` |
 | 4 | realism 3-5: thicknesses, substrates, camera | `REPORT_bench_realism.md` | **builder + runner in**, runs queued (`runs/item4seq.sh`): `substrate` / `MASK_SUB` / `EDGE_MARGIN` on Bench + twyman_green, `bench.MASK_TRIM 'scan'` so the mask re-finds its focus under glass, the camera printed from `P.cam` |
 | 5 | realism 6: snapshot polarization at the built angles | `REPORT_bench_realism.md` | **tool in**, queued (`runs/aoiseq.sh`): `tg_aoi_ladder` gained the OAP rig and two columns -- the analyzer-sweep CORRECTION (free: the basis already spans every angle) and the RESIDUAL a measured matrix cannot absorb |
 | 6 | realism 8: the interferometer's station figure, both rigs | `REPORT_bench_realism.md` | **FIGURES DONE, one OPEN defect** -- both rigs at the width the brief asks for: `stnoap` / `stnlens`, **1800 x 560 px** (the pre-patch `oapifol2` figure was 2558 x 838; `exportgraphics` at Resolution 150 does not land at the figure's pixel width, `print -dpng -r96` on this 96 dpi box does, and it is the ZWFS sibling's own mechanism, which the deck holds beside it).  OAP leg bit-identical to pre-patch `oapifol2` (626.43 pm), so the patch is inert here.  **OPEN:** the lens leg's station residual is 62 067 pm against the OAP's 626 -- zero at flat, sqrt(2)x the map with structure, i.e. a LATERAL MISREGISTRATION between the recovered map and the engine field.  First lens station figure ever made, so not a regression.  `REPORT_bench_realism.md` section 6; do NOT put the two numbers on one slide yet |
@@ -1969,3 +1969,80 @@ as "a few pixels crossed", never as "the differential is wrong".
 
 Tags `wrapoap`, `wraplens`. This closes item 2(a); the wrap mechanism needed a
 meter that does not saturate, which is what the staged patch supplied.
+
+### 4.8 Item 3 — the gate's measure, fixed and calibrated against the battery
+
+The point-sample measure was replaced by **lattice deconvolution**: the bench's
+own measured influence stencil, taken from `tg96_place`'s anchor poke, is
+deconvolved off a five-site poked map over the illuminated lattice
+(`dmg_act_fit`) and the recovered command is regressed on the commanded one
+with `tg96_run`'s `score_` verbatim — the battery's own quantity, not a proxy.
+Three `verify_tail` legs, one placement and one row each:
+
+| tail | battery | gate, `act_lam` 0.05 | 0.02 | 0.01 | 0.005 | 0.002 | at 0.95 |
+|---|---|---|---|---|---|---|---|
+| `objwin3` (bad) | 0.0338 | **−0.1621** | −0.1608 | −0.1604 | −0.1603 | −0.1603 | REFUSED ✓ |
+| `lens_tail` (good) | 0.9968 | **0.8074** | 0.8137 | 0.8147 | 0.8149 | 0.8150 | REFUSED ✗ |
+| `thk22_tail` (good) | 0.9885 | **0.9104** | 0.9212 | 0.9229 | 0.9233 | 0.9234 | REFUSED ✗ |
+
+**The inversion is fixed.** The point-sample measure read `objwin3` at 0.9804
+and `lens_tail` at −0.8285 — exactly backwards. The lattice measure orders all
+three correctly and separates the bad tail from the good ones by ~1.0 in gain.
+The non-vacuity leg passes: the known-bad tail is refused, and refused on a
+number (−0.16) that no threshold choice could confuse with a good one.
+
+**The threshold is still wrong, so the gate does not enforce.** Two tails the
+battery certifies at 0.99 read 0.81 and 0.91 here, and 0.95 refuses both. A gate
+that falls back to the seed on a good tail would put a tail regression inside
+item 4's substrate runs — the same failure the advisory decision was taken to
+avoid, so it stands.
+
+**It is not the regularizer.** `dmg_act_fit` is Tikhonov-weighted and ridge
+shrinkage biases a recovered amplitude low, which was the leading hypothesis.
+The sweep refutes it: from `act_lam` 0.05 to 0.002 the gain moves 1.1 %, 0.9 %
+and 1.4 %, against a deficit of 8–19 %. At the smallest weight `thk22_tail`
+reaches 0.9234 of the battery's 0.9885. The sweep is nearly free — the trace,
+the placement and the poked map happen once; only the `pcg` solve repeats — so
+it now prints on every gate run.
+
+**Live hypothesis: the single-site stencil.** The kernel is measured at the
+anchor only, while the battery carries a column per actuator. A field-varying
+influence response is then under-fitted at the other four sites and loses
+amplitude, which would show up as a systematic low bias that no regularization
+change can reach. Untested.
+
+**Recommended fix, and it is scale-free.** Gate the winner against the
+GEOMETRIC SEED measured through the SAME estimator, refusing when the winner is
+materially worse than the seed. The seed is what the gate falls back to, so
+that is the decision the gate actually has to make; and a ratio of two
+identically-estimated quantities cancels the systematic bias exactly, which no
+recalibration of an absolute threshold can promise. `row_gain_` already
+measures the seed on the refusal path, so the cost is one extra row per tune.
+**Not to be fixed by lowering 0.95** — moving a threshold to fit a measure that
+is not understood is how the first gate came to be trusted.
+
+### 4.8.1 A claim of mine, refuted by the diagnostic built to check it
+
+The lattice measure was routed through a new `tg96_samp` rather than the shared
+`dmg_samp`, on the argument that `dmg_samp`'s 8-parity family (axis permutation
++ signs + one isotropic scale) cannot express a rotation that is not a multiple
+of 90°, and that two folds at 20° and 25° must put one into this rig's mapping.
+
+**That argument is wrong, and the measurement says so.** `tg96_samp` reports the
+distance from `mag·Linv` to the nearest signed permutation on every run. On all
+three legs it is **0.0 %, anisotropy 1.0000** — the OAP rig sits at an exact 90°
+(a permutation), the lens rig at 0°. `dmg_samp` would have worked on both.
+
+The physics missed: a fold mirror **reflects** the pupil, it does not rotate it
+about the axis. Image rotation comes from out-of-plane fold geometry, and these
+folds are coplanar; the fold angle drives aberration, not image rotation.
+
+`tg96_samp` is kept on the weaker, honest grounds — it is `tg96_place`'s own
+affine and parity evaluated on the DM grid, so the bench carries one
+registration convention instead of two, and it stays correct if a layout ever
+does go out of plane. It is not load-bearing for correctness on any bench
+measured here. The diagnostic stays, printing every run, so the day a bench
+leaves the permutation family the number will say so rather than an argument.
+(Display note: it reports distance to the NEAREST multiple of 90 — `mod(th,90)`
+called an exact 90° rotation "89.999…", which prints as 90.00 and reads as the
+opposite of the truth.)

@@ -146,6 +146,40 @@ pixels and so dilutes the peak less, reading HIGHER. Magnification is not
 readability, and a gate built on it prefers exactly the tails it exists to
 refuse. It was made ADVISORY the same day rather than left enforcing.
 
+**STATUS: the gate is still ADVISORY.** The lattice measure below no longer
+INVERTS the verdict — that was the point-sample defect and it is fixed — but it
+reads systematically LOW against the battery, so a 0.95 threshold still refuses
+good tails. Measured on three tails, each `verify_tail` (one placement + one
+row):
+
+| tail | battery | gate, `act_lam` 0.05 | gate, 0.002 | verdict at 0.95 |
+|---|---|---|---|---|
+| `objwin3` (bad) | 0.0338 | **−0.1621** | −0.1603 | REFUSED — correct |
+| `lens_tail` (good) | 0.9968 | **0.8074** | 0.8150 | REFUSED — WRONG |
+| `thk22_tail` (good) | 0.9885 | **0.9104** | 0.9234 | REFUSED — WRONG |
+
+The ORDERING is now right and the separation is wide (−0.16 against 0.81/0.91);
+the point-sample measure had these inverted (`objwin3` 0.9804, `lens_tail`
+−0.8285). But the scale is not the battery's.
+
+**It is NOT the regularizer, and that was measured rather than assumed.** The
+`act_lam` sweep (free: the trace, placement and poked map happen once, only the
+`pcg` solve repeats) is FLAT on all three — 0.05 → 0.002 moves the gain by
+1.1 %, 0.9 % and 1.4 %, nowhere near the 8–19 % deficit. Lowering `act_lam`
+recovers 0.9234 of the battery's 0.9885, so Tikhonov shrinkage is not the
+explanation and lowering it is not the fix.
+
+**The live hypothesis** is the single-site stencil: the kernel is measured at
+the ANCHOR only, while the battery carries a column PER actuator, so a
+field-varying influence response is under-fitted at the other sites and loses
+amplitude. **The recommended fix is scale-free rather than a recalibration** —
+gate the winner against the GEOMETRIC SEED measured through the SAME estimator
+and refuse when the winner is materially worse than the seed. The seed is what
+the gate falls back to, so that is the decision the gate actually has to make,
+and a ratio of two identically-estimated quantities cancels the systematic
+bias entirely. **Do not fix this by lowering 0.95** — moving a threshold to fit
+a measure that is not understood is how the first gate got certified.
+
 **The measure of record is lattice deconvolution** (`row_gain_`, 2026-09-16).
 The bench's OWN measured influence stencil — taken from the anchor poke
 `tg96_place` already traces, so it costs nothing extra — is deconvolved off a
@@ -161,18 +195,25 @@ map the stencil was built from would return ~1 by construction and gate
 nothing. The sites are spread across the pupil, so a registration that
 degrades off-axis is in the measurement rather than at one lucky pixel.
 
-**Resampling uses `tg96_samp`, NOT the shared `dmg_samp`, and that is
-load-bearing on this rig.** The library resampler expresses the registration
-as an axis permutation plus per-axis signs plus one isotropic scale — the
-8-parity family — which cannot represent a rotation that is not a multiple of
-90°. This bench's two folds put exactly such a rotation into the mapping, and
-`tg96_place` carries it in `frm.Linv`. `dmg_samp` here would mis-register the
-lattice by the fold angle, which would then read as the tail failing to read.
-The trap is that the lens rig is close enough to axis-aligned that it would
-very nearly have worked there — i.e. it would have looked right on one leg of
-the two-leg test and been wrong on the other. `tg96_samp` is `tg96_place`'s
-own mapping evaluated on the DM grid, so this bench has one registration
-convention and not two.
+**Resampling uses `tg96_samp`, and the reason first given for it was WRONG.**
+The claim was that the shared `dmg_samp` — which expresses the registration as
+an axis permutation plus per-axis signs plus one isotropic scale, the 8-parity
+family — could not represent this rig's mapping, because two folds at 20° and
+25° must put a non-90° rotation into it. **Measured, that is false.**
+`tg96_samp` now reports how far `mag·Linv` sits from the nearest signed
+permutation, and on every bench tested it is **0.0 % away with anisotropy
+1.0000**: the OAP rig at an exact 90° (a permutation), the lens rig at 0°. So
+`dmg_samp` would have worked, and the fold angles do not enter. The physics the
+first claim missed is that a fold mirror REFLECTS the pupil, it does not rotate
+it about the axis; image rotation comes from out-of-plane fold geometry, and
+these folds are coplanar. The fold angle drives aberration, not image rotation.
+
+`tg96_samp` is kept anyway, on the weaker and honest grounds: it is
+`tg96_place`'s own affine and resolved parity evaluated on the DM grid, so the
+bench has one registration convention rather than two, and it stays correct if
+a future layout does go out of plane. It is **not** load-bearing for
+correctness on any bench measured so far. The diagnostic prints every run, so
+the day a bench does leave the permutation family, the number says so.
 
 Gate it yourself, without paying for a tune:
 
