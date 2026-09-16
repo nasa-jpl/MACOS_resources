@@ -34,5 +34,11 @@ B="'clear.BODY',struct('Baffle',50,'Detector',50,'TestOptic',90,'PZT',60)"
 ./tg96_batch.sh oapuw2   "$D,$B,'battery.unwrap',true,'battery.rows',{'base/single'},'stages',{'bench','battery'}"
 ./tg96_batch.sh lensuw2  "'bench.optics','lens','battery.rows',{'base/single'},'stages',{'bench','battery'}"
 ./tg96_batch.sh oapifol2 "$D,$B,'stages',{'bench','loop','figs'}"
-./tg96_batch.sh oapdesc2 "$D,'loop.start_rms',[1e-4 2e-4],'stages',{'bench','loop','figs'}"   # mm: 100 / 200 nm
+# The descent needs ONE loop run per start, which is what the record did (3 runs
+# for 3 starts, 1e13 photons, recal never, 35 min).  The default sweep instead
+# multiplies it by every photon level and adds the step and drift runs -- 22
+# runs, hours, for two starts' worth of answer.  oapifol2 supplies the photon
+# and drift story; the descent only answers whether the loop CAPTURES.
+L="'loop.start_rms',[1e-4 2e-4],'loop.steps',[],'loop.drifts',{},'loop.floor',false,'loop.nph',1e13,'loop.recal_every',0"
+./tg96_batch.sh oapdesc2 "$D,$L,'stages',{'bench','loop','figs'}"   # start_rms in MM: 100 / 200 nm
 echo "[item2seq] done"
