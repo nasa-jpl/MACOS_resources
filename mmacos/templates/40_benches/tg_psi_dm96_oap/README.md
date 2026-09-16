@@ -102,8 +102,48 @@ polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.m
 | `REPORT_gauge_ifo.md` | the gauge-deck report (the IFO lanes): rows on the 30 nm surface, capture range, the three phase-shift forms, lenses-vs-OAPs, parts lists |
 | `tg96_place.m`  | window placement from the ray affine (`dmg_frame`) + directional-parity + robust affine refit |
 | `tg96_apply_parity.m` | detector-mm → field pixel under the resolved field-array parity |
-| `tg96_tail.m`   | re-tune FL_F/FL_Kc/D_MASK_FL/DET_TRIM per optics (unaligned null) |
+| `tg96_tail.m`   | re-tune FL_F/FL_Kc/D_MASK_FL/DET_TRIM per optics (unaligned null), **gated by a single-actuator row** — see "The tail of record" |
 | `tg96_run_batch.m` / `tg96_batch.sh` | `matlab -batch` wrapper (exit only here) + launcher |
+
+## The tail of record, and the tuner's open problem
+
+**On the reflective (OAP) rig the tail of record is the GEOMETRIC SEED**, not a
+tuned set: `bench.tail_from_mat false`. It reads a single actuator at **0.9809**
+with a clean break ladder, where the tuner's own winner read **0.0338**
+(`runs/tailB` vs `runs/tailA`, REPORT_reflective §4.5). The lens rig keeps its
+tuned tail, which does read (0.9968).
+
+**Why the tuner's objective is not trusted here, and what is open.** Every
+quantity `tg96_tail` computes about its candidate — the flat-DM null, the
+recovered poke peak, the localization `conc`, the wrap fraction — preferred the
+tail that does not read: measured cleanly and one run at a time, the old winner
+scores `conc` 1.000, wrap 0.66, null 0.0223 nm and cost 0.0015 against the
+seed's 0.0089. So the objective is optimizing something **orthogonal to
+readability**, and no reweighting of those four terms can fix that. *Why* is
+open (tags `objseed3` / `objwin3` for the clean A/B; `tailA` / `tailB` for the
+rows), and it is a real piece of work that has not been started.
+
+**What was done instead — the winner gate.** The tuner no longer certifies its
+own winner. After the tune it reads ONE single-actuator row through the ray
+affine, in **actuator space** — the quantity the battery measures — and refuses
+any winner below `gate_gain` (0.95), returning the geometric seed with the
+reason printed. The affine comes from `tg96_place`, i.e. from the ray trace of
+the very bench under test, so a tail that has walked the detector off the DM's
+pupil conjugate still gets its own honest mapping and still reads ~0: the
+actuator's response is no longer imaged onto its own site. That is why this
+gate cannot be fooled the way the peak term was. Cost: one placement plus one
+poked row, once per tune.
+
+Gate it yourself, without paying for a tune:
+
+```matlab
+tg96_tail('verify_tail','objwin3_tail.mat', <the bench args it was tuned with>)
+```
+
+`runs/gateseq3.sh` runs exactly that on both rigs — the OAP rig's known-bad
+tail (must be REFUSED) and the lens rig's tuned tail (must be ACCEPTED). The
+first leg is the non-vacuity: a gate that accepted everything would pass the
+second leg alone.
 
 ## Calibration mode (Dave 2026-09-10, the ZWFS-S10 default)
 
