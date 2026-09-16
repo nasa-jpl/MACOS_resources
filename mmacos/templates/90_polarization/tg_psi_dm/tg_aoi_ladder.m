@@ -64,8 +64,17 @@ TAIL = {'tail_arch','fieldlens', 'FL_F',25.02100857, 'FL_Kc',-2.11278288, ...
         'D_MASK_FL',6.277463741, 'DET_TRIM',1.085330067};
 macos.init(MODEL);
 
-macos.write_grid_file('aoi_flat.txt', zeros(N_G));
-macos.write_grid_file('aoi_pist.txt', DZ*ones(N_G));
+% Scratch names carry the TAG.  Two legs of runs/aoiseq.sh differ only in
+% optics and both round 22.5 to 23, so a fixed 'aoi23_test.in' means the second
+% leg overwrites the first's decks -- harmless while they run one at a time,
+% and exactly the ambiguity tg96_tail's fixed scratch names caused when they
+% did not (2026-09-15: two tuners reporting different nulls for identical
+% parameters).  Name them so the leftovers say which run made them.
+sfx = '';  if ~isempty(o.tag), sfx = ['_' o.tag]; end
+f_flat = sprintf('aoi_flat%s.txt', sfx);
+f_pist = sprintf('aoi_pist%s.txt', sfx);
+macos.write_grid_file(f_flat, zeros(N_G));
+macos.write_grid_file(f_pist, DZ*ones(N_G));
 expect = 4*pi*DZ/LAM;              % rad of fringe phase for DZ of surface
 
 n = numel(aois);
@@ -87,9 +96,9 @@ for k = 1:n
         'to_grid_file',gf, 'to_grid_n',N_G, 'to_grid_dx',DX_G, ...
         'qwp_ret',QWP, 'pol_in_deg',45, 'qwp_test_deg',0, 'qwp_ref_deg',45, ...
         'out_qwp_deg',0, 'analyzer_deg',0, 'BS_AOI',a, rigargs{:}, TAIL{:});
-    Gf = mk('aoi_flat.txt');  Gp = mk('aoi_pist.txt');
-    ft = sprintf('aoi%02d_test.in',round(a));  fr = sprintf('aoi%02d_ref.in',round(a));
-    fp = sprintf('aoi%02d_pist.in',round(a));
+    Gf = mk(f_flat);  Gp = mk(f_pist);
+    ft = sprintf('aoi%02d%s_test.in',round(a),sfx);  fr = sprintf('aoi%02d%s_ref.in',round(a),sfx);
+    fp = sprintf('aoi%02d%s_pist.in',round(a),sfx);
     Gf.bt.emit(ft);  Gf.br.emit(fr);  Gp.bt.emit(fp);
 
     AT = arm_desc(ft, Gf.bt, Gf.T, 0);
