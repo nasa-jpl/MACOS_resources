@@ -223,3 +223,54 @@ Also worth recording against the realism brief's own figure: it assumes a
 **9.4 mm** pupil image. Measured, the ZWFS rig forms **7.51 mm** and the PSI rig
 **7.78 mm** (5.79 on the thickened seed-tail run). The 9.4 mm figure is not this
 bench's.
+
+## 5. The snapshot form's polarization at the angles each rig is BUILT at
+
+`tg_aoi_ladder` at 22.5° on the lens rig, and on the reflective rig at its own
+20°/25° folds with the 22.5° plate. Model 256, NGRID 63 — geometry and
+polarization, not a diffraction result.
+
+| rig | az test | az ref | **arm rotation** | **unaligned PSI gain** | residual |
+|---|---|---|---|---|---|
+| lens, 22.5° | −43.4361° | +45.0000° | **+1.5639°** | **−1.00879** (+0.879 %) | 1.448e−03 |
+| reflective, 20/25° + 22.5° plate | +43.4275° | −45.0086° | **−1.5639°** | **0.99017** (−0.983 %) | 5.511e−04 |
+
+**Against the record's 45° figures — 7.48° of arm rotation and a gauge reading
+11.7 % high — the built angles cost 4.8× less rotation and 13× less scale
+error.** Both rigs land at ±1.56° and under 1 %. The two rigs' rotations are
+equal and opposite, which is the plate's diattenuation acting on arms whose
+design azimuths are mirrored; the reflective rig's extra metal folds do not add
+to it measurably at these angles.
+
+The **residual** column is the part that matters for a calibrated gauge: the
+pupil-VARYING fraction of the gain map, which a matrix measured on the bench
+cannot absorb. It is **1.4e−03 on the lens rig and 5.5e−04 on the reflective**
+— i.e. after the matrix, the polarization systematic is at the 0.1 % level, not
+the 1 % the uncorrected gain shows. Quoting the uncorrected number overstates
+what a calibrated gauge suffers by roughly 6×.
+
+### The "corrected" column is a NO-OP, and this is why
+
+`gain_cor` is identical to `gain` to five decimals on both rigs. That is not a
+coincidence and not a bug in the arithmetic — **it is a design error in how I
+built the correction**, and it is provable in three lines.
+
+A polarization four-step has `I(θ) = A + B·cos(2θ − φ)`. Re-referencing every
+analyzer angle by a constant `c` gives
+
+```
+I(c) − I(90+c)   = 2B·cos(φ − 2c)
+I(45+c) − I(135+c) = 2B·sin(φ − 2c)   ->   fourstep = φ − 2c
+```
+
+so the shift subtracts `2c` from the measured phase of **both** states — and the
+ladder's gain is built from their DIFFERENCE, where the common `−2c` cancels
+exactly. A rigid rotation of the analyzer set cannot correct a differential
+measurement, however the rotation is chosen.
+
+**So the brief's "corrected" column is not delivered.** The uncorrected rotation
+and gain are real and are the numbers above; the analyzer-sweep correction needs
+to change the PROJECTION — using the measured azimuths to build non-uniform
+steps, or rescaling by the arms' non-orthogonality — not to rotate all four
+angles together. The `resid` column is unaffected by any of this, since it is
+computed from the gain map's own scatter about its median.
