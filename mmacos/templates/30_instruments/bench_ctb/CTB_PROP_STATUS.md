@@ -1,6 +1,39 @@
 # CTB diffraction layer — work-in-progress status (hand-off)
 
-_Updated 2026-08-26. Latest work at "SESSION 14" (vector vortex, CLOSED) below; older kept._
+_Updated 2026-09-16 (DM-model confirmation note first). Latest session work at "SESSION 14" (vector vortex, CLOSED) below; older kept._
+
+## 2026-09-16 — DM model confirmed; beam is 21.24 mm; fill 47 % of the DM; Aperture convention; regeneration pending Dave's decision
+
+TO's traced probe (`ctb_beam_probe`, `ctb_dcr.in` at model 512, 50618 rays;
+full record in `REPORT_field_servo.md` §0) questioned and then CONFIRMED the
+DM model.  `ctb_dm.m`'s `beam_d_mm = 21.3` is the beam DIAMETER the engine
+delivers; the 32×32 lattice at 0.666 mm pitch spans it; 880 active actuators
+per DM (centers within beam radius 10.65 mm + 1 pitch).  No EFC/contrast
+result changes.
+
+| plane | elt | footprint radius (mm) | footprint DIAMETER (mm) | declared clear radius | README chain (diameters) |
+|---|---|---|---|---|---|
+| DM1 | 2 | 10.6222 | **21.2444** | 22.5 | 21.4 |
+| DM2 | 5 | 10.6225 | **21.2451** | 22.5 | — |
+| Apodizer | 13 | 7.9347 | **15.8695** | — | 16.0 |
+| Lyot | 20 | 3.9696 | **7.9392** | — | 8.0 |
+
+So the README's chain "DM 21.4 → apod 16.0 → Lyot 8.0" is a chain of
+DIAMETERS, and `example_ctb.m`'s `fprintf` label "pupil beam radii" was
+mislabeled (now "pupil beam DIAMETERS"; label-only change).
+
+**The real finding — the Aperture convention.**  The engine takes a point
+source's `Aperture` as the FULL cone angle (`macos_f90/sourcsub.F`:
+`A = Aperture/2`); `example_ctb.m` sets `Aperture = R_DM*FILL/r` as if it
+were the half-angle NA.  The bench therefore delivers HALF the sheet's
+intended beam: the DM (clear radius 22.5 mm) is filled to **47 %** of its
+radius, not the 95 % the README used to state.  Self-consistent everywhere
+downstream (masks, Jacobians, loops all sized on the beam that exists).
+
+**Pending:** whether to regenerate at the intended 42.75 mm beam is Dave's
+decision (later, after the DM-gauge results clear).  Generator and decks
+UNCHANGED; README / deck / this file corrected to the measured facts.
+
 
 ## SESSION 14 (2026-08-26) — the VECTOR vortex (CLOSED: both sandwiches measured, verdict figure + deck slide 13 shipped)
 

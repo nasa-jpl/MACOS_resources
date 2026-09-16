@@ -32,8 +32,13 @@
 %  'f' directly; conjugate r = f/cos^2(AOI) = 2f/(1-cos theta).  DST2R
 %  seeds: f = [2500 1524 1143 1350 675 635 635 762] mm, AOI ~ 5 deg.
 %
-%  Source model: point source = section of a sphere; Aperture = the
-%  NUMERICAL APERTURE, sized to fill the LIMITING aperture (the DM stop).
+%  Source model: point source = section of a sphere; Aperture is set
+%  here as R_DM*FILL/r, i.e. as if it were the half-angle NA sized to
+%  fill the LIMITING aperture (the DM stop).  NOTE (2026-09-16): the
+%  engine takes a point source's Aperture as the FULL cone angle
+%  (macos_f90/sourcsub.F: A = Aperture/2), so R_DM*FILL lands on the DM
+%  as the beam DIAMETER (measured 21.24 mm) -- 47% fill of the DM radius,
+%  not FILL.  Kept as-is pending Dave's regeneration decision.
 %
 %  Staged optimization: each conjugate solved with a GEOMETRIC cost on
 %  its own plane, in light order, freezing upstream optics (a single WFE
@@ -67,9 +72,11 @@ P.AP    = P.R_DM*P.FILL / P.r(1);                   % source numerical aperture
 % aluminium coating for the polarization study (index n - i*kappa):
 P.AL_N = 1.2;  P.AL_K = 7.0;  P.AL_T = 1e-4;        % ~100 nm Al
 
-% pupil beam radii down the relay (demagnify by focus/collimate f-ratios):
+% pupil beam DIAMETERS down the relay (demagnify by focus/collimate f-ratios):
 w_DM = P.AP*P.r(1);
-fprintf('pupil beam radii (mm): DM %.2f  apod %.2f  Lyot %.2f  backend %.2f\n', ...
+fprintf(['pupil beam DIAMETERS (mm) -- the source Aperture is the full cone ' ...
+         'angle, so R_DM*FILL lands as the diameter: ' ...
+         'DM %.2f  apod %.2f  Lyot %.2f  backend %.2f\n'], ...
     w_DM, w_DM*P.F_OAP(3)/P.F_OAP(2), ...
     w_DM*P.F_OAP(3)/P.F_OAP(2)*P.F_OAP(5)/P.F_OAP(4), ...
     w_DM*P.F_OAP(3)/P.F_OAP(2)*P.F_OAP(5)/P.F_OAP(4)*P.F_OAP(7)/P.F_OAP(6));

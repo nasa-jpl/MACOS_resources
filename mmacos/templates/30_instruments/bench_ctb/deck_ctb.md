@@ -14,7 +14,7 @@ D. C. Redding with Claude Code — 26 August 2026. Model + drivers: MACOS_resour
 
 ## 1 — The bench and the model | Two prescriptions, one physical train; every mask plane bracketed by its own exit-pupil reference sphere
 ::: left
-- The bench: 8 off-axis parabolas, 2 deformable mirrors (DM1 is the aperture stop), apodizer and Lyot at pupil images, focal-plane mask and field stop at focus images, camera (FPA) at the final focus. Geometrically diffraction-limited (0.0014 λ).
+- The bench: 8 off-axis parabolas, 2 deformable mirrors (DM1 is the aperture stop; the beam on the DMs is 21.2 mm in diameter), apodizer and Lyot at pupil images, focal-plane mask and field stop at focus images, camera (FPA) at the final focus. Geometrically diffraction-limited (0.0014 λ).
 - Two propagation prescriptions share the physical optics: a compact model (31 elements — one plane-to-plane leg DM1→DM2, a four-surface mask block at each focus, far-field to the FPA) and a full surface-to-surface model (44 elements — every inter-optic leg propagated).
 - The four-surface mask block does the work: flat return at the mask plane, exit-pupil sphere carrying the first half-propagation, the mask plane carrying the second half, and the same sphere again — both sphere distances identical to all digits, which is exactly the condition that makes the block transparent when no mask is applied.
 - Both prescriptions load pre-aligned and produce a centered point image; chief-ray intersections match the geometric bench to 10⁻¹³ at every optic.
@@ -103,7 +103,7 @@ D. C. Redding with Claude Code — 26 August 2026. Model + drivers: MACOS_resour
 
 ## 9 — The deformable mirrors close the loop | Electric-field conjugation on the model itself: dark-zone mean 2.9×10⁻⁷ → 8.1×10⁻⁹ (36×) at 10 nm strokes
 ::: left
-- The DMs become controllable surfaces: each carries a 256-point displacement grid in its own element frame, driven by a 32×32 actuator lattice through Gaussian influence functions (12% nearest-neighbor coupling, 0.67 mm pitch = beam/32; 880 actuators of each DM sit inside the beam).
+- The DMs become controllable surfaces: each carries a 256-point displacement grid in its own element frame, driven by a 32×32 actuator lattice through Gaussian influence functions (12% nearest-neighbor coupling, 0.67 mm pitch = the 21.2 mm beam diameter/32; 880 actuators of each DM sit inside the beam).
 - The control matrix is measured, not modeled: every actuator is poked 2 nm and propagated through the full masked chain — 1760 pokes, 11 minutes — so the correction solve has no model error to exploit. Each iteration re-propagates the model, scores the measured contrast, picks the regularization by that measurement, and stops itself when no step improves.
 ::: right
 - Result: 2.9×10⁻⁷ → 8.1×10⁻⁹ (36×) in 19 iterations at 9.9/8.6 nm rms surface stroke. The best any linear solve of the measured matrix can reach is 4.5×10⁻⁹ at 11 nm — the loop lands within 2× of that with a matrix measured once at the flat state; re-measuring it around the corrected state is the next depth increment. Restricted to DM1 alone, the same loop stalls at 1.3×10⁻⁷ (2.3×): the pupil mirror is phase-only control, and the full annulus also needs the amplitude lever the out-of-pupil DM2 supplies.
