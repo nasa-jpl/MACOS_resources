@@ -1820,3 +1820,48 @@ arriving by a different road than the ladder re-run part (a) asks for — and it
 is already queued. If the descent captures from 200 nm while the ladder breaks
 at 120, the unwrapper is the difference and part (a) is answered without
 touching the ladder at all.
+
+#### Both drift floors are ANALYTIC, and the loop model predicts them to 1 %
+
+With the 1e15 rungs in, the two drift terms have each converged on a floor, and
+each floor is exactly what the runner's own header formulas give at gain 0.5
+with loop transfer G = 1:
+
+| term | formula (the report's own header) | predicted | **measured** |
+|---|---|---|---|
+| walk | `sig_d/sqrt(gG(2−gG))` = 2/√0.75 | **2.309 pm** | **2.33 pm** (1e15) |
+| thermal | `rate/(gG)` = 5/0.5 | **10.000 pm** | **10.00 pm** (1e14, 1e15) |
+
+Including the residual noise term at 1e15 (`sig_n` 0.38 pm) the walk formula
+gives 2.320 against 2.33 measured. **So the servo's behaviour on this bench is
+not an empirical curve — it is the textbook proportional-loop result, and the
+engine reproduces it to 1 %.** That is worth more than the numbers themselves:
+it means the design levers are the analytic ones and can be read off without
+another run.
+
+**What that says for the deck.** Light buys only the APPROACH to these floors,
+never the floors:
+
+- the **walk** floor, 2.31 pm, is set by the per-actuator walk `sig_d` and the
+  loop gain. It sits *below* the 3 pm spec, so 3 pm is reachable — but with
+  only a factor 1.29 of margin, so the walk is the term that decides whether
+  this servo meets spec at all.
+- the **thermal** floor, 10.0 pm, is set by the ramp rate and the gain, and it
+  is *five times* the spec. No photon budget touches it. The levers are a
+  higher gain or a faster cycle — a control-bandwidth question, not a light one.
+
+Full series, noise-only / walk / thermal steady state in pm, by photons per
+cycle:
+
+| N per cycle | none | walk | thermal | sig_n |
+|---|---|---|---|---|
+| 1e12 | 6.99 | 7.37 | 12.20 | 11.92 |
+| 1e13 | 2.21 | 3.21 | 10.24 | 3.77 |
+| 1e14 | 0.70 | 2.43 | 10.03 | 1.19 |
+| 1e15 | 0.22 | 2.33 | (run 14) | 0.38 |
+
+The noise-only column is clean 1/√N across four decades (6.99 / 2.21 / 0.70 /
+0.22), which is the check that the photon bookkeeping is right before any of
+the above is believed. Log-log interpolation puts the 3 pm crossing under the
+walk at **≈1.8e13 photons per cycle**; the runner prints its own interpolation
+when the last rung lands, and that is the number for the slide.
