@@ -81,5 +81,17 @@ s = s.replace(old, new, 1)
 stage = open('stage_wrap.m.txt', encoding='utf-8').read()
 s = s.rstrip(chr(10)) + chr(10) + stage
 
+# ---- 4. the stations figure lands at the width the brief asks for ------
+# exportgraphics(...,'Resolution',150) on an 1800 px figure lands near 2440 px,
+# not 1800.  The sibling ZWFS figure uses print -dpng -r130 on a 2000 px figure
+# and lands at 2709 (measured: 2000 * 130/96), i.e. this box renders at 96 dpi.
+# So -r96 on an 1800 px figure gives exactly 1800.  Matching the sibling's
+# MECHANISM as well as its intent, because print and exportgraphics scale
+# differently and the deck holds both figures side by side.
+old = "exportgraphics(f, [P.tag \'_stations.png\'], \'Resolution\', 150);  close(f);"
+new = "print(f, [P.tag \'_stations.png\'], \'-dpng\', \'-r96\');  close(f);   % 1800 px wide"
+assert old in s, 'stations export line not found'
+s = s.replace(old, new, 1)
+
 open(p, 'w', encoding='utf-8').write(s)
 print('tg96_run.m: ladder meter replaced, camera line moved to dmg_cam_line')
