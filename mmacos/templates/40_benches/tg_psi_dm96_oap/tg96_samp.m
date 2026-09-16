@@ -57,7 +57,11 @@ if nargout >= 2
             end
         end
     end
-    reg = struct('rot_deg', mod(th, 90), 'perm_err', best, ...
+    % distance to the NEAREST multiple of 90, not mod(th,90): a rotation of
+    % exactly 90 deg IS a permutation, and mod() reports it as 89.999... which
+    % prints as "90.00 deg off axis" and reads as the opposite of the truth.
+    rm = mod(th, 90);
+    reg = struct('rot_deg', min(rm, 90-rm), 'perm_err', best, ...
                  'aniso', max(sv)/max(min(sv),eps));
 end
 end
