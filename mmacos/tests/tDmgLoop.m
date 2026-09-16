@@ -52,6 +52,8 @@ classdef tDmgLoop < matlab.unittest.TestCase
 %     G12 REFERENCE-ARM WALK (opt.ref_walk): a non-common-path phase walk
 %         reaching the differential as a piston sets a hold floor that
 %         scales with the walk, and .ref_phase is that walk
+%     G14 UNITS GUARD: start_rms > 1e-2 mm warns once (dmg:loop:startUnits);
+%         100e-6 is silent.  Every rms knob is mm (TO 2026-09-15).
 %     G13 THE UNWRAPPER (dmg_unwrap, 2026-09-13).  Capture is a WRAP
 %         problem -- every phase reading returns a wrapped differential --
 %         so the least-squares unwrapper is gated here, beside the loop it
@@ -400,6 +402,16 @@ classdef tDmgLoop < matlab.unittest.TestCase
             testCase.verifyEqual(Lb.rms, Lb0.rms, 'AbsTol', 0, 'a common-path reading is untouched by it');
         end
 
+        function test_G14_start_rms_in_bare_nanometres_is_warned(testCase)
+            % every rms knob is mm; a bare 100 asks for a 100 mm surface (TO 2026-09-15)
+            o = struct('g', 0.5, 'K', 2, 'nph', Inf, 'seed', 1, ...
+                       'drift', struct('kind', 'none'), 'start_rms', 100);
+            testCase.verifyWarning(@() dmg_loop(testCase.ins, o), 'dmg:loop:startUnits', ...
+                'a start_rms of 100 (mm) must be flagged as a units slip');
+            o.start_rms = 100e-6;
+            testCase.verifyWarningFree(@() dmg_loop(testCase.ins, o), ...
+                'a 100 nm start (100e-6 mm) passes silently');
+        end
         function test_G13_unwrapper_is_exact_below_the_pixel_gradient_limit(testCase)
             W = @(x) atan2(sin(x), cos(x));
             N = 64;  [x, y] = meshgrid(linspace(-1, 1, N));

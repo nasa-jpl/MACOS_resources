@@ -29,6 +29,8 @@ capture range to 10%):
 
 ## Run it yourself
 
+**Units:** every rms knob on the sheet is in **mm** -- `battery.base_rms 30e-6` is 30 nm, `loop.steps 1e-6` is 1 nm, `loop.walk_sigma 2e-9` is 2 pm, `loop.start_rms 100e-6` is a 100 nm start; a bare `100` asks for a 100 mm surface (`dmg_loop` warns above 1e-2 mm).
+
     P = pdi_params;  out = pdi_run(P);                 % the record sheet
     pdi_run('pdi.DIA_LAMD', 1.0, 'stages', {'bench','battery','figs'})
     ./pdi_batch.sh TAG "pdi_params, 'stages',{'bench','loop','figs'}"

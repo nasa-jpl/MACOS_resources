@@ -249,6 +249,12 @@ end
 % dist carries the surface's departure from the command, so a start offset is
 % simply the disturbance the loop opens with: s(1) = start_rms * unit(shape).
 d0 = zeros(nact);
+if ~isempty(o.start_rms) && o.start_rms > 1e-2       % 10 um: beyond any DM stroke -- a bare-nanometre slip
+    warning('dmg:loop:startUnits', ['dmg_loop: start_rms = %g is read in mm, like every rms knob ' ...
+        '(base_rms 30e-6 = 30 nm, steps 1e-6 = 1 nm, walk_sigma 2e-9 = 2 pm): that is a %g mm starting ' ...
+        'surface.  A %g nm start is %g.  (TO 2026-09-15: two queued sequences carried the bare number.)'], ...
+        o.start_rms, o.start_rms, o.start_rms, o.start_rms*1e-6);
+end
 if ~isempty(o.start_rms) && o.start_rms > 0
     shp = o.start_shape;
     if isempty(shp), shp = o.A0; end

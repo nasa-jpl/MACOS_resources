@@ -71,6 +71,8 @@ price next (it is a real coating in the decks).
 
 ## Run it yourself (`zwfs_run`)
 
+**Units:** every rms knob on the sheet is in **mm** -- `battery.base_rms 30e-6` is 30 nm, `loop.steps 1e-6` is 1 nm, `loop.walk_sigma 2e-9` is 2 pm, `loop.start_rms 100e-6` is a 100 nm start; a bare `100` asks for a 100 mm surface (`dmg_loop` warns above 1e-2 mm).
+
 Terminology (Dave 2026-09-11): photon budgets are quoted **per
 measurement** -- one DM shape measured once, every photon the camera
 detects over the pupil image, summed over the frames that reading needs
