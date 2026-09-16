@@ -22,22 +22,34 @@ function out = dmg_cam_line(rep, cam, dxd_mm, msk)
 %      so ACROSS A LINE each orientation is sampled every SECOND pixel --
 %      N/2, not N/4.  N/4 is the area fraction, and using it for a linear
 %      count understates the sampling by 2x.
+%   REP may be a report FILE ID (dmg_say's convention, which zwfs_run uses) or
+%   a printf-like FUNCTION HANDLE (tg96_run's `say`, which already has the file
+%   id bound).  Accepting both is not politeness: dmg_say does
+%   fprintf(rep,...), so handing it tg96_run's closure throws, and it would
+%   throw inside a stage that runs an hour into a queued job.
 if isempty(cam) || ~isstruct(cam), out = struct(); return; end
+if isa(rep, 'function_handle')
+    emit = rep;
+elseif isempty(rep)
+    emit = [];
+else
+    emit = @(varargin) dmg_say(rep, varargin{:});
+end
 d_px  = sqrt(4*nnz(msk)/pi);            % pupil diameter in modeled px
 d_mm  = d_px * dxd_mm;
 raw   = d_mm / (cam.pitch_um*1e-3);
 binq  = max(1, round(raw/d_px));        % the binning that lands on the model
 out = struct('d_mm',d_mm, 'd_px',d_px, 'raw_px',raw, 'bin_cfg',cam.bin, ...
              'bin_match',binq, 'binned_cfg',raw/cam.bin, 'binned_match',raw/binq);
-if isempty(rep), return; end
-dmg_say(rep, ['camera: pupil image %.2f mm across (%.0f modeled px at %.1f um); ' ...
+if isempty(emit), return; end
+emit(['camera: pupil image %.2f mm across (%.0f modeled px at %.1f um); ' ...
     '%s at %.2f um -> %.0f raw px across the pupil; binned %d = %.0f, ' ...
     'and binning %d = %.0f lands nearest the modeled %.0f\n'], ...
     d_mm, d_px, dxd_mm*1e3, cam.name, cam.pitch_um, raw, ...
     cam.bin, raw/cam.bin, binq, raw/binq, d_px);
 if isfield(cam, 'pol_pitch_um') && ~isempty(cam.pol_pitch_um)
     npol = d_mm / (cam.pol_pitch_um*1e-3);
-    dmg_say(rep, ['  snapshot analyzer: %s at %.2f um -> %.0f px across the pupil, ' ...
+    emit(['  snapshot analyzer: %s at %.2f um -> %.0f px across the pupil, ' ...
         '%.0f per orientation (every 2nd pixel in each direction on the 2x2 ' ...
         'superpixel -- N/2 across a line, not N/4); four simultaneous frames, ' ...
         'no rotating stage\n'], cam.pol_name, cam.pol_pitch_um, npol, npol/2);
