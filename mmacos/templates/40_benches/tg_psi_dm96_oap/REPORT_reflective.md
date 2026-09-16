@@ -16,7 +16,7 @@ Dave pushes. The realism and field-servo reports link back to this table.
 | 0 | commit the untracked record files | — | **done** — the tag census below |
 | 1 | vector pair on the redesign: rows, overcoat, verdict | §5.1 | **done** — rows hold uncalibrated; G4 634 bare / 319 quarter-wave overcoat / 199 bench-calibrated / **0.054 pm PASS** polarimetric. The variable is the channel PHASE, not the amplitude; fold lever stays unpulled. `vqw22` `vmap22` `vfit22` `vamp22` |
 | 2 | item 4's loop + descent + the 120 nm wrap explained | 4.7, **4.7(a)** | **DONE** -- (a) closed 2026-09-16: the break is the BASE READING WRAPPING and BOTH rigs do it between 60 and 120 nm, saturating at the analytic 316.4/sqrt(12) = **91.34 nm**; "the reflective rig has a smaller capture range" comes OFF the deck. The ladder's dA-vs-dD arithmetic is innocent (n_cross <= 5 px in 1e5), but each crossing is a full lambda/2 and swamps any second moment -- read n_cross, never corr. Servo: **1.7e13 photons/cycle for 3 pm under the 2 pm walk**, thermal floors at 10.0 pm and is LOW-ORDER (9.24 of it below 4 cyc/ap). Descent: both starts converged (r(K) 2.344 / 2.345 pm, rho 0.502 / 0.515, 0 recals); its exit 1 was `draw_loop_` on an empty drift list AFTER the results, now guarded. `oapuw2` `lensuw2` `oapifol2` `oapdesc2` `wrapoap` `wraplens` |
-| 3 | tail tuner gated by a battery row; README | README + 4.5 + **4.8** | **MEASURE FIXED, STILL ADVISORY.** The point-sample measure INVERTED the verdict (it tracked magnification); the lattice measure (`dmg_act_fit` over the illuminated lattice, stencil from tg96_place's anchor poke, `score_`'s gain verbatim) no longer does -- objwin3 **-0.1621**, lens_tail **0.8074**, thk22_tail **0.9104** against battery 0.0338 / 0.9968 / 0.9885. Ordering right, separation wide, but the SCALE is not the battery's, so 0.95 still refuses two good tails and enforcement stays OFF. **Not the regularizer:** the act_lam sweep is flat (1.1 / 0.9 / 1.4 % from 0.05 to 0.002). Live hypothesis = the single-site stencil against the battery's per-actuator matrix; recommended fix = gate the winner against the SEED through the same estimator (scale-free), NOT a lower threshold. `gate3_win` `gate3_lens` `gate3_thk` |
+| 3 | tail tuner gated by a battery row; README | README + 4.5 + 4.8 + **4.9** | **DONE -- the gate ENFORCES, criterion RELATIVE to the seed** (Dave 2026-09-16). objwin3 ratio **0.1977 REFUSED**, lens_tail **0.9467 ACCEPTED**, thk22_tail **0.9930 ACCEPTED** -- the two-leg test passes for the first time. Two absolute thresholds had failed: the point-sample measure INVERTED the verdict, the lattice measure reads 8-19% below the battery (NOT the regularizer -- the act_lam sweep is flat to ~1%). A ratio of two identically-estimated quantities cancels the bias instead of calibrating it. Margin 0.047 at the tightest leg with EXACTLY zero run-to-run spread (3 bit-identical repeats; the pipeline is deterministic). `gate3r_*` `rpt_lens1/2` |
 | 4 | realism 3-5: thicknesses, substrates, camera | `REPORT_bench_realism.md` **3.1, 3.2** | **THICKNESSES DONE on the tuned tail** (`item4bseq`, 2026-09-16): retune reproduced 75.2422 -> **20.0938 nm** (3.7x) and the advisory gate KEPT it, so thk22's rows now describe a 20 nm-null bench. Stage C **0.9885**, floor 40.0 pm; modal gain ~1.00 to 45 cyc/pup (0.9626 at 67.9), cross-talk <=0.027; differential rows 1.002-1.009, corr >=0.9999; ladder holds to 60 nm (floor 9.3 pm) and breaks at 120 -- the SAME rung both rigs break at, so the glass has not moved the capture range. **NEW:** the 10 mm plates read **13% LOW** (26.6/30, 52.1/60, saturating at 79.6 against the analytic 91.34 -- one common factor), invisible to the old saturating meter; the matrix absorbs it, so it costs SNR and floor, not gain. `thk22_tail` `thk22` |
 | 5 | realism 6: snapshot polarization at the built angles | `REPORT_bench_realism.md` | **tool in**, queued (`runs/aoiseq.sh`): `tg_aoi_ladder` gained the OAP rig and two columns -- the analyzer-sweep CORRECTION (free: the basis already spans every angle) and the RESIDUAL a measured matrix cannot absorb |
 | 6 | realism 8: the interferometer's station figure, both rigs | `REPORT_bench_realism.md` | **FIGURES DONE, one OPEN defect** -- both rigs at the width the brief asks for: `stnoap` / `stnlens`, **1800 x 560 px** (the pre-patch `oapifol2` figure was 2558 x 838; `exportgraphics` at Resolution 150 does not land at the figure's pixel width, `print -dpng -r96` on this 96 dpi box does, and it is the ZWFS sibling's own mechanism, which the deck holds beside it).  OAP leg bit-identical to pre-patch `oapifol2` (626.43 pm), so the patch is inert here.  **OPEN:** the lens leg's station residual is 62 067 pm against the OAP's 626 -- zero at flat, sqrt(2)x the map with structure, i.e. a LATERAL MISREGISTRATION between the recovered map and the engine field.  First lens station figure ever made, so not a regression.  `REPORT_bench_realism.md` section 6; do NOT put the two numbers on one slide yet |
@@ -2052,3 +2052,51 @@ leaves the permutation family the number will say so rather than an argument.
 (Display note: it reports distance to the NEAREST multiple of 90 — `mod(th,90)`
 called an exact 90° rotation "89.999…", which prints as 90.00 and reads as the
 opposite of the truth.)
+
+### 4.9 Item 3 CLOSED — the gate is RELATIVE to the seed, and it enforces
+
+Dave's call, 2026-09-16. The criterion is `|winner| / |seed| >= gate_rel`, both
+measured through the same estimator on the same bench.
+
+| tail | battery | gate reads | seed reads | ratio | verdict |
+|---|---|---|---|---|---|
+| `objwin3` (bad) | 0.0338 | −0.1621 | 0.8200 | **0.1977** | REFUSED ✓ |
+| `lens_tail` (good) | 0.9968 | 0.8074 | 0.8528 | **0.9467** | ACCEPTED ✓ |
+| `thk22_tail` (good) | 0.9885 | 0.9104 | 0.9168 | **0.9930** | ACCEPTED ✓ |
+
+**The two-leg test passes for the first time**, and the third (calibration) leg
+with it. Tags `gate3r_win`, `gate3r_lens`, `gate3r_thk`.
+
+**Why a ratio was the fix and a recalibration was not.** Two absolute
+thresholds failed here. The point-sample measure INVERTED the verdict. The
+lattice measure orders tails correctly but reads 8–19 % below the battery —
+and not because of the regularizer, which the `act_lam` sweep excluded at ~1 %
+— so 0.95 refused tails the battery certifies at 0.99. The gate's real
+decision was never "is this tail good in the abstract"; it is **"keep the
+winner, or hand back the seed"**. The seed is the alternative, it is
+measurable, and one estimator measuring both cancels whatever systematic scale
+it carries. The seed column is that mechanism made visible: on good tails the
+seed reads 0.82–0.92, right alongside the winner, so the bias divides out.
+
+**Margin, measured rather than assumed.** The tightest case is `lens_tail` at
+0.9467, a margin of 0.047. Run-to-run spread is **exactly zero** — three runs
+of that leg return 0.8074 / 0.8528 / 0.9467 bit-identically, because the trace,
+the placement, the poke sites and the `pcg` solve are all deterministic
+(`rpt_lens1`, `rpt_lens2`). So the margin carries no measurement noise at all;
+what it must absorb is variation ACROSS benches and tails, which is unmeasured
+and is the reason `gate_rel` is kept loose. A verdict sweep (`t_gate`, 11 cases
+including winner-unmeasurable, seed-unmeasurable, both-bad and opposite-sign)
+confirms every verdict is unchanged for `gate_rel` 0.30–0.90 and only diverges
+at 0.95 — so 0.90 sits inside the stable band, not at its edge.
+
+**What each constant may decide.** `gate_rel` (0.90) is the gate.
+`gate_seed_floor` (0.30) is not: it decides only whether the seed is a usable
+REFERENCE. When the seed itself does not read, the gate KEEPS the winner and
+says so loudly rather than failing closed — refusing would hand back a fallback
+no better than what it refused, and an unmeasurable gate that refuses
+everything while looking like it works is a failure mode this file has met
+before.
+
+**If this needs changing, move `gate_rel` DOWN — never the measure up to meet
+it.** Two gates have already been certified on a number that fit rather than a
+number that meant something.

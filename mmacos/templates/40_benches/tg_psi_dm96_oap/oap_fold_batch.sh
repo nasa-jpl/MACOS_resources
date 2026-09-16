@@ -22,7 +22,7 @@ if [ -z "${TG96_NOWAIT:-}" ]; then
         echo "[$(date '+%F %T')] waiting: another DM-gauge batch MATLAB is running" >> "$log"
         sleep $((20 + RANDOM % 20))
     done
-    lockcmd="flock $here/../zwfs_dm96/runs/.batch.lock"
+    if command -v flock >/dev/null 2>&1; then lockcmd="flock $here/../zwfs_dm96/runs/.batch.lock"; else lockcmd=""; fi   # macOS has no flock (2026-09-16: the Mac run died with exit 127); the wait loop above still serializes
 else
     lockcmd=""
 fi

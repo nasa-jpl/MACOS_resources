@@ -146,39 +146,50 @@ pixels and so dilutes the peak less, reading HIGHER. Magnification is not
 readability, and a gate built on it prefers exactly the tails it exists to
 refuse. It was made ADVISORY the same day rather than left enforcing.
 
-**STATUS: the gate is still ADVISORY.** The lattice measure below no longer
-INVERTS the verdict — that was the point-sample defect and it is fixed — but it
-reads systematically LOW against the battery, so a 0.95 threshold still refuses
-good tails. Measured on three tails, each `verify_tail` (one placement + one
-row):
+**STATUS: the gate ENFORCES, and its criterion is RELATIVE to the seed**
+(Dave, 2026-09-16). It refuses a winner that reads worse than the geometric
+seed it would fall back to, both measured through the same estimator on the
+same bench:
 
-| tail | battery | gate, `act_lam` 0.05 | gate, 0.002 | verdict at 0.95 |
-|---|---|---|---|---|
-| `objwin3` (bad) | 0.0338 | **−0.1621** | −0.1603 | REFUSED — correct |
-| `lens_tail` (good) | 0.9968 | **0.8074** | 0.8150 | REFUSED — WRONG |
-| `thk22_tail` (good) | 0.9885 | **0.9104** | 0.9234 | REFUSED — WRONG |
+| tail | battery | gate reads | seed reads | ratio | verdict |
+|---|---|---|---|---|---|
+| `objwin3` (bad) | 0.0338 | −0.1621 | 0.8200 | **0.1977** | REFUSED ✓ |
+| `lens_tail` (good) | 0.9968 | 0.8074 | 0.8528 | **0.9467** | ACCEPTED ✓ |
+| `thk22_tail` (good) | 0.9885 | 0.9104 | 0.9168 | **0.9930** | ACCEPTED ✓ |
 
-The ORDERING is now right and the separation is wide (−0.16 against 0.81/0.91);
-the point-sample measure had these inverted (`objwin3` 0.9804, `lens_tail`
-−0.8285). But the scale is not the battery's.
+**Why a ratio, after two absolute thresholds failed.** The point-sample measure
+INVERTED the verdict (it tracked magnification). The lattice measure orders
+tails correctly but does not share the battery's SCALE — it reads 8–19 % low,
+and not because of the regularizer (the `act_lam` sweep is flat to ~1 % from
+0.05 to 0.002) — so an absolute 0.95 refused two tails the battery certifies at
+0.99. The gate's real decision was never "is this tail good in the abstract"; it
+is "keep the winner, or hand back the seed". The seed is the alternative and it
+is measurable, so comparing the two through one estimator cancels whatever
+systematic scale that estimator carries. The seed columns above show it working:
+on good tails the seed reads 0.82–0.92, right alongside the winner, and the
+common bias divides out.
 
-**It is NOT the regularizer, and that was measured rather than assumed.** The
-`act_lam` sweep (free: the trace, placement and poked map happen once, only the
-`pcg` solve repeats) is FLAT on all three — 0.05 → 0.002 moves the gain by
-1.1 %, 0.9 % and 1.4 %, nowhere near the 8–19 % deficit. Lowering `act_lam`
-recovers 0.9234 of the battery's 0.9885, so Tikhonov shrinkage is not the
-explanation and lowering it is not the fix.
+**The two constants, and what each is allowed to decide.** `gate_rel` (0.90) is
+the gate. `gate_seed_floor` (0.30) is NOT — it decides only whether the seed is
+a usable REFERENCE, never whether the winner passes; measured tails that read
+sit at 0.81–0.92 and one that does not reads −0.16, so 0.30 sits in that gap.
+When the seed itself does not read, the gate KEEPS the winner and says so
+loudly rather than failing closed, because refusing would hand back a fallback
+no better than what it refused.
 
-**The live hypothesis** is the single-site stencil: the kernel is measured at
-the ANCHOR only, while the battery carries a column PER actuator, so a
-field-varying influence response is under-fitted at the other sites and loses
-amplitude. **The recommended fix is scale-free rather than a recalibration** —
-gate the winner against the GEOMETRIC SEED measured through the SAME estimator
-and refuse when the winner is materially worse than the seed. The seed is what
-the gate falls back to, so that is the decision the gate actually has to make,
-and a ratio of two identically-estimated quantities cancels the systematic
-bias entirely. **Do not fix this by lowering 0.95** — moving a threshold to fit
-a measure that is not understood is how the first gate got certified.
+**Margin, measured.** The tightest case is `lens_tail` at 0.9467, a margin of
+0.047 over `gate_rel`. Run-to-run spread is **exactly zero** — three runs of
+that leg return 0.8074 / 0.8528 / 0.9467 bit-identically, because the trace,
+the placement, the poke sites and the `pcg` solve are all deterministic. So the
+margin does not have to absorb measurement noise at all; what it must absorb is
+variation ACROSS benches and tails, which is why `gate_rel` is kept loose. A
+verdict sweep (`t_gate`) confirms every verdict is unchanged for `gate_rel`
+0.30–0.90 and only diverges at 0.95, so 0.90 sits inside the stable band rather
+than at its edge.
+
+**If this ever needs changing, move `gate_rel` DOWN, never the measure up to
+meet it.** Two gates have already been certified on a number that fit rather
+than a number that meant something.
 
 **The measure of record is lattice deconvolution** (`row_gain_`, 2026-09-16).
 The bench's OWN measured influence stencil — taken from the anchor poke
