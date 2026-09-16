@@ -14,12 +14,74 @@ The live status table for the whole close-out is at the top of
 
 | step | what | state |
 |---|---|---|
-| 0 | the beam-size precondition (below) | **probe written and queued**, `ctb_beam_probe.m` |
+| 0 | the beam-size precondition | **DONE — and it RETRACTED my conclusion.** Measured: DM beam 21.244 mm diameter, so `ctb_dm.m` is right and the note's 33-cycle crossover is wrong (it is **16.5**). §0 |
 | 1 | the reading at the apodizer conjugate | not started |
-| 2 | separability of the two DMs vs spatial frequency | not started (blocked on step 0) |
+| 2 | separability of the two DMs vs spatial frequency | **unblocked** — crossover 16.5 cycles (period 1.285 mm); not started |
 | 3 | the servo: drift injected upstream, hold, contrast | not started |
 
-## 0. Before anything is built on it: how wide is the CTB beam?
+## 0. RETRACTED AND SETTLED: the beam is 21.24 mm, and the DM model is right
+
+**The engine has overruled my reading of the generator, and the retraction is
+the point of this section.** Everything below the horizontal rule was written
+before `ctb_beam_probe` ran; it argued from `example_ctb.m` that the beam is
+42.75 mm across and that `ctb_dm.m` uses a radius as a diameter. **That
+conclusion is wrong.** It is kept, marked, because the probe exists precisely
+because a document can be read wrongly, and deleting the wrong reading would
+hide why the measurement was worth taking.
+
+**Measured, `ctb_dcr.in` at model 512, 50618 traced rays:**
+
+| plane | elt | **fp radius** | **fp diameter** | declared clear r | README's chain |
+|---|---|---|---|---|---|
+| DM1 | 2 | 10.6222 | **21.2444** | 22.5 | "DM 21.4" |
+| DM2 | 5 | 10.6225 | **21.2451** | 22.5 | — |
+| Apodizer | 13 | 7.9347 | **15.8695** | — | "apod 16.0" |
+| Lyot | 20 | 3.9696 | **7.9392** | — | "Lyot 8.0" |
+
+The README's chain *"DM 21.4 → apod 16.0 → Lyot 8.0"* matches the measured
+**DIAMETERS** to three figures at every station. So the chain is diameters, its
+`fprintf` label *"pupil beam radii"* is simply wrong, and:
+
+- **`ctb_dm.m` is CORRECT.** `beam_d_mm = 21.3` IS the beam diameter (measured
+  21.244), the pitch `21.3/32 = 0.666 mm` is right, and the 32×32 lattice spans
+  the whole beam. No EFC result is affected. My three commits claiming
+  otherwise (`2e83452`, `2bcbb72`, `afb31f5`) are **retracted on this point**.
+- **The note's separability prediction is what is wrong**, and by the factor I
+  identified even though I mis-assigned it. Section C+ quotes *"a 50 % amplitude
+  conversion at 33 cycles across the beam (0.67 mm pitch, 500 mm, 550 nm)"*.
+  The **pitch is right**; the **cycle count is not**. Measured on the engine's
+  own beam: 50 % conversion at a period of **1.285 mm = 16.5 cycles across the
+  beam**, 100 % at 0.742 mm = 28.6 cycles. **The crossover is 16.5, not 33.**
+- The `e2e6m` comparison (`2bcbb72`) still stands as written — that model
+  doubles a measured radius and its lattice spans its beam — but it is now an
+  example of the CORRECT convention that the CTB *also* follows, not a contrast.
+
+**What survives from the original argument** is the thing that prompted it: the
+two halves of the note's prediction are mutually inconsistent, since
+`32 × 0.67 = 21.4`, not the 42.8 the 33-cycle figure needs. That was right. The
+half I picked as the error was the wrong half.
+
+**A genuine oddity the probe exposed, which is NOT a DM-model bug.** The
+generator computes `w_DM = R_DM·FILL = 22.5 × 0.95 = 21.375` and the README
+describes that as filling 95 % of the DM. The measured beam RADIUS is 10.62 mm
+— **47 % of the DM's 22.5 mm clear radius**, not 95 %. So either MACOS's source
+`Aperture` is a full-cone angle where the generator treats it as a half-angle,
+or the intended fill is twice what the deck achieves. The DM lattice correctly
+spans the beam that exists either way, so nothing downstream is wrong; but the
+CTB's DMs are being illuminated over half the radius the sheet intends, and
+that is worth a look in the CTB lane.
+
+**Step 2 is unblocked**, with its crossover at **16.5 cycles** (a period of
+1.285 mm — the form that needs no beam-size convention, as promised).
+
+---
+
+## 0b. The original argument, SUPERSEDED — kept for why the probe was written
+
+*(Everything from here to the end of this section is the pre-measurement
+reading. Its conclusion is retracted above.)*
+
+### Before anything is built on it: how wide is the CTB beam?
 
 Step 2 asks where the two DMs separate, and the note predicts it: *"a 50 %
 amplitude conversion at 33 cycles across the beam (0.67 mm pitch, 500 mm,
