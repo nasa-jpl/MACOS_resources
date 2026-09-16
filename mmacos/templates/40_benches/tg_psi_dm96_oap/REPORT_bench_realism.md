@@ -194,3 +194,32 @@ figure above stands** — it is what the tuner measured before the refusal — b
 the gate run's ROWS have to be re-taken on it, and until they are, `thk22`'s
 rows describe a 75 nm-null bench. `sub22_tail` is unaffected: it starts long
 after the edit and keeps its winner.
+
+### The two enablers earned their keep on this run
+
+**`bench.MASK_TRIM 'scan'` found the focus the glass moved.** The sheet carries
+−5.582 mm, the seed-to-true-focus correction found once by the S1 rounds. With
+the thicker parts in, the scan re-found it at **−4.7229 mm** in 81 s, a move of
+**+0.859 mm**, and reached a mask-plane peak/sum of **2.752e−02** — sharper than
+the ~1.2e−2 `zwfs_s1` records at focus.
+
+The move is accounted for: `EDGE_MARGIN` 2.0 → 4.0 mm makes every singlet 2 mm
+thicker, and a thicker lens moves its focus by `t(1 − 1/n)` = **0.667 mm** per
+lens. Carrying the sheet's constant would have seated the mask 0.86 mm off
+focus and then charged the blur to the glass — which is precisely the failure
+the scan exists to prevent, and it would have been invisible in the output.
+
+**`dmg_cam_line` found a binning the sheet had wrong.** On the ZWFS rig it
+reads *pupil image 7.51 mm across (192 modeled px at 39.1 um); sCMOS at 6.50 um
+→ 1155 raw px across the pupil; binned 4 = 289, and **binning 6 = 193 lands
+nearest the modeled 192***.
+
+So the sheet's binning of 4 **oversamples** the model by 50 % here, where on the
+PSI rig it undersamples by 22 %. One binning number cannot serve both rigs, and
+without the "lands nearest" column neither error is visible — the line would
+just print 289 beside a modeled 192 and leave the reader to notice.
+
+Also worth recording against the realism brief's own figure: it assumes a
+**9.4 mm** pupil image. Measured, the ZWFS rig forms **7.51 mm** and the PSI rig
+**7.78 mm** (5.79 on the thickened seed-tail run). The 9.4 mm figure is not this
+bench's.
