@@ -15,7 +15,7 @@ The live status table for the whole close-out is at the top of
 | step | what | state |
 |---|---|---|
 | 0 | the beam-size precondition | **DONE — and it RETRACTED my conclusion.** Measured: DM beam 21.244 mm diameter, so `ctb_dm.m` is right and the note's 33-cycle crossover is wrong (it is **16.5**). §0 |
-| 1 | the reading at the apodizer conjugate | not started |
+| 1 | the reading at the apodizer conjugate | **prescription CORRECTED, build started.** §1's sizing was wrong by 2x -- it derived the pupil as 32.06 mm from the 'chain is radii' reading that §0 retracts. Measured at the branch point (`Apodizer_Pst`, elt 12, 50 618 rays): **15.8694 mm**. The lens halves, 300 -> **150 mm**, which restores the intended F/9.45 and the 11.96 um dimple. §1 |
 | 2 | separability of the two DMs vs spatial frequency | **unblocked** — crossover 16.5 cycles (period 1.285 mm); not started |
 | 3 | the servo: drift injected upstream, hold, contrast | not started |
 
@@ -263,24 +263,34 @@ once the probe has fixed the beam.
 Written out so the build is a transcription rather than a design, and so the
 sizing can be checked before anything is traced. **Nothing here has been run.**
 
-### The pupil the gauge sees is settled independently of the DM question
+### CORRECTED 2026-09-16: the pupil the gauge sees is 15.87 mm, not 32.06
 
-Re-deriving the generator's own chain from `P.F_OAP = [2500 1524 1143 1350 675
-635 635 762]` and `w_DM = R_DM·FILL`:
+**What §1 originally said was wrong by exactly 2×, and it was wrong for the
+reason §0 retracts.** It re-derived the generator's chain as RADII — "so the
+gauge's input pupil is 32.06 mm across" — and read that agreement with the
+README's printed chain as a third confirmation. §0 then measured the engine and
+found the README's chain matches the **DIAMETERS** at every station. §1 was
+written before that landed and its sizing silently inherited the refuted
+premise; everything downstream of the pupil number therefore doubled.
 
-| plane | radius | |
+**Measured, `ctb_dcr.in` at model 512, 50 618 traced rays:**
+
+| plane | elt | fp diameter |
 |---|---|---|
-| DM1 / DM2 | 21.38 mm | `w_DM` |
-| **apodizer** | **16.03 mm** | `w_DM·F₃/F₂` |
-| Lyot | 8.02 mm | `·F₅/F₄` |
-| backend | 8.02 mm | `·F₇/F₆` |
+| DM1 / DM2 | 2 / 5 | 21.2444 / 21.2451 mm |
+| **`Apodizer_Pst`** — the branch point | **12** | **15.8694 mm** |
+| `Apodizer` | 13 | 15.8695 mm |
+| Lyot | 20 | 7.9392 mm |
 
-That reproduces the README's printed *"DM 21.4 → apod 16.0 → Lyot 8.0 → backend
-8.0"* to three figures, which is a **third** independent confirmation that the
-chain is radii: the prose, the code, and now the arithmetic agreeing. So the
-gauge's input pupil is **32.06 mm across**, and — importantly — this number does
-not depend on the `beam_d_mm` question at all. That question is about the DM
-LATTICE, not about the beam, so step 1 is not blocked by it. Step 2 is.
+`Apodizer_Pst` was probed **specifically**, not inferred from `Apodizer`: the
+dichroic goes at 12 and the earlier probe measured 13, and the two sit at
+different vertices. They agree to 1e-4 mm, which is what collimated space
+between two References should give — but it is now measured rather than
+assumed.
+
+**So the gauge's input pupil is 15.87 mm across.** As §1 said for the wrong
+number, this does not depend on the `beam_d_mm` question at all — that is about
+the DM LATTICE, not the beam — so step 1 is still not blocked by it. Step 2 is.
 
 ### The branch
 
@@ -290,12 +300,19 @@ out-of-band light to:
 
 | element | what | sized by |
 |---|---|---|
-| focusing lens, f = 300 mm | brings the 32.06 mm collimated pupil to a focus | F/9.4 |
-| the ZWFS mask at that focus | λ/D = **5.92 µm** at 632.8 nm | dimple at the record's 2.0 λ/D = **11.8 µm** across |
+| focusing lens, **f = 150 mm** | brings the 15.87 mm collimated pupil to a focus | **F/9.45** |
+| the ZWFS mask at that focus | λ/D = **5.98 µm** at 632.8 nm | dimple at the record's 2.0 λ/D = **11.96 µm** across |
 | a pupil reimage behind it | back to a camera | the `zwfs_dm96` NF1/NF2 sandwich idiom, `dmg_zwfs_gauge` |
 
-`f = 200` and `400 mm` give F/6.2 and F/12.5 with λ/D of 3.95 and 7.89 µm; 300
-is the middle and puts the dimple at a size the VSG2 mask already has.
+**The focal length HALVES with the pupil, and that is the whole correction.**
+On the measured 15.87 mm pupil, f = 150 mm gives F/9.45, λ/D = 5.98 µm and a
+2 λ/D dimple of 11.96 µm — which is the configuration §1 intended (F/9.4,
+5.92 µm, 11.8 µm) reproduced to about 1 %, and a dimple the VSG2 mask already
+has. Keeping f = 300 on the real pupil would give F/18.9 and a **23.9 µm**
+dimple, double the intended one, and the mask would be the wrong part.
+
+`f = 100` and `200 mm` give F/6.30 and F/12.60 with λ/D of 3.99 and 7.98 µm;
+150 is the middle.
 
 **Detector sampling is not the constraint here, and that is worth saying,**
 because it is on the tg96 rig. The field being read is the coronagraph's input
