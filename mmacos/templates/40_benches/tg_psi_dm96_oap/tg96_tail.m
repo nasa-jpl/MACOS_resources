@@ -9,6 +9,15 @@ function out = tg96_tail(varargin)
 %
 %   Usage:  tg96_tail('bench.optics','oap','tag','oap')
 %           tg96_tail                        % defaults (lens, tag 'lens')
+%           tg96_tail('verify_tail','objwin3_tail.mat', ...)  % gate only
+%
+%   The WINNER GATE (item 3): the optimizer's winner is not trusted to
+%   certify itself.  After the tune, ONE single-actuator row is read through
+%   the ray affine in ACTUATOR space; below gate_gain the winner is refused
+%   and the GEOMETRIC SEED is returned, with the reason printed.  This exists
+%   because on the OAP rig every term the cost computes preferred a tail that
+%   reads a single actuator at 0.0338 where the seed reads 0.9809
+%   (REPORT_reflective 4.5, runs/tailA vs runs/tailB).
 
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 if isempty(which('macos.init'))
@@ -45,6 +54,14 @@ macos.init(MODEL);
 % macOS home directory, so on Linux it only warned and the tuner ran on
 % whatever happened to be on the path; resolve it from this file instead.
 addpath(fullfile(exdir, '..', '..', '90_polarization', 'tg_psi_dm'));
+% The WINNER GATE reaches for tg96_place (this directory) and dmg_frame /
+% dmg_lit (the shared library).  Without these two lines row_gain_ throws
+% "Undefined function 'dmg_frame'", the gate returns NaN, and it REFUSES
+% EVERY tail -- a gate that fails closed looks like a gate that works.  That
+% is what the first gateseq3 run measured (both legs NaN); the lens leg, which
+% must ACCEPT, is the non-vacuity check that caught it.
+addpath(exdir);
+addpath(fullfile(exdir, '..', 'dm_gauge_lib'));
 % UNIQUE scratch names per process.  These were fixed strings -- tail_flat.txt,
 % tail_test.in, tail_ref.in -- in the template directory, so two tg96_tail runs
 % in the same folder read and wrote each other's decks.  That is not
@@ -78,10 +95,41 @@ C = struct('f_flat',f_flat,'f_test',f_test,'f_ref',f_ref, ...
            's',s,'AOI',AOI,'D_BS_TO',D_BS_TO,'NGRID',NGRID,'N_G',N_G,'DX_G',DX_G, ...
            'QWP',QWP,'THETAS',THETAS,'LAM',LAM,'seed',seed,'optics',b.optics, ...
            'oapargs',{oapargs},'nodeargs',{nodeargs},'bench',b,'objective',objective, ...
-           'poke_nm',100);   % 0.63 of lambda/4 -- a healthy map then reads ~0.63
-                             % on the wrap meter and a PINNED one reads 1.00.
-                             % At the old 150 nm (0.95 of the range) the guard
-                             % could not separate them.
+           'poke_nm',100, ...
+           'place',P.place,'POKE',P.POKE,'gate_gain',0.95);
+% poke_nm 100 = 0.63 of lambda/4: a healthy map then reads ~0.63 on the wrap
+%   meter and a PINNED one reads 1.00.  At the old 150 nm (0.95 of the range)
+%   the guard could not separate them.
+% gate_gain = the WINNER GATE: one single-actuator row through the ray affine
+%   must recover at least this gain in ACTUATOR space, or the winner is
+%   refused and the geometric seed is returned instead (item 3).
+% ---- verify-only mode: gate an EXISTING tail, tune nothing --------------
+% tg96_tail('verify_tail','objwin3_tail.mat', <the same bench args it was
+% tuned with>) runs the winner gate alone.  This is how the gate itself is
+% tested -- hand it a tail known not to read and see the refusal -- without
+% paying for a 150-evaluation tune.
+if isfield(P, 'verify_tail') && ~isempty(P.verify_tail)
+    V = load(P.verify_tail);  vo = V.out;
+    pv = [vo.FL_F, vo.FL_Kc, vo.D_MASK_FL, vo.DET_TRIM];
+    [gv, iv] = row_gain_(pv, C);
+    if ~isfinite(gv)
+        verdict = 'GATE COULD NOT MEASURE';      % NOT the same as a bad tail
+    elseif abs(gv) >= C.gate_gain
+        verdict = 'ACCEPTED';
+    else
+        verdict = 'REFUSED';
+    end
+    fprintf(['TAIL VERIFY %s (optics %s): FL_F %.4f FL_Kc %.5f D_MASK_FL %.4f ' ...
+             'DET_TRIM %.4f -> actuator-space gain %.4f (gate >= %.2f) -> %s\n  [%s]\n'], ...
+            P.verify_tail, b.optics, pv(1), pv(2), pv(3), pv(4), gv, C.gate_gain, verdict, iv);
+    out = struct('verify_tail',P.verify_tail,'gain',gv,'info',iv, ...
+                 'threshold',C.gate_gain,'pass',strcmp(verdict,'ACCEPTED'), ...
+                 'FL_F',pv(1),'FL_Kc',pv(2),'D_MASK_FL',pv(3),'DET_TRIM',pv(4), ...
+                 'optics',b.optics);
+    delete_if_({f_flat, f_test, f_ref});
+    return
+end
+
 [r0, n0, k0] = cost_(q0, C);
 fprintf('TAIL SEED: cost %.4f (null %.4f nm, poke-peak %.1f nm) [objective %s]\n', r0, n0, k0, objective);
 [qb, rb] = fminsearch(@(q) cost_(q, C), q0, ...
@@ -90,9 +138,53 @@ pb = [seed(1)*exp(qb(1)), qb(2), qb(3), qb(4)];
 [~, nb, kb] = cost_(qb, C);
 fprintf('TAIL WINNER (%s): FL_F %.4f FL_Kc %.5f D_MASK_FL %.4f DET_TRIM %.4f -> null %.4f nm, poke-peak %.1f nm\n', ...
         b.optics, pb(1), pb(2), pb(3), pb(4), nb, kb);
+
+% ---- the WINNER GATE (BRIEF_to_gauge_close item 3) --------------------
+% Every quantity the cost function computes said the OAP rig's old winner was
+% healthy while the battery read it at 3 % (REPORT_reflective 4.5).  The
+% objective is therefore not trusted to certify its own winner: the winner has
+% to READ.  One single-actuator row through the ray affine, in actuator space,
+% decides -- and on failure the tuner hands back the GEOMETRIC SEED rather than
+% a tail that does not read.  Refusing is the point; diagnosing the objective
+% is a separate open question (README, "the tuner's objective").
+[gw, iw] = row_gain_(pb, C);
+fprintf('TAIL GATE: winner reads gain %.4f in actuator space [%s]\n', gw, iw);
+gate_pass = isfinite(gw) && abs(gw) >= C.gate_gain;
+gate = struct('gain',gw,'info',iw,'threshold',C.gate_gain,'pass',gate_pass, ...
+              'seed_gain',NaN,'seed_info','','fellback',false);
+if ~isfinite(gw)
+    % A gate that cannot MEASURE is not the same as a tail that does not
+    % read, and it must never pass for one: unmeasured, it refuses every
+    % tail, so a broken gate silently turns every tune into "use the seed".
+    % Shout, then still fall back -- the seed is the safe default, but nobody
+    % should read this as evidence about the tail.
+    warning('tg96_tail:gate_unmeasured', ...
+        ['THE WINNER GATE COULD NOT MEASURE (%s).  It is refusing the winner ' ...
+         'because it has no number, NOT because the tail failed.  Fix the gate ' ...
+         'before reading anything into this run.'], iw);
+end
+if ~gate_pass
+    ps = [seed(1)*exp(q0(1)), q0(2), q0(3), q0(4)];
+    [gs, is_] = row_gain_(ps, C);
+    gate.seed_gain = gs;  gate.seed_info = is_;  gate.fellback = true;
+    fprintf(['TAIL GATE REFUSED the winner: actuator-space gain %.4f < %.2f. ' ...
+             'Falling back to the GEOMETRIC SEED (gain %.4f).\n'], gw, C.gate_gain, gs);
+    fprintf(['  Why this gate and not the cost: the cost''s four terms (null %.4f nm, ' ...
+             'poke-peak %.1f nm, localization, wrap) all preferred this winner, and ' ...
+             'they are orthogonal to readability.\n'], nb, kb);
+    if isfinite(gs) && abs(gs) < C.gate_gain
+        fprintf(['  WARNING: the seed does not read either (%.4f). The tail is not ' ...
+                 'the whole story on this bench -- do not treat the seed as gated.\n'], gs);
+    end
+    pb = ps;  nb = n0;  kb = k0;   % the seed's own numbers, already measured
+    fprintf(['  the tail of record is now the geometric seed: FL_F %.4f FL_Kc %.5f ' ...
+             'D_MASK_FL %.4f DET_TRIM %.4f (null %.4f nm, poke-peak %.1f nm)\n'], ...
+            pb(1), pb(2), pb(3), pb(4), nb, kb);
+end
 out = struct('FL_F',pb(1),'FL_Kc',pb(2),'D_MASK_FL',pb(3),'DET_TRIM',pb(4), ...
              'null_nm',nb,'seed_null_nm',n0,'poke_peak_nm',kb,'seed_poke_peak_nm',k0, ...
-             'opt_model',MODEL,'opt_ngrid',NGRID,'optics',b.optics,'objective',objective);
+             'opt_model',MODEL,'opt_ngrid',NGRID,'optics',b.optics,'objective',objective, ...
+             'gate',gate);
 save([P.tag '_tail.mat'], 'out');
 fprintf('wrote %s_tail.mat\n', P.tag);
 end
@@ -104,16 +196,7 @@ function [r, null_nm, peak_nm] = cost_(q, C)
     null_nm = 1e6;  peak_nm = 0;  r = 1e6;
     conc = NaN;  wrapf = NaN;     % reported per eval so a tune is auditable
     try
-        G = macos.design.twyman_green('polarizing',true,'ngridpts',C.NGRID, ...
-            'optics',C.optics, C.oapargs{:}, 'BS_AOI',C.AOI, C.nodeargs{:}, ...
-            'F1',s*b.F1,'F2',s*b.F2,'D_LENS',s*b.D_LENS,'R_BAFFLE',s*b.R_BAFFLE,'D_SB',s*b.D_SB, ...
-            'BS_T',s*b.BS_T,'D_L1_BS',s*b.D_L1_BS,'D_BS_TO',C.D_BS_TO,'D_BS_CMP',s*b.D_BS_CMP, ...
-            'R_TO_AP',s*b.R_TO_AP,'L1_Kr',s*b.L1_Kr,'L1_Kc',b.L1_Kc,'L2_Kr',-s*abs(b.L2_Kr),'L2_Kc',b.L2_Kc, ...
-            'to_grid_file',C.f_flat,'to_grid_n',C.N_G,'to_grid_dx',C.DX_G, ...
-            'qwp_ret',C.QWP,'pol_in_deg',b.pol_in_deg,'qwp_test_deg',b.qwp_test_deg, ...
-            'qwp_ref_deg',b.qwp_ref_deg,'out_qwp_deg',b.out_qwp_deg,'analyzer_deg',b.analyzer_deg, ...
-            'tail_arch','fieldlens','FL_F',p(1),'FL_Kc',p(2),'FL_D',s*b.FL_D,'D_MASK_FL',p(3),'DET_TRIM',p(4));
-        G.bt.emit(C.f_test);  G.br.emit(C.f_ref);
+        G = build_(p, C);
         AT = arm_desc(C.f_test, G.bt, G.T, 0);
         AR = arm_desc(C.f_ref,  G.br, G.R, 45);
         Sr = analyzer_basis(AR, C.QWP, []);  S0 = analyzer_basis(AT, C.QWP, []);
@@ -203,6 +286,85 @@ function P = parse_params_(varargin)
     for k = 1:2:numel(rest)
         parts = strsplit(rest{k}, '.');
         P = setfield(P, parts{:}, rest{k+1});  %#ok<SFLD>
+    end
+end
+
+function G = build_(p, C)
+%BUILD_  the tuning bench at tail parameters p, decks emitted.  Factored out
+% of cost_ so the winner GATE (row_gain_) builds the identical rig -- a gate
+% on a differently-built bench measures nothing.
+    s = C.s;  b = C.bench;
+    G = macos.design.twyman_green('polarizing',true,'ngridpts',C.NGRID, ...
+        'optics',C.optics, C.oapargs{:}, 'BS_AOI',C.AOI, C.nodeargs{:}, ...
+        'F1',s*b.F1,'F2',s*b.F2,'D_LENS',s*b.D_LENS,'R_BAFFLE',s*b.R_BAFFLE,'D_SB',s*b.D_SB, ...
+        'BS_T',s*b.BS_T,'D_L1_BS',s*b.D_L1_BS,'D_BS_TO',C.D_BS_TO,'D_BS_CMP',s*b.D_BS_CMP, ...
+        'PLATE_SUB',b.PLATE_SUB,'EDGE_MARGIN',b.EDGE_MARGIN, ...
+        'R_TO_AP',s*b.R_TO_AP,'L1_Kr',s*b.L1_Kr,'L1_Kc',b.L1_Kc,'L2_Kr',-s*abs(b.L2_Kr),'L2_Kc',b.L2_Kc, ...
+        'to_grid_file',C.f_flat,'to_grid_n',C.N_G,'to_grid_dx',C.DX_G, ...
+        'qwp_ret',C.QWP,'pol_in_deg',b.pol_in_deg,'qwp_test_deg',b.qwp_test_deg, ...
+        'qwp_ref_deg',b.qwp_ref_deg,'out_qwp_deg',b.out_qwp_deg,'analyzer_deg',b.analyzer_deg, ...
+        'tail_arch','fieldlens','FL_F',p(1),'FL_Kc',p(2),'FL_D',s*b.FL_D,'D_MASK_FL',p(3),'DET_TRIM',p(4));
+    G.bt.emit(C.f_test);  G.br.emit(C.f_ref);
+end
+
+function [g, info] = row_gain_(p, C)
+%ROW_GAIN_  ONE single-actuator battery row through the RAY AFFINE: the
+% recovered gain in ACTUATOR space, which is the quantity the battery
+% measures and the quantity the tuner's own four terms (null, peak,
+% localization, wrap) proved orthogonal to (REPORT_reflective 4.5: the old
+% winner scored best on all four and read a single actuator at 0.0338, where
+% the geometric seed reads 0.9809).  No detector-space proxy can stand in
+% for it -- that is the whole finding.
+%
+% The affine comes from tg96_place, i.e. from the RAY trace of this very
+% bench (dmg_frame), so it is correct FOR the tail under test: a tail that
+% has walked the detector off the DM's pupil conjugate still gets its own
+% honest mapping, and still reads ~0 here, because the actuator's response is
+% no longer imaged onto its own site.  That is why this gate cannot be fooled
+% the way the peak term was.
+%
+% Cost: one placement (3 reference measurements) plus one poked row, once per
+% tune -- not per fminsearch evaluation.
+    g = NaN;  info = '';
+    try
+        G = build_(p, C);
+        AT = arm_desc(C.f_test, G.bt, G.T, 0);
+        AR = arm_desc(C.f_ref,  G.br, G.R, 45);
+        Sr = analyzer_basis(AR, C.QWP, []);  S0 = analyzer_basis(AT, C.QWP, []);
+        I0 = frame(S0, Sr, 0);  msk = I0 > 0.1*max(I0(:));
+        if nnz(msk) < 500, info = 'pupil lost (msk < 500 px)';  return; end
+        pn = fourstep(S0, Sr, C.THETAS);
+        measf = @(M) meas_surface(AT, C.QWP, M, Sr, pn, C.THETAS, C.LAM);
+        cfg = struct('nact', b_nact_(C.bench), 'pitch', b_pitch_(C.bench));
+        PL = tg96_place(AT, G.T, cfg, msk, C.N_G, C.DX_G, C.POKE, measf, ...
+                        C.place, zeros(size(pn)));
+        % the lit actuator nearest the lattice centre -- an interior site, so
+        % the row is not reading a vignetted edge response
+        [ai, aj] = find(PL.lit);
+        if isempty(ai), info = 'no lit actuators';  return; end
+        ctr = (cfg.nact+1)/2;
+        [~, k] = min(hypot(ai-ctr, aj-ctr));  ic = [ai(k) aj(k)];
+        A1 = zeros(cfg.nact);  A1(ic(1), ic(2)) = C.poke_nm*1e-6;
+        M1 = dm_influence_map(C.N_G, C.DX_G, 'nact',cfg.nact, 'pitch',cfg.pitch, 'act',A1);
+        h1 = measf(M1);
+        % truth: the SURFACE the DM actually holds at that actuator's centre
+        xg = ((1:C.N_G)-(C.N_G+1)/2)*C.DX_G;
+        t1 = interp2(xg, xg.', M1, PL.axg(ic(1),ic(2)), PL.ayg(ic(1),ic(2)), 'linear', 0);
+        % measured: the same site, reached through the affine
+        m1 = interp2(1:size(h1,2), (1:size(h1,1)).', h1, ...
+                     PL.U(ic(1),ic(2)), PL.V(ic(1),ic(2)), 'linear', NaN);
+        if ~isfinite(m1) || t1 == 0
+            info = 'actuator site off the detector grid';  return;
+        end
+        g = m1 / t1;          % SIGNED; the gate below is on |g| (the four-step
+                              % measurement sign is a deck convention the
+                              % battery resolves by registration, not a defect)
+        info = sprintf(['site (%d,%d), mag %.4f DM-mm/det-mm, detector px ' ...
+                        '(%.1f,%.1f), truth %.2f nm, measured %.2f nm'], ...
+                       ic(1), ic(2), PL.mag, PL.U(ic(1),ic(2)), PL.V(ic(1),ic(2)), ...
+                       1e6*t1, 1e6*m1);
+    catch ME
+        info = sprintf('row failed: %s', ME.message);
     end
 end
 
