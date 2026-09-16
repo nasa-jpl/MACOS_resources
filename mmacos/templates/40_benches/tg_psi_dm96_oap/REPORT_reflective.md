@@ -90,8 +90,17 @@ beside it) patches `tg96_run.m`, `tg96_params.m` and `tg96_tail.m` — the
 saturating ladder meter, the `wrap` stage, the camera line, the dropped
 `MASK_SUB`, the stations figure's width. It is NOT applied automatically because
 editing a file an hour-class run is executing is how a long job gets corrupted.
-Run it from `runs/` once nothing is inside `tg96_run.m`; it has been dry-run
-against copies of all three files (applies clean, 0 parse issues).
+**When the window opens:** the patch's three targets are in use for the whole
+rest of the queue — `gateseq3` and `item4seq` both run `tg96_tail`, `item4seq`
+runs `tg96_run` — so the first safe moment is **after `item4seq` and the CTB
+probe**, which is exactly where `closefinal.sh` stops and prints the command.
+Run it from `runs/`, then `runs/item2bseq.sh`. It has been dry-run against
+copies of all three files (applies clean, 0 parse issues).
+
+It is deliberately NOT applied by the chain. Editing source inside an
+unattended queue is a worse failure mode than an item left open with a written
+instruction: if the patch went wrong at 3 a.m. it would take the runs after it
+with no one reading the error.
 
 **Sequencers were stopped, never edited, when they needed changing** — bash
 reads a script incrementally and remembers its byte offset. Killing a sequencer
