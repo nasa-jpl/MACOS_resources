@@ -96,7 +96,8 @@ C = struct('f_flat',f_flat,'f_test',f_test,'f_ref',f_ref, ...
            'QWP',QWP,'THETAS',THETAS,'LAM',LAM,'seed',seed,'optics',b.optics, ...
            'oapargs',{oapargs},'nodeargs',{nodeargs},'bench',b,'objective',objective, ...
            'poke_nm',100, ...
-           'place',P.place,'POKE',P.POKE,'gate_gain',0.95);
+           'place',P.place,'POKE',P.POKE,'gate_gain',0.95, ...
+           'stn_hw',6,'act_lam',0.05);
 % poke_nm 100 = 0.63 of lambda/4: a healthy map then reads ~0.63 on the wrap
 %   meter and a PINNED one reads 1.00.  At the old 150 nm (0.95 of the range)
 %   the guard could not separate them.
@@ -329,23 +330,40 @@ function G = build_(p, C)
 end
 
 function [g, info] = row_gain_(p, C)
-%ROW_GAIN_  ONE single-actuator battery row through the RAY AFFINE: the
-% recovered gain in ACTUATOR space, which is the quantity the battery
-% measures and the quantity the tuner's own four terms (null, peak,
-% localization, wrap) proved orthogonal to (REPORT_reflective 4.5: the old
-% winner scored best on all four and read a single actuator at 0.0338, where
-% the geometric seed reads 0.9809).  No detector-space proxy can stand in
-% for it -- that is the whole finding.
+%ROW_GAIN_  The recovered gain in ACTUATOR SPACE, by LATTICE DECONVOLUTION.
 %
-% The affine comes from tg96_place, i.e. from the RAY trace of this very
-% bench (dmg_frame), so it is correct FOR the tail under test: a tail that
-% has walked the detector off the DM's pupil conjugate still gets its own
-% honest mapping, and still reads ~0 here, because the actuator's response is
-% no longer imaged onto its own site.  That is why this gate cannot be fooled
-% the way the peak term was.
+% WHAT THIS REPLACED, AND WHY (item 3, 2026-09-16).  The first form of this
+% measure took ONE POINT SAMPLE: the measured map at the detector pixel the
+% affine sends an actuator's centre to, over the DM surface at that same
+% actuator's centre.  It failed its own two-leg test in the one direction
+% that matters -- it ACCEPTED objwin3 (battery 0.0338) at 0.9804 and REFUSED
+% the lens rig's tuned tail (battery 0.9968) at -0.8285.  A point sample at
+% the peak reads how CONCENTRATED the response is, and that is set by the
+% magnification (the broken tail's 6.125 against the seed's 10.44 spreads the
+% response over fewer detector pixels and so dilutes the peak less, reading
+% HIGHER).  Magnification is not readability; a gate built on it prefers the
+% tails it should refuse.
 %
-% Cost: one placement (3 reference measurements) plus one poked row, once per
-% tune -- not per fminsearch evaluation.
+% The lattice form measures what the battery measures.  The bench's OWN
+% measured influence stencil is deconvolved off a multi-site poked map over
+% the illuminated lattice, and the recovered command is regressed on the
+% commanded one (score_'s gain, verbatim: Ad(lit)\a(lit)).  Magnification
+% divides out because the stencil and the map are BOTH measured through the
+% same tail and both resampled into the DM frame; what survives is whether a
+% command at a site reappears at that site, with its amplitude, without
+% leaking to its neighbours -- which is readability.
+%
+% NON-VACUITY, deliberately.  The stencil comes from tg96_place's ANCHOR
+% poke; the row is poked at DIFFERENT, well-separated sites.  Building the
+% stencil from the very map it then fits would return ~1 by construction and
+% would gate nothing.  The sites are spread across the pupil rather than
+% stacked at the centre, so a registration that degrades off-axis -- the way
+% a walked conjugate does -- is in the measurement and not just at one lucky
+% pixel.
+%
+% Cost is UNCHANGED: one placement (which already traces the anchor poke, now
+% handed back as PL.hA) plus one poked map, once per tune, not per fminsearch
+% evaluation.
     g = NaN;  info = '';
     try
         G = build_(p, C);
@@ -359,33 +377,96 @@ function [g, info] = row_gain_(p, C)
         cfg = struct('nact', b_nact_(C.bench), 'pitch', b_pitch_(C.bench));
         PL = tg96_place(AT, G.T, cfg, msk, C.N_G, C.DX_G, C.POKE, measf, ...
                         C.place, zeros(size(pn)));
-        % the lit actuator nearest the lattice centre -- an interior site, so
-        % the row is not reading a vignetted edge response
-        [ai, aj] = find(PL.lit);
-        if isempty(ai), info = 'no lit actuators';  return; end
-        ctr = (cfg.nact+1)/2;
-        [~, k] = min(hypot(ai-ctr, aj-ctr));  ic = [ai(k) aj(k)];
-        A1 = zeros(cfg.nact);  A1(ic(1), ic(2)) = C.poke_nm*1e-6;
-        M1 = dm_influence_map(C.N_G, C.DX_G, 'nact',cfg.nact, 'pitch',cfg.pitch, 'act',A1);
-        h1 = measf(M1);
-        % truth: the SURFACE the DM actually holds at that actuator's centre
         xg = ((1:C.N_G)-(C.N_G+1)/2)*C.DX_G;
-        t1 = interp2(xg, xg.', M1, PL.axg(ic(1),ic(2)), PL.ayg(ic(1),ic(2)), 'linear', 0);
-        % measured: the same site, reached through the affine
-        m1 = interp2(1:size(h1,2), (1:size(h1,1)).', h1, ...
-                     PL.U(ic(1),ic(2)), PL.V(ic(1),ic(2)), 'linear', NaN);
-        if ~isfinite(m1) || t1 == 0
-            info = 'actuator site off the detector grid';  return;
+        anc = PL.anchor;                                  % [bx by tax tay]
+
+        % ---- the bench's own measured stencil, from the anchor poke -------
+        % tg96_samp, NOT dmg_samp: the shared resampler is an axis permutation
+        % plus signs plus one scale, which cannot express this rig's non-90
+        % degree fold rotation (tg96_place carries it in frm.Linv).
+        [hdA, reg] = tg96_samp(PL.hA, PL, xg, msk);  hdA(isnan(hdA)) = 0;
+        % Measured, not asserted: how far this bench's mapping is from the
+        % signed-permutation family the shared dmg_samp can express.
+        fprintf(['  registration: rotation %.2f deg off axis (mod 90), nearest ' ...
+                 'signed permutation is %.1f%% away, anisotropy %.4f -- ' ...
+                 'dmg_samp is usable only when these are 0, 0%% and 1.\n'], ...
+                reg.rot_deg, 100*reg.perm_err, reg.aniso);
+        stn = dmg_stencil(hdA, xg, anc(3), anc(4), cfg.pitch, C.stn_hw) / C.POKE;
+        if ~any(stn(:)) || ~all(isfinite(stn(:)))
+            info = 'stencil empty or non-finite (the anchor poke did not register)';
+            return;
         end
-        g = m1 / t1;          % SIGNED; the gate below is on |g| (the four-step
-                              % measurement sign is a deck convention the
-                              % battery resolves by registration, not a defect)
-        info = sprintf(['site (%d,%d), mag %.4f DM-mm/det-mm, detector px ' ...
-                        '(%.1f,%.1f), truth %.2f nm, measured %.2f nm'], ...
-                       ic(1), ic(2), PL.mag, PL.U(ic(1),ic(2)), PL.V(ic(1),ic(2)), ...
-                       1e6*t1, 1e6*m1);
+
+        % ---- the row: interior lit sites, spread, none of them the anchor --
+        ic = row_sites_(PL.lit, cfg.nact, PL.aR);
+        if isempty(ic), info = 'no lit sites clear of the anchor';  return; end
+        Ad = zeros(cfg.nact);
+        for k = 1:size(ic,1), Ad(ic(k,1), ic(k,2)) = C.poke_nm*1e-6; end
+        M1 = dm_influence_map(C.N_G, C.DX_G, 'nact',cfg.nact, 'pitch',cfg.pitch, 'act',Ad);
+        % MEAN-REFERENCE the row map exactly as tg96_place references the
+        % anchor poke it built the stencil from (mkref: minus the median over
+        % the mask).  Not cosmetic -- the OAP rig's null leaves a low-order
+        % background across the pupil, and a constant the stencil never saw
+        % deconvolves into a spurious UNIFORM command, which lands in the
+        % unpoked floor and biases the regression.  Stencil and map have to be
+        % referenced the same way or the gain is measuring the background.
+        h1 = measf(M1);  h1 = h1 - median(h1(msk));
+        hd1 = tg96_samp(h1, PL, xg, msk);  hd1(isnan(hd1)) = 0;
+
+        % ---- deconvolve to actuator commands, then the battery's own gain --
+        aa = dmg_act_fit(hd1, xg, PL.axg, PL.ayg, stn, PL.lit, C.act_lam);
+        [g, e, fl, snr] = score_gain_(aa, Ad, PL.lit);
+        info = sprintf(['%d sites, mag %.4f DM-mm/det-mm, %d lit, stencil hw %d ' ...
+                        'from anchor (%d,%d); err %.1f pm, floor %.1f pm, SNR %.1f'], ...
+                       size(ic,1), PL.mag, nnz(PL.lit), C.stn_hw, PL.aR(1), PL.aR(2), ...
+                       e, fl, snr);
     catch ME
         info = sprintf('row failed: %s', ME.message);
+    end
+end
+
+function ic = row_sites_(lit, nact, aR)
+%ROW_SITES_  Interior lit actuators, spread over the pupil, clear of the
+% anchor.  The centre plus one per quadrant at ~0.55 of the lit radius: a
+% registration that degrades off-axis shows up here and cannot be hidden by a
+% single well-placed centre site.  MIN_SEP keeps every site away from the
+% anchor (whose response built the stencil) and from its neighbours, so the
+% deconvolution is not asked to separate two overlapping kernels.
+    MIN_SEP = 8;                                   % actuators
+    ctr = (nact+1)/2;
+    [ai, aj] = find(lit);
+    if isempty(ai), ic = [];  return; end
+    r = max(hypot(ai-ctr, aj-ctr));
+    want = [0 0; 1 1; 1 -1; -1 1; -1 -1];          % centre + four quadrants
+    ic = zeros(0,2);
+    for k = 1:size(want,1)
+        tgt = [ctr + 0.55*r*want(k,1)/max(norm(want(k,:)),1), ...
+               ctr + 0.55*r*want(k,2)/max(norm(want(k,:)),1)];
+        d = hypot(ai-tgt(1), aj-tgt(2));
+        [~, ord] = sort(d);
+        for q = ord(:).'
+            cand = [ai(q) aj(q)];
+            if hypot(cand(1)-aR(1), cand(2)-aR(2)) < MIN_SEP, continue; end
+            if ~isempty(ic) && min(hypot(ic(:,1)-cand(1), ic(:,2)-cand(2))) < MIN_SEP, continue; end
+            ic(end+1,:) = cand; %#ok<AGROW>
+            break
+        end
+    end
+end
+
+function [g, e, fl, snr] = score_gain_(a, Ad, lit)
+%SCORE_GAIN_  tg96_run's score_ verbatim: the actuator-space gain is the LS
+% regression of the recovered command on the commanded one over the lit
+% lattice, with the unpoked floor and SNR beside it.  Kept identical to the
+% battery's so the gate and the battery report the SAME quantity -- the whole
+% point of item 3 is that the gate must not use a proxy.
+    g = Ad(lit) \ a(lit);
+    e = sqrt(mean((a(lit) - Ad(lit)).^2))*1e9;
+    pk = (Ad ~= 0) & lit;  un = lit & ~pk;
+    if nnz(pk) < nnz(lit)/4
+        fl = std(a(un))*1e9;  snr = mean(a(pk)) / max(std(a(un)), eps);
+    else
+        fl = NaN;  snr = NaN;
     end
 end
 

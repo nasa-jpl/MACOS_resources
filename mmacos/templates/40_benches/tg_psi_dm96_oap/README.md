@@ -102,7 +102,8 @@ polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.m
 | `REPORT_gauge_ifo.md` | the gauge-deck report (the IFO lanes): rows on the 30 nm surface, capture range, the three phase-shift forms, lenses-vs-OAPs, parts lists |
 | `tg96_place.m`  | window placement from the ray affine (`dmg_frame`) + directional-parity + robust affine refit |
 | `tg96_apply_parity.m` | detector-mm → field pixel under the resolved field-array parity |
-| `tg96_tail.m`   | re-tune FL_F/FL_Kc/D_MASK_FL/DET_TRIM per optics (unaligned null), **gated by a single-actuator row** — see "The tail of record" |
+| `tg96_tail.m`   | re-tune FL_F/FL_Kc/D_MASK_FL/DET_TRIM per optics (unaligned null), **gated by a multi-site row read by lattice deconvolution** — see "The tail of record" |
+| `tg96_samp.m`   | detector-frame map -> DM frame through `tg96_place`'s OWN affine + parity; the fold rotation the shared `dmg_samp` cannot express |
 | `tg96_run_batch.m` / `tg96_batch.sh` | `matlab -batch` wrapper (exit only here) + launcher |
 
 ## The tail of record, and the tuner's open problem
@@ -124,15 +125,54 @@ open (tags `objseed3` / `objwin3` for the clean A/B; `tailA` / `tailB` for the
 rows), and it is a real piece of work that has not been started.
 
 **What was done instead — the winner gate.** The tuner no longer certifies its
-own winner. After the tune it reads ONE single-actuator row through the ray
+own winner. After the tune it reads a multi-site actuator row through the ray
 affine, in **actuator space** — the quantity the battery measures — and refuses
 any winner below `gate_gain` (0.95), returning the geometric seed with the
 reason printed. The affine comes from `tg96_place`, i.e. from the ray trace of
 the very bench under test, so a tail that has walked the detector off the DM's
-pupil conjugate still gets its own honest mapping and still reads ~0: the
-actuator's response is no longer imaged onto its own site. That is why this
-gate cannot be fooled the way the peak term was. Cost: one placement plus one
-poked row, once per tune.
+pupil conjugate still gets its own honest mapping and still reads low: the
+actuator's response is no longer imaged onto its own site. Cost: one placement
+plus one poked map, once per tune, not per fminsearch evaluation.
+
+**The first version of the gate measured the wrong thing, and this is how.**
+It took ONE POINT SAMPLE — the measured map at the detector pixel the affine
+sends an actuator's centre to, over the DM surface at that same centre — and
+it failed its own two-leg test in the direction that matters: it ACCEPTED
+`objwin3` (battery 0.0338) at 0.9804 and REFUSED the lens rig's tuned tail
+(battery 0.9968) at −0.8285. A point sample at the peak reads how
+CONCENTRATED the response is, and that is set by the MAGNIFICATION: the broken
+tail's 6.125 against the seed's 10.44 spreads the response over fewer detector
+pixels and so dilutes the peak less, reading HIGHER. Magnification is not
+readability, and a gate built on it prefers exactly the tails it exists to
+refuse. It was made ADVISORY the same day rather than left enforcing.
+
+**The measure of record is lattice deconvolution** (`row_gain_`, 2026-09-16).
+The bench's OWN measured influence stencil — taken from the anchor poke
+`tg96_place` already traces, so it costs nothing extra — is deconvolved off a
+multi-site poked map over the illuminated lattice (`dmg_act_fit`), and the
+recovered command is regressed on the commanded one with `score_`'s gain
+verbatim, `Ad(lit)\a(lit)`, so the gate and the battery report the SAME
+quantity. Magnification divides out because the stencil and the map are both
+measured through the same tail and both resampled into the DM frame; what
+survives is whether a command at a site reappears at that site, with its
+amplitude, without leaking to its neighbours. The stencil comes from the
+anchor and the row is poked at DIFFERENT, well-separated sites — fitting the
+map the stencil was built from would return ~1 by construction and gate
+nothing. The sites are spread across the pupil, so a registration that
+degrades off-axis is in the measurement rather than at one lucky pixel.
+
+**Resampling uses `tg96_samp`, NOT the shared `dmg_samp`, and that is
+load-bearing on this rig.** The library resampler expresses the registration
+as an axis permutation plus per-axis signs plus one isotropic scale — the
+8-parity family — which cannot represent a rotation that is not a multiple of
+90°. This bench's two folds put exactly such a rotation into the mapping, and
+`tg96_place` carries it in `frm.Linv`. `dmg_samp` here would mis-register the
+lattice by the fold angle, which would then read as the tail failing to read.
+The trap is that the lens rig is close enough to axis-aligned that it would
+very nearly have worked there — i.e. it would have looked right on one leg of
+the two-leg test and been wrong on the other. `tg96_samp` is `tg96_place`'s
+own mapping evaluated on the DM grid, so this bench has one registration
+convention and not two.
 
 Gate it yourself, without paying for a tune:
 
