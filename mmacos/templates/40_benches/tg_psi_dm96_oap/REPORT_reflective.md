@@ -1709,6 +1709,48 @@ hypothesis (a) says: the direction is the same (the OAP rig is worse off per
 unknown) but the quantity is pixels per ACTUATOR IN THE SOLVE, not the phase
 step per pixel, and the size is 23 % rather than 7 %.
 
-**It is a candidate, not a conclusion.** The wrap stage measures the fold
-FRACTION that feeds it, on both rigs, and that is the number that would turn
-this into an account rather than a plausible story.
+**It is a candidate, not a conclusion — and the experiment that would settle it
+got sharper while this was being written.** The first design for the `wrap`
+stage measured the beyond-fold FRACTION, which is only an input to the
+mechanism. The ZWFS battery turns out to already report the right idea for its
+own one-frame prior — *"pixels that cross the fold under the change"* — so the
+stage now forms the SAME differential both ways and compares them directly:
+
+```
+dA = measf(base+dev) - measf(base)                        the ladder's form
+dD = angle(exp(1i*(phasef(base+dev) - phasef(base))))     the correct form
+```
+
+and reports `n_cross` = the pixels where they differ by more than λ/8, plus
+`rms(dA−dD)` and `corr(dA,dD)`. A pixel the 10 nm poke pushes across a wrap
+boundary is wrong by λ/2 = 316 nm in `dA` — 31× the signal — while `dD` never
+wraps, because the difference is small everywhere.
+
+**This needs no matrix and no affine**, because the two forms are compared
+against each other rather than against a truth map, so neither the estimator's
+conditioning nor the DM→detector mapping can be blamed for the answer. That
+matters: it separates the two candidates cleanly. If `n_cross` is zero at a
+rung, that rung's ladder result is about the bench; if it is large, the result
+is mostly arithmetic whatever the bench does — and only then does the
+conditioning difference above become the thing that decides WHICH rig tolerates
+it.
+
+#### Blast radius of the wrapped-absolute form: the ROWS are not affected
+
+The rows use the same `measr` subtraction the ladder does (`hb = measr(base)`,
+`hbd = measr(base+dev)`, `est(hbd-hb)`), so the question has to be asked of them
+too. They are safe, and for a reason that is measured rather than assumed:
+their bases are **flat** and **random 30 nm**, and at 30 nm the wrap meter reads
+0.92–0.93, i.e. the deepest pixel sits at 93 % of λ/4 = 147 nm. A 10 nm
+deviation cannot push it past 158.2 nm, so no pixel crosses a boundary and the
+subtraction is exact.
+
+The ladder is the only place that goes deep enough to cross — 60 nm is where
+the first pixels pass λ/4 (the meter saturates there) and the gain is still
+0.993–0.999, so a few crossings are tolerable; 120 nm is where ~19 % of the
+pupil is past it and the estimate collapses.
+
+**So every row of record stands** — `oapifo2`'s 0.9915 / 2.4 pm and 0.9905 /
+161 pm, the cross-talk, the reg sweep, the dense-random residuals. What is in
+question is the ladder's deep rungs and therefore the CAPTURE RANGE line, not
+the reading itself.
