@@ -93,5 +93,50 @@ new = "print(f, [P.tag \'_stations.png\'], \'-dpng\', \'-r96\');  close(f);   % 
 assert old in s, 'stations export line not found'
 s = s.replace(old, new, 1)
 
+# ---- 5. MASK_SUB reaches the builder on the tg96 side too --------------
+# tg96_run forwards bench options to twyman_green by an EXPLICIT argument list,
+# not by sweeping P.bench, so an option that exists in twyman_green and in the
+# sheet is still silently dropped unless it is named here.  PLATE_SUB and
+# EDGE_MARGIN were added; MASK_SUB was not, so item 4's interferometer runs
+# would have carried the polarizing plates and NOT the mask plate -- the one
+# that sits in the CONVERGING beam and is the whole reason MASK_SUB exists.
+# (zwfs_run sweeps P.bench instead, so it was never affected.)
+#
+# The params default and the forwarding have to land TOGETHER: b.MASK_SUB on a
+# struct without the field is a "non-existent field" error, so adding the
+# forwarding alone would break every tg96 run that does not override it.
+old = "        'PLATE_SUB',b.PLATE_SUB, 'EDGE_MARGIN',b.EDGE_MARGIN, ..."
+new = "        'PLATE_SUB',b.PLATE_SUB, 'EDGE_MARGIN',b.EDGE_MARGIN, 'MASK_SUB',b.MASK_SUB, ..."
+assert old in s, 'tg96_run mk() forwarding not found'
+s = s.replace(old, new, 1)
+
 open(p, 'w', encoding='utf-8').write(s)
+
+# --- the companions: tg96_params default, and the tuner's build_ -------
+import os
+q = os.path.join(os.path.dirname(os.path.abspath(p)), 'tg96_params.m')
+t = open(q, encoding='utf-8').read()
+oldq = "P.bench.EDGE_MARGIN = 2.0;         % singlet edge thickness, ABSOLUTE mm"
+newq = ("P.bench.MASK_SUB    = [];          % [n t]: the MASK's own plate, in the CONVERGING\n"
+        "                                   % beam -- the one place a plane-parallel plate is not\n"
+        "                                   % just path.  Its faces go ahead of the sandwich's\n"
+        "                                   % entrance sphere and INSIDE the existing gap, so the\n"
+        "                                   % mask does not move and the cost (W040 + a t*(1-1/n)\n"
+        "                                   % focus shift) is measurable rather than mixed with a\n"
+        "                                   % geometry change.  ABSOLUTE mm.\n"
+        "P.bench.EDGE_MARGIN = 2.0;         % singlet edge thickness, ABSOLUTE mm")
+assert oldq in t, 'tg96_params EDGE_MARGIN anchor not found'
+t = t.replace(oldq, newq, 1)
+open(q, 'w', encoding='utf-8').write(t)
+
+r = os.path.join(os.path.dirname(q), 'tg96_tail.m')
+u = open(r, encoding='utf-8').read()
+oldr = "        'PLATE_SUB',b.PLATE_SUB,'EDGE_MARGIN',b.EDGE_MARGIN, ..."
+newr = "        'PLATE_SUB',b.PLATE_SUB,'EDGE_MARGIN',b.EDGE_MARGIN,'MASK_SUB',b.MASK_SUB, ..."
+assert oldr in u, 'tg96_tail build_ forwarding not found'
+u = u.replace(oldr, newr, 1)
+open(r, 'w', encoding='utf-8').write(u)
+print('tg96_params.m: MASK_SUB default added')
+print('tg96_tail.m: MASK_SUB forwarded to the retune')
+
 print('tg96_run.m: ladder meter replaced, camera line moved to dmg_cam_line')
