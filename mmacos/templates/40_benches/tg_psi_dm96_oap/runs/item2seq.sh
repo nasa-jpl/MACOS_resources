@@ -34,5 +34,5 @@ B="'clear.BODY',struct('Baffle',50,'Detector',50,'TestOptic',90,'PZT',60)"
 ./tg96_batch.sh oapuw2   "$D,$B,'battery.unwrap',true,'battery.rows',{'base/single'},'stages',{'bench','battery'}"
 ./tg96_batch.sh lensuw2  "'bench.optics','lens','battery.rows',{'base/single'},'stages',{'bench','battery'}"
 ./tg96_batch.sh oapifol2 "$D,$B,'stages',{'bench','loop','figs'}"
-./tg96_batch.sh oapdesc2 "$D,'loop.start_rms',[100 200],'stages',{'bench','loop','figs'}"
+./tg96_batch.sh oapdesc2 "$D,'loop.start_rms',[1e-4 2e-4],'stages',{'bench','loop','figs'}"   # mm: 100 / 200 nm
 echo "[item2seq] done"

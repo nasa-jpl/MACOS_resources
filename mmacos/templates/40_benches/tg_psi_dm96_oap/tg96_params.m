@@ -319,7 +319,12 @@ P.loop.ref_walk  = 0;              % rms (rad/cycle) of a reference-arm (PZT-fla
                                    %   non-common-path term (default off; not asked for the deck)
 % ---- descent (item 5): capture the DM's initial figure, ~100-200 nm WFE -------
 P.loop.start_rms   = [];           % [] = no descent; else the loop STARTS from a surface of this rms
-                                   %   (mm; a vector runs the ladder), matrix measured AT the start
+                                   %   (**mm**, like every other rms knob here -- battery.base_rms
+                                   %   30e-6 IS 30 nm; a 100 nm start is 1e-4, NOT 100.  The runner
+                                   %   prints it as SR*1e6 nm.  Two queued scripts had it as bare
+                                   %   nanometres, which asks for a 100 MILLIMETRE starting surface;
+                                   %   neither had run, so nothing caught it.)
+                                   %   A vector runs the ladder; matrix measured AT the start
 P.loop.start_shape = [];           % [] = the set point's own field rescaled ("the same field, scaled")
 P.loop.recal_every = 0;            % cycles between on-surface re-calibrations (0 = never)
 P.loop.recal_list  = [];           % descent: recal_every values to compare ([] => [recal_every])
