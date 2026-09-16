@@ -61,12 +61,30 @@ coordinate set.
 ## Source model (MACOS point source)
 
 The point source is a **section of a sphere** centered at the radiating point;
-`Aperture` is the **numerical aperture**, sized to just fill the **limiting**
+`Aperture` is the source **cone angle**, sized against the **limiting**
 element. The limiting aperture here is the **DM** (radius 22.5 mm, the pupil
-stop), not the oversized OAPs (radius 75 mm), so the source NA is set to put a
-`R_DM·FILL` beam on the DM. The pupil beam then demagnifies down the relay by
-each focus/collimate focal-length ratio (DM 21.4 → apod 16.0 → Lyot 8.0 →
-backend 8.0 mm); the runner prints these and asserts none overfills.
+stop), not the oversized OAPs (radius 75 mm). The generator sets
+`Aperture = R_DM·FILL / r` as if `Aperture` were the half-angle NA, but the
+engine takes a point source's `Aperture` as the **FULL cone angle**
+(`macos_f90/sourcsub.F`: `A = Aperture/2`), so `R_DM·FILL = 21.375 mm` lands
+on the DM as the beam **diameter**, not its radius. Measured
+(`ctb_beam_probe`, `ctb_dcr.in`, model 512, 50618 rays): the beam at DM1/DM2
+is **21.24 mm in diameter** (radius 10.62 mm), i.e. the DM is filled to
+**47 %** of its 22.5 mm clear radius, not 95 %. The pupil beam then
+demagnifies down the relay by each focus/collimate focal-length ratio — a
+chain of **diameters**: DM 21.4 → apod 16.0 → Lyot 8.0 → backend 8.0 mm as
+the generator computes them (measured 21.24 → 15.87 → 7.94 mm); the runner
+prints these, labeled as diameters, and asserts none overfills.
+
+> **2026-09-16 — DM model questioned and confirmed.** `ctb_dm.m` was
+> challenged (was its `beam_d_mm = 21.3` a radius used as a diameter?) and
+> confirmed by the traced footprint above: 21.3 mm IS the beam diameter the
+> engine delivers, the 32×32 lattice spans it, and every EFC/contrast result
+> stands. What the probe found instead is the fill: 47 % of the DM radius
+> where the sheet intends 95 %, self-consistent everywhere downstream.
+> Whether to regenerate the bench at the intended 42.75 mm beam is a pending
+> decision (Dave: later, after the DM-gauge results clear); the generator and
+> the committed decks are unchanged.
 
 ## Why staged optimization
 
@@ -542,7 +560,7 @@ no model gap for the optimizer to mine (the e2e6m S3b lesson).
 | file | what |
 |---|---|
 | `ctb_dm_rx.m` | emits `ctb_dm.in` from `ctb_dcr.in`: the two DM blocks become `Surface= GridData` with an `nGridMat=256` channel whose frame is the element's own (`pData=VptElt, xData=xObs, zData=psiElt`) — the frame rule that makes pokes localize (the e5 "central dot" lesson). Hand decks untouched; `ctb_dm.in` + `flat256.txt` are derived (the flat grid is gitignored, rewritten on demand). |
-| `ctb_dm.m` | influence-function DM model: 32×32 actuator lattice, pitch = beam/32 = 0.666 mm, Gaussian influence with 12 % nearest-neighbor coupling, commands (mm of surface) → 256×256 grid via local stamps. `apply(a)` REPLACES the element grid (`macos.set_elt_grid`) so there is no accumulation state. 880 active actuators per DM (centers within beam radius + 1 pitch). |
+| `ctb_dm.m` | influence-function DM model: 32×32 actuator lattice, pitch = beam diameter/32 = 21.3/32 = 0.666 mm (beam diameter 21.3 mm, measured 21.24), Gaussian influence with 12 % nearest-neighbor coupling, commands (mm of surface) → 256×256 grid via local stamps. `apply(a)` REPLACES the element grid (`macos.set_elt_grid`) so there is no accumulation state. 880 active actuators per DM (centers within beam radius 10.65 mm + 1 pitch). |
 | `ctb_chain.m` | reusable masked-chain runner: loads the deck once, sizes apodizer/FPM/Lyot once (the deterministic geometry of `ctb_coro_compare`), then `run()` = fresh trace + masks multiplied in place + complex field at the FPA. 0.4 s per run at N=512. |
 | `ctb_dm_jacobian.m` | G = dE(dark zone)/d(actuator): 1760 forward-difference pokes (h = 2 nm surface) through the masked chain, 11.3 min at N=512. Saved to `ctb_dm_jacobian_N512.mat` (37 MB, gitignored) + committed `.fp.json` fingerprint. Regen: `ctb_dm_jacobian()`. |
 | `ctb_efc.m` | the EFC loop: Tikhonov least squares on the dark-zone field, α line-searched each iteration against the MEASURED contrast (runs are 0.4 s — a luxury lab EFC needs probing for), stop when no α improves. Sensing assumed perfect (engine field read directly); pairwise probing is the lab-facing extension. |
