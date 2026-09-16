@@ -796,14 +796,17 @@ methods
             dist (1,1) double {mustBePositive}
             axis (:,1) double
             opts.name (1,:) char = 'Polarizer'
+            opts.substrate (1,:) double = []
         end
         assert(numel(axis) == 3 && norm(axis) > 0, ...
             'Bench.add_polarizer: axis must be a non-zero 3-vector.');
-        P = b.step(dist);
+        b.substrate_face_(opts.substrate, 'Bench.add_polarizer', dist, 1);
+        if isempty(opts.substrate), P = b.step(dist); else, P = b.step(opts.substrate(2)/2); end
         e = b.blank(opts.name, 'TrPolarizer');
         e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
         e.polaxis = axis(:) / norm(axis);
         i = b.push(e);
+        b.substrate_face_(opts.substrate, 'Bench.add_polarizer', dist, 2);
     end
 
     % -----------------------------------------------------------------
@@ -825,15 +828,60 @@ methods
             axis (:,1) double
             retardance (1,1) double
             opts.name (1,:) char = 'WavePlate'
+            opts.substrate (1,:) double = []
         end
         assert(numel(axis) == 3 && norm(axis) > 0, ...
             'Bench.add_waveplate: axis must be a non-zero 3-vector.');
-        P = b.step(dist);
+        b.substrate_face_(opts.substrate, 'Bench.add_waveplate', dist, 1);
+        if isempty(opts.substrate), P = b.step(dist); else, P = b.step(opts.substrate(2)/2); end
         e = b.blank(opts.name, 'WavePlate');
         e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
         e.polaxis = axis(:) / norm(axis);
         e.retard = retardance;
         i = b.push(e);
+        b.substrate_face_(opts.substrate, 'Bench.add_waveplate', dist, 2);
+    end
+
+    % -----------------------------------------------------------------
+    function idx = add_substrate(b, dist, n, t, opts)
+        %ADD_SUBSTRATE  A plane-parallel window: two refracting faces.
+        %   B.ADD_SUBSTRATE(DIST, N, T) puts the ENTRANCE face DIST along the
+        %   current chief and the exit face T further, both normal to the
+        %   chief, so the chief is not deviated and the plate is
+        %   plane-parallel by construction.  The chief advances DIST + T.
+        %
+        %   This is the real glass a "thin" element is made on, or a window
+        %   in its own right.  In a COLLIMATED leg it is pure path; in a
+        %   CONVERGING one it carries a focus shift t*(1-1/n) and spherical
+        %   aberration t*(n^2-1)*NA^4/(8 n^3), which is exactly why the mask
+        %   plate has to be in the model (BRIEF_ccmac_bench_realism item 3).
+        %
+        %   The faces are named Sub<k>f / Sub<k>b and NOT after whatever they
+        %   bracket: every arm descriptor in the gauge lane picks its wave
+        %   plates out with contains(name,'QWP'), so a face called
+        %   'QWPtestInf' would be handed to macos.waveplate.
+        arguments
+            b
+            dist (1,1) double {mustBeNonnegative}
+            n    (1,1) double {mustBeGreaterThan(n,1)}
+            t    (1,1) double {mustBePositive}
+            opts.name (1,:) char = ''
+        end
+        if isempty(opts.name)
+            k = 1 + floor(sum(strncmp({b.E.name}, 'Sub', 3)) / 2);
+            nm = sprintf('Sub%d', k);
+        else
+            nm = opts.name;
+        end
+        e1 = b.blank([nm 'f'], 'Refractor');
+        e1.psi = b.dir;  e1.vpt = b.step(dist);  e1.indref = n;  e1.extinc = 0;
+        e1.zelt = 0;
+        i1 = b.push(e1);
+        e2 = b.blank([nm 'b'], 'Refractor');
+        e2.psi = b.dir;  e2.vpt = b.step(t);  e2.indref = 1.0;  e2.extinc = 0;
+        e2.zelt = 0;
+        i2 = b.push(e2);
+        idx = [i1, i2];
     end
 
     % -----------------------------------------------------------------
@@ -1050,6 +1098,57 @@ end
 
 % =====================================================================
 methods (Access = private)
+    function substrate_face_(b, sub, who, dist, which)
+        %SUBSTRATE_FACE_  One face of a thin element's real SUBSTRATE.
+        %   A polarizer, wave plate or mask is not a mathematical plane: it
+        %   is a film or an etch on a slab of glass, and in a converging beam
+        %   that slab carries spherical aberration and a focus shift the
+        %   layouts and the trace must show (BRIEF_ccmac_bench_realism item
+        %   3).  SUB = [n t]: index and PHYSICAL thickness in bench units.
+        %   WHICH 1 = entrance face (glass), 2 = exit face (back to air).
+        %   The ideal element sits MID-GLASS: the caller steps to dist - t/2
+        %   for the entrance face, t/2 to the element, t/2 to the exit face.
+        %   So the element keeps its own station exactly, and the chief comes
+        %   out t/2 further along than it would have -- measured on the
+        %   twyman_green test arm with five 2 mm plates: PolIn does not move,
+        %   and every station after it shifts by t/2 per UPSTREAM plate
+        %   (BSrefl +1.0, TestOptic +2.0, Analyzer +4.0, FocalMask +5.0 mm).
+        %   That is the glass being real; the tail retune absorbs the rest
+        %   (the detector leg re-solves, +0.59 mm).
+        %
+        %   NORMAL INCIDENCE ONLY, which is where these elements belong
+        %   anyway (add_polarizer's own doc): psi = the chief direction, so
+        %   the chief is not deviated and the two faces are plane-parallel by
+        %   construction.  In a converging beam the faces still refract the
+        %   MARGINAL rays -- that is the whole point, and it is what the
+        %   engine's Refractor computes.
+        %
+        %   NAMING, and why the faces are not named after their element.
+        %   Every arm descriptor in the gauge lane selects the wave plates
+        %   with `contains(name,'QWP')` (dmg_arm_desc and six local copies),
+        %   so a face called 'QWPtestInf' would be picked up as a WAVE PLATE
+        %   and handed to macos.waveplate.  The faces therefore carry a
+        %   neutral 'Sub<k>' name that no such lookup matches; the parts list
+        %   pairs them with what they bracket by position.
+        if isempty(sub), return; end
+        assert(numel(sub) == 2 && sub(1) > 1 && sub(2) > 0, ...
+            '%s: substrate must be [n t] with n > 1 and t > 0.', who);
+        assert(dist > sub(2)/2, ...
+            '%s: dist %g is inside the %g-thick substrate.', who, dist, sub(2));
+        k = 1 + floor(sum(strncmp({b.E.name}, 'Sub', 3)) / 2);
+        if which == 1
+            P = b.step(dist - sub(2)/2);
+            e = b.blank(sprintf('Sub%df', k), 'Refractor');
+            e.psi = b.dir;  e.vpt = P;  e.indref = sub(1);  e.extinc = 0;
+        else
+            P = b.step(sub(2)/2);
+            e = b.blank(sprintf('Sub%db', k), 'Refractor');
+            e.psi = b.dir;  e.vpt = P;  e.indref = 1.0;  e.extinc = 0;
+        end
+        e.zelt = 0;
+        b.push(e);
+    end
+
     function P = step(b, dist)
         b.pos = b.pos + dist*b.dir;
         b.path_len = b.path_len + dist;

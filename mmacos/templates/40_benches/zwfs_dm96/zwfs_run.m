@@ -290,6 +290,7 @@ elseif exist('macos_param.txt', 'file')
 end
 macos.init(P.MODEL);
 macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G));
+P = mask_trim_scan_(P, rep);     % bench.MASK_TRIM 'scan' -> re-find the focus
 bargs = bench_args_(P);
 G = macos.design.twyman_green(bargs{:}, 'ngridpts', P.NGRID, ...
     'to_grid_file', P.grid.flat_file, 'to_grid_n', P.grid.N_G, 'to_grid_dx', P.grid.DX_G);
@@ -367,6 +368,7 @@ dmg_say(rep, 'reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): %s\n', s
 xg = ((0:P.grid.N_G-1)-(P.grid.N_G-1)/2)*P.grid.DX_G;
 [gxd, gyd] = meshgrid(xg, xg);
 dmg_say(rep, 'frame: ray magnification %.4f DM-mm per detector-mm, detector px %.4e mm -> %.4f DM-mm per px\n', mag, dxd_mm, mag*dxd_mm);
+if isfield(P, 'cam'), dmg_cam_line(rep, P.cam, dxd_mm, msk); end   % realism item 4
 dmg_say(rep, 'sampling budget (P.samp, enforce = %s):\n', P.samp.enforce);
 budget_(P, rep, dimple_px >= P.samp.min_dimple_px, '  dimple %.2f px across at the mask plane (min %g)', dimple_px, P.samp.min_dimple_px);
 pin_px = NaN;
@@ -2077,4 +2079,51 @@ out = sprintf('%s_stations_%s.png', P.tag, rd);
 print(f, out, '-dpng', '-r130');  close(f);
 dmg_say(rep, 'stations figure %s: residual vs the engine''s field on msk %.2f pm (flat), %.2f pm (%s)\n', out, resid_pm(1), resid_pm(2), rown{2});
 macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(zeros(size(Ab))));   % leave the DM flat
+end
+
+function P = mask_trim_scan_(P, rep)
+%MASK_TRIM_SCAN_  Re-find the ZWFS mask focus when the glass has moved it.
+%   bench.MASK_TRIM is normally a NUMBER, the seed-to-true-focus correction
+%   found once (zwfs_s1 rounds 2-5): -5.582 on the lens rig, 0 on the OAP rig,
+%   whose parabola has no thin-lens seed error.  Set it to the string 'scan'
+%   and the runner re-finds it here by the zwfs_s1 recipe -- maximize the
+%   mask-plane peak/sum over the trim.
+%
+%   WHY IT EXISTS NOW (realism item 3): putting a real SUBSTRATE under the
+%   mask, or real thickness in the plates ahead of it, shifts the focus by
+%   t*(1-1/n) -- 0.63 mm for a 2 mm fused-silica plate.  That is exactly what
+%   MASK_TRIM absorbs, and carrying the old constant would seat the mask off
+%   focus and then blame the glass for the blur.  A scan costs a handful of
+%   builds at the run's own resolution and self-heals whenever the tail
+%   geometry moves.
+if ~isfield(P.bench, 'MASK_TRIM')
+    return
+end
+mt = P.bench.MASK_TRIM;
+if ~(ischar(mt) || isstring(mt))
+    return
+end
+assert(strcmpi(mt, 'scan'), 'zwfs_run: bench.MASK_TRIM must be a number or the string scan');
+t0 = tic;
+% The bracket is zwfs_s1's, widened to cover BOTH rigs: the lens rig sits
+% near -5.6, the OAP rig at 0, and glass can only push the focus further.
+tb = fminbnd(@(t) -trim_peak_(P, t), -12, 4, ...
+             optimset('TolX', 0.02, 'MaxFunEvals', 25, 'Display', 'off'));
+pk = trim_peak_(P, tb);
+dmg_say(rep, ['MASK_TRIM re-scanned: %.4f mm (mask-plane peak/sum %.3e); the ' ...
+              'sheet asked for a scan.  %.1f s\n'], tb, pk, toc(t0));
+P.bench.MASK_TRIM = tb;
+end
+
+function pk = trim_peak_(P, t)
+%TRIM_PEAK_  mask-plane peak/sum at trim t, on THIS run's own bench.
+Pt = P;  Pt.bench.MASK_TRIM = t;
+ba = bench_args_(Pt);
+G = macos.design.twyman_green(ba{:}, 'ngridpts', P.NGRID, ...
+    'to_grid_file', P.grid.flat_file, 'to_grid_n', P.grid.N_G, 'to_grid_dx', P.grid.DX_G);
+G.bt.wavelen = P.LAM;
+G.bt.emit('zwfs_trimscan.in');
+macos.load_rx('zwfs_trimscan.in');
+If = abs(macos.complex_field(G.T.iMASK)).^2;
+pk = max(If(:)) / sum(If(:));
 end
