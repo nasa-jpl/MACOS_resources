@@ -72,6 +72,42 @@ arguments
     opts.D_SB (1,1) double = 250
     opts.FILL (1,1) double = 0.95
     opts.BS_T (1,1) double = 1.5
+    opts.PLATE_SUB (1,:) double = []   % [n t]: SUBSTRATE for every thin
+                                       %  polarizing element -- the input
+                                       %  polarizer, both arm quarter-wave
+                                       %  plates, the output plate and the
+                                       %  analyzer.  Two refracting faces of
+                                       %  index n, t thick, around the ideal
+                                       %  element, which keeps ITS OWN
+                                       %  station; the chief comes out t/2
+                                       %  further along per plate, so stations
+                                       %  downstream shift by t/2 per upstream
+                                       %  plate (measured: FocalMask +5.0 mm
+                                       %  for five 2 mm plates).  That is the
+                                       %  glass being real, and the tail
+                                       %  retune absorbs it.  [] = the ideal
+                                       %  zero-thickness element (the record).
+    opts.EDGE_MARGIN (1,1) double {mustBeNonnegative} = 2.0
+    opts.MASK_SUB (1,:) double = []    % [n t]: the MASK's own plate -- the
+                                       %  etched dimple, the pinhole plate or
+                                       %  the metasurface is a pattern on a
+                                       %  slab, and that slab sits in the
+                                       %  CONVERGING beam.  The two faces go
+                                       %  BEFORE the sandwich's entrance
+                                       %  sphere, with the mask plane in air
+                                       %  behind them, and they are inserted
+                                       %  INSIDE the existing L2->sphere gap,
+                                       %  so the mask does not move.  What
+                                       %  does move is the focus: t*(1-1/n)
+                                       %  of shift, which the tail retune
+                                       %  absorbs, plus the spherical
+                                       %  aberration t*(n^2-1)*NA^4/(8n^3)
+                                       %  that is the reason to model it at
+                                       %  all.  [] = no plate (the record).
+                                       %  every singlet's edge thickness (mm):
+                                       %  add_lens makes the centre thickness
+                                       %  sag + this.  2.0 is the record; a
+                                       %  103 mm singlet wants 3-5.
     opts.D_L1_BS (1,1) double = 150
     opts.D_BS_TO (1,1) double = 250
     opts.D_BS_CMP (1,1) double = 100
@@ -321,30 +357,30 @@ end
 % ---- test arm -------------------------------------------------------
 if cube
     bt = front_end(P, 'ifo_test');
-    bt.add_polarizer(P.D_POL, ax_local(bt.dir, P.pol_in_deg), 'name','PolIn');
+    bt.add_polarizer(P.D_POL, ax_local(bt.dir, P.pol_in_deg), 'name','PolIn', 'substrate',P.PLATE_SUB);
     cubetok = bt.pbs_cube(P.D_L1_BS - P.D_POL, bs_out, 'side',P.CUBE_SIDE, ...
         'n',n_prism, 'coat',coat_d, 'ar',coat_ar, 'name','PBS');
     T.iPBSf = bt.add_pbs_pass(cubetok, 'mode','transmit', 'tag','f');
     leg_to  = P.D_BS_TO - P.CUBE_SIDE/2 - P.D_QWP;
     assert(leg_to > 0, 'twyman_green: cube too large for D_BS_TO.');
     qa_t = ax_local(bt.dir, P.qwp_test_deg);
-    bt.add_waveplate(leg_to, qa_t, P.qwp_ret, 'name','QWPtestIn');   % one plate, D_QWP before the retro (both passes)
+    bt.add_waveplate(leg_to, qa_t, P.qwp_ret, 'name','QWPtestIn', 'substrate',P.PLATE_SUB);   % one plate, D_QWP before the retro (both passes)
     T.iTO = bt.add_mirror(P.D_QWP, 'name','TestOptic', ...
         'aprad',P.R_TO_AP, 'Kr',P.to_Kr, 'grid_file',P.to_grid_file, ...
         'grid_n',P.to_grid_n, 'grid_dx',P.to_grid_dx);
-    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestOut');
+    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestOut', 'substrate',P.PLATE_SUB);
     T.iPBSr = bt.add_pbs_pass(cubetok, 'mode','reflect', 'tag','r');
     T.iRC = bt.add_reference(P.D_RECOMB, 'Recomb');
     [T, det_leg] = tail(bt, P, T, T.iTO, []);
 
     % ---- reference arm ----------------------------------------------
     br = front_end(P, 'ifo_ref');
-    br.add_polarizer(P.D_POL, ax_local(br.dir, P.pol_in_deg), 'name','PolIn');
+    br.add_polarizer(P.D_POL, ax_local(br.dir, P.pol_in_deg), 'name','PolIn', 'substrate',P.PLATE_SUB);
     R.iPBSf = br.add_pbs_pass(cubetok, 'mode','reflect', 'tag','f');
     qa_r = ax_local(br.dir, P.qwp_ref_deg);
-    br.add_waveplate(leg_to, qa_r, P.qwp_ret, 'name','QWPrefIn');    % one plate, D_QWP before the flat
+    br.add_waveplate(leg_to, qa_r, P.qwp_ret, 'name','QWPrefIn', 'substrate',P.PLATE_SUB);    % one plate, D_QWP before the flat
     R.iPZT = br.add_mirror(P.D_QWP, 'name','PZT');
-    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefOut');
+    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefOut', 'substrate',P.PLATE_SUB);
     R.iPBSr = br.add_pbs_pass(cubetok, 'mode','transmit', 'tag','r');
     d_rc = dot(bt.E(T.iRC).vpt - br.pos, br.dir);
     assert(d_rc > 0, 'twyman_green: recomb plane behind the reference return');
@@ -360,7 +396,7 @@ bt = front_end(P, 'ifo_test');
 % input polarizer in the collimated pre-BS leg (slice-3 variant); it steals
 % its standoff from the L1->BS leg so the BS stays put (bit-identical off)
 if P.polarizing && ~pol_at_source_(P)
-    bt.add_polarizer(P.D_POL, ax_local(bt.dir, P.pol_in_deg), 'name','PolIn');
+    bt.add_polarizer(P.D_POL, ax_local(bt.dir, P.pol_in_deg), 'name','PolIn', 'substrate',P.PLATE_SUB);
     d_l1_bs = P.D_L1_BS - P.D_POL;
 else
     d_l1_bs = P.D_L1_BS;   % POL_IN 'source': front_end already placed it
@@ -378,14 +414,14 @@ if P.polarizing
     % where it read as a part in another beam); the return pass ('Out')
     % rides the geometry-absolute comp transit.
     qa_t = ax_local(bt.dir, P.qwp_test_deg);
-    bt.add_waveplate(leg_to - P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestIn');
+    bt.add_waveplate(leg_to - P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestIn', 'substrate',P.PLATE_SUB);
     leg_to = P.D_QWP;
 end
 T.iTO = bt.add_mirror(leg_to, 'name','TestOptic', ...
     'aprad',P.R_TO_AP, 'Kr',P.to_Kr, 'grid_file',P.to_grid_file, ...
     'grid_n',P.to_grid_n, 'grid_dx',P.to_grid_dx);
 if P.polarizing
-    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestOut');
+    bt.add_waveplate(P.D_QWP, qa_t, P.qwp_ret, 'name','QWPtestOut', 'substrate',P.PLATE_SUB);
 end
 bt.add_bs_transmit(cmp, 'tag','u');
 bt.add_bs_transmit(bs, 'tag','o');
@@ -395,18 +431,18 @@ T.iRC = bt.add_reference(P.D_RECOMB, 'Recomb');
 % ---- reference arm --------------------------------------------------
 br = front_end(P, 'ifo_ref');
 if P.polarizing && ~pol_at_source_(P)
-    br.add_polarizer(P.D_POL, ax_local(br.dir, P.pol_in_deg), 'name','PolIn');
+    br.add_polarizer(P.D_POL, ax_local(br.dir, P.pol_in_deg), 'name','PolIn', 'substrate',P.PLATE_SUB);
 end
 br.add_bs_transmit(bs, 'tag','f');
 leg_pzt = P.D_BS_TO;
 if P.polarizing
     qa_r = ax_local(br.dir, P.qwp_ref_deg);
-    br.add_waveplate(leg_pzt - P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefIn');   % one plate, at the flat's end
+    br.add_waveplate(leg_pzt - P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefIn', 'substrate',P.PLATE_SUB);   % one plate, at the flat's end
     leg_pzt = P.D_QWP;
 end
 R.iPZT = br.add_mirror(leg_pzt, 'name','PZT');
 if P.polarizing
-    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefOut');
+    br.add_waveplate(P.D_QWP, qa_r, P.qwp_ret, 'name','QWPrefOut', 'substrate',P.PLATE_SUB);
 end
 br.add_bs_reflect_return(bs);
 d_rc = dot(bt.E(T.iRC).vpt - br.pos, br.dir);
@@ -472,7 +508,7 @@ function b = front_end(P, name)
             a_out = ax_local(d_out, P.pol_in_deg);
             nh = d_out - d_in;  nh = nh/norm(nh);        % pole normal (bisector)
             a_in = a_out - 2*dot(a_out, nh)*nh;
-            b.add_polarizer(P.D_POL, a_in, 'name','PolIn');
+            b.add_polarizer(P.D_POL, a_in, 'name','PolIn', 'substrate',P.PLATE_SUB);
             d_pole = d_pole - P.D_POL;
         end
         b.add_oap(d_pole, d_out, 'mode','collimate', ...
@@ -484,7 +520,7 @@ function b = front_end(P, name)
         b = macos.design.Bench(name, 'aperture', AP, 'ngridpts', P.ngridpts, ...
                                'zsource', P.zsource);
         b.add_baffle(P.D_SB, P.R_BAFFLE);
-        L1 = b.add_lens(P.F1 - P.D_SB, P.F1, P.D_LENS, 'mode','collimate', ...
+        L1 = b.add_lens(P.F1 - P.D_SB, P.F1, P.D_LENS, 'mode','collimate', 'edge_margin',P.EDGE_MARGIN, ...
                         'n',P.N_GLASS, 'name','L1');
         b.E(L1.i_pow).Kr = P.L1_Kr;  b.E(L1.i_pow).Kc = P.L1_Kc;
     end
@@ -505,7 +541,7 @@ function L = add_focuser(b, dist, P)
                       'name','L2', 'aprad', P.D_LENS/2);
         L = struct('idx',O.i, 's',b.E(O.i).s, 'thk',0, 'F',P.F2);
     else
-        L2 = b.add_lens(dist, P.F2, P.D_LENS, 'mode','focus', ...
+        L2 = b.add_lens(dist, P.F2, P.D_LENS, 'mode','focus', 'edge_margin',P.EDGE_MARGIN, ...
                         'n',P.N_GLASS, 'name','L2');
         b.E(L2.i_pow).Kr = P.L2_Kr;  b.E(L2.i_pow).Kc = P.L2_Kc;
         L = struct('idx',L2.i_pow, 's',b.E(L2.i_pow).s, 'thk',L2.thickness, 'F',P.F2);
@@ -527,15 +563,15 @@ assert(strcmp(P.mask_prop, 'geometric') || strcmp(P.tail_arch, 'fieldlens'), ...
     'twyman_green: mask_prop=''nf''/''nf_legacy'' is implemented for tail_arch=''fieldlens'' only.');
 if P.polarizing
     ix.iOutQWP   = b.add_waveplate(P.D_POL, ax_local(b.dir, P.out_qwp_deg), ...
-                                   P.qwp_ret, 'name','OutQWP');
+                                   P.qwp_ret, 'name','OutQWP', 'substrate',P.PLATE_SUB);
     ix.iAnalyzer = b.add_polarizer(P.D_POL, ax_local(b.dir, P.analyzer_deg), ...
-                                   'name','Analyzer');
+                                   'name','Analyzer', 'substrate',P.PLATE_SUB);
     d_rc_l2 = P.D_RC_L2 - 2*P.D_POL;
 end
 switch P.tail_arch
 case 'singlet'                     % original architecture (default)
     L2 = add_focuser(b, d_rc_l2, P);
-    ix.iMASK = b.add_reference(L2.F - L2.thk + P.MASK_TRIM, 'FocalMask');
+    ix.iMASK = b.add_reference(mask_plate_(b, P.MASK_SUB, L2.F - L2.thk + P.MASK_TRIM), 'FocalMask');
     if ~isempty(conj_elt)
         s_o = L2.s - b.E(conj_elt).s;
         s_i = 1/(1/L2.F - 1/s_o);
@@ -554,7 +590,8 @@ case 'fieldlens'                   % C1: field lens just behind the mask
         % representable -- and the mask's own leg goes plane->sphere
         % onto a matching sphere behind it; geometric from there.
         d_in = 0.85 * dmask;
-        b.add_reference(dmask - d_in, 'MaskSphereIn', 'surface','Conic', ...
+        d_sph = mask_plate_(b, P.MASK_SUB, dmask - d_in);
+        b.add_reference(d_sph, 'MaskSphereIn', 'surface','Conic', ...
             'kr',-d_in, 'proptype','NF1', 'zelt',d_in);
         ix.iMASK = b.add_reference(d_in, 'FocalMask', ...
             'proptype','NF2', 'zelt',1e22);
@@ -585,10 +622,11 @@ case 'fieldlens'                   % C1: field lens just behind the mask
             'kr',-z_out, 'zelt',z_out);
         d_fl = P.D_MASK_FL - d_out;
     else
-        ix.iMASK = b.add_reference(dmask, 'FocalMask');
+        d_m = mask_plate_(b, P.MASK_SUB, dmask);
+        ix.iMASK = b.add_reference(d_m, 'FocalMask');
         d_fl = P.D_MASK_FL;
     end
-    fl_args = {'mode','focus', 'n',P.N_GLASS, 'name','FL'};
+    fl_args = {'mode','focus', 'n',P.N_GLASS, 'name','FL', 'edge_margin',P.EDGE_MARGIN};
     if ~isnan(P.FL_Kc), fl_args = [fl_args {'Kc', P.FL_Kc}]; end
     FL = b.add_lens(d_fl, P.FL_F, P.FL_D, fl_args{:});
     if ~isempty(conj_elt)
@@ -609,10 +647,10 @@ case 'fieldlens'                   % C1: field lens just behind the mask
 case 'doublet'                     % C2: L2 as two air-spaced singlets
     assert(~strcmp(P.optics,'oap'), ...
         'twyman_green: optics=''oap'' supports tail_arch singlet/fieldlens only.');
-    aA = {'mode','focus', 'n',P.N_GLASS, 'name','L2A'};
+    aA = {'mode','focus', 'n',P.N_GLASS, 'name','L2A', 'edge_margin',P.EDGE_MARGIN};
     if ~isnan(P.L2A_Kc), aA = [aA {'Kc', P.L2A_Kc}]; end
     A = b.add_lens(d_rc_l2, P.L2A_F, P.D_LENS, aA{:});
-    aB = {'mode','focus', 'n',P.N_GLASS, 'name','L2B'};
+    aB = {'mode','focus', 'n',P.N_GLASS, 'name','L2B', 'edge_margin',P.EDGE_MARGIN};
     if ~isnan(P.L2B_Kc), aB = [aB {'Kc', P.L2B_Kc}]; end
     gap = P.L2_SEP - A.thickness;
     assert(gap > 0, 'twyman_green: L2_SEP %.3g <= L2A thickness %.3g', ...
@@ -622,7 +660,7 @@ case 'doublet'                     % C2: L2 as two air-spaced singlets
     % trims conics against the mask spot)
     s_iB = 1/(1/P.L2B_F - 1/(P.L2_SEP - P.L2A_F));
     assert(s_iB > B.thickness, 'twyman_green: doublet focus inside L2B');
-    ix.iMASK = b.add_reference(s_iB - B.thickness + P.MASK_TRIM, 'FocalMask');
+    ix.iMASK = b.add_reference(mask_plate_(b, P.MASK_SUB, s_iB - B.thickness + P.MASK_TRIM), 'FocalMask');
     if ~isempty(conj_elt)
         s_o  = b.E(A.i_pow).s - b.E(conj_elt).s;
         s_i1 = 1/(1/P.L2A_F - 1/s_o);
@@ -646,4 +684,29 @@ function a = ax_local(dir, deg)
     u1 = macos.design.Bench.perp(dir(:));
     u2 = cross(dir(:), u1);
     a  = cosd(deg)*u1 + sind(deg)*u2;
+end
+
+function d_rest = mask_plate_(b, sub, d_total)
+%MASK_PLATE_  The mask's substrate, inserted INSIDE the gap ahead of it.
+%   The two faces are placed so that the distance still to run after them is
+%   D_REST and the TOTAL is unchanged at D_TOTAL -- so the mask (or the
+%   sandwich's entrance sphere) does not move a micron when the plate is
+%   switched on, and the only thing that changes is what the beam went
+%   through on the way.  That is what makes the plate's cost measurable: the
+%   focus shift t*(1-1/n) and the spherical aberration it carries show up as
+%   a CHANGE in the tail's null and in the retuned DET_TRIM, not mixed with a
+%   geometry move.
+%
+%   The faces sit in the CONVERGING beam, which is the whole point: in a
+%   collimated leg a plane-parallel plate is pure path.
+if isempty(sub), d_rest = d_total; return; end
+assert(numel(sub) == 2 && sub(1) > 1 && sub(2) > 0, ...
+    'twyman_green: MASK_SUB must be [n t] with n > 1 and t > 0.');
+gap = 1.0;                                  % mm of air behind the plate, so
+                                            % no two elements are coincident
+assert(d_total > sub(2) + 2*gap, ...
+    'twyman_green: MASK_SUB plate (%g mm) does not fit in the %g mm run to the mask.', ...
+    sub(2), d_total);
+b.add_substrate(d_total - sub(2) - gap, sub(1), sub(2), 'name','MaskSub');
+d_rest = gap;
 end

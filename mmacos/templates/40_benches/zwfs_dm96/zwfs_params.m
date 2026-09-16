@@ -86,7 +86,12 @@ P.bench.PLATE_SUB   = [];    % realism item 3: [n t], the SUBSTRATE every thin p
                              % two refracting faces around the ideal element, which keeps its own
                              % station.  ABSOLUTE mm, not scaled.  [] = the record's ideal elements.
 P.bench.EDGE_MARGIN = 2.0;   % singlet edge thickness, ABSOLUTE mm (add_lens centre = sag + this)
-P.bench.MASK_TRIM = -5.582;  % thin-lens seed -> true focus (S1 rounds 2-5)
+P.bench.MASK_TRIM = -5.582;  % thin-lens seed -> true focus (S1 rounds 2-5).  The string 'scan'
+                             % re-finds it at run time (maximize the mask-plane peak/sum) --
+                             % use it whenever the GLASS moves the focus: PLATE_SUB or a mask
+                             % substrate shifts it by t*(1-1/n), 0.63 mm for 2 mm of fused
+                             % silica, and carrying the old constant would seat the mask off
+                             % focus and blame the glass for the blur.  0 on the OAP rig.
 P.bench.FL_F   = 42.5325;    P.bench.FL_Kc = -2.58764;  P.bench.FL_D = s*12;
 P.bench.D_MASK_FL = 39.7694; P.bench.DET_TRIM = -1.2473; % tuned tail (tg96_tail)
 P.bench.coat_oap = 'none';   % the OAP rig only (bench.optics 'oap'): mirror coating on L1 and L2 --
@@ -96,6 +101,20 @@ P.bench.coat_oap = 'none';   % the OAP rig only (bench.optics 'oap'): mirror coa
                              % (mask.v_arm 'engine'); not a builder option.  Any field named coat_*
                              % is a runner knob, not a builder argument (bench_args_ strips them by
                              % prefix), so a new stack needs no edit anywhere else.
+% ---- the camera (realism item 4) ------------------------------------
+% The model's NGRID pixels across the pupil image are a SAMPLING FLOOR, not a
+% camera.  dmg_cam_line prints what this camera gives on the pupil image the
+% bench actually forms, including the binning that lands nearest the modeled
+% count (the sheet's binning is not always it).
+P.cam.name        = 'sCMOS 2048x2048';
+P.cam.pitch_um    = 6.5;
+P.cam.bin         = 4;
+P.cam.pol_name    = 'polarization sCMOS (micro-polarizer array, 0/45/90/135)';
+P.cam.pol_pitch_um = 3.45;   % the SNAPSHOT analyzer (realism item 3b): four
+                             % orientations on a 2x2 superpixel, so each one is
+                             % sampled every 2nd pixel ACROSS A LINE -- N/2, not
+                             % N/4 (N/4 is the area fraction).
+
 P.bench.coat_bareAl      = struct('index',1.373, 'extinc',7.62, 'thickness',1.0e-4);
 P.bench.coat_protectedAl = struct('index',[1.38 1.373], 'extinc',[0 7.62], 'thickness',[2.293e-4 1.0e-4]);
 P.bench.coat_qwAl        = struct('index',[1.38 1.373], 'extinc',[0 7.62], 'thickness',[1.1464e-4 1.0e-4]);
