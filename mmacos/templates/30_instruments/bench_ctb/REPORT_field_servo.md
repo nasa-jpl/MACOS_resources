@@ -162,3 +162,36 @@ note's 0.67 mm is the radius divided by the actuator count.
 This also means item 7 step 2's prediction transfers unchanged for the e2e6m
 package (the note's 900 / 144 / 36 / 14 / 4 stroke table) and needs re-deriving
 only for the CTB.
+
+### What the slip does to the DM's reach — the two readings, stated precisely
+
+It is not simply "the DM is too small". The modelled lattice and a correctly
+scaled one trade area against spatial frequency in opposite directions, and
+step 2's question — where do the two DMs separate — sits exactly on that axis:
+
+| | as modelled (21.3 mm lattice) | scaled to the beam (42.75 mm lattice) |
+|---|---|---|
+| pitch | 0.666 mm | 1.336 mm |
+| Nyquist period (2 x pitch) | 1.332 mm | 2.672 mm |
+| **cycles across the 42.75 mm beam at Nyquist** | **32** | **16** |
+| pupil AREA the lattice covers | **28 %** | 100 % |
+
+So the model as it stands claims **twice the spatial-frequency reach over a
+quarter of the pupil area**; a correctly scaled 32-across DM has half the reach
+over all of it. For a dark hole those are different instruments: the outer
+working angle scales with cycles across the beam, so the current model implies
+an outer edge near 32 λ/D where the corrected one implies 16 — while the
+corrected one has the whole pupil contributing to it.
+
+**Which of the two the CTB hardware actually is, this report does not decide.**
+A real 32x32 DM has a physical pitch, and whether the bench demagnifies the
+beam onto it or fills it is a fact about the bench, not about the model. What
+is certain is that the deck and the DM model currently disagree: the deck puts
+a 42.75 mm beam on the element and the DM model varies the surface over the
+inner 21.3 mm of it. One of the two has to move, and which one is a question
+for the CTB lane with the hardware in hand.
+
+Step 2's measurement is well posed either way if it is reported as a PERIOD in
+mm rather than in cycles across the beam — a period needs no beam-size
+convention. That is how it will be reported, with the cycle conversion given
+once the probe has fixed the beam.
