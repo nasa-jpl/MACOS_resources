@@ -1,0 +1,72 @@
+
+function stage_wrap_(P, s, G, bench, say)
+%STAGE_WRAP_  Does the break ladder break the BENCH, or its own arithmetic?
+%   The ladder forms its differential as measr(base+dev) - measr(base): the
+%   difference of two SEPARATELY WRAPPED absolute maps.  Every other site in
+%   this runner differences BEFORE wrapping (build_J_, the deck stage), which
+%   is what this file's own comment beside ctx.phasef prescribes -- "wrap the
+%   DIFFERENCE of two phases, never subtract two separately-wrapped absolute
+%   maps".  This stage measures what that costs, rung by rung.
+%
+%   At each rung it forms the SAME differential both ways:
+%     dA  = measf(base+dev) - measf(base)                  the ladder's form
+%     dD  = angle(exp(1i*(phasef(base+dev) - phasef(base)))) * lambda/(4pi)
+%                                                           the correct form
+%   and reports where they part company.  A pixel the poke pushes across a
+%   wrap boundary is wrong by a full lambda/2 = 316 nm in dA against a 10 nm
+%   signal -- 31x the thing being measured -- while dD never wraps, because
+%   the difference itself is small everywhere.
+%
+%     n_cross   pixels where |dA - dD| > lambda/8: the count the ladder gets
+%               wrong.  The ZWFS battery reports the same idea for its own
+%               one-frame prior ("pixels that cross the fold under the
+%               change"); the tg96 ladder never has.
+%     rms(dA-dD)  how much that is worth over the pupil.
+%     corr(dA,dD) 1.000 while the two forms agree.
+%
+%   NO MATRIX AND NO AFFINE: the two forms are compared against EACH OTHER, so
+%   no estimator and no DM->detector mapping enter, and nothing here can be
+%   blamed on either.  Cost is one phase pair per rung -- six polarized traces,
+%   about half the full battery's, because the 64-state matrix build is what
+%   the battery mostly pays for and this stage skips it.
+%
+%   The ladder's measr also subtracts h0 and mean-references each map; both are
+%   common to the pair or a piston, so neither changes a crossing count, and
+%   they are left out here to keep the two forms differing in ONE thing.
+%
+%   stages {'bench','wrap'}.
+    ctx = arm_setup_(P, G);
+    msk = ctx.msk;  LAM = ctx.LAM;  qwave = LAM/4;
+    cfg = P.dm(1);  nact = cfg.nact;
+    N_G = P.grid.N_G;  DX_G = P.grid.DX_G;
+    dmap = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
+    litmask = true(nact);
+    lad = P.battery.break_ladder;
+    ic = round(nact/2);
+    dev = zeros(nact);  dev(ic, ic) = P.battery.diff_single_nm*1e-6;
+    say(['\nStage WRAP -- the ladder differential, formed BOTH ways (lambda/4 = ' ...
+         '%.1f nm of surface, %d nm single-actuator deviation):\n'], ...
+        1e6*qwave, P.battery.diff_single_nm);
+    say(['  dA = measf(base+dev) - measf(base)   (the ladder: two wrapped absolutes)\n' ...
+         '  dD = wrapped DIFFERENCE of the two phases   (build_J_ and the deck stage)\n']);
+    say('  %-9s %9s %11s %12s %11s %11s\n', ...
+        'base rms','meas rms','n_cross','% of msk','rms(dA-dD)','corr(dA,dD)');
+    for j = 1:numel(lad)
+        rng(P.battery.base_rand_seed);
+        bb = zeros(nact);  bb(litmask) = lad(j)*1e-6*randn(nnz(litmask),1);
+        pb = ctx.phasef(dmap(bb));
+        pd = ctx.phasef(dmap(bb + dev));
+        hb = angle(exp(1i*(pb - ctx.p_null))) * LAM/(4*pi);
+        hd = angle(exp(1i*(pd - ctx.p_null))) * LAM/(4*pi);
+        dA = hd - hb;                                   % the ladder's form
+        dD = angle(exp(1i*(pd - pb))) * LAM/(4*pi);     % the correct form
+        bad = abs(dA(msk) - dD(msk)) > qwave/2;
+        cc  = corrcoef(dA(msk), dD(msk));
+        say('  %6.0f nm %8.1f nm %11d %11.3f%% %8.2f nm %11.5f\n', ...
+            lad(j), 1e6*std(hb(msk)), nnz(bad), 100*mean(bad), ...
+            1e6*sqrt(mean((dA(msk)-dD(msk)).^2)), cc(1,2));
+    end
+    say(['  A rung whose n_cross is 0 has a ladder result that cannot be blamed ' ...
+         'on the arithmetic; one with a large n_cross has a result that is mostly ' ...
+         'the arithmetic, whatever the bench does.\n']);
+end
