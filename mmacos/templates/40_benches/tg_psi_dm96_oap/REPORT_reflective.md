@@ -69,9 +69,37 @@ artifact nothing cites is noise.
 
 ## What is running, and how to pick it up
 
-Detached jobs, all launched from `runs/`; each writes `runs/<tag>/<tag>_*` and
-records its exit code in `runs/<tag>.log`. Read this table, then
-`grep exit runs/*.log`, then continue from the first item not done.
+**THE CLOSE-OUT QUEUE (current).** Everything is chained so it runs unattended;
+each job writes `runs/<tag>/<tag>_*` and its exit code to `runs/<tag>.log`.
+Read this table, then `grep exit runs/*.log`, then continue from the first row
+not done.
+
+| # | job | script | state |
+|---|---|---|---|
+| 1 | `oapuw2`, `lensuw2` | `runs/item2seq.sh` | **done** — item 2(b), §4.7 |
+| 2 | `oapifol2` (the servo, 14 loop runs) | `runs/item2seq.sh` | **running**, ~22 min/run |
+| 3 | `oapdesc2` (the descent, 2 starts) | `runs/item2dseq.sh` | queued |
+| 4 | `gate3_win`, `gate3_lens` | `runs/gateseq3.sh` ← `closechain4` | queued — item 3's gate |
+| 5 | `aoi_lens22`, `aoi_oap22` | `runs/aoiseq.sh` ← `closechain4` | queued — item 5 |
+| 6 | item 4's six runs | `runs/item4seq.sh` ← `closechain5` | queued |
+| 7 | `ctb_beam_probe` | `closechain5` | queued — item 7 step 0 |
+| 8 | `wrapoap`, `wraplens` | `runs/item2bseq.sh` ← `closechain6` | queued — **needs the staged patch applied first**; the chain refuses to start without it |
+
+**THE ONE MANUAL STEP.** `runs/apply_tg96_pending.py` (with `stage_wrap.m.txt`
+beside it) patches `tg96_run.m`, `tg96_params.m` and `tg96_tail.m` — the
+saturating ladder meter, the `wrap` stage, the camera line, the dropped
+`MASK_SUB`, the stations figure's width. It is NOT applied automatically because
+editing a file an hour-class run is executing is how a long job gets corrupted.
+Run it from `runs/` once nothing is inside `tg96_run.m`; it has been dry-run
+against copies of all three files (applies clean, 0 parse issues).
+
+**Sequencers were stopped, never edited, when they needed changing** — bash
+reads a script incrementally and remembers its byte offset. Killing a sequencer
+leaves its running child alive and orphaned, which is why `item2dseq.sh`
+supersedes `item2seq.sh`'s remainder and writes `item2seq`'s own done-marker so
+`closechain4` proceeds.
+
+### The previous brief's jobs (all finished)
 
 | job | script | what it produces | state |
 |---|---|---|---|
