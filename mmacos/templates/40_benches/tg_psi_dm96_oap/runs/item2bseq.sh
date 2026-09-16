@@ -24,4 +24,17 @@ cd "$here"
 D="'bench.optics','oap','bench.POL_IN','source','bench.SRC_AT_FOCUS',true,'bench.D_RC_L2',125,'oap.OAP1_AOI',20,'oap.OAP2_AOI',25,'oap.OAP1_SIDE',1,'oap.OAP2_SIDE',-1,'bench.tail_from_mat',false"
 ./tg96_batch.sh wrapoap  "$D,'stages',{'bench','wrap'}"
 ./tg96_batch.sh wraplens "'bench.optics','lens','stages',{'bench','wrap'}"
+
+# ---- item 6: the station figure, BOTH rigs, at the patched width ------
+# The brief asks for the interferometer's station-by-station figure on both
+# rigs.  oapifol2 already produced the reflective one as a by-product of its
+# figs stage -- but at 2558 x 838, because the patch that sets the width was
+# not applied yet, and there is no lens one at all.  Both are regenerated here,
+# after the patch, so the pair the deck holds side by side is consistent:
+# 1800 px, same mechanism (print -r96) as the ZWFS sibling.
+#
+# stages {'bench','figs'} only: no battery, no loop.  The figure needs the
+# bench and nothing else, so this is minutes.
+./tg96_batch.sh stnoap  "$D,'stages',{'bench','figs'}"
+./tg96_batch.sh stnlens "'bench.optics','lens','stages',{'bench','figs'}"
 echo "[item2bseq] done"
