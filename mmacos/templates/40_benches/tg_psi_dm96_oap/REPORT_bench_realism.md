@@ -162,6 +162,15 @@ the tails. So `thk22_tail.mat` holds the **seed** and `thk22` ran on it. Its own
 report line is the tell: *"RE-TUNED set … (null 75.242 nm at opt res; seed
 75.242)"* — a retune whose null equals its seed's did not retune.
 
+**And the seed tail moves more than the null.** `thk22`'s camera line reads
+*pupil image 5.79 mm across (298 modeled px at 19.5 um)* against `lensuw2`'s
+*7.78 mm (384 px at 20.3 um)* — a 26 % smaller pupil image and 3.1 detector px
+per actuator instead of 4.0. That is a real consequence of something, but it
+**cannot be attributed to the plates** from this run: the tail sets the pupil
+relay's magnification, and this run carries the seed tail rather than the
+retuned one. Separating the glass from the tail is precisely what the re-run is
+for.
+
 `runs/item4bseq.sh` re-runs both with the advisory gate in place. **The 20.09 nm
 figure above stands** — it is what the tuner measured before the refusal — but
 the gate run's ROWS have to be re-taken on it, and until they are, `thk22`'s
