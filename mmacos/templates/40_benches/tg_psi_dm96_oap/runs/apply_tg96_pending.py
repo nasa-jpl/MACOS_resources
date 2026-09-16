@@ -93,6 +93,18 @@ new = "print(f, [P.tag \'_stations.png\'], \'-dpng\', \'-r96\');  close(f);   % 
 assert old in s, 'stations export line not found'
 s = s.replace(old, new, 1)
 
+# ---- 4b. the wrap stage is a first-class stage --------------------------
+# want() does not validate stage names, so 'wrap' works as soon as the dispatch
+# exists -- but the guard that decides whether to BUILD the bench lists the
+# stages that need G, and 'wrap' is not among them.  stages {'bench','wrap'}
+# works because 'bench' is there; stages {'wrap'} alone would reach
+# arm_setup_(P, G) with G undefined.  Name it in the guard and in the sheet's
+# comment so it is discoverable rather than folklore.
+old = "if want('bench') || want('battery') || want('deck') || want('loop') || want('jones')"
+new = "if want('bench') || want('battery') || want('deck') || want('loop') || want('jones') || want('wrap')"
+assert old in s, 'build guard not found'
+s = s.replace(old, new, 1)
+
 # ---- 5. MASK_SUB reaches the builder on the tg96 side too --------------
 # tg96_run forwards bench options to twyman_green by an EXPLICIT argument list,
 # not by sweeping P.bench, so an option that exists in twyman_green and in the
@@ -116,6 +128,8 @@ open(p, 'w', encoding='utf-8').write(s)
 import os
 q = os.path.join(os.path.dirname(os.path.abspath(p)), 'tg96_params.m')
 t = open(q, encoding='utf-8').read()
+t = t.replace("P.stages = {'bench','battery','figs'};   % clearance | bench | battery | figs",
+              "P.stages = {'bench','battery','figs'};   % clearance | bench | battery | figs | loop | wrap", 1)
 oldq = "P.bench.EDGE_MARGIN = 2.0;         % singlet edge thickness, ABSOLUTE mm"
 newq = ("P.bench.MASK_SUB    = [];          % [n t]: the MASK's own plate, in the CONVERGING\n"
         "                                   % beam -- the one place a plane-parallel plate is not\n"
