@@ -195,6 +195,69 @@ the gate run's ROWS have to be re-taken on it, and until they are, `thk22`'s
 rows describe a 75 nm-null bench. `sub22_tail` is unaffected: it starts long
 after the edit and keeps its winner.
 
+### 3.1 RE-TAKEN 2026-09-16: the rows on the tuned tail
+
+`item4bseq` re-ran both. The retune reproduced its winner exactly — seed
+**75.2422 nm → 20.0938 nm**, 3.7× — and the gate, now advisory and now reading
+by lattice deconvolution, reported 0.9104 and **kept it**. So `thk22_tail.mat`
+holds the tuned set and `thk22`'s rows describe a 20 nm-null bench. These are
+the rows for the slide.
+
+| | |
+|---|---|
+| Stage C, single actuator @150 nm | gain **0.9885**, off-target floor **40.0 pm** |
+| Stage D, modal transfer | gain **1.0049 → 1.0077** from 0.7 to 45.3 cyc/pup, **0.9626** at 67.9; cross-talk ≤ **0.027** |
+| Stage E, differential rows | gain **1.0023–1.0085**, resid **1.8–147.0 pm**, corr ≥ **0.9999** |
+| Stage E, reg sweep | 1.0063 / 1.0116 / 1.0122 at matrix_lam 1e−3 / 1e−4 / 1e−5 |
+
+**Break ladder** (single 10 nm differential vs base rms), with the new
+unsaturated meter:
+
+| base rms | gain | floor pm | corr | meas rms | fold | |
+|---|---|---|---|---|---|---|
+| 30 nm | 1.0139 | 6.4 | 0.9997 | 26.6 nm | 0.000 | |
+| 60 nm | 1.0226 | 9.3 | 0.9994 | 52.1 nm | 0.002 | |
+| 120 nm | 1.3674 | 555.4 | 0.4887 | 75.8 nm | 0.013 | |
+| 240 nm | −4.1237 | 1511.2 | −0.6885 | 79.5 nm | 0.016 | **BROKE** |
+| 480 nm | 1.0420 | 504.2 | 0.4216 | 79.6 nm | 0.016 | |
+
+The bench holds to 60 nm with a 9 pm floor and breaks at 120 — the same rung
+both rigs break at (§4.7(a) of `REPORT_reflective.md`), so the glass has not
+moved the capture range.
+
+### 3.2 NEW — the 10 mm plates cost ~13 % of the READING, and only the new meter can see it
+
+The `meas rms` column is the measured base rms, the same quantity the `wrap`
+stage reports. Against the commanded base it reads:
+
+| base | thk22, 10 mm plates | record lens rig, 2.6 mm (`wraplens`) |
+|---|---|---|
+| 30 nm | 26.6 nm (**0.887**) | 31.1 nm (1.037) |
+| 60 nm | 52.1 nm (**0.868**) | 61.5 nm (1.025) |
+| saturated | **79.6 nm** | 90.9 nm |
+
+The record rig tracks the command to a few per cent; the 10 mm bench reads
+**13 % low and does so consistently**, at both unwrapped rungs AND in
+saturation — 79.6 against the analytic wrapped-uniform 91.34 nm is **0.872**,
+the same factor. A common multiplicative attenuation of the reading is the only
+thing that moves all three by one factor.
+
+**This is measurement amplitude, and it is the hypothesis §4.7 excluded for the
+RIG comparison — excluded there, present here.** Nothing about the earlier
+exclusion changes: it was about OAP versus lens optics, and it still holds
+(7 %, wrong direction, §4.7). The plates are a different variable and they do
+attenuate.
+
+**The old meter could not have found this.** `max|h|/(λ/4)` saturates at 1.00
+from 120 nm up on every bench, so it reports the same number for a rig reading
+at full amplitude and one reading 13 % low. The measured rms separates them at
+every rung, which is what the staged patch was for.
+
+Worth noting what does NOT move: Stage C's gain is 0.9885 and the differential
+rows sit at 1.002–1.009. The MATRIX is calibrated on this bench and absorbs a
+common scale exactly, so the attenuation costs SNR and floor, not gain — which
+is why it is invisible in every gain-based row and shows only in the reading.
+
 ### The two enablers earned their keep on this run
 
 **`bench.MASK_TRIM 'scan'` found the focus the glass moved.** The sheet carries
