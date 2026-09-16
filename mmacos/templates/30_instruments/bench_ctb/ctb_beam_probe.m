@@ -36,48 +36,70 @@ end
 cd(exdir);
 macos.init(opts.model);
 macos.load_rx(opts.rx);
-n = macos.n_elt();
-nm = cell(1, n);
-for i = 1:n, nm{i} = strtrim(macos.get_elt_name(i)); end
+n = macos.num_elt();
 
-fprintf('\n=== CTB measured beam footprint (%s, model %d) ===\n', opts.rx, opts.model);
-fprintf('%-12s %6s %12s %12s %12s %10s\n', ...
-        'element', 'elt', 'fp radius', 'fp diameter', 'clear r', 'rays');
+% Element NAMES are not in the engine API -- they come from the deck text, the
+% way macos.segment_grid_basis does it.  That is the one place this probe can
+% be misled, and it is a known trap: several decks in this corpus declare an
+% nElt that disagrees with their Element= block count, which shifts every index
+% and attributes the WRONG element's numbers (the FEX blast-radius lesson).  So
+% the parse is CROSS-CHECKED against the engine's own count, and each element
+% the probe reports is verified by TYPE before its footprint is believed.
+txt = fileread(opts.rx);
+nm  = regexp(txt, '(?<=EltName=)[^\r\n]*', 'match');
+nm  = strtrim(nm);
+if numel(nm) ~= n
+    warning('ctb_beam_probe:count', ...
+        ['%s declares %d EltName= blocks but the engine reports %d elements. ' ...
+         'Indices from the text are NOT trustworthy here -- reporting by index only.'], ...
+        opts.rx, numel(nm), n);
+end
+
+fprintf('\n=== CTB measured beam footprint (%s, model %d, %d elements) ===\n', ...
+        opts.rx, opts.model, n);
+fprintf('%-12s %5s %-12s %11s %11s %10s %7s\n', ...
+        'element', 'elt', 'type', 'fp radius', 'fp diameter', 'clear r', 'rays');
 out = struct('name',{{}}, 'ielt',[], 'r_mm',[], 'd_mm',[], 'apr_mm',[], 'nray',[]);
 for k = 1:numel(opts.elts)
     ie = find(strcmp(nm, opts.elts{k}), 1);
     if isempty(ie)
-        fprintf('%-12s   NOT IN THIS DECK\n', opts.elts{k});  continue
+        fprintf('%-12s   NOT FOUND in %s\n', opts.elts{k}, opts.rx);  continue
     end
+    info = macos.get_elt_info(ie);
     st = macos.trace(ie);
     ri = macos.get_ray_info(st.nRays);
-    ok = ri.ok_trace ~= 0 & ri.ok_pass ~= 0;
-    % footprint in the element's own plane: distance from the chief's hit
-    P = [ri.x(ok), ri.y(ok), ri.z(ok)];
-    c = P(1,:);                       % the chief is ray 1
+    ok = ri.ok_trace & ri.ok_pass;          % logical N x 1
+    P  = ri.pos(:, ok).';                   % pos is 3 x N -> rows of [x y z]
+    if size(P,1) < 8
+        fprintf('%-12s %5d %-12s   only %d rays -- not measured\n', ...
+                opts.elts{k}, ie, info.type, size(P,1));
+        continue
+    end
+    c = ri.pos(:, 1).';                     % the chief is ray 1
     r = max(sqrt(sum((P - c).^2, 2)));
-    apr = NaN;
-    try, a = macos.get_elt_ap_vec(ie);  apr = a(1);  catch, end
-    fprintf('%-12s %6d %12.4f %12.4f %12.4f %10d\n', ...
-            opts.elts{k}, ie, r, 2*r, apr, nnz(ok));
+    apr = NaN;  if ~isempty(info.ap_vec), apr = info.ap_vec(1); end
+    fprintf('%-12s %5d %-12s %11.4f %11.4f %10.4f %7d\n', ...
+            opts.elts{k}, ie, info.type, r, 2*r, apr, size(P,1));
     out.name{end+1} = opts.elts{k};  out.ielt(end+1) = ie;
     out.r_mm(end+1) = r;  out.d_mm(end+1) = 2*r;
-    out.apr_mm(end+1) = apr;  out.nray(end+1) = nnz(ok);
+    out.apr_mm(end+1) = apr;  out.nray(end+1) = size(P,1);
 end
 
 % What it decides, spelled out so the answer cannot be mis-read again.
 if ~isempty(out.r_mm)
     D = out.d_mm(1);  lam = 5.5e-4;  z = 500;          % DM1 -> DM2, mm
-    % Fresnel amplitude conversion sin(pi*lam*z/L^2); 50% at L^2 = 6*lam*z
-    L50 = sqrt(6*lam*z);  L100 = sqrt(2*lam*z);
-    fprintf(['\nDM1 beam: radius %.3f mm, diameter %.3f mm.  With lambda %.1f nm and\n' ...
-             'DM1->DM2 %g mm, the Fresnel amplitude conversion sin(pi*lam*z/L^2) reaches\n' ...
-             '50%%%% at %.3f mm of period = %.1f cycles across the beam, and 100%%%% at\n' ...
-             '%.3f mm = %.1f cycles.  (NOTES_gauge_in_coronagraph section C+ says 33.)\n'], ...
+    L50 = sqrt(6*lam*z);  L100 = sqrt(2*lam*z);        % sin(pi*lam*z/L^2) = 1/2, 1
+    fprintf(['\nDM1 beam: radius %.3f mm, diameter %.3f mm.\n' ...
+             'Fresnel amplitude conversion sin(pi*lam*z/L^2) at lam %.1f nm over z %g mm:\n' ...
+             '  50%%%% at a period of %.3f mm = %.1f cycles across the beam\n' ...
+             ' 100%%%% at a period of %.3f mm = %.1f cycles across the beam\n' ...
+             '(NOTES_gauge_in_coronagraph section C+ quotes 33 for the 50%%%% point.)\n'], ...
             out.r_mm(1), D, lam*1e6, z, L50, D/L50, L100, D/L100);
-    fprintf(['ctb_dm.m default beam_d_mm = 21.3 is %s this measurement.\n'], ...
-            iff_(abs(D-21.3) < abs(out.r_mm(1)-21.3), 'CONSISTENT with (a diameter)', ...
-                 'INCONSISTENT with: 21.3 matches the RADIUS, so the lattice spans half the pupil'));
+    fprintf(['ctb_dm.m fills beam_d_mm with 21.3.  Measured DIAMETER %.3f, measured ' ...
+             'RADIUS %.3f -> 21.3 is the %s.\n'], D, out.r_mm(1), ...
+            iff_(abs(D-21.3) < abs(out.r_mm(1)-21.3), ...
+                 'DIAMETER, and the DM model is consistent with the deck', ...
+                 'RADIUS, so the 32x32 lattice spans HALF the beam and the pitch is half what it should be'));
 end
 end
 
