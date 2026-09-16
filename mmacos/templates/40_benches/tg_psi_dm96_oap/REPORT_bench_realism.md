@@ -112,3 +112,58 @@ skips a label whose part the rig does not carry, instead of erroring — the OAP
 variant renames its collimator, and the P/SRI rig (TO's half of item 7) is a
 different train again. And the Stage-A line now says whether the angle in force
 was solved or pinned in the param file, and prints both binding angles.
+
+## 3. Thicknesses: the 10 mm plates cost 150× of null, and the tail cannot take it back
+
+Run `thk22_tail` — the lens rig's tail retuned with the splitter and compensator
+at **10 mm** (the flatness a 4-inch plate needs) and real 4 mm singlet edges.
+
+| | flat-DM null |
+|---|---|
+| tail of record, 2.6 mm plates | **0.134 nm** |
+| geometric seed, 10 mm plates | 75.24 nm |
+| **retuned, 10 mm plates** | **20.09 nm** |
+
+**The tuner converged** — evaluations 100, 101 and 102 all sit at 20.094, 20.094
+and 20.095 nm, so 20.09 is its floor on this bench and not a stalled search. It
+improved the seed by 3.7×. What it cannot do is get back to 0.134.
+
+**The mechanism is the shear, and it is the one the brief predicted.** A 10 mm
+plate at 22.5° with n = 1.5 displaces the transmitted beam by
+
+`t·sinθ·(1 − cosθ/√(n²−sin²θ))` = **1.39 mm**,
+
+against the realism brief's predicted 1.4 mm. The compensator balances the
+*path*, but the two arms now sample the collimator 1.39 mm apart, and the
+difference of L1's own aberration across that shear is what the field-lens tail
+has no freedom to remove: its four parameters (`FL_F`, `FL_Kc`, `D_MASK_FL`,
+`DET_TRIM`) all act on the common tail, not on an arm difference.
+
+**What this does and does not mean.** A 20 nm *static* arm difference is not
+automatically a 20 nm error in the gauge: every row of record is DIFFERENTIAL,
+measured against a reference frame taken on the same bench, so a fixed null
+largely divides out. Whether it survives that is exactly what the `thk22` gate
+run measures, and that number — not this one — is what belongs on a slide. It
+is recorded here first because it is the part that is already certain: the
+thick plates are a real optical cost, and no amount of tail tuning removes it.
+
+**The gate ate this winner, and the run below does not yet carry it.** The
+advisory edit reached `tg96_tail.m` a few seconds after `thk22_tail`'s MATLAB
+had already loaded the enforcing version, so the old gate refused a converged
+winner on a measure the two-leg test had just shown to be wrong:
+
+```
+TAIL GATE REFUSED the winner: actuator-space gain -0.8742 < 0.95.
+Falling back to the GEOMETRIC SEED (gain -0.8803).
+```
+
+Both readings are ≈0.87 — the threshold decided it, not any difference between
+the tails. So `thk22_tail.mat` holds the **seed** and `thk22` ran on it. Its own
+report line is the tell: *"RE-TUNED set … (null 75.242 nm at opt res; seed
+75.242)"* — a retune whose null equals its seed's did not retune.
+
+`runs/item4bseq.sh` re-runs both with the advisory gate in place. **The 20.09 nm
+figure above stands** — it is what the tuner measured before the refusal — but
+the gate run's ROWS have to be re-taken on it, and until they are, `thk22`'s
+rows describe a 75 nm-null bench. `sub22_tail` is unaffected: it starts long
+after the edit and keeps its winner.
