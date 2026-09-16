@@ -22,6 +22,16 @@ Dave pushes. The realism and field-servo reports link back to this table.
 | 6 | realism 8: the interferometer's station figure, both rigs | `REPORT_bench_realism.md` | **runner in** (`stations_ifo_`, 2x7, guarded so a figure bug cannot destroy an hour of loop results); produced by the `figs` stage of `oapifol2` / `oapdesc2` |
 | 7 | the coronagraph field servo, three steps | `bench_ctb/REPORT_field_servo.md` | **step 0 open and probed** -- the note's 33-cycle separability prediction pairs a 0.67 mm pitch with a 42.8 mm beam, and 32 x 0.67 = 21.4; the CTB documents contradict each other on radius vs diameter, so `ctb_beam_probe.m` asks the engine. Steps 1-3 not started |
 
+**Reading order.** Sections are appended in DISCOVERY order, not numeric order,
+as this report has been maintained throughout — §4.5 and §4.6 already sat after
+§7 before this round. The close-out's sections are §5.1 (item 1) and §4.7 with
+its four subsections (item 2); item 3 lives in the README ("The tail of record,
+and the tuner's open problem") with the evidence it rests on in §4.5, and items
+4-6 in `REPORT_bench_realism.md`. The table above is the
+index; within item 2 the subsections are in the order the measurements landed,
+and one earlier paragraph is marked superseded rather than deleted because the
+reasoning it sets up is what the control then excluded.
+
 ### Item 0 — what was committed, and what was deleted
 
 Every run tag the three reports (`REPORT_reflective.md`,
