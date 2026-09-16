@@ -10,5 +10,5 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$here"
 D="'bench.optics','oap','bench.POL_IN','source','bench.SRC_AT_FOCUS',true,'bench.D_RC_L2',125,'oap.OAP1_AOI',20,'oap.OAP2_AOI',25,'oap.OAP1_SIDE',1,'oap.OAP2_SIDE',-1"
 cp -f oap22d_tail.mat oapdesc_tail.mat
-./tg96_batch.sh oapdesc "$D,'loop.start_rms',[60 150 300],'stages',{'bench','loop','figs'}"
+./tg96_batch.sh oapdesc "$D,'loop.start_rms',[6e-5 1.5e-4 3e-4],'stages',{'bench','loop','figs'}"   # mm: 60 / 150 / 300 nm
 echo "[descseq] done"
