@@ -1481,6 +1481,16 @@ function draw_loop_(LO, P)
 % residual per cycle per photon level (+ the noiseless step), and the hold
 % error vs photons per cycle for each drift.
 res = LO.res;  NPH = LO.nph;  kinds = LO.drifts;  K = LO.K;
+% A DESCENT-ONLY run has no drift kinds at all (loop.drifts {}, floor false),
+% and kinds{end} on an empty cell throws -- which is how oapdesc2 exited 1
+% AFTER both of its descents had succeeded, losing the figure and the exit code
+% but not the results.  Latent until now because the record's descent_oap ran
+% without a figs stage.  A run with nothing to plot skips the figure instead.
+if isempty(kinds)
+    say(['  loop figure skipped: this run has no drift kinds (descent only), ' ...
+         'so there is no residual-vs-photons curve to draw.\n']);
+    return
+end
 kshow = 'walk';  if ~any(strcmp(kinds,'walk')), kshow = kinds{end}; end
 ramp = [209 229 240; 146 197 222; 67 147 195; 33 102 172; 8 48 107]/255;   % ordinal blues
 f = figure('Color','w','Position',[100 100 1400 560],'Visible','off');
