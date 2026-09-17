@@ -61,6 +61,28 @@ Outputs land in `runs/<tag>/`: `<tag>_report.txt`, `<tag>.mat`,
   schematic (chief-ray polyline, aperture-sized footprint bars, element names +
   leg lengths), test and reference arms.
 
+### Run it yourself: the pupil image (Fang Shi's question)
+
+```matlab
+% interactive (no exit); the knobs are P.pupil in tg96_params.m:
+tg96_pupilq('rig','lens');     tg96_pupilq('rig','oap');      % crossing-cloud quality: distortion, surface, blur, the seat per tilt
+tg96_pupilsim('rig','lens');   tg96_pupilsim('rig','oap');    % the detailed simulation: zone PSFs, the DM field through them, the compromise plane, the Fourier check
+```
+```bash
+# headless (model 512, ~3 GB, ~6 min per rig for pupilsim, ~1 min for pupilq); both tools, both rigs:
+./tg96_pupil_batch.sh both
+./tg96_pupil_batch.sh lens "'tool','sim','fourier',false"      # one rig, one tool, a knob overridden
+```
+Outputs land in `runs/pupilq_<rig>/` and `runs/pupilsim_<rig>/`: `<tag>_report.txt`
+(every number quoted in the deck and the reports), `<tag>.mat`, and the figures
+`_psf.png` (the leg's complex PSF and transfer phase at three DM zones), `_surface.png`
+(each zone's image vs the detector plane, the astigmatic split, the band-edge
+wavefront), `_gain.png` (phase gain and amplitude cross-talk vs radius, as built and
+at the compromise plane), `_work.png` (the 30 nm working surface recovered), and
+`_fourier.png` (zone-PSF model vs the plane-to-plane propagation).  `tg96_pupilsim`
+opens the baffle, widens the source cone and puts the aperture on the DM (P.pupil.dm_ap)
+so the DM is the stop in fact; `dm_ap 0, overfill 0` reproduces the deck as emitted.
+
 The OAP rig shows L1/L2 folding the beam off-axis; the lens rig is near-collinear. Memory-bound? drop a trimmed `macos_param.txt` in the run
 dir via `P.param_file` (keep `mGridMat ≥` the DM grid, 384 here).
 
@@ -105,6 +127,8 @@ polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.m
 | `tg96_tail.m`   | re-tune FL_F/FL_Kc/D_MASK_FL/DET_TRIM per optics (unaligned null), **gated by a multi-site row read by lattice deconvolution** — see "The tail of record" |
 | `tg96_samp.m`   | detector-frame map -> DM frame through `tg96_place`'s OWN affine + parity; the fold rotation the shared `dmg_samp` cannot express |
 | `tg96_run_batch.m` / `tg96_batch.sh` | `matlab -batch` wrapper (exit only here) + launcher |
+| `tg96_pupilq.m`  | pupil image quality of the detector leg (Fang Shi, 2026-09-16): the DM as the stop, crossing cloud at the camera (distortion vs one affine, pupil surface, blur over the actuator band), the rodgers2 set at the seat per tilt; `runs/pupilq_<rig>` |
+| `tg96_pupilsim.m` | the detailed pupil-image SIMULATION (Dave, 2026-09-17): the leg's coherent PSF per DM zone from the rays (the intercept walk over a 2-D tilt set integrates to the zone wavefront), the DM field through those PSFs (sinusoids, pokes, the 30 nm working surface; gain and amplitude cross-talk vs radius), the compromise detector plane, and a plane-to-plane Fourier cross-check of the tail; opens the baffle and puts the aperture ON the DM (the DM is the stop in fact); `runs/pupilsim_<rig>` |
 
 ## The tail of record, and the tuner's open problem
 

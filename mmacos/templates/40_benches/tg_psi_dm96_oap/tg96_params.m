@@ -48,7 +48,7 @@ P.THETAS = [0 45 90 135];          % analyzer four-step
 P.pzt.step_err = 0;                % fractional four-step phase-step error (0 | 0.02 | 0.05 ...)
 
 % ---- Stage-A clearance solve (folded layout re-solve for OAP) --------
-P.clear.beam_r  = [];              % [] => s*30 (scaled R_TO_AP)
+P.clear.beam_r  = 56;              % the beam UPSTREAM of the DM (the opened cone, lens rig 55.5 mm); [] => s*R_TO_AP, which is the beam only after the DM stop
 P.clear.HW_DM   = 90;   P.clear.HW_REF = 60;  P.clear.HW_CAM = 50;
 P.clear.MARGIN  = 25;   P.clear.LEG_CAP = 700;
 P.clear.MOUNT   = 8;               % mount ring beyond a part's aperture radius --
@@ -86,10 +86,18 @@ P.bench.BS_AOI     = 22.5;         % Dave 2026-09-15: pinned (the Stage-A solve'
 P.bench.D_RECOMB   = 150;          % physical mm (NOT scaled by s): the recomb plane and the output
 P.bench.D_RC_L2    = 55;           % optics 150 mm behind the splitter, L2 at 150 + 55 = 205 as before
 P.bench.F1 = 500;   P.bench.F2 = 250;      % *s in the runner
-P.bench.D_LENS = 60;  P.bench.R_BAFFLE = 12.5;  P.bench.D_SB = 250;
+% THE DM IS THE STOP (Dave 2026-09-17).  The record's beam was the SOURCE CONE,
+% which the builder sizes to the baffle (2 atan(R_BAFFLE/D_SB) x FILL): 77 mm
+% on the lens rig, 82 on the mirrors, on a 96 mm DM -- the outer actuator
+% rings were unlit and nothing clipped a ray (tg96_pupilsim).  Now the baffle
+% is opened (18: the cone reaches 55 mm at the DM on the lens rig, 50 on the
+% mirrors), the lenses are sized past the beam (66 -> 113 mm), and the DM
+% carries the aperture at its actuator footprint (R_TO_AP 28 -> 48 mm).  Runs
+% emitted before this date have the 77 / 82 mm beam.
+P.bench.D_LENS = 66;  P.bench.R_BAFFLE = 18;  P.bench.D_SB = 250;
 P.bench.BS_T = 1.5;   P.bench.D_L1_BS = 150;    P.bench.D_BS_CMP = 200/(96/56);   % compensator at 200 mm physical (x s in the runner)
 P.bench.D_BS_TO = [];              % [] => Stage-A solved DM leg
-P.bench.R_TO_AP = 30;
+P.bench.R_TO_AP = 28;              % the DM's aperture = the 96 mm actuator footprint (was 30 = 103 mm, which nothing filled)
 P.bench.L1_Kr = 236.866;  P.bench.L1_Kc = -0.5829;   % lens seeds (ignored oap)
 P.bench.L2_Kr = -124.076; P.bench.L2_Kc = -0.5826;
 P.bench.qwp_ret = 0.25;  P.bench.pol_in_deg = 45;
@@ -115,6 +123,15 @@ P.bench.MASK_SUB    = [];          % [n t]: the MASK's own plate, in the CONVERG
 P.bench.EDGE_MARGIN = 2.0;         % singlet edge thickness, ABSOLUTE mm
                                    % (add_lens: centre = sag + this).  2.0 is
                                    % the record; a 103 mm singlet wants 3-5.
+% ---- the pupil image (tg96_pupilsim / tg96_pupilq; Fang Shi 2026-09-16, Dave 2026-09-17) ----
+% Knobs read by tg96_pupil_batch and handed to tg96_pupilsim (see its header for each):
+P.pupil.band     = 3.2e-4;         % the actuator band as a tilt about the DM: lambda / (2 pitch), rad
+P.pupil.rings    = [0.5 1 2 3.2]*1e-4;  P.pupil.ring_out = 1e-3;  P.pupil.naz = 8;   % the 2-D tilt set (41 traces)
+P.pupil.dm_ap    = 48;             % the aperture put ON the DM (mm radius): the 96 mm actuator footprint; 0 = the deck's
+P.pupil.overfill = 1.06;           % the source cone is opened so the beam at the DM is this x dm_ap; 0 = the deck's cone
+P.pupil.patch    = 8;              % zone patch (mm) of the field model; dx 0.125 mm / N 1024 grid (the tool's defaults)
+P.pupil.poke_nm  = 100;  P.pupil.work_nm = 30;  P.pupil.seed = 7;   % test surfaces: pokes, the working surface (battery.base_rms / seed_base)
+P.pupil.fourier  = false;          % the standalone paraxial MATLAB chain (standby); the plane-to-plane check of record is tg96_pupil_engine
 P.bench.tail_arch = 'fieldlens';
 % l2_trade tail winner (scaled *s in the runner); re-tuned per optics from
 % tg96_tail.mat when present (the tail was fit to L2 -- MUST re-run for OAP)
