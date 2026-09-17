@@ -401,3 +401,76 @@ comparison picking a different pupil station.
 first six panels are the tool's own output and read correctly — but its seventh
 panel's headline number is an open defect, and 626 pm against 62 067 pm on one
 slide would assert a rig-to-rig quality difference that is not established.
+
+## 6. Pupil image quality of the detector leg (Fang Shi's request; CCL, 2026-09-16)
+
+Runner `tg96_pupilq.m` (sheet-driven name/value; `runs/pupilq_lens`,
+`runs/pupilq_oap`; model 512, 129 rays across; both rigs' decks of record,
+the lens rig's tuned tail and the mirror rig's geometric seed).  **The DM is
+the stop** (Dave): the bench as built, the point source of record, the DM
+declared the stop, the field a lateral shift of the source at the
+collimator's focus, i.e. a tilt theta about the DM (a spatial frequency
+theta / lambda on its surface).  At the camera, the DM's exit pupil, two
+traces a field step apart cross at the image of each DM zone; the cloud
+gives the pupil surface, the distortion against the runner's single global
+affine, and the blur (the zone's image walk over the actuator tilt band,
+|theta| <= 3.2e-4 rad = lambda / 2 mm).  At the seat the rodgers2 set per
+tilt: the spot at the best focus found from the rays, the wavefront with
+piston, tilt and focus removed, the centroid against focal length times
+tilt.
+
+| | lens rig (tuned tail) | mirror rig (seed tail) |
+|---|---|---|
+| magnification, camera mm per DM mm | 1/9.90 (runner's affine 1/9.88) | 1/10.56 (runner's 1/10.44) |
+| pupil distortion vs the global affine, DM mm rms / max / outer third rms | **0.13 / 0.30 / 0.18** | **0.45 / 0.85 / 0.66** |
+| pupil surface: defocus / astig 0 / tilt, mm of sag over the pupil radius | 3.83 / -2.07 / 0.00 | -0.52 / 0.17 / 0.45 |
+| pupil blur over the actuator band, DM mm rms / max | 0.023 / 0.060 | 0.032 / 0.093 |
+| focal plane, on axis: spot at best focus / WFE | 0.43 um (0.16 lam F/D) / 1.1 nm | 0.00 um / 0.00 nm |
+| focal plane at the actuator-band tilt (52 lam/D off axis): spot / WFE | 0.43 um / 2.7 nm | 5.3 um (2.3 lam F/D) / 144 nm |
+| focal plane at 1 mrad (163 lam/D): spot / WFE | 0.47 um / 7.8 nm | 16.5 um (7.1 lam F/D) / 451 nm |
+| effective focal length from the centroid | 437 mm | 379 mm |
+
+Reading it:
+
+- **The pupil image is sharp on both rigs.**  A DM zone's image walks
+  0.02-0.03 mm rms (6-9% of a detector pixel of 0.41-0.44 DM mm, 2-3% of
+  the pitch) over the whole band of spatial frequencies the DM can make.
+  The pupil surface is curved (3.8 mm of sag on the lens rig, from the
+  field lens) and tilted on the mirror rig (0.45 mm, the 25-degree fold),
+  and neither matters at these tilt angles: the blur they cause is the
+  walk above.
+- **The distortion is the finding.**  Against a single global affine the
+  DM's image is off by 0.13 mm rms and 0.30 mm at the edge on the lens rig
+  (a radial, barrel-shaped residual) and by 0.45 mm rms, 0.85 mm at the
+  edge, on the mirror rig (3.4x, the off-axis parabolas).  That is a third
+  to nearly a full actuator pitch of registration error at the edge if a
+  bench used one affine to say which pixel is which actuator.  The
+  measured response matrix does not use it (each actuator's column is
+  measured where it lands, which is why the rows hold at 0.99 on both
+  rigs); anything that does -- a stencil placed by the affine, the tuner's
+  single-site verify measure, a per-actuator map read off the camera by
+  geometry -- inherits it.  A per-zone calibration of the mapping (a
+  distortion map, one measurement) removes it; the OAP rig's 62 nm
+  station-figure misregistration (item 6 open) is the size this predicts.
+- **The mirror rig's focal plane is perfect on axis and coma-limited off
+  it.**  0.00 lam F/D at zero tilt (TO's item-5 result), 2.3 lam F/D at the
+  actuator-band tilt, 7.1 at 1 mrad, linear in the angle: an off-axis
+  parabola pair has no field correction.  This is not a pupil-image cost
+  (the walk at the camera is the number above) and not a mask-sensor cost
+  (the dimple and pinhole act within 2 lam/D of the core; light diffracted
+  by a DM ripple lands 52 lam/D away and passes the mask whatever its
+  shape), but it is the number to know before any sensor that reads the
+  field off axis at the seat.
+- **Two lessons for the record:** an ideal collimated source at the DM
+  measures a bench that does not exist (the lens rig's tuned leg lands 16
+  lam F/D of blur on it: the leg is tuned to the collimator's actual
+  beam, fed 25 mm inside its focus); and the interferometer deck's seat
+  marker is not at the focus (352 um of spot there; the best focus is
+  5.5 mm away on the lens rig), so the spot is scored at the focus the rays
+  define.
+
+Figures: `pupilq_<rig>_pupil.png` (distortion arrows and the blur map over
+the DM), `pupilq_<rig>_focal.png` (spot, wavefront and centroid residual
+against tilt, both azimuths).  Open: the chief-tied exit-pupil sphere
+(the engine's Return/Return/plane idiom) refused to load through the mex
+without a message; the fitted focus removal stands in for it to first order.
