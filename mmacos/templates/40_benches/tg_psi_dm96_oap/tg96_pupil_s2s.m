@@ -36,11 +36,21 @@ if isempty(o.tag), o.tag = ['pupils2s_' o.rig]; end
 if isempty(o.outdir), o.outdir = fullfile(exdir,'runs',o.tag); end
 if ~exist(o.outdir,'dir'), mkdir(o.outdir); end
 rep = fopen(fullfile(o.outdir,[o.tag '_report.txt']),'w');  say = @(varargin) say_(rep, varargin{:});
-S = load(fullfile(o.sim, ['pupilsim_' o.rig '.mat']));  S = S.out;  lam = S.o.lambda;  pitch = S.o.pitch;
+% The pupil run this chain is built on is named by its TAG, not by its rig:
+% the redo's gate runs are pupilsim_redo_lens / pupilsim_redo_oap, and building
+% the filename from 'rig' alone would look for pupilsim_lens.mat inside
+% pupilsim_redo_lens/ and fail on a directory that is plainly right there.
+[~, simtag] = fileparts(o.sim);
+fmat = fullfile(o.sim, [simtag '.mat']);
+if ~isfile(fmat), fmat = fullfile(o.sim, ['pupilsim_' o.rig '.mat']); end
+assert(isfile(fmat), 'tg96_pupil_s2s: no pupil-stage .mat in %s (looked for %s.mat)', o.sim, simtag);
+S = load(fmat);  S = S.out;  lam = S.o.lambda;  pitch = S.o.pitch;
 say('=== tg96_pupil_s2s: %s  rig %s  (%s) ===\n', o.tag, o.rig, datestr(now,'yyyy-mm-dd HH:MM'));
 
 % ---- the deck: the simulation's, with the DM's GridData restored ----
-[hdr, blocks] = split_deck_(fileread(fullfile(o.sim, ['pupilsim_' o.rig '_deck.in'])));
+fdeck0 = fullfile(o.sim, [simtag '_deck.in']);
+if ~isfile(fdeck0), fdeck0 = fullfile(o.sim, ['pupilsim_' o.rig '_deck.in']); end
+[hdr, blocks] = split_deck_(fileread(fdeck0));
 [~, rblocks] = split_deck_(fileread(S.o.deck));
 names = cellfun(@(b) getv_(b,'EltName'), blocks, 'uni', 0);
 iDM = find(strcmp(names,'TestOptic'),1);
