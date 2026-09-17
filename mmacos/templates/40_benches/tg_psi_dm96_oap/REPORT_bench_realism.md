@@ -832,3 +832,85 @@ brief's 0.01 mm figure -- that figure came from the seed-tail row measured on
 the UNcollimated bench, where the same table already showed true collimation
 RAISING the distortion (0.003 -> 0.035 on the tuned tail's row), and it is a
 mapping the registration affine absorbs.
+
+### 8.4 The lens rig's tail, tuned on the reading (`lens96`)
+
+109 evaluations, `FL_Kc` and `DET_TRIM` free, `FL_F` and `D_MASK_FL` held at the
+geometric seed -- so the field lens stayed 10.8 mm past the focus, which is the
+station that images the DM flat.
+
+| | seed | winner |
+|---|---|---|
+| `FL_F` / `D_MASK_FL` (held) | 42.8932 / 10.7614 | same |
+| `FL_Kc` | -2.11278 | **-7.77234** |
+| `DET_TRIM` | 1.8606 | **1.9951** |
+| band-edge phase (the objective) | 0.0122 rad rms / 0.0237 max | **0.0000 / 0.0001** |
+| zone image vs the detector | +0.28 on axis, 0.7 mm of departure over the pupil | **flat to 0.002 mm** |
+| astigmatic split of the zone images | 0.146 mm rms / 0.256 max | **0.056 / 0.102** |
+| Nyquist phase gain, worst over the pupil | 0.9997 | **1.0000** |
+| distortion vs one global affine | 0.023 mm rms | 0.041 mm rms |
+| flat-DM null (reported, never optimized) | 59.3168 nm | 59.3168 nm |
+
+**The winner gate KEPT it, and says the two tails read the same.**
+`winner/seed = 0.9970 >= 0.90` -- one multi-site actuator row through the ray
+affine, in actuator space, winner 1.0913 against the seed's 1.0945 (5 sites,
+magnification 10.28 DM-mm per detector-mm, err 691 pm on a floor of 632, SNR
+173).  So the honest reading of this tune is: **at the seed station the tail was
+already as good as it gets for the READING, and what the tune bought is the
+pupil IMAGE.**  0.9997 -> 1.0000 of Nyquist gain is the third decimal, and the
+row gate cannot separate the two at all; the image surface going from 0.7 mm of
+departure to 0.002 mm is a real change and it is what Fang Shi's question, the
+camera's focus tolerance and the 385-px sampling budget are about.
+
+**A trade for Dave, then, not a conclusion:** the winner asks for a 0.24-wave
+stronger asphere on the field lens (below) and returns a flat pupil image with no
+measurable change in the reading.  The seed tail is the simpler part and passes
+the same gate.  Both are in the sheet's reach -- the winner is `lens_tail.mat`,
+the seed is `bench.tail_from_mat false` -- and `runs/redoseq2.sh` measures the
+seed's full stage-2 numbers on the SAME bench so the two can be compared on one
+page rather than across two benches.
+
+**The field lens's conic is the pupil-image field-curvature knob, and the null
+objective had no way to see it.**  The field lens sits 10.8 mm past the focus,
+so each DM zone lands at its own radius on it -- up to 1.2 mm, which is what
+makes the pupil 1.2 mm high there -- and an `r^4` term at that station is
+exactly a field-curvature term for the pupil image.  The tune used it: defocus
+AND astigmatism improve together, which is the tell that the proxy is not being
+gamed (a proxy that only saw defocus could be satisfied by trading it for
+astigmatism, and the astigmatic split would have risen).
+
+**What it costs: distortion, and only that.**  0.023 -> 0.041 mm rms, and this
+is the residual AFTER one global affine, i.e. what the registration cannot
+absorb.  At the DM scale that is 4 % of an actuator pitch; the mirror rig of
+record carries 0.72 mm there -- 72 % of a pitch -- and still reads 0.997.  It
+does not meet the brief's `< 0.01 mm` figure, and that figure should be
+retired: it was read off the seed-tail row of the table in 7.1, measured on the
+UNCOLLIMATED bench, where the same table already showed true collimation RAISING
+distortion (0.003 -> 0.035 mm on the tuned tail's row).  Collimating the bench
+changes the mapping; it does not degrade the reading.
+
+**Buildability is a question about the used aperture, not about the conic.**
+K = -7.77 on a 12 mm blank of R = 21.45 mm is 128 um of departure from the
+sphere at its edge -- a real asphere -- but the beam only uses the central
+1.2 mm radius, where the departure is **0.20 um** (0.15 um of it new, i.e. 0.24
+waves against the seed conic).  Holding the pupil image flat to the measured
+0.002 mm needs that `r^4` term to ~10-20 %, i.e. 20-40 nm of figure over
+1.2 mm.  So the part to specify is a mild asphere over a 2.4 mm clear aperture;
+the sensible build is a smaller blank, and the 12 mm one is 10x oversized for
+this beam whatever the figure.
+
+**The null did not move, at all.**  59.3168 nm, four decimals, on every one of
+the 109 evaluations.  With the station held, both free knobs are blind to an arm
+DIFFERENCE: `DET_TRIM` moves a detector both arms share, and the field lens's
+conic acts on a 1.2 mm-high pupil in a leg both arms share.  The null's large
+excursions in the record (9.1 -> 0.134 nm) came from `D_MASK_FL` and `FL_F`,
+which is precisely how the record's tuner walked the field lens off its station.
+This is the ruling's own evidence: on this bench the null is not a weak
+objective, it is not an objective at all.
+
+**Open, and measured next:** 59.3168 nm is 6.5x the record's 9.1 nm seed null,
+and the four-step's unambiguous range is lambda/4 = 158 nm.  A fixed pattern of
+that size is removed by the reference frame and never reaches a differential
+reading, but it is close enough to the fold to be worth attributing before
+package C spends a day on rows: `runs/nullab.sh` switches the collimation and
+the substrates off one at a time against the record's 9.1 nm.
