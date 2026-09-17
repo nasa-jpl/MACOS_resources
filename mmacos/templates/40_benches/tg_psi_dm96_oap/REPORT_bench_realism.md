@@ -958,3 +958,20 @@ nothing else: solved **0.631902 mm** against `t(1-1/n)` = 2(1-1/1.4585) =
 **0.6285 mm**, three figures.  Before the source station was solved it read
 0.5393 -- the 0.7 waves of defocus were being paid for at the seat, which is
 exactly the kind of compensation that makes a bench look fine and read wrong.
+
+**The mirror rig's tail, on the corrected bench (`oap96`, `DET_TRIM` alone).**
+24 evaluations: `DET_TRIM` 1.8606 -> **1.9755**, band-edge phase 0.0143 -> 0.0130
+rad rms, everything else held.  Winner gate `winner/seed = 0.9971` (winner
+0.9935, seed 0.9964) -- KEPT, and again the row gate cannot tell the two apart.
+
+Two things read oddly on this rig and both have the same cause.  **The
+prediction that started this section does not transfer:** the brief asked for
+`DET_TRIM` -0.6 mm, the image-surface mean measured on the OLD mirror bench
+(the 82 mm source cone, no substrates, the seat at 0); the tune finds **+0.11**,
+because the new bench moved the mask +0.63 mm and five 2 mm plates shifted the
+stations behind it.  And **the proxy's rms improves while its max degrades**
+(0.0290 -> 0.0350 rad, both far inside the 0.06 gate).  That is what a
+single-knob tune looks like on a TILTED image surface: this rig's pupil surface
+carries 0.45 mm of tilt from the OAP pair, and a detector shift can only trade
+one edge of the pupil against the other.  The lens rig had a BOWL, which the
+field lens's conic can flatten; a tilt is not in the tail's reach at all.
