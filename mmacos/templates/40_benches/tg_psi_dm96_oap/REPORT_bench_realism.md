@@ -613,3 +613,35 @@ the focus, scaled legs through the field lens to the detector), the field never
 handed back to rays -- with each leg's zElt convention validated on the flat
 pupil and a known defocus.  That is the next step; until it lands, the zone-PSF
 model is the result of record and the paraxial standby chain its check.
+
+**The station-to-station form, tried (`tg96_pupil_s2s.m`, the same day).**
+Built as the CTB emits it: four collimated NFPlane legs at the chief pierces
+between the DM and the focuser (the plates per index between them), the
+through-focus quartet with an entrance sphere just after the focuser centered
+on the true focus (radius 414.5) and a far-side sphere just before the field
+lens (radius 44.8; the Rx_Coro asymmetric form), the lens per index, a sphere
+concentric with the exit beam after it, and the scaled step to the detector
+under all four zElt conventions.  On the lens rig it fails upstream of the
+converging step, and the probe says why: the rig's "collimated" space is not
+collimated -- the collimator of record is fed 25 mm inside its focus, 41
+waves of curvature across the pupil -- so between the NFPlane legs the rays
+walk up to a millimeter off the fixed grid, and the per-index phase of each
+element lands on the wrong pixels: 1.5 waves of spurious aberration on the
+entrance sphere and a focal spot ten times its size.  The CTB never meets
+this because its pupils are truly collimated.  The mirror rig of record has
+its collimator fed at the focus, so the chain is being validated there (a
+10 mm known defocus discriminates the converging step's convention); on the
+lens rig the chain needs a bench emitted with the collimator at its focus and
+the tail re-tuned to it.
+On the mirror rig (fed at the focus: the rays' spot at the marker is 0.00 um)
+the chain was run with the exit sphere oriented for the diverging exit beam
+(the field lens is 10.8 mm past the focus, inside its focal length; the
+virtual crossing is 17 mm upstream).  Open at the end of the day: the pupil
+the quartet lands on the far-side sphere reads 1.12 mm in radius against the
+1.40 the rays give there (20% small; 4% small on the lens rig), and the
+Nyquist readout at the detector is not a gain map under any of the four
+conventions.  The next checks, in order: the focal-plane field's spot size
+after the entrance sphere (it must be diffraction-limited on this rig), the
+far sphere's pitch bookkeeping against the rays (the 20%), then the exit
+step alone on a flat pupil with a known 10 mm defocus.  The zone-PSF model
+stands as the result of record.
