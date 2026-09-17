@@ -773,6 +773,16 @@ at the scale the runner builds (3.745 + 4.0), so `t(1 - 1/n)` = 2.58 mm:
 actually built it -- which is why nothing ever looked wrong -- and the new one
 is the right lens for the bench the sheet describes.
 
+**And the residual is the right size for the right reason.**  6.3e-09 rad rms
+over a 48 mm beam is 2.4e-4 waves -- which is not "zero because the fit ran out
+of numbers".  The flat face refracts the diverging cone before the powered face
+sees it, and its spherical aberration at this conjugate is a ~6 um longitudinal
+shift = 4.6e-07 rad of angular spread; a conic has exactly the freedom to cancel
+that fourth-order term, and what is left is the sixth-order one, smaller by
+u^2 = (56.5/857)^2 = 4.4e-3 -> 2e-09 rad.  Measured 6.3e-09.  So the conic is
+not APPROXIMATING the Cartesian oval here so much as cancelling the plate, and
+the 1e-4 gate has three orders of magnitude of headroom.
+
 **Two things worth keeping.**  (1) **The conic barely moved**: -0.583016 against
 the record's -0.5829, four figures, while the radius moved 5 %.  A conic belongs
 to the shape and the plano orientation, not to the conjugate; only the radius

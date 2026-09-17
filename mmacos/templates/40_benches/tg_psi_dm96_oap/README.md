@@ -172,7 +172,38 @@ with a clean break ladder, where the tuner's own winner read **0.0338**
 (`runs/tailB` vs `runs/tailA`, REPORT_reflective §4.5). The lens rig keeps its
 tuned tail, which does read (0.9968).
 
-**Why the tuner's objective is not trusted here, and what is open.** Every
+**CLOSED 2026-09-17 (Dave's ruling): the objective is now the READING.**  The
+question below -- what the tuner should optimize -- was answered by measuring
+what its old objectives were blind to.  `P.tail.objective 'reading'` makes the
+cost what the pupil stage measures the camera recovering off the DM
+(`tg96_pupilsim` stage 2's working-surface error, or its stage-1 band-edge-phase
+proxy), and the flat-DM null is computed and PRINTED every evaluation, never
+optimized.  `P.tail.free` says which of the four the tuner may move; holding
+`D_MASK_FL` holds the field lens at the geometric seed station, which is what
+images the DM flat.  The winner gate below is unchanged and still has the last
+word.
+
+Two measurements from the first tune on the collimated bench (`lens96`) that are
+worth knowing before touching this again:
+- **The flat-DM null did not move at all** -- 59.3168 nm, four decimals, across
+  every evaluation.  With the field lens held at the seed station the pupil
+  rides 1.2 mm high on it, so its conic is nearly powerless on the ARM
+  DIFFERENCE, and `DET_TRIM` is common to both arms.  The null's large
+  excursions in the record (9.1 -> 0.134 nm) came from `D_MASK_FL` and `FL_F`,
+  which the redo holds.  An objective that cannot move is not an objective.
+- **The field lens's conic IS the pupil-image field-curvature knob**, and the
+  null objective had no way to see it.  Each DM zone lands at its own radius on
+  the field lens (up to 1.2 mm, because the lens sits 10.8 mm past the focus),
+  so an r^4 term there is a field-curvature term for the pupil image: the tune
+  took `FL_Kc` -2.11 -> -7.78 and the zone-image surface from 0.7 mm of
+  departure to **0.002 mm**, the astigmatic split 0.146 -> 0.056 mm and the
+  worst Nyquist gain 0.9997 -> 1.0000.  Buildability is not the conic: over the
+  1.2 mm the beam uses, K = -7.78 is a 0.20 um departure from the sphere (0.15
+  um from the seed conic), while over the 12 mm blank it is 128 um -- so the
+  spec belongs on the used aperture, or the blank should shrink.
+
+**Why the tuner's objective was not trusted here (the open problem, as it
+stood).** Every
 quantity `tg96_tail` computes about its candidate — the flat-DM null, the
 recovered poke peak, the localization `conc`, the wrap fraction — preferred the
 tail that does not read: measured cleanly and one run at a time, the old winner
