@@ -18,6 +18,7 @@ cd "$here"
 export MACOS_HOME="${MACOS_HOME:-$HOME/dev/macos/macos_f90}"
 REC="'bench.SRC_AT_FOCUS',false,'bench.SRC_TRIM',0,'bench.L1_Kr',236.866,'bench.L1_Kc',-0.5829,'bench.L2_Kc',-0.5826,'bench.MASK_TRIM',0"
 NOSUB="'bench.PLATE_SUB',[],'bench.MASK_SUB',[],'bench.EDGE_MARGIN',2.0,'bench.BS_T',1.5"
+OAP="'bench.optics','oap','bench.POL_IN','source','bench.D_RC_L2',125,'oap.OAP1_AOI',20,'oap.OAP2_AOI',25,'oap.OAP1_SIDE',1,'oap.OAP2_SIDE',-1"
 
 wait_matlab () {
   local n=0
@@ -40,4 +41,11 @@ run nullab_new    ""                 # the redo bench: collimated, substrates in
 run nullab_nosub  "$NOSUB"           # collimated, the record's ideal elements
 run nullab_rec    "$REC"             # the record's optics and conjugate, substrates in
 run nullab_recnos "$REC,$NOSUB"      # the record's bench outright (expect ~9 nm: its seed)
+# The mirror rig is the sharper version of the same question: package A did not
+# touch its optics (a parabola fed at its focus was already exact), yet its seed
+# null went from the 0.0223 nm of the reflective record to 73.3227 nm on the
+# redo bench.  Only the substrates, the seat and the beam changed, so one leg
+# with the substrates off attributes it outright.  The "on" number is already in
+# runs/tail_oap96.log's SEED line and is not re-run here.
+run nullab_oapnos "$OAP,$NOSUB"      # mirror rig, the record's ideal elements
 echo "[nullab] $(date '+%F %T') done"
