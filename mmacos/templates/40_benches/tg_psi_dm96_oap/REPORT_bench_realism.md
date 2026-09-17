@@ -975,3 +975,61 @@ single-knob tune looks like on a TILTED image surface: this rig's pupil surface
 carries 0.45 mm of tilt from the OAP pair, and a detector shift can only trade
 one edge of the pupil against the other.  The lens rig had a BOWL, which the
 field lens's conic can flatten; a tilt is not in the tail's reach at all.
+
+### 8.6 Two things the emitted decks said that were not on the list
+
+**(a) The clearance table's negative rows are bookkeeping, and the fix is in
+the grouping.**  `redo_lens`'s physical-parts check reports five rows at -94 to
+-102 mm (`QWPref`, `Sub2f`, `Sub2b`, `Sub3f`, `Sub3b`), every one of them a
+SUBSTRATE FACE scored against the beam that goes through its own element.
+`dmg_bench_clearance` groups a part's records by name stem so a plate is never
+tested against its own beam, but the builder names substrate faces neutrally
+(`Sub<k>f` / `Sub<k>b`) ON PURPOSE -- every arm descriptor in this lane picks
+the wave plates out with `contains(name,'QWP')`, and a face called
+`QWPtestInf` would be handed to `macos.waveplate` as a plate -- so the stem
+rule cannot see whose substrate they are.  The two PASSES of one plate get
+different numbers besides (`Sub2*` outbound, `Sub3*` back through the same
+glass).  The deck ORDER knows: an `f` face is followed by its element, a `b`
+face preceded by it, and inheriting the element's stem also inherits its
+`In`/`Out` pass grouping.  Fixed there, with the segment endpoints read
+through the same map; decks with no such faces are untouched by construction.
+
+**The compensator's +10.4 mm is NOT bookkeeping, and it is not the plates
+either -- it is the stop ruling.**  A builder plate carries no aperture, so its
+scored radius is the beam plus 5 mm, and widening the beam costs margin twice:
+
+| | beam radius | part r | separation | margin (spec >= 25) |
+|---|---|---|---|---|
+| record (`lensuw2`, `oapifo2`, `lens22h`) | 51.4 | 56.4 | 141.4 | +25.6 |
+| redo (the DM as the stop) | 59.0 | 64.0 | 141.4 | **+10.4** |
+
+The compensator was clearing by 0.6 mm of margin before the beam was opened.
+Making the DM the stop took 15.2 mm and put it under.  One number fixes it --
+`D_BS_CMP` 200 -> ~225 mm physical gives +28.1 -- but that is a layout decision
+with a parts-list consequence and it is Dave's, not this package's.  Both rigs
+report it (1 of 6 node parts on the lens rig, 1 of 5 on the mirror rig).
+
+**(b) The lens rig's station residual is a WRAP, and the brief's hypothesis for
+it is dead.**  `redo_lens` reads **51443 pm** on the 30 nm working surface
+against `redo_oap`'s **463 pm** (the record: 62 nm and 626 pm).  The brief
+expected the pupil-image bowl to explain it and the seed tail to close it.  The
+bowl is GONE -- the zone image surface is flat to 0.002 mm and the distortion
+is 0.041 mm against the mirror rig's 0.72 -- and the residual barely moved, so
+that hypothesis is refused: the rig with the better pupil image has the worse
+residual by 100x.
+
+What the figure shows instead (`redo_lens_stations.png`, bottom right panel):
+dense salt-and-pepper at +-2.5e5 pm on a panel whose own scale is +-250 nm,
+i.e. **isolated pixels thrown by about lambda/2 = 316 nm**.  The mirror rig's
+same panel is 0-3000 pm and sparse.  Both rigs' RECOVERED surfaces look like
+the mirror command they are reading, so the gauge is not broken; what differs
+is where the recovered map and the engine's own field FOLD, and they do not
+fold at the same pixels.  Both quantities in that comparison are wrapped at
+lambda/4 = 158 nm by construction (`ht = angle(exp(i*(angle(Et)-angle(E0))))`),
+and this rig carries a 59 nm fixed pattern plus a 30 nm surface underneath it.
+Package C item: count the pixels whose residual exceeds lambda/4 and see
+whether removing them collapses the rms -- that separates "a few folded pixels"
+from a broad error, and `battery.unwrap` already exists for the first.  A
+candidate cause specific to this rig is in section 7's own measurement:
+amplitude cross-talk up to a third of the phase modulation at the lens rig's
+edge, which the four-step ignores.

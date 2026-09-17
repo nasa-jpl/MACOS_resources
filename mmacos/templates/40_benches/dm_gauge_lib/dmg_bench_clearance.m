@@ -129,8 +129,41 @@ bodynm = fieldnames(o.BODY);
 part_ = @(nm) regexprep(nm, ['(pow|flat|txff|txbf|txfo|txbo|txft|txbt|txfr|txbr|' ...
                              'txfd|txbd|txfu|txbu|crefr|refl|binr|boutr|txf|txb|In|Out)$'], '');
 for i = 1:numel(recs), recs(i).part = part_(recs(i).name); end
+% A SUBSTRATE FACE belongs to the element it brackets (2026-09-17).  The
+% builder names those faces neutrally -- 'Sub<k>f' / 'Sub<k>b' -- and that is
+% deliberate: every arm descriptor in this lane picks the wave plates out with
+% contains(name,'QWP'), so a face called 'QWPtestInf' would be handed to
+% macos.waveplate as a plate.  The stem rule above therefore cannot see whose
+% substrate they are, and the two PASSES of one plate get different numbers
+% besides (Sub2f/Sub2b outbound, Sub3f/Sub3b on the way back through the same
+% glass).  Left alone, each face is scored against the beam that goes through
+% its own element: five rows at -94 mm on the decided substrate set, pure
+% bookkeeping, on a bench whose parts all clear.  The deck ORDER says whose
+% they are -- an 'f' face is followed by its element, a 'b' face preceded by
+% it -- and inheriting the element's stem also inherits its In/Out pass
+% grouping, which is what merges the two passes.  Decks with no such faces are
+% untouched by construction.
+issub_ = @(nm) ~isempty(regexp(nm, '^(Mask)?Sub\d*[fb]$', 'once'));
+for a = 1:2
+    ia = find(strcmp({recs.arm}, tag{a}));
+    for q = 1:numel(ia)
+        nm = recs(ia(q)).name;
+        if ~issub_(nm), continue; end
+        if nm(end) == 'f' && q < numel(ia) && ~issub_(recs(ia(q+1)).name)
+            recs(ia(q)).part = recs(ia(q+1)).part;
+        elseif nm(end) == 'b' && q > 1 && ~issub_(recs(ia(q-1)).name)
+            recs(ia(q)).part = recs(ia(q-1)).part;
+        end
+    end
+end
+% the segments' endpoints must be read through the SAME map, or a segment
+% labelled '... Sub3b -> Comptxfu' still reports the raw stem and the part it
+% belongs to is scored against it anyway
 for s = 1:numel(segs)
-    segs(s).parts = {part_(regexprep(segs(s).lab, '^.*: (.*) -> (.*)$', '$1')), part_(regexprep(segs(s).lab, '^.*: (.*) -> (.*)$', '$2'))};
+    a1 = regexprep(segs(s).lab, '^(.*): .* -> .*$', '$1');
+    n1 = regexprep(segs(s).lab, '^.*: (.*) -> (.*)$', '$1');
+    n2 = regexprep(segs(s).lab, '^.*: (.*) -> (.*)$', '$2');
+    segs(s).parts = {stem_of_(recs, a1, n1, part_), stem_of_(recs, a1, n2, part_)};
 end
 rows = {};  done = {};
 for i = 1:numel(recs)
@@ -222,4 +255,11 @@ function v = vpt_(E, nm, n)
 %VPT_  the vertex of the element named n, or [] when this rig has no such part.
     i = find(strcmp(nm, n), 1);
     if isempty(i), v = []; else, v = macos.design.Bench.station(E(i)); end
+end
+
+function st = stem_of_(recs, arm, nm, part_)
+%STEM_OF_  the part stem this deck record carries, after the substrate-face
+%   remapping; falls back to the plain suffix rule for a name not in recs.
+i = find(strcmp({recs.arm}, arm) & strcmp({recs.name}, nm), 1);
+if isempty(i), st = part_(nm); else, st = recs(i).part; end
 end
