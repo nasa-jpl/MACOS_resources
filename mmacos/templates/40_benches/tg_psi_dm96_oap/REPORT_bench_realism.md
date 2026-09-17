@@ -1033,3 +1033,51 @@ from a broad error, and `battery.unwrap` already exists for the first.  A
 candidate cause specific to this rig is in section 7's own measurement:
 amplitude cross-talk up to a third of the phase modulation at the lens rig's
 edge, which the four-step ignores.
+
+### 8.7 Package A's gate record: the pupil stage on the EMITTED decks
+
+`tg96_pupil_batch` on `redo_lens_test.in` and `redo_oap_test.in`, at the pupil
+stage's own 129 rays across -- independent of the 65 the tunes ran at, so the
+winner is certified at a sampling it was not fitted at.  Tags
+`pupilsim_redo_lens`, `pupilsim_redo_oap`.
+
+| | lens rig | mirror rig | record (lens / mirror, REPORT 7 + 7.1) |
+|---|---|---|---|
+| Nyquist phase gain, worst in the lit pupil | **1.0000** | **0.9994** | 0.954 / 0.997 |
+| gain by radius, 10 bins | 1.000 throughout | 1.000 throughout | fell to 0.95 at the edge |
+| band-edge quadratic phase | **0.000 rad rms / 0.000 max** | **0.013 / 0.035** | -- |
+| amplitude cross-talk per unit phase, max | **0.005** | 0.036 | up to 0.33 at the lens edge |
+| zone image surface vs the detector | **flat to 0.001 mm** | +0.22 on axis, -0.67..+0.32 (tilt 0.43, defocus -0.45) | +2.6..+6.0 (lens) |
+| astigmatic split of the zone images | 0.055 mm rms | 0.092 | 1.05 (lens) / 0.09 (mirror) |
+| single pokes, peak / width / centroid shift | 0.9998 / 0.999 / <= 0.4 um | -- | 0.99 (lens) |
+| **30 nm working surface: recovered - true** | **0.042 nm rms** (0.13 % of it) | **0.092 nm** (0.29 %) | **1.22 nm** / 0.23 nm |
+| pupil distortion vs one global affine | 0.041 mm rms | 0.722 | 0.27 / 0.72 |
+
+**GATES (the brief's package A item 2, both rigs): Nyquist gain >= 0.998 worst
+PASS; band-edge phase < 0.06 rad max PASS; distortion < 0.01 mm rms FAIL on
+both, and that figure is withdrawn** -- see 8.4: it was read off a row measured
+on the uncollimated bench, the mirror rig has carried 0.72 mm through every
+record it ever set while reading 0.997, and the number is a residual AFTER the
+registration affine.  The flat-DM null is reported, not gated: 59.3 nm (lens),
+73.9 nm (mirror).
+
+**The headline is the working surface.**  The bench reads its own 30 nm surface
+to **42 pm** on the lens rig, against 1.22 nm for the record's tuned tail on the
+record's bench -- a factor of 29 -- and to 92 pm on the mirror rig against
+0.23 nm, a factor of 2.5.  The error is flat across the spatial bands until the
+very top of the actuator band (0.0003 of the surface below 0.25 cyc/mm, 0.0046
+at the Nyquist itself).
+
+**And the lens rig's amplitude cross-talk is gone.**  0.005 per unit phase,
+where section 7 measured up to a third of the phase modulation at that rig's
+edge and noted that the four-step ignores it.  That was the leading candidate
+for the station figure's folded pixels (8.6b); it is no longer present on this
+tail, so that explanation weakens and the fold stands on its own.
+
+**What the mirror rig cannot do, and why it is fine.**  Its zone image surface
+keeps 0.43 mm of TILT and 0.45 mm of defocus -- the off-axis parabola pair's,
+not the tail's -- so a detector shift cannot flatten it, only pivot about it
+(0.013 rad rms of band-edge phase against the lens rig's 0.000).  It still
+reads 0.9994 worst, because 0.035 rad of quadratic phase costs
+`1 - cos(0.035)` = 6e-4 of gain.  The distortion is the same 0.72 mm mapping it
+has always had, and the registration affine has always absorbed it.
