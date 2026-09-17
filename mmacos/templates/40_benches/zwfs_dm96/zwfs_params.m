@@ -79,7 +79,7 @@ P.bench.F1       = s*500;    P.bench.F2 = s*250;      % collimator / focusing le
 % past the beam (60 -> 66), the DM's aperture at its actuator footprint (30 -> 28 = 48 mm).
 % The record's beam (runs before this date) was the source cone, 77 / 82 mm on a 96 mm DM.
 P.bench.D_LENS   = s*66;     P.bench.R_BAFFLE = s*18;    P.bench.D_SB = s*250;
-P.bench.BS_T     = s*5.8333;   % 10 mm splitter and compensator (DECIDED 2026-09-17; the record's s*1.5 = 2.6 mm)    P.bench.D_L1_BS = s*150;    P.bench.D_BS_TO = 700;
+P.bench.BS_T     = s*5.8333;   P.bench.D_L1_BS = s*150;    P.bench.D_BS_TO = 700;   % BS_T: 10 mm splitter and compensator (DECIDED 2026-09-17; the record's s*1.5 = 2.6 mm)
 P.bench.D_BS_CMP = 200;      P.bench.R_TO_AP = s*28;     % compensator 200 mm down the DM leg (clears the source beam by 31 mm at 22.5 deg); DM aperture radius = the actuator footprint
 P.bench.L1_Kr = s*236.866;   P.bench.L1_Kc = -0.5829;    % tuned lens figures (l2_trade)
 P.bench.L2_Kr = -s*124.076;  P.bench.L2_Kc = -0.5826;

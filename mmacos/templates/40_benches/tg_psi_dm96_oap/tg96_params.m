@@ -95,7 +95,7 @@ P.bench.F1 = 500;   P.bench.F2 = 250;      % *s in the runner
 % carries the aperture at its actuator footprint (R_TO_AP 28 -> 48 mm).  Runs
 % emitted before this date have the 77 / 82 mm beam.
 P.bench.D_LENS = 66;  P.bench.R_BAFFLE = 18;  P.bench.D_SB = 250;
-P.bench.BS_T = 5.8333;   P.bench.D_L1_BS = 150;   % BS_T 5.8333 x s = 10 mm splitter and compensator (DECIDED 2026-09-17; the record's 1.5 = 2.6 mm)    P.bench.D_BS_CMP = 200/(96/56);   % compensator at 200 mm physical (x s in the runner)
+P.bench.BS_T = 5.8333;   P.bench.D_L1_BS = 150;    P.bench.D_BS_CMP = 200/(96/56);   % compensator at 200 mm physical (x s in the runner); BS_T 5.8333 x s = 10 mm splitter and compensator (DECIDED 2026-09-17; the record's 1.5 = 2.6 mm)
 P.bench.D_BS_TO = [];              % [] => Stage-A solved DM leg
 P.bench.R_TO_AP = 28;              % the DM's aperture = the 96 mm actuator footprint (was 30 = 103 mm, which nothing filled)
 P.bench.L1_Kr = 236.866;  P.bench.L1_Kc = -0.5829;   % lens seeds (ignored oap)
