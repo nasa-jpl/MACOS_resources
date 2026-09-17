@@ -26,6 +26,12 @@ s = 96/56;  LAM = 6.328e-4;
 MODEL = 1024;  NGRID = 193;  N_G = 384;  DX_G = 0.28;
 NACT = 96;  PITCH = 1.0;  AOI = 7;  D_BS_TO = 700;  R_BEAM = s*30;
 T_FL_F = 42.5325;  T_FL_Kc = -2.58764;  T_DMF = 39.7694;  T_TRIM = -1.2473;
+% NOTE 2026-09-17: the lens figures and MASK_TRIM below are the RECORD's
+% (the bench fed 25 mm inside its collimator's conjugate).  The live bench is
+% collimated for real -- L1_Kr 249.246312, L1_Kc -0.583016, L2_Kc -0.581843,
+% MASK_TRIM re-scanned per run -- and lives in zwfs_params.m / tg96_params.m
+% (solved by tg_psi_dm96_oap/tg96_collimate).  These hard-coded copies are kept
+% so the figures of record reproduce; anything NEW should read the sheet.
 MASK_TRIM = -5.582;                       % S1 focus find (zwfs_s1_report.txt)
 N_FS = 1.45702;  ETCH_MM = 346.2e-6;
 PHI_M = 2*pi*(N_FS-1)*ETCH_MM/LAM;
