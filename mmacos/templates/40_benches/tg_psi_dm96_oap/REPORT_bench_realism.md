@@ -474,3 +474,142 @@ the DM), `pupilq_<rig>_focal.png` (spot, wavefront and centroid residual
 against tilt, both azimuths).  Open: the chief-tied exit-pupil sphere
 (the engine's Return/Return/plane idiom) refused to load through the mex
 without a message; the fitted focus removal stands in for it to first order.
+
+## 7. The pupil image simulated: the DM's modes through the detector leg (Dave, 2026-09-17)
+
+Runner `tg96_pupilsim.m` (sheet block `P.pupil`; `runs/pupilsim_lens`,
+`runs/pupilsim_oap`; run-it-yourself: `./tg96_pupil_batch.sh both`).  Section 6
+measured the pupil image geometrically; this section propagates the DM's field
+through the leg and reads it out as the interferometer does, so Fang Shi's
+question -- do distortion, field curvature and the rest limit the observability
+of the DM's modes -- gets a number per mode and per pupil zone.
+
+**Method, three stages.**  (1) The leg's coherent PSF, zone by zone, from the
+engine's rays: the bench as built, the DM the stop, a two-dimensional set of
+tilts over the actuator band (rings at 0.5, 1, 2 and 3.2 x 1e-4 rad and a
+margin ring at 1e-3, eight azimuths, 41 traces).  For every ray -- every DM
+zone -- the detector-plane intercept and the exit angle against tilt give the
+zone's transverse ray aberration over the band aperture, which integrates to
+the zone's wavefront W(a); the zone's coherent transfer function is exp(-ikW)
+and its inverse transform the zone's complex PSF.  The DM as the stop keeps
+each ray on its zone to 2 um across the whole set, which is what makes the
+walk a PSF and not a mapping change.  (2) The DM field exp(i 4 pi h / lambda)
+on the DM's own grid (0.125 mm, 1024 px) is filtered zone by zone (overlap-add
+over 8 mm raised-cosine patches), the reference arm goes through the same
+operator, and angle(Et conj Er) is the recovered surface.  Test surfaces:
+sinusoids at the actuator Nyquist (2 mm period), 4, 8 and 16 mm; single
+100 nm pokes (Gaussian influence, 0.85 mm 1/e) at six sites out to the
+outermost lit ring; the record's 30 nm working surface (random commands,
+seed 7).  Gain and amplitude cross-talk are read by demodulation, per radius.
+(3) A plane-to-plane check.  The engine's own propagation through reference
+surfaces inserted in the .in file (the CTB model) was built as
+`tg96_pupil_engine.m`; it is not yet a valid check of this leg -- see the end
+of this section.  A standalone paraxial Fourier chain with exact thick-lens
+screens is in the runner as a standby (`fourier` true).
+
+**What the stages settled first: the beam of record was the source cone, not
+the DM.**  On both rigs no element clips a ray.  The builder sizes the source
+cone to the baffle (2 atan(R_BAFFLE / D_SB) x FILL, a full cone angle in the
+engine's convention), and that cone reaches 38.6 mm at the DM on the lens rig
+and 41.0 mm on the mirrors: a 77 / 82 mm beam on a 96 mm DM, the outer
+actuator rings unlit, the record's 7.8 / 8.0 mm pupil image its direct
+consequence.  Dave's ruling (2026-09-17): the baffle must not constrain, and
+the DM carries the aperture.  The simulation opens the baffle, widens the cone
+so the beam is 1.06 x the DM aperture, and puts a 48 mm aperture on the DM (the
+96 mm actuator footprint): the DM clips 11% of the rays and is the stop in
+fact.  The sheets follow (`tg96_params`, `zwfs_params`: R_BAFFLE 12.5 -> 18,
+D_LENS 60 -> 66 so the lenses cannot be the stop, R_TO_AP 30 -> 28); runs
+emitted before this date carry the 77 / 82 mm beam.
+
+**The leg per zone (stage 1).**  Within the actuator band the zone wavefront is
+defocus and astigmatism and nothing else: the third- and fourth-order part is
+0.3 nm rms on the lens rig (0.05 on the mirrors) against 24 nm rms (3.6) of
+band-edge wavefront.  So each zone's PSF is a Fresnel kernel set by how far
+that zone's image lies from the detector plane -- the pupil SURFACE against the
+detector, which stage 1 measures directly:
+
+| | lens rig (tuned tail) | mirror rig (geometric seed) |
+|---|---|---|
+| zone image vs the detector plane, on axis | +2.61 mm (downstream) | -0.40 mm |
+| over the pupil: mean / min / max | +4.32 / +2.63 / +6.04 | -0.62 / -1.30 / -0.31 |
+| astigmatic split of the image, rms / max | 1.05 / 1.85 mm | 0.09 / 0.16 |
+| band-edge (Nyquist) quadratic phase, rms / max | 0.236 / 0.322 rad | 0.035 / 0.068 |
+| phase gain at the band edge, worst = cos | 0.949 | 0.998 |
+| amplitude cross-talk at the band edge, worst = sin | 0.32 | 0.07 |
+| compromise plane (mean image) | +4.32 mm | -0.62 mm |
+| band-edge phase there, rms / max | 0.052 / 0.092 | 0.013 / 0.035 |
+| distortion vs one global affine, rms / max | 0.27 / 0.55 mm | 0.72 / 1.25 |
+
+**Are we imaging at the best pupil image?  Not on the lens rig.**  The tuned
+tail put the detector 2.6 mm ahead of the on-axis image and 4 to 6 mm ahead of
+the edge zones' images: the tail was tuned on the flat-DM null, which is blind
+to pupil defocus (the OAP tuner failure of REPORT_reflective 4.5 is the same
+blindness).  Moving the detector 4.3 mm downstream, to the mean of the image
+surface, cuts the band-edge phase four-fold; what remains is the bowl's
+residual (+-1.7 mm) and the field lens's astigmatism (1 mm split at the edge),
+which no detector position removes.  The mirror rig's geometric seed placed
+its detector within 0.4-1.3 mm of the image surface -- the thin-lens conjugate
+is a better guide than the null-tuned trim.
+
+**The DM's modes through the leg (stage 2).**  Phase gain (recovered / true)
+by pupil radius, u direction (v identical to 3 digits):
+
+| lens rig | center | 0.5 | 0.9 | worst in the lit pupil | amplitude cross-talk, max |
+|---|---|---|---|---|---|
+| Nyquist (2 mm), as built | 0.990 | 0.985 | 0.973 | 0.954 | 0.29 |
+| 4 mm, as built | 0.999 | 0.999 | 0.998 | 0.997 | 0.07 |
+| 8 mm / 16 mm, as built | 1.000 | 1.000 | 1.000 | 1.000 | 0.02 / 0.00 |
+| Nyquist, detector +4.3 mm | 0.997 | 0.999 | 0.998 | 0.993 | 0.12 |
+| single 100 nm poke, peak / true (6 sites) | 0.996 | 0.993 | 0.989 | 0.987 at the outermost ring | -- |
+| 30 nm working surface, recovered - true (piston, tilt out) | | | | 1.2 nm as built; 0.4 nm at +4.3 mm | |
+| **mirror rig**, Nyquist as built | 1.000 | 1.000 | 0.999 | 0.997 | 0.07 |
+| working surface | | | | 0.23 nm as built; 0.09 at -0.6 mm | |
+
+**Reading.**  Every DM mode is observable on both rigs.  On the lens rig as
+tuned the highest frequency loses 1% of gain at the center and 5% at the
+edge, the modes at half Nyquist and below are within 0.3%, a single actuator
+reads at 0.99 everywhere, and the 30 nm working surface comes back with 1.2 nm
+of error -- 4%, most of it the Nyquist content of random commands.  The
+amplitude cross-talk (a third of the phase modulation converts to intensity at
+the pupil edge) the four-step ignores by construction, and the sensors that do
+read amplitude do not use this leg.  Moving the detector 4.3 mm downstream
+takes the Nyquist gain to 0.993 worst and the working-surface error to 0.4 nm.
+The mirror rig is at the image already: 0.997 worst, 0.23 nm.  The distortion
+(0.27 mm rms on the lens rig, 0.72 on the mirrors, against a single affine) is
+a mapping, not a blur: the measured response matrix absorbs it (section 6), a
+per-zone calibration removes it for anything that uses the affine.
+
+**Recommendation.**  (1) On the lens rig, set the detector at the image
+surface's mean (DET_TRIM + 4.3 mm at the tuned tail; a knob for the tuner: the
+image position from the rays, not the null), and re-read the rows.  (2) Keep
+the DM as the stop in every deck from here (the sheet change), and re-run the
+record's rows on the 96 mm beam when the queue allows; the outer four actuator
+rings enter the lit set.  (3) For the sensors' rigs the same stage applies
+unchanged (the leg is shared); their masks sit at the seat, before the leg.
+
+**The engine's plane-to-plane check: built, and why it does not yet check
+this leg.**  `tg96_pupil_engine.m` inserts the CTB-style reference surfaces
+into the deck: the symmetric sphere pair around the mask (NF1 / NF2) and a
+sphere after the field lens concentric with the beam there (its center, the
+field lens's image of the focus, is 796 mm downstream: the collimator of
+record feeds the focuser a slightly converging beam, so the focus sits 45 mm
+ahead of the field lens, just outside its focal length), carrying the engine's
+scaled sphere-to-sphere Fresnel step (NFS1surf: effective distance
+(Z2-Z1) Z1/Z2, pitch scaled by Z2/Z1) to the detector.  Measured: the field the
+engine seeds on that sphere is correctly referenced (its phase matches the OPD
+command, 0.3 waves rms); the propagated flat pupil is a clean disc under every
+zElt convention; and every convention gets the DM modes wrong by design,
+because a geometric-to-physical hand-off is exact only where the surface is a
+conjugate of the DM.  This leg has none before the detector: the DM's image by
+the focuser is virtual, 876 mm past the focus, and the image surface lies past
+the detector -- so the per-ray seed on any upstream surface is the undiffracted
+projection of the DM pattern, which is exactly the effect under test.  (The
+first attempt, with the mask sandwich centered on the deck's seat marker
+5.5 mm from the focus, seeded 54 waves of defocus and propagated that; also
+measured.)  The CTB's spheres sit at real pupils, so the CTB never meets this.
+The faithful engine version is the CTB's station-to-station idiom -- every leg
+from the DM propagated (a collimated NFPlane leg to the focuser, the quartet at
+the focus, scaled legs through the field lens to the detector), the field never
+handed back to rays -- with each leg's zElt convention validated on the flat
+pupil and a known defocus.  That is the next step; until it lands, the zone-PSF
+model is the result of record and the paraxial standby chain its check.

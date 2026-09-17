@@ -75,9 +75,12 @@ P.bench.D_RECOMB = 150;      % the recomb plane 150 mm behind the splitter (phys
 P.bench.D_RC_L2  = 55;       % output QWP + analyzer sit just after it, clear of the reference beam;
                              % 150 + 55 = 205 keeps L2 where the tuned tail expects it
 P.bench.F1       = s*500;    P.bench.F2 = s*250;      % collimator / focusing lens
-P.bench.D_LENS   = s*60;     P.bench.R_BAFFLE = s*12.5;  P.bench.D_SB = s*250;
+% THE DM IS THE STOP (Dave 2026-09-17; see tg96_params): baffle opened (12.5 -> 18), lenses
+% past the beam (60 -> 66), the DM's aperture at its actuator footprint (30 -> 28 = 48 mm).
+% The record's beam (runs before this date) was the source cone, 77 / 82 mm on a 96 mm DM.
+P.bench.D_LENS   = s*66;     P.bench.R_BAFFLE = s*18;    P.bench.D_SB = s*250;
 P.bench.BS_T     = s*1.5;    P.bench.D_L1_BS = s*150;    P.bench.D_BS_TO = 700;
-P.bench.D_BS_CMP = 200;      P.bench.R_TO_AP = s*30;     % compensator 200 mm down the DM leg (clears the source beam by 31 mm at 22.5 deg); DM aperture radius
+P.bench.D_BS_CMP = 200;      P.bench.R_TO_AP = s*28;     % compensator 200 mm down the DM leg (clears the source beam by 31 mm at 22.5 deg); DM aperture radius = the actuator footprint
 P.bench.L1_Kr = s*236.866;   P.bench.L1_Kc = -0.5829;    % tuned lens figures (l2_trade)
 P.bench.L2_Kr = -s*124.076;  P.bench.L2_Kc = -0.5826;
 P.bench.tail_arch = 'fieldlens';                         % pupil-relay field lens behind the mask
