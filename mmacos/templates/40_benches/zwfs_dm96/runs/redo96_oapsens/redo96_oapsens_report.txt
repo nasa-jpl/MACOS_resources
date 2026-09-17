@@ -1,0 +1,10 @@
+=== ZWFS runner: tag redo96_oapsens  (2026-09-17 15:49) ===
+model 2048, NGRID 385, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench battery | readings: S V P
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+engine size table: /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/zwfs_dm96/macos_param_2048.txt (copied into the run dir as macos_param.txt)
+MASK_TRIM re-scanned: -5.9285 mm (mask-plane peak/sum 2.288e-06); the sheet asked for a scan.  9.9 s
+OAP coating: protectedAl on L1 (elt 2) and L2 (elt 12), 2 layer(s); active under polarization (the vector reading's arm maps)
+deck redo96_oapsens_test.in: TO elt 6, FocalMask 16, Detector 20; mask sandwich spheres zElt 359.246 / 359.246 mm (SYMMETRIC)
