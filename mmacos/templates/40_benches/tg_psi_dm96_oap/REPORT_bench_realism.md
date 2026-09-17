@@ -862,13 +862,15 @@ row gate cannot separate the two at all; the image surface going from 0.7 mm of
 departure to 0.002 mm is a real change and it is what Fang Shi's question, the
 camera's focus tolerance and the 385-px sampling budget are about.
 
-**A trade for Dave, then, not a conclusion:** the winner asks for a 0.24-wave
-stronger asphere on the field lens (below) and returns a flat pupil image with no
-measurable change in the reading.  The seed tail is the simpler part and passes
-the same gate.  Both are in the sheet's reach -- the winner is `lens_tail.mat`,
-the seed is `bench.tail_from_mat false` -- and `runs/redoseq2.sh` measures the
-seed's full stage-2 numbers on the SAME bench so the two can be compared on one
-page rather than across two benches.
+**CORRECTED in 8.8 -- the row gate is not sensitive enough to settle this, and
+the full measure says the tune DOES buy reading.**  What stands from the gate is
+narrower than it first looked: the winner gate cannot SEPARATE the two tails.
+Its estimator runs at SNR ~170 on a 5-site row, so a 0.3 % difference is under
+its floor, and "cannot separate" is not "no difference".  Measured on ONE bench
+with the full stage-2 measure (8.8): the tuned tail reads the 30 nm working
+surface to **42 pm against the seed tail's 97 pm**, a factor of 2.3.  The trade
+put to Dave below is therefore a real one in both directions, not a free
+choice.
 
 **The field lens's conic is the pupil-image field-curvature knob, and the null
 objective had no way to see it.**  The field lens sits 10.8 mm past the focus,
@@ -1081,3 +1083,88 @@ not the tail's -- so a detector shift cannot flatten it, only pivot about it
 reads 0.9994 worst, because 0.035 rad of quadratic phase costs
 `1 - cos(0.035)` = 6e-4 of gain.  The distortion is the same 0.72 mm mapping it
 has always had, and the registration affine has always absorbed it.
+
+
+### 8.8 What the tune bought, on ONE bench -- and a check that the gate does not depend on the tool's own cone
+
+Two follow-on runs (`runs/redoseq2.sh`), both at the pupil stage's 129 rays:
+
+| lens rig, collimated bench, substrates in | seed tail | tuned tail (`lens96`) |
+|---|---|---|
+| `FL_Kc` | -2.11278 | -7.77234 |
+| band-edge phase | 0.012 rad rms / 0.024 max | **0.000 / 0.000** |
+| **30 nm working surface: recovered - true** | 0.097 nm rms | **0.042 nm** |
+| ... at the lowest band (0-0.062 cyc/mm) | 0.0075 of the surface | **0.0003** |
+| pupil distortion vs one affine | 0.023 mm rms | 0.041 mm |
+| compromise detector plane | -0.07 mm | -0.00 mm |
+
+**So the tune is worth 2.3x in the reading**, and most of that is at the LOW
+spatial frequencies (25x at the bottom band) -- which is what a residual field
+curvature does to a pupil relay, and exactly what the field lens's conic was
+free to remove.  This is the comparison the winner gate could not make: its
+5-site row estimator runs at SNR ~170 and reported the two tails at a ratio of
+0.9970, i.e. under its own floor.  **A gate that cannot separate two candidates
+has not said they are the same**, and it is worth saying that plainly because
+the first reading of this section said it had.
+
+The trade is therefore: a field lens conic of -7.77 instead of -2.11 -- 0.20 um
+of departure from the sphere over the 1.2 mm the beam actually uses, 0.15 um of
+it new -- buys a factor of 2.3 in how well the bench reads its own DM, and costs
+1.8x in a distortion residual that is 4 % of an actuator pitch.  Dave's call;
+`bench.tail_from_mat false` selects the seed if the simpler part wins.
+
+**And the gate does not depend on the pupil stage's own cone.**  The stage of
+record re-aims the source cone so the beam is 1.06x the DM aperture, while the
+emitted bench's cone is 1.21x; run instead on the deck's OWN cone (`overfill 0,
+dm_ap 0`) the numbers are 0.041 nm against 0.042, distortion 0.041 against
+0.041, band-edge phase 0.000 against 0.000.  The DM is the stop either way, so
+the illuminated pupil is the same 48 mm and only the marginal vignetting
+differs -- which is what the tool's cone knob was always assumed to mean, now
+measured (`pupilsim_redo_lens_owncone`).
+
+### 8.9 Where the 59 nm flat-DM null comes from: the BEAM, not the substrates and not the tail
+
+`runs/nullab.sh`, five benches, each number the tuner's own SEED evaluation at
+its reduced resolution (model 512, 193 rays), the field lens at the geometric
+seed station throughout:
+
+| bench | beam at the DM | substrates | collimated | flat-DM null |
+|---|---|---|---|---|
+| the record's, as it was | 77 mm | no | no | **9.78 nm** |
+| + the DM made the stop | 96 | no | no | **53.60** |
+| + the decided substrates | 96 | yes | no | **92.40** |
+| **+ collimated for real (the redo bench)** | 96 | yes | yes | **59.32** |
+| collimated, ideal elements | 96 | no | yes | 53.74 |
+
+(9.78 reproduces the 9.1 nm of record to within the knobs that have moved since.)
+
+**The dominant term is the beam, and it is Dave's stop ruling, not this
+package.**  Lighting the whole 96 mm DM instead of 77 mm of it takes the null
+from 9.8 to 53.6 nm.  The flat-DM null IS the two arms' aberration difference
+over the illuminated aperture, and that difference grows fast with aperture:
+the outer 10 mm of the DM's radius is where a same-plane fold pair differs
+most.  Nothing in the tail, the substrates or the collimation is responsible
+for 44 of the 59 nm.
+
+**The substrates cost 39 nm on the misfed bench and 5.6 nm on the collimated
+one -- seven times less.**  That is the cleanest statement of what collimating
+the rig actually bought: a plane-parallel plate in a COLLIMATED beam is pure
+optical path and aberrates nothing; in a converging or diverging one it adds
+spherical aberration and astigmatism in proportion to the convergence.  The
+record's "collimated" space carried 47 waves of curvature, so its plates were
+never in a collimated beam.  The 5.6 nm that remains is the plates that are
+genuinely not in collimated space -- the mask's own plate in the converging
+beam, and the output plates after L2.
+
+**And collimation ALONE does nothing to the null** (53.60 -> 53.74 with ideal
+elements): with no glass to aberrate, the arm difference does not care whether
+the space is collimated.  The two changes only interact.
+
+**What this means for package C.**  59 nm rms is a fixed pattern, removed by
+the reference frame, and no differential reading sees it -- the gate record of
+8.7 was measured with it in place and reads the 30 nm surface to 42 pm.  But
+the raw four-step is unambiguous only over +-lambda/4 = +-158 nm, so it is
+worth knowing before a day of rows: the question is not the null's rms but its
+PV against that fold, and 8.6b already shows the lens rig folding pixels in the
+station figure.  If a row table comes back with salt-and-pepper, `battery.unwrap`
+is the first thing to turn on, not the last.
