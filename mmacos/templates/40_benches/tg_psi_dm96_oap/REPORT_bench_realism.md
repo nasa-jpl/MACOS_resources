@@ -645,3 +645,65 @@ after the entrance sphere (it must be diffraction-limited on this rig), the
 far sphere's pitch bookkeeping against the rays (the 20%), then the exit
 step alone on a flat pupil with a known 10 mm defocus.  The zone-PSF model
 stands as the result of record.
+
+### 7.1 Improving the pupil image: the options assessed (Dave's ask, 2026-09-17 afternoon)
+
+`tg96_pupil_options.m` runs the simulation on surgered decks of the lens rig
+(`runs/pupil_options`, tags `popt_<variant>`).  Lens rig unless stated:
+
+| variant | zone image vs the detector, mm: on axis / mean / min / max | astig split rms / max | Nyquist gain as built, mean / worst | at the compromise plane | 30 nm surface error, as built -> compromise | distortion vs one affine, rms |
+|---|---|---|---|---|---|---|
+| record (tuned tail: field lens 39.8 mm past the marker, conic -2.59) | +2.6 / +4.3 / +2.6 / +6.0 | 1.05 / 1.85 mm | 0.979 / 0.954 | +4.3 mm: 0.9985 / 0.9934 | 1.22 -> 0.42 nm | 0.27 mm |
+| **seed tail** (field lens 10.8 mm past the marker, f 42.9, conic -2.11, detector at the thin-lens conjugate) | -0.5 / -0.7 / -1.0 / -0.5 | 0.08 / 0.14 | 0.9992 / 0.9986 | -0.7 mm: 0.9999 / 0.9999 | 0.24 -> 0.06 | 0.003 |
+| record with a spherical field lens (conic 0) | +2.6 / +1.5 / +0.3 / +2.6 | 0.59 / 1.01 | 0.996 / 0.992 | +1.5 mm: 0.9991 / 0.9942 | 0.54 -> 0.34 | 0.30 |
+| true collimation (hyperbolic collimator, source at its focus), tuned tail | +2.7 / +3.9 / +2.6 / +5.1 | 0.80 / 1.35 | 0.982 / 0.965 | +3.9 mm: 0.9991 / 0.9963 | 1.12 -> 0.32 | 0.13 |
+| true collimation + seed tail | -0.5 / -0.8 / -1.1 / -0.5 | 0.11 / 0.21 | 0.9991 / 0.9980 | -0.8 mm: 0.9999 / 0.9999 | 0.26 -> 0.08 | 0.035 |
+| mirror rig, record (seed tail) | -0.4 / -0.6 / -1.3 / -0.3 | 0.09 / 0.16 | 0.9993 / 0.9974 | -0.6 mm: 0.9999 / 0.9994 | 0.23 -> 0.09 | 0.72 |
+
+**Reading.**
+- **The tail geometry is the whole story.**  The null tuner moved the field
+  lens from 10.8 mm past the focus to 39.8 mm (its own focal length, a
+  telecentric pupil image) and bent its conic to -2.59.  At that station the
+  pupil rides 4.6 mm high on a 12 mm asphere, and the lens's zonal power
+  (about half the bowl: the spherical-lens row) and its geometry (the rest)
+  put the edge zones' images 3.4 mm past the center's, with 1 mm of
+  astigmatic split.  The seed geometry, the pupil 1.2 mm high on the lens,
+  images the DM flat to within a millimeter, with 0.08 mm of astigmatism and
+  a distortion of 0.003 mm -- a hundred times smaller than the tuned tail's.
+  The mirror rig, which never left the seed geometry, has the same pupil
+  quality; its 0.72 mm distortion is the off-axis parabola pair's, a mapping
+  the matrix absorbs.
+- **The detector move is right but second-order once the tail is right:**
+  the seed tail's compromise plane is 0.7 mm from the plane as built and
+  buys 0.9992 -> 0.9999.  On the tuned tail it is the 4.3 mm move already
+  recommended.
+- **A field lens or flattener in front of the detector cannot fix the
+  tuned tail's bowl.**  In image space that bowl is 3.4 mm deep over a
+  4.9 mm radius, a surface of about 5 mm radius of curvature; a Petzval
+  flattener for it would need a focal length of about -3.5 mm at n 1.5,
+  which is not an optic.  The bowl is a product of the relay's geometry
+  and is removed by the geometry, not compensated behind it.
+- **True collimation is worth doing for its own sake, not for the pupil
+  image.**  The collimator of record is fed 14 mm inside the hyperbola's
+  focus (the exact conic for the flat-first plano-convex form is a
+  Cartesian oval; the hyperbola leaves 6e-5 rad rms, ten times better
+  than the record's 5.8e-4).  It halves the distortion on the tuned tail
+  (0.27 -> 0.13 mm) and changes the gain little; with the seed tail it is
+  0.999 either way.  Its real value: the physical-optics station-to-station
+  chain needs it (section 7 above), and every tail re-tune should start
+  from a collimated beam.
+- **What the seed tail costs:** the flat-DM null, 9.1 nm against the tuned
+  0.134 nm (REPORT_gauge_ifo).  That null is a fixed pattern the reference
+  frame removes; the rows and the servo never saw it.  The tuner bought it
+  with the pupil image.
+
+**Recommendation.**  (1) Lens rig: return the field lens to the seed
+station (10.8 mm past the focus) and hold it there; re-tune only the conic
+and the detector trim, with the zone-image surface from the rays in the
+objective (a knob for `tg96_tail`: the image position from a differential
+trace, as `tg96_pupilsim` measures it), and set the detector at the image
+surface's mean.  (2) Mirror rig: the 0.6 mm detector move, nothing else.
+(3) Fix the collimator on the lens rig (`SRC_AT_FOCUS`, the hyperbolic
+conic) before the next tail tune, as the mirror rig already has.  (4) No
+flattener.  (5) Re-run the record's rows on the corrected tail and the
+96 mm beam together.
