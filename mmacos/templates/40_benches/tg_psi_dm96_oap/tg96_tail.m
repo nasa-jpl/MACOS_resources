@@ -111,8 +111,15 @@ nodeargs = {};
 if isfield(b,'D_RECOMB') && ~isempty(b.D_RECOMB), nodeargs = [nodeargs, {'D_RECOMB', b.D_RECOMB}]; end
 if isfield(b,'D_RC_L2')  && ~isempty(b.D_RC_L2),  nodeargs = [nodeargs, {'D_RC_L2',  b.D_RC_L2}];  end
 if isfield(b,'POL_IN')   && ~isempty(b.POL_IN),   nodeargs = [nodeargs, {'POL_IN',   b.POL_IN}];   end
+% Per-optics overrides (P.oap.<knob>): the mask SEAT belongs to the focuser,
+% and the two rigs' focusers are different optics -- see tg96_run's stage_B_.
 for kk = {'SRC_AT_FOCUS','SRC_TRIM','MASK_TRIM'}
-    if isfield(b,kk{1}) && ~isempty(b.(kk{1})), nodeargs = [nodeargs, {kk{1}, b.(kk{1})}]; end  %#ok<AGROW>
+    v = [];
+    if isfield(b,kk{1}) && ~isempty(b.(kk{1})), v = b.(kk{1}); end
+    if strcmp(b.optics,'oap') && isfield(P,'oap') && isfield(P.oap,kk{1}) && ~isempty(P.oap.(kk{1}))
+        v = P.oap.(kk{1});
+    end
+    if ~isempty(v), nodeargs = [nodeargs, {kk{1}, v}]; end  %#ok<AGROW>
 end
 C = struct('f_flat',f_flat,'f_test',f_test,'f_ref',f_ref, ...
            's',s,'AOI',AOI,'D_BS_TO',D_BS_TO,'NGRID',NGRID,'N_G',N_G,'DX_G',DX_G, ...

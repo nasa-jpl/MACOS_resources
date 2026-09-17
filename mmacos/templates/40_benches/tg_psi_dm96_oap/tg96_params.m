@@ -231,6 +231,28 @@ P.bench.tail_from_mat = true;      % false => use the GEOMETRIC SEED tail even i
                                    %  The seed-vs-tuned A/B when a reading
                                    %  misbehaves; without it the lookup falls
                                    %  back to another bench's tail.
+% The mirror rig's own mask seat (mm), solved by
+% tg96_collimate('bench.optics','oap').  P.bench.MASK_TRIM is the LENS rig's --
+% its plano singlet seats the marker short of the ray focus -- and a parabola
+% has no such seed error, so the two rigs need different numbers and the one
+% sheet field cannot hold both.  Anything in P.oap with the name of a bench
+% knob overrides it when optics=='oap'.
+P.oap.SRC_TRIM    = -0.370629;     % the mirror rig's source station, solved (runs/coll_oap).  A parabola
+                                   % fed at its focus is exact, but POL_IN 'source' puts the
+                                   % input polarizer's 2 mm plate in the DIVERGING leg, and a
+                                   % plane-parallel plate displaces the apparent source
+                                   % t*(1-1/n) = 0.63 mm ALONG the light -- so the parabola is
+                                   % fed that far inside its focus (measured 1.71e-05 rad rms,
+                                   % 0.7 waves over the beam, before this knob; 1.36e-08 rad
+                                   % rms = 0.0 waves after it).
+P.oap.MASK_TRIM   = 0.631902;      % the mirror rig's seat, solved (tg96_collimate, runs/coll_oap):
+                                   % the parabola has no thin-lens seed error, so this is the
+                                   % mask plate's own focus shift -- and it IS, to three figures:
+                                   % t*(1-1/n) = 2*(1-1/1.4585) = 0.6285 mm.  (Before the source
+                                   % station was solved it read 0.5393: the 0.7 waves of defocus
+                                   % were being paid for at the seat.)  The lens rig's 1.2318 is
+                                   % 0.69 mm of somebody else's optics and would fail package
+                                   % A's own 0.5 mm gate here.
 P.oap.OAP1_AOI    = [];            % [] => Stage-A solved; deg
 P.oap.OAP2_AOI    = [];
 P.oap.OAP1_SIDE   = 1;   P.oap.OAP2_SIDE = 1;

@@ -435,10 +435,21 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
     % setting it on the lens rig was silently dropped -- the same trap the
     % zwfs sheet records for MASK_SUB.  SRC_TRIM and MASK_TRIM are solved by
     % tg96_collimate and carried in the sheet.
+    %
+    % PER-OPTICS, and MASK_TRIM is why: the mask SEAT is a property of the
+    % FOCUSER, and the two rigs' focusers are different optics.  The lens
+    % rig's plano singlet seats its marker 1.23 mm short of the ray focus
+    % (the principal plane, the mask's own plate and what is left of the
+    % spherical aberration); the mirror rig's parabola has no such seed error
+    % and wants only the plate's t*(1-1/n).  A single sheet field would put
+    % the lens rig's correction on the mirror rig -- 0.6 mm of it wrong, which
+    % is outside package A's own 0.5 mm gate.  P.oap.<knob> overrides.
     for kk = {'SRC_AT_FOCUS','SRC_TRIM','MASK_TRIM'}
-        if isfield(b, kk{1}) && ~isempty(b.(kk{1}))
-            oapargs = [oapargs, {kk{1}, b.(kk{1})}];  %#ok<AGROW>
-        end
+        v = [];
+        if isfield(b, kk{1}) && ~isempty(b.(kk{1})), v = b.(kk{1}); end
+        if strcmp(b.optics,'oap') && isfield(P,'oap') && isfield(P.oap, kk{1}) ...
+                && ~isempty(P.oap.(kk{1})), v = P.oap.(kk{1}); end
+        if ~isempty(v), oapargs = [oapargs, {kk{1}, v}]; end  %#ok<AGROW>
     end
     rcargs = {};                                   % the recomb plane / output optics (physical mm, unscaled)
     if isfield(b, 'D_RECOMB') && ~isempty(b.D_RECOMB), rcargs = [rcargs, {'D_RECOMB', b.D_RECOMB}]; end
