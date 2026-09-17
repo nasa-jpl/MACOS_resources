@@ -95,7 +95,7 @@ P.bench.F1 = 500;   P.bench.F2 = 250;      % *s in the runner
 % carries the aperture at its actuator footprint (R_TO_AP 28 -> 48 mm).  Runs
 % emitted before this date have the 77 / 82 mm beam.
 P.bench.D_LENS = 66;  P.bench.R_BAFFLE = 18;  P.bench.D_SB = 250;
-P.bench.BS_T = 1.5;   P.bench.D_L1_BS = 150;    P.bench.D_BS_CMP = 200/(96/56);   % compensator at 200 mm physical (x s in the runner)
+P.bench.BS_T = 5.8333;   P.bench.D_L1_BS = 150;   % BS_T 5.8333 x s = 10 mm splitter and compensator (DECIDED 2026-09-17; the record's 1.5 = 2.6 mm)    P.bench.D_BS_CMP = 200/(96/56);   % compensator at 200 mm physical (x s in the runner)
 P.bench.D_BS_TO = [];              % [] => Stage-A solved DM leg
 P.bench.R_TO_AP = 28;              % the DM's aperture = the 96 mm actuator footprint (was 30 = 103 mm, which nothing filled)
 P.bench.L1_Kr = 236.866;  P.bench.L1_Kc = -0.5829;   % lens seeds (ignored oap)
@@ -112,15 +112,15 @@ P.bench.out_qwp_deg = 0;   P.bench.analyzer_deg = 0;
 % retune absorbs.  ABSOLUTE mm, NOT scaled by s: a 2 mm fused-silica window
 % is 2 mm whatever the beam diameter.  [] = the record's ideal zero-thickness
 % elements.
-P.bench.PLATE_SUB   = [];          % e.g. [1.4585 2.0] for 2 mm fused silica
-P.bench.MASK_SUB    = [];          % [n t]: the MASK's own plate, in the CONVERGING
+P.bench.PLATE_SUB   = [1.4585 2.0];   % DECIDED 2026-09-17 (Dave): 2 mm fused silica under every polarizing element ([] = the record's ideal elements)
+P.bench.MASK_SUB    = [1.4585 2.0];   % DECIDED 2026-09-17: the mask's 2 mm fused-silica plate ([] = none).  [n t]: the MASK's own plate, in the CONVERGING
                                    % beam -- the one place a plane-parallel plate is not
                                    % just path.  Its faces go ahead of the sandwich's
                                    % entrance sphere and INSIDE the existing gap, so the
                                    % mask does not move and the cost (W040 + a t*(1-1/n)
                                    % focus shift) is measurable rather than mixed with a
                                    % geometry change.  ABSOLUTE mm.
-P.bench.EDGE_MARGIN = 2.0;         % singlet edge thickness, ABSOLUTE mm
+P.bench.EDGE_MARGIN = 4.0;         % singlet edge thickness, ABSOLUTE mm (DECIDED 2026-09-17: 4 mm for the 113 mm singlets; the record's 2.0)
                                    % (add_lens: centre = sag + this).  2.0 is
                                    % the record; a 103 mm singlet wants 3-5.
 % ---- the pupil image (tg96_pupilsim / tg96_pupilq; Fang Shi 2026-09-16, Dave 2026-09-17) ----
@@ -193,7 +193,7 @@ P.oap.OAP1_SIDE   = 1;   P.oap.OAP2_SIDE = 1;
 %                 the condition is a property of the pair (stack, lambda),
 %                 not of the stack alone.
 %   Thickness in mm (bench BaseUnits). Ignored when bench.optics ~= 'oap'.
-P.bench.coat_oap  = 'none';        % 'none' | 'bareAl' | 'protectedAl' | 'qwAl'
+P.bench.coat_oap  = 'protectedAl'; % DECIDED 2026-09-17: protected aluminum by default ('none' only for the geometric equivalence gate); 'none' | 'bareAl' | 'protectedAl' | 'qwAl'
 P.bench.coat_bareAl      = struct('index',1.373, 'extinc',7.62, 'thickness',1.0e-4);
 P.bench.coat_protectedAl = struct('index',[1.38 1.373], 'extinc',[0 7.62], ...
                                   'thickness',[2.293e-4 1.0e-4]);  % [MgF2 lambda/2 ; Al opaque]

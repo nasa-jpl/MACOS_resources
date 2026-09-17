@@ -79,17 +79,17 @@ P.bench.F1       = s*500;    P.bench.F2 = s*250;      % collimator / focusing le
 % past the beam (60 -> 66), the DM's aperture at its actuator footprint (30 -> 28 = 48 mm).
 % The record's beam (runs before this date) was the source cone, 77 / 82 mm on a 96 mm DM.
 P.bench.D_LENS   = s*66;     P.bench.R_BAFFLE = s*18;    P.bench.D_SB = s*250;
-P.bench.BS_T     = s*1.5;    P.bench.D_L1_BS = s*150;    P.bench.D_BS_TO = 700;
+P.bench.BS_T     = s*5.8333;   % 10 mm splitter and compensator (DECIDED 2026-09-17; the record's s*1.5 = 2.6 mm)    P.bench.D_L1_BS = s*150;    P.bench.D_BS_TO = 700;
 P.bench.D_BS_CMP = 200;      P.bench.R_TO_AP = s*28;     % compensator 200 mm down the DM leg (clears the source beam by 31 mm at 22.5 deg); DM aperture radius = the actuator footprint
 P.bench.L1_Kr = s*236.866;   P.bench.L1_Kc = -0.5829;    % tuned lens figures (l2_trade)
 P.bench.L2_Kr = -s*124.076;  P.bench.L2_Kc = -0.5826;
 P.bench.tail_arch = 'fieldlens';                         % pupil-relay field lens behind the mask
-P.bench.PLATE_SUB   = [];    % realism item 3: [n t], the SUBSTRATE every thin polarizing element is
+P.bench.PLATE_SUB   = [1.4585 2.0];   % DECIDED 2026-09-17 (Dave): 2 mm fused silica under every polarizing element.  Realism item 3: [n t], the SUBSTRATE every thin polarizing element is
                              % really made on (input polarizer, arm QWPs, output plate, analyzer) --
                              % two refracting faces around the ideal element, which keeps its own
                              % station.  ABSOLUTE mm, not scaled.  [] = the record's ideal elements.
-P.bench.EDGE_MARGIN = 2.0;   % singlet edge thickness, ABSOLUTE mm (add_lens centre = sag + this)
-P.bench.MASK_SUB    = [];    % [n t]: the MASK's own plate, in the CONVERGING beam.  Defined here for
+P.bench.EDGE_MARGIN = 4.0;   % singlet edge thickness, ABSOLUTE mm (add_lens centre = sag + this); DECIDED 2026-09-17: 4 mm (the record's 2.0)
+P.bench.MASK_SUB    = [1.4585 2.0];   % DECIDED 2026-09-17: the mask's 2 mm fused-silica plate.  [n t]: the MASK's own plate, in the CONVERGING beam.  Defined here for
                              % documentation -- zwfs_run sweeps P.bench into twyman_green, so an
                              % override reaches the builder whether or not the field pre-exists.
                              % tg96_run does NOT sweep: it forwards an explicit list, which is how
@@ -102,7 +102,7 @@ P.bench.MASK_TRIM = -5.582;  % thin-lens seed -> true focus (S1 rounds 2-5).  Th
                              % focus and blame the glass for the blur.  0 on the OAP rig.
 P.bench.FL_F   = 42.5325;    P.bench.FL_Kc = -2.58764;  P.bench.FL_D = s*12;
 P.bench.D_MASK_FL = 39.7694; P.bench.DET_TRIM = -1.2473; % tuned tail (tg96_tail)
-P.bench.coat_oap = 'none';   % the OAP rig only (bench.optics 'oap'): mirror coating on L1 and L2 --
+P.bench.coat_oap = 'protectedAl';   % DECIDED 2026-09-17: protected aluminum by default ('none' for the geometric gate only); the OAP rig only (bench.optics 'oap'): mirror coating on L1 and L2 --
                              % 'none' | 'bareAl' | 'protectedAl' | 'qwAl' (CCMac's tg96 stacks below,
                              % plus the quarter-wave overcoat); applied after every deck load; active
                              % under polarization only, i.e. for the vector reading's arm maps
