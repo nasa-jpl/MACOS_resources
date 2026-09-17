@@ -757,6 +757,22 @@ GATES (the brief's): exit spread < 1e-4 rad rms **PASS** (6.3e-09); focal spot
 < 1 um rms **PASS** (0.17); mask marker within 0.5 mm of the ray focus **PASS**
 (0.000, by construction -- stage 3 solves it).
 
+**The solved radius checks out in closed form, which is how we know it is not
+a fit artifact.**  A plano singlet's front principal plane sits `t/n` behind its
+flat face, so a lens that collimates a source `d` in front of its powered vertex
+has focal length `f = d - t(1 - 1/n)`.  Here `t` = sag + edge margin = 7.745 mm
+at the scale the runner builds (3.745 + 4.0), so `t(1 - 1/n)` = 2.58 mm:
+
+| | focal length the radius implies | the conjugate it collimates | + the principal-plane term |
+|---|---|---|---|
+| record, `L1_Kr` 236.866 | 473.73 | 473.73 + 1.51 = **475.2** | = `F1 - zsource` = 475 |
+| re-solved, `L1_Kr` 249.246312 | 498.49 | 498.49 + 1.51 = **500.0** | = `F1` |
+
+(sheet units; the runner multiplies by `s` = 96/56.)  The two differ by exactly
+`zsource`.  The record's lens was the right lens for the bench as the engine
+actually built it -- which is why nothing ever looked wrong -- and the new one
+is the right lens for the bench the sheet describes.
+
 **Two things worth keeping.**  (1) **The conic barely moved**: -0.583016 against
 the record's -0.5829, four figures, while the radius moved 5 %.  A conic belongs
 to the shape and the plano orientation, not to the conjugate; only the radius
