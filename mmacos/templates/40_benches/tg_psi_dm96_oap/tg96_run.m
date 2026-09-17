@@ -429,8 +429,15 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
         if isfield(b,'POL_IN') && ~isempty(b.POL_IN)
             oapargs = [oapargs, {'POL_IN', b.POL_IN}];
         end
-        if isfield(b,'SRC_AT_FOCUS') && ~isempty(b.SRC_AT_FOCUS)
-            oapargs = [oapargs, {'SRC_AT_FOCUS', b.SRC_AT_FOCUS}];
+    end
+    % The collimation knobs, BOTH rigs (2026-09-17, BRIEF_to_tg_redo package
+    % A).  SRC_AT_FOCUS used to be forwarded from inside the oap block, so
+    % setting it on the lens rig was silently dropped -- the same trap the
+    % zwfs sheet records for MASK_SUB.  SRC_TRIM and MASK_TRIM are solved by
+    % tg96_collimate and carried in the sheet.
+    for kk = {'SRC_AT_FOCUS','SRC_TRIM','MASK_TRIM'}
+        if isfield(b, kk{1}) && ~isempty(b.(kk{1}))
+            oapargs = [oapargs, {kk{1}, b.(kk{1})}];  %#ok<AGROW>
         end
     end
     rcargs = {};                                   % the recomb plane / output optics (physical mm, unscaled)

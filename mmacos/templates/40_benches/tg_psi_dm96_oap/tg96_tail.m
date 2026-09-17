@@ -78,10 +78,31 @@ b = P.bench;
 % record).  'sharpness' ALSO images a single-actuator poke and rewards the
 % recovered peak -- REQUIRED for the OAP rig, whose off-axis focuser leaves the
 % flat-DM null insensitive to a defocused/astigmatic pupil (Dave 2026-09-10).
-objective = P.bench.optics;   % 'lens' -> null ; 'oap' -> sharpness
-if strcmp(objective,'oap'), objective = 'sharpness'; else, objective = 'null'; end
+% 'reading' is Dave's 2026-09-17 ruling for the redo: the objective is the
+% INTERFEROMETER'S OWN READING -- the pupil stage's measure of how well the
+% camera sees the DM -- with the null REPORTED beside it and never optimized.
+% See reading_cost_ for which number, and why a null in the cost is what bought
+% the record's bowl.
+objective = tail_field_(P, 'objective', '');
+if isempty(objective)
+    objective = P.bench.optics;   % the record: 'lens' -> null ; 'oap' -> sharpness
+    if strcmp(objective,'oap'), objective = 'sharpness'; else, objective = 'null'; end
+end
 seed = [s*b.FL_F, b.FL_Kc, s*b.D_MASK_FL, s*b.DET_TRIM];
 q0 = [0, seed(2), seed(3), seed(4)];   % FL_F = seed(1)*exp(q1) keeps positive
+% WHICH of the four the tuner may move.  The record's tune moved all four and
+% walked the field lens from the geometric seed station (10.8 mm past the
+% focus, which images the DM flat) out to its own focal length (39.8 mm),
+% where the DM's image is a bowl 2.6-6 mm off the camera: the null cannot see
+% pupil defocus, so nothing in the cost held the station.  'free' is the sheet's
+% answer -- hold the station, let the conic and the detector trim work.
+PNAMES = {'FL_F','FL_Kc','D_MASK_FL','DET_TRIM'};
+freenm = tail_field_(P, 'free', PNAMES);
+if ischar(freenm) || isstring(freenm), freenm = cellstr(freenm); end
+free = ismember(PNAMES, freenm);
+assert(any(free), 'tg96_tail: P.tail.free must name at least one of %s', strjoin(PNAMES,', '));
+fprintf('TAIL free parameters: %s (held: %s)\n', strjoin(PNAMES(free),', '), ...
+        iff_str_(any(~free), strjoin(PNAMES(~free),', '), 'none'));
 % the node the runner builds: the recomb plane / output-optics distances and
 % the input polarizer's leg.  Omitting these tuned the tail on a DIFFERENT
 % bench from the one tg96_run then used (the output optics sat 17/27 mm behind
@@ -90,13 +111,17 @@ nodeargs = {};
 if isfield(b,'D_RECOMB') && ~isempty(b.D_RECOMB), nodeargs = [nodeargs, {'D_RECOMB', b.D_RECOMB}]; end
 if isfield(b,'D_RC_L2')  && ~isempty(b.D_RC_L2),  nodeargs = [nodeargs, {'D_RC_L2',  b.D_RC_L2}];  end
 if isfield(b,'POL_IN')   && ~isempty(b.POL_IN),   nodeargs = [nodeargs, {'POL_IN',   b.POL_IN}];   end
-if isfield(b,'SRC_AT_FOCUS') && ~isempty(b.SRC_AT_FOCUS), nodeargs = [nodeargs, {'SRC_AT_FOCUS', b.SRC_AT_FOCUS}]; end
+for kk = {'SRC_AT_FOCUS','SRC_TRIM','MASK_TRIM'}
+    if isfield(b,kk{1}) && ~isempty(b.(kk{1})), nodeargs = [nodeargs, {kk{1}, b.(kk{1})}]; end  %#ok<AGROW>
+end
 C = struct('f_flat',f_flat,'f_test',f_test,'f_ref',f_ref, ...
            's',s,'AOI',AOI,'D_BS_TO',D_BS_TO,'NGRID',NGRID,'N_G',N_G,'DX_G',DX_G, ...
            'QWP',QWP,'THETAS',THETAS,'LAM',LAM,'seed',seed,'optics',b.optics, ...
            'oapargs',{oapargs},'nodeargs',{nodeargs},'bench',b,'objective',objective, ...
            'poke_nm',100, ...
            'place',P.place,'POKE',P.POKE,'gate_gain',0.95, ...
+           'pupil',P.pupil, 'read_stage',tail_field_(P,'reading_stage',1), ...
+           'read_ngrid',tail_field_(P,'reading_ngrid',65), 'tag',P.tag, ...
            'stn_hw',6,'act_lam',0.05, ...
            'gate_rel',0.90,'gate_seed_floor',0.30);
 % poke_nm 100 = 0.63 of lambda/4: a healthy map then reads ~0.63 on the wrap
@@ -149,8 +174,9 @@ end
 
 [r0, n0, k0] = cost_(q0, C);
 fprintf('TAIL SEED: cost %.4f (null %.4f nm, poke-peak %.1f nm) [objective %s]\n', r0, n0, k0, objective);
-[qb, rb] = fminsearch(@(q) cost_(q, C), q0, ...
+[zb, rb] = fminsearch(@(z) cost_(unfree_(z, q0, free), C), q0(free), ...
     optimset('MaxFunEvals',150,'MaxIter',150,'TolFun',1e-3,'TolX',1e-4,'Display','off'));
+qb = unfree_(zb, q0, free);
 pb = [seed(1)*exp(qb(1)), qb(2), qb(3), qb(4)];
 [~, nb, kb] = cost_(qb, C);
 fprintf('TAIL WINNER (%s): FL_F %.4f FL_Kc %.5f D_MASK_FL %.4f DET_TRIM %.4f -> null %.4f nm, poke-peak %.1f nm\n', ...
@@ -246,7 +272,7 @@ function [r, null_nm, peak_nm] = cost_(q, C)
     persistent neval;  if isempty(neval), neval = 0; end
     s = C.s;  b = C.bench;  p = [C.seed(1)*exp(q(1)), q(2), q(3), q(4)];
     null_nm = 1e6;  peak_nm = 0;  r = 1e6;
-    conc = NaN;  wrapf = NaN;     % reported per eval so a tune is auditable
+    conc = NaN;  wrapf = NaN;  rinfo = 'not reached';     % reported per eval so a tune is auditable
     try
         G = build_(p, C);
         AT = arm_desc(C.f_test, G.bt, G.T, 0);
@@ -259,6 +285,11 @@ function [r, null_nm, peak_nm] = cost_(q, C)
         null_nm = std(hn(msk));
         if strcmp(C.objective,'null')
             r = null_nm;
+        elseif strcmp(C.objective,'reading')
+            % THE INTERFEROMETER'S OWN READING (Dave 2026-09-17).  Not a
+            % weight between the null and the pupil image: the objective IS
+            % the reading, and the null is reported beside it.
+            [r, rinfo] = reading_cost_(C);
         else   % 'sharpness': image a single-actuator poke, reward recovered peak
             Mp = dm_influence_map(C.N_G, C.DX_G, 'nact',b_nact_(b), 'pitch',b_pitch_(b), ...
                                   'pattern','single', 'poke',C.poke_nm*1e-6);
@@ -311,14 +342,74 @@ function [r, null_nm, peak_nm] = cost_(q, C)
             r = (1 - min(frac,1.2))^2 + 4*(1 - conc)^2 ...
                 + 10*max(0, wrapf - 0.8)^2 + (null_nm/200)^2;
         end
-    catch
-        r = 1e6;
+    catch ME
+        % A silent 1e6 here is how an objective that CANNOT MEASURE looks
+        % exactly like one that measures a terrible tail: every evaluation
+        % ties, fminsearch wanders, and the winner gate is left to catch it.
+        % Say what broke, once per evaluation.
+        r = 1e6;  rinfo = sprintf('FAILED: %s', ME.message);
+        fprintf('TAILEVAL: evaluation FAILED (%s) at %s:%d\n', ME.message, ...
+                iff_str_(isempty(ME.stack), '?', ME.stack(1).name), ...
+                iff_num_(isempty(ME.stack), 0, ME.stack(1).line));
     end
     neval = neval + 1;
-    fprintf(['TAILEVAL %3d: FL_F %.3f Kc %.4f D_MASK %.3f TRIM %.3f -> null %.4f nm, ' ...
-             'peak %.1f nm, conc %.3f, wrap %.2f of lambda/4, cost %.4f\n'], ...
-            neval, p(1), p(2), p(3), p(4), null_nm, peak_nm, conc, wrapf, r);
+    if strcmp(C.objective,'reading')
+        fprintf(['TAILEVAL %3d: FL_F %.3f Kc %.4f D_MASK %.3f TRIM %.3f -> %s, ' ...
+                 'null %.4f nm (reported), cost %.4f\n'], ...
+                neval, p(1), p(2), p(3), p(4), rinfo, null_nm, r);
+    else
+        fprintf(['TAILEVAL %3d: FL_F %.3f Kc %.4f D_MASK %.3f TRIM %.3f -> null %.4f nm, ' ...
+                 'peak %.1f nm, conc %.3f, wrap %.2f of lambda/4, cost %.4f\n'], ...
+                neval, p(1), p(2), p(3), p(4), null_nm, peak_nm, conc, wrapf, r);
+    end
 end
+
+function [r, info] = reading_cost_(C)
+%READING_COST_  How well the camera reads the DM through the tail just built:
+%   the pupil stage (tg96_pupilsim) run on this evaluation's own test deck.
+%
+%   read_stage 2 is the objective Dave named -- the working-surface error,
+%   stage 2's recovered-minus-true 30 nm surface with piston and tilt out,
+%   AT THE PLANE AS BUILT (res(1); res(2) is the compromise plane, which is a
+%   detector move the tuner is supposed to be FINDING, not assuming).
+%   read_stage 1 is its proxy, the band-edge quadratic phase over the pupil,
+%   which is ~4x cheaper and tracked the full measure on every case run on
+%   2026-09-17 (REPORT_bench_realism 7.1): both rank the seed station over the
+%   tuned one by the same order of magnitude.
+%
+%   WHY NOT THE NULL.  A common misplacement of the detector cancels in an arm
+%   DIFFERENCE, so the null is blind to exactly the failure that matters here
+%   -- the record's tail bought a 0.134 nm null with the DM's image 2.6-6 mm
+%   off the camera.  The null is still computed every evaluation and printed;
+%   it is evidence, not the objective.
+r = 1e6;  info = 'reading FAILED';
+R = tg96_pupilsim('rig',C.optics, 'deck',C.f_test, 'tag',[C.tag '_tailread'], ...
+                  'stages',C.read_stage, 'figs',false, 'ngrid',C.read_ngrid, ...
+                  'band',C.pupil.band, 'rings',C.pupil.rings, 'ring_out',C.pupil.ring_out, ...
+                  'naz',C.pupil.naz, 'patch',C.pupil.patch, 'dm_ap',C.pupil.dm_ap, ...
+                  'overfill',C.pupil.overfill, 'work_nm',C.pupil.work_nm, 'seed',C.pupil.seed);
+if C.read_stage < 2
+    r = R.phi_rms;
+    info = sprintf('band-edge phase %.4f rad rms / %.4f max, distortion %.4f mm', ...
+                   R.phi_rms, R.phi_max, R.dist_rms);
+else
+    r = R.res(1).work_err_nm;
+    G = R.res(1).G(find([R.res(1).G.f]==0.5 & [R.res(1).G.dir]==1, 1));
+    info = sprintf('working surface %.3f nm, Nyquist gain %.4f worst', r, G.gmin);
+end
+end
+function q = unfree_(z, q0, free)
+%UNFREE_  scatter the free coordinates back into the full 4-vector.
+q = q0;  q(free) = z;
+end
+function v = tail_field_(P, f, dflt)
+v = dflt;
+if isfield(P,'tail') && isstruct(P.tail) && isfield(P.tail, f) && ~isempty(P.tail.(f))
+    v = P.tail.(f);
+end
+end
+function s = iff_str_(c,a,b), if c, s = a; else, s = b; end, end
+function v = iff_num_(c,a,b), if c, v = a; else, v = b; end, end
 function n = b_nact_(~), n = 96; end
 function n = b_pitch_(~), n = 1.0; end
 

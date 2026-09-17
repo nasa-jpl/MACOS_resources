@@ -255,10 +255,30 @@ arguments
     % lambda F/D of best-focus blur at 1 / 3 / 5 deg, and EXACTLY ZERO at
     % every angle once the source is moved back (oap_conj_probe, runs/conj).
     % SRC_AT_FOCUS true adds zsource to the source distance so the effective
-    % point source lands on the parabola's focus.  'oap' only; default false
-    % = the record, so no existing number moves silently.
+    % point source lands on the parabola's focus.  Default false = the
+    % record, so no existing number moves silently.
+    %
+    % EXTENDED TO THE LENS RIG 2026-09-17 (BRIEF_to_tg_redo package A).  The
+    % lens rig has the SAME error -- its collimator is fed zsource inside its
+    % conjugate -- and its TUNED L1 conic absorbed it, which is why it never
+    % surfaced as blur: measured on the deck of record, the "collimated"
+    % space carries 5.8e-4 rad rms of angular spread = 41 waves of curvature
+    % over the beam, and the rays walk off the grid between the
+    % physical-optics chain's near-field legs (tg96_pupil_s2s).  With the
+    % source at the conjugate and the powered face's conic re-solved there
+    % (tg96_collimate) the spread is 1e-5-class.  The bench ORIGIN moves back
+    % rather than the lens forward, so L1's powered face and every station
+    % downstream of it stay exactly where the record put them.
     opts.SRC_AT_FOCUS (1,1) logical = false
     opts.zsource      (1,1) double  = 25   % the Rx zSource both arms emit
+    % Additive trim on the source -> collimator conjugate (mm), applied with
+    % SRC_AT_FOCUS.  A plano singlet's conjugate is not F1 from its powered
+    % vertex (the rear principal plane sits t/n inside the glass) and the
+    % exact surface for these plano orientations is a Cartesian oval, not a
+    % conic, so the residual is a SOLVE: tg96_collimate minimizes the exit
+    % rays' angular spread over (SRC_TRIM, L1_Kc) and the sheet carries the
+    % winner.  A parabola is exact, so the oap rig's answer is 0.
+    opts.SRC_TRIM     (1,1) double  = 0
     % ---- v2: a REAL polarizing beamsplitter (cemented MacNeille cube) ----
     % 'pbs','plate' (default) is the v1 rig: the splitter is a front-coated
     % PERFECT-CONDUCTOR plate plus a compensator, and the polarization split
@@ -482,7 +502,7 @@ function b = front_end(P, name)
         % EFFECTIVE point source (ChfRayPos + zSource*ChfRayDir) lands on the
         % parabola's focus rather than zSource mm inside it.
         d_src = P.F1;
-        if P.SRC_AT_FOCUS, d_src = P.F1 + P.zsource; end
+        if P.SRC_AT_FOCUS, d_src = P.F1 + P.zsource + P.SRC_TRIM; end
         src   = pole - d_src*d_in;
         b = macos.design.Bench(name, 'aperture', AP, 'ngridpts', P.ngridpts, ...
                                'pos', src, 'dir', d_in, 'zsource', P.zsource);
@@ -514,13 +534,20 @@ function b = front_end(P, name)
         b.add_oap(d_pole, d_out, 'mode','collimate', ...
                   'focus_dist', P.F1, 'name','L1', 'aprad', P.D_LENS/2);
     else
-        % the lens rig: unchanged, including the conjugate.  Its tuned L1
-        % figures absorbed the zSource offset, so "correcting" it here would
-        % move the record.  SRC_AT_FOCUS is deliberately ignored.
+        % the lens rig.  SRC_AT_FOCUS false is the record: the source sits
+        % F1 from the powered face on paper while the engine puts the real
+        % point source zsource mm downstream of ChfRayPos, so the collimator
+        % is fed that far inside its conjugate and the tuned L1 figures
+        % absorbed it.  True moves the bench ORIGIN back by zsource (+
+        % SRC_TRIM), which lands the effective point source on the conjugate
+        % and leaves the powered face -- and therefore every station
+        % downstream of it -- at the coordinates the record used.
+        d_src = P.F1;
+        if P.SRC_AT_FOCUS, d_src = P.F1 + P.zsource + P.SRC_TRIM; end
         b = macos.design.Bench(name, 'aperture', AP, 'ngridpts', P.ngridpts, ...
-                               'zsource', P.zsource);
+                               'pos', [P.F1 - d_src; 0; 0], 'zsource', P.zsource);
         b.add_baffle(P.D_SB, P.R_BAFFLE);
-        L1 = b.add_lens(P.F1 - P.D_SB, P.F1, P.D_LENS, 'mode','collimate', 'edge_margin',P.EDGE_MARGIN, ...
+        L1 = b.add_lens(d_src - P.D_SB, P.F1, P.D_LENS, 'mode','collimate', 'edge_margin',P.EDGE_MARGIN, ...
                         'n',P.N_GLASS, 'name','L1');
         b.E(L1.i_pow).Kr = P.L1_Kr;  b.E(L1.i_pow).Kc = P.L1_Kc;
     end

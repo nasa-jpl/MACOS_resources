@@ -48,7 +48,14 @@ P.THETAS = [0 45 90 135];          % analyzer four-step
 P.pzt.step_err = 0;                % fractional four-step phase-step error (0 | 0.02 | 0.05 ...)
 
 % ---- Stage-A clearance solve (folded layout re-solve for OAP) --------
-P.clear.beam_r  = 56;              % the beam UPSTREAM of the DM (the opened cone, lens rig 55.5 mm); [] => s*R_TO_AP, which is the beam only after the DM stop
+P.clear.beam_r  = 59;              % the beam UPSTREAM of the DM (the opened cone; 58.3 mm on the
+                                   % collimated lens rig -- SRC_AT_FOCUS moves the source 25 mm
+                                   % farther from L1, so the cone reaches 5% wider than the 55.5 mm
+                                   % of 2026-09-17 morning: measured by tg96_collimate).  It
+                                   % overfills the 48 mm DM by 1.21, so 68% of the ray grid gets
+                                   % through -- the price of making the DM the stop, paid in
+                                   % sampling (Stage A2 reports it).  [] => s*R_TO_AP, which is the
+                                   % beam only after the DM stop
 P.clear.HW_DM   = 90;   P.clear.HW_REF = 60;  P.clear.HW_CAM = 50;
 P.clear.MARGIN  = 25;   P.clear.LEG_CAP = 700;
 P.clear.MOUNT   = 8;               % mount ring beyond a part's aperture radius --
@@ -98,8 +105,19 @@ P.bench.D_LENS = 66;  P.bench.R_BAFFLE = 18;  P.bench.D_SB = 250;
 P.bench.BS_T = 5.8333;   P.bench.D_L1_BS = 150;    P.bench.D_BS_CMP = 200/(96/56);   % compensator at 200 mm physical (x s in the runner); BS_T 5.8333 x s = 10 mm splitter and compensator (DECIDED 2026-09-17; the record's 1.5 = 2.6 mm)
 P.bench.D_BS_TO = [];              % [] => Stage-A solved DM leg
 P.bench.R_TO_AP = 28;              % the DM's aperture = the 96 mm actuator footprint (was 30 = 103 mm, which nothing filled)
-P.bench.L1_Kr = 236.866;  P.bench.L1_Kc = -0.5829;   % lens seeds (ignored oap)
-P.bench.L2_Kr = -124.076; P.bench.L2_Kc = -0.5826;
+% The lens figures, RE-SOLVED on the collimated bench 2026-09-17
+% (tg96_collimate, runs/coll_lens; BRIEF_to_tg_redo package A item 1).  The
+% record's L1_Kr 236.866 is (n-1)*473.7 -- l2_trade matched the RADIUS to the
+% conjugate the source really sat at (F1 - zsource = 475), not to F1, so
+% feeding that lens from F1 leaves 5% of surplus focal length as residual
+% curvature and no conic can take it out.  With the radius right, the CONIC
+% barely moves (-0.5830 vs the record's -0.5829: a conic is a property of the
+% shape and the plano orientation, not of the conjugate) and the exit rays
+% leave with 6.3e-09 rad rms of angular spread -- 0.0 waves over the beam,
+% against 1.3e-03 rad rms = 47 waves on the bench as the sheet described it.
+% Ignored on the oap rig (a parabola fed at its focus is exact).
+P.bench.L1_Kr = 249.246312;  P.bench.L1_Kc = -0.583016;   % lens seeds (ignored oap)
+P.bench.L2_Kr = -124.076;    P.bench.L2_Kc = -0.581843;   % focal spot 0.17 um rms (lam F/D = 2.8 um)
 P.bench.qwp_ret = 0.25;  P.bench.pol_in_deg = 45;
 P.bench.qwp_test_deg = 0;  P.bench.qwp_ref_deg = 45;
 P.bench.out_qwp_deg = 0;   P.bench.analyzer_deg = 0;
@@ -138,6 +156,33 @@ P.bench.tail_arch = 'fieldlens';
 P.bench.FL_F = 25.02100857;  P.bench.FL_Kc = -2.11278288;
 P.bench.FL_D = 12;  P.bench.D_MASK_FL = 6.277463741;  P.bench.DET_TRIM = 1.085330067;
 
+% ---- the tail tuner (tg96_tail): what it optimizes, and what it may move ----
+% DAVE'S RULING 2026-09-17 (BRIEF_to_tg_redo section 6 item 1): the tail is
+% tuned for the best performance AS AN INTERFEROMETER.  The objective IS the
+% reading -- what the pupil stage (tg96_pupilsim) measures the camera
+% recovering off the DM -- and the flat-DM null is REPORTED beside it, never
+% optimized.  A null in the cost is what bought the record's tail: the
+% optimizer walked the field lens from the geometric seed station (10.8 mm
+% past the focus, which images the DM flat) to its own focal length (39.8 mm)
+% and bent it, because a common misplacement of the detector cancels in an
+% arm DIFFERENCE.  That tail nulls at 0.134 nm with the DM's image 2.6-6 mm
+% off the camera (Nyquist gain 0.954 worst, distortion 0.27 mm, the 30 nm
+% working surface read to 1.2 nm); the seed station nulls at 9 nm -- a FIXED
+% pattern the reference frame removes -- and reads 0.9992 / 0.003 mm / 0.06 nm.
+%   objective  '' = the record (lens -> 'null', oap -> 'sharpness');
+%              'reading' = the ruling above.
+%   free       which of FL_F / FL_Kc / D_MASK_FL / DET_TRIM the tuner may
+%              move.  Holding D_MASK_FL holds the field lens at the seed
+%              station; the winner gate (the single-actuator row through the
+%              ray affine) is unchanged and still has the last word.
+%   reading_stage  2 = the working-surface error itself (stage 2 of
+%              tg96_pupilsim, at the plane AS BUILT); 1 = its band-edge-phase
+%              proxy, ~4x cheaper, which tracked it on every case run.
+P.tail.objective = 'reading';
+P.tail.free      = {'FL_Kc','DET_TRIM'};
+P.tail.reading_stage = 1;
+P.tail.reading_ngrid = 65;
+
 % ---- reflective knobs (the ONLY additions vs the record) -------------
 %   'lens' reproduces the record; 'oap' is the all-reflective variant.
 %   The fold AOIs are re-solved by Stage A for the folded source->OAP1 and
@@ -162,7 +207,25 @@ P.bench.POL_IN    = 'collimated';  % 'collimated' | 'source' (oap only)
 % 6.14 mm.  Corrected: 0.000 lambda F/D and 0.00 mm trim at every angle
 % (oap_conj_probe, runs/conj).  The LENS rig hides the same error in its tuned
 % L1 figures, so this is 'oap' only and default false = the record.
-P.bench.SRC_AT_FOCUS = false;      % true => the collimator is fed at its focus
+% EXTENDED TO THE LENS RIG AND TURNED ON, 2026-09-17 (BRIEF_to_tg_redo
+% package A item 1).  The lens rig has the same 25 mm conjugate error; its
+% TUNED L1 hid it (l2_trade matched the radius to the conjugate the source
+% really sat at: L1_Kr 236.866 = (n-1)*475, not (n-1)*500), so it showed up
+% not as blur but as 5.8e-4 rad rms of angular spread in the "collimated"
+% space -- 41 waves of curvature over the beam, which walks the rays off the
+% propagation grid between the physical-optics chain's near-field legs.  With
+% the source at the conjugate the LENS has to be the lens F1 describes: L1_Kr
+% and L1_Kc below are re-solved there by tg96_collimate.
+P.bench.SRC_AT_FOCUS = true;       % the collimator is fed at its focus, both rigs
+P.bench.SRC_TRIM  = 0;             % additive trim on that conjugate (mm); 0 = the
+                                   % source AT it, which is what F1 has to mean
+P.bench.MASK_TRIM = 1.231759;      % the FocalMask seat (mm), on the RAY focus:
+                                   % solved by tg96_collimate.  The thin-lens seed
+                                   % puts the marker F2 from the powered vertex; the
+                                   % singlet's principal plane, the mask's own 2 mm
+                                   % plate and the residual spherical aberration all
+                                   % move the real focus off it (the zwfs sheet has
+                                   % carried -5.582 for the same optics since S1).
 P.bench.tail_from_mat = true;      % false => use the GEOMETRIC SEED tail even if
                                    %  <tag>_tail.mat / <optics>_tail.mat exists.
                                    %  The seed-vs-tuned A/B when a reading
