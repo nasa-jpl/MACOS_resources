@@ -914,3 +914,47 @@ that size is removed by the reference frame and never reaches a differential
 reading, but it is close enough to the fold to be worth attributing before
 package C spends a day on rows: `runs/nullab.sh` switches the collimation and
 the substrates off one at a time against the record's 9.1 nm.
+
+### 8.5 The mirror rig: the seat belongs to the focuser, and the source leg's plate defocuses the parabola
+
+Two things, one of them a defect in the first version of this work and one a
+real consequence of the decided substrates.  Both were found the same way: the
+mirror rig's `DET_TRIM` tune was moving the detector the WRONG WAY against the
+brief's own prediction (-0.6 mm), and a prediction that disagrees with a
+measurement is worth a look before it is worth a shrug.
+
+**`MASK_TRIM` is a property of the FOCUSER, not of the bench.**  The first
+version of the sheet carried one global field, so the lens rig's +1.2318 mm
+solved seat -- which is its plano singlet's principal plane, the mask's own
+plate and what is left of its spherical aberration -- was being applied to the
+mirror rig, whose parabola has none of that.  0.69 mm of it is somebody else's
+optics, and that is OUTSIDE package A's own 0.5 mm seat gate.  Fixed: anything
+in `P.oap.*` with the name of a `P.bench.*` knob overrides it when
+`optics == 'oap'`, in `tg96_run`'s `stage_B_` and in `tg96_tail` alike.  No deck
+of record was emitted with the wrong value -- the chain was stopped at the tail
+tune.
+
+**The input polarizer's substrate defocuses the collimator.**  A parabola fed
+at its focus is exact, which is why `SRC_TRIM` was 0 for this rig and why
+nothing was expected here.  But `POL_IN 'source'` -- the reflective rig's own
+arrangement, since an OAP collimator's conjugate leg comes back along the
+collimated axis -- puts the polarizer's 2 mm plate in the DIVERGING leg, and a
+plane-parallel plate displaces the apparent source by `t(1-1/n)` = 0.63 mm ALONG
+the light.  The parabola is then fed that far inside its focus.  Measured:
+
+| mirror rig | exit-ray spread after the collimator | waves over the beam | seat vs the ray focus |
+|---|---|---|---|
+| substrates in, `SRC_TRIM` 0 (what the sheet said this morning) | 1.710e-05 rad rms | 0.70 | +0.539 mm |
+| **`SRC_TRIM` -0.370629 solved** | **1.358e-08** | **0.00** | **-0.0001** |
+
+It passes the 1e-4 gate either way; it is removed because it is free to remove
+and it was the largest thing left in that space.  `tg96_collimate` now solves
+the source station for the mirror rig (one dimension: a parabola has no conic
+to trade against it).
+
+**And the seat then lands exactly where physics says it should.**  With the
+source right, the mirror rig's remaining seat error is the mask plate and
+nothing else: solved **0.631902 mm** against `t(1-1/n)` = 2(1-1/1.4585) =
+**0.6285 mm**, three figures.  Before the source station was solved it read
+0.5393 -- the 0.7 waves of defocus were being paid for at the seat, which is
+exactly the kind of compensation that makes a bench look fine and read wrong.

@@ -105,7 +105,13 @@ C = struct('P',P, 'b',b, 's',s, 'AOI',AOI, 'D_BS_TO',D_BS_TO, 'oapargs',{oapargs
            'N_G',N_G, 'DX_G',DX_G);
 
 % ---- where we start ------------------------------------------------------
-q0 = [o.src_trim, b.L1_Kc, b.L2_Kc, getfield_(b,'MASK_TRIM',0), s*b.L1_Kr];
+mt0 = getfield_(b,'MASK_TRIM',0);  st0 = o.src_trim;
+if strcmp(b.optics,'oap') && isfield(P,'oap')
+    % the mirror rig's own seat and source station (see tg96_run's stage_B_)
+    if isfield(P.oap,'MASK_TRIM') && ~isempty(P.oap.MASK_TRIM), mt0 = P.oap.MASK_TRIM; end
+    if isfield(P.oap,'SRC_TRIM')  && ~isempty(P.oap.SRC_TRIM),  st0 = P.oap.SRC_TRIM;  end
+end
+q0 = [st0, b.L1_Kc, b.L2_Kc, mt0, s*b.L1_Kr];
 % Seeds, when the sheet has not been solved yet (SRC_TRIM 0).  fminsearch
 % builds its initial simplex from 5% of each component and falls back to
 % 0.00025 for a component that is exactly zero, so a SRC_TRIM starting at 0
@@ -148,8 +154,22 @@ else
     % them one at a time walks along that degeneracy instead of across it.
     say('---- stage 1: the collimated space (L1_Kr, L1_Kc) ----\n');
     if strcmp(b.optics,'oap')
-        say('the mirror rig collimates with a parabola fed at its focus: nothing to solve.\n');
-        q = q0;
+        % A parabola has no conic to solve -- but its SOURCE STATION is still
+        % free, and with the decided substrates it has to be used.  `POL_IN
+        % 'source'` puts the input polarizer's 2 mm plate in the DIVERGING
+        % source leg, and a plane-parallel plate displaces the apparent source
+        % t*(1-1/n) = 0.63 mm ALONG the light, i.e. toward the collimator: the
+        % parabola is then fed that far inside its focus and the "collimated"
+        % space carries the defocus.  Measured before this: 1.71e-05 rad rms,
+        % 0.7 waves over the beam -- 60x smaller than the lens rig's old 41
+        % waves and still the largest thing left in that space.
+        say('the mirror rig collimates with a parabola: no conic to solve, but the source station is free (the input polarizer''s plate sits in the diverging leg).\n');
+        x1 = fminbnd(@(x) obj_srctrim_(x, q0, C), q0(1) - 8, q0(1) + 8, ...
+                     optimset('TolX',1e-3,'MaxFunEvals',30,'Display','off'));
+        q = q0;  q(1) = x1;
+        m = measure_(q, C);
+        say('winner: SRC_TRIM %+.4f mm -> exit spread %.3e rad rms, %.2f waves over the beam (was %.3e, %.2f waves)\n', ...
+            q(1), m.spread, m.waves, m0.spread, m0.waves);
     else
         x1 = fminsearch(@(x) obj_spread_(x, q0, C), [q0(5) q0(2)], ...
                         optimset('TolX',1e-4,'TolFun',1e-3,'MaxFunEvals',120,'Display','off'));
@@ -203,10 +223,18 @@ say('       spot < 1 um rms             %s (%.4f um)\n', pf_(gates.spot), 1e3*mf
 say('       seat within 0.5 mm          %s (%+.4f mm)\n', pf_(gates.seat), mf.dfoc);
 say('\n---- the sheet lines (tg96_params.m / zwfs_params.m) ----\n');
 say('P.bench.SRC_AT_FOCUS = true;\n');
-say('P.bench.SRC_TRIM  = %.6f;   %% mm (0 = the source AT the conjugate; solved by tg96_collimate, %s)\n', q(1), o.tag);
+if strcmp(b.optics,'oap')
+    say('P.oap.SRC_TRIM    = %.6f;   %% mm, the MIRROR rig''s source station (its input polarizer''s plate sits in the diverging leg)\n', q(1));
+else
+    say('P.bench.SRC_TRIM  = %.6f;   %% mm (0 = the source AT the conjugate; solved by tg96_collimate, %s)\n', q(1), o.tag);
+end
 say('P.bench.L1_Kr = %.6f;  P.bench.L1_Kc = %.6f;   %% sheet units (x s in the runner)\n', q(5)/s, q(2));
 say('P.bench.L2_Kr = %.6f;  P.bench.L2_Kc = %.6f;\n', -abs(b.L2_Kr), q(3));
-say('P.bench.MASK_TRIM = %.6f;   %% mm, the mask on the ray focus\n', q(4));
+if strcmp(b.optics,'oap')
+    say('P.oap.MASK_TRIM   = %.6f;   %% mm, the MIRROR rig''s seat on its own ray focus\n', q(4));
+else
+    say('P.bench.MASK_TRIM = %.6f;   %% mm, the mask on the ray focus\n', q(4));
+end
 
 out = struct('tag',o.tag, 'optics',b.optics, 'SRC_TRIM',q(1), 'L1_Kr',q(5)/s, 'L1_Kc',q(2), ...
              'L2_Kc',q(3), 'MASK_TRIM',q(4), 'start',q0, 'start_meas',m0, ...
@@ -242,7 +270,7 @@ G = macos.design.twyman_green('polarizing',true, 'ngridpts',C.NGRID, ...
     'D_MASK_FL',s*b.D_MASK_FL, 'DET_TRIM',s*b.DET_TRIM);
 G.bt.emit(C.f_test);
 names = {G.bt.E.name};
-iL1 = find(strcmp(names,'L1pow') | strcmp(names,'L1'), 1);
+iL1 = find(strcmp(names,'L1pow') | strcmp(names,'L1') | strcmp(names,'OAP1'), 1);
 iDM = find(strcmp(names,'TestOptic'), 1);
 iMK = find(strcmp(names,'FocalMask'), 1);
 macos.load_rx(C.f_test);
@@ -304,6 +332,12 @@ q = q0;  q(5) = x(1);  q(2) = x(2);
 mm = measure_(q, C);
 y = log10(max(mm.spread, 1e-12));
 fprintf('  COLL1: L1_Kr %9.4f  L1_Kc %9.6f -> spread %.4e rad rms\n', x(1), x(2), mm.spread);
+end
+function y = obj_srctrim_(x, q0, C)
+q = q0;  q(1) = x;
+mm = measure_(q, C);
+y = log10(max(mm.spread, 1e-12));
+fprintf('  COLL1oap: SRC_TRIM %+8.4f -> spread %.4e rad rms (%.2f waves)\n', x, mm.spread, mm.waves);
 end
 function y = obj_spot_(x, q, C)
 qq = q;  qq(3) = x;
