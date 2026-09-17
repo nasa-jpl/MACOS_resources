@@ -22,9 +22,12 @@ function out = tg96_pupil_s2s(varargin)
 %   detector, the Nyquist gain at the center and the edge, against tg96_pupilsim.
 %   Name/value: 'rig', 'sim' (the pupilsim run), 'tag' ('pupils2s_<rig>'), 'model' 512,
 %   'ngrid' 385, 'n_g' 256, 'dx_g' 0.4, 'conv' ({'+dec','-inc','+inc','-dec'}),
-%   'defocus' (10 mm), 'skip_gaps' (false: the collimated NFPlane pairs), 'outdir'.
+%   'defocus' (10 mm), 'skip_gaps' (false: the collimated NFPlane pairs), 'outdir',
+%   'checks' (true: the leg-by-leg gates of BRIEF_to_tg_redo section 2, run before
+%   the convention sweep -- each one a number, so a failure names its own leg).
 o = struct('rig','lens','sim','','tag','','model',512,'ngrid',385,'n_g',256,'dx_g',0.4, ...
-           'conv',{{'+dec','-inc','+inc','-dec'}},'defocus',10,'skip_gaps',false,'gap_min',30,'outdir','');
+           'conv',{{'+dec','-inc','+inc','-dec'}},'defocus',10,'skip_gaps',false,'gap_min',30,'outdir','', ...
+           'checks',true);
 for k = 1:2:numel(varargin), o.(varargin{k}) = varargin{k+1}; end
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 if isempty(which('macos.init')), run(fullfile(exdir,'..','..','..','mmacos_setup.m')); end
@@ -107,6 +110,98 @@ d_S3_det = norm(V_det - (V(blocks{iFLf}) + eps_*psi_det));
 deck = write_(hdr, B, fullfile(o.outdir,[o.tag '_deck.in']), 'GRIDFILE');
 if isfield(o,'build_only') && o.build_only, out = struct('deck',deck,'B',{B},'hdr',hdr,'R3',R3); fclose(rep); return; end
 
+% ---- the legs checked ONE AT A TIME (BRIEF_to_tg_redo section 2) ----
+% The convention sweep below reports the END of the chain, where every leg's
+% error is already mixed into one gain map.  These four gates sit on the legs
+% themselves, in the order light meets them, so a failure names its own leg.
+iS1c = find(strcmp(names2,'S1'));  iFc = find(strcmp(names2,'F'));
+if o.checks && ~isempty(iS1c)
+    chk = struct();
+    amp_c = 5e-6;  fN_c = 0.5;                       % the Nyquist sinusoid, 5 nm
+    xa_c = ((1:o.n_g) - (o.n_g+1)/2)*o.dx_g;  [UC, VC] = meshgrid(xa_c, xa_c);
+    macos.write_grid_file('s2s_chk_sin.txt', amp_c*sin(2*pi*fN_c*UC'));
+    fflat = write_(hdr, B, fullfile(o.outdir,[o.tag '_chk_flat.in']), 's2s_flat.txt');
+    fsin  = write_(hdr, B, fullfile(o.outdir,[o.tag '_chk_sin.in']),  's2s_chk_sin.txt');
+
+    % (1) the collimated legs: a flat DM must arrive at the entrance sphere
+    % FLAT.  S1 is a reference sphere centred on the focus and the beam there
+    % is converging to it, so the sphere removes the nominal curvature and
+    % what is left is the leg's own error -- 1.5 waves of it on the lens rig
+    % of record, which is what walked the rays off the grid.
+    macos.load_rx(fflat);  macos.stop(iDM2);
+    E1 = macos.complex_field(iS1c);  dx1 = abs(macos.dx_at(iS1c,'mm'));
+    I1 = abs(E1).^2;  in1 = I1 > 0.2*max(I1(:));
+    ph = angle(E1(in1));  ph = unwrap_med_(ph);
+    chk.s1_phase_wv = std(ph)/(2*pi);
+    chk.s1_r = eqr_(E1, dx1);
+    say('CHECK 1a  collimated legs: the flat pupil at S1 carries %.4f wave rms of phase (gate < 0.02); pupil radius there %.2f mm, pitch %.4f mm\n', ...
+        chk.s1_phase_wv, chk.s1_r, dx1);
+
+    % (1b) and a Nyquist sinusoid must still be its own height there.  The
+    % legs are collimated, so S1's pupil is the DM's: demodulate on the same
+    % frequency, in the field's own pitch.
+    macos.load_rx(fsin);  macos.stop(iDM2);
+    E1s = macos.complex_field(iS1c);
+    h1 = angle(E1s .* conj(E1)) * lam/(4*pi);        % the surface the leg reports, mm
+    % Read the amplitude off the TRANSFORM's own peak, not off a carrier
+    % built from the DM's axes: S1 inherits the mask's frame, which need not
+    % be the DM's, and a demodulation on a rotated or flipped carrier reads
+    % zero and looks exactly like a leg that lost the mode.
+    hm = h1 .* in1;  Hf = fft2(hm)/max(nnz(in1),1);  Hf(1,1) = 0;
+    [~, ipk] = max(abs(Hf(:)));  [kr_, kc_] = ind2sub(size(Hf), ipk);
+    n1 = size(E1,1);  fr = mod(kr_-1 + n1/2, n1) - n1/2;  fc = mod(kc_-1 + n1/2, n1) - n1/2;
+    chk.s1_amp_rel = 2*abs(Hf(ipk))/amp_c;
+    chk.s1_freq = hypot(fr, fc)/(n1*dx1);
+    say('CHECK 1b  a Nyquist sinusoid reaches S1 at %.4f of its height on the DM (gate 1.00 +- 0.01), at %.4f cycles/mm (the DM''s %.4f)\n', ...
+        chk.s1_amp_rel, chk.s1_freq, fN_c);
+
+    % (2a) the quartet: the focal field must be the pupil's Airy pattern.
+    macos.load_rx(fflat);  macos.stop(iDM2);
+    EF = macos.complex_field(iFc);  dxF = abs(macos.dx_at(iFc,'mm'));
+    IF_ = abs(EF).^2;  [~, im] = max(IF_(:));  [rF, cF] = ind2sub(size(IF_), im);
+    prof = radial_(IF_, rF, cF, dxF);
+    z1 = first_zero_(prof.r, prof.v);
+    airy = 1.22*lam*R1/(2*R_dm);
+    chk.airy_meas = z1;  chk.airy_pred = airy;
+    say('CHECK 2a  the focal field''s first zero %.1f um against the pupil''s Airy %.1f um (1.22 lam R1/D, R1 %.1f mm, D %.1f mm); pitch %.2f um\n', ...
+        1e3*z1, 1e3*airy, R1, 2*R_dm, 1e3*dxF);
+
+    % (2b) the far-side pupil: the FIELD's radius at S2 against the RAYS' own
+    % footprint there -- not against R_dm*R2/R1, which is the prediction under
+    % test.
+    ES2 = macos.complex_field(iS2);  dxS2 = abs(macos.dx_at(iS2,'mm'));
+    st = macos.trace(iS2);  ri = macos.get_ray_info(st.nRays);  okS = ri.ok_trace & ri.ok_pass;
+    VS2 = getv_(B{iS2},'VptElt');  pS = ri.pos(:,okS) - VS2(:);
+    psiS = getv_(B{iS2},'psiElt');  pS = pS - psiS(:)*(psiS(:)'*pS);
+    chk.s2_ray_r = max(sqrt(sum(pS.^2,1)));
+    chk.s2_fld_r = eqr_(ES2, dxS2);
+    chk.s2_pred_r = R_dm*R2/R1;
+    % THE PITCH IS THE DECISIVE NUMBER, and it is worth knowing why.  The
+    % engine's dxElt is set by the propagator only for PropType 3/10/15 (the
+    % far-field pitch lam*z1/(N dx1), which is how the focal plane F gets its
+    % label) and for the regridded sphere-to-sphere pair 5/14.  PropType 11 --
+    % PL2SPH, our F -> S2 leg -- is in NEITHER list, so S2's pitch falls
+    % through to the RAY-SPACING branch (utilsub.F ~:590, a slice across the
+    % centre of the pupil).  Meanwhile PL2SPH is a plain inverse FFT: the
+    % ARRAY comes back in the entrance sphere's own pitch, i.e. in the
+    % Sziklas-Siegman SCALED frame, with the pupil occupying the same pixels
+    % it did at S1.  The two conventions are consistent only if the ray
+    % spacing at S2 really is dx(S1)*R2/R1 -- so compare them directly, and a
+    % disagreement here is the pitch label, not the estimator.
+    chk.s2_dx = dxS2;  chk.s2_dx_scaled = dx1*R2/R1;
+    say('CHECK 2b  pupil radius at S2: field %.3f mm, rays %.3f mm (%.1f%%), thin-lens prediction R_dm*R2/R1 %.3f mm\n', ...
+        chk.s2_fld_r, chk.s2_ray_r, 100*(chk.s2_fld_r/chk.s2_ray_r - 1), chk.s2_pred_r);
+    say('CHECK 2c  the pitch at S2: the engine labels %.6f mm (ray spacing); the scaled frame says dx(S1)*R2/R1 = %.6f mm (%.1f%%)\n', ...
+        chk.s2_dx, chk.s2_dx_scaled, 100*(chk.s2_dx/chk.s2_dx_scaled - 1));
+    say('CHECK gates: 1a %s, 1b %s, 2a %s, 2b %s, 2c %s\n', ...
+        pf_(chk.s1_phase_wv < 0.02), pf_(abs(chk.s1_amp_rel-1) < 0.01), ...
+        pf_(abs(z1/airy - 1) < 0.10), pf_(abs(chk.s2_fld_r/chk.s2_ray_r - 1) < 0.02), ...
+        pf_(abs(chk.s2_dx/chk.s2_dx_scaled - 1) < 0.02));
+    delete(fflat);  delete(fsin);
+else
+    chk = struct();
+end
+
 % ---- the DM frame and the two test surfaces ----
 N = S.o.N;  dx = S.o.dx;  xg = (-N/2:N/2-1)*dx;  [XG, YG] = meshgrid(xg, xg);  rr = hypot(XG, YG);
 R_beam = min(R_dm, max(hypot(S.uv(1,S.ok), S.uv(2,S.ok))) + 0.5);  Rin = R_beam - 1.0;  lit = rr <= Rin;
@@ -169,7 +264,7 @@ for ic = 1:numel(o.conv)
         res(ic,ip).conv = cv;  res(ic,ip).dz = dz;  res(ic,ip).gain_r = gr;  res(ic,ip).gmean = mean(gmap(lit));  res(ic,ip).gmin = min(gmap(lit));  res(ic,ip).rS2 = rS2;  res(ic,ip).rdet = rdet;
     end
 end
-out = struct('o',o,'res',res,'deck',deck,'R1',R1,'R2',R2,'R3',R3,'zb',zb);
+out = struct('o',o,'res',res,'deck',deck,'R1',R1,'R2',R2,'R3',R3,'zb',zb,'chk',chk);
 save(fullfile(o.outdir,[o.tag '.mat']), 'out');  say('run complete\n');  fclose(rep);
 end
 
@@ -210,6 +305,22 @@ fid = fopen(f,'w'); fwrite(fid, [hdr blocks{:}]); fclose(fid);
 end
 function r = eqr_(E, d), I = abs(E).^2; r = sqrt(sum(I(:) > 0.5*median(I(I > 0.05*max(I(:)))))*d^2/pi); end
 function m = lpf_(x, FU, FV, sig), m = ifft2(fft2(x) .* exp(-2*pi^2*sig^2*(FU.^2 + FV.^2))); end
+function p = unwrap_med_(ph), p = angle(exp(1i*(ph - median(ph)))); end
+function s = pf_(tf), if tf, s = 'PASS'; else, s = 'FAIL'; end, end
+function prof = radial_(I, r0, c0, dx)
+[NR, NC] = size(I);  [C, R] = meshgrid(1:NC, 1:NR);  rr = hypot(R-r0, C-c0)*dx;
+edges = 0:dx/2:min(30*dx, max(rr(:)));  v = zeros(1, numel(edges)-1);
+for k = 1:numel(edges)-1, m = rr >= edges(k) & rr < edges(k+1); if any(m(:)), v(k) = mean(I(m)); end, end
+prof = struct('r', (edges(1:end-1)+edges(2:end))/2, 'v', v);
+end
+function z = first_zero_(r, v)
+% the first radius at which the azimuthal mean stops falling: an Airy null
+v = v/max(v);  z = NaN;
+for k = 2:numel(v)-1
+    if v(k) < v(k-1) && v(k) <= v(k+1) && v(k) < 0.1, z = r(k); return; end
+end
+if isnan(z), [~, k] = min(v);  z = r(k); end
+end
 function [hdr, blocks] = split_deck_(txt)
 idx = regexp(txt, '\n[ \t]*iElt=');  hdr = txt(1:idx(1));  blocks = cell(1, numel(idx));
 for i = 1:numel(idx), e = numel(txt); if i < numel(idx), e = idx(i+1); end; blocks{i} = txt(idx(i)+1:e); end

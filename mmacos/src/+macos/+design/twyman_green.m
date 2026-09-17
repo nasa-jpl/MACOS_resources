@@ -118,6 +118,14 @@ arguments
                                       %  geometry as the plate rig and the
                                       %  l2_trade tail trims transfer verbatim
     opts.R_TO_AP (1,1) double = 30
+    % THESE DEFAULTS ARE THE MISFED BENCH'S (2026-09-17).  L1_Kr 236.866 is
+    % (n-1)*473.7 = (n-1)*(F1 - zsource): l2_trade matched the radius to the
+    % conjugate the source really sat at, so the default lens collimates only
+    % when SRC_AT_FOCUS is FALSE.  With SRC_AT_FOCUS the caller must pass the
+    % re-solved pair -- L1_Kr 249.246312, L1_Kc -0.583016, L2_Kc -0.581843 for
+    % the 96 mm rig's scale, or run tg96_collimate for its own.  Left as they
+    % are so every bench built on the defaults (psri_bench, the 90_polarization
+    % rigs, bench_ifo_dm) keeps its record.
     opts.L1_Kr (1,1) double = 236.866
     opts.L1_Kc (1,1) double = -0.5829
     opts.L2_Kr (1,1) double = -124.076
