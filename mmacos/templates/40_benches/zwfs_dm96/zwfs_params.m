@@ -81,8 +81,15 @@ P.bench.F1       = s*500;    P.bench.F2 = s*250;      % collimator / focusing le
 P.bench.D_LENS   = s*66;     P.bench.R_BAFFLE = s*18;    P.bench.D_SB = s*250;
 P.bench.BS_T     = s*5.8333;   P.bench.D_L1_BS = s*150;    P.bench.D_BS_TO = 700;   % BS_T: 10 mm splitter and compensator (DECIDED 2026-09-17; the record's s*1.5 = 2.6 mm)
 P.bench.D_BS_CMP = 200;      P.bench.R_TO_AP = s*28;     % compensator 200 mm down the DM leg (clears the source beam by 31 mm at 22.5 deg); DM aperture radius = the actuator footprint
-P.bench.L1_Kr = s*236.866;   P.bench.L1_Kc = -0.5829;    % tuned lens figures (l2_trade)
-P.bench.L2_Kr = -s*124.076;  P.bench.L2_Kc = -0.5826;
+% RE-SOLVED on the collimated bench 2026-09-17 (tg96_collimate, tg_psi_dm96_oap/
+% runs/coll_lens; BRIEF_to_tg_redo package A item 1) -- the same front end, so
+% the same figures.  The record's L1_Kr was (n-1)*(F1 - zsource): matched to the
+% conjugate the source really sat at, not to F1.  See tg96_params for the
+% argument and the numbers.
+P.bench.SRC_AT_FOCUS = true;                             % the collimator fed at its focus, both rigs
+P.bench.SRC_TRIM  = 0;                                   % additive trim on that conjugate (mm)
+P.bench.L1_Kr = s*249.246312;  P.bench.L1_Kc = -0.583016;   % re-solved lens figures
+P.bench.L2_Kr = -s*124.076;    P.bench.L2_Kc = -0.581843;
 P.bench.tail_arch = 'fieldlens';                         % pupil-relay field lens behind the mask
 P.bench.PLATE_SUB   = [1.4585 2.0];   % DECIDED 2026-09-17 (Dave): 2 mm fused silica under every polarizing element.  Realism item 3: [n t], the SUBSTRATE every thin polarizing element is
                              % really made on (input polarizer, arm QWPs, output plate, analyzer) --
@@ -94,7 +101,11 @@ P.bench.MASK_SUB    = [1.4585 2.0];   % DECIDED 2026-09-17: the mask's 2 mm fuse
                              % override reaches the builder whether or not the field pre-exists.
                              % tg96_run does NOT sweep: it forwards an explicit list, which is how
                              % MASK_SUB came to be accepted by the sheet and silently dropped there.
-P.bench.MASK_TRIM = -5.582;  % thin-lens seed -> true focus (S1 rounds 2-5).  The string 'scan'
+P.bench.MASK_TRIM = 'scan';  % RE-SCANNED PER RUN since 2026-09-17: the collimation fix moved the
+                             % focus (the tg96 rig's seat went from -5.6 to +1.2 mm on the same
+                             % optics), and a scan self-heals where a carried constant seats the
+                             % mask off focus and then blames the glass.  A number still pins it.
+                             % The record's constant was -5.582 (S1 rounds 2-5).  The string 'scan'
                              % re-finds it at run time (maximize the mask-plane peak/sum) --
                              % use it whenever the GLASS moves the focus: PLATE_SUB or a mask
                              % substrate shifts it by t*(1-1/n), 0.63 mm for 2 mm of fused

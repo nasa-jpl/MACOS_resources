@@ -47,6 +47,8 @@ tg96_run('bench.optics','oap','tag','oap')% reflective rig
 TG96_MEMMAX=20G ./tg96_batch.sh oap "'bench.optics','oap'"
 # tail retune (do first for the OAP rig; writes <tag>_tail.mat):
 matlab -batch "tg96_tail('tag','oap','bench.optics','oap')"
+# collimation solve (lens rig; writes the four sheet numbers to its report):
+matlab -batch "tg96_collimate('tag','coll_lens'); exit(0)"
 ```
 Outputs land in `runs/<tag>/`: `<tag>_report.txt`, `<tag>.mat`,
 `<tag>_{test,ref}.in`, `<tag>_layout.png`, `<tag>_closure.png`,
@@ -128,7 +130,39 @@ polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.m
 | `tg96_samp.m`   | detector-frame map -> DM frame through `tg96_place`'s OWN affine + parity; the fold rotation the shared `dmg_samp` cannot express |
 | `tg96_run_batch.m` / `tg96_batch.sh` | `matlab -batch` wrapper (exit only here) + launcher |
 | `tg96_pupilq.m`  | pupil image quality of the detector leg (Fang Shi, 2026-09-16): the DM as the stop, crossing cloud at the camera (distortion vs one affine, pupil surface, blur over the actuator band), the rodgers2 set at the seat per tilt; `runs/pupilq_<rig>` |
+| `tg96_collimate.m` | the collimation solve (2026-09-17): the collimator's radius and conic against the exit rays' angular spread, the focuser's conic against the ray spot, and the FocalMask seat on the ray focus -- the four numbers `P.bench.L1_Kr/L1_Kc/L2_Kc/MASK_TRIM` carry.  Ray traces only, minutes.  `runs/coll_<optics>` |
 | `tg96_pupilsim.m` | the detailed pupil-image SIMULATION (Dave, 2026-09-17): the leg's coherent PSF per DM zone from the rays (the intercept walk over a 2-D tilt set integrates to the zone wavefront), the DM field through those PSFs (sinusoids, pokes, the 30 nm working surface; gain and amplitude cross-talk vs radius), the compromise detector plane, and a plane-to-plane Fourier cross-check of the tail; opens the baffle and puts the aperture ON the DM (the DM is the stop in fact); `runs/pupilsim_<rig>` |
+
+## The bench is collimated for real (2026-09-17)
+
+`SRC_AT_FOCUS` is now **true for both rigs** and `tg96_collimate` solves the
+lens rig's figures on that bench.  What was wrong: `Bench` emits `zSource` and
+the engine puts the real point source at `ChfRayPos + zSource*ChfRayDir`, so the
+collimator was fed 25 mm inside its conjugate on both rigs.  The mirror rig
+showed it as blur and was fixed on 2026-09-15; the **lens rig hid it in its
+tuned figures** -- `L1_Kr` 236.866 is `(n-1)*473.7`, i.e. `l2_trade` matched the
+RADIUS to the conjugate the source really sat at (`F1 - zsource` = 475), not to
+`F1`.  Feed that lens from `F1` and 5 % of surplus focal length comes out as
+residual curvature that no conic can remove: a solve holding `L1_Kr` runs the
+conic to -4.68 and still leaves 2.6e-4 rad rms.
+
+Measured, over the rays that actually reach the DM (the cone overfills it, so
+the outermost rays -- where a singlet is worst -- are not the bench's):
+
+| bench | exit-ray angular spread after L1 | in waves over the beam | focal spot at the seat | marker vs the ray focus |
+|---|---|---|---|---|
+| as the sheet described it (record figures, source 25 mm inside) | 1.27e-03 rad rms | 46.8 | 0.48 um rms | -10.4 mm |
+| source at the conjugate, record figures | 9.7e-05 | 3.7 | -- | +13.7 mm |
+| **re-solved** (`L1_Kr` 249.246, `L1_Kc` -0.583016, `L2_Kc` -0.581843, `MASK_TRIM` +1.2318) | **6.3e-09** | **0.0** | **0.17 um rms** | **0.000 mm** |
+
+Two things worth keeping: the **conic barely moved** (-0.583016 against the
+record's -0.5829), which is the tell that a conic belongs to the shape and the
+plano orientation rather than to the conjugate -- only the radius was wrong; and
+the focal spot at 0.17 um rms is far inside the 2.8 um lambda F/D, so the seat is
+diffraction-limited and the 1 um gate is not what limits it.  The beam now
+reaches 58.3 mm at the DM against its 48 mm aperture (the source moved 25 mm
+farther from L1, so the cone is 5 % wider): **the DM is the stop**, and 68 % of
+the ray grid gets through -- the sampling price of making it so.
 
 ## The tail of record, and the tuner's open problem
 

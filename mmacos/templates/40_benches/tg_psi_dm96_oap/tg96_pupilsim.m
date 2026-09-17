@@ -43,7 +43,9 @@ function out = tg96_pupilsim(varargin)
 %   'poke_nm' (100), 'work_nm' (30), 'seed' (7), 'fourier' (true), 'dm_ap' (48 mm:
 %   the aperture put ON the DM = the actuator footprint; 0 keeps the deck's), 'overfill'
 %   (1.06: the source cone is opened so the beam at the DM is this times dm_ap; 0 keeps
-%   the deck's cone), 'outdir'.
+%   the deck's cone), 'outdir', 'stages' (2; 1 = stop after stage 1, which is what
+%   tg96_tail's 'reading' objective calls per evaluation), 'figs' (true; false = no
+%   PNGs, for the same reason).
 %   THE STOP (Dave 2026-09-17): the deck of record's beam is the SOURCE CONE, sized by
 %   the builder to the baffle (2 atan(R_BAFFLE/D_SB) x FILL, a full cone), 77 mm on the
 %   lens rig and 82 on the mirrors -- neither the baffle nor the DM clips a ray, and the
@@ -56,7 +58,8 @@ function out = tg96_pupilsim(varargin)
 o = struct('rig','lens','deck','','tag','','model',512,'ngrid',129, ...
            'band',3.2e-4,'rings',[0.5 1 2 3.2]*1e-4,'ring_out',1e-3,'naz',8, ...
            'lambda',6.328e-4,'dx',0.125,'N',1024,'patch',8,'pitch',1,'nact',96, ...
-           'infl_w',0.85,'poke_nm',100,'work_nm',30,'seed',7,'fourier',false,'dm_ap',48,'overfill',1.06,'outdir','');
+           'infl_w',0.85,'poke_nm',100,'work_nm',30,'seed',7,'fourier',false,'dm_ap',48,'overfill',1.06,'outdir','', ...
+           'stages',2,'figs',true);
 for k = 1:2:numel(varargin), o.(varargin{k}) = varargin{k+1}; end
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 if isempty(which('macos.init')), run(fullfile(exdir,'..','..','..','mmacos_setup.m')); end
@@ -218,6 +221,7 @@ N = o.N;  dx = o.dx;  fx = ifftshift((-N/2:N/2-1)/(N*dx));  [FU, FV] = meshgrid(
 xg = (-N/2:N/2-1)*dx;  [XG, YG] = meshgrid(xg, xg);
 Hof = @(z, dz) H_zone_(z, dz, FU, FV, lam, k0, ab, pi_, pj_, o.ring_out);
 [~, jc] = min(hypot([Z.u], [Z.v]));  [~, je] = max(hypot([Z.u], [Z.v]));  [~, jm] = min(abs(hypot([Z.u], [Z.v]) - 0.6*R_beam));
+if o.figs
 fp = figure('Visible','off','Position',[100 100 1500 900]);
 for q = 1:3
     jz = [jc jm je];  jz = jz(q);  h = fftshift(ifft2(Hof(Z(jz), 0)));  hc = h(N/2+1, :);
@@ -235,6 +239,23 @@ subplot(1,3,2); scatter(uv(1,ok), uv(2,ok), 8, astg(ok), 'filled'); axis equal; 
 subplot(1,3,3); scatter(uv(1,ok), uv(2,ok), 8, max(abs(Wb(:,ok)),[],1)*1e6, 'filled'); axis equal; colorbar; title('band-edge wavefront |W|, nm (max over azimuth)');
 sgtitle(sprintf('%s: the pupil image surface (%s rig): the detector is not at the image', o.tag, o.rig), 'Interpreter','none');
 print(fs, fullfile(o.outdir,[o.tag '_surface.png']), '-dpng', '-r96');
+end
+
+% ---- stop here when only the pupil SURFACE was asked for -------------
+% tg96_tail's 'reading' objective (Dave 2026-09-17: the tail is tuned on
+% the interferometer's own reading, not on the null) calls this per
+% evaluation, so it wants stage 1 and no figures: the band-edge quadratic
+% phase over the pupil is the stage-1 proxy for the working-surface error
+% stage 2 measures, and the two track each other on every case run.
+if o.stages < 2
+    out = struct('o',o,'th',th,'uv',uv,'ok',ok,'r0',r0,'A',A,'Wc',Wc,'ab',ab,'pi',pi_,'pj',pj_, ...
+                 'zimg',zimg,'astg',astg,'Wb',Wb,'cz',cz,'zstar',zstar,'Z',Z,'dist',dist,'magL',magL, ...
+                 'phi_rms',rms_(phi_edge(0)), 'phi_max',max(phi_edge(0)), ...
+                 'phi_rms_star',rms_(phi_edge(zstar)), 'phi_max_star',max(phi_edge(zstar)), ...
+                 'dist_rms',rms_(hypot(dist(:,1),dist(:,2))), 'res',[]);
+    say('stage 1 only (stages=1): band-edge phase %.4f rad rms / %.4f max as built; stopping before the field model\n', out.phi_rms, out.phi_max);
+    fclose(rep);  return
+end
 
 % ======================= STAGE 2: the DM field through the zone PSFs =======================
 R_ap = R_beam;  edge_mm = 0.7;                          % the beam of record; its edge is the baffle's, Fresnel-blurred over ~sqrt(lambda z) = 0.7 mm by the time it reaches the DM

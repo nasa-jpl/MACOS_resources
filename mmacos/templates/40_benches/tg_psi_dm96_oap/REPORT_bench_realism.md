@@ -707,3 +707,102 @@ surface's mean.  (2) Mirror rig: the 0.6 mm detector move, nothing else.
 conic) before the next tail tune, as the mirror rig already has.  (4) No
 flattener.  (5) Re-run the record's rows on the corrected tail and the
 96 mm beam together.
+
+## 8. Package A of the redo: the bench collimated for real (TO, 2026-09-17)
+
+`BRIEF_to_tg_redo.md` package A, on the sheets carrying the decided substrates
+(A0, resources `37193e5`: 10 mm splitter and compensator, 2 mm fused-silica
+plates under every polarizing element, the 2 mm mask plate, 4 mm singlet edges,
+protected aluminum on the parabolas).  New tool `tg96_collimate.m`
+(`runs/coll_lens`); builder and runner changes in `twyman_green.m`,
+`tg96_run.m`, `tg96_tail.m`; the numbers land in `tg96_params.m` and
+`zwfs_params.m`.
+
+### 8.1 What was actually wrong with the lens rig (and it was not the source alone)
+
+The brief's item 1 asked for `SRC_AT_FOCUS` on the lens rig and a re-solve of
+the two conics.  The first measurement said that is not enough, and said why:
+
+**`L1_Kr` 236.866 is `(n-1) * 473.7`.**  `l2_trade` matched the collimator's
+RADIUS to the conjugate the source really sat at -- `F1 - zsource` = 475 mm --
+not to `F1` = 500.  Move the source out to `F1` and that lens has 5 % of surplus
+focal length, which comes straight out as residual curvature.  Measured: a solve
+free in `(SRC_TRIM, L1_Kc)` with `L1_Kr` held at the record's value runs the
+conic to **-4.68**, walks the source back 27 mm (undoing `SRC_AT_FOCUS`
+exactly), and still leaves **2.6e-4 rad rms** -- a fit fighting a geometry
+error.  So the radius is solved with the conic, and the source stays AT the
+conjugate, which is what `F1` in the sheet has to mean.
+
+### 8.2 The solve, and the three gates
+
+`tg96_collimate` runs three stages against the engine's own rays, over the rays
+that **reach the DM** (the cone overfills it; the rays it throws away are the
+outermost, where a singlet is worst -- tuning the collimator on light the bench
+never uses is how you get a good number and a bad bench):
+
+| bench | exit-ray spread after L1 | waves over the beam | focal spot at the seat | marker vs the ray focus |
+|---|---|---|---|---|
+| as the sheet described it (record figures, source 25 mm inside) | 1.27e-03 rad rms | 46.8 | 0.48 um rms | -10.4 mm |
+| source at the conjugate, record figures | 9.7e-05 | 3.7 | -- | +13.7 mm |
+| **re-solved** | **6.3e-09** | **0.0** | **0.17 um rms** | **0.000 mm** |
+
+```
+P.bench.SRC_AT_FOCUS = true;    P.bench.SRC_TRIM = 0;
+P.bench.L1_Kr = 249.246312;     P.bench.L1_Kc = -0.583016;
+P.bench.L2_Kr = -124.076;       P.bench.L2_Kc = -0.581843;
+P.bench.MASK_TRIM = 1.231759;
+```
+
+GATES (the brief's): exit spread < 1e-4 rad rms **PASS** (6.3e-09); focal spot
+< 1 um rms **PASS** (0.17); mask marker within 0.5 mm of the ray focus **PASS**
+(0.000, by construction -- stage 3 solves it).
+
+**Two things worth keeping.**  (1) **The conic barely moved**: -0.583016 against
+the record's -0.5829, four figures, while the radius moved 5 %.  A conic belongs
+to the shape and the plano orientation, not to the conjugate; only the radius
+was ever wrong.  (2) **The seat is diffraction-limited either way** -- 0.17 um
+rms against a lambda F/D of 2.8 um -- so the 1 um gate is not what limits the
+mask plane; the 10.4 mm seat error was, and the zwfs sheet has carried that same
+error as a constant (`MASK_TRIM = -5.582`) since S1.  It is now re-scanned per
+run there (`'scan'`), because the collimation fix moved it (-5.6 -> +1.2 on the
+tg96 rig's own optics) and a carried constant seats the mask off focus and then
+blames the glass.
+
+**The beam is 58.3 mm at the DM** against its 48 mm aperture: the source moved
+25 mm farther from L1, so the cone reaches 5 % wider than the 55.5 mm of the
+morning's stop change.  **The DM is the stop** and 68 % of the ray grid gets
+through -- the sampling price of making it so, and `P.clear.beam_r` is 59 now
+(the clearance solve must see the beam that exists).  The DM leg and the
+splitter angle do not move at that radius (450 mm, 22.5 deg).
+
+**A builder trap closed on the way.**  `SRC_AT_FOCUS` was forwarded to the
+builder from INSIDE `stage_B_`'s `if optics == 'oap'` block, so setting it on
+the lens rig was accepted by the sheet and silently dropped -- the same trap the
+zwfs sheet records for `MASK_SUB`.  It, `SRC_TRIM` and `MASK_TRIM` are now
+forwarded on both rigs, by `tg96_run` and by `tg96_tail`.
+
+### 8.3 The tail tuner now optimizes the READING (Dave's ruling)
+
+`P.tail` in the sheet: `objective 'reading'`, `free {'FL_Kc','DET_TRIM'}`,
+`reading_stage`.  The cost is what the pupil stage measures the camera
+recovering off the DM -- stage 2's working-surface error, or (default) its
+stage-1 band-edge-phase proxy, which is 4x cheaper and tracked it on every case
+run on 2026-09-17.  The flat-DM null is computed every evaluation and PRINTED,
+never optimized: a common misplacement of the detector cancels in an arm
+difference, so the null is blind to exactly the failure that produced the
+record's bowl.  `free` holds the field lens at the geometric seed station.
+`tg96_pupilsim` gained `'stages'` and `'figs'` so it can be called per
+evaluation; a failed evaluation now prints its error instead of returning a
+silent 1e6 (an objective that cannot measure looks exactly like one that
+measures a terrible tail).
+
+**The seed tail on the collimated bench, before any tuning** (`lens96`
+evaluation 1): band-edge phase **0.0122 rad rms / 0.0237 max** (gate < 0.06
+max), phase gain **0.9997 worst** (gate >= 0.998), image surface flat to
+0.7 mm over the pupil (on axis +0.28, mean -0.07), astigmatic split 0.15 mm
+rms, distortion **0.023 mm rms**, flat-DM null 59.3 nm (reported).  Two of the
+three package-A gates are met by the geometry alone; the distortion is 2x the
+brief's 0.01 mm figure -- that figure came from the seed-tail row measured on
+the UNcollimated bench, where the same table already showed true collimation
+RAISING the distortion (0.003 -> 0.035 on the tuned tail's row), and it is a
+mapping the registration affine absorbs.
