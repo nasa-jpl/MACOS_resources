@@ -21,3 +21,5 @@ CHECK gates: 1a PASS, 1b FAIL, 2a PASS, 2b PASS, 2c PASS
 zone-PSF model, Nyquist, as built: gain by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ] (mean 0.9999, min 0.9999)
 zone model at +10 mm: band-edge phase 0.548 rad rms -> Nyquist gain ~ cos: mean 0.854, worst 0.854 (as built: mean 1.000)
 conv +dec plane  +0 mm: pupil at S2 1.14 mm radius (expected 1.19); at the detector 3.58 mm (rays 4.67); |E| flat rms-var 0.499; Nyquist gain by radius [0.289 0.240 0.173 0.128 0.096 0.107 0.133 0.179 0.242 0.298 ] mean 0.1898 min 0.0003 (orientation 8)
+conv +dec plane +10 mm: pupil at S2 1.14 mm radius (expected 1.19); at the detector 4.13 mm (rays 4.67); |E| flat rms-var 0.576; Nyquist gain by radius [0.126 0.203 0.307 0.282 0.176 0.162 0.172 0.145 0.156 0.291 ] mean 0.2021 min 0.0001 (orientation 5)
+run complete
