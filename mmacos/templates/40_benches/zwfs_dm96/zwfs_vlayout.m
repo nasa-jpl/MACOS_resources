@@ -48,6 +48,15 @@ out = struct();
 modes = {'transmit', 'reflect'};  cams = {'A', 'B'};
 for c = 1:2
     bn = fieldnames(P.bench);  bp = rmfield(P.bench, bn(strncmp(bn, 'coat_', 5)));   % runner-level knobs, not twyman_green's (zwfs_run bench_args_)
+    % The seat may be the string 'scan' (zwfs_params since 2026-09-17): the
+    % RUNNER re-finds the focus, a stage a layout drawing does not have, and
+    % the builder needs a scalar.  Draw with the solved lens-rig seat; a
+    % millimetre of seat is invisible at layout scale.
+    if ~isnumeric(bp.MASK_TRIM)
+        if c == 1, fprintf(['zwfs_vlayout: bench.MASK_TRIM is ''%s'' (the runner re-scans it); ' ...
+                            'drawing with the solved lens-rig seat 1.231759 mm.\n'], bp.MASK_TRIM); end
+        bp.MASK_TRIM = 1.231759;
+    end
     bf = fieldnames(bp);  bargs = cell(1, 2*numel(bf));
     for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = bp.(bf{i}); end
     G = macos.design.twyman_green(bargs{:}, 'ngridpts', o.NGRID, ...

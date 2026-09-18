@@ -25,8 +25,24 @@ P = pdi_params();  P.MODEL = 512;  P.NGRID = 65;  P.grid.N_G = 256;  P.grid.DX_G
 for i = 1:2:numel(varargin), parts = strsplit(varargin{i}, '.');  P = setfield(P, parts{:}, varargin{i+1}); end %#ok<SFLD>
 macos.init(P.MODEL);
 macos.write_grid_file(P.grid.flat_file, zeros(P.grid.N_G));
-bf = fieldnames(P.bench);  bargs = cell(1, 2*numel(bf));
-for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = P.bench.(bf{i}); end
+% The coat_* fields are NOT builder arguments -- they are applied after the
+% build with macos.coating -- and twyman_green rejects a name it does not
+% declare, so passing the bench block wholesale breaks this figure the moment
+% the sheet gains a coating knob.  It did, on 2026-09-17 (bench.coat_oap, the
+% OAP overcoat decision), and this producer has errored ever since.  Same
+% guard dmg_bench_clearance already carries.
+bn = fieldnames(P.bench);  bp = rmfield(P.bench, bn(strncmp(bn, 'coat_', 5)));
+% The seat may be the string 'scan' (pdi_params since 2026-09-17), which only
+% the runner can resolve -- it re-finds the focus by maximizing the mask-plane
+% peak, a run stage this figure does not have.  Use the solved lens-rig seat
+% and say so: a millimetre of seat is invisible at layout scale.
+if ~isnumeric(bp.MASK_TRIM)
+    fprintf(['pdi_layout_fig: bench.MASK_TRIM is ''%s'' (the runner re-scans it); ' ...
+             'drawing with the solved lens-rig seat 1.231759 mm instead.\n'], bp.MASK_TRIM);
+    bp.MASK_TRIM = 1.231759;
+end
+bf = fieldnames(bp);  bargs = cell(1, 2*numel(bf));
+for i = 1:numel(bf), bargs{2*i-1} = bf{i};  bargs{2*i} = bp.(bf{i}); end
 G = macos.design.twyman_green(bargs{:}, 'ngridpts', P.NGRID, ...
     'to_grid_file', P.grid.flat_file, 'to_grid_n', P.grid.N_G, 'to_grid_dx', P.grid.DX_G);
 G.bt.wavelen = P.LAM;
