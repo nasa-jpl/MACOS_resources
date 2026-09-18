@@ -169,7 +169,7 @@ end
 names2 = cellfun(@(b) getv_(b,'EltName'), B, 'uni', 0);  iS2 = find(strcmp(names2,'S2'));  iS3 = find(strcmp(names2,'S3'));  iD2 = numel(B);  iDM2 = find(strcmp(names2,'TestOptic'));
 d_S3_det = norm(V_det - (V(blocks{iFLf}) + eps_*psi_det));
 deck = write_(hdr, B, fullfile(o.outdir,[o.tag '_deck.in']), 'GRIDFILE');
-if isfield(o,'build_only') && o.build_only, out = struct('deck',deck,'B',{B},'hdr',hdr,'R3',R3); fclose(rep); return; end
+if isfield(o,'build_only') && o.build_only, out = struct('deck',deck,'B',{B},'hdr',hdr,'R1',R1,'R2',R2,'R3',R3,'zb',zb); fclose(rep); return; end
 
 % ---- the legs checked ONE AT A TIME (BRIEF_to_tg_redo section 2) ----
 % The convention sweep below reports the END of the chain, where every leg's
@@ -288,13 +288,34 @@ if o.checks && ~isempty(iS1c)
     % resolve what it is asked to find (it reported 1.5 um, i.e. under one
     % pixel, on every run).  The Airy pattern puts 83.8 % of its energy inside
     % the first zero; that radius is a stable statistic at this sampling.
+    % THE FIRST NULL, found in a bracket around the prediction.  Two measures
+    % were tried and both answered a different question than the one asked:
+    % a free-running zero crossing picks up binning noise inside the core
+    % (it returned 0.7-1.5 um, under one pixel, at every sampling), and an
+    % 83.8 % encircled-energy radius is normalised by the energy on the WHOLE
+    % grid, so it moves with whatever sits in the far wings -- measured 2.97
+    % um for the pupil's own amplitude, 3.57 for a top hat of the same radius
+    % and 3.96 for the engine, on three fields whose radial profiles overlay
+    % across five decades (tg96_pupil_amp).  The null POSITION is the thing
+    % the Airy formula actually predicts, and in a bracket it is stable.
+    % the FIRST local minimum inside the bracket, not the deepest one in it:
+    % the ring minima further out are deeper (the second sits an order of
+    % magnitude below the first), so a min() over the window walks past the
+    % null it was asked for and returns 6.43 um on a field whose first null is
+    % at 3.4.  Fourth measurement artefact in this one check; see 9.3.
+    kb = find(prof.r > 0.5*airy & prof.r < 2.5*airy & isfinite(prof.v));
+    znull = NaN;
+    for kk = 2:numel(kb)-1
+        a_ = prof.v(kb(kk-1));  b_ = prof.v(kb(kk));  c_ = prof.v(kb(kk+1));
+        if b_ < a_ && b_ <= c_, znull = prof.r(kb(kk)); break; end
+    end
     [CC_, RR_] = meshgrid(1:size(IF_,2), 1:size(IF_,1));
     rr_ = hypot(RR_-rF, CC_-cF)*dxF;
     [rs_, is_] = sort(rr_(:));  cum_ = cumsum(IF_(is_));  cum_ = cum_/cum_(end);
     k83 = find(cum_ >= 0.838, 1);  ee = rs_(max(k83,1));
-    chk.airy_meas = ee;  chk.airy_pred = airy;  chk.airy_firstzero = z1;
-    say('CHECK 2a  the focal field''s 83.8%% encircled-energy radius %.2f um against the pupil''s Airy %.2f um (1.22 lam R1/D, R1 %.1f mm, D %.1f mm); pitch %.2f um, first-zero test %.1f um (unresolved at this pitch)\n', ...
-        1e3*ee, 1e3*airy, R1, 2*R_dm, 1e3*dxF, 1e3*z1);
+    chk.airy_meas = znull;  chk.airy_pred = airy;  chk.airy_ee = ee;  chk.airy_firstzero = z1;
+    say('CHECK 2a  the focal field''s first null %.2f um against the pupil''s Airy %.2f um (1.22 lam R1/D, R1 %.1f mm, D %.1f mm); pitch %.2f um [83.8%% EE radius %.2f um, normalisation-sensitive -- see 9.2]\n', ...
+        1e3*znull, 1e3*airy, R1, 2*R_dm, 1e3*dxF, 1e3*ee);
 
     % (2b) the far-side pupil: the FIELD's radius at S2 against the RAYS' own
     % footprint there -- not against R_dm*R2/R1, which is the prediction under
@@ -332,7 +353,7 @@ if o.checks && ~isempty(iS1c)
     chk.bundle_ratio = (chk.s2_ray_r/chk.s1_ray_r)/(R2/R1);
     say('CHECK gates: 1a %s, 1b %s, 2a %s, 2b %s, 2c %s\n', ...
         pf_(chk.s1_phase_wv < 0.02), pf_(abs(chk.s1_amp_rel-1) < 0.01), ...
-        pf_(abs(ee/airy - 1) < 0.10), pf_(abs(chk.s2_fld_r/chk.s2_ray_r - 1) < 0.02), ...
+        pf_(abs(znull/airy - 1) < 0.10), pf_(abs(chk.s2_fld_r/chk.s2_ray_r - 1) < 0.02), ...
         pf_(abs(chk.s2_dx/chk.s2_dx_scaled - 1) < 0.02));
     say('            2d %s (the ray bundle vs R2/R1: %.1f%%)\n', pf_(abs(chk.bundle_ratio-1) < 0.02), 100*(chk.bundle_ratio-1));
     delete(fflat);  delete(fsin);
@@ -452,15 +473,21 @@ function p = unwrap_med_(ph), p = angle(exp(1i*(ph - median(ph)))); end
 function s = pf_(tf), if tf, s = 'PASS'; else, s = 'FAIL'; end, end
 function v = iff_(c,a,b), if c, v = a; else, v = b; end, end
 function prof = radial_(I, r0, c0, dx)
+% EMPTY BINS ARE NaN, NOT ZERO.  Binned at dx/2 on a grid of pitch dx, the
+% rings near the centre can contain no pixels at all, and a bin left at zero
+% reads as a perfect null: the bracketed first-null search took one at 1.73 um
+% on a field whose real null is at 3.4 (tg96_pupil_amp's overlay).  A hole is
+% not a zero.
 [NR, NC] = size(I);  [C, R] = meshgrid(1:NC, 1:NR);  rr = hypot(R-r0, C-c0)*dx;
-edges = 0:dx/2:min(30*dx, max(rr(:)));  v = zeros(1, numel(edges)-1);
+edges = 0:dx:min(30*dx, max(rr(:)));  v = nan(1, numel(edges)-1);
 for k = 1:numel(edges)-1, m = rr >= edges(k) & rr < edges(k+1); if any(m(:)), v(k) = mean(I(m)); end, end
 prof = struct('r', (edges(1:end-1)+edges(2:end))/2, 'v', v);
 end
 function z = first_zero_(r, v)
 % the first radius at which the azimuthal mean stops falling: an Airy null
-v = v/max(v);  z = NaN;
+v = v/max(v(isfinite(v)));  z = NaN;
 for k = 2:numel(v)-1
+    if ~isfinite(v(k)) || ~isfinite(v(k-1)) || ~isfinite(v(k+1)), continue; end
     if v(k) < v(k-1) && v(k) <= v(k+1) && v(k) < 0.1, z = r(k); return; end
 end
 if isnan(z), [~, k] = min(v);  z = r(k); end
