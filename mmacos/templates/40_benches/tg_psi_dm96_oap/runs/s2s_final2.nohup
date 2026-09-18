@@ -1,0 +1,1137 @@
+Running as unit: run-r09ac3e6f7c154745a23c0a1215da758f.scope; invocation ID: 8525d2bae1fa48bab69273be2022207c
+
+	Home License -- for personal use only.  Not for government,
+	academic, research, commercial, or other organizational use.
+
+mmacos: path set from /home/dcr/dev/MACOS_resources/mmacos
+=== tg96_pupil_s2s: s2s_final2  rig lens  (2026-09-17 21:55) ===
+  Using parameter file "/home/dcr/dev/macos/macos_f90/macos_param.txt"
+  No glass table file found; using built-in catalog:         200  glasses.
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_probe.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_flat.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  35 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  29: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  34: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ OPD: Rays being traced =       115814
+ Compute time was    0.3906 sec
+ OPD: nPassRays =  102949,    DAvgCumL =  26.99013916D+02 mm
+ RMS OPD error is   1.771419789D-05 mm
+ P-V OPD error is   7.316909205D-05 mm
+ Average OPD is     4.0759961799985089D-06 mm
+true focus +0.00 mm from the mask marker along the beam (spot 0.17 um there)
+exit rays after the field lens cross the axis -18.3 mm from its exit face (+ = downstream, converging)
+collimated leg 1: Sub3b -> Comptxfu, 214.0 mm as NFPlane
+collimated leg 2: Comptxbu -> BStxfo, 188.2 mm as NFPlane
+collimated leg 3: BStxbo -> Recomb, 149.0 mm as NFPlane
+collimated leg 4: Sub5b -> L2pow, 34.0 mm as NFPlane
+glass between the focuser and the focus (2 faces, 2.000 mm of it) relocated into the gap after the focuser: a plate's focus shift t(1-1/n) does not depend on where in the cone it sits
+through-focus quartet: S1 at 415.49 before the focus (zElt +415.49, NF1), F at the focus (NF2), S2 at 10.26 after it (zElt -10.26); scale 0.0247 -> pupil 2.37 mm at S2
+S3 after the field lens: radius 17.84 mm, concentric with the converging exit beam; detector 36.28 mm beyond it
+ A total of    12864 rays were lost
+   Obscured:          12864
+ OPD: Rays being traced =       115814
+ Compute time was    0.0312 sec
+ OPD: nPassRays =  102949,    DAvgCumL =  27.18654993D+02 mm
+ RMS OPD error is   1.911214730D-02 mm
+ P-V OPD error is   6.622706824D-02 mm
+ Average OPD is     3.2976440534351274D-02 mm
+ A total of    12864 rays were lost
+   Obscured:          12864
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_chk_flat.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_flat.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+CHECK 1a  collimated legs: the flat pupil at S1 carries 0.0070 wave rms of phase (gate < 0.02); pupil radius there 46.81 mm, pitch 0.2595 mm
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ OPD: Rays being traced =       115814
+ Compute time was    0.4297 sec
+ OPD: nPassRays =  102949,    DAvgCumL =  22.83522238D+02 mm
+ RMS OPD error is   2.702328785D-06 mm
+ P-V OPD error is   7.506340353D-06 mm
+ Average OPD is     4.1145199027319505D-06 mm
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9749D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9716D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9689D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9680D-05 lin= 99.97%
+  Geometric Prop between Elt 34 and Elt 40 to WF  1
+ Compute time was    2.1094 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 0.0000000D+00  du= 0.0000000D+00
+ x-y plane diam= 2.6543253D+02  dx= 2.5946484D-01
+ Peak intensity= 1.4500881D-05; Peak occurs at i=  640, j=  386
+ Sum of intensity= 8.8892425D-01
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_chk_sin.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_chk_sin.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6537D-01
+  z2= 0.0000D+00 dx2= 2.6537D-01 min= 2.6212D-01 max= 2.6855D-01 dev= 2.1339D-03 lin= 99.20%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6542D-01
+  z2= 0.0000D+00 dx2= 2.6542D-01 min= 2.5968D-01 max= 2.7116D-01 dev= 3.8716D-03 lin= 98.54%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6548D-01
+  z2= 0.0000D+00 dx2= 2.6548D-01 min= 2.5776D-01 max= 2.7329D-01 dev= 5.2604D-03 lin= 98.02%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6550D-01
+  z2= 0.0000D+00 dx2= 2.6550D-01 min= 2.5709D-01 max= 2.7405D-01 dev= 5.7556D-03 lin= 97.83%
+  Geometric Prop between Elt 34 and Elt 40 to WF  1
+CHECK 1b  a Nyquist sinusoid reaches S1 at 0.8915 of its height on the DM (gate 1.00 +- 0.01), at 0.5119 cycles/mm (the DM's 0.5000)
+          [raw single-bin read 0.8915; the same estimator on a SYNTHETIC mode of that frequency over the same mask reads 1.0000, so that much of it is the measurement]
+ Compute time was    2.0859 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 0.0000000D+00  du= 0.0000000D+00
+ x-y plane diam= 2.6560139D+02  dx= 2.5962991D-01
+ Peak intensity= 1.4986841D-05; Peak occurs at i=  406, j=  657
+ Sum of intensity= 8.8892425D-01
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_chk_sw.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_chk_sw.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6533D-01
+  z2= 0.0000D+00 dx2= 2.6533D-01 min= 2.6500D-01 max= 2.6562D-01 dev= 1.5779D-04 lin= 99.94%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6533D-01
+  z2= 0.0000D+00 dx2= 2.6533D-01 min= 2.6485D-01 max= 2.6579D-01 dev= 2.6535D-04 lin= 99.90%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6533D-01
+  z2= 0.0000D+00 dx2= 2.6533D-01 min= 2.6473D-01 max= 2.6592D-01 dev= 3.5449D-04 lin= 99.87%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6533D-01
+  z2= 0.0000D+00 dx2= 2.6533D-01 min= 2.6468D-01 max= 2.6597D-01 dev= 3.8655D-04 lin= 99.85%
+  Geometric Prop between Elt 34 and Elt 40 to WF  1
+ Compute time was    2.0859 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 0.0000000D+00  du= 0.0000000D+00
+ x-y plane diam= 2.6543051D+02  dx= 2.5946286D-01
+ Peak intensity= 1.4550557D-05; Peak occurs at i=  386, j=  386
+ Sum of intensity= 8.8892425D-01
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_chk_sw.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_chk_sw.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6533D-01
+  z2= 0.0000D+00 dx2= 2.6533D-01 min= 2.6437D-01 max= 2.6623D-01 dev= 5.6939D-04 lin= 99.79%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6533D-01
+  z2= 0.0000D+00 dx2= 2.6533D-01 min= 2.6372D-01 max= 2.6690D-01 dev= 1.0271D-03 lin= 99.61%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6533D-01
+  z2= 0.0000D+00 dx2= 2.6533D-01 min= 2.6320D-01 max= 2.6744D-01 dev= 1.3940D-03 lin= 99.47%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6533D-01
+  z2= 0.0000D+00 dx2= 2.6533D-01 min= 2.6301D-01 max= 2.6763D-01 dev= 1.5249D-03 lin= 99.43%
+  Geometric Prop between Elt 34 and Elt 40 to WF  1
+ Compute time was    2.0859 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 0.0000000D+00  du= 0.0000000D+00
+ x-y plane diam= 2.6543146D+02  dx= 2.5946379D-01
+ Peak intensity= 1.4537924D-05; Peak occurs at i=  386, j=  386
+ Sum of intensity= 8.8892425D-01
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_chk_sw.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_chk_sw.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+          [frequency sweep, height at S1: 0.9968 0.9798 0.8915  at f = 0.125 0.250 0.500  cyc/mm -> the z that would explain each as Talbot: 2442 1546 902  mm (the legs sum to 585)]
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6537D-01
+  z2= 0.0000D+00 dx2= 2.6537D-01 min= 2.6212D-01 max= 2.6855D-01 dev= 2.1339D-03 lin= 99.20%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6542D-01
+  z2= 0.0000D+00 dx2= 2.6542D-01 min= 2.5968D-01 max= 2.7116D-01 dev= 3.8716D-03 lin= 98.54%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6548D-01
+  z2= 0.0000D+00 dx2= 2.6548D-01 min= 2.5776D-01 max= 2.7329D-01 dev= 5.2604D-03 lin= 98.02%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6550D-01
+  z2= 0.0000D+00 dx2= 2.6550D-01 min= 2.5709D-01 max= 2.7405D-01 dev= 5.7556D-03 lin= 97.83%
+  Geometric Prop between Elt 34 and Elt 40 to WF  1
+ Compute time was    2.0859 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 0.0000000D+00  du= 0.0000000D+00
+ x-y plane diam= 2.6560139D+02  dx= 2.5962991D-01
+ Peak intensity= 1.4986841D-05; Peak occurs at i=  406, j=  657
+ Sum of intensity= 8.8892425D-01
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_chk_flat.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_flat.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+CHECK 2a  the focal field's first null 6.43 um against the pupil's Airy 3.34 um (1.22 lam R1/D, R1 415.5 mm, D 96.0 mm); pitch 0.99 um [83.8% EE radius 3.96 um, normalisation-sensitive -- see 9.2]
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9749D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9716D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9689D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9680D-05 lin= 99.97%
+ ===> Near-field NF1/NF2 diffraction ...
+  Prop to reference point Elt 40 and Elt 41 to WF  1:
+  z1= 4.1549D+02 dx1= 2.5946D-01 min= 2.5923D-01 max= 2.5994D-01 dev= 2.1113D-04 lin= 99.92%
+  z2=-1.0261D+01 dx2= 9.8958D-04
+ Compute time was    2.3125 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 2.6543253D+02  du= 2.5946484D-01
+ x-y plane diam= 1.0123391D+00  dx= 9.8957875D-04
+ Peak intensity= 8.7213906D-02; Peak occurs at i=  513, j=  513
+ Sum of intensity= 8.8892425D-01
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+CHECK 2b  pupil radius at S2: field 1.138 mm, rays 1.160 mm (-1.9%), thin-lens prediction R_dm*R2/R1 1.185 mm
+CHECK 2c  the pitch at S2: the engine labels 0.006407 mm (ray spacing); the scaled frame says dx(S1)*R2/R1 = 0.006408 mm (-0.0%)
+CHECK 2d  the ray bundle itself: 46.982 mm at S1, 1.160 at S2, ratio 0.02469 against R2/R1 = 0.02470 (-0.0%)
+CHECK gates: 1a PASS, 1b FAIL, 2a FAIL, 2b PASS, 2c PASS
+            2d PASS (the ray bundle vs R2/R1: -0.0%)
+zone-PSF model, Nyquist, as built: gain by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ] (mean 0.9999, min 0.9999)
+zone model at +10 mm: band-edge phase 0.548 rad rms -> Nyquist gain ~ cos: mean 0.854, worst 0.854 (as built: mean 1.000)
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9749D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9716D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9689D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9680D-05 lin= 99.97%
+ ===> Near-field NF1/NF2 diffraction ...
+  Prop to reference point Elt 40 and Elt 41 to WF  1:
+  z1= 4.1549D+02 dx1= 2.5946D-01 min= 2.5923D-01 max= 2.5994D-01 dev= 2.1113D-04 lin= 99.92%
+  z2=-1.0261D+01 dx2= 9.8958D-04
+  Prop from reference point Elt 41 and Elt 42 to WF  1:
+  z1=-1.0261D+01 dx1= 9.8958D-04
+  z2=-1.0261D+01 dx2= 6.4066D-03 min= 6.4017D-03 max= 2.0523D+01 dev= 4.0305D-06 lin= 99.94%
+ Compute time was    1.9375 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 1.0123391D+00  du= 9.8957875D-04
+ x-y plane diam= 6.5539888D+00  dx= 6.4066362D-03
+ Peak intensity= 1.5099922D-05; Peak occurs at i=  343, j=  513
+ Sum of intensity= 8.8892425D-01
+ OPD: Rays being traced =       115814
+ Compute time was    0.2188 sec
+ OPD: nPassRays =  102949,    DAvgCumL =  27.03282084D+02 mm
+ RMS OPD error is   9.331607449D+00 mm
+ P-V OPD error is   2.052268680D+01 mm
+ Average OPD is    -5.9931947546860513D+00 mm
+ A total of    12864 rays were lost
+   Obscured:          12864
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_pdec_p1_1.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_flat.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9749D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9716D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9689D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9680D-05 lin= 99.97%
+ ===> Near-field NF1/NF2 diffraction ...
+  Prop to reference point Elt 40 and Elt 41 to WF  1:
+  z1= 4.1549D+02 dx1= 2.5946D-01 min= 2.5923D-01 max= 2.5994D-01 dev= 2.1113D-04 lin= 99.92%
+  z2=-1.0261D+01 dx2= 9.8958D-04
+  Prop from reference point Elt 41 and Elt 42 to WF  1:
+  z1=-1.0261D+01 dx1= 9.8958D-04
+  z2=-1.0261D+01 dx2= 6.4066D-03 min= 6.4017D-03 max= 2.0523D+01 dev= 4.0305D-06 lin= 99.94%
+ Compute time was    2.5156 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 1.0123391D+00  du= 9.8957875D-04
+ x-y plane diam= 6.5539888D+00  dx= 6.4066362D-03
+ Peak intensity= 1.5099922D-05; Peak occurs at i=  343, j=  513
+ Sum of intensity= 8.8892425D-01
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9749D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9716D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9689D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9680D-05 lin= 99.97%
+ ===> Near-field NF1/NF2 diffraction ...
+  Prop to reference point Elt 40 and Elt 41 to WF  1:
+  z1= 4.1549D+02 dx1= 2.5946D-01 min= 2.5923D-01 max= 2.5994D-01 dev= 2.1113D-04 lin= 99.92%
+  z2=-1.0261D+01 dx2= 9.8958D-04
+  Prop from reference point Elt 41 and Elt 42 to WF  1:
+  z1=-1.0261D+01 dx1= 9.8958D-04
+  z2=-1.0261D+01 dx2= 6.4066D-03 min= 6.4017D-03 max= 2.0523D+01 dev= 4.0305D-06 lin= 99.94%
+ =====> Near-field sphere-to-plane diffraction ...
+  NF/GS Prop between Elt 45 and Elt 46 to WF  1:
+  z1= 1.7839D+01 dx1= 2.4932D-02
+  z2=-1.8440D+01 dx2= 2.5770D-02 min= 2.5742D-02 max= 2.5829D-02 dev= 2.5935D-05 lin= 99.90%
+ Compute time was    2.9922 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 2.5505252D+01  du= 2.4931820D-02
+ x-y plane diam= 2.6363158D+01  dx= 2.5770438D-02
+ Peak intensity= 7.4905229D-05; Peak occurs at i=  656, j=  477
+ Sum of intensity= 8.8528013D-01
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_pdec_p1_2.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_sin.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6537D-01
+  z2= 0.0000D+00 dx2= 2.6537D-01 min= 2.6212D-01 max= 2.6855D-01 dev= 2.1339D-03 lin= 99.20%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6542D-01
+  z2= 0.0000D+00 dx2= 2.6542D-01 min= 2.5968D-01 max= 2.7116D-01 dev= 3.8716D-03 lin= 98.54%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6548D-01
+  z2= 0.0000D+00 dx2= 2.6548D-01 min= 2.5776D-01 max= 2.7329D-01 dev= 5.2604D-03 lin= 98.02%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6550D-01
+  z2= 0.0000D+00 dx2= 2.6550D-01 min= 2.5709D-01 max= 2.7405D-01 dev= 5.7556D-03 lin= 97.83%
+ ===> Near-field NF1/NF2 diffraction ...
+  Prop to reference point Elt 40 and Elt 41 to WF  1:
+  z1= 4.1549D+02 dx1= 2.5963D-01 min= 2.5120D-01 max= 2.6852D-01 dev= 5.7316D-03 lin= 97.79%
+  z2=-1.0261D+01 dx2= 9.8895D-04
+  Prop from reference point Elt 41 and Elt 42 to WF  1:
+  z1=-1.0261D+01 dx1= 9.8895D-04
+  z2=-1.0261D+01 dx2= 7.8762D-03 min= 5.2380D-03 max= 2.0523D+01 dev= 2.5197D-03 lin= 68.01%
+ =====> Near-field sphere-to-plane diffraction ...
+  NF/GS Prop between Elt 45 and Elt 46 to WF  1:
+  z1= 1.7839D+01 dx1= 2.4932D-02
+  z2=-1.8440D+01 dx2= 2.5770D-02 min= 2.5741D-02 max= 2.5830D-02 dev= 2.5962D-05 lin= 99.90%
+conv +dec plane  +0 mm: pupil at S2 1.14 mm radius (expected 1.19); at the detector 3.58 mm (rays 4.67); |E| flat rms-var 0.499; Nyquist gain by radius [0.289 0.240 0.173 0.128 0.096 0.107 0.133 0.179 0.242 0.298 ] mean 0.1898 min 0.0003 (orientation 8)
+ Compute time was    2.9766 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 2.5505226D+01  du= 2.4931794D-02
+ x-y plane diam= 2.6363131D+01  dx= 2.5770411D-02
+ Peak intensity= 1.3497909D-04; Peak occurs at i=  454, j=  641
+ Sum of intensity= 8.8519886D-01
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_pdec_p2_1.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_flat.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9749D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9716D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9689D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9680D-05 lin= 99.97%
+ ===> Near-field NF1/NF2 diffraction ...
+  Prop to reference point Elt 40 and Elt 41 to WF  1:
+  z1= 4.1549D+02 dx1= 2.5946D-01 min= 2.5923D-01 max= 2.5994D-01 dev= 2.1113D-04 lin= 99.92%
+  z2=-1.0261D+01 dx2= 9.8958D-04
+  Prop from reference point Elt 41 and Elt 42 to WF  1:
+  z1=-1.0261D+01 dx1= 9.8958D-04
+  z2=-1.0261D+01 dx2= 6.4066D-03 min= 6.4017D-03 max= 2.0523D+01 dev= 4.0305D-06 lin= 99.94%
+ Compute time was    2.0859 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 1.0123391D+00  du= 9.8957875D-04
+ x-y plane diam= 6.5539888D+00  dx= 6.4066362D-03
+ Peak intensity= 1.5099922D-05; Peak occurs at i=  343, j=  513
+ Sum of intensity= 8.8892425D-01
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9749D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9716D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9689D-05 lin= 99.97%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6534D-01
+  z2= 0.0000D+00 dx2= 2.6534D-01 min= 2.6518D-01 max= 2.6541D-01 dev= 6.9680D-05 lin= 99.97%
+ ===> Near-field NF1/NF2 diffraction ...
+  Prop to reference point Elt 40 and Elt 41 to WF  1:
+  z1= 4.1549D+02 dx1= 2.5946D-01 min= 2.5923D-01 max= 2.5994D-01 dev= 2.1113D-04 lin= 99.92%
+  z2=-1.0261D+01 dx2= 9.8958D-04
+  Prop from reference point Elt 41 and Elt 42 to WF  1:
+  z1=-1.0261D+01 dx1= 9.8958D-04
+  z2=-1.0261D+01 dx2= 6.4066D-03 min= 6.4017D-03 max= 2.0523D+01 dev= 4.0305D-06 lin= 99.94%
+ =====> Near-field sphere-to-plane diffraction ...
+  NF/GS Prop between Elt 45 and Elt 46 to WF  1:
+  z1= 1.7839D+01 dx1= 1.9099D-02
+  z2=-2.8440D+01 dx2= 3.0448D-02 min= 3.0415D-02 max= 3.0513D-02 dev= 2.9081D-05 lin= 99.90%
+ Compute time was    1.6953 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 1.9538444D+01  du= 1.9099164D-02
+ x-y plane diam= 3.1148028D+01  dx= 3.0447730D-02
+ Peak intensity= 6.1285908D-05; Peak occurs at i=  469, j=  524
+ Sum of intensity= 8.8528013D-01
+  Input file /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/s2s_final2/s2s_final2_pdec_p2_2.in being loaded.
+ Default used for  SegXgrid
+  Reading surface grid data file s2s_sin.txt
+  mGridMat,nGridMatS =        1024         384
+ Grid surface array is of dimension  384 by   384
+ Default used for pMon(  13)
+ Default used for xMon(  13)
+ Default used for yMon(  13)
+ Default used for zMon(  13)
+ Default used for lMon(  13)
+ Optical Train Summary:
+  Tracing rays past  46 elements.
+  Aperture grid type = Circular  with  385 grid points.
+  Elt   1: Obscuring   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   2: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   3: Refractor   : Conic    with Kc=-5.8302D-01, Kr= 4.2728D+02, nECoords =  -6
+  Elt   4: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   5: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   6: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   7: Reflector   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   8: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt   9: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  10: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  11: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  12: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  13: Reflector   : GridData with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  14: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  15: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  16: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  17: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  18: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  19: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  20: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  21: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  22: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  23: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  24: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  25: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  26: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  27: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  28: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  29: WavePlate   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  30: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  31: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  32: TrPolarizer : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  33: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  34: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  35: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  36: Refractor   : Conic    with Kc=-5.8184D-01, Kr=-2.1270D+02, nECoords =  -6
+conv +dec plane +10 mm: pupil at S2 1.14 mm radius (expected 1.19); at the detector 4.13 mm (rays 4.67); |E| flat rms-var 0.576; Nyquist gain by radius [0.126 0.203 0.307 0.282 0.176 0.162 0.172 0.145 0.156 0.291 ] mean 0.2021 min 0.0001 (orientation 5)
+run complete
+  Elt  37: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  38: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  39: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  40: Reference   : Conic    with Kc= 0.0000D+00, Kr=-4.1549D+02, nECoords =  -6
+  Elt  41: Reference   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  42: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.0261D+01, nECoords =  -6
+  Elt  43: Refractor   : Conic    with Kc=-7.7723D+00, Kr=-2.1447D+01, nECoords =  -6
+  Elt  44: Refractor   : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Elt  45: Reference   : Conic    with Kc= 0.0000D+00, Kr=-1.7839D+01, nECoords =  -6
+  Elt  46: FocalPlane  : Flat     with Kc= 0.0000D+00, Kr=-1.0000D+22, nECoords =  -6
+  Number of output coordinates is   5
+  Computed StopPos =  4.547072919662D+03  0.000000000000D+00  0.000000000000D+00
+ Tracing    115814 rays and propagating   1048576 grid points...
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 17 and Elt 18 to WF  1:
+  z1=-2.1400D+02 dx1= 2.6537D-01
+  z2= 0.0000D+00 dx2= 2.6537D-01 min= 2.6212D-01 max= 2.6855D-01 dev= 2.1339D-03 lin= 99.20%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 21 and Elt 22 to WF  1:
+  z1=-1.8818D+02 dx1= 2.6542D-01
+  z2= 0.0000D+00 dx2= 2.6542D-01 min= 2.5968D-01 max= 2.7116D-01 dev= 3.8716D-03 lin= 98.54%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 25 and Elt 26 to WF  1:
+  z1=-1.4900D+02 dx1= 2.6548D-01
+  z2= 0.0000D+00 dx2= 2.6548D-01 min= 2.5776D-01 max= 2.7329D-01 dev= 5.2604D-03 lin= 98.02%
+ ===> Near-field plane-to-plane diffraction ...
+  NF/PP Prop between Elt 34 and Elt 35 to WF  1:
+  z1=-3.4000D+01 dx1= 2.6550D-01
+  z2= 0.0000D+00 dx2= 2.6550D-01 min= 2.5709D-01 max= 2.7405D-01 dev= 5.7556D-03 lin= 97.83%
+ ===> Near-field NF1/NF2 diffraction ...
+  Prop to reference point Elt 40 and Elt 41 to WF  1:
+  z1= 4.1549D+02 dx1= 2.5963D-01 min= 2.5120D-01 max= 2.6852D-01 dev= 5.7316D-03 lin= 97.79%
+  z2=-1.0261D+01 dx2= 9.8895D-04
+  Prop from reference point Elt 41 and Elt 42 to WF  1:
+  z1=-1.0261D+01 dx1= 9.8895D-04
+  z2=-1.0261D+01 dx2= 7.8762D-03 min= 5.2380D-03 max= 2.0523D+01 dev= 2.5197D-03 lin= 68.01%
+ =====> Near-field sphere-to-plane diffraction ...
+  NF/GS Prop between Elt 45 and Elt 46 to WF  1:
+  z1= 1.7839D+01 dx1= 1.9120D-02
+  z2=-2.8440D+01 dx2= 3.0482D-02 min= 2.9144D-02 max= 3.1889D-02 dev= 9.1454D-04 lin= 97.00%
+ Compute time was    1.6250 sec
+ A total of    12864 rays were lost
+   Obscured:          12864
+ Wavefront Propagation Data Summary:
+ Wavelength= 6.3280000D-04;  Source Flux= 1.0000000D+00
+ u-v plane diam= 1.9560133D+01  du= 1.9120364D-02
+ x-y plane diam= 3.1182603D+01  dx= 3.0481528D-02
+ Peak intensity= 1.2021452D-04; Peak occurs at i=  605, j=  550
+ Sum of intensity= 8.8519886D-01

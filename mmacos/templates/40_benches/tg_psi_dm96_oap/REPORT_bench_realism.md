@@ -1327,3 +1327,58 @@ WAVEFRONT is not the cause; the likely cause is the seeded pupil's AMPLITUDE not
 being uniform (it carries the ray-density and interpolation structure above).
 Open, and it wants the pupil's amplitude profile plotted against a top hat
 before anything else is tried.
+
+### 9.3 CHECK 2a closed: the focal field IS the pupil's Airy pattern; the excess was the statistic
+
+`tg96_pupil_amp` (new) measures the seeded pupil's AMPLITUDE at the entrance
+sphere and asks what it alone does to the focal spot: the measured amplitude
+with a FLAT phase, a top hat of the same 50 % radius through the identical
+transform as the control, and the engine's own focal field beside both.
+
+**The pupil is a near-perfect hat**: ripple **0.0003 rms** of the mean inside
+0.9 of the radius, edge 90->10 % over **0.983 mm** (3.8 pixels) on a 94 mm
+pupil, and **0.23 %** of the energy outside the 50 % radius.
+
+**And all three focal profiles overlay across five decades** -- same rings, same
+nulls, first null at ~3.4 um against the Airy prediction of 3.41
+(`pupilamp_lens_amp.png`).  So the quartet delivers the pupil's Airy pattern and
+there is no excess to explain.
+
+**The "16 % excess" was the encircled-energy statistic.**  An 83.8 % EE radius
+is normalised by the energy on the WHOLE grid, so it moves with whatever sits in
+the far wings: the same three fields, indistinguishable in profile, give
+**2.97 / 3.57 / 3.96 um**.  That also explains why halving the focal pitch left
+3.96 alone -- quantisation was never the issue.  CHECK 2a now reports the first
+NULL POSITION, found in a bracket around the prediction, with the EE radius
+still printed and labelled.
+
+**One more measurement artefact caught on the way**, and it is the same
+species: the radial profile binned at `dx/2` on a grid of pitch `dx` leaves
+rings near the centre with no pixels in them, and a bin left at ZERO reads as a
+perfect null -- the bracketed search duly took one at 1.73 um on a field whose
+real null is at 3.4.  Empty bins are NaN now.  **A hole is not a zero.**
+
+### 9.4 Package B, where it stands
+
+| leg | verdict |
+|---|---|
+| 1a the collimated legs deliver a flat pupil to the entrance sphere | **PASS**, 0.0070 wave rms |
+| 1b a Nyquist mode's height there | **closed** -- the 11-17 % is the DM grid's own interpolation (9.2), not the legs; the gate wants re-basing on what the RAYS see at the DM |
+| 2a the focal field against the Airy | **PASS** -- profiles overlay, first null on prediction (9.3) |
+| 2b the pupil radius at S2, field vs rays | **PASS**, -1.9 % |
+| 2c the engine's pitch label vs the scaled frame | **PASS**, -0.0 % |
+| 2d the ray bundle itself vs R2/R1 | **PASS**, -0.0 % |
+
+**What it cost to get there, and the pattern worth carrying:** of the five
+checks, THREE were measuring their own limits rather than the chain -- 1a's
+statistic saturating at the wrapped-phase ceiling, 1b's suspected leakage (which
+the control cleared, turning it into a real finding about the DM grid), and 2a's
+EE normalisation.  Only 2c and 2d measured the chain, and those two found the
+real defect: the quartet built ahead of the mask plate.  **On a chain this new,
+a failing gate says nothing until it is shown it could have passed.**
+
+**Still open, and both are named rather than guessed:** the convention sweep at
+the exit step (the brief's item 3) has not been re-run since the deck-order fix,
+so the four `zElt` candidates have not been retested on a correct quartet; and
+the readout comparison against `tg96_pupilsim` (item 4) waits on that.  The
+mirror rig (item 5) has not been run through the chain at all.
