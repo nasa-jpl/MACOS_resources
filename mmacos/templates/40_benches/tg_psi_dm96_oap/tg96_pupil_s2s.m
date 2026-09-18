@@ -97,7 +97,7 @@ delete(f0);
 
 % ---- build the station-to-station deck ----
 eps_ = 0.5;
-B = {};  ip = 1;
+B = {};  ip = 1;  leglen = [];
 for i = 1:numel(blocks)
     B{end+1} = blocks{i}; %#ok<AGROW>
     if i == iDM || (i < iL2f && i > iDM)
@@ -108,6 +108,7 @@ for i = 1:numel(blocks)
             B{end+1} = flat_block_(blocks{iFoc}, sprintf('Prop%d_start', ip), Vi + eps_*d, -d, 'NFPlane', -(L - 2*eps_)); %#ok<AGROW>
             B{end+1} = flat_block_(blocks{iFoc}, sprintf('Prop%d_end',   ip), Vn - eps_*d, -d, 'Geometric', 0); %#ok<AGROW>
             say('collimated leg %d: %s -> %s, %.1f mm as NFPlane\n', ip, names{i}, names{i+1}, L - 2*eps_);  ip = ip + 1;
+            leglen(end+1) = L - 2*eps_; %#ok<AGROW>
         end
     end
     if i == iL2f
@@ -230,10 +231,49 @@ if o.checks && ~isempty(iS1c)
     hm = h1 .* in1;  Hf = fft2(hm)/max(nnz(in1),1);  Hf(1,1) = 0;
     [~, ipk] = max(abs(Hf(:)));  [kr_, kc_] = ind2sub(size(Hf), ipk);
     n1 = size(E1,1);  fr = mod(kr_-1 + n1/2, n1) - n1/2;  fc = mod(kc_-1 + n1/2, n1) - n1/2;
-    chk.s1_amp_rel = 2*abs(Hf(ipk))/amp_c;
+    chk.s1_amp_raw = 2*abs(Hf(ipk))/amp_c;
     chk.s1_freq = hypot(fr, fc)/(n1*dx1);
+    % THE ESTIMATOR OWES ITSELF A CONTROL.  This reads an amplitude off ONE
+    % Fourier bin of a hard-masked pupil, and a circular mask spreads a pure
+    % tone over neighbouring bins, so some of the shortfall is the measurement
+    % rather than the leg.  Run the identical estimator on a SYNTHETIC mode of
+    % the same frequency over the same mask -- amplitude amp_c by construction
+    % -- and divide.  What survives is the leg's own loss.
+    [II_, JJ_] = meshgrid(0:n1-1, 0:n1-1);
+    hs = amp_c*sin(2*pi*(fr*JJ_ + fc*II_)/n1);
+    Hs = fft2(hs .* in1)/max(nnz(in1),1);  Hs(1,1) = 0;
+    chk.s1_leak = 2*abs(Hs(ipk))/amp_c;
+    chk.s1_amp_rel = chk.s1_amp_raw / max(chk.s1_leak, eps);
     say('CHECK 1b  a Nyquist sinusoid reaches S1 at %.4f of its height on the DM (gate 1.00 +- 0.01), at %.4f cycles/mm (the DM''s %.4f)\n', ...
         chk.s1_amp_rel, chk.s1_freq, fN_c);
+    say('          [raw single-bin read %.4f; the same estimator on a SYNTHETIC mode of that frequency over the same mask reads %.4f, so that much of it is the measurement]\n', ...
+        chk.s1_amp_raw, chk.s1_leak);
+    % WHAT KIND OF LOSS IS IT?  A weak phase grating propagating z has its
+    % phase multiplied by cos(pi*lam*z*f^2) -- Talbot -- so the loss is a
+    % STEEP function of frequency and one number cannot tell a propagation
+    % from a smoothing.  Three frequencies fit z_eff, and z_eff against the
+    % legs' own 585 mm says whether the chain is propagating the distance it
+    % thinks it is.
+    fsw = [0.125 0.25 0.5];  asw = nan(size(fsw));  zsw = nan(size(fsw));
+    for kf = 1:numel(fsw)
+        macos.write_grid_file('s2s_chk_sw.txt', amp_c*sin(2*pi*fsw(kf)*UC'));
+        fsk = write_(hdr, B, fullfile(o.outdir,[o.tag '_chk_sw.in']), 's2s_chk_sw.txt');
+        macos.load_rx(fsk);  macos.stop(iDM2);
+        Ek = macos.complex_field(iS1c);
+        hk = angle(Ek .* conj(E1)) * lam/(4*pi);
+        Hk = fft2(hk .* in1)/max(nnz(in1),1);  Hk(1,1) = 0;
+        [~, ik] = max(abs(Hk(:)));
+        asw(kf) = 2*abs(Hk(ik))/amp_c;
+        % z that would explain this loss as Talbot at the frequency AS READ
+        [krr, kcc] = ind2sub(size(Hk), ik);
+        frk = mod(krr-1 + n1/2, n1) - n1/2;  fck = mod(kcc-1 + n1/2, n1) - n1/2;
+        fk = hypot(frk, fck)/(n1*dx1);
+        zsw(kf) = acos(max(min(asw(kf),1),-1))/(pi*lam*fk^2);
+        delete(fsk);
+    end
+    chk.sweep_f = fsw;  chk.sweep_a = asw;  chk.sweep_z = zsw;
+    say('          [frequency sweep, height at S1: %s at f = %s cyc/mm -> the z that would explain each as Talbot: %s mm (the legs sum to %.0f)]\n', ...
+        sprintf('%.4f ', asw), sprintf('%.3f ', fsw), sprintf('%.0f ', zsw), sum(leglen));
 
     % (2a) the quartet: the focal field must be the pupil's Airy pattern.
     macos.load_rx(fflat);  macos.stop(iDM2);
@@ -242,9 +282,19 @@ if o.checks && ~isempty(iS1c)
     prof = radial_(IF_, rF, cF, dxF);
     z1 = first_zero_(prof.r, prof.v);
     airy = 1.22*lam*R1/(2*R_dm);
-    chk.airy_meas = z1;  chk.airy_pred = airy;
-    say('CHECK 2a  the focal field''s first zero %.1f um against the pupil''s Airy %.1f um (1.22 lam R1/D, R1 %.1f mm, D %.1f mm); pitch %.2f um\n', ...
-        1e3*z1, 1e3*airy, R1, 2*R_dm, 1e3*dxF);
+    % ENCIRCLED ENERGY, not a zero crossing.  The focal plane's pitch is
+    % lam*R1/(N*dx1) -- 1.98 um here against an Airy radius of 3.3 -- so the
+    % first null lands inside the first ring and a zero-crossing test cannot
+    % resolve what it is asked to find (it reported 1.5 um, i.e. under one
+    % pixel, on every run).  The Airy pattern puts 83.8 % of its energy inside
+    % the first zero; that radius is a stable statistic at this sampling.
+    [CC_, RR_] = meshgrid(1:size(IF_,2), 1:size(IF_,1));
+    rr_ = hypot(RR_-rF, CC_-cF)*dxF;
+    [rs_, is_] = sort(rr_(:));  cum_ = cumsum(IF_(is_));  cum_ = cum_/cum_(end);
+    k83 = find(cum_ >= 0.838, 1);  ee = rs_(max(k83,1));
+    chk.airy_meas = ee;  chk.airy_pred = airy;  chk.airy_firstzero = z1;
+    say('CHECK 2a  the focal field''s 83.8%% encircled-energy radius %.2f um against the pupil''s Airy %.2f um (1.22 lam R1/D, R1 %.1f mm, D %.1f mm); pitch %.2f um, first-zero test %.1f um (unresolved at this pitch)\n', ...
+        1e3*ee, 1e3*airy, R1, 2*R_dm, 1e3*dxF, 1e3*z1);
 
     % (2b) the far-side pupil: the FIELD's radius at S2 against the RAYS' own
     % footprint there -- not against R_dm*R2/R1, which is the prediction under
@@ -282,7 +332,7 @@ if o.checks && ~isempty(iS1c)
     chk.bundle_ratio = (chk.s2_ray_r/chk.s1_ray_r)/(R2/R1);
     say('CHECK gates: 1a %s, 1b %s, 2a %s, 2b %s, 2c %s\n', ...
         pf_(chk.s1_phase_wv < 0.02), pf_(abs(chk.s1_amp_rel-1) < 0.01), ...
-        pf_(abs(z1/airy - 1) < 0.10), pf_(abs(chk.s2_fld_r/chk.s2_ray_r - 1) < 0.02), ...
+        pf_(abs(ee/airy - 1) < 0.10), pf_(abs(chk.s2_fld_r/chk.s2_ray_r - 1) < 0.02), ...
         pf_(abs(chk.s2_dx/chk.s2_dx_scaled - 1) < 0.02));
     say('            2d %s (the ray bundle vs R2/R1: %.1f%%)\n', pf_(abs(chk.bundle_ratio-1) < 0.02), 100*(chk.bundle_ratio-1));
     delete(fflat);  delete(fsin);

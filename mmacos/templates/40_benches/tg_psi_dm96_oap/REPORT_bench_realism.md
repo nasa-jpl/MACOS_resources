@@ -1274,3 +1274,56 @@ four figures.  Two remain:
   is 1.98 um against an Airy radius of 3.3, so a first-zero test cannot resolve
   what it is asked to find.  It should be encircled energy against the Airy
   prediction.
+
+### 9.2 CHECK 1b closed: the Nyquist loss is INTERPOLATION, not propagation
+
+The estimator's own control reads **1.0000** on a synthetic mode of the same
+frequency over the same mask, so the 17 % is real and not spectral leakage.  It
+is also not Fresnel.  Sweeping three frequencies and asking what `z` would
+explain each loss as Talbot (`cos(pi lam z f^2)`):
+
+| f (cyc/mm) | height at S1, DM grid 0.40 mm | ... 0.28 mm | z if Talbot (0.40) |
+|---|---|---|---|
+| 0.125 | 0.9926 | 0.9968 | 3731 mm |
+| 0.250 | 0.9634 | 0.9798 | 2083 |
+| 0.500 | 0.8324 | 0.8915 | 1128 |
+
+**The fitted z is not constant -- it runs as 1/f -- so the loss is not a
+propagation at all**, and the "about twice the legs" arithmetic that 585 mm
+invited was reading meaning into a number that had none.  The loss goes as
+`f^2`, which is a BLUR, and it has a name: **linear interpolation, whose
+transfer is `sinc^2(f dx)`.**  There are two of them in series, and their
+product accounts for the measurement:
+
+| | f dx | sinc^2 | |
+|---|---|---|---|
+| the DM's GridData surface onto the rays (`dx_g` 0.40) | 0.205 | 0.8751 | |
+| the rays onto the diffraction grid (`dx` 0.2595) | 0.133 | 0.9455 | |
+| **product** | | **0.8274** | measured **0.8324** |
+| the same with `dx_g` 0.28 | | **0.9111** | measured **0.8915** |
+
+Within 0.6 % and 2.2 %.  **So the Nyquist loss is the DM SURFACE MODEL's own
+sampling, not the near-field legs** -- it is paid before any propagation
+happens, the ray path pays exactly the same toll, and `tg96_pupilsim` never saw
+it because its stage 2 works on the DM's own grid.  Two consequences:
+
+- **The gate is wrong as written.**  It compares the field at S1 against the
+  COMMANDED amplitude; the honest reference is what the rays actually see at
+  the DM.  Rewritten that way it would pass, and it would still catch a real
+  leg error.
+- **The number itself is worth carrying into package C**: at the sheet's
+  `dx_g` 0.28 the model loses ~11 % of a Nyquist actuator mode to
+  interpolation before optics are involved at all.  That is a floor under
+  every gain the gauge reports at the top of the actuator band, and it is
+  the reason to prefer a finer DM grid over a finer ray grid when either
+  would fit.
+
+**CHECK 2a does NOT improve with sampling and is therefore a real excess.**
+Halving the focal pitch (model 1024, 0.99 um) leaves the 83.8 % encircled-energy
+radius at **3.96 um against the Airy 3.34** -- the same number, so it is not
+quantisation.  With the pupil's measured radius (46.81 mm, not 48) the Airy is
+3.42 and the excess is 16 %.  The ray spot at that plane is 0.17 um rms, so the
+WAVEFRONT is not the cause; the likely cause is the seeded pupil's AMPLITUDE not
+being uniform (it carries the ray-density and interpolation structure above).
+Open, and it wants the pupil's amplitude profile plotted against a top hat
+before anything else is tried.
