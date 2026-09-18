@@ -1364,7 +1364,7 @@ real null is at 3.4.  Empty bins are NaN now.  **A hole is not a zero.**
 |---|---|
 | 1a the collimated legs deliver a flat pupil to the entrance sphere | **PASS**, 0.0070 wave rms |
 | 1b a Nyquist mode's height there | **closed** -- the 11-17 % is the DM grid's own interpolation (9.2), not the legs; the gate wants re-basing on what the RAYS see at the DM |
-| 2a the focal field against the Airy | **PASS** -- profiles overlay, first null on prediction (9.3) |
+| 2a the focal field against the Airy | **PASS** -- first null **3.46 um** against the Airy 3.34 (`s2s_final3`), and the profiles overlay across five decades (9.3) |
 | 2b the pupil radius at S2, field vs rays | **PASS**, -1.9 % |
 | 2c the engine's pitch label vs the scaled frame | **PASS**, -0.0 % |
 | 2d the ray bundle itself vs R2/R1 | **PASS**, -0.0 % |
@@ -1376,6 +1376,11 @@ the control cleared, turning it into a real finding about the DM grid), and 2a's
 EE normalisation.  Only 2c and 2d measured the chain, and those two found the
 real defect: the quartet built ahead of the mask plate.  **On a chain this new,
 a failing gate says nothing until it is shown it could have passed.**
+
+**The check suite as it now stands** (`s2s_final3`, model 1024, the sheet's DM
+grid): 1a PASS, 1b FAIL-by-design (it compares against the COMMANDED amplitude;
+re-based on what the rays see at the DM it passes, and the number it is really
+reporting belongs in 9.2), 2a PASS, 2b PASS, 2c PASS, 2d PASS.
 
 **Still open, and both are named rather than guessed:** the convention sweep at
 the exit step (the brief's item 3) has not been re-run since the deck-order fix,
