@@ -435,6 +435,14 @@ P.loop.start_rms   = [];           % [] = no descent; else the loop STARTS from 
                                    %   neither had run, so nothing caught it.)
                                    %   A vector runs the ladder; matrix measured AT the start
 P.loop.start_shape = [];           % [] = the set point's own field rescaled ("the same field, scaled")
+P.loop.calib_at    = 'start';       % which surface a DESCENT measures its matrix on:
+                                   %   'start'    the starting surface (every descent on
+                                   %              record; the default, nothing moves)
+                                   %   'setpoint' measure at the set point while starting
+                                   %              far -- the only arrangement that separates
+                                   %              "opens far from the set point" from "matrix
+                                   %              measured far from where it is used", which
+                                   %              ushape otherwise confounds exactly
 P.loop.recal_every = 0;            % cycles between on-surface re-calibrations (0 = never)
 P.loop.recal_list  = [];           % descent: recal_every values to compare ([] => [recal_every])
 P.loop.reach       = [10e-6 3e-9]; % descent columns: first cycle to 10 nm, to 3 pm (mm)
