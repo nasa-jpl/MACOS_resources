@@ -1168,3 +1168,109 @@ worth knowing before a day of rows: the question is not the null's rms but its
 PV against that fold, and 8.6b already shows the lens rig folding pixels in the
 station figure.  If a row table comes back with salt-and-pepper, `battery.unwrap`
 is the first thing to turn on, not the last.
+
+## 9. Package B: the physical-optics chain, leg by leg on the improved bench (TO, 2026-09-17)
+
+`tg96_pupil_s2s` gained a `checks` block (default on) that measures each leg in
+the order light meets it, BEFORE the convention sweep -- the sweep reports the
+end of the chain, where every leg's error is already mixed into one gain map.
+Run on the emitted `redo_lens` deck through its own pupil-stage run
+(`s2s_redo_lens`).  **The chain now runs on the lens rig at all**, which it
+could not before (section 7: 41 waves of curvature walked the rays off the grid
+between the near-field legs).
+
+| check | on the improved bench | on the bench of record | gate |
+|---|---|---|---|
+| 1a the flat pupil's phase at the entrance sphere | **0.2824 wave rms** | 1.5 waves | < 0.02 |
+| 1b a Nyquist sinusoid's height there | **0.8232**, at 0.5096 cyc/mm vs the DM's 0.5000 | -- | 1.00 +- 0.01 |
+| 2a the focal field's first zero | 1.5 um vs the Airy 3.4 | a 34 um blob (mirror rig) | +-10 % |
+| 2b the pupil radius at S2, field vs RAYS | 1.000 vs 1.089 mm (**-8.1 %**) | -20 % | 2 % |
+| 2c the PITCH at S2, engine's label vs the scaled frame | 0.006016 vs 0.006398 (**-6.0 %**) | -- | 2 % |
+
+**2c is the brief's suspect #1 confirmed and sized.**  The engine sets `dxElt`
+from the propagator only for PropType 3/10/15 and the regridded 5/14 pair;
+PropType 11 -- `PL2SPH`, the F -> S2 leg -- is in neither list, so S2's pitch
+falls through to the ray-spacing branch (`utilsub.F` ~:590), while `PL2SPH`'s
+plain inverse FFT hands the array back in the ENTRANCE sphere's pitch, i.e. in
+the Sziklas-Siegman scaled frame.  The two agree only if the ray spacing at S2
+really is `dx(S1) * R2/R1`.  It is 6 % short.  **And 2b follows from 2c**:
+rescale the field's disc by the pitch ratio and 1.000 mm becomes 1.063 against
+the rays' 1.089, so most of the radius error IS the label.
+
+**2a is a sampling artifact, not a blob, and the check needs rewriting.**  The
+focal plane's pitch is 1.98 um (`lam*R1/(N*dx1)`, N the model size) against an
+Airy radius of 3.36 um, so the first zero lands inside the first ring and a
+zero-crossing test cannot resolve it.  The old bench's 34 um blob is gone; this
+is the opposite problem.  The gate should be encircled energy against the Airy
+prediction, not a zero crossing.
+
+**1b's frequency shift is unexplained and is the sharpest clue left.**  The mode
+returns 1.9 % higher in frequency -- the pupil SCALE at the entrance sphere is
+not the DM's -- and at 0.8232 of its height.  A weak phase grating propagating
+`z` loses `cos(pi lam z f^2)`; at the Nyquist 0.5 cyc/mm and the legs' 585 mm
+that is 0.958, and 0.8232 implies an effective 1216 mm, about twice the legs.
+Both numbers point at the same thing and neither is explained yet.
+
+### 9.1 The quartet was built around a bench that had no glass before the focus
+
+The five checks above were all measured on the chain AS IT WAS.  Running them
+one leg at a time turned three of the five failures into one construction bug
+and one engine constraint, and the fix needed no fudge factor.  The progression,
+each row a run in `runs/`:
+
+| deck construction | 1a phase at S1 | 2b field vs rays at S2 | 2c pitch | 2d the RAY BUNDLE vs R2/R1 |
+|---|---|---|---|---|
+| as built (`s2s_redo_lens`) | 0.2824 **wrapped** | -8.1 % | -6.0 % | -6.2 % |
+| + entrance sphere centred on the PRE-plate focus (`s2s_r1trim`) | **0.0085** | **-1.8 %** | -6.1 % | -6.2 % |
+| + F and S2 moved to the mask's station, plate INSIDE the sandwich (`s2s_order`) | 0.0085 | field 0.000 -- **empty** | **-0.0 %** | **-0.0 %** |
+| **plate relocated into the gap after the focuser** (`s2s_glass2`) | **0.0070** | **-1.9 %** | **-0.0 %** | **-0.0 %** |
+| (control: no mask plate at all, `s2s_nomask`) | 0.0089 | -1.8 % | -0.0 % | -- |
+
+**The bug: the builder appended all three quartet elements straight after the
+focuser, so anything the deck puts between the focuser and the focus lands
+AFTER S2 in deck order -- and MACOS traces in deck order.**  The rays ran S1 ->
+F -> S2 and then turned back 7 mm upstream into the mask plate's glass.  At S2
+they were therefore still heading for the PRE-plate focus while F had been
+placed at the POST-plate one: 6.2 % on the bundle, measured ray to ray with no
+estimator in the comparison (CHECK 2d), and the same 6.1 % on the pitch.  **The
+record's decks had no mask plate** -- nothing at all between the focuser and the
+focus -- so this could not have shown up before the substrates were decided.
+
+**The engine constraint, learned by violating it:** the NF1 sphere must be
+IMMEDIATELY followed by the NF2 plane.  `SPH2PL` fires at the element after the
+NF1 element and reads its `zEnd` from the one after THAT (`propsub.F` ~:1958,
+`zEnd = zElt(iElt+1)`); with substrate faces in between, `zEnd` is a face's
+`zElt`, which the builder sets to 0, and the chirp `S ~ (Z2-Z1) Z1/Z2` divides
+by it.  The field comes back empty -- measured, CHECK 2b radius 0.000, pitch
+0.00 um -- which is a clean failure but not an obvious one from the outside.
+
+**So the plate is relocated into the gap right after the focuser, keeping its
+own 2.000 mm of thickness, and the entrance sphere goes just after it.**  That
+is exact to first order, for a reason worth keeping: a plane-parallel plate's
+only effect on a converging beam is a focus shift of `t(1-1/n)`, and that does
+not depend on WHERE in the cone the plate sits.  The plate is then in the
+geometric leg that seeds the sphere, so the wavefront at S1 already heads for
+the true focus and **no `r1_trim` is needed** -- that knob was the right
+compensation for the wrong placement, and it is left in the tool only as a
+diagnostic.  (Two failed placements are recorded above because each one taught
+something: 2-4 mm ahead of an S1 that sits 0.5 mm past the focuser puts the
+glass BEHIND the focuser's exit face, and the engine answers that with an empty
+grid, `dxElt` 1e10.)
+
+**Where package B stands.**  Four of the five legs are now right on the bench as
+it will be built: the collimated legs deliver a flat pupil to the entrance
+sphere (0.0070 wave rms), the through-focus quartet scales the bundle exactly as
+R2/R1 (-0.0 %), and the engine's pitch label agrees with the scaled frame to
+four figures.  Two remain:
+
+- **1b, the only substantive one:** a Nyquist sinusoid reaches S1 at 0.8324 of
+  its height.  A weak phase grating over the legs' 585 mm should lose
+  `cos(pi lam z f^2)` = 0.958.  Before reading anything physical into the
+  difference, the estimator needs its own control -- it reads the amplitude off
+  a single Fourier bin of a hard-masked pupil, and leakage from that mask alone
+  could account for it.  The control is to run the identical estimator on a
+  SYNTHETIC mode of the same frequency over the same mask and divide.
+- **2a is a limitation of the check, not of the chain:** the focal plane's pitch
+  is 1.98 um against an Airy radius of 3.3, so a first-zero test cannot resolve
+  what it is asked to find.  It should be encircled energy against the Airy
+  prediction.

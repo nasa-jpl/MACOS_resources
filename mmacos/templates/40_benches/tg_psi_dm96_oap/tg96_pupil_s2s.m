@@ -27,7 +27,7 @@ function out = tg96_pupil_s2s(varargin)
 %   the convention sweep -- each one a number, so a failure names its own leg).
 o = struct('rig','lens','sim','','tag','','model',512,'ngrid',385,'n_g',256,'dx_g',0.4, ...
            'conv',{{'+dec','-inc','+inc','-dec'}},'defocus',10,'skip_gaps',false,'gap_min',30,'outdir','', ...
-           'checks',true);
+           'checks',true,'r1_trim',0);
 for k = 1:2:numel(varargin), o.(varargin{k}) = varargin{k+1}; end
 exdir = fileparts(mfilename('fullpath'));  if isempty(exdir), exdir = pwd; end
 if isempty(which('macos.init')), run(fullfile(exdir,'..','..','..','mmacos_setup.m')); end
@@ -75,6 +75,18 @@ zn = dir_f(:)'*df;  sx = (x_det(:)'*df)./zn;  sy = (y_det(:)'*df)./zn;  z0 = -(d
 spotz = @(z) sqrt(var(xf + sx.*(z - z0), 1) + var(yf + sy.*(z - z0), 1));  zb = fminbnd(spotz, -60, 60);
 V_focus = V(blocks{iFoc}) + zb*dir_f;
 say('true focus %+.2f mm from the mask marker along the beam (spot %.2f um there)\n', zb, spotz(zb)*1e3);
+% THE ENTRANCE SPHERE MUST BE CENTRED ON THE FOCUS THE WAVEFRONT AT THAT SPHERE
+% IS CONVERGING TO -- not on the ray focus measured downstream of glass the
+% wavefront has not been through yet.  The mask's own 2 mm plate sits between S1
+% and the focus and displaces it by t(1-1/n) = 0.63 mm; centring S1 on the
+% post-plate focus leaves ~6 waves of defocus on the sphere (measured: CHECK 1a
+% wrapped, and CHECK 2c's pitch 6% out), all of which vanish when the plate is
+% taken out.  'r1_trim' shortens R1 by that much; the mask plate's shift is the
+% number to pass.
+V_sph = V_focus - o.r1_trim*dir_f;
+if o.r1_trim ~= 0
+    say('entrance sphere centred %.4f mm SHORT of the ray focus (r1_trim): the glass between S1 and the focus has not acted yet\n', o.r1_trim);
+end
 % the exit crossing after the field lens (from the rays)
 s = macos.trace(iFLf);  r = macos.get_ray_info(s.nRays);  okF = r.ok_trace & r.ok_pass;
 Vfl = V(blocks{iFLf});  pF = r.pos(:,okF) - Vfl(:);  dF = r.dir(:,okF);  xF = x_det(:)'*pF;  yF = y_det(:)'*pF;
@@ -100,14 +112,52 @@ for i = 1:numel(blocks)
     end
     if i == iL2f
         % the through-focus quartet: S1 just after the focuser's exit, F at the true focus, S2 just before the field lens
-        R1 = norm(V_focus - V(blocks{iL2f})) - eps_;  V_S1 = V_focus - R1*dir_f;
         R2 = norm(V(blocks{iFLp}) - V_focus) - eps_;  V_S2 = V_focus + R2*dir_f;
+        % GLASS BETWEEN THE FOCUSER AND THE FOCUS IS MOVED AHEAD OF THE
+        % ENTRANCE SPHERE.  On the decided substrate set the mask carries its
+        % own 2 mm plate 7 mm before the focus, and there are only bad places
+        % to put it: left where the deck has it, it lands AFTER S2 in deck
+        % order (MACOS traces in deck order, so the rays run past S2 and then
+        % turn back 7 mm upstream into the glass -- measured, ray to ray, as a
+        % bundle 6.2 % narrower than R2/R1 at S2: CHECK 2d); and put INSIDE the
+        % sandwich it breaks the engine's own idiom, because SPH2PL fires at
+        % the element following the NF1 sphere and reads its zEnd from the one
+        % after that, which for a substrate face is zElt 0 -- the field comes
+        % back empty (measured: CHECK 2b field radius 0.000, pitch 0.00 um).
+        % So it is relocated to just ahead of S1.  That is exact to first
+        % order and the reason is worth keeping: a plane-parallel plate's only
+        % effect on a converging beam is a focus shift of t(1-1/n), which does
+        % not depend on WHERE in the cone the plate sits.  The plate is then in
+        % the geometric leg that seeds the sphere, the wavefront at S1 already
+        % heads for the true focus (so no r1_trim is needed), and the sandwich
+        % S1 -> F -> S2 is clean.
+        % The faces go into the gap right after the focuser, keeping their OWN
+        % spacing (the plate's real thickness), and S1 goes just after them --
+        % there is no room to put them ahead of an S1 that sits eps past the
+        % focuser, and placing them there put them BEHIND the focuser's exit
+        % face, which the engine answered with an empty grid (dxElt 1e10).
+        gl = {};  dgl = eps_;  prev = [];
+        for k = iL2f+1 : iFoc-1
+            if ~strcmp(getv_(blocks{k},'Element'), 'Refractor'), continue; end
+            if ~isempty(prev), dgl = dgl + norm(V(blocks{k}) - prev); end
+            prev = V(blocks{k});
+            gl{end+1} = setv_blk_(blocks{k}, V(blocks{iL2f}) + dgl*dir_f); %#ok<AGROW>
+        end
+        if ~isempty(gl)
+            say('glass between the focuser and the focus (%d faces, %.3f mm of it) relocated into the gap after the focuser: a plate''s focus shift t(1-1/n) does not depend on where in the cone it sits\n', numel(gl), dgl - eps_);
+            B = [B, gl];
+        end
+        V_S1 = V(blocks{iL2f}) + (dgl + eps_)*dir_f;
+        R1 = norm(V_sph - V_S1);
         B{end+1} = sphere_block_(blocks{iFoc}, 'S1', V_S1, dir_f, -R1, 'NF1', R1); %#ok<AGROW>    % psi toward the focus: center = V + R psi (the Rx_Coro convention)
         B{end+1} = flat_block_(blocks{iFoc}, 'F', V_focus, dir_f, 'NF2', -R2); %#ok<AGROW>
         B{end+1} = sphere_block_(blocks{iFoc}, 'S2', V_S2, -dir_f, -R2, 'Geometric', -R2); %#ok<AGROW>
         say('through-focus quartet: S1 at %.2f before the focus (zElt +%.2f, NF1), F at the focus (NF2), S2 at %.2f after it (zElt -%.2f); scale %.4f -> pupil %.2f mm at S2\n', R1, R1, R2, R2, R2/R1, 2*R_dm*R2/R1);
     end
     if i == iFoc, B(end) = []; end                                       % the deck's mask marker is replaced by F
+    if i > iL2f && i < iFoc && strcmp(getv_(blocks{i},'Element'), 'Refractor')
+        B(end) = [];                                                     % relocated ahead of S1 above
+    end
     if i == iFLf
         R3 = abs(Rc) - eps_;  V_S3 = V(blocks{iFLf}) + eps_*psi_det;
         psi3 = psi_det * sign(Rc);   % center = V + R psi: along the beam when the exit beam converges (Rc > 0), against it when it diverges (Rc < 0)
@@ -139,13 +189,33 @@ if o.checks && ~isempty(iS1c)
     % what is left is the leg's own error -- 1.5 waves of it on the lens rig
     % of record, which is what walked the rays off the grid.
     macos.load_rx(fflat);  macos.stop(iDM2);
+    % the RAY radius at S1, so 2b and 2c can be read ray-to-ray with no
+    % equivalent-radius estimator anywhere in the comparison
+    st1 = macos.trace(iS1c);  ri1 = macos.get_ray_info(st1.nRays);
+    ok1 = ri1.ok_trace & ri1.ok_pass;
+    VS1_ = getv_(B{iS1c},'VptElt');  pS1 = ri1.pos(:,ok1) - VS1_(:);
+    psiS1 = getv_(B{iS1c},'psiElt');  pS1 = pS1 - psiS1(:)*(psiS1(:)'*pS1);
+    chk.s1_ray_r = max(sqrt(sum(pS1.^2,1)));
     E1 = macos.complex_field(iS1c);  dx1 = abs(macos.dx_at(iS1c,'mm'));
     I1 = abs(E1).^2;  in1 = I1 > 0.2*max(I1(:));
     ph = angle(E1(in1));  ph = unwrap_med_(ph);
     chk.s1_phase_wv = std(ph)/(2*pi);
     chk.s1_r = eqr_(E1, dx1);
-    say('CHECK 1a  collimated legs: the flat pupil at S1 carries %.4f wave rms of phase (gate < 0.02); pupil radius there %.2f mm, pitch %.4f mm\n', ...
-        chk.s1_phase_wv, chk.s1_r, dx1);
+    % SATURATION GUARD.  std of a WRAPPED phase cannot exceed that of a uniform
+    % distribution on [-pi,pi] -- 2*pi/sqrt(12) = 1.814 rad = 0.2887 wave -- so a
+    % pupil carrying many waves reads ~0.28 and looks like a quarter-wave error
+    % instead of the six waves it is.  Measured 0.2824 on the first run of this
+    % check, which is that ceiling to three figures and was nearly taken at face
+    % value.  Count the fringes instead: the radial phase gradient over the
+    % pupil says how many 2*pi cycles are actually there.
+    n1_ = size(E1,1);  xs_ = ((1:n1_) - (n1_+1)/2)*dx1;  [XS_, YS_] = meshgrid(xs_, xs_);
+    gy = diff(unwrap(angle(E1),[],1),1,1);  gx = diff(unwrap(angle(E1),[],2),1,2);
+    inr = in1(1:end-1,1:end-1);
+    chk.s1_fringes = (max(abs(gx(inr))) + max(abs(gy(inr))))/2 * chk.s1_r/dx1 / (2*pi);
+    chk.s1_saturated = chk.s1_phase_wv > 0.25;
+    say('CHECK 1a  collimated legs: the flat pupil at S1 carries %.4f wave rms of phase (gate < 0.02)%s; pupil radius there %.2f mm, pitch %.4f mm\n', ...
+        chk.s1_phase_wv, iff_(chk.s1_saturated, sprintf(' -- WRAPPED, the statistic is at its %.4f ceiling; ~%.1f fringes across the pupil', 1/sqrt(12), chk.s1_fringes), ''), ...
+        chk.s1_r, dx1);
 
     % (1b) and a Nyquist sinusoid must still be its own height there.  The
     % legs are collimated, so S1's pupil is the DM's: demodulate on the same
@@ -203,10 +273,18 @@ if o.checks && ~isempty(iS1c)
         chk.s2_fld_r, chk.s2_ray_r, 100*(chk.s2_fld_r/chk.s2_ray_r - 1), chk.s2_pred_r);
     say('CHECK 2c  the pitch at S2: the engine labels %.6f mm (ray spacing); the scaled frame says dx(S1)*R2/R1 = %.6f mm (%.1f%%)\n', ...
         chk.s2_dx, chk.s2_dx_scaled, 100*(chk.s2_dx/chk.s2_dx_scaled - 1));
+    % RAY TO RAY, no estimator in the comparison: does the BUNDLE itself scale
+    % as R2/R1 about the focus?  If it does not, the quartet's whole premise is
+    % off before any propagator is asked to honour it.
+    say('CHECK 2d  the ray bundle itself: %.3f mm at S1, %.3f at S2, ratio %.5f against R2/R1 = %.5f (%.1f%%)\n', ...
+        chk.s1_ray_r, chk.s2_ray_r, chk.s2_ray_r/chk.s1_ray_r, R2/R1, ...
+        100*((chk.s2_ray_r/chk.s1_ray_r)/(R2/R1) - 1));
+    chk.bundle_ratio = (chk.s2_ray_r/chk.s1_ray_r)/(R2/R1);
     say('CHECK gates: 1a %s, 1b %s, 2a %s, 2b %s, 2c %s\n', ...
         pf_(chk.s1_phase_wv < 0.02), pf_(abs(chk.s1_amp_rel-1) < 0.01), ...
         pf_(abs(z1/airy - 1) < 0.10), pf_(abs(chk.s2_fld_r/chk.s2_ray_r - 1) < 0.02), ...
         pf_(abs(chk.s2_dx/chk.s2_dx_scaled - 1) < 0.02));
+    say('            2d %s (the ray bundle vs R2/R1: %.1f%%)\n', pf_(abs(chk.bundle_ratio-1) < 0.02), 100*(chk.bundle_ratio-1));
     delete(fflat);  delete(fsin);
 else
     chk = struct();
@@ -303,6 +381,11 @@ b = regexprep(b, '[ \t]*ApVec=[^\n]*\n', '');
 b = regexprep(b, '[ \t]*nObs=[^\n]*\n', '             nObs=  0\n');
 b = set_prop_(b, ptype, zelt);
 end
+function b = setv_blk_(b, v)
+%SETV_BLK_  the same block, its vertex and pole moved to v.
+b = regexprep(b, 'VptElt=[^\n]*', sprintf('VptElt=  %.12g  %.12g  %.12g', v));
+b = regexprep(b, 'RptElt=[^\n]*', sprintf('RptElt=  %.12g  %.12g  %.12g', v));
+end
 function b = set_prop_(b, ptype, zelt)
 b = regexprep(b, 'PropType=[^\n]*', ['PropType=  ' ptype]);
 if isempty(regexp(b, '(?m)^[ \t]*zElt=', 'once')), b = regexprep(b, '(PropType=[^\n]*\n)', sprintf('$1             zElt=  %.10E\n', zelt));
@@ -317,6 +400,7 @@ function r = eqr_(E, d), I = abs(E).^2; r = sqrt(sum(I(:) > 0.5*median(I(I > 0.0
 function m = lpf_(x, FU, FV, sig), m = ifft2(fft2(x) .* exp(-2*pi^2*sig^2*(FU.^2 + FV.^2))); end
 function p = unwrap_med_(ph), p = angle(exp(1i*(ph - median(ph)))); end
 function s = pf_(tf), if tf, s = 'PASS'; else, s = 'FAIL'; end, end
+function v = iff_(c,a,b), if c, v = a; else, v = b; end, end
 function prof = radial_(I, r0, c0, dx)
 [NR, NC] = size(I);  [C, R] = meshgrid(1:NC, 1:NR);  rr = hypot(R-r0, C-c0)*dx;
 edges = 0:dx/2:min(30*dx, max(rr(:)));  v = zeros(1, numel(edges)-1);
