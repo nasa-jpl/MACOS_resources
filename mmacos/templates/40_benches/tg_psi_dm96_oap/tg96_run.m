@@ -2026,7 +2026,17 @@ end
 f = figure('Color','w','Position',[20 20 1900 1560],'Visible','off');
 tl = tiledlayout(f, 3, 1, 'Padding','compact','TileSpacing','compact');
 axT = nexttile(tl);  axN = nexttile(tl);  axL = nexttile(tl);
-for a = 1:size(arms,1)
+% REFERENCE ARM FIRST, TEST ARM LAST (Dave 2026-09-18).  The two arms SHARE
+% the output leg (recombination -> focuser -> mask seat -> field lens ->
+% camera), so on that leg whichever is drawn second is the colour you see.
+% Drawing test-then-reference painted the shared leg orange, which reads as
+% "the reference arm goes to the camera" -- and it showed up as a difference
+% BETWEEN the rigs only because the lens rig's two bundles are separated
+% enough to interleave, while the OAP rig's are near-coincident and orange
+% covered blue outright.  Test last makes the shared leg blue on both rigs;
+% the reference arm's OWN leg (splitter -> reference flat + PZT) has no test
+% rays on it and stays orange, which is the distinction the colours are for.
+for a = size(arms,1):-1:1
     macos.load_rx(arms{a,1});  macos.trace(arms{a,3});
     Ea = arms{a,2}.E;  passive = find(strcmp({Ea.element},'Reference'));
     for ax = [axT axN axL]
