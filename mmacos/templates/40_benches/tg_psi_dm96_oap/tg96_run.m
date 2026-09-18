@@ -1233,9 +1233,21 @@ if descent
     ushape = ushape / sqrt(mean(ushape(litmask).^2));            % unit rms over lit
     for q = 1:numel(SR)
         Astart = SR(q) * ushape;                                 % the starting surface command
-        rc0 = recal_build_(ctx2, cfg, PL, msk, Pl, h0, Astart, P.battery.matrix_lam);
-        insd = ins;  insd.est = rc0.est;                         % matrix measured ON this start
-        say('  descent: matrix on the %.0f nm start (%d states)\n', SR(q)*1e6, rc0.nstates);
+        % WHICH SURFACE THE MATRIX IS MEASURED ON.  The default is the START,
+        % which is the procedure every descent on record used -- and on the
+        % redo bench it is what fails: rho 0.525 at zero separation, 0.851 at
+        % 70 nm, with a residual that is a fixed FRACTION of the opening error
+        % (2026-09-18).  But start amplitude and matrix mismatch are perfectly
+        % CONFOUNDED in that design, because ushape makes the opening residual
+        % exactly |start - setpoint|.  'setpoint' measures the matrix where it
+        % is USED while still starting far, which is the only arrangement that
+        % separates the two; recal weakens the confound but cannot remove it,
+        % since every refresh is still taken wherever the loop currently sits.
+        Acal = Astart;  calnm = sprintf('%.0f nm start', SR(q)*1e6);
+        if strcmpi(P.loop.calib_at, 'setpoint'), Acal = A0;  calnm = 'SET POINT (calib_at)'; end
+        rc0 = recal_build_(ctx2, cfg, PL, msk, Pl, h0, Acal, P.battery.matrix_lam);
+        insd = ins;  insd.est = rc0.est;                         % matrix measured ON that surface
+        say('  descent: matrix on the %s (%d states)\n', calnm, rc0.nstates);
         for rc = RECL
             for nph = NPH
                 o = base;  o.nph = nph;  o.drift = struct('kind','none');
@@ -1523,8 +1535,12 @@ res = LO.res;  NPH = LO.nph;  kinds = LO.drifts;  K = LO.K;
 % but not the results.  Latent until now because the record's descent_oap ran
 % without a figs stage.  A run with nothing to plot skips the figure instead.
 if isempty(kinds)
-    say(['  loop figure skipped: this run has no drift kinds (descent only), ' ...
-         'so there is no residual-vs-photons curve to draw.\n']);
+    % fprintf, NOT say: draw_loop_ is a LOCAL function, and say() is a NESTED
+    % function of tg96_run, so it is not in scope here -- the guard against the
+    % empty-kinds crash was itself crashing, which is how descsmall exited 1
+    % after all three of its descents had succeeded (2026-09-18).
+    fprintf(['  loop figure skipped: this run has no drift kinds (descent only), ' ...
+             'so there is no residual-vs-photons curve to draw.\n']);
     return
 end
 kshow = 'walk';  if ~any(strcmp(kinds,'walk')), kshow = kinds{end}; end
