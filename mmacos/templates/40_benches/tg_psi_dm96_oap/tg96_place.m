@@ -36,6 +36,27 @@ lat = ((1:cfg.nact)-(cfg.nact+1)/2)*cfg.pitch;
 [axg, ayg] = meshgrid(lat);                       % axg = x (col), ayg = y (row)
 lit = dmg_lit(msk, dxd_mm, mag, axg, ayg);
 
+% ---- optional erosion of the CONTROL set (place.lit_erode; 0 = unchanged) ---
+% The outermost lit rings sit at the aperture/array boundary, so their influence
+% functions are truncated, their J columns are weak, and the median-referenced
+% Tikhonov weight suppresses them: measured on runs/samp512 (2026-09-18), ring 1
+% is left 0.81% uncorrected against the interior's 0.0046% (176x), and 180
+% actuators (2.4% of lit) carry 95-98% of the descent residual -- excluding
+% 3 rings takes r(K) from 96.9 pm to 3.1 pm, the photon floor.
+% Erode with FALSE padding, NOT circshift: on this bench lit reaches the array
+% edge (radius 49.0 actuators of a 47.5 half-width), where a wrapping erosion
+% would join the opposite side of the array.
+ner = 0;
+if isfield(place,'lit_erode') && ~isempty(place.lit_erode), ner = place.lit_erode; end
+for ke = 1:ner
+    Lp = false(size(lit)+2);  Lp(2:end-1,2:end-1) = lit;
+    lit = Lp(2:end-1,2:end-1) & Lp(1:end-2,2:end-1) & Lp(3:end,2:end-1) ...
+                              & Lp(2:end-1,1:end-2) & Lp(2:end-1,3:end);
+end
+if ner > 0
+    fprintf('  control set eroded by %d ring(s): %d lit actuators\n', ner, nnz(lit));
+end
+
 % ---- footprint centroid in actuator lattice (the in-pupil anchor site) ---
 macos.load_rx(A.rx);  st = macos.trace(ix.iTO);  ri = macos.get_ray_info(st.nRays);
 ok = ri.ok_trace(:) & ri.ok_pass(:);
