@@ -48,7 +48,27 @@ optical_design/coronagraph_layout.md
 optical_design/fixtures/telescope_design_fixtures.md
 optical_design/fixtures/tma_fixture.md
 optical_design/fixtures/afocal_tma_fixture.md
+mmacos/BRIEF_ep_dome_ccmac_handback.md
+mmacos/PLAN_EXAMPLES_REORG.md
+mmacos/templates/30_instruments/bench_ctb/BRIEF_dst_defects.md
 ```
+
+2026-09-29 re-audit against `dev-candidate` (dry run of the strip, then
+the process-looking survivors), and why:
+- `mmacos/BRIEF_ep_dome_ccmac_handback.md`, `bench_ctb/BRIEF_dst_defects.md`
+  -- agent<->agent briefs (same class as the macos repo's `BRIEF_*.md`).
+- `mmacos/PLAN_EXAMPLES_REORG.md` -- the 2026-08-18 reorg plan (working
+  state, like the `design/PLAN_*.md` entries).
+- KEPT, deliberately: `mmacos/design/PLAN_CONFIGURATIONS.md` (linked from
+  the zoom_5x5 README -- a plan, but a user doc points at it; stripping
+  it breaks that link) and the `REPORT_*.md` files inside templates
+  (`bench_ctb/REPORT_field_servo`, `pdi_dm96/REPORT_gauge_pdi`,
+  `tg_psi_dm96_oap/REPORT_{bench_realism,gauge_ifo,oap,reflective}`):
+  each is linked from 1-4 READMEs as the bench's record, so they are
+  documentation here, unlike the macos-root `REPORT_*.md` findings.
+- Gate: the dry-run recipe in the macos repo's `DEV_FILES.md` ("Gate:
+  dry-run the strip") applies here verbatim; the .txt is a bare list
+  (no comments/blank lines -- an empty line aborts `git rm`).
 
 2026-08-06 additions and why:
 - `doc/STYLE_REPORTS.md` — internal report/deck style gate (agent process).
