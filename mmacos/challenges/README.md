@@ -20,5 +20,6 @@ the convention is part of reproducing the answer.
 | [`rodgers2/`](rodgers2) | The afocal follow-on: on-axis and off-axis afocal three-mirror forms. |
 | [`afocal4/`](afocal4) | The four-mirror afocal trade — pupil control versus wavefront, and what buildability costs. |
 | [`rodgers3/`](rodgers3) | The offset-field imager: his 5-rung ladder (159/8810/168/117/53 nm) reproduced from the .seq decks, and the `offset_imager` template run head-to-head. |
+| [`dyson5/`](dyson5) | The VSWIR Dyson imaging spectrometer: an EMIT-class spec (F/1.8, 3000×500 px at 18 µm, 380–2500 nm, smile/keystone < 0.1 px) designed FROM the spec -- no proprietary prescription -- and scored on the spectrometer metrics (field-angle and wavelength maps, SRF/XRF, the radiometric chain), with an Offner sibling on the same scorer. |
 
 Templates live one level over, in [`../templates/`](../templates).
