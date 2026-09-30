@@ -1,0 +1,129 @@
+% ---------------------------------------------------------------------------------------
+% Rx_PropMedium_vac -- medium-aware propagation gate (2026-09-30).
+% Twin of Rx_VecChain.in.  'glass': the whole train sits in a medium of index
+% n = 1.5 (source IndRef and every element IndRef), geometry unchanged.
+% 'vac': index 1, every axial distance scaled by 1/n.  Fresnel diffraction
+% depends on lambda*z only, so the two must give the SAME intensity at every
+% element (the kernels must use lambda/n in the medium); the pre-fix engine
+% ran the glass twin with the vacuum wavelength and matched the UNSCALED
+% vacuum deck instead.  Compare intensities: the complex fields differ by a
+% global piston (OPL n*z vs z/n).
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -6.6666666666666663E-01
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=1.0E-02
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  256
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  4
+
+
+             iElt=  1
+          EltName=  PupilStop
+          Element=  Obscuring
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0000000000000000E+00
+           RptElt=  0.0E+00  0.0E+00  0.0000000000000000E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.0E-03  0.0E+00  0.0E+00
+         PropType=  NFPlane
+             zElt=0.0000000000000000E+00
+          nECoord= -6
+
+             iElt=  2
+          EltName=  MidStop
+          Element=  Obscuring
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  6.6666666666666663E-01
+           RptElt=  0.0E+00  0.0E+00  6.6666666666666663E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  1
+          ObsType=  Circle
+           ObsVec=  1.0E-03  0.0E+00  0.0E+00
+           ApType=  Circular
+            ApVec=  6.0E-03  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=6.6666666666666663E-01
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Prop2Start
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  6.6666666666666663E-01
+           RptElt=  0.0E+00  0.0E+00  6.6666666666666663E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NFPlane
+             zElt=6.6666666666666663E-01
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.3333333333333333E+00
+           RptElt=  0.0E+00  0.0E+00  1.3333333333333333E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.3333333333333333E+00
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00
