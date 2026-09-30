@@ -69,9 +69,14 @@ directions.
 | `optical_design/SPECTROMETER_DESIGN_REFERENCE.md` | written; on `DEV_FILES.md` + `release-exclude.txt` |
 | `challenges/README.md` row, `challenges/dyson5/README.md` | written |
 
-Mouroulis & Green 2018 was not fetchable (JS wall); the Dyson condition
-was verified numerically instead and matches Dyson 1959 / Mertz 1977
-("the block fills (n-1)/n of the slit-grating space").
+Mouroulis & Green 2018 arrived on disk after this beat (Addendum 2; digest
+`NOTE_mg2018_digest.md` + TO's correction section): it does not restate
+the concentric condition, so the numerical verification stands (matches
+Dyson 1959 / Mertz 1977).  Its Table 5 freeform prism Dyson at Joe's
+regime (3200 px, 18 um, F/2, 57.6 mm slit) is 54 cm long and 19 cm
+across -- the r >= 213 mm seed above is the expected order.  Digest
+correction: the quoted spec table is the Fig. 13 OFFNER's (Table 2), not
+the Fig. 15 Dyson's.
 
 ## Next beat (unchanged build order, after CC's glass fix lands)
 

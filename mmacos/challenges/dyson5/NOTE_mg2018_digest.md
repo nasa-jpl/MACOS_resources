@@ -68,3 +68,41 @@ and the corrections are the work.
 No Dyson prescription, and the concentric condition itself is cited to
 Dyson 1959 (ref. 59), not restated -- beat 1's numerical verification plus
 Dyson 1959 / Mertz 1977 remains the basis for R_g = n r/(n-1).
+
+## Corrections and additions (TO, 2026-09-30, read against the PDF text)
+- **The spec table above is Table 2 = the Fig. 13 long-slit OFFNER, not the
+  Fig. 15 Dyson.**  The paper's caption says "of Fig. 11" (a thermal-IR lens
+  -- a typo in the paper), and the text at the Offner example reads "The
+  Offner spectrometer example of Fig. 13 has the following ... performance
+  are shown in Table 2".  Its rows: F/2.8, slit 48 mm (1600 x 30 um),
+  380-2500 nm, dispersion 10 nm/30 um, smile < 0.3 % px (< 100 nm), keystone
+  < 2 % px (< 600 nm), ensquared energy in 30 um > 0.76, SRF FWHM < 1.35 x
+  sampling, CRF FWHM < 1.1 x sampling, SRF width variation with field
+  < 4.5 %, CRF variation with wavelength < 2 %.  The Fig. 15 CaF2 Dyson
+  (5 nm sampling, 38.4 mm slit) has spot diagrams (Fig. 16) but no table of
+  its own.  So the "flight-class column" is an OFFNER's; use it as the
+  performance CLASS both forms are held to, and say which form it came from.
+- **Table 5 / Figs. 19-22 are the paper's design AT JOE'S REGIME:** the
+  broad-band PRISM Dyson (BPDS; single CaF2 lens split into a lens + two
+  prisms for detector clearance, a curved Fery prism of IR-grade fused
+  silica as the disperser, toroidal reflecting rear surface).  All-spherical:
+  2160 cross-track px, F/2.5, uniformity > 90 %, optics length 50 cm, prism
+  diameter 14 cm.  With a FREEFORM surface on the CaF2 element: **3200 px,
+  F/2, 18 x 18 um pixels, slit 57.6 mm, optics length 54 cm, prism diameter
+  19.2 cm**, max smile 0.6 um = 3.3 % of an 18-um pixel ("at the upper range
+  of acceptability before tolerancing"), keystone-equivalent 0.2 um ~ 1 %,
+  SRF variation through field ~1 %, worst CRF variation with wavelength
+  ~5.8 %, ensquared energy just over the 75 % rule at both band ends.  A more
+  COMPACT variant (Fig. 22) separates the mirror from the prism "so it
+  operates closer to the concentric-aplanatic condition" and adds a MENISCUS
+  corrector: ~60 % of the size at the same specs, at the cost of six more
+  air-glass interfaces.  Two things for dyson5: (a) a 54 cm-long, 19 cm-wide
+  instrument at 3200 px / 18 um / F/2 is the published answer to "what does
+  this regime cost" -- beat 1's r >= 213 mm (R_g 687 mm) concentric seed is
+  the same order, not an anomaly; (b) the paper's own path off the concentric
+  seed is freeform-on-the-block, then separate-mirror + meniscus -- the
+  departure ladder for beat 2.  The paper also states the 18-um consequence
+  directly: a pixel-fraction uniformity spec "becomes significantly tighter
+  in absolute terms" -- Joe's 0.1 px = 1.8 um vs the BPDS's achieved 0.6 um
+  smile, i.e. Joe's design-stage number is ~3x looser than the paper's own
+  achieved value on the same pixel, and 10x looser than rule (1)'s 1 %.
