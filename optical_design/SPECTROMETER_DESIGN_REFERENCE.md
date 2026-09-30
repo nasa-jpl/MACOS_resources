@@ -142,36 +142,69 @@ scorer (§5) is shared with the Dyson.
 
 ## 5. Metrics -- state the convention, then the number
 
+Definitions in Mouroulis & Green 2018's form (Sec. 4.1; digest
+`mmacos/challenges/dyson5/NOTE_mg2018_digest.md`):
+
+- **SRF(y) = rect(slit) ⊗ LSF_spectrometer(y) ⊗ DET(y)** (spectral);
+  **CRF(x) = LSF_system(x) ⊗ DET(x)** (cross-track; Joe's "XRF");
+  **ARF(y) = rect(slit) ⊗ LSF_telescope(y) ⊗ rect(integration)** (along
+  track, the telescope's alone -- the spectrometer does not enter it).
+  Resolution = FWHM.  The incoherent chain is legitimate when the Airy
+  DIAMETER at the longest wavelength is under the pixel and the slit
+  width: 2.44 λ F = 11.0 um at F/1.8, 2500 nm, against 18 um -- met;
+  the full partially-coherent slit calculation moves things ~10 %,
+  which is what the propagation twin measures.
 - **Field-angle map / wavelength map**: FPA centroid `(x_spatial,
   y_spectral)` per (slit position s, wavelength λ) from `macos.spot` at
-  the FPA, `set_src_fov` × `set_src_wvl` sweeps; axes and sign: x along
-  the slit (spatial), y along `h1HOE` (spectral), in pixels of
-  `pixel_m`, origin at the slit-centre / band-centre image.
+  the FPA, `set_src_fov` × `set_src_wvl` sweeps; x along the slit
+  (spatial), y along `h1HOE` (spectral), in pixels of `pixel_m`, origin
+  at the slit-centre / band-centre image.
 - **Smile**: variation of the spectral centroid `y` ALONG the slit at
   fixed λ, peak-to-valley over the slit, per λ (max over λ reported).
 - **Keystone**: variation of the spatial centroid `x` ACROSS λ at fixed
   slit position, peak-to-valley over the band, per s (max over s).
-- **SRF / XRF**: spectral / spatial response FWHM in px: geometric spot
-  profile ⊗ slit image (`slit_px`) ⊗ pixel ⊗ Airy (analytic,
-  λF/pixel ≈ 0.25 px at 2.5 um, F/1.8) -- replaced by the propagated
-  PSF when the wave twin runs.
+- **Uniformity**: invariance of the SRF through field and of the CRF
+  through wavelength (a smooth SRF variation WITH wavelength is not a
+  uniformity concern).
 - **Radiometric chain** vs λ: throughput (Fresnel/coating), grating
   efficiency (scalar blaze closed form -- the engine carries one order),
   FPA QE (table), slit loss (the one MEASURED term: field at the
-  grating plane, energy outside its aperture).
-- Jim's realism (recorded, not scored): as-built SRF 2.5–3 px; photon
-  limited; 2-px slits.
+  grating plane, energy outside its aperture).  Ghost check (detector
+  specular → grating → higher order back to the FPA; "more prominent in
+  Dysons") = the scorer's open question.
+
+**Design principles (Sec. 5.3) = the merit function's rules:** (1)
+distortions to ~1 % of a pixel at design, ~3 % after tolerancing;
+(2) > 75 % of the diffraction energy inside the pixel at every λ and
+field; (3) degraded spots are acceptable and desirable when they buy
+uniformity; (4) the grating is the stop.  Corollary the paper states:
+optimize for point imaging first and uniformity later and you start
+from a bad place -- the pixel-unit smile/keystone maps go INTO the
+native-optimize merit from the first pass (beat 4).
+
+Jim's realism (recorded, not scored): as-built SRF 2.5–3 px; photon
+limited; 2-px slits.
 
 ## 6. Spec of record (Joe, 2026-09; "made up but EMIT to the digit")
 
 F/1.8; FPA 3000 × 500 px at 18 um (slit 54 mm, spectral 9 mm);
 380–2500 nm (4.24 nm/px); smile/keystone < 0.1 px (0.2 acceptable);
-SRF < 1.5–2.0 px FWHM; XRF < 1.5 px FWHM; radiometric gain vs λ.
-Public comparison point (Carbon-I, arXiv:2505.22545): F/2.2,
-2040–2380 nm at 0.7 nm/px, 3072 × 512 at 18 um, slit ≥ 54 mm × 36 um
-(2 px), smile/keystone ≤ 15 % px, SRF ≤ 2.5 nm, fused-silica block with
-an even asphere, concave spherical grating on N-BK7 (in AIR, not
-immersed), efficiency > 0.84 over the band.
+SRF < 1.5–2.0 px FWHM; XRF (= CRF) < 1.5 px FWHM; radiometric gain vs λ.
+The spec sits in the paper's ALIS regime (Table 3: Dyson, 380–2500 nm,
+7 nm, 3200 spatial px), with finer sampling.
+
+Reference columns reported beside it (never scored against):
+
+| column | source | numbers |
+|---|---|---|
+| performance class | Table 2 = the Fig. 13 long-slit **Offner** (the paper's caption says "Fig. 11", a typo) | F/2.8, 48 mm slit, 30 um px, 10 nm/px; smile < 0.3 % px, keystone < 2 % px, ensquared > 0.76, SRF FWHM < 1.35× sampling, CRF < 1.1×, SRF var. with field < 4.5 %, CRF var. with λ < 2 % |
+| Joe's regime, published | Table 5 / Figs. 19–22, freeform **prism** Dyson (BPDS) | 3200 px, 18 um, F/2, 57.6 mm slit, 54 cm long, 19.2 cm prism; achieved smile 0.6 um (3.3 % px), keystone 0.2 um (~1 %); compact variant: separate mirror near the concentric-aplanatic condition + meniscus, ~60 % size, six more air-glass faces |
+| public Dyson | Carbon-I (arXiv:2505.22545) | F/2.2, 2040–2380 nm at 0.7 nm/px, 3072 × 512 at 18 um, slit ≥ 54 mm × 36 um, smile/keystone ≤ 15 % px, SRF ≤ 2.5 nm, fused-silica block with an even asphere, concave spherical grating on N-BK7 in AIR, efficiency > 0.84 |
+
+Pixel fraction is the convention: Joe's 0.1 px on 18 um is 1.8 um, the
+Offner table's 0.3 % on 30 um is 0.1 um, the BPDS achieved 0.6 um on
+18 um.  The 54 cm × 19 cm BPDS is the published cost of this regime;
+beat 1's concentric seed (r ≥ 213 mm, R_g 687 mm) is the same order.
 
 ## 7. References
 
@@ -180,8 +213,10 @@ immersed), efficiency > 0.84 over the band.
 - L. Mertz, "Concentric spectrographs," Appl. Opt. 16, 3122 (1977).
 - P. Mouroulis & R. O. Green, "Review of high fidelity imaging
   spectrometer design for remote sensing," Opt. Eng. 57(4), 040901
-  (2018).  NOT fetchable from this box (JS wall) -- the condition above
-  was verified numerically instead, and matches Dyson/Mertz.
+  (2018).  PDF on disk in `mmacos/challenges/dyson5/` (SPIE copyright:
+  git-ignored, cite only); digest `NOTE_mg2018_digest.md`.  It does not
+  restate the concentric condition (cites Dyson 1959) -- the numerical
+  verification in §3 is the basis.
 - C. L. Bradley et al., "The Optical Design of the Carbon-I Imaging
   Spectrometer," arXiv:2505.22545 (2025).
 - JPL patents US 6,181,418 (concentric spectrometer) and US 8,520,204

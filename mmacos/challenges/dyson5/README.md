@@ -63,6 +63,22 @@ chain) are defined in `optical_design/SPECTROMETER_DESIGN_REFERENCE.md`
    the flight forms add an asphere/meniscus/air gap.  Elements are added
    in beat 2, after this is on record.
 
+## The paper (Mouroulis & Green 2018), folded in 2026-09-30
+
+`NOTE_mg2018_digest.md` (CC) + its correction section (TO).  What it
+settles for this challenge: the merit's rules (distortion ~1 % px at
+design, > 75 % ensquared, degraded spots OK for uniformity, grating =
+stop; pixel-unit smile/keystone in the optimize merit from the FIRST
+pass); the scorer's definitions (SRF = slit ⊗ LSF ⊗ pixel, CRF = system
+LSF ⊗ pixel; the incoherent chain is honest here, Airy diameter 11 um
+< 18 um); and where Joe's spec sits -- ALIS-class (Table 3), and the
+paper's own Table 5 freeform prism Dyson at 3200 px / 18 um / F/2 /
+57.6 mm slit is 54 cm long and 19 cm across, so beat 1's r ≥ 213 mm
+concentric seed is the expected order of this regime.  Correction to
+the digest: the quoted spec table is Table 2 = the Fig. 13 long-slit
+OFFNER (F/2.8, 48 mm, 10 nm/px), not the Fig. 15 Dyson; it is reported
+as the performance CLASS.  The PDF is local and git-ignored (SPIE).
+
 ## Run it yourself
 
 ```matlab

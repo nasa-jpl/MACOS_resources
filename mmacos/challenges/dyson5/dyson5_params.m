@@ -39,6 +39,9 @@ function P = dyson5_params(over)
 %                  slit CORNER, in pixels, that the concentric seed
 %                  must meet before any element is added           0.25
 %
+%   Published reference columns (see the block below): mg_rules, mg_table2,
+%   mg_table5 -- reported beside Joe's numbers, never scored against.
+%
 %   Numerics / bookkeeping
 %     r_grid_m     block radii swept by the s0 scaling stage, m
 %     model        MACOS model size (engine stages)               128
@@ -61,6 +64,28 @@ function P = dyson5_params(over)
     P.lambda_ref_m = 1.0e-6;
     P.y_offset_m   = 8e-3;
     P.blur_px      = 0.25;
+
+    % Published reference columns (Mouroulis & Green 2018, Opt. Eng. 57(4)
+    % 040901 -- NOTE_mg2018_digest.md; the PDF is local, never committed).
+    % Reported BESIDE Joe's numbers, never scored against:
+    %   mg_rules   Sec. 5.3 design principles: distortion ~1 % px at design
+    %              (~3 % after tolerancing), > 75 % diffraction energy in the
+    %              pixel, degraded spots OK for uniformity, grating = stop
+    %   mg_table2  the Fig. 13 long-slit OFFNER's design table (F/2.8, 48 mm
+    %              slit, 30 um px, 10 nm/px) -- the performance CLASS
+    %   mg_table5  the freeform PRISM Dyson at Joe's regime (3200 px, 18 um,
+    %              F/2, 57.6 mm slit, 54 cm long, 19.2 cm prism diameter)
+    P.mg_rules  = struct('distortion_px_design', 0.01, 'distortion_px_toleranced', 0.03, ...
+                         'ensquared_min', 0.75, 'stop', 'grating');
+    P.mg_table2 = struct('form', 'Offner (Fig. 13)', 'Fno', 2.8, 'slit_m', 48e-3, ...
+                         'pixel_m', 30e-6, 'sampling_m', 10e-9, ...
+                         'smile_px', 0.003, 'keystone_px', 0.02, 'ensquared_min', 0.76, ...
+                         'srf_fwhm_x_sampling', 1.35, 'crf_fwhm_x_sampling', 1.10, ...
+                         'srf_var_field', 0.045, 'crf_var_lambda', 0.02);
+    P.mg_table5 = struct('form', 'freeform prism Dyson (BPDS, Table 5)', 'npix_spatial', 3200, ...
+                         'pixel_m', 18e-6, 'Fno', 2.0, 'slit_m', 57.6e-3, 'length_m', 0.54, ...
+                         'prism_diam_m', 0.192, 'smile_m_achieved', 0.6e-6, ...
+                         'keystone_m_achieved', 0.2e-6, 'uniformity_min', 0.90);
 
     P.r_grid_m = [0.05 0.075 0.10 0.15 0.20 0.25 0.30 0.40 0.50];
     P.model    = 128;
