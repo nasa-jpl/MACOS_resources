@@ -43,6 +43,7 @@ optical_design/CORONAGRAPH_DESIGN_AGENT_GUIDE.md
 optical_design/OPTICAL_DESIGN_AGENT_GUIDE.md
 optical_design/CORONAGRAPH_DESIGN_RULES.md
 optical_design/TELESCOPE_DESIGN_REFERENCE.md
+optical_design/SPECTROMETER_DESIGN_REFERENCE.md
 optical_design/AGENT_NOTES.md
 optical_design/coronagraph_layout.md
 optical_design/fixtures/telescope_design_fixtures.md
