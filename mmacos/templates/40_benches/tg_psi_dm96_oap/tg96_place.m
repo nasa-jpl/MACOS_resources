@@ -57,6 +57,26 @@ if ner > 0
     fprintf('  control set eroded by %d ring(s): %d lit actuators\n', ner, nnz(lit));
 end
 
+% ---- optional APERTURE-REFERENCED cap on the control set (place.lit_margin_mm) --
+% dmg_lit reads the INTERFEROGRAM support, and on this bench that is the
+% REFERENCE arm's 59 mm cone, not the test arm's 48 mm DM aperture: samp512's
+% lit disc reaches r = 49.12 mm and 308 of its 7540 actuators have centers
+% OUTSIDE the 48 mm aperture (no test-arm light at all), 284 more sit in the
+% half-clipped 47-48 mm band (measured 2026-09-30 from runs/samp512/samp512.mat).
+% Those are the "ring 1" of tg96_ring_analysis: dark, so their J columns are
+% weak, and the median-referenced Tikhonov weight then suppresses them.  With a
+% margin the control set is the actuators the TEST beam reaches with a whole
+% influence function: r <= stop_mm - lit_margin_mm (stop_mm = the DM element
+% aperture, set by the runner).  Fix A of the 2026-09-30 descent 2x2.
+if isfield(place,'lit_margin_mm') && ~isempty(place.lit_margin_mm)
+    assert(isfield(place,'stop_mm') && ~isempty(place.stop_mm), ...
+        'tg96_place: place.lit_margin_mm needs place.stop_mm (the runner sets it to the DM aperture radius)');
+    rmax = place.stop_mm - place.lit_margin_mm;
+    n0 = nnz(lit);  lit = lit & (hypot(axg, ayg) <= rmax);
+    fprintf('  control set capped at r <= %.2f mm (aperture %.2f - margin %.2f): %d -> %d lit actuators\n', ...
+        rmax, place.stop_mm, place.lit_margin_mm, n0, nnz(lit));
+end
+
 % ---- footprint centroid in actuator lattice (the in-pupil anchor site) ---
 macos.load_rx(A.rx);  st = macos.trace(ix.iTO);  ri = macos.get_ray_info(st.nRays);
 ok = ri.ok_trace(:) & ri.ok_pass(:);

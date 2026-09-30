@@ -459,7 +459,7 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
         'F1',s*b.F1, 'F2',s*b.F2, 'D_LENS',s*b.D_LENS, 'R_BAFFLE',s*b.R_BAFFLE, ...
         'D_SB',s*b.D_SB, 'BS_T',s*b.BS_T, 'D_L1_BS',s*b.D_L1_BS, ...
         'PLATE_SUB',b.PLATE_SUB, 'EDGE_MARGIN',b.EDGE_MARGIN, 'MASK_SUB',b.MASK_SUB, ...
-        'D_BS_TO',geom.D_BS_TO, 'D_BS_CMP',s*b.D_BS_CMP, 'R_TO_AP',s*b.R_TO_AP, ...
+        'D_BS_TO',geom.D_BS_TO, 'D_BS_CMP',s*b.D_BS_CMP, 'R_TO_AP',s*rstop_(b), ...
         'L1_Kr',s*b.L1_Kr, 'L1_Kc',b.L1_Kc, 'L2_Kr',-s*abs(b.L2_Kr), 'L2_Kc',b.L2_Kc, ...
         'to_grid_file',gf, 'to_grid_n',P.grid.N_G, 'to_grid_dx',P.grid.DX_G, ...
         'qwp_ret',P.QWP, 'pol_in_deg',b.pol_in_deg, 'qwp_test_deg',b.qwp_test_deg, ...
@@ -467,6 +467,10 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
         'tail_arch',b.tail_arch, 'FL_F',T_FL_F, 'FL_Kc',T_FL_Kc, 'FL_D',s*b.FL_D, ...
         'D_MASK_FL',T_DMF, 'DET_TRIM',T_TRIM, rcargs{:});
     G = mk(P.grid.flat_file);
+    if rstop_(b) ~= b.R_TO_AP
+        say('  DM STOP pulled in: TestOptic aperture radius %.2f mm on a %.2f mm beam (bench.R_TO_STOP; Fix A)\n', ...
+            s*rstop_(b), s*b.R_TO_AP);
+    end
     G.bt.emit([P.tag '_test.in']);  G.br.emit([P.tag '_ref.in']);
     say('Stage B -- %s rig built (BS_AOI %g); emitted %s_{test,ref}.in\n\n', ...
         b.optics, geom.AOI, P.tag);
@@ -729,10 +733,10 @@ function battery = stage_matrix_(P, s, G, bench, say, place)
     [J, ilit, vcol, hw, ns, np] = build_J_(ctx, cfg, PL, msk, P, h0);
     nlit = numel(ilit);
     JtJ = full(J.'*J) - (vcol*vcol.')/Am;            % mean-referenced (piston-nulled)
-    d = diag(JtJ);  l2 = P.battery.matrix_lam * median(d(d > 0));
-    Rf = chol(JtJ + l2*eye(nlit));
+    d = diag(JtJ);  Rf = chol(JtJ + regmat_(P.battery.matrix_lam, d, P));
     est = @(h) est_matrix_tg(h, J, vcol, Am, Rf, ilit, nact, msk);
-    say('  J: %d states, %d columns (lit), window %d px, reg lambda %.2e (of median col energy)\n', ...
+    say('  reg: %s\n', regdesc_(P));
+    say('  J: %d states, %d columns (lit), window %d px, reg lambda %.2e\n', ...
         ns, nlit, 2*hw+1, P.battery.matrix_lam);
     litmask = false(nact);  litmask(ilit) = true;
     measr = @(A) meanref_(ctx.measf(dm_influence_map(N_G,DX_G,'nact',nact,'pitch',cfg.pitch,'act',A)) - h0, msk);
@@ -1044,8 +1048,7 @@ function [est, litmask, ns, nlit] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_)
     [J, ilit, vcol, hw, ns] = build_J_(ctx2, cfg, PL, msk, Pc, h0); %#ok<ASGLU>
     nlit = numel(ilit);  Am = nnz(msk);
     JtJ = full(J.'*J) - (vcol*vcol.')/Am;
-    d = diag(JtJ);  l2 = P.battery.matrix_lam * median(d(d > 0));
-    Rf = chol(JtJ + l2*eye(nlit));
+    d = diag(JtJ);  Rf = chol(JtJ + regmat_(P.battery.matrix_lam, d, P));
     est = @(h) est_matrix_tg(h, J, vcol, Am, Rf, ilit, cfg.nact, msk);
     litmask = false(cfg.nact);  litmask(ilit) = true;
 end
@@ -1144,9 +1147,9 @@ Pl = P;  Pl.battery.calib_surface = iff_(strcmp(P.loop.surface, 'base'), 'base',
 [J, ilit, vcol, hw, ns] = build_J_(ctx2, cfg, PL, msk, Pl, h0);
 nlit = numel(ilit);
 JtJ = full(J.'*J) - (vcol*vcol.')/Am;            % mean-referenced (piston-nulled)
-dd = diag(JtJ);  l2 = P.battery.matrix_lam * median(dd(dd > 0));
-Rf = chol(JtJ + l2*eye(nlit));
+dd = diag(JtJ);  Rf = chol(JtJ + regmat_(P.battery.matrix_lam, dd, P));
 est = @(h) est_matrix_tg(h, J, vcol, Am, Rf, ilit, nact, msk);
+say('  reg: %s\n', regdesc_(P));
 litmask = false(nact);  litmask(ilit) = true;
 say(['calibration: measured response matrix on the %s (%s); lit actuators %d, ' ...
     'J %d states x %d columns, window %d px, reg lambda %.2e\n'], ...
@@ -1451,10 +1454,47 @@ Pc = P;  Pc.battery.calib_surface = 'base';  Pc.battery.base_cmd_map = cmd;
 [J, ilit, vcol, hw, ns] = build_J_(ctx2, cfg, PL, msk, Pc, h0); %#ok<ASGLU>
 nlit = numel(ilit);  Am = nnz(msk);
 JtJ = full(J.'*J) - (vcol*vcol.')/Am;
-d = diag(JtJ);  l2 = lam_reg * median(d(d > 0));
-Rf = chol(JtJ + l2*eye(nlit));
+d = diag(JtJ);  Rf = chol(JtJ + regmat_(lam_reg, d, P));
 est = @(h) est_matrix_tg(h, J, vcol, Am, Rf, ilit, cfg.nact, msk);
 r = struct('est', est, 'nstates', ns);
+end
+
+function L = regmat_(lam, d, P)
+% Tikhonov term for JtJ + L.  battery.matrix_reg 'median' (the record): ONE scalar
+% lam*median(column energy) on every column -- a weak column (truncated influence
+% function at the aperture/array edge, a dark pupil zone) then gets the same
+% ABSOLUTE damping as a strong interior one and is suppressed (samp512: ring 1
+% corrected 176x less efficiently, 95-98% of the descent residual).  'column':
+% lam*d_i, each column against its OWN energy, so the RELATIVE damping is uniform.
+% A zero-energy column (should not happen for a lit column) takes the median.
+mode = regmode_(P);
+dm = median(d(d > 0));
+switch mode
+    case 'median', L = lam*dm*eye(numel(d));
+    case 'column', dd = d;  dd(dd <= 0) = dm;  L = lam*diag(dd);
+    otherwise, error('tg96_run:matrix_reg', 'battery.matrix_reg must be ''median'' or ''column'' (got ''%s'')', mode);
+end
+end
+
+function m = regmode_(P)
+m = 'median';
+if isfield(P.battery,'matrix_reg') && ~isempty(P.battery.matrix_reg), m = P.battery.matrix_reg; end
+end
+
+function s = regdesc_(P)
+switch regmode_(P)
+    case 'column', s = sprintf('per-column Tikhonov, %.1e x each column''s own energy (battery.matrix_reg column; Fix B)', P.battery.matrix_lam);
+    otherwise,     s = sprintf('one scalar Tikhonov, %.1e x the median column energy', P.battery.matrix_lam);
+end
+end
+
+function r = rstop_(b)
+% the TestOptic (DM) element aperture radius in sheet units: bench.R_TO_STOP when
+% set, else R_TO_AP.  Only the element aperture -- the clearance solve, the
+% collimator and the tail keep R_TO_AP as the beam radius (Fix A masks the edge
+% of the DM without moving the bench).
+r = b.R_TO_AP;
+if isfield(b,'R_TO_STOP') && ~isempty(b.R_TO_STOP), r = b.R_TO_STOP; end
 end
 
 function Fn = noisy4_(F, nph, seed, msk, unit, cam)
@@ -1739,7 +1779,8 @@ function place = stage_place_(P, s, G, bench, say)
         say('  DIAG: saved %d single-poke maps + mask to %s_diag.mat\n', numel(dmaps), P.tag);
     end
     % ---- bootstrap: the ray affine (carries the fold rotation) --------------
-    PL = tg96_place(ctx.AT, G.T, cfg, msk, N_G, DX_G, P.POKE, ctx.measf, P.place, h0);
+    pl = P.place;  pl.stop_mm = s*rstop_(P.bench);   % the DM element aperture (mm) for place.lit_margin_mm
+    PL = tg96_place(ctx.AT, G.T, cfg, msk, N_G, DX_G, P.POKE, ctx.measf, pl, h0);
     frm = PL.frm;  ang = atan2d(frm.Lm(2,1), frm.Lm(1,1));
     say(['  ray affine: mag %.4f DM-mm/det-mm, det %.4f, in-plane rotation %+.2f deg, ' ...
          'dxd %.4e mm -> %.3f detector px per actuator\n'], ...
