@@ -105,6 +105,11 @@ P.bench.D_LENS = 66;  P.bench.R_BAFFLE = 18;  P.bench.D_SB = 250;
 P.bench.BS_T = 5.8333;   P.bench.D_L1_BS = 150;    P.bench.D_BS_CMP = 200/(96/56);   % compensator at 200 mm physical (x s in the runner); BS_T 5.8333 x s = 10 mm splitter and compensator (DECIDED 2026-09-17; the record's 1.5 = 2.6 mm)
 P.bench.D_BS_TO = [];              % [] => Stage-A solved DM leg
 P.bench.R_TO_AP = 28;              % the DM's aperture = the 96 mm actuator footprint (was 30 = 103 mm, which nothing filled)
+P.bench.R_TO_STOP = [];            % [] => R_TO_AP.  A SMALLER value masks the DM's EDGE: it feeds only the
+                                   %   TestOptic element aperture; clearance / collimator / tail keep R_TO_AP as
+                                   %   the beam.  Fix A of the 2026-09-30 descent-stall 2x2: 26.25 (x s = 45 mm,
+                                   %   a 90 mm pupil) leaves the outer ~3 actuator rings unilluminated -- samp512
+                                   %   lit radius 49.0 of a 47.5 half-width, ring 1 = 95-98% of the residual.
 % The lens figures, RE-SOLVED on the collimated bench 2026-09-17
 % (tg96_collimate, runs/coll_lens; BRIEF_to_tg_redo package A item 1).  The
 % record's L1_Kr 236.866 is (n-1)*473.7 -- l2_trade matched the RADIUS to the
@@ -332,6 +337,10 @@ P.battery.base_rand_seed = 11;
 P.battery.calib_mode  = 'matrix';  % 'matrix' (default) | 'kernel' (the record)
 P.battery.matrix_step = 8;         % sparse-poke grid step (no overlap at 8; hw < step/2 pitch)
 P.battery.matrix_lam  = 1e-3;      % Tikhonov weight, relative to median column energy of J
+P.battery.matrix_reg  = 'median';  % 'median' = ONE scalar lam*median(diag(JtJ)) (the record) | 'column' =
+                                   %   lam*diag(JtJ)_i, each column damped against its OWN energy.  Fix B of the
+                                   %   2x2: the median form damps a weak (edge / dark) column as hard as a strong
+                                   %   one -- samp512 ring 1 was corrected 176x less efficiently than the interior.
 P.battery.matrix_sign = 'same';    % 'same' | 'alternate' (zero-mean checkerboard; halos cancel)
 P.battery.matrix_states = inf;     % cap on J-build states (inf = all step^2 = every lit act once)
 P.battery.matrix_window = 'box';   % 'box' (+/-half-step window) | 'voronoi' (nearest-poke cells; item 3a)
@@ -379,6 +388,12 @@ P.place.poly_deg  = 1;             % refit degree: 1=affine (both rigs; fit is r
 P.place.gate_max_states = inf;     % cap the D1-gate sweep states (dev: sample a few)
 P.place.boot_states = 8;           % states for the placement bootstrap/refit (few suffice)
 P.place.gate_assert = true;        % dev: false continues past a failed gate (saves .mat)
+P.place.lit_margin_mm = [];        % [] = the record: lit from the interferogram support (dmg_lit).  A value
+                                   %   caps the CONTROL set at r <= DM aperture - margin (mm): on this bench the
+                                   %   interferogram support is the REFERENCE arm's 59 mm cone, so the record's lit
+                                   %   set reaches 1 mm OUTSIDE the 48 mm DM aperture (308 dark actuators + 284
+                                   %   half-clipped).  Fix A of the 2026-09-30 descent 2x2 uses 1 (one pitch).
+P.place.lit_erode     = 0;         % diagnostic: erode the control set by N rings (runs/erode3); see tg96_place
 
 % ---- closed-loop hold metric (D7; Dave 2026-09-11, BRIEF_loop_metric) ----
 %   The on-orbit servo mode: the DM held at the working surface by a
