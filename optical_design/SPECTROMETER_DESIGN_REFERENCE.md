@@ -174,6 +174,17 @@ convex/concave mirror.  In the Dyson the slit sits off the axis by
   independent reference; the amplitude-weighted PSF centroid equals the
   unweighted one to 1e-4 px, so the detector-seen keystone IS the ray
   centroid.  A symmetric seed cannot test this (nothing to flip).
+- **Far-field energy fractions (addendum 9, 2026-10-01).**  Two traps in
+  any "energy inside an acceptance" metric from the planar far-field
+  leg: (1) the window `lambda z / dx_in` must exceed the acceptance by
+  >= 2 x or the diffracted tail ALIASES back inside (the 36 um slit's
+  loss read 0.30 x the closed form at 380 nm with a 1.11 x window);
+  (2) the planar FFT assigns energy to spatial frequencies beyond
+  1/lambda (|sin theta| > 1), which no physical far field carries --
+  0.7-1.3 % of the total at 2500 nm here -- so normalise to the
+  propagating region |y|, |x| <= z.  With both, the slit loss reads
+  0.86-1.14 x sinc^2 across the band.  `spectrometer_slit_loss`
+  carries both knobs; CC could have the kernel zero |f| > 1/lambda.
 - **Physical optics.**  The propagation chain's ray re-trace passes a
   Grating (propsub.F has the branch), but every diffraction KERNEL is
   handed the vacuum wavelength -- legs inside glass run at the wrong

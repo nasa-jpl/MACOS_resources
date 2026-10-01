@@ -156,7 +156,8 @@ function P = dyson5_params(over)
     P.offner_M3_dy = 0.294e-3;     P.offner_M3_dz = 0.153e-3;
     P.twin_rung      = 'R4';              % s2w runs the twin on this s3 rung's deck ('' = the s1 seed)
     P.slitloss_lams = [380e-9 700e-9 1440e-9 2500e-9];  P.slitloss_model = 1024;  P.slitloss_ngrid = 255;
-    P.slitloss_len = 0.15e-3;  P.slitloss_z = 0.7;         % s2l: slit length modelled, slit-to-grating distance
+    P.slitloss_len = 0.083e-3;  P.slitloss_z = 0.7;        % s2l: modelled slit length (-> window = 2 x the acceptance at 380 nm), slit-to-grating distance
+    P.slitloss_propagating = true;                          % normalise to |sin theta| <= 1 (the planar FFT carries evanescent energy)
     P.stages   = {'s0','s1','s2'};        % 's3' (the departure ladder) and 's2w' (the twin, model 512) are opt-in
 
     f = fieldnames(over);

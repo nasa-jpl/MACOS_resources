@@ -182,6 +182,19 @@ grid inverted by the FFT; now read from the engine's source frame).
 **Wave = ray centroid on R4 to 0.0022 px; the detector sees the ray
 centroid; keystone 0.0026 px stands.**  Report `BRIEF_dyson5_beat4a.md`.
 
+## Beat 4b (2026-10-01) -- slit-loss factor resolved; global meniscus search
+
+Four one-knob tests (`dyson5_slitloss_tests`): the 0.30x at 380 nm was
+aliasing (window 1.11x the acceptance), the 1.36x at 2500 nm was the
+planar far field's evanescent energy in the normalisation; with a 2x
+window and the propagating-region normalisation the engine reads
+0.86-1.14x sinc^2 across the band -- **slit loss 0.3-1.8 %** stands.  The
+global meniscus search (12 starts) finds four basins of similar merit
+and none with better CRF/EE than the R4 of record: the quadratic
+distortion weight was buying distortion already 40x under spec; the
+native optimize carries smile/keystone as hinge walls instead.  Every
+ladder deck re-emitted with apertures.  Report `BRIEF_dyson5_beat4b.md`.
+
 ## Run it yourself
 
 ```matlab
