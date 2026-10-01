@@ -10,9 +10,9 @@ function T = dyson5_trade(tag)
 %   one comparison (BRIEF_to_dyson5 addendum 4).
     here = fileparts(mfilename('fullpath'));
     run(fullfile(here, '..', '..', 'mmacos_setup.m'));
-    recs = {'_s3', 'r held'; '_s3free', 'r free'};
+    recs = {'_s3', 'r held'; '_s3free', 'r free'; '_s4', 'native'};
     rows = {};
-    for q = 1:2
+    for q = 1:size(recs, 1)
         fn = [tag recs{q,1} '.mat'];
         if ~isfile(fn), continue; end
         S = load(fn);  L = S.S;
