@@ -30,7 +30,7 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
     end
 
     properties (TestParameter)
-        form = {'offner', 'dyson'}
+        form = {'offner', 'dyson', 'dyson_asph'}
     end
 
     properties
@@ -55,6 +55,12 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
         function [G, M] = build(tc, form)
             P = tc.P;
             if strcmp(form, 'offner'), P.Fno = 2.8; end      % the Offner's own speed
+            if strcmp(form, 'dyson_asph')
+                % the block's convex face as conic + h^4 + h^6 (engine AsphCoef
+                % convention: coef(i) on h^(2i+2) of the sag along +psi) -- pins
+                % the sag sign; a sphere-only chain misses by 0.26 mm here
+                form = 'dyson';  P.block_Kc = -0.3;  P.block_asph = [2.0 -40];
+            end
             G = spectrometer_geom(form, P);
             file = fullfile(tc.tmpdir, ['spec_' form '.in']);
             M = spectrometer_rx(G, file, 'ngridpts', 21);

@@ -32,7 +32,12 @@ function OUT = dyson5_run(over)
 %         from the propagated PSF.  Validated on the order-0 Offner relay
 %         (Airy, 94 % in one pixel); at order -1 it measures the engine's
 %         grating OPL defect until that is fixed (tGratingOpl).
-%     s3  native optimize -- beat 3
+%     s3  THE DYSON DEPARTURE LADDER (dyson_ladder): R0 the concentric seed,
+%         R1 the concentric knobs (R_g factor, face offset, block radius),
+%         R2 + conic and h^4/h^6 asphere on the block's convex face --
+%         each rung solved on the exact chain with smile/keystone operands
+%         in the merit from the first pass, then emitted and ENGINE-scored.
+%     s4  native optimize -- beat 4
 %
 %   Artifacts (P.outdir): <tag>_s0_scaling.{txt,mat,png};
 %   <tag>_s1_{dyson,offner}.in, <tag>_s1_layout.png, <tag>_s1.{txt,mat};
@@ -57,8 +62,7 @@ function OUT = dyson5_run(over)
             case 's1', OUT.s1 = stage_s1_(P, tag);
             case 's2', OUT.s2 = stage_s2_(P, tag);
             case 's2w', OUT.s2w = stage_s2w_(P, tag);
-            case 's3'
-                fprintf('dyson5_run: stage %s is queued for the next beat (BRIEF_to_dyson5 build order).\n', P.stages{k});
+            case 's3', OUT.s3 = stage_s3_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -253,6 +257,45 @@ function S = stage_s2_(P, tag)
     fprintf('dyson5 s2: wrote %s_s2.{txt,mat}, %s_s2_maps.png, %s_s2_rad.png\n', tag, tag, tag);
 end
 
+function S = stage_s3_(P, tag)
+%STAGE_S3_  The Dyson departure ladder, engine-scored rung by rung.
+    macos.init(P.model);
+    fid = fopen([tag '_s3.txt'], 'w');
+    pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 s3 -- the Dyson departure ladder (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: each rung is solved by lsqnonlin on the EXACT CHAIN (straight-ruled grooves; the engine reproduces\n');
+    pr('  it ray for ray), residuals in PIXELS over a %d x %d (slit x, lambda) grid: %g x [smile_ij = v_c - v_c(slit centre);\n', P.ladder_nx, P.ladder_nlam, P.ladder_w_dist);
+    pr('  keystone_ij = u_c - u_c(lambda_c)] and %g x [rms spot u, v], plus a wall on the slit-to-FPA clearance >= %.1f mm;\n', P.ladder_w_blur, P.ladder_clear_m*1e3);
+    pr('  block radius %s; groove period and FPA focus re-solved at every iterate; the solved deck is then scored in the ENGINE\n', tern_(P.ladder_free_r, 'FREE (walks to its bound: size buys blur)', sprintf('HELD at %.0f mm (what each departure buys at fixed scale)', P.block_r_m*1e3)));
+    pr('  (spectrometer_score, %d x %d, %d-pt grid) -- the engine rows are the record.  Spec: smile/keystone < %.2f px,\n', P.score_nx, P.score_nlam, P.ngridpts, P.smile_px);
+    pr('  SRF < %.1f-%.1f px (2-px slit floor 2.0), CRF < %.1f px; paper: distortion ~1%% px at design, EE > 0.75.\n\n', P.srf_px, P.xrf_px);
+    L = dyson_ladder(P, tag, 'rungs', P.ladder_rungs, 'nx', P.ladder_nx, 'nlam', P.ladder_nlam, ...
+                     'w_dist', P.ladder_w_dist, 'w_blur', P.ladder_w_blur, 'clear_m', P.ladder_clear_m, ...
+                     'max_iter', P.ladder_max_iter, 'free_r', P.ladder_free_r, 'quiet', true);
+    pr('%-52s %8s %8s %7s %7s %6s | %7s %7s %8s %7s %s\n', 'rung', 'smile', 'keyst', 'CRF', 'SRF', 'EE', 'R_g mm', 'r mm', 'face mm', 'Kc', 'asph [h4 h6]');
+    for k = 1:numel(L.rung)
+        r = L.rung(k);  Re = r.engine;  G = spectrometer_geom('dyson', r.P);
+        pr('%-52s %8.4f %8.4f %7.3f %7.3f %6.3f | %7.1f %7.1f %8.3f %7.3f %s\n', r.name, Re.smile_max, Re.keystone_max, ...
+            Re.crf_max, Re.srf_max, Re.ee_min, G.Rg*1e3, G.r*1e3, r.P.face_offset*1e3, r.P.block_Kc, mat2str(r.P.block_asph, 4));
+        pr('%-52s chain: %8.4f %8.4f %7.3f %7.3f %6.3f | clearance %.2f mm, d %.2f um, merit %.4g, deck %s\n', '', ...
+            r.chain.smile_max, r.chain.keystone_max, r.chain.crf_max, r.chain.srf_max, r.chain.ee_min, ...
+            G.fpa.clear_to_slit*1e3, G.grating.d*1e6, r.merit, r.file);
+    end
+    fclose(fid);
+    S = L;
+    save([tag '_s3.mat'], 'S', 'P');
+    % figure: engine CRF and smile/keystone per rung
+    f = figure('Visible', 'off', 'Position', [60 60 900 360]);
+    nr = numel(L.rung);  vals = zeros(nr, 4);
+    for k = 1:nr, Re = L.rung(k).engine;  vals(k,:) = [Re.smile_max, Re.keystone_max, Re.crf_max, Re.ee_min]; end
+    subplot(1,2,1);  bar(vals(:,1:3));  set(gca, 'XTickLabel', arrayfun(@(k) sprintf('R%d', P.ladder_rungs(k)), 1:nr, 'uni', 0));
+    legend({'smile max (px)', 'keystone max (px)', 'CRF max (px)'}, 'Location', 'northeast');  grid on;  title('engine, per rung');
+    subplot(1,2,2);  bar(vals(:,4));  set(gca, 'XTickLabel', arrayfun(@(k) sprintf('R%d', P.ladder_rungs(k)), 1:nr, 'uni', 0));
+    ylabel('min ensquared energy (1 px, geometric)');  grid on;  yline(0.75, '--', 'paper rule');
+    print(f, [tag '_s3_ladder.png'], '-dpng', '-r100');  close(f);
+    fprintf('dyson5 s3: wrote %s_s3.{txt,mat}, %s_s3_r*.in, %s_s3_ladder.png\n', tag, tag, tag);
+end
+
 function S = stage_s2w_(P, tag)
 %STAGE_S2W_  The propagation twin on both s1 decks (model 512).
     s1 = load([tag '_s1.mat']);  S1 = s1.S;
@@ -293,6 +336,10 @@ function S = stage_s2w_(P, tag)
     fclose(fid);
     save([tag '_s2w.mat'], 'S', 'P');
     fprintf('dyson5 s2w: wrote %s_s2w.{txt,mat}\n', tag);
+end
+
+function t = tern_(c, a, b)
+    if c, t = a; else, t = b; end
 end
 
 function t = pf_(ok)
