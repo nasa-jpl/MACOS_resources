@@ -20,21 +20,25 @@ function T = dyson5_trade(tag)
             r = L.rung(k);  G = spectrometer_geom('dyson', r.P);  Re = r.engine;
             geo = geom_(G);
             rows(end+1, :) = {recs{q,2}, r.name, Re.keystone_max, Re.smile_max, Re.crf_max, Re.srf_max, Re.ee_min, ...
-                              geo.length_mm, geo.footprint_mm, geo.n_elt, geo.glass_cm3, G.r*1e3, G.Rg*1e3};  %#ok<AGROW>
+                              geo.length_mm, geo.footprint_mm, geo.n_elt, geo.glass_cm3, G.r*1e3, G.Rg*1e3, ...
+                              geo.block_diam_mm, geo.block_thick_mm, geo.grating_diam_mm, geo.men_diam_mm};  %#ok<AGROW>
         end
     end
     T = cell2table(rows, 'VariableNames', {'radius', 'rung', 'keystone_px', 'smile_px', 'CRF_px', 'SRF_px', ...
-                   'EE_1px', 'length_mm', 'grating_footprint_mm', 'n_elements', 'glass_cm3', 'r_mm', 'Rg_mm'});
+                   'EE_1px', 'length_mm', 'grating_footprint_mm', 'n_elements', 'glass_cm3', 'r_mm', 'Rg_mm', ...
+                   'block_diam_mm', 'block_thick_mm', 'grating_diam_mm', 'meniscus_diam_mm'});
     fid = fopen([tag '_s3_trade.txt'], 'w');
     fprintf(fid, 'dyson5 trade table (%s) -- engine rows; length = slit plane to grating vertex; footprint = diameter of the\n', datestr(now, 'yyyy-mm-dd HH:MM'));
     fprintf(fid, '  grating hits over slit centre + ends x band edges (chief + 8 marginals); glass = block spherical cap + meniscus.\n');
-    fprintf(fid, '%-7s %-56s %9s %8s %7s %7s %6s %8s %8s %5s %8s %6s %7s\n', 'radius', 'rung', 'keystone', 'smile', 'CRF', 'SRF', 'EE', 'length', 'footpr.', 'nElt', 'glass', 'r', 'R_g');
-    fprintf(fid, '%-7s %-56s %9s %8s %7s %7s %6s %8s %8s %5s %8s %6s %7s\n', '', '', 'px', 'px', 'px', 'px', '1px', 'mm', 'mm', '', 'cm^3', 'mm', 'mm');
+    fprintf(fid, '%-7s %-56s %9s %8s %7s %7s %6s %8s %8s %5s %8s %6s %7s %8s %8s %8s %8s\n', 'radius', 'rung', 'keystone', 'smile', 'CRF', 'SRF', 'EE', 'length', 'footpr.', 'nElt', 'glass', 'r', 'R_g', 'blockD', 'blockT', 'gratD', 'menD');
+    fprintf(fid, '%-7s %-56s %9s %8s %7s %7s %6s %8s %8s %5s %8s %6s %7s %8s %8s %8s %8s\n', '', '', 'px', 'px', 'px', 'px', '1px', 'mm', 'mm', '', 'cm^3', 'mm', 'mm', 'mm', 'mm', 'mm', 'mm');
     for i = 1:height(T)
-        fprintf(fid, '%-7s %-56s %9.4f %8.4f %7.3f %7.3f %6.3f %8.1f %8.1f %5d %8.0f %6.0f %7.0f\n', T.radius{i}, T.rung{i}, ...
+        fprintf(fid, '%-7s %-56s %9.4f %8.4f %7.3f %7.3f %6.3f %8.1f %8.1f %5d %8.0f %6.0f %7.0f %8.1f %8.1f %8.1f %8.1f\n', T.radius{i}, T.rung{i}, ...
             T.keystone_px(i), T.smile_px(i), T.CRF_px(i), T.SRF_px(i), T.EE_1px(i), T.length_mm(i), T.grating_footprint_mm(i), ...
-            T.n_elements(i), T.glass_cm3(i), T.r_mm(i), T.Rg_mm(i));
+            T.n_elements(i), T.glass_cm3(i), T.r_mm(i), T.Rg_mm(i), T.block_diam_mm(i), T.block_thick_mm(i), T.grating_diam_mm(i), T.meniscus_diam_mm(i));
     end
+    fprintf(fid, 'sizes: block/grating/meniscus diameters = 2 x (footprint radius + %.0f mm aperture margin) about the footprint centre;\n', 5);
+    fprintf(fid, '  block thickness = sphere vertex to flat face on the axis; length = slit plane to grating vertex.\n');
     fclose(fid);
     % ---- figure: distortion (log) and blur/energy per rung, both records
     f = figure('Visible', 'off', 'Position', [40 40 1200 400], 'Color', 'w');
@@ -72,4 +76,11 @@ function g = geom_(G)
         t = G.surf(im+1).vpt(3) - G.surf(im).vpt(3);  vol = vol + pi*(g.footprint_mm*1e-3/2)^2*t;
     end
     g.glass_cm3 = vol*1e6;
+    % element sizes from the declared apertures (footprint + margin)
+    F = G.footprints();  m = 5e-3;
+    g.block_diam_mm = 2*(F(2).radius + m)*1e3;
+    g.block_thick_mm = (G.surf(2).vpt(3) - G.surf(1).C(3))*1e3;
+    g.grating_diam_mm = 2*(F(G.iG).radius + m)*1e3;
+    im = find(strcmp({G.surf.name}, 'MenA_out'));
+    if isempty(im), g.men_diam_mm = 0; else, g.men_diam_mm = 2*(F(im).radius + m)*1e3; end
 end

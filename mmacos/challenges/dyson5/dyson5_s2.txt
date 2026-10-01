@@ -1,4 +1,4 @@
-dyson5 s2 -- spectrometer metrics (2026-10-01 05:23)
+dyson5 s2 -- spectrometer metrics (2026-10-01 06:13)
 CONVENTIONS: FPA frame origin = the lambda_c image of the slit centre; u along the slit (+x), v along the
   dispersion, both in 18 um pixels; per (slit x, lambda): engine rays at the FPA (traced & unblocked),
   centroid (u_c, v_c), rms widths, geometric ensquared fraction in 1 px about the centroid.
@@ -25,13 +25,13 @@ DYSON : smile max 0.0061 px (0.109 um)  keystone max 0.0951 px (1.711 um)  dispe
         chain (planes  grooves): smile 0.0060 px  keystone 0.0952 px  SRF max 2.025 px  CRF max 2.410 px  EE min 0.420  blur max 0.713/0.206 px
         vs spec: smile PASS  keystone PASS  SRF FAIL  CRF FAIL
 
-OFFNER: smile max 0.0000 px (0.000 um)  keystone max 0.0000 px (0.000 um)  dispersion -0.2358 px/nm
-        SRF FWHM max 2.037 px (= 2.04x sampling)   CRF FWHM max 1.034 px   SRF var. with field 0.0%   CRF var. with lambda 2.3%
-        geometric ensquared min 1.000   rms blur max 0.055 px (u) / 0.025 px (v)   rays per point 1258-1258
-        smile per lambda (px): 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 
-        keystone per slit x (px): 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 
+OFFNER: smile max 0.0055 px (0.099 um)  keystone max 0.0276 px (0.496 um)  dispersion -0.2358 px/nm
+        SRF FWHM max 3.567 px (= 3.57x sampling)   CRF FWHM max 1.173 px   SRF var. with field 60.9%   CRF var. with lambda 14.8%
+        geometric ensquared min 0.245   rms blur max 0.297 px (u) / 0.974 px (v)   rays per point 1258-1258
+        smile per lambda (px): 0.0055 0.0036 0.0025 0.0017 0.0023 0.0030 0.0041 
+        keystone per slit x (px): 0.0276 0.0176 0.0086 0.0000 0.0086 0.0176 0.0276 
         radiometric gain vs lambda (nm: gain): 380:0.018 733:0.518 1087:0.828 1440:0.603 1793:0.406 2147:0.265 2500:0.165 
-        chain (surface grooves): smile 0.0000 px  keystone 0.0000 px  SRF max 3.061 px  CRF max 1.034 px  EE min 0.071  blur max 0.060/2.776 px
-        chain (planes  grooves): smile 0.0000 px  keystone 0.0000 px  SRF max 2.037 px  CRF max 1.034 px  EE min 1.000  blur max 0.060/0.027 px
+        chain (surface grooves): smile 0.0067 px  keystone 0.0276 px  SRF max 3.277 px  CRF max 1.214 px  EE min 0.089  blur max 0.323/2.907 px
+        chain (planes  grooves): smile 0.0066 px  keystone 0.0274 px  SRF max 3.691 px  CRF max 1.199 px  EE min 0.225  blur max 0.315/1.005 px
         vs spec: smile PASS  keystone PASS  SRF FAIL  CRF PASS
 

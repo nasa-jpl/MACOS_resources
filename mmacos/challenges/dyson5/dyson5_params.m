@@ -32,6 +32,13 @@ function P = dyson5_params(over)
 %   Form (both chains built by design/src/spectrometer_geom)
 %     glass        block material (engine GlassElt name)          'Silica'
 %     lambda_ref_m index evaluation wavelength for the layout, m  1.0e-6
+%     ap_margin_m, mount_margin_m, slit_mask_m, pkg_*  mechanics: declared
+%                  apertures (footprint + margin), mount margin for the
+%                  clearance gate, slit mask plate, FPA package model
+%     y_slit_offner_m  the Offner's slit ring radius (0.22 R, addendum 6)
+%     offner_*     the Offner's solved corrections (offner_solve): convex
+%                  radius factor, M3 radius factor, M3 centre offsets
+%     twin_rung    which s3 rung's deck the propagation twin runs on
 %     y_slit_m     slit centre offset from the concentric axis
 %                  along the dispersion direction, m (the FPA lands
 %                  on the far side; the two must clear physically)  6e-3
@@ -133,6 +140,21 @@ function P = dyson5_params(over)
     P.ladder_rungs = 0:5;  P.ladder_nx = 5;  P.ladder_nlam = 5;
     P.ladder_w_dist = 10;  P.ladder_w_blur = 1;  P.ladder_clear_m = 3e-3;  P.ladder_max_iter = 60;
     P.ladder_free_r = false;              % true frees the block radius (it walks to its bound)
+    % mechanics (addendum 6): declared apertures = footprint + margin; bodies
+    % scored with a mount margin; the slit mask and the FPA package at the face
+    P.ap_margin_m    = 5e-3;              % aperture beyond the multi-field, multi-lambda footprint
+    P.mount_margin_m = 5e-3;              % mount beyond the aperture, for clearance
+    P.slit_mask_m    = [0.064 0.004 0.001];   % slit mask plate: length (x), height (y), thickness
+    P.pkg_margin_m   = 5e-3;              % FPA carrier beyond the 54 x 9 mm active area
+    P.pkg_depth_m    = 10e-3;             % carrier depth on the far side of the face
+    P.pkg_shield_m   = 0;                 % cold shield / window height toward the block (0 = none)
+    P.y_slit_offner_m = 0.110;            % the Offner's slit ring radius 0.22 R: beside the grating, not through it (addendum 6)
+    % the Offner's classical corrections at that ring, solved by offner_solve
+    % (2026-10-01, dyson5_s1_offner_solve.txt): convex grating radius factor
+    % (x R/2), second concave zone's radius factor and centre offsets
+    P.offner_Rg_factor = 1.00340;  P.offner_M3_factor = 0.95097;
+    P.offner_M3_dy = 0.294e-3;     P.offner_M3_dz = 0.153e-3;
+    P.twin_rung      = 'R4';              % s2w runs the twin on this s3 rung's deck ('' = the s1 seed)
     P.slitloss_lams = [380e-9 700e-9 1440e-9 2500e-9];  P.slitloss_model = 1024;  P.slitloss_ngrid = 255;
     P.slitloss_len = 0.15e-3;  P.slitloss_z = 0.7;         % s2l: slit length modelled, slit-to-grating distance
     P.stages   = {'s0','s1','s2'};        % 's3' (the departure ladder) and 's2w' (the twin, model 512) are opt-in

@@ -1,4 +1,4 @@
-dyson5 s3 -- the Dyson departure ladder (2026-10-01 05:35)
+dyson5 s3 -- the Dyson departure ladder (2026-10-01 06:23)
 CONVENTIONS: each rung is solved by lsqnonlin on the EXACT CHAIN (straight-ruled grooves; the engine reproduces
   it ray for ray), residuals in PIXELS over a 5 x 5 (slit x, lambda) grid: 10 x [smile_ij = v_c - v_c(slit centre);
   keystone_ij = u_c - u_c(lambda_c)] and 1 x [rms spot u, v], plus a wall on the slit-to-FPA clearance >= 3.0 mm;
@@ -19,3 +19,11 @@ R4a meniscus alone (vertex, thickness, 2 curvatures)   0.0120   0.0629   2.493  
                                                      chain:   0.0118   0.0628   2.437   2.047  0.278 | clearance 13.45 mm, d 115.22 um, merit 5.013, deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_s3_r4.in
 R4 + meniscus corrector, all variables (compact variant)   0.0051   0.0026   1.327   2.032  0.759 |   693.9   220.0    0.741  -0.007 [-0.001273 -12.53]  dC [-0.05 1.91] mm
                                                      chain:   0.0053   0.0018   1.359   2.037  0.680 | clearance 13.55 mm, d 114.38 um, merit 1.915, deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_s3_r5.in
+
+CLEARANCE per rung (legs vs bodies not traversed; mount 5 mm; slit mask [64 4 1] mm; FPA carrier +5 mm, depth 10 mm, shield 0 mm):
+  R0   min    +1.11 mm PASS : BlockSphereIn -> BlockFaceOut vs FPApackage
+  R1   min    +1.13 mm PASS : BlockSphereIn -> BlockFaceOut vs FPApackage
+  R2   min    +1.13 mm PASS : BlockSphereIn -> BlockFaceOut vs FPApackage
+  R3   min    +1.16 mm PASS : BlockSphereIn -> BlockFaceOut vs FPApackage
+  R4a  min    +1.25 mm PASS : BlockSphereIn -> BlockFaceOut vs FPApackage
+  R4   min    +1.19 mm PASS : BlockSphereIn -> BlockFaceOut vs FPApackage

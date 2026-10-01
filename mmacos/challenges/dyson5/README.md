@@ -157,6 +157,21 @@ engine SRF at the 2-px floor; the twin agrees with the rays to 0.0013 px;
 slit diffraction loss measured at < 2.5 % (factor vs sinc^2 open).
 Report `BRIEF_dyson5_beat3b.md`; every figure from the runner's stages.
 
+## Beat 3c (2026-10-01) -- the collisions brief on R4
+
+Apertures are declared on every surface from the multi-field, multi-lambda
+footprint (+5 mm; not one ray vignetted, gated), `spectrometer_clearance`
+scores every leg against every body it does not traverse and FAILS the stage
+on a negative entry, the Offner is re-posed at 0.22 R (+10.2 mm clear) and
+solved (`offner_solve`: convex radius x 1.0034, second zone x 0.951 --
+keystone 0.028, CRF 1.20, SRF 3.69 px), the slit mask and FPA package are
+bodies (the Dyson clears its own package by **+1.2 mm with no cold shield**:
+the fold-prism item), the trade table carries element sizes, the engine
+renders (`dyson5_view_figs`) are the layouts of record, and the twin runs on
+R4: **EE with diffraction 0.747 vs geometric 0.759**.  Open for beat 4: the
+wave-ray centroid offset (0.001 / 0.030 / 0.122 px on seed / R3 / R4) and
+its amplitude-weighting explanation.  Report `BRIEF_dyson5_beat3c.md`.
+
 ## Run it yourself
 
 ```matlab

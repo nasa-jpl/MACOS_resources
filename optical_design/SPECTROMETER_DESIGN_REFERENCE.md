@@ -146,6 +146,23 @@ convex/concave mirror.  In the Dyson the slit sits off the axis by
   `lambda L/(N dx_ep)`; the window is `ngridpts x lambda F`, so
   ngridpts 127 spans +-2.4 px at 380 nm.  Validated on the order-0
   relay: Airy spot, 94 % ensquared in one pixel.
+- **Apertures and clearance (addendum 6, 2026-10-01).**  The aperture
+  frame is `xObs` AS WRITTEN (the parser's default is the cyclic
+  permutation of psi -- `(psi3, psi1, psi2)`, i.e. -x for psi = (0,0,-1)),
+  `zObs = psi`, `yObs = psi x xObs`; `ApType Circular` is `ApVec =
+  (radius, xc, yc)` in that frame, `Rectangular` is `(x1, x2, y1, y2)`.
+  `spectrometer_rx(..., 'apertures', true)` declares every surface's
+  aperture from the chain's multi-field, multi-lambda footprint + margin
+  and writes `xObs=` explicitly; gate: not one ray vignetted
+  (`tSpectrometerRx` 'dyson_apertures').  Obstruction is NOT a ray-trace
+  property (the sequential trace never tests a ray against an element it
+  is not traversing): `spectrometer_clearance` scores every leg against
+  every body it does not traverse (aperture + mount, lifted onto the
+  surface; one physical part grouped across its surface records; the
+  slit mask and FPA package as mechanical bodies) and the stages FAIL on
+  a negative entry.  The Offner must sit at >= 0.22 R to pass the
+  grating; the Dyson's slit/FPA mechanics clear by ~1 mm with no cold
+  shield (the fold-prism item).
 - **Physical optics.**  The propagation chain's ray re-trace passes a
   Grating (propsub.F has the branch), but every diffraction KERNEL is
   handed the vacuum wavelength -- legs inside glass run at the wrong

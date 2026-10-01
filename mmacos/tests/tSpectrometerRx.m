@@ -30,7 +30,7 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
     end
 
     properties (TestParameter)
-        form = {'offner', 'dyson', 'dyson_asph'}
+        form = {'offner', 'dyson', 'dyson_asph', 'dyson_apertures'}
     end
 
     properties
@@ -55,15 +55,23 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
         function [G, M] = build(tc, form)
             P = tc.P;
             if strcmp(form, 'offner'), P.Fno = 2.8; end      % the Offner's own speed
+            ap = false;
             if strcmp(form, 'dyson_asph')
                 % the block's convex face as conic + h^4 + h^6 (engine AsphCoef
                 % convention: coef(i) on h^(2i+2) of the sag along +psi) -- pins
                 % the sag sign; a sphere-only chain misses by 0.26 mm here
                 form = 'dyson';  P.block_Kc = -0.3;  P.block_asph = [2.0 -40];
+            elseif strcmp(form, 'dyson_apertures')
+                % DECLARED apertures (addendum 6): ApType Circular, ApVec =
+                % (footprint radius + margin, xc, yc) in the aperture frame
+                % xObs = global x, yObs = psi x xObs (tracesub.F) -- the test
+                % below also asserts that NOT ONE ray is vignetted, which pins
+                % the frame's sign (a flipped yObs decentres every aperture)
+                form = 'dyson';  ap = true;
             end
             G = spectrometer_geom(form, P);
             file = fullfile(tc.tmpdir, ['spec_' form '.in']);
-            M = spectrometer_rx(G, file, 'ngridpts', 21);
+            M = spectrometer_rx(G, file, 'ngridpts', 21, 'apertures', ap, 'margin', 5e-3);
             macos.load_rx(file);
             tc.assertEqual(macos.num_elt(), M.nElt, 'deck loads with every element');
         end
@@ -133,6 +141,10 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
                     tc.assertEqual(numel(okl), numel(ri.ok_trace), 'same ray count at elt 1 and the FPA');
                     okr = ri.ok_trace(:) & ri.ok_pass(:) & okl(:);
                     tc.assertGreaterThan(nnz(okr), 0.9*s.nRays, 'most rays reach the FPA');
+                    if M.apertures
+                        tc.verifyEqual(nnz(ri.ok_trace & ~ri.ok_pass), 0, ...
+                            'declared apertures (footprint + 5 mm) must not vignette the beam they were cut from');
+                    end
                     idx = find(okr);  dmax = 0;
                     for k = idx(:)'
                         [pk, ~, okk] = G.trace(p0, D(:,k), lam);

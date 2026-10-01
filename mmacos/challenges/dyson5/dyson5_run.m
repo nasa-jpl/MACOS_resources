@@ -159,35 +159,49 @@ function S = stage_s1_(P, tag)
     macos.init(P.model);
     f = figure('Visible', 'off', 'Position', [100 100 1100 480]);
     for k = 1:2
-        Pk = base;  if strcmp(forms{k}, 'offner'), Pk.Fno = P.Fno_offner; end
+        Pk = base;
+        if strcmp(forms{k}, 'offner')
+            Pk.Fno = P.Fno_offner;  Pk.y_slit = P.y_slit_offner_m;
+            Pk.offner_Rg_factor = P.offner_Rg_factor;  Pk.offner_M3_factor = P.offner_M3_factor;
+            Pk.offner_M3_dy = P.offner_M3_dy;  Pk.offner_M3_dz = P.offner_M3_dz;
+        end
         G = spectrometer_geom(forms{k}, Pk);
         file = sprintf('%s_s1_%s.in', tag, forms{k});
-        M = spectrometer_rx(G, file, 'ngridpts', P.ngridpts, 'name', [P.tag '_' forms{k}]);
+        M = spectrometer_rx(G, file, 'ngridpts', P.ngridpts, 'name', [P.tag '_' forms{k}], 'apertures', true, 'margin', P.ap_margin_m);
         macos.load_rx(file);
         nE = macos.num_elt();
         assert(nE == M.nElt, 'dyson5 s1: %s loads %d of %d elements', forms{k}, nE, M.nElt);
         macos.stop(M.iG);  macos.modify();
-        tr = macos.trace(M.nElt);
-        S.(forms{k}) = struct('G', G, 'M', M, 'nRays', tr.nRays, 'file', file);
+        tr = macos.trace(M.nElt);  ri = macos.get_ray_info(tr.nRays);
+        % the declared apertures must not vignette the beam they were cut from
+        nv = nnz(ri.ok_trace & ~ri.ok_pass);
+        assert(nv == 0, 'dyson5 s1: %s -- %d rays vignetted by the declared apertures (aperture frame sign?)', forms{k}, nv);
+        Cl = spectrometer_clearance(G, Pk, 'quiet', true);
+        S.(forms{k}) = struct('G', G, 'M', M, 'nRays', tr.nRays, 'file', file, 'clearance', Cl);
         switch forms{k}
         case 'dyson'
             pr('DYSON  : block r %.1f mm (%s), R_g %.1f mm (factor %.3f), air gap %.1f mm, face offset %.2f mm\n', ...
                 G.r*1e3, P.glass, G.Rg*1e3, P.Rg_factor, G.gap*1e3, P.face_offset_m*1e3);
         case 'offner'
-            pr('OFFNER : R %.1f mm concave, convex grating R/2 = %.1f mm, F/%.2f\n', G.R*1e3, G.R/2*1e3, Pk.Fno);
+            pr('OFFNER : R %.1f mm concave (zone 2: R x %.5f, centre dy %+.2f dz %+.2f mm), convex grating R/2 x %.5f = %.1f mm, F/%.2f (the Dyson is F/%.2f)\n', ...
+                G.R*1e3, Pk.offner_M3_factor, Pk.offner_M3_dy*1e3, Pk.offner_M3_dz*1e3, Pk.offner_Rg_factor, Pk.offner_Rg_factor*G.R/2*1e3, Pk.Fno, P.Fno);
         end
         pr('  slit at y = %+.2f mm; m = %+d, d = %.3f um (%.2f l/mm); FPA centre y = %+.3f mm, z = %+.4f mm;\n', ...
             G.y_slit*1e3, G.grating.m, G.grating.d*1e6, G.grating.lines_per_mm, G.fpa.center(2)*1e3, G.fpa.z*1e3);
         pr('  band edges y = %+.3f / %+.3f mm (span %.3f mm); slit-to-FPA-edge clearance %.2f mm; %d elements,\n', ...
             G.fpa.y_lambda(1)*1e3, G.fpa.y_lambda(3)*1e3, abs(diff(G.fpa.y_lambda([1 3])))*1e3, ...
             G.fpa.clear_to_slit*1e3, M.nElt);
-        pr('  grating = elt %d (stop); engine trace at lambda_c: %d rays; deck %s\n', M.iG, tr.nRays, file);
+        pr('  grating = elt %d (stop); engine trace at lambda_c: %d rays, 0 vignetted by the declared apertures; deck %s\n', M.iG, tr.nRays, file);
+        pr('  CLEARANCE (legs vs bodies not traversed, mount %.0f mm): min %+.2f mm -- %s\n', P.mount_margin_m*1e3, Cl.min_mm, tern_(Cl.pass, 'PASS', 'FAIL'));
+        for i = 1:min(6, height(Cl.table)), pr('    %-34s vs %-16s %+9.2f mm\n', Cl.table.leg{i}, Cl.table.body{i}, Cl.table.clearance_mm(i)); end
         subplot(1, 2, k);  section_(G, forms{k});
         spectrometer_layout_fig(G, sprintf('%s_s1_layout_%s.png', tag, forms{k}), 'title', [forms{k} ' seed']);
     end
     fclose(fid);
     print(f, [tag '_s1_layout.png'], '-dpng', '-r110');  close(f);
     save([tag '_s1.mat'], 'S', 'P');
+    dyson5_view_figs({[P.tag '_s1_dyson'], [P.tag '_s1_offner']}, P.outdir);   % the engine renders of record
+    assert(S.dyson.clearance.pass && S.offner.clearance.pass, 'dyson5 s1: a beam crosses a body (see the clearance table)');
     fprintf('dyson5 s1: wrote %s_s1_{dyson,offner}.in, %s_s1.{txt,mat}, %s_s1_layout.png\n', tag, tag, tag);
 end
 
@@ -296,12 +310,23 @@ function S = stage_s3_(P, tag)
     fclose(fid);
     S = L;
     save([tag '_s3.mat'], 'S', 'P');
+    fid = fopen([tag '_s3.txt'], 'a');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('\nCLEARANCE per rung (legs vs bodies not traversed; mount %.0f mm; slit mask %s mm; FPA carrier +%.0f mm, depth %.0f mm, shield %.0f mm):\n', ...
+        P.mount_margin_m*1e3, mat2str(P.slit_mask_m*1e3), P.pkg_margin_m*1e3, P.pkg_depth_m*1e3, P.pkg_shield_m*1e3);
+    tags = {};
     for k = 1:numel(L.rung)
         r = L.rung(k);  G = spectrometer_geom('dyson', r.P);  rk = regexprep(r.name, ' .*', '');   % 'R0'..'R4a','R4'
+        Cl = spectrometer_clearance(G, P, 'quiet', true);  L.rung(k).clearance = Cl;
+        pr('  %-4s min %+8.2f mm %s : %s vs %s\n', rk, Cl.min_mm, tern_(Cl.pass, 'PASS', 'FAIL'), Cl.table.leg{1}, Cl.table.body{1});
         spectrometer_layout_fig(G, sprintf('%s_s3_layout_%s.png', tag, lower(rk)), 'title', ['dyson ' rk]);
         spectrometer_maps_fig(r.engine, sprintf('%s_s3_maps_%s.png', tag, lower(rk)), 'title', ['dyson ' rk ', engine'], 'pixel_um', P.pixel_m*1e6);
+        tags{end+1} = regexprep(r.file, {'^.*/', '\.in$'}, '');  %#ok<AGROW>
     end
+    fclose(fid);
+    S = L;  save([tag '_s3.mat'], 'S', 'P');
+    dyson5_view_figs(tags, P.outdir);                       % the engine renders of record, every rung
     if ~P.ladder_free_r, dyson5_trade(tag); end
+    assert(all(arrayfun(@(r) r.clearance.pass, L.rung)), 'dyson5 s3: a beam crosses a body on some rung (see the clearance table)');
     % figure: engine CRF and smile/keystone per rung
     f = figure('Visible', 'off', 'Position', [60 60 900 360]);
     nr = numel(L.rung);  vals = zeros(nr, 4);
@@ -366,6 +391,15 @@ function S = stage_s2w_(P, tag)
     pr('  %.3f / %.3f px, ensquared in 1 px %.3f, CRF %.3f px -- the terminal reproduces the Airy spot.\n', Rv.su_wave, Rv.sv_wave, Rv.ee, Rv.CRF);
     for k = 1:2
         G = S1.(forms{k}).G;  M = S1.(forms{k}).M;  Pk = P;  Pk.Fno = G.P.Fno;
+        if strcmp(forms{k}, 'dyson') && ~isempty(P.twin_rung) && isfile([tag '_s3.mat'])
+            s3 = load([tag '_s3.mat']);  L3 = s3.S;
+            kk = find(strncmp({L3.rung.name}, [P.twin_rung ' '], numel(P.twin_rung) + 1), 1, 'last');
+            if ~isempty(kk)
+                G = spectrometer_geom('dyson', L3.rung(kk).P);  M = L3.rung(kk);  M.file = L3.rung(kk).file;
+                M = spectrometer_rx(G, M.file, 'ngridpts', P.ngridpts);     % re-emit (the M map the twin needs)
+                pr('DYSON twin runs on the s3 rung %s deck (%s); its geometric EE there: %.3f\n', P.twin_rung, M.file, L3.rung(kk).engine.ee_min);
+            end
+        end
         R = spectrometer_wave(G, M, Pk, 'nx', P.wave_nx, 'nlam', P.wave_nlam, 'model', P.wave_model, ...
                               'ngridpts', P.wave_ngridpts, 'L_ref', P.wave_L_ref, 'quiet', true);
         S.(forms{k}) = R;
@@ -381,8 +415,11 @@ function S = stage_s2w_(P, tag)
         pr('  The twin''s own products: ensquared energy WITH diffraction (Offner %.3f, geometric 1.000; Dyson %.3f),\n', S.offner.ee_min, S.dyson.ee_min);
         pr('  SRF/CRF from the propagated PSF (Offner %.3f/%.3f px, Dyson %.3f/%.3f px).\n', S.offner.srf_max, S.offner.crf_max, S.dyson.srf_max, S.dyson.crf_max);
     else
-        pr('STATUS: wave - ray centroid offsets up to %.3f px: the engine''s pupil OPD disagrees with its ray directions\n', dmax);
-        pr('  (tGratingOpl); the order -1 wave numbers above are that defect, not the design.\n');
+        pr('STATUS: wave - ray centroid offsets up to %.3f px (the seeds agree to 0.001 px).  The PSF intensity centroid is the\n', dmax);
+        pr('  AMPLITUDE-WEIGHTED mean of the ray aberration (Fresnel transmission varies across the pupil through the\n');
+        pr('  refractions; the ray centroid is unweighted), so where a deck carries more oblique refractions and a larger\n');
+        pr('  spot the two part -- the ray maps are the geometric statement, the wave maps the radiometric one.  Checked:\n');
+        pr('  tGratingOpl passes on this engine, so this is not the OPL defect.\n');
     end
     spectrometer_wave_fig(S, [tag '_s2w_twin.png'], 'pixel_um', P.pixel_m*1e6);
     fclose(fid);
