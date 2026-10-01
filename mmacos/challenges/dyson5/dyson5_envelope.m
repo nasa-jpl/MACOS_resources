@@ -8,7 +8,8 @@ function E = dyson5_envelope(P, tag, Pr, opts)
 %   slit length (pixel count follows), pixel pitch (the FPA stays 54 x 9 mm,
 %   the pixel count follows), glass -- emits each deck with apertures,
 %   scores it in the ENGINE and judges it against the spec: smile and
-%   keystone < P.smile_px, CRF < P.xrf_px, SRF < P.srf_px; the first metric
+%   keystone < P.smile_px, CRF < P.xrf_px, SRF < max(P.srf_px(end),
+%   P.slit_px) + 0.1 px (the slit's own width is the floor); the first metric
 %   to fail is named.  A solve that ends ON a bound is recorded as such and
 %   is not called closed (a solve on its bounds is not a closed design).
 %   Then the two-axis CORNER: the first failing point of each of the two
@@ -32,7 +33,7 @@ function E = dyson5_envelope(P, tag, Pr, opts)
                           'apply', @(Q, v) setf_(setf_(Q, 'npix', [round(v/Q.pixel_m), Q.npix(2)]), 'slit_m', v));
     axes_(end+1) = struct('name', 'pixel_m', 'vals', P.env_pixel_m, 'label', 'pixel (m)', ...
                           'apply', @(Q, v) setf_(setf_(Q, 'pixel_m', v), 'npix', round(fpa_m/v)));
-    axes_(end+1) = struct('name', 'glass', 'vals', P.env_glass, 'label', 'glass', 'apply', @(Q, v) setf_(Q, 'glass', v));
+    axes_(end+1) = struct('name', 'glass', 'vals', {P.env_glass}, 'label', 'glass', 'apply', @(Q, v) setf_(Q, 'glass', v));
     rows = {};  pts = struct('axis', {}, 'value', {}, 'P', {}, 'rung', {}, 'pass', {}, 'fail', {}, 'on_bounds', {});
     pr('dyson5 envelope: %d axes, R4 re-solved per point (%d iterations) from the record\n', numel(axes_), opts.max_iter);
     pr('%-16s %-10s %8s %8s %7s %7s %6s  %-5s %-12s %s\n', 'axis', 'value', 'smile', 'keyst', 'CRF', 'SRF', 'EE', 'close', 'fails', 'on bounds');
@@ -68,33 +69,23 @@ function E = dyson5_envelope(P, tag, Pr, opts)
     E.table = T;  E.axes = axes_;  E.corner = corner;  E.points = pts;
     E.sentence = sentence_(T, axes_);
     pr('%s\n', E.sentence);
-    % ---- figure: per axis, the spec metrics vs the value, closed points filled
-    f = figure('Visible', 'off', 'Position', [40 40 1400 330], 'Color', 'w');
-    for a = 1:numel(axes_)
-        ax = subplot(1, numel(axes_), a);  hold(ax, 'on');  grid(ax, 'on');
-        sel = find(strcmp(T.axis, axes_(a).label));
-        xv = 1:numel(sel);  lab = cellfun(@(c) vstr_(c), T.value(sel), 'uni', 0);
-        plot(ax, xv, T.CRF_px(sel)/P.xrf_px, 'o-', xv, T.SRF_px(sel)/P.srf_px, 's-', xv, max(T.smile_px(sel), T.keystone_px(sel))/P.smile_px, 'd-');
-        yline(ax, 1, 'k--');  set(ax, 'XTick', xv, 'XTickLabel', lab, 'FontSize', 8);
-        cl = T.closes(sel);  plot(ax, xv(~cl), ones(1, nnz(~cl))*1.02, 'rx', 'MarkerSize', 10, 'LineWidth', 2);
-        title(ax, axes_(a).label, 'FontSize', 9);  if a == 1, ylabel(ax, 'metric / spec (1 = spec)'); end
-        if a == numel(axes_), legend(ax, {'CRF', 'SRF', 'smile|keystone', 'does not close'}, 'Location', 'best', 'FontSize', 7); end
-        ylim(ax, [0, max(1.3, max(ylim(ax)))]);
-    end
-    sgtitle(f, 'dyson5 closure envelope: R4 re-solved from the record, one axis at a time (engine scores / spec)', 'FontSize', 10);
-    print(f, [tag '_s4env.png'], '-dpng', '-r130');  close(f);
+    dyson5_envelope_fig(T, axes_, P, [tag '_s4env.png']);
 end
 
 function [row, pt] = point_(P, tag, Pr, A, v, max_iter)
     if isempty(v), Q = A.apply(P, []); else, Q = A.apply(P, v); end
-    seed = Pr;
-    if isfield(Q, 'block_r_m'), seed.block_r = Q.block_r_m; end         % the block radius is a P field in the ladder's base
+    seed = Pr;                                 % design knobs only are taken from the seed (dyson_ladder); the axis value lives in Q
     tagp = sprintf('%s_s4env_%s_%s', tag, A.name, regexprep(vstr_(v), '[^A-Za-z0-9]', ''));
     deck = [tagp '.in'];
     ok = true;  err = '';
     try
+        % the envelope's bounds: the record's R4 sits ON its meniscus curvature
+        % bound (0.5 /m, the bounded solve of record), so the curvatures are
+        % widened to [0.05, 8] /m here -- a solve that still ends on a bound is
+        % then a real statement
         L = dyson_ladder(Q, tagp, 'rungs', 5, 'seed', seed, 'deck', deck, 'nx', P.ladder_nx, 'nlam', P.ladder_nlam, ...
-                         'w_dist', P.ladder_w_dist, 'w_blur', P.ladder_w_blur, 'clear_m', P.ladder_clear_m, 'max_iter', max_iter, 'quiet', true);
+                         'w_dist', P.ladder_w_dist, 'w_blur', P.ladder_w_blur, 'clear_m', P.ladder_clear_m, 'max_iter', max_iter, 'quiet', true, ...
+                         'bounds', {'men_ca', 0.05, 8; 'men_cb', 0.05, 8});
         r = L.rung(1);
     catch e
         ok = false;  err = e.message;  r = struct('engine', struct('smile_max', NaN, 'keystone_max', NaN, 'crf_max', NaN, 'srf_max', NaN, 'ee_min', NaN), 'on_bounds', {{}}, 'P', Q);
@@ -105,7 +96,8 @@ function [row, pt] = point_(P, tag, Pr, A, v, max_iter)
     if ~(Re.smile_max < P.smile_px), fails{end+1} = 'smile'; end
     if ~(Re.keystone_max < P.smile_px), fails{end+1} = 'keystone'; end
     if ~(Re.crf_max < P.xrf_px), fails{end+1} = 'CRF'; end
-    if ~(Re.srf_max < P.srf_px), fails{end+1} = 'SRF'; end
+    srf_lim = max(P.srf_px(end), P.slit_px) + 0.1;                      % the slit's own width is the floor; the optics may add 0.1 px
+    if ~(Re.srf_max < srf_lim), fails{end+1} = 'SRF'; end
     onb = r.on_bounds;
     closes = isempty(fails) && isempty(onb);
     if isempty(fails) && ~isempty(onb), fails{end+1} = 'on bounds'; end

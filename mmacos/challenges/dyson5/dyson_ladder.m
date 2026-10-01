@@ -48,6 +48,7 @@ function L = dyson_ladder(P, tag, opts)
         opts.quiet (1,1) logical = false
         opts.seed = []                         % a parameter set to start from (R5 starts from R4's)
         opts.deck (1,:) char = ''              % deck file name override (one rung)
+        opts.bounds = {}                       % {name, lb, ub; ...} overrides of a variable's bounds (the envelope widens the meniscus curvatures)
     end
     base = struct('Fno', P.Fno, 'pixel_m', P.pixel_m, 'npix', P.npix, 'band_m', P.band_m, ...
                   'lambda_ref_m', P.lambda_ref_m, 'order', P.order, 'y_slit', P.y_slit_m, ...
@@ -58,6 +59,7 @@ function L = dyson_ladder(P, tag, opts)
     for f5 = {'fold_h', 'plate', 'slit_gap', 'fpa_gap'}          % R5's fold prism, when the runner carries it
         if isfield(P, f5{1}), base.(f5{1}) = P.(f5{1}); end
     end
+    base.slit_dz = 0;                          % the slit/FPA plane's axial position off the grating's centre (an R5 variable)
     % variable sets per rung: name, lower, upper, scale (the optimizer works in
     % scaled units so every variable is O(1))
     % the block radius is HELD at the seed's unless opts.free_r: freed, the
@@ -106,6 +108,10 @@ function L = dyson_ladder(P, tag, opts)
         fg = sg;      if isfield(base, 'fpa_gap'),  fg = base.fpa_gap;  end
         % exit distance = (face - slit_gap) - fold_h + (slit_gap - fpa_gap)/n  >= 7.5 mm
         R5(i5, 2:4) = {base.fold_h + 7.5e-3 + sg + (fg - sg)/1.45, 40e-3, 1e-2};
+        % with air on both sides of the block the conjugate plane is no longer
+        % the grating's centre plane: the slit/FPA plane's axial position is
+        % the knob that recovers it (+-5 mm)
+        R5 = [R5; {'slit_dz', -5e-3, 5e-3, 1e-3}];
     end
     rungs = {struct('name', 'R0 concentric seed', 'vars', {{}}), ...
              struct('name', 'R1 concentric knobs (R_g factor, face offset, block r)', 'vars', {R1}), ...
@@ -117,8 +123,16 @@ function L = dyson_ladder(P, tag, opts)
     % meniscus seed: a concentric shell 30 mm beyond the block face, 10 mm thick
     base.men_z = 0;  base.men_t = 0.010;  base.men_ca = 0;  base.men_cb = 0;
     Pcur = base;
-    if ~isempty(opts.seed)                     % warm start: the seed's knobs over the base
-        for f = fieldnames(opts.seed)', if isfield(base, f{1}), Pcur.(f{1}) = opts.seed.(f{1}); end, end
+    if ~isempty(opts.seed)                     % warm start: the seed's DESIGN KNOBS over the base (never its spec fields --
+        knobs = {'Rg_factor', 'face_offset', 'block_Kc', 'block_asph', 'block_dz', 'block_dy', 'men_z', 'men_t', 'men_ca', 'men_cb', 'slit_dz'};
+        for f = knobs, if isfield(opts.seed, f{1}), Pcur.(f{1}) = opts.seed.(f{1}); end, end   % the envelope changes F-number, slit, pixel, glass in the base)
+    end
+    for q = 1:size(opts.bounds, 1)             % bound overrides, applied to every rung's variable table
+        for rk = 1:numel(rungs)
+            V = rungs{rk}.vars;  if isempty(V), continue; end          % R0 has no variables
+            i = find(strcmp(V(:,1), opts.bounds{q,1}));
+            if ~isempty(i), V(i, 2:3) = opts.bounds(q, 2:3);  rungs{rk}.vars = V; end
+        end
     end
     L.rung = struct('name', {}, 'vars', {}, 'x', {}, 'P', {}, 'chain', {}, 'engine', {}, 'file', {}, 'merit', {}, 'on_bounds', {});
     for k = opts.rungs

@@ -215,18 +215,36 @@ New emitter options `'links'` and `'opt'`, gated in `tSpectrometerRx`.
 ## Beat 4d (2026-10-01) -- R5, the fold prism, under the clearance gate
 
 Entrance plate on the slit side, mirror-coated fold prism cemented under
-the image (TIR fails at F/1.8 in silica), the FPA folded away from the
-slit's plane -- the chain carries it (`P.fold_h`, `slit_gap`, `fpa_gap`),
-every detector-frame consumer uses the FPA's own frame, the engine lands
-every ray where the chain says (gate form `dyson_fold`), and the record
-forms reproduce byte for byte.  Stage `s5` sweeps the COLD-SHIELD HEIGHT
-(0 / 2 / 5 / 10 mm; air gap = height + 1 mm), re-solving R4's variables plus
-the face offset at each, engine-scoring and gating: **every height passes**
-(clearance +1.01 / +0.67 / +0.14 / +0.06 mm) at CRF 1.30-1.39 px; the
-landscape is multimodal (faces of 17-29 mm), so the record height is
-re-solved from the best basin.  **R5 of record (2 mm shield): CRF 1.295 px,
-EE 0.794, smile/keystone 0.009/0.012 px, clearance +0.67 mm** -- better
-than R4 on blur AND a shielded package.  Report `BRIEF_dyson5_beat4d.md`.
+the image (TIR fails at F/1.8 in silica), the FPA folded 27 mm away from
+the slit's plane -- the chain carries it (`P.fold_h`, `slit_gap`,
+`fpa_gap`, the slit plane's axial position as an R5 variable), every
+detector-frame consumer uses the FPA's own frame, the engine lands every
+ray where the chain says (gate form `dyson_fold`), and the record forms
+reproduce byte for byte.  The clearance gate now also flags a leg INSIDE a
+box body and scores the mask and the package against every body (the first
+sweep's package stood 1.5 mm inside the block and passed; withdrawn).
+Stage `s5` sweeps the COLD-SHIELD HEIGHT (0-5 mm; air gap = height + 1 mm
+on both sides, re-solving twelve variables at each) and takes the tallest
+closing height as the record: **R5 of record = the fold with no shield
+(1 mm gaps): CRF 1.267 px, EE 0.695, smile/keystone 0.005/0.009 px, every
+clearance pair positive (+0.90 mm)**; every taller shield fails the CRF
+spec through its air gap (1.75 / 2.31 / 2.78 / 3.75 px at 2 / 3 / 4 / 6 mm)
+-- physics, not the solver: a plane air/glass boundary ahead of an F/1.8
+cone.  A cold shield has to live inside that millimetre or behind a
+cemented cold window.  Report `BRIEF_dyson5_beat4d.md`.
+
+## Beat 4e (2026-10-01) -- the closure envelope (addendum 11)
+
+`dyson5_envelope` + stage `s4env`: R4 re-solved from the record one axis at
+a time (every point all eleven variables on the chain, engine-scored), a
+point CLOSES when smile/keystone < 0.1 px, CRF < 1.5 px, SRF under the
+2-px slit floor + 0.1 px and no variable on a bound.  **Designs close for
+F/1.8-F/2.2, block radii 220-300 mm, slits to 54 mm, 18 and 30 um pixels,
+silica and CaF2; the first metric to fail outside is the CRF** (150 /
+180 mm radii at 2.37 / 1.61 px; the 60 mm slit at 1.548 px); F/1.6 and
+F/2.8 end on the meniscus bounds with CRF 1.37 / 1.07 px (a bound to
+widen, not a form that fails); the F/1.6 + 150 mm corner does not close.
+Record `BRIEF_dyson5_beat4e.md`, `dyson5_s4env.{txt,mat,png}`.
 
 ## Run it yourself
 

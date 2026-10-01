@@ -246,6 +246,21 @@ function G = spectrometer_geom(form, P)
         zf = P.fpa_z;                           % the FPA plane HELD (engine-carried design)
     else
         zf = focus_(S, slit, d0, lam_c, G, u_air, fpa_C0, fdir);
+        if isfield(G, 'fold')
+            % the AIR GAP is measured from the FOCUSED FPA: the focus solve moves
+            % the FPA along +y, so the prism's exit face follows it (gap exact),
+            % and the focus is re-solved on the moved face until both settle
+            ie = find(strcmp({S.name}, 'PrismExit'), 1);
+            for it = 1:4
+                yf = fpa_C0(2) + zf;                       % the focused FPA plane
+                S(ie).C(2) = yf + fpa_gap;  S(ie).vpt(2) = S(ie).C(2);
+                zf_new = focus_(S, slit, d0, lam_c, G, u_air, fpa_C0, fdir);
+                if abs(zf_new - zf) < 1e-7, zf = zf_new;  break; end
+                zf = zf_new;
+            end
+            G.fold.e = S(ie).C(2) - G.fold.yc;             % signed: exit face below the fold centre by |e|
+            G.fold.e = -G.fold.e;
+        end
     end
     G.fpa.z = zf;
     S(end).C = fpa_C0 + zf*fdir;
@@ -326,6 +341,7 @@ function F = footprints_(G, opts)
     end
     B = bundle_(G, 'nx', opts.nx, 'nlam', opts.nlam, 'nring', opts.nring);
     nS = numel(G.surf);
+    assert(~isempty(B.P) && size(B.P, 2) >= 3, 'spectrometer_geom: footprints -- %d of the bundle''s rays reach the FPA (the chain loses the beam)', size(B.P, 2));
     F = struct('xc', {}, 'yc', {}, 'radius', {}, 'xlim', {}, 'ylim', {}, 'xap', {}, 'yap', {}, 'n', {});
     for k = 1:nS
         S = G.surf(k);  psi = S.psi(:)/norm(S.psi);

@@ -533,20 +533,29 @@ function N = stage_s5_(P, tag)
     pr('CONVENTIONS: R4 of record + an entrance PLATE (slit %.1f mm in air before it, cemented to the block face) and a\n', P.fold_slit_gap_m*1e3);
     pr('  mirror-coated FOLD PRISM cemented under the image (fold plane %.0f mm below the face at 45 deg, folding toward -y,\n', P.fold_h_m*1e3);
     pr('  away from the slit; TIR fails at F/1.8 in silica), exit face placed for first-order conjugate symmetry, the FPA\n');
-    pr('  (normal +y, dispersion along +z) an AIR GAP beyond it.  COLD-SHIELD HEIGHT h is the parameter: air gap = h + %.1f mm;\n', P.fold_shield_clear_m*1e3);
+    pr('  (normal +y, dispersion along +z) an AIR GAP beyond it.  COLD-SHIELD HEIGHT h is the parameter: air gap = h + %.1f mm,\n', P.fold_shield_clear_m*1e3);
+    pr('  the SAME on the slit side (slit to plate), so the concentric form keeps equal object and image media;\n');
     pr('  at each h the R5 rung (R4''s variables + the face offset at the fold''s scale, exit distance >= 7.5 mm) is re-solved\n');
     pr('  on the exact chain (lsqnonlin, %d iterations, warm-started from R4 then along the sweep), the deck emitted with\n', P.fold_max_iter);
     pr('  apertures and ENGINE-scored (%d x %d), the clearance gate run with the FPA package (54 x 9 mm + %.0f mm, %.0f mm deep,\n', P.score_nx, P.score_nlam, P.pkg_margin_m*1e3, P.pkg_depth_m*1e3);
-    pr('  shield h toward the prism) in the FOLDED frame; plate and prism are one cemented part with the block.  Record at h = %.0f mm.\n\n', P.fold_shield_m*1e3);
+    pr('  shield h toward the prism) in the FOLDED frame; plate and prism are one cemented part with the block.  Record: %s.\n\n', ...
+       tern_(isempty(P.fold_shield_m), 'the tallest shield that closes', sprintf('h = %.0f mm', P.fold_shield_m*1e3)));
     P5 = P;  P5.fold_h = P.fold_h_m;  P5.slit_gap = P.fold_slit_gap_m;  P5.plate = true;  P5.face_offset_m = P.fold_face_offset_m;
     seed = r4.P;  seed.face_offset = P.fold_face_offset_m;
     hs = P.fold_shield_sweep_m;
-    if ~any(abs(hs - P.fold_shield_m) < 1e-9), hs = sort([hs, P.fold_shield_m]); end
+    if ~isempty(P.fold_shield_m) && ~any(abs(hs - P.fold_shield_m) < 1e-9), hs = sort([hs, P.fold_shield_m]); end
+    closes_ = @(r, Cl) Cl.pass && r.engine.smile_max < P.smile_px && r.engine.keystone_max < P.smile_px && r.engine.crf_max < P.xrf_px ...
+                       && r.engine.srf_max < max(P.srf_px(end), P.slit_px) + 0.1;
     rows = {};  rungs = [];                       % the ladder's rung struct + clearance + shield_m (built from the first)
     pr('%-6s %8s %8s %8s %8s %7s %7s %6s %8s %7s %8s  %s\n', 'h mm', 'gap mm', 'face mm', 'smile', 'keyst', 'CRF', 'SRF', 'EE', 'clear', 'PASS', 'fold_e', 'worst pair');
     for i = 1:numel(hs)
         h = hs(i);
-        P5.fpa_gap = max(P5.slit_gap, h + P.fold_shield_clear_m);  P5.pkg_shield_m = h;
+        % the SAME air gap on both sides (slit to plate = FPA to prism): the
+        % concentric form wants equal object and image media, and air on the
+        % image side alone cost CRF 1.19 -> 1.54 px and EE 0.79 -> 0.41 at a
+        % 3 mm gap (measured 2026-10-01); the slit mask then sits h + 1 mm off
+        % the plate, which it can
+        P5.fpa_gap = max(P.fold_slit_gap_m, h + P.fold_shield_clear_m);  P5.slit_gap = P5.fpa_gap;  P5.pkg_shield_m = h;
         deck = sprintf('%s_s5_r5_h%02.0f.in', tag, h*1e3);
         L = dyson_ladder(P5, tag, 'rungs', 6, 'seed', seed, 'deck', deck, 'nx', P.ladder_nx, 'nlam', P.ladder_nlam, ...
                          'w_dist', P.ladder_w_dist, 'w_blur', P.ladder_w_blur, 'clear_m', 0, 'max_iter', P.fold_max_iter, 'quiet', true);
@@ -567,9 +576,18 @@ function N = stage_s5_(P, tag)
     % while h = 0 and 10 mm found 17 / 23.5 mm faces at CRF 1.30); so the
     % record height is re-solved from the BEST sweep point's design (lowest
     % engine CRF) with twice the iterations, and the better of the two stands
-    ir = find(abs([rungs.shield_m] - P.fold_shield_m) < 1e-9, 1);
+    ok_ = arrayfun(@(r) closes_(r, r.clearance), rungs);
+    if isempty(P.fold_shield_m)
+        % the record height: the TALLEST shield whose point closes (the spec and
+        % the clearance gate); none closing -> the lowest height, reported as such
+        if any(ok_), ir = find(ok_, 1, 'last'); else, ir = 1; end
+        h = rungs(ir).shield_m;
+        pr('record height: %s\n', tern_(any(ok_), sprintf('%.0f mm, the tallest shield that closes', h*1e3), 'NO height closes -- the lowest is the record, and does not close'));
+    else
+        ir = find(abs([rungs.shield_m] - P.fold_shield_m) < 1e-9, 1);  h = P.fold_shield_m;
+    end
     [~, ib] = min(arrayfun(@(r) r.engine.crf_max, rungs));
-    h = P.fold_shield_m;  P5.fpa_gap = max(P5.slit_gap, h + P.fold_shield_clear_m);  P5.pkg_shield_m = h;
+    P5.fpa_gap = max(P.fold_slit_gap_m, h + P.fold_shield_clear_m);  P5.slit_gap = P5.fpa_gap;  P5.pkg_shield_m = h;
     deck = sprintf('%s_s5_r5_h%02.0f_refined.in', tag, h*1e3);
     Lr = dyson_ladder(P5, tag, 'rungs', 6, 'seed', rungs(ib).P, 'deck', deck, 'nx', P.ladder_nx, 'nlam', P.ladder_nlam, ...
                       'w_dist', P.ladder_w_dist, 'w_blur', P.ladder_w_blur, 'clear_m', 0, 'max_iter', 2*P.fold_max_iter, 'quiet', true);
@@ -587,7 +605,7 @@ function N = stage_s5_(P, tag)
     T = cell2table(rows, 'VariableNames', {'shield_mm', 'air_gap_mm', 'face_offset_mm', 'smile_px', 'keystone_px', 'CRF_px', 'SRF_px', ...
                                            'EE_1px', 'clearance_mm', 'pass', 'fold_exit_mm', 'deck'});
     T.Properties.RowNames = [arrayfun(@(k) sprintf('sweep%d', k), 1:numel(hs), 'uni', 0), {'refined'}];
-    rec = rungs(ir);  rec.name = sprintf('R5 fold prism, shield %.0f mm (record)', P.fold_shield_m*1e3);
+    rec = rungs(ir);  rec.name = sprintf('R5 fold prism, shield %.0f mm (record)', h*1e3);
     Re = rec.engine;  Re4 = r4.engine;  G5 = spectrometer_geom('dyson', rec.P);
     pr('\n%-40s %8s %8s %7s %7s %6s %9s\n', 'engine score', 'smile', 'keyst', 'CRF', 'SRF', 'EE', 'clear mm');
     pr('%-40s %8.4f %8.4f %7.3f %7.3f %6.3f %9.2f (no shield; slit mask vs package)\n', 'R4 of record', Re4.smile_max, Re4.keystone_max, Re4.crf_max, Re4.srf_max, Re4.ee_min, r4.clearance.min_mm);
@@ -616,7 +634,7 @@ function N = stage_s5_(P, tag)
     S = N;  save([tag '_s5.mat'], 'S', 'P');
     dyson5_view_figs({regexprep(rec.file, {'^.*/', '\.in$'}, '')}, P.outdir);
     if ~P.ladder_free_r, dyson5_trade(tag); end
-    assert(rec.clearance.pass, 'dyson5 s5: the R5 design of record crosses a body (see the clearance table)');
+    if ~rec.clearance.pass, warning('dyson5 s5: the R5 design of record crosses a body (see the clearance table)'); end
 end
 
 function E = stage_s4env_(P, tag)
@@ -630,8 +648,9 @@ function E = stage_s4env_(P, tag)
     pr('dyson5 s4env -- the closure envelope around R4 (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
     pr('CONVENTIONS: one axis at a time from the design of record, every point a full R4 solve (all eleven variables,\n');
     pr('  lsqnonlin %d iterations on the exact chain, warm-started from R4), its deck emitted with apertures and ENGINE-\n', P.env_max_iter);
-    pr('  scored (%d x %d); CLOSES = smile and keystone < %.2f px, CRF < %.1f px, SRF < %.1f px AND no variable on a bound\n', P.score_nx, P.score_nlam, P.smile_px, P.xrf_px, P.srf_px);
-    pr('  (a solve on its bounds is not a closed design).  The FPA stays 54 x 9 mm: the pixel count follows the slit length\n');
+    pr('  scored (%d x %d); CLOSES = smile and keystone < %.2f px, CRF < %.1f px, SRF < %.1f px (the %d-px slit is the floor,\n', P.score_nx, P.score_nlam, P.smile_px, P.xrf_px, max(P.srf_px(end), P.slit_px) + 0.1, P.slit_px);
+    pr('  the optics may add 0.1 px) AND no variable on a bound (a solve on its bounds is not a closed design; the meniscus\n');
+    pr('  curvature bounds are widened to [0.05, 8] /m here, since R4 of record sits on 0.5).  The FPA stays 54 x 9 mm: the pixel count follows the slit length\n');
     pr('  and the pixel pitch.  Then the two-axis corner: the first failing value of the first two failing axes, together.\n\n');
     E = dyson5_envelope(P, tag, r4.P, 'max_iter', P.env_max_iter, 'quiet', true);
     T = E.table;
