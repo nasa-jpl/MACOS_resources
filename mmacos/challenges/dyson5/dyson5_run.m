@@ -34,7 +34,8 @@ function OUT = dyson5_run(over)
 %         grating OPL defect until that is fixed (tGratingOpl).
 %     s3  THE DYSON DEPARTURE LADDER (dyson_ladder): R0 the concentric seed,
 %         R1 the concentric knobs (R_g factor, face offset, block radius),
-%         R2 + conic and h^4/h^6 asphere on the block's convex face --
+%         R2 + conic and h^4/h^6 asphere on the block's convex face, R3 +
+%         the block's centre off the grating's (de-concentric) --
 %         each rung solved on the exact chain with smile/keystone operands
 %         in the merit from the first pass, then emitted and ENGINE-scored.
 %     s4  native optimize -- beat 4
@@ -275,8 +276,9 @@ function S = stage_s3_(P, tag)
     pr('%-52s %8s %8s %7s %7s %6s | %7s %7s %8s %7s %s\n', 'rung', 'smile', 'keyst', 'CRF', 'SRF', 'EE', 'R_g mm', 'r mm', 'face mm', 'Kc', 'asph [h4 h6]');
     for k = 1:numel(L.rung)
         r = L.rung(k);  Re = r.engine;  G = spectrometer_geom('dyson', r.P);
-        pr('%-52s %8.4f %8.4f %7.3f %7.3f %6.3f | %7.1f %7.1f %8.3f %7.3f %s\n', r.name, Re.smile_max, Re.keystone_max, ...
-            Re.crf_max, Re.srf_max, Re.ee_min, G.Rg*1e3, G.r*1e3, r.P.face_offset*1e3, r.P.block_Kc, mat2str(r.P.block_asph, 4));
+        pr('%-52s %8.4f %8.4f %7.3f %7.3f %6.3f | %7.1f %7.1f %8.3f %7.3f %s  dC [%.2f %.2f] mm\n', r.name, Re.smile_max, Re.keystone_max, ...
+            Re.crf_max, Re.srf_max, Re.ee_min, G.Rg*1e3, G.r*1e3, r.P.face_offset*1e3, r.P.block_Kc, mat2str(r.P.block_asph, 4), ...
+            r.P.block_dy*1e3, r.P.block_dz*1e3);
         pr('%-52s chain: %8.4f %8.4f %7.3f %7.3f %6.3f | clearance %.2f mm, d %.2f um, merit %.4g, deck %s\n', '', ...
             r.chain.smile_max, r.chain.keystone_max, r.chain.crf_max, r.chain.srf_max, r.chain.ee_min, ...
             G.fpa.clear_to_slit*1e3, G.grating.d*1e6, r.merit, r.file);

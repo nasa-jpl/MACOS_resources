@@ -198,6 +198,18 @@ JPL Dyson family), and it is the pre-registered null of the brief:
 report the law first, then add elements.  `dyson5_run` stage `s0`
 reproduces every number above (`dyson_layout`, `dyson_scaling`).
 
+**Departure ladder at fixed scale (dyson5 beat 3, r = 220 mm, F/1.8,
+54 mm slit; `mmacos/challenges/dyson5/dyson5_s3.txt`):** the concentric
+knobs (R_g factor, face offset) take keystone 0.095 -> 0.038 px; an
+axisymmetric asphere/conic on the block face is INERT (a 1-D scan is a
+steep bowl at zero -- it acts on every field alike and cannot cancel an
+h^4 residual); de-concentring the block (centre 0.86 mm off the
+grating's along the dispersion) takes keystone to 0.011 px (the ~1 %
+design rule).  The blur (CRF 2.1 px, EE 0.48) is the fifth-order
+residual at the EFFECTIVE field (the dispersed image adds ~12 mm to the
+slit offset) and moves only with size (EE 0.74 at r = 341 mm) or with
+the compact variant's separate mirror + meniscus.
+
 Dispersion rides on top of the imaging condition: the m-th order chief
 from the slit centre lands on the FPA displaced along `h1HOE` by the
 grating kick `m λ0/(n d)` in direction, mapped to the flat face through
