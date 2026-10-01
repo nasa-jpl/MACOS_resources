@@ -11,6 +11,15 @@ classdef tGratingImmersed < matlab.unittest.TestCase
 %   glass has to be declared ON the grating element (GlassElt= Silica in the
 %   fixture); the mirror habit IndRef= 1 gives nb = 1 and a wrong direction.
 %
+%   GROOVE MODEL (2026-09-30, engine fix): the grating is STRAIGHT-RULED --
+%   equidistant parallel planes (normal s0 = unit(h1HOE) in the vertex plane,
+%   spacing d) cut the concave surface, so the local grating vector is
+%   (m lambda/d) * (s0 - (s0.N)N) UN-normalised: its magnitude falls as the
+%   surface tilts (the classical ruled concave grating; CODE V convention).
+%   The pre-fix engine unitised the projection (period constant along the
+%   SURFACE); on this 100 mm radius / 20 mm aperture fixture the two differ
+%   by up to 0.5% of the kick, far above Tol -- the closed form below is the
+%   chord model and the pre-fix engine fails it.
 %   Closed form checked per ray, written from the grating equation (NOT
 %   transcribed from the engine): with N the sphere normal at the hit point,
 %   s = unit(RuleDir projected into the tangent plane), u = N x s,
@@ -135,9 +144,10 @@ classdef tGratingImmersed < matlab.unittest.TestCase
             res_s = zeros(1, m);  res_u = res_s;  res_norm = res_s;  refl_ok = false(1, m);
             for k = 1:m
                 N = P(:,k) - C;  N = N/norm(N);
-                s = tc.RuleDir(:) - (tc.RuleDir(:)'*N)*N;  s = s/norm(s);
-                u = cross(N, s);
-                res_s(k)    = nb*(R(:,k)'*s) - (na*(I(:,k)'*s) + G);
+                sraw = tc.RuleDir(:) - (tc.RuleDir(:)'*N)*N;   % chord-ruled: equidistant groove PLANES
+                s = sraw/norm(sraw);                            % (normal s0, spacing d) cut the surface, so the
+                u = cross(N, s);                                % local grating vector is G*|sraw|, NOT G
+                res_s(k)    = nb*(R(:,k)'*s) - (na*(I(:,k)'*s) + G*norm(sraw));
                 res_u(k)    = nb*(R(:,k)'*u) -  na*(I(:,k)'*u);
                 res_norm(k) = norm(R(:,k)) - 1;
                 refl_ok(k)  = (R(:,k)'*N) * (I(:,k)'*N) < 0;
@@ -204,15 +214,16 @@ classdef tGratingImmersed < matlab.unittest.TestCase
             for j = 1:2
                 [I, P, R] = tc.trace_pair(p, lams(j));
                 C = tc.Vpt(:) + tc.Rcurv*tc.Psi(:);
-                v = zeros(1, size(R,2));
+                v = zeros(1, size(R,2));  w = v;
                 for k = 1:size(R,2)
                     N = P(:,k) - C;  N = N/norm(N);
-                    s = tc.RuleDir(:) - (tc.RuleDir(:)'*N)*N;  s = s/norm(s);
+                    sraw = tc.RuleDir(:) - (tc.RuleDir(:)'*N)*N;  s = sraw/norm(sraw);
                     v(k) = R(:,k)'*s - I(:,k)'*s;      % per-ray tangential kick
+                    w(k) = norm(sraw);                 % chord-ruled projection factor at this ray
                 end
-                ms(j) = mean(v);
+                ms(j) = mean(v);  mw(j) = mean(w); %#ok<AGROW>
             end
-            expect = tc.Order*lams/tc.RuleW ./ [tc.silica(lams(1)) tc.silica(lams(2))];
+            expect = tc.Order*lams/tc.RuleW ./ [tc.silica(lams(1)) tc.silica(lams(2))] .* mw;
             tc.verifyEqual(ms, expect, 'AbsTol', 1e-9, 'kick = m*lambda0/(n d) per wavelength');
         end
     end
