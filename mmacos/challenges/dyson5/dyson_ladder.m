@@ -21,6 +21,9 @@ function L = dyson_ladder(P, tag, opts)
 %         coefficients (Carbon-I's even asphere; engine AsphCoef convention).
 %     R3  + the block's centre off the grating's (dz along the axis, dy along
 %         the dispersion): the de-concentric departure.
+%     R4  + a meniscus corrector in the air gap (the paper's compact variant):
+%         vertex z, thickness, two face curvatures; seeded as a concentric
+%         null shell.
 %
 %   Merit (lsqnonlin residual vector, all in pixels over the scoring grid):
 %     w_dist * [smile_ij ; keystone_ij]   with smile_ij = v_c(x_i,l_j) - v_c(x_mid,l_j),
@@ -33,7 +36,7 @@ function L = dyson_ladder(P, tag, opts)
     arguments
         P struct
         tag (1,:) char
-        opts.rungs (1,:) double = 0:3
+        opts.rungs (1,:) double = 0:5
         opts.nx (1,1) double = 5
         opts.nlam (1,1) double = 5
         opts.nring (1,1) double = 4
@@ -48,7 +51,8 @@ function L = dyson_ladder(P, tag, opts)
                   'lambda_ref_m', P.lambda_ref_m, 'order', P.order, 'y_slit', P.y_slit_m, ...
                   'block_r', P.block_r_m, 'glass', P.glass, 'face_offset', P.face_offset_m, ...
                   'Rg_factor', P.Rg_factor, 'grating_model', 'planes', 'slit_px', P.slit_px, ...
-                  'block_Kc', 0, 'block_asph', [0 0], 'block_dz', 0, 'block_dy', 0);
+                  'block_Kc', 0, 'block_asph', [0 0], 'block_dz', 0, 'block_dy', 0, ...
+                  'men_z', 0, 'men_t', 0.010, 'men_ca', 0, 'men_cb', 0);
     % variable sets per rung: name, lower, upper, scale (the optimizer works in
     % scaled units so every variable is O(1))
     % the block radius is HELD at the seed's unless opts.free_r: freed, the
@@ -63,13 +67,43 @@ function L = dyson_ladder(P, tag, opts)
     % compact variant "operates closer to the concentric-aplanatic condition"
     % with a separate mirror; here the equivalent single-block freedom
     R3 = [R2; {'block_dz', -0.05, 0.05, 1e-2;  'block_dy', -0.03, 0.03, 1e-2}];
+    % R4, the paper's COMPACT variant (Fig. 22): a meniscus corrector in the
+    % air gap (vertex z_a, thickness t_m, face curvatures c_a, c_b) on top of
+    % R3; seeded as a concentric shell (c = 1/z, a null), so R4 starts at R3's
+    % merit and departs from there
+    % R4 is solved in two steps: (a) the meniscus ALONE (vertex, thickness,
+    % two curvatures) from R3's solution, seeded as a shell concentric with
+    % the BLOCK's centre (the rays leave the block nearly radially about
+    % it, so that shell is the near-null; a shell about the grating's centre
+    % is not, once R3 has moved the block); (b) everything together.
+    % curvatures of either sign (a plate, a meniscus either way round), the
+    % plate down to 2 mm: the first R4 solve sat on the old lower bounds
+    % (c = 0.5 /m, t = 4 mm), which is not a solution
+    % The R4 landscape is MULTIMODAL (measured, 2026-10-01, three solves from
+    % the same R3 seed): with these bounds the solve ends ON them (c = 0.5 /m,
+    % t = 4 mm, vertex 0.24 m -- a thin weak plate right after the block) at
+    % CRF 1.33 px / EE 0.76; releasing the curvature sign and the plate
+    % thickness lands in worse basins (vertex 0.44 m: CRF 1.49 / EE 0.66;
+    % vertex held 0.235-0.30 m: CRF 1.57 / EE 0.63).  The record keeps the
+    % bounded solve, states that it sits on its bounds, and leaves a global
+    % search over the meniscus for beat 4.
+    Rm = {'men_z', 0.24, 0.60, 0.1;  'men_t', 0.004, 0.040, 0.01;  'men_ca', 0.5, 8, 1;  'men_cb', 0.5, 8, 1};
+    R4a = Rm;  R4 = [R3; Rm];
     rungs = {struct('name', 'R0 concentric seed', 'vars', {{}}), ...
              struct('name', 'R1 concentric knobs (R_g factor, face offset, block r)', 'vars', {R1}), ...
              struct('name', 'R2 + conic + h^4,h^6 asphere on the block face', 'vars', {R2}), ...
-             struct('name', 'R3 + block centre off the grating centre (dz, dy)', 'vars', {R3})};
+             struct('name', 'R3 + block centre off the grating centre (dz, dy)', 'vars', {R3}), ...
+             struct('name', 'R4a meniscus alone (vertex, thickness, 2 curvatures)', 'vars', {R4a}), ...
+             struct('name', 'R4 + meniscus corrector, all variables (compact variant)', 'vars', {R4})};
+    % meniscus seed: a concentric shell 30 mm beyond the block face, 10 mm thick
+    base.men_z = 0;  base.men_t = 0.010;  base.men_ca = 0;  base.men_cb = 0;
     Pcur = base;  L.rung = struct('name', {}, 'vars', {}, 'x', {}, 'P', {}, 'chain', {}, 'engine', {}, 'file', {}, 'merit', {});
     for k = opts.rungs
         rg = rungs{k+1};  V = rg.vars;
+        if k >= 4 && Pcur.men_z == 0           % entering R4: the near-null shell about the block's centre
+            Pcur.men_z = Pcur.block_dz + Pcur.block_r + 0.030;  Pcur.men_t = 0.010;
+            Pcur.men_ca = 1/(Pcur.men_z - Pcur.block_dz);  Pcur.men_cb = 1/(Pcur.men_z + Pcur.men_t - Pcur.block_dz);
+        end
         if ~isempty(V)
             x0 = cellfun(@(n) get_(Pcur, n), V(:,1)) ./ cell2mat(V(:,4));
             lb = cell2mat(V(:,2)) ./ cell2mat(V(:,4));  ub = cell2mat(V(:,3)) ./ cell2mat(V(:,4));

@@ -144,6 +144,19 @@ variant: EE 0.74 at 341 mm) or by the paper's separate mirror + meniscus
 (rung R4, next).  Records `dyson5_s3.txt`, `dyson5_s3free.txt`;
 report `BRIEF_dyson5_beat3.md`.
 
+## Beat 3b (2026-10-01) -- R4 and the trade table
+
+**R4, the compact variant (meniscus corrector + everything), at the fixed
+220 mm block: keystone 0.0026 px, smile 0.0051 px, CRF 1.327 px (spec
+1.5), ensquared 0.759 (paper > 0.75)** -- what the free-radius run bought
+at 341 mm, at 63 % of the length and footprint and 27 % of the glass
+(`dyson5_s3_trade.txt`).  The meniscus alone is worse than R3; the solve
+sits on its bounds and the landscape is multimodal (three solves on
+record) -- a global search is beat 4's.  Re-scores on the fixed engine:
+engine SRF at the 2-px floor; the twin agrees with the rays to 0.0013 px;
+slit diffraction loss measured at < 2.5 % (factor vs sinc^2 open).
+Report `BRIEF_dyson5_beat3b.md`; every figure from the runner's stages.
+
 ## Run it yourself
 
 ```matlab
