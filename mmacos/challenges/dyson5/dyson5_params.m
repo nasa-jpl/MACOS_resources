@@ -29,13 +29,25 @@ function P = dyson5_params(over)
 %   pixel_m = 54 mm; FPA spectral height = npix(2)*pixel_m = 9 mm; spectral
 %   sampling = (band span)/npix(2) = 4.24 nm/px.
 %
-%   Form
+%   Form (both chains built by design/src/spectrometer_geom)
 %     glass        block material (engine GlassElt name)          'Silica'
 %     lambda_ref_m index evaluation wavelength for the layout, m  1.0e-6
-%     y_offset_m   slit centre offset from the Dyson axis along
-%                  the dispersion direction, m (the FPA sits at
-%                  -y; the two must clear each other physically)  8e-3
-%     blur_px      layout blur budget: transverse rms spot at the
+%     y_slit_m     slit centre offset from the concentric axis
+%                  along the dispersion direction, m (the FPA lands
+%                  on the far side; the two must clear physically)  6e-3
+%     block_r_m    Dyson block radius, m (s0's scaling law says
+%                  >= 0.213 for a 0.25 px corner blur)             0.22
+%     face_offset_m Dyson flat face stands this far beyond the
+%                  common centre, so slit and FPA sit in AIR at the
+%                  centre plane (the classical seed has 0)          0.5e-3
+%     Rg_factor    grating radius / Dyson-condition radius          1
+%     order        |diffraction order| (sign solved: dispersion
+%                  pushes the FPA away from the slit)               1
+%     offner_R_m   Offner concave radius, m (convex grating R/2)    0.5
+%     Fno_offner   the Offner sibling's own speed (the paper's
+%                  long-slit Offner runs F/2.8; F/1.8 is a Dyson
+%                  number)                                          2.8
+%     blur_px      s0 layout blur budget: transverse rms spot at the
 %                  slit CORNER, in pixels, that the concentric seed
 %                  must meet before any element is added           0.25
 %
@@ -46,7 +58,12 @@ function P = dyson5_params(over)
 %     r_grid_m     block radii swept by the s0 scaling stage, m
 %     model        MACOS model size (engine stages)               128
 %     tag, outdir  artifact naming; outdir '' = this directory
-%     stages       which stages to run (default {'s0'})
+%     ngridpts     deck ray grid (41 -> ~1200 rays per field point)
+%     score_nx, score_nlam   the s2 scoring grid (slit positions x lambdas)
+%     blaze_m      scalar blaze wavelength of the radiometric chain
+%     qe           [lambda QE] table -- a PLACEHOLDER curve until a real
+%                  detector is named; reported, never scored
+%     stages       which stages to run (default {'s0','s1','s2'})
     arguments
         over struct = struct()
     end
@@ -62,7 +79,13 @@ function P = dyson5_params(over)
 
     P.glass        = 'Silica';
     P.lambda_ref_m = 1.0e-6;
-    P.y_offset_m   = 8e-3;
+    P.y_slit_m     = 6e-3;
+    P.block_r_m    = 0.22;
+    P.face_offset_m = 0.5e-3;
+    P.Rg_factor    = 1;
+    P.order        = 1;
+    P.offner_R_m   = 0.5;
+    P.Fno_offner   = 2.8;
     P.blur_px      = 0.25;
 
     % Published reference columns (Mouroulis & Green 2018, Opt. Eng. 57(4)
@@ -91,7 +114,12 @@ function P = dyson5_params(over)
     P.model    = 128;
     P.tag      = 'dyson5';
     P.outdir   = '';
-    P.stages   = {'s0'};
+    P.ngridpts   = 41;
+    P.score_nx   = 7;                 % slit positions scored (over the 54 mm)
+    P.score_nlam = 7;                 % wavelengths scored (over the band)
+    P.blaze_m    = 1.0e-6;            % scalar blaze wavelength for the chain
+    P.qe         = [380e-9 0.55; 600e-9 0.80; 1000e-9 0.85; 2000e-9 0.80; 2500e-9 0.65];  % PLACEHOLDER QE table
+    P.stages   = {'s0','s1','s2'};
 
     f = fieldnames(over);
     for k = 1:numel(f)

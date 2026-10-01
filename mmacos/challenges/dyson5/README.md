@@ -79,6 +79,38 @@ the digest: the quoted spec table is Table 2 = the Fig. 13 long-slit
 OFFNER (F/2.8, 48 mm, 10 nm/px), not the Fig. 15 Dyson; it is reported
 as the performance CLASS.  The PDF is local and git-ignored (SPIE).
 
+## Beat 2 (2026-09-30) -- emitter, scorer, and a second engine finding
+
+Both engine gates from beat 1 are GREEN on CC's fixed engine
+(tGlassDispersion 3/3 incl. CaF2, tGratingImmersed 4/4).  Beat 2 adds:
+
+- `design/src/spectrometer_geom.m` -- ONE chain for both forms (Dyson:
+  block + air gap + concave grating in air, the JPL form; Offner: concave
+  twice + convex grating at the stop) with the chief aim, the groove
+  period (band across the 9 mm FPA) and the FPA focus solved by exact
+  3-D trace; `spectrometer_rx.m` emits the MACOS deck; gate
+  `tests/tSpectrometerRx` = the engine's chief AND every ray land where
+  the chain says (1e-9 m), the band spans the FPA.
+- `design/src/spectrometer_score.m` (engine rays) + `_chain.m` (chain
+  rays): field-angle and wavelength maps, smile, keystone, SRF/CRF by
+  the slit (x) LSF (x) pixel (x) Airy chain, geometric ensquared energy,
+  the closed-form radiometric chain.  Runner stages s1 (emit) and s2
+  (score); records `dyson5_s1.txt`, `dyson5_s2.txt`.
+- **Engine finding #2 (CC's lane): the grating groove model.**  The
+  engine holds the period constant along the curved surface; a
+  straight-ruled grating has it constant along the chord.  The
+  difference is a spectral blur proportional to wavelength, uniform
+  over the slit (Offner 2.8 px rms at 2500 nm vs 0.003 px), which sets
+  the engine's SRF numbers in s2 until it is fixed; the chain's
+  'planes' column is the design's prediction.  Details and the fix
+  candidate: reference doc sec. 2.
+- Three engine conventions pinned on the way (reference doc sec. 2):
+  `ChfRayPos` is where rays start and becomes the physical source at
+  load; `macos.stop` aims immediately and is one pass short on its
+  first call (declare the stop first, then the chief); a `Return`
+  coincident with the `FocalPlane` drops the rays (use a `Reference`
+  upstream).
+
 ## Run it yourself
 
 ```matlab
