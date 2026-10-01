@@ -159,8 +159,9 @@ function P = dyson5_params(over)
     P.native_rung = 'R4';  P.native_nx = 5;  P.native_nlam = 6;    % <= 12 FOV x 6 lambda (CALIB's cap)
     P.native_chunk = 5;  P.native_max_chunks = 8;  P.native_tol_px = 0.002;
     P.native_wall_px = 0.05;              % smile/keystone wall on the chain between chunks: half the spec
-    P.native_asph = false;                % the block's h^4/h^6 as CALIB DOFs -- OFF until the OptAsph slice fix (CC)
-    P.native_enabled = false;             % s4 refuses to run until CALIB's SPOT derivative stride is fixed (beat 4c 3.4, CC)
+    P.native_asph = false;                % the block's h^4/h^6 as CALIB DOFs: OFF -- the slice is fixed (0d257ff) but the asphere derivative columns come out EMPTY (gaussj singular; CC)
+    P.native_varset = 'blur';             % 'blur' = block face, meniscus, focus; 'all' adds the grating's position (keystone 15 px in 5 iterations, wall-rejected)
+    P.native_enabled = true;              % CALIB's SPOT derivative stride fixed (macos 0d257ff); the stage runs
     % s5, R5's fold prism (addendum 10): entrance plate + mirror-coated fold
     % prism cemented to the block, the FPA folded away from the slit; the
     % COLD-SHIELD HEIGHT is the parameter -- each height needs an air gap of

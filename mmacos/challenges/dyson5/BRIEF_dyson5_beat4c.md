@@ -127,22 +127,50 @@ error naming this section), and the emitter gate's multi-field CALIB leg
 is marked INCOMPLETE (`tSpectrometerRx`, `assumeFail` with the reason),
 its 1 x 1 leg still running.
 
-## 4. Result: the native stage is BUILT and GATED, and BLOCKED on 3.4
+### 3.5 The asphere differential step is round-off (`design_optim.F:198`)
+With 3.2 fixed (macos 0d257ff) the OptAsph run no longer overruns, but the
+LM fails at once with `gaussj: singular matrix (2)`: `das = 1d-10` (times
+`das_scale_factor = 1d-05` per higher order) is the finite-difference step
+for aspheric coefficients in base units.  The block's h^4 coefficient is
+0.03 m^-3 at a 50 mm half-aperture, so the probe moves the sag by 1e-10 x
+0.05^4 = 6e-16 m -- round-off -- and the derivative column is zero.  The
+step has to scale with the coefficient's magnitude (or with the sag it
+produces at the aperture), as `drc`/`dcc` effectively do for radius and
+conic.  Measured in the bounds-checked CLI (no overrun, the LM message) on
+`dyson5_s4_r4n_seed.in` with `OptAsph= 2 1 2` on the block face.
 
-What runs today: the frozen-chain identity (1e-12 m), the seed deck with
-the CALIB block and the links (`dyson5_s4_r4n_seed.in`, in the record as the
-reproducer), the seed scored in the engine (R4's row reproduced), the first
-CALIB chunk started (361 rays, 5 fields x 6 wavelengths, 9 variables) -- and
-the engine kills the process in that chunk.  With one field CALIB runs clean
-(the gate), so the machinery on both sides of the engine call is exercised:
-emission, parse, links (gated with a negative control), read-back, the
-mapping and its identity check, the walls, the clearance gate, the clean
-re-emit and the trade row are all in `dyson_native.m` and `dyson5_run.m`
-(stage s4), waiting on one engine line.
+### 3.6 The mex dies where the CLI survives: LM failure path
+The same deck in the CLI prints the lmlsq failure and returns to the
+prompt; in the mex the process segfaults (crash dump 15:52:15, pid
+1617419) on the same failure.  `calib_run`'s failure return (or what
+`nls_optim_dvr` leaves allocated/deallocated when `lmlsq_success` is
+false) is not safe for the binding.  Reproducer: the deck above through
+`macos.calib()` with the asphere DOF on.
 
-**R4 of record is unchanged.**  Next in addendum 10's order: R5's fold
-prism under the clearance gate (cold-shield height as the parameter), then
-beat 5's telescope; the native stage runs the day CC's fix is on the engine
-of record (`dyson5_run(struct('stages', {{'s4'}}, 'native_enabled', true))`).
+## 4. Result (after macos 0d257ff, three runs on 2026-10-01)
 
-Decks: the native stage is not on the deck until it has a result.
+The engine fix lands: the emitter gate's 3 x 2 CALIB leg runs and the stage
+runs end to end -- seed scored, CALIB in chunks of 5, read-back, identity
+to 2e-16 m, engine score, walls, clearance, the clean re-emit.
+
+| run | variable set | what CALIB did | wall / gate | result |
+|---|---|---|---|---|
+| 1 | 'all' (grating DY+PIST, block ROC+CONIC, meniscus PIST+ROC, FPA PIST) | 5 iterations moved the grating along the dispersion direction | keystone 0.003 -> **15.5 px**, chunk REJECTED, seed restored | R4n = R4 |
+| 2 | 'blur' + the asphere terms | LM singular at once (3.5), mex crash (3.6) | -- | no record |
+| 3 | 'blur' (block ROC+CONIC, meniscus PIST+ROC, FPA PIST) | 10 iterations, every LM step rejected: no variable moved (KrElt, KcElt, VptElt identical; spot sizes equal to 1e-13) | accepted, +0.79 mm | **R4n = R4** |
+
+Non-vacuity: from a deliberate 0.3 mm defocus of the FPA, five CALIB
+iterations on the same deck take the spot size from 97 to 21 um (probe
+`probe_calib_moves.m`, scratch) -- CALIB moves when there is something to
+gain; on R4 of record it finds nothing in its max-radius merit.
+
+**Reading.**  (1) The walls earn their keep in the first five iterations
+the engine ever ran on this deck: without a distortion operand CALIB buys
+blur with 15 px of keystone.  (2) Under the blur-only freedoms R4 of record
+is a local optimum of CALIB's max-radius spot merit as well as of the
+chain's rms merit -- the native optimize confirms the ladder rather than
+improving it.  (3) The asphere, the one freedom that could still buy blur,
+waits on 3.5.  R4 of record stands; the deck's R4 numbers stand.
+
+Decks: the native stage is on the record as a confirmation, not a result;
+the keystone-15-px row is the slide's reason for operands.

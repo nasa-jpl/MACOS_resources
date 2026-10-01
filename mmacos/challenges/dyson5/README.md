@@ -211,6 +211,15 @@ CALIB's SPOT derivative loop steps at the wavefront stride
 (`design_optim.F` ~:792), a heap stomp on the second field.  The stage
 refuses to run (`native_enabled`) until that fix lands; R4 of record stands.
 New emitter options `'links'` and `'opt'`, gated in `tSpectrometerRx`.
+**After the fix (macos 0d257ff, same day):** the stage runs end to end.
+With the grating's position free, CALIB's first five iterations bought blur
+with 15 px of keystone and the wall rejected the chunk; with the blur-only
+set (block face, meniscus, focus) every LM step was rejected -- **R4 of
+record is a local optimum of CALIB's spot merit too; R4n = R4** (CALIB does
+move from a deliberate 0.3 mm defocus: spot 97 -> 21 um in five
+iterations).  Two further engine findings: the asphere differential step
+is round-off (gaussj singular), and the mex dies on the LM failure path
+where the CLI survives (`BRIEF_dyson5_beat4c.md` 3.5-3.6).
 
 ## Beat 4d (2026-10-01) -- R5, the fold prism, under the clearance gate
 
