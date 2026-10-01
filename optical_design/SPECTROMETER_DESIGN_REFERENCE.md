@@ -73,6 +73,45 @@ convex/concave mirror.  In the Dyson the slit sits off the axis by
 - **Stop.**  The grating is the stop (`macos.stop(iGrating)`); the API
   requires `0 < iElt < nElt-2`, so the deck ends `... Grating, ...,
   Return, FocalPlane`.
+- **Point source at a slit (measured 2026-09-30, gate `tSpectrometerRx`).**
+  The deck's `ChfRayPos` is where the engine STARTS its rays, so it must
+  lie between the slit and the first surface (a `ChfRayPos` past the
+  first surface loses every ray as a "surface miss"); the physical
+  source is `ChfRayPos + zSource*ChfRayDir`.  At LOAD the engine folds
+  that in once -- afterwards `get_src_fov` reports `ChfRayPos` = the
+  physical source and every ray passes through it (common-point fit
+  2e-17 m).  `set_src_fov` writes `ChfRayPos` raw, so a slit scan hands
+  it the SLIT POINT itself.  `Aperture` for a point source is the FULL
+  cone angle in radians.
+- **Stop aiming order.**  `macos.stop(k)` aims IMMEDIATELY from the
+  source state it finds, and on the Dyson deck its first pass is 3.6 mrad
+  short of converged (1.7 mm miss at the grating; a second call finishes
+  it).  Declare the stop FIRST, then `set_src_fov` with an exact chief
+  (`spectrometer_geom`'s `G.aim`): the engine keeps it to 1e-16.
+- **Tail.**  A `Return` COINCIDENT with the `FocalPlane` leaves the FPA
+  with zero path length and the engine drops those rays; the emitter
+  uses a pass-through `Reference` 1 mm upstream to satisfy the stop
+  wrapper's `iElt < nElt-2`.
+- **GROOVE MODEL -- engine finding (2026-09-30, CC's lane).**
+  `Snells_Law_Grating` normalises the projected rule direction
+  (`DPERPUVEC` onto the vertex plane, then unit `shat` in the local
+  tangent plane), so the groove period is constant ALONG THE CURVED
+  SURFACE.  A straight-ruled concave grating -- the element type's own
+  name, and what CODE V/Zemax grating surfaces define (spacing measured
+  in the vertex tangent plane) -- has equidistant groove PLANES: the
+  tangential kick is `m lambda/d` times the UN-normalised projection
+  (magnitude cos of the local tilt).  Measured with the chain
+  (`spectrometer_geom`, `P.grating_model`): spectral rms blur at the
+  slit centre, 380/1440/2500 nm --
+  Offner (R 0.5 m, F/2.8): surface 0.42/1.60/2.78 px vs planes
+  0.000/0.000/0.003 px; Dyson (r 220 mm, F/1.8): surface 0.46/1.83/3.28
+  px vs planes 0.07/0.03/0.04 px.  A blur proportional to lambda,
+  uniform over the slit, that no concentric design can correct.  Fix
+  candidate: `Gr_vec = Order*lambda/RuleWidth * (s0 - (s0.Nhat) Nhat)`
+  with `s0` = unit(h1HOE), no normalisation.  Gate: the Offner chain
+  numbers above (the engine must reproduce the 'planes' column), or the
+  Rowland-circle stigmatic property.  Until it lands, engine SRF/CRF
+  carry the inflated blur and the record prints both columns.
 - **Physical optics.**  The propagation chain's ray re-trace passes a
   Grating (propsub.F has the branch), but every diffraction KERNEL is
   handed the vacuum wavelength -- legs inside glass run at the wrong

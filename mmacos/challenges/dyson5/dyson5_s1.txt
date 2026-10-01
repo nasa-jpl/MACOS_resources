@@ -1,0 +1,13 @@
+dyson5 s1 -- deck emission at the spec (2026-09-30 18:59)
+CONVENTIONS: concentric about C = origin, slit along x, dispersion along y; chief aimed through the
+  grating vertex (= the stop); |m| = 1 with the sign that pushes the FPA away from the slit; groove
+  period solved so |y(lambda_max) - y(lambda_min)| = FPA spectral height; FPA plane z solved for
+  minimum slit-centre blur at lambda_c; F/# air-equivalent (Dyson 1.80, Offner 2.80).
+DYSON  : block r 220.0 mm (Silica), R_g 708.4 mm (factor 1.000), air gap 488.4 mm, face offset 0.50 mm
+  slit at y = +6.00 mm; m = -1, d = 117.326 um (8.52 l/mm); FPA centre y = -12.016 mm, z = +0.3208 mm;
+  band edges y = -7.558 / -16.558 mm (span 9.000 mm); slit-to-FPA-edge clearance 13.52 mm; 7 elements,
+  grating = elt 3 (stop); engine trace at lambda_c: 1258 rays; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_s1_dyson.in
+OFFNER : R 500.0 mm concave, convex grating R/2 = 250.0 mm, F/2.80
+  slit at y = +6.00 mm; m = -1, d = 58.889 um (16.98 l/mm); FPA centre y = -12.113 mm, z = +0.0001 mm;
+  band edges y = -7.613 / -16.613 mm (span 9.000 mm); slit-to-FPA-edge clearance 13.61 mm; 5 elements,
+  grating = elt 2 (stop); engine trace at lambda_c: 1258 rays; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_s1_offner.in
