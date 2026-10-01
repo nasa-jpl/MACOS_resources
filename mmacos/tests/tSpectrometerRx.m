@@ -164,5 +164,94 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
             tc.verifyEqual(mean(yb), G.fpa.center(2), 'AbsTol', 0.5e-3, ...
                 sprintf('%s: band centre on the FPA centre', form));
         end
+
+        function test_links_make_the_return_pass_follow_the_first_pass(tc)
+            % 'links' writes Link= on the return-pass copy of every surface
+            % the beam crosses twice (and on the pre-FPA Reference, which
+            % follows the FPA): the engine then applies a PERTURB (and CALIB's
+            % ROC / CONIC / ASPH perturbs, the same LnkElt loop in macos_ops.F)
+            % to both passes -- one physical surface.  The block's flat face
+            % is written with opposite normals on its two passes and must NOT
+            % be linked (a PIST would move the passes apart).  Must-PASS leg:
+            % the same deck without links leaves the copy where it was.
+            P = tc.P;  P.men_z = 0.24;  P.men_t = 0.004;  P.men_ca = 0.5;  P.men_cb = 0.5;   % R4's meniscus
+            G = spectrometer_geom('dyson', P);
+            dz = [0; 0; 1e-4];
+            for links = [true false]
+                file = fullfile(tc.tmpdir, sprintf('spec_links_%d.in', links));
+                M = spectrometer_rx(G, file, 'ngridpts', 21, 'apertures', true, 'margin', 5e-3, 'links', links);
+                macos.load_rx(file);
+                ix = @(nm) find(strcmp(M.names, nm), 1);
+                if links
+                    tc.verifyEqual(M.link(ix('MenA_in')), ix('MenA_out'), 'MenA_in follows MenA_out');
+                    tc.verifyEqual(M.link(ix('MenB_in')), ix('MenB_out'), 'MenB_in follows MenB_out');
+                    tc.verifyEqual(M.link(ix('BlockSphereIn')), ix('BlockSphereOut'), 'BlockSphereIn follows BlockSphereOut');
+                    tc.verifyEqual(M.link(ix('PreFPA')), ix('FPA'), 'the pre-FPA Reference follows the FPA');
+                    tc.verifyEqual(M.link(ix('BlockFaceIn')), 0, 'the flat face (opposite normals per pass) is not linked');
+                    tc.verifyEqual(M.link(ix('BlockFaceOut')), 0, 'the flat face (opposite normals per pass) is not linked');
+                else
+                    tc.verifyTrue(all(M.link == 0), 'no links without the option');
+                end
+                a = ix('MenA_out');  b = ix('MenA_in');
+                va0 = macos.get_elt_vpt(a);  vb0 = macos.get_elt_vpt(b);
+                macos.perturb(a, 'translation', dz);
+                da = macos.get_elt_vpt(a) - va0;  db = macos.get_elt_vpt(b) - vb0;
+                tc.verifyEqual(norm(da), 1e-4, 'AbsTol', 1e-12, 'the first pass moved by the piston');
+                if links
+                    tc.verifyEqual(db, da, 'AbsTol', 1e-12, 'the return-pass copy moved WITH its first pass');
+                else
+                    tc.verifyEqual(norm(db), 0, 'AbsTol', 1e-15, 'without the link the copy stays (the leg that proves the gate bites)');
+                end
+            end
+        end
+
+        function test_opt_block_configures_calib_fields_and_wavelengths(tc)
+            % the 'opt' block: field 1 is the header's ChfRayDir/Pos (the
+            % engine's parse counts it), the others OptChfRayDir/Pos pairs,
+            % Wavelen + ArrWaveLen the lambda list -- CALIB reports what it
+            % was given.  The ENGINE leg runs at ONE field x ONE wavelength:
+            % CALIB's derivative loop steps the SPOT objective at the
+            % wavefront-map stride (design_optim.F ~:792), a heap stomp on
+            % the second (field, wavelength) that kills the host process
+            % (pinned in the bounds-checked CLI, BRIEF_dyson5_beat4c.md 3.4)
+            % -- the multi-field count leg is marked INCOMPLETE below until
+            % that fix lands, not silently dropped.
+            G = spectrometer_geom('dyson', tc.P);
+            O1 = struct('fovs', struct('slit', G.slit, 'dir', G.aim(G.slit, G.src.lambda_c)), 'wavelens', G.src.lambda_c, ...
+                        'weights', 1, 'target', 'SPOT', 'wf_elt', [], 'max_iters', 1, ...
+                        'var', struct('name', 'FPA', 'mask', [0 0 0 0 0 1 0 0], 'asph', []));
+            file1 = fullfile(tc.tmpdir, 'spec_opt1.in');
+            M1 = spectrometer_rx(G, file1, 'ngridpts', 21, 'apertures', true, 'margin', 5e-3, 'links', true, 'opt', O1);
+            macos.load_rx(file1);
+            tc.assertEqual(macos.num_elt(), M1.nElt, 'the 1x1 opt deck loads with every element');
+            macos.calib_set_iter(1);
+            r1 = macos.calib();
+            tc.verifyEqual(r1.n_fov, 1, 'CALIB sees the header field');
+            tc.verifyEqual(r1.n_wavelength, 1, 'CALIB sees the header wavelength');
+            W = tc.P.npix(1)*tc.P.pixel_m;  xs = [-W/2 0 W/2];
+            fovs = struct('slit', {}, 'dir', {});
+            for i = 1:3
+                sl = G.slit + [xs(i); 0; 0];  fovs(end+1) = struct('slit', sl, 'dir', G.aim(sl, G.src.lambda_c));  %#ok<AGROW>
+            end
+            O = struct('fovs', fovs, 'wavelens', [tc.P.band_m(1) tc.P.band_m(2)], 'weights', [1 1 1], 'target', 'SPOT', ...
+                       'wf_elt', [], 'max_iters', 1, 'var', struct('name', 'FPA', 'mask', [0 0 0 0 0 1 0 0], 'asph', []));
+            file = fullfile(tc.tmpdir, 'spec_opt.in');
+            M = spectrometer_rx(G, file, 'ngridpts', 21, 'apertures', true, 'margin', 5e-3, 'links', true, 'opt', O);
+            macos.load_rx(file);
+            tc.assertEqual(macos.num_elt(), M.nElt, 'the 3x2 opt deck loads with every element');
+            % what the emitter wrote (its own output, not an engine fact)
+            txt = fileread(file);
+            tc.verifyEqual(numel(regexp(txt, 'OptChfRayDir=', 'match')), 2, 'two off-centre fields written (the header is field 1)');
+            tc.verifyEqual(numel(regexp(txt, 'OptChfRayPos=', 'match')), 2, 'two off-centre field positions written');
+            tc.verifyEqual(numel(regexp(txt, 'ArrWaveLen=', 'match')), 1, 'the second wavelength written as ArrWaveLen');
+            tc.verifyEqual(numel(regexp(txt, 'OptRayGrid=', 'match')), 0, 'OptRayGrid is not written (it corrupts the heap, beat 4c 3.3)');
+            tc.assumeFail(['the multi-field CALIB run (3 fields x 2 wavelengths -> n_fov 3, n_wavelength 2) is BLOCKED on the ' ...
+                           'engine: design_optim.F ~:792 steps the SPOT derivative at the wavefront stride (CC; beat 4c 3.4)']);
+            macos.calib_set_iter(1);
+            r = macos.calib();
+            tc.verifyEqual(r.n_fov, 3, 'CALIB sees the 3 fields (header + 2 OptChfRay pairs)');
+            tc.verifyEqual(r.n_wavelength, 2, 'CALIB sees the 2 wavelengths (Wavelen + ArrWaveLen)');
+        end
+
     end
 end

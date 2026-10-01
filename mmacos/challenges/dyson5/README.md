@@ -195,6 +195,23 @@ distortion weight was buying distortion already 40x under spec; the
 native optimize carries smile/keystone as hinge walls instead.  Every
 ladder deck re-emitted with apertures.  Report `BRIEF_dyson5_beat4b.md`.
 
+## Beat 4c (2026-10-01) -- the native optimize, built, gated, blocked on the engine
+
+`dyson_native` + stage `s4`: CALIB (the engine's multi-field least squares)
+on the R4 deck -- SPOT target, 5 slit positions x 6 wavelengths, 9 variables
+(grating position, block face radius + conic, meniscus faces, focus), the
+double-pass copies LINKED so each is one physical surface -- in chunks of
+iterations with the smile/keystone WALLS held on the chain between chunks
+(CALIB has no distortion operand; the operand is the ask to CC).  Each
+chunk is read back from the engine, mapped into the chain and proven by an
+identity check before it is scored and gated.  Running it pinned FOUR
+engine findings (`BRIEF_dyson5_beat4c.md` section 3): no centroid operand;
+the OptAsph slice; `OptRayGrid=` corrupts the heap; and the blocker --
+CALIB's SPOT derivative loop steps at the wavefront stride
+(`design_optim.F` ~:792), a heap stomp on the second field.  The stage
+refuses to run (`native_enabled`) until that fix lands; R4 of record stands.
+New emitter options `'links'` and `'opt'`, gated in `tSpectrometerRx`.
+
 ## Run it yourself
 
 ```matlab

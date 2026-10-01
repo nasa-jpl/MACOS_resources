@@ -155,10 +155,16 @@ function P = dyson5_params(over)
     P.offner_Rg_factor = 1.00340;  P.offner_M3_factor = 0.95097;
     P.offner_M3_dy = 0.294e-3;     P.offner_M3_dz = 0.153e-3;
     P.twin_rung      = 'R4';              % s2w runs the twin on this s3 rung's deck ('' = the s1 seed)
+    % s4, the native optimize (dyson_native): CALIB on the rung of record
+    P.native_rung = 'R4';  P.native_nx = 5;  P.native_nlam = 6;    % <= 12 FOV x 6 lambda (CALIB's cap)
+    P.native_chunk = 5;  P.native_max_chunks = 8;  P.native_tol_px = 0.002;
+    P.native_wall_px = 0.05;              % smile/keystone wall on the chain between chunks: half the spec
+    P.native_asph = false;                % the block's h^4/h^6 as CALIB DOFs -- OFF until the OptAsph slice fix (CC)
+    P.native_enabled = false;             % s4 refuses to run until CALIB's SPOT derivative stride is fixed (beat 4c 3.4, CC)
     P.slitloss_lams = [380e-9 700e-9 1440e-9 2500e-9];  P.slitloss_model = 1024;  P.slitloss_ngrid = 255;
     P.slitloss_len = 0.083e-3;  P.slitloss_z = 0.7;        % s2l: modelled slit length (-> window = 2 x the acceptance at 380 nm), slit-to-grating distance
     P.slitloss_propagating = true;                          % normalise to |sin theta| <= 1 (the planar FFT carries evanescent energy)
-    P.stages   = {'s0','s1','s2'};        % 's3' (the departure ladder) and 's2w' (the twin, model 512) are opt-in
+    P.stages   = {'s0','s1','s2'};        % 's3' (the ladder), 's4' (native optimize), 's2w' (twin, model 512), 's2l' are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)

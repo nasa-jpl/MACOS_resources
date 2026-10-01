@@ -44,6 +44,10 @@ function G = spectrometer_geom(form, P)
 %   the CoC for spheres; against the incoming beam for planes), .name,
 %   .glass), .src (slit point, chief dir, cone half-angle u), .grating
 %   (index into surf, m, d, groove dir), .fpa (centre, z plane, axes),
+%   Held-quantity overrides (a design carried back from the ENGINE, where
+%   the groove period, the focus plane and the slit plane are not re-solved):
+%   P.grating_d + P.grating_m (period, signed order), P.fpa_z (FPA plane z),
+%   P.slit_dz (slit/FPA plane z off the grating's centre; Dyson only).
 %   .n (function handle n(lambda)), and .trace = @(p0, d, lambda) ->
 %   [hit points per surface, final point on the FPA plane].
     arguments
@@ -103,7 +107,12 @@ function G = spectrometer_geom(form, P)
             iG = 3;
         end
         G.Rg = Rg;  G.r = r;  G.gap = Rg - r;
-        slit = [0; ys; 0];
+        % the slit/FPA plane normally passes through the grating's centre of
+        % curvature (z = 0); P.slit_dz moves it along the axis -- how a
+        % grating shifted along the axis in the ENGINE is expressed in this
+        % grating-centred frame (dyson_native's mapping)
+        sdz = 0;  if isfield(P, 'slit_dz') && ~isempty(P.slit_dz), sdz = P.slit_dz; end
+        slit = [0; ys; sdz];
     case 'offner'
         R = P.offner_R;  ys = P.y_slit;
         % the convex grating radius: R/2 exactly is the concentric seed, which
@@ -148,17 +157,23 @@ function G = spectrometer_geom(form, P)
     y0 = y_of(lam_c, 0, Inf);                   % m = 0 image of the slit centre
     % trial: m = +|m| with a coarse d; sign chosen so the lambda_c image is
     % farther from the slit than the m = 0 image
-    d_try = 50e-6;
-    yp = y_of(lam_c, +P.order, d_try);  ym = y_of(lam_c, -P.order, d_try);
-    if abs(yp - ys) > abs(ym - ys), m = +P.order; else, m = -P.order; end
-    % secant on d: |y(lambda_max) - y(lambda_min)| = H_fpa
-    f = @(d) abs(y_of(P.band_m(2), m, d) - y_of(P.band_m(1), m, d)) - H_fpa;
-    d1 = d_try;  d2 = d_try*2;  f1 = f(d1);  f2 = f(d2);
-    for it = 1:60
-        d3 = d2 - f2*(d2 - d1)/(f2 - f1);
-        if d3 <= 0, d3 = 0.5*d2; end
-        d1 = d2;  f1 = f2;  d2 = d3;  f2 = f(d2);
-        if abs(f2) < 1e-12, break; end
+    if isfield(P, 'grating_d') && ~isempty(P.grating_d)
+        % the groove period and signed order HELD (a design carried from the
+        % engine, where the period is not a variable): no band-span solve
+        m = P.grating_m;  d2 = P.grating_d;
+    else
+        d_try = 50e-6;
+        yp = y_of(lam_c, +P.order, d_try);  ym = y_of(lam_c, -P.order, d_try);
+        if abs(yp - ys) > abs(ym - ys), m = +P.order; else, m = -P.order; end
+        % secant on d: |y(lambda_max) - y(lambda_min)| = H_fpa
+        f = @(d) abs(y_of(P.band_m(2), m, d) - y_of(P.band_m(1), m, d)) - H_fpa;
+        d1 = d_try;  d2 = d_try*2;  f1 = f(d1);  f2 = f(d2);
+        for it = 1:60
+            d3 = d2 - f2*(d2 - d1)/(f2 - f1);
+            if d3 <= 0, d3 = 0.5*d2; end
+            d1 = d2;  f1 = f2;  d2 = d3;  f2 = f(d2);
+            if abs(f2) < 1e-12, break; end
+        end
     end
     G.grating.m = m;  G.grating.d = d2;
     G.grating.lines_per_mm = 1e-3/d2;
@@ -166,7 +181,11 @@ function G = spectrometer_geom(form, P)
     G.fpa.y0_order0 = y0;
 
     % -- focus: FPA plane z that minimises the slit-centre blur at lambda_c
-    zf = focus_(S, slit, d0, lam_c, G, u_air);
+    if isfield(P, 'fpa_z') && ~isempty(P.fpa_z)
+        zf = P.fpa_z;                           % the FPA plane HELD (engine-carried design)
+    else
+        zf = focus_(S, slit, d0, lam_c, G, u_air);
+    end
     G.fpa.z = zf;
     S(end).C = [0; 0; zf];
     G.surf = S;

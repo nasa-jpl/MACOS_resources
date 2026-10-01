@@ -43,7 +43,15 @@ function OUT = dyson5_run(over)
 %         the block's centre off the grating's (de-concentric) --
 %         each rung solved on the exact chain with smile/keystone operands
 %         in the merit from the first pass, then emitted and ENGINE-scored.
-%     s4  native optimize -- beat 4
+%     s4  NATIVE OPTIMIZE (dyson_native; opt-in): CALIB, the engine's own
+%         multi-field x multi-wavelength least squares, on the R4 deck --
+%         SPOT target (max ray distance to the chief per field, lambda) over
+%         grating position, block face radius + conic, meniscus faces, focus,
+%         with the double-pass copies linked -- in chunks of iterations with
+%         the smile/keystone WALLS held on the chain between chunks (CALIB
+%         has no distortion operand; the ask is on CC's list).  Every chunk
+%         is read back from the engine, mapped into the chain and proven by
+%         an identity check before it is scored and gated (walls, clearance).
 %
 %   Artifacts (P.outdir): <tag>_s0_scaling.{txt,mat,png};
 %   <tag>_s1_{dyson,offner}.in, <tag>_s1_layout.png, <tag>_s1.{txt,mat};
@@ -72,6 +80,7 @@ function OUT = dyson5_run(over)
             case 's2w', OUT.s2w = stage_s2w_(P, tag);
             case 's3', OUT.s3 = stage_s3_(P, tag);
             case 's2l', OUT.s2l = stage_s2l_(P, tag);
+            case 's4',  OUT.s4  = stage_s4_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -434,6 +443,62 @@ function S = stage_s2w_(P, tag)
     fclose(fid);
     save([tag '_s2w.mat'], 'S', 'P');
     fprintf('dyson5 s2w: wrote %s_s2w.{txt,mat}, %s_s2w_twin.png\n', tag, tag);
+end
+
+function N = stage_s4_(P, tag)
+%STAGE_S4_  The native optimize on the rung of record (P.native_rung).
+    fn = [tag '_s3.mat'];
+    assert(isfile(fn), 'dyson5 s4 needs the ladder record %s (run s3 first)', fn);
+    S3 = load(fn);  L = S3.S;
+    k = find(strncmp({L.rung.name}, [P.native_rung ' '], numel(P.native_rung) + 1), 1);
+    assert(~isempty(k), 'dyson5 s4: rung %s is not in %s', P.native_rung, fn);
+    r4 = L.rung(k);
+    % BLOCKED on the engine (2026-10-01, BRIEF_dyson5_beat4c.md section 3.4):
+    % CALIB's derivative loop steps the SPOT objective at the wavefront-map
+    % stride (design_optim.F ~:792 `off=off+opd_size`, 16384 for a 30-long
+    % objective) -- a heap stomp on the second (field, wavelength) that kills
+    % the MATLAB process.  The stage refuses to run until the fix is on the
+    % engine of record; set over.native_enabled = true to run it then.
+    assert(P.native_enabled, ['dyson5 s4: the native optimize is blocked on the engine (CALIB SPOT-target derivative ' ...
+           'stride, design_optim.F ~:792; CC''s lane -- BRIEF_dyson5_beat4c.md 3.4).  Pass native_enabled = true once fixed.']);
+    macos.init(P.model);
+    fid = fopen([tag '_s4.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 s4 -- the native optimize on %s (%s)\n', P.native_rung, datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: CALIB (design_optim.F, LM) on the rung''s deck with the double-pass copies LINKED (Link=; PERTURB/ROC/\n');
+    pr('  CONIC apply to both passes); target SPOT = the max ray distance to the chief at the FPA, one number per (slit\n');
+    pr('  position, wavelength), %d x %d fields, equal weights, driven to 0; variables: grating DY+PIST, block convex face\n', P.native_nx, P.native_nlam);
+    pr('  ROC+CONIC (asphere %s), meniscus faces PIST+ROC, FPA PIST; groove period HELD (not a CALIB DOF).  Chunks of %d\n', tern_(P.native_asph, 'FREE', 'HELD -- OptAsph slice bug, CC'), P.native_chunk);
+    pr('  iterations; after each the engine state is read back, mapped into the chain (identity to 1e-9 m), ENGINE-scored\n');
+    pr('  on the %d x %d grid and gated: smile and keystone <= %.3f px (half the spec, Dave''s wall on iterates), clearance\n', P.score_nx, P.score_nlam, P.native_wall_px);
+    pr('  PASS; a breach restores the last accepted state.  The rung of record is re-emitted CLEAN from the mapped chain.\n\n');
+    N = dyson_native(P, tag, r4.P, 'nx', P.native_nx, 'nlam', P.native_nlam, 'chunk', P.native_chunk, ...
+                     'max_chunks', P.native_max_chunks, 'wall_px', P.native_wall_px, 'tol_px', P.native_tol_px, ...
+                     'asph', P.native_asph, 'quiet', true);
+    H = N.history;
+    pr('%-5s %5s %8s %8s %7s %7s %6s %8s %9s  %s\n', 'chunk', 'iters', 'smile', 'keyst', 'CRF', 'SRF', 'EE', 'clear', 'identity', 'status');
+    for i = 1:height(H)
+        pr('%-5d %5d %8.4f %8.4f %7.3f %7.3f %6.3f %8.2f %9.1e  %s %s\n', H.chunk(i), H.iters(i), H.smile(i), H.keystone(i), H.crf(i), H.srf(i), H.ee(i), ...
+           H.clear_mm(i), H.identity_m(i), tern_(H.accepted(i), 'accepted', 'REJECTED'), H.note{i});
+    end
+    Re = N.rung.engine;  Re0 = r4.engine;  Pn = N.rung.P;  Gn = spectrometer_geom('dyson', Pn);
+    pr('\n%-34s %8s %8s %7s %7s %6s\n', 'engine score', 'smile', 'keyst', 'CRF', 'SRF', 'EE');
+    pr('%-34s %8.4f %8.4f %7.3f %7.3f %6.3f\n', [P.native_rung ' of record'], Re0.smile_max, Re0.keystone_max, Re0.crf_max, Re0.srf_max, Re0.ee_min);
+    pr('%-34s %8.4f %8.4f %7.3f %7.3f %6.3f\n', 'R4n native', Re.smile_max, Re.keystone_max, Re.crf_max, Re.srf_max, Re.ee_min);
+    pr('R4n parameters (chain frame, grating centre at the origin): block r %.3f mm Kc %.5f; block centre dy %.3f dz %.3f mm;\n', ...
+       Pn.block_r*1e3, Pn.block_Kc, Pn.block_dy*1e3, Pn.block_dz*1e3);
+    pr('  slit plane z %.3f mm, y_slit %.3f mm, face offset %.3f mm; meniscus vertex %.2f mm, t %.3f mm, c %.4f / %.4f /m;\n', ...
+       Pn.slit_dz*1e3, Pn.y_slit*1e3, Pn.face_offset*1e3, Pn.men_z*1e3, Pn.men_t*1e3, Pn.men_ca, Pn.men_cb);
+    pr('  FPA z %.4f mm (R4: %.4f); grating shift in the engine frame [%.3f %.3f %.3f] mm; band span %.1f px of %d.\n', ...
+       Pn.fpa_z*1e3, N.seed.P.fpa_z*1e3, N.shift_m*1e3, N.span_px, N.span_spec_px);
+    Cl = spectrometer_clearance(Gn, P, 'quiet', true);  N.rung.clearance = Cl;
+    pr('CLEARANCE R4n: min %+.2f mm %s : %s vs %s\n', Cl.min_mm, tern_(Cl.pass, 'PASS', 'FAIL'), Cl.table.leg{1}, Cl.table.body{1});
+    fclose(fid);
+    spectrometer_layout_fig(Gn, sprintf('%s_s4_layout_r4n.png', tag), 'title', 'dyson R4n (native)');
+    spectrometer_maps_fig(Re, sprintf('%s_s4_maps_r4n.png', tag), 'title', 'dyson R4n (native), engine', 'pixel_um', P.pixel_m*1e6);
+    S = N;  save([tag '_s4.mat'], 'S', 'P');
+    dyson5_view_figs({regexprep(N.rung.file, {'^.*/', '\.in$'}, '')}, P.outdir);
+    if ~P.ladder_free_r, dyson5_trade(tag); end
+    assert(Cl.pass, 'dyson5 s4: the native design crosses a body (see the clearance table)');
 end
 
 function t = tern_(c, a, b)
