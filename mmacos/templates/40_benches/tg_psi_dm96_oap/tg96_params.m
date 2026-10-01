@@ -388,11 +388,14 @@ P.place.poly_deg  = 1;             % refit degree: 1=affine (both rigs; fit is r
 P.place.gate_max_states = inf;     % cap the D1-gate sweep states (dev: sample a few)
 P.place.boot_states = 8;           % states for the placement bootstrap/refit (few suffice)
 P.place.gate_assert = true;        % dev: false continues past a failed gate (saves .mat)
-P.place.lit_margin_mm = [];        % [] = the record: lit from the interferogram support (dmg_lit).  A value
-                                   %   caps the CONTROL set at r <= DM aperture - margin (mm): on this bench the
-                                   %   interferogram support is the REFERENCE arm's 59 mm cone, so the record's lit
-                                   %   set reaches 1 mm OUTSIDE the 48 mm DM aperture (308 dark actuators + 284
-                                   %   half-clipped).  Fix A of the 2026-09-30 descent 2x2 uses 1 (one pitch).
+P.place.lit_margin_mm = 1;         % DEFAULT 1 (Dave 2026-09-30): the control set is the actuators the TEST beam
+                                   %   reaches with a whole influence function, r <= DM aperture - margin (mm).
+                                   %   dmg_lit reads the interferogram support, which on this bench is the
+                                   %   REFERENCE arm's 59 mm cone, so without the cap the lit set reached 1 mm
+                                   %   OUTSIDE the 48 mm aperture (308 dark actuators + 284 half-clipped) and the
+                                   %   100 nm descent stalled at 97 pm.  With it: 2.96 pm from 100 nm, 2.95 pm
+                                   %   on the 30 nm control (runs/fix2x2_score.txt).  [] = the pre-fix behaviour
+                                   %   (runs before 2026-09-30 and the samp512 baseline).  Lit count 7540 -> 6948.
 P.place.lit_erode     = 0;         % diagnostic: erode the control set by N rings (runs/erode3); see tg96_place
 
 % ---- closed-loop hold metric (D7; Dave 2026-09-11, BRIEF_loop_metric) ----
