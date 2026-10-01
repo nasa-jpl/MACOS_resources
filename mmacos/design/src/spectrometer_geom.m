@@ -28,7 +28,10 @@ function G = spectrometer_geom(form, P)
 %   [spatial spectral], band_m [min max], lambda_ref_m (index + layout
 %   wavelength), order (|m|, sign solved so dispersion pushes the FPA AWAY
 %   from the slit), y_slit (slit-centre offset from the axis), and per form
-%   block_r / glass / face_offset / Rg_factor  or  offner_R.  Optional
+%   block_r / glass / face_offset / Rg_factor  or  offner_R.  Optional Dyson
+%   departures: block_Kc / block_asph (face figure), block_dz / block_dy
+%   (centre off the grating's), men_z / men_t / men_ca / men_cb (a meniscus
+%   corrector in the air gap: vertex z, thickness, face curvatures).  Optional
 %   P.grating_model = 'planes' (DEFAULT since the engine fix of 2026-09-30:
 %            straight-ruled, equidistant groove PLANES, period constant along
 %            the chord -- what elemsub.F Snells_Law_Grating now traces) |
@@ -83,8 +86,24 @@ function G = spectrometer_geom(form, P)
         end
         S(5) = plane_([0;0;dz], [0;0;1], 1, 'refract', 'BlockFaceOut', '');
         S(6) = plane_([0;0;0], [0;0;1], 1, 'stop', 'FPA', '');
+        % R4, the compact variant's MENISCUS corrector in the air gap: two
+        % spherical faces A (vertex z_a) and B (vertex z_a + t_m) of the block
+        % glass, traversed outward (air->glass->air) and back.  Surface
+        % curvatures c_a, c_b (1/m, centre at vertex + 1/c along +z; a
+        % concentric shell, c = 1/z_vertex, is a null and the natural seed).
+        if isfield(P, 'men_z') && ~isempty(P.men_z) && P.men_z > 0
+            za = P.men_z;  tm = P.men_t;  ca = P.men_ca;  cb = P.men_cb;
+            Ma_out = msph_(za, ca, 'glass', P.glass, 'MenA_out');
+            Mb_out = msph_(za + tm, cb, 1, '', 'MenB_out');
+            Mb_in  = msph_(za + tm, cb, 'glass', P.glass, 'MenB_in');
+            Ma_in  = msph_(za, ca, 1, '', 'MenA_in');
+            S = [S(1:2), Ma_out, Mb_out, S(3), Mb_in, Ma_in, S(4:6)];
+            iG = 5;
+        else
+            iG = 3;
+        end
         G.Rg = Rg;  G.r = r;  G.gap = Rg - r;
-        iG = 3;  slit = [0; ys; 0];
+        slit = [0; ys; 0];
     case 'offner'
         R = P.offner_R;  ys = P.y_slit;
         S = struct('kind',{},'C',{},'R',{},'n_out',{},'act',{},'root',{}, ...
@@ -163,6 +182,17 @@ function G = spectrometer_geom(form, P)
 end
 
 % =====================================================================
+function s = msph_(zv, c, n_out, glass, name)
+%MSPH_  Meniscus face: vertex on the axis at zv, curvature c (1/m, centre at
+%   zv + 1/c along +z; |c| < 1e-9 -> a plane), root 'auto' (nearest positive).
+    if abs(c) < 1e-9
+        s = plane_([0;0;zv], [0;0;-1], n_out, 'refract', name, glass);
+    else
+        R = 1/abs(c);  C = [0; 0; zv + 1/c];
+        s = sphere_(C, R, n_out, 'refract', 'auto', name, glass, [0;0;zv]);
+    end
+end
+
 function s = plane_(C, normal, n_out, act, name, glass)
 %PLANE_  C = a point on the plane; psi = the normal (against the incoming beam).
     s = struct('kind', 'plane', 'C', C(:), 'R', NaN, 'n_out', n_out, 'act', act, ...
@@ -272,7 +302,7 @@ function t = sphere_t_(p, d, Rad, which)
     if disc < 0, t = [];  return;  end
     s = sqrt(disc);  t1 = -b - s;  t2 = -b + s;
     if strcmp(which, 'far'), t = t2;
-    elseif t1 > 1e-12,       t = t1;
+    elseif t1 > 1e-12,       t = t1;      % 'near' and 'auto': the nearest positive root
     else,                    t = t2;
     end
     if ~(t > 1e-12), t = []; end

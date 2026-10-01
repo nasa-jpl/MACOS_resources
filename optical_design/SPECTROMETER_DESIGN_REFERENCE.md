@@ -210,6 +210,15 @@ residual at the EFFECTIVE field (the dispersed image adds ~12 mm to the
 slit offset) and moves only with size (EE 0.74 at r = 341 mm) or with
 the compact variant's separate mirror + meniscus.
 
+**R4, the compact variant (meniscus corrector in the air gap, with the
+de-concentred block and the grating radius open), at the same 220 mm:**
+keystone 0.0026 px, smile 0.0051 px, CRF 1.33 px, EE 0.76 -- the
+free-radius result at 63 % of the length and 27 % of the glass.  The
+meniscus alone is worse than R3; the R4 solve ends on its bounds (a thin
+weak plate right after the block) and the landscape is multimodal.
+Slit diffraction loss past the F/1.8 acceptance: < 2.5 % over the band
+(36 um slit; measured 0.08-2.48 %, sinc^2 0.28-1.83 %, factor open).
+
 Dispersion rides on top of the imaging condition: the m-th order chief
 from the slit centre lands on the FPA displaced along `h1HOE` by the
 grating kick `m λ0/(n d)` in direction, mapped to the flat face through

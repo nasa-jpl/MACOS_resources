@@ -20,8 +20,10 @@ classdef tGratingOpl < matlab.unittest.TestCase
 %   two differ by (m lambda/d)(rho.N)(s0.N) ~ (m lambda/d) rho^3/(2 R^2): a
 %   cubic, 12 waves at this grating's 45 mm footprint and R = 250 mm, zero
 %   on a FLAT grating (which is why the air fixtures never saw it).
-%   Must-PASS leg: order 0.  Must-fail-today leg: order -1 (goes green with
-%   the engine fix; no test change).  Size 128 -> SUITE_FAST.
+%   The fix (dL = Order*lambda/RuleWidth * dot(s0, rho)) landed 2026-10-01;
+%   both legs PASS on it.  Statistics are taken on the OPD WRAPPED to
+%   (-lambda/2, lambda/2] -- across a grating the OPD is defined modulo
+%   lambda (addendum 3).  Size 128 -> SUITE_FAST.
 
     properties (Constant)
         Model = 128
@@ -72,6 +74,15 @@ classdef tGratingOpl < matlab.unittest.TestCase
             macos.set_elt_vpt(M.iFPr, pc);  macos.set_elt_vpt(M.iFPA, pc);
             macos.modify();  macos.trace(M.iEP);
             W = macos.opd();  w = W(isfinite(W) & W ~= 0);
+            % Dave's rule (BRIEF_to_dyson5 addendum 3): the OPD of a wavefront
+            % that has crossed a grating is defined MODULO LAMBDA (the groove
+            % staircase); the ray OPL carries the smooth order-m phase, equal
+            % to the physical wavefront mod lambda.  Wrap to (-lambda/2,
+            % lambda/2] before any rms -- transparent while the OPD is far
+            % below lambda/2 (the fixed engine), and the only honest statistic
+            % when it is not (the pre-fix engine: 4 waves unwrapped).
+            w = w - w(1);
+            w = w - tc.Lam*round(w/tc.Lam);
             opd_rms = std(w);
         end
     end

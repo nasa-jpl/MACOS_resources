@@ -32,6 +32,11 @@ function OUT = dyson5_run(over)
 %         from the propagated PSF.  Validated on the order-0 Offner relay
 %         (Airy, 94 % in one pixel); at order -1 it measures the engine's
 %         grating OPL defect until that is fixed (tGratingOpl).
+%     s2l SLIT-WIDTH DIFFRACTION LOSS (spectrometer_slit_loss; opt-in, its
+%         OWN MATLAB at model 1024 -- model-size transitions in one process
+%         are the known engine heap hazard): a far-field leg from the
+%         rectangular slit aperture to the grating plane vs the sinc^2 closed
+%         form, per wavelength.
 %     s3  THE DYSON DEPARTURE LADDER (dyson_ladder): R0 the concentric seed,
 %         R1 the concentric knobs (R_g factor, face offset, block radius),
 %         R2 + conic and h^4/h^6 asphere on the block's convex face, R3 +
@@ -42,7 +47,9 @@ function OUT = dyson5_run(over)
 %
 %   Artifacts (P.outdir): <tag>_s0_scaling.{txt,mat,png};
 %   <tag>_s1_{dyson,offner}.in, <tag>_s1_layout.png, <tag>_s1.{txt,mat};
-%   <tag>_s2.{txt,mat}, <tag>_s2_maps.png, <tag>_s2_rad.png.
+%   <tag>_s2.{txt,mat}, <tag>_s2_maps.png, <tag>_s2_rad.png; deck-standard
+%   figures: <tag>_s1_layout_<form>.png, <tag>_s2_maps_<form>.png,
+%   <tag>_s3_layout_r<k>.png, <tag>_s3_maps_r<k>.png, <tag>_s3_trade.{txt,png}.
 %
 %   See also DYSON5_PARAMS, dyson_layout, dyson_scaling.
     arguments
@@ -64,6 +71,7 @@ function OUT = dyson5_run(over)
             case 's2', OUT.s2 = stage_s2_(P, tag);
             case 's2w', OUT.s2w = stage_s2w_(P, tag);
             case 's3', OUT.s3 = stage_s3_(P, tag);
+            case 's2l', OUT.s2l = stage_s2l_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -175,6 +183,7 @@ function S = stage_s1_(P, tag)
             G.fpa.clear_to_slit*1e3, M.nElt);
         pr('  grating = elt %d (stop); engine trace at lambda_c: %d rays; deck %s\n', M.iG, tr.nRays, file);
         subplot(1, 2, k);  section_(G, forms{k});
+        spectrometer_layout_fig(G, sprintf('%s_s1_layout_%s.png', tag, forms{k}), 'title', [forms{k} ' seed']);
     end
     fclose(fid);
     print(f, [tag '_s1_layout.png'], '-dpng', '-r110');  close(f);
@@ -235,6 +244,7 @@ function S = stage_s2_(P, tag)
         ok_s = R.smile_max < P.smile_px;  ok_k = R.keystone_max < P.keystone_px;
         ok_srf = R.srf_max < P.srf_px(2);  ok_crf = R.crf_max < P.xrf_px;
         pr('        vs spec: smile %s  keystone %s  SRF %s  CRF %s\n\n', pf_(ok_s), pf_(ok_k), pf_(ok_srf), pf_(ok_crf));
+        spectrometer_maps_fig(R, sprintf('%s_s2_maps_%s.png', tag, forms{k}), 'title', [forms{k} ' seed, engine'], 'pixel_um', P.pixel_m*1e6);
         % maps
         subplot(2, 4, (k-1)*4 + 1);  imagesc(R.lams*1e9, R.xs*1e3, R.U);  colorbar;  axis xy
         xlabel('lambda (nm)');  ylabel('slit x (mm)');  title(sprintf('%s: u_c (px) -- field-angle map', forms{k}));
@@ -286,6 +296,12 @@ function S = stage_s3_(P, tag)
     fclose(fid);
     S = L;
     save([tag '_s3.mat'], 'S', 'P');
+    for k = 1:numel(L.rung)
+        r = L.rung(k);  G = spectrometer_geom('dyson', r.P);  rk = regexprep(r.name, ' .*', '');   % 'R0'..'R4a','R4'
+        spectrometer_layout_fig(G, sprintf('%s_s3_layout_%s.png', tag, lower(rk)), 'title', ['dyson ' rk]);
+        spectrometer_maps_fig(r.engine, sprintf('%s_s3_maps_%s.png', tag, lower(rk)), 'title', ['dyson ' rk ', engine'], 'pixel_um', P.pixel_m*1e6);
+    end
+    if ~P.ladder_free_r, dyson5_trade(tag); end
     % figure: engine CRF and smile/keystone per rung
     f = figure('Visible', 'off', 'Position', [60 60 900 360]);
     nr = numel(L.rung);  vals = zeros(nr, 4);
@@ -296,6 +312,33 @@ function S = stage_s3_(P, tag)
     ylabel('min ensquared energy (1 px, geometric)');  grid on;  yline(0.75, '--', 'paper rule');
     print(f, [tag '_s3_ladder.png'], '-dpng', '-r100');  close(f);
     fprintf('dyson5 s3: wrote %s_s3.{txt,mat}, %s_s3_r*.in, %s_s3_ladder.png\n', tag, tag, tag);
+end
+
+function S = stage_s2l_(P, tag)
+%STAGE_S2L_  The slit-width diffraction loss, engine vs sinc^2.
+    fid = fopen([tag '_s2l.txt'], 'w');
+    pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 s2l -- slit-width diffraction loss (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: a uniformly illuminated rectangular slit %.0f um x %.0f mm (the telescope cone is not modelled -- the\n', P.slit_px*P.pixel_m*1e6, P.slitloss_len*1e3);
+    pr('  partially coherent case is the ~10%% the paper cites), far-field leg (flat Return, radius 1e22, zElt = z) to the\n');
+    pr('  grating plane at z = %.3f m; loss = 1 - energy inside |y| <= z tan(u), u = asin(1/(2 F)), F = %.1f; closed form =\n', P.slitloss_z, P.Fno);
+    pr('  1 - energy of sinc^2(w sin(theta)/lambda) inside |sin(theta)| <= 1/(2F).  Model %d, %d-pt grid, pitch at the\n', P.slitloss_model, P.slitloss_ngrid);
+    pr('  grating plane lambda z / (N dx_slit); the acceptance must sit inside the window (checked).\n');
+    R = spectrometer_slit_loss(P, [tag '_s2l_slit.in'], 'lams', P.slitloss_lams, 'model', P.slitloss_model, ...
+                               'ngridpts', P.slitloss_ngrid, 'slit_len', P.slitloss_len, 'z_grating', P.slitloss_z);
+    pr('%8s %12s %12s %10s %10s %8s\n', 'nm', 'loss engine', 'loss sinc^2', 'pitch um', 'window mm', 'inside');
+    for j = 1:numel(R.lams)
+        pr('%8.0f %12.5f %12.5f %10.2f %10.1f %8d   energy %.4g\n', R.lams(j)*1e9, R.loss_engine(j), R.loss_sinc(j), R.dx_m(j)*1e6, R.window_m(j)*1e3, R.inside_window(j), R.energy(j));
+    end
+    fclose(fid);
+    S = R;  save([tag '_s2l.mat'], 'S', 'P');
+    f = figure('Visible', 'off', 'Position', [60 60 560 380], 'Color', 'w');
+    plot(R.lams*1e9, 100*R.loss_sinc, 'k-', R.lams*1e9, 100*R.loss_engine, 'ro', 'LineWidth', 1.4, 'MarkerSize', 7);
+    grid on;  xlabel('\lambda (nm)');  ylabel('slit diffraction loss past the grating (%)');
+    legend({'sinc^2 closed form', 'engine far-field leg'}, 'Location', 'northwest');
+    title(sprintf('%.0f um slit, F/%.1f acceptance', P.slit_px*P.pixel_m*1e6, P.Fno));
+    print(f, [tag '_s2l_slitloss.png'], '-dpng', '-r130');  close(f);
+    fprintf('dyson5 s2l: wrote %s_s2l.{txt,mat}, %s_s2l_slitloss.png\n', tag, tag);
 end
 
 function S = stage_s2w_(P, tag)
@@ -331,13 +374,20 @@ function S = stage_s2w_(P, tag)
         pr('        SRF_wave max %.3f px  CRF_wave max %.3f px  EE(1 px) min %.3f  PSF rms widths max %.3f/%.3f px  energy range %.3g-%.3g\n', ...
             R.srf_max, R.crf_max, R.ee_min, max(R.su_wave(:)), max(R.sv_wave(:)), min(R.energy(:)), max(R.energy(:)));
     end
-    pr('STATUS: at order -1 the engine''s pupil OPD on the reference sphere is ~4 waves rms although its rays converge\n');
-    pr('  (tGratingOpl, engine finding #3: the grating OPL jump uses the local-tangent projection of the hit vector,\n');
-    pr('  the groove count needs the chord coordinate s0.rho) -- the order -1 wave numbers above are that defect, not\n');
-    pr('  the design; they become the twin when the engine fix lands (no change here).\n');
+    dmax = max([max(abs(S.offner.d_dv(:))), max(abs(S.dyson.d_dv(:))), max(abs(S.offner.d_du(:))), max(abs(S.dyson.d_du(:)))]);
+    if dmax < 0.01
+        pr('STATUS: wave and ray centroids agree to %.4f px on every (slit x, lambda) point of both forms -- the propagated\n', dmax);
+        pr('  PSF sits where the rays say (engine finding #3 fixed; comparisons across a grating are modulo lambda, addendum 3).\n');
+        pr('  The twin''s own products: ensquared energy WITH diffraction (Offner %.3f, geometric 1.000; Dyson %.3f),\n', S.offner.ee_min, S.dyson.ee_min);
+        pr('  SRF/CRF from the propagated PSF (Offner %.3f/%.3f px, Dyson %.3f/%.3f px).\n', S.offner.srf_max, S.offner.crf_max, S.dyson.srf_max, S.dyson.crf_max);
+    else
+        pr('STATUS: wave - ray centroid offsets up to %.3f px: the engine''s pupil OPD disagrees with its ray directions\n', dmax);
+        pr('  (tGratingOpl); the order -1 wave numbers above are that defect, not the design.\n');
+    end
+    spectrometer_wave_fig(S, [tag '_s2w_twin.png'], 'pixel_um', P.pixel_m*1e6);
     fclose(fid);
     save([tag '_s2w.mat'], 'S', 'P');
-    fprintf('dyson5 s2w: wrote %s_s2w.{txt,mat}\n', tag);
+    fprintf('dyson5 s2w: wrote %s_s2w.{txt,mat}, %s_s2w_twin.png\n', tag, tag);
 end
 
 function t = tern_(c, a, b)
