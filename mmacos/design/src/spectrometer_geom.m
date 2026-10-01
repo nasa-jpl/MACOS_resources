@@ -60,11 +60,22 @@ function G = spectrometer_geom(form, P)
         r  = P.block_r;  Rg = P.Rg_factor*n0*r/(n0-1);  dz = P.face_offset;
         ys = P.y_slit;
         S = struct('kind',{},'C',{},'R',{},'n_out',{},'act',{},'root',{}, ...
-                   'vpt',{},'psi',{},'name',{},'glass',{});
+                   'vpt',{},'psi',{},'name',{},'glass',{},'Kc',{},'A',{});
         S(1) = plane_([0;0;dz], [0;0;-1], 'glass', 'refract', 'BlockFaceIn', P.glass);
         S(2) = sphere_([0;0;0], r, 1, 'refract', 'far', 'BlockSphereOut', '', [0;0;r]);
         S(3) = sphere_([0;0;0], Rg, 1, 'grating', 'far', 'Grating', '', [0;0;Rg]);
         S(4) = sphere_([0;0;0], r, 'glass', 'refract', 'near', 'BlockSphereIn', P.glass, [0;0;r]);
+        % the block's convex face may depart from the sphere: conic constant
+        % P.block_Kc and even-asphere coefficients P.block_asph (engine
+        % AsphCoef convention: coef(i) multiplies h^(2i+2) of the sag along
+        % +psi, h the height off the vertex axis) -- Carbon-I's departure
+        Kc_b = 0;  A_b = [];
+        if isfield(P, 'block_Kc'), Kc_b = P.block_Kc; end
+        if isfield(P, 'block_asph'), A_b = P.block_asph(:)'; end
+        if Kc_b ~= 0 || any(A_b ~= 0)
+            S(2).kind = 'asph';  S(2).Kc = Kc_b;  S(2).A = A_b;
+            S(4).kind = 'asph';  S(4).Kc = Kc_b;  S(4).A = A_b;
+        end
         S(5) = plane_([0;0;dz], [0;0;1], 1, 'refract', 'BlockFaceOut', '');
         S(6) = plane_([0;0;0], [0;0;1], 1, 'stop', 'FPA', '');
         G.Rg = Rg;  G.r = r;  G.gap = Rg - r;
@@ -72,7 +83,7 @@ function G = spectrometer_geom(form, P)
     case 'offner'
         R = P.offner_R;  ys = P.y_slit;
         S = struct('kind',{},'C',{},'R',{},'n_out',{},'act',{},'root',{}, ...
-                   'vpt',{},'psi',{},'name',{},'glass',{});
+                   'vpt',{},'psi',{},'name',{},'glass',{},'Kc',{},'A',{});
         S(1) = sphere_([0;0;0], R,   1, 'reflect', 'far',  'M1', '', [0;0;0]);
         S(2) = sphere_([0;0;0], R/2, 1, 'grating', 'near', 'Grating', '', [0;0;-R/2]);
         S(3) = sphere_([0;0;0], R,   1, 'reflect', 'far',  'M3', '', [0;0;0]);
@@ -150,7 +161,8 @@ end
 function s = plane_(C, normal, n_out, act, name, glass)
 %PLANE_  C = a point on the plane; psi = the normal (against the incoming beam).
     s = struct('kind', 'plane', 'C', C(:), 'R', NaN, 'n_out', n_out, 'act', act, ...
-               'root', '', 'vpt', C(:), 'psi', normal(:)/norm(normal), 'name', name, 'glass', glass);
+               'root', '', 'vpt', C(:), 'psi', normal(:)/norm(normal), 'name', name, 'glass', glass, ...
+               'Kc', 0, 'A', []);
 end
 
 function s = sphere_(C, R, n_out, act, root, name, glass, vpt)
@@ -159,7 +171,8 @@ function s = sphere_(C, R, n_out, act, root, name, glass, vpt)
     psi = C(:) - vpt(:);
     if norm(psi) < 1e-15, psi = [0;0;-1]; else, psi = psi/norm(psi); end
     s = struct('kind', 'sphere', 'C', C(:), 'R', R, 'n_out', n_out, 'act', act, ...
-               'root', root, 'vpt', vpt(:), 'psi', psi, 'name', name, 'glass', glass);
+               'root', root, 'vpt', vpt(:), 'psi', psi, 'name', name, 'glass', glass, ...
+               'Kc', 0, 'A', []);
 end
 
 function [pts, dirs, ok] = trace_chain_(S, p0, d, lam, G)
@@ -179,6 +192,28 @@ function [pts, dirs, ok] = trace_chain_(S, p0, d, lam, G)
             t = sphere_t_(p - s.C(:), d, s.R, s.root);
             if isempty(t), ok = false; return; end
             q = p + t*d;  N = (q - s.C(:))/norm(q - s.C(:));
+        case 'asph'
+            % axisymmetric conic + even asphere about the axis psi through the
+            % vertex: F(q) = (q - vpt).psi - sag(h) = 0, sag along +psi (toward
+            % the CoC), h = |(q - vpt) - ((q - vpt).psi) psi|.  Newton from the
+            % base-sphere root.
+            t = sphere_t_(p - s.C(:), d, s.R, s.root);
+            if isempty(t), ok = false; return; end
+            a = s.psi(:);
+            for it = 1:30
+                q = p + t*d;  v = q - s.vpt(:);  z = v'*a;  hv = v - z*a;  h = norm(hv);
+                [sg, dsg] = sag_(h, s.R, s.Kc, s.A);
+                F = z - sg;
+                if h > 0, hh = hv/h; else, hh = zeros(3,1); end
+                gradF = a - dsg*hh;
+                dF = gradF'*d;
+                t = t - F/dF;
+                if abs(F) < 1e-14, break; end
+            end
+            q = p + t*d;  v = q - s.vpt(:);  z = v'*a;  hv = v - z*a;  h = norm(hv);
+            [~, dsg] = sag_(h, s.R, s.Kc, s.A);
+            if h > 0, hh = hv/h; else, hh = zeros(3,1); end
+            N = a - dsg*hh;  N = N/norm(N);
         end
         switch s.act
         case 'refract'
@@ -208,6 +243,18 @@ function [pts, dirs, ok] = trace_chain_(S, p0, d, lam, G)
             % image plane: nothing
         end
         pts(:,k) = q;  dirs(:,k) = d;  p = q;
+    end
+end
+
+function [sg, dsg] = sag_(h, R, Kc, A)
+%SAG_  Conic (radius R > 0, constant Kc) + even asphere sag along +psi and
+%   its h-derivative; A(i) multiplies h^(2i+2) (engine AsphCoef convention).
+    c = 1/R;  h2 = h*h;  rt = sqrt(1 - (1+Kc)*c*c*h2);
+    sg = c*h2/(1 + rt);
+    dsg = c*h/rt;
+    for i = 1:numel(A)
+        sg  = sg + A(i)*h^(2*i+2);
+        dsg = dsg + (2*i+2)*A(i)*h^(2*i+1);
     end
 end
 

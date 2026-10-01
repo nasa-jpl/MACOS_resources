@@ -1,0 +1,15 @@
+dyson5 s3 (FREE block radius variant) -- the Dyson departure ladder (2026-10-01 04:17)
+CONVENTIONS: each rung is solved by lsqnonlin on the EXACT CHAIN (straight-ruled grooves; the engine reproduces
+  it ray for ray), residuals in PIXELS over a 5 x 5 (slit x, lambda) grid: 10 x [smile_ij = v_c - v_c(slit centre);
+  keystone_ij = u_c - u_c(lambda_c)] and 1 x [rms spot u, v], plus a wall on the slit-to-FPA clearance >= 3.0 mm;
+  groove period and FPA focus re-solved at every iterate; the solved deck is then scored in the ENGINE
+  (spectrometer_score, 7 x 7, 41-pt grid) -- the engine rows are the record.  Spec: smile/keystone < 0.10 px,
+  SRF < 1.5-2.0 px (2-px slit floor 2.0), CRF < 1.5 px; paper: distortion ~1% px at design, EE > 0.75.
+
+rung                                                    smile    keyst     CRF     SRF     EE |  R_g mm    r mm  face mm      Kc asph [h4 h6]
+R0 concentric seed                                     0.0061   0.0951   2.275   2.024  0.440 |   708.4   220.0    0.500   0.000 [0 0]
+                                                     chain:   0.0060   0.0952   2.410   2.025  0.420 | clearance 13.52 mm, d 117.33 um, merit 3.072, deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_s3_r0.in
+R1 concentric knobs (R_g factor, face offset, block r)   0.0008   0.0244   1.335   2.024  0.742 |  1098.9   340.7    0.200   0.000 [0 0]
+                                                     chain:   0.0008   0.0244   1.415   2.024  0.692 | clearance 13.52 mm, d 181.99 um, merit 0.8055, deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_s3_r1.in
+R2 + conic + h^4,h^6 asphere on the block face         0.0014   0.0238   1.344   2.024  0.738 |  1098.9   340.7    0.200  -0.000 [-8.886e-06 -0.1894]
+                                                     chain:   0.0015   0.0238   1.427   2.024  0.692 | clearance 13.52 mm, d 181.99 um, merit 0.798, deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_s3_r2.in

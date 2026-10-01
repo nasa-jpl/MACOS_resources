@@ -48,9 +48,13 @@ function M = spectrometer_rx(G, file, opts)
         s = S(k);
         e = struct('name', s.name, 'surface', 'Flat', 'Kr', -1e22, 'Kc', 0, ...
                    'psi', s.psi(:), 'vpt', s.C(:), 'indref', 1, 'extinc', 0, ...
-                   'glass', '', 'element', '', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22);
-        if strcmp(s.kind, 'sphere')
+                   'glass', '', 'element', '', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22, 'asph', []);
+        if strcmp(s.kind, 'sphere') || strcmp(s.kind, 'asph')
             e.surface = 'Conic';  e.Kr = -s.R;  e.vpt = s.vpt(:);  e.psi = s.psi(:);
+            if isfield(s, 'Kc'), e.Kc = s.Kc; end
+            if isfield(s, 'A') && ~isempty(s.A) && any(s.A ~= 0)
+                e.surface = 'Aspheric';  e.asph = s.A(:)';   % AsphCoef(i) -> h^(2i+2) of sag along +psi
+            end
         end
         switch s.act
         case 'refract'
@@ -95,7 +99,7 @@ function M = spectrometer_rx(G, file, opts)
                 E{end+1} = e;                                        %#ok<AGROW>
                 e = struct('name', 'FPA', 'surface', 'Flat', 'Kr', -1e22, 'Kc', 0, ...
                            'psi', din, 'vpt', pc, 'indref', 1, 'extinc', 0, 'glass', '', ...
-                           'element', 'FocalPlane', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22);
+                           'element', 'FocalPlane', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22, 'asph', []);
             end
         end
         E{end+1} = e;                                                %#ok<AGROW>
@@ -133,6 +137,13 @@ function M = spectrometer_rx(G, file, opts)
         ln{end+1} = sprintf('          Surface=  %s', e.surface);
         ln{end+1} = sprintf('            KrElt=  %.10E', e.Kr);
         ln{end+1} = sprintf('            KcElt=  %.10E', e.Kc);
+        if ~isempty(e.asph)
+            % the parser reads nAsphCoef_Default = 4 values from this line (a
+            % shorter line is an uncaught end-of-file that kills the host) --
+            % pad with zeros to four, at most four terms (h^4 .. h^10)
+            a4 = zeros(1, 4);  a4(1:numel(e.asph)) = e.asph(1:min(4, numel(e.asph)));
+            ln{end+1} = sprintf('         AsphCoef=  %s', sprintf('%.15E  ', a4));
+        end
         ln{end+1} = sprintf('           psiElt=  %s', F(e.psi));
         ln{end+1} = sprintf('           VptElt=  %s', F(e.vpt));
         ln{end+1} = sprintf('           RptElt=  %s', F(e.vpt));
