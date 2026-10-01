@@ -34,6 +34,9 @@ function M = spectrometer_rx(G, file, opts)
         opts.name (1,:) char = ''
         opts.terminal (1,:) char {mustBeMember(opts.terminal, {'geometric','farfield'})} = 'geometric'
         opts.L_ref (1,1) double {mustBePositive} = 0.1
+        opts.apertures (1,1) logical = false
+        opts.margin (1,1) double = 5e-3
+        opts.footprints = []
     end
     if isnan(opts.wavelen), opts.wavelen = G.src.lambda_c; end
     if isempty(opts.name), opts.name = ['spectrometer_' G.form]; end
@@ -43,12 +46,23 @@ function M = spectrometer_rx(G, file, opts)
     pos0 = G.slit(:) + G.src.zsrc_gap*d0;
 
     S = G.surf;  nS = numel(S);
+    % declared apertures (BRIEF_to_dyson5 addendum 6): every optical surface
+    % gets ApType Circular, ApVec = (footprint radius + margin, xc, yc) in its
+    % aperture frame, with xObs written as global x (projected) so the frame
+    % is the one the footprints were measured in; the engine then vignettes
+    % what it should and macos.view_rx draws real bodies.
+    FP = opts.footprints;
+    if opts.apertures && isempty(FP), FP = G.footprints(); end
     E = {};                                    % element records in order
     for k = 1:nS
         s = S(k);
         e = struct('name', s.name, 'surface', 'Flat', 'Kr', -1e22, 'Kc', 0, ...
                    'psi', s.psi(:), 'vpt', s.C(:), 'indref', 1, 'extinc', 0, ...
-                   'glass', '', 'element', '', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22, 'asph', []);
+                   'glass', '', 'element', '', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22, 'asph', [], ...
+                   'ap', [], 'xobs', []);
+        if opts.apertures && ~strcmp(s.act, 'stop')
+            e.ap = [FP(k).radius + opts.margin, FP(k).xc, FP(k).yc];  e.xobs = FP(k).xap(:);
+        end
         if strcmp(s.kind, 'sphere') || strcmp(s.kind, 'asph')
             e.surface = 'Conic';  e.Kr = -s.R;  e.vpt = s.vpt(:);  e.psi = s.psi(:);
             if isfield(s, 'Kc'), e.Kc = s.Kc; end
@@ -99,7 +113,8 @@ function M = spectrometer_rx(G, file, opts)
                 E{end+1} = e;                                        %#ok<AGROW>
                 e = struct('name', 'FPA', 'surface', 'Flat', 'Kr', -1e22, 'Kc', 0, ...
                            'psi', din, 'vpt', pc, 'indref', 1, 'extinc', 0, 'glass', '', ...
-                           'element', 'FocalPlane', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22, 'asph', []);
+                           'element', 'FocalPlane', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22, 'asph', [], ...
+                           'ap', [], 'xobs', []);
             end
         end
         E{end+1} = e;                                                %#ok<AGROW>
@@ -107,6 +122,7 @@ function M = spectrometer_rx(G, file, opts)
     nElt = numel(E);
     M.iG = find(cellfun(@(e) strcmp(e.element, 'Grating'), E));
     M.iFPA = nElt;  M.iRef = nElt - 1;  M.nElt = nElt;  M.file = file;  M.terminal = opts.terminal;
+    M.apertures = opts.apertures;  M.footprints = FP;  M.margin = opts.margin;
     if strcmp(opts.terminal, 'farfield'), M.iEP = nElt - 1;  M.iFPr = nElt - 2;  M.L_ref = opts.L_ref; end
 
     ln = {};
@@ -158,8 +174,14 @@ function M = spectrometer_rx(G, file, opts)
             ln{end+1} = sprintf('        RuleWidth=  %.12E', e.grating.d);
         end
         ln{end+1} =         '            nCoat=  0';
+        if ~isempty(e.xobs), ln{end+1} = sprintf('             xObs=  %s', F(e.xobs)); end
         ln{end+1} =         '             nObs=  0';
-        ln{end+1} =         '           ApType=  None';
+        if isempty(e.ap)
+            ln{end+1} =     '           ApType=  None';
+        else
+            ln{end+1} =     '           ApType=  Circular';
+            ln{end+1} = sprintf('            ApVec=  %.12E  %.12E  %.12E', e.ap(1), e.ap(2), e.ap(3));
+        end
         ln{end+1} = sprintf('         PropType=  %s', e.proptype);
         ln{end+1} = sprintf('             zElt=  %.15E', e.zelt);
         ln{end+1} =         '          nECoord=  -6';

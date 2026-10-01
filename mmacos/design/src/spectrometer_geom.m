@@ -106,11 +106,22 @@ function G = spectrometer_geom(form, P)
         slit = [0; ys; 0];
     case 'offner'
         R = P.offner_R;  ys = P.y_slit;
+        % the convex grating radius: R/2 exactly is the concentric seed, which
+        % carries astigmatism growing with the ring radius; Offner's correction
+        % makes it slightly different (P.offner_Rg_factor x R/2)
+        fg = 1;  if isfield(P, 'offner_Rg_factor'), fg = P.offner_Rg_factor; end
         S = struct('kind',{},'C',{},'R',{},'n_out',{},'act',{},'root',{}, ...
                    'vpt',{},'psi',{},'name',{},'glass',{},'Kc',{},'A',{});
+        % the second concave zone (M3) may differ from the first: its own
+        % radius factor and a centre offset (dy along the dispersion, dz) --
+        % the classical Offner spectrometer's corrections
+        fm3 = 1;  C3 = [0;0;0];
+        if isfield(P, 'offner_M3_factor'), fm3 = P.offner_M3_factor; end
+        if isfield(P, 'offner_M3_dy'), C3(2) = P.offner_M3_dy; end
+        if isfield(P, 'offner_M3_dz'), C3(3) = P.offner_M3_dz; end
         S(1) = sphere_([0;0;0], R,   1, 'reflect', 'far',  'M1', '', [0;0;0]);
-        S(2) = sphere_([0;0;0], R/2, 1, 'grating', 'near', 'Grating', '', [0;0;-R/2]);
-        S(3) = sphere_([0;0;0], R,   1, 'reflect', 'far',  'M3', '', [0;0;0]);
+        S(2) = sphere_([0;0;0], fg*R/2, 1, 'grating', 'near', 'Grating', '', [0;0;-fg*R/2]);
+        S(3) = sphere_(C3, fm3*R, 1, 'reflect', 'far',  'M3', '', C3);
         S(4) = plane_([0;0;0], [0;0;-1], 1, 'stop', 'FPA', '');
         % M1/M3 vertices: the chief hit points (set after the aim solve)
         G.R = R;
@@ -128,7 +139,7 @@ function G = spectrometer_geom(form, P)
     if strcmp(form, 'offner')                   % vertices at the chief hits
         [pts] = trace_chain_(S, slit, d0, lam_c, G);
         S(1).vpt = pts(:,1);  S(1).psi = -pts(:,1)/norm(pts(:,1));
-        S(3).vpt = pts(:,3);  S(3).psi = -pts(:,3)/norm(pts(:,3));
+        S(3).vpt = pts(:,3);  S(3).psi = (S(3).C - pts(:,3))/norm(S(3).C - pts(:,3));
     end
     G.surf = S;
 
@@ -179,6 +190,68 @@ function G = spectrometer_geom(form, P)
     G.trace = @(p0, d, lam) trace_chain_(S, p0, d, lam, G);
     G.cone  = @(u, nring) cone_(u, nring);
     G.aim   = @(p0, lam) aim_(S, p0, S(iG).vpt, G, lam, iG);
+    G.bundle = @(varargin) bundle_(G, varargin{:});
+    G.footprints = @(varargin) footprints_(G, varargin{:});
+end
+
+function B = bundle_(G, opts)
+%BUNDLE_  The multi-field, multi-lambda ray bundle through the chain: slit
+%   centre + both ends (+ opts.nx extra points), band edges + centre, chief +
+%   nring rings of marginals.  B.P (3, nRay, nSurf+1): slit point then every
+%   surface hit; B.D the directions after each surface; B.ok.
+    arguments
+        G struct
+        opts.nx (1,1) double = 3
+        opts.nlam (1,1) double = 3
+        opts.nring (1,1) double = 2
+    end
+    W = G.P.npix(1)*G.P.pixel_m;  xs = linspace(-W/2, W/2, opts.nx);
+    lams = linspace(G.P.band_m(1), G.P.band_m(2), opts.nlam);
+    dirs0 = cone_(G.src.u, opts.nring);
+    nS = numel(G.surf);  P = [];  D = [];  ok = logical([]);  meta = [];
+    for xs_ = xs
+        slit = G.slit + [xs_; 0; 0];
+        for lam = lams
+            d0 = aim_(G.surf, slit, G.surf(G.iG).vpt, G, lam, G.iG);
+            ez = d0;  ex = cross([0;1;0], ez);  ex = ex/norm(ex);  ey = cross(ez, ex);
+            dd = ex*dirs0(1,:) + ey*dirs0(2,:) + ez*dirs0(3,:);
+            for k = 1:size(dd, 2)
+                [pts, dr, okk] = trace_chain_(G.surf, slit, dd(:,k), lam, G);
+                if ~okk, continue; end
+                P(:, end+1, :) = reshape([slit, pts], 3, 1, nS+1);           %#ok<AGROW>
+                D(:, end+1, :) = reshape([dd(:,k), dr], 3, 1, nS+1);        %#ok<AGROW>
+                ok(end+1, 1) = true;  meta(end+1, :) = [xs_, lam, k];     %#ok<AGROW>
+            end
+        end
+    end
+    B.P = P;  B.D = D;  B.ok = ok;  B.meta = meta;  B.nx = opts.nx;  B.nlam = opts.nlam;  B.nring = opts.nring;
+end
+
+function F = footprints_(G, opts)
+%FOOTPRINTS_  Per-surface beam footprint in the surface's APERTURE frame
+%   (x_ap = global x projected into the vertex tangent plane, y_ap =
+%   psi x x_ap -- the engine's xObs/yObs with xObs = x written), about the
+%   VERTEX: centre (xc, yc), enclosing radius about that centre, extents.
+%   The emitter declares ApType Circular with ApVec = (radius + margin, xc,
+%   yc); the clearance tool and the trade table size the bodies from it.
+    arguments
+        G struct
+        opts.nx (1,1) double = 3
+        opts.nlam (1,1) double = 3
+        opts.nring (1,1) double = 2
+    end
+    B = bundle_(G, 'nx', opts.nx, 'nlam', opts.nlam, 'nring', opts.nring);
+    nS = numel(G.surf);
+    F = struct('xc', {}, 'yc', {}, 'radius', {}, 'xlim', {}, 'ylim', {}, 'xap', {}, 'yap', {}, 'n', {});
+    for k = 1:nS
+        S = G.surf(k);  psi = S.psi(:)/norm(S.psi);
+        xap = [1;0;0] - ([1;0;0]'*psi)*psi;  xap = xap/norm(xap);  yap = cross(psi, xap);
+        H = squeeze(B.P(:, :, k+1));  rho = H - S.vpt(:);
+        px = (rho'*xap)';  py = (rho'*yap)';
+        xc = 0.5*(min(px) + max(px));  yc = 0.5*(min(py) + max(py));
+        F(k) = struct('xc', xc, 'yc', yc, 'radius', max(hypot(px - xc, py - yc)), ...
+                      'xlim', [min(px) max(px)], 'ylim', [min(py) max(py)], 'xap', xap, 'yap', yap, 'n', numel(px));
+    end
 end
 
 % =====================================================================

@@ -1,13 +1,15 @@
-dyson5 trade table (2026-10-01 05:44) -- engine rows; length = slit plane to grating vertex; footprint = diameter of the
+dyson5 trade table (2026-10-01 06:33) -- engine rows; length = slit plane to grating vertex; footprint = diameter of the
   grating hits over slit centre + ends x band edges (chief + 8 marginals); glass = block spherical cap + meniscus.
-radius  rung                                                      keystone    smile     CRF     SRF     EE   length  footpr.  nElt    glass      r     R_g
-                                                                        px       px      px      px    1px       mm       mm           cm^3     mm      mm
-r held  R0 concentric seed                                          0.0951   0.0061   2.275   2.024  0.440    708.4    275.3     5    22225    220     708
-r held  R1 concentric knobs (R_g factor, face offset, block r)      0.0384   0.0026   2.101   2.025  0.477    704.4    273.7     5    22271    220     704
-r held  R2 + conic + h^4,h^6 asphere on the block face              0.0371   0.0040   2.125   2.025  0.472    704.4    273.7     5    22271    220     704
-r held  R3 + block centre off the grating centre (dz, dy)           0.0111   0.0083   2.097   2.026  0.476    697.8    271.6     5    22062    220     698
-r held  R4a meniscus alone (vertex, thickness, 2 curvatures)        0.0629   0.0120   2.493   2.051  0.331    697.8    270.3     9    22291    220     698
-r held  R4 + meniscus corrector, all variables (compact variant)    0.0026   0.0051   1.327   2.032  0.759    693.9    268.5     9    22705    220     694
-r free  R0 concentric seed                                          0.0951   0.0061   2.275   2.024  0.440    708.4    275.3     5    22225    220     708
-r free  R1 concentric knobs (R_g factor, face offset, block r)      0.0244   0.0008   1.335   2.024  0.742   1098.9    427.0     5    82784    341    1099
-r free  R2 + conic + h^4,h^6 asphere on the block face              0.0238   0.0014   1.344   2.024  0.738   1098.9    427.0     5    82784    341    1099
+radius  rung                                                      keystone    smile     CRF     SRF     EE   length  footpr.  nElt    glass      r     R_g   blockD   blockT    gratD     menD
+                                                                        px       px      px      px    1px       mm       mm           cm^3     mm      mm       mm       mm       mm       mm
+r held  R0 concentric seed                                          0.0951   0.0061   2.275   2.024  0.440    708.4    275.3     5    22225    220     708    146.4    219.5    285.3      0.0
+r held  R1 concentric knobs (R_g factor, face offset, block r)      0.0384   0.0026   2.101   2.025  0.477    704.4    273.7     5    22271    220     704    146.2    219.8    283.7      0.0
+r held  R2 + conic + h^4,h^6 asphere on the block face              0.0371   0.0040   2.125   2.025  0.472    704.4    273.7     5    22271    220     704    146.2    219.8    283.7      0.0
+r held  R3 + block centre off the grating centre (dz, dy)           0.0111   0.0083   2.097   2.026  0.476    697.8    271.6     5    22062    220     698    145.8    218.4    281.6      0.0
+r held  R4a meniscus alone (vertex, thickness, 2 curvatures)        0.0629   0.0120   2.493   2.051  0.331    697.8    270.3     9    22291    220     698    146.0    218.4    280.3    155.4
+r held  R4 + meniscus corrector, all variables (compact variant)    0.0026   0.0051   1.327   2.032  0.759    693.9    268.5     9    22705    220     694    146.6    221.2    278.5    155.2
+r free  R0 concentric seed                                          0.0951   0.0061   2.275   2.024  0.440    708.4    275.3     5    22225    220     708    146.4    219.5    285.3      0.0
+r free  R1 concentric knobs (R_g factor, face offset, block r)      0.0244   0.0008   1.335   2.024  0.742   1098.9    427.0     5    82784    341    1099    193.4    340.5    437.0      0.0
+r free  R2 + conic + h^4,h^6 asphere on the block face              0.0238   0.0014   1.344   2.024  0.738   1098.9    427.0     5    82784    341    1099    193.4    340.5    437.0      0.0
+sizes: block/grating/meniscus diameters = 2 x (footprint radius + 5 mm aperture margin) about the footprint centre;
+  block thickness = sphere vertex to flat face on the axis; length = slit plane to grating vertex.

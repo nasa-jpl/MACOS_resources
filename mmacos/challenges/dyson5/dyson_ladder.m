@@ -119,7 +119,8 @@ function L = dyson_ladder(P, tag, opts)
         G = spectrometer_geom('dyson', Pcur);
         Rc = spectrometer_score_chain(G, Pcur, 'nx', P.score_nx, 'nlam', P.score_nlam, 'nring', 6);
         file = sprintf('%s_s3_r%d.in', tag, k);
-        M = spectrometer_rx(G, file, 'ngridpts', P.ngridpts, 'name', sprintf('%s_r%d', P.tag, k));
+        M = spectrometer_rx(G, file, 'ngridpts', P.ngridpts, 'name', sprintf('%s_r%d', P.tag, k), ...
+                            'apertures', true, 'margin', ap_margin_(P));
         macos.load_rx(file);
         Re = spectrometer_score(G, M, Pcur, 'nx', P.score_nx, 'nlam', P.score_nlam, 'quiet', true);
         L.rung(end+1) = struct('name', rg.name, 'vars', {V}, 'x', x, 'P', Pcur, 'chain', Rc, ...
@@ -130,6 +131,10 @@ function L = dyson_ladder(P, tag, opts)
                 G.Rg*1e3, G.r*1e3, Pcur.face_offset*1e3, Pcur.block_Kc, mat2str(Pcur.block_asph, 4));
         end
     end
+end
+
+function m = ap_margin_(P)
+    if isfield(P, 'ap_margin_m'), m = P.ap_margin_m; else, m = 5e-3; end
 end
 
 function r = resid_(Pc, opts)
