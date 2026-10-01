@@ -29,9 +29,11 @@ function G = spectrometer_geom(form, P)
 %   wavelength), order (|m|, sign solved so dispersion pushes the FPA AWAY
 %   from the slit), y_slit (slit-centre offset from the axis), and per form
 %   block_r / glass / face_offset / Rg_factor  or  offner_R.  Optional
-%   P.grating_model = 'surface' (default; = the engine's constant period
-%   along the surface) | 'planes' (straight-ruled: equidistant groove
-%   planes, constant period along the chord).
+%   P.grating_model = 'planes' (DEFAULT since the engine fix of 2026-09-30:
+%            straight-ruled, equidistant groove PLANES, period constant along
+%            the chord -- what elemsub.F Snells_Law_Grating now traces) |
+%            'surface' (period constant ALONG the surface: the PRE-FIX engine,
+%            kept for the beat-2 record's two-column comparison).
 %
 %   Returns G with .surf (the chain: struct array with .kind 'plane'|
 %   'sphere', .C centre, .R radius, .n_out, .act 'refract'|'reflect'|
@@ -83,7 +85,7 @@ function G = spectrometer_geom(form, P)
     G.grating.groove = [1;0;0];                 % grooves along the slit
     G.grating.sdir   = [0;1;0];                 % dispersion direction (projected per hit)
     G.grating.m = 0;  G.grating.d = Inf;        % order 0 while aiming / focusing
-    if isfield(P, 'grating_model'), G.grating.model = P.grating_model; else, G.grating.model = 'surface'; end
+    if isfield(P, 'grating_model'), G.grating.model = P.grating_model; else, G.grating.model = 'planes'; end   % default 'planes' since the engine fix of 2026-09-30 (chord-ruled grooves); 'surface' = the pre-fix engine
 
     % -- chief aim: the ray from the slit centre through the grating vertex
     d0 = aim_(S, slit, S(iG).vpt, G, lam_c, iG);

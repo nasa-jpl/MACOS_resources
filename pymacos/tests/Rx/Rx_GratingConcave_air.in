@@ -1,0 +1,120 @@
+% Rx_GratingConcave_air.in -- the AIR twin of mmacos/tests/Rx/Rx_GratingImmersed.in
+% (GlassElt removed, every IndRef 1): a collimated beam through a flat face onto
+% a CONCAVE reflection grating (Kr -0.1 m, 20 mm aperture, grooves along y,
+% h1HOE = x, 1 um... see RuleWidth).  Gate for the CHORD-ruled groove model
+% (pymacos tests/test_grating_chord.py): on a curved surface the local grating
+% vector is (m lambda/d)*(s0 - (s0.N)N) UN-normalised.
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -2.0E-02
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=2.0E-02
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  11
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  4
+
+             iElt=  1
+          EltName=  BlockFace
+          Element=  Refractor
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=5.0E-02
+          nECoord= -6
+
+             iElt=  2
+          EltName=  ImmersedGrating
+          Element=  Grating
+          Surface=  Conic
+            KrElt=-1.0E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  5.0E-02
+           RptElt=  0.0E+00  0.0E+00  5.0E-02
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            h1HOE=  1.0E+00  0.0E+00  0.0E+00
+         OrderHOE=  1
+        RuleWidth=  1.0E-05
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=3.0E-02
+          nECoord= -6
+
+             iElt=  3
+          EltName=  ReturnInGlass
+          Element=  Return
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  2.0E-02
+           RptElt=  0.0E+00  0.0E+00  2.0E-02
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-02
+          nECoord= -6
+
+             iElt=  4
+          EltName=  FPInGlass
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0E-02
+           RptElt=  0.0E+00  0.0E+00  1.0E-02
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-02
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00
