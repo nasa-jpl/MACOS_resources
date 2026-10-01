@@ -166,13 +166,14 @@ function P = dyson5_params(over)
     % COLD-SHIELD HEIGHT is the parameter -- each height needs an air gap of
     % height + clearance between the prism's exit face and the FPA, and the
     % design is re-solved (R5 rung) at each; the record is at fold_shield_m
-    P.fold_h_m = 8e-3;                    % fold plane depth below the face (the beam half-height there is ~7 mm)
+    P.fold_h_m = 16e-3;                   % fold plane depth below the face: the package (9 mm + 2 x 5 mm carrier, centred on
+                                          % the fold) must stay below the face plane by the mount margin -- 8 mm stood 1.5 mm INSIDE the block
     P.fold_slit_gap_m = 0.5e-3;           % slit in air before the entrance plate
-    P.fold_face_offset_m = 17e-3;         % seed face offset (plate thickness + slit gap); the R5 rung solves it
-    P.fold_shield_sweep_m = [0 2e-3 5e-3 10e-3];   % cold-shield heights swept
-    P.fold_shield_m = 2e-3;               % the shield height of record
+    P.fold_face_offset_m = 25e-3;         % seed face offset (plate thickness + slit gap); the R5 rung solves it (>= fold + 7.5 + gap)
+    P.fold_shield_sweep_m = [0 1e-3 2e-3 3e-3 5e-3];   % cold-shield heights swept (air gap = h + 1 mm, both sides)
+    P.fold_shield_m = [];                 % the shield height of record: [] = the TALLEST height that closes (spec + clearance)
     P.fold_shield_clear_m = 1e-3;         % air beyond the shield to the prism's exit face
-    P.fold_max_iter = 30;                 % lsqnonlin iterations per sweep point (warm-started along the sweep)
+    P.fold_max_iter = 40;                 % lsqnonlin iterations per sweep point (warm-started along the sweep; 12 variables, ~15 min each)
     % s4env, the closure envelope (addendum 11): R4 re-solved from the record,
     % one axis at a time, judged against the spec; the FPA stays 54 x 9 mm
     P.env_Fno       = [1.6 1.8 2.0 2.2 2.8];

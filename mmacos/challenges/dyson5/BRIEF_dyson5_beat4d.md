@@ -57,48 +57,71 @@ deeper prism.  The sweep: h = 0, 2, 5, 10 mm, each a full R5 solve,
 engine score and clearance gate (the package in the folded frame, the plate
 and prism one cemented part with the block).  The record is h = 2 mm.
 
-## 4. Result (dyson5_s5.txt; engine scores on the 7 x 7 grid)
+## 4. Result -- SUPERSEDED, see section 5
 
-| shield h | air gap | face offset | smile | keystone | CRF | SRF | EE | clearance | worst pair |
+The first sweep (commit 18c225a) is withdrawn: its warm start carried the
+previous point's air gap along (every point ran at 1.0 mm), its fold was
+8 mm deep so the package stood 1.5 mm inside the block above the face
+plane, and the clearance gate of that day scored legs against bodies only
+and could not see a package inside the glass.  The gate now flags a leg
+inside a box body and scores the mask and the package against every other
+body (section 5); the old record fails it at -1.49 mm.
+
+## 5. Result, second sweep (2026-10-01, run 11): the air gap is the price
+
+**What the air gap costs, measured on the chain before any re-solve** (the
+unfolded R4 of record with its 0.85 mm air at slit and FPA widened to 2 and
+3 mm on both sides): CRF 1.33 -> 1.78 -> 1.96 px, keystone 0.02 -> 0.23 ->
+0.42 px.  Physics, not the solver: at F/1.8 a plane air/glass boundary
+ahead of a converging cone carries spherical and field aberration growing
+with the gap (~0.5 px per 3 mm), which is why Dyson slits and detectors
+are proximate.  So the cold-shield height, which needs an air gap of
+h + 1 mm between the prism's exit face and the detector (and the same gap
+on the slit side, to keep the concentric form's object and image media
+equal -- air on the image side alone cost CRF 1.19 -> 1.54 px), is bought
+with image quality.
+
+The second sweep's form: fold plane 16 mm below the face (the package,
+9 mm + 2 x 5 mm carrier, centred on the fold, stays below the face plane
+by the mount margin), the exit face placed after the focus solve so the
+gap is exact, the slit plane's axial position an R5 variable (twelve
+variables, 40 iterations per point), heights 0 / 1 / 2 / 3 / 5 mm, the
+record the TALLEST height that closes (spec + clearance gate, which now
+also scores the package and the mask against every body).
+
+| shield h | air gaps (both sides) | face offset | smile | keystone | CRF | SRF | EE | clearance | worst pair |
 |---|---|---|---|---|---|---|---|---|---|
-| R4 of record (no fold) | -- | 0.85 mm | 0.0051 | 0.0026 | 1.327 | 2.032 | 0.759 | +1.19 mm | slit mask vs FPA package |
-| 0 mm | 1.0 mm | 17.0 mm | 0.0041 | 0.0179 | 1.306 | 2.031 | 0.779 | +1.01 mm | block leg vs package corner |
-| 2 mm | 3.0 mm | 29.0 mm | 0.0146 | 0.0143 | 1.378 | 2.031 | 0.727 | +0.67 mm | fold -> exit leg vs package |
-| 5 mm | 6.0 mm | 29.0 mm | 0.0139 | 0.0169 | 1.390 | 2.030 | 0.725 | +0.14 mm | fold -> exit leg vs package |
-| 10 mm | 11.0 mm | 23.5 mm | 0.0095 | 0.0128 | 1.295 | 2.030 | 0.796 | +0.06 mm | face -> fold leg vs package |
+| R4 of record (no fold) | 0.85 mm | 0.85 mm | 0.0051 | 0.0026 | 1.327 | 2.032 | 0.759 | +0.79 mm | slit mask against the face (adjacent by design) |
+| **0 mm (record)** | 1.0 mm | 25.0 mm | 0.0051 | 0.0085 | **1.267** | 2.035 | 0.695 | **+0.90 mm PASS** | package against the fold mirror |
+| 1 mm | 2.0 mm | 32.8 mm | 0.0052 | 0.0524 | 1.745 | 2.139 | 0.258 | +1.15 mm | fold -> exit leg vs package |
+| 2 mm | 3.0 mm | 32.8 mm | 0.0055 | 0.0581 | 2.306 | 2.411 | 0.135 | +1.04 mm | fold -> exit leg vs package |
+| 3 mm | 4.0 mm | 32.8 mm | 0.0047 | 0.0686 | 2.776 | 2.805 | 0.072 | +1.00 mm | fold -> exit leg vs package |
+| 5 mm | 6.0 mm | 32.8 mm | 0.0151 | 0.1201 | 3.746 | 3.839 | 0.040 | +1.00 mm | package against the exit face |
 
-**The fold does what it was asked to do.**  Every point PASSES the
-clearance gate with the detector package 25-45 mm from the slit (the slit
-mask's own worst pair is now the entrance plate's leg at +2.1 mm), and the
-image quality is R4's or better: CRF 1.30-1.39 px against the 1.5 px spec,
-smile and keystone 0.004-0.018 px against 0.1, SRF at the 2-px slit floor.
-A cold shield of any height in the sweep fits -- what it costs is a
-thicker plate / deeper prism (face offset 17 -> 24-29 mm) and the package
-reaching toward the prism: the clearance margin shrinks to +0.14 mm at 5 mm
-and +0.06 mm at 10 mm, where the package's corner sits against the beam
-inside the prism.  Beyond ~10 mm the package must be shaped (chamfered
-toward the prism) or the exit face moved; the gate will say so.
+**R5 of record: the fold with NO cold shield** (1 mm air at slit and
+detector, plate 24 mm thick, fold plane 16 mm below the face, exit face
+8 mm beyond the fold): engine CRF 1.267 px (R4: 1.327), EE 0.695 (R4:
+0.759), smile 0.0051 / keystone 0.0085 px, every clearance pair positive
+with the package 27 mm from the slit (+0.90 mm against the fold mirror's
+mount).  The refinement from the same basin at 80 iterations gave CRF 1.321
+with keystone 0.0033 and EE 0.725 -- not a lower CRF, so the sweep solve
+stands (the rule as stated).  Deck `dyson5_s5_r5_h00.in`; `dyson5_s5_sweep.png`.
 
-**The landscape is multimodal and the sweep's solves are short** (30
-iterations, warm-started along the sweep): h = 2 and 5 mm landed in a
-29 mm-face basin at CRF 1.38 while h = 0 and 10 mm found 17 / 23.5 mm
-faces at CRF 1.30.  The stage therefore re-solves the record height from
-the best sweep basin with twice the iterations and keeps the better of the
-two (the 'refined' row of the table; result below).  Dave's R4 lesson again:
-the meniscus-plus-face landscape has several basins of similar merit.
+**The answer to addendum 10's question.**  The fold prism does its job --
+it takes the detector package out of the slit's plane, where R4 had it
++1.19 mm from the slit mask with no room for anything -- but the cold-shield
+height cannot be bought: every millimetre of air between the prism's exit
+face and the detector costs ~0.5 px of CRF (1.27 -> 1.75 -> 2.31 -> 2.78 ->
+3.75 px for 1 -> 6 mm), and the twelve-variable re-solve at each gap does
+not recover it (the air/glass boundary ahead of an F/1.8 cone carries
+spherical and field aberration that the block, meniscus and slit-plane
+knobs do not cancel).  So a cold shield in this form has to live INSIDE the
+1 mm the design tolerates, or be a cold WINDOW cemented as the prism's exit
+face with the shield as the detector housing behind it -- the next R5
+variant if Dave wants it on the record.  A slower cone (the envelope's
+F/2.2 point has CRF 1.15 px at R4) would buy air; that trade is the
+envelope's, not this beat's.
 
-**R5 of record (shield 2 mm, refined from the 10 mm basin, 60 iterations):**
-face offset 23.51 mm (plate 23.0 mm thick), fold plane 8 mm below the face,
-exit face 14.67 mm beyond the fold, 1.0 mm air gap; engine smile 0.0094 /
-keystone 0.0119 px, **CRF 1.295 px, SRF 2.030 px, EE 0.794**, clearance
-+0.67 mm PASS (fold -> exit leg vs the package).  Against R4 of record: CRF
-1.327 -> 1.295, EE 0.759 -> 0.794, distortion 0.005 -> 0.012 px (40x under
-spec either way), and a detector package WITH a 2 mm cold shield where R4
-had +1.19 mm and no shield at all.  Deck `dyson5_s5_r5_h02_refined.in`;
-the trade table's `fold` row; `dyson5_s5_sweep.png` carries the sweep with
-the refined record as the star.
-
-Deck note for the talk: the fold is small at the layout's scale (25 mm at
-the base of a 700 mm instrument) -- the engine's y-z render shows it (E10
-fold mirror, E11 exit face, E13 FPA); a zoom inset of the base is a
-producer item for the deck, not done here.
+Deck note: the layout producer shows the fold small at the instrument's
+scale; the engine's y-z render (`dyson5_s5_r5_h00_viewyz.png`) shows it; a
+zoom inset of the base is a producer item for the deck.
