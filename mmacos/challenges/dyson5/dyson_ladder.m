@@ -46,6 +46,8 @@ function L = dyson_ladder(P, tag, opts)
         opts.max_iter (1,1) double = 60
         opts.free_r (1,1) logical = false
         opts.quiet (1,1) logical = false
+        opts.seed = []                         % a parameter set to start from (R5 starts from R4's)
+        opts.deck (1,:) char = ''              % deck file name override (one rung)
     end
     base = struct('Fno', P.Fno, 'pixel_m', P.pixel_m, 'npix', P.npix, 'band_m', P.band_m, ...
                   'lambda_ref_m', P.lambda_ref_m, 'order', P.order, 'y_slit', P.y_slit_m, ...
@@ -53,6 +55,9 @@ function L = dyson_ladder(P, tag, opts)
                   'Rg_factor', P.Rg_factor, 'grating_model', 'planes', 'slit_px', P.slit_px, ...
                   'block_Kc', 0, 'block_asph', [0 0], 'block_dz', 0, 'block_dy', 0, ...
                   'men_z', 0, 'men_t', 0.010, 'men_ca', 0, 'men_cb', 0);
+    for f5 = {'fold_h', 'plate', 'slit_gap', 'fpa_gap'}          % R5's fold prism, when the runner carries it
+        if isfield(P, f5{1}), base.(f5{1}) = P.(f5{1}); end
+    end
     % variable sets per rung: name, lower, upper, scale (the optimizer works in
     % scaled units so every variable is O(1))
     % the block radius is HELD at the seed's unless opts.free_r: freed, the
@@ -87,17 +92,35 @@ function L = dyson_ladder(P, tag, opts)
     % vertex held 0.235-0.30 m: CRF 1.57 / EE 0.63).  The record keeps the
     % bounded solve, states that it sits on its bounds, and leaves a global
     % search over the meniscus for beat 4.
-    Rm = {'men_z', 0.24, 0.60, 0.1;  'men_t', 0.004, 0.040, 0.01;  'men_ca', 0.5, 8, 1;  'men_cb', 0.5, 8, 1};
+    % the meniscus vertex's lower bound follows the block (20 mm beyond its
+    % radius): 0.24 m at the record's 220 mm, so the record is unchanged; the
+    % closure-envelope sweep (addendum 11) runs other radii through here
+    Rm = {'men_z', base.block_r + 0.02, 0.60, 0.1;  'men_t', 0.004, 0.040, 0.01;  'men_ca', 0.5, 8, 1;  'men_cb', 0.5, 8, 1};
     R4a = Rm;  R4 = [R3; Rm];
+    % R5, the fold prism: R4's variables with the face offset at the fold's
+    % scale (the plate's thickness on the slit side, the prism's depth on the
+    % image side; bounds leave the exit face >= 7.5 mm beyond the fold plane)
+    R5 = R4;  i5 = find(strcmp(R5(:,1), 'face_offset'));
+    if isfield(base, 'fold_h') && base.fold_h > 0
+        sg = 0.5e-3;  if isfield(base, 'slit_gap'), sg = base.slit_gap; end
+        fg = sg;      if isfield(base, 'fpa_gap'),  fg = base.fpa_gap;  end
+        % exit distance = (face - slit_gap) - fold_h + (slit_gap - fpa_gap)/n  >= 7.5 mm
+        R5(i5, 2:4) = {base.fold_h + 7.5e-3 + sg + (fg - sg)/1.45, 40e-3, 1e-2};
+    end
     rungs = {struct('name', 'R0 concentric seed', 'vars', {{}}), ...
              struct('name', 'R1 concentric knobs (R_g factor, face offset, block r)', 'vars', {R1}), ...
              struct('name', 'R2 + conic + h^4,h^6 asphere on the block face', 'vars', {R2}), ...
              struct('name', 'R3 + block centre off the grating centre (dz, dy)', 'vars', {R3}), ...
              struct('name', 'R4a meniscus alone (vertex, thickness, 2 curvatures)', 'vars', {R4a}), ...
-             struct('name', 'R4 + meniscus corrector, all variables (compact variant)', 'vars', {R4})};
+             struct('name', 'R4 + meniscus corrector, all variables (compact variant)', 'vars', {R4}), ...
+             struct('name', 'R5 + fold prism (plate on the slit side), all variables', 'vars', {R5})};
     % meniscus seed: a concentric shell 30 mm beyond the block face, 10 mm thick
     base.men_z = 0;  base.men_t = 0.010;  base.men_ca = 0;  base.men_cb = 0;
-    Pcur = base;  L.rung = struct('name', {}, 'vars', {}, 'x', {}, 'P', {}, 'chain', {}, 'engine', {}, 'file', {}, 'merit', {});
+    Pcur = base;
+    if ~isempty(opts.seed)                     % warm start: the seed's knobs over the base
+        for f = fieldnames(opts.seed)', if isfield(base, f{1}), Pcur.(f{1}) = opts.seed.(f{1}); end, end
+    end
+    L.rung = struct('name', {}, 'vars', {}, 'x', {}, 'P', {}, 'chain', {}, 'engine', {}, 'file', {}, 'merit', {}, 'on_bounds', {});
     for k = opts.rungs
         rg = rungs{k+1};  V = rg.vars;
         if k >= 4 && Pcur.men_z == 0           % entering R4: the near-null shell about the block's centre
@@ -118,13 +141,22 @@ function L = dyson_ladder(P, tag, opts)
         end
         G = spectrometer_geom('dyson', Pcur);
         Rc = spectrometer_score_chain(G, Pcur, 'nx', P.score_nx, 'nlam', P.score_nlam, 'nring', 6);
-        file = sprintf('%s_s3_r%d.in', tag, k);
+        if ~isempty(opts.deck), file = opts.deck;
+        elseif k <= 5, file = sprintf('%s_s3_r%d.in', tag, k);
+        else, file = sprintf('%s_s5_r%d.in', tag, k);
+        end
         M = spectrometer_rx(G, file, 'ngridpts', P.ngridpts, 'name', sprintf('%s_r%d', P.tag, k), ...
                             'apertures', true, 'margin', ap_margin_(P));
         macos.load_rx(file);
         Re = spectrometer_score(G, M, Pcur, 'nx', P.score_nx, 'nlam', P.score_nlam, 'quiet', true);
+        onb = {};
+        if ~isempty(V)
+            lbv = cell2mat(V(:,2)) ./ cell2mat(V(:,4));  ubv = cell2mat(V(:,3)) ./ cell2mat(V(:,4));
+            hit = abs(x(:) - lbv) < 1e-6*max(1, abs(lbv)) | abs(x(:) - ubv) < 1e-6*max(1, abs(ubv));
+            onb = V(hit, 1)';
+        end
         L.rung(end+1) = struct('name', rg.name, 'vars', {V}, 'x', x, 'P', Pcur, 'chain', Rc, ...
-                               'engine', Re, 'file', file, 'merit', rn);
+                               'engine', Re, 'file', file, 'merit', rn, 'on_bounds', {onb});
         if ~opts.quiet
             fprintf('%s: merit %.4g | engine smile %.4f keystone %.4f CRF %.3f SRF %.3f EE %.3f | clear %.2f mm | R_g %.1f mm r %.1f mm face %.3f mm Kc %.3f A %s\n', ...
                 rg.name, rn, Re.smile_max, Re.keystone_max, Re.crf_max, Re.srf_max, Re.ee_min, G.fpa.clear_to_slit*1e3, ...
@@ -148,7 +180,7 @@ function r = resid_(Pc, opts)
     smile = R.V - R.V(im, :);  keystone = R.U - R.U(:, jm);
     bad = isnan(R.SU) | isnan(R.SV);
     smile(bad) = 10;  keystone(bad) = 10;  SU = R.SU;  SV = R.SV;  SU(bad) = 10;  SV(bad) = 10;
-    wall = max(0, opts.clear_m - G.fpa.clear_to_slit)/opts.clear_m*100;
+    if opts.clear_m > 0, wall = max(0, opts.clear_m - G.fpa.clear_to_slit)/opts.clear_m*100; else, wall = 0; end   % R5: the fold separates slit and FPA; the clearance gate judges
     r = [opts.w_dist*smile(:); opts.w_dist*keystone(:); opts.w_blur*SU(:); opts.w_blur*SV(:); wall];
 end
 

@@ -52,11 +52,16 @@ function f = spectrometer_layout_fig(G, file, opts)
             if isempty(H), continue; end
             switch S.kind
             case 'plane'
-                if strcmp(S.act, 'stop')          % the FPA: a mark of its size
-                    if a == 2, ext = G.fpa.H/2; else, ext = G.fpa.W/2; end
-                    c = G.fpa.center;
-                    plot(ax, [c(3) c(3)]*mm, [c(a)-ext c(a)+ext]*mm, 'm-', 'LineWidth', 3);
-                else                               % the block's flat face: drawn once below
+                if strcmp(S.act, 'stop')          % the FPA: a mark of its size, in ITS frame
+                    if a == 2, ext = G.fpa.H/2;  e = G.fpa.yhat(:); else, ext = G.fpa.W/2;  e = G.fpa.xhat(:); end
+                    c = G.fpa.center(:);  p1 = c - ext*e;  p2 = c + ext*e;
+                    plot(ax, [p1(3) p2(3)]*mm, [p1(a) p2(a)]*mm, 'm-', 'LineWidth', 3);
+                elseif any(strcmp(S.name, {'BlockFaceIn', 'BlockFaceOut'}))   % the block's flat face: drawn once below
+                else                               % any other plane (plate, fold, prism exit): its trace through the hits
+                    Q = [H(3,:); H(a,:)];  q0 = mean(Q, 2);  [U, ~] = svd(Q - q0, 'econ');  u = U(:,1);
+                    tt = u'*(Q - q0);  pad = opts.margin*(max(tt) - min(tt) + 1e-3);
+                    p1 = q0 + (min(tt) - pad)*u;  p2 = q0 + (max(tt) + pad)*u;
+                    plot(ax, [p1(1) p2(1)]*mm, [p1(2) p2(2)]*mm, 'k-', 'LineWidth', 1.5);
                 end
             case {'sphere', 'asph'}
                 lo = min(H(a,:));  hi = max(H(a,:));  pad = opts.margin*(hi - lo + 1e-3);
@@ -71,8 +76,9 @@ function f = spectrometer_layout_fig(G, file, opts)
         end
         if strcmp(G.form, 'dyson')
             % the block: flat face spanning the sphere's footprint, joined to the arc
-            Hs = hits{2};  lo = min(Hs(a,:));  hi = max(Hs(a,:));  pad = opts.margin*(hi - lo);
-            Sb = G.surf(2);  dz = G.surf(1).C(3);
+            ib = find(strcmp({G.surf.name}, 'BlockSphereOut'), 1);  ifc = find(strcmp({G.surf.name}, 'BlockFaceIn'), 1);
+            Hs = hits{ib};  lo = min(Hs(a,:));  hi = max(Hs(a,:));  pad = opts.margin*(hi - lo);
+            Sb = G.surf(ib);  dz = G.surf(ifc).C(3);
             t = linspace(lo - pad, hi + pad, 121);  other = 3 - a;  off = mean(Hs(other,:)) - Sb.C(other);
             z = Sb.C(3) + sqrt(max(Sb.R^2 - (t - Sb.C(a)).^2 - off^2, 0));
             fill(ax, [dz, z, dz]*mm, [t(1), t, t(end)]*mm, [0.85 0.92 1], 'EdgeColor', 'none', 'FaceAlpha', 0.6);
