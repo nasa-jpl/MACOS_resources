@@ -128,6 +128,22 @@ passes, order -1 fails today; green on the fix with no test change);
 engine-free confirmation in `BRIEF_dyson5_beat2c.md`.  The twin's
 order -1 numbers in `dyson5_s2w.txt` are that defect until it lands.
 
+## Beat 3 (2026-10-01) -- the departure ladder
+
+`dyson_ladder.m` + runner stage `s3` (opt-in): rungs solved on the exact
+chain with the pixel-unit smile/keystone operands in the merit from the
+first pass, each emitted and engine-scored.  At the seed's 220 mm block:
+R1 (grating radius factor + face offset) takes keystone 0.095 -> 0.038 px;
+R2 (conic + h^4/h^6 asphere on the block face) is inert, and a 1-D scan
+proves it a steep bowl at zero; **R3 (the block's centre 0.86 mm off the
+grating's along the dispersion) takes keystone to 0.011 px** -- Joe's
+0.1 px by 9x, the paper's ~1 % design rule met -- with smile 0.008 px.
+The blur (CRF 2.1 px, ensquared 0.48) is the concentric fifth-order
+residual at the effective field and is bought only by size (free-radius
+variant: EE 0.74 at 341 mm) or by the paper's separate mirror + meniscus
+(rung R4, next).  Records `dyson5_s3.txt`, `dyson5_s3free.txt`;
+report `BRIEF_dyson5_beat3.md`.
+
 ## Run it yourself
 
 ```matlab

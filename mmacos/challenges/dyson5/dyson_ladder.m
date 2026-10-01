@@ -19,6 +19,8 @@ function L = dyson_ladder(P, tag, opts)
 %         every iterate, so the band always spans the FPA.
 %     R2  + the block's convex face: conic constant and h^4, h^6 asphere
 %         coefficients (Carbon-I's even asphere; engine AsphCoef convention).
+%     R3  + the block's centre off the grating's (dz along the axis, dy along
+%         the dispersion): the de-concentric departure.
 %
 %   Merit (lsqnonlin residual vector, all in pixels over the scoring grid):
 %     w_dist * [smile_ij ; keystone_ij]   with smile_ij = v_c(x_i,l_j) - v_c(x_mid,l_j),
@@ -31,7 +33,7 @@ function L = dyson_ladder(P, tag, opts)
     arguments
         P struct
         tag (1,:) char
-        opts.rungs (1,:) double = 0:2
+        opts.rungs (1,:) double = 0:3
         opts.nx (1,1) double = 5
         opts.nlam (1,1) double = 5
         opts.nring (1,1) double = 4
@@ -46,7 +48,7 @@ function L = dyson_ladder(P, tag, opts)
                   'lambda_ref_m', P.lambda_ref_m, 'order', P.order, 'y_slit', P.y_slit_m, ...
                   'block_r', P.block_r_m, 'glass', P.glass, 'face_offset', P.face_offset_m, ...
                   'Rg_factor', P.Rg_factor, 'grating_model', 'planes', 'slit_px', P.slit_px, ...
-                  'block_Kc', 0, 'block_asph', [0 0]);
+                  'block_Kc', 0, 'block_asph', [0 0], 'block_dz', 0, 'block_dy', 0);
     % variable sets per rung: name, lower, upper, scale (the optimizer works in
     % scaled units so every variable is O(1))
     % the block radius is HELD at the seed's unless opts.free_r: freed, the
@@ -56,9 +58,15 @@ function L = dyson_ladder(P, tag, opts)
     R1 = {'Rg_factor', 0.90, 1.10, 1;  'face_offset', 1e-4, 5e-3, 1e-3};
     if opts.free_r, R1 = [R1; {'block_r', 0.15, 0.35, 0.1}]; end
     R2 = [R1; {'block_Kc', -2, 2, 0.5;  'asph4', -200, 200, 10;  'asph6', -2e5, 2e5, 1e4}];
+    % R3 breaks concentricity: the block's centre leaves the grating's (axial
+    % dz, dispersion-direction dy), with the asphere kept open -- the paper's
+    % compact variant "operates closer to the concentric-aplanatic condition"
+    % with a separate mirror; here the equivalent single-block freedom
+    R3 = [R2; {'block_dz', -0.05, 0.05, 1e-2;  'block_dy', -0.03, 0.03, 1e-2}];
     rungs = {struct('name', 'R0 concentric seed', 'vars', {{}}), ...
              struct('name', 'R1 concentric knobs (R_g factor, face offset, block r)', 'vars', {R1}), ...
-             struct('name', 'R2 + conic + h^4,h^6 asphere on the block face', 'vars', {R2})};
+             struct('name', 'R2 + conic + h^4,h^6 asphere on the block face', 'vars', {R2}), ...
+             struct('name', 'R3 + block centre off the grating centre (dz, dy)', 'vars', {R3})};
     Pcur = base;  L.rung = struct('name', {}, 'vars', {}, 'x', {}, 'P', {}, 'chain', {}, 'engine', {}, 'file', {}, 'merit', {});
     for k = opts.rungs
         rg = rungs{k+1};  V = rg.vars;

@@ -62,9 +62,14 @@ function G = spectrometer_geom(form, P)
         S = struct('kind',{},'C',{},'R',{},'n_out',{},'act',{},'root',{}, ...
                    'vpt',{},'psi',{},'name',{},'glass',{},'Kc',{},'A',{});
         S(1) = plane_([0;0;dz], [0;0;-1], 'glass', 'refract', 'BlockFaceIn', P.glass);
-        S(2) = sphere_([0;0;0], r, 1, 'refract', 'far', 'BlockSphereOut', '', [0;0;r]);
+        % the block's centre may leave the grating's (de-concentric departure):
+        % P.block_dz along the axis, P.block_dy along the dispersion direction
+        Cb = [0; 0; 0];
+        if isfield(P, 'block_dz'), Cb(3) = P.block_dz; end
+        if isfield(P, 'block_dy'), Cb(2) = P.block_dy; end
+        S(2) = sphere_(Cb, r, 1, 'refract', 'far', 'BlockSphereOut', '', Cb + [0;0;r]);
         S(3) = sphere_([0;0;0], Rg, 1, 'grating', 'far', 'Grating', '', [0;0;Rg]);
-        S(4) = sphere_([0;0;0], r, 'glass', 'refract', 'near', 'BlockSphereIn', P.glass, [0;0;r]);
+        S(4) = sphere_(Cb, r, 'glass', 'refract', 'near', 'BlockSphereIn', P.glass, Cb + [0;0;r]);
         % the block's convex face may depart from the sphere: conic constant
         % P.block_Kc and even-asphere coefficients P.block_asph (engine
         % AsphCoef convention: coef(i) multiplies h^(2i+2) of the sag along

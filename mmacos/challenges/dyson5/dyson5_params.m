@@ -127,7 +127,7 @@ function P = dyson5_params(over)
     P.blaze_m    = 1.0e-6;            % scalar blaze wavelength for the chain
     P.qe         = [380e-9 0.55; 600e-9 0.80; 1000e-9 0.85; 2000e-9 0.80; 2500e-9 0.65];  % PLACEHOLDER QE table
     P.wave_nx = 3;  P.wave_nlam = 3;  P.wave_model = 512;  P.wave_ngridpts = 127;  P.wave_L_ref = 0.1;
-    P.ladder_rungs = 0:2;  P.ladder_nx = 5;  P.ladder_nlam = 5;
+    P.ladder_rungs = 0:3;  P.ladder_nx = 5;  P.ladder_nlam = 5;
     P.ladder_w_dist = 10;  P.ladder_w_blur = 1;  P.ladder_clear_m = 3e-3;  P.ladder_max_iter = 60;
     P.ladder_free_r = false;              % true frees the block radius (it walks to its bound)
     P.stages   = {'s0','s1','s2'};        % 's3' (the departure ladder) and 's2w' (the twin, model 512) are opt-in
