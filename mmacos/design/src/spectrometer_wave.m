@@ -10,10 +10,12 @@ function R = spectrometer_wave(G, M, P, opts)
 %
 %   Conventions, stated before any number:
 %   - the PSF grid is centred on the chief ray's FPA pierce; its FIRST
-%     index runs along global X (the slit, u) and its SECOND along global
-%     Y (the dispersion, v) -- the OPD/intensity array rule
-%     (mmacos/doc/opd_conventions.md), and both forms put the FPA in the
-%     global x-y plane; the pitch is macos.dx_at(FPA) in SI metres, set by
+%     index runs along the ExitPupil element's xObs and its SECOND along
+%     yObs = psi x xObs -- +X / +Y for a beam travelling +z (the Offner),
+%     -X / -Y for one travelling -z (the Dyson): the harness maps both to
+%     global X (slit, u) and Y (dispersion, v) with the signs the frame
+%     implies (measured, addendum 8; R.grid_sign records them); both forms
+%     put the FPA in the global x-y plane; the pitch is macos.dx_at(FPA) in SI metres, set by
 %     the far-field FFT: dx_fpa = lambda R_ep / (N dx_ep), so it SCALES
 %     WITH WAVELENGTH (0.3 um at 380 nm to 1.8 um at 2.5 um, model 512).
 %   - WAVE centroid offset = intensity-weighted centroid of the PSF from
@@ -70,7 +72,7 @@ function R = spectrometer_wave(G, M, P, opts)
     R.xs = xs;  R.lams = lams;
     R.du_wave = z;  R.dv_wave = z;  R.du_ray = z;  R.dv_ray = z;
     R.su_wave = z;  R.sv_wave = z;  R.SRF = z;  R.CRF = z;  R.energy = z;  R.dx = z;  R.ee = z;
-    R.ep_rad = z;
+    R.ep_rad = z;  R.grid_sign = [];
     R.psf = cell(nx, nl);
     for i = 1:nx
         slit = G.slit + [xs(i); 0; 0];
@@ -101,7 +103,20 @@ function R = spectrometer_wave(G, M, P, opts)
             [ii, jj] = ndgrid(1:N, 1:N);
             tot = sum(I(:));
             ci = sum(I(:).*ii(:))/tot;  cj = sum(I(:).*jj(:))/tot;
-            R.du_wave(i,j) = (ci - c0)*dx/px;  R.dv_wave(i,j) = (cj - c0)*dx/px;
+            % GRID ORIENTATION (measured 2026-10-01, addendum 8): see below.
+            if isempty(R.grid_sign)
+                % the far-field grid = the SOURCE grid's (xGrid, yGrid)
+                % orientation carried in index space and INVERTED by the FFT:
+                % index 1 runs along -xGrid, index 2 along -yGrid.  The emitter
+                % writes xGrid = +X and yGrid = chief x X, i.e. +Y for a +z
+                % chief (Dyson) and -Y for a -z chief (Offner) -- which is the
+                % (-X,-Y) / (-X,+Y) pair measured 2026-10-01 (addendum 8).
+                sc = macos.get_src_csys();
+                R.grid_sign = [-sign(sc.xDir(1)), -sign(sc.yDir(2))];
+                if ~opts.quiet, fprintf('  wave twin: far-field grid axes = (%+dX, %+dY) from the source frame\n', R.grid_sign); end
+            end
+            su = R.grid_sign(1);  sv = R.grid_sign(2);
+            R.du_wave(i,j) = su*(ci - c0)*dx/px;  R.dv_wave(i,j) = sv*(cj - c0)*dx/px;
             R.su_wave(i,j) = sqrt(sum(I(:).*(ii(:)-ci).^2)/tot)*dx/px;
             R.sv_wave(i,j) = sqrt(sum(I(:).*(jj(:)-cj).^2)/tot)*dx/px;
             % ensquared energy in one pixel about the PSF centroid
@@ -119,6 +134,7 @@ function R = spectrometer_wave(G, M, P, opts)
         end
     end
     R.d_du = R.du_wave - R.du_ray;  R.d_dv = R.dv_wave - R.dv_ray;
+    if ~isfield(R, 'grid_sign'), R.grid_sign = [NaN NaN]; end
     R.d_max = max(abs([R.d_du(:); R.d_dv(:)]));
     R.srf_max = max(R.SRF(:));  R.crf_max = max(R.CRF(:));  R.ee_min = min(R.ee(:));
 end

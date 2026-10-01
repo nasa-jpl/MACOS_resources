@@ -163,6 +163,17 @@ convex/concave mirror.  In the Dyson the slit sits off the axis by
   a negative entry.  The Offner must sit at >= 0.22 R to pass the
   grating; the Dyson's slit/FPA mechanics clear by ~1 mm with no cold
   shield (the fold-prism item).
+- **Far-field grid orientation (addendum 8, 2026-10-01).**  The
+  engine's far-field (FFT) output grid is NOT in the focal-plane
+  element's frame: it carries the SOURCE grid's (xGrid, yGrid)
+  orientation in index space, inverted by the transform -- index 1 along
+  -xGrid, index 2 along -yGrid (read them back with
+  `macos.get_src_csys`).  Since the emitter's yGrid = chief x X, a +z
+  chief gives (-X,-Y) and a -z chief (-X,+Y).  Measured on the R4 Dyson
+  and the re-posed Offner with the pupil-domain centroid theorem as the
+  independent reference; the amplitude-weighted PSF centroid equals the
+  unweighted one to 1e-4 px, so the detector-seen keystone IS the ray
+  centroid.  A symmetric seed cannot test this (nothing to flip).
 - **Physical optics.**  The propagation chain's ray re-trace passes a
   Grating (propsub.F has the branch), but every diffraction KERNEL is
   handed the vacuum wavelength -- legs inside glass run at the wrong

@@ -172,6 +172,16 @@ R4: **EE with diffraction 0.747 vs geometric 0.759**.  Open for beat 4: the
 wave-ray centroid offset (0.001 / 0.030 / 0.122 px on seed / R3 / R4) and
 its amplitude-weighting explanation.  Report `BRIEF_dyson5_beat3c.md`.
 
+## Beat 4a (2026-10-01) -- the centroid question, settled
+
+`dyson5_centroid_probe` on R4: the pupil-domain prediction (weighted =
+unweighted to 1e-4 px) reproduces the ray centroid, the window/pitch
+variants reproduce every digit, and the 0.122 px was the twin reading
+its far-field grid in the wrong orientation (the grid is the source
+grid inverted by the FFT; now read from the engine's source frame).
+**Wave = ray centroid on R4 to 0.0022 px; the detector sees the ray
+centroid; keystone 0.0026 px stands.**  Report `BRIEF_dyson5_beat4a.md`.
+
 ## Run it yourself
 
 ```matlab
