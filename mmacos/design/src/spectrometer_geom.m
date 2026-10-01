@@ -48,13 +48,18 @@ function G = spectrometer_geom(form, P)
 %   the groove period, the focus plane and the slit plane are not re-solved):
 %   P.grating_d + P.grating_m (period, signed order), P.fpa_z (FPA plane z),
 %   P.slit_dz (slit/FPA plane z off the grating's centre; Dyson only).
+%   R5 fold prism (Dyson): P.fold_h (fold plane depth below the face, 0 =
+%   none), P.slit_gap (0.5 mm), P.fpa_gap (air beyond the prism's exit face,
+%   default = slit_gap), P.plate (entrance plate without a fold).  With a
+%   fold G.fold records the geometry and the FPA frame (G.fpa.xhat / yhat /
+%   normal) is the folded one: every consumer must use it, not y and z.
 %   .n (function handle n(lambda)), and .trace = @(p0, d, lambda) ->
 %   [hit points per surface, final point on the FPA plane].
     arguments
         form (1,:) char {mustBeMember(form, {'dyson','offner'})}
         P struct
     end
-    G.form = form;
+    G.form = form;  G.P = P;                     % (P is re-attached at the end; focus_ reads the plate flag)
     G.n = @(lam) sellmeier_(P.glass, lam);
     lam_c = mean(P.band_m);
     u_air = asin(1/(2*P.Fno));                 % cone half-angle at the slit, in air
@@ -66,17 +71,34 @@ function G = spectrometer_geom(form, P)
         n0 = G.n(P.lambda_ref_m);
         r  = P.block_r;  Rg = P.Rg_factor*n0*r/(n0-1);  dz = P.face_offset;
         ys = P.y_slit;
+        % R5 (BRIEF_to_dyson5 addendum 10): a FOLD PRISM on the image side so
+        % the detector package leaves the slit's plane.  P.fold_h > 0 adds an
+        % entrance PLATE on the slit side (the slit in air P.slit_gap before
+        % it, the plate cemented to the block face -- glass to glass, no
+        % bending) and, cemented to the face under the image, a mirror-coated
+        % fold plane P.fold_h below the face at 45 deg (TIR fails at F/1.8 in
+        % silica: the marginal rays reach 30 deg incidence, the critical angle
+        % is 43.6 deg) folding the beam toward -y, away from the slit, an exit
+        % face fold_e beyond it placed for first-order conjugate symmetry with
+        % the slit side (glass + air/n equal), and the FPA P.fpa_gap in air
+        % beyond that, its normal +y.  The dispersion direction on the FPA is
+        % the fold's image of +y, i.e. +z.
+        fold_h = fld_(P, 'fold_h', 0);  plate = fld_(P, 'plate', false) || fold_h > 0;
+        slit_gap = fld_(P, 'slit_gap', 0.5e-3);  fpa_gap = fld_(P, 'fpa_gap', slit_gap);
         S = struct('kind',{},'C',{},'R',{},'n_out',{},'act',{},'root',{}, ...
                    'vpt',{},'psi',{},'name',{},'glass',{},'Kc',{},'A',{});
-        S(1) = plane_([0;0;dz], [0;0;-1], 'glass', 'refract', 'BlockFaceIn', P.glass);
+        if plate
+            S(end+1) = plane_([0;0;slit_gap], [0;0;-1], 'glass', 'refract', 'PlateIn', P.glass);
+        end
+        S(end+1) = plane_([0;0;dz], [0;0;-1], 'glass', 'refract', 'BlockFaceIn', P.glass);
         % the block's centre may leave the grating's (de-concentric departure):
         % P.block_dz along the axis, P.block_dy along the dispersion direction
         Cb = [0; 0; 0];
         if isfield(P, 'block_dz'), Cb(3) = P.block_dz; end
         if isfield(P, 'block_dy'), Cb(2) = P.block_dy; end
-        S(2) = sphere_(Cb, r, 1, 'refract', 'far', 'BlockSphereOut', '', Cb + [0;0;r]);
-        S(3) = sphere_([0;0;0], Rg, 1, 'grating', 'far', 'Grating', '', [0;0;Rg]);
-        S(4) = sphere_(Cb, r, 'glass', 'refract', 'near', 'BlockSphereIn', P.glass, Cb + [0;0;r]);
+        sphOut = sphere_(Cb, r, 1, 'refract', 'far', 'BlockSphereOut', '', Cb + [0;0;r]);
+        grat   = sphere_([0;0;0], Rg, 1, 'grating', 'far', 'Grating', '', [0;0;Rg]);
+        sphIn  = sphere_(Cb, r, 'glass', 'refract', 'near', 'BlockSphereIn', P.glass, Cb + [0;0;r]);
         % the block's convex face may depart from the sphere: conic constant
         % P.block_Kc and even-asphere coefficients P.block_asph (engine
         % AsphCoef convention: coef(i) multiplies h^(2i+2) of the sag along
@@ -85,26 +107,53 @@ function G = spectrometer_geom(form, P)
         if isfield(P, 'block_Kc'), Kc_b = P.block_Kc; end
         if isfield(P, 'block_asph'), A_b = P.block_asph(:)'; end
         if Kc_b ~= 0 || any(A_b ~= 0)
-            S(2).kind = 'asph';  S(2).Kc = Kc_b;  S(2).A = A_b;
-            S(4).kind = 'asph';  S(4).Kc = Kc_b;  S(4).A = A_b;
+            sphOut.kind = 'asph';  sphOut.Kc = Kc_b;  sphOut.A = A_b;
+            sphIn.kind = 'asph';   sphIn.Kc = Kc_b;   sphIn.A = A_b;
         end
-        S(5) = plane_([0;0;dz], [0;0;1], 1, 'refract', 'BlockFaceOut', '');
-        S(6) = plane_([0;0;0], [0;0;1], 1, 'stop', 'FPA', '');
+        S(end+1) = sphOut;
         % R4, the compact variant's MENISCUS corrector in the air gap: two
         % spherical faces A (vertex z_a) and B (vertex z_a + t_m) of the block
         % glass, traversed outward (air->glass->air) and back.  Surface
         % curvatures c_a, c_b (1/m, centre at vertex + 1/c along +z; a
         % concentric shell, c = 1/z_vertex, is a null and the natural seed).
-        if isfield(P, 'men_z') && ~isempty(P.men_z) && P.men_z > 0
+        men = isfield(P, 'men_z') && ~isempty(P.men_z) && P.men_z > 0;
+        if men
             za = P.men_z;  tm = P.men_t;  ca = P.men_ca;  cb = P.men_cb;
-            Ma_out = msph_(za, ca, 'glass', P.glass, 'MenA_out');
-            Mb_out = msph_(za + tm, cb, 1, '', 'MenB_out');
-            Mb_in  = msph_(za + tm, cb, 'glass', P.glass, 'MenB_in');
-            Ma_in  = msph_(za, ca, 1, '', 'MenA_in');
-            S = [S(1:2), Ma_out, Mb_out, S(3), Mb_in, Ma_in, S(4:6)];
-            iG = 5;
+            S(end+1) = msph_(za, ca, 'glass', P.glass, 'MenA_out');
+            S(end+1) = msph_(za + tm, cb, 1, '', 'MenB_out');
+        end
+        S(end+1) = grat;  iG = numel(S);
+        if men
+            S(end+1) = msph_(za + tm, cb, 'glass', P.glass, 'MenB_in');
+            S(end+1) = msph_(za, ca, 1, '', 'MenA_in');
+        end
+        S(end+1) = sphIn;
+        fpa_yhat = [0;1;0];  fpa_C0 = [0;0;0];  fpa_psi = [0;0;1];  m_fold = [];
+        if fold_h > 0
+            % the fold is placed on the UNFOLDED chain's image: build it once
+            % (same plate, no fold, no held overrides) for the band-centre y
+            % and the order sign; the fold's aperture covers the small walk of
+            % the beam between the image plane and the fold plane
+            P0 = P;  P0.fold_h = 0;  P0.plate = true;
+            for f0 = {'fpa_z', 'grating_d', 'grating_m', 'slit_dz'}
+                if isfield(P0, f0{1}), P0 = rmfield(P0, f0{1}); end
+            end
+            G0 = spectrometer_geom('dyson', P0);
+            yc = G0.fpa.center(2);  m_fold = G0.grating.m;  d_seed = G0.grating.d;
+            nf = [0; -1; 1]/sqrt(2);  zf0 = dz - fold_h;
+            fold_e = (dz - slit_gap) - fold_h + (slit_gap - fpa_gap)/n0;
+            assert(fold_e > 0, 'spectrometer_geom: the fold prism has no exit distance (face offset %.1f mm, fold %.1f mm)', dz*1e3, fold_h*1e3);
+            S(end+1) = plane_([0;0;dz], [0;0;1], 'glass', 'refract', 'BlockFaceOut', P.glass);   % cemented prism: glass to glass
+            S(end+1) = plane_([0; yc; zf0], nf, 'glass', 'reflect', 'FoldMirror', P.glass);
+            S(end+1) = plane_([0; yc - fold_e; zf0], [0;1;0], 1, 'refract', 'PrismExit', '');
+            S(end+1) = plane_([0; yc - fold_e - fpa_gap; zf0], [0;1;0], 1, 'stop', 'FPA', '');
+            fpa_yhat = [0;1;0] - 2*([0;1;0]'*nf)*nf;              % the fold's image of the dispersion direction
+            fpa_C0 = S(end).C;  fpa_psi = S(end).psi;
+            G.fold = struct('h', fold_h, 'e', fold_e, 'yc', yc, 'slit_gap', slit_gap, 'fpa_gap', fpa_gap, ...
+                            'normal', nf, 'plate_t', dz - slit_gap);
         else
-            iG = 3;
+            S(end+1) = plane_([0;0;dz], [0;0;1], 1, 'refract', 'BlockFaceOut', '');
+            S(end+1) = plane_([0;0;0], [0;0;1], 1, 'stop', 'FPA', '');
         end
         G.Rg = Rg;  G.r = r;  G.gap = Rg - r;
         % the slit/FPA plane normally passes through the grating's centre of
@@ -135,6 +184,7 @@ function G = spectrometer_geom(form, P)
         % M1/M3 vertices: the chief hit points (set after the aim solve)
         G.R = R;
         iG = 2;  slit = [0; ys; 0];
+        fpa_yhat = [0;1;0];  fpa_C0 = [0;0;0];  fpa_psi = [0;0;1];  m_fold = [];
     end
     G.iG = iG;  G.slit = slit;  G.y_slit = ys;
     G.grating.groove = [1;0;0];                 % grooves along the slit
@@ -153,7 +203,7 @@ function G = spectrometer_geom(form, P)
     G.surf = S;
 
     % -- order sign + groove period: band across the FPA, away from the slit
-    y_of = @(lam, m, d) img_y_(S, slit, d0, lam, G, m, d);
+    y_of = @(lam, m, d) img_y_(S, slit, d0, lam, G, m, d, fpa_C0, fpa_yhat);
     y0 = y_of(lam_c, 0, Inf);                   % m = 0 image of the slit centre
     % trial: m = +|m| with a coarse d; sign chosen so the lambda_c image is
     % farther from the slit than the m = 0 image
@@ -162,12 +212,19 @@ function G = spectrometer_geom(form, P)
         % engine, where the period is not a variable): no band-span solve
         m = P.grating_m;  d2 = P.grating_d;
     else
-        d_try = 50e-6;
-        yp = y_of(lam_c, +P.order, d_try);  ym = y_of(lam_c, -P.order, d_try);
-        if abs(yp - ys) > abs(ym - ys), m = +P.order; else, m = -P.order; end
+        d_try = 50e-6;  d_fac = 2;
+        if ~isempty(m_fold)
+            % folded FPA: the sign AND the seed from the unfolded chain -- the
+            % fold's planes hold only the band near the image (a 50 um trial
+            % period throws the 2.5 um image 25 mm off, past the exit face)
+            m = m_fold;  d_try = d_seed;  d_fac = 1.05;
+        else
+            yp = y_of(lam_c, +P.order, d_try);  ym = y_of(lam_c, -P.order, d_try);
+            if abs(yp - ys) > abs(ym - ys), m = +P.order; else, m = -P.order; end
+        end
         % secant on d: |y(lambda_max) - y(lambda_min)| = H_fpa
         f = @(d) abs(y_of(P.band_m(2), m, d) - y_of(P.band_m(1), m, d)) - H_fpa;
-        d1 = d_try;  d2 = d_try*2;  f1 = f(d1);  f2 = f(d2);
+        d1 = d_try;  d2 = d_try*d_fac;  f1 = f(d1);  f2 = f(d2);
         for it = 1:60
             d3 = d2 - f2*(d2 - d1)/(f2 - f1);
             if d3 <= 0, d3 = 0.5*d2; end
@@ -181,18 +238,26 @@ function G = spectrometer_geom(form, P)
     G.fpa.y0_order0 = y0;
 
     % -- focus: FPA plane z that minimises the slit-centre blur at lambda_c
+    % the FPA plane moves along its normal from its reference point (for the
+    % unfolded forms the reference is the origin and the direction +z, the
+    % record's convention; the folded FPA moves along +y toward the prism)
+    if abs(fpa_psi(3)) > 0.999, fdir = [0;0;1]; else, fdir = fpa_psi(:); end
     if isfield(P, 'fpa_z') && ~isempty(P.fpa_z)
         zf = P.fpa_z;                           % the FPA plane HELD (engine-carried design)
     else
-        zf = focus_(S, slit, d0, lam_c, G, u_air);
+        zf = focus_(S, slit, d0, lam_c, G, u_air, fpa_C0, fdir);
     end
     G.fpa.z = zf;
-    S(end).C = [0; 0; zf];
+    S(end).C = fpa_C0 + zf*fdir;
     G.surf = S;
-    G.fpa.center = [0; G.fpa.y_lambda(2); zf];
-    G.fpa.xhat = [1;0;0];  G.fpa.yhat = [0;1;0];  G.fpa.normal = S(end).psi;
+    G.fpa.xhat = [1;0;0];  G.fpa.yhat = fpa_yhat;  G.fpa.normal = S(end).psi;
+    G.fpa.center = S(end).C + G.fpa.y_lambda(2)*fpa_yhat;
     G.fpa.H = H_fpa;  G.fpa.W = P.npix(1)*P.pixel_m;
-    G.fpa.clear_to_slit = abs(G.fpa.center(2) - ys) - H_fpa/2;
+    if abs(fpa_yhat(2)) > 0.999
+        G.fpa.clear_to_slit = abs(G.fpa.center(2) - ys) - H_fpa/2;
+    else
+        G.fpa.clear_to_slit = norm(G.fpa.center - slit) - H_fpa/2;   % folded: a crude number; the clearance gate is the record
+    end
     % ChfRayPos is where the engine STARTS its rays (PtSource builds the grid
     % there and propagates forward), so it must lie between the slit and the
     % first surface; the source point is ChfRayPos + zSource*ChfRayDir with
@@ -201,7 +266,7 @@ function G = spectrometer_geom(form, P)
     % an already-aimed chief (G.aim) when the slit point must be exact.
     G.src.zsrc_gap = 0.2e-3;
     if strcmp(form, 'dyson')
-        assert(G.src.zsrc_gap < P.face_offset, 'spectrometer_geom: face_offset must exceed the %.1e m ChfRayPos gap', G.src.zsrc_gap);
+        assert(G.src.zsrc_gap < S(1).C(3), 'spectrometer_geom: the first surface (%s) must lie beyond the %.1e m ChfRayPos gap', S(1).name, G.src.zsrc_gap);
     end
     G.P = P;
 
@@ -436,19 +501,24 @@ function m = miss_(S, p0, d, lam, G, iG, target, ex, ey)
     m = [v'*ex; v'*ey];
 end
 
-function y = img_y_(S, p0, d0, lam, G, m, d)
+function y = img_y_(S, p0, d0, lam, G, m, d, C0, yhat)
+%IMG_Y_  The chief's image coordinate along the FPA's dispersion axis yhat
+%   about the FPA reference point C0 (y itself on an unfolded FPA).
     Gm = G;  Gm.grating.m = m;  Gm.grating.d = d;
     [pts, ~, ok] = trace_chain_(S, p0, d0, lam, Gm);
     assert(ok, 'spectrometer_geom: chief lost at lambda = %.4g (m=%d, d=%.3g)', lam, m, d);
-    y = pts(2, end);
+    y = (pts(:, end) - C0(:))'*yhat(:);
 end
 
-function zf = focus_(S, p0, d0, lam, G, u)
-%FOCUS_  z of the FPA plane minimising the rms blur of the slit-centre cone.
+function zf = focus_(S, p0, d0, lam, G, u, C0, fdir)
+%FOCUS_  Offset along fdir from C0 of the FPA plane minimising the rms blur
+%   of the slit-centre cone.
     dirs = cone_(u, 4);  dirs = aimcone_(d0, dirs);
-    blur = @(z) blur_(S, p0, dirs, lam, G, z);
-    % golden-section on [-5, +5] mm about z = 0
-    a = -5e-3;  b = 5e-3;  gr = (sqrt(5)-1)/2;
+    blur = @(z) blur_(S, p0, dirs, lam, G, C0 + z*fdir);
+    % golden-section on [-5, +5] mm about the reference (the record's bracket);
+    % [-25, +25] mm when an entrance plate moves the unfolded image out
+    half = 5e-3;  if isfield(G, 'P') && isfield(G.P, 'plate') && G.P.plate, half = 25e-3; end
+    a = -half;  b = half;  gr = (sqrt(5)-1)/2;
     c = b - gr*(b-a);  dd = a + gr*(b-a);  fc = blur(c);  fd = blur(dd);
     for it = 1:60
         if fc < fd, b = dd;  dd = c;  fd = fc;  c = b - gr*(b-a);  fc = blur(c);
@@ -459,15 +529,19 @@ function zf = focus_(S, p0, d0, lam, G, u)
     zf = 0.5*(a+b);
 end
 
-function v = blur_(S, p0, dirs, lam, G, z)
-    S(end).C = [0;0;z];
-    q = nan(2, size(dirs,2));
+function v = blur_(S, p0, dirs, lam, G, C)
+    S(end).C = C(:);
+    q = nan(3, size(dirs,2));
     for k = 1:size(dirs,2)
         [pts, ~, ok] = trace_chain_(S, p0, dirs(:,k), lam, G);
         if ~ok, v = 1; return; end
-        q(:,k) = pts(1:2, end);
+        q(:,k) = pts(:, end);
     end
-    c = mean(q, 2);  v = sqrt(mean(sum((q - c).^2, 1)));
+    c = mean(q, 2);  v = sqrt(mean(sum((q - c).^2, 1)));   % in-plane spread: every hit lies on the plane
+end
+
+function v = fld_(P, f, d)
+    if isfield(P, f) && ~isempty(P.(f)), v = P.(f); else, v = d; end
 end
 
 function dirs = aimcone_(d0, dirs)

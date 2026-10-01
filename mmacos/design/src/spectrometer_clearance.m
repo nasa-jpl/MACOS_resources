@@ -58,7 +58,10 @@ function C = spectrometer_clearance(G, P, opts)
         pm = field_(P, 'pkg_margin_m', 5e-3);  pd = field_(P, 'pkg_depth_m', 10e-3);  ps = field_(P, 'pkg_shield_m', 0);
         c = G.fpa.center;
         bodies{end+1} = struct('name', 'FPApackage', 'stem', 'FPApackage', 'surfs', nS, 'mount', 0, ...
-            'pts', box_pts_(c, [1 0 0], [0 1 0], [0 0 1], G.fpa.W + 2*pm, G.fpa.H + 2*pm, [-pd ps], opts.sample_m));
+            'pts', box_pts_(c, G.fpa.xhat, G.fpa.yhat, G.fpa.normal, G.fpa.W + 2*pm, G.fpa.H + 2*pm, [-pd ps], opts.sample_m));
+        % (the package box lives in the FPA's own frame: with the fold prism the
+        % FPA normal is +y and its dispersion axis +z; the shield grows along
+        % the normal toward the beam -- toward the prism's exit face)
     end
     % ---- the table
     rows = {};
@@ -98,6 +101,7 @@ function st = stem_(name)
     if any(strcmp(st, {'M1', 'M3'})), st = 'ConcaveMirror'; end
     if any(strcmp(st, {'BlockFace', 'BlockSphere'})), st = 'Block'; end
     if any(strcmp(st, {'MenA', 'MenB'})), st = 'Meniscus'; end     % one plate, two faces, two passes
+    if any(strcmp(st, {'Plate', 'FoldMirror', 'PrismExit'})), st = 'Block'; end   % R5: plate and prism CEMENTED to the block
 end
 
 function n = stname_(G, k)

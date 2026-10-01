@@ -94,6 +94,7 @@ function M = spectrometer_rx(G, file, opts)
             if ischar(s.n_out), e.glass = s.glass;  e.indref = 1; else, e.indref = s.n_out; end
         case 'reflect'
             e.element = 'Reflector';  e.extinc = 1e22;
+            if ischar(s.n_out), e.glass = s.glass;  e.indref = 1; end   % a mirror inside glass (the fold prism)
         case 'grating'
             e.element = 'Grating';  e.extinc = 1e22;
             e.grating = struct('dir', G.grating.sdir(:), 'm', G.grating.m, 'd', G.grating.d);

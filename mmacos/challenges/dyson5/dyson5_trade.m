@@ -10,7 +10,7 @@ function T = dyson5_trade(tag)
 %   one comparison (BRIEF_to_dyson5 addendum 4).
     here = fileparts(mfilename('fullpath'));
     run(fullfile(here, '..', '..', 'mmacos_setup.m'));
-    recs = {'_s3', 'r held'; '_s3free', 'r free'; '_s4', 'native'};
+    recs = {'_s3', 'r held'; '_s3free', 'r free'; '_s4', 'native'; '_s5', 'fold'};
     rows = {};
     for q = 1:size(recs, 1)
         fn = [tag recs{q,1} '.mat'];
@@ -68,18 +68,22 @@ function g = geom_(G)
     end
     g.footprint_mm = 2*max(vecnorm(H(1:2,:) - mean(H(1:2,:), 2)))*1e3;
     g.n_elt = numel(G.surf) - 1;              % the FPA plane is the detector, not an optic
-    r = G.r;  dz = G.surf(1).C(3) - G.surf(2).C(3);  h = r - dz;   % spherical cap beyond the flat face
+    ib = find(strcmp({G.surf.name}, 'BlockSphereOut'), 1);  ifc = find(strcmp({G.surf.name}, 'BlockFaceIn'), 1);   % by name (R5 adds a plate before the face)
+    r = G.r;  dz = G.surf(ifc).C(3) - G.surf(ib).C(3);  h = r - dz;   % spherical cap beyond the flat face
     vol = pi*h^2*(3*r - h)/3;
     im = find(strcmp({G.surf.name}, 'MenA_out'));
     if ~isempty(im)
         % meniscus: footprint-limited slab of thickness t (approximation)
         t = G.surf(im+1).vpt(3) - G.surf(im).vpt(3);  vol = vol + pi*(g.footprint_mm*1e-3/2)^2*t;
     end
-    g.glass_cm3 = vol*1e6;
     % element sizes from the declared apertures (footprint + margin)
     F = G.footprints();  m = 5e-3;
-    g.block_diam_mm = 2*(F(2).radius + m)*1e3;
-    g.block_thick_mm = (G.surf(2).vpt(3) - G.surf(1).C(3))*1e3;
+    if isfield(G, 'fold')                      % R5: entrance plate + fold prism, as slabs over the face footprint
+        ap = 2*(F(ifc).radius + m);  vol = vol + ap^2*G.fold.plate_t + ap^2*(G.fold.h + G.fold.e)/2;
+    end
+    g.glass_cm3 = vol*1e6;
+    g.block_diam_mm = 2*(F(ib).radius + m)*1e3;
+    g.block_thick_mm = (G.surf(ib).vpt(3) - G.surf(ifc).C(3))*1e3;
     g.grating_diam_mm = 2*(F(G.iG).radius + m)*1e3;
     im = find(strcmp({G.surf.name}, 'MenA_out'));
     if isempty(im), g.men_diam_mm = 0; else, g.men_diam_mm = 2*(F(im).radius + m)*1e3; end

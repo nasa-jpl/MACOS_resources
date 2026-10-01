@@ -161,10 +161,30 @@ function P = dyson5_params(over)
     P.native_wall_px = 0.05;              % smile/keystone wall on the chain between chunks: half the spec
     P.native_asph = false;                % the block's h^4/h^6 as CALIB DOFs -- OFF until the OptAsph slice fix (CC)
     P.native_enabled = false;             % s4 refuses to run until CALIB's SPOT derivative stride is fixed (beat 4c 3.4, CC)
+    % s5, R5's fold prism (addendum 10): entrance plate + mirror-coated fold
+    % prism cemented to the block, the FPA folded away from the slit; the
+    % COLD-SHIELD HEIGHT is the parameter -- each height needs an air gap of
+    % height + clearance between the prism's exit face and the FPA, and the
+    % design is re-solved (R5 rung) at each; the record is at fold_shield_m
+    P.fold_h_m = 8e-3;                    % fold plane depth below the face (the beam half-height there is ~7 mm)
+    P.fold_slit_gap_m = 0.5e-3;           % slit in air before the entrance plate
+    P.fold_face_offset_m = 17e-3;         % seed face offset (plate thickness + slit gap); the R5 rung solves it
+    P.fold_shield_sweep_m = [0 2e-3 5e-3 10e-3];   % cold-shield heights swept
+    P.fold_shield_m = 2e-3;               % the shield height of record
+    P.fold_shield_clear_m = 1e-3;         % air beyond the shield to the prism's exit face
+    P.fold_max_iter = 30;                 % lsqnonlin iterations per sweep point (warm-started along the sweep)
+    % s4env, the closure envelope (addendum 11): R4 re-solved from the record,
+    % one axis at a time, judged against the spec; the FPA stays 54 x 9 mm
+    P.env_Fno       = [1.6 1.8 2.0 2.2 2.8];
+    P.env_block_r_m = [0.15 0.18 0.22 0.26 0.30];
+    P.env_slit_m    = [30e-3 40e-3 54e-3 60e-3];   % pixel count follows
+    P.env_pixel_m   = [18e-6 30e-6];               % the paper's 30 um; pixel count follows
+    P.env_glass     = {'Silica', 'CaF2'};
+    P.env_max_iter  = 30;
     P.slitloss_lams = [380e-9 700e-9 1440e-9 2500e-9];  P.slitloss_model = 1024;  P.slitloss_ngrid = 255;
     P.slitloss_len = 0.083e-3;  P.slitloss_z = 0.7;        % s2l: modelled slit length (-> window = 2 x the acceptance at 380 nm), slit-to-grating distance
     P.slitloss_propagating = true;                          % normalise to |sin theta| <= 1 (the planar FFT carries evanescent energy)
-    P.stages   = {'s0','s1','s2'};        % 's3' (the ladder), 's4' (native optimize), 's2w' (twin, model 512), 's2l' are opt-in
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l' are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)

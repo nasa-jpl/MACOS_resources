@@ -212,6 +212,22 @@ CALIB's SPOT derivative loop steps at the wavefront stride
 refuses to run (`native_enabled`) until that fix lands; R4 of record stands.
 New emitter options `'links'` and `'opt'`, gated in `tSpectrometerRx`.
 
+## Beat 4d (2026-10-01) -- R5, the fold prism, under the clearance gate
+
+Entrance plate on the slit side, mirror-coated fold prism cemented under
+the image (TIR fails at F/1.8 in silica), the FPA folded away from the
+slit's plane -- the chain carries it (`P.fold_h`, `slit_gap`, `fpa_gap`),
+every detector-frame consumer uses the FPA's own frame, the engine lands
+every ray where the chain says (gate form `dyson_fold`), and the record
+forms reproduce byte for byte.  Stage `s5` sweeps the COLD-SHIELD HEIGHT
+(0 / 2 / 5 / 10 mm; air gap = height + 1 mm), re-solving R4's variables plus
+the face offset at each, engine-scoring and gating: **every height passes**
+(clearance +1.01 / +0.67 / +0.14 / +0.06 mm) at CRF 1.30-1.39 px; the
+landscape is multimodal (faces of 17-29 mm), so the record height is
+re-solved from the best basin.  **R5 of record (2 mm shield): CRF 1.295 px,
+EE 0.794, smile/keystone 0.009/0.012 px, clearance +0.67 mm** -- better
+than R4 on blur AND a shielded package.  Report `BRIEF_dyson5_beat4d.md`.
+
 ## Run it yourself
 
 ```matlab

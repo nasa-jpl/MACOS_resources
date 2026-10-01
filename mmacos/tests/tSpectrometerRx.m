@@ -30,7 +30,7 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
     end
 
     properties (TestParameter)
-        form = {'offner', 'dyson', 'dyson_asph', 'dyson_apertures'}
+        form = {'offner', 'dyson', 'dyson_asph', 'dyson_apertures', 'dyson_fold'}
     end
 
     properties
@@ -68,6 +68,12 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
                 % below also asserts that NOT ONE ray is vignetted, which pins
                 % the frame's sign (a flipped yObs decentres every aperture)
                 form = 'dyson';  ap = true;
+            elseif strcmp(form, 'dyson_fold')
+                % R5: entrance plate + mirror-coated fold prism (a Reflector
+                % INSIDE glass, GlassElt carried; two glass-to-glass planes;
+                % the FPA folded to normal +y) -- the engine must land every
+                % ray where the chain says, in the folded frame
+                form = 'dyson';  ap = true;  P.fold_h = 8e-3;  P.face_offset = 17e-3;
             end
             G = spectrometer_geom(form, P);
             file = fullfile(tc.tmpdir, ['spec_' form '.in']);
@@ -153,7 +159,7 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
                     end
                     tc.verifyLessThan(dmax, tc.TolChief, ...
                         sprintf('%s: every ray at the FPA, max |engine - chain| (x=%.3f, %.2f um)', form, xs, lam*1e6));
-                    if xs == 0 && j ~= 2, yb(1 + (j == 3)) = ri.pos(2, 1); end
+                    if xs == 0 && j ~= 2, yb(1 + (j == 3)) = (ri.pos(:, 1) - G.fpa.center(:))'*G.fpa.yhat(:); end   % along the FPA's dispersion axis
                 end
             end
             % teeth: the engine's band spans the FPA spectral height
@@ -161,7 +167,7 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
             tc.verifyEqual(abs(yb(2) - yb(1)), H, 'RelTol', 1e-2, ...
                 sprintf('%s: band edges %.3f / %.3f mm span the 9 mm FPA', form, yb*1e3));
             % and the band sits on the solved FPA centre
-            tc.verifyEqual(mean(yb), G.fpa.center(2), 'AbsTol', 0.5e-3, ...
+            tc.verifyEqual(mean(yb), 0, 'AbsTol', 0.5e-3, ...
                 sprintf('%s: band centre on the FPA centre', form));
         end
 
