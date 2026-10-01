@@ -32,6 +32,8 @@ function M = spectrometer_rx(G, file, opts)
         opts.ngridpts (1,1) double = 41
         opts.wavelen (1,1) double = NaN
         opts.name (1,:) char = ''
+        opts.terminal (1,:) char {mustBeMember(opts.terminal, {'geometric','farfield'})} = 'geometric'
+        opts.L_ref (1,1) double {mustBePositive} = 0.1
     end
     if isnan(opts.wavelen), opts.wavelen = G.src.lambda_c; end
     if isempty(opts.name), opts.name = ['spectrometer_' G.form]; end
@@ -46,7 +48,7 @@ function M = spectrometer_rx(G, file, opts)
         s = S(k);
         e = struct('name', s.name, 'surface', 'Flat', 'Kr', -1e22, 'Kc', 0, ...
                    'psi', s.psi(:), 'vpt', s.C(:), 'indref', 1, 'extinc', 0, ...
-                   'glass', '', 'element', '', 'grating', []);
+                   'glass', '', 'element', '', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22);
         if strcmp(s.kind, 'sphere')
             e.surface = 'Conic';  e.Kr = -s.R;  e.vpt = s.vpt(:);  e.psi = s.psi(:);
         end
@@ -59,21 +61,49 @@ function M = spectrometer_rx(G, file, opts)
         case 'grating'
             e.element = 'Grating';  e.extinc = 1e22;
             e.grating = struct('dir', G.grating.sdir(:), 'm', G.grating.m, 'd', G.grating.d);
-        case 'stop'   % the FPA: a pass-through Reference 1 mm upstream + FocalPlane
-            % (a Return COINCIDENT with the FocalPlane leaves the FPA with
-            % zero path length and the engine drops those rays as a miss;
-            % the Reference only exists so the grating index is < nElt-2,
-            % the stop wrapper's range)
-            e.element = 'Reference';  e.name = 'PreFPA';
-            e.vpt = s.C(:) + 1e-3*s.psi(:);        % psi points against the beam
-            E{end+1} = e;                                            %#ok<AGROW>
-            e.element = 'FocalPlane';  e.name = 'FPA';  e.vpt = s.C(:);
+        case 'stop'
+            switch opts.terminal
+            case 'geometric'
+                % the FPA: a pass-through Reference 1 mm upstream + FocalPlane
+                % (a Return COINCIDENT with the FocalPlane leaves the FPA with
+                % zero path length and the engine drops those rays as a miss;
+                % the Reference only exists so the grating index is < nElt-2,
+                % the stop wrapper's range)
+                e.element = 'Reference';  e.name = 'PreFPA';
+                e.vpt = s.C(:) + 1e-3*s.psi(:);        % psi points against the beam
+                E{end+1} = e;                                        %#ok<AGROW>
+                e.element = 'FocalPlane';  e.name = 'FPA';  e.vpt = s.C(:);
+            case 'farfield'
+                % the Rx_Cass_FarField idiom, posed on the chief: FP_return
+                % (Return, flat, AT the FPA) -> ExitPupil (Return, sphere of
+                % radius L_ref centred on the FPA chief point, vertex L_ref
+                % UPSTREAM along the chief, psi along the beam toward the
+                % focus, KrElt = -L_ref, zElt = L_ref, PropType FarField) ->
+                % FPA.  The sphere is a REFERENCE sphere, not the exit pupil
+                % (the Offner's true exit pupil is at infinity -- telecentric
+                % -- and FEX's 484 m crossing lies past the focus, where the
+                % reversed rays never go).  spectrometer_wave re-poses it per
+                % field and wavelength with macos.set_xp.
+                [pts, dirs, ok] = G.trace(G.slit, G.src.chief_dir, G.src.lambda_c);
+                assert(ok, 'spectrometer_rx: chief does not reach the FPA');
+                pc = pts(:, end);  din = dirs(:, end-1);  din = din/norm(din);
+                e.element = 'Return';  e.name = 'FP_return';  e.vpt = pc;  e.psi = din;
+                E{end+1} = e;                                        %#ok<AGROW>
+                e.element = 'Return';  e.name = 'ExitPupil';  e.surface = 'Conic';
+                e.Kr = -opts.L_ref;  e.vpt = pc - opts.L_ref*din;  e.psi = din;
+                e.proptype = 'FarField';  e.zelt = opts.L_ref;
+                E{end+1} = e;                                        %#ok<AGROW>
+                e = struct('name', 'FPA', 'surface', 'Flat', 'Kr', -1e22, 'Kc', 0, ...
+                           'psi', din, 'vpt', pc, 'indref', 1, 'extinc', 0, 'glass', '', ...
+                           'element', 'FocalPlane', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22);
+            end
         end
         E{end+1} = e;                                                %#ok<AGROW>
     end
     nElt = numel(E);
     M.iG = find(cellfun(@(e) strcmp(e.element, 'Grating'), E));
-    M.iFPA = nElt;  M.iRef = nElt - 1;  M.nElt = nElt;  M.file = file;
+    M.iFPA = nElt;  M.iRef = nElt - 1;  M.nElt = nElt;  M.file = file;  M.terminal = opts.terminal;
+    if strcmp(opts.terminal, 'farfield'), M.iEP = nElt - 1;  M.iFPr = nElt - 2;  M.L_ref = opts.L_ref; end
 
     ln = {};
     ln{end+1} = sprintf('%% %s -- generated by spectrometer_rx (form %s, m=%+d, d=%.6g m, %.2f l/mm)', ...
@@ -119,8 +149,8 @@ function M = spectrometer_rx(G, file, opts)
         ln{end+1} =         '            nCoat=  0';
         ln{end+1} =         '             nObs=  0';
         ln{end+1} =         '           ApType=  None';
-        ln{end+1} =         '         PropType=  Geometric';
-        ln{end+1} =         '             zElt=  1.0D+22';
+        ln{end+1} = sprintf('         PropType=  %s', e.proptype);
+        ln{end+1} = sprintf('             zElt=  %.15E', e.zelt);
         ln{end+1} =         '          nECoord=  -6';
     end
     ln{end+1} = '';
