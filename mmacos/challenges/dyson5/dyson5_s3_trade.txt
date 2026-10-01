@@ -1,4 +1,4 @@
-dyson5 trade table (2026-10-01 06:33) -- engine rows; length = slit plane to grating vertex; footprint = diameter of the
+dyson5 trade table (2026-10-01 08:07) -- engine rows; length = slit plane to grating vertex; footprint = diameter of the
   grating hits over slit centre + ends x band edges (chief + 8 marginals); glass = block spherical cap + meniscus.
 radius  rung                                                      keystone    smile     CRF     SRF     EE   length  footpr.  nElt    glass      r     R_g   blockD   blockT    gratD     menD
                                                                         px       px      px      px    1px       mm       mm           cm^3     mm      mm       mm       mm       mm       mm

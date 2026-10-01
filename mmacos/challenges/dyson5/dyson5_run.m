@@ -350,10 +350,15 @@ function S = stage_s2l_(P, tag)
     pr('  1 - energy of sinc^2(w sin(theta)/lambda) inside |sin(theta)| <= 1/(2F).  Model %d, %d-pt grid, pitch at the\n', P.slitloss_model, P.slitloss_ngrid);
     pr('  grating plane lambda z / (N dx_slit); the acceptance must sit inside the window (checked).\n');
     R = spectrometer_slit_loss(P, [tag '_s2l_slit.in'], 'lams', P.slitloss_lams, 'model', P.slitloss_model, ...
-                               'ngridpts', P.slitloss_ngrid, 'slit_len', P.slitloss_len, 'z_grating', P.slitloss_z);
-    pr('%8s %12s %12s %10s %10s %8s\n', 'nm', 'loss engine', 'loss sinc^2', 'pitch um', 'window mm', 'inside');
+                               'ngridpts', P.slitloss_ngrid, 'slit_len', P.slitloss_len, 'z_grating', P.slitloss_z, ...
+                               'propagating', P.slitloss_propagating);
+    pr('  RESOLVED (dyson5_s2l_tests.txt, addendum 9): a window of 1.11 x the acceptance aliased the tail back inside (0.30 x\n');
+    pr('  at 380 nm); the planar FFT far field carries energy at |sin theta| > 1 that no physical far field does (1.36 x at\n');
+    pr('  2500 nm) -- the record now uses a window >= 2 x the acceptance and normalises to the propagating region; the\n');
+    pr('  residual few %% is the pitch across a 4-sidelobe acceptance at 2500 nm.\n');
+    pr('%8s %12s %12s %7s %10s %10s %8s %8s\n', 'nm', 'loss engine', 'loss sinc^2', 'ratio', 'pitch um', 'win/acc', 'evanesc.', 'energy');
     for j = 1:numel(R.lams)
-        pr('%8.0f %12.5f %12.5f %10.2f %10.1f %8d   energy %.4g\n', R.lams(j)*1e9, R.loss_engine(j), R.loss_sinc(j), R.dx_m(j)*1e6, R.window_m(j)*1e3, R.inside_window(j), R.energy(j));
+        pr('%8.0f %12.5f %12.5f %7.3f %10.2f %10.2f %8.4f %8.3g\n', R.lams(j)*1e9, R.loss_engine(j), R.loss_sinc(j), R.loss_engine(j)/R.loss_sinc(j), R.dx_m(j)*1e6, R.window_ratio(j), R.evanescent_frac(j), R.energy(j));
     end
     fclose(fid);
     S = R;  save([tag '_s2l.mat'], 'S', 'P');
@@ -395,8 +400,12 @@ function S = stage_s2w_(P, tag)
             s3 = load([tag '_s3.mat']);  L3 = s3.S;
             kk = find(strncmp({L3.rung.name}, [P.twin_rung ' '], numel(P.twin_rung) + 1), 1, 'last');
             if ~isempty(kk)
-                G = spectrometer_geom('dyson', L3.rung(kk).P);  M = L3.rung(kk);  M.file = L3.rung(kk).file;
-                M = spectrometer_rx(G, M.file, 'ngridpts', P.ngridpts);     % re-emit (the M map the twin needs)
+                G = spectrometer_geom('dyson', L3.rung(kk).P);
+                % the twin's own copy of the rung deck (never overwrite the
+                % ladder's: it carries the declared apertures the tables and
+                % renders are read from)
+                M = spectrometer_rx(G, sprintf('%s_s2w_%s_src.in', tag, lower(P.twin_rung)), 'ngridpts', P.ngridpts, ...
+                                    'apertures', true, 'margin', P.ap_margin_m);
                 pr('DYSON twin runs on the s3 rung %s deck (%s); its geometric EE there: %.3f\n', P.twin_rung, M.file, L3.rung(kk).engine.ee_min);
             end
         end

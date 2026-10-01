@@ -28,8 +28,10 @@
            IndRef=  1.000000E+00
            Extinc=  1.000000E+22
             nCoat=  0
+             xObs=  1  0  0
              nObs=  0
-           ApType=  None
+           ApType=  Circular
+            ApVec=  1.192805991447E-01  4.302114220422E-16  -1.575626000739E-03
          PropType=  Geometric
              zElt=  1.000000000000000E+22
           nECoord=  -6
@@ -49,8 +51,10 @@
          OrderHOE=  -1
         RuleWidth=  5.915452270156E-05
             nCoat=  0
+             xObs=  1  0  0
              nObs=  0
-           ApType=  None
+           ApType=  Circular
+            ApVec=  4.986688996585E-02  2.220446049250E-16  1.470322824262E-04
          PropType=  Geometric
              zElt=  1.000000000000000E+22
           nECoord=  -6
@@ -67,8 +71,10 @@
            IndRef=  1.000000E+00
            Extinc=  1.000000E+22
             nCoat=  0
+             xObs=  1  0  0
              nObs=  0
-           ApType=  None
+           ApType=  Circular
+            ApVec=  1.132101659695E-01  4.024558464266E-16  -4.533217320888E-03
          PropType=  Geometric
              zElt=  1.000000000000000E+22
           nECoord=  -6

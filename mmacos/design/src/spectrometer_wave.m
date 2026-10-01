@@ -48,6 +48,7 @@ function R = spectrometer_wave(G, M, P, opts)
         opts.ngridpts (1,1) double = 127
         opts.out (1,:) char = ''
         opts.L_ref (1,1) double = 0.1
+        opts.ap_margin (1,1) double = 5e-3
         opts.quiet (1,1) logical = false
     end
     % ---- 1) the diffraction deck: the far-field terminal on a REFERENCE
@@ -57,7 +58,8 @@ function R = spectrometer_wave(G, M, P, opts)
     if isempty(opts.out)
         [d, b] = fileparts(M.file);  opts.out = fullfile(d, [b '_ff.in']);
     end
-    Mf = spectrometer_rx(G, opts.out, 'ngridpts', opts.ngridpts, 'terminal', 'farfield', 'L_ref', opts.L_ref);
+    Mf = spectrometer_rx(G, opts.out, 'ngridpts', opts.ngridpts, 'terminal', 'farfield', 'L_ref', opts.L_ref, ...
+                         'apertures', true, 'margin', opts.ap_margin);       % the optics carry their declared apertures here too
     R.prop_deck = opts.out;  R.M = Mf;
     macos.init(opts.model);
     macos.load_rx(opts.out);

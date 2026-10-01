@@ -30,6 +30,9 @@ function R = spectrometer_slit_loss(P, file, opts)
         opts.ngridpts (1,1) double = 255
         opts.slit_len (1,1) double = 0.15e-3
         opts.z_grating (1,1) double = 0.7
+        opts.acceptance (1,:) char {mustBeMember(opts.acceptance, {'strip','circle'})} = 'strip'
+        opts.init (1,1) logical = true
+        opts.propagating (1,1) logical = false
     end
     w = P.slit_px*P.pixel_m;  z = opts.z_grating;  u = asin(1/(2*P.Fno));  ymax = z*tan(u);
     ap = opts.slit_len;   % beam (and grid) width along x; the slit is the aperture
@@ -72,19 +75,36 @@ function R = spectrometer_slit_loss(P, file, opts)
     ln{end+1} = '                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00';
     ln{end+1} = '                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00';
     fid = fopen(file, 'w');  fprintf(fid, '%s\n', ln{:});  fclose(fid);
-    macos.init(opts.model);  macos.load_rx(file);
+    if opts.init, macos.init(opts.model); end
+    macos.load_rx(file);
     nl = numel(opts.lams);  R.lams = opts.lams;  R.loss_engine = nan(1, nl);  R.loss_sinc = nan(1, nl);  R.dx_m = nan(1, nl);  R.window_m = nan(1, nl);
     for j = 1:nl
         lam = opts.lams(j);  macos.set_src_wvl(lam);  macos.modify();
         I = macos.intensity(4);  dx = macos.dx_at(4);  N = size(I, 1);  c0 = N/2 + 1;
         R.energy(j) = sum(I(:));
-        g = ((1:N) - c0)*dx;  [~, jj] = ndgrid(1:N, 1:N);  yv = ((jj - c0)*dx);
+        g = ((1:N) - c0)*dx;  [ii, jj] = ndgrid(1:N, 1:N);  yv = ((jj - c0)*dx);
         R.dx_m(j) = dx;  R.window_m(j) = N*dx;
-        R.loss_engine(j) = 1 - sum(I(abs(yv) <= ymax))/sum(I(:));
+        xv = (ii - c0)*dx;
+        switch opts.acceptance
+            case 'strip',  acc = abs(yv) <= ymax;                 % a long slit: the x-spread is the slit's own length
+            case 'circle', acc = hypot(xv, yv) <= ymax;          % the grating's circular stop
+        end
+        % a planar FFT far field assigns energy to |sin(theta)| > 1 (spatial
+        % frequencies beyond 1/lambda), which no physical far field carries;
+        % y = lambda z f, so the propagating region is |y| <= z (and |x| <= z).
+        % opts.propagating normalises to that region only (test 4).
+        tot = sum(I(:));
+        if opts.propagating, prop = abs(yv) <= z & abs(xv) <= z;  tot = sum(I(prop)); end
+        R.loss_engine(j) = 1 - sum(I(acc))/tot;
+        R.evanescent_frac(j) = 1 - sum(I(abs(yv) <= z & abs(xv) <= z))/sum(I(:));
+        % energy near the window's edges (the last 5 % of the window): what a
+        % periodic FFT would alias back in from beyond
+        R.edge_frac(j) = sum(I(abs(yv) > 0.95*R.window_m(j)/2))/sum(I(:));
         % closed form: sinc^2 energy outside |sin theta| <= 1/(2F)
         s = linspace(-1, 1, 200001);  E = sinc(w*s/lam).^2;
         R.loss_sinc(j) = 1 - trapz(s(abs(s) <= 1/(2*P.Fno)), E(abs(s) <= 1/(2*P.Fno)))/trapz(s, E);
         R.inside_window(j) = (ymax <= R.window_m(j)/2);
+        R.window_ratio(j) = (R.window_m(j)/2)/ymax;
     end
     R.w_m = w;  R.z_m = z;  R.ymax_m = ymax;  R.deck = file;
 end

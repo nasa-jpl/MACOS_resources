@@ -8,7 +8,7 @@
            Extinc=  0.0D+00
           Wavelen=  3.800000000E-07
              Flux=  1.0D+00
-         Aperture=  1.500000000E-04
+         Aperture=  8.300000000E-05
          Obscratn=  0.0D+00
          GridType=  Square
          nGridpts=  255
@@ -30,7 +30,7 @@
              xObs=  1  0  0
              nObs=  0
            ApType=  Rectangular
-            ApVec=  -7.500000000E-05  7.500000000E-05  -1.800000000E-05  1.800000000E-05
+            ApVec=  -4.150000000E-05  4.150000000E-05  -1.800000000E-05  1.800000000E-05
          PropType=  Geometric
              zElt=  1.000000000E+22
           nECoord= -6
