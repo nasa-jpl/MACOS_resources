@@ -112,6 +112,40 @@ convex/concave mirror.  In the Dyson the slit sits off the axis by
   numbers above (the engine must reproduce the 'planes' column), or the
   Rowland-circle stigmatic property.  Until it lands, engine SRF/CRF
   carry the inflated blur and the record prints both columns.
+- **GRATING OPL JUMP -- engine finding #3 (2026-10-01, CC's lane; gate
+  `tGratingOpl`).**  With the chord-ruled DIRECTIONS fixed (799498b), the
+  engine's rays through the Offner seed at order -1 converge to 0.05 um,
+  but the pupil OPD it reports on a reference sphere about that focus is
+  **4.06 waves rms** (order 0: 8e-11 m, so the terminal is right).
+  Rays and path lengths disagree.  `Snells_Law_Grating` adds
+  `dL = (nb r - na i) . rho_prj` = `(m lambda/d)(s0 . rho_prj)` with the
+  hit vector projected into the LOCAL tangent plane; the groove-count
+  phase of equidistant groove planes is `(m lambda/d)(s0 . rho)`, rho the
+  hit vector from the VERTEX along the fixed ruling direction s0.  The
+  difference `(m lambda/d)(rho.N)(s0.N)` ~ `(m lambda/d) rho^3/(2R^2)`
+  is cubic -- 12 waves at the Offner grating's 45 mm footprint, R =
+  250 mm -- and ZERO on a flat grating, which is why the air fixtures
+  never saw it.  Engine-free confirmation (chain OPL on the same
+  sphere): chord phase 0.0004 waves rms, local-projection phase 4.9
+  waves.  Fix candidate: `dL = Order*lambda/RuleWidth * dot(s0, rho)`
+  (s0 the unit rule direction in the vertex plane), plus the
+  reflection/refraction eikonal part unchanged.  Until it lands the
+  propagation twin's order -1 numbers are this defect.
+- **Far-field terminal for a spectrometer (the twin's deck).**  The
+  Rx_Cass_FarField idiom on a REFERENCE sphere, not FEX's exit pupil:
+  the Offner is telecentric (exit pupil at infinity; FEX finds a
+  crossing 484 m PAST the focus, where the reversed rays never go).
+  `spectrometer_rx(..., 'terminal','farfield','L_ref',L)` writes
+  FP_return (Return, flat, at the FPA) -> ExitPupil (Return, sphere
+  radius L centred on the chief's focus, vertex L upstream, psi along
+  the beam, KrElt = -L, zElt = L, FarField) -> FPA; `spectrometer_wave`
+  re-poses it per (field, lambda) with `macos.set_xp` and moves the two
+  FPA vertices onto the chief pierce so the PSF grid is centred on the
+  chief (centre pixel N/2+1).  Grid index 1 = global X, index 2 =
+  global Y (measured: the dispersion offset sits in index 2).  FPA pitch
+  `lambda L/(N dx_ep)`; the window is `ngridpts x lambda F`, so
+  ngridpts 127 spans +-2.4 px at 380 nm.  Validated on the order-0
+  relay: Airy spot, 94 % ensquared in one pixel.
 - **Physical optics.**  The propagation chain's ray re-trace passes a
   Grating (propsub.F has the branch), but every diffraction KERNEL is
   handed the vacuum wavelength -- legs inside glass run at the wrong

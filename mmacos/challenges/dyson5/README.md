@@ -111,6 +111,23 @@ Both engine gates from beat 1 are GREEN on CC's fixed engine
   coincident with the `FocalPlane` drops the rays (use a `Reference`
   upstream).
 
+## Beat 2c (2026-10-01) -- the propagation twin, and a third engine finding
+
+`design/src/spectrometer_wave.m` + runner stage `s2w` (opt-in): a
+far-field terminal on a reference sphere upstream of the FPA (the
+Offner is telecentric, so FEX's exit pupil is unusable), re-posed per
+field and wavelength; the complex field at the FPA, PSF centroid vs
+ray centroid, SRF/CRF from the propagated PSF.  Validated on the
+order-0 Offner relay (Airy spot, 94 % in one pixel, pupil OPD 8e-11 m).
+At order -1 the engine's pupil OPD is 4 waves rms while its rays
+converge to 0.05 um: **engine finding #3**, the grating's optical-path
+jump uses the local-tangent projection of the hit vector where the
+groove count needs the chord coordinate (a cubic, 12 waves at this
+footprint, zero on a flat grating).  Gate `tests/tGratingOpl` (order 0
+passes, order -1 fails today; green on the fix with no test change);
+engine-free confirmation in `BRIEF_dyson5_beat2c.md`.  The twin's
+order -1 numbers in `dyson5_s2w.txt` are that defect until it lands.
+
 ## Run it yourself
 
 ```matlab

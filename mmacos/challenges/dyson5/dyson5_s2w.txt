@@ -1,0 +1,19 @@
+dyson5 s2w -- propagation twin (2026-10-01 02:23)
+CONVENTIONS: far-field terminal (Rx_Cass_FarField idiom) on a REFERENCE sphere of radius 0.10 m centred on the
+  chief's FPA pierce, vertex upstream on the chief, re-posed per (slit x, lambda) with macos.set_xp; FP_return
+  and FPA vertices moved onto the chief pierce so the PSF grid is centred on the chief (centre pixel N/2+1);
+  grid index 1 = global X (slit, u), index 2 = global Y (dispersion, v) -- measured: the lambda-proportional
+  offset appears in index 2; pitch = macos.dx_at(FPA), = lambda L_ref/(N dx_ep), window = ngridpts x lambda F;
+  model 512, ngridpts 127; the slit is a POINT (slit-width diffraction = the separate slit-loss measurement).
+  WAVE offset = PSF intensity centroid from the chief, RAY offset = engine ray centroid from the chief, px;
+  SRF_wave = FWHM of rect(2 px) (x) LSF_v(PSF) (x) rect(1 px); CRF_wave = LSF_u(PSF) (x) rect(1 px).
+VALIDATION (Offner at order 0 = a concentric relay, lambda_c): PSF centroid offset (-0.0005, -0.0005) px, rms widths
+  1.307 / 1.306 px, ensquared in 1 px 0.853, CRF 1.036 px -- the terminal reproduces the Airy spot.
+OFFNER: wave - ray centroid offsets, max |du| 0.0006 px, max |dv| 8.2115 px  (dv per lambda at slit centre: +1.248 +4.730 +8.211 )
+        SRF_wave max 13.450 px  CRF_wave max 3.764 px  EE(1 px) min 0.005  PSF rms widths max 4.018/7.659 px  energy range 2.77e+04-1.2e+06
+DYSON : wave - ray centroid offsets, max |du| 0.0249 px, max |dv| 2.9679 px  (dv per lambda at slit centre: -0.496 -1.763 -2.968 )
+        SRF_wave max 10.793 px  CRF_wave max 4.266 px  EE(1 px) min 0.009  PSF rms widths max 4.478/8.431 px  energy range 1.67e+05-7.26e+06
+STATUS: at order -1 the engine's pupil OPD on the reference sphere is ~4 waves rms although its rays converge
+  (tGratingOpl, engine finding #3: the grating OPL jump uses the local-tangent projection of the hit vector,
+  the groove count needs the chord coordinate s0.rho) -- the order -1 wave numbers above are that defect, not
+  the design; they become the twin when the engine fix lands (no change here).

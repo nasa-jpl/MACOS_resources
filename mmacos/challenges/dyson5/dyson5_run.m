@@ -25,6 +25,13 @@ function OUT = dyson5_run(over)
 %         the slit (x) LSF (x) pixel (x) Airy chain, geometric ensquared
 %         energy, the closed-form radiometric chain; Joe's spec and the
 %         paper's two reference columns printed beside every number.
+%     s2w PROPAGATION TWIN (design/src/spectrometer_wave; opt-in -- add
+%         's2w' to P.stages): a far-field terminal on a reference sphere
+%         L_ref upstream of the FPA, re-posed per (field, lambda); the
+%         complex field at the FPA, PSF centroid vs ray centroid, SRF/CRF
+%         from the propagated PSF.  Validated on the order-0 Offner relay
+%         (Airy, 94 % in one pixel); at order -1 it measures the engine's
+%         grating OPL defect until that is fixed (tGratingOpl).
 %     s3  native optimize -- beat 3
 %
 %   Artifacts (P.outdir): <tag>_s0_scaling.{txt,mat,png};
@@ -49,6 +56,7 @@ function OUT = dyson5_run(over)
             case 's0', OUT.s0 = stage_s0_(P, tag);
             case 's1', OUT.s1 = stage_s1_(P, tag);
             case 's2', OUT.s2 = stage_s2_(P, tag);
+            case 's2w', OUT.s2w = stage_s2w_(P, tag);
             case 's3'
                 fprintf('dyson5_run: stage %s is queued for the next beat (BRIEF_to_dyson5 build order).\n', P.stages{k});
             otherwise
@@ -243,6 +251,48 @@ function S = stage_s2_(P, tag)
     fclose(fid);
     save([tag '_s2.mat'], 'S', 'P');
     fprintf('dyson5 s2: wrote %s_s2.{txt,mat}, %s_s2_maps.png, %s_s2_rad.png\n', tag, tag, tag);
+end
+
+function S = stage_s2w_(P, tag)
+%STAGE_S2W_  The propagation twin on both s1 decks (model 512).
+    s1 = load([tag '_s1.mat']);  S1 = s1.S;
+    forms = {'offner', 'dyson'};
+    fid = fopen([tag '_s2w.txt'], 'w');
+    pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 s2w -- propagation twin (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: far-field terminal (Rx_Cass_FarField idiom) on a REFERENCE sphere of radius %.2f m centred on the\n', P.wave_L_ref);
+    pr('  chief''s FPA pierce, vertex upstream on the chief, re-posed per (slit x, lambda) with macos.set_xp; FP_return\n');
+    pr('  and FPA vertices moved onto the chief pierce so the PSF grid is centred on the chief (centre pixel N/2+1);\n');
+    pr('  grid index 1 = global X (slit, u), index 2 = global Y (dispersion, v) -- measured: the lambda-proportional\n');
+    pr('  offset appears in index 2; pitch = macos.dx_at(FPA), = lambda L_ref/(N dx_ep), window = ngridpts x lambda F;\n');
+    pr('  model %d, ngridpts %d; the slit is a POINT (slit-width diffraction = the separate slit-loss measurement).\n', P.wave_model, P.wave_ngridpts);
+    pr('  WAVE offset = PSF intensity centroid from the chief, RAY offset = engine ray centroid from the chief, px;\n');
+    pr('  SRF_wave = FWHM of rect(%d px) (x) LSF_v(PSF) (x) rect(1 px); CRF_wave = LSF_u(PSF) (x) rect(1 px).\n', P.slit_px);
+    % -- validation: the order-0 Offner relay must give a centred Airy spot
+    Gv = spectrometer_geom('offner', S1.offner.G.P);  Gv.grating.m = 0;  Gv.grating.d = 1;
+    Pv = P;  Pv.Fno = S1.offner.G.P.Fno;
+    Mv = spectrometer_rx(Gv, [tag '_s2w_offner_m0.in'], 'ngridpts', P.ngridpts);
+    Rv = spectrometer_wave(Gv, Mv, Pv, 'nx', 1, 'nlam', 1, 'model', P.wave_model, 'ngridpts', P.wave_ngridpts, 'L_ref', P.wave_L_ref, 'quiet', true);
+    S.offner_m0 = Rv;
+    pr('VALIDATION (Offner at order 0 = a concentric relay, lambda_c): PSF centroid offset (%.4f, %.4f) px, rms widths\n', Rv.du_wave, Rv.dv_wave);
+    pr('  %.3f / %.3f px, ensquared in 1 px %.3f, CRF %.3f px -- the terminal reproduces the Airy spot.\n', Rv.su_wave, Rv.sv_wave, Rv.ee, Rv.CRF);
+    for k = 1:2
+        G = S1.(forms{k}).G;  M = S1.(forms{k}).M;  Pk = P;  Pk.Fno = G.P.Fno;
+        R = spectrometer_wave(G, M, Pk, 'nx', P.wave_nx, 'nlam', P.wave_nlam, 'model', P.wave_model, ...
+                              'ngridpts', P.wave_ngridpts, 'L_ref', P.wave_L_ref, 'quiet', true);
+        S.(forms{k}) = R;
+        pr('%-6s: wave - ray centroid offsets, max |du| %.4f px, max |dv| %.4f px  (dv per lambda at slit centre: %s)\n', ...
+            upper(forms{k}), max(abs(R.d_du(:))), max(abs(R.d_dv(:))), sprintf('%+.3f ', R.dv_wave(ceil(end/2), :)));
+        pr('        SRF_wave max %.3f px  CRF_wave max %.3f px  EE(1 px) min %.3f  PSF rms widths max %.3f/%.3f px  energy range %.3g-%.3g\n', ...
+            R.srf_max, R.crf_max, R.ee_min, max(R.su_wave(:)), max(R.sv_wave(:)), min(R.energy(:)), max(R.energy(:)));
+    end
+    pr('STATUS: at order -1 the engine''s pupil OPD on the reference sphere is ~4 waves rms although its rays converge\n');
+    pr('  (tGratingOpl, engine finding #3: the grating OPL jump uses the local-tangent projection of the hit vector,\n');
+    pr('  the groove count needs the chord coordinate s0.rho) -- the order -1 wave numbers above are that defect, not\n');
+    pr('  the design; they become the twin when the engine fix lands (no change here).\n');
+    fclose(fid);
+    save([tag '_s2w.mat'], 'S', 'P');
+    fprintf('dyson5 s2w: wrote %s_s2w.{txt,mat}\n', tag);
 end
 
 function t = pf_(ok)

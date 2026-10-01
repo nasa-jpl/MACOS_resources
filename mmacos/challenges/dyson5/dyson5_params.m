@@ -63,7 +63,11 @@ function P = dyson5_params(over)
 %     blaze_m      scalar blaze wavelength of the radiometric chain
 %     qe           [lambda QE] table -- a PLACEHOLDER curve until a real
 %                  detector is named; reported, never scored
-%     stages       which stages to run (default {'s0','s1','s2'})
+%     wave_*       the s2w propagation twin: grid, model size, deck ray
+%                  grid (odd; the FPA window is ngridpts x lambda F),
+%                  reference-sphere radius (m)
+%     stages       which stages to run (default {'s0','s1','s2'}; add
+%                  's2w' for the propagation twin)
     arguments
         over struct = struct()
     end
@@ -119,7 +123,8 @@ function P = dyson5_params(over)
     P.score_nlam = 7;                 % wavelengths scored (over the band)
     P.blaze_m    = 1.0e-6;            % scalar blaze wavelength for the chain
     P.qe         = [380e-9 0.55; 600e-9 0.80; 1000e-9 0.85; 2000e-9 0.80; 2500e-9 0.65];  % PLACEHOLDER QE table
-    P.stages   = {'s0','s1','s2'};
+    P.wave_nx = 3;  P.wave_nlam = 3;  P.wave_model = 512;  P.wave_ngridpts = 127;  P.wave_L_ref = 0.1;
+    P.stages   = {'s0','s1','s2'};        % 's2w' (the propagation twin, model 512) is opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)
