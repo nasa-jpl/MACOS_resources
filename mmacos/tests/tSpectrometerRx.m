@@ -220,8 +220,7 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
             % wavefront-map stride (design_optim.F ~:792), a heap stomp on
             % the second (field, wavelength) that kills the host process
             % (pinned in the bounds-checked CLI, BRIEF_dyson5_beat4c.md 3.4)
-            % -- the multi-field count leg is marked INCOMPLETE below until
-            % that fix lands, not silently dropped.
+            % -- the multi-field leg runs again since macos 0d257ff.
             G = spectrometer_geom('dyson', tc.P);
             O1 = struct('fovs', struct('slit', G.slit, 'dir', G.aim(G.slit, G.src.lambda_c)), 'wavelens', G.src.lambda_c, ...
                         'weights', 1, 'target', 'SPOT', 'wf_elt', [], 'max_iters', 1, ...
@@ -251,8 +250,8 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
             tc.verifyEqual(numel(regexp(txt, 'OptChfRayPos=', 'match')), 2, 'two off-centre field positions written');
             tc.verifyEqual(numel(regexp(txt, 'ArrWaveLen=', 'match')), 1, 'the second wavelength written as ArrWaveLen');
             tc.verifyEqual(numel(regexp(txt, 'OptRayGrid=', 'match')), 0, 'OptRayGrid is not written (it corrupts the heap, beat 4c 3.3)');
-            tc.assumeFail(['the multi-field CALIB run (3 fields x 2 wavelengths -> n_fov 3, n_wavelength 2) is BLOCKED on the ' ...
-                           'engine: design_optim.F ~:792 steps the SPOT derivative at the wavefront stride (CC; beat 4c 3.4)']);
+            % the multi-field CALIB leg: a heap stomp until macos 0d257ff (the
+            % SPOT derivative columns advanced by opd_size); runs since
             macos.calib_set_iter(1);
             r = macos.calib();
             tc.verifyEqual(r.n_fov, 3, 'CALIB sees the 3 fields (header + 2 OptChfRay pairs)');

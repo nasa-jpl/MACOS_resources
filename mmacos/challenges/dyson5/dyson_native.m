@@ -55,6 +55,7 @@ function N = dyson_native(P, tag, Pr, opts)
         opts.tol_px (1,1) double = 0.002
         opts.asph (1,1) logical = false
         opts.var = []
+        opts.varset (1,:) char {mustBeMember(opts.varset, {'all', 'blur'})} = 'blur'
         opts.quiet (1,1) logical = false
     end
     pr = @(varargin) print_(opts.quiet, varargin{:});
@@ -75,10 +76,25 @@ function N = dyson_native(P, tag, Pr, opts)
     end
     V = opts.var;
     if isempty(V)
-        V = struct('name', {'Grating', 'BlockSphereOut', 'MenA_out', 'MenB_out', 'FPA'}, ...
-                   'mask', {[0 0 0 0 1 1 0 0], [0 0 0 0 0 0 1 1], [0 0 0 0 0 1 1 0], [0 0 0 0 0 1 1 0], [0 0 0 0 0 1 0 0]}, ...
-                   'asph', {[], [], [], [], []});
-        if opts.asph, V(2).asph = [1 2]; end
+        % 'all' includes the grating's position (DY, PIST).  MEASURED
+        % (2026-10-01, first run after macos 0d257ff): five CALIB iterations with
+        % it took the keystone from 0.003 to 15 px -- a grating moved along the
+        % dispersion direction changes the dispersion geometry, which the
+        % blur-only SPOT merit cannot see -- and the wall rejected the chunk.
+        % 'blur' (the default) leaves the dispersion geometry alone: block
+        % face ROC + CONIC, meniscus faces PIST + ROC, FPA PIST.
+        if strcmp(opts.varset, 'all')
+            V = struct('name', {'Grating', 'BlockSphereOut', 'MenA_out', 'MenB_out', 'FPA'}, ...
+                       'mask', {[0 0 0 0 1 1 0 0], [0 0 0 0 0 0 1 1], [0 0 0 0 0 1 1 0], [0 0 0 0 0 1 1 0], [0 0 0 0 0 1 0 0]}, ...
+                       'asph', {[], [], [], [], []});
+            ia = 2;
+        else
+            V = struct('name', {'BlockSphereOut', 'MenA_out', 'MenB_out', 'FPA'}, ...
+                       'mask', {[0 0 0 0 0 0 1 1], [0 0 0 0 0 1 1 0], [0 0 0 0 0 1 1 0], [0 0 0 0 0 1 0 0]}, ...
+                       'asph', {[], [], [], []});
+            ia = 1;
+        end
+        if opts.asph, V(ia).asph = [1 2]; end
     end
     O = struct('fovs', fovs, 'wavelens', lams, 'weights', ones(1, opts.nx), 'target', 'SPOT', ...
                'wf_elt', [], 'max_iters', opts.chunk, 'var', V);

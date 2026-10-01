@@ -483,15 +483,16 @@ function N = stage_s4_(P, tag)
     fid = fopen([tag '_s4.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
     pr('dyson5 s4 -- the native optimize on %s (%s)\n', P.native_rung, datestr(now, 'yyyy-mm-dd HH:MM'));
     pr('CONVENTIONS: CALIB (design_optim.F, LM) on the rung''s deck with the double-pass copies LINKED (Link=; PERTURB/ROC/\n');
-    pr('  CONIC apply to both passes); target SPOT = the max ray distance to the chief at the FPA, one number per (slit\n');
-    pr('  position, wavelength), %d x %d fields, equal weights, driven to 0; variables: grating DY+PIST, block convex face\n', P.native_nx, P.native_nlam);
-    pr('  ROC+CONIC (asphere %s), meniscus faces PIST+ROC, FPA PIST; groove period HELD (not a CALIB DOF).  Chunks of %d\n', tern_(P.native_asph, 'FREE', 'HELD -- OptAsph slice bug, CC'), P.native_chunk);
+    pr('  CONIC/ASPH apply to both passes); target SPOT = the max ray distance to the chief at the FPA, one number per (slit\n');
+    pr('  position, wavelength), %d x %d fields, equal weights, driven to 0; variables: block convex face\n', P.native_nx, P.native_nlam);
+    pr('  ROC+CONIC (asphere %s), meniscus faces PIST+ROC, FPA PIST; variable set ''%s'' (''all'' adds the grating''s DY+PIST, which\n', tern_(P.native_asph, 'FREE', 'HELD'), P.native_varset);
+    pr('  the blur merit cannot police: measured keystone 0.003 -> 15 px in five iterations, wall-rejected); groove period HELD.  Chunks of %d\n', P.native_chunk);
     pr('  iterations; after each the engine state is read back, mapped into the chain (identity to 1e-9 m), ENGINE-scored\n');
     pr('  on the %d x %d grid and gated: smile and keystone <= %.3f px (half the spec, Dave''s wall on iterates), clearance\n', P.score_nx, P.score_nlam, P.native_wall_px);
     pr('  PASS; a breach restores the last accepted state.  The rung of record is re-emitted CLEAN from the mapped chain.\n\n');
     N = dyson_native(P, tag, r4.P, 'nx', P.native_nx, 'nlam', P.native_nlam, 'chunk', P.native_chunk, ...
                      'max_chunks', P.native_max_chunks, 'wall_px', P.native_wall_px, 'tol_px', P.native_tol_px, ...
-                     'asph', P.native_asph, 'quiet', true);
+                     'asph', P.native_asph, 'varset', P.native_varset, 'quiet', true);
     H = N.history;
     pr('%-5s %5s %8s %8s %7s %7s %6s %8s %9s  %s\n', 'chunk', 'iters', 'smile', 'keyst', 'CRF', 'SRF', 'EE', 'clear', 'identity', 'status');
     for i = 1:height(H)
