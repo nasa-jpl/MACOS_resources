@@ -992,21 +992,23 @@ function S = stage_t3w_(P, tag)
     G0 = telescope_geom(struct('f', f, 'D', D, 'fov', fov, 'R', [0.3 0.1 0.3], 't', [0.1 0.1 0.1]), GD);
     Lapp = G0.pupil.L_app;  t1 = P.tel3w_t1_m;  off = P.tel3w_off_deg;  it = P.tel3w_iters;
     odir = fullfile(P.outdir, 't3');  if ~exist(odir, 'dir'), mkdir(odir); end
-    [~, tb] = fileparts(tag);  wtag = fullfile(odir, sprintf('%s_t3w', tb));
-    box = [fov*180/pi, P.tel3_box_al_deg];
+    [~, tb] = fileparts(tag);  sfx = P.tel3w_suffix;
+    xw = P.tel3w_xtrack_deg;  if isnan(xw), xw = fov*180/pi; end
+    box = [xw, P.tel3_box_al_deg];
     mkP = @(Sd, name) offset_imager_params(struct('name', name, 'tag', name, 'outdir', odir, 'EPD_m', D, 'Fno', P.Fno, ...
               'lambda_m', P.tel3_lambda_m, 'box_deg', box, 'offset_deg', off, 'nsolve', P.tel3w_nsolve, 'z_m1_m', P.tel3_z_m1_m, ...
               'spacings_m', [-Sd.t(1) 0 Sd.t(2)], 'seed_R1_m', -Sd.R(1), 'seed_R_m', -Sd.R, 'clear_m', P.tel3_clear_m, ...
               'exit_dir', P.tel3_exit_dir, 'model', P.tel3_model, 'sampling', P.tel3_sampling, 'gn_iters', it, 'hold_R1', P.tel3w_hold_R1));
     macos.init(P.tel3_model);
-    fid = fopen([tag '_t3w.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    fid = fopen([tag '_t3w' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
     pr('dyson5 t3w -- the y2 continuation of the three-mirror parent, then the offset solve (addendum 23) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
-    pr('NOTE: a first run with R1 FREE was stopped after step y2 0.600: S1 reached 79.0 nm only by walking R1 0.700 -> 2.615 m\n');
+    if isempty(sfx), pr('NOTE: a first run with R1 FREE was stopped after step y2 0.600: S1 reached 79.0 nm only by walking R1 0.700 -> 2.615 m\n');
     pr('  with K1 -141 (40 iterations, capped) -- an effective y2 of ~0.89, not the screened family; carried onto the next step\n');
-    pr('  it started at 8.7 mm.  This run holds R1.\n');
+    pr('  it started at 8.7 mm.  This run holds R1.\n'); end
     pr('CONVENTIONS: the offset_imager template''s S1 (on-axis box, symmetric conics + h^4/h^6/h^8 aspheres, R2/R3 eliminated by\n');
     pr('  EFL %.0f mm + Petzval 0 on the branch held by seed_R_m) walked in y2 at t1 = %.0f mm: each step''s spacings and R1 are\n', f*1e3, t1*1e3);
     pr('  telescope_seed''s family point (exit pupil %.2f m behind the slit), its conics / aspheres / FPA refit CARRIED from the\n', Lapp);
+    pr('  BOX: %.2f deg cross-track x %.2f deg along-track%s.\n', box, tern_(abs(xw - fov*180/pi) > 1e-9, ' (NOT the full slit field: one module of two, addendum 24)', ''));
     pr('  previous solved step; R1 %s in S1 / S3 (y2 sets M1''s power: phi1 = (1 - y2)/t1), so every step IS its family point;\n', tern_(P.tel3w_hold_R1, 'HELD', 'free'));
     pr('  S4 frees the radii (the template''s S4).  Solve set %s (across the slit x along the %.1f deg strip); every solve runs to oi_solve''s own\n', mat2str(P.tel3w_nsolve), P.tel3_box_al_deg);
     pr('  stop (a rejected step, or < 0.1 %% gain) with a cap of %d -- "CAPPED" if it ends at the cap.  A step COUNTS at S1\n', it);
@@ -1023,7 +1025,7 @@ function S = stage_t3w_(P, tag)
     while k <= numel(y2s)
         y2 = y2s(k);
         Sd = telescope_seed(f, D, Lapp, t1, y2);
-        name = sprintf('%s_t3w_y%03d', tb, round(1000*y2));
+        name = sprintf('%s_t3w%s_y%03d', tb, sfx, round(1000*y2));
         Pw = mkP(Sd, name);
         X = oi_seed(Pw);
         if ~isempty(Xprev)                          % warm start: the solved shape carried onto the new family point
@@ -1053,16 +1055,20 @@ function S = stage_t3w_(P, tag)
     end
     % ---- the offset solve from the last counted step the screen passes ---------
     cnt = steps([steps.ok]);
+    if P.tel3w_s1_only
+        pr('\nS1 ONLY (tel3w_s1_only): no S3 / S4 and no hard-stop verdict from this run.\n');
+        S = struct('steps', steps, 'off', off, 'stop', 'S1 only');  t3w_close_(fid, S, [tag '_t3w' sfx]);  return
+    end
     scr = P.tel3w_screen_pass_m;  if isnan(scr), scr = P.tel3_pack_m; end
     pass = cnt([cnt.screen] >= scr);
     S = struct('steps', steps, 'off', off);
     if isempty(pass)
         if isempty(cnt), lasty = NaN; else, lasty = cnt(end).y2; end
         pr('\nHARD STOP: no counted step passes the screen (last counted y2 %.3f) -- the walk did not reach the packaging corner.\n', lasty);
-        S.stop = 'walk';  t3w_close_(fid, S, tag);  return
+        S.stop = 'walk';  t3w_close_(fid, S, [tag '_t3w' sfx]);  return
     end
     base = pass(end);  Sd = telescope_seed(f, D, Lapp, t1, base.y2);
-    name = sprintf('%s_t3w_y%03d', tb, round(1000*base.y2));  Pw = mkP(Sd, name);
+    name = sprintf('%s_t3w%s_y%03d', tb, sfx, round(1000*base.y2));  Pw = mkP(Sd, name);
     X = base.X;  X.fpa_refit = [0 0];  X.eliminate = 'R2R3';
     X.stop_fixed = false;  [X, ~] = oi_close(X, Pw, 'offset_deg', off);  X.stop_fixed = true;     % pose the stop at the offset once, then free (the template's S3 entry)
     pr('\nS3 at %g deg from the counted step y2 %.3f (stop posed at y %.2f mm):\n', off, base.y2, X.stopC(2)*1e3);
@@ -1095,13 +1101,13 @@ function S = stage_t3w_(P, tag)
     else
         pr('\nHARD STOP (beat 5c earned): %s.\n', strjoin(why, '; '));  S.stop = strjoin(why, '; ');
     end
-    t3w_close_(fid, S, tag);
+    t3w_close_(fid, S, [tag '_t3w' sfx]);
 end
 
-function t3w_close_(fid, S, tag)
+function t3w_close_(fid, S, stem)
     fclose(fid);
     for k = 1:numel(S.steps), S.steps(k).X = rmfield(S.steps(k).X, intersect(fieldnames(S.steps(k).X), {'cache'})); end
-    save([tag '_t3w.mat'], 'S');
+    save([stem '.mat'], 'S');
 end
 
 function dg = t3w_diag_(X, Pw, off)
