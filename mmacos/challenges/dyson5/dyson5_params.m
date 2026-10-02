@@ -246,6 +246,9 @@ function P = dyson5_params(over)
     P.tel3w_vig_max  = 0.05;                      % hard stop: > 5 % rays lost at the cross-track edge
     P.tel3w_img_max_nm = 250;                     % hard stop: S3 / S4 dense-map max above this with the gate satisfied
     P.tel3w_screen_pass_m = NaN;                  % the screen's pass threshold for choosing the S3 base step (NaN = tel3_pack_m)
+    P.tel3w_xtrack_deg = NaN;                     % cross-track box width, deg (NaN = the slit's field, 24.6; 12.3 = one of two modules, addendum 24)
+    P.tel3w_s1_only  = false;                     % true: stop after the walk (no S3 / S4 -- addendum 24's S1-only run)
+    P.tel3w_suffix   = '';                        % record name suffix (dyson5_t3w<suffix>.*, t3/dyson5_t3w<suffix>_y*)
     % t3s, THE FIRST-ORDER CLEARANCE SCREEN (addendum 21): tma_screen's nine
     % OI_CLEAR pairs evaluated paraxially (engine-free, ms per row) over
     % telescope_seed's family -- solve ONLY rows it passes

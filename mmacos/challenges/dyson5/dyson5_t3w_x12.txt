@@ -1,0 +1,22 @@
+dyson5 t3w -- the y2 continuation of the three-mirror parent, then the offset solve (addendum 23) (2026-10-02 14:10)
+CONVENTIONS: the offset_imager template's S1 (on-axis box, symmetric conics + h^4/h^6/h^8 aspheres, R2/R3 eliminated by
+  EFL 126 mm + Petzval 0 on the branch held by seed_R_m) walked in y2 at t1 = 140 mm: each step's spacings and R1 are
+  telescope_seed's family point (exit pupil 16.84 m behind the slit), its conics / aspheres / FPA refit CARRIED from the
+  BOX: 12.30 deg cross-track x 0.30 deg along-track (NOT the full slit field: one module of two, addendum 24).
+  previous solved step; R1 HELD in S1 / S3 (y2 sets M1's power: phi1 = (1 - y2)/t1), so every step IS its family point;
+  S4 frees the radii (the template's S4).  Solve set [5 3] (across the slit x along the 0.3 deg strip); every solve runs to oi_solve's own
+  stop (a rejected step, or < 0.1 % gain) with a cap of 40 -- "CAPPED" if it ends at the cap.  A step COUNTS at S1
+  dense-map max <= 1000 nm; a failed step is halved once, then the walk ends.  Metric = the template's (strict RMS WFE at
+  1.00 um, 11 x 11 dense-map max over the 24.6 x 0.3 deg box).  Per step, at the 14 deg offset (stop posed there): M3's
+  footprint reach rho/|R3| at the box corners, the fraction of launched rays reaching the FP at the +-12.3 deg cross-track
+  edges, and the exit-chief error vs [0 0 -1].  Then S3 at 14 deg seeded from the last counted step, accepted when the gate
+  (oi_clear, disk model) reads >= 5 mm afterwards, else S4 (tilts/decenters + the clearance hinge) from it.
+
+   y2  S1 max nm     avg nm  iters R1 R2 R3 (mm)            K1 K2 K3                 |  rho/R3 edge kept exit err scr flr
+0.600       47.6       26.9    3  700.0 124.73 151.78      -4.35 0.434 0.0975       |   0.478     1.000    0.000   -10.9  counts
+0.550       55.4       32.1    3  622.2 113.66 139.07      -3.7 0.47 0.12           |   0.492     1.000    0.000    -6.6  counts
+0.500       64.7       38.7    3  560.0 103.10 126.37      -3.21 0.489 0.138        |   0.509     1.000    0.000    -2.5  counts
+0.450       76.9       46.9    3  509.1 92.93 113.68       -2.83 0.509 0.157        |   0.532     1.000    0.000    +1.6  counts
+0.400       93.8       57.7    3  466.7 83.03 101.00       -2.53 0.483 0.172        |   0.569     1.000    0.000    +5.4  counts
+
+S1 ONLY (tel3w_s1_only): no S3 / S4 and no hard-stop verdict from this run.
