@@ -69,6 +69,29 @@ function OUT = dyson5_run(over)
 %         then the two-axis corner of the first failures.  Table + figure +
 %         the sentence the run-it-yourself slide needs.
 %
+%     t1  THE TELESCOPE (beat 5, addendum 7; opt-in): the fore-optics that
+%         feed the slit at EMIT's parameters (420 km, 60 m ground sample ->
+%         0.143 mrad per pixel, f = 126 mm, 70 mm at F/1.8, 24.6 deg across
+%         track onto the 54 mm slit).  A coaxial three-mirror anastigmat's
+%         off-axis section, first-order seed (telescope_seed: a flat field
+%         and the exit pupil at the spectrometer's -- the Dyson is telecentric
+%         at the slit to 0.09 deg), a flat fold so the 0.7 m spectrometer
+%         lies outside the telescope, rungs T1-T3 solved on the exact chain
+%         (telescope_ladder: conics + radii + spacings + bias; + h^4/h^6
+%         aspheres; + M2/M3 decentre and tilt) with the pupil match and the
+%         clearance wall in the merit, each rung emitted with apertures and
+%         ENGINE-scored at the slit (telescope_score: spot, slit admittance,
+%         telecentricity, pupil match as the chief's miss of the grating
+%         vertex, field flatness, mapping), the clearance gate on the
+%         combined chain with the R4 spectrometer's bodies.
+%     t2  END TO END (opt-in, after t1): the telescope of record prepended to
+%         the R4 and the R5 spectrometers as ONE prescription each (e2e_geom),
+%         a collimated field source with the GRATING as the stop, scored by
+%         the spectrometer's scorer over fields x wavelengths (smile,
+%         keystone, SRF, CRF, ensquared energy, and the fraction of the
+%         launched bundle the grating admits per field), the clearance gate
+%         across both instruments, the engine renders.
+%
 %   Artifacts (P.outdir): <tag>_s0_scaling.{txt,mat,png};
 %   <tag>_s1_{dyson,offner}.in, <tag>_s1_layout.png, <tag>_s1.{txt,mat};
 %   <tag>_s2.{txt,mat}, <tag>_s2_maps.png, <tag>_s2_rad.png; deck-standard
@@ -99,6 +122,8 @@ function OUT = dyson5_run(over)
             case 's4',  OUT.s4  = stage_s4_(P, tag);
             case 's5',  OUT.s5  = stage_s5_(P, tag);
             case 's4env', OUT.s4env = stage_s4env_(P, tag);
+            case 't1',  OUT.t1  = stage_t1_(P, tag);
+            case 't2',  OUT.t2  = stage_t2_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -670,6 +695,166 @@ function E = stage_s4env_(P, tag)
     pr('\n%s\n', E.sentence);
     fclose(fid);
     S = E;  save([tag '_s4env.mat'], 'S', 'P');
+end
+
+function S = stage_t1_(P, tag)
+%STAGE_T1_  The telescope (beat 5): seed, ladder, engine score at the slit, clearance with R4.
+    GD = dyson_of_record_(P, tag, 'R4');
+    macos.init(P.model);
+    fid = fopen([tag '_t1.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = P.npix(1)*ifov;
+    pr('dyson5 t1 -- the telescope that feeds the slit (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: EMIT parameters -- altitude %.0f km, ground sample %.0f m -> IFOV %.4f mrad per %.0f um pixel -> f = %.1f mm,\n', P.tel_alt_m*1e-3, P.tel_gsd_m, ifov*1e3, P.pixel_m*1e6, f*1e3);
+    pr('  D = f/%.1f = %.1f mm, field = %d px x IFOV = %.2f deg across track (along the slit, +x).  Form: a coaxial positive-\n', P.Fno, D*1e3, P.npix(1), fov*180/pi);
+    pr('  negative-positive three-mirror anastigmat (concave M1, convex M2, concave M3; KrElt = -|R|, psi to the centre of\n');
+    pr('  curvature), its off-axis section selected by a field BIAS across the slit, a FLAT fold after M3 turning the beam into\n');
+    pr('  the spectrometer so the 0.7 m block lies outside the telescope; the field is the sky line that images ONTO the\n');
+    pr('  straight slit (the across-slit angle solved per field), so the image of a straight sky line is curved -- the push-\n');
+    pr('  broom''s orthorectified truth.  First-order seed (telescope_seed): EFL, a FLAT field (Petzval sum 0) and the EXIT\n');
+    pr('  PUPIL at the spectrometer''s apparent entrance pupil, which the R4 chain puts %.1f m behind the slit (the Dyson is\n', 16.84);
+    pr('  telecentric at the slit to 0.09 deg); in that limit t2 = f y2 and phi3 = 1/t2 -- the family is one-dimensional\n');
+    pr('  in the beam compression y2 at a given t1.  Seed t1 = %.0f mm, y2 = %.2f, bias %.0f deg, chief FOLD angles at M1/M2/M3\n', P.tel_t1_m*1e3, P.tel_y2, P.tel_bias_deg);
+    pr('  %s deg (Bauer: the coaxial section of this family cannot be unobscured at F/1.8 -- its spacings are the beam''s\n', mat2str(P.tel_tilt_deg));
+    pr('  size -- so the chief is folded at each mirror; a scan over fold angles found this open layout); spheres (the Seidel\n');
+    pr('  n-flip seed does not describe this geometry).  Rungs on the EXACT CHAIN (lsqnonlin, residuals in px over %d fields):\n', P.tel_nfield);
+    pr('  T0 the LAYOUT (bias, spacings, M2/M3 decentre + tilt, the fold''s distance; the wall dominant, the image terms\n');
+    pr('  weak); T1 conics + radii + spacings + bias; T2 + h^4, h^6 aspheres on all three; T3 + everything.  Merit:\n');
+    pr('  %g x rms spot (u, v), %g x image line off the slit, %g x end fields vs the slit ends, %g x departure from a linear\n', P.tel_w.blur, P.tel_w.v, P.tel_w.map, P.tel_w.ftheta);
+    pr('  map, %g x the chief''s miss of the grating vertex when sent on through the Dyson (mm), %g x the best-focus offset\n', P.tel_w.pupil, P.tel_w.flat);
+    pr('  along the slit normal per field (100 um; a FLAT field), %g x the clearance wall\n', P.tel_w.clear);
+    pr('  (legs %.0f mm beyond the mount from every mirror, the fold, and the spectrometer''s bodies).  Each rung is then\n', P.tel_clear_m*1e3);
+    pr('  emitted (collimated source, apertures from footprints + %.0f mm) and scored in the ENGINE at the slit over %d fields\n', P.ap_margin_m*1e3, P.tel_score_nfield);
+    pr('  (telescope_score; the engine == chain identity is the gate tTelescopeRx), and the clearance gate is run on the\n');
+    pr('  COMBINED chain with the R4 spectrometer''s bodies (spectrometer_clearance).  Units: px of %.0f um; walk = the chief''s\n', P.pixel_m*1e6);
+    pr('  landing on the grating from its vertex, mm; flatness = p-v of the best-focus offset along the slit normal, um.\n\n');
+    % the apparent pupil + the seed
+    G0 = telescope_geom(struct('f', f, 'D', D, 'fov', fov, 'R', [0.3 0.1 0.3], 't', [0.1 0.1 0.1]), GD);
+    Lapp = G0.pupil.L_app;
+    Sd = telescope_seed(f, D, Lapp, P.tel_t1_m, P.tel_y2);
+    assert(Sd.ok, 'dyson5 t1: the first-order seed does not close (t1 %.3f, y2 %.2f)', P.tel_t1_m, P.tel_y2);
+    pr('SPECTROMETER PUPIL: the Dyson''s aim lines from the slit centre and ends cross %.2f m behind the slit (edge chief %.3f deg).\n', Lapp, G0.pupil.edge_angle_deg);
+    pr('SEED (first order): R [%.1f %.1f %.1f] mm, t [%.1f %.1f %.1f] mm, powers [%.4f %.4f %.4f] /m (sum %.1e), f %.2f mm, y3 %.3f\n\n', ...
+       Sd.R*1e3, Sd.t*1e3, Sd.phi, sum(Sd.phi), Sd.f*1e3, Sd.y(3));
+    Pt0 = struct('f', f, 'D', D, 'fov', fov, 'bias', P.tel_bias_deg*pi/180, 'R', Sd.R, 't', Sd.t, 'Kc', [0 0 0], 'A', zeros(3, 2), ...
+                 'dec', [0 0 0], 'tilt', P.tel_tilt_deg(:)'*pi/180, 'fold_dir', P.tel_fold_dir(:), 'lambda_c', GD.src.lambda_c, ...
+                 'D_src', D*P.tel_oversize, 'name', [P.tag '_tel'], 'fold_gap', P.tel_fold_gap_m);
+    L = telescope_ladder(Pt0, GD, P, 'rungs', P.tel_rungs, 'nfield', P.tel_nfield, 'nring', P.tel_nring, ...
+                         'w_blur', P.tel_w.blur, 'w_v', P.tel_w.v, 'w_map', P.tel_w.map, 'w_ftheta', P.tel_w.ftheta, ...
+                         'w_pupil', P.tel_w.pupil, 'w_flat', P.tel_w.flat, 'w_clear', P.tel_w.clear, 'clear_m', P.tel_clear_m, ...
+                         'max_iter', P.tel_max_iter, 'fold_gap', P.tel_fold_gap_m, 'quiet', false);
+    pr('%-4s %8s %7s %6s %6s %7s %7s %7s %8s %8s %8s %6s  %s\n', 'rung', 'merit', 'spot', 'ee1', 'slit', 'telec', 'pupil', 'walk', 'flat', 'ends', 'IFOV', 'clear', 'on bounds');
+    pr('%-4s %8s %7s %6s %6s %7s %7s %7s %8s %8s %8s %6s\n', '', '', 'px', 'min', 'min', 'deg', 'deg', 'mm', 'um p-v', 'px', 'ratio', 'mm');
+    tags = {};
+    for k = 1:numel(L.rung)
+        r = L.rung(k);  h = r.chain.headline;
+        pr('%-4s %8.3g %7.3f %6.3f %6.3f %7.3f %7.3f %7.2f %8.1f %8.2f %8.3f %6.2f  %s\n', [r.name ' chain'], r.merit, h.s_max_px, h.ee1_min, h.slit_min, h.tel_max_deg, ...
+           h.err_max_deg, h.walk_max_mm, h.flat_pv_um, max(abs(h.end_err_px)), max(abs(h.ifov_ratio_range - 1)) + 1, r.cmin_mm, strjoin(r.on_bounds, ' '));
+        % emit + engine score + full clearance (with the R4 spectrometer)
+        GT = telescope_geom(r.P, GD);
+        F = GT.footprints('nx', 5, 'nlam', 1, 'nring', P.tel_nring);
+        d0 = GT.field_dir(0);  [p0, ok] = GT.aim_pt(d0, GT.src.lambda_c);  assert(ok);
+        file = sprintf('%s_t1_%s.in', tag, lower(r.name));
+        M = spectrometer_rx(GT, file, 'ngridpts', P.ngridpts, 'name', sprintf('%s_tel_%s', P.tag, r.name), 'apertures', true, 'margin', P.ap_margin_m, ...
+                            'footprints', F, 'source', struct('dir', d0, 'pos', p0, 'aperture', GT.src.D_src), 'wavelen', GT.src.lambda_c);
+        M.iStop = GT.iStop;
+        macos.load_rx(file);
+        assert(macos.num_elt() == M.nElt, 'dyson5 t1: %s loads %d of %d elements', file, macos.num_elt(), M.nElt);
+        Re = telescope_score(GT, M, P, 'nfield', P.tel_score_nfield, 'quiet', true);
+        he = Re.headline;
+        % identity: the engine's CHIEF at the slit vs the chain's, centre field
+        % (the gate tTelescopeRx checks every ray; this is the record's one line)
+        d0c = GT.field_dir(0);  [p0c, ~] = GT.aim_pt(d0c, GT.src.lambda_c);
+        [pcc, ~, ~] = GT.trace(p0c, d0c, GT.src.lambda_c);
+        macos.stop(M.iStop);  macos.set_src_fov('src_pos', p0c, 'src_dir', d0c, 'zSrc', 1e22);  macos.modify();
+        sc = macos.trace(M.nElt);  ric = macos.get_ray_info(sc.nRays);
+        ident = norm(ric.pos(:, 1) - pcc(:, end));
+        GE = e2e_geom(GT, GD);
+        Cl = spectrometer_clearance(GE, P, 'quiet', true);
+        pr('%-4s %8s %7.3f %6.3f %6.3f %7.3f %7.3f %7.2f %8.1f %8.2f %8.3f %6.2f  %s (%s vs %s); engine chief vs chain %.1e m; %d rays/field; deck %s\n', ...
+           [r.name ' engine'], '', he.s_max_px, he.ee1_min, he.slit_min, he.tel_max_deg, he.err_max_deg, he.walk_max_mm, he.flat_pv_um, max(abs(he.end_err_px)), ...
+           max(abs(he.ifov_ratio_range - 1)) + 1, Cl.min_mm, tern_(Cl.pass, 'PASS', 'FAIL'), Cl.table.leg{1}, Cl.table.body{1}, ident, he.nrays_min, file);
+        L.rung(k).engine = Re;  L.rung(k).clearance = Cl;  L.rung(k).file = file;  L.rung(k).M = M;
+        telescope_maps_fig(Re, sprintf('%s_t1_maps_%s.png', tag, lower(r.name)), 'title', sprintf('telescope %s, engine, at the slit', r.name), 'pixel_um', P.pixel_m*1e6);
+        tags{end+1} = regexprep(file, {'^.*/', '\.in$'}, '');   %#ok<AGROW>
+    end
+    r = L.rung(end);  Re = r.engine;
+    pr('\nTELESCOPE OF RECORD (%s): R [%.2f %.2f %.2f] mm, spacings [%.2f %.2f %.2f] mm, bias %.3f deg, conics %s,\n', r.name, r.P.R*1e3, r.P.t*1e3, r.P.bias*180/pi, mat2str(r.P.Kc, 5));
+    pr('  aspheres h^4 %s /m^3, h^6 %s /m^5; fold angles %s deg, M2/M3 decentre %s mm; the flat fold %.1f mm before the slit; EFL by the map %.2f mm\n', ...
+       mat2str(r.P.A(:,1)', 4), mat2str(r.P.A(:,2)', 4), mat2str(r.P.tilt*180/pi, 4), mat2str(r.P.dec(2:3)*1e3, 3), r.P.fold_gap*1e3, Re.efl_fit_m*1e3);
+    pr('  per field (deg): %s\n  spot px:  %s\n  slit:     %s\n  walk mm:  %s\n  focus um: %s\n', sprintf('%+.1f ', Re.fields*180/pi), sprintf('%.3f ', Re.S), sprintf('%.3f ', Re.SLIT), sprintf('%.2f ', Re.walk_m*1e3), sprintf('%.0f ', Re.zbf_m*1e6));
+    pr('  CLEARANCE with R4 (legs vs bodies not traversed, mount %.0f mm): min %+.2f mm %s\n', P.mount_margin_m*1e3, r.clearance.min_mm, tern_(r.clearance.pass, 'PASS', 'FAIL'));
+    for i = 1:min(6, height(r.clearance.table)), pr('    %-34s vs %-16s %+9.2f mm\n', r.clearance.table.leg{i}, r.clearance.table.body{i}, r.clearance.table.clearance_mm(i)); end
+    fclose(fid);
+    S = L;  S.seed = Sd;  S.Lapp = Lapp;  S.record = r;
+    save([tag '_t1.mat'], 'S', 'P');
+    dyson5_view_figs(tags(end), P.outdir);
+    fprintf('dyson5 t1: wrote %s_t1.{txt,mat}, %s_t1_t*.in, %s_t1_maps_*.png\n', tag, tag, tag);
+end
+
+function S = stage_t2_(P, tag)
+%STAGE_T2_  End to end: the telescope of record into R4 and R5, one deck each, the spectrometer's scorer.
+    fn = [tag '_t1.mat'];
+    assert(isfile(fn), 'dyson5 t2 needs the telescope record %s (run t1 first)', fn);
+    T1 = load(fn);  rt = T1.S.record;
+    macos.init(P.model);
+    fid = fopen([tag '_t2.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 t2 -- telescope + spectrometer, end to end (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: the telescope of record (t1, rung %s) prepended to each spectrometer of record as ONE prescription\n', rt.name);
+    pr('  (e2e_geom): sky -> M1 -> M2 -> M3 -> fold -> slit (a pass-through Reference) -> the spectrometer''s surfaces -> FPA.\n');
+    pr('  COLLIMATED source of %.1f mm (%.2f x the 70 mm), the GRATING declared the STOP (macos.stop): per (field, lambda) the\n', rt.P.D_src*1e3, P.tel_oversize);
+    pr('  chain''s own launch whose chief passes the grating vertex is written as the source; the telescope''s apertures are its\n');
+    pr('  footprints + %.0f mm, the spectrometer''s its own record apertures, the grating''s its F/%.1f footprint + 0.2 mm (the stop).\n', P.ap_margin_m*1e3, P.Fno);
+    pr('  Scored by spectrometer_score in the FPA frame (u along the slit, v along the dispersion, px): smile, keystone, SRF,\n');
+    pr('  CRF, ensquared energy, and PASS = the fraction of the launched bundle the grating admits (the pupil match in energy)\n');
+    pr('  over %d fields x %d wavelengths; the clearance gate on the combined chain; the engine renders.\n\n', P.e2e_nfield, P.e2e_nlam);
+    pr('%-6s %8s %8s %7s %7s %6s %6s %8s  %s\n', 'deck', 'smile', 'keyst', 'CRF', 'SRF', 'EE', 'pass', 'clear', 'worst pair');
+    tags = {};
+    for q = 1:numel(P.e2e_rungs)
+        rg = P.e2e_rungs{q};
+        GD = dyson_of_record_(P, tag, rg);
+        GT = telescope_geom(rt.P, GD);  GE = e2e_geom(GT, GD);
+        nT = numel(GT.surf);
+        Ft = GE.footprints('nx', 5, 'nlam', 3, 'nring', P.tel_nring);
+        Fd = GD.footprints('nx', 3, 'nlam', 3, 'nring', 2);
+        F = [Ft(1:nT), Fd];
+        marg = [P.ap_margin_m*ones(1, nT), P.ap_margin_m*ones(1, numel(GD.surf))];  marg(GE.iG) = 0.2e-3;
+        d0 = GE.field_dir(0);  [p0, ~, ok] = GE.launch_field(0, GE.src.lambda_c);  assert(ok);
+        file = sprintf('%s_t2_%s.in', tag, lower(rg));
+        M = spectrometer_rx(GE, file, 'ngridpts', P.ngridpts, 'name', sprintf('%s_e2e_%s', P.tag, rg), 'apertures', true, 'margin', marg, ...
+                            'footprints', F, 'source', struct('dir', d0, 'pos', p0, 'aperture', GE.src.D_src), 'wavelen', GE.src.lambda_c);
+        macos.load_rx(file);
+        assert(macos.num_elt() == M.nElt, 'dyson5 t2: %s loads %d of %d elements', file, macos.num_elt(), M.nElt);
+        fields = linspace(-GE.src.fov/2, GE.src.fov/2, P.e2e_nfield);
+        Pk = P;  Pk.Fno = GD.P.Fno;
+        R = spectrometer_score(GE, M, Pk, 'fields', fields, 'nlam', P.e2e_nlam, 'quiet', true);
+        Cl = spectrometer_clearance(GE, P, 'quiet', true);
+        pr('%-6s %8.4f %8.4f %7.3f %7.3f %6.3f %6.3f %+8.2f  %s vs %s (%s); %d elements; deck %s\n', rg, R.smile_max, R.keystone_max, R.crf_max, R.srf_max, R.ee_min, ...
+           min(R.pass_frac(:)), Cl.min_mm, Cl.table.leg{1}, Cl.table.body{1}, tern_(Cl.pass, 'PASS', 'FAIL'), M.nElt, file);
+        pr('        pass fraction per field: %s\n', sprintf('%.3f ', min(R.pass_frac, [], 2)));
+        pr('        smile per lambda (px): %s\n        keystone per field (px): %s\n', sprintf('%.4f ', R.smile_px), sprintf('%.4f ', R.keystone_px));
+        S.(rg) = struct('G', GE, 'M', M, 'score', R, 'clearance', Cl, 'file', file);
+        spectrometer_maps_fig(R, sprintf('%s_t2_maps_%s.png', tag, lower(rg)), 'title', sprintf('telescope + %s, end to end, engine', rg), 'pixel_um', P.pixel_m*1e6);
+        tags{end+1} = regexprep(file, {'^.*/', '\.in$'}, '');   %#ok<AGROW>
+    end
+    fclose(fid);
+    save([tag '_t2.mat'], 'S', 'P');
+    dyson5_view_figs(tags, P.outdir);
+    fprintf('dyson5 t2: wrote %s_t2.{txt,mat}, %s_t2_*.in, %s_t2_maps_*.png\n', tag, tag, tag);
+end
+
+function GD = dyson_of_record_(P, tag, rg)
+%DYSON_OF_RECORD_  The R4 (s3 record) or R5 (s5 record) chain, rebuilt from its parameter set.
+    switch rg
+        case 'R4'
+            fn = [tag '_s3.mat'];  assert(isfile(fn), 'dyson5: the ladder record %s is needed (run s3)', fn);
+            S3 = load(fn);  k = find(strncmp({S3.S.rung.name}, 'R4 ', 3), 1);  assert(~isempty(k));
+            GD = spectrometer_geom('dyson', S3.S.rung(k).P);
+        case 'R5'
+            fn = [tag '_s5.mat'];  assert(isfile(fn), 'dyson5: the fold-prism record %s is needed (run s5)', fn);
+            S5 = load(fn);  GD = spectrometer_geom('dyson', S5.S.rung.P);
+        otherwise
+            error('dyson5: unknown spectrometer of record %s', rg);
+    end
 end
 
 function s = dyson5_vstr_(v)

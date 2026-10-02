@@ -255,6 +255,39 @@ F/2.8 end on the meniscus bounds with CRF 1.37 / 1.07 px (a bound to
 widen, not a form that fails); the F/1.6 + 150 mm corner does not close.
 Record `BRIEF_dyson5_beat4e.md`, `dyson5_s4env.{txt,mat,png}`.
 
+## Beat 5 (2026-10-01) -- the telescope, and the instrument end to end
+
+`design/src/telescope_geom.m` + `telescope_seed.m` + `telescope_ladder.m`
++ `telescope_score.m` (engine) / `telescope_score_chain.m`, `e2e_geom.m`,
+the shared exact tracer `chain_trace.m` (the Dyson's, lifted verbatim),
+`chain_aim.m` / `chain_bundle.m` / `chain_footprints.m`, and runner
+stages `t1` (the telescope) and `t2` (end to end).  At EMIT's parameters
+(420 km, 60 m -> 0.143 mrad per pixel: f = 126 mm, 70 mm at F/1.8,
+24.6 deg across track onto the 54 mm slit) a coaxial three-mirror
+anastigmat's off-axis section with a flat fold after M3 feeds the slit.
+Three facts first: the R4 spectrometer is TELECENTRIC at the slit to
+0.09 deg (its aim lines cross 16.84 m behind it), so the pupil-match
+number is the chief's miss of the grating vertex when sent on through
+the Dyson's chain; in that telecentric, flat-field limit the three-
+mirror first order is a one-parameter family (t2 = f y2, phi3 = 1/t2);
+and the push-broom field is the sky line that images onto the straight
+slit, not a straight sky line.  Rungs on the exact chain (T0 the layout
+under the clearance wall, T1 conics + radii + spacings + bias, T2 + h^4
+/ h^6 aspheres, T3 everything), each emitted and ENGINE-scored at the
+slit, the clearance gate on the combined chain; then the telescope of
+record prepended to R4 and to R5 as ONE prescription each, a collimated
+field source with the grating as the stop, scored by the spectrometer's
+scorer.  Gate `tests/tTelescopeRx` (both decks, every ray 1e-9 m).
+Result: the layout closes (every leg clears every body, +0.75 mm; the
+chief lands within 9.4 mm of the grating vertex and the grating admits
+the whole beam at every field; EFL 126.4 mm by the map) but the image
+does not -- 67 px rms at the slit with a 1.6 mm field swing: conics and
+symmetric aspheres on folded mirrors do not image at the pixel at this
+field and speed.  End to end with R4: smile 3.1, keystone 0.59, CRF 15.5
+px (the telescope's blur through the spectrometer).  Next: the
+two-mirror modified Schwarzschild and freeform mirrors.  Records
+`dyson5_t1.txt`, `dyson5_t2.txt`; report `BRIEF_dyson5_beat5.md`.
+
 ## Run it yourself
 
 ```matlab
@@ -262,6 +295,7 @@ run('<path-to>/mmacos/mmacos_setup.m');
 addpath('<path-to>/mmacos/challenges/dyson5');
 OUT = dyson5_run();                                   % stage s0 at the spec
 OUT = dyson5_run(struct('Fno',2.2,'y_offset_m',6e-3)); % another instance
+OUT = dyson5_run(struct('stages', {{'t1','t2'}}));     % the telescope, then end to end (after s3 and s5)
 ```
 
 All knobs live in `dyson5_params.m` (single source of truth).  Stage

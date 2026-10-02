@@ -51,7 +51,7 @@ function C = spectrometer_clearance(G, P, opts)
     bodies = {};
     for k = 1:nS
         S = G.surf(k);
-        if strcmp(S.act, 'stop'), continue; end
+        if any(strcmp(S.act, {'stop', 'pass'})), continue; end   % image planes and recorded stations are not hardware
         stem = stem_(S.name);
         pts = body_pts_(S, F(k), mount, opts.sample_m);
         bodies{end+1} = struct('name', S.name, 'stem', stem, 'pts', pts, 'surfs', k, 'mount', mount, 'box', []);  %#ok<AGROW>
@@ -81,7 +81,14 @@ function C = spectrometer_clearance(G, P, opts)
             for e = L.ends
                 if e >= 1 && e <= nS && strcmp(stem_(G.surf(e).name), Bd.stem), skip = true; end
             end
-            if strcmp(Bd.stem, 'SlitMask') && L.ends(1) == 0, skip = true; end
+            % the slit mask is passed THROUGH its opening by the leg that starts
+            % (or, in an end-to-end chain, ends) at the slit station
+            iS0 = 0;  if isfield(G, 'iSlit'), iS0 = G.iSlit; end
+            if strcmp(Bd.stem, 'SlitMask') && any(L.ends == iS0), skip = true; end
+            % the slit sits ON the block's face (or its entrance plate) by
+            % design: the leg that ends at the slit station, like the Dyson's
+            % own first leg, is not scored against that part
+            if iS0 > 0 && any(L.ends == iS0) && iS0 < nS && strcmp(stem_(G.surf(iS0+1).name), Bd.stem), skip = true; end
             if strcmp(Bd.stem, 'FPApackage') && L.ends(2) == nS, skip = true; end
             if skip, continue; end
             d = segs_to_pts_(L.a, L.b, Bd.pts) - Bd.mount;
@@ -143,7 +150,11 @@ function st = stem_(name)
 end
 
 function n = stname_(G, k)
-    if k == 0, n = 'Slit'; else, n = G.surf(k).name; end
+    if k == 0
+        n = 'Slit';  if isfield(G, 'station0'), n = G.station0; end   % a collimated chain starts at the sky
+    else
+        n = G.surf(k).name;
+    end
 end
 
 function v = field_(P, f, d)
@@ -155,11 +166,13 @@ function t = tern_(c, a, b), if c, t = a; else, t = b; end, end
 function pts = body_pts_(S, Fk, mount, h)
 %BODY_PTS_  Surface samples inside the aperture disc (footprint + mount) in
 %   the aperture frame, lifted onto the surface (plane or sphere).
-    if any(strcmp(S.name, {'PlateIn', 'FoldMirror', 'PrismExit'}))
+    if any(strcmp(S.name, {'PlateIn', 'FoldMirror', 'PrismExit'})) || strncmp(S.name, 'Tel', 3)
         % R5's plate and prism are RECTANGULAR parts (a slab under the slit, a
         % prism under the image): the footprint's extents + mount, not the
         % enclosing disc, whose 64 mm diameter under a 54 x 0.5 mm slit strip
-        % reaches 27 mm sideways into the detector package's place
+        % reaches 27 mm sideways into the detector package's place; the
+        % telescope's mirrors and fold (Tel*) likewise -- a one-dimensional
+        % field makes them long along the slit and narrow across it
         xl = Fk.xlim + [-mount mount];  yl = Fk.ylim + [-mount mount];
         [u, v] = meshgrid(linspace(xl(1), xl(2), max(8, ceil(diff(xl)/h))), linspace(yl(1), yl(2), max(8, ceil(diff(yl)/h))));
         u = u(:);  v = v(:);
