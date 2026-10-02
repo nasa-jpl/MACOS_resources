@@ -186,7 +186,30 @@ function P = dyson5_params(over)
     P.slitloss_lams = [380e-9 700e-9 1440e-9 2500e-9];  P.slitloss_model = 1024;  P.slitloss_ngrid = 255;
     P.slitloss_len = 0.083e-3;  P.slitloss_z = 0.7;        % s2l: modelled slit length (-> window = 2 x the acceptance at 380 nm), slit-to-grating distance
     P.slitloss_propagating = true;                          % normalise to |sin theta| <= 1 (the planar FFT carries evanescent energy)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l' are opt-in
+    % t1 / t2, THE TELESCOPE (beat 5, BRIEF_to_dyson5 addendum 7: EMIT's
+    % parameters): the fore-optics that feed the slit, a three-mirror
+    % anastigmat solved on the exact chain (telescope_geom / telescope_ladder)
+    % and scored at the slit in the engine (telescope_score), then the
+    % instrument traced END TO END as one deck (e2e_geom) and scored by the
+    % spectrometer's scorer with the grating as the stop
+    P.tel_alt_m      = 420e3;             % orbit altitude (EMIT, ISS)
+    P.tel_gsd_m      = 60;                % ground sample distance -> IFOV = gsd/alt = 0.143 mrad per pixel
+    %   derived by the stage: f = pixel/IFOV = 126 mm, D = f/Fno = 70 mm, field = npix(1)*IFOV = 24.6 deg
+    P.tel_t1_m       = 0.14;              % seed: M1 -> M2 spacing (the first-order family's free knob)
+    P.tel_y2         = 0.6;               % seed: beam compression at M2 (t2 = f y2 follows from telecentricity + a flat field)
+    P.tel_bias_deg   = 0;                 % seed: the field bias across the slit (the coaxial section's knob; the folds do the unobscuring)
+    P.tel_tilt_deg   = [32 -32 24];       % seed: the chief's FOLD angle at M1, M2, M3 (Bauer; the scan's open layout, +5.4 mm)
+    P.tel_fold_gap_m = 25e-3;             % the fold flat this far before the slit (it moves with the back focus)
+    P.tel_fold_dir   = [0 1 0];           % the folded beam's direction in the telescope's local frame (+y: away from the sky side)
+    P.tel_rungs      = {'T0', 'T1', 'T2', 'T3'};   % layout (bias, spacings, M2/M3 decentre + tilt, fold distance, wall dominant); conics + radii + spacings + bias; + h^4/h^6 aspheres; + everything
+    P.tel_nfield     = 7;  P.tel_nring = 3;  P.tel_max_iter = 120;
+    P.tel_w          = struct('blur', 1, 'v', 1, 'map', 1, 'ftheta', 0.1, 'pupil', 1, 'flat', 1, 'clear', 20);   % merit weights (px; walk mm; focus 100 um; wall mm)
+    P.tel_clear_m    = 2e-3;              % the wall: legs this far beyond the mount margin from every body
+    P.tel_score_nfield = 9;               % the engine score at the slit: fields along the slit
+    P.tel_oversize   = 1.0;               % launched bundle / 70 mm (the grating is the stop; > 1 overfills it)
+    P.e2e_rungs      = {'R4', 'R5'};      % the spectrometers the telescope is traced into (s3 / s5 records)
+    P.e2e_nfield     = 7;  P.e2e_nlam = 7;   % the end-to-end score grid (fields along the slit x wavelengths)
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)

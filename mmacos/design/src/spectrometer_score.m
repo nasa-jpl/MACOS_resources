@@ -43,9 +43,19 @@ function R = spectrometer_score(G, M, P, opts)
         opts.xs (1,:) double = []
         opts.lams (1,:) double = []
         opts.quiet (1,1) logical = false
+        opts.fields (1,:) double = []          % END-TO-END: field angles along the slit (rad) instead of slit points
     end
+    % END-TO-END launch (dyson5 beat 5): when 'fields' is given the deck is a
+    % telescope + spectrometer chain (e2e_geom) with a COLLIMATED source; per
+    % (field, lambda) the stop is declared (the grating) and the chain's own
+    % launch -- G.launch_field: the launch point and direction whose chief
+    % passes the grating vertex -- is written as the source, so the engine's
+    % re-aim is a no-op.  R.xs then carries the chain's slit landing of each
+    % field (m) for the maps, and R.fields the angles.
     W = P.npix(1)*P.pixel_m;
+    e2e = ~isempty(opts.fields);
     xs   = opts.xs;    if isempty(xs),   xs   = linspace(-W/2, W/2, opts.nx); end
+    if e2e, xs = nan(size(opts.fields)); end
     lams = opts.lams;  if isempty(lams), lams = linspace(P.band_m(1), P.band_m(2), opts.nlam); end
     nx = numel(xs);  nl = numel(lams);  px = P.pixel_m;
     c  = G.fpa.center(:);  xh = G.fpa.xhat(:);  yh = G.fpa.yhat(:);
@@ -54,13 +64,23 @@ function R = spectrometer_score(G, M, P, opts)
     U = nan(nx, nl);  V = U;  SU = U;  SV = U;  EE = U;  SRF = U;  CRF = U;  NR = U;
     raysU = cell(nx, nl);  raysV = cell(nx, nl);
     for i = 1:nx
-        slit = G.slit + [xs(i); 0; 0];
+        if ~e2e, slit = G.slit + [xs(i); 0; 0]; end
         for j = 1:nl
             lam = lams(j);
-            da = G.aim(slit, lam);
-            % ChfRayPos IS the physical source point once a deck is loaded
             macos.stop(M.iG);                 % stop FIRST (its own aim is one pass short)
-            macos.set_src_fov('src_pos', slit, 'src_dir', da, 'zSrc', -G.src.zsrc_gap);
+            if e2e
+                [p0, d0, okA] = G.launch_field(opts.fields(i), lam);
+                if ~okA, continue; end
+                macos.set_src_fov('src_pos', p0, 'src_dir', d0, 'zSrc', 1e22);
+                if j == ceil(nl/2)             % the chain's slit landing of this field, for the maps
+                    [pc, ~, okc] = G.trace(p0, d0, lam);
+                    if okc, xs(i) = pc(1, G.iSlit) - G.slit(1); end
+                end
+            else
+                da = G.aim(slit, lam);
+                % ChfRayPos IS the physical source point once a deck is loaded
+                macos.set_src_fov('src_pos', slit, 'src_dir', da, 'zSrc', -G.src.zsrc_gap);
+            end
             macos.set_src_wvl(lam);  macos.modify();
             s  = macos.trace(M.nElt);  ri = macos.get_ray_info(s.nRays);
             ok = ri.ok_trace & ri.ok_pass;
@@ -79,6 +99,8 @@ function R = spectrometer_score(G, M, P, opts)
         if ~opts.quiet, fprintf('  spectrometer_score: slit x = %+6.2f mm done (%d lambdas)\n', xs(i)*1e3, nl); end
     end
     R.xs = xs;  R.lams = lams;  R.U = U;  R.V = V;  R.SU = SU;  R.SV = SV;  R.EE = EE;
+    R.fields = opts.fields;  R.e2e = e2e;
+    if e2e, R.pass_frac = NR/max(NR(:)); end                 % rays the grating (the stop) admits per field: the pupil match in energy
     R.SRF = SRF;  R.CRF = CRF;  R.nrays = NR;  R.raysU = raysU;  R.raysV = raysV;
     R.smile_px    = max(V, [], 1) - min(V, [], 1);          % per lambda
     R.keystone_px = max(U, [], 2) - min(U, [], 2);          % per s

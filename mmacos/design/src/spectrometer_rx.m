@@ -38,11 +38,21 @@ function M = spectrometer_rx(G, file, opts)
         opts.terminal (1,:) char {mustBeMember(opts.terminal, {'geometric','farfield'})} = 'geometric'
         opts.L_ref (1,1) double {mustBePositive} = 0.1
         opts.apertures (1,1) logical = false
-        opts.margin (1,1) double = 5e-3
+        opts.margin (1,:) double = 5e-3        % scalar, or one per surface
         opts.footprints = []
         opts.links (1,1) logical = false
         opts.opt = []
+        opts.source = []
     end
+    % 'source' (2026-10-01, the telescope and the end-to-end decks): a struct
+    % {dir, pos, aperture} writes a COLLIMATED source instead of the slit's
+    % point source -- ChfRayDir = dir, ChfRayPos = pos (the chain's launch
+    % point, the chief already aimed through the stop), zSource = 1e22,
+    % Aperture = the launched bundle's diameter; the scorer declares the stop
+    % (macos.stop) per field.  'margin' may be a vector, one per surface
+    % (the end-to-end deck makes the grating the stop at its F/1.8 footprint
+    % with no margin).  A chain surface with act 'pass' (the slit plane
+    % inside an end-to-end chain) is written as a pass-through Reference.
     if isnan(opts.wavelen), opts.wavelen = G.src.lambda_c; end
     if isempty(opts.name), opts.name = ['spectrometer_' G.form]; end
     F = @(v) sprintf('%.15G  %.15G  %.15G', v(1), v(2), v(3));
@@ -59,9 +69,16 @@ function M = spectrometer_rx(G, file, opts)
         d0 = O.fovs(1).dir(:);
         opts.wavelen = O.wavelens(1);
     end
+    src = opts.source;
+    if ~isempty(src), d0 = src.dir(:)/norm(src.dir); end
     xg = [1;0;0];  yg = cross(d0, xg);  yg = yg/norm(yg);  xg = cross(yg, d0);
-    pos0 = G.slit(:) + G.src.zsrc_gap*d0;
-    if ~isempty(O), pos0 = O.fovs(1).slit(:) + G.src.zsrc_gap*d0; end
+    if isempty(src)
+        pos0 = G.slit(:) + G.src.zsrc_gap*d0;
+        if ~isempty(O), pos0 = O.fovs(1).slit(:) + G.src.zsrc_gap*d0; end
+    else
+        pos0 = src.pos(:);
+    end
+    marg = opts.margin;  if isscalar(marg), marg = marg*ones(1, numel(G.surf)); end
 
     S = G.surf;  nS = numel(S);
     % declared apertures (BRIEF_to_dyson5 addendum 6): every optical surface
@@ -78,8 +95,23 @@ function M = spectrometer_rx(G, file, opts)
                    'psi', s.psi(:), 'vpt', s.C(:), 'indref', 1, 'extinc', 0, ...
                    'glass', '', 'element', '', 'grating', [], 'proptype', 'Geometric', 'zelt', 1e22, 'asph', [], ...
                    'ap', [], 'xobs', []);
-        if opts.apertures && ~strcmp(s.act, 'stop')
-            e.ap = [FP(k).radius + opts.margin, FP(k).xc, FP(k).yc];  e.xobs = FP(k).xap(:);
+        if opts.apertures && ~any(strcmp(s.act, {'stop', 'pass'}))
+            if strncmp(s.name, 'Tel', 3)
+                % a telescope surface carries a one-dimensional field: its
+                % footprint is long along the slit and narrow across it, so
+                % the declared aperture is ELLIPTICAL (ApVec = a, b, xc, yc:
+                % semi-axes along xObs / yObs about the vertex) -- the
+                % enclosing disc would draw and clear a body twice too tall
+                % the footprint is a STADIUM (the beam's disc swept along the
+                % field); an ellipse containing it needs a = xhalf + yhalf
+                % and b = sqrt(2) yhalf (the inscribed-ellipse corner cut
+                % vignetted 2 % of the rays, gate tTelescopeRx 2026-10-01)
+                xh = diff(FP(k).xlim)/2;  yh = diff(FP(k).ylim)/2;
+                e.ap = [xh + yh + marg(k), sqrt(2)*yh + marg(k), FP(k).xc, FP(k).yc];
+            else
+                e.ap = [FP(k).radius + marg(k), FP(k).xc, FP(k).yc];
+            end
+            e.xobs = FP(k).xap(:);
         end
         if strcmp(s.kind, 'sphere') || strcmp(s.kind, 'asph')
             e.surface = 'Conic';  e.Kr = -s.R;  e.vpt = s.vpt(:);  e.psi = s.psi(:);
@@ -98,6 +130,8 @@ function M = spectrometer_rx(G, file, opts)
         case 'grating'
             e.element = 'Grating';  e.extinc = 1e22;
             e.grating = struct('dir', G.grating.sdir(:), 'm', G.grating.m, 'd', G.grating.d);
+        case 'pass'
+            e.element = 'Reference';                       % a recorded station: the slit plane of an end-to-end chain
         case 'stop'
             switch opts.terminal
             case 'geometric'
@@ -106,10 +140,10 @@ function M = spectrometer_rx(G, file, opts)
                 % zero path length and the engine drops those rays as a miss;
                 % the Reference only exists so the grating index is < nElt-2,
                 % the stop wrapper's range)
-                e.element = 'Reference';  e.name = 'PreFPA';
+                e.element = 'Reference';  e.name = ['Pre' s.name];
                 e.vpt = s.C(:) + 1e-3*s.psi(:);        % psi points against the beam
                 E{end+1} = e;                                        %#ok<AGROW>
-                e.element = 'FocalPlane';  e.name = 'FPA';  e.vpt = s.C(:);
+                e.element = 'FocalPlane';  e.name = s.name;  e.vpt = s.C(:);
             case 'farfield'
                 % the Rx_Cass_FarField idiom, posed on the chief: FP_return
                 % (Return, flat, AT the FPA) -> ExitPupil (Return, sphere of
@@ -141,7 +175,8 @@ function M = spectrometer_rx(G, file, opts)
     nElt = numel(E);
     M.iG = find(cellfun(@(e) strcmp(e.element, 'Grating'), E));
     M.iFPA = nElt;  M.iRef = nElt - 1;  M.nElt = nElt;  M.file = file;  M.terminal = opts.terminal;
-    M.apertures = opts.apertures;  M.footprints = FP;  M.margin = opts.margin;
+    M.apertures = opts.apertures;  M.footprints = FP;  M.margin = marg;  M.source = src;
+    M.iSlit = find(cellfun(@(e) strcmp(e.element, 'Reference') && strcmp(e.name, 'Slit'), E), 1);
     if strcmp(opts.terminal, 'farfield'), M.iEP = nElt - 1;  M.iFPr = nElt - 2;  M.L_ref = opts.L_ref; end
 
     % double-pass links: the return-pass copy of a surface follows its first
@@ -168,14 +203,22 @@ function M = spectrometer_rx(G, file, opts)
         opts.name, G.form, G.grating.m, G.grating.d, G.grating.lines_per_mm);
     ln{end+1} = sprintf('        ChfRayDir=  %s', F(d0));
     ln{end+1} = sprintf('        ChfRayPos=  %s', F(pos0));
-    ln{end+1} = sprintf('          zSource=  %.10G', -G.src.zsrc_gap);
+    if isempty(src)
+        ln{end+1} = sprintf('          zSource=  %.10G', -G.src.zsrc_gap);
+    else
+        ln{end+1} =     '          zSource=  1.0E+22';
+    end
     ln{end+1} =         '        BaseUnits=  m';
     ln{end+1} =         '        WaveUnits=  m';
     ln{end+1} =         '           IndRef=  1.0D+00';
     ln{end+1} =         '           Extinc=  0.0D+00';
     ln{end+1} = sprintf('          Wavelen=  %.9E', opts.wavelen);
     ln{end+1} =         '             Flux=  1.0D+00';
-    ln{end+1} = sprintf('         Aperture=  %.12E', 2*G.src.u);
+    if isempty(src)
+        ln{end+1} = sprintf('         Aperture=  %.12E', 2*G.src.u);
+    else
+        ln{end+1} = sprintf('         Aperture=  %.12E', src.aperture);
+    end
     ln{end+1} =         '         Obscratn=  0.0D+00';
     ln{end+1} =         '         GridType=  Circular';
     ln{end+1} = sprintf('         nGridpts=  %d', opts.ngridpts);
@@ -253,6 +296,9 @@ function M = spectrometer_rx(G, file, opts)
         ln{end+1} =         '             nObs=  0';
         if isempty(e.ap)
             ln{end+1} =     '           ApType=  None';
+        elseif numel(e.ap) == 4
+            ln{end+1} =     '           ApType=  Elliptical';
+            ln{end+1} = sprintf('            ApVec=  %.12E  %.12E  %.12E  %.12E', e.ap(1), e.ap(2), e.ap(3), e.ap(4));
         else
             ln{end+1} =     '           ApType=  Circular';
             ln{end+1} = sprintf('            ApVec=  %.12E  %.12E  %.12E', e.ap(1), e.ap(2), e.ap(3));
