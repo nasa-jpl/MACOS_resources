@@ -308,6 +308,21 @@ beat 4e's 180/150 mm rows: continuation reproduces them (CRF 1.611/2.351 vs
 Records `dyson5_size.{txt,mat,png}`, decks `dyson5_size_<family>_r<mm>.in`; report
 `BRIEF_dyson5_size.md`.
 
+**Round 2 (no meniscus, Jim's point): drop it.**  Rung R3 (the de-concentred
+block + conic + h^4/h^6, NO meniscus; a `rung` option, two verdict columns
+`matches R4` / `meets SPEC`, and a THROUGHPUT column = uncoated Fresnel at 1 um
+over the air-glass crossings, R3 = 4 vs R4 = 8).  Families D silica / E CaF2 at
+the 27 mm slit, F CaF2 one-module 54 mm, G the thick-meniscus global-search basins.
+At the two-module slit the meniscus-free block **matches R4 to the SAME floor**
+(D silica 100 mm, E CaF2 80 mm) with **4 crossings not 8 -> +15 % throughput**
+(0.87-0.88 vs 0.76) and no 4 mm sliver; the round-1 130 mm block is identical in
+image and mass with +15 % throughput.  A *buildable* (28-31 mm) meniscus FAILS
+(family G: CRF 1.64 / 1.72) -- only the fragile 4 mm sliver reaches R4, so no
+meniscus wins.  A one-module no-meniscus Dyson exists only in CaF2 (F: matches R4
+at 240 mm, 14.3 kg) -- silica cannot.  Correction to round 1: CaF2's index is
+LOWER than silica's (1.429 vs 1.450); the benefit is CaF2's lower dispersion over
+380-2500 nm, not the cone angle.
+
 ## Run it yourself
 
 ```matlab
