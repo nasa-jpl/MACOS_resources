@@ -16,6 +16,7 @@ complex_field
 compose_add
 compose_get
 compose_start
+deadband_notes_get
 draw_rays3d_get
 draw_rays_cmd
 draw_rays_get
