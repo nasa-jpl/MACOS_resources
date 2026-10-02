@@ -1,4 +1,4 @@
-# dyson5 — how small can the Dyson block be at R4 performance?
+# dyson5 — how small can the Dyson block be?  (rounds 1 + 2)
 
 Written for: Dave (the size question in `macos/BRIEF_ccmac_dyson_size.md`).
 CCMac (Claude Code on the Mac), 2026-10-02, `dev-candidate`. Records:
@@ -6,9 +6,68 @@ CCMac (Claude Code on the Mac), 2026-10-02, `dev-candidate`. Records:
 `dyson5_size_trade.m`, figure `dyson5_size_fig.m`. New files only — nothing in
 `dyson5_run.m` / `dyson5_params.m` / `dyson5_envelope.m` / `dyson_ladder.m` was
 touched. All scores are the ENGINE's (the ladder's `r.engine`), on the 7×7 grid,
-each point a full R4 solve warm-started by continuation from the next-larger radius.
+each point a ladder solve (R3 = de-concentred block + conic + h⁴/h⁶, no meniscus;
+R4 = + the meniscus) warm-started by continuation from the next-larger radius.
 
-## The answer, first
+# Round 2 (2026-10-02): drop the meniscus
+
+**Jim is right — and the meniscus is not needed.** At the two-module 27 mm slit,
+the **meniscus-free** block (ladder rung R3) matches R4 of record down to the SAME
+radius round 1 reached *with* the meniscus — but with **4 air-glass crossings
+instead of 8**, so **+15 % throughput** (uncoated Fresnel 0.87–0.88 vs 0.76 at
+1 µm) and **no 4 mm sliver** to fabricate, mount, vibe or ghost.
+
+Round-1's headline two-module block was **130 mm silica** (it keeps the record's
+distortion). Meniscus-free, that block is **identical in image and mass, +15 % in
+throughput**:
+
+| 130 mm, silica, 27 mm slit | CRF | EE | thickness | mass | crossings | throughput |
+|---|---|---|---|---|---|---|
+| R4 (with meniscus, round 1) | 1.034 | 1.000 | 131 mm | 1.6 kg | 8 | 0.760 |
+| **R3 (no meniscus, round 2)** | 1.026 | 0.999 | 129 mm | 1.6 kg | **4** | **0.872** |
+
+Smallest meniscus-free block per family (engine-scored, continuation):
+
+| family | glass | slit | matches R4 | meets spec | throughput |
+|---|---|---|---|---|---|
+| **D** | silica | 27 mm (2 modules) | **100 mm / 0.9 kg / 99 mm** | 80 mm / 0.6 kg | 0.872 |
+| **E** | CaF₂ | 27 mm (2 modules) | **80 mm / 0.9 kg / 79 mm** | 60 mm / 0.5 kg | 0.881 |
+| **F** | CaF₂ | 54 mm (1 module) | 240 mm / 14.3 kg | 210 mm / 10.7 kg | 0.881 |
+
+Three conclusions:
+
+1. **Two modules, no meniscus → 100 mm silica block, 0.9 kg, 4 crossings, 0.872
+   throughput.** Strictly better than round-1's R4 block (same 100 mm floor, same
+   image, +15 % throughput, no sliver). This is the recommendation.
+2. **A buildable meniscus does not help.** The only meniscus that reaches R4's CRF
+   is the 4 mm sliver of record; the thick (28–31 mm), *buildable* basins of the
+   global search (family G, starts 12 and 7) score **CRF 1.64 / 1.72** — they fail
+   both R4 and the spec. So the choice is the fragile sliver or no meniscus, and no
+   meniscus wins.
+3. **A single module without a meniscus exists only in CaF₂** (family F: matches R4
+   at 240–300 mm, meets spec to 210 mm) and it is heavy — 14.3 kg at 240 mm,
+   CaF₂ being 45 % denser. Silica one-module R3 does not close (CRF 2.10 at 220 mm).
+   If one module is mandatory, this is the only no-meniscus option; otherwise two
+   modules is far lighter.
+
+**Correction to round 1's CaF₂ sentence.** CaF₂'s index is *lower* than silica's
+(1.429 vs 1.450 at 1 µm), so "higher index narrows the cone" was wrong — that
+mechanism predicts the opposite. The evidence (CaF₂ beats silica at every
+configuration: R4 to 180 vs 220 mm one-module, R3 one-module closes where silica
+cannot, R3 two-module to 80 vs 100 mm) points instead to **CaF₂'s much lower
+dispersion over the 380–2500 nm band**, which reduces the chromatic part of the
+blur — the reason CaF₂ is the standard broadband-VSWIR glass. This is inferred
+from the trend, not isolated by a controlled single-wavelength test.
+
+Throughput is the uncoated Fresnel product at 1 µm, normal incidence, over the
+air-glass crossings on the slit→detector path (R3 = 4, R4 = 8) — the first entry
+of the radiometric chain and the direct answer to Jim's 0.92² rule of thumb. The
+rest of this report is round 1 (the with-meniscus trade), unchanged except the
+CaF₂ sentence below.
+
+---
+
+## Round 1 — the answer, first
 
 **Yes — but the lever is the SLIT, not the glass.** The 220 mm silica monolith
 (221 mm thick, 3.7 L edged, 8.2 kg) is a floor only because it carries the whole
@@ -57,10 +116,11 @@ It is **always the image**, never the mechanics:
 
 - **Silica, 54 mm:** CRF/EE at once — 1.342 / 0.739 already by 200 mm. 220 mm is
   the floor.
-- **CaF₂, 54 mm:** CaF₂'s higher index narrows the in-glass marginal cone, so the
-  blur law bites later — closes to 180 mm (CRF 1.196), fails by 160 (1.44, and
-  the 160 mm point sits on the 4 mm meniscus-thickness bound; the bound-scaled
-  re-run still fails at 1.42, so 160 is a real image failure, not a bound).
+- **CaF₂, 54 mm:** CaF₂ extends the closure to 180 mm (CRF 1.196) and fails by 160
+  (1.44). The mechanism is CaF₂'s lower dispersion over the band, not its index
+  (which is *lower* than silica's — see the Round-2 correction above). The 160 mm
+  point sits on the 4 mm meniscus-thickness bound; the bound-scaled re-run still
+  fails at 1.42, so 160 is a real image failure, not a bound.
 - **Silica, 27 mm:** closes 220→100 mm with EE ≈ 1.0 the whole way; at 80 mm smile
   and keystone break 0.1 px (0.10 / 0.12) and CRF jumps to 1.69; at 60 mm the
   block is too small to form the concentric relay — the engine loses the chief
