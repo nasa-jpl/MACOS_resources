@@ -288,6 +288,26 @@ px (the telescope's blur through the spectrometer).  Next: the
 two-mirror modified Schwarzschild and freeform mirrors.  Records
 `dyson5_t1.txt`, `dyson5_t2.txt`; report `BRIEF_dyson5_beat5.md`.
 
+## Block-size trade (2026-10-02, CCMac) -- how small at R4 performance?
+
+`dyson5_size_trade.m` + `dyson5_size_fig.m` (new, independent of the runner):
+the R4 block (220 mm, 221 mm thick, 8.2 kg) shrunk by CONTINUATION in the block
+radius, each point a full R4 solve warm-started from the next-larger solved
+design and ENGINE-scored, closing only when it matches R4 (smile/keystone < 0.1,
+CRF <= 1.33, SRF <= 2.05, EE >= 0.76, no variable on a bound).  Three families:
+A silica / 54 mm slit, B CaF2 / 54 mm, C silica AND CaF2 / 27 mm slit (two 1500-px
+modules share the swath).  **Result: the SLIT is the lever, not the glass.**  At
+the full 54 mm slit silica cannot shrink (220 mm floor; CaF2 reaches 180 mm but at
+the same 8 kg, being denser).  Split into two 27 mm modules and a **100 mm silica
+block (101 mm thick, 1.0 kg, CRF 1.05 / EE 0.96)** matches R4 with margin -- 8x
+lighter, 2.2x thinner, ~2x more uniform (the double-pass glass path halves); CaF2
+goes to 80 mm.  The size wall is always the concentric fifth-order h^4/r^3 blur,
+never clearance (which stays +0.4..1.0 mm throughout).  The solver check settles
+beat 4e's 180/150 mm rows: continuation reproduces them (CRF 1.611/2.351 vs
+1.607/2.371), so that radius axis was the design's limit, not the solver's.
+Records `dyson5_size.{txt,mat,png}`, decks `dyson5_size_<family>_r<mm>.in`; report
+`BRIEF_dyson5_size.md`.
+
 ## Run it yourself
 
 ```matlab
