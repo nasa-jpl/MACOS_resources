@@ -17,6 +17,9 @@ function out = oi_paraxial(R, t, req)
 %     no BFD requirement:  c2, c3 from { EFL = req, petzval = 0 }
 %     with REQ.BFD_m:      c1, c2, c3 from { EFL, petzval = 0, BFD }
 %   Returns the same struct plus .R = [R1 R2 R3] of the solved seed.
+%   REQ.c0 (optional, no-BFD form): [c2 c3] Newton start -- the two-
+%   condition system has two roots; pass the current curvatures to stay
+%   on their branch.
 %
 %   CONVENTIONS (verified against the rodgers3 r1 deck by real rays --
 %   see the template README): paraxial trace in reduced angles w = n*u
@@ -41,9 +44,12 @@ function out = oi_paraxial(R, t, req)
                    c(1) - c(2) + c(3);
                    bfd_([c(1) c(2) c(3)], t) - req.BFD_m];
     else
-        % two unknowns c = [c2 c3], c1 fixed by the R1 seed
+        % two unknowns c = [c2 c3], c1 fixed by the R1 seed.  The system
+        % has TWO roots (e.g. convex vs concave M2); REQ.c0 = [c2 c3]
+        % starts Newton on a chosen branch (default [-1 -1], the record)
         c1 = 1/R1;
         x0 = [-1; -1];
+        if isfield(req,'c0') && ~isempty(req.c0), x0 = req.c0(:); end
         f  = @(c) [efl_([c1 c(1) c(2)], t) - req.EFL_m;
                    c1 - c(1) + c(2)];
     end

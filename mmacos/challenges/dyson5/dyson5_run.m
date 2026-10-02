@@ -124,6 +124,9 @@ function OUT = dyson5_run(over)
             case 's4env', OUT.s4env = stage_s4env_(P, tag);
             case 't1',  OUT.t1  = stage_t1_(P, tag);
             case 't2',  OUT.t2  = stage_t2_(P, tag);
+            case 't3',  OUT.t3  = stage_t3_(P, tag);
+            case 't3s', OUT.t3s = stage_t3s_(P, tag);
+            case 't3w', OUT.t3w = stage_t3w_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -789,6 +792,394 @@ function S = stage_t1_(P, tag)
     save([tag '_t1.mat'], 'S', 'P');
     dyson5_view_figs(tags(end), P.outdir);
     fprintf('dyson5 t1: wrote %s_t1.{txt,mat}, %s_t1_t*.in, %s_t1_maps_*.png\n', tag, tag, tag);
+end
+
+function S = stage_t3_(P, tag)
+%STAGE_T3_  Beat 5b: the telescope through the offset_imager ladder (oi_story), one run per (envelope t1, offset) case.
+    here = fileparts(mfilename('fullpath'));
+    addpath(fullfile(here, '..', '..', 'templates', '10_telescopes', 'offset_imager'));
+    GD = dyson_of_record_(P, tag, 'R4');
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = P.npix(1)*ifov;
+    G0 = telescope_geom(struct('f', f, 'D', D, 'fov', fov, 'R', [0.3 0.1 0.3], 't', [0.1 0.1 0.1]), GD);
+    Lapp = G0.pupil.L_app;
+    odir = fullfile(P.outdir, 't3');  if ~exist(odir, 'dir'), mkdir(odir); end
+    [~, tb] = fileparts(tag);
+    box = [fov*180/pi, P.tel3_box_al_deg];
+    sn = {'s1', 's2', 's3', 's4', 's5'};
+    rows = struct('t1', {}, 'off', {}, 'y2', {}, 'seed', {}, 'ok', {}, 'msg', {}, 'map', {}, 'clear_mm', {}, 'worst', {}, ...
+                  'exit_err', {}, 'diam_mm', {}, 'bbox_mm', {}, 'sep_mm', {}, 'X3', {});
+    for c = 1:size(P.tel3_cases, 1)
+        t1 = P.tel3_cases(c, 1);  off = P.tel3_cases(c, 2);  y2 = P.tel_y2;
+        otag = sprintf('%s_t3_t%03d_off%02d', tb, round(t1*1e3), round(off));
+        if size(P.tel3_cases, 2) >= 3                    % [t1 off y2]: a screened row (addendum 21)
+            y2 = P.tel3_cases(c, 3);
+            if abs(y2 - P.tel_y2) > 1e-12, otag = sprintf('%s_y%02d', otag, round(100*y2)); end
+        end
+        fsum = fullfile(odir, [otag '_sum.mat']);
+        if P.tel3_reuse && isfile(fsum)
+            R = load(fsum);
+            if ~isfield(R.row, 'y2'), R.row.y2 = P.tel_y2; end   % rows recorded before the y2 column
+            rows(end+1) = orderfields(R.row, rows);  %#ok<AGROW>
+            fprintf('dyson5 t3: reused %s\n', fsum);  continue
+        end
+        Sd = telescope_seed(f, D, Lapp, t1, y2);
+        row = struct('t1', t1, 'off', off, 'y2', y2, 'seed', Sd, 'ok', false, 'msg', '', 'map', nan(1, 5), 'clear_mm', nan(1, 5), ...
+                     'worst', {repmat({''}, 1, 5)}, 'exit_err', nan(1, 5), 'diam_mm', nan(1, 3), 'bbox_mm', nan(1, 3), ...
+                     'sep_mm', tand(off)*t1*1e3, 'X3', []);
+        if ~Sd.ok
+            row.msg = sprintf('first-order seed does not close at t1 %.3f m, y2 %.2f', t1, y2);
+            save(fsum, 'row');  rows(end+1) = orderfields(row, rows);  continue  %#ok<AGROW>
+        end
+        over = struct('name', otag, 'tag', otag, 'outdir', odir, 'EPD_m', D, 'Fno', P.Fno, 'lambda_m', P.tel3_lambda_m, ...
+                      'box_deg', box, 'offset_deg', off, 'nsolve', P.tel3_nsolve, 'nsolve_s5', P.tel3_nsolve_s5, ...
+                      'z_m1_m', P.tel3_z_m1_m, 'spacings_m', [-Sd.t(1) 0 Sd.t(2)], 'seed_R1_m', -Sd.R(1), 'seed_R_m', -Sd.R, ...
+                      'clear_m', P.tel3_clear_m, 'exit_dir', P.tel3_exit_dir, 'model', P.tel3_model, ...
+                      'sampling', P.tel3_sampling, 'gn_iters', P.tel3_gn_iters, 'stages', P.tel3_stages);
+        try
+            O = offset_imager(over);       % the ladder only: oi_story's counter (a) is an S5-class solve, out of addendum 20's S1-S3 scope
+            row.ok = true;
+            for k = 1:numel(O.ladder)
+                j = find(strcmp(sn, O.ladder(k).stage));  st = O.(O.ladder(k).stage);  g = st.gates;
+                row.map(j) = O.ladder(k).map_max_nm;
+                if isfield(st.map, 'valid') && ~st.map.valid, row.map(j) = Inf; end   % every field lost: INVALID, not finite
+                row.clear_mm(j) = g.clear_min_m*1e3;  row.exit_err(j) = g.exit_err_deg;
+                [~, iw] = min([g.clear_table.min_m]);  row.worst{j} = g.clear_table(iw).leg;
+            end
+            last = O.(O.ladder(end).stage);  row.X3 = last.X;
+            [row.diam_mm, row.bbox_mm] = t3_size_(last.X, last.G, O.P, off);
+        catch err
+            row.msg = err.message;
+            fprintf(2, 'dyson5 t3: case t1 %.0f mm, offset %g deg FAILED: %s\n', t1*1e3, off, err.message);
+        end
+        save(fsum, 'row');  rows(end+1) = orderfields(row, rows);  %#ok<AGROW>
+    end
+    fid = fopen([tag '_t3.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 t3 -- the telescope through the offset_imager ladder: ENVELOPE x OFFSET scan (addendum 20) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: templates/10_telescopes/offset_imager (offset_imager ladder, stages %s) called with EPD %.1f mm, F/%.1f (EFL %.1f mm an\n', mat2str(P.tel3_stages), D*1e3, P.Fno, f*1e3);
+    pr('  identity), box %.2f deg cross-track (the slit) x %.2f deg along-track centred OFF deg along-track.  Envelope: t1 (M1 -> M2\n', box);
+    pr('  = M1 -> stop) through telescope_seed (EFL %.0f mm, Petzval 0, exit pupil %.2f m behind the slit, y2 = %.2f), mapped to the\n', f*1e3, Lapp, P.tel_y2);
+    pr('  template as R1 = -|R1|, spacings [-t1 0 +t2], stop at M2; R2/R3 re-solved by the template from EFL + Petzval 0.\n');
+    pr('  Metric = the template''s: strict RMS WFE at %.2f um, centroid reference, exit-pupil anchor, piston only; headline =\n', P.tel3_lambda_m*1e6);
+    pr('  dense 11x11 map MAXIMUM (nm).  Clearance = oi_clear min over the nine beam-leg x mirror pairs (disk model: footprint\n');
+    pr('  centre + 1.15x radius per field), WORST PAIR NAMED as "leg x obstacle"; packages = floor >= %.0f mm (addendum 20).\n', P.tel3_pack_m*1e3);
+    pr('  walk = t1 tan(OFF) (addendum 20 asks >= 80 mm).  Size from the last stage''s rays at the box centre + corners: mirror\n');
+    pr('  diameter = max pairwise distance of the footprint points (no mount margin); envelope = bounding box of the M1, M2, M3\n');
+    pr('  footprints and the focal-plane spot, mm (template frame: z = the entering beam).\n\n');
+    for r = rows
+        pr('t1 %3.0f mm  y2 %.2f  OFF %4.1f deg  walk %5.1f mm  seed R [%.0f %.1f %.1f] t [%.0f %.1f %.1f] mm\n', r.t1*1e3, r.y2, r.off, r.sep_mm, r.seed.R*1e3, r.seed.t*1e3);
+        if ~r.ok, pr('   FAILED: %s\n\n', r.msg);  continue, end
+        for j = find(~isnan(r.map))
+            if isinf(r.map(j)), ms = '  INVALID'; else, ms = sprintf('%9.1f', r.map(j)); end
+            pr('   %s  map max %s nm   clearance %+7.1f mm  worst %-14s  exit err %.3f deg\n', upper(sn{j}), ms, r.clear_mm(j), r.worst{j}, r.exit_err(j));
+        end
+        bb = nan(1, 3);  bb(1:numel(r.bbox_mm)) = r.bbox_mm;
+        pr('   mirror diameters M1/M2/M3 %.0f / %.0f / %.0f mm (largest %.0f);  envelope %.0f x %.0f x %.0f mm (x y z)\n', r.diam_mm, max(r.diam_mm), bb);
+        if r.map(1) > P.tel3_s1_conv_nm, pr('   S1 NOT CONVERGED (%.0f nm > %.0f): no verdict on image OR clearance (addendum 22)\n', r.map(1), P.tel3_s1_conv_nm); end
+        pr('\n');
+    end
+    pr('%7s %4s %5s %6s | %9s %9s %-14s | %7s %9s | %s\n', 't1 mm', 'y2', 'OFF', 'walk', 'last nm', 'clr mm', 'worst pair', 'max D', 'max dim', 'verdict (last stage reached)');
+    for r = rows
+        if ~r.ok, pr('%7.0f %4.2f %5.1f %6.1f | FAILED -- NO VERDICT (the run ended before S3 scored)\n', r.t1*1e3, r.y2, r.off, r.sep_mm);  continue, end
+        j = find(~isnan(r.map), 1, 'last');
+        if j < 3 || isinf(r.map(j)), v = 'S3 not reached / INVALID';
+        else, v = tern_(r.clear_mm(j) >= P.tel3_pack_m*1e3, tern_(r.map(j) < 250, 'PACKAGES, images', 'packages, image > 250 nm'), 'does not package');
+        end
+        if r.map(1) > P.tel3_s1_conv_nm, v = [v ' -- NO VERDICT (S1 not converged)']; end
+        bb = nan(1, 3);  bb(1:numel(r.bbox_mm)) = r.bbox_mm;
+        pr('%7.0f %4.2f %5.1f %6.1f | %9.4g %+9.1f %-14s | %7.0f %9.0f | %s\n', r.t1*1e3, r.y2, r.off, r.sep_mm, r.map(j), r.clear_mm(j), r.worst{j}, max(r.diam_mm), max(bb), v);
+    end
+    pr('\nPer-case runs: %s/%s_t3_t<mm>_off<deg>_{REPORT,STORY}.md, decks, figures.\n', odir, tb);
+    fclose(fid);
+    S = struct('rows', rows, 'box', box);
+    save([tag '_t3.mat'], 'S');
+end
+
+function S = stage_t3s_(P, tag)
+%STAGE_T3S_  Addendum 21: the first-order nine-pair clearance screen over telescope_seed's family (t1 x y2 x offset).
+    here = fileparts(mfilename('fullpath'));
+    addpath(fullfile(here, '..', '..', 'templates', '10_telescopes', 'offset_imager'));
+    GD = dyson_of_record_(P, tag, 'R4');
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = P.npix(1)*ifov;
+    G0 = telescope_geom(struct('f', f, 'D', D, 'fov', fov, 'R', [0.3 0.1 0.3], 't', [0.1 0.1 0.1]), GD);
+    Lapp = G0.pupil.L_app;  by = P.tel3_box_al_deg/2;  xh = fov*90/pi;
+    fid = fopen([tag '_t3s.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 t3s -- the FIRST-ORDER clearance screen of the telecentric three-mirror family (addendum 21) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: tma_screen (design/src): OI_CLEAR''s nine leg x obstacle pairs (the offset_imager gate''s), evaluated\n');
+    pr('  PARAXIALLY -- chief through M2''s vertex (the stop) + the axial marginal, meridional rays, the box centre and the\n');
+    pr('  two along-track extremes (+-%.2f deg) at zero cross-track angle; glass = one disk per field, footprint centre +\n', by);
+    pr('  1.15 x the marginal height, in the element''s plane (FP normal to the axis); a leg crossing a disk is negative by\n');
+    pr('  its in-plane depth.  Layout = telescope_seed''s family at f %.0f mm, D %.0f mm, Petzval 0, exit pupil %.2f m behind\n', f*1e3, D*1e3, Lapp);
+    pr('  the slit: knobs t1 (M1 -> stop), y2 (compression at M2; t2 = f y2 and the back focus follow), offset.  Mirror\n');
+    pr('  diameters = footprint extent incl. the cross-track +-%.2f deg (max of x, y); length = z extent of M1..FP; height =\n', xh);
+    pr('  y extent.  PASS = all nine >= +5 mm.  First order only: sag, aberrated footprints, conics ignored.\n\n');
+    % 1. validation against the engine gate on the template's own seeds
+    pr('VALIDATION -- screen vs the engine oi_clear on the template''s seed (spheres, R2/R3 from EFL + Petzval 0, its BFD), mm:\n');
+    macos.init(P.tel3_model);
+    val = struct('t1', {}, 'off', {}, 'eng', {}, 'scr', {}, 'stop_y', {});
+    for c = 1:size(P.tel3s_validate, 1)
+        t1 = P.tel3s_validate(c, 1);  off = P.tel3s_validate(c, 2);
+        Sd = telescope_seed(f, D, Lapp, t1, P.tel_y2);
+        Pt = offset_imager_params(struct('EPD_m', D, 'Fno', P.Fno, 'box_deg', [fov*180/pi, P.tel3_box_al_deg], 'offset_deg', off, ...
+             'z_m1_m', P.tel3_z_m1_m, 'spacings_m', [-Sd.t(1) 0 Sd.t(2)], 'seed_R1_m', -Sd.R(1), 'clear_m', P.tel3_clear_m, 'model', P.tel3_model));
+        X = oi_seed(Pt);  [X, G, fo] = oi_close(X, Pt, 'offset_deg', off);  X.fpa = oi_apply_fpa(X);  G.fpa = X.fpa;
+        [~, dv] = oi_clear(X, G, Pt, off);
+        Sc = tma_screen([2/abs(X.R(1)) -2/abs(X.R(2)) 2/abs(X.R(3))], [abs(X.spacings(1)) X.spacings(3)], -fo.BFD_m, D, off, 'by_deg', by);
+        val(end+1) = struct('t1', t1, 'off', off, 'eng', dv(:)', 'scr', Sc.d(:)', 'stop_y', X.stopC(2));  %#ok<AGROW>
+        [~, ie] = min(dv);
+        pr('  t1 %3.0f mm off %2.0f deg: floor engine %+6.1f (%s)  screen %+6.1f (%s);  max |diff| %.1f mm; stop y %.1f mm\n', ...
+           t1*1e3, off, min(dv)*1e3, Sc.pairs{ie}, Sc.dmin*1e3, Sc.worst, max(abs(dv(:) - Sc.d(:)))*1e3, X.stopC(2)*1e3);
+    end
+    % 2. the scan
+    T1 = P.tel3s_t1_m;  Y2 = P.tel3s_y2;  OF = P.tel3s_off_deg;
+    rows = struct('t1', {}, 'y2', {}, 'off', {}, 'd', {}, 'dmin', {}, 'worst', {}, 't2', {}, 'bfd', {}, 'diam', {}, 'len', {}, 'hgt', {}, 'R', {});
+    nbad = 0;
+    for t1 = T1
+        for y2 = Y2
+            Sd = telescope_seed(f, D, Lapp, t1, y2);
+            if ~Sd.ok, nbad = nbad + 1;  continue, end
+            for off = OF
+                Sc = tma_screen(Sd.phi, Sd.t(1:2), Sd.t3, D, off, 'by_deg', by, 'xhalf_deg', xh);
+                rows(end+1) = struct('t1', t1, 'y2', y2, 'off', off, 'd', Sc.d', 'dmin', Sc.dmin, 'worst', Sc.worst, 't2', Sd.t(2), ...
+                                     'bfd', Sd.t3, 'diam', Sc.diam, 'len', Sc.len, 'hgt', Sc.hgt, 'R', Sd.R);  %#ok<AGROW>
+            end
+        end
+    end
+    pr('\nSCAN: t1 %s mm x y2 %s x offset %s deg -> %d rows (%d (t1, y2) seeds do not close)\n', mat2str(T1*1e3), mat2str(Y2), mat2str(OF), numel(rows), nbad);
+    dmin = [rows.dmin];  pass = dmin >= P.tel3_pack_m;  offs = [rows.off];
+    pr('rows passing all nine >= %.0f mm: %d of %d; at offset <= %.0f deg: %d\n', P.tel3_pack_m*1e3, nnz(pass), numel(rows), P.tel3s_off_max, nnz(pass & offs <= P.tel3s_off_max));
+    hdr = sprintf('%6s %4s %4s | %s | %7s %-12s | %5s %5s | %5s %5s %5s | %5s %5s', 't1', 'y2', 'off', ...
+          strjoin(cellfun(@(s) sprintf('%6s', s), {'iM1xM2','iM1xM3','iM1xFP','12xM3','12xFP','23xM1','23xFP','3FxM1','3FxM2'}, 'UniformOutput', false), ' '), ...
+          'floor', 'worst pair', 't2', 'BFD', 'D1', 'D2', 'D3', 'len', 'hgt');
+    prow = @(r) pr('%6.0f %4.1f %4.0f | %s | %+7.1f %-12s | %5.0f %5.0f | %5.0f %5.0f %5.0f | %5.0f %5.0f\n', r.t1*1e3, r.y2, r.off, ...
+          sprintf('%+6.1f ', r.d*1e3), r.dmin*1e3, r.worst, r.t2*1e3, r.bfd*1e3, r.diam*1e3, r.len*1e3, r.hgt*1e3);
+    pr('\nBEST ROW PER OFFSET (max floor over t1 x y2), mm:\n%s\n', hdr);
+    for off = OF
+        k = find(offs == off);  [~, b] = max(dmin(k));  prow(rows(k(b)));
+    end
+    pr('\nBEST ROW PER t1 AT OFFSET <= %.0f deg:\n%s\n', P.tel3s_off_max, hdr);
+    for t1 = T1
+        k = find([rows.t1] == t1 & offs <= P.tel3s_off_max);  if isempty(k), continue, end
+        [~, b] = max(dmin(k));  prow(rows(k(b)));
+    end
+    % the binding pair at the best row of each offset, and which pair binds most often
+    w = {rows.worst};  [u, ~, iu] = unique(w);  cnt = accumarray(iu(:), 1);
+    pr('\nbinding (worst) pair over all rows: %s\n', strjoin(arrayfun(@(i) sprintf('%s %d', u{i}, cnt(i)), 1:numel(u), 'UniformOutput', false), ', '));
+    if any(pass)
+        pr('\nPASSING ROWS (all nine >= %.0f mm):\n%s\n', P.tel3_pack_m*1e3, hdr);
+        for r = rows(pass), prow(r); end
+    end
+    fclose(fid);
+    S = struct('rows', rows, 'val', val, 'f', f, 'D', D, 'Lapp', Lapp);
+    save([tag '_t3s.mat'], 'S');
+    % full table as CSV beside it
+    fc = fopen([tag '_t3s.csv'], 'w');
+    fprintf(fc, 't1_mm,y2,off_deg,%s,floor_mm,worst,t2_mm,bfd_mm,D1_mm,D2_mm,D3_mm,len_mm,hgt_mm\n', ...
+            strjoin(strrep(strrep(tma_screen_pairs_(), ' x ', '_x_'), '->', '_'), ','));
+    for r = rows
+        fprintf(fc, '%.0f,%.2f,%.1f,%s,%.2f,%s,%.2f,%.2f,%.1f,%.1f,%.1f,%.1f,%.1f\n', r.t1*1e3, r.y2, r.off, ...
+                strjoin(arrayfun(@(v) sprintf('%.2f', v), r.d*1e3, 'UniformOutput', false), ','), r.dmin*1e3, r.worst, ...
+                r.t2*1e3, r.bfd*1e3, r.diam*1e3, r.len*1e3, r.hgt*1e3);
+    end
+    fclose(fc);
+end
+
+function S = stage_t3w_(P, tag)
+%STAGE_T3W_  Addendum 23: the y2 continuation of the S1 parent at t1 fixed, then S3 (/ S4) at the offset from it, with the hard stop.
+    here = fileparts(mfilename('fullpath'));
+    addpath(fullfile(here, '..', '..', 'templates', '10_telescopes', 'offset_imager'));
+    GD = dyson_of_record_(P, tag, 'R4');
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = P.npix(1)*ifov;
+    G0 = telescope_geom(struct('f', f, 'D', D, 'fov', fov, 'R', [0.3 0.1 0.3], 't', [0.1 0.1 0.1]), GD);
+    Lapp = G0.pupil.L_app;  t1 = P.tel3w_t1_m;  off = P.tel3w_off_deg;  it = P.tel3w_iters;
+    odir = fullfile(P.outdir, 't3');  if ~exist(odir, 'dir'), mkdir(odir); end
+    [~, tb] = fileparts(tag);  wtag = fullfile(odir, sprintf('%s_t3w', tb));
+    box = [fov*180/pi, P.tel3_box_al_deg];
+    mkP = @(Sd, name) offset_imager_params(struct('name', name, 'tag', name, 'outdir', odir, 'EPD_m', D, 'Fno', P.Fno, ...
+              'lambda_m', P.tel3_lambda_m, 'box_deg', box, 'offset_deg', off, 'nsolve', P.tel3w_nsolve, 'z_m1_m', P.tel3_z_m1_m, ...
+              'spacings_m', [-Sd.t(1) 0 Sd.t(2)], 'seed_R1_m', -Sd.R(1), 'seed_R_m', -Sd.R, 'clear_m', P.tel3_clear_m, ...
+              'exit_dir', P.tel3_exit_dir, 'model', P.tel3_model, 'sampling', P.tel3_sampling, 'gn_iters', it, 'hold_R1', P.tel3w_hold_R1));
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_t3w.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 t3w -- the y2 continuation of the three-mirror parent, then the offset solve (addendum 23) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('NOTE: a first run with R1 FREE was stopped after step y2 0.600: S1 reached 79.0 nm only by walking R1 0.700 -> 2.615 m\n');
+    pr('  with K1 -141 (40 iterations, capped) -- an effective y2 of ~0.89, not the screened family; carried onto the next step\n');
+    pr('  it started at 8.7 mm.  This run holds R1.\n');
+    pr('CONVENTIONS: the offset_imager template''s S1 (on-axis box, symmetric conics + h^4/h^6/h^8 aspheres, R2/R3 eliminated by\n');
+    pr('  EFL %.0f mm + Petzval 0 on the branch held by seed_R_m) walked in y2 at t1 = %.0f mm: each step''s spacings and R1 are\n', f*1e3, t1*1e3);
+    pr('  telescope_seed''s family point (exit pupil %.2f m behind the slit), its conics / aspheres / FPA refit CARRIED from the\n', Lapp);
+    pr('  previous solved step; R1 %s in S1 / S3 (y2 sets M1''s power: phi1 = (1 - y2)/t1), so every step IS its family point;\n', tern_(P.tel3w_hold_R1, 'HELD', 'free'));
+    pr('  S4 frees the radii (the template''s S4).  Solve set %s (across the slit x along the %.1f deg strip); every solve runs to oi_solve''s own\n', mat2str(P.tel3w_nsolve), P.tel3_box_al_deg);
+    pr('  stop (a rejected step, or < 0.1 %% gain) with a cap of %d -- "CAPPED" if it ends at the cap.  A step COUNTS at S1\n', it);
+    pr('  dense-map max <= %.0f nm; a failed step is halved once, then the walk ends.  Metric = the template''s (strict RMS WFE at\n', P.tel3_s1_conv_nm);
+    pr('  %.2f um, 11 x 11 dense-map max over the 24.6 x 0.3 deg box).  Per step, at the %g deg offset (stop posed there): M3''s\n', P.tel3_lambda_m*1e6, off);
+    pr('  footprint reach rho/|R3| at the box corners, the fraction of launched rays reaching the FP at the +-12.3 deg cross-track\n');
+    pr('  edges, and the exit-chief error vs %s.  Then S3 at %g deg seeded from the last counted step, accepted when the gate\n', mat2str(P.tel3_exit_dir), off);
+    pr('  (oi_clear, disk model) reads >= %.0f mm afterwards, else S4 (tilts/decenters + the clearance hinge) from it.\n\n', P.tel3_pack_m*1e3);
+    % ---- the walk ------------------------------------------------------------
+    y2s = P.tel3w_y2;  steps = struct('y2', {}, 'ok', {}, 'map', {}, 'avg', {}, 'iters', {}, 'capped', {}, 'R', {}, 'K', {}, ...
+                                      'asph', {}, 'diag', {}, 'X', {}, 'deck', {}, 'screen', {});
+    Xprev = [];  k = 1;  halved = false;  y2prev = NaN;
+    pr('%5s %10s %10s %6s %-24s %-24s | %7s %9s %8s %7s\n', 'y2', 'S1 max nm', 'avg nm', 'iters', 'R1 R2 R3 (mm)', 'K1 K2 K3', 'rho/R3', 'edge kept', 'exit err', 'scr flr');
+    while k <= numel(y2s)
+        y2 = y2s(k);
+        Sd = telescope_seed(f, D, Lapp, t1, y2);
+        name = sprintf('%s_t3w_y%03d', tb, round(1000*y2));
+        Pw = mkP(Sd, name);
+        X = oi_seed(Pw);
+        if ~isempty(Xprev)                          % warm start: the solved shape carried onto the new family point
+            X.K = Xprev.K;  X.asph = Xprev.asph;  X.fpa_refit = Xprev.fpa_refit;
+        end
+        X.eliminate = 'R2R3';
+        [X, h] = oi_solve(X, Pw, 'S1', 'offset', 0, 'iters', it);
+        [X, G] = oi_close(X, Pw, 'offset_deg', 0);  X.fpa = oi_apply_fpa(X);  G.fpa = X.fpa;
+        [~, mp] = oi_map_fig(X, G, Pw, 0, sprintf('t3w S1 y2 %.3f (on axis)', y2), fullfile(odir, [name '_s1_map.png']));
+        dg = t3w_diag_(X, Pw, off);
+        sc = tma_screen([2/abs(X.R(1)) -2/abs(X.R(2)) 2/abs(X.R(3))], [Sd.t(1) Sd.t(2)], Sd.t3, D, off, 'by_deg', P.tel3_box_al_deg/2);
+        deck = fullfile(odir, [name '_s1.in']);  t3w_write_deck_(X, Pw, deck);
+        okk = mp.max_nm <= P.tel3_s1_conv_nm && (~isfield(mp, 'valid') || mp.valid);
+        st = struct('y2', y2, 'ok', okk, 'map', mp.max_nm, 'avg', mp.avg_nm, 'iters', h.iters, 'capped', h.iters >= it, ...
+                    'R', X.R, 'K', X.K, 'asph', X.asph, 'diag', dg, 'X', X, 'deck', deck, 'screen', sc.dmin);
+        steps(end+1) = st;  %#ok<AGROW>
+        pr('%5.3f %10.1f %10.1f %4d%s %-24s %-24s | %7.3f %9.3f %8.3f %+7.1f  %s\n', y2, mp.max_nm, mp.avg_nm, h.iters, tern_(st.capped, 'C', ' '), ...
+           sprintf('%.1f %.2f %.2f', abs(X.R)*1e3), sprintf('%.3g %.3g %.3g', X.K), dg.rho_R3, dg.edge_kept, dg.exit_err, sc.dmin*1e3, tern_(okk, 'counts', 'DOES NOT COUNT'));
+        if okk
+            Xprev = X;  y2prev = y2;  halved = false;  k = k + 1;
+        elseif ~halved && ~isnan(y2prev)
+            mid = (y2prev + y2)/2;  y2s = [y2s(1:k-1), mid, y2s(k:end)];  halved = true;
+            pr('      -> halving the step: y2 %.3f inserted\n', mid);
+        else
+            pr('      -> the walk ends (a halved step failed, or the first step)\n');  break
+        end
+    end
+    % ---- the offset solve from the last counted step the screen passes ---------
+    cnt = steps([steps.ok]);
+    scr = P.tel3w_screen_pass_m;  if isnan(scr), scr = P.tel3_pack_m; end
+    pass = cnt([cnt.screen] >= scr);
+    S = struct('steps', steps, 'off', off);
+    if isempty(pass)
+        if isempty(cnt), lasty = NaN; else, lasty = cnt(end).y2; end
+        pr('\nHARD STOP: no counted step passes the screen (last counted y2 %.3f) -- the walk did not reach the packaging corner.\n', lasty);
+        S.stop = 'walk';  t3w_close_(fid, S, tag);  return
+    end
+    base = pass(end);  Sd = telescope_seed(f, D, Lapp, t1, base.y2);
+    name = sprintf('%s_t3w_y%03d', tb, round(1000*base.y2));  Pw = mkP(Sd, name);
+    X = base.X;  X.fpa_refit = [0 0];  X.eliminate = 'R2R3';
+    X.stop_fixed = false;  [X, ~] = oi_close(X, Pw, 'offset_deg', off);  X.stop_fixed = true;     % pose the stop at the offset once, then free (the template's S3 entry)
+    pr('\nS3 at %g deg from the counted step y2 %.3f (stop posed at y %.2f mm):\n', off, base.y2, X.stopC(2)*1e3);
+    [X3, h3] = oi_solve(X, Pw, 'S3', 'iters', it);
+    R3s = t3w_score_(X3, Pw, off, fullfile(odir, [name '_s3']), 'S3');
+    pr('  S3: %d iters%s, map max %.1f nm avg %.1f, clearance %+.1f mm (%s), exit err %.3f deg, rho/R3 %.3f, edge kept %.3f\n', ...
+       h3.iters, tern_(h3.iters >= it, ' CAPPED', ''), R3s.map, R3s.avg, R3s.clear_mm, R3s.worst, R3s.exit_err, R3s.diag.rho_R3, R3s.diag.edge_kept);
+    S.s3 = R3s;  fin = R3s;
+    if R3s.clear_mm < P.tel3_pack_m*1e3
+        pr('  S3 does not hold the gate -> S4 (tilts/decenters + the clearance hinge) from it:\n');
+        X4 = X3;  X4.eliminate = 'R3';
+        [X4, h4] = oi_solve(X4, Pw, 'S4', 'iters', it, 'walls', @(a, b) false, 'clear', true);
+        R4s = t3w_score_(X4, Pw, off, fullfile(odir, [name '_s4']), 'S4');
+        pr('  S4: %d iters%s, map max %.1f nm avg %.1f, clearance %+.1f mm (%s), exit err %.3f deg, rho/R3 %.3f, edge kept %.3f\n', ...
+           h4.iters, tern_(h4.iters >= it, ' CAPPED', ''), R4s.map, R4s.avg, R4s.clear_mm, R4s.worst, R4s.exit_err, R4s.diag.rho_R3, R4s.diag.edge_kept);
+        S.s4 = R4s;  fin = R4s;
+    end
+    % ---- the hard stop -------------------------------------------------------------
+    why = {};
+    if fin.clear_mm >= P.tel3_pack_m*1e3 && fin.map > P.tel3w_img_max_nm
+        why{end+1} = sprintf('the offset solve ends at %.1f nm > %.0f nm with the gate satisfied (%+.1f mm)', fin.map, P.tel3w_img_max_nm, fin.clear_mm); end
+    if fin.clear_mm < P.tel3_pack_m*1e3
+        why{end+1} = sprintf('the offset solve does not hold the gate (%+.1f mm, %s)', fin.clear_mm, fin.worst); end
+    if 1 - fin.diag.edge_kept > P.tel3w_vig_max
+        why{end+1} = sprintf('%.1f %% of rays lost at the cross-track edge (> %.0f %%)', 100*(1 - fin.diag.edge_kept), 100*P.tel3w_vig_max); end
+    if base.y2 > 0.4 + 1e-9 && isempty(why)
+        pr('  note: the offset solve ran from y2 %.3f, the last counted step the screen passes (the walk did not count y2 0.4)\n', base.y2); end
+    if isempty(why)
+        pr('\nNO HARD STOP FIRES: the three-mirror lives at y2 %.3f, %g deg -- next: the three residual rows, then S4 / S5.\n', base.y2, off);  S.stop = '';
+    else
+        pr('\nHARD STOP (beat 5c earned): %s.\n', strjoin(why, '; '));  S.stop = strjoin(why, '; ');
+    end
+    t3w_close_(fid, S, tag);
+end
+
+function t3w_close_(fid, S, tag)
+    fclose(fid);
+    for k = 1:numel(S.steps), S.steps(k).X = rmfield(S.steps(k).X, intersect(fieldnames(S.steps(k).X), {'cache'})); end
+    save([tag '_t3w.mat'], 'S');
+end
+
+function dg = t3w_diag_(X, Pw, off)
+%T3W_DIAG_  At the offset (stop posed there, as the template's S3 entry does): M3's footprint reach rho/|R3| at the box
+%   corners, the fraction of launched rays reaching the FP at the +-12.3 deg cross-track edges, the exit-chief error.
+    Xd = X;  Xd.fpa_refit = [0 0];  Xd.stop_fixed = false;
+    dg = struct('rho_R3', NaN, 'edge_kept', 0, 'exit_err', NaN, 'stop_y_mm', NaN);
+    try
+        [Xd, G] = oi_close(Xd, Pw, 'offset_deg', off);  Xd.fpa = oi_apply_fpa(Xd);  G.fpa = Xd.fpa;
+    catch
+        return
+    end
+    dg.stop_y_mm = Xd.stopC(2)*1e3;
+    [dg.rho_R3, dg.edge_kept] = t3w_edge_(Xd, G, Pw, off);
+    try, g = oi_gates(Xd, G, Pw, off);  dg.exit_err = g.exit_err_deg; catch, end
+end
+
+function [rr, kept] = t3w_edge_(X, G, Pw, off)
+    bx = Pw.box_deg(1)/2;  by = Pw.box_deg(2)/2;
+    F = [-bx off-by; -bx off+by; bx off-by; bx off+by];
+    Dk = X;  Dk.EPD_m = Pw.EPD_m;  Dk.WL_m = Pw.lambda_m;  Dk.sampling = Pw.sampling;  Dk.name = Pw.name;
+    rr = NaN;  kept = 0;
+    try, sc = oi_score(oi_deck(Dk), G, F, 'rays', true); catch, return, end
+    nl = 0;  nk = 0;  r = 0;
+    for q = 1:size(F, 1)
+        E = sc.rays{q};
+        if ~iscell(E) || numel(E) < 5, nl = nl + 1;  continue, end   % no state: count the field as lost
+        n0 = numel(E{1}.ok);  nl = nl + n0;  nk = nk + nnz(E{5}.ok);
+        p3 = E{4}.pos(:, E{4}.ok);
+        if ~isempty(p3), r = max(r, max(hypot(p3(1, :), p3(2, :) - X.yde(3)))); end
+    end
+    kept = nk/max(nl, 1);  rr = r/abs(X.R(3));
+end
+
+function R = t3w_score_(X, Pw, off, stem, lbl)
+    [X, G] = oi_close(X, Pw, 'offset_deg', off);  X.fpa = oi_apply_fpa(X);  G.fpa = X.fpa;
+    [~, mp] = oi_map_fig(X, G, Pw, off, sprintf('t3w %s at %g deg', lbl, off), [stem '_map.png']);
+    oi_layout_fig(X, G, Pw, off, sprintf('t3w %s at %g deg', lbl, off), [stem '_layout.png']);
+    g = oi_gates(X, G, Pw, off);  [~, iw] = min([g.clear_table.min_m]);
+    t3w_write_deck_(X, Pw, [stem '.in']);
+    [rr, kept] = t3w_edge_(X, G, Pw, off);
+    R = struct('X', X, 'map', mp.max_nm, 'avg', mp.avg_nm, 'valid', ~isfield(mp, 'valid') || mp.valid, 'clear_mm', g.clear_min_m*1e3, ...
+               'worst', g.clear_table(iw).leg, 'exit_err', g.exit_err_deg, 'diag', struct('rho_R3', rr, 'edge_kept', kept), 'deck', [stem '.in']);
+    if ~R.valid, R.map = Inf; end
+end
+
+function t3w_write_deck_(X, Pw, file)
+    Dk = X;  Dk.EPD_m = Pw.EPD_m;  Dk.WL_m = Pw.lambda_m;  Dk.sampling = Pw.sampling;  Dk.name = Pw.name;
+    fh = fopen(file, 'w');  fprintf(fh, '%s', oi_deck(Dk));  fclose(fh);
+end
+
+function p = tma_screen_pairs_()
+    p = {'in->M1 x M2','in->M1 x M3','in->M1 x FP', 'M1->M2 x M3','M1->M2 x FP', 'M2->M3 x M1','M2->M3 x FP', 'M3->FP x M1','M3->FP x M2'};
+end
+
+function [diam, bbox] = t3_size_(X, G, Pt, off)
+%T3_SIZE_  Mirror footprint diameters + the optics' bounding box from the template's own rays (box centre + corners).
+    bx = Pt.box_deg(1)/2;  by = Pt.box_deg(2)/2;
+    F = [0 off; -bx off-by; -bx off+by; bx off-by; bx off+by];
+    D = X;  D.EPD_m = Pt.EPD_m;  D.WL_m = Pt.lambda_m;  D.sampling = Pt.sampling;  D.name = Pt.name;
+    sc = oi_score(oi_deck(D), G, F, 'rays', true);
+    iel = [1 3 4 5];  pts = cell(1, 4);           % M1, M2, M3, FP (the stop Reference is element 2)
+    for q = 1:numel(sc.rays)
+        E = sc.rays{q};  if ~iscell(E), continue, end
+        for k = 1:4
+            e = E{iel(k)};  pts{k} = [pts{k}, e.pos(:, e.ok)];
+        end
+    end
+    diam = nan(1, 3);
+    for k = 1:3
+        p = pts{k};  if size(p, 2) < 2, continue, end
+        p = p(:, 1:max(1, floor(size(p, 2)/2000)):end);
+        dm = 0;
+        for i = 1:size(p, 2), dm = max(dm, max(vecnorm(p - p(:, i)))); end
+        diam(k) = dm*1e3;
+    end
+    A = [pts{:}];
+    bbox = (max(A, [], 2) - min(A, [], 2))'*1e3;
 end
 
 function S = stage_t2_(P, tag)
