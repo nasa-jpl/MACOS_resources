@@ -209,7 +209,52 @@ function P = dyson5_params(over)
     P.tel_oversize   = 1.0;               % launched bundle / 70 mm (the grating is the stop; > 1 overfills it)
     P.e2e_rungs      = {'R4', 'R5'};      % the spectrometers the telescope is traced into (s3 / s5 records)
     P.e2e_nfield     = 7;  P.e2e_nlam = 7;   % the end-to-end score grid (fields along the slit x wavelengths)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end) are opt-in
+    % t3, THE TELESCOPE THROUGH THE OFFSET_IMAGER LADDER (beat 5b, addenda
+    % 19-20): rodgers3's template called (not copied) with the box = the
+    % slit's 24.6 deg cross-track x a thin along-track strip, pushed OFF AXIS
+    % along-track; each CASE is an ENVELOPE (t1 = M1 -> M2 spacing, through
+    % telescope_seed's first-order family: EFL 126 mm, Petzval 0, y2 =
+    % P.tel_y2) x an offset, mapped to the template's signed CODE V
+    % convention (R1 = -|R1|, spacings [-t1 0 +t2], stop at M2).  Step 1
+    % (addendum 19, t1 = 140 mm at 4-10 deg) failed clearance by ~-55 mm at
+    % every offset AND on axis: the envelope, not the offset (addendum 20)
+    P.tel3_cases     = [0.30 15; 0.45 10; 0.60 8; 0.60 10];   % rows [t1_m offset_deg] (y2 = P.tel_y2; addendum 20's scan, walk >= 80 mm) or [t1_m offset_deg y2] (a t3s-screened row)
+    P.tel3_stages    = 1:3;               % template stages run (addendum 20: S1-S3 only until a case packages)
+    P.tel3_pack_m    = 5e-3;              % addendum 20's packaging verdict: clearance floor >= this
+    P.tel3_s1_conv_nm = 1000;             % S1 dense-map max above this = not converged -> no verdict (addendum 22; converged S1 here: 172 / 289 nm)
+    P.tel3_box_al_deg = 0.3;              % along-track full width of the box (the cross-track width is the slit's field)
+    P.tel3_clear_m   = [0.005 0.005];     % template clearance list (min = hard knee, max = WARN; template gate PASS at min - 1.5 mm)
+    P.tel3_exit_dir  = [0 0 -1];          % exit chief pin in the template frame (three mirrors exit REVERSED; the flat fold turns it to the slit)
+    P.tel3_z_m1_m    = 0.2;               % template frame: global z of M1 (arbitrary; beam enters +z)
+    P.tel3_lambda_m  = 1.0e-6;            % template WFE wavelength
+    P.tel3_nsolve    = 3;  P.tel3_nsolve_s5 = 5;   % odd solve grids (S5 spends on fields)
+    P.tel3_gn_iters  = 12;  P.tel3_model = 256;  P.tel3_sampling = 41;
+    P.tel3_reuse     = true;              % reuse a finished case (t3/<tag>_t3_t<mm>_off<deg>_sum.mat)
+    % t3w, THE y2 CONTINUATION (addendum 23): S1 walked in y2 at t1 fixed,
+    % each step warm-started from the previous solved S1 (conics,
+    % aspheres, FPA refit carried; spacings + R1 = the family point at the
+    % new y2; the R2/R3 branch held by seed_R_m), solved to the LM's own
+    % stop (cap tel3w_iters); then S3 at the offset seeded FROM that S1,
+    % accepted only if the gate still reads >= tel3_pack_m, else S4 (the
+    % clearance hinge) from it
+    P.tel3w_t1_m     = 0.14;
+    P.tel3w_y2       = [0.6 0.55 0.5 0.45 0.4];   % the walk (a failed step is halved once)
+    P.tel3w_off_deg  = 14;                        % the S3 / S4 offset (the screen's packaging row)
+    P.tel3w_hold_R1  = true;                      % S1 / S3 hold R1 at the family point (y2 sets M1's power; a free R1 ran 0.70 -> 2.61 m with K1 -141 on the first run)
+    P.tel3w_iters    = 40;                        % S1 / S3 / S4 cap; a solve ending AT the cap is reported as capped
+    P.tel3w_nsolve   = [5 3];                     % solve set: 5 across the slit x 3 along the strip (oi_fieldset [nx ny])
+    P.tel3w_vig_max  = 0.05;                      % hard stop: > 5 % rays lost at the cross-track edge
+    P.tel3w_img_max_nm = 250;                     % hard stop: S3 / S4 dense-map max above this with the gate satisfied
+    P.tel3w_screen_pass_m = NaN;                  % the screen's pass threshold for choosing the S3 base step (NaN = tel3_pack_m)
+    % t3s, THE FIRST-ORDER CLEARANCE SCREEN (addendum 21): tma_screen's nine
+    % OI_CLEAR pairs evaluated paraxially (engine-free, ms per row) over
+    % telescope_seed's family -- solve ONLY rows it passes
+    P.tel3s_t1_m     = [0.14 0.20 0.25 0.30:0.05:0.60];   % M1 -> M2 (stop) spacing
+    P.tel3s_y2       = 0.3:0.1:0.9;                       % beam compression at M2 (sets t2 = f y2 and the back focus)
+    P.tel3s_off_deg  = 8:2:30;                            % along-track offset of the strip
+    P.tel3s_off_max  = 15;                                % addendum 21's offset ceiling for "packages"
+    P.tel3s_validate = [0.14 0; 0.14 8; 0.14 10; 0.30 0; 0.30 15];   % [t1 off] seeds checked screen vs engine oi_clear (y2 = P.tel_y2)
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)

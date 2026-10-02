@@ -69,6 +69,8 @@ function P = offset_imager_params(over)
 %     seed_R1_m    M1 radius seed for the first-order seed solver (the
 %                  third first-order condition alongside EFL and
 %                  Petzval = 0; see OI_PARAXIAL/oi_seed)
+%     seed_R_m     [] or full seed radii: picks the R2/R3 root branch
+%     hold_R1      false; true freezes R1 in S1/S3 (family continuation)
 %     gn_iters     damped Gauss-Newton iteration cap per stage
 %
 %   Output
@@ -150,6 +152,17 @@ function P = offset_imager_params(over)
     P.solve_sampling = 21;      % coarser ray grid inside the solve loop
                                 % (reported numbers always use sampling)
     P.seed_R1_m  = 8.8;         % M1 radius scale for the first-order seed
+    P.seed_R_m   = [];          % optional FULL seed radii [R1 R2 R3]
+                                % (signed CODE V, m): R1 replaces
+                                % seed_R1_m and R2/R3 pick the BRANCH of
+                                % the EFL + Petzval roots (two exist --
+                                % convex vs concave M2), held at every
+                                % R2R3 re-solve.  [] = the record path
+                                % (Newton from c2 = c3 = -1 /m)
+    P.hold_R1    = false;       % opt-in: S1/S3 do NOT vary R1 (with
+                                % R2/R3 eliminated the radii then stay
+                                % at the first-order family point; for a
+                                % continuation in that family's knob)
     P.gn_iters   = 12;
 
     P.outdir     = '';

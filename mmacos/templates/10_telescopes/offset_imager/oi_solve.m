@@ -250,9 +250,14 @@ function V = varspec_(stage, X, P, h, lam)
                 @(X) X.K(m), @(X,v) setfield_(X,'K',m,v)); %#ok<*GFLD>
         end
         if symm
-            % S1/S3: Petzval = 0 is a closure IDENTITY (R2,R3 eliminated)
-            V = addv(V, 'R1', 5e-2, ...
-                @(X) X.R(1), @(X,v) setfield_(X,'R',1,v));
+            % S1/S3: Petzval = 0 is a closure IDENTITY (R2,R3 eliminated);
+            % P.hold_R1 (opt-in) freezes R1 too, so the radii stay at the
+            % first-order family point (a continuation in that family's
+            % knob means nothing if the solve walks R1 away from it)
+            if ~(isfield(P,'hold_R1') && P.hold_R1)
+                V = addv(V, 'R1', 5e-2, ...
+                    @(X) X.R(1), @(X,v) setfield_(X,'R',1,v));
+            end
         else
             for m = 1:2                      % R3 is the EFL eliminator
                 V = addv(V, sprintf('R%d',m), 1e-2, ...

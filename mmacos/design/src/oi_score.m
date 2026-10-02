@@ -104,6 +104,10 @@ function out = oi_score(txt0, G, fields_deg, opts)
             [vr, W] = strict_rungs(sq.pos(:,ok), sq.dir(:,ok), sq.opl(ok), ...
                                    sq.pos(:,1), sq.dir(:,1), Vd, Nd, X);
             rf = struct('wfe_centroid', vr(2), 'wfe_chief', vr(1));
+            if ~isreal(W)                          % rays missed the reference sphere: no
+                warn_complex_(q);                  % real path -- a WALL for the field, never
+                continue                           % a complex residual (that walks the solve
+            end                                    % off the real line)
             w2 = W(:,2) - mean(W(:,2));            % piston out, metres
             rfull = zeros(numel(ok)-1, 1);
             rfull(ok(2:end)) = w2*1e9;             % nm, by ray id
@@ -251,10 +255,29 @@ end
 function X = fex_cross_(p1,d1,p2,d2)
     d1 = d1/norm(d1);  d2 = d2/norm(d2);
     w0 = p1 - p2;  b = dot(d1,d2);  den = 1 - b^2;
-    if abs(den) < 1e-14, X = p1; return; end
+    % PARALLEL chiefs = a TELECENTRIC exit beam: the exit pupil is at
+    % infinity, so the anchor goes far up the chief (the reference sphere
+    % becomes, to round-off, the plane normal to the chief -- the right
+    % reference for a telecentric beam; the engine's FEX has the same
+    % guard).  The old fallback X = p1 put the anchor ON the focal plane:
+    % a ~zero-radius sphere every ray misses, a COMPLEX path in
+    % strict_sphere_opl and a contaminated std (dyson5 beat 5b, the
+    % on-axis field of a telecentric TMA: 8209 nm vs 962 nm beside it).
+    % Non-telecentric designs never reach this branch.
+    if abs(den) < 1e-14, X = p1 - 1e3*d1; return; end
     s1 = ( b*dot(d2,w0) - dot(d1,w0)) / den;
     s2 = ( dot(d2,w0) - b*dot(d1,w0)) / den;
     X  = 0.5*((p1 + d1*s1) + (p2 + d2*s2));
 end
 
 function delete_if_(p), if exist(p,'file'), delete(p); end, end
+
+function warn_complex_(q)
+%WARN_COMPLEX_  One line per run: a field's rays missed the reference sphere.
+    persistent said
+    if isempty(said)
+        fprintf(['  oi_score: field %d''s rays miss the reference sphere (complex path) -- scored as a ' ...
+                 'wall; further such fields are not announced\n'], q);
+        said = true;
+    end
+end

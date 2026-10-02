@@ -59,7 +59,11 @@ function [X, G, fo] = oi_close(X, P, opts)
     elim = 'R3';
     if isfield(X,'eliminate') && ~isempty(X.eliminate), elim = X.eliminate; end
     if strcmp(elim,'R2R3')
-        fo0 = oi_paraxial(X.R(1), tnet, struct('EFL_m', P.EFL_m));
+        rq = struct('EFL_m', P.EFL_m);
+        if isfield(P,'seed_R_m') && ~isempty(P.seed_R_m)
+            rq.c0 = 1./X.R(2:3);     % stay on the seeded branch (two roots)
+        end
+        fo0 = oi_paraxial(X.R(1), tnet, rq);
         X.R(2:3) = fo0.R(2:3);
     else
         c3 = secant_(@(c3) efl_err_(X.R(1), X.R(2), 1/c3, tnet, P.EFL_m), ...

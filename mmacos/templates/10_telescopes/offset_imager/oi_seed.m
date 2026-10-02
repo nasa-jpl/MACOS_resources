@@ -13,8 +13,15 @@ function X = oi_seed(P)
 
     tnet = [P.spacings_m(1) + P.spacings_m(2), P.spacings_m(3)];
     req  = struct('EFL_m', P.EFL_m);
+    R1s  = P.seed_R1_m;
+    if isfield(P,'seed_R_m') && ~isempty(P.seed_R_m)
+        % full seed radii given: R1 from them, and R2/R3 solved on THEIR
+        % branch of the EFL + Petzval roots (P.seed_R_m sets the branch)
+        R1s = P.seed_R_m(1);
+        req.c0 = 1./P.seed_R_m(2:3);
+    end
     if ~isempty(P.bfd_m), req.BFD_m = P.bfd_m; end
-    fo = oi_paraxial(P.seed_R1_m, tnet, req);
+    fo = oi_paraxial(R1s, tnet, req);
 
     X = struct();
     X.R        = fo.R;
