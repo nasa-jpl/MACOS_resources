@@ -21,14 +21,25 @@ classdef tOffsetImager < matlab.unittest.TestCase
 %   push one class past 10 minutes.
 %
 %   Model size 256 group: ./run_mmacos_tests.sh freeform
-%   Runtime: ~11 min (S1-S3, 5 GN iterations each, 3x3 solve set + maps,
-%   nGridpts 21).  The smoke knobs deliberately UNDER-converge (the F/2.5
-%   case needs its full 15 iterations to reach tens of nm -- see the
-%   committed t4_wide run); the assertions are structural with margins
-%   measured at these knobs (2026-08-20: the S3 solve trajectory at the
-%   carry start runs 51.8 -> 33.4 um qmean over the first 3 iterations
-%   and the map ratio s3/s2 crosses 0.71 there, hence the 5-iteration
-%   budget and the 0.75 bound with margin).
+%   Runtime: ~13 min (S1-S3, 7 GN iterations each, 3x3 solve set + maps,
+%   nGridpts 21).
+%
+%   THE BUDGET IS 7 ITERATIONS, AND WHY (re-pinned 2026-10-02).  The first
+%   calibration (2026-08-20) ran 5 iterations, which leaves every stage
+%   UNDER-converged (S1 9080 nm where 7 iterations reach 58 nm), and bounded
+%   s3/s2 at 0.75 from the path that solve happened to take (0.58).  Engine
+%   commit 81d3308 (2026-09-08, re-traces made idempotent) removed a few-ulp
+%   2-cycle from every finite-difference Jacobian column; on this
+%   ill-conditioned 5-iteration solve that moved step 1 by 0.006 nm, step 2
+%   by 7 %, and the third step was rejected at 23.7 um: s3/s2 = 1.01, the
+%   test red, the solver unharmed.  Bisected: the engines of 08-22, 09-05 and
+%   the two commits before 81d3308 all give 0.58; 81d3308 and today 1.01.
+%   A 5-iteration ratio is a PATH, not a property.  At 7, 9 and 15
+%   iterations today's engine gives s3/s2 = 0.176 / 0.184 / 0.184 (S2 939 /
+%   907 / 906 nm, S3 165 / 167 / 167 nm): the recovery is converged from 7
+%   up, so the bound is 0.5 on a converged ratio of 0.18.  Rule for the next
+%   re-pin: assert at a budget where the ratio no longer moves with the
+%   budget, never on an under-converged trajectory.
 %
 %   See also OFFSET_IMAGER, OFFSET_IMAGER_PARAMS, tests/tRodgers3.m.
 
@@ -50,7 +61,7 @@ classdef tOffsetImager < matlab.unittest.TestCase
                 'box_deg',[10 10], 'offset_deg',12, ...
                 'z_m1_m',1.0, 'spacings_m',[-0.10 0 1.10], ...
                 'seed_R1_m',15, ...
-                'stages',1:3, 'gn_iters',5, 'map_n',3, 'nsolve',3, ...
+                'stages',1:3, 'gn_iters',7, 'map_n',3, 'nsolve',3, ...
                 'sampling',21, 'outdir',tc.outdir));
         end
     end
@@ -88,7 +99,7 @@ classdef tOffsetImager < matlab.unittest.TestCase
         end
 
         function test_s3_resolve_recovers(tc)
-            tc.verifyLessThan(tc.OUT.s3.map.max_nm, 0.75*tc.OUT.s2.map.max_nm, ...
+            tc.verifyLessThan(tc.OUT.s3.map.max_nm, 0.5*tc.OUT.s2.map.max_nm, ...
                 sprintf(['the S3 re-solve at the used field failed to ' ...
                 'recover (s3 %.0f vs s2 %.0f nm)'], ...
                 tc.OUT.s3.map.max_nm, tc.OUT.s2.map.max_nm));
