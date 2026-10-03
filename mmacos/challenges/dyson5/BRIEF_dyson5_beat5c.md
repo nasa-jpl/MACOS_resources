@@ -74,20 +74,34 @@ signed.  Coaxial R2c: in x M2 -214 / -230 mm, M2->img x M1 -106 / -107 mm.
   Engine = chain to <= 6.5e-12 m on every other row.  At 30 deg the wall
   bought clearance by swinging M1's conic (-37.9 for 1.5k, -675 for 3k);
   the image got no weight while the wall dominated.
-* The 30 deg POLISH (R3w30 re-solved with the wall at its knee, so the
-  image rows drive it): the 1.5k solve did not move at all in 1000
-  iterations -- every variable, the 231.6 px and the +5.1 mm identical; the
-  3k polish was stopped for the same reason.  The clearance operand is a
-  minimum over sampled leg points: not smooth enough for a finite-difference
-  LM, so at the knee every step is rejected.
+* The 30 deg POLISH with the sampled wall did not move in 1000 iterations.
+  Cause (addendum 34, CC's read): `tms_clear` sampled each leg at 101 points
+  and took a min -- a 3-6 mm staircase, a zero finite-difference derivative.
+  Fixed: the EXACT segment-to-disc distance (fminbnd on the smooth squared
+  distance) and a softmin (tau 0.5 mm) over rays for the WALL; the hard min
+  stays the gate's number.  Checked: the soft clearance moves linearly with
+  the pupil decentre, slope 0.509 mm/mm from 1 um to 1 mm steps.
+  **Correction to the walk table:** with the exact distance the 1.5k 30 deg
+  row's clearance is **+4.53 mm**, not +5.1 (the sampling overstated it by
+  0.6 mm) -- that row FAILS by 0.47 mm.
+* The 30 deg polish with the SMOOTH wall MOVES -- the packaged TMS numbers
+  (1000 iterations; a 3000-iteration continuation from there did not move
+  again: stalled at the knee, NOT converged):
+
+  | module | image (engine, field-flat) | clearance (exact, hard) | M2 | mass 40 kg/m^2 / solid | envelope |
+  |---|---|---|---|---|---|
+  | 1.5k | **122.8 px** (was 231.6) | **+5.4 mm PASS** | 279 x 279 mm | 3.9 / 10.3 kg | 472 mm |
+  | 3k | **178.0 px** (was 220.8) | +4.8 mm (0.2 short) | 305 x 276 mm | 4.3 / 12.6 kg | 457 mm |
+
+  Engine = chain to <= 8.1e-13 m on every ray.  The image is field-FLAT
+  (the off-axis parent's own aberration, as for the three-mirror).
 
 So the TMS entry in Jim's comparison is: on axis (obscured) it images --
-**1.10 px** for the 1.5k module, **4.26 px** for the 3k -- and it PACKAGES only
-with the strip 30-40 deg off axis, where the wall-dominated designs sit at
-**200-250 px**.  That is a stalled solve's value, NOT a minimum: what the TMS
-can image once packaged is unanswered until the clearance operand is smooth
-(section 7, item 1).  No end-to-end row is possible without a packaged,
-imaging design.
+**1.10 px** for the 1.5k module, **4.26 px** for the 3k -- and once packaged
+(the strip 30 deg off axis) it sits at **123 px** (1.5k) / **178 px** (3k),
+a stalled solve's value, improved 2x by the smooth wall but not a converged
+minimum.  Either way two orders of magnitude from the pixel: no end-to-end
+row is useful for it.
 
 ## 5. An engine discrepancy, briefed to CC
 
@@ -110,8 +124,10 @@ ray against the chain traced from the engine ray's own entrance-pupil state.
 
 ## 7. Open
 
-1. A smooth clearance operand (a closed-form or softmin distance) so a wall
-   can actually steer the TMS solve -- the one thing between "packages only
-   at 40 deg" and a solved packaged design.
-2. The engine discrepancy (CC's lane).
+1. DONE (addendum 34): the smooth clearance operand -- it moved the packaged
+   design 2x, then the LM stalled again at the knee.  What remains for the
+   TMS is a solver question (a constrained solve, e.g. fmincon with the
+   clearance as a true inequality), not a missing operand.
+2. The engine discrepancy: FIXED by CC (macos 64c0a90; trace(nElt) ==
+   stepwise, verified on the R2c deck: 1.0601e-05 m both).
 3. The three-mirror by CCMac's route.
