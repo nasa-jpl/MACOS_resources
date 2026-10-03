@@ -257,12 +257,23 @@ function P = dyson5_params(over)
     % the result converges above the image bar with the gate held
     P.tel3o_from      = 'dyson5_t3w_x12.mat';   % the walk record whose step seeds S3 (in P.outdir)
     P.tel3o_y2        = 0.40;                   % which step (the packaging corner)
-    P.tel3o_xtrack_deg = 12.3;                  % the box's cross-track width (must match the walk's)
+    P.tel3o_xtrack_deg = NaN;                   % the box's cross-track width (NaN = the telescope's field, tel_npix_xt x IFOV; must match the walk's)
     P.tel3o_off_deg   = 14;                     % the target offset
     P.tel3o_off_walk  = [5 10 14];              % the offset walk if the direct S3 stalls (0 = the S1 parent)
     P.tel3o_stall_iters = 5;  P.tel3o_stall_gain = 0.20;   % STALL: stops within 5 iterations, < 20 %% gain, last step rejected
     P.tel3o_s5        = true;                   % run S5 (Zernike freeform) once if converged above the bar with the gate held
     P.tel3o_suffix    = '_x12';                 % record dyson5_t3o<suffix>.*
+    P.tel3o_resume    = '';                     % a t3o record (in P.outdir) whose solved S3 is the start: skip S3, run S4 then S5 (addendum 28)
+    % t3e, END TO END FROM A t3o RECORD (addendum 27: the verdict): the
+    % template's final design mapped onto the exact chain (telescope_geom:
+    % |R|, spacings, back focus = |BFD| - the refit dz, K, aspheres, the
+    % offset as the field bias), the mapping GATED template-engine vs chain,
+    % the telescope scored at the module's slit (chain + engine), then
+    % telescope + the module's own Dyson as ONE deck (e2e_geom, the grating
+    % the stop) through the spectrometer's scorer and the clearance gate
+    P.tel3e_from     = '';                % the t3o record (in P.outdir), e.g. 'dyson5_t3o_3k.mat'
+    P.tel3e_fold_gap_m = 0;               % > 0: a flat fold this far before the slit (packaging), 0 = none
+    P.tel3e_suffix   = '';                % record dyson5_t3e<suffix>.*
     % t3s, THE FIRST-ORDER CLEARANCE SCREEN (addendum 21): tma_screen's nine
     % OI_CLEAR pairs evaluated paraxially (engine-free, ms per row) over
     % telescope_seed's family -- solve ONLY rows it passes
@@ -272,7 +283,7 @@ function P = dyson5_params(over)
     P.tel3s_off_max  = 15;                                % addendum 21's offset ceiling for "packages"
     P.tel3s_validate = [0.14 0; 0.14 8; 0.14 10; 0.30 0; 0.30 15];   % [t1 off] seeds checked screen vs engine oi_clear (y2 = P.tel_y2)
     P.tel3s_suffix   = '';                            % record name suffix (dyson5_t3s<suffix>.*)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve) are opt-in
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)
