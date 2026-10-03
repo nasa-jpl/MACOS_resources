@@ -197,6 +197,18 @@ classdef Session < handle
         function calib_set_target(obj, target, varargin)
             macos.calib_set_target(target, varargin{:});
         end
+        function calib_set_beam(obj, kind, srf, target, varargin)
+            macos.calib_set_beam(kind, srf, target, varargin{:});
+        end
+        function calib_set_beam_pos_fov(obj, pos)
+            macos.calib_set_beam_pos_fov(pos);
+        end
+        function calib_set_beam_wt(obj, wt, varargin)
+            macos.calib_set_beam_wt(wt, varargin{:});
+        end
+        function varargout = ffcut(obj, varargin)
+            [varargout{1:nargout}] = macos.ffcut(varargin{:});
+        end
 
         % --- Element groups (EltGrp / GPERTURB) -----------------------
         function set_elt_grp(obj, iElt, members)

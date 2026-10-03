@@ -525,6 +525,17 @@ Options if a future task needs to push below this:
 
 None of these are needed for HWO at the current delta scale.
 
+### New wrappers 2026-10-03 (engine detail in macos_f90/CLAUDE.md)
+- `calib_set_beam(kind, srf, target, on)`, `calib_set_beam_pos_fov(pos)`,
+  `calib_set_beam_wt(wt, centroid)`: CALIB beam rows on ANY target, per-field
+  position targets, the ray centroid.  CALIB's field 1 is the source as
+  CURRENTLY set; the optimizer grid defaults to `nGridpts/2-1` (`OptRayGrid=`).
+- `ffcut(on)` / `ffcut()` -> `(on, npix)`: the far-field evanescent cut
+  (|x| > dz zeroed on far-field legs).  Gate `tests/test_ffcut.py`.
+- f2py shims live in `src/cmake/source/pymacos_f2py.f90` (the `_impl =>`
+  rename list + a pass-through subroutine each); regenerate nothing, just
+  `make` in `src/cmake/build`.
+
 ## Key files
 
 | File | Role |
