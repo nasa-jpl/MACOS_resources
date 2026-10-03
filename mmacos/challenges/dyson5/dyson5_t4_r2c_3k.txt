@@ -1,0 +1,22 @@
+dyson5 t4 -- the two-mirror modified Schwarzschild at Jim's numbers (addenda 29-30) (2026-10-03 03:46)
+CONVENTIONS: Mouroulis & Green 2018 sec. 5.1 TMS: CONVEX primary, CONCAVE secondary, equal |R| (Petzval zero: a FLAT field),
+  the stop VIRTUAL at M2's front focal point (TELECENTRIC output), represented by its object-space image (the entrance
+  pupil, a pass plane ahead of M1; every chief aimed through its centre).  Altitude 550 km, GSD 30 m -> f 330.0 mm, D 183.3 mm
+  at F/1.8; strips 3000 px x IFOV; spacing d 165 mm.  COAXIAL (no field bias, no pupil decentre): the convex M1 obscures the
+  M2-to-image cone -- the off-axis section is the next step, these rungs are the parent's image.  Solve: lsqnonlin on the exact
+  chain, stacked per-ray residuals (positions about each field's centroid on the image plane, um) over the 3k strip's 7 fields
+  x a 11 x 11 pupil grid; the 1.5k strip is the SAME mirrors at half the field.  Engine score: rms spot about the centroid on the
+  image plane (normal to the chief, 41-ray grid), 9 fields per strip; px of 18 um.  Mass: footprint discs x 40 kg/m^2
+  (lightweighted, assumed) and solid Zerodur 2530 kg/m^3 at thickness D/6.
+
+PARAXIAL LAYOUT (tms_paraxial, d 165 mm): |R| 466.7 mm both; entrance pupil 96.7 mm ahead of M1; stop 233.3 mm before M2 (virtual);
+  back focus 563.3 mm; EP -> image 825.0 mm; EFL check 330.0000 mm; exit chief slope at the 3k edge -1.4e-17 (telecentric)
+
+R2 starts from dyson5_t4_r2_3k.mat rung R2 (K [-9.548 -1.059], M2 asph [1.54 4.88], dt2 -0.677 mm).
+
+rung  K1 K2 | M2 h^4 h^6 | dt2 mm          chain max | engine rms spot per field (px), each strip; chief identity
+R2    -21.3687 -3.3298 | 1.63 -1.32 | -0.247     4.304 |
+        R2 first order: d 320.0 mm, |R| [723.9 650.5] mm (Petzval +0.312 /m), EP 5.3 mm ahead of M1, back focus 621.5 mm; M1 asph [8.19 -82.1]; solved on the 3000 px strip
+        3000 px (9.38 deg): 6261.805 6264.079 6263.389 6270.091 6277.020 6270.091 6263.389 6264.079 6261.805   max 6277.020 px; chief engine vs chain 1.7e-13 m
+        size: length 622 mm; footprints M1 186 x 183 mm, M2 399 x 346 mm (x along the slit, y); mass M1+M2 6.1 kg at 40 kg/m^2, 23.2 kg solid
+        solve: d R2 K1 K2 A14 A16 A4 A6 dt2, lsqnonlin exitflag 2, 331 iterations
