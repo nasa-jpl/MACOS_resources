@@ -281,6 +281,12 @@ function P = dyson5_params(over)
     P.tms_r2_npix    = 3000;              % R2 solves THIS module's strip alone (addendum 31: each module its own telescope)
     P.tms_r2_maxfev  = 20000;             % R2 function-evaluation limit (raised to converge)
     P.tms_petzval_w  = 1;                 % R2's Petzval row: the image sag at the strip edge -> geometric blur (um) x sqrt(rays per field)
+    P.tms_bias_deg   = 0;                 % R3: the off-axis section -- field bias (along track) held during the solve (R3w walks it: tms_bias_walk)
+    P.tms_dec_ep_m   = 0;                 % R3: entrance-pupil decentre in y held during the solve
+    P.tms_bias_walk  = [10 20 30 40];     % R3w: the bias walk (deg), each step from the previous solve, the pupil decentre free
+    P.tms_clear_req_m = 5e-3;             % R3w: the clearance wall -- every tms_clear pair >= this
+    P.tms_wall_w     = 1e4;               % R3w: wall weight, um of residual per mm of deficit, x sqrt(rays per field): dominant over the image
+    P.tms_display    = 'off';             % lsqnonlin Display ('final-detailed' to see why a solve stopped)
     P.tms_score_only = false;             % true: re-score the tms_from design (no solve) -- R2c's stepwise engine score
     P.tms_suffix     = '';                % record dyson5_t4<suffix>.*
     P.tms_areal_kg_m2 = 40;               % lightweighted-mirror areal density assumed for the mass line (kg/m^2)

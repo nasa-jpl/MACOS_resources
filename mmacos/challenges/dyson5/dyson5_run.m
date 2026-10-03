@@ -1244,8 +1244,8 @@ function S = stage_t4_(P, tag)
     pr('CONVENTIONS: Mouroulis & Green 2018 sec. 5.1 TMS: CONVEX primary, CONCAVE secondary, equal |R| (Petzval zero: a FLAT field),\n');
     pr('  the stop VIRTUAL at M2''s front focal point (TELECENTRIC output), represented by its object-space image (the entrance\n');
     pr('  pupil, a pass plane ahead of M1; every chief aimed through its centre).  Altitude %.0f km, GSD %.0f m -> f %.1f mm, D %.1f mm\n', P.tel_alt_m*1e-3, P.tel_gsd_m, f*1e3, D*1e3);
-    pr('  at F/%.1f; strips %s px x IFOV; spacing d %.0f mm.  COAXIAL (no field bias, no pupil decentre): the convex M1 obscures the\n', P.Fno, mat2str(P.tms_npix_score), d*1e3);
-    pr('  M2-to-image cone -- the off-axis section is the next step, these rungs are the parent''s image.  Solve: lsqnonlin on the exact\n');
+    pr('  at F/%.1f; strips %s px x IFOV; spacing d %.0f mm.  seed / R1 / R2 are COAXIAL (the convex M1 obscures the M2-to-image cone);\n', P.Fno, mat2str(P.tms_npix_score), d*1e3);
+    pr('  R3 holds a field bias + pupil decentre; R3w walks the bias with the decentre free and a clearance WALL.  Solve: lsqnonlin on the exact\n');
     pr('  chain, stacked per-ray residuals (positions about each field''s centroid on the image plane, um) over the 3k strip''s %d fields\n', P.tms_nfield_solve);
     pr('  x a %d x %d pupil grid; the 1.5k strip is the SAME mirrors at half the field.  Engine score: rms spot about the centroid on the\n', P.tms_ngrid_solve, P.tms_ngrid_solve);
     pr('  image plane (normal to the chief, %d-ray grid), %d fields per strip; px of %.0f um.  Mass: footprint discs x %.0f kg/m^2\n', 41, P.tms_nfield_score, P.pixel_m*1e6, P.tms_areal_kg_m2);
@@ -1254,33 +1254,43 @@ function S = stage_t4_(P, tag)
     pr('  back focus %.1f mm; EP -> image %.1f mm; EFL check %.4f mm; exit chief slope at the 3k edge %.1e (telecentric)\n\n', T.t2*1e3, T.len*1e3, T.EFL_check*1e3, T.telec_check);
     % ---- the rungs
     x = struct('K', [0 0], 'A', [0 0], 'dt2', 0, 'd', d, 'R2', T.R, 'A1', [0 0]);
-    if ~isempty(P.tms_from) && ~any(ismember({'seed', 'R1a', 'R1b'}, P.tms_rungs))   % resume: R2 from a recorded rung
+    if ~isempty(P.tms_from) && ~any(ismember({'seed', 'R1a', 'R1b'}, P.tms_rungs))   % resume: R2 / R3 from a recorded rung
         Lr = load(fullfile(P.outdir, P.tms_from));  kr = find(strcmp({Lr.S.rows.name}, P.tms_from_rung), 1);
         assert(~isempty(kr), 'dyson5 t4: no rung %s in %s', P.tms_from_rung, P.tms_from);
         xr = Lr.S.rows(kr).x;  for fn = fieldnames(xr)', x.(fn{1}) = xr.(fn{1}); end
         pr('R2 starts from %s rung %s (K %s, M2 asph %s, dt2 %+.3f mm).\n\n', P.tms_from, P.tms_from_rung, mat2str(x.K, 4), mat2str(x.A, 3), x.dt2*1e3);
     end
     ths = linspace(-fovS/2, fovS/2, P.tms_nfield_solve);
-    rows = struct('name', {}, 'x', {}, 'score', {}, 'size', {}, 'chain_px', {}, 'exitflag', {}, 'iters', {});
+    rows = struct('name', {}, 'x', {}, 'score', {}, 'size', {}, 'chain_px', {}, 'exitflag', {}, 'iters', {}, 'clear', {});
     pr('%-5s %-36s %9s | %s\n', 'rung', 'K1 K2 | M2 h^4 h^6 | dt2 mm', 'chain max', 'engine rms spot per field (px), each strip; chief identity');
-    for r = 1:numel(P.tms_rungs)
-        nm = P.tms_rungs{r};
+    rlist = {};  blist = [];
+    for r = 1:numel(P.tms_rungs)                             % R3w expands into one rung per bias step
+        if strcmp(P.tms_rungs{r}, 'R3w')
+            for b = P.tms_bias_walk, rlist{end+1} = sprintf('R3w%02d', b);  blist(end+1) = b; end %#ok<AGROW>
+        else, rlist{end+1} = P.tms_rungs{r};  blist(end+1) = NaN; end %#ok<AGROW>
+    end
+    for r = 1:numel(rlist)
+        nm = rlist{r};  walk = strncmp(nm, 'R3w', 3);
         switch nm
             case 'seed', vars = {'K1', 'K2'};
             case 'R1a',  vars = {'K1', 'K2', 'A4', 'dt2'};
             case 'R1b'
                 if rows(end).score(1).max_px < 1, pr('R1b   not run: R1a is under one pixel at every 3k field\n');  continue, end
                 vars = {'K1', 'K2', 'A4', 'A6', 'dt2'};
-            case 'R2'
+            case {'R2', 'R3'}
                 vars = {'d', 'R2', 'K1', 'K2', 'A14', 'A16', 'A4', 'A6', 'dt2'};
+            otherwise                                             % R3wNN: the bias step, the pupil decentre free, the wall on
+                vars = {'d', 'R2', 'K1', 'K2', 'A14', 'A16', 'A4', 'A6', 'dt2', 'dep'};
         end
+        if strcmp(nm, 'R3'), x.bias = P.tms_bias_deg*pi/180;  x.dec_ep = P.tms_dec_ep_m; end   % the off-axis section, held
+        if walk, x.bias = blist(r)*pi/180;  if ~isfield(x, 'dec_ep'), x.dec_ep = 0; end, end
         mk = mkG;  thr = ths;  fovR = fovS;
         if strcmp(nm, 'seed'), thr = [0, 0.5*pi/180]; end      % the APLANAT: on axis + a small field (coma)
-        if strcmp(nm, 'R2')                                     % addendum 31: THIS module's strip alone, the general first order
+        if any(strcmp(nm, {'R2', 'R3'})) || walk                % addendum 31: THIS module's strip alone, the general first order
             mk = mkG2;  fovR = P.tms_r2_npix*ifov;  thr = linspace(-fovR/2, fovR/2, P.tms_nfield_solve);
         end
         if P.tms_score_only, ef = NaN;  it = 0;                 % re-score a recorded design: no solve
-        else, [x, ef, it] = t4_solve_(x, vars, mk, thr, D, lam, P, strcmp(nm, 'R2')); end
+        else, [x, ef, it] = t4_solve_(x, vars, mk, thr, D, lam, P, any(strcmp(nm, {'R2', 'R3'})) + 2*walk); end   % 1: Petzval row + raised budget; 2: + the clearance wall
         G = mk(x, fovR);
         cm = max(arrayfun(@(t) t4_spot_(G, t, D, lam, 21), thr))/P.pixel_m;
         sc = struct('npx', {}, 'fields', {}, 'px', {}, 'max_px', {}, 'ident', {}, 'deck', {});
@@ -1291,10 +1301,15 @@ function S = stage_t4_(P, tag)
             sc(end+1) = struct('npx', npx, 'fields', linspace(-fov/2, fov/2, P.tms_nfield_score), 'px', px, 'max_px', max(px), 'ident', idn, 'deck', deck);  %#ok<AGROW>
         end
         sz = t4_size_(G, thr, D, lam, P);
-        rows(end+1) = struct('name', nm, 'x', x, 'score', sc, 'size', sz, 'chain_px', cm, 'exitflag', ef, 'iters', it);  %#ok<AGROW>
+        rows(end+1) = struct('name', nm, 'x', x, 'score', sc, 'size', sz, 'chain_px', cm, 'exitflag', ef, 'iters', it, 'clear', []);  %#ok<AGROW>
         pr('%-5s %-36s %9.3f |\n', nm, sprintf('%.4f %.4f | %.3g %.3g | %+.3f', x.K, x.A, x.dt2*1e3), cm);
-        if strcmp(nm, 'R2')
+        if any(strcmp(nm, {'R2', 'R3'})) || walk
             FO = tms_firstorder(f, x.d, x.R2);
+            if strcmp(nm, 'R3') || walk
+                Cl = tms_clear(G);  rows(end).clear = Cl;
+                pr('        R3 off-axis section: field bias %.1f deg, pupil decentre %+.0f mm; clearance %s mm (%s), min %+.1f mm (%s) %s; rays lost %d\n', ...
+                   x.bias*180/pi, x.dec_ep*1e3, sprintf('%+.1f ', Cl.d*1e3), strjoin(Cl.pairs, ', '), Cl.min*1e3, Cl.worst, tern_(Cl.min >= 5e-3, 'PASS', 'FAIL'), Cl.lost);
+            end
             pr('        R2 first order: d %.1f mm, |R| [%.1f %.1f] mm (Petzval %+.3f /m), EP %.1f mm ahead of M1, back focus %.1f mm; M1 asph %s; solved on the %d px strip\n', ...
                x.d*1e3, FO.R*1e3, FO.petzval, -FO.z_ep*1e3, (FO.t2 + x.dt2)*1e3, mat2str(x.A1, 3), P.tms_r2_npix);
         end
@@ -1316,8 +1331,8 @@ function [x, ef, it] = t4_solve_(x, vars, mkG, ths, D, lam, P, general)
 %T4_SOLVE_  lsqnonlin on stacked per-ray residuals about each field's centroid (um), the named variables, natural scales.
 %   GENERAL (R2): bounds on d and R2, the raised function-evaluation limit, and the Petzval row.
     if nargin < 8, general = false; end
-    sc = struct('K1', 1, 'K2', 1, 'A4', 1e-2, 'A6', 1e-1, 'dt2', 1e-3, 'd', 1e-2, 'R2', 1e-2, 'A14', 1e-2, 'A16', 1e-1);
-    lo = struct('d', 0.05, 'R2', 0.15);  hi = struct('d', 0.32, 'R2', 1.5);
+    sc = struct('K1', 1, 'K2', 1, 'A4', 1e-2, 'A6', 1e-1, 'dt2', 1e-3, 'd', 1e-2, 'R2', 1e-2, 'A14', 1e-2, 'A16', 1e-1, 'dep', 1e-2);
+    lo = struct('d', 0.05, 'R2', 0.15, 'dep', -0.3);  hi = struct('d', 0.32, 'R2', 1.5, 'dep', 0.3);
     get = @(x, v) t4_get_(x, v);  put = @(x, v, a) t4_put_(x, v, a);
     u0 = cellfun(@(v) get(x, v)/sc.(v), vars);
     lb = -Inf(size(u0));  ub = Inf(size(u0));
@@ -1325,19 +1340,22 @@ function [x, ef, it] = t4_solve_(x, vars, mkG, ths, D, lam, P, general)
         if isfield(lo, vars{i}), lb(i) = lo.(vars{i})/sc.(vars{i});  ub(i) = hi.(vars{i})/sc.(vars{i}); end
     end
     fun = @(u) t4_res_(t4_apply_(x, vars, u, sc, put), mkG, ths, D, lam, P, general);
-    mfe = 100*numel(vars);  if general, mfe = P.tms_r2_maxfev; end
-    opt = optimoptions('lsqnonlin', 'Display', 'off', 'MaxIterations', P.tms_max_iter, 'MaxFunctionEvaluations', mfe, ...
+    mfe = 100*numel(vars);  if general >= 1, mfe = P.tms_r2_maxfev; end
+    opt = optimoptions('lsqnonlin', 'Display', P.tms_display, 'MaxIterations', P.tms_max_iter, 'MaxFunctionEvaluations', mfe, ...
                        'FunctionTolerance', 1e-12, 'StepTolerance', 1e-12, 'FiniteDifferenceStepSize', 1e-6);
     [u, ~, ~, ef, out] = lsqnonlin(fun, u0, lb, ub, opt);
     x = t4_apply_(x, vars, u, sc, put);  it = out.iterations;
+    fprintf('  t4_solve_: %s; exitflag %d, %d iterations, %d function evaluations (limit %d, MaxIterations %d)\n', ...
+            strjoin(vars, ' '), ef, out.iterations, out.funcCount, mfe, P.tms_max_iter);
 end
 
 function G = t4_geom2_(x, f, D, fov, lam)
 %T4_GEOM2_  The general TMS: d and |R2| free, R1 eliminated by the EFL, the stop telecentric (tms_firstorder).
     FO = tms_firstorder(f, x.d, x.R2);
     if ~FO.ok, error('dyson5:t4:firstorder', 'no real TMS first order at d %.3f, R2 %.3f', x.d, x.R2); end
-    G = tms_geom(struct('f', f, 'D', D, 'fov', fov, 'bias', 0, 'R', FO.R, 'd', x.d, 't2', FO.t2 + x.dt2, 'z_ep', FO.z_ep, ...
-                        'dec_ep', 0, 'Kc', x.K, 'A', [x.A1; x.A], 'dec', [0 0], 'lambda_c', lam, 'D_src', D, 'name', 'tms'), []);
+    b = 0;  e = 0;  if isfield(x, 'bias'), b = x.bias; end;  if isfield(x, 'dec_ep'), e = x.dec_ep; end
+    G = tms_geom(struct('f', f, 'D', D, 'fov', fov, 'bias', b, 'R', FO.R, 'd', x.d, 't2', FO.t2 + x.dt2, 'z_ep', FO.z_ep, ...
+                        'dec_ep', e, 'Kc', x.K, 'A', [x.A1; x.A], 'dec', [0 0], 'lambda_c', lam, 'D_src', D, 'name', 'tms'), []);
     G.petzval = FO.petzval;
 end
 
@@ -1347,17 +1365,17 @@ end
 
 function a = t4_get_(x, v)
     switch v, case 'K1', a = x.K(1); case 'K2', a = x.K(2); case 'A4', a = x.A(1); case 'A6', a = x.A(2); case 'dt2', a = x.dt2;
-              case 'd', a = x.d; case 'R2', a = x.R2; case 'A14', a = x.A1(1); case 'A16', a = x.A1(2); end
+              case 'd', a = x.d; case 'R2', a = x.R2; case 'A14', a = x.A1(1); case 'A16', a = x.A1(2); case 'dep', a = x.dec_ep; end
 end
 
 function x = t4_put_(x, v, a)
     switch v, case 'K1', x.K(1) = a; case 'K2', x.K(2) = a; case 'A4', x.A(1) = a; case 'A6', x.A(2) = a; case 'dt2', x.dt2 = a;
-              case 'd', x.d = a; case 'R2', x.R2 = a; case 'A14', x.A1(1) = a; case 'A16', x.A1(2) = a; end
+              case 'd', x.d = a; case 'R2', x.R2 = a; case 'A14', x.A1(1) = a; case 'A16', x.A1(2) = a; case 'dep', x.dec_ep = a; end
 end
 
 function r = t4_res_(x, mkG, ths, D, lam, P, general)
     if nargin < 7, general = false; end
-    nr = numel(ths)*2*P.tms_ngrid_solve^2 + general;
+    nr = numel(ths)*2*P.tms_ngrid_solve^2 + (general >= 1) + 4*(general >= 2);
     try, G = mkG(x, max(2*max(abs(ths)), 1e-3)); catch, r = 1e6*ones(nr, 1); return, end
     r = [];
     for t = ths
@@ -1367,7 +1385,11 @@ function r = t4_res_(x, mkG, ths, D, lam, P, general)
         V = Q - mean(Q, 2);  rr = [e1'*V; e2'*V]*1e6;  rr = rr(:);
         rr(end+1:2*P.tms_ngrid_solve^2) = 0;  r = [r; rr]; %#ok<AGROW>
     end
-    if general                                   % the Petzval row: the image sag at the strip edge as a geometric blur (um)
+    if general >= 2                              % R3w: the clearance WALL -- a hinge per tms_clear pair, dominant over the image rows
+        try, Cw = tms_clear(G, 'nring', 12);  dcl = Cw.d(:); catch, dcl = -ones(4, 1); end
+        r = [r; P.tms_wall_w*sqrt(pi/4*P.tms_ngrid_solve^2)*max(0, P.tms_clear_req_m - dcl)*1e3];
+    end
+    if general >= 1                              % the Petzval row: the image sag at the strip edge as a geometric blur (um)
         fl = P.pixel_m/(P.tel_gsd_m/P.tel_alt_m);
         sag = 0.5*abs(G.petzval)*(fl*tan(max(abs(ths))))^2;
         r = [r; P.tms_petzval_w*sqrt(pi/4*P.tms_ngrid_solve^2)*sag/(2*P.Fno)*1e6];
