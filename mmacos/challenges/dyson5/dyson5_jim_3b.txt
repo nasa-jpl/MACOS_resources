@@ -1,12 +1,14 @@
-dyson5 round 3b -- throughput routes (2026-10-02 21:41); 130 mm silica block, 27 mm slit, R3 (no meniscus)
+dyson5 round 3b -- throughput routes (2026-10-03 05:31); 130 mm silica block, 27 mm slit, R3 (no meniscus)
 CONVENTIONS: engine scores on the 7x7 grid; clearance as stage s3 runs it; throughput = uncoated Fresnel at 1 um
-  unless a coating is named.  Route 1 counts a deposited slit / cemented window as INDEX-MATCHED (not air-glass).
+  unless a coating is named.  Route 1: a cemented detector window is index-matched (the deposited slit is NOT -- the
+  beam enters glass at the slit in air regardless); the cold detector's dewar window is counted in the baseline.
 
-ROUTE 1 -- deposited slit + cemented detector window: the two flat-face crossings go index-matched (4 -> 2)
-  130 mm silica R3 (D)       face_off  0.45 mm  CRF  1.026  EE  0.999  clear  +0.38 mm
-  air gap (slit/window in air)      : 4 air-glass crossings, uncoated throughput 0.872
-  deposited slit + cemented window  : 2 air-glass crossings (flat face index-matched), uncoated throughput 0.934
-  -> same image and clearance; removing the two flat-face crossings lifts uncoated throughput 0.872 -> 0.934 (+7%)
+ROUTE 1 -- cement the detector window: 6 -> 4 air-glass crossings (depositing the slit removes none)
+  130 mm silica R3 (D)           CRF  1.026  EE  0.999  clear  +0.38 mm (image unchanged by the window)
+  uncoated, dewar window present (6x)      : throughput 0.814
+  cement the window to the block   (4x)    : throughput 0.872  (block-exit / window-in index-matched)
+  + AR the convex pair                     : throughput 0.911  (slit face and window vacuum face left bare)
+  -> depositing the slit removes NO crossing (air-glass at the slit regardless); the lever is cementing the window.
 
 ROUTE 3 -- working-distance scan: slit AND detector standoff equal, R3 re-solved at each (seed chained)
   standoff       CRF      EE    clear   (block 130 mm silica, 27 mm slit)

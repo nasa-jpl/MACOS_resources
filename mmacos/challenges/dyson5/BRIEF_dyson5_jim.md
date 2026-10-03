@@ -26,7 +26,9 @@ Counts: **2× system** = 2 telescopes / 2 gratings / 2×3k detectors; **4× syst
 = 4 / 4 / 4×1.5k (same total pixels). (Carve = single-crystal CaF₂ cylinder, clear
 diameter + 20 mm by thickness + 20 mm — the blank a lens is ground from. Fused
 silica is a melt: no carve, any size. Grating diameter and length are in
-`dyson5_jim_3a.txt`.)
+`dyson5_jim_3a.txt`. The throughput column counts the BLOCK's air-glass crossings;
+a cold detector adds a dewar window — two more crossings — to every row equally, so
+the relative comparison is unchanged. See 3b route 1 for the window and its cementing.)
 
 **On the spectrometer side the four-silica architecture wins on glass, decisively.**
 Equal throughput (both 4 uncoated crossings, ~0.87–0.88) and equal-or-better image
@@ -43,13 +45,16 @@ Both no-meniscus options beat the silica-with-meniscus reference on throughput
 Baseline: the 130 mm silica, 27 mm-slit, no-meniscus block (D), uncoated **0.872**
 over 4 air-glass crossings.
 
-**1. Fewer crossings — the biggest lever (+7%).** Deposit the slit mask on the
-block's flat face and cement the detector window to it: the two flat-face crossings
-become glass-glass (index-matched), leaving only the convex pair. The ray geometry
-is unchanged — same CRF 1.026, EE 0.999, clearance +0.38 mm — so uncoated
-throughput goes **0.872 → 0.934 (+7%)** with no coating at all. (A literal zero
-air gap is the degenerate concentric case — the slit images onto itself — so a thin
-physical standoff stays; the win is purely the crossing count, independent of it.)
+**1. Cement the detector window — the real crossing lever.** (Corrected count.)
+Depositing the slit on the face removes *no* crossing: the beam arrives in air and
+enters the glass at the slit plane whatever carries the mask (that only removes the
+mask's mechanical standoff). The lever is the **detector window** — a cold detector
+sits behind a dewar window, so the honest uncoated baseline is block-exit + window-in
++ window-out = three crossings on the detector side, **six in all, 0.81**. **Cementing
+the window to the block** index-matches the block-exit/window-in pair → **6 → 4
+crossings, 0.81 → 0.87**, with the ray geometry (and so CRF 1.026, EE 0.999, clearance
++0.38 mm) unchanged. AR-coating the convex pair then reaches **~0.91**. A bare "2
+crossings" is not reachable with a cold detector behind a window.
 
 **2. A broadband AR coating — modest over a 6:1 band (+4%).** Scored with the
 engine's Abeles stack (`macos.design.thinfilm_rt`), normal incidence, 400–2500 nm;
@@ -66,9 +71,10 @@ A simple AR buys **~+4%**, far less than route 1's +7%, because a 6:1 band is
 extreme for an anti-reflection stack (a V-coat is narrowband; broadband ARs are
 routine over ~2:1, not 6:1). A high/low stack built on **SiO₂** as the low layer is
 useless — SiO₂'s index ≈ the silica substrate, so it does nothing and the high
-layers only add reflection. The levers combine: deposit + cement (2 crossings) **and**
-AR the remaining convex pair → ~0.96. The honest ceiling for a few-layer AR here is
-~0.92 for 4 crossings; graded/9-layer BBAR would do better but is its own program.
+layers only add reflection. The levers combine with route 1: cement the window
+(6 → 4 crossings) **and** AR the convex pair → **~0.91**. The honest ceiling for a
+few-layer AR here is ~0.92 per four crossings; graded/9-layer BBAR would do better
+but is its own program.
 
 **3. The working distance — the small module is forgiving.** Scanning the slit and
 detector standoff together (R3 re-solved at each), 130 mm silica, 27 mm slit:
@@ -91,10 +97,12 @@ hand without asking Jim for his tricks.
 - **Four small silica spectrometers** (1.5k, 27 mm, no meniscus) are the glass win:
   6.6 kg of cheap fused silica vs 28.5 kg of CaF₂ (12.4 L single crystal), same
   throughput, better image. The price is two more telescopes and detector chains.
-- On "better than Fresnel": the big lever is **removing crossings** — deposit the
-  slit and cement the window (0.872 → 0.934, +7%); a broadband AR adds only ~+4%
-  over the 6:1 band; together ~0.96. And the small module already holds ~1.5 mm of
-  working distance, so that constraint is not binding here.
+- On "better than Fresnel": with the cold detector's dewar window counted, the
+  uncoated chain is 6 crossings / **0.81**. **Cementing the window** to the block
+  takes it to 4 / **0.87** (depositing the slit removes nothing — the beam enters
+  glass at the slit in air regardless); a broadband AR on the convex pair adds the
+  rest to **~0.91** (a 6:1 band is extreme for an AR). The small module also holds
+  ~1.5 mm of working distance, so that is not binding here.
 
 Records: `dyson5_jim_3a.txt` (the table + grating/length geometry), `dyson5_jim_3b.txt`
 (the three routes), `dyson5_jim_3b.mat`. Driver `dyson5_jim.m` (`'3a'` re-cut, `'3b'`

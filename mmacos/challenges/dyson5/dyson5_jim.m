@@ -39,24 +39,29 @@ function OUT = routes_3b_(here, over)
     fid = fopen(fullfile(here, 'dyson5_jim_3b.txt'), 'w');  pr = @(varargin) dp_(fid, varargin{:});
     pr('dyson5 round 3b -- throughput routes (%s); 130 mm silica block, 27 mm slit, R3 (no meniscus)\n', datestr(now,'yyyy-mm-dd HH:MM'));
     pr('CONVENTIONS: engine scores on the 7x7 grid; clearance as stage s3 runs it; throughput = uncoated Fresnel at 1 um\n');
-    pr('  unless a coating is named.  Route 1 counts a deposited slit / cemented window as INDEX-MATCHED (not air-glass).\n');
+    pr('  unless a coating is named.  Route 1: a cemented detector window is index-matched (the deposited slit is NOT -- the\n');
+    pr('  beam enters glass at the slit in air regardless); the cold detector''s dewar window is counted in the baseline.\n');
     OUT = struct();
 
-    % ---------- Route 1: deposited slit + cemented window -> the two flat-face crossings go index-matched
-    % The ray geometry is UNCHANGED (same block, same small standoff): depositing the slit
-    % on the glass face and cementing the detector window turns the two flat-face air-glass
-    % crossings into glass-glass (index-matched), leaving only the convex pair.  A literal
-    % zero standoff is the degenerate concentric case (the m=0 image lands on the slit), so
-    % the standoff stays physical; the win is purely the crossing count.
-    pr('\nROUTE 1 -- deposited slit + cemented detector window: the two flat-face crossings go index-matched (4 -> 2)\n');
+    % ---------- Route 1: cement the detector window (the real crossing lever)
+    % CORRECTED COUNT (CC, 2026-10-03): depositing the slit removes NO crossing -- the beam
+    % arrives in air and enters the glass at the slit plane whatever carries the mask (the
+    % mask's standoff is mechanical, not radiometric).  The honest baseline COUNTS the dewar
+    % window: block exit + window in + window out = 3 crossings on the detector side, 6 in
+    % all (uncoated 0.81).  CEMENTING the window to the block index-matches the block-exit /
+    % window-in pair -> 6 -> 4 crossings (0.87).  A bare "2 crossings" is NOT reachable with a
+    % cold detector behind a window.  The ray geometry (and so CRF/EE/clearance) is unchanged.
+    pr('\nROUTE 1 -- cement the detector window: 6 -> 4 air-glass crossings (depositing the slit removes none)\n');
     nSi = sellmeier_local_('Silica', 1e-6);  Tsurf = 1 - frac_(1, nSi);
     r_std = score_r3_(P0, seedD, 130, [], opt.max_iter);                 % the D-130 design of record (standoff free)
-    pr('  %-26s face_off %5.2f mm  CRF %6.3f  EE %6.3f  clear %+6.2f mm\n', '130 mm silica R3 (D)', r_std.face_mm, r_std.CRF, r_std.EE, r_std.clear);
-    pr('  air gap (slit/window in air)      : 4 air-glass crossings, uncoated throughput %.3f\n', Tsurf^4);
-    pr('  deposited slit + cemented window  : 2 air-glass crossings (flat face index-matched), uncoated throughput %.3f\n', Tsurf^2);
-    pr('  -> same image and clearance; removing the two flat-face crossings lifts uncoated throughput %.3f -> %.3f (+%.0f%%)\n', ...
-       Tsurf^4, Tsurf^2, 100*(Tsurf^2/Tsurf^4 - 1));
-    OUT.route1 = struct('design', r_std, 'thru4', Tsurf^4, 'thru2', Tsurf^2);
+    T6 = Tsurf^6;  T4 = Tsurf^4;  Tar = (1 - 0.012);                     % ~1.2% residual per AR'd convex face (route 2's 2-layer)
+    Tcem_ar = Tsurf^2 * Tar^2;                                           % cement window, then AR the convex pair
+    pr('  %-30s CRF %6.3f  EE %6.3f  clear %+6.2f mm (image unchanged by the window)\n', '130 mm silica R3 (D)', r_std.CRF, r_std.EE, r_std.clear);
+    pr('  uncoated, dewar window present (6x)      : throughput %.3f\n', T6);
+    pr('  cement the window to the block   (4x)    : throughput %.3f  (block-exit / window-in index-matched)\n', T4);
+    pr('  + AR the convex pair                     : throughput %.3f  (slit face and window vacuum face left bare)\n', Tcem_ar);
+    pr('  -> depositing the slit removes NO crossing (air-glass at the slit regardless); the lever is cementing the window.\n');
+    OUT.route1 = struct('design', r_std, 'thru6', T6, 'thru4_cemented', T4, 'thru_cem_ar', Tcem_ar);
 
     % ---------- Route 3: working-distance scan
     pr('\nROUTE 3 -- working-distance scan: slit AND detector standoff equal, R3 re-solved at each (seed chained)\n');

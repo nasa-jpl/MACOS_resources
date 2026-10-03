@@ -328,11 +328,12 @@ re-cuts the trade into Jim's two-vs-four question (2 x CaF2 3k vs 4 x silica 1.5
 no meniscus): equal throughput and image, but 6.6 kg of fused silica vs 28.5 kg of
 CaF2 (12.4 L single-crystal carve) -- four small silica modules win on glass, the
 price is 2 more telescopes/detectors (CaF2 left unpriced, carve volume stated).
-`'3b'` measures three throughput routes on the 130 mm silica block: (1) a deposited
-slit + cemented window makes the two flat-face crossings index-matched, 0.872 ->
-0.934 (+7%) at the same image/clearance -- the biggest lever; (2) a broadband AR
-over 400-2500 nm (`macos.design.thinfilm_rt`) buys only ~+4% (a 6:1 band is extreme
-for an AR; an SiO2 low layer on silica is useless), combining with (1) to ~0.96;
+`'3b'` measures three throughput routes on the 130 mm silica block: (1) with the cold
+detector's dewar window counted the uncoated chain is 6 crossings / 0.81, and CEMENTING
+the window to the block takes it to 4 / 0.87 (depositing the slit removes none -- the
+beam enters glass at the slit in air regardless), AR on the convex pair then ~0.91 --
+the real crossing lever; (2) a broadband AR over 400-2500 nm (`macos.design.thinfilm_rt`)
+buys only ~+4% (a 6:1 band is extreme for an AR; an SiO2 low layer on silica is useless);
 (3) the working-distance scan shows the 27 mm module holds ~1.5 mm standoff free
 (CRF <= 1.04, EE 1.0, clearance growing), far more forgiving than the 54 mm module.
 Records `dyson5_jim_3a.txt` / `dyson5_jim_3b.{txt,mat}`; report `BRIEF_dyson5_jim.md`.
