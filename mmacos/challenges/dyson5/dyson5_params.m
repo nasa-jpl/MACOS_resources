@@ -264,6 +264,20 @@ function P = dyson5_params(over)
     P.tel3o_s5        = true;                   % run S5 (Zernike freeform) once if converged above the bar with the gate held
     P.tel3o_suffix    = '_x12';                 % record dyson5_t3o<suffix>.*
     P.tel3o_resume    = '';                     % a t3o record (in P.outdir) whose solved S3 is the start: skip S3, run S4 then S5 (addendum 28)
+    % t4, THE TWO-MIRROR MODIFIED SCHWARZSCHILD (beat 5c, addenda 29-30): the
+    % review's TMS at Jim's numbers (tel_alt_m / tel_gsd_m: 550 km, 30 m ->
+    % f 330 mm, D 183 mm at F/1.8); tms_paraxial (flat by equal radii,
+    % telecentric by the virtual stop at M2's front focus) + tms_geom (the
+    % exact chain), solved on the chain, scored in the engine
+    P.tms_d_m        = 0.165;             % M1 -> M2 spacing (the family's one knob)
+    P.tms_npix_solve = 3000;              % the strip the rungs SOLVE (3k, 9.4 deg); 1.5k scored on the same decks at half field
+    P.tms_npix_score = [3000 1500];       % strips scored in the engine per rung
+    P.tms_rungs      = {'seed', 'R1a', 'R1b'};   % aplanat conics; + M2 h^4 (conics, focus re-solved); + M2 h^6 (only if R1a misses a pixel)
+    P.tms_nfield_solve = 7;  P.tms_ngrid_solve = 11;   % solve: the slit's 7 fields x an 11 x 11 pupil grid
+    P.tms_nfield_score = 9;               % engine score: fields across each strip
+    P.tms_max_iter   = 200;               % lsqnonlin iterations per rung
+    P.tms_areal_kg_m2 = 40;               % lightweighted-mirror areal density assumed for the mass line (kg/m^2)
+    P.tms_solid_rho  = 2530;  P.tms_solid_aspect = 6;   % and the SOLID alternative: Zerodur, thickness = D/6
     % t3e, END TO END FROM A t3o RECORD (addendum 27: the verdict): the
     % template's final design mapped onto the exact chain (telescope_geom:
     % |R|, spacings, back focus = |BFD| - the refit dz, K, aspheres, the
@@ -283,7 +297,7 @@ function P = dyson5_params(over)
     P.tel3s_off_max  = 15;                                % addendum 21's offset ceiling for "packages"
     P.tel3s_validate = [0.14 0; 0.14 8; 0.14 10; 0.30 0; 0.30 15];   % [t1 off] seeds checked screen vs engine oi_clear (y2 = P.tel_y2)
     P.tel3s_suffix   = '';                            % record name suffix (dyson5_t3s<suffix>.*)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o) are opt-in
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)
