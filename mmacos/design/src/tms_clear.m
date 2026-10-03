@@ -17,8 +17,10 @@ function C = tms_clear(G, opts)
 %   Options: 'by' (along-track half-width, rad; 0.15 deg), 'nring' (24),
 %   'margin' (1.15), 'img_pad' (10 mm), 'lam' (1 um), 'standoff' (the in-leg
 %   start: 1 m ahead of M1 along -d).
-%   Returns C: .d (1x4, m: in-M2, in-IMG, 12-IMG, 2I-M1), .pairs, .min, .worst,
-%   .bodies (C, n, r per body), .lost (rays that did not trace).
+%   Returns C: .d (1x4, m: in-M2, in-IMG, 12-IMG, 2I-M1; the HARD min over rays -- the gate's number),
+%   .dsoft (the same, softmin over rays, tau = opts.tau 0.5 mm: C1, the WALL's operand), .minsoft (softmin
+%   of .dsoft), .pairs, .min, .worst, .bodies (C, n, r per body), .lost (rays that did not trace).
+%   Distances are EXACT segment-to-disc (addendum 34), not sampled.
 %
 %   See also TMS_GEOM, OI_CLEAR, SPECTROMETER_CLEARANCE.
     arguments
@@ -29,6 +31,7 @@ function C = tms_clear(G, opts)
         opts.img_pad (1,1) double = 10e-3
         opts.lam (1,1) double = 1e-6
         opts.standoff (1,1) double = 1.0
+        opts.tau (1,1) double = 0.5e-3
     end
     pairs = {'in x M2', 'in x IMG', 'M1->M2 x IMG', 'M2->img x M1'};
     fov = G.src.fov;  D = G.src.D;  lam = opts.lam;
@@ -61,15 +64,22 @@ function C = tms_clear(G, opts)
     B(3) = disc_(PI, G.surf(nS).psi, 1, opts.img_pad);
     % pairs: in vs M2, in vs IMG, 12 vs IMG, 2I vs M1
     spec = [1 2; 1 3; 2 3; 3 1];
-    dd = inf(1, 4);
+    dd = inf(1, 4);  ds = inf(1, 4);
     for j = 1:4
         Lg = legs{spec(j, 1)};  b = B(spec(j, 2));
-        for k = 1:size(Lg, 2)
-            dd(j) = min(dd(j), seg_disc_(Lg(:, k, 1), Lg(:, k, 2), b));
-        end
+        dk = zeros(1, size(Lg, 2));
+        for k = 1:size(Lg, 2), dk(k) = seg_disc_(Lg(:, k, 1), Lg(:, k, 2), b); end
+        dd(j) = min(dk);  ds(j) = softmin_(dk, opts.tau);   % hard (the gate's number) and soft (the wall's)
     end
     [mn, iw] = min(dd);
-    C = struct('d', dd, 'pairs', {pairs}, 'min', mn, 'worst', pairs{iw}, 'bodies', B, 'lost', lost);
+    C = struct('d', dd, 'dsoft', ds, 'minsoft', softmin_(ds, opts.tau), 'pairs', {pairs}, 'min', mn, 'worst', pairs{iw}, ...
+               'bodies', B, 'lost', lost);
+end
+
+function m = softmin_(d, tau)
+%SOFTMIN_  -tau log(sum exp(-d/tau)), stably: the C1 blend of a min (within tau log N of it).
+    d = d(isfinite(d));  if isempty(d), m = Inf; return, end
+    m0 = min(d);  m = m0 - tau*log(sum(exp(-(d - m0)/tau)));
 end
 
 function b = disc_(Pts, n, margin, pad)
@@ -79,17 +89,24 @@ function b = disc_(Pts, n, margin, pad)
 end
 
 function dm = seg_disc_(A, Bp, b)
-%SEG_DISC_  Signed: a crossing inside the disc -> minus its depth; else the sampled minimum 3-D distance.
+%SEG_DISC_  Signed: a crossing inside the disc -> minus its in-plane depth; else the EXACT minimum 3-D distance
+%   segment -> disc (addendum 34: the old 101-point sampling was a 3-6 mm staircase, a zero finite-difference
+%   derivative).  f(s) = h(s)^2 + max(rad(s) - r, 0)^2 is minimised over s in [0,1]: a coarse scan brackets the
+%   minimum, fminbnd refines it to 1e-12; continuous with the crossing branch at the rim.
     hA = b.n'*(A - b.C);  hB = b.n'*(Bp - b.C);
     if hA*hB < 0
         q = A + (Bp - A)*(hA/(hA - hB));
         rad = norm((q - b.C) - b.n*(b.n'*(q - b.C)));
         if rad < b.r, dm = rad - b.r; return, end
     end
-    dm = inf;
-    for s = linspace(0, 1, 101)
-        q = A + s*(Bp - A);  h = b.n'*(q - b.C);
-        rad = norm((q - b.C) - b.n*h);
-        dm = min(dm, hypot(max(rad - b.r, 0), h));
-    end
+    f = @(s) d2_(A + s*(Bp - A), b);
+    ss = linspace(0, 1, 21);  fs = arrayfun(f, ss);  [~, k] = min(fs);
+    lo = ss(max(k - 1, 1));  hi = ss(min(k + 1, numel(ss)));
+    [~, fm] = fminbnd(f, lo, hi, optimset('TolX', 1e-12, 'Display', 'off'));
+    dm = sqrt(min([fm, fs(k)]));
+end
+
+function v = d2_(q, b)
+    v3 = q - b.C;  h = b.n'*v3;  rad = norm(v3 - b.n*h);
+    v = h^2 + max(rad - b.r, 0)^2;
 end

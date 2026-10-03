@@ -1386,7 +1386,7 @@ function r = t4_res_(x, mkG, ths, D, lam, P, general)
         rr(end+1:2*P.tms_ngrid_solve^2) = 0;  r = [r; rr]; %#ok<AGROW>
     end
     if general >= 2                              % R3w: the clearance WALL -- a hinge per tms_clear pair, dominant over the image rows
-        try, Cw = tms_clear(G, 'nring', 12);  dcl = Cw.d(:); catch, dcl = -ones(4, 1); end
+        try, Cw = tms_clear(G, 'nring', 12);  dcl = Cw.dsoft(:); catch, dcl = -ones(4, 1); end   % the SOFT per-pair distances: C1 (addendum 34)
         r = [r; P.tms_wall_w*sqrt(pi/4*P.tms_ngrid_solve^2)*max(0, P.tms_clear_req_m - dcl)*1e3];
     end
     if general >= 1                              % the Petzval row: the image sag at the strip edge as a geometric blur (um)
