@@ -5,6 +5,9 @@ beam_set
 calib_buffer_dims
 calib_clear_var_elts
 calib_run
+calib_set_beam
+calib_set_beam_pos_fov
+calib_set_beam_wt
 calib_set_iter
 calib_set_target
 calib_set_tol
@@ -75,6 +78,8 @@ elt_srf_zrn_set
 elt_srf_zrn_type
 elt_vpt
 elt_z
+ffcut_get
+ffcut_set
 ffp
 get_src_csys
 get_src_fov

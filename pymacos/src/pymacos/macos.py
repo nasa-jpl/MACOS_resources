@@ -4238,6 +4238,98 @@ def calib_set_tol(tol: float) -> None:
         raise Exception(f"MACOS: calib_set_tol({t}) failed")
 
 
+def calib_set_beam(kind, srf: int, target=None, on: bool = True) -> None:
+    """Beam rows for the next CALIB, on ANY target (engine 2026-10-03).
+
+    Args:
+        kind:   'dir' (chief-ray direction at ``srf`` driven to the unit
+                vector ``target`` -- a telecentric image: the detector
+                normal), 'pos' (beam position at ``srf`` driven to the
+                3-vector ``target``, base units; per-field targets via
+                :func:`calib_set_beam_pos_fov`), or 'size' (beam radius,
+                ``target[0]``).  Integers 1/2/3 are accepted.
+        srf:    the element the quantity is read at.
+        target: 3-vector (ignored when ``on`` is False).
+        on:     False switches that row group off.
+
+    The rows ride on the WFE / SPOT / WFE_ZMODE target (before 2026-10-03
+    only on ``OptTarget= BEAM``) and are weighted against it by
+    :func:`calib_set_beam_wt`.  Mirrors the Rx keywords ``OptBeamDir=`` /
+    ``OptBeamPos=`` / ``OptBeamSize=`` in element ``srf``'s block.
+    """
+    kinds = {'dir': 1, 'pos': 2, 'size': 3}
+    k = kinds[kind.strip().lower()] if isinstance(kind, str) else int(kind)
+    if k not in (1, 2, 3):
+        raise ValueError(f"calib_set_beam: kind must be 'dir', 'pos' or 'size' (got {kind!r})")
+    t = np.zeros(3, dtype=np.float64)
+    if on:
+        if target is None:
+            raise ValueError("calib_set_beam: target required when on=True")
+        v = np.asarray(target, dtype=np.float64).ravel()
+        t[:v.size] = v
+    if not lib.api.calib_set_beam(k, int(srf), t, bool(on)):
+        raise Exception(f"MACOS: calib_set_beam({kind!r}, {srf}) failed")
+
+
+def calib_set_beam_pos_fov(pos) -> None:
+    """Per-field beam position targets for CALIB (``OptBeamPosFov=``).
+
+    ``pos`` is 3 x n (or n x 3): the target position of the beam (see
+    :func:`calib_set_beam` 'pos') for CALIB field 1..n in the order of the
+    deck's field list (n <= 12).  Fields beyond n use the 'pos' target.
+    An empty ``pos`` clears the table.  NOTE: CALIB's field 1 is the source
+    as CURRENTLY set (the handler copies ChfRayDir/Pos into field 1).
+    """
+    P = np.asarray(pos, dtype=np.float64)
+    if P.size == 0:
+        if not lib.api.calib_set_beam_pos_fov(np.zeros((3, 1), order='F'), 0):
+            raise Exception("MACOS: calib_set_beam_pos_fov(clear) failed")
+        return
+    if P.ndim == 1:
+        P = P.reshape(3, 1)
+    if P.shape[0] != 3 and P.shape[1] == 3:
+        P = P.T
+    if P.shape[0] != 3:
+        raise ValueError("calib_set_beam_pos_fov: pos must be 3 x n or n x 3")
+    n = P.shape[1]
+    if n > 12:
+        raise ValueError(f"calib_set_beam_pos_fov: at most 12 fields (got {n})")
+    if not lib.api.calib_set_beam_pos_fov(np.asfortranarray(P), n):
+        raise Exception("MACOS: calib_set_beam_pos_fov failed")
+
+
+def calib_set_beam_wt(wt: float, centroid: bool = False) -> None:
+    """Weight of the CALIB beam rows against the WFE / SPOT rows (the row
+    sigma is divided by sqrt(wt)), and the centroid option: with
+    ``centroid`` True the beam position is the centroid of the rays that
+    pass the train, not the chief ray (``OptBeamWt=`` / ``OptBeamCentroid=``).
+    """
+    w = float(wt)
+    if w <= 0.0:
+        raise ValueError(f"calib_set_beam_wt: wt must be > 0 (got {w})")
+    if not lib.api.calib_set_beam_wt(w, bool(centroid)):
+        raise Exception(f"MACOS: calib_set_beam_wt({w}) failed")
+
+
+def ffcut(on: bool | None = None):
+    """The far-field evanescent cut (engine 2026-10-03, dyson5 addendum 15).
+
+    ``ffcut(True)`` makes every far-field leg zero the output pixels with
+    x^2 + y^2 > dz^2 -- |sin theta| > 1, spatial frequencies above
+    1/lambda, which carry no propagating energy but which a wide output
+    window (a pupil sampled finer than lambda/2) otherwise hands to an
+    energy-fraction metric.  ``ffcut(False)`` restores the default.
+    ``ffcut()`` returns ``(on, n_pixels_zeroed_by_the_last_far_field_leg)``.
+    Session state (not reset by a load); setting it dirties the cached
+    propagation.
+    """
+    if on is None:
+        ok, state, npix = lib.api.ffcut_get()
+        return bool(state), int(npix)
+    if not lib.api.ffcut_set(bool(on)):
+        raise Exception(f"MACOS: ffcut({on}) failed")
+
+
 def calib_set_target(target, wf_zern_modes=None) -> None:
     """Set the CALIB optimization target.
 

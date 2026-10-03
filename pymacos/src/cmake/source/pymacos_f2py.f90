@@ -138,6 +138,11 @@
       calib_set_iter_impl => calib_set_iter, &
       calib_set_tol_impl => calib_set_tol, &
       calib_set_target_impl => calib_set_target, &
+      calib_set_beam_impl => calib_set_beam, &
+      calib_set_beam_pos_fov_impl => calib_set_beam_pos_fov, &
+      calib_set_beam_wt_impl => calib_set_beam_wt, &
+      ffcut_set_impl => ffcut_set, &
+      ffcut_get_impl => ffcut_get, &
       stop_info_get_impl => stop_info_get, &
       stop_info_set_impl => stop_info_set, &
       stop_obj_set_impl => stop_obj_set, &
@@ -1631,6 +1636,57 @@
 
         CALL calib_set_target_impl(OK, target_type, wf_zern_modes, n_wf_zern)
       end subroutine calib_set_target
+
+      subroutine calib_set_beam(OK, kind, iElt, target, on)
+
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: kind, iElt
+        real(8), intent(in) :: target(3)
+        logical, intent(in) :: on
+
+        CALL calib_set_beam_impl(OK, kind, iElt, target, on)
+      end subroutine calib_set_beam
+
+      subroutine calib_set_beam_pos_fov(OK, pos, n)
+
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: n
+        real(8), intent(in) :: pos(3, n)
+        !f2py integer intent(hide), depend(pos):: n=shape(pos,1)
+
+        CALL calib_set_beam_pos_fov_impl(OK, pos, n)
+      end subroutine calib_set_beam_pos_fov
+
+      subroutine calib_set_beam_wt(OK, wt, centroid)
+
+        implicit none
+        logical, intent(out):: OK
+        real(8), intent(in) :: wt
+        logical, intent(in) :: centroid
+
+        CALL calib_set_beam_wt_impl(OK, wt, centroid)
+      end subroutine calib_set_beam_wt
+
+      subroutine ffcut_set(OK, on)
+
+        implicit none
+        logical, intent(out):: OK
+        logical, intent(in) :: on
+
+        CALL ffcut_set_impl(OK, on)
+      end subroutine ffcut_set
+
+      subroutine ffcut_get(OK, on, nPix)
+
+        implicit none
+        logical, intent(out):: OK
+        logical, intent(out):: on
+        integer, intent(out):: nPix
+
+        CALL ffcut_get_impl(OK, on, nPix)
+      end subroutine ffcut_get
 
       subroutine stop_info_get(OK, iElt, VptOffset)
         use Kinds
