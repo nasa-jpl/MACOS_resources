@@ -1237,8 +1237,9 @@ function S = stage_t4_(P, tag)
     fovS = P.tms_npix_solve*ifov;  T = tms_paraxial(f, D, d, fovS);
     mkG = @(x, fov) tms_geom(struct('f', f, 'D', D, 'fov', fov, 'bias', 0, 'R', [T.R T.R], 'd', d, 't2', T.t2 + x.dt2, ...
               'z_ep', T.z_ep, 'dec_ep', 0, 'Kc', x.K, 'A', [0 0; x.A], 'dec', [0 0], 'lambda_c', lam, 'D_src', D, 'name', 'tms'), []);
+    mkG2 = @(x, fov) t4_geom2_(x, f, D, fov, lam);                   % R2: d, R2 free; R1 by the EFL; the stop telecentric
     macos.init(P.tel3_model);
-    fid = fopen([tag '_t4.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    sfx = P.tms_suffix;  fid = fopen([tag '_t4' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
     pr('dyson5 t4 -- the two-mirror modified Schwarzschild at Jim''s numbers (addenda 29-30) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
     pr('CONVENTIONS: Mouroulis & Green 2018 sec. 5.1 TMS: CONVEX primary, CONCAVE secondary, equal |R| (Petzval zero: a FLAT field),\n');
     pr('  the stop VIRTUAL at M2''s front focal point (TELECENTRIC output), represented by its object-space image (the entrance\n');
@@ -1252,7 +1253,13 @@ function S = stage_t4_(P, tag)
     pr('PARAXIAL LAYOUT (tms_paraxial, d %.0f mm): |R| %.1f mm both; entrance pupil %.1f mm ahead of M1; stop %.1f mm before M2 (virtual);\n', d*1e3, T.R*1e3, -T.z_ep*1e3, T.s_stop*1e3);
     pr('  back focus %.1f mm; EP -> image %.1f mm; EFL check %.4f mm; exit chief slope at the 3k edge %.1e (telecentric)\n\n', T.t2*1e3, T.len*1e3, T.EFL_check*1e3, T.telec_check);
     % ---- the rungs
-    x = struct('K', [0 0], 'A', [0 0], 'dt2', 0);
+    x = struct('K', [0 0], 'A', [0 0], 'dt2', 0, 'd', d, 'R2', T.R, 'A1', [0 0]);
+    if ~isempty(P.tms_from) && ~any(ismember({'seed', 'R1a', 'R1b'}, P.tms_rungs))   % resume: R2 from a recorded rung
+        Lr = load(fullfile(P.outdir, P.tms_from));  kr = find(strcmp({Lr.S.rows.name}, P.tms_from_rung), 1);
+        assert(~isempty(kr), 'dyson5 t4: no rung %s in %s', P.tms_from_rung, P.tms_from);
+        xr = Lr.S.rows(kr).x;  for fn = fieldnames(xr)', x.(fn{1}) = xr.(fn{1}); end
+        pr('R2 starts from %s rung %s (K %s, M2 asph %s, dt2 %+.3f mm).\n\n', P.tms_from, P.tms_from_rung, mat2str(x.K, 4), mat2str(x.A, 3), x.dt2*1e3);
+    end
     ths = linspace(-fovS/2, fovS/2, P.tms_nfield_solve);
     rows = struct('name', {}, 'x', {}, 'score', {}, 'size', {}, 'chain_px', {}, 'exitflag', {}, 'iters', {});
     pr('%-5s %-36s %9s | %s\n', 'rung', 'K1 K2 | M2 h^4 h^6 | dt2 mm', 'chain max', 'engine rms spot per field (px), each strip; chief identity');
@@ -1264,23 +1271,35 @@ function S = stage_t4_(P, tag)
             case 'R1b'
                 if rows(end).score(1).max_px < 1, pr('R1b   not run: R1a is under one pixel at every 3k field\n');  continue, end
                 vars = {'K1', 'K2', 'A4', 'A6', 'dt2'};
+            case 'R2'
+                vars = {'d', 'R2', 'K1', 'K2', 'A14', 'A16', 'A4', 'A6', 'dt2'};
         end
-        thr = ths;  if strcmp(nm, 'seed'), thr = [0, 0.5*pi/180]; end      % the APLANAT: on axis + a small field (coma)
-        [x, ef, it] = t4_solve_(x, vars, mkG, thr, D, lam, P);
-        G = mkG(x, fovS);
-        cm = max(arrayfun(@(t) t4_spot_(G, t, D, lam, 21), ths))/P.pixel_m;
+        mk = mkG;  thr = ths;  fovR = fovS;
+        if strcmp(nm, 'seed'), thr = [0, 0.5*pi/180]; end      % the APLANAT: on axis + a small field (coma)
+        if strcmp(nm, 'R2')                                     % addendum 31: THIS module's strip alone, the general first order
+            mk = mkG2;  fovR = P.tms_r2_npix*ifov;  thr = linspace(-fovR/2, fovR/2, P.tms_nfield_solve);
+        end
+        if P.tms_score_only, ef = NaN;  it = 0;                 % re-score a recorded design: no solve
+        else, [x, ef, it] = t4_solve_(x, vars, mk, thr, D, lam, P, strcmp(nm, 'R2')); end
+        G = mk(x, fovR);
+        cm = max(arrayfun(@(t) t4_spot_(G, t, D, lam, 21), thr))/P.pixel_m;
         sc = struct('npx', {}, 'fields', {}, 'px', {}, 'max_px', {}, 'ident', {}, 'deck', {});
         for npx = P.tms_npix_score
-            fov = npx*ifov;  Gs = mkG(x, fov);
-            deck = sprintf('%s_t4_%s_%d.in', tag, lower(nm), npx);
+            fov = npx*ifov;  Gs = mk(x, fov);
+            deck = sprintf('%s_t4%s_%s_%d.in', tag, sfx, lower(nm), npx);
             [px, idn] = t4_engine_(Gs, deck, linspace(-fov/2, fov/2, P.tms_nfield_score), D, lam, P);
             sc(end+1) = struct('npx', npx, 'fields', linspace(-fov/2, fov/2, P.tms_nfield_score), 'px', px, 'max_px', max(px), 'ident', idn, 'deck', deck);  %#ok<AGROW>
         end
-        sz = t4_size_(G, ths, D, lam, P);
+        sz = t4_size_(G, thr, D, lam, P);
         rows(end+1) = struct('name', nm, 'x', x, 'score', sc, 'size', sz, 'chain_px', cm, 'exitflag', ef, 'iters', it);  %#ok<AGROW>
         pr('%-5s %-36s %9.3f |\n', nm, sprintf('%.4f %.4f | %.3g %.3g | %+.3f', x.K, x.A, x.dt2*1e3), cm);
+        if strcmp(nm, 'R2')
+            FO = tms_firstorder(f, x.d, x.R2);
+            pr('        R2 first order: d %.1f mm, |R| [%.1f %.1f] mm (Petzval %+.3f /m), EP %.1f mm ahead of M1, back focus %.1f mm; M1 asph %s; solved on the %d px strip\n', ...
+               x.d*1e3, FO.R*1e3, FO.petzval, -FO.z_ep*1e3, (FO.t2 + x.dt2)*1e3, mat2str(x.A1, 3), P.tms_r2_npix);
+        end
         for q = 1:numel(sc)
-            pr('        %d px (%.2f deg): %s  max %.3f px; chief engine vs chain %.1e m\n', sc(q).npx, sc(q).npx*ifov*180/pi, sprintf('%.3f ', sc(q).px), sc(q).max_px, sc(q).ident);
+            pr('        %d px (%.2f deg): %s  max %.3f px; every ray engine vs chain %.1e m (stepwise trace)\n', sc(q).npx, sc(q).npx*ifov*180/pi, sprintf('%.3f ', sc(q).px), sc(q).max_px, sc(q).ident);
         end
         pr('        size: length %.0f mm; footprints M1 %.0f x %.0f mm, M2 %.0f x %.0f mm (x along the slit, y); mass M1+M2 %.1f kg at %.0f kg/m^2, %.1f kg solid\n', ...
            sz.len*1e3, sz.D1*1e3, sz.D1y*1e3, sz.D2*1e3, sz.D2y*1e3, sz.m_light, P.tms_areal_kg_m2, sz.m_solid);
@@ -1288,21 +1307,38 @@ function S = stage_t4_(P, tag)
     end
     fclose(fid);
     S = struct('T', T, 'rows', rows);
-    save([tag '_t4.mat'], 'S');
+    save([tag '_t4' sfx '.mat'], 'S');
     tags = {};  for r = 1:numel(rows), for q = 1:numel(rows(r).score), tags{end+1} = regexprep(rows(r).score(q).deck, {'^.*/', '\.in$'}, ''); end, end %#ok<AGROW>
     try, dyson5_view_figs(tags, P.outdir); catch err, fprintf(2, 'dyson5 t4: engine renders failed: %s\n', err.message); end
 end
 
-function [x, ef, it] = t4_solve_(x, vars, mkG, ths, D, lam, P)
+function [x, ef, it] = t4_solve_(x, vars, mkG, ths, D, lam, P, general)
 %T4_SOLVE_  lsqnonlin on stacked per-ray residuals about each field's centroid (um), the named variables, natural scales.
-    sc = struct('K1', 1, 'K2', 1, 'A4', 1e-2, 'A6', 1e-1, 'dt2', 1e-3);
+%   GENERAL (R2): bounds on d and R2, the raised function-evaluation limit, and the Petzval row.
+    if nargin < 8, general = false; end
+    sc = struct('K1', 1, 'K2', 1, 'A4', 1e-2, 'A6', 1e-1, 'dt2', 1e-3, 'd', 1e-2, 'R2', 1e-2, 'A14', 1e-2, 'A16', 1e-1);
+    lo = struct('d', 0.05, 'R2', 0.15);  hi = struct('d', 0.32, 'R2', 1.5);
     get = @(x, v) t4_get_(x, v);  put = @(x, v, a) t4_put_(x, v, a);
     u0 = cellfun(@(v) get(x, v)/sc.(v), vars);
-    fun = @(u) t4_res_(t4_apply_(x, vars, u, sc, put), mkG, ths, D, lam, P);
-    opt = optimoptions('lsqnonlin', 'Display', 'off', 'MaxIterations', P.tms_max_iter, 'FunctionTolerance', 1e-12, 'StepTolerance', 1e-12, ...
-                       'FiniteDifferenceStepSize', 1e-6);
-    [u, ~, ~, ef, out] = lsqnonlin(fun, u0, [], [], opt);
+    lb = -Inf(size(u0));  ub = Inf(size(u0));
+    for i = 1:numel(vars)
+        if isfield(lo, vars{i}), lb(i) = lo.(vars{i})/sc.(vars{i});  ub(i) = hi.(vars{i})/sc.(vars{i}); end
+    end
+    fun = @(u) t4_res_(t4_apply_(x, vars, u, sc, put), mkG, ths, D, lam, P, general);
+    mfe = 100*numel(vars);  if general, mfe = P.tms_r2_maxfev; end
+    opt = optimoptions('lsqnonlin', 'Display', 'off', 'MaxIterations', P.tms_max_iter, 'MaxFunctionEvaluations', mfe, ...
+                       'FunctionTolerance', 1e-12, 'StepTolerance', 1e-12, 'FiniteDifferenceStepSize', 1e-6);
+    [u, ~, ~, ef, out] = lsqnonlin(fun, u0, lb, ub, opt);
     x = t4_apply_(x, vars, u, sc, put);  it = out.iterations;
+end
+
+function G = t4_geom2_(x, f, D, fov, lam)
+%T4_GEOM2_  The general TMS: d and |R2| free, R1 eliminated by the EFL, the stop telecentric (tms_firstorder).
+    FO = tms_firstorder(f, x.d, x.R2);
+    if ~FO.ok, error('dyson5:t4:firstorder', 'no real TMS first order at d %.3f, R2 %.3f', x.d, x.R2); end
+    G = tms_geom(struct('f', f, 'D', D, 'fov', fov, 'bias', 0, 'R', FO.R, 'd', x.d, 't2', FO.t2 + x.dt2, 'z_ep', FO.z_ep, ...
+                        'dec_ep', 0, 'Kc', x.K, 'A', [x.A1; x.A], 'dec', [0 0], 'lambda_c', lam, 'D_src', D, 'name', 'tms'), []);
+    G.petzval = FO.petzval;
 end
 
 function x = t4_apply_(x, vars, u, sc, put)
@@ -1310,15 +1346,19 @@ function x = t4_apply_(x, vars, u, sc, put)
 end
 
 function a = t4_get_(x, v)
-    switch v, case 'K1', a = x.K(1); case 'K2', a = x.K(2); case 'A4', a = x.A(1); case 'A6', a = x.A(2); case 'dt2', a = x.dt2; end
+    switch v, case 'K1', a = x.K(1); case 'K2', a = x.K(2); case 'A4', a = x.A(1); case 'A6', a = x.A(2); case 'dt2', a = x.dt2;
+              case 'd', a = x.d; case 'R2', a = x.R2; case 'A14', a = x.A1(1); case 'A16', a = x.A1(2); end
 end
 
 function x = t4_put_(x, v, a)
-    switch v, case 'K1', x.K(1) = a; case 'K2', x.K(2) = a; case 'A4', x.A(1) = a; case 'A6', x.A(2) = a; case 'dt2', x.dt2 = a; end
+    switch v, case 'K1', x.K(1) = a; case 'K2', x.K(2) = a; case 'A4', x.A(1) = a; case 'A6', x.A(2) = a; case 'dt2', x.dt2 = a;
+              case 'd', x.d = a; case 'R2', x.R2 = a; case 'A14', x.A1(1) = a; case 'A16', x.A1(2) = a; end
 end
 
-function r = t4_res_(x, mkG, ths, D, lam, P)
-    try, G = mkG(x, max(2*max(abs(ths)), 1e-3)); catch, r = 1e6*ones(numel(ths)*2*P.tms_ngrid_solve^2, 1); return, end
+function r = t4_res_(x, mkG, ths, D, lam, P, general)
+    if nargin < 7, general = false; end
+    nr = numel(ths)*2*P.tms_ngrid_solve^2 + general;
+    try, G = mkG(x, max(2*max(abs(ths)), 1e-3)); catch, r = 1e6*ones(nr, 1); return, end
     r = [];
     for t = ths
         Q = t4_rays_(G, t, D, lam, P.tms_ngrid_solve);
@@ -1326,6 +1366,11 @@ function r = t4_res_(x, mkG, ths, D, lam, P)
         d = G.field_dir_raw(t, 0);  d = d/norm(d);  e1 = cross(d, [0; 1; 0]);  e1 = e1/norm(e1);  e2 = cross(d, e1);
         V = Q - mean(Q, 2);  rr = [e1'*V; e2'*V]*1e6;  rr = rr(:);
         rr(end+1:2*P.tms_ngrid_solve^2) = 0;  r = [r; rr]; %#ok<AGROW>
+    end
+    if general                                   % the Petzval row: the image sag at the strip edge as a geometric blur (um)
+        fl = P.pixel_m/(P.tel_gsd_m/P.tel_alt_m);
+        sag = 0.5*abs(G.petzval)*(fl*tan(max(abs(ths))))^2;
+        r = [r; P.tms_petzval_w*sqrt(pi/4*P.tms_ngrid_solve^2)*sag/(2*P.Fno)*1e6];
     end
 end
 
@@ -1357,10 +1402,20 @@ function [px, idn] = t4_engine_(G, deck, ths, D, lam, P)
     for q = 1:numel(ths)
         dq = G.field_dir_raw(ths(q), 0);  [pq, okq] = G.aim_pt(dq, lam);  if ~okq, continue, end
         macos.stop(M.iStop);  macos.set_src_fov('src_pos', pq, 'src_dir', dq, 'zSrc', 1e22);  macos.modify();
-        tr = macos.trace(M.nElt);  ri = macos.get_ray_info(tr.nRays);
+        % STEPWISE (trace(1) .. trace(nElt)): a one-call trace(nElt) disagrees with the chain on decks whose entrance-pupil
+        % Reference sits close ahead of the convex M1 (repro_trace_onecall.m, briefed to CC 2026-10-03); stepwise reproduces it
+        for ie = 1:M.nElt
+            tr = macos.trace(ie);
+            if ie == 1, r1 = macos.get_ray_info(tr.nRays); end
+        end
+        ri = macos.get_ray_info(tr.nRays);
         o = ri.ok_trace(:) & ri.ok_pass(:);  Q = ri.pos(:, o);
         px(q) = sqrt(mean(sum((Q - mean(Q, 2)).^2, 1)))/P.pixel_m;
-        [pc, ~, ~] = G.trace(pq, dq, lam);  idn = max(idn, norm(ri.pos(:, 1) - pc(:, end)));
+        % EVERY ray: the chain traced from the engine ray's own state at the entrance pupil, compared at the image plane
+        for k = find(o(:))'
+            [pc, ~, okc] = G.trace(r1.pos(:, k) - 1e-3*r1.dir(:, k), r1.dir(:, k), lam);   % 1 mm back: not ON the EP plane
+            if okc, idn = max(idn, norm(ri.pos(:, k) - pc(:, end))); else, idn = Inf; end
+        end
     end
 end
 

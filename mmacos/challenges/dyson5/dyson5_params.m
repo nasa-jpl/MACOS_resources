@@ -272,10 +272,17 @@ function P = dyson5_params(over)
     P.tms_d_m        = 0.165;             % M1 -> M2 spacing (the family's one knob)
     P.tms_npix_solve = 3000;              % the strip the rungs SOLVE (3k, 9.4 deg); 1.5k scored on the same decks at half field
     P.tms_npix_score = [3000 1500];       % strips scored in the engine per rung
-    P.tms_rungs      = {'seed', 'R1a', 'R1b'};   % aplanat conics; + M2 h^4 (conics, focus re-solved); + M2 h^6 (only if R1a misses a pixel)
+    P.tms_rungs      = {'seed', 'R1a', 'R1b'};   % aplanat conics; + M2 h^4 (conics, focus re-solved); + M2 h^6 (only if R1a misses a pixel); 'R2' (addendum 31): + d, R2 free (EFL by R1), M1 h^4 h^6, Petzval as a row
     P.tms_nfield_solve = 7;  P.tms_ngrid_solve = 11;   % solve: the slit's 7 fields x an 11 x 11 pupil grid
     P.tms_nfield_score = 9;               % engine score: fields across each strip
     P.tms_max_iter   = 200;               % lsqnonlin iterations per rung
+    P.tms_from       = '';                % a t4 record whose rung (tms_from_rung) seeds R2 when the earlier rungs are not run
+    P.tms_from_rung  = 'R1a';
+    P.tms_r2_npix    = 3000;              % R2 solves THIS module's strip alone (addendum 31: each module its own telescope)
+    P.tms_r2_maxfev  = 20000;             % R2 function-evaluation limit (raised to converge)
+    P.tms_petzval_w  = 1;                 % R2's Petzval row: the image sag at the strip edge -> geometric blur (um) x sqrt(rays per field)
+    P.tms_score_only = false;             % true: re-score the tms_from design (no solve) -- R2c's stepwise engine score
+    P.tms_suffix     = '';                % record dyson5_t4<suffix>.*
     P.tms_areal_kg_m2 = 40;               % lightweighted-mirror areal density assumed for the mass line (kg/m^2)
     P.tms_solid_rho  = 2530;  P.tms_solid_aspect = 6;   % and the SOLID alternative: Zerodur, thickness = D/6
     % t3e, END TO END FROM A t3o RECORD (addendum 27: the verdict): the
