@@ -323,6 +323,20 @@ at 240 mm, 14.3 kg) -- silica cannot.  Correction to round 1: CaF2's index is
 LOWER than silica's (1.429 vs 1.450); the benefit is CaF2's lower dispersion over
 380-2500 nm, not the cone angle.
 
+**Round 3 (Jim's comparison + "do better than Fresnel"): `dyson5_jim.m`.**  `'3a'`
+re-cuts the trade into Jim's two-vs-four question (2 x CaF2 3k vs 4 x silica 1.5k,
+no meniscus): equal throughput and image, but 6.6 kg of fused silica vs 28.5 kg of
+CaF2 (12.4 L single-crystal carve) -- four small silica modules win on glass, the
+price is 2 more telescopes/detectors (CaF2 left unpriced, carve volume stated).
+`'3b'` measures three throughput routes on the 130 mm silica block: (1) a deposited
+slit + cemented window makes the two flat-face crossings index-matched, 0.872 ->
+0.934 (+7%) at the same image/clearance -- the biggest lever; (2) a broadband AR
+over 400-2500 nm (`macos.design.thinfilm_rt`) buys only ~+4% (a 6:1 band is extreme
+for an AR; an SiO2 low layer on silica is useless), combining with (1) to ~0.96;
+(3) the working-distance scan shows the 27 mm module holds ~1.5 mm standoff free
+(CRF <= 1.04, EE 1.0, clearance growing), far more forgiving than the 54 mm module.
+Records `dyson5_jim_3a.txt` / `dyson5_jim_3b.{txt,mat}`; report `BRIEF_dyson5_jim.md`.
+
 ## Run it yourself
 
 ```matlab
