@@ -129,6 +129,7 @@ function OUT = dyson5_run(over)
             case 't3w', OUT.t3w = stage_t3w_(P, tag);
             case 't3o', OUT.t3o = stage_t3o_(P, tag);
             case 't3e', OUT.t3e = stage_t3e_(P, tag);
+            case 't4',  OUT.t4  = stage_t4_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -1228,6 +1229,157 @@ function S = stage_t3o_(P, tag)
         pr('\nNOT CLOSED: %.1f nm, gate %+.1f mm, edge loss %.1f %%.\n', fin.map, fin.clear_mm, 100*vig);  S.stop = 'not closed';
     end
     t3o_close_(fid, S, [tag '_t3o' sfx]);
+end
+
+function S = stage_t4_(P, tag)
+%STAGE_T4_  Beat 5c: the two-mirror modified Schwarzschild -- paraxial layout, aplanat seed, the M2 asphere rung; chain-solved, engine-scored.
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  d = P.tms_d_m;  lam = 1e-6;
+    fovS = P.tms_npix_solve*ifov;  T = tms_paraxial(f, D, d, fovS);
+    mkG = @(x, fov) tms_geom(struct('f', f, 'D', D, 'fov', fov, 'bias', 0, 'R', [T.R T.R], 'd', d, 't2', T.t2 + x.dt2, ...
+              'z_ep', T.z_ep, 'dec_ep', 0, 'Kc', x.K, 'A', [0 0; x.A], 'dec', [0 0], 'lambda_c', lam, 'D_src', D, 'name', 'tms'), []);
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_t4.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 t4 -- the two-mirror modified Schwarzschild at Jim''s numbers (addenda 29-30) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: Mouroulis & Green 2018 sec. 5.1 TMS: CONVEX primary, CONCAVE secondary, equal |R| (Petzval zero: a FLAT field),\n');
+    pr('  the stop VIRTUAL at M2''s front focal point (TELECENTRIC output), represented by its object-space image (the entrance\n');
+    pr('  pupil, a pass plane ahead of M1; every chief aimed through its centre).  Altitude %.0f km, GSD %.0f m -> f %.1f mm, D %.1f mm\n', P.tel_alt_m*1e-3, P.tel_gsd_m, f*1e3, D*1e3);
+    pr('  at F/%.1f; strips %s px x IFOV; spacing d %.0f mm.  COAXIAL (no field bias, no pupil decentre): the convex M1 obscures the\n', P.Fno, mat2str(P.tms_npix_score), d*1e3);
+    pr('  M2-to-image cone -- the off-axis section is the next step, these rungs are the parent''s image.  Solve: lsqnonlin on the exact\n');
+    pr('  chain, stacked per-ray residuals (positions about each field''s centroid on the image plane, um) over the 3k strip''s %d fields\n', P.tms_nfield_solve);
+    pr('  x a %d x %d pupil grid; the 1.5k strip is the SAME mirrors at half the field.  Engine score: rms spot about the centroid on the\n', P.tms_ngrid_solve, P.tms_ngrid_solve);
+    pr('  image plane (normal to the chief, %d-ray grid), %d fields per strip; px of %.0f um.  Mass: footprint discs x %.0f kg/m^2\n', 41, P.tms_nfield_score, P.pixel_m*1e6, P.tms_areal_kg_m2);
+    pr('  (lightweighted, assumed) and solid Zerodur %.0f kg/m^3 at thickness D/%g.\n\n', P.tms_solid_rho, P.tms_solid_aspect);
+    pr('PARAXIAL LAYOUT (tms_paraxial, d %.0f mm): |R| %.1f mm both; entrance pupil %.1f mm ahead of M1; stop %.1f mm before M2 (virtual);\n', d*1e3, T.R*1e3, -T.z_ep*1e3, T.s_stop*1e3);
+    pr('  back focus %.1f mm; EP -> image %.1f mm; EFL check %.4f mm; exit chief slope at the 3k edge %.1e (telecentric)\n\n', T.t2*1e3, T.len*1e3, T.EFL_check*1e3, T.telec_check);
+    % ---- the rungs
+    x = struct('K', [0 0], 'A', [0 0], 'dt2', 0);
+    ths = linspace(-fovS/2, fovS/2, P.tms_nfield_solve);
+    rows = struct('name', {}, 'x', {}, 'score', {}, 'size', {}, 'chain_px', {}, 'exitflag', {}, 'iters', {});
+    pr('%-5s %-36s %9s | %s\n', 'rung', 'K1 K2 | M2 h^4 h^6 | dt2 mm', 'chain max', 'engine rms spot per field (px), each strip; chief identity');
+    for r = 1:numel(P.tms_rungs)
+        nm = P.tms_rungs{r};
+        switch nm
+            case 'seed', vars = {'K1', 'K2'};
+            case 'R1a',  vars = {'K1', 'K2', 'A4', 'dt2'};
+            case 'R1b'
+                if rows(end).score(1).max_px < 1, pr('R1b   not run: R1a is under one pixel at every 3k field\n');  continue, end
+                vars = {'K1', 'K2', 'A4', 'A6', 'dt2'};
+        end
+        thr = ths;  if strcmp(nm, 'seed'), thr = [0, 0.5*pi/180]; end      % the APLANAT: on axis + a small field (coma)
+        [x, ef, it] = t4_solve_(x, vars, mkG, thr, D, lam, P);
+        G = mkG(x, fovS);
+        cm = max(arrayfun(@(t) t4_spot_(G, t, D, lam, 21), ths))/P.pixel_m;
+        sc = struct('npx', {}, 'fields', {}, 'px', {}, 'max_px', {}, 'ident', {}, 'deck', {});
+        for npx = P.tms_npix_score
+            fov = npx*ifov;  Gs = mkG(x, fov);
+            deck = sprintf('%s_t4_%s_%d.in', tag, lower(nm), npx);
+            [px, idn] = t4_engine_(Gs, deck, linspace(-fov/2, fov/2, P.tms_nfield_score), D, lam, P);
+            sc(end+1) = struct('npx', npx, 'fields', linspace(-fov/2, fov/2, P.tms_nfield_score), 'px', px, 'max_px', max(px), 'ident', idn, 'deck', deck);  %#ok<AGROW>
+        end
+        sz = t4_size_(G, ths, D, lam, P);
+        rows(end+1) = struct('name', nm, 'x', x, 'score', sc, 'size', sz, 'chain_px', cm, 'exitflag', ef, 'iters', it);  %#ok<AGROW>
+        pr('%-5s %-36s %9.3f |\n', nm, sprintf('%.4f %.4f | %.3g %.3g | %+.3f', x.K, x.A, x.dt2*1e3), cm);
+        for q = 1:numel(sc)
+            pr('        %d px (%.2f deg): %s  max %.3f px; chief engine vs chain %.1e m\n', sc(q).npx, sc(q).npx*ifov*180/pi, sprintf('%.3f ', sc(q).px), sc(q).max_px, sc(q).ident);
+        end
+        pr('        size: length %.0f mm; footprints M1 %.0f x %.0f mm, M2 %.0f x %.0f mm (x along the slit, y); mass M1+M2 %.1f kg at %.0f kg/m^2, %.1f kg solid\n', ...
+           sz.len*1e3, sz.D1*1e3, sz.D1y*1e3, sz.D2*1e3, sz.D2y*1e3, sz.m_light, P.tms_areal_kg_m2, sz.m_solid);
+        pr('        solve: %s, lsqnonlin exitflag %d, %d iterations\n', strjoin(vars, ' '), ef, it);
+    end
+    fclose(fid);
+    S = struct('T', T, 'rows', rows);
+    save([tag '_t4.mat'], 'S');
+    tags = {};  for r = 1:numel(rows), for q = 1:numel(rows(r).score), tags{end+1} = regexprep(rows(r).score(q).deck, {'^.*/', '\.in$'}, ''); end, end %#ok<AGROW>
+    try, dyson5_view_figs(tags, P.outdir); catch err, fprintf(2, 'dyson5 t4: engine renders failed: %s\n', err.message); end
+end
+
+function [x, ef, it] = t4_solve_(x, vars, mkG, ths, D, lam, P)
+%T4_SOLVE_  lsqnonlin on stacked per-ray residuals about each field's centroid (um), the named variables, natural scales.
+    sc = struct('K1', 1, 'K2', 1, 'A4', 1e-2, 'A6', 1e-1, 'dt2', 1e-3);
+    get = @(x, v) t4_get_(x, v);  put = @(x, v, a) t4_put_(x, v, a);
+    u0 = cellfun(@(v) get(x, v)/sc.(v), vars);
+    fun = @(u) t4_res_(t4_apply_(x, vars, u, sc, put), mkG, ths, D, lam, P);
+    opt = optimoptions('lsqnonlin', 'Display', 'off', 'MaxIterations', P.tms_max_iter, 'FunctionTolerance', 1e-12, 'StepTolerance', 1e-12, ...
+                       'FiniteDifferenceStepSize', 1e-6);
+    [u, ~, ~, ef, out] = lsqnonlin(fun, u0, [], [], opt);
+    x = t4_apply_(x, vars, u, sc, put);  it = out.iterations;
+end
+
+function x = t4_apply_(x, vars, u, sc, put)
+    for i = 1:numel(vars), x = put(x, vars{i}, u(i)*sc.(vars{i})); end
+end
+
+function a = t4_get_(x, v)
+    switch v, case 'K1', a = x.K(1); case 'K2', a = x.K(2); case 'A4', a = x.A(1); case 'A6', a = x.A(2); case 'dt2', a = x.dt2; end
+end
+
+function x = t4_put_(x, v, a)
+    switch v, case 'K1', x.K(1) = a; case 'K2', x.K(2) = a; case 'A4', x.A(1) = a; case 'A6', x.A(2) = a; case 'dt2', x.dt2 = a; end
+end
+
+function r = t4_res_(x, mkG, ths, D, lam, P)
+    try, G = mkG(x, max(2*max(abs(ths)), 1e-3)); catch, r = 1e6*ones(numel(ths)*2*P.tms_ngrid_solve^2, 1); return, end
+    r = [];
+    for t = ths
+        Q = t4_rays_(G, t, D, lam, P.tms_ngrid_solve);
+        if isempty(Q), r = [r; 1e6*ones(2*P.tms_ngrid_solve^2, 1)]; continue, end %#ok<AGROW>
+        d = G.field_dir_raw(t, 0);  d = d/norm(d);  e1 = cross(d, [0; 1; 0]);  e1 = e1/norm(e1);  e2 = cross(d, e1);
+        V = Q - mean(Q, 2);  rr = [e1'*V; e2'*V]*1e6;  rr = rr(:);
+        rr(end+1:2*P.tms_ngrid_solve^2) = 0;  r = [r; rr]; %#ok<AGROW>
+    end
+end
+
+function Q = t4_rays_(G, th, D, lam, n)
+%T4_RAYS_  A collimated n x n grid clipped to the entrance pupil, aimed through its centre, traced to the image plane.
+    d = G.field_dir_raw(th, 0);  [p0, ok] = G.aim_pt(d, lam);  Q = [];  if ~ok, return, end
+    d = d/norm(d);  u = cross(d, [1; 0; 0]);  u = u/norm(u);  v = cross(d, u);  g = linspace(-D/2, D/2, n);
+    for a = g
+        for b = g
+            if a^2 + b^2 > (D/2)^2, continue, end
+            [pp, ~, o] = G.trace(p0 + a*u + b*v, d, lam);  if o, Q(:, end+1) = pp(:, end); end %#ok<AGROW>
+        end
+    end
+end
+
+function s = t4_spot_(G, th, D, lam, n)
+    Q = t4_rays_(G, th, D, lam, n);  if isempty(Q), s = Inf; return, end
+    s = sqrt(mean(sum((Q - mean(Q, 2)).^2, 1)));
+end
+
+function [px, idn] = t4_engine_(G, deck, ths, D, lam, P)
+%T4_ENGINE_  Emit the chain as a deck, load it, and per field write the chain's aimed chief as the collimated source; rms spot (px).
+    d0 = G.field_dir_raw(0, 0);  [p0, ok] = G.aim_pt(d0, lam);  assert(ok);
+    F = G.footprints('nx', 5, 'nlam', 1, 'nring', 3);
+    M = spectrometer_rx(G, deck, 'ngridpts', 41, 'name', regexprep(deck, {'^.*/', '\.in$'}, ''), 'apertures', false, 'footprints', F, ...
+                        'source', struct('dir', d0, 'pos', p0, 'aperture', D), 'wavelen', lam);
+    M.iStop = G.iStop;  macos.load_rx(deck);
+    px = nan(size(ths));  idn = 0;
+    for q = 1:numel(ths)
+        dq = G.field_dir_raw(ths(q), 0);  [pq, okq] = G.aim_pt(dq, lam);  if ~okq, continue, end
+        macos.stop(M.iStop);  macos.set_src_fov('src_pos', pq, 'src_dir', dq, 'zSrc', 1e22);  macos.modify();
+        tr = macos.trace(M.nElt);  ri = macos.get_ray_info(tr.nRays);
+        o = ri.ok_trace(:) & ri.ok_pass(:);  Q = ri.pos(:, o);
+        px(q) = sqrt(mean(sum((Q - mean(Q, 2)).^2, 1)))/P.pixel_m;
+        [pc, ~, ~] = G.trace(pq, dq, lam);  idn = max(idn, norm(ri.pos(:, 1) - pc(:, end)));
+    end
+end
+
+function sz = t4_size_(G, ths, D, lam, P)
+%T4_SIZE_  Footprints on M1 / M2 over the strip's edge + centre fields (chain rays), the length, the mirror mass.
+    P1 = [];  P2 = [];
+    for t = [ths(1), 0, ths(end)]
+        d = G.field_dir_raw(t, 0);  [p0, ok] = G.aim_pt(d, lam);  if ~ok, continue, end
+        d = d/norm(d);  u = cross(d, [1; 0; 0]);  u = u/norm(u);  v = cross(d, u);
+        for a = linspace(0, 2*pi, 73)
+            [pp, ~, o] = G.trace(p0 + D/2*(cos(a)*u + sin(a)*v), d, lam);  if o, P1(:, end+1) = pp(:, 2); P2(:, end+1) = pp(:, 3); end %#ok<AGROW>
+        end
+    end
+    ext = @(Q) [max(Q(1, :)) - min(Q(1, :)), max(Q(2, :)) - min(Q(2, :))];
+    e1 = ext(P1);  e2 = ext(P2);  Dm = [max(e1), max(e2)];
+    ax = G.axis/norm(G.axis);  zv = ax'*[G.surf(2:end).vpt];        % mirrors + image along the parent axis (the EP is a pass plane, not hardware)
+    sz.len = max(zv) - min(zv);                                       % the ENVELOPE span: M2 to the image
+    sz.D1 = e1(1);  sz.D2 = e2(1);  sz.D1y = e1(2);  sz.D2y = e2(2);
+    A = pi/4*Dm.^2;  sz.m_light = P.tms_areal_kg_m2*sum(A);  sz.m_solid = P.tms_solid_rho*sum(A.*Dm/P.tms_solid_aspect);
 end
 
 function S = stage_t3e_(P, tag)
