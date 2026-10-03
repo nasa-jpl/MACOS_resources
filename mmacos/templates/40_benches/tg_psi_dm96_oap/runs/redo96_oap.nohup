@@ -1,0 +1,2 @@
+[tg96_batch] tg96_run_batch('tag','redo96_oap', 'bench.optics','oap','bench.POL_IN','source','bench.D_RC_L2',125,'oap.OAP1_AOI',20,'oap.OAP2_AOI',25,'oap.OAP1_SIDE',1,'oap.OAP2_SIDE',-1,'stages',{'bench','deck','figs'})  (MemoryMax=14G)
+[tg96_batch] exit 0

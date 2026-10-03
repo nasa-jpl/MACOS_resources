@@ -1,0 +1,51 @@
+=== ZWFS runner: tag redo96_oapnoise  (2026-09-17 21:12) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench noise | readings: S V P
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+OAP coating: protectedAl on L1 (elt 2) and L2 (elt 12), 2 layer(s); active under polarization (the vector reading's arm maps)
+deck redo96_oapnoise_test.in: TO elt 6, FocalMask 16, Detector 20; mask sandwich spheres zElt 364.823 / 364.823 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.6500e-03 mm = 13.00 px at the mask plane; msk 19473 px
+focal spot: 0.435 um per px at the mask plane, 6.50 px per lam F/D; the dimple encloses 82.5% of the flat DM's focal-plane light
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.816e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 2.106e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 1.2989 1.2931 1.2814 1.2641 1.2410 1.2126 1.1793 1.1413 1.0991 1.0532 1.0039 0.9518 0.8971 0.8402 0.7819 0.7227 0.6632 0.6039 0.5451 0.4876 
+frame: ray magnification 10.0872 DM-mm per detector-mm, detector px 6.0136e-02 mm -> 0.6066 DM-mm per px
+camera: pupil image 9.47 mm across (157 modeled px at 60.1 um); sCMOS 2048x2048 at 6.50 um -> 1457 raw px across the pupil; binned 4 = 364, and binning 9 = 162 lands nearest the modeled 157
+  snapshot analyzer: polarization sCMOS (micro-polarizer array, 0/45/90/135) at 3.45 um -> 2745 px across the pupil, 1372 per orientation (every 2nd pixel in each direction on the 2x2 superpixel -- N/2 across a line, not N/4); four simultaneous frames, no rotating stage
+sampling budget (P.samp, enforce = warn):
+  dimple 13.00 px across at the mask plane (min 6)  -> PASS
+  pinhole 13.00 px across at the mask plane (min 6; the dimple's rule)  -> PASS
+  DM 96x96: 1.65 detector px per actuator (min 2)  -> NOT MET
+  DM 48x48: 3.30 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 5072): detector |E|/|E_flat| on msk std 3.697e-16   (gate < 1e-12: A = |E0| is exact)
+V3 arm (engine Jones pupil at elt 15, the mask sandwich's entrance sphere; laser 45.0 deg from the source x): exit axis [0.0883 -0.9961 -0.0000], beam half-cone 6.6 deg, longitudinal residual 9.8e-17, common-phase slope vs the pupil phase -2.0544 (resid 1.6e-02; -2 = the vector trace is the scalar's conjugate), transmittance 0.6081
+  diattenuation mean 4.01e-02, rms 8.39e-04, max 4.26e-02; retardance mean 8.41e-02 rad, rms 2.83e-02, max 1.54e-01
+  per channel: |qL| 1.02490 (rms 3.4e-04), |qR| 0.97446 (rms 3.4e-04); phase about mean L 3.49e-02 rad rms, R 3.80e-02; channel DIFFERENCE: phase 7.30e-02 rad rms (PV 2.91e-01), amplitude ratio 5.2e-04 rms (PV 2.1e-03)
+G8 chained pupil-map + dimple apodization: unit map vs the plain frame 0.0e+00 (gate < 1e-12); channel map vs the surrogate |qE0 + c b(qE0)|^2 on msk 3.5e-15 (gate < 1e-10)   -> PASS
+  solver arm model: ideal (knows nothing of the arm: the raw size of the term)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (12134 pm rms on msk, peak 1.92 rad; 2.96% of msk beyond the one-frame fold): V rms error 409.670 pm (gate < 0.1% of the figure), one-frame exact I 9242 pm (non-vacuity: must exceed 10x)   -> FAIL
+  (G4 not asserted: an uncalibrated metasurface / arm / analyzer error is being priced -- the V error above IS the number)
+stations figure redo96_oapnoise_stations_S.png: residual vs the engine's field on msk 0.00 pm (flat), 5388.51 pm (30 nm rms working surface)
+stations figure redo96_oapnoise_stations_V.png: residual vs the engine's field on msk 199.72 pm (flat), 696.27 pm (30 nm rms working surface)
+stations figure redo96_oapnoise_stations_P.png: residual vs the engine's field on msk 0.00 pm (flat), 389.80 pm (30 nm rms working surface)
+P: pinhole 2.00 lam/D, surround t 0.8601, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.8206; throughput (detected/incident, flat) 0.9473; visibility on the flat 0.5003; surrogate vs engine reference 2.11e-15; the flat reads 1.86e-15 rad rms, amplitude 2.58e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (12134 pm rms on msk, 2.96% of msk beyond the one-frame fold): rms error 4.527 pm (gate < 0.1% of the figure)   -> PASS
+G6 reference motion under the 30 nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:
+   lam/D    total  |scale|    SHAPE   (total = |b1-b0|/|b0|; scale = best complex factor, a Strehl-class amplitude drop the |b|^2 frame / iteration absorbs; shape = the rest, what the solve must iterate out)
+    0.50   0.1240   0.8773   0.0003
+    1.00   0.1282   0.8732   0.0012
+    1.50   0.1346   0.8670   0.0032
+    2.00   0.1423   0.8598   0.0081
+    3.00   0.1514   0.8546   0.0332
+    2.00   0.1423   0.8598   0.0081   <- the ZWFS dimple
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 2.58e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (512.19, 513.81) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1 -1] sign +1, |corr| 0.986, runner-up 0.009 (gates >= 0.40, sep >= 0.30); all 8: -0.00 -0.01 0.99 -0.00 -0.00 -0.00 -0.01 -0.00 
+  center poke in the DM frame: raw peak gain 0.6989, corr(map, truth) 0.9830
+bench stage 0.7 min
+
+---- noise: DM 96x96, readings S V P ----
+scenario: single act (60,40) 10 nm differential on the 30 nm rms working state; axis = photons per MEASUREMENT (one DM shape measured once; a reading's frames share it: L/F/I/I+ 1 frame, S 4, V 2, P/PF K = 4; PDI throughput is printed at the bench stage -- divide by it for incident photons)
+I+ prior frames (the base's 4 stepped frames, taken once): split / noiseless

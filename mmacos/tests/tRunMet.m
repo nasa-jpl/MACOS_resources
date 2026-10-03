@@ -25,8 +25,7 @@ classdef tRunMet < matlab.unittest.TestCase
             res_root = fileparts(fileparts(here));
             addpath(fullfile(res_root, 'mmacos', 'design', 'runners'));
             tin = fullfile(res_root, 'segmirmaker', 'test_in');
-            bin = fullfile(res_root, 'segmirmaker', ...
-                           'build_release_ifx', 'SegMirMaker');
+            bin = segmirmaker_bin();      % any built tree, not ifx only
             tc.assumeTrue(isfile(bin), 'SegMirMaker not built');
             macos.init(512);
             tc.seg = macos.design.segment_rx(fullfile(tin, 'e5mono.in'), ...

@@ -1,0 +1,83 @@
+=== tg96_pupilq: tag pupilq_oap  rig oap  (2026-09-16 18:13) ===
+deck of record /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oapifo2/oapifo2_test.in; model 512, 129 rays across; the DM is the stop; collimated source at the DM, tilted about it
+DM elt 8 at [797.76 -316.02 0.00], clear radius 51.43 mm, declared the STOP; focal plane elt 18; detector elt 21; source-to-collimator 756.9 mm (shift = f1 x tilt)
+  az in-plane     theta -1.00e-03 rad: rays ok 12854; spot at best focus  16.48 um (  +0.00 mm from the seat marker; at the marker   16.5 um); centroid [  -0.0002   +0.3791] mm; WFE piston/tilt/focus removed 451.36 nm
+  az in-plane     theta -3.20e-04 rad: rays ok 12854; spot at best focus   5.27 um (  +0.00 mm from the seat marker; at the marker    5.3 um); centroid [  -0.0000   +0.1213] mm; WFE piston/tilt/focus removed 144.44 nm
+  az in-plane     theta -2.00e-04 rad: rays ok 12854; spot at best focus   3.30 um (  +0.00 mm from the seat marker; at the marker    3.3 um); centroid [  -0.0000   +0.0758] mm; WFE piston/tilt/focus removed  90.27 nm
+  az in-plane     theta -1.00e-04 rad: rays ok 12854; spot at best focus   1.65 um (  +0.00 mm from the seat marker; at the marker    1.6 um); centroid [  -0.0000   +0.0379] mm; WFE piston/tilt/focus removed  45.14 nm
+  az in-plane     theta -5.00e-05 rad: rays ok 12854; spot at best focus   0.82 um (  +0.00 mm from the seat marker; at the marker    0.8 um); centroid [  -0.0000   +0.0190] mm; WFE piston/tilt/focus removed  22.57 nm
+  az in-plane     theta +0.00e+00 rad: rays ok 12854; spot at best focus   0.00 um (  -0.00 mm from the seat marker; at the marker    0.0 um); centroid [  -0.0000   -0.0000] mm; WFE piston/tilt/focus removed   0.00 nm
+  az in-plane     theta +5.00e-05 rad: rays ok 12854; spot at best focus   0.82 um (  +0.00 mm from the seat marker; at the marker    0.8 um); centroid [  -0.0000   -0.0190] mm; WFE piston/tilt/focus removed  22.57 nm
+  az in-plane     theta +1.00e-04 rad: rays ok 12854; spot at best focus   1.65 um (  +0.00 mm from the seat marker; at the marker    1.6 um); centroid [  -0.0000   -0.0379] mm; WFE piston/tilt/focus removed  45.14 nm
+  az in-plane     theta +2.00e-04 rad: rays ok 12854; spot at best focus   3.30 um (  +0.00 mm from the seat marker; at the marker    3.3 um); centroid [  -0.0000   -0.0758] mm; WFE piston/tilt/focus removed  90.27 nm
+  az in-plane     theta +3.20e-04 rad: rays ok 12854; spot at best focus   5.27 um (  +0.00 mm from the seat marker; at the marker    5.3 um); centroid [  -0.0000   -0.1213] mm; WFE piston/tilt/focus removed 144.44 nm
+  az in-plane     theta +1.00e-03 rad: rays ok 12854; spot at best focus  16.48 um (  +0.00 mm from the seat marker; at the marker   16.5 um); centroid [  -0.0002   -0.3791] mm; WFE piston/tilt/focus removed 451.36 nm
+  az out-of-plane theta -1.00e-03 rad: rays ok 12854; spot at best focus  16.47 um (  +0.00 mm from the seat marker; at the marker   16.5 um); centroid [  +0.3789   -0.0000] mm; WFE piston/tilt/focus removed 449.68 nm
+  az out-of-plane theta -3.20e-04 rad: rays ok 12854; spot at best focus   5.27 um (  +0.00 mm from the seat marker; at the marker    5.3 um); centroid [  +0.1213   -0.0000] mm; WFE piston/tilt/focus removed 143.97 nm
+  az out-of-plane theta -2.00e-04 rad: rays ok 12854; spot at best focus   3.30 um (  +0.00 mm from the seat marker; at the marker    3.3 um); centroid [  +0.0758   +0.0000] mm; WFE piston/tilt/focus removed  89.99 nm
+  az out-of-plane theta -1.00e-04 rad: rays ok 12854; spot at best focus   1.65 um (  +0.00 mm from the seat marker; at the marker    1.6 um); centroid [  +0.0379   +0.0000] mm; WFE piston/tilt/focus removed  45.00 nm
+  az out-of-plane theta -5.00e-05 rad: rays ok 12854; spot at best focus   0.82 um (  +0.00 mm from the seat marker; at the marker    0.8 um); centroid [  +0.0190   +0.0000] mm; WFE piston/tilt/focus removed  22.50 nm
+  az out-of-plane theta +0.00e+00 rad: rays ok 12854; spot at best focus   0.00 um (  -0.00 mm from the seat marker; at the marker    0.0 um); centroid [  -0.0000   -0.0000] mm; WFE piston/tilt/focus removed   0.00 nm
+  az out-of-plane theta +5.00e-05 rad: rays ok 12854; spot at best focus   0.82 um (  -0.00 mm from the seat marker; at the marker    0.8 um); centroid [  -0.0190   +0.0000] mm; WFE piston/tilt/focus removed  22.50 nm
+  az out-of-plane theta +1.00e-04 rad: rays ok 12854; spot at best focus   1.65 um (  -0.00 mm from the seat marker; at the marker    1.6 um); centroid [  -0.0379   +0.0000] mm; WFE piston/tilt/focus removed  45.00 nm
+  az out-of-plane theta +2.00e-04 rad: rays ok 12854; spot at best focus   3.30 um (  -0.00 mm from the seat marker; at the marker    3.3 um); centroid [  -0.0758   +0.0000] mm; WFE piston/tilt/focus removed  90.01 nm
+  az out-of-plane theta +3.20e-04 rad: rays ok 12854; spot at best focus   5.27 um (  -0.00 mm from the seat marker; at the marker    5.3 um); centroid [  -0.1213   +0.0000] mm; WFE piston/tilt/focus removed 144.04 nm
+  az out-of-plane theta +1.00e-03 rad: rays ok 12854; spot at best focus  16.49 um (  -0.00 mm from the seat marker; at the marker   16.5 um); centroid [  -0.3792   +0.0000] mm; WFE piston/tilt/focus removed 450.33 nm
+
+---- the pupil image at the camera (theta = 0, in-plane pair; the bench as built, the DM the stop) ----
+global affine: magnification 10.5607 detector-mm per DM-mm (the runner's ray affine 9.88 lens / 10.10 mirrors), rotation -0.000 deg
+pupil distortion (image vs the affine, DM mm): rms 0.4457, max 0.8498; outer third of the pupil rms 0.6605  [pitch 1.0, detector px 0.440]
+pupil surface (sag of the DM's image along the camera normal, mm over the pupil radius): defocus -0.5228, astig 0 +0.1670, astig 45 +0.0000, tilt [+0.4544 +0.0004]
+pupil blur (the zone's image walk over the tilt band, DM mm rms): |theta| <= 3.2e-04 rad (the actuator band): rms 0.0317, max 0.0925; over all tilts to 1.0e-03: rms 0.0358, max 0.0985
+pupil wander vs tilt (mean image shift, DM mm; axial shift, mm):
+  az in-plane     theta -1.00e-03: lateral [+0.0004 +0.0221]  axial +0.027
+  az in-plane     theta -3.20e-04: lateral [+0.0000 +0.0076]  axial +0.003
+  az in-plane     theta -2.00e-04: lateral [+0.0000 +0.0048]  axial +0.001
+  az in-plane     theta -1.00e-04: lateral [+0.0000 +0.0024]  axial +0.000
+  az in-plane     theta -5.00e-05: lateral [+0.0000 +0.0012]  axial +0.000
+  az in-plane     theta +0.00e+00: lateral [-0.0000 -0.0000]  axial +0.000
+  az in-plane     theta +5.00e-05: lateral [+0.0000 -0.0012]  axial +0.000
+  az in-plane     theta +1.00e-04: lateral [+0.0000 -0.0024]  axial +0.000
+  az in-plane     theta +2.00e-04: lateral [+0.0000 -0.0048]  axial +0.001
+  az in-plane     theta +3.20e-04: lateral [+0.0000 -0.0076]  axial +0.003
+  az in-plane     theta +1.00e-03: lateral [+0.0004 -0.0221]  axial +0.027
+  az out-of-plane theta -1.00e-03: lateral [+0.0258 +0.0001]  axial +0.016
+  az out-of-plane theta -3.20e-04: lateral [+0.0099 +0.0001]  axial +0.001
+  az out-of-plane theta -2.00e-04: lateral [+0.0070 +0.0001]  axial +0.001
+  az out-of-plane theta -1.00e-04: lateral [+0.0045 +0.0001]  axial +0.002
+  az out-of-plane theta -5.00e-05: lateral [+0.0033 +0.0001]  axial +0.002
+  az out-of-plane theta +0.00e+00: lateral [+0.0021 +0.0001]  axial +0.003
+  az out-of-plane theta +5.00e-05: lateral [+0.0009 +0.0001]  axial +0.003
+  az out-of-plane theta +1.00e-04: lateral [-0.0003 +0.0001]  axial +0.004
+  az out-of-plane theta +2.00e-04: lateral [-0.0026 +0.0001]  axial +0.006
+  az out-of-plane theta +3.20e-04: lateral [-0.0054 +0.0001]  axial +0.010
+  az out-of-plane theta +1.00e-03: lateral [-0.0189 +0.0001]  axial +0.043
+
+---- the focal plane (the mask seat), per tilt ----
+  in-plane: effective focal length from the centroid 379.1 mm (F2 429 nominal); best focus +0.00 mm from the seat marker; centroid residual from linear (distortion) rms 0.000 um, max 0.000 um
+    theta -1.00e-03 rad (-162.54 lam/D): spot   16.48 um =   7.07 lam F/D; WFE (piston/tilt/focus removed)  451.36 nm (raw   16.48)
+    theta -3.20e-04 rad (-52.01 lam/D): spot    5.27 um =   2.26 lam F/D; WFE (piston/tilt/focus removed)  144.44 nm (raw    5.27)
+    theta -2.00e-04 rad (-32.51 lam/D): spot    3.30 um =   1.41 lam F/D; WFE (piston/tilt/focus removed)   90.27 nm (raw    3.30)
+    theta -1.00e-04 rad (-16.25 lam/D): spot    1.65 um =   0.71 lam F/D; WFE (piston/tilt/focus removed)   45.14 nm (raw    1.65)
+    theta -5.00e-05 rad (-8.13 lam/D): spot    0.82 um =   0.35 lam F/D; WFE (piston/tilt/focus removed)   22.57 nm (raw    0.82)
+    theta +0.00e+00 rad ( 0.00 lam/D): spot    0.00 um =   0.00 lam F/D; WFE (piston/tilt/focus removed)    0.00 nm (raw    0.00)
+    theta +5.00e-05 rad ( 8.13 lam/D): spot    0.82 um =   0.35 lam F/D; WFE (piston/tilt/focus removed)   22.57 nm (raw    0.82)
+    theta +1.00e-04 rad (16.25 lam/D): spot    1.65 um =   0.71 lam F/D; WFE (piston/tilt/focus removed)   45.14 nm (raw    1.65)
+    theta +2.00e-04 rad (32.51 lam/D): spot    3.30 um =   1.41 lam F/D; WFE (piston/tilt/focus removed)   90.27 nm (raw    3.30)
+    theta +3.20e-04 rad (52.01 lam/D): spot    5.27 um =   2.26 lam F/D; WFE (piston/tilt/focus removed)  144.44 nm (raw    5.27)
+    theta +1.00e-03 rad (162.54 lam/D): spot   16.48 um =   7.07 lam F/D; WFE (piston/tilt/focus removed)  451.36 nm (raw   16.48)
+  in-plane, worst in the actuator band (|theta| <= 3.2e-04): spot 5.27 um, WFE 144.44 nm, centroid residual 0.00 um
+  out-of-plane: effective focal length from the centroid 379.1 mm (F2 429 nominal); best focus +0.00 mm from the seat marker; centroid residual from linear (distortion) rms 0.061 um, max 0.129 um
+    theta -1.00e-03 rad (-162.54 lam/D): spot   16.47 um =   7.06 lam F/D; WFE (piston/tilt/focus removed)  449.68 nm (raw   16.47)
+    theta -3.20e-04 rad (-52.01 lam/D): spot    5.27 um =   2.26 lam F/D; WFE (piston/tilt/focus removed)  143.97 nm (raw    5.27)
+    theta -2.00e-04 rad (-32.51 lam/D): spot    3.30 um =   1.41 lam F/D; WFE (piston/tilt/focus removed)   89.99 nm (raw    3.30)
+    theta -1.00e-04 rad (-16.25 lam/D): spot    1.65 um =   0.71 lam F/D; WFE (piston/tilt/focus removed)   45.00 nm (raw    1.65)
+    theta -5.00e-05 rad (-8.13 lam/D): spot    0.82 um =   0.35 lam F/D; WFE (piston/tilt/focus removed)   22.50 nm (raw    0.82)
+    theta +0.00e+00 rad ( 0.00 lam/D): spot    0.00 um =   0.00 lam F/D; WFE (piston/tilt/focus removed)    0.00 nm (raw    0.00)
+    theta +5.00e-05 rad ( 8.13 lam/D): spot    0.82 um =   0.35 lam F/D; WFE (piston/tilt/focus removed)   22.50 nm (raw    0.82)
+    theta +1.00e-04 rad (16.25 lam/D): spot    1.65 um =   0.71 lam F/D; WFE (piston/tilt/focus removed)   45.00 nm (raw    1.65)
+    theta +2.00e-04 rad (32.51 lam/D): spot    3.30 um =   1.41 lam F/D; WFE (piston/tilt/focus removed)   90.01 nm (raw    3.30)
+    theta +3.20e-04 rad (52.01 lam/D): spot    5.27 um =   2.26 lam F/D; WFE (piston/tilt/focus removed)  144.04 nm (raw    5.27)
+    theta +1.00e-03 rad (162.54 lam/D): spot   16.49 um =   7.07 lam F/D; WFE (piston/tilt/focus removed)  450.33 nm (raw   16.49)
+  out-of-plane, worst in the actuator band (|theta| <= 3.2e-04): spot 5.27 um, WFE 144.04 nm, centroid residual 0.03 um
+run complete

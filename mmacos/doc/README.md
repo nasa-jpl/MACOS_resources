@@ -11,6 +11,13 @@ constraints.
 > API surface is documented; there is no obligation to backfill all at
 > once.
 
+## Entries
+
+| Entry | Covers |
+|---|---|
+| [`elt_grid_add.md`](elt_grid_add.md) | adding a z-displacement grid to a grid surface; the `[x,y]` index convention and how it differs from pymacos |
+| [`opd_conventions.md`](opd_conventions.md) | the OPD map: array orientation `(i,j) = (X,Y)`, sign (longer path positive), the reference (chief ray vs aperture mean), and the `'orient'` / `'sign'` options on `macos.opd` — **read this before transposing or negating a map by hand** |
+
 ## Entry template
 
 Every entry follows the same skeleton so the manual reads consistently

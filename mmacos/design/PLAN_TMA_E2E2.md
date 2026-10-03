@@ -3,7 +3,7 @@
 > **Status: PLANNED (Dave, 2026-08-01).  Not started.**
 > A from-scratch, comprehensive worked example that folds in everything
 > the Rodgers offset-field reproduction taught us
-> (`design/rodgers1/PACKET.md`, Addenda 8–10).  Written for cold
+> (`challenges/rodgers1/PACKET.md`, Addenda 8–10).  Written for cold
 > implementation by Opus, Sonnet, or a user.  Read this file, the root
 > `macos/CLAUDE.md`, `mmacos/CLAUDE.md`, and the referenced runner
 > sources before writing any code.
@@ -17,7 +17,7 @@ gated step that emits a committed `.in`, a parameter-delta table, a
 thorough text report, and standard views.  The product is the FLOW —
 reusable stage drivers a user can re-parameterize — not one telescope.
 
-Home: `design/examples/e2e2/` (house rules: save `.in`+`.mat`, README,
+Home: `templates/80_end_to_end/e2e2/` (house rules: save `.in`+`.mat`, README,
 figures in the dir, **no `exit(0)` in example scripts**).  One
 parameter block (`e2e2_params.m`) drives everything, like
 `e2e/e2e_params.m`.

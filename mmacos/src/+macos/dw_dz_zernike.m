@@ -60,6 +60,17 @@ arguments
     opts.src_samp             double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.compute_los          (1,1) logical = false
     opts.spot_elt             double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
+    opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
+    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'mean'
+                                     % OPD reference (macos.opd_ref): 'mean' =
+                                     % whole-aperture mean (engine default);
+                                     % 'chief' = the chief ray -- on SEGMENTED
+                                     % decks a single-segment poke under 'mean'
+                                     % pistons EVERY other segment by
+                                     % -(N_k/N)*mean(poked response) (PLAN 0.x);
+                                     % under 'chief' they read exactly 0.
+                                     % Re-applied after every Rx (re)load.
 end
 
 % reload_rx=true is the right default for a standalone single-field
@@ -70,6 +81,7 @@ end
 % OPD.
 if opts.reload_rx
     session.load_rx(rx_path);
+    session.opd_ref(opts.opd_ref);   % after the load: a load resets it
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dz_zernike');
 
@@ -80,11 +92,7 @@ if ~isempty(opts.src_samp)
 end
 
 n_elt = session.num_elt();
-if opts.exit_pupil_elt < 0
-    wf_elt = n_elt - 1;
-else
-    wf_elt = opts.exit_pupil_elt;
-end
+wf_elt = wf_elt_auto(session, opts.exit_pupil_elt);   % EP read; errors on a pupil-less powered nElt-1
 
 target_modes = (opts.zmode_start : opts.n_zcoef).';
 if isempty(target_modes)
@@ -179,6 +187,7 @@ out.wf_elt        = wf_elt;
 out.delta         = opts.delta;
 out.method        = opts.method;
 
+out = apply_opd_convention(out, opts.orient, opts.sign);
 % Add LOS fields if SPOT was computed
 if opts.compute_los
     out.dcdx      = dcdx;

@@ -1,0 +1,37 @@
+dyson5 s2 -- spectrometer metrics (2026-10-01 06:13)
+CONVENTIONS: FPA frame origin = the lambda_c image of the slit centre; u along the slit (+x), v along the
+  dispersion, both in 18 um pixels; per (slit x, lambda): engine rays at the FPA (traced & unblocked),
+  centroid (u_c, v_c), rms widths, geometric ensquared fraction in 1 px about the centroid.
+  SMILE(lambda) = p-v of v_c along the slit; KEYSTONE(x) = p-v of u_c across the band; headlines = max.
+  SRF = FWHM of rect(2 px slit) (x) LSF_v (x) rect(1 px) (x) Airy(lambda F); CRF = LSF_u (x) rect (x) Airy
+  (spectrometer only -- the telescope LSF is not modelled).  Grid: 7 slit positions x 7 wavelengths,
+  41-pt ray grid.  Radiometric chain = Fresnel(uncoated faces) x blaze sinc^2 (lambda_B = 1000 nm) x QE(placeholder);
+  the slit loss is the propagation twin's measured term and is NOT in it.
+  GROOVE MODEL: the engine holds the groove period constant ALONG THE CURVED SURFACE (Snells_Law_Grating
+  normalises the projected rule direction); a straight-ruled concave grating has constant period along the
+  CHORD (equidistant groove planes).  Each form carries two chain rows: 'surface' (must reproduce the engine)
+  and 'planes' (the straight-ruled design prediction).  Engine rows are scored; the difference is the finding.
+SPEC (Joe): smile/keystone < 0.10 px (0.2 ok), SRF < 1.5-2.0 px, XRF < 1.5 px.  Paper rules: distortion ~1% px at
+  design (3% toleranced), ensquared > 75%.  Offner Table 2: smile < 0.3% px, keystone < 2% px, EE > 0.76, SRF < 1.35x,
+  CRF < 1.1x sampling.  BPDS Table 5 (3200 px, 18 um, F/2): smile 0.6 um = 3.3% px achieved.
+
+DYSON : smile max 0.0061 px (0.109 um)  keystone max 0.0951 px (1.711 um)  dispersion -0.2358 px/nm
+        SRF FWHM max 2.024 px (= 2.02x sampling)   CRF FWHM max 2.275 px   SRF var. with field 0.1%   CRF var. with lambda 104.3%
+        geometric ensquared min 0.440   rms blur max 0.673 px (u) / 0.188 px (v)   rays per point 1258-1258
+        smile per lambda (px): 0.0047 0.0045 0.0048 0.0051 0.0054 0.0057 0.0061 
+        keystone per slit x (px): 0.0951 0.0619 0.0305 0.0000 0.0305 0.0619 0.0951 
+        radiometric gain vs lambda (nm: gain): 380:0.015 733:0.450 1087:0.722 1440:0.527 1793:0.355 2147:0.233 2500:0.146 
+        chain (surface grooves): smile 0.0060 px  keystone 0.0952 px  SRF max 3.070 px  CRF max 2.410 px  EE min 0.047  blur max 0.713/3.287 px
+        chain (planes  grooves): smile 0.0060 px  keystone 0.0952 px  SRF max 2.025 px  CRF max 2.410 px  EE min 0.420  blur max 0.713/0.206 px
+        vs spec: smile PASS  keystone PASS  SRF FAIL  CRF FAIL
+
+OFFNER: smile max 0.0055 px (0.099 um)  keystone max 0.0276 px (0.496 um)  dispersion -0.2358 px/nm
+        SRF FWHM max 3.567 px (= 3.57x sampling)   CRF FWHM max 1.173 px   SRF var. with field 60.9%   CRF var. with lambda 14.8%
+        geometric ensquared min 0.245   rms blur max 0.297 px (u) / 0.974 px (v)   rays per point 1258-1258
+        smile per lambda (px): 0.0055 0.0036 0.0025 0.0017 0.0023 0.0030 0.0041 
+        keystone per slit x (px): 0.0276 0.0176 0.0086 0.0000 0.0086 0.0176 0.0276 
+        radiometric gain vs lambda (nm: gain): 380:0.018 733:0.518 1087:0.828 1440:0.603 1793:0.406 2147:0.265 2500:0.165 
+        chain (surface grooves): smile 0.0067 px  keystone 0.0276 px  SRF max 3.277 px  CRF max 1.214 px  EE min 0.089  blur max 0.323/2.907 px
+        chain (planes  grooves): smile 0.0066 px  keystone 0.0274 px  SRF max 3.691 px  CRF max 1.199 px  EE min 0.225  blur max 0.315/1.005 px
+        vs spec: smile PASS  keystone PASS  SRF FAIL  CRF PASS
+

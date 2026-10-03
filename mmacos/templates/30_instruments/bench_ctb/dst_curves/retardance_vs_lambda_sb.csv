@@ -1,0 +1,26 @@
+# Digitized from Llop-Sayson et al., Proc. SPIE 13092, 130921Y (2024), Fig. 7
+# Method: pdfimages full-res bitmap, hand-read at markers/gridlines (S0 of
+# BRIEF_ctb_dst_defects). Estimated precision +-0.05 deg. Second Best mask; markers every 10 nm.
+wavelength_nm,retardance_deg
+540,175.5
+550,177.65
+560,178.9
+570,179.07
+580,178.65
+590,178.22
+600,177.95
+610,177.85
+620,177.88
+630,177.98
+640,178.1
+650,178.22
+660,178.35
+670,178.45
+680,178.55
+690,178.55
+700,178.48
+710,178.35
+720,178.17
+730,177.95
+740,177.68
+750,177.35

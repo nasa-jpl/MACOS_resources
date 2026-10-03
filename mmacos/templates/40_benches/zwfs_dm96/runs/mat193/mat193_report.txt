@@ -1,0 +1,92 @@
+=== ZWFS runner: tag mat193  (2026-09-10 17:34) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: battery | readings: L F I I+ S
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4)
+
+---- bench ----
+deck mat193_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.817e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.967e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9539 0.9510 0.9452 0.9369 0.9260 0.9120 0.8957 0.8770 0.8561 0.8328 0.8071 0.7798 0.7511 0.7206 0.6885 0.6554 0.6215 0.5867 0.5514 0.5156 
+frame: ray magnification 10.1583 DM-mm per detector-mm, detector px 3.9135e-02 mm -> 0.3976 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 7.92 px across at the mask plane (min 6)  -> PASS
+  DM 96x96: 2.52 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 4.120e-16   (gate < 1e-12: A = |E0| is exact)
+registration: center-poke anchor at detector px (511.67, 511.67) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.979, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.98 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7509, corr(map, truth) 0.9800
+bench stage 0.3 min
+
+---- battery: DM 96x96, pitch 1.0 mm ----
+calibration: surface flat, kernel measured at actuator (NaN,NaN); test actuator (60,40)
+MATRIX calibration: 64 multiplexed states (grid step 8), 1084 actuators poked once each, windows +/-10 px; J built in 3.0 min; 0 clipped windows
+lit actuators 3252; per class [mean column peak per unit command, clipped fraction, column-norm spread]:  L [0.724 0.000 0.011]  I [0.912 0.000 0.002]  S [0.909 0.000 0.002]
+modal transfer (actuator-space estimator, RAW):
+     mode  cyc/ap |       L       I       S
+  ( 1, 0)     0.5 |  2.1072  2.8791  1.9434
+  ( 2, 0)     1.0 |  2.1670  1.6181  1.8707
+  ( 4, 0)     2.0 |  3.6753  3.1782  3.2747
+  ( 8, 0)     4.0 |  3.2016  2.6874  2.7151
+  (16, 0)     8.0 |  1.6271  1.4898  1.4264
+  (24, 0)    12.0 |  1.0894  1.0379  0.9801
+  (32, 0)    16.0 |  0.9472  0.9020  0.8532
+  (40, 0)    20.0 |  1.0016  0.9348  0.8951
+  (48, 0)    24.0 |  1.2182  1.0930  1.0644
+  (56, 0)    28.0 |  1.4162  1.2161  1.2019
+  (64, 0)    32.0 |  1.3568  1.1229  1.1122
+  (72, 0)    36.0 |  1.1152  0.9423  0.9297
+  (80, 0)    40.0 |  1.0133  0.8572  0.8444
+  ( 8, 8)     5.7 |  2.7417  2.1969  2.2745   (separability row)
+  (24,24)    17.0 |  1.1561  1.0539  1.0315   (separability row)
+min |g| over the (p,0) rows:  L 0.947  I 0.857  S 0.844
+rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+row               rd  |   g_raw    e_raw  flr_raw  SNRraw |   g_cor    e_cor  flr_cor  SNRcor
+flat/hold20       L   |  1.0076      108      108  187.02 |  0.5264      192       96  109.62
+                  F   |  1.0221       85       85  241.11 |  0.6244      170      108  115.90
+                  I   |  1.0223       86       86  237.92 |  0.6244      170      108  115.90
+                  I+  |  1.0223       86       86  237.92 |  0.6244      170      108  115.90
+                  S   |  1.0283      100       99  207.17 |  0.6816      165      121  112.81
+flat/rand10       L   |  1.2791     5702        -       - |  0.7044     5460        -       -
+                  F   |  1.0216     2757        -       - |  0.6281     4735        -       -
+                  I   |  1.0292     2718        -       - |  0.6324     4712        -       -
+                  I+  |  1.0292     2718        -       - |  0.6324     4712        -       -
+                  S   |  1.0129     2918        -       - |  0.6765     4587        -       -
+  [rand30/single10] pixels that cross the fold under the change: 3 of 2258 beyond-fold (0.01% of msk)
+rand30/single10   L   |  0.3368      187      147   22.92 |  0.1202      194      118   10.19
+                  F   |  0.5277      112       75   70.59 |  0.2855      141       64   44.52
+                  I   |  0.7860       67       56  141.21 |  0.4583      107       50   91.09
+                  I+  |  0.7511       71       56  134.52 |  0.4445      111       53   83.41
+                  S   |  0.7757       56       39  196.80 |  0.5239       98       52  100.99
+  [rand30/grid@1nm] pixels that cross the fold under the change: 10 of 2258 beyond-fold (0.03% of msk)
+rand30/grid@1nm   L   |  1.0247      113       78   13.09 |  0.5838      105       78    7.50
+                  F   |  0.7345       86       59   12.43 |  0.4409      101       64    6.93
+                  I   |  0.8000       85       59   13.60 |  0.4797       99       64    7.46
+                  I+  |  0.9729       22       18   54.73 |  0.5879       63       37   15.89
+                  S   |  0.8350       25       12   68.86 |  0.5734       61       33   17.42
+  [rand30/rand10] pixels that cross the fold under the change: 946 of 2258 beyond-fold (3.27% of msk)
+rand30/rand10     L   |  0.9051    10204        -       - |  0.5153     9418        -       -
+                  F   |  0.6883     8278        -       - |  0.4331     8793        -       -
+                  I   |  0.7466     8715        -       - |  0.4682     8862        -       -
+                  I+  |  0.9255     5046        -       - |  0.5744     6434        -       -
+                  S   |  0.8465     3084        -       - |  0.5641     5181        -       -
+(beyond-fold fraction of msk on the working-state base, prior passes: 0.0479 0.0768 0.0781 )
+break scale (10 nm differential on the hold-out actuator (60,40), on a growing base; corrected estimates; g = gain over the poked site(s), floor pm over the unpoked, SNR; fold0/fold = beyond-fold fraction from the plain / refined stepped prior; past the fold quote GAIN, not SNR):
+    base  fold0   fold | L: g flr SNR          | F: g flr SNR          | I: g flr SNR          | I+: g flr SNR         | S: g flr SNR          |
+   30 nm 0.0471 0.0765 |  0.1234    117    10.5|  0.2876     65    44.5|  0.4672     50    92.7|  0.4689     53    88.4|  0.5259     52   101.1|
+   40 nm 0.0723 0.1261 |  0.0284    141     2.0|  0.1544    102    15.1| -0.1379    138   -10.0|  0.4763     63    75.2|  0.4509     48    93.8|
+   50 nm 0.0861 0.1663 | -0.0304    149    -2.0| -0.1211    160    -7.6| -0.1349    129   -10.5|  0.5897     71    82.8|  0.3883     63    61.5|
+   60 nm 0.0869 0.1945 | -0.0639    141    -4.5| -0.1205    112   -10.8| -0.1227    112   -10.9|  0.5839     80    73.1|  0.3492     55    63.9|
+  120 nm 0.0000 0.0000 | -0.1033     49   -21.0| -0.0780     30   -26.4| -0.0789     30   -26.5| -0.0789     30   -26.5| -0.0123     25    -5.0|
+  240 nm 0.0000 0.0000 | -0.0502     34   -15.0| -0.0441     24   -18.2| -0.0444     24   -18.2| -0.0444     24   -18.2| -0.0561     20   -28.6|
+  480 nm 0.0000 0.0000 |  0.0533     57     9.4|  0.0504     37    13.8|  0.0507     37    13.8|  0.0507     37    13.8|  0.1168     74    15.7|
+SPEC: flat hold-out RAW gain, reading I  (one frame, no Wiener): 1.0223 -> PASS (within 3% of 1)
+SPEC: flat hold-out RAW gain, reading I+ (one frame, no Wiener): 1.0223 -> PASS (within 3% of 1)
+SPEC: grid-on-base SNR, reading L : raw  13.09 / corrected   7.50 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading F : raw  12.43 / corrected   6.93 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading I : raw  13.60 / corrected   7.46 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading I+: raw  54.73 / corrected  15.89 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading S : raw  68.86 / corrected  17.42 -> DETECTED (>= 5)
+DM 96x96 battery 5.4 min
+run complete in 5.7 min

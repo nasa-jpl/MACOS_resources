@@ -30,6 +30,14 @@ function out = dw_dsurf(session, rx_path, opts)
 %     'exit_pupil_elt' element id at which to evaluate the wavefront;
 %                      default nElt-1 (the XP convention).
 %     'verbose'        logical, prints per-channel RMS.  Default false.
+%     'remove_ptt'     project piston + tip + tilt out of each Kr/Kc
+%                      response column (default false).  A radius/conic
+%                      error re-focuses and re-points; that global piston +
+%                      pointing is normally aligned out during assembly, so
+%                      removing it leaves the surviving higher-order figure
+%                      -- the quantity a sensitivity budget wants.  Fit over
+%                      each column's own aperture footprint (private/
+%                      remove_ptt_columns).
 %     'reload_rx'      reload the Rx first (default true; pass false from a
 %                      multi-field supervisor that has set the source FoV).
 %     'ngridpts'       ray-grid sampling override (nGridPts).  Default [] =
@@ -63,10 +71,26 @@ arguments
     opts.src_samp             double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.compute_los          (1,1) logical = false
     opts.spot_elt             double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
+    opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
+    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'mean'
+                                     % OPD reference (macos.opd_ref): 'mean' =
+                                     % whole-aperture mean (engine default);
+                                     % 'chief' = the chief ray -- on SEGMENTED
+                                     % decks a single-segment poke under 'mean'
+                                     % pistons EVERY other segment by
+                                     % -(N_k/N)*mean(poked response) (PLAN 0.x);
+                                     % under 'chief' they read exactly 0.
+                                     % Re-applied after every Rx (re)load.
+    opts.remove_ptt (1,1) logical = false   % project piston+tip+tilt out of
+                                            % each Kr/Kc response (aligned out
+                                            % during assembly) -- default OFF
+                                            % so the raw response is unchanged
 end
 
 if opts.reload_rx
     session.load_rx(rx_path);
+    session.opd_ref(opts.opd_ref);   % after the load: a load resets it
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dsurf');
 
@@ -77,11 +101,7 @@ if ~isempty(opts.src_samp)
 end
 
 n_elt = session.num_elt();
-if opts.exit_pupil_elt < 0
-    wf_elt = n_elt - 1;
-else
-    wf_elt = opts.exit_pupil_elt;
-end
+wf_elt = wf_elt_auto(session, opts.exit_pupil_elt);   % EP read; errors on a pupil-less powered nElt-1
 
 channels = macos.channels.surf_channels(session, rx_path, ...
     'params', opts.params, ...
@@ -110,6 +130,17 @@ end
     macos.dwdz_for_current_source(channels, wf_func, opts.delta, ...
         'method', opts.method, 'verbose', opts.verbose, 'spot_func', spot_func);
 
+% Optionally project piston + tip + tilt out of each Kr/Kc response: a
+% radius/conic error re-focuses and re-points, and that global piston +
+% pointing is normally ALIGNED OUT during assembly.  Per column = per
+% (optic, param); each dwdsurf optic (SM/TM) is full-beam, so its footprint
+% is the whole exit-pupil aperture and one plane per column is the per-optic
+% removal.  Done on the raw response, in the orientation indx describes,
+% before the orient/sign convention (a transpose/negate commutes with it).
+if opts.remove_ptt
+    dwds = remove_ptt_columns(dwds, indx);
+end
+
 iElt_out  = zeros(numel(channels), 1);
 param_out = cell(numel(channels), 1);
 for k = 1:numel(channels)
@@ -130,6 +161,7 @@ out.wf_elt        = wf_elt;
 out.delta         = opts.delta;
 out.method        = opts.method;
 
+out = apply_opd_convention(out, opts.orient, opts.sign);
 % Add LOS fields if SPOT was computed
 if opts.compute_los
     out.dcdx      = dcdx;

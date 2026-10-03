@@ -1,0 +1,31 @@
+=== tg96_collimate: tag coll_lens, optics lens (2026-09-17 10:17) ===
+scale 1.7143, BS_AOI 22.5, DM leg 450, DM aperture 48.00 mm radius, 65 rays across (winner re-measured at 193)
+SRC_AT_FOCUS 0; substrates: plate [1.4585           2], mask [1.4585           2], edge margin 4.0 mm
+the record's lens: L1_Kr 406.0560 (= (n-1)*812.1, the conjugate the source really sat at), L1_Kc -0.582900, L2_Kc -0.582600
+start: SRC_TRIM 0.0000  L1_Kr 428.5714  L1_Kc -0.444444  L2_Kc -2.250000  MASK_TRIM 0.0000
+the bench the sheet describes (SRC_AT_FOCUS 0): exit spread 1.268e-03 rad rms (46.8 waves over the beam), spot 356.6005 um rms, focus +20.730 mm from the marker
+the same conics with the source moved to the conjugate: exit spread 9.727e-05 rad rms (3.7 waves), spot 327.7489 um rms, focus +13.678 mm, 2178 of 3210 rays
+
+---- stage 1: the collimated space (L1_Kr, L1_Kc) ----
+winner: L1_Kr 427.2794 (249.2463 in sheet units), L1_Kc -0.583016 -> exit spread 6.394e-09 rad rms (was 9.727e-05)
+---- stage 2: the focuser's conic (L2_Kc) ----
+winner: L2_Kc -0.581843 -> spot 0.0924 um rms at best focus (was 327.7489)
+---- stage 3: the seat (MASK_TRIM) ----
+winner: MASK_TRIM +1.2318 mm -> marker within +0.0000 mm of the ray focus (was +13.678)
+
+---- the winner at 193 rays across ----
+exit spread 6.341e-09 rad rms (0.0 waves of curvature over the beam), spot 0.1739 um rms, marker +0.0000 mm from the ray focus, 19602 of 28918 rays through
+beam 48.00 mm radius at L1, 58.26 at the DM (aperture 48.00: THE DM IS THE STOP; 68% of the cone through)
+
+GATES: exit spread < 1e-4 rad rms  PASS (6.341e-09)
+       spot < 1 um rms             PASS (0.1739 um)
+       seat within 0.5 mm          PASS (+0.0000 mm)
+
+---- the sheet lines (tg96_params.m / zwfs_params.m) ----
+P.bench.SRC_AT_FOCUS = true;
+P.bench.SRC_TRIM  = 0.000000;   % mm (0 = the source AT the conjugate; solved by tg96_collimate, coll_lens)
+P.bench.L1_Kr = 249.246312;  P.bench.L1_Kc = -0.583016;   % sheet units (x s in the runner)
+P.bench.L2_Kr = -124.076000;  P.bench.L2_Kc = -0.581843;
+P.bench.MASK_TRIM = 1.231759;   % mm, the mask on the ray focus
+
+run complete

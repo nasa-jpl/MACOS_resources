@@ -1,0 +1,26 @@
+==================== e2e6m R4 -- the closed-loop drift series
+deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_dm.in, model 512
+WFE: rms OPD at the coronagraph exit pupil (wf_elt), waves @ 500 nm
+contrast: dark-zone mean 3-15 lambda/D, nominal bare-peak norm,
+          every 5 frames; EFC re-solved at each scored frame (closed leg)
+
+[0] control basis: 40302 rows x 114 cols (19 segments x 6 DOF)
+    wf_elt 46 (the harvest surface; the R0 rule)
+    MET: 114 gauges + 252 edges -> BLUE gain 114x366; noise 1 pm / 1 nm
+
+[1] chain at N=512: lambda/D 2.024 px, bare peak 6.6955e+00; EFC ridge 2.45e+11
+
+[2] history: 41 frames, dt 10 s; walk 0.3 nm / 0.3 nrad per step
+
+[3] pass 1 of 2: UNCORRECTED, DMs flat
+    WFE 0.0060 -> 0.0130 waves; contrast 4.646e-07 -> 1.718e-06
+
+[3] pass 2 of 2: RBCS loop (gain 0.50, per frame) + EFC at scored frames
+    WFE 0.0060 -> 0.0359 waves; contrast 1.910e-07 -> 2.462e-07
+    closed-loop WFE floor (median, last 10 frames): 0.0351 waves
+    residual state at the last frame: |x+u| rms 3.62e-10 (drift |x| rms 2.95e-09)
+    EFC first dig (frame 1): 4.647e-07 -> 2.501e-07 -> 2.156e-07 -> 2.019e-07 -> 1.959e-07 -> 1.926e-07 -> 1.909e-07 -> 1.904e-07 -> 1.910e-07
+
+[4] payoff figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r4_series.png
+
+R4 DONE in 1.1 min

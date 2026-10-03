@@ -1,0 +1,58 @@
+! macos_param_2048.txt -- a TRIMMED size table for MODEL 2048 on a 30 GB box
+! (zwfs_dm96 runner, 'param_file' knob: copied into the run dir as
+! macos_param.txt, where the engine looks FIRST -- see find_macos_file).
+! Only the 2048 group differs from the engine's macos_param.txt:
+!   mElt     210 -> 64    the bench deck has ~20 elements
+!   mpts    2048 -> 512   ray grid across (mRay = mpts^2+1); NGRID 385 fits
+!   mGridSrf 200 -> 4     GridMat(mGridMat,mGridMat,mGridSrf): 1.7 GB -> 8 MB at 1024
+!   mGridMat 128 -> 512   MUST hold the 384-across DM grid (nGridMat= is unguarded
+!                         against mGridMat -- the stock 128 corrupts the heap)
+! Fortran namelist input ignores '!' comment lines.
+&macos_param128
+mElt=210, mpts=128, bRay=441, mWF=3, 
+mIntSrf=10, mDP=255, mDrawRay=65, mObs=20, 
+mWavelen=25, mStarType=7, mSegMirs=3, mGridSrf=200,
+mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32, 
+mUDScoef=4000/
+
+&macos_param256
+mElt=210, mpts=256, bRay=500, mWF=3, 
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20, 
+mWavelen=25, mStarType=7, mSegMirs=2, mGridSrf=200,
+mGridMat=256, mGlass=250, mCplxObs=2, mObsMat=32, 
+mUDScoef=4000/
+
+&macos_param512
+mElt=210, mpts=512, bRay=500, mWF=3, 
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20, 
+mWavelen=25, mStarType=7, mSegMirs=2, mGridSrf=200,
+mGridMat=256, mGlass=250, mCplxObs=2, mObsMat=32, 
+mUDScoef=4000/
+
+&macos_param1024
+mElt=210, mpts=1024, bRay=500, mWF=3,
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20,
+mWavelen=10, mStarType=7, mSegMirs=2, mGridSrf=200,
+mGridMat=1024, mGlass=250, mCplxObs=2, mObsMat=32,
+mUDScoef=4000/
+
+&macos_param2048
+mElt=64, mpts=512, bRay=500, mWF=3,
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20,
+mWavelen=10, mStarType=7, mSegMirs=2, mGridSrf=4,
+mGridMat=512, mGlass=250, mCplxObs=2, mObsMat=32,
+mUDScoef=4000/
+
+&macos_param4096
+mElt=210, mpts=4096, bRay=500, mWF=3,
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20,
+mWavelen=10, mStarType=7, mSegMirs=2, mGridSrf=200,
+mGridMat=128, mGlass=250, mCplxObs=2, mObsMat=32,
+mUDScoef=4000/
+
+&macos_param8192
+mElt=210, mpts=8192, bRay=500, mWF=3,
+mIntSrf=10, mDP=255, mDrawRay=101, mObs=20,
+mWavelen=10, mStarType=7, mSegMirs=2, mGridSrf=200,
+mGridMat=256, mGlass=250, mCplxObs=2, mObsMat=32,
+mUDScoef=4000/

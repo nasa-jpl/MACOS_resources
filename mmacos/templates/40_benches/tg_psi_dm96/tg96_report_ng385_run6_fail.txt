@@ -1,0 +1,28 @@
+=== TG96: optimized plate gauge for a Xinetics 96x96 (96 mm) ===
+uniform scale s = 1.7143 from the 56 mm v1 rig; model 1024, grid 384x0.28 mm
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 6.88 deg -> BS_AOI = 7 deg
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   688 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   564 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   523 mm
+  chosen DM leg 700 mm; achieved separations and margins there:
+  DM arm vs ref beam          separation  169.3 mm, margin  +27.9 mm (spec >= 25)
+  ref arm vs DM beam          separation  169.3 mm, margin  +57.9 mm (spec >= 25)
+  camera leg vs source beam   separation  169.3 mm, margin  +67.9 mm (spec >= 25)
+
+Stage A2 -- sampling budget (finest feature: actuator Nyquist 48 cyc/pupil):
+  detector: ~385 px across pupil -> Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid: 3.57 px/actuator                        (need >= 3)
+  diffraction grid: 1024^2 for a 385-px image                (padding  2.7x)
+
+Stage B -- rig built at BS_AOI 7 deg; emitted tg96_{test,ref}.in
+
+Stage C -- battery (design azimuths, unaligned):
+  arm azimuths: test -44.8566, ref +45.0000 -> departure +0.1434 deg
+  null: 9.1111 nm rms surface (9111.1 pm) with nothing aligned
+  20 nm piston: |gain| 1.00114 (unaligned scale error +0.114%)
+  single actuator at 150 nm: recovered peak 144.2 nm
+  registration: parity 5 of 8, shift (-1,-1) act; poke corr -0.0030, checker corr 0.1568
+  poke blob: measured at det px (511.0,511.0), truth maps to (520.0,520.0)
+  second-actuator verification: corr 0.0010 (gate >= 0.8)

@@ -1,0 +1,11 @@
+# Digitized from Llop-Sayson et al., Proc. SPIE 13092, 130921Y (2024), Fig. 15
+# Method: pdfimages full-res bitmap, hand-read at markers/gridlines (S0 of
+# BRIEF_ctb_dst_defects). Estimated precision +-0.02e-9. Record Holder, 10% BW. VALIDATION TARGET (never a model input). Final norm. intensity after EFC.
+wavelength_nm,floor
+615,1.925e-09
+620,1.98e-09
+622.5,1.63e-09
+625,1.64e-09
+627.5,1.715e-09
+630,1.725e-09
+632.5,1.685e-09

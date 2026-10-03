@@ -147,8 +147,7 @@ classdef tMet < matlab.unittest.TestCase
             here = fileparts(mfilename('fullpath'));
             res_root = fileparts(fileparts(here));
             tin = fullfile(res_root, 'segmirmaker', 'test_in');
-            bin = fullfile(res_root, 'segmirmaker', ...
-                           'build_release_ifx', 'SegMirMaker');
+            bin = segmirmaker_bin();      % any built tree, not ifx only
             tc.assumeTrue(isfile(bin), 'SegMirMaker not built');
             seg = macos.design.segment_rx(fullfile(tin, 'e5mono.in'), ...
                 'elt', 1, 'rings', 1, 'grid', 'Pie', 'gap', 50, ...

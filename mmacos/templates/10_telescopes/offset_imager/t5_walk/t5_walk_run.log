@@ -1,0 +1,297 @@
+T5-WALK START 2026-08-22 14:40:39
+mmacos: path set from /Users/dcr/dev/MACOS_resources/mmacos
+
+=== oi_walk: t5-walk -- continuation over box width [5 8 11 13 15] deg (target 15x15 at YAN +22.5) ===
+
+-----------------------------------------------------------------
+ step 1/5  bootstrap via the offset_imager ladder: box 5x5 deg
+-----------------------------------------------------------------
+mmacos: path set from /Users/dcr/dev/MACOS_resources/mmacos
+
+=================================================================
+ S1  coaxial symmetric-asphere solve, on-axis box
+=================================================================
+  oi_solve S1  : 15 vars, 9 fields, start   3891.761 nm
+    it  1:   2546.761 nm   (lam 3.7e-05)
+    it  2:   2006.298 nm   (lam 1.4e-06)
+    it  3:   1094.745 nm   (lam 9.6e-01)
+    it  4:    690.490 nm   (lam 2.6e+00)
+    it  5:    646.301 nm   (lam 1.8e+01)
+    it  6:    635.413 nm   (lam 4.8e+01)
+    it  7:    633.407 nm   (lam 3.4e+02)
+    it  8:    632.846 nm   (lam 9.2e+02)
+  s1: map max 756.0 nm  avg 534.5  (gates: exit PASS, clear FAIL)
+
+=================================================================
+ S2  the SAME mirrors at the offset box -- FPA refit only
+=================================================================
+  oi_solve fpa :  2 vars, 9 fields, start 401169216.009 nm
+    it  1: 356274288.022 nm   (lam 3.7e-05)
+    it  2: 311534751.942 nm   (lam 1.4e-06)
+    it  3: 267139277.829 nm   (lam 1.0e-07)
+    it  4: 223486198.343 nm   (lam 1.0e-07)
+    it  5: 181798293.777 nm   (lam 1.0e-07)
+    it  6: 144833858.090 nm   (lam 1.0e-07)
+    it  7: 118273374.617 nm   (lam 1.0e-07)
+    it  8: 107710131.836 nm   (lam 1.0e-07)
+    it  9: 107710131.836 nm   (lam 1.7e+00 -- step rejected)
+[Warning: Imaginary parts of complex X and/or Y arguments ignored.] 
+[> In oi_layout_fig (line 135)
+In offset_imager>stage_out_ (line 265)
+In offset_imager (line 96)
+In oi_walk (line 160)
+In run_t5_walk (line 39)
+In run (line 112)] 
+  s2: map max 154364316.4 nm  avg 108876297.1  (gates: exit PASS, clear FAIL)
+
+=================================================================
+ S3  re-solve symmetric aspheres/conics AT the offset field
+=================================================================
+  S3 start candidates: carry 401169216.0 nm, fresh seed 50311.9 nm -> fresh
+  pose_stop_once_: constructed stop pose 44.2 m from the carried one (span 2.42 m) -- degenerate EP construction, keeping the carried pose
+  oi_solve S3  : 16 vars, 9 fields, start  50311.888 nm
+    it  1:  47655.045 nm   (lam 3.7e-05)
+    it  2:  45677.043 nm   (lam 1.4e-06)
+    it  3:  44135.933 nm   (lam 1.0e-07)
+    it  4:  40989.804 nm   (lam 1.0e-07)
+    it  5:  37307.994 nm   (lam 1.0e-07)
+    it  6:  35216.680 nm   (lam 1.0e-07)
+    it  7:  34253.890 nm   (lam 1.0e-07)
+    it  8:  32499.851 nm   (lam 1.0e-07)
+    it  9:  29581.842 nm   (lam 1.0e-07)
+    it 10:  26410.580 nm   (lam 1.0e-07)
+    it 11:  24872.199 nm   (lam 1.0e-07)
+    it 12:  21483.724 nm   (lam 1.0e-07)
+    it 13:  16900.410 nm   (lam 1.0e-07)
+    it 14:  15161.333 nm   (lam 1.0e-07)
+    it 15:  13266.420 nm   (lam 1.0e-07)
+    it 16:  11346.281 nm   (lam 1.0e-07)
+    it 17:   9670.389 nm   (lam 1.0e-07)
+    it 18:   6588.464 nm   (lam 1.0e-07)
+    it 19:   6162.852 nm   (lam 1.0e-07)
+    it 20:   5220.829 nm   (lam 1.0e-07)
+    it 21:   2721.389 nm   (lam 1.0e-07)
+    it 22:   2305.008 nm   (lam 1.0e-07)
+    it 23:   1465.360 nm   (lam 1.0e-07)
+    it 24:   1063.940 nm   (lam 1.0e-07)
+    it 25:    442.114 nm   (lam 1.0e-07)
+    it 26:    332.158 nm   (lam 1.0e-07)
+    it 27:    253.624 nm   (lam 1.0e-07)
+    it 28:    190.378 nm   (lam 1.0e-07)
+    it 29:    134.783 nm   (lam 1.0e-07)
+    it 30:     35.761 nm   (lam 1.0e-07)
+  s3: map max 57.4 nm  avg 39.3  (gates: exit PASS, clear PASS)
+
+=================================================================
+ S4  open tilt/decenter + radii under the constraint set
+=================================================================
+  oi_solve S4  : 23 vars, 9 fields, start     35.761 nm
+    it  1:     24.925 nm   (lam 3.7e-05)
+    it  2:     22.534 nm   (lam 9.9e-05)
+    it  3:     18.661 nm   (lam 8.8e-05)
+    it  4:     17.709 nm   (lam 7.8e-05)
+    it  5:     17.572 nm   (lam 6.9e-05)
+    it  6:     17.488 nm   (lam 1.8e-04)
+    it  7:     17.443 nm   (lam 1.6e-04)
+    it  8:     17.394 nm   (lam 1.5e-04)
+    it  9:     17.339 nm   (lam 1.3e-04)
+    it 10:     17.278 nm   (lam 1.2e-04)
+    it 11:     17.211 nm   (lam 1.0e-04)
+    it 12:     17.141 nm   (lam 9.1e-05)
+    it 13:     17.066 nm   (lam 8.1e-05)
+    it 14:     16.969 nm   (lam 2.2e-04)
+    it 15:     16.926 nm   (lam 1.9e-04)
+    it 16:     16.875 nm   (lam 1.7e-04)
+    it 17:     16.819 nm   (lam 1.5e-04)
+    it 18:     16.755 nm   (lam 1.4e-04)
+    it 19:     16.685 nm   (lam 1.2e-04)
+    it 20:     16.610 nm   (lam 1.1e-04)
+    it 21:     16.530 nm   (lam 9.5e-05)
+    it 22:     16.425 nm   (lam 2.5e-04)
+    it 23:     16.379 nm   (lam 2.2e-04)
+    it 24:     16.321 nm   (lam 2.0e-04)
+    it 25:     16.258 nm   (lam 1.8e-04)
+    it 26:     16.185 nm   (lam 1.6e-04)
+    it 27:     16.105 nm   (lam 1.4e-04)
+    it 28:     16.017 nm   (lam 1.2e-04)
+    it 29:     15.926 nm   (lam 1.1e-04)
+    it 30:     15.797 nm   (lam 3.0e-04)
+  s4: map max 18.9 nm  avg 13.4  (gates: exit PASS, clear PASS)
+
+=================================================================
+ S5  open Zernike departures (BornWolf, lMon frozen)
+=================================================================
+  oi_solve S5  : 83 vars, 25 fields, start   4613.807 nm
+    it  1:     25.330 nm   (lam 3.7e-05)
+    it  2:      9.453 nm   (lam 3.3e-05)
+    it  3:      8.862 nm   (lam 8.8e-05)
+    it  4:      8.792 nm   (lam 7.8e-05)
+    it  5:      8.738 nm   (lam 6.9e-05)
+    it  6:      8.637 nm   (lam 6.2e-05)
+    it  7:      8.595 nm   (lam 1.6e-04)
+    it  8:      8.565 nm   (lam 1.5e-04)
+    it  9:      8.531 nm   (lam 1.3e-04)
+    it 10:      8.494 nm   (lam 1.2e-04)
+    it 11:      8.455 nm   (lam 1.0e-04)
+    it 12:      8.413 nm   (lam 9.1e-05)
+    it 13:      8.368 nm   (lam 8.1e-05)
+    it 14:      8.323 nm   (lam 7.2e-05)
+    it 15:      8.270 nm   (lam 1.9e-04)
+    it 16:      8.247 nm   (lam 1.7e-04)
+    it 17:      8.220 nm   (lam 1.5e-04)
+    it 18:      8.191 nm   (lam 1.4e-04)
+    it 19:      8.159 nm   (lam 1.2e-04)
+    it 20:      8.123 nm   (lam 1.1e-04)
+    it 21:      8.085 nm   (lam 9.5e-05)
+    it 22:      8.044 nm   (lam 8.4e-05)
+    it 23:      8.000 nm   (lam 7.5e-05)
+    it 24:      7.956 nm   (lam 6.7e-05)
+    it 25:      7.900 nm   (lam 1.8e-04)
+    it 26:      7.877 nm   (lam 1.6e-04)
+    it 27:      7.850 nm   (lam 1.4e-04)
+    it 28:      7.821 nm   (lam 1.2e-04)
+    it 29:      7.789 nm   (lam 1.1e-04)
+    it 30:      7.753 nm   (lam 9.9e-05)
+  s5: map max 10.9 nm  avg 6.8  (gates: exit PASS, clear PASS)
+
+  LADDER (dense 11x11 map max / avg / std, strict centroid nm)
+   s1        756.0      534.5       58.7
+   s2   154364316.4 108876297.1 19472445.8
+   s3         57.4       39.3       10.2
+   s4         18.9       13.4        2.0
+   s5         10.9        6.8        1.7
+
+saved /Users/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes/offset_imager/t5_walk/t5_walk_boot/t5_walk_boot_run.mat + /Users/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes/offset_imager/t5_walk/t5_walk_boot/t5_walk_boot_REPORT.md
+  step done: map max 10.9 nm, clearance 98.0 mm (PASS), exit PASS
+  [step 1] box 5x5  start 4613.8 -> end 7.8 nm (solve set), map max 10.9 nm, clear 98.0 mm PASS
+
+-----------------------------------------------------------------
+ step 2  box 8x8 deg  (target 8 of 15)
+-----------------------------------------------------------------
+  screen (carried start): qmean 22.1 nm
+  oi_solve S5  : 83 vars, 25 fields, start     22.071 nm
+    it  1:     18.473 nm   (lam 8.9e-04)
+    it  2:     18.376 nm   (lam 7.9e-04)
+    it  3:     18.280 nm   (lam 7.0e-04)
+    it  4:     18.179 nm   (lam 6.2e-04)
+    it  5:     18.069 nm   (lam 5.5e-04)
+    it  6:     17.950 nm   (lam 4.9e-04)
+    it  7:     17.822 nm   (lam 4.4e-04)
+    it  8:     17.687 nm   (lam 3.9e-04)
+    it  9:     17.545 nm   (lam 3.5e-04)
+    it 10:     17.398 nm   (lam 3.1e-04)
+    it 11:     17.250 nm   (lam 2.7e-04)
+    it 12:     17.052 nm   (lam 7.3e-04)
+    it 13:     16.975 nm   (lam 6.5e-04)
+    it 14:     16.889 nm   (lam 5.8e-04)
+    it 15:     16.794 nm   (lam 5.1e-04)
+    it 16:     16.691 nm   (lam 4.6e-04)
+    it 17:     16.580 nm   (lam 4.1e-04)
+    it 18:     16.460 nm   (lam 3.6e-04)
+    it 19:     16.333 nm   (lam 3.2e-04)
+    it 20:     16.199 nm   (lam 2.8e-04)
+    it 21:     16.061 nm   (lam 2.5e-04)
+    it 22:     15.901 nm   (lam 6.7e-04)
+    it 23:     15.832 nm   (lam 6.0e-04)
+    it 24:     15.754 nm   (lam 5.3e-04)
+    it 25:     15.668 nm   (lam 4.7e-04)
+    it 26:     15.574 nm   (lam 4.2e-04)
+    it 27:     15.472 nm   (lam 3.7e-04)
+    it 28:     15.361 nm   (lam 3.3e-04)
+    it 29:     15.242 nm   (lam 3.0e-04)
+    it 30:     15.115 nm   (lam 2.6e-04)
+  step done: map max 21.5 nm, clearance 67.4 mm (PASS), exit PASS
+  [step 2] box 8x8  start 22.1 -> end 15.1 nm (solve set), map max 21.5 nm, clear 67.4 mm PASS
+
+-----------------------------------------------------------------
+ step 3  box 11x11 deg  (target 11 of 15)
+-----------------------------------------------------------------
+  screen (carried start): qmean 33.5 nm
+  oi_solve S5  : 83 vars, 25 fields, start     33.513 nm
+    it  1:     27.699 nm   (lam 8.9e-04)
+    it  2:     27.418 nm   (lam 7.9e-04)
+    it  3:     27.110 nm   (lam 7.0e-04)
+    it  4:     26.795 nm   (lam 6.2e-04)
+    it  5:     26.470 nm   (lam 5.5e-04)
+    it  6:     26.100 nm   (lam 1.5e-03)
+    it  7:     25.948 nm   (lam 1.3e-03)
+    it  8:     25.779 nm   (lam 1.2e-03)
+    it  9:     25.595 nm   (lam 1.0e-03)
+    it 10:     25.395 nm   (lam 9.2e-04)
+    it 11:     25.179 nm   (lam 8.2e-04)
+    it 12:     24.947 nm   (lam 7.3e-04)
+    it 13:     24.698 nm   (lam 6.5e-04)
+    it 14:     24.433 nm   (lam 5.8e-04)
+    it 15:     24.151 nm   (lam 5.1e-04)
+    it 16:     23.852 nm   (lam 4.6e-04)
+    it 17:     23.536 nm   (lam 4.1e-04)
+    it 18:     23.201 nm   (lam 3.6e-04)
+    it 19:     22.848 nm   (lam 3.2e-04)
+    it 20:     22.474 nm   (lam 2.8e-04)
+    it 21:     22.051 nm   (lam 7.6e-04)
+    it 22:     21.886 nm   (lam 6.7e-04)
+    it 23:     21.703 nm   (lam 6.0e-04)
+    it 24:     21.502 nm   (lam 5.3e-04)
+    it 25:     21.285 nm   (lam 4.7e-04)
+    it 26:     21.049 nm   (lam 4.2e-04)
+    it 27:     20.794 nm   (lam 3.7e-04)
+    it 28:     20.521 nm   (lam 3.3e-04)
+    it 29:     20.228 nm   (lam 3.0e-04)
+    it 30:     20.077 nm   (lam 7.9e-04)
+  step done: map max 27.3 nm, clearance 25.1 mm (PASS), exit PASS
+  [step 3] box 11x11  start 33.5 -> end 20.1 nm (solve set), map max 27.3 nm, clear 25.1 mm PASS
+
+-----------------------------------------------------------------
+ step 4  box 13x13 deg  (target 13 of 15)
+-----------------------------------------------------------------
+  screen (carried start): qmean 34.7 nm
+  oi_solve S5  : 83 vars, 25 fields, start     34.667 nm
+    it  1:     32.389 nm   (lam 8.9e-04)
+    it  2:     39.663 nm   (lam 7.9e-04)
+    it  3:     38.361 nm   (lam 2.1e-03)
+    it  4:     34.336 nm   (lam 7.8e-05)
+    it  5:     33.957 nm   (lam 2.1e-04)
+    it  6:     33.842 nm   (lam 5.5e-04)
+    it  7:     33.707 nm   (lam 4.9e-04)
+    it  8:     33.550 nm   (lam 4.4e-04)
+    it  9:     33.383 nm   (lam 3.9e-04)
+    it 10:     33.208 nm   (lam 3.5e-04)
+    it 11:     33.026 nm   (lam 3.1e-04)
+    it 12:     32.837 nm   (lam 2.7e-04)
+    it 13:     32.638 nm   (lam 2.4e-04)
+    it 14:     32.429 nm   (lam 2.2e-04)
+    it 15:     32.208 nm   (lam 1.9e-04)
+    it 16:     31.971 nm   (lam 1.7e-04)
+    it 17:     31.718 nm   (lam 1.5e-04)
+    it 18:     31.475 nm   (lam 1.4e-04)
+    it 19:     31.235 nm   (lam 1.2e-04)
+    it 20:     30.996 nm   (lam 1.1e-04)
+    it 21:     30.755 nm   (lam 9.5e-05)
+    it 22:     30.510 nm   (lam 8.4e-05)
+    it 23:     30.259 nm   (lam 7.5e-05)
+    it 24:     30.001 nm   (lam 6.7e-05)
+    it 25:     29.734 nm   (lam 5.9e-05)
+    it 26:     29.466 nm   (lam 5.3e-05)
+    it 27:     29.196 nm   (lam 4.7e-05)
+    it 28:     28.926 nm   (lam 4.2e-05)
+    it 29:     28.653 nm   (lam 3.7e-05)
+    it 30:     28.380 nm   (lam 3.3e-05)
+  step done: map max 40.0 nm, clearance 24.6 mm (PASS), exit PASS
+  [step 4] box 13x13  start 34.7 -> end 28.4 nm (solve set), map max 40.0 nm, clear 24.6 mm PASS
+
+-----------------------------------------------------------------
+ step 5  box 15x15 deg  (target 15 of 15)
+-----------------------------------------------------------------
+  screen (carried start): qmean 48.4 nm
+  oi_solve S5  : 83 vars, 25 fields, start     48.361 nm
+    it  1:     41.590 nm   (lam 3.7e-05)
+    it  2:     45.079 nm   (lam 1.4e-06)
+    it  3:     44.757 nm   (lam 1.2e-06)
+    it  4:     44.680 nm   (lam 1.1e-06)
+    it  5:     44.524 nm   (lam 2.9e-06)
+    it  6:     44.493 nm   (lam 2.6e-06)
+  step done: map max 69.8 nm, clearance 17.8 mm (FAIL), exit PASS
+  [step 5] box 15x15  start 48.4 -> end 44.5 nm (solve set), map max 69.8 nm, clear 17.8 mm FAIL
+
+oi_walk: verdict PARTIAL -- saved /Users/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes/offset_imager/t5_walk/t5_walk_REPORT.md + /Users/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes/offset_imager/t5_walk/t5_walk_run.mat
+T5-WALK DONE  2026-08-22 16:42:07  (121.5 min, verdict PARTIAL)

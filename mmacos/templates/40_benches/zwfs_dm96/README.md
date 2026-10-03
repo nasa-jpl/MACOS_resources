@@ -1,0 +1,1131 @@
+# zwfs_dm96 — a Zernike wavefront sensor against the PSI gauge, same DM truth
+
+The ZWFS campaign (plan: `macos/BRIEF_zwfs_campaign.md`).  Question:
+does a Zernike sensor beat the TG96 polarization-PSI gauge on the
+differential benchmark (10 nm actuator deviation read to 0.021 nm,
+base-independent — tg_psi_dm96 run 10)?
+
+## Rulings (Dave 2026-09-04)
+
+- **Ultimate target: measurement error ~ 1 pm.**  Report errors in pm
+  everywhere; the pm road = differential protocol + actuator-space
+  fitting + illuminated-pupil-compliant sampling + reconstructors
+  beyond linear as needed.
+
+- Scale: 96×96 rig; reduced-resolution dev runs allowed; **real work
+  at 48×48 and 96×96** (battery + differential at both).
+- Mask: single dimple first; **phase 2 = polarizing metasurface**
+  producing two separate phase images (vector ZWFS), after the scalar
+  system is built and tested.
+- Optics: lens train first (identical to TG96 — only the sensor
+  changes, so the comparison is clean).  OAP variant later, applied
+  to both instruments.
+- Location: this directory.
+
+## The instrument
+
+The TG96 TEST ARM ALONE (`twyman_green('polarizing',false)`, same
+geometry, same tuned tail) — no reference arm, no polarizers, no
+four-step.  The builder already places a `FocalMask` Reference element
+at the internal focus of the detector leg; the ZWFS dimple (VSG2
+hardware numbers: 346.2 nm etch in fused silica ≈ π/2 at 632.8 nm,
+spot 9 = 1.06 λ/D — `40_benches/vsg_wip/vsg2_params.m` §9) is applied
+there as a complex mask (`macos.apodize_complex`, the CTB idiom), and
+the detector sees the reimaged pupil.  One frame per measurement.
+
+Reconstruction (R1, linear): from three model-measured complex fields
+on the flat DM — E0 (no mask), Eb (dimple-support disk only), and the
+masked flat frame — the per-pixel linear coefficient is
+2·Im[c·Eb·conj(E0)], c = exp(i·φm)−1; then h = ±φ·λ/(4π) (single
+reflection doubles height; sign pinned by gate, not convention).
+Three readings live in `../dm_gauge_lib/dmg_zwfs_gauge`: L (this
+frozen-reference linear, 1 frame), S (phase-stepped, S2b, 4 frames),
+and since S7 the ITERATED-REFERENCE EXACT reading I (per-pixel exact
+solve, Ruane 2020 / N'Diaye 2013, with the reference wave re-propagated
+from the estimate through the FFT surrogate of the mask model; 1
+frame; 'I+' adds a one-time stepped retrieval of the working state as
+a branch prior).  Note the spot: stage 1 used spot 9 (1.06 λ/D); the
+record since S5 is the 2.0 λ/D spot (`mask.DIA_LAMD`), 5.3 µm here,
+7.9 px across at 3.96 px per λF/D -- the same at 193 rays / 1024 and at
+385 / 2048 (the larger grid doubles the pupil sampling, not the focal
+one; S8's sampling trade), 70.7% of the focused light enclosed; the runner's
+`<tag>_mask.png` draws the focal spot and the mask at the run's own
+sampling, with the light the dimple encloses printed in the bench stage.
+
+**The vector sensor's layout (`zwfs_vlayout.m`, 2026-09-12):** the same
+arm with the geometric-phase metasurface in the etched plate's seat;
+behind the field lens a quarter-wave plate (fast axis 45° between the
+cube's s and p) and a 12.7 mm cemented MacNeille cube
+(`macos.design.Bench.pbs_cube` + `pbs_macneille`) put the +φ image on
+camera A (transmitted port) and the −φ image on camera B (reflected),
+both 20.7 mm behind the cube at the pupil image (the cube's glass
+lengthens the 32.4 mm image distance by 5.0 mm; both ports get it).
+The engine does not split rays, so the channels are two decks,
+`zwfs_v_camA.in` / `zwfs_v_camB.in`, and the figure `zwfs_vlayout.png`
+is both traced with `macos.view_rx` (deck_zwfs slide 17).  Two cameras
+rather than one with a Wollaston: the 9.4 mm pupil image sits 32 mm
+behind the field lens, so side-by-side images would need a 17° split, a
+calcite prism's limit; the cube's ports are identical legs by
+construction, and its coated diagonal is the channel-leakage term to
+price next (it is a real coating in the decks).
+
+## Run it yourself (`zwfs_run`)
+
+**Units:** every rms knob on the sheet is in **mm** -- `battery.base_rms 30e-6` is 30 nm, `loop.steps 1e-6` is 1 nm, `loop.walk_sigma 2e-9` is 2 pm, `loop.start_rms 100e-6` is a 100 nm start; a bare `100` asks for a 100 mm surface (`dmg_loop` warns above 1e-2 mm).
+
+Terminology (Dave 2026-09-11): photon budgets are quoted **per
+measurement** -- one DM shape measured once, every photon the camera
+detects over the pupil image, summed over the frames that reading needs
+(1 for L/F/I/I+, 4 for S).  Earlier record text and the S1-S7 scripts say
+"per state" for the same quantity; "state" was retired because it
+collides with state-vector controls terminology.  The knob
+`noise.nstates` keeps its name.
+
+One entry point drives the whole system; the per-stage scripts
+(`zwfs_s1.m` .. `zwfs_s7iter.m`) are the historical record, not the way
+to run it.  The defaults in `zwfs_params.m` are the values of record, so
+a bare call reproduces the S7 battery -- the runner's own equivalence
+gate: `runs/rec193/rec193_report.txt` against `zwfs_s7iter_report.txt`,
+64 row/ladder lines compared, 8 differ in the last printed digit only
+(the actuator fit's pcg tolerance), every gate value identical.  Since
+2026-09-10 ONE default differs from the S7 record on purpose --
+`reg.stencil_site` 'lattice' (S9 bullet); pass `'reg.stencil_site','grid'`
+to reproduce S7 exactly.
+
+    cd templates/40_benches/zwfs_dm96
+    out = zwfs_run;                                    % bench + battery + figs, defaults
+    out = zwfs_run('tag','ng385', 'NGRID',385);        % the 1 Mpix-class detector
+    out = zwfs_run('tag','s3', 'mask.DIA_LAMD',3, 'stages',{'battery','color','noise','figs'});
+    P = zwfs_params;  P.dm = P.dm(1);  P.readings = {'L','I+'};  out = zwfs_run(P, 'tag','quick');
+
+Headless, memory-capped, logged (a MODEL 1024 run takes ~11 GB; run
+ONE at a time -- two model-1024 MATLABs have taken this box down):
+
+    ./zwfs_batch.sh ng385 "'NGRID',385, 'stages',{'battery','figs'}"     # log: runs/ng385.log
+    ZWFS_MEMMAX=20G ./zwfs_batch.sh m2048 "'MODEL',2048, 'NGRID',385, 'param_file','macos_param_2048.txt'"
+    ./zwfs_batch.sh loop193 "'stages',{'bench','loop','figs'}"                # the closed-loop hold metric (S11), ~80 min
+
+Everything lands in `runs/<tag>/`: `<tag>_report.txt` (every number,
+every gate with its threshold), `<tag>.mat` (`out` = P + bench + battery
++ color + noise), the emitted deck(s), and the PNGs
+(`zwfs_run_figs(out)` or `zwfs_run_figs('runs/<tag>/<tag>.mat')`
+re-draws them from a saved run).
+
+| knob (`zwfs_params`) | default | what it does |
+|---|---|---|
+| `stages` | bench battery figs | add `color` (the multi-wavelength combination), `noise` (photon pricing) and `loop` (the closed-loop HOLD metric, S11) |
+| `readings` | L F I I+ S V | any subset: linear / exact frozen-b / exact iterated-b / I with the base's refined stepped prior / phase-stepped / the VECTOR pair (polarized dimple: +phi and -phi images at once, exact, no fold; V1, 2026-09-11); opt-in **P** (point-diffraction, a stepped PINHOLE at the FocalMask, common path) and **PF** (the P/SRI of Dube et al. 2024: waveguide reference, photonic phase steps) -- `pdi_params` / `pdi_run` set them (2026-09-12) |
+| `pdi.*` | 2 lam/D pinhole, t auto, 4 steps, LP01 reference, pickoff 0.6 | the point-diffraction readings' knobs: pinhole diameter, surround transmission, phase steps and scheme ('ls' / 'sh5'), |b|^2 mode ('flat' / 'state' = a shutter frame per state), reference iterations, the waveguide mode (V, b, core radius), pickoff, reference amplitude, a step-size error, the reference-motion diameters (G6) |
+| `MODEL`, `NGRID` | 1024, 193 | engine grid, ray grid across the aperture (385 = the 1 Mpix-class detector) |
+| `param_file` | `''` | a custom engine size table (`macos_param.txt` namelists) copied into the run dir, where the engine looks FIRST; `'macos_param_2048.txt'` (this dir) trims MODEL 2048 to fit a 30 GB box -- `mGridSrf` 200 -> 4, `mpts` -> 512, `mElt` -> 64, and `mGridMat` UP to 512 for the 384-across DM grid (the stock 2048 entry's 128 corrupts the heap) |
+| `LAM` | 632.8 nm | the record color; `color.lams_nm` lists the others, record color FIRST |
+| `bench.*` | the tg96 test arm | every `twyman_green` option: lenses, legs, tuned tail, `mask_prop` (`'nf'` = the corrected symmetric sandwich; `'nf_legacy'` = the Fresnel-defocused S1-S6 sensor) |
+| `mask.*` | 346.2 nm etch, 2.0 lam/D | etch depth, substrate index (`'malitson'` or a number), dimple diameter, the phase-stepped depth ladder, `NITER` |
+| `mask.v_*` | ideal metasurface, ideal arm | the vector reading's imperfections: `v_ret_err` / `v_leak_phase` (V2: the metasurface's retardance error, the leak's phase), `v_arm` (V3: the arm's polarization aberration per circular channel -- `'engine'` = the bench's own Jones pupil from two polarized vector traces at the laser angle `v_laser_deg`, optionally AR-coated faces `v_arm_ar`; `'synthetic'` = astigmatic maps of `v_arm_dphase` rad rms differential PHASE between the channels (the diattenuation-type term) and `v_arm_damp` differential AMPLITUDE (the retardance-type term)), `v_cal` = what the solver knows: `'ideal'` (nothing: the raw size of a term), `'amp'` (the per-channel unmasked reference frames' amplitude maps), `'fit'` (amp + per-channel constants and eta fitted on the flat's two masked images), `'map'` (the true maps: a polarimetrically calibrated bench), `v_gate_nm` (G4's poke height), `v_analyzer` (V4: the quarter-wave plate + cube analyzer's leak between the two images -- `'engine'` = `dmg_analyzer_maps` on the two channel decks with the plate errors `v_qwp_err` (waves) and `v_qwp_az` (deg); or a struct lA, cA, lB, cB), `v_clear` (V5: the V reading takes the state's clear frame too and reads amplitude and phase), `v_dip` (gate G9's pupil amplitude dips, e.g. [0.05 0.20]; [] = skip) |
+| `samp.*` | 6 px dimple, 2 px/actuator | the sampling-budget lines the bench stage asserts; `enforce` = `'warn'` or `'error'` |
+| `reg.*` | `'search'` | parity + sign from an off-center poke (two-poke doctrine; the selection metric is the gate), or `'record'` to take `PARb`/`sgn` as given |
+| `dm(i)` | 96x96 @ 1 mm; 48x48 @ 2 mm | actuator count, pitch, hold-out site, modal probes -- each config gets the full battery |
+| `battery.*` | 30 nm base; 10 nm devs; 1 nm grid | amplitudes, seeds, Wiener beta, Tikhonov weight, the break-scale ladder, which rows |
+| `color.*`, `noise.*` | 5 colors; 1e6..1e14 photons/measurement | the optional stages' own knobs (readings, rows, combiner form; realizations, prior treatment) |
+| `loop.*` | L I+ S; g 0.5; 60 cycles; 1e12..1e15 photons/cycle | the closed-loop hold stage: readings, set point (`'base'` = the working surface with the matrix ON it), gain, cycles, photon levels, drift models (`walk_sigma` 2 pm/actuator/cycle, `thermal_rate` 5 pm/cycle, and `'cam'` = the CAMERA 1/f drift: a per-pixel offset random-walking `cam_walk` electrons per pixel per cycle, `cam_intra` of each step within a scan), noiseless `steps`, the noise-only `floor`, reference frames `'noiseless'` or `'noisy'`, the drift `seed` (shared with the IFO), `hold_spec` 3 pm |
+
+Rules: one engine model size per MATLAB process (a second `macos.init`
+at another size corrupts the heap); `exit(0)` lives only in the batch
+wrapper `zwfs_run_batch`, never in `zwfs_run`; the sampling budget
+WARNS by default so a deliberate dev grid still runs -- read the
+budget lines before quoting a number.
+
+## Stages / gates
+
+- **S1** (`zwfs_s1.m`): mask + response.  G0 focal-plane sampling
+  printed and asserted (dimple ≥ 6 px across at the mask plane — THE
+  new sampling interface); G1 exact superposition (masked field ==
+  E0 + c·Eb to round-off — proves the mask bites and the algebra);
+  G2 reference-wave sanity; G3 known low-order figure (parity-proof
+  radial pattern) reconstructs with gain ≈ 1; G4 conjugate
+  reconstruction FAILS (gain ≈ −1, non-vacuity).
+- **S2**: bench at full res + two-poke registration (doctrine: 4 DOF
+  classes; flip/transpose + sign are deck-dependent, never inherited).
+- **S3**: battery — null, piston, single actuator, 12-mode transfer
+  at 48×48 and 96×96; side-by-side vs tg96_report.txt.
+- **S4**: differential head-to-head (the four rows) + dynamic-range
+  break scale; R2 (exact inversion) if R1 limits.
+- **Scoring ruling (Dave 2026-09-04):** S3/S4 score DM-state recovery
+  in ACTUATOR space — fit the DM actuation model (the same influence-
+  function forward model that builds the truth grids, through the
+  registration affine) to the measurement, score actuator CHANGES.
+  The TG96 map-space benchmark gets an actuator-space rescore
+  (Stage E′ in tg_psi_dm96) so the head-to-head is one currency.
+- **S5**: trades (spot table, etch error, leakage, chromaticity) on
+  steer.
+- **Vector-reading gates (bench stage, `zwfs_run`):** G4 the fold gate
+  (100 nm single-actuator pokes every 8th actuator: the pair must read
+  them to 0.1% of the figure, the single frame must not); G8 (V3, when
+  arm maps are on) the chained apodization -- the channel's pupil map at
+  the mask sandwich's entrance sphere, then the dimple -- must reproduce
+  the plain frame with a unit map (< 1e-12) and the surrogate
+  |qE0 + c b(qE0)|^2 with the channel map (< 1e-10).  G4 is asserted
+  only when nothing uncalibrated is being priced (`v_cal` `'map'`, or an
+  ideal metasurface with no arm maps); otherwise its number IS the
+  priced error and the line says so.
+
+## Findings
+- **Bench of record = the 22.5-degree splitter (Dave 2026-09-15; runs/
+  gate22_193, model 1024, 193 rays, 96x96, the matrix on the 30 nm
+  surface).**  The record's 7-degree node was not buildable (eight of nine
+  node parts sat in another beam: `dm_gauge_lib/dmg_bench_clearance`);
+  the sheet now carries `BS_AOI 22.5`, `D_RECOMB 150`, `D_RC_L2 55` (the
+  output plate and analyzer 160 / 170 mm behind the splitter, L2 unchanged
+  at 205), the compensator at 200 mm; every part clears by >= 38 mm.  The
+  sensors do not care -- G1 1.8e-15, G2 2.0e-15, and the rows hold to the
+  digit (7-degree record in parentheses: matbase / v193base / pdi193fbase):
+  single 10 nm S 0.9888 / 5 pm / SNR 2299 (0.9885 / 5 / 2160), V 0.9938 /
+  3 / 3163 (0.9935 / 4 / 2834), P 0.9937 / 3 / 3101 (0.9935 / 4 / 2790);
+  grid 1 nm on 47 sites S 0.9982 / 4 (0.9993 / 4), V 0.9980 / 3 (0.9992 /
+  3), P 0.9980 / 3 (0.9992 / 3); dense random 10 nm S 0.9826 / 657
+  (0.9839 / 680), V 0.9986 / 278 (0.9999 / 331), P 0.9972 / 287 (0.9985 /
+  338) -- within 0.2% and 1 pm on the single and grid rows, the dense
+  errors 3-16% lower.  Capture range to 10% at this sampling: S 37, V 62,
+  P 54 nm (48x48: 39 / 63 / 63).  The plate's diattenuation is 5.5% at
+  22.5 degrees (0.5% at 7) but uniform over the pupil, so the vector
+  reading's channel phase moves 1.63 -> 1.66 mrad rms and nothing reaches
+  the matrix.  The 7-degree records below stand as the record of the
+  READINGS; the bench they are quoted on is this one.
+- **Capture range (Dave 2026-09-12: "they will not be operating at
+  null -- the range where they can be used to 10% accuracy should be
+  recorded").**  Definition: the largest working-surface rms at which a
+  10 nm change on 47 grid sites (every 8th actuator) reads within 10% of
+  its size (gain in 0.9..1.1), the crossing log-interpolated between
+  ladder rungs; the runner prints it after every ladder ("capture range
+  to 10%").  Raw matrix estimates throughout (the modal correction is
+  off in matrix mode since V1; the S10 draft's ladder rows were the
+  corrected values).  385 rays, 96x96.  *(a) A calibration that ages --
+  the matrix measured once on the 30 nm surface (runs/cap385):* gains
+  at 30 / 40 / 50 / 60 / 80 / 100 nm rms: L 1.027 / 0.956 / 0.828 /
+  0.675 / 0.389 / 0.19; I+ 0.962 / 0.866 / 0.655 / 0.540 / 0.261 / 0.10;
+  S 0.999 / 0.909 / 0.862 / 0.658 / 0.222 / 0.06; V 0.997 / 0.996 /
+  0.991 / 0.982 / 0.827 / 0.06 -- **capture range L 44 nm, I+ 36, S 42,
+  V 70**, every reading dead by 100 nm (2 rad rms of phase: the focal
+  core, and with it the reference wave, is gone; the vector pair lasts
+  longest because it has no fold to cross first).  With the matrix
+  measured on the FLAT (runs/cap385_flat, the calibration aging from
+  zero): L 0.936 / 0.753 / 0.570 / 0.412, I+ 0.915 / 0.943 / 0.737 /
+  0.658, S 0.831 / 0.756 / 0.722 / 0.537, V 0.993 / 0.989 / 0.981 /
+  0.969 at 30 / 40 / 50 / 60 -- range L 32, I+ 42, S below 30, V 68 nm:
+  the vector pair's range does not depend on where its matrix was
+  measured (its response is linear across it); the stepped reading's
+  does.
+  *(b) The matrix re-measured on the working surface, 1 nm on the 47
+  sites (runs/cap385_b60 .. b160):* gain / floor at 60 / 90 / 120 /
+  160 nm: L 0.962 / 25 pm, 0.954 / 21, 0.963 / 17, 0.968 / 13; I+ 0.827
+  / 150, 0.950 / 20, 0.962 / 17, 0.968 / 13; S 0.934 / 59, 0.960 / 29,
+  0.970 / 22, 0.968 / 20; V 1.000 / 3, 0.957 / 47, 0.969 / 23, 0.967 /
+  21 -- within 5% at every rung to 160 nm (I+ within 10% from 90 up).
+  That is not the sensor recovering: with noiseless frames a matrix
+  measured on the surface carries the weakened response and the
+  inversion scales it back up.  The price is photons -- N(1 pm), single
+  10 nm differential, matrix on the surface (193 rays; runs/noise193_b30
+  .. b160): 30 nm L 9.2e13 / S 8.8e13 / V 6.1e13; 60 nm 1.8e14 / 6.1e15
+  / 1.1e14; 120 nm 6.2e14 / 1.3e15 / 2.2e15; 160 nm 4.6e14 / 3.4e15 /
+  2.4e15 -- 5x (linear) to 40x (vector pair) the light of the 30 nm
+  point at 120-160 nm rms (six realizations per point; the S 60 nm
+  value is a fold outlier).  *(c) The interferometer (CCMac's lens rig,
+  runs in tg_psi_dm96_oap: lens_base, single 10 nm on the base, matrix
+  on the 30 nm surface):* 0.992 / 1.001 / 1.017 at 30 / 60 / 120 nm,
+  1.93 at 240 (the four-step wraps at lambda/4 of surface, 158 nm) --
+  range between 120 and 158 nm; its bare-aluminum OAP rig 0.996 / 0.998
+  at 30 / 60, 0.959 at 120 with the map correlation already down to 0.32,
+  0.475 at 240 -- range between 60 and 120.  Rule: with a calibration
+  aging from 30 nm the vector pair holds to 70 nm rms and the scalar
+  readings to about 40, the interferometer to its wrap near 150; a
+  matrix re-measured on the surface (the S10 doctrine, what a servo
+  does) holds every ZWFS reading's gain to 160 nm and moves the cost to
+  photons.  Deck slides 11-12.
+- **V5 (2026-09-14, plan 11.2): the complex amplitude from the vector
+  sensor -- the pair alone is ambiguous at gauge-level phases; the pair
+  plus the state's clear frame reads amplitude and phase exactly.**  The
+  two images are two circles in the complex plane, |E + c+ b+|^2 = I+ and
+  |E + c- b-|^2 = I- (centers -c+- b, radii sqrt(I+-)); their two
+  intersections are mirror images across the line of centers (Re E = |b|
+  for the pi/2 dimple), so the pair measures A sin(phi) and |A cos(phi) -
+  b|: amplitude and phase together are ambiguous where A cos(phi) crosses
+  the reference wave (100 nm pokes reach 1.9 rad and do), and the
+  amplitude is a square-root observable near it.  Measured (`ZW.solveVA`,
+  the circle intersection, kept for the record): exact on the flat
+  (2e-15), a 0.3 rad blob with the TRUE reference wave 3e-4 rad / 8e-4
+  amplitude, and the reference-wave iteration DIVERGES in amplitude (10%
+  after five passes); on the G4 pokes 5.8 nm.  The phase-only solve of
+  record fixes the amplitude at the flat's and is exact for phase -- and
+  misreads when the pupil amplitude changes: gate G9 (`mask.v_dip`, a
+  Gaussian well of 5% / 20% over a quarter of the pupil on the G4 poke
+  field, surrogate frames == the engine's, G8) 241 / 967 pm.  With the
+  STATE's clear frame (`mask.v_clear`: the unmasked intensity, a third
+  exposure per state, into the solver's I0) 0.016 / 0.128 pm at the
+  record's resolution (`runs/an193_clear`, 1024 / 193: the flat's
+  amplitude 237 / 952 pm, the pair alone 5.5 / 5.7 nm), and the battery
+  rows on the 30 nm surface unchanged to the digit (0.9935 / 4, 0.9992 /
+  3: the bench's pupil amplitude does not move with the DM).  So the
+  complex amplitude of the pupil = the clear frame (amplitude) + the pair
+  (phase), three frames.  Not wired: the noise and loop
+  stages' frames (they read the pair only).
+
+- **V4 (2026-09-14): the analyzer's leak between the two images, priced
+  -- the cube's extinction is a non-term; a quarter-wave plate error is an
+  absolute term the response matrix absorbs.**  The polarizing cube does
+  not split perfectly and the quarter-wave plate before it is not exact,
+  so camera A's image carries some of camera B's light and vice versa.
+  *From the engine* (`dm_gauge_lib/dmg_analyzer_maps`): the record deck
+  and the two channel decks of `zwfs_vlayout` (plate, cemented MacNeille
+  cube, `macos.design.pbs_macneille`) traced in polarization mode
+  (`macos.jones_pupil`), the analyzer's Jones per ray = the camera's
+  divided by the record's, the two circular states pushed through it.
+  Two terms per camera: the INCOHERENT leak l (the other state's power,
+  orthogonally polarized at the camera: the cube's finite extinction) and
+  the COHERENT one c (the other image's field in the SAME polarization: a
+  plate retardance error delta gives |c| = delta/2, an azimuth error theta
+  gives |c| = theta, engine-exact to three digits, with opposite signs in
+  the two ports).  Camera intensity I_A = |a+|^2 + l_A |a-|^2 + 2 Re(a+
+  conj(a-) c_A) (`mask.v_analyzer` `'engine'` | a struct; `v_qwp_err`
+  waves, `v_qwp_az` deg); the solver knows nothing of it.  *The lens rig*
+  (65 rays for the maps): cube alone l_A 4.2e-4 (uniform), l_B 6.3e-4
+  (varying with the cone's angle of incidence to 2.6e-3), c 1.5e-3 in
+  magnitude but ZERO MEAN (the plate's axis projected onto the converging
+  rays, a sin 2 alpha pattern: the scalar model drops it, a uniform bound
+  is run instead); plate lambda/300 |c| 1.05e-2, lambda/100 3.1e-2, 1 deg
+  azimuth 1.7e-2.  *Priced at the record's resolution* (1024 / 193,
+  `runs/an193_ref`, `_cube`, `_q300`, `_q100`, `_az1`, `_bound`,
+  v4seq.sh): uncalibrated G4 (100 nm pokes, 12.0 nm rms) 0.053 pm ideal
+  -> 3.5 cube alone, 23 the zero-mean bound taken as uniform, 165 at
+  lambda/300, 263 at 1 deg, 496 at lambda/100 -- linear at 16 nm per
+  unit of |c|, 1.4% of the figure at lambda/300.  Through the matrix
+  measured on the 30 nm working surface (DM 1 / DM 2): single 10 nm
+  0.9935 / 4 pm and 0.9948 / 4 ideal -> 0.9932 / 4 and 0.9924 / 5 at
+  lambda/300, 0.9928 / 4 and 0.9877 / 8 at lambda/100, 0.9932 / 4 and
+  0.9914 / 6 at 1 deg; grid 1 nm 0.9992 / 3 and 0.9961 / 1 -> 1.0001 / 3
+  and 0.9976 / 1 at lambda/300, 1.0019 / 3 and 1.0006 / 2 at lambda/100.
+  (Dev resolution 512 / 65 gave the same picture: 0.30 -> 3.6 / 162 /
+  264 / 487 pm; rows 0.9942 / 5 -> 0.9919 / 6.)
+  Verdict, as for the arm (V3): an uncalibrated absolute term, a gain the
+  sensor's own matrix calibrates (within 0.7%, floors within 4 pm at
+  lambda/100); specify the plate's retardance
+  (lambda/300 class, zero order) and put it in a slower beam or calibrate
+  the analyzer per pixel if the absolute reading must hold to 0.1%.
+  Model limits: an ideal retarder (a real plate's retardance also varies
+  with the angle of incidence, in the same sin 2 alpha family); the maps
+  are pupil means.
+- **V3 (2026-09-12): the arm's polarization aberration per channel,
+  priced -- a diattenuation-type term the sensor cannot calibrate away,
+  small on the lens rig, and a retardance-type term it removes for free.**
+  The metasurface converts L -> R with the +phi dimple and R -> L with
+  -phi, so the two images are of DIFFERENT pupil fields: the laser state's
+  L and R components through the arm's Jones pupil, qL.*E and qR.*E.
+  *Maps from the engine* (`dm_gauge_lib/dmg_arm_maps`): two polarized
+  vector traces of the bench (x, y source states), the 2x2 J at every
+  pixel of the diffraction grid at the mask sandwich's entrance sphere
+  (the detector's grid, gate G1; every arm optic, not the mask or the
+  field lens behind it), in the basis the mask acts in -- its own axes
+  projected into each ray's transverse plane (the ray direction from the
+  pixel's two field vectors; the engine's settled convention for thin
+  polarizing elements, Korger 2013; the double-pole pair would add a
+  (theta^2/4) sin 2 alpha rotation per pixel = 1.6 mrad rms of fake
+  channel difference on this 5-deg cone) -- the common scalar stripped
+  by J/sqrt(det J): the vector-mode field is the scalar trace's exact
+  CONJUGATE on this train (common phase slope -2.0000, residual 4e-9) and
+  carries the Fresnel losses the scalar trace never applies (T 0.665),
+  neither being polarization physics; then normalized to the ideal 50/50
+  split and to unit mean power for the laser state.  *Frames*: each
+  channel's map at the entrance sphere, then the dimple (the engine's
+  chained apodization; G8 = 0 with a unit map, 4e-15 against the
+  surrogate); with retardance error the leaked light in one output
+  channel is the OTHER input channel's.  *Solver* per pixel per channel
+  (kappa+-, qL, qR; V2's constant-kappa shift was 2 arg kappa -- a piston,
+  invisible to every mean-referenced number -- corrected to arg kappa);
+  four levels of what the bench knows (`mask.v_cal`): `'ideal'` nothing
+  (the raw size of a term), `'amp'` the per-channel UNMASKED reference
+  frames every Zernike-sensor bench takes (the amplitude maps, not the
+  polarization phases), `'fit'` = amp + 5 constants on the flat's masked
+  images, `'map'` the truth (a polarimetrically calibrated bench).
+  *The lens rig's arm (runs/v3arm, _l0, _l90, _ar, _amp, _fit, _map,
+  _l90amp, _base; 193 rays):* diattenuation 5.1e-3 mean (six 7-deg glass
+  faces), 1.1e-3 rms over the pupil (the lenses' rho^2), 7.8e-3 max;
+  retardance 0.9 mrad mean, 0.7 rms, 2.8 max; a REAL J gives conjugate
+  circular components, so the channels differ in PHASE only: 1.63 mrad
+  rms (PV 8.0) with the laser at 45 deg to the fold plane (the worst
+  case), 2.31 at 0 deg, 2.1e-5 at 90 deg (the tilted faces' s axis, an
+  eigenaxis); quarter-wave MgF2 on all 12 faces halves the diattenuation
+  (2.2e-3 mean, T 0.87), leaves the retardance, channel difference 1.26
+  mrad.  Uncalibrated absolute reading of the G4 figure (100 nm pokes, 12
+  nm rms): **9.0 pm at 45 deg** (ideal 0.053), 17.2 at 0, 11.2 at 90 --
+  the last from the COMMON amplitude map (5.7e-4 rms), which the unmasked
+  reference frames remove: `'amp'` 0.11 pm at 90 deg, 9.5 at 45 (the
+  phase difference survives every calibration short of polarimetry);
+  `'fit'` finds nothing constant to fit (kappa 0.99998, eta 0.99996, 9.5
+  pm); the oracle reads 0.053 pm; AR-coated 5.0 pm.  *Through the matrix
+  on the working surface* (v3arm_base, uncalibrated): single 10 nm 0.9935
+  / 4 pm / 2840, grid 0.9992 / 3 / 346, dense 0.9999 / 331 pm, ladder
+  0.9969 / 0.9809 at 30 / 60 -- the ideal record to the printed digit.
+  *The design scan (synthetic astigmatic maps, rms over the pupil;
+  runs/v3s_p* phase = the diattenuation-type term, v3s_a* amplitude ratio
+  = the retardance-type term; uncalibrated):* G4 absolute error 59 / 178
+  / 597 / 1877 pm at 0.01 / 0.03 / 0.1 / 0.3 rad of channel phase
+  difference (linear, 6 nm per rad) and 226 / 677 / 2268 / 7106 pm at
+  0.01 / 0.03 / 0.1 / 0.3 of amplitude ratio (3.8x per unit); through
+  the on-surface matrix the rows hold to 0.1 rad / 0.1 (phase 0.1: single
+  0.9948 / 4, grid 1.0013 / 4 / 326, dense 441 pm, ladder 0.9980 / 0.9889;
+  amplitude 0.1: 0.9933 / 4, 0.9996 / 3 / 327, 429 pm, 0.9969 / 0.9979)
+  and bend at 0.3 (phase: grid 1.0068 / 8 / 193, dense 962 pm, ladder
+  1.0009 / 39, 1.0111 / 179; amplitude: grid 0.9994 / 6 / 222, dense 900,
+  ladder 0.9966 / 31, 1.0452 / 232).  The oracle at 0.3 rad reproduces
+  the ideal record to the digit (0.057 pm; v3s_p0.3map); `'amp'` at 0.3
+  amplitude ratio does too (0.054 pm, every row; v3s_a0.3amp) -- **the
+  retardance-type term is removed by the per-channel unmasked frames the
+  sensor takes anyway**, and `'amp'` at 0.3 rad phase changes nothing
+  (v3s_p0.3amp = v3s_p0.3).  *Loop* (v3loop: 0.3 rad phase, uncalibrated,
+  same seeds as vloop193): contraction 0.554 (ideal 0.509: a 10% gain
+  loss), steps -> 0.000 pm, noise-only 1.20 / 0.12 pm at 1e13 / 1e15
+  (ideal 1.17 / 0.12), walk 2.62 / 2.32 (2.60 / 2.32), 3 pm held below
+  1e13 on both lines -- not a servo-budget term even at 0.3 rad.  Design
+  rule: for a vector Zernike sensor the arm's pupil-varying DIATTENUATION
+  (through a linear laser: channel phase difference = D sin 2(axis -
+  laser)) is the term to specify -- 0.1 rad rms costs nothing through the
+  on-surface matrix, 0.3 rad costs the grid row 2.6x and the loop 10% of
+  its gain -- and the laser should sit on the arm's dominant eigenaxis
+  (nil on this rig); its pupil-varying RETARDANCE (channel amplitude
+  difference) is calibrated by the unmasked reference frames.  The OAP
+  rig's bare-aluminum retardance band (CCMac D5) is the amplitude-type
+  term.  Not modeled: the metasurface's own oblique-incidence terms over
+  the f/4.2 cone (retardance and geometric phase both ~theta^2, 0.7% at
+  the edge) -- a pupil-varying eta and dimple phase, V2-type; the
+  vector-mode/scalar conjugate is documented in macos_f90/CLAUDE.md.
+- **V2 (2026-09-12): the metasurface's retardance error, priced -- NOT a
+  term in the differential or servo budget.**  A real geometric-phase
+  mask has retardance pi + err; it converts eta = cos^2(err/2) of the
+  light with the +-phi geometric phase and leaks the rest unshifted.
+  With the bench's linearly polarized laser the leaked and converted
+  light in one output channel are COHERENT, so each channel's field is
+  sqrt(eta) E_masked + sqrt(1-eta) e^{i alpha} E_unmasked: one complex
+  constant kappa = sqrt(eta) + sqrt(1-eta) e^{i alpha} on E0 in the
+  per-pixel model (`dmg_zwfs_gauge` opt V_RET_ERR / V_LEAK_PHASE /
+  V_CAL; `P.mask.v_ret_err`, `v_leak_phase`, `v_cal`).  Measured
+  (runs/v2g_*, v2e10a, v2e10afit, v2e20a, v2loop): (1) *uncalibrated
+  ('ideal' solver), absolute reading of the G4 figure (12 nm rms):* leak
+  IN PHASE (alpha 0) = an amplitude scale -> bias 153 / 380 / 750 /
+  1461 pm at err 0.02 / 0.05 / 0.10 / 0.20 rad (1.3x the leaked
+  amplitude, linear); leak in QUADRATURE (alpha pi/2) = mostly a piston
+  the sensor cannot see -> 0.7 / 4.5 / 18 / 75 pm (quadratic).  (2) *a
+  three-number calibration on the flat DM's two images (`ZW.calV`, what
+  a bench does)* recovers kappa and eta to five digits (0.99875 +
+  0.04998i, 0.99750 at err 0.10 / alpha pi/2) and the gate figure reads
+  to 0.048 pm, the ideal-mask number.  (3) *differential rows through
+  the matrix measured on the working surface, UNCALIBRATED, err 0.10 and
+  0.20:* single 10 nm 0.9934 / 4 pm, grid 0.9992 / 3, dense 0.9999 /
+  331 pm, ladder 0.997 / 0.982 at 30 / 60 -- the ideal mask's numbers
+  to the printed digit; the loop likewise (contraction 0.509, noise-only
+  1.18 / 0.12 pm at 1e13 / 1e15, walk 2.60 / 2.32) -- the matrix is
+  measured through the same reading and carries the constant as gain.
+  Caveat carried: a spatially UNIFORM error (the dimple is a few lambda/D
+  wide, the leak phase one number); the chromatic slope of eta is the
+  broadband question, not this laser's.
+- **V1 (2026-09-11, Dave: "polarized dimple?" -- "Begin!"): the VECTOR
+  (polarized-dimple) reading V, ideal metasurface, stage one.**  A
+  geometric-phase dimple puts +phi on one circular polarization and -phi
+  on the other; a polarization splitter behind the pupil relay gives the
+  two pupil images AT ONCE (Doelman 2019).  For an ideal metasurface each
+  image is the scalar sensor with its own dimple sign, so the reading is
+  two scalar traces through the existing factory: `dmg_zwfs_gauge`
+  `frameV` / `reconV` / `solveV` (the same per-pixel model as the exact
+  reading for each image, I+- = |E + c+- b|^2 with c- = conj(c+); the
+  pair gives cos and sin of the phase at once, `u = atan2`, NO branch, no
+  clamp; the reference wave b iterated as for I).  Runner class 4 through
+  the battery, color, noise and loop stages; photons split N/2 per image.
+  *G4, the fold gate (bench stage):* 100 nm single-actuator pokes every
+  8th actuator (12 nm rms on msk, peak 1.93 rad, 3.1% of the pupil beyond
+  the quarter-wave fold) -- V reproduces the engine's own field phase to
+  **0.053 pm** (piston removed), the single +phi frame errs by 9.0 nm.
+  Two things learned making the gate: (1) a WHOLE-PUPIL figure of that
+  height is not a fold test -- the focal core collapses (b changes by
+  >100% for every mode at 1.2 rad rms) and every reading fails: the
+  30-40 nm cliff of S7, a range limit the pair does not move; (2) the
+  b iteration is exact only modulo PISTON (the one direction the sensor
+  cannot see; the fixed-point family), so the gate compares mean-
+  referenced maps, as every differential row already does.
+  *Flat-matrix battery (runs/v193flat; V == I+ on the flat, as it must:
+  nothing beyond the fold there):* flat single 20 nm 0.9941 / 4 pm;
+  with the FLAT matrix on the 30 nm surface V is already the best
+  reading: single 10 nm **0.939 / 25 pm** (I+ 0.73 / 63, S 0.75 / 47),
+  47-site 1 nm grid **0.997 / 12 pm** (I+ 0.97 / 21, S 0.83 / 24), dense
+  random 10 nm **0.999 / 1.07 nm** (I+ 0.90 / 4.6, S 0.82 / 2.1); the
+  hold-out ladder 0.84 / 0.82 / 0.79 / 0.76 at 30-60 nm rms (S 0.77 /
+  0.66 / 0.55 / 0.48).  *Matrix ON the working surface (runs/v193base,
+  the S10 doctrine):* single 10 nm **0.9935 / 4 pm / SNR 2830** (S 0.989
+  / 5 / 2160), grid 1 nm **0.9992 / 3 pm / 345** (S 0.9993 / 4 / 284),
+  dense random 10 nm **0.9999 / 0.33 nm** (S 0.984 / 0.68 nm) -- the
+  stepped reading's numbers at half the frames, and half its dense error.
+  Its local sensitivity moves least with the surface (map-space
+  diagnostic, single change on the surface vs the flat: V 0.15 rel /
+  0.90 amplitude; S 0.29 / 0.73; L 0.60 / 0.49).  *Ladder (47 sites, 10 nm changes, the 30 nm
+  matrix, RAW):* **V 0.997 / 20 pm, 0.996 / 41, 0.991 / 74, 0.981 / 113
+  at 30 / 40 / 50 / 60 nm rms** (S 0.999 / 24, 0.908 / 74, 0.859 / 373,
+  0.657 / 669; L 1.03 / 149, 0.96 / 291, 0.83 / 509, 0.67 / 647): the
+  calibration ages five times slower than the stepped reading's; every
+  reading is gone by 120 nm (the core).  Two runner points that
+  surfaced: V's differential is the WRAPPED phase difference (`diffV`,
+  as `stepdiff`): the absolute maps wrap at +-pi individually and a
+  50 nm base's tails reach it (floor 4.8 nm at 50 before; 74 pm after);
+  and matrix mode now reports RAW estimates -- the kernel-era Wiener
+  correction penalized a transfer above 1 (V 0.994 raw read 0.89
+  'corrected'), and S10's quoted ladders were the corrected values.  *Photons (runs/v193noise; the S5 scenario, flat matrix, raw):* sigma
+  of the changed actuator's estimate ~ 6.9e6/sqrt(N) pm for V (S 7.5e6, L
+  5.7e6, I+ 6.4e6): N(1 pm) = 4.7e13 photons per measurement (S 5.6e13)
+  -- two frames of N/2 carry more information than four of N/4, and the
+  gain on the surface with the flat matrix is V 0.84 (S 0.77, I+ 0.65,
+  L 0.28).
+  *Closed loop (runs/vloop193, S and V on the same seeds; L / I+ from
+  loop193; the S rows reproduce loop193 to the digit):* V is the best
+  loop reading on every line -- contraction 0.509 per cycle (reading
+  gain 0.98 at loop gain 0.5; S 0.61), steps of 1 and 10 nm to 0.000 pm,
+  noise-only 3.72 / 1.17 / 0.37 / 0.12 pm at 1e12..1e15 (S 4.81 / 1.52 /
+  0.48 / 0.15; theory 3.66 / 1.16 / 0.37 / 0.12), walk 4.38 / 2.60 / 2.35
+  / 2.32 (S 5.33 / 2.77 / 2.36 / 2.32), thermal 9.9 pm = the lag.  **The
+  one number: 3 pm rms held from 1.5e12 photons per cycle (noise only)
+  and 5.3e12 (2 pm walk), against S 2.6e12 / 7.5e12 and L 2.1e12 /
+  7.3e12** -- and at two simultaneous frames, so the reference-intensity
+  drift that a real bench adds to S between its four frames does not
+  arise (V4 will price that term).
+  Next (V2-V4): metasurface retardance error and leakage as a knob;
+  the arm's polarization aberrations from the Jones pupil applied per
+  channel; the stepped reading's reference-intensity drift in the loop,
+  the term the simultaneous pair is for.
+- **P / PF (the point-diffraction readings) MOVED 2026-09-13** to
+  `../pdi_dm96/README.md` (Dave's ruling: the PDI gets its own
+  directory).  The code stays SHARED -- `zwfs_run` + `dm_gauge_lib`,
+  nothing is copied -- and the records taken before the move are still
+  in `runs/` here (pdi193*, ploop193, pcam193*), cited by `deck_pdi`.
+- **S11 (zwfs_run stage 'loop', 2026-09-11, Dave: "on-orbit the DM
+  surface needs to remain constant to << 10 pm, with frequent
+  remeasurement and closed-loop DM actuator servo control -- how can
+  performance in this mode be made into a metric?"): the CLOSED-LOOP
+  HOLD metric.**  The DM is held at the 30 nm working surface by a
+  proportional loop (gain 0.5, 60 cycles) closed through ONE reading:
+  each cycle the state is traced, photon noise injected (N photons per
+  state, a reading's frames share it), the differential to the set
+  point's frames fitted through the response matrix measured ON that
+  surface (S10), and g times the estimate removed.  The loop code is
+  shared with the interferometer (`../dm_gauge_lib/dmg_loop.m`, gated by
+  `tests/tDmgLoop.m` on a synthetic instrument: contraction 1 - gG,
+  noise-only steady state sigma_n sqrt(g/(2-g)), the random-walk and
+  ramp laws, a biased reading converging to a non-zero surface, seeded
+  drift, a single-shot reference as a fixed bias).  The metric: the
+  steady-state hold error (rms over lit, pm) against a drift, as a curve
+  in photons per cycle; the ONE number = photons per cycle to hold 3 pm.
+  Drifts: random walk 2 pm per actuator per cycle; thermal ramp 5 pm rms
+  per cycle of defocus + astigmatism; noiseless steps of 1 and 10 nm
+  (time constant, dynamic range); the noise-only floor.  `P.loop.*`;
+  `runs/loop193` (98 min, 2562 traced states); the 385-ray check
+  `runs/loop385` (L + S, 52 min) reproduces it: 3 pm at 2.1e12 / 2.6e12
+  (noise-only) and 7.2e12 / 7.7e12 (walk), thermal floors 24.7 / 10.1 pm,
+  S steps to 0.000 pm, L 1.08 pm at cycle 60.
+  *What closed loop changes, measured:* the loop propagates noise
+  exactly as theory says on the real instrument (noise-only: L 4.39 /
+  1.39 / 0.44 / 0.14 pm at 1e12..1e15 photons per cycle vs 4.25 / 1.35 /
+  0.43 / 0.13 from the in-run single-shot noise; S 4.81 / 1.52 / 0.48 /
+  0.15 vs 4.72 / 1.49 / 0.47 / 0.15), and the random walk likewise (L
+  5.02 / 2.77 / 2.42 / 2.38 vs 4.84 / 2.67 / 2.35 / 2.31; S 5.33 / 2.77 /
+  2.36 / 2.32 vs 5.26 / 2.75 / 2.36 / 2.31: the 2.31 pm floor is the walk
+  itself at g = 0.5, sigma_d / sqrt(g(2-g))).  So the per-photon
+  comparison in this mode is the single-shot noise: **L and S are the
+  same per photon per measurement** (sig_n 7.4 vs 8.2 pm at 1e12), and both
+  hold 3 pm from ~2e12 photons per cycle (noise only) / ~7.4e12 (walk).
+  *What discriminates is the SYSTEMATIC term, the thing the loop was
+  built to expose:* (1) **the stepped reading S has NO noiseless floor**
+  -- a 1 nm and a 10 nm step both converge to 0.000 pm (rho 0.61-0.63,
+  tau ~2 cycles), and its thermal hold is 10.05 pm = exactly the
+  proportional-loop lag rate/g of a unit-gain reading (theory 10.00;
+  low-order gain 0.995).  (2) **The linear one-frame reading L holds the
+  walk and the noise like S but not a persistent low-order residual**:
+  its thermal hold is 27.6 pm and still creeping at cycle 60 -- 9 pm of
+  the same lag plus 26 pm of HIGH-frequency error (> 12 cyc/ap) that the
+  loop imprints on the DM, distributed (15 pm with the worst 100
+  actuators removed; two 4-actuator clusters at 0.5-0.8 nm), and its
+  noiseless steps decay with a slow mode (rho 0.82-0.83: 1.2 pm left at
+  cycle 60 from 1 nm, 9.8 from 10 nm).  Mechanism: on the working
+  surface the linear reading's local sensitivity is near zero at some
+  sites, the loop is nearly open there, and any crosstalk from a
+  persistent residual integrates to bias/(g G_site) -- a zero-mean walk
+  does not excite it, a ramp does.  (3) **The exact one-frame reading
+  with the set point's branch prior (I+) DIVERGES**: a 1 nm step grows
+  to 99 nm in 60 cycles, a 10 nm step to 178 nm, and even the noise-only
+  loop at 1e15 photons wanders to 0.9 nm -- actuators whose footprint
+  sits beyond the quarter-wave fold read with the wrong sign (S10's fold
+  sensitivity), the loop pushes them the wrong way, and the fixed branch
+  prior gets wronger as they move; no gain fixes a negative gain.  I+ is
+  not a loop reading on a 30 nm surface (`P.loop.rmax` now stops such
+  runs at 1 um).  *The one-number table (photons per cycle to hold 3 pm
+  rms):* noise-only L 2.1e12 / S 2.6e12 / I+ diverged; walk L 7.3e12 / S
+  7.5e12 / I+ diverged; thermal: no photon count reaches 3 pm at g = 0.5
+  (a proportional loop lags a ramp by rate/g = 10 pm), the floors are L
+  27.6 / S 10.0 / I+ diverged -- an integral term or a higher gain is the
+  thermal fix, and the same loop code takes it.  DOCTRINE for the
+  head-to-head: run the IFO through the identical `dmg_loop` (same
+  seeds, drifts, gains, photon levels; CCMac, brief oap2 addendum) and
+  compare the three rows of that table plus the noiseless floor and the
+  held residual's spectrum.  *DONE 2026-09-12 (CCMac, `tg_psi_dm96_oap`
+  runs/loop_lens, loop_oap; identical loop code, seed 77):* the IFO's
+  four-step reading on the LENS rig holds 3 pm from 5.5e12 photons per
+  cycle noise-only / 2.0e13 under the 2 pm walk (single-shot noise 12.0
+  pm at 1e12 vs S 8.2 / V 6.4: ~1.5x noisier per photon, ~2x the light;
+  the S5 single-actuator pricing's 15x was the kernel-era estimator on a
+  different scenario), thermal 13.1 pm (10 of lag + ~8.5 of fixed
+  error), and a noiseless 1 nm step floors at 87 pm and RISES -- a ~9 %
+  fixed error (its fine-pattern roll-off + cross-talk in closed loop),
+  so the IFO behaves like the ZWFS linear reading, not its stepped one.
+  The REFLECTIVE rig (bare aluminum; the ideal-reflector null was an
+  idealization -- exactly zero retardance variation -- and bare Al
+  fills it, retiring the D3 uncoated numbers) cannot hold the 2 pm walk
+  to 3 pm at ANY light (floor 4.1 pm), thermal 39 pm, step floor 276 pm:
+  its remaining fold cross-talk (0.18 open-loop) is a hard wall in hold
+  mode, which the open-loop battery could not see.  Deck slide 16.
+
+> **MODEL CORRECTION (2026-09-09, found building S7's reconstructor;
+> details in the S7 bullet at the end): every ZWFS number in S1-S6 was
+> measured on a sensor whose reimaged pupil was Fresnel-DEFOCUSED by an
+> effective 4.86 m.**  The `twyman_green` 'nf' sandwich emitted the exit
+> reference sphere with zElt/Kr = 0.6*D_MASK_FL (23.86 mm) against the
+> entrance sphere's 352.7 mm; the engine's SPH2PL applies a focal
+> quadratic factor S ~ (Z2-Z1)*Z1/Z2 and PL2SPH is a plain FFT, so the
+> round trip was not the identity the ctb_dcr.in precedent gets with EQUAL
+> radii (its comment even says "matching sphere").  The ringed poke
+> kernel (raw peak 0.27, corr 0.64), the OSCILLATORY fine-scale transfer
+> with its null near 30 cyc/ap (a Talbot phase->amplitude null, predicted
+> at 34), the 29% rms detector amplitude modulation under a 30 nm state,
+> the 744 pm base-crosstalk floors and the "undetected grid-on-base"
+> scenario were all this defocus.  'nf' now emits the SYMMETRIC sandwich
+> (round trip 1.8e-15); 'nf_legacy' reproduces the old emission
+> byte-for-byte (tBench gate).  **S1-S6 stand as the LEGACY-model record;
+> S7 re-measures the S3/S4/S6 rows on the corrected model** (linear
+> reading alone: single-on-base floor 744 -> 67 pm, grid-on-base SNR
+> 1.46 -> 14).  The IFO twin is all-geometric and untouched.
+
+- **S1 round 1 (G0 by design): the TG96 tail is geometric at the
+  mask.**  Bench emits `PropType= Geometric` everywhere; the wavefront
+  lands at FocalMask on a pupil-scaled 5.19 µm grid — dimple 0.54 px.
+  Fix = the NF1/NF2 reference-sphere sandwich (`ctb_dcr.in` FPM idiom)
+  as a `twyman_green` option `'mask_prop','nf'` (default 'geometric'
+  emits bit-identically); Bench gained per-element `proptype` +
+  conic/kr/zelt options on `add_reference` (defaults = legacy
+  emission).  Landing dx scales as λF/D·NGRID/MODEL — dev runs use a
+  SMALL ray grid (NGRID 65 at model 512 → 6.2 px dimple).
+- **S1 rounds 2–5 (G2/G3): the mask plane was DEFOCUSED, ~5.6 mm.**
+  L2's Kr is the l2_trade-OPTIMIZED value, not the thin-lens seed, so
+  the true focus sits at MASK_TRIM = −5.58 mm; the axial peak is tens
+  of µm deep (peak/sum 1e-4 wings → 1.22e-2 at focus), so mm-class
+  scan steps straddle it — fminbnd in a ±3 mm bracket finds it, and
+  S1 re-finds it every run (asserts peak ≥ 1e-2).  MISDIAGNOSIS
+  CORRECTED: the round-2 "spot off the DC pixel" (~85 µm) was a
+  speckle of the defocused blob, NOT the BS plate's lateral walk —
+  at focus the spot lands exactly on the DC pixel (the SPH2PL
+  transform centers on the reference-sphere axis).  The zwfs_mask
+  settable center stays (harmless; measures 257.00 and centers there).
+  Focused: core fraction 0.280 for the 1.06 λ/D disk — Airy encircled
+  energy, as physics wants.
+- **S1 round 5 (G3): defocus read at gain 0.54 — SUPERSEDED, see
+  round 11.**  Interpreted at the time as ZWFS low-order
+  self-referencing attenuation; the sign pin (S_CONV = −1) and the
+  G3 move to a radial cosine stand.
+- **S1 rounds 8–9: the truth FRAME was 25% off — ray affine fixes it.**
+  The support-area pupil-radius estimate implied k = 0.754 of truth (a
+  q=5 cosine decorrelates at half a rim cycle, so the fit read gain
+  0.02 — "no response" that was pure frame).  The ray-measured
+  DM→detector affine (registration doctrine DOF class 1, lifted from
+  tg96) gives mag 10.158, anam 0.00%, nonlin 0.086 mm; a diagnostic
+  scale sweep about the ray frame peaks at k* = 1.005, |corr| 0.997.
+  Frame-before-angle, once more.
+- **Round 11 (wf-figs, full res): the "low-order attenuation" was a
+  THIRD frame artifact — pattern radius.**  The source cone fills
+  only ~74% of the aperture (illuminated radius ~38 mm vs R_BEAM
+  51.4), so every pattern defined on R_BEAM overhung the light and
+  biased its fitted gain low (0.54 round 5; 0.324 round 10).  On the
+  measured illuminated radius, **defocus reads at 0.986** (spot 2.0,
+  model 1024/NGRID 193): with a ~1 λ/D-radius dimple the reference
+  passband is ~0.5 cyc/pupil and defocus sits above it — the true
+  self-reference attenuation lives at piston/tip/tilt class.  The S3
+  transfer curve measures the real low-frequency edge.
+- **Round 11, the poke:** one-frame single actuator (20 nm) reads at
+  gain 0.445 (0.286 nm rms) at NGRID 193/spot 2.0.  Initially blamed
+  in part on the illuminated-px sampling margin (1.49×) — **REFUTED
+  by round 12's sweep**.  The illuminated-px accounting rule stands
+  as doctrine (count lit px, not grid px), but it is not what limits
+  the poke.  IFO same cases, same frames: poke 0.984 / 0.049 nm,
+  defocus 1.024 / 0.086 nm (tg_psi_dm96/tg96_wf_figs.m).
+- **Round 12 (zwfs_sweep.m, Dave's ask): sampling is NOT the binder —
+  the SPOT is a band-select lever.**  Across NGRID 129→385 (detector
+  margin 1.7×→5.0×; DM-side 1.3→3.7 rays/actuator) the poke gain is
+  FLAT at fixed spot: 0.445 (spot 2.0, three configs), 0.585–0.589
+  (spot 3.0, four configs).  It moves with the SPOT, in opposite
+  directions per band: poke −0.381 → 0.445 → 0.585 as the spot grows
+  1.06 → 2.0 → 3.0, while defocus FALLS 1.030 → 0.986 → 0.79.  The
+  1.06 hardware spot sign-inverts the high-frequency response.  No
+  single spot serves both bands with the fixed flat-state linear
+  reconstructor — the transfer is stable and calibratable, which is
+  exactly what the actuator-space fit (Dave's scoring ruling) and a
+  measured interaction matrix absorb; that is S3's reconstructor
+  path.  Errors in pm: poke 240–286, defocus 137–757, vs IFO 49/86
+  and the 1 pm ultimate target — the pm road is calibration +
+  differential, not raw single-frame transfer.
+- **S1 GREEN (round 10, 20 s/run):** dimple 6.29 px (G0); masked field
+  == E0 + c·Eb at 3.3e-16 (G1); core fraction 0.2801 ≈ Airy encircled
+  energy for 1.06 λ/D (G2); q=2 radial cosine at 8 nm recovers gain
+  +0.932, resid 0.45 nm (G3, ray frame); no-dimple frame reads −0.07
+  (G4 — the signal is the dimple's).  S_CONV = −1 pinned.  The
+  round-10 defocus property (0.324) is SUPERSEDED by round 11
+  (pattern-radius bias; corrected 0.986).  q=5 read 0.675 at dev res
+  = dev sampling rolloff — transfer curves belong to S3 at full res.
+- **S2 GREEN (zwfs_s2.m, 0.3 min): registration + measured-kernel
+  reconstructor.**  Two-poke registration at 20 nm strokes: parity 1,
+  sign +1 in this script's candidate basis (deck-dependent, as
+  doctrine says; selection 0.527 vs 0.025 runner-up — the gate is
+  SELECTION CONFIDENCE, not map fidelity: the ringed ZWFS kernel caps
+  raw correlation near 0.5 by physics, so the IFO's 0.8 bar does not
+  transfer).  Calibration by the multiplexed-poke doctrine (measured
+  response kernel + lattice deconvolution, Tikhonov pcg): held-out
+  poke recovers at **gain 0.903, 132 pm** (raw transfer was 0.445);
+  kernel spatial variation measured at 13% (poke B via A's kernel:
+  0.868) — the single-kernel bound; field-dependent kernels are the
+  refinement if S3 needs it.  **Dense-random single-shot remains
+  transfer-limited**: the λ scan is monotonic to λ=3.2 with gain
+  collapsing (0.75→0.21) — no optimum, and fit-removed resid rewards
+  over-smoothing (metric caveat recorded).  The treatment is S3's
+  MODAL calibration (measure the transfer on the lattice modes), not
+  more λ.
+- **Sensitivity stage (zwfs_sens.m / tg96_sens.m twins, Dave's ask):
+  NO additive floor down to 0.1 pm in the noiseless model.**  Across
+  10 nm → 0.1 pm (single poke + 47-site grid poke × flat/30 nm base,
+  differential, actuator space): gain constant, accuracy = (1−g)·amp
+  exactly, unpoked floor PROPORTIONAL to amplitude (crosstalk, not
+  noise), so detection SNR is amplitude-independent.  SNRs: IFO
+  single 207 / grid 19.6 (base-independent); ZWFS single 59 flat /
+  11.5 on base; grid 11 flat / **1.64 on base = the one UNDETECTED
+  scenario** (36% proportional leakage — the linear reading's
+  base-induced crosstalk).  First numerics whisper: ~0.1–0.3% gain
+  jitter at the 0.1 pm rows only.  The 1 pm objective in the no-noise
+  limit: met by linearity everywhere except ZWFS-grid-on-base;
+  ACCURACY is multiplicative — calibrate the constant gain and the
+  residual is gain stability (~0.1%).
+- **S2b (zwfs_s2b.m): multi-DEPTH mask phase stepping (Dave's ask).**
+  STRUCTURAL FINDING: |c|² = −2Re(c) identically, so a depth ladder
+  yields only TWO observables per pixel — |Eb|² is NOT
+  self-calibrating from depth steps (one-time calibration, or a
+  diameter change; hardware note for the multi-depth substrate).
+  Rank-2 solve is exact (frame consistency 6e-16).  Results: poke
+  gain 0.519 vs 0.445 linear (the linearization error removed; the
+  remaining deficit is optical and calibrates); **RANGE: a 150 nm
+  poke (3.0 rad — the linear reading folds) recovers within 9% of
+  the 20 nm gain**; defocus-on-base reads 0.743 — the self-reference
+  attenuation reappears under EXACT retrieval because the reference
+  core MOVES with a low-order deviation, while the frozen-reference
+  linear reading (0.986) avoids it.  **Doctrine: the reconstructors
+  are complementary — stepped for range/exactness/high-f, frozen-
+  reference linear for small low-order differentials.**  4 frames
+  per measurement vs the IFO's 6 traces.
+- **S3 (zwfs_s3.m / tg96_s3.m): the modal-calibrated battery, both
+  DM sizes (96×96 @ 1 mm; 48×48 @ 2 mm, DST-class, same bench).**
+  IFO: smooth monotonic transfer (1.02→0.58 by 57 cyc/ap; near-
+  isotropic), corrected poke 0.92 / 92 pm (96²) and 0.95 / 67 pm
+  (48²), random 10 nm at 4.2 / 1.7 nm, piston 0.98.  ZWFS: transfer
+  SEPARABLE (validated ~2%) but OSCILLATORY at fine scales — the
+  ringed kernel's FFT crosses zero ((64,0) −0.52, (80,0) +1.04), so
+  interpolated modal corrections destabilize there; the low end dips
+  where modes enter the dimple passband ((2,0) at 1 cyc/ap: 0.50);
+  piston structurally invisible (expected).  Corrected poke 1.01 /
+  157 pm; dense random stays the weak axis (12.5 / 5.5 nm).
+  **THE RESCUE: grid-on-30nm-base — the sensitivity stage's one
+  undetected scenario (SNR 1.64) — is DETECTED at 48×48 through the
+  phase-stepped retrieval: SNR 9.15 (linear reading: −1.23), floor
+  97 pm on 1 nm pokes.**  At 96×96 stepped reaches 2.32 — fine-pitch
+  content is where the sensor genuinely dims.  OPEN (named path):
+  dense per-frequency 1-D calibration (~95 frames along one axis, or
+  a stepped-retrieval kernel) for dense-command fine-scale work; or
+  concede that axis to the IFO — the instruments are complementary
+  by measurement, not by assumption.
+- **Machinery factored (2026-09-05): `../dm_gauge_lib` is the ONE copy**
+  of the scoring machinery (registration / sampling / actuator fit /
+  modal correction / both instruments' measurement factories).
+  `zwfs_s3.m` retrofitted onto it and re-run: report IDENTICAL to the
+  10cf593 record (the equivalence gate).  S1/S2/S2b/sens keep their
+  private copies as history; S4 consumes the lib only.
+- **S4 (zwfs_s4.m): the head-to-head rows + break scale, in pm.**
+  Four differential rows through the CALIBRATED estimator (measured
+  kernel + separable Wiener from zwfs_s3.mat), BOTH readings per row:
+  flat/single 144 pm (linear) / 125 pm (stepped); on the 30 nm working
+  state the linear gain collapses to 0.66 while STEPPED HOLDS 1.13
+  (773 pm) -- the complementary-reconstructor doctrine in actuator
+  currency.  Dense random stays the weak axis (10-42 nm).  BREAK
+  SCALE (single-act 10 nm differential on a growing base): linear
+  folds beyond ~30 nm rms working state; stepped keeps a usable gain
+  to ~60 nm (0.68 at 96x96) and beyond ~120 nm both readings stop
+  being MEASUREMENTS (sign-flipped / aliased single-site recoveries
+  that still clear a formal detection SNR -- detection without
+  measurement; quote the gain column, not SNR, past the fold).
+  VERDICT vs the IFO (tg96_s4): the IFO does not break -- 46 pm
+  single-row, base-independent, and a 480 nm rms working state costs
+  it ~5% gain / ~25% floor.  The scalar ZWFS serves flat-ish states
+  and small working states via stepped; it cannot follow the IFO into
+  large working states.  Its remaining card is photon economy (4
+  frames vs 6 traces) -- the noise stage decides its niche.
+- **S5 (zwfs_s5noise.m / tg96_s5noise.m): photon noise prices the
+  1 pm target -- and settles the economy question.**  Method: the
+  optical fields are noise-independent, so noiseless frames are
+  captured once per DM state and shot noise is Monte-Carloed
+  numerically (trace-free); calibration is treated as noiseless (the
+  long-exposure assumption); axis = photons per DM STATE, split across
+  each reading's frames (linear 1, stepped 4, four-step 4) -- equal
+  light, equal time.  On the head-to-head scenario (single 10 nm act
+  on the 30 nm base, 96x96): noise sigma at the poked site follows
+  1/sqrt(N) cleanly, and each instrument's high-N floor converges to
+  its S4 systematic floor (internal consistency).  PRICES:
+  IFO four-step sigma ~ 2.8e7/sqrt(N) pm -> N(1 pm) ~ 8e14
+  photons/state; ZWFS linear ~ 3.7e7/sqrt(N) -> 1.4e15; ZWFS stepped
+  ~ 7.0e7/sqrt(N) -> 5e15.  VERDICT: per unit light the modalities
+  are within ~2x of each other -- photon economy does NOT
+  discriminate; the discriminator is systematics (the IFO's
+  working-state immunity).  And ~1e15 photons/state at 633 nm is
+  ~0.3 mJ -- trivial for a bench source -- so photon noise is NOT the
+  1 pm blocker; gain stability (~0.1%, the sensitivity-stage finding)
+  and the systematic floors are.
+- **S6 COLOR (zwfs_s6color.m, Dave 2026-09-08: "try running both
+  systems at multiple colors, maybe the combination will help with some
+  poor SNR regions"): YES for the ZWFS -- the transfer nulls are
+  CHROMATIC and a multi-color combination fills them.**  Five colors
+  (480/532/632.8/700/780 nm) through ONE physical mask (the 346.2 nm
+  etch, 2.0 lam/D at 633; Malitson fused-silica index, so the dimple
+  reads 2.10/1.88/1.57/1.41/1.27 rad and 2.64/2.38/2.00/1.81/1.62
+  lam/D across the set); only the deck header `Wavelen=` changes per
+  color, and EVERY calibration (flat references, den, b2cal, anchor,
+  measured kernel, 13-row modal transfer) is redone per color; 96x96,
+  model 1024 / NGRID 193 (dimple 10.4 -> 6.4 px, all above the 6-px
+  rule).  Combination = the multi-channel Wiener on the actuator
+  lattice (`../dm_gauge_lib/dmg_color_comb`, a_hat(f) = sum_k G_k A_k /
+  (sum_k G_k^2 + beta^2)), scored against every single color, the plain
+  mean, and the best pair.  THE MECHANISM, measured: the oscillatory
+  null of the (p,0) transfer sits near 30 cyc/ap at 632.8 (0.20 at 28,
+  -0.52 at 32), and moves as 1/lambda with the dimple's angular size --
+  40 cyc/ap at 480, 36 at 532, 24 at 700, 20 at 780 -- so no two colors
+  are null together and the five-color transfer after Wiener never
+  drops below **0.991** where the best single color bottoms at 0.91
+  (532) and 632.8 at 0.80.  ROWS (linear reading, pm; 632.8 single ->
+  five-color comb): flat hold-out 202 -> **143** (gain 1.16 -> 1.08,
+  the over-correction eased); dense random 10 nm 16440 -> **7203**
+  (2.3x; best single 532 at 10899); single 10 nm on the 30 nm base:
+  floor 720 -> **224**, SNR 9.1 -> **35**; random 10 nm on base 41180
+  -> 17305; and the sensitivity stage's one UNDETECTED scenario (grid
+  47 x 1 nm on base) SNR 1.46 -> **3.43** (mean of singles 2.97, best
+  pair 2.63 -- more colors keep helping, slowly) -- still under the
+  SNR-5 line at 96x96.  Stepped reading: the base rows improve the same
+  way (single-on-base floor 755 -> 198, SNR 14.8 -> 36; best pair
+  480+532 reaches 49; grid 2.28 -> 3.32), dense random 36581 -> 13822,
+  but the FLAT hold-out gets slightly WORSE (287 -> 313): the stepped
+  retrieval's own systematic is larger at the other colors (607-1158
+  pm) and an equal-weight combiner inherits it -- weight by a measured
+  per-color systematic (the flat rows) before combining stepped
+  readings.  Why the base rows gain most: the linear reading's base
+  crosstalk is a second-order term whose pattern differs per color
+  (phi_base ~ 1/lambda, c(lambda)), so the floors partly average AND
+  the Wiener no longer amplifies a near-null mode in any one color.
+  Checks: the 632.8 column reproduces the record (dimple 7.92 px, tie-in
+  g 1.158 / 203 pm vs S3's 1.181 / 212 on 12 probes); the combiner's DC
+  normalization (g1(0)=1 vs the record's lowest-probe extension) moves
+  the grid SNR 3.32 vs 3.40 -- immaterial.  Cost: K x the frames (5
+  frames linear, 20 stepped per DM state); noiseless model -- at equal
+  TOTAL light the shot-noise part is neutral (1/sqrt(K) per color,
+  recovered by the combination) while the systematic part improves,
+  and S5 says systematics are what block 1 pm.  Per-color decks
+  `zwfs_test_<nm>nm.in` are regenerated by the script (gitignored).
+  IFO twin: `../tg_psi_dm96/tg96_s6color.m`.
+- **S7 (zwfs_s7iter.m, 2026-09-09): the model correction + the
+  iterated-reference exact reading (literature import #1).**
+  *Block A, legacy on record:* unmasked entrance->exit round trip
+  0.159 (flat DM!); SPH2PL's focal factor S = 8.60e-5 rad/px^2 (the
+  identity E_mask == exp(iS r^2) IFFT(E_in) holds to 1.1e-6 -- the deck's
+  6-digit zElt print; DFOURN's +i sign = MATLAB's ifft2); z_eff =
+  Z1(Z1-Z2)/Z2 = 4860 mm -> Talbot null predicted at 34.1 cyc/ap vs the
+  S3 record's 28-32; 30 nm base: |E|/|E_flat| std 0.290 (range
+  0.017..2.38) where a phase-only state must give 1; linear center-poke
+  kernel raw peak 0.268 / ring -0.158 / corr 0.635; S2 tie-in
+  reproduced (hold-out 0.9029 / 132 pm).  *Block B, corrected gates:*
+  round trip 1.8e-15; the b surrogate T(D Ti(E)) vs the engine's Eb
+  2.0e-15 (the engine's NF2 leg IS a shifted FFT and the geometric tail
+  is the identity on the grid); amplitude modulation 4e-16; the exact
+  solve with the ORACLE b and the true branch is exact to 2.8e-14 on
+  every pupil pixel (the algebra), so the reading's errors are (i) the
+  BRANCH -- on the rng(7) 30 nm base 7.8% of pupil pixels sit beyond the
+  quarter-wave sensor's fold (phi - Theta > 0, the -pi/4 bound), a
+  per-pixel ambiguity of one dimple frame -- and (ii) PISTON: the
+  intensity is invariant under a common phase on E and b, so an
+  ITERATED b converges to the truth up to a constant (the sensor's
+  piston null, S3; the oracle b carries the true piston; measured: the
+  refined-prior residual IS a piston, mean -0.0902 rad = |b_iter -
+  Eb1|/|Eb1| 0.0902).  Map space on that base, piston removed (rad rms
+  vs the true detector phase, 0.537 rad rms signal): L 0.259 | F 0.247
+  | I 0.235 | I+ with the plain stepped prior 0.034 (it agrees with the
+  true branch on 97.0% of pixels) | **I+ with the REFINED prior 2.8e-4**
+  (`dmg_zwfs_gauge` priorS: the stepped retrieval re-solved with the
+  iterated |b|^2, two passes -> 99.99% of pixels on the true branch) --
+  the whole 30 nm working state read from ONE frame to 5e-4 of itself.
+  Flat hold-out 20 nm, piston removed: L 8.5e-4, F 7.3e-5, **I 7.5e-7
+  rad** (the iteration converges 6e-3 -> 1e-6 in five steps; raw with
+  piston 8.9e-4 / 2.4e-4 / 2.3e-4).  *Block C, 96x96:* kernels
+  ring-free (L 0.751 / I 0.928 / S 0.928 peak, corr 0.98-0.995); modal
+  transfer SMOOTH -- L 1.04-1.18 from 2 to 40 cyc/ap, I 1.03 -> 0.89, S
+  0.96 -> 0.89, the only dip the dimple passband at 0.5-1 cyc/ap (L
+  0.72/0.50) -- the (64,0) -0.52 null is GONE.  Rows (raw actuator-space;
+  legacy in brackets): flat/hold20 L 0.920 / 68 pm, all exact readings
+  0.900 / 61 pm [1.158 / 202 corrected]; flat/rand10 I 0.88 / 2.2 nm, S
+  2.3 nm [16.8 / 10.2]; rand30/single10 floor+SNR: L 67 pm / 80 [744 /
+  9.2], F 30 / 192, I 36 / 204, **I+ 13 pm / 584**, S 23 / 312 [755 /
+  15]; rand30/grid@1nm SNR: **L 14.1 [1.46], F 11.9, I 13.4, I+ 33.5, S
+  36.7 [2.28] -- the sensitivity stage's one undetected scenario is
+  DETECTED by every reading**; rand30/rand10: L 9.6 nm [42], I+ 5.8, S
+  3.3 [37.6].  48x48: hold-out exact readings 0.997 / 39 pm (L 0.949 /
+  65); rand30/single10 **I+ 1.009 / 24 pm / SNR 466** where the one-frame
+  readings WITHOUT the refined prior read sign-FLIPPED (L -0.82, F -1.43,
+  I -2.07: the base put 29.5% of that actuator's footprint beyond the
+  fold and the plain stepped prior saw 2.3% of it -- `fold_site` probe);
+  grid-on-base SNR L 16.4, I 14.8, **I+ 115**, S 99; dense random S 2.4
+  nm, I+ 14 nm (dense commands stay the stepped reading's).  *Break
+  scale (single-act 10 nm differential on a growing base; true
+  beyond-fold fraction at 96x96 7.7 / 12.6 / 16.9 / 20.6% at 30 / 40 /
+  50 / 60 nm rms, which the refined prior finds to 4 digits; the plain
+  one 4.7 / 7.2 / 8.6 / 8.7%):* g(SNR) at 96x96 -- L 0.51(85) 0.41(53)
+  0.32(35) 0.24(24); F 0.60(161) 0.73(108) 0.24(25) 0.03(5); I 0.80(185)
+  0.09(11) 0.09(12) 0.00(0); **I+ 0.85(266) 0.86(201) 0.91(179)
+  0.86(147)**; S 0.85(202) 0.73(194) 0.61(131) 0.56(103); at 48x48 I+
+  1.00 / 1.07 / 1.01 / 1.05 (SNR 97-132) vs S 0.97 / 0.89 / 0.76 / 0.52.
+  **So the cliff the un-primed iterated readings have between 30 and 40
+  nm rms (wrong-branch pixels re-propagated INTO b corrupt the good
+  ones) is the PRIOR's, not the sensor's: with the refined prior the
+  one-frame reading holds to 60 nm rms and beats the four-frame stepped
+  one there.**  Past ~120 nm rms the stepped retrieval itself wraps
+  (prior fold fraction 0) and every reading aliases (S4: quote gain, not
+  SNR).  *Spec verdicts:* grid-on-base SNR >= 5 from ONE frame: MET (I
+  13.4 at 96, I+ 33.5; the model correction alone gets L there);
+  hold-out RAW gain within 3% of 1: MET at 48x48 (0.997), 0.900 at
+  96x96 -- NOT the reading and NOT the Tikhonov (lambda 0.05 -> 0.002
+  moves it 0.900 -> 0.906; the map's own peak ratio is 0.911): the
+  NGRID-193 dev ray grid samples a 1 mm actuator at ~2 px; the
+  compliant NGRID 385 run is the check (sampling doctrine, S1 round
+  11).  **Doctrine, updated:** the model correction is the bigger lever;
+  on the corrected sensor the one-frame iterated reading with the
+  refined base prior (I+; the base's 4 stepped frames taken ONCE) is the
+  best small-actuator-count reading to at least 60 nm rms working state
+  (13-24 pm floors, SNR 466-584 on the head-to-head row); the frozen
+  exact (F) is the prior-free one-frame reading to 40 nm; the stepped
+  (4 frames) owns dense commands.  Follow-ons (named): NGRID 385; re-run
+  S6 color on the corrected model (the chromatic null was largely
+  Talbot); the S5 noise pricing of I+ (its frames carry the prior's
+  noise too); deck fold.  Figure `zwfs_s7iter.png`; report
+  `zwfs_s7iter_report.txt`; `zwfs_test_legacy.in` re-emitted by the
+  script (gitignored).
+
+- **S8 (zwfs_run, 2026-09-10, Dave: "work down the open list; a
+  parameterized runner users can modify and rerun without AI"): the
+  RUNNER, and the three open items measured through it.**  Runs are in
+  `runs/<tag>/` (report, .mat, deck, PNGs); every number below is from
+  those reports.  *Equivalence gate:* `runs/rec193` (defaults) against
+  `zwfs_s7iter_report.txt` -- 64 row/ladder lines, 8 differ in the last
+  printed digit (pcg tolerance), every gate value identical.
+  *NGRID 385 (open item 2):* three configurations -- `ng385` (model
+  1024, spot 2.0: dimple 3.96 px at the mask, FAILS the 6-px line;
+  5.03 px/actuator), `ng385s3` (1024, spot 3.0: 5.94 px), and `m2048`
+  (MODEL 2048 via the trimmed size table `macos_param_2048.txt`, spot
+  2.0: 7.92 px AND 5.03 px/actuator -- the first fully COMPLIANT run;
+  32.5 min, < 4 GB resident).  Findings: (i) the 96x96 hold-out raw gain
+  moves 0.900 -> 0.935 from NGRID 193 to 385 and is then IDENTICAL at
+  model 1024 and 2048 (0.9348 / 0.9348) and spot-independent (0.9347 at
+  spot 3.0); at 48x48 it moves the other way (0.997 -> 0.964).  So the
+  S7 "sampling" attribution was half right: NGRID moves it, the dimple
+  sampling does not, and the remaining 6.5% is neither -- the named
+  suspect is kernel spatial variation between the centre (where the
+  kernel is measured) and the hold-out site (S2 measured 13% on the
+  legacy model).  (ii) Every actuator-space row at 385 is the same at
+  model 1024 and 2048 to the third digit (I+ single-on-base 0.913/25 pm/
+  SNR 359 vs 0.914/26/355; grid-on-base 37.4 vs 37.3) even though the
+  reference-wave profile |Eb|/|E0| (the new bench-stage diagnostic; a
+  function of lam/D only, so it must not depend on the ray grid) differs
+  by 2.5% at pupil centre between the 4-px and 8-px dimples -- the
+  gray-edged 4-px dimple is adequate for actuator-space results at the
+  1% level; the 6-px rule stays as the budget line.  (iii) THE SAMPLING
+  TRADE (Dave): mask-plane px per lam/D = fill*MODEL/NGRID (0.74 here),
+  detector px per actuator ~ NGRID -- the two lines pull opposite ways
+  in NGRID; only MODEL buys both.  (iv) Spot 3.0 only deepens the
+  dimple-passband dip below 2 cyc/ap (min gain 0.22 vs 0.50), transfer
+  identical above -- spot 2.0 stays the sensor of record.  (v) The
+  break-scale ladder on 47 grid sites (`battery.ladder_sites` 'grid';
+  the record's single hold-out site made "I+ holds to 60 nm" a
+  one-site statement): at 96x96 I+ holds to 40 nm rms (gain 0.81-0.85,
+  SNR 26-30) and collapses at 50-60 (floor 0.7-3 nm: a subset of sites
+  beyond the fold), the stepped reading holds to 50-60 (0.83/0.66);
+  at 48x48 I+ holds to 50 (0.84-0.89) and S to 50 (0.87-0.99).  The
+  multi-site floor (300-600 pm) is the crosstalk of 47 simultaneous
+  10 nm pokes, a different quantity from the single-site floor.
+  *S6 colour re-run on the corrected model (item 3, `rec193full`):*
+  colour is NOT a lever any more.  The chromatic transfer null left with
+  the Talbot artefact, so the 5-colour combination's minimum transfer
+  (0.991) beats the best single colour (0.962 at 632.8) by 3% instead of
+  3x; on the rows the combination is neutral for I+/S (single-on-base
+  SNR 269 -> 183, grid 31.8 -> 32.4) and WORSE for L (the 480 nm channel
+  reads NEGATIVE on the 30 nm base, |c| = 1.73, 2.1 rad dimple, and the
+  equal-weight combiner inherits it).  What stays chromatic is RANGE:
+  780 nm is the best single colour on nearly every row (smaller phase
+  per nm of height, 1.62 lam/D dimple), best pair 700+780.
+  *S5 noise pricing of I+ (item 4, `rec193full`):* photons per DM
+  state for 1 pm -- L 5.4e13, F 3.7e13, I 6.4e13, I+ 8.8e13 (the prior's
+  own shot noise costs 5%: 8.4e13 with a noiseless prior), S 1.0e14;
+  all within a factor 3, all ~25x cheaper than the legacy defocused-model
+  pricing (1.4e15 / 5e15); high-N floors converge to the battery's
+  systematic floors (L 61 / F 37 / I 48 / I+ 31 / S 42 pm).  Photon
+  noise is not the blocker; the 6.5% hold-out gain and the 25-60 pm
+  systematic floors are.  *Open:* the hold-out-site kernel check
+  (measure the kernel AT the hold-out site); deck fold (deck_zwfs still
+  tells the legacy-model S1-S6 story).
+
+- **S9 (zwfs_run, 2026-09-10, Dave: "go ahead with ZWFS next steps"):
+  the two calibration questions, measured -- and a real fix to the
+  actuator fit.**  Runner knobs added for them: `reg.kernel_site`
+  ('center' | 'hold' | [r c]: where the response kernel is measured;
+  the registration anchor always comes from the centre poke),
+  `battery.calib_surface` ('flat' | 'base': kernel + modal transfer
+  measured differentially on the working surface, the exact class read
+  with the base's refined sign map), `reg.stencil_site` ('grid' |
+  'lattice'), `dm_use`, `hold`, and a per-row fold-crossing diagnostic
+  (pixels whose side of the quarter-wave fold differs between the base
+  and base+change).  All at NGRID 193 / model 1024, 96x96, unless stated;
+  runs/ks_hold, ks_hold_tc, ks_hold_hw12, ks_hold_lat, cal_base,
+  fold_diag, rec193_lat, ng385_lat.
+  *(1) Where the kernel is measured.*  Centre kernel tested at (60,40):
+  0.900 (the record).  Kernel at (60,40) tested at the centre: 0.987.
+  Kernel at (60,40) tested at (60,40): 0.958 -- NOT 1: even at its own
+  site the fit recovered 96%.  Widening the stencil (half-width 12 vs 6)
+  changed nothing (0.9576 both).  THE CAUSE: `dmg_anchor` returns the
+  poke's peak on the 0.28 mm MAP grid (`tax = xg(tc)`), so the stencil
+  was sampled up to half a grid pitch (0.14 mm) off the actuator centre
+  the fit samples at.  Snapping the stencil site to the exact lattice
+  point (`reg.stencil_site` 'lattice', now the DEFAULT; 'grid'
+  reproduces S7) gives own-site 0.9915 / floor 5 pm / SNR 4200 (the
+  near-identity check it should be), record configuration 0.900 ->
+  0.946 (floor 49 -> 37 pm), and at NGRID 385 / model 1024 the
+  test-actuator gain 0.935 -> **0.9963** -- the 3%-of-1 spec is MET at
+  the 1 Mpix-class sampling; I+ on the 30 nm surface there 0.913 / 25 pm
+  / SNR 359 -> **0.975 / 18 pm / 529**, grid-on-base SNR 37 -> 45.  So
+  the "remaining 6.5%" was ~5% stencil-site quantization + ~1-5% true
+  site variation (kernel at (60,40) vs centre: raw peak 0.911 vs 0.928,
+  a broader shape), the latter absorbed by a kernel measured where it
+  is used.  The interferometer's tg96_s3/s4 sample the TRUE kernel the
+  same way -- flagged to CCMac for the tg96 runner (BRIEF_ccmac_tg96_oap
+  addendum).
+  *(2) Calibrating on the working surface* does NOT recover the
+  working-surface gain deficit: I+ on the 30 nm surface 0.736 with the
+  on-surface calibration vs 0.788 flat-calibrated (S 0.767 vs 0.705; the
+  linear class cannot be calibrated on a 30 nm surface at all -- kernel
+  corr -0.28).  Multi-site ladder on-surface: I+ 0.73 / 0.75 / 0.39 /
+  0.59 vs flat-calibrated 0.79 / 0.82 / 0.76 / 0.31 at 30/40/50/60 nm.
+  So the deficit is in the READINGS on a working surface, not in the
+  calibration.  Fold crossings are NOT it for a single change: 3 of
+  2258 beyond-fold pixels move under a single 10 nm change (0.01% of
+  msk), 10 under the 47-site 1 nm grid, but 946 (3.3%) under a dense
+  10 nm random change -- the mechanism that makes the stepped reading
+  own dense commands.  With the lattice stencil the single-site
+  working-surface deficit at NGRID 385 is 2.5% (I+ 0.975 vs 0.996 flat);
+  the 47-site ladder keeps its shape (I+ 0.80 / 0.83 / 0.74 / 0.34).
+  Open, named: the single-site 2.5% and the 47-site 20% on a working
+  surface (the stepped reading's flat-DM |Eb|^2 calibration, 14% off on
+  a 30 nm surface, is the S-class suspect; for I+ the differential of
+  two exact readings whose map error is 2.8e-4 rad rms should be
+  smaller than measured -- the actuator-fit stage on a working surface
+  is the next place to look).
+
+- **S10 (zwfs_run, 2026-09-10, Dave: "modes can also be measured -- and
+  should be when using a real DM: poke the actuators in grids wide enough
+  that there is no overlap, then measure, to obtain dw/da"): the
+  MEASURED response matrix is now the default calibration.**
+  `battery.calib_mode` 'matrix' (`calib_matrix_`): every 8th actuator
+  poked in a sparse grid, the 64 grid offsets stepped so every lit
+  actuator is poked once (64 states for 3252 actuators), each response
+  cut from its own +/-half-step detector window (registration only
+  PLACES the windows), columns per reading class, estimator = a
+  regularized least-squares solve on J (dense 3252x3252 normal matrix,
+  Cholesky).  No single-site kernel, no shift-invariance, no frequency
+  correction.  `matrix_step` 8, `matrix_lam` 1e-3 of the median column
+  energy, `matrix_sign` 'same' | 'alternate'.
+  *The one property of THIS sensor the method must carry:* the ZWFS
+  cannot see piston, so every reading is mean-referenced over the pupil
+  and a multiplexed frame carries the pokes' shared negative pedestal.
+  Cut naively, each column gets its halo concentrated in an 8-actuator
+  cell instead of spread over the pupil, and the estimator over-responds
+  2-4x to patterns below ~12 cycles/aperture (runs/mat193: 2.1 / 2.2 /
+  3.7 / 3.2 / 1.6 at 0.5-8 cyc/ap for L).  Fix (runs/mat193b): subtract
+  the frame's pedestal (its median over the mask) before cutting, and
+  give each column its own volume spread over the mask -- J'J = Jl'Jl -
+  v v'/A_mask, J'm = Jl'm - v (1'm)/A_mask (a rank-one term; the uniform
+  command is nulled as the sensor nulls it).  With it the exact
+  reading's response through the matrix is **0.99-1.08 at EVERY probed
+  frequency (0.5-40 cyc/ap) with no correction**; S 0.66 at 0.5 cyc/ap
+  (its flat-DM |Eb|^2) and 0.93-1.02 above; L 0.74 at 0.5 then a slow
+  rise to 1.28 at 40 (its own nonlinearity).
+  *Rows (193 rays, 96x96, matrix vs kernel-lattice):* flat single
+  actuator **0.994 / floor 4 pm / SNR 5500** (kernel: 0.946 / 37 pm /
+  515); 30 nm surface, single 10 nm change: I+ 0.73 / 42 pm (kernel:
+  0.82 / 13 pm), S 0.75 / 17 pm (0.74 / 17); 47-site 1 nm grid on the
+  surface: I+ SNR 60 (kernel 36), S 82 (37); dense random I+ 0.90 / 4.6
+  nm (0.82 / 6.1), S 0.82 / 2.1 nm (0.74 / 3.5); 47-site 10 nm ladder at
+  30 / 40 nm rms: I+ 0.68 / 34 pm / SNR 200 and 0.67 / 47 / 143 (kernel
+  0.80 / 290 / 27.5 and 0.83 / 250 / 33) -- the FLOOR falls 6-10x, the
+  GAIN on a working surface falls.  So the matrix removes the crosstalk
+  entirely and isolates the working-surface gain loss as a READING
+  effect.  Its mechanisms, now with evidence: for I+ the few pixels that
+  cross the quarter-wave fold under a change (3 per single change) sit
+  INSIDE the changed actuator's footprint, where they are a large
+  fraction of its pixels at 2.5 px/actuator (site-dependent: the (60,40)
+  site at 385 rays loses only 2.5%); for S the flat-DM |Eb|^2
+  calibration is 14% off on a 30 nm surface.  Both are fixes in the
+  readings (a fold-aware branch choice near the change; b2cal on the
+  working surface), the next work.
+  *Alternating +/- pokes (Dave's question, runs/mat193c):* the exact
+  readings are neutral to slightly worse in the model (flat single
+  actuator 0.987 / 11 pm vs 0.994 / 4 pm; surface rows identical); the
+  linear reading's +/- asymmetry costs it (0.67); the piston-null term
+  handles the pedestal in either case.  On a real bench alternating
+  cancels common-mode drift between sets (the Steeves 2020 protocol), so
+  it stays as `matrix_sign` 'alternate'; 'same' is the model default.
+  `runs/mat385`: the 385-ray matrix run (the deck's numbers).
+  *The matrix ON THE WORKING SURFACE (runs/matbase: `calib_mode` 'matrix'
+  + `calib_surface` 'base'; the operating-point interaction matrix, 64
+  states x 4 frames once per working state) -- THE result of the day:*
+  the map-space diagnostic (runs/mapdiag; the same change read on the
+  flat vs its differential on the surface, over the changed actuator's
+  window) showed EVERY reading's differential map 29-60% off in rms and
+  0.49-0.82 in amplitude on the surface (L 0.60 / 0.49, F 0.57 / 0.65, I
+  0.35 / 0.82, I+ 0.36 / 0.78, S 0.29 / 0.73): the sensor's local
+  sensitivity depends on the local phase of the working surface (the
+  per-pixel sensitivity factor of the Ruane budget form).  A matrix
+  measured on that surface carries each actuator's local sensitivity,
+  which a single-site kernel could not (why S9's on-surface kernel
+  calibration failed).  Rows at 193 rays, 30 nm surface, on-surface
+  matrix (flat matrix in brackets): **S single 10 nm change 0.989 / 5 pm
+  / SNR 2160** [0.75 / 17 / 444]; S 47-site 1 nm grid 0.999 / 4 pm / SNR
+  284 [0.83 / 10 / 82]; S dense random 10 nm 0.98 / 0.68 nm [0.82 /
+  2.1]; **L (linear, one frame) single 1.04 / 21 pm / SNR 492** [0.32 /
+  140 / 23], grid 1.05 / 22 pm / 47, dense 1.04 / 4.7 nm; the exact
+  one-frame readings do NOT benefit (I+ 0.69, I 0.81, F 0.76): their
+  surface error is the fold sensitivity, which moves with the change
+  itself (the multiplexed pokes cross the fold on different pixels than
+  the test change).  Ladder on 47 sites with the 30 nm-surface matrix:
+  S 1.08 / 0.98 / 0.92 / 0.70 at 30 / 40 / 50 / 60 nm rms (floors 243 /
+  228 / 399 / 664 pm), L 1.03 / 0.96 / 0.83 / 0.68 -- a calibration
+  made at 30 nm degrades slowly (0.92 at 50).  DOCTRINE, updated: on a
+  working surface, measure the response matrix ON that surface (256
+  frames once), then the four-frame stepped reading reads changes at
+  the 5 pm floor with gain 0.99; the linear one-frame reading is then
+  usable at 21 pm; the exact one-frame readings stay the flat-surface
+  tools.  The 1 pm target: for 1 nm changes on the 47-site grid the S
+  reading is at 1 pm of gain error + 4 pm of floor.  runs/matbase385:
+  the same at 385 rays.

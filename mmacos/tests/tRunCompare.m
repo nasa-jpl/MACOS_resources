@@ -300,6 +300,102 @@ classdef tRunCompare < matlab.unittest.TestCase
             cc = corrcoef(dg(sel), dz(sel));
             tc.verifyGreaterThan(cc(1, 2), 0.995);
         end
+
+        function test_zern_grid_conventions_engine_equivalence(tc)
+            % WS3 ACCEPTANCE GATE (CCL 2026-09-14, strengthened round 2).
+            % A grid poke of each non-ANSI convention's mode map (through
+            % elt_grid_add / GridChannel) must reproduce the engine's
+            % MonZernCoef poke of the same mode under the matching
+            % MonZernType (NormNoll / NormBornWolf) -- ordering AND per-mode
+            % normalization, against the engine itself.
+            %
+            % Modes {4,7,8}: Noll and Born & Wolf DIFFER at 4 and 7 (Noll 7
+            % = ANSI 8 coma, B&W 7 = ANSI 10 trefoil) and COINCIDE at 8 (both
+            % -> ANSI 9), so 8 alone cannot see a convention swap.  Mode 7
+            % also drives the NEGATIVE control below.  ng 256 with sampling
+            % 31 puts the rays coarser than the grid pixel, so the bilinear
+            % facets vanish and every mode agrees to 1% / corr 1.0000 (CCL's
+            % discretization sweep) -- hence the 1% / 0.999 thresholds.
+            old = cd(tc.wd); restore = onCleanup(@() cd(old));
+            ga = macos.design.grid_augment_rx(fullfile(tc.wd, 'pie.in'), ...
+                fullfile(tc.wd, 'pie_grid256.in'), 'ng', 256);
+            base = fileread(fullfile(tc.wd, 'pie_grid256.in'));
+            s = 2;  elt = tc.seg.seg_elts(s);  f = tc.seg.frames(s);
+            N = ga.ng;  gdx = ga.gdx(min(s, numel(ga.gdx)));
+            ap_frac = f.lmon / (((N - 1)/2) * gdx);
+            modes = [4 7 8];
+
+            % Retyped decks + the grid maps for BOTH conventions (built once).
+            decks = struct('noll', 'NormNoll', 'bornwolf', 'NormBornWolf');
+            convs = fieldnames(decks);
+            vin = struct();  mp = struct();
+            for ci = 1:numel(convs)
+                conv = convs{ci};
+                vtxt = regexprep(base, 'MonZernType=\s*\w+', ...
+                    ['MonZernType=  ' decks.(conv)]);
+                p = fullfile(tc.wd, sprintf('pie_grid256_%s.in', conv));
+                fid = fopen(p, 'w');  fwrite(fid, vtxt);  fclose(fid);
+                vin.(conv) = p;
+                for mode = modes
+                    mp.(conv).(sprintf('m%d', mode)) = ...
+                        macos.zernike_grid_basis(N, mode, ap_frac, conv);
+                end
+            end
+
+            for ci = 1:numel(convs)
+                conv = convs{ci};  other = convs{3 - ci};
+                m = macos.Session(512);
+                m.load_rx(vin.(conv));
+                m.set_src_sampling(31);
+                wf = m.num_elt() - 1;
+                for mode = modes
+                    % engine poke of this MonZernType, and the matching map
+                    dz = tc.poke_delta_(m, ...
+                        macos.channels.MonZernChannel(m, elt, mode), wf);
+                    dg = tc.poke_delta_(m, macos.channels.GridChannel(m, ...
+                        elt, mp.(conv).(sprintf('m%d', mode))), wf);
+                    [sc, cc] = tc.disk_compare_(dg, dz);
+                    tc.verifyEqual(sc, 1, 'AbsTol', 1e-2, sprintf( ...
+                        '%s mode %d vs %s poke: scale', conv, mode, decks.(conv)));
+                    tc.verifyGreaterThan(cc, 0.999, sprintf( ...
+                        '%s mode %d vs %s poke: corr', conv, mode, decks.(conv)));
+                end
+                % NEGATIVE control: the OTHER convention's map at mode 7 must
+                % NOT match this deck's poke (Noll 7 coma vs B&W 7 trefoil),
+                % proving the gate can see a convention swap.
+                dz7 = tc.poke_delta_(m, ...
+                    macos.channels.MonZernChannel(m, elt, 7), wf);
+                dgo = tc.poke_delta_(m, macos.channels.GridChannel(m, ...
+                    elt, mp.(other).m7), wf);
+                [~, ccx] = tc.disk_compare_(dgo, dz7);
+                tc.verifyLessThan(abs(ccx), 0.5, sprintf( ...
+                    ['negative control: %s map vs %s poke at mode 7 must ' ...
+                     'NOT correlate (a convention swap is visible)'], ...
+                    other, decks.(conv)));
+            end
+        end
+    end
+
+    methods (Access = private)
+        function d = poke_delta_(~, m, ch, wf)
+            % OPD change (2-D) from a single channel poke, restored after.
+            m.trace(wf);  W0 = m.opd();
+            ch.apply(1e-4);  m.trace(wf);  W1 = m.opd();  ch.restore();
+            d = W1 - W0;
+        end
+
+        function [sc, cc] = disk_compare_(~, dg, dz)
+            % Compare a grid-map poke dg to an engine poke dz WITHIN the map's
+            % confined disk (rho<=lMon): zernike_grid_basis zeros the mode
+            % outside rho=1 while the engine's MonZern grows across the grid,
+            % so select on the grid map's own support.  Returns dz-per-dg
+            % scale and correlation.
+            mk = dg ~= 0 & dz ~= 0;
+            sel = mk & (abs(dg) > 0.1 * max(abs(dg(mk))));
+            sc = dg(sel) \ dz(sel);
+            c  = corrcoef(dg(sel), dz(sel));
+            cc = c(1, 2);
+        end
     end
 end
 

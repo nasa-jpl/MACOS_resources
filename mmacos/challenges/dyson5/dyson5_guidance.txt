@@ -1,0 +1,58 @@
+New design challenge?
+
+Hi Dave --
+
+I am adding Jim for his perspective...
+
+For imaging spectrometers, as a design reference, perhaps look at the canonical VSWIR.   
+
+Here are some made up specs but perhaps there are better ones tied to Eagle-VSWIR
+
+    F/1.8
+
+    FPA: 3000 x 500 x 18um pixels
+
+    Band: 380-2500 nm 
+
+    Keystone/Smile < .1 pixels (.2 might be ok by some)
+
+        Key products:  2D Field Angle MAP, 2D Spectral Wavelength MAP
+
+    SRF and XRF and the key resolution metrics and often they accept much large WFE that you might expect.
+
+        SRF < 1.5-2.0 pixels FWHM
+
+        XRF < 1.5 pixels FWHM
+
+    SNR vs WL is a key metrics so tracking radiometric gain vs wavelength would be good at well
+
+        Throughput 
+
+        Grating efficiency
+
+        FPA QE
+
+        Slit Losses
+
+In your tools you could also formalize the diffraction losses that occur in spectrometers.  There are losses both from the slit and grating (which is often sized to match the geometric pupil. 
+
+-Joe
+
+
+Hi Dave,
+
+Lori would probably send you her recent CDR slides. You could also consider Carbon-I. Christine has thoroughly documented the design.
+
+https://arxiv.org/abs/2505.22545
+
+Usually, they quote as-built specifications.  SRF is often specified to be 2.5-3 pixels.  The systems are often trying to map the planet every few weeks.  2 pixels wide slits are common and that gets convolved with the pixel size and LSF.  Exposures are short when push brooming in LEO. They are photon limited, not diffraction limited.
+
+Smile or keystone are often the drivers.
+
+The grating is the stop in the Dyson spectrometers.
+
+Sincerely,
+
+Jim
+
+ 

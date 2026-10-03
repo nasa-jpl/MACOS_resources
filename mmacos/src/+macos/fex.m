@@ -8,7 +8,9 @@ function s = fex(mode)
 %     .xp   7×1 raw xp_fnd result [Kr; psi(3); vpt(3)]
 %
 %   MODE = 1 (default) centres on the chief ray; MODE = 0 on the
-%   centroid.  Requires more than 3 elements and a STOP set (no STOP →
+%   centroid.  Since 2026-08-27 the engine CLI defaults to chief too
+%   (CENTROID/CHIEFRAY commands toggle it there; a centroid axis
+%   leaves tip/tilt in the OPD on obscured or segmented beams).  Requires more than 3 elements and a STOP set (no STOP →
 %   the underlying xp_fnd fails and this errors).
 %   This is pymacos's fex(); for the chief-ray-to-FP variant see
 %   macos.sxp.

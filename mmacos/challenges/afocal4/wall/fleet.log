@@ -1,0 +1,40 @@
+[20:40:47] start t-60_u00 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-60_u00.log
+[20:40:47] start t-60_u15 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-60_u15.log
+[20:40:47] start t-70_u00 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-70_u00.log
+[20:40:47] start t-70_u15 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-70_u15.log
+[20:40:47] start t-80_u00 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-80_u00.log
+[20:40:47] start t-80_u15 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-80_u15.log
+[21:36:15] done  t-80_u15 (exit 0)
+[21:36:15] start t-90_u00 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-90_u00.log
+[00:04:52] done  t-80_u00 (exit 0)
+[00:04:52] start t-90_u15 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-90_u15.log
+[00:17:13] done  t-70_u00 (exit 0)
+[00:17:13] start t-100_u00 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-100_u00.log
+[00:17:54] done  t-70_u15 (exit 0)
+[00:17:54] start t-100_u15 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-100_u15.log
+[00:19:49] done  t-60_u15 (exit 0)
+[00:19:49] start t-110_u00 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-110_u00.log
+[00:23:08] done  t-60_u00 (exit 0)
+[00:23:08] start t-110_u15 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-110_u15.log
+[00:58:59] done  t-90_u00 (exit 0)
+[00:58:59] start t-120_u00 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-120_u00.log
+[01:04:05] done  t-90_u15 (exit 0)
+[01:04:05] start t-120_u15 -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-120_u15.log
+Terminated
+[02:28:38] done  t-100_u15 (exit 0)
+[02:28:38] start t-80_u00_nowall -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-80_u00_nowall.log
+Terminated
+[02:28:38] done  t-110_u00 (exit 0)
+[02:28:38] start t-90_u00_nowall -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-90_u00_nowall.log
+Terminated
+[02:28:38] done  t-110_u15 (exit 0)
+[02:28:38] start t-100_u00_nowall -> /home/dcr/dev/MACOS_res_dev/mmacos/challenges/afocal4/wall/logs/wall_t-100_u00_nowall.log
+Terminated
+[02:28:38] done  t-120_u00 (exit 0)
+Terminated
+[02:28:38] done  t-120_u15 (exit 0)
+[03:41:31] done  t-100_u00 (exit 0)
+[04:38:11] done  t-100_u00_nowall (exit 0)
+[04:46:15] done  t-80_u00_nowall (exit 0)
+[04:49:42] done  t-90_u00_nowall (exit 0)
+[04:49:42] fleet complete; assemble with afocal4_wall()

@@ -1,0 +1,32 @@
+==== e2e6m CF3a -- Lyot-fraction trade (STATIC, stop c=0.98, N=1024, annulus 3-15 lambda/D)
+deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_prop.in | legs v4 v6 apl | lyots [0.5 0.6 0.7 0.8 0.9 0.95 0.98]
+
+-- v4 (vortex chg 4)
+   L=0.50: contrast 9.433e-06 | thru 0.230 | tag n_v4_L050_c098
+   L=0.60: contrast 1.641e-05 | thru 0.331 | tag n_v4_L060_c098
+   L=0.70: contrast 2.459e-05 | thru 0.451 | tag n_v4_L070_c098
+   L=0.80: contrast 2.972e-05 | thru 0.589 | tag n_v4_L080_c098
+   L=0.90: contrast 5.917e-05 | thru 0.745 | tag n_v4_L090_c098
+   L=0.95: contrast 1.012e-04 | thru 0.830 | tag n_v4_L095_c098
+   L=0.98: contrast 1.086e-04 | thru 0.884 | tag n_v4_L098_c098
+
+-- v6 (vortex chg 6)
+   L=0.50: contrast 1.115e-05 | thru 0.230 | tag n_v6_L050_c098
+   L=0.60: contrast 1.869e-05 | thru 0.331 | tag n_v6_L060_c098
+   L=0.70: contrast 2.230e-05 | thru 0.451 | tag n_v6_L070_c098
+   L=0.80: contrast 3.137e-05 | thru 0.589 | tag n_v6_L080_c098
+   L=0.90: contrast 5.458e-05 | thru 0.745 | tag n_v6_L090_c098
+   L=0.95: contrast 6.533e-05 | thru 0.830 | tag n_v6_L095_c098
+   L=0.98: contrast 6.637e-05 | thru 0.884 | tag n_v6_L098_c098
+
+-- apl (apodized Lyot (R1))
+   L=0.50: contrast 4.251e-07 | thru 0.028 | tag p_h280_L050_c098
+   L=0.60: contrast 4.284e-07 | thru 0.040 | tag u_h280_L060_c098
+   L=0.70: contrast 4.332e-07 | thru 0.055 | tag u_h280_L070_c098
+   L=0.80: contrast 4.371e-07 | thru 0.072 | tag u_h280_L080_c098
+   L=0.90: contrast 4.375e-07 | thru 0.091 | tag u_h280_L090_c098
+   L=0.95: contrast 4.375e-07 | thru 0.101 | tag u_h280_L095_c098
+   L=0.98: contrast 4.374e-07 | thru 0.108 | tag u_h280_L098_c098
+
+  figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf3a_lyot.png
+CF3a DONE in 8.4 min

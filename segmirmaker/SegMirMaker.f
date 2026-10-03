@@ -302,6 +302,7 @@ C  right-handed.  No-op for nominal +z-facing mirrors.
 	  ys(1) = -ys(1); ys(2) = -ys(2); ys(3) = -ys(3)
 	END IF
 
+
 	ihat(1)=-psi(1)
 	ihat(2)=-psi(2)
 	ihat(3)=-psi(3)
@@ -543,6 +544,9 @@ C  layout).  Segment blocks are already buffered in scratch unit 8.
 !     from the emitted segment frames, so a segment's rays reflected
 !     off the OPPOSITE segment's element (latent in every back-facing
 !     fixture; caught by the e2e s3 aperture traces, 2026-07-18).
+!     2026-08-07: re-verified as the correct emission for the
+!     PSEG-fixed engine too, by the per-segment polygon-aperture
+!     ray-count arbiter (a permuted deck loses ~88% of its rays).
 !     State consistency requires: moving segment k's DOFs moves the
 !     wavefront/edge/MET outputs of segment k, nobody else's.
 	WRITE(9,'(9x,"SegXgrid=",3(2x,A))')
@@ -1929,19 +1933,25 @@ C  {xMon,yMon,zMon}=segment face triad), emitted below via format 619.
      &	  TRIM(FmtD(yhat(1))),TRIM(FmtD(yhat(2))),TRIM(FmtD(yhat(3)))
 	WRITE(iUnit,'(A,3(2x,A))') '    zMon=',
      &	  TRIM(FmtD(zhat(1))),TRIM(FmtD(zhat(2))),TRIM(FmtD(zhat(3)))
+!-->  Grid frame = the SEGMENT's own clocked Mon triad, not the parent
+!     frame (Dave 2026-08-07): the standing rule is that a segment's
+!     grid frame must equal its clocked Mon frame or per-segment grid
+!     pokes don't localize/orient correctly.  The FF frame above stays
+!     the parent's -- it carries the replicated parent figure.
 	IF (nGridMat_p.GT.0) THEN
 	  WRITE(iUnit,'(A,3(2x,A))') '   pData=',
-     &	    TRIM(FmtD(pData_p(1))),TRIM(FmtD(pData_p(2))),
-     &	    TRIM(FmtD(pData_p(3)))
+     &	    TRIM(FmtD(pr(1))),TRIM(FmtD(pr(2))),
+     &	    TRIM(FmtD(pr(3)))
 	  WRITE(iUnit,'(A,3(2x,A))') '   xData=',
-     &	    TRIM(FmtD(xData_p(1))),TRIM(FmtD(xData_p(2))),
-     &	    TRIM(FmtD(xData_p(3)))
+     &	    TRIM(FmtD(xhat(1))),TRIM(FmtD(xhat(2))),
+     &	    TRIM(FmtD(xhat(3)))
 	  WRITE(iUnit,'(A,3(2x,A))') '   yData=',
-     &	    TRIM(FmtD(yData_p(1))),TRIM(FmtD(yData_p(2))),
-     &	    TRIM(FmtD(yData_p(3)))
+     &	    TRIM(FmtD(yhat(1))),TRIM(FmtD(yhat(2))),
+     &	    TRIM(FmtD(yhat(3)))
 	  WRITE(iUnit,'(A,3(2x,A))') '   zData=',
-     &	    TRIM(FmtD(zData_p(1))),TRIM(FmtD(zData_p(2))),
-     &	    TRIM(FmtD(zData_p(3)))
+     &	    TRIM(FmtD(zhat(1))),TRIM(FmtD(zhat(2))),
+     &	    TRIM(FmtD(zhat(3)))
+!<--
 	END IF
 
 	WRITE(iUnit,'(A)')       '  IndRef=  1d0'
@@ -1959,3 +1969,4 @@ C  {xMon,yMon,zMon}=segment face triad), emitted below via format 619.
 	END
 
 C***********************************************************************
+

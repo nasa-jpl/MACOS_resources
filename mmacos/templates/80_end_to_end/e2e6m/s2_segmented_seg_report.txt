@@ -1,0 +1,30 @@
+==== run_segmentation: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s1_telescope.in (elt 1, Hex rings=2, gap 0.025) ====
+[0] parent: 1185 src rays, 1185 pass, rmsWFE 2.772e-09 (WaveUnits)
+
+[1] 19 segments, width 1.2 flat-to-flat, 24 elements
+    parent obscurations carried onto the center segment: 0
+      Seg1     center [        +0 -7.414e-06 -7.562e-05]  lMon 0.6928
+      Seg2     center [      -0.6     +1.032     -0.121]  lMon 0.6928
+      Seg3     center [      +0.6     +1.032     -0.121]  lMon 0.6928
+      Seg4     center [      +1.2   -0.00184   -0.01877]  lMon 0.6928
+      Seg5     center [      +0.6     -1.036   +0.08349]  lMon 0.6928
+      Seg6     center [      -0.6     -1.036   +0.08349]  lMon 0.6928
+      Seg7     center [      -1.2   -0.00184   -0.01877]  lMon 0.6928
+      Seg8     center [      -1.2     +2.061    -0.2789]  lMon 0.6928
+      Seg9     center [        +0     +2.063    -0.2603]  lMon 0.6928
+      Seg10    center [      +1.2     +2.061    -0.2789]  lMon 0.6928
+      Seg11    center [      +1.8     +1.029    -0.1583]  lMon 0.6928
+      Seg12    center [      +2.4  -0.007338   -0.07484]  lMon 0.6928
+      Seg13    center [      +1.8      -1.04   +0.04606]  lMon 0.6928
+      Seg14    center [      +1.2     -2.076    +0.1295]  lMon 0.6928
+      Seg15    center [ -2.22e-16     -2.074    +0.1483]  lMon 0.6928
+      Seg16    center [      -1.2     -2.076    +0.1295]  lMon 0.6928
+      Seg17    center [      -1.8      -1.04   +0.04606]  lMon 0.6928
+      Seg18    center [      -2.4  -0.007338   -0.07484]  lMon 0.6928
+      Seg19    center [      -1.8     +1.029    -0.1583]  lMon 0.6928
+    bare segmented: 985 src rays, 985 pass, rmsWFE 2.485e-09 (parent 2.772e-09, -10.36%)
+[3] physical apertures (pad 0): 983 pass (bare 985) -- 2 gap/rim rays clip
+    first-fail elements 25; rmsWFE 2.487e-09 (-10.27% vs parent)
+    footprint/aperture figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s2_segmented_footprints.png
+[4] standard views: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s2_segmented_views.png
+[5] artifact /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s2_segmented.in: standalone reload 24 elts, 983/985 rays pass -> VERIFIED

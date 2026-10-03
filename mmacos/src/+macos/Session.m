@@ -78,7 +78,21 @@ classdef Session < handle
                 s = macos.trace(srf);
             end
         end
-        function W = opd(obj),          W = macos.opd();             end
+        function W = opd(obj, varargin)
+            % Forwards the name-value options of macos.opd
+            % ('orient','raw'|'xy'; 'sign','opl'|'wavefront').
+            W = macos.opd(varargin{:});
+        end
+        function unload(obj)
+            % Release the engine's memory back to the minimum model size.
+            % The Session stays valid; call init/load_rx again to reuse it.
+            macos.unload();
+            obj.model_size = macos.model_size_min();
+        end
+        function out = opd_ref(obj, varargin)
+            if nargout > 0, out = macos.opd_ref(varargin{:});
+            else,                 macos.opd_ref(varargin{:}); end
+        end
         function I = intensity(obj, srf, varargin)
             I = macos.intensity(srf, varargin{:});
         end
@@ -183,6 +197,18 @@ classdef Session < handle
         function calib_set_target(obj, target, varargin)
             macos.calib_set_target(target, varargin{:});
         end
+        function calib_set_beam(obj, kind, srf, target, varargin)
+            macos.calib_set_beam(kind, srf, target, varargin{:});
+        end
+        function calib_set_beam_pos_fov(obj, pos)
+            macos.calib_set_beam_pos_fov(pos);
+        end
+        function calib_set_beam_wt(obj, wt, varargin)
+            macos.calib_set_beam_wt(wt, varargin{:});
+        end
+        function varargout = ffcut(obj, varargin)
+            [varargout{1:nargout}] = macos.ffcut(varargin{:});
+        end
 
         % --- Element groups (EltGrp / GPERTURB) -----------------------
         function set_elt_grp(obj, iElt, members)
@@ -268,6 +294,21 @@ classdef Session < handle
         % --- Source beam shaping --------------------------------------
         function varargout = beam(obj, varargin), [varargout{1:nargout}] = macos.beam(varargin{:}); end
 
+        % --- Polarization ---------------------------------------------
+        function varargout = polarization(obj, varargin), [varargout{1:nargout}] = macos.polarization(varargin{:}); end
+        function vector_diffraction(obj, on),    macos.vector_diffraction(on);   end
+        function varargout = coating(obj, varargin), [varargout{1:nargout}] = macos.coating(varargin{:}); end
+        function rf = ray_field(obj, srf),       rf = macos.ray_field(srf);      end
+        function varargout = polarizer(obj, varargin), [varargout{1:nargout}] = macos.polarizer(varargin{:}); end
+        function varargout = waveplate(obj, varargin), [varargout{1:nargout}] = macos.waveplate(varargin{:}); end
+        function J  = elt_jones(obj, srf),       J  = macos.elt_jones(srf);      end
+        function jp = jones_pupil(obj, srf, varargin), jp = macos.jones_pupil(srf, varargin{:}); end
+        function pm = pol_maps(obj, jp),         pm = macos.pol_maps(jp);        end
+        function pz = pol_zernike(obj, pm, varargin), pz = macos.pol_zernike(pm, varargin{:}); end
+        function pc = pol_contrast_floor(obj, pupil, det, varargin)
+            pc = macos.pol_contrast_floor(pupil, det, varargin{:});
+        end
+
         % --- Diffraction buffers / window -----------------------------
         function I = compose(obj, srf, varargin), I = macos.compose(srf, varargin{:}); end
         function window(obj, varargin),          macos.window(varargin{:});      end
@@ -275,5 +316,74 @@ classdef Session < handle
 
         % --- Element finders ------------------------------------------
         function g = find_grid_elts(obj),        g = macos.find_grid_elts();    end
+        function pe = find_powered_elts(obj, rx_path, varargin)
+            pe = macos.find_powered_elts(obj, rx_path, varargin{:});
+        end
+
+        % --- Grating setters ------------------------------------------
+        % (the get_ halves are above; the house convention is that both
+        % halves of a get/set contract surface on the Session too)
+        function set_elt_grating_type(obj, srf, varargin),  macos.set_elt_grating_type(srf, varargin{:});  end
+        function set_elt_grating_dir(obj, srf, varargin),   macos.set_elt_grating_dir(srf, varargin{:});   end
+        function set_elt_grating_order(obj, srf, varargin), macos.set_elt_grating_order(srf, varargin{:}); end
+        function set_elt_grating_rulewidth(obj, srf, varargin), macos.set_elt_grating_rulewidth(srf, varargin{:}); end
+        function varargout = set_elt_grating_params(obj, varargin)
+            [varargout{1:nargout}] = macos.set_elt_grating_params(varargin{:});
+        end
+
+        % --- Metrology ------------------------------------------------
+        function out = met(obj, varargin),       out = macos.met(varargin{:});   end
+        function g = met_geom(obj),              g = macos.met_geom();           end
+
+        % --- Ray history / drawing / viewers --------------------------
+        function out = ray_hist(obj, varargin),  out = macos.ray_hist(varargin{:}); end
+        function b = draw_rays(obj, varargin),   b = macos.draw_rays(varargin{:});  end
+        function b = draw_rays3d(obj, varargin), b = macos.draw_rays3d(varargin{:}); end
+        function fig = view_rx(obj, varargin),   fig = macos.view_rx(varargin{:});  end
+        function fig = view_std(obj, varargin),  fig = macos.view_std(varargin{:}); end
+
+        % --- Diffraction post-processing ------------------------------
+        function apodize_complex(obj, srf, mask), macos.apodize_complex(srf, mask); end
+        function out = opd_psf(obj, rx_path, varargin)
+            out = macos.opd_psf(rx_path, varargin{:});
+        end
+        function z = pupil_zone_map(obj, pupil_elt, image_elt, varargin)
+            z = macos.pupil_zone_map(pupil_elt, image_elt, varargin{:});
+        end
+
+        % --- Sensitivity supervisors ----------------------------------
+        % These take the session as their FIRST argument, so the method
+        % form drops it: m.dw_dx(rx, ...) == macos.dw_dx(m, rx, ...).
+        function out = dw_dx(obj, rx_path, varargin)
+            out = macos.dw_dx(obj, rx_path, varargin{:});
+        end
+        function out = dw_dx_multi(obj, rx_path, varargin)
+            out = macos.dw_dx_multi(obj, rx_path, varargin{:});
+        end
+        function out = dw_dz_zernike(obj, rx_path, varargin)
+            out = macos.dw_dz_zernike(obj, rx_path, varargin{:});
+        end
+        function out = dw_dz_zernike_multi(obj, rx_path, varargin)
+            out = macos.dw_dz_zernike_multi(obj, rx_path, varargin{:});
+        end
+        function out = dw_dsurf(obj, rx_path, varargin)
+            out = macos.dw_dsurf(obj, rx_path, varargin{:});
+        end
+        function out = dw_dsurf_multi(obj, rx_path, varargin)
+            out = macos.dw_dsurf_multi(obj, rx_path, varargin{:});
+        end
+        function out = dw_dgrid(obj, rx_path, varargin)
+            out = macos.dw_dgrid(obj, rx_path, varargin{:});
+        end
+        function out = dw_dgrid_multi(obj, rx_path, varargin)
+            out = macos.dw_dgrid_multi(obj, rx_path, varargin{:});
+        end
+        function out = segment_grid_basis(obj, rx_path, varargin)
+            out = macos.segment_grid_basis(obj, rx_path, varargin{:});
+        end
+        function varargout = gs_zernike_segment_basis(obj, rx_path, varargin)
+            [varargout{1:nargout}] = ...
+                macos.gs_zernike_segment_basis(obj, rx_path, varargin{:});
+        end
     end
 end

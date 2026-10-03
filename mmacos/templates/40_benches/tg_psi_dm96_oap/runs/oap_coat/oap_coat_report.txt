@@ -1,0 +1,76 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "oap_coat"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 6.88 deg -> BS_AOI = 7 deg
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   688 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   564 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   523 mm
+  chosen DM leg 700 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  169.3 mm, margin  +27.9 mm (spec >= 25)
+  ref arm vs DM beam          separation  169.3 mm, margin  +57.9 mm (spec >= 25)
+  camera leg vs source beam   separation  169.3 mm, margin  +67.9 mm (spec >= 25)
+  OAP fold solve (need lateral clearance 126.4 mm):
+  OAP1 (collimator F1=857): AOI  5 deg -> lateral  148.8 mm, margin  +22.4
+  OAP2 (focuser   F2=429): AOI  9 deg -> lateral  132.4 mm, margin   +6.0
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/oap_tail.mat (null 12.887 nm at opt res; seed 12.901)
+Stage B -- oap rig built (BS_AOI 7); emitted oap_coat_{test,ref}.in
+
+Stage PLACE -- affine window placement (oap rig):
+  ray affine: mag 10.7036 DM-mm/det-mm, det -114.5672, in-plane rotation -0.00 deg, dxd 1.9859e-02 mm
+  anchor: blob px (496.54,533.92) <-> DM (-3.500,-4.620) mm; field parity [t=1 su=+1 sv=+1] (ref-poke err 2.32 px)
+  lit actuators: 3324 of 9216
+  bootstrap (ray affine): 83.82% within 2 px, median 0.88 px (410 of 414 blobs caught)
+  fit residual: affine 0.17 px, deg-2 0.13 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 410 CoMs): fit residual 0.17 px
+  refined pass 2 (deg-1, 410 of 414 caught): fit residual 0.17 px, gate 96.62% within 2 px, median 0.13 px
+  D1 GATE: 96.62% of lit within 2 px (need >= 99.0%), median err 0.13 px
+  by radius (mm):           6.5   13.0   19.5   26.0   32.5 
+    within2px    1.00   1.00   1.00   0.92   0.99 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.01 
+  ray-affine SVD: DM-mm/det-mm 10.704 / 10.704, anamorphism 0.00%, principal axis +0.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map, OAP): 96.62% within 2 px vs affine 96.62% (same 414 poked); register_two_pokes centre anchor reads 0
+Stage MATRIX -- measured response matrix dw/da (oap rig, step 8, sign same):
+  flat-DM null: 13.0921 nm rms surface (13092.1 pm) [tail expects 12.8873] -- the same-plane-fold arm difference
+  J: 64 states, 3324 columns (lit), window 37 px, reg lambda 1.00e-03 (of median col energy)
+  Stage C single actuator @150nm: gain 0.9927, off-target floor 19.6 pm
+Stage D -- modal transfer (matrix estimator):
+  mode(p,q)  cyc/pup     gain  cross-talk
+    1,1          0.7   0.9939      0.0904
+    2,2          1.4   0.9819      0.1389
+    4,4          2.8   0.9298      0.2555
+    8,8          5.7   0.9629      0.1913
+   16,16        11.3   0.9629      0.1916
+   24,24        17.0   0.9631      0.1906
+   32,32        22.6   0.9661      0.1824
+   48,48        33.9   0.9621      0.1893
+   64,64        45.3   0.9586      0.1847
+   80,80        56.6   0.9337      0.1906
+   96,96        67.9   0.8983      0.1824
+   48,0         24.0   0.9632      0.1878
+Stage E -- differential rows (matrix estimator; actuator space, pm):
+  base           deviation          gain   resid pm     corr
+  flat           single 10nm      0.9950        2.1   0.9999
+  flat           random 10nm      0.9488     2118.2   0.9766
+  random 16nm    single 10nm      0.9939        2.7   0.9999
+  random 16nm    random 10nm      0.9488     2118.8   0.9766
+Stage E break ladder -- single 10nm differential vs base rms (oap):
+  base rms       gain   floor pm     corr  note
+      30 nm   0.9929        3.3   0.9998  
+      60 nm   0.9906        4.7   0.9997  
+     120 nm   0.9851        7.7   0.9991  
+     240 nm  -3.2298     1044.1  -0.6021  BROKE (wrap: base reads 1.00 of lambda/4)
+     480 nm   2.5357      994.3   0.4173  
+Stage E reg sweep -- dense random 10nm gain vs matrix_lam (bright vs dark 25% columns):
+  lambda          all   bright     dark
+  1e-03        0.9488   0.9961   0.8162
+  1e-04        0.9550   1.0003   0.8278
+  1e-05        0.9574   1.0008   0.8356
+
+wrote oap_coat_report.txt + oap_coat.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oap_coat

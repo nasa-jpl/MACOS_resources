@@ -1,0 +1,18 @@
+dyson5 round 3a -- Jim's two-vs-four comparison (2026-10-02 21:23), engine scores re-cut from dyson5_size.mat
+CONVENTIONS: block radius = thickness (concentric Dyson); edged = circumscribing rod (clear diam x thickness); carve =
+  single-crystal CaF2 cylinder (clear diam + 20 mm) x (thickness + 20 mm), the blank a lens is ground from (n/a for
+  fused silica -- a melt, any size); throughput = uncoated Fresnel at 1 um over nX air-glass crossings.  CaF2 NOT priced:
+  the carve VOLUME is stated for Jim to price (price grows faster than volume; a boule is several crystals).
+
+configuration                                  r_mm    CRF    SRF     EE   smile   keyst   nX  thru edgL/mod edgkg/md sysGlassL sysGlasskg carveL/md sysCarveL   gratD  length
+2 x CaF2  3k  54mm (F, no men)                  240  1.213  2.024  0.824  0.0050  0.0058    4 0.881    4.49    14.3     8.98     28.5     6.20    12.41    318.0   787.2
+4 x SiO2  1.5k 27mm (D, no men)                 130  1.026  2.024  0.999  0.0065  0.0090    4 0.872    0.75     1.6     2.98      6.6      n/a      n/a    171.2   414.4
+  D small end (100 mm)                          100  1.247  2.024  0.797  0.0084  0.0119    4 0.872    0.43     0.9     1.71      3.8      n/a      n/a    133.6   317.8
+  F comfortable EE (300 mm)                     300  1.022  2.024  1.000  0.0043  0.0033    4 0.881    7.43    23.6    14.86     47.3     9.81    19.62    395.5   985.1
+ref: SiO2 3k 54mm 220 (R4, 4mm meniscus, 8x)    220  1.327  2.032  0.759  0.0051  0.0026    8 0.760    3.74     8.2     7.47     16.4      n/a      n/a    278.5   693.9
+ref: CaF2 1.5k 27mm 80 (small)                   80  1.024  2.024  0.995  0.0015  0.0072    4 0.881    0.28     0.9     1.10      3.5     0.58     2.34    111.7   259.7
+
+SYSTEM TOTALS Jim asked for:
+  2 x CaF2 240 mm (3k):  grating/detector/slit count 2 / 2 x 3k;  glass 9.0 L / 28.5 kg edged, carve 12.4 L single-crystal CaF2
+  4 x SiO2 130 mm (1.5k): grating/detector/slit count 4 / 4 x 1.5k; glass 3.0 L / 6.6 kg edged fused silica (no carve)
+  4 x SiO2 100 mm (1.5k): glass 1.7 L / 3.8 kg edged (the smallest D that matches R4)

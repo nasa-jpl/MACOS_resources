@@ -105,3 +105,22 @@ before send.
   packaging constraint is a screen, not a layout; say what still
   needs work (the Rodgers2 "buildable" de-emphasis: the long back
   focal distance needs serious repackaging).
+- 2026-08-24 (Dave, via the rodgers3 final-deck edit with Claude AI):
+  **doc/DECK_STYLE.md adopted as the governing guide for DECK
+  preparation** — distilled from transforming the CC-generated
+  workbook draft into deck_rodgers3_final.pptx.  Where it supersedes
+  prior deck practice: lean success-story main path with diagnostics
+  and reproduction mechanics in a Backup section (one plain divider);
+  plain descriptive titles (no coded headers like "C8 — S2", no
+  aphorisms); metric/conventions stated ONCE up front, never as
+  per-slide footers; no ALL-CAPS emphasis (bold lead-in labels
+  instead); kickers carry the headline number; project-internal
+  coinages translated to standard optics/optimization vocabulary
+  (rungs→steps, gates→checks/negative controls, hinge rows→weighted
+  penalty terms, walls→hard constraints, pinning→held parameters);
+  every result slide pairs layout + performance map; figures
+  autocropped and panel-recomposed, never regenerated.  The §5 gate
+  stands and is run against BOTH files for decks; the report-side
+  rules of THIS file are unchanged.  Slide tooling (kickers, backup
+  divider, panel recompose) may require extending the committed
+  builder — pptxgenjs or equivalent per DECK_STYLE Mechanics.

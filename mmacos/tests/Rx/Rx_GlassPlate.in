@@ -1,0 +1,96 @@
+% ---------------------------------------------------------------------------------------
+% Rx_GlassPlate -- gate fixture for GLASS DISPERSION AT TRACE TIME
+% (mmacos/tests/tGlassDispersion.m; challenge dyson5, macos/BRIEF_to_dyson5.md).
+%
+% A collimated 10 mm beam along +z meets a fused-silica face tilted 30 deg
+% (elt 1, Refractor, GlassElt= Silica) and is caught inside the glass by a flat
+% focal plane (elt 2).  The engine re-evaluates a GlassElt's Sellmeier index at
+% every trace (tracesub.F CTRACE: IndRef(iElt) = getIndex(lambda_um, ...)), so
+% the refracted direction must FOLLOW macos.set_src_wvl.  The test reads the
+% index off the refracted ray: n = sin(30 deg) / sin(theta_t), one number per
+% wavelength, and compares it with Malitson's fused-silica Sellmeier (the
+% coefficients in macos_f90/macos_glass_list.txt, line 'Silica').
+%
+% No index GETTER exists in macos_api_mod (IndRef_ is an unchecked TODO in its
+% audit list), which is why the gate measures the angle, not the number.
+% Variants the test builds by text substitution: FIXED index (GlassElt line
+% removed, IndRef= 1.5 -- the null: a run where the index does not move) and
+% CaF2 (assumption-gated until the engine table carries it).
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -1.0E-01
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=1.0E-02
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  11
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  2
+
+             iElt=  1
+          EltName=  Face30
+          Element=  Refractor
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  5.0E-01  0.0E+00 -8.6602540378443860E-01
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+         GlassElt=  Silica
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-01
+          nECoord= -6
+
+             iElt=  2
+          EltName=  DetectorInGlass
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00 -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0E-01
+           RptElt=  0.0E+00  0.0E+00  1.0E-01
+           IndRef=1.0E+00
+         GlassElt=  Silica
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-01
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

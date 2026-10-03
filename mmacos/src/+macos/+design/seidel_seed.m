@@ -1,65 +1,85 @@
-function [K, t_focus, EFL] = seidel_seed(R, t_between, D, convex)
-%SEIDEL_SEED  Korsch-anastigmat conic seed for a coaxial mirror train.
-%   [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D) solves
-%   the conic constants K (1xN) that null the 3rd-order Seidel spherical,
-%   coma and astigmatism sums (S_I, S_II, S_III) for an N-mirror coaxial
-%   reflective layout, using the n-flip unfolded paraxial model (ported
-%   from optical_design/seidel.py, which is validated against the trusted
-%   2-mirror RC and classical-Cassegrain fixtures).  It also returns the
-%   paraxial focus distance t_focus (last mirror -> image) and |EFL|.
+function [K, t_focus, EFL, S] = seidel_seed(R, t_between, D, convex, opts)
+%SEIDEL_SEED  Third-order anastigmat conic seed for a coaxial mirror train.
+%   [K, t_focus, EFL] = macos.design.seidel_seed(R, t_between, D) solves the
+%   conic constants K (1xN) that null the Seidel spherical, coma and
+%   astigmatism sums (S_I, S_II, S_III) of an N-mirror coaxial reflective
+%   train, and returns the paraxial focus distance t_focus (last mirror ->
+%   image, positive downstream) and the |EFL|.
 %
-%   [...] = seidel_seed(R, t_between, D, CONVEX) takes a 1xN logical CONVEX
-%   flagging each mirror's curvature SENSE.  The n-flip |radii| model bakes
-%   in a fixed concave-convex-concave alternation, so it mis-handles a
-%   mirror that is convex OFF that pattern (a real-intermediate-image
-%   reimager): it returns the WRONG paraxial focus AND unreliable conics
-%   (see project_seidel_convex_bug; brute-forcing all radius signs does NOT
-%   recover the true focus -- the n-flip is fundamentally inadequate here).
-%   So when ANY mirror is flagged convex, this returns the physically-
-%   correct UNFOLDED paraxial focus (signed curvature; a convex mirror is a
-%   negative lens, f = -R/2) and a SAFE base-sphere seed K = 0 -- the
-%   closed-form Seidel conic seed is not valid for the convex reimager, so
-%   the caller refines the conics with the design-layer optimize() (CALIB
-%   over conic DOFs), which nulls the field WFE to diffraction-limited (the
-%   j18mono f/20 convex TMA: 53590 waves -> 0.002 waves from the K=0 seed).
-%   Default CONVEX = all false -> the validated n-flip closed form, exactly
-%   byte-identical to the 3-arg call.
+%   [...] = seidel_seed(R, t_between, D, CONVEX) takes a 1xN logical giving
+%   each mirror's ACTUAL curvature sense (true = convex to the light that
+%   reaches it) -- when ANY entry is true.  An all-false CONVEX, like the
+%   3-argument call, means the classical alternation concave, convex,
+%   concave, ... (Cassegrain front, Korsch TMA): the Telescope builder's
+%   default, which infers a Korsch secondary's convexity from geometry and
+%   never flags it.  An all-concave train therefore cannot be seeded by
+%   flags alone (none exists in the corpus; add an option if one appears).
+%
+%   [K, t_focus, EFL, S] = seidel_seed(..., 'stop', s) places the aperture
+%   stop on mirror s (default 1); S returns the Seidel sums of the seeded
+%   train (S.SI, S.SII, S.SIII, S.SIV), each ~0 for the solved ones.
+%
+%   THE MODEL (rewritten 2026-10-03).  Physical paraxial trace in a FIXED
+%   frame: light enters along +z; every mirror flips the travel direction
+%   d; the index before a mirror is n = d and after it n' = -d (the "n-flip"
+%   of Welford / Smith); vertex curvatures carry their fixed-frame sign
+%   (centre of curvature at +z of the vertex -> c > 0: a concave mirror has
+%   c = -d/R, a convex one c = +d/R); the slope u is dy/dz; the transfer uses
+%   the SIGNED vertex displacement z(k+1) - z(k) = -d(k) t(k); refraction is
+%   n' u' = n u - y c (n' - n).  The Seidel sums are Welford's, with the
+%   refraction invariants A = n (y c + u), Abar = n (ybar c + ubar) and the
+%   conic term K c^3 (n' - n) y^4 scaled by (ybar/y)^k for S_II, S_III.
+%   This nulls a single concave mirror's spherical aberration at K = -1
+%   (the paraboloid) and reproduces the classical-Cassegrain and
+%   Ritchey-Chretien closed forms (Schroeder) to round-off -- the gates in
+%   tDesignTelescope.
+%
+%   WHY IT WAS REWRITTEN.  The 2026-06 port (`seidel_seed_nflip`, kept
+%   verbatim) used |R| with a positive thickness after every reflection, so
+%   the ray height at the THIRD mirror was wrong unless the M2->M3 space was
+%   afocal (the proof_korsch and tma_fixture cases, which is why they
+%   passed): on a Petzval-flat telecentric three-mirror (dyson5 beat 5,
+%   R = [700 125 152] mm, t = [140 76] mm) it placed the focus 16 mm BEHIND
+%   M3 and gave K3 = +265, where the exact first order has 141 mm in front
+%   and the EFL 126.7 mm.  Its "convex" path got the focus right but handed
+%   back K = 0.  The two-mirror cases never exposed it because their gates
+%   check the Seidel residuals, not the image position.
 %
 %   Inputs (consistent units; metres in the design layer):
-%     R         1xN mirror vertex radii as POSITIVE MAGNITUDES in the n-flip
-%               unfolded model (the validated reference is all-positive:
-%               seidel_seed([8 2 4],[3 4.5],1) -> f/8 with a convex secondary).
-%               Convexity is the GEOMETRY (a secondary before the M1 focus,
-%               t1 < f1), not the radius sign -- a negative R here would
-%               corrupt the paraxial trace.  The emitter stores KrElt = -|R|
-%               for every mirror (MACOS convention; see j18mono's convex SM).
-%     t_between 1x(N-1) vertex spacings M1->M2, ..., M(N-1)->MN.
-%     D         aperture diameter.
-%
+%     R         1xN vertex radii as POSITIVE MAGNITUDES (|KrElt|).
+%     t_between 1x(N-1) vertex spacings along the light, positive.
+%     D         aperture diameter (the marginal ray starts at y = D/2, u = 0).
+%     convex    1xN logical, see above.
 %   Outputs:
-%     K         1xN conic constants (Schroeder/MACOS KcElt convention).
-%     t_focus   MN->image vertex distance (paraxial marginal focus).
+%     K         1xN conic constants (Schroeder / MACOS KcElt convention).
+%     t_focus   mirror N -> image along the light (positive = downstream).
 %     EFL       |effective focal length|.
 %
-%   N=3 nulls S_I/II/III exactly (Korsch TMA).  N>3 returns the minimum-
-%   norm seed (extra conics) for multi-field optimisation to refine.
-%   N<3 errors (the 2-mirror families use the closed forms in resolve_).
+%   N = 3 nulls S_I/II/III exactly; N = 2 nulls S_I and S_II (the RC); N > 3
+%   returns the minimum-norm seed for optimize() to refine; N = 1 nulls S_I
+%   (the paraboloid).
 %
-%   Reference target (proof_korsch): seidel_seed([8 2 4],[3 4.5],1) ->
-%   K ~ [-0.622 0.148 -3.904], EFL = 8 (f/8).
-%
-%   See also: macos.design.Telescope, optical_design/seidel.py.
+%   See also: macos.design.Telescope, macos.design.tma_layout,
+%   macos.design.seidel_seed_nflip (legacy, for the record only).
     arguments
         R         (1,:) double
         t_between (1,:) double
         D         (1,1) double {mustBePositive}
         convex    (1,:) logical = false(1, numel(R))
+        opts.stop (1,1) double {mustBeInteger, mustBePositive} = 1
     end
     N = numel(R);
-    if N < 3
-        error('macos:design:seidel_seed:tooFew', ...
-            'need >= 3 mirrors for the Seidel anastigmat seed (got %d).', N);
+    % An all-false CONVEX (the 3-argument call, and the Telescope builder's
+    % default, which infers a Korsch secondary's convexity from geometry and
+    % never flags it) means the classical alternation; any true flag makes
+    % the vector the ACTUAL sense of every mirror.  This is exactly what the
+    % 2026-06 code did on every existing call, so no caller moves.
+    neg = R < 0;  R = abs(R);                  % a signed radius marks a convex mirror
+    if any(neg), convex = convex | neg; end    % (the builder accepts 'radius_m', -|R|)
+    if any(R == 0)
+        error('macos:design:seidel_seed:zeroR', 'a mirror radius of 0 has no meaning here.');
     end
+    if ~any(convex), convex = logical(mod(0:N-1, 2)); end
     if numel(t_between) ~= N-1
         error('macos:design:seidel_seed:dims', ...
             't_between must have N-1 = %d entries (got %d).', N-1, numel(t_between));
@@ -68,97 +88,77 @@ function [K, t_focus, EFL] = seidel_seed(R, t_between, D, convex)
         error('macos:design:seidel_seed:convexdims', ...
             'convex must have N = %d entries (got %d).', N, numel(convex));
     end
-
-    % --- Convex secondary: bail out of the n-flip closed form ----------
-    % The n-flip |radii| model cannot represent a convex mirror off its
-    % baked-in alternation; return the correct UNFOLDED paraxial focus
-    % (signed curvature, convex = negative lens) + a K=0 sphere seed for
-    % optimize() to refine.  See the header note.
-    if any(convex)
-        cc = 1.0 ./ R;  cc(convex) = -cc(convex);    % signed curvature
-        yy = D/2;  uu = 0.0;
-        for k = 1:N-1
-            uu = uu - 2.0*cc(k)*yy;  yy = yy + t_between(k)*uu;
-        end
-        uu      = uu - 2.0*cc(N)*yy;
-        t_focus = -yy / uu;
-        EFL     = abs((D/2) / uu);
-        K       = zeros(1, N);
-        return
+    if opts.stop > N
+        error('macos:design:seidel_seed:stop', 'stop mirror %d > N = %d.', opts.stop, N);
     end
+    th = deg2rad(0.05);                        % small field for the chief ray
 
-    th = deg2rad(0.05);                  % small field for coma/astig scaling
+    % --- geometry in the fixed frame: travel direction, signed curvature, vertex z
+    d  = (-1).^(0:N-1);                        % direction of the light REACHING mirror k
+    c  = -d ./ R;  c(convex) = -c(convex);     % concave: centre on the incoming side
+    dz = [-d(1:N-1) .* t_between, 0];          % z(k+1) - z(k) along the light after mirror k
+    n  = d;  np = -d;
 
-    % --- paraxial marginal focus after the last mirror -> t_focus ---
-    n = 1.0; y = D/2; u = 0.0;
-    for k = 1:N-1
-        c = 1/R(k); np_ = -n;
-        u = (n*u - y*((np_-n)*c))/np_;  y = y + t_between(k)*u;  n = np_;
-    end
-    c = 1/R(N); np_ = -n;
-    u = (n*u - y*((np_-n)*c))/np_;
-    t_focus = -y/u;
-    t = [t_between, t_focus];             % full spacing list (last = focus)
+    % --- chief ray through the stop mirror's vertex: linear in its height at M1
+    yb1 = chief_height_(c, dz, n, np, th, opts.stop);
 
-    % --- base trace (all spheres) for S_I/II/III ---
-    base = seidel_trace_(R, zeros(1,N), t, D/2, 0, 0, th);
-
-    % --- aspheric sensitivities g_j = [dS_I; dS_II; dS_III]/dK_j ---
-    n = 1.0; y = D/2; u = 0.0; yb = 0.0; ub = th;
-    g = zeros(3, N);
-    for k = 1:N
-        c = 1/R(k); np_ = -n;
-        gI = (np_-n)*c^3*y^4;
-        rho = 0; if y ~= 0, rho = yb/y; end
-        g(:,k) = [gI; gI*rho; gI*rho*rho];
-        phi = (np_-n)*c;
-        up  = (n*u  - y*phi)/np_;
-        ubp = (n*ub - yb*phi)/np_;
-        y = y + t(k)*up;  yb = yb + t(k)*ubp;  u = up; ub = ubp;  n = np_;
-    end
-
+    % --- base sums (spheres) and the conic sensitivities
+    [base, g, img] = sums_(c, dz, n, np, D/2, 0, yb1, th, zeros(1, N));
     b = -[base.SI; base.SII; base.SIII];
-    if N == 3
-        K = (g \ b).';                   % exact 3x3
-    else
-        K = (pinv(g) * b).';             % min-norm seed for N>3
+    switch N
+        case 1,     K = -base.SI / g(1, 1);
+        case 2,     K = (g(1:2, :) \ b(1:2)).';
+        case 3,     K = (g \ b).';
+        otherwise,  K = (pinv(g) * b).';
     end
-
-    r   = seidel_trace_(R, K, t, D/2, 0, 0, th);
-    EFL = abs(r.EFL);
+    [S, ~, img] = sums_(c, dz, n, np, D/2, 0, yb1, th, K);
+    t_focus = img.t_focus;
+    EFL     = img.EFL;
 end
 
 % =====================================================================
-function out = seidel_trace_(R, K, t, y1, u1, yb1, ub1)
-%SEIDEL_TRACE_  n-flip unfolded paraxial + Seidel sums for coaxial mirrors.
-%   Marginal ray (y1,u1), chief ray (yb1,ub1); each mirror flips n -> -n.
-%   Returns S_I..S_IV and EFL = -y1/u_final.
-    n = 1.0; y = y1; u = u1; yb = yb1; ub = ub1;
-    SI = 0; SII = 0; SIII = 0; SIV = 0;
-    H = n*(ub*y - u*yb);                  % Lagrange invariant (constant)
-    for k = 1:numel(R)
-        c = 1/R(k); np_ = -n;
-        phi = (np_-n)*c;
-        A  = n*(y*c + u);                 % marginal refraction invariant
-        Ab = n*(yb*c + ub);              % chief refraction invariant
-        up  = (n*u  - y*phi)/np_;
-        ubp = (n*ub - yb*phi)/np_;
-        dun = up/np_ - u/n;
-        sI   = -A*A   * y * dun;
-        sII  = -A*Ab  * y * dun;
-        sIII = -Ab*Ab * y * dun;
-        sIV  = -H*H * c * (1.0/np_ - 1.0/n);
-        A4  = K(k)*c^3/8.0;               % 4th-order conic departure
-        sIa = 8.0*(np_-n)*A4*y^4;
-        rho = 0; if y ~= 0, rho = yb/y; end
-        SI   = SI   + sI   + sIa;
-        SII  = SII  + sII  + sIa*rho;
-        SIII = SIII + sIII + sIa*rho*rho;
-        SIV  = SIV  + sIV;
-        y  = y  + t(k)*up;
-        yb = yb + t(k)*ubp;
-        u = up; ub = ubp; n = np_;
+function yb1 = chief_height_(c, dz, n, np, th, s)
+%CHIEF_HEIGHT_  Height at M1 of the chief ray (slope th) that crosses mirror s on axis.
+    if s == 1, yb1 = 0; return; end
+    y0 = height_at_(c, dz, n, np, 0, th, s);
+    y1 = height_at_(c, dz, n, np, 1, th, s);
+    yb1 = -y0 / (y1 - y0);                     % y(s) is affine in y(1)
+end
+
+function ys = height_at_(c, dz, n, np, y, u, s)
+    for k = 1:s-1
+        up = (n(k)*u - y*c(k)*(np(k)-n(k))) / np(k);
+        y  = y + dz(k)*up;  u = up;
     end
-    EFL = Inf; if u ~= 0, EFL = -y1/u; end
-    out = struct('SI',SI,'SII',SII,'SIII',SIII,'SIV',SIV,'EFL',EFL);
+    ys = y;
+end
+
+function [S, g, img] = sums_(c, dz, n, np, y, u, yb, ub, K)
+%SUMS_  Welford's Seidel sums over the train, the conic sensitivities, the image.
+    N = numel(c);  y1 = y;
+    SI = 0; SII = 0; SIII = 0; SIV = 0;
+    H  = n(1)*(ub*y - u*yb);                   % Lagrange invariant
+    g  = zeros(3, N);
+    for k = 1:N
+        A   = n(k)*(y*c(k) + u);
+        Ab  = n(k)*(yb*c(k) + ub);
+        up  = (n(k)*u  - y *c(k)*(np(k)-n(k))) / np(k);
+        ubp = (n(k)*ub - yb*c(k)*(np(k)-n(k))) / np(k);
+        dun = up/np(k) - u/n(k);
+        gI  = c(k)^3*(np(k)-n(k))*y^4;         % dS_I/dK of this mirror
+        rho = 0;  if y ~= 0, rho = yb/y; end
+        g(:, k) = [gI; gI*rho; gI*rho^2];
+        SI   = SI   - A*A  *y*dun + K(k)*gI;
+        SII  = SII  - A*Ab *y*dun + K(k)*gI*rho;
+        SIII = SIII - Ab*Ab*y*dun + K(k)*gI*rho^2;
+        SIV  = SIV  - H*H*c(k)*(1/np(k) - 1/n(k));
+        if k < N
+            y = y + dz(k)*up;  yb = yb + dz(k)*ubp;
+        end
+        u = up;  ub = ubp;
+    end
+    S = struct('SI', SI, 'SII', SII, 'SIII', SIII, 'SIV', SIV);
+    % image: y + t u = 0 along the light leaving mirror N (direction -n(N) = np(N))
+    img.t_focus = (-y/u) * np(N);
+    img.EFL     = abs(y1/u);
 end
