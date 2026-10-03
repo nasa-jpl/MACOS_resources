@@ -195,6 +195,8 @@ function P = dyson5_params(over)
     P.tel_alt_m      = 420e3;             % orbit altitude (EMIT, ISS)
     P.tel_gsd_m      = 60;                % ground sample distance -> IFOV = gsd/alt = 0.143 mrad per pixel
     %   derived by the stage: f = pixel/IFOV = 126 mm, D = f/Fno = 70 mm, field = npix(1)*IFOV = 24.6 deg
+    P.tel_npix_xt    = NaN;               % cross-track pixels the telescope's field covers (NaN = P.npix(1); 1500 = Jim's 1.5k module, addendum 26)
+    P.tel_dyson      = 'R4';              % the spectrometer the telescope feeds (pupil match): 'R4' | 'R5' | 'size:<family>:<r_mm>' (a dyson5_size.mat row: 'size:F:240' 3k CaF2, 'size:D:130' 1.5k silica)
     P.tel_t1_m       = 0.14;              % seed: M1 -> M2 spacing (the first-order family's free knob)
     P.tel_y2         = 0.6;               % seed: beam compression at M2 (t2 = f y2 follows from telecentricity + a flat field)
     P.tel_bias_deg   = 0;                 % seed: the field bias across the slit (the coaxial section's knob; the folds do the unobscuring)
@@ -249,6 +251,18 @@ function P = dyson5_params(over)
     P.tel3w_xtrack_deg = NaN;                     % cross-track box width, deg (NaN = the slit's field, 24.6; 12.3 = one of two modules, addendum 24)
     P.tel3w_s1_only  = false;                     % true: stop after the walk (no S3 / S4 -- addendum 24's S1-only run)
     P.tel3w_suffix   = '';                        % record name suffix (dyson5_t3w<suffix>.*, t3/dyson5_t3w<suffix>_y*)
+    % t3o, THE OFFSET SOLVE FROM A t3w PARENT (addendum 25): S3 at the offset
+    % seeded from a recorded walk step; a STALL (stated in advance below)
+    % switches to a walk in the OFFSET; S4 if S3 loses the gate; S5 once if
+    % the result converges above the image bar with the gate held
+    P.tel3o_from      = 'dyson5_t3w_x12.mat';   % the walk record whose step seeds S3 (in P.outdir)
+    P.tel3o_y2        = 0.40;                   % which step (the packaging corner)
+    P.tel3o_xtrack_deg = 12.3;                  % the box's cross-track width (must match the walk's)
+    P.tel3o_off_deg   = 14;                     % the target offset
+    P.tel3o_off_walk  = [5 10 14];              % the offset walk if the direct S3 stalls (0 = the S1 parent)
+    P.tel3o_stall_iters = 5;  P.tel3o_stall_gain = 0.20;   % STALL: stops within 5 iterations, < 20 %% gain, last step rejected
+    P.tel3o_s5        = true;                   % run S5 (Zernike freeform) once if converged above the bar with the gate held
+    P.tel3o_suffix    = '_x12';                 % record dyson5_t3o<suffix>.*
     % t3s, THE FIRST-ORDER CLEARANCE SCREEN (addendum 21): tma_screen's nine
     % OI_CLEAR pairs evaluated paraxially (engine-free, ms per row) over
     % telescope_seed's family -- solve ONLY rows it passes
@@ -257,7 +271,8 @@ function P = dyson5_params(over)
     P.tel3s_off_deg  = 8:2:30;                            % along-track offset of the strip
     P.tel3s_off_max  = 15;                                % addendum 21's offset ceiling for "packages"
     P.tel3s_validate = [0.14 0; 0.14 8; 0.14 10; 0.30 0; 0.30 15];   % [t1 off] seeds checked screen vs engine oi_clear (y2 = P.tel_y2)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation) are opt-in
+    P.tel3s_suffix   = '';                            % record name suffix (dyson5_t3s<suffix>.*)
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)

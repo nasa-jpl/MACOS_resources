@@ -127,6 +127,7 @@ function OUT = dyson5_run(over)
             case 't3',  OUT.t3  = stage_t3_(P, tag);
             case 't3s', OUT.t3s = stage_t3s_(P, tag);
             case 't3w', OUT.t3w = stage_t3w_(P, tag);
+            case 't3o', OUT.t3o = stage_t3o_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -898,11 +899,12 @@ function S = stage_t3s_(P, tag)
 %STAGE_T3S_  Addendum 21: the first-order nine-pair clearance screen over telescope_seed's family (t1 x y2 x offset).
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', 'templates', '10_telescopes', 'offset_imager'));
-    GD = dyson_of_record_(P, tag, 'R4');
-    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = P.npix(1)*ifov;
+    GD = dyson_of_record_(P, tag, P.tel_dyson);
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = npx*ifov;  sfx = P.tel3s_suffix;
     G0 = telescope_geom(struct('f', f, 'D', D, 'fov', fov, 'R', [0.3 0.1 0.3], 't', [0.1 0.1 0.1]), GD);
     Lapp = G0.pupil.L_app;  by = P.tel3_box_al_deg/2;  xh = fov*90/pi;
-    fid = fopen([tag '_t3s.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    fid = fopen([tag '_t3s' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
     pr('dyson5 t3s -- the FIRST-ORDER clearance screen of the telecentric three-mirror family (addendum 21) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
     pr('CONVENTIONS: tma_screen (design/src): OI_CLEAR''s nine leg x obstacle pairs (the offset_imager gate''s), evaluated\n');
     pr('  PARAXIALLY -- chief through M2''s vertex (the stop) + the axial marginal, meridional rays, the box centre and the\n');
@@ -911,7 +913,10 @@ function S = stage_t3s_(P, tag)
     pr('  its in-plane depth.  Layout = telescope_seed''s family at f %.0f mm, D %.0f mm, Petzval 0, exit pupil %.2f m behind\n', f*1e3, D*1e3, Lapp);
     pr('  the slit: knobs t1 (M1 -> stop), y2 (compression at M2; t2 = f y2 and the back focus follow), offset.  Mirror\n');
     pr('  diameters = footprint extent incl. the cross-track +-%.2f deg (max of x, y); length = z extent of M1..FP; height =\n', xh);
-    pr('  y extent.  PASS = all nine >= +5 mm.  First order only: sag, aberrated footprints, conics ignored.\n\n');
+    pr('  y extent.  PASS = all nine >= +5 mm.  First order only: sag, aberrated footprints, conics ignored.\n');
+    pr('  INSTANCE: altitude %.0f km, GSD %.0f m -> IFOV %.1f urad, f %.1f mm, D %.1f mm at F/%.1f, %d px x IFOV = %.2f deg cross-track;\n', ...
+       P.tel_alt_m*1e-3, P.tel_gsd_m, ifov*1e6, f*1e3, D*1e3, P.Fno, npx, fov*180/pi);
+    pr('  pupil match to spectrometer %s (its apparent entrance pupil %.2f m behind the slit).\n\n', P.tel_dyson, Lapp);
     % 1. validation against the engine gate on the template's own seeds
     pr('VALIDATION -- screen vs the engine oi_clear on the template''s seed (spheres, R2/R3 from EFL + Petzval 0, its BFD), mm:\n');
     macos.init(P.tel3_model);
@@ -970,9 +975,9 @@ function S = stage_t3s_(P, tag)
     end
     fclose(fid);
     S = struct('rows', rows, 'val', val, 'f', f, 'D', D, 'Lapp', Lapp);
-    save([tag '_t3s.mat'], 'S');
+    save([tag '_t3s' sfx '.mat'], 'S');
     % full table as CSV beside it
-    fc = fopen([tag '_t3s.csv'], 'w');
+    fc = fopen([tag '_t3s' sfx '.csv'], 'w');
     fprintf(fc, 't1_mm,y2,off_deg,%s,floor_mm,worst,t2_mm,bfd_mm,D1_mm,D2_mm,D3_mm,len_mm,hgt_mm\n', ...
             strjoin(strrep(strrep(tma_screen_pairs_(), ' x ', '_x_'), '->', '_'), ','));
     for r = rows
@@ -987,8 +992,9 @@ function S = stage_t3w_(P, tag)
 %STAGE_T3W_  Addendum 23: the y2 continuation of the S1 parent at t1 fixed, then S3 (/ S4) at the offset from it, with the hard stop.
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', 'templates', '10_telescopes', 'offset_imager'));
-    GD = dyson_of_record_(P, tag, 'R4');
-    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = P.npix(1)*ifov;
+    GD = dyson_of_record_(P, tag, P.tel_dyson);
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = npx*ifov;
     G0 = telescope_geom(struct('f', f, 'D', D, 'fov', fov, 'R', [0.3 0.1 0.3], 't', [0.1 0.1 0.1]), GD);
     Lapp = G0.pupil.L_app;  t1 = P.tel3w_t1_m;  off = P.tel3w_off_deg;  it = P.tel3w_iters;
     odir = fullfile(P.outdir, 't3');  if ~exist(odir, 'dir'), mkdir(odir); end
@@ -1102,6 +1108,131 @@ function S = stage_t3w_(P, tag)
         pr('\nHARD STOP (beat 5c earned): %s.\n', strjoin(why, '; '));  S.stop = strjoin(why, '; ');
     end
     t3w_close_(fid, S, [tag '_t3w' sfx]);
+end
+
+function S = stage_t3o_(P, tag)
+%STAGE_T3O_  Addendum 25: S3 at the offset from a recorded y2-walk step; stall test -> offset walk; S4 / S5 per the rule.
+    here = fileparts(mfilename('fullpath'));
+    addpath(fullfile(here, '..', '..', 'templates', '10_telescopes', 'offset_imager'));
+    GD = dyson_of_record_(P, tag, P.tel_dyson);
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = npx*ifov;
+    G0 = telescope_geom(struct('f', f, 'D', D, 'fov', fov, 'R', [0.3 0.1 0.3], 't', [0.1 0.1 0.1]), GD);
+    Lapp = G0.pupil.L_app;  t1 = P.tel3w_t1_m;  it = P.tel3w_iters;  offT = P.tel3o_off_deg;
+    odir = fullfile(P.outdir, 't3');  [~, tb] = fileparts(tag);  sfx = P.tel3o_suffix;
+    box = [P.tel3o_xtrack_deg, P.tel3_box_al_deg];
+    W = load(fullfile(P.outdir, P.tel3o_from));  k = find(abs([W.S.steps.y2] - P.tel3o_y2) < 1e-9 & [W.S.steps.ok], 1);
+    assert(~isempty(k), 'dyson5 t3o: no counted step at y2 %.3f in %s', P.tel3o_y2, P.tel3o_from);
+    base = W.S.steps(k);  Sd = telescope_seed(f, D, Lapp, t1, base.y2);
+    mkP = @(o, name) offset_imager_params(struct('name', name, 'tag', name, 'outdir', odir, 'EPD_m', D, 'Fno', P.Fno, ...
+              'lambda_m', P.tel3_lambda_m, 'box_deg', box, 'offset_deg', o, 'nsolve', P.tel3w_nsolve, 'z_m1_m', P.tel3_z_m1_m, ...
+              'spacings_m', [-Sd.t(1) 0 Sd.t(2)], 'seed_R1_m', -Sd.R(1), 'seed_R_m', -Sd.R, 'clear_m', P.tel3_clear_m, ...
+              'exit_dir', P.tel3_exit_dir, 'model', P.tel3_model, 'sampling', P.tel3_sampling, 'gn_iters', it, 'hold_R1', P.tel3w_hold_R1));
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_t3o' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 t3o -- S3 at %g deg on the %.2f deg cross-track box, from the y2 %.2f parent (addendum 25) (%s)\n', offT, box(1), base.y2, datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: ONE of two telescopes (70 mm, F/1.8, EFL %.0f mm), box %.2f x %.2f deg, its axes +-6.15 deg apart from its twin''s\n', f*1e3, box);
+    pr('  cross-track (NOT one 24.6 deg telescope with a splitter).  Parent: %s step y2 %.3f (S1 map max %.1f nm, R %s mm).\n', ...
+       P.tel3o_from, base.y2, base.map, mat2str(abs(base.R)*1e3, 5));
+    pr('  S3 = the template''s symmetric-surface re-solve AT the offset (stop re-posed there once, then free), R1 + branch held,\n');
+    pr('  solve set %s, cap %d, oi_solve''s own stop.  STALL (stated in advance): stops within %d iterations, gains < %.0f %% from its\n', ...
+       mat2str(P.tel3w_nsolve), it, P.tel3o_stall_iters, 100*P.tel3o_stall_gain);
+    pr('  start, last iteration rejected -> walk the OFFSET %s deg instead, each S3 seeded from the previous, a stalled step halved\n', mat2str(P.tel3o_off_walk));
+    pr('  once.  Gate = oi_clear (disk model) >= %.0f mm after the solve, S4 (clearance hinge) if not.  Rule: <= %.0f nm with the\n', P.tel3_pack_m*1e3, P.tel3w_img_max_nm);
+    pr('  gate -> the three-mirror LIVES; converged above -> S5 (Zernike freeform) once.  Metric = the template''s strict RMS WFE\n');
+    pr('  at %.2f um, 11 x 11 dense-map max (oi_score with the telecentric-anchor fix).\n\n', P.tel3_lambda_m*1e6);
+    X0 = base.X;  X0.fpa_refit = [0 0];  X0.eliminate = 'R2R3';
+    name = @(o, lbl) sprintf('%s_t3o%s_off%02d_%s', tb, sfx, round(o), lbl);
+    % 1. direct
+    [X3, h3, stalled] = t3o_s3_(X0, mkP(offT, name(offT, 's3')), offT, it, P, pr, 'direct');
+    S = struct('base', base, 'direct', h3, 'stalled', stalled);
+    if stalled
+        pr('  -> STALL by the stated test: walking the offset %s deg\n', mat2str(P.tel3o_off_walk));
+        offs = P.tel3o_off_walk;  Xc = X0;  oprev = 0;  j = 1;  halved = false;  S.walk = struct('off', {}, 'h', {}, 'stalled', {});
+        while j <= numel(offs)
+            o = offs(j);
+            [Xn, hn, sn] = t3o_s3_(Xc, mkP(o, name(o, 's3')), o, it, P, pr, sprintf('walk %g deg', o));
+            S.walk(end+1) = struct('off', o, 'h', hn, 'stalled', sn);
+            if ~sn
+                Xc = Xn;  oprev = o;  j = j + 1;  halved = false;
+            elseif ~halved
+                mid = (oprev + o)/2;  offs = [offs(1:j-1), mid, offs(j:end)];  halved = true;
+                pr('  -> step %g deg stalled: halving, %g deg inserted\n', o, mid);
+            else
+                pr('  -> the offset walk ends at %g deg (a halved step stalled); the last solved offset is %g deg\n', o, oprev);  break
+            end
+        end
+        X3 = Xc;  offT_reached = oprev;
+        if offT_reached < offT - 1e-9
+            pr('\nTHE WALK CANNOT REACH %g DEG: it ends at %g deg.\n', offT, offT_reached);
+            S.stop = sprintf('offset walk ends at %g deg', offT_reached);
+            if offT_reached > 0
+                S.final = t3w_score_(X3, mkP(offT_reached, name(offT_reached, 's3')), offT_reached, fullfile(odir, name(offT_reached, 's3')), 'S3');
+                t3o_line_(pr, sprintf('S3 at %g deg (walk end)', offT_reached), S.final);
+            end
+            t3o_close_(fid, S, [tag '_t3o' sfx]);  return
+        end
+    end
+    Pw = mkP(offT, name(offT, 's3'));
+    R3s = t3w_score_(X3, Pw, offT, fullfile(odir, name(offT, 's3')), 'S3');  t3o_line_(pr, 'S3', R3s);
+    S.s3 = R3s;  fin = R3s;  Xf = X3;
+    if R3s.clear_mm < P.tel3_pack_m*1e3
+        pr('  S3 does not hold the gate -> S4 (tilts/decenters + the clearance hinge) from it:\n');
+        X4 = X3;  X4.eliminate = 'R3';  P4 = mkP(offT, name(offT, 's4'));
+        [X4, h4] = oi_solve(X4, P4, 'S4', 'iters', it, 'walls', @(a, b) false, 'clear', true);
+        t3o_trace_(pr, 'S4', h4, it);
+        R4s = t3w_score_(X4, P4, offT, fullfile(odir, name(offT, 's4')), 'S4');  t3o_line_(pr, 'S4', R4s);
+        S.s4 = R4s;  fin = R4s;  Xf = X4;
+    end
+    gate = fin.clear_mm >= P.tel3_pack_m*1e3;  vig = 1 - fin.diag.edge_kept;
+    if gate && fin.map <= P.tel3w_img_max_nm && vig <= P.tel3w_vig_max
+        pr('\nTHE THREE-MIRROR LIVES (two-telescope instrument): %.1f nm <= %.0f nm, gate %+.1f mm, edge loss %.1f %%.\n', fin.map, P.tel3w_img_max_nm, fin.clear_mm, 100*vig);
+        pr('  next (addendum 25): telecentricity, flatness, pupil match rows; the end-to-end deck with dyson5_size_D_r130.in.\n');
+        S.stop = '';
+    elseif gate && P.tel3o_s5
+        pr('\nConverged above the bar (%.1f nm) with the gate (%+.1f mm): S5 (Zernike freeform, aspheres replaced) once:\n', fin.map, fin.clear_mm);
+        P5 = mkP(offT, name(offT, 's5'));
+        X5 = oi_zern_seed(Xf, P5);
+        [X5, h5] = oi_solve(X5, P5, 'S5', 'iters', it, 'walls', @(a, b) false, 'clear', true);
+        t3o_trace_(pr, 'S5', h5, it);
+        R5s = t3w_score_(X5, P5, offT, fullfile(odir, name(offT, 's5')), 'S5');  t3o_line_(pr, 'S5', R5s);
+        S.s5 = R5s;  fin = R5s;  vig = 1 - fin.diag.edge_kept;  gate = fin.clear_mm >= P.tel3_pack_m*1e3;
+        if gate && fin.map <= P.tel3w_img_max_nm && vig <= P.tel3w_vig_max
+            pr('\nTHE THREE-MIRROR LIVES with freeforms: %.1f nm, gate %+.1f mm, edge loss %.1f %%.\n', fin.map, fin.clear_mm, 100*vig);  S.stop = '';
+        else
+            pr('\nS5 does not close: %.1f nm (bar %.0f), gate %+.1f mm, edge loss %.1f %% -- other forms may now be considered.\n', fin.map, P.tel3w_img_max_nm, fin.clear_mm, 100*vig);
+            S.stop = 'S5 does not close';
+        end
+    else
+        pr('\nNOT CLOSED: %.1f nm, gate %+.1f mm, edge loss %.1f %%.\n', fin.map, fin.clear_mm, 100*vig);  S.stop = 'not closed';
+    end
+    t3o_close_(fid, S, [tag '_t3o' sfx]);
+end
+
+function [X, h, stalled] = t3o_s3_(X, Pw, o, it, P, pr, lbl)
+%T3O_S3_  One S3 at offset o: the stop re-posed there once, then the solve; the stated stall test.
+    X.fpa_refit = [0 0];  X.eliminate = 'R2R3';  X.stop_fixed = false;
+    [X, ~] = oi_close(X, Pw, 'offset_deg', o);  X.stop_fixed = true;
+    pr('S3 %s at %g deg (stop posed at y %.2f mm):\n', lbl, o, X.stopC(2)*1e3);
+    [X, h] = oi_solve(X, Pw, 'S3', 'iters', it);
+    t3o_trace_(pr, 'S3', h, it);
+    gain = (h.rms0 - h.rms)/max(h.rms0, eps);
+    stalled = h.iters <= P.tel3o_stall_iters && gain < P.tel3o_stall_gain && h.accepted < h.iters;
+    pr('  start %.1f nm -> %.1f nm (gain %.1f %%), %d iterations, %d accepted%s\n', h.rms0, h.rms, 100*gain, h.iters, h.accepted, tern_(stalled, '  ** STALL **', ''));
+end
+
+function t3o_trace_(pr, lbl, h, it)
+    pr('  %s trace (solve-set qmean, nm): %s%s\n', lbl, strjoin(arrayfun(@(v) sprintf('%.1f', v), h.rms_path, 'UniformOutput', false), ' -> '), ...
+       tern_(h.iters >= it, '  CAPPED', ''));
+end
+
+function t3o_line_(pr, lbl, R)
+    pr('  %s: dense-map max %.1f nm avg %.1f; clearance %+.1f mm (worst %s); exit err %.3f deg; M3 rho/R %.3f; edge rays kept %.3f\n', ...
+       lbl, R.map, R.avg, R.clear_mm, R.worst, R.exit_err, R.diag.rho_R3, R.diag.edge_kept);
+end
+
+function t3o_close_(fid, S, stem)
+    fclose(fid);  save([stem '.mat'], 'S');
 end
 
 function t3w_close_(fid, S, stem)
@@ -1250,6 +1381,14 @@ function GD = dyson_of_record_(P, tag, rg)
             fn = [tag '_s5.mat'];  assert(isfile(fn), 'dyson5: the fold-prism record %s is needed (run s5)', fn);
             S5 = load(fn);  GD = spectrometer_geom('dyson', S5.S.rung.P);
         otherwise
+            if strncmp(rg, 'size:', 5)                     % a block-size trade row (CCMac, dyson5_size.mat): 'size:<family>:<r_mm>'
+                tk = strsplit(rg, ':');  fn = fullfile(fileparts(tag), 'dyson5_size.mat');
+                assert(isfile(fn), 'dyson5: the size-trade record %s is needed', fn);
+                Z = load(fn);  r = Z.OUT.rows;
+                k = find(strcmp(string({r.family}), tk{2}) & abs([r.r_mm] - str2double(tk{3})) < 1e-9 & strcmp(string({r.variant}), 'solve'), 1);
+                assert(~isempty(k), 'dyson5: no size-trade row %s', rg);
+                GD = spectrometer_geom('dyson', r(k).P);  return
+            end
             error('dyson5: unknown spectrometer of record %s', rg);
     end
 end
