@@ -148,6 +148,7 @@ function [X, hist] = oi_solve(X, P, stage, opts)
 
     X = Xbest;
     hist.rms = rmsb;
+    hist.lam = lamLM;                 % the LM damping at exit (diagnostic only)
 end
 
 % =========================================================================

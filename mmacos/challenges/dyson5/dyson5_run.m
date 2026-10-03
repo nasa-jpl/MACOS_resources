@@ -128,6 +128,7 @@ function OUT = dyson5_run(over)
             case 't3s', OUT.t3s = stage_t3s_(P, tag);
             case 't3w', OUT.t3w = stage_t3w_(P, tag);
             case 't3o', OUT.t3o = stage_t3o_(P, tag);
+            case 't3e', OUT.t3e = stage_t3e_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -1120,7 +1121,8 @@ function S = stage_t3o_(P, tag)
     G0 = telescope_geom(struct('f', f, 'D', D, 'fov', fov, 'R', [0.3 0.1 0.3], 't', [0.1 0.1 0.1]), GD);
     Lapp = G0.pupil.L_app;  t1 = P.tel3w_t1_m;  it = P.tel3w_iters;  offT = P.tel3o_off_deg;
     odir = fullfile(P.outdir, 't3');  [~, tb] = fileparts(tag);  sfx = P.tel3o_suffix;
-    box = [P.tel3o_xtrack_deg, P.tel3_box_al_deg];
+    xw = P.tel3o_xtrack_deg;  if isnan(xw), xw = fov*180/pi; end
+    box = [xw, P.tel3_box_al_deg];
     W = load(fullfile(P.outdir, P.tel3o_from));  k = find(abs([W.S.steps.y2] - P.tel3o_y2) < 1e-9 & [W.S.steps.ok], 1);
     assert(~isempty(k), 'dyson5 t3o: no counted step at y2 %.3f in %s', P.tel3o_y2, P.tel3o_from);
     base = W.S.steps(k);  Sd = telescope_seed(f, D, Lapp, t1, base.y2);
@@ -1131,8 +1133,8 @@ function S = stage_t3o_(P, tag)
     macos.init(P.tel3_model);
     fid = fopen([tag '_t3o' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
     pr('dyson5 t3o -- S3 at %g deg on the %.2f deg cross-track box, from the y2 %.2f parent (addendum 25) (%s)\n', offT, box(1), base.y2, datestr(now, 'yyyy-mm-dd HH:MM'));
-    pr('CONVENTIONS: ONE of two telescopes (70 mm, F/1.8, EFL %.0f mm), box %.2f x %.2f deg, its axes +-6.15 deg apart from its twin''s\n', f*1e3, box);
-    pr('  cross-track (NOT one 24.6 deg telescope with a splitter).  Parent: %s step y2 %.3f (S1 map max %.1f nm, R %s mm).\n', ...
+    pr('CONVENTIONS: ONE telescope (D %.1f mm, F/%.1f, EFL %.1f mm; altitude %.0f km, GSD %.0f m), box %.2f x %.2f deg, feeding\n', D*1e3, P.Fno, f*1e3, P.tel_alt_m*1e-3, P.tel_gsd_m, box);
+    pr('  spectrometer %s (pupil match).  Parent: %s step y2 %.3f (S1 map max %.1f nm, R %s mm).\n', P.tel_dyson, ...
        P.tel3o_from, base.y2, base.map, mat2str(abs(base.R)*1e3, 5));
     pr('  S3 = the template''s symmetric-surface re-solve AT the offset (stop re-posed there once, then free), R1 + branch held,\n');
     pr('  solve set %s, cap %d, oi_solve''s own stop.  STALL (stated in advance): stops within %d iterations, gains < %.0f %% from its\n', ...
@@ -1143,9 +1145,23 @@ function S = stage_t3o_(P, tag)
     pr('  at %.2f um, 11 x 11 dense-map max (oi_score with the telecentric-anchor fix).\n\n', P.tel3_lambda_m*1e6);
     X0 = base.X;  X0.fpa_refit = [0 0];  X0.eliminate = 'R2R3';
     name = @(o, lbl) sprintf('%s_t3o%s_off%02d_%s', tb, sfx, round(o), lbl);
+    if ~isempty(P.tel3o_resume)                       % addendum 28: S4 then S5 from a recorded (capped) S3
+        Rr = load(fullfile(P.outdir, P.tel3o_resume));  Rr = Rr.S;
+        assert(isfield(Rr, 's3'), 'dyson5 t3o: %s has no S3 to resume from', P.tel3o_resume);
+        X3 = Rr.s3.X;  S = struct('base', base, 'resumed_from', P.tel3o_resume, 's3', Rr.s3);
+        if isfield(Rr, 'direct'), S.direct = Rr.direct; end
+        pr('RESUMED from the S3 of %s: dense-map max %.1f nm (S3 not re-solved).\n', P.tel3o_resume, Rr.s3.map);
+        if ~isfield(Rr.s3, 'mp')                       % recorded before the field map was kept: re-SCORE (no solve)
+            S.s3 = t3w_score_(X3, mkP(offT, name(offT, 's3')), offT, fullfile(odir, name(offT, 's3')), 'S3');
+            if isfield(S, 'direct'), S.s3.hist = S.direct; end
+            t3o_line_(pr, 'S3 (re-scored)', S.s3);
+        end
+        stalled = false;
+    else
     % 1. direct
     [X3, h3, stalled] = t3o_s3_(X0, mkP(offT, name(offT, 's3')), offT, it, P, pr, 'direct');
     S = struct('base', base, 'direct', h3, 'stalled', stalled);
+    end
     if stalled
         pr('  -> STALL by the stated test: walking the offset %s deg\n', mat2str(P.tel3o_off_walk));
         offs = P.tel3o_off_walk;  Xc = X0;  oprev = 0;  j = 1;  halved = false;  S.walk = struct('off', {}, 'h', {}, 'stalled', {});
@@ -1174,20 +1190,24 @@ function S = stage_t3o_(P, tag)
         end
     end
     Pw = mkP(offT, name(offT, 's3'));
-    R3s = t3w_score_(X3, Pw, offT, fullfile(odir, name(offT, 's3')), 'S3');  t3o_line_(pr, 'S3', R3s);
-    S.s3 = R3s;  fin = R3s;  Xf = X3;
-    if R3s.clear_mm < P.tel3_pack_m*1e3
-        pr('  S3 does not hold the gate -> S4 (tilts/decenters + the clearance hinge) from it:\n');
-        X4 = X3;  X4.eliminate = 'R3';  P4 = mkP(offT, name(offT, 's4'));
-        [X4, h4] = oi_solve(X4, P4, 'S4', 'iters', it, 'walls', @(a, b) false, 'clear', true);
-        t3o_trace_(pr, 'S4', h4, it);
-        R4s = t3w_score_(X4, P4, offT, fullfile(odir, name(offT, 's4')), 'S4');  t3o_line_(pr, 'S4', R4s);
-        S.s4 = R4s;  fin = R4s;  Xf = X4;
+    if isempty(P.tel3o_resume)
+        R3s = t3w_score_(X3, Pw, offT, fullfile(odir, name(offT, 's3')), 'S3');  t3o_line_(pr, 'S3', R3s);
+        if isfield(S, 'direct'), R3s.hist = S.direct; end
+        S.s3 = R3s;
     end
+    t3o_fieldmap_(pr, 'S3', S.s3);
+    % addendum 28: S4 (tilts / decenters / radii + the clearance hinge) ALWAYS follows S3 -- the ladder's own order
+    pr('  S4 (tilts/decenters + radii + the clearance hinge) from S3:\n');
+    X4 = X3;  X4.eliminate = 'R3';  P4 = mkP(offT, name(offT, 's4'));
+    [X4, h4] = oi_solve(X4, P4, 'S4', 'iters', it, 'walls', @(a, b) false, 'clear', true);
+    t3o_trace_(pr, 'S4', h4, it);
+    R4s = t3w_score_(X4, P4, offT, fullfile(odir, name(offT, 's4')), 'S4');  R4s.hist = h4;  t3o_line_(pr, 'S4', R4s);
+    t3o_fieldmap_(pr, 'S4', R4s);
+    S.s4 = R4s;  fin = R4s;  Xf = X4;
     gate = fin.clear_mm >= P.tel3_pack_m*1e3;  vig = 1 - fin.diag.edge_kept;
     if gate && fin.map <= P.tel3w_img_max_nm && vig <= P.tel3w_vig_max
-        pr('\nTHE THREE-MIRROR LIVES (two-telescope instrument): %.1f nm <= %.0f nm, gate %+.1f mm, edge loss %.1f %%.\n', fin.map, P.tel3w_img_max_nm, fin.clear_mm, 100*vig);
-        pr('  next (addendum 25): telecentricity, flatness, pupil match rows; the end-to-end deck with dyson5_size_D_r130.in.\n');
+        pr('\nTHE THREE-MIRROR LIVES: %.1f nm <= %.0f nm, gate %+.1f mm, edge loss %.1f %%.\n', fin.map, P.tel3w_img_max_nm, fin.clear_mm, 100*vig);
+        pr('  next: the end-to-end row with spectrometer %s (addendum 27 -- the verdict; 250 nm is a proxy).\n', P.tel_dyson);
         S.stop = '';
     elseif gate && P.tel3o_s5
         pr('\nConverged above the bar (%.1f nm) with the gate (%+.1f mm): S5 (Zernike freeform, aspheres replaced) once:\n', fin.map, fin.clear_mm);
@@ -1195,7 +1215,8 @@ function S = stage_t3o_(P, tag)
         X5 = oi_zern_seed(Xf, P5);
         [X5, h5] = oi_solve(X5, P5, 'S5', 'iters', it, 'walls', @(a, b) false, 'clear', true);
         t3o_trace_(pr, 'S5', h5, it);
-        R5s = t3w_score_(X5, P5, offT, fullfile(odir, name(offT, 's5')), 'S5');  t3o_line_(pr, 'S5', R5s);
+        R5s = t3w_score_(X5, P5, offT, fullfile(odir, name(offT, 's5')), 'S5');  R5s.hist = h5;  t3o_line_(pr, 'S5', R5s);
+        t3o_fieldmap_(pr, 'S5', R5s);
         S.s5 = R5s;  fin = R5s;  vig = 1 - fin.diag.edge_kept;  gate = fin.clear_mm >= P.tel3_pack_m*1e3;
         if gate && fin.map <= P.tel3w_img_max_nm && vig <= P.tel3w_vig_max
             pr('\nTHE THREE-MIRROR LIVES with freeforms: %.1f nm, gate %+.1f mm, edge loss %.1f %%.\n', fin.map, fin.clear_mm, 100*vig);  S.stop = '';
@@ -1207,6 +1228,114 @@ function S = stage_t3o_(P, tag)
         pr('\nNOT CLOSED: %.1f nm, gate %+.1f mm, edge loss %.1f %%.\n', fin.map, fin.clear_mm, 100*vig);  S.stop = 'not closed';
     end
     t3o_close_(fid, S, [tag '_t3o' sfx]);
+end
+
+function S = stage_t3e_(P, tag)
+%STAGE_T3E_  Addendum 27: the t3o design end to end with the module's own Dyson -- the bridge gated, the slit scored, one deck.
+    here = fileparts(mfilename('fullpath'));
+    addpath(fullfile(here, '..', '..', 'templates', '10_telescopes', 'offset_imager'));
+    GD = dyson_of_record_(P, tag, P.tel_dyson);
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  fov = npx*ifov;  sfx = P.tel3e_suffix;
+    O = load(fullfile(P.outdir, P.tel3e_from));  O = O.S;
+    stg = '';  for c = {'s5', 's4', 's3'}, if isfield(O, c{1}), stg = c{1};  break, end, end
+    assert(~isempty(stg), 'dyson5 t3e: %s carries no solved offset design', P.tel3e_from);
+    R0 = O.(stg);  X = R0.X;  off = P.tel3o_off_deg;
+    assert(all(X.yde == 0) && all(X.ade == 0), 'dyson5 t3e: the %s design carries tilts/decenters -- not yet mapped onto the chain', upper(stg));
+    assert(all(cellfun(@isempty, X.zern)), 'dyson5 t3e: the %s design carries Zernike surfaces -- the chain has none; score it engine-only', upper(stg));
+    fo = oi_paraxial(X.R, [X.spacings(1) + X.spacings(2), X.spacings(3)]);
+    dz = 0;  tilt = 0;  if isfield(X, 'fpa_refit'), dz = X.fpa_refit(1);  tilt = X.fpa_refit(2); end
+    t3 = abs(fo.BFD_m) - dz;
+    Pt = struct('f', f, 'D', D, 'fov', fov, 'bias', -off*pi/180, 'R', abs(X.R), 't', [abs(X.spacings(1) + X.spacings(2)), X.spacings(3), t3], ...
+                'Kc', X.K, 'A', X.asph, 'dec', [0 0 0], 'tilt', [0 0 0], 'fold_dir', [0; 1; 0], 'lambda_c', GD.src.lambda_c, ...
+                'D_src', D*P.tel_oversize, 'name', sprintf('%s_t3e%s', P.tag, sfx), 'fold_gap', P.tel3e_fold_gap_m);
+    if P.tel3e_fold_gap_m > 0, Pt.fold_d = t3 - P.tel3e_fold_gap_m; end
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_t3e' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 t3e -- the telescope END TO END with its own Dyson (addendum 27) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: telescope = the %s design of %s (offset %g deg, box %.2f x %.2f deg cross x along track), mapped onto the\n', ...
+       upper(stg), P.tel3e_from, off, fov*180/pi, P.tel3_box_al_deg);
+    pr('  exact chain (telescope_geom): |R| %s mm, spacings [%.2f %.2f] mm, back focus %.2f mm (= |BFD| %.2f - refit dz %.3f), conics %s,\n', ...
+       mat2str(abs(X.R)*1e3, 5), Pt.t(1:2)*1e3, t3*1e3, abs(fo.BFD_m)*1e3, dz*1e3, mat2str(X.K, 4));
+    pr('  aspheres (h^4 h^6 h^8 per mirror) %s, the offset as the field BIAS, stop at M2''s vertex.  NOT carried: the template''s\n', mat2str(X.asph, 3));
+    pr('  stop decentre (%.2f mm) and its FPA tilt (%.3f deg) -- the slit plane is the Dyson''s.  Spectrometer %s (EFL %.1f mm, D %.1f\n', X.stopC(2)*1e3, tilt, P.tel_dyson, f*1e3, D*1e3);
+    pr('  mm at F/%.1f).  Gate 1 = template-engine vs chain rms spot at matched fields; then the telescope at the slit (chain +\n', P.Fno);
+    pr('  engine, telescope_score); then ONE deck (e2e_geom, the grating the stop) through spectrometer_score + spectrometer_clearance.\n\n');
+    % ---- gate 1: the bridge (template engine vs chain, telescope alone, matched fields, the same image plane)
+    Pw = offset_imager_params(struct('name', 'bridge', 'tag', 'bridge', 'EPD_m', D, 'Fno', P.Fno, 'lambda_m', P.tel3_lambda_m, ...
+            'box_deg', [fov*180/pi, P.tel3_box_al_deg], 'offset_deg', off, 'z_m1_m', P.tel3_z_m1_m, 'spacings_m', X.spacings, ...
+            'seed_R_m', X.R, 'model', P.tel3_model, 'sampling', P.tel3_sampling, 'hold_R1', true));
+    Xb = X;  Xb.fpa_refit = [dz 0];  Xb.stop_fixed = true;  Xb.eliminate = 'R3';
+    [Xb, Gb] = oi_close(Xb, Pw, 'offset_deg', off, 'repose_stop', false);  Xb.fpa = oi_apply_fpa(Xb);  Gb.fpa = Xb.fpa;
+    G0 = telescope_geom(Pt, []);
+    ths = [0, -fov/2, fov/2];  sp = nan(2, 3);
+    Db = Xb;  Db.EPD_m = D;  Db.WL_m = P.tel3_lambda_m;  Db.sampling = P.tel3_sampling;  Db.name = 'bridge';
+    F = [atand(tan(ths)/cosd(off))', off*ones(3, 1)];
+    sc = oi_score(oi_deck(Db), Gb, F, 'rays', true);
+    for q = 1:3
+        E = sc.rays{q};  if iscell(E), pq = E{5}.pos(:, E{5}.ok);  sp(1, q) = sqrt(mean(sum((pq - mean(pq, 2)).^2, 1))); end
+        d = G0.field_dir_raw(ths(q), 0);  [p0, ok] = G0.aim_pt(d, Pt.lambda_c);
+        if ok, sp(2, q) = t3e_spot_(G0, p0, d, D, Pt.lambda_c); end
+    end
+    pr('GATE 1 (bridge): rms spot at the image plane, um -- fields %s deg along the slit\n', mat2str(ths*180/pi, 3));
+    pr('  template engine: %s\n  exact chain:     %s\n  max |diff| %.3f um (%.2f %% of the spot)\n\n', sprintf('%9.3f ', sp(1, :)*1e6), sprintf('%9.3f ', sp(2, :)*1e6), ...
+       max(abs(diff(sp)))*1e6, 100*max(abs(diff(sp))./sp(1, :)));
+    % ---- the telescope at the module's slit: chain + engine (t1's path)
+    GT = telescope_geom(Pt, GD);
+    Rc = telescope_score_chain(GT, 'nfield', P.tel_score_nfield, 'pixel_m', P.pixel_m);  hc = Rc.headline;
+    Ft = GT.footprints('nx', 5, 'nlam', 1, 'nring', P.tel_nring);
+    d0 = GT.field_dir(0);  [p0, ok] = GT.aim_pt(d0, GT.src.lambda_c);  assert(ok);
+    file = sprintf('%s_t3e%s_tel.in', tag, sfx);
+    M = spectrometer_rx(GT, file, 'ngridpts', P.ngridpts, 'name', sprintf('%s_t3e%s_tel', P.tag, sfx), 'apertures', true, 'margin', P.ap_margin_m, ...
+                        'footprints', Ft, 'source', struct('dir', d0, 'pos', p0, 'aperture', GT.src.D_src), 'wavelen', GT.src.lambda_c);
+    M.iStop = GT.iStop;  macos.load_rx(file);
+    Re = telescope_score(GT, M, P, 'nfield', P.tel_score_nfield, 'quiet', true);  he = Re.headline;
+    [pcc, ~, ~] = GT.trace(p0, d0, GT.src.lambda_c);
+    macos.stop(M.iStop);  macos.set_src_fov('src_pos', p0, 'src_dir', d0, 'zSrc', 1e22);  macos.modify();
+    tr = macos.trace(M.nElt);  ric = macos.get_ray_info(tr.nRays);  ident = norm(ric.pos(:, 1) - pcc(:, end));
+    pr('TELESCOPE AT THE SLIT (%d fields):   spot px   ee1     slit    telec deg  pupil deg  walk mm  flat um p-v  ends px\n', P.tel_score_nfield);
+    pr('  chain                          %8.3f %7.3f %7.3f %9.3f %9.3f %8.2f %10.1f %8.2f\n', hc.s_max_px, hc.ee1_min, hc.slit_min, hc.tel_max_deg, hc.err_max_deg, hc.walk_max_mm, hc.flat_pv_um, max(abs(hc.end_err_px)));
+    pr('  engine                         %8.3f %7.3f %7.3f %9.3f %9.3f %8.2f %10.1f %8.2f   (engine chief vs chain %.1e m)\n\n', ...
+       he.s_max_px, he.ee1_min, he.slit_min, he.tel_max_deg, he.err_max_deg, he.walk_max_mm, he.flat_pv_um, max(abs(he.end_err_px)), ident);
+    % ---- END TO END (t2's path)
+    GE = e2e_geom(GT, GD);  nT = numel(GT.surf);
+    Fe = GE.footprints('nx', 5, 'nlam', 3, 'nring', P.tel_nring);  Fd = GD.footprints('nx', 3, 'nlam', 3, 'nring', 2);
+    Fa = [Fe(1:nT), Fd];
+    marg = [P.ap_margin_m*ones(1, nT), P.ap_margin_m*ones(1, numel(GD.surf))];  marg(GE.iG) = 0.2e-3;
+    d0 = GE.field_dir(0);  [p0, ~, ok] = GE.launch_field(0, GE.src.lambda_c);  assert(ok);
+    efile = sprintf('%s_t3e%s_e2e.in', tag, sfx);
+    ME = spectrometer_rx(GE, efile, 'ngridpts', P.ngridpts, 'name', sprintf('%s_t3e%s_e2e', P.tag, sfx), 'apertures', true, 'margin', marg, ...
+                         'footprints', Fa, 'source', struct('dir', d0, 'pos', p0, 'aperture', GE.src.D_src), 'wavelen', GE.src.lambda_c);
+    macos.load_rx(efile);
+    assert(macos.num_elt() == ME.nElt, 'dyson5 t3e: %s loads %d of %d elements', efile, macos.num_elt(), ME.nElt);
+    Pk = P;  Pk.Fno = GD.P.Fno;
+    RE = spectrometer_score(GE, ME, Pk, 'fields', linspace(-fov/2, fov/2, P.e2e_nfield), 'nlam', P.e2e_nlam, 'quiet', true);
+    Cl = spectrometer_clearance(GE, P, 'quiet', true);
+    pr('END TO END (telescope + %s, %d fields x %d wavelengths, the grating the stop):\n', P.tel_dyson, P.e2e_nfield, P.e2e_nlam);
+    pr('  smile %.4f px  keystone %.4f px  CRF %.3f px  SRF %.3f px  EE %.3f  grating admits %.3f  clearance %+.2f mm (%s vs %s, %s)  %d elements\n', ...
+       RE.smile_max, RE.keystone_max, RE.crf_max, RE.srf_max, RE.ee_min, min(RE.pass_frac(:)), Cl.min_mm, Cl.table.leg{1}, Cl.table.body{1}, tern_(Cl.pass, 'PASS', 'FAIL'), ME.nElt);
+    pr('  spec: smile, keystone < 0.1 px; CRF < 1.5 px; SRF on the slit floor.  deck %s\n', efile);
+    pr('  smile per lambda (px): %s\n  keystone per field (px): %s\n  pass fraction per field: %s\n', sprintf('%.4f ', RE.smile_px), sprintf('%.4f ', RE.keystone_px), sprintf('%.3f ', min(RE.pass_frac, [], 2)));
+    fclose(fid);
+    S = struct('stage', stg, 'Pt', Pt, 'bridge_spot_m', sp, 'chain', Rc, 'engine', Re, 'ident_m', ident, 'e2e', RE, 'clearance', Cl, 'file', efile, 'tel_file', file);
+    save([tag '_t3e' sfx '.mat'], 'S');
+    spectrometer_maps_fig(RE, sprintf('%s_t3e%s_maps.png', tag, sfx), 'title', sprintf('telescope + %s, end to end, engine', P.tel_dyson), 'pixel_um', P.pixel_m*1e6);
+end
+
+function s = t3e_spot_(G, p0, d, Dm, lam)
+%T3E_SPOT_  rms spot (about the centroid) at the chain's terminal plane: a collimated disc of diameter Dm about the aimed chief.
+    % a UNIFORM square grid clipped to the disc -- the engine's Circular aperture grid (equal area per ray); a ring
+    % sampling with counts ~ r over-weights the edge (rms x1.24 for a spot dominated by r^3 spherical)
+    d = d/norm(d);  u = cross(d, [1; 0; 0]);  if norm(u) < 1e-6, u = cross(d, [0; 1; 0]); end
+    u = u/norm(u);  v = cross(d, u);  P = [];  g = linspace(-Dm/2, Dm/2, 41);
+    for a = g
+        for b = g
+            if a^2 + b^2 > (Dm/2)^2, continue, end
+            [pp, ~, ok] = G.trace(p0 + a*u + b*v, d, lam);
+            if ok, P(:, end+1) = pp(:, end); end %#ok<AGROW>
+        end
+    end
+    s = sqrt(mean(sum((P - mean(P, 2)).^2, 1)));
 end
 
 function [X, h, stalled] = t3o_s3_(X, Pw, o, it, P, pr, lbl)
@@ -1224,6 +1353,18 @@ end
 function t3o_trace_(pr, lbl, h, it)
     pr('  %s trace (solve-set qmean, nm): %s%s\n', lbl, strjoin(arrayfun(@(v) sprintf('%.1f', v), h.rms_path, 'UniformOutput', false), ' -> '), ...
        tern_(h.iters >= it, '  CAPPED', ''));
+    lam = NaN;  if isfield(h, 'lam'), lam = h.lam; end
+    pr('  %s exit: %d iterations, %d accepted, final LM damping %.1e, last-iteration gain %.2f %%\n', lbl, h.iters, h.accepted, lam, ...
+       100*(h.rms_path(max(end-1, 1)) - h.rms_path(end))/max(h.rms_path(max(end-1, 1)), eps));
+end
+
+function t3o_fieldmap_(pr, lbl, R)
+%T3O_FIELDMAP_  Where the residual lives: the dense map by cross-track position (max over the along-track rows) and by along-track row.
+    if ~isfield(R, 'mp') || isempty(R.mp), return, end
+    W = R.mp.W;  xg = R.mp.XG(1, :);  yg = R.mp.YG(:, 1)';
+    pr('  %s field map (nm): by cross-track XAN %s deg -> %s\n', lbl, mat2str(round(xg, 2)), sprintf('%.0f ', max(W, [], 1)));
+    pr('  %s field map (nm): by along-track YAN %s deg -> %s  (max over XAN; centre-column %s)\n', lbl, mat2str(round(yg, 3)), ...
+       sprintf('%.0f ', max(W, [], 2)), sprintf('%.0f ', W(:, ceil(end/2))));
 end
 
 function t3o_line_(pr, lbl, R)
@@ -1280,7 +1421,7 @@ function R = t3w_score_(X, Pw, off, stem, lbl)
     g = oi_gates(X, G, Pw, off);  [~, iw] = min([g.clear_table.min_m]);
     t3w_write_deck_(X, Pw, [stem '.in']);
     [rr, kept] = t3w_edge_(X, G, Pw, off);
-    R = struct('X', X, 'map', mp.max_nm, 'avg', mp.avg_nm, 'valid', ~isfield(mp, 'valid') || mp.valid, 'clear_mm', g.clear_min_m*1e3, ...
+    R = struct('X', X, 'mp', mp, 'map', mp.max_nm, 'avg', mp.avg_nm, 'valid', ~isfield(mp, 'valid') || mp.valid, 'clear_mm', g.clear_min_m*1e3, ...
                'worst', g.clear_table(iw).leg, 'exit_err', g.exit_err_deg, 'diag', struct('rho_R3', rr, 'edge_kept', kept), 'deck', [stem '.in']);
     if ~R.valid, R.map = Inf; end
 end
