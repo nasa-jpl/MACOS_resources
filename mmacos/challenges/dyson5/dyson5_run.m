@@ -1279,6 +1279,8 @@ function S = stage_t4_(P, tag)
                 vars = {'K1', 'K2', 'A4', 'A6', 'dt2'};
             case {'R2', 'R3'}
                 vars = {'d', 'R2', 'K1', 'K2', 'A14', 'A16', 'A4', 'A6', 'dt2'};
+            case 'R3n'                                            % addendum 35 step 1: the wall OFF, the bias of the start design held
+                vars = {'d', 'R2', 'K1', 'K2', 'A14', 'A16', 'A4', 'A6', 'dt2', 'dep'};
             otherwise                                             % R3wNN: the bias step, the pupil decentre free, the wall on
                 vars = {'d', 'R2', 'K1', 'K2', 'A14', 'A16', 'A4', 'A6', 'dt2', 'dep'};
         end
@@ -1286,11 +1288,11 @@ function S = stage_t4_(P, tag)
         if walk, x.bias = blist(r)*pi/180;  if ~isfield(x, 'dec_ep'), x.dec_ep = 0; end, end
         mk = mkG;  thr = ths;  fovR = fovS;
         if strcmp(nm, 'seed'), thr = [0, 0.5*pi/180]; end      % the APLANAT: on axis + a small field (coma)
-        if any(strcmp(nm, {'R2', 'R3'})) || walk                % addendum 31: THIS module's strip alone, the general first order
+        if any(strcmp(nm, {'R2', 'R3', 'R3n'})) || walk         % addendum 31: THIS module's strip alone, the general first order
             mk = mkG2;  fovR = P.tms_r2_npix*ifov;  thr = linspace(-fovR/2, fovR/2, P.tms_nfield_solve);
         end
         if P.tms_score_only, ef = NaN;  it = 0;                 % re-score a recorded design: no solve
-        else, [x, ef, it] = t4_solve_(x, vars, mk, thr, D, lam, P, any(strcmp(nm, {'R2', 'R3'})) + 2*walk); end   % 1: Petzval row + raised budget; 2: + the clearance wall
+        else, [x, ef, it] = t4_solve_(x, vars, mk, thr, D, lam, P, any(strcmp(nm, {'R2', 'R3', 'R3n'})) + 2*walk); end   % 1: Petzval row + raised budget; 2: + the clearance wall
         G = mk(x, fovR);
         cm = max(arrayfun(@(t) t4_spot_(G, t, D, lam, 21), thr))/P.pixel_m;
         sc = struct('npx', {}, 'fields', {}, 'px', {}, 'max_px', {}, 'ident', {}, 'deck', {});
@@ -1303,9 +1305,9 @@ function S = stage_t4_(P, tag)
         sz = t4_size_(G, thr, D, lam, P);
         rows(end+1) = struct('name', nm, 'x', x, 'score', sc, 'size', sz, 'chain_px', cm, 'exitflag', ef, 'iters', it, 'clear', []);  %#ok<AGROW>
         pr('%-5s %-36s %9.3f |\n', nm, sprintf('%.4f %.4f | %.3g %.3g | %+.3f', x.K, x.A, x.dt2*1e3), cm);
-        if any(strcmp(nm, {'R2', 'R3'})) || walk
+        if any(strcmp(nm, {'R2', 'R3', 'R3n'})) || walk
             FO = tms_firstorder(f, x.d, x.R2);
-            if strcmp(nm, 'R3') || walk
+            if any(strcmp(nm, {'R3', 'R3n'})) || walk
                 Cl = tms_clear(G);  rows(end).clear = Cl;
                 pr('        R3 off-axis section: field bias %.1f deg, pupil decentre %+.0f mm; clearance %s mm (%s), min %+.1f mm (%s) %s; rays lost %d\n', ...
                    x.bias*180/pi, x.dec_ep*1e3, sprintf('%+.1f ', Cl.d*1e3), strjoin(Cl.pairs, ', '), Cl.min*1e3, Cl.worst, tern_(Cl.min >= 5e-3, 'PASS', 'FAIL'), Cl.lost);

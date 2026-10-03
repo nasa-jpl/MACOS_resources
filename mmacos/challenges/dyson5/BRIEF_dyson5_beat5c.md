@@ -96,12 +96,35 @@ signed.  Coaxial R2c: in x M2 -214 / -230 mm, M2->img x M1 -106 / -107 mm.
   Engine = chain to <= 8.1e-13 m on every ray.  The image is field-FLAT
   (the off-axis parent's own aberration, as for the three-mirror).
 
-So the TMS entry in Jim's comparison is: on axis (obscured) it images --
-**1.10 px** for the 1.5k module, **4.26 px** for the 3k -- and once packaged
-(the strip 30 deg off axis) it sits at **123 px** (1.5k) / **178 px** (3k),
-a stalled solve's value, improved 2x by the smooth wall but not a converged
-minimum.  Either way two orders of magnitude from the pixel: no end-to-end
-row is useful for it.
+* **Addendum 35 step 1 -- the BOUND (the wall OFF, from the stalled 30 deg
+  points, same variables, image + Petzval rows only; 1000-iteration cap, not
+  converged):**
+
+  | module | image (engine) | clearance (not enforced) | trust |
+  |---|---|---|---|
+  | 1.5k | 53.5 px max | +70.2 mm | **NO**: every-ray engine vs chain 3.5e-4 m; M1 conic -1.7e7, focus moved 1 m -- a pathological design |
+  | 3k | **25.1 px max** (19.1 on axis) | **-377 mm** | yes (1.1e-11 m); M2 810 x 955 mm, back focus 1355 mm, 30 kg (292 solid) |
+
+  Even unconstrained -- buying the image by walking straight back into the
+  obstruction -- the form stays at TENS of pixels at 30 deg.  By addendum
+  35's rule the FORM is out at this bias and no constrained solver can help:
+  **step 2 (fmincon) was not earned and was not run.**  It is also why the
+  wall kept stalling: the only image left to buy costs all the clearance.
+
+## 4b. THE TMS LINE OF JIM'S COMPARISON
+
+| | 1.5k module (4.69 deg strip) | 3k module (9.38 deg strip) |
+|---|---|---|
+| on axis, OBSCURED (not buildable) | **1.10 px** max (0.59 on axis) | **4.26 px** max (2.28 on axis) |
+| packaged (strip 30 deg off axis, clearance >= +5 mm) | **123 px** (+5.4 mm) -- a knee, not a floor | **178 px** (+4.8 mm) -- a knee, not a floor |
+| floor at 30 deg with the wall OFF (not packaged) | tens of px (53.5, untrusted) | **25 px** |
+| M2 / mirror mass / envelope (packaged) | 279 mm / 3.9 kg (10.3 solid) / 472 mm | 305 mm / 4.3 kg (12.6 solid) / 457 mm |
+
+**Verdict:** at f 330 mm, F/1.8, the two-mirror modified Schwarzschild does
+not deliver a packaged telescope that images at the pixel for either module;
+the review's own range for the form (low to medium resolution) is the reason.
+No end-to-end row is earned for it.  The end-to-end rows wait on a packaged
+IMAGING telescope from either route (CCMac's round 4 the likelier).
 
 ## 5. An engine discrepancy, briefed to CC
 
@@ -125,9 +148,9 @@ ray against the chain traced from the engine ray's own entrance-pupil state.
 ## 7. Open
 
 1. DONE (addendum 34): the smooth clearance operand -- it moved the packaged
-   design 2x, then the LM stalled again at the knee.  What remains for the
-   TMS is a solver question (a constrained solve, e.g. fmincon with the
-   clearance as a true inequality), not a missing operand.
+   design 2x, then the LM stalled at the knee.  Addendum 35's bound (the wall
+   off) stays at tens of px: the form is out at 30 deg; no constrained solve
+   was earned.  The TMS is CLOSED (section 4b).
 2. The engine discrepancy: FIXED by CC (macos 64c0a90; trace(nElt) ==
    stepwise, verified on the R2c deck: 1.0601e-05 m both).
 3. The three-mirror by CCMac's route.
