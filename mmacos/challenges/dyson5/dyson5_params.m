@@ -301,6 +301,12 @@ function P = dyson5_params(over)
     P.tel3e_from     = '';                % the t3o record (in P.outdir), e.g. 'dyson5_t3o_3k.mat'
     P.tel3e_fold_gap_m = 0;               % > 0: a flat fold this far before the slit (packaging), 0 = none
     P.tel3e_suffix   = '';                % record dyson5_t3e<suffix>.*
+    % t5e, END TO END FROM A TELESCOPE DECK (TMA step 2, CC): a coaxial
+    % Telescope-emitted deck with an object-space ApStop (tel_deck_geom),
+    % its FocalPlane replaced by the Dyson's slit (P.tel_dyson); the strip the
+    % slit admits is scored, the plate scale and slit vignetting stated.
+    P.tel5e_deck     = '';                % the deck (path; relative = this folder), e.g. 'dyson5_tma_step2b_linux_d205_1k5.in'
+    P.tel5e_suffix   = '';                % record dyson5_t5e<suffix>.*
     % t3s, THE FIRST-ORDER CLEARANCE SCREEN (addendum 21): tma_screen's nine
     % OI_CLEAR pairs evaluated paraxially (engine-free, ms per row) over
     % telescope_seed's family -- solve ONLY rows it passes
@@ -310,7 +316,7 @@ function P = dyson5_params(over)
     P.tel3s_off_max  = 15;                                % addendum 21's offset ceiling for "packages"
     P.tel3s_validate = [0.14 0; 0.14 8; 0.14 10; 0.30 0; 0.30 15];   % [t1 off] seeds checked screen vs engine oi_clear (y2 = P.tel_y2)
     P.tel3s_suffix   = '';                            % record name suffix (dyson5_t3s<suffix>.*)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild) are opt-in
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild), 't5e' (end to end from a telescope deck) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)

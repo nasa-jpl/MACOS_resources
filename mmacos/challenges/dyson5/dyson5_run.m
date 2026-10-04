@@ -130,6 +130,7 @@ function OUT = dyson5_run(over)
             case 't3o', OUT.t3o = stage_t3o_(P, tag);
             case 't3e', OUT.t3e = stage_t3e_(P, tag);
             case 't4',  OUT.t4  = stage_t4_(P, tag);
+            case 't5e', OUT.t5e = stage_t5e_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -1551,6 +1552,123 @@ function S = stage_t3e_(P, tag)
     S = struct('stage', stg, 'Pt', Pt, 'bridge_spot_m', sp, 'chain', Rc, 'engine', Re, 'ident_m', ident, 'e2e', RE, 'clearance', Cl, 'file', efile, 'tel_file', file);
     save([tag '_t3e' sfx '.mat'], 'S');
     spectrometer_maps_fig(RE, sprintf('%s_t3e%s_maps.png', tag, sfx), 'title', sprintf('telescope + %s, end to end, engine', P.tel_dyson), 'pixel_um', P.pixel_m*1e6);
+end
+
+function S = stage_t5e_(P, tag)
+%STAGE_T5E_  End to end from a Telescope-emitted deck (TMA step 2, CC): the bridge gated, plate scale + slit vignetting stated.
+    here = fileparts(mfilename('fullpath'));
+    deck = P.tel5e_deck;  if ~isfile(deck), deck = fullfile(here, deck); end
+    assert(isfile(deck), 'dyson5 t5e: no telescope deck %s', P.tel5e_deck);
+    GD = dyson_of_record_(P, tag, P.tel_dyson);
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  fov = npx*ifov;  sfx = P.tel5e_suffix;
+    W = GD.P.npix(1)*GD.P.pixel_m;  lam = [];
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_t5e' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    [~, dn, de_] = fileparts(deck);
+    pr('dyson5 t5e -- a telescope DECK end to end with its own Dyson (TMA step 2) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: telescope = %s%s mapped onto the exact chain by tel_deck_geom (coaxial conics from the deck; every chief the\n', dn, de_);
+    pr('  straight object-space line through the deck''s ApStop).  Field = %d px x IFOV %.3g urad = %.3f deg cross-track; the\n', npx, ifov*1e6, fov*180/pi);
+    pr('  spectrometer %s, slit %.1f mm (%d px x %.0f um).  Spec plate scale f = %.1f mm (pixel / IFOV).  Spots are RADIAL\n', P.tel_dyson, W*1e3, GD.P.npix(1), GD.P.pixel_m*1e6, f*1e3);
+    pr('  rms about the centroid (a 41-grid over the deck''s Aperture) -- per-axis rms is this / sqrt(2).\n\n');
+    % ---- gate 1: the bridge, telescope alone on the DECK's own FocalPlane, engine (the deck itself) vs chain
+    G0 = tel_deck_geom(deck, struct('fov', fov, 'name', 'bridge'), []);  lam = G0.src.lambda_c;  Dd = G0.src.D;
+    macos.load_rx(deck);  nE = macos.num_elt();
+    Rt = G0.place.R';  t0 = G0.place.tr;  ep0 = Rt*(G0.ep - t0);
+    nf = P.tel_score_nfield;  ths = linspace(-fov/2, fov/2, nf);  modes = {'slit line', 'sky line (db = 0)'};
+    se = nan(2, nf);  sc = se;  ce = nan(3, nf, 2);  cc = ce;  rays = 0;  dmax = 0;
+    for m = 1:2
+        for q = 1:nf
+            if m == 1, dP = G0.field_dir(ths(q)); else, dP = G0.field_dir_raw(ths(q), 0); end
+            dP = dP/norm(dP);  dL = Rt*dP;
+            macos.set_src_fov('src_pos', ep0 - 0.5*dL, 'src_dir', dL, 'zSrc', 1e22);  macos.modify();
+            tr = macos.trace(1);  r1 = macos.get_ray_info(tr.nRays);
+            tr = macos.trace(nE);  ri = macos.get_ray_info(tr.nRays);  o = ri.ok_trace(:) & ri.ok_pass(:);
+            Q = ri.pos(:, o);  se(m, q) = sqrt(mean(sum((Q - mean(Q, 2)).^2, 1)));  ce(:, q, m) = ri.pos(:, 1);
+            [p0, ok] = G0.aim_pt(dP, lam);  assert(ok);
+            [pc, ~, okc] = G0.trace(p0, dP, lam);  assert(okc);  cc(:, q, m) = Rt*(pc(:, end) - t0);
+            sc(m, q) = t3e_spot_(G0, p0, dP, Dd, lam);
+            % every engine ray vs the chain: the engine's own M1 hit carried BACK along the (collimated) source direction to the
+            % chain's launch plane (1 mm back is not enough: it can sit outside the conic's base sphere -> the 'far' root is wrong)
+            for k = find(o)'
+                qk = G0.place.R*r1.pos(:, k) + t0;  qk = qk - dP*(((qk - G0.launch.C)'*G0.launch.N)/(dP'*G0.launch.N));
+                [pk, ~, okk] = G0.trace(qk, dP, lam);
+                if okk, dmax = max(dmax, norm(Rt*(pk(:, end) - t0) - ri.pos(:, k)));  rays = rays + 1; else, dmax = Inf; end
+            end
+        end
+    end
+    pr('GATE 1 (bridge, telescope alone on the deck''s FocalPlane): fields %s deg\n', sprintf('%.3f ', ths*180/pi));
+    for m = 1:2
+        pr('  %-18s rms spot um, engine: %s\n  %-18s                chain:  %s\n', modes{m}, sprintf('%8.2f ', se(m, :)*1e6), '', sprintf('%8.2f ', sc(m, :)*1e6));
+    end
+    pr('  chief at the FocalPlane, engine vs chain: max %.2e m;  %d engine rays re-traced by the chain from their launch: max %.2e m\n\n', ...
+       max(vecnorm(reshape(ce - cc, 3, []))), rays, dmax);
+    % ---- first-order facts of the deck: plate scale, the bow of the sky line, the slit's admission
+    xs_ = @(G, d) slit_x_(G, d, lam);
+    dpr = 0.02*pi/180;  xl = abs(xs_(G0, G0.field_dir(dpr)) - xs_(G0, G0.field_dir(-dpr)));  f_loc = xl/(2*tan(dpr));
+    xe = abs(xs_(G0, G0.field_dir(fov/2)) - xs_(G0, G0.field_dir(0)));  f_edge = xe/tan(fov/2);   % abs: the image is inverted
+    [~, dbe] = G0.field_dir(fov/2);
+    [p0, ~] = G0.aim_pt(G0.field_dir_raw(fov/2, 0), lam);  [pc, ~] = G0.trace(p0, G0.field_dir_raw(fov/2, 0), lam);
+    [p1, ~] = G0.aim_pt(G0.field_dir_raw(0, 0), lam);    [pc1, ~] = G0.trace(p1, G0.field_dir_raw(0, 0), lam);
+    bow = norm((pc(:, end) - pc1(:, end)) - [pc(1, end) - pc1(1, end); 0; 0]);
+    x00 = xs_(G0, G0.field_dir(0));
+    if xe > W/2, ta = fzero(@(t) abs(xs_(G0, G0.field_dir(t)) - x00) - W/2, [0 fov/2]); else, ta = fov/2; end
+    ang = acosd(abs(G0.place.exit_dir_local'*(Rt*G0.surf(end).psi)));   % both in the deck frame
+    pr('THE DECK''S FIRST ORDER (chain == engine above):\n');
+    pr('  plate scale: local %.1f mm (+-0.02 deg about the centre), %.1f mm to the strip edge (offset / tan) -- spec %.1f mm\n', f_loc*1e3, f_edge*1e3, f*1e3);
+    pr('  the strip at the image: %.2f mm long (+-%.2f mm), the slit %.1f mm\n', 2*xe*1e3, xe*1e3, W*1e3);
+    pr('  the straight SKY line images BOWED: %.2f mm off the slit line at the strip edge; landing on the slit line takes %.3f deg along track\n', bow*1e3, dbe*180/pi);
+    pr('  the deck''s FocalPlane is tilted %.2f deg to the exit chief (about the slit axis: no defocus ALONG the slit line)\n', ang);
+    pr('  SLIT VIGNETTING: the slit admits +-%.3f deg of the +-%.3f deg strip = %.1f %% of the swath (%d of %d px); the rest falls off the slit ends\n\n', ...
+       ta*180/pi, fov/2*180/pi, 100*ta/(fov/2), round(npx*ta/(fov/2)), npx);
+    % ---- END TO END over the strip the slit admits (the deck's FocalPlane replaced by the slit)
+    Pt = struct('fov', 2*ta, 'name', sprintf('%s_t5e%s', P.tag, sfx), 'D_src', Dd*P.tel_oversize);
+    GT = tel_deck_geom(deck, Pt, GD);  GE = e2e_geom(GT, GD);  nT = numel(GT.surf);
+    Fe = GE.footprints('nx', 5, 'nlam', 3, 'nring', P.tel_nring);  Fd = GD.footprints('nx', 3, 'nlam', 3, 'nring', 2);
+    Fa = [Fe(1:nT), Fd];
+    marg = [P.ap_margin_m*ones(1, nT), P.ap_margin_m*ones(1, numel(GD.surf))];  marg(GE.iG) = 0.2e-3;
+    d0 = GE.field_dir(0);  [p0, ~, ok] = GE.launch_field(0, GE.src.lambda_c);  assert(ok);
+    efile = sprintf('%s_t5e%s_e2e.in', tag, sfx);
+    ME = spectrometer_rx(GE, efile, 'ngridpts', P.ngridpts, 'name', sprintf('%s_t5e%s_e2e', P.tag, sfx), 'apertures', true, 'margin', marg, ...
+                         'footprints', Fa, 'source', struct('dir', d0, 'pos', p0, 'aperture', GE.src.D_src), 'wavelen', GE.src.lambda_c);
+    macos.load_rx(efile);
+    assert(macos.num_elt() == ME.nElt, 'dyson5 t5e: %s loads %d of %d elements', efile, macos.num_elt(), ME.nElt);
+    [pcc, ~, ~] = GE.trace(p0, d0, GE.src.lambda_c);
+    macos.stop(GE.iG);  macos.set_src_fov('src_pos', p0, 'src_dir', d0, 'zSrc', 1e22);  macos.modify();
+    tr = macos.trace(ME.nElt);  ric = macos.get_ray_info(tr.nRays);  ident = norm(ric.pos(:, 1) - pcc(:, end));
+    Pk = P;  Pk.Fno = GD.P.Fno;  fe = linspace(-ta, ta, P.e2e_nfield);
+    RE = spectrometer_score(GE, ME, Pk, 'fields', fe, 'nlam', P.e2e_nlam, 'quiet', true);
+    % where the INSTRUMENT's chief (through the grating, not the deck's ApStop) crosses the slit plane, off the slit line
+    ych = nan(size(fe));
+    for i = 1:numel(fe)
+        [pq, dq, okq] = GE.launch_field(fe(i), GE.src.lambda_c);
+        if okq, [pc, ~, okc] = GE.trace(pq, dq, GE.src.lambda_c);  if okc, ych(i) = pc(2, GE.iSlit) - GE.slit(2); end, end
+    end
+    Cl = spectrometer_clearance(GE, P, 'quiet', true);
+    pr('END TO END (telescope + %s over the ADMITTED strip +-%.3f deg, %d fields x %d wavelengths, the grating the stop) -- INFORMATIVE:\n', ...
+       P.tel_dyson, ta*180/pi, P.e2e_nfield, P.e2e_nlam);
+    pr('  smile %.4f px  keystone %.4f px  CRF %.3f px  SRF %.3f px  EE %.3f  grating admits %.3f  clearance %+.2f mm (%s vs %s, %s)  %d elements\n', ...
+       RE.smile_max, RE.keystone_max, RE.crf_max, RE.srf_max, RE.ee_min, min(RE.pass_frac(:)), Cl.min_mm, Cl.table.leg{1}, Cl.table.body{1}, tern_(Cl.pass, 'PASS', 'FAIL'), ME.nElt);
+    pr('  engine chief vs chain at the FPA (centre field): %.1e m\n', ident);
+    pr('  spec: smile, keystone < 0.1 px; CRF < 1.5 px; SRF on the slit floor.  deck %s\n', efile);
+    pr('  smile per lambda (px): %s\n  keystone per field (px): %s\n  pass fraction per field: %s\n', sprintf('%.4f ', RE.smile_px), sprintf('%.4f ', RE.keystone_px), sprintf('%.3f ', min(RE.pass_frac, [], 2)));
+    pr('  the grating-stop chief crosses the slit plane OFF the slit line by (um, per field): %s\n', sprintf('%+.1f ', ych*1e6));
+    pr('  READING: the slit is an unmasked pass station here, so the telescope''s blur at the slit (gate 1: %.0f-%.0f um rms over the\n', min(se(1, :))*1e6, max(se(1, :))*1e6);
+    pr('  full strip''s slit line) passes into the Dyson whole, and the pupil mismatch (deck ApStop vs the grating''s image) puts\n');
+    pr('  the instrument''s chief off the slit line -- the smile/CRF/SRF above are the TELESCOPE''s image quality seen through a\n');
+    pr('  Dyson, not the Dyson''s distortion.  A real slit would clip that light (the vignetting is then in throughput, not in smile).\n');
+    pr('  NOT the number: plate scale %.0f mm (local) vs %.0f mm spec, %.1f %% of the swath on the slit.\n', f_loc*1e3, f*1e3, 100*ta/(fov/2));
+    fclose(fid);
+    S = struct('deck', deck, 'bridge_spot_m', struct('engine', se, 'chain', sc), 'ident_bridge_m', dmax, 'f_loc_m', f_loc, 'f_edge_m', f_edge, ...
+               'bow_m', bow, 'db_edge_rad', dbe, 'chief_off_slit_m', ych, 'fp_tilt_deg', ang, 'admit_half_rad', ta, 'admit_frac', ta/(fov/2), ...
+               'e2e', RE, 'clearance', Cl, 'ident_m', ident, 'file', efile);
+    save([tag '_t5e' sfx '.mat'], 'S');
+    spectrometer_maps_fig(RE, sprintf('%s_t5e%s_maps.png', tag, sfx), 'title', sprintf('TMA deck + %s, end to end, engine (informative)', P.tel_dyson), 'pixel_um', P.pixel_m*1e6);
+end
+
+function x = slit_x_(G, d, lam)
+%SLIT_X_  The chief's x at the chain's terminal plane (placed frame: x runs along the slit).
+    [p0, ok] = G.aim_pt(d, lam);  assert(ok);  [pc, ~, okc] = G.trace(p0, d, lam);  assert(okc);  x = pc(1, end);
 end
 
 function s = t3e_spot_(G, p0, d, Dm, lam)
