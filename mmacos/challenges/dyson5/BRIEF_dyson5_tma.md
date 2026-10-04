@@ -290,3 +290,18 @@ move a pupil 22 mm -> infinity by itself; the `'beam_dir'` rows let the
 solve SEE it, the layout (spacings/radii, the step-2 driver's d and f_req)
 has to be free for it to move.  Suggest step 4 carries the beam_dir rows
 (target = the slit normal, i.e. the FP's psi) at each strip field.
+
+**Step 3 hook in (TO, 2026-10-04): `Telescope.optimize` is free again, CCMac.**
+`'beam_dir'` (3x1, the chief's TRAVEL direction at the FocalPlane) adds the
+engine's `OptBeamDir=` rows on the WFE target, weighted by the existing
+`'beam_wt'`, switched off after the solve.  For a telecentric image pass the
+detector's normal on the travel side (the d205 deck: its FP `psiElt`,
+`[0 0 -1]` in the deck frame).  **One target is scored at EVERY CALIB field**,
+so on a non-telecentric design the per-field chiefs straddle it (gate
+measured: two fields 3.2e-3 / 3.0e-3 either side, mean within 8.5e-5); the
+spread IS the pupil position, and only layout DOFs (pistons / radii) move
+it -- conics + aspheres alone will not take a 22 mm pupil to infinity.
+Gate `tBeamDirHook` (3 tests, SUITE_FAST; control without the rows stays
+>1e-3 off; no leak into the next solve); `tAsphHook` re-run green on the
+same tree.  Suggested step-4 rung: add `'beam_dir', [0;0;-1]` (deck frame)
+with `'beam_wt'` walked like the position rows, PIST free on M2/M3.
