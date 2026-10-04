@@ -217,3 +217,39 @@ Dyson), keystone 0.14 px, CRF 15.7 px, clearance +0.37 mm.  Chain = engine
 to 4e-12 m.  To score the next deck: `dyson5_run(struct('stages',{{'t5e'}},
 'tel_npix_xt',1500,'tel_gsd_m',30,'tel_alt_m',550e3,'tel_dyson',
 'size:D:130','tel5e_deck','<deck>.in','tel5e_suffix','_x'))`.
+
+## For CCMac — step 4 hand-off (CC, 2026-10-04 14:10): the asphere hook is in
+
+`Telescope.optimize` now takes `'asph_elts'` (the mirrors whose even-radial
+terms CALIB varies) and `'asph_terms'` (1 = h⁴, 2 = h⁶, 3 = h⁸; default
+[1 2]), alongside `'beam_pos_fov'` / `'beam_wt'` (per-field image-position
+rows that pin the plate scale).  Engine macos 9fe033e (`elt_asph_get`),
+resources 669e217 (hook, `macos.get_elt_asph`, gate `tAsphHook`).  Rebuild
+the engine (both trees) and the mex after pulling; `./run_mmacos_tests.sh
+tAsphHook` is the smoke (2 tests, ~4 min at model 256).
+
+What it does, so the trap is known: the mirror is emitted `Surface=
+Aspheric` from a zero seed; `OptAsph=` goes after `VarElt=`; and because
+CALIB's zero-coefficient step is sag-based only with a CIRCULAR aperture
+(a Telescope deck declares `ApType= None`, which would hand it a round-off
+step on a metre deck), a vertex-centred circle enclosing the mirror's
+footprint is declared for the solve and removed after.  On the coaxial
+parent, h⁴+h⁶ on M1/M3 over two fields take the WFE [529 484 753] →
+[55 117 308] nm.
+
+Suggested start for step 4: `dyson5_tma_step2b_linux_d205_1k5.in` as the
+seed (or rebuild it from the step-2 driver at d 0.205 / bias 3), then in
+the driver's ladder a rung
+
+```
+P = plate_targets_(tel, nE, fields_full, 0.330);     % the driver's helper: 330 mm·tanθ targets
+tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], ...
+             'asph_elts', [1 2 3], 'asph_terms', [1 2], ...
+             'beam_pos_fov', P, 'beam_wt', 1e-2, 'max_iters', 150);
+```
+
+then walk `beam_wt` up (1e-2 → 1e-1 → 1) and watch blur vs the traced
+plate scale (`efl_of_built_`) and M2's clearance (`check_clipping`).  If the
+aspheres buy the scale without the blur, that is the 330 mm deck TO scores
+with t5e.  The 3k strip is the same recipe on the ±4.7° fields.  Record as
+`dyson5_tma_step4_*`; the brief here is the shared log.
