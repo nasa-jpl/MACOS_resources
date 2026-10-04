@@ -30,7 +30,7 @@ function OUT = dyson5_tma_step2_linux(over)
                  'int_focus_D', -0.125, 'm3_behind_D', 0.6, 'lam', 633e-9, 'model', 256, ...
                  'biases_deg', [0 1 2], 'modules', struct('name', {'3k', '1k5'}, 'strip_half_deg', {4.7, 2.35}), ...
                  'nfield', 7, 'pixel_m', 18e-6, 'max_iters', 150, 'areal_density', 25, ...
-                 'offaxis_margin', 0.05, 'decenter_m', 0.17, 'rungs', 0:2, 'quiet', false, 'tag', 'dyson5_tma_step2_linux');
+                 'offaxis_margin', 0.05, 'decenter_m', 0.17, 'rungs', 0:2, 'recentre_bias_deg', 0, 'quiet', false, 'tag', 'dyson5_tma_step2_linux');
     fn = fieldnames(over);
     for k = 1:numel(fn), if ~isfield(opt, fn{k}), error('unknown option %s', fn{k}); end, opt.(fn{k}) = over.(fn{k}); end
     D = opt.EFL_m/opt.Fsys;
@@ -46,10 +46,17 @@ function OUT = dyson5_tma_step2_linux(over)
     % ---- the step-1 calibrated layout (exact-traced EFL = 330 mm at D = 183 mm)
     fsys_req = opt.Fsys;  R = []; t = []; lay = [];  efl_trace = NaN;
     pr('[layout calibration] holding D=%.1f mm, primary f/%.2f, secondary mag %.2f; EFL by exact trace:\n', D*1e3, opt.primary_fnum, opt.secondary_mag);
-    for it = 1:6
+    for it = 1:10
         [R, t, lay] = macos.design.tma_layout(D, opt.primary_fnum, fsys_req, 'secondary_mag', opt.secondary_mag, ...
                           'int_focus_m', opt.int_focus_D*D, 'm3_behind_m', opt.m3_behind_D*D);
-        efl_trace = efl_by_trace_(R, t, D, opt.lam, opt.model);
+        if opt.recentre_bias_deg > 0
+            % step 2b: calibrate the TRACED plate scale on the SECTION at the working
+            % bias and decenter (the eccentric section's local magnification off its
+            % parent axis is not the parent's EFL: 375-450 mm at 2-3 deg in _d190)
+            efl_trace = efl_on_section_(R, t, D, opt.lam, opt.model, opt.recentre_bias_deg, opt.decenter_m);
+        else
+            efl_trace = efl_by_trace_(R, t, D, opt.lam, opt.model);
+        end
         pr('  iter %d: requested f/%.3f (EFL_req %.4f) -> exact EFL %.4f m (F/%.3f)\n', it, fsys_req, lay.EFL, efl_trace, efl_trace/D);
         if abs(efl_trace - opt.EFL_m)/opt.EFL_m < 0.004, break; end
         fsys_req = fsys_req * (opt.EFL_m / efl_trace);
@@ -214,6 +221,12 @@ function d = footdia_(B, k)
     end
     if isempty(P), d = NaN; return; end
     c = mean(P,2);  d = 2*max(vecnorm(P - c));
+end
+
+function ef = efl_on_section_(R, t, D, LAM, MODEL, bias_deg, dec_m)
+    tel = build_tma_(R, t, D, LAM, MODEL);
+    tel.set_field_bias(bias_deg*60);  tel.set_offaxis('none', 'dist', dec_m);  tel.build();
+    ef = efl_of_built_(tel, numel(tel.spec.elt), LAM);
 end
 
 function ef = efl_by_trace_(R, t, D, LAM, MODEL)

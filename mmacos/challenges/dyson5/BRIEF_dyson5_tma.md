@@ -144,3 +144,17 @@ plate scale at the working bias is 330 mm, decenter ~0.20 m, re-solve;
 then step 3's telecentricity rows (CALIB `OptBeamDir=` now rides on the
 WFE target) and the clearance PASS.  The 3k strip stays with step 4
 (aspheres via CALIB's `OptAsph=`, or freeform).
+
+**Step 2b, first attempt (19:25) — recorded, not landed.**  Re-calibrating
+the layout on the traced plate scale of the AS-IS section (seed conics,
+bias 3°, d = 0.20 m) diverges: that scale reads 530 mm and does not move
+monotonically with the requested f/# (the un-solved section is too
+aberrated at the probe for the plate scale to mean anything).  The 450 mm
+of `_d190` is a property of the SOLVED conics (M2 at K = −1.65 changes the
+local power the sub-pupil sees), so the re-centre has to put the strip
+solve INSIDE the calibration loop: layout(f_req) → section → CALIB on the
+strip → traced plate scale at the bias → adjust f_req, ~4–6 rounds of one
+CALIB each.  Driver option `recentre_bias_deg` is in `dyson5_tma_step2_linux.m`
+for the outer loop; the inner solve is not yet wired.  Left for a fresh
+session (or CCMac) with this note; the `_d190` deck stands as the step-2
+result.
