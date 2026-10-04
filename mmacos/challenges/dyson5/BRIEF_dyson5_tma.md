@@ -334,3 +334,61 @@ written above.  Blur, plate scale, chief angle, pupil, grating miss and
 admitted fraction all come out of ONE t5e run now.
 
 The d205 deck stays the step-2 record; do not start stage B from it.
+
+## Step 4 (CCMac, 2026-10-04) — aspheres: they buy the centre, not the field, and not the scale
+
+Restarted from CC's d205 unobscured section (decenter 205 mm, bias 3° on the step-1
+calibrated f=330/F1.8/D=183 Korsch — reproduced to the digit on the current engine:
+conics 161.0 µm / 8.94 px / 447.5 mm plate, which is CC's d205 exactly). Added even-
+radial aspheres h⁴+h⁶ on M1/M2/M3 via CC's hook (`asph_elts`/`asph_terms` → CALIB
+`OptAsph=`), alone (blur) and with the plate-scale position rows at `beam_wt` 1e-2→1→
+walked. Driver `dyson5_tma_step4.m`; records `dyson5_tma_step4.{txt,mat}` + layouts.
+tAsphHook 2/0 on the rebuilt engine (macos 9fe033e) + mex.
+
+**1.5k strip (±2.35°):**
+
+| variant | worst spot | centre | plate | clearance |
+|---|---|---|---|---|
+| conics (= CC d205) | 161 µm / 8.9 px | 76.8 µm / 4.3 px | 447 mm | PASS +0.1 mm |
+| **aspheres, blur only** | 150 µm / 8.3 px | **41.7 µm / 2.3 px** | 449 mm | FAIL (−, M2) |
+| asph + scale wt 1e-2 | 426 µm | 99 µm | 422 mm | PASS |
+| asph + scale wt 1e-1 | 4321 µm | 2824 µm | 426 mm | FAIL |
+| asph + scale wt 1 | 55356 µm | 52230 µm | 17855 mm | FAIL |
+
+**3k strip (±4.7°):**
+
+| variant | worst spot | centre | plate | clearance |
+|---|---|---|---|---|
+| conics | 1487 µm / 82.6 px | 493 µm / 27 px | 496 mm | FAIL −0.4 mm |
+| aspheres, blur only | 34660 µm (edges) | **20.2 µm / 1.1 px** | 450 mm | FAIL |
+| asph + scale (any wt) | 24000–32000 µm | 259–5470 µm | 300–820 mm | FAIL |
+
+**Three conclusions, all negative and all precise:**
+
+1. **Aspheres buy the strip CENTRE, not the field.** h⁴+h⁶ pull the centre from 4.3→2.3 px
+   (1.5k) and 27→1.1 px (3k) — a real improvement — but the ±4.7° / ±2.35° EDGES barely
+   move (1.5k 161→150 µm) or explode (3k edges → 35 mm). Rotationally-symmetric aspheres
+   cannot correct the field-growing coma/astigmatism of a wide off-axis strip; that needs
+   **freeform** (non-symmetric), not aspheres. The hook works (CC's coaxial WFE
+   529→55 nm reproduces); the limit is the symmetry, not the solver.
+
+2. **The 447→330 mm plate scale is unreachable by aspheres.** Any weight on the position
+   rows trades the blur away and then diverges (wt 1 → 17.8 m / 820 mm plate, nonsense):
+   a 35 % magnification change is not something h⁴/h⁶ can carry. This confirms CC's
+   suspicion — the plate scale needs a **re-posed first order with the eccentric section's
+   own magnification**, which `tma_layout` / the Telescope class do not have (they calibrate
+   the parent-axis EFL, not the section's).
+
+3. **The 3k section does not even clear at d205** (−0.4 mm, 4 conflicts): the wider 3k beam
+   needs its own decenter/geometry, not the 1.5k section's.
+
+**For Jim's table, the TMA line stays CC's d205:** unobscured 3-conic 1.5k section, **8.9 px
+worst / 4.3 px centre, 447 mm plate scale (22 m GSD, not 30), 1.05 kg, packaged, clearance
+PASS**; the 3k strip and the 330 mm/F1.8 target are out of reach with the coaxial-Korsch
+section + conics/aspheres. **Two capabilities the design layer is missing to close it:**
+(a) an eccentric-section first order (for the plate scale), and (b) freeform field correction
+(for the strip edges). Absent those, the TMA at Jim's numbers wants a freeform-from-scratch
+or TO's two-mirror form — not more conics/aspheres on this parent. Layouts
+`dyson5_tma_step4_layout_{1k5,3k}.png` (the unobscured eccentric section, beam on the upper
+M1). Step 5 (the real end-to-end) is moot until the plate scale closes; the informative t5e
+row (d205 + 130 mm Dyson, 68.7 % swath, smile 44.5 px) stands as the current TMA⊕Dyson number.
