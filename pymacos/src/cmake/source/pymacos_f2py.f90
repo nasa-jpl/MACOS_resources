@@ -143,6 +143,7 @@
       calib_set_beam_wt_impl => calib_set_beam_wt, &
       ffcut_set_impl => ffcut_set, &
       ffcut_get_impl => ffcut_get, &
+      elt_asph_get_impl => elt_asph_get, &
       stop_info_get_impl => stop_info_get, &
       stop_info_set_impl => stop_info_set, &
       stop_obj_set_impl => stop_obj_set, &
@@ -1687,6 +1688,17 @@
 
         CALL ffcut_get_impl(OK, on, nPix)
       end subroutine ffcut_get
+
+      subroutine elt_asph_get(OK, coef, n, iElt)
+
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(in) :: n, iElt
+        real(8), intent(out):: coef(n)
+        !f2py integer intent(in) :: n
+
+        CALL elt_asph_get_impl(OK, coef, n, iElt)
+      end subroutine elt_asph_get
 
       subroutine stop_info_get(OK, iElt, VptOffset)
         use Kinds

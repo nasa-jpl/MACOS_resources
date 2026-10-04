@@ -24,6 +24,7 @@ draw_rays3d_get
 draw_rays_cmd
 draw_rays_get
 dx_at
+elt_asph_get
 elt_csys_get
 elt_csys_rm
 elt_csys_set

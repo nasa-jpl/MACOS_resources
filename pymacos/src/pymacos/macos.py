@@ -4330,6 +4330,15 @@ def ffcut(on: bool | None = None):
         raise Exception(f"MACOS: ffcut({on}) failed")
 
 
+def get_elt_asph(srf: int, n: int = 4) -> np.ndarray:
+    """Even-radial aspheric coefficients (AsphCoef: h^4, h^6, ...) of element
+    ``srf`` -- what CALIB's ``OptAsph=`` DOFs leave on it.  ``n`` <= 9."""
+    ok, coef = lib.api.elt_asph_get(int(n), int(srf))
+    if not ok:
+        raise Exception(f"MACOS: get_elt_asph({srf}) failed")
+    return np.asarray(coef, dtype=np.float64).ravel()
+
+
 def calib_set_target(target, wf_zern_modes=None) -> None:
     """Set the CALIB optimization target.
 

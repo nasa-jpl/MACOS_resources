@@ -1067,6 +1067,26 @@ classdef Telescope < handle
         %                     metres of wavefront, position rows metres on the
         %                     detector -- 1e-2..1 makes a 0.1 mm plate-scale
         %                     error count like a few um of wavefront).
+        %     'asph_elts'     elements whose EVEN-RADIAL ASPHERE terms CALIB
+        %                     varies as well (the engine's OptAsph= DOFs,
+        %                     the step fixed 2026-10-01), 'asph_terms' the
+        %                     term indices (1 = h^4, 2 = h^6, 3 = h^8; default
+        %                     [1 2]).  The element is emitted Surface=Aspheric
+        %                     (zero seed allowed) and, if it declares no
+        %                     aperture, a vertex-centred circle ENCLOSING its
+        %                     beam footprint is declared for the solve --
+        %                     CALIB's zero-coefficient step is sag-based at
+        %                     the circular aperture radius (for an off-axis
+        %                     section that radius runs from the PARENT vertex
+        %                     to the far edge of the footprint, which is the
+        %                     scale the term acts on); with no circular
+        %                     aperture the engine falls back to a round-off
+        %                     step on a metre deck.  The enclosing circle
+        %                     clips nothing and is removed after the solve.
+        %                     Solved coefficients are read back into
+        %                     spec.elt(k).asph (get_elt_asph) and emitted with
+        %                     the design.  Pair with 'beam_pos_fov' to solve
+        %                     blur and plate scale together (dyson5 step 4).
         %     'dofs'          VarElt mask [TIP TILT CLOCK DX DY PIST ROC
         %                     CONIC] (default [0 0 0 0 0 0 0 1] = conic only).
         %                     A (1,8) row applies to EVERY varied element; an
@@ -1095,6 +1115,8 @@ classdef Telescope < handle
                 opts.fpa_dofs      (:,8) double = []   % enrol the detector as a varied element
                 opts.beam_pos_fov  (3,:) double = []   % per-field image-position targets at the FP (global, m), one column per CALIB field in order
                 opts.beam_wt       (1,1) double = 1    % weight of those rows against the WFE rows (row sigma / sqrt(wt))
+                opts.asph_elts     (1,:) double = []   % elements whose even-radial asphere terms CALIB varies (OptAsph=)
+                opts.asph_terms    (1,:) double = [1 2]  % the terms: 1 = h^4, 2 = h^6, 3 = h^8 ... (<= 9)
             end
             if ~all(ismember(opts.dofs(:), [0 1]))
                 error('macos:design:Telescope:optimize:dofs', ...
@@ -1126,6 +1148,28 @@ classdef Telescope < handle
             if isempty(var_elts)
                 error('macos:design:Telescope:optimize:noMirror', ...
                     'no Reflector elements to vary.');
+            end
+            % --- asphere DOFs: declare the surfaces (and an enclosing circle) ---
+            asph_ap_added = [];
+            if ~isempty(opts.asph_elts)
+                bad = setdiff(opts.asph_elts, var_elts);
+                if ~isempty(bad)
+                    error('macos:design:Telescope:optimize:asphElts', ...
+                        'asph_elts must be among the varied powered Reflectors (got %s).', mat2str(bad));
+                end
+                if any(opts.asph_terms < 1) || any(opts.asph_terms > 9) || any(opts.asph_terms ~= round(opts.asph_terms))
+                    error('macos:design:Telescope:optimize:asphTerms', 'asph_terms must be integers in 1..9.');
+                end
+                nt = max(opts.asph_terms);
+                for k = opts.asph_elts
+                    a = obj.spec.elt(k).asph;
+                    if numel(a) < nt, a(end+1:nt) = 0; end
+                    obj.spec.elt(k).asph = a(:).';
+                    if isempty(obj.spec.elt(k).ap) && isempty(obj.spec.elt(k).ap_rect)
+                        obj.spec.elt(k).ap = [obj.enclosing_radius_(k), 0, 0];
+                        asph_ap_added(end+1) = k; %#ok<AGROW>
+                    end
+                end
             end
             % --- optionally enrol the detector as a varied element --------
             fpa_elt = [];
@@ -1221,7 +1265,7 @@ classdef Telescope < handle
             obj.spec.opt = struct('target',opts.target, 'wf_elt',fp_elt, ...
                 'max_iters',opts.max_iters, 'fields',dirs, 'weights',w, ...
                 'var_elts',var_elts, 'dof_mask',opts.dofs, 'dof_rows',dof_rows, ...
-                'fex',use_ep);
+                'fex',use_ep, 'asph_elts',opts.asph_elts, 'asph_terms',opts.asph_terms);
             obj.build();                                  % emit opt block -> load
             if use_ep
                 % design_optim.F:170-180 aborts the solve unless the system
@@ -1262,6 +1306,9 @@ classdef Telescope < handle
                 end
                 obj.spec.elt(k).Kc  = macos.get_elt_kc(k);
                 obj.spec.elt(k).Kr  = macos.get_elt_kr(k);          % ROC DOF
+                if any(opts.asph_elts == k)                          % asphere DOFs
+                    obj.spec.elt(k).asph = macos.get_elt_asph(k, numel(obj.spec.elt(k).asph));
+                end
                 obj.spec.elt(k).psi = reshape(macos.get_elt_psi(k), 1, 3); % tilt
                 obj.spec.elt(k).Vpt = reshape(macos.get_elt_vpt(k), 1, 3); % decenter
             end
@@ -1283,6 +1330,9 @@ classdef Telescope < handle
                 end
             end
             obj.spec = rmfield(obj.spec, 'opt');
+            for k = asph_ap_added                      % the enclosing circles were for the solve only
+                obj.spec.elt(k).ap = [];
+            end
             % Clean re-emit from the updated spec.  CALIB bakes the rigid-body
             % result into psiElt/VptElt (verified), and our mirrors are
             % rotationally-symmetric conics, so the moved psi/Vpt fully define
@@ -1665,6 +1715,22 @@ classdef Telescope < handle
             sgtitle(tl, sprintf('%s -- orthographic layout (real rays)', obj.spec.family), ...
                     'Interpreter','none');
             if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+        end
+
+        function r = enclosing_radius_(obj, k)
+        %ENCLOSING_RADIUS_  Radius of the vertex-centred circle, in element k's
+        %   plane, that encloses its beam footprint at the nominal field (x1.05).
+        %   For an off-axis section this runs from the PARENT vertex to the far
+        %   edge of the footprint -- the radius an even-asphere term acts on.
+            B = obj.ray_bundle();
+            e = obj.spec.elt(k);  n = e.psi(:)/norm(e.psi);  v = e.Vpt(:);
+            r = 0;
+            for f = 1:numel(B.pos)
+                pk = B.pos{f}(:,:,k);  ok = B.ok{f}(:,k).';
+                P  = pk(:,ok) - v;  P = P - n*(n.'*P);
+                if ~isempty(P), r = max(r, max(vecnorm(P))); end
+            end
+            r = 1.05*r;
         end
 
         function B = ray_bundle(obj, opts)
@@ -2970,7 +3036,10 @@ classdef Telescope < handle
                 L{end+1} = sprintf('             iElt=  %d', k);                  %#ok<AGROW>
                 L{end+1} = ['          EltName=  ' e.name];
                 L{end+1} = ['          Element=  ' e.kind];
-                hasAsph = isfield(e,'asph') && ~isempty(e.asph) && any(e.asph ~= 0);
+                hasAsph = isfield(e,'asph') && ~isempty(e.asph) && (any(e.asph ~= 0) ...
+                          || (isfield(sp,'opt') && isfield(sp.opt,'asph_elts') && any(sp.opt.asph_elts == k)));
+                % (an element whose asphere terms CALIB varies emits Surface=Aspheric
+                %  even from a zero seed -- the same declare-to-perturb rule as freeform)
                 % A freeform element emits Surface=Zernike whenever modes are
                 % DECLARED -- even with zero coefficients -- so the CALIB OptZern
                 % optimizer has a Zernike surface (ZernTypeL/=0) to perturb from
@@ -3087,6 +3156,14 @@ classdef Telescope < handle
                 % them to the optimizer (auto-enrolls the elt as VarElt); paired
                 % with an all-zero VarElt mask it varies ONLY the Zernike coefs,
                 % so radii/conics are held (optimize_freeform).
+                % CALIB even-asphere DOF (OptAsph= n term1 .. termn; 1 = h^4):
+                % must FOLLOW the VarElt line (the parser keys it on isVarElt).
+                if isfield(sp,'opt') && isfield(sp.opt,'asph_elts') ...
+                        && any(sp.opt.asph_elts == k)
+                    at = sp.opt.asph_terms;
+                    L{end+1} = ['          OptAsph=  ' num2str(numel(at)) ...   %#ok<AGROW>
+                                '  ' strtrim(sprintf('%d ', at))];
+                end
                 if isfield(sp,'opt') && isfield(sp.opt,'zern_elts') ...
                         && any(sp.opt.zern_elts == k)
                     zi  = find(sp.opt.zern_elts == k, 1);
