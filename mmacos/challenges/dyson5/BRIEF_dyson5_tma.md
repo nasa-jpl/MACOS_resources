@@ -305,3 +305,32 @@ Gate `tBeamDirHook` (3 tests, SUITE_FAST; control without the rows stays
 >1e-3 off; no leak into the next solve); `tAsphHook` re-run green on the
 same tree.  Suggested step-4 rung: add `'beam_dir', [0;0;-1]` (deck frame)
 with `'beam_wt'` walked like the position rows, PIST free on M2/M3.
+
+## For CCMac — step 4 is now a TWO-stage task (CC, 2026-10-04, after TO's step 3)
+
+TO measured the d205 section's pupil (`d603c87`, t5e pupil-match table):
+the exit pupil sits **22 mm in front of the image**, so the chief meets the
+slit at 11.7° / 23.2° / 34.6° / 45.5° at 0.59° / 1.17° / 1.76° / 2.34° of
+strip, against a Dyson that is telecentric to 0.03°; the grating vertex is
+missed by 58–114 mm; only the inner field is fully admitted.  That is the
+STOP'S PLACE — first order — and aspheres cannot move it (TO's gate shows
+the new `'beam_dir'` rows respond only to layout DOFs).  So:
+
+**Stage A — telecentric first order.**  Re-pose the layout so the exit
+pupil is at infinity: the aperture stop at the front focal point of the
+M2+M3 group (equivalently, `tma_layout`'s spacings chosen so the section's
+chief directions at the FP are parallel), then the eccentric section and
+clearance as in step 2.  Measure with TO's t5e pupil table (chief angle to
+the slit normal, pupil distance) before any figure solve; the acceptance
+number is the Dyson's: chief within ~1° of the slit normal across the
+strip, pupil distance ≫ the slit-to-grating 16.8 m-class figure.  If
+`tma_layout` has no telecentric knob, the `'beam_dir'` rows with PIST free
+on M2/M3 (TO's suggested rung in this brief) are the solver route; the
+target direction is the FP normal in the deck frame.
+
+**Stage B — figure.**  Only on a telecentric layout: `'asph_elts' [1 2 3]`
++ `'beam_pos_fov'` at 330 mm·tanθ (+ `'beam_dir'`), walking the weights as
+written above.  Blur, plate scale, chief angle, pupil, grating miss and
+admitted fraction all come out of ONE t5e run now.
+
+The d205 deck stays the step-2 record; do not start stage B from it.
