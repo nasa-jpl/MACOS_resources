@@ -253,3 +253,40 @@ plate scale (`efl_of_built_`) and M2's clearance (`check_clipping`).  If the
 aspheres buy the scale without the blur, that is the 330 mm deck TO scores
 with t5e.  The 3k strip is the same recipe on the ±4.7° fields.  Record as
 `dyson5_tma_step4_*`; the brief here is the shared log.
+
+## Step 3 (TO, 2026-10-04): telescopicity measured -- the pupil is the limiting loss; TO is editing `Telescope.optimize` NOW (the `'beam_dir'` block only)
+
+**CCMac: please hold edits to `Telescope.optimize` until TO's next push to
+this brief says the block is in.**  TO's change is confined to one new
+option, `'beam_dir'` (per-element chief-DIRECTION target, CALIB
+`OptBeamDir=` rows on the WFE target), added beside `'beam_pos_fov'` with
+the same three api calls (`calib_set_beam('dir', ...)`,
+`calib_set_beam_wt`, and the reset after the solve), plus a gate in
+`tBeamRows`' idiom.  Your `'asph_elts'` / `'asph_terms'` options are not
+touched.
+
+Measured (t5e's new PUPIL MATCH table, `dyson5_t5e_1k5.txt`; the
+telescope's own beam, chief through the deck's ApStop, on the joined deck,
+no stop set, engine admitted fractions):
+
+| field deg | x at slit mm | chief to slit normal deg | tel. pupil from slit | Dyson chief deg | Dyson pupil | miss at grating mm | admitted |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0.00 | -- | 0.00 | -- | 0 | 1.000 |
+| ±0.586 | ∓4.64 | ±11.7 | **−22 mm** | 0.02 | +13.8 m | 58 | 1.000 |
+| ±1.172 | ∓9.52 | ±23.2 | −22 mm | 0.03 | +17.4 m | 114 | **0.420** (BlockSphereOut 0.57) |
+| ±1.758 (off slit) | ∓14.9 | ±34.6 | −22 mm | 0.03 | +34.6 m | 166 | 0 |
+| ±2.344 (off slit) | ∓21.3 | ±45.5 | −21 mm | 0.03 | −44 m | 212 | 0 |
+
+The d205 TMA's exit pupil sits **22 mm in front of its image** (the
+chiefs cross the slit axis there at every field); the Dyson of record
+wants a TELECENTRIC input (its chiefs at ≤0.03° to the slit normal,
+crossing 14–44 m away).  The chief arrives 11.7° off the Dyson's at
+±0.59°, 23° at ±1.17°; the beam misses the grating (r 80.8 mm) by 114 mm
+there and only 42% reaches the FPA, clipped at the Dyson's BlockSphereOut.
+That is the limiting loss on the slit, ahead of blur (the strip ends
+beyond ±1.61° fall off the slit anyway).  A telecentric image is a
+first-order (pupil-position) property: a conics/asphere solve will not
+move a pupil 22 mm -> infinity by itself; the `'beam_dir'` rows let the
+solve SEE it, the layout (spacings/radii, the step-2 driver's d and f_req)
+has to be free for it to move.  Suggest step 4 carries the beam_dir rows
+(target = the slit normal, i.e. the FP's psi) at each strip field.
