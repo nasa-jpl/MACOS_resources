@@ -1,4 +1,4 @@
-dyson5 t5e -- a telescope DECK end to end with its own Dyson (TMA step 2) (2026-10-03 20:16)
+dyson5 t5e -- a telescope DECK end to end with its own Dyson (TMA step 2) (2026-10-04 14:08)
 CONVENTIONS: telescope = dyson5_tma_step2b_linux_d205_1k5.in mapped onto the exact chain by tel_deck_geom (coaxial conics from the deck; every chief the
   straight object-space line through the deck's ApStop).  Field = 1500 px x IFOV 54.5 urad = 4.688 deg cross-track; the
   spectrometer size:D:130, slit 27.0 mm (1500 px x 18 um).  Spec plate scale f = 330.0 mm (pixel / IFOV).  Spots are RADIAL
@@ -31,3 +31,19 @@ END TO END (telescope + size:D:130 over the ADMITTED strip +-1.610 deg, 7 fields
   the instrument's chief off the slit line -- the smile/CRF/SRF above are the TELESCOPE's image quality seen through a
   Dyson, not the Dyson's distortion.  A real slit would clip that light (the vignetting is then in throughput, not in smile).
   NOT the number: plate scale 450 mm (local) vs 330 mm spec, 68.7 % of the swath on the slit.
+
+PUPIL MATCH (TMA step 3, addendum 36): the TELESCOPE's beam (D 183.3 mm, chief through the deck's ApStop), NO stop set,
+  on the joined deck; angles to the slit normal in deg (x along the slit, y across), pupil = where the chiefs cross the
+  slit axis (m from the slit, + toward the Dyson); mismatch = the telescope chief's miss of the grating vertex (the stop,
+  aperture radius 80.8 mm); admitted = rays reaching the FPA / launched (engine), with the element stopping most of the rest.
+    field   x slit |   tel x   tel y tel pupil |   Dys x   Dys y Dys pupil |   d ang   miss G |  admit slit  lost at
+   -2.344   +21.34 | +45.543  -1.703    -0.021 |  +0.028  -0.017   -44.074 |  45.527   212.06 |  0.000  OFF  TelM3 0.84, BlockFaceIn 0.16
+   -1.758   +14.94 | +34.553  -0.974    -0.022 |  -0.025  -0.035   +34.558 |  34.585   166.40 |  0.000  OFF  BlockSphereOut 0.58, TelM3 0.42
+   -1.172    +9.52 | +23.224  -0.459    -0.022 |  -0.031  -0.044   +17.355 |  23.258   114.46 |  0.420   on  BlockSphereOut 0.57, TelM3 0.01
+   -0.586    +4.64 | +11.669  -0.153    -0.022 |  -0.019  -0.049   +13.816 |  11.689    58.30 |  1.000   on  -
+   +0.000    +0.00 |  +0.000  -0.051       NaN |  +0.000  -0.051       NaN |   0.000     0.00 |  1.000   on  -
+   +0.586    -4.64 | -11.669  -0.153    -0.022 |  +0.019  -0.049   +13.816 |  11.689    58.30 |  1.000   on  -
+   +1.172    -9.52 | -23.224  -0.459    -0.022 |  +0.031  -0.044   +17.355 |  23.258   114.46 |  0.420   on  BlockSphereOut 0.57, TelM3 0.01
+   +1.758   -14.94 | -34.553  -0.974    -0.022 |  +0.025  -0.035   +34.558 |  34.585   166.40 |  0.000  OFF  BlockSphereOut 0.58, TelM3 0.42
+   +2.344   -21.34 | -45.543  -1.703    -0.021 |  -0.028  -0.017   -44.074 |  45.527   212.06 |  0.000  OFF  TelM3 0.84, BlockFaceIn 0.16
+  (fields beyond +-1.610 deg land OFF the slit: their admitted fraction is to the FPA through an unmasked slit plane)

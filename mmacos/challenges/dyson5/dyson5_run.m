@@ -1658,12 +1658,65 @@ function S = stage_t5e_(P, tag)
     pr('  the instrument''s chief off the slit line -- the smile/CRF/SRF above are the TELESCOPE''s image quality seen through a\n');
     pr('  Dyson, not the Dyson''s distortion.  A real slit would clip that light (the vignetting is then in throughput, not in smile).\n');
     pr('  NOT the number: plate scale %.0f mm (local) vs %.0f mm spec, %.1f %% of the swath on the slit.\n', f_loc*1e3, f*1e3, 100*ta/(fov/2));
+    PM = t5e_pupil_(GT, GE, GD, ME, Dd, fov, ta, P.tel_score_nfield, pr);
     fclose(fid);
     S = struct('deck', deck, 'bridge_spot_m', struct('engine', se, 'chain', sc), 'ident_bridge_m', dmax, 'f_loc_m', f_loc, 'f_edge_m', f_edge, ...
                'bow_m', bow, 'db_edge_rad', dbe, 'chief_off_slit_m', ych, 'fp_tilt_deg', ang, 'admit_half_rad', ta, 'admit_frac', ta/(fov/2), ...
-               'e2e', RE, 'clearance', Cl, 'ident_m', ident, 'file', efile);
+               'e2e', RE, 'clearance', Cl, 'ident_m', ident, 'file', efile, 'pupil', PM);
     save([tag '_t5e' sfx '.mat'], 'S');
     spectrometer_maps_fig(RE, sprintf('%s_t5e%s_maps.png', tag, sfx), 'title', sprintf('TMA deck + %s, end to end, engine (informative)', P.tel_dyson), 'pixel_um', P.pixel_m*1e6);
+end
+
+function PM = t5e_pupil_(GT, GE, GD, ME, Dd, fov, ta, nf, pr)
+%T5E_PUPIL_  TMA step 3 (addendum 36): telecentricity and the exit-pupil match to the Dyson, per strip field.
+%   The TELESCOPE's own beam (the deck's Aperture, its chief through the deck's ApStop -- NOT the instrument's
+%   grating-stop aim) is launched on the joined deck with NO stop set; per field: the chief's angle to the slit
+%   normal (x along the slit, y across), where the telescope's chiefs cross the slit axis (its exit pupil,
+%   distance from the slit along the axis, + = toward the Dyson), the Dyson's own chief at that slit point (the
+%   aim through the grating vertex) and the same two numbers for it, the angle between the two chiefs, the
+%   telescope chief's miss of the grating vertex (the pupil mismatch AT the stop), and the engine's admitted
+%   fraction -- rays that reach the FPA over rays launched, with the element that stops the rest.
+    lam = GD.src.lambda_c;  n = [0; 0; 1];  sl = GE.slit(:);
+    th = linspace(-fov/2, fov/2, nf);
+    T = nan(nf, 12);  lostAt = cell(nf, 1);
+    macos.load_rx(ME.file);  macos.set_src_size(Dd);  nE = macos.num_elt();
+    names = ME.names;  txt = fileread(ME.file);                       % the grating's declared aperture (the stop)
+    tk = regexp(txt, 'EltName=\s*Grating.*?ApVec=\s*(\S+)', 'tokens', 'once');  rG = str2double(strrep(tk{1}, 'D', 'E'));
+    for q = 1:nf
+        d = GT.field_dir(th(q));  d = d/norm(d);  [p0, ok] = GT.aim_pt(d, lam);  if ~ok, continue, end
+        [pc, dc, okc] = GE.trace(p0, d, lam);  if ~okc, continue, end
+        xs = pc(:, GE.iSlit);  e = dc(:, GE.iSlit);  e = e/norm(e);
+        dD = GD.aim(xs, lam);  dD = dD/norm(dD);
+        Lt = -(xs(1) - sl(1))/(e(1)/e(3));  LD = -(xs(1) - sl(1))/(dD(1)/dD(3));   % chief crossing of the slit axis (x = 0)
+        mG = norm(pc(:, GE.iG) - GE.surf(GE.iG).vpt(:));   % chain index of the grating (== the engine's ME.iG)
+        macos.set_src_fov('src_pos', p0, 'src_dir', d, 'zSrc', 1e22);  macos.modify();
+        % STEPWISE: the engine's obscuration stamp writes RayFailElt = nElt+1, not the clipping element, so the losses
+        % are located by the surviving count after each element (trace(k) restarts are bit-identical, macos 2026-10-03)
+        npass = zeros(1, nE);
+        for k = 1:nE
+            tr = macos.trace(k);  ri = macos.get_ray_info(tr.nRays);  npass(k) = nnz(ri.ok_trace(:) & ri.ok_pass(:));
+        end
+        fr = npass(end)/tr.nRays;  drop = -diff([tr.nRays, npass]);  lostAt{q} = '-';
+        if any(drop > 0)
+            [~, o] = sort(drop, 'descend');  o = o(drop(o) > 0);  o = o(1:min(2, numel(o)));
+            lostAt{q} = strjoin(arrayfun(@(k) sprintf('%s %.2f', names{k}, drop(k)/tr.nRays), o, 'UniformOutput', false), ', ');
+        end
+        T(q, :) = [th(q)*180/pi, xs(1)*1e3, atan2d(e(1), e(3)), atan2d(e(2), e(3)), Lt*1e3, ...
+                   atan2d(dD(1), dD(3)), atan2d(dD(2), dD(3)), LD*1e3, acosd(min(1, e'*dD)), mG*1e3, fr, abs(xs(1) - sl(1)) <= GD.P.npix(1)*GD.P.pixel_m/2];
+    end
+    pr('\nPUPIL MATCH (TMA step 3, addendum 36): the TELESCOPE''s beam (D %.1f mm, chief through the deck''s ApStop), NO stop set,\n', Dd*1e3);
+    pr('  on the joined deck; angles to the slit normal in deg (x along the slit, y across), pupil = where the chiefs cross the\n');
+    pr('  slit axis (m from the slit, + toward the Dyson); mismatch = the telescope chief''s miss of the grating vertex (the stop,\n');
+    pr('  aperture radius %.1f mm); admitted = rays reaching the FPA / launched (engine), with the element stopping most of the rest.\n', rG*1e3);
+    pr('  %7s %8s | %7s %7s %9s | %7s %7s %9s | %7s %8s | %6s %4s  %s\n', 'field', 'x slit', 'tel x', 'tel y', 'tel pupil', ...
+       'Dys x', 'Dys y', 'Dys pupil', 'd ang', 'miss G', 'admit', 'slit', 'lost at');
+    for q = 1:nf
+        pr('  %+7.3f %+8.2f | %+7.3f %+7.3f %+9.3f | %+7.3f %+7.3f %+9.3f | %7.3f %8.2f | %6.3f %4s  %s\n', T(q, 1:4), T(q, 5)/1e3, ...
+           T(q, 6:7), T(q, 8)/1e3, T(q, 9:11), tern_(T(q, 12) == 1, 'on', 'OFF'), lostAt{q});
+    end
+    pr('  (fields beyond +-%.3f deg land OFF the slit: their admitted fraction is to the FPA through an unmasked slit plane)\n', ta*180/pi);
+    PM = struct('table', T, 'cols', {{'field_deg','x_slit_mm','tel_x_deg','tel_y_deg','tel_pupil_mm','dys_x_deg','dys_y_deg', ...
+                'dys_pupil_mm','dang_deg','miss_grating_mm','admit','on_slit'}}, 'lost_at', {lostAt}, 'grating_r_m', rG);
 end
 
 function x = slit_x_(G, d, lam)
