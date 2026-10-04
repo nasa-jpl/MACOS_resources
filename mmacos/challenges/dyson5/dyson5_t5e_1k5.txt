@@ -1,0 +1,33 @@
+dyson5 t5e -- a telescope DECK end to end with its own Dyson (TMA step 2) (2026-10-03 20:16)
+CONVENTIONS: telescope = dyson5_tma_step2b_linux_d205_1k5.in mapped onto the exact chain by tel_deck_geom (coaxial conics from the deck; every chief the
+  straight object-space line through the deck's ApStop).  Field = 1500 px x IFOV 54.5 urad = 4.688 deg cross-track; the
+  spectrometer size:D:130, slit 27.0 mm (1500 px x 18 um).  Spec plate scale f = 330.0 mm (pixel / IFOV).  Spots are RADIAL
+  rms about the centroid (a 41-grid over the deck's Aperture) -- per-axis rms is this / sqrt(2).
+
+GATE 1 (bridge, telescope alone on the deck's FocalPlane): fields -2.344 -1.758 -1.172 -0.586 0.000 0.586 1.172 1.758 2.344  deg
+  slit line          rms spot um, engine:   418.79   285.31   193.66   131.69   106.53   131.69   193.66   285.30   418.79 
+                                    chain:    421.84   287.15   194.88   132.63   107.42   132.63   194.88   287.15   421.84 
+  sky line (db = 0)  rms spot um, engine:   222.96   218.80   176.78   129.32   106.53   129.32   176.78   218.80   222.96 
+                                    chain:    224.28   220.17   177.91   130.26   107.42   130.26   177.91   220.17   224.28 
+  chief at the FocalPlane, engine vs chain: max 8.65e-16 m;  21330 engine rays re-traced by the chain from their launch: max 2.95e-15 m
+
+THE DECK'S FIRST ORDER (chain == engine above):
+  plate scale: local 450.3 mm (+-0.02 deg about the centre), 521.2 mm to the strip edge (offset / tan) -- spec 330.0 mm
+  the strip at the image: 42.67 mm long (+-21.34 mm), the slit 27.0 mm
+  the straight SKY line images BOWED: 6.95 mm off the slit line at the strip edge; landing on the slit line takes -0.417 deg along track
+  the deck's FocalPlane is tilted 37.01 deg to the exit chief (about the slit axis: no defocus ALONG the slit line)
+  SLIT VIGNETTING: the slit admits +-1.610 deg of the +-2.344 deg strip = 68.7 % of the swath (1030 of 1500 px); the rest falls off the slit ends
+
+END TO END (telescope + size:D:130 over the ADMITTED strip +-1.610 deg, 7 fields x 7 wavelengths, the grating the stop) -- INFORMATIVE:
+  smile 44.5017 px  keystone 0.1406 px  CRF 15.672 px  SRF 15.530 px  EE 0.000  grating admits 0.764  clearance +0.37 mm (BODY FPApackage vs BlockFaceOut, PASS)  11 elements
+  engine chief vs chain at the FPA (centre field): 4.1e-12 m
+  spec: smile, keystone < 0.1 px; CRF < 1.5 px; SRF on the slit floor.  deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_t5e_1k5_e2e.in
+  smile per lambda (px): 44.1150 44.3037 44.3339 44.4025 44.2889 44.3650 44.5017 
+  keystone per field (px): 0.1406 0.1228 0.0766 0.0000 0.0766 0.1228 0.1406 
+  pass fraction per field: 0.764 1.000 1.000 1.000 1.000 1.000 0.764 
+  the grating-stop chief crosses the slit plane OFF the slit line by (um, per field): -887.3 -177.5 -1.8 -0.0 -1.8 -177.5 -887.3 
+  READING: the slit is an unmasked pass station here, so the telescope's blur at the slit (gate 1: 107-419 um rms over the
+  full strip's slit line) passes into the Dyson whole, and the pupil mismatch (deck ApStop vs the grating's image) puts
+  the instrument's chief off the slit line -- the smile/CRF/SRF above are the TELESCOPE's image quality seen through a
+  Dyson, not the Dyson's distortion.  A real slit would clip that light (the vignetting is then in throughput, not in smile).
+  NOT the number: plate scale 450 mm (local) vs 330 mm spec, 68.7 % of the swath on the slit.
