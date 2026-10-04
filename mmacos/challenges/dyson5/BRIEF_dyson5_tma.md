@@ -188,7 +188,7 @@ tBeamRows 3/3 after the veneer change.
 
 | d = 205 mm, bias 3°, 1.5k strip | max rms spot | per field (µm) | clearance | plate scale | K |
 |---|---|---|---|---|---|
-| **conics only** | **161 µm = 8.9 px** | 161 151 108 77 108 151 161 | **PASS, +0.1 mm at M2, 0 conflicts** | 447 mm | [−0.887 −1.691 −0.532] |
+| **conics only** (spots here are BEST-FOCUS radial rms per field, step 1's helper; on the deck's FP as placed, tilted 37° to the exit chief, TO's t5e reads 106 / 223 µm centre / edge) | **161 µm = 8.9 px** | 161 151 108 77 108 151 161 | **PASS, +0.1 mm at M2, 0 conflicts** | 447 mm | [−0.887 −1.691 −0.532] |
 | conics + position rows, wt 1e-2 | 166 µm | 166 154 109 76 109 154 166 | PASS +0.1 mm | 447 mm | [−0.887 −1.697 −0.532] |
 | conics + position rows, wt 1 | 739 µm | 739 503 278 136 278 503 739 | FAIL −0.5 mm | 415 mm | [−0.954 −2.277 −0.560] |
 
@@ -206,3 +206,14 @@ plate scale (22 m GSD, the ±2.35° strip 36.6 mm at the slit); 3k strip not
 imaged by conics.  `_d205_1k5.in` can be joined to the 1.5k Dyson as an
 INFORMATIVE end-to-end row (the slit admits ±13.5 mm of its ±18.3 mm
 strip); it is not the number.
+
+**End to end (TO, t5e, resources 29a6df0 — informative).**  `_d205_1k5.in`
+joined to the 130 mm silica module: plate scale 450 mm local / 521 mm at
+the strip edge (spec 330), the 27 mm slit admits ±1.61° of ±2.34° (68.7 %
+of the swath), the sky line images bowed by 7 mm at the strip end, and
+over the admitted field smile 44.5 px (the same at every λ: the
+telescope's chief off the slit line through the pupil mismatch, not the
+Dyson), keystone 0.14 px, CRF 15.7 px, clearance +0.37 mm.  Chain = engine
+to 4e-12 m.  To score the next deck: `dyson5_run(struct('stages',{{'t5e'}},
+'tel_npix_xt',1500,'tel_gsd_m',30,'tel_alt_m',550e3,'tel_dyson',
+'size:D:130','tel5e_deck','<deck>.in','tel5e_suffix','_x'))`.
