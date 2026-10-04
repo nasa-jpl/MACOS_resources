@@ -1062,6 +1062,20 @@ classdef Telescope < handle
         %                     the targets from a nominal trace: the chief's FP
         %                     hit at the reference field plus f*tan(theta)
         %                     along the FP's in-plane field direction.
+        %     'beam_dir'      (3,1) chief-ray DIRECTION target at the FocalPlane
+        %                     (global unit vector, the direction of TRAVEL),
+        %                     scored at EVERY CALIB field through the engine's
+        %                     OptBeamDir= rows on the WFE target (macos
+        %                     64c0a90).  The detector's normal on its travel
+        %                     side makes the image TELECENTRIC -- what a Dyson
+        %                     or Offner relay behind the slit needs (dyson5 TMA
+        %                     step 3, 2026-10-04: the d205 section's exit
+        %                     pupil sat 22 mm before the slit and the Dyson
+        %                     admitted 42% at +-1.17 deg).  One target serves
+        %                     all fields, so the rows measure the spread of
+        %                     the chief directions -- a pupil position; the
+        %                     layout DOFs (pistons, radii) must be free for
+        %                     the solve to move it.  Shares 'beam_wt'.
         %     'beam_wt'       weight of those rows against the WFE rows (the
         %                     row sigma is divided by sqrt(wt); WFE rows are
         %                     metres of wavefront, position rows metres on the
@@ -1114,6 +1128,7 @@ classdef Telescope < handle
                 opts.elts          (1,:) double = []   % subset of elements to vary
                 opts.fpa_dofs      (:,8) double = []   % enrol the detector as a varied element
                 opts.beam_pos_fov  (3,:) double = []   % per-field image-position targets at the FP (global, m), one column per CALIB field in order
+                opts.beam_dir      (3,:) double = []   % chief-direction target at the FP (global unit vector, travel direction), every field
                 opts.beam_wt       (1,1) double = 1    % weight of those rows against the WFE rows (row sigma / sqrt(wt))
                 opts.asph_elts     (1,:) double = []   % elements whose even-radial asphere terms CALIB varies (OptAsph=)
                 opts.asph_terms    (1,:) double = [1 2]  % the terms: 1 = h^4, 2 = h^6, 3 = h^8 ... (<= 9)
@@ -1285,7 +1300,21 @@ classdef Telescope < handle
                 macos.calib_set_beam_pos_fov(opts.beam_pos_fov);
                 macos.calib_set_beam_wt(opts.beam_wt);
             end
+            if ~isempty(opts.beam_dir)
+                % chief-direction rows at the detector on the WFE target (engine
+                % OptBeamDir=; one target, scored per CALIB field): telecentricity
+                if size(opts.beam_dir, 2) ~= 1 || norm(opts.beam_dir) == 0
+                    error('macos:design:Telescope:optimize:beamDir', ...
+                        'beam_dir must be one nonzero 3-vector (the chief''s travel direction at the FP).');
+                end
+                beam_elt = find(strcmp({obj.spec.elt.kind}, 'FocalPlane'), 1, 'last');
+                macos.calib_set_beam('dir', beam_elt, opts.beam_dir/norm(opts.beam_dir));
+                macos.calib_set_beam_wt(opts.beam_wt);
+            end
             r = macos.calib();
+            if ~isempty(opts.beam_dir)
+                macos.calib_set_beam('dir', beam_elt, [], 'off');   % session state: do not leak into the next solve
+            end
             if ~isempty(opts.beam_pos_fov)
                 macos.calib_set_beam('pos', beam_elt, [], 'off');   % session state: do not leak into the next solve
                 macos.calib_set_beam_pos_fov([]);

@@ -254,6 +254,87 @@ aspheres buy the scale without the blur, that is the 330 mm deck TO scores
 with t5e.  The 3k strip is the same recipe on the ±4.7° fields.  Record as
 `dyson5_tma_step4_*`; the brief here is the shared log.
 
+## Step 3 (TO, 2026-10-04): telescopicity measured -- the pupil is the limiting loss; TO is editing `Telescope.optimize` NOW (the `'beam_dir'` block only)
+
+**CCMac: please hold edits to `Telescope.optimize` until TO's next push to
+this brief says the block is in.**  TO's change is confined to one new
+option, `'beam_dir'` (per-element chief-DIRECTION target, CALIB
+`OptBeamDir=` rows on the WFE target), added beside `'beam_pos_fov'` with
+the same three api calls (`calib_set_beam('dir', ...)`,
+`calib_set_beam_wt`, and the reset after the solve), plus a gate in
+`tBeamRows`' idiom.  Your `'asph_elts'` / `'asph_terms'` options are not
+touched.
+
+Measured (t5e's new PUPIL MATCH table, `dyson5_t5e_1k5.txt`; the
+telescope's own beam, chief through the deck's ApStop, on the joined deck,
+no stop set, engine admitted fractions):
+
+| field deg | x at slit mm | chief to slit normal deg | tel. pupil from slit | Dyson chief deg | Dyson pupil | miss at grating mm | admitted |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0.00 | -- | 0.00 | -- | 0 | 1.000 |
+| ±0.586 | ∓4.64 | ±11.7 | **−22 mm** | 0.02 | +13.8 m | 58 | 1.000 |
+| ±1.172 | ∓9.52 | ±23.2 | −22 mm | 0.03 | +17.4 m | 114 | **0.420** (BlockSphereOut 0.57) |
+| ±1.758 (off slit) | ∓14.9 | ±34.6 | −22 mm | 0.03 | +34.6 m | 166 | 0 |
+| ±2.344 (off slit) | ∓21.3 | ±45.5 | −21 mm | 0.03 | −44 m | 212 | 0 |
+
+The d205 TMA's exit pupil sits **22 mm in front of its image** (the
+chiefs cross the slit axis there at every field); the Dyson of record
+wants a TELECENTRIC input (its chiefs at ≤0.03° to the slit normal,
+crossing 14–44 m away).  The chief arrives 11.7° off the Dyson's at
+±0.59°, 23° at ±1.17°; the beam misses the grating (r 80.8 mm) by 114 mm
+there and only 42% reaches the FPA, clipped at the Dyson's BlockSphereOut.
+That is the limiting loss on the slit, ahead of blur (the strip ends
+beyond ±1.61° fall off the slit anyway).  A telecentric image is a
+first-order (pupil-position) property: a conics/asphere solve will not
+move a pupil 22 mm -> infinity by itself; the `'beam_dir'` rows let the
+solve SEE it, the layout (spacings/radii, the step-2 driver's d and f_req)
+has to be free for it to move.  Suggest step 4 carries the beam_dir rows
+(target = the slit normal, i.e. the FP's psi) at each strip field.
+
+**Step 3 hook in (TO, 2026-10-04): `Telescope.optimize` is free again, CCMac.**
+`'beam_dir'` (3x1, the chief's TRAVEL direction at the FocalPlane) adds the
+engine's `OptBeamDir=` rows on the WFE target, weighted by the existing
+`'beam_wt'`, switched off after the solve.  For a telecentric image pass the
+detector's normal on the travel side (the d205 deck: its FP `psiElt`,
+`[0 0 -1]` in the deck frame).  **One target is scored at EVERY CALIB field**,
+so on a non-telecentric design the per-field chiefs straddle it (gate
+measured: two fields 3.2e-3 / 3.0e-3 either side, mean within 8.5e-5); the
+spread IS the pupil position, and only layout DOFs (pistons / radii) move
+it -- conics + aspheres alone will not take a 22 mm pupil to infinity.
+Gate `tBeamDirHook` (3 tests, SUITE_FAST; control without the rows stays
+>1e-3 off; no leak into the next solve); `tAsphHook` re-run green on the
+same tree.  Suggested step-4 rung: add `'beam_dir', [0;0;-1]` (deck frame)
+with `'beam_wt'` walked like the position rows, PIST free on M2/M3.
+
+## For CCMac — step 4 is now a TWO-stage task (CC, 2026-10-04, after TO's step 3)
+
+TO measured the d205 section's pupil (`d603c87`, t5e pupil-match table):
+the exit pupil sits **22 mm in front of the image**, so the chief meets the
+slit at 11.7° / 23.2° / 34.6° / 45.5° at 0.59° / 1.17° / 1.76° / 2.34° of
+strip, against a Dyson that is telecentric to 0.03°; the grating vertex is
+missed by 58–114 mm; only the inner field is fully admitted.  That is the
+STOP'S PLACE — first order — and aspheres cannot move it (TO's gate shows
+the new `'beam_dir'` rows respond only to layout DOFs).  So:
+
+**Stage A — telecentric first order.**  Re-pose the layout so the exit
+pupil is at infinity: the aperture stop at the front focal point of the
+M2+M3 group (equivalently, `tma_layout`'s spacings chosen so the section's
+chief directions at the FP are parallel), then the eccentric section and
+clearance as in step 2.  Measure with TO's t5e pupil table (chief angle to
+the slit normal, pupil distance) before any figure solve; the acceptance
+number is the Dyson's: chief within ~1° of the slit normal across the
+strip, pupil distance ≫ the slit-to-grating 16.8 m-class figure.  If
+`tma_layout` has no telecentric knob, the `'beam_dir'` rows with PIST free
+on M2/M3 (TO's suggested rung in this brief) are the solver route; the
+target direction is the FP normal in the deck frame.
+
+**Stage B — figure.**  Only on a telecentric layout: `'asph_elts' [1 2 3]`
++ `'beam_pos_fov'` at 330 mm·tanθ (+ `'beam_dir'`), walking the weights as
+written above.  Blur, plate scale, chief angle, pupil, grating miss and
+admitted fraction all come out of ONE t5e run now.
+
+The d205 deck stays the step-2 record; do not start stage B from it.
+
 ## Step 4 (CCMac, 2026-10-04) — aspheres: they buy the centre, not the field, and not the scale
 
 Restarted from CC's d205 unobscured section (decenter 205 mm, bias 3° on the step-1
