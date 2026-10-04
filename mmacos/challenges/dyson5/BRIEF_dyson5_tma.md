@@ -158,3 +158,20 @@ CALIB each.  Driver option `recentre_bias_deg` is in `dyson5_tma_step2_linux.m`
 for the outer loop; the inner solve is not yet wired.  Left for a fresh
 session (or CCMac) with this note; the `_d190` deck stands as the step-2
 result.
+
+**Step 2b, second attempt (19:55) — the coupled loop is non-monotone; the
+plate scale must be constrained IN the solve.**  With the strip CALIB inside
+the calibration loop (d = 0.205 m, bias 3°), lowering the requested f/#
+RAISES the solved section's traced plate scale: f_req 1.80 → 1.33 → 0.72 →
+0.42 gave 448 → 610 → 563 → 893 mm.  The scale at the bias is a property of
+the solved conics (M2 near K = −1.6 re-powers the sub-pupil), not of the
+first-order layout, so no outer loop on f_req can pin it.  **The right
+tool is the engine's new per-field position rows** (macos 64c0a90,
+`OptBeamPosFov=` / `macos.calib_set_beam_pos_fov`, which ride on the WFE
+target): give the solve the image heights 330 mm · tan θ_k of the strip
+fields as targets at the FP, weighted (`OptBeamWt=`), and the conics are
+solved for blur AND plate scale together.  `Telescope.optimize` has no
+hook for the beam rows yet (it configures CALIB through the api and runs
+it); adding one (`'beam_pos_fov'`, `'beam_wt'`) is a veneer change of a
+few lines and is the next engineering step, after which step 2b is one
+run.  Left here with the `_d190` deck as the step-2 result.

@@ -53,12 +53,14 @@ function OUT = dyson5_tma_step2_linux(over)
             % step 2b: calibrate the TRACED plate scale on the SECTION at the working
             % bias and decenter (the eccentric section's local magnification off its
             % parent axis is not the parent's EFL: 375-450 mm at 2-3 deg in _d190)
-            efl_trace = efl_on_section_(R, t, D, opt.lam, opt.model, opt.recentre_bias_deg, opt.decenter_m);
+            md1 = opt.modules(1);  fx1 = linspace(-md1.strip_half_deg, md1.strip_half_deg, opt.nfield)*pi/180;
+            efl_trace = efl_on_section_(R, t, D, opt.lam, opt.model, opt.recentre_bias_deg, opt.decenter_m, ...
+                                        [fx1(fx1~=0).' zeros(nnz(fx1~=0),1)], opt.max_iters);
         else
             efl_trace = efl_by_trace_(R, t, D, opt.lam, opt.model);
         end
         pr('  iter %d: requested f/%.3f (EFL_req %.4f) -> exact EFL %.4f m (F/%.3f)\n', it, fsys_req, lay.EFL, efl_trace, efl_trace/D);
-        if abs(efl_trace - opt.EFL_m)/opt.EFL_m < 0.004, break; end
+        if abs(efl_trace - opt.EFL_m)/opt.EFL_m < 0.004 + 0.006*(opt.recentre_bias_deg > 0), break; end
         fsys_req = fsys_req * (opt.EFL_m / efl_trace);
     end
     pr('[layout] R=[%.4f %.4f %.4f] m  t=[%.4f %.4f] m  exact EFL %.4f m, F/%.2f at D=%.1f mm\n\n', ...
@@ -223,9 +225,13 @@ function d = footdia_(B, k)
     c = mean(P,2);  d = 2*max(vecnorm(P - c));
 end
 
-function ef = efl_on_section_(R, t, D, LAM, MODEL, bias_deg, dec_m)
+function ef = efl_on_section_(R, t, D, LAM, MODEL, bias_deg, dec_m, fields, max_iters)
+%EFL_ON_SECTION_  The traced plate scale at the working bias of the SOLVED
+%   section: the strip CALIB is inside the loop (the un-solved section's
+%   scale is meaningless -- 530 mm and non-monotone in f_req, 2026-10-03).
     tel = build_tma_(R, t, D, LAM, MODEL);
     tel.set_field_bias(bias_deg*60);  tel.set_offaxis('none', 'dist', dec_m);  tel.build();
+    tel.optimize('fields', fields, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', max_iters);
     ef = efl_of_built_(tel, numel(tel.spec.elt), LAM);
 end
 
