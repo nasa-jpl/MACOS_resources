@@ -1049,6 +1049,24 @@ classdef Telescope < handle
         %                     normal -- the focus/Tz direction).  Only DOFs
         %                     1..6 are accepted; ROC/CONIC on a flat detector
         %                     are meaningless.
+        %     'beam_pos_fov'  (3,nfov) per-field IMAGE-POSITION targets at the
+        %                     FocalPlane (global coordinates, metres), one column
+        %                     per CALIB field in order (field 1 = the nominal
+        %                     chief, then 'fields'/'fields_arcmin').  Rides on
+        %                     the WFE target through the engine's beam rows
+        %                     (macos 64c0a90: OptBeamPosFov=), so the conics are
+        %                     solved for blur AND plate scale together -- the
+        %                     only way to pin the local plate scale of an
+        %                     off-axis section, whose solved conics re-power the
+        %                     sub-pupil (dyson5 TMA step 2b, 2026-10-03).  Build
+        %                     the targets from a nominal trace: the chief's FP
+        %                     hit at the reference field plus f*tan(theta)
+        %                     along the FP's in-plane field direction.
+        %     'beam_wt'       weight of those rows against the WFE rows (the
+        %                     row sigma is divided by sqrt(wt); WFE rows are
+        %                     metres of wavefront, position rows metres on the
+        %                     detector -- 1e-2..1 makes a 0.1 mm plate-scale
+        %                     error count like a few um of wavefront).
         %     'dofs'          VarElt mask [TIP TILT CLOCK DX DY PIST ROC
         %                     CONIC] (default [0 0 0 0 0 0 0 1] = conic only).
         %                     A (1,8) row applies to EVERY varied element; an
@@ -1075,6 +1093,8 @@ classdef Telescope < handle
                 opts.dofs          (:,8) double = [0 0 0 0 0 0 0 1]  % VarElt mask ((1,8) shared or (Nv,8) per-elt)
                 opts.elts          (1,:) double = []   % subset of elements to vary
                 opts.fpa_dofs      (:,8) double = []   % enrol the detector as a varied element
+                opts.beam_pos_fov  (3,:) double = []   % per-field image-position targets at the FP (global, m), one column per CALIB field in order
+                opts.beam_wt       (1,1) double = 1    % weight of those rows against the WFE rows (row sigma / sqrt(wt))
             end
             if ~all(ismember(opts.dofs(:), [0 1]))
                 error('macos:design:Telescope:optimize:dofs', ...
@@ -1209,7 +1229,23 @@ classdef Telescope < handle
                 % then re-issues it per evaluation.
                 macos.stop(1);
             end
+            if ~isempty(opts.beam_pos_fov)
+                % per-field image-position rows on the WFE target (engine beam
+                % rows, api calib_set_beam*): targets in CALIB field order
+                if size(opts.beam_pos_fov, 2) ~= nfov
+                    error('macos:design:Telescope:optimize:beamPosFov', ...
+                        'beam_pos_fov must have one column per CALIB field (%d).', nfov);
+                end
+                beam_elt = find(strcmp({obj.spec.elt.kind}, 'FocalPlane'), 1, 'last');  % the detector, not the EP merit element
+                macos.calib_set_beam('pos', beam_elt, opts.beam_pos_fov(:,1));
+                macos.calib_set_beam_pos_fov(opts.beam_pos_fov);
+                macos.calib_set_beam_wt(opts.beam_wt);
+            end
             r = macos.calib();
+            if ~isempty(opts.beam_pos_fov)
+                macos.calib_set_beam('pos', beam_elt, [], 'off');   % session state: do not leak into the next solve
+                macos.calib_set_beam_pos_fov([]);
+            end
 
             % read back per-element params CALIB may have moved, into the spec
             % (for describe()/view_layout); the deliverable handling differs

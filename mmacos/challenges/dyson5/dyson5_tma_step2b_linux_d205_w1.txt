@@ -1,0 +1,19 @@
+dyson5 round 4 step 2 (Linux, CC) -- unobscured eccentric section of the Korsch parent (2026-10-03 19:57)
+f=330 mm, F/1.8, D=183.3 mm; primary f/1.00, secondary mag 3.50; set_offaxis('none', dist 205 mm); conics by CALIB (WFE) in a ladder: as-is / inner half-strip / full strip,
+  conics only (FP not enrolled); rung 'strip+sp' adds M2/M3 piston (spacing).  spot = best-focus rms radius about the centroid, um; EE = energy in an 18 um pixel.
+  clearance = Telescope.check_clipping on the emitted deck (body-in-beam / vignetting), reported per variant.
+
+[layout calibration] holding D=183.3 mm, primary f/1.00, secondary mag 3.50; EFL by exact trace:
+  iter 1: requested f/1.800 (EFL_req 0.3300) -> exact EFL 0.3298 m (F/1.799)
+[layout] R=[0.3667 0.0998 0.0903] m  t=[0.1477 0.2577] m  exact EFL 0.3298 m, F/1.80 at D=183.3 mm
+
+===== module 1k5: strip +-2.35 deg, 7 fields =====
+ bias decen mm solve     rms spot per field across the strip, um (NaN=not imaged)  maxspot   EEmin  clear  len mm   M2 mm   M3 mm mass kg
+    3    205.0 strip+ps  739.28503.05277.62135.95277.62503.05739.28                739.28   0.000   FAIL   257.7    61.9   124.4    1.04
+        K = [-0.9538 -2.2771 -0.5603]; EFL 415.2 mm; clearance: min body-to-foreign-beam clearance -0.5 mm at M2; 6 body/beam conflicts
+
+BEST 1k5: bias 3 deg, decenter 205.0 mm (strip+ps solve): 7/7 strip fields imaged; worst spot 739.28 um (41.07 px), EE_min 0.000, clearance FAIL
+  conics K = [-0.9538 -2.2771 -0.5603]; length 257.7 mm, M2 61.9 mm, M3 124.4 mm; mirror mass 1.04 kg at 25 kg/m^2
+  deck of record: /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step2b_linux_d205_w1_1k5.in
+  layout rendered: /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step2b_linux_d205_w1_layout_1k5.png
+
