@@ -175,3 +175,34 @@ hook for the beam rows yet (it configures CALIB through the api and runs
 it); adding one (`'beam_pos_fov'`, `'beam_wt'`) is a veneer change of a
 few lines and is the next engineering step, after which step 2b is one
 run.  Left here with the `_d190` deck as the step-2 result.
+
+**Step 2b, third attempt (20:30) — the hook is in, and it shows the trade.**
+`Telescope.optimize` now takes `'beam_pos_fov'` (3 × nfov image-position
+targets at the FP, CALIB field order) and `'beam_wt'`, wired to the engine's
+per-field position rows (api `calib_set_beam*`, cleared after the solve so
+nothing leaks); the driver's rung `strip+ps` builds the targets from the
+nominal trace (bias chief's FP hit + 330 mm·tan θ along the FP's in-plane
+field directions).  Records `dyson5_tma_step2b_linux_d205{,_w1}.txt`, deck
+`_d205_1k5.in`, layout `_d205_layout_1k5.png`.  tDesignTelescope 72/72,
+tBeamRows 3/3 after the veneer change.
+
+| d = 205 mm, bias 3°, 1.5k strip | max rms spot | per field (µm) | clearance | plate scale | K |
+|---|---|---|---|---|---|
+| **conics only** | **161 µm = 8.9 px** | 161 151 108 77 108 151 161 | **PASS, +0.1 mm at M2, 0 conflicts** | 447 mm | [−0.887 −1.691 −0.532] |
+| conics + position rows, wt 1e-2 | 166 µm | 166 154 109 76 109 154 166 | PASS +0.1 mm | 447 mm | [−0.887 −1.697 −0.532] |
+| conics + position rows, wt 1 | 739 µm | 739 503 278 136 278 503 739 | FAIL −0.5 mm | 415 mm | [−0.954 −2.277 −0.560] |
+
+So the first **packaged, unobscured, imaging TMA** in the record: three
+conics, 8.9 px worst field (4.3 px at the strip centre), every body clear,
+1.05 kg of mirror — at a plate scale of 447 mm, not 330.  Asked to hold the
+plate scale as well (wt 1) the same three conics give up the blur (739 µm)
+and M2's clearance: blur and plate scale compete, and three conics cannot
+buy both.  The plate scale is therefore step 4's problem too (aspheres
+through CALIB's `OptAsph=`, or freeform) — or a re-posed first order with
+the section's own magnification in the layout, which the design layer
+does not have yet.  For Jim's table the honest TMA line is: unobscured
+3-conic section, 1.5k strip 8.9 px (4.3 px centre), packaged, at 447 mm
+plate scale (22 m GSD, the ±2.35° strip 36.6 mm at the slit); 3k strip not
+imaged by conics.  `_d205_1k5.in` can be joined to the 1.5k Dyson as an
+INFORMATIVE end-to-end row (the slit admits ±13.5 mm of its ±18.3 mm
+strip); it is not the number.

@@ -30,7 +30,7 @@ function OUT = dyson5_tma_step2_linux(over)
                  'int_focus_D', -0.125, 'm3_behind_D', 0.6, 'lam', 633e-9, 'model', 256, ...
                  'biases_deg', [0 1 2], 'modules', struct('name', {'3k', '1k5'}, 'strip_half_deg', {4.7, 2.35}), ...
                  'nfield', 7, 'pixel_m', 18e-6, 'max_iters', 150, 'areal_density', 25, ...
-                 'offaxis_margin', 0.05, 'decenter_m', 0.17, 'rungs', 0:2, 'recentre_bias_deg', 0, 'quiet', false, 'tag', 'dyson5_tma_step2_linux');
+                 'offaxis_margin', 0.05, 'decenter_m', 0.17, 'rungs', 0:2, 'recentre_bias_deg', 0, 'beam_wt', 1e-2, 'quiet', false, 'tag', 'dyson5_tma_step2_linux');
     fn = fieldnames(over);
     for k = 1:numel(fn), if ~isfield(opt, fn{k}), error('unknown option %s', fn{k}); end, opt.(fn{k}) = over.(fn{k}); end
     D = opt.EFL_m/opt.Fsys;
@@ -101,6 +101,10 @@ function OUT = dyson5_tma_step2_linux(over)
                         case 2, solve = 'strip';  tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', opt.max_iters);
                         case 3, solve = 'strip+sp';   % conics + M2/M3 piston (spacing); M1 conic only; EFL reported
                                 tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1; 0 0 0 0 0 1 0 1; 0 0 0 0 0 1 0 1], 'max_iters', opt.max_iters);
+                        case 4, solve = 'strip+ps';   % step 2b: conics + per-field IMAGE-POSITION rows pinning the plate scale to EFL_m
+                                P = plate_targets_(tel, numel(tel.spec.elt), fields_full, opt.EFL_m);
+                                tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', opt.max_iters, ...
+                                             'beam_pos_fov', P, 'beam_wt', opt.beam_wt);
                     end
                     nE = numel(tel.spec.elt);
                     [spot, ee] = spot_per_field_(tel, nE, fx, opt.pixel_m);
@@ -224,6 +228,24 @@ function d = footdia_(B, k)
     if isempty(P), d = NaN; return; end
     c = mean(P,2);  d = 2*max(vecnorm(P - c));
 end
+
+function P = plate_targets_(tel, nE, fields, EFL)
+%PLATE_TARGETS_  Per-field image-position targets (3 x nfov, global, m) in CALIB
+%   field order (field 1 = the nominal/bias chief, then FIELDS): the bias chief's
+%   FP hit plus EFL*tan(theta) along the FP's in-plane field directions, taken
+%   from the nominal trace (the chief's displacement for small +-x / +-y fields).
+    th = 0.02*pi/180;
+    tel.trace_at_field([0 0]);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);  p0 = ri.pos(:,1);
+    ux = unit_(hit_(tel, nE, [ th 0]) - hit_(tel, nE, [-th 0]));
+    uy = unit_(hit_(tel, nE, [ 0 th]) - hit_(tel, nE, [0 -th]));
+    tel.trace_at_field([]);
+    P = zeros(3, 1 + size(fields,1));  P(:,1) = p0;
+    for k = 1:size(fields,1)
+        P(:,k+1) = p0 + EFL*tan(fields(k,1))*ux + EFL*tan(fields(k,2))*uy;
+    end
+end
+function p = hit_(tel, nE, f), tel.trace_at_field(f); s = macos.trace(nE); ri = macos.get_ray_info(s.nRays); p = ri.pos(:,1); end
+function u = unit_(v), u = v/norm(v); end
 
 function ef = efl_on_section_(R, t, D, LAM, MODEL, bias_deg, dec_m, fields, max_iters)
 %EFL_ON_SECTION_  The traced plate scale at the working bias of the SOLVED
