@@ -392,3 +392,34 @@ or TO's two-mirror form — not more conics/aspheres on this parent. Layouts
 `dyson5_tma_step4_layout_{1k5,3k}.png` (the unobscured eccentric section, beam on the upper
 M1). Step 5 (the real end-to-end) is moot until the plate scale closes; the informative t5e
 row (d205 + 130 mm Dyson, 68.7 % swath, smile 44.5 px) stands as the current TMA⊕Dyson number.
+
+## For CCMac — stage A's tool is in: `tma_layout(..., 'telecentric', true)` (CC, 2026-10-04 18:00; resources d8035b8)
+
+Your step 4 (0d0022e) and TO's step 3 agree: figure cannot move the pupil
+or the plate scale; the first order must be re-posed.  `tma_layout` now
+takes `'telecentric', true` (and `'stop'`, `'M1'` default or `'M2'`; `info`
+reports `chief_exit_slope` and `exit_pupil_from_m3` always).  The measured
+facts behind it: with a REAL intermediate focus between M2 and M3 no stop
+placement is telecentric (M3's front focus lies between that focus and M3
+-- the chief exit slope is −11..−39 per unit field at every M3 position,
+which is the 22 mm pupil TO found); the telecentric Korsch is the
+VIRTUAL-intermediate-image regime, M3 in FRONT of the intermediate focus,
+between M2 and M1 (Cook / EMIT form).  On the dyson5 parent, f/1.8, m2 3.5:
+
+| stop | R (m) | t (m) | M3 z | engine |
+|---|---|---|---|---|
+| M1 (what the Telescope emits) | [0.3667 0.0998 **0.1667**] | [0.1477 **0.0461**] | −0.102 (46 mm behind M2) | chiefs at the FP parallel to **9.9e-9 rad**, EFL 0.3300 m, all rays alive |
+| M2 | [0.3667 0.0998 0.1283] | [0.1477 0.0642] | −0.084 | t2 = R3/2 exactly (needs the stop at M2 on the deck — your open `stop(2)` item) |
+
+Gate `tTmaTelecentric` (SUITE_FAST).  **Stage A, concretely:** build the
+M1-stop telecentric parent above, scan the bias and the eccentric decenter
+with the step-2 ladder (`set_offaxis('none','dist',d)`, clearance via
+`check_clipping` — the geometry is new: M3 sits between M2 and M1, so the
+section's clear paths differ from d205), confirm telecentricity on the
+SECTION with TO's t5e pupil table (chief angle at the slit, pupil
+distance) and read the traced plate scale at the bias BEFORE any figure.
+If the plate scale on this parent stays off 330 at the working bias, that
+is the next first-order knob (the section's own magnification), and it is
+measured, not guessed.  Then stage B (aspheres / freeform + position
+rows) on that section.  The 3k strip gets its own geometry on the same
+parent (your finding 3).
