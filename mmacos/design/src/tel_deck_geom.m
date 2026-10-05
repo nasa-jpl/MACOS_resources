@@ -18,7 +18,9 @@ function G = tel_deck_geom(deck, P, GD)
 %               image at the origin and the exit chief along +z).
 %   P: fov (full cross-track field, rad), name, lambda_c (default the deck's
 %   Wavelen), standoff (launch plane ahead of the frontmost vertex, default
-%   0.5 D), D_src (the launched bundle, default the deck's Aperture).
+%   0.5 D), D_src (the launched bundle, default the deck's Aperture), roll_deg (the telescope rolled about the exit
+%   chief in the joined frame -- 180 keeps the image line on the slit and moves the telescope's bodies to the other side
+%   of the Dyson; the join's packaging knob, default 0).
 %   GD = []: the terminal plane is the DECK's FocalPlane (engine-faithful --
 %   it may be tilted to the exit chief); with GD it is the Dyson's slit.  The cross-track field runs along x; the bias is the deck's
 %   ChfRayDir angle in the y-z plane.
@@ -84,7 +86,14 @@ function G = tel_deck_geom(deck, P, GD)
     nS = numel(S);
     % ---- placement (telescope_geom's): exit chief -> the Dyson's aim, image -> the slit
     if ~isempty(GD), cd = GD.src.chief_dir(:);  slit = GD.slit(:); else, cd = [0; 0; 1];  slit = [0; 0; 0]; end
-    Rm = rot_to_(e_c, cd);  tr = slit - Rm*q_c;
+    Rm = rot_to_(e_c, cd);
+    if isfield(P, 'roll_deg') && P.roll_deg ~= 0
+        % the telescope rolled about the exit chief (equivalently the Dyson rolled about its own): 180 deg keeps the
+        % image line along the slit (x -> -x) and moves the telescope's bodies to the other side of the Dyson's package
+        a = P.roll_deg*pi/180;  k = cd/norm(cd);  K = [0 -k(3) k(2); k(3) 0 -k(1); -k(2) k(1) 0];
+        Rm = (eye(3) + sin(a)*K + (1 - cos(a))*K*K)*Rm;
+    end
+    tr = slit - Rm*q_c;
     for k = 1:nS, S(k).C = Rm*S(k).C + tr;  S(k).vpt = Rm*S(k).vpt + tr;  S(k).psi = Rm*S(k).psi; end
     launch.C = Rm*launch.C + tr;  launch.N = Rm*launch.N;  epP = Rm*ep + tr;
     if ~isempty(GD), S(nS).C = slit;  S(nS).vpt = slit;  S(nS).psi = [0; 0; -1]; end

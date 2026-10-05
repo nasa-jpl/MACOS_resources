@@ -538,3 +538,47 @@ nAsphCoef's "2" as M1's h^4 coefficient -- 1.4 mm at M1, 2.4 cm at the FP,
 a garbage first t5e row (378 mm, admitted 0.48), overwritten.  All keys are
 now line-anchored, and a wrapped `AsphCoef=` line is refused (count vs
 `nAsphCoef`).  Stage-A rows (conic decks) were unaffected (gate 1e-15).
+
+## Stage B, 3k + the join's roll (TO, 2026-10-04)
+
+**3k at -3 deg / 180 mm: CALIB cannot evaluate the section.**  Its
+per-field WFE reads 8.5 / 3.9 / 6.8 mm (centre, +-1.56 deg) against
+0.05-0.24 mm at the outer fields, with 27-234 of 254 rays passing, while a
+plain engine trace of the same deck loses 18 rays and gives a 410 um spot;
+every rung leaves the conics where they were.  Reproduced in isolation
+(`Telescope.optimize`, 3 iterations): mm-scale at -3 deg for 180 and
+200 mm and on the 1.5k strip too; sane at -4 deg / 180 mm.  **OPEN item
+(CALIB per-field evaluation vs the engine trace on an eccentric section;
+not chased further).**
+
+**3k at -4 deg / 180 mm (clear +18.9 mm as is):** first order calibrates
+in two passes (parent F/1.7133, 330.3 mm local).  Stage B
+(`dyson5_tA_B3k4`): the position rows close the scale AND the +9.8 %
+distortion -- **328.1 / 325.4 mm, 100 % of the swath on the 54 mm slit** --
+and the centre to 58 um; **but CALIB flags the +-4.69 deg fields as
+failed (9.9999e36) and solves without them**, so the edges sit at 1.2 mm
+(67 px).  The rows also push the chief spread to 2.5 deg (grating miss
+24 mm of a 154 mm radius); admitted still 0.99-1.00 at every field.
+E2E (B 1e-1, `size:F:240`): smile 28 px / keystone 0.37 px / CRF 15.7 /
+SRF 15.0 -- the edge blur.  The 3k blocker is the same CALIB evaluation
+anomaly at the strip edge, then figure.
+
+**The join's roll** (`tel5e_roll_deg`, `tel_deck_geom` 'roll_deg': the
+telescope rolled about the exit chief; 180 keeps the image line on the
+slit): on the 1.5k B1 deck, roll 180 **clears the Dyson's FPA package from
+M2**; admitted re-read: 1.000 at every field, smile/keystone unchanged
+(1.96 / 0.69 px).  What is left is TELESCOPE-internal: the M1->M2 leg vs M3
+at -4.88 mm under `spectrometer_clearance`'s bodies (1.15 x footprint
+discs) where `check_clipping` (exact footprints) passes it at +2.9 mm --
+the two gates' body models differ by exactly that margin; a larger
+decenter (the scan has 160 -> 140 mm worse, 180 mm +5 mm better) is the
+knob, re-calibrated.
+
+**Where stage B stands.**  1.5k: telecentric, 330.8 mm, distortion 0.5 %,
+99.4 % on the slit, admitted 1.000, centre 1.3 px, inner half-strip
+<= 2.7 px, **edges 15.8 px** -- the rotationally symmetric aspheres stop
+at the outer field (CCMac's step-4 finding again).  3k: first order and
+distortion close; the solve cannot see the edge fields (CALIB anomaly).
+Next DOFs, in order: (1) the CALIB edge-field evaluation (3k blocker);
+(2) freeform / non-symmetric terms for the outer field (both modules);
+(3) decenter + re-calibration for the clearance margin.
