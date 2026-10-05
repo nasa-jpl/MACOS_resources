@@ -423,3 +423,12 @@ is the next first-order knob (the section's own magnification), and it is
 measured, not guessed.  Then stage B (aspheres / freeform + position
 rows) on that section.  The 3k strip gets its own geometry on the same
 parent (your finding 3).
+
+## Lane note (2026-10-04, Dave): TO runs stages A and B; CCMac on hold
+
+Stage A (the section on the telecentric parent, measured by the t5e pupil
+table and plate scale before figure) and stage B (aspheres + position
+rows, the 3k geometry) are TO's, running now (addendum 37 of
+`BRIEF_to_dyson5.md`).  CCMac stands down until stage B shows the strip
+edges are the limit on a telecentric, correctly-scaled section; the
+freeform step is then theirs.
