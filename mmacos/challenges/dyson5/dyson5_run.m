@@ -2071,9 +2071,10 @@ function S = stage_tFF_(P, tag)
         fun = @(x) tFF_resid_(x, idx, nm, A, write_, deck(r), dirs, apst, stand, nE, P.tEP_R_m, T);
         o = optimoptions('lsqnonlin', 'Display', 'off', 'MaxFunctionEvaluations', P.tFF_maxfev, 'MaxIterations', 2000, ...
                          'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10, 'OptimalityTolerance', P.tFF_opttol);
+        if strcmp(P.tFF_alg, 'lm-jac'), o = optimoptions(o, 'Algorithm', 'levenberg-marquardt', 'ScaleProblem', 'jacobian'); end
         tic;  [x, rn, ~, ef, out] = lsqnonlin(fun, x0, [], [], o);  sec = toc;
-        opt = sprintf('exitflag %d, %d iterations, %d evaluations, first-order optimality %.3e (tol %.1e), cost %.4e um^2; FunctionTolerance 1e-12, StepTolerance 1e-10', ...
-                      ef, out.iterations, out.funcCount, out.firstorderopt, P.tFF_opttol, rn);
+        opt = sprintf('%s: exitflag %d, %d iterations, %d evaluations, first-order optimality %.3e (tol %.1e), cost %.4e um^2; FunctionTolerance 1e-12, StepTolerance 1e-10', ...
+                      P.tFF_alg, ef, out.iterations, out.funcCount, out.firstorderopt, P.tFF_opttol, rn);
         K = x(1:3);  C(:, idx) = reshape(x(4:end), nf, 3)'*1e-6;
         write_(K, C, deck(r));  macos.load_rx(deck(r));
         info = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);  ts = tFF_ts_(dirs, apst, stand, nE);
