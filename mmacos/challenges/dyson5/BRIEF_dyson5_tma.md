@@ -763,3 +763,25 @@ stay at 1.23 mm (68 px) best-focus from the trace -- with every field in
 the solve, that is the asphere limit at +-4.69 deg, not a blind spot.
 Scale 326.8 / 319.2 mm (-3.3 % at the edge), smile 10.6 px, keystone
 1.37 px, admitted 0.98-1.00, clearance PASS (+1.68 mm telescope-internal).
+
+## Addendum 42, checkpoint 1a (TO, 2026-10-05): the add_pupil/optimize stop TRAP is real -- TO is editing `Telescope.m` (the two stop calls only)
+
+On the -4 / 190 mm 1.5k section, `add_pupil` ends in the right state (its
+final build restores the header ApStop; chief at M1 y 193.5 mm), but it
+calls `macos.stop(stop_elt=1)` with NO offset BEFORE its FEX call: FEX ran
+with "Computed StopPos = (0,0,0)" -- the PARENT vertex, 190 mm off the beam --
+and put the exit-pupil sphere at (0, -6.7 mm, 0.425 m), radius 0.571 m, the
+two FEX probe axes disagreeing 0.333 vs 0.809 m (a beam that is not this
+telescope's).  `optimize`'s OptFEX branch has the same bare `macos.stop(1)`,
+and smacos_compute re-issues the STOP OBJECT of the last StopPos at every
+evaluation, so it would poison every iterate.
+
+**Fix (TO, now, by path):** a private `stop_at_apstop_` in `Telescope`
+sets the stop with `macos.stop_obj` at the spec's ApStop point -- the same
+(0, aperture_decenter, 0) `build()` writes to the deck header -- and
+replaces the bare `macos.stop(1)` in `optimize` (use_ep) and the bare stop
+in `add_pupil` when `stop_elt` is 1 (other stop elements unchanged).
+Coaxial decks: ApStop = M1's vertex, the same point -- asserted
+bit-identical in the gate.  Gate: the EP lands on the section's beam
+(radius class ~1 m, probe axes agreeing), StopPos == ApStop after
+`optimize`, and the coaxial twin unchanged.
