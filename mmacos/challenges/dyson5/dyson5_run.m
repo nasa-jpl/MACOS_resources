@@ -1652,6 +1652,17 @@ function S = stage_t5e_(P, tag)
     pr('  smile %.4f px  keystone %.4f px  CRF %.3f px  SRF %.3f px  EE %.3f  grating admits %.3f  clearance %+.2f mm (%s vs %s, %s)  %d elements\n', ...
        RE.smile_max, RE.keystone_max, RE.crf_max, RE.srf_max, RE.ee_min, min(RE.pass_frac(:)), Cl.min_mm, Cl.table.leg{1}, Cl.table.body{1}, tern_(Cl.pass, 'PASS', 'FAIL'), ME.nElt);
     pr('  engine chief vs chain at the FPA (centre field): %.1e m\n', ident);
+    % CLEARANCE SIZING, stated (addendum 39): spectrometer_clearance's bodies are the aperture disc = FOOTPRINT radius of the
+    % instrument's (grating-stopped) bundle + P.mount_margin_m all round; the record's number uses the mount margin (a real
+    % mirror has a mount).  The same gate at zero margin is the like-for-like with Telescope.check_clipping (footprint
+    % discs, no mount, the telescope's own fans); the worst TELESCOPE-internal pair is printed under both.
+    Pm = P;  Pm.mount_margin_m = 0;  Cl0 = spectrometer_clearance(GE, Pm, 'quiet', true);
+    isTel = @(T) startsWith(string(T.leg), "Tel") & startsWith(string(T.body), "Tel");
+    T1 = Cl.table(isTel(Cl.table), :);  T0 = Cl0.table(isTel(Cl0.table), :);
+    mm = field_or_(P, 'mount_margin_m', 5e-3);
+    pr('  clearance sizing: bodies = footprint discs + mount margin %.1f mm (the record''s number); at zero margin the worst entry is %+.2f mm (%s vs %s)\n', ...
+       mm*1e3, Cl0.min_mm, Cl0.table.leg{1}, Cl0.table.body{1});
+    if ~isempty(T1), pr('  telescope-internal worst: %+.2f mm with the mount margin, %+.2f mm without (%s vs %s)\n', T1.clearance_mm(1), T0.clearance_mm(1), T1.leg{1}, T1.body{1}); end
     pr('  spec: smile, keystone < 0.1 px; CRF < 1.5 px; SRF on the slit floor.  deck %s\n', efile);
     pr('  smile per lambda (px): %s\n  keystone per field (px): %s\n  pass fraction per field: %s\n', sprintf('%.4f ', RE.smile_px), sprintf('%.4f ', RE.keystone_px), sprintf('%.3f ', min(RE.pass_frac, [], 2)));
     pr('  the grating-stop chief crosses the slit plane OFF the slit line by (um, per field): %s\n', sprintf('%+.1f ', ych*1e6));
@@ -1750,8 +1761,8 @@ function S = stage_tA_(P, tag)
     pr('  0 = telecentric); PUPIL = where the edge chief crosses the centre chief''s line, m from the FP hit (+ beyond the FP; Inf =\n');
     pr('  telecentric); PLATE = traced scale, local (+-0.02 deg about the bias) / to the strip edge (offset / tan).  TILT = the common\n');
     pr('  angle of the section''s chiefs to the parent FP normal (= atan(d/f) on the parent; about the slit axis, harmless).\n');
-    pr('  CLEAR = Telescope.check_clipping (body-in-beam + footprint margin), min margin and the element.  SPOT = best-focus rms\n');
-    pr('  radius per field (step 1''s helper), um.\n\n');
+    pr('  CLEAR = Telescope.check_clipping (body-in-beam + footprint margin; bodies = the telescope''s own beam-footprint discs, NO\n');
+    pr('  mount), min margin and the element.  SPOT = best-focus rms radius per field from the ENGINE TRACE (step 1''s helper), um.\n\n');
     fsys = P.Fno;
     [R, t, info] = macos.design.tma_layout(D, 1.0, fsys, 'secondary_mag', 3.5, 'int_focus_m', -0.125*D, 'telecentric', true);
     pr('PARENT: R = [%.4f %.4f %.4f] m, t = [%.4f %.4f] m, M3 z %.4f m, EFL %.4f m, paraxial chief exit slope %.1e\n\n', R, t, info.m3_z, info.EFL, info.chief_exit_slope);
@@ -1834,8 +1845,12 @@ function S = stage_tA_(P, tag)
             case 3                                              % STAGE B: conics + aspheres + per-field position rows (f tan theta)
                 nm = sprintf('B%g', jobs{jb, 2});
                 Pt = tA_plate_targets_(tel, fields_full, f);
-                tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters, ...
-                             'asph_elts', 1:3, 'asph_terms', P.tA_asph_terms, 'beam_pos_fov', Pt, 'beam_wt', jobs{jb, 2});
+                rc = tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters, ...
+                                  'asph_elts', 1:3, 'asph_terms', P.tA_asph_terms, 'beam_pos_fov', Pt, 'beam_wt', jobs{jb, 2});
+                % CALIB's own per-field evaluation is a FLAG here, never a reported number (addendum 39: the edge-field
+                % anomaly is CC's open item): failed (9.9999e36) or mm-scale fields mean the solve did not see them
+                bad = find(~(rc.wfe_before < 1e-3));
+                if ~isempty(bad), pr('         CALIB per-field evaluation ANOMALOUS at CALIB field(s) %s (failed or > 1 mm) -- those fields were not solved\n', mat2str(bad)); end
         end
         tel.build();
         [ok, cmin, cat] = tA_clear_(tel);  N = tA_numbers_(tel, fx);  sp = tA_spot_(tel, fx);
@@ -1926,6 +1941,8 @@ function sp = tA_spot_(tel, fx)
     end
     tel.trace_at_field([]);
 end
+
+function v = field_or_(P, f, d), if isfield(P, f), v = P.(f); else, v = d; end, end
 
 function x = slit_x_(G, d, lam)
 %SLIT_X_  The chief's x at the chain's terminal plane (placed frame: x runs along the slit).
