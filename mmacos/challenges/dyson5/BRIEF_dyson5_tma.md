@@ -1005,3 +1005,69 @@ shift, corr 0.998) -- under the 7.35 mm telescope-internal margin by ~10x, so
 the carry-over is defended, though less comfortably than on 1.5k (max 0.17 mm).
 (Corrected 2026-10-05: an earlier line of this section quoted a 1.33 mm margin
 that was never measured -- written before the record was read.)
+
+## For Dave: Freeform on the eccentric section -- what it buys and what it costs (TO, 2026-10-05)
+
+Both ladders STOPPED (1.5k at R4 under LM; 3k at R5, whose edge gained 4 %,
+inside scatter).  Construction: the telecentric Korsch section (-4 deg; 1.5k
+190 mm, 3k 180 mm; m2 = 3.0), two-channel FreeForm on M1-M3 (the aspheres held
+exactly in the vertex-centred Mon channel, the freeform modes about each pole),
+STRICT merit about the chief's detector intercept with EQUAL field weights +
+the f tan(theta) position rows, warm continuation rung by rung.  Spots in um:
+best focus / AS PLACED on the detector; fields centre / mid1 / mid2 / edge
+(1.5k 0 / 0.78 / 1.56 / 2.34 deg; 3k 0 / 1.56 / 3.13 / 4.69 deg).
+
+**1.5k (size:D:130)**
+
+| | spots best focus | spots as placed | strict@chief rms / max | e2e smile / keyst / CRF / SRF px | plate local / edge | FF norm |
+|---|---|---|---|---|---|---|
+| R0 (B1 aspheric) | 29 / 56 / 141 / 291 | 50 / 78 / 175 / 351 | 16.7 / 27.9 | 2.63 / 0.49 / 15.5 / 9.7 | 334.1 / 334.6 mm | -- |
+| **R4 freeform (LM)** | **73 / 77 / 94 / 170** | **99 / 106 / 131 / 219** | **7.7 / 11.5** | **0.82 / 0.33 / 7.7 / 9.2** | **324.1 / 330.3 mm** | 161 um |
+
+Coefficient norm per rung (TRR ladder): 370 / 157 / 158 / 158 um; LM re-run 161 um.
+
+**3k (size:F:240)**
+
+| | spots best focus | spots as placed | strict@chief rms / max | e2e smile / keyst / CRF / SRF px | plate local / edge | FF norm |
+|---|---|---|---|---|---|---|
+| R0 (B1 aspheric) | 68 / 132 / 486 / 1086 | 77 / 153 / 625 / 1442 | 65.4 / 111.0 | 7.71 / 1.20 / 15.7 / 11.8 | 328.1 / 321.7 mm | -- |
+| **R4 freeform** (best e2e) | **190 / 193 / 175 / 487** | **216 / 232 / 234 / 690** | **19.1 / 29.2** | **4.57 / 0.76 / 15.1 / 15.1** | **317.1 / 330.9 mm** | 753 um |
+| R5 freeform (best telescope edge) | 178 / 177 / 158 / 469 | 224 / 230 / 198 / 680 | 17.6 / 26.8 | 6.25 / 1.04 / 15.8 / 15.5 | 317.7 / 331.0 mm | 788 um |
+
+Coefficient norm per rung: 524 / 574 / 622 / 753 / 788 um.  Note R5 betters
+R4 on the telescope merit and spots but WORSENS the end-to-end smile and
+keystone -- the strict telescope merit is not the instrument's merit, so the
+3k pick is R4.
+
+**What it buys.**  The edges: 1.5k 291 -> 170 um best focus (16.2 -> 9.4 px),
+3k 1086 -> 487 um (60 -> 27 px); edge astigmatism T-S 2.2 -> 0.8 mm (1.5k),
+8.9 -> 2.8 mm (3k); smile 2.63 -> 0.82 px (1.5k), 7.71 -> 4.57 px (3k);
+keystone 0.49 -> 0.33 / 1.20 -> 0.76 px; CRF halved on 1.5k (15.5 -> 7.7 px).
+The pupil match is untouched (admitted 1.000 / 0.98).
+
+**What it costs.**  The CENTRE: 1.5k 29 -> 73 um, 3k 68 -> 190 um -- the equal-
+weight strict merit FLATTENS the field (on both modules R1 already traded the
+centre for the edge; it never removed the field-quadratic astigmatism, it
+balanced it); the spectral resolution at the centre goes with it (1.5k SRF
+centre 5.6 -> 8.6 px; 3k total SRF 11.8 -> 15.1 px); the 3k CRF does not move
+(the edge is still 27 px); the local plate scale drifts low (1.5k 324 mm, 3k
+317 mm, -2 / -4 %; the edge holds 330); FF sag up to 0.17 mm (1.5k) / 0.75 mm
+(3k).  **Clearance carried over from B1, not re-scored** (the engine join has no
+body model): telescope-internal +9.46 mm (1.5k) / +7.35 mm (3k) with the mount,
+~10x the FF sag, so the carry-over is defended.
+
+**Two unconverged facts.**  Every rung on both modules stopped at its
+evaluation cap with first-order optimality 1e5-1.6e6 against 1e-6.  Levenberg-
+Marquardt with Jacobian scaling roughly halved the crawl (8 % of 1.5k edge for
+4000 evaluations vs 3 % for 8000 under trust-region), and the coefficient norm
+grew only with improving edges (no stalled-edge growth), so a Tikhonov term is
+not yet indicated.  The numbers above are lower bounds on what this
+construction can reach, not its optimum.
+
+**THE RULING (Dave):** the field weighting.  EQUAL weights (all rows above)
+flatten the strip -- edges 9.4 px (1.5k) / 27 px (3k), centres 73 / 190 um,
+spectral resolution at the centre lost; a CENTRE-WEIGHTED field set, or a
+smaller position-row weight, would hold the centre (and its SRF) at the edges'
+expense.  Which the strip must deliver where -- Jim's pixel spec applies at
+the centre as much as at the edge -- is your call, and it sets the next rung's
+merit on both modules.
