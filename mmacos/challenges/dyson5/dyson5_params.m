@@ -335,6 +335,9 @@ function P = dyson5_params(over)
     P.tEP_R_m        = 1.0;               % reference-sphere radius about each field's best-focus point (m; virtual pupil allowed)
     P.tEP_rungs      = {'seed', 'B1'};    % the seed (as-is conics) and the stage-B rung re-solved with the FP merit
     P.tEP_suffix     = '';                % record dyson5_tA_EP<suffix>.*
+    P.tEP_maxfev     = 400;               % S1 (strict-merit lsqnonlin) function-evaluation budget
+    P.tEP_from       = 'seed';            % S1 start: 'seed' (as-is conics, zero aspheres) | 'B1' (the FP-merit solution of the same run)
+    P.tEP_center     = 'chief';           % S1 reference-sphere centre per field: 'chief' (detector intercept) | 'focus' (best focus)
     % t3s, THE FIRST-ORDER CLEARANCE SCREEN (addendum 21): tma_screen's nine
     % OI_CLEAR pairs evaluated paraxially (engine-free, ms per row) over
     % telescope_seed's family -- solve ONLY rows it passes
