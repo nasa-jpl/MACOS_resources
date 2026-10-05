@@ -135,6 +135,7 @@ function OUT = dyson5_run(over)
             case 'tEP', OUT.tEP = stage_tEP_(P, tag);
             case 'tPZ', OUT.tPZ = stage_tPZ_(P, tag);
             case 'tFF', OUT.tFF = stage_tFF_(P, tag);
+            case 'tGM', OUT.tGM = stage_tGM_(P, tag);   % addendum 45: SPOT metric (a), M2/M3 rigid body (b), the e2e scorer (c)
             case 't5f', OUT.t5f = dyson5_t5f(P, tag);   % end to end for FreeForm decks, the join from ENGINE traces (dyson5_t5f.m)
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
@@ -2194,6 +2195,212 @@ function txt = tFF_deck_(src_txt, K, A, ffc, F)
     end
     assert(k == 3, 'ff_deck: found %d aspheric mirrors, expected 3', k);
     txt = strjoin(out, newline);
+end
+
+
+function S = stage_tGM_(P, tag)
+%STAGE_TGM_  Addendum 45: the transverse metric and the geometry lever, warm from the R4 freeform rung (tFF record).
+%   DOFs: the 3 conics + R4's freed FF modes on M1-M3 (the two-channel FreeForm of tFF, the h4/h6 held in the Mon channel),
+%   + with P.tGM_geom the M2/M3 rigid body (rx ry rz mrad, dx dy dz mm, in each mirror's TElt frame = its POLE frame, about
+%   its pole RptElt) and the FP focus (dz mm along its normal), applied to the deck TEXT (tGM_move_, gated vs macos.perturb).
+%   Residuals (P.tGM_mode):
+%   'spot' -- per field, every passing ray's in-plane offset from the field's centroid ON THE DETECTOR as placed (um; scaled
+%       sqrt(254/N) so a field weighs 254 x its as-placed rms^2, CALIB's SPOT-row balance at beam_wt 1), + the chief's
+%       in-plane offset from its f tan(theta) target (2 rows, um).  A ray of the field's fixed set that is lost = a 1 mm wall.
+%   'e2e'  -- the end-to-end scorer through the engine join (dyson5_t5f quiet; the join RE-PLACED every evaluation): per
+%       (field, lambda) the centroid's along-dispersion deviation from its lambda's field mean (smile), its along-slit
+%       deviation from its field's lambda mean (keystone), the rms ray widths SU (CRF) and SV (SRF), all px; + the
+%       telescope's position rows in px.  The FWHMs themselves are histograms (0.01 px bins, +-8 px window): no FD derivative,
+%       so the residual carries their rms ray widths; every row is SCORED with the FWHM as always.
+    here = fileparts(mfilename('fullpath'));
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  lam = 633e-9;  sfx = P.tGM_suffix;
+    by = P.tEP_bias_deg*pi/180;  apst = [0; P.tEP_dec_m; 0];  stand = 1.0;
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_tA_GM' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 tGM -- addendum 45: residual %s, geometry DOFs %s (%s)\n', upper(P.tGM_mode), tern_(P.tGM_geom, 'ON (M2/M3 rigid body + FP focus)', 'off'), datestr(now, 'yyyy-mm-dd HH:MM'));
+    % ---- the R4 state (tFF record) and its frames
+    Z = load(fullfile(here, P.tGM_from));  ZS = Z.S;  rw = ZS.rows(end);  Fs = ZS.Fs;  F = ZS.F;  T = ZS.T;  nm = numel(Fs.modes);
+    dirs = [sin(F(:, 1)), sin(by + F(:, 2)), sqrt(max(0, 1 - sin(F(:, 1)).^2 - sin(by + F(:, 2)).^2))];
+    src = fullfile(here, P.tFF_from);  txt = fileread(src);  blk = regexp(txt, '\n\s*iElt=', 'split');  blk = blk(2:4);
+    A = zeros(3, 2);  for k = 1:3, a = tFF_vec_(blk{k}, 'AsphCoef');  A(k, :) = a(1:2)'; end
+    free = rw.free;  idx = find(ismember(Fs.modes, free));  nf = numel(idx);
+    K = rw.K;  C = rw.C;  g = zeros(1, 13);  wsrc = sprintf('%s rung R%d', P.tGM_from, rw.rung);
+    if ~isempty(P.tGM_warm)
+        W = load(fullfile(here, P.tGM_warm));  K = W.S.K;  C = W.S.C;  g = W.S.g;  wsrc = P.tGM_warm;
+    end
+    pr('WARM START: %s (R0 %s; modes %s free on M1-M3, lFF %s mm; equal field weights)\n', wsrc, P.tFF_from, mat2str(free), mat2str(round(Fs.Lf*1e3, 1)));
+    deck = sprintf('%s_tA_GM%s.in', tag, sfx);
+    write_ = @(K, C, g, file) tGM_write_(txt, K, A, C, Fs, g, file);
+    unpack = @(x) tGM_unpack_(x, idx, nm, P.tGM_geom);
+    x0 = [K, reshape(C(:, idx)'/1e-6, 1, [])];  if P.tGM_geom, x0 = [x0, g]; end
+    % ---- gates, every run
+    write_(K, C, zeros(1, 13), deck);  macos.load_rx(deck);  nE = macos.num_elt();
+    b4 = regexp(fileread(deck), '\n\s*iElt=', 'split');  TE = tGM_telt_(b4{5});  ex = TE(:, 1);  ey = TE(:, 2);   % FP in-plane axes
+    info0 = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);
+    pr('GATE 1 (identity, the warm state re-traced): spots as placed %s um vs the record''s %s (max diff %.2e um)\n', ...
+       sprintf('%.1f ', info0.sa), sprintf('%.1f ', rw.info.sa), max(abs(info0.sa - rw.info.sa)));
+    gm = [0.3 -0.2 0.5 0.05 -0.03 0.08];                    % mrad, mm: a test move of M2
+    tz = [tempname '.in'];  write_(K, C, [gm zeros(1, 7)], tz);  macos.load_rx(tz);  P1 = tGM_rays_(dirs(end, :)', apst, stand, nE);
+    macos.load_rx(deck);  Fr = tGM_telt_(b4{3});  macos.perturb(2, 'rotation', gm(1:3)'*1e-3, 'translation', gm(4:6)'*1e-3, 'frame', 'local');
+    P2 = tGM_rays_(dirs(end, :)', apst, stand, nE);  delete(tz);
+    pr('GATE 2 (the text move vs macos.perturb, M2 by %s mrad / mm in its TElt frame, edge field, every ray at the FP): max %.2e m\n', mat2str(gm), max(vecnorm(P1 - P2)));
+    tz = [tempname '.in'];  write_(K, C, [gm/10 zeros(1, 7)], tz);  macos.load_rx(tz);  P1 = tGM_rays_(dirs(end, :)', apst, stand, nE);  delete(tz);
+    macos.load_rx(deck);  macos.perturb(2, 'rotation', gm(1:3)'*1e-4, 'translation', gm(4:6)'*1e-4, 'frame', 'local');  P2 = tGM_rays_(dirs(end, :)', apst, stand, nE);
+    pr('  the same at a TENTH of the move: max %.2e m (second order in the move = the two rotation compositions differ, the pivot and frame agree)\n', max(vecnorm(P1 - P2)));
+    pr('  (pole frame of M2 = TElt: x %s y %s z %s)\n', mat2str(Fr(:, 1)', 4), mat2str(Fr(:, 2)', 4), mat2str(Fr(:, 3)', 4));
+    % the live-clearance machinery: an e2e chain of the R0 aspheric deck (its Dyson surfaces + boxes; telescope bodies moved per deck)
+    GD = dyson_of_record_(P, tag, P.tel_dyson);  fov = npx*ifov;
+    G0 = tel_deck_geom(src, struct('fov', fov, 'name', 'tGM_g0'), []);
+    GT = tel_deck_geom(src, struct('fov', fov, 'name', 'tGM_ge0', 'D_src', G0.src.D*P.tel_oversize, 'roll_deg', P.tel5e_roll_deg), GD);
+    GE0 = e2e_geom(GT, GD);
+    P5 = P;  P5.tel5f_e2e_template = P.tGM_template;  P5.tel5e_roll_deg = P.tel5e_roll_deg;
+    if ~isempty(P.tGM_t5e_rec)
+        P5.tel5f_deck = P.tFF_from;  P5.tel5f_suffix = [sfx '_clgate'];
+        Sg = dyson5_t5f(P5, tag, struct('GD', GD, 'GE0', GE0));
+        Zr = load(fullfile(here, P.tGM_t5e_rec));  Tr = Zr.S.clearance.table;  Te = Sg.clearance.table;
+        pr('GATE 3 (live clearance on the R0 aspheric deck vs t5e''s chain record %s): min %+.2f vs %+.2f mm\n', P.tGM_t5e_rec, Sg.clearance.min_mm, Zr.S.clearance.min_mm);
+        for i = 1:min(10, height(Tr))
+            j = find(strcmp(Te.leg, Tr.leg{i}) & strcmp(Te.body, Tr.body{i}), 1);  ve = NaN;  if ~isempty(j), ve = Te.clearance_mm(j); end
+            pr('    %-34s vs %-14s chain %+8.2f  engine %+8.2f mm\n', Tr.leg{i}, Tr.body{i}, Tr.clearance_mm(i), ve);
+        end
+    end
+    % the parent Telescope for check_clipping (bodies overridden with the engine's moved vertices / axes)
+    [R, t] = macos.design.tma_layout(D, 1.0, P.tFF_fsys, 'secondary_mag', P.tFF_m2, 'int_focus_m', -0.125*D, 'telecentric', true);
+    tel = tA_build_(R, t, D, lam, P.tel3_model, P.tEP_bias_deg, P.tEP_dec_m);
+    % ---- the residual
+    write_(K, C, g, deck);  macos.load_rx(deck);
+    sel = cell(1, size(dirs, 1));
+    for q = 1:size(dirs, 1)
+        tEP_aim_(dirs(q, :)', apst, stand);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  ok(1) = false;  sel{q} = find(ok);
+    end
+    c = struct('write_', write_, 'deck', deck, 'dirs', dirs, 'apst', apst, 'stand', stand, 'nE', nE, 'T', T, 'ex', ex, 'ey', ey, 'unpack', unpack);
+    c.sel = sel;  c.px = P.pixel_m;
+    switch P.tGM_mode
+        case 'spot', fun = @(x) tGM_rspot_(x, c);
+        case 'e2e'
+            c.P5 = P5;  c.P5.tel5f_deck = deck;  c.P5.tel5f_suffix = [sfx '_q'];  c.GD = GD;  c.tag = tag;
+            fun = @(x) tGM_re2e_(x, c);
+        otherwise, error('dyson5 tGM: unknown mode %s', P.tGM_mode);
+    end
+    tic;  r0 = fun(x0);  t1 = toc;
+    pr('RESIDUAL %s: %d rows, %d DOF (3 conics + %d FF modes x 3%s); seed cost %.4e; one evaluation %.2f s\n', P.tGM_mode, numel(r0), numel(x0), nf, ...
+       tern_(P.tGM_geom, ' + 13 geometry', ''), sum(r0.^2), t1);
+    o = optimoptions('lsqnonlin', 'Display', 'off', 'MaxFunctionEvaluations', P.tGM_maxfev, 'MaxIterations', 2000, ...
+                     'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10, 'OptimalityTolerance', 1e-6, 'Algorithm', 'levenberg-marquardt', 'ScaleProblem', 'jacobian');
+    tic;  [x, rn, ~, ef, out] = lsqnonlin(fun, x0, [], [], o);  sec = toc;
+    opt = sprintf('lm-jac: exitflag %d, %d iterations, %d evaluations, %.0f s, first-order optimality %.3e, cost %.4e -> %.4e', ...
+                  ef, out.iterations, out.funcCount, sec, out.firstorderopt, sum(r0.^2), rn);
+    pr('%s\n', opt);
+    [K, C, g] = unpack(x);  write_(K, C, g, deck);
+    S = tGM_report_(P, tag, sfx, pr, deck, K, C, g, Fs, free, dirs, apst, stand, T, F, tel, P5, GD, GE0, info0);
+    S.opt = opt;  S.out = out;  S.x = x;  S.mode = P.tGM_mode;  S.geom = P.tGM_geom;  S.warm = wsrc;
+    save([tag '_tA_GM' sfx '.mat'], 'S');
+    fclose(fid);
+end
+
+function S = tGM_report_(P, tag, sfx, pr, deck, K, C, g, Fs, free, dirs, apst, stand, T, F, tel, P5, GD, GE0, info0)
+    macos.load_rx(deck);  nE = macos.num_elt();
+    info = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);  ts = tFF_ts_(dirs, apst, stand, nE);
+    flips = NaN;  try, flips = mmacos('fwd_root_flips_get'); catch, end %#ok<CTCH>
+    rw = struct('rung', 4, 'free', free, 'K', K, 'C', C, 'info', info, 'ts', ts, 'ef', NaN, 'nfev', 0, 'sec', 0, 'opt', '');
+    pr('\nSOLVED (deck %s; the row prints as R4 = its DOF set):', deck);  tFF_row_(pr, rw, F, Fs);
+    pr('   fwd_root_flips_get after the trace: %s\n', mat2str(flips));
+    pr('   fields %s deg; best focus / AS PLACED spot (um): %s / %s  (warm state: %s / %s)\n', ...
+       sprintf('%+.2f ', F(:, 1)*180/pi), sprintf('%.0f ', info.sp), sprintf('%.0f ', info.sa), sprintf('%.0f ', info0.sp), sprintf('%.0f ', info0.sa));
+    pr('   GEOMETRY (pole frames, about the pole): M2 rot %s mrad, dec %s mm; M3 rot %s mrad, dec %s mm; FP focus %+.4f mm\n', ...
+       mat2str(g(1:3), 4), mat2str(g(4:6), 4), mat2str(g(7:9), 4), mat2str(g(10:12), 4), g(13));
+    pr('   FF coefficient norm %.2f um\n', norm(C(:))*1e6);
+    % check_clipping on the moved deck (the parent Telescope's bodies at the engine's vertices / axes)
+    % (tel.spec is read-only: the body discs keep the parent's axes as built -- a mrad tilt changes a disc's normal by cos ~ 1e-6 --
+    %  while their CENTRES and footprints come from the engine's DRAW fans on the moved deck)
+    tEP_aim_(dirs(1, :)', apst, stand);
+    rep = tel.check_clipping('noload', true, 'quiet', true);  [cmin, i] = min([rep.clearance]);
+    pr('   check_clipping (moved deck, centre field, engine DRAW fans): %s, min clearance %+.2f mm (%s), obstructions %d\n', tern_(all([rep.ok]), 'CLEAR', 'CONFLICT'), cmin*1e3, rep(i).name, sum([rep.obstructs]));
+    % end to end + live clearance
+    P5.tel5f_deck = deck;  P5.tel5f_suffix = ['_GM' sfx];
+    S5 = dyson5_t5f(P5, tag, struct('GD', GD, 'GE0', GE0));
+    RE = S5.e2e;
+    pr('   E2E (join re-placed): smile %.2f / keystone %.2f / CRF %.2f / SRF %.2f px, admits %.3f, plate local / edge %.1f / %.1f mm; clearance %+.2f mm %s\n', ...
+       RE.smile_max, RE.keystone_max, RE.crf_max, RE.srf_max, min(RE.pass_frac(:)), S5.f_loc*1e3, S5.f_edge*1e3, S5.clearance.min_mm, tern_(S5.clearance.pass, 'PASS', 'FAIL'));
+    S = struct('deck', deck, 'K', K, 'C', C, 'g', g, 'info', info, 'ts', ts, 'flips', flips, 'clip', rep, 'e2e', RE, 't5f', S5);
+end
+
+function [K, C, g] = tGM_unpack_(x, idx, nm, geom)
+    nf = numel(idx);  K = x(1:3);  C = zeros(3, nm);  C(:, idx) = reshape(x(4:3+3*nf), nf, 3)'*1e-6;
+    g = zeros(1, 13);  if geom, g = x(4+3*nf:end); end
+end
+
+function tGM_write_(txt, K, A, C, Fs, g, file)
+    t2 = tFF_deck_(txt, K, A, C, Fs);
+    if any(g ~= 0), t2 = tGM_move_(t2, g); end
+    fid = fopen(file, 'w');  fprintf(fid, '%s\n', t2);  fclose(fid);
+end
+
+function t = tGM_move_(t, g)
+%TGM_MOVE_  Rigid-body moves on the deck TEXT: M2 g(1:6), M3 g(7:12) = [rx ry rz mrad, dx dy dz mm] in the element's TElt frame
+%   (its pole frame) about its RptElt (pole); FP g(13) = dz mm along its TElt z.  Points (Vpt Rpt pMon pFF) and directions
+%   (psi, the Mon / FF frames, the TElt rows) move with the body.  Gated against macos.perturb (GATE 2).
+    t = char(t);  st = [regexp(t, '(?m)^\s*iElt=', 'start'), numel(t) + 1];
+    parts = [{t(1:st(1)-1)}, arrayfun(@(k) t(st(k):st(k+1)-1), 1:numel(st)-1, 'uni', 0)];
+    mv = {g(1:6), g(7:12), [0 0 0 0 0 g(13)]};
+    for j = 1:3, if any(mv{j} ~= 0), parts{j+2} = tGM_rigid_(parts{j+2}, mv{j}); end, end
+    t = [parts{:}];
+end
+
+function b = tGM_rigid_(b, m)
+    Fr = tGM_telt_(b);  c = tFF_vec_(b, 'RptElt');  w = Fr*(m(1:3)'*1e-3);  th = norm(w);
+    Rr = eye(3);  if th > 0, k = w/th;  Kx = [0 -k(3) k(2); k(3) 0 -k(1); -k(2) k(1) 0];  Rr = eye(3) + sin(th)*Kx + (1 - cos(th))*Kx*Kx; end
+    tt = Fr*(m(4:6)'*1e-3);
+    pts = {'VptElt', 'RptElt', 'pMon', 'pFF'};  drs = {'psiElt', 'xMon', 'yMon', 'zMon', 'xFF', 'yFF', 'zFF'};
+    L = splitlines(string(b));  o = strings(0, 1);  inF = 0;
+    for i = 1:numel(L)
+        s = L(i);  key = regexp(char(s), '^\s*(\w+)=', 'tokens', 'once');  if isempty(key), key = ''; else, key = key{1}; end
+        if strcmp(key, 'TElt'), inF = 6; end
+        if inF > 0
+            v = sscanf(strrep(char(regexprep(s, '^\s*\w+=', '')), 'D', 'E'), '%f')';  r = 7 - inF;  bb = 1 + 3*(r > 3);
+            v(bb:bb+2) = (Rr*v(bb:bb+2)')';  lead = regexp(char(s), '^\s*\w+=', 'match', 'once');  if isempty(lead), lead = '                  '; end
+            s = string(lead) + sprintf('  %.16E', v);  inF = inF - 1;
+        elseif any(strcmp(key, pts)), v = tFF_vec_(char(s), key);  s = sprintf('%17s=  %.16E  %.16E  %.16E', key, c + Rr*(v - c) + tt);
+        elseif any(strcmp(key, drs)), v = tFF_vec_(char(s), key);  s = sprintf('%17s=  %.16E  %.16E  %.16E', key, Rr*v);
+        end
+        o(end+1, 1) = s; %#ok<AGROW>
+    end
+    b = char(strjoin(o, newline));
+end
+
+function Fr = tGM_telt_(b)
+%TGM_TELT_  The element's TElt frame: columns = its x, y, z axes (the first three rows' first three numbers).
+    L = splitlines(string(b));  i0 = find(startsWith(strtrim(L), "TElt="), 1);  Fr = zeros(3);
+    for r = 1:3, v = sscanf(strrep(char(regexprep(L(i0+r-1), '^\s*\w+=', '')), 'D', 'E'), '%f');  Fr(:, r) = v(1:3); end
+end
+
+function Q = tGM_rays_(d, apst, stand, nE)
+    tEP_aim_(d, apst, stand);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);  Q = ri.pos;
+end
+
+function r = tGM_rspot_(x, c)
+    [K, C, g] = c.unpack(x);  c.write_(K, C, g, c.deck);  macos.load_rx(c.deck);
+    r = [];
+    for q = 1:size(c.dirs, 1)
+        tEP_aim_(c.dirs(q, :)', c.apst, c.stand);  s = macos.trace(c.nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  pc = ri.pos(:, 1);  sl = c.sel{q};  okq = ok(sl);  n = numel(sl);
+        if nnz(okq) < 0.9*n, r = [r; 1e-3*ones(2*n + 2, 1)]; continue, end   %#ok<AGROW> lost rays: a wall
+        Pq = ri.pos(:, sl);  d = Pq - mean(Pq(:, okq), 2);  du = c.ex'*d;  dv = c.ey'*d;  du(~okq) = 1e-3;  dv(~okq) = 1e-3;
+        w = sqrt(254/n);  e = pc - c.T(:, q);
+        r = [r; w*du(:); w*dv(:); c.ex'*e; c.ey'*e];   %#ok<AGROW>
+    end
+    r = r*1e6;
+end
+
+function r = tGM_re2e_(x, c)
+    [K, C, g] = c.unpack(x);  c.write_(K, C, g, c.deck);  macos.load_rx(c.deck);
+    pos = zeros(2, size(c.dirs, 1));
+    for q = 1:size(c.dirs, 1), e = tEP_chief_(c.dirs(q, :)', c.apst, c.stand, c.nE) - c.T(:, q);  pos(:, q) = [c.ex'*e; c.ey'*e]/c.px; end
+    S5 = dyson5_t5f(c.P5, c.tag, struct('quiet', true, 'GD', c.GD));  RE = S5.e2e;  if isfile(S5.file), delete(S5.file); end
+    rs = RE.V - mean(RE.V, 1);  rk = RE.U - mean(RE.U, 2);
+    r = [rs(:); rk(:); RE.SU(:); RE.SV(:); pos(:)];  r(~isfinite(r)) = 50;
 end
 
 
