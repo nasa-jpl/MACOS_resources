@@ -307,6 +307,7 @@ function P = dyson5_params(over)
     % slit admits is scored, the plate scale and slit vignetting stated.
     P.tel5e_deck     = '';                % the deck (path; relative = this folder), e.g. 'dyson5_tma_step2b_linux_d205_1k5.in'
     P.tel5e_suffix   = '';                % record dyson5_t5e<suffix>.*
+    P.tel5e_roll_deg = 0;                 % the telescope rolled about the exit chief in the join (180: bodies to the other side of the Dyson)
     % tA, TMA STAGE A (BRIEF_dyson5_tma.md, stage A hand-off): the eccentric
     % section of the TELECENTRIC Korsch parent (tma_layout 'telecentric', M1
     % stop), bias x decenter scanned AS IS (no figure), the three first-order

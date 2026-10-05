@@ -1623,7 +1623,8 @@ function S = stage_t5e_(P, tag)
     pr('  SLIT VIGNETTING: the slit admits +-%.3f deg of the +-%.3f deg strip = %.1f %% of the swath (%d of %d px); the rest falls off the slit ends\n\n', ...
        ta*180/pi, fov/2*180/pi, 100*ta/(fov/2), round(npx*ta/(fov/2)), npx);
     % ---- END TO END over the strip the slit admits (the deck's FocalPlane replaced by the slit)
-    Pt = struct('fov', 2*ta, 'name', sprintf('%s_t5e%s', P.tag, sfx), 'D_src', Dd*P.tel_oversize);
+    Pt = struct('fov', 2*ta, 'name', sprintf('%s_t5e%s', P.tag, sfx), 'D_src', Dd*P.tel_oversize, 'roll_deg', P.tel5e_roll_deg);
+    if P.tel5e_roll_deg ~= 0, pr('JOIN: the telescope rolled %g deg about the exit chief (tel5e_roll_deg)\n', P.tel5e_roll_deg); end
     GT = tel_deck_geom(deck, Pt, GD);  GE = e2e_geom(GT, GD);  nT = numel(GT.surf);
     Fe = GE.footprints('nx', 5, 'nlam', 3, 'nring', P.tel_nring);  Fd = GD.footprints('nx', 3, 'nlam', 3, 'nring', 2);
     Fa = [Fe(1:nT), Fd];
