@@ -232,6 +232,7 @@ classdef Session < handle
         function z  = get_elt_z(obj, srf),       z  = macos.get_elt_z(srf);    end
         function i  = get_elt_info(obj, srf),    i  = macos.get_elt_info(srf); end
         function o  = get_elt_obs(obj, srf),     o  = macos.get_elt_obs(srf);  end
+        function c  = get_elt_asph(obj, srf, varargin), c = macos.get_elt_asph(srf, varargin{:}); end
 
         % --- Element surface inspection (grid / Zernike / csys) -------
         function tf = elt_grid_any(obj),         tf = macos.elt_grid_any();     end
