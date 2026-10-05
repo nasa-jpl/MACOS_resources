@@ -93,6 +93,9 @@ function S = dyson5_t5f(P, tag, q)
         pr('  the engine''s vertices/axes, lifted onto the base sphere -- the FreeForm sag is not in the body): min %+.2f mm (%s vs %s) %s;\n', ...
            Cl.min_mm, Cl.table.leg{1}, Cl.table.body{1}, tern5f_(Cl.pass, 'PASS', 'FAIL'));
         if ~isempty(T1), pr('  telescope-internal worst %+.2f mm with the mount, %+.2f mm without (%s vs %s)\n', T1.clearance_mm(1), T0.clearance_mm(1), T1.leg{1}, T1.body{1}); end
+        it = find(strncmp(Cl.dep_names, 'Tel', 3));
+        pr('  the mirrors'' lit surface vs their BEST-FIT body spheres (residual NOT in the bodies; read against the margins): %s mm\n', ...
+           strjoin(arrayfun(@(k) sprintf('%s %.2f', Cl.dep_names{k}, Cl.dep_mm(k)), it, 'uni', 0), ', '));
         for i = 1:min(8, height(Cl.table)), pr('    %-34s vs %-14s %+8.2f mm\n', Cl.table.leg{i}, Cl.table.body{i}, Cl.table.clearance_mm(i)); end
     end
     if ~quiet, fclose(fid);  save([tag '_t5f' sfx '.mat'], 'S'); end
@@ -160,6 +163,19 @@ function [Cl, Cl0] = tEC_(GE0, G, nE, iSlit, fe, P, launch)
     end
     macos.set_src_size(Ap, sz.obscuration);  macos.set_src_sampling(ng0);  macos.modify();
     B = struct('P', PP);
+    % the TELESCOPE bodies sit on the BEST-FIT SPHERE of each mirror's own lit hits.  The chain lifts a conic/asphere body onto
+    % its BASE sphere (spectrometer_clearance body_pts_), which on these eccentric sections drops the conic: M1's lit patch
+    % departs from its base sphere by ~20 mm (h^4/8R^3 at h = 0.29 m, R 0.37 m) -- every telescope body in the chain record
+    % was misplaced by its patch's conic sag (found 2026-10-05, addendum 45).  The fit leaves the higher orders (S.fit_mm).
+    fitres = nan(1, nS);
+    for k = 1:nS
+        if ~strncmp(S(k).name, 'Tel', 3), continue, end
+        H = Hall{k};  M = [2*H', ones(size(H, 2), 1)];  u = M\sum(H.^2, 1)';  c0 = u(1:3);  R0 = sqrt(u(4) + c0'*c0);
+        ps = mean(H, 2) - c0;  ps = ps/norm(ps);
+        S(k).C = c0;  S(k).R = R0;  S(k).vpt = c0 + R0*ps;  S(k).psi = ps;
+        xa = F0(k).xap(:);  xa = xa - (xa'*ps)*ps;  xa = xa/norm(xa);  F0(k).xap = xa;  F0(k).yap = cross(ps, xa);
+        fitres(k) = max(abs(vecnorm(H - c0) - R0))*1e3;
+    end
     F = F0;
     for k = 1:nS
         H = Hall{k} - S(k).vpt(:);  u = F0(k).xap(:)'*H;  v = F0(k).yap(:)'*H;
@@ -169,6 +185,8 @@ function [Cl, Cl0] = tEC_(GE0, G, nE, iSlit, fe, P, launch)
     Gx = GE0;  Gx.surf = S;  Gx.bundle = @(varargin) B;  Gx.footprints = @(varargin) F;  Gx.iSlit = iSlit;
     if isfield(GE0, 'iSlit'), Gx.iSlit = GE0.iSlit; end
     Cl = spectrometer_clearance(Gx, P, 'quiet', true);
+    Cl.dep_mm = fitres;              % the lit surface's residual from its body's (best-fit) sphere: the margin the body model eats
+    Cl.dep_names = {S.name};
     Pm = P;  Pm.mount_margin_m = 0;  Cl0 = spectrometer_clearance(Gx, Pm, 'quiet', true);
 end
 

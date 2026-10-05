@@ -2235,11 +2235,13 @@ function S = stage_tGM_(P, tag)
     unpack = @(x) tGM_unpack_(x, idx, nm, P.tGM_geom);
     x0 = [K, reshape(C(:, idx)'/1e-6, 1, [])];  if P.tGM_geom, x0 = [x0, g]; end
     % ---- gates, every run
-    write_(K, C, zeros(1, 13), deck);  macos.load_rx(deck);  nE = macos.num_elt();
-    b4 = regexp(fileread(deck), '\n\s*iElt=', 'split');  TE = tGM_telt_(b4{5});  ex = TE(:, 1);  ey = TE(:, 2);   % FP in-plane axes
+    write_(K, C, g, deck);  macos.load_rx(deck);  nE = macos.num_elt();               % the warm state WITH its geometry
     info0 = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);
-    pr('GATE 1 (identity, the warm state re-traced): spots as placed %s um vs the record''s %s (max diff %.2e um)\n', ...
-       sprintf('%.1f ', info0.sa), sprintf('%.1f ', rw.info.sa), max(abs(info0.sa - rw.info.sa)));
+    write_(K, C, zeros(1, 13), deck);  macos.load_rx(deck);                              % unmoved: the FP axes + gate 2
+    b4 = regexp(fileread(deck), '\n\s*iElt=', 'split');  TE = tGM_telt_(b4{5});  ex = TE(:, 1);  ey = TE(:, 2);   % FP in-plane axes
+    ref = rw.info.sa;  if ~isempty(P.tGM_warm), ref = W.S.info.sa; end
+    pr('GATE 1 (identity, the warm state re-traced): spots as placed %s um vs the warm record''s %s (max diff %.2e um)\n', ...
+       sprintf('%.1f ', info0.sa), sprintf('%.1f ', ref), max(abs(info0.sa - ref)));
     gm = [0.3 -0.2 0.5 0.05 -0.03 0.08];                    % mrad, mm: a test move of M2
     tz = [tempname '.in'];  write_(K, C, [gm zeros(1, 7)], tz);  macos.load_rx(tz);  P1 = tGM_rays_(dirs(end, :)', apst, stand, nE);
     macos.load_rx(deck);  Fr = tGM_telt_(b4{3});  macos.perturb(2, 'rotation', gm(1:3)'*1e-3, 'translation', gm(4:6)'*1e-3, 'frame', 'local');
@@ -2259,7 +2261,8 @@ function S = stage_tGM_(P, tag)
         P5.tel5f_deck = P.tFF_from;  P5.tel5f_suffix = [sfx '_clgate'];
         Sg = dyson5_t5f(P5, tag, struct('GD', GD, 'GE0', GE0));
         Zr = load(fullfile(here, P.tGM_t5e_rec));  Tr = Zr.S.clearance.table;  Te = Sg.clearance.table;
-        pr('GATE 3 (live clearance on the R0 aspheric deck vs t5e''s chain record %s): min %+.2f vs %+.2f mm\n', P.tGM_t5e_rec, Sg.clearance.min_mm, Zr.S.clearance.min_mm);
+        pr('GATE 3 (live clearance on the R0 aspheric deck vs t5e''s chain record %s; the Dyson entries must match, the TELESCOPE\n', P.tGM_t5e_rec);
+        pr('  bodies DIFFER BY DESIGN: the chain lifts them onto the base sphere, the live gate onto the best-fit sphere of the lit patch): min %+.2f vs %+.2f mm\n', Sg.clearance.min_mm, Zr.S.clearance.min_mm);
         for i = 1:min(10, height(Tr))
             j = find(strcmp(Te.leg, Tr.leg{i}) & strcmp(Te.body, Tr.body{i}), 1);  ve = NaN;  if ~isempty(j), ve = Te.clearance_mm(j); end
             pr('    %-34s vs %-14s chain %+8.2f  engine %+8.2f mm\n', Tr.leg{i}, Tr.body{i}, Tr.clearance_mm(i), ve);
@@ -2279,6 +2282,7 @@ function S = stage_tGM_(P, tag)
     c.sel = sel;  c.px = P.pixel_m;
     switch P.tGM_mode
         case 'spot', fun = @(x) tGM_rspot_(x, c);
+        case 'strict', c.Rref = P.tEP_R_m;  fun = @(x) tGM_rstrict_(x, c);   % the CONTROL: per-ray strict OPD rows (separates metric from row form)
         case 'e2e'
             c.P5 = P5;  c.P5.tel5f_deck = deck;  c.P5.tel5f_suffix = [sfx '_q'];  c.GD = GD;  c.tag = tag;
             fun = @(x) tGM_re2e_(x, c);
@@ -2288,8 +2292,12 @@ function S = stage_tGM_(P, tag)
     pr('RESIDUAL %s: %d rows, %d DOF (3 conics + %d FF modes x 3%s); seed cost %.4e; one evaluation %.2f s\n', P.tGM_mode, numel(r0), numel(x0), nf, ...
        tern_(P.tGM_geom, ' + 13 geometry', ''), sum(r0.^2), t1);
     o = optimoptions('lsqnonlin', 'Display', 'off', 'MaxFunctionEvaluations', P.tGM_maxfev, 'MaxIterations', 2000, ...
-                     'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10, 'OptimalityTolerance', 1e-6, 'Algorithm', 'levenberg-marquardt', 'ScaleProblem', 'jacobian');
-    tic;  [x, rn, ~, ef, out] = lsqnonlin(fun, x0, [], [], o);  sec = toc;
+                     'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10,                      'OptimalityTolerance', 1e-6, 'Algorithm', 'levenberg-marquardt', 'ScaleProblem', 'jacobian');
+    if P.tGM_maxfev > 0
+        tic;  [x, rn, ~, ef, out] = lsqnonlin(fun, x0, [], [], o);  sec = toc;
+    else                                              % report only: re-score the warm state
+        x = x0;  rn = sum(r0.^2);  ef = NaN;  sec = 0;  out = struct('iterations', 0, 'funcCount', 1, 'firstorderopt', NaN);
+    end
     opt = sprintf('lm-jac: exitflag %d, %d iterations, %d evaluations, %.0f s, first-order optimality %.3e, cost %.4e -> %.4e', ...
                   ef, out.iterations, out.funcCount, sec, out.firstorderopt, sum(r0.^2), rn);
     pr('%s\n', opt);
@@ -2312,6 +2320,26 @@ function S = tGM_report_(P, tag, sfx, pr, deck, K, C, g, Fs, free, dirs, apst, s
     pr('   GEOMETRY (pole frames, about the pole): M2 rot %s mrad, dec %s mm; M3 rot %s mrad, dec %s mm; FP focus %+.4f mm\n', ...
        mat2str(g(1:3), 4), mat2str(g(4:6), 4), mat2str(g(7:9), 4), mat2str(g(10:12), 4), g(13));
     pr('   FF coefficient norm %.2f um\n', norm(C(:))*1e6);
+    % the FF channel's sag and SLOPE over the LIT patch (engine hits of all 7 fields, in the solved deck's own -- moved -- pole frame;
+    % the ANSI evaluator was checked against the engine on M1, corr 0.998, 2026-10-05): what the polisher prices
+    bl = regexp(fileread(deck), '\n\s*iElt=', 'split');  H = cell(1, 3);
+    for q = 1:size(dirs, 1)
+        tEP_aim_(dirs(q, :)', apst, stand);
+        for k = 1:3, s = macos.trace(k);  ri = macos.get_ray_info(s.nRays);  H{k} = [H{k}, ri.pos(:, ri.ok_trace(:))]; end
+    end
+    sag = struct('max_um', nan(1, 3), 'pv_um', nan(1, 3), 'slope_mrad', nan(1, 3), 'lit_r_mm', nan(1, 3));
+    for k = 1:3
+        b = bl{k+1};  p0 = tFF_vec_(b, 'pFF');  xf = tFF_vec_(b, 'xFF');  yf = tFF_vec_(b, 'yFF');  Lf = tFF_num_(b, 'lFF');
+        w = H{k} - p0;  x = xf'*w;  y = yf'*w;  hh = 1e-5;
+        sf = @(x, y) tGM_ffeval_(C(k, :), Fs.modes, hypot(x, y)/Lf, atan2(y, x));
+        z = sf(x, y);  gx = (sf(x + hh, y) - sf(x - hh, y))/(2*hh);  gy = (sf(x, y + hh) - sf(x, y - hh))/(2*hh);
+        sag.max_um(k) = max(abs(z))*1e6;  sag.pv_um(k) = (max(z) - min(z))*1e6;  sag.slope_mrad(k) = max(hypot(gx, gy))*1e3;
+        sag.lit_r_mm(k) = max(hypot(x, y))*1e3;
+        pr('   M%d FF over the lit patch (r <= %.1f mm about the pole, lFF %.1f mm): max |sag| %.1f um, p-v %.1f um, max slope %.2f mrad\n', ...
+           k, sag.lit_r_mm(k), Lf*1e3, sag.max_um(k), sag.pv_um(k), sag.slope_mrad(k));
+    end
+    b0 = regexp(fileread(fullfile(fileparts(mfilename('fullpath')), P.tFF_from)), '\n\s*iElt=', 'split');  K0 = arrayfun(@(k) tFF_num_(b0{k+1}, 'KcElt'), 1:3);
+    pr('   conics K %s (R0 deck %s)\n', mat2str(K, 5), mat2str(K0, 5));
     % check_clipping on the moved deck (the parent Telescope's bodies at the engine's vertices / axes)
     % (tel.spec is read-only: the body discs keep the parent's axes as built -- a mrad tilt changes a disc's normal by cos ~ 1e-6 --
     %  while their CENTRES and footprints come from the engine's DRAW fans on the moved deck)
@@ -2324,7 +2352,18 @@ function S = tGM_report_(P, tag, sfx, pr, deck, K, C, g, Fs, free, dirs, apst, s
     RE = S5.e2e;
     pr('   E2E (join re-placed): smile %.2f / keystone %.2f / CRF %.2f / SRF %.2f px, admits %.3f, plate local / edge %.1f / %.1f mm; clearance %+.2f mm %s\n', ...
        RE.smile_max, RE.keystone_max, RE.crf_max, RE.srf_max, min(RE.pass_frac(:)), S5.f_loc*1e3, S5.f_edge*1e3, S5.clearance.min_mm, tern_(S5.clearance.pass, 'PASS', 'FAIL'));
-    S = struct('deck', deck, 'K', K, 'C', C, 'g', g, 'info', info, 'ts', ts, 'flips', flips, 'clip', rep, 'e2e', RE, 't5f', S5);
+    S = struct('deck', deck, 'K', K, 'C', C, 'g', g, 'info', info, 'ts', ts, 'flips', flips, 'clip', rep, 'e2e', RE, 't5f', S5, 'sag', sag);
+end
+
+function z = tGM_ffeval_(c, modes, r, t)
+%TGM_FFEVAL_  The FF channel: sum of unnormalized ANSI Zernikes (MACOS 1-based index) at (rho, theta).
+    z = zeros(size(r));
+    for i = 1:numel(modes)
+        if c(i) == 0, continue, end
+        j = modes(i) - 1;  n = ceil((-3 + sqrt(9 + 8*j))/2);  m = 2*j - n*(n + 2);  am = abs(m);  R = zeros(size(r));
+        for q = 0:(n - am)/2, R = R + (-1)^q*factorial(n - q)/(factorial(q)*factorial((n + am)/2 - q)*factorial((n - am)/2 - q))*r.^(n - 2*q); end
+        if m >= 0, z = z + c(i)*R.*cos(am*t); else, z = z + c(i)*R.*sin(am*t); end
+    end
 end
 
 function [K, C, g] = tGM_unpack_(x, idx, nm, geom)
@@ -2390,6 +2429,22 @@ function r = tGM_rspot_(x, c)
         Pq = ri.pos(:, sl);  d = Pq - mean(Pq(:, okq), 2);  du = c.ex'*d;  dv = c.ey'*d;  du(~okq) = 1e-3;  dv(~okq) = 1e-3;
         w = sqrt(254/n);  e = pc - c.T(:, q);
         r = [r; w*du(:); w*dv(:); c.ex'*e; c.ey'*e];   %#ok<AGROW>
+    end
+    r = r*1e6;
+end
+
+function r = tGM_rstrict_(x, c)
+%TGM_RSTRICT_  The strict reference-sphere OPD (1 m sphere about the chief's DETECTOR intercept) as PER-RAY rows, piston removed,
+%   sqrt(254/N) per field (the SPOT rows' balance), + the same 2 in-plane position rows.  um.
+    [K, C, g] = c.unpack(x);  c.write_(K, C, g, c.deck);  macos.load_rx(c.deck);
+    r = [];
+    for q = 1:size(c.dirs, 1)
+        tEP_aim_(c.dirs(q, :)', c.apst, c.stand);  s = macos.trace(c.nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  pc = ri.pos(:, 1);  ok(1) = false;  sl = c.sel{q};  okq = ok(sl);  n = numel(sl);
+        if nnz(okq) < 0.9*n, r = [r; 1e-3*ones(n + 2, 1)]; continue, end   %#ok<AGROW>
+        Wq = tEP_W_(ri, ok, pc, c.Rref, 'chief');  wl = zeros(numel(ok), 1);  wl(ok) = Wq;
+        Wv = 1e-3*ones(n, 1);  Wv(okq) = wl(sl(okq)) - mean(Wq);  e = pc - c.T(:, q);
+        r = [r; sqrt(254/n)*Wv; c.ex'*e; c.ey'*e];   %#ok<AGROW>
     end
     r = r*1e6;
 end
