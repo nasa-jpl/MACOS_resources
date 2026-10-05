@@ -33,8 +33,9 @@ function T = dyson5_conicfit(deck, opts)
         x0 = [V0; 0; 0; c0; Kc(1); 0; 0];  rs = res_(x0, H, a0, e1, e2);
         o = optimoptions('lsqnonlin', 'Display', 'off', 'Algorithm', 'levenberg-marquardt', 'ScaleProblem', 'jacobian', ...
                          'MaxFunctionEvaluations', 20000, 'MaxIterations', 2000, 'FunctionTolerance', 1e-20, 'StepTolerance', 1e-14);
-        m1 = logical([1 1 1 1 1 1 1 0 0]);
-        x1 = x0;  x1(m1) = lsqnonlin(@(y) res_(put_(x0, m1, y), H, a0, e1, e2), x0(m1), [], [], o);  r1 = res_(x1, H, a0, e1, e2);
+        m0 = logical([1 1 1 1 1 1 0 0 0]);  m1 = logical([1 1 1 1 1 1 1 0 0]);   % STAGED: K held first (a free K from a far start
+        xa = x0;  xa(m0) = lsqnonlin(@(y) res_(put_(x0, m0, y), H, a0, e1, e2), x0(m0), [], [], o);   % wandered on the 3k (b) M2/M3: axis ~1.5 rad)
+        x1 = xa;  x1(m1) = lsqnonlin(@(y) res_(put_(xa, m1, y), H, a0, e1, e2), xa(m1), [], [], o);  r1 = res_(x1, H, a0, e1, e2);
         x2 = lsqnonlin(@(y) res_(y, H, a0, e1, e2), x1, [], [], o);  r2 = res_(x2, H, a0, e1, e2);
         T(end+1) = struct('elt', k, 'n', size(H, 2), 'conic', sum_(x1, r1, V0, a0, e1, e2, H), 'asph', sum_(x2, r2, V0, a0, e1, e2, H), ...
                           'start_res_um', [rms(rs) max(rs) - min(rs)]*1e6); %#ok<AGROW>
