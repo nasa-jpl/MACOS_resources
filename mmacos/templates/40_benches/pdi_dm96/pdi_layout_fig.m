@@ -57,7 +57,9 @@ f = figure('Color', 'w', 'Position', [40 40 1800 1010], 'Visible', 'off');
 tl = tiledlayout(f, 5, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
 ax1 = nexttile(tl, [2 1]);  ax2 = nexttile(tl, [3 1]);
 for ax = [ax1 ax2]
-    macos.view_rx('ax', ax, 'ray_color', green, 'title', '', 'labels', false, 'hide', passive);
+    % the deck-wide leg convention (dmg_leg_draw, Dave 2026-10-05): source ->
+    % splitter red, splitter -> DM and back blue, splitter -> camera green
+    dmg_leg_draw(ax, E, 'test');
 end
 % ---- top: the whole train, from above the fold plane ----------------------
 L1 = E(idx('L1pow')).vpt;  BS = E(idx('BSrefl')).vpt;  TO = E(idx('TestOptic')).vpt;

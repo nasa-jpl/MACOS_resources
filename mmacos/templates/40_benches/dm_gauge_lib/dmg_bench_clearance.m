@@ -201,17 +201,18 @@ if ~o.quiet
 end
 
 if ~isempty(o.draw)
-    blue = [30 90 190]/255;  orange = [214 96 24]/255;  ink = [11 11 11]/255;
+    ink = [11 11 11]/255;  LC = dmg_leg_colors();
     f = figure('Color', 'w', 'Position', [40 40 1800 1100], 'Visible', 'off');
     tl = tiledlayout(f, 5, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
     ax1 = nexttile(tl, [2 1]);  ax2 = nexttile(tl, [3 1]);
     Et = G.bt.E;  Er = G.br.E;
-    for a = 1:2
+    % the deck convention (dmg_leg_draw): reference arm red, test arm blue, the
+    % shared camera leg green -- REFERENCE FIRST so the test arm's blue sits on
+    % top where the two bundles coincide, the camera leg green on both
+    for a = [2 1]
         macos.load_rx(decks{a});
-        E = arms{a}.E;  passive = find(strcmp({E.element}, 'Reference'));
-        col = blue;  if a == 2, col = orange; end
-        macos.view_rx('ax', ax1, 'ray_color', col, 'title', '', 'labels', false, 'hide', passive);
-        macos.view_rx('ax', ax2, 'ray_color', col, 'title', '', 'labels', false, 'hide', passive);
+        dmg_leg_draw(ax1, arms{a}.E, 'auto');
+        dmg_leg_draw(ax2, arms{a}.E, 'auto');
     end
     % a name the rig does not carry (the OAP variant renames its collimator,
     % another rig may have no compensator) yields [] and its label is skipped,
@@ -231,7 +232,7 @@ if ~isempty(o.draw)
         plot3(ax1, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.2 0.2], '-', 'Color', [137 135 129]/255, 'LineWidth', 1.0);
         text(ax1, p(1)+d(1), p(2)+d(2), 0.3, lab1{k,3}, 'Color', ink, 'FontSize', 15, 'HorizontalAlignment', 'center', 'BackgroundColor', 'w', 'Margin', 1);
     end
-    title(ax1, sprintf('The bench from above: splitter at %g deg, test arm blue, reference arm orange', bp.BS_AOI), 'FontWeight', 'normal', 'FontSize', 15);
+    title(ax1, sprintf('The bench from above: splitter at %g deg; %s', bp.BS_AOI, LC.legend), 'FontWeight', 'normal', 'FontSize', 15);
     % node panel: +-320 mm about the splitter
     xlim(ax2, [pbs(1)-340, pbs(1)+340]);  ylim(ax2, [pbs(2)-260, pbs(2)+260]);
     lab2 = {vp('L1pow'), [0 75], 'L1'; vp('PolIn'), [10 -80], 'input polarizer'; pbs, [-60 150], 'splitter'; vp('Comptxfd'), [-90 -60], 'compensator'; ...

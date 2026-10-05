@@ -2040,7 +2040,7 @@ function draw_render_(bench, P)
 % (15-17 pt in an 1800-px figure), and the crowded node (BS + compensator; the
 % OAP folds) as a second panel cropped to it.  Writes <tag>_vlayout.png.
 G = bench.G;  oap = strcmp(P.bench.optics,'oap');
-blue = [30 90 190]/255;  orange = [214 96 24]/255;  ink = [15 15 15]/255;  mgy = [55 55 55]/255;
+LC = dmg_leg_colors();  blue = LC.test;  orange = LC.reference;  ink = [15 15 15]/255;  mgy = [55 55 55]/255;
 arms = {[P.tag '_test.in'], G.bt, G.T.iDET, blue; ...
         [P.tag '_ref.in'],  G.br, G.R.iDET, orange};
 Et = G.bt.E;  nmt = {Et.name};  Er = G.br.E;  nmr = {Er.name};
@@ -2093,14 +2093,16 @@ axT = nexttile(tl);  axN = nexttile(tl);  axL = nexttile(tl);
 % covered blue outright.  Test last makes the shared leg blue on both rigs;
 % the reference arm's OWN leg (splitter -> reference flat + PZT) has no test
 % rays on it and stays orange, which is the distinction the colours are for.
+% 2026-10-05 (Dave): the deck-wide three-leg convention through dmg_leg_draw --
+% reference arm red, test arm (DM) blue, camera leg green -- so the shared
+% leg is green on both arms and the order of drawing no longer decides it.
 for a = size(arms,1):-1:1
     macos.load_rx(arms{a,1});  macos.trace(arms{a,3});
-    Ea = arms{a,2}.E;  passive = find(strcmp({Ea.element},'Reference'));
+    Ea = arms{a,2}.E;
     for ax = [axT axN axL]
         % 'rim' = marginal ring only (a filled bundle merges the out/return beams
         % into a false focus at the compensator); 'outline' = optic rims only
-        macos.view_rx('ax',ax,'ray_color',arms{a,4},'title','','labels',false, ...
-            'hide',passive,'bundle','rim','bodies','outline');
+        dmg_leg_draw(ax, Ea, 'auto', 'bundle','rim','bodies','outline');
     end
 end
 % manual mirror symbols for every Reflector (both arms): a short bar at the
@@ -2132,7 +2134,7 @@ if iPZT > 0
     occT = [p(1); p(2)-125];
 end
 label_(axT, Et, Ltrain, ink, FS, oap, occT);
-title(axT, sprintf('TG96 %s interferometer, from above -- test arm (blue), reference arm + PZT (orange)', ...
+title(axT, sprintf(['TG96 %s interferometer, from above -- ' LC.legend], ...
     iff_(oap,'reflective (OAP)','lens')), 'Color',ink,'FontWeight','normal','FontSize',TS);
 % panel N: the node
 axis(axN,'equal');  view(axN,0,90);  set(axN,'FontSize',16);
