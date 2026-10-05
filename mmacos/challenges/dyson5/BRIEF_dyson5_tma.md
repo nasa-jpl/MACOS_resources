@@ -582,3 +582,72 @@ distortion close; the solve cannot see the edge fields (CALIB anomaly).
 Next DOFs, in order: (1) the CALIB edge-field evaluation (3k blocker);
 (2) freeform / non-symmetric terms for the outer field (both modules);
 (3) decenter + re-calibration for the clearance margin.
+
+## Step 5 (CCMac, 2026-10-04) — freeform on the outer field: taking item (2)
+
+Dave released CCMac (`BRIEF_ccmac_dyson_size.md` round-4 orders) to take item (2):
+non-symmetric (freeform / Zernike) terms for the outer field on both modules, on
+the stage-B sections (−3°/160 mm 1.5k = `dyson5_tA_B1k5_B1.in`; −4°/180 mm 3k =
+`dyson5_tA_B3k4_B0.1.in`), the per-field position rows in EVERY rung so the
+330 mm plate scale holds, each deck scored by t5e; budget one bounded rung per
+module.  Record `dyson5_tma_step5_*`.
+
+**Two coordination notes.**
+
+1. **`Telescope.optimize_freeform` extended (CCMac, my tooling — NOT
+   `Telescope.optimize`, which stays TO's).**  Added `'beam_pos_fov'` /
+   `'beam_dir'` / `'beam_wt'` (defaults empty = prior behaviour unchanged),
+   plumbed with the SAME `calib_set_beam*` calls `optimize()` uses, so the
+   Zernike (OptZern) solve pins the plate scale and telecentricity in one pass.
+   TO is a caller only of the freeform path; nothing in `optimize` is touched.
+
+2. **The emitter carries conic+Zernike OR conic+asph, not both**
+   (`Telescope.build`, `if hasAsph && ~hasFree`).  Dave: extend the emitter to
+   carry both — but matching the engine's `Surface= Zernike` `ZernCoef`
+   normalization for an ABSOLUTE asphere→Zernike conversion hit a ~2× (plus a
+   per-mode residual) wall; the exact fix is to emit via the `FreeForm`
+   `MonZern` channel (gated-exact to `zernike_grid_basis`).  **Attempts +
+   fix documented in `NOTE_asph_zernike_fold.md`; to-do added to
+   `macos/PLAN_DESIGN_LAYER.md` "Sprint 6+ (deferred)" — CC-Linux's to land
+   (no engine change, A/B round-trip gate `tTmaAsphZernFold`).**  The combined
+   asph+freeform emit path now ERRORS (informative) instead of emitting a wrong
+   deck.  `asph_to_zern_` (the projection, correct in the MonZern convention)
+   and the `ansi_zernike_eval` analytic-norm extension (bit-identical 1–15)
+   stay in the tree, reusable by that fix.
+
+3. **Step 5 proceeds via route B (Dave):** a self-consistent `optimize_freeform`
+   solve from the stage-B CONIC geometry (same parent / bias / decenter /
+   conics) over the CORRECT symmetric modes {5, 13, 25} (defocus + primary +
+   secondary spherical — the aspheres' job) PLUS non-symmetric {4, 6, 7, 9, 10}
+   (astig / coma / trefoil), with the position rows in the solve.  No absolute
+   asph→Zernike conversion, no `ZernCoef` convention dependence — the optimizer
+   finds the coefficients self-consistently.  (My first step-5 run's "ANSI 4–11"
+   OMITTED the spherical modes 13/25, which is why it could not reproduce the
+   aspheres' centre.)  3k edges are scored from the trace (the CALIB
+   edge-evaluation anomaly, item 1, still drops ±4.69°).
+
+**Result (route B, one bounded rung per module; `dyson5_tma_step5.{txt,mat}`,
+decks `dyson5_tma_step5_{1k5,3k}.in`, modes {4,5,6,7,8,9,10,13,25} ANSI, lMon =
+footprint radius, beam_wt 0.1, 200 iters).**  Best-focus rms spot per field
+(trace); e2e by t5e.
+
+| module | conic base worst/ctr | **freeform worst/ctr** | plate (my efl) | e2e t5e (smile / keystone / CRF / SRF, px) | e2e plate local/edge | slit admit | clearance |
+|---|---|---|---|---|---|---|---|
+| 1.5k (−3°/160) | 28.5 / 28.5 px | **11.2 / 5.0 px** | 324 mm | 6.47 / 0.54 / 15.70 / 15.66 | 327.8 / 335.6 mm | 98.3 % | −4.89 mm (TelM1→M2 vs M3) |
+| 3k (−4°/180) | 57.5 / 57.5 px | **46.7 / 21.1 px** | 320 mm | 39.1 / 1.05 / 15.96 / 15.01 | 320.6 / 344.0 mm | 96.1 % | −1.75 mm (FPApkg vs TelM2) |
+
+**Reading.**  Adding the spherical modes 13/25 is the fix to my step-4/first-
+step-5 negative: it drops the 1.5k CENTRE 14→5 px and the WORST 15.8→**11.2 px**
+(beating stage-B's 15.8 px edge), and the 3k centre 57→21 px.  But one bounded
+low-order freeform rung does NOT reach the pixel at the F/1.8 strip edge
+(±2.35° / ±4.69°); it also trades ~2 % against the 330 mm plate scale (324–328 mm
+local, position rows mostly holding it).  The e2e CRF/SRF ~15.7 px is the
+telescope's residual strip blur seen through an unmasked slit (not the Dyson's
+distortion — t5e's own reading).  **3k stays blocked by the CALIB edge-eval
+anomaly (item 1):** the solve is blind to ±4.69°, so 3k edges hold ~47 px —
+item 2 cannot help 3k until item 1 lands.  Clearance FAILs are TELESCOPE-internal
+(the join-roll knob `tel5e_roll_deg`, TO's), not the figure.  Net: freeform
+flattens and improves the worst-case strip but the fast wide eccentric section
+does not reach the pixel with one bounded rung — consistent with step 4.  Next
+levers if pursued: more rungs / higher orders, a stronger plate weight, or the
+exact asph+freeform co-emit (deferred) to start from TO's corrected centre.
