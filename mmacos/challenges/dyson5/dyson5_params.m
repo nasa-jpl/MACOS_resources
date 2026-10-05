@@ -331,6 +331,7 @@ function P = dyson5_params(over)
     P.tA_t5e         = true;              % score the stage's deck end to end (t5e, P.tel_dyson) at the end
     % tEP, ADDENDUM 42: the strict (reference-sphere) metric vs the FP-OPD metric on one section, per field
     P.tEP_bias_deg   = -4;  P.tEP_dec_m = 0.19;   % the section (the stage-B row of 50ed36b)
+    P.tEP_m2         = 3.5;               % the parent's secondary_mag (addendum 43: the Petzval knob)
     P.tEP_fsys       = NaN;               % parent F/# (NaN = read from dyson5_tA_B3_1k5_b4d190.mat)
     P.tEP_R_m        = 1.0;               % reference-sphere radius about each field's best-focus point (m; virtual pupil allowed)
     P.tEP_rungs      = {'seed', 'B1'};    % the seed (as-is conics) and the stage-B rung re-solved with the FP merit

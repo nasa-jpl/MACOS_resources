@@ -1909,11 +1909,12 @@ function S = stage_tEP_(P, tag)
     hs = npx*ifov/2*180/pi;  fx = linspace(-hs, hs, 7)*pi/180;  F = [0 0; fx(fx ~= 0).' zeros(6, 1)];
     fs = P.tEP_fsys;
     if isnan(fs), Z = load(fullfile(here, 'dyson5_tA_B3_1k5_b4d190.mat'));  fs = Z.S.parent.fsys; end
-    [R, t] = macos.design.tma_layout(D, 1.0, fs, 'secondary_mag', 3.5, 'int_focus_m', -0.125*D, 'telecentric', true);
+    [R, t] = macos.design.tma_layout(D, 1.0, fs, 'secondary_mag', P.tEP_m2, 'int_focus_m', -0.125*D, 'telecentric', true);
     macos.init(P.tel3_model);
     fid = fopen([tag '_tA_EP' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
     pr('dyson5 tEP -- addendum 42 checkpoint 1: the strict reference-sphere merit vs the FP-OPD merit, per field (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
-    pr('CONVENTIONS: the %+g deg / %.0f mm section of the telecentric parent F/%.4f; fields in CALIB order (1 = the bias, then\n', P.tEP_bias_deg, P.tEP_dec_m*1e3, fs);
+    pr('CONVENTIONS: the %+g deg / %.0f mm section of the telecentric parent F/%.4f, secondary_mag %.2f (R %s mm); fields in CALIB order (1 = the bias, then\n', ...
+       P.tEP_bias_deg, P.tEP_dec_m*1e3, fs, P.tEP_m2, mat2str(round(R*1e3, 1)));
     pr('  the strip %s deg); lambda %.0f nm.  FP = rms OPL to each ray''s own detector intercept (CALIB''s WFE target);\n', mat2str(round(fx(fx ~= 0)*180/pi, 3)), lam*1e9);
     pr('  STRICT = rms OPL on a %.2f m sphere about the field''s least-squares best-focus point (rays carried back along their\n', P.tEP_R_m);
     pr('  final leg); SPOT = best-focus rms radius (the trace helper).  um of wavefront / um at the image.\n\n');
@@ -1935,13 +1936,13 @@ function S = stage_tEP_(P, tag)
                 Pt = tA_plate_targets_(tel, F(2:end, :), f);
                 r1 = tel.optimize('fields', F(2:end, :), 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters, ...
                                   'asph_elts', 1:3, 'asph_terms', P.tA_asph_terms, 'beam_pos_fov', Pt, 'beam_wt', 1);
-                cal = r1.wfe_after(:)';  tel.build();
+                cal = r1.wfe_after(:)';  tel.build();  tel.save(sprintf('%s_tA_EP%s_B1.in', tag, sfx));
                 B1x = struct('K', [tel.spec.elt(1:3).Kc], 'A', zeros(3, 2));   % the FP-merit solution, for an S1 warm start
                 for kk = 1:3, a = tel.spec.elt(kk).asph;  if ~isempty(a), B1x.A(kk, 1:min(2, numel(a))) = a(1:min(2, numel(a))); end, end
         end
-        [fp, st, sp, np] = tEP_metrics_(tel, F, P.tEP_R_m);
+        [fp, st, sp, np, stc] = tEP_metrics_(tel, F, P.tEP_R_m);
         rows(end+1) = struct('rung', rg, 'fp', fp, 'strict', st, 'spot', sp, 'npass', np, 'calib', cal);   %#ok<AGROW>
-        tEP_table_(pr, rg, F, cal, fp, st, sp, np, []);
+        tEP_table_(pr, rg, F, cal, fp, st, sp, np, stc);
     end
     fclose(fid);
     S = struct('rows', rows, 'F', F, 'fsys', fs);  save([tag '_tA_EP' sfx '.mat'], 'S');
@@ -2156,10 +2157,10 @@ function r = avgrank_(x)
     for k = unique(g)', r(g == k) = mean(rk(g == k)); end
 end
 
-function [fp, st, sp, np] = tEP_metrics_(tel, F, Rref)
+function [fp, st, sp, np, stc] = tEP_metrics_(tel, F, Rref)
 %TEP_METRICS_  Per field (rows of F): FP-plane OPD rms, strict reference-sphere OPD rms (about the best-focus point,
 %   radius Rref, rays carried back along their final leg), best-focus rms spot (um), passing rays.
-    nE = numel(tel.spec.elt);  nf = size(F, 1);  fp = nan(1, nf);  st = fp;  sp = fp;  np = zeros(1, nf);
+    nE = numel(tel.spec.elt);  nf = size(F, 1);  fp = nan(1, nf);  st = fp;  sp = fp;  stc = fp;  np = zeros(1, nf);
     for q = 1:nf
         tel.trace_at_field(F(q, :));  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
         ok = ri.ok_trace(:) & ri.ok_pass(:);  ok(1) = false;     % the chief is not in the OPD set (OPD loops iRay = 2..nRay)
@@ -2171,6 +2172,7 @@ function [fp, st, sp, np] = tEP_metrics_(tel, F, Rref)
         Q = P - xs;  qd = sum(Q.*Dd, 1);  disc = qd.^2 - sum(Q.^2, 1) + Rref^2;
         tb = qd + sqrt(max(disc, 0));                           % distance back along -d to the sphere |p - t d - x*| = R
         W = L - tb;  st(q) = std(W, 1);
+        stc(q) = std(tEP_W_(ri, ok, ri.pos(:, 1), Rref, 'chief'), 1);   % about the chief's DETECTOR intercept (defocus included)
         T = Q - Dd.*qd;  sp(q) = sqrt(mean(sum(T.^2, 1)))*1e6;  % rms distance of the rays from x*, transverse to each ray
     end
     tel.trace_at_field([]);
