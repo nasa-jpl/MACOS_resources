@@ -891,3 +891,19 @@ beam_wt 1 -- records `dyson5_tA_EP_pz_m{35,30,60}.*`, t5e roll 180
    (along the slit, x) is, and it sits at ~15.5 px on every row.  The edge
    wall is the cross-track astigmatism of the section; that is
    non-symmetric-DOF territory (CCMac), with m2 3.0 as the better parent.
+
+**Why SRF rose 5.9 -> 9.7 px at m2 3.0 (TO).**  Not the centre field (the
+worst SRF is the strip EDGE in both rows: 5.85 px at m2 3.5, 9.68 px at
+3.0; inner fields 3.4-5.6 px), not the plate (333.8 vs 334.1 mm), not the
+slit sampling of a changed smile (the edge SRF is flat over lambda,
+9.1-9.7 px).  The edge's RMS width along the dispersion is IDENTICAL in both
+rows (SV 5.07 px): the SRF is a FWHM of the convolved line profile, so the
+rise is the edge profile's SHAPE (same second moment, wider core -- the
+astigmatic edge spot re-oriented by the power split), not more blur.  Not
+chased further.  CRF at m2 3.0 is better at every inner field (1.4-2.0 vs
+1.8-4.1 px) and the same 15.5 px at the edge.
+
+**Addendum 43 closed (TO side):** the edge wall is the cross-track
+astigmatism of the eccentric section -- non-symmetric DOFs (CCMac) -- and
+m2 = 3.0 is the modestly better parent for that work (-15 % edge, both the
+focus and the best-focus terms moved).
