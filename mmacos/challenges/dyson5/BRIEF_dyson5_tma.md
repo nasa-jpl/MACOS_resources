@@ -907,3 +907,51 @@ chased further.  CRF at m2 3.0 is better at every inner field (1.4-2.0 vs
 astigmatism of the eccentric section -- non-symmetric DOFs (CCMac) -- and
 m2 = 3.0 is the modestly better parent for that work (-15 % edge, both the
 focus and the best-focus terms moved).
+
+## Addendum 44 (TO, 2026-10-05): the freeform ladder on the strict merit -- 1.5k
+
+Records `dyson5_tA_FF_1k5*` (ladder, R4 re-converged, R4 under LM), end to end
+`dyson5_t5f_FF_R4c*` / `_R4lm*` (engine join, `dyson5_t5f.m`), gate
+`dyson5_t5f_gate_m30*`.
+
+**Construction (the way around the emitter's refused asphere+Zernike co-emit):**
+Surface=FreeForm on M1-M3 with two channels on one surface -- the Mon channel
+about the parent VERTEX carries R0's even asphere exactly (unnormalized ANSI
+1/5/13/25; R0' == R0 to 7.8e-15 m, the sign-flipped leg 7 cm off) and is
+held; the FF channel about the section POLE carries the freeform modes.
+(The Telescope emitter wrote pMon = the parent vertex on sections until CC's
+f9f93e6 -- CCMac's step-5 and the 7cd8b24 re-run are vertex-centred,
+superseded.)  Strict merit about the chief's detector intercept + the
+position rows; residuals in um (in metres lsqnonlin stopped at the first
+Jacobian -- 0258faa's R1 and 427b60b's cp2 S1 are superseded).
+
+| rung | edge spot bf / as placed | centre spot bf | edge T-S | solver |
+|---|---|---|---|---|
+| R0 (B1 aspheric) | 291 um | 29 um | -2.22 mm | -- |
+| R1 {4,6} | 230 | 124 | -1.60 | TRR, cap 1500 |
+| R2 +{7-10} | 220 | 110 | -1.57 | TRR, cap |
+| R3 +{5,13,25} | 192 | 93 | -1.11 | TRR, cap |
+| R4 +{11,12,14,15} | 190 | 88 | -1.07 | TRR, cap |
+| R4 re-converged | 185 / 225 | 84 | -0.96 | TRR 8000: optimality 1.7e6 (a crawl) |
+| **R4, LM + Jacobian scaling** | **170 / 218 um (9.4 px)** | **73** | **-0.79** | LM 4009 evaluations: optimality 1.4e5, cost -16 %, still moving |
+
+**End to end (engine join, roll 180, `size:D:130`; the join's identity gate
+reproduces t5e's row on the aspheric deck to every printed digit):**
+
+| deck | smile | keystone | CRF | SRF (centre) | plate local / edge | admitted |
+|---|---|---|---|---|---|---|
+| B1 aspheric (t5e) | 2.63 | 0.49 | 15.5 | 9.7 (5.6) | 334.1 / 334.6 | 1.000 |
+| R4 re-converged | 0.68 | 0.35 | 7.7 | 13.6 (11.3) | 324.5 / 330.1 | 1.000 |
+| **R4 LM** | **0.82** | **0.33** | **7.7** | **9.2 (8.6)** | **324.1 / 330.3** | **1.000** |
+
+Freeform halves the spatial blur (CRF 15.5 -> 7.7 px) and kills most of the
+smile (2.63 -> 0.82 px) by flattening the field; the price is spectral
+resolution at the CENTRE (5.6 -> 8.6 px) -- the field-flattening trade in the
+dispersion direction.  Whether a smaller position-row weight or a
+centre-weighted field set recovers the centre SRF is NOT yet tested (Jim's
+spec is at the centre too); the better-conditioned LM solve already recovered
+part of it (11.3 -> 8.6 px).  **Clearance: carried over from B1 (+0.39 mm,
+PASS), NOT re-scored** -- the engine join has no chain body model; the
+vertices and poles are unchanged and the FF sag over the lit patches is at
+most 19 / 167 / 78 um (p-v 31 / 299 / 125 um) on M1 / M2 / M3, from an
+ANSI evaluator checked against the engine (M1 hit shift, corr 0.998).

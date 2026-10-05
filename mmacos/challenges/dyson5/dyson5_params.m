@@ -350,6 +350,7 @@ function P = dyson5_params(over)
     P.tFF_suffix     = '';                % record dyson5_tA_FF<suffix>.*
     P.tFF_resume     = '';                % a tFF record (.mat): resume from its LAST rung's solved state (re-converge), all its modes free
     P.tFF_opttol     = 1e-6;
+    P.tFF_alg        = 'trust-region-reflective';   % or 'lm-jac': Levenberg-Marquardt with ScaleProblem 'jacobian' (the conditioning cure, CC 2026-10-05)
     % t5f, the end to end for FreeForm decks (dyson5_t5f.m): the join placed from ENGINE traces; gate = t5e's row on a conic deck
     P.tel5f_deck     = '';                % the telescope deck (this folder)
     P.tel5f_e2e_template = '';            % a t5e end-to-end deck of the SAME Dyson (its Slit + Dyson blocks are reused verbatim)
