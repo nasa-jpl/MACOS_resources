@@ -1,0 +1,27 @@
+dyson5 addendum 45 -- is the solved freeform an off-axis ASPHERE? dyson5_conicfit over the LIT patch (engine hits, 7 fields)
+gate: B1 aspheric 1.5k deck, the conic+h4/h6 form leaves <= 0.11 um rms / 2.6 um p-v (parameters non-unique, the surface reproduced)
+deck                           M | best conic rms/pv um, slope |    +h4/h6 rms/pv um, slope
+dyson5_tA_FF_1k5_R4lm_R4.in  M1 |    2.53    17.65    0.71 mrad |    1.02     7.66    0.71 mrad | conic R 0.3665 K -1.239, vertex +3.2 mm, axis 7.2 mrad
+dyson5_tA_FF_1k5_R4lm_R4.in  M2 |   17.89   139.24   13.17 mrad |    0.97    11.31    1.87 mrad | conic R 0.1252 K -4.894, vertex +8.6 mm, axis 55.8 mrad
+dyson5_tA_FF_1k5_R4lm_R4.in  M3 |    4.11    58.35   12.03 mrad |    1.66    11.16    3.60 mrad | conic R 0.1867 K -0.080, vertex +54.7 mm, axis 294.1 mrad
+dyson5_tA_GM_1k5_a0.in       M1 |   30.29   178.45    3.32 mrad |   10.38    77.45    2.90 mrad | conic R 0.3773 K -1.287, vertex +11.7 mm, axis 31.7 mrad
+dyson5_tA_GM_1k5_a0.in       M2 |   38.50   315.06   34.41 mrad |   34.42   358.78   34.95 mrad | conic R 0.1404 K -21.588, vertex +20.9 mm, axis 165.7 mrad
+dyson5_tA_GM_1k5_a0.in       M3 |   21.48   169.61   36.65 mrad |   20.90   175.14   32.98 mrad | conic R 0.1728 K -31.286, vertex +1.3 mm, axis 37.2 mrad
+dyson5_tA_GM_1k5_a.in        M1 |   10.95    66.67    1.32 mrad |    3.50    27.40    0.99 mrad | conic R 0.3547 K -1.123, vertex +4.4 mm, axis 21.2 mrad
+dyson5_tA_GM_1k5_a.in        M2 |    4.15    41.10    3.51 mrad |    3.14    36.34    3.87 mrad | conic R 0.0876 K -4.014, vertex +2.9 mm, axis 74.2 mrad
+dyson5_tA_GM_1k5_a.in        M3 |   11.44    86.36   14.64 mrad |    5.10    54.68    7.68 mrad | conic R 0.1225 K -1.399, vertex +61.7 mm, axis 416.1 mrad
+dyson5_tA_GM_1k5_b.in        M1 |    7.63    47.68    1.11 mrad |    1.42    11.07    0.37 mrad | conic R 0.3652 K -1.137, vertex +4.7 mm, axis 7.9 mrad
+dyson5_tA_GM_1k5_b.in        M2 |    8.88    66.41    7.07 mrad |    1.27    16.89    1.70 mrad | conic R 0.0937 K -2.753, vertex +1.1 mm, axis 55.7 mrad
+dyson5_tA_GM_1k5_b.in        M3 |    1.44    17.50    2.94 mrad |    1.12    10.34    2.81 mrad | conic R 0.1430 K -2.223, vertex +31.0 mm, axis 199.3 mrad
+dyson5_tA_FF_3k_R4.in        M1 |   23.97   187.48    5.39 mrad |    8.81    74.77    3.71 mrad | conic R 0.3740 K -1.169, vertex +7.5 mm, axis 14.7 mrad
+dyson5_tA_FF_3k_R4.in        M2 |   55.36   370.82   33.88 mrad |   44.43   424.89   25.56 mrad | conic R 0.1381 K -11.909, vertex +10.0 mm, axis 69.7 mrad
+dyson5_tA_FF_3k_R4.in        M3 |   49.79   274.03   37.90 mrad |   49.52   272.47   44.38 mrad | conic R 0.1810 K -15.106, vertex +0.8 mm, axis 7.0 mrad
+dyson5_tA_GM_3k_a0.in        M1 |   31.21   200.25    4.14 mrad |   13.27   123.28    4.37 mrad | conic R 0.3929 K -1.953, vertex +52.3 mm, axis 145.5 mrad
+dyson5_tA_GM_3k_a0.in        M2 |  120.73   940.30   88.68 mrad |  116.81   810.86   92.38 mrad | conic R 0.1179 K -106.426, vertex +21.8 mm, axis 242.2 mrad
+dyson5_tA_GM_3k_a0.in        M3 |   51.10   436.11   51.43 mrad |   46.94   328.20   50.05 mrad | conic R 0.1329 K -85.124, vertex +19.2 mm, axis 2.9 mrad
+dyson5_tA_GM_3k_a.in         M1 |    3.87    25.72    1.30 mrad |    2.03    17.94    0.91 mrad | conic R 0.3620 K -1.401, vertex +9.3 mm, axis 24.1 mrad
+dyson5_tA_GM_3k_a.in         M2 |   26.12   223.69   39.53 mrad |   25.53   218.84   39.84 mrad | conic R 0.1097 K -10.100, vertex +11.6 mm, axis 128.6 mrad
+dyson5_tA_GM_3k_a.in         M3 |   72.11   561.44   72.23 mrad |   70.79   560.71   59.97 mrad | conic R 0.1457 K -6.819, vertex +1.5 mm, axis 69.2 mrad
+dyson5_tA_GM_3k_b.in         M1 |    7.81    60.67    2.67 mrad |    6.75    41.37    2.41 mrad | conic R 0.4296 K -2.071, vertex +50.3 mm, axis 154.2 mrad
+dyson5_tA_GM_3k_b.in         M2 |   96.39   810.48  461.50 mrad |   83.15   781.77  236.93 mrad | conic R 0.2614 K 0.412, vertex +293.8 mm, axis 1570.8 mrad
+dyson5_tA_GM_3k_b.in         M3 |   25.19   201.90   84.72 mrad |   21.24   202.01   90.30 mrad | conic R 0.2359 K 0.652, vertex +228.3 mm, axis 1470.0 mrad
