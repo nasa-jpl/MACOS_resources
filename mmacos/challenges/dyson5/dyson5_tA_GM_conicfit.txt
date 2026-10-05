@@ -25,3 +25,7 @@ dyson5_tA_GM_3k_a.in         M3 |   72.11   561.44   72.23 mrad |   70.79   560.
 dyson5_tA_GM_3k_b.in         M1 |    7.81    60.67    2.67 mrad |    6.75    41.37    2.41 mrad | conic R 0.4296 K -2.071, vertex +50.3 mm, axis 154.2 mrad
 dyson5_tA_GM_3k_b.in         M2 |   96.39   810.48  461.50 mrad |   83.15   781.77  236.93 mrad | conic R 0.2614 K 0.412, vertex +293.8 mm, axis 1570.8 mrad
 dyson5_tA_GM_3k_b.in         M3 |   25.19   201.90   84.72 mrad |   21.24   202.01   90.30 mrad | conic R 0.2359 K 0.652, vertex +228.3 mm, axis 1470.0 mrad
+NOTE (staged fit, K held first, re-run 2026-10-05): the 3k (b) rows above are NOT results -- the free-K fit wandered (axis ~1.5 rad).
+  Staged: 3k (b) M1 7.81 / 60.7 um (conic), 6.75 / 41.4 um (+h4/h6); M3 175 / 885 um conic, 169 / 839 um +h4/h6 at a physical
+  axis (293 mrad) -- a GENUINE freeform; M2 still finds no physical conic (axis 1.53 rad) -- reported as 'no conic within reach',
+  its pole-centred FF sag stands (1.75 mm, p-v 3.3 mm).  1.5k (b) is unchanged by staging (<= 17 um p-v on every mirror).
