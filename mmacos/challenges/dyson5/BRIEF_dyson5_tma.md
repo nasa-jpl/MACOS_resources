@@ -1056,6 +1056,14 @@ centre 5.6 -> 8.6 px; 3k total SRF 11.8 -> 15.1 px); the 3k CRF does not move
 body model): telescope-internal +9.46 mm (1.5k) / +7.35 mm (3k) with the mount,
 ~10x the FF sag, so the carry-over is defended.
 
+**The telescope's merit is not the instrument's.**  On 3k, R5 lowered the
+strict telescope wavefront (rms 19.1 -> 17.6 um) and the best-focus spots, yet
+the end-to-end smile, keystone and CRF all got WORSE (4.57 -> 6.25, 0.76 ->
+1.04, 15.1 -> 15.8 px).  Any field weighting of the TELESCOPE's wavefront is
+a proxy; the merit for the next rung should be the spectrometer's own --
+smile / keystone / CRF / SRF through the join -- so the ruling below is about
+what that merit weights, not only how the telescope fields are weighted.
+
 **Two unconverged facts.**  Every rung on both modules stopped at its
 evaluation cap with first-order optimality 1e5-1.6e6 against 1e-6.  Levenberg-
 Marquardt with Jacobian scaling roughly halved the crawl (8 % of 1.5k edge for
