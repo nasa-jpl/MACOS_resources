@@ -135,6 +135,7 @@ function OUT = dyson5_run(over)
             case 'tEP', OUT.tEP = stage_tEP_(P, tag);
             case 'tPZ', OUT.tPZ = stage_tPZ_(P, tag);
             case 'tFF', OUT.tFF = stage_tFF_(P, tag);
+            case 't5f', OUT.t5f = dyson5_t5f(P, tag);   % end to end for FreeForm decks, the join from ENGINE traces (dyson5_t5f.m)
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -2052,23 +2053,31 @@ function S = stage_tFF_(P, tag)
     write_ = @(K, C, file) tFF_write_(txt, K, A, C, Fs, file);
     % ---- R0' (identity) and the ladder
     K = K0;  C = zeros(3, nm);  write_(K, C, deck(0));  macos.load_rx(deck(0));
-    rows = struct('rung', {}, 'free', {}, 'K', {}, 'C', {}, 'info', {}, 'ts', {}, 'ef', {}, 'nfev', {}, 'sec', {});
+    rows = struct('rung', {}, 'free', {}, 'K', {}, 'C', {}, 'info', {}, 'ts', {}, 'ef', {}, 'nfev', {}, 'sec', {}, 'opt', {});
     info = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);  ts = tFF_ts_(dirs, apst, stand, nE);
-    rows(end+1) = struct('rung', 0, 'free', [], 'K', K, 'C', C, 'info', info, 'ts', ts, 'ef', NaN, 'nfev', 0, 'sec', 0);
+    rows(end+1) = struct('rung', 0, 'free', [], 'K', K, 'C', C, 'info', info, 'ts', ts, 'ef', NaN, 'nfev', 0, 'sec', 0, 'opt', '');
     tFF_row_(pr, rows(end), F, Fs);
-    free = [];
-    for r = 1:P.tFF_nrungs
-        free = [free, P.tFF_rungs{r}];   %#ok<AGROW>
+    free = [];  rlist = 1:P.tFF_nrungs;
+    if ~isempty(P.tFF_resume)                                   % re-converge: start from the record's last rung, all its modes free
+        Z = load(fullfile(here, P.tFF_resume));  last = Z.S.rows(end);
+        K = last.K;  C = zeros(3, nm);  [tf, loc] = ismember(Z.S.Fs.modes, allm);  C(:, loc(tf)) = last.C(:, tf);
+        free = last.free;  rlist = last.rung;
+        pr('\nRESUME from %s rung R%d (free %s), MaxFunctionEvaluations %d, OptimalityTolerance %.1e\n', P.tFF_resume, last.rung, mat2str(free), P.tFF_maxfev, P.tFF_opttol);
+    end
+    for r = rlist
+        if isempty(P.tFF_resume), free = [free, P.tFF_rungs{r}]; end   %#ok<AGROW>
         idx = find(ismember(allm, free));  nf = numel(idx);
         x0 = [K, reshape(C(:, idx)'/1e-6, 1, [])];             % FF coefficients in um of sag at rho = 1
         fun = @(x) tFF_resid_(x, idx, nm, A, write_, deck(r), dirs, apst, stand, nE, P.tEP_R_m, T);
-        o = optimoptions('lsqnonlin', 'Display', 'off', 'MaxFunctionEvaluations', P.tFF_maxfev, 'MaxIterations', 400, ...
-                         'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10);
-        tic;  [x, ~, ~, ef, out] = lsqnonlin(fun, x0, [], [], o);  sec = toc;
+        o = optimoptions('lsqnonlin', 'Display', 'off', 'MaxFunctionEvaluations', P.tFF_maxfev, 'MaxIterations', 2000, ...
+                         'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10, 'OptimalityTolerance', P.tFF_opttol);
+        tic;  [x, rn, ~, ef, out] = lsqnonlin(fun, x0, [], [], o);  sec = toc;
+        opt = sprintf('exitflag %d, %d iterations, %d evaluations, first-order optimality %.3e (tol %.1e), cost %.4e um^2; FunctionTolerance 1e-12, StepTolerance 1e-10', ...
+                      ef, out.iterations, out.funcCount, out.firstorderopt, P.tFF_opttol, rn);
         K = x(1:3);  C(:, idx) = reshape(x(4:end), nf, 3)'*1e-6;
         write_(K, C, deck(r));  macos.load_rx(deck(r));
         info = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);  ts = tFF_ts_(dirs, apst, stand, nE);
-        rows(end+1) = struct('rung', r, 'free', free, 'K', K, 'C', C, 'info', info, 'ts', ts, 'ef', ef, 'nfev', out.funcCount, 'sec', sec);   %#ok<AGROW>
+        rows(end+1) = struct('rung', r, 'free', free, 'K', K, 'C', C, 'info', info, 'ts', ts, 'ef', ef, 'nfev', out.funcCount, 'sec', sec, 'opt', opt);   %#ok<AGROW>
         tFF_row_(pr, rows(end), F, Fs);
         flips = NaN;  try, flips = mmacos('fwd_root_flips_get'); catch, end %#ok<CTCH>
         pr('   fwd_root_flips_get after the rung''s trace: %s\n', mat2str(flips));
@@ -2118,10 +2127,11 @@ function tFF_row_(pr, rw, F, Fs)
     in = rw.info;  e = [2 7];  c = 1;
     pr('\nR%d (free %s): ', rw.rung, mat2str(rw.free));
     if rw.rung > 0, pr('lsqnonlin exitflag %d, %d evaluations, %.0f s\n', rw.ef, rw.nfev, rw.sec); else, pr('the reference (R0'' == R0, 7.8e-15 m)\n'); end
-    pr('   %7s %11s %11s %10s %10s %6s %8s %8s\n', 'field', 'strict@chf', 'strict@foc', 'spot bf', 'FP OPD', 'nPass', 'T mm', 'S mm');
+    pr('   %7s %11s %11s %10s %10s %10s %6s %8s %8s\n', 'field', 'strict@chf', 'strict@foc', 'spot bf', 'spot asplc', 'FP OPD', 'nPass', 'T mm', 'S mm');
     for q = 1:size(F, 1)
-        pr('   %+7.3f %11.3f %11.3f %10.1f %10.3f %6d %+8.3f %+8.3f\n', F(q, 1)*180/pi, in.stf(q)*1e6, in.st(q)*1e6, in.sp(q), in.fp(q)*1e6, in.np(q), rw.ts(1, q)*1e3, rw.ts(2, q)*1e3);
+        pr('   %+7.3f %11.3f %11.3f %10.1f %10.1f %10.3f %6d %+8.3f %+8.3f\n', F(q, 1)*180/pi, in.stf(q)*1e6, in.st(q)*1e6, in.sp(q), in.sa(q), in.fp(q)*1e6, in.np(q), rw.ts(1, q)*1e3, rw.ts(2, q)*1e3);
     end
+    if isfield(rw, 'opt') && ~isempty(rw.opt), pr('   convergence: %s\n', rw.opt); end
     pr('   EDGE: strict@chief %.2f / @focus %.2f um, spot %.1f um (%.1f px), T-S %.3f mm; CENTRE spot %.1f um; plate pos err max %.3f mm; K %s\n', ...
        mean(in.stf(e))*1e6, mean(in.st(e))*1e6, mean(in.sp(e)), mean(in.sp(e))/18, mean(rw.ts(1, e) - rw.ts(2, e))*1e3, in.sp(c), max(in.pos_err)*1e3, mat2str(rw.K, 5));
     if rw.rung > 0
@@ -2138,14 +2148,15 @@ function txt = tFF_deck_(src_txt, K, A, ffc, F)
 %   the Mon channel carries the even asphere EXACTLY (unnormalized ANSI modes 1/5/13/25 about pMon = Vpt, lMon = F.Lm(k)),
 %   the FF channel carries the freeform modes F.modes about pFF = the section pole (frame F.fr{k}, lFF = F.Lf(k)).
 %   K (1x3) conics, A (3x2) h^4/h^6, ffc (3 x numel(F.modes)) FF coefficients, F.sgn sign of the Mon sag vs the asphere.
-    L = splitlines(string(src_txt));  out = strings(0, 1);  k = 0;  skip = false;
+    L = splitlines(string(src_txt));  out = strings(0, 1);  k = 0;  conv = false;
     for i = 1:numel(L)
         s = strtrim(L(i));
+        if startsWith(s, "iElt="), conv = false; end            % a new block: only a CONVERTED mirror gets the Mon/FF block
         if startsWith(s, "Surface=") && contains(s, "Aspheric") && k < 3
-            k = k + 1;  out(end+1, 1) = "          Surface=  FreeForm";  continue
+            k = k + 1;  conv = true;  out(end+1, 1) = "          Surface=  FreeForm";  continue
         end
         if startsWith(s, "nAsphCoef=") || startsWith(s, "AsphCoef="), continue, end
-        if startsWith(s, "KcElt=") && k >= 1 && k <= 3 && ~skip
+        if startsWith(s, "KcElt=") && conv
             out(end+1, 1) = sprintf("            KcElt=%.16E", K(k));
             Lm = F.Lm(k);  a4 = A(k, 1)*Lm^4;  a6 = A(k, 2)*Lm^6;      % sag = a4 rho^4 + a6 rho^6, rho = h/Lm
             % rho^4 = (Z13 + 3 Z5 + 2 Z1)/6 ; rho^6 = (Z25 + 30 rho^4 - 12 rho^2 + 1)/20 ; rho^2 = (Z5 + Z1)/2
@@ -2318,7 +2329,7 @@ function W = tEP_W_(ri, ok, pc, Rref, ctr)
 end
 
 function info = tEP_score_(dirs, apst, stand, nE, Rref, T)
-    nf = size(dirs, 1);  info = struct('fp', nan(1, nf), 'st', nan(1, nf), 'stf', nan(1, nf), 'sp', nan(1, nf), 'np', zeros(1, nf), 'pos_err', nan(1, nf));
+    nf = size(dirs, 1);  info = struct('fp', nan(1, nf), 'st', nan(1, nf), 'stf', nan(1, nf), 'sp', nan(1, nf), 'sa', nan(1, nf), 'np', zeros(1, nf), 'pos_err', nan(1, nf));
     for q = 1:nf
         tEP_aim_(dirs(q, :)', apst, stand);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
         ok = ri.ok_trace(:) & ri.ok_pass(:);  pc = ri.pos(:, 1);  ok(1) = false;  info.np(q) = nnz(ok);
@@ -2329,6 +2340,7 @@ function info = tEP_score_(dirs, apst, stand, nE, Rref, T)
         for i = 1:size(P, 2), M = eye(3) - Dd(:, i)*Dd(:, i)';  A = A + M;  b = b + M*P(:, i); end
         Q = P - A\b;  qd = sum(Q.*Dd, 1);  Tt = Q - Dd.*qd;  info.sp(q) = sqrt(mean(sum(Tt.^2, 1)))*1e6;
         info.pos_err(q) = norm(pc - T(:, q));
+        Pd = ri.pos(:, ok);  info.sa(q) = sqrt(mean(sum((Pd - mean(Pd, 2)).^2, 1)))*1e6;   % AS PLACED: rms radius on the detector, no refocus
     end
 end
 
