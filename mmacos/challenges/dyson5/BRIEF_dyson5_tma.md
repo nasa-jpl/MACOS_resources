@@ -633,3 +633,21 @@ subtracted distance) is a gate-definition call for Dave -- counted once,
 on the deck's own FocalPlane along the slit line (t5e gate, as placed)
 2.19 mm.  Centre 58-60 um, +-1.56 deg 237-240 um, +-3.13 deg 653-660 um.
 These are engine-trace numbers; CALIB's edge WFE is not reported.
+
+**Mount counted once (Dave, 2026-10-04).**  `spectrometer_clearance` now
+counts the mount once, as the body's extent (aperture disc = footprint +
+`mount_margin_m`); the extra subtraction from the distance is gone.
+Re-scored (t5e, roll 180, bridge 7e-15 m, everything else unchanged):
+
+| point | telescope-internal worst (M1->M2 vs M3), 5 mm mount / zero | worst overall |
+|---|---|---|
+| **-4 / 190** | **+3.83 / +8.53 mm** | +0.45 mm, BlockSphereIn->BlockFaceOut vs FPApackage (Dyson-internal, no mount) -- **PASS** |
+| **-4 / 180** | **+2.88 / +7.38 mm** | +0.42 mm, same pair -- **PASS** |
+
+Both decks now clear with the mount.  -4 / 190 is the 1.5k telescope of
+record for stage B: 332.9 mm (+0.9 %), 99 % of the swath on the slit,
+admitted 1.000, trace spots 43 / 79 / 371 um, smile 1.49 / keystone 0.87 /
+SRF 5.5 px, CRF 15.5 px (the edge blur).  **Records scored before this
+change carry the double count** on every mirror-body entry (~5 mm too
+pessimistic; box bodies -- slit mask, FPA package -- had no mount and are
+unchanged).

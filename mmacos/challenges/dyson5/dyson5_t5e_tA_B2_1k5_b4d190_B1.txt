@@ -1,4 +1,4 @@
-dyson5 t5e -- a telescope DECK end to end with its own Dyson (TMA step 2) (2026-10-04 18:13)
+dyson5 t5e -- a telescope DECK end to end with its own Dyson (TMA step 2) (2026-10-04 18:28)
 CONVENTIONS: telescope = dyson5_tA_B2_1k5_b4d190_B1.in mapped onto the exact chain by tel_deck_geom (coaxial conics from the deck; every chief the
   straight object-space line through the deck's ApStop).  Field = 1500 px x IFOV 54.5 urad = 4.688 deg cross-track; the
   spectrometer size:D:130, slit 27.0 mm (1500 px x 18 um).  Spec plate scale f = 330.0 mm (pixel / IFOV).  Spots are RADIAL
@@ -20,10 +20,10 @@ THE DECK'S FIRST ORDER (chain == engine above):
 
 JOIN: the telescope rolled 180 deg about the exit chief (tel5e_roll_deg)
 END TO END (telescope + size:D:130 over the ADMITTED strip +-2.320 deg, 7 fields x 7 wavelengths, the grating the stop) -- INFORMATIVE:
-  smile 1.4922 px  keystone 0.8653 px  CRF 15.525 px  SRF 5.450 px  EE 0.003  grating admits 1.000  clearance -1.17 mm (TelM1 -> TelM2 vs TelM3, FAIL)  11 elements
+  smile 1.4922 px  keystone 0.8653 px  CRF 15.525 px  SRF 5.450 px  EE 0.003  grating admits 1.000  clearance +0.45 mm (BlockSphereIn -> BlockFaceOut vs FPApackage, PASS)  11 elements
   engine chief vs chain at the FPA (centre field): 9.9e-13 m
   clearance sizing: bodies = footprint discs + mount margin 5.0 mm (the record's number); at zero margin the worst entry is +0.45 mm (BlockSphereIn -> BlockFaceOut vs FPApackage)
-  telescope-internal worst: -1.17 mm with the mount margin, +8.53 mm without (TelM1 -> TelM2 vs TelM3)
+  telescope-internal worst: +3.83 mm with the mount margin, +8.53 mm without (TelM1 -> TelM2 vs TelM3)
   spec: smile, keystone < 0.1 px; CRF < 1.5 px; SRF on the slit floor.  deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_t5e_tA_B2_1k5_b4d190_B1_e2e.in
   smile per lambda (px): 1.4922 1.4642 1.4572 1.4522 1.4465 1.4392 1.4298 
   keystone per field (px): 0.8653 0.2915 0.0715 0.0000 0.0715 0.2915 0.8653 
