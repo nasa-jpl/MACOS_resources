@@ -134,6 +134,7 @@ function OUT = dyson5_run(over)
             case 'tA',  OUT.tA  = stage_tA_(P, tag);
             case 'tEP', OUT.tEP = stage_tEP_(P, tag);
             case 'tPZ', OUT.tPZ = stage_tPZ_(P, tag);
+            case 'tFF', OUT.tFF = stage_tFF_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -1998,6 +1999,182 @@ function S = stage_tPZ_(P, tag)
     fclose(fid);
     S = struct('rows', rows);  save([tag '_tA_pz' sfx '.mat'], 'S');
 end
+
+function S = stage_tFF_(P, tag)
+%STAGE_TFF_  Addendum 44: the FREEFORM LADDER on the strict merit, rung by rung, warm-started.
+%   R0 = the addendum-43 m2 = 3.0 B1 deck (conics + h^4/h^6 about the parent vertex).  Every rung's deck is Surface=
+%   FreeForm on M1-M3: the Mon channel carries R0's even asphere EXACTLY (unnormalized ANSI 1/5/13/25 about pMon = the
+%   vertex; gated: R0' == R0 to 7.8e-15 m) and is HELD; the FF channel carries the freeform modes about pFF = the section
+%   POLE (frame = the pole frame Telescope emits, lFF = 1.05 x the beam footprint radius about the pole).  So the asphere
+%   and the Zernike freeform share each mirror exactly, through the two channels -- not the emitter's refused co-emit.
+%   Per rung: lsqnonlin over the 3 conics + the cumulative freed modes on M1-M3, residuals = tEP's (strict OPD about the
+%   chief's detector intercept, 1 m sphere, + the f tan(theta) position rows at CALIB's beam_wt-1 balance).
+    here = fileparts(mfilename('fullpath'));
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  lam = 633e-9;  sfx = P.tFF_suffix;
+    hs = npx*ifov/2*180/pi;  fx = linspace(-hs, hs, 7)*pi/180;  F = [0 0; fx(fx ~= 0).' zeros(6, 1)];
+    by = P.tEP_bias_deg*pi/180;  apst = [0; P.tEP_dec_m; 0];  stand = 1.0;
+    dirs = [sin(F(:, 1)), sin(by + F(:, 2)), sqrt(max(0, 1 - sin(F(:, 1)).^2 - sin(by + F(:, 2)).^2))];
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_tA_FF' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 tFF -- addendum 44: the freeform ladder on the strict merit (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    % ---- R0 and the pole frames
+    src = fullfile(here, P.tFF_from);  txt = fileread(src);
+    blk = regexp(txt, '\n\s*iElt=', 'split');  blk = blk(2:4);
+    K0 = zeros(1, 3);  A = zeros(3, 2);  V = zeros(3);  Rp = V;
+    for k = 1:3, b = blk{k};  K0(k) = tFF_num_(b, 'KcElt');  a = tFF_vec_(b, 'AsphCoef');  A(k, :) = a(1:2)';  V(:, k) = tFF_vec_(b, 'VptElt');  Rp(:, k) = tFF_vec_(b, 'RptElt'); end
+    [R, t] = macos.design.tma_layout(D, 1.0, P.tFF_fsys, 'secondary_mag', P.tFF_m2, 'int_focus_m', -0.125*D, 'telecentric', true);
+    tel = tA_build_(R, t, D, lam, P.tel3_model, P.tEP_bias_deg, P.tEP_dec_m);
+    for k = 1:3, tel.set_freeform(k, 1, 0, 'lmon', 0.05); end
+    tz = [tempname '.in'];  tel.build();  tel.save(tz);  bz = regexp(fileread(tz), '\n\s*iElt=', 'split');  bz = bz(2:4);
+    Fs.fr = cell(1, 3);  for k = 1:3, Fs.fr{k} = [tFF_vec_(bz{k}, 'xMon') tFF_vec_(bz{k}, 'yMon') tFF_vec_(bz{k}, 'zMon')]; end
+    Fs.mfr = [-1 0 0; 0 1 0; 0 0 -1]';  Fs.vpt = V;  Fs.pole = Rp;  Fs.sgn = 1;
+    allm = unique([P.tFF_rungs{1:P.tFF_nrungs}], 'stable');  Fs.modes = allm;  nm = numel(allm);
+    % footprint radii about the pole / heights about the vertex at R0 (via the aspheric deck)
+    macos.load_rx(src);  nE = macos.num_elt();  hv = zeros(1, 3);  hp = hv;
+    for q = 1:size(dirs, 1)
+        tEP_aim_(dirs(q, :)', apst, stand);
+        for k = 1:3, s = macos.trace(k);  ri = macos.get_ray_info(s.nRays);  Q = ri.pos(:, ri.ok_trace(:));
+            hv(k) = max(hv(k), max(hypot(Q(1, :) - V(1, k), Q(2, :) - V(2, k))));  w = Q - Rp(:, k);  w = w - Fs.fr{k}(:, 3)*(Fs.fr{k}(:, 3)'*w);
+            hp(k) = max(hp(k), max(vecnorm(w))); end
+    end
+    Fs.Lm = 1.1*hv;  Fs.Lf = 1.05*hp;
+    pr('R0 = %s: K %s, h4/h6 %s.  Mon: lMon %s mm about the vertices (held); FF: lFF %s mm about the poles; modes %s (ANSI, MACOS 1-based)\n', ...
+       P.tFF_from, mat2str(K0, 5), mat2str(A, 4), mat2str(round(Fs.Lm*1e3, 1)), mat2str(round(Fs.Lf*1e3, 1)), mat2str(allm));
+    % plate targets on R0
+    th = 0.02*pi/180;  hit = @(dx, dy) tEP_chief_(tEP_dir_(dx, by + dy), apst, stand, nE);
+    p0 = hit(0, 0);  ux = hit(th, 0) - hit(-th, 0);  ux = ux/norm(ux);  uy = hit(0, th) - hit(0, -th);  uy = uy/norm(uy);
+    T = p0 + f*(tan(F(:, 1))'.*ux + tan(F(:, 2))'.*uy);
+    deck = @(r) sprintf('%s_tA_FF%s_R%d.in', tag, sfx, r);
+    write_ = @(K, C, file) tFF_write_(txt, K, A, C, Fs, file);
+    % ---- R0' (identity) and the ladder
+    K = K0;  C = zeros(3, nm);  write_(K, C, deck(0));  macos.load_rx(deck(0));
+    rows = struct('rung', {}, 'free', {}, 'K', {}, 'C', {}, 'info', {}, 'ts', {}, 'ef', {}, 'nfev', {}, 'sec', {});
+    info = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);  ts = tFF_ts_(dirs, apst, stand, nE);
+    rows(end+1) = struct('rung', 0, 'free', [], 'K', K, 'C', C, 'info', info, 'ts', ts, 'ef', NaN, 'nfev', 0, 'sec', 0);
+    tFF_row_(pr, rows(end), F, Fs);
+    free = [];
+    for r = 1:P.tFF_nrungs
+        free = [free, P.tFF_rungs{r}];   %#ok<AGROW>
+        idx = find(ismember(allm, free));  nf = numel(idx);
+        x0 = [K, reshape(C(:, idx)'/1e-6, 1, [])];             % FF coefficients in um of sag at rho = 1
+        fun = @(x) tFF_resid_(x, idx, nm, A, write_, deck(r), dirs, apst, stand, nE, P.tEP_R_m, T);
+        o = optimoptions('lsqnonlin', 'Display', 'off', 'MaxFunctionEvaluations', P.tFF_maxfev, 'MaxIterations', 400, ...
+                         'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10);
+        tic;  [x, ~, ~, ef, out] = lsqnonlin(fun, x0, [], [], o);  sec = toc;
+        K = x(1:3);  C(:, idx) = reshape(x(4:end), nf, 3)'*1e-6;
+        write_(K, C, deck(r));  macos.load_rx(deck(r));
+        info = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);  ts = tFF_ts_(dirs, apst, stand, nE);
+        rows(end+1) = struct('rung', r, 'free', free, 'K', K, 'C', C, 'info', info, 'ts', ts, 'ef', ef, 'nfev', out.funcCount, 'sec', sec);   %#ok<AGROW>
+        tFF_row_(pr, rows(end), F, Fs);
+        flips = NaN;  try, flips = mmacos('fwd_root_flips_get'); catch, end %#ok<CTCH>
+        pr('   fwd_root_flips_get after the rung''s trace: %s\n', mat2str(flips));
+        S = struct('rows', rows, 'Fs', Fs, 'F', F, 'T', T);  save([tag '_tA_FF' sfx '.mat'], 'S');
+    end
+    fclose(fid);
+end
+
+function tFF_write_(txt, K, A, C, Fs, file)
+    t2 = tFF_deck_(txt, K, A, C, Fs);  fid = fopen(file, 'w');  fprintf(fid, '%s\n', t2);  fclose(fid);
+end
+
+function r = tFF_resid_(x, idx, nm, A, write_, deck, dirs, apst, stand, nE, Rref, T)
+    K = x(1:3);  C = zeros(3, nm);  C(:, idx) = reshape(x(4:end), numel(idx), 3)'*1e-6;
+    write_(K, C, deck);  macos.load_rx(deck);
+    r = [];  N0 = 1184;  wW = sqrt(254);
+    for q = 1:size(dirs, 1)
+        tEP_aim_(dirs(q, :)', apst, stand);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  pc = ri.pos(:, 1);  ok(1) = false;
+        if nnz(ok) < 0.9*N0, r = [r; 1e-3*ones(4, 1)]; continue, end   %#ok<AGROW> lost rays: a wall
+        W = tEP_W_(ri, ok, pc, Rref, 'chief');
+        r = [r; wW*std(W, 1); pc - T(:, q)];   %#ok<AGROW>
+    end
+end
+
+function ts = tFF_ts_(dirs, apst, stand, nE)
+%TFF_TS_  T and S line foci along the chief (x- and y-fan pupil slices), per field, m from the chief's detector intercept.
+    ts = nan(2, size(dirs, 1));
+    for q = 1:size(dirs, 1)
+        d = dirs(q, :)';  tEP_aim_(d, apst, stand);
+        s = macos.trace(1);  r1 = macos.get_ray_info(s.nRays);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  ok(1) = false;  pc = ri.pos(:, 1);  d0 = ri.dir(:, 1)/norm(ri.dir(:, 1));
+        off = r1.pos - r1.pos(:, 1);  uy = cross(d, [1;0;0]);  uy = uy/norm(uy);  px = off(1, :)';  py = (uy'*off)';  w = 0.08*max(abs([px; py]));
+        xh = [1;0;0] - d0*d0(1);  xh = xh/norm(xh);  yh = cross(d0, xh);
+        ts(1, q) = tFF_slice_(ri, ok & abs(py) < w, pc, d0, xh);  ts(2, q) = tFF_slice_(ri, ok & abs(px) < w, pc, d0, yh);
+    end
+end
+
+function s = tFF_slice_(ri, sel, pc, d0, u)
+    P = ri.pos(:, sel) - pc;  Dd = ri.dir(:, sel)./vecnorm(ri.dir(:, sel));  dd = d0'*Dd;
+    a = u'*P - (u'*Dd).*(d0'*P)./dd;  b = (u'*Dd)./dd;  C = cov(a, b);  s = -C(1, 2)/C(2, 2);
+end
+
+function tFF_row_(pr, rw, F, Fs)
+    in = rw.info;  e = [2 7];  c = 1;
+    pr('\nR%d (free %s): ', rw.rung, mat2str(rw.free));
+    if rw.rung > 0, pr('lsqnonlin exitflag %d, %d evaluations, %.0f s\n', rw.ef, rw.nfev, rw.sec); else, pr('the reference (R0'' == R0, 7.8e-15 m)\n'); end
+    pr('   %7s %11s %11s %10s %10s %6s %8s %8s\n', 'field', 'strict@chf', 'strict@foc', 'spot bf', 'FP OPD', 'nPass', 'T mm', 'S mm');
+    for q = 1:size(F, 1)
+        pr('   %+7.3f %11.3f %11.3f %10.1f %10.3f %6d %+8.3f %+8.3f\n', F(q, 1)*180/pi, in.stf(q)*1e6, in.st(q)*1e6, in.sp(q), in.fp(q)*1e6, in.np(q), rw.ts(1, q)*1e3, rw.ts(2, q)*1e3);
+    end
+    pr('   EDGE: strict@chief %.2f / @focus %.2f um, spot %.1f um (%.1f px), T-S %.3f mm; CENTRE spot %.1f um; plate pos err max %.3f mm; K %s\n', ...
+       mean(in.stf(e))*1e6, mean(in.st(e))*1e6, mean(in.sp(e)), mean(in.sp(e))/18, mean(rw.ts(1, e) - rw.ts(2, e))*1e3, in.sp(c), max(in.pos_err)*1e3, mat2str(rw.K, 5));
+    if rw.rung > 0
+        for k = 1:3, pr('   M%d FF (um at rho=1, lFF %.1f mm): %s\n', k, Fs.Lf(k)*1e3, strjoin(arrayfun(@(m, v) sprintf('Z%d %+.3f', m, v*1e6), Fs.modes(ismember(Fs.modes, rw.free)), rw.C(k, ismember(Fs.modes, rw.free)), 'UniformOutput', false), ' ')); end
+    end
+end
+
+function v = tFF_vec_(t, key), m = regexp(t, ['(?m)^\s*' key '=\s*([^\n]*)'], 'tokens', 'once');  v = sscanf(strrep(m{1}, 'D', 'E'), '%f'); end
+function x = tFF_num_(t, key), v = tFF_vec_(t, key);  x = v(1); end
+
+function txt = tFF_deck_(src_txt, K, A, ffc, F)
+%FF_DECK  Re-express a Telescope Aspheric deck (M1-M3 conic + h^4/h^6 about the parent vertex) as Surface=FreeForm:
+%   the Mon channel carries the even asphere EXACTLY (unnormalized ANSI modes 1/5/13/25 about pMon = Vpt, lMon = F.Lm(k)),
+%   the FF channel carries the freeform modes F.modes about pFF = the section pole (frame F.fr{k}, lFF = F.Lf(k)).
+%   K (1x3) conics, A (3x2) h^4/h^6, ffc (3 x numel(F.modes)) FF coefficients, F.sgn sign of the Mon sag vs the asphere.
+    L = splitlines(string(src_txt));  out = strings(0, 1);  k = 0;  skip = false;
+    for i = 1:numel(L)
+        s = strtrim(L(i));
+        if startsWith(s, "Surface=") && contains(s, "Aspheric") && k < 3
+            k = k + 1;  out(end+1, 1) = "          Surface=  FreeForm";  continue
+        end
+        if startsWith(s, "nAsphCoef=") || startsWith(s, "AsphCoef="), continue, end
+        if startsWith(s, "KcElt=") && k >= 1 && k <= 3 && ~skip
+            out(end+1, 1) = sprintf("            KcElt=%.16E", K(k));
+            Lm = F.Lm(k);  a4 = A(k, 1)*Lm^4;  a6 = A(k, 2)*Lm^6;      % sag = a4 rho^4 + a6 rho^6, rho = h/Lm
+            % rho^4 = (Z13 + 3 Z5 + 2 Z1)/6 ; rho^6 = (Z25 + 30 rho^4 - 12 rho^2 + 1)/20 ; rho^2 = (Z5 + Z1)/2
+            c1 = a4*2/6 + a6*(30*2/6 - 12/2 + 1)/20;  c5 = a4*3/6 + a6*(30*3/6 - 12/2)/20;  c13 = a4/6 + a6*30/6/20;  c25 = a6/20;
+            mc = F.sgn*[c1 c5 c13 c25];  v = F.vpt(:, k);
+            out(end+1, 1) = "      MonZernType=  ANSI";
+            out(end+1, 1) = "     nMonZernCoef=   4";
+            out(end+1, 1) = "     MonZernModes=  1 5 13 25";
+            out(end+1, 1) = "      MonZernCoef=  " + strtrim(sprintf('%.16E ', mc));
+            out(end+1, 1) = sprintf("             lMon=  %.16E", Lm);
+            nm = numel(F.modes);
+            out(end+1, 1) = "       FFZernType=  ANSI";
+            out(end+1, 1) = sprintf("      nFFZernCoef=   %d", nm);
+            out(end+1, 1) = "      FFZernModes=  " + strtrim(sprintf('%d ', F.modes));
+            c = ffc(k, :);                                   % 6 per row: the value buffer is 220 chars (MacosValLen)
+            out(end+1, 1) = "       FFZernCoef=  " + strtrim(sprintf('%.16E ', c(1:min(6, nm))));
+            for g = 7:6:nm, out(end+1, 1) = "                   " + strtrim(sprintf('%.16E ', c(g:min(g+5, nm)))); end
+            out(end+1, 1) = sprintf("              lFF=  %.16E", F.Lf(k));
+            fr = F.fr{k};  p = F.pole(:, k);
+            out(end+1, 1) = sprintf("              pFF=  %.16E  %.16E  %.16E", p);
+            out(end+1, 1) = sprintf("              xFF=  %.16E  %.16E  %.16E", fr(:, 1));
+            out(end+1, 1) = sprintf("              yFF=  %.16E  %.16E  %.16E", fr(:, 2));
+            out(end+1, 1) = sprintf("              zFF=  %.16E  %.16E  %.16E", fr(:, 3));
+            out(end+1, 1) = sprintf("             pMon=  %.16E  %.16E  %.16E", v);
+            out(end+1, 1) = sprintf("             xMon=  %.16E  %.16E  %.16E", F.mfr(:, 1));
+            out(end+1, 1) = sprintf("             yMon=  %.16E  %.16E  %.16E", F.mfr(:, 2));
+            out(end+1, 1) = sprintf("             zMon=  %.16E  %.16E  %.16E", F.mfr(:, 3));
+            continue
+        end
+        out(end+1, 1) = L(i);
+    end
+    assert(k == 3, 'ff_deck: found %d aspheric mirrors, expected 3', k);
+    txt = strjoin(out, newline);
+end
+
 
 function [dz, dM] = tPZ_curv_(tel, fx)
 %TPZ_CURV_  Engine field curvature along the strip: the least-squares best-focus point's distance along the chief from the
