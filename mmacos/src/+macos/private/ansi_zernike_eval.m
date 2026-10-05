@@ -37,12 +37,14 @@ end
 
 % ---------------------------------------------------------------------------
 function v = norm_rms_ansi_(j)
-%NORM_RMS_ANSI_  MACOS NORM_RMS_PARAM_ANSI(1:15) (elt_mod.F lines 288-299).
-P = [1, 2, 2, sqrt(6), sqrt(3), sqrt(6), sqrt(8), sqrt(8), sqrt(8), sqrt(8), ...
-     sqrt(10), sqrt(10), sqrt(5), sqrt(10), sqrt(10)];
-if j > numel(P)
-    error('macos:zernike:mode', ...
-        'NORM_RMS_PARAM_ANSI tabulated to mode 15 here (got %d); extend P.', j);
-end
-v = P(j);
+%NORM_RMS_ANSI_  MACOS NORM_RMS_PARAM_ANSI, the RMS normalization factor.
+%   Computed ANALYTICALLY (sqrt(n+1) for m=0, sqrt(2(n+1)) for m~=0) rather
+%   than from a short table: this reproduces elt_mod.F's NORM_RMS_PARAM_ANSI
+%   (lines 288-299) BIT-IDENTICALLY for modes 1..15 and extends it to the
+%   higher radial orders the asphere->Zernike fold needs (e.g. mode 25 =
+%   secondary spherical).  OSA single index jj = j-1 -> (n, m) as above.
+jj = j - 1;
+n  = ceil((-3 + sqrt(9 + 8*jj)) / 2);
+m  = 2*jj - n*(n + 2);
+if m == 0, v = sqrt(n + 1); else, v = sqrt(2*(n + 1)); end
 end
