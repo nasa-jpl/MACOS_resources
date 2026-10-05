@@ -321,7 +321,9 @@ function P = dyson5_params(over)
     P.tA_plate_tol   = 0.005;             % plate-scale calibration tolerance (relative)
     P.tA_cal_iters   = 6;                 % parent-EFL calibration passes
     P.tA_cal_solved  = false;             % true: the plate scale is read on the STRIP-SOLVED section inside the calibration loop (the conics re-power the sub-pupil)
-    P.tA_rungs       = [0 2];             % step-2 ladder on the pick: 0 as-is, 1 inner half-strip conics, 2 full-strip conics
+    P.tA_rungs       = [0 2];             % ladder on the pick: 0 as-is, 1 inner half-strip conics, 2 full-strip conics, 3 STAGE B (aspheres + per-field position rows, one row per tA_beam_wt)
+    P.tA_beam_wt     = [1e-2 1e-1 1];     % stage B: weights of the position rows (f*tan(theta) per strip field -- plate scale AND distortion) against the WFE rows
+    P.tA_asph_terms  = [1 2];             % stage B: even-radial terms on M1-M3 (1 = h^4, 2 = h^6, 3 = h^8)
     P.tA_max_iters   = 150;               % CALIB iterations per conic rung
     P.tA_pick        = [];                % [bias_deg dec_m] to force the working point (else: clear, then plate nearest the spec, then chief spread)
     P.tA_suffix      = '';                % record dyson5_tA<suffix>.*

@@ -501,3 +501,40 @@ sits 4-5 mm inside the telescope's M2 (1.5k first run, 3k), or the
 M1->M2 leg grazes M3 by 4.8 mm under its 1.15x footprint discs (1.5k
 calibrated) -- the Dyson is placed in the telescope's frame by the slit
 alone; its roll about the chief is free and is the knob.
+
+## Stage B, 1.5k (TO, 2026-10-04): aspheres + position rows hold 330 mm and kill the distortion; the edges still blur
+
+`tA` rung 3 (`tA_rungs` [0 3]): on the stage-A working point (parent
+F/1.745, bias -3 deg, decenter 160 mm) the strip solve carries conics +
+h4+h6 on M1-M3 (`asph_elts` 1:3, CCMac's hook) + per-field POSITION rows at
+f*tan(theta) (`beam_pos_fov`, CC's plate_targets_), one row per `beam_wt`.
+Records `dyson5_tA_B1k5.{txt,mat}`, decks `dyson5_tA_B1k5_B{0.01,0.1,1}.in`.
+
+| rung (beam_wt) | clear | spread | pupil | plate local / edge | rms spot per field, um (best focus) | worst |
+|---|---|---|---|---|---|---|
+| as-is | +3.7 M2 | 0.51 deg | +1.5 m | 329.5 / 338.2 | 252 307 341 356 341 307 252 | 19.8 px |
+| B 1e-2 | +2.7 M3 | 0.88 | +0.9 | 330.3 / 331.7 | 293 135 48 24 48 135 293 | 16.3 px |
+| B 1e-1 | +2.8 M3 | 0.87 | +0.9 | 330.5 / 332.0 | 292 134 47 24 47 134 292 | 16.3 px |
+| **B 1** | **+2.9 M3** | **0.85** | **+0.9** | **330.8 / 332.6** | **284 131 48 23 48 131 284** | **15.8 px** |
+
+With the position rows the scale no longer jumps basins: 330.3-330.8 mm
+local at every weight and the strip-edge distortion goes from +2.6 % to
++0.5 %.  The centre and the inner half-strip come to 1.3-2.7 px; the outer
+field (+-2.35 deg) stays at 284 um -- the edge blur is the residual,
+rotationally symmetric aspheres do not reach it (CCMac's step-4 finding
+reproduced on the telecentric section).
+
+**End to end (B 1 + `size:D:130`, t5e; bridge 21 330 rays chain == engine
+to 7e-15 m):** plate 330.8 / 331.9 mm, **99.4 % of the swath on the slit,
+admitted 1.000 at every field, the chief within 0.82 deg of the Dyson's,
+grating miss <= 4.1 mm**; smile 1.96 px, keystone 0.68 px, SRF 3.0 px,
+CRF 15.5 px (the edge blur), EE 0.004; clearance FAIL -4.95 mm (the
+Dyson's FPA package inside the telescope's M2 -- the join's roll about the
+chief is the knob, admitted fraction to be re-read after it).
+
+**Parse bug found by the bridge gate (fixed, `tel_deck_geom`):** the key
+lookup matched `AsphCoef=` inside `nAsphCoef=`, so the chain read
+nAsphCoef's "2" as M1's h^4 coefficient -- 1.4 mm at M1, 2.4 cm at the FP,
+a garbage first t5e row (378 mm, admitted 0.48), overwritten.  All keys are
+now line-anchored, and a wrapped `AsphCoef=` line is refused (count vs
+`nAsphCoef`).  Stage-A rows (conic decks) were unaffected (gate 1e-15).
