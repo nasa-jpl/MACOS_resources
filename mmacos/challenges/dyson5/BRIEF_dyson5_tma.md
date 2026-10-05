@@ -831,3 +831,22 @@ it is not, for this question, a design lever -- the engine-side fixed-
 station EP sphere is not needed to answer it (it remains the right tool for
 OptFEX on near-telecentric decks, whenever that is wanted).  Next lever:
 non-symmetric DOFs (CCMac's freeform) or the layout.
+
+**Why the strict solve's SRF went 5.9 -> 10.5 px (TO, 2026-10-05).**  The worst
+SRF MOVED from the strip edge to the centre: per field (max over lambda)
+B1 5.85 / 3.39 / 3.53 / 4.36 px (edge -> centre), S1 3.00 / 7.16 / 9.71 /
+10.51 px; CRF at the centre 1.8 -> 5.3 px.  The strict merit was centred on
+each field's chief DETECTOR intercept, so defocus relative to the detector
+is in it, and the solve balanced focus across the strip (field curvature):
+the centre sits ~6 um rms of defocus off the detector (strict@chief 6.2 um vs
+strict@focus 1.5 um there; ~4 px of blur at F/1.8) while the edge comes into
+focus.  The best-focus spot metric removes focus, which is why the
+telescope-alone spots read better.  Not the position rows, not t5e's slit
+sampling.  (The strict merit is the REPORTING metric from here on; report it
+about the detector intercept AND about best focus -- they answer different
+questions.)
+
+**The strict-merit solver stays as a tool:** `tEP` rung `S1`
+(`tEP_strict_solve_` in `dyson5_run.m`: lsqnonlin, deck write + reload per
+evaluation, `tEP_from` seed|B1, `tEP_center` chief|focus) -- the only
+strict-merit solver until a fixed-station Return is in CALIB.
