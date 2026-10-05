@@ -82,6 +82,7 @@ elt_z
 ffcut_get
 ffcut_set
 ffp
+fwd_root_flips_get
 get_src_csys
 get_src_fov
 get_src_sampling
