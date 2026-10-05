@@ -1378,6 +1378,57 @@ classdef Telescope < handle
                 'conics',Kopt, 'var_elts',var_elts, 'wavelength',obj.spec.wavelength);
         end
 
+        function [modes, coef] = asph_to_zern_(~, asph, lMon, type)
+        %ASPH_TO_ZERN_  Even-radial asphere -> symmetric Zernike at lMon.
+        %   The engine applies the even-radial AsphCoef ONLY on Surface=Aspheric
+        %   (SrfType 3); a Zernike / FreeForm surface carries a SINGLE monomial
+        %   field (MonSrf/FreeFormSrf: conic + Mon).  So to carry conic + asph +
+        %   Zernike on ONE mirror, the asphere is expressed as its symmetric
+        %   (m=0) Zernike content.  The engine Aspheric sag (surfsub.F SAsphere)
+        %   is fh = sum_i asph(i)*h^(2i+2), h the radial coordinate (m).
+        %
+        %   The projection is NUMERICAL, onto the ENGINE-EXACT basis from
+        %   macos.zernike_grid_basis (the same ANSI/Noll evaluator the engine
+        %   uses, RMS-normalized -- gated tRunCompare), so the convention and
+        %   normalization match by construction instead of being hand-derived
+        %   (ZernType_ANSI=1 is UNNORMALIZED raw R_n^0; the normalized basis
+        %   corresponds to ZernType_NormANSI=4 -- the emitter writes the Norm
+        %   variant when it folds, see build).  Modes: PISTON + defocus +
+        %   na spherical orders (ANSI 1,5,13,25,41 / Noll 1,4,11,22,37); the
+        %   asphere has no rho^0/rho^2, but PISTON matters because a constant
+        %   sag on a REFLECTOR axially displaces the vertex and moves rays.
+        %   Returns the symmetric MODES and their COEFS (metres), in the
+        %   normalized convention derived from TYPE.  Round-trip gated by
+        %   tTmaAsphZernFold (asph via Aspheric == asph via this fold).
+            asph = asph(:).';
+            nz = find(asph ~= 0, 1, 'last');          % strip trailing zeros (padded input)
+            if isempty(nz), modes = []; coef = []; return; end
+            asph = asph(1:nz);  na = numel(asph);
+            if na > 3
+                error('macos:design:Telescope:asphZern:order', ...
+                    'asph_to_zern_ handles up to 3 even-radial terms (h^4..h^8); got %d.', na);
+            end
+            conv = lower(regexprep(type, '^Norm', '', 'ignorecase'));
+            if strcmpi(conv, 'noll'), allm = [1 4 11 22 37];  conv = 'noll';
+            else,                     allm = [1 5 13 25 41];  conv = 'ansi';   % ANSI/OSA default
+            end
+            modes = allm(1:na+2);                     % piston + defocus + na spherical orders
+            % project the asphere sag onto the ENGINE-EXACT normalized Zernike
+            % basis (macos.zernike_grid_basis, gated tRunCompare): the shapes AND
+            % the RMS normalization are the engine's own, so emitting the Norm
+            % variant (NormANSI / NormNoll) reproduces the asphere exactly rather
+            % than relying on a hand-transcribed radial polynomial + convention.
+            N = 128;
+            B = macos.zernike_grid_basis(N, modes, 1.0, conv);
+            tt = linspace(-1, 1, N);  [X, Y] = ndgrid(tt, tt);
+            rho = sqrt(X.^2 + Y.^2);  inAp = rho <= 1;
+            h = rho(inAp) * lMon;                     % physical radial coordinate (m)
+            f = zeros(nnz(inAp), 1);
+            for i = 1:na, f = f + asph(i)*h.^(2*i+2); end
+            Phi = reshape(B, [], numel(modes));
+            coef = (Phi(inAp(:), :) \ f).';           % LSQ -> exact (asph in the span)
+        end
+
         function set_freeform(obj, elt, modes, coef, opts)
         %SET_FREEFORM  Layer a Zernike-departure (freeform) figure onto a mirror.
         %   The conic base (KrElt/KcElt) is HELD -- preserving the first-order
@@ -1470,6 +1521,9 @@ classdef Telescope < handle
                                                  % near-focus field mirror is
                                                  % ~100x smaller than the
                                                  % stop); see set_freeform
+                opts.beam_pos_fov (3,:) double = []   % per-field image-position targets at the FP (global m), one column per CALIB field (nfov) in order; field 1 = on-axis
+                opts.beam_dir     (3,:) double = []   % chief travel-direction target at the FP (global unit vec); scored every field (telecentricity)
+                opts.beam_wt      (1,1) double = 1    % weight on the beam rows vs the WFE rows
             end
             if obj.is_nmirror_() && (~isfield(obj.spec,'elt') || isempty(obj.spec.elt))
                 obj.resolve_nmirror_();
@@ -1538,7 +1592,37 @@ classdef Telescope < handle
             o.zern_modes  = repmat({modes}, 1, numel(elts));  % cell, assigned after
             obj.spec.opt  = o;
             obj.build();                              % emit Zernike surfaces + OptZern
+
+            % per-field image-position + chief-direction rows on the WFE target
+            % (the same engine beam rows optimize() carries, api calib_set_beam*):
+            % a freeform departure must NOT drift the plate scale or the
+            % telecentricity the layout gives it, so pin both in the SAME solve.
+            beam_elt = find(strcmp({obj.spec.elt.kind}, 'FocalPlane'), 1, 'last');
+            if ~isempty(opts.beam_pos_fov)
+                if size(opts.beam_pos_fov, 2) ~= nfov
+                    error('macos:design:Telescope:optfree:beamPosFov', ...
+                        'beam_pos_fov must have one column per CALIB field (%d).', nfov);
+                end
+                macos.calib_set_beam('pos', beam_elt, opts.beam_pos_fov(:,1));
+                macos.calib_set_beam_pos_fov(opts.beam_pos_fov);
+                macos.calib_set_beam_wt(opts.beam_wt);
+            end
+            if ~isempty(opts.beam_dir)
+                if size(opts.beam_dir, 2) ~= 1 || norm(opts.beam_dir) == 0
+                    error('macos:design:Telescope:optfree:beamDir', ...
+                        'beam_dir must be one nonzero 3-vector (the chief travel direction at the FP).');
+                end
+                macos.calib_set_beam('dir', beam_elt, opts.beam_dir/norm(opts.beam_dir));
+                macos.calib_set_beam_wt(opts.beam_wt);
+            end
             r = macos.calib();
+            if ~isempty(opts.beam_dir)
+                macos.calib_set_beam('dir', beam_elt, [], 'off');   % do not leak into the next solve
+            end
+            if ~isempty(opts.beam_pos_fov)
+                macos.calib_set_beam('pos', beam_elt, [], 'off');
+                macos.calib_set_beam_pos_fov([]);
+            end
 
             % read the optimized Zernike coefficients back into the spec
             % (lmon rides along -- the coefficients are tied to the
@@ -3104,6 +3188,26 @@ classdef Telescope < handle
                         ft = e.freeform.type;
                     end
                     zm = e.freeform.modes(:).';  zc = e.freeform.coef(:).';
+                    % A mirror with BOTH an even-radial asphere AND a Zernike
+                    % freeform cannot yet be emitted exactly: the engine applies
+                    % AsphCoef only on Surface=Aspheric, and folding the asphere
+                    % into the Surface=Zernike ZernCoef field hits a ~2x
+                    % normalization mismatch (absolute conversion; see
+                    % challenges/dyson5/NOTE_asph_zernike_fold.md and the
+                    % PLAN_DESIGN_LAYER "Sprint 6+" to-do).  The exact fix emits
+                    % the freeform via the FreeForm MonZern channel (gated to
+                    % zernike_grid_basis).  Until then REFUSE rather than emit a
+                    % wrong deck -- the projection helper asph_to_zern_ is kept
+                    % for that fix.  (Routes that need both today solve the
+                    % symmetric content AS Zernike instead -- step 5 route B.)
+                    if hasAsph
+                        error('macos:design:Telescope:asphZernNotYet', ...
+                            ['mirror %s has BOTH an asphere and a Zernike freeform; ' ...
+                             'exact co-emit (FreeForm MonZern channel) is not landed yet ' ...
+                             '-- see challenges/dyson5/NOTE_asph_zernike_fold.md. ' ...
+                             'Solve the symmetric content as Zernike modes {defocus, spherical} ' ...
+                             'instead, or clear .asph.'], e.name);
+                    end
                     nz = numel(zc);
                     L{end+1} = ['         ZernType=  ' ft];                          %#ok<AGROW>
                     L{end+1} = sprintf('        nZernCoef=  %d', nz);               %#ok<AGROW>
