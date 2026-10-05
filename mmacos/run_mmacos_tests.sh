@@ -160,7 +160,7 @@ SUITE_FAST=$(join_suites \
     "tTgPol" "tTgPol2" "tStopReload" "tDmgLoop" \
     "tLinkSave" "tZernikeGridBasis" "tRxBlockComment" \
     "tGratingImmersed" "tGlassDispersion" "tPropMedium" "tRxShortAsph" \
-    "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tStopApStop")
+    "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tStopApStop" "tFreeformPole")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the

@@ -3220,9 +3220,14 @@ classdef Telescope < handle
                     % Zernike-departure block: sparse (modes + coefs), 6/row to
                     % match MACOS's own emit.  lMon = beam footprint radius
                     % (rho=1 at the aperture edge -> standard normalization).
-                    % The Mon frame (pMon=Vpt, axes = local surface frame) is the
-                    % Zernike evaluation frame; emitted explicitly to match the
-                    % engine's known-good round-trip (e5mono/SegDemo3).
+                    % The Mon frame is the Zernike evaluation frame: ORIGIN = the
+                    % element's pole (RptElt -- the section pole, or the vertex
+                    % on a coaxial element), axes = the pole's surface frame;
+                    % emitted explicitly to match the engine's known-good
+                    % round-trip (e5mono/SegDemo3).  Until 2026-10-05 the origin
+                    % was Vpt -- the PARENT vertex on an eccentric section, 190 mm
+                    % from the lit patch on dyson5's TMA, so every freeform mode
+                    % was evaluated at rho ~ 3.8 (TO, addendum 44; tFreeformPole).
                     ft = 'ANSI';
                     if isfield(e.freeform,'type') && ~isempty(e.freeform.type)
                         ft = e.freeform.type;
@@ -3277,7 +3282,9 @@ classdef Telescope < handle
                     nrmz = e.psi;
                     if isfield(e,'nrm') && ~isempty(e.nrm), nrmz = e.nrm; end
                     Rz = obj.surf_frame_(nrmz);
-                    L{end+1} = ['             pMon=  ' v3(e.Vpt(1),e.Vpt(2),e.Vpt(3))];   %#ok<AGROW>
+                    pz = e.Vpt;
+                    if isfield(e,'pole') && ~isempty(e.pole), pz = e.pole; end
+                    L{end+1} = ['             pMon=  ' v3(pz(1),pz(2),pz(3))];            %#ok<AGROW>
                     L{end+1} = ['             xMon=  ' v3(Rz(1,1),Rz(2,1),Rz(3,1))];      %#ok<AGROW>
                     L{end+1} = ['             yMon=  ' v3(Rz(1,2),Rz(2,2),Rz(3,2))];      %#ok<AGROW>
                     L{end+1} = ['             zMon=  ' v3(Rz(1,3),Rz(2,3),Rz(3,3))];      %#ok<AGROW>
