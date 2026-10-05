@@ -2062,10 +2062,12 @@ function S = stage_tFF_(P, tag)
         Z = load(fullfile(here, P.tFF_resume));  last = Z.S.rows(end);
         K = last.K;  C = zeros(3, nm);  [tf, loc] = ismember(Z.S.Fs.modes, allm);  C(:, loc(tf)) = last.C(:, tf);
         free = last.free;  rlist = last.rung;
-        pr('\nRESUME from %s rung R%d (free %s), MaxFunctionEvaluations %d, OptimalityTolerance %.1e\n', P.tFF_resume, last.rung, mat2str(free), P.tFF_maxfev, P.tFF_opttol);
+        if P.tFF_nrungs > last.rung, rlist = last.rung+1:P.tFF_nrungs; end      % CONTINUE onto new rungs, warm from the record
+        pr('\nRESUME from %s rung R%d (free %s): %s; MaxFunctionEvaluations %d, OptimalityTolerance %.1e\n', P.tFF_resume, last.rung, mat2str(free), ...
+           tern_(numel(rlist) == 1 && rlist == last.rung, 're-converge it', sprintf('continue with R%s', mat2str(rlist))), P.tFF_maxfev, P.tFF_opttol);
     end
     for r = rlist
-        if isempty(P.tFF_resume), free = [free, P.tFF_rungs{r}]; end   %#ok<AGROW>
+        if isempty(P.tFF_resume) || r > Z.S.rows(end).rung, free = [free, P.tFF_rungs{r}]; end   %#ok<AGROW>
         idx = find(ismember(allm, free));  nf = numel(idx);
         x0 = [K, reshape(C(:, idx)'/1e-6, 1, [])];             % FF coefficients in um of sag at rho = 1
         fun = @(x) tFF_resid_(x, idx, nm, A, write_, deck(r), dirs, apst, stand, nE, P.tEP_R_m, T);
