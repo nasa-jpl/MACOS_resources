@@ -1845,13 +1845,13 @@ function S = stage_tA_(P, tag)
             case 3                                              % STAGE B: conics + aspheres + per-field position rows (f tan theta)
                 nm = sprintf('B%g', jobs{jb, 2});
                 Pt = tA_plate_targets_(tel, fields_full, f);
-                fp = tA_passfrac_(tel, [0 0; fields_full]);           % the engine's own pass fraction per CALIB field, at the seed
+                [~, fp] = calib_blind_fields(tel, [0 0; fields_full]);   % the engine's own pass fraction per CALIB field, at the seed
                 rc = tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters, ...
                                   'asph_elts', 1:3, 'asph_terms', P.tA_asph_terms, 'beam_pos_fov', Pt, 'beam_wt', jobs{jb, 2});
                 % CALIB's own per-field evaluation is a FLAG here, never a reported number.  A field is BLIND when CALIB
                 % marks it failed (9.9999e36) or the engine's trace of the seed passes < 90 % of its rays there; a seed
                 % above 1 mm with every ray passing is a bad SEED, not a blind solve (CC, 2026-10-04: gate on the rays)
-                bad = find(rc.wfe_before(:)' > 1e30 | fp(:)' < 0.9);
+                bad = find(rc.wfe_before(:)' > 1e30 | fp(:)' < 0.9);   % calib_blind_fields' rule on the SEED's pass fractions (gate tCalibBlindFields)
                 if ~isempty(bad)
                     pr('         CALIB field(s) %s BLIND (failed, or < 90 %% of rays pass at the seed: %s) -- not solved\n', mat2str(bad), sprintf('%.2f ', fp(bad)));
                 end
@@ -1892,16 +1892,6 @@ function P = tA_plate_targets_(tel, fields, EFL)
     P = zeros(3, 1 + size(fields, 1));  P(:, 1) = p0;
     for k = 1:size(fields, 1), P(:, k + 1) = p0 + EFL*tan(fields(k, 1))*ux + EFL*tan(fields(k, 2))*uy; end
 end
-function fp = tA_passfrac_(tel, F)
-%TA_PASSFRAC_  Fraction of the source grid that passes the whole train, per field (rows of F, rad, offsets about the bias).
-    nE = numel(tel.spec.elt);  fp = nan(1, size(F, 1));
-    for k = 1:size(F, 1)
-        tel.trace_at_field(F(k, :));  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
-        fp(k) = nnz(ri.ok_trace(:) & ri.ok_pass(:))/numel(ri.ok_trace);
-    end
-    tel.trace_at_field([]);
-end
-
 function p = tA_hit_(tel, nE, fq), tel.trace_at_field(fq);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);  p = ri.pos(:, 1); end
 
 function tel = tA_build_(R, t, D, lam, model, b, d)
