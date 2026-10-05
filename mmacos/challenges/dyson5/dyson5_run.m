@@ -1819,12 +1819,22 @@ function S = stage_tA_(P, tag)
     pr('  %-6s | %-6s %8s %-5s | %7s %8s | %8s %8s | %s\n', 'rung', 'clear', 'margin', 'at', 'spread', 'pupil m', 'plate', 'edge', 'best-focus rms spot per field (um)');
     fields_half = fields_full(abs(fields_full(:, 1)) <= hs*pi/180/2 + 1e-12, :);
     L = struct('rung', {}, 'ok', {}, 'N', {}, 'spot', {}, 'K', {}, 'deck', {});
+    jobs = {};                                                  % {rung, beam_wt}
     for rung = P.tA_rungs
+        if rung == 3, for wt = P.tA_beam_wt, jobs(end+1, :) = {3, wt}; end, else, jobs(end+1, :) = {rung, NaN}; end %#ok<AGROW>
+    end
+    for jb = 1:size(jobs, 1)
+        rung = jobs{jb, 1};
         tel = tA_build_(R, t, D, lam, P.tel3_model, w.b, w.d);
         switch rung
             case 0, nm = 'as-is';
             case 1, nm = 'inner';  tel.optimize('fields', fields_half, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters);
             case 2, nm = 'strip';  tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters);
+            case 3                                              % STAGE B: conics + aspheres + per-field position rows (f tan theta)
+                nm = sprintf('B%g', jobs{jb, 2});
+                Pt = tA_plate_targets_(tel, fields_full, f);
+                tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters, ...
+                             'asph_elts', 1:3, 'asph_terms', P.tA_asph_terms, 'beam_pos_fov', Pt, 'beam_wt', jobs{jb, 2});
         end
         tel.build();
         [ok, cmin, cat] = tA_clear_(tel);  N = tA_numbers_(tel, fx);  sp = tA_spot_(tel, fx);
@@ -1839,12 +1849,30 @@ function S = stage_tA_(P, tag)
     save([tag '_tA' sfx '.mat'], 'S');
     % ---- (6) end to end through t5e on the last CLEAR rung (else the last rung)
     if P.tA_t5e
-        j = find([L.ok], 1, 'last');  if isempty(j), j = numel(L); end
+        % the clear rung with the plate scale within 1 % (local AND edge) and the smallest worst spot; else the last clear one
+        pl = arrayfun(@(x) max(abs([x.N.plate x.N.edge]/f - 1)), L);  ms = arrayfun(@(x) max(x.spot), L);
+        c = find([L.ok] & pl < 0.01);
+        if ~isempty(c), [~, jj] = min(ms(c));  j = c(jj); else, j = find([L.ok], 1, 'last'); end
+        if isempty(j), j = numel(L); end
+        pr = @(varargin) fprintf(varargin{:});
+        pr('tA: scoring rung %s end to end (clear %d, plate error %.2f %%, worst spot %.1f um)\n', L(j).rung, L(j).ok, 100*pl(j), ms(j));
         Pe = P;  Pe.tel5e_deck = L(j).deck;  Pe.tel5e_suffix = sprintf('_tA%s_%s', sfx, L(j).rung);
         S.t5e = stage_t5e_(Pe, tag);
         save([tag '_tA' sfx '.mat'], 'S');
     end
 end
+
+function P = tA_plate_targets_(tel, fields, EFL)
+%TA_PLATE_TARGETS_  Per-field image-position targets (3 x nfov, global, m) in CALIB field order: the bias chief's FP hit
+%   plus EFL*tan(theta) along the FP's in-plane field directions from the nominal trace (CC's plate_targets_, step 2b).
+    nE = numel(tel.spec.elt);  th = 0.02*pi/180;
+    hit = @(fq) tA_hit_(tel, nE, fq);
+    p0 = hit([0 0]);  ux = hit([th 0]) - hit([-th 0]);  ux = ux/norm(ux);  uy = hit([0 th]) - hit([0 -th]);  uy = uy/norm(uy);
+    tel.trace_at_field([]);
+    P = zeros(3, 1 + size(fields, 1));  P(:, 1) = p0;
+    for k = 1:size(fields, 1), P(:, k + 1) = p0 + EFL*tan(fields(k, 1))*ux + EFL*tan(fields(k, 2))*uy; end
+end
+function p = tA_hit_(tel, nE, fq), tel.trace_at_field(fq);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);  p = ri.pos(:, 1); end
 
 function tel = tA_build_(R, t, D, lam, model, b, d)
     tel = macos.design.Telescope('family','TMA','aperture_diameter_m',D,'wavelength_m',lam,'model_size',model);
