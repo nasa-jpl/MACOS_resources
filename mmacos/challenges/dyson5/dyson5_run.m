@@ -133,6 +133,7 @@ function OUT = dyson5_run(over)
             case 't5e', OUT.t5e = stage_t5e_(P, tag);
             case 'tA',  OUT.tA  = stage_tA_(P, tag);
             case 'tEP', OUT.tEP = stage_tEP_(P, tag);
+            case 'tPZ', OUT.tPZ = stage_tPZ_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -1944,6 +1945,75 @@ function S = stage_tEP_(P, tag)
     end
     fclose(fid);
     S = struct('rows', rows, 'F', F, 'fsys', fs);  save([tag '_tA_EP' sfx '.mat'], 'S');
+end
+
+function S = stage_tPZ_(P, tag)
+%STAGE_TPZ_  Addendum 43 step 1: the Petzval scan.  Per secondary_mag: the telecentric parent (M1 stop) re-solved, its F/#
+%   calibrated so the SECTION's local plate scale is the spec (as tA does), then the first-order Petzval prediction
+%   (P = 1/R1 - 1/R2 + 1/R3, its radius, the edge sag h^2 P / 2) beside the ENGINE's field curvature (the best-focus
+%   point's position along the chief, edge minus centre, as-is conics), clearance (check_clipping), M2/M3 beam
+%   diameters over the strip, and the length.  P is a prediction; the engine column is the measurement.
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  lam = 633e-9;  sfx = P.tPZ_suffix;
+    hs = npx*ifov/2*180/pi;  fx = linspace(-hs, hs, 7)*pi/180;  he = f*tan(hs*pi/180);
+    b = P.tPZ_bias_deg;  d = P.tPZ_dec_m;
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_tA_pz' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 tPZ -- addendum 43 step 1: the Petzval scan over secondary_mag (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: telecentric Korsch parent (M1 stop), section %+g deg / %.0f mm, strip +-%.3f deg (edge image height %.1f mm),\n', b, d*1e3, hs, he*1e3);
+    pr('  F/# calibrated per m2 so the as-is SECTION''s local plate = %.1f mm.  P = 1/R1 - 1/R2 + 1/R3 (1/m; magnitudes), predicted edge\n', f*1e3);
+    pr('  sag h^2 P/2; ENGINE: dz = best-focus point along the chief, edge minus centre (+ = toward the Dyson), as-is conics.\n\n');
+    pr('%5s %7s | %-24s %-15s | %8s %8s %9s | %9s | %-6s %7s %-4s | %7s %7s %7s\n', 'm2', 'F/#', 'R mm', 't mm', 'P 1/m', '1/P m', 'sag pred', 'dz engine', 'clear', 'margin', 'at', 'M2 mm', 'M3 mm', 'len mm');
+    rows = struct('m2', {}, 'fsys', {}, 'R', {}, 't', {}, 'P', {}, 'sag', {}, 'dz', {}, 'ok', {}, 'cmin', {}, 'cat', {}, 'dM2', {}, 'dM3', {}, 'len', {}, 'plate', {});
+    for m2 = P.tPZ_m2
+        try
+            fs = P.Fno;  plate = NaN;
+            for it = 1:4
+                [R, t] = macos.design.tma_layout(D, 1.0, fs, 'secondary_mag', m2, 'int_focus_m', -0.125*D, 'telecentric', true);
+                tel = tA_build_(R, t, D, lam, P.tel3_model, b, d);
+                N = tA_numbers_(tel, fx);  plate = N.plate;
+                if abs(plate/f - 1) < 0.005, break, end
+                fs = fs*f/plate;
+            end
+            [ok, cmin, cat] = tA_clear_(tel);
+            Pz = 1/R(1) - 1/R(2) + 1/R(3);  sag = he^2*Pz/2;
+            [dz, dM] = tPZ_curv_(tel, fx);
+            zz = arrayfun(@(e) e.Vpt(3), tel.spec.elt);  len = max(zz) - min(zz);
+            rows(end+1) = struct('m2', m2, 'fsys', fs, 'R', R, 't', t, 'P', Pz, 'sag', sag, 'dz', dz, 'ok', ok, 'cmin', cmin, 'cat', cat, ...
+                                 'dM2', dM(2), 'dM3', dM(3), 'len', len, 'plate', plate);   %#ok<AGROW>
+            pr('%5.2f %7.4f | %-24s %-15s | %+8.3f %+8.3f %+9.3f | %+9.3f | %-6s %+7.1f %-4s | %7.1f %7.1f %7.1f\n', m2, fs, ...
+               mat2str(round(R*1e3, 1)), mat2str(round(t*1e3, 1)), Pz, 1/Pz, sag*1e3, dz*1e3, tern_(ok, 'PASS', 'FAIL'), cmin*1e3, cat, dM(2)*1e3, dM(3)*1e3, len*1e3);
+        catch e
+            pr('%5.2f FAILED: %s\n', m2, regexprep(e.message, '\s+', ' '));
+        end
+    end
+    if numel(rows) > 2
+        pz = [rows.P];  dzv = [rows.dz];  c = polyfit(pz, dzv, 1);
+        pr('\nENGINE vs PREDICTION: dz = %.4g * P %+.4g mm  (prediction slope h^2/2 = %.4g mm per 1/m); sign check: %s\n', ...
+           c(1)*1e3, c(2)*1e3, he^2/2*1e3, tern_(sign(c(1)) == sign(he^2/2), 'same sign', 'OPPOSITE sign (flip the convention)'));
+        k = find([rows.ok]);  [~, j] = min(abs(dzv(k)));
+        if ~isempty(k), pr('flattest CLEAR m2: %.2f (engine dz %+.3f mm, P %+.3f /m)\n', rows(k(j)).m2, rows(k(j)).dz*1e3, rows(k(j)).P); end
+    end
+    fclose(fid);
+    S = struct('rows', rows);  save([tag '_tA_pz' sfx '.mat'], 'S');
+end
+
+function [dz, dM] = tPZ_curv_(tel, fx)
+%TPZ_CURV_  Engine field curvature along the strip: the least-squares best-focus point's distance along the chief from the
+%   chief's detector intercept, edge (mean of the two strip ends) minus centre; and the beam diameter on each mirror over
+%   the strip fields.
+    nE = numel(tel.spec.elt);  z = nan(1, numel(fx));  Pk = cell(1, 3);
+    for q = 1:numel(fx)
+        tel.trace_at_field([fx(q) 0]);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  P = ri.pos(:, ok);  Dd = ri.dir(:, ok)./vecnorm(ri.dir(:, ok));
+        A = zeros(3);  bb = zeros(3, 1);
+        for i = 1:size(P, 2), M = eye(3) - Dd(:, i)*Dd(:, i)';  A = A + M;  bb = bb + M*P(:, i); end
+        d0 = ri.dir(:, 1)/norm(ri.dir(:, 1));  z(q) = d0'*(A\bb - ri.pos(:, 1));
+        for k = 1:3, s = macos.trace(k);  rk = macos.get_ray_info(s.nRays);  Pk{k} = [Pk{k}, rk.pos(:, rk.ok_trace(:))]; end
+    end
+    tel.trace_at_field([]);
+    i0 = find(fx == 0, 1);  dz = mean(z([1 end])) - z(i0);
+    dM = cellfun(@(Q) 2*max(vecnorm(Q - mean(Q, 2))), Pk);
 end
 
 function tEP_table_(pr, rg, F, cal, fp, st, sp, np, stf)
