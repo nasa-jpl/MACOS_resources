@@ -132,6 +132,7 @@ function OUT = dyson5_run(over)
             case 't4',  OUT.t4  = stage_t4_(P, tag);
             case 't5e', OUT.t5e = stage_t5e_(P, tag);
             case 'tA',  OUT.tA  = stage_tA_(P, tag);
+            case 'tEP', OUT.tEP = stage_tEP_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -1893,6 +1894,85 @@ function P = tA_plate_targets_(tel, fields, EFL)
     for k = 1:size(fields, 1), P(:, k + 1) = p0 + EFL*tan(fields(k, 1))*ux + EFL*tan(fields(k, 2))*uy; end
 end
 function p = tA_hit_(tel, nE, fq), tel.trace_at_field(fq);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);  p = ri.pos(:, 1); end
+
+function S = stage_tEP_(P, tag)
+%STAGE_TEP_  Addendum 42 checkpoint 1: per strip field, the FP-OPD merit vs the STRICT reference-sphere merit vs the spot.
+%   FP merit = rms over the rays of the optical path to each ray's OWN intercept on the detector plane (what CALIB's
+%   WFE target minimises; cross-checked against CALIB's seed WFE).  STRICT = rms optical path on a sphere of radius
+%   P.tEP_R_m about the field's least-squares best-focus point, each ray carried back along its own final straight leg
+%   (a virtual pupil is allowed) -- the exit-pupil reference-sphere metric without FEX, which on this near-telecentric
+%   section finds a far, astigmatic pupil (T/S split 0.47-0.77 m) and loses every ray at the sphere.
+    here = fileparts(mfilename('fullpath'));
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  lam = 633e-9;  sfx = P.tEP_suffix;
+    hs = npx*ifov/2*180/pi;  fx = linspace(-hs, hs, 7)*pi/180;  F = [0 0; fx(fx ~= 0).' zeros(6, 1)];
+    fs = P.tEP_fsys;
+    if isnan(fs), Z = load(fullfile(here, 'dyson5_tA_B3_1k5_b4d190.mat'));  fs = Z.S.parent.fsys; end
+    [R, t] = macos.design.tma_layout(D, 1.0, fs, 'secondary_mag', 3.5, 'int_focus_m', -0.125*D, 'telecentric', true);
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_tA_EP' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 tEP -- addendum 42 checkpoint 1: the strict reference-sphere merit vs the FP-OPD merit, per field (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: the %+g deg / %.0f mm section of the telecentric parent F/%.4f; fields in CALIB order (1 = the bias, then\n', P.tEP_bias_deg, P.tEP_dec_m*1e3, fs);
+    pr('  the strip %s deg); lambda %.0f nm.  FP = rms OPL to each ray''s own detector intercept (CALIB''s WFE target);\n', mat2str(round(fx(fx ~= 0)*180/pi, 3)), lam*1e9);
+    pr('  STRICT = rms OPL on a %.2f m sphere about the field''s least-squares best-focus point (rays carried back along their\n', P.tEP_R_m);
+    pr('  final leg); SPOT = best-focus rms radius (the trace helper).  um of wavefront / um at the image.\n\n');
+    rows = struct('rung', {}, 'fp', {}, 'strict', {}, 'spot', {}, 'npass', {}, 'calib', {});
+    for k = 1:numel(P.tEP_rungs)
+        rg = P.tEP_rungs{k};
+        tel = tA_build_(R, t, D, lam, P.tel3_model, P.tEP_bias_deg, P.tEP_dec_m);
+        cal = nan(1, size(F, 1));
+        switch rg
+            case 'seed'
+                r0 = tel.optimize('fields', F(2:end, :), 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', 1);  cal = r0.wfe_before(:)';
+                tel = tA_build_(R, t, D, lam, P.tel3_model, P.tEP_bias_deg, P.tEP_dec_m);   % back to the seed
+            case 'B1'
+                Pt = tA_plate_targets_(tel, F(2:end, :), f);
+                r1 = tel.optimize('fields', F(2:end, :), 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters, ...
+                                  'asph_elts', 1:3, 'asph_terms', P.tA_asph_terms, 'beam_pos_fov', Pt, 'beam_wt', 1);
+                cal = r1.wfe_after(:)';  tel.build();
+        end
+        [fp, st, sp, np] = tEP_metrics_(tel, F, P.tEP_R_m);
+        rows(end+1) = struct('rung', rg, 'fp', fp, 'strict', st, 'spot', sp, 'npass', np, 'calib', cal);   %#ok<AGROW>
+        pr('%s:  %7s %10s %10s %10s %10s %6s\n', upper(rg), 'field', 'CALIB WFE', 'FP OPD', 'STRICT', 'spot', 'nPass');
+        for q = 1:size(F, 1)
+            pr('       %+7.3f %10.3f %10.3f %10.3f %10.1f %6d\n', (F(q, 1) + 0)*180/pi, cal(q)*1e6, fp(q)*1e6, st(q)*1e6, sp(q), np(q));
+        end
+        [~, oF] = sort(fp);  [~, oS] = sort(st);  [~, oP] = sort(sp);
+        pr('       rank by spot: %s | by STRICT: %s | by FP: %s   (Spearman STRICT~spot %.2f, FP~spot %.2f)\n\n', mat2str(oP), mat2str(oS), mat2str(oF), ...
+           spearman_(st, sp), spearman_(fp, sp));
+    end
+    fclose(fid);
+    S = struct('rows', rows, 'F', F, 'fsys', fs);  save([tag '_tA_EP' sfx '.mat'], 'S');
+end
+
+function r = spearman_(a, b)
+%SPEARMAN_  Rank correlation with average ranks for ties (no toolbox).
+    ra = avgrank_(a(:));  rb = avgrank_(b(:));  r = sum((ra - mean(ra)).*(rb - mean(rb)))/sqrt(sum((ra - mean(ra)).^2)*sum((rb - mean(rb)).^2));
+end
+function r = avgrank_(x)
+    [~, ~, g] = unique(round(x/max(abs(x))*1e9));  r = zeros(size(x));  [~, o] = sort(x);  rk = zeros(size(x));  rk(o) = 1:numel(x);
+    for k = unique(g)', r(g == k) = mean(rk(g == k)); end
+end
+
+function [fp, st, sp, np] = tEP_metrics_(tel, F, Rref)
+%TEP_METRICS_  Per field (rows of F): FP-plane OPD rms, strict reference-sphere OPD rms (about the best-focus point,
+%   radius Rref, rays carried back along their final leg), best-focus rms spot (um), passing rays.
+    nE = numel(tel.spec.elt);  nf = size(F, 1);  fp = nan(1, nf);  st = fp;  sp = fp;  np = zeros(1, nf);
+    for q = 1:nf
+        tel.trace_at_field(F(q, :));  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  ok(1) = false;     % the chief is not in the OPD set (OPD loops iRay = 2..nRay)
+        P = ri.pos(:, ok);  Dd = ri.dir(:, ok)./vecnorm(ri.dir(:, ok));  L = ri.opl(ok);  L = L(:)';  np(q) = nnz(ok);
+        fp(q) = std(L, 1);
+        A = zeros(3);  b = zeros(3, 1);                          % least-squares meeting point of the ray lines
+        for i = 1:size(P, 2), M = eye(3) - Dd(:, i)*Dd(:, i)';  A = A + M;  b = b + M*P(:, i); end
+        xs = A\b;
+        Q = P - xs;  qd = sum(Q.*Dd, 1);  disc = qd.^2 - sum(Q.^2, 1) + Rref^2;
+        tb = qd + sqrt(max(disc, 0));                           % distance back along -d to the sphere |p - t d - x*| = R
+        W = L - tb;  st(q) = std(W, 1);
+        T = Q - Dd.*qd;  sp(q) = sqrt(mean(sum(T.^2, 1)))*1e6;  % rms distance of the rays from x*, transverse to each ray
+    end
+    tel.trace_at_field([]);
+end
 
 function tel = tA_build_(R, t, D, lam, model, b, d)
     tel = macos.design.Telescope('family','TMA','aperture_diameter_m',D,'wavelength_m',lam,'model_size',model);

@@ -329,6 +329,12 @@ function P = dyson5_params(over)
     P.tA_pick        = [];                % [bias_deg dec_m] to force the working point (else: clear, then plate nearest the spec, then chief spread)
     P.tA_suffix      = '';                % record dyson5_tA<suffix>.*
     P.tA_t5e         = true;              % score the stage's deck end to end (t5e, P.tel_dyson) at the end
+    % tEP, ADDENDUM 42: the strict (reference-sphere) metric vs the FP-OPD metric on one section, per field
+    P.tEP_bias_deg   = -4;  P.tEP_dec_m = 0.19;   % the section (the stage-B row of 50ed36b)
+    P.tEP_fsys       = NaN;               % parent F/# (NaN = read from dyson5_tA_B3_1k5_b4d190.mat)
+    P.tEP_R_m        = 1.0;               % reference-sphere radius about each field's best-focus point (m; virtual pupil allowed)
+    P.tEP_rungs      = {'seed', 'B1'};    % the seed (as-is conics) and the stage-B rung re-solved with the FP merit
+    P.tEP_suffix     = '';                % record dyson5_tA_EP<suffix>.*
     % t3s, THE FIRST-ORDER CLEARANCE SCREEN (addendum 21): tma_screen's nine
     % OI_CLEAR pairs evaluated paraxially (engine-free, ms per row) over
     % telescope_seed's family -- solve ONLY rows it passes
@@ -338,7 +344,7 @@ function P = dyson5_params(over)
     P.tel3s_off_max  = 15;                                % addendum 21's offset ceiling for "packages"
     P.tel3s_validate = [0.14 0; 0.14 8; 0.14 10; 0.30 0; 0.30 15];   % [t1 off] seeds checked screen vs engine oi_clear (y2 = P.tel_y2)
     P.tel3s_suffix   = '';                            % record name suffix (dyson5_t3s<suffix>.*)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild), 't5e' (end to end from a telescope deck), 'tA' (TMA stage A: telecentric section) are opt-in
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild), 't5e' (end to end from a telescope deck), 'tA' (TMA stage A: telecentric section), 'tEP' (addendum 42: strict vs FP merit) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)
