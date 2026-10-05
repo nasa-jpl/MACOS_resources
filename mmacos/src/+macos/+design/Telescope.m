@@ -1176,12 +1176,31 @@ classdef Telescope < handle
                     error('macos:design:Telescope:optimize:asphTerms', 'asph_terms must be integers in 1..9.');
                 end
                 nt = max(opts.asph_terms);
+                % The circle must enclose the footprint over EVERY field of
+                % the solve, not the nominal one: sized at the nominal field
+                % alone it clipped the strip edges on dyson5's stage-B
+                % section (M3's 23 mm circle vs a bundle walking 25 mm at
+                % +-4.69 deg: 213 / 91 / 0 of 253 rays at +-1.56 / 3.13 /
+                % 4.69 deg -> CALIB's 9.9999e36 "failed field" sentinel and
+                % a solve that never saw its edges; addendum 40/41).  The
+                % same clipping, milder, sat under tAsphHook's original pin:
+                % 180 / 97 of 253 rays at 30' / 60' on the on-axis parent,
+                % so [55 117 308] nm was the WFE of the SURVIVORS; with every
+                % ray counted the honest h4+h6 optimum there is [496 407 467].
+                % CALIB's zero-coefficient step scales on this radius too
+                % (sag at the circle = 1e-7 |Kr|); measured insensitive: the
+                % doubled M3 circle gives the same solve to 4 digits.
+                if ~isempty(opts.fields)
+                    Fap = [0 0; opts.fields];
+                else
+                    Fap = [0 0; zeros(numel(opts.fields_arcmin), 1), deg2rad(opts.fields_arcmin(:)/60)];
+                end
                 for k = opts.asph_elts
                     a = obj.spec.elt(k).asph;
                     if numel(a) < nt, a(end+1:nt) = 0; end
                     obj.spec.elt(k).asph = a(:).';
                     if isempty(obj.spec.elt(k).ap) && isempty(obj.spec.elt(k).ap_rect)
-                        obj.spec.elt(k).ap = [obj.enclosing_radius_(k), 0, 0];
+                        obj.spec.elt(k).ap = [obj.enclosing_radius_(k, Fap), 0, 0];
                         asph_ap_added(end+1) = k; %#ok<AGROW>
                     end
                 end
@@ -1746,12 +1765,16 @@ classdef Telescope < handle
             if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
         end
 
-        function r = enclosing_radius_(obj, k)
+        function r = enclosing_radius_(obj, k, F)
         %ENCLOSING_RADIUS_  Radius of the vertex-centred circle, in element k's
-        %   plane, that encloses its beam footprint at the nominal field (x1.05).
+        %   plane, that encloses its beam footprint over the fields F ((N,2)
+        %   rad offsets about the bias; default the nominal field) (x1.05).
         %   For an off-axis section this runs from the PARENT vertex to the far
         %   edge of the footprint -- the radius an even-asphere term acts on.
-            B = obj.ray_bundle();
+        %   A multi-field solve must pass ITS fields: the footprint walks with
+        %   the field, and a circle sized at the nominal field clips the edges.
+            if nargin < 3 || isempty(F), F = [0 0]; end
+            B = obj.ray_bundle('fields', F);
             e = obj.spec.elt(k);  n = e.psi(:)/norm(e.psi);  v = e.Vpt(:);
             r = 0;
             for f = 1:numel(B.pos)
