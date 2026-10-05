@@ -2018,6 +2018,9 @@ function S = stage_tFF_(P, tag)
     macos.init(P.tel3_model);
     fid = fopen([tag '_tA_FF' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
     pr('dyson5 tFF -- addendum 44: the freeform ladder on the strict merit (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONSTRUCTION (the way around the emitter''s refused asphere+Zernike co-emit): Surface=FreeForm on M1-M3, two channels on one\n');
+    pr('  surface -- Mon about the parent VERTEX carries the even asphere exactly (held), FF about the section POLE carries the\n');
+    pr('  freeform modes (solved).  Rungs are cumulative and warm-started.\n');
     % ---- R0 and the pole frames
     src = fullfile(here, P.tFF_from);  txt = fileread(src);
     blk = regexp(txt, '\n\s*iElt=', 'split');  blk = blk(2:4);
@@ -2089,6 +2092,8 @@ function r = tFF_resid_(x, idx, nm, A, write_, deck, dirs, apst, stand, nE, Rref
         W = tEP_W_(ri, ok, pc, Rref, 'chief');
         r = [r; wW*std(W, 1); pc - T(:, q)];   %#ok<AGROW>
     end
+    r = r*1e6;   % RESIDUALS IN um: in metres (~1e-4) lsqnonlin's absolute optimality/function tolerances stopped every rung at its
+                 % first Jacobian (R2 2026-10-05: 22 evaluations, nothing moved); the relative row balance is unchanged
 end
 
 function ts = tFF_ts_(dirs, apst, stand, nE)
@@ -2120,6 +2125,7 @@ function tFF_row_(pr, rw, F, Fs)
     pr('   EDGE: strict@chief %.2f / @focus %.2f um, spot %.1f um (%.1f px), T-S %.3f mm; CENTRE spot %.1f um; plate pos err max %.3f mm; K %s\n', ...
        mean(in.stf(e))*1e6, mean(in.st(e))*1e6, mean(in.sp(e)), mean(in.sp(e))/18, mean(rw.ts(1, e) - rw.ts(2, e))*1e3, in.sp(c), max(in.pos_err)*1e3, mat2str(rw.K, 5));
     if rw.rung > 0
+        pr('   FF coefficient norm (all freed modes, M1-M3): %.2f um (Tikhonov watch: modes growing while the edge stalls)\n', norm(rw.C(:))*1e6);
         for k = 1:3, pr('   M%d FF (um at rho=1, lFF %.1f mm): %s\n', k, Fs.Lf(k)*1e3, strjoin(arrayfun(@(m, v) sprintf('Z%d %+.3f', m, v*1e6), Fs.modes(ismember(Fs.modes, rw.free)), rw.C(k, ismember(Fs.modes, rw.free)), 'UniformOutput', false), ' ')); end
     end
 end
@@ -2246,7 +2252,7 @@ function [tel, cal, info] = tEP_strict_solve_(tel, F, f, P, pr, tag, sfx, B1x)
     r0 = fun(x0);
     i0 = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);       % the evaluator at the seed must reproduce the SEED rung's table
     pr('S1 evaluator at the seed (identity with the SEED rows): FP %s um; STRICT(focus) %s um\n', sprintf('%.3f ', i0.fp*1e6), sprintf('%.3f ', i0.st*1e6));
-    pr('S1 (strict-merit lsqnonlin): 9 DOF [K1 K2 K3 | h4 h6 on M1 M2 M3], sphere %.2f m about the %s; ray heights %s mm; seed cost %.4e\n', ...
+    pr('S1 (strict-merit lsqnonlin): 9 DOF [K1 K2 K3 | h4 h6 on M1 M2 M3], sphere %.2f m about the %s; ray heights %s mm; seed cost %.4e um^2\n', ...
        P.tEP_R_m, P.tEP_center, mat2str(round(h*1e3, 1)), sum(r0.^2));
     o = optimoptions('lsqnonlin', 'Display', 'off', 'MaxFunctionEvaluations', P.tEP_maxfev, 'MaxIterations', 200, ...
                      'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10);
@@ -2295,6 +2301,7 @@ function r = tEP_resid_(x, K0, sc, write_, deck, dirs, apst, stand, nE, Rref, ct
         W = tEP_W_(ri, ok, pc, Rref, ctr);
         r = [r; wW*std(W, 1); wpos*(pc - T(:, q))];   %#ok<AGROW> CALIB's balance: sum over 254 rays of OPD^2 = 254 rms^2
     end
+    r = r*1e6;   % in um: in metres the absolute tolerances stopped the solve early (found on tFF R2, 2026-10-05)
 end
 
 function W = tEP_W_(ri, ok, pc, Rref, ctr)
