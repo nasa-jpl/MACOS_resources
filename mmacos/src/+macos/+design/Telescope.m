@@ -854,7 +854,11 @@ classdef Telescope < handle
             px = px - dot(px,d0)*d0;  px = px / norm(px);
             macos.set_src_fov('src_dir', ...      % off-axis field first ...
                 d0*cos(opts.field_rad) + px*sin(opts.field_rad));
-            macos.stop(opts.stop_elt);            % ... then aim chief ray thru stop
+            if opts.stop_elt == 1
+                obj.stop_at_apstop_();            % ... then aim the chief through the DECK's stop: on an eccentric
+            else                                  % section a bare stop(1) aims at the PARENT vertex (dyson5 add. 42)
+                macos.stop(opts.stop_elt);
+            end
             macos.trace(nE);
             f = macos.fex(opts.mode);
             macos.set_src_fov('src_dir', cur.src_dir);   % restore on-axis
@@ -1304,8 +1308,10 @@ classdef Telescope < handle
             if use_ep
                 % design_optim.F:170-180 aborts the solve unless the system
                 % stop is set before CALIB is entered; smacos_compute.inc:279
-                % then re-issues it per evaluation.
-                macos.stop(1);
+                % then re-issues it per evaluation.  At the DECK's ApStop
+                % (object space), not a bare stop(1): on an eccentric section
+                % that aims every iterate at the parent vertex (dyson5 add. 42).
+                obj.stop_at_apstop_();
             end
             if ~isempty(opts.beam_pos_fov)
                 % per-field image-position rows on the WFE target (engine beam
@@ -2883,6 +2889,17 @@ classdef Telescope < handle
             B = [ones(size(x)), x, y, (2*(x.^2+y.^2)-1)];   % piston+tilt+defocus
             c = B \ w;
             rms = std(w - B*c);                             % metres
+        end
+
+        function stop_at_apstop_(obj)
+        %STOP_AT_APSTOP_  Set the system stop at the deck's own ApStop point, in object space -- the point build()
+        %   writes to the header, (0, aperture_decenter, 0).  On a coaxial deck that is M1's vertex, the point a bare
+        %   macos.stop(1) used; on an eccentric section (set_offaxis) a bare stop(1) re-aims the chief at the PARENT
+        %   vertex, off the beam, and FEX / OptFEX then serve a different telescope (dyson5 addendum 42, 2026-10-05).
+        %   Gate: tStopApStop.
+            apdy = 0;
+            if isfield(obj.spec, 'aperture_decenter'), apdy = obj.spec.aperture_decenter; end
+            macos.stop_obj(0, apdy, 0);
         end
 
         function resolve_section_poles_(obj)
