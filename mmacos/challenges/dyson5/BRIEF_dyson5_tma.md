@@ -955,3 +955,50 @@ PASS), NOT re-scored** -- the engine join has no chain body model; the
 vertices and poles are unchanged and the FF sag over the lit patches is at
 most 19 / 167 / 78 um (p-v 31 / 299 / 125 um) on M1 / M2 / M3, from an
 ANSI evaluator checked against the engine (M1 hit shift, corr 0.998).
+
+## Addendum 44 (TO, 2026-10-05): the freeform ladder -- 3k
+
+Section -4 deg / 180 mm on the m2 = 3.0 telecentric parent (F/1.7135
+calibrated to 330 mm, clear +4.1 mm; `dyson5_tA_pz_3k_m30`), R0 = its B1
+aspheric rung (`dyson5_tA_EP_3k_m30`), the same two-channel FreeForm, strict
+merit + position rows, **Levenberg-Marquardt + ScaleProblem 'jacobian' from
+the start**, 3000 evaluations per rung (every rung at the cap).  Records
+`dyson5_tA_FF_3k*`; end to end `dyson5_t5f_FF_3k_R4*`; the engine-join gate
+on the 3k aspheric deck `dyson5_t5f_gate_3k` == `dyson5_t5e_tA_EP_3k_m30_B1`
+to every printed digit.
+
+| rung | best-focus spot per field, centre / +-1.56 / +-3.13 / +-4.69 deg (um) | strict@chief field-rms / max (um) | edge T-S | coef. norm |
+|---|---|---|---|---|
+| R0 (B1) | 68 / 132 / 486 / 1086 | 65.4 / 111.0 | -8.9 mm | -- |
+| R1 {4,6} | 470 / 388 / 289 / 806 | 47.7 / 73.2 | -6.0 | 524 um |
+| R2 +{7-10} | 460 / 382 / 290 / 794 | 46.0 / 68.8 | -6.3 | 574 |
+| R3 +{5,13,25} | 350 / 342 / 286 / 729 | 36.9 / 52.8 | -5.6 | 622 |
+| R4 +{11,12,14,15} | **190 / 192 / 174 / 485** | **19.1 / 29.2** | **-2.8** | 753 |
+
+(1.5k for the same columns: R0 29/56/141/291 um, field-rms/max 16.7/27.9 ->
+R4 under LM 73/77/94/170 um, 7.7/11.5 um, norm 161 um.)
+
+**Readings.**  (1) R1 on BOTH modules is field FLATTENING by trade, not
+astigmatism removal -- on 3k the centre pays x7 (68 -> 470 um) for 26 % of edge;
+CC's field-quadratic prediction ("R1 moves the 3k edge even less") does not
+hold.  (2) On 3k the ladder has NOT stalled: R4's {11,12,14,15} buy -33 % of
+edge (729 -> 485 um, 26.9 px) and the field is flat to 172-193 um inside
++-3.13 deg; the coefficient norm grows WITH the edge improving (not the
+Tikhonov signature yet).  The next order (R5) is in play on 3k.  (3) Every rung
+at the cap; first-order optimality ~1.6e6 -- not converged.
+
+**End to end (engine join, roll 180, `size:F:240`):**
+
+| deck | smile | keystone | CRF | SRF | plate local / edge | grating admits | swath on slit |
+|---|---|---|---|---|---|---|---|
+| B1 aspheric (t5e == t5f) | 7.71 | 1.20 | 15.7 | 11.8 | 328.1 / 321.7 | 0.982 | 100 % |
+| **R4 freeform** | **4.57** | **0.76** | **15.1** | **15.1** | **317.1 / 330.9** | **0.984** | **99.5 %** |
+
+Smile and keystone improve; CRF stays at the edge-blur level (485 um is still
+27 px); SRF worsens (the same field-flattening trade); the local plate scale
+drifts to 317 mm (-3.9 %).  **Clearance: B1's (+0.43 mm overall PASS;
+telescope-internal +1.33 mm with the mount) carried over, NOT re-scored -- and
+on 3k it is NOT defended**: the FF sag over the lit patches reaches 0.23 /
+0.51 / 0.75 mm (p-v 0.35 / 0.89 / 1.23 mm) on M1 / M2 / M3, comparable to the
+1.33 mm telescope-internal margin.  The 3k clearance needs a body model of the
+freeform surfaces (the chain extension, option i) before it is a number.

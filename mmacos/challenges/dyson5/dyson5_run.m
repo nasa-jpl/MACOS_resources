@@ -2127,7 +2127,8 @@ end
 function tFF_row_(pr, rw, F, Fs)
     in = rw.info;  e = [2 7];  c = 1;
     pr('\nR%d (free %s): ', rw.rung, mat2str(rw.free));
-    if rw.rung > 0, pr('lsqnonlin exitflag %d, %d evaluations, %.0f s\n', rw.ef, rw.nfev, rw.sec); else, pr('the reference (R0'' == R0, 7.8e-15 m)\n'); end
+    if rw.rung > 0, pr('lsqnonlin exitflag %d, %d evaluations, %.0f s\n', rw.ef, rw.nfev, rw.sec);
+    else, pr('the reference: R0'' (FreeForm, FF = 0) re-traced; its per-field spots must equal the source deck''s (1.5k gate: rays to 7.8e-15 m)\n'); end
     pr('   %7s %11s %11s %10s %10s %10s %6s %8s %8s\n', 'field', 'strict@chf', 'strict@foc', 'spot bf', 'spot asplc', 'FP OPD', 'nPass', 'T mm', 'S mm');
     for q = 1:size(F, 1)
         pr('   %+7.3f %11.3f %11.3f %10.1f %10.1f %10.3f %6d %+8.3f %+8.3f\n', F(q, 1)*180/pi, in.stf(q)*1e6, in.st(q)*1e6, in.sp(q), in.sa(q), in.fp(q)*1e6, in.np(q), rw.ts(1, q)*1e3, rw.ts(2, q)*1e3);
