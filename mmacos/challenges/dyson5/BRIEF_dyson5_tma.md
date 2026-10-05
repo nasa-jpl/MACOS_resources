@@ -1079,3 +1079,70 @@ smaller position-row weight, would hold the centre (and its SRF) at the edges'
 expense.  Which the strip must deliver where -- Jim's pixel spec applies at
 the centre as much as at the edge -- is your call, and it sets the next rung's
 merit on both modules.
+
+## Addendum 45 (TO, 2026-10-05): the transverse metric and the geometry lever -- (a), the control a0, (b)
+
+Stage `tGM` (dyson5_run.m), records `dyson5_tA_GM_<module>_<run>.*` (+ `_rs` = report-only re-scores on the final body
+model), e2e `dyson5_t5f_GM_*`, conic fits `dyson5_tA_GM_conicfit.txt`.  Every run warm from R4 (1.5k: the LM rung; 3k: the
+R4 rung of `dyson5_tA_FF_3k`), the same two-channel FreeForm DOFs (3 conics + 13 FF modes x 3), LM + ScaleProblem
+'jacobian', 3000 evaluations, EQUAL field weights.  Commits (resources, dev-candidate, LOCAL): c26e7c5 (tooling), 72a907d
+(records + body fix), 3752678 / be5cef6 (conic fit).
+
+**Gates, every run (in each record's head).**  (1) the warm state re-traced == its record, to 0.00 um.  (2) the rigid-body
+move is applied to the deck TEXT (M2/M3 in their TElt = pole frame, about the pole; FP along its normal) and checked against
+`macos.perturb` on the same element: 5.1e-7 m at the test move, 5.1e-8 m at a tenth of it -- second order, i.e. only the two
+rotation compositions differ; pivot and frame agree.  (3) the LIVE clearance (below) on the R0 aspheric deck == t5e's chain
+record to <= 0.01 mm on every Dyson entry and on the binding telescope pair (9.48 vs 9.46 mm).
+
+**The residuals.**  (a) SPOT: per field every passing ray's in-plane offset from the field's centroid ON THE DETECTOR as
+placed, sqrt(254/N) per field (CALIB's SPOT-row balance at beam_wt 1), + the chief's 2 in-plane position rows, um.  a0 (the
+CONTROL, added because R4's strict solve had ONE rms row per field -- 28 rows for 42 DOFs): the strict reference-sphere OPD
+about the chief's detector intercept as PER-RAY rows, same balance, same position rows, same seed and budget.  (b) = (a) +
+M2/M3 rigid body (rx ry rz mrad, dx dy dz mm) + FP focus, warm from (a).
+
+Spots best focus / AS PLACED, centre / edge, um; e2e (engine join re-placed per deck, roll 180) smile / keystone / CRF /
+SRF px; plate local / edge mm.
+
+| | 1.5k spots | 1.5k e2e | plate | 3k spots | 3k e2e | plate |
+|---|---|---|---|---|---|---|
+| R4 | 73/170 / 99/219 | 0.82 / 0.33 / 7.7 / 9.2 | 324.1/330.3 | 190/487 / 216/690 | 4.57 / 0.76 / 15.1 / 15.1 | 317.1/330.9 |
+| a0 per-ray STRICT | 33/60 / 60/74 | 1.38 / 0.04 / 3.74 / 3.73 | 328.3/330.4 | 246/376 / 378/478 | **43.7** / 1.01 / 15.5 / 15.4 | 326.6/330.8 |
+| (a) SPOT | 17/25 / 18/27 | 1.54 / 0.03 / 2.34 / 4.46 | 325.2/329.8 | 67/102 / 73/108 | 5.48 / 0.12 / 10.9 / 5.06 | 313.4/328.1 |
+| **(b) SPOT + geometry** | **6/13 / 6/13** | **0.60 / 0.02 / 1.49 / 2.30** | 327.0/330.6 | **25/40 / 27/41** | **2.11 / 0.13 / 8.26 / 3.88** | 322.1/330.7 |
+
+**The control is the key sentence.**  On 1.5k the per-ray ROW FORM moved most of it (R4 170 -> a0 60 um at the edge) and the
+SPOT metric the rest (-> 25 um; CRF 3.74 -> 2.34, though a0's SRF 3.73 beats (a)'s 4.46).  On 3k the per-ray strict control
+does NOT reproduce (a) (edge 376 um, centre WORSE than R4, smile 43.7 px): the METRIC moved 3k.  So R4 was solver-limited on
+1.5k and metric-limited on 3k; neither number in the "For Dave" section was the construction's optimum.  None of these runs
+converged (first-order optimality 1e5-7e6 at the cap) -- lower bounds again.
+
+**(b) is a new layout, not a trim.**  Solved (pole frame, about the pole): 1.5k M2 rx -88 mrad, M3 rx -190 mrad (11 deg), M3
+decenter -13.8 / -10.0 mm (y / z), FP +1.68 mm; 3k M2 rx +70 mrad, M3 rx -285 mrad (16 deg), M3 -31.2 / -18.1 mm, FP -13.24
+mm.  Bauer's diagnostic, the FF norm (a) -> (b): 1636 -> 1499 um on 1.5k (SHRINKS 8 %: the geometry took burden), 3644 -> 4840
+um on 3k (GROWS 33 %: the two fight -> (c'), the stop at M2, is indicated for 3k).
+
+**What the surfaces are (CC's ask).**  FF channel over the LIT patch (engine hits, 7 fields, in the solved pole frame), max
+|sag| / p-v um / max slope mrad, M1 M2 M3:
+- 1.5k R4 11/21/0.6, 94/133/4.0, 26/53/10.0; (a) 143/283/6.5, 1314/1502/61, 286/544/38; (b) 93/176/2.9, 1453/2219/67, 166/299/23; a0 299/466/6.2, 636/957/50, 666/1190/50
+- 3k R4 179/273/6.6, 367/717/32, 578/921/46; (a) 367/526/14, 1275/2150/56, 1371/2682/122; (b) 651/1231/26, 1746/3344/126, 3784/5502/173; a0 446/888/23, 2118/3960/185, 2720/2899/167
+(Correction: the "For Dave" section's R4 1.5k FF sag 19/167/78 um came from a full-disc grid; over the lit hits it is 11/94/26.)
+Then `dyson5_conicfit`: a conic of FREE vertex, axis, R, K (+ h4/h6 about that vertex) fitted to the mirror's real lit
+surface (gate: the B1 aspheric deck reproduced to <= 0.11 um rms).  Residual after the re-fit, p-v um / slope mrad:
+**1.5k (b): 11 / 0.4, 17 / 1.7, 10 / 2.8 -- an OFF-AXIS ASPHERIC TMA**; the 1.45 mm "freeform" on M2 is a re-fitted conic
+(R 0.120 -> 0.090 m, axis 56 mrad).  1.5k (a) 27-55 um p-v, R4 8-11 um: asphere-like too.  1.5k a0 77-359 um and every 3k
+solve (a 18/219/561, a0 123/811/328, R4 75/425/272; (b) M1 41, M3 839 um, M2 no physical conic within reach) are GENUINE
+freeforms.  So on 1.5k the transverse metric + geometry found an aspheric off-axis solution; the strict wavefront found a
+freeform one.
+
+**Clearance (live, every deck).**  `dyson5_t5f` now runs `spectrometer_clearance` VERBATIM on the joined engine deck: the
+bundle and footprints from ENGINE rays (3 fields x 3 wavelengths, grating-stopped launches), the telescope bodies at the
+engine's (moved) vertices.  Two defects found building it: (1) the engine's 41-point circular grid is a lattice clipped by the
+circle -- its edge rays sit up to a spacing inside the aperture, which read the binding pair 3.4 mm optimistic; the clearance
+bundle is traced on a 201 grid with the aperture edge-matched.  (2) the chain lifts a conic body onto its BASE sphere, which on
+these eccentric sections drops the conic (M1's lit patch departs ~20 mm from it); the live gate puts each telescope body on the
+best-fit sphere of its own lit hits and prints the residual (M1 1.8-2.7, M2 0.4-2.7, M3 0.02-1.13 mm).  On B1 the binding pair
+does not move (9.48 vs 9.46), so earlier records stand on that pair.  Telescope-internal worst with the 5 mm mount:
+- R4 1.5k **+6.78** mm, 3k **+6.35** (the "For Dave" carry-over from B1, +9.46 / +7.35, was 2.7 / 1.0 mm optimistic -- PASS)
+- 1.5k: a0 +11.3, (a) +14.7, **(b) +30.3** (overall min +0.38 = the Dyson's own package): DEFENDED
+- 3k: a0 +8.4, **(a) +0.28 mm against an M3 body residual of 0.37 mm: UNDEFENDED**; (b) +22.1 telescope-internal, overall
+  **+0.06 mm** (the TelM2 -> TelM3 leg vs the Dyson's BlockFaceIn, a ray leg vs a precise body): a marginal PASS.
