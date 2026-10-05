@@ -92,17 +92,20 @@ if ~o.draw, return; end
 
 % ---- the figure: the engine's own traces of both channel decks ---------
 macos.init(o.MODEL);
-purple = [124 58 237]/255;  orange = [237 161 0]/255;  ink = [11 11 11]/255;
+ink = [11 11 11]/255;
 f = figure('Color', 'w', 'Position', [40 40 1800 1010], 'Visible', 'off');
 tl = tiledlayout(f, 4, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
 ax1 = nexttile(tl, [1 1]);  ax2 = nexttile(tl, [3 1]);
 E = out.A.bench.E;  Eb = out.B.bench.E;
 passive = find(strcmp({E.element}, 'Reference'));          % the mask spheres, the mask, the recomb plane: not hardware
+% the deck-wide leg convention (dmg_leg_draw, Dave 2026-10-05): source -> splitter
+% red, splitter -> DM and back blue, splitter -> camera green -- both channel
+% decks, so the two camera legs are both green and the cube body tells them apart
 for c = 1:2
     macos.load_rx(out.(cams{c}).deck);
-    col = purple;  if c == 2, col = orange; end
-    macos.view_rx('ax', ax1, 'ray_color', col, 'title', '', 'labels', false, 'hide', passive);
-    macos.view_rx('ax', ax2, 'ray_color', col, 'title', '', 'labels', false, 'hide', passive);
+    Ec = out.(cams{c}).bench.E;
+    dmg_leg_draw(ax1, Ec, 'test');
+    dmg_leg_draw(ax2, Ec, 'test');
 end
 % the cube body: a square about the diagonal's centre, sides along the chief and the reflected port
 cc = E(out.A.iPBS(2)).vpt;  dA = E(out.A.iFL).psi;  dB = Eb(out.B.iCAM).psi;  h = o.cube_side/2;
@@ -110,7 +113,7 @@ sq = [cc + h*(-dA - dB), cc + h*(dA - dB), cc + h*(dA + dB), cc + h*(-dA + dB), 
 plot3(ax2, sq(1,:), sq(2,:), sq(3,:) + 0.1, '-', 'Color', [82 81 78]/255, 'LineWidth', 1.2);
 % top: the whole train, from above the fold plane
 axes(ax1);  axis(ax1, 'equal');  view(ax1, 0, 90);  axis(ax1, 'off');
-title(ax1, 'The vector Zernike sensor: the interferometer''s test arm, the metasurface in the mask seat, and the split behind the field lens (purple: channel A, transmitted; orange: channel B, reflected)', ...
+title(ax1, 'The vector Zernike sensor: the test arm (blue), the metasurface in the mask seat, and the split behind the field lens to channel A (transmitted) and channel B (reflected), both camera legs green', ...
     'Color', ink, 'FontWeight', 'normal', 'FontSize', 13);
 % bottom: the tail, mask to cameras, from above; element labels
 axes(ax2);  axis(ax2, 'equal');  view(ax2, 0, 90);
