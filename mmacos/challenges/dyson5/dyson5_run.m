@@ -131,6 +131,7 @@ function OUT = dyson5_run(over)
             case 't3e', OUT.t3e = stage_t3e_(P, tag);
             case 't4',  OUT.t4  = stage_t4_(P, tag);
             case 't5e', OUT.t5e = stage_t5e_(P, tag);
+            case 'tA',  OUT.tA  = stage_tA_(P, tag);
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
@@ -1717,6 +1718,184 @@ function PM = t5e_pupil_(GT, GE, GD, ME, Dd, fov, ta, nf, pr)
     pr('  (fields beyond +-%.3f deg land OFF the slit: their admitted fraction is to the FPA through an unmasked slit plane)\n', ta*180/pi);
     PM = struct('table', T, 'cols', {{'field_deg','x_slit_mm','tel_x_deg','tel_y_deg','tel_pupil_mm','dys_x_deg','dys_y_deg', ...
                 'dys_pupil_mm','dang_deg','miss_grating_mm','admit','on_slit'}}, 'lost_at', {lostAt}, 'grating_r_m', rG);
+end
+
+function S = stage_tA_(P, tag)
+%STAGE_TA_  TMA stage A (BRIEF_dyson5_tma.md): the eccentric section of the TELECENTRIC Korsch parent, first order first.
+%   (1) the parent: tma_layout(D, 1.0, F, 'secondary_mag', 3.5, 'int_focus_m', -0.125 D, 'telecentric', true), M1 the stop;
+%   (2) the SCAN, as is (no figure): per (bias, decenter) Telescope.check_clipping and the three first-order numbers from
+%       the engine -- the spread of the chief directions across the strip about the centre chief (deg), where the edge chief
+%       crosses the centre chief's line (the exit pupil, m from the FP hit, + = beyond the FP), and the traced plate scale
+%       (local, +-0.02 deg about the bias, and to the strip edge); the common tilt of the section's chiefs to the parent FP
+%       normal is atan(decenter/f), about the slit axis -- not a telecentricity error;
+%   (3) the working point: clear, then plate scale nearest the spec, then the smallest chief spread (or P.tA_pick);
+%   (4) the parent EFL CALIBRATED so the SECTION's local plate scale at the working point is the spec -- a first-order
+%       knob, re-solving the telecentric M3 each pass -- with the clearance and the three numbers re-read;
+%   (5) the step-2 conic ladder on the result (P.tA_rungs), each rung with the three numbers, the spot and clearance;
+%   (6) the deck of the last clear rung emitted and scored end to end through t5e (pupil table + informative row).
+    here = fileparts(mfilename('fullpath'));
+    npx = P.tel_npix_xt;  if isnan(npx), npx = P.npix(1); end
+    ifov = P.tel_gsd_m/P.tel_alt_m;  f = P.pixel_m/ifov;  D = f/P.Fno;  sfx = P.tA_suffix;  lam = 633e-9;
+    hs = P.tA_strip_half_deg;  if isnan(hs), hs = npx*ifov/2*180/pi; end
+    fx = linspace(-hs, hs, P.tA_nfield)*pi/180;
+    macos.init(P.tel3_model);
+    fid = fopen([tag '_tA' sfx '.txt'], 'w');  pr = @(varargin) dualprint_(fid, varargin{:});
+    pr('dyson5 tA -- TMA stage A: the eccentric section of the TELECENTRIC Korsch parent, first order before figure (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
+    pr('CONVENTIONS: f spec %.1f mm (pixel %.0f um / IFOV %.2f urad), D %.1f mm (F/%.1f), strip +-%.3f deg (%d px), lambda %.0f nm, model %d.\n', ...
+       f*1e3, P.pixel_m*1e6, ifov*1e6, D*1e3, P.Fno, hs, npx, lam*1e9, P.tel3_model);
+    pr('  parent: tma_layout(D, 1.0, F, ''secondary_mag'', 3.5, ''int_focus_m'', -0.125 D, ''telecentric'', true) -- M1 the stop, M3 between\n');
+    pr('  M2 and M1 (the virtual-intermediate-image Korsch).  Section: Telescope.set_field_bias(bias) + set_offaxis(''none'',''dist'',d).\n');
+    pr('  THE THREE NUMBERS (engine, the chief ray per strip field): SPREAD = max angle of a field''s chief to the centre chief (deg;\n');
+    pr('  0 = telecentric); PUPIL = where the edge chief crosses the centre chief''s line, m from the FP hit (+ beyond the FP; Inf =\n');
+    pr('  telecentric); PLATE = traced scale, local (+-0.02 deg about the bias) / to the strip edge (offset / tan).  TILT = the common\n');
+    pr('  angle of the section''s chiefs to the parent FP normal (= atan(d/f) on the parent; about the slit axis, harmless).\n');
+    pr('  CLEAR = Telescope.check_clipping (body-in-beam + footprint margin), min margin and the element.  SPOT = best-focus rms\n');
+    pr('  radius per field (step 1''s helper), um.\n\n');
+    fsys = P.Fno;
+    [R, t, info] = macos.design.tma_layout(D, 1.0, fsys, 'secondary_mag', 3.5, 'int_focus_m', -0.125*D, 'telecentric', true);
+    pr('PARENT: R = [%.4f %.4f %.4f] m, t = [%.4f %.4f] m, M3 z %.4f m, EFL %.4f m, paraxial chief exit slope %.1e\n\n', R, t, info.m3_z, info.EFL, info.chief_exit_slope);
+    % ---- (2) the scan, as is
+    pr('SCAN (as is, no figure):\n  %6s %6s | %-6s %8s %-5s | %7s %8s | %8s %8s | %6s\n', 'bias', 'dec mm', 'clear', 'margin', 'at', 'spread', 'pupil m', 'plate', 'edge', 'tilt');
+    rows = struct('b', {}, 'd', {}, 'ok', {}, 'cmin', {}, 'cat', {}, 'spread', {}, 'pupil', {}, 'plate', {}, 'edge', {}, 'tilt', {});
+    for b = P.tA_bias_deg
+        for d = P.tA_dec_m
+            try
+                tel = tA_build_(R, t, D, lam, P.tel3_model, b, d);
+                [ok, cmin, cat] = tA_clear_(tel);
+                N = tA_numbers_(tel, fx);
+                rows(end+1) = struct('b', b, 'd', d, 'ok', ok, 'cmin', cmin, 'cat', cat, 'spread', N.spread, 'pupil', N.pupil, ...
+                                     'plate', N.plate, 'edge', N.edge, 'tilt', N.tilt);   %#ok<AGROW>
+                pr('  %+6.1f %6.0f | %-6s %+8.1f %-5s | %7.3f %+8.3f | %8.1f %8.1f | %6.2f\n', b, d*1e3, tern_(ok, 'PASS', 'FAIL'), cmin*1e3, cat, ...
+                   N.spread, N.pupil, N.plate*1e3, N.edge*1e3, N.tilt);
+            catch e
+                pr('  %+6.1f %6.0f | FAILED: %s\n', b, d*1e3, regexprep(e.message, '\s+', ' '));
+            end
+        end
+    end
+    % ---- (3) the working point
+    if ~isempty(P.tA_pick)
+        k = find(abs([rows.b] - P.tA_pick(1)) < 1e-9 & abs([rows.d] - P.tA_pick(2)) < 1e-9, 1);
+        assert(~isempty(k), 'dyson5 tA: the forced pick %s is not in the scan', mat2str(P.tA_pick));
+    else
+        cand = find([rows.ok]);
+        assert(~isempty(cand), 'dyson5 tA: no (bias, decenter) in the scan clears -- widen tA_bias_deg / tA_dec_m');
+        sc = abs([rows(cand).plate] - f)/f*1e3 + [rows(cand).spread];   % 1 per mille of plate ~ 1 deg of spread
+        [~, j] = min(sc);  k = cand(j);
+    end
+    w = rows(k);
+    pr('\nWORKING POINT: bias %+.1f deg, decenter %.0f mm -- %s %+.1f mm (%s); spread %.3f deg, pupil %+.3f m, plate %.1f / %.1f mm (spec %.1f)\n', ...
+       w.b, w.d*1e3, tern_(w.ok, 'PASS', 'FAIL'), w.cmin*1e3, w.cat, w.spread, w.pupil, w.plate*1e3, w.edge*1e3, f*1e3);
+    pr('  first-order residual before calibration: plate %+.1f %% of spec (the section''s local magnification at the bias)\n\n', 100*(w.plate/f - 1));
+    % ---- (4) parent-EFL calibration at the working point
+    pr('CALIBRATION (parent F/# so the SECTION''s local plate scale = spec; the telecentric M3 re-solved each pass%s):\n', ...
+       tern_(P.tA_cal_solved, '; plate read on the STRIP-SOLVED section', ''));
+    fields_full = [fx(fx ~= 0).' zeros(nnz(fx ~= 0), 1)];
+    plate = w.plate;
+    if P.tA_cal_solved
+        tel = tA_build_(R, t, D, lam, P.tel3_model, w.b, w.d);
+        tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters);  tel.build();
+        N = tA_numbers_(tel, fx);  plate = N.plate;
+        pr('  pass 0: parent F/%.4f, strip-solved section -> plate %.1f / %.1f mm\n', fsys, N.plate*1e3, N.edge*1e3);
+    end
+    best = struct('err', abs(plate - f)/f, 'fsys', fsys, 'R', R, 't', t, 'info', info);
+    for it = 1:P.tA_cal_iters
+        if abs(plate - f)/f < P.tA_plate_tol, break, end
+        fsys = fsys*f/plate;
+        [R, t, info] = macos.design.tma_layout(D, 1.0, fsys, 'secondary_mag', 3.5, 'int_focus_m', -0.125*D, 'telecentric', true);
+        tel = tA_build_(R, t, D, lam, P.tel3_model, w.b, w.d);
+        if P.tA_cal_solved, tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters);  tel.build(); end
+        N = tA_numbers_(tel, fx);  plate = N.plate;
+        [ok, cmin, cat] = tA_clear_(tel);
+        pr('  pass %d: parent F/%.4f (EFL %.4f m), R = [%.4f %.4f %.4f], t = [%.4f %.4f] -> plate %.1f / %.1f mm, spread %.3f deg, pupil %+.3f m, %s %+.1f mm (%s)\n', ...
+           it, fsys, info.EFL, R, t, N.plate*1e3, N.edge*1e3, N.spread, N.pupil, tern_(ok, 'PASS', 'FAIL'), cmin*1e3, cat);
+        if abs(plate - f)/f < best.err, best = struct('err', abs(plate - f)/f, 'fsys', fsys, 'R', R, 't', t, 'info', info); end
+    end
+    if abs(plate - f)/f > best.err      % a bistable solved section can leave the loop on the worse branch: keep the BEST pass
+        fsys = best.fsys;  R = best.R;  t = best.t;  info = best.info;
+        pr('  kept the best pass: parent F/%.4f, plate error %.2f %%\n', fsys, 100*best.err);
+    end
+    % ---- (5) the step-2 conic ladder on the calibrated parent
+    pr('\nLADDER (calibrated parent, bias %+.1f deg, decenter %.0f mm; conics only, CALIB WFE over the strip):\n', w.b, w.d*1e3);
+    pr('  %-6s | %-6s %8s %-5s | %7s %8s | %8s %8s | %s\n', 'rung', 'clear', 'margin', 'at', 'spread', 'pupil m', 'plate', 'edge', 'best-focus rms spot per field (um)');
+    fields_half = fields_full(abs(fields_full(:, 1)) <= hs*pi/180/2 + 1e-12, :);
+    L = struct('rung', {}, 'ok', {}, 'N', {}, 'spot', {}, 'K', {}, 'deck', {});
+    for rung = P.tA_rungs
+        tel = tA_build_(R, t, D, lam, P.tel3_model, w.b, w.d);
+        switch rung
+            case 0, nm = 'as-is';
+            case 1, nm = 'inner';  tel.optimize('fields', fields_half, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters);
+            case 2, nm = 'strip';  tel.optimize('fields', fields_full, 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters);
+        end
+        tel.build();
+        [ok, cmin, cat] = tA_clear_(tel);  N = tA_numbers_(tel, fx);  sp = tA_spot_(tel, fx);
+        deck = sprintf('%s_tA%s_%s.in', tag, sfx, nm);  tel.save(deck);
+        L(end+1) = struct('rung', nm, 'ok', ok, 'N', N, 'spot', sp, 'K', [tel.spec.elt(1:3).Kc], 'deck', deck);   %#ok<AGROW>
+        pr('  %-6s | %-6s %+8.1f %-5s | %7.3f %+8.3f | %8.1f %8.1f | %s  (max %.1f um = %.1f px)\n', nm, tern_(ok, 'PASS', 'FAIL'), cmin*1e3, cat, ...
+           N.spread, N.pupil, N.plate*1e3, N.edge*1e3, sprintf('%.1f ', sp), max(sp), max(sp)/(P.pixel_m*1e6));
+        pr('         K = %s; deck %s\n', mat2str([tel.spec.elt(1:3).Kc], 4), deck);
+    end
+    fclose(fid);
+    S = struct('parent', struct('R', R, 't', t, 'fsys', fsys, 'info', info), 'scan', rows, 'work', w, 'ladder', L, 'f_spec', f, 'strip_half_deg', hs);
+    save([tag '_tA' sfx '.mat'], 'S');
+    % ---- (6) end to end through t5e on the last CLEAR rung (else the last rung)
+    if P.tA_t5e
+        j = find([L.ok], 1, 'last');  if isempty(j), j = numel(L); end
+        Pe = P;  Pe.tel5e_deck = L(j).deck;  Pe.tel5e_suffix = sprintf('_tA%s_%s', sfx, L(j).rung);
+        S.t5e = stage_t5e_(Pe, tag);
+        save([tag '_tA' sfx '.mat'], 'S');
+    end
+end
+
+function tel = tA_build_(R, t, D, lam, model, b, d)
+    tel = macos.design.Telescope('family','TMA','aperture_diameter_m',D,'wavelength_m',lam,'model_size',model);
+    tel.add_mirror('M1','radius_m',R(1),'spacing_after_m',t(1));
+    tel.add_mirror('M2','radius_m',R(2),'spacing_after_m',t(2),'convex',true);
+    tel.add_mirror('M3','radius_m',R(3),'spacing_after','derive');
+    tel.add_focal_plane('FP');  tel.build();
+    if b ~= 0, tel.set_field_bias(b*60); end                  % ARCMIN
+    tel.set_offaxis('none', 'dist', d);  tel.build();
+end
+
+function [ok, cmin, cat] = tA_clear_(tel)
+    rep = tel.check_clipping('quiet', true);  ok = all([rep.ok]);
+    [cmin, i] = min([rep.clearance]);  cat = rep(i).name;
+end
+
+function N = tA_numbers_(tel, fx)
+%TA_NUMBERS_  The three first-order numbers on the built section (engine chief rays at the FP).
+    nE = numel(tel.spec.elt);  n = tel.spec.elt(nE).psi(:);  n = n/norm(n);  nf = numel(fx);  i0 = find(fx == 0, 1);
+    Pp = nan(3, nf);  Dd = Pp;
+    for i = 1:nf
+        tel.trace_at_field([fx(i) 0]);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+        Pp(:, i) = ri.pos(:, 1);  Dd(:, i) = ri.dir(:, 1)/norm(ri.dir(:, 1));
+    end
+    th = 0.02*pi/180;
+    tel.trace_at_field([th 0]);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);  pa = ri.pos(:, 1);
+    tel.trace_at_field([-th 0]);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);  pb = ri.pos(:, 1);
+    tel.trace_at_field([]);
+    d0 = Dd(:, i0);  M = [d0, -Dd(:, end)];  st = M\(Pp(:, end) - Pp(:, i0));
+    N.pupil = st(1);  if cond(M) > 1e10, N.pupil = Inf; end
+    N.spread = max(acosd(min(1, d0'*Dd)));
+    N.plate = norm(pa - pb)/(2*tan(th));  N.edge = norm(Pp(:, end) - Pp(:, i0))/tan(fx(end));
+    N.tilt = acosd(abs(d0'*n));  N.dirs = Dd;  N.pos = Pp;
+end
+
+function sp = tA_spot_(tel, fx)
+%TA_SPOT_  Best-focus rms radius about the centroid per field, um (CC/CCMac step-1 helper, the transverse-ray form).
+    nE = numel(tel.spec.elt);  sp = nan(1, numel(fx));
+    for i = 1:numel(fx)
+        tel.trace_at_field([fx(i) 0]);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace & ri.ok_pass;  if nnz(ok) < 20, continue, end
+        Pq = ri.pos(:, ok);  Dq = ri.dir(:, ok);  ch = mean(Dq, 2);  ch = ch/norm(ch);
+        a0 = Pq - ch*(ch.'*Pq);  keep = true(1, size(Pq, 2));    % the helper's 4-sigma outlier cut, verbatim
+        for it = 1:5, cen = mean(a0(:, keep), 2);  rr = vecnorm(a0 - cen);  keep = keep & (rr <= mean(rr(keep)) + 4*std(rr(keep))); end
+        if nnz(keep) < 0.5*nnz(ok), continue, end
+        Pq = Pq(:, keep);  Dq = Dq(:, keep);
+        a = Pq - ch*(ch.'*Pq);  a = a - mean(a, 2);  bb = Dq - ch*(ch.'*Dq);  bb = bb - mean(bb, 2);
+        Vaa = mean(sum(a.^2, 1));  Vbb = mean(sum(bb.^2, 1));  Vab = mean(sum(a.*bb, 1));
+        sp(i) = sqrt(max(Vaa - Vab^2/max(Vbb, eps), 0))*1e6;
+    end
+    tel.trace_at_field([]);
 end
 
 function x = slit_x_(G, d, lam)

@@ -432,3 +432,72 @@ rows, the 3k geometry) are TO's, running now (addendum 37 of
 `BRIEF_to_dyson5.md`).  CCMac stands down until stage B shows the strip
 edges are the limit on a telecentric, correctly-scaled section; the
 freeform step is then theirs.
+
+## Stage A (TO, 2026-10-04): the telecentric section -- the pupil is FIXED; the first order closes at the bias; the figure moves the scale
+
+Runner stage **`tA`** (`dyson5_run`, knobs `tA_*` in `dyson5_params`): the
+telecentric Korsch parent (`tma_layout(..., 'telecentric', true)`, M1 stop;
+R = [0.3667 0.0998 0.1667], t = [0.1477 0.0460]), bias x decenter scanned AS
+IS with `check_clipping`, the three numbers read from the engine before any
+figure, the parent F/# calibrated so the SECTION's local plate scale is
+330 mm, CC's step-2 conic ladder on the pick, and the deck through `t5e`.
+Records `dyson5_tA_{1k5,1k5c,3k}.{txt,mat}`, decks `dyson5_tA_*_{as-is,strip}.in`,
+end to end `dyson5_t5e_tA_*_strip.*`.
+
+**The scan (as is, 1.5k strip).** Clearance needs NEGATIVE bias (the field
+pushed away from the decenter): every bias >= -2 deg FAILs at M2 (-6 to
+-21 mm, the M3->FP beam through M2's body); -3 deg clears from d 140 mm,
+-4 from 120, -6/-8 widely.  The three numbers on the clear cells:
+
+| bias | dec | clear | chief spread | pupil (edge chief x centre) | plate local / edge |
+|---|---|---|---|---|---|
+| -3 | 160 | +4.7 mm M2 | 0.48 deg | +1.7 m | 340.4 / 349.8 mm |
+| -4 | 120 | +3.9 mm M3 | 0.47 deg | -1.0 m | 353.3 / 362.0 mm |
+| -6 | 120 | +19.6 mm M3 | 1.60 deg | -0.5 m | 389.5 / 396.4 mm |
+| -8 | 120 | +29.3 mm FP | 2.92 deg | -0.3 m | 432.0 / 436.3 mm |
+
+(the d205 deck: 45 deg / 22 mm.)  **The pupil is fixed**: chiefs within
+0.5 deg of each other on the strip, the pupil ~1 m out.  The section's
+chiefs share a common tilt atan(d/f) to the parent FP normal (26.9 deg at
+160 mm), about the slit axis -- harmless along the slit.  **The plate scale
+grows with |bias|** (330 -> 340 -> 353 -> 390 -> 432 mm at 0/-3/-4/-6/-8
+deg): the section's local magnification off the parent axis, a first-order
+property of where the section sits, so the clearance and the scale trade
+through the bias.
+
+**Calibration (first order).**  At the working point (-3 deg, 160 mm) the
+parent's F/1.745 (EFL 0.3199 m) puts the AS-IS section's local plate scale
+at **329.5 mm** (one pass), spread 0.51 deg, pupil +1.5 m, clearance PASS
++3.7 mm.  **Stage A's three numbers close at first order.**
+
+**Two first-order residuals with mechanisms (not figure jobs):**
+1. **The conic solve moves the scale +-3 %, bistably.**  With the strip
+   conic solve INSIDE the calibration loop the plate scale flips between two
+   CALIB basins every pass -- 341 mm (K3 +0.2, spread 0.88 deg) and 319 mm
+   (K3 -15, spread 0.53 deg) -- so the solved section's scale is set by
+   which conic minimum CALIB lands in, not by the first order.  Stage B must
+   therefore carry the position rows (`beam_pos_fov`) in EVERY figure rung
+   (CC's recipe), not calibrate and then solve.  (`tA` now keeps the best
+   pass when the loop alternates.)
+2. **Distortion across the 3k strip.**  On the 3k section (-3 deg, 180 mm,
+   clear +4.1 mm) the local scale calibrates to 329.8 mm but the EDGE reads
+   355.5 mm (+7.8 %): the +-4.69 deg strip images 58.3 mm long against the
+   54 mm slit, 93.3 % of the swath on it.  1.5k: +2.6 % (338/330 mm).  A
+   field-dependent magnification is in the position rows' reach (per-field
+   targets), or the slit/Dyson length absorbs it -- a call for stage B.
+
+**Blur (conics only, informational):** 1.5k strip-solved 18.6 px worst /
+6.2 centre; 3k 36 px (the 3k conic solve did not move the conics).  Worse
+than d205's 8.9 px -- the telecentric section starts further from a nulled
+anastigmat.  That is stage B's job.
+
+**End to end (t5e, informative):** the pupil match is solved -- admitted
+**0.997-1.000 at every 1.5k field** (d205: 0.42 at 1.17 deg), 0.98-1.00 on
+3k; the telescope chief within 0.5 deg (1.5k) / 0.94 deg (3k) of the
+Dyson's, grating miss <= 2.4 / 9 mm; 100 % / 93 % of the swath on the
+slit.  Smile/CRF/SRF are still the telescope's blur.  **Packaging finding:**
+the joined decks FAIL `spectrometer_clearance` -- the Dyson's FPA package
+sits 4-5 mm inside the telescope's M2 (1.5k first run, 3k), or the
+M1->M2 leg grazes M3 by 4.8 mm under its 1.15x footprint discs (1.5k
+calibrated) -- the Dyson is placed in the telescope's frame by the slit
+alone; its roll about the chief is free and is the knob.

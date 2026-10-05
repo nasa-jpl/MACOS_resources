@@ -307,6 +307,25 @@ function P = dyson5_params(over)
     % slit admits is scored, the plate scale and slit vignetting stated.
     P.tel5e_deck     = '';                % the deck (path; relative = this folder), e.g. 'dyson5_tma_step2b_linux_d205_1k5.in'
     P.tel5e_suffix   = '';                % record dyson5_t5e<suffix>.*
+    % tA, TMA STAGE A (BRIEF_dyson5_tma.md, stage A hand-off): the eccentric
+    % section of the TELECENTRIC Korsch parent (tma_layout 'telecentric', M1
+    % stop), bias x decenter scanned AS IS (no figure), the three first-order
+    % numbers read first -- chief spread / pupil distance / traced plate scale
+    % at the working bias -- clearance by Telescope.check_clipping; then the
+    % parent EFL calibrated so the SECTION's local plate scale is the spec
+    % (pixel/IFOV), the step-2 conic ladder on the pick, the deck through t5e.
+    P.tA_strip_half_deg = NaN;            % cross-track half strip (NaN = the module's: tel_npix_xt x IFOV / 2)
+    P.tA_bias_deg    = [-8 -6 -5 -4 -3 -2];  % along-track field bias scanned (deg; negative = away from the decenter)
+    P.tA_dec_m       = [0.08 0.10 0.12 0.14 0.16];  % eccentric pupil decenter scanned (m; Telescope.set_offaxis('none','dist',d))
+    P.tA_nfield      = 7;                 % strip fields for the three numbers and the spot
+    P.tA_plate_tol   = 0.005;             % plate-scale calibration tolerance (relative)
+    P.tA_cal_iters   = 6;                 % parent-EFL calibration passes
+    P.tA_cal_solved  = false;             % true: the plate scale is read on the STRIP-SOLVED section inside the calibration loop (the conics re-power the sub-pupil)
+    P.tA_rungs       = [0 2];             % step-2 ladder on the pick: 0 as-is, 1 inner half-strip conics, 2 full-strip conics
+    P.tA_max_iters   = 150;               % CALIB iterations per conic rung
+    P.tA_pick        = [];                % [bias_deg dec_m] to force the working point (else: clear, then plate nearest the spec, then chief spread)
+    P.tA_suffix      = '';                % record dyson5_tA<suffix>.*
+    P.tA_t5e         = true;              % score the stage's deck end to end (t5e, P.tel_dyson) at the end
     % t3s, THE FIRST-ORDER CLEARANCE SCREEN (addendum 21): tma_screen's nine
     % OI_CLEAR pairs evaluated paraxially (engine-free, ms per row) over
     % telescope_seed's family -- solve ONLY rows it passes
@@ -316,7 +335,7 @@ function P = dyson5_params(over)
     P.tel3s_off_max  = 15;                                % addendum 21's offset ceiling for "packages"
     P.tel3s_validate = [0.14 0; 0.14 8; 0.14 10; 0.30 0; 0.30 15];   % [t1 off] seeds checked screen vs engine oi_clear (y2 = P.tel_y2)
     P.tel3s_suffix   = '';                            % record name suffix (dyson5_t3s<suffix>.*)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild), 't5e' (end to end from a telescope deck) are opt-in
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild), 't5e' (end to end from a telescope deck), 'tA' (TMA stage A: telecentric section) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)
