@@ -351,6 +351,16 @@ function P = dyson5_params(over)
     P.tFF_resume     = '';                % a tFF record (.mat): resume from its LAST rung's solved state (re-converge), all its modes free
     P.tFF_opttol     = 1e-6;
     P.tFF_alg        = 'trust-region-reflective';   % or 'lm-jac': Levenberg-Marquardt with ScaleProblem 'jacobian' (the conditioning cure, CC 2026-10-05)
+    % tGM, ADDENDUM 45: warm from the R4 freeform rung -- the SPOT metric (a), + M2/M3 rigid body and FP focus (b), the e2e
+    % scorer as residuals (c).  Records dyson5_tA_GM<suffix>.*
+    P.tGM_from       = 'dyson5_tA_FF_1k5_R4lm.mat';   % the tFF record whose LAST rung is the warm state (1.5k R4 under LM)
+    P.tGM_warm       = '';                % a tGM record (.mat) to start from instead (its K, C and geometry): (b) from (a), (c) from the best
+    P.tGM_mode       = 'spot';            % 'spot' | 'e2e'
+    P.tGM_geom       = false;             % M2/M3 rigid body (6 each, pole frame) + FP focus as DOFs
+    P.tGM_maxfev     = 3000;              % lsqnonlin evaluations (LM + ScaleProblem 'jacobian')
+    P.tGM_suffix     = '';
+    P.tGM_template   = 'dyson5_t5e_tA_EP_pz_m30_B1_e2e.in';   % the t5e e2e deck of the SAME Dyson (Slit + Dyson blocks)
+    P.tGM_t5e_rec    = 'dyson5_t5e_tA_EP_pz_m30_B1.mat';      % the t5e record of tFF_from: GATE 3 (live clearance vs the chain's)
     % t5f, the end to end for FreeForm decks (dyson5_t5f.m): the join placed from ENGINE traces; gate = t5e's row on a conic deck
     P.tel5f_deck     = '';                % the telescope deck (this folder)
     P.tel5f_e2e_template = '';            % a t5e end-to-end deck of the SAME Dyson (its Slit + Dyson blocks are reused verbatim)
