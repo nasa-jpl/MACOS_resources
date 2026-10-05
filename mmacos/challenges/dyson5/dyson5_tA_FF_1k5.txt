@@ -1,0 +1,28 @@
+dyson5 tFF -- addendum 44: the freeform ladder on the strict merit (2026-10-05 08:15)
+R0 = dyson5_tA_EP_pz_m30_B1.in: K [-1.0252 -7.6877 -42.548], h4/h6 [-0.4993 0.4429;23.1 421.2;706.6 -1.433e+05].  Mon: lMon [315 81.5 35.8] mm about the vertices (held); FF: lFF [121.2 52.4 37.3] mm about the poles; modes [4 6] (ANSI, MACOS 1-based)
+
+R0 (free []): the reference (R0' == R0, 7.8e-15 m)
+     field  strict@chf  strict@foc    spot bf     FP OPD  nPass     T mm     S mm
+    +0.000       2.790       1.837       28.6     23.349   1184   -0.081   -0.155
+    -2.344      27.906      22.965      291.0     43.628   1184   -2.107   +0.115
+    -1.563      12.888      10.559      141.3     21.542   1184   -0.925   -0.012
+    -0.781       4.635       3.735       55.7     21.819   1184   -0.279   -0.113
+    +0.781       4.635       3.735       55.7     21.819   1184   -0.279   -0.113
+    +1.563      12.888      10.559      141.3     21.542   1184   -0.925   -0.012
+    +2.344      27.906      22.965      291.0     43.628   1184   -2.107   +0.115
+   EDGE: strict@chief 27.91 / @focus 22.96 um, spot 291.0 um (16.2 px), T-S -2.222 mm; CENTRE spot 28.6 um; plate pos err max 0.397 mm; K [-1.0252 -7.6877 -42.548]
+
+R1 (free [4 6]): lsqnonlin exitflag 1, 40 evaluations, 12 s
+     field  strict@chf  strict@foc    spot bf     FP OPD  nPass     T mm     S mm
+    +0.000       2.512       1.518       27.4     21.814   1184   +0.129   +0.145
+    -2.344      27.826      23.505      296.8     76.279   1184   -1.863   +0.427
+    -1.563      12.958      11.102      146.7     43.358   1184   -0.697   +0.294
+    -0.781       4.710       4.034       58.8     27.264   1184   -0.063   +0.188
+    +0.781       4.712       4.045       58.8     27.281   1184   -0.063   +0.188
+    +1.563      12.954      11.107      146.8     43.369   1184   -0.696   +0.294
+    +2.344      27.821      23.505      296.8     76.296   1184   -1.863   +0.427
+   EDGE: strict@chief 27.82 / @focus 23.51 um, spot 296.8 um (16.5 px), T-S -2.290 mm; CENTRE spot 27.4 um; plate pos err max 0.287 mm; K [-1.0273 -7.6889 -43.138]
+   M1 FF (um at rho=1, lFF 121.2 mm): Z4 -0.076 Z6 -17.319
+   M2 FF (um at rho=1, lFF 52.4 mm): Z4 -0.298 Z6 -65.181
+   M3 FF (um at rho=1, lFF 37.3 mm): Z4 -0.082 Z6 -18.597
+   fwd_root_flips_get after the rung's trace: 352

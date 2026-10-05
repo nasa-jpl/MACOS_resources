@@ -340,6 +340,14 @@ function P = dyson5_params(over)
     P.tPZ_m2         = 2.5:0.5:8;         % secondary_mag values scanned
     P.tPZ_bias_deg   = -4;  P.tPZ_dec_m = 0.19;
     P.tPZ_suffix     = '';                % record dyson5_tA_pz<suffix>.*
+    % tFF, ADDENDUM 44: the FREEFORM LADDER on the strict merit (pole-centred Zernike FF channel; R0 aspheres held, exactly,
+    % in the Mon channel about the parent vertex)
+    P.tFF_from       = 'dyson5_tA_EP_pz_m30_B1.in';   % R0: the addendum-43 m2 = 3.0 B1 deck (conics + h4/h6)
+    P.tFF_m2         = 3.0;  P.tFF_fsys = 1.7140;     % its parent (for the pole frames)
+    P.tFF_rungs      = {[4 6], [7 8 9 10], [5 13 25], [11 12 14 15]};   % ANSI (MACOS 1-based) modes freed per rung, cumulative
+    P.tFF_nrungs     = 4;                 % how many rungs to run (R1..Rn)
+    P.tFF_maxfev     = 1500;              % lsqnonlin evaluations per rung
+    P.tFF_suffix     = '';                % record dyson5_tA_FF<suffix>.*
     P.tEP_maxfev     = 400;               % S1 (strict-merit lsqnonlin) function-evaluation budget
     P.tEP_from       = 'seed';            % S1 start: 'seed' (as-is conics, zero aspheres) | 'B1' (the FP-merit solution of the same run)
     P.tEP_center     = 'chief';           % S1 reference-sphere centre per field: 'chief' (detector intercept) | 'focus' (best focus)
@@ -352,7 +360,7 @@ function P = dyson5_params(over)
     P.tel3s_off_max  = 15;                                % addendum 21's offset ceiling for "packages"
     P.tel3s_validate = [0.14 0; 0.14 8; 0.14 10; 0.30 0; 0.30 15];   % [t1 off] seeds checked screen vs engine oi_clear (y2 = P.tel_y2)
     P.tel3s_suffix   = '';                            % record name suffix (dyson5_t3s<suffix>.*)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild), 't5e' (end to end from a telescope deck), 'tA' (TMA stage A: telecentric section), 'tEP' (addendum 42: strict vs FP merit), 'tPZ' (addendum 43: Petzval scan) are opt-in
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild), 't5e' (end to end from a telescope deck), 'tA' (TMA stage A: telecentric section), 'tEP' (addendum 42: strict vs FP merit), 'tPZ' (addendum 43: Petzval scan), 'tFF' (addendum 44: freeform ladder) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)
