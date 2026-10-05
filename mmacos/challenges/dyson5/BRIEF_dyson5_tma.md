@@ -850,3 +850,44 @@ questions.)
 (`tEP_strict_solve_` in `dyson5_run.m`: lsqnonlin, deck write + reload per
 evaluation, `tEP_from` seed|B1, `tEP_center` chief|focus) -- the only
 strict-merit solver until a fixed-station Return is in CALIB.
+
+## Addendum 43 (TO, 2026-10-05): the Petzval scan -- the "curvature" is astigmatism; m2 3.0 helps a little, the flat-medial m2 6.0 is worse
+
+**Step 1** (`tPZ`, `dyson5_tA_pz_1k5.txt`; per m2 the telecentric parent
+re-solved and F/# calibrated to the 330 mm section plate, -4 / 190 mm, as-is
+conics).  The first-order prediction is **falsified**: P = 1/R1 - 1/R2 +
+1/R3 crosses zero near m2 2.9 (3.0 clears, +3.9 mm; 2.5 FAILs) while the
+engine's MEDIAL best-focus shift edge-minus-centre is +1.37 mm there and
+crosses zero near m2 5.9 (-0.17 mm at 6.0); slope vs P 0.83 mm per 1/m
+against h^2/2 = 0.09.  The section's best-focus surface is the medial one,
+Petzval plus the astigmatic term, and the astigmatism dominates.
+
+**Step 2** (`tEP` rung B1 per m2 -- conics + h4/h6 + position rows at
+beam_wt 1 -- records `dyson5_tA_EP_pz_m{35,30,60}.*`, t5e roll 180
+`dyson5_t5e_tA_EP_pz_m*_B1.*`; bridges <= 1.3e-14 m).  Edge = +-2.34 deg.
+
+| m2 | parent F/# | spot centre / 0.78 / 1.56 / edge (um, best focus) | strict@focus / @chief at the edge (um) | defocus term sqrt(c^2-f^2) | x-fan / y-fan / medial focus, edge-centre (mm) | T-S at edge | plate | e2e smile / keyst / SRF / CRF px | M2 R (F/# on its beam) / M1-M2 |
+|---|---|---|---|---|---|---|---|---|---|
+| 3.5 | 1.7157 | 37 / 75 / 176 / 343 | 26.8 / 33.9 | 20.8 um | -2.42 / +0.10 / -1.12 | -2.77 mm | 333.8 mm | 3.26 / 0.63 / 5.9 / 15.5 | 99.8 mm (F/0.70) / 147.7 mm |
+| **3.0 (P ~ 0)** | 1.7140 | **29 / 56 / 141 / 291** | **23.0 / 27.9** | **15.8 um** | **-2.03 / +0.27 / -0.79** | **-2.22 mm** | 334.1 mm | **2.63 / 0.49 / 9.7 / 15.5** | 120.3 mm (F/0.73) / 143.2 mm |
+| 6.0 (flat medial, as is) | 1.6474 | 187 / 241 / 402 / 677 | 52.2 / 78.1 | 58 um | -4.15 / -0.68 / -2.61 | -5.30 mm | 321.1 mm | 12.8 / 1.22 / 7.4 / 15.7 | 55.0 mm (F/0.60) / 160.4 mm |
+
+**Readings.**
+1. **The curvature is astigmatism.**  The along-track (y-fan) focus is
+   nearly flat at every m2; the cross-track (x-fan) focus curves 2-4 mm, and
+   T-S at the edge is 2.2-5.3 mm.  The medial curvature is mostly that
+   astigmatism, which the Petzval sum does not control -- so no m2 flattens
+   both foci.
+2. **The flat-medial m2 6.0 is a coincidence of the as-is medial and does
+   not survive the solve**: its solved section is 2x worse everywhere
+   (edge 677 um, smile 12.8 px, plate drifted to 321 mm).  Do not pursue.
+3. **m2 3.0 (the Petzval zero) is the best of the three, modestly**: edge
+   spot 343 -> 291 um (-15 %), the defocus term 20.8 -> 15.8 um AND the
+   best-focus term 26.8 -> 23.0 um (both moved -- the power split changed
+   the astigmatism too, as the addendum asked to be said loudly), smile
+   2.63 px, keystone 0.49 px; but SRF 5.9 -> 9.7 px.  M2 grows to R 120 mm.
+4. **For the spectrometer**: the dispersion runs along-track, where the
+   focus is flat -- the SRF is not where the curvature lands; the CRF
+   (along the slit, x) is, and it sits at ~15.5 px on every row.  The edge
+   wall is the cross-track astigmatism of the section; that is
+   non-symmetric-DOF territory (CCMac), with m2 3.0 as the better parent.
