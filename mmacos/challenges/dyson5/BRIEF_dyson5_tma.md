@@ -582,3 +582,54 @@ distortion close; the solve cannot see the edge fields (CALIB anomaly).
 Next DOFs, in order: (1) the CALIB edge-field evaluation (3k blocker);
 (2) freeform / non-symmetric terms for the outer field (both modules);
 (3) decenter + re-calibration for the clearance margin.
+
+## Addendum 39 items (TO, 2026-10-04): the decenter walk, the two clearance checks reconciled, the 3k edge from the trace
+
+**1. More decenter on the 1.5k section** (`tA` per point: first order
+re-calibrated to 330, stage-B rung at `beam_wt` 1 -- position rows in the
+rung, roll 180 in the join; records `dyson5_tA_B2_1k5_b<bias>d<dec>.*`,
+`dyson5_t5e_tA_B2_1k5_*`).  CALIB's own per-field evaluation is used as a
+FLAG only ("ANOMALOUS" = failed or > 1 mm at the BEFORE state; those fields
+were not solved), never as a number.
+
+| bias / dec | CALIB | check_clipping | spectr. clearance, tel-internal: +5 mm mount / zero | plate local / edge | spot (trace, best focus) centre / +-1.17 / edge | e2e smile / keyst / SRF / CRF px | admitted |
+|---|---|---|---|---|---|---|---|
+| -3 / 160 (stage B) | ok | +2.9 | -4.95 / -- | 330.8 / 332.6 | 23 / 48 / 284 um | 1.96 / 0.68 / 3.0 / 15.5 | 1.000 |
+| -3 / 170 | **fields 1,4,5** | +3.8 | -4.65 / +5.27 | (unsolved) | 361 um | -- | -- |
+| -4 / 160 | ok | +7.1 | -4.82 / +4.46 | 329.8 / 329.5 | 61 / 96 / 473 um | 4.45 / 1.10 / 3.1 / 15.9 | 1.000 |
+| -4 / 180 | ok | +11.9 | -2.12 / +7.38 | 331.3 / 331.5 | 47 / 86 / 421 um | 1.87 / 1.01 / 4.3 / 15.8 | 1.000 |
+| **-4 / 190** | **ok** | **+14.4** | **-1.17 / +8.53** | **332.9 / 333.2** | **43 / 79 / 371 um (20.6 px)** | **1.49 / 0.87 / 5.5 / 15.5** | **1.000** |
+| -4 / 200 | **fields 1,4,5** | +16.1 | +4.72 / +14.17 | (unsolved) | 722 um | -- | -- |
+| **-5 / 200** | **field 1** | +20.5 | **+2.54 / +12.02 PASS** | 331.3 / 329.2 | 72 / 116 / 453 um (25.2 px) | 3.42 / 0.92 / 6.6 / 15.2 | 1.000 |
+
+Reading: the margin grows with decenter and |bias| (record's number
+-4.95 -> -1.17 -> +2.54 mm); the cleanest SOLVED point is -4 / 190 (1.2 mm
+short with the mount); the first point that PASSES with the mount is
+-5 / 200, where CALIB flags the centre field (the solve still lowered the
+other fields; its centre number stands from the trace).  The CALIB
+anomaly region (CC's item) sits exactly where the margin is.
+
+**2. The two clearance checks, reconciled.**  They are not 1.15x discs vs
+footprints.  `Telescope.check_clipping`: bodies = the telescope's own
+beam-footprint discs (its draw fans), NO mount.  `spectrometer_clearance`:
+bodies = the footprint of the INSTRUMENT's bundle (grating-stopped,
+slit centre + ends x 3 lambda x marginal rings) grown by `mount_margin_m`
+(5 mm) AND the leg's distance to that grown body then reduced by the
+mount again (`body_pts_` R = footprint + mount, `d - Bd.mount`): **the
+mount is counted twice -- a ~10 mm standoff**, which is the 9.3-9.7 mm
+measured between the with/without columns above (the rest is the 2 mm
+surface sampling).  At zero mount the gate still reads 2.6-8.5 mm LESS
+than check_clipping on the same pair: the two bundles differ (the
+instrument's bundle is aimed through the grating, the telescope's fans
+through its own stop; and check_clipping's min is over its own pairs).
+**The record uses `spectrometer_clearance` with the 5 mm mount** (the
+stage's FAIL criterion since addendum 6, and the only gate that sees the
+Dyson's bodies).  Whether the mount should be counted once (grown disc OR
+subtracted distance) is a gate-definition call for Dave -- counted once,
+-4 / 190 passes by ~+3.8 mm and -4 / 180 by ~+2.6 mm.  Not changed.
+
+**3. The 3k edge from the trace** (-4 deg / 180 mm, `dyson5_tA_B3k4`):
++-4.69 deg = **1196 um (B 0.1) / 1206 um (B 1) best-focus rms = 67 px**;
+on the deck's own FocalPlane along the slit line (t5e gate, as placed)
+2.19 mm.  Centre 58-60 um, +-1.56 deg 237-240 um, +-3.13 deg 653-660 um.
+These are engine-trace numbers; CALIB's edge WFE is not reported.
