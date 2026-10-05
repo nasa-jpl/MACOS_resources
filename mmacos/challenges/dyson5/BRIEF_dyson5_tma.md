@@ -651,3 +651,47 @@ SRF 5.5 px, CRF 15.5 px (the edge blur).  **Records scored before this
 change carry the double count** on every mirror-body entry (~5 mm too
 pessimistic; box bodies -- slit mask, FPA package -- had no mount and are
 unchanged).
+
+## Stage B re-run on FwdRoot + the all-field asphere circle (TO, 2026-10-04 evening)
+
+Engine macos 1ba6874 (FwdRoot: the forward conic root on the VERTEX
+sheet) + resources 125ea9f (the asphere hook's circle encloses every solve
+field), shared mex relinked (tFwdRoot 5/5).  Every point re-run through
+`tA` (stage-B rung, position rows in the rung) and `t5e` (roll 180, mount
+counted once); bridge chain == engine <= 1.1e-14 m on all eight decks.
+Records `dyson5_tA_B3_*`, `dyson5_t5e_tA_B3_*` (the pre-fix `_B2_` /
+`_B1k5` / `_B3k4` records stay, as cited above -- their solves were partly
+blind: wrong-sheet rays and clipped edge fields).  All 1.5k rows beam_wt 1.
+
+| point | check_clipping | spectr. clearance tel-internal (5 mm mount, once) | plate local / edge | trace spot centre / +-1.17 / +-2.35 deg | e2e smile / keyst / SRF / CRF px | swath on slit |
+|---|---|---|---|---|---|---|
+| -3 / 160 | +3.1 | +0.31 | 331.2 / 332.3 | 21 / 43 / 273 um | 2.75 / 0.55 / 3.7 / 15.3 | 99.2 % |
+| -3 / 170 | +5.4 | +0.05 | 332.4 / 333.1 | 19 / 43 / 270 um | 2.32 / 0.54 / 4.6 / 15.2 | 99.0 % |
+| -4 / 160 | +6.7 | +0.60 | 329.0 / 329.7 | 52 / 81 / 371 um | 6.41 / 0.70 / 4.5 / 14.5 | 100 % |
+| -4 / 180 | +11.9 | +2.80 | 331.9 / 332.1 | 41 / 71 / 352 um | 4.12 / 0.67 / 4.9 / 14.7 | 99.3 % |
+| **-4 / 190** | **+14.6** | **+3.97** | **333.8 / 333.9** | **35 / 67 / 343 um (19 px)** | **3.26 / 0.63 / 5.9 / 15.5** | **98.8 %** |
+| -4 / 200 * | +17.3 | +5.11 | 336.1 / 336.1 | 32 / 64 / 337 um | 2.64 / 0.60 / 7.5 / 15.1 | 98.1 % |
+| -5 / 200 * | +19.3 | +6.44 | 330.9 / 329.1 | 69 / 109 / 423 um | 4.92 / 0.75 / 5.6 / 15.6 | 100 % |
+
+Admitted 1.000 at every field on every point.  Worst OVERALL entry on all
+seven is the Dyson's own FPA package vs its block face, +0.37..+0.40 mm
+(-3/160 and -3/170: the telescope pair is the worst, +0.31 / +0.05 mm).
+(*) the tA flag fires on CALIB field 1 at the BEFORE state only: those
+seeds start above 1 mm at the centre; the solve moved and the trace spot
+is sane -- the flag's 1 mm threshold on the seed is too strict there.
+
+**Readings.**  (1) Every point now SOLVES, and every point PASSES
+clearance with the mount counted once.  (2) The edge blur is the same wall
+everywhere: 270-420 um (15-24 px) at +-2.35 deg with conics + h4/h6 --
+the symmetric-asphere limit, now measured on honest solves (CCMac's
+freeform).  (3) Margin vs blur vs scale: -3/170 has the best edge
+(270 um) at +0.05 mm; -4/180 holds 0.9 % scale at +2.8 mm; -4/190 gives
++4 mm at 343 um and +1.45 % scale (the rows at wt 1 let the scale drift as
+the decenter grows).  The pre-fix -4/190 row (smile 1.49 px) was a
+partly-blind solve; its honest smile is 3.26 px.
+
+**3k -4 / 180, re-run:** CALIB now sees every field (no flag); the edges
+stay at 1.23 mm (68 px) best-focus from the trace -- with every field in
+the solve, that is the asphere limit at +-4.69 deg, not a blind spot.
+Scale 326.8 / 319.2 mm (-3.3 % at the edge), smile 10.6 px, keystone
+1.37 px, admitted 0.98-1.00, clearance PASS (+1.68 mm telescope-internal).
