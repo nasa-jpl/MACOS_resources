@@ -996,9 +996,12 @@ at the cap; first-order optimality ~1.6e6 -- not converged.
 
 Smile and keystone improve; CRF stays at the edge-blur level (485 um is still
 27 px); SRF worsens (the same field-flattening trade); the local plate scale
-drifts to 317 mm (-3.9 %).  **Clearance: B1's (+0.43 mm overall PASS;
-telescope-internal +1.33 mm with the mount) carried over, NOT re-scored -- and
-on 3k it is NOT defended**: the FF sag over the lit patches reaches 0.23 /
-0.51 / 0.75 mm (p-v 0.35 / 0.89 / 1.23 mm) on M1 / M2 / M3, comparable to the
-1.33 mm telescope-internal margin.  The 3k clearance needs a body model of the
-freeform surfaces (the chain extension, option i) before it is a number.
+drifts to 317 mm (-3.9 %).  **Clearance: carried over from B1, NOT re-scored**
+(+0.43 mm overall PASS, the Dyson's own FPA package vs its block face;
+TELESCOPE-internal +7.35 mm with the 5 mm mount, +12.06 mm without, M1->M2 leg
+vs M3).  The FF sag over the lit patches reaches 0.23 / 0.51 / 0.75 mm (p-v
+0.35 / 0.89 / 1.23 mm) on M1 / M2 / M3 (ANSI evaluator vs the engine, M1 hit
+shift, corr 0.998) -- under the 7.35 mm telescope-internal margin by ~10x, so
+the carry-over is defended, though less comfortably than on 1.5k (max 0.17 mm).
+(Corrected 2026-10-05: an earlier line of this section quoted a 1.33 mm margin
+that was never measured -- written before the record was read.)
