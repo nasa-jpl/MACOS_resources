@@ -6,7 +6,10 @@ function C = spectrometer_clearance(G, P, opts)
 %   consecutive surface hits, the slit as the first station and the FPA as
 %   the last) against every BODY the leg is not an endpoint of, returns the
 %   minimum clearance in mm: the smallest distance from any ray segment of
-%   the leg to the body's sampled surface, minus the body's mount margin.
+%   the leg to the body's sampled surface.  The mount is counted ONCE, as the
+%   body's extent (aperture disc = footprint + mount, below); until
+%   2026-10-04 it was ALSO subtracted from that distance -- a ~10 mm standoff
+%   for a 5 mm mount (Dave: count the mount once).
 %   Negative = the leg passes through the body.  A leg INSIDE a box body
 %   (slit mask, FPA package) is a penetration however far it sits from the
 %   box's faces (-depth), and the two boxes are ALSO scored against every
@@ -91,7 +94,7 @@ function C = spectrometer_clearance(G, P, opts)
             if iS0 > 0 && any(L.ends == iS0) && iS0 < nS && strcmp(stem_(G.surf(iS0+1).name), Bd.stem), skip = true; end
             if strcmp(Bd.stem, 'FPApackage') && L.ends(2) == nS, skip = true; end
             if skip, continue; end
-            d = segs_to_pts_(L.a, L.b, Bd.pts) - Bd.mount;
+            d = segs_to_pts_(L.a, L.b, Bd.pts);   % the mount is in the body's extent (body_pts_), counted once
             if ~isempty(Bd.box)                 % a leg INSIDE a box is a penetration, however far from the box's faces
                 dep = inside_depth_(seg_samples_(L.a, L.b, 21), Bd.box);
                 if dep > 0, d = -dep; end
