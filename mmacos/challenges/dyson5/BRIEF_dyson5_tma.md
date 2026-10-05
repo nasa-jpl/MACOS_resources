@@ -785,3 +785,49 @@ Coaxial decks: ApStop = M1's vertex, the same point -- asserted
 bit-identical in the gate.  Gate: the EP lands on the section's beam
 (radius class ~1 m, probe axes agreeing), StopPos == ApStop after
 `optimize`, and the coaxial twin unchanged.
+
+## Addendum 42 (TO, 2026-10-05): the strict merit vs the FP merit on the -4 / 190 section -- the edge wall is the OPTICS
+
+Runner stage **`tEP`** (`tEP_*` knobs).  Records `dyson5_tA_EP_cp1.*`
+(checkpoint 1), `_cp2.*` (strict solve from the seed), `_cp2w.*` (strict
+solve warm-started from the FP-merit B1), end to end
+`dyson5_t5e_tA_EP_cp2w_S1.*`.
+
+**Construction.**  The engine's exit-pupil merit (`add_pupil` + OptFEX)
+cannot serve this section even with the stop fixed (d33abac): FEX finds a
+far, astigmatic pupil (probe axes disagree by 0.47-0.77 m) and the EP
+sphere loses every ray -- CALIB aborts.  So the strict metric is computed
+from the engine trace: per field, rms OPL on a 1 m sphere about the
+field's chief DETECTOR intercept (the solve's merit; the best-focus-centred
+variant is reported too), each ray carried back along its final leg.  The
+strict solve is `lsqnonlin` over the stage-B DOFs (conics + h4/h6 on
+M1-M3) with the per-field position rows (f tan theta), weighted as CALIB
+weighs them at beam_wt 1; every evaluation writes the deck and reloads it
+(no engine asphere setter).  The evaluator reproduces checkpoint 1's seed
+numbers exactly (FP 807.945 / STRICT 40.394 um at the centre).
+
+**Checkpoint 1 (seed + the FP-merit solve):** the FP merit floors at ~16 um
+at every field (strict 2.0 um at the centre) and sees the edge 2.1x the
+centre where the strict metric sees 13.7x -- it hides most of the edge
+from the solve (Spearman with the spot: strict 1.00, FP 0.89).
+
+**Checkpoint 2:**
+
+| solve | spot centre / 0.78 / 1.56 / 2.34 deg (um) | strict@focus centre / edge (um) | plate | e2e smile / keyst / SRF / CRF px | clearance (tel-int) |
+|---|---|---|---|---|---|
+| FP merit (B1, beam_wt 1) | 37 / 75 / 176 / **343** | 2.0 / 26.8 | 333.8 mm | 3.26 / 0.63 / 5.9 / 15.5 | +3.97 mm |
+| strict, from the seed | 251 / 264 / 291 / 324 | 17.1 / 20.2 | -- | -- | -- |
+| **strict, warm from B1** | **31 / 67 / 166 / 332** | **1.5 / 25.7** | **334.0 mm** | **3.23 / 0.66 / 10.5 / 15.7** | **+4.45 mm** |
+
+From the seed the strict solve converges (first-order optimality, 5
+iterations) into a WORSE basin than B1 (its own cost 2.77e-6 vs B1's
+1.29e-6); warm-started from B1 it converges after 5 iterations having
+improved its own cost 10 % and moved the edge spot **343 -> 332 um (3 %)** --
+inside the basin scatter.  **The edge wall is the optics** (these
+rotationally symmetric DOFs on this section), not the FP metric: the
+metric mis-ranks the fields, but optimising the right metric does not buy
+the edges.  The strict merit is the right REPORTING metric from here on;
+it is not, for this question, a design lever -- the engine-side fixed-
+station EP sphere is not needed to answer it (it remains the right tool for
+OptFEX on near-telecentric decks, whenever that is wanted).  Next lever:
+non-symmetric DOFs (CCMac's freeform) or the layout.

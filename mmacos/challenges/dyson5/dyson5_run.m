@@ -1916,7 +1916,7 @@ function S = stage_tEP_(P, tag)
     pr('  the strip %s deg); lambda %.0f nm.  FP = rms OPL to each ray''s own detector intercept (CALIB''s WFE target);\n', mat2str(round(fx(fx ~= 0)*180/pi, 3)), lam*1e9);
     pr('  STRICT = rms OPL on a %.2f m sphere about the field''s least-squares best-focus point (rays carried back along their\n', P.tEP_R_m);
     pr('  final leg); SPOT = best-focus rms radius (the trace helper).  um of wavefront / um at the image.\n\n');
-    rows = struct('rung', {}, 'fp', {}, 'strict', {}, 'spot', {}, 'npass', {}, 'calib', {});
+    rows = struct('rung', {}, 'fp', {}, 'strict', {}, 'spot', {}, 'npass', {}, 'calib', {});  B1x = [];
     for k = 1:numel(P.tEP_rungs)
         rg = P.tEP_rungs{k};
         tel = tA_build_(R, t, D, lam, P.tel3_model, P.tEP_bias_deg, P.tEP_dec_m);
@@ -1925,24 +1925,156 @@ function S = stage_tEP_(P, tag)
             case 'seed'
                 r0 = tel.optimize('fields', F(2:end, :), 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', 1);  cal = r0.wfe_before(:)';
                 tel = tA_build_(R, t, D, lam, P.tel3_model, P.tEP_bias_deg, P.tEP_dec_m);   % back to the seed
+            case 'S1'                                          % checkpoint 2: the STRICT-merit solve (lsqnonlin, engine traces)
+                [tel, cal, info] = tEP_strict_solve_(tel, F, f, P, pr, tag, sfx, B1x);   %#ok<ASGLU>
+                rows(end+1) = struct('rung', rg, 'fp', info.fp, 'strict', info.st, 'spot', info.sp, 'npass', info.np, 'calib', cal);   %#ok<AGROW>
+                tEP_table_(pr, rg, F, cal, info.fp, info.st, info.sp, info.np, info.stf);
+                continue
             case 'B1'
                 Pt = tA_plate_targets_(tel, F(2:end, :), f);
                 r1 = tel.optimize('fields', F(2:end, :), 'dofs', [0 0 0 0 0 0 0 1], 'max_iters', P.tA_max_iters, ...
                                   'asph_elts', 1:3, 'asph_terms', P.tA_asph_terms, 'beam_pos_fov', Pt, 'beam_wt', 1);
                 cal = r1.wfe_after(:)';  tel.build();
+                B1x = struct('K', [tel.spec.elt(1:3).Kc], 'A', zeros(3, 2));   % the FP-merit solution, for an S1 warm start
+                for kk = 1:3, a = tel.spec.elt(kk).asph;  if ~isempty(a), B1x.A(kk, 1:min(2, numel(a))) = a(1:min(2, numel(a))); end, end
         end
         [fp, st, sp, np] = tEP_metrics_(tel, F, P.tEP_R_m);
         rows(end+1) = struct('rung', rg, 'fp', fp, 'strict', st, 'spot', sp, 'npass', np, 'calib', cal);   %#ok<AGROW>
-        pr('%s:  %7s %10s %10s %10s %10s %6s\n', upper(rg), 'field', 'CALIB WFE', 'FP OPD', 'STRICT', 'spot', 'nPass');
-        for q = 1:size(F, 1)
-            pr('       %+7.3f %10.3f %10.3f %10.3f %10.1f %6d\n', (F(q, 1) + 0)*180/pi, cal(q)*1e6, fp(q)*1e6, st(q)*1e6, sp(q), np(q));
-        end
-        [~, oF] = sort(fp);  [~, oS] = sort(st);  [~, oP] = sort(sp);
-        pr('       rank by spot: %s | by STRICT: %s | by FP: %s   (Spearman STRICT~spot %.2f, FP~spot %.2f)\n\n', mat2str(oP), mat2str(oS), mat2str(oF), ...
-           spearman_(st, sp), spearman_(fp, sp));
+        tEP_table_(pr, rg, F, cal, fp, st, sp, np, []);
     end
     fclose(fid);
     S = struct('rows', rows, 'F', F, 'fsys', fs);  save([tag '_tA_EP' sfx '.mat'], 'S');
+end
+
+function tEP_table_(pr, rg, F, cal, fp, st, sp, np, stf)
+    pr('%s:  %7s %10s %10s %10s %10s %6s%s\n', upper(rg), 'field', 'CALIB WFE', 'FP OPD', 'STRICT', 'spot', 'nPass', tern_(isempty(stf), '', '  STRICT@chief'));
+    for q = 1:size(F, 1)
+        pr('       %+7.3f %10.3f %10.3f %10.3f %10.1f %6d', F(q, 1)*180/pi, cal(q)*1e6, fp(q)*1e6, st(q)*1e6, sp(q), np(q));
+        if ~isempty(stf), pr(' %12.3f', stf(q)*1e6); end
+        pr('\n');
+    end
+    [~, oF] = sort(fp);  [~, oS] = sort(st);  [~, oP] = sort(sp);
+    pr('       rank by spot: %s | by STRICT: %s | by FP: %s   (Spearman STRICT~spot %.2f, FP~spot %.2f)\n\n', mat2str(oP), mat2str(oS), mat2str(oF), ...
+       spearman_(st, sp), spearman_(fp, sp));
+end
+
+function [tel, cal, info] = tEP_strict_solve_(tel, F, f, P, pr, tag, sfx, B1x)
+%TEP_STRICT_SOLVE_  Addendum 42 checkpoint 2: the stage-B DOFs (conics + h^4/h^6 on M1-M3) solved by lsqnonlin with the
+%   STRICT reference-sphere OPD as the per-field residual (sphere radius P.tEP_R_m about each field's chief DETECTOR
+%   intercept, or its best-focus point -- P.tEP_center) plus the per-field image-position rows (f tan theta), weighted as
+%   CALIB weighs them at beam_wt 1 (per-field OPD rows scaled to CALIB's 254-ray grid).  Every evaluation writes the deck
+%   (Surface= Aspheric, KcElt + AsphCoef on M1-M3) and re-loads it -- the engine has no asphere setter -- and traces
+%   every field with the source aimed through the deck's ApStop exactly as build() emits it.
+    by = 0;  if isfield(tel.spec, 'field_bias'), by = tel.spec.field_bias; end
+    apdy = 0;  if isfield(tel.spec, 'aperture_decenter'), apdy = tel.spec.aperture_decenter; end
+    D = f/P.Fno;                                    % the aperture (pixel/IFOV/F#), as the stage builds it
+    zmin = min(arrayfun(@(e) e.Vpt(3), tel.spec.elt));  stand = max(1.0*D, -zmin + 0.25*D);
+    dirs = [sin(F(:, 1)), sin(by + F(:, 2)), sqrt(max(0, 1 - sin(F(:, 1)).^2 - sin(by + F(:, 2)).^2))];
+    apst = [0; apdy; 0];
+    base = [tempname '.in'];  tel.save(base);  txt0 = fileread(base);
+    deck = [tag '_tA_EP' sfx '_S1.in'];
+    K0 = [tel.spec.elt(1:3).Kc];
+    write_ = @(K, A) tEP_write_deck_(txt0, K, A, deck);
+    write_(K0, zeros(3, 2));  macos.load_rx(deck);  nE = macos.num_elt();
+    % ray heights per mirror at the seed, for the asphere scaling (unit x = 1 um of sag at the largest ray height)
+    h = zeros(1, 3);
+    for q = 1:size(F, 1)
+        tEP_aim_(dirs(q, :)', apst, stand);
+        for k = 1:3, s = macos.trace(k);  ri = macos.get_ray_info(s.nRays);  ok = ri.ok_trace(:);  h(k) = max(h(k), max(hypot(ri.pos(1, ok), ri.pos(2, ok)))); end
+    end
+    sc = 1e-6./[h(:).^4, h(:).^6];                  % 3 x 2: A(k, j) = x * sc(k, j)
+    % plate targets at the seed: the bias chief's hit + f tan(theta) along the in-plane field directions
+    th = 0.02*pi/180;  hit = @(dx, dy) tEP_chief_(tEP_dir_(dx, by + dy), apst, stand, nE);
+    p0 = hit(0, 0);  ux = hit(th, 0) - hit(-th, 0);  ux = ux/norm(ux);  uy = hit(0, th) - hit(0, -th);  uy = uy/norm(uy);
+    T = p0 + f*(tan(F(:, 1))'.*ux + tan(F(:, 2))'.*uy);
+    N0 = 1184;  wpos = 1;  wW = sqrt(254);
+    fun = @(x) tEP_resid_(x, K0, sc, write_, deck, dirs, apst, stand, nE, P.tEP_R_m, P.tEP_center, T, N0, wW, wpos);
+    x0 = zeros(1, 9);  x0(1:3) = K0;
+    if strcmp(P.tEP_from, 'B1')
+        assert(~isempty(B1x), 'dyson5 tEP: tEP_from B1 needs the B1 rung BEFORE S1 in tEP_rungs');
+        x0(1:3) = B1x.K;  x0(4:9) = reshape((B1x.A./sc)', 1, 6);
+        pr('S1 warm start from the B1 (FP-merit) solution: K %s, A %s\n', mat2str(B1x.K, 5), mat2str(B1x.A, 4));
+    end
+    r0 = fun(x0);
+    i0 = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);       % the evaluator at the seed must reproduce the SEED rung's table
+    pr('S1 evaluator at the seed (identity with the SEED rows): FP %s um; STRICT(focus) %s um\n', sprintf('%.3f ', i0.fp*1e6), sprintf('%.3f ', i0.st*1e6));
+    pr('S1 (strict-merit lsqnonlin): 9 DOF [K1 K2 K3 | h4 h6 on M1 M2 M3], sphere %.2f m about the %s; ray heights %s mm; seed cost %.4e\n', ...
+       P.tEP_R_m, P.tEP_center, mat2str(round(h*1e3, 1)), sum(r0.^2));
+    o = optimoptions('lsqnonlin', 'Display', 'off', 'MaxFunctionEvaluations', P.tEP_maxfev, 'MaxIterations', 200, ...
+                     'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10);
+    [x, rn, ~, ef, out] = lsqnonlin(fun, x0, [], [], o);
+    pr('   lsqnonlin: exitflag %d, %d iterations, %d evaluations; cost %.4e -> %.4e\n', ef, out.iterations, out.funcCount, sum(r0.^2), rn);
+    K = x(1:3);  A = reshape(x(4:9), 2, 3)'.*sc;
+    pr('   K = %s; AsphCoef (h4 h6) M1 %s M2 %s M3 %s\n', mat2str(K, 5), mat2str(A(1, :), 4), mat2str(A(2, :), 4), mat2str(A(3, :), 4));
+    write_(K, A);  macos.load_rx(deck);
+    info = tEP_score_(dirs, apst, stand, nE, P.tEP_R_m, T);
+    cal = nan(1, size(F, 1));
+    pr('   plate: chief offsets vs f tan(theta) targets, max %.3f mm; deck %s\n', max(info.pos_err)*1e3, deck);
+    info.deck = deck;  info.K = K;  info.A = A;  info.exitflag = ef;  info.out = out;
+end
+
+function tEP_write_deck_(txt0, K, A, file)
+    L = splitlines(string(txt0));  m = 0;
+    for i = 1:numel(L)
+        if m < 3 && startsWith(strtrim(L(i)), "Surface=") && contains(L(i), "Conic"), L(i) = "          Surface=  Aspheric"; end
+        if m < 3 && startsWith(strtrim(L(i)), "KcElt=")
+            m = m + 1;
+            L(i) = sprintf("            KcElt=%.16E\n        nAsphCoef=  2\n         AsphCoef=  %.16E %.16E", K(m), A(m, 1), A(m, 2));
+        end
+    end
+    assert(m == 3, 'tEP_write_deck_: found %d KcElt lines, expected 3 mirrors', m);
+    fid = fopen(file, 'w');  fprintf(fid, '%s\n', L);  fclose(fid);
+end
+
+function d = tEP_dir_(ax, ay), d = [sin(ax); sin(ay); sqrt(max(0, 1 - sin(ax)^2 - sin(ay)^2))]; end
+
+function tEP_aim_(d, apst, stand)
+    macos.set_src_fov('src_pos', apst - stand*d(:), 'src_dir', d(:), 'zSrc', 1e22);  macos.modify();
+end
+
+function p = tEP_chief_(d, apst, stand, nE)
+    tEP_aim_(d, apst, stand);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);  p = ri.pos(:, 1);
+end
+
+function r = tEP_resid_(x, K0, sc, write_, deck, dirs, apst, stand, nE, Rref, ctr, T, N0, wW, wpos) %#ok<INUSL>
+    K = x(1:3);  A = reshape(x(4:9), 2, 3)'.*sc;
+    write_(K, A);  macos.load_rx(deck);
+    r = [];
+    for q = 1:size(dirs, 1)
+        tEP_aim_(dirs(q, :)', apst, stand);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  pc = ri.pos(:, 1);  ok(1) = false;
+        if nnz(ok) < 0.9*N0, r = [r; 1e-3*ones(4, 1)]; continue, end   %#ok<AGROW> lost rays: a wall, not a number
+        W = tEP_W_(ri, ok, pc, Rref, ctr);
+        r = [r; wW*std(W, 1); wpos*(pc - T(:, q))];   %#ok<AGROW> CALIB's balance: sum over 254 rays of OPD^2 = 254 rms^2
+    end
+end
+
+function W = tEP_W_(ri, ok, pc, Rref, ctr)
+    P = ri.pos(:, ok);  Dd = ri.dir(:, ok)./vecnorm(ri.dir(:, ok));  L = ri.opl(ok);  L = L(:)';
+    if strcmp(ctr, 'focus')
+        A = zeros(3);  b = zeros(3, 1);
+        for i = 1:size(P, 2), M = eye(3) - Dd(:, i)*Dd(:, i)';  A = A + M;  b = b + M*P(:, i); end
+        xs = A\b;
+    else
+        xs = pc;
+    end
+    Q = P - xs;  qd = sum(Q.*Dd, 1);  tb = qd + sqrt(max(qd.^2 - sum(Q.^2, 1) + Rref^2, 0));
+    W = L - tb;
+end
+
+function info = tEP_score_(dirs, apst, stand, nE, Rref, T)
+    nf = size(dirs, 1);  info = struct('fp', nan(1, nf), 'st', nan(1, nf), 'stf', nan(1, nf), 'sp', nan(1, nf), 'np', zeros(1, nf), 'pos_err', nan(1, nf));
+    for q = 1:nf
+        tEP_aim_(dirs(q, :)', apst, stand);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  pc = ri.pos(:, 1);  ok(1) = false;  info.np(q) = nnz(ok);
+        L = ri.opl(ok);  info.fp(q) = std(L(:), 1);
+        info.st(q) = std(tEP_W_(ri, ok, pc, Rref, 'focus'), 1);  info.stf(q) = std(tEP_W_(ri, ok, pc, Rref, 'chief'), 1);
+        P = ri.pos(:, ok);  Dd = ri.dir(:, ok)./vecnorm(ri.dir(:, ok));
+        A = zeros(3);  b = zeros(3, 1);
+        for i = 1:size(P, 2), M = eye(3) - Dd(:, i)*Dd(:, i)';  A = A + M;  b = b + M*P(:, i); end
+        Q = P - A\b;  qd = sum(Q.*Dd, 1);  Tt = Q - Dd.*qd;  info.sp(q) = sqrt(mean(sum(Tt.^2, 1)))*1e6;
+        info.pos_err(q) = norm(pc - T(:, q));
+    end
 end
 
 function r = spearman_(a, b)
