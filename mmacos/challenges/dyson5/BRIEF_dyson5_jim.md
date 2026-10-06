@@ -167,6 +167,12 @@ the λ-proportional part.
   that rules it out. The negative is at F/1.8; the review's Offner holds its SRF only
   at F/2.8, and the record's own F/2.8 sibling already sits at SRF 3.69 px.
 
+**Re-checked on CC's grating-aperture engine fix (2026-10-06, shared mex relinked: a Grating
+never vignetted by its own aperture before).** The R 0.5 free deck re-traced and re-scored
+on the new mex: 1258 of 1258 rays pass, 1258 per scored point, every centroid identical
+(max |dU| = max |dV| = 0 px) -- the apertures are footprint + 5 mm by construction, so the
+fix cannot bite here, and it does not.
+
 Records: `dyson5_off18.{txt,mat}`, the decks `dyson5_off18_R<mm>_{seed,corr,free}.in`
 with their `_maps` / `_layout` figures, the engine renders
 `dyson5_off18_R050_free_{view3d,viewyz}.png`, the solves
