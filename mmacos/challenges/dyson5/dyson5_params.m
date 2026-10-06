@@ -360,6 +360,7 @@ function P = dyson5_params(over)
     P.tGM_maxfev     = 3000;              % lsqnonlin evaluations (LM + ScaleProblem 'jacobian')
     P.tGM_suffix     = '';
     P.tGM_template   = 'dyson5_t5e_tA_EP_pz_m30_B1_e2e.in';   % the t5e e2e deck of the SAME Dyson (Slit + Dyson blocks)
+    P.tGM_asph       = '';                % ASPHERE-ONLY re-solve warm from this Aspheric deck (SPOT rows + geometry)
     P.tGM_deck       = '';                % score THIS telescope deck as given (report only; e.g. the conic-fit emission)
     P.tGM_t5e_rec    = 'dyson5_t5e_tA_EP_pz_m30_B1.mat';      % the t5e record of tFF_from: GATE 3 (live clearance vs the chain's)
     % t5f, the end to end for FreeForm decks (dyson5_t5f.m): the join placed from ENGINE traces; gate = t5e's row on a conic deck
