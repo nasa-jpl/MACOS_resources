@@ -154,6 +154,11 @@ function P = dyson5_params(over)
     % (x R/2), second concave zone's radius factor and centre offsets
     P.offner_Rg_factor = 1.00340;  P.offner_M3_factor = 0.95097;
     P.offner_M3_dy = 0.294e-3;     P.offner_M3_dz = 0.153e-3;
+    % stage o18 (addendum 46): the Offner at the Dyson's own speed and slit, over
+    % the concave radius; its ring is re-derived per R (the smallest clearing the
+    % grating body by off18_clear_mm -- 0.22 R is F/2.8's rule, blocked at F/1.8)
+    P.off18_R_m = [0.5 0.75 1.0 1.25];  P.off18_Fno = 1.8;  P.off18_clear_mm = 5;
+    P.off18_steps = {'seed', 'corr', 'free'};   P.off18_max_iter = 60;
     P.twin_rung      = 'R4';              % s2w runs the twin on this s3 rung's deck ('' = the s1 seed)
     % s4, the native optimize (dyson_native): CALIB on the rung of record
     P.native_rung = 'R4';  P.native_nx = 5;  P.native_nlam = 6;    % <= 12 FOV x 6 lambda (CALIB's cap)
@@ -379,7 +384,7 @@ function P = dyson5_params(over)
     P.tel3s_off_max  = 15;                                % addendum 21's offset ceiling for "packages"
     P.tel3s_validate = [0.14 0; 0.14 8; 0.14 10; 0.30 0; 0.30 15];   % [t1 off] seeds checked screen vs engine oi_clear (y2 = P.tel_y2)
     P.tel3s_suffix   = '';                            % record name suffix (dyson5_t3s<suffix>.*)
-    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild), 't5e' (end to end from a telescope deck), 'tA' (TMA stage A: telecentric section), 'tEP' (addendum 42: strict vs FP merit), 'tPZ' (addendum 43: Petzval scan), 'tFF' (addendum 44: freeform ladder), 't5f' (end to end, engine join) are opt-in
+    P.stages   = {'s0','s1','s2'};        % 's3' (ladder), 's4' (native, blocked), 's5' (fold prism), 's2w' (twin, model 512), 's2l', 't1' (telescope), 't2' (end to end), 't3' (offset_imager ladder), 't3s' (first-order screen), 't3w' (y2 continuation), 't3o' (offset solve), 't3e' (end to end from t3o), 't4' (two-mirror Schwarzschild), 't5e' (end to end from a telescope deck), 'tA' (TMA stage A: telecentric section), 'tEP' (addendum 42: strict vs FP merit), 'tPZ' (addendum 43: Petzval scan), 'tFF' (addendum 44: freeform ladder), 't5f' (end to end, engine join), 'o18' (addendum 46: F/1.8 Offner over R) are opt-in
 
     f = fieldnames(over);
     for k = 1:numel(f)

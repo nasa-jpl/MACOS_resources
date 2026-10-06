@@ -57,7 +57,8 @@ function C = spectrometer_clearance(G, P, opts)
         if any(strcmp(S.act, {'stop', 'pass'})), continue; end   % image planes and recorded stations are not hardware
         stem = stem_(S.name);
         pts = body_pts_(S, F(k), mount, opts.sample_m);
-        bodies{end+1} = struct('name', S.name, 'stem', stem, 'pts', pts, 'surfs', k, 'mount', mount, 'box', []);  %#ok<AGROW>
+        bodies{end+1} = struct('name', S.name, 'stem', stem, 'pts', pts, 'surfs', k, 'mount', mount, 'box', [], ...
+                               'disc', disc_(S, F(k), mount));  %#ok<AGROW>
     end
     if strcmp(G.form, 'dyson')
         sm = field_(P, 'slit_mask_m', [0.064 0.004 0.001]);
@@ -98,6 +99,13 @@ function C = spectrometer_clearance(G, P, opts)
             if ~isempty(Bd.box)                 % a leg INSIDE a box is a penetration, however far from the box's faces
                 dep = inside_depth_(seg_samples_(L.a, L.b, 21), Bd.box);
                 if dep > 0, d = -dep; end
+            elseif isfield(Bd, 'disc') && ~isempty(Bd.disc)
+                % a leg that CROSSES a surface body inside its aperture + mount is
+                % a penetration (2026-10-06, addendum 46: until then a ray passing
+                % straight through the grating read as its distance to the nearest
+                % 2 mm sample, +0..1 mm); -depth = how far inside the body's edge
+                dep = disc_cross_depth_(L.a, L.b, Bd.disc);
+                if dep > 0, d = -dep; end
             end
             rows(end+1, :) = {L.name, Bd.name, d*1e3};                     %#ok<AGROW>
         end
@@ -123,6 +131,7 @@ function C = spectrometer_clearance(G, P, opts)
             brows(end+1, :) = {Bi.name, Bj.name, d*1e3};   %#ok<AGROW>
         end
     end
+    if isempty(brows), brows = cell(0, 3); end      % no box bodies (the Offner): an empty 0x3 table, not a 0x0 cell2table error
     C.body_table = cell2table(brows, 'VariableNames', {'body', 'other', 'clearance_mm'});
     if ~isempty(brows), C.body_table = sortrows(C.body_table, 'clearance_mm'); end
     C.min_leg_mm = min(C.table.clearance_mm);
@@ -192,6 +201,49 @@ function pts = body_pts_(S, Fk, mount, h)
             q = pts(:, i) - S.C(:);  qt = q - (q'*psi)*psi;
             s2 = S.R^2 - qt'*qt;
             if s2 > 0, pts(:, i) = S.C(:) + qt - sign((S.vpt(:) - S.C(:))'*psi)*sqrt(s2)*psi*(-1); end
+        end
+    end
+end
+
+function D = disc_(S, Fk, mount)
+%DISC_  The body's extent for the crossing test: the surface (plane or sphere
+%   about C), the aperture frame, and the disc (footprint + mount) or, for the
+%   rectangular parts body_pts_ samples as rectangles, the rectangle.
+    D = struct('kind', S.kind, 'C', S.C(:), 'R', S.R, 'vpt', S.vpt(:), 'psi', S.psi(:)/norm(S.psi), ...
+               'xap', Fk.xap(:), 'yap', Fk.yap(:), 'xc', Fk.xc, 'yc', Fk.yc, 'rad', Fk.radius + mount, ...
+               'rect', any(strcmp(S.name, {'PlateIn', 'FoldMirror', 'PrismExit'})) || strncmp(S.name, 'Tel', 3), ...
+               'xl', Fk.xlim + [-mount mount], 'yl', Fk.ylim + [-mount mount]);
+end
+
+function dep = disc_cross_depth_(A, Bp, D)
+%DISC_CROSS_DEPTH_  Deepest crossing (m) of the segments A(:,i)->Bp(:,i) through
+%   the body D inside its disc/rectangle (0 = no segment crosses it).  Segment
+%   end points ON the surface (within 1e-9 of t = 0 or 1) are not crossings.
+    dep = 0;
+    for i = 1:size(A, 2)
+        a = A(:, i);  d = Bp(:, i) - a;  L = norm(d);
+        if L <= 0, continue; end
+        u = d/L;
+        if strcmp(D.kind, 'plane')
+            den = u'*D.psi;  if abs(den) < 1e-15, continue; end
+            ts = ((D.vpt - a)'*D.psi)/den;
+        else
+            q = a - D.C;  b = u'*q;  c = q'*q - D.R^2;  disc = b*b - c;
+            if disc < 0, continue; end
+            ts = [-b - sqrt(disc), -b + sqrt(disc)];
+        end
+        for t = ts(:)'
+            if t <= 1e-9 || t >= L - 1e-9, continue; end
+            h = a + t*u;
+            % the crossing must be on the body's CAP (the half of the sphere the vertex is on)
+            if ~strcmp(D.kind, 'plane') && (h - D.C)'*(D.vpt - D.C) <= 0, continue; end
+            r = h - D.vpt;  x = r'*D.xap;  y = r'*D.yap;
+            if D.rect
+                m = min([x - D.xl(1), D.xl(2) - x, y - D.yl(1), D.yl(2) - y]);
+            else
+                m = D.rad - hypot(x - D.xc, y - D.yc);
+            end
+            if m > 0, dep = max(dep, m); end
         end
     end
 end

@@ -137,6 +137,7 @@ function OUT = dyson5_run(over)
             case 'tFF', OUT.tFF = stage_tFF_(P, tag);
             case 'tGM', OUT.tGM = stage_tGM_(P, tag);   % addendum 45: SPOT metric (a), M2/M3 rigid body (b), the e2e scorer (c)
             case 't5f', OUT.t5f = dyson5_t5f(P, tag);   % end to end for FreeForm decks, the join from ENGINE traces (dyson5_t5f.m)
+            case 'o18', OUT.o18 = dyson5_off18(P, tag); % addendum 46: the F/1.8 Offner at the 54 mm slit, seed + corrected over R (dyson5_off18.m)
             otherwise
                 error('dyson5_run:stage', 'unknown stage %s', P.stages{k});
         end
