@@ -60,7 +60,7 @@ if isfield(out, 'battery')
         R = out.battery.(fns{i});  cfg = R.cfg;
         f = figure('Color', surf_c, 'Position', [100 100 1500 620], 'Visible', 'off');
         tl = tiledlayout(1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
-        tl.Title.String = sprintf('%s: DM %dx%d, NGRID %d, spot %.2f lam/D, %s', P.tag, cfg.nact, cfg.nact, P.NGRID, P.mask.DIA_LAMD, P.bench.mask_prop);
+        tl.Title.String = sprintf('%s: DM %dx%d, NGRID %d, spot %.2f lam/D, %s', P.tag, cfg.nact, cfg.nact, P.NGRID, P.mask.DIA_LAMD, P.bench.mask_prop);  tl.Title.Interpreter = 'none';
         tl.Title.FontSize = 13;  tl.Title.Color = ink;
         ax = nexttile;  hold(ax, 'on');
         is1 = R.PQ(:,2) == 0;  f1 = R.PQ(is1,1)/2;
@@ -102,7 +102,7 @@ if isfield(out, 'color')
     ramp = [ [8 48 107]; [33 102 172]; [67 147 195]; [146 197 222]; [209 229 240] ]/255;   % ordinal blues
     f = figure('Color', surf_c, 'Position', [100 100 520*numel(classes)+200 560], 'Visible', 'off');
     tl = tiledlayout(1, numel(classes), 'Padding', 'compact', 'TileSpacing', 'compact');
-    tl.Title.String = sprintf('%s: one physical mask at %s nm -- per-color transfer and the %d-color combination', P.tag, num2str(C.lams_nm), K);
+    tl.Title.String = sprintf('%s: one physical mask at %s nm -- per-color transfer and the %d-color combination', P.tag, num2str(C.lams_nm), K);  tl.Title.Interpreter = 'none';
     tl.Title.FontSize = 13;  tl.Title.Color = ink;
     [~, order] = sort(C.lams_nm);
     for c = classes
@@ -130,7 +130,7 @@ if isfield(out.bench, 'g567') && isfield(out.bench.g567, 'figdata')
     rds = intersect({'P', 'PF'}, fieldnames(g));
     f = figure('Color', surf_c, 'Position', [100 100 1500 900], 'Visible', 'off');
     tl = tiledlayout(2, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
-    tl.Title.String = sprintf('%s: point-diffraction readings -- the focal plane, the reference, the fringes', P.tag);
+    tl.Title.String = sprintf('%s: point-diffraction readings -- the focal plane, the reference, the fringes', P.tag);  tl.Title.Interpreter = 'none';
     tl.Title.FontSize = 13;  tl.Title.Color = ink;  tl.Title.Interpreter = 'none';
     % (1) the focal spot with the pinhole, the dimple and the waveguide mode
     ax = nexttile;  hold(ax, 'on');
@@ -198,7 +198,7 @@ if isfield(out, 'noise')
     set(ax, 'XScale', 'log', 'YScale', 'log');
     xlabel(ax, 'photons per measurement (one DM shape measured once; a reading''s frames share it)', 'Color', ink2);
     ylabel(ax, 'noise sigma of the poked-actuator estimate, pm', 'Color', ink2);
-    title(ax, sprintf('%s: photon-noise pricing of the single-actuator differential', P.tag), 'Color', ink, 'FontWeight', 'normal');
+    title(ax, sprintf('%s: photon-noise pricing of the single-actuator differential', P.tag), 'Color', ink, 'FontWeight', 'normal', 'Interpreter', 'none');
     grid(ax, 'on');  style_(ax, grid_c, axis_c, ink2, surf_c);
     legend(ax, 'Location', 'southwest', 'TextColor', ink, 'Color', surf_c, 'EdgeColor', axis_c);
     fn = fullfile(P.outdir, sprintf('%s_noise.png', P.tag));
@@ -214,7 +214,7 @@ if isfield(out, 'loop')
     ramp = [ [209 229 240]; [146 197 222]; [67 147 195]; [33 102 172]; [8 48 107] ]/255;   % ordinal blues, light = few photons
     f = figure('Color', surf_c, 'Position', [100 100 1500 620], 'Visible', 'off');
     tl = tiledlayout(1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
-    tl.Title.String = sprintf('%s: closed-loop hold at gain %.2f on the %s, %d cycles, matrix calibration', P.tag, LO.g, LO.surface, LO.K);
+    tl.Title.String = sprintf('%s: closed-loop hold at gain %.2f on the %s, %d cycles, matrix calibration', P.tag, LO.g, LO.surface, LO.K);  tl.Title.Interpreter = 'none';
     tl.Title.FontSize = 13;  tl.Title.Color = ink;
     ax = nexttile;  hold(ax, 'on');
     j0 = find(strcmp(RD, 'S'), 1);  if isempty(j0), j0 = numel(RD); end   % the stepped reading if run
