@@ -14,7 +14,10 @@ function S = dyson5_block4(deck, opts)
 %   no structure, detector, electronics or baffles -- stated on the record.
     arguments
         deck (1,:) char = 'dyson5_t5f_GM_1k5_bAs_e2e.in'
-        opts.cant_deg (1,:) double = [-7.05 -2.35 2.35 7.05]   % each module's cross-track pointing (4 x 4.7 deg strips abutting)
+        opts.cant_deg (1,:) double = []                         % each module's cross-track pointing; [] = four strips abutting with overlap_px of overlap
+        opts.overlap_px (1,1) double = 10                       % pixels of overlap between neighbouring strips when the cants are derived
+        opts.npix (1,1) double = 1500                           % cross-track pixels per module
+        opts.alt_m (1,1) double = 550e3                         % for the ground scale on the swath figure
         opts.pitch_m (1,1) double = NaN
         opts.gap_m (1,1) double = 0.020                         % body-to-body gap between neighbours when the pitch is derived
         opts.margin_ap_m (1,1) double = 0.005                   % aperture margin on a footprint (the clearance gate's)
@@ -34,6 +37,14 @@ function S = dyson5_block4(deck, opts)
     p0 = vec_(txt, 'ChfRayPos');  ap = vec_(txt, 'Aperture');  Dap = ap(1);
     xhat = [1; 0; 0];                                          % the slit / cross-track direction of the e2e deck (the strip's x)
     a = cross(xhat, d);  a = a/norm(a);                        % the cant axis: normal to cross-track and the line of sight
+    % the strip each module admits, from the t5f record of the same deck (admit_half_rad); cants derived so the strips overlap
+    rec = regexprep(deck, '_e2e\.in$', '.mat');  ta = NaN;
+    if isfile(rec), L = load(rec);  if isfield(L, 'S') && isfield(L.S, 'admit_half_rad'), ta = L.S.admit_half_rad*180/pi; end, end
+    assert(~isnan(ta), 'dyson5 block4: no t5f record beside %s (admit_half_rad)', deck);
+    ppd = opts.npix/(2*ta);                                     % pixels per degree across the track
+    if isempty(opts.cant_deg)
+        cp = 2*ta - opts.overlap_px/ppd;  nM0 = 4;  opts.cant_deg = ((1:nM0) - (nM0 + 1)/2)*cp;
+    end
     nM = numel(opts.cant_deg);
     macos.init(opts.model);
     % ---- the module as traced: per-element footprint centres and radii from the engine's hits
@@ -93,18 +104,69 @@ function S = dyson5_block4(deck, opts)
         macos.view_rx('ax', ax2, 'nrings', 1, 'nspokes', 4, 'labels', false, 'title', '', 'view', [az el]);
     end
     for ax = [ax1 ax2], axis(ax, 'equal');  axis(ax, 'tight');  grid(ax, 'on'); end
-    title(ax1, sprintf('four 1.5k modules, cants %s deg, pitch %.0f mm: as traced by the engine', mat2str(opts.cant_deg), pitch*1e3), 'Interpreter', 'none');
+    title(ax1, sprintf('four 1.5k modules, cants %s deg, pitch %.0f mm: as traced by the engine', mat2str(round(opts.cant_deg, 2)), pitch*1e3), 'Interpreter', 'none');
     title(ax2, 'looking along the cant axis: cross-track across the page; light enters from below', 'Interpreter', 'none');
     out = fullfile(here, [opts.tag '_views.png']);  print(f, out, '-dpng', '-r130');  close(f);
     cellfun(@delete, tmp);
+    % ---- the swath: four strips across the track, their overlaps, the ground scale
+    f2 = figure('Visible', 'off', 'Position', [40 40 1400 760], 'Color', 'w');
+    axs = subplot(2, 1, 1, 'Parent', f2);  hold(axs, 'on');  axd = subplot(2, 1, 2, 'Parent', f2);  hold(axd, 'on');
+    cols = lines(nM);  edges = zeros(nM, 2);
+    for k = 1:nM
+        th = opts.cant_deg(k);  edges(k, :) = [th - ta, th + ta];
+        patch(axs, [th-ta th+ta th+ta th-ta], [0 0 1 1] + (k - 1)*0, cols(k, :), 'FaceAlpha', 0.25, 'EdgeColor', cols(k, :), 'LineWidth', 1.2);
+        text(axs, th, 0.5, sprintf('module %d\n%d px\n%+.3f to %+.3f deg', k, opts.npix, th - ta, th + ta), 'HorizontalAlignment', 'center', 'FontSize', 10);
+    end
+    ovl = zeros(1, nM - 1);
+    for k = 1:nM - 1
+        o = edges(k, 2) - edges(k+1, 1);  ovl(k) = o*ppd;
+        patch(axs, [edges(k+1, 1) edges(k, 2) edges(k, 2) edges(k+1, 1)], [0 0 1 1], [0.2 0.2 0.2], 'FaceAlpha', 0.6, 'EdgeColor', 'none');
+        text(axs, (edges(k, 2) + edges(k+1, 1))/2, 1.08, sprintf('%.0f px', ovl(k)), 'HorizontalAlignment', 'center', 'FontSize', 9);
+    end
+    tot = edges(end, 2) - edges(1, 1);  upx = nM*opts.npix - sum(ovl);
+    xlabel(axs, 'cross-track angle (deg)');  set(axs, 'YTick', []);  ylim(axs, [-0.35 1.25]);  xlim(axs, [edges(1, 1) - 0.3, edges(end, 2) + 0.3]);
+    gk = @(th) 2*opts.alt_m*tand(th)/2e3;   % km on the ground from nadir
+    for th = ceil(edges(1,1)):floor(edges(end,2))
+        text(axs, th, -0.18, sprintf('%.0f km', gk(th)), 'HorizontalAlignment', 'center', 'FontSize', 8, 'Color', [0.3 0.3 0.3]);
+    end
+    ylim(axs, [-0.25 1.25]);  axs.YColor = 'none';  axs.Box = 'off';   % (box is the envelope variable)
+    title(axs, {sprintf('the four strips on the ground: %d px each over %.3f deg (the slit admits +-%.3f deg), %.0f px of overlap at each join; along-track offset between strips 0 (the four lines of sight lie in one cross-track plane)', ...
+          opts.npix, 2*ta, ta, mean(ovl)), sprintf('ground distance from nadir at %.0f km altitude (gray); swath %.2f deg = %.0f km, %d unique pixels, %.1f m per pixel at nadir', ...
+          opts.alt_m/1e3, tot, 2*opts.alt_m*tand(tot/2)/1e3, round(upx), 2*opts.alt_m*tand(ta)/opts.npix)}, 'FontSize', 10, 'Interpreter', 'none');
+    % the sweep: one ground line per frame, pushed along the track by the spacecraft's motion
+    annotation(f2, 'arrow', [0.05 0.05], [0.64 0.84], 'Color', [0.2 0.2 0.2], 'LineWidth', 1.5);
+    annotation(f2, 'textbox', [0.003 0.46 0.10 0.16], 'String', {'along-track sweep', '(spacecraft motion);', 'each frame is one', 'ground line'}, ...
+               'EdgeColor', 'none', 'FontSize', 8, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
+    % ---- the focal planes: each module's 1500 x 500 px detector under its strip, the spectral axis from the engine's dispersion
+    RE = L.S.e2e;  im = ceil(numel(RE.xs)/2);  V = RE.V(im, :);  U = RE.U(:, ceil(numel(RE.lams)/2));
+    [~, i380] = min(RE.lams);  [~, i2500] = max(RE.lams);  nsp = 500;
+    vlo = min(V);  vhi = max(V);  sgn = sign(V(i2500) - V(i380));                 % +1: long wavelengths toward +v
+    for k = 1:nM
+        x0 = edges(k, 1);  x1 = edges(k, 2);
+        patch(axd, [x0 x1 x1 x0], [-nsp/2 -nsp/2 nsp/2 nsp/2], cols(k, :), 'FaceAlpha', 0.15, 'EdgeColor', cols(k, :), 'LineWidth', 1.2);
+        for j = 1:numel(RE.lams)         % the engine's centroid rows (the slit's image per wavelength), smile exaggerated by nothing: as scored
+            plot(axd, linspace(x0, x1, numel(RE.xs)), RE.V(:, j) - mean(V)*0, '-', 'Color', cols(k, :)*0.6, 'LineWidth', 0.8);
+        end
+        text(axd, (x0 + x1)/2, 0, sprintf('module %d detector\n%d spatial x %d spectral px', k, opts.npix, nsp), 'HorizontalAlignment', 'center', 'FontSize', 9, 'BackgroundColor', 'w');
+    end
+    text(axd, edges(1, 1), V(i380), sprintf(' %.0f nm', RE.lams(i380)*1e9), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'bottom', 'FontSize', 9);
+    text(axd, edges(1, 1), V(i2500), sprintf(' %.0f nm', RE.lams(i2500)*1e9), 'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', 9);
+    text(axd, edges(end, 2), V(i380), sprintf('%.0f nm ', RE.lams(i380)*1e9), 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', 'FontSize', 9);
+    text(axd, edges(end, 2), V(i2500), sprintf('%.0f nm ', RE.lams(i2500)*1e9), 'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', 'FontSize', 9);
+    ylabel(axd, 'spectral pixel (v)');  xlabel(axd, 'cross-track angle of the slit image (deg); spatial pixel u runs the other way (the image is inverted)');
+    ylim(axd, [-nsp/2 - 60, nsp/2 + 60]);  xlim(axd, [edges(1, 1) - 0.3, edges(end, 2) + 0.3]);  axd.Box = 'off';
+    title(axd, sprintf('the four focal planes under their strips: the lines are the slit''s image at the seven scored wavelengths (the engine''s centroids, %.2f px/nm); %s', ...
+          abs(V(i2500) - V(i380))/((RE.lams(i2500) - RE.lams(i380))*1e9), tern_(sgn > 0, 'wavelength increases toward +v', 'wavelength increases toward -v')), 'FontSize', 10, 'Interpreter', 'none');
+    out2 = fullfile(here, [opts.tag '_swath.png']);  print(f2, out2, '-dpng', '-r130');  close(f2);
+    S_swath = struct('edges_deg', edges, 'overlap_px', ovl, 'swath_deg', tot, 'unique_px', upx, 'px_per_deg', ppd, 'admit_half_deg', ta, 'fig', out2);
     % ---- the record
     S = struct('deck', deck, 'cant_deg', opts.cant_deg, 'pitch_m', pitch, 'module_x_extent_m', wmod, 'box_m', box(:)', ...
                'volume_L', prod(box)*1e3, 'mass_optics_kg', m_mod*nM, 'mass_module_kg', m_mod, 'mass_mirrors_kg', m_mir, ...
-               'mass_grating_kg', m_gr, 'pairs', pair, 'footprint_r_m', fr, 'names', {names}, 'fig', out);
+               'mass_grating_kg', m_gr, 'pairs', pair, 'footprint_r_m', fr, 'names', {names}, 'fig', out, 'swath', S_swath);
     if ~opts.quiet
         fid = fopen(fullfile(here, [opts.tag '.txt']), 'w');  pr = @(varargin) dp_(fid, varargin{:});
         pr('dyson5 block4 -- four 1.5k modules across the 6000-pixel swath (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
-        pr('CONVENTIONS: module = %s as traced; cants %s deg about the axis normal to cross-track and the line of sight; modules side by side\n', deck, mat2str(opts.cant_deg));
+        pr('CONVENTIONS: module = %s as traced; cants %s deg about the axis normal to cross-track and the line of sight; modules side by side\n', deck, mat2str(round(opts.cant_deg, 3)));
         pr('  along the cross-track (slit) axis at pitch %.1f mm (the smallest 5 mm step with every margin >= the %.0f mm gap; module extent %.1f mm);\n  bodies = engine surface hits + %.0f mm aperture + %.0f mm mount; sky beams %.0f mm wide, fanning by the strip''s +-%.2f deg;\n', ...
            pitch*1e3, opts.gap_m*1e3, wmod*1e3, opts.margin_ap_m*1e3, opts.margin_mount_m*1e3, Dap*1e3, half_strip*180/pi);
         pr('  mass = OPTICS ONLY: block %.1f kg (dyson5_size.txt row D), mirrors and grating as %.0f mm blanks (Zerodur %d, silica %d kg/m3); no structure, detector, electronics, baffles.\n\n', ...
@@ -116,7 +178,10 @@ function S = dyson5_block4(deck, opts)
         pr('CONFLICTS (module vs module, m; negative = conflict):\n');
         pr('  worst body-body margin %+.3f m, worst body-vs-sky-beam margin %+.3f m\n', min(pair(:, 3)), min(pair(:, 4)));
         for r = 1:size(pair, 1), pr('    %d vs %d: body-body %+.3f  body-in-beam %+.3f\n', pair(r, :)); end
-        pr('FIGURE %s\n', out);
+        pr('SWATH: each module admits +-%.3f deg (%d px, %.1f px/deg); cants chosen for %.0f px of overlap; strip edges (deg):\n', ta, opts.npix, ppd, opts.overlap_px);
+        for k = 1:nM, pr('    module %d  %+.3f .. %+.3f\n', k, edges(k, :)); end
+        pr('  swath %.3f deg = %.1f km at %.0f km; %d unique pixels; along-track offset between strips 0 (one cross-track plane of lines of sight)\n', tot, 2*opts.alt_m*tand(tot/2)/1e3, opts.alt_m/1e3, round(upx));
+        pr('FIGURES %s, %s\n', out, out2);
         fclose(fid);  save(fullfile(here, [opts.tag '.mat']), 'S');
     end
 end
@@ -178,5 +243,6 @@ function [az, el] = view_along_(a)
     el = asind(a(3));  az = atan2d(a(1), -a(2));
 end
 
+function t = tern_(c, a, b), if c, t = a; else, t = b; end, end
 function v = vec_(t, key), m = regexp(t, ['(?m)^\s*' key '=\s*([^\n]*)'], 'tokens', 'once');  v = sscanf(strrep(m{1}, 'D', 'E'), '%f'); end
 function dp_(fid, varargin), fprintf(fid, varargin{:});  fprintf(varargin{:}); end
