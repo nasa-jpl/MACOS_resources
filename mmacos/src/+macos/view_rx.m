@@ -113,10 +113,29 @@ if ~isempty(opts.elts)
 end
 
 % ---- harvest: full ray-position history (+ legacy fans if asked) -------
+% a VIGNETTED ray keeps its geometry in the engine (obscuration sets only
+% the flux flag), so the history reaches the detector for rays an aperture
+% stopped; find each ray's clipping element from the per-element pass flags
+% and draw the ray only that far (2026-10-06, Dave: the 3k Dyson's beam drawn
+% through a grating it overfills).  RayFailElt stamps nElt+1 for obscuration,
+% so the element is found by stepping the trace.
+nE_ = macos.num_elt();  clipAt = [];
+for k = 1:nE_
+    tk = macos.trace(k);  rk = macos.get_ray_info(tk.nRays);
+    if isempty(clipAt), clipAt = zeros(tk.nRays, 1); end
+    f = clipAt == 0 & ~rk.ok_pass(:) & rk.ok_trace(:);
+    clipAt(f) = k;
+end
 macos.ray_hist('on');
 t = macos.trace();
 h = macos.ray_hist(t.nRays);
 macos.ray_hist('off');
+if numel(clipAt) == t.nRays
+    % slots after the clipping element are not reached by light
+    for r = find(clipAt(:)')
+        h.ok(r, clipAt(r) + 2:end) = false;
+    end
+end
 % extra pre-harvested histories (other FIELDS of the same deck): they
 % join the footprint union, so bodies are sized for every bundle shown
 hs = [{h}, opts.xtra_hist];

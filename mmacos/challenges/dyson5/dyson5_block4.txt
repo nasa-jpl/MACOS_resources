@@ -1,4 +1,4 @@
-dyson5 block4 -- four 1.5k modules across the 6000-pixel swath (2026-10-06 09:06)
+dyson5 block4 -- four 1.5k modules across the 6000-pixel swath (2026-10-06 10:14)
 CONVENTIONS: module = /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_t5f_GM_1k5_bAs_e2e.in as traced; cants [-6.968 -2.323 2.323 6.968] deg about the axis normal to cross-track and the line of sight; modules side by side
   along the cross-track (slit) axis at pitch 233.9 mm (the smallest 5 mm step with every margin >= the 20 mm gap; module extent 203.9 mm);
   bodies = engine surface hits + 5 mm aperture + 10 mm mount; sky beams 183 mm wide, fanning by the strip's +-2.35 deg;
