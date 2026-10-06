@@ -98,7 +98,12 @@ function S = dyson5_t5f(P, tag, q)
            strjoin(arrayfun(@(k) sprintf('%s %.2f', Cl.dep_names{k}, Cl.dep_mm(k)), it, 'uni', 0), ', '));
         for i = 1:min(8, height(Cl.table)), pr('    %-34s vs %-14s %+8.2f mm\n', Cl.table.leg{i}, Cl.table.body{i}, Cl.table.clearance_mm(i)); end
     end
-    if ~quiet, fclose(fid);  save([tag '_t5f' sfx '.mat'], 'S'); end
+    if ~quiet
+        fclose(fid);  save([tag '_t5f' sfx '.mat'], 'S');
+        % the deck-standard maps, as t5e writes them (the deck's figures are the producer's own output)
+        spectrometer_maps_fig(RE, sprintf('%s_t5f%s_maps.png', tag, sfx), 'title', sprintf('%s + %s, end to end, engine', ...
+            regexprep(P.tel5f_deck, '.*/|\.in$', ''), P.tel_dyson), 'pixel_um', P.pixel_m*1e6);
+    end
 end
 
 function [Cl, Cl0] = tEC_(GE0, G, nE, iSlit, fe, P, launch)
