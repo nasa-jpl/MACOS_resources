@@ -1150,3 +1150,29 @@ does not move (9.48 vs 9.46), so earlier records stand on that pair.  Telescope-
 - 1.5k: a0 +11.3, (a) +14.7, **(b) +30.3** (overall min +0.38 = the Dyson's own package): DEFENDED
 - 3k: a0 +8.4, **(a) +0.28 mm against an M3 body residual of 0.37 mm: UNDEFENDED**; (b) +22.1 telescope-internal, overall
   **+0.06 mm** (the TelM2 -> TelM3 leg vs the Dyson's BlockFaceIn, a ray leg vs a precise body): a marginal PASS.
+
+## Addendum 45 (TO, 2026-10-05): (c) -- the instrument's merit, one bounded rung
+
+Warm from (b) on both modules (the better e2e of (a)/(b)), the same DOFs (conics + FF + the 13 geometry), residuals = the e2e
+scorer through the engine join, RE-PLACED every evaluation: per (field, lambda) the centroid's dispersion-direction deviation
+from its lambda's field mean (smile), its slit-direction deviation from its field's lambda mean (keystone), the rms ray widths
+SU / SV (CRF / SRF -- the scored FWHMs are 0.01 px histograms in a +-8 px window, no FD derivative), all px, + the telescope's
+7 x 2 position rows in px; equal weights; LM + jacobian scaling, 1500 evaluations (~4.5 s each; 26 iterations; NOT converged,
+first-order optimality 2.7e2 / 1.5e3).  Records `dyson5_tA_GM_<module>_c.*`, `dyson5_t5f_GM_<module>_c.*`.
+
+| | spots bf / as placed, centre / edge um | e2e smile / keystone / CRF / SRF px | plate local / edge | cost | clearance (telescope-internal / overall) |
+|---|---|---|---|---|---|
+| 1.5k (b) | 6/13 / 6/13 | 0.60 / 0.02 / **1.49** / 2.30 | 327.0 / 330.6 | 143 | +30.3 / +0.38 |
+| **1.5k (c)** | 6/11 / 6/13 (mid fields 15) | **0.41** / 0.02 / 1.95 / 2.35 | 327.1 / 330.7 | 129 | +30.3 / +0.38 |
+| 3k (b) | 25/40 / 27/41 | 2.11 / 0.13 / 8.26 / 3.88 | 322.1 / 330.7 | 2939 | +22.1 / +0.06 |
+| **3k (c)** | 31/76 / 35/82 | 2.05 / **0.05** / **4.22** / 4.90 | 323.6 / 331.6 | 1490 | +21.4 / +0.06 |
+
+The geometry barely moved in (c) (tilts and decenters equal to (b) to 0.01 mrad / mm); the figure did the work, FF norm
+unchanged (1500 / 4842 um), the M2 / M3 sag and slope as (b).  **3k:** the instrument merit halves the CRF (8.26 -> 4.22 px)
+and the keystone (0.13 -> 0.05) by TRADING the telescope's own spot (edge 40 -> 76 um) -- R5's lesson in the other direction:
+the telescope image is a proxy, the Dyson's FPA is the merit.  **1.5k:** smile 0.60 -> 0.41, but the FWHM CRF got WORSE (1.49
+-> 1.95) while its rms-width surrogate improved -- (c) as built optimises the second moment, not the FWHM the spec reads; a
+FWHM-faithful residual (a smoothed-LSF width, or the ray histogram with a finite-difference step above its 0.01 px bin) is
+the fix if (c) is to be the number.  **The number to Jim, as scored today:** 1.5k (b) for CRF (1.49 px, on spec) or (c) for
+smile (0.41); smile / keystone spec 0.1 px is met by neither on smile.  3k (c): smile 2.05 / CRF 4.22 / SRF 4.90 px, 3k
+clearance a marginal +0.06 mm (a ray leg vs the Dyson block), a genuine freeform with M2 at 1.7 mm / 126 mrad.
