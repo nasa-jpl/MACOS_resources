@@ -2271,6 +2271,13 @@ function S = stage_tGM_(P, tag)
     % the parent Telescope for check_clipping (bodies overridden with the engine's moved vertices / axes)
     [R, t] = macos.design.tma_layout(D, 1.0, P.tFF_fsys, 'secondary_mag', P.tFF_m2, 'int_focus_m', -0.125*D, 'telecentric', true);
     tel = tA_build_(R, t, D, lam, P.tel3_model, P.tEP_bias_deg, P.tEP_dec_m);
+    if ~isempty(P.tGM_deck)                          % score an arbitrary telescope deck (e.g. the conic-fit emission), report only
+        copyfile(fullfile(here, P.tGM_deck), deck);  bk = regexp(fileread(deck), '\n\s*iElt=', 'split');
+        K = arrayfun(@(k) tFF_num_(bk{k+1}, 'KcElt'), 1:3);  C = zeros(3, nm);  g = zeros(1, 13);
+        pr('SCORING the deck %s as given (no solve; FF channel absent -> the FF sag lines read 0)\n', P.tGM_deck);
+        S = tGM_report_(P, tag, sfx, pr, deck, K, C, g, Fs, free, dirs, apst, stand, T, F, tel, P5, GD, GE0, info0);
+        S.mode = 'deck';  S.src_deck = P.tGM_deck;  save([tag '_tA_GM' sfx '.mat'], 'S');  fclose(fid);  return
+    end
     % ---- the residual
     write_(K, C, g, deck);  macos.load_rx(deck);
     sel = cell(1, size(dirs, 1));
@@ -2328,7 +2335,8 @@ function S = tGM_report_(P, tag, sfx, pr, deck, K, C, g, Fs, free, dirs, apst, s
         for k = 1:3, s = macos.trace(k);  ri = macos.get_ray_info(s.nRays);  H{k} = [H{k}, ri.pos(:, ri.ok_trace(:))]; end
     end
     sag = struct('max_um', nan(1, 3), 'pv_um', nan(1, 3), 'slope_mrad', nan(1, 3), 'lit_r_mm', nan(1, 3));
-    for k = 1:3
+    hasFF = contains(fileread(deck), 'pFF=');  if ~hasFF, pr('   (no FF channel in this deck: no FF sag lines)\n'); end
+    for k = 1:3*hasFF
         b = bl{k+1};  p0 = tFF_vec_(b, 'pFF');  xf = tFF_vec_(b, 'xFF');  yf = tFF_vec_(b, 'yFF');  Lf = tFF_num_(b, 'lFF');
         w = H{k} - p0;  x = xf'*w;  y = yf'*w;  hh = 1e-5;
         sf = @(x, y) tGM_ffeval_(C(k, :), Fs.modes, hypot(x, y)/Lf, atan2(y, x));

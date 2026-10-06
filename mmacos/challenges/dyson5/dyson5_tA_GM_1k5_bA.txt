@@ -1,0 +1,43 @@
+dyson5 tGM -- addendum 45: residual SPOT, geometry DOFs off (2026-10-05 17:00)
+WARM START: dyson5_tA_FF_1k5_R4lm.mat rung R4 (R0 dyson5_tA_EP_pz_m30_B1.in; modes [4 6 7 8 9 10 5 13 25 11 12 14 15] free on M1-M3, lFF [121.2 52.4 37.3] mm; equal field weights)
+GATE 1 (identity, the warm state re-traced): spots as placed 98.5 218.6 131.1 105.5 104.7 129.8 216.2  um vs the warm record's 98.5 218.6 131.1 105.5 104.7 129.8 216.2  (max diff 0.00e+00 um)
+GATE 2 (the text move vs macos.perturb, M2 by [0.3 -0.2 0.5 0.05 -0.03 0.08] mrad / mm in its TElt frame, edge field, every ray at the FP): max 5.11e-07 m
+  the same at a TENTH of the move: max 5.11e-08 m (second order in the move = the two rotation compositions differ, the pivot and frame agree)
+  (pole frame of M2 = TElt: x [-1 -5.421e-20 0.001718] y [-0.0003243 0.982 -0.1887] z [-0.001687 -0.1887 -0.982])
+GATE 3 (live clearance on the R0 aspheric deck vs t5e's chain record dyson5_t5e_tA_EP_pz_m30_B1.mat; the Dyson entries must match, the TELESCOPE
+  bodies DIFFER BY DESIGN: the chain lifts them onto the base sphere, the live gate onto the best-fit sphere of the lit patch): min +0.39 vs +0.39 mm
+    BODY FPApackage                    vs BlockFaceIn    chain    +0.39  engine    +0.39 mm
+    BlockSphereIn -> BlockFaceOut      vs FPApackage     chain    +0.58  engine    +0.58 mm
+    BlockFaceIn -> BlockSphereOut      vs SlitMask       chain    +1.72  engine    +1.73 mm
+    TelM3 -> Slit                      vs FPApackage     chain    +5.50  engine    +5.50 mm
+    BlockFaceIn -> BlockSphereOut      vs FPApackage     chain    +7.96  engine    +7.96 mm
+    Slit -> BlockFaceIn                vs FPApackage     chain    +8.13  engine    +8.13 mm
+    TelM1 -> TelM2                     vs TelM3          chain    +9.46  engine    +9.48 mm
+    BlockSphereIn -> BlockFaceOut      vs SlitMask       chain   +11.25  engine   +11.24 mm
+    BlockFaceOut -> FPA                vs SlitMask       chain   +11.32  engine   +11.31 mm
+    TelM2 -> TelM3                     vs BlockFaceIn    chain   +16.76  engine   +16.76 mm
+SCORING the deck dyson5_tA_GM_1k5_b_asph.in as given (no solve; FF channel absent -> the FF sag lines read 0)
+
+SOLVED (deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tA_GM_1k5_bA.in; the row prints as R4 = its DOF set):
+R4 (free [4 6 7 8 9 10 5 13 25 11 12 14 15]): lsqnonlin exitflag NaN, 0 evaluations, 0 s
+     field  strict@chf  strict@foc    spot bf spot asplc     FP OPD  nPass     T mm     S mm
+    +0.000       2.455       1.447       30.1       38.3     12.327   1184   +0.130   +0.244
+    -2.344       7.809       7.221      118.9      139.5     56.186   1184   +0.058   +0.640
+    -1.563       4.175       4.149       74.5       89.9     35.375   1184   +0.128   +0.428
+    -0.781       2.649       2.247       44.1       54.4     19.853   1184   +0.133   +0.294
+    +0.781       2.621       2.111       41.9       52.1     18.876   1184   +0.136   +0.286
+    +1.563       3.942       3.890       70.8       86.1     33.892   1184   +0.137   +0.412
+    +2.344       7.321       6.799      113.3      134.1     54.258   1184   +0.081   +0.616
+   EDGE: strict@chief 7.57 / @focus 7.01 um, spot 116.1 um (6.4 px), T-S -0.558 mm; CENTRE spot 30.1 um; plate pos err max 1.682 mm; K [-1.922 -4.0727 -1.0074]
+   FF coefficient norm (all freed modes, M1-M3): 0.00 um (Tikhonov watch: modes growing while the edge stalls)
+   M1 FF (um at rho=1, lFF 121.2 mm): Z4 +0.000 Z6 +0.000 Z7 +0.000 Z8 +0.000 Z9 +0.000 Z10 +0.000 Z5 +0.000 Z13 +0.000 Z25 +0.000 Z11 +0.000 Z12 +0.000 Z14 +0.000 Z15 +0.000
+   M2 FF (um at rho=1, lFF 52.4 mm): Z4 +0.000 Z6 +0.000 Z7 +0.000 Z8 +0.000 Z9 +0.000 Z10 +0.000 Z5 +0.000 Z13 +0.000 Z25 +0.000 Z11 +0.000 Z12 +0.000 Z14 +0.000 Z15 +0.000
+   M3 FF (um at rho=1, lFF 37.3 mm): Z4 +0.000 Z6 +0.000 Z7 +0.000 Z8 +0.000 Z9 +0.000 Z10 +0.000 Z5 +0.000 Z13 +0.000 Z25 +0.000 Z11 +0.000 Z12 +0.000 Z14 +0.000 Z15 +0.000
+   fwd_root_flips_get after the trace: 0
+   fields +0.00 -2.34 -1.56 -0.78 +0.78 +1.56 +2.34  deg; best focus / AS PLACED spot (um): 30 119 74 44 42 71 113  / 38 140 90 54 52 86 134   (warm state: 73 170 94 77 77 93 169  / 99 219 131 106 105 130 216 )
+   GEOMETRY (pole frames, about the pole): M2 rot [0 0 0] mrad, dec [0 0 0] mm; M3 rot [0 0 0] mrad, dec [0 0 0] mm; FP focus +0.0000 mm
+   FF coefficient norm 0.00 um
+   (no FF channel in this deck: no FF sag lines)
+   conics K [-1.922 -4.0727 -1.0074] (R0 deck [-1.0252 -7.6877 -42.548])
+   check_clipping (moved deck, centre field, engine DRAW fans): CLEAR, min clearance +31.52 mm (FP), obstructions 0
+   E2E (join re-placed): smile 2.57 / keystone 0.08 / CRF 4.18 / SRF 9.08 px, admits 1.000, plate local / edge 326.8 / 329.8 mm; clearance +0.37 mm PASS
