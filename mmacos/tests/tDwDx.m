@@ -225,6 +225,34 @@ classdef tDwDx < matlab.unittest.TestCase
                 'rigid-body perturbations must move the centroid');
         end
 
+        function test_dcdx_of_a_rigid_tilt_is_the_chief_displacement(testCase)
+            % Luis's OPTIIX FSM test (2026-10-06): dw_dx's centroid channel
+            % took macos.spot(...,'at','chief'), the spot CENTRED ON THE
+            % CHIEF RAY, so a rigid displacement of the spot (a mirror
+            % tilt) was subtracted out and dcdx read ~0 for it -- only the
+            % aberration change survived.  The centroid for a line-of-sight
+            % sensitivity is about the ELEMENT.  Here the Cassegrain's
+            % secondary (elt 3) is tilted about x: dcdx_y must equal the
+            % chief ray's own displacement per radian at the focal plane,
+            % measured independently from the traced chief (ray 1).
+            rx = rx_fixture_path('Rx_Cass_FarField.in');
+            m = macos.Session(testCase.ModelSize);
+            d = 2e-7;
+            out = macos.dw_dx(m, rx, 'elts', 3, 'dofs', 0, 'delta', d, 'compute_los', true, 'method', 'central');
+            m.load_rx(rx);  nE = m.num_elt();
+            p0 = chief_(m, nE);
+            m.load_rx(rx);  macos.perturb(3, 'rotation', [d 0 0], 'translation', [0 0 0], 'frame', 'global');
+            p1 = chief_(m, nE);
+            dch = (p1 - p0)/d;                      % the chief's displacement per rad, global frame
+            % the spot is in the TOUT frame; on this coaxial deck Tout's x,y are the global x,y
+            testCase.verifyGreaterThan(norm(dch(1:2)), 1, 'the tilt must move the chief (m per rad)');
+            testCase.verifyEqual(out.dcdx(1, :), dch(1:2).', 'AbsTol', 0.05*norm(dch(1:2)), ...
+                sprintf('dcdx %s vs the chief''s %s m/rad (pre-fix: dcdx ~ 0, the chief-centred spot)', mat2str(out.dcdx(1, :), 4), mat2str(dch(1:2).', 4)));
+            function p = chief_(m, nE)
+                s = m.trace(nE);  ri = macos.get_ray_info(s.nRays);  p = ri.pos(:, 1);
+            end
+        end
+
         function test_no_los_by_default(testCase)
             % Without compute_los the struct carries no LOS fields.
             m = macos.Session(testCase.ModelSize);
