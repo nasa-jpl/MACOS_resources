@@ -365,3 +365,20 @@ s0 is engine-free; the gates need the mmacos mex:
   `../../tests/Rx/Rx_GratingImmersed.in`, `Rx_GlassPlate.in`.
 - `../../../optical_design/SPECTROMETER_DESIGN_REFERENCE.md` -- forms,
   conventions, the verified condition and scaling, metrics, references.
+
+## Addendum 46 (2026-10-06) -- the F/1.8 Offner at the 54 mm slit: a negative at a stated size
+
+Stage `o18` (`dyson5_off18.m`; `P.off18_*`): the all-reflective sibling at the Dyson's
+speed and slit, over R = 0.5-1.25 m, engine-scored seed / fixed-ring corrections /
+free ring.  **It does not reach the Dyson rows: the best buildable point (R 0.5 m,
+ring 0.32 R) reaches CRF 2.24 px, but its spectral blur is 6.9 px rms (SRF beyond the
+scorer's +-8 px window), 0.01 of the energy in a pixel; the spectral blur stays
+7-9 px at every R**, a lambda-independent floor (aberration along the dispersion)
+plus a lambda-proportional grating term.  Size is not what rules it out (501 mm long,
+4.8 kg of blanks).  Found on the way: 0.22 R puts both beams through the grating at
+F/1.8 (the clearance gate could not see a body crossing; fixed, 54 Dyson records
+bit-identical, gate in `tSpectrometerRx`); the corrected second zone cannot share
+area with the first (`offner_solve` gains a free ring, a zone-gap wall, a warm
+start; its default path reproduces the F/2.8 record to every digit); the F/2.8
+record's zones overlap by 9.4 mm of clear aperture.  Details, the table and "For
+Dave": `BRIEF_dyson5_jim.md` sec. 3c; record `dyson5_off18.txt`.

@@ -258,5 +258,28 @@ classdef tSpectrometerRx < matlab.unittest.TestCase
             tc.verifyEqual(r.n_wavelength, 2, 'CALIB sees the 2 wavelengths (Wavelen + ArrWaveLen)');
         end
 
+        function test_clearance_sees_a_beam_through_a_body(tc)
+            % (addendum 46, 2026-10-06) the gate's distance to SAMPLED body
+            % points cannot go negative, so a leg passing straight through a
+            % mirror or grating disc read +0..1 mm (the sample spacing); the
+            % crossing test (segment x surface inside aperture + mount) makes
+            % it a penetration.  Must-FAIL: the F/1.8 Offner at the 0.22 R
+            % ring, both beams through the grating (-33 mm when found; the
+            % pre-fix gate read +0.2).  Must-PASS: the same Offner at 0.30 R
+            % and the F/2.8 sibling at 0.22 R (no body crossed, unchanged).
+            % Also pins the no-box-body path (the Offner): an empty 0x3 body
+            % table, not a cell2table error.  Chain-only, no engine.
+            P = tc.P;  P.Fno = 1.8;  P.offner_R = 0.5;  P.grating_model = 'planes';
+            Pc = struct('mount_margin_m', 5e-3);
+            P.y_slit = 0.22*0.5;  C = spectrometer_clearance(spectrometer_geom('offner', P), Pc, 'quiet', true);
+            tc.verifyLessThan(C.min_mm, -10, 'F/1.8 Offner at 0.22 R: the beams cross the grating body');
+            tc.verifySubstring(C.table.body{1}, 'Grating', 'the crossed body is the grating');
+            tc.verifyEqual(height(C.body_table), 0, 'no box bodies: an empty body table');
+            P.y_slit = 0.30*0.5;  C = spectrometer_clearance(spectrometer_geom('offner', P), Pc, 'quiet', true);
+            tc.verifyGreaterThan(C.min_mm, 5, 'F/1.8 Offner at 0.30 R clears');
+            P.Fno = 2.8;  P.y_slit = 0.22*0.5;  C = spectrometer_clearance(spectrometer_geom('offner', P), Pc, 'quiet', true);
+            tc.verifyGreaterThan(C.min_mm, 5, 'F/2.8 Offner at 0.22 R clears (the record''s sibling)');
+        end
+
     end
 end
