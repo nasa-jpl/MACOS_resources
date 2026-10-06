@@ -183,5 +183,9 @@ W = session.opd();
 end
 
 function S = local_spot(spot_elt)
-S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'chief');
+% 'at','elt': the centroid for a line-of-sight sensitivity must be measured
+% about the ELEMENT, not the chief ray -- about the chief, a rigid displacement
+% of the spot (a fold or FSM tilt) is subtracted out and dcdx reads ~0 for it
+% (Luis's OPTIIX FSM test, 2026-10-06; only the shape change survived)
+S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'elt');
 end

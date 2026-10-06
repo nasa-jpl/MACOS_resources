@@ -10,8 +10,11 @@ function s = spot(srf, opts)
 %   Name-value pairs:
 %     'ref'         'beam'(default) | 'tout' | 'telt' — reference
 %                   coordinate system the spot is expressed in.
-%     'at'          'chief'(default) | 'elt' — reference position
-%                   (chief-ray vs element vertex).
+%     'at'          'elt'(default) | 'chief' — reference position
+%                   (element vertex, the heritage SPCENTER default and
+%                   pymacos's; or the chief ray, which removes any rigid
+%                   displacement of the spot -- never for a centroid
+%                   sensitivity).
 %     'reset_trace' logical (default true) — apply MODIFY before tracing.
 %
 %   Raw equivalents: mmacos('spot_cmd', ...) + mmacos('spot_get', N).
@@ -20,7 +23,7 @@ function s = spot(srf, opts)
 arguments
     srf (1,1) double {mustBeInteger, mustBePositive}
     opts.ref (1,:) char {mustBeMember(opts.ref, {'beam','tout','telt'})} = 'beam'
-    opts.at  (1,:) char {mustBeMember(opts.at,  {'chief','elt'})} = 'chief'
+    opts.at  (1,:) char {mustBeMember(opts.at,  {'chief','elt'})} = 'elt'
     opts.reset_trace (1,1) logical = true
 end
 refmap   = struct('beam', 1, 'tout', 2, 'telt', 3);
