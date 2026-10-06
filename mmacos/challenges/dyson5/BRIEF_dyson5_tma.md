@@ -1128,8 +1128,12 @@ um on 3k (GROWS 33 %: the two fight -> (c'), the stop at M2, is indicated for 3k
 (Correction: the "For Dave" section's R4 1.5k FF sag 19/167/78 um came from a full-disc grid; over the lit hits it is 11/94/26.)
 Then `dyson5_conicfit`: a conic of FREE vertex, axis, R, K (+ h4/h6 about that vertex) fitted to the mirror's real lit
 surface (gate: the B1 aspheric deck reproduced to <= 0.11 um rms).  Residual after the re-fit, p-v um / slope mrad:
-**1.5k (b): 11 / 0.4, 17 / 1.7, 10 / 2.8 -- an OFF-AXIS ASPHERIC TMA**; the 1.45 mm "freeform" on M2 is a re-fitted conic
-(R 0.120 -> 0.090 m, axis 56 mrad).  1.5k (a) 27-55 um p-v, R4 8-11 um: asphere-like too.  1.5k a0 77-359 um and every 3k
+**1.5k (b): 11 / 0.4, 17 / 1.7, 11 / 1.1 -- in SAG an off-axis aspheric TMA**; the 1.45 mm "freeform" on M2 is mostly a
+re-fitted conic (R 0.120 -> 0.090 m, axis 56 mrad).  **But optically the residual is load-bearing:** the same deck emitted as
+three Surface= Aspheric mirrors from the fit (hits on the fitted surfaces to 2e-9 um) scores edge 119 um best focus (b: 13),
+centre 30 (b: 6), plate error 1.7 mm, e2e smile 2.57 / keystone 0.08 / CRF 4.18 / SRF 9.08 px (b: 0.60 / 0.02 / 1.49 / 2.30).
+1.7-2.8 mrad of residual SLOPE x 2 x a 0.3 m throw is ~1 mm of transverse blur -- 17 um p-v is a sag statement, not an image
+statement.  The freeform deck stays the record; the asphere-only re-solve warm from the emission is the open test.  1.5k (a) 27-55 um p-v, R4 8-11 um: asphere-like too.  1.5k a0 77-359 um and every 3k
 solve (a 18/219/561, a0 123/811/328, R4 75/425/272; (b) M1 41, M3 839 um, M2 no physical conic within reach) are GENUINE
 freeforms.  So on 1.5k the transverse metric + geometry found an aspheric off-axis solution; the strict wavefront found a
 freeform one.
