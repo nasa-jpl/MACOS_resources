@@ -1176,3 +1176,53 @@ FWHM-faithful residual (a smoothed-LSF width, or the ray histogram with a finite
 the fix if (c) is to be the number.  **The number to Jim, as scored today:** 1.5k (b) for CRF (1.49 px, on spec) or (c) for
 smile (0.41); smile / keystone spec 0.1 px is met by neither on smile.  3k (c): smile 2.05 / CRF 4.22 / SRF 4.90 px, 3k
 clearance a marginal +0.06 mm (a ray leg vs the Dyson block), a genuine freeform with M2 at 1.7 mm / 126 mrad.
+
+## For Dave: addendum 45 closed -- the decks of record, what changed the answer, what is open (TO, 2026-10-05)
+
+**The decks of record (equal field weights throughout).**
+
+| module | deck | merit that solved it | spots bf / as placed, centre / edge (um) | e2e smile / keystone / CRF / SRF px | plate local / edge | surfaces | clearance |
+|---|---|---|---|---|---|---|---|
+| **1.5k** | `dyson5_tA_GM_1k5_bAs.in` | SPOT rows (per-ray, as placed) + position rows; DOFs per mirror R, K, h4/h6, vertex, axis + M2/M3 rigid body + FP focus; warm from the conic-fit emission of (b) | **7/13 / 8/14** | **0.51 / 0.01 / 1.22 / 2.20** | 327.2 / 330.7 | **three off-axis ASPHERES** (Surface= Aspheric, no Zernike); departure from the best-fit sphere over the lit patch M1 2.1 mm (its conic), M2 0.30, M3 0.01 mm | telescope-internal **+39.1 mm**; overall +0.38 (the Dyson's own package) |
+| **3k** | `dyson5_tA_GM_3k_c.in` | the e2e scorer through the join (rms-width surrogates), warm from (b); geometry IDENTICAL to (b) | 31/76 / 35/82 | 2.05 / 0.05 / 4.22 / 4.90 | 323.6 / 331.6 | genuine freeform: M2 FF 1.74 mm sag / 3.3 mm p-v / **126 mrad**, M3 3.8 mm / 5.5 mm / **172 mrad**; M2 has no physical conic within reach | telescope-internal +21.4 (M3 body residual 0.63); **overall +0.06 mm FLAG** (the TelM2 -> TelM3 ray leg vs the Dyson's BlockFaceIn) |
+
+Neither run converged (first-order optimality 1e5-1e6 at the cap): lower bounds.  Spec: smile and keystone < 0.1 px, CRF
+< 1.5 px.  1.5k meets CRF and keystone, misses smile (0.51); 3k misses all but keystone.  The 1.5k freeform (b)
+(`dyson5_tA_GM_1k5_b.in`: 6/13 um, 0.60 / 0.02 / 1.49 / 2.30 px, M2 1.45 mm / 67 mrad of freeform) is superseded by the
+asphere deck, which beats it on every e2e number.
+
+**What changed the answer, in order.**
+1. **The residual's FORM (the a0 control).**  R4's strict solve had ONE rms row per field (28 rows, 42 DOFs).  The same
+   strict wavefront as PER-RAY rows took the 1.5k edge 170 -> 60 um; on 3k it did not help (376 um, smile 43.7 px).
+   R4 was solver-limited on 1.5k, metric-limited on 3k.
+2. **The METRIC.**  SPOT (as-placed transverse) per-ray rows: 1.5k edge 60 -> 25 um, 3k 487 -> 102 um.
+3. **The GEOMETRY.**  M2/M3 tilts and decenters + FP focus as DOFs, clearance live: 1.5k 25 -> 13 um, CRF 2.34 -> 1.49;
+   3k 102 -> 40 um.  Not a trim: M3 tilts 11-16 deg, decenters up to 31 mm.  Bauer's diagnostic: the FF norm shrank 8 % on
+   1.5k (the geometry took burden) and GREW 33 % on 3k (the two fight).
+4. **The instrument's merit (c).**  3k CRF 8.26 -> 4.22 px by trading the telescope's own spot (40 -> 76 um).  On 1.5k the
+   FWHM CRF rose (1.49 -> 1.95) while its rms surrogate fell: (c) optimises second moments, the spec reads FWHMs.  A
+   FWHM-faithful residual -- a smoothed-LSF width with an analytic derivative -- is the next merit item.
+5. **Asphere-only, after the conic fit.**  See the lesson below.
+
+**The conic-fit lesson (sag vs slope; score the emission).**  A conic with free vertex/axis/R/K + h4/h6 fits the 1.5k (b)
+mirrors to <= 17 um p-v -- "an off-axis asphere" in SAG.  Emitted as such and SCORED, it gave edge 119 um and CRF 4.18 px:
+1.7-2.8 mrad of residual slope x 2 x a 0.3 m throw is ~1 mm of blur.  I called it buildable before scoring it and retracted
+it.  Re-OPTIMISED as aspheres from that emission (above) it beats the freeform.  The fit is a starting point, the engine's
+image is the verdict.  Two tool traps recorded in `dyson5_conicfit`'s header: fit in the engine's own (explicit) asphere form
+-- an implicit form missed by 7 mm at large |K|; and state slope beside sag.
+
+**Clearance method change.**  `dyson5_t5f` now runs `spectrometer_clearance` verbatim on the joined ENGINE deck (bundle and
+footprints from engine rays on a 201-point grid with the aperture edge matched -- the 41-point lattice's ragged edge read the
+binding pair 3.4 mm optimistic), telescope bodies at the engine's moved vertices, lifted onto the BEST-FIT sphere of each lit
+patch (the chain lifts onto the base sphere, which drops the conic: M1's lit patch departs ~20 mm from it) with the residual
+printed.  Gated: == the chain record to <= 0.01 mm on the B1 deck (binding pair 9.48 vs 9.46).  Corrections: the R4
+telescope-internal clearance is +6.78 (1.5k) / +6.35 (3k) mm, not the +9.46 / +7.35 carried over from B1; the R4 1.5k
+lit-patch FF sag is 11 / 94 / 26 um, not the full-disc 19 / 167 / 78.
+
+**Open, for your ruling.**
+- **3k layout: (c') the stop at M2** (or a different section), first order only.  The geometry and the freeform fight on 3k,
+  and M2 carries 1.7 mm at 126 mrad with no physical conic within reach -- more rungs on this form are not indicated.
+- The asphere-only solve on **3k** (the 1.5k result says try it; the 3k conic fits say it is less likely to hold).
+- A FWHM-faithful e2e residual before (c) is the number to Jim.
+- The field-weighting ruling (still equal weights).
+- Pushes: everything above is LOCAL on resources dev-candidate (c26e7c5 .. this commit).
