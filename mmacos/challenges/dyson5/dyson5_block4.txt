@@ -1,0 +1,36 @@
+dyson5 block4 -- four 1.5k modules across the 6000-pixel swath (2026-10-06 08:02)
+CONVENTIONS: module = /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_t5f_GM_1k5_bAs_e2e.in as traced; cants [-7.05 -2.35 2.35 7.05] deg about the axis normal to cross-track and the line of sight; modules side by side
+  along the cross-track (slit) axis at pitch 233.9 mm (the smallest 5 mm step with every margin >= the 20 mm gap; module extent 203.9 mm);
+  bodies = engine surface hits + 5 mm aperture + 10 mm mount; sky beams 183 mm wide, fanning by the strip's +-2.35 deg;
+  mass = OPTICS ONLY: block 1.6 kg (dyson5_size.txt row D), mirrors and grating as 10 mm blanks (Zerodur 2530, silica 2200 kg/m3); no structure, detector, electronics, baffles.
+
+FOOTPRINTS (engine hits, radius + aperture margin, mm):
+  M1               Reflector    r  111.1  blank r  121.1
+  M2               Reflector    r   32.6  blank r   42.6
+  M3               Reflector    r   28.4  blank r   38.4
+  Slit             Reference    r    5.0  blank r   15.0
+  BlockFaceIn      Refractor    r    5.1  blank r   15.1
+  BlockSphereOut   Refractor    r   30.0  blank r   40.0
+  Grating          Grating      r   84.8  blank r   94.8
+  BlockSphereIn    Refractor    r   29.8  blank r   39.8
+  BlockFaceOut     Refractor    r    5.1  blank r   15.1
+  PreFPA           Reference    r    5.3  blank r   15.3
+  FPA              FocalPlane   r    5.0  blank r   15.0
+
+ONE MODULE: optics 3.65 kg (block 1.60, mirrors 1.43, grating 0.62); cross-track extent 204 mm
+THE BLOCK OF FOUR: envelope 965 x 411 x 758 mm (x cross-track, y, z of the deck frame) = 300 L; optics 14.6 kg
+CONFLICTS (module vs module, m; negative = conflict):
+  worst body-body margin +0.025 m, worst body-vs-sky-beam margin +0.029 m
+    1 vs 2: body-body +0.026  body-in-beam +0.038
+    1 vs 3: body-body +0.247  body-in-beam +0.328
+    1 vs 4: body-body +0.470  body-in-beam +0.575
+    2 vs 1: body-body +0.026  body-in-beam +0.034
+    2 vs 3: body-body +0.025  body-in-beam +0.030
+    2 vs 4: body-body +0.247  body-in-beam +0.256
+    3 vs 1: body-body +0.247  body-in-beam +0.259
+    3 vs 2: body-body +0.025  body-in-beam +0.035
+    3 vs 4: body-body +0.026  body-in-beam +0.029
+    4 vs 1: body-body +0.470  body-in-beam +0.574
+    4 vs 2: body-body +0.247  body-in-beam +0.352
+    4 vs 3: body-body +0.026  body-in-beam +0.054
+FIGURE /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_block4_views.png
