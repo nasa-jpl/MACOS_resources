@@ -30,7 +30,7 @@ function f = spectrometer_maps_fig(R, file, opts)
         title(ax, panels{k,3}, 'FontSize', 10);
     end
     if ~isempty(opts.title)
-        sgtitle(f, sprintf('%s -- %.0f um pixels; per (slit x, lambda): engine ray centroids and spots', opts.title, opts.pixel_um), 'FontSize', 11);
+        sgtitle(f, sprintf('%s -- %.0f um pixels; per (slit x, lambda): engine ray centroids and spots', opts.title, opts.pixel_um), 'FontSize', 11, 'Interpreter', 'none');
     end
     print(f, file, '-dpng', '-r130');  close(f);
 end

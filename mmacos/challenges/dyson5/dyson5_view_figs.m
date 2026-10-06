@@ -13,10 +13,16 @@ if nargin < 2 || isempty(outdir), outdir = here; end
 for k = 1:numel(decks)
     macos.init(128);
     macos.load_rx(fullfile(here, [decks{k} '.in']));
-    macos.view_rx('save', fullfile(outdir, [decks{k} '_view3d.png']), 'visible', false, ...
-        'nrings', 2, 'nspokes', 6, 'title', sprintf('%s: as traced by the engine', strrep(decks{k}, '_', ' ')));
-    macos.view_rx('save', fullfile(outdir, [decks{k} '_viewyz.png']), 'visible', false, ...
-        'nrings', 2, 'nspokes', 6, 'view', [90 0], 'title', sprintf('%s: dispersion plane (Y-Z)', strrep(decks{k}, '_', ' ')));
+    % the axes are the viewer's (bodies, rays, labels from the engine); only the LIMITS are tightened to the
+    % drawn data -- 'axis equal' alone pads the short axes to the figure's aspect (a 2-m box around a 0.6-m train)
+    views = {'view3d', [-35 18], 'as traced by the engine'; 'viewyz', [90 0], 'dispersion plane (Y-Z)'};
+    for v = 1:size(views, 1)
+        fig = figure('Visible', 'off', 'Position', [50 50 980 640]);  ax = axes('Parent', fig);
+        macos.view_rx('ax', ax, 'nrings', 2, 'nspokes', 6, 'view', views{v, 2}, ...
+            'title', sprintf('%s: %s', strrep(decks{k}, '_', ' '), views{v, 3}));
+        axis(ax, 'tight');
+        print(fig, fullfile(outdir, [decks{k} '_' views{v, 1} '.png']), '-dpng', '-r150');  close(fig);
+    end
     fprintf('wrote %s_view3d.png, %s_viewyz.png\n', decks{k}, decks{k});
 end
 end
