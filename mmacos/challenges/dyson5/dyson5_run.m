@@ -2278,6 +2278,36 @@ function S = stage_tGM_(P, tag)
         S = tGM_report_(P, tag, sfx, pr, deck, K, C, g, Fs, free, dirs, apst, stand, T, F, tel, P5, GD, GE0, info0);
         S.mode = 'deck';  S.src_deck = P.tGM_deck;  save([tag '_tA_GM' sfx '.mat'], 'S');  fclose(fid);  return
     end
+    if ~isempty(P.tGM_asph)                          % ASPHERE-ONLY re-solve warm from an Aspheric deck (the conic-fit emission)
+        txA = fileread(fullfile(here, P.tGM_asph));  bA = regexp(txA, '\n\s*iElt=', 'split');  hA = zeros(1, 3);
+        macos.load_rx(fullfile(here, P.tGM_asph));
+        for q = 1:size(dirs, 1)
+            tEP_aim_(dirs(q, :)', apst, stand);
+            for k = 1:3, v = tFF_vec_(bA{k+1}, 'VptElt');  s = macos.trace(k);  ri = macos.get_ray_info(s.nRays);  Q = ri.pos(:, ri.ok_trace(:)) - v;
+                ps = tFF_vec_(bA{k+1}, 'psiElt');  ps = ps/norm(ps);  hA(k) = max(hA(k), max(vecnorm(Q - ps*(ps'*Q)))); end
+        end
+        wA = @(x, file) tGA_write_(txA, x, hA, file);
+        c = struct('wA', wA, 'deck', deck, 'dirs', dirs, 'apst', apst, 'stand', stand, 'nE', nE, 'T', T, 'ex', ex, 'ey', ey, 'px', P.pixel_m);
+        x0 = zeros(1, 27 + 13);  wA(x0, deck);  macos.load_rx(deck);  c.sel = cell(1, size(dirs, 1));
+        for q = 1:size(dirs, 1)
+            tEP_aim_(dirs(q, :)', apst, stand);  s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);
+            ok = ri.ok_trace(:) & ri.ok_pass(:);  ok(1) = false;  c.sel{q} = find(ok);
+        end
+        fun = @(x) tGA_rspot_(x, c);  tic;  r0 = fun(x0);  t1 = toc;
+        pr('ASPHERE-ONLY re-solve warm from %s: per mirror [dR mm, dK, dA4 dA6 (um of sag at the lit radius %s mm), dVpt mm x3, axis mrad x2] + 13 geometry;\n', ...
+           P.tGM_asph, mat2str(round(hA*1e3, 1)));
+        pr('  SPOT rows as (a); %d rows, %d DOF, seed cost %.4e, one evaluation %.2f s\n', numel(r0), numel(x0), sum(r0.^2), t1);
+        o = optimoptions('lsqnonlin', 'Display', 'off', 'MaxFunctionEvaluations', P.tGM_maxfev, 'MaxIterations', 2000, ...
+                         'FunctionTolerance', 1e-12, 'StepTolerance', 1e-10, 'OptimalityTolerance', 1e-6, 'Algorithm', 'levenberg-marquardt', 'ScaleProblem', 'jacobian');
+        tic;  [x, rn, ~, ef, out] = lsqnonlin(fun, x0, [], [], o);  sec = toc;
+        opt = sprintf('lm-jac: exitflag %d, %d iterations, %d evaluations, %.0f s, first-order optimality %.3e, cost %.4e -> %.4e', ...
+                      ef, out.iterations, out.funcCount, sec, out.firstorderopt, sum(r0.^2), rn);
+        pr('%s\n', opt);  wA(x, deck);  bk = regexp(fileread(deck), '\n\s*iElt=', 'split');
+        K = arrayfun(@(k) tFF_num_(bk{k+1}, 'KcElt'), 1:3);  C = zeros(3, nm);  g = x(28:40);
+        for k = 1:3, pr('   M%d: dR %+.4f mm, dK %+.4f, dA4/dA6 %+.2f %+.2f um, dVpt %s mm, axis %s mrad\n', k, x(9*k-8), x(9*k-7), x(9*k-6), x(9*k-5), mat2str(x(9*k-4:9*k-2), 4), mat2str(x(9*k-1:9*k), 4)); end
+        S = tGM_report_(P, tag, sfx, pr, deck, K, C, g, Fs, free, dirs, apst, stand, T, F, tel, P5, GD, GE0, info0);
+        S.opt = opt;  S.out = out;  S.x = x;  S.mode = 'asph';  S.src_deck = P.tGM_asph;  save([tag '_tA_GM' sfx '.mat'], 'S');  fclose(fid);  return
+    end
     % ---- the residual
     write_(K, C, g, deck);  macos.load_rx(deck);
     sel = cell(1, size(dirs, 1));
@@ -2437,6 +2467,39 @@ function r = tGM_rspot_(x, c)
         Pq = ri.pos(:, sl);  d = Pq - mean(Pq(:, okq), 2);  du = c.ex'*d;  dv = c.ey'*d;  du(~okq) = 1e-3;  dv(~okq) = 1e-3;
         w = sqrt(254/n);  e = pc - c.T(:, q);
         r = [r; w*du(:); w*dv(:); c.ex'*e; c.ey'*e];   %#ok<AGROW>
+    end
+    r = r*1e6;
+end
+
+function tGA_write_(txt, x, h, file)
+%TGA_WRITE_  The Aspheric deck with per-mirror deltas x(9k-8:9k) = [dR mm, dK, dA4, dA6 (um of sag at the lit radius h(k)),
+%   dVpt x y z mm, axis tilt about the deck's own x/y-perpendiculars mrad] and the rigid-body geometry x(28:40) (tGM_move_).
+    t = char(txt);  st = [regexp(t, '(?m)^\s*iElt=', 'start'), numel(t) + 1];
+    parts = [{t(1:st(1)-1)}, arrayfun(@(k) t(st(k):st(k+1)-1), 1:numel(st)-1, 'uni', 0)];
+    for k = 1:3
+        b = parts{k+1};  d = x(9*k-8:9*k);
+        Kr = tFF_num_(b, 'KrElt');  Kc = tFF_num_(b, 'KcElt');  A = tFF_vec_(b, 'AsphCoef');  V = tFF_vec_(b, 'VptElt');  ps = tFF_vec_(b, 'psiElt');
+        e = null(ps(:)');  ps2 = ps(:) + 1e-3*(d(8)*e(:, 1) + d(9)*e(:, 2));  ps2 = ps2/norm(ps2)*norm(ps);
+        Kr2 = Kr + sign(Kr)*d(1)*1e-3;  A2 = A(:)' + 1e-6*[d(3)/h(k)^4, d(4)/h(k)^6];  V2 = V(:) + d(5:7)'*1e-3;
+        b = regexprep(b, '(?m)^\s*KrElt=.*$', sprintf('            KrElt=%.16E', Kr2), 'once');
+        b = regexprep(b, '(?m)^\s*KcElt=.*$', sprintf('            KcElt=%.16E', Kc + d(2)), 'once');
+        b = regexprep(b, '(?m)^\s*AsphCoef=.*$', sprintf('         AsphCoef=  %.16E %.16E', A2), 'once');
+        b = regexprep(b, '(?m)^\s*VptElt=.*$', sprintf('%17s=  %.16E  %.16E  %.16E', 'VptElt', V2), 'once');
+        b = regexprep(b, '(?m)^\s*psiElt=.*$', sprintf('%17s=  %.16E  %.16E  %.16E', 'psiElt', ps2), 'once');
+        parts{k+1} = b;
+    end
+    t = [parts{:}];  g = x(28:40);  if any(g ~= 0), t = tGM_move_(t, g); end
+    fid = fopen(file, 'w');  fprintf(fid, '%s', t);  fclose(fid);
+end
+
+function r = tGA_rspot_(x, c)
+    c.wA(x, c.deck);  macos.load_rx(c.deck);  r = [];
+    for q = 1:size(c.dirs, 1)
+        tEP_aim_(c.dirs(q, :)', c.apst, c.stand);  s = macos.trace(c.nE);  ri = macos.get_ray_info(s.nRays);
+        ok = ri.ok_trace(:) & ri.ok_pass(:);  pc = ri.pos(:, 1);  sl = c.sel{q};  okq = ok(sl);  n = numel(sl);
+        if nnz(okq) < 0.9*n, r = [r; 1e-3*ones(2*n + 2, 1)]; continue, end   %#ok<AGROW>
+        Pq = ri.pos(:, sl);  d = Pq - mean(Pq(:, okq), 2);  du = c.ex'*d;  dv = c.ey'*d;  du(~okq) = 1e-3;  dv(~okq) = 1e-3;
+        e = pc - c.T(:, q);  r = [r; sqrt(254/n)*du(:); sqrt(254/n)*dv(:); c.ex'*e; c.ey'*e];   %#ok<AGROW>
     end
     r = r*1e6;
 end

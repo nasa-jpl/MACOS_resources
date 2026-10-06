@@ -4,7 +4,10 @@ function T = dyson5_conicfit(deck, opts)
 %   field -- and report the residual departure (addendum 45, CC's ask after (b): M2 carries 1.3-2.1 mm of pole-centred
 %   Zernike freeform at 56-185 mrad on every solve; if a re-fitted base takes it to tens of um the mirror is an off-axis
 %   asphere, not a freeform, and the manufacturing story changes).
-%   Surface model: MACOS's explicit Aspheric sag along the axis from the vertex (res_); residual = normal distance, m.  Start: the deck's own
+%   Surface model: MACOS's explicit Aspheric sag along the axis from the vertex (res_); residual = normal distance, m.
+%   FORM TRAP: fit in the ENGINE's form.  MACOS Aspheric ADDS h4/h6 as explicit sag on top of the conic; a fit that puts them
+%   INSIDE the implicit conic equation agrees only near K = -1 and missed B1's M3 (K -42) by 7 mm on emission.  And a small
+%   SAG residual is not a small IMAGE residual: score the emitted deck (1.5k (b): 17 um p-v at 1.7 mrad slope -> edge 13 -> 119 um).  Start: the deck's own
 %   vertex, axis (psiElt), KrElt, KcElt -- for the FreeForm decks of tFF/tGM that is the PARENT conic + the moves.
 %   opts: .elts (1:3), .dirs (nf x 3 source directions), .apst, .stand (the tEP aim), .model (256).
     arguments
