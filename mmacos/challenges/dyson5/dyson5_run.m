@@ -2481,11 +2481,11 @@ function tGA_write_(txt, x, h, file)
         Kr = tFF_num_(b, 'KrElt');  Kc = tFF_num_(b, 'KcElt');  A = tFF_vec_(b, 'AsphCoef');  V = tFF_vec_(b, 'VptElt');  ps = tFF_vec_(b, 'psiElt');
         e = null(ps(:)');  ps2 = ps(:) + 1e-3*(d(8)*e(:, 1) + d(9)*e(:, 2));  ps2 = ps2/norm(ps2)*norm(ps);
         Kr2 = Kr + sign(Kr)*d(1)*1e-3;  A2 = A(:)' + 1e-6*[d(3)/h(k)^4, d(4)/h(k)^6];  V2 = V(:) + d(5:7)'*1e-3;
-        b = regexprep(b, '(?m)^\s*KrElt=.*$', sprintf('            KrElt=%.16E', Kr2), 'once');
-        b = regexprep(b, '(?m)^\s*KcElt=.*$', sprintf('            KcElt=%.16E', Kc + d(2)), 'once');
-        b = regexprep(b, '(?m)^\s*AsphCoef=.*$', sprintf('         AsphCoef=  %.16E %.16E', A2), 'once');
-        b = regexprep(b, '(?m)^\s*VptElt=.*$', sprintf('%17s=  %.16E  %.16E  %.16E', 'VptElt', V2), 'once');
-        b = regexprep(b, '(?m)^\s*psiElt=.*$', sprintf('%17s=  %.16E  %.16E  %.16E', 'psiElt', ps2), 'once');
+        b = regexprep(b, '(?m)^\s*KrElt=.*$', sprintf('            KrElt=%.16E', Kr2), 'once', 'dotexceptnewline');
+        b = regexprep(b, '(?m)^\s*KcElt=.*$', sprintf('            KcElt=%.16E', Kc + d(2)), 'once', 'dotexceptnewline');
+        b = regexprep(b, '(?m)^\s*AsphCoef=.*$', sprintf('         AsphCoef=  %.16E %.16E', A2), 'once', 'dotexceptnewline');
+        b = regexprep(b, '(?m)^\s*VptElt=.*$', sprintf('%17s=  %.16E  %.16E  %.16E', 'VptElt', V2), 'once', 'dotexceptnewline');
+        b = regexprep(b, '(?m)^\s*psiElt=.*$', sprintf('%17s=  %.16E  %.16E  %.16E', 'psiElt', ps2), 'once', 'dotexceptnewline');
         parts{k+1} = b;
     end
     t = [parts{:}];  g = x(28:40);  if any(g ~= 0), t = tGM_move_(t, g); end
