@@ -40,6 +40,7 @@ function fig = view_rx(opts)
 %               (legacy cross-section curves)
 %     'thick_frac'  shell thickness as a fraction of the element
 %               aperture (default 1/25)
+%     'vignetted_color'  color of rays an aperture stops (default a muted red); they end at the element that stopped them
 %     'ray_color'  RGB of the traced bundle (default green); overlay
 %               several instrument paths into one 'ax' with distinct
 %               colors to tell the channels apart
@@ -85,6 +86,7 @@ arguments
                   {'solid','outline','patch'})} = 'solid'
     opts.thick_frac (1,1) double {mustBePositive} = 1/25
     opts.ray_color (1,3) double = [0.0 0.62 0.10]
+    opts.vignetted_color (1,3) double = [0.85 0.25 0.20]   % rays an aperture stops, drawn to the stopping element
     opts.xtra_hist (1,:) cell   = {}
     opts.xtra_color (:,3) double = zeros(0,3)
     opts.show    (1,:) char {mustBeMember(opts.show, ...
@@ -307,8 +309,15 @@ else
         if nnz(m) < 3, continue; end
         p = squeeze(h.P(:, r, s0:s1));
         p = p(:, m);
-        plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
-              'Color', [opts.ray_color 0.8], 'LineWidth', 0.5);
+        % a ray an aperture stopped is drawn in the vignetted color up to
+        % the element that stopped it, so lost light reads as lost
+        if ~isempty(clipAt) && clipAt(r) > 0 && clipAt(r) <= k1
+            plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
+                  'Color', [opts.vignetted_color 0.9], 'LineWidth', 0.6);
+        else
+            plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
+                  'Color', [opts.ray_color 0.8], 'LineWidth', 0.5);
+        end
         ndrawn = ndrawn + 1;
     end
     if k0 == 0 && ~isempty(ring3)
