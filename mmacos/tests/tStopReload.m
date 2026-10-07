@@ -100,5 +100,32 @@ classdef tStopReload < matlab.unittest.TestCase
             testCase.verifyEqual(s1.rad, s0.rad, 'RelTol', 1e-9, ...
                 'pupil radius must not depend on the source-frame handedness');
         end
+
+        function test_stop_accepts_the_secondary_of_a_four_element_deck(testCase)
+            % Engine 2026-10-07 (TO, tma_longslit): stop_info_set refused
+            % iElt >= nElt-2 and nElt <= 3 -- the original pymacos wrapper's
+            % range, with no engine reason -- so macos.stop(2) FAILED on every
+            % 4-element telescope deck (M1 M2 M3 FP) while the Rx keyword
+            % ApStop= and the CLI's STOP (1..nElt) accept it.  The api now
+            % takes the CLI's range.  Fixture: Rx_TwoSheetTMA.in (nElt 4).
+            % The stop must TAKE: get_stop_info reports element 2 and the
+            % chief ray lands on M2's vertex (offset 0 0) in the next trace.
+            rx = rx_fixture_path('Rx_TwoSheetTMA.in');
+            m = macos.Session(testCase.ModelSize);
+            m.load_rx(rx);
+            nE = macos.num_elt();
+            testCase.assertEqual(nE, 4, 'the fixture must be the 4-element deck');
+            macos.stop(2, [0 0]);               % refused before the fix
+            si = macos.get_stop_info();
+            testCase.verifyEqual(si.elt, 2, 'stop_info_set must accept element nElt-2 of a 4-element deck');
+            s = macos.trace(2);  ri = macos.get_ray_info(s.nRays);
+            v = macos.get_elt_vpt(2);
+            testCase.verifyLessThan(norm(ri.pos(:, 1) - v(:)), 1e-9, ...
+                'with the stop on M2 the chief ray must hit M2''s vertex');
+            % the last element is in range too (the CLI allows it); the first-below-range is not
+            macos.stop(nE, [0 0]);
+            testCase.verifyEqual(macos.get_stop_info().elt, nE, 'iElt = nElt is in the CLI''s range');
+            testCase.verifyError(@() macos.stop(nE + 1, [0 0]), ?MException, 'iElt > nElt must still be refused');
+        end
     end
 end
