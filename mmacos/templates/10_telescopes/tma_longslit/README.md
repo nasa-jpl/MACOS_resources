@@ -129,25 +129,59 @@ measures the spot, not the cone.
 
 ## Results (the dyson5 3k default)
 
-**Provisional deck of record: R4** (`tls_R4_ff34.in`, recorded as
-`challenges/dyson5/dyson5_cprime_3k.in`, CC 2026-10-07).  Engine numbers,
-the telescope joined to the 3k Dyson of record (CaF2 240):
+**Deck of record: R7 `ffw`** (`tls_R7_ffw.in`, recorded as
+`challenges/dyson5/dyson5_cprime_3k.in`; R4 was provisional until it
+reported).  It runs R4's warm start through the degree 3–6 pole-frame
+freeform, with the along-slit spot rows ×3 and the outer solve fields
+×1/1/2/3/3.  Engine numbers, model 256.
 
-| | R4 (c′) | 3k (c) record | Joe | paper |
-|---|---|---|---|---|
-| smile | 0.73 px | 1.64 | < 0.1 | < 0.05 |
-| keystone | 0.009 px | 0.05 | < 0.1 | < 0.1 |
-| CRF | 2.51 px | 4.02 | < 1.5 | < 2.8 |
-| SRF | 3.90 px | 4.99 | < 1.5–2.0 | < 1.8 |
-| telescope alone: chief to slit normal | ≤ 0.034° | | < 0.5° | |
-| cone at the slit (F/#, slit axis / across) | 1.89 / 1.82, no ray below F/1.7 | F/1.19 rays | [1.7, 1.8] | |
-| M2 footprint | 132 × 165 mm | | | |
-| clearance (telescope / joined) | +13.1 / +0.56 mm | +0.06 | > 0 | |
+**Telescope alone, per field** (mirror-symmetric; ±):
 
-R5/R6 trade CRF for smile and SRF (0.09 / 7.0 / 2.5 px).  A reweighted
-rung (along-slit spot rows, outer fields) is running.  The full ladder,
-with every rung's per-field table, is in `tls_figure.txt` and in
-`macos/REPORT_dyson5_cprime.md`.
+| field | rms µm | FWHM along / across slit px | EiP | chief to slit normal | F/# along / across | chief bow / centroid bow µm | x vs f tan θ µm |
+|---|---|---|---|---|---|---|---|
+| 0 | 1.77 | 1.02 / 1.02 | 1.00 | 0.000° | 1.894 / 1.806 | 0 / 0 | 0 |
+| 1.175° | 2.15 | 1.02 / 1.02 | 1.00 | 0.002° | 1.894 / 1.803 | 0.1 / 0.06 | 1.2 |
+| 2.35° | 2.51 | 1.02 / 1.02 | 1.00 | 0.008° | 1.893 / 1.801 | 0.5 / 0.16 | 9.9 |
+| 3.525° | 1.96 | 1.02 / 1.02 | 1.00 | 0.018° | 1.892 / 1.798 | 1.4 / 0.04 | 33.5 |
+| 4.7° | 2.25 | 1.02 / 1.02 | 1.00 | 0.033° | 1.889 / 1.797 | 3.2 / 0.75 | 79.4 |
+
+- Plate scale 329.94 mm local, along-track 330.07 mm.
+- Footprints M1 234.6 × 201.7, M2 131.7 × 165.9, M3 215.3 × 172.9 mm.
+- Clearance +12.2 mm; working distance 299.4 mm.
+- Freeform departure P-V 0.46 / 0.55 / 1.11 mm.
+
+**End to end**, joined to the 3k Dyson of record (CaF2 240,
+`size:F:240`), roll 0 / 180:
+
+| | R7 | Dyson alone | 3k (c) record | Joe | paper (Table 1) |
+|---|---|---|---|---|---|
+| smile px | 0.140 / 0.141 | 0.005 | 1.64 | < 0.1 | < 0.05 (5 %) |
+| keystone px | 0.006 / 0.009 | 0.006 | 0.05 | < 0.1 | < 0.1 (10 %) |
+| CRF px | 1.175 / 1.255 | 1.21 | 4.02 | < 1.5 | < 2.8 |
+| SRF px | 2.025 / 2.025 | 2.024 | 4.99 | < 1.5–2.0 | < 1.8 |
+| ARF px (telescope, across slit) | 1.02 | — | — | — | < 2.8 |
+| energy in a pixel | 0.853 / 0.810 | 0.82 | — | > 0.75 | — |
+| grating admits | 0.988 / 0.989 | | | | |
+| joined clearance | +0.60 / +0.61 mm | +0.54 | +0.06 | > 0 | |
+
+- **CRF and SRF are the Dyson's own floors:** on this spectrometer the
+  telescope is no longer the limit.
+- **Smile, 0.14 px, is the one requirement still open.**  It is not the
+  telescope's slit-plane centroid bow (≤ 0.75 µm = 0.04 px).
+- **The cone along the slit, F/1.89, is Joe's spec:** D 183 mm at f 330 mm
+  is itself F/1.803.  "A little faster than the spectrometer" (Jim) needs
+  the paper's 192 mm entrance beam, which is a spec question, not a solve
+  question.
+
+**The two constraint row sets** that make it a long-slit front end, both in
+every rung:
+1. **TELE:** the chief angle to the slit normal per field.
+2. **CONE:** a hinge on the working F/# of the marginal rays at the slit,
+   along and across the slit, outside [1.7, 1.8].
+
+Telecentricity is also exact at first order by construction (the stop at
+M2, M3's front focus).  The bound F/# anamorphicity is the paper's
+constraint; PLATE_Y holds its first-order half.
 
 ## Files
 

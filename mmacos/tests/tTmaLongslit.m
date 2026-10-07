@@ -122,9 +122,16 @@ classdef tTmaLongslit < matlab.unittest.TestCase
         end
 
         function test_the_record_rescores(tc)
+            % PINS THE DECK OF RECORD (R7 ffw, 2026-10-07): the last rung of tls_figure.mat re-traced in the engine must
+            % reproduce its recorded per-field rms / chief / FWHM to 1e-9.  R7's numbers come from the reweighted merit
+            % (along-slit spot rows x3, outer fields x2/x3, from R4) -- the rung at the pixel floor (FWHM 1.02 px at
+            % every field).  A re-solve that changes the record must re-pin it with the mechanism, never a tolerance bump.
             f = fullfile(tc.tdir, 'tls_figure.mat');
             tc.assumeTrue(exist(f, 'file') == 2, 'no recorded ladder in the template directory');
             Z = load(f);  S = Z.S;  r = S.rungs(end);
+            tc.verifyEqual(r.name, 'ffw', 'the deck of record is R7 ffw');
+            tc.verifyLessThan(max([r.M.fwhm_x_px r.M.fwhm_y_px]), 1.05, 'R7: every field at the pixel floor');
+            tc.verifyGreaterThanOrEqual(min([r.M.fno_x r.M.fno_y]), S.P.cone_fnum(1), 'R7: no ray below F/1.7');
             % re-scored at the class's model (128): a geometric trace does not depend on the model size, and a
             % 128 -> 256 transition inside the fast batch would risk the macos_init_all heap bug for later classes
             deck = fullfile(tc.tdir, sprintf('%s_R%d_%s.in', S.P.tag, numel(S.rungs) - 1, r.name));
