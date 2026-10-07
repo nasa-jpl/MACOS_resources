@@ -2002,27 +2002,42 @@ end
 
 function stations_fig_(rd, P, rep, ZW, dmap, Ab, iTO, iMASK, iDET, msk, gopt, rz, cz)
 %STATIONS_FIG_  The key signals along the train for one reading, two states.
-%   Row 1 the flat DM, row 2 the working surface (P.battery.base_rms rms,
-%   seed_base).  Columns: the mirror command (nm), the focal spot at the
-%   mask (log10, the mask's footprint drawn), the mask (phase or
-%   transmission), the reference wave |b| at the detector, two camera
-%   frames, the recovered surface (nm) and its residual against the
-%   engine's field (pm).  Frames from the gauge's own handles; the truth
-%   from macos.complex_field at the detector.  Writes <tag>_stations_<rd>.png.
+%   Row 1 the flat DM, row 2 the working surface: P.battery.base_rms rms,
+%   seed_base, drawn over the WHOLE 96x96 lattice (randn(nact)) -- the DM's
+%   command, the same draw tg96_run's stations_ifo_ makes, so the four gauges'
+%   figures show ONE surface over one 48 mm pupil.  The scored rows use the
+%   lit-set draw (dmg_lit, 5072 actuators; the interferometer's cap gives
+%   6948), so the figure's residual is not the row's.  Columns: the mirror
+%   command (nm), the focal spot at the mask (log10, the mask's footprint
+%   drawn), the mask (phase or transmission), the reference wave |b| at the
+%   detector, two camera frames, the recovered surface (nm) and its residual
+%   against the engine's field (pm).  Frames from the gauge's own handles;
+%   the truth from macos.complex_field at the detector.
+%   Format shared with stations_ifo_ (Dave 2026-10-07): the command, the
+%   recovered surface and the residual carry their rms in an xlabel; the
+%   residual's xlabel also carries the fitted GAIN of the raw map against the
+%   engine's (the stepped dimple's raw map on the working surface is a gain
+%   error: its reference wave is the focal spot's core, weaker on an
+%   aberrated beam, so the four-frame inversion with the flat's reference
+%   reads the surface LOW by that factor -- what the matrix measured on the
+%   surface absorbs); one colorbar per row on the last panel; tight spacing;
+%   no suptitle.  Writes <tag>_stations_<rd>.png.
 N = ZW.N_WF;  cvt = @(phi) P.mask.S_CONV*phi*P.LAM/(4*pi);   % rad of phase -> mm of surface
 [mr, mc] = find(msk);  pw = 4;                                  % the pupil's box on the detector grid
 pr = max(1, min(mr)-pw):min(N, max(mr)+pw);  pc = max(1, min(mc)-pw):min(N, max(mc)+pw);
+lit = Ab ~= 0;                                                 % the caller's lit-set draw marks the lit actuators
+rng(P.battery.seed_base);  Ab = P.battery.base_rms*randn(size(Ab));   % the whole lattice (see the header)
 states = {zeros(size(Ab)), Ab};  rown = {'flat DM', sprintf('%.0f nm rms working surface', P.battery.base_rms*1e6)};
 E0 = ZW.E0;  th0 = angle(E0);
-f = figure('Color', 'w', 'Position', [40 40 2000 640], 'Visible', 'off');
-tl = tiledlayout(f, 2, 8, 'Padding', 'compact', 'TileSpacing', 'tight');
+f = figure('Color', 'w', 'Position', [40 40 2000 560], 'Visible', 'off');
+tl = tiledlayout(f, 2, 8, 'Padding', 'tight', 'TileSpacing', 'tight');
 ink = [11 11 11]/255;
 switch rd
     case 'S', fr_names = {'clear frame', 'first depth frame'};  mask_name = 'dimple phase, rad';
     case 'V', fr_names = {'camera A: +phi image', 'camera B: -phi image'};  mask_name = 'metasurface: +phi (and -phi), rad';
     case 'P', fr_names = {'first step frame', 'shutter frame (pinhole only)'};  mask_name = 'pinhole transmission';
 end
-resid_pm = [NaN NaN];
+resid_pm = [NaN NaN];  gain = [NaN NaN];
 for r = 1:2
     A = states{r};  M = dmap(A);
     macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
@@ -2047,14 +2062,18 @@ for r = 1:2
     end
     res = (h - h_t);  res = res - mean(res(msk));  resid_pm(r) = std(res(msk))*1e9;
     hm = h - mean(h(msk));  ht = h_t - mean(h_t(msk));
-    panels = {M*1e6, 'mirror command, nm', 'lin'; ...
-              If, 'focal spot at the mask, log', 'log'; ...
-              mk, mask_name, 'lin'; ...
-              abs(b)/max(abs(E0(:))), 'reference wave |b|', 'lin'; ...
-              fr{1}/max(fr{1}(:)), fr_names{1}, 'lin'; ...
-              fr{2}/max(fr{2}(:)), fr_names{2}, 'lin'; ...
-              hm*1e6, 'recovered surface, nm', 'map'; ...
-              res*1e9, sprintf('raw map minus the engine, pm: %.0f rms', resid_pm(r)), 'map'};
+    if any(ht(msk)), gain(r) = sum(hm(msk).*ht(msk))/sum(ht(msk).^2); end
+    if ~any(A(:)), xcmd = 'flat'; else, xcmd = sprintf('command %.1f nm rms', 1e6*sqrt(mean(A(lit).^2))); end   % rms over this rig's lit actuators
+    if isnan(gain(r)), xres = sprintf('read - engine %.1f pm rms', resid_pm(r));
+    else, xres = sprintf('read - engine %.0f pm rms, gain %.3f', resid_pm(r), gain(r)); end
+    panels = {M*1e6, 'mirror command, nm', 'lin', xcmd; ...
+              If, 'focal spot at the mask, log', 'log', ''; ...
+              mk, mask_name, 'lin', ''; ...
+              abs(b)/max(abs(E0(:))), 'reference wave |b|', 'lin', ''; ...
+              fr{1}/max(fr{1}(:)), fr_names{1}, 'lin', ''; ...
+              fr{2}/max(fr{2}(:)), fr_names{2}, 'lin', ''; ...
+              hm*1e6, 'recovered surface, nm', 'map', sprintf('read %.1f nm rms', 1e6*std(hm(msk))); ...
+              res*1e9, 'raw map minus the engine, pm', 'map', xres};
     for c = 1:8
         ax = nexttile(tl, (r-1)*8 + c);
         Z = panels{c,1};
@@ -2068,16 +2087,15 @@ for r = 1:2
             cx = ZW.ctr(1)-cz(1)+1;  cy = ZW.ctr(2)-rz(1)+1;
             plot(ax, cx + rr*cos(t), cy + rr*sin(t), 'w-', 'LineWidth', 1.2);
         end
-        if strcmp(panels{c,3}, 'map') || c == 2 || c == 4, cb = colorbar(ax); cb.FontSize = 11; end
-        title(ax, panels{c,2}, 'FontSize', 13, 'FontWeight', 'normal', 'Color', ink);
-        if c == 1, ylabel(ax, rown{r}, 'FontSize', 14, 'FontWeight', 'bold', 'Visible', 'on'); end
+        if c == 8, cb = colorbar(ax, 'eastoutside'); cb.FontSize = 9; end   % one colorbar per row, at the end
+        title(ax, panels{c,2}, 'FontSize', 10, 'FontWeight', 'normal', 'Color', ink, 'Interpreter', 'none');
+        if ~isempty(panels{c,4}), xlabel(ax, panels{c,4}, 'FontSize', 10, 'Color', ink, 'Interpreter', 'none', 'Visible', 'on'); end
+        if c == 1, ylabel(ax, rown{r}, 'FontSize', 11, 'FontWeight', 'bold', 'Visible', 'on'); end
     end
 end
-desc = struct('S', 'the stepped Zernike dimple, four frames', 'V', 'the polarized dimple, two frames at once', 'P', 'the stepped pinhole with a shutter frame');
-title(tl, sprintf('%s: reading %s (%s), station by station: the mirror, the focus, the mask, the reference, two frames, the recovered surface, the residual', P.tag, rd, desc.(rd)), 'FontSize', 15, 'Color', ink, 'Interpreter', 'none');
 out = sprintf('%s_stations_%s.png', P.tag, rd);
 print(f, out, '-dpng', '-r130');  close(f);
-dmg_say(rep, 'stations figure %s: residual vs the engine''s field on msk %.2f pm (flat), %.2f pm (%s)\n', out, resid_pm(1), resid_pm(2), rown{2});
+dmg_say(rep, 'stations figure %s: residual vs the engine''s field on msk %.2f pm (flat), %.2f pm (%s), gain %.4f\n', out, resid_pm(1), resid_pm(2), rown{2}, gain(2));
 macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), dmap(zeros(size(Ab))));   % leave the DM flat
 end
 

@@ -127,7 +127,7 @@ if want('figs')
         % A figure bug must NOT destroy an hour of loop results: this stage
         % runs AFTER them and the run's value is already on disk.
         try
-            stations_ifo_(P, bench.G, say);   % the station-by-station figure
+            stations_ifo_(P, bench.G, say, place, s);   % the station-by-station figure (the battery's lit set)
         catch ME
             say('stations figure SKIPPED: %s\n', ME.message);
         end
@@ -2357,7 +2357,7 @@ function [map, reg] = register_two_pokes(A, ix, MpA, hpA, MpB, hpB, N_G, DX_G, m
     map.Xt = reg.Xt;  map.Yt = reg.Yt;
 end
 
-function stations_ifo_(P, G, say)
+function stations_ifo_(P, G, say, place, s)
 %STATIONS_IFO_  The key signals along the interferometer, two states.
 %   BRIEF_ccmac_bench_realism item 8 / BRIEF_to_gauge_close item 6: the
 %   sensors have this figure (zwfs_run's stations_fig_); this is its
@@ -2365,17 +2365,26 @@ function stations_ifo_(P, G, say)
 %   mirror command to the picometers of residual without taking the gauge on
 %   faith.
 %
-%   Row 1 the flat DM, row 2 the working surface (battery.base_rms rms, seed
-%   battery.seed_base).  Seven columns: the mirror command (nm); the TEST
-%   arm's pupil field at the detector (intensity, that arm alone); the
-%   REFERENCE arm's; two of the four phase-stepped frames (the first two
-%   steps); the recovered surface (nm); and the recovered map minus the
-%   ENGINE's own field at the detector (pm) -- the last is the gauge's error,
-%   not a model of it.
+%   Row 1 the flat DM, row 2 the working surface: battery.base_rms rms, seed
+%   battery.seed_base, drawn over the WHOLE 96x96 lattice (randn(nact)) -- the
+%   DM's command, owned by the DM and not by a rig's control-set convention,
+%   so the sensors' stations figure (zwfs_run's stations_fig_, same draw)
+%   shows the SAME surface and the four gauges are compared on one command
+%   over one 48 mm pupil.  The scored rows use each gauge's own lit-set draw
+%   of the same seed (surf_ here, dmg_lit on the sensors: 6948 vs 5072
+%   actuators), which is why the figure's residual is not the row's.  Seven
+%   columns: the mirror command (nm); the TEST arm's pupil field at the
+%   detector (intensity, that arm alone); the REFERENCE arm's; two of the four
+%   phase-stepped frames (the first two steps); the recovered surface (nm);
+%   and the recovered map minus the ENGINE's own field at the detector (pm)
+%   -- the last is the gauge's error, not a model of it.
 %
-%   Every panel is the tool's own output: no re-rendering, no colour-scale
-%   surgery (Dave's deck rule).  The pupil is cropped to its box so the
-%   panels are not mostly black.
+%   Format shared with stations_fig_ (Dave 2026-10-07): the command, the
+%   recovered surface and the residual carry their rms in an xlabel ("read
+%   29.8 nm rms", "read - engine 463 pm rms, gain 0.998"), one colorbar per
+%   row on the last panel, tight spacing, no suptitle.  Every panel is the
+%   tool's own output: no re-rendering, no colour-scale surgery (Dave's deck
+%   rule).  The pupil is cropped to its box so the panels are not mostly black.
 ctx = arm_setup_(P, G);
 msk = ctx.msk;  LAM = ctx.LAM;  QWP = ctx.QWP;  TH = ctx.THETAS;
 N_G = P.grid.N_G;  DX_G = P.grid.DX_G;  cfg = P.dm(1);
@@ -2383,16 +2392,26 @@ N_G = P.grid.N_G;  DX_G = P.grid.DX_G;  cfg = P.dm(1);
 pr = max(1,min(mr)-pw):min(size(msk,1), max(mr)+pw);
 pc = max(1,min(mc)-pw):min(size(msk,2), max(mc)+pw);
 crop = @(A) A(pr, pc);
-rng(P.battery.seed_base);
 nact = cfg.nact;
-Ab = P.battery.base_rms * randn(nact);          % the working surface's command
+% the lit set is needed only for the command's rms label
+if nargin >= 4 && isfield(place, 'PL')
+    litmask = place.PL.lit;
+else
+    if nargin < 5, s = 1; end
+    h0 = ctx.measf(zeros(N_G));
+    pl = P.place;  pl.stop_mm = s*rstop_(P.bench);
+    PL = tg96_place(ctx.AT, G.T, cfg, msk, N_G, DX_G, P.POKE, ctx.measf, pl, h0);
+    litmask = PL.lit;
+end
+rng(P.battery.seed_base);
+Ab = P.battery.base_rms * randn(nact);          % the working surface's command, the whole lattice (see the header)
 states = {zeros(nact), Ab};
 rown = {'flat DM', sprintf('%.0f nm rms working surface', P.battery.base_rms*1e6)};
 dmap = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
 
-f = figure('Color','w', 'Position',[40 40 1800 560], 'Visible','off');
-tl = tiledlayout(f, 2, 7, 'Padding','compact', 'TileSpacing','tight');
-resid_pm = [NaN NaN];
+f = figure('Color','w', 'Position',[40 40 1800 520], 'Visible','off');
+tl = tiledlayout(f, 2, 7, 'Padding','tight', 'TileSpacing','tight');
+resid_pm = [NaN NaN];  gain = [NaN NaN];
 for r = 1:2
     A = states{r};  M = dmap(A);
     Sx = analyzer_basis(ctx.AT, QWP, M);            % the test arm, this state
@@ -2408,37 +2427,46 @@ for r = 1:2
     ht = angle(exp(1i*(angle(Et) - angle(E0)))) * LAM/(4*pi);
     d  = h - ht;  d = d - median(d(msk));
     resid_pm(r) = 1e9*sqrt(mean(d(msk).^2));
+    hm = h - mean(h(msk));  htm = ht - mean(ht(msk));
+    if any(htm(msk)), gain(r) = sum(hm(msk).*htm(msk))/sum(htm(msk).^2); end
+    cmd_rms = 1e6*sqrt(mean(A(litmask).^2));        % the command's rms over this rig's lit actuators
+    if r == 1, xcmd = 'flat'; else, xcmd = sprintf('command %.1f nm rms', cmd_rms); end
+    if isnan(gain(r)), xres = sprintf('read - engine %.1f pm rms', resid_pm(r));
+    else, xres = sprintf('read - engine %.0f pm rms, gain %.3f', resid_pm(r), gain(r)); end
 
-    pan(tl, 1e6*interp_to_(A, size(msk)), [], 'mirror command, nm', rown{r}, crop, msk, false);
-    pan(tl, It, [], 'test arm at the detector', '', crop, msk, true);
-    pan(tl, Ir, [], 'reference arm', '', crop, msk, true);
+    pan(tl, 1e6*interp_to_(A, size(msk)), [], 'mirror command, nm', rown{r}, crop, msk, false, xcmd, false);
+    pan(tl, It, [], 'test arm at the detector', '', crop, msk, true, '', false);
+    pan(tl, Ir, [], 'reference arm', '', crop, msk, true, '', false);
     % THETAS are ANALYZER angles; in this polarization four-step they are the
     % phase steps 0, pi/2, pi, 3pi/2 -- so these two panels are the first two
     % steps, which is what the brief asks to show.
-    pan(tl, F1, [], sprintf('frame: analyzer %.0f deg (step 0)', TH(1)), '', crop, msk, true);
-    pan(tl, F2, [], sprintf('frame: analyzer %.0f deg (step pi/2)', TH(2)), '', crop, msk, true);
-    pan(tl, 1e6*h, msk, 'recovered surface, nm', '', crop, msk, false);
-    pan(tl, 1e9*d, msk, sprintf('minus the engine, pm (%.1f rms)', resid_pm(r)), '', crop, msk, false);
+    pan(tl, F1, [], sprintf('frame: analyzer %.0f deg (step 0)', TH(1)), '', crop, msk, true, '', false);
+    pan(tl, F2, [], sprintf('frame: analyzer %.0f deg (step pi/2)', TH(2)), '', crop, msk, true, '', false);
+    pan(tl, 1e6*hm, msk, 'recovered surface, nm', '', crop, msk, false, sprintf('read %.1f nm rms', 1e6*std(hm(msk))), false);
+    pan(tl, 1e9*d, msk, 'read minus the engine, pm', '', crop, msk, false, xres, true);
 end
-title(tl, sprintf('TG96 %s rig -- one measurement, station by station (tag %s)', ...
-      P.bench.optics, P.tag), 'Interpreter','none', 'FontSize',13);
 print(f, [P.tag '_stations.png'], '-dpng', '-r96');  close(f);   % 1800 px wide
-say('stations figure %s_stations.png: recovered minus the engine''s field on msk %.2f pm (flat), %.2f pm (%.0f nm rms)\n', ...
-    P.tag, resid_pm(1), resid_pm(2), P.battery.base_rms*1e6);
+say('stations figure %s_stations.png: recovered minus the engine''s field on msk %.2f pm (flat), %.2f pm (%.0f nm rms, gain %.4f)\n', ...
+    P.tag, resid_pm(1), resid_pm(2), P.battery.base_rms*1e6, gain(2));
 end
 
-function pan(tl, A, m, ttl, ylab, crop, msk, logscale)
+function pan(tl, A, m, ttl, ylab, crop, msk, logscale, xlab, cbar)
 %PAN  one station panel: the tool's own image, cropped to the pupil box.
+%   xlab (optional) is written under the panel; cbar = true puts the row's one
+%   colorbar on this panel (the last column).
+if nargin < 9, xlab = ''; end
+if nargin < 10, cbar = false; end
 ax = nexttile(tl);
 B = A;
 if ~isempty(m), B(~msk) = NaN; end
 if logscale, B = log10(max(B, max(B(:))*1e-6)); end
 imagesc(ax, crop(B));  axis(ax, 'image', 'off');
-colormap(ax, 'parula');  colorbar(ax, 'southoutside', 'FontSize',9);
-title(ax, ttl, 'Interpreter','none', 'FontSize',10);
+colormap(ax, 'parula');
+if cbar, cb = colorbar(ax, 'eastoutside');  cb.FontSize = 9; end
+title(ax, ttl, 'Interpreter','none', 'FontSize',10, 'FontWeight','normal');
+if ~isempty(xlab), xlabel(ax, xlab, 'Interpreter','none', 'FontSize',10, 'Visible','on'); end
 if ~isempty(ylab)
-    text(ax, -0.08, 0.5, ylab, 'Units','normalized', 'Rotation',90, ...
-         'HorizontalAlignment','center', 'Interpreter','none', 'FontSize',11);
+    ylabel(ax, ylab, 'Interpreter','none', 'FontSize',11, 'FontWeight','bold', 'Visible','on');
 end
 end
 
