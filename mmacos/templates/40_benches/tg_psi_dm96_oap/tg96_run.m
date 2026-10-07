@@ -2399,8 +2399,20 @@ function stations_ifo_(P, G, say, place, s)
 %   tool's own output: no re-rendering, no colour-scale surgery (Dave's deck
 %   rule).  The pupil is cropped to its box so the panels are not mostly black.
 ctx = arm_setup_(P, G);
-msk = ctx.msk;  LAM = ctx.LAM;  QWP = ctx.QWP;  TH = ctx.THETAS;
+LAM = ctx.LAM;  QWP = ctx.QWP;  TH = ctx.THETAS;
 N_G = P.grid.N_G;  DX_G = P.grid.DX_G;  cfg = P.dm(1);
+% THE FIGURE'S MASK IS THE TEST ARM'S SUPPORT, not ctx.msk.  arm_setup_ takes
+% msk from the INTERFERENCE frame (I0 > 0.1 max), and the reference beam is
+% wider than the test beam, so ctx.msk carries an annulus where only
+% reference light arrives: there the reading and the engine's phase are both
+% zero, which drew as a flat ring around the estimate (Dave 2026-10-07, "the
+% ring around the estimate is what?") and DILUTED every rms over msk by the
+% annulus area (~23 %: 'read 25.8 nm' of a surface the sensors read at 31;
+% 463 pm of a residual that is ~530 over the test pupil).  ctx.msk itself is
+% left alone here -- the battery, matrix and placement share it, and the
+% record's rows stand on it; its pixel-rms metrics carry the same dilution
+% and that is an open item for the runner, not for this figure.
+It0 = sum(abs(synth(ctx.S0, 0)).^2, 3);  msk = It0 > 0.1*max(It0(:));
 [mr, mc] = find(msk);  pw = 4;
 pr = max(1,min(mr)-pw):min(size(msk,1), max(mr)+pw);
 pc = max(1,min(mc)-pw):min(size(msk,2), max(mc)+pw);

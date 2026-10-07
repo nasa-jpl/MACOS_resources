@@ -2080,7 +2080,7 @@ for r = 1:2
         if strcmp(panels{c,3}, 'log'), Z = log10(max(Z, 1e-10)); end
         if c >= 4 && c <= 8, Z(~msk) = NaN;  Z = Z(pr, pc); end   % the pupil only
         imagesc(ax, Z);  axis(ax, 'image', 'off');
-        if strcmp(panels{c,3}, 'map'), colormap(ax, 'parula'); else, colormap(ax, 'gray'); end
+        if strcmp(panels{c,3}, 'map') || c == 1, colormap(ax, 'parula'); else, colormap(ax, 'gray'); end   % the command in color, as the interferometer's figure draws it (one look across the four gauges)
         if strcmp(panels{c,3}, 'log'), colormap(ax, 'parula'); caxis(ax, [-6 0]); end
         if c == 2   % the mask's footprint on the spot
             hold(ax, 'on');  t = linspace(0, 2*pi, 90);  rr = ZW.dia_mm*1e-3/abs(macos.dx_at(iMASK))/2;
