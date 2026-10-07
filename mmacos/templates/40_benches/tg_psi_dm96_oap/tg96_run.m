@@ -2409,6 +2409,27 @@ states = {zeros(nact), Ab};
 rown = {'flat DM', sprintf('%.0f nm rms working surface', P.battery.base_rms*1e6)};
 dmap = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
 
+% THE SIGN OF THE FOUR-STEP IS A BENCH PROPERTY, SET HERE BY A KNOWN PUSH.
+% fourstep() reads atan2(I2-I4, I1-I3) over the analyzer angles; which way
+% the fringe phase runs with the analyzer is the handedness of the two arms'
+% circular states, fixed by the input polarization's orientation to the QWP
+% axes -- 'collimated' on the lens rig, 'source' on the OAP rig -- and the
+% two rigs come out OPPOSITE: the lens rig's raw map read the engine's
+% surface at gain -0.993 (2026-10-07; the '51 nm fold' of the 09-17 figure
+% was this, 2 x the surface).  Every differential row is blind to it (the
+% matrix carries the sign), an absolute map is not.  So, as on a real
+% interferometer, one actuator is pushed +POKE and the reading's sign is set
+% so that a push reads positive against the engine's own field; the xlabel
+% says so.  +1 on the OAP rig (nothing changes there).
+ic = round(nact/2);  Ap = zeros(nact);  Ap(ic, ic) = P.POKE;  Mp = dmap(Ap);
+hp = meas_surface(ctx.AT, QWP, Mp, ctx.Sr, ctx.p_null, TH, LAM);
+load_arm(ctx.AT, QWP, 0, Mp);   Ep = macos.complex_field(ctx.AT.iDET);
+load_arm(ctx.AT, QWP, 0, zeros(N_G));   E0 = macos.complex_field(ctx.AT.iDET);
+htp = angle(exp(1i*(angle(Ep) - angle(E0)))) * LAM/(4*pi);
+sgn = sign(sum((hp(msk)-mean(hp(msk))).*(htp(msk)-mean(htp(msk)))));
+if sgn == 0, sgn = 1; end
+say('stations: four-step sign set by a +%.0f nm push on actuator (%d,%d): %+d\n', P.POKE*1e6, ic, ic, sgn);
+
 f = figure('Color','w', 'Position',[40 40 1800 520], 'Visible','off');
 tl = tiledlayout(f, 2, 7, 'Padding','tight', 'TileSpacing','tight');
 resid_pm = [NaN NaN];  gain = [NaN NaN];
@@ -2418,7 +2439,7 @@ for r = 1:2
     It = sum(abs(synth(Sx, 0)).^2, 3);              % that arm ALONE
     Ir = sum(abs(synth(ctx.Sr, 0)).^2, 3);          % the reference arm alone
     F1 = frame(Sx, ctx.Sr, TH(1));  F2 = frame(Sx, ctx.Sr, TH(2));
-    h  = meas_surface(ctx.AT, QWP, M, ctx.Sr, ctx.p_null, TH, LAM);
+    h  = sgn * meas_surface(ctx.AT, QWP, M, ctx.Sr, ctx.p_null, TH, LAM);
     % the engine's own field at the detector for this state, same arm
     load_arm(ctx.AT, QWP, 0, M);
     Et = macos.complex_field(ctx.AT.iDET);
@@ -2433,6 +2454,7 @@ for r = 1:2
     if r == 1, xcmd = 'flat'; else, xcmd = sprintf('command %.1f nm rms', cmd_rms); end
     if isnan(gain(r)), xres = sprintf('read - engine %.1f pm rms', resid_pm(r));
     else, xres = sprintf('read - engine %.0f pm rms, gain %.3f', resid_pm(r), gain(r)); end
+    if sgn < 0, xread = sprintf('read %.1f nm rms (sign set by a +push)', 1e6*std(hm(msk))); else, xread = sprintf('read %.1f nm rms', 1e6*std(hm(msk))); end
 
     pan(tl, 1e6*interp_to_(A, size(msk)), [], 'mirror command, nm', rown{r}, crop, msk, false, xcmd, false);
     pan(tl, It, [], 'test arm at the detector', '', crop, msk, true, '', false);
@@ -2442,12 +2464,12 @@ for r = 1:2
     % steps, which is what the brief asks to show.
     pan(tl, F1, [], sprintf('frame: analyzer %.0f deg (step 0)', TH(1)), '', crop, msk, true, '', false);
     pan(tl, F2, [], sprintf('frame: analyzer %.0f deg (step pi/2)', TH(2)), '', crop, msk, true, '', false);
-    pan(tl, 1e6*hm, msk, 'recovered surface, nm', '', crop, msk, false, sprintf('read %.1f nm rms', 1e6*std(hm(msk))), false);
+    pan(tl, 1e6*hm, msk, 'recovered surface, nm', '', crop, msk, false, xread, false);
     pan(tl, 1e9*d, msk, 'read minus the engine, pm', '', crop, msk, false, xres, true);
 end
 print(f, [P.tag '_stations.png'], '-dpng', '-r96');  close(f);   % 1800 px wide
-say('stations figure %s_stations.png: recovered minus the engine''s field on msk %.2f pm (flat), %.2f pm (%.0f nm rms, gain %.4f)\n', ...
-    P.tag, resid_pm(1), resid_pm(2), P.battery.base_rms*1e6, gain(2));
+say('stations figure %s_stations.png: recovered minus the engine''s field on msk %.2f pm (flat), %.2f pm (%.0f nm rms, gain %.4f, four-step sign %+d)\n', ...
+    P.tag, resid_pm(1), resid_pm(2), P.battery.base_rms*1e6, gain(2), sgn);
 end
 
 function pan(tl, A, m, ttl, ylab, crop, msk, logscale, xlab, cbar)

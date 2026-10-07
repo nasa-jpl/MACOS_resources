@@ -68,6 +68,7 @@ Parts (test arm; station = distance along the chief from the source):
   the input polarizer is in the DIVERGING source leg (POL_IN 'source')
   the source sits at the collimator's TRUE focus (SRC_AT_FOCUS)
 
-stations figure redo96_oapstn2_stations.png: recovered minus the engine's field on msk 0.00 pm (flat), 463.30 pm (30 nm rms, gain 0.9867)
+stations: four-step sign set by a +50 nm push on actuator (48,48): +1
+stations figure redo96_oapstn2_stations.png: recovered minus the engine's field on msk 0.00 pm (flat), 463.30 pm (30 nm rms, gain 0.9867, four-step sign +1)
 
 wrote redo96_oapstn2_report.txt + redo96_oapstn2.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/redo96_oapstn2
