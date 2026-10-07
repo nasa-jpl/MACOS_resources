@@ -43,6 +43,7 @@ assert(isfile(jac), 's7 needs s4_jacobians.mat -- run s4 first');
 assert(isfile(met), 's7 needs e2e_%s_met.mat -- run s5 first', v);
 
 J = load(jac);  M = load(met);
+J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 nb = numel(M.bodies);  nseg = M.seg.nseg;
 nz = numel(J.oz.channel_names);  ng = numel(J.og.channel_names);
 T  = 50;                    % 500 s at 10 s steps

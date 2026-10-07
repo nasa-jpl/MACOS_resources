@@ -169,6 +169,7 @@ end
 assert(isfile(met_rx), 'run_compare: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
+J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
 chansel = opts.channels;
 if isscalar(chansel) && chansel == "auto"

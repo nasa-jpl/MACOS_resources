@@ -19,7 +19,10 @@ function out = dw_dx_multi(session, rx_path, opts)
 %     src_stop_mode, src_stop_pos, src_stop_elt, include_non_optics,
 %     stop_elt, stop_obj_pos, groups, groups_auto, group_coords,
 %     group_fp_mode, group_stop_mode, group_stop_pos, rot_output,
-%     delta, method, exit_pupil_elt, verbose.
+%     trans_output, delta, method, exit_pupil_elt, verbose.
+%     trans_output: 'base' (default, OPD-BaseUnits per BaseUnit of
+%     translation) | 'si' (per SI metre, the pre-2026-10-06 default);
+%     see macos.dw_dx.
 %
 %   ELEMENT GROUPS ('groups' / 'groups_auto' + the four group_* knobs)
 %   declare RIGID-BODY groups -- sets of elements perturbed as one unit
@@ -43,9 +46,10 @@ function out = dw_dx_multi(session, rx_path, opts)
 %   (as it is for source channels) and out.kind is 'Group' -- section
 %   them on kind, not on iElt.  Units: group and per-element columns
 %   share one convention -- the OPD numerator in the deck's BaseUnits
-%   (matching w0/opd() and the figure rungs, Dave 2026-08-25), per SI
-%   METRE for translations and per rad for rotations -- so one numeric
-%   'delta' is one physical poke for either.
+%   (matching w0/opd() and the figure rungs, Dave 2026-08-25), per
+%   BaseUnit of translation by default ('trans_output', per SI metre
+%   under 'si') and per rad for rotations -- so one numeric 'delta' is
+%   one physical poke for either.
 %
 %   'delta' can be (1,1) for uniform step or (1,6) for per-DOF steps
 %     [Rx Ry Rz Tx Ty Tz]. Rotations in rad. Translation units set by
@@ -192,7 +196,7 @@ function out = dw_dx_multi(session, rx_path, opts)
 %     config_table       (with 'configs' only) Nc x 1 struct: name +
 %                        the setter list, verbatim
 %     indxall.config     (with 'configs' only) per-row configuration index
-%     rx_path / delta / method / wf_elt / rot_output / cbm
+%     rx_path / delta / method / wf_elt / rot_output / trans_output / cbm
 
 arguments
     session
@@ -230,6 +234,8 @@ arguments
     opts.group_smart_stop    (1,1) logical = true   % WS1 Fix B (see dw_dx)
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
+    opts.trans_output        (1,:) char {mustBeMember( ...
+        opts.trans_output, {'base','si'})} = 'base'   % see dw_dx
     opts.delta               (:,:) double {mustBeDeltaSize} = 1e-8
     opts.delta_units         (1,:) char {mustBeMember(opts.delta_units, ...
                                 {'si','base'})} = 'si'
@@ -281,7 +287,8 @@ F.single     = @(s, rx, o, h) macos.dw_dx(s, rx, ...
     'group_stop_mode', o.group_stop_mode, ...
     'group_stop_pos', o.group_stop_pos, ...
     'group_smart_stop', o.group_smart_stop, ...
-    'rot_output', o.rot_output, 'delta', o.delta, ...
+    'rot_output', o.rot_output, 'trans_output', o.trans_output, ...
+    'delta', o.delta, ...
     'delta_units', o.delta_units, 'method', o.method, ...
     'exit_pupil_elt', o.exit_pupil_elt, 'verbose', o.verbose, ...
     'reload_rx', false, 'compute_los', o.compute_los, ...
@@ -334,6 +341,7 @@ end
 
 function out = dx_extras_(out, opts, sf1)
 out.rot_output = opts.rot_output;
+out.trans_output = sf1.trans_output;
 out.cbm        = sf1.cbm;
 end
 

@@ -174,6 +174,54 @@ classdef tRunCompare < matlab.unittest.TestCase
             tc.verifySize(art.dmdgrid, [size(M.dldx, 1) + es.nmeas, ng]);
         end
 
+        function test_base_and_legacy_si_jac_compare_identically(tc)
+            % run_compare / run_simulator work in SI (pokes in m, X/U
+            % histories in m), so each converts the harvest with
+            % dwdx_trans_per_metre at its ox load.  tc.ox is a per-BaseUnit
+            % harvest (the default since 2026-10-06) on the e5mono mm deck;
+            % its legacy twin (per metre, no trans_output field -- what
+            % every pre-change jac .mat holds) must give the SAME linear
+            % prediction (w_rel), the same exported dwdu, and the same
+            % simulator control u / corrected wavefront.  Without the
+            % adapter the Tz rows read w_rel = 1/cbm - 1 = 999.
+            tc.verifyEqual(tc.ox.trans_output, 'base');
+            M = load(tc.met5.mat);
+            lg = rmfield(macos.dwdx_trans_per_metre(tc.ox), 'trans_output');
+            a = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, ...
+                'channels', "x", 'bodies', [2 8], 'dofs', [2 6], ...
+                'dwell', 0, 'gif', false, 'visible', false, ...
+                'ngridpts', 15, 'verbose', false, 'out_dir', tc.wd};
+            ab = run_compare(fullfile(tc.wd, 'pie.in'), a{:}, ...
+                'jac', struct('ox', tc.ox, 'oz', tc.oz, 'og', tc.og), 'name', 'cbu');
+            al = run_compare(fullfile(tc.wd, 'pie.in'), a{:}, ...
+                'jac', struct('ox', lg, 'oz', tc.oz, 'og', tc.og), 'name', 'clg');
+            Tb = ab.table;  Tl = al.table;
+            tc.verifyEqual([Tb.w_rms_t], [Tl.w_rms_t], 'RelTol', 1e-12);
+            tc.verifyEqual([Tb.w_rel], [Tl.w_rel], 'AbsTol', 1e-9);
+            tc.verifyLessThan(max([Tb.w_rel]), 0.05, ...
+                'the per-BaseUnit harvest predicts the engine (Ry and Tz)');
+            tc.verifyEqual(ab.dwdu, al.dwdu, 'RelTol', 1e-12);
+            % simulator: one static um-scale state, 2 frames
+            nb = numel(M.bodies);
+            ts = struct('dt', 2);
+            ts.x = zeros(6*nb, 2);
+            ts.x(12, :) = 5e-6;                   % Seg 2 Tz: 5 um (SI)
+            ts.x(46, :) = 3e-6;                   % hub Tx: 3 um
+            s = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, 'ts', ts, ...
+                'npix', 32, 'psf_crop', 32, 'dwell', 0, 'gif', false, ...
+                'ngridpts', 15, 'visible', false, 'verbose', false, ...
+                'out_dir', tc.wd};
+            sb = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                'jac', struct('ox', tc.ox, 'oz', tc.oz, 'og', tc.og), 'name', 'sbu');
+            sl = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                'jac', struct('ox', lg, 'oz', tc.oz, 'og', tc.og), 'name', 'slg');
+            tc.verifyEqual(sb.u, sl.u, 'RelTol', 1e-9, 'AbsTol', 1e-15);
+            tc.verifyEqual(sb.rms_wfe_unc, sl.rms_wfe_unc, 'RelTol', 1e-12);
+            tc.verifyEqual(sb.rms_wfe_corr, sl.rms_wfe_corr, 'RelTol', 1e-8);
+            tc.verifyLessThan(sb.rms_wfe_corr(2), 0.2 * sb.rms_wfe_unc(2), ...
+                'the control loop bites with the per-BaseUnit harvest');
+        end
+
         function test_run_simulator_time_history(tc)
             % Simulate stage (design/runners/run_simulator): a history
             % that opens with um-scale misalignments and drifts with

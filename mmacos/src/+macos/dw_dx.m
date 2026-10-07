@@ -34,11 +34,21 @@ function out = dw_dx(session, rx_path, opts)
 %                        as w_nom/opd() and as the dwdz/dwdsurf/dwdgrid
 %                        rungs (dwdx was the odd rung out, scaled to
 %                        OPD-metres; that made `wall = dwdx*x + w0` mix
-%                        units by 1/CBM on non-metre decks).  Columns are
-%                        OPD-BaseUnits per rad (rotations) and
-%                        OPD-BaseUnits per SI METRE (translations --
-%                        the poke denominator is unchanged).  The option
+%                        units by 1/CBM on non-metre decks).  Rotation
+%                        columns are OPD-BaseUnits per rad; translation
+%                        columns are set by 'trans_output'.  The option
 %                        is retained so existing callers keep running.
+%     'trans_output'     'base' (default) | 'si'.  Denominator of the
+%                        TRANSLATION columns (dof_idx 3..5, every channel
+%                        kind) and of the matching dcdx rows: 'base' =
+%                        OPD-BaseUnits per BaseUnit of translation (per mm
+%                        on an mm deck -- GMI's dwdx convention); 'si' =
+%                        per SI metre (the 2026-08-25..2026-10-06 default;
+%                        'base' = 'si' x CBM).  Rotations are per rad
+%                        either way and the OPD numerator is BaseUnits
+%                        either way.  Recorded as out.trans_output.
+%                        (Dave, 2026-10-06: Luis read the per-metre
+%                        columns as "1000x too large" against GMI.)
 %     'delta'            finite-difference step. Either:
 %                        - (1,1) double: single value for all DOFs
 %                        - (1,6) double: [Rx Ry Rz Tx Ty Tz] deltas
@@ -63,7 +73,8 @@ function out = dw_dx(session, rx_path, opts)
 %                        engine to [3, model-size limit] (warns).
 %
 %   Output struct fields:
-%     dwdx           Nw × Nz Jacobian (after rot_output rescaling).
+%     dwdx           Nw × Nz Jacobian, OPD-BaseUnits per rad (rotations)
+%                    and per 'trans_output' unit (translations).
 %     w_nom_2d       N × N nominal OPD canvas.
 %     w_nom_vec      Nw × 1 nominal OPD values at non-zero mask.
 %     indx           m2v.m bookkeeping.
@@ -71,7 +82,8 @@ function out = dw_dx(session, rx_path, opts)
 %     iElt, dof_idx  Nz × 1 vectors (iElt = 0 for source channels).
 %     kind           Nz × 1 cell of kind labels (Source / RigidBody /
 %                    FocalPlane).
-%     rx_path / delta / method / wf_elt / rot_output / base_units / cbm
+%     rx_path / delta / method / wf_elt / rot_output / trans_output /
+%     base_units / cbm
 %
 %   See also: macos.dwdx_for_current_source, macos.channels.
 
@@ -111,6 +123,8 @@ arguments
                                 % re-aim (old behavior / escape hatch).
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
+    opts.trans_output        (1,:) char {mustBeMember( ...
+        opts.trans_output, {'base','si'})} = 'base'
     opts.delta               (:,:) double {mustBeDeltaSize} = 1e-8
     opts.delta_units         (1,:) char {mustBeMember(opts.delta_units, ...
                                 {'si','base'})} = 'si'
@@ -237,15 +251,23 @@ if isempty(channels)
     error('macos:dw_dx:nochan', 'no channels found');
 end
 
-% Output scale: IDENTITY -- the Jacobian's OPD numerator emits in the
-% deck's BaseUnits (Dave, 2026-08-25), matching w_nom/opd() and the
-% dwdz/dwdsurf/dwdgrid rungs, so `wall = dwdx*x + w0` is unit-consistent
-% on any deck.  (Historically dwdx alone multiplied by CBM to emit
-% OPD-metres, except rotations under 'base-per-rad' -- that option is
-% now a no-op, kept for API compatibility.)  The poke DENOMINATOR is
-% untouched: rad for rotations, SI metres for translations.
-function s = output_scale_fn(~)
+% Output scale.  NUMERATOR: none -- the OPD emits in the deck's BaseUnits
+% (Dave, 2026-08-25), matching w_nom/opd() and the dwdz/dwdsurf/dwdgrid
+% rungs.  (Historically dwdx alone multiplied by CBM to emit OPD-metres,
+% except rotations under 'base-per-rad' -- that option is now a no-op,
+% kept for API compatibility.)  DENOMINATOR: the poke is always applied in
+% rad / SI metres; under trans_output='base' (default since 2026-10-06)
+% a translation column -- and its dcdx row, the same scale is applied to
+% both -- is multiplied by CBM (metres per BaseUnit) so it reads per
+% BaseUnit of translation, and `wall = dwdx*x + w0` takes x in BaseUnits.
+% This is the ONE place the translation denominator is set.
+trans_scale = 1;
+if strcmp(opts.trans_output, 'base'), trans_scale = cbm; end
+function s = output_scale_fn(ch)
     s = 1;
+    if isprop(ch, 'dof_idx') && ch.dof_idx >= 3
+        s = trans_scale;
+    end
 end
 
 wf_func = @() local_wf(session, wf_elt);
@@ -306,6 +328,7 @@ out.delta_units   = opts.delta_units;
 out.method        = opts.method;
 out.wf_elt        = wf_elt;
 out.rot_output    = opts.rot_output;
+out.trans_output  = opts.trans_output;
 out.cbm           = cbm;
 out.base_units    = base_units;
 

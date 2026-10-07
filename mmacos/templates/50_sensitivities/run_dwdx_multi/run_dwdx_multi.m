@@ -51,8 +51,9 @@
 %    two POWERED surfaces; put one in your own Rx and the ratio drops.
 %
 %  UNITS: group and per-element columns share one convention --
-%  OPD-BaseUnits per SI metre for translations, per rad for rotations
-%  (the numerator is the deck's BaseUnits, 2026-08-25) -- so they
+%  OPD-BaseUnits per BaseUnit of translation (default 'trans_output',
+%  'base', 2026-10-06; 'si' = per SI metre, the earlier default), per rad
+%  for rotations (the numerator is the deck's BaseUnits, 2026-08-25) -- so they
 %  are directly comparable and one numeric DELTA is one physical poke
 %  for either.  (GroupedRigidBodyChannel converts SI metres to the
 %  BaseUnits prb_grp wants, exactly as macos.perturb does for the
@@ -111,7 +112,7 @@ fprintf('=== dw/dx multi: %d channels x %d fields ===\n', ...
 % ---- the LensCell exhibit -------------------------------------------
 % Cell vs member surfaces, all six DOFs, appended to the report so the
 % committed artifact carries the numbers this example is about.  The
-% helper divides the group TRANSLATION columns by CBM so both sides are
-% per-metre -- see its header for the units argument.
+% group and member columns share one convention, so the helper rescales
+% nothing -- see its header.
 group_exhibit(art.ox, GROUPS, ...
     fullfile(here, [name '_sens_report.txt']));

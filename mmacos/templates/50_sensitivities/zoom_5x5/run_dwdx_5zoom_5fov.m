@@ -98,7 +98,9 @@
 %
 %  WHAT THE PM COLUMNS SAY.  The driver appends a "[PM exhibit]" table
 %  to <name>_sens_report.txt -- the group's six column norms beside one
-%  segment's, both OPD-BaseUnits per rad / per SI METRE.  Group/segment
+%  segment's, both OPD-BaseUnits per rad / per SI METRE (harvested
+%  before 2026-10-06; today's default is per BaseUnit, the ratios are
+%  unchanged).  Group/segment
 %  comes out at
 %  18.6667 (Rx), 18.9996 (Ry), 19.0411 (Tx), 18.5822 (Ty): a rigid
 %  motion of N=18 alike members is N times one member, as it must be.
@@ -124,7 +126,8 @@
 %
 %  UNITS: group and per-element columns share one convention -- the OPD
 %  numerator in the deck's BaseUnits (matching w0_stacked / opd() and
-%  the figure rungs, 2026-08-25), per SI metre for translations and per
+%  the figure rungs, 2026-08-25), per BaseUnit of translation (default
+%  'trans_output','base', 2026-10-06; 'si' = per SI metre) and per
 %  rad for rotations -- so the
 %  PM columns and a segment's are directly comparable and one numeric
 %  DELTA is one physical poke for either.  (GroupedRigidBodyChannel
@@ -196,8 +199,8 @@ art  = run_sensitivities(RX, 'fov_rad', FOV, 'channels', "dwdx", ...
 % The group's six columns beside one segment's, appended to the report
 % so the committed artifact carries the numbers the README quotes.  One
 % representative member is tabulated -- 18 alike segments do not need 18
-% rows.  The helper divides the group TRANSLATION columns by CBM so both
-% sides are per-metre; see its header for the units argument.
+% rows.  Group and member columns share one convention, so the helper
+% rescales nothing; see its header.
 group_exhibit(art.ox, GROUPS, ...
     fullfile(here, [name '_sens_report.txt']), 'members', 5);
 

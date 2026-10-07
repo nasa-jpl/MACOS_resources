@@ -77,7 +77,7 @@ function OUT = s5_timeseries(over)
              P.co.inner_lamD, P.co.outer_lamD);
 
     % ---- the control basis, from S4 --------------------------------------
-    Z = load(S4, 'ox');
+    Z = load(S4, 'ox');  Z.ox = macos.dwdx_trans_per_metre(Z.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
     % TWO bases, deliberately.  CHECK on all six rigid-body DOFs so the
     % report carries the honest evidence; CONTROL on the restricted set.
     % Checking only what we control would make the gate pass trivially

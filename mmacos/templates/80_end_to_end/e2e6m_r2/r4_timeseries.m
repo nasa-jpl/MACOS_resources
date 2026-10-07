@@ -76,7 +76,7 @@ function OUT = r4_timeseries(over)
              P.ts.every);
 
     % ---- inputs ---------------------------------------------------------
-    Z  = load(S3, 'ox');   ox = Z.ox;
+    Z  = load(S3, 'ox');   ox = macos.dwdx_trans_per_metre(Z.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
     J  = load(SJ);         DJ = J.OUT;
     met = load(SM, 'dldx', 'dedx', 'dxdl', 'dxde');
     wf = ox.wf_elt;

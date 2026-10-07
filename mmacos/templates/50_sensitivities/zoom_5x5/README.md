@@ -102,7 +102,10 @@ its members' columns.
 
 **What the PM columns say** (RMS over the 5×5 stack; OPD in the deck's
 BaseUnits — mm here — per rad for rotations and per SI metre for
-translations, the same convention on both sides):
+translations, the same convention on both sides.  This table was
+harvested before 2026-10-06, when per-metre translations were the
+default; a re-run under today's default `'trans_output','base'` gives
+the translation rows ×1e-3 (per mm) and leaves every ratio unchanged):
 
 | DOF | PM as one body | one segment (elt 5) | PM / segment |
 |---|---|---|---|
@@ -159,8 +162,10 @@ reproduce it.
 **Units.**  Group and per-element columns share one convention — the
 OPD numerator in the deck's **BaseUnits** (mm here; the same units as
 `w0_stacked`/`opd()` and as the dwdz/dwdsurf/dwdgrid rungs, so
-`wall = dwdx·x + w0` is unit-consistent — as of 2026-08-25), per SI
-metre for translations and per rad for rotations — so the PM row and
+`wall = dwdx·x + w0` is unit-consistent — as of 2026-08-25), per
+**BaseUnit** of translation (per mm here — GMI's convention, the default
+since 2026-10-06; `'trans_output','si'` gives per SI metre, the earlier
+default, = per-BaseUnit ÷ CBM) and per rad for rotations — so the PM row and
 the segment row above are directly comparable and one numeric `delta`
 is one physical poke for either.  `GroupedRigidBodyChannel` converts SI
 metres to the BaseUnits `prb_grp` wants, exactly as `macos.perturb` does

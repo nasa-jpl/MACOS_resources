@@ -15,7 +15,8 @@ function group_exhibit(out, groups, report_path, opts)
 %   TRANSLATION of N alike members is the sum of N alike columns.
 %
 %   Units: group and per-element columns share one convention --
-%   OPD-per-metre for translations, OPD-per-rad for rotations -- so the
+%   OPD per BaseUnit of translation (dw_dx's 'trans_output' default,
+%   2026-10-06; per SI metre under 'si'), OPD per rad for rotations -- so the
 %   two sides are directly comparable and nothing is rescaled here.
 %
 %   OUT     struct from macos.dw_dx or macos.dw_dx_multi.  Needs
@@ -85,10 +86,14 @@ for gi = 1:numel(gnames)
 
     say('\n[%s exhibit] the GROUP against its member elements\n', nm);
     say('    members: %s (%d)\n', mat2str(reshape(mem, 1, [])), numel(mem));
+    tu = 'SI METRE';   % a harvest with no trans_output field predates 2026-10-06: per metre
+    if isfield(out, 'trans_output') && strcmp(out.trans_output, 'base')
+        tu = 'BaseUnit';
+    end
     say(['    column RMS of dW/d(DOF): rotations in OPD-BaseUnits per ' ...
-         'rad, translations\n    in OPD-BaseUnits per SI METRE -- the ' ...
+         'rad, translations\n    in OPD-BaseUnits per %s -- the ' ...
          'same convention on both sides\n    (the OPD numerator is the ' ...
-         'deck''s BaseUnits, as of 2026-08-25).\n']);
+         'deck''s BaseUnits, as of 2026-08-25).\n'], tu);
     hdr = sprintf('%-24s', 'channel');
     for d = 1:6, hdr = [hdr sprintf('%12s', LAB{d})]; end %#ok<AGROW>
     say('    %s\n', hdr);

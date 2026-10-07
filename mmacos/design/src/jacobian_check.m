@@ -64,6 +64,7 @@ function chk = jacobian_check(rx, ox, opts)
         opts.verbose (1,1) logical = false
     end
     assert(isfile(rx), 'jacobian_check: %s not found', rx);
+    ox = macos.dwdx_trans_per_metre(ox);   % columns per SI metre, the unit d_trans is in
 
     % ---- pick the Jacobian block ----------------------------------------
     if isfield(ox, 'per_field_dwdx')

@@ -52,6 +52,30 @@ classdef tJacobianCheck < matlab.unittest.TestCase
                 chk.tags{find(chk.rel == chk.worst, 1)}));
         end
 
+        function test_closes_identically_on_base_and_legacy_si_harvests(testCase)
+            % jacobian_check pokes translations in SI metres; the harvest
+            % now defaults to per-BaseUnit columns (trans_output='base',
+            % 2026-10-06).  Its one-line adapter (dwdx_trans_per_metre)
+            % must make a 'base' harvest and a pre-change per-metre one
+            % (no trans_output field) give the SAME model response.  mm
+            % deck: without the adapter the translation model is 1e3 off
+            % and rel ~ 1 (the 1/cbm - 1 signature).
+            m = macos.Session(testCase.ModelSize);
+            os = macos.dw_dx(m, testCase.rx_path, 'elts', testCase.Elt, ...
+                'dofs', (0:5).', 'trans_output', 'si');
+            testCase.verifyEqual(testCase.ox.trans_output, 'base');
+            testCase.verifyEqual(testCase.ox.cbm, 1e-3, 'AbsTol', 1e-15);
+            cb = jacobian_check(testCase.rx_path, testCase.ox, ...
+                'elts', testCase.Elt, 'model', testCase.ModelSize);
+            cl = jacobian_check(testCase.rx_path, rmfield(os, 'trans_output'), ...
+                'elts', testCase.Elt, 'model', testCase.ModelSize);
+            testCase.verifyEqual(cb.n_mod, cl.n_mod, 'RelTol', 1e-12);
+            testCase.verifyEqual(cb.n_eng, cl.n_eng, 'RelTol', 1e-12);
+            tr = cb.dof >= 3;
+            testCase.verifyLessThan(max(cb.rel(tr)), testCase.Tol, ...
+                'translation DOFs close with the per-BaseUnit harvest');
+        end
+
         function test_wrong_surface_fails_for_rotations(testCase)
             % The tripwire that documents the defect class: the SAME
             % check evaluated at the focal plane (nElt) must FAIL on the
