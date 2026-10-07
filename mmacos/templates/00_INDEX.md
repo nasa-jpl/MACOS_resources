@@ -11,7 +11,7 @@ target plus our worked answer) live in [`../challenges/`](../challenges).
 
 | Thread | Directory | Entry point |
 |---|---|---|
-| **T1** telescopes of increasing capability | [`10_telescopes/`](10_telescopes) | `design_layer_api/example_telescope_design.m`, then the `rc_*` → `tma_*` → freeform ladder |
+| **T1** telescopes of increasing capability | [`10_telescopes/`](10_telescopes) | `design_layer_api/example_telescope_design.m`, then the `rc_*` → `tma_*` → freeform ladder; a slit-fed spectrometer front end (telecentric, cone-bounded, long working distance) = `tma_longslit/tma_longslit.m` |
 | **T2** segmentation + interface coordinates | [`20_segmentation/`](20_segmentation) | `e5_pie/e5_pie.m` |
 | **T3** instruments (imager, coronagraph) | [`30_instruments/`](30_instruments) | `coro_walkthrough/coro_walkthrough.m`; imager rung = `../templates/80_end_to_end/e2e/s2_instrument.m` until a standalone template is extracted |
 | **T4** linear-model sensitivities (dw/dx, dw/dz, dw/dgrid) | [`50_sensitivities/`](50_sensitivities) | `../../sensitivities/run_dwdx_multi.m` (asset decks live here) |

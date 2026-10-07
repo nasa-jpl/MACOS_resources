@@ -1,0 +1,37 @@
+tma_longslit e2e -- rung R5 ff joined to the dyson5 3k Dyson of record (CaF2 240, size:F:240) (2026-10-07 12:00)
+  chosen: clears (+10.5 mm), no ray below F/1.7, worst telescope FWHM 6.68 px (of the clear rungs, the smallest)
+  join deck /home/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes/tma_longslit/../../../challenges/dyson5/tls_e2e_tls_tel.in (header ApStop = the engine entrance pupil [0 0 346.7] mm, two-chief miss 1.6e-05 m)
+
+  end to end               |       Joe     paper |                  
+  ROLL 0 deg: e2e deck dyson5_t5f_tls_roll000_e2e.in
+    smile                     0.090 px  | < 0.10   < 0.05 (Joe PASS, paper fail)
+    keystone                  0.031 px  | < 0.10   < 0.10 (Joe PASS, paper PASS)
+    CRF (worst)               6.977 px  | < 1.50   < 2.80 (Joe fail, paper fail)
+    SRF (worst)               2.519 px  | < 2.00   < 1.80 (Joe fail, paper fail)
+    ARF (telescope FWHM y)    2.137 px  |   --    < 2.80 (Joe PASS, paper PASS)
+    energy in a pixel (min)    0.044     | > 0.75
+    grating admits (min)      0.983
+    clearance, joined          +0.6 mm  (M3 -> Slit vs BlockFace)  CLEAR
+        M3 -> Slit                 vs BlockFace        +0.6 mm
+        M3 -> Slit                 vs M2              +11.6 mm
+        M3 -> Slit                 vs FPA             +13.0 mm
+        M3 -> Slit                 vs PreFPA          +13.1 mm
+        input -> M1                vs M2              +60.7 mm
+    SRF per field: 2.52 2.24 2.05 2.02 2.05 2.24 2.52 
+    CRF per field: 6.98 6.60 3.79 1.03 3.79 6.60 6.98 
+  ROLL 180 deg: e2e deck dyson5_t5f_tls_roll180_e2e.in
+    smile                     0.093 px  | < 0.10   < 0.05 (Joe PASS, paper fail)
+    keystone                  0.038 px  | < 0.10   < 0.10 (Joe PASS, paper PASS)
+    CRF (worst)               6.929 px  | < 1.50   < 2.80 (Joe fail, paper fail)
+    SRF (worst)               2.550 px  | < 2.00   < 1.80 (Joe fail, paper fail)
+    ARF (telescope FWHM y)    2.137 px  |   --    < 2.80 (Joe PASS, paper PASS)
+    energy in a pixel (min)    0.040     | > 0.75
+    grating admits (min)      0.982
+    clearance, joined          +0.6 mm  (M3 -> Slit vs BlockFace)  CLEAR
+        M3 -> Slit                 vs BlockFace        +0.6 mm
+        M3 -> Slit                 vs FPA             +11.3 mm
+        M3 -> Slit                 vs M2              +11.4 mm
+        M3 -> Slit                 vs PreFPA          +11.8 mm
+        input -> M1                vs M2              +60.8 mm
+    SRF per field: 2.55 2.27 2.05 2.02 2.05 2.27 2.55 
+    CRF per field: 6.93 6.64 3.80 1.03 3.80 6.64 6.93 
