@@ -1,4 +1,4 @@
-=== ZWFS runner: tag stations193_oap  (2026-10-07 11:49) ===
+=== ZWFS runner: tag stations193_oap  (2026-10-07 14:23) ===
 model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
 stages: bench | readings: S V P
 readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
