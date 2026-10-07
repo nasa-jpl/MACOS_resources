@@ -46,7 +46,8 @@
 %  names the bundled demo deck's primary.  Group channels carry NO
 %  element id (out.iElt is 0, as a source channel does) and out.kind is
 %  'Group' -- section on kind, not on iElt.  Units are the same on both
-%  sides: OPD-per-metre for translations, OPD-per-rad for rotations.
+%  sides: OPD per BaseUnit of translation (dw_dx 'trans_output' default,
+%  2026-10-06; per metre under 'si'), OPD-per-rad for rotations.
 %
 %  WHY THE CONFIGURATION BLOCKS CAN LOOK ALIKE, AND WHY THAT IS RIGHT.
 %  The supervisor re-finds the exit pupil PER FIELD (reset_xp, default

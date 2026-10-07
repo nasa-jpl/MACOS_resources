@@ -184,5 +184,41 @@ classdef tRunMet < matlab.unittest.TestCase
             tc.verifySize(art.dxde, [6*9, size(art.dedx, 1)]);
             tc.verifySize(art.dwdl, [nnz(art.keep), size(art.dldx, 1)]);
         end
+
+        function test_base_and_legacy_si_jac_give_the_same_merits(tc)
+            % run_met's merit trace(X*Gdt) takes X in SI (sig_trans m), so
+            % it converts the harvest with dwdx_trans_per_metre.  A 'base'
+            % twin of the synthetic jac (translation columns x cbm, the
+            % e5mono mm deck: 1e-3) must give the SAME merits and the same
+            % exported dwdx as the legacy per-metre struct.  Without the
+            % adapter the translation block of G drops by cbm^2 = 1e-6.
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            here = fileparts(mfilename('fullpath'));
+            res_root = fileparts(fileparts(here));
+            copyfile(tc.seg.in, fullfile(wd, 'pie.in'));
+            copyfile(tc.seg.hx, fullfile(wd, 'pieHx.m'));
+            copyfile(fullfile(res_root, 'segmirmaker', 'test_in', ...
+                'flat.txt'), fullfile(wd, 'flat.txt'));
+            lg = tc.jac;
+            dof = mod(0:numel(lg.channel_names)-1, 6).';   % Rx..Tz per elt
+            cbm = 1e-3;
+            jb = lg;  jb.dof_idx = dof;  jb.cbm = cbm;  jb.trans_output = 'base';
+            t = dof >= 3;
+            jb.dwdxall(:, t) = jb.dwdxall(:, t) * cbm;
+            jb.per_field_dwdx{1}(:, t) = jb.per_field_dwdx{1}(:, t) * cbm;
+            a = {'hx', fullfile(wd, 'pieHx.m'), 'hub', 8, 'aft', 11, ...
+                'r_extra', 100, 'min_sep', 30, 'optimize', false, 'mc', 0, ...
+                'verbose', false};
+            al = run_met(fullfile(wd, 'pie.in'), a{:}, 'jac', lg, 'name', 'lg');
+            ab = run_met(fullfile(wd, 'pie.in'), a{:}, 'jac', jb, 'name', 'bu');
+            tc.verifyEqual(ab.dwdx, al.dwdx, 'RelTol', 1e-12);
+            f = fieldnames(al.merits);
+            tc.assertNotEmpty(f, 'the merit struct must be populated');
+            for k = 1:numel(f)
+                tc.verifyEqual(ab.merits.(f{k}), al.merits.(f{k}), ...
+                    'RelTol', 1e-10, f{k});
+            end
+        end
     end
 end

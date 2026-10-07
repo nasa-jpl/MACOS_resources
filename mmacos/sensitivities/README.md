@@ -130,8 +130,9 @@ switch for a deck that carries them.
 Group channels carry **no element id** — `out.iElt` is `0`, the value a
 *source* channel also carries — and `out.kind` is `'Group'`. **Section on
 `kind`, not on `iElt`.** The per-element pages do that and give each group
-its own page. Units are the same on both sides: OPD-per-metre for
-translations, OPD-per-rad for rotations, so one numeric `DELTA` is one
+its own page. Units are the same on both sides: OPD per BaseUnit of
+translation (`dw_dx`'s `'trans_output'` default since 2026-10-06; per SI
+metre under `'si'`), OPD-per-rad for rotations, so one numeric `DELTA` is one
 physical poke for either.
 
 With a group set, the driver appends a **group-vs-member table** to

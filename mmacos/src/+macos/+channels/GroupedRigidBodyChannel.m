@@ -30,7 +30,8 @@ classdef GroupedRigidBodyChannel < handle
 %   internally to BaseUnits via CBM to match the prb_grp signature).
 %   That is the SAME convention RigidBodyChannel uses -- macos.perturb
 %   does the identical division internally -- so a group column and a
-%   per-element column are both OPD-per-metre and a single numeric FD
+%   per-element column share one convention (per metre at the poke;
+%   dw_dx's trans_output then scales both alike) and a single numeric FD
 %   'delta' is the same PHYSICAL poke for either.  The 6-vector is
 %   [Rx, Ry, Rz, Tx, Ty, Tz] in ref_elt's frame (coords='global' by
 %   default; 'local' = ref_elt's TElt frame).

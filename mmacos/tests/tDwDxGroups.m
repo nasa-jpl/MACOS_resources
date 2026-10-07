@@ -434,11 +434,20 @@ classdef tDwDxGroups < matlab.unittest.TestCase
             macos.perturb(1, 'translation', [0; 0; +d]);  % restore
             m3.modify();
             v = (Wp ~= 0) & (Wm ~= 0);
-            hand = max(abs(Wp(v) - Wm(v))) / (2 * d);
+            hand = max(abs(Wp(v) - Wm(v))) / (2 * d);    % OPD-BU per SI metre
+            % the default denominator is per BaseUnit (trans_output='base',
+            % Dave 2026-10-06): hand FD x cbm.  'si' gives the per-metre one.
             col  = max(abs(nat.dwdx(:, 6)));
-            testCase.verifyEqual(col, hand, 'RelTol', 1e-6, ...
+            testCase.verifyEqual(nat.trans_output, 'base');
+            testCase.verifyEqual(col, hand * nat.cbm, 'RelTol', 1e-6, ...
                 ['emitted column scale must match a hand FD in raw ' ...
-                 'opd() units -- a CBM-scaled emitter is 1000x off here']);
+                 'opd() units per BaseUnit -- a CBM-scaled numerator, or a ' ...
+                 'per-metre denominator, is 1000x off here']);
+            m4 = macos.Session(testCase.ModelSize);
+            si = macos.dw_dx(m4, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', 5, 'delta', 1e-8, 'trans_output', 'si');
+            testCase.verifyEqual(max(abs(si.dwdx(:, 1))), hand, 'RelTol', 1e-6, ...
+                '''si'' column = the hand FD per SI metre');
         end
 
         function test_groups_auto_and_the_explicit_map_merge(testCase)

@@ -128,7 +128,9 @@ classdef tMacosSession < matlab.unittest.TestCase
                 'noll_mode', ...  % Noll Zernike over a pixel mask (the
                 ...               % 98d3320 self-containment fn; no engine)
                 ... % inner FD loops driven by the dw_d* supervisors
-                'dwdx_for_current_source', 'dwdz_for_current_source'};
+                'dwdx_for_current_source', 'dwdz_for_current_source', ...
+                ... % pure unit conversion of a harvest struct already held
+                'dwdx_trans_per_metre'};
 
             pkg_dir = fullfile(fileparts(fileparts(mfilename('fullpath'))), ...
                                'src', '+macos');

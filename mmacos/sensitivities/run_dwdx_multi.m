@@ -33,8 +33,9 @@
 %
 %  Group channels carry NO element id -- out.iElt is 0, the value a
 %  source channel also carries -- and out.kind is 'Group'.  Section on
-%  kind, not on iElt.  Units are the same on both sides: OPD-per-metre
-%  for translations, OPD-per-rad for rotations.
+%  kind, not on iElt.  Units are the same on both sides: OPD per BaseUnit
+%  of translation (dw_dx 'trans_output' default, 2026-10-06; per metre
+%  under 'si'), OPD-per-rad for rotations.
 % =====================================================================
 
 here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end

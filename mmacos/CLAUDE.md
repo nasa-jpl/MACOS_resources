@@ -166,7 +166,14 @@ User-facing surface lives in `MACOS_resources/mmacos/src/+macos/` (one
 - **Unit conventions.**  All user-facing translations are in **SI
   metres**.  Convert to BaseUnits via `1/CBM` inside the package
   function (not in the mex layer).  Same for `dx_at(srf, unit)` — the
-  mex returns metres, the package function converts.
+  mex returns metres, the package function converts.  **Exception, OUTPUT side (Dave 2026-10-06):** `dw_dx`/`dw_dx_multi`
+  translation columns (and dcdx rows) are per **BaseUnit** by default
+  (`'trans_output','base'`, GMI's convention; `'si'` = per metre, the
+  2026-08-25..10-06 default) -- the poke itself is still applied in SI
+  metres.  Consumers that work in SI (run_compare / run_simulator /
+  run_met / jacobian_check) call `macos.dwdx_trans_per_metre(ox)` once at
+  their ox load; it is the identity on a pre-change harvest (no
+  `trans_output` field), so old jac .mats need no regen.
 - **Returns.**  Prefer structs over multi-output for related fields
   (e.g. `trace` returns `s.nRays`, `s.rmsWFE`).  Vector outputs as
   column vectors (`vpt(:)`).
