@@ -2316,6 +2316,15 @@ function I = frame(Sx, Sr, th), I = sum(abs(synth(Sx,th)+synth(Sr,th)).^2, 3); e
 function p = fourstep(Sx, Sr, th)
     p = atan2(frame(Sx,Sr,th(2))-frame(Sx,Sr,th(4)), frame(Sx,Sr,th(1))-frame(Sx,Sr,th(3)));
 end
+function p = fourstep_pzt(Sx, Sr, an_deg)
+%FOURSTEP_PZT  The PZT form: the reference arm's PATH stepped by 0, pi/2, pi,
+%   3pi/2 with the analyzer fixed at an_deg, I_k = sum |E_t + e^{i d_k} E_r|^2.
+%   No polarization enters the step, so this form carries none of the
+%   snapshot's polarization gain -- what the hybrid's PZT leg calibrates.
+    Et = synth(Sx, an_deg);  Er = synth(Sr, an_deg);
+    I = @(d) sum(abs(Et + exp(1i*d)*Er).^2, 3);
+    p = atan2(I(pi/2) - I(3*pi/2), I(0) - I(pi));
+end
 function h = meas_surface(A, QWP, M, Sr, p_null, THETAS, LAM)
     d = angle(exp(1i*(fourstep(analyzer_basis(A,QWP,M), Sr, THETAS) - p_null)));
     h = d * LAM/(4*pi);
@@ -2377,7 +2386,11 @@ function stations_ifo_(P, G, say, place, s)
 %   detector (intensity, that arm alone); the REFERENCE arm's; two of the four
 %   phase-stepped frames (the first two steps); the recovered surface (nm);
 %   and the recovered map minus the ENGINE's own field at the detector (pm)
-%   -- the last is the gauge's error, not a model of it.
+%   -- the gauge's error, not a model of it; and an EIGHTH column, the same
+%   surface recovered by the PZT four-step (fourstep_pzt: the reference path
+%   stepped, analyzer fixed) minus the engine -- the hybrid's absolute leg,
+%   which carries none of the snapshot's polarization gain (Dave 2026-10-07:
+%   'could the IFO use its hybrid pol/PZT rig to improve?').
 %
 %   Format shared with stations_fig_ (Dave 2026-10-07): the command, the
 %   recovered surface and the residual carry their rms in an xlabel ("read
@@ -2430,9 +2443,13 @@ sgn = sign(sum((hp(msk)-mean(hp(msk))).*(htp(msk)-mean(htp(msk)))));
 if sgn == 0, sgn = 1; end
 say('stations: four-step sign set by a +%.0f nm push on actuator (%d,%d): %+d\n', P.POKE*1e6, ic, ic, sgn);
 
-f = figure('Color','w', 'Position',[40 40 1800 520], 'Visible','off');
-tl = tiledlayout(f, 2, 7, 'Padding','tight', 'TileSpacing','tight');
-resid_pm = [NaN NaN];  gain = [NaN NaN];
+f = figure('Color','w', 'Position',[40 40 2000 520], 'Visible','off');
+tl = tiledlayout(f, 2, 8, 'Padding','tight', 'TileSpacing','tight');
+resid_pm = [NaN NaN];  gain = [NaN NaN];  resid_pzt = [NaN NaN];  gain_pzt = [NaN NaN];
+AN0 = 0;   % the PZT form's fixed analyzer angle
+Sx0 = analyzer_basis(ctx.AT, QWP, zeros(N_G));  pz_null = fourstep_pzt(Sx0, ctx.Sr, AN0);   % the PZT form's own flat null
+Sxp = analyzer_basis(ctx.AT, QWP, Mp);  hpz = angle(exp(1i*(fourstep_pzt(Sxp, ctx.Sr, AN0) - pz_null)))*LAM/(4*pi);
+sgz = sign(sum((hpz(msk)-mean(hpz(msk))).*(htp(msk)-mean(htp(msk)))));  if sgz == 0, sgz = 1; end
 for r = 1:2
     A = states{r};  M = dmap(A);
     Sx = analyzer_basis(ctx.AT, QWP, M);            % the test arm, this state
@@ -2450,11 +2467,17 @@ for r = 1:2
     resid_pm(r) = 1e9*sqrt(mean(d(msk).^2));
     hm = h - mean(h(msk));  htm = ht - mean(ht(msk));
     if any(htm(msk)), gain(r) = sum(hm(msk).*htm(msk))/sum(htm(msk).^2); end
+    hz = sgz * angle(exp(1i*(fourstep_pzt(Sx, ctx.Sr, AN0) - pz_null))) * LAM/(4*pi);   % the PZT four-step
+    dz = hz - ht;  dz = dz - median(dz(msk));  resid_pzt(r) = 1e9*sqrt(mean(dz(msk).^2));
+    hzm = hz - mean(hz(msk));
+    if any(htm(msk)), gain_pzt(r) = sum(hzm(msk).*htm(msk))/sum(htm(msk).^2); end
+    if isnan(gain_pzt(r)), xpzt = sprintf('PZT: %.1f pm rms', resid_pzt(r));
+    else, xpzt = sprintf('PZT: %.2f pm rms, gain %.4f', resid_pzt(r), gain_pzt(r)); end
     cmd_rms = 1e6*sqrt(mean(A(litmask).^2));        % the command's rms over this rig's lit actuators
     if r == 1, xcmd = 'flat'; else, xcmd = sprintf('command %.1f nm rms', cmd_rms); end
-    if isnan(gain(r)), xres = sprintf('read - engine %.1f pm rms', resid_pm(r));
-    else, xres = sprintf('read - engine %.0f pm rms, gain %.3f', resid_pm(r), gain(r)); end
-    if sgn < 0, xread = sprintf('read %.1f nm rms (sign set by a +push)', 1e6*std(hm(msk))); else, xread = sprintf('read %.1f nm rms', 1e6*std(hm(msk))); end
+    if isnan(gain(r)), xres = sprintf('snapshot: %.1f pm rms', resid_pm(r));
+    else, xres = sprintf('snapshot: %.0f pm rms, gain %.3f', resid_pm(r), gain(r)); end
+    if sgn < 0, xread = sprintf('read %.1f nm rms (sign by +push)', 1e6*std(hm(msk))); else, xread = sprintf('read %.1f nm rms', 1e6*std(hm(msk))); end
 
     pan(tl, 1e6*interp_to_(A, size(msk)), [], 'mirror command, nm', rown{r}, crop, msk, false, xcmd, false);
     pan(tl, It, [], 'test arm at the detector', '', crop, msk, true, '', false);
@@ -2465,11 +2488,12 @@ for r = 1:2
     pan(tl, F1, [], sprintf('frame: analyzer %.0f deg (step 0)', TH(1)), '', crop, msk, true, '', false);
     pan(tl, F2, [], sprintf('frame: analyzer %.0f deg (step pi/2)', TH(2)), '', crop, msk, true, '', false);
     pan(tl, 1e6*hm, msk, 'recovered surface, nm', '', crop, msk, false, xread, false);
-    pan(tl, 1e9*d, msk, 'read minus the engine, pm', '', crop, msk, false, xres, true);
+    pan(tl, 1e9*d, msk, 'snapshot read minus the engine, pm', '', crop, msk, false, xres, false);
+    pan(tl, 1e9*dz, msk, 'PZT four-step minus the engine, pm', '', crop, msk, false, xpzt, true);
 end
 print(f, [P.tag '_stations.png'], '-dpng', '-r96');  close(f);   % 1800 px wide
-say('stations figure %s_stations.png: recovered minus the engine''s field on msk %.2f pm (flat), %.2f pm (%.0f nm rms, gain %.4f, four-step sign %+d)\n', ...
-    P.tag, resid_pm(1), resid_pm(2), P.battery.base_rms*1e6, gain(2), sgn);
+say('stations figure %s_stations.png: recovered minus the engine''s field on msk %.2f pm (flat), %.2f pm (%.0f nm rms, gain %.4f, four-step sign %+d); PZT four-step %.2f pm (flat), %.2f pm, gain %.4f, sign %+d\n', ...
+    P.tag, resid_pm(1), resid_pm(2), P.battery.base_rms*1e6, gain(2), sgn, resid_pzt(1), resid_pzt(2), gain_pzt(2), sgz);
 end
 
 function pan(tl, A, m, ttl, ylab, crop, msk, logscale, xlab, cbar)
