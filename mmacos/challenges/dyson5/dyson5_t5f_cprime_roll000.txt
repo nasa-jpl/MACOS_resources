@@ -1,13 +1,13 @@
-dyson5 t5f -- end to end, the join placed from ENGINE traces (FreeForm decks) (2026-10-07 13:56)
+dyson5 t5f -- end to end, the join placed from ENGINE traces (FreeForm decks) (2026-10-07 15:32)
 CONVENTIONS: telescope /home/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes/tma_longslit/../../../challenges/dyson5/tls_e2e_cprime_tel.in, Dyson size:F:240 (Slit + Dyson blocks from dyson5_t5e_tA_EP_3k_m30_B1_e2e.in); roll 0 deg; no chain: the bridge gate is replaced
   by the identity gate (this join on a conic deck == t5e's row).
 
-TELESCOPE (engine): plate local 330.0 mm, edge 323.2 mm (spec 126.0); strip +-70.35 mm at the image vs slit 54.0 mm; admitted +-4.692 of +-12.278 deg
+TELESCOPE (engine): plate local 330.0 mm, edge 323.3 mm (spec 126.0); strip +-70.36 mm at the image vs slit 54.0 mm; admitted +-4.691 of +-12.278 deg
 JOINED DECK dyson5_t5f_cprime_roll000_e2e.in: 3 telescope + 8 Slit/Dyson elements; grating = element 7, slit = element 4
-END TO END (engine join, 7 fields x 7 wavelengths over +-4.692 deg, the grating the stop):
-  smile 0.7323 px  keystone 0.0087 px  CRF 2.513 px  SRF 3.897 px  EE 0.028  grating admits 0.989
-  smile per lambda (px): 0.7241 0.7305 0.7323 0.7260 0.7236 0.7211 0.7223 
-  keystone per field (px): 0.0087 0.0037 0.0025 0.0000 0.0025 0.0037 0.0087 
-  pass fraction per field: 0.989 0.993 0.992 0.992 0.992 0.993 0.989 
-  SRF per field (max over lambda): 3.90 2.78 2.47 2.33 2.47 2.78 3.90 
-  CRF per field: 1.98 2.51 2.13 2.07 2.13 2.51 1.98 
+END TO END (engine join, 7 fields x 7 wavelengths over +-4.691 deg, the grating the stop):
+  smile 0.1402 px  keystone 0.0058 px  CRF 1.175 px  SRF 2.025 px  EE 0.853  grating admits 0.988
+  smile per lambda (px): 0.1402 0.1395 0.1382 0.1371 0.1360 0.1352 0.1341 
+  keystone per field (px): 0.0058 0.0036 0.0023 0.0000 0.0023 0.0036 0.0058 
+  pass fraction per field: 0.988 0.990 0.990 0.989 0.990 0.990 0.988 
+  SRF per field (max over lambda): 2.02 2.02 2.02 2.02 2.02 2.02 2.02 
+  CRF per field: 1.17 1.02 1.02 1.02 1.02 1.02 1.17 
