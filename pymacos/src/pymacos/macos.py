@@ -5539,7 +5539,7 @@ def stop(srf: None | int | Tuple[int] | np.int32 = None,
 
     Args:
         srf (None | int | Tuple[int] | np.int32, optional): Defaults to None.
-           Element ID (Range: 0 < srf < nElt-2)
+           Element ID (Range: 1 <= srf <= nElt, the CLI STOP's range)
            Neg. values are referenced with respect to the last surface
            where -1 (== # of Elements) is the last surface, i.e., Img. Srf.
 

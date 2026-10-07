@@ -1722,7 +1722,7 @@
 
         implicit none
         logical, intent(out):: OK            ! (PASS=1) if successful; (FAIL=0) otherwise
-        integer, intent(in) :: iElt          ! Element at which Optical System Stop to be defined (0 < iElt < nElt-2)
+        integer, intent(in) :: iElt          ! Element at which Optical System Stop to be defined (1 <= iElt <= nElt)
         real(8), intent(in) :: VptOffset(2)  ! [dx,dy]: Offset from Srf. Vertex Position
 
         CALL stop_info_set_impl(OK,iElt,VptOffset)
