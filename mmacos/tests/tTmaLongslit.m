@@ -163,5 +163,24 @@ classdef tTmaLongslit < matlab.unittest.TestCase
             tc.verifyEqual(M.chief_deg, r.M.chief_deg, 'AbsTol', 1e-9);
             tc.verifyEqual(M.fwhm_x_px, r.M.fwhm_x_px, 'AbsTol', 1e-9);
         end
+
+        function test_the_1k5_record_rescores(tc)
+            % PINS THE 1.5k DECK OF RECORD (R5 ffc, 2026-10-08; tma_longslit_1k5, tag tls1k5): R4 ff reached the pixel
+            % floor at every field but put the M3 -> slit leg 0.3 mm into M2's body; R5 = R4 + the CLEAR wall row
+            % (tls_figure, target 2 mm).  Floor, cone, clearance and the engine re-trace to 1e-9.  A re-solve that
+            % changes the record re-pins it with the mechanism, never a tolerance bump.
+            f = fullfile(tc.tdir, 'tls1k5_figure.mat');
+            tc.assumeTrue(exist(f, 'file') == 2, 'no recorded 1.5k ladder in the template directory');
+            Z = load(f);  S = Z.S;  j = find(strcmp({S.rungs.name}, 'ffc'), 1);
+            tc.assertNotEmpty(j, 'the 1.5k record holds its deck of record, R5 ffc');  r = S.rungs(j);
+            tc.verifyLessThan(max([r.M.fwhm_x_px r.M.fwhm_y_px]), 1.05, '1.5k R5: every field at the pixel floor');
+            tc.verifyGreaterThanOrEqual(min([r.M.fno_x r.M.fno_y]), S.P.cone_fnum(1), '1.5k R5: no ray below F/1.7');
+            tc.verifyGreaterThan(r.M.clear.min_mm, 0, '1.5k R5: the joined-free telescope clears (R4: -0.3 mm)');
+            deck = fullfile(tc.tdir, sprintf('%s_R%d_%s.in', S.P.tag, j - 1, r.name));
+            M = tls_measure(S.P, r.G, deck, 'clearance', false);
+            tc.verifyEqual(M.rms_um, r.M.rms_um, 'RelTol', 1e-9);
+            tc.verifyEqual(M.chief_deg, r.M.chief_deg, 'AbsTol', 1e-9);
+            tc.verifyEqual(M.fwhm_x_px, r.M.fwhm_x_px, 'AbsTol', 1e-9);
+        end
     end
 end
