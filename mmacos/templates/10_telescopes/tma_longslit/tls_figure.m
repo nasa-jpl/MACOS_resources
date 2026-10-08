@@ -72,6 +72,8 @@ if ~isfield(P, 'solve_field_wt') || isempty(P.solve_field_wt), P.solve_field_wt 
 assert(numel(P.solve_field_wt) == numel(fd), 'tls_figure: solve_field_wt has %d weights for %d solve fields', numel(P.solve_field_wt), numel(fd));
 if ~isfield(P, 'w_spot_x'), P.w_spot_x = 1; end
 if ~isfield(P, 'w_off'), P.w_off = 0; end
+if ~isfield(P, 'w_clear'), P.w_clear = 0; end
+if ~isfield(P, 'clear_target_m'), P.clear_target_m = 2e-3; end
 if ~isfield(P, 'w_spot_y'), P.w_spot_y = 1; end
 deck = [tempname '_tlsfig.in'];  ftmp = [tempname '_tlsfld.in'];
 cln = onCleanup(@() cellfun(@(f) delete_if_(f), {deck, ftmp}));
@@ -83,7 +85,7 @@ for q = 1:numel(fd)
     ri = field_trace_(txt, fd(q), ftmp);  ok = ri.ok_trace & ri.ok_pass;  ok(1) = false;  c.sel{q} = find(ok);
 end
 c.G0 = G;
-c.nrows = sum(2*cellfun(@numel, c.sel) + 8) + 1 + 2;
+c.nrows = sum(2*cellfun(@numel, c.sel) + 8) + 1 + 2 + 1;
 c.dy_deg = 0.05;                                  % the along-track plate-scale probe
 fun = @(x) resid_(x, c);
 tic;  r0 = fun(x0);  t1 = toc;
@@ -208,6 +210,10 @@ for q = 1:numel(c.fd)
          P.w_off*((cy - ccy) - (yc - ycc))*1e6];                         %#ok<AGROW> OFF: chief - centroid across the slit vs the centre
 end
 r = [r; P.w_wd*max(0, P.work_dist_m - (X.legs(3) + X.slit_dz))];   % the slit moves with the focus
+% CLEAR: a one-sided wall on the record's clearance rule (TLS_CLEARANCE: every leg vs every body it does not touch),
+% evaluated on the centre and edge solve fields every iteration (coarse sampling); the 1.5k R4 of 2026-10-08 reached the
+% pixel floor at -0.3 mm (the M3 -> slit leg into M2's body) with no row to stop it
+r = [r; P.w_clear*max(0, P.clear_target_m - clear_now_(G, txt, c, [1 numel(c.fd)], P))*1e3];
 % PLATE_Y: the along-track (fold-plane) focal length, at the centre and the edge field -- without it the solve trades
 % the fold-plane first order for spots (R1 of 2026-10-07: F/2.37 across the slit, the slit 20 mm off)
 for q = [1 numel(c.fd)]
@@ -219,7 +225,7 @@ end
 
 function S = rowsplit_(r, c)
 % the cost by row family at the solution (for the rung table)
-S = struct('spot', 0, 'plate', 0, 'bow', 0, 'tele', 0, 'cone', 0, 'wd', 0, 'plate_y', 0, 'cbow', 0, 'off', 0);
+S = struct('spot', 0, 'plate', 0, 'bow', 0, 'tele', 0, 'cone', 0, 'wd', 0, 'plate_y', 0, 'cbow', 0, 'off', 0, 'clear', 0);
 i = 0;
 for q = 1:numel(c.fd)
     n = numel(c.sel{q});
@@ -227,7 +233,35 @@ for q = 1:numel(c.fd)
     S.plate = S.plate + r(i + 1)^2;  S.bow = S.bow + r(i + 2)^2;  S.tele = S.tele + sum(r(i + (3:4)).^2);
     S.cone = S.cone + sum(r(i + (5:6)).^2);  S.cbow = S.cbow + r(i + 7)^2;  S.off = S.off + r(i + 8)^2;  i = i + 8;
 end
-S.wd = r(end - 2)^2;  S.plate_y = sum(r(end - 1:end).^2);
+S.wd = r(end - 3)^2;  S.plate_y = sum(r(end - 2:end - 1).^2);  S.clear = r(end)^2;
 end
 
 function delete_if_(f), if exist(f, 'file'), delete(f); end, end
+
+function cl = clear_now_(G, txt, c, qs, P)
+% the record's clearance (TLS_CLEARANCE) on the fields qs, coarse: m (not mm); +Inf when the wall is off
+if P.w_clear == 0, cl = Inf; return, end
+nM = numel(G.m);  paths = cell(1, numel(qs));  foot = struct('x_m', 0, 'y_m', 0, 'r_m', 0, 'cx_m', 0, 'cy_m', 0);
+F = cell(1, nM);
+for j = 1:numel(qs)
+    th = deg2rad(c.fd(qs(j)));  d = [sin(th); 0; cos(th)];
+    t2 = regexprep(txt, '(?m)^(\s*ChfRayDir=).*$', sprintf('$1  %.16E  %.16E  %.16E', d), 'dotexceptnewline');
+    fid = fopen(c.ftmp, 'w');  fwrite(fid, t2);  fclose(fid);  macos.load_rx(c.ftmp);  nE = macos.num_elt();
+    Pk = cell(1, nE);  ok = [];
+    for k = 1:nE
+        s = macos.trace(k);  ri = macos.get_ray_info(s.nRays);  Pk{k} = ri.pos;
+        okk = ri.ok_trace & ri.ok_pass;  if isempty(ok), ok = okk; else, ok = ok & okk; end
+    end
+    pts = zeros(3, nnz(ok), nE + 1);  pts(:, :, 1) = Pk{1}(:, ok) - 0.6*d;
+    for k = 1:nE, pts(:, :, k + 1) = Pk{k}(:, ok); end
+    paths{j} = pts;
+    for k = 1:nM, F{k} = [F{k}, G.m(k).frame(:, 1:2).'*(Pk{k}(:, ok) - G.m(k).pole)]; end
+end
+for k = 1:nM
+    f = F{k};
+    foot(k) = struct('x_m', max(f(1, :)) - min(f(1, :)), 'y_m', max(f(2, :)) - min(f(2, :)), 'r_m', max(vecnorm(f)), ...
+                     'cx_m', (max(f(1, :)) + min(f(1, :)))/2, 'cy_m', (max(f(2, :)) + min(f(2, :)))/2);
+end
+C = tls_clearance(G, struct('paths', {paths}, 'foot', foot), P, 'sample_m', 8e-3, 'nrim', 60);
+cl = C.min_mm*1e-3;
+end

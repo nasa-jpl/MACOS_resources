@@ -65,9 +65,11 @@ fid = fopen(jdeck, 'w');  fwrite(fid, txt);  fclose(fid);
 olddir = cd(ddir);  cln = onCleanup(@() cd(olddir));
 E = struct('deck', deck, 'join_deck', jdeck, 'ap_stop', ep, 'ep_miss', ep_miss, 'launch', opts.launch, 'rows', []);
 for r = opts.roll_deg
-    Pd = dyson5_params(struct('tel_dyson', e.tel_dyson, 'tel5f_e2e_template', e.template, 'tel5e_roll_deg', r, ...
-                              'tel5f_deck', jdeck, 'tel5f_suffix', sprintf('%s_%s_roll%03d', opts.suffix, opts.launch, r), ...
-                              'tel5f_launch', opts.launch));
+    ov = struct('tel_dyson', e.tel_dyson, 'tel5f_e2e_template', e.template, 'tel5e_roll_deg', r, ...
+                'tel5f_deck', jdeck, 'tel5f_suffix', sprintf('%s_%s_roll%03d', opts.suffix, opts.launch, r), 'tel5f_launch', opts.launch);
+    % every other P.e2e field is a dyson5_params override too (the 1.5k join: tel_npix_xt 1500)
+    for f = setdiff(fieldnames(e)', {'tel_dyson', 'template'}), ov.(f{1}) = e.(f{1}); end
+    Pd = dyson5_params(ov);
     % (t5f's LIVE clearance is NOT used: its body model lifts each mirror onto the PARENT's base sphere about the parent
     % vertex, and these sections' poles sit up to ~1.7 m off their parent axes -- beyond that sphere; tel_deck_geom's chain
     % also loses the centre chief on them.  The joined-deck clearance is TLS_CLEARANCE_JOINED: footprint bodies from

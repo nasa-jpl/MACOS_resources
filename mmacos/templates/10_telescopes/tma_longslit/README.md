@@ -277,11 +277,69 @@ Telecentricity is also exact at first order by construction (the stop at
 M2, M3's front focus).  The bound F/# anamorphicity is the paper's
 constraint; PLATE_Y holds its first-order half.
 
+## Results (the 1.5k default, `tma_longslit_1k5`)
+
+The 1.5k module is resolved by the same method (CC 2026-10-08):
+- the strip is ±2.35°, 1500 px and the slit 27 mm;
+- f, D and the speed are the 3k's (330 mm, 183 mm, F/1.8);
+- the seed and the row sets are the same (tag `tls1k5`);
+- it is joined to the 1.5k Dyson of record (silica 130, `size:D:130`).
+
+**Deck of record: R5 `ffc`** (`tls1k5_R5_ffc.in`, recorded as
+`challenges/dyson5/dyson5_cprime_1k5.in`).
+
+**The ladder** (engine, model 256, 41-pt grid, 9 strip fields; `tls1k5_figure.txt`):
+
+| rung | DOFs | rms µm | worst FWHM px | min EiP | clearance mm |
+|---|---|---|---|---|---|
+| R0 seed | first order | 1876–1968 | 15.6 | 0.00 | +10.1 |
+| R1 `conic` | θ, slit dz | 151–187 | 10.8 | 0.00 | +17.1 |
+| R2 `asph` | + h⁴, h⁶ | 57–152 | 14.7 | 0.00 | +13.9 |
+| R3 `ff34` | freeform, degree 3–4 | 17–21 | 1.92 | 0.22 | +1.2 |
+| R4 `ff` | freeform, degree 3–6 | 0.73–0.98 | **1.02** | 1.00 | **−0.3** |
+| R5 `ffc` | R4 + the CLEAR wall | 0.76–0.96 | **1.02** | 1.00 | **+2.4** |
+
+- **Aspheres are not enough at 1.5k either**: R2 is still 57–152 µm.
+- **R4 is the first rung at 1.02 px at every field**, but its M3 → slit leg
+  enters M2's body by 0.3 mm.
+- **R5 adds the CLEAR wall**: a row in `tls_figure` that scores the record's
+  clearance rule every iteration, at the centre and edge fields with coarse
+  sampling, as a hinge to a 2 mm target, weighted at merit scale with
+  `w_clear` 3000.  It buys +2.4 mm and keeps the floor.
+
+**R5 telescope alone:**
+- plate 329.98 / 329.75 mm (local / edge);
+- worst chief 0.008° to the slit normal;
+- F/# along 1.893–1.894, across 1.801–1.805 (no ray below F/1.7);
+- footprints M1 203.8 × 201.5, M2 130.8 × 167.3, M3 189.2 × 172.1 mm;
+- working distance 299.4 mm.
+
+**End to end**, joined to the 1.5k Dyson, roll 0 / 180 (`tls1k5_e2e.txt`):
+
+| | R5, px | R5, µm | 1.5k record (GM `bAs`), px | Joe (px) | paper (µm) |
+|---|---|---|---|---|---|
+| smile (slit-filled, centroid launch) | **0.009 / 0.011** | 0.17 / 0.20 | 0.082 / 0.088 | < 0.1 | < 1.8 |
+| point-source shift (chief launch) | 0.009 / 0.011 | 0.16 / 0.19 | 0.504 / 0.503 | — | — |
+| keystone | 0.009 / 0.012 | 0.17 / 0.22 | 0.014 / 0.009 | < 0.1 | < 1.8 |
+| CRF | 1.029 / 1.028 | 18.5 | 1.255 / 1.211 | < 1.5 | < 50.4 |
+| SRF | 2.024 / 2.024 | 36.4 | 2.214 / 2.205 | 1.5–2.0 | < 64.8 |
+| ARF (telescope, across slit) | 1.018 | 18.3 | | — | < 50.4 |
+| energy in a pixel | 0.974 / 0.990 | | 0.385 / 0.295 | > 0.75 | |
+| grating admits | 0.987 | | 0.989 / 0.988 | | |
+| joined clearance | +0.6 mm (M3 → slit vs the block face) | | | > 0 | |
+
+**The 1.5k module meets Joe's spec end to end under both launches, except
+SRF, which is the slit floor** (2.010–2.023 px; see the 3k section).  It
+improves on the 1.5k record of three aspheres in every metric except
+keystone at roll 180: 0.012 against 0.009 px, both about a tenth of the bound.  Unlike the
+3k, its two launches agree to 0.001 px: R5 carries no chief − centroid
+offset at the slit to separate them.
+
 ## Files
 
 `tma_longslit.m` (demo), `tma_longslit_params.m`, `tma_longslit_run.m`,
 `tls_first_order.m`, `tls_design.m`, `tls_section.m`, `tls_measure.m`,
 `tls_clearance.m`, `tls_figure.m`, `tls_e2e.m`, `tls_clearance_joined.m`, `tls_dyson_chief_tilt.m`.
-Test: `mmacos/tests/tTmaLongslit.m` (SUITE_FAST).  Records: `tls_*.txt` /
+`tma_longslit_1k5.m` (the 1.5k run).  Test: `mmacos/tests/tTmaLongslit.m` (SUITE_FAST).  Records: `tls_*.txt` /
 `.mat` / `.in` (the default run); `runs_figure_try*` are the superseded tries
 the report cites.

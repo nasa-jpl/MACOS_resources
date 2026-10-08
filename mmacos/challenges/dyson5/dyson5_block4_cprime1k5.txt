@@ -1,0 +1,42 @@
+dyson5 block4 -- four 1.5k modules across the 6000-pixel swath (2026-10-08 08:44)
+CONVENTIONS: module = dyson5_t5f_tls1k5_centroid_roll000_e2e.in as traced; cants [-6.987 -2.329 2.329 6.987] deg about the axis normal to cross-track and the line of sight; modules side by side
+  along the cross-track (slit) axis at pitch 268.6 mm (the smallest 5 mm step with every margin >= the 20 mm gap; module extent 203.6 mm);
+  bodies = engine surface hits + 5 mm aperture + 10 mm mount; sky beams 183 mm wide, fanning by the strip's +-2.35 deg;
+  mass = OPTICS ONLY: block 1.6 kg (dyson5_size.txt row D), mirrors and grating as 10 mm blanks (Zerodur 2530, silica 2200 kg/m3); no structure, detector, electronics, baffles.
+
+FOOTPRINTS (engine hits, radius + aperture margin, mm):
+  M1               Reflector    r  109.4  blank r  119.4
+  M2               Reflector    r   97.5  blank r  107.5
+  M3               Reflector    r   99.0  blank r  109.0
+  Slit             Reference    r    5.0  blank r   15.0
+  BlockFaceIn      Refractor    r    5.1  blank r   15.1
+  BlockSphereOut   Refractor    r   33.1  blank r   43.1
+  Grating          Grating      r   94.3  blank r  104.3
+  BlockSphereIn    Refractor    r   32.7  blank r   42.7
+  BlockFaceOut     Refractor    r    5.1  blank r   15.1
+  PreFPA           Reference    r    5.3  blank r   15.3
+  FPA              FocalPlane   r    5.0  blank r   15.0
+
+ONE MODULE: optics 5.35 kg (block 1.60, mirrors 3.00, grating 0.75); cross-track extent 204 mm
+THE BLOCK OF FOUR: envelope 1009 x 533 x 919 mm (x cross-track, y, z of the deck frame) = 494 L; optics 21.4 kg
+CONFLICTS (module vs module, m; negative = conflict):
+  worst body-body margin +0.022 m, worst body-vs-sky-beam margin +0.026 m
+    1 vs 2: body-body +0.023  body-in-beam +0.072
+    1 vs 3: body-body +0.237  body-in-beam +0.335
+    1 vs 4: body-body +0.449  body-in-beam +0.550
+    2 vs 1: body-body +0.023  body-in-beam +0.026
+    2 vs 3: body-body +0.022  body-in-beam +0.032
+    2 vs 4: body-body +0.237  body-in-beam +0.253
+    3 vs 1: body-body +0.237  body-in-beam +0.249
+    3 vs 2: body-body +0.022  body-in-beam +0.028
+    3 vs 4: body-body +0.023  body-in-beam +0.031
+    4 vs 1: body-body +0.449  body-in-beam +0.554
+    4 vs 2: body-body +0.237  body-in-beam +0.337
+    4 vs 3: body-body +0.023  body-in-beam +0.037
+SWATH: each module admits +-2.345 deg (1500 px, 319.9 px/deg); cants chosen for 10 px of overlap; strip edges (deg):
+    module 1  -9.331 .. -4.642
+    module 2  -4.673 .. +0.016
+    module 3  -0.016 .. +4.673
+    module 4  +4.642 .. +9.331
+  swath 18.662 deg = 180.7 km at 550 km; 5970 unique pixels; along-track offset between strips 0 (one cross-track plane of lines of sight)
+FIGURES /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_block4_cprime1k5_views.png, /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_block4_cprime1k5_swath.png

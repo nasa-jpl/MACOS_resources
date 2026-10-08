@@ -182,6 +182,7 @@ for i = (numel(rungs)):numel(P.ladder)
         if isfield(P.ladder, 'field_wt') && ~isempty(P.ladder(i).field_wt), Pr.solve_field_wt = P.ladder(i).field_wt; end
         if isfield(P.ladder, 'w_tel') && ~isempty(P.ladder(i).w_tel), Pr.w_tel = P.ladder(i).w_tel; end
         if isfield(P.ladder, 'w_off') && ~isempty(P.ladder(i).w_off), Pr.w_off = P.ladder(i).w_off; end
+        if isfield(P.ladder, 'w_clear') && ~isempty(P.ladder(i).w_clear), Pr.w_clear = P.ladder(i).w_clear; end
         pr('  row weights: along-slit spot x%g, across-slit x%g, solve fields %s x %s, TELE %g um/rad\n', Pr.w_spot_x, Pr.w_spot_y, ...
            mat2str(round(linspace(0, P.strip_half_deg, 5)*1000)/1000), mat2str(Pr.solve_field_wt), Pr.w_tel);
         [X, Rr] = tls_figure(Pr, Xw, P.ladder(i).dofs, 'maxfev', mf);
@@ -245,7 +246,7 @@ if ~isempty(P.e2e_rung), j = find(strcmp({R.name}, P.e2e_rung), 1);
 else, c = find(ok);  [~, i] = min(w(c));  j = c(i); end
 r = R(j);
 [fid, pr] = open_(P, 'e2e');
-pr('tma_longslit e2e -- rung R%d %s joined to the dyson5 3k Dyson of record (CaF2 240, size:F:240) (%s)\n', j - 1, r.name, datestr(now, 'yyyy-mm-dd HH:MM'));
+pr('tma_longslit e2e -- rung R%d %s joined to the spectrometer %s (template %s) (%s)\n', j - 1, r.name, P.e2e.tel_dyson, P.e2e.template, datestr(now, 'yyyy-mm-dd HH:MM'));
 pr('  rung: clears (%+.1f mm), no ray below F/%.1f, worst telescope FWHM %.2f px\n', r.M.clear.min_mm, P.cone_fnum(1), w(j));
 pr('  TWO LAUNCHES: smile (slit-filled) = each field''s CENTROID on the slit line (the spec''s convention); the point-source\n');
 pr('  across-slit shift = the smile of the record''s CHIEF-on-the-slit-line launch (the telescope''s chief - centroid spread)\n');
