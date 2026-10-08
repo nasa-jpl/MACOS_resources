@@ -18,6 +18,11 @@ function E = tls_e2e(P, deck, opts)
 %   computes from the M2 stop at load: the chief's object-space crossing) and
 %   the element ApStop removed.
 %
+%   E = TLS_E2E(..., 'launch', L) picks t5f's field launch: 'chief' (each field's
+%   chief on the slit line -- the record's POINT-SOURCE convention: the
+%   telescope's chief-minus-centroid offset across the slit reads as smile) or
+%   'centroid' (the bundle centroid on the slit line -- the SLIT-FILLED proxy,
+%   the spec's convention per CC 2026-10-07).
 %   E = TLS_E2E(..., 'roll_deg', R) rolls the telescope about the exit
 %   chief in the join (t5f's tel5e_roll_deg; default [0 180], both scored).
 %
@@ -27,6 +32,7 @@ arguments
     deck (1,:) char
     opts.roll_deg (1,:) double = [0 180]
     opts.suffix (1,:) char = '_tls'
+    opts.launch (1,:) char {mustBeMember(opts.launch, {'chief', 'centroid'})} = 'chief'
 end
 here = fileparts(mfilename('fullpath'));
 ddir = fullfile(here, '..', '..', '..', 'challenges', 'dyson5');
@@ -57,10 +63,11 @@ jdeck = fullfile(ddir, sprintf('tls_e2e%s_tel.in', opts.suffix));
 fid = fopen(jdeck, 'w');  fwrite(fid, txt);  fclose(fid);
 % ---- the dyson5 join, once per roll
 olddir = cd(ddir);  cln = onCleanup(@() cd(olddir));
-E = struct('deck', deck, 'join_deck', jdeck, 'ap_stop', ep, 'ep_miss', ep_miss, 'rows', []);
+E = struct('deck', deck, 'join_deck', jdeck, 'ap_stop', ep, 'ep_miss', ep_miss, 'launch', opts.launch, 'rows', []);
 for r = opts.roll_deg
     Pd = dyson5_params(struct('tel_dyson', e.tel_dyson, 'tel5f_e2e_template', e.template, 'tel5e_roll_deg', r, ...
-                              'tel5f_deck', jdeck, 'tel5f_suffix', sprintf('%s_roll%03d', opts.suffix, r)));
+                              'tel5f_deck', jdeck, 'tel5f_suffix', sprintf('%s_%s_roll%03d', opts.suffix, opts.launch, r), ...
+                              'tel5f_launch', opts.launch));
     % (t5f's LIVE clearance is NOT used: its body model lifts each mirror onto the PARENT's base sphere about the parent
     % vertex, and these sections' poles sit up to ~1.7 m off their parent axes -- beyond that sphere; tel_deck_geom's chain
     % also loses the centre chief on them.  The joined-deck clearance is TLS_CLEARANCE_JOINED: footprint bodies from
