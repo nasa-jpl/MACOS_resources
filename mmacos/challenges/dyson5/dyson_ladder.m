@@ -21,6 +21,7 @@ function L = dyson_ladder(P, tag, opts)
 %         coefficients (Carbon-I's even asphere; engine AsphCoef convention).
 %     R3  + the block's centre off the grating's (dz along the axis, dy along
 %         the dispersion): the de-concentric departure.
+%     RB  (rung index 7) the paper's OPTION B: R3 + the grating's conic constant grat_Kc.
 %     R4  + a meniscus corrector in the air gap (the paper's compact variant):
 %         vertex z, thickness, two face curvatures; seeded as a concentric
 %         null shell.
@@ -55,7 +56,7 @@ function L = dyson_ladder(P, tag, opts)
                   'block_r', P.block_r_m, 'glass', P.glass, 'face_offset', P.face_offset_m, ...
                   'Rg_factor', P.Rg_factor, 'grating_model', 'planes', 'slit_px', P.slit_px, ...
                   'block_Kc', 0, 'block_asph', [0 0], 'block_dz', 0, 'block_dy', 0, ...
-                  'men_z', 0, 'men_t', 0.010, 'men_ca', 0, 'men_cb', 0);
+                  'men_z', 0, 'men_t', 0.010, 'men_ca', 0, 'men_cb', 0, 'grat_Kc', 0);
     for f5 = {'fold_h', 'plate', 'slit_gap', 'fpa_gap'}          % R5's fold prism, when the runner carries it
         if isfield(P, f5{1}), base.(f5{1}) = P.(f5{1}); end
     end
@@ -74,6 +75,9 @@ function L = dyson_ladder(P, tag, opts)
     % compact variant "operates closer to the concentric-aplanatic condition"
     % with a separate mirror; here the equivalent single-block freedom
     R3 = [R2; {'block_dz', -0.05, 0.05, 1e-2;  'block_dy', -0.03, 0.03, 1e-2}];
+    % RB, the paper's OPTION B (Bradley 2024 Table 2: aspheric Dyson lens + CONIC grating, its final design): R3's
+    % variables + the grating's conic constant.  The record (R3) is Option A (aspheric lens + spherical grating).
+    RB = [R3; {'grat_Kc', -2, 2, 0.5}];
     % R4, the paper's COMPACT variant (Fig. 22): a meniscus corrector in the
     % air gap (vertex z_a, thickness t_m, face curvatures c_a, c_b) on top of
     % R3; seeded as a concentric shell (c = 1/z, a null), so R4 starts at R3's
@@ -119,12 +123,13 @@ function L = dyson_ladder(P, tag, opts)
              struct('name', 'R3 + block centre off the grating centre (dz, dy)', 'vars', {R3}), ...
              struct('name', 'R4a meniscus alone (vertex, thickness, 2 curvatures)', 'vars', {R4a}), ...
              struct('name', 'R4 + meniscus corrector, all variables (compact variant)', 'vars', {R4}), ...
-             struct('name', 'R5 + fold prism (plate on the slit side), all variables', 'vars', {R5})};
+             struct('name', 'R5 + fold prism (plate on the slit side), all variables', 'vars', {R5}), ...
+             struct('name', 'RB Option B: R3 + the grating conic', 'vars', {RB})};
     % meniscus seed: a concentric shell 30 mm beyond the block face, 10 mm thick
     base.men_z = 0;  base.men_t = 0.010;  base.men_ca = 0;  base.men_cb = 0;
     Pcur = base;
     if ~isempty(opts.seed)                     % warm start: the seed's DESIGN KNOBS over the base (never its spec fields --
-        knobs = {'Rg_factor', 'face_offset', 'block_Kc', 'block_asph', 'block_dz', 'block_dy', 'men_z', 'men_t', 'men_ca', 'men_cb', 'slit_dz'};
+        knobs = {'Rg_factor', 'face_offset', 'block_Kc', 'block_asph', 'block_dz', 'block_dy', 'men_z', 'men_t', 'men_ca', 'men_cb', 'slit_dz', 'grat_Kc'};
         for f = knobs, if isfield(opts.seed, f{1}), Pcur.(f{1}) = opts.seed.(f{1}); end, end   % the envelope changes F-number, slit, pixel, glass in the base)
     end
     for q = 1:size(opts.bounds, 1)             % bound overrides, applied to every rung's variable table
@@ -137,7 +142,10 @@ function L = dyson_ladder(P, tag, opts)
     L.rung = struct('name', {}, 'vars', {}, 'x', {}, 'P', {}, 'chain', {}, 'engine', {}, 'file', {}, 'merit', {}, 'on_bounds', {});
     for k = opts.rungs
         rg = rungs{k+1};  V = rg.vars;
-        if k >= 4 && Pcur.men_z == 0           % entering R4: the near-null shell about the block's centre
+        % entering R4: the near-null shell about the block's centre -- ONLY the meniscus rungs (R4a, R4, R5 = indices 4-6).
+        % (Until 2026-10-07 this read k >= 4, so the Option B rung, index 7, silently got a meniscus in the air gap: its
+        % seed was CRF 5.0 px where the record's is 1.21.)
+        if any(k == [4 5 6]) && Pcur.men_z == 0
             Pcur.men_z = Pcur.block_dz + Pcur.block_r + 0.030;  Pcur.men_t = 0.010;
             Pcur.men_ca = 1/(Pcur.men_z - Pcur.block_dz);  Pcur.men_cb = 1/(Pcur.men_z + Pcur.men_t - Pcur.block_dz);
         end
