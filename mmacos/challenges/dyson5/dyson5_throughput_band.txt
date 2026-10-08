@@ -1,0 +1,26 @@
+dyson5 throughput by band (2026-10-08 04:42) -- addendum 49 step 3
+CONVENTIONS: six air-glass crossings per module (four on the block: slit face in, convex face out to the grating gap and back in, exit face;
+  two on the detector's order-sorting filter, fused silica in air); power transmittance per crossing by macos.design.thinfilm_rt (Abeles, normal
+  incidence); block index by Sellmeier (Malitson: silica 1965, CaF2 1963) at every wavelength; coating indices held at MgF2 1.384, Al2O3 1.63;
+  each entry = the mean over 61 wavelengths in the band of the product of the six transmittances.  No detector QE, no slit diffraction loss.
+  Grating: SCALAR blaze estimate eta = sinc^2(lambda_B/lambda - 1), first order -- where the photons go, not an absolute efficiency.
+
+MODULE 3k, CaF2 240 mm
+  coating                                        380- 700 nm   700-1300 nm  1300-2500 nm   380-2500 mean
+  uncoated                                             0.817         0.822         0.827   0.822
+  MgF2 quarter wave at 2.2 um                          0.852         0.844         0.869   0.855
+  MgF2 / Al2O3 quarter-quarter at 2.2 um               0.797         0.801         0.880   0.826
+  MgF2 / Al2O3 quarter-quarter at 1.0 um               0.749         0.920         0.736   0.802
+
+MODULE 1.5k, silica 130 mm
+  coating                                        380- 700 nm   700-1300 nm  1300-2500 nm   380-2500 mean
+  uncoated                                             0.807         0.814         0.821   0.814
+  MgF2 quarter wave at 2.2 um                          0.851         0.840         0.872   0.854
+  MgF2 / Al2O3 quarter-quarter at 2.2 um               0.800         0.801         0.883   0.828
+  MgF2 / Al2O3 quarter-quarter at 1.0 um               0.751         0.923         0.742   0.805
+
+GRATING, scalar blaze estimate (first order)
+  blaze wavelength                               380- 700 nm   700-1300 nm  1300-2500 nm
+  1.0 um                                               0.139         0.892         0.483
+  1.4 um                                               0.020         0.526         0.784
+  1.8 um                                               0.010         0.170         0.890
