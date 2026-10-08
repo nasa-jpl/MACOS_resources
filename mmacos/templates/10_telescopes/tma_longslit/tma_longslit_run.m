@@ -181,12 +181,14 @@ for i = (numel(rungs)):numel(P.ladder)
         if isfield(P.ladder, 'w_spot_x') && ~isempty(P.ladder(i).w_spot_x), Pr.w_spot_x = P.ladder(i).w_spot_x; end
         if isfield(P.ladder, 'field_wt') && ~isempty(P.ladder(i).field_wt), Pr.solve_field_wt = P.ladder(i).field_wt; end
         if isfield(P.ladder, 'w_tel') && ~isempty(P.ladder(i).w_tel), Pr.w_tel = P.ladder(i).w_tel; end
+        if isfield(P.ladder, 'w_off') && ~isempty(P.ladder(i).w_off), Pr.w_off = P.ladder(i).w_off; end
         pr('  row weights: along-slit spot x%g, across-slit x%g, solve fields %s x %s, TELE %g um/rad\n', Pr.w_spot_x, Pr.w_spot_y, ...
            mat2str(round(linspace(0, P.strip_half_deg, 5)*1000)/1000), mat2str(Pr.solve_field_wt), Pr.w_tel);
         [X, Rr] = tls_figure(Pr, Xw, P.ladder(i).dofs, 'maxfev', mf);
         pr('  lsqnonlin LM: exitflag %d, %d iterations, %d evaluations, %.0f s, cost %.4e -> %.4e\n', Rr.exitflag, Rr.iterations, ...
            Rr.evaluations, Rr.seconds, Rr.cost0, Rr.cost);
         cb = 0;  if isfield(Rr.rows, 'cbow'), cb = Rr.rows.cbow; end
+        if isfield(Rr.rows, 'off'), pr('  OFF rows (chief - centroid across the slit): cost %.3e (w_off %g)\n', Rr.rows.off, Pr.w_off); end
         pr('  cost by family at the solution: spot %.3e, plate %.3e, plate_y %.3e, bow %.3e, cbow %.3e, tele %.3e, cone %.3e, wd %.3e\n', Rr.rows.spot, ...
            Rr.rows.plate, Rr.rows.plate_y, Rr.rows.bow, cb, Rr.rows.tele, Rr.rows.cone, Rr.rows.wd);
     end
@@ -230,9 +232,12 @@ end
 
 % ===========================================================================
 function S = stage_e2e_(P)
-%STAGE_E2E_  End to end on the best rung of the figure record: the rung that CLEARS, keeps every ray inside the cone bound
-%   and has the smallest worst-field FWHM (or P.e2e_rung by name), joined to the spectrometer of P.e2e by TLS_E2E at
-%   both rolls, the joined deck's clearance by TLS_CLEARANCE_JOINED, one table against Joe's spec and the paper's five.
+%STAGE_E2E_  End to end on the best rung of the figure record (or P.e2e_rung by name): the rung that CLEARS, keeps every
+%   ray inside the cone bound and has the smallest worst-field FWHM, joined to the spectrometer of P.e2e by TLS_E2E, the
+%   joined deck's clearance by TLS_CLEARANCE_JOINED.  Two launches (CC 2026-10-07): 'centroid' -- each field's bundle
+%   centroid on the slit line, the SLIT-FILLED proxy and the spec's smile -- and 'chief' -- the record's point-source
+%   launch, whose smile is the telescope's chief-minus-centroid offset across the slit (reported as the point-source
+%   across-slit shift).  Every metric of the table is the slit-filled (centroid-launch) one; the shift sits beside it.
 Z = load(fullfile(P.outdir, [P.tag '_figure.mat']));  R = Z.S.rungs;
 ok = arrayfun(@(r) r.M.clear.pass && min([r.M.fno_x r.M.fno_y]) >= P.cone_fnum(1), R);
 w = arrayfun(@(r) max([r.M.fwhm_x_px r.M.fwhm_y_px]), R);
@@ -240,32 +245,37 @@ if ~isempty(P.e2e_rung), j = find(strcmp({R.name}, P.e2e_rung), 1);
 else, c = find(ok);  [~, i] = min(w(c));  j = c(i); end
 r = R(j);
 [fid, pr] = open_(P, 'e2e');
-pr('tma_longslit e2e -- rung R%d %s joined to %s (%s)\n', j - 1, r.name, 'the dyson5 3k Dyson of record (CaF2 240, size:F:240)', datestr(now, 'yyyy-mm-dd HH:MM'));
-pr('  chosen: clears (%+.1f mm), no ray below F/%.1f, worst telescope FWHM %.2f px (of the clear rungs, the smallest)\n', r.M.clear.min_mm, P.cone_fnum(1), w(j));
-macos.init(P.model);
-E = tls_e2e(P, r.deck, 'roll_deg', P.e2e_roll_deg, 'suffix', ['_' P.tag]);
-pr('  join deck %s (header ApStop = the engine entrance pupil %s mm, two-chief miss %.2g m)\n', E.join_deck, mat2str(round(E.ap_stop'*1e4)/10), E.ep_miss);
-pr('\n  %-24s | %9s %9s | %7s %9s\n', 'end to end', 'Joe', 'paper', '', '');
-for q = 1:numel(E.rows)
-    S5 = E.rows(q).S;  RE = S5.e2e;
+pr('tma_longslit e2e -- rung R%d %s joined to the dyson5 3k Dyson of record (CaF2 240, size:F:240) (%s)\n', j - 1, r.name, datestr(now, 'yyyy-mm-dd HH:MM'));
+pr('  rung: clears (%+.1f mm), no ray below F/%.1f, worst telescope FWHM %.2f px\n', r.M.clear.min_mm, P.cone_fnum(1), w(j));
+pr('  TWO LAUNCHES: smile (slit-filled) = each field''s CENTROID on the slit line (the spec''s convention); the point-source\n');
+pr('  across-slit shift = the smile of the record''s CHIEF-on-the-slit-line launch (the telescope''s chief - centroid spread)\n');
+L = struct();
+for lm = {'centroid', 'chief'}
     macos.init(P.model);
-    Cj = tls_clearance_joined(P, fullfile(fileparts(E.join_deck), S5.file));
+    L.(lm{1}) = tls_e2e(P, r.deck, 'roll_deg', P.e2e_roll_deg, 'suffix', ['_' P.tag], 'launch', lm{1});
+end
+E = L.centroid;
+pr('  join deck %s (header ApStop = the engine entrance pupil %s mm, two-chief miss %.2g m)\n', E.join_deck, mat2str(round(E.ap_stop'*1e4)/10), E.ep_miss);
+for q = 1:numel(E.rows)
+    RE = E.rows(q).S.e2e;  RC = L.chief.rows(q).S.e2e;
+    macos.init(P.model);
+    Cj = tls_clearance_joined(P, fullfile(fileparts(E.join_deck), E.rows(q).S.file));
     E.rows(q).clear = Cj;
-    pr('  ROLL %d deg: e2e deck %s\n', E.rows(q).roll_deg, S5.file);
-    pr('    %-22s %8.3f px  | < %.2f   < %.2f %s\n', 'smile', RE.smile_max, P.spec_joe.smile_px, P.spec_paper.smile_px, pf_(RE.smile_max, P.spec_joe.smile_px, P.spec_paper.smile_px));
-    pr('    %-22s %8.3f px  | < %.2f   < %.2f %s\n', 'keystone', RE.keystone_max, P.spec_joe.keystone_px, P.spec_paper.keystone_px, pf_(RE.keystone_max, P.spec_joe.keystone_px, P.spec_paper.keystone_px));
-    pr('    %-22s %8.3f px  | < %.2f   < %.2f %s\n', 'CRF (worst)', RE.crf_max, P.spec_joe.crf_px, P.spec_paper.crf_px, pf_(RE.crf_max, P.spec_joe.crf_px, P.spec_paper.crf_px));
-    pr('    %-22s %8.3f px  | < %.2f   < %.2f %s\n', 'SRF (worst)', RE.srf_max, P.spec_joe.srf_px(2), P.spec_paper.srf_px, pf_(RE.srf_max, P.spec_joe.srf_px(2), P.spec_paper.srf_px));
-    pr('    %-22s %8.3f px  |   --    < %.2f (paper %s)\n', 'ARF (telescope FWHM y)', max(r.M.fwhm_y_px), P.spec_paper.arf_px, ...
-       tern_(max(r.M.fwhm_y_px) < P.spec_paper.arf_px, 'PASS', 'fail'));   % Joe's sheet has no ARF requirement
-    pr('    %-22s %8.3f     | > %.2f\n', 'energy in a pixel (min)', RE.ee_min, P.spec_joe.eip);
-    pr('    %-22s %8.3f\n', 'grating admits (min)', min(RE.pass_frac(:)));
-    pr('    %-22s %+8.1f mm  (%s vs %s)  %s\n', 'clearance, joined', Cj.min_mm, Cj.table{1, 1}, Cj.table{1, 2}, tern_(Cj.pass, 'CLEAR', 'CONFLICT'));
-    for i = 1:min(5, size(Cj.table, 1)), pr('        %-26s vs %-12s %+8.1f mm\n', Cj.table{i, :}); end
-    pr('    SRF per field: %s\n    CRF per field: %s\n', sprintf('%.2f ', max(RE.SRF, [], 2)), sprintf('%.2f ', max(RE.CRF, [], 2)));
+    pr('\n  ROLL %d deg: e2e decks %s (centroid) / %s (chief)\n', E.rows(q).roll_deg, E.rows(q).S.file, L.chief.rows(q).S.file);
+    pr('    %-34s %8s     | %7s  %7s\n', '', 'value', 'Joe', 'paper');
+    pr('    %-34s %8.3f px  | < %.2f   < %.2f %s\n', 'smile (slit-filled)', RE.smile_max, P.spec_joe.smile_px, P.spec_paper.smile_px, pf_(RE.smile_max, P.spec_joe.smile_px, P.spec_paper.smile_px));
+    pr('    %-34s %8.3f px  |   (stated beside the smile; not a requirement)\n', 'point-source across-slit shift', RC.smile_max);
+    pr('    %-34s %8.3f px  | < %.2f   < %.2f %s\n', 'keystone', RE.keystone_max, P.spec_joe.keystone_px, P.spec_paper.keystone_px, pf_(RE.keystone_max, P.spec_joe.keystone_px, P.spec_paper.keystone_px));
+    pr('    %-34s %8.3f px  | < %.2f   < %.2f %s\n', 'CRF (worst)', RE.crf_max, P.spec_joe.crf_px, P.spec_paper.crf_px, pf_(RE.crf_max, P.spec_joe.crf_px, P.spec_paper.crf_px));
+    pr('    %-34s %8.3f px  | < %.2f   < %.2f %s\n', 'SRF (worst)', RE.srf_max, P.spec_joe.srf_px(2), P.spec_paper.srf_px, pf_(RE.srf_max, P.spec_joe.srf_px(2), P.spec_paper.srf_px));
+    pr('    %-34s %8.3f px  |   --    < %.2f (paper %s)\n', 'ARF (telescope FWHM y)', max(r.M.fwhm_y_px), P.spec_paper.arf_px, tern_(max(r.M.fwhm_y_px) < P.spec_paper.arf_px, 'PASS', 'fail'));
+    pr('    %-34s %8.3f     | > %.2f\n', 'energy in a pixel (min)', RE.ee_min, P.spec_joe.eip);
+    pr('    %-34s %8.3f\n', 'grating admits (min)', min(RE.pass_frac(:)));
+    pr('    %-34s %+8.1f mm  (%s vs %s)  %s\n', 'clearance, joined', Cj.min_mm, Cj.table{1, 1}, Cj.table{1, 2}, tern_(Cj.pass, 'CLEAR', 'CONFLICT'));
+    pr('    (chief launch, for the record: smile %.3f / keystone %.3f / CRF %.3f / SRF %.3f px)\n', RC.smile_max, RC.keystone_max, RC.crf_max, RC.srf_max);
 end
 fclose(fid);
-S = struct('P', P, 'rung', j - 1, 'rung_name', r.name, 'deck', r.deck, 'E', E);
+S = struct('P', P, 'rung', j - 1, 'rung_name', r.name, 'deck', r.deck, 'E', E, 'E_chief', L.chief);
 save(fullfile(P.outdir, [P.tag '_e2e.mat']), 'S');
 end
 

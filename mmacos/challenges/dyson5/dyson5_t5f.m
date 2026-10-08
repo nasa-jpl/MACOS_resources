@@ -28,6 +28,7 @@ function S = dyson5_t5f(P, tag, q)
     pr('dyson5 t5f -- end to end, the join placed from ENGINE traces (FreeForm decks) (%s)\n', datestr(now, 'yyyy-mm-dd HH:MM'));
     pr('CONVENTIONS: telescope %s, Dyson %s (Slit + Dyson blocks from %s); roll %g deg; no chain: the bridge gate is replaced\n', ...
        P.tel5f_deck, P.tel_dyson, P.tel5f_e2e_template, P.tel5e_roll_deg);
+    if isfield(P, 'tel5f_launch') && ~isempty(P.tel5f_launch), pr('  LAUNCH: each field''s %s on the slit line\n', upper(P.tel5f_launch)); end
     pr('  by the identity gate (this join on a conic deck == t5e''s row).\n\n');
     % ---- (1) the telescope in its own frame
     txt = fileread(deck);  hdr = txt(1:strfind(txt, 'nElt=') - 1);
@@ -44,8 +45,18 @@ function S = dyson5_t5f(P, tag, q)
     % the slit plane in the TELESCOPE frame: through qc, normal Rm'*[0 0 1], "y" = Rm'*[0 1 0]
     ns = Rm'*[0; 0; 1];  ys = Rm'*[0; 1; 0];  xs = Rm'*[1; 0; 0];
     onslit = @(p, d) p + d*((qc - p)'*ns)/(d'*ns);
-    vfun = @(thx, db) ys'*(onslit_chief_(dloc(thx, db), apst, nT, onslit) - qc);
-    xfun = @(thx, db) xs'*(onslit_chief_(dloc(thx, db), apst, nT, onslit) - qc);
+    % P.tel5f_launch: 'chief' (default, the record's convention -- each field's CHIEF lands on the slit line: a POINT-SOURCE
+    % launch, so the telescope's chief-minus-centroid offset across the slit reads as smile) or 'centroid' (each field's
+    % bundle CENTROID lands on the slit line -- the slit-filled proxy: an extended scene fills the slit whatever the chief
+    % does).  tma_longslit, 2026-10-07: the offset model predicts the chief-launch smile on five rungs.
+    lmode = 'chief';  if isfield(P, 'tel5f_launch') && ~isempty(P.tel5f_launch), lmode = P.tel5f_launch; end
+    if strcmp(lmode, 'centroid')
+        land = @(thx, db) onslit_centroid_(dloc(thx, db), apst, nT, onslit);
+    else
+        land = @(thx, db) onslit_chief_(dloc(thx, db), apst, nT, onslit);
+    end
+    vfun = @(thx, db) ys'*(land(thx, db) - qc);
+    xfun = @(thx, db) xs'*(land(thx, db) - qc);
     % the field on the slit line (secant in db), and the strip the slit admits
     W = GD.P.npix(1)*GD.P.pixel_m;
     dbof = @(thx) secant_(@(db) vfun(thx, db), 0, 1e-3);
@@ -204,6 +215,15 @@ end
 
 function p = onslit_chief_(d, apst, nE, onslit)
     [q, e] = chief_(d, apst, nE);  p = onslit(q, e);
+end
+
+function p = onslit_centroid_(d, apst, nE, onslit)
+%ONSLIT_CENTROID_  The field's bundle centroid on the slit plane (every passing ray carried to the plane, then averaged).
+    macos.set_src_fov('src_pos', apst - d, 'src_dir', d, 'zSrc', 1e22);  macos.modify();
+    s = macos.trace(nE);  ri = macos.get_ray_info(s.nRays);  ok = ri.ok_trace & ri.ok_pass;
+    Q = ri.pos(:, ok);  E = ri.dir(:, ok)./vecnorm(ri.dir(:, ok));  P = zeros(size(Q));
+    for i = 1:size(Q, 2), P(:, i) = onslit(Q(:, i), E(:, i)); end
+    p = mean(P, 2);
 end
 
 function db1 = secant_(fn, db0, db1)

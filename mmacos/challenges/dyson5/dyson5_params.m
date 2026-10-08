@@ -371,6 +371,7 @@ function P = dyson5_params(over)
     % t5f, the end to end for FreeForm decks (dyson5_t5f.m): the join placed from ENGINE traces; gate = t5e's row on a conic deck
     P.tel5f_deck     = '';                % the telescope deck (this folder)
     P.tel5f_e2e_template = '';            % a t5e end-to-end deck of the SAME Dyson (its Slit + Dyson blocks are reused verbatim)
+    P.tel5f_launch   = 'chief';           % t5f field launch: 'chief' on the slit line (point source, the record) | 'centroid' (slit-filled proxy)
     P.tel5f_suffix   = '';              % lsqnonlin OptimalityTolerance (reported on the row with the achieved first-order optimality)
     P.tEP_maxfev     = 400;               % S1 (strict-merit lsqnonlin) function-evaluation budget
     P.tEP_from       = 'seed';            % S1 start: 'seed' (as-is conics, zero aspheres) | 'B1' (the FP-merit solution of the same run)

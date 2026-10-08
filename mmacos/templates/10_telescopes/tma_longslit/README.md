@@ -138,6 +138,27 @@ coma's across-slit part) reads as smile.  Predicted vs e2e:
 | R7 | 0.135 | 0.140 |
 | R8 | 0.133 | 0.138 |
 
+## Two smile conventions (CC 2026-10-07; Dave has the question)
+
+The e2e join (`dyson5_t5f`) launches one sky direction per field and scores
+each field's spot centroid at the FPA.  Which point of the field it puts on
+the slit line decides what "smile" measures:
+
+- **`'centroid'` launch — smile (slit-filled), the spec's convention.**  Each
+  field's bundle centroid lands on the slit line.  An extended scene fills
+  the slit whatever the telescope's chief does, so this is the smile a
+  straight, uniformly lit slit shows.  It is the paper's convention too: its
+  telescope-fed smile equals its DSI-alone smile (1.3 % both, Tables 2–3).
+- **`'chief'` launch — the point-source across-slit shift.**  Each field's
+  chief lands on the slit line, and the centroid is scored.  The telescope's
+  chief-minus-centroid offset across the slit (the across-slit part of its
+  coma) then reads as smile.  It is the record's convention until
+  2026-10-07, and it is stated beside the smile, not scored against it.
+
+`tma_longslit_run('e2e')` runs both and tables the pair.
+`P.tel5f_launch` (dyson5) selects one; the default stays `'chief'`, so
+every existing record reproduces.
+
 ## Gotchas
 
 - **Element stop and `macos.stop`.**  Until 2026-10-07 the api's
