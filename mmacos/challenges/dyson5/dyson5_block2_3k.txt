@@ -1,0 +1,30 @@
+dyson5 block4 -- two 3k modules across the 6000-pixel swath (2026-10-08 04:28)
+CONVENTIONS: module = dyson5_t5f_cprime_centroid_roll000_e2e.in as traced; cants [-4.675 4.675] deg about the axis normal to cross-track and the line of sight; modules side by side
+  along the cross-track (slit) axis at pitch 324.2 mm (the smallest 5 mm step with every margin >= the 20 mm gap; module extent 319.2 mm);
+  bodies = engine surface hits + 5 mm aperture + 10 mm mount; sky beams 183 mm wide, fanning by the strip's +-2.35 deg;
+  mass = OPTICS ONLY: block 14.3 kg (dyson5_size.txt row D), mirrors and grating as 10 mm blanks (Zerodur 2530, silica 2200 kg/m3); no structure, detector, electronics, baffles.
+
+FOOTPRINTS (engine hits, radius + aperture margin, mm):
+  M1               Reflector    r  109.2  blank r  119.2
+  M2               Reflector    r   91.5  blank r  101.5
+  M3               Reflector    r   97.2  blank r  107.2
+  Slit             Reference    r    5.0  blank r   15.0
+  BlockFaceIn      Refractor    r    5.2  blank r   15.2
+  BlockSphereOut   Refractor    r   56.6  blank r   66.6
+  Grating          Grating      r  174.2  blank r  184.2
+  BlockSphereIn    Refractor    r   56.2  blank r   66.2
+  BlockFaceOut     Refractor    r    5.1  blank r   15.1
+  PreFPA           Reference    r    5.3  blank r   15.3
+  FPA              FocalPlane   r    5.0  blank r   15.0
+
+ONE MODULE: optics 19.51 kg (block 14.30, mirrors 2.86, grating 2.34); cross-track extent 319 mm
+THE BLOCK OF TWO: envelope 746 x 598 x 1363 mm (x cross-track, y, z of the deck frame) = 609 L; optics 39.0 kg
+CONFLICTS (module vs module, m; negative = conflict):
+  worst body-body margin +0.024 m, worst body-vs-sky-beam margin +0.036 m
+    1 vs 2: body-body +0.024  body-in-beam +0.043
+    2 vs 1: body-body +0.024  body-in-beam +0.036
+SWATH: each module admits +-4.691 deg (3000 px, 319.8 px/deg); cants chosen for 10 px of overlap; strip edges (deg):
+    module 1  -9.366 .. +0.016
+    module 2  -0.016 .. +9.366
+  swath 18.731 deg = 181.4 km at 550 km; 5990 unique pixels; along-track offset between strips 0 (one cross-track plane of lines of sight)
+FIGURES /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_block2_3k_views.png, /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_block2_3k_swath.png
