@@ -178,9 +178,33 @@ every existing record reproduces.
 
 ## Results (the dyson5 3k default)
 
-**Deck of record: R7 `ffw`** (`tls_R7_ffw.in`, recorded as
-`challenges/dyson5/dyson5_cprime_3k.in`; R4 was provisional until it
-reported).  It runs R4's warm start through the degree 3–6 pole-frame
+**Deck of record: R9 `ffo`** (`tls_R9_ffo.in`, recorded as
+`challenges/dyson5/dyson5_cprime_3k.in`).  R9 = R7 + the OFF rows ×1000:
+the chief − centroid offset across the slit, the point-source shift.  It
+holds R7's pixel floor (FWHM 1.02 px, EiP 1.00 at every field, cone and
+clearance unchanged) and cuts the edge offset 2.43 → 0.03 µm.
+
+End to end, roll 0 / 180:
+
+| | R9 | R7 | Joe | paper |
+|---|---|---|---|---|
+| smile (slit-filled) px | **0.022 / 0.024** | 0.010 | < 0.1 | < 0.05 |
+| point-source across-slit shift px | **0.016 / 0.018** | 0.140 | — | — |
+| keystone px | 0.006 / 0.009 | 0.006 | < 0.1 | < 0.1 |
+| CRF px | 1.174 / 1.262 | 1.176 | < 1.5 | < 2.8 |
+| SRF px | 2.025 / 2.025 | 2.025 | < 1.5–2.0 | < 1.8 |
+| EiP | 0.849 / 0.805 | 0.853 | > 0.75 | |
+| joined clearance | +0.6 mm | +0.6 | > 0 | |
+
+**The 3k module meets Joe's spec end to end on smile, keystone, CRF and
+energy in a pixel, under both smile conventions.**  SRF, 2.025 px, is the
+Dyson alone's 2.024: 0.025 over the 2.0 upper bound, the spectrometer's own
+floor.
+
+The R7 tables below are the telescope that R9 refined; per-field, R9
+matches them to the digits shown except the bow columns.
+
+**R7 `ffw`** (`tls_R7_ffw.in`).  It runs R4's warm start through the degree 3–6 pole-frame
 freeform, with the along-slit spot rows ×3 and the outer solve fields
 ×1/1/2/3/3.  Engine numbers, model 256.
 

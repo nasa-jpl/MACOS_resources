@@ -122,16 +122,20 @@ classdef tTmaLongslit < matlab.unittest.TestCase
         end
 
         function test_the_record_rescores(tc)
-            % PINS THE DECK OF RECORD (R7 ffw, 2026-10-07): that rung of tls_figure.mat re-traced in the engine must
-            % reproduce its recorded per-field rms / chief / FWHM to 1e-9.  R7's numbers come from the reweighted merit
-            % (along-slit spot rows x3, outer fields x2/x3, from R4) -- the rung at the pixel floor (FWHM 1.02 px at
-            % every field).  A re-solve that changes the record must re-pin it with the mechanism, never a tolerance bump.
+            % PINS THE DECK OF RECORD (R9 ffo, 2026-10-07; was R7 ffw): that rung of tls_figure.mat re-traced in the
+            % engine must reproduce its recorded per-field rms / chief / FWHM to 1e-9.  R9 = R7 (the reweighted merit:
+            % along-slit spot rows x3, outer fields x2/x3, from R4 -- the pixel floor) + the OFF rows x1000 (chief -
+            % centroid across the slit: the point-source shift t5f's chief launch reads as smile, 0.140 -> 0.016 px)
+            % with the floor held.  A re-solve that changes the record must re-pin it with the mechanism, never a
+            % tolerance bump.
             f = fullfile(tc.tdir, 'tls_figure.mat');
             tc.assumeTrue(exist(f, 'file') == 2, 'no recorded ladder in the template directory');
-            Z = load(f);  S = Z.S;  j = find(strcmp({S.rungs.name}, 'ffw'), 1);   % the deck of record BY NAME (later rungs, e.g. R8 fft, follow it)
-            tc.assertNotEmpty(j, 'the record holds the deck of record, R7 ffw');  r = S.rungs(j);
-            tc.verifyLessThan(max([r.M.fwhm_x_px r.M.fwhm_y_px]), 1.05, 'R7: every field at the pixel floor');
-            tc.verifyGreaterThanOrEqual(min([r.M.fno_x r.M.fno_y]), S.P.cone_fnum(1), 'R7: no ray below F/1.7');
+            Z = load(f);  S = Z.S;  j = find(strcmp({S.rungs.name}, 'ffo'), 1);   % the deck of record BY NAME
+            tc.assertNotEmpty(j, 'the record holds the deck of record, R9 ffo');  r = S.rungs(j);
+            tc.verifyLessThan(max([r.M.fwhm_x_px r.M.fwhm_y_px]), 1.05, 'R9: every field at the pixel floor');
+            tc.verifyGreaterThanOrEqual(min([r.M.fno_x r.M.fno_y]), S.P.cone_fnum(1), 'R9: no ray below F/1.7');
+            off = (r.M.y_m - r.M.cy_m)*1e6;  off = off - off(r.M.fields_deg == 0);
+            tc.verifyLessThan(max(abs(off)), 0.1, 'R9: the chief - centroid offset across the slit < 0.1 um (R7: 2.43)');
             % re-scored at the class's model (128): a geometric trace does not depend on the model size, and a
             % 128 -> 256 transition inside the fast batch would risk the macos_init_all heap bug for later classes
             deck = fullfile(tc.tdir, sprintf('%s_R%d_%s.in', S.P.tag, j - 1, r.name));

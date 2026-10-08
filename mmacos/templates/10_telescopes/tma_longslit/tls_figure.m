@@ -28,6 +28,12 @@ function [X, R] = tls_figure(P, X0, dofs, opts)
 %     BOW    the chief's across-slit position minus the centre field's: the
 %            strict chief intercept, a straight slit needs a straight image
 %            (x P.w_bow)
+%     OFF    (chief - centroid) across the slit vs the centre field (x P.w_off,
+%            default 0): the POINT-SOURCE across-slit shift -- t5f lands each
+%            field's chief on the slit line and scores its centroid, so this
+%            offset's spread over the strip reads as its smile (R4-R8: 0.655 /
+%            0.086 / 0.122 / 0.135 / 0.133 predicted vs 0.732 / 0.090 / 0.149 /
+%            0.140 / 0.138 px e2e)
 %     CBOW   the same for the field's spot CENTROID (x P.w_bow): the
 %            spectrometer's smile reads centroids, and coma moves the centroid
 %            off the chief -- R4 of 2026-10-07 held the chief bow to 2.7 um
@@ -65,6 +71,7 @@ fd = P.solve_fields_deg;  if isempty(fd), fd = linspace(0, P.strip_half_deg, 5);
 if ~isfield(P, 'solve_field_wt') || isempty(P.solve_field_wt), P.solve_field_wt = ones(1, numel(fd)); end
 assert(numel(P.solve_field_wt) == numel(fd), 'tls_figure: solve_field_wt has %d weights for %d solve fields', numel(P.solve_field_wt), numel(fd));
 if ~isfield(P, 'w_spot_x'), P.w_spot_x = 1; end
+if ~isfield(P, 'w_off'), P.w_off = 0; end
 if ~isfield(P, 'w_spot_y'), P.w_spot_y = 1; end
 deck = [tempname '_tlsfig.in'];  ftmp = [tempname '_tlsfld.in'];
 cln = onCleanup(@() cellfun(@(f) delete_if_(f), {deck, ftmp}));
@@ -76,7 +83,7 @@ for q = 1:numel(fd)
     ri = field_trace_(txt, fd(q), ftmp);  ok = ri.ok_trace & ri.ok_pass;  ok(1) = false;  c.sel{q} = find(ok);
 end
 c.G0 = G;
-c.nrows = sum(2*cellfun(@numel, c.sel) + 7) + 1 + 2;
+c.nrows = sum(2*cellfun(@numel, c.sel) + 8) + 1 + 2;
 c.dy_deg = 0.05;                                  % the along-track plate-scale probe
 fun = @(x) resid_(x, c);
 tic;  r0 = fun(x0);  t1 = toc;
@@ -182,7 +189,7 @@ for q = 1:numel(c.fd)
     sl = c.sel{q};  n = numel(sl);
     ri = field_trace_(txt, c.fd(q), c.ftmp);
     ok = ri.ok_trace & ri.ok_pass;  okq = ok(sl);
-    if nnz(okq) < 0.9*n, r = [r; 1e3*ones(2*n + 7, 1)]; continue, end   %#ok<AGROW> lost rays: a wall
+    if nnz(okq) < 0.9*n, r = [r; 1e3*ones(2*n + 8, 1)]; continue, end   %#ok<AGROW> lost rays: a wall
     Pq = ri.pos(:, sl);  d = Pq - mean(Pq(:, okq), 2);  du = ex'*d;  dv = ey'*d;  du(~okq) = 1e-3;  dv(~okq) = 1e-3;
     w = sqrt(254/n)*P.solve_field_wt(q);                               % per-field weight (outer fields up)
     pc = ri.pos(:, 1) - G.slit.point(:);  cx = ex'*pc;  cy = ey'*pc;
@@ -197,7 +204,8 @@ for q = 1:numel(c.fd)
          P.w_plate*(cx - c.f*tand(c.fd(q)))*1e6; P.w_bow*(cy - yc)*1e6; ...
          P.w_tel*atan2(cd'*ex, cd'*ez); P.w_tel*atan2(cd'*ey, cd'*ez); ...
          P.w_cone*hinge(Fx); P.w_cone*hinge(Fy); ...
-         P.w_bow*(ccy - ycc)*1e6];                                       %#ok<AGROW> CBOW: the centroid bow (what smile reads)
+         P.w_bow*(ccy - ycc)*1e6; ...                                    % CBOW: the centroid bow
+         P.w_off*((cy - ccy) - (yc - ycc))*1e6];                         %#ok<AGROW> OFF: chief - centroid across the slit vs the centre
 end
 r = [r; P.w_wd*max(0, P.work_dist_m - (X.legs(3) + X.slit_dz))];   % the slit moves with the focus
 % PLATE_Y: the along-track (fold-plane) focal length, at the centre and the edge field -- without it the solve trades
@@ -211,13 +219,13 @@ end
 
 function S = rowsplit_(r, c)
 % the cost by row family at the solution (for the rung table)
-S = struct('spot', 0, 'plate', 0, 'bow', 0, 'tele', 0, 'cone', 0, 'wd', 0, 'plate_y', 0, 'cbow', 0);
+S = struct('spot', 0, 'plate', 0, 'bow', 0, 'tele', 0, 'cone', 0, 'wd', 0, 'plate_y', 0, 'cbow', 0, 'off', 0);
 i = 0;
 for q = 1:numel(c.fd)
     n = numel(c.sel{q});
     S.spot = S.spot + sum(r(i + (1:2*n)).^2);  i = i + 2*n;
     S.plate = S.plate + r(i + 1)^2;  S.bow = S.bow + r(i + 2)^2;  S.tele = S.tele + sum(r(i + (3:4)).^2);
-    S.cone = S.cone + sum(r(i + (5:6)).^2);  S.cbow = S.cbow + r(i + 7)^2;  i = i + 7;
+    S.cone = S.cone + sum(r(i + (5:6)).^2);  S.cbow = S.cbow + r(i + 7)^2;  S.off = S.off + r(i + 8)^2;  i = i + 8;
 end
 S.wd = r(end - 2)^2;  S.plate_y = sum(r(end - 1:end).^2);
 end
