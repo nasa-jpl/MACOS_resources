@@ -110,6 +110,34 @@ measures the spot, not the cone.
   chief: 2.7 µm of chief bow came with 9.1 µm of centroid bow, and the e2e
   smile read 0.73 px.  The merit carries both rows.
 
+## The join's own diagnostic: `tls_dyson_chief_tilt`
+
+`T = tls_dyson_chief_tilt(P, M)` scores the spectrometer ALONE (the record's
+own path: `spectrometer_geom` → `spectrometer_rx` → `spectrometer_score`).
+Every slit point's input chief is tilted by a telescope's measured chief
+angle at the slit (`M.chief_x_mrad` / `chief_y_mrad` from `tls_measure`),
+imposed by wrapping the chain's `G.aim`; nothing in the library changes.
+The legs are base / along / cross / along×2 / both.  It attributes an e2e
+spectral error to the telescope's telecentric error, or rules that out,
+without a solve.
+
+On R7 it ruled it out.  With the base leg equal to the record (smile
+0.0050, CRF 1.213, SRF 2.024), the Dyson's smile stays at 0.005 px even at
+twice R7's along-track pattern.
+
+**The e2e smile is the telescope's chief-minus-centroid offset across the
+slit.**  t5f lands each field's CHIEF on the slit line and scores the
+CENTROID, so the field variation of (chief − centroid) across the slit (the
+coma's across-slit part) reads as smile.  Predicted vs e2e:
+
+| rung | predicted | e2e |
+|---|---|---|
+| R4 | 0.655 px | 0.732 |
+| R5 | 0.086 | 0.090 |
+| R6 | 0.122 | 0.149 |
+| R7 | 0.135 | 0.140 |
+| R8 | 0.133 | 0.138 |
+
 ## Gotchas
 
 - **Element stop and `macos.stop`.**  Until 2026-10-07 the api's
@@ -187,7 +215,7 @@ constraint; PLATE_Y holds its first-order half.
 
 `tma_longslit.m` (demo), `tma_longslit_params.m`, `tma_longslit_run.m`,
 `tls_first_order.m`, `tls_design.m`, `tls_section.m`, `tls_measure.m`,
-`tls_clearance.m`, `tls_figure.m`, `tls_e2e.m`, `tls_clearance_joined.m`.
+`tls_clearance.m`, `tls_figure.m`, `tls_e2e.m`, `tls_clearance_joined.m`, `tls_dyson_chief_tilt.m`.
 Test: `mmacos/tests/tTmaLongslit.m` (SUITE_FAST).  Records: `tls_*.txt` /
 `.mat` / `.in` (the default run); `runs_figure_try*` are the superseded tries
 the report cites.
