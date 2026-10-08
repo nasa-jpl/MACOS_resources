@@ -29,7 +29,9 @@ function P = tma_longslit_params(over)
 %                    Jim: "a little faster than the spectrometer")
 %     work_dist_m    minimum working distance M3 -> slit, m (the Dyson
 %                    hangs in it)
-%     spec_joe / spec_paper   score thresholds (two columns of every table)
+%     spec_joe / spec_paper   score thresholds (two columns of every table):
+%                    Joe's in our 18-um pixels, the paper's in micrometres
+%                    (Table 1; its SRF is in 36-um co-added pixels)
 %
 %   Seed (the form): the zig-zag TMA -- M1 concave, M2 small at the stop,
 %   M3 carrying the power, a long working distance
@@ -90,7 +92,11 @@ P.telecentric_deg = 0.5;
 P.cone_fnum      = [1.7 1.8];
 P.work_dist_m    = 0.250;
 P.spec_joe   = struct('smile_px', 0.1, 'keystone_px', 0.1, 'crf_px', 1.5, 'srf_px', [1.5 2.0], 'eip', 0.75);
-P.spec_paper = struct('smile_px', 0.05, 'keystone_px', 0.10, 'srf_px', 1.8, 'crf_px', 2.8, 'arf_px', 2.8);   % Bradley 2024 Table 1 (smile 5 % / keystone 10 % of a pixel)
+% Bradley 2024 Table 1, in MICROMETRES (its own units: SRF in CO-ADDED pixels of 2 x 18 um -- "64.8 um (1.8 co-added
+% pixels)"; smile "1.8 um (5 % of co-added pixel)" = 0.10 of OUR 18-um pixel, not 0.05; keystone 1.8 um (10 % of a
+% pixel); ARF / CRF 50.4 um (2.8 px)).  Until 2026-10-07 these were compared in our 18-um pixels: every "fail (1.8)" on
+% SRF and the "< 0.05" smile were units errors (addendum 49 step 0).
+P.spec_paper = struct('smile_um', 1.8, 'keystone_um', 1.8, 'srf_um', 64.8, 'crf_um', 50.4, 'arf_um', 50.4);
 % ---- seed: SBG VSWIR Fig. 4b (f 345), digitised +-5 mm / +-2 deg
 P.seed_f_m       = 0.345;
 P.seed_legs_m    = [0.270 0.257 0.313];
@@ -147,7 +153,8 @@ P.resume_upto    = -1;
 % ---- e2e (stage 'e2e', TLS_E2E): the spectrometer the telescope feeds, by the dyson5 join
 P.e2e            = struct('tel_dyson', 'size:F:240', 'template', 'dyson5_t5e_tA_EP_3k_m30_B1_e2e.in');
 P.e2e_roll_deg   = [0 180];
-P.e2e_rung       = '';           % '' = the best clear rung; or a rung name           % stage 'figure': reuse rungs R0..R<n> from <tag>_figure.mat (-1 = none)
+P.e2e_rung       = '';           % '' = the best clear rung; or a rung name
+P.e2e_slit_px    = 2;            % the slit width in our pixels (36 um), for the SRF-floor line of the e2e table           % stage 'figure': reuse rungs R0..R<n> from <tag>_figure.mat (-1 = none)
 P.score_lambda_m = 2.5e-6;
 P.mount_m        = 5e-3;
 % ---- numerics

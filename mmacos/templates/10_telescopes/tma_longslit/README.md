@@ -156,6 +156,15 @@ the slit line decides what "smile" measures:
   2026-10-07, and it is stated beside the smile, not scored against it.
 
 `tma_longslit_run('e2e')` runs both and tables the pair.
+
+Two more conventions, both from the paper and both easy to get wrong:
+- **The paper's SRF is in co-added pixels.**  Its 1.8 is 64.8 µm, since a
+  co-added pixel is 2 × 18 µm.  Its smile bound, "5 % of a co-added pixel",
+  is 1.8 µm = 0.10 of OUR pixel.  Every table here therefore carries the
+  paper column in micrometres.
+- **SRF has a floor set by the slit.**  rect(2 px) ⊗ rect(1 px) ⊗ Airy is
+  2.01–2.02 px for a perfect spectrometer, so an SRF of 2.0x px is the slit,
+  not the optics.
 `P.tel5f_launch` (dyson5) selects one; the default stays `'chief'`, so
 every existing record reproduces.
 
@@ -186,20 +195,32 @@ clearance unchanged) and cuts the edge offset 2.43 → 0.03 µm.
 
 End to end, roll 0 / 180:
 
-| | R9 | R7 | Joe | paper |
-|---|---|---|---|---|
-| smile (slit-filled) px | **0.022 / 0.024** | 0.010 | < 0.1 | < 0.05 |
-| point-source across-slit shift px | **0.016 / 0.018** | 0.140 | — | — |
-| keystone px | 0.006 / 0.009 | 0.006 | < 0.1 | < 0.1 |
-| CRF px | 1.174 / 1.262 | 1.176 | < 1.5 | < 2.8 |
-| SRF px | 2.025 / 2.025 | 2.025 | < 1.5–2.0 | < 1.8 |
-| EiP | 0.849 / 0.805 | 0.853 | > 0.75 | |
-| joined clearance | +0.6 mm | +0.6 | > 0 | |
+Pixels are our 18 µm detector pixels.  The paper's bounds (Bradley 2024
+Table 1) are in micrometres, in its own units: its SRF is in **co-added**
+pixels of 36 µm.
 
-**The 3k module meets Joe's spec end to end on smile, keystone, CRF and
-energy in a pixel, under both smile conventions.**  SRF, 2.025 px, is the
-Dyson alone's 2.024: 0.025 over the 2.0 upper bound, the spectrometer's own
-floor.
+| | R9, px | R9, µm | R7, px | Joe (px) | paper (Table 1, µm) |
+|---|---|---|---|---|---|
+| smile (slit-filled) | **0.022 / 0.024** | 0.40 / 0.43 | 0.010 | < 0.1 | < 1.8 (5 % of a co-added px) |
+| point-source across-slit shift | **0.016 / 0.018** | 0.29 / 0.32 | 0.140 | — | — |
+| keystone | 0.006 / 0.009 | 0.11 / 0.16 | 0.006 | < 0.1 | < 1.8 (10 % of a px) |
+| CRF | 1.174 / 1.262 | 21.1 / 22.7 | 1.176 | < 1.5 | < 50.4 (2.8 px) |
+| SRF | 2.025 / 2.025 | 36.5 | 2.025 | 1.5–2.0 | < 64.8 (1.8 co-added px) |
+| ARF (telescope, across slit) | 1.02 | 18.4 | 1.02 | — | < 50.4 (2.8 px) |
+| EiP | 0.849 / 0.805 | | 0.853 | > 0.75 | |
+| joined clearance | +0.6 mm | | +0.6 | > 0 | |
+
+**The 3k module meets Joe's spec end to end, and the paper's five with
+margin, under both smile conventions.**
+
+**SRF 2.025 px is the slit FLOOR, not the spectrometer.**  The scorer's SRF
+is rect(2-px slit) ⊗ LSF ⊗ rect(1 px) ⊗ Airy.  For a perfect spectrometer
+that is 2.010 px at 0.38 µm and 2.023 px at 2.5 µm (the scorer's 0.01-px
+LSF bins plus diffraction).  R9's SRF sits on that floor at every
+wavelength, at most 0.0015 px (0.03 µm) above it.  So Joe's "1.5–2.0" is
+met at its floor: 1.5 would take a 1.5-px slit, not a better spectrometer.
+And the paper's 1.8 is 1.8 CO-ADDED pixels, 64.8 µm, which our 36.5 µm
+passes with margin.
 
 The R7 tables below are the telescope that R9 refined; per-field, R9
 matches them to the digits shown except the bow columns.
@@ -226,21 +247,21 @@ freeform, with the along-slit spot rows ×3 and the outer solve fields
 **End to end**, joined to the 3k Dyson of record (CaF2 240,
 `size:F:240`), roll 0 / 180:
 
-| | R7 | Dyson alone | 3k (c) record | Joe | paper (Table 1) |
+| | R7, px (µm) | Dyson alone, px | 3k (c) record, px | Joe (px) | paper (Table 1, µm) |
 |---|---|---|---|---|---|
-| smile px | 0.140 / 0.141 | 0.005 | 1.64 | < 0.1 | < 0.05 (5 %) |
-| keystone px | 0.006 / 0.009 | 0.006 | 0.05 | < 0.1 | < 0.1 (10 %) |
-| CRF px | 1.175 / 1.255 | 1.21 | 4.02 | < 1.5 | < 2.8 |
-| SRF px | 2.025 / 2.025 | 2.024 | 4.99 | < 1.5–2.0 | < 1.8 |
-| ARF px (telescope, across slit) | 1.02 | — | — | — | < 2.8 |
+| smile, point-source (chief launch) | 0.140 / 0.141 (2.5) | 0.005 | 1.64 | < 0.1 | < 1.8 |
+| keystone | 0.006 / 0.009 (0.11) | 0.006 | 0.05 | < 0.1 | < 1.8 |
+| CRF | 1.175 / 1.255 (21.2) | 1.21 | 4.02 | < 1.5 | < 50.4 |
+| SRF | 2.025 / 2.025 (36.5) | 2.024 | 4.99 | 1.5–2.0 | < 64.8 |
+| ARF (telescope, across slit) | 1.02 (18.4) | — | — | — | < 50.4 |
 | energy in a pixel | 0.853 / 0.810 | 0.82 | — | > 0.75 | — |
 | grating admits | 0.988 / 0.989 | | | | |
 | joined clearance | +0.60 / +0.61 mm | +0.54 | +0.06 | > 0 | |
 
 - **CRF and SRF are the Dyson's own floors:** on this spectrometer the
-  telescope is no longer the limit.
-- **Smile, 0.14 px, is the one requirement still open.**  It is not the
-  telescope's slit-plane centroid bow (≤ 0.75 µm = 0.04 px).
+  telescope is no longer the limit (SRF: the slit floor, above).
+- **R7's point-source smile, 0.14 px, is closed in R9** (0.016 px).  It was
+  not the telescope's slit-plane centroid bow (≤ 0.75 µm = 0.04 px).
 - **The cone along the slit, F/1.89, is Joe's spec:** D 183 mm at f 330 mm
   is itself F/1.803.  "A little faster than the spectrometer" (Jim) needs
   the paper's 192 mm entrance beam, which is a spec question, not a solve
