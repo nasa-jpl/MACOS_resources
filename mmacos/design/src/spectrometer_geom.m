@@ -110,6 +110,11 @@ function G = spectrometer_geom(form, P)
             sphOut.kind = 'asph';  sphOut.Kc = Kc_b;  sphOut.A = A_b;
             sphIn.kind = 'asph';   sphIn.Kc = Kc_b;   sphIn.A = A_b;
         end
+        % the grating may depart from the sphere: conic constant P.grat_Kc (the paper's Option B -- aspheric Dyson
+        % lens + CONIC grating; Bradley 2024 Table 2).  Default 0 = the spherical grating, every existing chain unchanged.
+        if isfield(P, 'grat_Kc') && P.grat_Kc ~= 0
+            grat.kind = 'asph';  grat.Kc = P.grat_Kc;  grat.A = [];
+        end
         S(end+1) = sphOut;
         % R4, the compact variant's MENISCUS corrector in the air gap: two
         % spherical faces A (vertex z_a) and B (vertex z_a + t_m) of the block
