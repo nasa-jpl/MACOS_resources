@@ -121,6 +121,25 @@ classdef tTmaLongslit < matlab.unittest.TestCase
             tc.verifyEqual(Rw.rows.cone, want, 'RelTol', 1e-9, 'the cone rows are the hinge of the measured F/#');
         end
 
+        function test_paper_units_and_the_slit_floor(tc)
+            % ADDENDUM 49 STEP 0: the paper's Table 1 is in MICROMETRES and its SRF in CO-ADDED pixels (2 x 18 um) --
+            % SRF 64.8 um (1.8 co-added px), CRF / ARF 50.4 um (2.8 px), smile 1.8 um (5 % of a co-added px = 0.10 of
+            % OUR pixel), keystone 1.8 um.  Compared in our 18-um pixels they read as "SRF fails 1.8" and "smile < 0.05":
+            % units errors.  And SRF has a FLOOR: rect(2-px slit) (x) rect(1 px) (x) Airy is ~2.01-2.02 px for a perfect
+            % spectrometer, so the record's 2.025 is the slit, not the optics.
+            P = tc.P;  sp = P.spec_paper;
+            tc.verifyEqual([sp.smile_um sp.keystone_um sp.srf_um sp.crf_um sp.arf_um], [1.8 1.8 64.8 50.4 50.4], 'Table 1, um');
+            tc.verifyEqual(sp.srf_um, 1.8*2*18, 'AbsTol', 1e-12, 'SRF bound = 1.8 co-added pixels of 2 x 18 um');
+            fl = @(lam) spectrometer_score_fwhm(zeros(1, 1000), 2, lam*1.8/18e-6);
+            tc.verifyEqual(fl(0.38e-6), 2.0104, 'AbsTol', 5e-4, 'the 2-px slit floor at 0.38 um');
+            tc.verifyEqual(fl(2.5e-6), 2.0233, 'AbsTol', 5e-4, 'the 2-px slit floor at 2.5 um');
+            tc.verifyGreaterThan(fl(2.5e-6), 2.0, 'Joe''s 2.0 sits below the floor at the long end: met AT the floor');
+            % the deck of record's telescope ARF in the paper's units
+            Z = load(fullfile(tc.tdir, 'tls_figure.mat'));  j = find(strcmp({Z.S.rungs.name}, 'ffo'), 1);
+            tc.assumeNotEmpty(j);
+            tc.verifyLessThan(max(Z.S.rungs(j).M.fwhm_y_px)*P.pixel_m*1e6, sp.arf_um, 'R9 ARF (um) < 50.4');
+        end
+
         function test_the_record_rescores(tc)
             % PINS THE DECK OF RECORD (R9 ffo, 2026-10-07; was R7 ffw): that rung of tls_figure.mat re-traced in the
             % engine must reproduce its recorded per-field rms / chief / FWHM to 1e-9.  R9 = R7 (the reweighted merit:

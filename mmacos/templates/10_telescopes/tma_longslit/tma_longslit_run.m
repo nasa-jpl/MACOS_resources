@@ -262,13 +262,17 @@ for q = 1:numel(E.rows)
     Cj = tls_clearance_joined(P, fullfile(fileparts(E.join_deck), E.rows(q).S.file));
     E.rows(q).clear = Cj;
     pr('\n  ROLL %d deg: e2e decks %s (centroid) / %s (chief)\n', E.rows(q).roll_deg, E.rows(q).S.file, L.chief.rows(q).S.file);
-    pr('    %-34s %8s     | %7s  %7s\n', '', 'value', 'Joe', 'paper');
-    pr('    %-34s %8.3f px  | < %.2f   < %.2f %s\n', 'smile (slit-filled)', RE.smile_max, P.spec_joe.smile_px, P.spec_paper.smile_px, pf_(RE.smile_max, P.spec_joe.smile_px, P.spec_paper.smile_px));
-    pr('    %-34s %8.3f px  |   (stated beside the smile; not a requirement)\n', 'point-source across-slit shift', RC.smile_max);
-    pr('    %-34s %8.3f px  | < %.2f   < %.2f %s\n', 'keystone', RE.keystone_max, P.spec_joe.keystone_px, P.spec_paper.keystone_px, pf_(RE.keystone_max, P.spec_joe.keystone_px, P.spec_paper.keystone_px));
-    pr('    %-34s %8.3f px  | < %.2f   < %.2f %s\n', 'CRF (worst)', RE.crf_max, P.spec_joe.crf_px, P.spec_paper.crf_px, pf_(RE.crf_max, P.spec_joe.crf_px, P.spec_paper.crf_px));
-    pr('    %-34s %8.3f px  | < %.2f   < %.2f %s\n', 'SRF (worst)', RE.srf_max, P.spec_joe.srf_px(2), P.spec_paper.srf_px, pf_(RE.srf_max, P.spec_joe.srf_px(2), P.spec_paper.srf_px));
-    pr('    %-34s %8.3f px  |   --    < %.2f (paper %s)\n', 'ARF (telescope FWHM y)', max(r.M.fwhm_y_px), P.spec_paper.arf_px, tern_(max(r.M.fwhm_y_px) < P.spec_paper.arf_px, 'PASS', 'fail'));
+    um = P.pixel_m*1e6;  sp = P.spec_paper;  sj = P.spec_joe;
+    pr('    %-34s %8s %9s | %9s %11s\n', '', 'px', 'um', 'Joe (px)', 'paper (um)');
+    row = @(nm, v, joe, pap) pr('    %-34s %8.3f %9.2f | %9s %11s %s\n', nm, v, v*um, lim_(joe), lim_(pap), pfu_(v, joe, v*um, pap));
+    row('smile (slit-filled)', RE.smile_max, sj.smile_px, sp.smile_um);
+    pr('    %-34s %8.3f %9.2f |   (stated beside the smile; not a requirement)\n', 'point-source across-slit shift', RC.smile_max, RC.smile_max*um);
+    row('keystone', RE.keystone_max, sj.keystone_px, sp.keystone_um);
+    row('CRF (worst)', RE.crf_max, sj.crf_px, sp.crf_um);
+    row('SRF (worst)', RE.srf_max, sj.srf_px(2), sp.srf_um);
+    row('ARF (telescope FWHM y)', max(r.M.fwhm_y_px), Inf, sp.arf_um);
+    pr('    (SRF floor: rect(%d-px slit) (x) rect(1 px) = %.3f px for a PERFECT spectrometer -- Joe''s 1.5-2.0 is a slit width)\n', ...
+       P.e2e_slit_px, spectrometer_score_fwhm(zeros(1, 1000), P.e2e_slit_px, 0));
     pr('    %-34s %8.3f     | > %.2f\n', 'energy in a pixel (min)', RE.ee_min, P.spec_joe.eip);
     pr('    %-34s %8.3f\n', 'grating admits (min)', min(RE.pass_frac(:)));
     pr('    %-34s %+8.1f mm  (%s vs %s)  %s\n', 'clearance, joined', Cj.min_mm, Cj.table{1, 1}, Cj.table{1, 2}, tern_(Cj.pass, 'CLEAR', 'CONFLICT'));
@@ -281,6 +285,16 @@ end
 
 function s = pf_(v, joe, paper)
 s = sprintf('(Joe %s, paper %s)', tern_(v < joe, 'PASS', 'fail'), tern_(v < paper, 'PASS', 'fail'));
+end
+
+function s = pfu_(vpx, joe_px, vum, paper_um)
+% Joe in our pixels, the paper in micrometres
+if isinf(joe_px), sj = '--'; else, sj = tern_(vpx <= joe_px, 'PASS', 'fail'); end
+s = sprintf('(Joe %s, paper %s)', sj, tern_(vum < paper_um, 'PASS', 'fail'));
+end
+
+function s = lim_(v)
+if isinf(v), s = '--'; else, s = sprintf('< %.4g', v); end
 end
 
 function S = load_or_run_(P, stage, fn)
