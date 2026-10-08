@@ -1,4 +1,4 @@
-tma_longslit figure -- the ladder on the zig-zag section (2026-10-07 13:55)
+tma_longslit figure -- the ladder on the zig-zag section (2026-10-07 15:36)
 ROWS (TLS_FIGURE, um): SPOT per ray about the as-placed centroid on the slit x sqrt(254/N); PLATE x 30; BOW (strict chief
   intercept across the slit vs the centre field) x 30; TELE 1e+04 um/rad; CONE hinge outside F/1.70..1.80, 1e+04 um per F/#;
   WD hinge below 250 mm.  FWHM = spectrometer_score_fwhm (rays (x) 1 px (x) Airy at 2.50 um, F/1.80), px of 18 um.
@@ -151,11 +151,8 @@ R6 ff2 RESUMED from /home/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes
     plate local / edge 329.96 / 329.38 mm; worst chief 0.031 deg; F/# range x 1.891..1.902 y 1.775..1.788 (no ray below F/1.7); M2 footprint 131.4 x 166.0 mm
     footprints M1 234.6 x 201.1, M3 215.1 x 178.9 mm; clearance CLEAR min +15.5 mm (M3 -> Slit vs M2); working distance 299.4 mm
 
-RUNG R7 ffw: DOFs theta + slit_dz + mon, warm from R4 ff34
-  row weights: along-slit spot x3, across-slit x1, solve fields [0 1.175 2.35 3.525 4.7] x [1 1 2 3 3]
-  lsqnonlin LM: exitflag 0, 71 iterations, 3002 evaluations, 5708 s, cost 6.6617e+07 -> 1.0780e+07
-  cost by family at the solution: spot 1.493e+05, plate 6.775e+06, plate_y 3.249e+02, bow 1.109e+04, cbow 5.264e+02, tele 4.406e+01, cone 3.843e+06, wd 0.000e+00
-  R7 ffw
+R7 ffw RESUMED from /home/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes/tma_longslit/tls_figure.mat (cost 1.0780e+07)
+  R7 ffw (resumed)
            R_t mm    R_s mm   theta  R par mm        K     a4 um     a6 um
     M1    +2338.3   +1753.7   80.00    1518.8  -0.2578      +0.0      +0.0
     M2    -1132.0    -722.0   47.91     576.6  -0.6577      +0.0      +0.0
@@ -174,4 +171,28 @@ RUNG R7 ffw: DOFs theta + slit_dz + mon, warm from R4 ff34
     along-track (fold-plane) focal length centre / edge 330.07 / 330.69 mm
     plate local / edge 329.94 / 329.03 mm; worst chief 0.033 deg; F/# range x 1.889..1.894 y 1.797..1.806 (no ray below F/1.7); M2 footprint 131.7 x 165.9 mm
     footprints M1 234.6 x 201.7, M3 215.3 x 172.9 mm; clearance CLEAR min +12.2 mm (M3 -> Slit vs M2); working distance 299.4 mm
+
+RUNG R8 fft: DOFs theta + slit_dz + mon, warm from R7 ffw
+  row weights: along-slit spot x3, across-slit x1, solve fields [0 1.175 2.35 3.525 4.7] x [1 1 2 3 3], TELE 300000 um/rad
+  lsqnonlin LM: exitflag 0, 71 iterations, 3000 evaluations, 5768 s, cost 1.0819e+07 -> 1.0816e+07
+  cost by family at the solution: spot 1.435e+05, plate 6.775e+06, plate_y 3.165e+02, bow 1.134e+04, cbow 6.079e+02, tele 3.964e+04, cone 3.846e+06, wd 0.000e+00
+  R8 fft
+           R_t mm    R_s mm   theta  R par mm        K     a4 um     a6 um
+    M1    +2338.3   +1753.7   80.00    1518.8  -0.2578      +0.0      +0.0
+    M2    -1132.0    -722.0   47.81     576.6  -0.6597      +0.0      +0.0
+    M3     +509.0    +474.9   31.81     458.7  -0.2410      +0.0      +0.0
+    layout: AOI [30 37 15] deg, legs [258.3 245.8 299.4] mm, slit dz +0.009 mm
+      field |  pass |   chief |  F/# x  F/# y |  FWHMx  FWHMy   EiP |  rms um | x err um   bow um  cbow um
+     -4.700 | 1.000 |  0.0328 |  1.889  1.797 |   1.02   1.02  1.00 |    2.18 |   +79.42    +3.21    +0.81
+     -3.525 | 1.000 |  0.0175 |  1.892  1.798 |   1.02   1.02  1.00 |    1.91 |   +33.46    +1.42    -0.00
+     -2.350 | 1.000 |  0.0075 |  1.893  1.800 |   1.02   1.02  1.00 |    2.41 |    +9.90    +0.51    -0.15
+     -1.175 | 1.000 |  0.0018 |  1.894  1.803 |   1.02   1.02  1.00 |    2.03 |    +1.24    +0.11    -0.06
+     +0.000 | 1.000 |  0.0000 |  1.894  1.806 |   1.02   1.02  1.00 |    1.64 |    +0.00    +0.00    +0.00
+     +1.175 | 1.000 |  0.0018 |  1.894  1.803 |   1.02   1.02  1.00 |    2.03 |    -1.24    +0.11    -0.06
+     +2.350 | 1.000 |  0.0075 |  1.893  1.800 |   1.02   1.02  1.00 |    2.41 |    -9.90    +0.51    -0.15
+     +3.525 | 1.000 |  0.0175 |  1.892  1.798 |   1.02   1.02  1.00 |    1.91 |   -33.46    +1.42    -0.00
+     +4.700 | 1.000 |  0.0328 |  1.889  1.797 |   1.02   1.02  1.00 |    2.18 |   -79.42    +3.21    +0.81
+    along-track (fold-plane) focal length centre / edge 330.07 / 330.68 mm
+    plate local / edge 329.94 / 329.03 mm; worst chief 0.033 deg; F/# range x 1.889..1.894 y 1.797..1.806 (no ray below F/1.7); M2 footprint 131.7 x 165.8 mm
+    footprints M1 234.6 x 201.7, M3 215.2 x 172.6 mm; clearance CLEAR min +11.8 mm (M3 -> Slit vs M2); working distance 299.4 mm
 

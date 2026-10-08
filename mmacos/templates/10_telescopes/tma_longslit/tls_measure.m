@@ -5,7 +5,9 @@ function M = tls_measure(P, G, deck, opts)
 %   stage), aims the chief through the element stop for every strip field
 %   (P.nfield across +-P.strip_half_deg, along global x) and reads, per field:
 %     pass       fraction of the source rays that reach the slit unblocked
-%     chief_deg  angle of the chief to the slit normal (telecentricity)
+%     chief_deg  angle of the chief to the slit normal (telecentricity), and
+%                its components chief_x_mrad (along the slit, cross-track) and
+%                chief_y_mrad (across the slit, along-track: the dispersion plane)
 %     spread_deg angle of the chief to the CENTRE field's chief
 %     x_m, y_m   chief hit on the slit in the slit frame (x = the slit
 %                axis = global x; y = across the slit, in the fold plane)
@@ -67,6 +69,8 @@ for q = 1:nf
     M.pass(q) = mean(ok);
     c = ri.dir(:, 1)/norm(ri.dir(:, 1));  cdir(:, q) = c;
     M.chief_deg(q) = acosd(min(1, abs(c.'*ez)));
+    M.chief_x_mrad(q) = 1e3*atan2(c.'*ex, c.'*ez);   % component ALONG the slit (cross-track)
+    M.chief_y_mrad(q) = 1e3*atan2(c.'*ey, c.'*ez);   % component ACROSS the slit (along-track, the dispersion plane)
     r0 = ri.pos(:, 1) - sl.point(:);
     M.x_m(q) = r0.'*ex;  M.y_m(q) = r0.'*ey;
     % the cone about the chief, in the slit frame

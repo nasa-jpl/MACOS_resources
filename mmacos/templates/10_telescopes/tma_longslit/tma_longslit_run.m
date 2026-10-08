@@ -122,7 +122,7 @@ for q = 1:numel(M.fields_deg)
     pr('  %+7.3f | %6.3f | %8.4f %8.4f | %+9.3f %+9.3f %+8.1f | %7.3f %7.3f | %8.1f %8.1f | %8.2g\n', M.fields_deg(q), M.pass(q), ...
        M.chief_deg(q), M.spread_deg(q), M.x_m(q)*1e3, M.y_m(q)*1e3, M.bow_um(q), M.fno_x(q), M.fno_y(q), M.rms_um(q), M.bf_um(q), M.stop_miss_m(q)*1e6);
 end
-pr('  (chief = angle to the slit normal; spread = to the centre chief; F/# = 1/(2 sin u) of the passing rays; rms = as placed;\n');
+pr('  (chief = angle to the slit normal (chx along the slit = cross-track, chy across it = along-track); spread = to the centre chief; F/# = 1/(2 sin u) of the passing rays; rms = as placed;\n');
 pr('   bf = at the field''s own best focus; stop = chief miss of the M2 pole)\n');
 pr('PLATE SCALE: local %.2f mm, to the edge %.2f mm (spec %.1f); image of the strip %.2f mm (slit %.1f)\n', M.plate_local*1e3, ...
    M.plate_edge*1e3, P.f_m*1e3, (max(M.x_m) - min(M.x_m))*1e3, P.slit_m*1e3);
@@ -180,8 +180,9 @@ for i = (numel(rungs)):numel(P.ladder)
         Pr = P;                                                  % per-rung row weights
         if isfield(P.ladder, 'w_spot_x') && ~isempty(P.ladder(i).w_spot_x), Pr.w_spot_x = P.ladder(i).w_spot_x; end
         if isfield(P.ladder, 'field_wt') && ~isempty(P.ladder(i).field_wt), Pr.solve_field_wt = P.ladder(i).field_wt; end
-        pr('  row weights: along-slit spot x%g, across-slit x%g, solve fields %s x %s\n', Pr.w_spot_x, Pr.w_spot_y, ...
-           mat2str(round(linspace(0, P.strip_half_deg, 5)*1000)/1000), mat2str(Pr.solve_field_wt));
+        if isfield(P.ladder, 'w_tel') && ~isempty(P.ladder(i).w_tel), Pr.w_tel = P.ladder(i).w_tel; end
+        pr('  row weights: along-slit spot x%g, across-slit x%g, solve fields %s x %s, TELE %g um/rad\n', Pr.w_spot_x, Pr.w_spot_y, ...
+           mat2str(round(linspace(0, P.strip_half_deg, 5)*1000)/1000), mat2str(Pr.solve_field_wt), Pr.w_tel);
         [X, Rr] = tls_figure(Pr, Xw, P.ladder(i).dofs, 'maxfev', mf);
         pr('  lsqnonlin LM: exitflag %d, %d iterations, %d evaluations, %.0f s, cost %.4e -> %.4e\n', Rr.exitflag, Rr.iterations, ...
            Rr.evaluations, Rr.seconds, Rr.cost0, Rr.cost);
@@ -202,6 +203,7 @@ end
 
 function rung_table_(pr, P, label, X, G, M)
 if ~isfield(M, 'cbow_um'), M.cbow_um = nan(size(M.fields_deg)); end   % records measured before the centroid bow was kept
+if ~isfield(M, 'chief_x_mrad'), M.chief_x_mrad = nan(size(M.fields_deg));  M.chief_y_mrad = M.chief_x_mrad; end
 pr('  %s\n', label);
 pr('    %-3s %9s %9s %7s %9s %8s %9s %9s\n', '', 'R_t mm', 'R_s mm', 'theta', 'R par mm', 'K', 'a4 um', 'a6 um');
 for k = 1:3
@@ -209,11 +211,11 @@ for k = 1:3
     pr('    %-3s %+9.1f %+9.1f %7.2f %9.1f %8.4f %+9.1f %+9.1f\n', m.name, m.Rt*1e3, m.Rs*1e3, m.theta, m.R*1e3, m.K, X.asph(k, 1), X.asph(k, 2));
 end
 pr('    layout: AOI %s deg, legs %s mm, slit dz %+.3f mm\n', mat2str(round(X.aoi*100)/100), mat2str(round(X.legs*1e4)/10), X.slit_dz*1e3);
-pr('    %7s | %5s | %7s | %6s %6s | %6s %6s %5s | %7s | %8s %8s %8s\n', 'field', 'pass', 'chief', 'F/# x', 'F/# y', 'FWHMx', 'FWHMy', 'EiP', ...
-   'rms um', 'x err um', 'bow um', 'cbow um');
+pr('    %7s | %5s | %7s %8s %8s | %6s %6s | %6s %6s %5s | %7s | %8s %8s %8s\n', 'field', 'pass', 'chief', 'chx mrad', 'chy mrad', ...
+   'F/# x', 'F/# y', 'FWHMx', 'FWHMy', 'EiP', 'rms um', 'x err um', 'bow um', 'cbow um');
 for q = 1:numel(M.fields_deg)
-    pr('    %+7.3f | %5.3f | %7.4f | %6.3f %6.3f | %6.2f %6.2f %5.2f | %7.2f | %+8.2f %+8.2f %+8.2f\n', M.fields_deg(q), M.pass(q), ...
-       M.chief_deg(q), M.fno_x(q), M.fno_y(q), M.fwhm_x_px(q), M.fwhm_y_px(q), M.eip(q), M.rms_um(q), ...
+    pr('    %+7.3f | %5.3f | %7.4f %+8.4f %+8.4f | %6.3f %6.3f | %6.2f %6.2f %5.2f | %7.2f | %+8.2f %+8.2f %+8.2f\n', M.fields_deg(q), M.pass(q), ...
+       M.chief_deg(q), M.chief_x_mrad(q), M.chief_y_mrad(q), M.fno_x(q), M.fno_y(q), M.fwhm_x_px(q), M.fwhm_y_px(q), M.eip(q), M.rms_um(q), ...
        (M.x_m(q) - P.f_m*tand(M.fields_deg(q)))*1e6, (M.y_m(q) - M.y_m(M.fields_deg == 0))*1e6, M.cbow_um(q));
 end
 cone_ok = all(M.fno_x >= P.cone_fnum(1) & M.fno_y >= P.cone_fnum(1));
