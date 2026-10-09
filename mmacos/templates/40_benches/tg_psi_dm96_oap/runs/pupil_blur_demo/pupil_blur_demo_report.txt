@@ -2,6 +2,12 @@
 DM 96x96 at 1.00 mm pitch; influence 1/e 0.85 mm; map grid 449 x 0.250 mm (the actuator sites are grid nodes); 2852 lit actuators (0.85 x 0.74 R_ap)
 actuator Nyquist = 0.500 cyc/mm; kernel lambda = 0.05 (of the stencil peak); read noise = 20 pm rms per map pixel (16 pixels per actuator)
 error = rms(recovered - true) over the lit actuators, piston removed, / rms(true commands)
+APPROXIMATIONS (say them to a skeptic): the blur is applied to the PHASE map -- the small-phase limit (the 30 nm surface is ~0.1 wave of
+  wavefront); the camera blurs INTENSITY, and the four-step phase of blurred fringes equals the blurred phase only near null, which holds here.
+  The built leg is not a Gaussian: it is a phase gain cos(phi) with amplitude cross-talk sin(phi) plus a distortion; a Gaussian is matched to it
+  at the actuator-Nyquist MTF only.  The lit set is the demo's 2852 actuators (0.85 x 0.74 R_ap); the benches light 5072 (lens) / 6948 (mirror)
+  from the traced cone, and the redo pupilsim decks fill the DM (the DM is the stop) -- the error is a per-actuator rms, so the count sets the
+  edge-to-interior ratio, not the scale.
 
 ---- the blur-free floor (sigma = 0): kernel estimator, lambda x read noise ----
 lambda      noise | checker: lit / all unk. | random: lit / all unk. 
@@ -47,6 +53,28 @@ blur     sig/pit MTF@Nyq | checker: kernel naive/cal, MATRIX naive/cal | random:
  1.300mm   1.300  0.0155 |  99.565%  98.679%  98.2226%  97.5359% |  85.818%  51.844%  85.1935%  54.0467%
  1.400mm   1.400  0.0079 |  99.629%  98.828%  98.4181%  97.8325% |  87.752%  57.453%  87.2808%  59.2978%
  1.500mm   1.500  0.0039 |  99.684%  98.948%  98.5790%  98.0739% |  89.318%  62.184%  88.9659%  63.7721%
+
+---- the built leg on the axis (tg96_pupilsim redo records, stage 2 as built) ----
+lens   Nyquist gain (min over u, v) 0.9999 -> Gaussian 1/e radius 0.0064 pitch (0.0045..0.0078 for the 4-digit print; std form 0.0045) [runs/pupilsim_redo_lens/pupilsim_redo_lens_report.txt]
+mirror Nyquist gain (min over u, v) 0.9994 -> Gaussian 1/e radius 0.0156 pitch (0.0149..0.0162 for the 4-digit print; std form 0.0110) [runs/pupilsim_redo_oap/pupilsim_redo_oap_report.txt]
+point           sig/pit | checker: kernel n/c, MATRIX n/c       | random: kernel n/c, MATRIX n/c        | random: blur cost naive (cmd) / map
+lens             0.0064 |   3.521%   3.503%   5.9744%   5.9586% |   0.906%   0.898%   1.0389%   1.0326% | 0.0082% / 0.0040%
+mirror           0.0156 |   3.619%   3.512%   6.0652%   5.9700% |   0.955%   0.906%   1.0720%   1.0337% | 0.0494% / 0.0242%
+deck 0.05 mm     0.0500 |   4.663%   3.567%   7.0488%   6.0769% |   1.428%   0.906%   1.4657%   1.0465% | 0.5064% / 0.2485%
+deck 0.14 mm     0.1400 |  12.214%   4.008%  14.1657%   6.9405% |   5.164%   0.993%   4.7327%   1.1692% | 3.8732% / 1.9136%
+deck MTF 0.98    0.0905 |   7.244%   3.707%   9.4782%   6.3497% |   2.687%   0.938%   2.5437%   1.0883% | 1.6449% / 0.8089%
+THE CROSS-CHECK (Fang's question): the blur the built leg would cost, ignored, on the random 30 nm surface, vs the deck's raw-map pupil-imaging share:
+  lens   Gaussian at the leg's Nyquist MTF: 0.0040% (map) / 0.0082% (naive command read)  vs the deck's 0.13%  -> ratio 0.031  ** MORE THAN 3x: a FINDING, not a rounding
+  mirror Gaussian at the leg's Nyquist MTF: 0.0242% (map) / 0.0494% (naive command read)  vs the deck's 0.29%  -> ratio 0.084  ** MORE THAN 3x: a FINDING, not a rounding
+  a Gaussian would need a 1/e radius of 0.036 mm (lens) / 0.054 mm (mirror) to cost the deck's shares -- inside the deck's stated 0.05-0.14 mm, i.e. the deck's
+  width and the records' Nyquist gain line describe DIFFERENT things: a gain 0.9994-0.9999 at Nyquist is a 1/e radius of 0.006-0.016 pitch, not 0.05.
+  What a gain line cannot show is error OUT of phase with the surface -- a registration residual.  The records' recovered single pokes are shifted
+  lens   by up to 0.0004 mm; the random surface shifted by that much costs 0.0474% (map metric) = 0.36 of the deck's share
+  mirror by up to 0.0001 mm; the random surface shifted by that much costs 0.0119% (map metric) = 0.041 of the deck's share
+  read: the leg's Nyquist MTF alone accounts for 3% (lens) / 8% (mirror) of the deck's share; the rest is what the Gaussian does not model.
+  The records' error by band also puts the mirror's largest share in the LOWEST band (0-0.06 cyc/mm: 0.50% of the surface there), which no blur produces.
+  The demo's answer to "is blur a concern": no -- at the built leg's MTF the blur costs 0.004% / 0.024% even uncalibrated; the deck's share is an upper
+  bound on the pupil imaging that carries more than blur.
 
 ---- the lesson (headline estimator: matrix (the record's estimator, every deck number)) ----
 blur-free floor (sigma = 0, 20 pm): matrix checker 5.9599%, random 1.0320%; kernel (lambda 0.05) 3.511% / 0.903%; all-unknowns kernel control 7.17% / 3.07%
