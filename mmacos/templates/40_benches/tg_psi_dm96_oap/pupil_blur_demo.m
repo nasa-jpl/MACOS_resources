@@ -60,6 +60,10 @@ function out = pupil_blur_demo(varargin)
 %                     min over u and v) -> the Gaussian 1/e radius with that MTF
 %     'deck_share' [0.0013 0.0029]  the deck's raw-map pupil-imaging share (lens, mirror)
 %     'deck_band_mm' [0.05 0.14]    the deck's stated blur width (shaded on the axis)
+%     'kernel' 'both' 'gauss' (the swept Gaussian blur + the built legs), 'box' (the detector
+%                     cell average: one reading per cell, cell size swept -- COPHI's
+%                     photodiode array) or 'both'
+%     'cells'  [0.5 1 1.5 2 3]  box cell sizes, PITCH units
 %     'seed'   7      RNG seed (random command pattern + noise)
 %     'figures' true  write the PNGs
 %     'outdir' runs/pupil_blur_demo   where the report + PNGs are written
@@ -76,7 +80,10 @@ o = struct('nact',96,'pitch',1.0,'infl_w',0.85,'sub',4, ...
            'estimator','matrix','lam_m',1e-3,'lam_m_sweep',[1e-2 1e-3 1e-4], ...
            'legs',{{'lens','runs/pupilsim_redo_lens/pupilsim_redo_lens_report.txt'; ...
                     'mirror','runs/pupilsim_redo_oap/pupilsim_redo_oap_report.txt'}}, ...
-           'deck_share',[0.0013 0.0029], 'deck_band_mm',[0.05 0.14]);
+           'deck_share',[0.0013 0.0029], 'deck_band_mm',[0.05 0.14], ...
+           'kernel','both', 'cells',[0.5 1 1.5 2 3]);
+assert(any(strcmp(o.kernel,{'both','gauss','box'})), 'pupil_blur_demo:kernel', '''kernel'' is ''gauss'', ''box'' or ''both''');
+doG = ~strcmp(o.kernel,'box');  doB = ~strcmp(o.kernel,'gauss') && ~isempty(o.cells);
 assert(any(strcmp(o.estimator,{'matrix','kernel'})), 'pupil_blur_demo:estimator', '''estimator'' is ''matrix'' or ''kernel''');
 for k = 1:2:numel(varargin), o.(varargin{k}) = varargin{k+1}; end
 here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end
@@ -180,6 +187,7 @@ say('=> the matrix reads every illuminated pixel (%d per actuator): its NOISE pa
 say('   its floor at the record''s lambda_m is the REGULARIZATION BIAS at the actuator Nyquist (noise-free identical to the digits) -- the same roll-off the\n');
 say('   bench reports in its own Stage D (runs/lensuw2: the (96,96) diagonal-Nyquist mode at gain 0.966); the full +/-50 nm checkerboard is all of that mode\n\n');
 
+if doG
 % ================= the blur sweep =================
 nS = numel(o.sig_pitch);
 blank = struct('naive',nan(1,nS),'cal',nan(1,nS),'mnaive',nan(1,nS),'mcal',nan(1,nS));
@@ -258,9 +266,57 @@ say('  read: the leg''s Nyquist MTF alone accounts for %.0f%% (lens) / %.0f%% (m
 say('  The records'' error by band also puts the mirror''s largest share in the LOWEST band (0-0.06 cyc/mm: 0.50%% of the surface there), which no blur produces.\n');
 say('  The demo''s answer to "is blur a concern": no -- at the built leg''s MTF the blur costs %.3f%% / %.3f%% even uncalibrated; the deck''s share is an upper\n', 100*mapc(1), 100*mapc(2));
 say('  bound on the pupil imaging that carries more than blur.\n');
+end   % doG (the Gaussian sweep and the built legs)
+if ~doG, nS = 0;  err = struct();  mtfN = [];  leg = struct([]);  pts = [];  lab = {};  legerr = struct();  cost = [];  mapc = [];  leg_shift_cost = [];  nL = 0; end
+% ================= the BOX kernel: a detector cell's average (COPHI's photodiode array) =================
+% a coarse element averages the phase over its square cell and gives ONE reading per
+% cell: the cell average + sampling on the cell grid, with exact pixel-area weights
+% (cell edges on the actuator boundaries).  CALIBRATED: the response matrix of the
+% cell readings (every column cell-averaged) -- what a calibration through the array
+% measures.  NAIVE: each reading taken as the surface at the cell centre (the
+% influences point-sampled there).  Read noise o.noise_pm per ELEMENT.  Matrix
+% estimator only: the kernel form needs a map at the actuator sites, which a cell
+% coarser than the pitch does not give.
+boxr = struct('cell',o.cells,'nread',nan(size(o.cells)),'per_act',nan(size(o.cells)), ...
+              'checker',struct('naive',nan(size(o.cells)),'cal',nan(size(o.cells))), ...
+              'random', struct('naive',nan(size(o.cells)),'cal',nan(size(o.cells))));
+if doB
+    say('\n---- the BOX kernel: one reading per detector cell (the cell average), matrix estimator, lambda_m %.0e, %g pm per element ----\n', o.lam_m, o.noise_pm);
+    say('%-10s %8s %9s | %-24s | %-24s\n', 'cell/pitch', 'readings', 'per lit', 'checker: naive / cal', 'random: naive / cal');
+    Jfull = cols_(Mu, ic, ilit, N);                              % the unit influences, full grid (N^2 x lit)
+    for ib = 1:numel(o.cells)
+        c = o.cells(ib)*pitch;
+        e0 = -c*ceil((R_ap + 2*pitch)/c);  edges = e0:c:-e0;       % cell edges on the actuator boundaries (0 is an edge)
+        O = overlap_(edges, xg, dx);                              % cells x grid, the 1-D area weights / c
+        ctr = edges(1:end-1) + c/2;  [CX, CY] = meshgrid(ctr);
+        inc = hypot(CX, CY) + c/sqrt(2) < R_ill;                  % cells wholly inside the illuminated pupil
+        B = kron(O, O);  B = B(inc(:), :);                        % vec(O H O') = kron(O,O) vec(H): cell readings
+        Jc = B*Jfull;                                             % CALIBRATED: the matrix through the cells
+        Jn = infl_at_(CX(inc), CY(inc), axg(ilit), ayg(ilit), w_mm);   % NAIVE: the influences at the cell centres
+        Fc = fact_(Jc, o.lam_m);  Fn = fact_(Jn, o.lam_m);
+        boxr.nread(ib) = nnz(inc);  boxr.per_act(ib) = nnz(inc)/numel(ilit);
+        for p = 1:2
+            nm = names{p};  rng(o.seed + 700 + ib);
+            y = B*surf.(nm)(:) + (o.noise_pm*1e-9)*randn(nnz(inc),1);
+            boxr.(nm).naive(ib) = relerr_(solve_(y, Fn, ilit, lit), pat.(nm), lit);
+            boxr.(nm).cal(ib)   = relerr_(solve_(y, Fc, ilit, lit), pat.(nm), lit);
+        end
+        say('%-10.2f %8d %9.3f | %8.3f%% / %8.3f%% | %8.3f%% / %8.3f%%\n', o.cells(ib), boxr.nread(ib), boxr.per_act(ib), ...
+            100*boxr.checker.naive(ib), 100*boxr.checker.cal(ib), 100*boxr.random.naive(ib), 100*boxr.random.cal(ib));
+    end
+    say('THE LINE (COPHI''s resolution half), calibrated:\n');
+    for ib = 1:numel(o.cells)
+        say('  a %.1f-pitch cell (%.2f readings per lit actuator) %s the checkerboard (%.1f%% error) and costs %.2f%% on the 30 nm surface\n', o.cells(ib), ...
+            boxr.per_act(ib), iff_(boxr.checker.cal(ib) > 0.5, 'LOSES', 'keeps'), 100*boxr.checker.cal(ib), 100*boxr.random.cal(ib));
+    end
+    say('  (fewer readings than lit actuators -- cells of a pitch or more -- leaves the solve underdetermined: what it returns is the regularized\n');
+    say('  minimum-norm read; the camera''s %d pixels per actuator are the other end of the trade)\n', o.sub^2);
+end
+
 hc = 'mcal';  hn = 'mnaive';  hlab = 'matrix (the record''s estimator, every deck number)';
 if strcmp(o.estimator,'kernel'), hc = 'cal';  hn = 'naive';  hlab = 'kernel (the bench''s calib_mode ''kernel'', S3 flavor)'; end
 
+if doG
 % ---- the lesson ----
 alt = (-1).^((-o.hw:o.hw).'+(-o.hw:o.hw));  Hn = abs(sum(stn_true.*alt,'all'))/max(abs(stn_true(:)));   % stencil transfer at Nyquist / peak
 sig_lam = sqrt(max(0,-log(o.lam/Hn))/(pi^2*f_nyq^2));         % kernel: where the blurred Nyquist transfer falls to lambda
@@ -273,14 +329,18 @@ say('the checker error first exceeds max(2 x its floor, 1%%): %s calibrated at s
     o.estimator, cross_(spmm, err.checker.(hc), thr(err.checker.(hc)))/pitch, cross_(spmm, err.checker.(hn), thr(err.checker.(hc)))/pitch);
 say('kernel knee: the stencil''s Nyquist transfer (%.3f of its peak) x the blur MTF falls to lambda at sigma = %.2f pitch\n', Hn, sig_lam/pitch);
 say('in the matrix form "calibrated" is automatic: the blurred columns ARE the matrix measured through the camera\n');
+else
+    sig_lam = NaN;
+end
 
 % ================= figures =================
 if o.figures
-fc = figure('Visible','off','Position',[100 100 1300 1000]);
-sp = o.sig_pitch;  cc = {[.85 .33 .1], [0 .45 .74]};  ttl = {'checkerboard (actuator Nyquist), \pm50 nm', 'random 30 nm working surface'};
+fc = figure('Visible','off','Position',[100 100 1800 1000]);  cc = {[.85 .33 .1], [0 .45 .74]};
+if doG
+sp = o.sig_pitch;  ttl = {'checkerboard (actuator Nyquist), \pm50 nm', 'random 30 nm working surface'};
 for p = 1:2
     nm = names{p};  e = err.(nm);
-    subplot(2,2,p); hold on; grid on;
+    subplot(2,3,p); hold on; grid on;
     plot(sp, 100*e.naive, ':o', 'Color', cc{p}, 'DisplayName', 'kernel, naive');
     plot(sp, 100*e.cal,   ':s', 'Color', cc{p}, 'DisplayName', 'kernel, calibrated');
     plot(sp, 100*e.mnaive,'-o', 'Color', 'k',   'DisplayName', 'matrix, naive');
@@ -289,7 +349,7 @@ for p = 1:2
     xlabel('blur 1/e radius / actuator pitch'); ylabel('actuator-command error, % of command rms');
     title(ttl{p}); legend('Location', iff_(p == 1, 'east', 'northwest')); ylim([0 100]);
 end
-subplot(2,2,3); hold on; grid on;
+subplot(2,3,4); hold on; grid on;
 plot(sp, mtfN,'k-','DisplayName','blur MTF at actuator Nyquist');
 plot(sp, err.checker.mcal,'-s','Color',cc{1},'DisplayName','checker, matrix calibrated (frac)');
 plot(sp, err.checker.cal,':s','Color',cc{1},'DisplayName','checker, kernel calibrated (frac)');
@@ -297,7 +357,7 @@ xline(sig_lam/pitch,'k--','kernel knee','LabelOrientation','horizontal','HandleV
 xlabel('blur 1/e radius / actuator pitch'); ylabel('fraction');
 title('Nyquist MTF and the calibrated error'); legend('Location','east'); ylim([0 1]);
 % the cross-check, log-log: what the blur costs IGNORED (tg96_pupilsim's map metric) vs sigma, the legs, the deck's shares
-subplot(2,2,4); hold on; grid on;  set(gca,'XScale','log','YScale','log');
+subplot(2,3,[5 6]); hold on; grid on;  set(gca,'XScale','log','YScale','log');
 sz = logspace(log10(0.003), log10(0.3), 25)*pitch;  mz = arrayfun(@(q) maperr_(blur_(surf.random, q, dx), surf.random, X, Y, 0.85*R_ill), sz);
 plot(sz/pitch, 100*mz, 'k-', 'DisplayName', 'Gaussian blur, ignored (random 30 nm, map metric)');
 lc = {[0 .45 .74], [.85 .33 .1]};
@@ -311,12 +371,24 @@ end
 patch([o.deck_band_mm fliplr(o.deck_band_mm)]/pitch, [1e-4 1e-4 10 10], [.6 .6 .6], 'FaceAlpha', .15, 'EdgeColor', 'none', 'DisplayName', 'the deck''s stated blur width');
 xlim([0.003 0.3]);  ylim([1e-4 10]);
 xlabel('blur 1/e radius / actuator pitch'); ylabel('error, % of the surface (piston + tilt removed)');
-title('The cross-check: the built legs vs the deck''s pupil-imaging share'); legend('Location','northwest','FontSize',7);
+title('The cross-check: the built legs vs the deck''s pupil-imaging share'); legend('Location','northwest','FontSize',8);
+end
+if doB
+    subplot(2,3,3); hold on; grid on;
+    plot(o.cells, 100*boxr.checker.naive, ':o', 'Color', cc{1}, 'DisplayName', 'checker, naive (cell = point sample)');
+    plot(o.cells, 100*boxr.checker.cal,   '-s', 'Color', cc{1}, 'MarkerFaceColor', cc{1}, 'DisplayName', 'checker, calibrated (cell-averaged matrix)');
+    plot(o.cells, 100*boxr.random.naive,  ':o', 'Color', cc{2}, 'DisplayName', 'random 30 nm, naive');
+    plot(o.cells, 100*boxr.random.cal,    '-s', 'Color', cc{2}, 'MarkerFaceColor', cc{2}, 'DisplayName', 'random 30 nm, calibrated');
+    xline(1, 'k--', 'one reading per actuator', 'LabelOrientation', 'horizontal', 'HandleVisibility', 'off');
+    xlabel('detector cell / actuator pitch'); ylabel('actuator-command error, % of command rms');
+    title('BOX: one reading per detector cell (COPHI''s array)'); legend('Location','southeast','FontSize',8); ylim([0 105]);
+end
 sgtitle({'pupil\_blur\_demo: pupil-imaging blur vs DM-gauge reconstruction (engine-free)', ...
     'blur applied to the PHASE map (the small-phase limit); the built legs are a cos\phi gain + sin\phi cross-talk,', ...
     sprintf('matched to a Gaussian at the actuator-Nyquist MTF only; %d lit actuators (0.85 x 0.74 R_{ap})', nnz(lit))}, 'FontSize', 11);
 print(fc, fullfile(o.outdir,'pupil_blur_demo_curve.png'),'-dpng','-r110');
 
+if doG
 is0 = find(o.sig_pitch >= 0.5,1);  if isempty(is0), is0 = nS; end
 sig0 = o.sig_pitch(is0)*pitch;  Mub0 = blur_(Mu,sig0,dx);
 rng(o.seed + is0);  m0 = blur_(surf.checker,sig0,dx) + noise();
@@ -329,8 +401,9 @@ subplot(1,4,4); imagesc(xa,xa,(aC-pat.checker)*1e9.*lit); axis image off; colorb
 sgtitle(sprintf('pupil\\_blur\\_demo: the checkerboard (actuator Nyquist) at \\sigma = %.1f pitch',o.sig_pitch(is0)));
 print(fm, fullfile(o.outdir,'pupil_blur_demo_maps.png'),'-dpng','-r110');
 end
+end
 
-out = struct('leg',leg,'leg_pts',pts,'leg_lab',{lab},'leg_err',legerr,'leg_cost',cost,'leg_map',mapc,'o',o,'sig_pitch',o.sig_pitch,'mtf_nyq',mtfN,'err',err,'floor',fl,'headline',struct('cal',hc,'naive',hn), ...
+out = struct('box',boxr,'leg',leg,'leg_pts',pts,'leg_lab',{lab},'leg_err',legerr,'leg_cost',cost,'leg_map',mapc,'o',o,'sig_pitch',o.sig_pitch,'mtf_nyq',mtfN,'err',err,'floor',fl,'headline',struct('cal',hc,'naive',hn), ...
              'sig_lambda_mm',sig_lam,'lit',lit,'f_nyq',f_nyq);
 say('\nwrote pupil_blur_demo_report.txt%s in %s\n', iff_(o.figures, ', _curve.png, _maps.png', ''), o.outdir);
 end
@@ -393,6 +466,38 @@ v = full(sum(J,1)).';
 JtJ = full(J.'*J) - (v*v.')/Am;
 d = diag(JtJ);
 Mx = struct('J', J, 'v', v, 'Am', Am, 'Rf', chol(JtJ + lam*median(d(d>0))*eye(nl)), 'ilit', ilit, 'pix', pix);
+end
+function J = cols_(Mub, ic, ilit, N)
+% the unit-influence columns on the FULL grid (N^2 x lit): Mub shifted to each site
+c0 = (N+1)/2;  [rr, cc] = find(abs(Mub) > 1e-10*max(abs(Mub(:))));
+r = max(abs([rr; cc] - c0));  w = Mub(c0-r:c0+r, c0-r:c0+r);  [dc, dr] = meshgrid(-r:r, -r:r);
+nl = numel(ilit);  nw = numel(w);  I = zeros(nw*nl,1);  Jc = I;  V = I;
+[ia, ja] = ind2sub([numel(ic) numel(ic)], ilit);
+for k = 1:nl
+    q = (k-1)*nw + (1:nw);  I(q) = sub2ind([N N], ic(ia(k)) + dr(:), ic(ja(k)) + dc(:));  Jc(q) = k;  V(q) = w(:);
+end
+J = sparse(I, Jc, V, N*N, nl);
+end
+function F = fact_(J, lam)
+% est_matrix_tg's normal equations for a reading vector: mean-referenced, lam*median(diag)
+J = sparse(J);  Am = size(J,1);  v = full(sum(J,1)).';
+JtJ = full(J.'*J) - (v*v.')/Am;  d = diag(JtJ);
+F = struct('J', J, 'v', v, 'Am', Am, 'Rf', chol(JtJ + lam*median(d(d>0))*eye(size(J,2))));
+end
+function a = solve_(y, F, ilit, lit)
+b = F.J.'*y - F.v*(sum(y)/F.Am);  x = F.Rf \ (F.Rf.' \ b);
+a = zeros(size(lit));  a(ilit) = x;
+end
+function O = overlap_(edges, xg, dx)
+% 1-D area weights: O(k,j) = |[edges(k), edges(k+1)] ^ [xg(j)-dx/2, xg(j)+dx/2]| / cell width
+lo = max(edges(1:end-1).', xg - dx/2);  hi = min(edges(2:end).', xg + dx/2);
+O = sparse(max(0, hi - lo) ./ (edges(2:end) - edges(1:end-1)).');
+end
+function J = infl_at_(xc, yc, ax, ay, w)
+% the Gaussian influences point-sampled at (xc, yc): readings x lit, cut at 5 w
+[I, K] = find(sparse(abs(xc(:) - ax(:).') < 5*w & abs(yc(:) - ay(:).') < 5*w));
+V = exp(-((xc(I) - ax(K)).^2 + (yc(I) - ay(K)).^2)/w^2);
+J = sparse(I, K, V, numel(xc), numel(ax));
 end
 function a = est_matrix_(h, Mx, lit)
 % est_matrix_tg verbatim: b = J'h - v (1'h)/Am over the mask, x = Rf \ (Rf' \ b)
