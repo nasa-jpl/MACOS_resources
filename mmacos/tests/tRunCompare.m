@@ -174,6 +174,54 @@ classdef tRunCompare < matlab.unittest.TestCase
             tc.verifySize(art.dmdgrid, [size(M.dldx, 1) + es.nmeas, ng]);
         end
 
+        function test_base_and_legacy_si_jac_compare_identically(tc)
+            % run_compare / run_simulator work in SI (pokes in m, X/U
+            % histories in m), so each converts the harvest with
+            % dwdx_trans_per_metre at its ox load.  tc.ox is a per-BaseUnit
+            % harvest (the default since 2026-10-06) on the e5mono mm deck;
+            % its legacy twin (per metre, no trans_output field -- what
+            % every pre-change jac .mat holds) must give the SAME linear
+            % prediction (w_rel), the same exported dwdu, and the same
+            % simulator control u / corrected wavefront.  Without the
+            % adapter the Tz rows read w_rel = 1/cbm - 1 = 999.
+            tc.verifyEqual(tc.ox.trans_output, 'base');
+            M = load(tc.met5.mat);
+            lg = rmfield(macos.dwdx_trans_per_metre(tc.ox), 'trans_output');
+            a = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, ...
+                'channels', "x", 'bodies', [2 8], 'dofs', [2 6], ...
+                'dwell', 0, 'gif', false, 'visible', false, ...
+                'ngridpts', 15, 'verbose', false, 'out_dir', tc.wd};
+            ab = run_compare(fullfile(tc.wd, 'pie.in'), a{:}, ...
+                'jac', struct('ox', tc.ox, 'oz', tc.oz, 'og', tc.og), 'name', 'cbu');
+            al = run_compare(fullfile(tc.wd, 'pie.in'), a{:}, ...
+                'jac', struct('ox', lg, 'oz', tc.oz, 'og', tc.og), 'name', 'clg');
+            Tb = ab.table;  Tl = al.table;
+            tc.verifyEqual([Tb.w_rms_t], [Tl.w_rms_t], 'RelTol', 1e-12);
+            tc.verifyEqual([Tb.w_rel], [Tl.w_rel], 'AbsTol', 1e-9);
+            tc.verifyLessThan(max([Tb.w_rel]), 0.05, ...
+                'the per-BaseUnit harvest predicts the engine (Ry and Tz)');
+            tc.verifyEqual(ab.dwdu, al.dwdu, 'RelTol', 1e-12);
+            % simulator: one static um-scale state, 2 frames
+            nb = numel(M.bodies);
+            ts = struct('dt', 2);
+            ts.x = zeros(6*nb, 2);
+            ts.x(12, :) = 5e-6;                   % Seg 2 Tz: 5 um (SI)
+            ts.x(46, :) = 3e-6;                   % hub Tx: 3 um
+            s = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, 'ts', ts, ...
+                'npix', 32, 'psf_crop', 32, 'dwell', 0, 'gif', false, ...
+                'ngridpts', 15, 'visible', false, 'verbose', false, ...
+                'out_dir', tc.wd};
+            sb = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                'jac', struct('ox', tc.ox, 'oz', tc.oz, 'og', tc.og), 'name', 'sbu');
+            sl = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                'jac', struct('ox', lg, 'oz', tc.oz, 'og', tc.og), 'name', 'slg');
+            tc.verifyEqual(sb.u, sl.u, 'RelTol', 1e-9, 'AbsTol', 1e-15);
+            tc.verifyEqual(sb.rms_wfe_unc, sl.rms_wfe_unc, 'RelTol', 1e-12);
+            tc.verifyEqual(sb.rms_wfe_corr, sl.rms_wfe_corr, 'RelTol', 1e-8);
+            tc.verifyLessThan(sb.rms_wfe_corr(2), 0.2 * sb.rms_wfe_unc(2), ...
+                'the control loop bites with the per-BaseUnit harvest');
+        end
+
         function test_run_simulator_time_history(tc)
             % Simulate stage (design/runners/run_simulator): a history
             % that opens with um-scale misalignments and drifts with
@@ -299,6 +347,102 @@ classdef tRunCompare < matlab.unittest.TestCase
             % convention error collapses it outright
             cc = corrcoef(dg(sel), dz(sel));
             tc.verifyGreaterThan(cc(1, 2), 0.995);
+        end
+
+        function test_zern_grid_conventions_engine_equivalence(tc)
+            % WS3 ACCEPTANCE GATE (CCL 2026-09-14, strengthened round 2).
+            % A grid poke of each non-ANSI convention's mode map (through
+            % elt_grid_add / GridChannel) must reproduce the engine's
+            % MonZernCoef poke of the same mode under the matching
+            % MonZernType (NormNoll / NormBornWolf) -- ordering AND per-mode
+            % normalization, against the engine itself.
+            %
+            % Modes {4,7,8}: Noll and Born & Wolf DIFFER at 4 and 7 (Noll 7
+            % = ANSI 8 coma, B&W 7 = ANSI 10 trefoil) and COINCIDE at 8 (both
+            % -> ANSI 9), so 8 alone cannot see a convention swap.  Mode 7
+            % also drives the NEGATIVE control below.  ng 256 with sampling
+            % 31 puts the rays coarser than the grid pixel, so the bilinear
+            % facets vanish and every mode agrees to 1% / corr 1.0000 (CCL's
+            % discretization sweep) -- hence the 1% / 0.999 thresholds.
+            old = cd(tc.wd); restore = onCleanup(@() cd(old));
+            ga = macos.design.grid_augment_rx(fullfile(tc.wd, 'pie.in'), ...
+                fullfile(tc.wd, 'pie_grid256.in'), 'ng', 256);
+            base = fileread(fullfile(tc.wd, 'pie_grid256.in'));
+            s = 2;  elt = tc.seg.seg_elts(s);  f = tc.seg.frames(s);
+            N = ga.ng;  gdx = ga.gdx(min(s, numel(ga.gdx)));
+            ap_frac = f.lmon / (((N - 1)/2) * gdx);
+            modes = [4 7 8];
+
+            % Retyped decks + the grid maps for BOTH conventions (built once).
+            decks = struct('noll', 'NormNoll', 'bornwolf', 'NormBornWolf');
+            convs = fieldnames(decks);
+            vin = struct();  mp = struct();
+            for ci = 1:numel(convs)
+                conv = convs{ci};
+                vtxt = regexprep(base, 'MonZernType=\s*\w+', ...
+                    ['MonZernType=  ' decks.(conv)]);
+                p = fullfile(tc.wd, sprintf('pie_grid256_%s.in', conv));
+                fid = fopen(p, 'w');  fwrite(fid, vtxt);  fclose(fid);
+                vin.(conv) = p;
+                for mode = modes
+                    mp.(conv).(sprintf('m%d', mode)) = ...
+                        macos.zernike_grid_basis(N, mode, ap_frac, conv);
+                end
+            end
+
+            for ci = 1:numel(convs)
+                conv = convs{ci};  other = convs{3 - ci};
+                m = macos.Session(512);
+                m.load_rx(vin.(conv));
+                m.set_src_sampling(31);
+                wf = m.num_elt() - 1;
+                for mode = modes
+                    % engine poke of this MonZernType, and the matching map
+                    dz = tc.poke_delta_(m, ...
+                        macos.channels.MonZernChannel(m, elt, mode), wf);
+                    dg = tc.poke_delta_(m, macos.channels.GridChannel(m, ...
+                        elt, mp.(conv).(sprintf('m%d', mode))), wf);
+                    [sc, cc] = tc.disk_compare_(dg, dz);
+                    tc.verifyEqual(sc, 1, 'AbsTol', 1e-2, sprintf( ...
+                        '%s mode %d vs %s poke: scale', conv, mode, decks.(conv)));
+                    tc.verifyGreaterThan(cc, 0.999, sprintf( ...
+                        '%s mode %d vs %s poke: corr', conv, mode, decks.(conv)));
+                end
+                % NEGATIVE control: the OTHER convention's map at mode 7 must
+                % NOT match this deck's poke (Noll 7 coma vs B&W 7 trefoil),
+                % proving the gate can see a convention swap.
+                dz7 = tc.poke_delta_(m, ...
+                    macos.channels.MonZernChannel(m, elt, 7), wf);
+                dgo = tc.poke_delta_(m, macos.channels.GridChannel(m, ...
+                    elt, mp.(other).m7), wf);
+                [~, ccx] = tc.disk_compare_(dgo, dz7);
+                tc.verifyLessThan(abs(ccx), 0.5, sprintf( ...
+                    ['negative control: %s map vs %s poke at mode 7 must ' ...
+                     'NOT correlate (a convention swap is visible)'], ...
+                    other, decks.(conv)));
+            end
+        end
+    end
+
+    methods (Access = private)
+        function d = poke_delta_(~, m, ch, wf)
+            % OPD change (2-D) from a single channel poke, restored after.
+            m.trace(wf);  W0 = m.opd();
+            ch.apply(1e-4);  m.trace(wf);  W1 = m.opd();  ch.restore();
+            d = W1 - W0;
+        end
+
+        function [sc, cc] = disk_compare_(~, dg, dz)
+            % Compare a grid-map poke dg to an engine poke dz WITHIN the map's
+            % confined disk (rho<=lMon): zernike_grid_basis zeros the mode
+            % outside rho=1 while the engine's MonZern grows across the grid,
+            % so select on the grid map's own support.  Returns dz-per-dg
+            % scale and correlation.
+            mk = dg ~= 0 & dz ~= 0;
+            sel = mk & (abs(dg) > 0.1 * max(abs(dg(mk))));
+            sc = dg(sel) \ dz(sel);
+            c  = corrcoef(dg(sel), dz(sel));
+            cc = c(1, 2);
         end
     end
 end

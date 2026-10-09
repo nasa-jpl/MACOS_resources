@@ -1,0 +1,101 @@
+=== pupil_blur_demo: when is pupil-imaging blur a concern? ===
+DM 96x96 at 1.00 mm pitch; influence 1/e 0.85 mm; map grid 449 x 0.250 mm (the actuator sites are grid nodes); 2852 lit actuators (0.85 x 0.74 R_ap)
+actuator Nyquist = 0.500 cyc/mm; kernel lambda = 0.05 (of the stencil peak); read noise = 20 pm rms per map pixel (16 pixels per actuator)
+error = rms(recovered - true) over the lit actuators, piston removed, / rms(true commands)
+APPROXIMATIONS (say them to a skeptic): the blur is applied to the PHASE map -- the small-phase limit (the 30 nm surface is ~0.1 wave of
+  wavefront); the camera blurs INTENSITY, and the four-step phase of blurred fringes equals the blurred phase only near null, which holds here.
+  The built leg is not a Gaussian: it is a phase gain cos(phi) with amplitude cross-talk sin(phi) plus a distortion; a Gaussian is matched to it
+  at the actuator-Nyquist MTF only.  The lit set is the demo's 2852 actuators (0.85 x 0.74 R_ap); the benches light 5072 (lens) / 6948 (mirror)
+  from the traced cone, and the redo pupilsim decks fill the DM (the DM is the stop) -- the error is a per-actuator rms, so the count sets the
+  edge-to-interior ratio, not the scale.
+
+---- the blur-free floor (sigma = 0): kernel estimator, lambda x read noise ----
+lambda      noise | checker: lit / all unk. | random: lit / all unk. 
+5e-02       20 pm |    3.5109% /    7.171% |    0.9028% /    3.070%
+5e-02        0 pm |    3.5069% /    7.171% |    0.8953% /    3.069%
+1e-02       20 pm |    0.1613% /    5.868% |    0.1114% /    2.849%
+1e-02        0 pm |    0.1452% /    5.870% |    0.0365% /    2.848%
+1e-03       20 pm |    0.0622% /    5.848% |    0.1048% /    2.845%
+1e-03        0 pm |    0.0015% /    5.851% |    0.0004% /    2.844%
+1e-04       20 pm |    0.0621% /    5.848% |    0.1048% /    2.845%
+1e-04        0 pm |    0.0000% /    5.850% |    0.0000% /    2.844%
+=> lit-only, sites on the grid: the floor is the regularization bias (the checker's Nyquist transfer against lambda) plus the noise -- it moves with both;
+   all unknowns (dmg_act_fit as it stands, the legacy control): the free ring outside the lit set holds the floor at percent level whatever lambda and noise.
+
+---- the blur-free floor (sigma = 0): the matrix estimator (the record's), lambda_m x read noise ----
+lambda_m    noise | checker      | random      
+1e-02       20 pm |    38.3555% |     8.0728%
+1e-02        0 pm |    38.3549% |     8.0730%
+1e-03       20 pm |     5.9599% |     1.0320%
+1e-03        0 pm |     5.9590% |     1.0319%
+1e-04       20 pm |     0.6323% |     0.1117%
+1e-04        0 pm |     0.6310% |     0.1065%
+=> the matrix reads every illuminated pixel (16 per actuator): its NOISE part is the deck's pm class (1.4 / 2.3 pm on a 10 nm change);
+   its floor at the record's lambda_m is the REGULARIZATION BIAS at the actuator Nyquist (noise-free identical to the digits) -- the same roll-off the
+   bench reports in its own Stage D (runs/lensuw2: the (96,96) diagonal-Nyquist mode at gain 0.966); the full +/-50 nm checkerboard is all of that mode
+
+---- the blur sweep: kernel (lambda 0.05 of the stencil peak) and matrix (lambda_m 1e-03 of the column energy), lit unknowns ----
+blur     sig/pit MTF@Nyq | checker: kernel naive/cal, MATRIX naive/cal | random: kernel naive/cal, MATRIX naive/cal
+ 0.000mm   0.000  1.0000 |   3.503%   3.503%   5.9559%   5.9559% |   0.899%   0.899%   1.0317%   1.0317%
+ 0.050mm   0.050  0.9939 |   4.666%   3.570%   7.0490%   6.0771% |   1.440%   0.919%   1.4674%   1.0486%
+ 0.100mm   0.100  0.9756 |   8.052%   3.754%  10.2400%   6.4405% |   3.084%   0.948%   2.8910%   1.0983%
+ 0.200mm   0.200  0.9060 |  20.428%   4.598%  21.9217%   8.1200% |   9.378%   1.099%   8.5137%   1.3279%
+ 0.300mm   0.300  0.8009 |  37.431%   6.482%  37.9894%  11.8466% |  18.596%   1.430%  16.9381%   1.8222%
+ 0.400mm   0.400  0.6738 |  55.216%  10.402%  54.8496%  19.4990% |  29.268%   2.083%  26.9535%   2.8225%
+ 0.500mm   0.500  0.5396 |  70.757%  18.677%  69.6359%  34.0481% |  40.082%   3.430%  37.3972%   4.7973%
+ 0.600mm   0.600  0.4114 |  82.482%  34.916%  80.8683%  56.0506% |  50.090%   6.112%  47.3546%   8.3542%
+ 0.700mm   0.700  0.2985 |  90.274%  59.492%  88.4174%  77.3988% |  58.793%  10.889%  56.2587%  13.6654%
+ 0.800mm   0.800  0.2062 |  94.901%  81.895%  92.9820%  89.5477% |  66.055%  17.561%  63.8650%  20.2386%
+ 0.900mm   0.900  0.1355 |  97.376%  93.217%  95.5148%  94.2484% |  71.964%  25.084%  70.1591%  27.4456%
+ 1.000mm   1.000  0.0848 |  98.598%  96.992%  96.8499%  95.9202% |  76.674%  32.417%  75.2540%  34.6546%
+ 1.100mm   1.100  0.0505 |  99.166%  98.087%  97.5550%  96.6785% |  80.435%  39.314%  79.3375%  41.5285%
+ 1.200mm   1.200  0.0286 |  99.422%  98.461%  97.9582%  97.1637% |  83.426%  45.728%  82.5951%  48.0435%
+ 1.300mm   1.300  0.0155 |  99.565%  98.679%  98.2226%  97.5359% |  85.818%  51.844%  85.1935%  54.0467%
+ 1.400mm   1.400  0.0079 |  99.629%  98.828%  98.4181%  97.8325% |  87.752%  57.453%  87.2808%  59.2978%
+ 1.500mm   1.500  0.0039 |  99.684%  98.948%  98.5790%  98.0739% |  89.318%  62.184%  88.9659%  63.7721%
+
+---- the built leg on the axis (tg96_pupilsim redo records, stage 2 as built) ----
+lens   Nyquist gain (min over u, v) 0.9999 -> Gaussian 1/e radius 0.0064 pitch (0.0045..0.0078 for the 4-digit print; std form 0.0045) [runs/pupilsim_redo_lens/pupilsim_redo_lens_report.txt]
+mirror Nyquist gain (min over u, v) 0.9994 -> Gaussian 1/e radius 0.0156 pitch (0.0149..0.0162 for the 4-digit print; std form 0.0110) [runs/pupilsim_redo_oap/pupilsim_redo_oap_report.txt]
+point           sig/pit | checker: kernel n/c, MATRIX n/c       | random: kernel n/c, MATRIX n/c        | random: blur cost naive (cmd) / map
+lens             0.0064 |   3.521%   3.503%   5.9744%   5.9586% |   0.906%   0.898%   1.0389%   1.0326% | 0.0082% / 0.0040%
+mirror           0.0156 |   3.619%   3.512%   6.0652%   5.9700% |   0.955%   0.906%   1.0720%   1.0337% | 0.0494% / 0.0242%
+deck 0.05 mm     0.0500 |   4.663%   3.567%   7.0488%   6.0769% |   1.428%   0.906%   1.4657%   1.0465% | 0.5064% / 0.2485%
+deck 0.14 mm     0.1400 |  12.214%   4.008%  14.1657%   6.9405% |   5.164%   0.993%   4.7327%   1.1692% | 3.8732% / 1.9136%
+deck MTF 0.98    0.0905 |   7.244%   3.707%   9.4782%   6.3497% |   2.687%   0.938%   2.5437%   1.0883% | 1.6449% / 0.8089%
+THE CROSS-CHECK (Fang's question): the blur the built leg would cost, ignored, on the random 30 nm surface, vs the deck's raw-map pupil-imaging share:
+  lens   Gaussian at the leg's Nyquist MTF: 0.0040% (map) / 0.0082% (naive command read)  vs the deck's 0.13%  -> ratio 0.031  ** MORE THAN 3x: a FINDING, not a rounding
+  mirror Gaussian at the leg's Nyquist MTF: 0.0242% (map) / 0.0494% (naive command read)  vs the deck's 0.29%  -> ratio 0.084  ** MORE THAN 3x: a FINDING, not a rounding
+  a Gaussian would need a 1/e radius of 0.036 mm (lens) / 0.054 mm (mirror) to cost the deck's shares -- inside the deck's stated 0.05-0.14 mm, i.e. the deck's
+  width and the records' Nyquist gain line describe DIFFERENT things: a gain 0.9994-0.9999 at Nyquist is a 1/e radius of 0.006-0.016 pitch, not 0.05.
+  What a gain line cannot show is error OUT of phase with the surface -- a registration residual.  The records' recovered single pokes are shifted
+  lens   by up to 0.0004 mm; the random surface shifted by that much costs 0.0474% (map metric) = 0.36 of the deck's share
+  mirror by up to 0.0001 mm; the random surface shifted by that much costs 0.0119% (map metric) = 0.041 of the deck's share
+  read: the leg's Nyquist MTF alone accounts for 3% (lens) / 8% (mirror) of the deck's share; the rest is what the Gaussian does not model.
+  The records' error by band also puts the mirror's largest share in the LOWEST band (0-0.06 cyc/mm: 0.50% of the surface there), which no blur produces.
+  The demo's answer to "is blur a concern": no -- at the built leg's MTF the blur costs 0.004% / 0.024% even uncalibrated; the deck's share is an upper
+  bound on the pupil imaging that carries more than blur.
+
+---- the BOX kernel: one reading per detector cell (the cell average), matrix estimator, lambda_m 1e-03, 20 pm per element ----
+cell/pitch readings   per lit | checker: naive / cal     | random: naive / cal     
+0.50          15544     5.450 |   30.176% /    9.782% |   12.653% /    1.542%
+1.00           3812     1.337 |   62.534% /    8.953% |   34.232% /    1.649%
+1.50           1664     0.583 |   98.299% /   97.989% |   79.981% /   72.311%
+2.00            912     0.320 |  100.636% /   98.474% |   92.904% /   85.743%
+3.00            392     0.137 |  100.098% /   99.432% |  101.387% /   93.277%
+THE LINE (COPHI's resolution half), calibrated:
+  a 0.5-pitch cell (5.45 readings per lit actuator) keeps the checkerboard (9.8% error) and costs 1.54% on the 30 nm surface
+  a 1.0-pitch cell (1.34 readings per lit actuator) keeps the checkerboard (9.0% error) and costs 1.65% on the 30 nm surface
+  a 1.5-pitch cell (0.58 readings per lit actuator) LOSES the checkerboard (98.0% error) and costs 72.31% on the 30 nm surface
+  a 2.0-pitch cell (0.32 readings per lit actuator) LOSES the checkerboard (98.5% error) and costs 85.74% on the 30 nm surface
+  a 3.0-pitch cell (0.14 readings per lit actuator) LOSES the checkerboard (99.4% error) and costs 93.28% on the 30 nm surface
+  (fewer readings than lit actuators -- cells of a pitch or more -- leaves the solve underdetermined: what it returns is the regularized
+  minimum-norm read; the camera's 16 pixels per actuator are the other end of the trade)
+
+---- the lesson (headline estimator: matrix (the record's estimator, every deck number)) ----
+blur-free floor (sigma = 0, 20 pm): matrix checker 5.9599%, random 1.0320%; kernel (lambda 0.05) 3.511% / 0.903%; all-unknowns kernel control 7.17% / 3.07%
+the checker error first exceeds max(2 x its floor, 1%): matrix calibrated at sigma = 0.40 pitch, naive at sigma = 0.20 pitch
+kernel knee: the stencil's Nyquist transfer (0.257 of its peak) x the blur MTF falls to lambda at sigma = 0.81 pitch
+in the matrix form "calibrated" is automatic: the blurred columns ARE the matrix measured through the camera
+
+wrote pupil_blur_demo_report.txt, _curve.png, _maps.png in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/pupil_blur_demo

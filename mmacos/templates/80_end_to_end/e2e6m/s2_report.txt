@@ -1,0 +1,21 @@
+==================== e2e6m S2 -- segment the primary
+parent /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s1_telescope.in
+tiling hex, 2 rings -> 19 segments, gap 0.025 m
+
+[runner] /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s2_segmented_seg_report.txt
+    segmented Rx  /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s2_segmented.in
+    edge sidecar  /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s2_segmentedHx.m
+    [0] parent: 1185 src rays, 1185 pass, rmsWFE 2.772e-09 (WaveUnits)
+    [1] 19 segments, width 1.2 flat-to-flat, 24 elements
+    bare segmented: 985 src rays, 985 pass, rmsWFE 2.485e-09 (parent 2.772e-09, -10.36%)
+    [3] physical apertures (pad 0): 983 pass (bare 985) -- 2 gap/rim rays clip
+    first-fail elements 25; rmsWFE 2.487e-09 (-10.27% vs parent)
+    [5] artifact /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s2_segmented.in: standalone reload 24 elts, 983/985 rays pass -> VERIFIED
+
+[gate] one-segment poke localizes in dW:
+    poked segment elt 2, poke 1e-08 m
+    |dW| inside  the poked segment: rms 1.991e-08 m over 52 rays
+    |dW| outside the poked segment: rms 0 m over 930 rays
+    ratio out/in 0  [PASS]
+
+S2 DONE in 0.5 min

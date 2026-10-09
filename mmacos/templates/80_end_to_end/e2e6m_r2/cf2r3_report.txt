@@ -1,0 +1,8 @@
+==== e2e6m CF2-R3 -- apodized Lyot at L=0.98, closed loop (CF2 protocol)
+the L=0.90 campaign floor: 4.485e-07 -> 1.623e-07 -> 1.081e-07 (thru 0.095)
+tag p_h280_L098_c098 | thru 0.112 (vs 0.095 at L=0.90: +19% relative)
+fixed-G: 4.486e-07 -> 1.595e-07 in 1 iters
+relin: 1.595e-07 -> 1.595e-07 | lin-ach 1.792e-09 at 3.3 nm | strokes 3.1/3.4 nm
+VERDICT: the floor HOLDS at L=0.98 (1.595e-07 vs 1.081e-07 at L=0.90, 1.48x) --
+  the +19% relative throughput is measured-free; S4 adopts L=0.98.
+CF2-R3 DONE in 35.9 min

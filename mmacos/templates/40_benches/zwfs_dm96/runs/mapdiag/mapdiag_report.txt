@@ -1,0 +1,57 @@
+=== ZWFS runner: tag mapdiag  (2026-09-10 18:10) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: battery | readings: L F I I+ S
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4)
+
+---- bench ----
+deck mapdiag_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.817e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.967e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9539 0.9510 0.9452 0.9369 0.9260 0.9120 0.8957 0.8770 0.8561 0.8328 0.8071 0.7798 0.7511 0.7206 0.6885 0.6554 0.6215 0.5867 0.5514 0.5156 
+frame: ray magnification 10.1583 DM-mm per detector-mm, detector px 3.9135e-02 mm -> 0.3976 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 7.92 px across at the mask plane (min 6)  -> PASS
+  DM 96x96: 2.52 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 4.120e-16   (gate < 1e-12: A = |E0| is exact)
+registration: center-poke anchor at detector px (511.67, 511.67) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.979, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.98 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7509, corr(map, truth) 0.9800
+bench stage 0.8 min
+
+---- battery: DM 96x96, pitch 1.0 mm ----
+calibration: surface flat, kernel measured at actuator (NaN,NaN); test actuator (60,40)
+MATRIX calibration: 64 multiplexed states (grid step 8), 3252 actuators poked once each, windows +/-10 px; J built in 2.5 min; 0 clipped windows
+lit actuators 3252; per class [mean column peak per unit command, clipped fraction, column-norm spread]:  L [0.750 0.000 0.011]  I [0.937 0.000 0.002]  S [0.936 0.000 0.002]
+modal transfer (actuator-space estimator, RAW):
+     mode  cyc/ap |       L       I       S
+  ( 1, 0)     0.5 |  0.7392  1.0822  0.6618
+  ( 2, 0)     1.0 |  0.8680  0.9898  0.9277
+  ( 4, 0)     2.0 |  1.0216  1.0095  0.9420
+  ( 8, 0)     4.0 |  1.0957  1.0675  0.9995
+  (16, 0)     8.0 |  1.0994  1.0541  0.9913
+  (24, 0)    12.0 |  1.1028  1.0521  0.9921
+  (32, 0)    16.0 |  1.1197  1.0486  0.9967
+  (40, 0)    20.0 |  1.1323  1.0435  1.0026
+  (48, 0)    24.0 |  1.1647  1.0487  1.0198
+  (56, 0)    28.0 |  1.1834  1.0418  1.0231
+  (64, 0)    32.0 |  1.2139  1.0321  1.0196
+  (72, 0)    36.0 |  1.2342  1.0285  1.0185
+  (80, 0)    40.0 |  1.2752  1.0218  1.0138
+  ( 8, 8)     5.7 |  1.1483  1.0633  1.0360   (separability row)
+  (24,24)    17.0 |  1.1449  1.0462  1.0228   (separability row)
+min |g| over the (p,0) rows:  L 0.739  I 0.990  S 0.662
+rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+row               rd  |   g_raw    e_raw  flr_raw  SNRraw |   g_cor    e_cor  flr_cor  SNRcor
+  [rand30/single10] pixels that cross the fold under the change: 3 of 2258 beyond-fold (0.01% of msk)
+  [rand30/single10] differential map on the surface vs the same change on the flat, over the changed actuator's window (rel rms diff / amplitude ratio):  L 0.604 / 0.490  F 0.570 / 0.645  I 0.354 / 0.823  I+ 0.362 / 0.782  S 0.290 / 0.725
+rand30/single10   L   |  0.3159      184      140   22.63 |  0.2782      167      109   25.51
+                  F   |  0.5081      109       66   76.80 |  0.4540      113       59   76.65
+                  I   |  0.7614       58       41  187.57 |  0.6805       67       36  186.95
+                  I+  |  0.7277       63       42  174.53 |  0.6505       72       37  173.87
+                  S   |  0.7522       47       17  444.25 |  0.7702       46       21  361.52
+(beyond-fold fraction of msk on the working-state base, prior passes: 0.0479 0.0768 0.0781 )
+break scale (10 nm differential on the hold-out actuator (60,40), on a growing base; corrected estimates; g = gain over the poked site(s), floor pm over the unpoked, SNR; fold0/fold = beyond-fold fraction from the plain / refined stepped prior; past the fold quote GAIN, not SNR):
+    base  fold0   fold | L: g flr SNR          | F: g flr SNR          | I: g flr SNR          | I+: g flr SNR         | S: g flr SNR          |
+DM 96x96 battery 3.8 min
+run complete in 4.6 min

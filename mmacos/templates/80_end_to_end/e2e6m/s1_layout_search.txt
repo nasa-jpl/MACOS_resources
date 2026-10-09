@@ -1,0 +1,227 @@
+==== e2e6m S1 layout search ====
+D = 6.00 m | lambda = 500 nm | f/# band [12 20] | shroud <= 8.0 m
+apertures OFF (design doctrine + realize_apertures frame defect)
+
+stage 1: 216 geometries at tilt [-7.20 8.46 12.00]
+        R1     T1     T2     R2     R3 |   tilt1   tilt2  tilt3 |     EFL     f/# shroud  train   AOI
+    38.400  13.00  13.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  13.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  13.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  13.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  13.00  5.600  1.900 |   -7.20    8.46  12.00 |   51.86    8.64 10.527  16.76  12.6  x fno shroud
+    44.000  17.00  13.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  16.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  16.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  16.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  16.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  16.00  5.600  1.900 |   -7.20    8.46  12.00 |   21.45    3.57 11.118  16.76  20.2  x fno shroud
+    44.000  17.00  16.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  19.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  19.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  19.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  19.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  19.00  5.600  1.900 |   -7.20    8.46  12.00 |   14.85    2.47 11.704  19.06  28.8  x fno shroud
+    44.000  17.00  19.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  22.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  22.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  22.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  22.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  22.00  5.600  1.900 |   -7.20    8.46  12.00 |   12.19    2.03 12.284  22.07  38.3  x fno shroud OBSC
+    44.000  17.00  22.00  5.600  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  13.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  13.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  13.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  13.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  13.00  6.400  1.900 |   -7.20    8.46  12.00 |   14.38    2.40 10.824  16.76  21.2  x fno shroud
+    44.000  17.00  13.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  16.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  16.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  16.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  16.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  16.00  6.400  1.900 |   -7.20    8.46  12.00 |   10.31    1.72 11.475  16.76  32.8  x fno shroud OBSC
+    44.000  17.00  16.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  19.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  19.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  19.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  19.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  19.00  6.400  1.900 |   -7.20    8.46  12.00 |    8.69    1.45 12.117  19.08  44.1  x fno shroud OBSC
+    44.000  17.00  19.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  22.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  22.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  22.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  22.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  22.00  6.400  1.900 |   -7.20    8.46  12.00 |    7.94    1.32 22.471  29.08  53.7  x fno shroud OBSC
+    44.000  17.00  22.00  6.400  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  13.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  13.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  13.00  7.200  1.900 |   -7.20    8.46  12.00 |    1.07    0.18 10.570  14.87  45.6  x fno shroud OBSC
+    44.000  15.00  13.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  13.00  7.200  1.900 |   -7.20    8.46  12.00 |    9.74    1.62 11.050  16.76  29.1  x fno shroud OBSC
+    44.000  17.00  13.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  16.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  16.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  16.00  7.200  1.900 |   -7.20    8.46  12.00 |    0.50    0.08 10.990  16.23  49.4  x fno shroud OBSC
+    44.000  15.00  16.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  16.00  7.200  1.900 |   -7.20    8.46  12.00 |    7.71    1.29 11.744  16.76  41.0  x fno shroud OBSC
+    44.000  17.00  16.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  19.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  19.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  19.00  7.200  1.900 |   -7.20    8.46  12.00 |    0.05    0.01 11.408  21.93  53.4  x fno shroud OBSC
+    44.000  15.00  19.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  19.00  7.200  1.900 |   -7.20    8.46  12.00 |    6.86    1.14 12.420  20.63  51.4  x fno shroud OBSC
+    44.000  17.00  19.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  22.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  22.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  22.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  22.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  22.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  17.00  22.00  7.200  1.900 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  13.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  13.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  13.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  13.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  13.00  5.600  2.250 |   -7.20    8.46  12.00 |   67.32   11.22 10.529  16.76  11.5  x fno shroud
+    44.000  17.00  13.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  16.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  16.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  16.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  16.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  16.00  5.600  2.250 |   -7.20    8.46  12.00 |   25.69    4.28 11.122  16.76  16.1  x fno shroud
+    44.000  17.00  16.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  19.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  19.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  19.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  19.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  19.00  5.600  2.250 |   -7.20    8.46  12.00 |   17.26    2.88 11.712  19.06  23.1  x fno shroud
+    44.000  17.00  19.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  22.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  22.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  22.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  22.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  22.00  5.600  2.250 |   -7.20    8.46  12.00 |   13.88    2.31 12.297  22.07  30.7  x fno shroud OBSC
+    44.000  17.00  22.00  5.600  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  13.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  13.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  13.00  6.400  2.250 |   -7.20    8.46  12.00 |    0.67    0.11 11.100  14.88  47.8  x fno shroud OBSC
+    44.000  15.00  13.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  13.00  6.400  2.250 |   -7.20    8.46  12.00 |   17.14    2.86 10.829  16.76  16.7  x fno shroud
+    44.000  17.00  13.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  16.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  16.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  16.00  6.400  2.250 |   -7.20    8.46  12.00 |    0.01    0.00 31.026  24.72  53.8  x fno shroud OBSC
+    44.000  15.00  16.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  16.00  6.400  2.250 |   -7.20    8.46  12.00 |   11.92    1.99 11.485  16.76  26.3  x fno shroud
+    44.000  17.00  16.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  19.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  19.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  19.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  19.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  19.00  6.400  2.250 |   -7.20    8.46  12.00 |    9.83    1.64 12.133  19.09  36.2  x fno shroud OBSC
+    44.000  17.00  19.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  22.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  22.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  22.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  22.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  22.00  6.400  2.250 |   -7.20    8.46  12.00 |    8.83    1.47 12.773  22.09  44.6  x fno shroud OBSC
+    44.000  17.00  22.00  6.400  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  13.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  13.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  13.00  7.200  2.250 |   -7.20    8.46  12.00 |    1.63    0.27 10.580  14.87  39.2  x fno shroud OBSC
+    44.000  15.00  13.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  13.00  7.200  2.250 |   -7.20    8.46  12.00 |   11.41    1.90 11.058  16.76  23.0  x fno shroud
+    44.000  17.00  13.00  7.200  2.250 |   -7.20    8.46  12.00 |    0.45    0.08 12.204  16.83  49.9  x fno shroud OBSC
+    38.400  13.00  16.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  16.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  16.00  7.200  2.250 |   -7.20    8.46  12.00 |    1.01    0.17 11.004  16.14  42.0  x fno shroud OBSC
+    44.000  15.00  16.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  16.00  7.200  2.250 |   -7.20    8.46  12.00 |    8.80    1.47 11.759  16.76  34.6  x fno shroud OBSC
+    44.000  17.00  16.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  19.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  19.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  19.00  7.200  2.250 |   -7.20    8.46  12.00 |    0.42    0.07 11.426  19.14  45.0  x fno shroud OBSC
+    44.000  15.00  19.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  19.00  7.200  2.250 |   -7.20    8.46  12.00 |    7.66    1.28 12.449  19.09  42.8  x fno shroud OBSC
+    44.000  17.00  19.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  22.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  22.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  22.00  7.200  2.250 |   -7.20    8.46  12.00 |    0.13    0.02 11.846  22.14  48.1  x fno shroud OBSC
+    44.000  15.00  22.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  22.00  7.200  2.250 |   -7.20    8.46  12.00 |    7.13    1.19 13.123  24.43  51.8  x fno shroud OBSC
+    44.000  17.00  22.00  7.200  2.250 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  13.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  13.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  13.00  5.600  2.600 |   -7.20    8.46  12.00 |    0.17    0.03 11.748  15.33  51.1  x fno shroud OBSC
+    44.000  15.00  13.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  13.00  5.600  2.600 |   -7.20    8.46  12.00 |   86.56   14.43 10.531  16.76  11.5  x shroud OBSC
+    44.000  17.00  13.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  16.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  16.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  16.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  16.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  16.00  5.600  2.600 |   -7.20    8.46  12.00 |   30.27    5.04 11.125  16.76  13.2  x fno shroud
+    44.000  17.00  16.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  19.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  19.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  19.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  19.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  19.00  5.600  2.600 |   -7.20    8.46  12.00 |   19.80    3.30 11.717  19.06  19.1  x fno shroud
+    44.000  17.00  19.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  22.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  22.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  22.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  22.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  22.00  5.600  2.600 |   -7.20    8.46  12.00 |   15.62    2.60 12.305  22.07  25.5  x fno shroud
+    44.000  17.00  22.00  5.600  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  13.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  13.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  13.00  6.400  2.600 |   -7.20    8.46  12.00 |    1.11    0.18 11.118  14.88  41.4  x fno shroud OBSC
+    44.000  15.00  13.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  13.00  6.400  2.600 |   -7.20    8.46  12.00 |   20.11    3.35 10.832  16.76  13.5  x fno shroud
+    44.000  17.00  13.00  6.400  2.600 |   -7.20    8.46  12.00 |    0.13    0.02 12.730  16.84  50.9  x fno shroud OBSC
+    38.400  13.00  16.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  16.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  16.00  6.400  2.600 |   -7.20    8.46  12.00 |    0.37    0.06 11.661  16.16  46.1  x fno shroud OBSC
+    44.000  15.00  16.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  16.00  6.400  2.600 |   -7.20    8.46  12.00 |   13.61    2.27 11.491  16.76  21.6  x fno shroud
+    44.000  17.00  16.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  19.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  19.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  19.00  6.400  2.600 |   -7.20    8.46  12.00 |    0.29    0.05 12.198  20.53  51.2  x fno shroud OBSC
+    44.000  15.00  19.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  19.00  6.400  2.600 |   -7.20    8.46  12.00 |   11.00    1.83 12.144  19.10  30.0  x fno shroud OBSC
+    44.000  17.00  19.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  22.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  22.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  22.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  15.00  22.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  22.00  6.400  2.600 |   -7.20    8.46  12.00 |    9.73    1.62 12.791  22.10  38.7  x fno shroud OBSC
+    44.000  17.00  22.00  6.400  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  13.00  13.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  13.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  13.00  7.200  2.600 |   -7.20    8.46  12.00 |    2.19    0.36 10.587  14.87  34.8  x fno shroud OBSC
+    44.000  15.00  13.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  13.00  7.200  2.600 |   -7.20    8.46  12.00 |   13.18    2.20 11.063  16.76  18.7  x fno shroud
+    44.000  17.00  13.00  7.200  2.600 |   -7.20    8.46  12.00 |    0.86    0.14 12.226  16.83  43.1  x fno shroud OBSC
+    38.400  13.00  16.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  16.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  16.00  7.200  2.600 |   -7.20    8.46  12.00 |    1.52    0.25 11.012  16.15  37.1  x fno shroud OBSC
+    44.000  15.00  16.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  16.00  7.200  2.600 |   -7.20    8.46  12.00 |    9.94    1.66 11.769  16.76  28.5  x fno shroud OBSC
+    44.000  17.00  16.00  7.200  2.600 |   -7.20    8.46  12.00 |    0.14    0.02 12.782  16.83  48.2  x fno shroud OBSC
+    38.400  13.00  19.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  19.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  19.00  7.200  2.600 |   -7.20    8.46  12.00 |    0.90    0.15 11.436  19.15  39.5  x fno shroud OBSC
+    44.000  15.00  19.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  19.00  7.200  2.600 |   -7.20    8.46  12.00 |    8.50    1.42 12.467  19.10  37.3  x fno shroud OBSC
+    44.000  17.00  19.00  7.200  2.600 |   -7.20    8.46  12.00 |    0.52    0.09 40.402  30.17  53.8  x fno shroud OBSC
+    38.400  13.00  22.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    44.000  13.00  22.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  15.00  22.00  7.200  2.600 |   -7.20    8.46  12.00 |    0.32    0.05 11.859  22.15  42.0  x fno shroud OBSC
+    44.000  15.00  22.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+    38.400  17.00  22.00  7.200  2.600 |   -7.20    8.46  12.00 |    7.79    1.30 13.154  22.10  44.2  x fno shroud OBSC
+    44.000  17.00  22.00  7.200  2.600 |   -7.20    8.46  12.00 |     NaN     NaN    NaN    NaN   NaN  x rays lost
+  (0 of 216 meet all three gates)
+
+==== ranked survivors (meet f/# band + shroud + unobscured) ====
+        R1     T1     T2     R2     R3 |   tilt1   tilt2  tilt3 |     EFL     f/# shroud  train   AOI
+NO candidate meets all three gates -- widen the grid.

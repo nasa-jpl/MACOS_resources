@@ -10,7 +10,7 @@ function T = param_table(t, opts)
 %   are reproducible from the parameters, and the parameters are not
 %   reproducible from them.  A stage that reports only its WFE has not
 %   reported its design.  (The Rodgers deck's slide-5 lesson; every
-%   reconciliation in design/rodgers1/PACKET.md ran off the parameters.)
+%   reconciliation in challenges/rodgers1/PACKET.md ran off the parameters.)
 %
 %   T = PARAM_TABLE(t, 'prev', T0) also computes the DELTA against a
 %   previous stage's table, matched by element NAME, so each stage
@@ -43,7 +43,7 @@ function T = param_table(t, opts)
 %
 %   .tilt_deg is each element's own normal vs the optical axis (+z),
 %   signed in the y-z plane by atan2d(psi_y, -psi_z) -- the same
-%   convention design/rodgers1 decodes CODE V's ADE into.
+%   convention challenges/rodgers1 decodes CODE V's ADE into.
 %
 %   See also design_report, macos.design.Telescope.
 

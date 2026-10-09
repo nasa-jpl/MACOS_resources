@@ -82,9 +82,9 @@ classdef tPupilMap < matlab.unittest.TestCase
             here = fileparts(mfilename('fullpath'));
             tc.root = fileparts(here);
             run(fullfile(tc.root,'mmacos_setup.m'));
-            tc.pdeck = fullfile(tc.root,'design','rodgers1', ...
+            tc.pdeck = fullfile(tc.root,'challenges','rodgers1', ...
                                 'rodgers1_epd4060_stage4_pupil.in');
-            tc.adeck = fullfile(tc.root,'design','rodgers2', ...
+            tc.adeck = fullfile(tc.root,'challenges','rodgers2', ...
                                 'rodgers2_S1_onaxis.in');
             tc.assumeTrue(exist(tc.pdeck,'file') == 2, ...
                 'rodgers1 exit-pupil deck not present');
@@ -404,7 +404,13 @@ classdef tPupilMap < matlab.unittest.TestCase
                           -9.9077446988243323e-01, 'RelTol',1e-12);
             tc.verifyEqual(o.surface.defocus, -2.6051612418968729e-05, ...
                           'RelTol',1e-12);
-            tc.verifyEqual(o.anchor.resid_max, 1.6398283460283825e-09, ...
+            % RE-PINNED 2026-09-08 (Dave): the only value here that moved
+            % when re-traces were made idempotent (macos OrthoSrcFrame --
+            % the source frame used to alternate by 1 ulp between traces).
+            % A sub-nm residual of ~1e-2-scale positions, it changed by
+            % 2.1e-9 relative = round-off; the seven pins above did not
+            % move at 1e-12.  Was 1.6398283460283825e-09.
+            tc.verifyEqual(o.anchor.resid_max, 1.639828342558936e-09, ...
                           'RelTol',1e-12);
             tc.verifyEqual(o.anchor_mode, 'surface');
         end
@@ -414,6 +420,27 @@ classdef tPupilMap < matlab.unittest.TestCase
             tc.verifyNotEmpty(p, 'pupil_map is not on the path');
             tc.verifyTrue(contains(p, fullfile('design','src')), ...
                 sprintf('pupil_map resolves to %s, not the shared library', p));
+        end
+
+        function test_element_stop_deck_errors_actionably(tc)
+        % A deck whose stop is an ELEMENT (no header ApStop= 3-vector --
+        % jwst_ote_designc: the FSM is the pupil; its only ApStop mentions
+        % are a COMMENT and the per-element two-value offset form) must
+        % raise the actionable key error, not the pre-fix sscanf/size
+        % crash from grab3_ matching inside the comment (Luis,
+        % 2026-08-24).  The remedy named in the message ('stop_elt') is
+        % asserted so the error stays actionable, not merely typed.
+            zdeck = fullfile(tc.root, 'templates', '50_sensitivities', ...
+                             'zoom_5x5', 'jwst_ote_designc.in');
+            tc.assumeTrue(exist(zdeck, 'file') == 2, 'zoom deck not present');
+            F = 2.9e-4 * [0 0; -1 1; 1 1; -1 -1; 1 -1];
+            try
+                pupil_map(zdeck, F, 'anchor', 'stop', 'init', false);
+                tc.verifyFail('expected the missing-ApStop key error');
+            catch e
+                tc.verifyEqual(e.identifier, 'macos:design:pupil_map:key');
+                tc.verifySubstring(e.message, 'stop_elt');
+            end
         end
     end
 end

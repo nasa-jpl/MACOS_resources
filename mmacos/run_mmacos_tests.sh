@@ -16,6 +16,7 @@
 #                                           # group in one process
 #                                           # (~10 min — heavyweight)
 #   ./run_mmacos_tests.sh proper            # only Phase 5 PROPER cmp
+#   ./run_mmacos_tests.sh polfloor          # only Phase 2c contrast floor
 #   ./run_mmacos_tests.sh tMacosPkg         # one class by name
 #   ./run_mmacos_tests.sh -k roundtrip      # methods matching a substring
 #
@@ -152,7 +153,14 @@ SUITE_FAST=$(join_suites \
     "tDesignOptimize" "tDesignTelescope" "tVeneerXP" "tCoroContrast" \
     "tCompose" "tSysProp" "tBeam" "tSegMirMaker" "tSegmentRx" "tEdgeSensors" \
     "tMet" "tMetView" "tRunMet" "tRunSensitivities" "tRunSegmentation" \
-    "tRunCompare" "tSpot")
+    "tRunCompare" "tSpot" "tDrawFrameGuard" "tDwDgridElts" \
+    "tApertureFrame" "tAppendRx" "tPropLayout" \
+    "tPolarization" "tJonesPupil" "tVecChain" \
+    "tPolElement" "tPolRadiometric" "tPolExternal" "tBench" "tOpdRef" \
+    "tTgPol" "tTgPol2" "tStopReload" "tDmgLoop" "tTmaLongslit" "tSpectrometerSens" "tPupilBlurDemo" \
+    "tLinkSave" "tZernikeGridBasis" "tRxBlockComment" \
+    "tGratingImmersed" "tGratingAperture" "tGlassDispersion" "tPropMedium" "tRxShortAsph" \
+    "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tStopApStop" "tFreeformPole")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the
@@ -163,10 +171,17 @@ SUITE_QUICK=$(join_suites \
     "tMmacosCmd" "tMacosPkg" "tMacosSession" "tBandLimitedMask" \
     "tPerturbRoundtrip" "tSysProp" "tCompose" "tVeneerXP" "tSpot")
 # tFreeFormComposite + tCalib + tReadGridFile + tViewRx + tStrictKernel
-# + tAfocalKernel + tPupilMap + tDesignAfocal + tAfocal4 + tE2E2Axial at 256
-SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tOptFex" "tStrictKernel" "tAfocalKernel" "tPupilMap" "tDesignAfocal" "tAfocal4" "tE2E2Axial")
+# + tAfocalKernel + tPupilMap + tDesignAfocal + tAfocal4 + tAfocal4Clear
+# + tAfocal4Wall + tAfocal4Descent
+# + tE2E2Axial + tPolContrast + tRodgers3 + tOffsetImager at 256
+SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tOptFex" "tStrictKernel" "tAfocalKernel" "tPupilMap" "tDesignAfocal" "tAfocal4" "tAfocal4Clear" "tAfocal4Wall" "tAfocal4Descent" "tAfocal4Offaxis" "tE2E2Axial" "tPolContrast" "tRodgers3" "tOffsetImager" "tOiSeedBranch")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
 # group; lives in "fast" because it's quick.
+# EP-dome ruling gate (Dave 2026-09-08): sensitivity OPD read at the exit
+# pupil, never the tilt-blind FocalPlane.  Model 256 (the e2e6m s3 imager
+# fixtures) -- own batch line so it neither drags a 256 deck into the 128
+# groups nor rides a size transition.
+SUITE_EPDOME=$(join_suites "tEpDomeGate")
 SUITE_MASKS=$(join_suites "tCodeV*Masks*")
 SUITE_PROPER_512=$(join_suites "tProperCompareCassFF" "tProperCompareCassFFAberrations")
 # tPupilAperture (the macos PR #70 ColSource gates) runs every probe at
@@ -174,6 +189,22 @@ SUITE_PROPER_512=$(join_suites "tProperCompareCassFF" "tProperCompareCassFFAberr
 # it neither drags a 512 deck into the 128/256 groups nor rides along with
 # the PROPER classes it has nothing to do with.
 SUITE_PUPIL_512=$(join_suites "tPupilAperture")
+# Phase 2c coronagraph floor -- Rx_Coro declares nGridpts=511 and MUST run
+# at model >= 512 (PLAN_POLARIZATION §2c fixture correction).  Its own
+# batch so the model-size transition stays contained.
+SUITE_POL_512=$(join_suites "tPolContrastCoro")
+# CTB coronagraph diffraction chain -- ctb_dcr.in / ctb_s2s_dcr.in declare
+# nGridpts=255 and their drivers run at model 512.  Own batch, same reason
+# as SUITE_POL_512.  Asset-gated: skips itself when bench_ctb is absent.
+SUITE_CTB_512=$(join_suites "tCtbProp" "tCtbDm" "tCfCampaign")
+
+# reset_xp_method='pupil_find' gates run the zoom fixture at model 512 --
+# own batch line, same isolation reason as the other 512 groups.
+SUITE_PFM_512=$(join_suites "tPupilFindMethod")
+# tEngineMemory deliberately walks model 128 <-> 256 to prove macos.unload
+# rebuilds the engine smaller.  Own batch so a size transition it induces
+# cannot seed PLAN.md §0 heap corruption into another group.
+SUITE_MEMORY=$(join_suites "tEngineMemory")
 SUITE_PROPER_1024=$(join_suites "tProperCompareCoroNFprop" "tProperCompareCoroPhase3" "tProperCompareCoroApodizer" "tProperCompareCoroDMPhase")
 # Aggregate for the `proper` shortcut (runs in two batches — the
 # initial Cass-FF group at 512 then the Coro group at 1024 — to
@@ -200,9 +231,14 @@ case "${1:-}" in
         run_batch "$SUITE_FAST"        "full: fast (size 128)"      || rc=1
         run_batch "$SUITE_MASKS"       "full: masks (size 128)"     || rc=1
         run_batch "$SUITE_FREEFORM"    "full: freeform (size 256)"  || rc=1
+        run_batch "$SUITE_EPDOME"      "full: ep-dome gate (256)"   || rc=1
         run_batch "$SUITE_PROPER_512"  "full: proper Cass-FF (512)" || rc=1
         run_batch "$SUITE_PUPIL_512"   "full: pupil aperture (512)" || rc=1
+        run_batch "$SUITE_POL_512"     "full: pol contrast (512)"   || rc=1
+        run_batch "$SUITE_CTB_512"     "full: ctb diffraction (512)" || rc=1
+        run_batch "$SUITE_PFM_512"     "full: pupil_find method (512)" || rc=1
         run_batch "$SUITE_PROPER_1024" "full: proper Coro (1024)"   || rc=1
+        run_batch "$SUITE_MEMORY"      "full: engine memory (128<->256)" || rc=1
         exit $rc
         ;;
     quick)
@@ -228,6 +264,18 @@ case "${1:-}" in
     proper)
         # Phase 5 PROPER-comparison suite — now one batch.
         run_batch "[$SUITE_PROPER_512, $SUITE_PROPER_1024]" "proper (Cass-FF + Coro NF)"
+        ;;
+    ctb)
+        # CTB coronagraph diffraction chain, size 512.
+        run_batch "$SUITE_CTB_512" "ctb diffraction (size 512)"
+        ;;
+    polfloor)
+        # Phase 2c contrast floor: exactness gates at 256, coronagraph
+        # chain at 512.  Two batches — different model sizes.
+        rc=0
+        run_batch "$(join_suites "tPolContrast")" "polfloor (size 256)"      || rc=1
+        run_batch "$SUITE_POL_512"                "polfloor coro (size 512)" || rc=1
+        exit $rc
         ;;
     -k)
         # Method-name substring filter.

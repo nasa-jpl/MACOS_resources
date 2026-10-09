@@ -2,7 +2,7 @@ function [param, prb, pzern, pgrid, InfFcnZern, InfFcnGrid] = init_e2e_pie()
 % INIT_E2E_PIE  Reference param struct for the e2e_pie Rx (regression).
 %
 % e2e_pie = the 7-segment pie-PM three-mirror telescope emitted by the
-% mmacos design pipeline (design/examples/e2e).  17 elements:
+% mmacos design pipeline (templates/80_end_to_end/e2e).  17 elements:
 %   Elts  1..7  : FreeForm PM Segments (grid + Mon-Zernike figure)
 %   Elts  8..14 : downstream Reflectors (8,10,11,12,14 = Zernike; 9 Flat;
 %                 13 Conic)

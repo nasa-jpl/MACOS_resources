@@ -17,8 +17,39 @@ function out = dw_dx_multi(session, rx_path, opts)
 %
 %   FORWARDED TO dw_dx:  dofs, elts, fp_mode, ep_elt, include_source,
 %     src_stop_mode, src_stop_pos, src_stop_elt, include_non_optics,
-%     stop_elt, stop_obj_pos, rot_output, delta, method,
-%     exit_pupil_elt, verbose.
+%     stop_elt, stop_obj_pos, groups, groups_auto, group_coords,
+%     group_fp_mode, group_stop_mode, group_stop_pos, rot_output,
+%     trans_output, delta, method, exit_pupil_elt, verbose.
+%     trans_output: 'base' (default, OPD-BaseUnits per BaseUnit of
+%     translation) | 'si' (per SI metre, the pre-2026-10-06 default);
+%     see macos.dw_dx.
+%
+%   ELEMENT GROUPS ('groups' / 'groups_auto' + the four group_* knobs)
+%   declare RIGID-BODY groups -- sets of elements perturbed as one unit
+%   via the engine's GPERTURB -- exactly as in macos.dw_dx.  Their
+%   channels are APPENDED AFTER the per-element block in every field's
+%   block, so the stacked column order is
+%       [source] [per-element] [group]
+%   and every field block carries the SAME group columns in the SAME
+%   order.  That is not an accident of the loop: the group map is
+%   materialized ONCE here (PARSE-ONCE HOIST -- 'groups_auto' reads the
+%   Rx FILE, and forwarding it per field would re-parse it per field),
+%   merged auto-then-explicit with dw_dx's semantics (an explicit entry
+%   overrides an auto one of the same name), and handed down as
+%   'groups' with groups_auto=false.  So every field sees the identical
+%   map object; the group channel COUNT cannot drift between fields
+%   ('group_fp_mode' selects each channel's post-perturbation follow-up,
+%   never how many channels exist).  The column-identity assertion below
+%   gates it anyway.
+%
+%   Group channels carry no single element id: out.iElt is 0 for them
+%   (as it is for source channels) and out.kind is 'Group' -- section
+%   them on kind, not on iElt.  Units: group and per-element columns
+%   share one convention -- the OPD numerator in the deck's BaseUnits
+%   (matching w0/opd() and the figure rungs, Dave 2026-08-25), per
+%   BaseUnit of translation by default ('trans_output', per SI metre
+%   under 'si') and per rad for rotations -- so one numeric 'delta' is
+%   one physical poke for either.
 %
 %   'delta' can be (1,1) for uniform step or (1,6) for per-DOF steps
 %     [Rx Ry Rz Tx Ty Tz]. Rotations in rad. Translation units set by
@@ -35,11 +66,15 @@ function out = dw_dx_multi(session, rx_path, opts)
 %               field TILT is removed.  A poke's OWN tilt is retained --
 %               the reference is fixed per field, not re-fit after each
 %               poke.  With a frozen EP (false) the field tilt is
-%               common-mode between w_nom and every poked w, so it
-%               cancels in the FD columns; what reset_xp changes is the
-%               first-order residual d(frame term)/dx -- negligible at
-%               arcminute fields, percent-level on tilt-coupled DOFs at
-%               wide fields.  Matches dw_dz_zernike_multi / dw_dsurf_multi
+%               common-mode between w_nom and every poked w, but it does
+%               NOT fully cancel in the FD columns: a poke remaps rays
+%               slightly, and the remapped rays sample the frame-tilt
+%               gradient, so the columns pick up an error PROPORTIONAL
+%               to the tilt retained in w_nom.  MEASURED (2026-08-27
+%               w_nom audit, zoom fixture, +-1 arcmin): rigid-body
+%               columns off by 3-5% vs a chief-tied reference at
+%               0.64 mm of retained tilt; 1e-6 at 4e-5 mm.
+%               Matches dw_dz_zernike_multi / dw_dsurf_multi
 %               / dw_dgrid_multi (family alignment).  Requires a STOP set
 %               and > 3 elements.  Set false to keep the prescription's
 %               elt nElt-1 reference unchanged (frozen EP).
@@ -57,18 +92,111 @@ function out = dw_dx_multi(session, rx_path, opts)
 %               re-derived; callers who hand-author those own re-asserting
 %               them.
 %
+%   'reset_xp_method'  'fex' (default) | 'sxp' (alias of fex; the engine
+%               merged them) | 'pupil_find'.  'pupil_find' places the
+%               cone-convergence best-fit exit-pupil sphere
+%               (design/src/pupil_find); WHERE it places is set by
+%               'pf_scope' (default 'field': one placement per
+%               (configuration, field) block, so each combo's nominal
+%               is chief-tied exactly as under fex).
+%               Needs a stop: 'stop_elt', or a deck-declared ApStop=
+%               (object-space header form included -- the segmented-
+%               primary idiom; pupil_find leaves a deck stop in force).  'pupil_find_opts' forwards extra
+%               name-values to the finder (anchor/nodes/...).  Per-block
+%               fit metrics return in out.pupil_find.
+%   'fex_axis'  'chief' (default) | 'centroid'.  The FEX pupil-sphere
+%               AXIS for the per-field reset (engine CHIEFRAY/CENTROID
+%               toggle; api xp_fnd mode 1 | 0).  The vertex and radius
+%               are axis-invariant -- only psi moves -- and on an
+%               obscured or segmented beam the downstream centroid
+%               walks off the chief, so 'centroid' tilts the reference
+%               sphere and leaves pure tip/tilt (+piston) FRAME terms
+%               in w_nom (Luis 2026-08-27; the FEX-axis ruling made
+%               chief the default on every platform).  A diagnostic
+%               opt-in, echoed in out.fex_axis.  fex/sxp only:
+%               combining it with reset_xp_method='pupil_find' errors
+%               -- the pupil_find written reference is chief-tied by
+%               doctrine.
+%   'pf_scope'  'field' (default; flipped from 'config' 2026-08-27,
+%               the w_nom audit) | 'config'.  Scope of the pupil_find
+%               placement.  'field': one MINI-CONE fit per
+%               (configuration, field) block -- a 3x3 probe grid of
+%               half-width 'pf_probe_rad' centered on that field.  The
+%               WRITTEN sphere is that combo's own chief-crossing vertex
+%               + axis + radius (pupil_find 'vertex','chief'), so the
+%               field tilt is absorbed per block and w_nom sits at fex
+%               scale (measured == fex to 4e-11 mm on the zoom and
+%               e5hex1 fixtures); the mini-cone BUNDLE fit is kept as
+%               the pupil-wander diagnostic (out.pupil_find: bundle_vtx,
+%               vtx_minus_fex, dep_rms) -- writing the bundle vertex
+%               itself injects a pure-tilt frame term (0.38 mm lateral
+%               offset -> 4.4e-3 mm RMS of tilt, zero aberration
+%               content; measured 2026-08-25).  Each block harvests, and
+%               subtracts, its OWN w_nom against its OWN sphere.
+%               'config': ONE field-set-wide sphere per configuration
+%               (frozen best-fit EP) -- a DIAGNOSTIC mode for frozen-
+%               reference / pupil-wander studies: the per-field tilt
+%               stays in w_nom (0.64 mm RMS at +-1 arcmin on the zoom
+%               fixture) and leaks 3-5% into the rigid-body dwdx
+%               columns (see 'reset_xp' above).
+%   'pf_probe_rad'  probe half-width in rad for pf_scope='field'
+%               (default NaN = 0.15x the field half-width).  Too small
+%               is ill-conditioned: the probe chief-ray crossings
+%               degenerate as the cone closes.
+%   'configs'   (default [] = today's single-block call, byte-identical)
+%               a 1xNc struct array of CONFIGURATIONS -- named sets of
+%               element setting overrides ("zoom positions"; in our
+%               systems more often a COMPENSATION state, e.g. a steering
+%               mirror at a pupil fold re-pointed to cancel pointing
+%               drift).  Each entry is
+%                   .name  char
+%                   .set   cell array of setter invocations, each itself
+%                          a cell {fname, elt, args...} dispatched
+%                          against the Session
+%               e.g.  struct('name','zUR', 'set', {{ ...
+%                       {'perturb', 25, 'rotation', [t;t;0], ...
+%                        'frame','local'} }})
+%               The Jacobian is then evaluated per (configuration, field)
+%               block and the blocks stack as extra ROWS -- a
+%               configuration adds observations of the SAME state vector
+%               x, exactly as a field point does, so every downstream
+%               consumer (run_compare, the MET optimiser, the simulator)
+%               keeps working unchanged.
+%               Row COUNT: a configuration that changes ray survival
+%               (a tilt can vignette a field) contributes a different
+%               number of rows, so the stack is sum-over-configurations,
+%               not exactly Nc*Nw.  Slice a block with
+%               out.indxall.config == c -- the blocks are contiguous.
+%               v1 accepts ONLY the pose setters perturb / set_elt_vpt /
+%               set_elt_psi / set_elt_rpt / set_elt_csys; anything else
+%               is a loud validation error BEFORE anything is applied.
+%               The runner owns the modify()-after-setters rule, and
+%               snapshots / restores / ASSERTS the touched elements
+%               around each block, so a configuration that fails to
+%               restore is a hard error rather than silent contamination
+%               of the next block.  See private/config_axis.m and
+%               design/PLAN_CONFIGURATIONS.md.
+%
 %   OUTPUT STRUCT FIELDS:
 %     dwdxall            Nw x Nz canonical state-vector Jacobian
 %     w0_stacked         Nw x 1 stacked nominal OPDs (m2v of OPDall)
 %     indxall            i, j, size struct
 %     OPDall             full tiled OPD canvas
 %     channel_names      Nz x 1 cell
+%     iElt / kind / dof_idx  Nz x 1 per-channel bookkeeping (iElt = 0
+%                        for source AND group channels -- section on
+%                        kind)
 %     field_table        Nfields x 4
 %     field_names        Nfields x 1 cell
 %     chfraydir_nom      3 x 1
 %     per_field_dwdx     Nfields x 1 cell of single-field blocks
+%                        (Nconfigs x Nfields with 'configs')
 %     per_field_w_nom_2d Nfields x 1 cell of single-field nominal OPDs
-%     rx_path / delta / method / wf_elt / rot_output / cbm
+%                        (Nconfigs x Nfields with 'configs')
+%     config_table       (with 'configs' only) Nc x 1 struct: name +
+%                        the setter list, verbatim
+%     indxall.config     (with 'configs' only) per-row configuration index
+%     rx_path / delta / method / wf_elt / rot_output / trans_output / cbm
 
 arguments
     session
@@ -90,8 +218,24 @@ arguments
     opts.include_non_optics  (1,1) logical = false
     opts.stop_elt            double = []
     opts.stop_obj_pos        double = []
+    opts.groups              = []   % containers.Map name -> col vec,
+                                    % or [] = no extras
+    opts.groups_auto         (1,1) logical = false
+    opts.group_coords        (1,:) char {mustBeMember( ...
+                                opts.group_coords, ...
+                                {'global','local'})} = 'global'
+    opts.group_fp_mode       (1,:) char {mustBeMember( ...
+                                opts.group_fp_mode, ...
+                                {'auto','none','sxp','srs'})} = 'auto'
+    opts.group_stop_mode     (1,:) char {mustBeMember( ...
+                                opts.group_stop_mode, ...
+                                {'obj','elt','none'})} = 'obj'
+    opts.group_stop_pos      (1,3) double = [0 0 0]
+    opts.group_smart_stop    (1,1) logical = true   % WS1 Fix B (see dw_dx)
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
+    opts.trans_output        (1,:) char {mustBeMember( ...
+        opts.trans_output, {'base','si'})} = 'base'   % see dw_dx
     opts.delta               (:,:) double {mustBeDeltaSize} = 1e-8
     opts.delta_units         (1,:) char {mustBeMember(opts.delta_units, ...
                                 {'si','base'})} = 'si'
@@ -99,375 +243,106 @@ arguments
                                 {'central','forward'})} = 'central'
     opts.exit_pupil_elt      (1,1) double {mustBeInteger} = -1
     opts.reset_xp            (1,1) logical = true
+    opts.reset_xp_method     (1,:) char {mustBeMember( ...
+        opts.reset_xp_method, {'fex','sxp','pupil_find'})} = 'fex'
+    opts.fex_axis            (1,:) char {mustBeMember( ...
+        opts.fex_axis, {'chief','centroid'})} = 'chief'
+    opts.pupil_find_opts     cell = {}
+    opts.pf_scope            (1,:) char {mustBeMember( ...
+        opts.pf_scope, {'config','field'})} = 'field'
+    opts.pf_probe_rad        (1,1) double = NaN
+    opts.configs                          = []
     opts.verbose             (1,1) logical = false
     opts.ngridpts            double {mustBeScalarOrEmpty} = []
     opts.src_samp            double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.compute_los         (1,1) logical = false
     opts.spot_elt            double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
+    opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
+    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'mean'
+                                     % OPD reference (macos.opd_ref): 'mean' =
+                                     % whole-aperture mean (engine default);
+                                     % 'chief' = the chief ray -- on SEGMENTED
+                                     % decks a single-segment poke under 'mean'
+                                     % pistons EVERY other segment by
+                                     % -(N_k/N)*mean(poked response) (PLAN 0.x);
+                                     % under 'chief' they read exactly 0.
+                                     % Re-applied after every Rx (re)load.
 end
 
-if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
-    error('macos:dw_dx_multi:fov', ...
-        'field_x_rad and field_y_rad are required');
-end
-
-% ---- Field set ----------------------------------------------------
-if ~isempty(opts.fields)
-    fields = load_field_file(opts.fields);
-elseif ~isempty(opts.grid)
-    [nx, ny] = parse_grid_spec(opts.grid);
-    fields = make_grid_field_set(nx, ny, opts.field_x_rad, ...
-                                  opts.field_y_rad);
-else
-    fields = make_5field_set(opts.field_x_rad, opts.field_y_rad);
-end
-n_fields = numel(fields);
-tile_rows = max(arrayfun(@(s) s.tile_row, fields)) + 1;
-tile_cols = max(arrayfun(@(s) s.tile_col, fields)) + 1;
-fprintf('[setup] %d field points, tile grid %dx%d\n', ...
-    n_fields, tile_rows, tile_cols);
-for k = 1:n_fields
-    fprintf('  field %-8s: dir-offset=(%+.3e,%+.3e) rad  tile=(%d,%d)\n', ...
-        fields(k).name, fields(k).dx, fields(k).dy, ...
-        fields(k).tile_row, fields(k).tile_col);
-end
-
-% ---- Load + snapshot nominal --------------------------------------
-session.load_rx(rx_path);
-apply_ngridpts(session, opts.ngridpts, 'dw_dx_multi');
-
-% Apply source sampling if specified
-if ~isempty(opts.src_samp)
-    session.set_src_sampling(opts.src_samp);
-    session.modify();  % Flush cache so the new sampling takes effect
-end
-
-% Apply stop here so it survives across per-field calls (dw_dx with
-% reload_rx=false won't touch the stop state).
-if ~isempty(opts.stop_elt) && ~isempty(opts.stop_obj_pos)
-    error('macos:dw_dx_multi:stop', ...
-        'stop_elt and stop_obj_pos are mutually exclusive');
-end
-if ~isempty(opts.stop_elt)
-    session.stop(int32(opts.stop_elt));
-elseif ~isempty(opts.stop_obj_pos)
-    session.stop_obj(opts.stop_obj_pos(1), opts.stop_obj_pos(2), ...
-                      opts.stop_obj_pos(3));
-end
-
-nom = session.get_src_fov();
-fprintf('[setup] nominal ChfRayDir = [%g %g %g]; zSrc = %.3e\n', ...
-    nom.src_dir, nom.zSrc);
-
-% Snapshot the prescription's exit-pupil reference (elt nElt-1 geometry)
-% so the per-field FEX resets can be undone before returning.
-% reset_xp acts by writing the pupil reference into nElt-1 -- but the
-% engine FEX only writes when nElt-1 is a Return/Reference surface;
-% on any other type it silently declines (xp_fnd still returns PASS),
-% so reset_xp is a no-op there.  Track whether ANY field's FEX actually
-% moved the EP element, and refuse to let it CLOBBER a powered optic.
-reset_ep_moved = false;   % did any field's fex() change nElt-1 geometry?
-if opts.reset_xp
-    xp0 = macos.get_xp();
-    ep_is_powered = reset_xp_guard('is_powered', session);
-end
-
-% ---- Per-field loop -----------------------------------------------
-per_field_dwdx   = cell(n_fields, 1);
-per_field_w_nom  = cell(n_fields, 1);
-per_field_struct = cell(n_fields, 1);
-if opts.compute_los
-    per_field_dcdx = cell(n_fields, 1);
-end
-names = {};
-iElt_out = [];
-for k = 1:n_fields
-    new_dir = field_to_chfraydir(nom.src_dir, fields(k).dx, fields(k).dy);
-    session.set_src_fov('src_pos', nom.src_pos, 'src_dir', new_dir, ...
-                        'zSrc', nom.zSrc);
-    session.modify();
-    fprintf('[field %s] ChfRayDir = [%g %g %g]\n', ...
-        fields(k).name, new_dir);
-    if opts.reset_xp
-        % Re-reference this field's exit pupil to its OWN chief ray: FEX
-        % writes the reference sphere into elt nElt-1 (= wf_elt), so the
-        % nominal (unpoked) wavefront there is tilt-removed.  That
-        % reference is element geometry, so it persists across the poke
-        % traces below and the rigid-body pokes act on elts 1..nElt-2,
-        % never touching elt nElt-1.  Net: the FIELD tilt is removed from
-        % the nominal, but a POKE's own tilt is retained.  Writing the EP
-        % here -- BEFORE dw_dx builds its channels -- lets a
-        % FocalPlaneChannel ('track') save/restore the POST-reset EP pose.
-        % FEX and SXP are merged in the engine, so FEX alone is well-posed
-        % for all exit-pupil placements.  The shared guard raises the
-        % supervisor-level no-stop error and absorbs the no-pupil-element
-        % FAIL -- see private/reset_xp_guard.
-        reset_xp_guard('fex', session);
-        % Did FEX actually write? (engine writes nElt-1 only for a
-        % Return/Reference surface; elsewhere it declines.)  The
-        % shared guard also ERRORS if a write landed on a powered optic.
-        reset_ep_moved = reset_xp_guard('check', session, xp0, ...
-            reset_ep_moved, ep_is_powered);
-    end
-    sf = macos.dw_dx(session, rx_path, ...
-        'dofs', opts.dofs, ...
-        'elts', opts.elts, ...
-        'fp_mode', opts.fp_mode, ...
-        'ep_elt', opts.ep_elt, ...
-        'include_source', opts.include_source, ...
-        'src_stop_mode', opts.src_stop_mode, ...
-        'src_stop_pos', opts.src_stop_pos, ...
-        'src_stop_elt', opts.src_stop_elt, ...
-        'include_non_optics', opts.include_non_optics, ...
-        'rot_output', opts.rot_output, ...
-        'delta', opts.delta, ...
-        'delta_units', opts.delta_units, ...
-        'method', opts.method, ...
-        'exit_pupil_elt', opts.exit_pupil_elt, ...
-        'verbose', opts.verbose, ...
-        'reload_rx', false, ...
-        'compute_los', opts.compute_los, ...
-        'spot_elt', opts.spot_elt);
-    % Guard: an empty OPD at the read surface (no surviving rays -- e.g.
-    % the beam footprint overflows a tight clip aperture at that field, or
-    % the trace is fully lost) yields a zero-row per-field block that
-    % otherwise scatters silently to nothing and later trips the
-    % center-tile check with an opaque scalar-logical error.  Fail loudly
-    % and actionably here instead.
-    if nnz(sf.w_nom_2d) == 0
-        error('macos:dw_dx_multi:emptyOPD', ...
-            ['field %s: OPD at the read surface (elt %d) has no non-zero ' ...
-             'samples -- 0 rays survived there.  Likely the beam footprint ' ...
-             'overflows a tight clip aperture at this field (strip the ' ...
-             'ApType= clips or widen the field/grid), or the trace is ' ...
-             'fully vignetted.'], fields(k).name, sf.wf_elt);
-    end
-    per_field_dwdx{k}   = sf.dwdx;
-    per_field_w_nom{k}  = sf.w_nom_2d;
-    per_field_struct{k} = sf;
-    if opts.compute_los
-        per_field_dcdx{k} = sf.dcdx;
-    end
-    if isempty(names), names = sf.channel_names; iElt_out = sf.iElt; end
-    col_rms_mean = mean(sqrt(mean(sf.dwdx.^2, 1)));
-    fprintf('[field %s] dwdx shape [%d %d], mean col-RMS %.3e', ...
-        fields(k).name, size(sf.dwdx, 1), size(sf.dwdx, 2), col_rms_mean);
-    if opts.compute_los
-        los_rms_mean = mean(sqrt(sum(sf.dcdx.^2, 2)));
-        fprintf('  mean LOS-RMS %.3e', los_rms_mean);
-    end
-    fprintf('\n');
-end
-
-session.set_src_fov('src_pos', nom.src_pos, 'src_dir', nom.src_dir, ...
-                    'zSrc', nom.zSrc);
-session.modify();
-
-% Restore the prescription's exit-pupil reference (undo the per-field FEX
-% writes to elt nElt-1) so the session is left as loaded.
-if opts.reset_xp
-    macos.set_xp(xp0.vpt, xp0.psi, xp0.rad);
-    session.modify();
-end
-
-% NO-PUPIL GUARD: reset_xp was requested but FEX never moved the EP
-% element at any field -- this Rx has no exit-pupil element at nElt-1, so
-% the engine declined to write and the harvest is really FROZEN-EP.  Warn
-% once and stamp the truth so downstream convention asserts (run_compare)
-% see 'no-effect', not a false 'true'.
-reset_xp_stamp = reset_xp_guard('finalize', opts.reset_xp, ...
-    reset_ep_moved, session.num_elt() - 1);
-
-% ---- Tile OPDall + scatter dwdxall --------------------------------
-N = size(per_field_w_nom{1}, 1);
-OPDall = zeros(tile_rows * N, tile_cols * N);
-for k = 1:n_fields
-    r0 = fields(k).tile_row * N;
-    c0 = fields(k).tile_col * N;
-    OPDall(r0+1:r0+N, c0+1:c0+N) = per_field_w_nom{k};
-end
-
-[w0_stacked, indxall] = macos.m2v(OPDall);
-Nw = numel(w0_stacked);
-Nz = size(per_field_dwdx{1}, 2);
-fprintf('[stack] OPDall [%d %d]; non-zero pixels = %d\n', ...
-    size(OPDall, 1), size(OPDall, 2), Nw);
-
-dwdxall = zeros(Nw, Nz);
-indx_i = indxall.i(:);
-indx_j = indxall.j(:);
-for k = 1:n_fields
-    tr = fields(k).tile_row;
-    tc = fields(k).tile_col;
-    in_tile = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
-            & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
-    i_local = indx_i(in_tile) - tr * N;
-    j_local = indx_j(in_tile) - tc * N;
-    [~, field_indx] = macos.m2v(per_field_w_nom{k});
-    field_i = field_indx.i(:);
-    field_j = field_indx.j(:);
-    flat_local = (j_local - 1) * N + i_local;
-    flat_field = (field_j  - 1) * N + field_i;
-    [tf, loc] = ismember(flat_local, flat_field);
-    if ~all(tf)
-        error('macos:dw_dx_multi:scatter', ...
-            'field %s: indxall references pixels outside per-field mask', ...
-            fields(k).name);
-    end
-    global_rows = find(in_tile);
-    dwdxall(global_rows, :) = per_field_dwdx{k}(loc, :);
-    fprintf('[stack] field %s: scattered %d rows into dwdxall\n', ...
-        fields(k).name, numel(global_rows));
-end
-
-fprintf('[stack] dwdxall shape [%d %d]; |dwdxall| max = %.3e\n', ...
-    size(dwdxall, 1), size(dwdxall, 2), max(abs(dwdxall(:))));
-
-% Center-tile sanity check.
-ctr_idx = find_center_field_index(fields);
-if ~isempty(ctr_idx)
-    tr = fields(ctr_idx).tile_row;
-    tc = fields(ctr_idx).tile_col;
-    in_ctr = (indx_i > tr*N) & (indx_i <= (tr+1)*N) ...
-           & (indx_j > tc*N) & (indx_j <= (tc+1)*N);
-    max_diff = max(abs(dwdxall(in_ctr, :) - per_field_dwdx{ctr_idx}), ...
-                    [], 'all');
-    fprintf('[check] dwdxall@center-tile vs per_field_dwdx[center]: ');
-    fprintf('max|diff| = %.3e\n', max_diff);
-    assert(max_diff == 0, ...
-        'scatter bug: dwdxall@center-tile differs from per_field_dwdx[center]');
-end
-
-out = struct();
-out.dwdxall              = dwdxall;
-out.w0_stacked           = w0_stacked;
-out.indxall              = indxall;
-out.OPDall               = OPDall;
-out.channel_names        = names;
-out.iElt                 = iElt_out;
-out.field_table          = arrayfun( ...
-    @(s) [s.dx, s.dy, s.tile_row, s.tile_col], fields, ...
-    'UniformOutput', false);
-out.field_table          = vertcat(out.field_table{:});
-out.field_names          = {fields.name}.';
-out.chfraydir_nom        = nom.src_dir(:);
-out.per_field_dwdx       = per_field_dwdx;
-out.per_field_w_nom_2d   = per_field_w_nom;
-out.rx_path              = rx_path;
-out.delta                = opts.delta;
-out.method               = opts.method;
-out.wf_elt               = per_field_struct{1}.wf_elt;
-out.rot_output           = opts.rot_output;
-out.cbm                  = per_field_struct{1}.cbm;
-out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
-
-% Add per-field LOS if SPOT was computed
-if opts.compute_los
-    out.dcdx_per_field = per_field_dcdx;
-    if isempty(opts.spot_elt)
-        out.spot_elt = session.num_elt();  % Default focal plane
-    else
-        out.spot_elt = opts.spot_elt;
-    end
-end
+F = struct();
+F.name       = 'dw_dx_multi';
+F.jac        = 'dwdx';
+F.all_names  = {'dwdxall'};
+F.per_name   = 'per_field_dwdx';
+F.hoist      = @(s, rx, o) dx_groups_hoist_(rx, o);
+F.single     = @(s, rx, o, h) macos.dw_dx(s, rx, ...
+    'dofs', o.dofs, 'elts', o.elts, 'fp_mode', o.fp_mode, ...
+    'ep_elt', o.ep_elt, 'include_source', o.include_source, ...
+    'src_stop_mode', o.src_stop_mode, 'src_stop_pos', o.src_stop_pos, ...
+    'src_stop_elt', o.src_stop_elt, ...
+    'include_non_optics', o.include_non_optics, ...
+    'groups', h, 'groups_auto', false, ...
+    'group_coords', o.group_coords, 'group_fp_mode', o.group_fp_mode, ...
+    'group_stop_mode', o.group_stop_mode, ...
+    'group_stop_pos', o.group_stop_pos, ...
+    'group_smart_stop', o.group_smart_stop, ...
+    'rot_output', o.rot_output, 'trans_output', o.trans_output, ...
+    'delta', o.delta, ...
+    'delta_units', o.delta_units, 'method', o.method, ...
+    'exit_pupil_elt', o.exit_pupil_elt, 'verbose', o.verbose, ...
+    'reload_rx', false, 'compute_los', o.compute_los, ...
+    'spot_elt', o.spot_elt);
+F.meta       = @(sf) struct('iElt', sf.iElt, 'kind', {sf.kind}, ...
+                            'dof_idx', sf.dof_idx);
+F.extras     = @(out, o, sf1) dx_extras_(out, o, sf1);
+F.cfg_tag_fieldlog = true;
+F.los_reshape      = true;
+F.deprecate_sxp    = false;
+out = dw_multi_core(session, rx_path, opts, F);
 end
 
 
 % =====================================================================
-function fields = make_5field_set(field_x_rad, field_y_rad)
-fields = struct('name', {}, 'dx', {}, 'dy', {}, ...
-                 'tile_row', {}, 'tile_col', {});
-fields(end+1) = field_entry('C',  0,            0,            1, 1);
-fields(end+1) = field_entry('UL', -field_x_rad, +field_y_rad, 2, 0);
-fields(end+1) = field_entry('UR', +field_x_rad, +field_y_rad, 2, 2);
-fields(end+1) = field_entry('LL', -field_x_rad, -field_y_rad, 0, 0);
-fields(end+1) = field_entry('LR', +field_x_rad, -field_y_rad, 0, 2);
+function grp_map = dx_groups_hoist_(rx_path, opts)
+% Element groups: PARSE-ONCE HOIST.  'groups_auto' reads the Rx FILE, so
+% forwarding it to every per-field dw_dx call would re-parse it per
+% field.  Materialize the merged map ONCE (auto first, explicit entries
+% overriding on a name collision -- dw_dx's own merge order) and hand it
+% down as 'groups' with groups_auto=false.  Same map object for every
+% field, so the group channel COUNT cannot drift between blocks; the
+% channel-identity assertion in the core gates that regardless.
+grp_map = containers.Map('KeyType', 'char', 'ValueType', 'any');
+if opts.groups_auto
+    grp_map = macos.channels.parse_rx_groups(rx_path);
 end
-
-
-function fields = make_grid_field_set(nx, ny, field_x_rad, field_y_rad)
-if nx > 1, dx_axis = linspace(-field_x_rad, +field_x_rad, nx);
-else, dx_axis = 0; end
-if ny > 1, dy_axis = linspace(-field_y_rad, +field_y_rad, ny);
-else, dy_axis = 0; end
-fields = struct('name', {}, 'dx', {}, 'dy', {}, ...
-                 'tile_row', {}, 'tile_col', {});
-for ir = 1:numel(dy_axis)
-    for ic = 1:numel(dx_axis)
-        dx = dx_axis(ic); dy = dy_axis(ir);
-        is_center = (abs(dx) < 1e-30) && (abs(dy) < 1e-30);
-        if is_center, nm = 'C';
-        else, nm = sprintf('F_r%d_c%d', ir-1, ic-1); end
-        fields(end+1) = field_entry(nm, dx, dy, ir-1, ic-1); %#ok<AGROW>
+if isa(opts.groups, 'containers.Map')
+    gk = keys(opts.groups);
+    for kk = 1:numel(gk)
+        grp_map(gk{kk}) = opts.groups(gk{kk});
     end
+elseif ~isempty(opts.groups)
+    error('macos:dw_dx_multi:groups', ...
+        'groups must be a containers.Map (name -> member id column) or []');
 end
-end
-
-
-function e = field_entry(name, dx, dy, tr, tc)
-e.name = name; e.dx = dx; e.dy = dy; e.tile_row = tr; e.tile_col = tc;
-end
-
-
-function idx = find_center_field_index(fields)
-idx = [];
-for k = 1:numel(fields)
-    if abs(fields(k).dx) < 1e-30 && abs(fields(k).dy) < 1e-30
-        idx = k; return;
+if grp_map.Count > 0
+    gk = keys(grp_map);
+    fprintf('[setup] %d element group(s):\n', grp_map.Count);
+    for kk = 1:numel(gk)
+        fprintf('  group %-10s: elts %s\n', gk{kk}, ...
+            mat2str(reshape(double(grp_map(gk{kk})), 1, [])));
     end
+else
+    % preserved surface: with no groups the per-field call gets [],
+    % exactly the argument it got before the group opts existed.
+    grp_map = [];
 end
 end
 
-
-function new_dir = field_to_chfraydir(dir_nom, dx_rad, dy_rad)
-v = dir_nom(:) + [dx_rad; dy_rad; 0];
-n = norm(v);
-if n == 0
-    error('macos:dw_dx_multi:zerodir', ...
-        'zero-magnitude direction after field offset');
-end
-new_dir = v / n;
-end
-
-
-function [nx, ny] = parse_grid_spec(spec)
-toks = regexp(lower(spec), 'x', 'split');
-if numel(toks) ~= 2
-    error('macos:dw_dx_multi:grid', ...
-        '''grid'' must be ''NxM''; got %s', spec);
-end
-nx = str2double(toks{1});
-ny = str2double(toks{2});
-if isnan(nx) || isnan(ny) || nx < 1 || ny < 1
-    error('macos:dw_dx_multi:grid', ...
-        '''grid'' must be ''NxM'' with positive integers; got %s', spec);
-end
-end
-
-
-function fields = load_field_file(fname)
-fid = fopen(fname, 'r');
-if fid < 0
-    error('macos:dw_dx_multi:fields', ...
-        'cannot open fields file: %s', fname);
-end
-c = onCleanup(@() fclose(fid));
-fields = struct('name', {}, 'dx', {}, 'dy', {}, ...
-                 'tile_row', {}, 'tile_col', {});
-while true
-    ln = fgetl(fid);
-    if ~ischar(ln); break; end
-    s = strtrim(ln);
-    if isempty(s) || startsWith(s, '#'), continue; end
-    toks = regexp(s, '\s+', 'split');
-    if numel(toks) < 5
-        error('macos:dw_dx_multi:fields', ...
-            'fields-file row needs 5 columns: %s', s);
-    end
-    fields(end+1) = field_entry(toks{1}, ...
-        str2double(toks{2}), str2double(toks{3}), ...
-        str2double(toks{4}), str2double(toks{5})); %#ok<AGROW>
-end
+function out = dx_extras_(out, opts, sf1)
+out.rot_output = opts.rot_output;
+out.trans_output = sf1.trans_output;
+out.cbm        = sf1.cbm;
 end
 
 function mustBeDeltaSize(d)
@@ -476,5 +351,3 @@ function mustBeDeltaSize(d)
             'delta must be (1,1) or (1,6)');
     end
 end
-
-

@@ -1,0 +1,127 @@
+# dwdz_5zoom_5fov_jwst_ote_designc -- sensitivity figure index (61 files)
+# every dW page written by this harvest, in the order it was drawn.
+# kind        mode           block                  panels     page  file
+  channels    multi          element 5 [1 of 2]         2     1/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p01.png
+  channels    multi          element 5 [2 of 2]         1     2/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p02.png
+  channels    multi          element 6 [1 of 2]         2     3/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p03.png
+  channels    multi          element 6 [2 of 2]         1     4/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p04.png
+  channels    multi          element 7 [1 of 2]         2     5/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p05.png
+  channels    multi          element 7 [2 of 2]         1     6/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p06.png
+  channels    multi          element 8 [1 of 2]         2     7/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p07.png
+  channels    multi          element 8 [2 of 2]         1     8/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p08.png
+  channels    multi          element 9 [1 of 2]         2     9/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p09.png
+  channels    multi          element 9 [2 of 2]         1    10/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p10.png
+  channels    multi          element 10 [1 of 2]        2    11/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p11.png
+  channels    multi          element 10 [2 of 2]        1    12/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p12.png
+  channels    multi          element 11 [1 of 2]        2    13/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p13.png
+  channels    multi          element 11 [2 of 2]        1    14/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p14.png
+  channels    multi          element 12 [1 of 2]        2    15/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p15.png
+  channels    multi          element 12 [2 of 2]        1    16/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p16.png
+  channels    multi          element 13 [1 of 2]        2    17/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p17.png
+  channels    multi          element 13 [2 of 2]        1    18/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p18.png
+  channels    multi          element 14 [1 of 2]        2    19/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p19.png
+  channels    multi          element 14 [2 of 2]        1    20/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p20.png
+  channels    multi          element 15 [1 of 2]        2    21/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p21.png
+  channels    multi          element 15 [2 of 2]        1    22/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p22.png
+  channels    multi          element 16 [1 of 2]        2    23/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p23.png
+  channels    multi          element 16 [2 of 2]        1    24/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p24.png
+  channels    multi          element 17 [1 of 2]        2    25/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p25.png
+  channels    multi          element 17 [2 of 2]        1    26/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p26.png
+  channels    multi          element 18 [1 of 2]        2    27/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p27.png
+  channels    multi          element 18 [2 of 2]        1    28/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p28.png
+  channels    multi          element 19 [1 of 2]        2    29/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p29.png
+  channels    multi          element 19 [2 of 2]        1    30/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p30.png
+  channels    multi          element 20 [1 of 2]        2    31/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p31.png
+  channels    multi          element 20 [2 of 2]        1    32/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p32.png
+  channels    multi          element 21 [1 of 2]        2    33/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p33.png
+  channels    multi          element 21 [2 of 2]        1    34/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p34.png
+  channels    multi          element 22 [1 of 2]        2    35/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p35.png
+  channels    multi          element 22 [2 of 2]        1    36/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p36.png
+  channels    multi          element 23 [1 of 2]        2    37/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p37.png
+  channels    multi          element 23 [2 of 2]        1    38/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p38.png
+  channels    multi          element 24 [1 of 2]        2    39/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p39.png
+  channels    multi          element 24 [2 of 2]        1    40/40  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p40.png
+  index       channels       all                       60        -  zoom_5x5/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels.png
+  per_element center         element 5                  3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt5_center.png
+  per_element center         element 6                  3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt6_center.png
+  per_element center         element 7                  3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt7_center.png
+  per_element center         element 8                  3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt8_center.png
+  per_element center         element 9                  3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt9_center.png
+  per_element center         element 10                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt10_center.png
+  per_element center         element 11                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt11_center.png
+  per_element center         element 12                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt12_center.png
+  per_element center         element 13                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt13_center.png
+  per_element center         element 14                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt14_center.png
+  per_element center         element 15                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt15_center.png
+  per_element center         element 16                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt16_center.png
+  per_element center         element 17                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt17_center.png
+  per_element center         element 18                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt18_center.png
+  per_element center         element 19                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt19_center.png
+  per_element center         element 20                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt20_center.png
+  per_element center         element 21                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt21_center.png
+  per_element center         element 22                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt22_center.png
+  per_element center         element 23                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt23_center.png
+  per_element center         element 24                 3        -  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt24_center.png
+
+# channels per page
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p01.png: Elt 5 MonZern4, Elt 5 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p02.png: Elt 5 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p03.png: Elt 6 MonZern4, Elt 6 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p04.png: Elt 6 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p05.png: Elt 7 MonZern4, Elt 7 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p06.png: Elt 7 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p07.png: Elt 8 MonZern4, Elt 8 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p08.png: Elt 8 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p09.png: Elt 9 MonZern4, Elt 9 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p10.png: Elt 9 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p11.png: Elt 10 MonZern4, Elt 10 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p12.png: Elt 10 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p13.png: Elt 11 MonZern4, Elt 11 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p14.png: Elt 11 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p15.png: Elt 12 MonZern4, Elt 12 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p16.png: Elt 12 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p17.png: Elt 13 MonZern4, Elt 13 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p18.png: Elt 13 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p19.png: Elt 14 MonZern4, Elt 14 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p20.png: Elt 14 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p21.png: Elt 15 MonZern4, Elt 15 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p22.png: Elt 15 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p23.png: Elt 16 MonZern4, Elt 16 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p24.png: Elt 16 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p25.png: Elt 17 MonZern4, Elt 17 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p26.png: Elt 17 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p27.png: Elt 18 MonZern4, Elt 18 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p28.png: Elt 18 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p29.png: Elt 19 MonZern4, Elt 19 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p30.png: Elt 19 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p31.png: Elt 20 MonZern4, Elt 20 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p32.png: Elt 20 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p33.png: Elt 21 MonZern4, Elt 21 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p34.png: Elt 21 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p35.png: Elt 22 MonZern4, Elt 22 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p36.png: Elt 22 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p37.png: Elt 23 MonZern4, Elt 23 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p38.png: Elt 23 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p39.png: Elt 24 MonZern4, Elt 24 MonZern5
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels_p40.png: Elt 24 MonZern6
+  zoom_5x5/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_channels.png: Elt 5 MonZern4, Elt 5 MonZern5, Elt 5 MonZern6, Elt 6 MonZern4, Elt 6 MonZern5, Elt 6 MonZern6, Elt 7 MonZern4, Elt 7 MonZern5, Elt 7 MonZern6, Elt 8 MonZern4, Elt 8 MonZern5, Elt 8 MonZern6, Elt 9 MonZern4, Elt 9 MonZern5, Elt 9 MonZern6, Elt 10 MonZern4, Elt 10 MonZern5, Elt 10 MonZern6, Elt 11 MonZern4, Elt 11 MonZern5, Elt 11 MonZern6, Elt 12 MonZern4, Elt 12 MonZern5, Elt 12 MonZern6, Elt 13 MonZern4, Elt 13 MonZern5, Elt 13 MonZern6, Elt 14 MonZern4, Elt 14 MonZern5, Elt 14 MonZern6, Elt 15 MonZern4, Elt 15 MonZern5, Elt 15 MonZern6, Elt 16 MonZern4, Elt 16 MonZern5, Elt 16 MonZern6, Elt 17 MonZern4, Elt 17 MonZern5, Elt 17 MonZern6, Elt 18 MonZern4, Elt 18 MonZern5, Elt 18 MonZern6, Elt 19 MonZern4, Elt 19 MonZern5, Elt 19 MonZern6, Elt 20 MonZern4, Elt 20 MonZern5, Elt 20 MonZern6, Elt 21 MonZern4, Elt 21 MonZern5, Elt 21 MonZern6, Elt 22 MonZern4, Elt 22 MonZern5, Elt 22 MonZern6, Elt 23 MonZern4, Elt 23 MonZern5, Elt 23 MonZern6, Elt 24 MonZern4, Elt 24 MonZern5, Elt 24 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt5_center.png: Elt 5 MonZern4, Elt 5 MonZern5, Elt 5 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt6_center.png: Elt 6 MonZern4, Elt 6 MonZern5, Elt 6 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt7_center.png: Elt 7 MonZern4, Elt 7 MonZern5, Elt 7 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt8_center.png: Elt 8 MonZern4, Elt 8 MonZern5, Elt 8 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt9_center.png: Elt 9 MonZern4, Elt 9 MonZern5, Elt 9 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt10_center.png: Elt 10 MonZern4, Elt 10 MonZern5, Elt 10 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt11_center.png: Elt 11 MonZern4, Elt 11 MonZern5, Elt 11 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt12_center.png: Elt 12 MonZern4, Elt 12 MonZern5, Elt 12 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt13_center.png: Elt 13 MonZern4, Elt 13 MonZern5, Elt 13 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt14_center.png: Elt 14 MonZern4, Elt 14 MonZern5, Elt 14 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt15_center.png: Elt 15 MonZern4, Elt 15 MonZern5, Elt 15 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt16_center.png: Elt 16 MonZern4, Elt 16 MonZern5, Elt 16 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt17_center.png: Elt 17 MonZern4, Elt 17 MonZern5, Elt 17 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt18_center.png: Elt 18 MonZern4, Elt 18 MonZern5, Elt 18 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt19_center.png: Elt 19 MonZern4, Elt 19 MonZern5, Elt 19 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt20_center.png: Elt 20 MonZern4, Elt 20 MonZern5, Elt 20 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt21_center.png: Elt 21 MonZern4, Elt 21 MonZern5, Elt 21 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt22_center.png: Elt 22 MonZern4, Elt 22 MonZern5, Elt 22 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt23_center.png: Elt 23 MonZern4, Elt 23 MonZern5, Elt 23 MonZern6
+  dwdz_5zoom_5fov_jwst_ote_designc_pages/dwdz_5zoom_5fov_jwst_ote_designc_dwdz_elt24_center.png: Elt 24 MonZern4, Elt 24 MonZern5, Elt 24 MonZern6

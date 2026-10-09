@@ -1,0 +1,47 @@
+==================== e2e6m S3c -- the imager leg
+metric: RMS WFE in waves @ 500 nm at the IMAGER leg's own exit
+        pupil, piston+tip/tilt removed; Strehl EXACT from that
+        OPD (|mean exp(i 2 pi W/lambda)|^2), never a pixel peak.
+base deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s2_segmented.in
+
+[1] telescope exit: 24 elements, 983/985 rays
+    feeding f/25.39 -> shared collimated pupil 0.0473 m
+    imager camera f = 0.900 m -> f/19.0, lambda/D = 9.52 um at its focus
+
+[2] bench (metres): 5 elements -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_imager_leg.in
+    OAP1 f_parent 1.2000 m (shared), camera f_parent 0.9000 m
+    conjugates: OAP1 1.2133 m, camera 0.9099 m
+    stations (bench-local): SharedPupil 2, Pickoff 3, Imager 5
+
+[3] spliced: 21 telescope + 5 bench = 26 elements -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_imager_full.in
+
+[4] gates
+    loads at 26 elements (expected 26)  [PASS]
+    983/985 rays pass (telescope alone 983)  [PASS]
+    SharedPupil  elt 23: beam radius 0.023747 m (pupil)
+    Pickoff      elt 24: beam radius 0.02386 m (fold)
+    Imager       elt 26: beam radius 8.7115e-07 m (focus)
+    shared pupil radius 0.023747 m against the 0.023633 m the collimator
+    was asked for  [PASS]
+
+[5] image quality at the imager focal plane
+    exit pupil appended: 26 -> 28 elements (prop_layout terminal group)
+    rms WFE 0.0042 waves @ 500 nm over 982 valid rays (-tilt)
+    Strehl 0.9993 (exact, from the EP OPD)
+    diffraction limit 0.071 waves  [PASS]
+    Strehl >= 0.80  [PASS]
+    (S1 telescope-only record at the TELESCOPE best-focus XP:
+     0.0473 waves -- a different anchor, quoted for reference only)
+
+[6] shroud on the FULL two-leg observatory
+    measured by the SAME rule S3 uses (design/src/shroud_deck:
+    hypot(centre) + footprint radius, Element=Return excluded)
+    imager leg       7.451 m over 26 hardware elements
+    coronagraph leg  7.451 m over 29 hardware elements
+    BOTH legs together 7.451 m against the 8.0 m gate  [PASS]
+    the union equals the larger leg: the 6 m primary sets the
+    envelope and both instrument legs are centimetre-class, so
+    the SECOND instrument costs nothing in shroud diameter.
+    figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_imager_shroud.png
+
+S3c DONE in 0.1 min

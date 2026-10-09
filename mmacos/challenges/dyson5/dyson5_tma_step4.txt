@@ -1,0 +1,28 @@
+dyson5 round 4 step 4 (CCMac) -- aspheres on the d205 section: plate scale AND blur (2026-10-04 17:21)
+restart = CC step-2b section (decenter 205 mm, bias 3 deg on the f=330/F1.8/D=183 Korsch); hook asph_elts=[1 2 3] asph_terms=[1 2] (h^4,h^6)
+on top of 3 conics + plate rows (beam_pos_fov = 330 mm*tan(theta)); walk beam_wt.  spot = best-focus rms radius, um; plate = traced EFL on the section.
+
+[layout] R=[0.3667 0.0998 0.0903] m  t=[0.1477 0.2577] m  on-axis exact EFL 0.3298 m, F/1.80 at D=183.3 mm
+
+===== module 1k5: strip +-2.35 deg, 7 fields =====
+variant    beam_wt rms spot per field, um (NaN=not imaged)                  maxspot      ctr  EEmin   plate  clear  len mm   M2 mm   M3 mm mass kg
+conics       0e+00 161.0 150.6 108.2  76.8 108.2 150.6 161.0                  161.0     76.8  0.003   447.5   PASS   257.7    55.6   128.6    1.05
+asph(blur)     NaN 149.8  86.3  63.1  41.7  63.1  86.3 149.8                  149.8     41.7  0.003   449.5   FAIL   257.7    54.5   131.0    1.06
+asph+scale   1e-02 426.4 313.1 187.0  99.1 187.0 313.1 426.4                  426.4     99.1  0.000   422.2   PASS   257.7    58.9   126.0    1.04
+asph+scale   1e-01 4320.73332.82967.02824.32967.03332.84320.7                4320.7   2824.3  0.000   426.3   FAIL   257.7    76.4   111.8    1.02
+asph+scale   1e+00 47929.644901.655356.352230.055356.344901.647929.6        55356.3  52230.0  0.000 17855.4   FAIL   257.7   179.3   582.8    7.96
+
+===== module 3k: strip +-4.70 deg, 7 fields =====
+variant    beam_wt rms spot per field, um (NaN=not imaged)                  maxspot      ctr  EEmin   plate  clear  len mm   M2 mm   M3 mm mass kg
+conics       0e+00 959.31486.6 658.9 493.0 658.91486.6 959.3                 1486.6    493.0  0.000   496.4   FAIL   257.7    65.4   236.3    1.84
+asph(blur)     NaN 34660.2 391.5  73.9  20.2  73.9 391.534660.2             34660.2     20.2  0.000   449.8   FAIL   257.7    68.2   222.8    1.73
+asph+scale   1e-02 23715.22139.6 578.6 259.1 578.62139.623715.2             23715.2    259.1  0.000   387.1   FAIL   257.7    71.4   213.3    1.65
+asph+scale   1e-01 32133.713198.24448.64002.04448.613198.232133.7           32133.7   4002.0  0.000   300.8   FAIL   257.7   495.6   143.1    5.88
+asph+scale   1e+00 20999.97887.05719.05469.65719.07887.020999.9             20999.9   5469.6  0.000   820.1   FAIL   257.7   102.5   193.9    1.60
+
+BEST 1k5: conics (beam_wt 0e+00): worst spot 161.0 um (8.94 px), centre 76.8 um (4.27 px), EE_min 0.003, plate 447.5 mm, clearance PASS, mass 1.05 kg
+   conics K=[-0.8867 -1.6908 -0.5317]; min clearance +0.1 mm at M2; 0 conflicts
+   layout: /Users/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step4_layout_1k5.png
+BEST 3k: conics (beam_wt 0e+00): worst spot 1486.6 um (82.59 px), centre 493.0 um (27.39 px), EE_min 0.000, plate 496.4 mm, clearance FAIL, mass 1.84 kg
+   conics K=[-0.8012 -0.8871 -0.5035]; min clearance -0.4 mm at M2; 4 conflicts
+   layout: /Users/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step4_layout_3k.png

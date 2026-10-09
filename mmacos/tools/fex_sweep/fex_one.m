@@ -5,7 +5,7 @@
 %
 % The engine FEX prints both radius legs:
 %   ***** FEX: zp_iEm1 = <legacy iEm1->EP>  zp = <EP->next (default)>
-% plus any FEX WARNING / AUTOSWITCH / TELECENTRIC / Rx-order lines --
+% plus any FEX WARNING / AUTOSWITCH / TELECENTRIC lines --
 % the sweep log is the compatibility record.
 old_dir = cd(fullfile(getenv('HOME'),'dev','MACOS_resources','mmacos'));
 mmacos_setup;

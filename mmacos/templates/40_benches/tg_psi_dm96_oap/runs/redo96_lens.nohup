@@ -1,0 +1,2 @@
+[tg96_batch] tg96_run_batch('tag','redo96_lens', 'stages',{'bench','deck','figs'})  (MemoryMax=14G)
+[tg96_batch] exit 0

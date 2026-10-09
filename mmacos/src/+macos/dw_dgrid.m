@@ -43,6 +43,11 @@ arguments
     rx_path (1,:) char = ''
     opts.influence              = []   % [NxNxK] | per-segment struct | cell
     opts.zmodes         (1,:) double = [4 5 6 7 8 11]
+    opts.zconv          (1,:) char {mustBeMember(opts.zconv, ...
+                            {'ansi','noll','bornwolf'})} = 'ansi'
+                            % Zernike ordering of the DEFAULT basis (used only
+                            % when 'influence' is not supplied): matches
+                            % MonZernType=Norm<conv>.  Recorded in out.zconv.
     opts.elts           (:,1) double = []
     opts.exit_pupil_elt (1,1) double = -1
     opts.delta          (1,1) double = 1e-6
@@ -53,9 +58,21 @@ arguments
     opts.src_samp       double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.compute_los    (1,1) logical = false
     opts.spot_elt       double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
+    opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
+    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'mean'
+                                     % OPD reference (macos.opd_ref): 'mean' =
+                                     % whole-aperture mean (engine default);
+                                     % 'chief' = the chief ray -- on SEGMENTED
+                                     % decks a single-segment poke under 'mean'
+                                     % pistons EVERY other segment by
+                                     % -(N_k/N)*mean(poked response) (PLAN 0.x);
+                                     % under 'chief' they read exactly 0.
+                                     % Re-applied after every Rx (re)load.
 end
 if opts.reload_rx && ~isempty(rx_path)
     session.load_rx(rx_path);
+    session.opd_ref(opts.opd_ref);   % after the load: a load resets it
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dgrid');
 
@@ -65,10 +82,7 @@ if ~isempty(opts.src_samp)
     session.modify();  % Flush cache so the new sampling takes effect
 end
 
-wf_elt = opts.exit_pupil_elt;
-if wf_elt < 0
-    wf_elt = session.num_elt() - 1;
-end
+wf_elt = wf_elt_auto(session, opts.exit_pupil_elt);   % EP read; errors on a pupil-less powered nElt-1
 
 g = macos.find_grid_elts();
 if ~isempty(opts.elts)
@@ -82,12 +96,18 @@ end
 % Influence basis: caller-supplied, else a default Zernike-on-grid basis at
 % the first eligible element's grid size (all eligible elements must share it).
 infl = opts.influence;
+basis_conv = '';                       % '' = caller-supplied influence
 if isempty(infl)
     nsz  = double(mmacos('elt_srf_grid_size', g(1), 1));
-    infl = macos.zernike_grid_basis(nsz, opts.zmodes);
+    infl = macos.zernike_grid_basis(nsz, opts.zmodes, 1.0, opts.zconv);
+    basis_conv = opts.zconv;
 end
 
-channels = macos.channels.grid_channels(session, infl);
+% Pass the element filter through: grid_channels supports 'elts', and
+% without it `g` was computed, used only to size the default basis, and
+% then discarded -- so 'elts' was silently ignored and the Jacobian came
+% back with a column pair for EVERY grid-bearing element.
+channels = macos.channels.grid_channels(session, infl, 'elts', g);
 wf_func  = @() local_wf(session, wf_elt);
 
 % Create spot_func if LOS computation requested
@@ -126,7 +146,14 @@ out.rx_path       = rx_path;
 out.wf_elt        = wf_elt;
 out.delta         = opts.delta;
 out.method        = opts.method;
+out.zconv         = basis_conv;   % Zernike ordering of the default basis
+                                  % ('' when a caller-supplied influence was
+                                  % used); self-documents a saved influence map.
+if ~isempty(basis_conv)
+    out.zmodes    = opts.zmodes;
+end
 
+out = apply_opd_convention(out, opts.orient, opts.sign);
 % Add LOS fields if SPOT was computed
 if opts.compute_los
     out.dcdx      = dcdx;
@@ -148,5 +175,9 @@ W = session.opd();
 end
 
 function S = local_spot(spot_elt)
-S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'chief');
+% 'at','elt': the centroid for a line-of-sight sensitivity must be measured
+% about the ELEMENT, not the chief ray -- about the chief, a rigid displacement
+% of the spot (a fold or FSM tilt) is subtracted out and dcdx reads ~0 for it
+% (Luis's OPTIIX FSM test, 2026-10-06; only the shape change survived)
+S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'elt');
 end

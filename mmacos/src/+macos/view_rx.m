@@ -40,9 +40,16 @@ function fig = view_rx(opts)
 %               (legacy cross-section curves)
 %     'thick_frac'  shell thickness as a fraction of the element
 %               aperture (default 1/25)
+%     'vignetted_color'  color of rays an aperture stops (default a muted red); they end at the element that stopped them
 %     'ray_color'  RGB of the traced bundle (default green); overlay
 %               several instrument paths into one 'ax' with distinct
 %               colors to tell the channels apart
+%     'xtra_hist'  cell of pre-harvested ray histories (macos.ray_hist
+%               structs from the SAME deck re-aimed at other fields).
+%               Each draws as an extra bundle AND joins the footprint
+%               union, so body sizes cover every field shown
+%     'xtra_color'  Nx3 RGB rows for the extra bundles (default: an
+%               internal palette)
 %     'show'    layer selection: 'beam' (no MET), 'beam+met' (default),
 %               'met' (no traced bundle); optics always draw.  A ring
 %               circles the beam at the SOURCE plane so a collimated
@@ -79,6 +86,9 @@ arguments
                   {'solid','outline','patch'})} = 'solid'
     opts.thick_frac (1,1) double {mustBePositive} = 1/25
     opts.ray_color (1,3) double = [0.0 0.62 0.10]
+    opts.vignetted_color (1,3) double = [0.85 0.25 0.20]   % rays an aperture stops, drawn to the stopping element
+    opts.xtra_hist (1,:) cell   = {}
+    opts.xtra_color (:,3) double = zeros(0,3)
     opts.show    (1,:) char {mustBeMember(opts.show, ...
                   {'beam','beam+met','met'})} = 'beam+met'
     opts.elts    (1,:) double  = []
@@ -105,10 +115,32 @@ if ~isempty(opts.elts)
 end
 
 % ---- harvest: full ray-position history (+ legacy fans if asked) -------
+% a VIGNETTED ray keeps its geometry in the engine (obscuration sets only
+% the flux flag), so the history reaches the detector for rays an aperture
+% stopped; find each ray's clipping element from the per-element pass flags
+% and draw the ray only that far (2026-10-06, Dave: the 3k Dyson's beam drawn
+% through a grating it overfills).  RayFailElt stamps nElt+1 for obscuration,
+% so the element is found by stepping the trace.
+nE_ = macos.num_elt();  clipAt = [];
+for k = 1:nE_
+    tk = macos.trace(k);  rk = macos.get_ray_info(tk.nRays);
+    if isempty(clipAt), clipAt = zeros(tk.nRays, 1); end
+    f = clipAt == 0 & ~rk.ok_pass(:) & rk.ok_trace(:);
+    clipAt(f) = k;
+end
 macos.ray_hist('on');
 t = macos.trace();
 h = macos.ray_hist(t.nRays);
 macos.ray_hist('off');
+if numel(clipAt) == t.nRays
+    % slots after the clipping element are not reached by light
+    for r = find(clipAt(:)')
+        h.ok(r, clipAt(r) + 2:end) = false;
+    end
+end
+% extra pre-harvested histories (other FIELDS of the same deck): they
+% join the footprint union, so bodies are sized for every bundle shown
+hs = [{h}, opts.xtra_hist];
 fans = {};
 if strcmp(opts.bundle, 'fans')
     fans = {macos.draw_rays3d('YZ', k0, k1), macos.draw_rays3d('XZ', k0, k1)};
@@ -135,7 +167,7 @@ kk = kk(~ismember(kk, opts.hide));
 tile = seg_tiling_(kk);          % exact tiles for Segment elements
 E = struct('k', {}, 'kind', {}, 'B', {}, 'ctr', {});
 for k = kk
-    g = elt_geom_(k, h, tile);
+    g = elt_geom_(k, hs, tile);
     if isempty(g), continue; end
     if strcmp(g.type, 'Return') && ~opts.returns, continue; end
     if     any(strcmp(g.type, SOLID_M)), g.kind = 'mirror';
@@ -160,7 +192,8 @@ switch opts.bodies
         e = 1;  si = 0;
         while e <= numel(E)
             if strcmp(E(e).kind, 'glass') && e < numel(E) && ...
-               strcmp(E(e+1).kind, 'glass') && E(e+1).k == E(e).k + 1
+               strcmp(E(e+1).kind, 'glass') && E(e+1).k == E(e).k + 1 && ...
+               joinable_(E(e).B, E(e+1).B)
                 lens_(ax, E(e).B, E(e+1).B);          % joined glass solid
                 e = e + 2;
             elseif strcmp(E(e).kind, 'passive')
@@ -210,10 +243,38 @@ for e = 1:numel(E)
     end
 end
 if opts.labels
+    % Offset each label OFF the beam, PERPENDICULAR to the local beam and
+    % IN the layout plane, so it does not print on the ray lines (the old
+    % offset-along-surface-normal failed for near-normal folds, whose
+    % normal points along the beam).  Alternate the side element-to-element
+    % so adjacent labels do not stack; a faint leader ties label to centre.
+    C = zeros(3, numel(E));
+    for e = 1:numel(E), C(:,e) = E(e).ctr(:); end
+    span = 0;  for e = 1:numel(E), span = max(span, E(e).B.D); end
+    off = 1.1 * span;                       % label standoff (base units)
+    % layout-plane normal: smallest-variance axis of the element centres
+    if numel(E) >= 3
+        [U3,~,~] = svd(C - mean(C,2));  npl = U3(:,3);
+    else
+        npl = [0;0;1];
+    end
     for e = 1:numel(E)
-        c = E(e).ctr;
-        text(ax, c(1), c(2), c(3), sprintf('  E%d', E(e).k), ...
-             'FontSize', 8, 'Color', [0.15 0.2 0.35]);
+        c = C(:,e);
+        % local beam tangent from neighbouring centres
+        a = C(:, max(e-1,1));  b = C(:, min(e+1,numel(E)));
+        t = b - a;  if norm(t) < eps, t = E(e).B.ps(:); end
+        t = t / norm(t);
+        perp = cross(t, npl);               % in-plane, perp to the beam
+        if norm(perp) < 1e-6, perp = E(e).B.ps(:); end
+        perp = perp / norm(perp);
+        s = 1 - 2*mod(e,2);                 % +1 / -1 alternating
+        p = c + s*off*perp;
+        plot3(ax, [c(1) p(1)], [c(2) p(2)], [c(3) p(3)], '-', ...
+              'Color', [0.7 0.72 0.78], 'LineWidth', 0.5);
+        text(ax, p(1), p(2), p(3), sprintf('E%d', E(e).k), ...
+             'FontSize', 8, 'Color', [0.15 0.2 0.35], ...
+             'HorizontalAlignment', 'center', ...
+             'VerticalAlignment', 'middle');
     end
 end
 
@@ -248,8 +309,15 @@ else
         if nnz(m) < 3, continue; end
         p = squeeze(h.P(:, r, s0:s1));
         p = p(:, m);
-        plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
-              'Color', [opts.ray_color 0.8], 'LineWidth', 0.5);
+        % a ray an aperture stopped is drawn in the vignetted color up to
+        % the element that stopped it, so lost light reads as lost
+        if ~isempty(clipAt) && clipAt(r) > 0 && clipAt(r) <= k1
+            plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
+                  'Color', [opts.vignetted_color 0.9], 'LineWidth', 0.6);
+        else
+            plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
+                  'Color', [opts.ray_color 0.8], 'LineWidth', 0.5);
+        end
         ndrawn = ndrawn + 1;
     end
     if k0 == 0 && ~isempty(ring3)
@@ -258,6 +326,25 @@ else
         % collapses the ring to a dot
         plot3(ax, ring3(1,:), ring3(2,:), ring3(3,:), '-', ...
               'Color', 0.7*opts.ray_color, 'LineWidth', 1.4);
+    end
+    % extra bundles (other fields, pre-harvested via 'xtra_hist'): same
+    % sparse pattern, their own colors
+    pal = [0.15 0.45 0.80; 0.85 0.50 0.10; 0.55 0.25 0.75; 0.80 0.15 0.35];
+    for ih = 1:numel(opts.xtra_hist)
+        hx = opts.xtra_hist{ih};
+        if ih <= size(opts.xtra_color, 1), cx = opts.xtra_color(ih,:);
+        else, cx = pal(mod(ih-1, 4) + 1, :);
+        end
+        selx = pick_bundle_(hx, opts);
+        for r = selx
+            m = squeeze(hx.ok(r, s0:s1));
+            if nnz(m) < 3, continue; end
+            p = squeeze(hx.P(:, r, s0:s1));
+            p = p(:, m);
+            plot3(ax, p(1,:), p(2,:), p(3,:), '-', ...
+                  'Color', [cx 0.8], 'LineWidth', 0.5);
+            ndrawn = ndrawn + 1;
+        end
     end
 end
 
@@ -305,13 +392,15 @@ if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
 end
 
 % ===========================================================================
-function g = elt_geom_(k, h, tile)
+function g = elt_geom_(k, hs, tile)
 %ELT_GEOM_  Per-element drawing geometry from engine truth.
 %   Frame (vpt/psi/xa/ya), aperture boundary in the aperture plane (2 x M,
 %   relative to vpt), the sag-lifted rim polyline (3 x M+1), the sag
 %   function with its sign CALIBRATED against the actual ray crossings,
 %   and a label center.  Returns [] when the element has no usable
-%   boundary (no aperture, no lMon, no ray hits).
+%   boundary (no aperture, no lMon, no ray hits).  HS is a cell of ray
+%   histories (the loaded trace + any 'xtra_hist' fields); the footprint
+%   is their UNION, so bodies cover every bundle drawn.
 info = macos.get_elt_info(k);
 vp = mmacos('elt_vpt', double(k), zeros(3,1), 0, 1);
 ps = mmacos('elt_psi', double(k), zeros(3,1), 0, 1);
@@ -321,10 +410,15 @@ if norm(xa) < 1e-9, [~, i0] = min(abs(ps)); xa = zeros(3,1); xa(i0) = 1; end
 xa = xa - dot(xa, ps)*ps;  xa = xa / norm(xa);
 ya = cross(ps, xa);
 
-% ray crossings at this element (footprint + sag-sign calibration)
-m = h.ok(:, k+1);
-Q = squeeze(h.P(:, m, k+1));
-if isempty(Q), Q = zeros(3,0); end
+% ray crossings at this element, UNION over histories (footprint +
+% sag-sign calibration)
+Q = zeros(3,0);
+for ih = 1:numel(hs)
+    hq = hs{ih};
+    m = hq.ok(:, k+1);
+    Qi = squeeze(hq.P(:, m, k+1));
+    if ~isempty(Qi), Q = [Q, Qi]; end %#ok<AGROW>
+end
 U = [xa.'; ya.'] * (Q - vp);
 
 nb = 48;
@@ -505,6 +599,19 @@ if do_prof
 end
 end
 
+function tf = joinable_(g1, g2)
+%JOINABLE_  Two consecutive refracting faces are one piece of glass (a lens,
+%   a plate) only when their normals agree within 5 deg and they sit closer
+%   than half the larger aperture.  Otherwise they are separate parts that
+%   happen to be adjacent in the deck -- e.g. a polarizer followed by a
+%   tilted splitter -- and joining them drew a twisted 250 mm "lens" between
+%   the two (Dave 2026-09-15, the gauge bench's node figure).
+n1 = g1.ps/norm(g1.ps);  n2 = g2.ps/norm(g2.ps);
+d  = norm(g2.vp - g1.vp);
+a  = max([g1.D, g2.D, 1]);                        % the larger aperture
+tf = abs(dot(n1, n2)) > cosd(5) && d < 0.5*a;
+end
+
 function lens_(ax, g1, g2)
 %LENS_  Joined glass solid: front surface at g1, back surface at g2,
 %   barrel wall between their rims (Dave: join consecutive refractors).
@@ -555,6 +662,10 @@ function [sel, ring3] = pick_bundle_(h, opts)
 %PICK_BUNDLE_  Sparse-but-filled ray selection from the source plane.
 P0 = squeeze(h.P(:, :, 1));
 ok0 = h.ok(:, 1).';
+if ~any(ok0)            % zero-ray trace: no bundle, no source ring
+    sel = zeros(1, 0);  ring3 = zeros(3, 0);
+    return
+end
 c = mean(P0(:, ok0), 2);
 A = P0(:, ok0) - c;
 [Ub, ~, ~] = svd(A, 'econ');

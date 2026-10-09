@@ -1,0 +1,51 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "oap22"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 22.39 deg (end bodies 6.88, node 22.39) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   235 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   193 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   179 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +176.8 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +206.8 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +216.8 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  51.4 -> separation  257.1 mm, margin +146.3 mm (spec >= 25)
+  input polarizer             d  247.1, part r  56.4 -> separation  247.1 mm, margin +131.3 mm (spec >= 25)
+  compensator                 d  200.0, part r  56.4 -> separation  141.4 mm, margin  +25.6 mm (spec >= 25)
+  output QWP                  d  160.0, part r  56.4 -> separation  160.0 mm, margin  +44.1 mm (spec >= 25)
+  analyzer                    d  170.0, part r  56.4 -> separation  170.0 mm, margin  +54.1 mm (spec >= 25)
+  focuser L2                  d  205.0, part r  51.4 -> separation  205.0 mm, margin  +94.1 mm (spec >= 25)
+  0 of 6 node parts under the 25 mm margin; beam radius 51.4, mount +8
+  OAP fold solve (need lateral clearance 126.4 mm):
+  OAP1 (collimator F1=857): AOI  5 deg -> lateral  148.8 mm, margin  +22.4
+  OAP2 (focuser   F2=429): AOI  9 deg -> lateral  132.4 mm, margin   +6.0
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/oap_tail.mat (null 12.887 nm at opt res; seed 12.901)
+Stage B -- oap rig built (BS_AOI 22.5); emitted oap22_{test,ref}.in
+
+Clearance -- every physical part vs every beam it is not in (mount +8 mm):
+  element                type         arm     a+mnt  r_beam  clear mm  against
+  Pol                    TrPolarizer  test     58.7    45.7    -102.3  test: Baffle -> L1
+  Analyzer               TrPolarizer  test     60.8    47.8     -93.9  ref: L2 -> FocalMask
+  OutQWP                 WavePlate    test     60.8    47.8     -89.4  ref: L2 -> FocalMask
+  BS                     Reflector    test     62.9    49.9     -49.6  test: Baffle -> L1
+  L1                     Reflector    test     59.4    45.9      -1.8  ref: FLflat -> Detector
+  Comp                   Refractor    test     63.3    50.3      41.1  test: PolIn -> BSrefl
+  FL                     Refractor    test     13.5     0.5      78.4  test: QWPtestOut -> Comptxfu
+  Detector               FocalPlane   test     17.6     4.6      89.1  test: QWPtestOut -> Comptxfu
+  L2                     Reflector    test     59.4    48.5      99.0  ref: QWPrefOut -> BSbinr
+  QWPtest                WavePlate    test     59.8    46.8       NaN  (no other beam crosses its plane)
+  TestOptic              Reflector    test     59.4    46.8       NaN  (no other beam crosses its plane)
+  QWPref                 WavePlate    ref      59.8    46.8       NaN  (no other beam crosses its plane)
+  PZT                    Reflector    ref      59.8    46.8       NaN  (no other beam crosses its plane)
+  worst -102.3 mm over 9 parts (spec >= 25 mm); wrote oap22_clearance.png
+
+
+wrote oap22_report.txt + oap22.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oap22

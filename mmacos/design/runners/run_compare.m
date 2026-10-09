@@ -169,6 +169,7 @@ end
 assert(isfile(met_rx), 'run_compare: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
+J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
 chansel = opts.channels;
 if isscalar(chansel) && chansel == "auto"
@@ -245,6 +246,15 @@ cbm = m.cbm();
 for s = 1:nseg
     dedx(:, (s-1)*6+(1:3)) = dedx(:, (s-1)*6+(1:3)) * cbm;
 end
+% dwdx units adapter (f5d648f, 2026-08-26): the supervisors emit the
+% Jacobian in BaseUnits-OPD per (rad | SI m); this runner compares in SI
+% METRES (dW_t = (Wp-Wb)*cbm below), so scale the rigid-body prediction
+% columns ONCE here -- the same adapter the z/grid legs already apply at
+% their poke sites (*cbm).  Metre decks: cbm==1, no-op.  Its absence on a
+% mm deck read as w_rel = 1/cbm - 1 = 999 (tRunCompare, triaged
+% 2026-08-28 -- the f5d648f "no regen needed" sweep judged only the
+% metre-deck consumers).
+Bc = Bc * cbm;
 if isfield(M, 'dedx') && isequal(size(M.dedx), size(dedx)) ...
         && max(abs(dedx(:) - M.dedx(:))) > 1e-9 * max(abs(dedx(:)))
     warning('run_compare:stale_dedx', ...
@@ -468,7 +478,9 @@ end
 assert(~any(ismember(bodies(control), nochan)), ...
     'run_compare: a control body has no dwdx channels -- not actuatable');
 ucols = reshape((control(:)-1)*6 + (1:6), 1, []);
-dwdu = ox.dwdxall(:, colmap(sort(ucols)));
+% exported in SI-metre OPD per (rad | m) -- this runner's internal
+% convention (the *cbm adapter above); supervisor-native is BaseUnits
+dwdu = ox.dwdxall(:, colmap(sort(ucols))) * cbm;
 say('    control u = bodies [%s] -> dwdu %d x %d (multi-field stack) for the simulator\n', ...
     num2str(bodies(control)), size(dwdu, 1), size(dwdu, 2));
 

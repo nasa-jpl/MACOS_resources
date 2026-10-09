@@ -1,0 +1,165 @@
+function PL = tg96_place(A, ix, cfg, msk, N_G, DX_G, POKE, measf, place, h0)
+%TG96_PLACE  Window placement from the ray-traced affine (Dave 2026-09-11).
+%   Maps every DM actuator lattice point to a DETECTOR PIXEL (col,row) of the
+%   measured wavefront grid, using the full ray affine (dmg_frame: flip,
+%   rotation, scale, shift) composed with the FIXED field-array parity (the
+%   deck-dependent 180/reflection between the ray geometry and the diffracted
+%   field, opd_conventions.md).  The affine carries the fold's non-90-deg
+%   rotation that the 8-parity search of register_two_pokes/dmg_register
+%   cannot express; the residual field parity is resolved ONCE against a
+%   measured in-pupil reference poke -- not a per-actuator search, and not
+%   faking a rotation with a parity.
+%
+%   Inputs
+%     A     arm descriptor (arm_desc): .rx .iTO .iDET ...
+%     ix    G.T index struct (.iTO .iDET)
+%     cfg   P.dm(1): .nact .pitch
+%     msk   detector illuminated mask (field grid, logical N_WF x N_WF)
+%     N_G, DX_G  DM surface grid size / pitch (mm)
+%     POKE  reference-poke command (mm)
+%     measf @(M) -> height map h (field grid) for a DM surface map M(N_G,N_G)
+%     place P.place: .resolve
+%   Output PL
+%     .U .V     nact x nact, predicted detector pixel (col=U, row=V) of every actuator
+%     .frm      the dmg_frame affine struct
+%     .mag .dxd_mm
+%     .lit      nact x nact logical, illuminated actuators
+%     .anchor   [bx by tax tay]  (anchor blob px <-> DM mm)
+%     .parity   [t su sv]  the resolved field parity (t: transpose u2<->v2)
+%     .ref      diagnostics for the reference poke resolution
+%     .axg .ayg actuator lattice grids (mm), x=axg (col), y=ayg (row)
+
+macos.load_rx(A.rx);
+[mag, dxd_mm, frm] = dmg_frame(ix.iTO, ix.iDET);
+xg = ((1:N_G)-(N_G+1)/2)*DX_G;
+lat = ((1:cfg.nact)-(cfg.nact+1)/2)*cfg.pitch;
+[axg, ayg] = meshgrid(lat);                       % axg = x (col), ayg = y (row)
+lit = dmg_lit(msk, dxd_mm, mag, axg, ayg);
+
+% ---- optional erosion of the CONTROL set (place.lit_erode; 0 = unchanged) ---
+% The outermost lit rings sit at the aperture/array boundary, so their influence
+% functions are truncated, their J columns are weak, and the median-referenced
+% Tikhonov weight suppresses them: measured on runs/samp512 (2026-09-18), ring 1
+% is left 0.81% uncorrected against the interior's 0.0046% (176x), and 180
+% actuators (2.4% of lit) carry 95-98% of the descent residual -- excluding
+% 3 rings takes r(K) from 96.9 pm to 3.1 pm, the photon floor.
+% Erode with FALSE padding, NOT circshift: on this bench lit reaches the array
+% edge (radius 49.0 actuators of a 47.5 half-width), where a wrapping erosion
+% would join the opposite side of the array.
+ner = 0;
+if isfield(place,'lit_erode') && ~isempty(place.lit_erode), ner = place.lit_erode; end
+for ke = 1:ner
+    Lp = false(size(lit)+2);  Lp(2:end-1,2:end-1) = lit;
+    lit = Lp(2:end-1,2:end-1) & Lp(1:end-2,2:end-1) & Lp(3:end,2:end-1) ...
+                              & Lp(2:end-1,1:end-2) & Lp(2:end-1,3:end);
+end
+if ner > 0
+    fprintf('  control set eroded by %d ring(s): %d lit actuators\n', ner, nnz(lit));
+end
+
+% ---- optional APERTURE-REFERENCED cap on the control set (place.lit_margin_mm) --
+% dmg_lit reads the INTERFEROGRAM support, and on this bench that is the
+% REFERENCE arm's 59 mm cone, not the test arm's 48 mm DM aperture: samp512's
+% lit disc reaches r = 49.12 mm and 308 of its 7540 actuators have centers
+% OUTSIDE the 48 mm aperture (no test-arm light at all), 284 more sit in the
+% half-clipped 47-48 mm band (measured 2026-09-30 from runs/samp512/samp512.mat).
+% Those are the "ring 1" of tg96_ring_analysis: dark, so their J columns are
+% weak, and the median-referenced Tikhonov weight then suppresses them.  With a
+% margin the control set is the actuators the TEST beam reaches with a whole
+% influence function: r <= stop_mm - lit_margin_mm (stop_mm = the DM element
+% aperture, set by the runner).  Fix A of the 2026-09-30 descent 2x2.
+if isfield(place,'lit_margin_mm') && ~isempty(place.lit_margin_mm)
+    assert(isfield(place,'stop_mm') && ~isempty(place.stop_mm), ...
+        'tg96_place: place.lit_margin_mm needs place.stop_mm (the runner sets it to the DM aperture radius)');
+    rmax = place.stop_mm - place.lit_margin_mm;
+    n0 = nnz(lit);  lit = lit & (hypot(axg, ayg) <= rmax);
+    fprintf('  control set capped at r <= %.2f mm (aperture %.2f - margin %.2f): %d -> %d lit actuators\n', ...
+        rmax, place.stop_mm, place.lit_margin_mm, n0, nnz(lit));
+end
+
+% ---- footprint centroid in actuator lattice (the in-pupil anchor site) ---
+macos.load_rx(A.rx);  st = macos.trace(ix.iTO);  ri = macos.get_ray_info(st.nRays);
+ok = ri.ok_trace(:) & ri.ok_pass(:);
+psi1 = macos.get_elt_psi(ix.iTO);  vpt1 = macos.get_elt_vpt(ix.iTO);
+u1 = macos.design.Bench.perp(psi1);  v1 = cross(psi1, u1);
+dd = ri.pos(:,ok) - vpt1;
+ax_c = (u1.'*dd)/cfg.pitch + (cfg.nact+1)/2;      % actuator index along u1  (-> col? resolved by parity)
+ax_r = (v1.'*dd)/cfg.pitch + (cfg.nact+1)/2;      % actuator index along v1
+cc0 = round(median(ax_c));  rr0 = round(median(ax_r));
+hw_c = 0.5*(max(ax_c)-min(ax_c));  hw_r = 0.5*(max(ax_r)-min(ax_r));
+cl = @(x) min(max(round(x),1), cfg.nact);
+% Anchor + TWO DIRECTIONAL reference pokes, all in-pupil but OFF the
+% chief/centre pixel (the four-step map is referenced there, so a centre poke
+% reads ~0 -- Dave's reference gotcha).  The refs step in ONE lattice axis each
+% (not a diagonal) so they DISAMBIGUATE the transpose parity (a diagonal ref
+% cannot tell col<->row from row<->col).
+aR  = [cl(rr0 - 0.10*hw_r), cl(cc0 - 0.10*hw_c)];   % anchor (near centre, off it)
+bRc = [aR(1),                cl(cc0 + 0.35*hw_c)];  % +column step (x)
+bRr = [cl(rr0 + 0.35*hw_r),  aR(2)];               % +row step (y)
+
+% ---- measure anchor + the two directional pokes DIFFERENTIALLY (poke frame
+%      minus the flat frame h0 removes the OAP's low-order null background that
+%      would bias a weak poke's CoM), then mean-referenced over the mask ------
+if nargin < 10 || isempty(h0), h0 = zeros(size(msk)); end
+mkref = @(h) (h - h0) - median(h(msk) - h0(msk));
+MaA = dm_influence_map(N_G, DX_G, 'nact',cfg.nact,'pitch',cfg.pitch,'act',POKE*(sparse_poke_(cfg.nact,aR)));
+hA = mkref(measf(MaA));
+[bx, by, tax, tay] = dmg_anchor(hA, MaA, msk, frm.N, xg);
+% dmg_anchor: (bx,by)=blob (col,row) px of the anchor; (tax,tay)=truth peak (x,y) mm
+[bxc, byc] = blob_com_(mkref(measf(dm_influence_map(N_G,DX_G,'nact',cfg.nact,'pitch',cfg.pitch,'act',POKE*sparse_poke_(cfg.nact,bRc)))), msk, frm.N);
+[bxr, byr] = blob_com_(mkref(measf(dm_influence_map(N_G,DX_G,'nact',cfg.nact,'pitch',cfg.pitch,'act',POKE*sparse_poke_(cfg.nact,bRr)))), msk, frm.N);
+
+% ---- the affine linear part: DM-mm -> detector-mm (u2,v2) ---------------
+% DM-mm of an actuator relative to the anchor's truth peak.  x pairs with the
+% lattice column, y with the row (dmg_anchor's tax=xg(col), tay=xg(row)).
+dmx = axg - tax;  dmy = ayg - tay;                % DM-mm (component1=x, component2=y)
+% detmm = Linv * [dmx; dmy]  (Linv from the ray affine -- carries the fold
+% rotation/reflection); (u2,v2)->pixel via the resolved field parity below.
+du = frm.Linv(1,1)*dmx + frm.Linv(1,2)*dmy;       % detector-mm along u2
+dv = frm.Linv(2,1)*dmx + frm.Linv(2,2)*dmy;       % detector-mm along v2
+
+% ---- resolve the field-array parity (t,su,sv) against BOTH directional
+% pokes: row<->u2, col<->v2 (opd_conventions); t swaps the assignment, su/sv
+% the signs.  Anchor pins the offset (dmx=dmy=0 there -> (bx,by)). ----------
+tgt = [bRc(1) bRc(2) bxc byc; bRr(1) bRr(2) bxr byr];   % [r c measCol measRow]
+cand = [];  errc = [];
+for t = 0:1
+  for su = [-1 1]
+    for sv = [-1 1]
+      [Uc, Vc] = tg96_apply_parity(du, dv, dxd_mm, bx, by, [t su sv]);
+      e = 0;
+      for j = 1:size(tgt,1)
+          e = e + hypot(Uc(tgt(j,1),tgt(j,2))-tgt(j,3), Vc(tgt(j,1),tgt(j,2))-tgt(j,4));
+      end
+      cand(end+1,:) = [t su sv]; %#ok<AGROW>
+      errc(end+1,1) = e;         %#ok<AGROW>
+    end
+  end
+end
+if place.resolve, [~, ib] = min(errc);  else, ib = 1; end
+par = cand(ib,:);
+[U, V] = tg96_apply_parity(du, dv, dxd_mm, bx, by, par);
+bR = bRc;  bx2 = bxc;  by2 = byc;                   % (kept for the ref diagnostic)
+
+% hA / MaA: the ANCHOR poke's measured map and its truth, kept so a caller
+% that needs the bench's own measured influence STENCIL does not have to pay
+% for a second poke -- this one is already traced above.  (item 3's lattice
+% gate: dmg_stencil wants a DM-frame measured kernel.)
+PL = struct('U',U, 'V',V, 'frm',frm, 'mag',mag, 'dxd_mm',dxd_mm, 'lit',lit, ...
+    'anchor',[bx by tax tay], 'parity',par, 'axg',axg, 'ayg',ayg, 'xg',{xg}, 'lat',{lat}, ...
+    'hA',hA, 'MaA',MaA, 'aR',aR, ...
+    'ref',struct('aR',aR, 'bR',bR, 'meas',[bx2 by2], 'cand',cand, 'err',errc, 'ib',ib));
+end
+
+% ---------------------------------------------------------------------------
+function A = sparse_poke_(nact, rc)
+% unit command map with a single poked actuator at (row,col) = rc
+A = zeros(nact);  A(rc(1), rc(2)) = 1;
+end
+
+function [cx, cy] = blob_com_(h, msk, N)
+% centroid (col,row) px of a single-poke response over the mask
+w = abs(h);  w(~msk) = 0;  w(w < 0.5*max(w(:))) = 0;
+[cg, rg] = meshgrid(1:N, 1:N);
+cx = sum(cg(:).*w(:))/sum(w(:));  cy = sum(rg(:).*w(:))/sum(w(:));
+end

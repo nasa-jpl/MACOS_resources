@@ -1,0 +1,79 @@
+=== ZWFS runner: tag pfdeck  (2026-09-13 09:36) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench battery noise figs | readings: PF
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench: the P/SRI, two traced arms ----
+decks pfdeck_test.in / pfdeck_ref.in: TO elt 7, Detector 24 (test); Pinhole 17, Detector 30 (reference)
+balance: chief optical path test 4453.1061 mm, reference 4453.1061 mm (difference 0.00e+00); compensator 21.857 mm of n = 1.50; exit chiefs 0.00e+00 mm apart; camera planes 2.27e-13 mm apart
+reference arm: Lr1 f 300.0 mm (F/2.92 on the 102.9 mm beam), conic -0.5784; pinhole seat trim +1.096 mm; Lr2 = Lr1 mirrored (conic -0.5784)
+PF: pinhole 2.000 lam/D of the reference lens = 3.6913e-03 mm = 7.84 px at its focus (0.471 um per px); coupling eta 0.6768; reference amplitude a 0.003247 (match 0.003719, budget 0.003247); 4 steps (ls); frames per measurement 4
+PF: throughput (detected/incident, flat) 0.8061; visibility on the flat 0.8729; msk 28917 px; the flat reads 3.31e-16 rad rms, amplitude 1.37e-16 rel
+  pinhole 7.84 px across at the reference focus (min 6; the dimple's rule)  -> PASS
+frame: ray magnification 10.6897 DM-mm per detector-mm, detector px 3.7213e-02 mm -> 0.3978 DM-mm per px
+  DM 96x96: 2.51 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 5.339e-17   (gate < 1e-12)
+G5 PF on 100 nm single-actuator pokes every 8th actuator (12983 pm rms on msk, 3.47% beyond the one-frame fold): rms error 5.889 pm = 0.045% of the figure   -> within the 0.1% ideal-reference line
+     (on this bench G5 is a MEASUREMENT, not a gate: the reference arm is TRACED, so it moves with the state while the solver uses the flat's R0 -- the synthesized reference reads 0.000 pm here by construction.  The assert is the 1% sanity line)
+G6 the TRACED reference arm under the 30 nm rms working state: total change 0.1439, best complex scale |0.85816| arg +0.0239 rad (the solver absorbs it through the shutter frame + a piston), SHAPE change 0.0103 -- the part nothing absorbs
+registration: center-poke anchor at detector px (511.81, 511.81) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.992, runner-up 0.007 (gates >= 0.40, sep >= 0.30); all 8: 0.99 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.9364, corr(map, truth) 0.9944
+bench stage 1.0 min
+
+---- battery: DM 96x96, pitch 1.0 mm ----
+calibration: surface base (30 nm rms, seed 7), kernel measured at actuator (NaN,NaN); test actuator (60,40)
+MATRIX calibration: 64 multiplexed states (grid step 8), 3252 actuators poked once each, windows +/-10 px; J built in 9.4 min; 0 clipped windows
+lit actuators 3252; per class [mean column peak per unit command, clipped fraction, column-norm spread]:  PF [0.944 0.000 0.016]
+modal transfer (actuator-space estimator, RAW):
+     mode  cyc/ap |      PF
+  ( 1, 0)     0.5 |  0.6634
+  ( 2, 0)     1.0 |  0.9532
+  ( 4, 0)     2.0 |  0.9847
+  ( 8, 0)     4.0 |  1.0599
+  (16, 0)     8.0 |  1.0402
+  (24, 0)    12.0 |  1.0328
+  (32, 0)    16.0 |  1.0262
+  (40, 0)    20.0 |  1.0210
+  (48, 0)    24.0 |  1.0273
+  (56, 0)    28.0 |  1.0204
+  (64, 0)    32.0 |  1.0074
+  (72, 0)    36.0 |  0.9975
+  (80, 0)    40.0 |  0.9849
+  ( 8, 8)     5.7 |  1.0532   (separability row)
+  (24,24)    17.0 |  1.0291   (separability row)
+min |g| over the (p,0) rows:  PF 0.663
+matrix mode: no modal correction applied (cor columns and the ladder = raw estimates)
+rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+row               rd  |   g_raw    e_raw  flr_raw  SNRraw |   g_cor    e_cor  flr_cor  SNRcor
+  [rand30/single10] differential map on the surface vs the same change on the flat, over the changed actuator's window (rel rms diff / amplitude ratio):  PF 0.044 / 1.029
+rand30/single10   PF  |  0.9935        2        2 4894.73 |  0.9935        2        2 4894.73
+rand30/grid@1nm   PF  |  0.9924        1        1  877.67 |  0.9924        1        1  877.67
+rand30/rand10     PF  |  0.9926      144        -       - |  0.9926      144        -       -
+break scale (10 nm differential on 47 grid sites (every 8 actuators), on a growing base; corrected estimates; g = gain over the poked site(s), floor pm over the unpoked, SNR; fold0/fold = beyond-fold fraction from the plain / refined stepped prior; past the fold quote GAIN, not SNR):
+    base  fold0   fold | PF: g flr SNR         |
+   30 nm    NaN    NaN |  0.9930     12   798.8|
+   40 nm    NaN    NaN |  0.9932     15   663.7|
+   50 nm    NaN    NaN |  0.9934     23   437.0|
+   60 nm    NaN    NaN |  0.9936     32   309.2|
+  120 nm    NaN    NaN |  0.9950     94   106.2|
+  240 nm    NaN    NaN |  0.9971    221    45.2|
+  480 nm    NaN    NaN |  0.9984    480    20.8|
+capture range to 10% (largest base rms with the gain within 0.9..1.1; matrix on the 30 nm surface; log-interpolated crossing):  PF 480 nm+ (holds at the last rung) |
+SPEC: grid-on-base SNR, reading PF: raw 877.67 / corrected 877.67 -> DETECTED (>= 5)
+DM 96x96 battery 16.4 min
+
+---- noise: DM 96x96, readings PF ----
+scenario: single act (60,40) 10 nm differential on the 30 nm rms working state; axis = photons per MEASUREMENT (one DM shape measured once; a reading's frames share it: L/F/I/I+ 1 frame, S 4, V 2, P/PF K = 4; PDI throughput is printed at the bench stage -- divide by it for incident photons)
+I+ prior frames (the base's 4 stepped frames, taken once): split / noiseless
+calibration: kernels re-measured, modal transfer from this run's battery
+frames captured (13.5 min); the Monte-Carlo is trace-free
+    N/meas | PF: sig flr g           |
+   1.0e+06 |  21367.2   16257   0.898|
+   1.0e+08 |   1188.2    1574   0.956|
+   1.0e+10 |    170.9     157   0.951|
+   1.0e+12 |     18.8      26   0.953|
+   1.0e+14 |      0.7      21   0.954|
+PF             sigma ~ 1.41e+07/sqrt(N) pm  ->  N(1 pm) ~ 2.00e+14 photons/measurement
+noise stage 13.7 min
+run complete in 31.1 min

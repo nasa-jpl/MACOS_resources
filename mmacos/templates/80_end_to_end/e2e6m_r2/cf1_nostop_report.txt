@@ -1,0 +1,42 @@
+==================== e2e6m CF1 -- mask families, head-to-head (PRE-CONTROL)
+deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_prop.in
+model 1024, 500 nm (band center), annulus 3-15 lambda/D, Strehl-normalised
+ALL NUMBERS PRE-CONTROL: DMs flat, open loop (S2 adds the closed-loop column)
+
+---- classical Lyot ----
+    tag n_h280_L050 | DZ mean 1.625e-06 median 5.131e-07 | suppr 8.768e+03 | thru 0.250
+
+---- apodized Lyot (R1) ----
+    tag p_h280_L090 | DZ mean 4.705e-07 median 2.002e-08 | suppr 6.176e+03 | thru 0.100
+    vs R1 committed 4.705e-07 (rel 2.25e-16) [consistency thread]
+
+---- APLC (ap.-matched) ----
+    tag s_h280_L090 | DZ mean 5.380e-07 median 5.605e-08 | suppr 7.557e+03 | thru 0.089
+
+---- band-limited 4th ----
+    tag n_b40_L060 | DZ mean 1.691e-06 median 3.393e-07 | suppr 2.146e+04 | thru 0.130
+
+---- vortex chg 4 ----
+    tag n_v4_L060 | DZ mean 1.818e-05 median 3.219e-06 | suppr 2.118e+03 | thru 0.360
+
+---- vortex chg 6 ----
+    tag n_v6_L060 | DZ mean 2.785e-05 median 5.988e-06 | suppr 2.032e+03 | thru 0.360
+
+==== the S1 table (PRE-CONTROL, DMs flat; annulus 3-15 lambda/D) ====
+  family               | DZ mean    | DZ median  | suppress  | thru   | note
+  ------------------------------------------------------------------------------------------------------------
+  classical Lyot       | 1.625e-06 | 5.131e-07 | 8.768e+03 |  25.0% | hard occulter + Lyot 0.50, no apodizer
+  apodized Lyot (R1)   | 4.705e-07 | 2.002e-08 | 6.176e+03 |  10.0% | clear-disc prolate over the gapped pupil + Lyot 0.90 (= R1)
+  APLC (ap.-matched)   | 5.380e-07 | 5.605e-08 | 7.557e+03 |   8.9% | prolate solved ON the traced gapped pupil + Lyot 0.90
+  band-limited 4th     | 1.691e-06 | 3.393e-07 | 2.146e+04 |  13.0% | K&T 2002 order-4, \epsilon=0.40, Lyot 0.60
+  vortex chg 4         | 1.818e-05 | 3.219e-06 | 2.118e+03 |  36.0% | scalar vortex, 8x-binned, Lyot 0.60
+  vortex chg 6         | 2.785e-05 | 5.988e-06 | 2.032e+03 |  36.0% | scalar vortex, 8x-binned, Lyot 0.60
+  hybrid Lyot          | DEFERRED -- FALCO co-design product, no validated closed form (SESSION-6 ruling)
+  ------------------------------------------------------------------------------------------------------------
+  (throughput = off-axis proxy: apodizer Phi^2-fill x Lyot area
+   x (1-eps)^2 for the BLC -- the ctb_mask_compare convention)
+  This train is UNOBSCURED: vortex leak is segment-gap-driven only.
+
+  figures: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf1_families.png | /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf1_radial.png
+
+CF1 DONE in 2.6 min

@@ -1,0 +1,7 @@
+dyson5 1.5k module of record end to end, both launches (2026-10-08 04:41)
+  telescope dyson5_tA_GM_1k5_bAs.in, Dyson size:D:130 (silica 130, 27 mm slit), 1500 px strip
+  launch     roll |    smile  keystone     CRF     SRF     EE  admits
+  centroid      0 |   0.0823    0.0138   1.255  2.2142  0.385   0.989
+  centroid    180 |   0.0880    0.0091   1.211  2.2047  0.295   0.988
+  chief         0 |   0.5039    0.0137   1.236  2.2117  0.394   0.989
+  chief       180 |   0.5033    0.0090   1.219  2.2038  0.305   0.988

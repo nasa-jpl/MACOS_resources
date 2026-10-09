@@ -1,0 +1,59 @@
+=== tg96_pupilsim: tag popt_seed  rig lens  (2026-09-17 08:22) ===
+deck of record /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/pupil_options/opt_seed.in; model 512, 129 rays across; the DM is the stop; the bench as built, the field a source shift at the collimator's focus
+deck of record: source cone (full angle) 0.09492 rad, baffle opened x3, DM aperture now 48.00 mm
+the record's cone reaches 38.63 mm at the DM; cone widened to 0.12504 rad so the beam is 50.88 mm = 1.06 x the DM aperture: THE DM IS THE STOP
+DM elt 9, clear radius 48.00 mm, the STOP; detector elt 23; source-to-collimator 832.1 mm
+DM-zone stability: ray-to-DM hit moves 2.56e-03 mm rms (6.70e-03 max) at the outer ring vs theta=0
+stage 1: 41 tilts traced in 51 s; 11450 of 12854 rays valid at every tilt
+THE BEAM at the DM: rays reach 48.0 mm; beam radius 48.0 mm against the DM aperture of 48.0 mm (the DM clips: it is the stop); the outermost lit actuator ring is at 47.5 mm
+
+---- stage 1: the leg per zone (all in the detector frame; a = exit angle; the band edge a_b = 3.436e-03 rad = 10.7 x the DM band) ----
+angular magnification |det A|^1/2 10.3687 (DM-mm per detector-mm); rotation -180.00 deg; non-gradient (rotational) part of the ray response 1.40e-06 mm/rad rms (0 for a wavefront)
+W fit residual (mm per rad, rms over rays) 7.06e-08; the band-edge wavefront |W| rms over zones and azimuths 4.33 nm, max 6.66 nm; its 3rd+4th order part 0.09 nm rms, 0.18 max
+the image surface (each zone's image, mm DOWNSTREAM of the detector plane): on axis -0.476; over the pupil mean -0.718, min -0.958, max -0.475; fit: piston -0.476 tilt [-0.000 -0.000] defocus -0.483 astig [-0.000 +0.000] (mm over the pupil radius)
+astigmatic split of the zone images: rms 0.084 mm, max 0.145 mm (outer third 0.107 rms)
+BEST PUPIL IMAGE: at the plane as built the band-edge (Nyquist) quadratic phase is 0.043 rad rms / 0.056 max over the pupil; moving the detector -0.72 mm downstream (mean) gives 0.008 / 0.014; the astigmatic residual there 0.005 rad rms
+  (phase gain at the band edge = cos(phi): 0.9984 worst as built, 0.9999 worst at the compromise plane; amplitude cross-talk = sin(phi): 0.056 / 0.014 worst)
+pupil distortion vs one global affine (DM mm): rms 0.003, max 0.007; lateral magnification 10.2370 DM-mm per detector-mm
+zone lattice for the field model: 169 patches of 8 mm (137 with rays)
+partition of unity over the lit pupil: min 0.659, max 1.000 (the windows are renormalized)
+working surface: 96 x 96 actuators at 1 mm, 30 nm rms commands (seed 7), influence 1/e radius 0.85 mm -> surface 31.9 nm rms in the lit pupil
+
+---- stage 2, as built: the DM field through the zone PSFs ----
+flat DM: |E| over the lit actuators 1.0000 mean, 0.0000 rms variation; outermost lit ring 0.0000 rms (the beam edge's Fresnel ringing)
+  sinusoid f 0.5000 cyc/mm (  2.0 mm period) along u: gain mean 0.9992, min 0.9986 in the lit pupil; by radius [1.000 1.000 1.000 1.000 0.999 0.999 0.999 0.999 0.999 0.999 ]; amplitude cross-talk per unit phase max 0.054
+  sinusoid f 0.5000 cyc/mm (  2.0 mm period) along v: gain mean 0.9992, min 0.9986 in the lit pupil; by radius [1.000 1.000 1.000 1.000 0.999 0.999 0.999 0.999 0.999 0.999 ]; amplitude cross-talk per unit phase max 0.054
+  sinusoid f 0.2500 cyc/mm (  4.0 mm period) along u: gain mean 0.9999, min 0.9999 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.012
+  sinusoid f 0.2500 cyc/mm (  4.0 mm period) along v: gain mean 0.9999, min 0.9999 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.012
+  sinusoid f 0.1250 cyc/mm (  8.0 mm period) along u: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.003
+  sinusoid f 0.1250 cyc/mm (  8.0 mm period) along v: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.003
+  sinusoid f 0.0625 cyc/mm ( 16.0 mm period) along u: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.001
+  sinusoid f 0.0625 cyc/mm ( 16.0 mm period) along v: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.001
+  single pokes (100 nm, influence 1/e 0.85 mm): recovered peak / true, 1/e width / true, centroid shift (DM mm)
+    site (  0.5,   0.5) rho 0.02: peak 0.9997, width 0.999, shift 0.0000 mm
+    site ( 27.5,   0.5) rho 0.59: peak 0.9995, width 0.999, shift 0.0001 mm
+    site ( 41.5,   0.5) rho 0.88: peak 0.9993, width 0.999, shift 0.0000 mm
+    site ( 46.5,   0.5) rho 0.99: peak 0.9991, width 0.999, shift 0.0002 mm
+    site (  0.5,  46.5) rho 0.99: peak 0.9991, width 0.999, shift 0.0002 mm
+    site ( 32.5,  32.5) rho 0.98: peak 0.9991, width 0.999, shift 0.0001 mm
+  working surface 31.9 nm rms: recovered - true 0.238 nm rms in the lit pupil, piston and tilt removed (0.0075 of the surface); error / surface by band: [0.000-0.062 cyc/mm: 0.0081] [0.062-0.125 cyc/mm: 0.0047] [0.125-0.250 cyc/mm: 0.0054] [0.250-0.500 cyc/mm: 0.0061] [0.500-0.500 cyc/mm: 0.0252] 
+
+---- stage 2, detector -0.72 mm downstream: the DM field through the zone PSFs ----
+flat DM: |E| over the lit actuators 1.0000 mean, 0.0000 rms variation; outermost lit ring 0.0000 rms (the beam edge's Fresnel ringing)
+  sinusoid f 0.5000 cyc/mm (  2.0 mm period) along u: gain mean 0.9999, min 0.9999 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.015
+  sinusoid f 0.5000 cyc/mm (  2.0 mm period) along v: gain mean 0.9999, min 0.9999 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.015
+  sinusoid f 0.2500 cyc/mm (  4.0 mm period) along u: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.003
+  sinusoid f 0.2500 cyc/mm (  4.0 mm period) along v: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.003
+  sinusoid f 0.1250 cyc/mm (  8.0 mm period) along u: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.000
+  sinusoid f 0.1250 cyc/mm (  8.0 mm period) along v: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.000
+  sinusoid f 0.0625 cyc/mm ( 16.0 mm period) along u: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.000
+  sinusoid f 0.0625 cyc/mm ( 16.0 mm period) along v: gain mean 1.0000, min 1.0000 in the lit pupil; by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]; amplitude cross-talk per unit phase max 0.000
+  single pokes (100 nm, influence 1/e 0.85 mm): recovered peak / true, 1/e width / true, centroid shift (DM mm)
+    site (  0.5,   0.5) rho 0.02: peak 0.9999, width 0.999, shift 0.0000 mm
+    site ( 27.5,   0.5) rho 0.59: peak 0.9999, width 0.999, shift 0.0000 mm
+    site ( 41.5,   0.5) rho 0.88: peak 0.9999, width 0.999, shift 0.0000 mm
+    site ( 46.5,   0.5) rho 0.99: peak 0.9999, width 0.999, shift 0.0001 mm
+    site (  0.5,  46.5) rho 0.99: peak 0.9999, width 0.999, shift 0.0001 mm
+    site ( 32.5,  32.5) rho 0.98: peak 0.9999, width 0.999, shift 0.0001 mm
+  working surface 31.9 nm rms: recovered - true 0.063 nm rms in the lit pupil, piston and tilt removed (0.0020 of the surface); error / surface by band: [0.000-0.062 cyc/mm: 0.0051] [0.062-0.125 cyc/mm: 0.0011] [0.125-0.250 cyc/mm: 0.0011] [0.250-0.500 cyc/mm: 0.0014] [0.500-0.500 cyc/mm: 0.0054] 
+run complete

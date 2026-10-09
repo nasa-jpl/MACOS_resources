@@ -1,0 +1,15 @@
+# DM grid maps -- ~1 MB of ASCII each, and regenerated in one line
+# (dm_influence_map + macos.write_grid_file) at the top of either script.
+# The committed decks reference them by name, so run the example or the demo
+# once in this directory before loading a deck by hand.
+dm_flat.txt
+dm_poked.txt
+dm_piston.txt
+demo_flat.txt
+
+# transient deck from the gate-3 non-vacuity ladder (last Kr only)
+tg_nonvac.in
+
+# engine stdout + batch transcripts
+fort.6
+*.log

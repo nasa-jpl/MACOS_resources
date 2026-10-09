@@ -710,6 +710,27 @@ classdef Telescope < handle
             rx = obj.build(path, 'validate', false);
         end
 
+        function declare_apertures(obj, names)
+        %DECLARE_APERTURES  Restrict which elements emit a hard aperture.
+        %   T.DECLARE_APERTURES({'M1'}) makes the emitted .in carry an
+        %   ApType/ApVec ONLY on the named elements; every other element
+        %   emits ApType=None.  T.DECLARE_APERTURES({}) declares none.
+        %   Not calling it at all leaves the default policy untouched.
+        %
+        %   WHY THIS EXISTS.  The default fallback stamps a vertex-centred
+        %   Circular stop at e.ap_r on any powered on-axis mirror, and
+        %   e.ap_r is the design-phase BODY radius -- for a 6 m primary
+        %   that is ~3 m on EVERY mirror, including secondaries whose beam
+        %   footprint is ~0.2 m.  Harmless to rays (nothing clips at 15x
+        %   the beam) and invisible in the numbers, but the declaration is
+        %   fiction: view_rx faithfully draws declared apertures, so the
+        %   layout figure shows primary-sized domes where the real optics
+        %   are, and a downstream consumer that trusts ApVec is misled.
+        %   A design solved apertures-off should SAY it carries none.
+            arguments, obj, names (1,:) cell = {}, end
+            obj.spec.declare_apertures = names;
+        end
+
         function save_spec(obj, path)
         %SAVE_SPEC  Persist the design spec struct (re-loadable, §2 Stage 6).
             arguments, obj, path (1,:) char, end
@@ -768,8 +789,12 @@ classdef Telescope < handle
         %     'mode'      FEX mode (1 = chief-ray centred, default).
         %
         %   The exit pupil is the DELIVERABLE handle for downstream
-        %   instruments; the optimiser does NOT need it -- the FP OPD over
-        %   the ray grid is already the exit-pupil-referenced wavefront.
+        %   instruments AND the surface every wavefront READ must use
+        %   (Dave 2026-09-08): the FP OPD is the path to each ray's
+        %   landing point and is blind to tilt (a displaced perfect image
+        %   has equal paths), so it serves the optimiser's WFE objective
+        %   only; sensitivities, PSFs and every diffraction calculation
+        %   take the OPD at this sphere.  See macos/REPORT_ep_dome_review.md.
             arguments
                 obj
                 ielt (1,1) double = -1
@@ -829,7 +854,11 @@ classdef Telescope < handle
             px = px - dot(px,d0)*d0;  px = px / norm(px);
             macos.set_src_fov('src_dir', ...      % off-axis field first ...
                 d0*cos(opts.field_rad) + px*sin(opts.field_rad));
-            macos.stop(opts.stop_elt);            % ... then aim chief ray thru stop
+            if opts.stop_elt == 1
+                obj.stop_at_apstop_();            % ... then aim the chief through the DECK's stop: on an eccentric
+            else                                  % section a bare stop(1) aims at the PARENT vertex (dyson5 add. 42)
+                macos.stop(opts.stop_elt);
+            end
             macos.trace(nE);
             f = macos.fex(opts.mode);
             macos.set_src_fov('src_dir', cur.src_dir);   % restore on-axis
@@ -1024,6 +1053,58 @@ classdef Telescope < handle
         %                     normal -- the focus/Tz direction).  Only DOFs
         %                     1..6 are accepted; ROC/CONIC on a flat detector
         %                     are meaningless.
+        %     'beam_pos_fov'  (3,nfov) per-field IMAGE-POSITION targets at the
+        %                     FocalPlane (global coordinates, metres), one column
+        %                     per CALIB field in order (field 1 = the nominal
+        %                     chief, then 'fields'/'fields_arcmin').  Rides on
+        %                     the WFE target through the engine's beam rows
+        %                     (macos 64c0a90: OptBeamPosFov=), so the conics are
+        %                     solved for blur AND plate scale together -- the
+        %                     only way to pin the local plate scale of an
+        %                     off-axis section, whose solved conics re-power the
+        %                     sub-pupil (dyson5 TMA step 2b, 2026-10-03).  Build
+        %                     the targets from a nominal trace: the chief's FP
+        %                     hit at the reference field plus f*tan(theta)
+        %                     along the FP's in-plane field direction.
+        %     'beam_dir'      (3,1) chief-ray DIRECTION target at the FocalPlane
+        %                     (global unit vector, the direction of TRAVEL),
+        %                     scored at EVERY CALIB field through the engine's
+        %                     OptBeamDir= rows on the WFE target (macos
+        %                     64c0a90).  The detector's normal on its travel
+        %                     side makes the image TELECENTRIC -- what a Dyson
+        %                     or Offner relay behind the slit needs (dyson5 TMA
+        %                     step 3, 2026-10-04: the d205 section's exit
+        %                     pupil sat 22 mm before the slit and the Dyson
+        %                     admitted 42% at +-1.17 deg).  One target serves
+        %                     all fields, so the rows measure the spread of
+        %                     the chief directions -- a pupil position; the
+        %                     layout DOFs (pistons, radii) must be free for
+        %                     the solve to move it.  Shares 'beam_wt'.
+        %     'beam_wt'       weight of those rows against the WFE rows (the
+        %                     row sigma is divided by sqrt(wt); WFE rows are
+        %                     metres of wavefront, position rows metres on the
+        %                     detector -- 1e-2..1 makes a 0.1 mm plate-scale
+        %                     error count like a few um of wavefront).
+        %     'asph_elts'     elements whose EVEN-RADIAL ASPHERE terms CALIB
+        %                     varies as well (the engine's OptAsph= DOFs,
+        %                     the step fixed 2026-10-01), 'asph_terms' the
+        %                     term indices (1 = h^4, 2 = h^6, 3 = h^8; default
+        %                     [1 2]).  The element is emitted Surface=Aspheric
+        %                     (zero seed allowed) and, if it declares no
+        %                     aperture, a vertex-centred circle ENCLOSING its
+        %                     beam footprint is declared for the solve --
+        %                     CALIB's zero-coefficient step is sag-based at
+        %                     the circular aperture radius (for an off-axis
+        %                     section that radius runs from the PARENT vertex
+        %                     to the far edge of the footprint, which is the
+        %                     scale the term acts on); with no circular
+        %                     aperture the engine falls back to a round-off
+        %                     step on a metre deck.  The enclosing circle
+        %                     clips nothing and is removed after the solve.
+        %                     Solved coefficients are read back into
+        %                     spec.elt(k).asph (get_elt_asph) and emitted with
+        %                     the design.  Pair with 'beam_pos_fov' to solve
+        %                     blur and plate scale together (dyson5 step 4).
         %     'dofs'          VarElt mask [TIP TILT CLOCK DX DY PIST ROC
         %                     CONIC] (default [0 0 0 0 0 0 0 1] = conic only).
         %                     A (1,8) row applies to EVERY varied element; an
@@ -1050,6 +1131,11 @@ classdef Telescope < handle
                 opts.dofs          (:,8) double = [0 0 0 0 0 0 0 1]  % VarElt mask ((1,8) shared or (Nv,8) per-elt)
                 opts.elts          (1,:) double = []   % subset of elements to vary
                 opts.fpa_dofs      (:,8) double = []   % enrol the detector as a varied element
+                opts.beam_pos_fov  (3,:) double = []   % per-field image-position targets at the FP (global, m), one column per CALIB field in order
+                opts.beam_dir      (3,:) double = []   % chief-direction target at the FP (global unit vector, travel direction), every field
+                opts.beam_wt       (1,1) double = 1    % weight of those rows against the WFE rows (row sigma / sqrt(wt))
+                opts.asph_elts     (1,:) double = []   % elements whose even-radial asphere terms CALIB varies (OptAsph=)
+                opts.asph_terms    (1,:) double = [1 2]  % the terms: 1 = h^4, 2 = h^6, 3 = h^8 ... (<= 9)
             end
             if ~all(ismember(opts.dofs(:), [0 1]))
                 error('macos:design:Telescope:optimize:dofs', ...
@@ -1081,6 +1167,47 @@ classdef Telescope < handle
             if isempty(var_elts)
                 error('macos:design:Telescope:optimize:noMirror', ...
                     'no Reflector elements to vary.');
+            end
+            % --- asphere DOFs: declare the surfaces (and an enclosing circle) ---
+            asph_ap_added = [];
+            if ~isempty(opts.asph_elts)
+                bad = setdiff(opts.asph_elts, var_elts);
+                if ~isempty(bad)
+                    error('macos:design:Telescope:optimize:asphElts', ...
+                        'asph_elts must be among the varied powered Reflectors (got %s).', mat2str(bad));
+                end
+                if any(opts.asph_terms < 1) || any(opts.asph_terms > 9) || any(opts.asph_terms ~= round(opts.asph_terms))
+                    error('macos:design:Telescope:optimize:asphTerms', 'asph_terms must be integers in 1..9.');
+                end
+                nt = max(opts.asph_terms);
+                % The circle must enclose the footprint over EVERY field of
+                % the solve, not the nominal one: sized at the nominal field
+                % alone it clipped the strip edges on dyson5's stage-B
+                % section (M3's 23 mm circle vs a bundle walking 25 mm at
+                % +-4.69 deg: 213 / 91 / 0 of 253 rays at +-1.56 / 3.13 /
+                % 4.69 deg -> CALIB's 9.9999e36 "failed field" sentinel and
+                % a solve that never saw its edges; addendum 40/41).  The
+                % same clipping, milder, sat under tAsphHook's original pin:
+                % 180 / 97 of 253 rays at 30' / 60' on the on-axis parent,
+                % so [55 117 308] nm was the WFE of the SURVIVORS; with every
+                % ray counted the honest h4+h6 optimum there is [496 407 467].
+                % CALIB's zero-coefficient step scales on this radius too
+                % (sag at the circle = 1e-7 |Kr|); measured insensitive: the
+                % doubled M3 circle gives the same solve to 4 digits.
+                if ~isempty(opts.fields)
+                    Fap = [0 0; opts.fields];
+                else
+                    Fap = [0 0; zeros(numel(opts.fields_arcmin), 1), deg2rad(opts.fields_arcmin(:)/60)];
+                end
+                for k = opts.asph_elts
+                    a = obj.spec.elt(k).asph;
+                    if numel(a) < nt, a(end+1:nt) = 0; end
+                    obj.spec.elt(k).asph = a(:).';
+                    if isempty(obj.spec.elt(k).ap) && isempty(obj.spec.elt(k).ap_rect)
+                        obj.spec.elt(k).ap = [obj.enclosing_radius_(k, Fap), 0, 0];
+                        asph_ap_added(end+1) = k; %#ok<AGROW>
+                    end
+                end
             end
             % --- optionally enrol the detector as a varied element --------
             fpa_elt = [];
@@ -1130,7 +1257,7 @@ classdef Telescope < handle
             % ExitPupil), giving each field a reference sphere centred on ITS
             % chief-ray intercept on the detector.  That is the strict metric;
             % verified numerically equal to it (2.7e-9) by
-            % design/rodgers1/gate0_merit_identity.m.
+            % challenges/rodgers1/gate0_merit_identity.m.
             use_ep = isfield(obj.spec,'pupil') && ~isempty(obj.spec.pupil);
             if use_ep
                 fp_elt = obj.spec.pupil.ep_elt;
@@ -1176,15 +1303,47 @@ classdef Telescope < handle
             obj.spec.opt = struct('target',opts.target, 'wf_elt',fp_elt, ...
                 'max_iters',opts.max_iters, 'fields',dirs, 'weights',w, ...
                 'var_elts',var_elts, 'dof_mask',opts.dofs, 'dof_rows',dof_rows, ...
-                'fex',use_ep);
+                'fex',use_ep, 'asph_elts',opts.asph_elts, 'asph_terms',opts.asph_terms);
             obj.build();                                  % emit opt block -> load
             if use_ep
                 % design_optim.F:170-180 aborts the solve unless the system
                 % stop is set before CALIB is entered; smacos_compute.inc:279
-                % then re-issues it per evaluation.
-                macos.stop(1);
+                % then re-issues it per evaluation.  At the DECK's ApStop
+                % (object space), not a bare stop(1): on an eccentric section
+                % that aims every iterate at the parent vertex (dyson5 add. 42).
+                obj.stop_at_apstop_();
+            end
+            if ~isempty(opts.beam_pos_fov)
+                % per-field image-position rows on the WFE target (engine beam
+                % rows, api calib_set_beam*): targets in CALIB field order
+                if size(opts.beam_pos_fov, 2) ~= nfov
+                    error('macos:design:Telescope:optimize:beamPosFov', ...
+                        'beam_pos_fov must have one column per CALIB field (%d).', nfov);
+                end
+                beam_elt = find(strcmp({obj.spec.elt.kind}, 'FocalPlane'), 1, 'last');  % the detector, not the EP merit element
+                macos.calib_set_beam('pos', beam_elt, opts.beam_pos_fov(:,1));
+                macos.calib_set_beam_pos_fov(opts.beam_pos_fov);
+                macos.calib_set_beam_wt(opts.beam_wt);
+            end
+            if ~isempty(opts.beam_dir)
+                % chief-direction rows at the detector on the WFE target (engine
+                % OptBeamDir=; one target, scored per CALIB field): telecentricity
+                if size(opts.beam_dir, 2) ~= 1 || norm(opts.beam_dir) == 0
+                    error('macos:design:Telescope:optimize:beamDir', ...
+                        'beam_dir must be one nonzero 3-vector (the chief''s travel direction at the FP).');
+                end
+                beam_elt = find(strcmp({obj.spec.elt.kind}, 'FocalPlane'), 1, 'last');
+                macos.calib_set_beam('dir', beam_elt, opts.beam_dir/norm(opts.beam_dir));
+                macos.calib_set_beam_wt(opts.beam_wt);
             end
             r = macos.calib();
+            if ~isempty(opts.beam_dir)
+                macos.calib_set_beam('dir', beam_elt, [], 'off');   % session state: do not leak into the next solve
+            end
+            if ~isempty(opts.beam_pos_fov)
+                macos.calib_set_beam('pos', beam_elt, [], 'off');   % session state: do not leak into the next solve
+                macos.calib_set_beam_pos_fov([]);
+            end
 
             % read back per-element params CALIB may have moved, into the spec
             % (for describe()/view_layout); the deliverable handling differs
@@ -1201,6 +1360,9 @@ classdef Telescope < handle
                 end
                 obj.spec.elt(k).Kc  = macos.get_elt_kc(k);
                 obj.spec.elt(k).Kr  = macos.get_elt_kr(k);          % ROC DOF
+                if any(opts.asph_elts == k)                          % asphere DOFs
+                    obj.spec.elt(k).asph = macos.get_elt_asph(k, numel(obj.spec.elt(k).asph));
+                end
                 obj.spec.elt(k).psi = reshape(macos.get_elt_psi(k), 1, 3); % tilt
                 obj.spec.elt(k).Vpt = reshape(macos.get_elt_vpt(k), 1, 3); % decenter
             end
@@ -1222,6 +1384,9 @@ classdef Telescope < handle
                 end
             end
             obj.spec = rmfield(obj.spec, 'opt');
+            for k = asph_ap_added                      % the enclosing circles were for the solve only
+                obj.spec.elt(k).ap = [];
+            end
             % Clean re-emit from the updated spec.  CALIB bakes the rigid-body
             % result into psiElt/VptElt (verified), and our mirrors are
             % rotationally-symmetric conics, so the moved psi/Vpt fully define
@@ -1236,6 +1401,57 @@ classdef Telescope < handle
                 'fields_arcmin',rad2deg(fxy(:,2)).'*60, ...  % y-angles only (back-compat)
                 'wfe_before',r.old_wfe(:,1).', 'wfe_after',r.new_wfe(:,1).', ...
                 'conics',Kopt, 'var_elts',var_elts, 'wavelength',obj.spec.wavelength);
+        end
+
+        function [modes, coef] = asph_to_zern_(~, asph, lMon, type)
+        %ASPH_TO_ZERN_  Even-radial asphere -> symmetric Zernike at lMon.
+        %   The engine applies the even-radial AsphCoef ONLY on Surface=Aspheric
+        %   (SrfType 3); a Zernike / FreeForm surface carries a SINGLE monomial
+        %   field (MonSrf/FreeFormSrf: conic + Mon).  So to carry conic + asph +
+        %   Zernike on ONE mirror, the asphere is expressed as its symmetric
+        %   (m=0) Zernike content.  The engine Aspheric sag (surfsub.F SAsphere)
+        %   is fh = sum_i asph(i)*h^(2i+2), h the radial coordinate (m).
+        %
+        %   The projection is NUMERICAL, onto the ENGINE-EXACT basis from
+        %   macos.zernike_grid_basis (the same ANSI/Noll evaluator the engine
+        %   uses, RMS-normalized -- gated tRunCompare), so the convention and
+        %   normalization match by construction instead of being hand-derived
+        %   (ZernType_ANSI=1 is UNNORMALIZED raw R_n^0; the normalized basis
+        %   corresponds to ZernType_NormANSI=4 -- the emitter writes the Norm
+        %   variant when it folds, see build).  Modes: PISTON + defocus +
+        %   na spherical orders (ANSI 1,5,13,25,41 / Noll 1,4,11,22,37); the
+        %   asphere has no rho^0/rho^2, but PISTON matters because a constant
+        %   sag on a REFLECTOR axially displaces the vertex and moves rays.
+        %   Returns the symmetric MODES and their COEFS (metres), in the
+        %   normalized convention derived from TYPE.  Round-trip gated by
+        %   tTmaAsphZernFold (asph via Aspheric == asph via this fold).
+            asph = asph(:).';
+            nz = find(asph ~= 0, 1, 'last');          % strip trailing zeros (padded input)
+            if isempty(nz), modes = []; coef = []; return; end
+            asph = asph(1:nz);  na = numel(asph);
+            if na > 3
+                error('macos:design:Telescope:asphZern:order', ...
+                    'asph_to_zern_ handles up to 3 even-radial terms (h^4..h^8); got %d.', na);
+            end
+            conv = lower(regexprep(type, '^Norm', '', 'ignorecase'));
+            if strcmpi(conv, 'noll'), allm = [1 4 11 22 37];  conv = 'noll';
+            else,                     allm = [1 5 13 25 41];  conv = 'ansi';   % ANSI/OSA default
+            end
+            modes = allm(1:na+2);                     % piston + defocus + na spherical orders
+            % project the asphere sag onto the ENGINE-EXACT normalized Zernike
+            % basis (macos.zernike_grid_basis, gated tRunCompare): the shapes AND
+            % the RMS normalization are the engine's own, so emitting the Norm
+            % variant (NormANSI / NormNoll) reproduces the asphere exactly rather
+            % than relying on a hand-transcribed radial polynomial + convention.
+            N = 128;
+            B = macos.zernike_grid_basis(N, modes, 1.0, conv);
+            tt = linspace(-1, 1, N);  [X, Y] = ndgrid(tt, tt);
+            rho = sqrt(X.^2 + Y.^2);  inAp = rho <= 1;
+            h = rho(inAp) * lMon;                     % physical radial coordinate (m)
+            f = zeros(nnz(inAp), 1);
+            for i = 1:na, f = f + asph(i)*h.^(2*i+2); end
+            Phi = reshape(B, [], numel(modes));
+            coef = (Phi(inAp(:), :) \ f).';           % LSQ -> exact (asph in the span)
         end
 
         function set_freeform(obj, elt, modes, coef, opts)
@@ -1330,6 +1546,9 @@ classdef Telescope < handle
                                                  % near-focus field mirror is
                                                  % ~100x smaller than the
                                                  % stop); see set_freeform
+                opts.beam_pos_fov (3,:) double = []   % per-field image-position targets at the FP (global m), one column per CALIB field (nfov) in order; field 1 = on-axis
+                opts.beam_dir     (3,:) double = []   % chief travel-direction target at the FP (global unit vec); scored every field (telecentricity)
+                opts.beam_wt      (1,1) double = 1    % weight on the beam rows vs the WFE rows
             end
             if obj.is_nmirror_() && (~isfield(obj.spec,'elt') || isempty(obj.spec.elt))
                 obj.resolve_nmirror_();
@@ -1398,7 +1617,37 @@ classdef Telescope < handle
             o.zern_modes  = repmat({modes}, 1, numel(elts));  % cell, assigned after
             obj.spec.opt  = o;
             obj.build();                              % emit Zernike surfaces + OptZern
+
+            % per-field image-position + chief-direction rows on the WFE target
+            % (the same engine beam rows optimize() carries, api calib_set_beam*):
+            % a freeform departure must NOT drift the plate scale or the
+            % telecentricity the layout gives it, so pin both in the SAME solve.
+            beam_elt = find(strcmp({obj.spec.elt.kind}, 'FocalPlane'), 1, 'last');
+            if ~isempty(opts.beam_pos_fov)
+                if size(opts.beam_pos_fov, 2) ~= nfov
+                    error('macos:design:Telescope:optfree:beamPosFov', ...
+                        'beam_pos_fov must have one column per CALIB field (%d).', nfov);
+                end
+                macos.calib_set_beam('pos', beam_elt, opts.beam_pos_fov(:,1));
+                macos.calib_set_beam_pos_fov(opts.beam_pos_fov);
+                macos.calib_set_beam_wt(opts.beam_wt);
+            end
+            if ~isempty(opts.beam_dir)
+                if size(opts.beam_dir, 2) ~= 1 || norm(opts.beam_dir) == 0
+                    error('macos:design:Telescope:optfree:beamDir', ...
+                        'beam_dir must be one nonzero 3-vector (the chief travel direction at the FP).');
+                end
+                macos.calib_set_beam('dir', beam_elt, opts.beam_dir/norm(opts.beam_dir));
+                macos.calib_set_beam_wt(opts.beam_wt);
+            end
             r = macos.calib();
+            if ~isempty(opts.beam_dir)
+                macos.calib_set_beam('dir', beam_elt, [], 'off');   % do not leak into the next solve
+            end
+            if ~isempty(opts.beam_pos_fov)
+                macos.calib_set_beam('pos', beam_elt, [], 'off');
+                macos.calib_set_beam_pos_fov([]);
+            end
 
             % read the optimized Zernike coefficients back into the spec
             % (lmon rides along -- the coefficients are tied to the
@@ -1604,6 +1853,26 @@ classdef Telescope < handle
             sgtitle(tl, sprintf('%s -- orthographic layout (real rays)', obj.spec.family), ...
                     'Interpreter','none');
             if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+        end
+
+        function r = enclosing_radius_(obj, k, F)
+        %ENCLOSING_RADIUS_  Radius of the vertex-centred circle, in element k's
+        %   plane, that encloses its beam footprint over the fields F ((N,2)
+        %   rad offsets about the bias; default the nominal field) (x1.05).
+        %   For an off-axis section this runs from the PARENT vertex to the far
+        %   edge of the footprint -- the radius an even-asphere term acts on.
+        %   A multi-field solve must pass ITS fields: the footprint walks with
+        %   the field, and a circle sized at the nominal field clips the edges.
+            if nargin < 3 || isempty(F), F = [0 0]; end
+            B = obj.ray_bundle('fields', F);
+            e = obj.spec.elt(k);  n = e.psi(:)/norm(e.psi);  v = e.Vpt(:);
+            r = 0;
+            for f = 1:numel(B.pos)
+                pk = B.pos{f}(:,:,k);  ok = B.ok{f}(:,k).';
+                P  = pk(:,ok) - v;  P = P - n*(n.'*P);
+                if ~isempty(P), r = max(r, max(vecnorm(P))); end
+            end
+            r = 1.05*r;
         end
 
         function B = ray_bundle(obj, opts)
@@ -1950,15 +2219,39 @@ classdef Telescope < handle
         %APERTURE_FULL_FIELD  Per-element clear aperture covering the FULL
         %   FIELD (PLAN_DESIGN_LAYER §8).  Traces a set of field points
         %   spanning the design FoV and, for each element, returns the
-        %   smallest centred circle (centre + radius, in the element's local
-        %   aperture plane) that contains EVERY field point's beam footprint
-        %   -- the essential aperture-sizing output once a design meets its
-        %   other requirements.  Directly emit-ready as ApVec=(radius,xc,yc).
+        %   smallest circle in THAT ELEMENT'S OWN APERTURE PLANE (centre +
+        %   radius) that contains every field point's beam footprint --
+        %   directly emit-ready as ApVec=(radius, xc, yc).
+        %
+        %   FRAME (fixed 2026-08-24, e2e6m).  ApVec is read by the engine as
+        %       rho = intersection - VptElt          (elemsub.F ChkRayTrans)
+        %       px  = xObs . rho,   py = yObs . rho
+        %   with the element aperture triad built in tracesub.F/propsub.F as
+        %       zObs = psiElt,  yObs = unit(zObs x xObs),  xObs = yObs x zObs
+        %   seeded by the parsed xObs or, when none is declared (which is the
+        %   case for every deck this class emits), the ChkDf2 default
+        %   xObs = (psi_z, psi_x, psi_y) (iosub.inc).  This routine used to
+        %   measure the footprint box in GLOBAL x,y from the DRAW meridian
+        %   fans and hand it back as a LOCAL ApVec offset -- two errors at
+        %   once (no shift to VptElt, no rotation into the element frame),
+        %   correct only while an element sits at the global origin with
+        %   psi = (0,0,-1).  Measured on a 6 m tilted-fold design: it
+        %   reported M2's centre at yc = -3.405 m where the true in-plane
+        %   offset is -0.031 m, so the emitted stop landed 3.37 m off the
+        %   beam and the saved .in lost every ray on reload -- the same
+        %   defect REALIZE_APERTURES still carries (see
+        %   CLEAR_REALIZED_APERTURES; it is left alone because the rodgers1
+        %   corpus is scored through it).
+        %
+        %   The footprint now comes from RAY_BUNDLE -- the FULL ray grid at
+        %   every element, not the two meridian fans -- so an elongated
+        %   off-axis patch is measured on its real extent.
         %
         %   Name-value:
-        %     'fields'  Kx2 field points [theta_x theta_y] (rad) to span.
-        %               Default: the bias point plus set_field_points offsets
-        %               (shifted onto the bias), or just the bias alone.
+        %     'fields'  Kx2 field points [theta_x theta_y] (rad), ABSOLUTE
+        %               (i.e. including any field bias), to span.
+        %               Default: the bias point plus set_field_points
+        %               offsets (shifted onto the bias), or the bias alone.
         %     'margin'  fractional radius margin (default 0.05).
         %     'quiet'   suppress the printed table (default false).
         %   rep(k): .name .center [xc yc] .radius .nfield
@@ -1980,39 +2273,39 @@ classdef Telescope < handle
             end
             nE = numel(obj.spec.elt);
 
-            % accumulate per-element footprint bounding box over field points
-            lo = inf(2,nE);  hi = -inf(2,nE);
-            saved = [];
-            if isfield(obj.spec,'trace_field'), saved = obj.spec.trace_field; end
-            restore = onCleanup(@() obj.restore_trace_field_(saved)); %#ok<NASGU>
-            for i = 1:size(F,1)
-                obj.spec.trace_field = F(i,:);
-                obj.build('', 'init', false);
-                b = macos.draw_rays('XY', 0, nE);        % U=X, V=Y (pinned plane)
-                for k = 1:nE
-                    m = (b.elt == k);
-                    if ~any(m(:)), continue; end
-                    lo(1,k) = min(lo(1,k), min(b.U(m)));
-                    hi(1,k) = max(hi(1,k), max(b.U(m)));
-                    lo(2,k) = min(lo(2,k), min(b.V(m)));
-                    hi(2,k) = max(hi(2,k), max(b.V(m)));
-                end
-            end
+            % RAY_BUNDLE takes field OFFSETS about the bias and adds the
+            % bias itself; F above is absolute, so hand back the offsets.
+            B = obj.ray_bundle('fields', [F(:,1), F(:,2) - by]);
 
             rep = struct('name',{},'center',{},'radius',{},'nfield',{});
             for k = 1:nE
-                if ~isfinite(lo(1,k))
+                e = obj.spec.elt(k);
+                [xo, yo] = obj.obs_frame_(e.psi);
+                u = [];  v = [];
+                for i = 1:numel(B.pos)
+                    m = B.ok{i}(:,k).';
+                    if ~any(m), continue; end
+                    d = B.pos{i}(:,m,k) - e.Vpt(:);
+                    u = [u, xo.'*d];  v = [v, yo.'*d]; %#ok<AGROW>
+                end
+                if isempty(u)
                     c = [0 0];  r = 0;
                 else
-                    c = [(lo(1,k)+hi(1,k))/2, (lo(2,k)+hi(2,k))/2];
-                    % half-diagonal of the bounding box covers every footprint
-                    r = 0.5*hypot(hi(1,k)-lo(1,k), hi(2,k)-lo(2,k))*(1+opts.margin);
+                    % centre the circle on the footprint bounding box, then
+                    % size it to the farthest sample.  The half-DIAGONAL of
+                    % the box (what this used to return) circumscribes the
+                    % box, so it oversizes a round beam by sqrt(2) -- and an
+                    % oversized clear aperture is not free: it is the
+                    % element that has to be built.
+                    c = [(min(u)+max(u))/2, (min(v)+max(v))/2];
+                    r = max(hypot(u - c(1), v - c(2)))*(1+opts.margin);
                 end
-                rep(k) = struct('name',obj.spec.elt(k).name, 'center',c, ...
+                rep(k) = struct('name',e.name, 'center',c, ...
                                 'radius',r, 'nfield',size(F,1));
             end
             if ~opts.quiet
-                fprintf('aperture_full_field  (%d field point(s), family=%s)\n', ...
+                fprintf(['aperture_full_field  (%d field point(s), family=%s;' ...
+                         ' element-local ApVec frame)\n'], ...
                         size(F,1), obj.spec.family);
                 fprintf('  %-10s %12s %12s %12s\n', 'element','radius','xc','yc');
                 for k = 1:nE
@@ -2020,6 +2313,49 @@ classdef Telescope < handle
                             rep(k).radius, rep(k).center(1), rep(k).center(2));
                 end
             end
+        end
+
+        function rep = apply_full_field_apertures(obj, opts)
+        %APPLY_FULL_FIELD_APERTURES  Size the clear apertures to the FULL
+        %   FIELD and EMIT them.  APERTURE_FULL_FIELD only MEASURES -- spec
+        %   is read-only outside the class, so a caller cannot apply its
+        %   report -- and this is the applying half: it stores the
+        %   frame-correct (radius, xc, yc) on each element and rebuilds, so
+        %   the emitted deck (and the SAVED .in) carries stops that sit on
+        %   the beam.
+        %
+        %   Options are APERTURE_FULL_FIELD's, plus:
+        %     'skip'    cellstr of element NAMES to leave alone (default
+        %               {} ).  Detector and pupil markers usually want no
+        %               stop at all; a Return sphere in a propagation
+        %               quartet must not be clipped.
+        %     'only'    cellstr of element NAMES to aperture ({} = all).
+        %
+        %   ALWAYS follow a save() with a standalone reload ray count: a
+        %   frame error in an emitted stop is invisible in-session (the
+        %   object still holds the right geometry) and total on reload.
+        %
+        %   See also APERTURE_FULL_FIELD, CLEAR_REALIZED_APERTURES.
+            arguments
+                obj
+                opts.fields (:,2) double  = []
+                opts.margin (1,1) double  = 0.05
+                opts.quiet  (1,1) logical = false
+                opts.skip   (1,:) cell    = {}
+                opts.only   (1,:) cell    = {}
+            end
+            rep = obj.aperture_full_field('fields',opts.fields, ...
+                        'margin',opts.margin, 'quiet',opts.quiet);
+            for k = 1:numel(rep)
+                nm = rep(k).name;
+                if ~isempty(opts.only) && ~any(strcmp(nm, opts.only)), continue; end
+                if any(strcmp(nm, opts.skip)), continue; end
+                if ~(rep(k).radius > 0) || ~all(isfinite(rep(k).center)), continue; end
+                obj.spec.elt(k).ap = [rep(k).radius, rep(k).center(1), ...
+                                      rep(k).center(2)];
+                obj.spec.elt(k).ap_rect = [];
+            end
+            obj.build('', 'init', false);
         end
 
         function scan = realize_apertures(obj, opts)
@@ -2282,6 +2618,9 @@ classdef Telescope < handle
             if nargin < 8, fans = 'both'; end
             nE = numel(obj.spec.elt);
             if iend <= 0, iend = nE; end
+            % the (cU,cV) mapping below treats b.U/b.V as global components
+            % and differences them against e.Vpt -- assert that holds.
+            macos.design.assert_draw_frame_global(plane, 'draw_plane_');
             b = macos.draw_rays(plane, istart, iend);
             switch upper(plane)            % which 3-D comps map to (U,V)
                 case 'YZ', cU = 3; cV = 2;
@@ -2451,6 +2790,41 @@ classdef Telescope < handle
             end
         end
 
+        function [xo, yo, zo] = obs_frame_(~, psi, xseed)
+        %OBS_FRAME_  The element APERTURE/OBSCURATION triad, exactly as the
+        %   engine builds it (tracesub.F ~3179 / propsub.F ~361):
+        %       zObs = psiElt
+        %       yObs = unit(zObs x xObs_seed)
+        %       xObs = yObs x zObs
+        %   seeded by the parsed xObs=, or -- when the deck declares none,
+        %   which is the case for everything this class emits -- by the
+        %   ChkDf2 default xObs = (psi_z, psi_x, psi_y) (iosub.inc ~1015).
+        %   That default is NOT orthogonal to psi in general; the two cross
+        %   products above are what make the triad, and reproducing them is
+        %   the whole point of this helper.
+        %
+        %   Aperture offsets (ApVec 2:3) are measured from VptElt along
+        %   xObs/yObs.  Distinct from SURF_FRAME_, which is the TElt
+        %   perturbation frame (built about the surface NORMAL at the pole,
+        %   with a different seed rule) -- do not substitute one for the
+        %   other.
+        %
+        %   See also APERTURE_FULL_FIELD, SURF_FRAME_.
+            zo = psi(:) / norm(psi);
+            if nargin < 3 || isempty(xseed)
+                xseed = [zo(3); zo(1); zo(2)];       % the ChkDf2 default
+            end
+            yo = cross(zo, xseed(:));
+            ny = norm(yo);
+            if ny < 1e-12                            % seed parallel to psi
+                xseed = [1;0;0];
+                if abs(zo(1)) > 0.9, xseed = [0;1;0]; end
+                yo = cross(zo, xseed);  ny = norm(yo);
+            end
+            yo = yo / ny;
+            xo = cross(yo, zo);
+        end
+
         function R = surf_frame_(~, psi)
         %SURF_FRAME_  Local surface frame [x y z] (columns, in global coords)
         %   for the element TElt: Z along the OUTWARD surface normal (psi) at
@@ -2517,6 +2891,17 @@ classdef Telescope < handle
             rms = std(w - B*c);                             % metres
         end
 
+        function stop_at_apstop_(obj)
+        %STOP_AT_APSTOP_  Set the system stop at the deck's own ApStop point, in object space -- the point build()
+        %   writes to the header, (0, aperture_decenter, 0).  On a coaxial deck that is M1's vertex, the point a bare
+        %   macos.stop(1) used; on an eccentric section (set_offaxis) a bare stop(1) re-aims the chief at the PARENT
+        %   vertex, off the beam, and FEX / OptFEX then serve a different telescope (dyson5 addendum 42, 2026-10-05).
+        %   Gate: tStopApStop.
+            apdy = 0;
+            if isfield(obj.spec, 'aperture_decenter'), apdy = obj.spec.aperture_decenter; end
+            macos.stop_obj(0, apdy, 0);
+        end
+
         function resolve_section_poles_(obj)
         %RESOLVE_SECTION_POLES_  For every mirror, set RptElt = the beam-
         %   footprint center on the parent surface (the section pole) and nrm =
@@ -2529,7 +2914,11 @@ classdef Telescope < handle
         %   slope at off-axis height d; R=|Kr|, K=Kc, that = transverse unit).
             obj.build('', 'init', false);              % current (decentered) design
             nE = numel(obj.spec.elt);
-            b  = macos.draw_rays('XY', 0, nE);         % U=X, V=Y (pinned plane)
+            % xc/yc below are differenced against the GLOBAL e.Vpt, so the
+            % draw projection must really be the global frame -- assert it.
+            macos.design.assert_draw_frame_global('XY', ...
+                'resolve_section_poles_');
+            b  = macos.draw_rays('XY', 0, nE);         % U=X, V=Y (frame asserted)
             for k = 1:nE
                 e = obj.spec.elt(k);
                 if ~strcmp(e.kind, 'Reflector'), continue; end
@@ -2800,7 +3189,10 @@ classdef Telescope < handle
                 L{end+1} = sprintf('             iElt=  %d', k);                  %#ok<AGROW>
                 L{end+1} = ['          EltName=  ' e.name];
                 L{end+1} = ['          Element=  ' e.kind];
-                hasAsph = isfield(e,'asph') && ~isempty(e.asph) && any(e.asph ~= 0);
+                hasAsph = isfield(e,'asph') && ~isempty(e.asph) && (any(e.asph ~= 0) ...
+                          || (isfield(sp,'opt') && isfield(sp.opt,'asph_elts') && any(sp.opt.asph_elts == k)));
+                % (an element whose asphere terms CALIB varies emits Surface=Aspheric
+                %  even from a zero seed -- the same declare-to-perturb rule as freeform)
                 % A freeform element emits Surface=Zernike whenever modes are
                 % DECLARED -- even with zero coefficients -- so the CALIB OptZern
                 % optimizer has a Zernike surface (ZernTypeL/=0) to perturb from
@@ -2828,14 +3220,39 @@ classdef Telescope < handle
                     % Zernike-departure block: sparse (modes + coefs), 6/row to
                     % match MACOS's own emit.  lMon = beam footprint radius
                     % (rho=1 at the aperture edge -> standard normalization).
-                    % The Mon frame (pMon=Vpt, axes = local surface frame) is the
-                    % Zernike evaluation frame; emitted explicitly to match the
-                    % engine's known-good round-trip (e5mono/SegDemo3).
+                    % The Mon frame is the Zernike evaluation frame: ORIGIN = the
+                    % element's pole (RptElt -- the section pole, or the vertex
+                    % on a coaxial element), axes = the pole's surface frame;
+                    % emitted explicitly to match the engine's known-good
+                    % round-trip (e5mono/SegDemo3).  Until 2026-10-05 the origin
+                    % was Vpt -- the PARENT vertex on an eccentric section, 190 mm
+                    % from the lit patch on dyson5's TMA, so every freeform mode
+                    % was evaluated at rho ~ 3.8 (TO, addendum 44; tFreeformPole).
                     ft = 'ANSI';
                     if isfield(e.freeform,'type') && ~isempty(e.freeform.type)
                         ft = e.freeform.type;
                     end
                     zm = e.freeform.modes(:).';  zc = e.freeform.coef(:).';
+                    % A mirror with BOTH an even-radial asphere AND a Zernike
+                    % freeform cannot yet be emitted exactly: the engine applies
+                    % AsphCoef only on Surface=Aspheric, and folding the asphere
+                    % into the Surface=Zernike ZernCoef field hits a ~2x
+                    % normalization mismatch (absolute conversion; see
+                    % challenges/dyson5/NOTE_asph_zernike_fold.md and the
+                    % PLAN_DESIGN_LAYER "Sprint 6+" to-do).  The exact fix emits
+                    % the freeform via the FreeForm MonZern channel (gated to
+                    % zernike_grid_basis).  Until then REFUSE rather than emit a
+                    % wrong deck -- the projection helper asph_to_zern_ is kept
+                    % for that fix.  (Routes that need both today solve the
+                    % symmetric content AS Zernike instead -- step 5 route B.)
+                    if hasAsph
+                        error('macos:design:Telescope:asphZernNotYet', ...
+                            ['mirror %s has BOTH an asphere and a Zernike freeform; ' ...
+                             'exact co-emit (FreeForm MonZern channel) is not landed yet ' ...
+                             '-- see challenges/dyson5/NOTE_asph_zernike_fold.md. ' ...
+                             'Solve the symmetric content as Zernike modes {defocus, spherical} ' ...
+                             'instead, or clear .asph.'], e.name);
+                    end
                     nz = numel(zc);
                     L{end+1} = ['         ZernType=  ' ft];                          %#ok<AGROW>
                     L{end+1} = sprintf('        nZernCoef=  %d', nz);               %#ok<AGROW>
@@ -2865,7 +3282,9 @@ classdef Telescope < handle
                     nrmz = e.psi;
                     if isfield(e,'nrm') && ~isempty(e.nrm), nrmz = e.nrm; end
                     Rz = obj.surf_frame_(nrmz);
-                    L{end+1} = ['             pMon=  ' v3(e.Vpt(1),e.Vpt(2),e.Vpt(3))];   %#ok<AGROW>
+                    pz = e.Vpt;
+                    if isfield(e,'pole') && ~isempty(e.pole), pz = e.pole; end
+                    L{end+1} = ['             pMon=  ' v3(pz(1),pz(2),pz(3))];            %#ok<AGROW>
                     L{end+1} = ['             xMon=  ' v3(Rz(1,1),Rz(2,1),Rz(3,1))];      %#ok<AGROW>
                     L{end+1} = ['             yMon=  ' v3(Rz(1,2),Rz(2,2),Rz(3,2))];      %#ok<AGROW>
                     L{end+1} = ['             zMon=  ' v3(Rz(1,3),Rz(2,3),Rz(3,3))];      %#ok<AGROW>
@@ -2917,6 +3336,14 @@ classdef Telescope < handle
                 % them to the optimizer (auto-enrolls the elt as VarElt); paired
                 % with an all-zero VarElt mask it varies ONLY the Zernike coefs,
                 % so radii/conics are held (optimize_freeform).
+                % CALIB even-asphere DOF (OptAsph= n term1 .. termn; 1 = h^4):
+                % must FOLLOW the VarElt line (the parser keys it on isVarElt).
+                if isfield(sp,'opt') && isfield(sp.opt,'asph_elts') ...
+                        && any(sp.opt.asph_elts == k)
+                    at = sp.opt.asph_terms;
+                    L{end+1} = ['          OptAsph=  ' num2str(numel(at)) ...   %#ok<AGROW>
+                                '  ' strtrim(sprintf('%d ', at))];
+                end
                 if isfield(sp,'opt') && isfield(sp.opt,'zern_elts') ...
                         && any(sp.opt.zern_elts == k)
                     zi  = find(sp.opt.zern_elts == k, 1);
@@ -2951,7 +3378,16 @@ classdef Telescope < handle
                 offaxis = (by ~= 0) || (apst(2) ~= 0);
                 hasRect = isfield(e,'ap_rect') && ~isempty(e.ap_rect);
                 hasCirc = isfield(e,'ap')      && ~isempty(e.ap);
-                if hasRect
+                % An explicit declare_apertures list wins over everything
+                % below, INCLUDING a realized aperture: the caller has
+                % said which elements carry a declaration, and silently
+                % re-adding one would defeat the point.
+                suppressed = isfield(sp,'declare_apertures') && ...
+                             iscell(sp.declare_apertures) && ...
+                             ~any(strcmp(sp.declare_apertures, e.name));
+                if suppressed
+                    L{end+1} = '           ApType=  None';                           %#ok<AGROW>
+                elseif hasRect
                     L{end+1} = '           ApType=  Rectangular';                    %#ok<AGROW>
                     L{end+1} = ['            ApVec=  ' sprintf('%.16E  %.16E  %.16E  %.16E', ...
                                 e.ap_rect(1),e.ap_rect(2),e.ap_rect(3),e.ap_rect(4))]; %#ok<AGROW>

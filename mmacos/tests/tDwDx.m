@@ -225,6 +225,34 @@ classdef tDwDx < matlab.unittest.TestCase
                 'rigid-body perturbations must move the centroid');
         end
 
+        function test_dcdx_of_a_rigid_tilt_is_the_chief_displacement(testCase)
+            % Luis's OPTIIX FSM test (2026-10-06): dw_dx's centroid channel
+            % took macos.spot(...,'at','chief'), the spot CENTRED ON THE
+            % CHIEF RAY, so a rigid displacement of the spot (a mirror
+            % tilt) was subtracted out and dcdx read ~0 for it -- only the
+            % aberration change survived.  The centroid for a line-of-sight
+            % sensitivity is about the ELEMENT.  Here the Cassegrain's
+            % secondary (elt 3) is tilted about x: dcdx_y must equal the
+            % chief ray's own displacement per radian at the focal plane,
+            % measured independently from the traced chief (ray 1).
+            rx = rx_fixture_path('Rx_Cass_FarField.in');
+            m = macos.Session(testCase.ModelSize);
+            d = 2e-7;
+            out = macos.dw_dx(m, rx, 'elts', 3, 'dofs', 0, 'delta', d, 'compute_los', true, 'method', 'central');
+            m.load_rx(rx);  nE = m.num_elt();
+            p0 = chief_(m, nE);
+            m.load_rx(rx);  macos.perturb(3, 'rotation', [d 0 0], 'translation', [0 0 0], 'frame', 'global');
+            p1 = chief_(m, nE);
+            dch = (p1 - p0)/d;                      % the chief's displacement per rad, global frame
+            % the spot is in the TOUT frame; on this coaxial deck Tout's x,y are the global x,y
+            testCase.verifyGreaterThan(norm(dch(1:2)), 1, 'the tilt must move the chief (m per rad)');
+            testCase.verifyEqual(out.dcdx(1, :), dch(1:2).', 'AbsTol', 0.05*norm(dch(1:2)), ...
+                sprintf('dcdx %s vs the chief''s %s m/rad (pre-fix: dcdx ~ 0, the chief-centred spot)', mat2str(out.dcdx(1, :), 4), mat2str(dch(1:2).', 4)));
+            function p = chief_(m, nE)
+                s = m.trace(nE);  ri = macos.get_ray_info(s.nRays);  p = ri.pos(:, 1);
+            end
+        end
+
         function test_no_los_by_default(testCase)
             % Without compute_los the struct carries no LOS fields.
             m = macos.Session(testCase.ModelSize);
@@ -258,6 +286,134 @@ classdef tDwDx < matlab.unittest.TestCase
             testCase.verifyEqual(out.spot_elt, macos.num_elt());
         end
 
+        % ---- trans_output: translation columns per BaseUnit (2026-10-06) ----
+        % Dave's ruling: the default 'base' emits OPD-BaseUnits per BaseUnit
+        % of translation (GMI's dwdx, what Luis compared against); 'si' is
+        % per SI metre, the 2026-08-25..10-06 default.  Every gate runs on
+        % e5hex1 (mm, cbm = 1e-3) -- on a metre deck the two conventions
+        % are identical and these gates would be vacuous.
+
+        function test_trans_output_default_is_base_x_cbm(testCase)
+            % (a) default 'base' translation column == 'si' column x cbm.
+            % MUST-FAIL leg: the pre-change dw_dx has no 'trans_output'
+            % and its default column is the 'si' one, 1000x this.
+            m = macos.Session(testCase.ModelSize);
+            a = {'elts', [1 8], 'dofs', (0:5).', 'compute_los', true};
+            ob = macos.dw_dx(m, testCase.rx_path, a{:});
+            os = macos.dw_dx(m, testCase.rx_path, a{:}, 'trans_output', 'si');
+            testCase.verifyEqual(ob.cbm, 1e-3, 'AbsTol', 1e-15, ...
+                'fixture must be an mm deck (factor != 1)');
+            testCase.verifyEqual(ob.trans_output, 'base');
+            testCase.verifyEqual(os.trans_output, 'si');
+            t = ob.dof_idx >= 3;
+            testCase.verifyEqual(ob.dwdx(:, t), os.dwdx(:, t) * os.cbm, ...
+                'RelTol', 1e-12, 'base translation columns = si x cbm');
+            testCase.verifyEqual(ob.dcdx(t, :), os.dcdx(t, :) * os.cbm, ...
+                'RelTol', 1e-12, 'dcdx translation rows follow the same rule');
+            % (d) rotations untouched -- bit for bit, columns and dcdx rows
+            testCase.verifyEqual(ob.dwdx(:, ~t), os.dwdx(:, ~t));
+            testCase.verifyEqual(ob.dcdx(~t, :), os.dcdx(~t, :));
+        end
+
+        function test_trans_output_si_reproduces_the_pre_change_numbers(testCase)
+            % (c) 'si' == the dw_dx of HEAD 622ee52 (before trans_output).
+            % Measured BIT-FOR-BIT on 2026-10-06: the full 66-column
+            % harvest (all optics x 6 DOFs + dcdx) and this 12-column
+            % subset, old code vs new code, isequal == true.  Pinned
+            % here as column rms + dcdx at 1e-12 so an ulp-level engine
+            % rebuild does not break the gate; a units slip is 1e3.
+            m = macos.Session(testCase.ModelSize);
+            o = macos.dw_dx(m, testCase.rx_path, 'elts', [1 8], ...
+                'dofs', (0:5).', 'compute_los', true, 'trans_output', 'si');
+            pin_rms = [521.05555419928555 516.8101056700857 ...
+                0.091711835834967406 10.065414993980431 ...
+                10.068175165126112 694.73520319921772 546.86500461825199 ...
+                540.99818020533451 0.67919771920798078 61.513472236407203 ...
+                60.877583531768714 12.672957482576745];
+            pin_dcdx = [25355.059831469462 44281.553561376088; ...
+                43916.251852551839 -25565.966895513269; ...
+                2.2763356688277385 -2.4868995751603507e-06; ...
+                858.64096838682019 -492.01795704334472; ...
+                -495.73659521474849 -852.20002112862403; ...
+                1.351229367808582e-08 124.481021046563; ...
+                -2.2506264279442946e-07 52061.786264445684; ...
+                51495.652155551034 3.3395508580724709e-05; ...
+                64.178294378763852 7.815970093361102e-06; ...
+                5848.1317755566333 8.8817841970012523e-06; ...
+                -4.7429117734279377e-08 -5788.8080494450378; ...
+                -3.6144289428205853e-07 1163.5166199397418];
+            testCase.verifyEqual(rms(o.dwdx, 1), pin_rms, 'RelTol', 1e-12);
+            % dcdx: relative on the live entries, absolute on the ~0 ones
+            testCase.verifyEqual(o.dcdx, pin_dcdx, 'AbsTol', 1e-6, ...
+                'RelTol', 1e-12);
+        end
+
+        function test_segment_piston_is_two_cos_aoi_per_baseunit(testCase)
+            % (b) physical magnitude.  A Tz (along the segment normal) of
+            % a near-normal segment by d changes the reflected path by
+            % 2*d*cos(AOI) on that segment's footprint and by nothing
+            % elsewhere -- read under the CHIEF reference so the other
+            % segments are exactly 0 (under 'mean' they piston, PLAN 0.x).
+            % Per BaseUnit that is ~2 (mm per mm); the 'si' column is
+            % ~2000 and fails the band.  AOI on e5hex1 < 8 deg.
+            m = macos.Session(testCase.ModelSize);
+            o = macos.dw_dx(m, testCase.rx_path, 'elts', 2, 'dofs', 5, ...
+                'opd_ref', 'chief');
+            c = o.dwdx(:, 1);
+            on = abs(c) > 1e-3;
+            testCase.verifyEqual(nnz(on)/numel(c), 1/7, 'AbsTol', 0.02, ...
+                'one hex segment of seven carries the piston');
+            testCase.verifyLessThan(max(abs(c(~on))), 1e-6, ...
+                'the unpoked segments read 0 under the chief reference');
+            testCase.verifyLessThanOrEqual(max(abs(c(on))), 2 + 1e-9, ...
+                '|dOPD/dTz| <= 2 BaseUnits per BaseUnit');
+            testCase.verifyGreaterThan(min(abs(c(on))), 2*cosd(8), ...
+                '|dOPD/dTz| >= 2 cos(8 deg) BaseUnits per BaseUnit');
+        end
+
+        function test_trans_per_metre_helper(testCase)
+            % macos.dwdx_trans_per_metre, the runners' one-line adapter:
+            % IDENTITY on a pre-change harvest (no trans_output field --
+            % bit for bit), and on a 'base' harvest the translation
+            % columns / dcdx rows come back x 1/cbm, rotations untouched,
+            % on single-field AND multi-field (dwdxall, per_field_dwdx,
+            % dcdx_per_field) outputs.  mm deck: factor 1e3.
+            m = macos.Session(testCase.ModelSize);
+            a = {'elts', [1 8], 'dofs', (0:5).', 'compute_los', true};
+            os = macos.dw_dx(m, testCase.rx_path, a{:}, 'trans_output', 'si');
+            ob = macos.dw_dx(m, testCase.rx_path, a{:});
+            legacy = rmfield(os, 'trans_output');   % == a HEAD-622ee52 harvest
+            testCase.verifyEqual(macos.dwdx_trans_per_metre(legacy), legacy, ...
+                'a pre-change harvest must pass through bit for bit');
+            testCase.verifyEqual(macos.dwdx_trans_per_metre(os), os);
+            cv = macos.dwdx_trans_per_metre(ob);
+            t = ob.dof_idx >= 3;
+            testCase.verifyEqual(cv.trans_output, 'si');
+            testCase.verifyEqual(cv.dwdx(:, t), ob.dwdx(:, t) / ob.cbm, ...
+                'RelTol', 1e-12, 'translation columns x 1/cbm');
+            testCase.verifyEqual(cv.dwdx, os.dwdx, 'RelTol', 1e-12);
+            testCase.verifyEqual(cv.dcdx, os.dcdx, 'RelTol', 1e-12, ...
+                'AbsTol', 1e-9);
+            testCase.verifyEqual(cv.dwdx(:, ~t), ob.dwdx(:, ~t));
+            testCase.verifyEqual(macos.dwdx_trans_per_metre(cv), cv, ...
+                'second call is a no-op');
+            % multi-field
+            b = {'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
+                'elts', 8, 'dofs', [1 5].', 'compute_los', true, ...
+                'reset_xp', false};
+            ms = macos.dw_dx_multi(m, testCase.rx_path, b{:}, 'trans_output', 'si');
+            mb = macos.dw_dx_multi(m, testCase.rx_path, b{:});
+            testCase.verifyEqual(mb.trans_output, 'base');
+            mc = macos.dwdx_trans_per_metre(mb);
+            testCase.verifyEqual(mc.dwdxall, ms.dwdxall, 'RelTol', 1e-12);
+            testCase.verifyEqual(mc.per_field_dwdx{1}, ms.per_field_dwdx{1}, ...
+                'RelTol', 1e-12);
+            testCase.verifyEqual(mc.dcdx_per_field{1}, ms.dcdx_per_field{1}, ...
+                'RelTol', 1e-12, 'AbsTol', 1e-9);
+            testCase.verifyEqual(mb.dwdxall(:, 2), ms.dwdxall(:, 2) * mb.cbm, ...
+                'RelTol', 1e-12, 'multi: Tz column per BaseUnit by default');
+        end
+
         % ---- per-field exit-pupil reset (reset_xp) ----------------------
 
         function test_reset_xp_default_and_stamp(testCase)
@@ -280,7 +436,7 @@ classdef tDwDx < matlab.unittest.TestCase
         % (pymacos/tests/Rx/e5hex1.in via rx_fixture_path) declares
         % "ApStop= 0 0 0" in its header, so load_rx sets a stop and FEX
         % always succeeds -- the genuine no-stop path cannot be provoked on
-        % it.  (The stop-less copy under examples/view_rx_demo/e5hex1.in
+        % it.  (The stop-less copy under templates/60_visualization/view_rx_demo/e5hex1.in
         % DOES raise macos:fex:noStop, which the guard rethrows -- verified
         % during development.)  The guard is a pure defensive rethrow, so
         % every reset_xp=true test below passes through it; run_sensitivities
@@ -349,54 +505,85 @@ classdef tDwDx < matlab.unittest.TestCase
         % ---- empty-OPD guard + single-field identity --------------------
 
         function test_emptyOPD_guard_on_clipped_read_surface(testCase)
-            % A deck whose read surface (nElt-1) clips the whole beam at a
-            % field yields an empty per-field OPD.  dw_dx_multi must fail
-            % LOUDLY (macos:dw_dx_multi:emptyOPD), not trip the opaque
-            % center-tile scalar-logical assert.  rodgers1_stage4 is a
-            % solved TMA carrying post-realize_apertures clip apertures
-            % (M3 ApVec r=0.17 vs M1 r=1.04); the full source grid
-            % overflows M3 -> 0 rays at the read surface.
-            rx = rodgers1_deck_();
-            testCase.assumeTrue(isfile(rx), 'rodgers1_stage4.in not reachable');
-            m = macos.Session(256);
-            testCase.verifyError(@() macos.dw_dx_multi(m, rx, ...
-                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
-                'dofs', (0:5).', 'reset_xp', false), ...
-                'macos:dw_dx_multi:emptyOPD');
+            % A deck whose read surface (nElt-1, the exit-pupil Return)
+            % clips the whole beam yields an empty per-field OPD.  Under
+            % Dave's 2026-09-07 ruling the supervisor WARNS once
+            % (macos:dw_dx_multi:emptyOPD) and completes with 0 rows from
+            % that block -- never errors.  Fixture: the e5hex1 pupil deck
+            % with a 0.1 mm circular aperture on its ExitPupil Return, so
+            % every ray is clipped exactly at the read surface (committed
+            % fixture; the former rodgers1_stage4 deck is not in the repo).
+            txt = fileread(testCase.rx_path);
+            k = strfind(txt, 'EltName=  exitpupil');
+            testCase.assumeTrue(~isempty(k), 'e5hex1 exitpupil block not found');
+            blk = txt(k(1):end);
+            blk = regexprep(blk, '(ApType=\s*)None', ...
+                ['$1Circular' newline '            ApVec=  1.0E-04  0.0E+00  0.0E+00'], 'once');
+            tmp = [tempname '_clipxp.in'];
+            fid = fopen(tmp, 'w');  fwrite(fid, [txt(1:k(1)-1) blk]);  fclose(fid);
+            c = onCleanup(@() delete(tmp));
+            m = macos.Session(testCase.ModelSize);
+            f = @() macos.dw_dx_multi(m, tmp, 'field_x_rad', 1e-4, ...
+                'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
+                'reset_xp', false);
+            out = testCase.verifyWarning(f, 'macos:dw_dx_multi:emptyOPD');
+            testCase.verifyEqual(nnz(out.per_field_w_nom_2d{1}), 0, ...
+                'the clipped read surface must yield an empty nominal OPD');
         end
 
         function test_reset_xp_single_field_identity(testCase)
-            % Cheapest invariant that reset_xp acts ONLY through the field
-            % loop: on a SINGLE on-axis field, FEX re-references to the same
-            % chief ray the deck already points at, so reset==frozen bit-
-            % identical.  (Apertures stripped so the wide-bias deck traces.)
-            rx = rodgers1_stripped_deck_();
-            testCase.assumeTrue(isfile(rx), 'stripped rodgers1 unavailable');
-            m = macos.Session(256);
-            oR = macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
+            % reset_xp acts ONLY through the pupil placement: on a single
+            % field, a reset_xp harvest of the pupil deck must equal a
+            % FROZEN harvest of the same deck whose ExitPupil was FEX'd at
+            % that field beforehand (same stop-enforced chief, same FEX).
+            % Non-vacuous: the committed e5hex1 carries a legacy
+            % single-probe pupil (rad 2548.00) and FEX now places the
+            % medial one (2523.74), so frozen-on-the-committed-deck would
+            % NOT match.
+            m = macos.Session(testCase.ModelSize);
+            m.load_rx(testCase.rx_path);
+            macos.stop_obj(0, 0, 0);           % the deck's own ApStop, re-enforced
+            macos.trace(macos.num_elt());
+            macos.fex(1);
+            tmp = [tempname '_fexed.in'];
+            macos.save_rx(tmp);
+            c = onCleanup(@() delete(tmp));
+            oR = macos.dw_dx_multi(m, testCase.rx_path, 'field_x_rad', 1e-4, ...
                 'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
                 'reset_xp', true);
-            oF = macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
+            oF = macos.dw_dx_multi(m, tmp, 'field_x_rad', 1e-4, ...
                 'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
                 'reset_xp', false);
             testCase.verifyEqual(oR.per_field_dwdx{1}, oF.per_field_dwdx{1}, ...
-                'single on-axis field: reset_xp must be a no-op (identity)');
+                'RelTol', 1e-8, 'AbsTol', 1e-15, ...
+                'reset_xp at the nominal field must equal frozen-on-the-FEXed deck');
         end
 
-        function test_reset_xp_no_pupil_warns_and_stamps(testCase)
-            % reset_xp=true on a bare focal deck (no exit-pupil element at
-            % nElt-1 -- rodgers1's M3 is a powered Reflector) must WARN
-            % (macos:dw_dx_multi:noPupil, FEX found nothing to write) and
-            % stamp out.reset_xp = 'no-effect' so run_compare sees the truth.
-            rx = rodgers1_stripped_deck_();
-            testCase.assumeTrue(isfile(rx), 'stripped rodgers1 unavailable');
-            m = macos.Session(256);
-            f = @() macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
+        function test_no_pupil_element_refuses_before_the_loop(testCase)
+            % Dave 2026-09-08: the wavefront is read at the PUPIL by default.
+            % A bare-focal deck (e2e6m s3_imager_full: nElt-1 = OAPim, a
+            % powered Reflector, no pupil element) must be REFUSED up front
+            % with macos:dw_dx_multi:noPupil, reset_xp or not -- not read at
+            % the powered optic (the one-signed dome), not warned-and-
+            % stamped 'no-effect', and never redirected to the FocalPlane
+            % (blind to tilt).  Supersedes test_reset_xp_no_pupil_warns_and_
+            % stamps.  An explicit exit_pupil_elt at the deck's collimated
+            % SharedPupil Reference (elt 23) is the sanctioned override.
+            here = fileparts(mfilename('fullpath'));
+            rx = fullfile(fileparts(here), 'templates', '80_end_to_end', ...
+                          'e2e6m', 's3_imager_full.in');
+            testCase.assumeTrue(isfile(rx), 's3_imager_full.in not present');
+            m = macos.Session(testCase.ModelSize);
+            for rst = [true false]
+                testCase.verifyError(@() macos.dw_dx_multi(m, rx, ...
+                    'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
+                    'dofs', (0:5).', 'reset_xp', rst), 'macos:dw_dx_multi:noPupil');
+            end
+            out = macos.dw_dx_multi(m, rx, 'field_x_rad', 1e-4, ...
                 'field_y_rad', 1e-4, 'grid', '1x1', 'dofs', (0:5).', ...
-                'reset_xp', true);
-            out = testCase.verifyWarning(f, 'macos:dw_dx_multi:noPupil');
-            testCase.verifyEqual(out.reset_xp, 'no-effect', ...
-                'no-pupil deck must stamp reset_xp = ''no-effect''');
+                'reset_xp', false, 'exit_pupil_elt', 23);
+            testCase.verifyEqual(out.wf_elt, 23, ...
+                'an explicit collimated-pupil Reference must be honoured');
         end
 
         function test_reset_xp_stamps_true_on_pupiled_deck(testCase)
@@ -445,10 +632,10 @@ end
 
 % =====================================================================
 % Helpers: the rodgers1 wide-field TMA deck (a solved design fixture
-% under design/rodgers1) + an aperture-stripped copy for harvesting.
+% under challenges/rodgers1) + an aperture-stripped copy for harvesting.
 function p = rodgers1_deck_()
 here = fileparts(mfilename('fullpath'));
-p = fullfile(here, '..', 'design', 'rodgers1', 'rodgers1_stage4.in');
+p = fullfile(here, '..', 'challenges', 'rodgers1', 'rodgers1_stage4.in');
 end
 
 function sd = rodgers1_stripped_deck_()

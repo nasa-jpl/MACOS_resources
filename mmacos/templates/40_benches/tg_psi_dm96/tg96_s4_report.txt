@@ -1,0 +1,30 @@
+=== IFO S4: differential head-to-head rows + break scale (pm) ===
+
+---- DM 96x96, pitch 1.0 mm ----
+base      dev         |    gain     resid
+flat      single10nm  |  0.9175      46 pm
+flat      rand10nm    |  0.8254    4171 pm
+rand30nm  single10nm  |  0.9152      46 pm
+rand30nm  rand10nm    |  0.8257    4173 pm
+break scale (single act 10 nm differential on a growing base):
+ base_rms |    gain     floor     SNR
+    30 nm |  0.9152      44 pm   210.4
+    60 nm |  0.9130      44 pm   209.4
+   120 nm |  0.9084      44 pm   206.5
+   240 nm |  0.8968      46 pm   195.1
+   480 nm |  0.8732      55 pm   159.6
+
+---- DM 48x48, pitch 2.0 mm ----
+base      dev         |    gain     resid
+flat      single10nm  |  0.9522      33 pm
+flat      rand10nm    |  0.9216    1709 pm
+rand30nm  single10nm  |  0.9509      34 pm
+rand30nm  rand10nm    |  0.9216    1710 pm
+break scale (single act 10 nm differential on a growing base):
+ base_rms |    gain     floor     SNR
+    30 nm |  0.9510      30 pm   321.9
+    60 nm |  0.9474      31 pm   307.7
+   120 nm |  0.9353      35 pm   266.4
+   240 nm |  0.9265      47 pm   198.2
+   480 nm |  0.8972      79 pm   113.4
+S4 complete in 12.5 min

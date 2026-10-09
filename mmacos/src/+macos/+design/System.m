@@ -149,7 +149,9 @@ classdef System < handle
         %     'verbose'     logical (default false).
         %
         %   Output struct:
-        %     rigid       full macos.dw_dx result struct, or [].
+        %     rigid       full macos.dw_dx result struct, or [].  Translation
+        %                 columns per BaseUnit (dw_dx default, see
+        %                 rigid.trans_output), rotations per rad.
         %                 (.dwdx Nw×Nz, .channel_names, .iElt, .dof_idx,
         %                  .w_nom_vec, …)
         %     zern        full macos.dw_dz_zernike result struct, or [].

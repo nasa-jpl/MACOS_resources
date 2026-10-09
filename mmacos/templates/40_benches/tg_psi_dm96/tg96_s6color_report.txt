@@ -1,0 +1,54 @@
+=== IFO S6 COLOR: multi-wavelength combination (96x96, actuator space, pm) ===
+colors: 632.8           480           532           700           780 nm; ideal achromatic QWPs (lam/4 at each color), dispersionless lenses;
+model 1024, NGRID 385; per-color calibration (bases, null, anchor, modal transfer); true kernel; lit + bases from 633; beta 0.10
+lit actuators 3228; hold-out (60,40); grid sites 47
+
+   nm |  msk_px anchor_x anchor_y   null_pm
+632.8 |  115813   510.50   510.50       0.0
+  480 |  115813   510.50   510.50       0.0
+  532 |  115813   510.50   510.50       0.0
+  700 |  115813   510.50   510.50       0.0
+  780 |  115813   510.50   510.50       0.0
+
+machinery: K=1 radial (record DC) vs dmg_modal_corr, max |diff| = 4.649e-13 pm
+
+modal transfer through each color's estimator; Gcomb = the K-color combination's transfer on that mode
+     mode  cyc/ap |   632.8     480     532     700     780 |  G632.8   Gcomb
+  ( 1, 1)     0.7 |  1.0150  1.0120  1.0154  1.0119  1.0151 |  0.9904  0.9981
+  ( 2, 2)     1.4 |  0.9691  0.9657  0.9688  0.9657  0.9691 |  0.9895  0.9979
+  ( 4, 4)     2.8 |  0.9776  0.9744  0.9781  0.9744  0.9777 |  0.9896  0.9979
+  ( 8, 8)     5.7 |  0.9644  0.9613  0.9648  0.9613  0.9645 |  0.9894  0.9978
+  (16,16)    11.3 |  0.9547  0.9516  0.9551  0.9516  0.9548 |  0.9891  0.9978
+  (24,24)    17.0 |  0.9342  0.9310  0.9345  0.9312  0.9343 |  0.9887  0.9977
+  (32,32)    22.6 |  0.8929  0.8898  0.8932  0.8900  0.8930 |  0.9876  0.9975
+  (48,48)    33.9 |  0.8004  0.7975  0.8006  0.7978  0.8004 |  0.9846  0.9969
+  (64,64)    45.3 |  0.6774  0.6749  0.6775  0.6752  0.6775 |  0.9787  0.9956
+  (80,80)    56.6 |  0.5756  0.5735  0.5757  0.5738  0.5757 |  0.9707  0.9940
+  (96,96)    67.9 | -0.0000 -0.0000 -0.0000 -0.0000 -0.0000 |  0.0000  0.0000
+  (48, 0)    24.0 |  0.8996  0.8964  0.8999  0.8966  0.8997 |  0.9878  0.9975
+worst region over the modes below the zero command -- min |g|: 632.8:0.576 480:0.574 532:0.576 700:0.574 780:0.576
+  min Geff (transfer after Wiener, beta 0.10): 632.8:0.971 480:0.970 532:0.971 700:0.971 780:0.971 | K-comb 0.994
+
+rows (differential, actuator space).  g = gain, e = rms error over lit (pm),
+floor = rms of unpoked lit actuators (pm), SNR = mean(poked)/floor (poke-type rows).
+columns: each single color (joint Wiener, that color's transfer) | mean of the singles | K-color comb | best pair
+
+flat/hold20        g   :   0.9171   0.9166   0.9175   0.9167   0.9170 |   0.9170   0.9257 |   0.9223 (632.8+700)
+                   e pm:       92       92       92       92       92 |       92       92 |       92
+                   flr :       87       87       87       87       87 |       87       88 |       87
+                   SNR :   210.80   210.46   210.65   210.81   210.79 |   210.70   210.74 |   210.83
+flat/rand10        g   :   0.8254   0.8253   0.8254   0.8254   0.8254 |   0.8254   0.8332 |   0.8303 (632.8+700)
+                   e pm:     4171     4174     4174     4171     4171 |     4172     4174 |     4172
+rand30/single10    g   :   0.9152   0.9145   0.9157   0.9147   0.9151 |   0.9150   0.9238 |   0.9206 (532+700)
+                   e pm:       46       46       46       46       46 |       46       46 |       46
+                   flr :       44       44       43       43       43 |       43       44 |       44
+                   SNR :   210.37   210.07   210.54   210.45   210.39 |   210.36   210.41 |   210.53
+rand30/grid47@1nm  g   :   0.8442   0.8444   0.8435   0.8444   0.8441 |   0.8441   0.8521 |   0.8493 (632.8+700)
+                   e pm:       48       48       48       48       48 |       48       48 |       48
+                   flr :       43       43       43       43       43 |       43       43 |       43
+                   SNR :    19.82    19.80    19.81    19.82    19.82 |    19.81    19.82 |    19.82
+rand30/rand10      g   :   0.8257   0.8262   0.8256   0.8261   0.8257 |   0.8259   0.8337 |   0.8306 (632.8+780)
+                   e pm:     4173     4178     4176     4174     4174 |     4175     4176 |     4174
+
+record tie-in (632.8, flat/hold20, dmg_modal_corr): g 0.9171, e 92 pm  [S3: 0.9171 / 92 pm]
+S6 color complete in 40.2 min

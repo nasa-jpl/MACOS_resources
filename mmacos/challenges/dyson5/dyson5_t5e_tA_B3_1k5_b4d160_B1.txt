@@ -1,0 +1,52 @@
+dyson5 t5e -- a telescope DECK end to end with its own Dyson (TMA step 2) (2026-10-04 19:29)
+CONVENTIONS: telescope = dyson5_tA_B3_1k5_b4d160_B1.in mapped onto the exact chain by tel_deck_geom (coaxial conics from the deck; every chief the
+  straight object-space line through the deck's ApStop).  Field = 1500 px x IFOV 54.5 urad = 4.688 deg cross-track; the
+  spectrometer size:D:130, slit 27.0 mm (1500 px x 18 um).  Spec plate scale f = 330.0 mm (pixel / IFOV).  Spots are RADIAL
+  rms about the centroid (a 41-grid over the deck's Aperture) -- per-axis rms is this / sqrt(2).
+
+GATE 1 (bridge, telescope alone on the deck's FocalPlane): fields -2.344 -1.758 -1.172 -0.586 0.000 0.586 1.172 1.758 2.344  deg
+  slit line          rms spot um, engine:   486.65   307.52   180.19   103.36    76.19   103.36   180.19   307.52   486.65 
+                                    chain:    489.74   310.00   182.02   104.63    77.22   104.63   182.02   310.00   489.74 
+  sky line (db = 0)  rms spot um, engine:   496.38   311.86   181.67   103.63    76.19   103.63   181.67   311.86   496.38 
+                                    chain:    499.55   314.37   183.51   104.91    77.22   104.91   183.51   314.37   499.55 
+  chief at the FocalPlane, engine vs chain: max 1.88e-16 m;  21330 engine rays re-traced by the chain from their launch: max 6.39e-15 m
+
+THE DECK'S FIRST ORDER (chain == engine above):
+  plate scale: local 329.0 mm (+-0.02 deg about the centre), 329.7 mm to the strip edge (offset / tan) -- spec 330.0 mm
+  the strip at the image: 26.99 mm long (+-13.49 mm), the slit 27.0 mm
+  the straight SKY line images BOWED: 0.48 mm off the slit line at the strip edge; landing on the slit line takes 0.074 deg along track
+  the deck's FocalPlane is tilted 27.22 deg to the exit chief (about the slit axis: no defocus ALONG the slit line)
+  SLIT VIGNETTING: the slit admits +-2.344 deg of the +-2.344 deg strip = 100.0 % of the swath (1500 of 1500 px); the rest falls off the slit ends
+
+JOIN: the telescope rolled 180 deg about the exit chief (tel5e_roll_deg)
+END TO END (telescope + size:D:130 over the ADMITTED strip +-2.344 deg, 7 fields x 7 wavelengths, the grating the stop) -- INFORMATIVE:
+  smile 6.4122 px  keystone 0.6966 px  CRF 14.490 px  SRF 4.486 px  EE 0.000  grating admits 1.000  clearance +0.40 mm (BlockSphereIn -> BlockFaceOut vs FPApackage, PASS)  11 elements
+  engine chief vs chain at the FPA (centre field): 1.1e-12 m
+  clearance sizing: bodies = footprint discs + mount margin 5.0 mm (the record's number); at zero margin the worst entry is +0.40 mm (BlockSphereIn -> BlockFaceOut vs FPApackage)
+  telescope-internal worst: +0.60 mm with the mount margin, +4.07 mm without (TelM1 -> TelM2 vs TelM3)
+  spec: smile, keystone < 0.1 px; CRF < 1.5 px; SRF on the slit floor.  deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_t5e_tA_B3_1k5_b4d160_B1_e2e.in
+  smile per lambda (px): 6.2466 6.3133 6.3340 6.3507 6.3683 6.3886 6.4122 
+  keystone per field (px): 0.6966 0.2431 0.0534 0.0000 0.0534 0.2431 0.6966 
+  pass fraction per field: 1.000 1.000 1.000 1.000 1.000 1.000 1.000 
+  the grating-stop chief crosses the slit plane OFF the slit line by (um, per field): -2.1 +1.1 +0.7 -0.0 +0.7 +1.1 -2.1 
+  READING: the slit is an unmasked pass station here, so the telescope's blur at the slit (gate 1: 76-487 um rms over the
+  full strip's slit line) passes into the Dyson whole, and the pupil mismatch (deck ApStop vs the grating's image) puts
+  the instrument's chief off the slit line -- the smile/CRF/SRF above are the TELESCOPE's image quality seen through a
+  Dyson, not the Dyson's distortion.  A real slit would clip that light (the vignetting is then in throughput, not in smile).
+  NOT the number: plate scale 329 mm (local) vs 330 mm spec, 100.0 % of the swath on the slit.
+
+PUPIL MATCH (TMA step 3, addendum 36): the TELESCOPE's beam (D 183.3 mm, chief through the deck's ApStop), NO stop set,
+  on the joined deck; angles to the slit normal in deg (x along the slit, y across), pupil = where the chiefs cross the
+  slit axis (m from the slit, + toward the Dyson); mismatch = the telescope chief's miss of the grating vertex (the stop,
+  aperture radius 80.8 mm); admitted = rays reaching the FPA / launched (engine), with the element stopping most of the rest.
+    field   x slit |   tel x   tel y tel pupil |   Dys x   Dys y Dys pupil |   d ang   miss G |  admit slit  lost at
+   -2.344   +13.49 |  -0.895  -0.102    +0.864 |  -0.029  -0.038   +26.394 |   0.868     4.35 |  1.000   on  -
+   -1.758   +10.13 |  -0.669  -0.087    +0.868 |  -0.032  -0.043   +18.159 |   0.638     3.20 |  1.000   on  -
+   -1.172    +6.75 |  -0.459  -0.070    +0.841 |  -0.026  -0.047   +14.862 |   0.434     2.17 |  1.000   on  -
+   -0.586    +3.37 |  -0.238  -0.056    +0.811 |  -0.014  -0.050   +13.414 |   0.223     1.12 |  1.000   on  -
+   +0.000    -0.00 |  -0.000  -0.051    -0.171 |  +0.000  -0.051   +12.995 |   0.000     0.00 |  1.000   on  -
+   +0.586    -3.37 |  +0.238  -0.056    +0.811 |  +0.014  -0.050   +13.414 |   0.223     1.12 |  1.000   on  -
+   +1.172    -6.75 |  +0.459  -0.070    +0.841 |  +0.026  -0.047   +14.862 |   0.434     2.17 |  1.000   on  -
+   +1.758   -10.13 |  +0.669  -0.087    +0.868 |  +0.032  -0.043   +18.159 |   0.638     3.20 |  1.000   on  -
+   +2.344   -13.49 |  +0.895  -0.102    +0.864 |  +0.029  -0.038   +26.394 |   0.868     4.35 |  1.000   on  -
+  (fields beyond +-2.344 deg land OFF the slit: their admitted fraction is to the FPA through an unmasked slit plane)

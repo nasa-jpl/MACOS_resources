@@ -28,12 +28,27 @@ function out = dw_dx(session, rx_path, opts)
 %     'stop_obj_pos'     set object-space Stop here (mutex w/ stop_elt).
 %                        Default [] (no STOP changed).
 %     'rot_output'       'natural' (default) | 'base-per-rad'.
-%                        natural: every column is OPD-in-metres per SI
-%                        perturbation (translations are dimensionless
-%                        ratios; rotations are m/rad).
-%                        base-per-rad: rotations are OPD-in-BaseUnits
-%                        per rad (not multiplied by CBM).  Translations
-%                        unchanged.
+%                        HISTORICAL NO-OP since 2026-08-25 (Dave): the
+%                        Jacobian's OPD numerator emits in the deck's
+%                        BaseUnits under BOTH settings -- the same units
+%                        as w_nom/opd() and as the dwdz/dwdsurf/dwdgrid
+%                        rungs (dwdx was the odd rung out, scaled to
+%                        OPD-metres; that made `wall = dwdx*x + w0` mix
+%                        units by 1/CBM on non-metre decks).  Rotation
+%                        columns are OPD-BaseUnits per rad; translation
+%                        columns are set by 'trans_output'.  The option
+%                        is retained so existing callers keep running.
+%     'trans_output'     'base' (default) | 'si'.  Denominator of the
+%                        TRANSLATION columns (dof_idx 3..5, every channel
+%                        kind) and of the matching dcdx rows: 'base' =
+%                        OPD-BaseUnits per BaseUnit of translation (per mm
+%                        on an mm deck -- GMI's dwdx convention); 'si' =
+%                        per SI metre (the 2026-08-25..2026-10-06 default;
+%                        'base' = 'si' x CBM).  Rotations are per rad
+%                        either way and the OPD numerator is BaseUnits
+%                        either way.  Recorded as out.trans_output.
+%                        (Dave, 2026-10-06: Luis read the per-metre
+%                        columns as "1000x too large" against GMI.)
 %     'delta'            finite-difference step. Either:
 %                        - (1,1) double: single value for all DOFs
 %                        - (1,6) double: [Rx Ry Rz Tx Ty Tz] deltas
@@ -58,7 +73,8 @@ function out = dw_dx(session, rx_path, opts)
 %                        engine to [3, model-size limit] (warns).
 %
 %   Output struct fields:
-%     dwdx           Nw × Nz Jacobian (after rot_output rescaling).
+%     dwdx           Nw × Nz Jacobian, OPD-BaseUnits per rad (rotations)
+%                    and per 'trans_output' unit (translations).
 %     w_nom_2d       N × N nominal OPD canvas.
 %     w_nom_vec      Nw × 1 nominal OPD values at non-zero mask.
 %     indx           m2v.m bookkeeping.
@@ -66,7 +82,8 @@ function out = dw_dx(session, rx_path, opts)
 %     iElt, dof_idx  Nz × 1 vectors (iElt = 0 for source channels).
 %     kind           Nz × 1 cell of kind labels (Source / RigidBody /
 %                    FocalPlane).
-%     rx_path / delta / method / wf_elt / rot_output / base_units / cbm
+%     rx_path / delta / method / wf_elt / rot_output / trans_output /
+%     base_units / cbm
 %
 %   See also: macos.dwdx_for_current_source, macos.channels.
 
@@ -99,8 +116,15 @@ arguments
                                 opts.group_stop_mode, ...
                                 {'obj','elt','none'})} = 'obj'
     opts.group_stop_pos      (1,3) double = [0 0 0]
+    opts.group_smart_stop    (1,1) logical = true  % WS1 Fix B: auto-skip the
+                                % per-poke chief-ray re-aim for groups strictly
+                                % downstream of the stop (a rigid move there
+                                % cannot change the aim).  false = always
+                                % re-aim (old behavior / escape hatch).
     opts.rot_output          (1,:) char {mustBeMember( ...
         opts.rot_output, {'natural','base-per-rad'})} = 'natural'
+    opts.trans_output        (1,:) char {mustBeMember( ...
+        opts.trans_output, {'base','si'})} = 'base'
     opts.delta               (:,:) double {mustBeDeltaSize} = 1e-8
     opts.delta_units         (1,:) char {mustBeMember(opts.delta_units, ...
                                 {'si','base'})} = 'si'
@@ -113,6 +137,17 @@ arguments
     opts.src_samp            double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.compute_los         (1,1) logical = false
     opts.spot_elt            double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
+    opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
+    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'mean'
+                                     % OPD reference (macos.opd_ref): 'mean' =
+                                     % whole-aperture mean (engine default);
+                                     % 'chief' = the chief ray -- on SEGMENTED
+                                     % decks a single-segment poke under 'mean'
+                                     % pistons EVERY other segment by
+                                     % -(N_k/N)*mean(poked response) (PLAN 0.x);
+                                     % under 'chief' they read exactly 0.
+                                     % Re-applied after every Rx (re)load.
 end
 
 if ~isempty(opts.stop_elt) && ~isempty(opts.stop_obj_pos)
@@ -122,6 +157,7 @@ end
 
 if opts.reload_rx
     session.load_rx(rx_path);
+    session.opd_ref(opts.opd_ref);   % after the load: a load resets it
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dx');
 
@@ -132,11 +168,7 @@ if ~isempty(opts.src_samp)
 end
 
 n_elt = session.num_elt();
-if opts.exit_pupil_elt < 0
-    wf_elt = n_elt - 1;
-else
-    wf_elt = opts.exit_pupil_elt;
-end
+wf_elt = wf_elt_auto(session, opts.exit_pupil_elt);   % EP read; errors on a pupil-less powered nElt-1
 
 % BaseUnits + CBM lookup for unit rescaling.
 cbm = session.cbm();
@@ -210,7 +242,8 @@ if groups.Count > 0
         'coords', opts.group_coords, ...
         'stop_mode', opts.group_stop_mode, ...
         'stop_obj_pos', opts.group_stop_pos, ...
-        'stop_elt', 0);
+        'stop_elt', 0, ...
+        'smart_stop', opts.group_smart_stop);
     channels = [channels; grp_chans];
 end
 
@@ -218,15 +251,22 @@ if isempty(channels)
     error('macos:dw_dx:nochan', 'no channels found');
 end
 
-% Output-scale closure: rotations under 'base-per-rad' keep
-% OPD-in-BaseUnits per rad (scale=1); everything else multiplies
-% by CBM to convert OPD to metres.
+% Output scale.  NUMERATOR: none -- the OPD emits in the deck's BaseUnits
+% (Dave, 2026-08-25), matching w_nom/opd() and the dwdz/dwdsurf/dwdgrid
+% rungs.  (Historically dwdx alone multiplied by CBM to emit OPD-metres,
+% except rotations under 'base-per-rad' -- that option is now a no-op,
+% kept for API compatibility.)  DENOMINATOR: the poke is always applied in
+% rad / SI metres; under trans_output='base' (default since 2026-10-06)
+% a translation column -- and its dcdx row, the same scale is applied to
+% both -- is multiplied by CBM (metres per BaseUnit) so it reads per
+% BaseUnit of translation, and `wall = dwdx*x + w0` takes x in BaseUnits.
+% This is the ONE place the translation denominator is set.
+trans_scale = 1;
+if strcmp(opts.trans_output, 'base'), trans_scale = cbm; end
 function s = output_scale_fn(ch)
-    if strcmp(opts.rot_output, 'base-per-rad') ...
-            && isprop(ch, 'dof_idx') && ch.dof_idx <= 2 && ch.dof_idx >= 0
-        s = 1;
-    else
-        s = cbm;
+    s = 1;
+    if isprop(ch, 'dof_idx') && ch.dof_idx >= 3
+        s = trans_scale;
     end
 end
 
@@ -288,9 +328,11 @@ out.delta_units   = opts.delta_units;
 out.method        = opts.method;
 out.wf_elt        = wf_elt;
 out.rot_output    = opts.rot_output;
+out.trans_output  = opts.trans_output;
 out.cbm           = cbm;
 out.base_units    = base_units;
 
+out = apply_opd_convention(out, opts.orient, opts.sign);
 % Add LOS fields if SPOT was computed
 if opts.compute_los
     out.dcdx      = dcdx;
@@ -312,7 +354,11 @@ W = session.opd();
 end
 
 function S = local_spot(spot_elt)
-S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'chief');
+% 'at','elt': the centroid for a line-of-sight sensitivity must be measured
+% about the ELEMENT, not the chief ray -- about the chief, a rigid displacement
+% of the spot (a fold or FSM tilt) is subtracted out and dcdx reads ~0 for it
+% (Luis's OPTIIX FSM test, 2026-10-06; only the shape change survived)
+S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'elt');
 end
 
 function mustBeDeltaSize(d)

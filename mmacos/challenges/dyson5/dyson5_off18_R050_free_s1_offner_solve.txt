@@ -1,0 +1,3 @@
+Offner solve at ring radius 162.1 mm (0.324 R, free from 0.287 R, lower bound 0.287 R), F/1.8, R 0.500 m, wall +5 mm (2026-10-06 07:59): merit 4.593e+05 -> 523.1
+  convex grating radius factor 1.02671 (R2 = 256.677 mm); M3 radius factor 0.93297 (R3 = 466.487 mm); M3 centre dy +0.909 mm, dz +0.787 mm
+  chain: keystone 0.1744 px, smile 0.1453 px, CRF 2.427 px, SRF 15.685 px, EE 0.006; clearance min +6.93 mm (M3 -> FPA vs Grating)

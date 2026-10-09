@@ -1,0 +1,79 @@
+% Rx_BeamRows -- CALIB beam rows on any target, per-field position targets,
+% the ray centroid (tBeamRows).  A collimated beam on an f = 1 m paraboloid
+% in METRES, focal plane at the focus, SPOT target.  The FP block carries
+% OptBeamDir= (the chief ray direction the optimizer must reach there); the
+% test derives its variants (BEAM target, two fields, OptBeamPosFov rows,
+% OptBeamCentroid= Y) from this deck by text edits, and sets the numeric
+% targets from a nominal trace.  OptRayGrid= 21 makes the optimizer trace
+% the deck's own 21-point grid (its default is nGridpts/2-1 = 9, 81 rays)
+% so the centroid it scores is the centroid the test measures.  Engine:
+% design_optim.F 2026-10-03.
+        ChfRayDir=  0  0  1
+        ChfRayPos=  0  0  -0.5
+          zSource=  -1.0E+22
+        BaseUnits=  m
+        WaveUnits=  m
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+          Wavelen=  1.000000000E-06
+             Flux=  1.0D+00
+         Aperture=  2.000000000E-01
+         Obscratn=  0.0D+00
+         GridType=  Circular
+         nGridpts=  21
+            xGrid=  1  0  0
+            yGrid=  0  1  0
+       OptRayGrid=  21
+        OptTarget=  SPOT
+         OptWFElt=  2
+       OptMaxItrs=  20
+           OptFEX=  No
+      OptSpotSize=  0.0
+             nElt=  2
+
+             iElt=  1
+          EltName=  Paraboloid
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=  -2.0000000000E+00
+            KcElt=  -1.0000000000E+00
+           psiElt=  0  0  -1
+           VptElt=  0  0  0
+           RptElt=  0  0  0
+           IndRef=  1.000000E+00
+           Extinc=  1.000000E+22
+           VarElt=  1 1 0 0 0 0 0 0
+            nCoat=  0
+             xObs=  1  0  0
+             nObs=  0
+           ApType=  Circular
+            ApVec=  1.200000000000E-01  0.000000000000E+00  0.000000000000E+00
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+             iElt=  2
+          EltName=  FPA
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=  -1.0000000000E+22
+            KcElt=  0.0000000000E+00
+           psiElt=  0  0  1
+           VptElt=  0  0  -1
+           RptElt=  0  0  -1
+           IndRef=  1.000000E+00
+           Extinc=  0.000000E+00
+       OptBeamDir=  0  2.0E-03  -1
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+         nOutCord=  5
+             Tout=  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00

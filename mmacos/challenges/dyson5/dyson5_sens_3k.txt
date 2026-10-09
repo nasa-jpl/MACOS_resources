@@ -1,0 +1,62 @@
+dyson5 sens 3k -- addendum 49 step 1: the tolerance ladder of the 3k Dyson of record (size:F:240), one perturbation at a time (2026-10-07 19:20)
+UNITS: px of 18 um; per-unit sensitivities in px per the row's unit; e2e = through the join with the telescope of record
+  (dyson5_t5f, CENTROID launch -- the slit-filled convention -- roll 0).  Compensated = at the compensator's optimum, vs the
+  nominal at ITS optimum.  focus = the detector along its normal; clock = the detector about its normal.
+
+NOMINAL alone: smile 0.0050 keystone 0.0058 CRF 1.213 SRF 2.0238 EE 0.824 px
+  at the focus optimum: smile 0.0050 keystone 0.0056 CRF 1.175 SRF 2.0237 EE 0.854
+  at the clock optimum: smile 0.0050 keystone 0.0058 CRF 1.213 SRF 2.0238 EE 0.824
+NOMINAL e2e: smile 0.0222 keystone 0.0058 CRF 1.174 SRF 2.0248 EE 0.849 px
+
+row                     amount unit         |    dsmile    dkeyst     dCRF     dSRF      dEE | focus dCRF focus dEE | clock dsm clock dky | e2e dCRF
+lens_decenter_x          1e-05 m            |   +0.0000   +0.0099  +0.0005  +0.0000  +0.0000 |   -0.0000   +0.0000 |   +0.0000   +0.0099 |  +0.0006
+lens_decenter_y          1e-05 m            |   +0.0009   -0.0000  -0.0000  +0.0000  +0.0000 |   -0.0018   +0.0008 |   +0.0009   -0.0000 |  +0.0000
+lens_tilt_x              1e-05 rad          |   +0.0000   +0.0000  +0.0001  +0.0000  +0.0000 |   -0.0003   +0.0000 |   +0.0000   +0.0000 |  +0.0000
+lens_tilt_y              1e-05 rad          |   +0.0000   +0.0000  +0.0000  +0.0000  +0.0000 |   +0.0000   +0.0000 |   +0.0000   +0.0000 |  +0.0000
+lens_radius             0.0001 dR/R         |   -0.0000   -0.0000  +0.2612  +0.0010  -0.1447 |   +0.0002   +0.0000 |   -0.0000   -0.0000 |  +0.2411
+lens_index               1e-05 dn           |   -0.0000   +0.0000  +0.0014  -0.0000  -0.0008 |   +0.0003   +0.0000 |   -0.0000   +0.0000 |  +0.0005
+lens_thickness           1e-05 m            |   +0.0000   -0.0000  -0.1137  -0.0001  +0.0946 |   -0.0027   +0.0016 |   +0.0000   -0.0000 |  -0.0644
+grating_decenter_x       1e-05 m            |   +0.0000   +0.0099  +0.0015  +0.0000  -0.0008 |   +0.0006   +0.0000 |   +0.0000   +0.0099 |  +0.0002
+grating_decenter_y       1e-05 m            |   -0.0007   +0.0000  -0.0004  -0.0000  +0.0000 |   +0.0005   +0.0000 |   -0.0007   +0.0000 |  +0.0002
+grating_tilt_x           1e-05 rad          |   -0.0007   +0.0000  +0.0003  -0.0000  +0.0000 |   +0.0001   +0.0000 |   -0.0007   +0.0000 |  +0.0002
+grating_tilt_y           1e-05 rad          |   +0.0000   +0.0074  +0.0014  +0.0000  -0.0008 |   +0.0006   +0.0000 |   +0.0000   +0.0074 |  +0.0002
+grating_radius          0.0001 dR/R         |   -0.0000   +0.0003  +1.9316  +0.4154  -0.6987 |   -0.0497   +0.0390 |   -0.0000   +0.0003 |  +1.8885
+grating_period           1e-05 d(1/d)/(1/d) |   -0.0000   -0.0000  +0.0000  +0.0000  +0.0000 |   +0.0000   +0.0000 |   -0.0000   -0.0000 |  +0.0000
+grating_clock            1e-05 rad          |   +0.0000   +0.0029  +0.0000  +0.0000  +0.0000 |   +0.0000   +0.0000 |   +0.0000   +0.0029 |  +0.0000
+air_space                1e-05 m            |   +0.0000   -0.0000  -0.1705  +0.0002  +0.1757 |   +0.0048   -0.0024 |   +0.0000   -0.0000 |  -0.1162
+slit_x                   1e-05 m            |   +0.0000   +0.0000  +0.0015  +0.0000  -0.0008 |   +0.0007   +0.0000 |   +0.0000   +0.0000 |  +0.0009
+slit_y                   1e-05 m            |   -0.0000   -0.0000  +0.0004  +0.0000  +0.0000 |   +0.0003   +0.0000 |   -0.0000   -0.0000 |  +0.0000
+slit_defocus             1e-05 m            |   +0.0001   -0.0009  +0.2613  +0.0010  -0.1463 |   +0.0001   +0.0000 |   +0.0001   -0.0009 |  +0.2417
+detector_defocus         1e-05 m            |   -0.0001   +0.0010  +0.2614  +0.0010  -0.1463 |   +0.0000   +0.0000 |   -0.0001   +0.0010 |  +0.2415
+detector_tilt_x          1e-05 rad          |   +0.0000   -0.0000  -0.0016  -0.0000  +0.0016 |   +0.0006   +0.0000 |   +0.0000   -0.0000 |  -0.0007
+detector_tilt_y          1e-05 rad          |   +0.0000   +0.0000  +0.0084  +0.0000  -0.0064 |   +0.0059   -0.0032 |   +0.0000   +0.0000 |  +0.0060
+
+E2E per row (d vs the e2e nominal, px):
+  lens_decenter_x      dsmile  +0.0000 dkey  +0.0090 dCRF  +0.0006 dSRF  +0.0000 dEE  +0.0000
+  lens_decenter_y      dsmile  +0.0009 dkey  -0.0000 dCRF  +0.0000 dSRF  +0.0000 dEE  +0.0000
+  lens_tilt_x          dsmile  +0.0000 dkey  -0.0000 dCRF  +0.0000 dSRF  +0.0000 dEE  +0.0000
+  lens_tilt_y          dsmile  +0.0000 dkey  +0.0000 dCRF  +0.0000 dSRF  +0.0000 dEE  +0.0000
+  lens_radius          dsmile  -0.0003 dkey  +0.0001 dCRF  +0.2411 dSRF  +0.0017 dEE  -0.1563
+  lens_index           dsmile  -0.0000 dkey  -0.0000 dCRF  +0.0005 dSRF  -0.0000 dEE  +0.0000
+  lens_thickness       dsmile  +0.0002 dkey  -0.0000 dCRF  -0.0644 dSRF  -0.0003 dEE  +0.0629
+  grating_decenter_x   dsmile  +0.0000 dkey  +0.0090 dCRF  +0.0002 dSRF  +0.0000 dEE  +0.0000
+  grating_decenter_y   dsmile  -0.0009 dkey  +0.0000 dCRF  +0.0002 dSRF  -0.0000 dEE  +0.0009
+  grating_tilt_x       dsmile  -0.0007 dkey  -0.0000 dCRF  +0.0002 dSRF  -0.0000 dEE  +0.0000
+  grating_tilt_y       dsmile  +0.0000 dkey  +0.0065 dCRF  +0.0002 dSRF  +0.0000 dEE  +0.0000
+  grating_radius       dsmile  +0.0014 dkey  -0.0002 dCRF  +1.8885 dSRF  +0.3910 dEE  -0.7162
+  grating_period       dsmile  -0.0000 dkey  +0.0000 dCRF  +0.0000 dSRF  +0.0000 dEE  +0.0000
+  grating_clock        dsmile  +0.0000 dkey  +0.0042 dCRF  +0.0000 dSRF  +0.0000 dEE  +0.0000
+  air_space            dsmile  +0.0003 dkey  +0.0000 dCRF  -0.1162 dSRF  -0.0001 dEE  +0.1127
+  slit_x               dsmile  +0.0000 dkey  +0.0000 dCRF  +0.0009 dSRF  +0.0000 dEE  +0.0000
+  slit_y               dsmile  -0.0000 dkey  +0.0000 dCRF  +0.0000 dSRF  -0.0000 dEE  +0.0000
+  slit_defocus         dsmile  -0.0001 dkey  +0.0006 dCRF  +0.2417 dSRF  +0.0017 dEE  -0.1563
+  detector_defocus     dsmile  -0.0003 dkey  -0.0005 dCRF  +0.2415 dSRF  +0.0017 dEE  -0.1563
+  detector_tilt_x      dsmile  +0.0000 dkey  +0.0000 dCRF  -0.0007 dSRF  -0.0000 dEE  +0.0017
+  detector_tilt_y      dsmile  +0.0001 dkey  +0.0000 dCRF  +0.0060 dSRF  +0.0000 dEE  -0.0009
+
+LINEARITY (d at 2x / (2 d at 1x)):
+  lens_tilt_x          smile 1.000 keystone 1.000 CRF 2.408 SRF 1.136
+  grating_decenter_y   smile -0.132 keystone 1.000 CRF 0.289 SRF 0.995
+
+LENS INDEX ROW: dn = 1.00e-05 at 1.44 um (exact); over 0.38-2.5 um the Sellmeier scaling gives dn 9.888e-06 .. 1.035e-05 (its residual dispersion 4.59e-07)
+XY CHECK: focus alone CRF 1.1748 EE 0.8537; focus + x/y CRF 1.1746 EE 0.8537 (a detector translation leaves the relative metrics unchanged)

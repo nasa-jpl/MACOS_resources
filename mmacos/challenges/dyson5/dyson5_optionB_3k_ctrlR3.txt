@@ -1,0 +1,4 @@
+dyson5 Option B 3k -- the grating conic freed on the Dyson of record (dyson_ladder rung RB, warm from the record) (2026-10-07 19:48)
+  record (Option A, rung R3): smile 0.0050 keystone 0.0058 CRF 1.213 SRF 2.0238 EE 0.824 px (alone, engine)
+  rung 3 (control ):           smile 0.0050 keystone 0.0058 CRF 1.213 SRF 2.0238 EE 0.824 px (alone, engine)
+  grat_Kc 0.0000; block_Kc 0.0432, asph [-0.47901 -5.9908]; Rg_factor 0.98453; face_offset 0.506 mm; block_dz/dy -0.546 / 0.080 mm; on bounds: 
