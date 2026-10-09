@@ -403,7 +403,7 @@ print(fm, fullfile(o.outdir,'pupil_blur_demo_maps.png'),'-dpng','-r110');
 end
 end
 
-out = struct('box',boxr,'leg',leg,'leg_pts',pts,'leg_lab',{lab},'leg_err',legerr,'leg_cost',cost,'leg_map',mapc,'o',o,'sig_pitch',o.sig_pitch,'mtf_nyq',mtfN,'err',err,'floor',fl,'headline',struct('cal',hc,'naive',hn), ...
+out = struct('cmd_rms',[rmsp_(pat.checker,lit) rmsp_(pat.random,lit)],'box',boxr,'leg',leg,'leg_pts',pts,'leg_lab',{lab},'leg_err',legerr,'leg_cost',cost,'leg_map',mapc,'o',o,'sig_pitch',o.sig_pitch,'mtf_nyq',mtfN,'err',err,'floor',fl,'headline',struct('cal',hc,'naive',hn), ...
              'sig_lambda_mm',sig_lam,'lit',lit,'f_nyq',f_nyq);
 say('\nwrote pupil_blur_demo_report.txt%s in %s\n', iff_(o.figures, ', _curve.png, _maps.png', ''), o.outdir);
 end
