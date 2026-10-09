@@ -55,6 +55,11 @@ function out = pupil_blur_demo(varargin)
 %                     calib_mode 'kernel').  Both are computed and plotted either way.
 %     'lam_m'  1e-3   matrix Tikhonov weight, of the median column energy (P.battery.matrix_lam)
 %     'lam_m_sweep' [1e-2 1e-3 1e-4]   the matrix's sigma = 0 sweep
+%     'legs'   {name, pupilsim report}  the built legs to place on the axis: each
+%                     record's stage-2 (as built) Nyquist gain line (sinusoid 0.5 cyc/mm,
+%                     min over u and v) -> the Gaussian 1/e radius with that MTF
+%     'deck_share' [0.0013 0.0029]  the deck's raw-map pupil-imaging share (lens, mirror)
+%     'deck_band_mm' [0.05 0.14]    the deck's stated blur width (shaded on the axis)
 %     'seed'   7      RNG seed (random command pattern + noise)
 %     'figures' true  write the PNGs
 %     'outdir' runs/pupil_blur_demo   where the report + PNGs are written
@@ -68,7 +73,10 @@ function out = pupil_blur_demo(varargin)
 o = struct('nact',96,'pitch',1.0,'infl_w',0.85,'sub',4, ...
            'work_nm',30,'poke_nm',50,'noise_pm',20,'lam',0.05,'lam_sweep',[0.05 1e-2 1e-3 1e-4],'hw',6, ...
            'sig_pitch',[0 0.05 0.1:0.1:1.5],'seed',7,'figures',true,'outdir','', ...
-           'estimator','matrix','lam_m',1e-3,'lam_m_sweep',[1e-2 1e-3 1e-4]);
+           'estimator','matrix','lam_m',1e-3,'lam_m_sweep',[1e-2 1e-3 1e-4], ...
+           'legs',{{'lens','runs/pupilsim_redo_lens/pupilsim_redo_lens_report.txt'; ...
+                    'mirror','runs/pupilsim_redo_oap/pupilsim_redo_oap_report.txt'}}, ...
+           'deck_share',[0.0013 0.0029], 'deck_band_mm',[0.05 0.14]);
 assert(any(strcmp(o.estimator,{'matrix','kernel'})), 'pupil_blur_demo:estimator', '''estimator'' is ''matrix'' or ''kernel''');
 for k = 1:2:numel(varargin), o.(varargin{k}) = varargin{k+1}; end
 here = fileparts(mfilename('fullpath'));  if isempty(here), here = pwd; end
@@ -105,7 +113,13 @@ say('DM %dx%d at %.2f mm pitch; influence 1/e %.2f mm; map grid %d x %.3f mm (th
     nact,nact,pitch,w_mm,N,dx,nnz(lit));
 say('actuator Nyquist = %.3f cyc/mm; kernel lambda = %.3g (of the stencil peak); read noise = %g pm rms per map pixel (%d pixels per actuator)\n', ...
     f_nyq,o.lam,o.noise_pm,o.sub^2);
-say('error = rms(recovered - true) over the lit actuators, piston removed, / rms(true commands)\n\n');
+say('error = rms(recovered - true) over the lit actuators, piston removed, / rms(true commands)\n');
+say('APPROXIMATIONS (say them to a skeptic): the blur is applied to the PHASE map -- the small-phase limit (the 30 nm surface is ~0.1 wave of\n');
+say('  wavefront); the camera blurs INTENSITY, and the four-step phase of blurred fringes equals the blurred phase only near null, which holds here.\n');
+say('  The built leg is not a Gaussian: it is a phase gain cos(phi) with amplitude cross-talk sin(phi) plus a distortion; a Gaussian is matched to it\n');
+say('  at the actuator-Nyquist MTF only.  The lit set is the demo''s %d actuators (0.85 x 0.74 R_ap); the benches light 5072 (lens) / 6948 (mirror)\n', nnz(lit));
+say('  from the traced cone, and the redo pupilsim decks fill the DM (the DM is the stop) -- the error is a per-actuator rms, so the count sets the\n');
+say('  edge-to-interior ratio, not the scale.\n\n');
 
 % ---- the unit influence (a poke at the node (0,0)) and the true stencil ----
 Kinf = infl_kernel_(w_mm, dx);
@@ -190,6 +204,60 @@ for is = 1:nS
         100*err.checker.naive(is), 100*err.checker.cal(is), 100*err.checker.mnaive(is), 100*err.checker.mcal(is), ...
         100*err.random.naive(is),  100*err.random.cal(is),  100*err.random.mnaive(is),  100*err.random.mcal(is));
 end
+% ================= the built leg on the axis (the pupilsim records) =================
+say('\n---- the built leg on the axis (tg96_pupilsim redo records, stage 2 as built) ----\n');
+nL = size(o.legs,1);  leg = struct('name',{},'gain',{},'sig_mm',{},'sig_lo',{},'sig_hi',{},'shift_mm',{});
+for L = 1:nL
+    f = o.legs{L,2};  if ~isfile(f), f = fullfile(here, f); end
+    [g, shf] = nyq_gain_(f);
+    sg = @(g) sqrt(max(0,-log(g))/(pi^2*f_nyq^2));                 % 1/e radius of the Gaussian with that Nyquist MTF
+    leg(L) = struct('name',o.legs{L,1},'gain',g,'sig_mm',sg(g),'sig_lo',sg(min(1,g+5e-5)),'sig_hi',sg(g-5e-5),'shift_mm',shf);
+    say('%-6s Nyquist gain (min over u, v) %.4f -> Gaussian 1/e radius %.4f pitch (%.4f..%.4f for the 4-digit print; std form %.4f) [%s]\n', ...
+        leg(L).name, g, leg(L).sig_mm/pitch, leg(L).sig_lo/pitch, leg(L).sig_hi/pitch, leg(L).sig_mm/pitch/sqrt(2), o.legs{L,2});
+end
+pts = [[leg.sig_mm], o.deck_band_mm, sqrt(-log(0.98)/(pi^2*f_nyq^2))];
+lab = [{leg.name}, {sprintf('deck %.2f mm', o.deck_band_mm(1)), sprintf('deck %.2f mm', o.deck_band_mm(2)), 'deck MTF 0.98'}];
+say('%-14s %8s | %-37s | %-37s | %s\n', 'point', 'sig/pit', 'checker: kernel n/c, MATRIX n/c', 'random: kernel n/c, MATRIX n/c', 'random: blur cost naive (cmd) / map');
+cost = zeros(size(pts));  mapc = cost;  legerr = struct();
+x0 = struct();  for p = 1:2, x0.(names{p}) = est_matrix_(surf.(names{p}), Mx0, lit); end     % noise-free sigma = 0 read
+for ip = 1:numel(pts)
+    sig = pts(ip);  Mub = blur_(Mu, sig, dx);
+    stn_eff = dmg_stencil(Mub, xg, 0, 0, pitch, o.hw);  Mxc = matrix_(Mub, ic, ilit, pix, Am, o.lam_m);
+    e = zeros(2,4);
+    for p = 1:2
+        nm = names{p};  rng(o.seed + 500 + ip);  hb = blur_(surf.(nm), sig, dx);  m = hb + noise();
+        e(p,:) = [relerr_(act_fit_lit_(m, ic, stn_true, lit, o.lam), pat.(nm), lit), relerr_(act_fit_lit_(m, ic, stn_eff, lit, o.lam), pat.(nm), lit), ...
+                  relerr_(est_matrix_(m, Mx0, lit), pat.(nm), lit), relerr_(est_matrix_(m, Mxc, lit), pat.(nm), lit)];
+        if p == 2
+            % what the blur ADDS when it is ignored: the naive read of the blurred map against the read of the unblurred one (noise-free)
+            cost(ip) = relerr_(est_matrix_(hb, Mx0, lit), x0.(nm), lit) * rmsp_(x0.(nm), lit)/rmsp_(pat.(nm), lit);
+            mapc(ip) = maperr_(hb, surf.(nm), X, Y, 0.85*R_ill);        % tg96_pupilsim's metric: map - true, lit pupil, piston+tilt removed
+        end
+    end
+    legerr.(sprintf('p%d',ip)) = e;
+    say('%-14s %8.4f | %7.3f%% %7.3f%% %8.4f%% %8.4f%% | %7.3f%% %7.3f%% %8.4f%% %8.4f%% | %.4f%% / %.4f%%\n', lab{ip}, sig/pitch, 100*e(1,:), 100*e(2,:), 100*cost(ip), 100*mapc(ip));
+end
+say('THE CROSS-CHECK (Fang''s question): the blur the built leg would cost, ignored, on the random 30 nm surface, vs the deck''s raw-map pupil-imaging share:\n');
+for L = 1:nL
+    r = mapc(L)/o.deck_share(L);
+    say('  %-6s Gaussian at the leg''s Nyquist MTF: %.4f%% (map) / %.4f%% (naive command read)  vs the deck''s %.2f%%  -> ratio %.2g%s\n', leg(L).name, ...
+        100*mapc(L), 100*cost(L), 100*o.deck_share(L), r, iff_(r < 1/3 || r > 3, '  ** MORE THAN 3x: a FINDING, not a rounding', ''));
+end
+% the Gaussian that WOULD give the deck's share (the map metric scales as sigma^2 at these widths: from the deck-0.05 mm row)
+s_eq = o.deck_band_mm(1)*sqrt(o.deck_share/mapc(nL+1));  leg_shift_cost = zeros(1,nL);
+say('  a Gaussian would need a 1/e radius of %.3f mm (lens) / %.3f mm (mirror) to cost the deck''s shares -- inside the deck''s stated 0.05-0.14 mm, i.e. the deck''s\n', s_eq);
+say('  width and the records'' Nyquist gain line describe DIFFERENT things: a gain 0.9994-0.9999 at Nyquist is a 1/e radius of 0.006-0.016 pitch, not 0.05.\n');
+say('  What a gain line cannot show is error OUT of phase with the surface -- a registration residual.  The records'' recovered single pokes are shifted\n');
+for L = 1:nL
+    sh = shift_(surf.random, leg(L).shift_mm, dx);  leg_shift_cost(L) = maperr_(sh, surf.random, X, Y, 0.85*R_ill);
+    say('  %-6s by up to %.4f mm; the random surface shifted by that much costs %.4f%% (map metric) = %.2g of the deck''s share\n', leg(L).name, leg(L).shift_mm, ...
+        100*maperr_(sh, surf.random, X, Y, 0.85*R_ill), maperr_(sh, surf.random, X, Y, 0.85*R_ill)/o.deck_share(L));
+end
+say('  read: the leg''s Nyquist MTF alone accounts for %.0f%% (lens) / %.0f%% (mirror) of the deck''s share; the rest is what the Gaussian does not model.\n', ...
+    100*mapc(1)/o.deck_share(1), 100*mapc(2)/o.deck_share(2));
+say('  The records'' error by band also puts the mirror''s largest share in the LOWEST band (0-0.06 cyc/mm: 0.50%% of the surface there), which no blur produces.\n');
+say('  The demo''s answer to "is blur a concern": no -- at the built leg''s MTF the blur costs %.3f%% / %.3f%% even uncalibrated; the deck''s share is an upper\n', 100*mapc(1), 100*mapc(2));
+say('  bound on the pupil imaging that carries more than blur.\n');
 hc = 'mcal';  hn = 'mnaive';  hlab = 'matrix (the record''s estimator, every deck number)';
 if strcmp(o.estimator,'kernel'), hc = 'cal';  hn = 'naive';  hlab = 'kernel (the bench''s calib_mode ''kernel'', S3 flavor)'; end
 
@@ -208,26 +276,45 @@ say('in the matrix form "calibrated" is automatic: the blurred columns ARE the m
 
 % ================= figures =================
 if o.figures
-fc = figure('Visible','off','Position',[100 100 1500 520]);
+fc = figure('Visible','off','Position',[100 100 1300 1000]);
 sp = o.sig_pitch;  cc = {[.85 .33 .1], [0 .45 .74]};  ttl = {'checkerboard (actuator Nyquist), \pm50 nm', 'random 30 nm working surface'};
 for p = 1:2
     nm = names{p};  e = err.(nm);
-    subplot(1,3,p); hold on; grid on;
+    subplot(2,2,p); hold on; grid on;
     plot(sp, 100*e.naive, ':o', 'Color', cc{p}, 'DisplayName', 'kernel, naive');
     plot(sp, 100*e.cal,   ':s', 'Color', cc{p}, 'DisplayName', 'kernel, calibrated');
     plot(sp, 100*e.mnaive,'-o', 'Color', 'k',   'DisplayName', 'matrix, naive');
     plot(sp, 100*e.mcal,  '-s', 'Color', 'k', 'MarkerFaceColor', 'k', 'DisplayName', 'matrix, calibrated (the record''s)');
+    patch([o.deck_band_mm fliplr(o.deck_band_mm)]/pitch, [0 0 100 100], [.6 .6 .6], 'FaceAlpha', .15, 'EdgeColor', 'none', 'DisplayName', 'the deck''s stated blur width');
     xlabel('blur 1/e radius / actuator pitch'); ylabel('actuator-command error, % of command rms');
-    title(ttl{p}); legend('Location','northwest'); ylim([0 100]);
+    title(ttl{p}); legend('Location', iff_(p == 1, 'east', 'northwest')); ylim([0 100]);
 end
-subplot(1,3,3); hold on; grid on;
+subplot(2,2,3); hold on; grid on;
 plot(sp, mtfN,'k-','DisplayName','blur MTF at actuator Nyquist');
 plot(sp, err.checker.mcal,'-s','Color',cc{1},'DisplayName','checker, matrix calibrated (frac)');
 plot(sp, err.checker.cal,':s','Color',cc{1},'DisplayName','checker, kernel calibrated (frac)');
 xline(sig_lam/pitch,'k--','kernel knee','LabelOrientation','horizontal','HandleVisibility','off');
 xlabel('blur 1/e radius / actuator pitch'); ylabel('fraction');
 title('Nyquist MTF and the calibrated error'); legend('Location','east'); ylim([0 1]);
-sgtitle('pupil\_blur\_demo: pupil-imaging blur vs DM-gauge reconstruction (engine-free)');
+% the cross-check, log-log: what the blur costs IGNORED (tg96_pupilsim's map metric) vs sigma, the legs, the deck's shares
+subplot(2,2,4); hold on; grid on;  set(gca,'XScale','log','YScale','log');
+sz = logspace(log10(0.003), log10(0.3), 25)*pitch;  mz = arrayfun(@(q) maperr_(blur_(surf.random, q, dx), surf.random, X, Y, 0.85*R_ill), sz);
+plot(sz/pitch, 100*mz, 'k-', 'DisplayName', 'Gaussian blur, ignored (random 30 nm, map metric)');
+lc = {[0 .45 .74], [.85 .33 .1]};
+for L = 1:nL
+    plot(leg(L).sig_mm/pitch, 100*mapc(L), 'o', 'Color', lc{L}, 'MarkerFaceColor', lc{L}, 'MarkerSize', 8, ...
+        'DisplayName', sprintf('%s leg: Nyquist gain %.4f -> %.3f pitch', leg(L).name, leg(L).gain, leg(L).sig_mm/pitch));
+    yline(100*o.deck_share(L), '--', 'Color', lc{L}, 'DisplayName', sprintf('deck: %s pupil-imaging share %.2f%%', leg(L).name, 100*o.deck_share(L)));
+    plot(leg(L).sig_mm/pitch, 100*leg_shift_cost(L), 'd', 'Color', lc{L}, 'MarkerSize', 8, ...
+        'DisplayName', sprintf('%s: a %.4f mm registration shift (the record''s poke shift)', leg(L).name, leg(L).shift_mm));
+end
+patch([o.deck_band_mm fliplr(o.deck_band_mm)]/pitch, [1e-4 1e-4 10 10], [.6 .6 .6], 'FaceAlpha', .15, 'EdgeColor', 'none', 'DisplayName', 'the deck''s stated blur width');
+xlim([0.003 0.3]);  ylim([1e-4 10]);
+xlabel('blur 1/e radius / actuator pitch'); ylabel('error, % of the surface (piston + tilt removed)');
+title('The cross-check: the built legs vs the deck''s pupil-imaging share'); legend('Location','northwest','FontSize',7);
+sgtitle({'pupil\_blur\_demo: pupil-imaging blur vs DM-gauge reconstruction (engine-free)', ...
+    'blur applied to the PHASE map (the small-phase limit); the built legs are a cos\phi gain + sin\phi cross-talk,', ...
+    sprintf('matched to a Gaussian at the actuator-Nyquist MTF only; %d lit actuators (0.85 x 0.74 R_{ap})', nnz(lit))}, 'FontSize', 11);
 print(fc, fullfile(o.outdir,'pupil_blur_demo_curve.png'),'-dpng','-r110');
 
 is0 = find(o.sig_pitch >= 0.5,1);  if isempty(is0), is0 = nS; end
@@ -243,7 +330,7 @@ sgtitle(sprintf('pupil\\_blur\\_demo: the checkerboard (actuator Nyquist) at \\s
 print(fm, fullfile(o.outdir,'pupil_blur_demo_maps.png'),'-dpng','-r110');
 end
 
-out = struct('o',o,'sig_pitch',o.sig_pitch,'mtf_nyq',mtfN,'err',err,'floor',fl,'headline',struct('cal',hc,'naive',hn), ...
+out = struct('leg',leg,'leg_pts',pts,'leg_lab',{lab},'leg_err',legerr,'leg_cost',cost,'leg_map',mapc,'o',o,'sig_pitch',o.sig_pitch,'mtf_nyq',mtfN,'err',err,'floor',fl,'headline',struct('cal',hc,'naive',hn), ...
              'sig_lambda_mm',sig_lam,'lit',lit,'f_nyq',f_nyq);
 say('\nwrote pupil_blur_demo_report.txt%s in %s\n', iff_(o.figures, ', _curve.png, _maps.png', ''), o.outdir);
 end
@@ -313,6 +400,27 @@ hm = h(Mx.pix > 0);  hm = hm(:);  [~, ord] = sort(Mx.pix(Mx.pix > 0));  hm = hm(
 b = Mx.J.'*hm - Mx.v*(sum(hm)/Mx.Am);
 x = Mx.Rf \ (Mx.Rf.' \ b);
 a = zeros(size(lit));  a(Mx.ilit) = x;
+end
+function [g, shf] = nyq_gain_(f)
+% the record's stage-2 AS-BUILT Nyquist gain: the first two 'sinusoid f 0.5000' lines (u, v), min
+t = fileread(f);  tk = regexp(t, 'sinusoid f 0\.5000 cyc/mm[^\n]*?min ([0-9.]+) in the lit pupil', 'tokens');
+assert(numel(tk) >= 2, 'pupil_blur_demo:leg', 'no Nyquist gain lines in %s', f);
+g = min(str2double(tk{1}{1}), str2double(tk{2}{1}));
+% the largest recovered-poke centroid shift of the FIRST (as-built) stage-2 block
+b = regexp(t, '---- stage 2, as built.*?working surface', 'match', 'once');
+sk = regexp(b, 'shift ([0-9.]+) mm', 'tokens');  shf = max(str2double([sk{:}]));
+end
+function b = shift_(h, d, dx)
+% the map translated by d (mm) along x and y equally (|shift| = d), exactly, by a Fourier phase ramp
+N = size(h,1);  f = ifftshift(((0:N-1) - floor(N/2))/(N*dx));  [FX,FY] = meshgrid(f,f);
+b = real(ifft2(fft2(h).*exp(-2i*pi*(FX+FY)*d/sqrt(2))));
+end
+function r = rmsp_(a, lit), x = a(lit) - mean(a(lit));  r = sqrt(mean(x.^2)); end
+function e = maperr_(hb, h, X, Y, R)
+% tg96_pupilsim's working-surface metric: (map - true) in the lit pupil, piston and tilt removed, / the surface rms there
+in = hypot(X,Y) < R;  A = [ones(nnz(in),1) X(in) Y(in)];
+d = hb(in) - h(in);  d = d - A*(A\d);  t = h(in) - mean(h(in));
+e = sqrt(mean(d.^2))/sqrt(mean(t.^2));
 end
 function e = relerr_(a_hat, a_true, lit)
 d = a_hat(lit) - a_true(lit);  d = d - mean(d);
