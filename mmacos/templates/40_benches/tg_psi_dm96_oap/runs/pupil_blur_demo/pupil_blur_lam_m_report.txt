@@ -1,0 +1,38 @@
+=== pupil_blur_lam_m: the matrix estimator's sigma = 0 floor vs lambda_m, with noise (2026-10-09 11:37) ===
+per-pixel surface noise: noise-free = 0.00 pm, demo 20 pm = 20.00 pm, 1e+13 ph/meas = 5.43 pm, 1e+14 ph/meas = 1.72 pm; bench shot-noise levels from 385-px pupil (116416 lit px), sigma_phi = 1/sqrt(N_pix) (to a factor sqrt 2), LAM 632.8 nm
+error = rms(recovered - true) over the 2852 lit actuators, piston removed / rms(true); pm = that x the command rms
+
+noise               pm/px lambda_m | checker (50 nm): % / pm  | random (30 nm): % / pm  
+noise-free           0.00    1e-03 |    5.9590% /  2979.48 pm |    1.0319% /   306.05 pm
+noise-free           0.00    1e-04 |    0.6310% /   315.50 pm |    0.1065% /    31.58 pm
+noise-free           0.00    1e-05 |    0.0635% /    31.74 pm |    0.0107% /     3.17 pm
+noise-free           0.00    1e-06 |    0.0064% /     3.18 pm |    0.0011% /     0.32 pm
+noise-free           0.00    1e-07 |    0.0006% /     0.32 pm |    0.0001% /     0.03 pm
+demo 20 pm          20.00    1e-03 |    5.9599% /  2979.94 pm |    1.0320% /   306.09 pm
+demo 20 pm          20.00    1e-04 |    0.6323% /   316.14 pm |    0.1117% /    33.14 pm
+demo 20 pm          20.00    1e-05 |    0.0677% /    33.87 pm |    0.0368% /    10.92 pm
+demo 20 pm          20.00    1e-06 |    0.0222% /    11.10 pm |    0.0354% /    10.49 pm
+demo 20 pm          20.00    1e-07 |    0.0210% /    10.51 pm |    0.0354% /    10.49 pm
+1e+13 ph/meas        5.43    1e-03 |    5.9592% /  2979.60 pm |    1.0318% /   306.03 pm
+1e+13 ph/meas        5.43    1e-04 |    0.6313% /   315.64 pm |    0.1068% /    31.67 pm
+1e+13 ph/meas        5.43    1e-05 |    0.0640% /    31.99 pm |    0.0143% /     4.23 pm
+1e+13 ph/meas        5.43    1e-06 |    0.0087% /     4.36 pm |    0.0097% /     2.86 pm
+1e+13 ph/meas        5.43    1e-07 |    0.0058% /     2.88 pm |    0.0096% /     2.85 pm
+1e+14 ph/meas        1.72    1e-03 |    5.9590% /  2979.52 pm |    1.0319% /   306.04 pm
+1e+14 ph/meas        1.72    1e-04 |    0.6311% /   315.54 pm |    0.1065% /    31.58 pm
+1e+14 ph/meas        1.72    1e-05 |    0.0636% /    31.79 pm |    0.0111% /     3.28 pm
+1e+14 ph/meas        1.72    1e-06 |    0.0067% /     3.34 pm |    0.0032% /     0.95 pm
+1e+14 ph/meas        1.72    1e-07 |    0.0019% /     0.97 pm |    0.0030% /     0.90 pm
+
+the floor per noise level at the smallest lambda_m swept (bias -> 0; the noise part then PLATEAUS, it does not grow):
+  noise-free       checker 0.0006% at 1e-07 | random 0.0001% (0.03 pm) at 1e-07  (still moving at the sweep edge)
+  demo 20 pm       checker 0.0210% at 1e-07 | random 0.0354% (10.49 pm) at 1e-07  (plateau)
+  1e+13 ph/meas    checker 0.0058% at 1e-07 | random 0.0096% (2.85 pm) at 1e-07  (plateau)
+  1e+14 ph/meas    checker 0.0019% at 1e-07 | random 0.0030% (0.90 pm) at 1e-07  (plateau)
+read: (1) at the record's lambda_m 1e-3 the floor is the regularization BIAS, 306 pm (1.03 %) on the random 30 nm surface whatever the
+  photons -- the actuator-Nyquist roll-off (bias ~ lambda_m: x10 per decade until the noise part shows);
+  (2) the noise part is the UNREGULARIZED least-squares floor: this demo's matrix is exact and well conditioned (no noise gain as
+  lambda_m -> 0), so the plateau is the photon floor -- random 0.90 pm at 1e14 ph/meas, 2.85 pm at 1e13 -- the deck's measured 1.4 / 2.3 pm
+  class on a 10 nm change;
+  (3) the bench's MEASURED matrix carries noise and model error in its columns, which is what lambda_m guards there: lowering it on the
+  bench must be re-gated (its Stage E reg sweep), not read from this ideal-matrix bound.
