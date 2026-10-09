@@ -383,6 +383,14 @@ estimator at `matrix_lam` 1e-3 carries its own regularization bias at the actuat
 Nyquist (the (96,96) mode at gain 0.966, Stage D `lensuw2`; ~1 % rms on a dense random
 command, noise-free) — not a blur term, and not in the deck's single-poke accuracy rows
 or the differential hold rows; it belongs in the per-candidate error budget.
+Measured with noise (TO, `runs/pupil_blur_demo/pupil_blur_lam_m_report.txt`, ideal
+matrix, the record's random 30 nm surface, 2852 lit): the bias scales with
+`matrix_lam` — 306 pm at 1e-3, 31.6 at 1e-4, 3.2 at 1e-5, photon-independent — while
+the noise part plateaus at the unregularized least-squares floor, 0.90 pm at 1e14
+photons and 2.85 at 1e13 (the deck's 1.4 / 2.3 pm class).  So 306 pm at the record's
+1e-3 is a regularization choice, not physics; lowering it must be re-gated on the
+bench's MEASURED matrix (its columns carry noise and model error that `matrix_lam`
+guards: the Stage E reg sweep), not read off this ideal-matrix bound.
 
 ## Departures / open
 
