@@ -1,31 +1,44 @@
 === pupil_blur_demo: when is pupil-imaging blur a concern? ===
-DM 96x96 at 1.00 mm pitch; influence 1/e 0.85 mm; WF grid 384 x 0.280 mm; 2852 lit actuators
-actuator Nyquist = 0.500 cyc/mm; Tikhonov lambda = 0.050; read noise = 20 pm rms
-reconstruction: dmg_stencil + dmg_act_fit (the gauges' own Tikhonov lattice deconvolution)
+DM 96x96 at 1.00 mm pitch; influence 1/e 0.85 mm; map grid 449 x 0.250 mm (the actuator sites are grid nodes); 2852 lit actuators (0.85 x 0.74 R_ap)
+actuator Nyquist = 0.500 cyc/mm; kernel lambda = 0.05 (of the stencil peak); read noise = 20 pm rms per map pixel (16 pixels per actuator)
+error = rms(recovered - true) over the lit actuators, piston removed, / rms(true commands)
 
-blur      sig/pit  MTF@Nyq | checker err (naive/cal) | random err (naive/cal)
-  0.00mm    0.000   1.0000 |    8.08% /   8.08% |    3.62% /   3.62%
-  0.10mm    0.100   0.9518 |    8.12% /   8.09% |    3.62% /   3.62%
-  0.20mm    0.200   0.8209 |   20.52% /   9.53% |    8.39% /   3.96%
-  0.30mm    0.300   0.6414 |   39.05% /  12.48% |   18.29% /   4.64%
-  0.40mm    0.400   0.4540 |   56.41% /  17.46% |   28.82% /   5.67%
-  0.50mm    0.500   0.2912 |   71.60% /  26.87% |   39.58% /   7.37%
-  0.60mm    0.600   0.1692 |   83.08% /  43.96% |   49.59% /  10.23%
-  0.70mm    0.700   0.0891 |   90.70% /  67.61% |   58.33% /  14.95%
-  0.80mm    0.800   0.0425 |   95.21% /  87.00% |   65.64% /  21.34%
-  0.90mm    0.900   0.0184 |   97.61% /  95.90% |   71.59% /  28.49%
-  1.00mm    1.000   0.0072 |   98.78% /  98.57% |   76.37% /  35.59%
-  1.10mm    1.100   0.0026 |   99.32% /  99.24% |   80.17% /  42.25%
-  1.20mm    1.200   0.0008 |   99.56% /  99.42% |   83.20% /  48.51%
-  1.30mm    1.300   0.0002 |   99.67% /  99.51% |   85.62% /  54.55%
-  1.40mm    1.400   0.0001 |   99.73% /  99.57% |   87.59% /  60.05%
-  1.50mm    1.500   0.0000 |   99.77% /  99.62% |   89.17% /  64.55%
+---- the blur-free floor (sigma = 0): kernel estimator, lambda x read noise ----
+lambda      noise | checker: lit / all unk. | random: lit / all unk. 
+5e-02       20 pm |    3.5109% /    7.171% |    0.9028% /    3.070%
+5e-02        0 pm |    3.5069% /    7.171% |    0.8953% /    3.069%
+1e-02       20 pm |    0.1613% /    5.868% |    0.1114% /    2.849%
+1e-02        0 pm |    0.1452% /    5.870% |    0.0365% /    2.848%
+1e-03       20 pm |    0.0622% /    5.848% |    0.1048% /    2.845%
+1e-03        0 pm |    0.0015% /    5.851% |    0.0004% /    2.844%
+1e-04       20 pm |    0.0621% /    5.848% |    0.1048% /    2.845%
+1e-04        0 pm |    0.0000% /    5.850% |    0.0000% /    2.844%
+=> lit-only, sites on the grid: the floor is the regularization bias (the checker's Nyquist transfer against lambda) plus the noise -- it moves with both;
+   all unknowns (dmg_act_fit as it stands, the legacy control): the free ring outside the lit set holds the floor at percent level whatever lambda and noise.
+
+---- the blur sweep (kernel estimator, lambda 0.05, lit unknowns) ----
+blur      sig/pit  MTF@Nyq | checker err (naive/cal)  | random err (naive/cal)  
+ 0.000mm    0.000   1.0000 |    3.503% /    3.503% |    0.899% /    0.899%
+ 0.050mm    0.050   0.9939 |    4.666% /    3.570% |    1.440% /    0.919%
+ 0.100mm    0.100   0.9756 |    8.052% /    3.754% |    3.084% /    0.948%
+ 0.200mm    0.200   0.9060 |   20.428% /    4.598% |    9.378% /    1.099%
+ 0.300mm    0.300   0.8009 |   37.431% /    6.482% |   18.596% /    1.430%
+ 0.400mm    0.400   0.6738 |   55.216% /   10.402% |   29.268% /    2.083%
+ 0.500mm    0.500   0.5396 |   70.757% /   18.677% |   40.082% /    3.430%
+ 0.600mm    0.600   0.4114 |   82.482% /   34.916% |   50.090% /    6.112%
+ 0.700mm    0.700   0.2985 |   90.274% /   59.492% |   58.793% /   10.889%
+ 0.800mm    0.800   0.2062 |   94.901% /   81.895% |   66.055% /   17.561%
+ 0.900mm    0.900   0.1355 |   97.376% /   93.217% |   71.964% /   25.084%
+ 1.000mm    1.000   0.0848 |   98.598% /   96.992% |   76.674% /   32.417%
+ 1.100mm    1.100   0.0505 |   99.166% /   98.087% |   80.435% /   39.314%
+ 1.200mm    1.200   0.0286 |   99.422% /   98.461% |   83.426% /   45.728%
+ 1.300mm    1.300   0.0155 |   99.565% /   98.679% |   85.818% /   51.844%
+ 1.400mm    1.400   0.0079 |   99.629% /   98.828% |   87.752% /   57.453%
+ 1.500mm    1.500   0.0039 |   99.684% /   98.948% |   89.318% /   62.184%
 
 ---- the lesson ----
-blur-free floor (sigma=0, intrinsic Nyquist regularization at lambda=0.050): checker 8.1%, random 3.6%
-a CALIBRATED read holds near that floor until the blur doubles it: checker 2x floor at sigma = 0.40 pitch; the NAIVE read doubles the floor by sigma = 0.20 pitch
-the structural knee is MTF(actuator Nyquist) = lambda at sigma = 0.78 pitch -- beyond it the checkerboard is lost even to calibration
-=> blur is a concern only when its MTF at the DM's highest spatial frequency approaches the reconstruction's regularization/noise floor; below that a calibrated read removes it.
-   the real tg96 leg (tg96_pupilsim) broadens a single poke by <~1% (width/true ~1.0) -- i.e. sigma ~ 0, the far-left of these curves.
+blur-free floor (sigma = 0, lambda 0.05, 20 pm): checker 3.511%, random 0.903% (all-unknowns control: 7.17% / 3.07%)
+the checker error passes max(2 x floor, 1%): calibrated at sigma = 0.40 pitch, naive at sigma = 0.10 pitch
+the structural knee: the stencil's Nyquist transfer (0.257 of its peak) x the blur MTF falls to lambda at sigma = 0.81 pitch -- beyond it the checkerboard is lost even to calibration
 
-wrote pupil_blur_demo_{report.txt, curve.png, maps.png} in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/pupil_blur_demo
+wrote pupil_blur_demo_report.txt, _curve.png, _maps.png in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/pupil_blur_demo
