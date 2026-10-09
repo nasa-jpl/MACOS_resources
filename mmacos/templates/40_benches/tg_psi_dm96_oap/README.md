@@ -70,7 +70,40 @@ Outputs land in `runs/<tag>/`: `<tag>_report.txt`, `<tag>.mat`,
 tg96_pupilq('rig','lens');     tg96_pupilq('rig','oap');      % crossing-cloud quality: distortion, surface, blur, the seat per tilt
 tg96_pupilsim('rig','lens');   tg96_pupilsim('rig','oap');    % the detailed simulation: zone PSFs, the DM field through them, the compromise plane, the Fourier check
 pupil_blur_demo;                                              % the plain-physics companion: blur a known DM surface, reconstruct, error vs blur (engine-free, ~40 s)
+pupil_blur_demo('kernel','box');                              % COPHI's photodiode array: one reading per detector cell, cell size swept
 ```
+`pupil_blur_demo` (record `runs/pupil_blur_demo/`; gate `tPupilBlurDemo`).  It works in
+four steps, with no engine:
+1. Build a known DM surface from known commands (Gaussian influences).
+2. Blur it: a Gaussian on the phase map, swept 1/e radius σ, applied exactly as its MTF.
+3. Add 20 pm of read noise.
+4. Recover the lit commands two ways: NAIVE (blur ignored) and CALIBRATED (blur in the model).
+
+The calibrated read is made both with the bench's kernel form (λ 0.05 of the stencil peak)
+and with **the record's estimator, the measured response matrix** (λ_m 1e-3 of the median
+column energy, `est_matrix_tg`'s solve).  In the matrix form, calibration absorbs blur
+automatically: the blurred columns ARE the matrix measured through the camera.
+
+What it shows:
+- **The floor is the estimator's.**  With the sites read exactly and lit unknowns only,
+  σ = 0 is regularization bias plus noise, and it moves with both: the checker reads
+  0.0015 % noise-free at λ 1e-3, and 3.5 % at λ 0.05.  The matrix floor at the record's
+  λ_m is 6.0 % (checker) / 1.0 % (random), noise-free identical: that is the actuator-Nyquist
+  roll-off the bench's own Stage D reports.  The old 8.1 % / 3.6 % floor was the
+  all-unknowns solve; it is kept as the negative control.
+- **The built legs sit at σ = 0.006 pitch (lens) and 0.016 pitch (mirror).**  These come
+  from the pupilsim records' Nyquist gain lines (0.9999 / 0.9994).  There, the blur costs
+  0.004 % / 0.024 % of the 30 nm surface even uncalibrated: 3 % / 8 % of the deck's
+  pupil-imaging share (0.13 % / 0.29 %).  **The share is not blur.**  A registration shift
+  of the records' poke shift (0.0004 mm) accounts for a third of the lens share.  The
+  mirror's share sits in the lowest spatial band, which no blur produces.
+- **The box (COPHI):** calibrated, a 0.5- or 1-pitch cell keeps the checkerboard and costs
+  1.5–1.6 % on the 30 nm surface.  A 1.5-pitch cell (0.58 readings per lit actuator) loses
+  it and costs 72 %.
+
+Caveats: the blur acts on the phase (the small-phase limit; the camera blurs intensity).
+The legs are a cos φ gain plus sin φ cross-talk, matched to a Gaussian at the Nyquist MTF
+only.  The lit set is 2852 actuators (0.85 × 0.74 R_ap), not the benches' 5072 / 6948.
 ```bash
 # headless (model 512, ~3 GB, ~6 min per rig for pupilsim, ~1 min for pupilq); both tools, both rigs:
 ./tg96_pupil_batch.sh both
@@ -133,7 +166,7 @@ polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.m
 | `tg96_pupilq.m`  | pupil image quality of the detector leg (Fang Shi, 2026-09-16): the DM as the stop, crossing cloud at the camera (distortion vs one affine, pupil surface, blur over the actuator band), the rodgers2 set at the seat per tilt; `runs/pupilq_<rig>` |
 | `tg96_collimate.m` | the collimation solve (2026-09-17): the collimator's radius and conic against the exit rays' angular spread, the focuser's conic against the ray spot, and the FocalMask seat on the ray focus -- the four numbers `P.bench.L1_Kr/L1_Kc/L2_Kc/MASK_TRIM` carry.  Ray traces only, minutes.  `runs/coll_<optics>` |
 | `tg96_pupilsim.m` | the detailed pupil-image SIMULATION (Dave, 2026-09-17): the leg's coherent PSF per DM zone from the rays (the intercept walk over a 2-D tilt set integrates to the zone wavefront), the DM field through those PSFs (sinusoids, pokes, the 30 nm working surface; gain and amplitude cross-talk vs radius), the compromise detector plane, and a plane-to-plane Fourier cross-check of the tail; opens the baffle and puts the aperture ON the DM (the DM is the stop in fact); `runs/pupilsim_<rig>` |
-| `pupil_blur_demo.m` | the plain-physics companion to `tg96_pupilsim` (2026-10-09): engine-free. A known DM surface (Gaussian influences) is blurred by a pupil-imaging kernel (1/e radius swept), then the commands are recovered by the gauges' OWN reconstruction (`dmg_stencil`+`dmg_act_fit`). Shows actuator-command error vs blur, naive vs calibrated, on the checkerboard (actuator Nyquist) and a random 30 nm surface. The point: blur is an MTF roll-off a calibrated read removes until MTF(Nyquist) nears the regularization floor (lambda) at sigma ~ 0.78 pitch; the real leg sits at sigma ~ 0. `runs/pupil_blur_demo` |
+| `pupil_blur_demo.m` | the plain-physics companion to `tg96_pupilsim` (CCMac 2026-10-09; TO the same day, BRIEF_to_pupil_blur): engine-free. A known DM surface (Gaussian influences) is blurred by a pupil-imaging kernel; the lit commands are recovered naive (blur ignored) vs calibrated with the bench's kernel form and the record's measured response matrix. Shows: the floor is the estimator's (regularization + noise); the built legs (σ 0.006 / 0.016 pitch, from the pupilsim records) cost 3 / 8 % of the deck's pupil-imaging share, so that share is not blur; `'kernel','box'` gives COPHI's detector-cell trade (1 pitch keeps the checkerboard, 1.5 loses it). Gate `tPupilBlurDemo`. `runs/pupil_blur_demo` |
 
 ## The bench is collimated for real (2026-09-17)
 
