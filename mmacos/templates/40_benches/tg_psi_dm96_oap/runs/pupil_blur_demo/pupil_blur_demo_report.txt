@@ -16,29 +16,42 @@ lambda      noise | checker: lit / all unk. | random: lit / all unk.
 => lit-only, sites on the grid: the floor is the regularization bias (the checker's Nyquist transfer against lambda) plus the noise -- it moves with both;
    all unknowns (dmg_act_fit as it stands, the legacy control): the free ring outside the lit set holds the floor at percent level whatever lambda and noise.
 
----- the blur sweep (kernel estimator, lambda 0.05, lit unknowns) ----
-blur      sig/pit  MTF@Nyq | checker err (naive/cal)  | random err (naive/cal)  
- 0.000mm    0.000   1.0000 |    3.503% /    3.503% |    0.899% /    0.899%
- 0.050mm    0.050   0.9939 |    4.666% /    3.570% |    1.440% /    0.919%
- 0.100mm    0.100   0.9756 |    8.052% /    3.754% |    3.084% /    0.948%
- 0.200mm    0.200   0.9060 |   20.428% /    4.598% |    9.378% /    1.099%
- 0.300mm    0.300   0.8009 |   37.431% /    6.482% |   18.596% /    1.430%
- 0.400mm    0.400   0.6738 |   55.216% /   10.402% |   29.268% /    2.083%
- 0.500mm    0.500   0.5396 |   70.757% /   18.677% |   40.082% /    3.430%
- 0.600mm    0.600   0.4114 |   82.482% /   34.916% |   50.090% /    6.112%
- 0.700mm    0.700   0.2985 |   90.274% /   59.492% |   58.793% /   10.889%
- 0.800mm    0.800   0.2062 |   94.901% /   81.895% |   66.055% /   17.561%
- 0.900mm    0.900   0.1355 |   97.376% /   93.217% |   71.964% /   25.084%
- 1.000mm    1.000   0.0848 |   98.598% /   96.992% |   76.674% /   32.417%
- 1.100mm    1.100   0.0505 |   99.166% /   98.087% |   80.435% /   39.314%
- 1.200mm    1.200   0.0286 |   99.422% /   98.461% |   83.426% /   45.728%
- 1.300mm    1.300   0.0155 |   99.565% /   98.679% |   85.818% /   51.844%
- 1.400mm    1.400   0.0079 |   99.629% /   98.828% |   87.752% /   57.453%
- 1.500mm    1.500   0.0039 |   99.684% /   98.948% |   89.318% /   62.184%
+---- the blur-free floor (sigma = 0): the matrix estimator (the record's), lambda_m x read noise ----
+lambda_m    noise | checker      | random      
+1e-02       20 pm |    38.3555% |     8.0728%
+1e-02        0 pm |    38.3549% |     8.0730%
+1e-03       20 pm |     5.9599% |     1.0320%
+1e-03        0 pm |     5.9590% |     1.0319%
+1e-04       20 pm |     0.6323% |     0.1117%
+1e-04        0 pm |     0.6310% |     0.1065%
+=> the matrix reads every illuminated pixel (16 per actuator): its NOISE part is the deck's pm class (1.4 / 2.3 pm on a 10 nm change);
+   its floor at the record's lambda_m is the REGULARIZATION BIAS at the actuator Nyquist (noise-free identical to the digits) -- the same roll-off the
+   bench reports in its own Stage D (runs/lensuw2: the (96,96) diagonal-Nyquist mode at gain 0.966); the full +/-50 nm checkerboard is all of that mode
 
----- the lesson ----
-blur-free floor (sigma = 0, lambda 0.05, 20 pm): checker 3.511%, random 0.903% (all-unknowns control: 7.17% / 3.07%)
-the checker error passes max(2 x floor, 1%): calibrated at sigma = 0.40 pitch, naive at sigma = 0.10 pitch
-the structural knee: the stencil's Nyquist transfer (0.257 of its peak) x the blur MTF falls to lambda at sigma = 0.81 pitch -- beyond it the checkerboard is lost even to calibration
+---- the blur sweep: kernel (lambda 0.05 of the stencil peak) and matrix (lambda_m 1e-03 of the column energy), lit unknowns ----
+blur     sig/pit MTF@Nyq | checker: kernel naive/cal, MATRIX naive/cal | random: kernel naive/cal, MATRIX naive/cal
+ 0.000mm   0.000  1.0000 |   3.503%   3.503%   5.9559%   5.9559% |   0.899%   0.899%   1.0317%   1.0317%
+ 0.050mm   0.050  0.9939 |   4.666%   3.570%   7.0490%   6.0771% |   1.440%   0.919%   1.4674%   1.0486%
+ 0.100mm   0.100  0.9756 |   8.052%   3.754%  10.2400%   6.4405% |   3.084%   0.948%   2.8910%   1.0983%
+ 0.200mm   0.200  0.9060 |  20.428%   4.598%  21.9217%   8.1200% |   9.378%   1.099%   8.5137%   1.3279%
+ 0.300mm   0.300  0.8009 |  37.431%   6.482%  37.9894%  11.8466% |  18.596%   1.430%  16.9381%   1.8222%
+ 0.400mm   0.400  0.6738 |  55.216%  10.402%  54.8496%  19.4990% |  29.268%   2.083%  26.9535%   2.8225%
+ 0.500mm   0.500  0.5396 |  70.757%  18.677%  69.6359%  34.0481% |  40.082%   3.430%  37.3972%   4.7973%
+ 0.600mm   0.600  0.4114 |  82.482%  34.916%  80.8683%  56.0506% |  50.090%   6.112%  47.3546%   8.3542%
+ 0.700mm   0.700  0.2985 |  90.274%  59.492%  88.4174%  77.3988% |  58.793%  10.889%  56.2587%  13.6654%
+ 0.800mm   0.800  0.2062 |  94.901%  81.895%  92.9820%  89.5477% |  66.055%  17.561%  63.8650%  20.2386%
+ 0.900mm   0.900  0.1355 |  97.376%  93.217%  95.5148%  94.2484% |  71.964%  25.084%  70.1591%  27.4456%
+ 1.000mm   1.000  0.0848 |  98.598%  96.992%  96.8499%  95.9202% |  76.674%  32.417%  75.2540%  34.6546%
+ 1.100mm   1.100  0.0505 |  99.166%  98.087%  97.5550%  96.6785% |  80.435%  39.314%  79.3375%  41.5285%
+ 1.200mm   1.200  0.0286 |  99.422%  98.461%  97.9582%  97.1637% |  83.426%  45.728%  82.5951%  48.0435%
+ 1.300mm   1.300  0.0155 |  99.565%  98.679%  98.2226%  97.5359% |  85.818%  51.844%  85.1935%  54.0467%
+ 1.400mm   1.400  0.0079 |  99.629%  98.828%  98.4181%  97.8325% |  87.752%  57.453%  87.2808%  59.2978%
+ 1.500mm   1.500  0.0039 |  99.684%  98.948%  98.5790%  98.0739% |  89.318%  62.184%  88.9659%  63.7721%
+
+---- the lesson (headline estimator: matrix (the record's estimator, every deck number)) ----
+blur-free floor (sigma = 0, 20 pm): matrix checker 5.9599%, random 1.0320%; kernel (lambda 0.05) 3.511% / 0.903%; all-unknowns kernel control 7.17% / 3.07%
+the checker error first exceeds max(2 x its floor, 1%): matrix calibrated at sigma = 0.40 pitch, naive at sigma = 0.20 pitch
+kernel knee: the stencil's Nyquist transfer (0.257 of its peak) x the blur MTF falls to lambda at sigma = 0.81 pitch
+in the matrix form "calibrated" is automatic: the blurred columns ARE the matrix measured through the camera
 
 wrote pupil_blur_demo_report.txt, _curve.png, _maps.png in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/pupil_blur_demo
