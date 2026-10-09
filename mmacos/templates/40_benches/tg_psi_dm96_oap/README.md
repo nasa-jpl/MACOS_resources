@@ -69,6 +69,7 @@ Outputs land in `runs/<tag>/`: `<tag>_report.txt`, `<tag>.mat`,
 % interactive (no exit); the knobs are P.pupil in tg96_params.m:
 tg96_pupilq('rig','lens');     tg96_pupilq('rig','oap');      % crossing-cloud quality: distortion, surface, blur, the seat per tilt
 tg96_pupilsim('rig','lens');   tg96_pupilsim('rig','oap');    % the detailed simulation: zone PSFs, the DM field through them, the compromise plane, the Fourier check
+pupil_blur_demo;                                              % the plain-physics companion: blur a known DM surface, reconstruct, error vs blur (engine-free, ~40 s)
 ```
 ```bash
 # headless (model 512, ~3 GB, ~6 min per rig for pupilsim, ~1 min for pupilq); both tools, both rigs:
@@ -132,6 +133,7 @@ polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.m
 | `tg96_pupilq.m`  | pupil image quality of the detector leg (Fang Shi, 2026-09-16): the DM as the stop, crossing cloud at the camera (distortion vs one affine, pupil surface, blur over the actuator band), the rodgers2 set at the seat per tilt; `runs/pupilq_<rig>` |
 | `tg96_collimate.m` | the collimation solve (2026-09-17): the collimator's radius and conic against the exit rays' angular spread, the focuser's conic against the ray spot, and the FocalMask seat on the ray focus -- the four numbers `P.bench.L1_Kr/L1_Kc/L2_Kc/MASK_TRIM` carry.  Ray traces only, minutes.  `runs/coll_<optics>` |
 | `tg96_pupilsim.m` | the detailed pupil-image SIMULATION (Dave, 2026-09-17): the leg's coherent PSF per DM zone from the rays (the intercept walk over a 2-D tilt set integrates to the zone wavefront), the DM field through those PSFs (sinusoids, pokes, the 30 nm working surface; gain and amplitude cross-talk vs radius), the compromise detector plane, and a plane-to-plane Fourier cross-check of the tail; opens the baffle and puts the aperture ON the DM (the DM is the stop in fact); `runs/pupilsim_<rig>` |
+| `pupil_blur_demo.m` | the plain-physics companion to `tg96_pupilsim` (2026-10-09): engine-free. A known DM surface (Gaussian influences) is blurred by a pupil-imaging kernel (1/e radius swept), then the commands are recovered by the gauges' OWN reconstruction (`dmg_stencil`+`dmg_act_fit`). Shows actuator-command error vs blur, naive vs calibrated, on the checkerboard (actuator Nyquist) and a random 30 nm surface. The point: blur is an MTF roll-off a calibrated read removes until MTF(Nyquist) nears the regularization floor (lambda) at sigma ~ 0.78 pitch; the real leg sits at sigma ~ 0. `runs/pupil_blur_demo` |
 
 ## The bench is collimated for real (2026-09-17)
 
