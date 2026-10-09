@@ -366,6 +366,24 @@ distance = f·|sin(180−2·AOI)|.
 The OAP2 fold sits at AOI 9° with only +6 mm lateral clearance margin (Stage A);
 OAP1 at 5° has +22 mm. Both are near-normal to keep the fold aberration small.
 
+## 6b. Pupil imaging: what the 0.13 / 0.29 % share is (2026-10-09)
+
+pupil_blur_demo (2026-10-09, `runs/pupil_blur_demo`; `macos/REPORT_pupil_blur.md`)
+puts the built legs at a Gaussian-equivalent 1/e radius of 0.006 (lens) / 0.016
+(mirror) pitch, from the pupilsim redo records' Nyquist gain (0.9999 / 0.9994).  It
+measures the blur at 0.004 % / 0.024 % of the 30 nm surface, uncalibrated: 3–8 % of
+the 0.13 / 0.29 % pupil-imaging share.  So the share is mostly not blur: a third of
+the lens share is a registration residual of the records' poke-shift size, and the
+mirror's sits in the lowest spatial band.  At the legs' blur a calibrated read is
+unchanged to < 0.1 %.  The talk deck's sentence "the blur (0.05–0.14 mm) leaves
+0.13 / 0.29 %" conflated pupilq's ray-walk over the tilt band (an incoherent
+envelope) with the coherent PSF the gain lines measure; the number stands, the
+attribution is corrected here and in the composite deck.  The record's matrix
+estimator at `matrix_lam` 1e-3 carries its own regularization bias at the actuator
+Nyquist (the (96,96) mode at gain 0.966, Stage D `lensuw2`; ~1 % rms on a dense random
+command, noise-free) — not a blur term, and not in the deck's single-poke accuracy rows
+or the differential hold rows; it belongs in the per-candidate error budget.
+
 ## Departures / open
 
 - Item 5 (descent) BLOCKED on TO's `loop.start_rms` / `loop.recal_every`.
