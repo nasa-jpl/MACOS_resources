@@ -53,6 +53,26 @@ blur     sig/pit MTF@Nyq | checker: kernel naive/cal, MATRIX naive/cal | random:
  1.300mm   1.300  0.0155 |  99.565%  98.679%  98.2226%  97.5359% |  85.818%  51.844%  85.1935%  54.0467%
  1.400mm   1.400  0.0079 |  99.629%  98.828%  98.4181%  97.8325% |  87.752%  57.453%  87.2808%  59.2978%
  1.500mm   1.500  0.0039 |  99.684%  98.948%  98.5790%  98.0739% |  89.318%  62.184%  88.9659%  63.7721%
+---- the same sweep, the record's matrix read ITERATED TO CONVERGENCE (20 steps, gain 1: the servo's use of the estimator) ----
+blur     sig/pit | checker: naive / cal | random: naive / cal 
+ 0.000mm   0.000 |   0.0229%   0.0229% |   0.0387%   0.0387%
+ 0.050mm   0.050 |   0.0229%   0.0229% |   0.0386%   0.0386%
+ 0.100mm   0.100 |   0.0216%   0.0216% |   0.0365%   0.0365%
+ 0.200mm   0.200 |   0.0254%   0.0255% |   0.0429%   0.0429%
+ 0.300mm   0.300 |   0.0287%   0.0288% |   0.0485%   0.0485%
+ 0.400mm   0.400 |   0.0356%   0.0356% |   0.0600%   0.0599%
+ 0.500mm   0.500 |   0.1582%   0.0511% |   0.0882%   0.0862%
+ 0.600mm   0.600 |   2.7066%   0.0683% |   0.2720%   0.1145%
+ 0.700mm   0.700 |  15.2171%   2.0838% |   1.7194%   0.2045%
+ 0.800mm   0.800 |  39.3061%  30.7053% |   5.9757%   1.6295%
+ 0.900mm   0.900 |  63.6005%  70.9211% |  13.4352%   6.9756%
+ 1.000mm   1.000 |  79.6705%  87.7947% |  22.8884%  13.5136%
+ 1.100mm   1.100 |  87.8323%  92.5992% |  33.0817%  21.0488%
+ 1.200mm   1.200 |  91.4733%  94.2802% |  42.7934%  28.8096%
+ 1.300mm   1.300 |  93.0667%  95.1950% |  51.2818%  35.7026%
+ 1.400mm   1.400 |  93.8044%  95.8431% |  58.5603%  42.1003%
+ 1.500mm   1.500 |  94.2817%  96.3832% |  64.5339%  48.2960%
+
 ---- the same sweep, PLAIN least squares (lambda 1e-09: no regularization to speak of) ----
 blur     sig/pit | checker: naive / cal | random: naive / cal 
  0.000mm   0.000 |   0.0229%   0.0229% |   0.0387%   0.0387%
@@ -117,6 +137,6 @@ blur-free floor (sigma = 0, 20 pm): matrix checker 5.9599%, random 1.0320%; kern
 the checker error first exceeds max(2 x its floor, 1%): matrix calibrated at sigma = 0.40 pitch, naive at sigma = 0.20 pitch
 kernel knee: the stencil's Nyquist transfer (0.257 of its peak) x the blur MTF falls to lambda at sigma = 0.81 pitch
 in the matrix form "calibrated" is automatic: the blurred columns ARE the matrix measured through the camera
-steps figure (sigma 0.5 pitch, random 30 nm): command error naive/cal -- plain LSQ 37.06% / 0.087%; matrix 37.40% / 4.796%; surface rms vs true (nm): blurred 5.20, naive 5.14 / 5.17, cal 0.007 / 0.231
+steps figure (sigma 0.5 pitch, random 30 nm; blurred surface 5.20 nm rms from true): command error plain LSQ naive/cal 37.06% / 0.087%, matrix one step naive/cal 37.40% / 4.796%, matrix iterated (20) naive/cal 0.09% / 0.0870%; reconstructed surface rms vs true (nm) 5.14 / 0.007 / 5.17 / 0.231 / 0.01 / 0.0071
 
 wrote pupil_blur_demo_report.txt, _curve.png, _maps.png in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/pupil_blur_demo
