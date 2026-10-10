@@ -1,0 +1,112 @@
+% tst_eol_crlf.in -- PLAN_CONSOLIDATION item 5 gate (2026-10-09): tst_FF_zern.in with CRLF (Windows / autocrlf) line endings.
+% The LF / CRLF / CR twins must load to the identical OPD on both compilers (the loader normalizes
+% a deck with any CR to an LF copy at OPEN; SAVE writes LF).
+
+% tst_FF_zern.in
+% Phase 1D: FreeForm surface with ANSI Zernike types — base file
+% MonZernType=ANSI (type 1).  Use MODIFY to switch MonZernType between tests.
+% Modes: 4 (defocus), 9 (trefoil), 11 (spherical), 16 (secondary astigmatism)
+%
+% To test all 11 Zernike types interactively:
+%   OLD tst_FF_zern.in
+%   BUILD
+%   OPD
+%   MODIFY 1 MonZernType Fringe
+%   BUILD
+%   OPD
+%   MODIFY 1 MonZernType NormNoll
+%   BUILD
+%   OPD
+%   (etc.)
+
+        ChfRayDir=  0.0D+00  0.0D+00  1.0D+00
+        ChfRayPos=  0.0D+00  0.0D+00 -1.0D+04
+          zSource=  1.0D+22
+
+        BaseUnits=  mm
+        WaveUnits=  mm
+
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+          Wavelen=  6.328D-04
+             Flux=  1.0D+00
+
+         Aperture=  1.0D+01
+         Obscratn=  0.0D+00
+
+         GridType=  Circular
+         nGridpts=  11
+            xGrid=  1.0D+00  0.0D+00  0.0D+00
+            yGrid=  0.0D+00  1.0D+00  0.0D+00
+
+             nElt=  3
+
+             iElt=  1
+          EltName=  FF_Mirror
+          Element=  Reflector
+          Surface=  FreeForm
+            KrElt= -2.0D+02
+            KcElt=  0.0D+00
+           psiElt=  0.0D+00  0.0D+00 -1.0D+00
+           VptElt=  0.0D+00  0.0D+00  0.0D+00
+           RptElt=  0.0D+00  0.0D+00  0.0D+00
+      MonZernType=  ANSI
+     nMonZernCoef=   4
+     MonZernModes=  4 9 11 16
+      MonZernCoef=  2.0D-04  1.0D-04  5.0D-05  3.0D-05
+             lMon=  1.0D+01
+             pMon=  0.0D+00  0.0D+00  0.0D+00
+             xMon= -1.0D+00  0.0D+00  0.0D+00
+             yMon=  0.0D+00  1.0D+00  0.0D+00
+             zMon=  0.0D+00  0.0D+00 -1.0D+00
+           IndRef=  1.0D+00
+           Extinc=  1.0D+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.0D+22
+          nECoord= -6
+
+             iElt=  2
+          EltName=  RefSurf
+          Element=  Reference
+          Surface=  Flat
+            KrElt= -1.0D+22
+            KcElt=  0.0D+00
+           psiElt=  0.0D+00  0.0D+00 -1.0D+00
+           VptElt=  0.0D+00  0.0D+00 -1.0D+02
+           RptElt=  0.0D+00  0.0D+00 -1.0D+02
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  FarField
+             zElt=  1.0D+22
+          nECoord= -6
+
+             iElt=  3
+          EltName=  FclPlane
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt= -1.0D+22
+            KcElt=  0.0D+00
+           psiElt=  0.0D+00  0.0D+00 -1.0D+00
+           VptElt=  0.0D+00  0.0D+00 -1.0D+02
+           RptElt=  0.0D+00  0.0D+00 -1.0D+02
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.0D+22
+          nECoord= -6
+
+         nOutCord=  5
+             Tout=  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00
