@@ -391,6 +391,14 @@ photons and 2.85 at 1e13 (the deck's 1.4 / 2.3 pm class).  So 306 pm at the reco
 1e-3 is a regularization choice, not physics; lowering it must be re-gated on the
 bench's MEASURED matrix (its columns carry noise and model error that `matrix_lam`
 guards: the Stage E reg sweep), not read off this ideal-matrix bound.
+**Read correctly (Dave 2026-10-09): that 306 pm is one-step SHRINKAGE, not a bias of the
+hold rows.**  The servo applies the estimator repeatedly; driven to convergence
+(`pupil_blur_demo`'s `iterate_`, 20 steps at gain 1) the regularized read reaches the
+plain least-squares answer (0.087 % at 0.5 pitch of blur) — and so does the UNCALIBRATED
+read (0.09 %), because the blur is in the loop's plant.  So in the error budget `matrix_lam`
+is a convergence-rate item (steps to settle), the noise floor is the 0.90 pm at 1e14
+photons, and calibration matters for one-shot reads and for the loop's stability margin
+(uncalibrated iteration diverges beyond 0.6 pitch of blur, calibrated beyond 0.8).
 
 ## Departures / open
 
