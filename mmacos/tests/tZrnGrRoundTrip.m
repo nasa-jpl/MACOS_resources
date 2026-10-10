@@ -77,8 +77,11 @@ classdef tZrnGrRoundTrip < matlab.unittest.TestCase
             tc.verifyEqual(numel(regexp(txt, '^\s*NSCount=\s*1\s*$', 'lineanchors')), 1, ...
                 'the saved deck must carry NSCount= 1 (pre-fix SAVE dropped it)');
             blk = extractBetween(string(txt), "EltName=  Primary", "EltName=  Secondary");
-            tc.verifyFalse(contains(blk, "ZernType"), ['no Zernike block for an element that ' ...
-                'declares none (the old blank block made the reload refuse SILENTLY)']);
+            % the deck declares no ZernType=: since PLAN item 7 (2026-10-10) a
+            % Zernike-carrying surface takes the ANSI default, and SAVE writes it
+            % (before that, a BLANK ZernType= block the reload refused SILENTLY)
+            tc.verifyEqual(numel(regexp(blk, '^\s*ZernType=\s*ANSI\s*$', 'lineanchors')), 1, ...
+                'the saved ZrnGrData primary carries the ANSI default');
             M0 = macos.opd_mask();
             macos.init(tc.Model);  macos.load_rx('saved.in');
             [np1, W1] = tc.trace_();  M1 = macos.opd_mask();
