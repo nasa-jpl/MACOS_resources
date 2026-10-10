@@ -36,7 +36,7 @@ function out = dw_multi_core(session, rx_path, opts, F)
 
 stop_obj_pos = getf_(opts, 'stop_obj_pos', []);
 do_reload    = getf_(opts, 'reload_rx', true);
-opd_ref_mode = getf_(opts, 'opd_ref', 'mean');   % re-applied after EVERY load below
+opd_ref_mode = getf_(opts, 'opd_ref', 'chief');  % re-applied after EVERY load below
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
     error(eid_(F, 'fov'), 'field_x_rad and field_y_rad are required');
@@ -68,7 +68,7 @@ end
 if do_reload
     session.load_rx(rx_path);
 end
-session.opd_ref(opd_ref_mode);    % a load resets the OPD reference to 'mean'
+set_opd_ref_(session, opd_ref_mode);   % a load restores the engine default ('chief')
 apply_ngridpts(session, opts.ngridpts, F.name);
 if ~isempty(opts.src_samp)
     session.set_src_sampling(opts.src_samp);
@@ -210,6 +210,7 @@ end
 % field direction survives.
 per_field_jac    = cell(n_cfg, n_fields);
 per_field_w_nom  = cell(n_cfg, n_fields);
+per_field_mask   = cell(n_cfg, n_fields);   % valid-ray masks (opd_mask), 2026-10-10
 per_field_struct = cell(n_cfg, n_fields);
 if opts.compute_los
     per_field_dcdx = cell(n_cfg, n_fields);
@@ -228,7 +229,7 @@ for ic = 1:n_cfg
 % engine state must survive.
 if has_cfg && use_pf && ic > 1 && do_reload
     session.load_rx(rx_path);
-    session.opd_ref(opd_ref_mode);
+    set_opd_ref_(session, opd_ref_mode);
     apply_ngridpts(session, opts.ngridpts, F.name);
     if ~isempty(opts.src_samp)
         session.set_src_sampling(opts.src_samp);
@@ -323,7 +324,7 @@ for k = 1:n_fields
     % distinct case -- a zero RESPONSE column, e.g. a rotation about
     % psi of a symmetric shape -- was never gated and stays in the
     % matrices.
-    if nnz(sf.w_nom_2d) == 0
+    if nnz(mask_of_(sf)) == 0
         n_empty = n_empty + 1;
         if n_empty == 1
             % Discriminate the two ways a canvas ends up empty (IRIS
@@ -361,6 +362,7 @@ for k = 1:n_fields
     end
     per_field_jac{ic, k}    = sf.(F.jac);
     per_field_w_nom{ic, k}  = sf.w_nom_2d;
+    per_field_mask{ic, k}   = mask_of_(sf);
     per_field_struct{ic, k} = sf;
     if opts.compute_los
         per_field_dcdx{ic, k} = sf.dcdx;
@@ -429,9 +431,14 @@ N = size(per_field_w_nom{1, 1}, 1);
 % one configuration stacks its FIELDS and w for the run stacks the
 % CONFIGURATIONS.  (m2v on the assembled canvas directly would
 % interleave the blocks -- it walks column-major.)
-canv = cell(1, n_cfg);
+% The ROWS come from the valid-ray MASK canvases (canvM), the values from
+% the map canvases (canv): under the chief-ray reference (the default
+% since 2026-10-10) a valid ray at the chief's path reads exactly 0, so
+% the map's nonzeros are not the pupil.  Same column-major walk, so a run
+% with no such ray gets the identical rows.
+canv = cell(1, n_cfg);  canvM = cell(1, n_cfg);
 for ic = 1:n_cfg
-    Cc = zeros(tile_rows * N, tile_cols * N);
+    Cc = zeros(tile_rows * N, tile_cols * N);  Cm = Cc;
     for k = 1:n_fields
         assert(size(per_field_w_nom{ic, k}, 1) == N, ...
             eid_(F, 'gridSize'), ...
@@ -439,12 +446,14 @@ for ic = 1:n_cfg
         r0 = fields(k).tile_row * N;
         c0 = fields(k).tile_col * N;
         Cc(r0+1:r0+N, c0+1:c0+N) = per_field_w_nom{ic, k};
+        Cm(r0+1:r0+N, c0+1:c0+N) = double(per_field_mask{ic, k});
     end
-    canv{ic} = Cc;
+    canv{ic} = Cc;  canvM{ic} = Cm;
 end
 cfg_tiles = [];
 if n_cfg >= 2, cfg_tiles = config_axis('tiles', cfgs); end
-[OPDall, indxall] = macos.config_canvas(canv, cfg_tiles);
+OPDall = macos.config_canvas(canv, cfg_tiles);
+[~, indxall] = macos.config_canvas(canvM, cfg_tiles);
 if ~has_cfg
     % preserved surface: no configuration field on the index struct
     indxall = rmfield(indxall, 'config');
@@ -459,7 +468,7 @@ jac_all = zeros(Nw, Nz);
 row0 = 0;
 for ic = 1:n_cfg
     % this configuration's own rows, in the order config_canvas used
-    [~, ixc] = macos.m2v(canv{ic});
+    [~, ixc] = macos.m2v(canvM{ic});
     ic_i = ixc.i(:);  ic_j = ixc.j(:);
 for k = 1:n_fields
     tr = fields(k).tile_row;
@@ -470,7 +479,7 @@ for k = 1:n_fields
     j_local = ic_j(in_tile) - tc * N;
     % Field-local m2v of this tile maps global rows back to the
     % per-field Jacobian rows.
-    [~, field_indx] = macos.m2v(per_field_w_nom{ic, k});
+    [~, field_indx] = macos.m2v(double(per_field_mask{ic, k}));
     field_i = field_indx.i(:);
     field_j = field_indx.j(:);
     flat_local = (j_local - 1) * N + i_local;
@@ -500,7 +509,7 @@ ctr_idx = find_center_field_index(fields);
 if ~isempty(ctr_idx)
     row0 = 0;
     for ic = 1:n_cfg
-        [~, ixc] = macos.m2v(canv{ic});
+        [~, ixc] = macos.m2v(canvM{ic});
         tr = fields(ctr_idx).tile_row;
         tc = fields(ctr_idx).tile_col;
         in_ctr = (ixc.i(:) > tr*N) & (ixc.i(:) <= (tr+1)*N) ...
@@ -713,5 +722,25 @@ while true
     fields(end+1) = field_entry(toks{1}, ...
         str2double(toks{2}), str2double(toks{3}), ...
         str2double(toks{4}), str2double(toks{5})); %#ok<AGROW>
+end
+end
+
+function set_opd_ref_(session, mode)
+%SET_OPD_REF_  Select the OPD reference only when it differs from the one in
+%   force: the chief ray is the engine default since 2026-10-10, and
+%   opd_ref_set dirties the cached trace, so the common case makes no call.
+if ~strcmp(session.opd_ref(), mode)
+    session.opd_ref(mode);
+end
+end
+
+function M = mask_of_(sf)
+%MASK_OF_  A per-field result's valid-ray mask: the driver's mask_2d (built
+%   from the engine's opd_mask), else -- a front that predates it -- the
+%   legacy nonzero test.
+if isfield(sf, 'mask_2d') && ~isempty(sf.mask_2d)
+    M = logical(sf.mask_2d);
+else
+    M = sf.w_nom_2d ~= 0;
 end
 end

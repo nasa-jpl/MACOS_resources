@@ -139,10 +139,11 @@ arguments
     opts.spot_elt               double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
     opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
-    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'mean'
-                                     % OPD reference (macos.opd_ref): 'mean' =
-                                     % whole-aperture mean (engine default);
-                                     % 'chief' = the chief ray -- on SEGMENTED
+    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'chief'
+                                     % OPD reference (macos.opd_ref): 'chief' =
+                                     % the chief ray (the engine default and the
+                                     % manual's, 2026-10-10; was 'mean' here);
+                                     % 'mean' = whole-aperture mean -- on SEGMENTED
                                      % decks a single-segment poke under 'mean'
                                      % pistons EVERY other segment by
                                      % -(N_k/N)*mean(poked response) (PLAN 0.x);

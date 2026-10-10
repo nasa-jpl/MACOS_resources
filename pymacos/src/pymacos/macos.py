@@ -3521,9 +3521,12 @@ def opd(orient: str = "raw", sign: str = "opl") -> Matrix[np.float64]:
         The raw array is OPD[i, j] with FIRST index i = global X and
         SECOND index j = global Y -- identical in the CLI, mmacos and
         pymacos.  Sign: a ray LONGER than the reference is POSITIVE
-        (optical path difference).  The reference is the chief ray
-        when it survives the trace, else the bundle mean (the map
-        comes back mean-removed).
+        (optical path difference).  The reference is the CHIEF ray by
+        default (engine 2026-10-10; until then always the bundle mean)
+        and falls back to the bundle mean (the map comes back
+        mean-removed) when the chief ray is geometrically lost;
+        ``opd_ref('mean')`` or the deck's ``UseChfRay4OPD= N`` selects
+        the mean.
 
     Args:
         orient: "raw" (default) -- the engine array as stored,
@@ -4328,6 +4331,52 @@ def ffcut(on: bool | None = None):
         return bool(state), int(npix)
     if not lib.api.ffcut_set(bool(on)):
         raise Exception(f"MACOS: ffcut({on}) failed")
+
+
+def opd_mask(orient: str = "raw") -> Matrix[np.bool_]:
+    """Which pixels of the last OPD map hold a ray (engine 2026-10-10).
+
+    True exactly where the engine's last OPD wrote the map, in the same
+    layout as ``opd(orient)``.  Use it -- NOT ``opd() != 0`` -- to find the
+    pupil: under the chief-ray reference (the default) a valid ray whose
+    path equals the chief's reads EXACTLY 0, the value of an empty pixel.
+    """
+    if orient not in ("raw", "xy"):
+        raise ValueError(f"opd_mask: orient must be 'raw' or 'xy', got {orient!r}")
+    _chk_macos_and_rx_loaded()
+    npts = lib.api.get_src_sampling()[1]   # == nGridPts
+    ok, mask = lib.api.opd_mask_get(npts)
+    if not ok:
+        raise Exception("MACOS: 'opd_mask' failed")
+    mask = np.asarray(mask) != 0
+    return mask.T if orient == "xy" else mask
+
+
+def opd_ref(mode: str | None = None) -> str | None:
+    """The OPD map's reference (engine 2026-10-10, = mmacos ``macos.opd_ref``).
+
+    ``opd_ref('chief')`` -- every ray referenced to the CHIEF ray's OPL, the
+    manual's definition and the DEFAULT; ``opd_ref('mean')`` -- the mean OPL
+    over every valid ray in the aperture, the option; ``opd_ref()`` returns
+    the setting in force.  The two maps differ by one constant per trace, so
+    RMS / P-V and every mean-removed statistic are unchanged; on a SEGMENTED
+    pupil the mean couples the segments (one segment's motion pistons all
+    the others), the chief does not.  An obscured chief ray still serves (the
+    engine gates on the geometric trace); a geometrically lost chief falls
+    back to the mean, and the engine prints which reference every OPD used.
+    Acts on the LOADED deck: a load restores the default (or the deck's own
+    ``UseChfRay4OPD= N``), so call it after ``load``.  Dirties the cached
+    trace.
+    """
+    if mode is None:
+        ok, chief = lib.api.opd_ref_get()
+        if not ok:
+            raise Exception("MACOS: opd_ref() failed")
+        return 'chief' if chief else 'mean'
+    if mode not in ('chief', 'mean'):
+        raise ValueError(f"opd_ref: mode must be 'chief' or 'mean', not {mode!r}")
+    if not lib.api.opd_ref_set(mode == 'chief'):
+        raise Exception(f"MACOS: opd_ref({mode!r}) failed")
 
 
 def get_elt_asph(srf: int, n: int = 4) -> np.ndarray:

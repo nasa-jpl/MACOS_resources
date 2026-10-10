@@ -2476,7 +2476,7 @@ classdef Telescope < handle
                 obj.spec.trace_field = F(j,:);
                 obj.build('', 'init', false);
                 macos.trace(nE);
-                W = macos.opd();  v = W(isfinite(W) & W ~= 0);
+                W = macos.opd();  v = W(isfinite(W) & macos.opd_mask());   % valid-ray mask, not W~=0 (chief reference, 2026-10-10)
                 % PASS 1 always records the GLOBAL-plane RMS over the clean
                 % (un-clipped) geometric pupil -- the historical metric, kept
                 % bit-identical.  The refsphere metric is a SECOND pass below,
@@ -2545,7 +2545,7 @@ classdef Telescope < handle
                     obj.spec.trace_field = F(j,:);
                     obj.build('', 'init', false);
                     macos.trace(nE);
-                    r = obj.refsphere_rms_(macos.opd());
+                    r = obj.refsphere_rms_(macos.opd(), macos.opd_mask());
                     if ~isnan(r), wfe(j) = r / lam; else, wfe(j) = NaN; end
                 end
                 for k = 1:nE                            % restore FP clip
@@ -2868,7 +2868,7 @@ classdef Telescope < handle
             d  = ri.dir(:,1);   d = d/norm(d);
         end
 
-        function rms = refsphere_rms_(~, W)
+        function rms = refsphere_rms_(~, W, M)
         %REFSPHERE_RMS_  Per-field best-focus reference-sphere RMS of an OPD map.
         %   The CODE V-consistent field-map metric (Dave / Rodgers, 2026-07-30):
         %   fit and remove piston + tip/tilt + defocus over the LIT pupil, i.e.
@@ -2881,7 +2881,12 @@ classdef Telescope < handle
         %   W is the raw macos.opd() map (metres, 0 / >1e30 = unlit sentinels).
             [ny,nx] = size(W);
             [X,Y] = meshgrid(linspace(-1,1,nx), linspace(-1,1,ny));
-            m = isfinite(W) & (W ~= 0) & (abs(W) < 1e30);
+            % M = the engine's valid-ray mask (macos.opd_mask): under the
+            % chief-ray reference (the default since 2026-10-10) a valid
+            % ray at the chief's path reads exactly 0.  W ~= 0 for callers
+            % without one (the legacy test).
+            if nargin < 3 || isempty(M), M = (W ~= 0); end
+            m = isfinite(W) & M & (abs(W) < 1e30);
             if nnz(m) < 6, rms = NaN; return; end
             x = X(m);  y = Y(m);  w = W(m);
             x = x - mean(x);  y = y - mean(y);

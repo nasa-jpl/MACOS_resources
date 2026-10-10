@@ -1113,7 +1113,16 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             for s = 1:size(ptt.dwdsall, 2)
                 col = ptt.dwdsall(:, s);  ok = isfinite(col);
                 c = A(ok,:) \ col(ok);
-                fracs(s) = norm(A(ok,:)*c) / max(norm(col(ok)), eps);
+                % the PTT LEFT, relative to the RAW response it was removed
+                % from.  (Was relative to the residual itself: under the
+                % chief-ray reference -- the default since 2026-10-10 -- the
+                % Kr/Kc columns of the element the CHIEF ray crosses (cols 1-2
+                % here) are a PURE piston, the reference moving with the
+                % poke; removal leaves round-off whose own PTT fraction is
+                % ~1 (0.9997 measured).  Under the mean those columns were
+                % exactly 0 and the 0/0 = NaN was skipped by max.)
+                r = raw.dwdsall(ok, s);
+                fracs(s) = norm(A(ok,:)*c) / max(norm(r), eps);
             end
             tc.verifyLessThan(max(fracs), 1e-8, ...
                 'remove_ptt must leave ~zero piston/tip/tilt in each column');

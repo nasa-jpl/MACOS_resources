@@ -336,13 +336,27 @@ classdef tDwDx < matlab.unittest.TestCase
             % 0.67919771920798078 61.513472236407203 60.877583531768714
             % 12.672957482576745.  New values reproduce bit-for-bit across
             % sessions; a units slip is still 1e3.
+            % RE-PINNED 2026-10-10 (BRIEF_to_opd_reference, CC's a71b43f): the
+            % drivers' opd_ref default is now 'chief' (was 'mean'), matching
+            % the engine and the manual.  MEASURED on this harvest: the
+            % 'mean' run still reproduces the 2026-10-09 pins EXACTLY (the
+            % pre-change numbers below); chief - mean is ONE CONSTANT per
+            % column (std/|shift| <= 4e-8) -- the piston the aperture mean
+            % attributed to every ray -- largest on the two Tz columns,
+            % which poke the mean directly (col 6 +1700.13, col 12 +5.334;
+            % e5hex1 is segmented); dcdx bit-identical; rows 10245 both.
+            % 2026-10-09 pins: rms 521.0555532558767 516.81010609177349
+            % 0.091711117735078299 10.065415064433068 10.068174730560619
+            % 694.73520354741947 546.86500408916811 540.99817854416744
+            % 0.67919640915289214 61.513473279007904 60.877582423073655
+            % 12.672958789441102.
             m = macos.Session(testCase.ModelSize);
             o = macos.dw_dx(m, testCase.rx_path, 'elts', [1 8], ...
                 'dofs', (0:5).', 'compute_los', true, 'trans_output', 'si');
-            pin_rms = [521.0555532558767 516.81010609177349 0.091711117735078299 ...
-                10.065415064433068 10.068174730560619 694.73520354741947 ...
-                546.86500408916811 540.99817854416744 0.67919640915289214 ...
-                61.513473279007904 60.877582423073655 12.672958789441102];
+            pin_rms = [521.05555326098965 516.81010609246698 0.091711117738404013 ...
+                10.065417648308953 10.068182632608565 1836.6010453356064 ...
+                546.86500907037771 540.99817854416756 0.67919640919305313 ...
+                61.513473279007883 60.882242286992089 13.749900519007273];
             pin_dcdx = [25355.059831627135 44281.553562797169; ...
                 43916.251852744805 -25565.96689586854; ...
                 2.2763355555969107 -2.4868995751603507e-06; ...
@@ -523,15 +537,20 @@ classdef tDwDx < matlab.unittest.TestCase
             % Dave's 2026-09-07 ruling the supervisor WARNS once
             % (macos:dw_dx_multi:emptyOPD) and completes with 0 rows from
             % that block -- never errors.  Fixture: the e5hex1 pupil deck
-            % with a 0.1 mm circular aperture on its ExitPupil Return, so
-            % every ray is clipped exactly at the read surface (committed
-            % fixture; the former rodgers1_stage4 deck is not in the repo).
+            % with a 0.1 mm circular aperture on its ExitPupil Return, centred
+            % 100 m off axis, so every ray is clipped exactly at the read
+            % surface (committed fixture; the former rodgers1_stage4 deck is
+            % not in the repo).  The aperture used to be ON axis: that let
+            % exactly ONE ray through (the central one, whose OPD is exactly
+            % 0 under either reference), which the old W ~= 0 test called
+            % empty; the valid-ray mask (macos.opd_mask, 2026-10-10) counts
+            % it, so the fixture now clips for real (0 rays, measured).
             txt = fileread(testCase.rx_path);
             k = strfind(txt, 'EltName=  exitpupil');
             testCase.assumeTrue(~isempty(k), 'e5hex1 exitpupil block not found');
             blk = txt(k(1):end);
             blk = regexprep(blk, '(ApType=\s*)None', ...
-                ['$1Circular' newline '            ApVec=  1.0E-04  0.0E+00  0.0E+00'], 'once');
+                ['$1Circular' newline '            ApVec=  1.0E-04  1.0E+05  0.0E+00'], 'once');
             tmp = [tempname '_clipxp.in'];
             fid = fopen(tmp, 'w');  fwrite(fid, [txt(1:k(1)-1) blk]);  fclose(fid);
             c = onCleanup(@() delete(tmp));

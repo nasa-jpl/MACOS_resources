@@ -13,13 +13,17 @@ classdef tOpdRef < matlab.unittest.TestCase
 %   whose chief is obscured at every element).  Only a geometric failure
 %   -- surface miss, solver bracket -- drops the trace to the mean.
 %
-%   The flag was UNREACHABLE: ray_mod_init_vars inits it .FALSE.; the
-%   LOAD handler (macos_cmd_loop.inc, #ifdef DESIGN_OPTIM) sets it .TRUE.
-%   but MBFile6 -- in BOTH macosio.F (CLI) and smacosio.F (SMACOS, i.e.
-%   every binding) -- opens with reinitialise_variables(), which puts it
-%   straight back to .FALSE.; and the Rx parser had a branch only for
-%   `UseChfRay4OPD= N`.  The macos-side fix adds the missing 'Y' branch
-%   plus opd_ref_set/opd_ray_get, surfaced here as macos.opd_ref.
+%   Until 2026-10-10 the flag was UNREACHABLE by default: the LOAD
+%   handler set it .TRUE. but MBFile6's reinitialise_variables() put it
+%   straight back to .FALSE. (ray_mod_init_vars), so every path ran the
+%   mean.  2026-08: the Rx keyword's missing 'Y' branch and opd_ref_set.
+%   2026-10-10 (Dave: the engine matches the manual's OPD definition):
+%   the CHIEF ray is the DEFAULT, a session option set once at allocation
+%   (traceutil_mod LOpdRefChief; the CLI's OPDREF), restored by every
+%   load; `UseChfRay4OPD= N` selects the mean per deck and opd_ref
+%   overrides either for the loaded deck.  The 2026-10-10 tests below
+%   (the default, the N twin, the override, the obscured-chief default)
+%   fail on the pre-change engine.
 %
 %   These tests assert on the OPD RESPONSE to a single-segment poke, not
 %   on the flag's value: the flag is a means, the piston is the claim.
@@ -68,15 +72,44 @@ classdef tOpdRef < matlab.unittest.TestCase
 
     methods (Test)
 
-        function test_default_is_the_aperture_mean_reference(testCase)
-        % A freshly loaded Rx references the aperture MEAN -- the map's
-        % mean over valid rays is zero by construction.  (Documents the
-        % engine default; the LOAD handler's .TRUE. is overwritten by
-        % MBFile6's reinitialise_variables.)
-            [W0, ~, v] = testCase.poke_('');
-            testCase.verifyEqual(testCase.m.opd_ref(), 'mean');
-            testCase.verifyLessThan(abs(mean(W0(v))), 1e-12 * rms(W0(v)), ...
-                'default map must be mean-referenced');
+        function test_default_is_the_chief_ray_reference(testCase)
+        % 2026-10-10.  A freshly loaded Rx references the CHIEF ray, and a
+        % single-segment poke leaves the untouched segments at EXACTLY 0
+        % with no opd_ref call at all.  Pre-change engine: 'mean', and the
+        % untouched segments piston by 2.85e-6 (16.7% of the peak).
+            [~, dW, v] = testCase.poke_('');
+            testCase.verifyEqual(testCase.m.opd_ref(), 'chief', ...
+                'the default after a plain load_rx must be the chief ray');
+            d = dW(v);
+            testCase.verifyEqual(median(d), 0, 'AbsTol', 1e-18, ...
+                'untouched segments must read 0 under the DEFAULT reference');
+            testCase.verifyGreaterThan(max(abs(d)), 1e-9, 'non-vacuity: the poke responds');
+            [~, dC, ~] = testCase.poke_('chief');
+            testCase.verifyEqual(dW, dC, 'AbsTol', 0, 'the default IS the chief reference');
+        end
+
+        function test_rx_keyword_N_selects_the_mean_and_the_api_overrides(testCase)
+        % `UseChfRay4OPD= N` in a twin deck gives the mean-referenced map bit
+        % for bit; opd_ref('chief') after that load gives the chief map.
+            wd = tempname; mkdir(wd); cwd0 = cd(wd);
+            cR = onCleanup(@() cleanup_(cwd0, wd)); %#ok<NASGU>
+            twin_(testCase, 'mean.in', 'N');
+            testCase.m.load_rx('mean.in');
+            testCase.verifyEqual(testCase.m.opd_ref(), 'mean', ...
+                'UseChfRay4OPD= N must select the aperture mean');
+            testCase.m.set_src_sampling(testCase.NGrid); testCase.m.modify();
+            testCase.m.trace(testCase.Eval);  W_n = macos.opd();
+            testCase.m.opd_ref('chief');
+            testCase.m.trace(testCase.Eval);  W_nc = macos.opd();
+            [W_m, ~, v] = testCase.poke_('mean');
+            [W_c, ~, ~] = testCase.poke_('chief');
+            testCase.verifyEqual(W_n, W_m, 'AbsTol', 0, 'the N deck == the mean map');
+            testCase.verifyEqual(W_nc, W_c, 'AbsTol', 0, 'opd_ref(''chief'') overrides the deck');
+            testCase.verifyGreaterThan(max(abs(W_m(v) - W_c(v))), 0, 'non-vacuity: the maps differ');
+            % and the next plain load is back at the default: the deck
+            % keyword is per deck, not a session setting
+            testCase.m.load_rx(testCase.rx_path);
+            testCase.verifyEqual(testCase.m.opd_ref(), 'chief');
         end
 
         function test_single_segment_poke_pistons_the_others(testCase)
@@ -89,8 +122,8 @@ classdef tOpdRef < matlab.unittest.TestCase
             d = dW(v);
             testCase.verifyGreaterThan(abs(median(d)), 0.05 * max(abs(d)), ...
                 ['expected the documented cross-segment piston under the ' ...
-                 'mean reference (>5%% of peak); if this fails the engine ' ...
-                 'default changed -- see the class help']);
+                 'mean reference (>5%% of peak) -- the reason the chief ray ' ...
+                 'is the default; see the class help']);
         end
 
         function test_chief_reference_removes_the_cross_segment_piston(testCase)
@@ -121,12 +154,7 @@ classdef tOpdRef < matlab.unittest.TestCase
         % cannot drift from its parent fixture.
             wd = tempname; mkdir(wd); cwd0 = cd(wd);
             cR = onCleanup(@() cleanup_(cwd0, wd)); %#ok<NASGU>
-            t = strsplit(fileread(testCase.rx_path), newline);
-            k = find(~cellfun('isempty', regexp(t, '^\s*nElt\s*=', 'once')), 1);
-            testCase.assertNotEmpty(k, 'fixture must declare nElt=');
-            t = [t(1:k-1), {'   UseChfRay4OPD=  Y'}, t(k:end)];
-            if isempty(strtrim(t{end})), t(end) = []; end
-            fid = fopen('chf.in','w'); fprintf(fid,'%s\n',t{:}); fclose(fid);
+            twin_(testCase, 'chf.in', 'Y');
 
             testCase.m.load_rx('chf.in');
             testCase.verifyEqual(testCase.m.opd_ref(), 'chief', ...
@@ -141,14 +169,14 @@ classdef tOpdRef < matlab.unittest.TestCase
         end
 
         function test_load_rx_resets_the_setting(testCase)
-        % Session state, cleared by a load: MBFile6's reinitialise_variables
-        % runs after the LOAD handler.  Call opd_ref AFTER load_rx.
+        % opd_ref acts on the LOADED deck; a load restores the default
+        % (the chief ray since 2026-10-10).  Call opd_ref AFTER load_rx.
             testCase.m.load_rx(testCase.rx_path);
-            testCase.m.opd_ref('chief');
-            testCase.verifyEqual(testCase.m.opd_ref(), 'chief');
+            testCase.m.opd_ref('mean');
+            testCase.verifyEqual(testCase.m.opd_ref(), 'mean');
             testCase.m.load_rx(testCase.rx_path);
-            testCase.verifyEqual(testCase.m.opd_ref(), 'mean', ...
-                'a prescription load must reset the OPD reference');
+            testCase.verifyEqual(testCase.m.opd_ref(), 'chief', ...
+                'a prescription load must restore the default (chief) reference');
         end
 
         function test_the_two_maps_differ_by_a_constant(testCase)
@@ -193,8 +221,11 @@ classdef tOpdRef < matlab.unittest.TestCase
 
             % and the reference is genuinely available: the two maps differ
             % by a non-zero CONSTANT
+            Wd = macos.opd();                    % the DEFAULT (2026-10-10)
             m2.opd_ref('mean');  m2.trace(iE); Wm = macos.opd();
             m2.opd_ref('chief'); m2.trace(iE); Wc = macos.opd();
+            testCase.verifyEqual(Wd, Wc, 'AbsTol', 0, ...
+                'the default reference on an obscured-chief deck is the chief ray');
             v = (Wm ~= 0);
             d = Wc(v) - Wm(v);
             testCase.verifyGreaterThan(max(abs(d)), 0, ...
@@ -263,6 +294,35 @@ classdef tOpdRef < matlab.unittest.TestCase
             testCase.verifyTrue(all(isfinite(w1(sub2ind(ix.size, ix.i, ix.j)))));
         end
 
+        function test_opd_mask_counts_the_rays_at_the_chief_path(testCase)
+        % Under the chief reference a valid ray whose path equals the
+        % chief's reads EXACTLY 0 -- the value of an empty pixel -- so
+        % W ~= 0 is not a validity test.  macos.opd_mask (engine opdValid,
+        % set at every OPDMat write) is.  Fixture: the tDesignTelescope TMA
+        % (1 m, M1/M2/M3 R 8/2/4 m, grid 21), where 4 of the 276 valid rays
+        % sit at the chief's path to the bit (measured 2026-10-10; that
+        % is what moved tDesignTelescope's fold-neutrality RMS by 9.8e-12).
+            t = macos.design.Telescope('family','TMA', 'aperture_diameter_m',1.0, ...
+                'model_size',testCase.Model, 'grid_npts',21);
+            t.add_mirror('M1','radius_m',8.0,'spacing_after_m',3.0);
+            t.add_mirror('M2','radius_m',2.0,'spacing_after_m',4.5);
+            t.add_mirror('M3','radius_m',4.0,'spacing_after','derive');
+            t.add_focal_plane('FP');  t.build();
+            n = numel(t.spec.elt);
+            tr = macos.trace(n);  W = macos.opd();  M = macos.opd_mask();
+            ri = macos.get_ray_info(tr.nRays);
+            npass = nnz(ri.ok_pass(2:end));            % OPD skips the chief (ray 1)
+            testCase.verifyEqual(testCase.m.opd_ref(), 'chief');
+            testCase.verifyEqual(nnz(M), npass, 'the mask holds every passing ray');
+            testCase.verifyTrue(all(M(W ~= 0)), 'every written nonzero is in the mask');
+            testCase.verifyGreaterThan(nnz(M) - nnz(W ~= 0), 0, ...
+                'non-vacuity: this fixture HAS valid rays at exactly 0');
+            testCase.verifyEqual(nnz(M & W == 0), nnz(M) - nnz(W ~= 0));
+            % and under the mean the same mask (it is the ray set, not the values)
+            macos.opd_ref('mean');  macos.trace(n);
+            testCase.verifyEqual(macos.opd_mask(), M, 'the mask does not depend on the reference');
+        end
+
         function test_bad_mode_errors(testCase)
             testCase.verifyError(@() macos.opd_ref('centroid'), ...
                 'MATLAB:validators:mustBeMember');
@@ -271,6 +331,16 @@ classdef tOpdRef < matlab.unittest.TestCase
 end
 
 % ---------------------------------------------------------------------------
+function twin_(testCase, name, yn)
+% the fixture with `UseChfRay4OPD= <yn>` ahead of nElt=, written in the cwd,
+% generated so the twin cannot drift from its parent
+t = strsplit(fileread(testCase.rx_path), newline);
+k = find(~cellfun('isempty', regexp(t, '^\s*nElt\s*=', 'once')), 1);
+testCase.assertNotEmpty(k, 'fixture must declare nElt=');
+t = [t(1:k-1), {['   UseChfRay4OPD=  ' yn]}, t(k:end)];
+if isempty(strtrim(t{end})), t(end) = []; end
+fid = fopen(name,'w'); fprintf(fid,'%s\n',t{:}); fclose(fid);
+end
 function cleanup_(cwd0, wd)
 cd(cwd0);
 if exist(wd, 'dir'), rmdir(wd, 's'); end

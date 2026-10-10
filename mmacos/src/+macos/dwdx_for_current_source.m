@@ -52,6 +52,8 @@ arguments
     opts.output_scale_fn = []  % function handle or []
     opts.verbose         (1,1) logical = false
     opts.spot_func       = []  % function handle or []
+    opts.mask_func = @() macos.opd_mask()  % () -> valid-ray mask of the
+                                           % trace wf_func() just made
 end
 
 if isempty(opts.output_scale_fn)
@@ -68,7 +70,17 @@ end
 compute_los = ~isempty(opts.spot_func);
 
 w_nom_2d = wf_func();
-[w_nom_vec, indx] = macos.m2v(w_nom_2d);
+% The pupil is the engine's VALID-RAY MASK of this nominal trace, not the
+% map's nonzero pixels: under the chief-ray reference (the default since
+% 2026-10-10) a valid ray whose path equals the chief's reads exactly 0.
+% Same column-major order as m2v(w_nom_2d), so a map with no such ray
+% gives the identical index set.
+mask_2d = opts.mask_func();
+assert(isequal(size(mask_2d), size(w_nom_2d)), ...
+    'macos:dwdx_for_current_source:maskSize', ...
+    'mask_func returned %dx%d for a %dx%d map', size(mask_2d), size(w_nom_2d));
+[~, indx] = macos.m2v(double(mask_2d));
+w_nom_vec = macos.m2v(w_nom_2d, indx);
 Nw = numel(w_nom_vec);
 Nz = numel(channels);
 dwdx = zeros(Nw, Nz);

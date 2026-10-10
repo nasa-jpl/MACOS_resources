@@ -93,6 +93,9 @@ classdef Session < handle
             if nargout > 0, out = macos.opd_ref(varargin{:});
             else,                 macos.opd_ref(varargin{:}); end
         end
+        function M = opd_mask(obj, varargin) %#ok<INUSL>
+            M = macos.opd_mask(varargin{:});
+        end
         function I = intensity(obj, srf, varargin)
             I = macos.intensity(srf, varargin{:});
         end
