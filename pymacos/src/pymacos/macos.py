@@ -4352,6 +4352,14 @@ def opd_mask(orient: str = "raw") -> Matrix[np.bool_]:
     return mask.T if orient == "xy" else mask
 
 
+def grid_dropped() -> int:
+    """Grid files the last load declined (engine 2026-10-10): GridFile= grids
+    larger than this model's mGridMat cannot be stored, so those surfaces trace
+    WITHOUT their figure.  Nonzero = a harvest at this model misses figure data;
+    load at a model whose mGridMat fits.  Reset by every load."""
+    return int(lib.api.grid_dropped_get())
+
+
 def grid_idx_ovf() -> int:
     """Grid-index overflow samples rejected by the last trace (engine db9236b).
 

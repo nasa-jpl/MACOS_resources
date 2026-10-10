@@ -111,6 +111,7 @@
       opd_val_impl => opd_val, &
       opd_mask_get_impl => opd_mask_get, &
       grid_idx_ovf_get_impl => grid_idx_ovf_get, &
+      grid_dropped_get_impl => grid_dropped_get, &
       spot_cmd_impl => spot_cmd, &
       spot_get_impl => spot_get, &
       int_cmd_impl => int_cmd, &
@@ -1312,6 +1313,14 @@
 
         CALL grid_idx_ovf_get_impl(nOvf)
       end subroutine grid_idx_ovf_get
+
+      subroutine grid_dropped_get(nDrop)
+
+        implicit none
+        integer, intent(out):: nDrop
+
+        CALL grid_dropped_get_impl(nDrop)
+      end subroutine grid_dropped_get
 
       subroutine spot_cmd(OK, nSpot, iElt, ref_csys, ref_pos, res_trace)
         use smacos_vars_mod, only: iSpot

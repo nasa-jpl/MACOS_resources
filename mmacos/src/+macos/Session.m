@@ -99,6 +99,9 @@ classdef Session < handle
         function n = grid_idx_ovf(obj) %#ok<MANU>
             n = macos.grid_idx_ovf();
         end
+        function n = grid_dropped(obj) %#ok<MANU>
+            n = macos.grid_dropped();
+        end
         function I = intensity(obj, srf, varargin)
             I = macos.intensity(srf, varargin{:});
         end
