@@ -7,8 +7,9 @@ grid and NSCount= 1.  GridFile= is a bare name resolved from the cwd, so every
 leg runs from a staged copy.
 
   * A: load -> trace -> save -> reload -> trace.  The save keeps NSCount= 1
-    (pre-fix SAVE dropped it), writes no blank ZernType= (the deck declares
-    none; the old writer's blank block made the reload refuse SILENTLY), and
+    (pre-fix SAVE dropped it), writes ZernType= ANSI (the deck declares none:
+    the PLAN item 7 default; the old writer's BLANK block made the reload
+    refuse SILENTLY), and
     the reload passes the same rays with the same OPD.
   * B, in a SUBPROCESS: the overflow twin (GridSrfdx= 1e-10, xi ~ 1e10)
     traces to completion with the rejected grid samples COUNTED
@@ -61,7 +62,8 @@ def test_save_keeps_nscount_and_the_reload_traces_the_same(staged):
     txt = (staged / 'saved.in').read_text()
     assert len(re.findall(r'^\s*NSCount=\s*1\s*$', txt, re.M)) == 1
     blk = txt[txt.index('EltName=  Primary'):txt.index('EltName=  Secondary')]
-    assert 'ZernType' not in blk, 'no Zernike block for an element that declares none'
+    # no ZernType= declared: since PLAN item 7 the ANSI default, written by SAVE
+    assert len(re.findall(r'^\s*ZernType=\s*ANSI\s*$', blk, re.M)) == 1
     n1, w1, k1 = _trace(staged / 'saved.in')
     assert n1 == n0
     assert np.array_equal(k1, k0)
