@@ -87,6 +87,7 @@ get_src_csys
 get_src_fov
 get_src_sampling
 get_src_size
+grid_idx_ovf_get
 init
 intensity
 jmat_elt_get
