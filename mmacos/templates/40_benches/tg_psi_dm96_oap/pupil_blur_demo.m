@@ -58,6 +58,10 @@ function out = pupil_blur_demo(varargin)
 %                     regularization to speak of; the piston null needs a nonzero weight)
 %     'steps_sig' 0.5 the blur (PITCH units) of the step-by-step figure (deck_blur)
 %     'steps_zoom' 12 half-width (pitches) of that figure's zoom window about the centre
+%     'iters'  20     iterations of the regularized read driven to convergence (Dave
+%                     2026-10-09: a single regularized step is a shrunk estimate, not the
+%                     estimator's accuracy; the gauge's servo applies it repeatedly) --
+%                     a_{k+1} = a_k + est(m - blur(surface(a_k))), gain 1
 %     'lam_m_sweep' [1e-2 1e-3 1e-4]   the matrix's sigma = 0 sweep
 %     'legs'   {name, pupilsim report}  the built legs to place on the axis: each
 %                     record's stage-2 (as built) Nyquist gain line (sinusoid 0.5 cyc/mm,
@@ -82,7 +86,7 @@ o = struct('nact',96,'pitch',1.0,'infl_w',0.85,'sub',4, ...
            'work_nm',30,'poke_nm',50,'noise_pm',20,'lam',0.05,'lam_sweep',[0.05 1e-2 1e-3 1e-4],'hw',6, ...
            'sig_pitch',[0 0.05 0.1:0.1:1.5],'seed',7,'figures',true,'outdir','', ...
            'estimator','matrix','lam_m',1e-3,'lam_m_sweep',[1e-2 1e-3 1e-4],'lam_pinv',1e-9, ...
-           'steps_sig',0.5,'steps_zoom',12, ...
+           'steps_sig',0.5,'steps_zoom',12,'iters',20, ...
            'legs',{{'lens','runs/pupilsim_redo_lens/pupilsim_redo_lens_report.txt'; ...
                     'mirror','runs/pupilsim_redo_oap/pupilsim_redo_oap_report.txt'}}, ...
            'deck_share',[0.0013 0.0029], 'deck_band_mm',[0.05 0.14], ...
@@ -196,7 +200,7 @@ say('   bench reports in its own Stage D (runs/lensuw2: the (96,96) diagonal-Nyq
 if doG
 % ================= the blur sweep =================
 nS = numel(o.sig_pitch);
-blank = struct('naive',nan(1,nS),'cal',nan(1,nS),'mnaive',nan(1,nS),'mcal',nan(1,nS),'pnaive',nan(1,nS),'pcal',nan(1,nS));
+blank = struct('naive',nan(1,nS),'cal',nan(1,nS),'mnaive',nan(1,nS),'mcal',nan(1,nS),'pnaive',nan(1,nS),'pcal',nan(1,nS),'mcal_conv',nan(1,nS),'mnaive_conv',nan(1,nS));
 err = struct('checker',blank,'random',blank);
 mtfN = mtf(o.sig_pitch*pitch);
 say('---- the blur sweep: kernel (lambda %.3g of the stencil peak) and matrix (lambda_m %.0e of the column energy), lit unknowns ----\n', o.lam, o.lam_m);
@@ -216,11 +220,20 @@ for is = 1:nS
         err.(nm).mcal(is)   = relerr_(est_matrix_(m, Mxc, lit), pat.(nm), lit);
         err.(nm).pnaive(is) = relerr_(est_matrix_(m, Mp0, lit), pat.(nm), lit);
         err.(nm).pcal(is)   = relerr_(est_matrix_(m, Mpc, lit), pat.(nm), lit);
+        err.(nm).mcal_conv(is)   = relerr_(iterate_(m, @(r) est_matrix_(r, Mxc, lit), ic, N, Kinf, sig, dx, o.iters), pat.(nm), lit);
+        err.(nm).mnaive_conv(is) = relerr_(iterate_(m, @(r) est_matrix_(r, Mx0, lit), ic, N, Kinf, sig, dx, o.iters), pat.(nm), lit);
     end
     say('%6.3fmm %7.3f %7.4f | %7.3f%% %7.3f%% %8.4f%% %8.4f%% | %7.3f%% %7.3f%% %8.4f%% %8.4f%%\n', sig, o.sig_pitch(is), mtfN(is), ...
         100*err.checker.naive(is), 100*err.checker.cal(is), 100*err.checker.mnaive(is), 100*err.checker.mcal(is), ...
         100*err.random.naive(is),  100*err.random.cal(is),  100*err.random.mnaive(is),  100*err.random.mcal(is));
 end
+say('---- the same sweep, the record''s matrix read ITERATED TO CONVERGENCE (%d steps, gain 1: the servo''s use of the estimator) ----\n', o.iters);
+say('%-8s %7s | %-20s | %-20s\n','blur','sig/pit','checker: naive / cal','random: naive / cal');
+for is = 1:nS
+    say('%6.3fmm %7.3f | %8.4f%% %8.4f%% | %8.4f%% %8.4f%%\n', o.sig_pitch(is)*pitch, o.sig_pitch(is), ...
+        100*err.checker.mnaive_conv(is), 100*err.checker.mcal_conv(is), 100*err.random.mnaive_conv(is), 100*err.random.mcal_conv(is));
+end
+say('\n');
 say('---- the same sweep, PLAIN least squares (lambda %.0e: no regularization to speak of) ----\n', o.lam_pinv);
 say('%-8s %7s | %-20s | %-20s\n','blur','sig/pit','checker: naive / cal','random: naive / cal');
 for is = 1:nS
@@ -362,7 +375,8 @@ for p = 1:2
     plot(sp, 100*e.pnaive,'--o','Color', [.5 .5 .5], 'DisplayName', 'plain least squares, naive');
     plot(sp, 100*e.pcal,  '--s','Color', [.5 .5 .5], 'MarkerFaceColor', [.5 .5 .5], 'DisplayName', 'plain least squares, calibrated');
     plot(sp, 100*e.mnaive,'-o', 'Color', 'k',   'DisplayName', 'matrix, naive');
-    plot(sp, 100*e.mcal,  '-s', 'Color', 'k', 'MarkerFaceColor', 'k', 'DisplayName', 'matrix, calibrated (the record''s)');
+    plot(sp, 100*e.mcal,  '-s', 'Color', 'k', 'MarkerFaceColor', 'k', 'DisplayName', 'matrix, calibrated, one step (the record''s)');
+    plot(sp, 100*e.mcal_conv, '-^', 'Color', [0 .5 0], 'MarkerFaceColor', [0 .5 0], 'DisplayName', sprintf('matrix, calibrated, iterated to convergence (%d)', o.iters));
     patch([o.deck_band_mm fliplr(o.deck_band_mm)]/pitch, [0 0 100 100], [.6 .6 .6], 'FaceAlpha', .15, 'EdgeColor', 'none', 'DisplayName', 'the deck''s stated blur width');
     xlabel('blur 1/e radius / actuator pitch'); ylabel('actuator-command error, % of command rms');
     title(ttl{p}); legend('Location', iff_(p == 1, 'east', 'northwest')); ylim([0 100]);
@@ -407,55 +421,71 @@ sgtitle({'pupil\_blur\_demo: pupil-imaging blur vs DM-gauge reconstruction (engi
 print(fc, fullfile(o.outdir,'pupil_blur_demo_curve.png'),'-dpng','-r110');
 
 if doG
-is0 = find(o.sig_pitch >= 0.5,1);  if isempty(is0), is0 = nS; end
+% ---- the maps figure (Dave 2026-10-09): the checkerboard at one blur, as SURFACES on ONE
+% scale -- [true | blurred | reconstructed | error], one row per read (plain least squares
+% without and with calibration), zoomed to the centre so the lit edge's unbalanced bumps
+% (the ring that set the old colour scale and hid the interior) are out of view.
+is0 = find(o.sig_pitch >= o.steps_sig,1);  if isempty(is0), is0 = nS; end
 sig0 = o.sig_pitch(is0)*pitch;  Mub0 = blur_(Mu,sig0,dx);
 rng(o.seed + is0);  m0 = blur_(surf.checker,sig0,dx) + noise();
-aN = act_fit_lit_(m0,ic,stn_true,lit,o.lam);  aC = est_matrix_(m0, matrix_(Mub0, ic, ilit, pix, Am, o.lam_m), lit);
-fm = figure('Visible','off','Position',[100 100 1500 480]);
-subplot(1,4,1); imagesc(xg,xg,surf.checker*1e6); axis image off; colorbar; title('true surface, nm');
-subplot(1,4,2); imagesc(xg,xg,m0*1e6); axis image off; colorbar; title(sprintf('blurred (\\sigma=%.1f pitch), nm',o.sig_pitch(is0)));
-subplot(1,4,3); imagesc(xa,xa,(aN-pat.checker)*1e9.*lit); axis image off; colorbar; title(sprintf('kernel naive cmd error, pm (%.1f%%)',100*err.checker.naive(is0)));
-subplot(1,4,4); imagesc(xa,xa,(aC-pat.checker)*1e9.*lit); axis image off; colorbar; title(sprintf('matrix calibrated cmd error, pm (%.2f%%)',100*err.checker.mcal(is0)));
-sgtitle(sprintf('pupil\\_blur\\_demo: the checkerboard (actuator Nyquist) at \\sigma = %.1f pitch',o.sig_pitch(is0)));
-print(fm, fullfile(o.outdir,'pupil_blur_demo_maps.png'),'-dpng','-r110');
-% ---- the step-by-step figure (deck_blur, Dave 2026-10-09): the random 30 nm working
-% surface -> blurred (what the camera sees) -> reconstructed without and with
-% calibration, as SURFACES rebuilt from the recovered commands, zoomed to the centre;
-% one row for the plain least-squares read, one for the deck's (the record's matrix)
-sigS = o.steps_sig*pitch;  MubS = blur_(Mu, sigS, dx);
-rng(o.seed + 77);  mS = blur_(surf.random, sigS, dx) + noise();
-est = {@(m) est_matrix_(m, Mp0, lit),                                          @(m) est_matrix_(m, matrix_(MubS, ic, ilit, pix, Am, o.lam_pinv), lit); ...
-       @(m) est_matrix_(m, Mx0, lit),                                          @(m) est_matrix_(m, matrix_(MubS, ic, ilit, pix, Am, o.lam_m), lit)};
-rown = {sprintf('plain least squares (\\lambda %.0e)', o.lam_pinv), sprintf('the deck''s reconstructor (matrix, \\lambda_m %.0e)', o.lam_m)};
-z = abs(xg) <= o.steps_zoom*pitch;  xz = xg(z);
-sz = surf.random(z,z);  cl = max(abs(sz(:)))*1e6*[-1 1];
-fs = figure('Visible','off','Position',[100 100 1800 760]);
-steps = struct('sig_pitch', o.steps_sig, 'err', nan(2,2), 'surf_rms_nm', nan(2,3));
+aN = est_matrix_(m0, Mp0, lit);  aC = est_matrix_(m0, matrix_(Mub0, ic, ilit, pix, Am, o.lam_pinv), lit);
+hN = build_surf_(aN, ic, N, Kinf);  hC = build_surf_(aC, ic, N, Kinf);
+z = abs(xg) <= o.steps_zoom*pitch;  xz = xg(z);  sz = surf.checker(z,z);  cl = max(abs(sz(:)))*1e6*[-1 1];
+rows = {hN, 'without calibration', relerr_(aN, pat.checker, lit); hC, 'with calibration', relerr_(aC, pat.checker, lit)};
+fm = figure('Visible','off','Position',[100 100 1800 760]);
 for r = 1:2
-    aN = est{r,1}(mS);  aC = est{r,2}(mS);
-    hN = build_surf_(aN, ic, N, Kinf);  hC = build_surf_(aC, ic, N, Kinf);
-    steps.err(r,:) = [relerr_(aN, pat.random, lit), relerr_(aC, pat.random, lit)];
-    dN = (hN - surf.random);  dC = (hC - surf.random);
-    steps.surf_rms_nm(r,:) = 1e6*[sqrt(mean((mS(msk)-surf.random(msk)).^2)), sqrt(mean(dN(msk).^2)), sqrt(mean(dC(msk).^2))];
-    pan = {surf.random, mS, hN, hC};
-    ttl = {'the DM surface (true), nm', sprintf('blurred, \\sigma = %.1f pitch: what the camera sees', o.steps_sig), ...
-           sprintf('reconstructed WITHOUT calibration (%.1f %% command error)', 100*steps.err(r,1)), ...
-           sprintf('reconstructed WITH calibration (%.2f %% command error)', 100*steps.err(r,2))};
+    h = rows{r,1};  pan = {surf.checker, m0, h, h - surf.checker};
+    ttl = {'true surface, nm', sprintf('blurred, \\sigma = %.1f pitch', o.sig_pitch(is0)), ...
+           sprintf('reconstructed %s (%.2f %% command error)', rows{r,2}, 100*rows{r,3}), ...
+           sprintf('error, reconstructed - true (%.2f nm rms)', 1e6*sqrt(mean(reshape(pan{4}(z,z),[],1).^2)))};
     for c = 1:4
         subplot(2,4,(r-1)*4+c); imagesc(xz, xz, pan{c}(z,z)*1e6); axis image; set(gca,'YDir','normal'); caxis(cl); colormap(gray);
-        title(ttl{c}, 'FontSize', 9);  if c == 1, ylabel({rown{r}, 'DM mm'}, 'FontSize', 10); end
+        title(ttl{c}, 'FontSize', 9);  if c == 1, ylabel({sprintf('plain least squares, %s', rows{r,2}), 'DM mm'}, 'FontSize', 10); end
+        if c == 4, pos4 = get(gca,'Position'); cb = colorbar('Position', [pos4(1)+pos4(3)+0.008, pos4(2), 0.01, pos4(4)]); cb.Label.String = 'nm'; end
+        if r == 2, xlabel('DM mm'); end
+    end
+end
+sgtitle(sprintf('pupil\\_blur\\_demo: the \\pm%.0f nm checkerboard (actuator Nyquist) at \\sigma = %.1f pitch, centre %d x %d pitches, one gray scale (\\pm%.0f nm)', ...
+    o.poke_nm, o.sig_pitch(is0), 2*o.steps_zoom, 2*o.steps_zoom, cl(2)), 'FontSize', 11);
+print(fm, fullfile(o.outdir,'pupil_blur_demo_maps.png'),'-dpng','-r200');
+% ---- the step-by-step figure (deck_blur, Dave 2026-10-09): the random 30 nm working
+% surface -> blurred (what the camera sees) -> reconstructed -> error, as SURFACES on ONE
+% gray scale, zoomed to the centre; four rows: plain least squares without / with
+% calibration, then the deck's reconstructor (the record's matrix) without / with.
+sigS = o.steps_sig*pitch;  MubS = blur_(Mu, sigS, dx);
+rng(o.seed + 77);  mS = blur_(surf.random, sigS, dx) + noise();
+MpS = matrix_(MubS, ic, ilit, pix, Am, o.lam_pinv);  MxS = matrix_(MubS, ic, ilit, pix, Am, o.lam_m);
+est  = {@(m) est_matrix_(m, Mp0, lit), @(m) est_matrix_(m, MpS, lit), @(m) est_matrix_(m, Mx0, lit), @(m) est_matrix_(m, MxS, lit), ...
+        @(m) iterate_(m, @(r) est_matrix_(r, Mx0, lit), ic, N, Kinf, sigS, dx, o.iters), @(m) iterate_(m, @(r) est_matrix_(r, MxS, lit), ic, N, Kinf, sigS, dx, o.iters)};
+rown = {sprintf('plain least squares (\\lambda %.0e)', o.lam_pinv), 'without calibration'; sprintf('plain least squares (\\lambda %.0e)', o.lam_pinv), 'with calibration'; ...
+        sprintf('the deck''s reconstructor (\\lambda_m %.0e), one step', o.lam_m), 'without calibration'; sprintf('the deck''s reconstructor (\\lambda_m %.0e), one step', o.lam_m), 'with calibration'; ...
+        sprintf('the deck''s reconstructor, iterated (%d)', o.iters), 'without calibration'; sprintf('the deck''s reconstructor, iterated (%d)', o.iters), 'with calibration'};
+z = abs(xg) <= o.steps_zoom*pitch;  xz = xg(z);
+sz = surf.random(z,z);  cl = max(abs(sz(:)))*1e6*[-1 1];
+fs = figure('Visible','off','Position',[100 100 1800 2200]);
+steps = struct('sig_pitch', o.steps_sig, 'err', nan(1,6), 'surf_rms_nm', nan(1,6), 'blur_rms_nm', 1e6*sqrt(mean((mS(msk)-surf.random(msk)).^2)));
+for r = 1:6
+    a = est{r}(mS);  h = build_surf_(a, ic, N, Kinf);  d = h - surf.random;
+    steps.err(r) = relerr_(a, pat.random, lit);  steps.surf_rms_nm(r) = 1e6*sqrt(mean(d(msk).^2));
+    pan = {surf.random, mS, h, d};
+    ttl = {'the DM surface (true), nm', sprintf('blurred, \\sigma = %.1f pitch: what the camera sees', o.steps_sig), ...
+           sprintf('reconstructed %s (%.2f %% command error)', rown{r,2}, 100*steps.err(r)), ...
+           sprintf('error, reconstructed - true (%.3f nm rms)', steps.surf_rms_nm(r))};
+    for c = 1:4
+        subplot(6,4,(r-1)*4+c); imagesc(xz, xz, pan{c}(z,z)*1e6); axis image; set(gca,'YDir','normal'); caxis(cl); colormap(gray);
+        title(ttl{c}, 'FontSize', 9);  if c == 1, ylabel({rown{r,1}, rown{r,2}, 'DM mm'}, 'FontSize', 9); end
         if c == 4   % a manually placed colorbar does not shrink the panel (a smaller raster reads as a grainier surface)
             pos4 = get(gca, 'Position');
             cb = colorbar('Position', [pos4(1)+pos4(3)+0.008, pos4(2), 0.01, pos4(4)]);  cb.Label.String = 'nm';
         end
-        if r == 2, xlabel('DM mm'); end
+        if r == 6, xlabel('DM mm'); end
     end
 end
-sgtitle(sprintf('pupil\\_blur\\_demo, step by step: the 30 nm working surface, blur 1/e radius %.1f actuator pitch (%.0f %% MTF at the actuator Nyquist), centre %d x %d pitches', ...
-    o.steps_sig, 100*mtf(sigS), 2*o.steps_zoom, 2*o.steps_zoom), 'FontSize', 11);
+sgtitle(sprintf('pupil\\_blur\\_demo, step by step: the 30 nm working surface, blur 1/e radius %.1f actuator pitch (%.0f %% MTF at the actuator Nyquist), centre %d x %d pitches, one gray scale (\\pm%.0f nm)', ...
+    o.steps_sig, 100*mtf(sigS), 2*o.steps_zoom, 2*o.steps_zoom, cl(2)), 'FontSize', 11);
 print(fs, fullfile(o.outdir,'pupil_blur_demo_steps.png'),'-dpng','-r200');   % 200 dpi: the deck crops each row at full width
-say('steps figure (sigma %.1f pitch, random 30 nm): command error naive/cal -- plain LSQ %.2f%% / %.3f%%; matrix %.2f%% / %.3f%%; surface rms vs true (nm): blurred %.2f, naive %.2f / %.2f, cal %.3f / %.3f\n', ...
-    o.steps_sig, 100*steps.err(1,1), 100*steps.err(1,2), 100*steps.err(2,1), 100*steps.err(2,2), steps.surf_rms_nm(1,1), steps.surf_rms_nm(1,2), steps.surf_rms_nm(2,2), steps.surf_rms_nm(1,3), steps.surf_rms_nm(2,3));
+say('steps figure (sigma %.1f pitch, random 30 nm; blurred surface %.2f nm rms from true): command error plain LSQ naive/cal %.2f%% / %.3f%%, matrix one step naive/cal %.2f%% / %.3f%%, matrix iterated (%d) naive/cal %.2f%% / %.4f%%; reconstructed surface rms vs true (nm) %.2f / %.3f / %.2f / %.3f / %.2f / %.4f\n', ...
+    o.steps_sig, steps.blur_rms_nm, 100*steps.err(1), 100*steps.err(2), 100*steps.err(3), 100*steps.err(4), o.iters, 100*steps.err(5), 100*steps.err(6), steps.surf_rms_nm);
 out_steps = steps;
 end
 end
@@ -577,6 +607,15 @@ function b = shift_(h, d, dx)
 % the map translated by d (mm) along x and y equally (|shift| = d), exactly, by a Fourier phase ramp
 N = size(h,1);  f = ifftshift(((0:N-1) - floor(N/2))/(N*dx));  [FX,FY] = meshgrid(f,f);
 b = real(ifft2(fft2(h).*exp(-2i*pi*(FX+FY)*d/sqrt(2))));
+end
+function a = iterate_(m, est, ic, N, Kinf, sig, dx, iters)
+% the estimator driven to convergence as a servo uses it (gain 1): the current estimate's
+% surface is blurred like the measurement and subtracted; the residual is read again
+a = est(m);
+for k = 2:iters
+    r = m - blur_(build_surf_(a, ic, N, Kinf), sig, dx);
+    a = a + est(r);
+end
 end
 function r = rmsp_(a, lit), x = a(lit) - mean(a(lit));  r = sqrt(mean(x.^2)); end
 function e = maperr_(hb, h, X, Y, R)
