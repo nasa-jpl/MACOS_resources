@@ -24,6 +24,8 @@ classdef tTraceRestart < matlab.unittest.TestCase
 %       with ifLNsrf false -- the accident that made the stepwise trace right.
 %   Non-vacuity: the pre-fix engine gives 9.33e-2 m for the one-call spot on
 %   this fixture (TO's number, reproduced on the CLI: RMS OPD 8.87e-2 m).
+%   A third restart defect, the paired-Return parity (2026-10-09, PLAN_CONSOLIDATION
+%   item 2), is gated by test_restart_at_the_first_return_of_a_pair.
     properties (Constant)
         ModelSize = 256
         RxName    = 'Rx_SchwarzschildEP.in'
@@ -64,6 +66,27 @@ classdef tTraceRestart < matlab.unittest.TestCase
             ok = ri.ok_trace(:) & ri.ok_pass(:);
             zEP = -0.305486443582606;
             tc.verifyTrue(all(ri.pos(3, ok) > zEP), sprintf('%d rays hit M1 behind the pupil plane', nnz(ri.pos(3, ok) <= zEP)));
+        end
+        function test_restart_at_the_first_return_of_a_pair(tc)
+            % PLAN_CONSOLIDATION item 2 (2026-10-09).  CTRACE's paired-Return parity (ifReturn: each
+            % Return toggles it, a FocalPlane clears it; while set, the leg's path is SUBTRACTED) was
+            % reset to .FALSE. on a RESTARTED trace, so a restart AT the first Return of a pair added the
+            % back-traced exit-pupil leg instead -- geometry bit-identical, OPD wrong.  Measured pre-fix:
+            % jwst zoom trace(26) then trace(27) 3.81e-5 m rms vs 7.01e-6 fresh (max |dOPD| 2.3e-4 m);
+            % e5hex1 restart 11 -> 12 / 13 max |dOPD| 2.2e-4 m.  The (25, 27) pair is the must-pass
+            % control: a restart that is not at a Return was always right.
+            zoom = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'templates', '50_sensitivities', 'zoom_5x5', 'jwst_ote_designc.in');
+            cases = {zoom, 26, 27; zoom, 25, 27; rx_fixture_path('e5hex1.in'), 11, 12; rx_fixture_path('e5hex1.in'), 11, 13};
+            m = macos.Session(tc.ModelSize);
+            for c = 1:size(cases, 1)
+                [rx, k, j] = cases{c, :};
+                m.load_rx(rx);  t0 = m.trace(j);  o0 = macos.opd();
+                m.load_rx(rx);  m.trace(k);  t1 = m.trace(j);  o1 = macos.opd();
+                v = isfinite(o0) & o0 ~= 0;
+                [~, nm] = fileparts(rx);
+                tc.verifyEqual(t1.rmsWFE, t0.rmsWFE, 'RelTol', 1e-12, sprintf('%s: trace(%d) then trace(%d) rms == the fresh trace(%d)', nm, k, j, j));
+                tc.verifyLessThan(max(abs(o1(v) - o0(v))), 1e-15, sprintf('%s: restart %d -> %d OPD map == fresh', nm, k, j));
+            end
         end
     end
 end
