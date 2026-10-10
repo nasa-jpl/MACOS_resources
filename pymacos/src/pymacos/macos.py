@@ -4352,6 +4352,17 @@ def opd_mask(orient: str = "raw") -> Matrix[np.bool_]:
     return mask.T if orient == "xy" else mask
 
 
+def grid_idx_ovf() -> int:
+    """Grid-index overflow samples rejected by the last trace (engine db9236b).
+
+    Grid-term samples whose pixel index was non-finite or >= 2e9 and were
+    treated as OFF the grid instead of indexing GridMat out of bounds (an
+    INT32 wrap used to pass the bounds test and kill the host).  Reset at
+    every trace; nonzero means a grid pitch or the ray solve is wrong.
+    """
+    return int(lib.api.grid_idx_ovf_get())
+
+
 def opd_ref(mode: str | None = None) -> str | None:
     """The OPD map's reference (engine 2026-10-10, = mmacos ``macos.opd_ref``).
 

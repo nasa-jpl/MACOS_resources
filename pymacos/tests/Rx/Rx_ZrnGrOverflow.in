@@ -1,0 +1,181 @@
+% Rx_ZrnGrOverflow.in = macos ZGD_test_files/tst_zrngr_overflow.in (db9236b), copied for the binding gates
+% (mmacos tZrnGrRoundTrip, pymacos test_zrngr_roundtrip); GridFile is resolved from the cwd.
+% tst_zrngr_overflow.in -- public gate for the grid-index overflow guard
+% (macos 2026-10-10, surfsub.F).  Identical to tst_zrngr_roundtrip.in but
+% GridSrfdx= 1.0E-10: the bilinear pixel index xi=(xData.rhom)/dAct is then
+% ~1e10 for ordinary rays, so i0=IDFLOOR(xi) saturates to INT_MAX and
+% i1=i0+1 wraps to INT_MIN, defeating the integer bounds test.  GATE:
+% a PRE-FIX engine SIGSEGVs in INTNORM (GridMat indexed hugely out of
+% bounds -- the must-fail leg); POST-FIX the float guard treats the ray as
+% off-grid (fh=0), counts it (WARN / grid_idx_ovf_get > 0) and the trace
+% completes (nPass 32168, grid inert).
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -5.0E+00
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=4.0E+00
+         Obscratn=2.4E+00
+
+         GridType=  Circular
+         nGridpts=  256
+            xGrid=  -1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  -1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  6
+
+
+             iElt=  1
+          EltName=  SecMirObs
+          Element=  Obscuring
+          Surface=  Conic
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.2E+00
+           RptElt=  0.0E+00  0.0E+00  -4.2E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  3
+          ObsType=  Circle
+           ObsVec=  5.0E-01  0.0E+00  0.0E+00
+          ObsType=  Rectangle
+           ObsVec=  -3.125E-03  3.125E-03  -3.0E+00  3.0E+00
+          ObsType=  Rectangle
+           ObsVec=  -3.0E+00  3.0E+00  -3.125E-03  3.125E-03
+           ApType=  Circular
+            ApVec=  2.0E+00  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.0E+20
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Primary
+          Element=  NSReflector
+          NSCount=  1
+          Surface=  ZrnGrData
+            KrElt=-1.08E+01
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+         nGridMat=  64
+         GridFile=  tst_zrngr_grid.txt
+        GridSrfdx=  1.0E-10
+             pMon=  0.0E+00  0.0E+00  0.0E+00
+             xMon=  1.0E+00  0.0E+00  0.0E+00
+             yMon=  0.0E+00  1.0E+00  0.0E+00
+             zMon=  0.0E+00  0.0E+00  -1.0E+00
+             lMon=  1.0E+00
+            pData=  0.0E+00  0.0E+00  0.0E+00
+            xData=  1.0E+00  0.0E+00  0.0E+00
+            yData=  0.0E+00  1.0E+00  0.0E+00
+            zData=  0.0E+00  0.0E+00  -1.0E+00
+             xObs=  -1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  2.1E+00  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=5.4E+00
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Secondary
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-3.526787501E+00
+            KcElt=-2.670556022E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.061145902E+00
+           RptElt=  0.0E+00  0.0E+00  -5.4E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.2E-01  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.338854098E+00
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Return1
+          Element=  Return
+          Surface=  Conic
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.5E+00
+           RptElt=  0.0E+00  0.0E+00  1.5E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  5
+          EltName=  ExitPupil
+          Element=  Return
+          Surface=  Conic
+            KrElt=-5.560145902E+00
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.060145902E+00
+           RptElt=  0.0E+00  0.0E+00  -4.060145902E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  FarField
+             zElt=5.560145902E+00
+          nECoord= -6
+
+             iElt=  6
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.5E+00
+           RptElt=  0.0E+00  0.0E+00  1.5E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

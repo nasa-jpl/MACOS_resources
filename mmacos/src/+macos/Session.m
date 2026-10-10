@@ -96,6 +96,9 @@ classdef Session < handle
         function M = opd_mask(obj, varargin) %#ok<INUSL>
             M = macos.opd_mask(varargin{:});
         end
+        function n = grid_idx_ovf(obj) %#ok<MANU>
+            n = macos.grid_idx_ovf();
+        end
         function I = intensity(obj, srf, varargin)
             I = macos.intensity(srf, varargin{:});
         end

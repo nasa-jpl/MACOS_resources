@@ -110,6 +110,7 @@
       trace_rays_impl => trace_rays, &
       opd_val_impl => opd_val, &
       opd_mask_get_impl => opd_mask_get, &
+      grid_idx_ovf_get_impl => grid_idx_ovf_get, &
       spot_cmd_impl => spot_cmd, &
       spot_get_impl => spot_get, &
       int_cmd_impl => int_cmd, &
@@ -1303,6 +1304,14 @@
 
         CALL opd_mask_get_impl(OK, MASK, N)
       end subroutine opd_mask_get
+
+      subroutine grid_idx_ovf_get(nOvf)
+
+        implicit none
+        integer, intent(out):: nOvf
+
+        CALL grid_idx_ovf_get_impl(nOvf)
+      end subroutine grid_idx_ovf_get
 
       subroutine spot_cmd(OK, nSpot, iElt, ref_csys, ref_pos, res_trace)
         use smacos_vars_mod, only: iSpot
