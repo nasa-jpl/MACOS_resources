@@ -1,4 +1,4 @@
-"""A value with no natural zero that cannot be read REFUSES the load; the
+"""A value with no natural zero (and, item 5c, a parser STOP after an Rx error) that cannot be read REFUSES the load; the
 process lives (PLAN_CONSOLIDATION item 1b, 2026-10-09; Dave's ruling 4a).
 The pymacos surface of the shared msmacosio.inc parser -- the mmacos gate is
 tRxRefuse, the CLI decks macos/ZGD_test_files/tst_short_vec.in and
@@ -20,7 +20,7 @@ HERE = Path(__file__).resolve().parent
 
 
 def test_refusals_name_the_key_and_the_process_lives():
-    bad = [str(rx_path('Rx_ShortVec.in')), str(rx_path('Rx_BadScalar.in'))]
+    bad = [str(rx_path('Rx_ShortVec.in')), str(rx_path('Rx_BadScalar.in')), str(rx_path('Rx_RxStop.in'))]
     good = str(rx_path('Rx_ShortCoef.in'))
     code = (
         "import sys; sys.path.insert(0, %r)\n"
@@ -39,4 +39,5 @@ def test_refusals_name_the_key_and_the_process_lives():
     assert 'CAUGHT 1' in out and 'CAUGHT 2' in out, out
     assert out.count('Rx load refused: psiElt (elt   1)') == 1, out
     assert out.count('Rx load refused: KrElt (elt   1)') == 1, out
+    assert 'CAUGHT 3' in out and 'EdgeSensor must be positive integer' in out, 'item 5c: refused, not STOP\n' + out
     assert 'GOOD 3' in out, 'a good deck loads after the refusals, in the same process\n' + out

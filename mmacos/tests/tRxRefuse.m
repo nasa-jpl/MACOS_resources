@@ -13,6 +13,9 @@ classdef tRxRefuse < matlab.unittest.TestCase
 %   caught, each naming its key, then a good deck loads and traces in the SAME session.  The pre-fix mex
 %   aborts at the first load: the subprocess exits nonzero.  These decks stay refusals forever (CC keeps
 %   the short-psiElt deck in macos cli_tests/must_fail/ as the permanent negative control).
+%   Item 5c (2026-10-09): Rx_RxStop.in (EdgeSensors= 0) -- the parser printed its error and then executed
+%   STOP, which ended MATLAB; three such STOPs (EdgeSensors < 1, nPetals before nRings, tMetElt before
+%   nMetPos) now refuse the load through the same exit.
     properties (Constant)
         ModelSize = 128
     end
@@ -24,7 +27,7 @@ classdef tRxRefuse < matlab.unittest.TestCase
             s = string(fileread(good));  old = "        ChfRayDir=  0.0D+00  0.0D+00  1.0D+00";
             tc.assertEqual(count(s, old), 1, 'header anchor');
             hdr = fullfile(wd, 'short_chfraydir.in');  fid = fopen(hdr, 'w');  fprintf(fid, '%s', replace(s, old, "        ChfRayDir=  0.0D+00  0.0D+00"));  fclose(fid);
-            bad = {rx_fixture_path('Rx_ShortVec.in'), rx_fixture_path('Rx_BadScalar.in'), hdr};
+            bad = {rx_fixture_path('Rx_ShortVec.in'), rx_fixture_path('Rx_BadScalar.in'), hdr, rx_fixture_path('Rx_RxStop.in')};
             scr = fullfile(wd, 'leg.m');  fid = fopen(scr, 'w');
             fprintf(fid, 'run(''%s'');\nmacos.init(%d);\n', fullfile(mm, 'mmacos_setup.m'), tc.ModelSize);
             for k = 1:numel(bad)
@@ -38,6 +41,7 @@ classdef tRxRefuse < matlab.unittest.TestCase
             tc.verifyEqual(count(string(out), "Rx load refused: psiElt (elt   1)"), 1, 'the short psiElt= names its key and element');
             tc.verifyEqual(count(string(out), "Rx load refused: KrElt (elt   1)"), 1, 'the bad KrElt= names its key and element');
             tc.verifyEqual(count(string(out), "Rx load refused: ChfRayDir (header)"), 1, 'the short header ChfRayDir= names its key');
+            tc.verifyTrue(contains(out, 'EdgeSensor must be positive integer'), 'item 5c: the parser''s own Rx error message, then a refusal (was STOP)');
             g = regexp(out, 'GOOD (\S+)', 'tokens', 'once');
             tc.assertNotEmpty(g, 'a good deck loads and traces after the refusals, in the same session');
             tc.verifyGreaterThan(str2double(g{1}), 0, 'and traces to a real OPD');
