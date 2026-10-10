@@ -11,16 +11,19 @@ its probe.  Engine at macos `dev` 443140a._
   same piston — verified to 3.5e-15 (round-off) on identical pokes.
 - **Sign: a ray longer than the reference is positive.**  Unchanged
   since the original import.
-- **Reference: the whole-aperture MEAN, always, unless you opt in.**
-  _(Corrected 2026-08-19 — this document previously said "the chief ray
-  when it survives, otherwise the mean"; §1.1 has the measurement that
-  disproves it.)_  The chief-ray branch exists but was unreachable: opt
-  in per prescription with `UseChfRay4OPD= Y` or per session with
-  `macos.opd_ref('chief')`.  An **obscured** chief ray still serves as
-  the reference (the gate is `LRayOK`, not `LRayPass`); only a geometric
-  failure drops a trace to the mean.  **On a SEGMENTED pupil the mean
-  reference couples the segments** — perturbing one segment pistons all
-  the others — so sensitivity work on segmented decks should opt in.
+- **Reference: the CHIEF RAY by default (engine 2026-10-10), the
+  whole-aperture MEAN as the option.**  _(Until 2026-10-10 the engine
+  always used the mean -- the chief branch was unreachable by default,
+  §1.1 -- and this document said so; Dave's ruling made the engine match
+  the manual's definition.)_  Select the mean per prescription with
+  `UseChfRay4OPD= N`, per CLI session with `OPDREF MEAN`, or after a
+  load with `macos.opd_ref('mean')`; every OPD run prints which reference
+  it used.  An **obscured** chief ray still serves as the reference (the
+  gate is `LRayOK`, not `LRayPass`); only a geometric failure drops a
+  trace to the mean, and the engine says so.  **On a SEGMENTED pupil the
+  mean reference couples the segments** — perturbing one segment pistons
+  all the others.  The `dw_*` sensitivity drivers still default to
+  `opd_ref='mean'` and set it explicitly after every load.
 - **The apparent mmacos "90° rotation" is display, not data**: the array
   is `OPD(i,j)` with **first index i = global X, second index j =
   global Y**; MATLAB's `imagesc(W)` draws the first index vertically
@@ -78,19 +81,20 @@ Measured, Tz = 1e-8 m on one of the seven segments:
 
 | reference | piston on the 6 unpoked segments | peak response |
 |---|---|---|
-| mean (default) | `+2.849e-06` (16.7% of peak) | `1.711e-05` |
-| chief (`opd_ref('chief')`) | `0.000e+00` exactly | `1.996e-05` |
+| mean (`opd_ref('mean')`) | `+2.849e-06` (16.7% of peak) | `1.711e-05` |
+| chief (the default since 2026-10-10) | `0.000e+00` exactly | `1.996e-05` |
 
 The two peaks differ by exactly the piston (`1.996e-05 − 1.711e-05 =
 2.85e-06`): the contamination was biasing the poked segment too.
 
-**Selecting the reference.**  Per prescription, in the header:
+**Selecting the reference.**  The chief ray is the default.  For the
+mean, per prescription, in the header:
 
 ```
-UseChfRay4OPD= Y
+UseChfRay4OPD= N
 ```
 
-or per session, **after** `load_rx` (a load resets it):
+or **after** `load_rx` (a load restores the default):
 
 ```matlab
 macos.opd_ref('chief');    % or 'mean'; macos.opd_ref() reads it back

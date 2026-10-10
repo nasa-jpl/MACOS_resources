@@ -7,9 +7,11 @@ function out = opd_ref(mode)
 %   The engine (tracesub.F, SUBROUTINE OPD) fills OPDMat one of two ways:
 %
 %     'chief'  OPD(ray) = CumRayL(ray) - CumRayL(chief).  A fixed per-trace
-%              scalar reference; rays do not couple.
+%              scalar reference; rays do not couple.  The DEFAULT since
+%              2026-10-10 (the manual's definition; until then every path
+%              ran the mean).
 %     'mean'   OPD(ray) = CumRayL(ray) - CumRayL(chief) - mean over EVERY
-%              valid ray.  The engine default.
+%              valid ray.  The option.
 %
 %   AN OBSCURED CHIEF RAY STILL SERVES.  The engine gates the chief-ray
 %   branch on LRayOK(1) -- the GEOMETRIC trace flag -- not on LRayPass(1),
@@ -19,9 +21,9 @@ function out = opd_ref(mode)
 %   (chief obscured at every element: LRayOK=1, LRayPass=0, RayStatus =
 %   Obscured): 'chief' shifts the map by an exact constant.  The engine
 %   falls back to 'mean' only when the chief ray fails GEOMETRICALLY -- a
-%   surface miss or a solver bracket failure -- and it does so silently.
-%   Check macos.get_ray_status(n).status(1) if you need to know which
-%   branch a given trace took.
+%   surface miss or a solver bracket failure -- and says so: every OPD run
+%   prints its reference ('OPD reference: CHIEF RAY (default)', ...
+%   'APERTURE MEAN (chief ray lost)').
 %
 %   WHY YOU MAY WANT 'chief' ON A SEGMENTED PUPIL.  The 'mean' reference is
 %   one global scalar shared by all segments, so perturbing ONE segment
@@ -32,9 +34,10 @@ function out = opd_ref(mode)
 %   segment, OPD at the exit pupil): unperturbed segments piston by 16.7%
 %   of the peak response under 'mean' and by exactly 0 under 'chief'.
 %
-%   SCOPE.  This is session state, and LOADING A PRESCRIPTION RESETS IT to
-%   'mean' -- call it AFTER load_rx, not before.  The Rx keyword
-%   `UseChfRay4OPD= Y` is the per-prescription equivalent.  Changing the
+%   SCOPE.  This acts on the LOADED deck, and LOADING A PRESCRIPTION
+%   RESTORES THE DEFAULT ('chief') -- call it AFTER load_rx, not before.
+%   The Rx keyword `UseChfRay4OPD= N` (or Y) is the per-prescription
+%   equivalent; the CLI's OPDREF CHIEF|MEAN sets the session default.  Changing the
 %   setting dirties the cached trace, so the next macos.opd() re-traces.
 %
 %   Note that 'chief' and 'mean' maps differ by a CONSTANT (that trace's

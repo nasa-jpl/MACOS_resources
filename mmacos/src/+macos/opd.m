@@ -7,8 +7,11 @@ function W = opd(opts)
 %     * raw array is OPD(i,j) with FIRST index i = global X, SECOND
 %       index j = global Y -- identical in the CLI, mmacos and pymacos;
 %     * sign: a ray LONGER than the reference is POSITIVE (optical path
-%       difference).  The reference is the chief ray when it survives
-%       the trace, else the bundle mean (mean-removed map).
+%       difference).  The reference is the chief ray by default (engine
+%       2026-10-10; macos.opd_ref('mean') or UseChfRay4OPD= N for the
+%       bundle mean), and the bundle mean when the chief is lost;
+%     * pixels with no ray are 0 -- and so is a valid ray at the chief's
+%       path, so find the pupil with macos.opd_mask(), never W ~= 0.
 %
 %   Name-value options:
 %     'orient'  'raw' (default) | 'xy'

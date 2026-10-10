@@ -1068,7 +1068,12 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % (0, 2.5, -1) with psi swung to (0,-1,0).
             t0 = tc.make_tma_();  t0.add_focal_plane('FP');  t0.build();
             macos.trace(numel(t0.spec.elt));
-            W = macos.opd();  v = W(isfinite(W) & W ~= 0);  rms0 = std(v);
+            % the pupil from the valid-ray mask, not W ~= 0: under the chief
+            % reference (the default since 2026-10-10) 4 of this TMA's 276
+            % rays sit at the chief's path and read exactly 0 unfolded, but
+            % not folded (round-off) -- W ~= 0 made the fold look 9.8e-12
+            % "non-neutral".
+            W = macos.opd();  v = W(isfinite(W) & macos.opd_mask());  rms0 = std(v);
 
             t1 = tc.make_tma_();  t1.add_focal_plane('FP');
             t1.add_fold('FM','after','M2','dist_m',2.0);
@@ -1082,7 +1087,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'M3 psi not reflected');
             tc.verifyEqual(e(2).zElt, 2.0, 'AbsTol', 1e-15);
             macos.trace(numel(e));
-            W = macos.opd();  v = W(isfinite(W) & W ~= 0);  rms1 = std(v);
+            W = macos.opd();  v = W(isfinite(W) & macos.opd_mask());  rms1 = std(v);
             tc.verifyLessThan(abs(rms1 - rms0), 1e-12, ...
                 sprintf('flat fold is not WFE-neutral (d=%.3g m)', ...
                         abs(rms1 - rms0)));

@@ -28,8 +28,14 @@ arguments
     w0  (:,:) double
     opts.poke   (1,1) double = 1e-6
     opts.thresh (1,1) double = 0.25
+    opts.mask   = []   % valid-ray mask of w0; default = the engine's (opd_mask) for the trace that made w0
 end
 N = size(w0, 1);
+% the pupil from the engine's valid-ray mask, not w0 ~= 0: under the
+% chief-ray reference (the default since 2026-10-10) a valid ray at the
+% chief's path reads exactly 0.  The caller has just traced w0.
+if isempty(opts.mask), opts.mask = macos.opd_mask(); end
+if ~isequal(size(opts.mask), size(w0)), opts.mask = (w0 ~= 0); end
 labels = zeros(N);
 for s = 1:seg.nseg
     macos.load_rx(seg.in);
@@ -37,7 +43,7 @@ for s = 1:seg.nseg
                   'frame', 'local');
     macos.modify(); macos.trace();
     d = macos.opd() - w0;
-    ok = isfinite(d) & (w0 ~= 0);
+    ok = isfinite(d) & opts.mask;
     dev = abs(d - median(d(ok)));
     labels(ok & dev > opts.thresh*max(dev(ok))) = s;
 end

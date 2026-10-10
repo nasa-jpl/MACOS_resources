@@ -109,6 +109,7 @@
       ray_info_set_impl => ray_info_set, &
       trace_rays_impl => trace_rays, &
       opd_val_impl => opd_val, &
+      opd_mask_get_impl => opd_mask_get, &
       spot_cmd_impl => spot_cmd, &
       spot_get_impl => spot_get, &
       int_cmd_impl => int_cmd, &
@@ -143,6 +144,8 @@
       calib_set_beam_wt_impl => calib_set_beam_wt, &
       ffcut_set_impl => ffcut_set, &
       ffcut_get_impl => ffcut_get, &
+      opd_ref_set_impl => opd_ref_set, &
+      opd_ref_get_impl => opd_ref_get, &
       elt_asph_get_impl => elt_asph_get, &
       stop_info_get_impl => stop_info_get, &
       stop_info_set_impl => stop_info_set, &
@@ -1291,6 +1294,16 @@
         CALL opd_val_impl(OK, OPD, N)
       end subroutine opd_val
 
+      subroutine opd_mask_get(OK, MASK, N)
+
+        implicit none
+        logical,                 intent(out):: OK
+        integer, dimension(N,N), intent(out):: MASK
+        integer,                 intent(in) :: N      ! = nGridPts
+
+        CALL opd_mask_get_impl(OK, MASK, N)
+      end subroutine opd_mask_get
+
       subroutine spot_cmd(OK, nSpot, iElt, ref_csys, ref_pos, res_trace)
         use smacos_vars_mod, only: iSpot
         implicit none
@@ -1688,6 +1701,24 @@
 
         CALL ffcut_get_impl(OK, on, nPix)
       end subroutine ffcut_get
+
+      subroutine opd_ref_set(OK, use_chief)
+
+        implicit none
+        logical, intent(out):: OK
+        logical, intent(in) :: use_chief
+
+        CALL opd_ref_set_impl(OK, use_chief)
+      end subroutine opd_ref_set
+
+      subroutine opd_ref_get(OK, use_chief)
+
+        implicit none
+        logical, intent(out):: OK
+        logical, intent(out):: use_chief
+
+        CALL opd_ref_get_impl(OK, use_chief)
+      end subroutine opd_ref_get
 
       subroutine elt_asph_get(OK, coef, n, iElt)
 
