@@ -157,7 +157,7 @@ SUITE_FAST=$(join_suites \
     "tApertureFrame" "tAppendRx" "tPropLayout" \
     "tPolarization" "tJonesPupil" "tVecChain" \
     "tPolElement" "tPolRadiometric" "tPolExternal" "tBench" "tOpdRef" \
-    "tTgPol" "tTgPol2" "tStopReload" "tDmgLoop" "tTmaLongslit" "tSpectrometerSens" "tPupilBlurDemo" "tRxShortCoef" "tRxRefuse" "tRxLineEndings" "tTraceKeepsRx" \
+    "tTgPol" "tTgPol2" "tStopReload" "tDmgLoop" "tTmaLongslit" "tSpectrometerSens" "tPupilBlurDemo" "tRxShortCoef" "tRxRefuse" "tRxLineEndings" "tTraceKeepsRx" "tSaveFixedPoint" \
     "tLinkSave" "tZernikeGridBasis" "tRxBlockComment" \
     "tGratingImmersed" "tGratingAperture" "tGlassDispersion" "tPropMedium" "tRxShortAsph" \
     "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tStopApStop" "tFreeformPole")
