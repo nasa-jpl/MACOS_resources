@@ -54,6 +54,10 @@ function out = pupil_blur_demo(varargin)
 %                     each lit site, est_matrix_tg's solve) or 'kernel' (the bench's
 %                     calib_mode 'kernel').  Both are computed and plotted either way.
 %     'lam_m'  1e-3   matrix Tikhonov weight, of the median column energy (P.battery.matrix_lam)
+%     'lam_pinv' 1e-9 the PLAIN least-squares read ("pinv": the same matrix with no
+%                     regularization to speak of; the piston null needs a nonzero weight)
+%     'steps_sig' 0.5 the blur (PITCH units) of the step-by-step figure (deck_blur)
+%     'steps_zoom' 12 half-width (pitches) of that figure's zoom window about the centre
 %     'lam_m_sweep' [1e-2 1e-3 1e-4]   the matrix's sigma = 0 sweep
 %     'legs'   {name, pupilsim report}  the built legs to place on the axis: each
 %                     record's stage-2 (as built) Nyquist gain line (sinusoid 0.5 cyc/mm,
@@ -77,7 +81,8 @@ function out = pupil_blur_demo(varargin)
 o = struct('nact',96,'pitch',1.0,'infl_w',0.85,'sub',4, ...
            'work_nm',30,'poke_nm',50,'noise_pm',20,'lam',0.05,'lam_sweep',[0.05 1e-2 1e-3 1e-4],'hw',6, ...
            'sig_pitch',[0 0.05 0.1:0.1:1.5],'seed',7,'figures',true,'outdir','', ...
-           'estimator','matrix','lam_m',1e-3,'lam_m_sweep',[1e-2 1e-3 1e-4], ...
+           'estimator','matrix','lam_m',1e-3,'lam_m_sweep',[1e-2 1e-3 1e-4],'lam_pinv',1e-9, ...
+           'steps_sig',0.5,'steps_zoom',12, ...
            'legs',{{'lens','runs/pupilsim_redo_lens/pupilsim_redo_lens_report.txt'; ...
                     'mirror','runs/pupilsim_redo_oap/pupilsim_redo_oap_report.txt'}}, ...
            'deck_share',[0.0013 0.0029], 'deck_band_mm',[0.05 0.14], ...
@@ -169,6 +174,7 @@ say('   all unknowns (dmg_act_fit as it stands, the legacy control): the free ri
 % form is the matrix measured through the blur -- which is all a calibration is.
 ilit = find(lit);  Am = nnz(msk);  pix = zeros(N);  pix(msk) = 1:Am;
 Mx0 = matrix_(Mu, ic, ilit, pix, Am, o.lam_m);                 % the naive matrix (no blur)
+Mp0 = matrix_(Mu, ic, ilit, pix, Am, o.lam_pinv);              % the same, plain least squares ("pinv")
 say('---- the blur-free floor (sigma = 0): the matrix estimator (the record''s), lambda_m x read noise ----\n');
 say('%-8s %8s | %-12s | %-12s\n', 'lambda_m', 'noise', 'checker', 'random');
 for lm = o.lam_m_sweep
@@ -190,7 +196,7 @@ say('   bench reports in its own Stage D (runs/lensuw2: the (96,96) diagonal-Nyq
 if doG
 % ================= the blur sweep =================
 nS = numel(o.sig_pitch);
-blank = struct('naive',nan(1,nS),'cal',nan(1,nS),'mnaive',nan(1,nS),'mcal',nan(1,nS));
+blank = struct('naive',nan(1,nS),'cal',nan(1,nS),'mnaive',nan(1,nS),'mcal',nan(1,nS),'pnaive',nan(1,nS),'pcal',nan(1,nS));
 err = struct('checker',blank,'random',blank);
 mtfN = mtf(o.sig_pitch*pitch);
 say('---- the blur sweep: kernel (lambda %.3g of the stencil peak) and matrix (lambda_m %.0e of the column energy), lit unknowns ----\n', o.lam, o.lam_m);
@@ -200,6 +206,7 @@ for is = 1:nS
     Mub = blur_(Mu, sig, dx);
     stn_eff = dmg_stencil(Mub, xg, 0, 0, pitch, o.hw);          % the CALIBRATED (effective) stencil
     Mxc = matrix_(Mub, ic, ilit, pix, Am, o.lam_m);             % the matrix measured THROUGH the blur
+    Mpc = matrix_(Mub, ic, ilit, pix, Am, o.lam_pinv);          % the same, plain least squares
     for p = 1:2
         nm = names{p};
         rng(o.seed + is);  m = blur_(surf.(nm), sig, dx) + noise();      % what the camera sees
@@ -207,11 +214,20 @@ for is = 1:nS
         err.(nm).cal(is)    = relerr_(act_fit_lit_(m, ic, stn_eff,  lit, o.lam), pat.(nm), lit);
         err.(nm).mnaive(is) = relerr_(est_matrix_(m, Mx0, lit), pat.(nm), lit);
         err.(nm).mcal(is)   = relerr_(est_matrix_(m, Mxc, lit), pat.(nm), lit);
+        err.(nm).pnaive(is) = relerr_(est_matrix_(m, Mp0, lit), pat.(nm), lit);
+        err.(nm).pcal(is)   = relerr_(est_matrix_(m, Mpc, lit), pat.(nm), lit);
     end
     say('%6.3fmm %7.3f %7.4f | %7.3f%% %7.3f%% %8.4f%% %8.4f%% | %7.3f%% %7.3f%% %8.4f%% %8.4f%%\n', sig, o.sig_pitch(is), mtfN(is), ...
         100*err.checker.naive(is), 100*err.checker.cal(is), 100*err.checker.mnaive(is), 100*err.checker.mcal(is), ...
         100*err.random.naive(is),  100*err.random.cal(is),  100*err.random.mnaive(is),  100*err.random.mcal(is));
 end
+say('---- the same sweep, PLAIN least squares (lambda %.0e: no regularization to speak of) ----\n', o.lam_pinv);
+say('%-8s %7s | %-20s | %-20s\n','blur','sig/pit','checker: naive / cal','random: naive / cal');
+for is = 1:nS
+    say('%6.3fmm %7.3f | %8.4f%% %8.4f%% | %8.4f%% %8.4f%%\n', o.sig_pitch(is)*pitch, o.sig_pitch(is), ...
+        100*err.checker.pnaive(is), 100*err.checker.pcal(is), 100*err.random.pnaive(is), 100*err.random.pcal(is));
+end
+say('\n');
 % ================= the built leg on the axis (the pupilsim records) =================
 say('\n---- the built leg on the axis (tg96_pupilsim redo records, stage 2 as built) ----\n');
 nL = size(o.legs,1);  leg = struct('name',{},'gain',{},'sig_mm',{},'sig_lo',{},'sig_hi',{},'shift_mm',{});
@@ -343,6 +359,8 @@ for p = 1:2
     subplot(2,3,p); hold on; grid on;
     plot(sp, 100*e.naive, ':o', 'Color', cc{p}, 'DisplayName', 'kernel, naive');
     plot(sp, 100*e.cal,   ':s', 'Color', cc{p}, 'DisplayName', 'kernel, calibrated');
+    plot(sp, 100*e.pnaive,'--o','Color', [.5 .5 .5], 'DisplayName', 'plain least squares, naive');
+    plot(sp, 100*e.pcal,  '--s','Color', [.5 .5 .5], 'MarkerFaceColor', [.5 .5 .5], 'DisplayName', 'plain least squares, calibrated');
     plot(sp, 100*e.mnaive,'-o', 'Color', 'k',   'DisplayName', 'matrix, naive');
     plot(sp, 100*e.mcal,  '-s', 'Color', 'k', 'MarkerFaceColor', 'k', 'DisplayName', 'matrix, calibrated (the record''s)');
     patch([o.deck_band_mm fliplr(o.deck_band_mm)]/pitch, [0 0 100 100], [.6 .6 .6], 'FaceAlpha', .15, 'EdgeColor', 'none', 'DisplayName', 'the deck''s stated blur width');
@@ -400,10 +418,50 @@ subplot(1,4,3); imagesc(xa,xa,(aN-pat.checker)*1e9.*lit); axis image off; colorb
 subplot(1,4,4); imagesc(xa,xa,(aC-pat.checker)*1e9.*lit); axis image off; colorbar; title(sprintf('matrix calibrated cmd error, pm (%.2f%%)',100*err.checker.mcal(is0)));
 sgtitle(sprintf('pupil\\_blur\\_demo: the checkerboard (actuator Nyquist) at \\sigma = %.1f pitch',o.sig_pitch(is0)));
 print(fm, fullfile(o.outdir,'pupil_blur_demo_maps.png'),'-dpng','-r110');
+% ---- the step-by-step figure (deck_blur, Dave 2026-10-09): the random 30 nm working
+% surface -> blurred (what the camera sees) -> reconstructed without and with
+% calibration, as SURFACES rebuilt from the recovered commands, zoomed to the centre;
+% one row for the plain least-squares read, one for the deck's (the record's matrix)
+sigS = o.steps_sig*pitch;  MubS = blur_(Mu, sigS, dx);
+rng(o.seed + 77);  mS = blur_(surf.random, sigS, dx) + noise();
+est = {@(m) est_matrix_(m, Mp0, lit),                                          @(m) est_matrix_(m, matrix_(MubS, ic, ilit, pix, Am, o.lam_pinv), lit); ...
+       @(m) est_matrix_(m, Mx0, lit),                                          @(m) est_matrix_(m, matrix_(MubS, ic, ilit, pix, Am, o.lam_m), lit)};
+rown = {sprintf('plain least squares (\\lambda %.0e)', o.lam_pinv), sprintf('the deck''s reconstructor (matrix, \\lambda_m %.0e)', o.lam_m)};
+z = abs(xg) <= o.steps_zoom*pitch;  xz = xg(z);
+sz = surf.random(z,z);  cl = max(abs(sz(:)))*1e6*[-1 1];
+fs = figure('Visible','off','Position',[100 100 1800 760]);
+steps = struct('sig_pitch', o.steps_sig, 'err', nan(2,2), 'surf_rms_nm', nan(2,3));
+for r = 1:2
+    aN = est{r,1}(mS);  aC = est{r,2}(mS);
+    hN = build_surf_(aN, ic, N, Kinf);  hC = build_surf_(aC, ic, N, Kinf);
+    steps.err(r,:) = [relerr_(aN, pat.random, lit), relerr_(aC, pat.random, lit)];
+    dN = (hN - surf.random);  dC = (hC - surf.random);
+    steps.surf_rms_nm(r,:) = 1e6*[sqrt(mean((mS(msk)-surf.random(msk)).^2)), sqrt(mean(dN(msk).^2)), sqrt(mean(dC(msk).^2))];
+    pan = {surf.random, mS, hN, hC};
+    ttl = {'the DM surface (true), nm', sprintf('blurred, \\sigma = %.1f pitch: what the camera sees', o.steps_sig), ...
+           sprintf('reconstructed WITHOUT calibration (%.1f %% command error)', 100*steps.err(r,1)), ...
+           sprintf('reconstructed WITH calibration (%.2f %% command error)', 100*steps.err(r,2))};
+    for c = 1:4
+        subplot(2,4,(r-1)*4+c); imagesc(xz, xz, pan{c}(z,z)*1e6); axis image; set(gca,'YDir','normal'); caxis(cl); colormap(gray);
+        title(ttl{c}, 'FontSize', 9);  if c == 1, ylabel({rown{r}, 'DM mm'}, 'FontSize', 10); end
+        if c == 4   % a manually placed colorbar does not shrink the panel (a smaller raster reads as a grainier surface)
+            pos4 = get(gca, 'Position');
+            cb = colorbar('Position', [pos4(1)+pos4(3)+0.008, pos4(2), 0.01, pos4(4)]);  cb.Label.String = 'nm';
+        end
+        if r == 2, xlabel('DM mm'); end
+    end
+end
+sgtitle(sprintf('pupil\\_blur\\_demo, step by step: the 30 nm working surface, blur 1/e radius %.1f actuator pitch (%.0f %% MTF at the actuator Nyquist), centre %d x %d pitches', ...
+    o.steps_sig, 100*mtf(sigS), 2*o.steps_zoom, 2*o.steps_zoom), 'FontSize', 11);
+print(fs, fullfile(o.outdir,'pupil_blur_demo_steps.png'),'-dpng','-r200');   % 200 dpi: the deck crops each row at full width
+say('steps figure (sigma %.1f pitch, random 30 nm): command error naive/cal -- plain LSQ %.2f%% / %.3f%%; matrix %.2f%% / %.3f%%; surface rms vs true (nm): blurred %.2f, naive %.2f / %.2f, cal %.3f / %.3f\n', ...
+    o.steps_sig, 100*steps.err(1,1), 100*steps.err(1,2), 100*steps.err(2,1), 100*steps.err(2,2), steps.surf_rms_nm(1,1), steps.surf_rms_nm(1,2), steps.surf_rms_nm(2,2), steps.surf_rms_nm(1,3), steps.surf_rms_nm(2,3));
+out_steps = steps;
 end
 end
 
-out = struct('cmd_rms',[rmsp_(pat.checker,lit) rmsp_(pat.random,lit)],'box',boxr,'leg',leg,'leg_pts',pts,'leg_lab',{lab},'leg_err',legerr,'leg_cost',cost,'leg_map',mapc,'o',o,'sig_pitch',o.sig_pitch,'mtf_nyq',mtfN,'err',err,'floor',fl,'headline',struct('cal',hc,'naive',hn), ...
+if ~exist('out_steps','var'), out_steps = []; end
+out = struct('steps',out_steps,'cmd_rms',[rmsp_(pat.checker,lit) rmsp_(pat.random,lit)],'box',boxr,'leg',leg,'leg_pts',pts,'leg_lab',{lab},'leg_err',legerr,'leg_cost',cost,'leg_map',mapc,'o',o,'sig_pitch',o.sig_pitch,'mtf_nyq',mtfN,'err',err,'floor',fl,'headline',struct('cal',hc,'naive',hn), ...
              'sig_lambda_mm',sig_lam,'lit',lit,'f_nyq',f_nyq);
 say('\nwrote pupil_blur_demo_report.txt%s in %s\n', iff_(o.figures, ', _curve.png, _maps.png', ''), o.outdir);
 end
