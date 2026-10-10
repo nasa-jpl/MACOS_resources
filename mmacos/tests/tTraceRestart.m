@@ -67,6 +67,40 @@ classdef tTraceRestart < matlab.unittest.TestCase
             zEP = -0.305486443582606;
             tc.verifyTrue(all(ri.pos(3, ok) > zEP), sprintf('%d rays hit M1 behind the pupil plane', nnz(ri.pos(3, ok) <= zEP)));
         end
+        function test_reference_types_after_a_pupil_take_the_near_root(tc)
+            % PLAN_CONSOLIDATION item 4 (2026-10-09).  The ifLNsrf root pick (a surface right after a
+            % Reference / Return, where a NEGATIVE L is allowed) moved to LNsrfRoot in the five base-conic
+            % routines on 2026-10-03, but RefSrf / ObsSrf / PolElt (elemsub.F) and IntSrf (didesub.F) kept
+            % the |L^2 - mpr| vertex-distance metric.  The Schwarzschild's M1 (5.3 mm behind the pupil
+            % Reference, rays to 90 mm off axis) turned into each of those element types -- a Reference, an
+            % Obscuring element, a TrPolarizer -- must be hit DOWNSTREAM of the pupil plane by every ray,
+            % as the Reflector already is.  Pre-fix the metric picked the sheet behind the ray for the
+            % off-axis rays.
+            src = string(fileread(rx_fixture_path(tc.RxName)));
+            i2 = strfind(src, "             iElt=  2");  i3 = strfind(src, "             iElt=  3");
+            tc.assertNumElements(i2, 1);  tc.assertNumElements(i3, 1);
+            head = extractBefore(src, i2);  blk = extractBetween(src, i2, i3 - 1);  tail = extractAfter(src, i3 - 1);
+            old = ["          Element=  Reflector" + newline + "          Surface=  Aspheric", ...
+                   "         AsphCoef=  6.025679492284151E+00  -3.579726675055740E+01  0.000000000000000E+00  0.000000000000000E+00  " + newline, ...
+                   "           IndRef=  1.000000E+00" + newline + "           Extinc=  1.000000E+22"];
+            for k = 1:numel(old), tc.assertEqual(count(blk, old(k)), 1, sprintf('element-2 anchor %d', k)); end
+            types = {'Reference', '', 'Obscuring', '', 'TrPolarizer', "           PolAxis=  1  0  0" + newline};
+            zEP = -0.305486443582606;
+            wd = tempname;  mkdir(wd);  cln = onCleanup(@() rmdir(wd, 's'));
+            m = macos.Session(tc.ModelSize);
+            for t = 1:2:numel(types)
+                b2 = replace(blk, old(1), "          Element=  " + types{t} + newline + "          Surface=  Conic");
+                b2 = replace(b2, old(2), "");
+                b2 = replace(b2, old(3), "           IndRef=  1.000000E+00" + newline + "           Extinc=  0.000000E+00" + newline + types{t+1});
+                s2 = head + b2 + tail;
+                p = fullfile(wd, [types{t} '.in']);  fid = fopen(p, 'w');  fprintf(fid, '%s', s2);  fclose(fid);
+                m.load_rx(p);  m.stop(1);  m.set_src_fov('src_pos', tc.SrcPos, 'src_dir', [0; 0; 1], 'zSrc', 1e22);  m.modify();
+                tr = m.trace(2);  ri = macos.get_ray_info(tr.nRays);
+                ok = ri.ok_trace(:);
+                tc.assertGreaterThan(nnz(ok), 100, sprintf('%s: rays reach element 2', types{t}));
+                tc.verifyTrue(all(ri.pos(3, ok) > zEP), sprintf('%s: %d of %d rays hit element 2 behind the pupil plane', types{t}, nnz(ri.pos(3, ok) <= zEP), nnz(ok)));
+            end
+        end
         function test_restart_at_the_first_return_of_a_pair(tc)
             % PLAN_CONSOLIDATION item 2 (2026-10-09).  CTRACE's paired-Return parity (ifReturn: each
             % Return toggles it, a FocalPlane clears it; while set, the leg's path is SUBTRACTED) was
