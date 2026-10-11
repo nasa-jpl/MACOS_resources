@@ -35,6 +35,13 @@ xg = ((1:N_G)-(N_G+1)/2)*DX_G;
 lat = ((1:cfg.nact)-(cfg.nact+1)/2)*cfg.pitch;
 [axg, ayg] = meshgrid(lat);                       % axg = x (col), ayg = y (row)
 lit = dmg_lit(msk, dxd_mm, mag, axg, ayg);
+% place.lit_force: an EXPLICIT lit set (nact x nact logical) -- a diagnostic that
+% changes the reading's mask while keeping the control set, and so the seeded
+% working surface, identical (COPHI gain probe #4, 2026-10-11).  Absent = dmg_lit.
+if isfield(place,'lit_force') && ~isempty(place.lit_force)
+    lit = logical(place.lit_force);
+    fprintf('  lit set FORCED (place.lit_force): %d actuators\n', nnz(lit));
+end
 
 % ---- optional erosion of the CONTROL set (place.lit_erode; 0 = unchanged) ---
 % The outermost lit rings sit at the aperture/array boundary, so their influence
