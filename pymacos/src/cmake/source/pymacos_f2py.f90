@@ -1619,12 +1619,14 @@
         CALL calib_buffer_dims_impl(maxFov, maxWl)
       end subroutine calib_buffer_dims
 
-      subroutine calib_stats_get(n_iter, merit, stop_reason)
+      subroutine calib_stats_get(n_iter, merit, stop_reason, n_rejected, n_failed)
         implicit none
         integer, intent(out):: n_iter
         real(8), intent(out):: merit
         integer, intent(out):: stop_reason
-        CALL calib_stats_get_impl(n_iter, merit, stop_reason)
+        integer, intent(out):: n_rejected
+        integer, intent(out):: n_failed
+        CALL calib_stats_get_impl(n_iter, merit, stop_reason, n_rejected, n_failed)
       end subroutine calib_stats_get
 
       subroutine calib_set_var_elt(OK, iElt, dofs, zern_modes, n_zern)

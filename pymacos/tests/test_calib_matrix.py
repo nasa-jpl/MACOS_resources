@@ -9,7 +9,10 @@ focal-plane vertex) x four spoiled fixtures of Rx_AsphCalib's f = 1 m paraboloid
   term -- the solve must raise, 'failed', the optics restored.
 * HOST SURVIVAL, in a SUBPROCESS: SPOT with TIP AND TILT free on the rigid deck (the unspoiled
   TILT is first-order null) -- LM's first trial lost the chief ray and MACOS_OPS STOPPED the
-  process (the mex: rc=139).  Now a named failure.
+  process (the mex: rc=139).  Now a failed trial is a REJECTED trial; this solve accepts none,
+  and zero accepted steps with failures is a named failure.
+* STALLED: Rx_CalibOptimal (no spoil, h^4 free) under SPOT -- 'stalled', and converged (an
+  already-optimal start is the best outcome).
 """
 import math
 import re
@@ -24,7 +27,7 @@ from context import rx_path
 
 HERE = Path(__file__).resolve().parent
 FIX = {'rigid': 'Rx_CalibRigid.in', 'zernike': 'Rx_CalibZern.in',
-       'aspheric': 'Rx_AsphCalib.in', 'mixed': 'Rx_CalibMixed.in'}
+       'aspheric': 'Rx_AsphCalib.in', 'mixed': 'Rx_CalibMixed.in', 'optimal': 'Rx_CalibOptimal.in'}
 WELL = ['rigid_WFE', 'rigid_SPOT', 'rigid_WFE_ZMODE', 'rigid_BEAM',
         'zernike_WFE', 'zernike_SPOT', 'zernike_WFE_ZMODE',
         'aspheric_WFE', 'aspheric_SPOT', 'aspheric_WFE_ZMODE',
@@ -80,6 +83,16 @@ def test_an_ill_posed_cell_fails_by_name_with_the_optics_restored(cell):
     assert np.allclose(np.nan_to_num(s1), np.nan_to_num(s0), rtol=0, atol=1e-15)
 
 
+def test_an_already_optimal_problem_stalls_without_an_error():
+    m.init(128)
+    m.load(str(rx_path(FIX['optimal'])))
+    m.calib_set_target('SPOT')
+    r = m.calib()
+    assert r['stop_reason'] == 'stalled'
+    assert r['converged'] is True
+    assert r['n_failed'] == 0 and r['n_rejected'] == r['n_iter']
+
+
 def test_a_trial_that_loses_the_chief_ray_does_not_kill_the_host():
     code = (
         "import sys, math; sys.path.insert(0, %r)\n"
@@ -94,6 +107,6 @@ def test_a_trial_that_loses_the_chief_ray_does_not_kill_the_host():
     r = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, timeout=900)
     assert r.returncode == 0, 'the host must survive (pre-fix: MACOS_OPS STOPPED):\n' + r.stdout[-2000:] + r.stderr[-2000:]
     assert 'CALIB_FAILED' in r.stdout
-    assert 'a trial step lost the chief ray' in r.stdout
+    assert re.search(r'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', r.stdout)
     tilt = float(re.search(r'TILT (\S+)', r.stdout).group(1))
     assert abs(tilt - 1e-3) < 1e-9

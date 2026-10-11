@@ -1118,7 +1118,9 @@ classdef Telescope < handle
         %                     e.g. hold M1 rigid (conic only) while M2/M3 also
         %                     decenter+tilt, without a global-tilt gauge freedom.
         %
-        %   Returns: .converged, .n_fov, .fields_xy_arcmin (nfov x 2, absolute
+        %   Returns: .converged, .stop (CALIB's stop reason: converged / floor /
+        %   cap / stalled -- an already-optimal start, no step taken), .n_iter,
+        %   .n_fov, .fields_xy_arcmin (nfov x 2, absolute
         %   (thx,thy) incl. on-axis row 1), .fields_arcmin (the y-angles, back-
         %   compat), .wfe_before/.wfe_after (per field, metres), .conics
         %   (optimised K), .wavelength.  Optimised conics/geometry are written
@@ -1401,7 +1403,8 @@ classdef Telescope < handle
             % and for fold flats -- a later step.)
             obj.build('', 'init', false);
 
-            res = struct('converged',r.converged, 'n_fov',r.n_fov, ...
+            res = struct('converged',r.converged, 'stop',r.stop_reason, ...
+                'n_iter',r.n_iter, 'n_fov',r.n_fov, ...
                 'fields_xy_arcmin',rad2deg(fxy)*60, ...      % (thx,thy)/field, incl bias
                 'fields_arcmin',rad2deg(fxy(:,2)).'*60, ...  % y-angles only (back-compat)
                 'wfe_before',r.old_wfe(:,1).', 'wfe_after',r.new_wfe(:,1).', ...
@@ -1532,7 +1535,8 @@ classdef Telescope < handle
         %
         %   fields_arcmin are the OFF-axis +y half-angles; the on-axis field is
         %   implicit (field 1).  Returns .wfe_before/.wfe_after (per field,
-        %   metres), .fields_arcmin, .modes, .elts, .converged.
+        %   metres), .fields_arcmin, .modes, .elts, .converged, .stop (CALIB's
+        %   stop reason), .n_iter.
             arguments
                 obj
                 elts (1,:) double {mustBeInteger, mustBePositive}
@@ -1667,7 +1671,8 @@ classdef Telescope < handle
             obj.spec = rmfield(obj.spec, 'opt');
             obj.build('', 'init', false);             % clean re-emit from updated spec
 
-            res = struct('converged',r.converged, 'n_fov',r.n_fov, ...
+            res = struct('converged',r.converged, 'stop',r.stop_reason, ...
+                'n_iter',r.n_iter, 'n_fov',r.n_fov, ...
                 'wfe_before',r.old_wfe(:,1).', 'wfe_after',r.new_wfe(:,1).', ...
                 'fields_arcmin',rad2deg(ay).'*60, 'modes',modes, 'elts',elts, ...
                 'wavelength',obj.spec.wavelength);
