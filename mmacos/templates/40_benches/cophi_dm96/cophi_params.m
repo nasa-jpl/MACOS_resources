@@ -21,6 +21,9 @@ end
 P = tg96_params();
 P.tag = 'cophi';
 P.outdir = '';                                   % '' = <this dir>/runs/<tag>
+P.stages = {'bench'};                            % bench | battery | noise | loop | capture | format | figs (+ tg96_run's figs / clearance)
+P.bench.ref_arm = 'lo';                          % the flat's seat -> the traced LO arm (twyman_green 'ref_arm','lo'; ruling 1)
+P.bench.LO_DX   = [0;0;0];                       % fiber-tip offset, global mm (the LO drift knob: lateral = tilt d/F1, axial = defocus)
 P.readings = {'H'};                              % the heterodyne reading (beside the record's I when compared)
 P.noise.readings = {'H'};
 P.loop.readings  = {'H'};
@@ -59,7 +62,14 @@ P.cophi.lam_rows  = [6.328e-4];   % mm; add 1.319e-3 for the SIM-MET-class row (
 % pitch; scored on cadence and photons per element per second, never on resolution.
 % Candidates (survey NOTE_lockin_arrays_survey.md, verify): lock-in cameras (heliCam class),
 % ToF demodulating sensors, 128 x 128 coherent (Lincoln-Lab-class) arrays.
-P.format.lockin   = struct('sites', 128, 'f_beat_hz', 10e3, 'rate_hz', 1e3, ...   % sites per side; beat; I/Q output rate
-                           'flux_e_per_s', 1e9, 'phasemeter_rad', 1e-3);          % photons per element per second; demod noise floor per sample
+% Default row = the survey's rank 1, the heliCam C4 class (Heliotis: 542 x 512, 24 um, in-pixel
+% dual-phase lock-in 1-250 kHz, FWC 500 ke-, 2 x 10-bit X/Y out, external reference input;
+% C4M 1024 x 1102) -- the one COTS device meeting every requirement ON PAPER; read noise and
+% the FWC's sample basis are n/s (flagged in the survey: ask the vendor).  flux_e_per_s is the
+% per-element photon throughput, the first-order fitness test (1 pm at 633 nm double pass =
+% 2e-5 rad needs ~2.5e9 e-/s/element shot-limited).
+P.format.lockin   = struct('name', 'heliCam C4 class (lock-in camera; survey rank 1, unverified)', ...
+                           'sites', 512, 'pitch_um', 24, 'f_beat_hz', 10e3, 'rate_hz', 1e3, ...
+                           'well', 500e3, 'bits_out', 10, 'read', NaN, 'flux_e_per_s', 2.5e9);
 P.format.npix     = [];                   % camera formats below 1:1 are NOT run (ruling 6)
 end
