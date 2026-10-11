@@ -113,6 +113,9 @@ function L = dmg_loop(ins, opt)
 %     .track_noise  also estimate the noiseless frames each cycle to
 %             measure the single-shot noise sigma_n in-run (one more
 %             est call per cycle)                                [true if nph finite]
+%     .delay  SENSOR DELAY, cycles: a reading's correction is applied this
+%             many cycles after it was taken (0 = the next cycle sees it, the
+%             record; COPHI's one-beat reading = 1)                      [0]
 %     .rmax   residual rms above which the loop is declared DIVERGED and
 %             stopped (the remaining cycles NaN; L.diverged true)   [Inf]
 %     .cam    CAMERA 1/f drift (Dube et al. 2024: Roman LOWFS's error budget
@@ -174,7 +177,7 @@ o = struct('A0', zeros(nact), 'g', 0.5, 'K', 60, 'nph', Inf, 'seed', 1, ...
            'drift', struct('kind', 'none'), 'ref', 'noiseless', 'nss', [], 'track_noise', [], 'rmax', Inf, ...
            'cam', struct('walk', 0, 'intra', 0, 'seed', []), ...
            'start_rms', [], 'start_shape', [], 'recal_every', 0, ...
-           'intra', 0, 'ref_walk', 0, 'ref_seed', [], 'reach', []);
+           'intra', 0, 'ref_walk', 0, 'ref_seed', [], 'reach', [], 'delay', 0);
 if nargin > 1
     fn = fieldnames(opt);
     for i = 1:numel(fn), o.(fn{i}) = opt.(fn{i}); end
@@ -274,6 +277,7 @@ rms = nan(1, o.K);  drms = nan(1, o.K);  en = nan(1, o.K);  enu = nan(1, o.K);  
 R = zeros(nact, nact, o.nss);  nR = 0;                       % residual maps of the tail
 diverged = false;  k_end = o.K;
 est = ins.est;  k_recal = [];                                % the estimator in force
+Qd = [];                                                     % the delay queue (o.delay > 0)
 for k = 1:o.K
     d = D(:,:,k);  dist = dist + d;  drms(k) = rmsl(d);
     s = cmd + dist;  r = s - o.A0;  rms(k) = rmsl(r);
@@ -292,7 +296,16 @@ for k = 1:o.K
         a0 = est(ins.diff(F, Fref));  e = a - a0;
         en(k) = rmsl(e);  un = ~lit;  enu(k) = sqrt(mean(e(un).^2));
     end
-    cmd = cmd - o.g * a;
+    if o.delay == 0
+        cmd = cmd - o.g * a;
+    else
+        % SENSOR DELAY (COPHI 2026-10-11, campaign brief sec. 9.1): the
+        % correction from this cycle's reading is applied o.delay cycles later
+        % (a reading that takes a whole beat is one cycle of latency)
+        if isempty(Qd), Qd = zeros(nact, nact, o.delay); end
+        cmd = cmd - o.g * Qd(:,:,1);
+        Qd = cat(3, Qd(:,:,2:end), a);
+    end
     if o.recal_every > 0 && mod(k, o.recal_every) == 0 && k < o.K
         % re-measure the response matrix ON the surface the loop holds now
         rc = ins.recal(cmd);
