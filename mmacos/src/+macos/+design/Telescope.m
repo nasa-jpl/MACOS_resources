@@ -1034,6 +1034,10 @@ classdef Telescope < handle
         %                     macos.design.field_cross / field_grid.  NOTE:
         %                     CALIB caps at 12 FoV (a 3x3 area grid = 9).
         %     'max_iters'     CALIB iteration cap (default 60).
+        %     'tol'           CALIB convergence tolerance, emitted as OptTol=:
+        %                     an ABSOLUTE change of the rms merit in the
+        %                     target's units (m for WFE).  [] (default) =
+        %                     the engine's 1e-12.  See macos.calib_set_tol.
         %     'target'        'WFE' (default).
         %     'weights'       FoV weights, length 1+numel(fields) (default equal).
         %     'fpa_dofs'      (1,8) VarElt mask enrolling the terminal
@@ -1125,6 +1129,7 @@ classdef Telescope < handle
                 opts.engine        (1,:) char = 'native'
                 opts.fields_arcmin (1,:) double = [1.2 2.4]
                 opts.max_iters     (1,1) double {mustBeInteger,mustBePositive} = 60
+                opts.tol           double {mustBePositive} = []   % OptTol= ([] = engine default)
                 opts.target        (1,:) char = 'WFE'
                 opts.weights       (1,:) double = []
                 opts.fields        (:,2) double = []   % explicit (thx,thy) OFF-axis offsets (rad)
@@ -1301,7 +1306,7 @@ classdef Telescope < handle
             end
 
             obj.spec.opt = struct('target',opts.target, 'wf_elt',fp_elt, ...
-                'max_iters',opts.max_iters, 'fields',dirs, 'weights',w, ...
+                'max_iters',opts.max_iters, 'tol',opts.tol, 'fields',dirs, 'weights',w, ...
                 'var_elts',var_elts, 'dof_mask',opts.dofs, 'dof_rows',dof_rows, ...
                 'fex',use_ep, 'asph_elts',opts.asph_elts, 'asph_terms',opts.asph_terms);
             obj.build();                                  % emit opt block -> load
@@ -3172,6 +3177,9 @@ classdef Telescope < handle
                 L{end+1} = ['        OptTarget=  ' o.target];
                 L{end+1} = sprintf('         OptWFElt=  %d', o.wf_elt);
                 L{end+1} = sprintf('       OptMaxItrs=  %d', o.max_iters);
+                if isfield(o,'tol') && ~isempty(o.tol)
+                    L{end+1} = sprintf('           OptTol=  %.6E', o.tol);  %#ok<AGROW>
+                end
                 fex = false;
                 if isfield(o,'fex') && ~isempty(o.fex), fex = o.fex; end
                 if fex

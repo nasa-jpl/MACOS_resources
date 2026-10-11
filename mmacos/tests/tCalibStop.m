@@ -17,6 +17,11 @@ classdef tCalibStop < matlab.unittest.TestCase
 %   tDesignTelescope fourth_mirror / add_fold designs, itr 41) -- recorded in
 %   macos cli_tests/records/calib_loop_old_vs_new.md, not pinned here.
 %   Pre-fix mex: no calib_stats_get, every test red.
+%   OptTol= (PLAN 3.2): the tDesignTelescope TMA conic solve ('fourth_mirror' leg,
+%   2 fields, 60 iterations) stops 'converged' at the default tolerance; emitted
+%   with 'tol' 1e-30 (Telescope.optimize writes OptTol=, the Rx keyword) no step can
+%   be flat in absolute rms, so it must run on to the floor or the cap.  Pre-fix:
+%   the keyword was not parsed (dropped silently) -- the two runs were identical.
     properties (Constant)
         ModelSize = 128
         RxName    = 'Rx_AsphCalib.in'
@@ -53,6 +58,27 @@ classdef tCalibStop < matlab.unittest.TestCase
             r = tc.run_(2);
             tc.verifyEqual(r.stop_reason, 'cap');
             tc.verifyEqual(r.n_iter, 2);
+        end
+        function test_opt_tol_keyword_reaches_the_stop(tc)
+            st = cell(1,2);  tol = {[], 1e-30};
+            for k = 1:2
+                t = macos.design.Telescope('family','TMA', 'aperture_diameter_m',1.0, ...
+                    'model_size',128, 'grid_npts',21);
+                t.add_mirror('M1','radius_m',8.0,'spacing_after_m',3.0);
+                t.add_mirror('M2','radius_m',2.0,'spacing_after_m',4.5);
+                t.add_mirror('M3','radius_m',4.0,'spacing_after','derive');
+                t.build();
+                args = {'fields_arcmin',[0.5 1.0], 'dofs',[0 0 0 0 0 0 0 1], 'max_iters',60};
+                if ~isempty(tol{k}), args = [args {'tol', tol{k}}]; end %#ok<AGROW>
+                t.optimize(args{:});
+                st{k} = macos.calib_stats();
+            end
+            tc.verifyEqual(st{1}.stop_reason, 'converged', ...
+                'default OptTol: the TMA conic solve takes two flat accepted steps');
+            tc.verifyNotEqual(st{2}.stop_reason, 'converged', ...
+                'OptTol= 1e-30: no step is flat in absolute rms, so it cannot converge');
+            tc.verifyGreaterThan(st{2}.n_iter, st{1}.n_iter, 'and it runs longer');
+            tc.verifyLessThanOrEqual(st{2}.merit, st{1}.merit, 'never to a worse merit');
         end
         function test_calib_stats_matches_the_result(tc)
             r  = tc.run_(20);
