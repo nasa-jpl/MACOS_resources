@@ -454,6 +454,11 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
     rcargs = {};                                   % the recomb plane / output optics (physical mm, unscaled)
     if isfield(b, 'D_RECOMB') && ~isempty(b.D_RECOMB), rcargs = [rcargs, {'D_RECOMB', b.D_RECOMB}]; end
     if isfield(b, 'D_RC_L2') && ~isempty(b.D_RC_L2),   rcargs = [rcargs, {'D_RC_L2', b.D_RC_L2}]; end
+    % COPHI (cophi_dm96, 2026-10-11): the reference flat's seat taken by a traced
+    % LO arm (twyman_green 'ref_arm','lo'); <tag>_ref.in is then the LO deck.
+    % Absent / 'flat' = the record, bit-identical.
+    if isfield(b, 'ref_arm') && ~isempty(b.ref_arm), rcargs = [rcargs, {'ref_arm', b.ref_arm}]; end
+    if isfield(b, 'LO_DX') && ~isempty(b.LO_DX),     rcargs = [rcargs, {'LO_DX', b.LO_DX(:)}]; end
     mk = @(gf) macos.design.twyman_green('polarizing',b.polarizing, 'ngridpts',P.NGRID, ...
         'optics',b.optics, oapargs{:}, 'BS_AOI',geom.AOI, ...
         'F1',s*b.F1, 'F2',s*b.F2, 'D_LENS',s*b.D_LENS, 'R_BAFFLE',s*b.R_BAFFLE, ...
@@ -2134,7 +2139,8 @@ if iPZT > 0
     occT = [p(1); p(2)-125];
 end
 label_(axT, Et, Ltrain, ink, FS, oap, occT);
-title(axT, sprintf(['TG96 %s interferometer, from above -- ' LC.legend], ...
+lgd = LC.legend;  if isfield(G.R, 'iLO'), lgd = LC.legend_lo; end   % COPHI: the LO arm took the flat's seat
+title(axT, sprintf(['TG96 %s interferometer, from above -- ' lgd], ...
     iff_(oap,'reflective (OAP)','lens')), 'Color',ink,'FontWeight','normal','FontSize',TS);
 % panel N: the node
 axis(axN,'equal');  view(axN,0,90);  set(axN,'FontSize',16);
