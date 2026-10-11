@@ -967,7 +967,10 @@ say('  flat-DM null: %.4f nm rms surface (%.1f pm)%s\n', std(hn(msk)), 1e3*std(h
     iff_(se~=0, ' [under the step error]', ''));
 
 % ---- the matrix on the 30 nm surface + its estimator ---------------------
-[est30, litmask, ns30, nlit] = calib_on_(ctx2, cfg, PL, msk, P, h0, P.battery.base_rms);
+[est30, litmask, ns30, nlit, est30c] = calib_on_(ctx2, cfg, PL, msk, P, h0, P.battery.base_rms);
+% battery.est_mode: 'onestep' (default; the record) | 'converged' | 'both' (the rows
+% under each, the one-step first -- it must reproduce the record to the digit)
+emode = 'onestep';  if isfield(P.battery, 'est_mode') && ~isempty(P.battery.est_mode), emode = P.battery.est_mode; end
 say('  matrix on %g nm surface (seed %d): %d states, %d lit columns\n', ...
     P.battery.base_rms*1e6, P.battery.seed_base, ns30, nlit);
 
@@ -984,14 +987,25 @@ say('  %-24s %8s %10s %10s %8s\n', 'row', 'gain', 'err pm', 'flr pm', 'SNR');
 rowspec = {sprintf('rand%g/single%g', P.battery.base_rms*1e6, P.battery.dev_single*1e6), d_sng; ...
            sprintf('rand%g/grid@%gnm',  P.battery.base_rms*1e6, P.battery.grid_amp*1e6),  d_grd; ...
            sprintf('rand%g/rand%g',      P.battery.base_rms*1e6, P.battery.dev_rand*1e6),   d_rnd};
-rows = {};
+rows = {};  rows_conv = {};
 for r = 1:size(rowspec,1)
     dev = rowspec{r,2};
-    adev = est30(wdiff(A0 + dev, A0));
-    [g,e,fl,snr] = score_(adev, dev, litmask);
-    say('  %-24s %8.4f %10.1f %10s %8s\n', rowspec{r,1}, g, e, fmt0d_(fl), fmt2d_(snr));
-    rows(end+1,:) = {rowspec{r,1}, g, e, fl, snr}; %#ok<AGROW>
+    hdev = wdiff(A0 + dev, A0);
+    if ~strcmp(emode, 'converged')
+        adev = est30(hdev);
+        [g,e,fl,snr] = score_(adev, dev, litmask);
+        say('  %-24s %8.4f %10.1f %10s %8s\n', rowspec{r,1}, g, e, fmt0d_(fl), fmt2d_(snr));
+        rows(end+1,:) = {rowspec{r,1}, g, e, fl, snr}; %#ok<AGROW>
+    end
+    if ~strcmp(emode, 'onestep')
+        [adev, inf_] = est30c(hdev);
+        [g,e,fl,snr] = score_(adev, dev, litmask);
+        say('  %-24s %8.4f %10.1f %10s %8s   CONVERGED (%d steps, last update %.2g pm)\n', rowspec{r,1}, g, e, fmt0d_(fl), fmt2d_(snr), ...
+            inf_.iters, 1e9*inf_.upd(end));
+        rows_conv(end+1,:) = {rowspec{r,1}, g, e, fl, snr, inf_.iters}; %#ok<AGROW>
+    end
 end
+if strcmp(emode, 'converged'), rows = rows_conv; end
 
 % ---- an external reading's noise rows (COPHI's noise stage, 2026-10-11): the
 %   reading context's own hook, handed THIS stage's estimator, lit set and
@@ -1078,12 +1092,16 @@ say('deck stage %.1f min\n', toc(t0)/60);
 DK = struct('step_err',se, 'base_rms',P.battery.base_rms, 'ic',ic, 'nlit',nlit, ...
     'rows',{rows}, 'age',{agerows}, 'gcap',gcap, 'gone',gone, 'cap_ladder',lad, ...
     'r10_age',r10_age, 'r10_one',r10_one, ...
-    'recap',{recaprows}, 'recap_surf',recs, 'photons',{photons}, 'lit',litmask, 'noise_ext',noise_ext);
+    'recap',{recaprows}, 'recap_surf',recs, 'photons',{photons}, 'lit',litmask, 'noise_ext',noise_ext, ...
+    'rows_conv',{rows_conv}, 'est_mode',emode);
 end
 
-function [est, litmask, ns, nlit] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_)
+function [est, litmask, ns, nlit, estc] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_)
 % the measured response matrix built on a base surface of the given rms
 % (seed_base), and the regularized estimator -- mirrors stage_loop_/stage_matrix_.
+% estc (2026-10-11, Dave: regularization driven to CONVERGENCE, not dropped): the
+% same one-step estimator iterated on its own residual through the measured J
+% (dm_gauge_lib/dmg_converge) to battery.est_tol (mm) / battery.est_maxit.
     Pc = P;  Pc.battery.calib_surface = 'base';  Pc.battery.base_rms = rms_;
     [J, ilit, vcol, hw, ns] = build_J_(ctx2, cfg, PL, msk, Pc, h0); %#ok<ASGLU>
     nlit = numel(ilit);  Am = nnz(msk);
@@ -1091,6 +1109,11 @@ function [est, litmask, ns, nlit] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_)
     d = diag(JtJ);  Rf = chol(JtJ + regmat_(P.battery.matrix_lam, d, P));
     est = @(h) est_matrix_tg(h, J, vcol, Am, Rf, ilit, cfg.nact, msk);
     litmask = false(cfg.nact);  litmask(ilit) = true;
+    tol = 1e-12;  if isfield(P.battery, 'est_tol') && ~isempty(P.battery.est_tol), tol = P.battery.est_tol; end
+    mit = 50;     if isfield(P.battery, 'est_maxit') && ~isempty(P.battery.est_maxit), mit = P.battery.est_maxit; end
+    N = size(msk, 1);
+    fwd  = @(a) reshape(J * a(ilit), N, N) .* msk;                 % the measured forward model
+    estc = @(h) dmg_converge(est, fwd, h, litmask, tol, mit);
 end
 
 function A = surf_(nact, litmask, seed, rms_)

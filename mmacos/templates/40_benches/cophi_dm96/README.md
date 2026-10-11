@@ -257,6 +257,44 @@ test-arm and LO fibers (their common part cancels in the beat), single pass:
 **Trains, carried forward:** the plain splitter is the priced layout; the record's
 polarizing train costs x1.5 laser power and nothing else.
 
+## The converged estimator (2026-10-11): every gauge's accuracy row, bias removed
+
+Dave's ruling: the regularization is driven to CONVERGENCE, not dropped.
+`dm_gauge_lib/dmg_converge.m` iterates the one-step Tikhonov estimate on its own
+residual through the forward model (pupil_blur_demo's iterate_);
+`tg96_run` `battery.est_mode` 'onestep' (the record) | 'converged' | 'both' wraps
+the measured-matrix estimator with J as the forward model; `dmg_act_fit`
+`opts.converge` does the same with its stencil.  Gate `tests/tConvergedEst` (4,
+pure MATLAB, SUITE_FAST candidate): one-step on an exact reading < 0.999 (the red
+leg), converged 1.0000 +- 1e-4 on both forward models, and the noise trade
+MEASURED -- converged to a zero update the white-noise floor is x2.1 the
+one-step's; converged to the one-step floor it stops in 2 steps.  Pinned
+property (C5): `dmg_act_fit`'s unknowns are ALL actuators while its data are lit-
+masked, so with an unlit border its converged gain PLATEAUS (0.962 at w 1.0) --
+the stencil estimator's unknown set, not the iteration; it matters for the ZWFS
+gauges' re-score.
+
+**Re-score, noise-free, est_mode 'both', rows on the same 30 nm surface** (H =
+`runs/conv_H_{lens,oap}`, I = `tg_psi_dm96_oap/runs/conv_I_{lens,oap}ph`; the
+one-step rows reproduce `battery_*` and `redo96_*ph` TO THE DIGIT -- the record
+path is unchanged; 5-7 steps, last update <= 0.001 pm):
+
+| gain: converged (one-step) | single 10 nm | grid 1 nm | dense random 10 nm |
+|---|---|---|---|
+| H lens | 1.0008 (0.9947) | 1.0022 (0.9964) | 1.0024 (0.9967) |
+| H mirror | **1.0000** (0.9941) | 1.0005 (0.9949) | 1.0005 (0.9950) |
+| I lens | **1.0064** (1.0001) | **1.0106** (1.0046) | **1.0112** (1.0053) |
+| I mirror | **0.9887** (0.9832) | **0.9892** (0.9838) | **0.9896** (0.9844) |
+
+So with the shrinkage gone **the record interferometer's polarization gain is in
+the open: +0.6 to +1.1 % on the lens rig, -1.1 % on the mirror rig** (I/H
+converged: lens 1.0056 / 1.0084 / 1.0088, mirror 0.9887 / 0.9887 / 0.9891), where
+the one-step rows read 1.000 on the lens rig only because it cancelled the 0.5 %
+shrinkage.  H is exact on the mirror rig; on the lens rig a +0.1-0.2 % remains
+(the same at lambda_m 1e-5), a lens-rig matrix-model term (the box window's
+truncation of the influence wings is the first candidate) -- open, small.
+Errors and floors fall too (H mirror dense random 118 -> 27 pm).
+
 ## What the gate already settled (tCophi, 2026-10-11)
 
 - Four-bucket exact; the LSQ **is** the `atan2` form; N-bucket exact.
