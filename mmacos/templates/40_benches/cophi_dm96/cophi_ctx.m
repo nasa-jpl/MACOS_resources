@@ -63,6 +63,14 @@ say('Analyzer: test-arm power at 0/45/90 deg = %.6g / %.6g / %.6g -> passes at %
 Ex1 = arm_field_(rxL, G.br, th_pass, P, [1 0]);
 Ey1 = arm_field_(rxL, G.br, th_pass, P, [0 1]);
 Mg  = [Ex1(:) Ey1(:)]' * [Ex1(:) Ey1(:)];
+if ~any(strcmp({G.br.E.name}, 'Analyzer'))
+    % the PLAIN splitter: no analyzer projects the two arms onto one state, so
+    % the PM fiber is aligned for the COHERENT overlap with the test field --
+    % maximize sum_pix |sum_c conj(Et_c) Elo_c|^2 over the launch (Q = w w^H)
+    w1 = sum(conj(Et) .* Ex1, 3);  w2 = sum(conj(Et) .* Ey1, 3);
+    Mg = [w1(:) w2(:)]' * [w1(:) w2(:)];
+    say('Plain splitter: the LO launch maximizes the coherent overlap with the test field (no analyzer)\n');
+end
 lo_launch = top_eig_(Mg);  v = lo_launch(:);
 Elo = arm_field_(rxL, G.br, th_pass, P, lo_launch);
 camL = cam_map_(G.R.iDET, size(Elo, 1));
@@ -190,10 +198,168 @@ opt = struct('N', 4);
 if isfield(P, 'cophi'), opt.N = P.cophi.N; end
 C.phasef = @(M) cophi_phase_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M, Elo_r, opt);
 C.fieldf = @(M) arm_field_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M);   % the test arm's field (probe #1)
+C.framesf = @(M, eo) cophi_frames_(C.fieldf(M), Elo_r, opt, eo);        % the N heterodyne frames (+ electronics terms eo)
+C.rT = rT;  C.mskT = mskT;  C.T_test = Tmax;  C.T_lo = sum(abs(Elo(:)).^2);   % pupil radius (test px); powers at the camera (source flux 1)
 C.p_null = C.phasef(zeros(P.grid.N_G));
 C.measf  = @(M) angle(exp(1i*(C.phasef(M) - C.p_null))) * P.LAM/(4*pi);
 C.reg = R;
+Il_r = sum(abs(Elo_r).^2, 3);  Xr = sum(Et .* conj(Elo_r), 3);  gmap = 2*abs(Xr) ./ max(It + Il_r, eps);
+C.N_ = opt.N;  C.gb_ = median(gmap(mskT)) * sin(pi/opt.N)/(pi/opt.N);   % the BUCKET contrast g' = g sinc(pi/N) (0.9003 g at N = 4)
+C.noise_hook = @(S) cophi_noise_(C, P, S);   % LAST: the closure captures C as it stands
 C.test_launch = test_launch;  C.th_pass = th_pass;  C.lo_launch = lo_launch;
+end
+
+% ---------------------------------------------------------------------
+function [Fr, alpha] = cophi_frames_(Et, Elo, opt, eo)
+%COPHI_FRAMES_  dmg_cophi_frames + the ELECTRONICS terms of the campaign brief
+%   sec. 9.1 (Dave 2026-10-11): eo.jitter (rad of beat phase per frame: the AOM
+%   drivers' DDS phase noise and the camera trigger -- dmg_cophi_frames' own
+%   knob), eo.walk (rad/frame differential fiber phase -- its own knob), and
+%   eo.ripple (rms fractional AOM drive AMPLITUDE ripple per frame: the LO's
+%   amplitude scaled by (1 + e_k) in frame k -- a contrast AND a DC modulation,
+%   built here frame by frame so dmg_cophi_* is unchanged).  eo.seed sets the
+%   draws; the same seed gives the same jitter/walk in every frame's call.
+    if nargin < 4 || isempty(eo), eo = struct(); end
+    o = opt;
+    for f = {'jitter', 'walk', 'seed'}
+        if isfield(eo, f{1}), o.(f{1}) = eo.(f{1}); end
+    end
+    rip = 0;  if isfield(eo, 'ripple'), rip = eo.ripple; end
+    if rip == 0
+        [Fr, alpha] = dmg_cophi_frames(Et, Elo, o);  return
+    end
+    sd = 0;  if isfield(eo, 'seed'), sd = eo.seed; end
+    rs = RandStream('mt19937ar', 'Seed', 1e6 + sd);  ek = rip * randn(rs, 1, o.N);
+    Fr = [];
+    for k = 1:o.N
+        [Fk, alpha] = dmg_cophi_frames(Et, Elo * (1 + ek(k)), o);
+        if isempty(Fr), Fr = zeros(size(Fk)); end
+        Fr(:,:,k) = Fk(:,:,k);
+    end
+end
+
+function NZ = cophi_noise_(C, P, S)
+%COPHI_NOISE_  the noise stage's rows, on the battery's own estimator (tg96_run
+%   stage_deck_ calls it with S = .est .litmask .ic .msk .dmap .A0 .say .LAM).
+%   PER CAMERA (P.cophi.cameras, by name; Dave's ruling 3: read noise in every
+%   row): the camera is mapped onto the model grid by BINNING -- k = camera
+%   pixels across the pupil / model pixels across the pupil, so a model pixel
+%   holds k^2 camera pixels: well x k^2, read noise x k (quadrature) -- and the
+%   frame mean at the brightest pixel sits at fill x well.  The single 10 nm
+%   differential at the hold-out actuator (the S5 form of the record) is read
+%   NR times with independent shot + read noise in both readings; sigma of ONE
+%   reading = sigma(differential)/sqrt(2).  Cadence: the camera at its full-frame
+%   rate, a reading every N frames (the beat = rate/N); seconds for 1 pm =
+%   (sigma/1 pm)^2 readings averaged.  The per-pixel phase noise is checked
+%   against the formula tCophi pinned, sigma_phi^2 = 2 (I0 + r^2)/(N I0^2 g'^2).
+%   ELECTRONICS (campaign sec. 9.1): each term alone, noise-free, the reading's
+%   error at the hold-out and over the unpoked lit set.
+    say = S.say;  N = C.N_;  ic = S.ic;  lit = S.litmask;  lam = S.LAM;
+    nr = 6;  if isfield(P.cophi, 'noise_nreal'), nr = P.cophi.noise_nreal; end
+    pf = 0.95;  if isfield(P.cophi, 'pupil_fill'), pf = P.cophi.pupil_fill; end
+    dev = zeros(size(S.A0));  dev(ic(1), ic(2)) = P.battery.dev_single;
+    M0 = S.dmap(S.A0);  M1 = S.dmap(S.A0 + dev);
+    E0f = C.fieldf(M0);  E1f = C.fieldf(M1);          % trace the two DM states ONCE
+    fr = @(E, eo) cophi_frames_(E, C.Elo, struct('N', C.N_), eo);
+    [F0, al] = fr(E0f, struct());  F1 = fr(E1f, struct());
+    msk = S.msk;  un = lit;  un(ic(1), ic(2)) = false;
+    rd = @(F) dmg_cophi_recon(F, al);
+    ad = @(p1, p0) S.est(meanref_(angle(exp(1i*(p1 - p0))) * lam/(4*pi), msk));
+    % the CONTRAST GATE (brief sec. 3: no fringe -> refused by name, not read):
+    % a pixel whose fringe amplitude / dc is below gfrac x the pupil median in
+    % EITHER reading reads 0.  Without it, the LO-only annulus inside the mask
+    % (no test light) reads a uniformly random phase under noise, and the
+    % estimator's mean-reference term (sum of h over the mask) carries it into
+    % every actuator as a seed-dependent piston-like pattern (measured
+    % 2026-10-11: floors moving 40 % between two otherwise identical benches).
+    gfrac = 0.2;  if isfield(P.cophi, 'gate_frac'), gfrac = P.cophi.gate_frac; end
+    adg = @(G1, G0) gated_(G1, G0, al, gfrac, C.mskT, lam, msk, S.est);
+    a_clean = ad(rd(F1), rd(F0));
+    nmc = fieldnames(P.cophi.cameras);
+    say('\n---- noise: the H reading on each camera (single %g nm at (%d,%d), matrix on the surface; %d realizations; model pupil %.0f px across) ----\n', ...
+        P.battery.dev_single*1e6, ic(1), ic(2), nr, 2*C.rT);
+    say('  %-12s %6s %8s %8s %6s | %10s %9s %9s | %9s %8s %9s %10s\n', 'camera', 'px/pup', 'well', 'read e-', 'fps', ...
+        'e-/frame', 'ph/read', 'sigma_phi', 'pm@hold', 'pm/read', 'reads/s', 's per pm');
+    rows = {};
+    for c = 1:numel(nmc)
+        cam = P.cophi.cameras.(nmc{c});
+        k = pf*cam.npix / (2*C.rT);
+        ce = struct('well', cam.well*k^2, 'read', cam.read*k, 'fill', P.cophi.fill);
+        pk = zeros(nr, 1);  fl = zeros(nr, 1);  fm = zeros(nr, 1);  sph = zeros(nr, 1);
+        for r = 1:nr
+            [G0, sc] = dmg_cophi_camera(F0, ce, 1000*c + 2*r);
+            G1 = dmg_cophi_camera(F1, ce, 1000*c + 2*r + 1);
+            p1 = rd(G1);  a = adg(G1, G0) - a_clean;
+            a = a - mean(a(lit));              % remove the reading's PISTON (unobservable, inert on a DM)
+            pk(r) = a(ic(1), ic(2));  fl(r) = std(a(un));  fm(r) = 1.4826*median(abs(a(un) - median(a(un))));
+            e1 = angle(exp(1i*(p1 - rd(F1))));  sph(r) = sqrt(mean(e1(C.mskT).^2));
+            if c == 1 && isfield(P.cophi, 'noise_map') && P.cophi.noise_map, AM(:, :, r) = a; end   % diagnostic maps (piston removed)
+        end
+        sig = std(pk)/sqrt(2) * 1e9;  flr = median(fm)/sqrt(2) * 1e9;  % pm, ONE reading: hold-out (piston removed) / ROBUST floor
+        flr_std = mean(fl)/sqrt(2)*1e9;  frng = [min(fl) max(fl)]/sqrt(2)*1e9;
+        % the HEADLINE is the floor (rms over every unpoked lit actuator, ~6900 x
+        % nr samples); the hold-out sigma from nr draws is the check (+-30 % at 6)
+        epf = P.cophi.fill * cam.well;                                  % e- per CAMERA pixel per frame (brightest)
+        phr = N * sum(sum(mean(F0, 3))) * sc;                           % e- per reading, all pixels, both arms
+        % the formula, at the pupil's median model pixel
+        I0 = mean(F0, 3) * sc;  i0 = median(I0(C.mskT));
+        g = C.gb_;  sform = sqrt(2*(i0 + ce.read^2) / (N * i0^2 * g^2));
+        rate = cam.rate / N;  spm = max(flr^2, 1) / rate;      % seconds for 1 pm, from the FLOOR
+        say('  %-12s %6.0f %8.3g %8.3g %6.0f | %10.3g %9.3g %9.3g | %9.3g %8.3g %9.3g %10.3g\n', nmc{c}, pf*cam.npix, cam.well, cam.read, cam.rate, ...
+            epf, phr, mean(sph), sig, flr, rate, spm);
+        say('  %-12s   sigma_phi measured / formula = %.3f (median pupil pixel, I0 %.3g e- per model pixel per frame, g'' %.4f)\n', '', mean(sph)/sform, i0, g);
+        say('  %-12s   floor: robust (1.48 MAD, median of draws) %.3g pm; plain std %.3g pm, range over draws %.3g-%.3g pm\n', '', flr, flr_std, frng);
+        rows(end+1, :) = {nmc{c}, cam.name, k, epf, phr, mean(sph), sform, sig, flr, rate, spm}; %#ok<AGROW>
+    end
+    % ---- electronics: each term alone, noise-free -------------------------
+    el = struct('jitter', [1e-3 1e-2 3e-2], 'ripple', [1e-4 1e-3 1e-2], 'walk', [1e-2 5e-2]);
+    if isfield(P.cophi, 'elec') && ~isempty(P.cophi.elec), el = P.cophi.elec; end
+    say('\n  electronics (campaign sec. 9.1), each term ALONE, noise-free; the error of ONE reading (rms over %d draws):\n', nr);
+    say('  %-34s %10s %12s\n', 'term', 'pm @ (ic)', 'pm over lit');
+    erow = {};
+    for f = fieldnames(el).'
+        for v = el.(f{1})
+            e1 = zeros(nr, 1);  e2 = zeros(nr, 1);
+            for r = 1:nr
+                eo = struct('seed', 7000 + r);  eo.(f{1}) = v;
+                H1 = fr(E1f, eo);  eo.seed = 8000 + r;  H0 = fr(E0f, eo);
+                a = ad(rd(H1), rd(H0)) - a_clean;
+                e1(r) = a(ic(1), ic(2));  e2(r) = std(a(un));
+            end
+            lab = sprintf('%s %g %s', f{1}, v, iff_(strcmp(f{1}, 'ripple'), '(rms fraction/frame)', '(rad/frame)'));
+            say('  %-34s %10.3g %12.3g\n', lab, sqrt(mean(e1.^2))/sqrt(2)*1e9, mean(e2)/sqrt(2)*1e9);
+            erow(end+1, :) = {f{1}, v, sqrt(mean(e1.^2))/sqrt(2)*1e9, mean(e2)/sqrt(2)*1e9}; %#ok<AGROW>
+        end
+    end
+    if exist('AM', 'var')
+        sm = std(AM, 0, 3)/sqrt(2)*1e9;  v = sm(un);             % per-actuator sigma of ONE reading, pm
+        [ri, ci] = find(un);  rr = hypot(ri - mean(ri), ci - mean(ci));  rmax = max(rr);
+        say('\n  NOISE MAP (%s, %d draws): per-actuator sigma of one reading over the unpoked lit set: median %.3g, mean %.3g, rms %.3g, p90 %.3g, p99 %.3g, max %.3g pm; hold-out %.3g pm (percentile %.0f)\n', ...
+            nmc{1}, nr, median(v), mean(v), sqrt(mean(v.^2)), prctile(v, 90), prctile(v, 99), max(v), sm(ic(1), ic(2)), 100*mean(v < sm(ic(1), ic(2))));
+        ed = 0:0.1:1;  say('  radial (r / r_max of the lit set):');
+        for q = 1:numel(ed)-1
+            in = rr/rmax >= ed(q) & rr/rmax < ed(q+1) + (q == numel(ed)-1);
+            say(' %.1f-%.1f %.3g', ed(q), ed(q+1), median(v(in)));
+        end
+        say('\n  hold-out at r/r_max = %.2f\n', hypot(ic(1) - mean(ri), ic(2) - mean(ci))/rmax);
+        NMAP = sm;
+    else
+        NMAP = [];
+    end
+    NZ = struct('cams', {rows}, 'elec', {erow}, 'noise_map', NMAP, 'T_test', C.T_test, 'T_lo', C.T_lo, 'nreal', nr, 'pupil_fill', pf);
+end
+
+function a = gated_(G1, G0, al, gfrac, mskT, lam, msk, est)
+%GATED_  the differential of two noisy readings with the contrast gate.
+    [p1, a1, d1] = dmg_cophi_recon(G1, al);  [p0, a0, d0] = dmg_cophi_recon(G0, al);
+    c1 = a1 ./ max(d1, eps);  c0 = a0 ./ max(d0, eps);
+    ok = c1 > gfrac*median(c1(mskT)) & c0 > gfrac*median(c0(mskT));
+    h = angle(exp(1i*(p1 - p0))) * lam/(4*pi);  h(~ok) = 0;
+    a = est(meanref_(h, msk));
+end
+
+function h = meanref_(h, msk)
+    h(~msk) = 0;  h = h - median(h(msk));
 end
 
 % ---------------------------------------------------------------------
@@ -242,7 +408,11 @@ function E = arm_field_(rx, b, an_deg, P, launch, iTO, M)
     macos.polarization('on', 'Ex', [real(launch(1)) imag(launch(1))], ...
                              'Ey', [real(launch(2)) imag(launch(2))]);
     macos.vector_diffraction(true);
-    if isnan(an_deg)
+    if isempty(iAn)
+        % the PLAIN-SPLITTER train (bench.polarizing false: Feng's layout, no
+        % polarizing optics) -- no analyzer to set; 'open' and any angle coincide
+        E = field3_(b);
+    elseif isnan(an_deg)
         % open: two orthogonal analyzer settings, powers added (coherence across
         % them does not matter for the POWER, which is all this is used for)
         macos.polarizer(iAn, 'axis', lax_(b.E(iAn).psi, 0));    E1 = field3_(b);

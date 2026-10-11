@@ -1,0 +1,18 @@
+
+=== COPHI noise (oap rig, the PLAIN splitter (no polarizing optics; Feng's layout)): 9.7 min ===
+  throughput source -> camera (flux 1 launched): test arm 0.3924, LO arm 0.4523
+  camera       name                                                             pm/read    flr pm   reads/s   s per pm
+  baseline     as proposed: 1k x 1k, 60 ke, 30 fps (read noise ASSUMED 5 e-)        117      66.2       7.5   1.84e+03
+  photonfocus  Photonfocus MV1-D1024E-160-CL (A1024B, 200 ke, 220 e- read)          104      46.1      37.5        291
+  pcoedge55    pco.edge 5.5 in TRUE global-shutter mode (30 ke, 2.2 e-)            92.9      51.7      12.5        690
+  cred2        First Light C-RED 2 (InGaAs 640 x 512, for the 1.3 um row; read ASSUMED 30 e-)       157      50.1       150        164
+  electronics, ONE reading's error (pm at the hold-out / over lit):
+    jitter   0.001         29.3        19
+    jitter   0.01           293       190
+    jitter   0.03           880       570
+    ripple   0.0001        3.46       3.3
+    ripple   0.001         34.6        33
+    ripple   0.01           349       330
+    walk     0.01           117      78.2
+    walk     0.05           584       393
+wall 9.7 min

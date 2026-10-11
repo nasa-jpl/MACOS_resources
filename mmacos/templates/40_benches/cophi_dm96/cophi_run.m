@@ -97,6 +97,41 @@ if want('report')
     clear cl cl2
 end
 
+if want('noise')
+    % ---- the noise stage: the H reading on every named camera + the electronics
+    % terms (campaign sec. 9.1), through the deck stage's own estimator (rows
+    % re-made, ladders off; tg96_run hands its estimator to cophi_ctx's hook).
+    % Run it on BOTH trains: the bench as built (the record's polarizing optics)
+    % and 'bench.polarizing',false (Feng's plain splitter).
+    tb = tic;
+    Pt = P;  Pt.stages = {'bench', 'deck'};  Pt.reading_ctx = 'cophi_ctx';
+    Pt.battery.deck = true;  Pt.battery.noise = false;  Pt.pzt.step_err = 0;
+    Pt.battery.noise_ext = true;  Pt.battery.cap_ladder = P.battery.base_rms;  Pt.battery.recap_surf = [];
+    o  = tg96_run(Pt);
+    oldcd = cd(P.outdir);  cl = onCleanup(@() cd(oldcd));
+    rep = fopen([P.tag '_cophi_report.txt'], 'a');  cl2 = onCleanup(@() fclose(rep));
+    say = @(varargin) say_(rep, varargin{:});
+    NZ = o.deck.noise_ext;
+    trn = 'the record''s polarizing train (as built)';
+    if isfield(P.bench, 'polarizing') && ~P.bench.polarizing, trn = 'the PLAIN splitter (no polarizing optics; Feng''s layout)'; end
+    say('\n=== COPHI noise (%s rig, %s): %.1f min ===\n', P.bench.optics, trn, toc(tb)/60);
+    say('  throughput source -> camera (flux 1 launched): test arm %.4f, LO arm %.4f\n', NZ.T_test, NZ.T_lo);
+    say('  pm/read = ONE reading''s noise per actuator (the unpoked-lit floor; contrast-gated); pm@hold = the hold-out check (+-30 %% at %d draws)\n', NZ.nreal);
+    say('  %-12s %-62s %9s %9s %9s %10s\n', 'camera', 'name', 'pm/read', 'pm@hold', 'reads/s', 's per pm');
+    for c = 1:size(NZ.cams, 1)
+        r = NZ.cams(c, :);
+        say('  %-12s %-62s %9.3g %9.3g %9.3g %10.3g\n', r{1}, r{2}, r{9}, r{8}, r{10}, r{11});
+    end
+    say('  electronics, ONE reading''s error (pm at the hold-out / over lit):\n');
+    for e = 1:size(NZ.elec, 1)
+        say('    %-8s %-8g %9.3g %9.3g\n', NZ.elec{e,1}, NZ.elec{e,2}, NZ.elec{e,3}, NZ.elec{e,4});
+    end
+    out.noise = struct('noise', NZ, 'rows', {o.deck.rows});
+    save([P.tag '_cophi_noise_results.mat'], '-struct', 'out', 'noise');
+    say('wall %.1f min\n', toc(t0)/60);
+    clear cl cl2
+end
+
 if want('battery')
     % ---- the battery: tg96_run's OWN placement + deck stages, on the H reading
     % (P.reading_ctx = cophi_ctx): the record's lit set, seeds (base 7, dev), the
