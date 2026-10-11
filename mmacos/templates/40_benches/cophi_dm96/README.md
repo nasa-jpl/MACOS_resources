@@ -231,6 +231,32 @@ drive ripple < ~2e-3, fiber walk < ~8e-3 rad per frame (133 ms): **the fiber is
 the term** -- the brief's "row that prices fiber stabilization" -- and a 0.05
 rad/frame fiber (unstabilized) is 6x the photon floor.
 
+**The fiber budget in engineering units** (CC, 2026-10-11; the design statement
+the campaign brief sec. 9.1 asks for).  The walk is the DIFFERENTIAL phase of the
+test-arm and LO fibers (their common part cancels in the beat), single pass:
+
+- 8e-3 rad per frame at 632.8 nm = lambda phi / 2 pi = **0.81 nm of differential
+  fiber OPD per 33 ms frame** (the baseline's 30 fps), i.e. a differential OPD
+  rate of **~24 nm/s**.  (At 0.05 rad/frame, unstabilized: 5 nm per frame, 150 nm/s.)
+- Fiber thermal path coefficient k_T = (1/L) d(OPL)/dT = dn/dT + n alpha ~ **1.0e-5
+  /K** for fused silica at 633 nm (dn/dT ~ 0.96e-5 /K, Leviton & Frey 2006; n alpha
+  ~ 0.08e-5 /K), i.e. ~10 nm per metre per mK; a coated fiber's effective value is
+  ~0.7-0.8e-5 /K (Hocker, Appl. Opt. 18, 1445, 1979).  **Both from memory, not yet
+  verified against the sources -- check before a slide.**  We use 1.0e-5 /K (the
+  stricter of the two).
+- So the budget is a differential temperature RATE of 24 nm/s / (k_T L) = **2.4 mK/s
+  per metre of uncommon fiber**: 2.4 mK/s for 1 m, 0.24 mK/s for 10 m (0.08 mK per
+  frame per metre).
+- The design statement: **the two fibers must be co-routed (the same cable, the
+  same thermal path) so that their temperature DIFFERENCE changes by less than
+  ~2.4/L mK per second over the L metres where they differ, or the differential
+  phase must be servoed** (a reference pick-off of the fiber path, the classical
+  heterodyne-metrology fix).  The loop stage's fiber row runs at this budget
+  (8e-3 rad/frame) and at 3x it.
+
+**Trains, carried forward:** the plain splitter is the priced layout; the record's
+polarizing train costs x1.5 laser power and nothing else.
+
 ## What the gate already settled (tCophi, 2026-10-11)
 
 - Four-bucket exact; the LSQ **is** the `atan2` form; N-bucket exact.
