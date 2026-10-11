@@ -1,0 +1,26 @@
+=== COPHI on the TG96 bench (lens optics), model 1024, grid 385, tag "bench_lens" ===
+tg96_run bench stages {bench,figs,clearance}: 91 s; decks bench_lens_test.in (test arm) + bench_lens_ref.in (the LO arm)
+
+LO arm: fiber tip at [2457.68    1.39    0.00] mm, collimator powered face AT the flat's seat [1575.53    1.39    0.00] mm (elt 3 of 21)
+Test-arm launch (laser at the input polarizer): Ex 0.7071-0.0000i, Ey 0.7071+0.0000i (open-analyzer power Ex-only 0.1356, Ey-only 0.1356, solved 0.2712)
+Analyzer: test-arm power at 0/45/90 deg = 0.143015 / 0.271029 / 0.128216 -> passes at 43.436 deg (0.271231; extinction -1.56e-06)
+LO launch (PM fiber axis): Ex 0.7324+0.0000i, Ey -0.6809-0.0000i (power through the analyzer: Ex-only 0.3129, Ey-only 0.2705, solved 0.5834; linearity check 5.8e-16)
+LO placement: the LO field's path phase measured as -1 k W (residual phase rms 3.48e-09 rad; the other sign 1.81 rad)
+
+Detector grid: N 1024 both decks; engine pitch test 0.0303628135 mm, LO 0.030362813 mm (ratio - 1 = -1.46e-08)
+  -> the LO field is placed on the test arm's pixels BY CAMERA POSITION (the rows below are on that one grid);
+     the two decks' same-index camera points differ by 159.137 px rms (320.371 max) -- the index map the placement removes
+Chief-ray pixel [col row]: test [512.500 512.500], LO [512.500 512.500] -> LO - test = [+0.000 +0.000] px
+Magnification (object mm per detector mm): DM->camera 9.936906, seat->camera 9.864952 (ratio 0.992759)
+Footprints (camera position, test pixels): test pupil image centroid [513.000 513.000] px, radius 158.10 px; LO [513.000 513.000] px, radius 192.00 px
+            centroid LO - test = [-0.000 -0.000] px; LO/test radius 1.2144 -- the LO overfills by 33.9 px, so an
+            offset under that is a fill question, not a registration one (the test pupil is the DM STOP's image)
+LO over the test pupil (78525 px): covered 1.0000 (I_LO > 0.5 max), I_LO rms/mean 0.0047, min/max 0.9772
+Null (flat DM): interference phase 0.000 nm rms of SURFACE after piston (h = phi lambda/4pi); tilt 0.000, defocus 0.000, rest 0.000
+Fringe contrast g over the test pupil: median 0.9825, min 0.9825 (lo_ratio at the camera: median I_LO/I_t 1.4584)
+LO power through the analyzer at the solved launch: 0.9997 of the LO at the camera without it
+
+REGISTRATION PASS: chief 0.000 px, LO footprint offset 0.000 px (inside its 33.9 px overfill), LO coverage 1.0000,
+  null 0.000 nm (spec: chief < 1 px, offset < overfill, coverage > 0.99, null < 1 nm)
+
+wall 148 s

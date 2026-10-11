@@ -225,14 +225,15 @@ if ~isempty(o.draw)
     end
     pbs = vp('BSrefl');
     lab1 = {vp('L1pow'), [-60 110], 'collimator L1'; pbs, [120 120], sprintf('plate splitter, %g deg', bp.BS_AOI); vp('Comptxfd'), [-60 -110], 'compensator'; ...
-            vp('TestOptic'), [0 -80], '96 mm DM'; vr('PZT'), [0 -80], 'reference flat + PZT'; vp('L2pow'), [0 90], 'focuser L2'; vp('Detector'), [0 60], 'camera'};
+            vp('TestOptic'), [0 -80], '96 mm DM'; vr('PZT'), [0 -80], 'reference flat + PZT'; vr('LOCollpow'), [0 -80], 'LO collimator (COPHI)'; vp('L2pow'), [0 90], 'focuser L2'; vp('Detector'), [0 60], 'camera'};
     for k = 1:size(lab1, 1)
         p = lab1{k,1};  d = lab1{k,2};
         if isempty(p), continue; end
         plot3(ax1, [p(1) p(1)+d(1)], [p(2) p(2)+d(2)], [0.2 0.2], '-', 'Color', [137 135 129]/255, 'LineWidth', 1.0);
         text(ax1, p(1)+d(1), p(2)+d(2), 0.3, lab1{k,3}, 'Color', ink, 'FontSize', 15, 'HorizontalAlignment', 'center', 'BackgroundColor', 'w', 'Margin', 1);
     end
-    title(ax1, sprintf('The bench from above: splitter at %g deg; %s', bp.BS_AOI, LC.legend), 'FontWeight', 'normal', 'FontSize', 15);
+    lgd = LC.legend;  if any(startsWith({Er.name}, 'LOColl')), lgd = LC.legend_lo; end   % COPHI: the LO took the flat's seat
+    title(ax1, sprintf('The bench from above: splitter at %g deg; %s', bp.BS_AOI, lgd), 'FontWeight', 'normal', 'FontSize', 15);
     % node panel: +-320 mm about the splitter
     xlim(ax2, [pbs(1)-340, pbs(1)+340]);  ylim(ax2, [pbs(2)-260, pbs(2)+260]);
     lab2 = {vp('L1pow'), [0 75], 'L1'; vp('PolIn'), [10 -80], 'input polarizer'; pbs, [-60 150], 'splitter'; vp('Comptxfd'), [-90 -60], 'compensator'; ...

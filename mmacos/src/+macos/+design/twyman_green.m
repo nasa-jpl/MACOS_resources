@@ -320,6 +320,32 @@ arguments
     opts.pbs_nperiod (1,1) double {mustBeInteger, mustBePositive} = 4
     opts.ar_faces  (1,1) logical = true   % single-layer MgF2 AR on the faces
     opts.AR_N      (1,1) double {mustBePositive} = 1.38   % MgF2
+    % ---- COPHI: the reference flat's seat taken by a traced LO arm --------
+    % 'flat' (default) is the Twyman-Green: G.br is the reference arm off the
+    % PZT flat, emitted bit-identically to every bench built before this
+    % option.  'lo' (COPHI, Dave's ruling 1, BRIEF_cophi_campaign sec. 7: the
+    % LO TRACED, as a drop-in at the flat's seat) replaces that arm by a
+    % fiber-fed LOCAL OSCILLATOR: its own point source (the fiber tip) behind
+    % the seat, a baffle and a plano collimator of the SAME design as the lens
+    % rig's L1 (focal F1, LO_Kr/LO_Kc, fed at its focus as SRC_AT_FOCUS
+    % feeds L1), its powered face AT the flat's vertex, so the LO leaves the
+    % seat along the direction the flat's return took and the rest of the arm
+    % -- the internal reflect off the splitter, the Recomb plane and the whole
+    % tail -- is the reference arm's, element for element.  G.br is then the
+    % LO deck; G.R.iPZT is absent, G.R.iLO is the collimator's powered face,
+    % G.R.src_lo the fiber tip's position, G.R.seat the flat's vertex.  The LO's drifts are its fiber
+    % tip's: a lateral shift d gives a tilt d/F1, an axial one a defocus.
+    % Plate rig only.  In a polarizing build the reference arm's QWP passes
+    % are absent (there is no flat to double-pass them to); the output leg's
+    % OutQWP / Analyzer stay, because they are in the shared tail.
+    opts.ref_arm  (1,:) char {mustBeMember(opts.ref_arm,{'flat','lo'})} = 'flat'
+    opts.LO_Kr    (1,1) double = NaN     % NaN = L1_Kr (the collimator of record)
+    opts.LO_Kc    (1,1) double = NaN     % NaN = L1_Kc
+    opts.LO_TRIM  (1,1) double = NaN     % fiber-tip trim on the conjugate (mm);
+                                         %  NaN = SRC_TRIM on the lens rig, 0 on
+                                         %  the oap rig (whose SRC_TRIM is its
+                                         %  parabola's, not this lens's)
+    opts.LO_DX    (3,1) double = [0;0;0] % fiber-tip offset, GLOBAL mm (drift knob)
 end
 P = opts;
 
@@ -356,6 +382,8 @@ end
 %  cube token (absolute geometry), which is what makes their glass paths
 %  identical to the last bit rather than merely equal by arithmetic.
 % =====================================================================
+assert(~(cube && strcmp(P.ref_arm,'lo')), ...
+    'twyman_green: ''ref_arm'',''lo'' (COPHI) is built on the plate rig only.');
 if cube
     assert(P.polarizing, ...
         ['twyman_green: ''pbs'',''cube'' IS the polarization split -- it ' ...
@@ -457,6 +485,11 @@ T.iRC = bt.add_reference(P.D_RECOMB, 'Recomb');
 [T, det_leg] = tail(bt, P, T, T.iTO, []);
 
 % ---- reference arm --------------------------------------------------
+if strcmp(P.ref_arm, 'lo')
+    [br, R] = lo_arm_(P, bs, bt, T, det_leg);
+    G = struct('bt',bt, 'br',br, 'T',T, 'R',R, 'bs',bs, 'det_leg',det_leg, 'P',P);
+    return
+end
 br = front_end(P, 'ifo_ref');
 if P.polarizing && ~pol_at_source_(P)
     br.add_polarizer(P.D_POL, ax_local(br.dir, P.pol_in_deg), 'name','PolIn', 'substrate',P.PLATE_SUB);
@@ -482,6 +515,40 @@ G = struct('bt',bt, 'br',br, 'T',T, 'R',R, 'bs',bs, 'det_leg',det_leg, 'P',P);
 end
 
 % ---------------------------------------------------------------------
+function [br, R] = lo_arm_(P, bs, bt, T, det_leg)
+%LO_ARM_  COPHI's local-oscillator arm at the reference flat's seat.
+%   The seat is found by walking the reference arm's own chief exactly as the
+%   'flat' build does (front end -> splitter transmit -> D_BS_TO), so the LO
+%   enters where the flat's return left from, along the same direction.
+    probe = front_end(P, 'lo_probe');
+    if P.polarizing && ~pol_at_source_(P)
+        probe.add_polarizer(P.D_POL, ax_local(probe.dir, P.pol_in_deg), 'name','PolIn', 'substrate',P.PLATE_SUB);
+    end
+    probe.add_bs_transmit(bs, 'tag','f');
+    seat  = probe.pos + P.D_BS_TO*probe.dir;     % the flat's vertex
+    d_lo  = -probe.dir;                           % the flat's normal-incidence return
+    Kr = P.LO_Kr;  if isnan(Kr), Kr = P.L1_Kr; end
+    Kc = P.LO_Kc;  if isnan(Kc), Kc = P.L1_Kc; end
+    tr = P.LO_TRIM;
+    if isnan(tr), tr = P.SRC_TRIM * strcmp(P.optics, 'lens'); end
+    d_src = P.F1;
+    if P.SRC_AT_FOCUS, d_src = P.F1 + P.zsource + tr; end
+    AP  = 2*atan(P.R_BAFFLE/P.D_SB)*P.FILL;       % the test arm's cone: same beam
+    src = seat - d_src*d_lo + P.LO_DX;            % the fiber tip (+ its drift)
+    br = macos.design.Bench('cophi_lo', 'aperture', AP, 'ngridpts', P.ngridpts, ...
+                            'pos', src, 'dir', d_lo, 'zsource', P.zsource);
+    br.add_baffle(P.D_SB, P.R_BAFFLE, 'name','LOBaffle');
+    Llo = br.add_lens(d_src - P.D_SB, P.F1, P.D_LENS, 'mode','collimate', ...
+                      'edge_margin',P.EDGE_MARGIN, 'n',P.N_GLASS, 'name','LOColl');
+    br.E(Llo.i_pow).Kr = Kr;  br.E(Llo.i_pow).Kc = Kc;
+    R.src_lo = src;  R.iLO = Llo.i_pow;  R.seat = seat;
+    br.add_bs_reflect_return(bs);
+    d_rc = dot(bt.E(T.iRC).vpt - br.pos, br.dir);
+    assert(d_rc > 0, 'twyman_green: recomb plane behind the LO return');
+    R.iRC = br.add_reference(d_rc, 'Recomb');
+    [R, ~] = tail(br, P, R, [], det_leg);
+end
+
 function tf = pol_at_source_(P)
 %POL_AT_SOURCE_  true when the input polarizer belongs in the diverging leg.
 %   Only meaningful on a reflective front end; a lens collimator has no

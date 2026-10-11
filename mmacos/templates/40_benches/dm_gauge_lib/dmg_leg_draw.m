@@ -5,8 +5,9 @@ function dmg_leg_draw(ax, E, arm, varargin)
 %            (the reference arm; on the test deck the shared source leg)
 %     blue   splitter -> DM (test optic) and back to the splitter
 %     green  splitter -> recombination -> focuser -> mask seat -> camera
-%   E is the arm's element struct array (names), ARM is 'test' | 'ref' | 'auto'
-%   ('auto' = 'test' when an element is named TestOptic, else 'ref'); any further
+%   E is the arm's element struct array (names), ARM is 'test' | 'ref' | 'lo' |
+%   'auto' ('auto' = 'test' when an element is named TestOptic, 'lo' when one is
+%   named LOColl* -- COPHI's LO arm, drawn purple to the splitter -- else 'ref'); any further
 %   name/value pairs go to macos.view_rx (e.g. 'bundle','rim','bodies','outline').
 %   The legs are found by NAME: the splitter's faces are the elements whose names
 %   start with 'BS' (BSrefl / BStxff / BSbinr ... on both rigs); the first is the
@@ -30,14 +31,18 @@ if ~any(isbs)
 end
 kin = find(isbs, 1, 'first');  kout = find(isbs, 1, 'last');
 if strcmp(arm, 'auto')
-    if any(strcmp(nm, 'TestOptic')), arm = 'test'; else, arm = 'ref'; end
+    if any(strcmp(nm, 'TestOptic')), arm = 'test';
+    elseif any(startsWith(nm, 'LOColl')), arm = 'lo';      % COPHI's LO deck (twyman_green 'ref_arm','lo')
+    else, arm = 'ref'; end
 end
+csrc = C.reference;
 switch arm
     case 'test', cmid = C.test;
     case 'ref',  cmid = C.reference;
-    otherwise, error('dmg_leg_draw:arm', 'arm must be test | ref | auto');
+    case 'lo',   cmid = C.lo;  csrc = C.lo;             % fiber tip -> LO collimator -> splitter, all LO
+    otherwise, error('dmg_leg_draw:arm', 'arm must be test | ref | lo | auto');
 end
-legs = {[0 kin], C.reference; [kin kout], cmid; [kout nE], C.camera};
+legs = {[0 kin], csrc; [kin kout], cmid; [kout nE], C.camera};
 for i = 1:size(legs, 1)
     r = legs{i, 1};
     if r(2) <= r(1), continue; end
