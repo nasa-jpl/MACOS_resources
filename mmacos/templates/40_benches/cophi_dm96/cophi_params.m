@@ -53,8 +53,13 @@ P.cophi.fill      = 0.5;          % frame MEAN at this fraction of the well (fri
 % ---- wavelength (ruling 2): run the record at 632.8; 1.3 um is a STAGE (InGaAs, refocused tail)
 P.cophi.lam_rows  = [6.328e-4];   % mm; add 1.319e-3 for the SIM-MET-class row (needs 'cred2' + tail refocus)
 
-% ---- the format sweep (sec. 2.4): speed vs resolution; the photodiode-array row read MODALLY
-P.format.npix     = [1024 512 240 128];   % camera formats (cell average when coarser than the actuator pitch)
-P.format.rates    = [30 120 500 1000];    % fps at those formats (survey; verify)
-P.format.pda      = struct('n', [16 32], 'rate_hz', 10e3, 'phasemeter_rad', 1e-3);  % photodiode array: N x N sites, modal read
+% ---- the second sensor class (Dave's ruling 6, 2026-10-11: FULL actuator resolution, no
+% low-order forms -- EFC probes are commanded at the full lattice).  A well-free (continuous
+% or lock-in) reading at >= 1 element per actuator, ASSUMED to exist at 1:1 or better with the
+% pitch; scored on cadence and photons per element per second, never on resolution.
+% Candidates (survey NOTE_lockin_arrays_survey.md, verify): lock-in cameras (heliCam class),
+% ToF demodulating sensors, 128 x 128 coherent (Lincoln-Lab-class) arrays.
+P.format.lockin   = struct('sites', 128, 'f_beat_hz', 10e3, 'rate_hz', 1e3, ...   % sites per side; beat; I/Q output rate
+                           'flux_e_per_s', 1e9, 'phasemeter_rad', 1e-3);          % photons per element per second; demod noise floor per sample
+P.format.npix     = [];                   % camera formats below 1:1 are NOT run (ruling 6)
 end

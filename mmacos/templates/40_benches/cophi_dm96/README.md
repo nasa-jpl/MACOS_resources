@@ -54,6 +54,9 @@ every camera gauge: the well sets photons per frame.
 
 LO arm traced as a drop-in at the reference flat's seat; 632.8 nm for the
 record with λ a parameter (1.3 µm = a stage: InGaAs camera, refocused tail);
-three cameras named + read noise everywhere; the photodiode array = a COARSE
-modal companion only (the box-kernel collapse between 1 and 1.5 pitch per
-cell); campaign started 2026-10-11 ("then COPHI").
+three cameras named + read noise everywhere; **ruling 6 (2026-10-11): full actuator
+resolution only — no coarse / low-order forms (EFC probes are commanded at the
+full lattice); the second sensor class is a well-free lock-in / ToF / coherent-
+array reading at ≥ 1 element per actuator, assumed to exist, scored on cadence and
+photons per element** (survey `macos/NOTE_lockin_arrays_survey.md`); campaign
+started 2026-10-11 ("then COPHI").
