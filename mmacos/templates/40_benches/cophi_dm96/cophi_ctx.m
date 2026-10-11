@@ -163,6 +163,14 @@ C = struct('N_G', P.grid.N_G, 'DX_G', P.grid.DX_G, 'LAM', P.LAM, 'QWP', 0, 'THET
 C.AT = struct('rx', rxT, 'b', G.bt, 'iTO', G.T.iTO, 'iDET', iDET);
 r = 1;  if isfield(P, 'cophi') && isfield(P.cophi, 'lo_ratio') && ~isempty(P.cophi.lo_ratio), r = P.cophi.lo_ratio; end
 Elo_r = Elo * sqrt(r / median(Il(mskT)./It(mskT)));     % LO power at the camera = lo_ratio x the test arm's (median over its pupil)
+lo_mode = 'placed';  if isfield(P.cophi, 'diag_lo') && ~isempty(P.cophi.diag_lo), lo_mode = P.cophi.diag_lo; end
+if strcmp(lo_mode, 'self')
+    % DIAGNOSTIC (gain probe #2): the LO := the test arm's OWN flat-DM field, on
+    % its own pixels (no placement, no interpolation) -- the engine-truth
+    % interferometer through the identical estimator
+    Elo_r = Et * sqrt(r);
+    say('DIAGNOSTIC: LO = the test arm''s own flat-DM field (diag_lo ''self'')\n');
+end
 C.Elo = Elo_r;
 % the mask: the record's rule is the INTERFERENCE frame's support, i.e. the wider
 % (reference / LO) beam's footprint -- dmg_lit reads the lit set from it and the
@@ -172,9 +180,16 @@ C.Elo = Elo_r;
 % occupies on the camera, in test pixels (the bench stage's registration numbers).
 [xx, yy] = meshgrid(1:N);
 C.msk = hypot(xx - cL(1), yy - cL(2)) <= rL;
+if isfield(P.cophi, 'diag_mask') && strcmp(P.cophi.diag_mask, 'test')
+    % DIAGNOSTIC (gain probe #4): fit on the TEST beam's support only (pair with
+    % place.lit_force so the lit set -- and the surface -- stays the record's)
+    C.msk = mskT;
+    say('DIAGNOSTIC: mask = the test beam''s support (diag_mask ''test'', %d px)\n', nnz(mskT));
+end
 opt = struct('N', 4);
 if isfield(P, 'cophi'), opt.N = P.cophi.N; end
 C.phasef = @(M) cophi_phase_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M, Elo_r, opt);
+C.fieldf = @(M) arm_field_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M);   % the test arm's field (probe #1)
 C.p_null = C.phasef(zeros(P.grid.N_G));
 C.measf  = @(M) angle(exp(1i*(C.phasef(M) - C.p_null))) * P.LAM/(4*pi);
 C.reg = R;
@@ -218,6 +233,12 @@ function E = arm_field_(rx, b, an_deg, P, launch, iTO, M)
         end
     end
     if nargin < 5 || isempty(launch), launch = [1 1]/sqrt(2); end   % the record's Ex = Ey
+    if isfield(P.cophi, 'scalar') && P.cophi.scalar
+        % DIAGNOSTIC (gain probe #3): the scalar trace -- no polarization, the
+        % polarizing elements are then Reference surfaces; one field plane
+        macos.polarization('off');  macos.vector_diffraction(false);
+        E = macos.complex_field(numel(b.E));  return
+    end
     macos.polarization('on', 'Ex', [real(launch(1)) imag(launch(1))], ...
                              'Ey', [real(launch(2)) imag(launch(2))]);
     macos.vector_diffraction(true);

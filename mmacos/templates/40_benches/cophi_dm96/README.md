@@ -144,13 +144,26 @@ nm: gain 0.9964-0.9965 (lens), 0.9949 (mirror), corr 0.9998-0.9999.
 **What it says.**  The heterodyne reading reproduces the IFO's rows on the same
 surface: equal floors on the lens rig and half the floor and half the
 dense-random error on the mirror rig, where the record's snapshot carries the
-mirror rig's polarization cost (I 0.983) and H does not.  **Open, not yet
-isolated:** H sits 0.5 % below unity on BOTH rigs (0.994-0.997, consistent
-across the rows, the ladder and the re-measured matrices), where the brief
-expected 1.000 +- the matrix bias and the same-surface I reads 1.000-1.005 on
-the lens rig.  Candidates to measure before a deck number: the LO placement's
-interpolation, the mask (H takes the LO's camera disc, the record the
-interference frame's support), the frozen-null form.
+mirror rig's polarization cost (I 0.983) and H does not.  **The 0.5 % below unity is the ESTIMATOR'S, named (gain probe, lens rig,
+`cophi_gain_probe.m`, `runs/gainprobe_lens/`):**
+
+| probe | single | grid | rand10 | says |
+|---|---|---|---|---|
+| battery H (lambda_m 1e-3) | 0.9947 | 0.9964 | 0.9967 | -- |
+| #1 synthetic 1.000 nm poke, no estimator: H vs the engine's own field change | slope **1.000000** | | | the READING is exact |
+| #2 LO := the test arm's own flat field (engine-truth interferometer) | 0.9947 | 0.9964 | 0.9967 | not the LO placement |
+| #3 scalar trace (polarization off; contrast 1.0000, +kW) | 0.9947 | 0.9964 | 0.9967 | not the vector sum / polarizers |
+| #4 fit on the test beam's support, lit set forced equal | 0.9947 | 0.9962 | 0.9967 | not the mask |
+| #5 lambda_m 1e-5 (100x less Tikhonov) | **1.0007** | **1.0022** | **1.0024** | it is the regularization's shrinkage |
+
+So at the record's lambda_m 1e-3 an EXACT reading reads 0.995 through the
+matrix estimator -- the brief's "+- the matrix bias", now a number.  Corollary
+for the IFO record: the same-surface I column (same estimator, same lambda_m)
+reads 1.000-1.005 on the lens rig and 0.983 on the mirror rig, i.e. its
+READING carries +0.5..1 % (lens) and -1.1 % (mirror) relative to an exact one --
+the snapshot's polarization gain the matrix does not fully absorb.  H is the
+exact reading on both rigs.  (Mirror rig: #1-#5 not rerun; the battery's H rows
+carry the same 0.994-0.995 signature.)
 
 The deck stage's `flat-DM null` line reads 6.8 nm on H: it is the rms over the
 whole mask, and outside the test pupil the H reading is a constant (no test
