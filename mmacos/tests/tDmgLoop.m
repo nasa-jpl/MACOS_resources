@@ -210,6 +210,26 @@ classdef tDmgLoop < matlab.unittest.TestCase
             end
         end
 
+        function test_G15_sensor_delay_follows_the_delayed_recursion(testCase)
+            % SENSOR DELAY (COPHI 2026-10-11): with o.delay = 1 an exact reading
+            % (G = 1) on a noiseless step obeys r(k+1) = r(k) - g r(k-1): the
+            % characteristic roots have modulus sqrt(g), so at g = 0.5 the loop
+            % RINGS down at 0.707 per cycle (against 0.5 undelayed); at g = 1.2
+            % the modulus is 1.10 and it diverges.  delay 0 is G1, unchanged.
+            ins_ = testCase.mkins(1, zeros(testCase.NPIX^2, 1));
+            o = struct('g', 0.5, 'K', 40, 'nph', Inf, 'seed', 3, 'delay', 1, ...
+                       'drift', struct('kind', 'step', 'amp', 1e-6));
+            L = dmg_loop(ins_, o);
+            r = zeros(1, 40);  r(1) = 1e-6;  r(2) = r(1);
+            for k = 2:39, r(k+1) = r(k) - o.g*r(k-1); end
+            testCase.verifyEqual(L.rms(1:30), abs(r(1:30)), 'AbsTol', 1e-15, 'the delayed recursion, cycle by cycle');
+            env = (L.rms(31:39) ./ L.rms(21:29)).^(1/10);      % geometric mean contraction over 10 cycles
+            testCase.verifyEqual(median(env), sqrt(o.g), 'AbsTol', 0.02, 'envelope sqrt(g)');
+            o.g = 1.2;  o.rmax = 1e-5;                         % 10x the step (modulus 1.095: ~38x in 40 cycles)
+            L2 = dmg_loop(ins_, o);
+            testCase.verifyTrue(L2.diverged, 'gain 1.2 with one cycle of delay diverges');
+        end
+
         function test_G2_noise_only_steady_state_matches_theory(testCase)
             g = 0.5;  nph = 1e12;
             o = struct('g', g, 'K', 800, 'nph', nph, 'seed', 11, 'drift', struct('kind', 'none'));
