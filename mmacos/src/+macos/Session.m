@@ -194,6 +194,9 @@ classdef Session < handle
         function st = calib_stats(obj)
             st = macos.calib_stats();
         end
+        function md = modes(obj)
+            md = macos.modes();
+        end
         function calib_clear_var_elts(obj)
             macos.calib_clear_var_elts();
         end

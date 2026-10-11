@@ -137,6 +137,7 @@
       calib_run_impl => calib_run, &
       calib_buffer_dims_impl => calib_buffer_dims, &
       calib_stats_get_impl => calib_stats_get, &
+      modes_get_impl => modes_get, &
       calib_set_var_elt_impl => calib_set_var_elt, &
       calib_clear_var_elts_impl => calib_clear_var_elts, &
       calib_set_iter_impl => calib_set_iter, &
@@ -1618,6 +1619,13 @@
 
         CALL calib_buffer_dims_impl(maxFov, maxWl)
       end subroutine calib_buffer_dims
+
+      subroutine modes_get(OK, pol, vecdif, centroid, lneg, cir)
+        implicit none
+        logical, intent(out):: OK
+        integer, intent(out):: pol, vecdif, centroid, lneg, cir
+        CALL modes_get_impl(OK, pol, vecdif, centroid, lneg, cir)
+      end subroutine modes_get
 
       subroutine calib_stats_get(n_iter, merit, stop_reason, n_rejected, n_failed)
         implicit none

@@ -488,6 +488,9 @@ classdef tTgPol2 < matlab.unittest.TestCase
 
         function [dxp, cen, rad] = detGeom(testCase, A)
             macos.load_rx(A.rx);
+            % A SCALAR detector geometry: polarization survives load_rx since
+            % 2026-10-11 (PLAN_CONSOLIDATION 4 item 2) -- set it here, as tTgPol does.
+            macos.polarization('off');
             I = macos.intensity(A.iDET);
             dxp = macos.dx_at(A.iDET, 'mm');
             N = size(I,1);  [cg, rg] = meshgrid(1:N, 1:N);
