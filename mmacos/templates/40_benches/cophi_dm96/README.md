@@ -170,6 +170,67 @@ whole mask, and outside the test pupil the H reading is a constant (no test
 light), so the line measures the pupil's piston against that annulus.  The
 honest in-pupil null is the bench stage's (0.000 / 0.782 nm).
 
+## Stage noise (2026-10-11): pm per reading on every camera, both trains, the electronics
+
+`cophi_run('stages',{'noise'})` re-makes the deck stage's 30 nm matrix and hands
+its estimator to `cophi_ctx`'s noise hook (`battery.noise_ext`, opt-in in
+`tg96_run`).  Each camera is mapped onto the model grid by BINNING: k = camera
+pixels across the pupil (0.95 x format) / model pixels (316), a model pixel holds
+k^2 camera pixels, well x k^2, read noise x k; the frame mean at the brightest
+pixel sits at fill (0.5) x well.  The per-pixel phase noise matches tCophi's
+formula sigma_phi^2 = 2 (I0 + r^2)/(N I0^2 g'^2) to **0.2 % on every camera,
+both rigs, both trains** (g' = 0.9003 at N = 4).  Records `runs/noise_{lens,oap}
+[_plain]/`; 12 draws.
+
+**pm per reading = the piston-free noise of one actuator**: the reading's lit-set
+PISTON is removed first (unobservable, inert on a DM -- the noise map showed it
+is most of a raw single-actuator sigma: 165 pm raw vs 76 pm piston-free), then
+the robust floor (1.48 MAD over the unpoked lit set, median over draws).  The
+distribution is heavy-tailed (per-actuator p99 ~4-6x the median, from a few
+actuators in some draws), so the plain std moves +-30 % between benches
+(`runs/gated_v1/`, `runs/ungated/`); the robust floor agrees between the two
+trains to 1-3 %.  A contrast gate on the reading (amp/dc > 0.2 x the pupil
+median in both readings) is in and changes nothing measurable.
+
+| camera (survey, verify before a slide) | px across pupil | e-/px/frame | readings/s | **pm per reading** lens / mirror | **s per pm** lens / mirror |
+|---|---|---|---|---|---|
+| baseline, as proposed (1k, 60 ke, 30 fps, read 5 e- ASSUMED) | 973 | 3.0e4 | 7.5 | **57.7 / 53.7** | **443 / 385** |
+| Photonfocus MV1-D1024E-160 (200 ke, 220 e-) | 973 | 1.0e5 | 37.5 | 39.5 / 36.5 | 42 / 36 |
+| pco.edge 5.5, true global shutter (30 ke, 2.2 e-) | 1946 | 1.5e4 | 12.5 | 40.2 / 38.3 | 129 / 117 |
+| C-RED 2 InGaAs (1.4 Me-, read 30 ASSUMED) -- AT 632.8 nm, a placeholder for the 1.3 um stage | 608 | 7.0e5 | 150 | 19.6 / 18.7 | 2.6 / 2.3 |
+
+(plain train: lens 57.1 / 39.9 / 40.0 / 19.7, mirror 54.1 / 36.4 / 37.6 / 19.6 pm.)
+Feng's baseline: **~7 min of averaging per picometre** (443 s), in the first look's
+6-9 min.  The Photonfocus's 220 e- read noise costs little because its well is
+deep: 42 s per pm.
+
+**The two trains** (CC's review note): the camera is WELL-bound, so the pm per
+reading is the same on both (above).  What the record's polarizing train costs is
+LIGHT: source -> camera throughput, test arm 0.271 (lens) / 0.265 (mirror) with
+it against 0.408 / 0.392 without (x1.50 laser power for the same well), LO 0.396 /
+0.389 against 0.464 / 0.452.  At the baseline the camera takes ~6.6e11 e-/s
+(~0.2 uW at 632.8 nm): a mW laser covers either train many times over, so for
+COPHI the polarizing optics buy nothing and cost nothing that matters -- Feng's
+plain splitter is the layout to price, and the deck can say so.
+
+**Electronics (campaign sec. 9.1), each term alone, noise-free, piston-free floor
+of ONE reading (pm, lens / mirror):**
+
+| term | value | pm |
+|---|---|---|
+| synthesizer / trigger jitter (beat phase per frame) | 1e-3 rad | ~19 / 19 |
+| | 1e-2 rad | 197 / 189 |
+| AOM drive amplitude ripple (rms fraction per frame) | 1e-3 | 24 / 26 |
+| | 1e-2 | 242 / 265 |
+| differential fiber walk within the scan | 0.01 rad/frame | 68 / 64 |
+| | 0.05 rad/frame | 340 / 321 |
+
+All linear in the term.  So to stay under the baseline's 55 pm photon floor per
+reading: beat-phase jitter < ~3e-3 rad per frame (a DDS pair is ~1e-4 class),
+drive ripple < ~2e-3, fiber walk < ~8e-3 rad per frame (133 ms): **the fiber is
+the term** -- the brief's "row that prices fiber stabilization" -- and a 0.05
+rad/frame fiber (unstabilized) is 6x the photon floor.
+
 ## What the gate already settled (tCophi, 2026-10-11)
 
 - Four-bucket exact; the LSQ **is** the `atan2` form; N-bucket exact.

@@ -993,6 +993,16 @@ for r = 1:size(rowspec,1)
     rows(end+1,:) = {rowspec{r,1}, g, e, fl, snr}; %#ok<AGROW>
 end
 
+% ---- an external reading's noise rows (COPHI's noise stage, 2026-10-11): the
+%   reading context's own hook, handed THIS stage's estimator, lit set and
+%   working surface, so its pm-per-reading rows sit on the deck's matrix.  Runs
+%   only with battery.noise_ext true AND a ctx.noise_hook; absent = the record.
+noise_ext = struct();
+if isfield(P.battery, 'noise_ext') && P.battery.noise_ext && isfield(ctx, 'noise_hook') && ~isempty(ctx.noise_hook)
+    noise_ext = ctx.noise_hook(struct('est', est30, 'litmask', litmask, 'ic', ic, 'msk', msk, ...
+        'dmap', dmap, 'A0', A0, 'say', say, 'LAM', LAM));
+end
+
 % ---- capture range, aging: matrix once on 30 nm, gain vs base rms.  TWO
 %   metrics, they answer different questions (CCL 2026-09-13): a DISTRIBUTED
 %   10 nm pattern on the 47-site grid, and a SINGLE 10 nm poke at the hold-out
@@ -1068,7 +1078,7 @@ say('deck stage %.1f min\n', toc(t0)/60);
 DK = struct('step_err',se, 'base_rms',P.battery.base_rms, 'ic',ic, 'nlit',nlit, ...
     'rows',{rows}, 'age',{agerows}, 'gcap',gcap, 'gone',gone, 'cap_ladder',lad, ...
     'r10_age',r10_age, 'r10_one',r10_one, ...
-    'recap',{recaprows}, 'recap_surf',recs, 'photons',{photons}, 'lit',litmask);
+    'recap',{recaprows}, 'recap_surf',recs, 'photons',{photons}, 'lit',litmask, 'noise_ext',noise_ext);
 end
 
 function [est, litmask, ns, nlit] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_)
