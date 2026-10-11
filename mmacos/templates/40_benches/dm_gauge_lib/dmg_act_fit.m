@@ -8,7 +8,8 @@ function [a, info] = dmg_act_fit(hd, xg, axg, ayg, stn, lit, lam, opts)
 %   opts.converge true (2026-10-11, Dave: the regularization driven to
 %   CONVERGENCE, not dropped): the regularized step iterated on its own residual
 %   through the stencil (dmg_converge; pupil_blur_demo's iterate_) until the
-%   update's rms over lit <= opts.tol (default 0) or opts.maxit (default 50).
+%   update's rms over lit <= opts.tol (default 0) or opts.maxit (default 50),
+%   with the UNKNOWNS restricted to the lit (control) set.
 %   Absent / false = the one-step solve, the record's, unchanged.
 if nargin < 7 || isempty(lam), lam = 0.05; end
 if nargin < 8, opts = struct(); end
@@ -23,10 +24,18 @@ Aop = @(x) Ct(Cop(x)) + l2*x;
 solve = @(mm) pcg(Aop, Ct(mm(:)), 1e-12, 400);
 info = struct('iters', 1);
 if isfield(opts, 'converge') && opts.converge
+    % the UNKNOWN SET = the CONTROL SET (CC/Dave 2026-10-11, the descent-stall
+    % ruling): only lit actuators are unknowns in the converged mode.  With the
+    % unobservable border among the unknowns the iterate spends the data on wings
+    % it cannot see and PLATEAUS (0.962 measured, tConvergedEst C5).
+    Pl  = double(lit(:));
+    CopL = @(x) Cop(Pl.*x);  CtL = @(y) Pl.*Ct(y);
+    AopL = @(x) CtL(CopL(x)) + l2*(Pl.*x) + (1 - Pl).*x;      % identity off lit -> x = 0 there
+    solveL = @(mm) pcg(AopL, CtL(mm(:)), 1e-12, 400);
     tol = 0;  if isfield(opts, 'tol'), tol = opts.tol; end
     mit = 50; if isfield(opts, 'maxit'), mit = opts.maxit; end
-    est = @(mm) reshape(solve(mm), size(axg));
-    fwd = @(aa) reshape(Cop(aa(:)), size(axg));
+    est = @(mm) reshape(solveL(mm), size(axg));
+    fwd = @(aa) reshape(CopL(aa(:)), size(axg));
     [a, info] = dmg_converge(est, fwd, m, lit, tol, mit);
 else
     a = reshape(solve(m), size(axg));

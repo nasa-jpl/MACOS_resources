@@ -18,9 +18,9 @@ classdef tConvergedEst < matlab.unittest.TestCase
 %     C4  dmg_act_fit opts.converge reaches gain 1.0000 +- 1e-4 on a determined
 %         stencil problem where its one step reads < 0.999; the default (no opts)
 %         is unchanged
-%     C5  PINNED PROPERTY: with an unlit border dmg_act_fit's free border
-%         unknowns make the converged gain plateau at 0.962 (w 1.0) -- the
-%         stencil estimator's unknown set, not the iteration
+%     C5  the converged mode's unknowns = the lit (control) set (ruled
+%         2026-10-11): with an unlit border it converges to 1.0000 (it plateaued
+%         at 0.962 with every actuator an unknown); off-lit commands are exactly 0
     properties (Constant)
         LIB = fullfile(fileparts(mfilename('fullpath')), '..', 'templates', '40_benches', 'dm_gauge_lib');
     end
@@ -97,23 +97,23 @@ classdef tConvergedEst < matlab.unittest.TestCase
             tc.verifyLessThan(g1, 0.999, sprintf('one-step %.6f', g1));
             tc.verifyEqual(gc, 1, 'AbsTol', 1e-4, sprintf('converged %.6f', gc));
         end
-        function C5_stencil_border_unknowns_plateau(tc)
-            % MEASURED PROPERTY, pinned (2026-10-11): dmg_act_fit's unknowns are ALL
-            % actuators while its data are masked to the lit set, so with an unlit
-            % border the least-squares limit is not the truth -- the converged gain
-            % PLATEAUS below 1 (0.9620 at w 1.0, 0.9101 at w 1.2), however many steps.
-            % That is the stencil estimator's unknown set, not the iteration (C4 is
-            % exact on a determined problem).  If the unknown set is ever restricted
-            % to lit, this goes green-to-1 and must be re-pinned.
+        function C5_stencil_unknowns_are_the_control_set(tc)
+            % RULED (CC/Dave 2026-10-11): the converged mode's unknowns are the lit
+            % (control) set.  With an unlit border and ALL actuators as unknowns the
+            % converged gain plateaued at 0.9620 (w 1.0) -- the unobservable border
+            % absorbing the data; restricted to lit it converges to 1.
             na = 24;  xg = (1:na) - (na+1)/2;  [axg, ayg] = meshgrid(xg);
             [u, v] = meshgrid(-2:2);  stn = exp(-(u.^2 + v.^2)/1.0^2);
             lit = true(na);  lit([1 end], :) = false;  lit(:, [1 end]) = false;
             rng(9);  A = zeros(na);  A(lit) = randn(nnz(lit), 1);
             hd = conv2(A, stn, 'same');
+            [~, a1] = evalc('dmg_act_fit(hd, xg, axg, ayg, stn, lit)');
             [~, ac] = evalc('dmg_act_fit(hd, xg, axg, ayg, stn, lit, [], struct(''converge'', true, ''maxit'', 200))');
-            gc = A(lit) \ ac(lit);
-            fprintf('C5: stencil, unlit border, converged gain %.4f (plateau)\n', gc);
-            tc.verifyEqual(gc, 0.9620, 'AbsTol', 2e-3);
+            g1 = A(lit) \ a1(lit);  gc = A(lit) \ ac(lit);
+            fprintf('C5: stencil, unlit border: one-step %.4f, converged (unknowns = lit) %.6f; off-lit max %.2g\n', g1, gc, max(abs(ac(~lit))));
+            tc.verifyLessThan(g1, 0.999);
+            tc.verifyEqual(gc, 1, 'AbsTol', 1e-4);
+            tc.verifyEqual(max(abs(ac(~lit))), 0, 'off-lit unknowns are not unknowns');
         end
     end
 end
