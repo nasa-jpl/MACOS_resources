@@ -7012,7 +7012,7 @@ C=======================================================================
 C=======================================================================
 C     calib_stats_get  (auto-generated)
 C     prhs: (none)
-C     plhs: n_iter, merit, stop_reason
+C     plhs: n_iter, merit, stop_reason, n_rejected, n_failed
 C=======================================================================
         subroutine do_calib_stats_get(nlhs, plhs, nrhs, prhs)
         use macos_api_mod, only: calib_stats_get
@@ -7028,6 +7028,8 @@ C=======================================================================
         integer :: n_iter
         real(8) :: merit
         integer :: stop_reason
+        integer :: n_rejected
+        integer :: n_failed
         integer :: i_tmp
         real(8), allocatable :: rbuf(:)
 
@@ -7035,7 +7037,7 @@ C=======================================================================
      &    'calib_stats_get: expects 0 input arg(s)')
 
 
-        CALL calib_stats_get(n_iter, merit, stop_reason)
+        CALL calib_stats_get(n_iter, merit, stop_reason, n_rejected, n_failed)
         IF (nlhs .ge. 1) THEN
           plhs(1) = mxCreateDoubleScalar(dble(n_iter))
         END IF
@@ -7044,6 +7046,12 @@ C=======================================================================
         END IF
         IF (nlhs .ge. 3) THEN
           plhs(3) = mxCreateDoubleScalar(dble(stop_reason))
+        END IF
+        IF (nlhs .ge. 4) THEN
+          plhs(4) = mxCreateDoubleScalar(dble(n_rejected))
+        END IF
+        IF (nlhs .ge. 5) THEN
+          plhs(5) = mxCreateDoubleScalar(dble(n_failed))
         END IF
 
         end subroutine do_calib_stats_get

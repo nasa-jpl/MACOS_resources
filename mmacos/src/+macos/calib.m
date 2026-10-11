@@ -16,8 +16,12 @@ function result = calib()
 %     .n_iter       (int)      LM iterations taken (-1: no LM run)
 %     .merit        (double)   final LM merit, the chisq the solve minimises
 %                              (-1: none)
-%     .stop_reason  (char)     'converged' / 'floor' / 'cap' / 'failed' /
-%                              'none' -- see macos.calib_stats
+%     .stop_reason  (char)     'converged' / 'floor' / 'cap' / 'stalled' (no
+%                              step taken: the start is already stationary --
+%                              counts as converged) / 'failed' / 'none' -- see
+%                              macos.calib_stats
+%     .n_rejected / .n_failed  rejected LM trials, and how many of them
+%                              could not be evaluated (lost the chief ray)
 %
 %   The WFE arrays are zero for non-WFE_TARGET runs (BEAM / SPOT
 %   targets fill different state vars not yet surfaced -- Phase 1b.2).
@@ -54,5 +58,7 @@ result = struct( ...
     'new_wfe',      new_wfe(1:n_fov, 1:n_wl), ...
     'n_iter',       st.n_iter, ...
     'merit',        st.merit, ...
-    'stop_reason',  st.stop_reason);
+    'stop_reason',  st.stop_reason, ...
+    'n_rejected',   st.n_rejected, ...
+    'n_failed',     st.n_failed);
 end

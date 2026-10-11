@@ -13,11 +13,16 @@ classdef tCalibMatrix < matlab.unittest.TestCase
 %   HOST SURVIVAL: SPOT with TIP AND TILT free on the rigid deck -- the unspoiled TILT is a
 %   first-order null DOF of a centroid-referenced spot size, LM's first trial rotated the mirror
 %   ~76 deg, the beam-frame chief ray missed the focal plane and MACOS_OPS STOPPED: the mex took
-%   MATLAB down (rc=139, measured on the first matrix pass).  Now a named failure: run in a
-%   matlab -batch subprocess so the pre-fix engine fails the TEST, not the suite.
+%   MATLAB down (rc=139, measured on the first matrix pass).  Now a failed trial is a REJECTED
+%   trial (lambda x10); this solve never accepts one, and zero accepted steps with failures is
+%   a named failure ('no trial step was accepted -- 6 of 10 trials lost the chief ray').  Run in
+%   a matlab -batch subprocess so the pre-fix engine fails the TEST, not the suite.
+%   STALLED: Rx_CalibOptimal (no spoil, h^4 free) under SPOT -- every trial evaluated, none
+%   lowers the merit: stop 'stalled', no error, and it counts as converged (an already-optimal
+%   start is the best outcome).
     properties (Constant)
         Model = 128
-        Fix = struct('rigid','Rx_CalibRigid.in', 'zernike','Rx_CalibZern.in', ...
+        Fix = struct('rigid','Rx_CalibRigid.in', 'zernike','Rx_CalibZern.in', 'optimal','Rx_CalibOptimal.in', ...
                      'aspheric','Rx_AsphCalib.in', 'mixed','Rx_CalibMixed.in')
     end
     properties (TestParameter)
@@ -77,6 +82,14 @@ classdef tCalibMatrix < matlab.unittest.TestCase
             tc.verifyEqual([s1.tilt s1.h4 s1.z12], [s0.tilt s0.h4 s0.z12], 'AbsTol', 1e-15, ...
                 'the optics come back exactly as they went in');
         end
+        function test_an_already_optimal_problem_stalls_without_an_error(tc)
+            tCalibMatrix.load_('optimal');  macos.calib_set_target('SPOT');
+            r = macos.calib();
+            tc.verifyEqual(r.stop_reason, 'stalled', 'no trial step lowered the merit');
+            tc.verifyTrue(r.converged, 'an already-optimal start counts as converged');
+            tc.verifyEqual(r.n_failed, 0, 'every trial was evaluated');
+            tc.verifyEqual(r.n_rejected, r.n_iter, 'and every one was rejected');
+        end
         function test_a_trial_that_loses_the_chief_ray_does_not_kill_the_host(tc)
             wd = tempname;  mkdir(wd);  c = onCleanup(@() rmdir(wd, 's')); %#ok<NASGU>
             mm  = fileparts(fileparts(mfilename('fullpath')));
@@ -92,7 +105,8 @@ classdef tCalibMatrix < matlab.unittest.TestCase
             tc.verifyEqual(st, 0, sprintf(['MATLAB must survive (pre-fix: MACOS_OPS STOPPED, ' ...
                 'rc=139)\n%s'], out));
             tc.verifyNotEmpty(regexp(out, 'CALIB_FAILED', 'once'), 'the failure comes back as an error');
-            tc.verifyNotEmpty(regexp(out, 'a trial step lost the chief ray', 'once'), 'and names its cause');
+            tc.verifyNotEmpty(regexp(out, 'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', 'once'), ...
+                'and names its cause');
             t = str2double(regexp(out, 'TILT (\S+)', 'tokens', 'once'));
             tc.verifyEqual(t, 1e-3, 'RelTol', 1e-6, 'the optics are restored to the last accepted state');
         end

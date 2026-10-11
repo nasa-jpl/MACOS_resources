@@ -69,6 +69,7 @@ def test_calib_returns_expected_schema(rx_path):
         'converged', 'rtn_flag', 'n_fov', 'n_wavelength',
         'old_wfe', 'new_wfe',
         'n_iter', 'merit', 'stop_reason',   # PLAN 3.3, 2026-10-11
+        'n_rejected', 'n_failed',           # PLAN 3.4, 2026-10-11
     }
     assert set(result.keys()) == expected_keys
     assert isinstance(result['n_iter'], int) and result['n_iter'] >= 1
