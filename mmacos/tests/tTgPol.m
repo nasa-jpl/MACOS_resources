@@ -470,6 +470,11 @@ classdef tTgPol < matlab.unittest.TestCase
 
         function [dxp, cen, rad] = detGeom(testCase, A)
             macos.load_rx(A.rx);
+            % A SCALAR detector geometry: polarization is a session mode that
+            % survives load_rx since 2026-10-11 (PLAN_CONSOLIDATION 4 item 2) --
+            % an earlier test turns it on with crossed polarizers in the train,
+            % which would leave no light here (a 0/0 centroid).
+            macos.polarization('off');
             I = macos.intensity(A.iDET);
             dxp = macos.dx_at(A.iDET, 'mm');
             N = size(I,1);  [cg, rg] = meshgrid(1:N, 1:N);

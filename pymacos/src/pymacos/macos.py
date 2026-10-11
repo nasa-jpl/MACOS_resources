@@ -349,6 +349,10 @@ def init(model_size: int = 512) -> None:
 def load(macos_rx: Path | str) -> int:
     """Load an optical prescription (Rx) into MACOS.
 
+    Session modes (POLARIZATION, VECTOR, CENTROID, LNEG, CIR) SURVIVE load
+    (2026-10-11); load warns (RuntimeWarning) when any is in force -- read them
+    with :func:`modes`, set them per deck with :func:`polarization` etc.
+
     Args:
         macos_rx (Path | str):
           file (path + file name) where total length cannot exceed
@@ -390,7 +394,41 @@ def load(macos_rx: Path | str) -> int:
     _NELT = n_srf
     _isRx = True
 
+    # Session modes survive load (Dave 2026-10-11, PLAN_CONSOLIDATION 4 item 2):
+    # say so when any is in force, as the CLI's LOAD does.
+    _md = modes()
+    if _md['in_force']:
+        warnings.warn('load: session modes in force: ' + ', '.join(_md['in_force']),
+                      category=RuntimeWarning, stacklevel=2)
+
     return n_srf
+
+
+def modes() -> dict:
+    """The five SESSION modes as the engine holds them.
+
+    Returns a dict: ``pol`` (polarization), ``vecdif`` (vector diffraction),
+    ``centroid`` (the FEX/SXP centroid axis), ``lneg`` (negative ray lengths
+    allowed; default True), ``cir`` (colour image rendering; always False in
+    the bindings' engine) and ``in_force``, the list of modes NOT at their
+    defaults, named as the CLI's LOAD notice names them.  These modes SURVIVE
+    :func:`load` (Dave 2026-10-11, PLAN_CONSOLIDATION 4 item 2); ``load`` warns
+    (RuntimeWarning) when any is in force.
+    """
+    ok, p, v, c, l, r = lib.api.modes_get()
+    md = {'pol': bool(p), 'vecdif': bool(v), 'centroid': bool(c),
+          'lneg': bool(l), 'cir': bool(r)}
+    f = []
+    if md['pol']:
+        f += ['POLARIZATION', 'VECTOR' if md['vecdif'] else 'SCALAR']
+    if md['centroid']:
+        f.append('CENTROID')
+    if not md['lneg']:
+        f.append('NOLNEG')
+    if md['cir']:
+        f.append('CIR')
+    md['in_force'] = f
+    return md
 
 
 def save(rx: Path | str,
