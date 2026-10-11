@@ -4121,7 +4121,8 @@ CALIB_TARGET_WFE       = 1
 CALIB_TARGET_WFE_ZMODE = 2
 CALIB_TARGET_BEAM      = 3
 CALIB_TARGET_SPOT      = 4
-CALIB_TARGET_OPL       = 5
+# (5 was OPL: no objective behind it; removed 2026-10-10, PLAN 3.1 -- the
+#  engine refuses it by name)
 
 _CALIB_TARGET_NAMES = {
     'WFE':       CALIB_TARGET_WFE,
@@ -4129,7 +4130,6 @@ _CALIB_TARGET_NAMES = {
     'ZWF':       CALIB_TARGET_WFE_ZMODE,
     'BEAM':      CALIB_TARGET_BEAM,
     'SPOT':      CALIB_TARGET_SPOT,
-    'OPL':       CALIB_TARGET_OPL,
 }
 
 # Position order matches dopt_mod's DOF_NameList:
@@ -4411,13 +4411,17 @@ def calib_set_target(target, wf_zern_modes=None) -> None:
     """Set the CALIB optimization target.
 
     Args:
-        target: either an integer (1..5 mapping to the dopt_mod
+        target: either an integer (1..4 mapping to the dopt_mod
                 *_TARGET constants) OR a name string from
-                {'WFE', 'WFE_ZMODE', 'ZWF', 'BEAM', 'SPOT', 'OPL'}
-                (case-insensitive).
+                {'WFE', 'WFE_ZMODE', 'ZWF', 'BEAM', 'SPOT'}
+                (case-insensitive).  'OPL' (5) was removed 2026-10-10:
+                it had no objective behind it and the engine refuses it.
         wf_zern_modes: required for the WFE_ZMODE target -- list of
-                Zernike mode indices (1..45) the optimizer should
-                drive to zero.  Ignored for other targets.
+                Zernike mode indices (1..45, NOLL order, 1-based: mode 11
+                is primary spherical) the optimizer should drive to zero.
+                Ignored for other targets.  WFE_ZMODE works since
+                2026-10-10 (before, every load reset the fit basis to 0
+                and the first Zernike fit stopped the host).
 
     Raises:
         ValueError: unknown target name.

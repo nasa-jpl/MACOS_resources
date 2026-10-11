@@ -130,11 +130,15 @@ def test_calib_set_iter_and_tol(rx_path):
 
 
 def test_calib_set_target_accepts_names(rx_path):
-    """All five named targets dispatch without errors."""
+    """The four named targets dispatch without errors.  ('OPL', the fifth, was
+    REMOVED 2026-10-10 -- PLAN 3.1: it had no objective behind it; the name now
+    raises ValueError and the engine refuses target 5, test_calib_targets.py.)"""
     m.init(256)
     m.load(str(rx_path))
-    for name in ('WFE', 'BEAM', 'SPOT', 'OPL'):
+    for name in ('WFE', 'BEAM', 'SPOT'):
         m.calib_set_target(name)
+    with pytest.raises(ValueError):
+        m.calib_set_target('OPL')
     # WFE_ZMODE requires modes -- exercise that path too.
     m.calib_set_target('WFE_ZMODE', wf_zern_modes=[4, 5, 11])
     # Aliases
