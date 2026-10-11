@@ -12,6 +12,7 @@ calib_set_iter
 calib_set_target
 calib_set_tol
 calib_set_var_elt
+calib_stats_get
 cfield_apodize_complex
 coat_get
 coat_set
