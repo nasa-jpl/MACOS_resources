@@ -409,6 +409,15 @@ function [G, bench] = stage_B_(P, s, geom, say, exdir)
     % no way to run it: the lookup falls back to <optics>_tail.mat, so simply
     % not writing a per-tag mat picks up ANOTHER bench's tail (2026-09-15).
     if isfield(b,'tail_from_mat') && ~b.tail_from_mat, cand = {}; end
+    % bench.tail_file: an EXPLICIT tail of record, first in the lookup (COPHI,
+    % 2026-10-11: its rows sit beside the deck's redo96_<optics> rows, which ran on
+    % the redo tails redo96_{lens,oap}_tail.mat -- the tag-keyed lookup cannot name
+    % another run's tail).  Absent/empty = the lookup above, the record unchanged.
+    if isfield(b,'tail_file') && ~isempty(b.tail_file)
+        tf = b.tail_file;  if ~isfile(tf), tf = fullfile(exdir, b.tail_file); end
+        assert(isfile(tf), 'bench.tail_file %s not found', b.tail_file);
+        cand = [{tf}, cand];
+    end
     tailf = '';  for ci = 1:numel(cand), if isfile(cand{ci}), tailf = cand{ci}; break; end, end
     bench.expected_null = [];
     if ~isempty(tailf)
@@ -540,6 +549,14 @@ end
 function C = arm_setup_(P, G)
 %ARM_SETUP_  arm descriptors + analyzer bases + null + mask (shared by the
 %   battery and the placement stage).
+%   P.reading_ctx (COPHI, 2026-10-11): the NAME of a function C = f(P, G) that
+%   builds the reading context instead (cophi_dm96/cophi_ctx: the heterodyne
+%   reading).  It must supply N_G, DX_G, LAM, msk, AT (.rx), measf, phasef,
+%   p_null and .reading; placement, the matrix and the deck rows then run
+%   unchanged on it.  Absent/empty = the record's polarization four-step.
+    if isfield(P, 'reading_ctx') && ~isempty(P.reading_ctx)
+        C = feval(P.reading_ctx, P, G);  return
+    end
     C.N_G = P.grid.N_G;  C.DX_G = P.grid.DX_G;  C.LAM = P.LAM;  C.QWP = P.QWP;
     C.THETAS = P.THETAS;  C.NACT = P.dm(1).nact;  C.PITCH = P.dm(1).pitch;
     C.rxT = [P.tag '_test.in'];  C.rxR = [P.tag '_ref.in'];
@@ -919,15 +936,23 @@ if ~isfield(place, 'PL')
 end
 ctx = place.ctx;  PL = place.PL;  h0 = place.h0;
 msk = ctx.msk;  N_G = ctx.N_G;  DX_G = ctx.DX_G;  LAM = ctx.LAM;  QWP = ctx.QWP;
-Am = nnz(msk);  AT = ctx.AT;  Sr = ctx.Sr;
+Am = nnz(msk);  AT = ctx.AT;  Sr = [];  if isfield(ctx, 'Sr'), Sr = ctx.Sr; end
 % the PZT four-step: the FRAMES step by THg (nominal * (1+se)); the atan2 solve
 % stays the nominal quadrature (positional), TO's pdi.step_err pattern.  The
 % same miscalibration rides the calibration and the null (build J through ctx2).
 THg = P.THETAS .* (1 + se);
 ctx2 = ctx;
+if isfield(ctx, 'reading') && ~strcmp(ctx.reading, 'I')
+    % a reading context from P.reading_ctx (COPHI's 'H'): its own measf / phasef /
+    % p_null ARE the reading; the PZT step error and the S5 noise are the record
+    % four-step's (cophi_run's noise stage carries the H reading's own)
+    assert(se == 0 && ~P.battery.noise, ...
+        'stage_deck_: pzt.step_err / battery.noise belong to the four-step, not the %s reading', ctx.reading);
+else
 ctx2.p_null = fourstep(ctx.S0, Sr, THg);
 ctx2.measf  = @(M) meas_surface(AT, QWP, M, Sr, ctx2.p_null, THg, LAM);
 ctx2.phasef = @(M) fourstep(analyzer_basis(AT, QWP, M), Sr, THg);   % raw phase (THg)
+end
 dmap  = @(A) dm_influence_map(N_G, DX_G, 'nact',nact, 'pitch',cfg.pitch, 'act',A);
 % the differential to a base command as the WRAPPED PHASE DIFFERENCE (V1 lesson):
 % difference the raw four-step phases THEN wrap, so a small differential on a base

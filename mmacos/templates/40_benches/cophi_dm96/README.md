@@ -28,8 +28,10 @@ every camera gauge: the well sets photons per frame.
   read noise in EVERY comparison).
 - `cophi_params.m` — `tg96_params` with reading 'H' and the `P.cophi` /
   `P.format` sheets (cameras BY NAME from the survey; verify before a slide).
+- `cophi_ctx.m` — the H reading as a `tg96_run` reading context (`P.reading_ctx`):
+  launches, analyzer, the LO placed by camera position, `measf` / `phasef` / `p_null`.
 - `cophi_run.m` — the stages (bench · battery · noise · loop · capture ·
-  format · figs) on `tg96_run`'s bones; `bench` is in (2026-10-11), the rest
+  format · figs) on `tg96_run`'s bones; `bench` and `battery` are in (2026-10-11), the rest
   follow one commit each (`BRIEF_to_cophi.md`, TO).  `cophi_run_batch.m` /
   `cophi_batch.sh` = the -batch wrapper and the memory-capped, serialized
   launcher (it waits on, and is waited on by, the other gauge batches).
@@ -109,6 +111,51 @@ overfill.  Its 0.78 nm null is a fixed, smooth map subtracted by the frozen null
 like the record's (the IFO's mirror-rig null of record is 12.9 nm); the 0.65 nm
 of it that is tilt is the LO lens's beam direction against the parabola's.
 Records `runs/bench_lens/`, `runs/bench_oap/`.
+
+## Stage battery (2026-10-11): the H reading through the record's deck stage
+
+`cophi_run('stages',{'bench','battery'})` runs `tg96_run`'s OWN placement and
+deck stages with `P.reading_ctx = 'cophi_ctx'`: the heterodyne reading
+(`dmg_cophi_frames` -> `dmg_cophi_recon`, N = 4, lo_ratio 1, noise-free) stands
+where the record's polarization four-step stood, and nothing else changes --
+the redo tail of record (`bench.tail_file` = `redo96_<optics>_tail.mat`, md5
+identical to `redo96_<optics>ph`'s), the placement and its D1 gate, the lit set
+(6948, the Sept-30 aperture cap), the hold-out actuator (62,62), the 112-site
+grid, seed 7, the 30 nm working surface, the 64-state matrix ON it, the
+estimator and lambda_m.  Mirror-rig placement reproduces `redo96_oapph`'s gate
+to the digit (99.53 % within 2 px, median 0.87 px).  ~37 min per rig at model
+1024.  Records `runs/battery_{lens,oap}/`.
+
+Two I columns, labelled: **`redo96_<optics>ph` is the SAME surface** (same
+lit set, hold-out, grid, tail, seed); `redo96_<optics>` is the deck's headline
+rows, run BEFORE the aperture cap (7500 lit, 120 sites) -- the same seed drawn
+over a larger set, i.e. a different surface.  gain / err pm / floor pm:
+
+| row (30 nm surface, matrix on it) | H lens | I lens, same surface | H mirror | I mirror, same surface |
+|---|---|---|---|---|
+| single 10 nm at the hold-out | 0.9947 / 1.7 / 2 | 1.0001 / 1.4 / 1 | 0.9941 / 1.4 / 1 | 0.9832 / 2.7 / 2 |
+| 1 nm on the 112-site grid | 0.9964 / 2.4 / 2 | 1.0046 / 2.2 / 2 | 0.9949 / 1.6 / 1 | 0.9838 / 2.9 / 2 |
+| dense random 10 nm | 0.9967 / 180 | 1.0053 / 179 | 0.9950 / 118 | 0.9844 / 223 |
+
+Capture range to 10 % (aging, matrix once on 30 nm): 480 nm + on both rigs,
+grid and single site (holds at the last rung); re-measured matrix on 60-160
+nm: gain 0.9964-0.9965 (lens), 0.9949 (mirror), corr 0.9998-0.9999.
+
+**What it says.**  The heterodyne reading reproduces the IFO's rows on the same
+surface: equal floors on the lens rig and half the floor and half the
+dense-random error on the mirror rig, where the record's snapshot carries the
+mirror rig's polarization cost (I 0.983) and H does not.  **Open, not yet
+isolated:** H sits 0.5 % below unity on BOTH rigs (0.994-0.997, consistent
+across the rows, the ladder and the re-measured matrices), where the brief
+expected 1.000 +- the matrix bias and the same-surface I reads 1.000-1.005 on
+the lens rig.  Candidates to measure before a deck number: the LO placement's
+interpolation, the mask (H takes the LO's camera disc, the record the
+interference frame's support), the frozen-null form.
+
+The deck stage's `flat-DM null` line reads 6.8 nm on H: it is the rms over the
+whole mask, and outside the test pupil the H reading is a constant (no test
+light), so the line measures the pupil's piston against that annulus.  The
+honest in-pupil null is the bench stage's (0.000 / 0.782 nm).
 
 ## What the gate already settled (tCophi, 2026-10-11)
 
