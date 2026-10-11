@@ -4493,6 +4493,21 @@ def calib() -> dict:
             equivalent metrics aren't yet exposed -- Phase 1b).
         ``new_wfe`` (np.ndarray, shape=(n_fov, n_wavelength)):
             Same, AFTER the optimization.
+        ``n_iter`` (int):
+            LM iterations taken (-1: no LM run).  LM stops when two
+            consecutive accepted steps each change the rms merit
+            (sqrt(chisq/rows), target units) by no more than the
+            tolerance (absolute, OptTol / calib_set_tol) AND lower chisq
+            by no more than 1e-6 of it, after ten consecutive
+            rejected trials (the round-off floor), or at the cap.
+        ``merit`` (float):
+            The final LM merit -- the chisq the solve minimises (-1:
+            none).
+        ``stop_reason`` (str):
+            ``'converged'`` (two flat accepted steps), ``'floor'`` (ten
+            rejected trials: the round-off floor), ``'cap'`` (the
+            iteration cap), ``'failed'`` or ``'none'``.  See
+            :func:`calib_stats`, which also reads these after a failed run.
 
     Raises:
         Exception: Rx not loaded, no variable elements defined, no
@@ -4516,7 +4531,27 @@ def calib() -> dict:
         'n_wavelength':  int(n_wl),
         'old_wfe':       old_wfe[:n_fov, :n_wl].copy(),
         'new_wfe':       new_wfe[:n_fov, :n_wl].copy(),
+        **calib_stats(),
     }
+
+
+def calib_stats() -> dict:
+    """Iteration count and final merit of the last CALIB.
+
+    Returns a dict with ``n_iter`` (int: LM iterations taken; -1 when
+    none ran -- no CALIB yet, or it stopped before the solve; the linear
+    SVD path reports its count), ``merit`` (float: the final LM chisq,
+    target units squared summed over fields and wavelengths; -1 when not
+    available) and ``stop_reason`` (``'converged'`` two flat accepted
+    steps, ``'floor'`` ten rejected trials, ``'cap'`` the iteration cap,
+    ``'failed'``, or ``'none'``).  :func:`calib` returns the same keys; this reads them
+    after a FAILED run, which :func:`calib` raises on (the iterations it
+    completed, the merit at its last accepted step).  PLAN_CONSOLIDATION
+    3.3.
+    """
+    n_iter, merit, why = lib.api.calib_stats_get()
+    reason = {1: 'converged', 2: 'floor', 3: 'cap', 4: 'failed'}.get(int(why), 'none')
+    return {'n_iter': int(n_iter), 'merit': float(merit), 'stop_reason': reason}
 
 
 def perturb(srf: int | np.int32,
