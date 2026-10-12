@@ -196,6 +196,12 @@ if isfield(P.cophi, 'diag_mask') && strcmp(P.cophi.diag_mask, 'test')
 end
 opt = struct('N', 4);
 if isfield(P, 'cophi'), opt.N = P.cophi.N; end
+% P.cophi.iq: the LOCK-IN reading (a true I/Q demodulation per sample, no
+% integrating bucket; dmg_cophi_frames opt.iq) -- one sample per reading
+iq = isfield(P, 'cophi') && isfield(P.cophi, 'iq') && P.cophi.iq;
+if iq, opt.iq = true; end
+C.opt_ = opt;  C.iq_ = iq;  C.nfr_ = iff_(iq, 1, opt.N);
+C.fmode_ = 'zero';  if isfield(P.cophi, 'annulus_fill') && ~isempty(P.cophi.annulus_fill), C.fmode_ = P.cophi.annulus_fill; end
 C.phasef = @(M) cophi_phase_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M, Elo_r, opt);
 C.fieldf = @(M) arm_field_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M);   % the test arm's field (probe #1)
 C.framesf = @(M, eo) cophi_frames_(C.fieldf(M), Elo_r, opt, eo);        % the N heterodyne frames (+ electronics terms eo)
@@ -205,7 +211,7 @@ C.p_null = C.phasef(zeros(P.grid.N_G));
 C.measf  = @(M) angle(exp(1i*(C.phasef(M) - C.p_null))) * P.LAM/(4*pi);
 C.reg = R;
 Il_r = sum(abs(Elo_r).^2, 3);  Xr = sum(Et .* conj(Elo_r), 3);  gmap = 2*abs(Xr) ./ max(It + Il_r, eps);
-C.N_ = opt.N;  C.gb_ = median(gmap(mskT)) * sin(pi/opt.N)/(pi/opt.N);   % the BUCKET contrast g' = g sinc(pi/N) (0.9003 g at N = 4)
+C.N_ = opt.N;  C.gb_ = median(gmap(mskT)) * iff_(iq, 1, sin(pi/opt.N)/(pi/opt.N));   % the BUCKET contrast g' = g sinc(pi/N) (0.9003 g at N = 4); I/Q: no bucket
 C.magT = R.magT;  C.frT = R.frT;  C.dxT = R.dxT;   % camera mm -> DM mm, the test grid (the LO drift's phase)
 C.read_frames = @(Fr, al) cophi_read_(Fr, al, mskT, P);   % the reading of an arbitrary frame set (the gate's red legs)
 C.noise_hook = @(S) cophi_noise_(C, P, S);   % LAST: the closure captures C as it stands
@@ -236,7 +242,7 @@ function [Fr, alpha] = cophi_frames_(Et, Elo, opt, eo)
         if isfield(eo, f{1}), o.(f{1}) = eo.(f{1}); end
     end
     rip = 0;  if isfield(eo, 'ripple'), rip = eo.ripple; end
-    if rip == 0
+    if rip == 0 || (isfield(o, 'iq') && o.iq)
         [Fr, alpha] = dmg_cophi_frames(Et, Elo, o);  return
     end
     sd = 0;  if isfield(eo, 'seed'), sd = eo.seed; end
@@ -271,11 +277,12 @@ function NZ = cophi_noise_(C, P, S)
     dev = zeros(size(S.A0));  dev(ic(1), ic(2)) = P.battery.dev_single;
     M0 = S.dmap(S.A0);  M1 = S.dmap(S.A0 + dev);
     E0f = C.fieldf(M0);  E1f = C.fieldf(M1);          % trace the two DM states ONCE
-    fr = @(E, eo) cophi_frames_(E, C.Elo, struct('N', C.N_), eo);
+    fr = @(E, eo) cophi_frames_(E, C.Elo, C.opt_, eo);
     [F0, al] = fr(E0f, struct());  F1 = fr(E1f, struct());
     msk = S.msk;  un = lit;  un(ic(1), ic(2)) = false;
     rd = @(F) dmg_cophi_recon(F, al);
-    ad = @(p1, p0) S.est(meanref_(angle(exp(1i*(p1 - p0))) * lam/(4*pi), msk));
+    fmode = 'zero';  if isfield(P.cophi, 'annulus_fill') && ~isempty(P.cophi.annulus_fill), fmode = P.cophi.annulus_fill; end
+    ad = @(p1, p0) S.est(meanref_(fill_(angle(exp(1i*(p1 - p0))) * lam/(4*pi), C.mskT, msk, fmode), msk));
     % the CONTRAST GATE (brief sec. 3: no fringe -> refused by name, not read):
     % a pixel whose fringe amplitude / dc is below gfrac x the pupil median in
     % EITHER reading reads 0.  Without it, the LO-only annulus inside the mask
@@ -284,7 +291,7 @@ function NZ = cophi_noise_(C, P, S)
     % every actuator as a seed-dependent piston-like pattern (measured
     % 2026-10-11: floors moving 40 % between two otherwise identical benches).
     gfrac = 0.2;  if isfield(P.cophi, 'gate_frac'), gfrac = P.cophi.gate_frac; end
-    adg = @(G1, G0) gated_(G1, G0, al, gfrac, C.mskT, lam, msk, S.est);
+    adg = @(G1, G0) gated_(G1, G0, al, gfrac, C.mskT, lam, msk, S.est, fmode);
     a_clean = ad(rd(F1), rd(F0));
     nmc = fieldnames(P.cophi.cameras);
     say('\n---- noise: the H reading on each camera (single %g nm at (%d,%d), matrix on the surface; %d realizations; model pupil %.0f px across) ----\n', ...
@@ -295,7 +302,7 @@ function NZ = cophi_noise_(C, P, S)
     for c = 1:numel(nmc)
         cam = P.cophi.cameras.(nmc{c});
         k = pf*cam.npix / (2*C.rT);
-        ce = struct('well', cam.well*k^2, 'read', cam.read*k, 'fill', P.cophi.fill);
+        ce = struct('well', cam.well*k^2, 'read', cam.read*k, 'fill', P.cophi.fill, 'iq', C.iq_);
         pk = zeros(nr, 1);  fl = zeros(nr, 1);  fm = zeros(nr, 1);  sph = zeros(nr, 1);
         for r = 1:nr
             [G0, sc] = dmg_cophi_camera(F0, ce, 1000*c + 2*r);
@@ -311,11 +318,12 @@ function NZ = cophi_noise_(C, P, S)
         % the HEADLINE is the floor (rms over every unpoked lit actuator, ~6900 x
         % nr samples); the hold-out sigma from nr draws is the check (+-30 % at 6)
         epf = P.cophi.fill * cam.well;                                  % e- per CAMERA pixel per frame (brightest)
-        phr = N * sum(sum(mean(F0, 3))) * sc;                           % e- per reading, all pixels, both arms
+        if C.iq_, phr = sum(sum(F0(:,:,1))) * sc; else, phr = N * sum(sum(mean(F0, 3))) * sc; end   % e- per reading, all pixels, both arms
         % the formula, at the pupil's median model pixel
-        I0 = mean(F0, 3) * sc;  i0 = median(I0(C.mskT));
-        g = C.gb_;  sform = sqrt(2*(i0 + ce.read^2) / (N * i0^2 * g^2));
-        rate = cam.rate / N;  spm = max(flr^2, 1) / rate;      % seconds for 1 pm, from the FLOOR
+        if C.iq_, I0 = F0(:,:,1) * sc; else, I0 = mean(F0, 3) * sc; end   % I/Q: the dc plane (the mean of [dc I Q] is not I0)
+        i0 = median(I0(C.mskT));
+        g = C.gb_;  sform = sqrt(2*(i0 + ce.read^2) / (C.nfr_ * i0^2 * g^2));
+        rate = cam.rate / C.nfr_;  spm = max(flr^2, 1) / rate;      % seconds for 1 pm, from the FLOOR (I/Q: a reading per sample)
         say('  %-12s %6.0f %8.3g %8.3g %6.0f | %10.3g %9.3g %9.3g | %9.3g %8.3g %9.3g %10.3g\n', nmc{c}, pf*cam.npix, cam.well, cam.read, cam.rate, ...
             epf, phr, mean(sph), sig, flr, rate, spm);
         say('  %-12s   sigma_phi measured / formula = %.3f (median pupil pixel, I0 %.3g e- per model pixel per frame, g'' %.4f)\n', '', mean(sph)/sform, i0, g);
@@ -334,6 +342,13 @@ function NZ = cophi_noise_(C, P, S)
     % and twelve-draw means span +-50 % (measured; the first noise records' walk
     % row read 2.9x low on its seed set).
     Np = C.N_;  dlt = 1e-3;  Qp = cell(1, Np);  Qa = cell(1, Np);
+    if C.iq_
+        % a true I/Q sample has no buckets: a beat / trigger jitter or a fiber phase
+        % during the sample is ONE common phase (a piston, inert on the DM) and an
+        % AOM amplitude ripple changes only |X| -- so to first order all three are
+        % zero in the piston-free metric (stated, not computed)
+        Np = 0;
+    end
     for kf = 1:Np
         th = zeros(1, Np);  th(kf) = dlt;
         Qp{kf} = (det_(C, E0f, th, zeros(1, Np), rd, ad, F0) ) / dlt;     % per unit phase in frame kf
@@ -341,9 +356,11 @@ function NZ = cophi_noise_(C, P, S)
         Qa{kf} = (det_(C, E0f, zeros(1, Np), ep, rd, ad, F0) ) / dlt;     % per unit amplitude in frame kf
     end
     pfv = @(Q) var(Q(un) - mean(Q(un)), 1);
+    if Np == 0, Qp = {zeros(size(lit))};  Qa = Qp; end
     Vj = sum(cellfun(pfv, Qp));                                  % jitter: iid phase per frame
     Vr = sum(cellfun(pfv, Qa));                                  % ripple: iid amplitude per frame
     Vw = 0;  for j = 1:Np-1, Vw = Vw + pfv(sum(cat(3, Qp{j+1:Np}), 3)); end   % walk: increment j shifts frames j+1..N
+    if C.iq_, say('\n  electronics (I/Q, no buckets): jitter / fiber walk = a common phase per sample (piston), ripple = |X| only -> 0 to first order, piston-free\n'); end
     ex = struct('jitter', sqrt(Vj), 'ripple', sqrt(Vr), 'walk', sqrt(Vw));    % mm per unit term, ONE reading
     say('\n  electronics, EXACT expectation per reading (piston-free rms over unpoked lit, per UNIT term): jitter %.4g pm/rad, ripple %.4g pm per unit, walk %.4g pm per rad/frame\n', ...
         1e9*ex.jitter, 1e9*ex.ripple, 1e9*ex.walk);
@@ -417,7 +434,7 @@ function NZ = cophi_noise_(C, P, S)
         [xx, yy] = meshgrid(1:size(msk,1));
         xd = (xx - C.frT.cen) * C.dxT * C.magT;
         th = 1e-9;  ElT = C.Elo .* exp(1i*2*pi/lam*th*xd);
-        [Ft, al2] = dmg_cophi_frames(E0f, ElT, struct('N', C.N_));
+        [Ft, al2] = dmg_cophi_frames(E0f, ElT, C.opt_);
         a = S.est(meanref_(angle(exp(1i*(rd(Ft) - rd(F0)))) * lam/(4*pi), msk));
         % compare like with like: the estimate is in actuator COMMANDS, the LO tilt a
         % SURFACE slope -- a smooth surface plane needs commands smaller by the sum
@@ -439,13 +456,28 @@ function NZ = cophi_noise_(C, P, S)
     NZ = struct('cams', {rows}, 'elec', {erow}, 'elec_exact', ex, 'lo_tilt', lot, 'noise_map', NMAP, 'T_test', C.T_test, 'T_lo', C.T_lo, 'nreal', nr, 'pupil_fill', pf);
 end
 
-function a = gated_(G1, G0, al, gfrac, mskT, lam, msk, est)
+function a = gated_(G1, G0, al, gfrac, mskT, lam, msk, est, fmode)
 %GATED_  the differential of two noisy readings with the contrast gate.
+    if nargin < 9, fmode = 'zero'; end
     [p1, a1, d1] = dmg_cophi_recon(G1, al);  [p0, a0, d0] = dmg_cophi_recon(G0, al);
     c1 = a1 ./ max(d1, eps);  c0 = a0 ./ max(d0, eps);
     ok = c1 > gfrac*median(c1(mskT)) & c0 > gfrac*median(c0(mskT));
-    h = angle(exp(1i*(p1 - p0))) * lam/(4*pi);  h(~ok) = 0;
-    a = est(meanref_(h, msk));
+    h = angle(exp(1i*(p1 - p0))) * lam/(4*pi);
+    a = est(meanref_(fill_(h, ok & msk, msk, fmode), msk));
+end
+
+function h = fill_(h, ok, msk, fmode)
+%FILL_  what the reading reports where there is NO fringe inside the mask (the
+%   LO-only annulus: no test light).  'zero' (the record): 0 -- so a COMMON phase
+%   (a fiber phase, a reference jitter) becomes a pupil-shaped STEP at the pupil's
+%   edge, and the edge actuators fit it.  'median' (2026-10-12): the median of the
+%   fringe pixels -- no information, so no step: a common phase stays uniform over
+%   the whole mask and the mean reference removes it exactly.
+    if strcmp(fmode, 'median')
+        nf = msk & ~ok;  if any(nf(:)) && any(ok(:)), h(nf) = median(h(ok)); end
+    else
+        h(~ok) = 0;
+    end
 end
 
 function LP = cophi_loop_(C, P, S)
@@ -465,8 +497,8 @@ function LP = cophi_loop_(C, P, S)
     [xx, yy] = meshgrid(1:N);
     xd = (xx - C.frT.cen) * C.dxT * C.magT;  yd = (yy - C.frT.cen) * C.dxT * C.magT;
     rr = hypot(xd, yd);  r0 = max(rr(C.mskT));  zdef = sqrt(3)*(2*(rr/r0).^2 - 1);
-    frq = @(E, Elo, eo) cophi_frames_(E, Elo, struct('N', C.N_), eo);
-    rd  = @(F) dmg_cophi_recon(F, alpha_(C.N_));
+    frq = @(E, Elo, eo) cophi_frames_(E, Elo, C.opt_, eo);
+    if C.iq_, rd = @(F) dmg_cophi_recon(F, 'iq'); else, rd = @(F) dmg_cophi_recon(F, alpha_(C.N_)); end
     base = struct('A0', S.A0, 'g', P.loop.g, 'K', P.loop.K, 'seed', P.loop.seed, 'ref', 'noiseless', 'rmax', P.loop.rmax);
     rows = {};
     say('\n---- loop: the hold servo on the H reading (g %.2f, K %d, seed %d; drifts per CYCLE as the record) ----\n', base.g, base.K, base.seed);
@@ -474,8 +506,8 @@ function LP = cophi_loop_(C, P, S)
         cname = LPc.cams{ic};  cam = P.cophi.cameras.(cname);  M = LPc.M.(cname);
         pf = 0.95;  if isfield(P.cophi, 'pupil_fill'), pf = P.cophi.pupil_fill; end
         k = pf*cam.npix / (2*C.rT);
-        ce = struct('well', cam.well*k^2*M, 'read', cam.read*k*sqrt(M), 'fill', P.cophi.fill);
-        tcyc = M * C.N_ / cam.rate;
+        ce = struct('well', cam.well*k^2*M, 'read', cam.read*k*sqrt(M), 'fill', P.cophi.fill, 'iq', C.iq_);
+        tcyc = M * C.nfr_ / cam.rate;
         say('  camera %s: %d readings per cycle -> a cycle every %.2f s (%d frames at %g fps)\n', cname, M, tcyc, M*C.N_, cam.rate);
         for spec = LPc.rows
             sp = spec{1};  o = base;  eo = struct();  lo = struct('tilt', 0, 'defocus', 0);
@@ -526,6 +558,11 @@ function G = noisy_(F, nph, seed, ce, eo, frq, C, P, cam)
     e = eo;  e.seed = seed;
     G = frq(F.E, F.Elo, e);
     if ~isfinite(nph), return; end
+    if isfield(ce, 'iq') && ce.iq
+        % the lock-in sample: dmg_cophi_camera's I/Q noise (a camera DC offset is
+        % rejected by the demodulation: the offset walk does not reach I or Q)
+        G = dmg_cophi_camera(G, ce, 3e5 + seed);  return
+    end
     m = mean(G, 3);  sc = ce.fill * ce.well / max(m(:));
     Fe = G * sc;
     if nargin >= 9 && ~isempty(cam)                     % dmg_loop's offset o + ramp d over the scan, 'rel' units
@@ -544,8 +581,9 @@ function h = diff_(F1, F0, frq, rd, C, lam, msk)
     [p1, a1, d1] = rd(F1);  [p0, a0, d0] = rd(F0);
     c1 = a1 ./ max(d1, eps);  c0 = a0 ./ max(d0, eps);
     ok = c1 > 0.2*median(c1(C.mskT)) & c0 > 0.2*median(c0(C.mskT));
-    h = angle(exp(1i*(p1 - p0))) * lam/(4*pi);  h(~ok) = 0;
-    h = meanref_(h, msk);
+    h = angle(exp(1i*(p1 - p0))) * lam/(4*pi);
+    fm = 'zero';  if isfield(C, 'fmode_'), fm = C.fmode_; end
+    h = meanref_(fill_(h, ok & msk, msk, fm), msk);
 end
 
 function a = conv_est_(S, h, tol)

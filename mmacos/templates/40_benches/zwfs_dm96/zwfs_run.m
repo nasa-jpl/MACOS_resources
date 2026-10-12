@@ -1580,8 +1580,83 @@ for c = 1:nc
         dmg_say(rep, '%-14s sigma ~ %.3g/sqrt(N) pm  ->  N(1 pm) ~ %.2e photons/measurement\n', lab{c}, cc, cc^2);
     end
 end
+% ---- the CAMERA form (2026-10-12, the composite deck's electronics slide; Dave:
+%   assume a polarization camera for the vector ZWFS).  Each reading's frames go
+%   on a named camera: the vector pair V in ONE exposure of a micro-polarizer
+%   camera (P.noise.cam.pol; each image on a quarter of the pixels), the stepped S
+%   (4 frames), the pinhole P (K frames) and the single-frame readings
+%   sequentially on the mono sensor (P.noise.cam.mono).  Binning k = camera pixels
+%   (per orientation) across the pupil / model pixels: well x k^2, read x k; each
+%   image's brightest pixel at fill x well; Poisson + read noise.  The metric is
+%   the PISTON-FREE robust floor over the unpoked lit set (1.48 MAD, median of
+%   draws) -- one reading = differential / sqrt 2 -- and readings per second =
+%   the camera's fps / exposures per reading.  Opt-in; absent = the record.
+camrows = {};
+if isfield(P.noise, 'cam') && ~isempty(P.noise.cam)
+    CM = P.noise.cam;
+    % model pixels across the pupil: the RECORD's pupil (ZW.msk, as dmg_cam_line
+    % reports it -- 157 px at NGRID 193).  An intensity threshold is wrong here: the
+    % ZWFS image's dark dimple structure under-counts the support (it gave 98 px,
+    % i.e. k 1.6x too large and ~2.5x too many photons per model pixel; 2026-10-12)
+    dmod = sqrt(4*nnz(ZW.msk)/pi);
+    mk = @(cm) struct('well', cm.well*(0.95*cm.npix/(1 + (cm.pol ~= 0))/dmod)^2, ...
+        'read', cm.read*(0.95*cm.npix/(1 + (cm.pol ~= 0))/dmod), 'fill', cm.fill, ...
+        'k', 0.95*cm.npix/(1 + (cm.pol ~= 0))/dmod);
+    cp = mk(CM.pol);  cmo = mk(CM.mono);
+    cam1 = @(I, ce, sd) camimg_(I, ce, sd);
+    dmg_say(rep, '\n  CAMERA form: V on %s (k %.2f, one exposure per reading), S / P / single frames on %s (k %.2f, sequential)\n', ...
+        CM.pol.name, cp.k, CM.mono.name, cmo.k);
+    for c = 1:nc
+        rd = cols{c,1};  kc = class_(rd);  pk = zeros(NR,1);  fl = zeros(NR,1);
+        a_cl = [];
+        for r = 1:NR+1
+            sd = 9000 + 10*r;  clean = (r == NR + 1);
+            pick = @(I, ce, o) ifelse_(clean, I, cam1(I, ce, sd + o));
+            switch rd
+                case 'S'
+                    G0 = F0.Fr;  G1 = F1.Fr;
+                    for kk = 1:4, G0(:,:,kk) = pick(F0.Fr(:,:,kk), cmo, kk);  G1(:,:,kk) = pick(F1.Fr(:,:,kk), cmo, 4 + kk); end
+                    d = ZW.stepdiff(ZW.reconS(G1), ZW.reconS(G0));  rate = CM.mono.rate/4;
+                case 'V'
+                    d = ZW.diffV(pick(F1.Ip, cp, 1), pick(F1.Im, cp, 2), pick(F0.Ip, cp, 3), pick(F0.Im, cp, 4));  rate = CM.pol.rate;
+                case 'P'
+                    nfP = size(F0.FP, 3);  G0 = F0.FP;  G1 = F1.FP;
+                    for kk = 1:nfP, G0(:,:,kk) = pick(F0.FP(:,:,kk), cmo, kk);  G1(:,:,kk) = pick(F1.FP(:,:,kk), cmo, nfP + kk); end
+                    d = ZW.PD.P.diff(G1, G0);  rate = CM.mono.rate/nfP;
+                case {'L', 'I', 'F'}
+                    I0_ = pick(F0.Ia, cmo, 1);  I1_ = pick(F1.Ia, cmo, 2);  rate = CM.mono.rate;
+                    if strcmp(rd, 'L'), d = ZW.reconL(I1_) - ZW.reconL(I0_);
+                    elseif strcmp(rd, 'F'), d = ZW.reconI(I1_, [], [], [], 0) - ZW.reconI(I0_, [], [], [], 0);
+                    else, d = ZW.reconI(I1_) - ZW.reconI(I0_); end
+                otherwise
+                    continue
+            end
+            if ~isempty(C.uw) && wrapped_(rd), d = C.uw(d); end
+            a = corrk(C.est{kc}(d), kc);
+            if clean, a_cl = a; continue; end
+            pkm(:,:,r) = a; %#ok<AGROW>
+        end
+        if isempty(a_cl), continue; end
+        for r = 1:NR
+            a = pkm(:,:,r) - a_cl;  a = a - mean(a(lit));
+            pk(r) = a(cfg.hold(1), cfg.hold(2));  fl(r) = 1.4826*median(abs(a(un) - median(a(un))));
+        end
+        clear pkm
+        flrc = median(fl)/sqrt(2)*1e9;  sgh = std(pk)/sqrt(2)*1e9;
+        dmg_say(rep, '  %-6s ONE reading %8.3g pm per actuator (piston-free robust floor; hold-out %.3g pm), %7.3g readings/s -> %8.3g s per pm\n', ...
+            lab{c}, flrc, sgh, rate, max(flrc^2, 1)/rate);
+        camrows(end+1, :) = {lab{c}, flrc, sgh, rate, max(flrc^2, 1)/rate}; %#ok<AGROW>
+    end
+end
 dmg_say(rep, 'noise stage %.1f min\n', toc(t0)/60);
-NO = struct('cols',{lab}, 'nstates',NS, 'nreal',NR, 'sig_pm',sig, 'flr_pm',flr, 'g',gm, 'n_1pm',n1pm);
+NO = struct('cols',{lab}, 'nstates',NS, 'nreal',NR, 'sig_pm',sig, 'flr_pm',flr, 'g',gm, 'n_1pm',n1pm, 'camrows', {camrows});
+end
+
+function G = camimg_(I, ce, seed)
+% one image on a camera (the noise.cam form): the brightest pixel at fill x well,
+% Poisson (Gaussian above 50 e-) + read noise, back in image units
+sc = ce.fill * ce.well / max(I(:));  rs = RandStream('mt19937ar', 'Seed', seed);
+Ie = I * sc;  G = (Ie + sqrt(max(Ie, 0)) .* randn(rs, size(Ie)) + ce.read * randn(rs, size(Ie))) / sc;
 end
 
 % =====================================================================

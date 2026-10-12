@@ -219,6 +219,14 @@ it against 0.408 / 0.392 without (x1.50 laser power for the same well), LO 0.396
 COPHI the polarizing optics buy nothing and cost nothing that matters -- Feng's
 plain splitter is the layout to price, and the deck can say so.
 
+**Electronics, restated under the 'median' annulus fill (RULED 2026-10-12, the COPHI
+reading's convention):** budgets (= the baseline camera's photon floor per reading),
+lens / mirror: beat jitter **3.0e-3 / 2.8e-3 rad per frame**, AOM ripple **1.9e-3 /
+1.8e-3**, differential fiber walk **4.3e-3 / 3.9e-3 rad per frame** (`runs/noiseX_
+{lens,oap}_plain_med`; the 'zero' rows below moved <= 9 %).  The fiber budget in
+engineering units: **0.39-0.43 nm of differential OPD per frame, ~12-13 nm/s, ~1.2-1.3
+mK/s per metre of uncommon fiber** (k_T 1e-5/K, to verify).
+
 **Electronics (campaign sec. 9.1): CORRECTED 2026-10-12 to the exact expectation.**
 Each term is linear and enters as a per-frame offset (a phase offset of the
 interference for beat/trigger jitter and the differential fiber walk; an
@@ -401,6 +409,72 @@ device already does, by 40x.]
 (2) whether the full-well capacity bounds each INTERNAL demodulation sample (the
 1 MSa/s on-chip rate) or the 5.6 kSa/s OUTPUT frame -- the first makes the sensor
 effectively well-free at our fluxes, the second caps it as modelled here.
+
+## The lock-in camera as a READING (2026-10-12): every table, a record
+
+`'cophi.iq',true` (`dmg_cophi_frames` opt.iq / `dmg_cophi_recon` 'iq' /
+`dmg_cophi_camera` cam.iq -- CC-reviewed): a TRUE I/Q sample per reading, no
+integrating bucket, per-sample sigma_phi^2 = 2 (I0 + r^2)/(I0^2 g^2) (the per-pixel
+noise matches it to 0.1 %, every run); the heliCam C4-class sheet (512 sites, 500
+ke well, 1 kHz I/Q; read 0 = `lockin`, 100 e- per sample ASSUMED = `lockin_r`); the
+frame mean capped at 0.5 x the well (one store per sample).  Plain splitter,
+'median' annulus fill.  **Footnote on every lock-in row: x1.11 in sigma for
+square-wave (two-tap) demodulation** (sqrt(pi^2/8); the heliCam steers charge
+between two stores); the vendor question settles it.
+
+**Correction (2026-10-12): the format stage above OVERCOUNTED the lock-in ~3x in
+photons** -- it modelled each 1 kHz sample as four bucket frames, each a full well;
+a true I/Q sample integrates into ONE store.  Its 34 pm / 1.1 s per pm is superseded
+by the rows below.
+
+| table | lock-in, read 0 (read 100 e-) | record |
+|---|---|---|
+| noise: pm per 1 ms sample, s per pm | mirror **57.9 pm, 3.35 s** (63.1, 4.0); lens 61.1, 3.73 (66.1, 4.37) | `runs/lockin_noise_oap_med`, `lockin_noise_lens` |
+| electronics (exact) | jitter / ripple / fiber walk **0** piston-free (a common phase per sample) | same |
+| battery (noise-free) | single / grid / rand10: one-step 0.9941 / 0.9950 / 0.9951, converged **1.0000 / 1.0006 / 1.0005** (= the camera reading's: both exact) | `runs/lockin_battery_oap` |
+| capture | two colours on ALTERNATE samples: **0 wrong orders to 480 nm rms**, 0.12 nm per pixel; temporal unwrapping to **158 um/s** at the peak pixel (1 kHz) | `runs/lockin_capture_oap` |
+| loop, 44 samples per cycle (44 ms) | noise 5.22 (5.32), walk 5.71, thermal 11.4, cam 5.22, LO 29.4, delay (1 cycle = 44 ms, the upper bound) 6.94 | `runs/lockin_loop_oap`, `lockin_loop_oap_r` |
+| loop, 125 samples per cycle (125 ms) | **the 3 pm hold: 3.09 pm** (converged 3.14); one cycle of delay 4.12 | `runs/lockin_loop_oap_m125` |
+
+**So the 3 pm hold: the lock-in in 0.125 s cycles (125 samples), the Photonfocus in 1.6
+s, Feng's baseline in 16 s.**
+
+**For a lock-in the fiber term is a per-sample piston, inert:** the fiber row at the
+budget (3.5e-3 rad per sample) and at 3x reads **5.22 pm = the noise-only hold to the
+digit** (piston-free), against the camera four-bucket's 3.95 pm -> 9.2 pm, whose fiber
+term exists because its four frames are sequential.  (Under the record's 'zero'
+annulus fill the same common phase read 7.3 pm per mrad -- the pupil-edge step;
+`runs/lockin_zerofill`, kept as the must-fail evidence.)
+
+**Well-free rows (ANALYTIC, one store per sample, from the 57.9 pm record):** 1e8
+e-/s/element 92 pm, 8.4 s per pm; as sheeted (capped from 2.5e8) 58 pm, 3.35 s; 1e9
+29 pm, 0.84 s; at the sheet's own 2.5e9 18 pm, 0.34 s; 1e10 9.2 pm, 0.084 s.
+
+## The other gauges on a polarization camera (2026-10-12): "seconds to SNR 1 at 1 pm"
+
+The composite deck's electronics row, through each gauge's OWN reading (CC's request;
+Dave: a polarization camera for the IFO and the vector ZWFS).  Opt-in camera modes
+`tg96_run` `battery.noise_cam` and `zwfs_run` `noise.cam` (records unchanged):
+IMX250MZR class (polarization, 2448 x 2048, 75 fps, **well ~10 ke = the IMX253 pixel,
+UNCONFIRMED; read 2.4 e- ASSUMED**); the stepped ZWFS and the pinhole on the same
+sensor in MONO (my assumption).  Binned onto the model grid, brightest pixel at 0.5
+x well, Poisson + read, the matrix on the 30 nm surface, piston-free robust floor:
+
+| gauge (rig) | reading on the camera | pm per reading | readings/s | **s per pm** | run tag |
+|---|---|---|---|---|---|
+| IFO snapshot (lens) | 4 analyzer frames in ONE polarization exposure | 119 | 75 | **189** | `tg_psi_dm96_oap/runs/camI_lens` |
+| IFO snapshot (mirror) | same | 110 | 75 | **160** | `camI_oap` |
+| stepped ZWFS S (mirror) | 4 sequential mono frames | 94 | 18.8 | **475** | `zwfs_dm96/runs/camS_oap` |
+| vector ZWFS V (mirror) | the pair in ONE polarization exposure | 197 | 75 | **519** | `camS_oap` |
+| pinhole P (mirror) | 4 sequential mono frames | 80 | 18.8 | **342** | `camS_oap` |
+
+The sensors are 10-40x slower than photons-for-1-pm / the sensor's full photon rate:
+that arithmetic assumes every pixel full at every frame, where a ZWFS image's bright
+pixel sets the exposure (its dark structure then wastes well), the fill is 0.5, and
+the polarization camera's two unused orientations are lost.  A first cut of the
+sensor rows used a pupil 98 px across (a threshold the dimple structure fools) where
+the record's is 157 and read 2.5x too many photons (`runs/camS_oap_wrongpupil`,
+withdrawn).
 
 ## Stage figs (2026-10-12): the station figure
 

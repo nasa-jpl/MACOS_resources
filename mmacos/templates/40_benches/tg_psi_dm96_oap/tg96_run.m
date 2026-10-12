@@ -1101,8 +1101,47 @@ if P.battery.noise
     end
 end
 
+% ---- the CAMERA form of the photon row (2026-10-12, the composite deck's
+%   electronics slide: Dave -- assume a polarization camera for the IFO).  The
+%   snapshot's four analyzer frames are taken in ONE exposure on a micro-polarizer
+%   camera, each on a quarter of the pixels (a 2x2 super-pixel); each frame is put
+%   on that camera by binning (k = camera pixels per orientation across the pupil /
+%   model pixels across it: well x k^2, read x k), the frame mean at the brightest
+%   pixel at fill x well, Poisson + read noise; the single dev_single poke at the
+%   hold-out on the working surface, matrix on it (est30), NR draws; the metric is
+%   the PISTON-FREE robust floor over the unpoked lit set (1.48 MAD, median of
+%   draws) and the piston-removed hold-out sigma -- one reading = differential /
+%   sqrt 2.  Readings per second = the camera's fps (one exposure per reading).
+%   Opt-in: battery.noise_cam (a struct: name, npix (short side), well, read,
+%   rate, fill, pol (1 = micro-polarizer)); absent = the record.
+camrow = struct();
+if isfield(P.battery, 'noise_cam') && ~isempty(P.battery.noise_cam)
+    cm = P.battery.noise_cam;  NRc = P.battery.noise_nreal;
+    mskT_ = msk;  if isfield(ctx, 'S0'), It_ = sum(abs(synth(ctx.S0, 0)).^2, 3);  mskT_ = It_ > 0.1*max(It_(:)); end
+    dmod = 2*sqrt(nnz(mskT_)/pi);                                % model pixels across the test pupil
+    k = 0.95*cm.npix/(1 + (cm.pol ~= 0)) / dmod;                 % camera pixels (per orientation) per model pixel
+    ce = struct('well', cm.well*k^2, 'read', cm.read*k, 'fill', cm.fill);
+    Asng = zeros(nact);  Asng(ic(1),ic(2)) = P.battery.dev_single;
+    F0 = frames4_(analyzer_basis(AT, QWP, dmap(A0)),        Sr, THg);
+    F1 = frames4_(analyzer_basis(AT, QWP, dmap(A0 + Asng)), Sr, THg);
+    a_cl = est30(meanref_(fsdiff_(F1, F0, LAM), msk));
+    un = litmask;  un(ic(1),ic(2)) = false;  pkc = zeros(NRc,1);  flc = zeros(NRc,1);
+    for rr = 1:NRc
+        G0 = camframes_(F0, ce, 7000 + 2*rr);  G1 = camframes_(F1, ce, 7001 + 2*rr);
+        a = est30(meanref_(fsdiff_(G1, G0, LAM), msk)) - a_cl;
+        a = a - mean(a(litmask));                                % the reading's piston: inert, unobservable
+        pkc(rr) = a(ic(1),ic(2));  flc(rr) = 1.4826*median(abs(a(un) - median(a(un))));
+    end
+    flr = median(flc)/sqrt(2)*1e9;  sgh = std(pkc)/sqrt(2)*1e9;  rate = cm.rate;  % one exposure per reading
+    camrow = struct('cam', cm, 'k', k, 'floor_pm', flr, 'hold_pm', sgh, 'rate', rate, 's_per_pm', max(flr^2, 1)/rate);
+    say(['\n  CAMERA photon row (%s; %s, k %.2f camera px per model px): the single %g nm at the hold-out on the %g nm surface,\n' ...
+         '    %d draws -> ONE reading %.3g pm per actuator (piston-free robust floor; hold-out %.3g pm), %g readings/s -> %.3g s per pm\n'], ...
+        cm.name, iff_(cm.pol ~= 0, 'micro-polarizer: the four frames in one exposure, a quarter of the pixels each', 'four sequential frames'), ...
+        k, P.battery.dev_single*1e6, P.battery.base_rms*1e6, NRc, flr, sgh, rate, camrow.s_per_pm);
+end
+
 say('deck stage %.1f min\n', toc(t0)/60);
-DK = struct('step_err',se, 'base_rms',P.battery.base_rms, 'ic',ic, 'nlit',nlit, ...
+DK = struct('step_err',se, 'base_rms',P.battery.base_rms, 'ic',ic, 'nlit',nlit, 'camrow', camrow, ...
     'rows',{rows}, 'age',{agerows}, 'gcap',gcap, 'gone',gone, 'cap_ladder',lad, ...
     'r10_age',r10_age, 'r10_one',r10_one, ...
     'recap',{recaprows}, 'recap_surf',recs, 'photons',{photons}, 'lit',litmask, 'noise_ext',noise_ext, ...
@@ -1606,6 +1645,14 @@ for k = 1:nf
     end
     Fn(:,:,k) = In;
 end
+end
+
+function G = camframes_(F, ce, seed)
+% the frames on a camera (the battery.noise_cam row): the brightest pixel's frame
+% MEAN at fill x well, Poisson (Gaussian above 50 e-) + read noise, back in frame units
+m = mean(F, 3);  sc = ce.fill * ce.well / max(m(:));
+rs = RandStream('mt19937ar', 'Seed', seed);
+Fe = F * sc;  G = (Fe + sqrt(max(Fe, 0)) .* randn(rs, size(Fe)) + ce.read * randn(rs, size(Fe))) / sc;
 end
 
 function d = fsdiff_(F1, F0, LAM)

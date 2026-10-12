@@ -14,6 +14,14 @@ function [phi, amp, dc] = dmg_cophi_recon(Fr, alpha)
 %   amp = sqrt(b^2 + c^2) (the fringe amplitude I0 g sinc(D/2)), dc the mean.
 %   Pure MATLAB; the surface is phi * LAM / (4 pi) about a frozen null, as in
 %   dmg_ifo_gauge.  (COPHI campaign, 2026-10-11.)
+%   alpha = 'iq': a lock-in I/Q sample [dc, I, Q] (dmg_cophi_frames opt.iq) is
+%   read directly, phi = atan2(Q, I), amp = hypot(I, Q) = 2|X| (2026-10-12).
+if ischar(alpha) && strcmp(alpha, 'iq')
+    % a lock-in I/Q sample [dc, I, Q] (dmg_cophi_frames opt.iq): no fit, no bucket
+    dc = Fr(:,:,1);  b = Fr(:,:,2);  c = Fr(:,:,3);
+    phi = atan2(c, b);  amp = hypot(b, c);
+    return
+end
 N = numel(alpha);
 assert(size(Fr, 3) == N && N >= 3, 'dmg_cophi_recon: N frames and N phases, N >= 3');
 A = [ones(N,1), cos(alpha(:)), sin(alpha(:))];           % N x 3 design
