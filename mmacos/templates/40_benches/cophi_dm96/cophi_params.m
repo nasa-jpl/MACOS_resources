@@ -40,6 +40,16 @@ P.cophi.walk      = 0;          % rad per frame rms, DIFFERENTIAL fiber-phase wa
 P.cophi.lo_ratio  = 1.0;        % LO power / test power at the camera (g = 2 sqrt(r)/(1+r); 1 = full contrast)
 P.cophi.lo_drift  = struct('tilt_rad', 0, 'defocus_mm', 0);   % the LO arm's wavefront drift PER CYCLE (loop kind 'lo')
 
+% ---- the loop stage (hold at 3 pm at the camera's cadence; cophi_ctx loop hook) ---
+% M readings per cycle so the hold reaches ~3 pm (ss ~ sigma_n sqrt(g/(2-g)) = 0.58 sigma_n at g 0.5;
+% the noise stage's floors 54-58 pm baseline, 37-40 pm Photonfocus -> sigma_n ~5 pm at M 120 / 60).
+P.cophi.loop = struct('cams', {{'baseline', 'photonfocus'}}, ...
+    'M', struct('baseline', 120, 'photonfocus', 60), ...
+    'rows', {{'none', 'walk', 'thermal', 'cam', 'lo', 'fiber1', 'fiber3', 'delay'}}, ...
+    'lo', struct('tilt', 1e-10, 'defocus', 1e-3), ...  % the LO's drift PER CYCLE: tilt rad (DM plane), defocus nm rms OPD (1 urad/cycle is ~24 nm of DM tilt per cycle: the loop just follows it)
+    'fiber', 8e-3, ...                                  % rad/frame: the fiber budget (the noise stage); the loop runs it and 3x
+    'conv_tol', 2e-9);                                  % mm: the converged estimator stops below a 2 pm update
+
 % ---- the cameras (Dave's ruling 3: several, read noise in EVERY comparison) --
 % From NOTE_detectors_survey.md -- VERIFY against the vendor sheet before a number
 % enters a slide (the survey is a web survey).  well = full well e-, read = e- rms

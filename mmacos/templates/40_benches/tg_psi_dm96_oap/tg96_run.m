@@ -967,7 +967,7 @@ say('  flat-DM null: %.4f nm rms surface (%.1f pm)%s\n', std(hn(msk)), 1e3*std(h
     iff_(se~=0, ' [under the step error]', ''));
 
 % ---- the matrix on the 30 nm surface + its estimator ---------------------
-[est30, litmask, ns30, nlit, est30c] = calib_on_(ctx2, cfg, PL, msk, P, h0, P.battery.base_rms);
+[est30, litmask, ns30, nlit, est30c, fwd30] = calib_on_(ctx2, cfg, PL, msk, P, h0, P.battery.base_rms);
 % battery.est_mode: 'onestep' (default; the record) | 'converged' | 'both' (the rows
 % under each, the one-step first -- it must reproduce the record to the digit)
 emode = 'onestep';  if isfield(P.battery, 'est_mode') && ~isempty(P.battery.est_mode), emode = P.battery.est_mode; end
@@ -1015,6 +1015,19 @@ noise_ext = struct();
 if isfield(P.battery, 'noise_ext') && P.battery.noise_ext && isfield(ctx, 'noise_hook') && ~isempty(ctx.noise_hook)
     noise_ext = ctx.noise_hook(struct('est', est30, 'litmask', litmask, 'ic', ic, 'msk', msk, ...
         'dmap', dmap, 'A0', A0, 'say', say, 'LAM', LAM));
+end
+
+% ---- an external reading's HOLD SERVO (COPHI's loop stage, 2026-10-11): the
+%   reading context's loop_hook runs the shared dmg_loop on its own instrument,
+%   on THIS stage's matrix (calibrated on the set point) -- one-step and
+%   converged (est30c_tol: the converged estimator with a per-call tolerance).
+%   Runs only with battery.loop_ext true AND a ctx.loop_hook; absent = the record.
+loop_ext = struct();
+if isfield(P.battery, 'loop_ext') && P.battery.loop_ext && isfield(ctx, 'loop_hook') && ~isempty(ctx.loop_hook)
+    mit = 50;  if isfield(P.battery, 'est_maxit') && ~isempty(P.battery.est_maxit), mit = P.battery.est_maxit; end
+    loop_ext = ctx.loop_hook(struct('est30', est30, 'est30c', est30c, ...
+        'est30c_tol', @(h, tol) dmg_converge(est30, fwd30, h, litmask, tol, mit), ...
+        'litmask', litmask, 'msk', msk, 'dmap', dmap, 'A0', A0, 'say', say, 'LAM', LAM));
 end
 
 % ---- capture range, aging: matrix once on 30 nm, gain vs base rms.  TWO
@@ -1093,10 +1106,10 @@ DK = struct('step_err',se, 'base_rms',P.battery.base_rms, 'ic',ic, 'nlit',nlit, 
     'rows',{rows}, 'age',{agerows}, 'gcap',gcap, 'gone',gone, 'cap_ladder',lad, ...
     'r10_age',r10_age, 'r10_one',r10_one, ...
     'recap',{recaprows}, 'recap_surf',recs, 'photons',{photons}, 'lit',litmask, 'noise_ext',noise_ext, ...
-    'rows_conv',{rows_conv}, 'est_mode',emode);
+    'rows_conv',{rows_conv}, 'est_mode',emode, 'loop_ext',loop_ext);
 end
 
-function [est, litmask, ns, nlit, estc] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_)
+function [est, litmask, ns, nlit, estc, fwd] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_)
 % the measured response matrix built on a base surface of the given rms
 % (seed_base), and the regularized estimator -- mirrors stage_loop_/stage_matrix_.
 % estc (2026-10-11, Dave: regularization driven to CONVERGENCE, not dropped): the

@@ -213,49 +213,93 @@ it against 0.408 / 0.392 without (x1.50 laser power for the same well), LO 0.396
 COPHI the polarizing optics buy nothing and cost nothing that matters -- Feng's
 plain splitter is the layout to price, and the deck can say so.
 
-**Electronics (campaign sec. 9.1), each term alone, noise-free, piston-free floor
-of ONE reading (pm, lens / mirror):**
+**Electronics (campaign sec. 9.1): CORRECTED 2026-10-12 to the exact expectation.**
+Each term is linear and enters as a per-frame offset (a phase offset of the
+interference for beat/trigger jitter and the differential fiber walk; an
+amplitude factor on the LO for AOM ripple), so the noise hook now computes each
+frame's response through the estimator once and takes the expectation from the
+term's covariance -- no Monte Carlo noise (`runs/noiseX_{lens,oap}_plain/`, the
+priced layout).  **The first noise records' walk row (68 / 64 pm at 0.01
+rad/frame) read 2.3x LOW:** a reading's whole walk is three random numbers, so a
+twelve-draw mean spans +-50 % (2000 draws measured), and that seed set happened
+to sit low; the jitter and ripple rows were within sampling.  The loop exposed it
+(its fiber row cost 2.5x the prediction) and two independent forms then agreed
+with the exact value (one reading vs noiseless 146 pm, differential/sqrt 2 139 pm,
+exact 130 pm at 8e-3).  Piston-free error of ONE reading per unit term, lens / mirror:
 
-| term | value | pm |
+| term | pm per unit | **budget = the baseline's photon floor per reading** (57 / 54 pm) |
 |---|---|---|
-| synthesizer / trigger jitter (beat phase per frame) | 1e-3 rad | ~19 / 19 |
-| | 1e-2 rad | 197 / 189 |
-| AOM drive amplitude ripple (rms fraction per frame) | 1e-3 | 24 / 26 |
-| | 1e-2 | 242 / 265 |
-| differential fiber walk within the scan | 0.01 rad/frame | 68 / 64 |
-| | 0.05 rad/frame | 340 / 321 |
+| beat / trigger jitter | 1.96e4 / 1.99e4 pm per rad | **2.9e-3 / 2.7e-3 rad per frame** (a DDS pair is ~1e-4 class) |
+| AOM drive ripple | 3.1e4 / 3.4e4 pm per unit | **1.8e-3 / 1.6e-3 rms per frame** |
+| differential fiber walk | 1.62e4 / 1.60e4 pm per rad/frame | **3.5e-3 / 3.4e-3 rad per frame** (was 8e-3) |
 
-All linear in the term.  So to stay under the baseline's 55 pm photon floor per
-reading: beat-phase jitter < ~3e-3 rad per frame (a DDS pair is ~1e-4 class),
-drive ripple < ~2e-3, fiber walk < ~8e-3 rad per frame (133 ms): **the fiber is
-the term** -- the brief's "row that prices fiber stabilization" -- and a 0.05
-rad/frame fiber (unstabilized) is 6x the photon floor.
+**The fiber budget in engineering units** (CC, 2026-10-11; corrected 2026-10-12).
+The walk is the DIFFERENTIAL phase of the test-arm and LO fibers (their common
+part cancels in the beat), single pass:
 
-**The fiber budget in engineering units** (CC, 2026-10-11; the design statement
-the campaign brief sec. 9.1 asks for).  The walk is the DIFFERENTIAL phase of the
-test-arm and LO fibers (their common part cancels in the beat), single pass:
-
-- 8e-3 rad per frame at 632.8 nm = lambda phi / 2 pi = **0.81 nm of differential
-  fiber OPD per 33 ms frame** (the baseline's 30 fps), i.e. a differential OPD
-  rate of **~24 nm/s**.  (At 0.05 rad/frame, unstabilized: 5 nm per frame, 150 nm/s.)
+- 3.5e-3 rad per frame at 632.8 nm = lambda phi / 2 pi = **0.35 nm of differential
+  fiber OPD per 33 ms frame** (the baseline's 30 fps), a differential OPD rate of
+  **~10.6 nm/s**.  (At 0.05 rad/frame, unstabilized: 5 nm per frame, 150 nm/s, 14x.)
 - Fiber thermal path coefficient k_T = (1/L) d(OPL)/dT = dn/dT + n alpha ~ **1.0e-5
   /K** for fused silica at 633 nm (dn/dT ~ 0.96e-5 /K, Leviton & Frey 2006; n alpha
   ~ 0.08e-5 /K), i.e. ~10 nm per metre per mK; a coated fiber's effective value is
   ~0.7-0.8e-5 /K (Hocker, Appl. Opt. 18, 1445, 1979).  **Both from memory, not yet
   verified against the sources -- check before a slide.**  We use 1.0e-5 /K (the
   stricter of the two).
-- So the budget is a differential temperature RATE of 24 nm/s / (k_T L) = **2.4 mK/s
-  per metre of uncommon fiber**: 2.4 mK/s for 1 m, 0.24 mK/s for 10 m (0.08 mK per
-  frame per metre).
+- So the budget is a differential temperature RATE of 10.6 nm/s / (k_T L) = **~1.1
+  mK/s per metre of uncommon fiber**: 1.1 mK/s for 1 m, 0.11 mK/s for 10 m.
 - The design statement: **the two fibers must be co-routed (the same cable, the
   same thermal path) so that their temperature DIFFERENCE changes by less than
-  ~2.4/L mK per second over the L metres where they differ, or the differential
+  ~1.1/L mK per second over the L metres where they differ, or the differential
   phase must be servoed** (a reference pick-off of the fiber path, the classical
-  heterodyne-metrology fix).  The loop stage's fiber row runs at this budget
-  (8e-3 rad/frame) and at 3x it.
+  heterodyne-metrology fix).
 
 **Trains, carried forward:** the plain splitter is the priced layout; the record's
 polarizing train costs x1.5 laser power and nothing else.
+
+## Stage loop (2026-10-12): the hold servo at the camera's cadence
+
+`cophi_run('stages',{'loop'})`: the shared `dmg_loop` on the H reading, the
+record's loop knobs (g 0.5, K 60, seed 77; walk 2 pm, thermal 5 pm, camera walk
+0.13 per CYCLE), the matrix measured on the 30 nm set point, the plain splitter
+(the priced layout), one-step AND converged.  Each cycle averages M readings so
+the hold reaches ~3 pm (M 120 baseline -> a cycle every 16 s; M 60 Photonfocus ->
+1.6 s), an equivalent camera of well x M and read x sqrt M, the intra-scan terms
+scaled 1/sqrt M (each reading's error is linear in them -- 0.253 w rms phase for
+the walk, measured -- and independent).  New in `dmg_loop`: `opt.delay` (sensor
+delay, gated in tDmgLoop G15) and the piston-free `ss_pf / bias_pf / sig_n_pf`
+beside the record's metric.  Records `runs/loop_{lens,oap}_plain/` (205 min each).
+
+Hold error ss, pm (the record's metric = piston-free on every row but the fiber's;
+one-step -- the converged estimator holds the same to 0.1 pm on every row):
+
+| row | baseline lens / mirror | Photonfocus lens / mirror |
+|---|---|---|
+| noise only | **2.75 / 2.68** | **2.60 / 2.53** |
+| random walk 2 pm/cycle | 3.60 / 3.54 | 3.48 / 3.43 |
+| thermal ramp 5 pm/cycle | 10.3 / 10.3 (the lag rate/gG, every gauge) | 10.3 / 10.3 |
+| camera offset walk | 2.85 / 2.77 (zero-sum: immune) | 2.66 / 2.59 |
+| one cycle of sensor DELAY | 3.65 / 3.55 | 3.44 / 3.35 |
+| LO 0.1 nrad tilt + 1 pm rms defocus per cycle | **29.6 / 29.4** | 29.5 / 29.4 |
+| fiber walk 8e-3 rad/frame (piston-free) | 7.8 / 7.7 | 10.6 / 10.5 |
+| fiber walk 2.4e-2 rad/frame (piston-free) | 22.0 / 21.7 | 31.0 / 30.6 |
+| fiber at the CORRECTED budget 3.5e-3 rad/frame (piston-free) | **4.21 / 4.12** (record metric 6.10 / 5.58) | -- |
+| fiber at 3x the corrected budget (piston-free) | 9.94 / 9.79 (record metric 16.6 / 14.9) | -- |
+
+What it says.  Feng's camera holds 3 pm, but at one cycle per 16 s; the
+Photonfocus holds it 10x faster.  The thermal ramp's 10 pm is the proportional
+loop's lag, the same for every gauge (a faster or higher-gain low-order loop is
+the cure, not light).  A full beat of sensor delay costs ~0.9 pm.  **The LO is a
+term the loop cannot see past: it reads LO drift as DM drift and drives the DM to
+follow it** -- 0.1 nrad of LO tilt per cycle is ~30 pm of hold error, so the LO's
+pointing must hold ~10 prad per cycle (a fiber-tip lateral stability of ~10 pm
+per cycle at F1 857 mm) or be referenced; the brief's 1 urad per cycle would be
+~24 nm of DM tilt per cycle (the run would only show the DM chasing the LO).  The
+fiber walk is ~30-40 % piston (common phase), the rest a real figure term; at the
+corrected budget (`runs/loopfib_*`) it adds as much noise per cycle as the photons
+do, so the hold rises by sqrt 2 (2.7 -> 4.2 pm), exactly the linearity prediction
+(4.1 pm) -- the budget is right, and to keep a 3 pm hold with the fiber in, either
+the fiber is held ~2x tighter than the budget or the cycle averages ~2x longer.
 
 ## The converged estimator (2026-10-11): every gauge's accuracy row, bias removed
 

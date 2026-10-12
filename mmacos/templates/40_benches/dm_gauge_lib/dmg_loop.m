@@ -139,6 +139,8 @@ function L = dmg_loop(ins, opt)
 %   L -- the record (surface units are the instrument's; ZWFS = mm):
 %     .rms      1 x K residual rms over lit at each cycle
 %     .ss       steady-state rms: root mean square of .rms over the last nss cycles
+%     .ss_pf .bias_pf .sig_n_pf   the same with the lit PISTON removed (piston is
+%               inert on a DM; a common-phase term is mostly piston)
 %     .bias     rms over lit of the MEAN residual over the last nss cycles
 %               (noise averages down as 1/sqrt(nss); a bias stays)
 %     .bias_map that mean residual (nact x nact)
@@ -274,6 +276,7 @@ nstates = 1;
 % ---- the loop -----------------------------------------------------------
 cmd = o.A0;  dist = d0;
 rms = nan(1, o.K);  drms = nan(1, o.K);  en = nan(1, o.K);  enu = nan(1, o.K);  crms = nan(1, o.K);
+enp = nan(1, o.K);                                           % single-shot noise with the lit PISTON removed
 R = zeros(nact, nact, o.nss);  nR = 0;                       % residual maps of the tail
 diverged = false;  k_end = o.K;
 est = ins.est;  k_recal = [];                                % the estimator in force
@@ -295,6 +298,7 @@ for k = 1:o.K
     if o.track_noise
         a0 = est(ins.diff(F, Fref));  e = a - a0;
         en(k) = rmsl(e);  un = ~lit;  enu(k) = sqrt(mean(e(un).^2));
+        enp(k) = rmsl(e - mean(e(lit)));
     end
     if o.delay == 0
         cmd = cmd - o.g * a;
@@ -324,6 +328,12 @@ end
 L.ss = sqrt(mean(rms(tail).^2));
 L.bias_map = mean(R, 3);  L.bias = rmsl(L.bias_map);
 ok = ~isnan(en);  L.sig_n = sqrt(mean(en(ok).^2));  L.sig_n_unlit = sqrt(mean(enu(ok).^2));
+% PISTON-FREE companions (COPHI 2026-10-11): the lit set's piston is inert on a DM
+% and unobservable to a phase reading, and a COMMON-phase term (fiber walk) is
+% mostly piston -- the record's .ss/.bias/.sig_n (piston included) are unchanged
+pf = @(m) rmsl(m - mean(m(lit)));
+L.ss_pf = sqrt(mean(arrayfun(@(j) pf(R(:,:,j)), 1:size(R,3)).^2));
+L.bias_pf = pf(L.bias_map);  L.sig_n_pf = sqrt(mean(enp(ok).^2));
 L.r_final = r;  L.cmd = cmd;
 L.surf_rms = rmsl(o.A0 + d0);                                 % the STARTING surface
 L.n_recal = numel(k_recal);  L.k_recal = k_recal;  L.ref_phase = psi;

@@ -1,0 +1,124 @@
+=== TG96 gauge (lens optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "loop_lens_plain"
+
+Stage A -- clearance solve (beam_r 59.0, margin 25, leg cap 700):
+  binding angle 25.63 deg (end bodies 7.20, node 25.63) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  174.0 mm sep -> leg >=   246 mm
+  ref arm vs DM beam          need  144.0 mm sep -> leg >=   204 mm
+  camera leg vs source beam   need  134.0 mm sep -> leg >=   190 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +169.2 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +199.2 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +209.2 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  56.6 -> separation  257.1 mm, margin +133.6 mm (spec >= 25)
+  input polarizer             d  247.1, part r  64.0 -> separation  247.1 mm, margin +116.1 mm (spec >= 25)
+  compensator                 d  200.0, part r  64.0 -> separation  141.4 mm, margin  +10.4 mm (spec >= 25)
+  output QWP                  d  160.0, part r  64.0 -> separation  160.0 mm, margin  +29.0 mm (spec >= 25)
+  analyzer                    d  170.0, part r  64.0 -> separation  170.0 mm, margin  +39.0 mm (spec >= 25)
+  focuser L2                  d  205.0, part r  56.6 -> separation  205.0 mm, margin  +81.4 mm (spec >= 25)
+  1 of 6 node parts under the 25 mm margin; beam radius 59.0, mount +8
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/redo96_lens_tail.mat (null 59.317 nm at opt res; seed 59.317)
+Stage B -- lens rig built (BS_AOI 22.5); emitted loop_lens_plain_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      30.9  
+  L1flat         Refractor        874.4        --  
+  L1pow          Refractor        882.1        --  
+  BSrefl         Reflector       1139.3        --  flat mirror
+  Comptxfd       Refractor       1328.5        --  
+  Comptxbd       Refractor       1338.8        --  
+  TestOptic      Reflector       1578.8      48.0  flat mirror
+  Comptxfu       Refractor       1818.8        --  
+  Comptxbu       Refractor       1829.1        --  
+  BStxfo         Refractor       2018.3        --  
+  BStxbo         Refractor       2028.7        --  
+  Recomb         Reference       2178.7        --  
+  L2pow          Refractor       2233.7        --  
+  L2flat         Refractor       2245.0        --  
+  MaskSubf       Refractor       2660.5        --  
+  MaskSubb       Refractor       2662.5        --  
+  FocalMask      Reference       2663.5        --  
+  FLpow          Refractor       2674.2        --  
+  FLflat         Refractor       2680.1        --  
+  Detector       FocalPlane      2716.9        --  camera (see the sampling budget for the pixel count)
+
+Stage PLACE -- affine window placement (lens rig):
+  ray affine: mag 10.2703 DM-mm/det-mm, det 105.4800, in-plane rotation +180.00 deg, dxd 2.9534e-02 mm -> 3.297 detector px per actuator
+  anchor: blob px (498.26,494.89) <-> DM (-4.620,-5.460) mm; field parity [t=1 su=-1 sv=-1] (ref-poke err 1.05 px)
+  lit actuators: 6948 of 9216
+camera: pupil image 11.34 mm across (384 modeled px at 29.5 um); sCMOS 2048x2048 at 6.50 um -> 1745 raw px across the pupil; binned 4 = 436, and binning 5 = 349 lands nearest the modeled 384
+  snapshot analyzer: polarization sCMOS (micro-polarizer array, 0/45/90/135) at 3.45 um -> 3287 px across the pupil, 1643 per orientation (every 2nd pixel in each direction on the 2x2 superpixel -- N/2 across a line, not N/4); four simultaneous frames, no rotating stage
+  bootstrap (ray affine): 100.00% within 2 px, median 0.51 px (852 of 852 blobs caught)
+  fit residual: affine 0.08 px, deg-2 0.08 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 852 CoMs): fit residual 0.08 px
+  refined pass 2 (deg-1, 852 of 852 caught): fit residual 0.08 px, gate 100.00% within 2 px, median 0.06 px
+  D1 GATE: 100.00% of lit within 2 px (need >= 99.0%), median err 0.06 px
+  by radius (mm):           9.4   18.7   28.1   37.5   46.8 
+    within2px    1.00   1.00   1.00   1.00   1.00 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.00 
+  ray-affine SVD: DM-mm/det-mm 10.270 / 10.270, anamorphism 0.00%, principal axis +90.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map): 100.00% within 2 px -- VACUOUS on the lens (its mapping is axis-aligned)
+
+---- deck: rows on the 30 nm working surface, matrix ON it (four-step) ----
+  flat-DM null: 19.6893 nm rms surface (19689.3 pm)
+  matrix on 30 nm surface (seed 7): 64 states, 6948 lit columns
+  rows: hold-out actuator (62,62); grid = 112 sites (every 8, 4:8:96); g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+  row                          gain     err pm     flr pm      SNR
+  rand30/single10            0.9947        1.7          2  6217.43
+  rand30/grid@1nm            0.9963        2.4          2   422.99
+  rand30/rand10              0.9967      181.4          -        -
+
+---- loop: the hold servo on the H reading (g 0.50, K 60, seed 77; drifts per CYCLE as the record) ----
+  camera baseline: 120 readings per cycle -> a cycle every 16.00 s (480 frames at 30 fps)
+  baseline    none     onestep   ss    2.75 pm  bias   0.86 pm  sig_n    4.72 pm | piston-free: ss    2.75  bias   0.86  sig_n    4.72 pm
+  baseline    none     converged ss    2.80 pm  bias   0.86 pm  sig_n    4.84 pm | piston-free: ss    2.80  bias   0.86  sig_n    4.84 pm
+  baseline    walk     onestep   ss    3.60 pm  bias   1.11 pm  sig_n    4.72 pm | piston-free: ss    3.60  bias   1.11  sig_n    4.72 pm
+  baseline    walk     converged ss    3.63 pm  bias   1.11 pm  sig_n    4.84 pm | piston-free: ss    3.63  bias   1.11  sig_n    4.84 pm
+  baseline    thermal  onestep   ss   10.30 pm  bias   9.97 pm  sig_n    4.72 pm | piston-free: ss   10.30  bias   9.97  sig_n    4.72 pm
+  baseline    thermal  converged ss   10.31 pm  bias   9.96 pm  sig_n    4.84 pm | piston-free: ss   10.31  bias   9.96  sig_n    4.84 pm
+  baseline    cam      onestep   ss    2.85 pm  bias   0.90 pm  sig_n    4.84 pm | piston-free: ss    2.85  bias   0.90  sig_n    4.84 pm
+  baseline    cam      converged ss    2.89 pm  bias   0.90 pm  sig_n    4.96 pm | piston-free: ss    2.89  bias   0.90  sig_n    4.96 pm
+  baseline    lo       onestep   ss   29.55 pm  bias  28.87 pm  sig_n    4.72 pm | piston-free: ss   29.54  bias  28.86  sig_n    4.72 pm
+  baseline    lo       converged ss   29.56 pm  bias  28.87 pm  sig_n    4.84 pm | piston-free: ss   29.55  bias  28.86  sig_n    4.84 pm
+  baseline    fiber1   onestep   ss   12.76 pm  bias   1.84 pm  sig_n   21.77 pm | piston-free: ss    7.78  bias   1.35  sig_n   13.08 pm
+  baseline    fiber1   converged ss   12.81 pm  bias   1.85 pm  sig_n   21.90 pm | piston-free: ss    7.85  bias   1.35  sig_n   13.27 pm
+  baseline    fiber3   onestep   ss   37.49 pm  bias   4.95 pm  sig_n   63.94 pm | piston-free: ss   22.00  bias   3.21  sig_n   36.89 pm
+  baseline    fiber3   converged ss   37.61 pm  bias   4.95 pm  sig_n   64.26 pm | piston-free: ss   22.19  bias   3.21  sig_n   37.39 pm
+  baseline    delay    onestep   ss    3.65 pm  bias   0.89 pm  sig_n    4.72 pm | piston-free: ss    3.65  bias   0.89  sig_n    4.72 pm
+  baseline    delay    converged ss    3.74 pm  bias   0.89 pm  sig_n    4.84 pm | piston-free: ss    3.74  bias   0.89  sig_n    4.84 pm
+  camera photonfocus: 60 readings per cycle -> a cycle every 1.60 s (240 frames at 150 fps)
+  photonfocus none     onestep   ss    2.60 pm  bias   0.82 pm  sig_n    4.46 pm | piston-free: ss    2.60  bias   0.82  sig_n    4.46 pm
+  photonfocus none     converged ss    2.64 pm  bias   0.82 pm  sig_n    4.57 pm | piston-free: ss    2.64  bias   0.82  sig_n    4.57 pm
+  photonfocus walk     onestep   ss    3.48 pm  bias   1.09 pm  sig_n    4.46 pm | piston-free: ss    3.48  bias   1.09  sig_n    4.46 pm
+  photonfocus walk     converged ss    3.51 pm  bias   1.08 pm  sig_n    4.57 pm | piston-free: ss    3.51  bias   1.08  sig_n    4.57 pm
+  photonfocus thermal  onestep   ss   10.27 pm  bias   9.96 pm  sig_n    4.46 pm | piston-free: ss   10.27  bias   9.96  sig_n    4.46 pm
+  photonfocus thermal  converged ss   10.27 pm  bias   9.96 pm  sig_n    4.57 pm | piston-free: ss   10.27  bias   9.96  sig_n    4.57 pm
+  photonfocus cam      onestep   ss    2.66 pm  bias   0.85 pm  sig_n    4.53 pm | piston-free: ss    2.66  bias   0.85  sig_n    4.53 pm
+  photonfocus cam      converged ss    2.71 pm  bias   0.85 pm  sig_n    4.64 pm | piston-free: ss    2.71  bias   0.85  sig_n    4.64 pm
+  photonfocus lo       onestep   ss   29.54 pm  bias  28.88 pm  sig_n    4.46 pm | piston-free: ss   29.53  bias  28.86  sig_n    4.46 pm
+  photonfocus lo       converged ss   29.55 pm  bias  28.88 pm  sig_n    4.57 pm | piston-free: ss   29.54  bias  28.87  sig_n    4.57 pm
+  photonfocus fiber1   onestep   ss   17.82 pm  bias   2.44 pm  sig_n   30.40 pm | piston-free: ss   10.62  bias   1.67  sig_n   17.83 pm
+  photonfocus fiber1   converged ss   17.88 pm  bias   2.44 pm  sig_n   30.56 pm | piston-free: ss   10.72  bias   1.67  sig_n   18.08 pm
+  photonfocus fiber3   onestep   ss   52.95 pm  bias   6.94 pm  sig_n   90.30 pm | piston-free: ss   30.99  bias   4.44  sig_n   51.95 pm
+  photonfocus fiber3   converged ss   53.12 pm  bias   6.94 pm  sig_n   90.75 pm | piston-free: ss   31.26  bias   4.44  sig_n   52.65 pm
+  photonfocus delay    onestep   ss    3.44 pm  bias   0.84 pm  sig_n    4.46 pm | piston-free: ss    3.44  bias   0.84  sig_n    4.46 pm
+  photonfocus delay    converged ss    3.53 pm  bias   0.84 pm  sig_n    4.57 pm | piston-free: ss    3.53  bias   0.84  sig_n    4.57 pm
+
+  capture range (aging: matrix once on 30 nm; gain vs base rms, 112-site grid | single site):
+  base rms    g(grid)     flr pm      SNR | g(1site)     flr pm      SNR
+      30 nm   0.9959         21   463.33 |   0.9947          2  6217.43
+  capture range to 10%: 112-site grid 30 nm + (holds at the last rung) ; single site 30 nm + (holds at the last rung)
+
+  capture range (re-measured: matrix rebuilt on each surface, 1 nm grid row; wrapped-difference):
+  surface        gain     flr pm      SNR     corr states
+deck stage 204.4 min
+
+wrote loop_lens_plain_report.txt + loop_lens_plain.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/cophi_dm96/runs/loop_lens_plain

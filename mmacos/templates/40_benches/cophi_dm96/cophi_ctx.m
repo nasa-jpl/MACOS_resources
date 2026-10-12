@@ -205,7 +205,9 @@ C.measf  = @(M) angle(exp(1i*(C.phasef(M) - C.p_null))) * P.LAM/(4*pi);
 C.reg = R;
 Il_r = sum(abs(Elo_r).^2, 3);  Xr = sum(Et .* conj(Elo_r), 3);  gmap = 2*abs(Xr) ./ max(It + Il_r, eps);
 C.N_ = opt.N;  C.gb_ = median(gmap(mskT)) * sin(pi/opt.N)/(pi/opt.N);   % the BUCKET contrast g' = g sinc(pi/N) (0.9003 g at N = 4)
+C.magT = R.magT;  C.frT = R.frT;  C.dxT = R.dxT;   % camera mm -> DM mm, the test grid (the LO drift's phase)
 C.noise_hook = @(S) cophi_noise_(C, P, S);   % LAST: the closure captures C as it stands
+C.loop_hook  = @(S) cophi_loop_(C, P, S);
 C.test_launch = test_launch;  C.th_pass = th_pass;  C.lo_launch = lo_launch;
 end
 
@@ -311,7 +313,37 @@ function NZ = cophi_noise_(C, P, S)
         say('  %-12s   floor: robust (1.48 MAD, median of draws) %.3g pm; plain std %.3g pm, range over draws %.3g-%.3g pm\n', '', flr, flr_std, frng);
         rows(end+1, :) = {nmc{c}, cam.name, k, epf, phr, mean(sph), sform, sig, flr, rate, spm}; %#ok<AGROW>
     end
-    % ---- electronics: each term alone, noise-free -------------------------
+    % ---- electronics, EXACT expectation (2026-10-12): each term is linear and
+    % enters as a per-FRAME offset -- a phase offset of the interference (beat /
+    % trigger jitter: iid per frame; differential fiber walk: cumulative over the
+    % scan, theta_k = sum_{j<k} g_j) or an amplitude factor on the LO (AOM drive
+    % ripple: iid).  So each frame's response pattern through the estimator is
+    % computed ONCE (a small offset, divided out), and the piston-free error of one
+    % reading follows from the term's covariance: E[var_lit] = sum over independent
+    % draws of var_lit(their pattern).  The Monte Carlo rows below are kept for the
+    % record but are UNDER-SAMPLED: a reading's whole walk is three random numbers,
+    % and twelve-draw means span +-50 % (measured; the first noise records' walk
+    % row read 2.9x low on its seed set).
+    Np = C.N_;  dlt = 1e-3;  Qp = cell(1, Np);  Qa = cell(1, Np);
+    for kf = 1:Np
+        th = zeros(1, Np);  th(kf) = dlt;
+        Qp{kf} = (det_(C, E0f, th, zeros(1, Np), rd, ad, F0) ) / dlt;     % per unit phase in frame kf
+        ep = zeros(1, Np);  ep(kf) = dlt;
+        Qa{kf} = (det_(C, E0f, zeros(1, Np), ep, rd, ad, F0) ) / dlt;     % per unit amplitude in frame kf
+    end
+    pfv = @(Q) var(Q(un) - mean(Q(un)), 1);
+    Vj = sum(cellfun(pfv, Qp));                                  % jitter: iid phase per frame
+    Vr = sum(cellfun(pfv, Qa));                                  % ripple: iid amplitude per frame
+    Vw = 0;  for j = 1:Np-1, Vw = Vw + pfv(sum(cat(3, Qp{j+1:Np}), 3)); end   % walk: increment j shifts frames j+1..N
+    ex = struct('jitter', sqrt(Vj), 'ripple', sqrt(Vr), 'walk', sqrt(Vw));    % mm per unit term, ONE reading
+    say('\n  electronics, EXACT expectation per reading (piston-free rms over unpoked lit, per UNIT term): jitter %.4g pm/rad, ripple %.4g pm per unit, walk %.4g pm per rad/frame\n', ...
+        1e9*ex.jitter, 1e9*ex.ripple, 1e9*ex.walk);
+    ph_floor = NaN;  if ~isempty(rows), ph_floor = rows{1, 9}; end                % the first camera's photon floor, pm
+    for f = {'jitter', 'ripple', 'walk'}
+        say('    %-6s budget (= the %s camera''s photon floor %.3g pm per reading): %.3g %s\n', f{1}, iff_(isempty(rows), '-', rows{1,1}), ph_floor, ...
+            ph_floor/(1e9*ex.(f{1})), iff_(strcmp(f{1}, 'ripple'), 'rms fraction per frame', 'rad per frame'));
+    end
+    % ---- electronics: each term alone, noise-free (Monte Carlo, under-sampled; see above) ---
     el = struct('jitter', [1e-3 1e-2 3e-2], 'ripple', [1e-4 1e-3 1e-2], 'walk', [1e-2 5e-2]);
     if isfield(P.cophi, 'elec') && ~isempty(P.cophi.elec), el = P.cophi.elec; end
     say('\n  electronics (campaign sec. 9.1), each term ALONE, noise-free; the error of ONE reading (rms over %d draws):\n', nr);
@@ -346,7 +378,29 @@ function NZ = cophi_noise_(C, P, S)
     else
         NMAP = [];
     end
-    NZ = struct('cams', {rows}, 'elec', {erow}, 'noise_map', NMAP, 'T_test', C.T_test, 'T_lo', C.T_lo, 'nreal', nr, 'pupil_fill', pf);
+    % the LOOP's form of an electronics term (2026-10-11 cross-check): ONE reading of
+    % the set point with the term against the NOISELESS reading of the same surface
+    % (dmg_loop's e = a - a0), vs the differential form above (two readings, /sqrt 2)
+    if isfield(P.cophi, 'elec_single') && ~isempty(P.cophi.elec_single)
+        say('\n  the loop''s form: ONE reading with the term vs the noiseless reading of the same surface (piston-free std over unpoked lit; %d draws):\n', nr);
+        es = P.cophi.elec_single;
+        for f = fieldnames(es).'
+            for v = es.(f{1})
+                e2 = zeros(nr, 1);  e2d = zeros(nr, 1);
+                for r = 1:nr
+                    eo = struct('seed', 9000 + r);  eo.(f{1}) = v;
+                    H0w = fr(E0f, eo);
+                    a = S.est(meanref_(angle(exp(1i*(rd(H0w) - rd(F0)))) * lam/(4*pi), msk));
+                    e2(r) = std(a(un));
+                    eo.seed = 9500 + r;  H1w = fr(E1f, eo);
+                    ad2 = ad(rd(H1w), rd(H0w)) - a_clean;  e2d(r) = std(ad2(un))/sqrt(2);
+                end
+                say('    %-8s %-9g single-vs-noiseless %8.3g pm (rms of draws %8.3g) | differential/sqrt2 %8.3g pm (rms %8.3g)\n', ...
+                    f{1}, v, mean(e2)*1e9, sqrt(mean(e2.^2))*1e9, mean(e2d)*1e9, sqrt(mean(e2d.^2))*1e9);
+            end
+        end
+    end
+    NZ = struct('cams', {rows}, 'elec', {erow}, 'elec_exact', ex, 'noise_map', NMAP, 'T_test', C.T_test, 'T_lo', C.T_lo, 'nreal', nr, 'pupil_fill', pf);
 end
 
 function a = gated_(G1, G0, al, gfrac, mskT, lam, msk, est)
@@ -356,6 +410,127 @@ function a = gated_(G1, G0, al, gfrac, mskT, lam, msk, est)
     ok = c1 > gfrac*median(c1(mskT)) & c0 > gfrac*median(c0(mskT));
     h = angle(exp(1i*(p1 - p0))) * lam/(4*pi);  h(~ok) = 0;
     a = est(meanref_(h, msk));
+end
+
+function LP = cophi_loop_(C, P, S)
+%COPHI_LOOP_  the hold servo on the H reading: the shared dmg_loop, the record's
+%   loop (P.loop: g, K, seed, walk / thermal / cam), each cycle averaging M
+%   readings on a named camera (equivalent camera: well x M, read x sqrt M; the
+%   intra-scan fiber walk and beat jitter enter scaled 1/sqrt M -- each reading's
+%   error is linear in them and independent), the estimator one-step AND
+%   converged (S.est30 / S.est30c at the cycle's floor).  Rows: noise only, walk,
+%   thermal, cam (camera offset walk), lo (the LO's tilt / defocus per cycle, a
+%   phase on the LO at the camera), fiber walk at the budget and 3x, and one
+%   cycle of SENSOR DELAY (dmg_loop o.delay).  Units: mm in, pm out.
+    say = S.say;  lam = S.LAM;  msk = S.msk;  lit = S.litmask;  N = size(msk, 1);
+    LPc = P.cophi.loop;
+    cnt = cophi_counter();
+    % camera-plane coordinates of the test grid, in DM mm (for the LO drift phase)
+    [xx, yy] = meshgrid(1:N);
+    xd = (xx - C.frT.cen) * C.dxT * C.magT;  yd = (yy - C.frT.cen) * C.dxT * C.magT;
+    rr = hypot(xd, yd);  r0 = max(rr(C.mskT));  zdef = sqrt(3)*(2*(rr/r0).^2 - 1);
+    frq = @(E, Elo, eo) cophi_frames_(E, Elo, struct('N', C.N_), eo);
+    rd  = @(F) dmg_cophi_recon(F, alpha_(C.N_));
+    base = struct('A0', S.A0, 'g', P.loop.g, 'K', P.loop.K, 'seed', P.loop.seed, 'ref', 'noiseless', 'rmax', P.loop.rmax);
+    rows = {};
+    say('\n---- loop: the hold servo on the H reading (g %.2f, K %d, seed %d; drifts per CYCLE as the record) ----\n', base.g, base.K, base.seed);
+    for ic = 1:numel(LPc.cams)
+        cname = LPc.cams{ic};  cam = P.cophi.cameras.(cname);  M = LPc.M.(cname);
+        pf = 0.95;  if isfield(P.cophi, 'pupil_fill'), pf = P.cophi.pupil_fill; end
+        k = pf*cam.npix / (2*C.rT);
+        ce = struct('well', cam.well*k^2*M, 'read', cam.read*k*sqrt(M), 'fill', P.cophi.fill);
+        tcyc = M * C.N_ / cam.rate;
+        say('  camera %s: %d readings per cycle -> a cycle every %.2f s (%d frames at %g fps)\n', cname, M, tcyc, M*C.N_, cam.rate);
+        for spec = LPc.rows
+            sp = spec{1};  o = base;  eo = struct();  lo = struct('tilt', 0, 'defocus', 0);
+            switch sp
+                case 'none'
+                case 'walk',    o.drift = struct('kind', 'walk', 'sigma', P.loop.walk_sigma);
+                case 'thermal', o.drift = struct('kind', 'thermal', 'rate', P.loop.thermal_rate);
+                case 'cam',     o.cam = struct('walk', P.loop.cam_walk, 'intra', P.loop.cam_intra);
+                case 'lo',      lo = LPc.lo;
+                case 'fiber1',  eo.walk = LPc.fiber;          % the budget, rad/frame
+                case 'fiber3',  eo.walk = 3*LPc.fiber;
+                case 'delay',   o.delay = 1;
+                otherwise, error('cophi_loop_: unknown row %s', sp);
+            end
+            if isfield(eo, 'walk'), eo.walk = eo.walk/sqrt(M); end
+            for em = {'onestep', 'converged'}
+                cnt.n = 0;
+                ins = struct('lit', lit, 'npix', N);
+                ins.measure = @(cmd, varargin) meas_(C, S, cmd, cnt, lo, lam, xd, zdef);
+                ins.noisy   = @(F, nph, seed, varargin) noisy_(F, nph, seed, ce, eo, frq, C, P, varargin{:});
+                ins.diff    = @(F1, F0) diff_(F1, F0, frq, rd, C, lam, msk);
+                if strcmp(em{1}, 'onestep'), ins.est = S.est30;
+                else, ins.est = @(h) conv_est_(S, h, LPc.conv_tol); end
+                o.nph = 1;                                      % finite: the camera noise is on
+                L = dmg_loop(ins, o);
+                rows(end+1, :) = {cname, sp, em{1}, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, L.diverged, tcyc, ...
+                    L.ss_pf*1e9, L.bias_pf*1e9, L.sig_n_pf*1e9}; %#ok<AGROW>
+                say('  %-11s %-8s %-9s ss %7.2f pm  bias %6.2f pm  sig_n %7.2f pm | piston-free: ss %7.2f  bias %6.2f  sig_n %7.2f pm%s\n', ...
+                    cname, sp, em{1}, L.ss*1e9, L.bias*1e9, L.sig_n*1e9, L.ss_pf*1e9, L.bias_pf*1e9, L.sig_n_pf*1e9, iff_(L.diverged, '  DIVERGED', ''));
+            end
+        end
+    end
+    LP = struct('rows', {rows});
+end
+
+function F = meas_(C, S, cmd, cnt, lo, lam, xd, zdef)
+%MEAS_  the test field at the DM command (traced) + the LO as it stands at this
+%   measurement (the n-th: the reference is n = 0): tilt (rad, DM-plane) and
+%   defocus (nm rms OPD) advance per measurement.
+    n = cnt.n;  cnt.n = cnt.n + 1;
+    opd = n*(lo.tilt*xd + lo.defocus*1e-6*zdef);       % mm
+    F = struct('E', C.fieldf(S.dmap(cmd)), 'Elo', C.Elo .* exp(1i*2*pi/lam*opd));
+end
+
+function G = noisy_(F, nph, seed, ce, eo, frq, C, P, cam)
+%NOISY_  the frames of one cycle on the camera (+ the electronics terms eo and
+%   the camera offset walk); nph = Inf -> the noiseless frames.
+    e = eo;  e.seed = seed;
+    G = frq(F.E, F.Elo, e);
+    if ~isfinite(nph), return; end
+    m = mean(G, 3);  sc = ce.fill * ce.well / max(m(:));
+    Fe = G * sc;
+    if nargin >= 9 && ~isempty(cam)                     % dmg_loop's offset o + ramp d over the scan, 'rel' units
+        unit = mean(m(C.mskT)) * sc;  nf = size(Fe, 3);
+        for j = 1:nf, Fe(:,:,j) = Fe(:,:,j) + unit*(cam.o + (j-1)/max(nf-1,1)*cam.d); end
+    end
+    rs = RandStream('mt19937ar', 'Seed', 3e5 + seed);
+    Fe = Fe + sqrt(max(Fe, 0)) .* randn(rs, size(Fe)) + ce.read * randn(rs, size(Fe));
+    G = Fe / sc;
+end
+
+function h = diff_(F1, F0, frq, rd, C, lam, msk)
+%DIFF_  the H reading's wrapped differential (contrast-gated), height in mm.
+    if isstruct(F1), F1 = frq(F1.E, F1.Elo, struct()); end
+    if isstruct(F0), F0 = frq(F0.E, F0.Elo, struct()); end
+    [p1, a1, d1] = rd(F1);  [p0, a0, d0] = rd(F0);
+    c1 = a1 ./ max(d1, eps);  c0 = a0 ./ max(d0, eps);
+    ok = c1 > 0.2*median(c1(C.mskT)) & c0 > 0.2*median(c0(C.mskT));
+    h = angle(exp(1i*(p1 - p0))) * lam/(4*pi);  h(~ok) = 0;
+    h = meanref_(h, msk);
+end
+
+function a = conv_est_(S, h, tol)
+    [a, ~] = S.est30c_tol(h, tol);
+end
+
+function al = alpha_(N)
+    D = 2*pi/N;  al = (0:N-1)*D + D/2;
+end
+
+function a = det_(C, E, th, ep, rd, ad, F0)
+%DET_  the reading's actuator error for DETERMINISTIC per-frame offsets: phase
+%   th(k) on the interference and amplitude (1 + ep(k)) on the LO in frame k,
+%   against the clean reading F0 of the same surface.
+    Np = numel(th);  Fr = [];  al = [];
+    for k = 1:Np
+        [Fk, al] = dmg_cophi_frames(E, C.Elo * (1 + ep(k)) * exp(-1i*th(k)), struct('N', Np));
+        if isempty(Fr), Fr = zeros(size(Fk)); end
+        Fr(:,:,k) = Fk(:,:,k);
+    end
+    a = ad(rd(Fr), rd(F0));
 end
 
 function h = meanref_(h, msk)
