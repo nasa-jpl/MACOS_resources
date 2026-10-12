@@ -251,7 +251,7 @@ if want('noise')
     for e = 1:size(NZ.elec, 1)
         say('    %-8s %-8g %9.3g %9.3g\n', NZ.elec{e,1}, NZ.elec{e,2}, NZ.elec{e,3}, NZ.elec{e,4});
     end
-    out.noise = struct('noise', NZ, 'rows', {o.deck.rows});
+    out.noise = struct('noise', NZ, 'rows', {o.deck.rows}, 'rows_conv', {o.deck.rows_conv});
     save([P.tag '_cophi_noise_results.mat'], '-struct', 'out', 'noise');
     say('wall %.1f min\n', toc(t0)/60);
     clear cl cl2
