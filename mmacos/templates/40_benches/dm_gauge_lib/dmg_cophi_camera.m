@@ -15,6 +15,21 @@ function [Fn, scale] = dmg_cophi_camera(Fr, cam, seed)
 %   Pure MATLAB; gate tCophi (1/sqrt(N) scaling, the shot-noise phase formula).
 if nargin >= 3 && ~isempty(seed), rng(seed); end
 fill = 0.5;  if isfield(cam, 'fill') && ~isempty(cam.fill), fill = cam.fill; end
+if isfield(cam, 'iq') && cam.iq
+    % a lock-in I/Q sample [dc, I, Q] (dmg_cophi_frames opt.iq; COPHI 2026-10-12):
+    % the brightest pixel's dc at fill x well electrons per sample (the well caps
+    % it), and the demodulated I and Q each carry var = 2 (I0 + r^2) electrons^2
+    % (continuous demodulation with weights 2 cos / 2 sin of a shot-noise-limited
+    % photon stream; r = cam.read per sample) -- sigma_phi^2 = 2 (I0 + r^2) /
+    % (I0^2 g^2) per sample, no bucket factor.
+    scale = fill * cam.well / max(reshape(Fr(:,:,1), [], 1));
+    Fe = Fr * scale;  s2 = sqrt(2*(max(Fe(:,:,1), 0) + cam.read^2));
+    Fe(:,:,1) = Fe(:,:,1) + sqrt(max(Fe(:,:,1), 0)) .* randn(size(s2));
+    Fe(:,:,2) = Fe(:,:,2) + s2 .* randn(size(s2));
+    Fe(:,:,3) = Fe(:,:,3) + s2 .* randn(size(s2));
+    Fn = Fe;
+    return
+end
 m = mean(Fr, 3);
 scale = fill * cam.well / max(m(:));
 Fe = Fr * scale;

@@ -36,6 +36,12 @@ lit = hypot(ax, ay) <= P.capture.lit_r;            % the control set (the apertu
 dmap = @(A) dm_influence_map(P.grid.N_G, P.grid.DX_G, 'nact', nact, 'pitch', cfg.pitch, 'act', A);
 surf = @(rms_) surf_(nact, lit, P.battery.seed_base, rms_);
 % ---- truth: the engine's OPD per pixel (unwrapped), and its sign vs the reading
+iq = C1.iq_;
+if iq
+    say('  LOCK-IN (I/Q) form: the two colours on ALTERNATE I/Q samples (one sample each), no buckets, no multiplexing\n');
+end
+frames2_ = @(Ca, Cb, M) frames2x_(Ca, Cb, M, iq);
+read2_   = @(F) read2x_(F, iq);
 W0 = C1.opdf(zeros(P.grid.N_G));
 F10 = frames2_(C1, C2, zeros(P.grid.N_G));
 [p10, p20] = read2_(F10);
@@ -57,7 +63,12 @@ for j = 1:numel(lad)
         if c > 1
             cam = P.cophi.cameras.(cams{c});  k = 0.95*cam.npix/(2*C1.rT);
             ce = struct('well', cam.well*k^2, 'read', cam.read*k, 'fill', P.cophi.fill);
-            Fn = dmg_cophi_camera(Fm, ce, 100*j + c);  Fn0 = dmg_cophi_camera(F10, ce, 100*j + c + 50);
+            if iq
+                ce.iq = true;  cn = @(F, sd) cat(3, dmg_cophi_camera(F(:,:,1:3), ce, sd), dmg_cophi_camera(F(:,:,4:6), ce, sd + 7));
+                Fn = cn(Fm, 100*j + c);  Fn0 = cn(F10, 100*j + c + 50);
+            else
+                Fn = dmg_cophi_camera(Fm, ce, 100*j + c);  Fn0 = dmg_cophi_camera(F10, ce, 100*j + c + 50);
+            end
         end
         [q1, q2] = read2_(Fn);  [q10, q20] = read2_(Fn0);
         d1 = angle(exp(1i*(q1 - q10)));  d2 = angle(exp(1i*(q2 - q20)));
@@ -70,10 +81,12 @@ for j = 1:numel(lad)
     end
 end
 % ---- crosstalk: each colour read from the multiplexed frames vs alone --------
+if ~iq
 Fa = frames_one_(C1, dmap(surf(lad(1))), 4, 2);  Fb = frames_one_(C2, dmap(surf(lad(1))), 8, 1);
 [pa, ~] = read2_(Fa + Fb);  pA = dmg_cophi_recon(Fa, al_(4, 2));
 say('  multiplexing crosstalk (colour 1 read from both colours'' frames vs from its own alone): %.3g rad rms\n', ...
     sqrt(mean(angle(exp(1i*(pa(msk) - pA(msk)))).^2)));
+end
 % ---- (a) temporal unwrapping --------------------------------------------------
 sh = surf(30e-6);  Ms = dmap(sh);  hsh = truth(Ms);  pk = max(abs(hsh(msk) - mean(hsh(msk))));
 say('\n  temporal unwrapping: a drifting surface (the 30 nm shape, %.3g nm peak), %d readings, the step per reading as a fraction of lambda/4 at the PEAK pixel:\n', pk*1e6, P.capture.nseq);
@@ -92,7 +105,7 @@ for fr = P.capture.temporal_frac
 end
 rates = {};
 for c = P.capture.cams
-    cam = P.cophi.cameras.(c{1});  rr = cam.rate/C1.N_;
+    cam = P.cophi.cameras.(c{1});  rr = cam.rate/C1.nfr_;
     rates(end+1, :) = {c{1}, rr, lam1/4*rr}; %#ok<AGROW>
     say('    %-11s %6.2f readings/s -> temporal unwrapping holds to a drift of %.3g um/s at the peak pixel (%.3g um/s of rms for this shape)\n', ...
         c{1}, rr, lam1/4*rr*1e3, lam1/4*rr*1e3 * std(hsh(msk))/pk);
@@ -120,13 +133,24 @@ function F = frames_one_(C, M, Nb, reps)
     [Fb, ~] = dmg_cophi_frames(C.fieldf(M), C.Elo, struct('N', Nb));
     F = repmat(Fb, 1, 1, reps);
 end
-function F = frames2_(C1, C2, M)
-% the two colours on the same 8 frames: colour 1 at 4 frames per beat (two beats),
-% colour 2 at 8 frames per beat (one beat); intensities add (the colours do not interfere)
-    F = frames_one_(C1, M, 4, 2) + frames_one_(C2, M, 8, 1);
+function F = frames2x_(C1, C2, M, iq)
+% the two colours: on the same 8 frames (colour 1 at 4 frames per beat, two beats;
+% colour 2 at 8 per beat; intensities add -- the colours do not interfere), or, for
+% the lock-in (iq), ONE I/Q sample of each colour on alternate samples, stacked
+    if iq
+        [A, ~] = dmg_cophi_frames(C1.fieldf(M), C1.Elo, C1.opt_);
+        [B, ~] = dmg_cophi_frames(C2.fieldf(M), C2.Elo, C2.opt_);
+        F = cat(3, A, B);
+    else
+        F = frames_one_(C1, M, 4, 2) + frames_one_(C2, M, 8, 1);
+    end
 end
-function [p1, p2] = read2_(F)
-    p1 = dmg_cophi_recon(F, al_(4, 2));  p2 = dmg_cophi_recon(F, al_(8, 1));
+function [p1, p2] = read2x_(F, iq)
+    if iq
+        p1 = dmg_cophi_recon(F(:,:,1:3), 'iq');  p2 = dmg_cophi_recon(F(:,:,4:6), 'iq');
+    else
+        p1 = dmg_cophi_recon(F, al_(4, 2));  p2 = dmg_cophi_recon(F, al_(8, 1));
+    end
 end
 function a = al_(Nb, reps)
 % the bucket centres of a colour with Nb buckets per beat over reps beats

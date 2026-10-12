@@ -56,6 +56,29 @@ classdef tCophi < matlab.unittest.TestCase
         end
     end
     methods (Test)
+        function G9_lockin_iq_sample(tc)
+            % the LOCK-IN reading (opt.iq, 2026-10-12): a true I/Q sample, no bucket --
+            % exact noise-free; per-sample shot + read noise sigma_phi^2 = 2 (I0 + r^2)
+            % / (I0^2 g^2) within 3 %; a reference-phase jitter is a COMMON phase
+            % (piston-free error 0); the bucket path is unchanged
+            [Et, Elo, phi] = tCophi.fields(96, 4);
+            [F, al] = dmg_cophi_frames(Et, Elo, struct('iq', true));
+            tc.verifyEqual(al, 'iq');  tc.verifyEqual(size(F, 3), 3);
+            p = dmg_cophi_recon(F, al);
+            tc.verifyLessThan(max(abs(angle(exp(1i*(p(:) - phi(:)))))), 1e-12);
+            n = 96;  Eu = exp(1i*phi);  Lu = ones(n);  [Fu, ~] = dmg_cophi_frames(Eu, Lu, struct('iq', true));
+            cam = struct('well', 2e5, 'read', 50, 'fill', 0.5, 'iq', true);
+            I0 = cam.fill*cam.well;  e = zeros(20, 1);
+            for sd = 1:20
+                pn = dmg_cophi_recon(dmg_cophi_camera(Fu, cam, sd), 'iq');  d = angle(exp(1i*(pn - phi)));  e(sd) = std(d(:));
+            end
+            tc.verifyEqual(sqrt(mean(e.^2)), sqrt(2*(I0 + cam.read^2))/I0, 'RelTol', 0.03);
+            [Fj, ~] = dmg_cophi_frames(Et, Elo, struct('iq', true, 'jitter', 0.3, 'seed', 5));
+            d = angle(exp(1i*(dmg_cophi_recon(Fj, 'iq') - phi)));
+            tc.verifyLessThan(std(d(:) - mean(d(:))), 1e-12, 'jitter = a common phase');
+            [F4, a4] = dmg_cophi_frames(Et, Elo, struct('N', 4));
+            tc.verifyLessThan(max(abs(angle(exp(1i*(reshape(dmg_cophi_recon(F4, a4), [], 1) - phi(:)))))), 1e-12);
+        end
         function G1_four_bucket_exact_and_equals_atan2(tc)
             [Et, Elo, phi] = tCophi.fields(16, 1);
             [Fr, alpha] = dmg_cophi_frames(Et, Elo, struct('N', 4));

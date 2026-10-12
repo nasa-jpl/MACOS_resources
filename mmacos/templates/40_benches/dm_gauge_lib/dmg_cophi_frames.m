@@ -31,6 +31,13 @@ function [Fr, alpha, info] = dmg_cophi_frames(Et, Elo, opt)
 %               closed form is used when jitter = walk = drift = 0)
 %   info returns the per-frame applied jitter (.dk), walk (.wk) and the
 %   contrast factor sinc(D/2) (.cbucket).
+%     .iq       true: a TRUE I/Q demodulation (a lock-in pixel), NOT buckets --
+%               no integrating bucket at all (contrast factor 1).  Returns ONE
+%               sample as three planes [dc, I, Q] with I = 2 Re(X e^{-i e}),
+%               Q = 2 Im(X e^{-i e}), dc = I0, where e is the sample's phase
+%               error (jitter + walk + drift draws: a COMMON phase, a piston),
+%               and alpha = 'iq' (dmg_cophi_recon reads it as atan2(Q, I)).
+%               Shot noise is dmg_cophi_camera's (cam.iq).  (COPHI 2026-10-12.)
 %
 %   The LO's WAVEFRONT (tilt / defocus per cycle) is bench-side: it is in Elo
 %   as the engine traces the LO arm; this routine is the detector physics
@@ -47,6 +54,14 @@ a0  = (0:N-1)*D;                        % bucket starts
 dk  = jit  * randn(1, N);               % trigger jitter per frame
 wk  = cumsum([0, walk*randn(1, N-1)]) + drift*(0:N-1);   % fiber walk + ramp
 alpha = a0 + D/2;                       % the nominal bucket centres
+if getf(opt, 'iq', false)
+    I0 = sum(abs(Et).^2 + abs(Elo).^2, 3);  X = sum(Et .* conj(Elo), 3);
+    e  = jit*randn + walk*randn + drift;     % one sample: one common phase error
+    Xe = X .* exp(-1i*e);
+    Fr = cat(3, I0, 2*real(Xe), 2*imag(Xe));  alpha = 'iq';
+    info = struct('dk', e, 'wk', 0, 'cbucket', 1, 'D', NaN);
+    return
+end
 % the two arms' intensities and the interference term, summed over components
 I0  = sum(abs(Et).^2 + abs(Elo).^2, 3);
 X   = sum(Et .* conj(Elo), 3);          % |Et||Elo| exp(i phi)

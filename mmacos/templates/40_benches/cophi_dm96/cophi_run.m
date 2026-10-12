@@ -44,6 +44,15 @@ end
 addpath(exdir);
 P = cophi_params();                          % adds tg_psi_dm96_oap + dm_gauge_lib
 P = apply_overrides_(P, varargin{:});
+% the LOCK-IN reading (P.cophi.iq): its cameras replace the bucket cameras in every
+% stage (noise, loop, capture), at its own samples-per-cycle
+if isfield(P.cophi, 'iq') && P.cophi.iq
+    lk = fieldnames(P.cophi.lockin_cams).';
+    P.cophi.cameras = P.cophi.lockin_cams;
+    if ~all(ismember(P.capture.cams, lk)),    P.capture.cams = lk; end     % keep a lock-in subset given on the call line
+    if ~all(ismember(P.cophi.loop.cams, lk)), P.cophi.loop.cams = lk; end
+    P.cophi.loop.M = P.cophi.lockin_M;
+end
 % the bench OF RECORD: the deck's IFO rows (redo96_lens / redo96_oap) ran on the
 % redo tails, so COPHI names them explicitly (tg96_run bench.tail_file)
 if ~isfield(P.bench, 'tail_file') || isempty(P.bench.tail_file)

@@ -76,6 +76,28 @@ P.cophi.fill      = 0.5;          % frame MEAN at this fraction of the well (fri
 % ---- wavelength (ruling 2): run the record at 632.8; 1.3 um is a STAGE (InGaAs, refocused tail)
 P.cophi.lam_rows  = [6.328e-4];   % mm; add 1.319e-3 for the SIM-MET-class row (needs 'cred2' + tail refocus)
 
+% ---- the lock-in camera as a READING (P.cophi.iq; CC 2026-10-12: in every results
+% table beside Feng's camera and the Photonfocus): the heliCam C4-class sheet -- 512
+% sites across the pupil (5.3 per actuator), 500 ke well, I/Q out at 1 kHz; a TRUE I/Q
+% sample per reading (no integrating bucket, contrast factor 1; dmg_cophi_frames
+% opt.iq), per-sample sigma_phi^2 = 2 (I0 + r^2)/(I0^2 g^2).  Read noise is not
+% stated on the sheet: run at 0 and at an ASSUMED 100 e- per sample.  The flux is
+% well-capped (the frame mean at fill x well) -- the record; the well-free rows stay
+% analytic (the format stage).  cophi_run swaps these in for P.cophi.cameras when
+% P.cophi.iq is set.
+P.cophi.iq = false;
+% the reading's convention where there is NO fringe inside the mask (the LO-only
+% annulus, no test light) -- RULED 2026-10-12 (CC/Dave): 'median' (the fringe pixels'
+% median: no information, no step; a common phase stays a piston) is the COPHI
+% reading's convention, both forms.  'zero' is the earlier records' (a common phase
+% then becomes a pupil-edge step the edge actuators fit: runs/lockin_zerofill; the
+% bucket's electronics rows move <= 9 % between the two).
+P.cophi.annulus_fill = 'median';
+P.cophi.lockin_cams = struct( ...
+    'lockin',   struct('name', 'heliCam C4 class lock-in: 512 sites, 500 ke, 1 kHz I/Q (survey rank 1, UNVERIFIED), read 0', 'npix', 512/0.95, 'well', 500e3, 'read', 0,   'rate', 1e3, 'pitch_um', NaN), ...
+    'lockin_r', struct('name', 'the same, read 100 e- per sample ASSUMED', 'npix', 512/0.95, 'well', 500e3, 'read', 100, 'rate', 1e3, 'pitch_um', NaN));
+P.cophi.lockin_M = struct('lockin', 44, 'lockin_r', 44);   % I/Q samples per loop cycle: 44 was sized on the format stage's overcounted 34 pm and holds 5.2 pm; the 3 pm hold is 125 (runs/lockin_loop_oap_m125: 3.09 pm)
+
 % ---- the second sensor class (Dave's ruling 6, 2026-10-11: FULL actuator resolution, no
 % low-order forms -- EFC probes are commanded at the full lattice).  A well-free (continuous
 % or lock-in) reading at >= 1 element per actuator, ASSUMED to exist at 1:1 or better with the
