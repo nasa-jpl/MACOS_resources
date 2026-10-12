@@ -281,16 +281,16 @@ one-step -- the converged estimator holds the same to 0.1 pm on every row):
 
 | row | baseline lens / mirror | Photonfocus lens / mirror |
 |---|---|---|
-| noise only | **2.75 / 2.68** | **2.60 / 2.53** |
-| random walk 2 pm/cycle | 3.60 / 3.54 | 3.48 / 3.43 |
+| noise only | **2.75 / 2.67** | **2.60 / 2.52** |
+| random walk 2 pm/cycle | 3.60 / 3.53 | 3.48 / 3.43 |
 | thermal ramp 5 pm/cycle | 10.3 / 10.3 (the lag rate/gG, every gauge) | 10.3 / 10.3 |
-| camera offset walk | 2.85 / 2.77 (zero-sum: immune) | 2.66 / 2.59 |
-| one cycle of sensor DELAY | 3.65 / 3.55 | 3.44 / 3.35 |
-| LO 0.1 nrad tilt + 1 pm rms defocus per cycle | **29.6 / 29.4** | 29.5 / 29.4 |
-| fiber walk 8e-3 rad/frame (piston-free) | 7.8 / 7.7 | 10.6 / 10.5 |
-| fiber walk 2.4e-2 rad/frame (piston-free) | 22.0 / 21.7 | 31.0 / 30.6 |
-| fiber at the CORRECTED budget 3.5e-3 rad/frame (piston-free) | **4.21 / 4.12** (record metric 6.10 / 5.58) | -- |
-| fiber at 3x the corrected budget (piston-free) | 9.94 / 9.79 (record metric 16.6 / 14.9) | -- |
+| camera offset walk | 2.85 / 2.77 (zero-sum: immune) | 2.66 / 2.60 |
+| one cycle of sensor DELAY | 3.65 / 3.54 | 3.44 / 3.36 |
+| LO 0.1 nrad tilt + 1 pm rms defocus per cycle | **29.6 / 29.4** | 29.5 / 29.3 |
+| fiber walk 8e-3 rad/frame (piston-free; lens only on the fixed feed) | 7.8 / -- | 10.6 / -- |
+| fiber walk 2.4e-2 rad/frame (piston-free; lens only on the fixed feed) | 22.0 / -- | 31.0 / -- |
+| fiber at the CORRECTED budget 3.5e-3 rad/frame (piston-free) | **4.21 / 3.95** (record metric 6.10 / 5.35) | -- / **4.84** |
+| fiber at 3x the corrected budget (piston-free) | 9.94 / 9.16 (record metric 16.6 / 14.2) | -- / 12.65 |
 
 What it says.  Feng's camera holds 3 pm, but at one cycle per 16 s; the
 Photonfocus holds it 10x faster.  The thermal ramp's 10 pm is the proportional
@@ -361,9 +361,9 @@ has no plate, so carried over it fed OAP1 off its focus (an 84 nm DEFOCUS null).
 `cophi_run` now sets SRC_TRIM 0 for the plain mirror rig (null 0.746 nm).  Rerun
 on the fixed feed: capture identical, the exact-noise floor 54.1 -> 53.2 pm, walk
 budget 3.4e-3 -> 3.6e-3 rad/frame (`runs/oap_plain_misfed/` keeps the old).  The
-plain-mirror LOOP rows (`runs/loop_oap_plain`, `loopfib_oap_plain`) were run on the
-mis-fed collimator; all differential, they agree with the lens rig to 1-3 % and are
-not rerun.
+plain-mirror LOOP was RERUN on the fixed feed (2026-10-12, `runs/loop_oap_plain`,
+205.7 min, its fiber rows at the corrected budget): every row within ~0.02 pm of the
+mis-fed run (`runs/oap_plain_misfed/` keeps it), the table above is the fixed feed.
 
 ## Stage format (2026-10-12): the lock-in class (Dave's ruling 6)
 
