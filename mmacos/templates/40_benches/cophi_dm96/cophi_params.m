@@ -50,6 +50,14 @@ P.cophi.loop = struct('cams', {{'baseline', 'photonfocus'}}, ...
     'fiber', 8e-3, ...                                  % rad/frame: the fiber budget (the noise stage); the loop runs it and 3x
     'conv_tol', 2e-9);                                  % mm: the converged estimator stops below a 2 pm update
 
+% ---- the capture stage (campaign brief sec. 9.2; cophi_capture) ---------------
+P.capture = struct('dlam', 20e-6, ...                    % mm: lambda_2 - lambda_1 (Lambda ~ 20 um at 633)
+    'ladder', P.battery.cap_ladder, ...                  % the battery's capture ladder, surface rms (mm)
+    'cams', {{'baseline', 'photonfocus'}}, ...
+    'lit_r', 47, ...                                     % mm: the control set (aperture 48 - lit_margin 1)
+    'nseq', 6, 'temporal_frac', [0.5 0.9 1.1 1.5], ...   % temporal unwrapping: readings, step / (lambda/4) at the peak pixel
+    'lam_ir', 1.319e-3, 'dlam_table', [1 20 100]*1e-6);  % the arithmetic table: the 1.3 um row; dlam (mm)
+
 % ---- the cameras (Dave's ruling 3: several, read noise in EVERY comparison) --
 % From NOTE_detectors_survey.md -- VERIFY against the vendor sheet before a number
 % enters a slide (the survey is a web survey).  well = full well e-, read = e- rms
@@ -84,4 +92,5 @@ P.format.lockin   = struct('name', 'heliCam C4 class (lock-in camera; survey ran
                            'sites', 512, 'pitch_um', 24, 'f_beat_hz', 10e3, 'rate_hz', 1e3, ...
                            'well', 500e3, 'bits_out', 10, 'read', NaN, 'flux_e_per_s', 2.5e9);
 P.format.npix     = [];                   % camera formats below 1:1 are NOT run (ruling 6)
+P.format.flux     = [1e8 1e9 1e10 1e11];  % e- per element per second: the sweep (the deck's axis)
 end

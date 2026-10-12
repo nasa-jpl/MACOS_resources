@@ -57,6 +57,14 @@ if strcmp(P.bench.optics, 'oap') && P.cophi.oap_record
     % these on the call line still wins (it is applied after).
     P.bench.POL_IN = 'source';  P.bench.D_RC_L2 = 125;
     P.oap.OAP1_AOI = 20;  P.oap.OAP2_AOI = 25;  P.oap.OAP1_SIDE = 1;  P.oap.OAP2_SIDE = -1;
+    if isfield(P.bench, 'polarizing') && ~P.bench.polarizing
+        % the PLAIN splitter has no input-polarizer plate in the diverging source
+        % leg, and the record's P.oap.SRC_TRIM (-0.37 mm) was solved WITH that plate
+        % in: carried over, it feeds OAP1 off its focus and the test beam carries
+        % ~84 nm of defocus against the collimated LO (the flat-DM null; measured
+        % 2026-10-12).  A parabola fed at its focus needs no trim.
+        P.oap.SRC_TRIM = 0;
+    end
     P = apply_overrides_(P, varargin{:});
 end
 if isempty(P.outdir), P.outdir = fullfile(exdir, 'runs', P.tag); end
@@ -97,6 +105,38 @@ if want('report')
     clear cl cl2
 end
 
+if want('figs')
+    % ---- the station figure (deck format), noise-free -------------------------
+    Pt = P;  Pt.stages = {'bench'};
+    o  = tg96_run(Pt);
+    oldcd = cd(P.outdir);  cl = onCleanup(@() cd(oldcd));
+    rep = fopen([P.tag '_cophi_report.txt'], 'a');  cl2 = onCleanup(@() fclose(rep));
+    say = @(varargin) say_(rep, varargin{:});
+    say('\n=== COPHI station figure (%s rig, %s) ===\n', P.bench.optics, ...
+        iff_(isfield(P.bench,'polarizing') && ~P.bench.polarizing, 'the plain splitter', 'the record''s polarizing train'));
+    addpath(fullfile(exdir, '..', '..', '90_polarization', 'tg_psi_dm'));   % dm_influence_map
+    cophi_figs(P, o.bench.G, say, [P.tag '_stations.png']);
+    clear cl cl2
+end
+
+if want('capture')
+    % ---- the capture stage: from cold (temporal unwrapping; two colours) ------
+    tb = tic;
+    Pt = P;  Pt.stages = {'bench'};
+    o  = tg96_run(Pt);
+    oldcd = cd(P.outdir);  cl = onCleanup(@() cd(oldcd));
+    rep = fopen([P.tag '_cophi_report.txt'], 'a');  cl2 = onCleanup(@() fclose(rep));
+    say = @(varargin) say_(rep, varargin{:});
+    say('\n=== COPHI capture (%s rig, %s) ===\n', P.bench.optics, ...
+        iff_(isfield(P.bench,'polarizing') && ~P.bench.polarizing, 'the plain splitter', 'the record''s polarizing train'));
+    addpath(fullfile(exdir, '..', '..', '90_polarization', 'tg_psi_dm'));   % dm_influence_map
+    CP = cophi_capture(P, o.bench.G, say);
+    out.capture = CP;
+    save([P.tag '_cophi_capture_results.mat'], '-struct', 'out', 'capture');
+    say('wall %.1f min\n', toc(tb)/60);
+    clear cl cl2
+end
+
 if want('loop')
     % ---- the loop stage: the hold servo on the H reading (cophi_ctx loop hook,
     % tg96_run hands it the set point's matrix); the record's loop knobs, the
@@ -120,6 +160,64 @@ if want('loop')
     end
     out.loop = LP;
     save([P.tag '_cophi_loop_results.mat'], '-struct', 'out', 'loop');
+    say('wall %.1f min\n', toc(t0)/60);
+    clear cl cl2
+end
+
+if want('format')
+    % ---- the format stage (Dave's ruling 6): the well-free lock-in class at >= 1:1
+    % pitch, ASSUMED to exist, scored on cadence and photons per element.  Each
+    % flux is a 'camera' to the noise hook: P.format.lockin.sites across the pupil,
+    % well = 2 x the electrons per element per I/Q sample (the frame mean = the
+    % flux per sample), no read noise, a reading per I/Q sample; the phasemeter
+    % floor (rad per sample per element) is added in quadrature through the same
+    % per-pixel-to-actuator noise gain the photon rows show.
+    tb = tic;
+    L = P.format.lockin;  cams = struct();
+    fl = P.format.flux;
+    if isfield(L, 'flux_e_per_s') && ~isempty(L.flux_e_per_s), fl = unique([fl, L.flux_e_per_s]); end   % + the device's own
+    P.format.flux = fl;
+    for f = fl
+        nm = sprintf('lockin_%.0e', f);  nm = strrep(strrep(nm, '+', ''), '.', 'p');
+        % the per-sample electrons are the flux x the sample time, CAPPED by the
+        % element's well when the sheet carries one (a lock-in pixel integrates on chip)
+        eps_ = f/L.rate_hz;  capped = isfield(L, 'well') && ~isempty(L.well) && isfinite(L.well) && eps_ > P.cophi.fill*2*L.well/2;
+        if capped, eps_ = L.well/2; end
+        cams.(nm) = struct('name', sprintf('lock-in %d sites, %.0e e-/s/element, %g kHz I/Q%s', L.sites, f, L.rate_hz/1e3, iff_(capped, ' (WELL-CAPPED)', '')), ...
+            'npix', L.sites/0.95, 'well', 2*eps_, 'read', 0, 'rate', L.rate_hz*P.cophi.N, 'pitch_um', NaN, 'capped', capped);
+    end
+    Pt = P;  Pt.cophi.cameras = cams;  Pt.stages = {'bench', 'deck'};  Pt.reading_ctx = 'cophi_ctx';
+    Pt.battery.deck = true;  Pt.battery.noise = false;  Pt.pzt.step_err = 0;
+    Pt.battery.noise_ext = true;  Pt.battery.cap_ladder = P.battery.base_rms;  Pt.battery.recap_surf = [];
+    o  = tg96_run(Pt);
+    oldcd = cd(P.outdir);  cl = onCleanup(@() cd(oldcd));
+    rep = fopen([P.tag '_cophi_report.txt'], 'a');  cl2 = onCleanup(@() fclose(rep));
+    say = @(varargin) say_(rep, varargin{:});
+    NZ = o.deck.noise_ext;
+    say('\n=== COPHI format: the lock-in class (%s rig; %d sites across the pupil = %.2f per actuator pitch; %g kHz I/Q): %.1f min ===\n', ...
+        P.bench.optics, L.sites, L.sites/(2*P.capture.lit_r/P.dm(1).pitch), L.rate_hz/1e3, toc(tb)/60);
+    say('  %-16s %12s %12s %12s %12s %12s %12s\n', 'flux e-/s/elem', 'e-/sample', 'pm/read', '+phasemeter', 'reads/s', 'pm in 1 s', 's per pm');
+    lamnm = P.LAM*1e6;  frows = {};
+    for c = 1:size(NZ.cams, 1)
+        r = NZ.cams(c, :);  flux = P.format.flux(c);
+        gain = r{9} / (r{6}*lamnm*1e3/(4*pi));                % pm per actuator per (pm per pixel): the estimator's noise gain here
+        % the phasemeter noise is per ELEMENT; the gain is per MODEL pixel (independent
+        % noise), and an element spans 1/k^2 model pixels (k = r{3}): the equivalent
+        % independent per-model-pixel noise is sigma_elem / k
+        pm_ph = 0;
+        if isfield(L, 'phasemeter_rad') && ~isempty(L.phasemeter_rad) && isfinite(L.phasemeter_rad)
+            pm_ph = L.phasemeter_rad / r{3} * lamnm*1e3/(4*pi) * gain;
+        end
+        tot = hypot(r{9}, pm_ph);  rate = L.rate_hz;
+        nmc_ = fieldnames(cams);  cc = cams.(nmc_{c});
+        say('  %-16.0e %12.3g %12.3g %12.3g %12.0f %12.3g %12.3g%s\n', flux, cc.well/2, r{9}, tot, rate, tot/sqrt(rate), max(tot^2, 1)/rate, ...
+            iff_(cc.capped, sprintf('  well-capped (%.3g e- well, %.3g e- would arrive per sample)', L.well, flux/rate), ''));
+        frows(end+1, :) = {flux, cc.well/2, r{9}, tot, rate, tot/sqrt(rate), max(tot^2,1)/rate, cc.capped}; %#ok<AGROW>
+    end
+    say('  (pm/read = the photon floor of one I/Q sample per actuator, piston-free robust floor; +phasemeter = with the sheet''s phasemeter floor in quadrature when it has one -- %s)\n', ...
+        iff_(isfield(L,'phasemeter_rad'), 'it does', 'it does not: the column equals pm/read'));
+    out.format = struct('rows', {frows}, 'lockin', L, 'noise', NZ);
+    save([P.tag '_cophi_format_results.mat'], '-struct', 'out', 'format');
     say('wall %.1f min\n', toc(t0)/60);
     clear cl cl2
 end
