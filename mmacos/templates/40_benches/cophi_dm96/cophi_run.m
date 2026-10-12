@@ -97,6 +97,33 @@ if want('report')
     clear cl cl2
 end
 
+if want('loop')
+    % ---- the loop stage: the hold servo on the H reading (cophi_ctx loop hook,
+    % tg96_run hands it the set point's matrix); the record's loop knobs, the
+    % camera's cadence, the drift / LO / fiber / delay rows, both estimators.
+    tb = tic;
+    Pt = P;  Pt.stages = {'bench', 'deck'};  Pt.reading_ctx = 'cophi_ctx';
+    Pt.battery.deck = true;  Pt.battery.noise = false;  Pt.pzt.step_err = 0;
+    Pt.battery.loop_ext = true;  Pt.battery.cap_ladder = P.battery.base_rms;  Pt.battery.recap_surf = [];
+    o  = tg96_run(Pt);
+    oldcd = cd(P.outdir);  cl = onCleanup(@() cd(oldcd));
+    rep = fopen([P.tag '_cophi_report.txt'], 'a');  cl2 = onCleanup(@() fclose(rep));
+    say = @(varargin) say_(rep, varargin{:});
+    LP = o.deck.loop_ext;
+    say('\n=== COPHI loop (%s rig, %s): %.1f min ===\n', P.bench.optics, ...
+        iff_(isfield(P.bench,'polarizing') && ~P.bench.polarizing, 'the plain splitter', 'the record''s polarizing train'), toc(tb)/60);
+    say('  ss / bias / sig_n: the record''s metric (rms over lit, piston included) | the same PISTON-FREE\n');
+    say('  %-11s %-8s %-9s %8s %8s %8s | %8s %8s %8s %8s\n', 'camera', 'row', 'estimator', 'ss', 'bias', 'sig_n', 'ss_pf', 'bias_pf', 'sig_pf', 'cycle s');
+    for r = 1:size(LP.rows, 1)
+        x = LP.rows(r, :);
+        say('  %-11s %-8s %-9s %8.2f %8.2f %8.2f | %8.2f %8.2f %8.2f %8.2f%s\n', x{1}, x{2}, x{3}, x{4}, x{5}, x{6}, x{9}, x{10}, x{11}, x{8}, iff_(x{7}, '  DIVERGED', ''));
+    end
+    out.loop = LP;
+    save([P.tag '_cophi_loop_results.mat'], '-struct', 'out', 'loop');
+    say('wall %.1f min\n', toc(t0)/60);
+    clear cl cl2
+end
+
 if want('noise')
     % ---- the noise stage: the H reading on every named camera + the electronics
     % terms (campaign sec. 9.1), through the deck stage's own estimator (rows
