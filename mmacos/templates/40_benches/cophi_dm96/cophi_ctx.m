@@ -207,6 +207,7 @@ C.reg = R;
 Il_r = sum(abs(Elo_r).^2, 3);  Xr = sum(Et .* conj(Elo_r), 3);  gmap = 2*abs(Xr) ./ max(It + Il_r, eps);
 C.N_ = opt.N;  C.gb_ = median(gmap(mskT)) * sin(pi/opt.N)/(pi/opt.N);   % the BUCKET contrast g' = g sinc(pi/N) (0.9003 g at N = 4)
 C.magT = R.magT;  C.frT = R.frT;  C.dxT = R.dxT;   % camera mm -> DM mm, the test grid (the LO drift's phase)
+C.read_frames = @(Fr, al) cophi_read_(Fr, al, mskT, P);   % the reading of an arbitrary frame set (the gate's red legs)
 C.noise_hook = @(S) cophi_noise_(C, P, S);   % LAST: the closure captures C as it stands
 C.loop_hook  = @(S) cophi_loop_(C, P, S);
 C.test_launch = test_launch;  C.th_pass = th_pass;  C.lo_launch = lo_launch;
@@ -408,7 +409,34 @@ function NZ = cophi_noise_(C, P, S)
             end
         end
     end
-    NZ = struct('cams', {rows}, 'elec', {erow}, 'elec_exact', ex, 'noise_map', NMAP, 'T_test', C.T_test, 'T_lo', C.T_lo, 'nreal', nr, 'pupil_fill', pf);
+    % ---- the gate's LO-tilt probe (brief sec. 3): a 1 nrad tilt of the LO (DM
+    % plane) read through the matrix -- how much of it the estimate carries as a
+    % DM tilt plane (the 'absorption'), and what is left after the plane
+    lot = struct();
+    if isfield(P.cophi, 'gate_probes') && P.cophi.gate_probes
+        [xx, yy] = meshgrid(1:size(msk,1));
+        xd = (xx - C.frT.cen) * C.dxT * C.magT;
+        th = 1e-9;  ElT = C.Elo .* exp(1i*2*pi/lam*th*xd);
+        [Ft, al2] = dmg_cophi_frames(E0f, ElT, struct('N', C.N_));
+        a = S.est(meanref_(angle(exp(1i*(rd(Ft) - rd(F0)))) * lam/(4*pi), msk));
+        % compare like with like: the estimate is in actuator COMMANDS, the LO tilt a
+        % SURFACE slope -- a smooth surface plane needs commands smaller by the sum
+        % of the overlapping influence functions -- so build the DM SURFACE from the
+        % estimated commands and fit ITS slope (over the lit disc) against theta/2
+        hs = S.dmap(a);  ng = size(hs, 1);
+        xg = ((1:ng) - (ng+1)/2) * P.grid.DX_G;  [gx, gy] = meshgrid(xg);
+        inn = hypot(gx, gy) <= P.capture.lit_r - 2;            % inside the control set, clear of its edge
+        B = [ones(nnz(inn),1) gx(inn) gy(inn)];  cf = B \ hs(inn);  res = hs(inn) - B*cf;
+        absb = hypot(cf(2), cf(3)) / (th/2);
+        lat = ((1:size(lit,1)) - (size(lit,1)+1)/2) * P.dm(1).pitch;  [ax, ay] = meshgrid(lat);
+        Bc = [ones(nnz(lit),1) ax(lit) ay(lit)];  cc = Bc \ a(lit);
+        lot = struct('theta', th, 'slope', cf(2:3), 'absorption', absb, 'resid_pm', 1e9*std(res), 'plane_pm', 1e9*std(B(:,2:3)*cf(2:3)), ...
+            'cmd_slope_ratio', hypot(cc(2), cc(3))/(th/2));
+        say(['\n  LO-TILT probe: %.1g rad of LO tilt reads as a DM SURFACE tilt plane of %.4g x theta/2 (the absorption), plane %.3g pm rms,\n' ...
+             '    %.3g pm rms left after the plane; in COMMAND units the plane is %.4g x theta/2 (the influence functions'' overlap)\n'], ...
+            th, absb, lot.plane_pm, lot.resid_pm, lot.cmd_slope_ratio);
+    end
+    NZ = struct('cams', {rows}, 'elec', {erow}, 'elec_exact', ex, 'lo_tilt', lot, 'noise_map', NMAP, 'T_test', C.T_test, 'T_lo', C.T_lo, 'nreal', nr, 'pupil_fill', pf);
 end
 
 function a = gated_(G1, G0, al, gfrac, mskT, lam, msk, est)
@@ -550,7 +578,24 @@ function phi = cophi_phase_(rx, b, th, P, launch, iTO, M, Elo, opt)
 %COPHI_PHASE_  the heterodyne phase of the test arm with grid M on the DM.
     E = arm_field_(rx, b, th, P, launch, iTO, M);
     [Fr, alpha] = dmg_cophi_frames(E, Elo, opt);
-    phi = dmg_cophi_recon(Fr, alpha);
+    phi = cophi_read_(Fr, alpha, [], P);
+end
+
+function phi = cophi_read_(Fr, alpha, mskT, P)
+%COPHI_READ_  the H reading of a frame set, REFUSED BY NAME when there is no
+%   fringe (brief sec. 3): the median fringe amplitude / dc over the pupil
+%   (mskT, or the lit frames when empty) below P.cophi.contrast_floor (default
+%   0.05) -> error cophi:noFringe.  An incoherent LO, a crossed polarization, or
+%   a dark camera (well 0: amp = dc = 0) all land here instead of reading a
+%   plausible-looking zero phase.
+    [phi, amp, dc] = dmg_cophi_recon(Fr, alpha);
+    c = amp ./ max(dc, eps);
+    if isempty(mskT), m = dc > 0.1*max(dc(:)); if ~any(m(:)), m = true(size(dc)); end, else, m = mskT; end
+    flo = 0.05;  if isfield(P, 'cophi') && isfield(P.cophi, 'contrast_floor'), flo = P.cophi.contrast_floor; end
+    cm = median(c(m));
+    if ~(cm >= flo)
+        error('cophi:noFringe', 'COPHI reading refused: no fringe (median amp/dc %.3g over the pupil < the contrast floor %.3g)', cm, flo);
+    end
 end
 
 % ---------------------------------------------------------------------

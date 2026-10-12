@@ -35,8 +35,14 @@ every camera gauge: the well sets photons per frame.
   follow one commit each (`BRIEF_to_cophi.md`, TO).  `cophi_run_batch.m` /
   `cophi_batch.sh` = the -batch wrapper and the memory-capped, serialized
   launcher (it waits on, and is waited on by, the other gauge batches).
-- `tests/tCophiBench.m` — the bench gate (registration, null, contrast, and the
-  must-fail per-index placement).
+- `tests/tCophiBench.m` — the bench gate, 9 legs (~15 min, its own class):
+  registration, null, contrast, the must-fail per-index placement; and the
+  battery legs -- a 1 nm poke through the matrix (one-step 0.9949, converged
+  1.0010), the LO-tilt absorption MEASURED (a 1 nrad LO tilt reads as a DM SURFACE
+  tilt of 1.008 x theta/2, 0.23 pm left after the plane; 0.467 in COMMAND units,
+  the influence functions' overlap), and the red legs: no interference and a dark
+  camera (well 0) are refused BY NAME (`cophi:noFringe`, amp/dc under the contrast
+  floor `P.cophi.contrast_floor`, default 0.05) rather than read as a zero phase.
 - Gate `tests/tCophi.m` (SUITE_FAST, 8): the algebra.
 
 ## Run it yourself
@@ -381,6 +387,20 @@ output (or the deeper on-chip integration a lock-in can do) buys the well-free r
 "Well-free" (ruling 6's assumption) is therefore a property to verify on the device
 sheet, not a given.  No phasemeter floor is in the sheet; the stage adds one in
 quadrature when it is.
+
+**What the deck says (one line):** the lock-in camera as surveyed is well-capped at
+its 1 kHz I/Q rate -- **1.1 s per pm, already ~40x faster than the Photonfocus
+camera (42 s) and ~400x Feng's baseline (7 min)**; a verified well-free device
+(continuous demodulation, or an I/Q output >= 10 kHz) would add another ~4-40x
+(0.29 s per pm at 1e9 e-/s/element, 29 ms at 1e10).  [CC's proposed wording had "only a
+verified well-free device beats the Photonfocus" -- the record says the capped
+device already does, by 40x.]
+
+**The vendor question that decides the well-free row (to Heliotis, through Dave):**
+(1) the per-pixel PHASE noise against flux at an integration time tc = 100 ms; and
+(2) whether the full-well capacity bounds each INTERNAL demodulation sample (the
+1 MSa/s on-chip rate) or the 5.6 kSa/s OUTPUT frame -- the first makes the sensor
+effectively well-free at our fluxes, the second caps it as modelled here.
 
 ## Stage figs (2026-10-12): the station figure
 
