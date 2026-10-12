@@ -199,6 +199,7 @@ if isfield(P, 'cophi'), opt.N = P.cophi.N; end
 C.phasef = @(M) cophi_phase_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M, Elo_r, opt);
 C.fieldf = @(M) arm_field_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M);   % the test arm's field (probe #1)
 C.framesf = @(M, eo) cophi_frames_(C.fieldf(M), Elo_r, opt, eo);        % the N heterodyne frames (+ electronics terms eo)
+C.opdf = @(M) opd_on_pixels_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M, iDET, size(Et, 1));   % the test arm's OPD (mm) per pixel: the capture stage's TRUTH
 C.rT = rT;  C.mskT = mskT;  C.T_test = Tmax;  C.T_lo = sum(abs(Elo(:)).^2);   % pupil radius (test px); powers at the camera (source flux 1)
 C.p_null = C.phasef(zeros(P.grid.N_G));
 C.measf  = @(M) angle(exp(1i*(C.phasef(M) - C.p_null))) * P.LAM/(4*pi);
@@ -212,6 +213,13 @@ C.test_launch = test_launch;  C.th_pass = th_pass;  C.lo_launch = lo_launch;
 end
 
 % ---------------------------------------------------------------------
+function W = opd_on_pixels_(rx, b, th, P, launch, iTO, M, iDET, N)
+%OPD_ON_PIXELS_  the test arm's OPD (mm) on its own detector pixels (cam_map_'s
+%   index map), unwrapped by construction -- a ray's path, not a phase.
+    arm_field_(rx, b, th, P, launch, iTO, M);
+    Cm = cam_map_(iDET, N);  W = nan(N);  W(Cm.pix) = Cm.W;
+end
+
 function [Fr, alpha] = cophi_frames_(Et, Elo, opt, eo)
 %COPHI_FRAMES_  dmg_cophi_frames + the ELECTRONICS terms of the campaign brief
 %   sec. 9.1 (Dave 2026-10-11): eo.jitter (rad of beat phase per frame: the AOM
@@ -554,6 +562,9 @@ function E = arm_field_(rx, b, an_deg, P, launch, iTO, M)
 %   record's 45 deg.
     ws = warning('off', 'mmacos:modesInForce');  cw = onCleanup(@() warning(ws));   % polarization stays ON across these loads, deliberately
     macos.load_rx(rx);
+    if isfield(P.cophi, 'lam_trace') && ~isempty(P.cophi.lam_trace)
+        macos.set_src_wvl(P.cophi.lam_trace);          % the capture stage's second colour (WaveUnits mm)
+    end
     if nargin >= 7 && ~isempty(M)          % the DM state (the deck's own grid is the flat)
         macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
     end

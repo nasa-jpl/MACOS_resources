@@ -301,6 +301,96 @@ do, so the hold rises by sqrt 2 (2.7 -> 4.2 pm), exactly the linearity predictio
 (4.1 pm) -- the budget is right, and to keep a 3 pm hold with the fiber in, either
 the fiber is held ~2x tighter than the budget or the cycle averages ~2x longer.
 
+## Stage capture (2026-10-12): from cold -- temporal unwrapping and two colours
+
+`cophi_run('stages',{'capture'})` (`cophi_capture.m`), plain splitter, both rigs,
+noise-free and on each camera; truth = the engine's OPD change per pixel (a ray
+path, unwrapped; the H reading equals -dOPD/2 to 3e-7 nm noise-free at 30 nm).
+
+**Two colours, frequency-multiplexed, ONE reading.**  lambda_1 632.8 nm at a 7.5 Hz
+beat (4 frames per beat) and lambda_2 652.8 nm at 3.75 Hz (8 per beat) on the SAME 8
+frames at 30 fps -- each colour read by `dmg_cophi_recon` at its own bucket centres
+(the harmonics are orthogonal over 8 frames: crosstalk 4e-16 rad); lambda_2's fields
+are a RE-TRACE of both decks.  Synthetic Lambda = 20.65 um, range +-5.2 um.  On the
+battery's capture ladder (30..480 nm rms):
+
+| surface rms | single colour: wrong-order pixels | two colours: wrong orders, rms err (baseline / Photonfocus noise) |
+|---|---|---|
+| 30 nm | 0 | 0, 0.15 / 0.10 nm |
+| 40 nm | 0.03 % | 0 |
+| 80 nm | 5.7 % | 0 |
+| 160 nm | 34 % | 0 |
+| 480 nm | 74 % | **0**, 0.15 / 0.10 nm (both rigs) |
+
+So a 200 nm rms DM figure from cold (peaks ~0.8-1 um) is captured in ONE
+multiplexed reading (8 frames, 0.27 s at 30 fps) -- the sec. 9.2 ladder needs ONE
+rung, not two, for this job.  The arithmetic (range +-Lambda/4, amplification
+Lambda/lambda, fine requirement sqrt2 sigma Lambda/lambda < lambda/8):
+
+| lambda | dlam | Lambda | range | amplification | fine sigma required |
+|---|---|---|---|---|---|
+| 632.8 nm | 1 nm | 401 um | +-100 um | 634 | 0.088 nm |
+| 632.8 nm | 20 nm | 20.7 um | +-5.2 um | 32.6 | 1.7 nm |
+| 632.8 nm | 100 nm | 4.6 um | +-1.2 um | 7.3 | 7.6 nm |
+| 1319 nm | 20 nm | 88 um | +-22 um | 67 | 1.7 nm |
+
+The reading's per-pixel noise is ~0.1-0.15 nm per multiplexed reading, so any dlam
+from 1 to ~100 nm resolves the fringe in one reading; the 1.3 um row (analytic; the
+C-RED 2 a placeholder) doubles the single-colour range (+-330 nm) and the synthetic.
+**Model caveat:** the bench lenses carry a FIXED index (1.5), so the lambda_2
+re-trace cannot show the refractive tail's chromatic refocus; for fused silica (dn
+~ -5.6e-4 over 20 nm, to verify) that is ~1.2e-3 of focal length, ~0.5 mm on the
+focuser -- its static part is frozen in each colour's own null; its effect on the
+pupil image's sharpness is open (the mirror rig is achromatic but for the field lens).
+
+**Temporal unwrapping** (a drifting surface, 6 readings, per pixel): holds at 0.9 x
+lambda/4 per reading, fails at 1.1 x (both rigs) -- so it holds to a drift of
+**1.19 um/s at the peak pixel at the baseline's 7.5 readings/s** (0.24 um/s of rms
+for a 30 nm-class shape) and **5.9 um/s at the Photonfocus's 37.5/s** -- a running
+loop never comes near it; a cold start needs the two colours.
+
+**Mirror-rig plain-train fix (2026-10-12):** the record's P.oap.SRC_TRIM (-0.37 mm)
+was solved WITH the input polarizer's plate in the diverging leg; the plain train
+has no plate, so carried over it fed OAP1 off its focus (an 84 nm DEFOCUS null).
+`cophi_run` now sets SRC_TRIM 0 for the plain mirror rig (null 0.746 nm).  Rerun
+on the fixed feed: capture identical, the exact-noise floor 54.1 -> 53.2 pm, walk
+budget 3.4e-3 -> 3.6e-3 rad/frame (`runs/oap_plain_misfed/` keeps the old).  The
+plain-mirror LOOP rows (`runs/loop_oap_plain`, `loopfib_oap_plain`) were run on the
+mis-fed collimator; all differential, they agree with the lens rig to 1-3 % and are
+not rerun.
+
+## Stage format (2026-10-12): the lock-in class (Dave's ruling 6)
+
+`cophi_run('stages',{'format'})`: the sheet's lock-in (CC f179513: the survey's
+rank 1, a heliCam C4 class -- 512 sites across the pupil = 5.45 per actuator pitch,
+500 ke- well, 1 kHz I/Q, 2.5e9 e-/s/element; unverified), each flux a 'camera' to
+the noise hook (one reading per I/Q sample; the per-pixel phase noise matches the
+formula to 0.1 %).  pm per I/Q sample per actuator (piston-free robust floor):
+
+| flux e-/s/element | e- per sample | pm per sample | pm in 1 s | s per pm |
+|---|---|---|---|---|
+| 1e8 | 1e5 | 53 | 1.7 | 2.8 |
+| 1e9 and up, WELL-CAPPED at 1 kHz | 2.5e5 (the well's 0.5 fill) | 34 | **1.07** | **1.1** |
+| 1e9, well-free (the first run, uncapped) | 1e6 | 17 | 0.54 | 0.29 |
+| 1e10, well-free | 1e7 | 5.4 | 0.17 | 0.029 |
+
+So the lock-in class, as the sheet states it, gives **~1 pm per second -- 40x the
+Photonfocus (42 s per pm) and 400x Feng's baseline (7 min)** -- and is WELL-bound at
+1 kHz from 1e9 e-/s: its per-pixel well, not the laser, sets the time; a faster I/Q
+output (or the deeper on-chip integration a lock-in can do) buys the well-free row.
+"Well-free" (ruling 6's assumption) is therefore a property to verify on the device
+sheet, not a given.  No phasemeter floor is in the sheet; the stage adds one in
+quadrature when it is.
+
+## Stage figs (2026-10-12): the station figure
+
+`cophi_run('stages',{'figs'})` (`cophi_figs.m`): the mirror rig, plain splitter,
+noise-free, the deck's format -- the command, the test and LO fields at the camera,
+two of the four buckets, the recovered surface and recovered minus the engine's own
+OPD.  `runs/figs_oap_plain/figs_oap_plain_stations.png`: the flat DM reads 0; the
+30 nm working surface (the DM's full lattice, seed 7) reads **31.95 nm rms, read -
+engine 0.31 pm rms**.
+
 ## The converged estimator (2026-10-11): every gauge's accuracy row, bias removed
 
 Dave's ruling: the regularization is driven to CONVERGENCE, not dropped.
