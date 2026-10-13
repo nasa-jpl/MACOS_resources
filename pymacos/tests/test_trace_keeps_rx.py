@@ -34,3 +34,23 @@ def test_save_after_a_trace_equals_save_after_load(tmp_path):
     assert len(a) == len(b)
     d = [(i + 1, b[i]) for i in range(len(a)) if a[i] != b[i]]
     assert d == [], 'SAVE after a trace differs: %r' % d
+
+
+def test_save_after_a_trace_equals_save_after_load_frame_and_type(tmp_path):
+    """The two rewrites 3b's measurement found (2026-10-12): an Interpolated surface without data
+    was SAVEd as Conic after a trace, and an xObs not perpendicular to psiElt was replaced by the
+    trace's frame.  Rx_TraceRewrites.in = macos ZGD tst_trace_rewrites.in.  Red pre-fix: the
+    Surface and xObs lines."""
+    shutil.copy(rx_path('Rx_TraceRewrites.in'), tmp_path / 'Rx_TraceRewrites.in')
+    m.init(256)
+    m.load(str(tmp_path / 'Rx_TraceRewrites.in'))
+    m.save(str(tmp_path / 'a.in'))
+    m.load(str(tmp_path / 'Rx_TraceRewrites.in'))
+    m.traceWavefront(m.num_elt())
+    m.save(str(tmp_path / 'b.in'))
+    a = (tmp_path / 'a.in').read_text().splitlines()
+    b = (tmp_path / 'b.in').read_text().splitlines()
+    assert len(a) == len(b)
+    d = [(i + 1, a[i], b[i]) for i in range(len(a)) if a[i] != b[i]]
+    assert d == [], 'SAVE after a trace differs: %r' % d
+    assert any('Interpolated' in x for x in b), 'the surface is still declared Interpolated'

@@ -26,5 +26,22 @@ classdef tTraceKeepsRx < matlab.unittest.TestCase
             d = find(A ~= B);
             tc.verifyEmpty(d, sprintf('SAVE after a trace differs from SAVE after load at line(s) %s: %s', mat2str(d(:)'), strjoin(B(d), ' | ')));
         end
+        function test_save_after_a_trace_keeps_frame_and_surface_type(tc)
+            % 2026-10-12: the two rewrites 3b's measurement found -- an Interpolated surface with
+            % no data SAVEd as Conic after a trace, and an xObs not perpendicular to psiElt
+            % replaced by the trace's frame (Rx_TraceRewrites.in = macos ZGD
+            % tst_trace_rewrites.in).  Red pre-fix: the Surface and xObs lines.
+            wd = tempname;  mkdir(wd);  c = onCleanup(@() rmdir(wd, 's'));
+            rx = fullfile(wd, 'Rx_TraceRewrites.in');
+            copyfile(rx_fixture_path('Rx_TraceRewrites.in'), rx);
+            m = macos.Session(tc.ModelSize);
+            m.load_rx(rx);  m.save_rx(fullfile(wd, 'a.in'));
+            m.load_rx(rx);  m.trace(m.num_elt());  m.save_rx(fullfile(wd, 'b.in'));
+            A = splitlines(string(fileread(fullfile(wd, 'a.in'))));  B = splitlines(string(fileread(fullfile(wd, 'b.in'))));
+            tc.assertEqual(numel(B), numel(A), 'the two SAVEs have the same number of lines');
+            d = find(A ~= B);
+            tc.verifyEmpty(d, sprintf('SAVE after a trace differs from SAVE after load at line(s) %s: %s', mat2str(d(:)'), strjoin(B(d), ' | ')));
+            tc.verifyTrue(any(contains(B, 'Interpolated')), 'the surface is still declared Interpolated');
+        end
     end
 end
