@@ -59,6 +59,15 @@ elseif isfile('macos_param.txt')
 end
 rep = fopen([P.tag '_report.txt'], 'w');
 cleaner2 = onCleanup(@() fclose(rep));
+% P.camres (the resolution sweep, 2026-10-13): the camera's PIXELS on the model's
+% detector grid -- every detector frame (frame() below; cophi_ctx's frames) is
+% area-integrated onto camera pixels of cfg.c model px and replicated back, so the
+% mask, the placement, the matrix and the rows all run THROUGH the resampled
+% reading (dm_gauge_lib/dmg_camres).  Absent = the record, bit for bit.
+if isfield(P, 'camres') && ~isempty(P.camres)
+    dmg_camres('set', P.camres);
+    cleaner3 = onCleanup(@() dmg_camres('clear'));
+end
 say = @(varargin) say_(rep, varargin{:});
 want = @(st) any(strcmp(P.stages, st));
 
@@ -1030,6 +1039,38 @@ if isfield(P.battery, 'loop_ext') && P.battery.loop_ext && isfield(ctx, 'loop_ho
         'litmask', litmask, 'msk', msk, 'dmap', dmap, 'A0', A0, 'say', say, 'LAM', LAM));
 end
 
+% ---- a GENERIC deck hook (the resolution sweep, 2026-10-13): P.battery.deck_hook
+%   names a function handed THIS stage's matrix, estimators, lit set, hold-out,
+%   working surface and rows, plus the reading's FRAMES and its frames -> map
+%   differential (the record four-step's here; a reading context's own when it
+%   supplies ctx.framesf_hook / ctx.hdiff_hook).  Absent = the record.
+deck_hook = struct();
+if isfield(P.battery, 'deck_hook') && ~isempty(P.battery.deck_hook)
+    if isfield(ctx, 'framesf_hook') && ~isempty(ctx.framesf_hook)
+        Hf = @(A) ctx.framesf_hook(dmap(A));  Hd = ctx.hdiff_hook;
+    else
+        Hf = @(A) frames4_(analyzer_basis(AT, QWP, dmap(A)), Sr, THg);
+        Hd = @(F1, F0) meanref_(fsdiff_(F1, F0, LAM), msk);
+    end
+    mit = 50;  if isfield(P.battery, 'est_maxit') && ~isempty(P.battery.est_maxit), mit = P.battery.est_maxit; end
+    % model px across the TEST pupil (the camera rows' k, as the record's camrow /
+    % cophi_noise_ compute it)
+    dmod = NaN;
+    if isfield(ctx, 'S0')
+        It_ = sum(abs(synth(ctx.S0, 0)).^2, 3);  dmod = 2*sqrt(nnz(It_ > 0.1*max(It_(:)))/pi);
+    elseif isfield(ctx, 'rT')
+        dmod = 2*ctx.rT;
+    end
+    rdg = 'I';  if isfield(ctx, 'reading'), rdg = ctx.reading; end
+    deck_hook = feval(P.battery.deck_hook, struct('framesf', Hf, 'hdiff', Hd, 'dmod', dmod, ...
+        'est30', est30, 'est30c', est30c, 'fwd30', fwd30, ...
+        'est30c_tol', @(h, tol) dmg_converge(est30, fwd30, h, litmask, tol, mit), ...
+        'litmask', litmask, 'ic', ic, 'msk', msk, 'A0', A0, 'dmap', dmap, 'LAM', LAM, ...
+        'say', say, 'P', P, 'PL', PL, 'nact', nact, 'reading', rdg, ...
+        'px_per_act_model', cfg.pitch/(PL.mag*PL.dxd_mm), 'rows', {rows}, 'rows_conv', {rows_conv}, ...
+        'nstates', ns30, 'nlit', nlit));
+end
+
 % ---- capture range, aging: matrix once on 30 nm, gain vs base rms.  TWO
 %   metrics, they answer different questions (CCL 2026-09-13): a DISTRIBUTED
 %   10 nm pattern on the 47-site grid, and a SINGLE 10 nm poke at the hold-out
@@ -1145,7 +1186,7 @@ DK = struct('step_err',se, 'base_rms',P.battery.base_rms, 'ic',ic, 'nlit',nlit, 
     'rows',{rows}, 'age',{agerows}, 'gcap',gcap, 'gone',gone, 'cap_ladder',lad, ...
     'r10_age',r10_age, 'r10_one',r10_one, ...
     'recap',{recaprows}, 'recap_surf',recs, 'photons',{photons}, 'lit',litmask, 'noise_ext',noise_ext, ...
-    'rows_conv',{rows_conv}, 'est_mode',emode, 'loop_ext',loop_ext);
+    'rows_conv',{rows_conv}, 'est_mode',emode, 'loop_ext',loop_ext, 'deck_hook',deck_hook);
 end
 
 function [est, litmask, ns, nlit, estc, fwd] = calib_on_(ctx2, cfg, PL, msk, P, h0, rms_)
@@ -1558,7 +1599,7 @@ function I = frame_rp_(Sx, Sr, th, rph)
 % recombined intensity at analyzer angle th with a reference-arm phase rph (rad);
 % rph = 0 reduces to frame(Sx,Sr,th).
 if rph == 0, I = frame(Sx, Sr, th);  return; end
-I = sum(abs(synth(Sx,th) + exp(1i*rph)*synth(Sr,th)).^2, 3);
+I = dmg_camres(sum(abs(synth(Sx,th) + exp(1i*rph)*synth(Sr,th)).^2, 3));
 end
 
 function r = recal_build_(ctx2, cfg, PL, msk, P, h0, cmd, lam_reg)
@@ -2452,7 +2493,7 @@ function az = arm_azimuth(A, QWP, qwp_deg)
     A.qwp_deg = qwp_deg;  e = arm_state(A, QWP, A.iRC);
     az = 0.5*atan2d(2*real(conj(e(1))*e(2)), abs(e(1))^2 - abs(e(2))^2);
 end
-function I = frame(Sx, Sr, th), I = sum(abs(synth(Sx,th)+synth(Sr,th)).^2, 3); end
+function I = frame(Sx, Sr, th), I = dmg_camres(sum(abs(synth(Sx,th)+synth(Sr,th)).^2, 3)); end   % dmg_camres: identity unless P.camres
 function p = fourstep(Sx, Sr, th)
     p = atan2(frame(Sx,Sr,th(2))-frame(Sx,Sr,th(4)), frame(Sx,Sr,th(1))-frame(Sx,Sr,th(3)));
 end

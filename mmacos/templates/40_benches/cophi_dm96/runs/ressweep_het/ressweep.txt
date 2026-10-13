@@ -1,0 +1,63 @@
+ressweep het -- 13-Oct-2026 11:00:53
+px/act = camera pixels per actuator pitch (model 3.277 at NGRID 385; > 3.277 = finer source grid).
+Battery (noise-free, the 30 nm working surface, matrix on it; one-step | converged): gain / err pm / floor pm
+ px/act    lit | single 10 nm             | grid 1 nm                | dense random 10 nm      
+  4.009   6948 | 0.9943/0.9999   1.4/  0.0   1| 0.9949/1.0005   1.6/  0.3   1| 0.9951/1.0005 117.7/ 27.1   -|
+  3.277   6948 | 0.9941/1.0000   1.4/  0.1   1| 0.9950/1.0006   1.6/  0.3   1| 0.9951/1.0005 117.6/ 27.7   -|
+  2.000   6948 | 0.9914/0.9993   2.2/  0.1   2| 0.9924/1.0005   2.5/  0.4   2| 0.9928/1.0004 178.5/ 33.3   -|
+  1.500   6948 | 0.9895/0.9991   2.8/  0.3   2| 0.9907/0.9996   3.1/  0.7   3| 0.9912/0.9999 223.4/ 60.7   -|
+  1.000   6948 | 0.9617/1.0029  13.9/  3.1  13| 0.9247/0.9630  30.2/ 23.8  27| 0.9593/0.9913 1458.3/1122.5   -|
+
+Registration (camera shifted +-0.1 pitch after calibration; worst of the four shifts): gain one-step / converged, largest neighbour / dev, noise-free floor pm, wrong actuator
+  4.009 | at 0: g 0.9943, nbr 0.0036, flr 1.20 | worst (+0.00,-0.40 px): g 0.9523 / 0.9575, nbr 0.1189, flr 17.35, wrong 0 of 4
+  3.277 | at 0: g 0.9941, nbr 0.0037, flr 1.23 | worst (+0.00,+0.33 px): g 0.9446 / 0.9499, nbr 0.1199, flr 17.02, wrong 0 of 4
+  2.000 | at 0: g 0.9914, nbr 0.0064, flr 1.96 | worst (+0.00,+0.33 px): g 0.9597 / 0.9673, nbr 0.1052, flr 15.87, wrong 0 of 4
+  1.500 | at 0: g 0.9895, nbr 0.0082, flr 2.46 | worst (+0.33,+0.00 px): g 0.9645 / 0.9736, nbr 0.1154, flr 17.62, wrong 0 of 4
+  1.000 | at 0: g 0.9617, nbr 0.0337, flr 13.16 | worst (+0.00,-0.33 px): g 0.8704 / 0.8897, nbr 0.2241, flr 46.29, wrong 0 of 4
+
+Noise (one reading; pm per reading = piston-free robust floor; s per pm = floor^2 / readings per s) and data:
+ px/act camera       binning   read e-  pm/read  s per pm     out px      Gb/s   pupil px
+  4.009 photonfocus  digital       557       37      36.6   1.64e+05     0.393   1.16e+05
+  4.009 photonfocus  onchip        220     31.7      26.8   1.64e+05     0.393   1.16e+05
+  4.009 baseline     digital      12.6       54       389   1.64e+05    0.0786   1.16e+05
+  4.009 baseline     onchip          5       54       388   1.64e+05    0.0786   1.16e+05
+  3.277 photonfocus  digital       680     36.9      36.2    1.1e+05     0.264   7.79e+04
+  3.277 photonfocus  onchip        220     31.5      26.5    1.1e+05     0.264   7.79e+04
+  3.277 baseline     digital      15.4     52.9       373    1.1e+05    0.0527   7.79e+04
+  3.277 baseline     onchip          5     52.7       371    1.1e+05    0.0527   7.79e+04
+  2.000 photonfocus  digital  1.11e+03     50.7      68.6   4.09e+04    0.0982    2.9e+04
+  2.000 photonfocus  onchip        220     42.7      48.7   4.09e+04    0.0982    2.9e+04
+  2.000 baseline     digital      25.3       72       691   4.09e+04    0.0196    2.9e+04
+  2.000 baseline     onchip          5     72.1       693   4.09e+04    0.0196    2.9e+04
+  1.500 photonfocus  digital  1.48e+03     52.5      73.5    2.3e+04    0.0552   1.63e+04
+  1.500 photonfocus  onchip        220     43.4      50.3    2.3e+04    0.0552   1.63e+04
+  1.500 baseline     digital      33.7     77.3       797    2.3e+04     0.011   1.63e+04
+  1.500 baseline     onchip          5     77.1       792    2.3e+04     0.011   1.63e+04
+  1.000 photonfocus  digital  2.23e+03      105       292   1.02e+04    0.0246   7.25e+03
+  1.000 photonfocus  onchip        220     89.3       212   1.02e+04    0.0246   7.25e+03
+  1.000 baseline     digital      50.6      160   3.4e+03   1.02e+04   0.00491   7.25e+03
+  1.000 baseline     onchip          5      160  3.41e+03   1.02e+04   0.00491   7.25e+03
+
+Loop (linear instrument = this sampling's matrix + the camera's noise; g 0.5, K 60, seed 77; digital binning): hold ss pm (piston-free)
+  4.009 photonfocus  M   60 (1.6 s) none     ss 2.51 (pf 2.51)  sig_n 4.31  theory 2.49  gG 0.500
+  4.009 photonfocus  M   60 (1.6 s) thermal  ss 10.3 (pf 10.3)  sig_n 4.31  theory 10.3  gG 0.500
+  4.009 baseline     M  120 (16 s) none     ss 2.65 (pf 2.65)  sig_n 4.56  theory 2.63  gG 0.500
+  4.009 baseline     M  120 (16 s) thermal  ss 10.3 (pf 10.3)  sig_n 4.56  theory 10.3  gG 0.500
+  3.277 photonfocus  M   60 (1.6 s) none     ss 2.52 (pf 2.52)  sig_n 4.31  theory 2.49  gG 0.500
+  3.277 photonfocus  M   60 (1.6 s) thermal  ss 10.3 (pf 10.3)  sig_n 4.31  theory 10.3  gG 0.500
+  3.277 baseline     M  120 (16 s) none     ss 2.66 (pf 2.66)  sig_n 4.56  theory 2.63  gG 0.500
+  3.277 baseline     M  120 (16 s) thermal  ss 10.4 (pf 10.4)  sig_n 4.56  theory 10.3  gG 0.500
+  2.000 photonfocus  M   60 (1.6 s) none     ss 5.28 (pf 5.28)  sig_n 9.89  theory 5.71  gG 0.500
+  2.000 photonfocus  M   60 (1.6 s) thermal  ss 11.3 (pf 11.3)  sig_n 9.89  theory 11.5  gG 0.500
+  2.000 baseline     M  120 (16 s) none     ss 3.46 (pf 3.46)  sig_n 5.94  theory 3.43  gG 0.500
+  2.000 baseline     M  120 (16 s) thermal  ss 10.6 (pf 10.6)  sig_n 5.94  theory 10.6  gG 0.500
+  1.500 photonfocus  M   60 (1.6 s) none     ss 7.55 (pf 7.55)  sig_n 12.3  theory 7.12  gG 0.500
+  1.500 photonfocus  M   60 (1.6 s) thermal  ss 12.5 (pf 12.5)  sig_n 12.3  theory 12.3  gG 0.500
+  1.500 baseline     M  120 (16 s) none     ss 3.7 (pf 3.7)  sig_n 6.27  theory 3.62  gG 0.500
+  1.500 baseline     M  120 (16 s) thermal  ss 10.7 (pf 10.7)  sig_n 6.27  theory 10.6  gG 0.500
+  1.000 photonfocus  M   60 (1.6 s) none     ss 26.5 (pf 26.5)  sig_n 30.1  theory 17.4  gG 0.500
+  1.000 photonfocus  M   60 (1.6 s) thermal  ss 28.3 (pf 28.3)  sig_n 30.1  theory 20.1  gG 0.500
+  1.000 baseline     M  120 (16 s) none     ss 7.42 (pf 7.42)  sig_n 10.7  theory 6.18  gG 0.500
+  1.000 baseline     M  120 (16 s) thermal  ss 12.4 (pf 12.4)  sig_n 10.7  theory 11.8  gG 0.500
+
+Wall: het_s400 12 min; het_s328 12 min; het_s200 12 min; het_s150 12 min; het_s100 13 min; 
