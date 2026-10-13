@@ -66,12 +66,17 @@ classdef tGratingAperture < matlab.unittest.TestCase
                 sprintf('engine pass flags vs the circle: %d pass of %d, %d inside (pre-fix: every ray passed)', nnz(ri.ok_pass), s.nRays, nnz(inside)));
             st = macos.get_ray_status(s.nRays);
             tc.verifyEqual(nnz(st.status == 1), nnz(~inside), 'the clipped rays carry the Obscured status');
+            tc.verifyEqual(unique(st.fail_elt(st.status == 1))', int32(2), ...
+                'and name the grating, element 2, as the element that clipped them (pre-fix: 3, the end of trace(2) + 1)');
         end
         function test_clipped_rays_stay_clipped_to_the_focal_plane(tc)
             macos.load_rx(tc.deck_(true));
             s2 = macos.trace(2);  r2 = macos.get_ray_info(s2.nRays);
             nE = macos.num_elt();  sE = macos.trace(nE);  rE = macos.get_ray_info(sE.nRays);
             tc.verifyEqual(nnz(rE.ok_pass), nnz(r2.ok_pass), 'the pass count at the focal plane is the grating''s');
+            st = macos.get_ray_status(sE.nRays);
+            tc.verifyEqual(unique(st.fail_elt(st.status == 1))', int32(2), ...
+                'traced to the focal plane, the clipped rays still name the grating (pre-fix: nElt+1)');
         end
         function test_no_aperture_passes_every_ray(tc)
             macos.load_rx(tc.deck_(false));
