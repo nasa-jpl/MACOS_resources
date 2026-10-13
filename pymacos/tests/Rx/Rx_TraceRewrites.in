@@ -1,0 +1,75 @@
+% tst_trace_rewrites.in -- a trace must not rewrite the prescription (PLAN_CONSOLIDATION 1.1b,
+% 2026-10-12).  The f = 1 m paraboloid of tst_calib_asph.in, with two things the trace used to
+% overwrite: (1) Surface= Interpolated with NO interpolation data -- it traces as its base conic,
+% which CTRACE / CPROPAGATE / SRTrace did by setting SrfType = Conic, so SAVE after a trace wrote
+% 'Conic'; (2) a circular aperture whose xObs= 0.6 0 0.8 is NOT perpendicular to psiElt (0 0 -1) --
+% every trace rebuilt the frame and wrote its projection, exactly 1 0 0, back into xObs.  Now the
+% frame is built once at LOAD (OrthoObsFrame) and the trace's surface type is SrfTypeTr: SHOW and
+% SAVE read the same before and after a trace.  cli_tests/cmd/TRACE_keeps_rx.jou; mmacos
+% tTraceKeepsRx; pymacos test_trace_keeps_rx.
+        ChfRayDir=  0  0  1
+        ChfRayPos=  0  0  -0.5
+          zSource=  -1.0E+22
+        BaseUnits=  m
+        WaveUnits=  m
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+          Wavelen=  1.000000000E-06
+             Flux=  1.0D+00
+         Aperture=  2.000000000E-01
+         Obscratn=  0.0D+00
+         GridType=  Circular
+         nGridpts=  21
+            xGrid=  1  0  0
+            yGrid=  0  1  0
+        OptTarget=  SPOT
+         OptWFElt=  2
+       OptMaxItrs=  10
+           OptFEX=  No
+      OptSpotSize=  0.0
+             nElt=  2
+
+             iElt=  1
+          EltName=  Paraboloid
+          Element=  Reflector
+          Surface=  Interpolated
+            KrElt=  -2.0000000000E+00
+            KcElt=  -1.0000000000E+00
+           psiElt=  0  0  -1
+           VptElt=  0  0  0
+           RptElt=  0  0  0
+           IndRef=  1.000000E+00
+           Extinc=  1.000000E+22
+            nCoat=  0
+             xObs=  0.6  0  0.8
+             nObs=  0
+           ApType=  Circular
+            ApVec=  1.000000000000E-01  0.000000000000E+00  0.000000000000E+00
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+             iElt=  2
+          EltName=  FPA
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=  -1.0000000000E+22
+            KcElt=  0.0000000000E+00
+           psiElt=  0  0  1
+           VptElt=  0  0  -1
+           RptElt=  0  0  -1
+           IndRef=  1.000000E+00
+           Extinc=  0.000000E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+         nOutCord=  5
+             Tout=  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00
