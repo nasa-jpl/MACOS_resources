@@ -2256,6 +2256,22 @@ if iPZT > 0
         'HorizontalAlignment','right','VerticalAlignment','top','BackgroundColor','w','Margin',1,'Clipping','off');
     occT = [p(1); p(2)-125];
 end
+if isfield(G.R, 'iLO')
+    % COPHI (Dave 2026-10-12): the LO arm needs its own labels -- the deck crops
+    % the title line that names the colours, and without them the purple arm is
+    % anonymous.  Collimator at its powered face (Bench.station), fiber tip at
+    % the LO deck's source; both hand-placed below the arm like the PZT label.
+    purple = LC.lo;
+    pc = macos.design.Bench.station(Er(G.R.iLO));
+    plot3(axT,[pc(1) pc(1)],[pc(2) pc(2)-110],[0.4 0.4],'-','Color',[150 120 60]/255,'LineWidth',1.2);
+    text(axT,pc(1)-40,pc(2)-115,0.5,{'LO collimator','(at the flat''s seat)'},'Color',purple,'FontSize',FS, ...
+        'HorizontalAlignment','left','VerticalAlignment','top','BackgroundColor','w','Margin',1,'Clipping','off');
+    ps = G.R.src_lo(:);
+    plot3(axT,[ps(1) ps(1)],[ps(2) ps(2)-110],[0.4 0.4],'-','Color',[150 120 60]/255,'LineWidth',1.2);
+    text(axT,ps(1),ps(2)-115,0.5,'LO fiber tip','Color',purple,'FontSize',FS, ...
+        'HorizontalAlignment','center','VerticalAlignment','top','BackgroundColor','w','Margin',1,'Clipping','off');
+    occT = [occT, [pc(1); pc(2)-115], [ps(1); ps(2)-115]];
+end
 label_(axT, Et, Ltrain, ink, FS, oap, occT);
 lgd = LC.legend;  if isfield(G.R, 'iLO'), lgd = LC.legend_lo; end   % COPHI: the LO arm took the flat's seat
 title(axT, sprintf(['TG96 %s interferometer, from above -- ' lgd], ...
