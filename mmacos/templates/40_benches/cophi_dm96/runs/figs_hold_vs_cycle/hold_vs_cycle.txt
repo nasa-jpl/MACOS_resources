@@ -1,0 +1,9 @@
+hold pm rms (noise only, gain 0.5) at cycle 0.125 / 1.6 / 16 s; optimum cycle and hold with the 0.31 pm/s ramp
+COPHI, Feng's camera (1k, 60 ke, 30 fps)             s_pm  385.00 :  32.04 /   8.96 /   2.83 pm ; optimum  5.511 s ->  5.99 pm   [noise_oap_plain]
+COPHI, Photonfocus (200 ke, 150 fps)                 s_pm   36.00 :   9.80 /   2.74 /   0.87 pm ; optimum  2.452 s ->  2.72 pm   [noise_oap_plain]
+COPHI, lock-in camera C4 (well-capped, 1 kHz)        s_pm    3.35 :   2.99 /   0.84 /   0.26 pm ; optimum  1.091 s ->  1.23 pm   [lockin_noise_oap]
+COPHI, lock-in, well-free (2.5e9 e-/s, analytic)     s_pm    0.34 :   0.95 /   0.27 /   0.08 pm ; optimum  0.514 s ->  0.57 pm   [format_lens_plain (analytic)]
+IFO, Twyman-Green (pol. camera)                      s_pm  160.00 :  20.66 /   5.77 /   1.83 pm ; optimum  3.895 s ->  4.47 pm   [tg_psi_dm96_oap camI_oap]
+vector ZWFS (pol. camera)                            s_pm  519.00 :  37.20 /  10.40 /   3.29 pm ; optimum  5.839 s ->  6.61 pm   [zwfs_dm96 camS_oap]
+stepped ZWFS (mono camera)                           s_pm  475.00 :  35.59 /   9.95 /   3.15 pm ; optimum  5.839 s ->  6.42 pm   [zwfs_dm96 camS_oap]
+pinhole / P-SRI (mono camera)                        s_pm  342.00 :  30.20 /   8.44 /   2.67 pm ; optimum  5.201 s ->  5.76 pm   [zwfs_dm96 camS_oap]
