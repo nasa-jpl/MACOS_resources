@@ -216,6 +216,11 @@ C.magT = R.magT;  C.frT = R.frT;  C.dxT = R.dxT;   % camera mm -> DM mm, the tes
 C.read_frames = @(Fr, al) cophi_read_(Fr, al, mskT, P);   % the reading of an arbitrary frame set (the gate's red legs)
 C.noise_hook = @(S) cophi_noise_(C, P, S);   % LAST: the closure captures C as it stands
 C.loop_hook  = @(S) cophi_loop_(C, P, S);
+% the generic deck hook's reading (tg96_run P.battery.deck_hook; the resolution
+% sweep): the frames of a DM grid, and the noise stage's frames -> map
+% differential (the contrast gate + the annulus fill, BEFORE the estimator)
+C.framesf_hook = @(M) cophi_frames_(arm_field_(rxT, G.bt, th_pass, P, test_launch, G.T.iTO, M), Elo_r, opt, struct());
+C.hdiff_hook = @(G1, G0) hdiff_gated_(G1, G0, iff_(iq, 'iq', alpha_(opt.N)), gate_frac_(P), mskT, P.LAM, C.msk, C.fmode_);
 C.test_launch = test_launch;  C.th_pass = th_pass;  C.lo_launch = lo_launch;
 end
 
@@ -243,7 +248,7 @@ function [Fr, alpha] = cophi_frames_(Et, Elo, opt, eo)
     end
     rip = 0;  if isfield(eo, 'ripple'), rip = eo.ripple; end
     if rip == 0 || (isfield(o, 'iq') && o.iq)
-        [Fr, alpha] = dmg_cophi_frames(Et, Elo, o);  return
+        [Fr, alpha] = dmg_cophi_frames(Et, Elo, o);  Fr = dmg_camres(Fr);  return   % dmg_camres: identity unless P.camres
     end
     sd = 0;  if isfield(eo, 'seed'), sd = eo.seed; end
     rs = RandStream('mt19937ar', 'Seed', 1e6 + sd);  ek = rip * randn(rs, 1, o.N);
@@ -253,6 +258,7 @@ function [Fr, alpha] = cophi_frames_(Et, Elo, opt, eo)
         if isempty(Fr), Fr = zeros(size(Fk)); end
         Fr(:,:,k) = Fk(:,:,k);
     end
+    Fr = dmg_camres(Fr);
 end
 
 function NZ = cophi_noise_(C, P, S)
@@ -466,6 +472,19 @@ function a = gated_(G1, G0, al, gfrac, mskT, lam, msk, est, fmode)
     a = est(meanref_(fill_(h, ok & msk, msk, fmode), msk));
 end
 
+function h = hdiff_gated_(G1, G0, al, gfrac, mskT, lam, msk, fmode)
+%HDIFF_GATED_  gated_ without the estimator: the differential height map (mm) the
+%   noise stage hands its estimator (contrast gate, annulus fill, mean reference).
+    [p1, a1, d1] = dmg_cophi_recon(G1, al);  [p0, a0, d0] = dmg_cophi_recon(G0, al);
+    c1 = a1 ./ max(d1, eps);  c0 = a0 ./ max(d0, eps);
+    ok = c1 > gfrac*median(c1(mskT)) & c0 > gfrac*median(c0(mskT));
+    h = meanref_(fill_(angle(exp(1i*(p1 - p0))) * lam/(4*pi), ok & msk, msk, fmode), msk);
+end
+
+function g = gate_frac_(P)
+    g = 0.2;  if isfield(P.cophi, 'gate_frac'), g = P.cophi.gate_frac; end
+end
+
 function h = fill_(h, ok, msk, fmode)
 %FILL_  what the reading reports where there is NO fringe inside the mask (the
 %   LO-only annulus: no test light).  'zero' (the record): 0 -- so a COMMON phase
@@ -616,6 +635,7 @@ function phi = cophi_phase_(rx, b, th, P, launch, iTO, M, Elo, opt)
 %COPHI_PHASE_  the heterodyne phase of the test arm with grid M on the DM.
     E = arm_field_(rx, b, th, P, launch, iTO, M);
     [Fr, alpha] = dmg_cophi_frames(E, Elo, opt);
+    Fr = dmg_camres(Fr);                 % the camera's pixels (identity unless P.camres)
     phi = cophi_read_(Fr, alpha, [], P);
 end
 
