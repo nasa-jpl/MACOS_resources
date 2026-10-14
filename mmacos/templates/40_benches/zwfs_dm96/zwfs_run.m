@@ -47,6 +47,15 @@ addpath(fullfile(exdir, '..', '..', '90_polarization', 'tg_psi_dm'));  % dm_infl
 if isempty(P.outdir), P.outdir = fullfile(exdir, 'runs', P.tag); end
 if ~exist(P.outdir, 'dir'), mkdir(P.outdir); end
 cd(P.outdir);
+% P.camres (the resolution sweep, 2026-10-13; cophi_dm96/ressweep_zrun): the camera's
+% PIXELS on the model's detector grid -- every frame the factories capture is
+% area-integrated onto camera pixels of P.camres.c model px and replicated back, and
+% the solvers' intensity calibrations (the flat's |E0|^2, |b|^2, b2cal) are taken on
+% the same pixels (dm_gauge_lib/dmg_camres).  Absent = the record, bit for bit.
+if isfield(P, 'camres') && ~isempty(P.camres)
+    dmg_camres('set', P.camres);
+    clcam = onCleanup(@() dmg_camres('clear'));
+end
 t_all = tic;
 rep = fopen(sprintf('%s_report.txt', P.tag), 'w');
 want = @(st) any(strcmp(P.stages, st));
@@ -259,6 +268,12 @@ if ~ok
 end
 end
 
+function tf = camp_()
+% the resolution sweep's camera pixels are active (P.camres): the engine-truth gates
+% of the readings (G4 G5 G7 G9, the PDI flat) PRICE the camera -- they print
+tf = ~isempty(dmg_camres('get'));
+end
+
 function y = ifelse_(c, a, b)
 if c, y = a; else, y = b; end
 end
@@ -469,7 +484,7 @@ if any(strcmp(P.readings, 'V'))
         P.mask.v_gate_nm, gV.rmsfig, max(abs(phi_t(msk))), 100*gV.beyond, gV.eV, gV.eI, ifelse_(gV.eV < 1e-3*gV.rmsfig && gV.eI > 10*gV.eV, 'PASS', 'FAIL'));
     priced = (ZW.leak.eta < 1 && strcmp(P.mask.v_cal, 'ideal')) || ...
              (~strcmp(ZW.arm.mode, 'none') && ~strcmp(P.mask.v_cal, 'map')) || ...
-             ~strcmp(ZW.ana.mode, 'none');
+             ~strcmp(ZW.ana.mode, 'none') || camp_();
     % ---- G9 (V5, plan 11.2): the pair read through a pupil AMPLITUDE dip.
     % The dip multiplies the unmasked poke field at the pupil image (a
     % Gaussian well of depth d over a quarter of the pupil, off center); the
@@ -495,7 +510,7 @@ if any(strcmp(P.readings, 'V'))
             ok = eC < 1e-3*gV.rmsfig && eF > 10*eC;
             dmg_say(rep, 'G9 vector pair through a %.0f%% pupil amplitude dip (Gaussian, sigma 0.25 of the pupil radius, off center): the flat''s amplitude %.2f pm; the state''s clear frame %.3f pm (gate < 0.1%% of the figure; non-vacuity: the flat''s > 10x); the pair alone %.0f pm, its amplitude %.1e rms off (ambiguous: A cos phi crosses b at these pokes)   -> %s\n', ...
                 100*d, eF, eC, eA, eAmp, ifelse_(ok, 'PASS', 'FAIL'));
-            assert(ok, 'G9 FAIL at a %.0f%% dip', 100*d);
+            if ~camp_(), assert(ok, 'G9 FAIL at a %.0f%% dip', 100*d); end   % camp_: P.camres prices the camera -- print, do not assert
         end
     end
     if ~priced
@@ -547,7 +562,7 @@ if ~isempty(fieldnames(ZW.PD))
         dmg_say(rep, '%s: %s; frames per measurement %d; eta_pin %.4f; throughput (detected/incident, flat) %.4f; visibility on the flat %.4f; surrogate vs engine reference %.2e; the flat reads %.2e rad rms, amplitude %.2e rel\n', ...
             rd, desc, pd.nframes, pd.eta_pin, pd.throughput, pd.vis, pd.gate.bsur, pd.gate.flat, pd.gate.amp);
         assert(pd.gate.bsur < 1e-10, '%s: reference surrogate gate FAIL (%.2e)', rd, pd.gate.bsur);
-        priced = pd.step_err ~= 0;          % a deliberate step error is being PRICED: the gates print, they do not assert
+        priced = pd.step_err ~= 0 || camp_();   % a deliberate step error, or the camera's pixels (P.camres), is being PRICED: the gates print, they do not assert
         if ~priced, assert(pd.gate.flat < 1e-9, '%s: the flat does not read zero (%.2e rad rms)', rd, pd.gate.flat); end
         hP = pd.height(pd.frames(dmap(Afig)));
         e5 = sqrt(mean((pm_(hP) - pm_(h_t)).^2))*1e9;
@@ -586,7 +601,7 @@ if ~isempty(fieldnames(ZW.PD))
         hQ = pdS.height(pdS.frames(dmap(Aq)));
         e7 = norm(pm_(hQ) - pm_(hS)) / norm(pm_(hS));
         dmg_say(rep, 'G7 the pinhole reading at t = 1, %.2f lam/D, frozen reference vs the stepped Zernike reading S on %g nm sparse pokes: rel rms diff %.2e   (gate < 1e-2: same instrument, same frames)\n', P.mask.DIA_LAMD, P.reg.POKE*1e6, e7);
-        assert(e7 < 1e-2, 'G7 FAIL: the pinhole reading does not reduce to S at t = 1');
+        if ~camp_(), assert(e7 < 1e-2, 'G7 FAIL: the pinhole reading does not reduce to S at t = 1'); end
         gP.e7 = e7;
     end
     % ---- figure data for zwfs_run_figs (<tag>_pdi.png): the focal plane with
@@ -1266,6 +1281,20 @@ for icfg = 1:numel(P.dm)
     end
     if any(strcmp(RD, 'I+'))
         dmg_say(rep, '(beyond-fold fraction of msk on the working-state base, prior passes: %s)\n', sprintf('%.4f ', pinf.frac));
+    end
+    % ---- a GENERIC deck hook (the resolution sweep, 2026-10-13): P.battery.deck_hook
+    %   names a function handed this battery's matrix (per class: estimator and
+    %   measured J), lit set, hold-out, working surface and rows, plus the readings'
+    %   frames and frames -> map differentials.  First DM only.  Absent = the record.
+    if icfg == 1 && isfield(P.battery, 'deck_hook') && ~isempty(P.battery.deck_hook)
+        b1 = ROWS{1,2};
+        B.deck_hook = feval(P.battery.deck_hook, struct('ZW', ZW, 'RD', {RD}, 'KC', KC, ...
+            'framesf', @(A) frames_(ZW, C.dmap(A), needS, needV, needP), ...
+            'hdiff', @(F1, F0, k) diff_(ZW, RD{k}, F1, F0, plusb, C.uw), ...
+            'est', {C.est}, 'J', {C.J}, 'lit', lit, 'ic', cfg.hold, 'nact', NACT, 'A0', b1, ...
+            'dev', P.battery.dev_single, 'msk', msk, 'dmod', sqrt(4*nnz(msk)/pi), ...
+            'px_per_act_model', cfg.pitch/(S.dxd_mm*S.mag), 'res', res, 'ROWS', {ROWS}, 'P', P, ...
+            'say', @(varargin) dmg_say(rep, varargin{:}), 'nlit', nnz(lit), 'nstates', C.matrix.nstates));
     end
     % ---- break scale ----------------------------------------------------
     switch P.battery.ladder_sites

@@ -335,6 +335,7 @@ for k = 1:C.nframes
     if k <= C.K, macos.apodize_complex(iMASK, C.VK{k}); else, macos.apodize_complex(iMASK, D); end
     Fr(:,:,k) = abs(macos.complex_field(iDET, 'reset_trace', false)).^2;
 end
+Fr = dmg_camres(Fr);                              % the camera's pixels (identity unless P.camres)
 end
 
 function Fr = framesFib_(M, iTO, iDET, C, varargin)
@@ -458,7 +459,7 @@ case 'fiber'
     phi(~m) = 0;
 case 'pinhole'
     t = C.t;
-    if C.nframes > K, b2 = Fr(:,:,K+1); else, b2 = C.b2cal; end
+    if C.nframes > K, b2 = Fr(:,:,K+1); else, b2 = dmg_camres(C.b2cal); end   % (the camera's pixels under P.camres)
     ImX = Cc / (2*t);
     b = C.Eb0;  phi = zeros(N);
     niter = C.NITER;  info.dphi = zeros(1, niter+1);
@@ -475,7 +476,7 @@ case 'pinhole'
             % re-propagate the reference from the estimate: the true-amplitude
             % field (a phase-only DM state on a DM-conjugate pupil keeps |E0|)
             b = C.bsur(abs(C.E0) .* exp(1i*(C.th0 + phi)));
-            if C.nframes == K, b2 = abs(b).^2; end   % 'flat' mode: |b|^2 iterated too
+            if C.nframes == K, b2 = dmg_camres(abs(b).^2); end   % 'flat' mode: |b|^2 iterated too
         end
     end
     info.b = b;

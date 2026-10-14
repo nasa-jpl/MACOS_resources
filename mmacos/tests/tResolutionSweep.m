@@ -16,9 +16,12 @@ classdef tResolutionSweep < matlab.unittest.TestCase
 %     R4  the anchor sampling (3.277, c = 1) reproduces the record's battery
 %         rows TO THE DIGIT (the deck's printed precision): IFO = tg_psi_dm96_oap
 %         redo96_oapph / camI_oap, HET = cophi_dm96 noise_oap_plain
-%     R5  NON-VACUITY: the collapse APPEARS -- at 1 px per actuator the single-
-%         actuator row is broken by name (see the test for the criterion), so
-%         the binning reached the reading
+%     R4z the ZWFS family's anchor (3.30, model 2048) = redo96_oapsens, nine rows
+%     R5  NON-VACUITY: the failure APPEARS -- at 1 px per actuator the single-
+%         actuator row is broken by name (noise-free floor >= 10 pm; IFO / HET),
+%         so the binning reached the reading; 1.5 px and above hold
+%     R5z the same for S / V / P, and the POINT-sampled native 1.65 reads as the
+%         anchor (the cost is the pixel's integration, not the sample count)
     properties (Constant)
         LIB = fullfile(fileparts(mfilename('fullpath')), '..', 'templates', '40_benches', 'dm_gauge_lib');
         RUNS = fullfile(fileparts(mfilename('fullpath')), '..', 'templates', '40_benches', 'cophi_dm96', 'runs');
@@ -81,6 +84,46 @@ classdef tResolutionSweep < matlab.unittest.TestCase
             end
             tc.assumeTrue(~isempty(tResolutionSweep.anchor_('ifo')) || ~isempty(tResolutionSweep.anchor_('het')), ...
                 'no ressweep records yet (run ressweep_run first)');
+        end
+        function R4z_zwfs_anchor_reproduces_the_record(tc)
+            % the ZWFS family at 3.30 (model 2048, NGRID 385) = redo96_oapsens's
+            % 96 x 96 rows (gain 4 digits, err and floor to the pm)
+            f = fullfile(tResolutionSweep.RUNS, 'ressweep_zwfs', 'ressweep_zwfs_results.mat');
+            tc.assumeTrue(isfile(f), 'no ressweep_zwfs records');
+            L = load(f);  j = find(abs([L.resp.s_target] - 3.30) < 1e-6, 1);  tc.assumeNotEmpty(j);
+            rw = L.resp(j).rows;
+            rec = {'rand30/single10', 'S', [0.9930 5 5]; 'rand30/single10', 'V', [1.0079 2 2]; 'rand30/single10', 'P', [0.9950 3 3]; ...
+                   'rand30/grid@1nm', 'S', [0.9949 4 4]; 'rand30/grid@1nm', 'V', [1.0009 4 3]; 'rand30/grid@1nm', 'P', [0.9979 3 3]; ...
+                   'rand30/rand10',   'S', [0.9780 751 NaN]; 'rand30/rand10', 'V', [1.0035 442 NaN]; 'rand30/rand10', 'P', [0.9943 313 NaN]};
+            for q = 1:size(rec, 1)
+                i = find(strcmp({rw.row}, rec{q, 1}) & strcmp({rw.rd}, rec{q, 2}), 1);
+                r = rw(i).raw;  e = rec{q, 3};  lab = sprintf('%s %s', rec{q, 1}, rec{q, 2});
+                tc.verifyEqual(round(r(1)*1e4)/1e4, e(1), [lab ' gain']);
+                tc.verifyEqual(round(r(2)), e(2), [lab ' err']);
+                if ~isnan(e(3)), tc.verifyEqual(round(r(3)), e(3), [lab ' floor']); end
+            end
+        end
+        function R5z_zwfs_single_row_fails_at_1px(tc)
+            % S / V / P: the single row's noise-free floor (one-step) >= 10 pm at 1 camera
+            % px per actuator (measured 32-33 pm), within 1.5 x the anchor's + 1 pm at 1.5
+            % and above -- and the POINT-sampled native 1.65 reads as the anchor (the cost
+            % is the pixel's integration, not the sample count)
+            f = fullfile(tResolutionSweep.RUNS, 'ressweep_zwfs', 'ressweep_zwfs_results.mat');
+            tc.assumeTrue(isfile(f), 'no ressweep_zwfs records');
+            L = load(f);  s = [L.resp.s_target];
+            fl = @(j, rd) L.resp(j).rows(strcmp({L.resp(j).rows.row}, 'rand30/single10') & strcmp({L.resp(j).rows.rd}, rd)).raw(3);
+            ja = find(abs(s - 3.30) < 1e-6, 1);  j1 = find(abs(s - 1) < 1e-6, 1);  jp = find(abs(s - 1.65) < 1e-6, 1);
+            for rd = {'S', 'V', 'P'}
+                tc.verifyGreaterThanOrEqual(fl(j1, rd{1}), 10, ['single row at 1 px fails: ' rd{1}]);
+                for j = find(s >= 1.5 - 1e-6)
+                    tc.verifyLessThanOrEqual(fl(j, rd{1}), 1.5*fl(ja, rd{1}) + 1, sprintf('%s at %.2f', rd{1}, s(j)));
+                end
+                if ~isempty(jp)
+                    nz = L.resp(jp).R.noise;  na = L.resp(ja).R.noise;
+                    k = strcmp({nz.rd}, rd{1}) & strcmp({nz.binning}, 'digital');  ka = strcmp({na.rd}, rd{1}) & strcmp({na.binning}, 'digital');
+                    tc.verifyLessThan(abs(nz(k).s_per_pm/na(ka).s_per_pm - 1), 0.1, ['point-sampled 1.65 = anchor: ' rd{1}]);
+                end
+            end
         end
         function R5_the_collapse_appears(tc)
             % at 1 camera px per actuator the single-actuator row FAILS: its

@@ -336,6 +336,7 @@ else   % V4: the analyzer mixes the two images (dmg_analyzer_maps' model, main-c
     Ip = abs(EA).^2 + ana.lA*abs(EB).^2 + 2*real(EA.*conj(EB)*ana.cA);
     Im = abs(EB).^2 + ana.lB*abs(EA).^2 + 2*real(EB.*conj(EA)*ana.cB);
 end
+Ip = dmg_camres(Ip);  Im = dmg_camres(Im);       % the camera's pixels (identity unless P.camres)
 end
 
 function E = chain_(M, q, VV, iTO, iMASK, iDET)
@@ -370,7 +371,7 @@ function h = measV_(M, iTO, iMASK, iDET, V, Vm, N_WF, C, leak, arm, ana)
 [Ip, Im] = frameV_(M, iTO, iMASK, iDET, V, Vm, N_WF, leak, arm, ana);
 if isfield(C, 'V_CLEAR') && C.V_CLEAR                      % V5: the state's clear frame -> the amplitude
     macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
-    I0 = abs(macos.complex_field(iDET)).^2;
+    I0 = dmg_camres(abs(macos.complex_field(iDET)).^2);
     h = reconV_(Ip, Im, C, I0);
 else
     h = reconV_(Ip, Im, C);
@@ -458,6 +459,9 @@ if nargin < 6 || isempty(niter), niter = C.NITER; end
 N = C.N_WF;  m = C.msk;
 wrap = @(p) atan2(sin(p), cos(p));
 if isempty(I0), A0 = abs(C.E0); else, A0 = sqrt(max(I0, 0)); end
+cf_ = dmg_camres('get');                         % the resolution sweep (P.camres): calibrations on the camera's pixels
+cam = ~isempty(cf_) && ~(cf_.c == 1 && all(cf_.offset == 0));
+if cam && isempty(I0), A0 = sqrt(max(dmg_camres(A0.^2), 0)); end
 th0 = angle(C.E0);  tc = angle(C.cc);
 if isempty(C.qL), qL = 1; else, qL = C.qL; end
 if isempty(C.qR), qR = 1; else, qR = C.qR; end
@@ -467,8 +471,13 @@ sP0 = angle(C.kapP);  sM0 = angle(C.kapM);
 phi = zeros(N);
 info = struct('dphi', zeros(1, niter+1), 'rcons', zeros(1, niter+1));
 for it = 0:niter
-    xp = (Ip - aP.^2 - ac^2*abs(bP).^2) ./ max(2*aP.*ac.*abs(bP), realmin);
-    xm = (Im - aM.^2 - ac^2*abs(bM).^2) ./ max(2*aM.*ac.*abs(bM), realmin);
+    if cam   % |b|^2 = the disk-only image, on the camera's pixels
+        mbP = sqrt(max(dmg_camres(abs(bP).^2), 0));  mbM = sqrt(max(dmg_camres(abs(bM).^2), 0));
+    else
+        mbP = abs(bP);  mbM = abs(bM);
+    end
+    xp = (Ip - aP.^2 - ac^2*mbP.^2) ./ max(2*aP.*ac.*mbP, realmin);
+    xm = (Im - aM.^2 - ac^2*mbM.^2) ./ max(2*aM.*ac.*mbM, realmin);
     sP = sP0 - angle(bP);  sM = sM0 - angle(bM);
     mm = (sP + sM)/2;  t = tc - (sP - sM)/2;
     cu = (xp + xm) ./ (2*cos(t));  su = (xp - xm) ./ (2*sin(t));
@@ -516,7 +525,7 @@ function Ia = frameL_(M, iTO, iMASK, iDET, V, N_WF) %#ok<INUSD>
 macos.set_elt_grid(iTO, macos.get_elt_grid_spacing(iTO), M);
 macos.intensity(iMASK);
 macos.apodize_complex(iMASK, V);
-Ia = abs(macos.complex_field(iDET, 'reset_trace', false)).^2;
+Ia = dmg_camres(abs(macos.complex_field(iDET, 'reset_trace', false)).^2);
 end
 
 function Fr = framesS_(M, iTO, iMASK, iDET, VK, N_WF)
@@ -529,6 +538,7 @@ for k = 1:3
     macos.apodize_complex(iMASK, VK{k});
     Fr(:,:,k+1) = abs(macos.complex_field(iDET, 'reset_trace', false)).^2;
 end
+Fr = dmg_camres(Fr);                              % the camera's pixels (identity unless P.camres)
 end
 
 function h = reconL_(Ia, I_flat, den, msk, S_CONV, LAM, N_WF)
@@ -541,7 +551,7 @@ function X = reconS_(Fr, M2i, b2)
 d1 = Fr(:,:,2)-Fr(:,:,1);  d2 = Fr(:,:,3)-Fr(:,:,1);  d3 = Fr(:,:,4)-Fr(:,:,1);
 p = M2i(1,1)*d1 + M2i(1,2)*d2 + M2i(1,3)*d3;
 q = M2i(2,1)*d1 + M2i(2,2)*d2 + M2i(2,3)*d3;
-X = (b2 - p) + 1i*q;
+X = (dmg_camres(b2) - p) + 1i*q;                 % b2cal = the flat disk frame, on the camera's pixels
 end
 
 % ---- iterated-reference exact solve ----------------------------------
