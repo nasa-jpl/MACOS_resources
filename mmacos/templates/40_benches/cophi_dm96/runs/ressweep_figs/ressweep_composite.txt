@@ -1,0 +1,36 @@
+ressweep composite -- 13-Oct-2026 18:03:51; failure band: samplings <= 1.000 px/act fail the single-actuator row (noise-free floor >= 10 pm, |g_conv - 1| > 0.05, or a +-0.1 pitch shift reads the wrong actuator); shaded to 1.25
+IFO snapshot (pol. camera)      1.000 px/act  hold    8.43 pm (cycle 6 s)        758 s per pm  single: floor  12.9 pm, g_conv 0.9943  wrong 0
+IFO snapshot (pol. camera)      1.500 px/act  hold    4.21 pm (cycle 6 s)        302 s per pm  single: floor   3.0 pm, g_conv 0.9883  wrong 0
+IFO snapshot (pol. camera)      2.000 px/act  hold    3.95 pm (cycle 6 s)        266 s per pm  single: floor   2.6 pm, g_conv 0.9876  wrong 0
+IFO snapshot (pol. camera)      3.277 px/act  hold    3.05 pm (cycle 6 s)        161 s per pm  single: floor   1.8 pm, g_conv 0.9887  wrong 0
+IFO snapshot (pol. camera)      4.009 px/act  hold    3.06 pm (cycle 6 s)        162 s per pm  single: floor   1.8 pm, g_conv 0.9884  wrong 0
+vector ZWFS (pol. camera)       0.999 px/act  hold    9.06 pm (cycle 19.1 s)   3.09e+03 s per pm  single: floor  31.8 pm, g_conv 0.9949  wrong 0
+vector ZWFS (pol. camera)       1.498 px/act  hold    4.71 pm (cycle 19.1 s)   1.15e+03 s per pm  single: floor   3.0 pm, g_conv 1.0147  wrong 0
+vector ZWFS (pol. camera)       1.998 px/act  hold    4.39 pm (cycle 19.1 s)   1.04e+03 s per pm  single: floor   2.6 pm, g_conv 1.0143  wrong 0
+vector ZWFS (pol. camera)       3.296 px/act  hold    3.41 pm (cycle 19.1 s)        639 s per pm  single: floor   1.6 pm, g_conv 1.0143  wrong 0
+vector ZWFS (pol. camera)       4.001 px/act  hold    3.42 pm (cycle 19.1 s)        655 s per pm  single: floor   1.7 pm, g_conv 1.0144  wrong 0
+stepped ZWFS (mono)             0.999 px/act  hold    8.44 pm (cycle 17.6 s)   2.38e+03 s per pm  single: floor  32.5 pm, g_conv 0.9959  wrong 0
+stepped ZWFS (mono)             1.498 px/act  hold    4.11 pm (cycle 17.6 s)        812 s per pm  single: floor   6.5 pm, g_conv 1.0006  wrong 0
+stepped ZWFS (mono)             1.998 px/act  hold     3.9 pm (cycle 17.6 s)        723 s per pm  single: floor   6.0 pm, g_conv 1.0016  wrong 0
+stepped ZWFS (mono)             3.296 px/act  hold    3.02 pm (cycle 17.6 s)        451 s per pm  single: floor   5.0 pm, g_conv 1.0001  wrong 0
+stepped ZWFS (mono)             4.001 px/act  hold    3.01 pm (cycle 17.6 s)        456 s per pm  single: floor   5.1 pm, g_conv 1.0005  wrong 0
+pinhole PDI (mono)              0.999 px/act  hold    9.38 pm (cycle 12.6 s)   2.19e+03 s per pm  single: floor  31.6 pm, g_conv 0.9934  wrong 0
+pinhole PDI (mono)              1.498 px/act  hold    4.58 pm (cycle 12.6 s)        734 s per pm  single: floor   4.5 pm, g_conv 1.0013  wrong 0
+pinhole PDI (mono)              1.998 px/act  hold    4.35 pm (cycle 12.6 s)        681 s per pm  single: floor   3.8 pm, g_conv 1.0026  wrong 0
+pinhole PDI (mono)              3.296 px/act  hold    3.37 pm (cycle 12.6 s)        398 s per pm  single: floor   2.6 pm, g_conv 1.0012  wrong 0
+pinhole PDI (mono)              4.001 px/act  hold    3.36 pm (cycle 12.6 s)        400 s per pm  single: floor   2.7 pm, g_conv 1.0015  wrong 0
+HET, Feng's camera              1.000 px/act  hold    7.42 pm (cycle 16 s)    3.4e+03 s per pm  single: floor  13.2 pm, g_conv 1.0029  wrong 0
+HET, Feng's camera              1.500 px/act  hold     3.7 pm (cycle 16 s)        797 s per pm  single: floor   2.5 pm, g_conv 0.9991  wrong 0
+HET, Feng's camera              2.000 px/act  hold    3.46 pm (cycle 16 s)        691 s per pm  single: floor   2.0 pm, g_conv 0.9993  wrong 0
+HET, Feng's camera              3.277 px/act  hold    2.66 pm (cycle 16 s)        373 s per pm  single: floor   1.2 pm, g_conv 1.0000  wrong 0
+HET, Feng's camera              4.009 px/act  hold    2.65 pm (cycle 16 s)        389 s per pm  single: floor   1.2 pm, g_conv 0.9999  wrong 0
+HET, Photonfocus                1.000 px/act  hold    26.5 pm (cycle 1.6 s)        292 s per pm  single: floor  13.2 pm, g_conv 1.0029  wrong 0
+HET, Photonfocus                1.500 px/act  hold    7.55 pm (cycle 1.6 s)       73.5 s per pm  single: floor   2.5 pm, g_conv 0.9991  wrong 0
+HET, Photonfocus                2.000 px/act  hold    5.28 pm (cycle 1.6 s)       68.6 s per pm  single: floor   2.0 pm, g_conv 0.9993  wrong 0
+HET, Photonfocus                3.277 px/act  hold    2.52 pm (cycle 1.6 s)       36.2 s per pm  single: floor   1.2 pm, g_conv 1.0000  wrong 0
+HET, Photonfocus                4.009 px/act  hold    2.51 pm (cycle 1.6 s)       36.6 s per pm  single: floor   1.2 pm, g_conv 0.9999  wrong 0
+HET, lock-in C4                 1.000 px/act  hold    8.65 pm (cycle 0.125 s)       15.9 s per pm  single: floor  13.2 pm, g_conv 1.0029  wrong 0
+HET, lock-in C4                 1.500 px/act  hold    4.26 pm (cycle 0.125 s)       6.28 s per pm  single: floor   2.5 pm, g_conv 0.9991  wrong 0
+HET, lock-in C4                 2.000 px/act  hold    4.02 pm (cycle 0.125 s)       5.44 s per pm  single: floor   2.0 pm, g_conv 0.9993  wrong 0
+HET, lock-in C4                 3.277 px/act  hold    3.09 pm (cycle 0.125 s)       3.47 s per pm  single: floor   1.2 pm, g_conv 1.0000  wrong 0
+HET, lock-in C4                 4.009 px/act  hold    3.08 pm (cycle 0.125 s)       3.36 s per pm  single: floor   1.2 pm, g_conv 0.9999  wrong 0

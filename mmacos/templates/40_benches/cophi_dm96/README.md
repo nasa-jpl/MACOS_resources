@@ -523,6 +523,186 @@ shrinkage.  H is exact on the mirror rig; on the lens rig a +0.1-0.2 % remains
 truncation of the influence wings is the first candidate) -- open, small.
 Errors and floors fall too (H mirror dense random 118 -> 27 pm).
 
+## The resolution sweep (2026-10-13): what pixels per actuator buy and cost, per gauge
+
+Brief `macos/BRIEF_to_resolution_sweep.md` (Dave, deck_cophi review: "price resolution
+for the IFO, vZWFS and HET").  Runners `ressweep_run` (IFO, COPHI bucket, COPHI lock-in)
+and `ressweep_zrun` (stepped ZWFS S, vector ZWFS V, pinhole P -- one zwfs_run per
+sampling reads all three); hooks `ressweep_hook` / `ressweep_zhook`; composite figure
+`ressweep_figs`; gate `tests/tResolutionSweep` (SUITE_FAST-sized: the operator + the
+records).  Records `runs/ressweep_<gauge>/ressweep.txt` (+ the pruned `*_results.mat`).
+
+```matlab
+ressweep_run('gauge','ifo')          % or 'het', 'het_iq'; 's',[3.277 2 1.5 1 4] by default
+ressweep_zrun                        % S V P at model 2048: 's',[3.30 2 1.5 1 4]
+ressweep_zrun('s',1.65)              % the native point-sampled 1.65 at model 1024 -- its OWN process
+ressweep_figs                        % runs/ressweep_figs/ressweep_composite.png + .txt
+```
+```bash
+./ressweep_batch.sh ressweep_ifo "'gauge','ifo'"      # serialized, memory-capped (as cophi_batch)
+./ressweep_zbatch.sh ressweep_zwfs                    # model 2048 (MemoryMax 20G), ~75 min per sampling
+./ressweep_zbatch.sh ressweep_zwfs165 "'s',1.65"      # model 1024 -- NEVER in the same process as a 2048 run
+```
+(One engine model size per MATLAB process: the first sweep went 3.30 -> 1.65 in one
+process and died `free(): invalid next size` -- zwfs_run's documented rule; ressweep_zrun
+now refuses the mix.)
+```bash
+```
+
+**Mechanism -- the camera's PIXELS, not a coarser model.**  The model's detector grid
+POINT-samples the pupil image (one ray per model pixel; 3.277 model px per actuator on the
+mirror rig at NGRID 385).  A coarser camera INTEGRATES over each pixel.  So for every
+sampling at or below the model's, `dm_gauge_lib/dmg_camres` box-integrates every detector
+FRAME onto camera pixels of c = 3.277/s model px (area-weighted, fractional overlaps for
+a non-integer c) and replicates them back onto the model grid.  It is switched on by
+`P.camres` in `tg96_run` / `zwfs_run` and applied where the frames are made (`tg96_run`
+`frame()`, `cophi_ctx`'s frames, the ZWFS/PDI factories' frames), so the mask, the
+placement, the 64-state matrix and every battery row run THROUGH the resampled reading:
+blur and registration are absorbed by calibration, as on a bench.  The ZWFS / PDI solvers'
+intensity calibrations (the flat's |E0|^2, the reference's |b|^2, the stepped b2cal) are
+taken on the same pixels -- they are images a bench takes on its own camera; the
+reference wave's PHASE stays per model pixel (smooth on the cell scale).  c = 1 is the
+exact identity (the record's code path bit for bit).  ABOVE the model's sampling (4 px)
+there is nothing to integrate: a finer SOURCE grid (NGRID 470 / 467), c = 1.  Why not a
+coarser NGRID for s < 3.3: that point-samples (a 1 px/act ray grid sees each actuator at
+one point, no pixel blur) -- the ZWFS's native 1.65 (NGRID 193, the camera records' grid)
+is run as exactly that contrast.  Replication weights each camera pixel by the model
+pixels it covers (uniform to +-1 px at a non-integer c): the estimator is then a mildly
+weighted least squares on the camera pixels -- stated, not hidden.
+
+**The other rows, per sampling (the hooks):** the two working-surface states (A0, A0 + the
+10 nm single at the hold-out) are traced ONCE unbinned and binned in the hook, so the
+noise and the registration rows cost no traces.  NOISE: the gauge's record camera with
+the pupil image as recorded, binned to the sampling -- a camera pixel holds (k c)^2 sensor
+pixels, so the PHOTONS per reading do not change with the sampling (every sensor pixel
+is used; exposure by the brightest model pixel at fill x well x k^2, the record's rule);
+read noise two ways: DIGITAL binning (CMOS; read x k c per camera pixel = the same total
+read variance per actuator at every sampling; the record's convention) and ON-CHIP charge
+binning (read x 1 -- "what binning restores").  Metric = the record's (piston-free robust
+floor, one reading = differential / sqrt 2).  LOOP: dmg_loop on a LINEAR instrument (truth
+= this sampling's measured matrix, the camera's noise on the binned set-point frames, a
+cycle of M readings), noise only and the record's 5 pm/cycle thermal ramp, g 0.5, K 60,
+seed 77, at the record's cycle (M: Photonfocus 60 = 1.6 s, Feng's 120 = 16 s, lock-in 125 =
+0.125 s; the IFO's 450 = 6 s and the ZWFS's S 330 / V 1435 / P 237 are the cycles that hold
+~3 pm at the record's pm per reading -- no camera loop record existed).  On the anchor the
+loop sits on dmg_loop's theory line (IFO 3.05 vs 3.05 pm).  REGISTRATION: the camera grid
+shifted +-0.1 pitch in x and y AFTER calibration, read through the unshifted matrix.  DATA:
+output pixels per frame x 16 bit x frame rate.
+
+**Anchors reproduce the records to the digit** (tResolutionSweep R4): IFO 3.277 =
+redo96_oapph / camI_oap (0.9832/2.7/2, 0.9838/2.9/2, 0.9844/222.9; converged 0.9887 /
+0.9892 / 0.9896 = conv_I_oapph; pol camera 110 pm, 161 s per pm vs 110 / 160); HET 3.277 =
+lockin_battery_oap (0.9941/1.4/1, 0.9950/1.6/1, 0.9951/117.6; converged 1.0000 / 1.0006 /
+1.0005); Feng's camera 52.9 pm (record 53.2), lock-in 58.9 pm / 3.47 s per pm (57.9 /
+3.35; 12 draws).  4 px = 3.3 px on every row (the finer source grid changes nothing).
+
+### The interferometers (mirror rig of record; records runs/ressweep_{ifo,het,het_iq})
+
+Battery, noise-free (converged gain; dense-random error converged, pm):
+
+| px/act | IFO single / grid / rand err | HET single / grid / rand err |
+|---|---|---|
+| 4.0 | 0.9884 / 0.9892 / 138 | 0.9999 / 1.0005 / 27 |
+| **3.28** | 0.9887 / 0.9892 / 139 | 1.0000 / 1.0006 / 28 |
+| 2.0 | 0.9876 / 0.9893 / 149 | 0.9993 / 1.0005 / 33 |
+| 1.5 | 0.9883 / 0.9883 / 169 | 0.9991 / 0.9996 / 61 |
+| 1.0 | 0.9943 / **0.9562** / **1172** (floor 13 pm one-step) | 1.0029 / **0.9630** / **1123** (floor 13 pm) |
+
+Time and hold (one reading, digital binning; hold = the loop at the record cycle, noise only, pm):
+
+| px/act | IFO pol camera: s per pm / hold (6 s) | HET Photonfocus: s per pm (on-chip) / hold (1.6 s) | HET Feng's: s per pm / hold (16 s) | HET lock-in C4: s per pm / hold (0.125 s) |
+|---|---|---|---|---|
+| 4.0 | 162 / 3.06 | 36.6 (26.8) / 2.51 | 389 / 2.65 | 3.36 / 3.08 |
+| **3.28** | 161 / 3.05 | 36.2 (26.5) / 2.52 | 373 / 2.66 | 3.47 / 3.09 |
+| 2.0 | **266** / 3.95 | **68.6** (48.7) / **5.28** | 691 / 3.46 | **5.44** / 4.02 |
+| 1.5 | 302 / 4.21 | 73.5 (50.3) / 7.55 | 797 / 3.70 | 6.28 / 4.26 |
+| 1.0 | 758 / 8.43 | 292 (212) / 26.5 | 3400 / 7.42 | 15.9 / 8.65 |
+
+Registration, +-0.1 pitch after calibration (worst of four; converged gain, noise-free
+floor): IFO 0.939 / 17 pm at 3.28, 0.956 / 16 pm at 2, 0.963 / 18 pm at 1.5, 0.883 / 44
+pm at 1; HET 0.950 / 17, 0.967 / 16, 0.974 / 18, 0.890 / 46.  **No shift at any sampling
+reads the wrong actuator** (largest neighbour 0.10-0.12 of the poke, 0.22-0.23 at 1 px).
+
+Data (pol camera, all orientations): 0.79 / 0.53 / 0.20 / 0.11 / 0.05 Gb/s at 4 / 3.3 / 2 /
+1.5 / 1 px at 75 fps; the lock-in's 1 kHz 1.8 Gb/s at 3.3; pupil pixels per reading
+1.2e5 / 7.8e4 / 2.9e4 / 1.6e4 / 7.3e3.
+
+### The Zernike family (stepped S, vector V, pinhole P; records runs/ressweep_zwfs)
+
+The zwfs bench of record (redo96_oapsens: model 2048, NGRID 385 = 3.30 px/act); the
+camera's pixels for 2 / 1.5 / 1; NGRID 467 for 4; and the camera records' own grid --
+NGRID 193, model 1024, a POINT-sampled 1.65 -- as the control.  Anchor = redo96_oapsens
+to the digit on all nine rows (tResolutionSweep R4z).  V and P camera rows: the
+polarization camera (V's pair in one exposure) and the mono sensor (S's four frames, P's
+four), each image's brightest pixel at fill x well (the record's camera form).
+
+| px/act | single floor, pm (S / V / P; one-step) | s per pm, S / V / P | hold, pm (S 17.6 s / V 19.1 s / P 12.6 s) | +-0.1 pitch: worst gain, floor |
+|---|---|---|---|---|
+| 4.0 | 5 / 2 / 3 | 456 / 655 / 400 | 3.01 / 3.42 / 3.36 | 0.94-0.95, 21 pm |
+| **3.30** | 5 / 2 / 3 | 451 / 639 / 398 | 3.02 / 3.41 / 3.37 | 0.93-0.94, 21 pm |
+| 2.0 | 6 / 3 / 4 | 723 / 1040 / 681 | 3.90 / 4.39 / 4.35 | 0.94, 24 pm |
+| 1.5 | 6 / 3 / 5 | 812 / 1150 / 734 | 4.11 / 4.71 / 4.58 | 0.95-0.96, 24 pm |
+| 1.0 | **33 / 32 / 32** (gain 0.91-0.92) | 2380 / 3090 / 2190 | 8.44 / 9.06 / 9.38 | 0.85, 58 pm |
+| 1.65 POINT-sampled | 5 / 2 / 3 | 440 / 629 / 402 | 2.98 / 3.40 / 3.29 | 0.88-0.91, 19 pm |
+
+Converged gains (dmg_converge through the measured J) stay within 1.5 % at every sampling
+but 1 px (grid row 0.95-0.96).  No shift reads the wrong actuator.  Data (V, pol camera):
+0.78 / 0.53 / 0.19 / 0.11 / 0.05 Gb/s; pupil pixels per reading 1.2e5 / 7.8e4 / 2.9e4 /
+1.6e4 / 7.2e3 -- V and P solve every one of them six times (the reference wave's
+iterations, two FFTs of the full grid each), so the ZWFS's processing scales with the
+pixel count where the interferometers' atan2 is trivial.
+
+**What it says -- the deck's inferred rows, against the records.**
+1. **"Above ~2 px the photons and the hold are free" is WRONG.**  The photons per reading
+   are the same at every sampling (the same sensor, binned), yet 2 px costs 1.6-1.9x the
+   averaging time of 3.3 on EVERY gauge (IFO 266 vs 161 s per pm, Photonfocus 68.6 vs
+   36.2, Feng's 691 vs 373, lock-in 5.44 vs 3.47, vector ZWFS 1040 vs 639, stepped 723 vs
+   451, pinhole 681 vs 398) and 1.5 px 1.8-2.1x.  It flattens at the model's own 3.3: 4
+   px reads as 3.3 everywhere.
+1a. **The cost is the PIXEL'S INTEGRATION, not the sample count** -- the ZWFS control
+   says so: on a POINT-sampled 1.65 grid every ZWFS row reads as the 3.30 anchor (V 629
+   vs 639 s per pm, hold 3.40 vs 3.41 pm), while the camera's pixels at 1.5 and 2 cost
+   1.6-1.8x.  A pixel box-averages each actuator's response into its neighbours', the
+   matrix's columns lose independence, and the estimator pays for separating them in
+   noise.  So a camera with pixels at the actuator scale pays it; a sampled (small
+   fill-factor) array would not -- a lenslet or a lock-in array with small sensitive
+   areas is the hardware form of the control.
+1b. **The deck's ZWFS camera timings are from that point-sampled 1.65 grid** (camS_oap,
+   redo96_oapnoise: NGRID 193, their reports print "DM 96x96: 1.65 detector px per
+   actuator (min 2) -> NOT MET").  They therefore describe a ~3.3 px CAMERA (V 519 s per
+   pm recorded; this sweep's 3.30 gives 639 with the matrix estimator), not a 1.65 px
+   one -- a real 1.65 px camera would read ~1.7x slower.  The deck's "every record is at
+   3.3-4 px per actuator" holds for the battery rows, not for those camera rows.
+2. **There is no collapse at 1-1.5 px.**  Noise-free, the converged single-actuator gain
+   holds at 1.5 on every gauge and the floors stay within 1-2 pm of the anchor; no +-0.1
+   pitch shift reads the wrong actuator at any sampling, on any gauge.  1 px DEGRADES
+   rather than collapses: the single row's floor goes 2 -> 13 pm (IFO, HET) and 2-5 -> 32-33
+   pm (S, V, P -- the ZWFS family breaks harder: its one-step gain 0.91), the grid row's
+   gain 0.95-0.96, the dense-random error x4-8, the time x4.6-9.  The deck's "1-1.5 collapses"
+   row is the blur demo's box-kernel case, not this bench (the blur demo fit with a
+   stencil; this is the measured matrix, which absorbs the blur).
+3. **Registration is a hold term at EVERY sampling.**  0.1 pitch of camera motion after
+   calibration costs 2.5-6 % of gain and lifts the noise-free floor 2 -> 17 pm (ZWFS 21-24
+   pm), the same at 3.3 and 1.5 (58 pm at 1 px) -- the pixel count does not buy registration tolerance; the matrix
+   re-measure (or a registration servo) does.
+4. **Read noise and binning: the Photonfocus pays twice.**  Its 220 e- read is negligible
+   per its deep well at 3.3, but binned DIGITALLY to 2 px (1100 e- per camera pixel) and
+   amplified by the deconvolution, its 1.6 s hold doubles (2.52 -> 5.28 pm); on-chip
+   binning restores ~30 % of the time (68.6 -> 48.7 s per pm).  A 5 e- camera (Feng's) or
+   the read-free lock-in barely notice digital binning.
+5. **Complexity / data:** the pixel count above 2 costs data linearly (0.2 -> 0.53 Gb/s
+   from 2 to 3.3 on the pol camera), and the ZWFS's per-pixel solve (six reference-wave
+   iterations per reading) scales with it -- cheap next to item 1: on this bench the right
+   camera sampling is ~3 px per actuator for EVERY gauge, not 2, and nothing is gained
+   above 3.3.
+
+**The composite figure** (`ressweep_figs`, `runs/ressweep_figs/ressweep_composite.png` +
+`.txt`): the hold at each sensor's loop cycle and the seconds per pm against camera
+pixels per actuator, one line per gauge, the ZWFS's point-sampled 1.65 as hollow
+markers; the band shaded is where the single-actuator row FAILS in the records (noise-free
+floor >= 10 pm, i.e. 1 px; the boundary lies between 1 and 1.5) -- not a collapse, which
+the records show at no sampling.
+
 ## What the gate already settled (tCophi, 2026-10-11)
 
 - Four-bucket exact; the LSQ **is** the `atan2` form; N-bucket exact.
