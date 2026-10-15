@@ -883,6 +883,47 @@ git rev-list --objects origin/<branch>..HEAD \
   | awk '$1=="blob"{s+=$2} END{printf "%.2f MiB\n", s/1048576}'
 ```
 
+## Error budgets (`src/+macos/+budget/`, `run_budget`, 2026-10-14)
+
+Optical error budgets from the dw_d* sensitivity Jacobians, after Redding
+2014 (SPIE) "Optical error budgeting using linearized ray-trace models":
+a properly-formed RSS budget IS a covariance analysis, `alpha =
+sqrt(trace(Pu*D_g*Sigma_g*D_g'*Pu')/n)`, roll-up `WFE =
+sqrt(sum sigma_i^2 alpha_i^2)`; Monte-Carlo is the identical answer when
+assumptions match.  `run_budget(sens, 'spec', T)` is the pipeline's budget
+stage.  Gotchas:
+
+- **The kernel is `run_met.m`'s Gram trick, lifted out.**  `cov_budget`
+  uses `trace(Sigma_g * G_gg)/nw` with `G = Jk'*Jk` the full Gram and
+  `G_gg` the group's diagonal block — never forms the dense Nw x Nw.
+  Controls survive it: `project_control` forms `(Pu*Jk)'(Pu*Jk)` at Jk's
+  size, `Pu` never materialized.
+- **A group must be UNIT-HOMOGENEOUS.**  `covariance_model` rejects a
+  group that mixes rotation (rad) and translation (length) columns — they
+  cannot share one sigma.  `suggest_groups` never produces mixed groups
+  (tilt / clock / decenter / despace are separate rows); a hand-written
+  spec must split them too.
+- **Units go through `cbm`/`trans_output`.**  `assemble` normalizes
+  rigid-body translation columns to per-SI-metre (`dwdx_trans_per_metre`);
+  `covariance_model` converts each group's sigma to its columns' native
+  unit (rotation->rad, translation->metre, Zernike/Kr->BaseUnit via
+  `/cbm`, Kc->dimensionless).  WFE comes out in BaseUnits; `rollup`/
+  `to_coef` convert to nm via `cbm*1e9`.  Mirror of the `run_met`
+  base-vs-SI equivalence (`tRunMet.test_base_and_legacy_si_jac...`).
+- **cov == MC is the correctness gate** (paper Fig. 6): `tBudgetKernel`
+  (pure algebra, no engine) and `tRunBudget` (real e5hex1 harvest, 104 nm,
+  0.4%) both assert it.  By construction the distribution second moments
+  match (normal sigma^2; uniform h^2/3; worstcase h^2), so agreement holds
+  for every `Dist`.
+- **Group table, one schema, three surfaces** (`read_spec`): Excel / CSV /
+  `.m` all yield the canonical columns `Name Elements DOFs Modes Param
+  Channel Dist Sigma Units Min Max Cov Control`.  `spec_from_table` warns
+  on column overlap (double-count) and reports orphan columns.
+- **v1 is uncontrolled, WFE/OPD.**  The `Pu` controls stage (WFC + the
+  metrology/drift MMSE stage) and the SPOT (`dcdx`) metric are later
+  phases; the kernel is already metric-agnostic (takes `J`,`w0`) and the
+  `coef.*` struct carries NaN Post/iSeq=2 slots for them.
+
 ## Key files
 
 | File | Role |
