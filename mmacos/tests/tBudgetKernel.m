@@ -143,6 +143,16 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             tc.verifyEqual(rc.total, rm.total, 'RelTol', 0.08);
         end
 
+        function test_zernike_decomp_recovers_modes(tc)
+            n = 64; [X, Y] = meshgrid(linspace(-1, 1, n));
+            mask = (X.^2 + Y.^2) <= 1;
+            Z5 = macos.noll_mode(mask, 5); Z6 = macos.noll_mode(mask, 6);
+            w2d = 3 * Z5 - 2 * Z6;
+            [c, ~, res] = macos.budget.zernike_decomp(w2d, mask, [4 5 6 7]);
+            tc.verifyEqual(c(:)', [0 3 -2 0], 'AbsTol', 1e-8);
+            tc.verifyLessThan(max(abs(res)), 1e-8);
+        end
+
         function test_run_budget_end_to_end_synthetic(tc)
             rng(5); Nw = 400;
             dofs = {'Rx','Ry','Rz','Tx','Ty','Tz'}; cn = {}; iE = []; df = [];
