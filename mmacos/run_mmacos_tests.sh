@@ -160,7 +160,7 @@ SUITE_FAST=$(join_suites \
     "tTgPol" "tTgPol2" "tStopReload" "tDmgLoop" "tTmaLongslit" "tSpectrometerSens" "tPupilBlurDemo" "tRxShortCoef" "tRxRefuse" "tRxLineEndings" "tTraceKeepsRx" "tSaveFixedPoint" "tZrnGrRoundTrip" "tGridDropped" "tCalibTargets" \
     "tLinkSave" "tZernikeGridBasis" "tRxBlockComment" \
     "tGratingImmersed" "tGratingAperture" "tRayFailElt" "tGlassDispersion" "tPropMedium" "tRxShortAsph" \
-    "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tCalibStop" "tCalibMatrix" "tSessionModes" "tStopApStop" "tFreeformPole" "tCophi" "tBudgetKernel" "tRunBudget" "tResolutionSweep")
+    "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tCalibStop" "tCalibMatrix" "tSessionModes" "tStopApStop" "tFreeformPole" "tCophi" "tBudgetKernel" "tRunBudget" "tResolutionSweep" "tApiCoverage" "tDefaults")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the

@@ -7,14 +7,17 @@ function xp = sxp(mode)
 %        xp_dir_x, xp_dir_y, xp_dir_z,           % EP axis direction
 %        xp_radius]                              % EP sphere radius
 %
-%   macos.sxp(MODE) selects a specific SXP backend variant (see
-%   macos_api_mod sxp_fnd); default MODE=1 runs the standard
-%   chief-ray-distance-to-FP path.  A stop MUST be set first via
-%   macos.stop or macos.stop_obj, otherwise sxp errors.
+%   macos.sxp(MODE) picks the axis as macos.fex does: 1 = chief ray,
+%   0 = beam centroid; omitted = the SESSION's axis (macos.modes().centroid;
+%   was a fixed 1 that also refused 0 -- A.6, 2026-10-16).  A stop MUST be
+%   set first via macos.stop or macos.stop_obj, otherwise sxp errors.
 %
 %   See also: macos.stop, macos.stop_obj.
 arguments
-    mode (1,1) double {mustBeInteger, mustBePositive} = 1
+    mode double {mustBeScalarOrEmpty, mustBeMember(mode, [0 1])} = []
+end
+if isempty(mode)
+    md = macos.modes();  mode = double(~md.centroid);
 end
 xp = mmacos('sxp_fnd', mode);
 xp = double(xp(:)).';

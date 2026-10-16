@@ -4039,7 +4039,7 @@ def apodize_complex(srf: int | np.int32, mask: np.ndarray) -> None:
             "that a propagation has populated WFElt at this element")
 
 
-def sxp(mode: int = 1) -> Tuple[np.float64,
+def sxp(mode: int | None = None) -> Tuple[np.float64,
                                 Vector[np.float64], Vector[np.float64]]:
     """SXP -- Set eXit Pupil.  FEX variant with one geometry fix:
     the EP radius is set to the chief-ray distance from the EP
@@ -4059,8 +4059,8 @@ def sxp(mode: int = 1) -> Tuple[np.float64,
     macos_ops.F.
 
     Args:
-        mode: 1 (default) -> chief-ray-centered; 0 -> centroid-centered
-              (same convention as :func:`fex`).
+        mode: 1 -> chief-ray-centered; 0 -> centroid-centered; None
+              (default) -> the session's axis, as :func:`fex`.
 
     Returns:
         (rad, psi, vpt) of the updated XP surface at ``nElt-1``.
@@ -4074,6 +4074,8 @@ def sxp(mode: int = 1) -> Tuple[np.float64,
     if lib.api.n_elt() <= 3:
         raise Exception("'sxp': not more than 3 surfaces defined")
 
+    if mode is None:
+        mode = _session_axis_mode()
     ok, xp = lib.api.sxp_fnd(np.int32(mode))
     if not ok:
         raise Exception("'sxp' threw an exception - stop set?")
@@ -5581,16 +5583,25 @@ def obs_set(option: str = 'positive') -> None:
         raise Exception('MACOS: obs_set failed')
 
 
-def fex(mode=1) -> Tuple[np.float64, Vector[np.float64], Vector[np.float64]]:
+def _session_axis_mode() -> int:
+    """The FEX / SXP axis the engine's session holds (CENTROID / CHIEFRAY,
+    read through api modes_get): 0 = centroid, 1 = chief."""
+    return 0 if modes()['centroid'] else 1
+
+
+def fex(mode: int | None = None) -> Tuple[np.float64, Vector[np.float64], Vector[np.float64]]:
     """Find Exit Pupil (XP) and sets parameters at Srf. nElt-1
 
     Args:
-        mode (int | np.int32):
-            to centre Ref.Srf.: w.r.t. (=1): Chief Ray  (default) OR
-                                       (=0): Centroid
-            (chief is also the engine CLI default since 2026-08-27; a
-            centroid axis leaves tip/tilt in the OPD on obscured or
-            segmented beams)
+        mode (int | np.int32 | None):
+            to centre Ref.Srf.: w.r.t. (=1): Chief Ray OR
+                                       (=0): Centroid;
+            None (default): the SESSION's axis, the engine's CENTROID /
+            CHIEFRAY mode (:func:`modes` ``centroid``), as the CLI's FEX
+            reads it -- chief unless CENTROID is in force (the engine's
+            allocation default since 2026-08-27; a centroid axis leaves
+            tip/tilt in the OPD on obscured or segmented beams).  The
+            veneer carries no default of its own (BRIEF_to_bindings A.6).
 
     Requirement:
         - The Stop of the Optical System must be set beforehand
@@ -5614,6 +5625,8 @@ def fex(mode=1) -> Tuple[np.float64, Vector[np.float64], Vector[np.float64]]:
     if lib.api.n_elt() <= 3:
         raise Exception("'fex': not more than 3 surfaces defined")
 
+    if mode is None:
+        mode = _session_axis_mode()
     ok, xp = lib.api.xp_fnd(np.int32(mode))
 
     if not ok:

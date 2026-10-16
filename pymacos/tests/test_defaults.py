@@ -1,0 +1,107 @@
+"""One default per option (Dave 2026-10-10; BRIEF_to_bindings A.6) -- twin of mmacos
+tDefaults.  Every session/user option the api exposes has ONE default, held by the
+engine; a veneer inherits it (reads the api getter) instead of restating it.  Each
+test reads the same deck as tDefaults and asserts the SAME numbers (measured
+2026-10-16, pymacos and mmacos alike) for the default and for its override.
+
+The table of options (engine default, how each front end reads / sets it, the
+override) is cmdref 25_defaults.md, generated with the binding generator.
+"""
+from pathlib import Path
+import os
+
+import numpy as np
+import pytest
+from context import pymacos as m
+from context import rx_path
+
+MODEL = 128
+ZGD = Path(os.environ.get('MACOS_HOME', str(Path.home() / 'dev' / 'macos' / 'macos_f90'))
+           ).parent / 'ZGD_test_files'
+
+# measured 2026-10-16 (e5hex1, model 128); tDefaults carries the same constants
+# spot shifts on a FRESH load + trace (a FEX first moves the exit-pupil surface and
+# with it the FP beam frame: -6242.98 / -6305.26 after fex())
+SPOT_SHIFT_ELT = (0.01003577993452497, -5877.054058107832)
+SPOT_SHIFT_CHIEF = (0.01013346493612515, -5938.921990992478)
+E5_VALID_PX = 10245
+MEAN_DECK_CHIEF_MINUS_MEAN = -2.534833896820362e-12   # opd() units; constant over the pupil
+MEAN_DECK_VALID_PX = 1756
+
+
+@pytest.fixture
+def e5():
+    m.init(MODEL)
+    m.load(str(rx_path('e5hex1.in')))
+    ne = m.num_elt()
+    m.trace_rays(ne)
+    return ne
+
+
+def test_session_modes_default():
+    m.init(MODEL)
+    m.load(str(rx_path('e5hex1.in')))
+    md = m.modes()
+    assert (md['pol'], md['vecdif'], md['centroid'], md['lneg'], md['cir']) == \
+        (False, False, False, True, False)
+    assert md['in_force'] == []
+
+
+def test_opd_reference_default_and_deck_override():
+    m.init(MODEL)
+    m.load(str(rx_path('e5hex1.in')))
+    assert m.opd_ref() == 'chief'                       # the engine default
+    m.load(str(ZGD / 'tst_opdref_mean.in'))             # UseChfRay4OPD= N
+    assert m.opd_ref() == 'mean'
+    ne = m.num_elt()
+    m.trace_rays(ne)
+    w_mean, mask = m.opd(), m.opd_mask()
+    m.opd_ref('chief')                                  # the api override
+    assert m.opd_ref() == 'chief'
+    m.trace_rays(ne)
+    d = (m.opd() - w_mean)[mask]
+    assert mask.sum() == MEAN_DECK_VALID_PX
+    assert np.isclose(d.mean(), MEAN_DECK_CHIEF_MINUS_MEAN, rtol=1e-6, atol=0)
+    assert d.std() < 1e-20, 'the two references differ by a constant'
+
+
+def test_fex_axis_default_is_the_session_axis(e5):
+    f = np.asarray(m.fex()).ravel()
+    assert np.array_equal(f, np.asarray(m.fex(1)).ravel()), 'default = chief (session)'
+    assert np.abs(f - np.asarray(m.fex(0)).ravel()).max() > 1e-8, 'centroid override moves it'
+    s = np.asarray(m.sxp()).ravel()
+    assert np.array_equal(s, np.asarray(m.sxp(1)).ravel())
+
+
+def test_spot_centre_default_is_the_element(e5):
+    s, s_elt, s_chf = m.spot(e5), m.spot(e5, vpt_center=True), m.spot(e5, vpt_center=False)
+    # each spot() re-traces; a re-trace is not bit-idempotent (a few ulp), so the
+    # points agree to round-off, the reference shift exactly
+    assert np.allclose(s[0], s_elt[0], rtol=0, atol=1e-9) and np.array_equal(s[2], s_elt[2])
+    assert np.abs(np.asarray(s[1]) - np.asarray(s_chf[1])).max() > 1, \
+        'the chief override moves the centre'
+    assert np.allclose(s[2], SPOT_SHIFT_ELT, rtol=1e-9, atol=0)
+    assert np.allclose(s_chf[2], SPOT_SHIFT_CHIEF, rtol=1e-9, atol=0)
+
+
+def test_obscuration_option_default_is_positive(e5):
+    assert m.opd_mask().sum() == E5_VALID_PX
+    m.obs_set('negative')
+    try:
+        m.trace_rays(e5)
+        assert m.opd_mask().sum() == 0
+    finally:
+        m.obs_set('positive')
+    m.trace_rays(e5)
+    assert m.opd_mask().sum() == E5_VALID_PX
+
+
+def test_ffcut_default_off(e5):
+    assert m.ffcut() == (False, 0)
+
+
+def test_opd_orientation_default_raw(e5):
+    w = m.opd()
+    assert np.array_equal(w, m.opd(orient='raw')) and np.array_equal(w.T, m.opd(orient='xy'))
+    k = m.opd_mask()
+    assert np.array_equal(k, m.opd_mask(orient='raw'))

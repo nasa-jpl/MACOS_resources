@@ -127,3 +127,243 @@ F2PY_VERBATIM = {
 
 # f2py-only routines (no api counterpart), emitted verbatim at the end.
 F2PY_EXTRA = ["      ! Subroutine wrapper around the model-size FUNCTION so f2py exposes\n      ! it (the bare function is imported but never wrapped, so macos.py's\n      ! model_size() -> lib.api.currrent_macos_model_size AttributeErrors).\n      subroutine model_size_get(N)\n        implicit none\n        integer, intent(out):: N\n\n        N = currrent_macos_model_size()\n      end subroutine model_size_get\n"]
+
+# --- One default per option (BRIEF_to_bindings A.6, Dave 2026-10-10) ------------
+# The generator's `defaults` target writes cmdref/25_defaults.md from this list.
+# Every `engine` / `mmacos` / `pymacos` cell that is a (file, regex) pair is READ
+# from that source at generation time (group 1 = the default as written); a
+# pattern that no longer matches stops the generator (fail closed), so the table
+# cannot keep describing a default the code no longer has.  Paths: engine under
+# macos/macos_f90, mmacos under mmacos/src/+macos, pymacos under pymacos/src/pymacos.
+# `get` / `set` must name macos_api_mod routines (checked against the parse).
+# `status`: 'inherits' (the veneer reads the engine), 'agrees' (restated, same
+# value, no api getter to inherit from), 'fixed' (a restatement removed by A.6),
+# 'Dave' (a judgment call, routed with the measurement).
+OPTIONS = [
+    dict(option='Session modes: POLARIZATION, VECTOR/SCALAR, CENTROID, LNEG, CIR',
+         engine=('macos_mod.F', r'^\s*ifCentroid\s*=\s*(\.\w+\.)'),
+         engine_note='ifPol/ifVecDif3/ifCentroid/ifPGColor .FALSE., ifLNegOK .TRUE., '
+                     'at allocation (macos_mod_init); survive LOAD',
+         get=['modes_get'], set=['pol_set', 'vecdif_set'],
+         cli='POLARIZATION, VECTOR/SCALAR, CENTROID/CHIEFRAY, LNEG/NOLNEG, CIR/GIR; '
+             'LOAD names the non-default ones',
+         mmacos='`macos.modes()`; `load_rx` warns `mmacos:modesInForce`',
+         pymacos='`modes()`; `load` warns (RuntimeWarning)',
+         override='`polarization(...)`; CENTROID/LNEG/CIR have no api setter (CLI only)',
+         status='inherits'),
+    dict(option='OPD reference (chief ray / aperture mean)',
+         engine=('traceutil_mod.F', r'Logical\s*::\s*LOpdRefChief\s*=\s*(\.\w+\.)'),
+         engine_note='session LOpdRefChief (chief), at allocation; per deck '
+                     '`UseChfRay4OPD= Y|N`; per loaded deck `opd_ref_set`',
+         get=['opd_ref_get'], set=['opd_ref_set'],
+         cli='OPDREF CHIEF|MEAN (session); `UseChfRay4OPD=` (deck)',
+         mmacos=('dw_dx.m', r"opts\.opd_ref \(1,:\) char \{.*\} = '(\w*)'"),
+         mmacos_note='`opd()` / `opd_ref()` inherit; the dw_* harvests\' `opd_ref`: '
+                     'the deck\'s own as loaded (was `\'chief\'`, re-applied after the '
+                     'reload: it overrode `UseChfRay4OPD= N` and left the session on chief)',
+         pymacos='`opd()` / `opd_ref()` inherit (no harvest veneer)',
+         override='`opd_ref(\'mean\'|\'chief\')` for the loaded deck; a harvest\'s `opd_ref`',
+         status='fixed'),
+    dict(option='FEX / SXP axis (chief ray / beam centroid)',
+         engine=('macos_mod.F', r'^\s*ifCentroid\s*=\s*(\.\w+\.)'),
+         engine_note='session mode ifCentroid (.FALSE. = chief), at allocation',
+         get=['modes_get'], set=['xp_fnd', 'sxp_fnd'],
+         cli='CENTROID / CHIEFRAY, then FEX / SXP',
+         mmacos=('fex.m', r'^\s*mode double \{.*\} = (\S+)'),
+         mmacos_note='`fex(mode)`, `sxp(mode)`: empty = the session axis read through '
+                     '`modes_get` (was a fixed 1; `sxp` also refused 0)',
+         pymacos=('macos.py', r'^def fex\(mode: int \| None = (\w+)\)'),
+         pymacos_note='`fex(mode)`, `sxp(mode)`: None = the session axis (was a fixed 1)',
+         override='`fex(0)` / `fex(1)` per call',
+         status='fixed'),
+    dict(option='SPOT centre (element vertex / chief ray)',
+         engine=('macos_init.inc', r'^\s*spcOption\s*=\s*(\d+)'),
+         engine_note='spcOption (1 = element vertex), at allocation',
+         get=[], set=['spot_cmd'],
+         cli='SPCENTER ELT|CHFRAY',
+         mmacos=('spot.m', r"opts\.at\s+\(1,:\) char \{.*\} = '(\w+)'"),
+         mmacos_note='`spot(srf, at=)`',
+         pymacos=('macos.py', r'^\s+vpt_center: bool \| int = (\w+),'),
+         pymacos_note='`spot(srf, vpt_center=)`',
+         override='per call (`at=\'chief\'` / `vpt_center=False`)',
+         status='agrees'),
+    dict(option='Obscuration option (OBS ALL / POSITIVE / NEGATIVE)',
+         engine=('macos_init.inc', r'^\s*iObsOpt\s*=\s*(\d+)'),
+         engine_note='iObsOpt (1 = POSITIVE: unobscured rays), at allocation',
+         get=[], set=['obs_set'],
+         cli='OBS',
+         mmacos='raw `mmacos(\'obs_set\', opt)` only (no veneer)',
+         pymacos=('macos.py', r"^def obs_set\(option: str = '(\w+)'\)"),
+         pymacos_note='`obs_set(option=)` -- a no-argument call SETS it',
+         override='`obs_set(\'all\'|\'negative\')`',
+         status='agrees'),
+    dict(option='Far-field evanescent cut',
+         engine=('dftsub.F', r'LOGICAL\s*::\s*ifFFEvanCut\s*=\s*(\.\w+\.)'),
+         engine_note='dft_mod ifFFEvanCut (off), at allocation',
+         get=['ffcut_get'], set=['ffcut_set'],
+         cli='(none: api only)',
+         mmacos='`ffcut()` queries, `ffcut(on)` sets',
+         pymacos='`ffcut()` queries, `ffcut(on)` sets',
+         override='`ffcut(true)`',
+         status='inherits'),
+    dict(option='OPD / mask array orientation',
+         engine=None, engine_note='no engine state: the raw array is [i = global X, j = global Y]',
+         get=['opd_val', 'opd_mask_get'], set=[],
+         cli='(OPD writes the raw array)',
+         mmacos=('opd.m', r"opts\.orient \(1,:\) char \{.*\} = '(\w+)'"),
+         mmacos_note='`opd(orient=)`, `opd_mask(orient=)`',
+         pymacos=('macos.py', r'^def opd\(orient: str = "(\w+)"'),
+         pymacos_note='`opd(orient=)`, `opd_mask(orient=)`',
+         override='`orient=\'xy\'` (the transpose)',
+         status='agrees'),
+    dict(option='Valid-pixel mask (opdValid)',
+         engine=None, engine_note='opdValid from the last OPD trace (zero is NOT "no ray")',
+         get=['opd_mask_get'], set=[],
+         cli='(OPD)', mmacos='`opd_mask()`', pymacos='`opd_mask()`',
+         override='--', status='inherits'),
+    dict(option='remove_ptt in the sensitivity harvests',
+         engine=None, engine_note='no engine state',
+         get=[], set=[],
+         cli='--',
+         mmacos=('dw_dsurf.m', r'opts\.remove_ptt \(1,1\) logical = (\w+)'),
+         mmacos_note='`dw_dsurf`, `dw_dsurf_multi`',
+         pymacos='(no harvest veneer; tests/sensitivities drivers)',
+         override='`remove_ptt=true`', status='agrees'),
+    dict(option='Model size',
+         engine=('param_mod.F', r'macos_model_size\s*=\s*(\d+)\s*! default'),
+         engine_note='SMACOS with no size: 256 (param_mod); the CLI PROMPTS (no default)',
+         get=[], set=['init'],
+         cli='prompted at start-up',
+         mmacos=('init.m', r'^\s*model_size \(1,1\) double \{([^}]*)\}'),
+         mmacos_note='`init(model_size)`: REQUIRED',
+         pymacos=('macos.py', r'^def init\(model_size: int = (\d+)\)'),
+         pymacos_note='`init(model_size=)` default',
+         override='`init(N)`', status='Dave'),
+    dict(option='Polarization source state on POLARIZATION ON',
+         engine=None, engine_note='Ex0/Ey0 = 0 (unset) until set; `pol_get` reads it',
+         get=['pol_get'], set=['pol_set'],
+         cli='POLARIZATION prompts for Ex, Ey',
+         mmacos=('polarization.m', r'opts\.Ex double = (\[[^\]]*\])'),
+         mmacos_note='`polarization(\'on\', Ex=, Ey=)` Ex default',
+         pymacos=('macos.py', r'Ex: complex \| Tuple\[float, float\] = (\([^)]*\))'),
+         pymacos_note='`polarization(\'on\', Ex=, Ey=)` Ex default',
+         override='`Ex=`, `Ey=`', status='agrees'),
+]
+
+# --- The cmdref BINDING column (BRIEF_to_bindings B.1) --------------------------
+# Every CLI command of the cmdref (macos_help.inc entries, keyed by the entry's
+# FIRST name as HELP writes it) is either detected as an 'SMACOS command' -- an
+# api routine issues it through SMACOS (`command = '...'` in macos_api_mod.F90) --
+# or classified HERE.  An entry in neither stops binding_classes() (fail closed).
+# Classes: 'direct setter' (name the api routines), 'CLI-only' (why),
+# 'CLI-only, legacy' (Dave 2026-10-10: the linear model and the differential
+# commands, superseded by the dw_dx route), 'missing' (the B.2 worklist group).
+_LEGACY_LIN = ('CLI-only, legacy', 'the internal linear model, superseded by the '
+               'dw_dx route (harvest through the api, build the model outside); the '
+               'analytic sensitivity forms cover only some surfaces (Dave 2026-10-10)')
+_LEGACY_DIFF = ('CLI-only, legacy', 'differential FD inside the CLI; the api route '
+                '(dw_dx and family over perturb_elt + opd_val) does it with the step, '
+                'reference and mask under the caller\'s control (Dave 2026-10-10)')
+_SESSION = ('CLI-only', 'session / shell convenience')
+_PLOT = ('CLI-only', 'plot style (the bindings return the arrays)')
+_FILE = ('CLI-only', 'CLI file-output mode (the bindings return the arrays)')
+CLI_BINDINGS = {
+    # Session & Files
+    'Quit': _SESSION, 'HELP': _SESSION, 'STatus': _SESSION, 'SUMmarize': _SESSION,
+    'EXEcute': _SESSION, 'JOUrnal': _SESSION, 'ECHo': _SESSION, '!': _SESSION,
+    'PWD': _SESSION, 'RX': _SESSION, 'VI': _SESSION,
+    'REset': ('direct setter', '`init` (re-allocation restores every startup default)'),
+    'MREset': ('direct setter', '`init(model_size)`'),
+    'ELTS': ('missing', 'Zernike / analysis set (B.2, second)'),
+    # Prescription I/O
+    'NEW': ('CLI-only', 'interactive element-entry dialog'),
+    'FID': ('missing', 'field / beam set'),
+    'VALidate': ('missing', 'the validator (validate_prescription.F90) has no api entry'),
+    'EXPort': _LEGACY_LIN,
+    'SHOw': ('direct setter', 'the `elt_*` getters (`elt_info_get`, `elt_obs_get`, '
+                              '`elt_vpt`, `elt_psi`, `elt_kc`, `elt_kr`, ...)'),
+    # Source & Wavelength
+    'CHIefray': ('direct setter', '`xp_fnd(mode=1)` / `sxp_fnd(1)` per call; the '
+                                  'session axis is read by `modes_get`'),
+    'WLENS': ('missing', 'field / beam set'), 'SWL': ('missing', 'field / beam set'),
+    'MULtispec': ('missing', 'through `compose_*` (B.2, image-plane set)'),
+    'NFIlt': ('missing', 'image-plane post-processing (B.2, third)'),
+    'ATMosphere': ('missing', 'image-plane post-processing (B.2, third)'),
+    'SETC': ('direct setter', '`calib_set_iter`, `calib_set_tol`, `calib_set_*`'),
+    'SAOpt': ('missing', 'source-adjustment mode'),
+    # Ray Tracing
+    'RAY': ('missing', 'single-ray tracing (B.2, first)'),
+    'SEGRAYTrace': ('missing', 'single-ray tracing (B.2, first)'),
+    'PRAy': ('missing', 'single-ray tracing (B.2, first)'),
+    'TPR': ('missing', 'image-plane post-processing (B.2, third)'),
+    'MAP': ('missing', 'Zernike / analysis set (B.2, second)'),
+    'COOrd': ('missing', 'beam coordinates at an element (the frames alone are '
+                         '`elt_csys_get`)'),
+    'ACOor': ('missing', 'all-element coordinates to xyzLocal.txt'),
+    'SYSprop': ('direct setter', '`sysprop`'),
+    'BWK': ('missing', 'chief-ray walk'),
+    'FSR': ('missing', 'image-plane post-processing (B.2, third)'),
+    'CENter': ('missing', 'STOP\'s sibling (center the beam in the stop); no '
+                          'verified api twin'),
+    'CENTRoid': ('direct setter', '`xp_fnd(mode=0)` / `sxp_fnd(0)` per call; the '
+                                  'session axis is read by `modes_get`'),
+    'FDP': ('missing', 'image-plane post-processing (B.2, third)'),
+    # Behavior Toggles
+    'LNEg/NOLNeg': ('missing', 'no api setter; read by `modes_get` (a session '
+                               'mode -- NOT the linear model, whatever its L)'),
+    'REGrid/NOREGrid': ('missing', 'a per-element resampling flag'),
+    'NONe': _PLOT,
+    # Surface Data
+    'SINt': ('missing', 'single-ray tracing (B.2, first)'),
+    'UDSinit': ('missing', 'builder'),
+    # Perturbation
+    'PREad': ('direct setter', '`prb_elt` / `perturb_elt` (the file is read in the caller)'),
+    # Linear Model
+    'BUild': _LEGACY_LIN, 'DMBuild': _LEGACY_LIN, 'PARtials': _LEGACY_LIN,
+    'LPErturb': _LEGACY_LIN, 'LPRead': _LEGACY_LIN, 'LREset': _LEGACY_LIN,
+    'LSPot': _LEGACY_LIN, 'LPIxilate': _LEGACY_LIN,
+    # Diffraction
+    'PROpagate': ('direct setter', 'not a command: `int_cmd` / `cfield_cmd` propagate'),
+    'CADD': ('missing', 'through `compose_*` (B.2, image-plane set)'),
+    'NOIse': ('missing', 'image-plane post-processing (B.2, third)'),
+    'STRetch': _PLOT,
+    # Outputs
+    'OPDREF': ('direct setter', '`opd_ref_set` / `opd_ref_get` (the loaded deck)'),
+    'ZABerr': ('missing', 'Zernike / analysis set (B.2, second)'),
+    'ZCOef': ('missing', 'Zernike / analysis set (B.2, second)'),
+    'LOS': ('missing', 'line of sight (the harvests\' `compute_los` reads it from spots)'),
+    'METcalc': ('direct setter', '`met_calc`, `met_get`, `met_geom_get`'),
+    'PIXel': ('direct setter', 'the INT block: `int_cmd` / `int_get`'),
+    'AMPlitude': ('direct setter', 'the INT block: `cfield_cmd` / `cfield_get`'),
+    'PHAse': ('direct setter', 'the INT block: `cfield_cmd` / `cfield_get`'),
+    'REAl': ('direct setter', 'the INT block: `cfield_cmd` / `cfield_get`'),
+    'LOG': ('direct setter', 'the INT block: `int_cmd` / `int_get`'),
+    'MTF': ('missing', 'image-plane post-processing (B.2, third)'),
+    'IMG': ('direct setter', 'the INT block: `int_cmd` / `int_get`'),
+    # Plot Style
+    'GRay': _PLOT, 'WIRe': _PLOT, 'SLIce': _PLOT, 'COLumn': _PLOT, 'CONtour': _PLOT,
+    'IMGmode': _PLOT, 'CIR': _PLOT, 'PGP': _PLOT,
+    # File Output
+    'TEXt': _FILE, 'BINary': _FILE, 'FITs': _FILE, 'MAT': _FILE,
+    'GETMatlabmatrix': ('CLI-only', 'disabled (a no-op stub); the bindings return arrays'),
+    # Window & Post-Processing
+    'PLOcate': ('missing', 'plot pixel-array location'),
+    'PWIn': ('CLI-only', 'external plot GUI'),
+    'SZCo': ('missing', 'Zernike / analysis set (B.2, second)'),
+    'GBS': ('missing', 'field / beam set'),
+    'BLUr': ('missing', 'image-plane post-processing (B.2, third)'),
+    'GAIn': ('missing', 'image-plane post-processing (B.2, third)'),
+    'ODRaw': _PLOT,
+    'ROW': ('missing', 'image-plane post-processing (B.2, third)'),
+    # System Optimization
+    'AVAR': _LEGACY_DIFF, 'MVAR': _LEGACY_DIFF, 'DVAR': _LEGACY_DIFF, 'DFOV': _LEGACY_DIFF,
+    'VARS': ('missing', 'lists the CALIB variables; `calib_set_var_elt` sets them, '
+                        'no getter'),
+    'AFOV': ('missing', 'field / beam set'), 'FOVS': ('missing', 'field / beam set'),
+    'SFOV': ('missing', 'field / beam set'),
+    # Misc / Debug
+    'SRAy': ('missing', 'single-ray tracing (B.2, first)'),
+    'DOPD': _LEGACY_DIFF,
+    'JWST_v3d': ('missing', 'builder; the Vis3d ray history is `ray_hist_set` / '
+                            '`ray_pos_hist_get`'),
+}
