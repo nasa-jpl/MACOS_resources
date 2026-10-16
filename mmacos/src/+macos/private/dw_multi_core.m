@@ -36,7 +36,7 @@ function out = dw_multi_core(session, rx_path, opts, F)
 
 stop_obj_pos = getf_(opts, 'stop_obj_pos', []);
 do_reload    = getf_(opts, 'reload_rx', true);
-opd_ref_mode = getf_(opts, 'opd_ref', 'chief');  % re-applied after EVERY load below
+opd_ref_mode = getf_(opts, 'opd_ref', '');  % re-applied after EVERY load below; '' = the deck's own
 
 if isnan(opts.field_x_rad) || isnan(opts.field_y_rad)
     error(eid_(F, 'fov'), 'field_x_rad and field_y_rad are required');
@@ -68,7 +68,7 @@ end
 if do_reload
     session.load_rx(rx_path);
 end
-set_opd_ref_(session, opd_ref_mode);   % a load restores the engine default ('chief')
+set_opd_ref_(session, opd_ref_mode);   % a load restores the deck's own (UseChfRay4OPD= or the engine default)
 apply_ngridpts(session, opts.ngridpts, F.name);
 if ~isempty(opts.src_samp)
     session.set_src_sampling(opts.src_samp);
@@ -729,6 +729,8 @@ function set_opd_ref_(session, mode)
 %SET_OPD_REF_  Select the OPD reference only when it differs from the one in
 %   force: the chief ray is the engine default since 2026-10-10, and
 %   opd_ref_set dirties the cached trace, so the common case makes no call.
+%   MODE '' (the default, A.6): no override -- the deck's reference as loaded.
+if isempty(mode), return; end
 if ~strcmp(session.opd_ref(), mode)
     session.opd_ref(mode);
 end
