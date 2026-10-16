@@ -924,10 +924,27 @@ stage.  Gotchas:
   `.m` all yield the canonical columns `Name Elements DOFs Modes Param
   Channel Dist Sigma Units Min Max Cov Control`.  `spec_from_table` warns
   on column overlap (double-count) and reports orphan columns.
-- **v1 is uncontrolled, WFE/OPD.**  The `Pu` controls stage (WFC + the
-  metrology/drift MMSE stage) and the SPOT (`dcdx`) metric are later
-  phases; the kernel is already metric-agnostic (takes `J`,`w0`) and the
-  `coef.*` struct carries NaN Post/iSeq=2 slots for them.
+- **WFC stage (iSeq = 1, 2026-10-15).**  `run_budget(..., 'control', true,
+  'wfs_sigma', {3,'nm'}, 'act_sigma', A)`: the `Control` column's groups are
+  the actuators; `cov_budget` keeps v1's fields (under control `.alpha/.wfe`
+  are POST, Eq. 30) and adds `.alpha_pre/.wfe_pre/.total_pre` plus `.extra`
+  noise rows -- `wfs` (Eq. 32: `alpha^2 = trace(Gu*pinv(Gu))/nw = rank/nw`,
+  sigma PER WAVEFRONT SAMPLE, so a 3 nm WFS leaks ~0.1 nm on a 51k-ray
+  harvest; HabEx carried its WFS row at alpha = 1 -- a different reading of
+  the sigma) and one `act` row per control group (Eq. 31, UNPROJECTED --
+  Eq. 22's `(dw/du) du`).  `mc_budget` puts the controller in the loop
+  (w_est = w + dw, u = -G w_est + du) and draws noise AFTER the group draws
+  so an uncontrolled run is v1's random stream; under control `rm.wfe` is
+  now group-alone POST-WFC (v1 reported the uncontrolled value there; the
+  uncontrolled one is `rm.wfe_pre`).  A fully actuated group's post value
+  is round-off (1e-21): compare it as a null, never relatively.
+  `project_control`'s second output `ctl` (`Ju Gpi Gu rank T apply`) carries
+  the pieces; `ctl.apply(A)` is `Pu*A` without forming Pu.
+  Gates `tBudgetKernel/test_control_projection_identities`,
+  `.../test_wfc_noise_rows_cov_equals_mc`, `tRunBudget/
+  test_wfc_stage_cov_equals_mc` (e5hex1: 317.4 -> 3.156 nm cov, 3.179 MC).
+- **Still to come:** the metrology/drift stage (iSeq = 2) and the SPOT
+  (`dcdx`) metric; the kernel is metric-agnostic (takes `J`,`w0`).
 
 ## Key files
 

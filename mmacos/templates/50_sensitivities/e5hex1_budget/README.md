@@ -39,5 +39,29 @@ Name  Elements  DOFs  Modes  Param  Channel  Dist  Sigma  Units  Min  Max  Cov  
 - A group must be **unit-homogeneous** (rotations and translations cannot
   share one σ).
 
+## The WFC stage (controls phase, iSeq = 1)
+
+The example runs **post-WFC**: the `Control` column tags the actuated
+groups — **6 DOF per PM segment (7 segments) + the SM's 6 DOF**, 48
+actuators (Dave's ruling, 2026-10-15). **This deck has no DM and no FCA**,
+so figure-type errors would pass the controller untouched; here every
+error is rigid-body. The pseudo-inverse controller `G = pinv(dw/du)`
+(Eq. 20) leaves, per error group, the fitting residual
+`alpha_post = sqrt(trace(Pu D S D' Pu')/n)` (Eq. 30), and adds two kinds of
+row:
+
+- **WFS Sensing Error** (Eq. 32), 3 nm rms per wavefront sample (iid over
+  the Jacobian's rays): only its controllable part leaks,
+  `alpha^2 = rank(dw/du)/n` = 48/51225 here.
+- **one actuator row per control group** (Eq. 31, unprojected), 1 nm per
+  DOF; a rotation takes 1 nm of EDGE motion, `theta = 1 nm / r_edge`
+  (segment vertex radius 1510.73 mm → 0.662 nrad; SM radius 615 mm →
+  1.626 nrad) — the conversion is in `budget_spec_e5hex1.m`.
+
+Measured (`tRunBudget/test_wfc_stage_cov_equals_mc`): pre-WFC 317.4 nm,
+post-WFC **3.156 nm (cov) vs 3.179 nm (MC, 1000 draws, controller + sensing
++ actuator draws in the loop)**; the actuator rows dominate (PM piston
+2.60 nm, PM tilt 1.28 nm, SM tilt 1.25 nm), the sensing row is 0.092 nm.
+
 See `macos/CLAUDE.md`'s "Error budgets" section and `macos.budget` for the
-kernel. Controls (`Pu`) and the SPOT metric are later phases.
+kernel. The metrology stage (iSeq = 2) and the SPOT metric are later phases.

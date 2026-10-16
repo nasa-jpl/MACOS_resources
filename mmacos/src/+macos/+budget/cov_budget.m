@@ -24,7 +24,21 @@ function rc = cov_budget(M, spec, varargin)
 %   RC fields (per group, Ng-by-1): .names .class .sigma .alpha .var .wfe
 %   and scalars .total, .controlled.  ALPHA is the sigma-free coefficient
 %   (WFE_g = sigma_g * alpha_g) for iid groups; for 'full' groups the
-%   covariance is folded in and alpha_g == wfe_g.
+%   covariance is folded in and alpha_g == wfe_g.  Under control ALPHA /
+%   VAR / WFE are the POST-WFC values (Eq. 30), as in v1.
+%
+%   Controls phase (2026-10-15), always present:
+%     .alpha_pre .var_pre .wfe_pre (Ng-by-1)  uncontrolled (Pu = I)
+%     .total_pre                              uncontrolled RSS
+%   and, under control, one row per noise term in .extra (struct array:
+%   name kind sigma alpha var wfe), included in .total:
+%     kind 'wfs'  sensing error that leaks through the controller, Eq. 32:
+%                 alpha^2 = trace(Ju*G*G'*Ju')/nw = trace(Gu*pinv(Gu))/nw
+%                 = rank(Ju)/nw, sigma = SPEC.wfs.sigma (per sample)
+%     kind 'act'  actuator error per control group, Eq. 31 (NOT projected:
+%                 Eq. 22's (dw/du)*du term): alpha^2 = trace(G_aa)/nw
+%   SPEC.wfs / SPEC.act come from spec_from_table's 'wfs_sigma' /
+%   'act_sigma'; absent, there are no noise rows.
 %
 %   See also macos.budget.mc_budget, macos.budget.project_control,
 %   macos.budget.assemble, macos.budget.rollup.
@@ -36,8 +50,9 @@ ctrl = p.Results.control;
 
 nw = M.nw;
 G  = M.G;
+ctl = [];
 if ~isempty(ctrl) && any(ctrl)
-    G = macos.budget.project_control(M, ctrl);   % projected Gram, small-matrix
+    [G, ctl] = macos.budget.project_control(M, ctrl); % projected Gram, small
     rc.controlled = true;
 else
     rc.controlled = false;
@@ -50,25 +65,55 @@ rc.sigma = nan(ng, 1);
 rc.alpha = zeros(ng, 1);
 rc.var   = zeros(ng, 1);
 rc.wfe   = zeros(ng, 1);
+rc.alpha_pre = zeros(ng, 1);
+rc.var_pre   = zeros(ng, 1);
 
 for k = 1:ng
     g = spec.groups(k);
-    cols = g.cols;
     cm = g.cm;
     rc.class{k} = cm.class;
-    Ggg = G(cols, cols);
-    if strcmp(cm.type, 'iid')
-        a2 = sum(diag(Ggg)) / nw;             % sigma-free coefficient^2
-        rc.alpha(k) = sqrt(max(a2, 0));
-        rc.sigma(k) = cm.sigma_native;
-        rc.var(k)   = cm.var * a2;            % = sigma_native^2 * alpha^2
-    else
-        v = sum(sum(cm.Sigma .* Ggg.')) / nw; % trace(Sigma*Ggg)/nw
-        rc.var(k)   = max(v, 0);
-        rc.alpha(k) = sqrt(rc.var(k));
-        rc.sigma(k) = cm.sigma_native;
-    end
+    rc.sigma(k) = cm.sigma_native;
+    [rc.alpha(k), rc.var(k)] = group_term_(cm, G(g.cols, g.cols), nw);
+    [rc.alpha_pre(k), rc.var_pre(k)] = group_term_(cm, M.G(g.cols, g.cols), nw);
     rc.wfe(k) = sqrt(rc.var(k));
 end
-rc.total = sqrt(sum(rc.var));
+rc.wfe_pre = sqrt(rc.var_pre);
+rc.total_pre = sqrt(sum(rc.var_pre));
+
+% ---- WFC noise rows (Eq. 31, 32) -----------------------------------------
+rc.extra = struct('name', {}, 'kind', {}, 'sigma', {}, 'alpha', {}, ...
+    'var', {}, 'wfe', {});
+if rc.controlled
+    if isfield(spec, 'wfs') && ~isempty(spec.wfs)
+        a2 = trace(ctl.Gu * pinv(ctl.Gu)) / nw;   % = rank(Ju)/nw
+        rc.extra(end+1) = row_('WFS Sensing Error', 'wfs', ...
+            spec.wfs.sigma, a2, spec.wfs.sigma^2 * a2);
+    end
+    if isfield(spec, 'act')
+        for q = 1:numel(spec.act)
+            ac = spec.act(q);
+            [a, v] = group_term_(ac.cm, M.G(ac.cols, ac.cols), nw);
+            rc.extra(end+1) = row_(ac.name, 'act', ac.cm.sigma_native, a^2, v);
+        end
+    end
+end
+rc.total = sqrt(sum(rc.var) + sum([rc.extra.var]));
+end
+
+% =========================================================================
+function [alpha, v] = group_term_(cm, Ggg, nw)
+% One group's coefficient and variance from its Gram block.
+if strcmp(cm.type, 'iid')
+    a2 = sum(diag(Ggg)) / nw;             % sigma-free coefficient^2
+    alpha = sqrt(max(a2, 0));
+    v = cm.var * a2;                      % = sigma_native^2 * alpha^2
+else
+    v = max(sum(sum(cm.Sigma .* Ggg.')) / nw, 0);   % trace(Sigma*Ggg)/nw
+    alpha = sqrt(v);
+end
+end
+
+function r = row_(name, kind, sigma, a2, v)
+r = struct('name', name, 'kind', kind, 'sigma', sigma, ...
+    'alpha', sqrt(max(a2, 0)), 'var', v, 'wfe', sqrt(max(v, 0)));
 end

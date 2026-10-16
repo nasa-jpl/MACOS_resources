@@ -17,15 +17,31 @@ rm = p.Results.mc;
 tonm = p.Results.cbm * 1e9;     % BaseUnit -> nm
 
 ng = numel(rc.names);
-Name   = [rc.names(:); {'TOTAL'}];
-Class  = [rc.class(:); {''}];
-Sigma  = [rc.sigma(:); NaN];
-Alpha  = [rc.alpha(:); NaN];
-WFE_nm = [rc.wfe(:); rc.total] * tonm;
+ex = struct('name', {}, 'kind', {}, 'sigma', {}, 'alpha', {}, 'var', {}, 'wfe', {});
+if isfield(rc, 'extra'), ex = rc.extra; end
+Name   = [rc.names(:); {ex.name}'; {'TOTAL'}];
+Class  = [rc.class(:); {ex.kind}'; {''}];
+Sigma  = [rc.sigma(:); [ex.sigma]'; NaN];
+Alpha  = [rc.alpha(:); [ex.alpha]'; NaN];
+WFE_nm = [rc.wfe(:); [ex.wfe]'; rc.total] * tonm;
+ctl = isfield(rc, 'controlled') && rc.controlled;
+if ctl
+    % controlled: the uncontrolled column alongside (noise rows have none)
+    WFE_pre_nm = [rc.wfe_pre(:); nan(numel(ex), 1); rc.total_pre] * tonm;
+end
 
 if ~isempty(rm)
-    WFE_mc_nm = [rm.wfe(:); rm.total] * tonm;
-    T = table(Name, Class, Sigma, Alpha, WFE_nm, WFE_mc_nm);
+    exm = [];
+    if isfield(rm, 'extra') && ~isempty(rm.extra), exm = [rm.extra.wfe]'; end
+    if numel(exm) ~= numel(ex), exm = nan(numel(ex), 1); end
+    WFE_mc_nm = [rm.wfe(:); exm; rm.total] * tonm;
+    if ctl
+        T = table(Name, Class, Sigma, Alpha, WFE_pre_nm, WFE_nm, WFE_mc_nm);
+    else
+        T = table(Name, Class, Sigma, Alpha, WFE_nm, WFE_mc_nm);
+    end
+elseif ctl
+    T = table(Name, Class, Sigma, Alpha, WFE_pre_nm, WFE_nm);
 else
     T = table(Name, Class, Sigma, Alpha, WFE_nm);
 end

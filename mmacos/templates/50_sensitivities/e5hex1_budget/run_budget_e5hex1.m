@@ -2,8 +2,10 @@
 % dw/dx sensitivity harvest on the public 7-segment hex deck e5hex1.in.
 %
 % Pipeline: harvest the rigid-body Jacobian (macos.dw_dx_multi, 5 fields,
-% model 128), declare the error groups (budget_spec_e5hex1.m), then
-% run_budget -> covariance + Monte-Carlo budget, report, a self-contained
+% model 128), declare the error groups + the control set and noise
+% (budget_spec_e5hex1.m), then run_budget -> the WFC stage (pseudo-inverse
+% controller on the 7 segments + SM, Redding 2014 Eqs. 22-32) covariance +
+% Monte-Carlo budget, report, a self-contained
 % .xlsx (WFE + Coefficients), a CSV, a coef .mat, and a per-group figure.
 %
 % This reproduces, on a public deck, the method of Redding 2014 (SPIE)
@@ -25,10 +27,14 @@ m = macos.Session(128);
 ox = macos.dw_dx_multi(m, rx, ...
     'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'delta', 1e-8);
 
-fprintf('=== error budget ===\n');
-art = run_budget(ox, 'spec', budget_spec_e5hex1(), ...
+fprintf('=== error budget (WFC stage: PM segments + SM controlled) ===\n');
+[T, act, wfs] = budget_spec_e5hex1();
+art = run_budget(ox, 'spec', T, 'control', true, ...
+    'wfs_sigma', wfs, 'act_sigma', act, ...
     'name', 'e5hex1', 'out_dir', here, 'ndraw', 1000, 'visible', false);
 
-fprintf('\ntotal WFE %.4g nm (cov) / %.4g nm (MC %d draws)\n', ...
-    art.cov.total * art.M.cbm * 1e9, art.mc.total * art.M.cbm * 1e9, art.mc.ndraw);
+tonm = art.M.cbm * 1e9;
+fprintf('\npre-WFC  total %.4g nm (cov)\n', art.cov.total_pre * tonm);
+fprintf('post-WFC total %.4g nm (cov) / %.4g nm (MC %d draws, controller in the loop)\n', ...
+    art.cov.total * tonm, art.mc.total * tonm, art.mc.ndraw);
 fprintf('artifacts in %s\n', here);

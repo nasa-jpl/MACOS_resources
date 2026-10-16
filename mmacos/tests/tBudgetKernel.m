@@ -74,6 +74,67 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             tc.verifyTrue(rc1.controlled);
         end
 
+        function test_control_projection_identities(tc)
+            % Pu = I - Ju*pinv(Ju) (Eq. 23) is a projector (Pu*Pu = Pu)
+            % that annihilates the control span (Pu*Ju = 0), and the
+            % projected Gram is (Pu*Jk)'(Pu*Jk) -- all at Jk's size.
+            rng(12); Nw = 350; nz = 16; Jk = randn(Nw, nz);
+            M = struct('G', Jk'*Jk, 'nw', Nw, 'Jk', Jk, 'cbm', 1);
+            ctrl = false(nz, 1); ctrl([2 5 9 10 14]) = true;
+            [Gp, ctl] = macos.budget.project_control(M, ctrl);
+            PJ = ctl.apply(Jk);
+            tc.verifyLessThan(norm(ctl.apply(ctl.Ju)) / norm(ctl.Ju), 1e-13);
+            tc.verifyLessThan(norm(ctl.apply(PJ) - PJ) / norm(PJ), 1e-13);
+            tc.verifyEqual(Gp, PJ'*PJ, 'RelTol', 1e-12);
+            tc.verifyLessThan(max(max(abs(Gp(ctrl, :)))) / max(abs(Gp(:))), 1e-13);
+            tc.verifyEqual(ctl.rank, 5);
+            % the one-output call is the v1 Gram, bit for bit
+            tc.verifyEqual(macos.budget.project_control(M, ctrl), Gp);
+        end
+
+        function test_wfc_noise_rows_cov_equals_mc(tc)
+            % Eq. 22 with the controller in the loop: per error group
+            % (post-WFC, Eq. 30), the sensing row (Eq. 32: alpha^2 =
+            % rank(Ju)/nw), one actuator row per control group (Eq. 31,
+            % unprojected), and the total -- cov == MC on every row.
+            rng(13); Nw = 300; nz = 14; Jk = randn(Nw, nz);
+            M = struct('G', Jk'*Jk, 'nw', Nw, 'Jk', Jk, 'cbm', 1);
+            mk = @(idx, s) struct('type', 'iid', 'var', s^2, 'sigma_native', s, ...
+                'class', 'length_si', 'Sigma', [], 'sampler', @() s .* randn(numel(idx), 1));
+            cl = @(idx) ismember((1:nz)', idx);
+            gi = {1:6, 7:10, 11:14};  sg = [2e-6 1e-6 3e-6];
+            groups = struct('name', {}, 'cols', {}, 'cm', {});
+            for k = 1:3
+                groups(k) = struct('name', sprintf('g%d', k), 'cols', cl(gi{k}), ...
+                    'cm', mk(gi{k}, sg(k)));
+            end
+            act = struct('name', {'g2 Actuator', 'g3 Actuator'}, ...
+                'group', {'g2', 'g3'}, 'cols', {cl(7:10), cl(11:14)}, ...
+                'cm', {mk(7:10, 4e-7), mk(11:14, 9e-7)});
+            spec = struct('groups', groups);
+            spec.wfs = struct('sigma', 5e-6, 'sigma_eng', 5e-6, 'units', 'm');
+            spec.act = act;
+            ctrl = cl(7:14);
+            rc = macos.budget.cov_budget(M, spec, 'control', ctrl);
+            rm = macos.budget.mc_budget(M, spec, 'ndraw', 20000, 'seed', 5, ...
+                'control', ctrl);
+            tc.verifyEqual({rc.extra.kind}, {'wfs', 'act', 'act'});
+            tc.verifyEqual(rc.extra(1).alpha^2, 8/Nw, 'RelTol', 1e-12);
+            tc.verifyEqual(rc.extra(2).alpha, rc.alpha_pre(2), 'RelTol', 1e-12);
+            tc.verifyLessThan(rc.alpha(2:3), 1e-12 * rc.alpha_pre(2:3));  % actuated: null
+            tc.verifyEqual(rm.wfe(1), rc.wfe(1), 'RelTol', 0.05);
+            tc.verifyLessThan(rm.wfe(2:3), 1e-12 * rm.wfe_pre(2:3));  % MC sees the null too
+            tc.verifyEqual(rc.wfe_pre, rm.wfe_pre, 'RelTol', 0.05);
+            tc.verifyEqual([rc.extra.wfe]', [rm.extra.wfe]', 'RelTol', 0.05);
+            tc.verifyEqual(rc.total, rm.total, 'RelTol', 0.05);
+            tc.verifyEqual(rc.total^2, sum(rc.var) + sum([rc.extra.var]), 'RelTol', 1e-12);
+            % no noise inputs -> no rows; uncontrolled call -> v1 fields
+            rc0 = macos.budget.cov_budget(M, struct('groups', groups));
+            tc.verifyEmpty(rc0.extra);
+            tc.verifyEqual(rc0.alpha, rc0.alpha_pre);
+            tc.verifyEqual(rc0.total, rc0.total_pre);
+        end
+
         function test_matches_run_met_rmsw(tc)
             % cov_budget on one full-cov group == sqrt(trace(X*G)/nw)
             rng(21); Nw = 400; nz = 24; Jk = randn(Nw, nz);

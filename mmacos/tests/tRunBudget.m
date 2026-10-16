@@ -64,5 +64,49 @@ classdef tRunBudget < matlab.unittest.TestCase
             % the Fig.6 agreement, on a real harvest
             tc.verifyEqual(art.cov.total, art.mc.total, 'RelTol', 0.12);
         end
+
+        function test_wfc_stage_cov_equals_mc(tc)
+            % The WFC stage (iSeq = 1) on the e5hex1 harvest, Dave's
+            % control set (6 DOF per PM segment + the SM's 6), WFS 3 nm
+            % per sample, actuators 1 nm (rotations: 1 nm of edge motion).
+            % Monte-Carlo with the pseudo-inverse controller in the loop
+            % (Eq. 22, sensing + actuator draws) == covariance on every
+            % row; the uncontrolled total is the role-free v1 table's.
+            here = fileparts(mfilename('fullpath'));
+            root = fileparts(fileparts(here));
+            addpath(fullfile(root, 'mmacos', 'templates', '50_sensitivities', ...
+                'e5hex1_budget'));
+            [T, act, wfs] = budget_spec_e5hex1();
+            wd = tempname; mkdir(wd);
+            cl = onCleanup(@() rmdir(wd, 's'));
+            art = run_budget(tc.ox, 'spec', T, 'name', 'e5hex1_wfc', ...
+                'out_dir', wd, 'ndraw', 1000, 'control', true, ...
+                'wfs_sigma', wfs, 'act_sigma', act, 'figures', false);
+            rc = art.cov;  rm = art.mc;
+            tc.verifyTrue(rc.controlled);
+            tc.verifyEqual(nnz(art.control), 48);           % 8 bodies x 6
+            % uncontrolled numbers: the v1 table (DOF type over all optics)
+            Tv1 = cell2table({ ...
+                'Optics Tilt','all','tilt','','','dwdx','normal',50,'nrad',NaN,NaN,'iid',''; ...
+                'Optics Clocking','all','clock','','','dwdx','normal',100,'nrad',NaN,NaN,'iid',''; ...
+                'Optics Decenter','all','decenter','','','dwdx','normal',100,'nm',NaN,NaN,'iid',''; ...
+                'Optics Despace','all','despace','','','dwdx','uniform',NaN,'nm',-200,200,'iid',''}, ...
+                'VariableNames', T.Properties.VariableNames);
+            M = macos.budget.assemble(tc.ox);
+            rc1 = macos.budget.cov_budget(M, macos.budget.spec_from_table(Tv1, M));
+            tc.verifyEqual(rc.total_pre, rc1.total, 'RelTol', 1e-12);
+            % the actuated groups are null after control (Pu Ju = 0)
+            isc = [art.spec.groups.is_control]';
+            tc.verifyLessThan(max(rc.wfe(isc)), 1e-9 * max(rc.wfe_pre(isc)));
+            % noise rows: one WFS row + one actuator row per control group
+            tc.verifyEqual(sum(strcmp({rc.extra.kind}, 'wfs')), 1);
+            tc.verifyEqual(sum(strcmp({rc.extra.kind}, 'act')), 8);
+            % cov == MC: every non-null group, every noise row, the total
+            nn = ~isc;
+            tc.verifyEqual(rm.wfe(nn), rc.wfe(nn), 'RelTol', 0.15);
+            tc.verifyEqual([rm.extra.wfe]', [rc.extra.wfe]', 'RelTol', 0.15);
+            tc.verifyEqual(rm.total, rc.total, 'RelTol', 0.08);
+            tc.verifyLessThan(rc.total, rc.total_pre);
+        end
     end
 end
