@@ -973,6 +973,21 @@ stage.  Gotchas:
   Total) + summary rows (per section, Everything Else vs the focus
   section, TOTAL, Design WFE, Payload, Requirement, Margin as a fraction).
   Gate `tBudgetKernel/test_coef_and_rollup_carry_the_habex_arithmetic`.
+- **The workbook (B, 2026-10-15): `write_workbook` writes SpreadsheetML
+  directly** (XML parts + MATLAB `zip`), because `writecell` stores a
+  `=...` string as TEXT (measured: no `<f>` element) and the pymacos venv
+  has neither openpyxl nor pip.  Formulas carry NO cached value and the
+  workbook sets `fullCalcOnLoad`; LibreOffice recalculates on load.  Sheets
+  WFE / Coefficients / WFE BD / PSD / StrTherm / Log; every range is the
+  generated rows'.  Lines are re-ordered so each Section is contiguous.
+  `run_budget` writes it as `<name>_wfe_budget.xlsx` (the plain-value
+  `write_xlsx` export stays).  **soffice from MATLAB needs `env -u
+  LD_LIBRARY_PATH`**: MATLAB's bundled libstdc++ is older than
+  LibreOffice's (`GLIBCXX_3.4.31 not found`).  Gate `tBudgetKernel/
+  test_workbook_formulas_recalculate` (recalculated Payload == MATLAB to
+  1e-9; an edited input sigma re-rolls to the predicted value -- edit a
+  line with a nonzero post coefficient: a fully actuated line's sigma
+  rightly moves nothing).  e5hex1: 3.15580786565109 nm both ways.
 - **Still to come:** the SPOT (`dcdx`) metric; the kernel is metric-agnostic
   (takes `J`,`w0`).
 

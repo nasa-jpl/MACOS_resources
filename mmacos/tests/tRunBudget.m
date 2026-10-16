@@ -91,7 +91,8 @@ classdef tRunBudget < matlab.unittest.TestCase
                 'Optics Clocking','all','clock','','','dwdx','normal',100,'nrad',NaN,NaN,'iid',''; ...
                 'Optics Decenter','all','decenter','','','dwdx','normal',100,'nm',NaN,NaN,'iid',''; ...
                 'Optics Despace','all','despace','','','dwdx','uniform',NaN,'nm',-200,200,'iid',''}, ...
-                'VariableNames', T.Properties.VariableNames);
+                'VariableNames', {'Name','Elements','DOFs','Modes','Param', ...
+                'Channel','Dist','Sigma','Units','Min','Max','Cov','Control'});
             M = macos.budget.assemble(tc.ox);
             rc1 = macos.budget.cov_budget(M, macos.budget.spec_from_table(Tv1, M));
             tc.verifyEqual(rc.total_pre, rc1.total, 'RelTol', 1e-12);
@@ -116,6 +117,10 @@ classdef tRunBudget < matlab.unittest.TestCase
             tc.verifyEqual(Tt.Total_nm(r), art.coef.total, 'RelTol', 1e-12);
             tc.verifyEqual(Tt.Pre_WFC_nm(r), rc.total_pre * tonm, 'RelTol', 1e-12);
             tc.verifyEqual(Tt.MC_Post_WFC_nm(r), rm.total * tonm, 'RelTol', 0.1);
+            % the live-formula calculator is written beside the plain export
+            tc.verifyTrue(isfile(art.workbook));
+            tc.verifyEqual(cellstr(sheetnames(art.workbook))', ...
+                {'WFE', 'Coefficients', 'WFE BD', 'PSD', 'StrTherm', 'Log'});
         end
     end
 end
