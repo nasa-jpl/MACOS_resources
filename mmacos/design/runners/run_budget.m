@@ -19,6 +19,10 @@ function art = run_budget(sens, varargin)
 %     'roles'     containers.Map role -> iElt vector (e.g. 'pm_segs' -> ...)
 %     'control'   false (default, uncontrolled) | true (project out the
 %                 groups tagged Control) | logical Nz control-DOF mask
+%     'wfs_sigma' WFS noise per wavefront sample, {sigma, units} or nm
+%                 (Eq. 32 sensing-error row; controlled runs only)
+%     'act_sigma' actuator noise per control group: table Name/Sigma/Units
+%                 or cell {name, sigma, units; ...} (Eq. 31 rows)
 %     'ndraw'     Monte-Carlo draws (default 400; 0 skips MC)
 %     'mc_tol'    cov-vs-MC relative tolerance to warn at (default 0.10)
 %     'metric'    'opd' (default) | 'spot'
@@ -36,6 +40,8 @@ p = inputParser;
 p.addParameter('spec', [], @(x) true);
 p.addParameter('roles', containers.Map('KeyType','char','ValueType','any'));
 p.addParameter('control', false, @(x) islogical(x) || isnumeric(x));
+p.addParameter('wfs_sigma', [], @(x) isempty(x) || isnumeric(x) || iscell(x));
+p.addParameter('act_sigma', [], @(x) isempty(x) || istable(x) || iscell(x));
 p.addParameter('ndraw', 400, @(x) isscalar(x) && x >= 0);
 p.addParameter('mc_tol', 0.10, @isscalar);
 p.addParameter('metric', 'opd', @(s) any(strcmpi(s, {'opd','spot'})));
@@ -67,7 +73,8 @@ else
     T = macos.budget.read_spec(o.spec);
     say('[2] spec: %d group rows\n', height(T));
 end
-spec = macos.budget.spec_from_table(T, M, 'roles', o.roles);
+spec = macos.budget.spec_from_table(T, M, 'roles', o.roles, ...
+    'wfs_sigma', o.wfs_sigma, 'act_sigma', o.act_sigma);
 
 %% -- [3] control mask ------------------------------------------------
 ctrl = control_mask_(o.control, spec, M);
@@ -89,6 +96,10 @@ if o.ndraw > 0
     if rel > o.mc_tol
         warning('budget:mc', ...
             'cov vs MC total disagree by %.1f%% (> %.0f%%)', 100*rel, 100*o.mc_tol);
+    end
+    if rc.controlled
+        say('    uncontrolled (pre-WFC) total %.4g nm;  %d noise row(s)\n', ...
+            rc.total_pre*M.cbm*1e9, numel(rc.extra));
     end
 else
     say('[4] covariance total %.4g nm (MC skipped)\n', rc.total*M.cbm*1e9);
@@ -170,6 +181,15 @@ fprintf(fid, '\n%-24s %-12s %12s %12s %12s\n', 'group', 'class', ...
 for k = 1:numel(rc.names)
     fprintf(fid, '%-24s %-12s %12.4g %12.4g %12.4g\n', rc.names{k}, ...
         rc.class{k}, rc.sigma(k), rc.alpha(k), rc.wfe(k)*tonm);
+end
+for k = 1:numel(rc.extra)
+    e = rc.extra(k);
+    fprintf(fid, '%-24s %-12s %12.4g %12.4g %12.4g\n', e.name, e.kind, ...
+        e.sigma, e.alpha, e.wfe*tonm);
+end
+if rc.controlled
+    fprintf(fid, '%-24s %-12s %12s %12s %12.4g\n', 'pre-WFC TOTAL', '', ...
+        '', '', rc.total_pre*tonm);
 end
 fprintf(fid, '%-24s %-12s %12s %12s %12.4g\n', 'TOTAL (RSS)', '', '', '', ...
     rc.total*tonm);

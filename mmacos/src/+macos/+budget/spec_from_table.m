@@ -24,15 +24,28 @@ function spec = spec_from_table(T, M, varargin)
 %
 %   Options:
 %     'roles'   containers.Map name -> iElt vector (e.g. 'pm_segs' -> [3 4..])
+%     'wfs_sigma'  {sigma, units} (or a scalar in nm): the WFS (sensing)
+%               noise, 1-sigma PER WAVEFRONT SAMPLE (iid over the rays the
+%               Jacobian rows sample) -- Redding 2014 Eq. 32's West = s^2 I.
+%               Feeds the post-WFC sensing-error row.  Default: none.
+%     'act_sigma'  actuator noise per CONTROL group (Eq. 31): a table with
+%               Name / Sigma / Units, or a cell {name, sigma, units; ...},
+%               NAME = a group whose Control column is set.  Its sigma is
+%               per actuated DOF, in that group's own unit class (a
+%               rotation group takes an angle).  Default: none.
 %
 %   SPEC fields: .groups (struct array: name selector cols cm is_control
 %   stage), .assigned (logical Nz), .orphans (idx of unclaimed columns),
-%   .noverlap (count of doubly-claimed columns).
+%   .noverlap (count of doubly-claimed columns), .wfs (struct: sigma
+%   [native BaseUnit], sigma_eng, units; [] when not given), .act (struct
+%   array: name group cols cm, one per control group given an act_sigma).
 %
 %   See also macos.budget.select_columns, macos.budget.covariance_model.
 
 p = inputParser;
 p.addParameter('roles', containers.Map('KeyType', 'char', 'ValueType', 'any'));
+p.addParameter('wfs_sigma', [], @(x) isempty(x) || isnumeric(x) || iscell(x));
+p.addParameter('act_sigma', [], @(x) isempty(x) || istable(x) || iscell(x));
 p.parse(varargin{:});
 roles = p.Results.roles;
 
@@ -84,6 +97,42 @@ end
 
 spec = struct('groups', groups, 'assigned', assigned, ...
     'orphans', orphans, 'noverlap', noverlap);
+spec.wfs = wfs_(p.Results.wfs_sigma, M);
+spec.act = act_(p.Results.act_sigma, groups, M);
+end
+
+% =========================================================================
+function w = wfs_(x, M)
+% WFS noise, per wavefront sample, -> native BaseUnit (the metric's unit).
+w = [];
+if isempty(x), return; end
+if isnumeric(x), x = {x, 'nm'}; end
+s = double(x{1});  u = char(x{2});
+g = struct('name', 'WFS', 'sigma', s, 'units', u, 'dist', 'normal', 'cov', 'iid');
+cm = macos.budget.covariance_model(g, struct('cbm', M.cbm, 'meta', ...
+    struct('channel', {{'dwdz'}}, 'dof', NaN, 'param', {{''}})), true);
+w = struct('sigma', cm.sigma_native, 'sigma_eng', s, 'units', u);
+end
+
+% -------------------------------------------------------------------------
+function a = act_(x, groups, M)
+% One actuator-noise record per control group named in X.
+a = struct('name', {}, 'group', {}, 'cols', {}, 'cm', {});
+if isempty(x), return; end
+if istable(x), x = [cellstr(string(x.Name)), num2cell(double(x.Sigma)), ...
+        cellstr(string(x.Units))]; end
+for r = 1:size(x, 1)
+    gname = char(x{r, 1});
+    k = find(strcmp({groups.name}, gname), 1);
+    assert(~isempty(k), 'budget:act', 'act_sigma names no group "%s"', gname);
+    assert(groups(k).is_control, 'budget:act', ...
+        'act_sigma group "%s" is not a control group (Control column empty)', gname);
+    g = struct('name', [gname ' Actuator'], 'sigma', double(x{r, 2}), ...
+        'units', char(x{r, 3}), 'dist', 'normal', 'cov', 'iid');
+    cm = macos.budget.covariance_model(g, M, groups(k).cols);
+    a(end+1) = struct('name', g.name, 'group', gname, ...
+        'cols', groups(k).cols, 'cm', cm); %#ok<AGROW>
+end
 end
 
 % =========================================================================
