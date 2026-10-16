@@ -943,8 +943,22 @@ stage.  Gotchas:
   Gates `tBudgetKernel/test_control_projection_identities`,
   `.../test_wfc_noise_rows_cov_equals_mc`, `tRunBudget/
   test_wfc_stage_cov_equals_mc` (e5hex1: 317.4 -> 3.156 nm cov, 3.179 MC).
-- **Still to come:** the metrology/drift stage (iSeq = 2) and the SPOT
-  (`dcdx`) metric; the kernel is metric-agnostic (takes `J`,`w0`).
+- **Metrology / drift stage (iSeq = 2, 2026-10-15).**  `project_met(M,
+  dspec, H, R, 'control', ctrl)` (or `cov_budget(..., 'met', struct(drift,H,R))`
+  -> `rc.met`, `rc.total_all`); `mc_met` is its Monte-Carlo.  The drift
+  state is estimated (`K = X H'(H X H'+R)^-1`, run_met.m's own lines) and
+  the WFC controller acts on the ESTIMATE: `w = Jk(I - E T K H)x - Jk E T K n
+  + Ju du`.  **NOT `Pu D post D' Pu'`** (the plan's first sketch): a drift
+  the metrology cannot see passes through UNCORRECTED (post-met == pre-met,
+  even where the WFC stage nulls the same group -- the WFC is not re-run
+  between updates), which is what HabEx's own sheet shows (PM low-order
+  figure: 2.27 post-met vs 2.28 pre vs 0.11 post-WFC); and with every state
+  actuated the rows sum to run_met's `sqrt(trace(post*G)/nw)` (Joseph
+  identity), where `Pu D post D' Pu'` would be 0.  Gates
+  `tBudgetKernel/test_met_stage_*` and `tRunMet/
+  test_budget_met_stage_reproduces_run_met` (2.1e-12 on run_met's example).
+- **Still to come:** the SPOT (`dcdx`) metric; the kernel is metric-agnostic
+  (takes `J`,`w0`).
 
 ## Key files
 

@@ -40,11 +40,20 @@ function rc = cov_budget(M, spec, varargin)
 %   SPEC.wfs / SPEC.act come from spec_from_table's 'wfs_sigma' /
 %   'act_sigma'; absent, there are no noise rows.
 %
+%     'met'  struct(drift, H, R[, hcols][, act]): the metrology / drift
+%            stage (iSeq = 2) through macos.budget.project_met with the
+%            same control mask -> RC.met (its .total_pre / .total_post,
+%            per-drift-group .alpha_met / .alpha_met_post, the gauge row)
+%            and RC.total_all = sqrt(total^2 + met.total_post^2), the
+%            HabEx 'Total WFE' (post-WFC static + post-metrology drift).
+%            Actuator rows for the stage: met.act, else SPEC.act.
+%
 %   See also macos.budget.mc_budget, macos.budget.project_control,
 %   macos.budget.assemble, macos.budget.rollup.
 
 p = inputParser;
 p.addParameter('control', [], @(x) islogical(x) || isempty(x));
+p.addParameter('met', [], @(x) isempty(x) || isstruct(x));
 p.parse(varargin{:});
 ctrl = p.Results.control;
 
@@ -98,6 +107,19 @@ if rc.controlled
     end
 end
 rc.total = sqrt(sum(rc.var) + sum([rc.extra.var]));
+
+% ---- metrology / drift stage (iSeq = 2) ----------------------------------
+mt = p.Results.met;
+rc.met = [];
+if ~isempty(mt)
+    act = [];
+    if isfield(mt, 'act'), act = mt.act;
+    elseif isfield(spec, 'act'), act = spec.act; end
+    hc = [];  if isfield(mt, 'hcols'), hc = mt.hcols; end
+    rc.met = macos.budget.project_met(M, mt.drift, mt.H, mt.R, ...
+        'control', ctrl, 'hcols', hc, 'act', act);
+    rc.total_all = sqrt(rc.total^2 + rc.met.total_post^2);
+end
 end
 
 % =========================================================================
