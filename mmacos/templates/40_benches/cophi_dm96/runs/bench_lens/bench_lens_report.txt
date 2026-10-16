@@ -24,7 +24,7 @@ Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
   DM surface grid 3.57 px/actuator             (need >= 3)
   diffraction grid 1024^2 padding  2.7x
 
-Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/lens_tail.mat (null 0.134 nm at opt res; seed 9.100)
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/redo96_lens_tail.mat (null 59.317 nm at opt res; seed 59.317)
 Stage B -- lens rig built (BS_AOI 22.5); emitted bench_lens_{test,ref}.in
 
 Parts (test arm; station = distance along the chief from the source):
@@ -61,28 +61,9 @@ Parts (test arm; station = distance along the chief from the source):
   MaskSubf       Refractor       2665.5        --  
   MaskSubb       Refractor       2667.5        --  
   FocalMask      Reference       2668.5        --  
-  FLpow          Refractor       2708.2        --  
-  FLflat         Refractor       2714.5        --  
-  Detector       FocalPlane      2747.3        --  camera (see the sampling budget for the pixel count)
-
-stations figure SKIPPED: A and B must be of length 3 in the dimension in which the cross product is taken.
-Clearance -- every physical part vs every beam it is not in (mount +8 mm):
-  element                type         arm     a+mnt  r_beam  clear mm  against
-  Comp                   Refractor    test     61.0    48.0      38.6  test: Sub1b -> BSrefl
-  OutQWP                 Refractor    test     49.5    36.5      70.2  ref: LOCollpow -> BSbinr
-  Analyzer               Refractor    test     49.5    36.5      81.3  ref: LOCollpow -> BSbinr
-  L2                     Refractor    test     49.6    36.6     118.7  ref: LOCollpow -> BSbinr
-  Pol                    Refractor    test     57.3    44.3     144.4  test: Comptxbd -> Sub2f
-  L1                     Refractor    test     57.2    44.2     161.7  test: Comptxbd -> Sub2f
-  QWPtest                Refractor    test     57.3    44.3     327.1  test: Baffle -> L1flat
-  TestOptic              Reflector    test     56.0    36.5     357.4  test: Baffle -> L1flat
-  LOColl                 Refractor    ref      57.2    44.2     406.0  ref: FocalMask -> FLpow
-  MaskSubf               Refractor    test     13.2     0.2     606.3  ref: LOBaffle -> LOCollflat
-  MaskSubb               Refractor    test     13.1     0.1     608.5  ref: LOBaffle -> LOCollflat
-  BS                     Reflector    test     61.0    48.0       NaN  (no other beam crosses its plane)
-  FL                     Refractor    test     16.5     3.5       NaN  (no other beam crosses its plane)
-  Detector               FocalPlane   test     16.7     3.7       NaN  (no other beam crosses its plane)
-  worst +38.6 mm over 11 parts (spec >= 25 mm); wrote bench_lens_clearance.png
+  FLpow          Refractor       2679.2        --  
+  FLflat         Refractor       2685.1        --  
+  Detector       FocalPlane      2721.9        --  camera (see the sampling budget for the pixel count)
 
 
 wrote bench_lens_report.txt + bench_lens.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/cophi_dm96/runs/bench_lens
