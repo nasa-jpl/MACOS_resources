@@ -14,6 +14,7 @@ import numpy as np
 from numpy._typing import ArrayLike, NDArray
 
 from . import pymacosf90 as lib
+from . import api_gen as _gen
 
 _T = TypeVar("_T", bound=np.generic, covariant=True)
 Vector = np.ndarray[Tuple[int], np.dtype[_T]]
@@ -5764,6 +5765,245 @@ def stop_obj(x: float, y: float, z: float) -> None:
     _chk_macos_and_rx_loaded()
     if not lib.api.stop_obj_set(float(x), float(y), float(z)):
         raise Exception('MACOS threw an Exception')
+
+# -------------------------------------------------------------------------------------------
+# Bound 2026-10-16 (BRIEF_to_bindings A.3): the api routines pymacos lacked, as
+# veneers over the GENERATED stubs (api_gen.py; a FAIL raises api_gen.ApiError).
+# Each mirrors its mmacos twin (named in the docstring): the same fields, the same
+# buffers, no default the engine can supply.
+# -------------------------------------------------------------------------------------------
+
+_ELT_TYPE_NAMES = ('Reflector', 'FocalPlane', 'Reference', 'HOE', 'Grating',
+                   'Refractor', 'Obscuring', 'Return', 'NSRefractor', 'LensArray',
+                   'Segment', 'NSReflector', 'TrGrating', 'RfPolarizer',
+                   'TrPolarizer', 'CGHNullPlate', 'DoeTrGrating', 'WavePlate')
+_M_POLY_SIDE = 128   # buffer for elt_info's polygon (engine mPolySide; mmacos uses the same)
+_M_OBS_BUF = 10      # buffer for elt_obs (the count is returned even when larger)
+_DRAW_PLANES = {'YZ': 1, 'XZ': 2, 'XY': 3}
+
+
+def ray_status(n_rays: int) -> dict:
+    """Per-ray status of the LAST trace (mmacos ``get_ray_status``).
+
+    ``status`` (int32, n_rays): 0 OK, 1 Obscured, 2 Miss, 3 Bracket, 4 MaxIter,
+    5 Undef; ``fail_elt`` (int32): the element where the failure was recorded
+    (for an obscured ray, the element that clipped it; 0 when OK); the counts
+    ``n_ok`` ``n_obscured`` ``n_miss`` ``n_bracket`` ``n_max_iter`` ``n_undef``
+    and ``n_lost`` = n_rays - n_ok.  ``n_rays`` is the trace's ray count (the
+    second value :func:`trace_rays` returns); the api refuses any other.
+    """
+    _chk_macos_and_rx_loaded()
+    st, fe = _gen.ray_status_get(np.int32(n_rays))
+    st = np.asarray(st, dtype=np.int32)
+    out = {'status': st, 'fail_elt': np.asarray(fe, dtype=np.int32)}
+    for k, code in (('n_ok', 0), ('n_obscured', 1), ('n_miss', 2),
+                    ('n_bracket', 3), ('n_max_iter', 4), ('n_undef', 5)):
+        out[k] = int(np.count_nonzero(st == code))
+    out['n_lost'] = int(n_rays) - out['n_ok']
+    return out
+
+
+def elt_info(srf: int) -> dict:
+    """Element metadata for layout drawing (mmacos ``get_elt_info``).
+
+    ``elt_id`` and ``type`` (the Element= name), ``ap_type``, ``ap_vec`` (6),
+    ``x_obs`` (3), ``lmon`` (surface half-size) and ``poly`` (2 x nPolyVtx, the
+    projected polygon vertices when the aperture is Polygonal, else 2 x 0).
+    """
+    _chk_macos_and_rx_loaded()
+    ms = _M_POLY_SIDE
+    eid, apt, apv, xo, lm, npv, pv = _gen.elt_info_get(
+        np.zeros(6), np.zeros(3), np.zeros((2, ms), order='F'), np.int32(srf))
+    eid = int(eid)
+    name = _ELT_TYPE_NAMES[eid - 1] if 1 <= eid <= len(_ELT_TYPE_NAMES) else 'Unknown'
+    return {'elt_id': eid, 'type': name, 'ap_type': int(apt),
+            'ap_vec': np.asarray(apv).ravel(), 'x_obs': np.asarray(xo).ravel(),
+            'lmon': float(lm), 'poly': np.asarray(pv)[:, :int(npv)]}
+
+
+def elt_obs(srf: int) -> dict:
+    """Element obscuration declarations (mmacos ``get_elt_obs``): ``n`` (the true
+    count), ``type`` (ObsType codes) and ``vec`` (6 x n ObsVec) for the first
+    min(n, 10)."""
+    _chk_macos_and_rx_loaded()
+    mo = _M_OBS_BUF
+    n, ty, vc = _gen.elt_obs_get(np.zeros(mo, dtype=np.int32),
+                                 np.zeros((6, mo), order='F'), np.int32(srf))
+    nn = min(int(n), mo)
+    return {'n': int(n), 'type': np.asarray(ty)[:nn], 'vec': np.asarray(vc)[:, :nn]}
+
+
+def elt_z(srf: int, z: float | None = None) -> float | None:
+    """Get (``z`` omitted) or set an element's zElt (mmacos ``get_elt_z``): the
+    propagation distance from the previous surface, BaseUnits."""
+    _chk_macos_and_rx_loaded()
+    setter = z is not None
+    zz = _gen.elt_z(np.array([srf], dtype=np.int32),
+                    np.array([z if setter else 0.0]), setter)
+    return None if setter else float(np.asarray(zz).ravel()[0])
+
+
+def xps(srf: int) -> None:
+    """eXit-Pupil Surface (mmacos ``xps``): the engine XPS command at the
+    exit-pupil return surface ``srf`` leaves each ray's exit-pupil crossing in
+    the ray buffer -- read it IMMEDIATELY with :func:`getRayInfo` (position =
+    the exit-pupil surface; ray 1, the chief, is the vertex = FEX).  Pure
+    geometry, needs a stop.  It leaves the source grid in the differential-field
+    state: :func:`trace_rays` / :func:`modify` before resuming."""
+    _chk_macos_and_rx_loaded()
+    _gen.xps_cmd(np.int32(srf))
+
+
+def met(unit: str = 'm') -> dict:
+    """Metrology beam lengths (mmacos ``met``): ``l`` (n) and ``n``; ``unit``
+    ``'m'`` (default, via the deck's BaseUnits) or ``'native'``."""
+    if unit not in ('m', 'native'):
+        raise ValueError("unit must be 'm' or 'native'")
+    _chk_macos_and_rx_loaded()
+    n = int(_gen.met_calc())
+    if n == 0:
+        return {'l': np.zeros(0), 'n': 0}
+    l = np.asarray(_gen.met_get(np.int32(n)), dtype=float).ravel()
+    if unit == 'm':
+        ok, cbm = lib.api.base_unit_to_metres()
+        if not ok or cbm == 0.0:
+            raise Exception('met: CBM unavailable (Rx not loaded or BaseUnits not declared)')
+        l = l * cbm
+    return {'l': l, 'n': n}
+
+
+def met_geom() -> dict:
+    """Metrology beam geometry (mmacos ``met_geom``): ``src_pts`` / ``tgt_pts``
+    (3 x n), ``src_elt`` / ``tgt_elt`` (n), ``n``."""
+    _chk_macos_and_rx_loaded()
+    n = int(_gen.met_calc())
+    if n == 0:
+        return {'src_pts': np.zeros((3, 0)), 'tgt_pts': np.zeros((3, 0)),
+                'src_elt': np.zeros(0, dtype=int), 'tgt_elt': np.zeros(0, dtype=int), 'n': 0}
+    s, t, se, te = _gen.met_geom_get(np.int32(n))
+    return {'src_pts': np.asarray(s), 'tgt_pts': np.asarray(t),
+            'src_elt': np.asarray(se, dtype=int), 'tgt_elt': np.asarray(te, dtype=int), 'n': n}
+
+
+def _draw_cmd(plane, i_start, i_end):
+    key = plane.upper()
+    if key not in _DRAW_PLANES:
+        raise ValueError(f'plane must be YZ, XZ or XY (got {plane})')
+    if i_end <= 0:
+        i_end = num_elt()
+    nde, nray = _gen.draw_rays_cmd(np.int32(_DRAW_PLANES[key]),
+                                   np.int32(i_start), np.int32(i_end))
+    return key, int(nde), int(nray)
+
+
+def draw_rays(plane: str = 'YZ', i_start: int = 0, i_end: int = 0) -> dict:
+    """Ray-bundle drawing data, projected (mmacos ``draw_rays``): ``U``, ``V``
+    (nDE x nRay), ``elt`` (element per vertex), ``nper`` (vertices per ray),
+    ``nray``, ``plane``.  ``i_end`` <= 0 means the last element."""
+    _chk_macos_and_rx_loaded()
+    key, nde, nray = _draw_cmd(plane, i_start, i_end)
+    u, v, e, nper = _gen.draw_rays_get(np.int32(nde), np.int32(nray))
+    return {'U': np.asarray(u), 'V': np.asarray(v), 'elt': np.asarray(e),
+            'nper': np.asarray(nper), 'nray': nray, 'plane': key}
+
+
+def draw_rays3d(plane: str = 'YZ', i_start: int = 0, i_end: int = 0) -> dict:
+    """Ray-bundle drawing data in global 3-D (mmacos ``draw_rays3d``): ``P``
+    (3 x nDE x nRay), ``elt``, ``nper``, ``nray``, ``plane``."""
+    _chk_macos_and_rx_loaded()
+    key, nde, nray = _draw_cmd(plane, i_start, i_end)
+    _, _, e, nper = _gen.draw_rays_get(np.int32(nde), np.int32(nray))
+    px, py, pz = _gen.draw_rays3d_get(np.int32(nde), np.int32(nray))
+    return {'P': np.stack([np.asarray(px), np.asarray(py), np.asarray(pz)]),
+            'elt': np.asarray(e), 'nper': np.asarray(nper), 'nray': nray, 'plane': key}
+
+
+def polarizer(srf: int, axis=None) -> dict | None:
+    """Get (``axis`` omitted: ``{'axis', 'elt_type'}``) or set the transmission
+    axis of a TrPolarizer (mmacos ``polarizer``)."""
+    _chk_macos_and_rx_loaded()
+    if axis is None:
+        a, _, et = _gen.polelt_get(np.int32(srf))
+        return {'axis': np.asarray(a).ravel(), 'elt_type': int(et)}
+    a = np.asarray(axis, dtype=float).ravel()
+    if a.size != 3:
+        raise ValueError("'axis' must be a 3-vector")
+    if not np.linalg.norm(a) > 0:
+        raise ValueError("'axis' must be non-zero")
+    _gen.polelt_set(np.int32(srf), a, 0.0)
+    return None
+
+
+def waveplate(srf: int, axis=None, retardance: float | None = None) -> dict | None:
+    """Get (both omitted: ``{'axis', 'retardance', 'elt_type'}``) or set a
+    WavePlate's fast axis and retardance (waves at the current wavelength); the
+    one not given keeps its current value (mmacos ``waveplate``)."""
+    _chk_macos_and_rx_loaded()
+    a0, r0, et = _gen.polelt_get(np.int32(srf))
+    if axis is None and retardance is None:
+        return {'axis': np.asarray(a0).ravel(), 'retardance': float(r0), 'elt_type': int(et)}
+    a = np.asarray(a0 if axis is None else axis, dtype=float).ravel()
+    r = float(r0) if retardance is None else retardance
+    if a.size != 3:
+        raise ValueError("'axis' must be a 3-vector")
+    if not np.linalg.norm(a) > 0:
+        raise ValueError("'axis' must be non-zero")
+    if not np.isscalar(r):
+        raise ValueError("'retardance' must be a scalar")
+    _gen.polelt_set(np.int32(srf), a, float(r))
+    return None
+
+
+def elt_jones(srf: int) -> np.ndarray:
+    """The 2x2 Jones matrix a polarizing element applied in the last polarized
+    trace, in its own eigenbasis (mmacos ``elt_jones``); zero without one."""
+    _chk_macos_and_rx_loaded()
+    jr, ji = _gen.jmat_elt_get(np.int32(srf))
+    return np.asarray(jr) + 1j * np.asarray(ji)
+
+
+def ray_hist(state: str) -> None:
+    """``'on'`` / ``'off'``: record every ray's global crossing at every element
+    in each later trace (mmacos ``ray_hist('on')``); read with
+    :func:`ray_pos_hist`.  Marks the trace dirty (:func:`modify`)."""
+    if state not in ('on', 'off'):
+        raise ValueError("state must be 'on' or 'off'")
+    _chk_macos_and_rx_loaded()
+    _gen.ray_hist_set(state == 'on')
+    modify()
+
+
+def ray_pos_hist(n_rays: int) -> dict:
+    """The ray-position history of the last trace (mmacos ``ray_hist(nRays)``):
+    ``P`` (3 x n_rays x nElt+1; column 0 = the source plane) and ``ok``
+    (n_rays x nElt+1, True where the ray reached that element)."""
+    _chk_macos_and_rx_loaded()
+    ne1 = num_elt() + 1
+    z = lambda: np.zeros((int(n_rays), ne1), order='F')  # noqa: E731
+    px, py, pz, lok = _gen.ray_pos_hist_get(z(), z(), z(), z())
+    return {'P': np.stack([np.asarray(px), np.asarray(py), np.asarray(pz)]),
+            'ok': np.asarray(lok) != 0}
+
+
+def src_seg() -> dict:
+    """The source segmentation tiling (the truth mmacos ``view_rx`` draws Segment
+    tiles from): ``grid_type`` (1 Circular, 2 Square, 3 Hex, 4 Pie, 5 Flower,
+    6 UDG), ``n_seg``, ``width`` (flat-to-flat), ``gap``."""
+    _chk_macos_and_rx_loaded()
+    g, n, w, gp = _gen.src_seg_get()
+    return {'grid_type': int(g), 'n_seg': int(n), 'width': float(w), 'gap': float(gp)}
+
+
+def deadband_notes() -> int:
+    """Source-frame / stop-aim updates the round-off dead band suppressed beyond
+    the first one the engine printed (0 on every deck measured 2026-10-02)."""
+    return int(_gen.deadband_notes_get())
+
+
+def fwd_root_flips() -> int:
+    """Surface intersections in the last trace where the forward-crossing root
+    pick differed from the legacy metric (reset at every trace start)."""
+    return int(_gen.fwd_root_flips_get())
 
 
 # -------------------------------------------------------------------------------------------
