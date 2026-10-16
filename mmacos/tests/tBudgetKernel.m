@@ -419,7 +419,15 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             tc.verifyMatches(Sw{info.rows.TOTAL, 11}, '^\d+\.\d{3}$', 'TOTAL');
             tc.verifyMatches(Sw{info.rows.Payload_WFE, 11}, '^\d+\.\d{3}$', 'Payload');
             tc.verifyMatches(Sw{info.rows.WFE_Margin, 11}, '^-?\d+\.\d%$', 'Margin');
-            tc.verifyEqual(str2double(Sw{4, 3}), V{4, 3}, 'RelTol', 1e-12);
+            % the sigma inputs too (Dave 2026-10-16): "0.000", the stored
+            % value untouched -- the uniform despace h/sqrt(3) reads 115.470
+            tc.verifyMatches(Sw{4, 3}, '^\d+\.\d{3}$', 'WFE!C4 (input)');
+            tc.verifyEqual(str2double(Sw{4, 3}), V{4, 3}, 'AbsTol', 5e-4);
+            rd = find(strcmp(Sw(:, 2), 'E3 Despace'));
+            tc.verifyEqual(Sw{rd, 3}, '115.470');
+            tc.verifyEqual(V{rd, 3}, 200 / sqrt(3), 'RelTol', 1e-12);
+            % the legend: white cells are inputs, gray cells formulas
+            tc.verifyMatches(Sw{1, 13}, '(?i)white.*input.*gr[ae]y.*formula');
             Sc = tBudgetKernel.shown(f, wd, 2);
             tc.verifyMatches(Sc{4, 4}, '^-?\d\.\d{3}E[+-]\d{2}$', 'Coefficients!D4');
             tc.verifyMatches(Sc{4, 11}, '^-?\d\.\d{3}E[+-]\d{2}$', 'Coefficients!K4');
