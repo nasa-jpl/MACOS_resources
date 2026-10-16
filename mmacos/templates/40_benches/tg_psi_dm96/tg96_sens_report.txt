@@ -1,0 +1,29 @@
+=== IFO sensitivity: smallest detectable change (differential, actuator space) ===
+base      scenario          amp |     gain     acc_pm  floor_pm       SNR
+flat      single             10 |   0.8525  -1.48e+03      41.1       207
+flat      single              1 |   0.8527       -147      4.11       208
+flat      single            0.1 |   0.8528      -14.7     0.411       208
+flat      single           0.01 |   0.8528      -1.47    0.0411       208
+flat      single          0.001 |   0.8530     -0.147   0.00411       208
+flat      single         0.0001 |   0.8556    -0.0144   0.00041       209
+flat      grid(47)           10 |   0.7831  -2.17e+03       401      19.5
+flat      grid(47)            1 |   0.7828       -217        40      19.6
+flat      grid(47)          0.1 |   0.7828      -21.7      3.99      19.6
+flat      grid(47)         0.01 |   0.7828      -2.17     0.399      19.6
+flat      grid(47)        0.001 |   0.7828     -0.217    0.0399      19.6
+flat      grid(47)       0.0001 |   0.7833    -0.0217     0.004      19.6
+rand30nm  single             10 |   0.8506  -1.49e+03      41.2       206
+rand30nm  single              1 |   0.8509       -149      4.12       206
+rand30nm  single            0.1 |   0.8509      -14.9     0.412       207
+rand30nm  single           0.01 |   0.8509      -1.49    0.0412       207
+rand30nm  single          0.001 |   0.8508     -0.149   0.00412       207
+rand30nm  single         0.0001 |   0.8494    -0.0151  0.000412       206
+rand30nm  grid(47)           10 |   0.7856  -2.14e+03       402      19.5
+rand30nm  grid(47)            1 |   0.7853       -215      40.1      19.6
+rand30nm  grid(47)          0.1 |   0.7852      -21.5      4.01      19.6
+rand30nm  grid(47)         0.01 |   0.7852      -2.15     0.401      19.6
+rand30nm  grid(47)        0.001 |   0.7853     -0.215    0.0401      19.6
+rand30nm  grid(47)       0.0001 |   0.7855    -0.0214   0.00401      19.6
+(amp in nm; acc = recovered-minus-true at poked sites; floor = rms of unpoked
+ lit actuators; SNR = poked/floor, detected at SNR >= 5; noiseless model)
+sensitivity run in 9.9 min

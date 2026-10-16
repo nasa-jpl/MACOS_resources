@@ -67,3 +67,7 @@ Makefile    text eol=lf
 *.png       binary
 *.jpg       binary
 *.pdf       binary
+
+# Line-ending gate fixtures (PLAN_CONSOLIDATION item 5): their CR / CRLF bytes ARE the test --
+# never normalize them (text=auto would store the CRLF twin as LF and the gate would test nothing).
+pymacos/tests/Rx/Rx_Eol_*.in     -text

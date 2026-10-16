@@ -1,0 +1,30 @@
+=== tg96_pupil_options (2026-09-17 08:12): variants of /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/lensuw2/lensuw2_test.in ===
+---- variant record ----
+[record] image surface vs the detector: on axis +2.61, mean +4.32, min +2.63, max +6.04 mm; astig split 1.05 rms / 1.85 max; band-edge phase 0.236 rms / 0.322 max rad
+[record] Nyquist gain: as built mean 0.9792 min 0.9540; at the compromise plane (+4.32 mm) mean 0.9985 min 0.9934; working surface 1.222 -> 0.422 nm; distortion 0.274 rms
+[seed] seed tail: field lens 10.76 mm past the marker (f 42.9, conic -2.11), detector 38.28 mm past its exit face (thin-lens image 36.42 + trim 1.86)
+---- variant seed ----
+[seed] image surface vs the detector: on axis -0.48, mean -0.72, min -0.96, max -0.47 mm; astig split 0.08 rms / 0.14 max; band-edge phase 0.043 rms / 0.056 max rad
+[seed] Nyquist gain: as built mean 0.9992 min 0.9986; at the compromise plane (-0.72 mm) mean 0.9999 min 0.9999; working surface 0.238 -> 0.063 nm; distortion 0.003 rms
+[sph] spherical field lens (conic 0 instead of -2.588)
+---- variant sph ----
+[sph] image surface vs the detector: on axis +2.63, mean +1.48, min +0.34, max +2.63 mm; astig split 0.59 rms / 1.01 max; band-edge phase 0.111 rms / 0.180 max rad
+[sph] Nyquist gain: as built mean 0.9962 min 0.9917; at the compromise plane (+1.48 mm) mean 0.9991 min 0.9942; working surface 0.539 -> 0.335 nm; distortion 0.304 rms
+[coll] collimator conic -0.5829 -> -2.25 (the exact hyperbola); source moved from zSource 25.00 to 39.25 mm: exit-ray angular spread 5.84e-04 -> 5.95e-05 rad rms
+---- variant coll ----
+[coll] image surface vs the detector: on axis +2.68, mean +3.90, min +2.63, max +5.07 mm; astig split 0.80 rms / 1.35 max; band-edge phase 0.205 rms / 0.263 max rad
+[coll] Nyquist gain: as built mean 0.9824 min 0.9646; at the compromise plane (+3.90 mm) mean 0.9991 min 0.9963; working surface 1.119 -> 0.321 nm; distortion 0.132 rms
+[coll_seed] seed tail: field lens 10.76 mm past the marker (f 42.9, conic -2.11), detector 38.28 mm past its exit face (thin-lens image 36.42 + trim 1.86)
+[coll_seed] collimator conic -0.5829 -> -2.25 (the exact hyperbola); source moved from zSource 25.00 to 39.25 mm: exit-ray angular spread 5.84e-04 -> 5.95e-05 rad rms
+---- variant coll_seed ----
+[coll_seed] image surface vs the detector: on axis -0.46, mean -0.76, min -1.08, max -0.47 mm; astig split 0.11 rms / 0.21 max; band-edge phase 0.043 rms / 0.059 max rad
+[coll_seed] Nyquist gain: as built mean 0.9991 min 0.9980; at the compromise plane (-0.76 mm) mean 0.9999 min 0.9999; working surface 0.258 -> 0.079 nm; distortion 0.035 rms
+
+==== summary (lens rig unless stated) ====
+variant    | image vs detector (mm): ctr/mean/min/max | astig rms/max  | Nyquist gain as built  | at the compromise plane | surface err nm | distortion
+record     |  +2.61 /  +4.32 /  +2.63 /  +6.04 |  1.05 /  1.85 | mean 0.9792 min 0.9540 | +4.32 mm: 0.9985 / 0.9934 | 1.22 -> 0.42 | 0.27 mm
+seed       |  -0.48 /  -0.72 /  -0.96 /  -0.47 |  0.08 /  0.14 | mean 0.9992 min 0.9986 | -0.72 mm: 0.9999 / 0.9999 | 0.24 -> 0.06 | 0.00 mm
+sph        |  +2.63 /  +1.48 /  +0.34 /  +2.63 |  0.59 /  1.01 | mean 0.9962 min 0.9917 | +1.48 mm: 0.9991 / 0.9942 | 0.54 -> 0.34 | 0.30 mm
+coll       |  +2.68 /  +3.90 /  +2.63 /  +5.07 |  0.80 /  1.35 | mean 0.9824 min 0.9646 | +3.90 mm: 0.9991 / 0.9963 | 1.12 -> 0.32 | 0.13 mm
+coll_seed  |  -0.46 /  -0.76 /  -1.08 /  -0.47 |  0.11 /  0.21 | mean 0.9991 min 0.9980 | -0.76 mm: 0.9999 / 0.9999 | 0.26 -> 0.08 | 0.03 mm
+run complete

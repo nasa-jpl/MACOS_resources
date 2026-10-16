@@ -1,0 +1,165 @@
+% tst_zerndef_extfringe.in -- tst_zerndef_fringe.in with ZernType= ExtFringe (PLAN_CONSOLIDATION
+% 1.2, 2026-10-12).  Extended Fringe is Fringe's ordering continued past 37 (group p = (n+|m|)/2,
+% |m| descending, cos before sin); on modes 1-36 the two are the same polynomials, so mode 9
+% (spherical) must trace IDENTICALLY to the Fringe twin.  The converter (surfsub ZerntoMon_ZFE)
+% existed but no dispatch called it, so pre-fix this deck traced as the bare conic -- the red.
+% GATE: cli_tests/cmd/ZernType_extfringe.jou.
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -5.0E+00
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=4.0E+00
+         Obscratn=2.4E+00
+
+         GridType=  Circular
+         nGridpts=  256
+            xGrid=  -1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  -1.0E+00  0.0E+00
+
+
+             nElt=  6
+
+
+             iElt=  1
+          EltName=  SecMirObs
+          Element=  Obscuring
+          Surface=  Conic
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.2E+00
+           RptElt=  0.0E+00  0.0E+00  -4.2E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  3
+          ObsType=  Circle
+           ObsVec=  5.0E-01  0.0E+00  0.0E+00
+          ObsType=  Rectangle
+           ObsVec=  -3.125E-03  3.125E-03  -3.0E+00  3.0E+00
+          ObsType=  Rectangle
+           ObsVec=  -3.0E+00  3.0E+00  -3.125E-03  3.125E-03
+           ApType=  Circular
+            ApVec=  2.0E+00  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.0E+20
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Primary
+          Element=  NSReflector
+          NSCount=  1
+          Surface=  ZrnGrData
+         ZernType=  ExtFringe
+         ZernCoef=  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  2.0E-07
+            KrElt=-1.08E+01
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             pMon=  0.0E+00  0.0E+00  0.0E+00
+             xMon=  1.0E+00  0.0E+00  0.0E+00
+             yMon=  0.0E+00  1.0E+00  0.0E+00
+             zMon=  0.0E+00  0.0E+00  -1.0E+00
+             lMon=  1.0E+00
+             xObs=  -1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  2.1E+00  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=5.4E+00
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Secondary
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-3.526787501E+00
+            KcElt=-2.670556022E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.061145902E+00
+           RptElt=  0.0E+00  0.0E+00  -5.4E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.2E-01  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.338854098E+00
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Return1
+          Element=  Return
+          Surface=  Conic
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.5E+00
+           RptElt=  0.0E+00  0.0E+00  1.5E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  5
+          EltName=  ExitPupil
+          Element=  Return
+          Surface=  Conic
+            KrElt=-5.560145902E+00
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.060145902E+00
+           RptElt=  0.0E+00  0.0E+00  -4.060145902E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  FarField
+             zElt=5.560145902E+00
+          nECoord= -6
+
+             iElt=  6
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.5E+00
+           RptElt=  0.0E+00  0.0E+00  1.5E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

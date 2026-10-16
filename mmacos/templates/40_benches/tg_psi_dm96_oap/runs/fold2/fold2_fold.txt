@@ -1,0 +1,66 @@
+=== OAP fold solve: the fold angles from the MEASURED clearance ===
+bench 22.5 deg node (BS_AOI 22.5), DM leg 450, beam radius 51.4 mm, mount +8, spec >= 25 mm
+physical bodies (radius before the mount, mm): Baffle 50  Detector 50  TestOptic 90  PZT 60  
+input polarizer: source leg
+model 512, 65 rays; 10 x 9 angles x 4 side pairs = 360 builds
+
+--- sides OAP1 +1 / OAP2 +1 ---
+ A1\A2       5      10      15      20      25      30      35      40      45   binding part at the best A2
+     6     -99     -93     -86     -77     -63     -40     -33    -31*    -29*   OutQWP
+     8     -99     -93     -86     -80     -80     -80     -80    -80*    -80*   Baffle
+    10    -105    -106    -107    -109    -109    -109    -108   -108*   -108*   Baffle
+    12     -99     -93     -86     -79     -79     -79     -79    -79*    -80*   Baffle
+    14     -99     -93     -86     -77     -63     -40     -32    -35*    -43*   Pol
+    16     -99     -93     -86     -77     -63     -40       2      3*     -0*   Pol
+    18     -99     -93     -86     -77     -63     -40       2     41*     41*   L2
+    20     -99     -93     -86     -77     -63     -40       2     54*     56*   Comp
+    22     -99     -93     -86     -77     -63     -40       2     53*     56*   Comp
+    24     -99     -93     -86     -77     -63     -40       2     53*     55*   Comp
+
+--- sides OAP1 +1 / OAP2 -1 ---
+ A1\A2       5      10      15      20      25      30      35      40      45   binding part at the best A2
+     6     -99     -92     -85     -77     -79     -96     -60    -56*    -54*   Baffle
+     8     -99     -92     -85     -81     -82     -99     -80    -80*    -80*   Baffle
+    10    -105    -105    -106    -107    -108    -108    -108   -108*   -108*   Baffle
+    12     -99     -92     -85     -78     -79     -79     -79    -79*    -79*   Baffle
+    14     -99     -92     -85     -77     -63     -40     -20    -23*    -39*   Pol
+    16     -99     -92     -85     -77     -63     -40       2      8*      9*   Pol
+    18     -99     -92     -85     -77     -63     -40       2     41*     42*   L2
+    20     -99     -92     -85     -77     -63     -40       1     55*     58*   Comp
+    22     -99     -92     -85     -77     -63     -40       1     55*     58*   Comp
+    24     -99     -92     -85     -77     -63     -40       1     54*     57*   Comp
+
+--- sides OAP1 -1 / OAP2 +1 ---
+ A1\A2       5      10      15      20      25      30      35      40      45   binding part at the best A2
+     6     -99     -92     -85     -77     -63     -40     -18    -15*    -12*   BS
+     8     -99     -92     -85     -77     -63     -40       2     12*     14*   BS
+    10     -99     -92     -85     -77     -63     -40       2     33*     36*   Comp
+    12     -99     -92     -85     -77     -63     -40       2     25*     28*   Comp
+    14     -99     -92     -85     -77     -63     -40       2     17*     20*   Comp
+    16     -99     -92     -85     -77     -63     -40       2      6*      9*   Comp
+    18     -99     -92     -85     -77     -63     -40     -11     -6*     -3*   Comp
+    20     -99     -92     -85     -77     -63     -40     -27    -22*    -19*   Comp
+    22     -99     -92     -85     -77     -63     -51     -47    -42*    -39*   Comp
+    24     -99     -92     -85     -85     -83     -79     -75    -70*    -67*   Comp
+
+--- sides OAP1 -1 / OAP2 -1 ---
+ A1\A2       5      10      15      20      25      30      35      40      45   binding part at the best A2
+     6     -99     -92     -86     -77     -64     -40     -18    -15*    -13*   BS
+     8     -99     -92     -86     -77     -63     -40       2     11*     13*   BS
+    10     -99     -92     -86     -77     -63     -40       2     32*     35*   Comp
+    12     -99     -92     -86     -77     -63     -40       2     25*     27*   Comp
+    14     -99     -92     -86     -77     -63     -40       2     16*     18*   Comp
+    16     -99     -92     -86     -77     -63     -40       2      5*      8*   Comp
+    18     -99     -92     -86     -77     -63     -40     -10     -7*     -5*   Comp
+    20     -99     -92     -86     -77     -63     -40     -25    -23*    -21*   Comp
+    22     -99     -92     -86     -77     -63     -50     -46    -44*    -41*   Comp
+    24     -99     -92     -86     -85     -82     -78     -74    -72*    -69*   Comp
+
+360 builds in 23.2 min (3.9 s each)
+
+NO (A1,A2) IN THIS GRID CLEARS 25 mm.  Worst-case best: OAP1 20 / OAP2 45, sides +1/-1 -> +58.2 mm (Comp)
+  the parts still negative there:
+* = the trace loses rays at that fold (vignetting / surface miss); such
+  a point is never SOLVED however well it clears.
+
+wrote fold2_fold.{txt,mat,png} in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/fold2

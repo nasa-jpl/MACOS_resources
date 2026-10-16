@@ -1,0 +1,5 @@
+==================== e2e6m R2 -- the masks as objects
+occulter radius 2.80 lambda/D = 27.31 um at the FPM focus
+focal scale 9.755 um per lambda/D (R_EP 0.3125 m, 500 nm)
+apodizer radius 125.5 px, pupil dx 0.1859 mm per px
+apodizer throughput over the traced aperture 0.145

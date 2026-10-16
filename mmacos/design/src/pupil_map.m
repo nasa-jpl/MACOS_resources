@@ -173,6 +173,10 @@ function out = pupil_map(deck, Ffield, opts)
 %     'zones'       radial zones for the piecewise kernel (1)
 %     'image_npix'  raster size (256)
 %     'quiet'       (true)
+%     'stop_elt'    element id whose VptElt is the STOP position, for decks
+%                   whose stop is an element (no header ApStop= 3-vector),
+%                   e.g. jwst_ote_designc's FSM.  0 (default) = read the
+%                   header ApStop=.   'stop_pos'  explicit 1x3 override.
 %
 %   See also AFOCAL_LADDER_DECK, MACOS.PUPIL_QUALITY, MACOS.XPS.
 
@@ -193,6 +197,12 @@ function out = pupil_map(deck, Ffield, opts)
         opts.zones      (1,1) double {mustBeInteger,mustBePositive} = 1
         opts.image_npix (1,1) double = 256
         opts.quiet      (1,1) logical = true
+        opts.stop_elt   (1,1) double {mustBeInteger} = 0
+        opts.stop_pos   double = []
+        opts.obj_hist   (1,1) logical = false  % entrance positions from
+                                               % the ray history at obj_elt
+                                               % (one trace; legal at
+                                               % Segment elements)
     end
 
     K = size(Ffield,1);
@@ -206,10 +216,23 @@ function out = pupil_map(deck, Ffield, opts)
     if opts.strip_ap
         txt = regexprep(txt, '(ApType=\s*)\S+', '$1None');
     end
-    [cdir0, cpos0, apst, lam] = deck_src_(txt);
+    [cdir0, cpos0, lam] = deck_src_(txt);
+    Vs = grab_all3_(txt,'VptElt');   Ps = grab_all3_(txt,'psiElt');
+    % The stop position seeds the cone construction (trace_field_ pivots
+    % the chief about it).  Header ApStop= is a 3-vector; decks whose stop
+    % is an ELEMENT (per-element two-value ApStop=, or set by the driver --
+    % e.g. jwst_ote_designc's FSM) have no such line: pass 'stop_elt' or
+    % 'stop_pos' instead (Luis, 2026-08-24).
+    if ~isempty(opts.stop_pos)
+        apst = opts.stop_pos(:);
+        assert(numel(apst) == 3, 'macos:design:pupil_map:stop_pos must be a 3-vector');
+    elseif opts.stop_elt > 0
+        apst = Vs(:, opts.stop_elt);
+    else
+        apst = grab3_(txt, 'ApStop');
+    end
     stand = dot(apst - cpos0, cdir0);
     bx0 = asin(cdir0(1));   by0 = asin(cdir0(2));
-    Vs = grab_all3_(txt,'VptElt');   Ps = grab_all3_(txt,'psiElt');
     io = opts.obj_elt;
     ii = opts.img_elt;   if ii <= 0, ii = size(Vs,2); end
     V1 = Vs(:,io);   n1 = Ps(:,io)/norm(Ps(:,io));
@@ -237,15 +260,16 @@ function out = pupil_map(deck, Ffield, opts)
         % from ApStop instead would be right on Rodgers' decks and 50 mm
         % wrong on the ones afocal4_build emits.
         rim = rim_plane_(txt, tmp, apst, stand, bx0 + Ffield(kc,1), ...
-                         by0 + Ffield(kc,2), io, ii, V1, n1, 0.5*beam_dia_(txt));
+                         by0 + Ffield(kc,2), io, ii, V1, n1, ...
+                         0.5*beam_dia_(txt), opts.obj_hist);
         anc = struct('Vpt', (V1 + n1*rim.sag).', 'psi', n1.');
     end
     index_group = ischar(anc) && strcmpi(anc,'index');
     if index_group, anc = 'surface'; end
     if isstruct(anc)
         A0 = anc.Vpt(:);   nA = anc.psi(:)/norm(anc.psi);
-        zsrc = regexp(txt,'zSource\s*=\s*([-\d.EeD+]+)','tokens','once');
-        if isempty(zsrc) || str2double(strrep(zsrc{1},'D','E')) < 1e10
+        zsrc = regexp(txt,'zSource\s*=\s*([-\d.EeDd+]+)','tokens','once');
+        if isempty(zsrc) || str2double(strrep(strrep(zsrc{1},'D','E'),'d','e')) < 1e10
             error('macos:design:pupil_map:anchor', ...
                   ['plane anchoring back-projects each ray along the SOURCE ' ...
                    'direction, which is only exact for a collimated source ' ...
@@ -264,7 +288,7 @@ function out = pupil_map(deck, Ffield, opts)
     for k = 1:K
         bx = bx0 + Ffield(k,1);   by = by0 + Ffield(k,2);
         [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, ...
-                                              bx, by, io, ii);
+                                              bx, by, io, ii, opts.obj_hist);
         Q = Pm(:,ok);
         if flat_anchor
             % back-project each ray along the (collimated) source direction
@@ -491,6 +515,21 @@ function out = pupil_map(deck, Ffield, opts)
     % question about where on the pupil you look, which is independent of
     % what the cones were anchored to.
     rimz = rim_zone_(nod, good, waist, wmax, wander, bestpl, opts.rim_zone);
+    % The rim AS A BODY: where the imaged pupil EDGE sits per field, and how
+    % far that centre translates across the box.  WANDER_ above answers a
+    % different question -- at ONE node, how far does that node's image move
+    % with field -- and its rim-zone RMS mixes the edge's translation with the
+    % edge's breathing.  A coldstop feels those as two separate failures.
+    % TWO FRAMES, and the record's wander convention is the REFIT one.  The
+    % deck's own plane is what a fixed stop sees; the refit plane (shift +
+    % tilt, the coldstop-DAR analogue) is what a stop you are allowed to
+    % ALIGN sees, and it is the frame AFOCAL4_SCORE quotes wander on
+    % (S.wander_um = pm.best_plane.rms).  Reporting one under the other's
+    % name is a factor of several here -- quote the frame with the number.
+    rimz.centroid      = rim_centroid_(PE, DE, plane.Vpt(:), npl, ...
+                                       b1, b2, rimz.sel, Rex);
+    rimz.centroid_best = rim_centroid_(PE, DE, bestpl.Vpt(:), bestpl.psi(:), ...
+                                       b1, b2, rimz.sel, Rex);
 
     % ---- diffraction floor --------------------------------------------------
     na = sin(max(halfang(good)));
@@ -568,6 +607,12 @@ function report_(o)
              '(r %.1f .. %.1f mm)\n'], o.rim_zone.wander_rms*1e6, ...
         o.rim_zone.wander_best_rms*1e6, o.rim_zone.r_inner*1e3, ...
         o.rim_zone.r_outer*1e3);
+    c = o.rim_zone.centroid;   cb = o.rim_zone.centroid_best;
+    fprintf(['  (5) edge centroid  placed rms %8.3f um (%.3f%% of stop RADIUS)   ' ...
+             'refit rms %8.3f um (%.3f%%)\n'], ...
+        c.rms*1e6, 100*c.frac_rms, cb.rms*1e6, 100*cb.frac_rms);
+    fprintf(['      (the rim as a BODY -- its translation on the stop; ' ...
+             '%d fields, %d rim nodes)\n'], c.n_fields, c.n_nodes);
 end
 
 % =====================================================================
@@ -579,7 +624,7 @@ function R = nan_rim_()
                'fit_resid',NaN, 'stop_offset',NaN, 'stop_minus_rim',NaN);
 end
 
-function R = rim_plane_(txt, tmp, apst, stand, bx, by, io, ii, V1, n1, Rdec)
+function R = rim_plane_(txt, tmp, apst, stand, bx, by, io, ii, V1, n1, Rdec, uh)
 %RIM_PLANE_  The flat plane through the object element's RIM, measured.
 %
 %   One trace of the box-centre field gives every ray's hit point on the
@@ -604,7 +649,7 @@ function R = rim_plane_(txt, tmp, apst, stand, bx, by, io, ii, V1, n1, Rdec)
 %   deck's own stop IS its rim plane.  On a deck that declares the stop at
 %   the vertex it comes back as the sag, which is the honest statement that
 %   the two planes are different there.
-    [Pm, ~, ~, ok] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii);
+    [Pm, ~, ~, ok] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii, uh);
     if nnz(ok) < 8
         error('macos:design:pupil_map:rim', ...
               ['only %d rays reached element %d, which is not enough to ' ...
@@ -629,6 +674,51 @@ function R = rim_plane_(txt, tmp, apst, stand, bx, by, io, ii, V1, n1, Rdec)
     R.stop_minus_rim = R.stop_offset - R.sag;
 end
 
+function C = rim_centroid_(PE, DE, Vp, np, b1, b2, sel, Rex)
+%RIM_CENTROID_  The imaged pupil EDGE as a body: its centre per field, and how
+%   far that centre translates across the field box.
+%
+%   For each FIELD, every rim-zone node's ray bundle is pierced onto the placed
+%   plane and the centroid of those piercings is that field's rim centre.  The
+%   returned .rms/.max are the spread of those centres about their own mean --
+%   i.e. the RIGID displacement of the pupil edge on the stop.
+%
+%   NOT the same quantity as WANDER_'s rim-zone RMS, and the difference is
+%   physical.  WANDER_ asks, at one node, how far that node's image moves with
+%   field; RMS'd over rim nodes it charges edge TRANSLATION and edge BREATHING
+%   together.  A coldstop leaks for two independent reasons -- the pupil walks
+%   off the mask (this number) or its edge smears (the blur number) -- and a
+%   margin written against the sum of them is written against neither.
+%
+%   .frac_* are fractions of the EXIT PUPIL RADIUS (Rex), which is the
+%   radiometric currency: undersizing a stop by frac costs 1-(1-frac)^2 of
+%   throughput.  Quote the radius convention explicitly -- a fraction of the
+%   DIAMETER is the same defect reported at half its size.
+    C = struct('per_field',[], 'centre',[NaN;NaN], 'rms',NaN, 'max',NaN, ...
+               'frac_rms',NaN, 'frac_max',NaN, ...
+               'n_fields',0, 'n_nodes',nnz(sel));
+    if ~any(sel), return; end
+    K  = size(PE,3);
+    uv = nan(2,K);
+    for k = 1:K
+        p = reshape(PE(:,sel,k), 3, []);   d = reshape(DE(:,sel,k), 3, []);
+        okk = all(isfinite(p),1) & all(isfinite(d),1);
+        if ~any(okk), continue; end
+        p = p(:,okk);   d = d(:,okk);
+        t = (np.'*(Vp - p)) ./ (np.'*d);
+        q = p + d.*t;
+        c = mean(q,2);
+        uv(:,k) = [b1.'*(c - Vp); b2.'*(c - Vp)];
+    end
+    okf = all(isfinite(uv),1);
+    if ~any(okf), return; end
+    C.per_field = uv;   C.n_fields = nnz(okf);
+    c0 = mean(uv(:,okf),2);
+    e  = vecnorm(uv(:,okf) - c0);
+    C.centre = c0;   C.rms = rms(e);   C.max = max(e);
+    C.frac_rms = C.rms/Rex;   C.frac_max = C.max/Rex;
+end
+
 function Z = rim_zone_(nod, good, waist, wmax, W, B, frac)
 %RIM_ZONE_  Blur and wander over the outermost FRAC of the pupil radius.
 %   FRAC = 1 makes the zone the whole aperture, and every number below then
@@ -651,11 +741,18 @@ function Z = rim_zone_(nod, good, waist, wmax, W, B, frac)
     Z.wander_best_max = max(B.per_node_max(sel));
 end
 
-function [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii)
+function [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, bx, by, io, ii, uh)
 %TRACE_FIELD_  One field: entrance hits, exit ray lines, exit chief.
-%   TWO traces, no reload between them -- macos.trace(k) reports at element
-%   k, and the second call overwrites the first's buffer, so the entrance
-%   data is read out before the exit trace runs.
+%   Default (uh false): TWO traces, no reload between them -- macos.trace(k)
+%   reports at element k, and the second call overwrites the first's buffer,
+%   so the entrance data is read out before the exit trace runs.
+%   uh true: ONE exit trace with the ray-position HISTORY enabled
+%   (macos.ray_hist); the entrance positions are read from the history at
+%   obj_elt.  This is the only legal path when obj_elt is a Segment (the
+%   trace-to-element call evaluates OPD there, which the engine refuses),
+%   and those history positions lie on each ray's INCIDENT line -- exactly
+%   what the plane anchor's source-direction back-projection requires.
+    if nargin < 9, uh = false; end
     cdir = [sin(bx); sin(by); sqrt(max(0, 1 - sin(bx)^2 - sin(by)^2))];
     cpos = apst - stand*cdir;
     s = regexprep(txt, '(ChfRayDir=\s*)[^\n]*', ['$1' v3_(cdir)]);
@@ -666,11 +763,20 @@ function [Pm, Pe, De, ok, chief] = trace_field_(txt, tmp, apst, stand, bx, by, i
     if ~macos.has_rx()
         error('macos:design:pupil_map:load','deck failed to load: %s', tmp);
     end
-    tr = macos.trace(io);   ro = macos.get_ray_info(tr.nRays);
-    tr = macos.trace(ii);   re = macos.get_ray_info(tr.nRays);
-    ok = ro.ok_trace(:) & ro.ok_pass(:) & re.ok_trace(:) & re.ok_pass(:);
+    if uh
+        macos.ray_hist('on');
+        tr = macos.trace(ii);   re = macos.get_ray_info(tr.nRays);
+        h  = macos.ray_hist(tr.nRays);
+        Pm = squeeze(h.P(:, :, io + 1));         % element io, incident line
+        ok = h.ok(:, io + 1) & re.ok_trace(:) & re.ok_pass(:);
+    else
+        tr = macos.trace(io);   ro = macos.get_ray_info(tr.nRays);
+        tr = macos.trace(ii);   re = macos.get_ray_info(tr.nRays);
+        Pm = ro.pos;
+        ok = ro.ok_trace(:) & ro.ok_pass(:) & re.ok_trace(:) & re.ok_pass(:);
+    end
     ok(1) = false;                       % the chief is the frame, not a node
-    Pm = ro.pos;   Pe = re.pos;   De = re.dir;
+    Pe = re.pos;   De = re.dir;
     chief = re.dir(:,1)/norm(re.dir(:,1));
 end
 
@@ -702,6 +808,15 @@ function [pe, de, res] = regrid_(m, pe_s, de_s, nod)
 %   field's convex hull come back NaN -- that is a rim PARTIAL cone, kept.
     pe = nan(3, size(nod,2));   de = nan(3, size(nod,2));
     res = zeros(1, size(nod,2));
+    % OBSCURED rays carry non-finite exit data (an 18-segment deck loses
+    % thousands per field to its own gaps) and scatteredInterpolant hard-
+    % errors on them (Luis's jwst_ote_designc run, 2026-08-24).  Drop those
+    % rays; nodes left uncovered come back NaN, which is already the
+    % partial-cone semantics below.
+    ok = all(isfinite(m(1:2,:)), 1) & all(isfinite(pe_s), 1) ...
+         & all(isfinite(de_s), 1);
+    if nnz(ok) < 3, return; end
+    m = m(:,ok);   pe_s = pe_s(:,ok);   de_s = de_s(:,ok);
     for c = 1:3
         Fl = scatteredInterpolant(m(1,:).', m(2,:).', pe_s(c,:).', 'linear','none');
         Fn = scatteredInterpolant(m(1,:).', m(2,:).', pe_s(c,:).', 'natural','none');
@@ -716,7 +831,12 @@ function [pe, de, res] = regrid_(m, pe_s, de_s, nod)
 end
 
 function s = regrid_scalar_(m, val, nod)
-    F = scatteredInterpolant(m(1,:).', m(2,:).', val(:), 'linear','none');
+    % same obscured-ray filter as REGRID_ -- non-finite inputs hard-error.
+    s = nan(1, size(nod,2));
+    ok = all(isfinite(m(1:2,:)), 1) & isfinite(val(:)).';
+    if nnz(ok) < 3, return; end
+    F = scatteredInterpolant(m(1,ok).', m(2,ok).', ...
+                             reshape(val(ok),[],1), 'linear','none');
     s = F(nod(1,:).', nod(2,:).').';
 end
 
@@ -858,28 +978,47 @@ end
 
 function s = v3_(v),  s = sprintf('%.16E  %.16E  %.16E', v(1), v(2), v(3));  end
 
-function [cdir, cpos, apst, lam] = deck_src_(txt)
+function [cdir, cpos, lam] = deck_src_(txt)
     cdir = grab3_(txt,'ChfRayDir');   cpos = grab3_(txt,'ChfRayPos');
-    apst = grab3_(txt,'ApStop');
-    t = regexp(txt,'Wavelen=\s*([-\d.EeD+]+)','tokens','once');
-    lam = str2double(strrep(t{1},'D','E'));
+    t = regexp(txt,'(?m)^\s*Wavelen=\s*([-\d.EeDd+]+)','tokens','once');
+    lam = str2double(strrep(strrep(t{1},'D','E'),'d','e'));
 end
 
 function d = beam_dia_(txt)
 %BEAM_DIA_  The source's declared beam DIAMETER, or NaN if the deck has none.
-    t = regexp(txt,'(?m)^\s*Aperture=\s*([-\d.EeD+]+)','tokens','once');
-    if isempty(t), d = NaN; else, d = str2double(strrep(t{1},'D','E')); end
+    t = regexp(txt,'(?m)^\s*Aperture=\s*([-\d.EeDd+]+)','tokens','once');
+    if isempty(t), d = NaN; else, d = str2double(strrep(strrep(t{1},'D','E'),'d','e')); end
 end
 
 function v = grab3_(txt, key)
-    t = regexp(txt,[key '=\s*([^\n]*)'],'tokens','once');
-    v = sscanf(strrep(t{1},'D','E'),'%f',3);
+%GRAB3_  First REAL '<key>= x y z' line of the deck, as a 3-vector.
+%   Line-anchored so a comment MENTIONING the key does not match -- the
+%   unanchored form grabbed '% ApStop=, so a driver must ...' out of
+%   jwst_ote_designc.in and fed prose to sscanf (Luis, 2026-08-24).
+    t = regexp(txt,['(?m)^\s*' key '=\s*([^\n]*)'],'tokens','once');
+    if isempty(t)
+        error('macos:design:pupil_map:key', ...
+              ['deck has no ''%s='' line.  For ApStop: decks whose stop ' ...
+               'is an ELEMENT carry no header ApStop= 3-vector -- pass ' ...
+               '''stop_elt'' (its element id) or ''stop_pos'' instead.'], key);
+    end
+    v = sscanf(strrep(strrep(t{1},'D','E'),'d','e'),'%f',3);
+    if numel(v) < 3
+        error('macos:design:pupil_map:key', ...
+              ['''%s='' line does not carry 3 numbers (got %d).  A ' ...
+               'per-element ''ApStop= dx dy'' is the element-stop OFFSET ' ...
+               'form, not a stop position -- pass ''stop_elt''/''stop_pos''.'], ...
+              key, numel(v));
+    end
 end
 
 function M = grab_all3_(txt, key)
-    t = regexp(txt,[key '=\s*([^\n]*)'],'tokens');
+%GRAB_ALL3_  Every real '<key>= x y z' line, one column each.  Line-
+%   anchored for the same reason as GRAB3_: an unanchored match on a
+%   comment would silently SHIFT the element indexing.
+    t = regexp(txt,['(?m)^\s*' key '=\s*([^\n]*)'],'tokens');
     M = zeros(3,numel(t));
-    for i = 1:numel(t), M(:,i) = sscanf(strrep(t{i}{1},'D','E'),'%f',3); end
+    for i = 1:numel(t), M(:,i) = sscanf(strrep(strrep(t{i}{1},'D','E'),'d','e'),'%f',3); end
 end
 
 function del_(p),  if exist(p,'file'), delete(p); end,  end

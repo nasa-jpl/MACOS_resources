@@ -294,6 +294,7 @@ end
 assert(isfile(met_rx), 'run_simulator: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
+J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
 icf = find(strcmp(ox.field_names, 'C'), 1);
 assert(~isempty(icf), 'run_simulator: jac has no center field ''C''');
@@ -372,6 +373,13 @@ cbm = m.cbm();
 for s = 1:nseg
     dedx(:, (s-1)*6+(1:3)) = dedx(:, (s-1)*6+(1:3)) * cbm;
 end
+% dwdx units adapter (f5d648f): supervisors emit BaseUnits-OPD; this
+% simulator works in SI metres (dW maps *cbm), so scale the rigid-body
+% columns once -- matches the dwdz/dwdg *cbm at their use sites and
+% run_compare's identical adapter.  Metre decks: no-op.  Absence on a
+% mm deck under-commanded u by 1/cbm (tRunCompare time-history fail,
+% triaged 2026-08-28).
+Bc = Bc * cbm;
 gmet = macos.met_geom();
 dmz = [];  dmg = [];
 if use_z || use_g

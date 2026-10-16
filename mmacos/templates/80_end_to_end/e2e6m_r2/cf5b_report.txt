@@ -1,0 +1,20 @@
+==================== e2e6m CF5b -- JWST-class drift on the dug state
+start = CF3d solution; drift 10.0 nm/hr (+10.0 nrad/hr) ramp + 0.5 nm/step walk
+history 49 frames x 1800 s = 24.5 h; contrast/EFC every 2 frames
+chain p_h280_L090_c098 | dz 2756 px | WFE at ExitPupil (elt 46)
+G: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf3d_G_seg_d110_p_h280_L090_c098_r13.mat (1760 cols, measured about the dug state; EFC ridge 1e-2 rel)
+MET: 114 gauges + 252 edges -> BLUE gain; noise 1 pm / 1 nm; loop gain 0.50
+history: |x| rms at 24 h = 22.7 nm-class (ramp-dominated)
+
+pass 1 of 2: OPEN -- DMs frozen dug, drift uncorrected
+   contrast 1.133e-09 -> 3.876e-05 | WFE 0.0674 -> 0.1150 waves
+pass 2 of 2: CLOSED -- RBCS per frame + guarded EFC hold at scored frames
+   contrast 1.134e-09 -> 2.256e-09 | WFE 0.0674 -> 0.0678 waves
+   state residual at 24 h: |x+u| rms 1.21 nm vs drift 22.7 nm
+   EFC steps: 25 taken, 0 reverted by the guard
+   closed-loop contrast (median, scored frames after hour 2): 1.978e-09
+
+GATE frame-1 closed contrast 1.134e-09 vs CF3d floor 1.133e-09 (ratio 1.001)
+figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf5b_jwst.png
+
+CF5b DONE in 2.4 min

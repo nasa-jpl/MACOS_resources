@@ -1,0 +1,278 @@
+% SAVE round-trip fixture for the audit's element-data bucket
+% (PLAN section 0 item 2 follow-through, 2026-07-04).  Exercises
+% every parser-accepted key that SAVE used to drop:
+%   header : ArrWaveLen, ZCOZernType, RxNoStopSet
+%   element: Coating, nMetPos/tMetElt, EdgeSensors, ZernType annular
+%            ratio, ZernCenter/ZernXDir/ZernYDir/ZernRad, lData,
+%            ArrIndRef, GradInd/GradCoef/GradLensZ, DoeWL/DoePhase/
+%            DoeFl, LensArrayIndRef, nAmplMat/AmplFile/AmplSrfdx,
+%            GridSrfOrder, pData frame on SrfType 9
+% Geometry is NOT meant to trace -- load/SAVE/reload only.
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -5.0E+00
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+       ArrWaveLen=  1.1E-06  1.2E-06
+             Flux=1.0E+00
+
+      RxNoStopSet=  Y
+      ZCOZernType=  NormAnnular
+
+         Aperture=4.0E+00
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  11
+            xGrid=  -1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  -1.0E+00  0.0E+00
+
+             nElt=  10
+
+             iElt=  1
+          EltName=  SecMirObs
+          Element=  Obscuring
+          Surface=  Conic
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.2E+00
+           RptElt=  0.0E+00  0.0E+00  -4.2E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  1
+          ObsType=  Circle
+           ObsVec=  5.0E-01  0.0E+00  0.0E+00
+           ApType=  Circular
+            ApVec=  2.0E+00  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.0E+20
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Primary
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-1.08E+01
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+          Coating=  2
+                    1.45E+00  0.0E+00  2.5E-01
+                    2.1E+00  1.0E-03  1.25E-01
+          nMetPos=  2
+                    1.0E-01  0.0E+00  1.0E-03
+                    -1.0E-01  0.0E+00  1.0E-03
+          tMetElt=  3 2
+                    1 0
+                    0 1
+      EdgeSensors=  2
+   1.0E+00 0.0E+00 0.0E+00 0.0E+00 0.0E+00 1.0E+00 0.0E+00 1.0E+00 0.0E+00
+   -1.0E+00 0.0E+00 0.0E+00 0.0E+00 0.0E+00 1.0E+00 0.0E+00 -1.0E+00 0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  2.1E+00  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=5.4E+00
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Secondary
+          Element=  Reflector
+          Surface=  Zernike
+            KrElt=-3.526787501E+00
+            KcElt=-2.670556022E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.061145902E+00
+           RptElt=  0.0E+00  0.0E+00  -5.4E+00
+         ZernType=  NormAnnularNoll  3.0E-01
+        nZernCoef=  2
+        ZernModes=  4 11
+         ZernCoef=  1.0E-08  2.0E-09
+             lMon=2.0E+00
+            lData=2.8E-01
+       ZernCenter=  0.0E+00  0.0E+00  -4.061145902E+00
+         ZernXDir=  1.0E+00  0.0E+00  0.0E+00
+         ZernYDir=  0.0E+00  1.0E+00  0.0E+00
+          ZernRad=1.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=4.061145902E+00
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Window1
+          Element=  Refractor
+          Surface=  Conic
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.5E+00
+           RptElt=  0.0E+00  0.0E+00  0.5E+00
+           IndRef=1.5E+00
+           Extinc=0.0E+00
+        ArrIndRef=  1.5E+00  1.51E+00  1.52E+00
+          GradInd=  6
+         GradCoef=  1.5E+00  1.0E-02  1.0E-03
+        GradLensZ=1.0E-02
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  5
+          EltName=  Window2
+          Element=  Refractor
+          Surface=  Conic
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.6E+00
+           RptElt=  0.0E+00  0.0E+00  0.6E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  6
+          EltName=  DOEGrating
+          Element=  DoeTrGrating
+          Surface=  Conic
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.7E+00
+           RptElt=  0.0E+00  0.0E+00  0.7E+00
+         OrderHOE=1.0E+00
+            DoeWL=1.0E-06
+         DoePhase=  1.0E+00  2.0E-01  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+            DoeFl=5.0E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  7
+          EltName=  LensletArr
+          Element=  LensArray
+          Surface=  Conic
+            KrElt=-4.7244094488189E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.8E+00
+           RptElt=  0.0E+00  0.0E+00  0.8E+00
+             pMon=  0.0E+00  0.0E+00  0.8E+00
+             xMon=  1.0E+00  0.0E+00  0.0E+00
+             yMon=  0.0E+00  1.0E+00  0.0E+00
+             zMon=  0.0E+00  0.0E+00  1.0E+00
+    LensArrayType= 2
+   LensArrayWidth=1.0E-01
+  LensArrayIndRef=  7 5
+   1.5E+00 1.51E+00 1.52E+00 1.53E+00 1.54E+00
+   1.55E+00 1.56E+00
+           IndRef=1.51242597E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  8
+          EltName=  GridRef
+          Element=  Reference
+          Surface=  GridData
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.9E+00
+           RptElt=  0.0E+00  0.0E+00  0.9E+00
+         nGridMat=  256
+         GridFile=  flat.txt
+        GridSrfdx=1.0E-01
+     GridSrfOrder=  3
+            pData=  0.0E+00  1.0E-02  0.9E+00
+            xData=  1.0E+00  0.0E+00  0.0E+00
+            yData=  0.0E+00  1.0E+00  0.0E+00
+            zData=  0.0E+00  0.0E+00  1.0E+00
+         nAmplMat=  8
+         AmplFile=  tst_save_ampl.dat
+        AmplSrfdx=1.0E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  9
+          EltName=  ExitPupil
+          Element=  Return
+          Surface=  Conic
+            KrElt=-5.560145902E+00
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.060145902E+00
+           RptElt=  0.0E+00  0.0E+00  -4.060145902E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  FarField
+             zElt=5.560145902E+00
+          nECoord= -6
+
+             iElt=  10
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.5E+00
+           RptElt=  0.0E+00  0.0E+00  1.5E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

@@ -1,0 +1,37 @@
+tma_longslit section -- the zig-zag as three off-axis conic sections, measured in the engine (2026-10-07 07:57)
+DECK /home/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes/tma_longslit/tls_section.in (model 256, 41-pt grid, 633 nm)
+           AOI    R_t mm    R_s mm  R par mm        K    theta      h mm  pole (mm)
+  M1     30.00   +2338.3   +1753.7    1518.8  -1.0000    30.00     876.9  [0 0 0]
+  M2     37.00   -1132.0    -722.0     576.6  -1.0000    37.00     434.5  [0 -223.7 -129.1]
+  M3     15.00    +509.0    +474.9     458.7  -1.0000    15.00     122.9  [0 -283.1 109.4]
+  slit at [0 -365.7 -178.4] mm, normal [0 0.2756 0.9613]; stop = element 2 (M2), ApStop offset [0.00 445.55] mm
+
+PER FIELD (strip along x; chief aimed through the M2 pole for each field):
+    field |   pass |    chief   spread |      x mm      y mm   bow um |   F/# x   F/# y |   rms um    bf um |  stop um
+   -4.700 |  1.000 |   0.0933   0.0933 |   -27.121    -0.445     +0.0 |   1.934   1.956 |   2230.4   2057.5 |  1.4e-07
+   -3.525 |  1.000 |   0.0524   0.0524 |   -20.324    -0.251   +194.3 |   1.929   1.955 |   2079.4   1940.2 |  7.2e-08
+   -2.350 |  1.000 |   0.0233   0.0233 |   -13.541    -0.112   +333.5 |   1.925   1.954 |   1968.0   1850.7 |  3.5e-08
+   -1.175 |  1.000 |   0.0058   0.0058 |    -6.768    -0.028   +417.1 |   1.923   1.954 |   1899.6   1794.4 |  1.5e-08
+   +0.000 |  1.000 |   0.0000   0.0000 |    +0.000    -0.000   +445.1 |   1.922   1.955 |   1876.4   1775.2 |  1.4e-10
+   +1.175 |  1.000 |   0.0058   0.0058 |    +6.768    -0.028   +417.1 |   1.923   1.954 |   1899.6   1794.4 |  1.5e-08
+   +2.350 |  1.000 |   0.0233   0.0233 |   +13.541    -0.112   +333.5 |   1.925   1.954 |   1968.0   1850.7 |  3.5e-08
+   +3.525 |  1.000 |   0.0524   0.0524 |   +20.324    -0.251   +194.3 |   1.929   1.955 |   2079.4   1940.2 |  7.2e-08
+   +4.700 |  1.000 |   0.0933   0.0933 |   +27.121    -0.445     +0.0 |   1.934   1.956 |   2230.4   2057.5 |  1.3e-07
+  (chief = angle to the slit normal; spread = to the centre chief; F/# = 1/(2 sin u) of the passing rays; rms = as placed;
+   bf = at the field's own best focus; stop = chief miss of the M2 pole)
+PLATE SCALE: local 329.99 mm, to the edge 329.87 mm (spec 330.0); image of the strip 54.24 mm (slit 54.0)
+FOOTPRINTS (passing rays, all fields, section frame):
+  M1  x 234.6 mm (strip) x y 201.3 mm (fold), enclosing radius 123.3 mm about the pole
+  M2  x 131.7 mm (strip) x y 161.4 mm (fold), enclosing radius 84.7 mm about the pole
+  M3  x 212.0 mm (strip) x y 163.5 mm (fold), enclosing radius 109.2 mm about the pole
+CLEARANCE (footprint + 5 mm mount, every leg vs every body it does not touch; worst first):
+  M3 -> Slit     vs M2           +10.2 mm
+  input -> M1    vs M2           +61.9 mm
+  M2 -> M3       vs M1           +96.6 mm
+  M1 -> M2       vs SlitMask    +102.1 mm
+  M2 -> M3       vs SlitMask    +102.1 mm
+  M1 -> M2       vs M3          +104.1 mm
+  M3 -> Slit     vs M1          +118.8 mm
+  input -> M1    vs M3          +119.3 mm
+  input -> M1    vs SlitMask    +276.9 mm
+  -> CLEAR, min +10.2 mm

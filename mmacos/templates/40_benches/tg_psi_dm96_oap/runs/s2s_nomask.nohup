@@ -1,0 +1,16 @@
+[s2snm] 2026-09-17 17:51:38 emit (tail copied from redo_lens_tail.mat)
+[tg96_batch] tg96_run_batch('tag','redo_lens_nomask', 'bench.MASK_SUB',[],'stages',{'bench'})  (MemoryMax=14G)
+[tg96_batch] exit 0
+[s2snm] emit exit 0
+[tg96_pupil_batch] tg96_pupil_batch('rig','lens', 'tool','sim','deck','/home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/redo_lens_nomask/redo_lens_nomask_test.in','tag','pupilsim_redo_lens_nomask')  (MemoryMax=8G)
+[tg96_pupil_batch] exit 0
+[s2snm] pupilsim exit 0
+[s2snm] 2026-09-17 18:02:02 s2s checks
+[s2snm] s2s exit 0
+CHECK 1a  collimated legs: the flat pupil at S1 carries 0.0089 wave rms of phase (gate < 0.02); pupil radius there 47.02 mm, pitch 0.2606 mm
+CHECK 1b  a Nyquist sinusoid reaches S1 at 0.8324 of its height on the DM (gate 1.00 +- 0.01), at 0.5096 cycles/mm (the DM's 0.5000)
+CHECK 2a  the focal field's first zero 1.5 um against the pupil's Airy 3.4 um (1.22 lam R1/D, R1 417.4 mm, D 96.0 mm); pitch 1.98 um
+CHECK 2b  pupil radius at S2: field 1.209 mm, rays 1.231 mm (-1.8%), thin-lens prediction R_dm*R2/R1 1.253 mm
+CHECK 2c  the pitch at S2: the engine labels 0.006802 mm (ray spacing); the scaled frame says dx(S1)*R2/R1 = 0.006803 mm (-0.0%)
+CHECK gates: 1a PASS, 1b FAIL, 2a FAIL, 2b PASS, 2c PASS
+[s2snm] 2026-09-17 18:02:28 done

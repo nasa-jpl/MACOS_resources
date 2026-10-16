@@ -17,7 +17,7 @@ This fixture pins it.
 J.M. Rodgers' coaxial 30× afocal TMA, on-axis variant (`CentAfo_Coaxial_OnAxisFOV`,
 2026-08-02).  EPD 1000 mm, λ = 1 µm, stop 50 mm ahead of M1, parabolic primary at
 f/1.25, convex secondary, tertiary recollimating from the intermediate image.  The
-transcription and its audit are in `mmacos/design/rodgers2/PACKET.md` §1.
+transcription and its audit are in `mmacos/challenges/rodgers2/PACKET.md` §1.
 
 | | M1 | M2 | M3 |
 |---|---|---|---|
@@ -59,7 +59,7 @@ paraxial model are all consistent; nothing in the fixture is fitted to it.
 It also carries the single most important fact about this benchmark: **the three-mirror
 already closes both first-order conditions.**  Any four-mirror form study run against it
 has to justify the fourth mirror on aberration, not on first order — a study that closes
-only the first-order conditions returns a flat.  See `mmacos/design/examples/afocal4/
+only the first-order conditions returns a flat.  See `mmacos/challenges/afocal4/
 FORM_STUDY.md`.
 
 ## Gate policy

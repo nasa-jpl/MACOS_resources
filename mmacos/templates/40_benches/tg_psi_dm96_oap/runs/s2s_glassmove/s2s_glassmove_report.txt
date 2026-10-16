@@ -1,0 +1,13 @@
+=== tg96_pupil_s2s: s2s_glassmove  rig lens  (2026-09-17 18:13) ===
+true focus +0.00 mm from the mask marker along the beam (spot 0.17 um there)
+exit rays after the field lens cross the axis -18.3 mm from its exit face (+ = downstream, converging)
+collimated leg 1: Sub3b -> Comptxfu, 214.0 mm as NFPlane
+collimated leg 2: Comptxbu -> BStxfo, 188.2 mm as NFPlane
+collimated leg 3: BStxbo -> Recomb, 149.0 mm as NFPlane
+collimated leg 4: Sub5b -> L2pow, 34.0 mm as NFPlane
+glass between the focuser and the focus (2 faces) relocated to just ahead of S1: a plate's focus shift t(1-1/n) does not depend on where in the cone it sits
+through-focus quartet: S1 at 417.99 before the focus (zElt +417.99, NF1), F at the focus (NF2), S2 at 10.26 after it (zElt -10.26); scale 0.0245 -> pupil 2.36 mm at S2
+S3 after the field lens: radius 17.84 mm, concentric with the converging exit beam; detector 36.28 mm beyond it
+CHECK 1a  collimated legs: the flat pupil at S1 carries NaN wave rms of phase (gate < 0.02); pupil radius there 0.00 mm, pitch 10000000000.0000 mm
+CHECK 1b  a Nyquist sinusoid reaches S1 at 0.0000 of its height on the DM (gate 1.00 +- 0.01), at 0.0000 cycles/mm (the DM's 0.5000)
+CHECK 2a  the focal field's first zero 0.0 um against the pupil's Airy 3.4 um (1.22 lam R1/D, R1 418.0 mm, D 96.0 mm); pitch 0.00 um

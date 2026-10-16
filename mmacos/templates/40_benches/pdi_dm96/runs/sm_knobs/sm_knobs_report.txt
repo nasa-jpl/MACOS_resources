@@ -1,0 +1,73 @@
+=== ZWFS runner: tag sm_knobs  (2026-09-13 09:31) ===
+model 512, NGRID 65, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench loop | readings: S P PF
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+deck sm_knobs_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 11.88 px at the mask plane; msk 3209 px
+focal spot: 0.444 um per px at the mask plane, 5.94 px per lam F/D; the dimple encloses 70.9% of the flat DM's focal-plane light
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.253e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.994e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9553 0.9520 0.9467 0.9385 0.9279 0.9138 0.8972 0.8793 0.8568 0.8338 0.8088 0.7818 0.7534 0.7216 0.6906 0.6584 0.6238 0.5882 0.5526 0.5179 
+frame: ray magnification 10.1584 DM-mm per detector-mm, detector px 1.1739e-01 mm -> 1.1925 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 11.88 px across at the mask plane (min 6)  -> PASS
+  pinhole 11.88 px across at the mask plane (min 6; the dimple's rule)  -> PASS
+  DM 48x48: 1.68 detector px per actuator (min 2)  -> NOT MET
+G3 30 nm rms working state (DM 48x48, lit 812): detector |E|/|E_flat| on msk std 3.015e-16   (gate < 1e-12: A = |E0| is exact)
+P: pinhole 2.00 lam/D, surround t 0.7215, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.6925; throughput (detected/incident, flat) 0.8358; visibility on the flat 0.5462; surrogate vs engine reference 1.99e-15; the flat reads 1.99e-15 rad rms, amplitude 3.48e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (11846 pm rms on msk, 2.93% of msk beyond the one-frame fold): rms error 1.866 pm (gate < 0.1% of the figure)   -> PASS
+PF: P/SRI, reference = LP01 mode V 2.30 b 0.50 core radius 0.50 lam/D, coupling eta_c 0.5866 on the flat; pickoff 0.60, a 0.008136 (match 0.01116, budget 0.008136), 4 steps (ls), |kappa| flat; frames per measurement 4; eta_pin 0.6925; throughput (detected/incident, flat) 0.7520; visibility on the flat 0.8632; surrogate vs engine reference 1.99e-15; the flat reads 3.07e-16 rad rms, amplitude 1.56e-16 rel
+G5 PF on 100 nm single-actuator pokes every 8th actuator (11846 pm rms on msk, 2.93% of msk beyond the one-frame fold): rms error 0.000 pm (gate < 0.1% of the figure)   -> PASS
+G6 P/SRI fiber reference under the 30 nm rms working state: shape FIXED by construction (the mode's); coupling relative to the flat |kappa| 0.84853, arg +0.0051 rad (an amplitude scale + a piston; the solver takes kappa = 1 in |kappa| 'flat' mode)
+G6 reference motion under the 30 nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:
+   lam/D    total  |scale|    SHAPE   (total = |b1-b0|/|b0|; scale = best complex factor, a Strehl-class amplitude drop the |b|^2 frame / iteration absorbs; shape = the rest, what the solve must iterate out)
+    0.50   0.1417   0.8583   0.0003
+    1.00   0.1444   0.8556   0.0013
+    1.50   0.1485   0.8516   0.0030
+    2.00   0.1539   0.8463   0.0059
+    3.00   0.1669   0.8346   0.0197
+    2.00   0.1539   0.8463   0.0059   <- the ZWFS dimple
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 5.35e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (256.18, 256.18) <-> DM (-1.05, -1.05) mm
+  parity [1  2  1  1] sign +1 taken from P.reg (mode record)
+  center poke in the DM frame: raw peak gain 0.7161, corr(map, truth) 0.9881
+bench stage 0.1 min
+
+---- loop: closed-loop hold, DM 48x48, readings S P PF ----
+loop: gain 0.50, 8 cycles (steady state = last 4), set point = base, reference frames noiseless, drift seed 77; each cycle = ONE measurement (the DM shape traced once, the reading's frames with N photons), differential to the set point through the measured matrix
+dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)
+calibration: measured response matrix on the base (30 nm rms, seed 7); lit actuators 812
+WITHIN-MEASUREMENT DRIFT: 100% of each cycle's drift increment develops ACROSS one measurement's scan -- frame j of nf at (j-1)/(nf-1) of it.  The stepped readings (S, P, PF) capture their frames one at a time and pay for it; the single-frame (L, I+) and simultaneous (V) readings see one instant and do not
+REFERENCE-ARM WALK: the P/SRI's reference phase random-walks 0.01 rad per cycle relative to the test arm (the non-common-path term).  Common-path readings (L, I+, S, V, P) do not have this arm and ignore it
+DESCENT: the DM starts at a surface of 100 nm rms (the set point's field, rescaled; 200 nm WFE) and must reach the hold regime.  The response matrix is measured THERE, on the starting surface -- not on the set point the loop has yet to reach -- and then re-measured on the loop's CURRENT surface every [0 4] cycles (0 = never).  Reach levels [10 0.003] nm
+9 loop runs of 9 states each (81 traced states)
+descent S : the starting matrix measured on the 100 nm surface (66 states, 0.5 min)
+descent P : the starting matrix measured on the 100 nm surface (66 states, 0.5 min)
+descent PF: the starting matrix measured on the 100 nm surface (66 states, 0.2 min)
+
+step response (noiseless; a step of the given rms at cycle 1).  rho = fitted per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, r(K/2) and r(K) = residual (pm) at cycles 4 and 8 -- a residual that stops falling is the reading's noiseless bias floor on this surface
+    step | S: rho tau k1e r(K/2) r(K)            | P: rho tau k1e r(K/2) r(K)            | PF: rho tau k1e r(K/2) r(K)           |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- random walk, 2 pm per actuator per cycle.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | S: ss bias sig_n th           | P: ss bias sig_n th           | PF: ss bias sig_n th          |
+  1.0e+13 |    1.75   1.28   1.29   2.43 |    1.74   1.27   1.20   2.41 |    2.02   1.41   2.00   2.58 |
+
+photons per cycle to hold 3.0 pm rms (log-log interpolation of ss over N; 'floor x' = not reached: the noise-free residual sits at x pm):
+drift    | S             | P             | PF            |
+walk     | < 1e+13       | < 1e+13       | < 1e+13       |
+
+DESCENT from a 100 nm rms surface (200 nm WFE) to the set point, matrix measured at the start.  r(1) = the residual the loop opens with (pm), k(10 nm) / k(3 pm) = the first cycle at or below those levels (- = never within 8 cycles), r(K) = the residual at cycle 8, rho = the fitted per-cycle contraction, recals = on-surface re-calibrations run
+rd     N/cycle  recal |     r(1) nm  k(10nm)   k(3pm)     r(K) pm    rho recals
+S      1.0e+13  never |       69.32        -        -  280012.927    NaN      0
+S      1.0e+13      4 |       69.32        -        -  187096.909    NaN      1
+P      1.0e+13  never |       69.32        -        -  244444.267    NaN      0
+P      1.0e+13      4 |       69.32        -        -  192910.103    NaN      1
+PF     1.0e+13  never |       69.32        -        -   67827.079    NaN      0
+PF     1.0e+13      4 |       69.32        -        -   67369.304    NaN      1
+
+spectrum of the held residual at 1e+13 photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture
+walk     | S:  0.33  0.98  1.41 | P:  0.34  0.99  1.39 | PF:  0.37  1.09  1.66 |
+loop stage 4.2 min (81 traced states)
+run complete in 4.4 min

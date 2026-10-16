@@ -1,0 +1,55 @@
+=== TG96: optimized plate gauge for a Xinetics 96x96 (96 mm) ===
+uniform scale s = 1.7143 from the 56 mm v1 rig; model 1024, grid 384x0.28 mm
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 6.88 deg -> BS_AOI = 7 deg
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   688 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   564 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   523 mm
+  chosen DM leg 700 mm; achieved separations and margins there:
+  DM arm vs ref beam          separation  169.3 mm, margin  +27.9 mm (spec >= 25)
+  ref arm vs DM beam          separation  169.3 mm, margin  +57.9 mm (spec >= 25)
+  camera leg vs source beam   separation  169.3 mm, margin  +67.9 mm (spec >= 25)
+
+Stage A2 -- sampling budget (finest feature: actuator Nyquist 48 cyc/pupil):
+  detector: ~385 px across pupil -> Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid: 3.57 px/actuator                        (need >= 3)
+  diffraction grid: 1024^2 for a 385-px image                (padding  2.7x)
+
+Tail: RE-TUNED set (null 0.134 nm at opt res; seed was 9.100)
+Stage B -- rig built at BS_AOI 7 deg; emitted tg96_{test,ref}.in
+
+Stage C -- battery (design azimuths, unaligned):
+  arm azimuths: test -44.8566, ref +45.0000 -> departure +0.1434 deg
+  null: 0.1345 nm rms surface (134.5 pm) with nothing aligned
+  20 nm piston: |gain| 1.00145 (unaligned scale error +0.145%)
+  single actuator at 150 nm: recovered peak 146.1 nm
+  registration by two pokes: parity 5 of 8, meas sign -1; |pokeB corr| 0.9341 (runner-up 0.0021)
+  parity corr table: 0.001 0.001 0.001 -0.002 -0.934 0.001 0.001 0.001 
+  96x96 checkerboard closure: truth 6.409 nm rms, measured 6.031, residual 6.006 nm rms, corr 0.535262
+  registration: mag 9.8793, anamorphism 0.00%, nonlinearity 0.1360 mm
+
+Stage D -- transfer curve on the 96x96 lattice (Nyquist 48 cyc/pupil):
+  12 modes x 3 traces in 265.6 s
+  mode(p,q)  cyc/pup     gain  cross-talk
+    1,1          0.7   1.0184      0.0018
+    2,2          1.4   1.0060      0.0093
+    4,4          2.8   1.0003      0.0296
+    8,8          5.7   0.9984      0.0145
+   16,16        11.3   0.9845      0.0130
+   24,24        17.0   0.9604      0.0176
+   32,32        22.6   0.9311      0.0222
+   48,48        33.9   0.8509      0.0227
+   64,64        45.3   0.7433      0.0067
+   80,80        56.6   0.6052      0.0040
+   96,96        67.9   0.5039      0.0138
+   48,0         24.0   0.9013      0.0100
+  held-out random: 11.8914 -> 11.8898 nm rms (input 30.59 nm rms, resid/truth corr -0.21)
+Stage E -- differential metric (deviation measured about a working state):
+  base           deviation              gain   resid nm    resid %     corr
+  flat           single act 10 nm     0.9654     0.0210      13.3%   0.9906
+  flat           random 10 nm rms     0.9203     3.6696      37.4%   0.9264
+  random 30 nm   single act 10 nm     0.9772     0.0235      14.9%   0.9886
+  random 30 nm   random 10 nm rms     0.9209     3.6783      37.5%   0.9261
+
+wrote tg96_report.txt + tg96_run.mat + figures

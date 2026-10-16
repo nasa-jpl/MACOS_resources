@@ -60,8 +60,15 @@ if ~isempty(opts.side),  panels{end+1} = {opts.side,  'side view'};  end
 np = numel(panels);
 
 vis = 'on';  if ~opts.visible, vis = 'off'; end
-fig = figure('Visible', vis, 'Position', [40 40 min(580*np, 2300) 520]);
-tl = tiledlayout(fig, 1, np, 'Padding', 'tight', 'TileSpacing', 'tight');
+% Grid layout (near-square) instead of a single 1xN row: a 4-panel row on
+% a short figure makes each panel tiny.  ncol = ceil(sqrt(np)) gives 2x2
+% for 4 panels, 2x1 for 2, etc.; the figure is sized so each TILE is a
+% large ~720x620 px regardless of paper count.
+ncol = ceil(sqrt(np));  nrow = ceil(np/ncol);
+tilew = 720;  tileh = 620;
+fig = figure('Visible', vis, ...
+    'Position', [40 40 min(ncol*tilew, 2400) min(nrow*tileh, 1800)]);
+tl = tiledlayout(fig, nrow, ncol, 'Padding', 'tight', 'TileSpacing', 'tight');
 for q = 1:np
     ax = nexttile(tl);
     macos.view_rx('ax', ax, 'title', panels{q}{2}, opts.args{:});
@@ -77,6 +84,33 @@ for q = 1:np
     set(ax, 'CameraTarget', tgt.', 'CameraPosition', (tgt - d*f).', ...
             'CameraUpVector', yb.', 'Projection', 'orthographic');
     camva(ax, 'auto');         % frame the scene from the manual camera
+    % ---- tighten the frame to the PROJECTED drawn content (2026-08-29).
+    % camva('auto') frames the whole axis bounding BOX; an oblique camera
+    % projects that box far larger than the content, which is where the
+    % wide panel margins in every 4-view figure came from.  Project each
+    % drawn point (lines, patches, surfaces, text anchors) onto the
+    % camera screen axes and set the view angle to the content extent
+    % plus breathing room.  Orthographic: visible half-height =
+    % d*tan(camva/2).
+    % camva('auto') frames the full axis bounding BOX; an oblique camera
+    % projects that box far larger than the drawn content, which is where
+    % the wide panel margins in every 4-view figure came from.  Zoom IN by
+    % the measured ratio of the BOX's projected extent to the CONTENT's
+    % projected extent, per screen axis, taking the smaller ratio.  Fully
+    % relative (camzoom), so it is independent of MATLAB's camva
+    % semantics and of the tile pixel geometry.
+    Pd = viewstd_points_(ax);
+    if ~isempty(Pd)
+        fw = f / norm(f);
+        rt = cross(fw, yb);  rt = rt / norm(rt);
+        [cx, cy, cz] = ndgrid(xl, yl, zl);
+        B = [cx(:), cy(:), cz(:)].';               % the 8 box corners
+        relC = Pd - tgt;   relB = B - tgt;
+        zu = max(abs(yb.' * relB)) / max([abs(yb.' * relC), 1e-12]);
+        zr = max(abs(rt.' * relB)) / max([abs(rt.' * relC), 1e-12]);
+        z = min(zu, zr) / 1.10;                    % 10% breathing room
+        if z > 1, camzoom(ax, z); end              % only ever tighter
+    end
     axis(ax, 'off');           % LightTools-clean panels; the title stays
 end
 if isempty(opts.title)
@@ -85,4 +119,28 @@ end
 title(tl, opts.title, 'Interpreter', 'none');
 fig.Name = opts.title;
 if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r150'); end
+end
+
+function P = viewstd_points_(ax)
+%VIEWSTD_POINTS_  All finite drawn coordinates in AX, as a 3xN array.
+P = zeros(3, 0);
+for h = findall(ax)'
+    switch h.Type
+        case 'line'
+            z = h.ZData(:).';
+            if isempty(z), z = zeros(1, numel(h.XData)); end
+            P = [P, [h.XData(:).'; h.YData(:).'; z]];         %#ok<AGROW>
+        case 'patch'
+            V = h.Vertices;
+            if size(V, 2) == 2, V(:, 3) = 0; end
+            P = [P, V.'];                                     %#ok<AGROW>
+        case 'surface'
+            P = [P, [h.XData(:).'; h.YData(:).'; h.ZData(:).']]; %#ok<AGROW>
+        case 'text'
+            p = h.Position(:);
+            if numel(p) == 2, p(3) = 0; end
+            P = [P, p];                                       %#ok<AGROW>
+    end
+end
+P = P(:, all(isfinite(P), 1));
 end

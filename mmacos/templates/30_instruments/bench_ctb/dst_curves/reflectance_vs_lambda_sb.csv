@@ -1,0 +1,45 @@
+# Digitized from Llop-Sayson et al., Proc. SPIE 13092, 130921Y (2024), Fig. 10
+# Method: pdfimages full-res bitmap, hand-read at markers/gridlines (S0 of
+# BRIEF_ctb_dst_defects). Estimated precision +-0.001. Second Best. Reflectance PROXY (WFS/science pupil intensity ratio); authors applied an ad-hoc factor 2 correction to SB; qualitative spectral shape is the payload.
+wavelength_nm,reflectance
+550,0.056
+555,0.048
+560,0.04
+565,0.033
+570,0.028
+575,0.025
+580,0.0245
+585,0.0238
+590,0.022
+595,0.0195
+600,0.016
+605,0.013
+610,0.01
+615,0.0088
+620,0.009
+625,0.0105
+630,0.0125
+635,0.0138
+640,0.0137
+645,0.012
+650,0.0105
+655,0.0098
+660,0.01
+665,0.0115
+670,0.015
+675,0.021
+680,0.028
+685,0.031
+690,0.033
+695,0.0355
+700,0.0362
+707,0.0345
+710,0.0343
+715,0.0333
+720,0.0335
+725,0.0365
+730,0.043
+735,0.053
+740,0.0615
+745,0.0595
+750,0.0572

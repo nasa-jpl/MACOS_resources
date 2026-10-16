@@ -1,0 +1,32 @@
+dyson5 t3o -- S3 at 9 deg on the 4.69 deg cross-track box, from the y2 0.30 parent (addendum 25) (2026-10-02 18:49)
+CONVENTIONS: ONE telescope (D 183.3 mm, F/1.8, EFL 330.0 mm; altitude 550 km, GSD 30 m), box 4.69 x 0.30 deg, feeding
+  spectrometer size:D:130 (pupil match).  Parent: dyson5_t3w_1k5.mat step y2 0.300 (S1 map max 78.1 nm, R [571.43 147.13 198.15] mm).
+  S3 = the template's symmetric-surface re-solve AT the offset (stop re-posed there once, then free), R1 + branch held,
+  solve set [5 3], cap 40, oi_solve's own stop.  STALL (stated in advance): stops within 5 iterations, gains < 20 % from its
+  start, last iteration rejected -> walk the OFFSET [5 9] deg instead, each S3 seeded from the previous, a stalled step halved
+  once.  Gate = oi_clear (disk model) >= 5 mm after the solve, S4 (clearance hinge) if not.  Rule: <= 250 nm with the
+  gate -> the three-mirror LIVES; converged above -> S5 (Zernike freeform) once.  Metric = the template's strict RMS WFE
+  at 1.00 um, 11 x 11 dense-map max (oi_score with the telecentric-anchor fix).
+
+S3 direct at 9 deg (stop posed at y -2.84 mm):
+  S3 trace (solve-set qmean, nm): 85789.4 -> 82255.8 -> 80626.7 -> 79929.8 -> 78422.8 -> 77038.6 -> 75592.0 -> 74608.0 -> 74452.3 -> 73753.7 -> 72635.3 -> 71516.0 -> 70226.4 -> 68792.3 -> 68145.8 -> 67327.3 -> 66264.3 -> 65618.7 -> 64834.1 -> 63921.2 -> 62977.7 -> 62237.8 -> 60580.7 -> 59744.0 -> 58921.1 -> 58400.3 -> 57022.5 -> 56251.6 -> 56145.8 -> 54437.2 -> 54387.0
+  S3 exit: 30 iterations, 30 accepted, final LM damping 1.0e-07, last-iteration gain 0.09 %
+  start 85789.4 nm -> 54387.0 nm (gain 36.6 %), 30 iterations, 30 accepted
+  S3: dense-map max 59089.4 nm avg 55330.0; clearance +24.5 mm (worst M3->FP x M2); exit err 0.197 deg; M3 rho/R 0.409; edge rays kept 1.000
+  S3 field map (nm): by cross-track XAN [-2.34 -1.88 -1.41 -0.94 -0.47 0 0.47 0.94 1.41 1.88 2.34] deg -> 59089 57669 56689 56051 55690 55574 55690 56051 56689 57669 59089 
+  S3 field map (nm): by along-track YAN [8.85 8.88 8.91 8.94 8.97 9 9.03 9.06 9.09 9.12 9.15] deg -> 55399 55698 56011 56339 56682 57040 57415 57807 58216 58643 59089   (max over XAN; centre-column 53098 53293 53498 53715 53943 54182 54434 54699 54977 55269 55574 )
+  S4 (tilts/decenters + radii + the clearance hinge) from S3:
+  S4 trace (solve-set qmean, nm): 54387.0 -> 51714.5 -> 50136.2 -> 48631.3 -> 47405.2 -> 46957.4 -> 45814.7 -> 44526.0 -> 43657.7 -> 42694.9 -> 42000.9 -> 41325.4 -> 40350.4 -> 39360.3 -> 38902.4 -> 38373.6 -> 37517.6 -> 36558.5 -> 35921.5 -> 35133.9 -> 34280.5 -> 33524.7 -> 32952.0 -> 32109.1 -> 31683.8 -> 31105.7 -> 30509.2 -> 29932.4 -> 29304.4 -> 28777.2 -> 28079.1 -> 27846.8 -> 26966.0 -> 26545.3 -> 26102.0 -> 25923.1 -> 25406.6 -> 24805.9 -> 24634.8 -> 23967.7 -> 23700.2  CAPPED
+  S4 exit: 40 iterations, 40 accepted, final LM damping 1.0e-07, last-iteration gain 1.12 %
+  S4: dense-map max 25547.6 nm avg 24115.8; clearance +27.6 mm (worst M3->FP x M2); exit err 0.019 deg; M3 rho/R 0.413; edge rays kept 0.990
+  S4 field map (nm): by cross-track XAN [-2.34 -1.88 -1.41 -0.94 -0.47 0 0.47 0.94 1.41 1.88 2.34] deg -> 25548 25015 24643 24399 24261 24216 24261 24399 24643 25015 25548 
+  S4 field map (nm): by along-track YAN [8.85 8.88 8.91 8.94 8.97 9 9.03 9.06 9.09 9.12 9.15] deg -> 24138 24254 24375 24501 24633 24770 24914 25063 25218 25380 25548   (max over XAN; centre-column 23256 23331 23410 23494 23582 23676 23773 23876 23984 24097 24216 )
+
+Converged above the bar (25547.6 nm) with the gate (+27.6 mm): S5 (Zernike freeform, aspheres replaced) once:
+  S5 trace (solve-set qmean, nm): 35280.4 -> 28101.5 -> 26042.6 -> 25045.8 -> 23989.3 -> 23343.8 -> 22697.8 -> 21982.0 -> 21469.1 -> 20885.3 -> 20359.2 -> 19719.7 -> 19420.9 -> 18849.0 -> 18212.8 -> 17859.2 -> 17460.3 -> 17096.9 -> 16701.5 -> 16338.3 -> 15800.6 -> 15440.7 -> 15036.3 -> 14617.0 -> 14369.4 -> 13912.4 -> 13503.0 -> 13203.1 -> 12929.9 -> 12723.0 -> 12469.0 -> 12241.4 -> 11995.9 -> 11804.9 -> 11625.9 -> 11454.3 -> 11282.8 -> 11015.4 -> 10860.9 -> 10666.1 -> 10500.1  CAPPED
+  S5 exit: 40 iterations, 40 accepted, final LM damping 1.0e-07, last-iteration gain 1.56 %
+  S5: dense-map max 10882.3 nm avg 10740.9; clearance +30.2 mm (worst M2->M3 x FP); exit err 0.226 deg; M3 rho/R 0.430; edge rays kept 0.986
+  S5 field map (nm): by cross-track XAN [-2.34 -1.88 -1.41 -0.94 -0.47 0 0.47 0.94 1.41 1.88 2.34] deg -> 10702 10714 10774 10830 10868 10882 10868 10830 10774 10714 10702 
+  S5 field map (nm): by along-track YAN [8.85 8.88 8.91 8.94 8.97 9 9.03 9.06 9.09 9.12 9.15] deg -> 10882 10864 10848 10833 10819 10807 10796 10787 10779 10773 10769   (max over XAN; centre-column 10882 10864 10848 10833 10819 10807 10796 10787 10779 10773 10769 )
+
+S5 does not close: 10882.3 nm (bar 250), gate +30.2 mm, edge loss 1.4 % -- other forms may now be considered.
