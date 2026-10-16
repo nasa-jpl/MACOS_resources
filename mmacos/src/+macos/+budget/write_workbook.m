@@ -134,17 +134,17 @@ for i = 1:n
     % Coefficients: D..H point at the raw blocks, which the tool writes
     C = put_(C, r, 2, 's', e.name, 0);
     C = put_(C, r, 3, 's', e.units, 0);
-    C = put_(C, r, 4, 'f', sprintf('K%d', r), 2);
-    C = put_(C, r, 5, 'f', sprintf('M%d', r), 2);
+    C = put_(C, r, 4, 'f', sprintf('K%d', r), 4);
+    C = put_(C, r, 5, 'f', sprintf('M%d', r), 4);
     C = put_(C, r, 6, 's', e.units_drift, 0);
-    C = put_(C, r, 7, 'f', sprintf('P%d', r), 2);
-    C = put_(C, r, 8, 'f', sprintf('R%d', r), 2);
-    C = put_(C, r, 10, 's', [k '0'], 0);   C = put_(C, r, 11, 'n', e.coef_pre, 0);
-    C = put_(C, r, 12, 's', [k 'f'], 0);   C = put_(C, r, 13, 'n', e.coef_post, 0);
-    C = put_(C, r, 15, 's', [k '0'], 0);   C = put_(C, r, 16, 'n', e.coef_met, 0);
-    C = put_(C, r, 17, 's', [k 'f'], 0);   C = put_(C, r, 18, 'n', e.coef_met_post, 0);
-    if isfinite(mcw(i)), C = put_(C, r, 20, 'n', mcw(i), 0); end
-    if isfinite(mcm(i)), C = put_(C, r, 21, 'n', mcm(i), 0); end
+    C = put_(C, r, 7, 'f', sprintf('P%d', r), 4);
+    C = put_(C, r, 8, 'f', sprintf('R%d', r), 4);
+    C = put_(C, r, 10, 's', [k '0'], 0);   C = put_(C, r, 11, 'n', e.coef_pre, 6);
+    C = put_(C, r, 12, 's', [k 'f'], 0);   C = put_(C, r, 13, 'n', e.coef_post, 6);
+    C = put_(C, r, 15, 's', [k '0'], 0);   C = put_(C, r, 16, 'n', e.coef_met, 6);
+    C = put_(C, r, 17, 's', [k 'f'], 0);   C = put_(C, r, 18, 'n', e.coef_met_post, 6);
+    if isfinite(mcw(i)), C = put_(C, r, 20, 'n', mcw(i), 7); end
+    if isfinite(mcm(i)), C = put_(C, r, 21, 'n', mcm(i), 7); end
 end
 rl = rows(end);  if n == 0, rl = r0 - 1; end
 
@@ -178,7 +178,7 @@ W = put_(W, r, 4, 's', 'nm', 0);
 W = put_(W, r, 11, 'f', sprintf('C%d', r), 2);
 r = r + 1;  info.rows.WFE_Margin = r;
 W = put_(W, r, 2, 's', 'WFE Margin', 1);
-W = put_(W, r, 11, 'f', sprintf('IF(K%d>0,1-(K%d/K%d),"")', rq, rp, rq), 3);
+W = put_(W, r, 11, 'f', sprintf('IF(K%d>0,1-(K%d/K%d),"")', rq, rp, rq), 5);
 info.payload_cell = sprintf('K%d', rp);
 
 % ---- WFE BD: the roll-up tree -------------------------------------------
@@ -299,8 +299,10 @@ S = struct('r', {}, 'c', {}, 't', {}, 'v', {}, 's', {});
 end
 
 function S = put_(S, r, c, t, v, st)
-% t: 's' string, 'n' number, 'f' formula; st: style 0 plain, 1 bold,
-% 2 grey (computed), 3 grey bold
+% t: 's' string, 'n' number, 'f' formula; st: style 0 plain (General --
+% the sigma inputs), 1 bold, 2 grey nm "0.000", 3 grey bold nm "0.000",
+% 4 grey coefficient "0.000E+00", 5 grey bold percent "0.0%" (Margin),
+% 6 plain coefficient "0.000E+00" (raw blocks), 7 plain nm "0.000" (MC)
 if strcmp(t, 'n') && ~isfinite(v), return; end
 S(end+1) = struct('r', r, 'c', c, 't', t, 'v', v, 's', st);
 end
@@ -388,7 +390,12 @@ x = [x '</sheetData></worksheet>'];
 end
 
 function x = styles_xml_(main)
+% number formats (Dave 2026-10-16: General showed every digit): 164 nm
+% "0.000", 165 "0.0%", 166 coefficients "0.000E+00"; inputs stay General
 x = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="' main '">' ...
+    '<numFmts count="3"><numFmt numFmtId="164" formatCode="0.000"/>' ...
+    '<numFmt numFmtId="165" formatCode="0.0%"/>' ...
+    '<numFmt numFmtId="166" formatCode="0.000E+00"/></numFmts>' ...
     '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>' ...
     '<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' ...
     '<fills count="3"><fill><patternFill patternType="none"/></fill>' ...
@@ -396,10 +403,14 @@ x = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="
     '<fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill></fills>' ...
     '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' ...
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' ...
-    '<cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' ...
+    '<cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' ...
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' ...
-    '<xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"/>' ...
-    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>' ...
+    '<xf numFmtId="164" fontId="0" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/>' ...
+    '<xf numFmtId="164" fontId="1" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>' ...
+    '<xf numFmtId="166" fontId="0" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/>' ...
+    '<xf numFmtId="165" fontId="1" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>' ...
+    '<xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' ...
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>' ...
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'];
 end
 
