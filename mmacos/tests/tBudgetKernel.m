@@ -113,6 +113,30 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             delete(out);
         end
 
+        function S = shown(f, wd, k)
+            % sheet K exported to CSV with cell contents AS SHOWN (the
+            % number formats applied), every field read back as text
+            od = fullfile(wd, sprintf('shown%d', k));  if ~isfolder(od), mkdir(od); end
+            prof = ['file://' fullfile(wd, 'lo_profile')];
+            flt = sprintf('csv:Text - txt - csv (StarCalc):44,34,76,1,,0,false,true,true,false,false,%d', k);
+            cmd = sprintf(['env -u LD_LIBRARY_PATH soffice -env:UserInstallation=%s ' ...
+                '--headless --convert-to ''%s'' --outdir "%s" "%s" >/dev/null 2>&1'], ...
+                prof, flt, od, f);
+            st = system(cmd);
+            [~, b] = fileparts(f);
+            c = dir(fullfile(od, [b '*.csv']));
+            assert(st == 0 && ~isempty(c), 'soffice csv export failed');
+            out = fullfile(od, c(1).name);
+            ln = readlines(out);  delete(out);
+            S = repmat({''}, numel(ln), 30);
+            for i = 1:numel(ln)
+                t = regexp(char(ln(i)), ',(?=(?:[^"]*"[^"]*")*[^"]*$)', 'split');
+                v = cellfun(@(q) strrep(regexprep(q, '^"(.*)"$', '$1'), '""', '"'), ...
+                    t, 'UniformOutput', false);
+                S(i, 1:numel(v)) = v;
+            end
+        end
+
         function set_input(f, wd, ref, val, k)
             % rewrite one numeric cell's value inside the .xlsx (as an
             % engineer typing a new sigma would); K = sheet number (1 = WFE)
@@ -386,6 +410,19 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             tc.verifyEqual(V{rp, 11}, pay, 'RelTol', 1e-9);
             tc.verifyEqual(V{info.rows.TOTAL, 11}, coef.total, 'RelTol', 1e-9);
             tc.verifyEqual(V{info.rows.WFE_Margin, 11}, 1 - pay/30, 'RelTol', 1e-9);
+            % displayed precision (Dave 2026-10-16: General showed every
+            % digit): the cells AS SHOWN by LibreOffice -- nm to three
+            % decimals, the Margin a percent, coefficients scientific, the
+            % sigma inputs untouched (General)
+            Sw = tBudgetKernel.shown(f, wd, 1);
+            tc.verifyMatches(Sw{4, 5}, '^-?\d+\.\d{3}$', 'WFE!E4');
+            tc.verifyMatches(Sw{info.rows.TOTAL, 11}, '^\d+\.\d{3}$', 'TOTAL');
+            tc.verifyMatches(Sw{info.rows.Payload_WFE, 11}, '^\d+\.\d{3}$', 'Payload');
+            tc.verifyMatches(Sw{info.rows.WFE_Margin, 11}, '^-?\d+\.\d%$', 'Margin');
+            tc.verifyEqual(str2double(Sw{4, 3}), V{4, 3}, 'RelTol', 1e-12);
+            Sc = tBudgetKernel.shown(f, wd, 2);
+            tc.verifyMatches(Sc{4, 4}, '^-?\d\.\d{3}E[+-]\d{2}$', 'Coefficients!D4');
+            tc.verifyMatches(Sc{4, 11}, '^-?\d\.\d{3}E[+-]\d{2}$', 'Coefficients!K4');
             % every line's Total cell == the tool's line total
             keys = coef.meta.order;
             for r = info.rows.lines(1):info.rows.lines(2)
