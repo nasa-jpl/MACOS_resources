@@ -113,12 +113,13 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             delete(out);
         end
 
-        function set_input(f, wd, ref, val)
+        function set_input(f, wd, ref, val, k)
             % rewrite one numeric cell's value inside the .xlsx (as an
-            % engineer typing a new sigma would)
+            % engineer typing a new sigma would); K = sheet number (1 = WFE)
+            if nargin < 5, k = 1; end
             d = fullfile(wd, 'edit');  if isfolder(d), rmdir(d, 's'); end
             mkdir(d);  unzip(f, d);
-            sx = fullfile(d, 'xl', 'worksheets', 'sheet1.xml');
+            sx = fullfile(d, 'xl', 'worksheets', sprintf('sheet%d.xml', k));
             x = fileread(sx);
             pat = sprintf('(<c r="%s"[^>]*><v>)[^<]*(</v>)', ref);
             assert(~isempty(regexp(x, pat, 'once')), 'input cell %s not found', ref);
@@ -408,6 +409,47 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             pred = sqrt(coef.total^2 - e1.total^2 + t1^2 + 12^2);
             tc.verifyEqual(V2{rp, 11}, pred, 'RelTol', 1e-9);
             tc.verifyGreaterThan(abs(V2{rp, 11} - V{rp, 11}), 1e-6 * pay);
+        end
+
+        function test_workbook_wfs_habex_reading(tc)
+            % Dave 2026-10-16: the WFS sigma is WHITE per-sample noise
+            % (Eq. 32) by default, and the HabEx reading (alpha = 1, the
+            % sigma passes whole) stays reachable through ONE cell, which
+            % the Log names: the WFS line's post-WFC coefficient
+            % Coefficients!M<row>.  Typing 1 there makes the line's Post
+            % WFC equal its sigma and re-rolls the payload.
+            [so, ~] = system('command -v soffice');
+            tc.assumeEqual(so, 0, 'soffice (LibreOffice) not installed');
+            [M, spec, met, ctrl] = tBudgetKernel.two_stage_model();
+            rc = macos.budget.cov_budget(M, spec, 'control', ctrl, 'met', met);
+            coef = macos.budget.to_coef(rc, M, spec);
+            wd = tempname; mkdir(wd); cl = onCleanup(@() rmdir(wd, 's'));
+            f = fullfile(wd, 'budget.xlsx');
+            info = macos.budget.write_workbook(coef, f, 'design_wfe', 12, ...
+                'requirement', 30, 'title', 'synthetic');
+            keys = coef.meta.order;
+            kw = keys{cellfun(@(q) strcmp(coef.(q).kind, 'wfs'), keys)};
+            w = coef.(kw);
+            V = tBudgetKernel.recalc(f, wd);
+            rr = info.rows.lines(1):info.rows.lines(2);
+            rw = rr(strcmp(V(rr, 2), w.name));
+            tc.verifyNumElements(rw, 1);
+            % default: the per-sample leak, sqrt(rank/nw) of the sigma
+            tc.verifyEqual(V{rw, 6}, w.wfe, 'RelTol', 1e-9);
+            tc.verifyLessThan(V{rw, 6}, 0.5 * w.sigma_eng);
+            tc.verifyEqual(w.coef_post, sqrt(rank(M.J(:, ctrl)) / M.nw), 'RelTol', 1e-12);
+            % the Log names the cell and both readings
+            lg = tBudgetKernel.sheet_xml(f, 6);
+            cell_ = sprintf('Coefficients!M%d', rw);
+            tc.verifyNotEmpty(strfind(lg, cell_), 'Log does not name the WFS cell');
+            tc.verifyNotEmpty(regexpi(lg, 'HabEx', 'once'));
+            % HabEx reading: type 1 in that cell
+            tBudgetKernel.set_input(f, wd, sprintf('M%d', rw), 1, 2);
+            V2 = tBudgetKernel.recalc(f, wd);
+            tc.verifyEqual(V2{rw, 6}, w.sigma_eng, 'RelTol', 1e-12);
+            t1 = hypot(w.sigma_eng, w.wfe_met_post);
+            pred = sqrt(coef.total^2 - w.total^2 + t1^2 + 12^2);
+            tc.verifyEqual(V2{info.rows.Payload_WFE, 11}, pred, 'RelTol', 1e-9);
         end
 
         function test_matches_run_met_rmsw(tc)

@@ -44,6 +44,11 @@ function info = write_workbook(coef, path, varargin)
 %     'wavelength_nm'  for the block diagram's waves row (default 500)
 %     'log'          cellstr of extra Log lines (sens artifact, SHAs, ...)
 %
+%   The WFS sensing line's sigma is WHITE per-sample noise (Eq. 32; Dave
+%   2026-10-16), so its post-WFC coefficient is sqrt(rank/n_w); the HabEx
+%   reading (alpha = 1, the sigma passes whole) is one edit -- type 1 in
+%   that line's Coefficients!M cell.  The Log names the cell.
+%
 %   INFO: .path .rows (struct: lines [first last], summary rows by name,
 %   payload cell) for gates that read the workbook back.
 %
@@ -224,7 +229,8 @@ lg = [{sprintf('generated %s by macos.budget.write_workbook', datestr(now, 31)),
         coef.total, coef.total_post_wfc, coef.total_post_met), ...
     sprintf('controlled %d, metrology stage %d, metric %s, cbm %g', ...
         coef.meta.controlled, coef.meta.has_met, char(coef.meta.metric), coef.meta.cbm), ...
-    'method: Redding 2014 (SPIE), linearized ray-trace covariance budget'}, o.log(:)'];
+    'method: Redding 2014 (SPIE), linearized ray-trace covariance budget'}, ...
+    wfs_log_(L, rows), o.log(:)'];
 for q = 1:numel(lg), G = put_(G, q, 1, 's', lg{q}, 0); end
 
 % ---- write the package --------------------------------------------------
@@ -238,6 +244,21 @@ fprintf('wrote %s (%d lines, live formulas; tool Total WFE %.4g nm)\n', ...
 end
 
 % =========================================================================
+
+function lg = wfs_log_(L, rows)
+% Log lines for the WFS sensing row(s): the default reading and the one
+% cell that switches to the HabEx reading (Dave 2026-10-16).
+lg = {};
+for i = find(strcmp({L.kind}, 'wfs'))
+    lg{end+1} = sprintf(['WFS: "%s" (WFE row %d) sigma %g %s is WHITE per-sample ' ...
+        'noise (Redding 2014 Eq. 32, the default ruled 2026-10-16): post-WFC ' ...
+        'coefficient Coefficients!M%d = %.6g = sqrt(rank/n_w), Post WFC %.4g nm.'], ...
+        L(i).name, rows(i), L(i).sigma_eng, L(i).units, rows(i), L(i).coef_post, L(i).wfe); %#ok<AGROW>
+    lg{end+1} = sprintf(['WFS, HabEx reading (alpha = 1, the sigma passes whole): ' ...
+        'type 1 in Coefficients!M%d; the payload re-rolls.'], rows(i)); %#ok<AGROW>
+end
+end
+
 function W = sum_row_(W, r, label, rngE)
 % one summary row: SQRT(SUMSQ(...)) over the same line rows in E F I J K
 W = put_(W, r, 2, 's', label, 1);
