@@ -8,7 +8,8 @@ function info = write_workbook(coef, path, varargin)
 %   HabEx-B WFE calculator (MACOS_sandbox/error_budgets/HabExB_WFE_budget.xlsx):
 %
 %   Sheet 'WFE' (the calculator).  A1 date serial, B1 title, C1 'Initial
-%     Alignment', G1 'Metrology Control', K1 'Total WFE'; rows 2-3 the
+%     Alignment', G1 'Metrology Control', K1 'Total WFE', M1 the legend
+%     (white = inputs you edit, gray = formulas); rows 2-3 the
 %     column heads; then one row per budget line, grouped by section (the
 %     section label in column A on its first row):
 %        B name | C sigma  D units (INPUT) | E = C*Coefficients!D (Pre WFC)
@@ -71,6 +72,8 @@ p.addParameter('log', {}, @iscellstr);
 p.parse(varargin{:});
 o = p.Results;
 
+LEGEND = 'white cells = inputs you edit; gray cells = formulas (computed)';
+
 % ---- lines, grouped by section (first-appearance order) -----------------
 keys = coef.meta.order(:);
 L = cellfun(@(k) coef.(k), keys, 'UniformOutput', false);
@@ -89,6 +92,7 @@ W = put_(W, 1, 2, 's', char(o.title), 1);
 W = put_(W, 1, 3, 's', 'Initial Alignment', 1);
 W = put_(W, 1, 7, 's', 'Metrology Control', 1);
 W = put_(W, 1, 11, 's', 'Total WFE', 1);
+W = put_(W, 1, 13, 's', LEGEND, 0);
 hd2 = {2, 'Degree of Freedom'; 3, 'Inputs'; 5, 'RMS WFE (nm)'; 7, 'Drift Inputs'; ...
     9, 'RMS WFE (nm)'; 11, 'Post Metrology'};
 for q = 1:size(hd2, 1), W = put_(W, 2, hd2{q, 1}, 's', hd2{q, 2}, 1); end
@@ -122,11 +126,11 @@ for i = 1:n
         W = put_(W, r, 1, 's', e.section, 1);
     end
     W = put_(W, r, 2, 's', e.name, 0);
-    W = put_(W, r, 3, 'n', e.sigma_eng, 0);                  % INPUT
+    W = put_(W, r, 3, 'n', e.sigma_eng, 7);                  % INPUT
     W = put_(W, r, 4, 's', e.units, 0);
     W = put_(W, r, 5, 'f', sprintf('C%d*Coefficients!D%d', r, r), 2);
     W = put_(W, r, 6, 'f', sprintf('C%d*Coefficients!E%d', r, r), 2);
-    W = put_(W, r, 7, 'n', e.sigma_drift, 0);                % INPUT
+    W = put_(W, r, 7, 'n', e.sigma_drift, 7);                % INPUT
     W = put_(W, r, 8, 's', e.units_drift, 0);
     W = put_(W, r, 9, 'f', sprintf('G%d*Coefficients!G%d', r, r), 2);
     W = put_(W, r, 10, 'f', sprintf('G%d*Coefficients!H%d', r, r), 2);
@@ -165,7 +169,7 @@ W = sumrow(W, r, 'Everything Else', ranges_(ee));  info.rows.Everything_Else = r
 W = sumrow(W, r, 'TOTAL', ranges_(rows));  rt = r;  info.rows.TOTAL = r;  r = r + 1;
 rd = r;  info.rows.Design_WFE = r;
 W = put_(W, r, 2, 's', 'Design WFE', 1);
-W = put_(W, r, 3, 'n', o.design_wfe, 0);  W = put_(W, r, 4, 's', 'nm', 0);
+W = put_(W, r, 3, 'n', o.design_wfe, 7);  W = put_(W, r, 4, 's', 'nm', 0);
 W = put_(W, r, 6, 'f', sprintf('C%d', r), 2);
 W = put_(W, r, 11, 'f', sprintf('SQRT(SUMSQ(F%d,J%d))', r, r), 2);
 r = r + 1;  rp = r;  info.rows.Payload_WFE = r;
@@ -173,7 +177,7 @@ W = put_(W, r, 2, 's', 'Payload WFE', 1);
 W = put_(W, r, 11, 'f', sprintf('SQRT(SUMSQ(K%d,K%d))', rt, rd), 3);
 r = r + 1;  rq = r;  info.rows.WFE_Requirement = r;
 W = put_(W, r, 2, 's', 'WFE Requirement', 1);
-if isfinite(o.requirement), W = put_(W, r, 3, 'n', o.requirement, 0); end
+if isfinite(o.requirement), W = put_(W, r, 3, 'n', o.requirement, 7); end
 W = put_(W, r, 4, 's', 'nm', 0);
 W = put_(W, r, 11, 'f', sprintf('C%d', r), 2);
 r = r + 1;  info.rows.WFE_Margin = r;
@@ -229,7 +233,9 @@ lg = [{sprintf('generated %s by macos.budget.write_workbook', datestr(now, 31)),
         coef.total, coef.total_post_wfc, coef.total_post_met), ...
     sprintf('controlled %d, metrology stage %d, metric %s, cbm %g', ...
         coef.meta.controlled, coef.meta.has_met, char(coef.meta.metric), coef.meta.cbm), ...
-    'method: Redding 2014 (SPIE), linearized ray-trace covariance budget'}, ...
+    'method: Redding 2014 (SPIE), linearized ray-trace covariance budget', ...
+    [LEGEND ' -- inputs: WFE columns C and G, Design WFE, WFE Requirement; ' ...
+     'the raw coefficient blocks on Coefficients (J:R) are tool-written values']}, ...
     wfs_log_(L, rows), o.log(:)'];
 for q = 1:numel(lg), G = put_(G, q, 1, 's', lg{q}, 0); end
 
@@ -302,7 +308,9 @@ function S = put_(S, r, c, t, v, st)
 % t: 's' string, 'n' number, 'f' formula; st: style 0 plain (General --
 % the sigma inputs), 1 bold, 2 grey nm "0.000", 3 grey bold nm "0.000",
 % 4 grey coefficient "0.000E+00", 5 grey bold percent "0.0%" (Margin),
-% 6 plain coefficient "0.000E+00" (raw blocks), 7 plain nm "0.000" (MC)
+% 6 plain coefficient "0.000E+00" (raw blocks), 7 plain "0.000" (the sigma
+% / design / requirement INPUTS -- display only, the stored value is full
+% precision, so an input below 5e-4 reads 0.000 -- and the MC check)
 if strcmp(t, 'n') && ~isfinite(v), return; end
 S(end+1) = struct('r', r, 'c', c, 't', t, 'v', v, 's', st);
 end
@@ -391,7 +399,7 @@ end
 
 function x = styles_xml_(main)
 % number formats (Dave 2026-10-16: General showed every digit): 164 nm
-% "0.000", 165 "0.0%", 166 coefficients "0.000E+00"; inputs stay General
+% "0.000" (also the inputs), 165 "0.0%", 166 coefficients "0.000E+00"
 x = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="' main '">' ...
     '<numFmts count="3"><numFmt numFmtId="164" formatCode="0.000"/>' ...
     '<numFmt numFmtId="165" formatCode="0.0%"/>' ...

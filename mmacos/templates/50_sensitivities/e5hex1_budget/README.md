@@ -74,6 +74,8 @@ post-WFC **3.156 nm (cov) vs 3.179 nm (MC, 1000 draws, controller + sensing
 `run_budget` also writes **`e5hex1_wfe_budget.xlsx`**, the HabEx-form
 calculator the system engineer edits (`macos.budget.write_workbook`):
 
+- **White cells are the inputs you edit; gray cells are formulas** (the
+  legend sits in WFE!M1).  Typing over a gray cell replaces its formula.
 - **WFE** — one row per budget line grouped by the table's `Section`
   column (Primary Mirror, Secondary Mirror, Lens, Detector, then WFC for
   the sensing / actuator rows). σ inputs sit in white cells (C initial
