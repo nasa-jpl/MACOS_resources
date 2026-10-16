@@ -957,6 +957,22 @@ stage.  Gotchas:
   identity), where `Pu D post D' Pu'` would be 0.  Gates
   `tBudgetKernel/test_met_stage_*` and `tRunMet/
   test_budget_met_stage_reproduces_run_met` (2.1e-12 on run_met's example).
+- **coef / rollup are the workbook's arithmetic (A.3, 2026-10-15).**
+  `to_coef` makes one LINE per error group, WFC noise row and metrology-only
+  row (`.kind` error|wfs|act|met|drift, `.section` from the optional
+  `Section` table column; noise rows 'WFC', gauge 'Metrology'), and NO
+  slot is NaN: no control -> `alpha_post = alpha` (Pu = I); no metrology ->
+  `alpha_met_post = alpha_met = alpha` (an uncorrected drift).  Each line
+  carries the engineering view: `sigma_eng * coef_pre = wfe_pre`,
+  `sigma_eng * coef_post = wfe`, `sigma_drift * coef_met(_post) =
+  wfe_met(_post)` (coef in nm per engineering unit; `covariance_model`'s
+  new `.per_eng`), `total = hypot(wfe, wfe_met_post)`; `coef.total` = all
+  lines RSS = `hypot(total_post_wfc, total_post_met)`.  A uniform group's
+  `sigma_eng` is its 1-sigma equivalent h/sqrt(3).  `rollup` is the HabEx
+  columns (Sigma/Units | Pre/Post WFC | Drift Sigma/Units | Pre/Post MET |
+  Total) + summary rows (per section, Everything Else vs the focus
+  section, TOTAL, Design WFE, Payload, Requirement, Margin as a fraction).
+  Gate `tBudgetKernel/test_coef_and_rollup_carry_the_habex_arithmetic`.
 - **Still to come:** the SPOT (`dcdx`) metric; the kernel is metric-agnostic
   (takes `J`,`w0`).
 

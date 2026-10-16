@@ -16,6 +16,11 @@ function cm = covariance_model(g, M, cols)
 %     .sampler      @() -> nc x 1 random draw, native units, honouring .dist
 %     .class        native-unit class of the columns ('angle'|'length_si'|
 %                   'length_base'|'none')
+%     .units        the engineering unit the group's sigma is written in
+%     .per_eng      native units per engineering unit (sigma_native =
+%                   sigma_eng * per_eng); 1 for a 'full' group
+%     .sigma_eng    the 1-sigma-equivalent in engineering units (uniform:
+%                   h/sqrt(3); worstcase: h) -- the workbook's input cell
 %
 %   Distribution second moments (so covariance == Monte-Carlo by
 %   construction): normal sigma s -> var s^2; uniform half-width h ->
@@ -42,6 +47,7 @@ if isfield(g, 'cov') && any(strcmpi(g.cov, {'full', 'psd'})) ...
     cm.type = 'full';
     cm.Sigma = Sig;
     cm.var = NaN; cm.sigma_native = sqrt(mean(diag(Sig)));
+    cm.units = 'native';  cm.per_eng = 1;  cm.sigma_eng = cm.sigma_native;
     L = chol(Sig + 0*eye(nc), 'lower');
     cm.sampler = @() L * randn(nc, 1);
     return;
@@ -66,6 +72,9 @@ switch dist
 end
 cm.type = 'iid';
 cm.Sigma = [];
+cm.units = char(g.units);
+cm.per_eng = to_native_(1, g.units, cls, M.cbm);
+cm.sigma_eng = cm.sigma_native / cm.per_eng;
 end
 
 % -------------------------------------------------------------------------

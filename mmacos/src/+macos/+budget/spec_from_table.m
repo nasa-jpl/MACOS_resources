@@ -20,7 +20,11 @@ function spec = spec_from_table(T, M, varargin)
 %     Units             nrad|urad|nm|um|mm|m|...        (default by class)
 %     Min, Max          range for uniform/worstcase
 %     Cov               iid | full | psd               (default iid)
-%     Control           ''|WFC|MET  (tags controllable DOFs; v1 records only)
+%     Control           ''|WFC|MET  (tags the actuator DOFs: any non-empty
+%                       value makes the group a control group)
+%     Section           optional: the budget section the row sits in (the
+%                       workbook's column A, e.g. 'Primary Mirror'); default
+%                       'Optics'
 %
 %   Options:
 %     'roles'   containers.Map name -> iElt vector (e.g. 'pm_segs' -> [3 4..])
@@ -56,7 +60,8 @@ assigned = false(nz, 1);
 noverlap = 0;
 
 groups = struct('name', {}, 'selector', {}, 'cols', {}, 'cm', {}, ...
-    'is_control', {}, 'stage', {});
+    'is_control', {}, 'stage', {}, 'section', {});
+hasSection = ismember('Section', T.Properties.VariableNames);
 names = {};
 for r = 1:nrow
     g = struct();
@@ -78,6 +83,11 @@ for r = 1:nrow
     g.cols = cols;
     g.is_control = ~isempty(char(T.Control(r)));
     g.stage = lower(char(T.Control(r)));
+    g.section = 'Optics';
+    if hasSection
+        sv = char_(T.Section(r));
+        if ~isempty(sv), g.section = sv; end
+    end
     % statistics -> covariance descriptor in native units
     gg = stat_(T(r, :));
     gg.name = g.name;
@@ -111,7 +121,8 @@ s = double(x{1});  u = char(x{2});
 g = struct('name', 'WFS', 'sigma', s, 'units', u, 'dist', 'normal', 'cov', 'iid');
 cm = macos.budget.covariance_model(g, struct('cbm', M.cbm, 'meta', ...
     struct('channel', {{'dwdz'}}, 'dof', NaN, 'param', {{''}})), true);
-w = struct('sigma', cm.sigma_native, 'sigma_eng', s, 'units', u);
+w = struct('sigma', cm.sigma_native, 'sigma_eng', s, 'units', u, ...
+    'per_eng', cm.per_eng);
 end
 
 % -------------------------------------------------------------------------

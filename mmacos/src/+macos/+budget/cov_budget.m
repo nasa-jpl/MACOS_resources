@@ -37,6 +37,11 @@ function rc = cov_budget(M, spec, varargin)
 %                 = rank(Ju)/nw, sigma = SPEC.wfs.sigma (per sample)
 %     kind 'act'  actuator error per control group, Eq. 31 (NOT projected:
 %                 Eq. 22's (dw/du)*du term): alpha^2 = trace(G_aa)/nw
+%   Every row (group or noise) also carries its engineering-unit view for
+%   the workbook: .section .units .sigma_eng .per_eng (groups: Ng-by-1
+%   cells / vectors; noise rows: fields of .extra), with sigma_native =
+%   sigma_eng * per_eng.
+%
 %   SPEC.wfs / SPEC.act come from spec_from_table's 'wfs_sigma' /
 %   'act_sigma'; absent, there are no noise rows.
 %
@@ -76,6 +81,11 @@ rc.var   = zeros(ng, 1);
 rc.wfe   = zeros(ng, 1);
 rc.alpha_pre = zeros(ng, 1);
 rc.var_pre   = zeros(ng, 1);
+rc.section   = repmat({'Optics'}, ng, 1);
+rc.type      = repmat({'iid'}, ng, 1);
+rc.units     = repmat({''}, ng, 1);
+rc.sigma_eng = nan(ng, 1);
+rc.per_eng   = ones(ng, 1);
 
 for k = 1:ng
     g = spec.groups(k);
@@ -85,24 +95,34 @@ for k = 1:ng
     [rc.alpha(k), rc.var(k)] = group_term_(cm, G(g.cols, g.cols), nw);
     [rc.alpha_pre(k), rc.var_pre(k)] = group_term_(cm, M.G(g.cols, g.cols), nw);
     rc.wfe(k) = sqrt(rc.var(k));
+    rc.type{k} = cm.type;
+    if isfield(g, 'section') && ~isempty(g.section), rc.section{k} = g.section; end
+    if isfield(cm, 'per_eng')
+        rc.units{k} = cm.units;  rc.per_eng(k) = cm.per_eng;
+        rc.sigma_eng(k) = cm.sigma_eng;
+    else
+        rc.sigma_eng(k) = cm.sigma_native;
+    end
 end
 rc.wfe_pre = sqrt(rc.var_pre);
 rc.total_pre = sqrt(sum(rc.var_pre));
 
 % ---- WFC noise rows (Eq. 31, 32) -----------------------------------------
 rc.extra = struct('name', {}, 'kind', {}, 'sigma', {}, 'alpha', {}, ...
-    'var', {}, 'wfe', {});
+    'var', {}, 'wfe', {}, 'units', {}, 'sigma_eng', {}, 'per_eng', {});
 if rc.controlled
     if isfield(spec, 'wfs') && ~isempty(spec.wfs)
         a2 = trace(ctl.Gu * pinv(ctl.Gu)) / nw;   % = rank(Ju)/nw
         rc.extra(end+1) = row_('WFS Sensing Error', 'wfs', ...
-            spec.wfs.sigma, a2, spec.wfs.sigma^2 * a2);
+            spec.wfs.sigma, a2, spec.wfs.sigma^2 * a2, spec.wfs.units, ...
+            spec.wfs.sigma / max(spec.wfs.sigma_eng, realmin));
     end
     if isfield(spec, 'act')
         for q = 1:numel(spec.act)
             ac = spec.act(q);
             [a, v] = group_term_(ac.cm, M.G(ac.cols, ac.cols), nw);
-            rc.extra(end+1) = row_(ac.name, 'act', ac.cm.sigma_native, a^2, v);
+            [u, f] = eng_(ac.cm);
+            rc.extra(end+1) = row_(ac.name, 'act', ac.cm.sigma_native, a^2, v, u, f);
         end
     end
 end
@@ -116,8 +136,11 @@ if ~isempty(mt)
     if isfield(mt, 'act'), act = mt.act;
     elseif isfield(spec, 'act'), act = spec.act; end
     hc = [];  if isfield(mt, 'hcols'), hc = mt.hcols; end
+    ga = {};
+    if isfield(mt, 'gauge_units'), ga = [ga, {'gauge_units', mt.gauge_units}]; end
+    if isfield(mt, 'gauge_per_eng'), ga = [ga, {'gauge_per_eng', mt.gauge_per_eng}]; end
     rc.met = macos.budget.project_met(M, mt.drift, mt.H, mt.R, ...
-        'control', ctrl, 'hcols', hc, 'act', act);
+        'control', ctrl, 'hcols', hc, 'act', act, ga{:});
     rc.total_all = sqrt(rc.total^2 + rc.met.total_post^2);
 end
 end
@@ -135,7 +158,16 @@ else
 end
 end
 
-function r = row_(name, kind, sigma, a2, v)
+function r = row_(name, kind, sigma, a2, v, units, per_eng)
+if nargin < 6, units = ''; end
+if nargin < 7, per_eng = 1; end
 r = struct('name', name, 'kind', kind, 'sigma', sigma, ...
-    'alpha', sqrt(max(a2, 0)), 'var', v, 'wfe', sqrt(max(v, 0)));
+    'alpha', sqrt(max(a2, 0)), 'var', v, 'wfe', sqrt(max(v, 0)), ...
+    'units', units, 'sigma_eng', sigma / per_eng, 'per_eng', per_eng);
+end
+
+function [u, f] = eng_(cm)
+% (units, per_eng) of a covariance descriptor, tolerant of v1-shaped ones
+u = '';  f = 1;
+if isfield(cm, 'per_eng'), u = cm.units;  f = cm.per_eng; end
 end

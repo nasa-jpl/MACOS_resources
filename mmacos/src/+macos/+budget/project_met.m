@@ -42,6 +42,8 @@ function rt = project_met(M, dspec, H, R, varargin)
 %     'hcols'    column indices of M that H's columns map to (default 1:Nz)
 %     'act'      actuator noise records (spec.act from spec_from_table)
 %                for this stage's actuator rows (default none)
+%     'gauge_units', 'gauge_per_eng'  the engineering view of the gauge
+%                row's sigma (default: native units, per_eng 1)
 %
 %   RT fields: .names (drift groups), .alpha_met .alpha_met_post (sigma-free,
 %   iid groups; = wfe for 'full' groups), .var_pre .var_post .wfe_pre
@@ -56,6 +58,8 @@ p = inputParser;
 p.addParameter('control', [], @(x) islogical(x) || isempty(x));
 p.addParameter('hcols', [], @isnumeric);
 p.addParameter('act', [], @(x) isempty(x) || isstruct(x));
+p.addParameter('gauge_units', 'native', @(x) ischar(x) || isstring(x));
+p.addParameter('gauge_per_eng', 1, @isscalar);
 p.parse(varargin{:});
 ctrl = p.Results.control;
 
@@ -91,18 +95,34 @@ for k = 1:ng
 end
 rt.wfe_pre = sqrt(rt.var_pre);
 rt.wfe_post = sqrt(rt.var_post);
+rt.units = repmat({''}, ng, 1);  rt.per_eng = ones(ng, 1);  rt.sigma_eng = rt.sigma;
+rt.section = repmat({'Metrology'}, ng, 1);
+for k = 1:ng
+    if isfield(dspec.groups(k), 'section') && ~isempty(dspec.groups(k).section)
+        rt.section{k} = dspec.groups(k).section;
+    end
+    cm = dspec.groups(k).cm;
+    if isfield(cm, 'per_eng')
+        rt.units{k} = cm.units;  rt.per_eng(k) = cm.per_eng;  rt.sigma_eng(k) = cm.sigma_eng;
+    end
+end
 
 rt.extra = struct('name', {}, 'kind', {}, 'sigma', {}, 'alpha', {}, ...
-    'var', {}, 'wfe', {});
+    'var', {}, 'wfe', {}, 'units', {}, 'sigma_eng', {}, 'per_eng', {});
 vg = max(sum(sum(R .* B.')) / nw, 0);     % trace(R*B)/nw
 sg = sqrt(mean(diag(R)));
+fg = p.Results.gauge_per_eng;
 rt.extra(end+1) = struct('name', 'Metrology Gauge Noise', 'kind', 'met', ...
-    'sigma', sg, 'alpha', sqrt(vg) / max(sg, realmin), 'var', vg, 'wfe', sqrt(vg));
+    'sigma', sg, 'alpha', sqrt(vg) / max(sg, realmin), 'var', vg, 'wfe', sqrt(vg), ...
+    'units', char(p.Results.gauge_units), 'sigma_eng', sg / fg, 'per_eng', fg);
 act = p.Results.act;
 for q = 1:numel(act)
     [a, v] = term_(act(q).cm, G(act(q).cols, act(q).cols), nw);
+    u = '';  f = 1;
+    if isfield(act(q).cm, 'per_eng'), u = act(q).cm.units;  f = act(q).cm.per_eng; end
     rt.extra(end+1) = struct('name', act(q).name, 'kind', 'act', ...
-        'sigma', act(q).cm.sigma_native, 'alpha', a, 'var', v, 'wfe', sqrt(v));
+        'sigma', act(q).cm.sigma_native, 'alpha', a, 'var', v, 'wfe', sqrt(v), ...
+        'units', u, 'sigma_eng', act(q).cm.sigma_native / f, 'per_eng', f);
 end
 rt.total_pre = sqrt(sum(rt.var_pre));
 rt.total_post = sqrt(sum(rt.var_post) + sum([rt.extra.var]));

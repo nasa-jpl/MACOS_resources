@@ -107,6 +107,15 @@ classdef tRunBudget < matlab.unittest.TestCase
             tc.verifyEqual([rm.extra.wfe]', [rc.extra.wfe]', 'RelTol', 0.15);
             tc.verifyEqual(rm.total, rc.total, 'RelTol', 0.08);
             tc.verifyLessThan(rc.total, rc.total_pre);
+            % the coefficient struct and the roll-up carry the same totals
+            tonm = art.M.cbm * 1e9;
+            tc.verifyEqual(art.coef.total, rc.total * tonm, 'RelTol', 1e-12);
+            tc.verifyEqual(art.coef.total_pre_wfc, rc.total_pre * tonm, 'RelTol', 1e-12);
+            Tt = art.table;
+            r = strcmp(Tt.Name, 'TOTAL') & strcmp(Tt.Kind, 'summary');
+            tc.verifyEqual(Tt.Total_nm(r), art.coef.total, 'RelTol', 1e-12);
+            tc.verifyEqual(Tt.Pre_WFC_nm(r), rc.total_pre * tonm, 'RelTol', 1e-12);
+            tc.verifyEqual(Tt.MC_Post_WFC_nm(r), rm.total * tonm, 'RelTol', 0.1);
         end
     end
 end

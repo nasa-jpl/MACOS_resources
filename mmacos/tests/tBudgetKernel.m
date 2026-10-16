@@ -196,6 +196,97 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             tc.verifyGreaterThan(r0.wfe_post(1), 2 * rt.wfe_post(1));
         end
 
+        function test_coef_and_rollup_carry_the_habex_arithmetic(tc)
+            % Both stages on an mm-deck model: every coefficient slot is a
+            % number; per line sigma*coef reproduces each WFE column (the
+            % workbook's E = C*D, F = C*E, I = G*G', J = G*H'); line Total =
+            % sqrt(PostWFC^2 + PostMET^2); coef.total = the two stages
+            % RSS'd; rollup's summary rows follow (sections, Everything
+            % Else, TOTAL, Payload with the design residual, Margin).
+            rng(15); Nw = 400;
+            dofs = {'Rx','Ry','Rz','Tx','Ty','Tz'}; cn = {}; iE = []; df = [];
+            for e = [3 4], for d = 1:6
+                cn{end+1} = sprintf('Elt %d %s', e, dofs{d}); iE(end+1)=e; df(end+1)=d-1; %#ok<AGROW>
+            end, end
+            ox = struct('dwdxall', randn(Nw,12), 'channel_names', {cn}, ...
+                'iElt', iE, 'dof_idx', df, 'kind', {repmat({'RigidBody'},12,1)}, ...
+                'cbm', 1e-3, 'base_units', 'mm', 'trans_output', 'si');
+            M = macos.budget.assemble(ox);
+            vn = {'Name','Elements','DOFs','Modes','Param','Channel','Dist', ...
+                'Sigma','Units','Min','Max','Cov','Control','Section'};
+            T = cell2table({ ...
+                'E3 Tilt','3','tilt','','','dwdx','normal',50,'nrad',NaN,NaN,'iid','WFC','Primary'; ...
+                'E3 Despace','3','despace','','','dwdx','uniform',NaN,'nm',-200,200,'iid','','Primary'; ...
+                'E4 Decenter','4','decenter','','','dwdx','normal',100,'nm',NaN,NaN,'iid','WFC','Secondary'}, ...
+                'VariableNames', vn);
+            spec = macos.budget.spec_from_table(T, M, 'wfs_sigma', {3, 'nm'}, ...
+                'act_sigma', {'E3 Tilt', 0.5, 'nrad'; 'E4 Decenter', 1, 'nm'});
+            D = cell2table({ ...
+                'E3 Tilt','3','tilt','','','dwdx','normal',5,'nrad',NaN,NaN,'iid','','Primary'; ...
+                'E4 Decenter','4','decenter','','','dwdx','normal',20,'nm',NaN,NaN,'iid','','Secondary'; ...
+                'E4 Tilt','4','tilt','','','dwdx','normal',10,'nrad',NaN,NaN,'iid','',''}, ...
+                'VariableNames', vn);
+            dspec = macos.budget.spec_from_table(D, M);
+            H = zeros(6, 12);  H(:, 10:11) = randn(6, 2);     % gauges see E4 Tx,Ty
+            met = struct('drift', dspec, 'H', H, 'R', (1e-10)^2 * eye(6), ...
+                'gauge_units', 'nm', 'gauge_per_eng', 1e-9);
+            ctrl = spec.groups(1).cols | spec.groups(3).cols;
+            rc = macos.budget.cov_budget(M, spec, 'control', ctrl, 'met', met);
+            coef = macos.budget.to_coef(rc, M, spec);
+            keys = coef.meta.order;
+            kinds = cellfun(@(k) coef.(k).kind, keys, 'UniformOutput', false);
+            tc.verifyEqual(sort(unique(kinds)), sort({'act'; 'drift'; 'error'; 'met'; 'wfs'}));
+            for i = 1:numel(keys)
+                c = coef.(keys{i});
+                v = [c.alpha c.alpha_post c.alpha_met c.alpha_met_post ...
+                    c.coef_pre c.coef_post c.coef_met c.coef_met_post];
+                tc.verifyTrue(all(isfinite(v)), c.name);
+                tc.verifyEqual(c.sigma_eng * c.coef_pre, c.wfe_pre, 'AbsTol', 1e-12 * (1 + c.wfe_pre), c.name);
+                tc.verifyEqual(c.sigma_eng * c.coef_post, c.wfe, 'AbsTol', 1e-12 * (1 + c.wfe), c.name);
+                tc.verifyEqual(c.sigma_drift * c.coef_met_post, c.wfe_met_post, ...
+                    'AbsTol', 1e-12 * (1 + c.wfe_met_post), c.name);
+                if strcmp(c.kind, 'error') || strcmp(c.kind, 'drift')
+                    tc.verifyEqual(c.sigma_drift * c.coef_met, c.wfe_met, ...
+                        'AbsTol', 1e-12 * (1 + c.wfe_met), c.name);
+                end
+                tc.verifyEqual(c.total, hypot(c.wfe, c.wfe_met_post), 'RelTol', 1e-12);
+            end
+            tonm = M.cbm * 1e9;
+            tc.verifyEqual(coef.total, rc.total_all * tonm, 'RelTol', 1e-12);
+            tc.verifyEqual(coef.total, hypot(coef.total_post_wfc, coef.total_post_met), 'RelTol', 1e-12);
+            % engineering units: 50 nrad / 100 nm in, uniform 200 nm -> 115.47 nm 1-sigma
+            tc.verifyEqual(coef.E3_Tilt.sigma_eng, 50, 'RelTol', 1e-12);
+            tc.verifyEqual(coef.E3_Despace.sigma_eng, 200 / sqrt(3), 'RelTol', 1e-12);
+            tc.verifyEqual(coef.E3_Tilt.sigma_drift, 5, 'RelTol', 1e-12);
+            tc.verifyEqual(coef.E3_Tilt_Actuator.sigma_drift, 0.5, 'RelTol', 1e-12); % both stages
+            tc.verifyEqual(coef.Metrology_Gauge_Noise.sigma_drift, 0.1, 'RelTol', 1e-12);
+            % roll-up summary rows
+            R = macos.budget.rollup(rc, 'cbm', M.cbm, 'coef', coef, ...
+                'design_wfe', 12, 'requirement', 30);
+            row = @(nm) find(strcmp(R.Name, nm) & strcmp(R.Kind, 'summary'));
+            lines = ~strcmp(R.Kind, 'summary');
+            tc.verifyEqual(R.Total_nm(row('TOTAL')), coef.total, 'RelTol', 1e-12);
+            pay = hypot(coef.total, 12);
+            tc.verifyEqual(R.Total_nm(row('Payload WFE')), pay, 'RelTol', 1e-12);
+            tc.verifyEqual(R.Total_nm(row('WFE Margin')), 1 - pay / 30, 'RelTol', 1e-12);
+            inP = lines & strcmp(R.Section, 'Primary');
+            tc.verifyEqual(R.Post_WFC_nm(row('Primary WFE')), ...
+                sqrt(sum(R.Post_WFC_nm(inP).^2)), 'RelTol', 1e-12);
+            tc.verifyEqual(R.Total_nm(row('Everything Else')), ...
+                sqrt(sum(R.Total_nm(lines & ~strcmp(R.Section, 'Primary')).^2)), 'RelTol', 1e-12);
+            % no control, no metrology: post == pre, met == pre, total == v1
+            rc0 = macos.budget.cov_budget(M, spec);
+            c0 = macos.budget.to_coef(rc0, M, spec);
+            tc.verifyEqual(c0.E3_Tilt.alpha_post, c0.E3_Tilt.alpha);
+            tc.verifyEqual(c0.E3_Tilt.alpha_met_post, c0.E3_Tilt.alpha);
+            tc.verifyEqual(c0.total, rc0.total * tonm, 'RelTol', 1e-12);
+            % the two writers
+            wd = tempname; mkdir(wd); cl = onCleanup(@() rmdir(wd, 's'));
+            macos.budget.write_xlsx(R, coef, fullfile(wd, 'b.xlsx'));
+            macos.budget.write_csv(R, fullfile(wd, 'b.csv'));
+            tc.verifyTrue(isfile(fullfile(wd, 'b.xlsx')) && isfile(fullfile(wd, 'b.csv')));
+        end
+
         function test_matches_run_met_rmsw(tc)
             % cov_budget on one full-cov group == sqrt(trace(X*G)/nw)
             rng(21); Nw = 400; nz = 24; Jk = randn(Nw, nz);
