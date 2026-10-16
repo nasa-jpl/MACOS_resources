@@ -911,8 +911,13 @@ stage.  Gotchas:
   `to_coef` convert to nm via `cbm*1e9`.  Mirror of the `run_met`
   base-vs-SI equivalence (`tRunMet.test_base_and_legacy_si_jac...`).
 - **cov == MC is the correctness gate** (paper Fig. 6): `tBudgetKernel`
-  (pure algebra, no engine) and `tRunBudget` (real e5hex1 harvest, 104 nm,
-  0.4%) both assert it.  By construction the distribution second moments
+  (pure algebra, no engine) and `tRunBudget` (real e5hex1 harvest, 317.4 nm
+  cov == MC) both assert it.  (v1 reported 104 nm: `assemble` gated the
+  per-metre conversion on `exist('macos.dwdx_trans_per_metre','file')`,
+  which is 0 for a PACKAGE function, so decenter/despace came out
+  1/cbm = 1000x small on the mm deck; fixed 2026-10-15, gate
+  `tBudgetKernel/test_base_harvest_converts_translation_per_metre`.
+  Never guard a `macos.*` call with `exist` -- use `which` or nothing.)  By construction the distribution second moments
   match (normal sigma^2; uniform h^2/3; worstcase h^2), so agreement holds
   for every `Dist`.
 - **Group table, one schema, three surfaces** (`read_spec`): Excel / CSV /

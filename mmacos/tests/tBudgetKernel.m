@@ -143,6 +143,39 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             tc.verifyEqual(rc.total, rm.total, 'RelTol', 0.08);
         end
 
+        function test_base_harvest_converts_translation_per_metre(tc)
+            % A dw_dx harvest with trans_output='base' (the dw_dx default
+            % since 2026-10-06: translation columns per BaseUnit) must give
+            % the SAME model as its per-SI-metre twin -- the sigma path
+            % (covariance_model) converts length sigmas to metres.  Red on
+            % a0961dc: assemble gated the conversion on exist('macos.
+            % dwdx_trans_per_metre','file'), which is 0 for a package
+            % function, so on an mm deck every decenter / despace
+            % contribution came out 1/cbm = 1000x small.
+            rng(6); Nw = 300;
+            dofs = {'Rx','Ry','Rz','Tx','Ty','Tz'}; cn = {}; iE = []; df = [];
+            for e = [3 4], for d = 1:6
+                cn{end+1} = sprintf('Elt %d %s', e, dofs{d}); iE(end+1)=e; df(end+1)=d-1; %#ok<AGROW>
+            end, end
+            cbm = 1e-3;
+            si = struct('dwdxall', randn(Nw,12), 'channel_names', {cn}, ...
+                'iElt', iE, 'dof_idx', df, 'kind', {repmat({'RigidBody'},12,1)}, ...
+                'cbm', cbm, 'base_units', 'mm', 'trans_output', 'si');
+            bu = si;  bu.trans_output = 'base';
+            t = df >= 3;
+            bu.dwdxall(:, t) = bu.dwdxall(:, t) * cbm;     % per BaseUnit
+            Ms = macos.budget.assemble(si);
+            Mb = macos.budget.assemble(bu);
+            tc.verifyEqual(Mb.J, Ms.J, 'RelTol', 1e-12);
+            tc.verifyEqual(Mb.trans_output, 'si');
+            T = cell2table({'Dec','all','decenter','','','dwdx','normal',100,'nm',NaN,NaN,'iid',''}, ...
+                'VariableNames', {'Name','Elements','DOFs','Modes','Param', ...
+                'Channel','Dist','Sigma','Units','Min','Max','Cov','Control'});
+            rs = macos.budget.cov_budget(Ms, macos.budget.spec_from_table(T, Ms));
+            rb = macos.budget.cov_budget(Mb, macos.budget.spec_from_table(T, Mb));
+            tc.verifyEqual(rb.total, rs.total, 'RelTol', 1e-12);
+        end
+
         function test_zernike_decomp_recovers_modes(tc)
             n = 64; [X, Y] = meshgrid(linspace(-1, 1, n));
             mask = (X.^2 + Y.^2) <= 1;
