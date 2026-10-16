@@ -1,14 +1,29 @@
 #!/usr/bin/env python3
 """
-gen_mex_wrappers.py -- Codegen mmacos mex helpers from macos_api_mod.F90.
+gen_mex_wrappers.py -- one generator, three binding targets, from macos_api_mod.F90.
 
-Parses every public subroutine in macos_api_mod and emits:
+Parses every public subroutine in macos_api_mod ONCE and emits:
+  mex (mmacos):
   - mmacos_gen.F: one do_<name>(nlhs, plhs, nrhs, prhs) helper per routine
                   + a gen_dispatch(cmd, nlhs, plhs, nrhs, prhs, handled)
                   subroutine that the main mexFunction calls after its
                   own hand-written cases.
   - mmacos_gen_cmds.txt: machine-readable command list (one per line),
                   consumed by MacosSession.m and the smoke test.
+  f2py (pymacos):
+  - ../../pymacos/src/cmake/source/pymacos_f2py.f90: `module api`, one
+                  forwarding wrapper per routine (NAME_impl => NAME); the
+                  !f2py hints and interface rewrites come from
+                  binding_overrides.py (generator INPUT).  New routines get
+                  the mex's rule: intent(inout) is read AND returned.
+  veneer (pymacos):
+  - ../../pymacos/src/pymacos/api_gen.py: one Python stub per routine --
+                  f2py's arguments, ok checked (ApiError), the other outputs
+                  returned; docstring = the Fortran comment block above the
+                  routine.  Behaviour stays hand-written in macos.py.
+Generated files are regenerated, never hand-edited.  Targets: --targets
+mex,f2py,veneer (default all); --out-dir DIR writes everything into DIR (a
+side tree, or a byte-compare against the committed outputs).
 
 Conventions:
   - prhs slots = intent(in) and intent(inout) args, in declaration order
@@ -26,8 +41,8 @@ Conventions:
   - Helper routines (SystemCheck, EltRangeChk, etc.) are skipped via
                     PRIVATE_HELPERS.
 
-Run from MACOS_resources/mmacos/:
-  python3 gen_mex_wrappers.py [path/to/macos_api_mod.F90]
+Run from MACOS_resources/mmacos/src/ (plain python3; no numpy needed):
+  python3 gen_mex_wrappers.py [path/to/macos_api_mod.F90] [--targets ...] [--out-dir DIR]
 """
 import os
 import re
@@ -76,6 +91,8 @@ class Arg:
     type: str        # 'logical' | 'integer' | 'real' | 'character' | '?'
     intent: str      # 'in' | 'out' | 'inout' | '?'
     dims: list = field(default_factory=list)  # list of symbolic dim exprs
+    base: str = ''   # declared type spec verbatim, e.g. 'real(8)', 'character(len=*)'
+    comment: str = ''  # trailing `!` comment of the declaration line
 
     @property
     def is_scalar(self):
@@ -106,7 +123,7 @@ DECL_RE = re.compile(
     (?P<attrs>(?:(?:dimension\s*\([^)]+\)|intent\s*\([^)]+\))\s*,?\s*)*)
     ::\s*
     (?P<names>[^!\n]+?)
-    \s*(?:!.*)?$
+    \s*(?:!(?P<comment>.*))?$
     ''',
     re.MULTILINE | re.IGNORECASE | re.VERBOSE,
 )
@@ -211,6 +228,8 @@ def parse_subroutines(src):
                 if key in args_by_name:
                     a = args_by_name[key]
                     a.type = ttype
+                    a.base = re.sub(r'\s+', '', base)
+                    a.comment = (dm.group('comment') or '').strip()
                     if intent_v != '?':
                         a.intent = intent_v
                     if per_name_dim:
@@ -547,13 +566,409 @@ def emit_helper(name, args, local_params=None, use_only_map=None):
     return '\n'.join(lines), prhs_args, plhs_args
 
 
+# --- pymacos targets: the f2py layer and the Python veneer stubs ---------
+#
+# Both are emitted from the SAME parse as the mex helpers above.  The f2py
+# layer (pymacos_f2py.f90, `module api`) is one forwarding wrapper per api
+# routine; the per-routine `!f2py` hints and the few interface rewrites
+# live in binding_overrides.py (generator INPUT).  The veneer stubs
+# (pymacos/api_gen.py) are one Python function per bound routine: the
+# arguments f2py exposes, `ok` checked and raised on (ApiError), the other
+# outputs returned in declaration order -- the mex's plhs rule.
+
+F2PY_USES = ['Kinds', 'math_mod', 'param_mod', 'src_mod', 'elt_mod',
+             'macos_mod', 'smacos_mod']
+# functions + module state re-exported to Python through lib.api
+F2PY_REEXPORT = ['currrent_macos_model_size', 'checkSurfaceID', 'checkEltID',
+                 'SystemCheck', 'EltRangeChk', 'StatusChk1']
+# internal helper subroutines the hand-written f2py layer also wrapped
+# (lib.api.translatesurfaceid / translateeltid); kept so the Python
+# surface only grows.  No veneer stub.
+F2PY_HELPERS_WRAPPED = ['translateSurfaceID', 'translateEltID']
+
+
+def subroutine_doc(src, name):
+    """The `!` comment block immediately above `subroutine NAME(`, rules
+    (`!----`) dropped, the leading `! ` stripped.  [] when there is none."""
+    m = re.search(r'^\s+subroutine\s+' + re.escape(name) + r'\s*\(',
+                  src, re.MULTILINE | re.IGNORECASE)
+    if not m:
+        return []
+    lines = src[:m.start()].split('\n')
+    block = []
+    for ln in reversed(lines[:-1] if lines and not lines[-1].strip() else lines):
+        st = ln.strip()
+        if st.startswith('!'):
+            block.append(st)
+        elif not st and not block:
+            continue
+        else:
+            break
+    out = []
+    for st in reversed(block):
+        body = st[1:]
+        if re.match(r'^\s*[-=]{4,}\s*$', body):
+            continue
+        out.append(body[1:] if body.startswith(' ') else body)
+    while out and not out[0].strip():
+        out.pop(0)
+    while out and not out[-1].strip():
+        out.pop()
+    return out
+
+
+def _wrap_free(head, items, cont_indent, width=120):
+    """Join `items` with ', ' after `head`, breaking with a trailing `&`
+    (free form) whenever a line would pass `width`."""
+    lines = []
+    cur = head + items[0]
+    for it in items[1:]:
+        if len(cur) + 2 + len(it) <= width:
+            cur += ', ' + it
+        else:
+            lines.append(cur + ', &')
+            cur = cont_indent + it
+    lines.append(cur)
+    return lines
+
+
+def _hint_attrs(hints):
+    """name(lower) -> set of intent words the !f2py hints give it."""
+    out = {}
+    for h in hints:
+        body = re.sub(r'^!f2py\s*', '', h, flags=re.IGNORECASE)
+        if '::' not in body:
+            continue
+        attrs, names = body.split('::', 1)
+        names = names.split('!')[0]
+        im = re.search(r'intent\s*\(([^)]*)\)', attrs, re.IGNORECASE)
+        words = {w.strip().lower() for w in im.group(1).split(',')} if im else set()
+        for nm in _split_namelist(names):
+            key = nm.split('=')[0].strip().lower()
+            out.setdefault(key, set()).update(words)
+    return out
+
+
+def f2py_view(name, args, ov):
+    """The Python-level view f2py gives this wrapper: (inputs, outputs),
+    each a list of (lower-name, Arg); inputs carry an `optional` flag.
+
+    f2py's rules as pymacos uses them: intent(out) -> returned, not an
+    argument; intent(hide) -> not an argument; intent(in,out) -> argument
+    AND returned; intent(inout) -> argument, modified in place; a scalar
+    that sizes an input array (and that no hint names) -> optional."""
+    hints = ov.F2PY_HINTS.get(name, [])
+    hattr = _hint_attrs(hints)
+    legacy = name in ov.F2PY_LEGACY
+    dims_of_inputs = set()
+    for a in args:
+        if a.intent in ('in', 'inout') and a.dims:
+            for d in ov.F2PY_DIMS.get(name, {}).get(a.name, a.dims):
+                for tok in re.findall(r'[A-Za-z_]\w*', d):
+                    dims_of_inputs.add(tok.lower())
+    ins, outs = [], []
+    for a in args:
+        k = a.name.lower()
+        words = hattr.get(k, set())
+        intent = a.intent
+        if not legacy and intent == 'inout':
+            words = words | {'in', 'out'}
+        hidden = 'hide' in words
+        if intent == 'out' or 'out' in words:
+            outs.append((k, a))
+            if intent == 'out' or hidden:
+                continue
+        if hidden:
+            continue
+        optional = (a.is_scalar and k in dims_of_inputs and not words)
+        ins.append((k, a, optional))
+    return ins, outs
+
+
+def emit_f2py_wrapper(name, args, local_params, ov):
+    if name in ov.F2PY_VERBATIM:
+        return ov.F2PY_VERBATIM[name].rstrip('\n')
+    dims_ov = ov.F2PY_DIMS.get(name, {})
+    head = _wrap_free(f'      subroutine {name}(', [a.name for a in args],
+                      ' ' * len(f'      subroutine {name}('))
+    L = head[:-1] + [head[-1] + ')']
+    used = set()
+    for a in args:
+        for d in dims_ov.get(a.name, a.dims):
+            used.update(re.findall(r'[A-Za-z_]\w*', d))
+    mods = {}
+    for p, (rhs, src_mod) in local_params.items():
+        if p in used and src_mod:
+            mods.setdefault(src_mod, []).append(rhs)
+    for mod, syms in sorted(mods.items()):
+        L.append(f'        use {mod}, only: {", ".join(sorted(syms))}')
+    L.append('        implicit none')
+    for p, (rhs, _) in local_params.items():
+        if p in used:
+            L.append(f'        integer, parameter :: {p} = {rhs}')
+    for a in args:
+        dims = dims_ov.get(a.name, a.dims)
+        spec = a.base or {'logical': 'logical', 'integer': 'integer',
+                          'real': 'real(8)'}[a.type]
+        if dims:
+            spec += f', dimension({",".join(dims)})'
+        line = f'        {spec}, intent({a.intent}) :: {a.name}'
+        if a.comment and len(line) + 4 + len(a.comment) <= 130:
+            line = f'{line:<64s}  ! {a.comment}' if len(line) < 64 else \
+                f'{line}  ! {a.comment}'
+            if len(line) > 130:
+                line = f'        {spec}, intent({a.intent}) :: {a.name}'
+        L.append(line)
+    hints = list(ov.F2PY_HINTS.get(name, []))
+    if name not in ov.F2PY_LEGACY:
+        for a in args:
+            if a.intent == 'inout':
+                hints.append(f'!f2py intent(in,out) :: {a.name}')
+    for h in hints:
+        L.append(f'        {h}')
+    L.append('')
+    call = _wrap_free(f'        CALL {name}_impl(', [a.name for a in args],
+                      ' ' * len(f'        CALL {name}_impl('))
+    L.extend(call[:-1] + [call[-1] + ')'])
+    L.append(f'      end subroutine {name}')
+    return '\n'.join(L)
+
+
+def check_param_asserts(ov, api_path):
+    """Each (module, PARAM, literal) of F2PY_PARAM_ASSERTS must hold in the
+    macos source next to the api file, or generation stops."""
+    srcdir = Path(api_path).resolve().parent
+    for mod, par, lit in ov.F2PY_PARAM_ASSERTS:
+        hits = []
+        for f in list(srcdir.glob('*.F')) + list(srcdir.glob('*.F90')) + \
+                list(srcdir.glob('*.f90')):
+            t = f.read_text(errors='replace')
+            if not re.search(r'^\s*module\s+' + mod + r'\b', t,
+                             re.MULTILINE | re.IGNORECASE):
+                continue
+            hits += re.findall(r'\b' + par + r'\s*=\s*(\w+)', t, re.IGNORECASE)
+        if lit not in hits:
+            sys.exit(f'binding_overrides: {mod}::{par} expected {lit}, '
+                     f'source has {hits or "nothing"} -- update F2PY_DIMS')
+
+
+def emit_f2py(subs, ov):
+    names = [s[0] for s in subs if s[0] not in PRIVATE_HELPERS]
+    bound = names + F2PY_HELPERS_WRAPPED
+    out = []
+    A = out.append
+    A('! pymacos_f2py.f90 -- f2py-facing wrapper layer (`module api`).')
+    A('!')
+    A('! AUTO-GENERATED by MACOS_resources/mmacos/src/gen_mex_wrappers.py from')
+    A('! macos_api_mod.F90 (+ binding_overrides.py).  DO NOT EDIT BY HAND:')
+    A('! re-run the generator.  Hand-written Python behaviour belongs in')
+    A('! pymacos/macos.py, over the generated pymacos/api_gen.py.')
+    A('!')
+    A('! Every routine forwards to its language-neutral sibling in')
+    A('! macos_api_mod (NAME_impl => NAME); the !f2py annotations live here so')
+    A('! the pure-Fortran backbone stays free of Python-specific markers.')
+    A(f'! Routines: {len(names)} api + {len(ov.F2PY_EXTRA)} f2py-only.')
+    A('')
+    A('')
+    A('  module api')
+    A('')
+    for u in F2PY_USES:
+        A(f'    use {u}')
+    A('')
+    A('    use macos_api_mod, only: &')
+    for i, n in enumerate(bound):
+        A(f'      {n}_impl => {n}' + (', &' if i < len(bound) - 1 else ''))
+    A('')
+    A('    ! Re-export functions and module state that Python may reach via lib.api.*')
+    A('    use macos_api_mod, only: &')
+    for i, n in enumerate(F2PY_REEXPORT):
+        A(f'      {n}' + (', &' if i < len(F2PY_REEXPORT) - 1 else ''))
+    A('')
+    A('    implicit none')
+    A('')
+    A('  contains')
+    A('')
+    for name, args, body, local_params, use_only_map in subs:
+        if name in PRIVATE_HELPERS and name not in F2PY_HELPERS_WRAPPED:
+            continue
+        A(emit_f2py_wrapper(name, args, local_params, ov))
+        A('')
+    for x in ov.F2PY_EXTRA:
+        A(x.rstrip('\n'))
+        A('')
+    A('  end module api')
+    A('')
+    return '\n'.join(out), names
+
+
+def _pyname(k):
+    import keyword
+    return k + '_' if keyword.iskeyword(k) else k
+
+
+def _py_doc(doc_lines, name, ins, outs, ok_name):
+    sig_in = ', '.join([k for k, a, o in ins if not o] +
+                       [f'[{k}]' for k, a, o in ins if o])
+    rets = [k for k, a in outs if k != ok_name]
+    D = []
+    D.extend(doc_lines or [f'macos_api_mod::{name}'])
+    D.append('')
+    D.append(f'Generated stub over lib.api.{name}({sig_in}).')
+    if ok_name:
+        D.append(f'Raises ApiError when the api returns {ok_name} = FAIL.')
+    if rets:
+        D.append('Returns: ' + ', '.join(rets))
+    return D
+
+
+def emit_veneer(subs, src, ov):
+    out = []
+    A = out.append
+    A('"""api_gen.py -- one Python function per macos_api_mod routine.')
+    A('')
+    A('AUTO-GENERATED by MACOS_resources/mmacos/src/gen_mex_wrappers.py from')
+    A('macos_api_mod.F90 -- DO NOT EDIT BY HAND; re-run the generator.')
+    A('')
+    A('The marshalling rule is the mex\'s: inputs are the routine\'s intent(in)')
+    A('and intent(inout) arguments in declaration order (minus the sizes f2py')
+    A('derives from the arrays, which are optional); outputs are its intent(out)')
+    A('and intent(inout) arguments in declaration order with `ok` dropped --')
+    A('a FAIL raises ApiError.  One output is returned bare, several as a tuple.')
+    A('(Routines bound before the generator keep their in-place intent(inout)')
+    A('arrays: those are passed in and filled, not returned.)')
+    A('')
+    A('Behaviour (unit conversion, defaults, shapes) belongs in macos.py, which')
+    A('calls these.')
+    A('"""')
+    A('from . import pymacosf90 as lib')
+    A('')
+    A('_api = lib.api')
+    A('')
+    A('')
+    A('class ApiError(RuntimeError):')
+    A('    """A macos_api_mod routine returned ok = FAIL."""')
+    A('')
+    names = []
+    sigs = []
+    for name, args, body, local_params, use_only_map in subs:
+        if name in PRIVATE_HELPERS:
+            continue
+        if name in ov.F2PY_VERBATIM:
+            # the Python view is the verbatim wrapper's, not the api's
+            args = parse_subroutines(ov.F2PY_VERBATIM[name])[0][1]
+        ins, outs = f2py_view(name, args, ov)
+        sigs.append((name.lower(), [k for k, a, o in ins if not o],
+                     [k for k, a, o in ins if o], [k for k, a in outs]))
+        ok = next((k for k, a in outs if k == 'ok'), None)
+        # f2py puts the optional (array-derived size) arguments last; a
+        # Python keyword (perturb_elt's `del`) gets a trailing underscore
+        params = ', '.join([_pyname(k) for k, a, o in ins if not o] +
+                           [f'{_pyname(k)}=None' for k, a, o in ins if o])
+        A('')
+        A(f'def {name.lower()}({params}):')
+        doc = _py_doc(subroutine_doc(src, name), name, ins, outs, ok)
+        A('    """' + doc[0].replace('\\', '\\\\').replace('"""', "'''"))
+        for d in doc[1:]:
+            d = d.replace('\\', '\\\\').replace('"""', "'''")
+            A(('    ' + d).rstrip())
+        A('    """')
+        req = [_pyname(k) for k, a, opt in ins if not opt]
+        opt = [k for k, a, o in ins if o]
+        A(f'    _kw = {{}}')
+        for k in opt:
+            A(f'    if {_pyname(k)} is not None:')
+            A(f'        _kw[{k!r}] = {_pyname(k)}')
+        A(f'    _r = _api.{name.lower()}({", ".join(req + ["**_kw"])})')
+        nout = len(outs)
+        rets = [k for k, a in outs if k != ok]
+        if nout == 0:
+            A('    return None')
+        elif nout == 1:
+            if ok:
+                A('    if not _r:')
+                A(f'        raise ApiError({name.lower()!r})')
+                A('    return None')
+            else:
+                A('    return _r')
+        else:
+            if ok:
+                idx = [k for k, a in outs].index(ok)
+                A(f'    if not _r[{idx}]:')
+                A(f'        raise ApiError({name.lower()!r})')
+                keep = [i for i, (k, a) in enumerate(outs) if k != ok]
+                if len(keep) == 1:
+                    A(f'    return _r[{keep[0]}]')
+                else:
+                    A(f'    return ({", ".join(f"_r[{i}]" for i in keep)})')
+            else:
+                A('    return _r')
+        names.append(name)
+    A('')
+    A('')
+    A('# every macos_api_mod routine this module binds (the coverage gate reads it)')
+    A('API_ROUTINES = (')
+    for n in names:
+        A(f'    {n.lower()!r},')
+    A(')')
+    A('')
+    A('# the f2py view each stub was generated against: name -> (required inputs,')
+    A('# optional inputs, outputs); test_api_coverage checks it against lib.api.')
+    A('F2PY_SIGNATURES = {')
+    for n, req, opt, outs in sigs:
+        A(f'    {n!r}: ({tuple(req)!r}, {tuple(opt)!r}, {tuple(outs)!r}),')
+    A('}')
+    A('')
+    return '\n'.join(out), names
+
+
 def main():
     here = Path(__file__).parent          # mmacos/src
     # ../../../macos/macos_f90 : src -> mmacos -> MACOS_resources -> ~/dev
     default_src = here / '..' / '..' / '..' / 'macos' / 'macos_f90' / 'macos_api_mod.F90'
-    src_path = Path(sys.argv[1]) if len(sys.argv) > 1 else default_src.resolve()
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
+    ap.add_argument('api', nargs='?', default=str(default_src.resolve()),
+                    help='macos_api_mod.F90 (default: the sibling macos tree)')
+    ap.add_argument('--targets', default='mex,f2py,veneer',
+                    help='comma list of mex, f2py, veneer (default: all three)')
+    ap.add_argument('--out-dir', default=None,
+                    help='write every output into this directory instead of '
+                         'its place in the mmacos / pymacos trees')
+    opts = ap.parse_args()
+    targets = {t.strip() for t in opts.targets.split(',') if t.strip()}
+    bad = targets - {'mex', 'f2py', 'veneer'}
+    if bad:
+        sys.exit(f'unknown target(s): {sorted(bad)}')
+    src_path = Path(opts.api)
     src = src_path.read_text()
     subs = parse_subroutines(src)
+    pyroot = here / '..' / '..' / 'pymacos' / 'src'
+    if opts.out_dir:
+        od = Path(opts.out_dir)
+        od.mkdir(parents=True, exist_ok=True)
+        mex_dir = f2py_dir = ven_dir = od
+    else:
+        mex_dir = here
+        f2py_dir = pyroot / 'cmake' / 'source'
+        ven_dir = pyroot / 'pymacos'
+
+    if {'f2py', 'veneer'} & targets:
+        sys.path.insert(0, str(here))
+        import binding_overrides as ov
+        check_param_asserts(ov, src_path)
+    if 'f2py' in targets:
+        text, names = emit_f2py(subs, ov)
+        p = f2py_dir / 'pymacos_f2py.f90'
+        p.write_text(text)
+        print(f'Wrote {p}: {len(names)} api routines + '
+              f'{len(ov.F2PY_EXTRA)} f2py-only')
+    if 'veneer' in targets:
+        text, names = emit_veneer(subs, src, ov)
+        p = ven_dir / 'api_gen.py'
+        p.write_text(text)
+        print(f'Wrote {p}: {len(names)} stubs')
+    if 'mex' not in targets:
+        return
 
     helpers = []
     cmds = []
@@ -606,11 +1021,11 @@ def main():
     for name, text, _, _ in helpers:
         out_lines.append(text)
 
-    out_path = here / 'mmacos_gen.F'
+    out_path = mex_dir / 'mmacos_gen.F'
     out_path.write_text('\n'.join(out_lines))
     print(f'Wrote {out_path}: {len(helpers)} routines, {len(skipped)} skipped')
 
-    cmds_path = here / 'mmacos_gen_cmds.txt'
+    cmds_path = mex_dir / 'mmacos_gen_cmds.txt'
     all_cmds = sorted(set(cmds) | HAND_WRITTEN_CMDS)
     cmds_path.write_text('\n'.join(all_cmds) + '\n')
     print(f'Wrote {cmds_path}: {len(all_cmds)} total commands')

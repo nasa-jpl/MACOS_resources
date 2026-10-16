@@ -215,6 +215,14 @@ with a new `do_<name>` helper and a new `CASE` in `gen_dispatch`.
 The main `mexFunction`'s `CASE DEFAULT` falls through to
 `gen_dispatch`, so the command becomes callable from MATLAB with no
 edits to `mmacos_mex.F`.  Re-run `make` and the new command is wired.
+**The same run writes pymacos's two generated files** (2026-10-16,
+BRIEF_to_bindings A.2): `pymacos/src/cmake/source/pymacos_f2py.f90` (the
+f2py layer) and `pymacos/src/pymacos/api_gen.py` (Python stubs), so the
+routine reaches all three front ends from one edit; `make` in
+`pymacos/src/cmake/build` too.  `--targets mex` restricts it; `--out-dir`
+writes into a scratch dir (the byte-compare: the committed `mmacos_gen.F`
+must come back identical).  f2py hints / interface rewrites:
+`binding_overrides.py`.  Coverage gates: pymacos `tests/test_api_coverage.py`.
 
 **Path B — hand-write the helper.**  Required when:
 - The arg shape exceeds rank 2 (e.g. `elt_csys_get`'s 3×3×N csys).
