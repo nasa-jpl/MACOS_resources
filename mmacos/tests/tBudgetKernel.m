@@ -43,6 +43,20 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             end
             spec = struct('groups', groups);
         end
+
+        function [M, dspec, H, R] = met_synth(seed, seen)
+            % 12 drift states in two iid groups (1..6 at 1 um, 7..12 at
+            % 2 um), 10 gauges that see the states SEEN, gauge noise 0.2 um.
+            rng(seed); Nw = 300; nz = 12; Jk = randn(Nw, nz);
+            M = struct('G', Jk'*Jk, 'nw', Nw, 'Jk', Jk, 'cbm', 1);
+            mk = @(nc, s) struct('type', 'iid', 'var', s^2, 'sigma_native', s, ...
+                'class', 'length_si', 'Sigma', [], 'sampler', @() s .* randn(nc, 1));
+            c1 = false(nz, 1); c1(1:6) = true;  c2 = ~c1;
+            dspec = struct('groups', struct('name', {'d1', 'd2'}, ...
+                'cols', {c1, c2}, 'cm', {mk(6, 1e-6), mk(6, 2e-6)}));
+            H = zeros(10, nz);  H(:, seen) = randn(10, numel(seen));
+            R = (2e-7)^2 * eye(10);
+        end
     end
 
     methods (Test)
@@ -133,6 +147,53 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             tc.verifyEmpty(rc0.extra);
             tc.verifyEqual(rc0.alpha, rc0.alpha_pre);
             tc.verifyEqual(rc0.total, rc0.total_pre);
+        end
+
+        function test_met_stage_reduces_to_run_met(tc)
+            % project_met with EVERY state actuated is run_met.m's merit,
+            % sqrt(trace(post*G)/nw), post = X - X*H'*((H*X*H'+R)\(H*X)),
+            % and with no actuators the estimate corrects nothing.
+            [M, dspec, H, R] = tBudgetKernel.met_synth(31, 1:12);
+            X = blkdiag(1e-12 * eye(6), 4e-12 * eye(6));
+            post = X - X*H'*((H*X*H' + R) \ (H*X));
+            rmsw = sqrt(trace(post * M.G) / M.nw);
+            rt = macos.budget.project_met(M, dspec, H, R, 'control', true(12, 1));
+            tc.verifyEqual(rt.total_post, rmsw, 'RelTol', 1e-10);
+            tc.verifyEqual(rt.total_pre, sqrt(trace(X * M.G) / M.nw), 'RelTol', 1e-12);
+            tc.verifyEqual(rt.post, post, 'RelTol', 1e-12);
+            r0 = macos.budget.project_met(M, dspec, H, R);
+            tc.verifyEqual(r0.wfe_post, r0.wfe_pre, 'RelTol', 1e-12);
+            tc.verifyEqual(r0.extra(1).wfe, 0);
+        end
+
+        function test_met_stage_cov_equals_mc_and_unseen_passes(tc)
+            % Partial control (11 of 12 states actuated), the estimator in
+            % the loop: cov == MC per drift group, gauge row and total; a
+            % drift the metrology cannot see (group 2: H's columns 7..12
+            % are zero) passes through UNCORRECTED (post == pre, not the
+            % WFC stage's post value); remove the gauges and the seen
+            % group's post rises to its pre value (the must-fail leg).
+            ctrl = false(12, 1); ctrl([1:5 7:12]) = true;
+            [M, dspec, H, R] = tBudgetKernel.met_synth(32, 1:6);
+            rt = macos.budget.project_met(M, dspec, H, R, 'control', ctrl);
+            rm = macos.budget.mc_met(M, dspec, H, R, 'control', ctrl, ...
+                'ndraw', 20000, 'seed', 4);
+            tc.verifyEqual(rm.wfe_pre, rt.wfe_pre, 'RelTol', 0.05);
+            tc.verifyEqual(rm.wfe_post, rt.wfe_post, 'RelTol', 0.05);
+            tc.verifyEqual(rm.extra(1).wfe, rt.extra(1).wfe, 'RelTol', 0.05);
+            tc.verifyEqual(rm.total_post, rt.total_post, 'RelTol', 0.05);
+            % unseen: post == pre exactly -- although the WFC stage nulls
+            % the same group (all of 7..12 actuated): between WFC updates
+            % only the metrology drives the controller
+            tc.verifyEqual(rt.alpha_met_post(2), rt.alpha_met(2), 'RelTol', 1e-12);
+            rc = macos.budget.cov_budget(M, dspec, 'control', ctrl);
+            tc.verifyLessThan(rc.alpha(2), 1e-12 * rt.alpha_met_post(2));
+            % seen: metrology helps
+            tc.verifyLessThan(rt.wfe_post(1), 0.5 * rt.wfe_pre(1));
+            % must-fail: no gauges -> the seen group's post rises to pre
+            r0 = macos.budget.project_met(M, dspec, 0 * H, R, 'control', ctrl);
+            tc.verifyEqual(r0.wfe_post(1), r0.wfe_pre(1), 'RelTol', 1e-12);
+            tc.verifyGreaterThan(r0.wfe_post(1), 2 * rt.wfe_post(1));
         end
 
         function test_matches_run_met_rmsw(tc)

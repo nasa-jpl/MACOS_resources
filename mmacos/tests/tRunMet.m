@@ -185,6 +185,47 @@ classdef tRunMet < matlab.unittest.TestCase
             tc.verifySize(art.dwdl, [nnz(art.keep), size(art.dldx, 1)]);
         end
 
+        function test_budget_met_stage_reproduces_run_met(tc)
+            % The error budget's metrology stage (macos.budget.project_met
+            % via cov_budget's 'met' option) on run_met's OWN products
+            % (its dwdx, prior X, H = [dedx; dldx], R = blkdiag(Re, Rl)),
+            % every body state actuated: the post-metrology total IS
+            % run_met's merits.edge_met and the pre total merits.prior,
+            % to 1e-10 -- the refactor-safety gate for the lifted kernel.
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            here = fileparts(mfilename('fullpath'));
+            res_root = fileparts(fileparts(here));
+            copyfile(tc.seg.in, fullfile(wd, 'pie.in'));
+            copyfile(tc.seg.hx, fullfile(wd, 'pieHx.m'));
+            copyfile(fullfile(res_root, 'segmirmaker', 'test_in', ...
+                'flat.txt'), fullfile(wd, 'flat.txt'));
+            art = run_met(fullfile(wd, 'pie.in'), 'hx', fullfile(wd, 'pieHx.m'), ...
+                'jac', tc.jac, 'hub', 8, 'aft', 11, 'r_extra', 100, ...
+                'min_sep', 30, 'optimize', false, 'mc', 0, 'verbose', false);
+            Jk = art.dwdx(art.keep, :);  nz = size(Jk, 2);
+            M = struct('G', Jk'*Jk, 'nw', nnz(art.keep), 'Jk', Jk, 'cbm', 1);
+            cm = struct('type', 'full', 'Sigma', art.X, 'class', 'length_si', ...
+                'var', NaN, 'sigma_native', sqrt(mean(diag(art.X))), ...
+                'sampler', @() sqrt(diag(art.X)) .* randn(nz, 1));
+            spec = struct('groups', struct('name', 'bodies', 'cols', true(nz, 1), 'cm', cm));
+            met = struct('drift', spec, 'H', [art.dedx; art.dldx], ...
+                'R', blkdiag(art.Re, art.Rl));
+            rc = macos.budget.cov_budget(M, spec, 'control', true(nz, 1), 'met', met);
+            tc.verifyEqual(rc.met.total_post, art.merits.edge_met, 'RelTol', 1e-10);
+            tc.verifyEqual(rc.met.total_pre, art.merits.prior, 'RelTol', 1e-10);
+            % and the estimator in the loop agrees (Monte-Carlo)
+            rm = macos.budget.mc_met(M, spec, met.H, met.R, ...
+                'control', true(nz, 1), 'ndraw', 2000, 'seed', 3);
+            tc.verifyEqual(rm.total_post, rc.met.total_post, 'RelTol', 0.06);
+            fprintf(['[met stage] post %.15g vs run_met edge_met %.15g (rel %.2e); ' ...
+                'pre %.15g vs prior %.15g (rel %.2e); MC %.6g (%d draws)\n'], ...
+                rc.met.total_post, art.merits.edge_met, ...
+                abs(rc.met.total_post/art.merits.edge_met - 1), rc.met.total_pre, ...
+                art.merits.prior, abs(rc.met.total_pre/art.merits.prior - 1), ...
+                rm.total_post, rm.ndraw);
+        end
+
         function test_base_and_legacy_si_jac_give_the_same_merits(tc)
             % run_met's merit trace(X*Gdt) takes X in SI (sig_trans m), so
             % it converts the harvest with dwdx_trans_per_metre.  A 'base'
