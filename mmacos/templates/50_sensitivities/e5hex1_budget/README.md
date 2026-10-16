@@ -1,3 +1,5 @@
+**Open: `MACOS_resources/mmacos/templates/50_sensitivities/e5hex1_budget/e5hex1_wfe_budget.xlsx`** — the live-formula WFE calculator (Excel or LibreOffice; regenerate with `run_budget_e5hex1`).
+
 # e5hex1 error budget — worked example
 
 An optical **error budget** built from a MACOS `dw/dx` sensitivity harvest,
@@ -51,9 +53,12 @@ error is rigid-body. The pseudo-inverse controller `G = pinv(dw/du)`
 `alpha_post = sqrt(trace(Pu D S D' Pu')/n)` (Eq. 30), and adds two kinds of
 row:
 
-- **WFS Sensing Error** (Eq. 32), 3 nm rms per wavefront sample (iid over
-  the Jacobian's rays): only its controllable part leaks,
-  `alpha^2 = rank(dw/du)/n` = 48/51225 here.
+- **WFS Sensing Error** (Eq. 32), 3 nm rms of WHITE per-sample noise (iid
+  over the Jacobian's rays; Dave's ruling 2026-10-16, the default): only
+  its controllable part leaks, `alpha^2 = rank(dw/du)/n` = 48/51225 here.
+  The HabEx sheet's reading (alpha = 1, the 3 nm passes whole) is one edit
+  in the workbook — type 1 in the WFS line's `Coefficients!M` cell; the
+  workbook's **Log** sheet names the cell.
 - **one actuator row per control group** (Eq. 31, unprojected), 1 nm per
   DOF; a rotation takes 1 nm of EDGE motion, `theta = 1 nm / r_edge`
   (segment vertex radius 1510.73 mm → 0.662 nrad; SM radius 615 mm →
