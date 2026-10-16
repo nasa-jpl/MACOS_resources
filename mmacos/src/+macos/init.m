@@ -8,9 +8,12 @@ function init(model_size)
 %   anything else by calling `stop`, which would take the whole MATLAB
 %   process down with it, so it is screened here first.
 %
+%   MODEL_SIZE omitted: 256, the engine's default (the CLI's prompt on
+%   Return, SMACOS with no size) and pymacos's (Dave 2026-10-16).
+%
 %   See also: macos.model_sizes, macos.unload, macos.load_rx, macos.has_rx.
 arguments
-    model_size (1,1) double {mustBeInteger, mustBePositive}
+    model_size (1,1) double {mustBeInteger, mustBePositive} = 256
 end
 if ~ismember(model_size, macos.model_sizes())
     error('macos:init:badModelSize', ...

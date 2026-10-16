@@ -311,12 +311,13 @@ def model_size() -> int:
     return int(lib.api.model_size_get())
 
 
-def init(model_size: int = 512) -> None:
+def init(model_size: int = 256) -> None:
     """Initialises MACOS and defines model size
 
     Args:
         model_size (int, optional): must be: 128, 256, 512, 1024, 2048 or 4096.
-                                    Defaults to 512.
+                                    Defaults to 256, the engine's (SMACOS with no
+                                    size) and mmacos's (Dave 2026-10-16; was 512).
 
     Raises:
         ValueError: if model_size was invalid
@@ -4717,7 +4718,7 @@ def perturb_src(rotation_rad: Tuple[float, float, float] = (0.0, 0.0, 0.0),
 
 
 def spot(srf: int | Tuple[int] | np.int32,
-         vpt_center: bool | int = True,
+         vpt_center: bool | int | None = None,
          beam_csys: int = 1,
          reset_trace: bool = True
          ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -4730,9 +4731,10 @@ def spot(srf: int | Tuple[int] | np.int32,
            Neg. values are referenced with respect to the last surface
            where -1 (== # of Elements) is the last surface, i.e., Img. Srf.
 
-        vpt_center (bool):
-            If (True or 1) Element Center (default) is ref. pos.;
-            otherwise, (False, 0) Chief-Ray Pos.
+        vpt_center (bool | None):
+            If (True or 1) Element Center is ref. pos.; (False, 0) Chief-Ray
+            Pos.; None (default) the SESSION's centre, the engine's SPCENTER
+            (api spc_option_get; the element vertex unless SPCENTER CHFRAY).
 
         beam_csys (int):
             defining the Coord. Sys. for Spot where
@@ -4758,9 +4760,10 @@ def spot(srf: int | Tuple[int] | np.int32,
             uniform intensity, i.e., pts.mean(axis=0)
 
         shift (Vector[np.float64]):
-            shift = nd.array([dx,dy]) where [dx,dy] is shift from
-             (a) Element Vertex Position in local CSYS (if vpt_center=1)
-             (b) Chief-Ray Intersection point in local CSYS (if vpt_center=0)
+            the api's 4-vector [cx, cy, vx, vy]: the chief-ray intersection
+            (cx, cy) and the element vertex (vx, vy) in the selected local CSYS,
+            whatever vpt_center is -- the mmacos convention (Dave 2026-10-16;
+            until then only the half vpt_center selected).
 
         csys (Matrix[np.float64]):
             csys = [x_axis, y_axis, z_axis] a 3x3 matrix where
@@ -4773,6 +4776,8 @@ def spot(srf: int | Tuple[int] | np.int32,
     # logical (1=ELT vertex / 0=chief ray).  beam_csys -> ref_csys and
     # vpt_center -> ref_pos (previously swapped, which made vpt_center=False
     # send ref_csys=0 and spot_cmd reject every call -- no spot test caught it).
+    if vpt_center is None:
+        vpt_center = int(_gen.spc_option_get()) == 1
     ok, npts = lib.api.spot_cmd(_map_Elt(srf).squeeze(),
                                 np.int32(beam_csys),
                                 np.int32(vpt_center),
@@ -4784,7 +4789,7 @@ def spot(srf: int | Tuple[int] | np.int32,
     if not ok:
         raise Exception('MACOS threw an exception')
 
-    return pts, centre, shift[2:] if vpt_center else shift[:2], csys
+    return pts, centre, shift, csys
 
 
 
@@ -5557,7 +5562,7 @@ def pfp(place_elt: int | np.int32,
         raise Exception(f'MACOS: pfp(place_elt={s}) failed -- stop set?')
 
 
-def obs_set(option: str = 'positive') -> None:
+def obs_set(option: str | None = None) -> None | str:
     """OBS -- set the ray-trace obscuration option for spot diagrams.
 
     Controls which rays :func:`spot` plots (iObsOpt):
@@ -5569,13 +5574,20 @@ def obs_set(option: str = 'positive') -> None:
     restore 'positive' so the diffraction trace stays masked.
 
     Args:
-        option: 'all' | 'positive' | 'negative'.
+        option: 'all' | 'positive' | 'negative'; None (default) QUERIES the
+            option in force (api obs_opt_get) -- it no longer sets 'positive'
+            (Dave 2026-10-16: the veneer restates no engine default).
+
+    Returns:
+        None when setting; the option name when querying.
 
     Raises:
         Exception: Rx not loaded, bad option, or MACOS rejected the call.
     """
     _chk_macos_and_rx_loaded()
     codes = {'all': 0, 'positive': 1, 'negative': 2}
+    if option is None:
+        return {v: k for k, v in codes.items()}[int(_gen.obs_opt_get())]
     if option not in codes:
         raise Exception(
             f"obs_set: option must be 'all'|'positive'|'negative', got {option!r}")

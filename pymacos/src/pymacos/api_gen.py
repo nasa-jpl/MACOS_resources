@@ -2749,6 +2749,37 @@ def ffcut_get():
         raise ApiError('ffcut_get')
     return (_r[1], _r[2])
 
+def spc_option_get():
+    """spc_option_get -- the session SPOT centre, spcOption (1 = the element vertex,
+    2 = the chief ray), set at allocation and by the CLI's SPCENTER; never reset
+    by a load.  The bindings' spot() default reads it (Dave 2026-10-16: an api
+    getter so the veneers inherit the engine's default instead of restating it).
+
+    Generated stub over lib.api.spc_option_get().
+    Raises ApiError when the api returns ok = FAIL.
+    Returns: opt
+    """
+    _kw = {}
+    _r = _api.spc_option_get(**_kw)
+    if not _r[0]:
+        raise ApiError('spc_option_get')
+    return _r[1]
+
+def obs_opt_get():
+    """obs_opt_get -- the session obscuration option of OBS / obs_set, iObsOpt
+    (0 = ALL, 1 = POSITIVE: unobscured rays, 2 = NEGATIVE), set at allocation
+    (POSITIVE).  Read by the bindings' obs query (Dave 2026-10-16).
+
+    Generated stub over lib.api.obs_opt_get().
+    Raises ApiError when the api returns ok = FAIL.
+    Returns: opt
+    """
+    _kw = {}
+    _r = _api.obs_opt_get(**_kw)
+    if not _r[0]:
+        raise ApiError('obs_opt_get')
+    return _r[1]
+
 def elt_asph_get(n, ielt):
     """elt_asph_get -- the even-radial aspheric coefficients (AsphCoef: h^4, h^6, ...)
     of element iElt, as CALIB's OptAsph= DOFs leave them (2026-10-04, the
@@ -3037,6 +3068,8 @@ API_ROUTINES = (
     'calib_set_beam_wt',
     'ffcut_set',
     'ffcut_get',
+    'spc_option_get',
+    'obs_opt_get',
     'elt_asph_get',
     'stop_info_get',
     'stop_info_set',
@@ -3197,6 +3230,8 @@ F2PY_SIGNATURES = {
     'calib_set_beam_wt': (('wt', 'centroid'), (), ('ok',)),
     'ffcut_set': (('on',), (), ('ok',)),
     'ffcut_get': ((), (), ('ok', 'on', 'npix')),
+    'spc_option_get': ((), (), ('ok', 'opt')),
+    'obs_opt_get': ((), (), ('ok', 'opt')),
     'elt_asph_get': (('n', 'ielt'), (), ('ok', 'coef')),
     'stop_info_get': ((), (), ('ok', 'ielt', 'vptoffset')),
     'stop_info_set': (('ielt', 'vptoffset'), (), ('ok',)),

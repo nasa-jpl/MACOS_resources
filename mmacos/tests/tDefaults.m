@@ -81,6 +81,10 @@ classdef tDefaults < matlab.unittest.TestCase
             % each spot re-traces; a re-trace is not bit-idempotent (a few ulp)
             tc.verifyEqual(s.pts, se.pts, 'AbsTol', 1e-9, 'default = the element vertex');
             tc.verifyGreaterThan(max(abs(s.centroid - sc.centroid)), 1, 'the chief override moves the centre');
+            tc.verifyEqual(mmacos('spc_option_get'), 1, ...
+                'a per-call chief centre does not change the session option');
+            s2 = macos.spot(ne);
+            tc.verifyEqual(s2.pts, se.pts, 'AbsTol', 1e-9, 'so the next default call is the element again');
             % mmacos's .shift is the api's 4-vector [chief xy, vertex xy] (whatever 'at'
             % is); pymacos returns the half vpt_center selects -- same numbers
             tc.verifyEqual(s.shift(3:4), tc.SpotShiftElt, 'RelTol', 1e-9);
@@ -88,13 +92,25 @@ classdef tDefaults < matlab.unittest.TestCase
         end
         function test_obscuration_option_default_is_positive(tc)
             ne = tDefaults.e5();
+            tc.verifyEqual(macos.obs(), 'positive');      % the query (obs_opt_get)
             tc.verifyEqual(nnz(macos.opd_mask()), tc.E5ValidPx);
-            mmacos('obs_set', 2);                         % NEGATIVE
-            c = onCleanup(@() mmacos('obs_set', 1)); %#ok<NASGU>
+            macos.obs('negative');
+            c = onCleanup(@() macos.obs('positive')); %#ok<NASGU>
+            tc.verifyEqual(macos.obs(), 'negative');
             macos.trace(ne);
             tc.verifyEqual(nnz(macos.opd_mask()), 0);
-            mmacos('obs_set', 1);  macos.trace(ne);
+            macos.obs('positive');  macos.trace(ne);
             tc.verifyEqual(nnz(macos.opd_mask()), tc.E5ValidPx);
+        end
+        function test_calib_beam_rows_leave_the_spot_centre_alone(tc)
+            % CALIB's SPOT rows (macos_ops.F) set the session spcOption to the
+            % chief ray and never restored it (found 2026-10-16); twin of the
+            % pymacos leg.
+            m = macos.Session(tc.Model);
+            m.load_rx(rx_fixture_path('Rx_AsphCalib.in'));     % a SPOT target
+            tc.verifyEqual(mmacos('spc_option_get'), 1);
+            m.calib_set_iter(2);  m.calib();
+            tc.verifyEqual(mmacos('spc_option_get'), 1, 'CALIB must restore the session SPCENTER');
         end
         function test_ffcut_default_off(tc)
             tDefaults.e5();

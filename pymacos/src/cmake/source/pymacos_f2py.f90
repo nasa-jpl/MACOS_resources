@@ -8,7 +8,7 @@
 ! Every routine forwards to its language-neutral sibling in
 ! macos_api_mod (NAME_impl => NAME); the !f2py annotations live here so
 ! the pure-Fortran backbone stays free of Python-specific markers.
-! Routines: 155 api + 1 f2py-only.
+! Routines: 157 api + 1 f2py-only.
 
 
   module api
@@ -169,6 +169,8 @@
       calib_set_beam_wt_impl => calib_set_beam_wt, &
       ffcut_set_impl => ffcut_set, &
       ffcut_get_impl => ffcut_get, &
+      spc_option_get_impl => spc_option_get, &
+      obs_opt_get_impl => obs_opt_get, &
       elt_asph_get_impl => elt_asph_get, &
       stop_info_get_impl => stop_info_get, &
       stop_info_set_impl => stop_info_set, &
@@ -1817,6 +1819,22 @@
 
         CALL ffcut_get_impl(OK, on, nPix)
       end subroutine ffcut_get
+
+      subroutine spc_option_get(OK, opt)
+        implicit none
+        logical, intent(out) :: OK
+        integer, intent(out) :: opt                               ! ------------------------------------------------------
+
+        CALL spc_option_get_impl(OK, opt)
+      end subroutine spc_option_get
+
+      subroutine obs_opt_get(OK, opt)
+        implicit none
+        logical, intent(out) :: OK
+        integer, intent(out) :: opt                               ! ------------------------------------------------------
+
+        CALL obs_opt_get_impl(OK, opt)
+      end subroutine obs_opt_get
 
       subroutine elt_asph_get(OK, coef, n, iElt)
         implicit none
