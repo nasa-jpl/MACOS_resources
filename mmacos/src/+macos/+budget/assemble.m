@@ -49,8 +49,10 @@ chans = {'ox','dwdx'; 'oz','dwdz'; 'os','dwdsurf'; 'og','dwdgrid'};
 for r = 1:size(chans, 1)
     o = S.(chans{r, 1});
     if isempty(o), continue; end
-    if strcmp(chans{r, 2}, 'dwdx') && p.Results.trans_per_metre ...
-            && exist('macos.dwdx_trans_per_metre', 'file') ~= 0
+    % (no exist() guard: exist('macos.<fn>','file') is 0 for a package
+    % function, which silently skipped this and left an mm deck's
+    % translation columns per BaseUnit -- decenter/despace 1/cbm small)
+    if strcmp(chans{r, 2}, 'dwdx') && p.Results.trans_per_metre
         o = macos.dwdx_trans_per_metre(o);
         trans_output = 'si';
     end
