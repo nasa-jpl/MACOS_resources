@@ -287,6 +287,10 @@ classdef Session < handle
         % --- Stop / exit-pupil / first-order --------------------------
         function s = get_stop_info(obj),         s = macos.get_stop_info();     end
         function s = fex(obj, varargin),         s = macos.fex(varargin{:});    end
+        function out = obs(obj, varargin)
+            if nargout > 0, out = macos.obs(varargin{:});
+            else,           macos.obs(varargin{:}); end
+        end
         function ffp(obj, varargin),             macos.ffp(varargin{:});         end
         function pfp(obj, varargin),             macos.pfp(varargin{:});         end
         function xps(obj, iElt),                 macos.xps(iElt);                end

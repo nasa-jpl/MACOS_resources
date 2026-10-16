@@ -15,6 +15,8 @@ import pytest
 from context import pymacos as m
 from context import rx_path
 
+import pymacos.api_gen as api_gen
+
 MODEL = 128
 ZGD = Path(os.environ.get('MACOS_HOME', str(Path.home() / 'dev' / 'macos' / 'macos_f90'))
            ).parent / 'ZGD_test_files'
@@ -75,19 +77,27 @@ def test_fex_axis_default_is_the_session_axis(e5):
 
 def test_spot_centre_default_is_the_element(e5):
     s, s_elt, s_chf = m.spot(e5), m.spot(e5, vpt_center=True), m.spot(e5, vpt_center=False)
+    assert api_gen.spc_option_get() == 1, \
+        'a per-call chief centre does not change the session option (engine default: vertex)'
+    assert np.allclose(m.spot(e5)[0], s_elt[0], rtol=0, atol=1e-9), \
+        'so the next default call is the element again'
     # each spot() re-traces; a re-trace is not bit-idempotent (a few ulp), so the
-    # points agree to round-off, the reference shift exactly
-    assert np.allclose(s[0], s_elt[0], rtol=0, atol=1e-9) and np.array_equal(s[2], s_elt[2])
+    # points agree to round-off
+    assert np.allclose(s[0], s_elt[0], rtol=0, atol=1e-9)
     assert np.abs(np.asarray(s[1]) - np.asarray(s_chf[1])).max() > 1, \
         'the chief override moves the centre'
-    assert np.allclose(s[2], SPOT_SHIFT_ELT, rtol=1e-9, atol=0)
-    assert np.allclose(s_chf[2], SPOT_SHIFT_CHIEF, rtol=1e-9, atol=0)
+    # shift = the api's 4-vector [chief xy, vertex xy] (the mmacos convention)
+    assert np.asarray(s[2]).shape == (4,)
+    assert np.allclose(s[2][:2], SPOT_SHIFT_CHIEF, rtol=1e-9, atol=0)
+    assert np.allclose(s[2][2:], SPOT_SHIFT_ELT, rtol=1e-9, atol=0)
 
 
 def test_obscuration_option_default_is_positive(e5):
+    assert m.obs_set() == 'positive'                    # the query (obs_opt_get)
     assert m.opd_mask().sum() == E5_VALID_PX
     m.obs_set('negative')
     try:
+        assert m.obs_set() == 'negative'
         m.trace_rays(e5)
         assert m.opd_mask().sum() == 0
     finally:
@@ -105,3 +115,24 @@ def test_opd_orientation_default_raw(e5):
     assert np.array_equal(w, m.opd(orient='raw')) and np.array_equal(w.T, m.opd(orient='xy'))
     k = m.opd_mask()
     assert np.array_equal(k, m.opd_mask(orient='raw'))
+
+
+def test_model_size_default_256():
+    # Dave 2026-10-16: 256 everywhere (the engine's default for SMACOS with no
+    # size; mmacos init.m the same) -- pymacos was 512
+    import inspect
+    assert inspect.signature(m.init).parameters['model_size'].default == 256
+
+
+
+def test_calib_beam_rows_leave_the_spot_centre_alone():
+    # CALIB's SPOT rows (macos_ops.F) set the session spcOption to the chief ray and
+    # never restored it: every later SPOT -- CLI and the bindings' default -- was
+    # chief-centred (found 2026-10-16: the full suite ran test_calib_matrix before
+    # this file).  Fixed: the session option is restored after the row.
+    m.init(MODEL)
+    m.load(str(rx_path('Rx_AsphCalib.in')))     # a SPOT target
+    assert api_gen.spc_option_get() == 1
+    m.calib_set_iter(2)
+    m.calib()
+    assert api_gen.spc_option_get() == 1
