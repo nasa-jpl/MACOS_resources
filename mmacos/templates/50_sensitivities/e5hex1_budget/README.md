@@ -16,7 +16,8 @@ Pipeline: `macos.dw_dx_multi` (5 fields, 6 DOF/optic, model 128) →
 
 | file | contents |
 |---|---|
-| `e5hex1_budget.xlsx` | **WFE** sheet (σ inputs + per-group RMS WFE) and **Coefficients** sheet (the sigma-free α per group) |
+| `e5hex1_wfe_budget.xlsx` | the **live-formula calculator** (below) |
+| `e5hex1_budget.xlsx` | plain-value export: **WFE** (the roll-up table) and **Coefficients** (one row per line) |
 | `e5hex1_budget.csv`  | the roll-up table |
 | `e5hex1_budget.mat`  | the `coef.*` struct (drops into a HabEx/ATLAST-style sheet) |
 | `e5hex1_budget_report.txt` | text report |
@@ -63,5 +64,28 @@ post-WFC **3.156 nm (cov) vs 3.179 nm (MC, 1000 draws, controller + sensing
 + actuator draws in the loop)**; the actuator rows dominate (PM piston
 2.60 nm, PM tilt 1.28 nm, SM tilt 1.25 nm), the sensing row is 0.092 nm.
 
+## The workbook (live formulas)
+
+`run_budget` also writes **`e5hex1_wfe_budget.xlsx`**, the HabEx-form
+calculator the system engineer edits (`macos.budget.write_workbook`):
+
+- **WFE** — one row per budget line grouped by the table's `Section`
+  column (Primary Mirror, Secondary Mirror, Lens, Detector, then WFC for
+  the sensing / actuator rows). σ inputs sit in white cells (C initial
+  alignment, G drift); E/F = C × Coefficients!D/E (pre/post WFC), I/J =
+  G × Coefficients!G/H (pre/post metrology), K = SQRT(SUMSQ(F, J)).  Then
+  the WFE Summary: one row per section, Everything Else, TOTAL, Design WFE
+  (input), Payload, Requirement (input), Margin.
+- **Coefficients** — the same rows; D..H point at the raw `<key>0` /
+  `<key>f` blocks the tool writes (nm per unit input), plus the
+  Monte-Carlo check.
+- **WFE BD** (roll-up tree), **PSD** / **StrTherm** (stubs for the
+  engineer's non-ray-trace terms), **Log** (what it was generated from).
+
+Change a σ and the budget re-rolls — no MATLAB. Measured: LibreOffice's
+recalculated Payload is MATLAB's `coef.total` to 5.6e-16 (3.15580786565109 nm).
+This deck has no metrology truss, so its drift column is empty (σ = 0);
+`run_budget(..., 'met', ...)` fills it (see `macos.budget.project_met`).
+
 See `macos/CLAUDE.md`'s "Error budgets" section and `macos.budget` for the
-kernel. The metrology stage (iSeq = 2) and the SPOT metric are later phases.
+kernel. The SPOT metric is a later phase.

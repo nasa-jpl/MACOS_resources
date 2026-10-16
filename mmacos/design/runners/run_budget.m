@@ -40,7 +40,9 @@ function art = run_budget(sens, varargin)
 %     'visible'/'figures'  figure controls (default false / true)
 %
 %   ART fields: .M .spec .cov .mc .table .coef .total_nm .mat .report .xlsx
-%   .csv .figs .control.
+%   .csv .figs .control, .mc_met .met, and .workbook -- the HabEx-form
+%   calculator with LIVE formulas (macos.budget.write_workbook: sigma
+%   inputs in white cells, a changed sigma re-rolls the payload).
 %
 %   See also macos.budget.assemble, macos.budget.cov_budget,
 %   macos.budget.mc_budget, run_sensitivities, run_met.
@@ -155,6 +157,10 @@ art.csv  = pth('_budget.csv');
 art.mat  = pth('_budget.mat');
 art.report = pth('_budget_report.txt');
 macos.budget.write_xlsx(T_out, coef, art.xlsx, 'title', name);
+art.workbook = pth('_wfe_budget.xlsx');
+macos.budget.write_workbook(coef, art.workbook, 'title', [name ' WFE budget'], ...
+    'table', T_out, 'design_wfe', o.design_wfe, 'requirement', o.requirement, ...
+    'log', log_lines_(sens, name));
 macos.budget.write_csv(T_out, art.csv);
 write_report_(art.report, name, M, rc, rm, ctrl, T_out);
 save(art.mat, '-struct', 'coef');
@@ -258,6 +264,19 @@ for k = find(s)'
 end
 fprintf(fid, '\nmethod: Redding 2014, linearized ray-trace covariance budget.\n');
 fprintf('wrote %s\n', path);
+end
+
+function L = log_lines_(sens, name)
+% the workbook's Log: what it was generated from
+src = 'live sensitivities struct';
+if ischar(sens) || isstring(sens), src = char(sens); end
+L = {sprintf('budget %s from %s', name, src)};
+try
+    here = fileparts(mfilename('fullpath'));
+    [st, sha] = system(sprintf('git -C "%s" rev-parse --short HEAD', here));
+    if st == 0, L{end+1} = sprintf('MACOS_resources %s', strtrim(sha)); end
+catch
+end
 end
 
 function s = tf_(v), if v, s = 'on'; else, s = 'off'; end, end

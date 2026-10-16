@@ -57,6 +57,79 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             H = zeros(10, nz);  H(:, seen) = randn(10, numel(seen));
             R = (2e-7)^2 * eye(10);
         end
+
+        function [M, spec, met, ctrl] = two_stage_model()
+            % the A.3 two-stage synthetic (mm deck, both stages, sections)
+            rng(15); Nw = 400;
+            dofs = {'Rx','Ry','Rz','Tx','Ty','Tz'}; cn = {}; iE = []; df = [];
+            for e = [3 4], for d = 1:6
+                cn{end+1} = sprintf('Elt %d %s', e, dofs{d}); iE(end+1)=e; df(end+1)=d-1; %#ok<AGROW>
+            end, end
+            ox = struct('dwdxall', randn(Nw,12), 'channel_names', {cn}, ...
+                'iElt', iE, 'dof_idx', df, 'kind', {repmat({'RigidBody'},12,1)}, ...
+                'cbm', 1e-3, 'base_units', 'mm', 'trans_output', 'si');
+            M = macos.budget.assemble(ox);
+            vn = {'Name','Elements','DOFs','Modes','Param','Channel','Dist', ...
+                'Sigma','Units','Min','Max','Cov','Control','Section'};
+            T = cell2table({ ...
+                'E3 Tilt','3','tilt','','','dwdx','normal',50,'nrad',NaN,NaN,'iid','WFC','Primary'; ...
+                'E3 Despace','3','despace','','','dwdx','uniform',NaN,'nm',-200,200,'iid','','Primary'; ...
+                'E4 Decenter','4','decenter','','','dwdx','normal',100,'nm',NaN,NaN,'iid','WFC','Secondary'}, ...
+                'VariableNames', vn);
+            spec = macos.budget.spec_from_table(T, M, 'wfs_sigma', {3, 'nm'}, ...
+                'act_sigma', {'E3 Tilt', 0.5, 'nrad'; 'E4 Decenter', 1, 'nm'});
+            D = cell2table({ ...
+                'E3 Tilt','3','tilt','','','dwdx','normal',5,'nrad',NaN,NaN,'iid','','Primary'; ...
+                'E4 Decenter','4','decenter','','','dwdx','normal',20,'nm',NaN,NaN,'iid','','Secondary'; ...
+                'E4 Tilt','4','tilt','','','dwdx','normal',10,'nrad',NaN,NaN,'iid','',''}, ...
+                'VariableNames', vn);
+            dspec = macos.budget.spec_from_table(D, M);
+            H = zeros(6, 12);  H(:, 10:11) = randn(6, 2);
+            met = struct('drift', dspec, 'H', H, 'R', (1e-10)^2 * eye(6), ...
+                'gauge_units', 'nm', 'gauge_per_eng', 1e-9);
+            ctrl = spec.groups(1).cols | spec.groups(3).cols;
+        end
+
+        function x = sheet_xml(f, k)
+            d = tempname; mkdir(d); c = onCleanup(@() rmdir(d, 's'));
+            unzip(f, d);
+            x = fileread(fullfile(d, 'xl', 'worksheets', sprintf('sheet%d.xml', k)));
+        end
+
+        function V = recalc(f, wd)
+            % headless LibreOffice: load (recalculating) and re-save; read
+            % the recalculated values of sheet WFE back at full precision
+            od = fullfile(wd, 'recalc');  if ~isfolder(od), mkdir(od); end
+            prof = ['file://' fullfile(wd, 'lo_profile')];
+            % env -u LD_LIBRARY_PATH: MATLAB's own libstdc++ (on its library
+            % path) is older than LibreOffice's, and soffice dies at launch
+            cmd = sprintf(['env -u LD_LIBRARY_PATH soffice -env:UserInstallation=%s --headless ' ...
+                '--convert-to xlsx --outdir "%s" "%s" >/dev/null 2>&1'], prof, od, f);
+            st = system(cmd);
+            [~, b, e] = fileparts(f);
+            out = fullfile(od, [b e]);
+            assert(st == 0 && isfile(out), 'soffice conversion failed');
+            V = readcell(out, 'Sheet', 'WFE');
+            delete(out);
+        end
+
+        function set_input(f, wd, ref, val)
+            % rewrite one numeric cell's value inside the .xlsx (as an
+            % engineer typing a new sigma would)
+            d = fullfile(wd, 'edit');  if isfolder(d), rmdir(d, 's'); end
+            mkdir(d);  unzip(f, d);
+            sx = fullfile(d, 'xl', 'worksheets', 'sheet1.xml');
+            x = fileread(sx);
+            pat = sprintf('(<c r="%s"[^>]*><v>)[^<]*(</v>)', ref);
+            assert(~isempty(regexp(x, pat, 'once')), 'input cell %s not found', ref);
+            x = regexprep(x, pat, sprintf('$1%.17g$2', val), 'once');
+            fid = fopen(sx, 'w');  fwrite(fid, x);  fclose(fid);
+            files = {'[Content_Types].xml', '_rels/.rels', 'xl/workbook.xml', ...
+                'xl/_rels/workbook.xml.rels', 'xl/styles.xml'};
+            w = dir(fullfile(d, 'xl', 'worksheets', '*.xml'));
+            files = [files, strcat('xl/worksheets/', {w.name})];
+            z = [tempname '.zip'];  zip(z, files, d);  movefile(z, f, 'f');
+        end
     end
 
     methods (Test)
@@ -285,6 +358,56 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             macos.budget.write_xlsx(R, coef, fullfile(wd, 'b.xlsx'));
             macos.budget.write_csv(R, fullfile(wd, 'b.csv'));
             tc.verifyTrue(isfile(fullfile(wd, 'b.xlsx')) && isfile(fullfile(wd, 'b.csv')));
+        end
+
+        function test_workbook_formulas_recalculate(tc)
+            % The live-formula calculator: LibreOffice (headless) recalculates
+            % the written workbook and its Payload WFE equals MATLAB's
+            % hypot(coef.total, design) to 1e-9; an INPUT sigma edited in the
+            % file re-rolls the payload to the predicted value (a workbook
+            % whose formulas do not recompute is not the deliverable).
+            [so, ~] = system('command -v soffice');
+            tc.assumeEqual(so, 0, 'soffice (LibreOffice) not installed');
+            [M, spec, met, ctrl] = tBudgetKernel.two_stage_model();
+            rc = macos.budget.cov_budget(M, spec, 'control', ctrl, 'met', met);
+            coef = macos.budget.to_coef(rc, M, spec);
+            wd = tempname; mkdir(wd); cl = onCleanup(@() rmdir(wd, 's'));
+            f = fullfile(wd, 'budget.xlsx');
+            info = macos.budget.write_workbook(coef, f, 'design_wfe', 12, ...
+                'requirement', 30, 'title', 'synthetic');
+            % the formulas are formulas, not text
+            raw = tBudgetKernel.sheet_xml(f, 1);
+            tc.verifyNotEmpty(regexp(raw, '<f>C4\*Coefficients!D4</f>', 'once'));
+            tc.verifyNotEmpty(regexp(raw, '<f>SQRT\(SUMSQ\(K\d+,K\d+\)\)</f>', 'once'));
+            V = tBudgetKernel.recalc(f, wd);
+            rp = info.rows.Payload_WFE;
+            pay = hypot(coef.total, 12);
+            tc.verifyEqual(V{rp, 11}, pay, 'RelTol', 1e-9);
+            tc.verifyEqual(V{info.rows.TOTAL, 11}, coef.total, 'RelTol', 1e-9);
+            tc.verifyEqual(V{info.rows.WFE_Margin, 11}, 1 - pay/30, 'RelTol', 1e-9);
+            % every line's Total cell == the tool's line total
+            keys = coef.meta.order;
+            for r = info.rows.lines(1):info.rows.lines(2)
+                nm = V{r, 2};
+                k = find(cellfun(@(q) strcmp(coef.(q).name, nm), keys), 1);
+                tc.verifyEqual(V{r, 11}, coef.(keys{k}).total, ...
+                    'AbsTol', 1e-9 * max(1, coef.total), nm);
+            end
+            % edit one INPUT sigma in the file -- the line with the largest
+            % post-WFC term (a fully actuated line's post coefficient is 0
+            % and rightly does not move the payload): the payload re-rolls
+            rr = info.rows.lines(1):info.rows.lines(2);
+            [~, ib] = max(cellfun(@(x) x, V(rr, 6)));
+            r1 = rr(ib);
+            k1 = find(cellfun(@(q) strcmp(coef.(q).name, V{r1, 2}), keys), 1);
+            e1 = coef.(keys{k1});
+            s2 = 3 * e1.sigma_eng;
+            tBudgetKernel.set_input(f, wd, sprintf('C%d', r1), s2);
+            V2 = tBudgetKernel.recalc(f, wd);
+            t1 = hypot(s2 * e1.coef_post, e1.wfe_met_post);
+            pred = sqrt(coef.total^2 - e1.total^2 + t1^2 + 12^2);
+            tc.verifyEqual(V2{rp, 11}, pred, 'RelTol', 1e-9);
+            tc.verifyGreaterThan(abs(V2{rp, 11} - V{rp, 11}), 1e-6 * pay);
         end
 
         function test_matches_run_met_rmsw(tc)
