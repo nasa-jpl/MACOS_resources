@@ -23,6 +23,15 @@ function art = run_budget(sens, varargin)
 %                 (Eq. 32 sensing-error row; controlled runs only)
 %     'act_sigma' actuator noise per control group: table Name/Sigma/Units
 %                 or cell {name, sigma, units; ...} (Eq. 31 rows)
+%     'met'       the metrology / drift stage (iSeq = 2): struct with
+%                 .drift  drift group table (same schema; its Sigma is the
+%                         'Drift Inputs' column) / path / spec
+%                 .H .R   metrology Jacobian (nm x Nz, or with .hcols) and
+%                         gauge-noise covariance
+%                 optional .hcols .gauge_units .gauge_per_eng
+%                 (macos.budget.project_met; Monte-Carlo by mc_met)
+%     'design_wfe'  design residual, nm, for the Payload row (default 0)
+%     'requirement' WFE requirement, nm, for the Margin row (default NaN)
 %     'ndraw'     Monte-Carlo draws (default 400; 0 skips MC)
 %     'mc_tol'    cov-vs-MC relative tolerance to warn at (default 0.10)
 %     'metric'    'opd' (default) | 'spot'
@@ -42,6 +51,9 @@ p.addParameter('roles', containers.Map('KeyType','char','ValueType','any'));
 p.addParameter('control', false, @(x) islogical(x) || isnumeric(x));
 p.addParameter('wfs_sigma', [], @(x) isempty(x) || isnumeric(x) || iscell(x));
 p.addParameter('act_sigma', [], @(x) isempty(x) || istable(x) || iscell(x));
+p.addParameter('met', [], @(x) isempty(x) || isstruct(x));
+p.addParameter('design_wfe', 0, @isscalar);
+p.addParameter('requirement', NaN, @isscalar);
 p.addParameter('ndraw', 400, @(x) isscalar(x) && x >= 0);
 p.addParameter('mc_tol', 0.10, @isscalar);
 p.addParameter('metric', 'opd', @(s) any(strcmpi(s, {'opd','spot'})));
@@ -85,9 +97,21 @@ else
     say('[3] control: none (uncontrolled budget)\n');
 end
 
+%% -- [3b] metrology / drift stage -----------------------------------
+mt = o.met;
+if ~isempty(mt)
+    if ~(isstruct(mt.drift) && isfield(mt.drift, 'groups'))
+        mt.drift = macos.budget.spec_from_table(macos.budget.read_spec(mt.drift), ...
+            M, 'roles', o.roles);
+    end
+    if ~isfield(mt, 'hcols'), mt.hcols = []; end
+    say('[3b] metrology: %d drift groups, %d gauges\n', ...
+        numel(mt.drift.groups), size(mt.H, 1));
+end
+
 %% -- [4] covariance + Monte-Carlo ------------------------------------
-rc = macos.budget.cov_budget(M, spec, 'control', ctrl);
-rm = [];
+rc = macos.budget.cov_budget(M, spec, 'control', ctrl, 'met', mt);
+rm = [];  rmm = [];
 if o.ndraw > 0
     rm = macos.budget.mc_budget(M, spec, 'ndraw', o.ndraw, 'control', ctrl);
     rel = abs(rm.total - rc.total) / max(rc.total, eps);
@@ -101,22 +125,38 @@ if o.ndraw > 0
         say('    uncontrolled (pre-WFC) total %.4g nm;  %d noise row(s)\n', ...
             rc.total_pre*M.cbm*1e9, numel(rc.extra));
     end
+    if ~isempty(mt)
+        act = [];  if isfield(spec, 'act'), act = spec.act; end
+        rmm = macos.budget.mc_met(M, mt.drift, mt.H, mt.R, 'control', ctrl, ...
+            'hcols', mt.hcols, 'act', act, 'ndraw', o.ndraw);
+        relm = abs(rmm.total_post - rc.met.total_post) / max(rc.met.total_post, eps);
+        say('[4b] post-metrology %.4g nm (pre %.4g);  MC %.4g nm  [%.1f%%]\n', ...
+            rc.met.total_post*M.cbm*1e9, rc.met.total_pre*M.cbm*1e9, ...
+            rmm.total_post*M.cbm*1e9, 100*relm);
+        if relm > o.mc_tol
+            warning('budget:mc', 'cov vs MC post-metrology disagree by %.1f%%', 100*relm);
+        end
+    end
 else
     say('[4] covariance total %.4g nm (MC skipped)\n', rc.total*M.cbm*1e9);
 end
 
 %% -- [5] roll-up + outputs -------------------------------------------
-T_out = macos.budget.rollup(rc, 'mc', rm, 'cbm', M.cbm);
 coef  = macos.budget.to_coef(rc, M, spec, 'cbm', M.cbm);
-art = struct('M', M, 'spec', spec, 'cov', rc, 'mc', rm, 'table', T_out, ...
-    'coef', coef, 'total_nm', coef.total, 'control', ctrl);
+T_out = macos.budget.rollup(rc, 'mc', rm, 'mc_met', rmm, 'cbm', M.cbm, ...
+    'coef', coef, 'design_wfe', o.design_wfe, 'requirement', o.requirement);
+art = struct('M', M, 'spec', spec, 'cov', rc, 'mc', rm, 'mc_met', rmm, ...
+    'table', T_out, 'coef', coef, 'total_nm', coef.total, 'control', ctrl, ...
+    'met', mt);
+say('[5] Total WFE %.4g nm (post-WFC %.4g, post-metrology %.4g)\n', ...
+    coef.total, coef.total_post_wfc, coef.total_post_met);
 art.xlsx = pth('_budget.xlsx');
 art.csv  = pth('_budget.csv');
 art.mat  = pth('_budget.mat');
 art.report = pth('_budget_report.txt');
 macos.budget.write_xlsx(T_out, coef, art.xlsx, 'title', name);
 macos.budget.write_csv(T_out, art.csv);
-write_report_(art.report, name, M, rc, rm, ctrl);
+write_report_(art.report, name, M, rc, rm, ctrl, T_out);
 save(art.mat, '-struct', 'coef');
 
 %% -- [6] figure ------------------------------------------------------
@@ -168,7 +208,7 @@ end
 end
 
 % -------------------------------------------------------------------------
-function write_report_(path, name, M, rc, rm, ctrl)
+function write_report_(path, name, M, rc, rm, ctrl, T)
 fid = fopen(path, 'w'); c = onCleanup(@() fclose(fid));
 tonm = M.cbm * 1e9;
 fprintf(fid, 'MACOS error budget: %s\n', name);
@@ -196,6 +236,25 @@ fprintf(fid, '%-24s %-12s %12s %12s %12.4g\n', 'TOTAL (RSS)', '', '', '', ...
 if ~isempty(rm)
     fprintf(fid, '\nMonte-Carlo (%d draws) total: %.4g nm  (cov %.4g nm)\n', ...
         rm.ndraw, rm.total*tonm, rc.total*tonm);
+end
+if isfield(rc, 'met') && ~isempty(rc.met)
+    fprintf(fid, '\nmetrology stage (iSeq = 2): pre %.4g nm, post %.4g nm\n', ...
+        rc.met.total_pre*tonm, rc.met.total_post*tonm);
+    for k = 1:numel(rc.met.names)
+        fprintf(fid, '  %-22s pre %10.4g  post %10.4g nm\n', rc.met.names{k}, ...
+            rc.met.wfe_pre(k)*tonm, rc.met.wfe_post(k)*tonm);
+    end
+    for k = 1:numel(rc.met.extra)
+        fprintf(fid, '  %-22s           post %10.4g nm\n', rc.met.extra(k).name, ...
+            rc.met.extra(k).wfe*tonm);
+    end
+end
+s = strcmp(T.Kind, 'summary');
+fprintf(fid, '\n%-24s %10s %10s %10s %10s %10s\n', 'summary', 'preWFC', ...
+    'postWFC', 'preMET', 'postMET', 'Total');
+for k = find(s)'
+    fprintf(fid, '%-24s %10.4g %10.4g %10.4g %10.4g %10.4g\n', T.Name{k}, ...
+        T.Pre_WFC_nm(k), T.Post_WFC_nm(k), T.Pre_MET_nm(k), T.Post_MET_nm(k), T.Total_nm(k));
 end
 fprintf(fid, '\nmethod: Redding 2014, linearized ray-trace covariance budget.\n');
 fprintf('wrote %s\n', path);
