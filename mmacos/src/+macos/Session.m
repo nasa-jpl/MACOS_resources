@@ -296,6 +296,7 @@ classdef Session < handle
         function xps(obj, iElt),                 macos.xps(iElt);                end
         function r = srt(obj, varargin),         r = macos.srt(varargin{:});     end
         function r = ray(obj, iRay),             r = macos.ray(iRay);            end
+        function r = segray(obj, iSeg),          r = macos.segray(iSeg);         end
         function s = get_xp(obj),                s = macos.get_xp();            end
         function set_xp(obj, vpt, psi, rad),     macos.set_xp(vpt, psi, rad);    end
         function p = first_order_properties(obj, varargin)
