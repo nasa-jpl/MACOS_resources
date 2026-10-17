@@ -75,3 +75,46 @@ def test_srt_leaves_the_full_trace_unchanged(cass):
     m.trace_rays(cass)
     assert np.array_equal(m.opd_mask(), k0)
     assert np.array_equal(m.opd()[k0], w0[k0])
+
+
+# ---- ray(i): the CLI's RAY through the api's ray_trace (B.2, 2026-10-17) -------------------
+# CLI `ray 40` on the same deck at MODEL 128 (both compilers): crossings at elements 2, 3, 5 and
+# the direction leaving element 2 (the segment 2 -> 3)
+CLI_RAY40_POS = {2: (6.12244897959183e-01, 1.75510204081633e+00, -1.59964212442347e-01),
+                 3: (1.52887879747765e-01, 4.38278588610260e-01, -4.09147466310857e+00),
+                 5: (3.28707894237112e-11, 9.42290689920355e-11, 1.5)}
+CLI_RAY40_DIR2 = (-1.10116697619937e-01, -3.15667866510485e-01, -9.42458546015684e-01)
+
+
+def test_ray_reproduces_the_cli(cass):
+    r = m.ray(40)
+    assert r['ok'] and r['status'] == 0 and r['fail_elt'] == 0
+    for k, p in CLI_RAY40_POS.items():
+        assert np.allclose(r['pos'][:, k - 1], p, rtol=1e-12, atol=1e-15), k
+    assert np.allclose(r['dir'][:, 1], CLI_RAY40_DIR2, rtol=1e-12, atol=1e-15)
+
+
+@pytest.mark.parametrize('i_ray', [40, 77])
+def test_ray_geometry_paraboloid_sag_and_axial_focus(cass, i_ray):
+    r = m.ray(i_ray)
+    x, y, z = r['pos'][:, 1]
+    assert np.isclose(z, -(x * x + y * y) / (2 * R_PRIMARY), rtol=1e-12, atol=1e-15)
+    assert np.hypot(*r['pos'][:2, cass - 1]) < 1e-9
+    assert np.isclose(r['pos'][2, cass - 1], 1.5, rtol=0, atol=1e-12)
+
+
+def test_ray_one_is_the_chief_and_the_range_is_refused(cass):
+    _, n_rays, _ = m.trace_rays(cass)
+    assert np.array_equal(m.ray(1)['pos'], m.srt(0.0, 0.0)['pos'])
+    for bad in (0, n_rays + 1):
+        with pytest.raises(Exception):
+            m.ray(bad)
+
+
+def test_ray_leaves_the_full_trace_unchanged(cass):
+    m.trace_rays(cass)
+    w0, k0 = m.opd().copy(), m.opd_mask().copy()
+    m.ray(40)
+    m.trace_rays(cass)
+    assert np.array_equal(m.opd_mask(), k0)
+    assert np.array_equal(m.opd()[k0], w0[k0])
