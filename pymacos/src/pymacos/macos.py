@@ -6039,6 +6039,24 @@ def srt(x: float, y: float, end_elt: int | None = None) -> dict:
             'status': int(st), 'fail_elt': int(fe)}
 
 
+def ray(i_ray: int) -> dict:
+    """Trace ray ``i_ray`` of the source grid (1 = the chief ray) -- the CLI's RAY; mmacos
+    ``macos.ray``.  ``i_ray`` in 1..nRays of the current grid.  Traces to the last element
+    (or the deck's ray-target element); the dict is srt()'s ('pos', 'dir', 'n_prev',
+    'n_cur', 'ok', 'status', 'fail_elt').  The engine rebuilds its source grid for the call;
+    the trace is marked modified.  api ray_trace (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    ne = num_elt()
+    z3 = lambda: np.zeros((3, ne), order='F')  # noqa: E731
+    z1 = lambda: np.zeros(ne)  # noqa: E731
+    p, d, n0, n1, ok, st, fe = _gen.ray_trace(int(i_ray), z3(), z3(), z1(), z1())
+    modify()
+    return {'pos': np.asarray(p), 'dir': np.asarray(d),
+            'n_prev': np.asarray(n0), 'n_cur': np.asarray(n1), 'ok': bool(ok),
+            'status': int(st), 'fail_elt': int(fe)}
+
+
 def src_seg() -> dict:
     """The source segmentation tiling (the truth mmacos ``view_rx`` draws Segment
     tiles from): ``grid_type`` (1 Circular, 2 Square, 3 Hex, 4 Pie, 5 Flower,

@@ -122,6 +122,7 @@ ray_info_get
 ray_info_set
 ray_pos_hist_get
 ray_status_get
+ray_trace
 save_rx
 set_src_csys
 set_src_fov
