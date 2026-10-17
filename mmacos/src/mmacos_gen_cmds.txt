@@ -138,6 +138,7 @@ src_seg_get
 src_size
 src_wvl
 srs_run
+srt_trace
 stop_info_get
 stop_info_set
 stop_obj_set

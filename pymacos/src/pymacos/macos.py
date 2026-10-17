@@ -6011,6 +6011,34 @@ def ray_pos_hist(n_rays: int) -> dict:
             'ok': np.asarray(lok) != 0}
 
 
+def srt(x: float, y: float, end_elt: int | None = None) -> dict:
+    """Trace ONE ray from a normalized source-aperture point (the CLI's SRT; mmacos
+    ``macos.srt``).  ``x``, ``y``: |x|, |y| <= 0.5; (0, 0) is the chief ray.
+
+    Returns a dict (column k = element k + 1, BaseUnits / global frame):
+      'pos'     (3, nElt) where the ray meets each element
+      'dir'     (3, nElt) its direction leaving it
+      'n_prev', 'n_cur'   (nElt,) the index before / after
+      'ok'      the ray was traced to end_elt (an OBSCURED ray still is)
+      'status'  per-ray status code (as ray_status); 'fail_elt' the element that
+                set it (0 when OK)
+    Columns past end_elt -- or past fail_elt for a lost ray -- are 0.  The engine
+    re-seeds its source ray set for the one ray; the trace is marked modified so the
+    next trace rebuilds the full grid.  api srt_trace (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    ne = num_elt()
+    e = ne if end_elt is None else int(end_elt)
+    z3 = lambda: np.zeros((3, ne), order='F')  # noqa: E731
+    z1 = lambda: np.zeros(ne)  # noqa: E731
+    p, d, n0, n1, ok, st, fe = _gen.srt_trace(float(x), float(y), e,
+                                              z3(), z3(), z1(), z1())
+    modify()
+    return {'pos': np.asarray(p), 'dir': np.asarray(d),
+            'n_prev': np.asarray(n0), 'n_cur': np.asarray(n1), 'ok': bool(ok),
+            'status': int(st), 'fail_elt': int(fe)}
+
+
 def src_seg() -> dict:
     """The source segmentation tiling (the truth mmacos ``view_rx`` draws Segment
     tiles from): ``grid_type`` (1 Circular, 2 Square, 3 Hex, 4 Pie, 5 Flower,

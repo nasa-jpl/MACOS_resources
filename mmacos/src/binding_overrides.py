@@ -365,7 +365,8 @@ CLI_BINDINGS = {
     'AFOV': ('missing', 'field / beam set'), 'FOVS': ('missing', 'field / beam set'),
     'SFOV': ('missing', 'field / beam set'),
     # Misc / Debug
-    'SRAy': ('missing', 'single-ray tracing (B.2, first)'),
+    # 'SRAy, SRT, SRTrace' is one HELP entry; SRT is an SMACOS command (srt_trace,
+    # B.2 2026-10-17), so the entry classifies itself -- SRAy / SRTrace stay unbound.
     'DOPD': _LEGACY_DIFF,
     'JWST_v3d': ('missing', 'builder; the Vis3d ray history is `ray_hist_set` / '
                             '`ray_pos_hist_get`'),
