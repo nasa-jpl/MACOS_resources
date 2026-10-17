@@ -295,7 +295,7 @@ CLI_BINDINGS = {
     'SETC': ('direct setter', '`calib_set_iter`, `calib_set_tol`, `calib_set_*`'),
     'SAOpt': ('missing', 'source-adjustment mode'),
     # Ray Tracing
-    'RAY': ('missing', 'single-ray tracing (B.2, first)'),
+    # RAY is an SMACOS command (ray_trace, B.2 2026-10-17): the entry classifies itself.
     'SEGRAYTrace': ('missing', 'single-ray tracing (B.2, first)'),
     'PRAy': ('missing', 'single-ray tracing (B.2, first)'),
     'TPR': ('missing', 'image-plane post-processing (B.2, third)'),
