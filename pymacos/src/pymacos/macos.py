@@ -871,8 +871,9 @@ def first_order_properties(srf: int | np.int32 = -1) -> dict:
 
     The pixel-based entries (``lamD_px``, ``plate_arcsec_px``,
     ``plate_px_rad``, ``dx_focal_baseunits``) require a prior
-    propagation to ``srf`` (e.g. ``intensity(srf)``) to have set the
-    diffraction grid pitch; they are 0.0 otherwise.
+    DIFFRACTION propagation to ``srf`` (e.g. ``intensity(srf)``) to have
+    set the diffraction grid pitch; they are 0.0 otherwise, and after an
+    ``opd()`` at ``srf``, which re-sets it to the ray spacing (PLAN 1.2 (d)).
 
     Returns:
         dict with keys:
