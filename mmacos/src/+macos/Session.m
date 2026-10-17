@@ -294,6 +294,7 @@ classdef Session < handle
         function ffp(obj, varargin),             macos.ffp(varargin{:});         end
         function pfp(obj, varargin),             macos.pfp(varargin{:});         end
         function xps(obj, iElt),                 macos.xps(iElt);                end
+        function r = srt(obj, varargin),         r = macos.srt(varargin{:});     end
         function s = get_xp(obj),                s = macos.get_xp();            end
         function set_xp(obj, vpt, psi, rad),     macos.set_xp(vpt, psi, rad);    end
         function p = first_order_properties(obj, varargin)

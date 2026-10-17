@@ -8,7 +8,7 @@
 ! Every routine forwards to its language-neutral sibling in
 ! macos_api_mod (NAME_impl => NAME); the !f2py annotations live here so
 ! the pure-Fortran backbone stays free of Python-specific markers.
-! Routines: 157 api + 1 f2py-only.
+! Routines: 158 api + 1 f2py-only.
 
 
   module api
@@ -98,6 +98,7 @@
       ray_status_get_impl => ray_status_get, &
       ray_hist_set_impl => ray_hist_set, &
       ray_pos_hist_get_impl => ray_pos_hist_get, &
+      srt_trace_impl => srt_trace, &
       elt_info_get_impl => elt_info_get, &
       elt_obs_get_impl => elt_obs_get, &
       src_seg_get_impl => src_seg_get, &
@@ -1067,6 +1068,28 @@
 
         CALL ray_pos_hist_get_impl(OK, Px_, Py_, Pz_, LOK_, nRays, nElt1)
       end subroutine ray_pos_hist_get
+
+      subroutine srt_trace(OK, xoff, yoff, iEndElt, Pos_, Dir_, IndPrev_, IndCur_, RayOK_, Status_, FailElt_, nElt_)
+        implicit none
+        logical, intent(out) :: OK
+        real(8), intent(in) :: xoff
+        real(8), intent(in) :: yoff
+        integer, intent(in) :: iEndElt
+        real(8), dimension(3,nElt_), intent(inout) :: Pos_
+        real(8), dimension(3,nElt_), intent(inout) :: Dir_
+        real(8), dimension(nElt_), intent(inout) :: IndPrev_
+        real(8), dimension(nElt_), intent(inout) :: IndCur_
+        logical, intent(out) :: RayOK_
+        integer, intent(out) :: Status_
+        integer, intent(out) :: FailElt_
+        integer, intent(in) :: nElt_
+        !f2py intent(in,out) :: Pos_
+        !f2py intent(in,out) :: Dir_
+        !f2py intent(in,out) :: IndPrev_
+        !f2py intent(in,out) :: IndCur_
+
+        CALL srt_trace_impl(OK, xoff, yoff, iEndElt, Pos_, Dir_, IndPrev_, IndCur_, RayOK_, Status_, FailElt_, nElt_)
+      end subroutine srt_trace
 
       subroutine elt_info_get(OK, EltID_, ApType_, ApVec_, xObs_, lMon_, nPolyVtx, PolyVtx_, iElt, mside)
         implicit none

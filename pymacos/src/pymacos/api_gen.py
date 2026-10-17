@@ -267,8 +267,9 @@ def sysprop(ielt):
     needs a source at infinity) then packages all first-order /
     diffraction quantities via sysprop_mod%DeriveSysProps.  The
     pixel-based outputs (lamD_px, plate_arcsec_px, plate_px_rad,
-    dx_focal_bu) require a prior propagation to iElt (INT) to have set
-    dxElt(iElt); they come back 0 otherwise.  The angular quantities
+    dx_focal_bu) require a prior diffraction propagation to iElt (INT)
+    to have set dxElt(iElt); they come back 0 otherwise, and after an
+    OPD at iElt (which re-sets it to the ray spacing; PLAN 1.2 (d)).  The angular quantities
     (lamD_rad, lamD_arcsec) and efl/fno/dpup need no propagation.
 
     tilt-for-N-(lambda/D) = N * lamD_rad  (the source-pointing offset
@@ -1332,6 +1333,36 @@ def ray_pos_hist_get(px_, py_, pz_, lok_, nrays=None, nelt1=None):
     if not _r[0]:
         raise ApiError('ray_pos_hist_get')
     return (_r[1], _r[2], _r[3], _r[4])
+
+def srt_trace(xoff, yoff, iendelt, pos_, dir_, indprev_, indcur_, nelt_=None):
+    """Purpose  : SRT -- trace ONE ray from a normalized source-aperture point
+               (x, y), |x|, |y| <= 0.5 (the CLI's SRT; (0, 0) is the chief
+               ray), through element iEndElt, and return its state at each
+               element it reached (BRIEF_to_bindings B.2, 2026-10-17):
+               Pos_ the ray's crossing at element k, Dir_ its direction leaving
+               it, IndPrev_ / IndCur_ the indices before / after.  (SRTrace's
+               surface normal is not returned: CTRACE updates it only where it
+               reflects or refracts, so the other columns hold the last ray's.)
+               Buffers are caller-sized (3, nElt_) and (nElt_), nElt_ = nElt;
+               columns past iEndElt -- or past FailElt_ for a lost ray -- are 0.
+               RayOK_ = the ray was traced to iEndElt (LRayOK; an OBSCURED ray
+               is still traced, as the CLI's SRT shows); Status_ its per-ray
+               status (elt_mod RayStat_*, as ray_status_get) and FailElt_ the
+               element that set it (0 when OK).  The source ray set is
+               re-seeded for the single ray, as in the CLI; the next trace
+               rebuilds the full grid.
+
+    Generated stub over lib.api.srt_trace(xoff, yoff, iendelt, pos_, dir_, indprev_, indcur_, [nelt_]).
+    Raises ApiError when the api returns ok = FAIL.
+    Returns: pos_, dir_, indprev_, indcur_, rayok_, status_, failelt_
+    """
+    _kw = {}
+    if nelt_ is not None:
+        _kw['nelt_'] = nelt_
+    _r = _api.srt_trace(xoff, yoff, iendelt, pos_, dir_, indprev_, indcur_, **_kw)
+    if not _r[0]:
+        raise ApiError('srt_trace')
+    return (_r[1], _r[2], _r[3], _r[4], _r[5], _r[6], _r[7])
 
 def elt_info_get(apvec_, xobs_, polyvtx_, ielt, mside=None):
     """Purpose  : One-stop element metadata for layout drawing: element
@@ -2997,6 +3028,7 @@ API_ROUTINES = (
     'ray_status_get',
     'ray_hist_set',
     'ray_pos_hist_get',
+    'srt_trace',
     'elt_info_get',
     'elt_obs_get',
     'src_seg_get',
@@ -3159,6 +3191,7 @@ F2PY_SIGNATURES = {
     'ray_status_get': (('nrays',), (), ('ok', 'raystatus_', 'rayfailelt_')),
     'ray_hist_set': (('enable',), (), ('ok',)),
     'ray_pos_hist_get': (('px_', 'py_', 'pz_', 'lok_'), ('nrays', 'nelt1'), ('ok', 'px_', 'py_', 'pz_', 'lok_')),
+    'srt_trace': (('xoff', 'yoff', 'iendelt', 'pos_', 'dir_', 'indprev_', 'indcur_'), ('nelt_',), ('ok', 'pos_', 'dir_', 'indprev_', 'indcur_', 'rayok_', 'status_', 'failelt_')),
     'elt_info_get': (('apvec_', 'xobs_', 'polyvtx_', 'ielt'), ('mside',), ('ok', 'eltid_', 'aptype_', 'apvec_', 'xobs_', 'lmon_', 'npolyvtx', 'polyvtx_')),
     'elt_obs_get': (('obstype_', 'obsvec_', 'ielt'), ('mobs',), ('ok', 'nobs_', 'obstype_', 'obsvec_')),
     'src_seg_get': ((), (), ('ok', 'gridtypeid', 'nseg_', 'width_', 'gap_')),
