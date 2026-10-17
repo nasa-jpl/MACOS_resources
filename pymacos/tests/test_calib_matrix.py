@@ -15,6 +15,7 @@ focal-plane vertex) x four spoiled fixtures of Rx_AsphCalib's f = 1 m paraboloid
   already-optimal start is the best outcome).
 """
 import math
+import os
 import re
 import subprocess
 import sys
@@ -33,6 +34,11 @@ WELL = ['rigid_WFE', 'rigid_SPOT', 'rigid_WFE_ZMODE', 'rigid_BEAM',
         'aspheric_WFE', 'aspheric_SPOT', 'aspheric_WFE_ZMODE',
         'mixed_WFE', 'mixed_SPOT', 'mixed_WFE_ZMODE']
 ILL = ['zernike_BEAM', 'aspheric_BEAM', 'mixed_BEAM']
+# mixed x SPOT: ONE residual (the spot radius) against two DOFs -- a rank-1 Jacobian at every
+# step, so the LM path is round-off sensitive.  It met T=10 only while the field weight was 0
+# (read as 1e-10, PLAN 1.2 (a)); at weight 1 it needs ~30 (measured 2026-10-17, ifx = gfortran:
+# T=10 tilt 1.46e-4, T=30 1.2e-9, T=35 6.0e-10) -- the deck's T=10 stays for its WFE / ZWF cells.
+MIXED_SPOT_ITERS = 35
 
 
 def _load(dof, tgt):
@@ -59,6 +65,8 @@ def _spoil(dof):
 def test_a_well_posed_cell_removes_its_spoil(cell):
     dof, tgt = cell.split('_', 1)
     _load(dof, tgt)
+    if cell == 'mixed_SPOT':
+        m.calib_set_iter(MIXED_SPOT_ITERS)
     r = m.calib()
     assert r['stop_reason'] in ('converged', 'floor', 'cap'), r['stop_reason']
     tilt, h4, z12 = _spoil(dof)
@@ -103,7 +111,8 @@ def test_a_trial_that_loses_the_chief_ray_does_not_kill_the_host():
         "except Exception as e:\n    print('CALIB_FAILED', e, flush=True)\n"
         "p = np.asarray(m.elt_psi(1), dtype=float).ravel()\n"
         "print('TILT %%.6e' %% math.acos(-p[2] / np.linalg.norm(p)), flush=True)\n"
-    ) % (str(HERE.parent / 'src'), str(rx_path(FIX['rigid'])))
+    ) % (os.environ.get('PYMACOS_SRC', str(HERE.parent / 'src')),   # the side-tree .so too
+         str(rx_path(FIX['rigid'])))
     r = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, timeout=900)
     assert r.returncode == 0, 'the host must survive (pre-fix: MACOS_OPS STOPPED):\n' + r.stdout[-2000:] + r.stderr[-2000:]
     assert 'CALIB_FAILED' in r.stdout

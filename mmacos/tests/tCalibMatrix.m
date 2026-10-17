@@ -22,6 +22,7 @@ classdef tCalibMatrix < matlab.unittest.TestCase
 %   start is the best outcome).
     properties (Constant)
         Model = 128
+        MixedSpotIters = 35   % see test_a_well_posed_cell_removes_its_spoil
         Fix = struct('rigid','Rx_CalibRigid.in', 'zernike','Rx_CalibZern.in', 'optimal','Rx_CalibOptimal.in', ...
                      'aspheric','Rx_AsphCalib.in', 'mixed','Rx_CalibMixed.in')
     end
@@ -61,6 +62,12 @@ classdef tCalibMatrix < matlab.unittest.TestCase
         function test_a_well_posed_cell_removes_its_spoil(tc, well)
             [dof, tgt] = tCalibMatrix.split_(well);
             tCalibMatrix.load_(dof);  tCalibMatrix.set_target_(tgt);
+            % mixed x SPOT: ONE residual (the spot radius) against two DOFs -- a rank-1
+            % Jacobian at every step, so the LM path is round-off sensitive.  It met T=10
+            % only while the field weight was 0 (read as 1e-10, PLAN 1.2 (a)); at weight 1
+            % it needs ~30 (measured 2026-10-17, ifx = gfortran: T=10 tilt 1.46e-4, T=30
+            % 1.2e-9, T=35 6.0e-10) -- the deck's T=10 stays for its WFE / ZWF cells.
+            if strcmp(well, 'mixed_SPOT'), macos.calib_set_iter(tCalibMatrix.MixedSpotIters); end
             r = macos.calib();
             tc.verifyTrue(ismember(r.stop_reason, {'converged','floor','cap'}), ...
                 sprintf('%s: stop reason %s', well, r.stop_reason));
