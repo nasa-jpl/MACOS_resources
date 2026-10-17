@@ -6057,6 +6057,27 @@ def ray(i_ray: int) -> dict:
             'status': int(st), 'fail_elt': int(fe)}
 
 
+def segray(i_seg: int) -> dict:
+    """Trace the ray through Segment element ``i_seg``'s centre -- the CLI's SEGRAYTRACE;
+    mmacos ``macos.segray``.  ``i_seg`` is the ELEMENT number of a Segment element; any
+    other element is refused.  The ray passes through the segment's reference point
+    (RptElt, the design centre): parallel to the chief ray for a collimated source, aimed
+    from the chief ray's start for a point source; it is forced onto that segment and
+    traced to the last element (or the deck's ray-target element).  The dict is ray()'s.
+    The engine rebuilds its source grid for the call; the trace is marked modified.
+    api segray_trace (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    ne = num_elt()
+    z3 = lambda: np.zeros((3, ne), order='F')  # noqa: E731
+    z1 = lambda: np.zeros(ne)  # noqa: E731
+    p, d, n0, n1, ok, st, fe = _gen.segray_trace(int(i_seg), z3(), z3(), z1(), z1())
+    modify()
+    return {'pos': np.asarray(p), 'dir': np.asarray(d),
+            'n_prev': np.asarray(n0), 'n_cur': np.asarray(n1), 'ok': bool(ok),
+            'status': int(st), 'fail_elt': int(fe)}
+
+
 def src_seg() -> dict:
     """The source segmentation tiling (the truth mmacos ``view_rx`` draws Segment
     tiles from): ``grid_type`` (1 Circular, 2 Square, 3 Hex, 4 Pie, 5 Flower,

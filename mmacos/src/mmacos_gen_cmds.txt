@@ -124,6 +124,7 @@ ray_pos_hist_get
 ray_status_get
 ray_trace
 save_rx
+segray_trace
 set_src_csys
 set_src_fov
 set_src_info

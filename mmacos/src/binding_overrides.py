@@ -296,7 +296,6 @@ CLI_BINDINGS = {
     'SAOpt': ('missing', 'source-adjustment mode'),
     # Ray Tracing
     # RAY is an SMACOS command (ray_trace, B.2 2026-10-17): the entry classifies itself.
-    'SEGRAYTrace': ('missing', 'single-ray tracing (B.2, first)'),
     'PRAy': ('missing', 'single-ray tracing (B.2, first)'),
     'TPR': ('missing', 'image-plane post-processing (B.2, third)'),
     'MAP': ('missing', 'Zernike / analysis set (B.2, second)'),

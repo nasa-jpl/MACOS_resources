@@ -8,7 +8,7 @@
 ! Every routine forwards to its language-neutral sibling in
 ! macos_api_mod (NAME_impl => NAME); the !f2py annotations live here so
 ! the pure-Fortran backbone stays free of Python-specific markers.
-! Routines: 159 api + 1 f2py-only.
+! Routines: 160 api + 1 f2py-only.
 
 
   module api
@@ -100,6 +100,7 @@
       ray_pos_hist_get_impl => ray_pos_hist_get, &
       srt_trace_impl => srt_trace, &
       ray_trace_impl => ray_trace, &
+      segray_trace_impl => segray_trace, &
       elt_info_get_impl => elt_info_get, &
       elt_obs_get_impl => elt_obs_get, &
       src_seg_get_impl => src_seg_get, &
@@ -1111,6 +1112,26 @@
 
         CALL ray_trace_impl(OK, iRay, Pos_, Dir_, IndPrev_, IndCur_, RayOK_, Status_, FailElt_, nElt_)
       end subroutine ray_trace
+
+      subroutine segray_trace(OK, iSeg, Pos_, Dir_, IndPrev_, IndCur_, RayOK_, Status_, FailElt_, nElt_)
+        implicit none
+        logical, intent(out) :: OK
+        integer, intent(in) :: iSeg
+        real(8), dimension(3,nElt_), intent(inout) :: Pos_
+        real(8), dimension(3,nElt_), intent(inout) :: Dir_
+        real(8), dimension(nElt_), intent(inout) :: IndPrev_
+        real(8), dimension(nElt_), intent(inout) :: IndCur_
+        logical, intent(out) :: RayOK_
+        integer, intent(out) :: Status_
+        integer, intent(out) :: FailElt_
+        integer, intent(in) :: nElt_
+        !f2py intent(in,out) :: Pos_
+        !f2py intent(in,out) :: Dir_
+        !f2py intent(in,out) :: IndPrev_
+        !f2py intent(in,out) :: IndCur_
+
+        CALL segray_trace_impl(OK, iSeg, Pos_, Dir_, IndPrev_, IndCur_, RayOK_, Status_, FailElt_, nElt_)
+      end subroutine segray_trace
 
       subroutine elt_info_get(OK, EltID_, ApType_, ApVec_, xObs_, lMon_, nPolyVtx, PolyVtx_, iElt, mside)
         implicit none

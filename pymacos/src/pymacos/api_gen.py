@@ -1386,6 +1386,28 @@ def ray_trace(iray, pos_, dir_, indprev_, indcur_, nelt_=None):
         raise ApiError('ray_trace')
     return (_r[1], _r[2], _r[3], _r[4], _r[5], _r[6], _r[7])
 
+def segray_trace(iseg, pos_, dir_, indprev_, indcur_, nelt_=None):
+    """Purpose  : SEGRAYTRACE -- trace the one ray that passes through the reference
+               point (RptElt, the design segment centre) of Segment element iSeg,
+               and return its state at each element as ray_trace does (BRIEF_to_bindings
+               B.2, 2026-10-17).  The ray occupies the chief-ray slot (ray 1) and is
+               forced onto segment iSeg; a collimated source sends it parallel to the
+               chief ray, a point source aims it from the chief ray's start.
+               OK = FAIL when iSeg is not a Segment element.  The source grid is
+               rebuilt for the call, as the CLI's command does.
+
+    Generated stub over lib.api.segray_trace(iseg, pos_, dir_, indprev_, indcur_, [nelt_]).
+    Raises ApiError when the api returns ok = FAIL.
+    Returns: pos_, dir_, indprev_, indcur_, rayok_, status_, failelt_
+    """
+    _kw = {}
+    if nelt_ is not None:
+        _kw['nelt_'] = nelt_
+    _r = _api.segray_trace(iseg, pos_, dir_, indprev_, indcur_, **_kw)
+    if not _r[0]:
+        raise ApiError('segray_trace')
+    return (_r[1], _r[2], _r[3], _r[4], _r[5], _r[6], _r[7])
+
 def elt_info_get(apvec_, xobs_, polyvtx_, ielt, mside=None):
     """Purpose  : One-stop element metadata for layout drawing: element
                type id (elt_mod EltID constants), aperture declaration
@@ -3052,6 +3074,7 @@ API_ROUTINES = (
     'ray_pos_hist_get',
     'srt_trace',
     'ray_trace',
+    'segray_trace',
     'elt_info_get',
     'elt_obs_get',
     'src_seg_get',
@@ -3216,6 +3239,7 @@ F2PY_SIGNATURES = {
     'ray_pos_hist_get': (('px_', 'py_', 'pz_', 'lok_'), ('nrays', 'nelt1'), ('ok', 'px_', 'py_', 'pz_', 'lok_')),
     'srt_trace': (('xoff', 'yoff', 'iendelt', 'pos_', 'dir_', 'indprev_', 'indcur_'), ('nelt_',), ('ok', 'pos_', 'dir_', 'indprev_', 'indcur_', 'rayok_', 'status_', 'failelt_')),
     'ray_trace': (('iray', 'pos_', 'dir_', 'indprev_', 'indcur_'), ('nelt_',), ('ok', 'pos_', 'dir_', 'indprev_', 'indcur_', 'rayok_', 'status_', 'failelt_')),
+    'segray_trace': (('iseg', 'pos_', 'dir_', 'indprev_', 'indcur_'), ('nelt_',), ('ok', 'pos_', 'dir_', 'indprev_', 'indcur_', 'rayok_', 'status_', 'failelt_')),
     'elt_info_get': (('apvec_', 'xobs_', 'polyvtx_', 'ielt'), ('mside',), ('ok', 'eltid_', 'aptype_', 'apvec_', 'xobs_', 'lmon_', 'npolyvtx', 'polyvtx_')),
     'elt_obs_get': (('obstype_', 'obsvec_', 'ielt'), ('mobs',), ('ok', 'nobs_', 'obstype_', 'obsvec_')),
     'src_seg_get': ((), (), ('ok', 'gridtypeid', 'nseg_', 'width_', 'gap_')),
