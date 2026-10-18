@@ -68,11 +68,13 @@ classdef tSysProp < matlab.unittest.TestCase
         end
 
         function test_px_not_from_an_OPD(testCase)
-            % PLAN 1.2 (d), 2026-10-17 -- twin of pymacos test_sysprop.py and
+            % PLAN 1.2 (d) -- twin of pymacos test_sysprop.py and
             % cli_tests/cmd/SYSPROP_after_OPD.jou.  An OPD at the element re-sets
             % dxElt to the RAY spacing (~0 at a focus): the pixel fields read
             % lamD_px 3.3130544e6 / pitch 1.6958903e-12 after an OPD alone and
-            % after INT then OPD.  Now 0 there; the INT numbers in between.
+            % after INT then OPD (0 there since 2026-10-17).  Dave's ruling
+            % 2026-10-18: an OPD does not set the pixel scale -- 0 until a
+            % diffraction propagation, then the INT numbers, kept by a later OPD.
             macos.trace(testCase.Det);  macos.opd();
             p0 = macos.first_order_properties(testCase.Det);
             testCase.verifyEqual([p0.lamD_px p0.plate_arcsec_px p0.dx_focal_baseunits], [0 0 0]);
@@ -83,8 +85,9 @@ classdef tSysProp < matlab.unittest.TestCase
             testCase.verifyEqual(p1.dx_focal_baseunits, 5.5207145e-06, 'RelTol', 1e-7);
             macos.trace(testCase.Det);  macos.opd();
             p2 = macos.first_order_properties(testCase.Det);
-            testCase.verifyEqual([p2.lamD_px p2.plate_arcsec_px p2.dx_focal_baseunits], [0 0 0], ...
-                'an OPD after the INT replaces the pitch with the ray spacing');
+            testCase.verifyEqual([p2.lamD_px p2.plate_arcsec_px p2.dx_focal_baseunits], ...
+                [p1.lamD_px p1.plate_arcsec_px p1.dx_focal_baseunits], 'RelTol', 1e-12, ...
+                'an OPD after the INT must leave its pitch');
         end
     end
 end
