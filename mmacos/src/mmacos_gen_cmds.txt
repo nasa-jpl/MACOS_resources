@@ -123,6 +123,7 @@ ray_info_set
 ray_pos_hist_get
 ray_status_get
 ray_trace
+ref_rays
 save_rx
 segray_trace
 set_src_csys

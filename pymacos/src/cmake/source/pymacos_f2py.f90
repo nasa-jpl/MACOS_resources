@@ -8,7 +8,7 @@
 ! Every routine forwards to its language-neutral sibling in
 ! macos_api_mod (NAME_impl => NAME); the !f2py annotations live here so
 ! the pure-Fortran backbone stays free of Python-specific markers.
-! Routines: 160 api + 1 f2py-only.
+! Routines: 161 api + 1 f2py-only.
 
 
   module api
@@ -101,6 +101,7 @@
       srt_trace_impl => srt_trace, &
       ray_trace_impl => ray_trace, &
       segray_trace_impl => segray_trace, &
+      ref_rays_impl => ref_rays, &
       elt_info_get_impl => elt_info_get, &
       elt_obs_get_impl => elt_obs_get, &
       src_seg_get_impl => src_seg_get, &
@@ -1132,6 +1133,19 @@
 
         CALL segray_trace_impl(OK, iSeg, Pos_, Dir_, IndPrev_, IndCur_, RayOK_, Status_, FailElt_, nElt_)
       end subroutine segray_trace
+
+      subroutine ref_rays(OK, iKind, RefRay_, Off_, nRef_)
+        implicit none
+        logical, intent(out) :: OK
+        integer, intent(in) :: iKind
+        integer, dimension(nRef_), intent(inout) :: RefRay_
+        real(8), dimension(2,nRef_), intent(inout) :: Off_
+        integer, intent(in) :: nRef_
+        !f2py intent(in,out) :: RefRay_
+        !f2py intent(in,out) :: Off_
+
+        CALL ref_rays_impl(OK, iKind, RefRay_, Off_, nRef_)
+      end subroutine ref_rays
 
       subroutine elt_info_get(OK, EltID_, ApType_, ApVec_, xObs_, lMon_, nPolyVtx, PolyVtx_, iElt, mside)
         implicit none

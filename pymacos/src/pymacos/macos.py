@@ -6078,6 +6078,27 @@ def segray(i_seg: int) -> dict:
             'status': int(st), 'fail_elt': int(fe)}
 
 
+def ref_rays(kind: str) -> dict:
+    """Find the reference rays of the source grid -- the CLI's RRAY / PRAY; mmacos
+    ``macos.ref_rays``.  ``kind='rray'``: the chief ray and the four rays nearest the
+    aperture edge at +x, +y, -x, -y (5 slots); ``kind='pray'``: the chief ray and the eight
+    rays nearest 0.9 of the aperture at 45-degree steps from +x (9 slots).  Each candidate
+    must pass the system.  ``id`` (n,) is each ray's index in the source grid (slot 0 the
+    chief ray; ``ray(id[k])`` traces it), -1 where no ray was found (slot 0: the chief ray
+    was lost); ``offset`` (2, n) its XY offset from the chief ray in the source grid frame
+    (BaseUnits; 0 where ``id`` is -1).  These are the rays the CLI's TPR traces.  The
+    trace is marked modified.  api ref_rays (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    k = {'rray': 1, 'pray': 2}.get(kind)
+    if k is None:
+        raise ValueError("ref_rays: kind must be 'rray' or 'pray'")
+    n = 5 if k == 1 else 9
+    ids, off = _gen.ref_rays(k, np.zeros(9, dtype=np.int32), np.zeros((2, 9), order='F'))
+    modify()
+    return {'id': np.asarray(ids)[:n].astype(int), 'offset': np.asarray(off)[:, :n].copy()}
+
+
 def src_seg() -> dict:
     """The source segmentation tiling (the truth mmacos ``view_rx`` draws Segment
     tiles from): ``grid_type`` (1 Circular, 2 Square, 3 Hex, 4 Pie, 5 Flower,
