@@ -268,8 +268,9 @@ def sysprop(ielt):
     diffraction quantities via sysprop_mod%DeriveSysProps.  The
     pixel-based outputs (lamD_px, plate_arcsec_px, plate_px_rad,
     dx_focal_bu) require a prior diffraction propagation to iElt (INT)
-    to have set dxElt(iElt); they come back 0 otherwise, and after an
-    OPD at iElt (which re-sets it to the ray spacing; PLAN 1.2 (d)).  The angular quantities
+    to have set the diffraction pitch there (dxEltPix); they come back 0
+    until one has run, and an OPD never sets or clears it (PLAN 1.2 (d),
+    Dave's ruling 2026-10-18).  The angular quantities
     (lamD_rad, lamD_arcsec) and efl/fno/dpup need no propagation.
 
     tilt-for-N-(lambda/D) = N * lamD_rad  (the source-pointing offset

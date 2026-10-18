@@ -1,10 +1,12 @@
 """first_order_properties (the SYSPROP command) -- the pixel-based fields come only from a
-DIFFRACTION pitch (PLAN_CONSOLIDATION 1.2 (d), 2026-10-17); twin of mmacos
-tSysProp/test_px_not_from_an_OPD and cli_tests/cmd/SYSPROP_after_OPD.jou.
+DIFFRACTION pitch (PLAN_CONSOLIDATION 1.2 (d)); twin of mmacos tSysProp/test_px_not_from_an_OPD
+and cli_tests/cmd/SYSPROP_after_OPD.jou.
 
 An OPD at the element re-sets dxElt to the ray-grid spacing (~0 at a focus): on
 Rx_Cass_FarField (model 128) the fields read lamD_px 3.3130544e6, pitch 1.6958903e-12 after
-an OPD alone and after intensity() then opd().  Now 0 there; intensity()'s numbers between.
+an OPD alone and after intensity() then opd() (2026-10-17: 0 there since).  Dave's ruling
+2026-10-18: an OPD does not set the pixel scale -- 0 until a diffraction propagation has run,
+then intensity()'s numbers, and an opd() after it leaves them.
 """
 import numpy as np
 from context import pymacos as m
@@ -31,5 +33,5 @@ def test_px_not_from_an_opd():
     m.trace_rays(ne)
     m.opd()
     p2 = m.first_order_properties(ne)
-    assert [p2[k] for k in PX] == [0.0, 0.0, 0.0], \
-        'an opd() after the intensity() replaces the pitch with the ray spacing'
+    assert np.allclose([p2[k] for k in PX], [INT_LAMD_PX, INT_PLATE_ARCSEC_PX, INT_DX_FOCAL],
+                       rtol=1e-7, atol=0), 'an opd() after the intensity() must leave its pitch'
