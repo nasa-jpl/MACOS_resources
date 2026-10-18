@@ -1,0 +1,344 @@
+% tst_proptype_numeric.in -- the manual's Cassegrain with eleven flat Reference planes added after the
+% secondary, and every element's propagation type given NUMERICALLY, 0 through 15 in element order
+% (the legacy form of old_Rx/KeckDemo.in, mars.in).  Dave 2026-10-18 (PLAN_CONSOLIDATION 1.2 (d)):
+% 0 IS Geometric; LOAD resolves each number to its name and SAVE writes the name, never bytes past
+% the name table.  Gate: cli_tests/cmd/PROPTYPE_numeric.jou.
+
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -5.0E+00
+          zSource=1.0E+21
+
+        BaseUnits=
+        WaveUnits=  none
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=4.0E+00
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  51
+            xGrid=  -1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  -1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  16
+
+             iElt=  1
+          EltName=  SecMirObs
+          Element=  Obscuring
+          Surface=  Conic
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.2E+00
+           RptElt=  0.0E+00  0.0E+00  -4.2E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  3
+          ObsType=  Circle
+           ObsVec=  5.0E-01  0.0E+00  0.0E+00
+          ObsType=  Rectangle
+           ObsVec=  -3.125E-03  3.125E-03  -3.0E+00  3.0E+00
+          ObsType=  Rectangle
+           ObsVec=  -3.0E+00  3.0E+00  -3.125E-03  3.125E-03
+           ApType=  Circular
+            ApVec=  2.0E+00  0.0E+00  0.0E+00
+         PropType=  0
+             zElt=1.0E+20
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Primary
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-1.08E+01
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  -1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  2.1E+00  0.0E+00  0.0E+00
+         PropType=  1
+             zElt=5.4E+00
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Secondary
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-3.526787501E+00
+            KcElt=-2.670556022E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.061145902E+00
+           RptElt=  0.0E+00  0.0E+00  -5.4E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  2
+             zElt=1.338854098E+00
+          nECoord= -6
+
+             iElt= 4
+          EltName=  Plane04
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -3.5000E+00
+           RptElt=  0.0E+00  0.0E+00  -3.5000E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  3
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 5
+          EltName=  Plane05
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -3.0500E+00
+           RptElt=  0.0E+00  0.0E+00  -3.0500E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  4
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 6
+          EltName=  Plane06
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -2.6000E+00
+           RptElt=  0.0E+00  0.0E+00  -2.6000E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  5
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 7
+          EltName=  Plane07
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -2.1500E+00
+           RptElt=  0.0E+00  0.0E+00  -2.1500E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  6
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 8
+          EltName=  Plane08
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.7000E+00
+           RptElt=  0.0E+00  0.0E+00  -1.7000E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  7
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 9
+          EltName=  Plane09
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.2500E+00
+           RptElt=  0.0E+00  0.0E+00  -1.2500E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  8
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 10
+          EltName=  Plane10
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -8.0000E-01
+           RptElt=  0.0E+00  0.0E+00  -8.0000E-01
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  9
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 11
+          EltName=  Plane11
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -3.5000E-01
+           RptElt=  0.0E+00  0.0E+00  -3.5000E-01
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  10
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 12
+          EltName=  Plane12
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0000E-01
+           RptElt=  0.0E+00  0.0E+00  1.0000E-01
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  11
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 13
+          EltName=  Plane13
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  5.5000E-01
+           RptElt=  0.0E+00  0.0E+00  5.5000E-01
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  12
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt= 14
+          EltName=  Plane14
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0000E+00
+           RptElt=  0.0E+00  0.0E+00  1.0000E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  13
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  15
+          EltName=  Ref_surf
+          Element=  Reference
+          Surface=  Conic
+            KrElt=-3.0E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.2E+00
+           RptElt=  0.0E+00  0.0E+00  1.2E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  14
+             zElt=3.0E-01
+          nECoord= -6
+
+             iElt=  16
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.5E+00
+           RptElt=  0.0E+00  0.0E+00  1.5E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  15
+             zElt=0.0E+00
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00
