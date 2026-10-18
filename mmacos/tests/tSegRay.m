@@ -69,5 +69,14 @@ classdef tSegRay < matlab.unittest.TestCase
             tc.verifyEqual(macos.opd_mask(), K0);
             tc.verifyEqual(macos.opd() .* K0, W0 .* K0, 'AbsTol', 0);
         end
+        function test_segray_leaves_the_session_grid(tc)
+            % the source grid SEGRAYTRACE rebuilds left nGridPts one short until the next OPD
+            % trace, so opd / opd_mask WITHOUT a re-trace returned a crop of the last map
+            ne = tSegRay.e5();
+            macos.trace(ne);  W0 = macos.opd();  K0 = macos.opd_mask();
+            macos.segray(3);
+            tc.verifyEqual(macos.opd_mask(), K0);
+            tc.verifyEqual(macos.opd() .* K0, W0 .* K0, 'AbsTol', 0);
+        end
     end
 end

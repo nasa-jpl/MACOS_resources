@@ -75,3 +75,13 @@ def test_segray_leaves_the_full_trace_unchanged(e5):
     m.trace_rays(e5)
     assert np.array_equal(m.opd_mask(), k0)
     assert np.array_equal(m.opd()[k0], w0[k0])
+
+
+def test_segray_leaves_the_session_grid(e5):
+    # the source grid SEGRAYTRACE rebuilds left nGridPts one short until the next OPD trace,
+    # so opd() / opd_mask() WITHOUT a re-trace returned a crop of the last map
+    m.trace_rays(e5)
+    w0, k0 = m.opd().copy(), m.opd_mask().copy()
+    m.segray(3)
+    assert m.opd_mask().shape == k0.shape and np.array_equal(m.opd_mask(), k0)
+    assert np.array_equal(m.opd()[k0], w0[k0])

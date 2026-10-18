@@ -118,3 +118,13 @@ def test_ray_leaves_the_full_trace_unchanged(cass):
     m.trace_rays(cass)
     assert np.array_equal(m.opd_mask(), k0)
     assert np.array_equal(m.opd()[k0], w0[k0])
+
+
+def test_ray_leaves_the_session_grid(cass):
+    # the source grid RAY rebuilds left nGridPts one short until the next OPD trace,
+    # so opd() / opd_mask() WITHOUT a re-trace returned a crop of the last map
+    m.trace_rays(cass)
+    w0, k0 = m.opd().copy(), m.opd_mask().copy()
+    m.ray(40)
+    assert m.opd_mask().shape == k0.shape and np.array_equal(m.opd_mask(), k0)
+    assert np.array_equal(m.opd()[k0], w0[k0])
