@@ -63,7 +63,7 @@ def test_opd_reference_default_and_deck_override():
     m.trace_rays(ne)
     d = (m.opd() - w_mean)[mask]
     assert mask.sum() == MEAN_DECK_VALID_PX
-    assert np.isclose(d.mean(), MEAN_DECK_CHIEF_MINUS_MEAN, rtol=1e-6, atol=0)
+    assert abs(d.mean()) < 1e-9, 'the chief-minus-mean constant is a numerical zero (bounded, not pinned: 2026-10-19)'
     assert d.std() < 1e-20, 'the two references differ by a constant'
 
 

@@ -51,7 +51,9 @@ classdef tDefaults < matlab.unittest.TestCase
             tc.verifyEqual(macos.opd_ref(), 'chief');
             macos.trace(ne);  d = macos.opd() - Wm;  d = d(K);
             tc.verifyEqual(nnz(K), tc.MeanDeckValidPx);
-            tc.verifyEqual(mean(d), tc.MeanDeckChiefMinusMean, 'RelTol', 1e-6);
+            % the chief-minus-mean constant of this deck is ~ -2.5e-12, a numerical zero: bounded, not pinned
+            % (arm64 shares no digits with x86_64 there; Dave 2026-10-19)
+            tc.verifyLessThan(abs(mean(d)), 1e-9, 'the constant is a numerical zero');
             tc.verifyLessThan(std(d), 1e-20, 'the two references differ by a constant');
         end
         function test_harvest_keeps_the_decks_reference(tc)
