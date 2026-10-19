@@ -314,11 +314,12 @@ classdef tOpdRef < matlab.unittest.TestCase
             npass = nnz(ri.ok_pass(2:end));            % OPD skips the chief (ray 1)
             testCase.verifyEqual(testCase.m.opd_ref(), 'chief');
             testCase.verifyEqual(nnz(M), npass, 'the mask holds every passing ray');
-            % |W| < 1e-18: on arm64 the rays at the chief's path read 1e-19-ish, not exactly 0
-            % (the cross-architecture rule: a numerical zero is a bound, never a value; 2026-10-19)
-            testCase.verifyTrue(all(M(abs(W) > 1e-18)), 'every written nonzero is in the mask');
-            testCase.verifyGreaterThan(nnz(M) - nnz(abs(W) > 1e-18), 0, ...
-                'non-vacuity: this fixture HAS valid rays at the chief path (|W| < 1e-18)');
+            % |W| < 1e-15: on arm64 the rays at the chief's path do not read exactly 0 (1e-18 left
+            % NONE of them inside on CCMac's second Mac gate; Dave 2026-10-19: widen) -- a bound 1e-6 of
+            % a wave, never a value (the cross-architecture rule)
+            testCase.verifyTrue(all(M(abs(W) > 1e-15)), 'every written nonzero is in the mask');
+            testCase.verifyGreaterThan(nnz(M) - nnz(abs(W) > 1e-15), 0, ...
+                'non-vacuity: this fixture HAS valid rays at the chief path (|W| < 1e-15)');
             testCase.verifyEqual(nnz(M & W == 0), nnz(M) - nnz(W ~= 0));
             % and under the mean the same mask (it is the ray set, not the values)
             macos.opd_ref('mean');  macos.trace(n);

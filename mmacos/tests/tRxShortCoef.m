@@ -38,6 +38,7 @@ classdef tRxShortCoef < matlab.unittest.TestCase
     end
     methods (Test)
         function test_short_zerncoef_loads_in_a_subprocess(tc)
+            tc.assumeTrue(~ismac, ['nested matlab -batch cannot run the engine on macOS (CCMac''s Mac gates 2026-10-19: the child captures empty output with MACOS_HOME passed; DYLD/SIP or the nested mex load -- PLAN_CONSOLIDATION 1.2 (ee), mechanism to be found on the Mac; Dave 2026-10-19: do not block)']);
             wd = tempname;  mkdir(wd);  c = onCleanup(@() rmdir(wd, 's'));
             mm = fileparts(fileparts(mfilename('fullpath')));
             scr = fullfile(wd, 'leg1.m');  fid = fopen(scr, 'w');
