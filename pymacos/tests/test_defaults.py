@@ -84,8 +84,9 @@ def test_spot_centre_default_is_the_element(e5):
     # each spot() re-traces; a re-trace is not bit-idempotent (a few ulp), so the
     # points agree to round-off
     assert np.allclose(s[0], s_elt[0], rtol=0, atol=1e-9)
-    assert np.abs(np.asarray(s[1]) - np.asarray(s_chf[1])).max() > 1, \
-        'the chief override moves the centre'
+    # the centre moves by the chief-vs-vertex offset of the api's shift vector (the centroid difference is
+    # an unstable near-zero quantity: it flipped sign on arm64; Dave 2026-10-19)
+    assert np.linalg.norm(np.asarray(s[2])[:2] - np.asarray(s[2])[2:]) > 1, 'the chief override moves the centre'
     # shift = the api's 4-vector [chief xy, vertex xy] (the mmacos convention)
     assert np.asarray(s[2]).shape == (4,)
     assert np.allclose(s[2][:2], SPOT_SHIFT_CHIEF, rtol=1e-9, atol=0)

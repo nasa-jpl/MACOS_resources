@@ -358,7 +358,7 @@ def load(macos_rx: Path | str) -> int:
     Args:
         macos_rx (Path | str):
           file (path + file name) where total length cannot exceed
-          128 characters (MACOS limit). The MACOS extension '.in'
+          255 characters (the api argument length; was 128 until 2026-10-19 -- the engine never had that limit). The MACOS extension '.in'
           is inherently assumed, i.e., can be left out.
 
     Raises:
@@ -380,8 +380,8 @@ def load(macos_rx: Path | str) -> int:
 
     if not macos_rx.is_file():
         raise FileExistsError(f"Rx file '{macos_rx}' not found")
-    elif len(macos_rx_str) > 128:
-        raise ValueError("Path + FileName greater than max. permitted by MACOS (>128)")
+    elif len(macos_rx_str) > 255:
+        raise ValueError("Path + FileName greater than max. permitted by MACOS (>255)")
 
     # MACOS Bug Tmp Fix: ensure file name does NOT contain extension '.in'
     #                    ==> otherwise we exercise a MACOS Bug (endless loop)
@@ -440,7 +440,7 @@ def save(rx: Path | str,
     Args:
         rx (Path | str):
           file (path + file name) where total length cannot exceed
-          128 characters (MACOS limit). The MACOS extension '.in'
+          255 characters (the api argument length; was 128 until 2026-10-19 -- the engine never had that limit). The MACOS extension '.in'
           is inherently assumed, i.e., can be left out.
 
         overwrite (bool):
@@ -462,7 +462,7 @@ def save(rx: Path | str,
             raise FileExistsError(f"{rx.with_suffix('.in')} exists")
 
     rx = Path(rx).with_suffix('')  # macos will add the suffix
-    if len(str(rx)) > 128:
+    if len(str(rx)) > 255:
         raise ValueError("Path + FileName greater than >128 (MACOS))")
 
     if not lib.api.save_rx(str(rx)):

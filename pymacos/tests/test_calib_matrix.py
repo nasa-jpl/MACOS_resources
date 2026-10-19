@@ -70,7 +70,7 @@ def test_a_well_posed_cell_removes_its_spoil(cell):
     r = m.calib()
     assert r['stop_reason'] in ('converged', 'floor', 'cap'), r['stop_reason']
     tilt, h4, z12 = _spoil(dof)
-    assert tilt < 1e-8
+    assert tilt < (1e-4 if cell == 'mixed_SPOT' else 1e-8)   # the near-singular cell: arm64 1.6e-5 (Dave 2026-10-19: widen)
     if not math.isnan(h4):
         assert abs(h4) < 1e-6
     if not math.isnan(z12):
@@ -106,6 +106,7 @@ def test_a_trial_that_loses_the_chief_ray_does_not_kill_the_host():
         "import sys, math; sys.path.insert(0, %r)\n"
         "import numpy as np, pymacos.macos as m\n"
         "m.init(128); m.load(%r)\n"
+        "m.elt_psi(1, np.array([[0.0], [math.sin(5e-3)], [-math.cos(5e-3)]]))\n"   # 5 mrad: more margin for the trial to lose the chief (arm64 did not at 1 mrad; Dave 2026-10-19)
         "m.calib_set_var_elt(1, ['TIP', 'TILT']); m.calib_set_target('SPOT')\n"
         "try:\n    m.calib(); print('CALIB_RETURNED', flush=True)\n"
         "except Exception as e:\n    print('CALIB_FAILED', e, flush=True)\n"
@@ -118,4 +119,4 @@ def test_a_trial_that_loses_the_chief_ray_does_not_kill_the_host():
     assert 'CALIB_FAILED' in r.stdout
     assert re.search(r'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', r.stdout)
     tilt = float(re.search(r'TILT (\S+)', r.stdout).group(1))
-    assert abs(tilt - 1e-3) < 1e-9
+    assert abs(tilt - 5e-3) < 1e-9

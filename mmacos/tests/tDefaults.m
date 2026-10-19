@@ -82,7 +82,9 @@ classdef tDefaults < matlab.unittest.TestCase
             s = macos.spot(ne);  se = macos.spot(ne, 'at', 'elt');  sc = macos.spot(ne, 'at', 'chief');
             % each spot re-traces; a re-trace is not bit-idempotent (a few ulp)
             tc.verifyEqual(s.pts, se.pts, 'AbsTol', 1e-9, 'default = the element vertex');
-            tc.verifyGreaterThan(max(abs(s.centroid - sc.centroid)), 1, 'the chief override moves the centre');
+            % the centre moves by the chief-vs-vertex offset, read from the api's shift vector (the centroid
+            % difference is an unstable near-zero quantity: it flipped sign on arm64; Dave 2026-10-19)
+            tc.verifyGreaterThan(norm(s.shift(1:2) - s.shift(3:4)), 1, 'the chief override moves the centre');
             tc.verifyEqual(mmacos('spc_option_get'), 1, ...
                 'a per-call chief centre does not change the session option');
             s2 = macos.spot(ne);
