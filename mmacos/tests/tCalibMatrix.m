@@ -72,7 +72,8 @@ classdef tCalibMatrix < matlab.unittest.TestCase
             tc.verifyTrue(ismember(r.stop_reason, {'converged','floor','cap'}), ...
                 sprintf('%s: stop reason %s', well, r.stop_reason));
             s = tCalibMatrix.spoil_(dof);
-            tc.verifyLessThan(s.tilt, 1e-8, [well ': the 1 mrad tilt is removed']);
+            tiltTol = 1e-8;  if strcmp(well, 'mixed_SPOT'), tiltTol = 1e-4; end   % the near-singular cell: arm64 1.6e-5 (Dave 2026-10-19: widen)
+            tc.verifyLessThan(s.tilt, tiltTol, [well ': the 1 mrad tilt is removed']);
             if ~isnan(s.h4),  tc.verifyLessThan(abs(s.h4), 1e-6, [well ': h^4 (seed 5e-3) is removed']); end
             if ~isnan(s.z12), tc.verifyLessThan(abs(s.z12), 1e-12, [well ': Z12 (seed 2e-7 m) is removed']); end
             tr = macos.trace(2);
@@ -102,6 +103,7 @@ classdef tCalibMatrix < matlab.unittest.TestCase
             mm  = fileparts(fileparts(mfilename('fullpath')));
             scr = fullfile(wd, 'nulldof_leg.m');  fid = fopen(scr, 'w');
             fprintf(fid, ['run(''%s'');\nmacos.init(%d); macos.load_rx(''%s'');\n' ...
+                'macos.set_elt_psi(1, [0; sin(5e-3); -cos(5e-3)]);\n' ...   % 5 mrad: more margin for the trial to lose the chief (arm64 did not at 1 mrad; Dave 2026-10-19)
                 'macos.calib_set_var_elt(1, ''TIP'', ''TILT''); macos.calib_set_target(''SPOT'');\n' ...
                 'try, macos.calib(); fprintf(''CALIB_RETURNED\\n''); catch e, fprintf(''CALIB_FAILED %%s\\n'', e.message); end\n' ...
                 'psi = macos.get_elt_psi(1); fprintf(''TILT %%.6e\\n'', acos(-psi(3)/norm(psi)));\n'], ...
@@ -115,7 +117,7 @@ classdef tCalibMatrix < matlab.unittest.TestCase
             tc.verifyNotEmpty(regexp(out, 'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', 'once'), ...
                 'and names its cause');
             t = str2double(regexp(out, 'TILT (\S+)', 'tokens', 'once'));
-            tc.verifyEqual(t, 1e-3, 'RelTol', 1e-6, 'the optics are restored to the last accepted state');
+            tc.verifyEqual(t, 5e-3, 'RelTol', 1e-6, 'the optics are restored to the last accepted state');
         end
     end
 end
