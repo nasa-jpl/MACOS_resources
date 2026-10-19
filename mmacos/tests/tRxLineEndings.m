@@ -17,6 +17,7 @@ classdef tRxLineEndings < matlab.unittest.TestCase
     end
     methods (Test)
         function test_three_line_endings_one_answer(tc)
+            tc.assumeTrue(~ismac, ['nested matlab -batch cannot run the engine on macOS (CCMac''s Mac gates 2026-10-19: the child captures empty output with MACOS_HOME passed; DYLD/SIP or the nested mex load -- PLAN_CONSOLIDATION 1.2 (ee), mechanism to be found on the Mac; Dave 2026-10-19: do not block)']);
             wd = tempname;  mkdir(wd);  c = onCleanup(@() rmdir(wd, 's'));
             td = fullfile(wd, 'tmpdir');  mkdir(td);
             mm = fileparts(fileparts(mfilename('fullpath')));
