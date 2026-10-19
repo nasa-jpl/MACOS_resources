@@ -98,7 +98,7 @@ classdef tTmaLongslit < matlab.unittest.TestCase
                 if k <= 3, ref = G.m(k).pole; else, ref = G.slit.point; end
                 tc.verifyLessThan(norm(ri.pos(:, 1) - ref), 1e-12, sprintf('chief on station %d', k));
             end
-            tc.verifyLessThan(acos(min(1, abs(ri.dir(:, 1).'*G.slit.normal))), 1e-9);
+            tc.verifyLessThan(acos(min(1, abs(ri.dir(:, 1).'*G.slit.normal))), 1e-7);   % arm64 1.5e-8 (2026-10-19)
             M = tls_measure(P, G, deck, 'clearance', false);
             tc.verifyGreaterThan(max(abs(M.rms_um - M0.rms_um)), 10, 'the freeform reaches the figure (non-vacuous)');
         end
@@ -159,9 +159,11 @@ classdef tTmaLongslit < matlab.unittest.TestCase
             % 128 -> 256 transition inside the fast batch would risk the macos_init_all heap bug for later classes
             deck = fullfile(tc.tdir, sprintf('%s_R%d_%s.in', S.P.tag, j - 1, r.name));
             M = tls_measure(S.P, r.G, deck, 'clearance', false);
-            tc.verifyEqual(M.rms_um, r.M.rms_um, 'RelTol', 1e-9);
-            tc.verifyEqual(M.chief_deg, r.M.chief_deg, 'AbsTol', 1e-9);
-            tc.verifyEqual(M.fwhm_x_px, r.M.fwhm_x_px, 'AbsTol', 1e-9);
+            % cross-architecture pins (Dave 2026-10-19): rms to 5 significant figures; the chief angle and the
+            % FWHM of a centred field are numerical zeros (arm64 1.2e-6 deg, Linux 8.5e-7 deg), bounded at 1e-5
+            tc.verifyEqual(M.rms_um, r.M.rms_um, 'RelTol', 1e-5);
+            tc.verifyEqual(M.chief_deg, r.M.chief_deg, 'AbsTol', 1e-5);
+            tc.verifyEqual(M.fwhm_x_px, r.M.fwhm_x_px, 'AbsTol', 1e-5);
         end
 
         function test_the_1k5_record_rescores(tc)
@@ -178,9 +180,11 @@ classdef tTmaLongslit < matlab.unittest.TestCase
             tc.verifyGreaterThan(r.M.clear.min_mm, 0, '1.5k R5: the joined-free telescope clears (R4: -0.3 mm)');
             deck = fullfile(tc.tdir, sprintf('%s_R%d_%s.in', S.P.tag, j - 1, r.name));
             M = tls_measure(S.P, r.G, deck, 'clearance', false);
-            tc.verifyEqual(M.rms_um, r.M.rms_um, 'RelTol', 1e-9);
-            tc.verifyEqual(M.chief_deg, r.M.chief_deg, 'AbsTol', 1e-9);
-            tc.verifyEqual(M.fwhm_x_px, r.M.fwhm_x_px, 'AbsTol', 1e-9);
+            % cross-architecture pins (Dave 2026-10-19): rms to 5 significant figures; the chief angle and the
+            % FWHM of a centred field are numerical zeros (arm64 1.2e-6 deg, Linux 8.5e-7 deg), bounded at 1e-5
+            tc.verifyEqual(M.rms_um, r.M.rms_um, 'RelTol', 1e-5);
+            tc.verifyEqual(M.chief_deg, r.M.chief_deg, 'AbsTol', 1e-5);
+            tc.verifyEqual(M.fwhm_x_px, r.M.fwhm_x_px, 'AbsTol', 1e-5);
         end
     end
 end

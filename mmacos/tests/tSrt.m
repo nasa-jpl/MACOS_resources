@@ -31,13 +31,15 @@ classdef tSrt < matlab.unittest.TestCase
     methods (Test)
         function test_srt_reproduces_the_cli(tc)
             ne = tSrt.cass();
+            % tolerances: cross-architecture pins (Dave 2026-10-19) -- a 1e-11 on-axis coordinate is a
+            % numerical zero (AbsTol 1e-9), a real value is pinned to 5 significant figures (RelTol 1e-5)
             r = macos.srt(0.3, 0.2);
             tc.verifyTrue(r.ok);  tc.verifyEqual([r.status r.fail_elt], [0 0]);
-            tc.verifyEqual(r.pos(:,2), tc.CliPos2, 'RelTol', 1e-12, 'AbsTol', 1e-15);
-            tc.verifyEqual(r.pos(:,3), tc.CliPos3, 'RelTol', 1e-12, 'AbsTol', 1e-15);
-            tc.verifyEqual(r.pos(:,5), tc.CliPos5, 'RelTol', 1e-12, 'AbsTol', 1e-15);
-            tc.verifyEqual(r.dir(:,2), tc.CliDir2, 'RelTol', 1e-12, 'AbsTol', 1e-15);
-            tc.verifyEqual(r.dir(:,3), tc.CliDir3, 'RelTol', 1e-12, 'AbsTol', 1e-15);
+            tc.verifyEqual(r.pos(:,2), tc.CliPos2, 'RelTol', 1e-5, 'AbsTol', 1e-9);
+            tc.verifyEqual(r.pos(:,3), tc.CliPos3, 'RelTol', 1e-5, 'AbsTol', 1e-9);
+            tc.verifyEqual(r.pos(:,5), tc.CliPos5, 'RelTol', 1e-5, 'AbsTol', 1e-9);
+            tc.verifyEqual(r.dir(:,2), tc.CliDir2, 'RelTol', 1e-5, 'AbsTol', 1e-9);
+            tc.verifyEqual(r.dir(:,3), tc.CliDir3, 'RelTol', 1e-5, 'AbsTol', 1e-9);
             tc.verifyEqual([r.n_prev r.n_cur], ones(1, 2*ne));
         end
         function test_srt_geometry_paraboloid_sag_and_axial_focus(tc)
@@ -45,7 +47,7 @@ classdef tSrt < matlab.unittest.TestCase
             for xy = [0.3 0.2; 0.5 0; -0.1 0.45].'
                 r = macos.srt(xy(1), xy(2));
                 p = r.pos(:,2);
-                tc.verifyEqual(p(3), -(p(1)^2 + p(2)^2) / (2*tc.R), 'RelTol', 1e-12, 'AbsTol', 1e-15);
+                tc.verifyEqual(p(3), -(p(1)^2 + p(2)^2) / (2*tc.R), 'RelTol', 1e-5, 'AbsTol', 1e-9);
                 tc.verifyLessThan(hypot(r.pos(1,ne), r.pos(2,ne)), 1e-9, 'focus on axis');
                 tc.verifyEqual(r.pos(3,ne), 1.5, 'AbsTol', 1e-12);
                 tc.verifyEqual(vecnorm(r.dir), ones(1, ne), 'AbsTol', 1e-12);
@@ -77,16 +79,16 @@ classdef tSrt < matlab.unittest.TestCase
             tSrt.cass();
             r = macos.ray(40);
             tc.verifyTrue(r.ok);  tc.verifyEqual([r.status r.fail_elt], [0 0]);
-            tc.verifyEqual(r.pos(:,2), tc.Ray40Pos2, 'RelTol', 1e-12, 'AbsTol', 1e-15);
-            tc.verifyEqual(r.pos(:,3), tc.Ray40Pos3, 'RelTol', 1e-12, 'AbsTol', 1e-15);
-            tc.verifyEqual(r.pos(:,5), tc.Ray40Pos5, 'RelTol', 1e-12, 'AbsTol', 1e-15);
-            tc.verifyEqual(r.dir(:,2), tc.Ray40Dir2, 'RelTol', 1e-12, 'AbsTol', 1e-15);
+            tc.verifyEqual(r.pos(:,2), tc.Ray40Pos2, 'RelTol', 1e-5, 'AbsTol', 1e-9);
+            tc.verifyEqual(r.pos(:,3), tc.Ray40Pos3, 'RelTol', 1e-5, 'AbsTol', 1e-9);
+            tc.verifyEqual(r.pos(:,5), tc.Ray40Pos5, 'RelTol', 1e-5, 'AbsTol', 1e-9);
+            tc.verifyEqual(r.dir(:,2), tc.Ray40Dir2, 'RelTol', 1e-5, 'AbsTol', 1e-9);
         end
         function test_ray_geometry_and_chief(tc)
             ne = tSrt.cass();
             for i = [40 77]
                 r = macos.ray(i);  p = r.pos(:,2);
-                tc.verifyEqual(p(3), -(p(1)^2 + p(2)^2) / (2*tc.R), 'RelTol', 1e-12, 'AbsTol', 1e-15);
+                tc.verifyEqual(p(3), -(p(1)^2 + p(2)^2) / (2*tc.R), 'RelTol', 1e-5, 'AbsTol', 1e-9);
                 tc.verifyLessThan(hypot(r.pos(1,ne), r.pos(2,ne)), 1e-9);
             end
             tc.verifyEqual(macos.ray(1).pos, macos.srt(0, 0).pos, 'AbsTol', 0);

@@ -27,7 +27,7 @@ classdef tRxLineEndings < matlab.unittest.TestCase
                 fprintf(fid, 'macos.load_rx(''%s''); r = macos.trace(macos.num_elt()); fprintf(''RMS %d %%.12e\\n'', r.rmsWFE);\n', d{k}, k);
             end
             fclose(fid);
-            [st, out] = system(sprintf('cd %s && "%s" -batch "run(''%s'')" 2>&1', wd, fullfile(matlabroot, 'bin', 'matlab'), scr));
+            [st, out] = system(sprintf('cd %s && MACOS_HOME="%s" "%s" -batch "run(''%s'')" 2>&1', wd, macos_home_(), fullfile(matlabroot, 'bin', 'matlab'), scr));   % MACOS_HOME: a system() from MATLAB on macOS drops the parent's environment (CCMac 2026-10-19)
             tc.assertEqual(st, 0, out);
             v = zeros(1, 3);
             for k = 1:3

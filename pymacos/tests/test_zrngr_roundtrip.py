@@ -40,6 +40,10 @@ FILES = ('Rx_ZrnGrRoundTrip.in', 'Rx_ZrnGrOverflow.in', 'tst_zrngr_grid.txt')
 
 @pytest.fixture
 def staged(tmp_path, monkeypatch):
+    # a SHORT directory: the engine refuses path + name over 128 characters, and macOS's pytest
+    # tmp_path is ~100 characters before the file name (CCMac's Mac gate 2026-10-19)
+    import tempfile
+    tmp_path = __import__('pathlib').Path(tempfile.mkdtemp(prefix='zrngr_', dir='/tmp'))
     for f in FILES:
         shutil.copy(rx_path(f), tmp_path / f)
     monkeypatch.chdir(tmp_path)

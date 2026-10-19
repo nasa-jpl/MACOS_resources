@@ -35,7 +35,7 @@ classdef tRxRefuse < matlab.unittest.TestCase
             end
             fprintf(fid, 'macos.load_rx(''%s''); t = macos.trace(macos.num_elt()); fprintf(''GOOD %%.10e\\n'', t.rmsWFE);\n', good);
             fclose(fid);
-            [st, out] = system(sprintf('cd %s && "%s" -batch "run(''%s'')" 2>&1', wd, fullfile(matlabroot, 'bin', 'matlab'), scr));
+            [st, out] = system(sprintf('cd %s && MACOS_HOME="%s" "%s" -batch "run(''%s'')" 2>&1', wd, macos_home_(), fullfile(matlabroot, 'bin', 'matlab'), scr));   % MACOS_HOME: a system() from MATLAB on macOS drops the parent's environment (CCMac 2026-10-19)
             tc.verifyEqual(st, 0, sprintf('a refused load must not kill MATLAB (pre-fix: the engine aborts)\n%s', out));
             for k = 1:numel(bad), tc.verifyTrue(contains(out, sprintf('CAUGHT %d', k)), sprintf('bad deck %d is refused with a catchable error', k)); end
             tc.verifyEqual(count(string(out), "Rx load refused: psiElt (elt   1)"), 1, 'the short psiElt= names its key and element');

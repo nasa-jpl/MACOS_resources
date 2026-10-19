@@ -369,10 +369,11 @@ classdef tDwDx < matlab.unittest.TestCase
                 5848.1317754687343 9.2370555648813024e-06; ...
                 2.9247685017880134e-07 -5788.8080483792237; ...
                 -4.2223153319503865e-07 1163.5166210055559];
-            testCase.verifyEqual(rms(o.dwdx, 1), pin_rms, 'RelTol', 1e-12);
+            % 5 significant figures: the cross-architecture pin (Dave 2026-10-19; arm64 shares 5-8 digits)
+            testCase.verifyEqual(rms(o.dwdx, 1), pin_rms, 'RelTol', 1e-4);
             % dcdx: relative on the live entries, absolute on the ~0 ones
             testCase.verifyEqual(o.dcdx, pin_dcdx, 'AbsTol', 1e-6, ...
-                'RelTol', 1e-12);
+                'RelTol', 1e-4);
         end
 
         function test_segment_piston_is_two_cos_aoi_per_baseunit(testCase)

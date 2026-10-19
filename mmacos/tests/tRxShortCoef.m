@@ -44,7 +44,7 @@ classdef tRxShortCoef < matlab.unittest.TestCase
             fprintf(fid, 'run(''%s'');\nmacos.init(%d);\nmacos.load_rx(''%s'');\n', fullfile(mm, 'mmacos_setup.m'), tc.ModelSize, rx_fixture_path(tc.Base));
             fprintf(fid, 'c = macos.get_elt_zrn_coef(1, (1:4).'');\nfprintf(''COEF %%.10e %%.10e %%.10e %%.10e\\n'', c);\n');
             fclose(fid);
-            [st, out] = system(sprintf('cd %s && "%s" -batch "run(''%s'')" 2>&1', wd, fullfile(matlabroot, 'bin', 'matlab'), scr));
+            [st, out] = system(sprintf('cd %s && MACOS_HOME="%s" "%s" -batch "run(''%s'')" 2>&1', wd, macos_home_(), fullfile(matlabroot, 'bin', 'matlab'), scr));   % MACOS_HOME: a system() from MATLAB on macOS drops the parent's environment (CCMac 2026-10-19)
             tc.verifyEqual(st, 0, sprintf('the short ZernCoef= deck must not kill MATLAB (pre-fix: the engine aborts at load)\n%s', out));
             t = regexp(out, 'COEF (\S+) (\S+) (\S+) (\S+)', 'tokens', 'once');
             tc.assertNotEmpty(t, 'the subprocess read the coefficients back');
