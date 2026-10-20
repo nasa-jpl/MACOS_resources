@@ -2,7 +2,7 @@
 % (PLAN section 0 item 2 follow-through, 2026-07-04).  Exercises
 % every parser-accepted key that SAVE used to drop:
 %   header : ArrWaveLen, ZCOZernType, RxNoStopSet
-%   element: Coating, nMetPos/tMetElt, EdgeSensors, ZernType annular
+%   element: Coating, nMetPos/tMetElt, EdgeSensors, ZernType NormNoll (was NormAnnularNoll 0.3: refused at load since 2026-10-20, PLAN_CONSOLIDATION 1.2 (vv); modes 4 and 11 traced identically)
 %            ratio, ZernCenter/ZernXDir/ZernYDir/ZernRad, lData,
 %            ArrIndRef, GradInd/GradCoef/GradLensZ, DoeWL/DoePhase/
 %            DoeFl, LensArrayIndRef, nAmplMat/AmplFile/AmplSrfdx,
@@ -97,7 +97,7 @@
            psiElt=  0.0E+00  0.0E+00  -1.0E+00
            VptElt=  0.0E+00  0.0E+00  -4.061145902E+00
            RptElt=  0.0E+00  0.0E+00  -5.4E+00
-         ZernType=  NormAnnularNoll  3.0E-01
+         ZernType=  NormNoll
         nZernCoef=  2
         ZernModes=  4 11
          ZernCoef=  1.0E-08  2.0E-09
