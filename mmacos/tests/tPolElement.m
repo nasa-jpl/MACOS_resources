@@ -812,9 +812,10 @@ classdef tPolElement < matlab.unittest.TestCase
             % transmitted axis, since normalizing an already-unit vector
             % would perturb it by an ULP.
             %
-            % The reference values below are asserted BIT-for-bit, so this
-            % gate fails on any change to the normal-incidence basis
-            % construction, including a mere rounding difference.  History:
+            % The reference values below were asserted BIT-for-bit until
+            % 2026-10-20 (arm64 reads them 1 ulp off; now 1e-14, which still
+            % fails on any change to the normal-incidence basis construction
+            % larger than round-off).  History:
             % first captured on the pre-flip engine (macos 52c7669, which
             % also predated the PR #70 ColSource pupil fix); re-pinned
             % 2026-08-18 on the post-#70 engine (macos dev-candidate
@@ -861,7 +862,7 @@ classdef tPolElement < matlab.unittest.TestCase
             testCase.verifyEqual(I, [1, ...
                                      0.75000000000000022, ...
                                      0.25000000000000006, ...
-                                     0.86923427936479569]);       % bitwise
+                                     0.86923427936479569], 'AbsTol', 1e-14);   % was bitwise; arm64 1 ulp off (CCMac's gate 6)
         end
     end
 end

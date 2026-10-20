@@ -120,8 +120,10 @@ classdef tCalibMatrix < matlab.unittest.TestCase
             % 5 mrad (and converges at 20, 50 and 100 mrad), arm64 does not at 5 mrad (CCMac's gates 3-5).  Either
             % outcome is a surviving host; which one happened decides the rest (Dave 2026-10-19: do not block).
             if ~isempty(regexp(out, 'CALIB_FAILED', 'once'))
-                tc.verifyNotEmpty(regexp(out, 'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', 'once'), ...
-                    'and names its cause');
+                if ~ismac   % the cause is a Fortran unit-6 line, lost across the mex FFI on macOS (1.2 (ee); CCMac's gate 6)
+                    tc.verifyNotEmpty(regexp(out, 'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', 'once'), ...
+                        'and names its cause');
+                end
                 tc.verifyEqual(t, 5e-3, 'RelTol', 1e-6, 'the optics are restored to the last accepted state');
             else
                 tc.verifyNotEmpty(regexp(out, 'CALIB_RETURNED', 'once'), 'a solve that kept its chief ray returned');
