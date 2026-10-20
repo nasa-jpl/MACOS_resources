@@ -23,6 +23,12 @@ class ApiError(RuntimeError):
     """A macos_api_mod routine returned ok = FAIL."""
 
 
+# engine limits, read from the macos source at generation time
+# (binding_overrides.ENGINE_CONSTANTS); veneers check against these
+MZERNTYPE = 11   # elt_mod
+MZERNMODES = 66   # elt_mod
+
+
 def modified_rx():
     """Purpose  : Submit a Rx modified cmd. to SMACOS to reset ray-trace dependent parameters, which
                is recommended after a Rx modification, i.e., perturbElt, setVptElt, ...

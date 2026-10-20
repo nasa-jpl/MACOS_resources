@@ -752,6 +752,29 @@ def check_param_asserts(ov, api_path):
                      f'source has {hits or "nothing"} -- update F2PY_DIMS')
 
 
+def engine_constants(ov, api_path):
+    """(PYNAME, value) for each (module, PARAM) of ENGINE_CONSTANTS, read from
+    the macos source next to the api file: the limits a veneer checks against
+    (never a literal in macos.py).  A parameter found zero or several times
+    stops generation."""
+    srcdir = Path(api_path).resolve().parent
+    out = []
+    for mod, par in ov.ENGINE_CONSTANTS:
+        hits = []
+        for f in list(srcdir.glob('*.F')) + list(srcdir.glob('*.F90')) + \
+                list(srcdir.glob('*.f90')):
+            t = f.read_text(errors='replace')
+            if not re.search(r'^\s*module\s+' + mod + r'\b', t,
+                             re.MULTILINE | re.IGNORECASE):
+                continue
+            hits += re.findall(r'\b' + par + r'\s*=\s*(\d+)\b', t, re.IGNORECASE)
+        if len(set(hits)) != 1:
+            sys.exit(f'binding_overrides: ENGINE_CONSTANTS {mod}::{par} '
+                     f'reads {hits or "nothing"} -- expected one integer')
+        out.append((par.upper(), int(hits[0]), mod))
+    return out
+
+
 def emit_f2py(subs, ov):
     names = [s[0] for s in subs if s[0] not in PRIVATE_HELPERS]
     bound = names + F2PY_HELPERS_WRAPPED
@@ -821,7 +844,7 @@ def _py_doc(doc_lines, name, ins, outs, ok_name):
     return D
 
 
-def emit_veneer(subs, src, ov):
+def emit_veneer(subs, src, ov, consts=()):
     out = []
     A = out.append
     A('"""api_gen.py -- one Python function per macos_api_mod routine.')
@@ -848,6 +871,13 @@ def emit_veneer(subs, src, ov):
     A('class ApiError(RuntimeError):')
     A('    """A macos_api_mod routine returned ok = FAIL."""')
     A('')
+    if consts:
+        A('')
+        A('# engine limits, read from the macos source at generation time')
+        A('# (binding_overrides.ENGINE_CONSTANTS); veneers check against these')
+        for k, v, mod in consts:
+            A(f'{k} = {v}   # {mod}')
+        A('')
     names = []
     sigs = []
     for name, args, body, local_params, use_only_map in subs:
@@ -1113,7 +1143,8 @@ def main():
         print(f'Wrote {p}: {len(names)} api routines + '
               f'{len(ov.F2PY_EXTRA)} f2py-only')
     if 'veneer' in targets:
-        text, names = emit_veneer(subs, src, ov)
+        text, names = emit_veneer(subs, src, ov,
+                                  engine_constants(ov, src_path))
         p = ven_dir / 'api_gen.py'
         p.write_text(text)
         print(f'Wrote {p}: {len(names)} stubs')

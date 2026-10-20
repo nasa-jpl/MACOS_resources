@@ -2167,10 +2167,11 @@ def getEltSrfZern(iElt):
     :param   iElt:               [1xN,I]: Elt. ID ( -nElt < iElt[i] <= nElt )
 
     :return  lMon:               [1xN,D]: = Zernike Radius
-    :return  ZernType:           [1xN,I]: 1) Malacara  4) NormMalacara  7) NormHex
+    :return  ZernType:           [1xN,I]: 1) ANSI      4) NormANSI      7) NormHex
                                           2) BornWolf  5) NormBornWolf  8) NormNoll
                                           3) Fringe    6) NormFringe    9) NormAnnularNoll
-    :return  ZernCoef:           [MxN,D]: = [C_1,C_2,...,C_N] Zernike Coefficients  (M=45)
+                                         10) Noll     11) ExtFringe   (manual Appendix E)
+    :return  ZernCoef:           [MxN,D]: = [C_1,C_2,...,C_N] Zernike Coefficients  (M=66)
     :return  ZernAnnularRatio:   [1xN,D]: = inner/outer radius ratio (0,...,1)
                                             only important for ZernType = NormAnnularNoll (9)
 
@@ -2194,9 +2195,10 @@ def setEltSrfZern(iElt, lMon, zernType, zernMode=45, zernCoef=np.zeros(45), zern
 
     :param iElt:                [Mx1,I]: Elt. ID ( -nElt < iElt[i] <= nElt )
     :param lMon:                [1x1,D]: = Zernike Radius
-    :param zernType:            [1x1,I]: 1) Malacara  4) NormMalacara  7) NormHex
+    :param zernType:            [1x1,I]: 1) ANSI      4) NormANSI      7) NormHex
                                          2) BornWolf  5) NormBornWolf  8) NormNoll
                                          3) Fringe    6) NormFringe    9) NormAnnularNoll
+                                        10) Noll     11) ExtFringe   (manual Appendix E)
     :param zernMode:            [1xN,I]: [Optional] = [Z_1,Z_2,...,Z_N] Zernike Modes
     :param zernCoef:            [1xN,D]: [Optional] = [C_1,C_2,...,C_N] Zernike Coefficients
     :param zernAnnularRatio:    [1x1,D]: [Optional] = inner/outer radius ratio (0,...,1)
@@ -2219,12 +2221,12 @@ def setEltSrfZern(iElt, lMon, zernType, zernMode=45, zernCoef=np.zeros(45), zern
         raise ValueError("Expecting: 0 < lMon")
 
     zernType = _chk_values_1d(zernType, 1)   # scalar
-    if zernType<1 or zernType>9:
-        raise ValueError("Expecting: 0 < ZernType <= 9")
+    if zernType<1 or zernType>_gen.MZERNTYPE:
+        raise ValueError(f"Expecting: 0 < ZernType <= {_gen.MZERNTYPE}")
 
     zernMode = _chk_values_1d(zernMode, -1, row=False).flatten()   # vector
-    if np.any(zernMode<1) or np.any(zernMode>45):
-        raise ValueError("Expecting: 0 < ZernMode values <= 45")
+    if np.any(zernMode<1) or np.any(zernMode>_gen.MZERNMODES):
+        raise ValueError(f"Expecting: 0 < ZernMode values <= {_gen.MZERNMODES}")
 
     zernCoef =  _chk_values_1d(zernCoef, zernMode.size, row=False).flatten()   # vector
 
@@ -2245,8 +2247,9 @@ def setEltSrfZernMode(iElt, izernMode=None, zernCoef=None) -> None:
         raise ValueError("'elt_srf_zrn_mode_set' undefined input")
 
     zernMode = _chk_values_1d(izernMode, -1, row=False).flatten()   # vector
-    if np.any(zernMode<1) or np.any(zernMode>45):
-        raise ValueError("'elt_srf_zrn_mode_set 'Expecting: 0 < ZernMode values <= 45")
+    if np.any(zernMode<1) or np.any(zernMode>_gen.MZERNMODES):
+        raise ValueError("'elt_srf_zrn_mode_set' Expecting: 0 < ZernMode values"
+                         f" <= {_gen.MZERNMODES}")
 
     if not lib.api.elt_srf_zrn_mode_set(iElt, zernMode, zernCoef):
         raise Exception("'elt_srf_zrn_mode_set' threw an exception")
@@ -2846,14 +2849,14 @@ class ZernikeData:
         if self.norm_rad <= 0:
             raise ValueError("Normalization radius must be > 0")
 
-        if not (1 <= self.zern_type <= 9):
-            raise ValueError("Zernike type must be in range [1-9]")
+        if not (1 <= self.zern_type <= _gen.MZERNTYPE):
+            raise ValueError(f"Zernike type must be in range [1-{_gen.MZERNTYPE}]")
 
         if self.modes.shape != self.coefs.shape:
             raise ValueError("Modes and coefficients must have same shape")
 
-        if np.any(self.modes < 1) or np.any(self.modes > 66):
-            raise ValueError("Zernike modes must be in range [1-66]")
+        if np.any(self.modes < 1) or np.any(self.modes > _gen.MZERNMODES):
+            raise ValueError(f"Zernike modes must be in range [1-{_gen.MZERNMODES}]")
 
         if self.zern_type in [3, 6] and np.any(self.modes > 37):
             raise ValueError("Fringe Zernike types limited to 37 modes")
