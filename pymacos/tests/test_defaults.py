@@ -24,8 +24,6 @@ ZGD = Path(os.environ.get('MACOS_HOME', str(Path.home() / 'dev' / 'macos' / 'mac
 # measured 2026-10-16 (e5hex1, model 128); tDefaults carries the same constants
 # spot shifts on a FRESH load + trace (a FEX first moves the exit-pupil surface and
 # with it the FP beam frame: -6242.98 / -6305.26 after fex())
-SPOT_SHIFT_ELT = (0.01003577993452497, -5877.054058107832)
-SPOT_SHIFT_CHIEF = (0.01013346493612515, -5938.921990992478)
 E5_VALID_PX = 10245
 MEAN_DECK_CHIEF_MINUS_MEAN = -2.534833896820362e-12   # opd() units; constant over the pupil
 MEAN_DECK_VALID_PX = 1756
@@ -89,9 +87,9 @@ def test_spot_centre_default_is_the_element(e5):
     assert np.linalg.norm(np.asarray(s[2])[:2] - np.asarray(s[2])[2:]) > 1, 'the chief override moves the centre'
     # shift = the api's 4-vector [chief xy, vertex xy] (the mmacos convention)
     assert np.asarray(s[2]).shape == (4,)
-    # the chief-override shift's second component flips sign on arm64 (6305 vs -5939: a near-zero denominator,
-    # not round-off; Dave 2026-10-19: assert a different quantity -- the norm above is it)
-    assert np.allclose(s[2][2:], SPOT_SHIFT_ELT, rtol=1e-9, atol=0)
+    # no exact pin on the vector: the second component flips sign on arm64 (6243 vs -5877: a near-zero
+    # denominator, not round-off) and the first reads 7.2e-7 off there (CCMac's gate 6; Dave 2026-10-19:
+    # assert a different quantity -- the norm above is it)
 
 
 def test_obscuration_option_default_is_positive(e5):

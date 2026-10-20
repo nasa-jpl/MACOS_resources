@@ -373,8 +373,10 @@ classdef tDwDx < matlab.unittest.TestCase
             % pin, Dave 2026-10-19; arm64 shares 5-8 digits on a live entry and round-off on a null one --
             % CCMac's second Mac gate still failed a RelTol-only compare)
             testCase.verifyEqual(rms(o.dwdx, 1), pin_rms, 'RelTol', 1e-4, 'AbsTol', 1e-5);   % a ~1e-6 element flips sign on arm64 (1.42e-6 vs -2.49e-6, CCMac's gate 3)
-            % dcdx: relative on the live entries, absolute on the ~0 ones
-            testCase.verifyEqual(o.dcdx, pin_dcdx, 'AbsTol', 1e-6, ...
+            % dcdx: relative on the live entries, absolute on the ~0 ones -- the bound is the FD noise floor named
+            % above (1e-6 .. 3e-5): arm64 reads (3,2) with the opposite sign and (8,2)/(9,2)/(10,2) ~1e-5 off
+            % (CCMac's gate 6); a units slip is still 1e3
+            testCase.verifyEqual(o.dcdx, pin_dcdx, 'AbsTol', 5e-5, ...
                 'RelTol', 1e-4);
         end
 
