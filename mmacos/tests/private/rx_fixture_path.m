@@ -20,8 +20,7 @@ mm    = fileparts(fileparts(fileparts(mfilename('fullpath'))));  % mmacos
 res   = fileparts(mm);                                           % repo root
 roots = { ...
     fullfile(res, 'pymacos', 'tests', 'Rx'), ...
-    fullfile(mm, 'tests', 'Rx'), ...
-    fullfile(getenv('HOME'), 'dev', 'MACOS_resources', 'pymacos', 'tests', 'Rx')};
+    fullfile(mm, 'tests', 'Rx')};   % no $HOME/dev fallback: a clone elsewhere must find its own fixtures (CCMac's self-containment sweep, 2026-10-20)
 for i = 1:numel(roots)
     p = fullfile(roots{i}, name);
     if exist(p, 'file'), return; end
