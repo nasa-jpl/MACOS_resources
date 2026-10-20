@@ -77,7 +77,9 @@ classdef tCalibMatrix < matlab.unittest.TestCase
             if ~isnan(s.h4),  tc.verifyLessThan(abs(s.h4), 1e-6, [well ': h^4 (seed 5e-3) is removed']); end
             if ~isnan(s.z12), tc.verifyLessThan(abs(s.z12), 1e-12, [well ': Z12 (seed 2e-7 m) is removed']); end
             tr = macos.trace(2);
-            tc.verifyLessThan(tr.rmsWFE, 1e-10, [well ': the image is clean']);
+            rmsTol = 1e-10;
+            if strcmp(well, 'mixed_SPOT'), rmsTol = 1e-8; end   % the near-singular cell: arm64 2.7255e-9 (CCMac's gates 3-5; Dave 2026-10-19: widen)
+            tc.verifyLessThan(tr.rmsWFE, rmsTol, [well ': the image is clean']);
         end
         function test_an_ill_posed_cell_fails_by_name_with_the_optics_restored(tc, ill)
             [dof, tgt] = tCalibMatrix.split_(ill);
@@ -113,11 +115,18 @@ classdef tCalibMatrix < matlab.unittest.TestCase
                 wd, fullfile(matlabroot, 'bin', 'matlab'), scr));
             tc.verifyEqual(st, 0, sprintf(['MATLAB must survive (pre-fix: MACOS_OPS STOPPED, ' ...
                 'rc=139)\n%s'], out));
-            tc.verifyNotEmpty(regexp(out, 'CALIB_FAILED', 'once'), 'the failure comes back as an error');
-            tc.verifyNotEmpty(regexp(out, 'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', 'once'), ...
-                'and names its cause');
             t = str2double(regexp(out, 'TILT (\S+)', 'tokens', 'once'));
-            tc.verifyEqual(t, 5e-3, 'RelTol', 1e-6, 'the optics are restored to the last accepted state');
+            % Whether a trial loses the chief is a property of the LM path, not of the fixture: Linux loses it at
+            % 5 mrad (and converges at 20, 50 and 100 mrad), arm64 does not at 5 mrad (CCMac's gates 3-5).  Either
+            % outcome is a surviving host; which one happened decides the rest (Dave 2026-10-19: do not block).
+            if ~isempty(regexp(out, 'CALIB_FAILED', 'once'))
+                tc.verifyNotEmpty(regexp(out, 'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', 'once'), ...
+                    'and names its cause');
+                tc.verifyEqual(t, 5e-3, 'RelTol', 1e-6, 'the optics are restored to the last accepted state');
+            else
+                tc.verifyNotEmpty(regexp(out, 'CALIB_RETURNED', 'once'), 'a solve that kept its chief ray returned');
+                tc.verifyLessThan(t, 5e-3, 'and reduced the tilt');
+            end
         end
     end
 end
