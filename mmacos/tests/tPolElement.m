@@ -838,12 +838,12 @@ classdef tPolElement < matlab.unittest.TestCase
 
             testCase.verifyEqual(numel(Ex), 12453);
             ref = complex(0.0013446315883672208, -0.0016089240531674163);
-            % arm64 reads 2.2e-16 off the Linux bitwise value on this 12453-ray array (CCMac's Mac gate
-            % 2026-10-19; Dave: widen) -- a few-ulp band, not a value
-            testCase.verifyEqual(Ex, repmat(ref, size(Ex)), 'AbsTol', 1e-15);
+            % arm64 reads a few 1e-16 off the Linux bitwise value on this 12453-ray array, one ray past
+            % 1e-15 (CCMac's Mac gates 2-5; Dave: widen) -- a few-ulp band, not a value
+            testCase.verifyEqual(Ex, repmat(ref, size(Ex)), 'AbsTol', 1e-14);
             ref = complex(0.0026418778986860916, -0.0031611490712403255);
-            testCase.verifyEqual(Ey, repmat(ref, size(Ey)), 'AbsTol', 1e-15);
-            testCase.verifyEqual(Ez, zeros(size(Ez)), 'AbsTol', 1e-15);
+            testCase.verifyEqual(Ey, repmat(ref, size(Ey)), 'AbsTol', 1e-14);
+            testCase.verifyEqual(Ez, zeros(size(Ez)), 'AbsTol', 1e-14);
             testCase.verifyEqual(sum(abs(Ex).^2 + abs(Ey).^2 + abs(Ez).^2), ...
                                  0.26610881700234323);
 

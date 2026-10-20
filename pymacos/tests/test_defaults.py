@@ -89,7 +89,8 @@ def test_spot_centre_default_is_the_element(e5):
     assert np.linalg.norm(np.asarray(s[2])[:2] - np.asarray(s[2])[2:]) > 1, 'the chief override moves the centre'
     # shift = the api's 4-vector [chief xy, vertex xy] (the mmacos convention)
     assert np.asarray(s[2]).shape == (4,)
-    assert np.allclose(s[2][:2], SPOT_SHIFT_CHIEF, rtol=1e-9, atol=0)
+    # the chief-override shift's second component flips sign on arm64 (6305 vs -5939: a near-zero denominator,
+    # not round-off; Dave 2026-10-19: assert a different quantity -- the norm above is it)
     assert np.allclose(s[2][2:], SPOT_SHIFT_ELT, rtol=1e-9, atol=0)
 
 

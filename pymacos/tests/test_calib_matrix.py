@@ -76,7 +76,7 @@ def test_a_well_posed_cell_removes_its_spoil(cell):
     if not math.isnan(z12):
         assert abs(z12) < 1e-12
     rms, _, _ = m.trace_rays(2)
-    assert rms < 1e-10
+    assert rms < (1e-8 if cell == 'mixed_SPOT' else 1e-10)   # the near-singular cell: arm64 2.7255e-9 (CCMac's gates 3-5)
 
 
 @pytest.mark.parametrize('cell', ILL)
@@ -116,7 +116,13 @@ def test_a_trial_that_loses_the_chief_ray_does_not_kill_the_host():
          str(rx_path(FIX['rigid'])))
     r = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, timeout=900)
     assert r.returncode == 0, 'the host must survive (pre-fix: MACOS_OPS STOPPED):\n' + r.stdout[-2000:] + r.stderr[-2000:]
-    assert 'CALIB_FAILED' in r.stdout
-    assert re.search(r'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', r.stdout)
     tilt = float(re.search(r'TILT (\S+)', r.stdout).group(1))
-    assert abs(tilt - 5e-3) < 1e-9
+    # Whether a trial loses the chief is a property of the LM path, not of the fixture: Linux loses it at 5 mrad
+    # (and converges at 20, 50 and 100 mrad), arm64 does not lose it at 5 mrad (CCMac's gates 3-5).  Either outcome
+    # is a surviving host; which one happened decides the rest of the check (Dave 2026-10-19: do not block the Mac).
+    if 'CALIB_FAILED' in r.stdout:
+        assert re.search(r'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', r.stdout)
+        assert abs(tilt - 5e-3) < 1e-9, 'the optics are restored to the last accepted state'
+    else:
+        assert 'CALIB_RETURNED' in r.stdout
+        assert tilt < 5e-3, 'a solve that kept its chief ray reduced the tilt'
