@@ -4,11 +4,12 @@ function s = get_elt_zrn(srf)
 %       .norm_radius   scalar   Zernike normalisation radius (lMon, BaseUnits)
 %       .type          scalar   ZernType id (1 ANSI, 2 BornWolf, 3 Fringe,
 %                               4 NormANSI, 5 NormBornWolf, 6 NormFringe,
-%                               7 NormHex, 8 NormNoll, 9 NormAnnularNoll,
+%                               7 NormHex (45 modes), 8 NormNoll,
+%                               9 NormAnnularNoll (refused at load),
 %                               10 Noll, 11 ExtFringe; the orderings are
 %                               MACOS Manual Appendix E)
 %       .coefs         66×1     Zernike coefficients by mode index (BaseUnits)
-%       .annular_ratio scalar   inner/outer radius ratio (only ZernType 9)
+%       .annular_ratio scalar   inner/outer radius ratio (ZernType 9, refused)
 %
 %   Errors if SRF is not a Zernike surface.  For the coefficient-only
 %   read/write use macos.get_elt_zrn_coef / set_elt_zrn_coef.  See also:

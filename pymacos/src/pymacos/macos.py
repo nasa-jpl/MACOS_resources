@@ -2121,10 +2121,10 @@ def elt_zrn_type(srf: int | np.int32,
            where -1 (== # of Elements) is the last surface, i.e., Img. Srf.
 
         zrn_type (None | int | np.int32):
-            1) ANSI         4) Norm. ANSI         7) Norm. Hex
+            1) ANSI         4) Norm. ANSI         7) Norm. Hex (45 modes)
             2) Born & Wolf  5) Norm. Born & Wolf  8) Norm. Noll
-            3) Fringe       6) Norm. Fringe       9) Norm. AnnularNoll
-           10) Noll        11) Ext. Fringe
+            3) Fringe       6) Norm. Fringe       9) Norm. AnnularNoll (refused)
+           10) Noll        11) Ext. Fringe        (manual Appendix E)
 
         reset (bool, optional): Defaults to False.
             When reset is set and when setting Zernike Type, all Zernike

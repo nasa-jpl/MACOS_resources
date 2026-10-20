@@ -3,7 +3,8 @@ function set_elt_zrn_type(srf, zern_type, opts)
 %   macos.set_elt_zrn_type(SRF, TYPE) sets the ZernType id (1..11; see
 %   macos.get_elt_zrn_type) on a SrfType=Zernike surface.
 %   macos.set_elt_zrn_type(..., 'reset', true) zeros the coefficients first.
-%   Errors if SRF is not a Zernike surface or TYPE is out of range.
+%   Errors if SRF is not a Zernike surface or TYPE is out of range, or is
+%   9 (NormAnnularNoll, refused until an annular converter exists).
 arguments
     srf        (1,1) double {mustBeInteger, mustBePositive}
     zern_type  (1,1) double {mustBeInteger, mustBePositive}
