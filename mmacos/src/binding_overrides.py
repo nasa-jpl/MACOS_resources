@@ -120,6 +120,11 @@ F2PY_DIMS = {
 # (module, parameter, literal) asserted at generation time.
 F2PY_PARAM_ASSERTS = [('dopt_mod', 'mVarDOF', '8')]
 
+# Engine PARAMETERs emitted into pymacos/api_gen.py as module constants (the
+# veneer limits; PLAN_CONSOLIDATION 1.2 (ww): setEltSrfZern's literal 9 / 45 had
+# drifted from the engine's 11 types / 66 modes).
+ENGINE_CONSTANTS = [('elt_mod', 'mZernType'), ('elt_mod', 'mZernModes')]
+
 # Wrappers emitted verbatim (the interface differs from the api routine).
 F2PY_VERBATIM = {
     'calib_run': '      subroutine calib_run(OK, rtn_flag_out, nFov_out, nWl_out,            &\n                           old_wfe_out, new_wfe_out, max_fov, max_wl)\n\n        implicit none\n        logical, intent(out)  :: OK\n        integer, intent(out)  :: rtn_flag_out\n        integer, intent(out)  :: nFov_out\n        integer, intent(out)  :: nWl_out\n        integer, intent(in)   :: max_fov, max_wl\n        real(8), intent(inout):: old_wfe_out(max_fov,max_wl)\n        real(8), intent(inout):: new_wfe_out(max_fov,max_wl)\n        !f2py integer intent(hide), depend(old_wfe_out):: max_fov=shape(old_wfe_out,0), max_wl=shape(old_wfe_out,1)\n\n        CALL calib_run_impl(OK, rtn_flag_out, nFov_out, nWl_out,           &\n                            old_wfe_out, new_wfe_out)\n      end subroutine calib_run\n',
