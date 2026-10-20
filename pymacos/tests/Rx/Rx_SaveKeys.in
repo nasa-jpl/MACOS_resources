@@ -23,7 +23,7 @@
              Flux=1.0E+00
 
       RxNoStopSet=  Y
-      ZCOZernType=  NormAnnular
+      ZCOZernType=  NormHex
 
          Aperture=4.0E+00
          Obscratn=0.0E+00
