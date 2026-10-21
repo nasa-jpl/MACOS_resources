@@ -3,9 +3,13 @@
 > **Post-compaction / post-upgrade — re-read the docs first.** After a
 > context compaction or a tooling upgrade, before resuming build/engine
 > work, re-read the doc set across ALL working dirs (the conversation
-> summary drops mechanical how-to): `macos/CLAUDE.md` + `macos/PLAN.md`;
-> this file + `MACOS_resources/{mmacos,GMI}/CLAUDE.md` + `README.md`s;
-> and the agent `MEMORY.md` (esp. the build/test workflow entries).
+> summary drops mechanical how-to): `macos/CLAUDE.md`; this file +
+> `MACOS_resources/{mmacos,GMI}/CLAUDE.md` + `README.md`s; and, IF PRESENT,
+> `macos/PLAN.md` and the agent `MEMORY.md` (esp. the build/test workflow
+> entries) -- the plans and the memory live on the `dev` branch only; a
+> release checkout has the `CLAUDE.md` set and the READMEs and no plans,
+> and a citation of a PLAN or BRIEF in this file is provenance, not a file
+> to look for.
 
 Python interface to MACOS / SMACOS via an f2py wrapper. Four layers
 since §5.2 of the dev plan:
