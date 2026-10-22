@@ -14,14 +14,20 @@ The results/ directory is gitignored; rerun the suite to regenerate.
 """
 from __future__ import absolute_import
 
+import os
 import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-# put the same context shim the pymacos tests use, so pymacos is importable
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+# put the same context shim the pymacos tests use, so pymacos is importable.
+# PYMACOS_SRC as in ../context.py: this conftest is collected BEFORE the root
+# test modules (proper_compare/ sorts first) and imports pymacos here, so a
+# hard-coded src/ made a whole-suite side-tree run load THIS tree's .so for
+# every test (found 2026-10-22: the (v) and NormHex gates read the old engine)
+sys.path.insert(0, os.environ.get('PYMACOS_SRC',
+                                  str(Path(__file__).resolve().parents[2] / "src")))
 import pymacos.macos as pymacos  # noqa: E402
 
 # PROPER (Krist's PyPROPER3). Installed in the venv site-packages.
