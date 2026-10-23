@@ -20,7 +20,17 @@ end
 if strcmpi(ext, '.in')
     rx_path = rx_path(1:end-3);
 end
-nElt = mmacos('load_rx', rx_path);
+try
+    nElt = mmacos('load_rx', rx_path);
+catch e
+    % the engine's own reason (its message buffer, PLAN_CONSOLIDATION 1.2 (ee)); left in the
+    % buffer for macos.messages
+    why = strtrim(macos.messages(false));
+    why = why(contains(why, "**"));
+    if isempty(why), rethrow(e); end
+    id = e.identifier;  if isempty(id), id = 'macos:load_rx:refused'; end
+    throw(MException(id, '%s', sprintf('%s: %s', e.message, strjoin(why(max(1, end-3):end), ' | '))));
+end
 % Session modes survive load_rx (Dave 2026-10-11, PLAN_CONSOLIDATION 4 item 2):
 % say so when any is in force, as the CLI's LOAD does -- a script's log shows it,
 % a test can assert or suppress it by id.  Set them per deck with

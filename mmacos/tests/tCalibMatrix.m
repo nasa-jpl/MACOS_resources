@@ -108,6 +108,7 @@ classdef tCalibMatrix < matlab.unittest.TestCase
                 'macos.set_elt_psi(1, [0; sin(5e-3); -cos(5e-3)]);\n' ...   % 5 mrad: more margin for the trial to lose the chief (arm64 did not at 1 mrad; Dave 2026-10-19)
                 'macos.calib_set_var_elt(1, ''TIP'', ''TILT''); macos.calib_set_target(''SPOT'');\n' ...
                 'try, macos.calib(); fprintf(''CALIB_RETURNED\\n''); catch e, fprintf(''CALIB_FAILED %%s\\n'', e.message); end\n' ...
+                strrep(strrep(msg_echo_(), '\', '\\'), '%', '%%') '\n' ...   % CALIB's cause line (1.2 (ee): unit 6 never reaches a nested MATLAB on macOS)
                 'psi = macos.get_elt_psi(1); fprintf(''TILT %%.6e\\n'', acos(-psi(3)/norm(psi)));\n'], ...
                 fullfile(mm, 'mmacos_setup.m'), tc.Model, rx_fixture_path(tc.Fix.rigid));
             fclose(fid);
@@ -120,10 +121,10 @@ classdef tCalibMatrix < matlab.unittest.TestCase
             % 5 mrad (and converges at 20, 50 and 100 mrad), arm64 does not at 5 mrad (CCMac's gates 3-5).  Either
             % outcome is a surviving host; which one happened decides the rest (Dave 2026-10-19: do not block).
             if ~isempty(regexp(out, 'CALIB_FAILED', 'once'))
-                if ~ismac   % the cause is a Fortran unit-6 line, lost across the mex FFI on macOS (1.2 (ee); CCMac's gate 6)
-                    tc.verifyNotEmpty(regexp(out, 'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', 'once'), ...
-                        'and names its cause');
-                end
+                % the cause line is read from the engine's message buffer, echoed by the child (1.2 (ee); it was
+                % filtered on macOS, where the Fortran unit-6 copy never arrives -- CCMac's gate 6)
+                tc.verifyNotEmpty(regexp(msg_text_(out), 'no trial step was accepted -- \d+ of \d+ trials lost the chief ray', 'once'), ...
+                    'and names its cause');
                 tc.verifyEqual(t, 5e-3, 'RelTol', 1e-6, 'the optics are restored to the last accepted state');
             else
                 tc.verifyNotEmpty(regexp(out, 'CALIB_RETURNED', 'once'), 'a solve that kept its chief ray returned');

@@ -38,11 +38,11 @@ classdef tRxShortCoef < matlab.unittest.TestCase
     end
     methods (Test)
         function test_short_zerncoef_loads_in_a_subprocess(tc)
-            tc.assumeTrue(~ismac, ['nested matlab -batch cannot run the engine on macOS (CCMac''s Mac gates 2026-10-19: the child captures empty output with MACOS_HOME passed; DYLD/SIP or the nested mex load -- PLAN_CONSOLIDATION 1.2 (ee), mechanism to be found on the Mac; Dave 2026-10-19: do not block)']);
             wd = tempname;  mkdir(wd);  c = onCleanup(@() rmdir(wd, 's'));
             mm = fileparts(fileparts(mfilename('fullpath')));
             scr = fullfile(wd, 'leg1.m');  fid = fopen(scr, 'w');
             fprintf(fid, 'run(''%s'');\nmacos.init(%d);\nmacos.load_rx(''%s'');\n', fullfile(mm, 'mmacos_setup.m'), tc.ModelSize, rx_fixture_path(tc.Base));
+            fprintf(fid, '%s\n', msg_echo_());   % the load's lines (1.2 (ee): unit 6 never reaches a nested MATLAB on macOS)
             fprintf(fid, 'c = macos.get_elt_zrn_coef(1, (1:4).'');\nfprintf(''COEF %%.10e %%.10e %%.10e %%.10e\\n'', c);\n');
             fclose(fid);
             [st, out] = system(sprintf('cd %s && MACOS_HOME="%s" "%s" -batch "run(''%s'')" 2>&1', wd, macos_home_(), fullfile(matlabroot, 'bin', 'matlab'), scr));   % MACOS_HOME: a system() from MATLAB on macOS drops the parent's environment (CCMac 2026-10-19)
@@ -50,7 +50,7 @@ classdef tRxShortCoef < matlab.unittest.TestCase
             t = regexp(out, 'COEF (\S+) (\S+) (\S+) (\S+)', 'tokens', 'once');
             tc.assertNotEmpty(t, 'the subprocess read the coefficients back');
             tc.verifyEqual(str2double(t), [2e-4 1e-4 5e-5 0], 'RelTol', 1e-12, 'three given, the fourth padded with 0');
-            tc.verifyEqual(count(string(out), "ZernCoef (elt"), 1, 'exactly ONE note line');
+            tc.verifyEqual(count(msg_text_(out), "ZernCoef (elt"), 1, 'exactly ONE note line');
         end
         function test_zerncoef_on_one_line_beyond_a_group(tc)
             wd = tempname;  mkdir(wd);  c = onCleanup(@() rmdir(wd, 's'));

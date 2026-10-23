@@ -17,7 +17,6 @@ classdef tRxLineEndings < matlab.unittest.TestCase
     end
     methods (Test)
         function test_three_line_endings_one_answer(tc)
-            tc.assumeTrue(~ismac, ['nested matlab -batch cannot run the engine on macOS (CCMac''s Mac gates 2026-10-19: the child captures empty output with MACOS_HOME passed; DYLD/SIP or the nested mex load -- PLAN_CONSOLIDATION 1.2 (ee), mechanism to be found on the Mac; Dave 2026-10-19: do not block)']);
             wd = tempname;  mkdir(wd);  c = onCleanup(@() rmdir(wd, 's'));
             td = fullfile(wd, 'tmpdir');  mkdir(td);
             mm = fileparts(fileparts(mfilename('fullpath')));
@@ -26,6 +25,7 @@ classdef tRxLineEndings < matlab.unittest.TestCase
             fprintf(fid, 'setenv(''TMPDIR'', ''%s'');\nrun(''%s'');\nmacos.init(%d);\n', td, fullfile(mm, 'mmacos_setup.m'), tc.ModelSize);
             for k = 1:3
                 fprintf(fid, 'macos.load_rx(''%s''); r = macos.trace(macos.num_elt()); fprintf(''RMS %d %%.12e\\n'', r.rmsWFE);\n', d{k}, k);
+                fprintf(fid, '%s\n', msg_echo_());   % the load's lines (1.2 (ee): unit 6 never reaches a nested MATLAB on macOS)
             end
             fclose(fid);
             [st, out] = system(sprintf('cd %s && MACOS_HOME="%s" "%s" -batch "run(''%s'')" 2>&1', wd, macos_home_(), fullfile(matlabroot, 'bin', 'matlab'), scr));   % MACOS_HOME: a system() from MATLAB on macOS drops the parent's environment (CCMac 2026-10-19)
@@ -37,9 +37,10 @@ classdef tRxLineEndings < matlab.unittest.TestCase
             end
             tc.verifyGreaterThan(v(1), 0);
             tc.verifyEqual(v(2:3), [v(1) v(1)], 'the three twins trace to the identical rms');
-            tc.verifyEqual(count(string(out), "CR line endings normalized for this load"), 2, 'one note per CR deck, none for LF');
-            for k = 2:3, tc.verifyTrue(contains(out, [d{k} ': CR line endings normalized']), 'the note names the ORIGINAL deck'); end
-            tc.verifyFalse(contains(out, 'macos_rx_'), 'the temp name never appears');
+            m = msg_text_(out);
+            tc.verifyEqual(count(m, "CR line endings normalized for this load"), 2, 'one note per CR deck, none for LF');
+            for k = 2:3, tc.verifyTrue(contains(m, [d{k} ': CR line endings normalized']), 'the note names the ORIGINAL deck'); end
+            tc.verifyFalse(contains(out, 'macos_rx_') || contains(m, 'macos_rx_'), 'the temp name never appears');
             tc.verifyEmpty(dir(fullfile(td, 'macos_rx_*')), 'the LF copy is deleted');
         end
     end

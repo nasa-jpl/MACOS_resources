@@ -283,6 +283,7 @@ classdef Session < handle
         % --- Ray-trace status queries ---------------------------------
         function r = get_ray_info(obj, n),       r = macos.get_ray_info(n);     end
         function r = get_ray_status(obj, n),     r = macos.get_ray_status(n);   end
+        function m = messages(obj, varargin),    m = macos.messages(varargin{:}); end   % the engine's message buffer (1.2 (ee))
 
         % --- Stop / exit-pupil / first-order --------------------------
         function s = get_stop_info(obj),         s = macos.get_stop_info();     end

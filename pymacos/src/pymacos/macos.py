@@ -390,7 +390,10 @@ def load(macos_rx: Path | str) -> int:
     ok, n_srf = lib.api.load_rx(macos_rx_str)
 
     if (not ok) or n_srf == 0:
-        raise Exception('MACOS was unable to load Rx')
+        # the engine's own reason (its message buffer, PLAN_CONSOLIDATION 1.2 (ee)); left in the
+        # buffer for messages()
+        why = [l.strip() for l in messages(clear=False) if '**' in l]
+        raise Exception('MACOS was unable to load Rx' + (': ' + ' | '.join(why[-4:]) if why else ''))
 
     # update status
     _NELT = n_srf
@@ -5830,6 +5833,29 @@ def ray_status(n_rays: int) -> dict:
         out[k] = int(np.count_nonzero(st == code))
     out['n_lost'] = int(n_rays) - out['n_ok']
     return out
+
+
+def messages(clear: bool = True) -> List[str]:
+    """The engine's messages since the last read (api ``messages_count`` / ``messages_get``).
+
+    The load path's notes, warnings and refusals, CALIB's cause lines and the SMACOS loop's
+    'Unknown command' print to Fortran unit 6 -- which reaches no Python-visible stream on
+    macOS (PLAN_CONSOLIDATION 1.2 (ee)) -- and the engine also keeps each line in a buffer.
+    This returns the kept lines, oldest first, trailing blanks trimmed, and empties the buffer
+    unless ``clear=False``.  The buffer holds the last 500 lines; when older ones were dropped
+    the first entry says how many.  Works with no Rx loaded (a refused load's messages are the
+    point).  mmacos: ``macos.messages``.
+    """
+    n_lines, n_chars, n_dropped = _gen.messages_count()
+    lines: List[str] = []
+    if n_dropped:
+        lines.append(f'({int(n_dropped)} earlier messages dropped)')
+    if n_chars:
+        codes = np.asarray(_gen.messages_get(np.int32(n_chars)), dtype=np.int64)
+        lines += bytes(codes.astype(np.uint8)).decode('latin-1').split('\n')[:-1]
+    if clear:
+        _gen.messages_clear()
+    return lines
 
 
 def elt_info(srf: int) -> dict:
