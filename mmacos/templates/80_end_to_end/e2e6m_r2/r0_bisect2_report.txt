@@ -1,0 +1,8 @@
+==================== e2e6m R0.1c -- dw_dx path bisect, elt 19 Ry
+tilt-about-center ~ 0.142 m/rad; vertex-piston ~ 0.926 m/rad
+  i: channel poke, wf at nElt-1        : 0.1426 m/rad
+  j: set_src_fov(nom)+modify, poke     : 0.9257 m/rad
+  k: macos.dw_dx single-field column   : 0.1426 m/rad
+  l: dw_dx body inline (central 1e-8)  : 0.1426 m/rad
+
+R0.1c DONE in 0.3 min

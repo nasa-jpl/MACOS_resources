@@ -1,0 +1,98 @@
+% MACOS prescription -- rodgers3 Stage 0, r1
+% emitted by build_r3.m from TML_Coaxial_OnAxisFOV.seq (Coaxial.  On-axis FOV)
+% Source Definition
+        ChfRayDir=  0.0000000000000000E+00  0.0000000000000000E+00  1.0000000000000000E+00
+        ChfRayPos=  0.0000000000000000E+00  0.0000000000000000E+00  -8.5043222190557599E-02
+          zSource=1.0E+22
+        BaseUnits=  m
+        WaveUnits=  m
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0000000000000002E-06
+             Flux=1.0E+00
+         Aperture=7.4999999999999997E-02
+         Obscratn=0.0E+00
+% NOTE: no ApStop= line ON PURPOSE.  The engine ApStop triggers
+% straight-line source aiming through StopPos (srcaim.inc), wrong for
+% this design (stop is on the m2 plane, AFTER one reflection).  The
+% physical stop centre is [0.0000000000000000E+00  0.0000000000000000E+00  -5.7940059782982112E-02] (m);
+% run_r3_s0.m aims each field chief through it by real-ray iteration.
+         GridType=  Circular
+         nGridpts=  41
+            xGrid=  1.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+            yGrid=  0.0000000000000000E+00  1.0000000000000000E+00  0.0000000000000000E+00
+% Element Definitions
+             nElt=  4
+             iElt=  1
+          EltName=  M1
+          Element=  Reflector
+          Surface=  Aspheric
+            KrElt=8.7953494231534570E+00
+            KcElt=-1.0447319612122481E+00
+       nAsphCoefs=  3
+        AsphCoefs=  1.1174364323806920E-02 -3.6424539949621438E-03 8.9268661591232534E-02
+           psiElt=  0.0000000000000000E+00  -0.0000000000000000E+00  -1.0000000000000000E+00
+           VptElt=  0.0000000000000000E+00  0.0000000000000000E+00  6.6495677780944240E-01
+           RptElt=  0.0000000000000000E+00  0.0000000000000000E+00  6.6495677780944240E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=7.2289683759242451E-01
+             iElt=  2
+          EltName=  M2
+          Element=  Reflector
+          Surface=  Aspheric
+            KrElt=-1.1871467487978342E+00
+            KcElt=3.1713962689313091E-01
+       nAsphCoefs=  3
+        AsphCoefs=  7.2335453957759899E-01 -4.4165296982814599E+00 1.5851889897425360E+03
+           psiElt=  0.0000000000000000E+00  -0.0000000000000000E+00  -1.0000000000000000E+00
+           VptElt=  0.0000000000000000E+00  0.0000000000000000E+00  -5.7940059782982112E-02
+           RptElt=  0.0000000000000000E+00  0.0000000000000000E+00  -5.7940059782982112E-02
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=7.4082797377826493E-01
+             iElt=  3
+          EltName=  M3
+          Element=  Reflector
+          Surface=  Aspheric
+            KrElt=-1.0090232390457421E+00
+            KcElt=1.8532084059374271E-01
+       nAsphCoefs=  3
+        AsphCoefs=  -2.0387589389350251E-03 -6.0008123922108937E-04 5.2543210307782803E-03
+           psiElt=  0.0000000000000000E+00  -0.0000000000000000E+00  -1.0000000000000000E+00
+           VptElt=  0.0000000000000000E+00  0.0000000000000000E+00  6.8288791399528281E-01
+           RptElt=  0.0000000000000000E+00  0.0000000000000000E+00  6.8288791399528281E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=8.3586627649784218E-01
+             iElt=  4
+          EltName=  FP
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0000000000000000E+22
+            KcElt=0.0000000000000000E+00
+           psiElt=  0.0000000000000000E+00  -0.0000000000000000E+00  -1.0000000000000000E+00
+           VptElt=  0.0000000000000000E+00  0.0000000000000000E+00  -1.5297836250255936E-01
+           RptElt=  0.0000000000000000E+00  0.0000000000000000E+00  -1.5297836250255936E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0000000000000000E+20
+% Output Coordinate System Definition
+         nOutCord=  5
+             Tout=  1.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+                    0.0000000000000000E+00  1.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+                    0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  1.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+                    0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  1.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+                    0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  1.0000000000000000E+00

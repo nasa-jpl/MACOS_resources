@@ -1,0 +1,30 @@
+dyson5 s4env -- the closure envelope around R4 (2026-10-01 11:18)
+CONVENTIONS: one axis at a time from the design of record, every point a full R4 solve (all eleven variables,
+  lsqnonlin 30 iterations on the exact chain, warm-started from R4), its deck emitted with apertures and ENGINE-
+  scored (7 x 7); CLOSES = smile and keystone < 0.10 px, CRF < 1.5 px, SRF < 2.1 px (the 2-px slit is the floor,
+  the optics may add 0.1 px) AND no variable on a bound (a solve on its bounds is not a closed design; the meniscus
+  curvature bounds are widened to [0.05, 8] /m here, since R4 of record sits on 0.5).  The FPA stays 54 x 9 mm: the pixel count follows the slit length
+  and the pixel pitch.  Then the two-axis corner: the first failing value of the first two failing axes, together.
+
+axis             value         smile    keyst     CRF     SRF     EE  close fails          on bounds
+F-number         1.6          0.0049   0.0039   1.370   2.033  0.681  NO    on bounds      men_t
+F-number         1.8          0.0051   0.0026   1.327   2.032  0.759  yes                  
+F-number         2            0.0047   0.0018   1.210   2.031  0.916  yes                  
+F-number         2.2          0.0046   0.0009   1.148   2.033  0.954  yes                  
+F-number         2.8          0.0032   0.0017   1.069   2.038  0.952  NO    on bounds      men_z,men_t
+block radius (m) 0.15         0.0190   0.0112   2.371   2.032  0.408  NO    CRF            
+block radius (m) 0.18         0.0125   0.0103   1.607   2.032  0.606  NO    CRF            
+block radius (m) 0.22         0.0051   0.0026   1.327   2.032  0.759  yes                  
+block radius (m) 0.26         0.0043   0.0038   1.211   2.033  0.685  yes                  
+block radius (m) 0.3          0.0073   0.0177   1.249   2.032  0.622  yes                  
+slit length (m)  0.03         0.0017   0.0054   1.047   2.025  0.955  yes                  
+slit length (m)  0.04         0.0028   0.0009   1.089   2.027  0.901  yes                  
+slit length (m)  0.054        0.0051   0.0026   1.327   2.032  0.759  yes                  
+slit length (m)  0.06         0.0060   0.0052   1.548   2.034  0.608  NO    CRF            
+pixel (m)        1.8e-05      0.0051   0.0026   1.327   2.032  0.759  yes                  
+pixel (m)        3e-05        0.0030   0.0016   1.030   2.016  1.000  yes                  
+glass            Silica       0.0051   0.0026   1.327   2.032  0.759  yes                  
+glass            CaF2         0.0040   0.0050   1.032   2.024  1.000  yes                  
+CORNER F-number = 1.6 with block radius (m) = 0.15: does NOT close (fails: CRF; on bounds: )
+
+Designs close for F-number 1.8, 2, 2.2 (not 1.6, 2.8); block radius (m) 0.22, 0.26, 0.3 (not 0.15, 0.18); slit length (m) 0.03, 0.04, 0.054 (not 0.06); every pixel (m) tried (1.8e-05, 3e-05); every glass tried (Silica, CaF2); the metrics that fail outside are: CRF; on bounds.

@@ -1,0 +1,135 @@
+=== ZWFS runner: tag zwfs_s400  (2026-10-13 16:51) ===
+model 2048, NGRID 467, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench battery | readings: S V P
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+engine size table: /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/zwfs_dm96/macos_param_2048.txt (copied into the run dir as macos_param.txt)
+OAP coating: protectedAl on L1 (elt 2) and L2 (elt 12), 2 layer(s); active under polarization (the vector reading's arm maps)
+deck zwfs_s400_test.in: TO elt 6, FocalMask 16, Detector 20; mask sandwich spheres zElt 364.823 / 364.823 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.6500e-03 mm = 10.72 px at the mask plane; msk 114683 px
+focal spot: 0.527 um per px at the mask plane, 5.36 px per lam F/D; the dimple encloses 82.3% of the flat DM's focal-plane light
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.822e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 2.173e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 1.2955 1.2897 1.2780 1.2606 1.2377 1.2096 1.1765 1.1387 1.0967 1.0507 1.0016 0.9494 0.8946 0.8381 0.7802 0.7214 0.6621 0.6032 0.5448 0.4876 
+frame: ray magnification 10.0870 DM-mm per detector-mm, detector px 2.4781e-02 mm -> 0.2500 DM-mm per px
+camera: pupil image 9.47 mm across (382 modeled px at 24.8 um); sCMOS 2048x2048 at 6.50 um -> 1457 raw px across the pupil; binned 4 = 364, and binning 4 = 364 lands nearest the modeled 382
+  snapshot analyzer: polarization sCMOS (micro-polarizer array, 0/45/90/135) at 3.45 um -> 2745 px across the pupil, 1372 per orientation (every 2nd pixel in each direction on the 2x2 superpixel -- N/2 across a line, not N/4); four simultaneous frames, no rotating stage
+sampling budget (P.samp, enforce = warn):
+  dimple 10.72 px across at the mask plane (min 6)  -> PASS
+  pinhole 10.72 px across at the mask plane (min 6; the dimple's rule)  -> PASS
+  DM 96x96: 4.00 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 5072): detector |E|/|E_flat| on msk std 3.962e-16   (gate < 1e-12: A = |E0| is exact)
+V3 arm (engine Jones pupil at elt 15, the mask sandwich's entrance sphere; laser 45.0 deg from the source x): exit axis [0.0883 -0.9961 -0.0000], beam half-cone 6.6 deg, longitudinal residual 9.3e-17, common-phase slope vs the pupil phase -2.0542 (resid 1.6e-02; -2 = the vector trace is the scalar's conjugate), transmittance 0.6081
+  diattenuation mean 4.01e-02, rms 8.40e-04, max 4.26e-02; retardance mean 8.40e-02 rad, rms 2.83e-02, max 1.54e-01
+  per channel: |qL| 1.02490 (rms 3.4e-04), |qR| 0.97446 (rms 3.4e-04); phase about mean L 3.49e-02 rad rms, R 3.80e-02; channel DIFFERENCE: phase 7.29e-02 rad rms (PV 2.92e-01), amplitude ratio 5.2e-04 rms (PV 2.1e-03)
+G8 chained pupil-map + dimple apodization: unit map vs the plain frame 0.0e+00 (gate < 1e-12); channel map vs the surrogate |qE0 + c b(qE0)|^2 on msk 3.8e-15 (gate < 1e-10)   -> PASS
+  solver arm model: ideal (knows nothing of the arm: the raw size of the term)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (12132 pm rms on msk, peak 1.95 rad; 3.07% of msk beyond the one-frame fold): V rms error 407.226 pm (gate < 0.1% of the figure), one-frame exact I 9254 pm (non-vacuity: must exceed 10x)   -> FAIL
+  (G4 not asserted: an uncalibrated metasurface / arm / analyzer error is being priced -- the V error above IS the number)
+stations figure zwfs_s400_stations_S.png: residual vs the engine's field on msk 0.00 pm (flat), 7043.02 pm (30 nm rms working surface), gain 0.7835
+stations figure zwfs_s400_stations_V.png: residual vs the engine's field on msk 198.13 pm (flat), 863.73 pm (30 nm rms working surface), gain 0.9932
+stations figure zwfs_s400_stations_P.png: residual vs the engine's field on msk 0.00 pm (flat), 728.02 pm (30 nm rms working surface), gain 0.9811
+P: pinhole 2.00 lam/D, surround t 0.8583, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.8168; throughput (detected/incident, flat) 0.9424; visibility on the flat 0.5004; surrogate vs engine reference 2.17e-15; the flat reads 1.90e-15 rad rms, amplitude 3.33e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (12132 pm rms on msk, 3.07% of msk beyond the one-frame fold): rms error 3.761 pm (gate < 0.1% of the figure)   -> PASS
+G6 reference motion under the 30 nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:
+   lam/D    total  |scale|    SHAPE   (total = |b1-b0|/|b0|; scale = best complex factor, a Strehl-class amplitude drop the |b|^2 frame / iteration absorbs; shape = the rest, what the solve must iterate out)
+    0.50   0.1242   0.8771   0.0003
+    1.00   0.1281   0.8733   0.0011
+    1.50   0.1346   0.8670   0.0032
+    2.00   0.1423   0.8598   0.0081
+    3.00   0.1513   0.8546   0.0330
+    2.00   0.1423   0.8598   0.0081   <- the ZWFS dimple
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 2.74e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (1023.00, 1027.00) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1 -1] sign +1, |corr| 0.992, runner-up 0.009 (gates >= 0.40, sep >= 0.30); all 8: -0.00 -0.01 0.99 -0.00 -0.00 -0.00 -0.01 -0.00 
+  center poke in the DM frame: raw peak gain 0.7829, corr(map, truth) 0.9882
+bench stage 4.5 min
+
+---- battery: DM 96x96, pitch 1.0 mm ----
+calibration: surface base (30 nm rms, seed 7), kernel measured at actuator (NaN,NaN); test actuator (60,40)
+MATRIX calibration: 64 multiplexed states (grid step 8), 5072 actuators poked once each, windows +/-16 px; J built in 36.8 min; 0 clipped windows
+lit actuators 5072; per class [mean column peak per unit command, clipped fraction, column-norm spread]:  S [0.765 0.000 0.065]  V [0.948 0.000 0.052]  P [0.942 0.000 0.036]
+modal transfer (actuator-space estimator, RAW):
+     mode  cyc/ap |       S       V       P
+  ( 1, 0)     0.5 |  0.3161  0.8409  0.6856
+  ( 2, 0)     1.0 |  1.0173  1.2069  1.1911
+  ( 4, 0)     2.0 |  1.0219  1.0662  1.0540
+  ( 8, 0)     4.0 |  1.0002  1.0469  1.0329
+  (16, 0)     8.0 |  0.9862  1.0440  1.0299
+  (24, 0)    12.0 |  0.9782  1.0404  1.0283
+  (32, 0)    16.0 |  0.9767  1.0353  1.0248
+  (40, 0)    20.0 |  1.0040  1.0386  1.0318
+  (48, 0)    24.0 |  1.0059  1.0376  1.0294
+  (56, 0)    28.0 |  1.0137  1.0355  1.0277
+  (64, 0)    32.0 |  1.0178  1.0362  1.0288
+  (72, 0)    36.0 |  1.0113  1.0283  1.0218
+  (80, 0)    40.0 |  0.9935  1.0101  1.0045
+  ( 8, 8)     5.7 |  1.0351  1.0615  1.0510   (separability row)
+  (24,24)    17.0 |  1.0296  1.0472  1.0425   (separability row)
+min |g| over the (p,0) rows:  S 0.316  V 0.841  P 0.686
+matrix mode: no modal correction applied (cor columns and the ladder = raw estimates)
+rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+row               rd  |   g_raw    e_raw  flr_raw  SNRraw |   g_cor    e_cor  flr_cor  SNRcor
+  [rand30/single10] differential map on the surface vs the same change on the flat, over the changed actuator's window (rel rms diff / amplitude ratio):  S 0.295 / 0.707  V 0.052 / 0.969  P 0.072 / 0.945
+rand30/single10   S   |  0.9934        5        5 1963.92 |  0.9934        5        5 1963.92
+                  V   |  1.0081        2        2 5998.26 |  1.0081        2        2 5998.26
+                  P   |  0.9953        3        3 3746.34 |  0.9953        3        3 3746.34
+rand30/grid@1nm   S   |  0.9943        4        4  254.19 |  0.9943        4        4  254.19
+                  V   |  1.0004        4        3  318.34 |  1.0004        4        3  318.34
+                  P   |  0.9975        3        3  374.15 |  0.9975        3        3  374.15
+rand30/rand10     S   |  0.9779      746        -       - |  0.9779      746        -       -
+                  V   |  1.0035      439        -       - |  1.0035      439        -       -
+                  P   |  0.9942      309        -       - |  0.9942      309        -       -
+
+---- ressweep (ZWFS family S V P): 4.001 model px per actuator / 1.0000 model px per camera px = 4.001 CAMERA px per actuator ----
+  traced the set point and the single (58 s)
+  battery rows, CONVERGED (dmg_converge through the measured J; the one-step rows are the battery's above):
+    rand30/single10   S    1.0005      4.2        4   (5 steps)
+    rand30/single10   V    1.0144      2.7        2   (5 steps)
+    rand30/single10   P    1.0015      1.5        2   (5 steps)
+    rand30/grid@1nm   S    0.9999      3.9        3   (5 steps)
+    rand30/grid@1nm   V    1.0060      3.4        2   (5 steps)
+    rand30/grid@1nm   P    1.0030      1.8        2   (5 steps)
+    rand30/rand10     S    0.9836    717.2        -   (7 steps)
+    rand30/rand10     V    1.0094    427.2        -   (6 steps)
+    rand30/rand10     P    1.0000    258.2        -   (6 steps)
+  REGISTRATION (camera shifted 0.1 pitch = 0.400 model px after calibration): per reading gain one-step / converged, largest neighbour / dev, floor pm, wrong
+    +0.00 +0.00  S    0.9934   1.0005   0.0092     5.06   0
+    +0.00 +0.00  V    1.0081   1.0144   0.0043     1.68   0
+    +0.00 +0.00  P    0.9953   1.0015   0.0078     2.66   0
+    +0.40 +0.00  S    0.9546   0.9613   0.1183    20.32   0
+    +0.40 +0.00  V    0.9587   0.9646   0.1171    20.83   0
+    +0.40 +0.00  P    0.9485   0.9542   0.1160    20.00   0
+    -0.40 +0.00  S    0.9482   0.9546   0.1267    21.52   0
+    -0.40 +0.00  V    0.9466   0.9521   0.1261    21.69   0
+    -0.40 +0.00  P    0.9408   0.9463   0.1219    20.73   0
+    +0.00 +0.40  S    0.9477   0.9541   0.1304    21.32   0
+    +0.00 +0.40  V    0.9558   0.9614   0.1256    20.68   0
+    +0.00 +0.40  P    0.9404   0.9459   0.1291    20.79   0
+    +0.00 -0.40  S    0.9522   0.9588   0.1085    19.60   0
+    +0.00 -0.40  V    0.9523   0.9581   0.1083    19.30   0
+    +0.00 -0.40  P    0.9454   0.9511   0.1103    19.38   0
+  NOISE (12 draws; record cameras binned to this sampling; one reading = differential / sqrt 2):
+  rd  camera   binning      k  phys/px   read e-   pm/read  hold-out   reads/s  s per pm     Gb/s
+  S   mono     digital   5.09    25.92      12.2      92.4      78.1      18.8       456    0.194
+  S   mono     onchip    5.09    25.92       2.4      92.5      77.5      18.8       456    0.194
+  V   polcam   digital   2.55     6.48      6.11       222       111        75       655    0.777
+  V   polcam   onchip    2.55     6.48       2.4       222       112        75       655    0.777
+  P   mono     digital   5.09    25.92      12.2      86.6      91.4      18.8       400    0.194
+  P   mono     onchip    5.09    25.92       2.4      86.2      91.2      18.8       397    0.194
+  data: 382 camera px across the pupil, 1.15e+05 per reading over the pupil (V and P solve each one, 6 iterations of the reference wave)
+  LOOP S  mono     M   330 (cycle 17.6 s) none     ss 3.01 pm (piston-free 3.01), sig_n 5.16 pm, theory 2.98 pm, gG 0.500  [56 s]
+  LOOP S  mono     M   330 (cycle 17.6 s) thermal  ss 10.4 pm (piston-free 10.4), sig_n 5.16 pm, theory 10.4 pm, gG 0.500  [20 s]
+  LOOP V  polcam   M  1435 (cycle 19.1 s) none     ss 3.42 pm (piston-free 3.42), sig_n 5.86 pm, theory 3.38 pm, gG 0.500  [229 s]
+  LOOP V  polcam   M  1435 (cycle 19.1 s) thermal  ss 10.6 pm (piston-free 10.6), sig_n 5.86 pm, theory 10.6 pm, gG 0.500  [20 s]
+  LOOP P  mono     M   237 (cycle 12.6 s) none     ss 3.36 pm (piston-free 3.36), sig_n 5.76 pm, theory 3.32 pm, gG 0.500  [140 s]
+  LOOP P  mono     M   237 (cycle 12.6 s) thermal  ss 10.5 pm (piston-free 10.5), sig_n 5.76 pm, theory 10.5 pm, gG 0.500  [20 s]
+break scale (10 nm differential on the hold-out actuator (60,40), on a growing base; corrected estimates; g = gain over the poked site(s), floor pm over the unpoked, SNR; fold0/fold = beyond-fold fraction from the plain / refined stepped prior; past the fold quote GAIN, not SNR):
+    base  fold0   fold | S: g flr SNR          | V: g flr SNR          | P: g flr SNR          |
+   30 nm    NaN    NaN |  1.0001      5  1963.2|  1.0082      2  5811.5|  0.9968      3  3715.8|
+SPEC: grid-on-base SNR, reading S : raw 254.19 / corrected 254.19 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading V : raw 318.34 / corrected 318.34 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading P : raw 374.15 / corrected 374.15 -> DETECTED (>= 5)
+DM 96x96 battery 65.8 min
+run complete in 70.3 min

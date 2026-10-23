@@ -1,0 +1,23 @@
+=== tg96_pupil_s2s: s2s_order  rig lens  (2026-09-17 18:10) ===
+true focus +0.00 mm from the mask marker along the beam (spot 0.17 um there)
+entrance sphere centred 0.6285 mm SHORT of the ray focus (r1_trim): the glass between S1 and the focus has not acted yet
+exit rays after the field lens cross the axis -18.3 mm from its exit face (+ = downstream, converging)
+collimated leg 1: Sub3b -> Comptxfu, 214.0 mm as NFPlane
+collimated leg 2: Comptxbu -> BStxfo, 188.2 mm as NFPlane
+collimated leg 3: BStxbo -> Recomb, 149.0 mm as NFPlane
+collimated leg 4: Sub5b -> L2pow, 34.0 mm as NFPlane
+through-focus quartet: S1 at 417.36 before the focus (zElt +417.36, NF1), F at the focus (NF2), S2 at 10.26 after it (zElt -10.26); scale 0.0246 -> pupil 2.36 mm at S2
+S3 after the field lens: radius 17.84 mm, concentric with the converging exit beam; detector 36.28 mm beyond it
+CHECK 1a  collimated legs: the flat pupil at S1 carries 0.0085 wave rms of phase (gate < 0.02); pupil radius there 47.02 mm, pitch 0.2606 mm
+CHECK 1b  a Nyquist sinusoid reaches S1 at 0.8323 of its height on the DM (gate 1.00 +- 0.01), at 0.5096 cycles/mm (the DM's 0.5000)
+CHECK 2a  the focal field's first zero 0.0 um against the pupil's Airy 3.4 um (1.22 lam R1/D, R1 417.4 mm, D 96.0 mm); pitch 0.00 um
+CHECK 2b  pupil radius at S2: field 0.000 mm, rays 1.160 mm (-100.0%), thin-lens prediction R_dm*R2/R1 1.180 mm
+CHECK 2c  the pitch at S2: the engine labels 0.006407 mm (ray spacing); the scaled frame says dx(S1)*R2/R1 = 0.006408 mm (-0.0%)
+CHECK 2d  the ray bundle itself: 47.193 mm at S1, 1.160 at S2, ratio 0.02458 against R2/R1 = 0.02459 (-0.0%)
+CHECK gates: 1a PASS, 1b FAIL, 2a FAIL, 2b FAIL, 2c PASS
+            2d PASS (the ray bundle vs R2/R1: -0.0%)
+zone-PSF model, Nyquist, as built: gain by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ] (mean 0.9999, min 0.9999)
+zone model at +10 mm: band-edge phase 0.548 rad rms -> Nyquist gain ~ cos: mean 0.854, worst 0.854 (as built: mean 1.000)
+conv +dec plane  +0 mm: pupil at S2 0.00 mm radius (expected 1.18); at the detector 0.00 mm (rays 4.67); |E| flat rms-var NaN; Nyquist gain by radius [NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN ] mean NaN min NaN (orientation 1)
+conv +dec plane +10 mm: pupil at S2 0.00 mm radius (expected 1.18); at the detector 0.00 mm (rays 4.67); |E| flat rms-var NaN; Nyquist gain by radius [NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN ] mean NaN min NaN (orientation 1)
+run complete

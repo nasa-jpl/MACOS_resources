@@ -1,0 +1,7 @@
+
+=== COPHI loop (oap rig, the plain splitter): 21.5 min ===
+  ss / bias / sig_n: the record's metric (rms over lit, piston included) | the same PISTON-FREE
+  camera      row      estimator       ss     bias    sig_n |    ss_pf  bias_pf   sig_pf  cycle s
+  lockin_r    none     onestep       5.32     1.67     9.10 |     5.32     1.67     9.10     0.04
+  lockin_r    none     converged     5.40     1.67     9.31 |     5.40     1.67     9.31     0.04
+wall 21.5 min

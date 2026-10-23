@@ -1,0 +1,31 @@
+==================== e2e6m R1 -- APLC on the DM-bearing train
+metric: dark-zone contrast, Strehl-normalised to the BARE
+        on-axis peak of the SAME train; annulus 3-15 lambda/D
+        occulter 2.8 lambda/D, Lyot 0.9, 500 nm, model 1024, nGridpts 255
+
+---- seg (19-segment primary) ----
+    diffraction deck 47 elements; chief vs geometric 4.74e-16; PSF CENTRED
+    seed on the DM1->DM2 leg (station 23); FEX radii: FPM 0.312506 m, ExitPupil 0.156542 m
+    lambda/D at the FPA 4.028 px | bare on-axis peak 6.6955e+00
+    apodizer throughput 0.123 (prolate Lambda0 1.0000)
+    APLC dark zone 3-15 lambda/D: mean 4.705e-07, median 2.002e-08, floor 3.375e-13
+    on-axis suppression 6.176e+03 | net throughput 0.100
+
+---- mono (monolithic primary) ----
+    diffraction deck 29 elements; chief vs geometric 1.79e-15; PSF CENTRED
+    seed on the DM1->DM2 leg (station 5); FEX radii: FPM 0.311501 m, ExitPupil 0.156289 m
+    lambda/D at the FPA 4.025 px | bare on-axis peak 8.2195e+00
+    apodizer throughput 0.123 (prolate Lambda0 1.0000)
+    APLC dark zone 3-15 lambda/D: mean 3.624e-10, median 5.255e-12, floor 1.369e-15
+    on-axis suppression 2.818e+07 | net throughput 0.100
+
+---- what the segment gaps cost (DM-bearing train) ----
+    dark-zone mean   segmented 4.705e-07   monolithic 3.624e-10   ratio 1298.34x
+    dark-zone median segmented 2.002e-08   monolithic 5.255e-12   ratio 3809.36x
+    on-axis suppr    segmented 6.176e+03   monolithic 2.818e+07
+    round-1 (no-DM train) seg dark-zone mean 8.700e-07 -> topology cost 0.54x
+    (open-loop: the DMs are FLAT here; R4 closes the loop)
+
+    contrast comparison figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_contrast.png
+
+R1 coro DONE in 3.5 min

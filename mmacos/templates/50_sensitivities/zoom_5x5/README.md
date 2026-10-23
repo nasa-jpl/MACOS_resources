@@ -1,0 +1,352 @@
+# zoom_5x5 — multi-configuration × multi-field sensitivities
+
+The fixture for a CONFIGURATIONS axis on the `dw_d*` supervisors: a
+sensitivity Jacobian evaluated per (zoom position, field point) rather
+than per field alone.  Design sketch and open questions:
+[`../../../design/PLAN_CONFIGURATIONS.md`](../../../design/PLAN_CONFIGURATIONS.md)
+§6.
+
+**Status:** shipped.  The `'configs'` option is on all four
+`macos.dw_d*_multi` supervisors and on `run_sensitivities`; the four
+`run_dwd*_5zoom_5fov.m` drivers here are thin wrappers over it.
+
+| driver | rung | on THIS deck |
+|---|---|---|
+| `run_dwdx_5zoom_5fov.m` | rigid-body 6-DOF | **runs** — 132 channels (21 optics × 6 + the PM group's 6), 25 blocks |
+| `run_dwdsurf_5zoom_5fov.m` | Kr / Kc | **runs** — every powered optic (elts 4–24: the 19 segments + SM + TM) in Kr & Kc = **42 channels**, piston/tip/tilt removed |
+| `run_dwdz_5zoom_5fov.m` | MonZernike figure | **runs** — 20 optics × MODES (segs + SM + TM) |
+| `run_dwdgrid_5zoom_5fov.m` | segment + optic grid | **runs** — segments share a basis, SM/TM each own one |
+
+Every driver is resumable: per-configuration checkpoints land in
+`_resume*/` and are pruned on success.  Each writes a **flat**, channel-
+named `<name>.mat`: the Jacobian at the top level under its own name
+(`dwdx` / `dwdz` / `dwdsurf` / `dwdgrid`), with `indxall` / `w0_stacked` /
+`channel_names` / `config_*` beside it — no `ox`/`og` wrapper struct
+(`sensitivities/save_dw_flat`).
+
+### The figure rungs run on the promoted optics
+
+**Since 2026-08-21** the deck's 18 real segments (elts 5–22) and the SM
+(elt 23) and TM (elt 24) are `Surface= FreeForm` carrying a MonZernike
+figure channel (`MonZernType= BornWolf`, zero coefficients) — so the
+MonZernike rung (`dw/dz`, targeting `find_freeform_elts`) and the
+segment-grid rung (`dw/dgrid`, targeting `find_grid_elts`) both harvest
+them.  The SM and TM additionally carry a grid channel centred and sized
+to their **traced footprint** (all fields × all zoom configurations — a
+vertex is not the beam centre), and get their **own full-aperture** grid
+basis, while the segments share one bespoke per-segment basis.  The
+figure DOFs are **zero-amplitude fixture channels with no design
+authority**; the promotion from `Surface= Conic` is optically **inert** (a
+zero-coefficient FreeForm computes the identical conic sag — verified to
+~5e-11 mm, sub-picometer, against the Conic trace).
+
+**Element 4 (CenterSegment) stays `Surface= Conic`.**  It is a *virtual*
+element — not a real telescope segment, almost entirely obscured (it
+passes only the chief-ray sliver, ~2.5 % of the beam), included to pass
+the chief ray and reference the PM — so its sensitivities are ~zero.  It
+carries no figure channel, and the rungs that would still list it
+(`dw/dx`) drop it **number-free**: `flag_zero_norm_channels` flags any
+all-zero channel group by its *response* (elt 4's dw/dx column norms are
+~1e-4 vs ~200 for a real segment, BaseUnits), and `drop_channels` removes it — no
+element number is hard-coded in the drivers.
+
+The promotion was applied by `macos.design.promote_segments_freeform`
+(Rx in, frames + lMon derived by tracing) and is gated in
+`tRunSensitivities`: the trace is inert
+(`test_zoom_fixture_promotion_is_inert`), both rungs harvest live
+Jacobians incl. SM/TM (`test_promoted_fixture_feeds_both_figure_rungs`),
+single-mode pokes localize (`test_promoted_segment_poke_localizes`), and
+the flat `.mat` layout is checked (`test_save_dw_flat_layout`).  The
+rigid-body (`dw/dx`, minus the obscured elt 4) and prescription-parameter
+(`dw/dsurf`) rungs are otherwise unaffected — the conic base and every
+pose are unchanged.
+
+### Element groups (rigid-body) — ON, on the `dw/dx` rung
+
+`run_sensitivities` takes `'groups'` (a `containers.Map` name → column
+vector of element ids) and `'groups_auto'` (parse `EltGrp=` out of the
+deck), plus `group_coords` / `group_fp_mode` / `group_stop_mode` /
+`group_stop_pos`.  They reach the **`dwdx` channel only** — a group is a
+RIGID-BODY group, driven by the engine's `GPERTURB`; `dwdz` / `dwdsurf` /
+`dwdgrid` are figure and surface channel kinds with no group analogue,
+and grouping them is deferred.
+
+**`run_dwdx_5zoom_5fov.m` ships with one group ON: the PM.**  The deck's
+18 real segments (elts 5–22) are declared as `'PM'`, so the harvest
+carries — alongside each segment's own 6 DOFs — the six columns of the
+primary-mirror **backplane** moving as a single body.  That is the
+sensitivity a pointing/alignment budget spends: a backplane thermal tilt
+is one rigid motion of the whole PM, not 18 independent segment motions
+that happen to agree.  Element 4 (CenterSegment) is deliberately **not**
+a member — it is the virtual, almost-entirely-obscured element the
+zero-norm flag drops anyway.
+
+```matlab
+GROUPS = containers.Map('KeyType','char','ValueType','any');
+GROUPS('PM') = (5:22).';
+```
+
+A group contributes **6 more columns**, appended **after** the
+per-element block, in every field's block and every configuration's
+block — so the stacked column order is `[per-element] [group]` and the
+supervisor's channel-identity assertion covers the group columns too.
+The committed report shows `dwdxall 54585 x 138` (was 132 ungrouped);
+the saved flat `.mat` has **132** channels — 126 per-element after the
+elt-4 drop, plus the group's 6.  Group channels carry **no element id**:
+`out.iElt` is `0` (the value source channels also carry) and `out.kind`
+is `'Group'` — section on `kind`, not on `iElt`.  The per-element figure
+pages do exactly that and give the group its own page,
+`<name>_grpPM_center.png`; `drop_channels` never touches a group,
+because a group column is a distinct rigid-body motion and not a sum of
+its members' columns.
+
+**What the PM columns say** (RMS over the 5×5 stack; OPD in the deck's
+BaseUnits — mm here — per rad for rotations and per SI metre for
+translations, the same convention on both sides.  This table was
+harvested before 2026-10-06, when per-metre translations were the
+default; a re-run under today's default `'trans_output','base'` gives
+the translation rows ×1e-3 (per mm) and leaves every ratio unchanged):
+
+| DOF | PM as one body | one segment (elt 5) | PM / segment |
+|---|---|---|---|
+| Rx | 3.0115e+03 | 1.6136e+02 | 18.6627 |
+| Ry | 3.0946e+03 | 1.6294e+02 | 18.9921 |
+| Rz | 2.4856e+02 | 2.1609e-02 | 11502.4238 |
+| Tx | 1.9316e+02 | 1.0148e+01 | 19.0336 |
+| Ty | 1.8802e+02 | 1.0120e+01 | 18.5783 |
+| Tz | 1.9741e+01 | 4.6086e+02 | **0.0428** |
+
+> **Regenerated 2026-08-28** for the FEX curved-`iElt+1` radius fix
+> (`macos/REPORT_focal_surface.md`).  This deck is one of the 11 in the
+> corpus whose element 28 is a CURVED focal surface, so its per-field
+> exit-pupil reference moved.  The dw/dx columns are DIFFERENCES taken
+> against a reference that is re-found once per field and then held
+> across that field's pokes, so almost all of it cancels: only the Rz
+> column moved a quoted digit (`2.1582e-02 -> 2.1583e-02`, and the
+> derived ratio `11515.6161 -> 11515.3882`), 5e-5 relative.  The
+> conditioning block's smallest singular values moved a few percent,
+> which is what the smallest singular value of a cond-1e10 matrix does
+> under a 1e-5 perturbation; the dead elt-4 null floor moved
+> `5.30e-05 -> 5.29e-05`.  Attribution is measured, not assumed: the
+> PRE-fix engine reproduces the previously committed report BYTE FOR
+> BYTE.  The dwdz / dwdsurf / dwdgrid artifacts in this directory were
+> NOT regenerated -- same mechanism, same size, but they are separate
+> runs and nothing in this README quotes them.
+
+> **Regenerated again 2026-08-28 (pm)** for the STOP-ENFORCED-CHIEF
+> ruling: the supervisors now re-issue the aperture stop after every
+> per-field `set_src_fov`, so the chief re-aims through the stop at
+> that field (the CLI `STOP`/`PERTURB` convention) instead of staying
+> aimed at the nominal one.  The re-aimed bundles sample the optics on
+> a slightly different footprint (10 more surviving rays across the 25
+> blocks, 54585 -> 54595) and the exhibit numbers moved at the
+> 1e-4-relative class (Rz `2.1583e-02 -> 2.1609e-02`, ratio
+> `11515.3882 -> 11502.4238`).  Attribution: the pre-ruling supervisors
+> reproduce the previously committed report; the runner now matches the
+> pty-CLI recipe at every field to <=1.4e-5 relative
+> (`REPORT_wnom_cli_ab` B4 values -- the field-definition gap is
+> closed).
+
+The table is appended to the committed `_sens_report.txt` by the driver
+(`sensitivities/group_exhibit`), so every figure here is greppable in the
+artifact.  Tilt and decenter come out at ≈ N = 18× a single segment,
+which is what a rigid motion of N alike members must give.  **Piston is
+the interesting one: the whole PM is 23× LESS piston-sensitive than one
+segment.**  A single segment pistoning puts a step into the wavefront;
+the whole PM
+pistoning is a global despace that the exit-pupil reference
+largely absorbs.  That is exactly the intra-group cancellation a per-element
+budget cannot see — summing 18 large per-segment piston columns does not
+reproduce it.
+
+**Units.**  Group and per-element columns share one convention — the
+OPD numerator in the deck's **BaseUnits** (mm here; the same units as
+`w0_stacked`/`opd()` and as the dwdz/dwdsurf/dwdgrid rungs, so
+`wall = dwdx·x + w0` is unit-consistent — as of 2026-08-25), per
+**BaseUnit** of translation (per mm here — GMI's convention, the default
+since 2026-10-06; `'trans_output','si'` gives per SI metre, the earlier
+default, = per-BaseUnit ÷ CBM) and per rad for rotations — so the PM row and
+the segment row above are directly comparable and one numeric `delta`
+is one physical poke for either.  `GroupedRigidBodyChannel` converts SI
+metres to the BaseUnits `prb_grp` wants, exactly as `macos.perturb` does
+for the per-element channel.  It did not always: while the group channel
+passed its increment straight through, a scalar `delta` poked a group
+1/CBM times smaller than the elements and drove its columns to the
+finite-difference floor — an artifact that reads as a physical
+compensation ratio.  Closed in the channel; gated by
+`tDwDxGroups/test_scalar_delta_matches_the_split_step`.
+
+**Why `DELTA` is a `(1,6)` vector — convergence, not units.**  Rotations
+sit at 1e-8 rad; translations at 1e-6 (1 µm) because the per-element
+translation columns are still 1.9e-04 away from their converged values at
+a 1e-8 m poke and 1.8e-06 away at 1e-6.  Rotations show no such drift, so
+only the translation entries move.  The per-segment column-norm table in
+the report is unchanged to three figures either way.
+
+**The committed artifacts here WERE regenerated for this** — report,
+PNGs, and the (gitignored) `.mat`.  The 25-block harvest takes about
+165 s as shipped (measured 164 s, Linux, gfortran-built engine).
+
+## The dW figures on THIS deck (2026-09-10)
+
+This is the fixture the page-size work was aimed at.  The field set is 5
+configurations x 5 fields, so the multi-field canvas is **9 x 9 tiles**
+of 63-ray maps — a channel drawn at one map's size shows each field at a
+ninth of it.  Since 2026-09-10 the panel size is fixed first and the
+pages follow (`sensitivities/dw_page_layout`, `panel_in` 3.5 in per map /
+`tile_in` 1.2 in per tile):
+
+* the full-size pages are a SET in `<name>_pages/`
+  (`..._channels_p01.png` …), one page per optic — Kr and Kc, or the six
+  DOFs, side by side.  `<name>_<ch>_channels.png` keeps its place at the
+  top level and becomes the INDEX: the dense sheet it used to be, each
+  thumbnail labelled with the page it is drawn on.
+* `<name>_pages_index.txt` lists every page with its element, channels
+  and file.
+* dwdsurf: 42 channels, previously ONE 700 x 1678 px sheet on which each
+  channel's whole 567 x 567 canvas was drawn in a **14 x 15 px box
+  holding 40 non-white pixels** (a ~9:1 subsample — most of the map was
+  never rendered).  Now 21 pages, canvas ~1500 px across, ~167 px per
+  field point.  The per-element centre page went from 635 to 999 px of
+  drawn map on a page with FEWER total pixels (recovered `subplot`
+  margin).  Plotting is the cost, not tracing: the whole dwdsurf run
+  (harvest + 63 pages) is ~200 s and dwdx (harvest + 92 pages) ~330 s.
+* `per_element` also takes `"field"` here: one page per optic per
+  (zoom state, field), single-field maps at full size.  The
+gated case
+`tRunSensitivities/test_groups_reach_the_dwdx_channel` covers the
+bookkeeping; `tDwDxGroups` covers the channel physics.
+
+## The deck
+
+`jwst_ote_designc.in` — an early 18-segment JWST OTE design.  Element 25
+is a flat fine-steering mirror at a pupil, which is what the zoom axis
+moves; element 27 (`nElt-1`) is the `ExitPupil` `Return`, which is where
+`reset_xp` writes.
+
+It is **not the flight prescription** — 15 mm segment gaps and 1313.25 mm
+flat-to-flat segments, against the flight 7 mm and 1.32 m.  The three
+powered mirrors do match the published JWST OTE prescription to the
+published precision (McElwain et al. 2023, PASP **135**, 058001, Table 2,
+open access; design source TRW); the fold mirrors do not — they were
+added to unfold the train and carry no design authority.  The deck header
+carries the full comparison.
+
+**It is a load case, not a design.**  At ±1 arcmin the wavefront error is
+0.64 mm, about 278 waves at the deck's 2.3 µm.  The point of the fixture
+is that it traces cleanly and responds on both axes, not that the numbers
+mean anything optically.
+
+## Configuration and field grid
+
+Five configurations — centred, then the FSM tilted 0.5 arcmin
+(1.45444e-4 rad) to each corner of a square, LOCAL frame — crossed with
+the stock five-field set at 1 arcmin (2.90888e-4 rad).  25 blocks.
+
+**The canvas is tiled the way the field set is.**  Each zoom state sits
+at its own position on an outer 3×3 grid — four corners and the centre —
+and each of those cells holds that state's whole five-field canvas, so
+`_opdall.png` is a quincunx of quincunxes and position on the page means
+(zoom state, field point).  The stacked ROW order is a different walk and
+deliberately so: `w` for one zoom stacks its **fields**, `w` for the run
+stacks the **zooms**, so each zoom keeps a contiguous block of rows even
+though its tile does not lie along a single canvas column.  Address a
+block with `indxall.config == c`.
+
+## Measured, at model 512 / `ngridpts` 63 / stop at element 25, OPD at 27
+
+| state | rays | valid | lost | RMS WFE (mm) |
+|---|---|---|---|---|
+| nominal | 2301 | 2184 | 0 | 6.846e-06 |
+| FSM 0.5′ corners (4) | 2301 | 2184 | 0 | 1.457e-02 … 1.460e-02 |
+| field ±1′ corners (4) | 2301 | 2182–2184 | 0 | 6.381e-01 … 6.393e-01 |
+
+No ray loss in any of the eight perturbed states.  117 rays are obscured
+throughout (the central obscuration), and the chief ray runs
+`LRayOK=1, LRayPass=0, RayStatus=Obscured` — so the fixture also
+exercises the obscured-chief OPD reference
+([`../../../doc/opd_conventions.md`](../../../doc/opd_conventions.md)
+§1.2).
+
+## Why the five blocks look alike, and why that is right
+
+The supervisors re-find the exit pupil PER FIELD (`reset_xp`, default
+true), and a tilt of a FLAT mirror AT A PUPIL is to first order exactly a
+wavefront tilt — which that re-reference removes.  Measured on this
+fixture with a 0.5′ FSM tilt: the configuration's effect on the nominal
+wavefront collapses from **3.033e-02 mm** (pupil frozen) to **4.043e-06
+mm** — a factor 7500 — and its effect on the Jacobian drops to the
+second-order residual, **5.308e-06 relative** against 1.886e-04 frozen.
+Both legs come from one script with the same statistic on each side:
+nominal effect = max over fields and configurations of |W(cfg) − W(z0)|
+at pixels valid in both; Jacobian effect = the same max, relative, over
+the per-element columns.  (Earlier revisions quoted 2.7e-02 / 2.3e-07 /
+1.7e-05 / 2.4e-05 from a statistic that was not recorded; the definition
+above is stated so the numbers can be reproduced.)  That residual is the
+quantity a compensation-state sensitivity study wants — the first-order
+term is what the compensator is FOR.  The §6 feasibility table below was
+measured with the pupil frozen, which is why its numbers are the larger
+ones.
+
+## Two things a driver here must do
+
+- **Set the stop.**  The deck carries no `ApStop=`, and `reset_xp`
+  requires one.  The FSM is the pupil.
+- **Restore the configuration element.**  Element 25 is also one of the
+  elements whose rigid-body DOFs are Jacobian channels, so a
+  configuration moves an optic that is itself a variable.  That is what a
+  zoom-dependent sensitivity IS, but the snapshot/restore must cover it,
+  and the restore assertion must run *after* the channel loop has undone
+  its own poke.
+
+## Oddities, resolved
+
+### The dw/dsurf "centre-channel speckle" (Luis 2026-09-08 — RESOLVED, not a bug in the harvest)
+
+A low-level salt-and-pepper pattern in the `dw/dsurf` columns, **fixed for a
+given (zoom, field)**, visible in the element-4 (CenterSegment) channels.
+Measured attribution in `macos/REPORT_sens_noise_center.md`: it is the
+**finite-difference noise floor**, not a response.
+
+* **The floor is under EVERY column, in the 5 centre-field blocks only.**  A
+  zero-poke difference (two traces, no perturbation, ÷ 2·delta) gives rms
+  1.18–1.25e-06 at `f0` in all five zoom states and **exactly 0** in all 20
+  off-axis blocks.  In a live column it is invisible: segment 5's own response
+  is 3.8e-01 on its 124-pixel footprint while the other 2060 pixels — which its
+  poke cannot reach — carry 1.1916e-06, the same floor.  Elt 4 is the only
+  channel whose response never rises above it.
+* **Cause: the re-traced OPD is not idempotent on this deck at its nominal
+  field.**  Ten nominal traces with `modify()` between alternate in a strict
+  2-cycle, max 2.1828e-11 mm = 6.00 ulp of the 24 459 mm accumulated path, on
+  379 of 2184 rays.  Reproduces bit-for-bit in the interactive CLI, so it is
+  engine-side.  Independent of Luis's three header lines
+  (`UseChfRay4OPD=`/`ApStop=`/`PgplotImage=`), of the stop, and of the FreeForm
+  promotion (the pre-promotion `8316b68` deck toggles too); `e5hex1` and
+  `Rx_Cass_NS` are exactly idempotent.  *What alternates inside the trace is
+  still open — Dave/CCL.*
+* **The step is what sets the floor.**  It scales exactly as 1/delta
+  (`1.19335e-06` at 1e-6 → `1.19335e-08` at 1e-4, same mantissa) while every
+  live column is unchanged — the whole 1e-6-vs-1e-4 column difference IS the
+  1e-6 run's floor (5.9e-03 measured vs 5.3e-03 predicted for Elt 5 Kr, and
+  likewise for all six live channels).  **Raising this rung's `delta` to 1e-4
+  is the recommendation.**
+
+**Two bookkeeping consequences worth knowing before reading the artifacts here:**
+
+1. **`flag_zero_norm_channels` does NOT drop elt 4 on the dw/dsurf rung at the
+   current `delta = 1e-6`.**  Its threshold is `1e-6 × median live block RMS`
+   and elt 4 sits at 2.617e-06 of the median — five decades down, not six — so
+   `run_dwdsurf_5zoom_5fov.m`'s drop step returns `[]` and the two elt-4 noise
+   columns ship.  (The number-free claim above is stated for the **dw/dx**
+   rung, where elt 4 really is ~5e-7 of live and the flag does fire.)  At
+   `delta = 1e-4` the ratio falls to 2.617e-08 and the existing, unmodified
+   flag catches it.
+2. **The committed dw/dsurf artifacts were stale — REGENERATED 2026-09-10.**
+   `find_powered_elts` returns elts 4–24 (21 optics, **42 channels**) since
+   `Segment` became powered-capable (Dave 2026-09-05), and
+   `run_sensitivities` passes no `'elts'`; the old committed
+   `dwdsurf_..._sens_report.txt` recorded `54585x4` — four channels, and the
+   pre-stop-enforced-chief row count.  Re-running the driver with the
+   page-size work gives `54595x42`; the table row above and the driver header
+   are corrected to match.  The row count moved with the engine
+   (stop-enforced chief / OrthoSrcFrame), not with the plotting.

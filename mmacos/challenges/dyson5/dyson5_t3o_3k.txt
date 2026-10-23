@@ -1,0 +1,20 @@
+dyson5 t3o -- S3 at 10 deg on the 9.38 deg cross-track box, from the y2 0.30 parent (addendum 25) (2026-10-02 18:23)
+CONVENTIONS: ONE telescope (D 183.3 mm, F/1.8, EFL 330.0 mm; altitude 550 km, GSD 30 m), box 9.38 x 0.30 deg, feeding
+  spectrometer size:F:240 (pupil match).  Parent: dyson5_t3w_3k.mat step y2 0.300 (S1 map max 255.4 nm, R [571.43 147.1 198.09] mm).
+  S3 = the template's symmetric-surface re-solve AT the offset (stop re-posed there once, then free), R1 + branch held,
+  solve set [5 3], cap 40, oi_solve's own stop.  STALL (stated in advance): stops within 5 iterations, gains < 20 % from its
+  start, last iteration rejected -> walk the OFFSET [5 10] deg instead, each S3 seeded from the previous, a stalled step halved
+  once.  Gate = oi_clear (disk model) >= 5 mm after the solve, S4 (clearance hinge) if not.  Rule: <= 250 nm with the
+  gate -> the three-mirror LIVES; converged above -> S5 (Zernike freeform) once.  Metric = the template's strict RMS WFE
+  at 1.00 um, 11 x 11 dense-map max (oi_score with the telecentric-anchor fix).
+
+S3 direct at 10 deg (stop posed at y -4.26 mm):
+  S3 trace (solve-set qmean, nm): 87154.2 -> 81389.5 -> 78294.4 -> 76039.5 -> 74622.3 -> 71064.2 -> 70263.9 -> 69277.5 -> 66699.6 -> 65846.5 -> 65045.2 -> 64237.2 -> 62611.8 -> 61965.7 -> 61605.3 -> 60696.5 -> 57379.3 -> 56751.0 -> 56041.2 -> 55419.0 -> 54837.5 -> 54176.1 -> 53324.4 -> 53064.9 -> 52309.2 -> 51501.5 -> 50807.0 -> 50028.1 -> 48619.7 -> 47991.8 -> 47300.6 -> 47013.1 -> 46273.3 -> 45504.4 -> 44453.5 -> 43711.0 -> 42682.3 -> 41400.5 -> 40682.6 -> 39606.6 -> 38311.3  CAPPED
+  start 87154.2 nm -> 38311.3 nm (gain 56.0 %), 40 iterations, 40 accepted
+  S3: dense-map max 42228.9 nm avg 38476.7; clearance +28.8 mm (worst M3->FP x M2); exit err 0.050 deg; M3 rho/R 0.462; edge rays kept 1.000
+
+Converged above the bar (42228.9 nm) with the gate (+28.8 mm): S5 (Zernike freeform, aspheres replaced) once:
+  S5 trace (solve-set qmean, nm): 37102.7 -> 27384.6 -> 24354.0 -> 23271.7 -> 22787.8 -> 22275.9 -> 21826.4 -> 21370.3 -> 20934.0 -> 20504.3 -> 20105.8 -> 19753.6 -> 19363.9 -> 18952.5 -> 18610.7 -> 18232.7 -> 17836.2 -> 17540.5 -> 17252.3 -> 16967.3 -> 16696.0 -> 16438.7 -> 16178.9 -> 15922.5 -> 15664.2 -> 15386.9 -> 15134.9 -> 14881.7 -> 14628.0 -> 14343.3 -> 14073.0 -> 13881.8 -> 13388.2 -> 13120.4 -> 12868.8 -> 12594.7 -> 12357.1 -> 12113.2 -> 11885.1 -> 11556.3 -> 11323.8  CAPPED
+  S5: dense-map max 12762.0 nm avg 11302.2; clearance +35.1 mm (worst M3->FP x M2); exit err 0.140 deg; M3 rho/R 0.484; edge rays kept 0.931
+
+S5 does not close: 12762.0 nm (bar 250), gate +35.1 mm, edge loss 6.9 % -- other forms may now be considered.

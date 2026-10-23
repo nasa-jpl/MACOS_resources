@@ -104,7 +104,9 @@ classdef tCalib < matlab.unittest.TestCase
         end
 
         function test_calib_set_target_accepts_names(testCase)
-            for nm = {'WFE', 'BEAM', 'SPOT', 'OPL'}
+            % OPL was removed 2026-10-10 (no objective); its refusal is
+            % gated in tCalibTargets/test_opl_is_refused_by_name
+            for nm = {'WFE', 'BEAM', 'SPOT'}
                 testCase.m.calib_set_target(nm{1});
             end
             testCase.m.calib_set_target('WFE_ZMODE', [4 5 11]);

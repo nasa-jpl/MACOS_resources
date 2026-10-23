@@ -1,0 +1,13 @@
+==== e2e6m CF3c -- the spacing sweep's static cost, attributed (apl, DMs flat)
+  d=0.15 m: static 4.485e-07 | DZ symmetric fraction 0.985
+  d=0.40 m: static 9.077e-07 | DZ symmetric fraction 0.986
+  d=0.70 m: static 1.097e-06 | DZ symmetric fraction 0.986
+  d=1.10 m: static 1.215e-06 | DZ symmetric fraction 0.986
+radial ratio (1.10 m / 0.15 m) across the annulus: median 2.74, spread 2.08..6.55
+VERDICT: broadband across the annulus, symmetric fraction high at every
+  spacing -- the extra static light is gap-Fresnel structure evolved over
+  the longer DM1->DM2 near-field leg: amplitude-type, the SAME substrate
+  family as the baseline.  The spacing dial trades authority against
+  seeing MORE of that structure; on this train the trade never wins.
+  figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf3c_spacing_attrib.png
+CF3c DONE in 1.3 min

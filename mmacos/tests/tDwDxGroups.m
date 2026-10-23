@@ -5,6 +5,23 @@ classdef tDwDxGroups < matlab.unittest.TestCase
         ModelSize  = 128
         RxName     = 'e5hex1.in'
         TestGroup  = [9; 10; 12; 13]
+        % Two SEGMENTS of the primary.  The multi-field and
+        % superposition cases below use this pair, not TestGroup, for
+        % two reasons.  (1) GroupedRigidBodyChannel's own header says a
+        % group spanning the exit-pupil Return and the focal plane does
+        % NOT superimpose linearly -- that non-superposition is why the
+        % group channel exists at all -- so TestGroup is the wrong group
+        % to gate linearity on.  (2) Superposition is only MEANINGFUL
+        % when the frames agree: the per-element channels perturb in
+        % each element's OWN local (TElt) frame, so the members must
+        % share an orientation with the group's reference element.
+        % Seg1 and Seg2 carry the SAME psiElt in this deck (they are
+        % segments of one parent surface), so their local triads are
+        % parallel and a group motion in ref-elt-local coords IS the
+        % same motion each member gets.  Elts 9/10 -- the two lens
+        % surfaces -- have OPPOSITE normals and would not superimpose in
+        % any single frame.
+        SegPair    = [1; 2]
     end
 
     properties
@@ -15,6 +32,73 @@ classdef tDwDxGroups < matlab.unittest.TestCase
         function setupClass(testCase)
             testCase.rx_path = rx_fixture_path(testCase.RxName);
             macos.init(testCase.ModelSize);
+        end
+    end
+
+    methods (Access = private)
+        function g = seg_map(testCase)
+            g = containers.Map('KeyType','char','ValueType','any');
+            g('SegPair') = testCase.SegPair;
+        end
+
+        function b = multi_base(~)
+            % A deliberately tiny multi-field harvest: two optics, a
+            % coarse ray grid.  These cases are about COLUMN BOOKKEEPING,
+            % not optics.
+            b = {'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                 'ngridpts', 15, 'elts', [1; 2], 'dofs', (0:5).', ...
+                 'delta', 1e-8};
+        end
+
+        function pred = member_sum(testCase, oe, T, j, kind)
+            % The frame-resolved sum of the members' columns for a GLOBAL
+            % axis j: a global unit motion along e_j moves member k by
+            % T_k(j,i) along its own local axis i (get_elt_csys returns
+            % the triad with the local axes as COLUMNS in global coords).
+            % kind 'trans' (default) uses the members' Tx/Ty/Tz columns,
+            % 'rot' their Rx/Ry/Rz.
+            if nargin < 5, kind = 'trans'; end
+            off = 3;  if strcmp(kind, 'rot'), off = 0; end
+            pred = zeros(size(oe.dwdx, 1), 1);
+            for k = 1:numel(testCase.SegPair)
+                base = (k - 1) * 6;          % member k's 6-DOF block
+                for i = 1:3
+                    pred = pred + T{k}(j, i) * oe.dwdx(:, base + off + i);
+                end
+            end
+        end
+
+        function T = member_triads(testCase, session)
+            % TElt triads of the group members, local axes as COLUMNS in
+            % global coordinates (macos.get_elt_csys returns a 6x6 whose
+            % upper-left 3x3 is that triad -- column 3 is psiElt).
+            cs = session.get_elt_csys(testCase.SegPair);
+            T = cell(numel(testCase.SegPair), 1);
+            for k = 1:numel(T)
+                T{k} = cs.csys(1:3, 1:3, k);
+            end
+        end
+
+        function p = rx_with_eltgrp(testCase, wd)
+            % A copy of the fixture carrying "EltGrp= 2 1 2" in BOTH
+            % member blocks -- macos's own convention, which is what
+            % parse_rx_groups dedups.  Written to a temp dir; the deck's
+            % GridFile= flat.txt is unresolvable from either cwd, so the
+            % copy loads exactly as the original does.
+            L = splitlines(string(fileread(testCase.rx_path)));
+            out = strings(0, 1);
+            for k = 1:numel(L)
+                out(end+1, 1) = L(k); %#ok<AGROW>
+                t = strtrim(L(k));
+                if startsWith(t, "iElt=")
+                    v = sscanf(char(extractAfter(t, "=")), '%d', 1);
+                    if ~isempty(v) && any(v == testCase.SegPair)
+                        out(end+1, 1) = "         EltGrp=  2 1 2"; %#ok<AGROW>
+                    end
+                end
+            end
+            p = fullfile(wd, 'e5hex1_grp.in');
+            fid = fopen(p, 'w');  fprintf(fid, '%s\n', out);  fclose(fid);
         end
     end
 
@@ -89,5 +173,471 @@ classdef tDwDxGroups < matlab.unittest.TestCase
             testCase.verifyGreaterThan(grp_max, 0, ...
                 'group columns should be non-zero');
         end
+        % =============================================================
+        % MULTI-FIELD supervisor -- macos.dw_dx_multi 'groups'
+        % =============================================================
+
+        function test_multi_center_block_matches_single_field(testCase)
+            % GATE 1.  The supervisor builds no channels itself: per
+            % field it calls dw_dx.  So the group columns of the CENTER
+            % block must reproduce dw_dx's group columns for the same
+            % state.  reset_xp is off so the two runs reference the same
+            % (prescription) exit pupil -- with it on the supervisor
+            % re-writes elt nElt-1 and the comparison is not like-for-like.
+            g = testCase.seg_map();
+            b = testCase.multi_base();
+            mm = macos.Session(testCase.ModelSize);
+            om = macos.dw_dx_multi(mm, testCase.rx_path, b{:}, ...
+                'grid', '1x1', 'reset_xp', false, 'groups', g);
+            ms = macos.Session(testCase.ModelSize);
+            os = macos.dw_dx(ms, testCase.rx_path, ...
+                'ngridpts', 15, 'elts', [1; 2], 'dofs', (0:5).', ...
+                'delta', 1e-8, 'groups', g);
+            testCase.verifyEqual(om.channel_names, os.channel_names, ...
+                'multi must expose dw_dx''s channel list verbatim');
+            % 2 optics x 6 DOFs = 12 per-element, then 6 group columns
+            testCase.verifyEqual(numel(om.channel_names), 18);
+            gc = 13:18;
+            A = om.per_field_dwdx{1}(:, gc);
+            B = os.dwdx(:, gc);
+            scale = max(abs(B), [], 'all');
+            testCase.verifyGreaterThan(scale, 0, ...
+                'non-vacuity: the single-field group columns are zero');
+            testCase.verifyLessThan( ...
+                max(abs(A - B), [], 'all') / scale, 1e-10, ...
+                'center-field group columns must match dw_dx''s');
+            % and the stacked Jacobian carries the same block
+            testCase.verifyEqual(size(om.dwdxall, 2), 18);
+        end
+
+        function test_multi_channel_identity_across_fields(testCase)
+            % GATE 2.  The stack assumes every per-field block has the
+            % SAME channels in the SAME order -- group channels included.
+            % The supervisor asserts channel_names equality internally
+            % (it ERRORS on a mismatch), so a run that returns at all has
+            % already passed that; here we pin the shape, the tail
+            % ordering (groups append AFTER the per-element block) and
+            % the bookkeeping arrays, then check the blocks are genuinely
+            % DIFFERENT harvests and not copies of one another.
+            g = testCase.seg_map();
+            b = testCase.multi_base();
+            m = macos.Session(testCase.ModelSize);
+            om = macos.dw_dx_multi(m, testCase.rx_path, b{:}, 'groups', g);
+            nf = numel(om.field_names);
+            testCase.verifyEqual(nf, 5, 'default field set is C + 4 corners');
+            testCase.verifyEqual(numel(om.channel_names), 18);
+            for k = 1:nf
+                testCase.verifyEqual(size(om.per_field_dwdx{k}, 2), 18, ...
+                    sprintf('field %s has a different channel count', ...
+                        om.field_names{k}));
+            end
+            % group channels come LAST, are labelled, and carry no
+            % element id (iElt 0, kind 'Group') -- section on kind
+            for k = 1:12
+                testCase.verifyEqual(om.kind{k}, 'RigidBody');
+            end
+            for k = 13:18
+                testCase.verifyEqual(om.kind{k}, 'Group');
+                testCase.verifyEqual(om.iElt(k), 0);
+                testCase.verifyTrue( ...
+                    startsWith(om.channel_names{k}, 'Grp[SegPair]'));
+            end
+            % dof_idx survives for the group block (the rot_output
+            % scaling keys off it -- gated below)
+            testCase.verifyEqual(om.dof_idx(13:18), (0:5).');
+            % NON-VACUITY: the per-field blocks must be distinct
+            % harvests, not one block replicated
+            ctr = find(strcmp(om.field_names, 'C'), 1);
+            oth = find((1:nf) ~= ctr, 1);
+            d = max(abs(om.per_field_dwdx{ctr}(:, 13:18) - ...
+                        om.per_field_dwdx{oth}(:, 13:18)), [], 'all');
+            testCase.verifyGreaterThan(d, 0, ...
+                'group columns identical at two fields -- blocks copied?');
+        end
+
+        function test_group_translation_is_the_member_sum(testCase)
+            % GATE 3, first half.  A rigid TRANSLATION of the group is
+            % exactly the two members translating together, so to first
+            % order the group column is the sum of the member columns.
+            %
+            % ONE 'delta' now means one PHYSICAL poke on both sides:
+            % GroupedRigidBodyChannel converts SI metres -> BaseUnits for
+            % prb_grp, exactly as macos.perturb does for the per-element
+            % channel, so there is no CBM factor to carry here.  (It used
+            % to pass the increment straight through, which made this
+            % comparison a two-delta, CBM-juggling affair -- and drove
+            % the artifact gated by
+            % test_scalar_delta_matches_the_split_step below.)
+            %
+            % FRAMES -- the part that makes this a real gate rather than
+            % a coincidence.  The per-element channels perturb in each
+            % element's OWN local (TElt) frame, while the group channel
+            % here perturbs in GLOBAL coords (the default).  On this deck
+            % Seg1 and Seg2's triads differ by about 3 deg, and a
+            % segment's PISTON response is tens of times its lateral one,
+            % so ignoring the frames leaks Tz into Tx at O(1) -- a naive
+            % column-vs-column comparison misses by 155%, which reads as
+            % "groups are broken" and is really "wrong frame".  So the
+            % member sum is assembled properly: a global unit
+            % displacement e_j moves member k by (T_k(j,i)) along its own
+            % local axis i, T_k being the element's TElt triad
+            % (get_elt_csys returns it with the local axes as COLUMNS in
+            % global coords).
+            g = testCase.seg_map();
+            me = macos.Session(testCase.ModelSize);
+            oe = macos.dw_dx(me, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', testCase.SegPair, 'dofs', (0:5).', 'delta', 1e-8);
+            mg = macos.Session(testCase.ModelSize);
+            og = macos.dw_dx(mg, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
+                'group_coords', 'global');
+            T = testCase.member_triads(mg);
+            for j = 1:3      % global Tx Ty Tz
+                pred = testCase.member_sum(oe, T, j);
+                grp  = og.dwdx(:, 6 + 3 + j);
+                sc = max(abs(pred));
+                testCase.verifyGreaterThan(sc, 0, ...
+                    'non-vacuity: the member translation columns are zero');
+                testCase.verifyLessThan( ...
+                    max(abs(grp - pred)) / sc, 1e-2, ...
+                    sprintf(['group translation along global axis %d must ' ...
+                             'equal the frame-resolved member sum'], j));
+            end
+        end
+
+        function test_scalar_delta_matches_the_split_step(testCase)
+            % THE regression gate for the unit asymmetry.
+            %
+            % prb_grp's signature is BaseUnits for translations;
+            % macos.perturb's is SI metres.  While the group channel
+            % passed its increment STRAIGHT THROUGH, one scalar 'delta'
+            % meant two different physical pokes -- 1/CBM apart, 10 pm
+            % against 10 nm on this millimetre deck -- and the group
+            % columns fell toward the finite-difference floor.  The tell
+            % was that the error GREW as the step shrank: group column
+            % over frame-resolved member sum ran 1.0000 (delta 1e-5) ->
+            % 1.0005 (1e-6) -> 1.012 (1e-7) -> 1.657 (1e-8).  It reads as
+            % physics -- an "intra-group compensation factor" -- which is
+            % how it nearly shipped in a template exhibit.
+            %
+            % Two assertions, in order of sharpness.  (1) At the SMALLEST
+            % step, the group translation columns still reproduce the
+            % member sum: pre-fix Tx misses by 66% and Tz by 200%, so
+            % this is the assertion that actually fails on the old
+            % channel.  (2) The scalar and the split-step (1,6) forms --
+            % the two things the templates might be run with -- agree, so
+            % nobody can read a units artifact as a physical ratio.
+            g = testCase.seg_map();
+            me = macos.Session(testCase.ModelSize);
+            oe = macos.dw_dx(me, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', testCase.SegPair, 'dofs', (0:5).', 'delta', 1e-8);
+            T = testCase.member_triads(me);
+
+            ms = macos.Session(testCase.ModelSize);
+            sc_ = macos.dw_dx(ms, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g);
+            mv = macos.Session(testCase.ModelSize);
+            sp = macos.dw_dx(mv, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'groups', g, ...
+                'delta', [1e-8 1e-8 1e-8 1e-6 1e-6 1e-6]);
+
+            for j = 1:3
+                pred = testCase.member_sum(oe, T, j);
+                col  = 6 + 3 + j;
+                r = rms_(sc_.dwdx(:, col)) / rms_(pred);
+                testCase.verifyLessThan(abs(r - 1), 1e-2, sprintf( ...
+                    ['scalar-delta group translation %d is %.4f of the ' ...
+                     'member sum -- the BaseUnit/metre asymmetry is back'], ...
+                    j, r));
+                % the two step choices must not disagree about a column
+                % whose units are now the same on both sides.  ONLY the
+                % translations: the split form leaves the rotation step
+                % alone, so a rotation column differs only by ordinary
+                % FD noise (Rz on this cell is near-inert and runs 2e-2).
+                d = max(abs(sc_.dwdx(:, col) - sp.dwdx(:, col))) ...
+                    / max(abs(sp.dwdx(:, col)));
+                testCase.verifyLessThan(d, 1e-2, sprintf( ...
+                    'scalar vs split-step group translation %d differs', j));
+            end
+        end
+
+        function test_group_rotation_is_not_the_member_sum(testCase)
+            % GATE 3, second half -- THE non-vacuity check for the whole
+            % group machinery.  A group ROTATION pivots BOTH members
+            % about the GROUP frame (the reference element), which for an
+            % off-pivot member is a rotation PLUS a lever-arm
+            % translation.  Summing each member's own about-its-own-point
+            % rotation cannot reproduce that -- and this is asserted with
+            % the SAME frame resolution the translation gate uses, so the
+            % difference cannot be dismissed as a frame artifact.  If
+            % these matched, the "group" channel would be a bookkeeping
+            % sum and GPERTURB would be doing nothing a caller could not
+            % do in MATLAB.
+            g = testCase.seg_map();
+            me = macos.Session(testCase.ModelSize);
+            oe = macos.dw_dx(me, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', testCase.SegPair, 'dofs', (0:5).', 'delta', 1e-8);
+            mg = macos.Session(testCase.ModelSize);
+            og = macos.dw_dx(mg, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
+                'group_coords', 'global');
+            T = testCase.member_triads(mg);
+            % rotations are rad on both sides and always were -- the
+            % SI-metres conversion the channel now does applies to
+            % translations only
+            worst = 0;
+            for j = 1:3      % global Rx Ry Rz
+                pred = testCase.member_sum(oe, T, j, 'rot');
+                grp = og.dwdx(:, 6 + j);
+                sc = max(abs(pred));
+                if sc == 0, continue; end
+                worst = max(worst, max(abs(grp - pred)) / sc);
+            end
+            testCase.verifyGreaterThan(worst, 1e-2, ...
+                ['group rotations must NOT be the member sum -- they ' ...
+                 'pivot about the group frame, not each element''s own']);
+        end
+
+        function test_jacobian_emits_base_units_rot_output_noop(testCase)
+            % Convention (Dave 2026-08-25): the Jacobian's OPD numerator
+            % emits in the deck's BaseUnits -- the same units as opd()
+            % and the dwdz/dwdsurf/dwdgrid rungs -- so wall = dwdx*x + w0
+            % is unit-consistent on any deck.  'rot_output' is a retained
+            % NO-OP (it existed to un-CBM the rotations of the old
+            % OPD-metres emitter).  Gated two ways on this mm fixture:
+            % the two settings are bit-identical, and a HAND finite
+            % difference in raw opd() units matches the emitted column
+            % (the old emitter would differ by 1/CBM = 1000x here).
+            g = testCase.seg_map();
+            m1 = macos.Session(testCase.ModelSize);
+            nat = macos.dw_dx(m1, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g);
+            m2 = macos.Session(testCase.ModelSize);
+            bpr = macos.dw_dx(m2, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
+                'rot_output', 'base-per-rad');
+            testCase.verifyLessThan(abs(nat.cbm - 1), 1, ...
+                'fixture must NOT be a metre-unit deck or this is vacuous');
+            testCase.verifyEqual(nat.dwdx, bpr.dwdx, ...
+                'rot_output must be a no-op -- BaseUnits either way');
+            % hand FD of elt 1 Tz (dof 5 -> column 6), raw opd() units
+            m3 = macos.Session(testCase.ModelSize);
+            m3.load_rx(testCase.rx_path);
+            m3.set_src_sampling(15);
+            m3.modify();
+            nE = m3.num_elt();
+            d = 1e-8;                                     % SI metres
+            macos.perturb(1, 'translation', [0; 0; +d]);
+            m3.modify();  m3.trace(nE - 1);  Wp = m3.opd();
+            macos.perturb(1, 'translation', [0; 0; -2*d]);
+            m3.modify();  m3.trace(nE - 1);  Wm = m3.opd();
+            macos.perturb(1, 'translation', [0; 0; +d]);  % restore
+            m3.modify();
+            v = (Wp ~= 0) & (Wm ~= 0);
+            hand = max(abs(Wp(v) - Wm(v))) / (2 * d);    % OPD-BU per SI metre
+            % the default denominator is per BaseUnit (trans_output='base',
+            % Dave 2026-10-06): hand FD x cbm.  'si' gives the per-metre one.
+            col  = max(abs(nat.dwdx(:, 6)));
+            testCase.verifyEqual(nat.trans_output, 'base');
+            testCase.verifyEqual(col, hand * nat.cbm, 'RelTol', 1e-6, ...
+                ['emitted column scale must match a hand FD in raw ' ...
+                 'opd() units per BaseUnit -- a CBM-scaled numerator, or a ' ...
+                 'per-metre denominator, is 1000x off here']);
+            m4 = macos.Session(testCase.ModelSize);
+            si = macos.dw_dx(m4, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', 5, 'delta', 1e-8, 'trans_output', 'si');
+            testCase.verifyEqual(max(abs(si.dwdx(:, 1))), hand, 'RelTol', 1e-6, ...
+                '''si'' column = the hand FD per SI metre');
+        end
+
+        function test_groups_auto_and_the_explicit_map_merge(testCase)
+            % The parse-once hoist in dw_dx_multi must reproduce dw_dx's
+            % merge semantics: auto first, an explicit entry OVERRIDING an
+            % auto one of the same name, the union otherwise.
+            wd = tempname;  mkdir(wd);
+            c = onCleanup(@() rmdir(wd, 's'));
+            rx = testCase.rx_with_eltgrp(wd);
+            b = {'field_x_rad', 1e-4, 'field_y_rad', 1e-4, 'grid', '1x1', ...
+                 'ngridpts', 15, 'elts', 1, 'dofs', (0:5).', 'delta', 1e-8};
+
+            % (a) auto alone: EltGrp= 2 9 10 in both member blocks is ONE
+            %     group, named by its member span
+            m1 = macos.Session(testCase.ModelSize);
+            a1 = macos.dw_dx_multi(m1, rx, b{:}, 'groups_auto', true);
+            testCase.verifyEqual(numel(a1.channel_names), 12);
+            for k = 7:12
+                testCase.verifyEqual(a1.kind{k}, 'Group');
+                testCase.verifyTrue(startsWith(a1.channel_names{k}, 'Grp[1-2]'));
+            end
+
+            % (b) union: an explicit group under a DIFFERENT name adds 6
+            m2 = macos.Session(testCase.ModelSize);
+            gx = containers.Map('KeyType','char','ValueType','any');
+            gx('SegPair') = testCase.SegPair;
+            a2 = macos.dw_dx_multi(m2, rx, b{:}, 'groups_auto', true, ...
+                'groups', gx);
+            testCase.verifyEqual(numel(a2.channel_names), 18);
+            testCase.verifyEqual(nnz(strcmp(a2.kind, 'Group')), 12);
+
+            % (c) override: the SAME name with different members keeps the
+            %     count at 6 but changes the motion -- so the columns must
+            %     differ from (a)
+            m3 = macos.Session(testCase.ModelSize);
+            go = containers.Map('KeyType','char','ValueType','any');
+            go('1-2') = [1; 2; 3];
+            a3 = macos.dw_dx_multi(m3, rx, b{:}, 'groups_auto', true, ...
+                'groups', go);
+            testCase.verifyEqual(numel(a3.channel_names), 12);
+            testCase.verifyEqual(nnz(strcmp(a3.kind, 'Group')), 6);
+            d = max(abs(a3.dwdxall(:, 7:12) - a1.dwdxall(:, 7:12)), [], 'all');
+            testCase.verifyGreaterThan(d, 0, ...
+                'an explicit entry must OVERRIDE the auto group of the same name');
+        end
+
+        function test_no_groups_is_the_preserved_surface(testCase)
+            % The six new opts must be inert when unused: a run with no
+            % groups is byte-identical to the same call written without
+            % them.
+            b = testCase.multi_base();
+            m1 = macos.Session(testCase.ModelSize);
+            a = macos.dw_dx_multi(m1, testCase.rx_path, b{:}, 'grid', '1x1');
+            m2 = macos.Session(testCase.ModelSize);
+            e = macos.dw_dx_multi(m2, testCase.rx_path, b{:}, 'grid', '1x1', ...
+                'groups', [], 'groups_auto', false, ...
+                'group_coords', 'global', 'group_fp_mode', 'auto', ...
+                'group_stop_mode', 'obj', 'group_stop_pos', [0 0 0]);
+            testCase.verifyTrue(isequal(a.dwdxall, e.dwdxall));
+            testCase.verifyEqual(numel(a.channel_names), 12);
+            testCase.verifyFalse(any(strcmp(a.kind, 'Group')));
+        end
+
+        % =============================================================
+        % WS1 -- grouped dw/dx speedup (smart stop gate + tail settle)
+        % =============================================================
+
+        function test_reaim_gate_downstream_vs_upstream(testCase)
+            % WS1 Fix B decision.  The gate resolves the stop element from
+            % the engine (get_stop_info) for stop_mode 'obj', or uses the
+            % declared stop_elt for 'elt', and skips the chief-ray re-aim
+            % only when EVERY member is strictly downstream of it.  Driven
+            % on a COUNTING STUB so the decision is pinned deterministically
+            % regardless of any deck's stop machinery (get_stop_info only
+            % resolves an ELEMENT stop; an object-space-only deck is the
+            % ambiguous case, handled below).
+            s = StubGroupSession(5, 20);   % engine reports the stop at elt 5
+            % obj mode, downstream group -> skip
+            dn = macos.channels.GroupedRigidBodyChannel(s, [9; 10], 0, ...
+                'stop_mode', 'obj');
+            testCase.verifyFalse(dn.reaim_required(), ...
+                'downstream group (obj stop resolved) must skip the re-aim');
+            % obj mode, touches an early element (<= stop) -> keep
+            up = macos.channels.GroupedRigidBodyChannel(s, [1; 2], 0, ...
+                'stop_mode', 'obj');
+            testCase.verifyTrue(up.reaim_required(), ...
+                'group at/upstream of the stop must keep the re-aim');
+            % object-space / no element stop: the chief is aimed from the
+            % fixed source through a fixed global point, invariant under any
+            % element motion -> the re-aim is a no-op -> skip (CCL follow-up).
+            s0 = StubGroupSession(0, 20);
+            amb = macos.channels.GroupedRigidBodyChannel(s0, [9; 10], 0, ...
+                'stop_mode', 'obj');
+            testCase.verifyFalse(amb.reaim_required(), ...
+                'object-space stop (no element) -> re-aim is a no-op -> skip');
+            % elt mode uses the declared stop_elt (no engine query)
+            el = macos.channels.GroupedRigidBodyChannel(s0, [9; 10], 0, ...
+                'stop_mode', 'elt', 'stop_elt', 5);
+            testCase.verifyFalse(el.reaim_required(), ...
+                'elt mode: downstream of stop_elt must skip');
+            % escape hatch: smart_stop=false forces keep even downstream
+            dnf = macos.channels.GroupedRigidBodyChannel(s, [9; 10], 0, ...
+                'stop_mode', 'obj', 'smart_stop', false);
+            testCase.verifyTrue(dnf.reaim_required(), ...
+                'smart_stop=false must always re-aim (escape hatch)');
+            % stop_mode none -> nothing re-aims anyway
+            nn = macos.channels.GroupedRigidBodyChannel(s, [9; 10], 0, ...
+                'stop_mode', 'none');
+            testCase.verifyFalse(nn.reaim_required());
+        end
+
+        function test_smart_gate_preserves_jacobian(testCase)
+            % WS1 Fix B safety gate.  For a DOWNSTREAM group the smart gate
+            % skips the per-poke re-aim; that skip must leave the Jacobian
+            % unchanged.  A/B: gate ON (default) vs OFF (always re-aim).
+            g = containers.Map('KeyType','char','ValueType','any');
+            g('Lens') = [9; 10];
+            mon = macos.Session(testCase.ModelSize);
+            on = macos.dw_dx(mon, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g);
+            moff = macos.Session(testCase.ModelSize);
+            off = macos.dw_dx(moff, testCase.rx_path, 'ngridpts', 15, ...
+                'elts', 1, 'dofs', (0:5).', 'delta', 1e-8, 'groups', g, ...
+                'group_smart_stop', false);
+            gc = 7:12;    % 1 elt x 6 DOF per-element, then 6 group columns
+            A = on.dwdx(:, gc);  B = off.dwdx(:, gc);
+            scale = max(abs(B), [], 'all');
+            testCase.verifyGreaterThan(scale, 0, ...
+                'non-vacuity: the group columns are zero');
+            testCase.verifyLessThan(max(abs(A - B), [], 'all') / scale, 1e-8, ...
+                'the smart-gate skip must not change the group Jacobian');
+        end
+
+        function test_group_flow_counts(testCase)
+            % WS1 Fix A + Fix B control flow, pinned on the counting stub.
+            % A central-difference column drives apply(+d) -> apply(-d) ->
+            % restore(), i.e. THREE prb_grp increments (+d, -2d, +d).  The
+            % re-aim / FP follow-up must run only on the two MEASURED pokes,
+            % never on the restore, and the group TAIL must settle once.
+            d = 1e-6;
+
+            % (1) UPSTREAM group, TAIL: re-aim on +d and -d (2) + one tail
+            %     settle (1) = 3 stop_obj; prb_grp on all 3 pokes.
+            su = StubGroupSession(11, 20);          % stop at elt 11
+            chu = macos.channels.GroupedRigidBodyChannel(su, [1; 2], 0, ...
+                'stop_mode', 'obj');
+            chu.set_group_tail(true);
+            chu.apply(+d);  chu.apply(-d);  chu.restore();
+            testCase.verifyEqual(su.count('prb_grp'), 3, ...
+                'prb_grp must run on +d, -2d and the restore');
+            testCase.verifyEqual(su.count('stop_obj'), 3, ...
+                'upstream tail: re-aim on +d, -d, then one tail settle');
+
+            % (2) DOWNSTREAM group, TAIL: gate skips ALL re-aims (0 stop_obj),
+            %     tail settle also skipped (need_reaim false); prb_grp still 3.
+            sd = StubGroupSession(1, 20);           % stop at elt 1
+            chd = macos.channels.GroupedRigidBodyChannel(sd, [9; 10], 0, ...
+                'stop_mode', 'obj');
+            chd.set_group_tail(true);
+            chd.apply(+d);  chd.apply(-d);  chd.restore();
+            testCase.verifyEqual(sd.count('stop_obj'), 0, ...
+                'downstream group must skip every re-aim');
+            testCase.verifyEqual(sd.count('prb_grp'), 3);
+
+            % (3) UPSTREAM group, NON-tail: re-aim on +d and -d only (2),
+            %     NO tail settle.
+            sn = StubGroupSession(11, 20);
+            chn = macos.channels.GroupedRigidBodyChannel(sn, [1; 2], 0, ...
+                'stop_mode', 'obj');                % is_group_tail defaults false
+            chn.apply(+d);  chn.apply(-d);  chn.restore();
+            testCase.verifyEqual(sn.count('stop_obj'), 2, ...
+                'non-tail: re-aim on the two measured pokes, none on restore');
+
+            % (4) FP follow-up obeys the same is_nominal + tail rule: sxp on
+            %     +d and -d (2) + one tail settle (1) = 3; none on restore.
+            sf = StubGroupSession(1, 20);
+            chf = macos.channels.GroupedRigidBodyChannel(sf, [9; 10], 0, ...
+                'stop_mode', 'none', 'fp_elt', 10, 'fp_mode', 'sxp');
+            chf.set_group_tail(true);
+            chf.apply(+d);  chf.apply(-d);  chf.restore();
+            testCase.verifyEqual(sf.count('sxp'), 3, ...
+                'FP follow-up: on +d, -d and the tail settle, not the restore');
+            testCase.verifyEqual(sf.count('trace'), 3);
+            testCase.verifyEqual(sf.count('stop_obj'), 0, ...
+                'stop_mode none: no re-aim at all');
+        end
     end
+end
+
+
+function r = rms_(v)
+r = sqrt(mean(v(isfinite(v)).^2));
 end

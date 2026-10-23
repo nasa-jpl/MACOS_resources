@@ -1,0 +1,5 @@
+
+=== COPHI station figure (oap rig, the plain splitter) ===
+  station figure, flat DM: read 0 nm rms, read - engine 0 pm rms over the test pupil
+  station figure, 30 nm working surface: read 31.95 nm rms, read - engine 0.3109 pm rms over the test pupil
+  wrote figs_oap_plain_stations.png

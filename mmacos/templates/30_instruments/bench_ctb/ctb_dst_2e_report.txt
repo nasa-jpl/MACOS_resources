@@ -1,0 +1,22 @@
+==== DST Lane 2e -- DM LSB quantization | region hp | N=1024 | Lyot 0.80 | control==truth | 2026-09-03 21:33:41
+LSB = 0 (clean): floor 3.371e-13  [S1 r0 baseline recovered]
+  LSB nm |   mean floor |   std      |    min      |    max     | (nrep=4 seeds)
+  0.0010 |    9.062e-13 |  8.259e-14 |  8.262e-13 |  1.004e-12
+  0.0100 |    2.254e-11 |  7.519e-12 |  1.724e-11 |  3.358e-11
+  0.1000 |    2.370e-09 |  5.536e-10 |  1.804e-09 |  3.132e-09
+(controller continuous on the deep mono Jacobian; plant U(+/-LSB/2) dither; LSB=inferred, no Ruane-2020 hardware value.)
+
+GATE 2e -- PASS (all three, half-plane 3-8, N=1024):
+ (1) run-to-run RANDOM speckle at a stable floor: each LSB's 4 seeds cluster
+     with ~10-33% spread (the DST 4-run +/-0.16e-10 idiom; e.g. LSB 0.01 ->
+     2.25e-11 over 1.72-3.36e-11).
+ (2) floor rises with LSB, ~quadratic: 0.001/0.01/0.1 nm -> 9.1e-13 / 2.25e-11
+     / 2.37e-9 (10x LSB -> ~100x floor -- LSB^2 electronics-noise scaling).
+ (3) LSB -> 0 recovers the baseline: LSB=0 -> 3.371e-13 = the S1 r0 hp floor.
+ INFERRED LSB for the DST ~3e-11 modulated floor: ~0.01 nm (2.25e-11,
+ up to 3.36e-11).  FLAGGED inferred -- we lack Ruane 2020's hardware LSB;
+ the value is a model fit to the ~3e-11 target, not a measured number.
+ Premise restored by the S1 grid-artifact fix: the 3e-11 floor surfaces
+ with ~2 decades of clearance above the 3.4e-13 clean baseline (it could
+ NOT have surfaced above the N=512 4e-10 artifact -- why this lane needed
+ the N=1024 resolution first).

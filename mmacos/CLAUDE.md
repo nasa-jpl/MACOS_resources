@@ -3,9 +3,13 @@
 > **Post-compaction / post-upgrade — re-read the docs first.** After a
 > context compaction or a tooling upgrade, before resuming build/engine
 > work, re-read the doc set across ALL working dirs (the conversation
-> summary drops mechanical how-to): `macos/CLAUDE.md` + `macos/PLAN.md`;
-> this file + `MACOS_resources/{pymacos,GMI}/CLAUDE.md` + `README.md`s;
-> and the agent `MEMORY.md` (esp. the build/test workflow entries).
+> summary drops mechanical how-to): `macos/CLAUDE.md`; this file +
+> `MACOS_resources/{pymacos,GMI}/CLAUDE.md` + `README.md`s; and, IF PRESENT,
+> `macos/PLAN.md` and the agent `MEMORY.md` (esp. the build/test workflow
+> entries) -- the plans and the memory live on the `dev` branch only; a
+> release checkout has the `CLAUDE.md` set and the READMEs and no plans,
+> and a citation of a PLAN or BRIEF in this file is provenance, not a file
+> to look for.
 
 MATLAB mex bridge to MACOS / SMACOS — the sibling of `../pymacos`,
 sharing the same `MODULE macos_api_mod` backbone in `libsmacos.a`.
@@ -166,7 +170,14 @@ User-facing surface lives in `MACOS_resources/mmacos/src/+macos/` (one
 - **Unit conventions.**  All user-facing translations are in **SI
   metres**.  Convert to BaseUnits via `1/CBM` inside the package
   function (not in the mex layer).  Same for `dx_at(srf, unit)` — the
-  mex returns metres, the package function converts.
+  mex returns metres, the package function converts.  **Exception, OUTPUT side (Dave 2026-10-06):** `dw_dx`/`dw_dx_multi`
+  translation columns (and dcdx rows) are per **BaseUnit** by default
+  (`'trans_output','base'`, GMI's convention; `'si'` = per metre, the
+  2026-08-25..10-06 default) -- the poke itself is still applied in SI
+  metres.  Consumers that work in SI (run_compare / run_simulator /
+  run_met / jacobian_check) call `macos.dwdx_trans_per_metre(ox)` once at
+  their ox load; it is the identity on a pre-change harvest (no
+  `trans_output` field), so old jac .mats need no regen.
 - **Returns.**  Prefer structs over multi-output for related fields
   (e.g. `trace` returns `s.nRays`, `s.rmsWFE`).  Vector outputs as
   column vectors (`vpt(:)`).
@@ -208,6 +219,14 @@ with a new `do_<name>` helper and a new `CASE` in `gen_dispatch`.
 The main `mexFunction`'s `CASE DEFAULT` falls through to
 `gen_dispatch`, so the command becomes callable from MATLAB with no
 edits to `mmacos_mex.F`.  Re-run `make` and the new command is wired.
+**The same run writes pymacos's two generated files** (2026-10-16,
+BRIEF_to_bindings A.2): `pymacos/src/cmake/source/pymacos_f2py.f90` (the
+f2py layer) and `pymacos/src/pymacos/api_gen.py` (Python stubs), so the
+routine reaches all three front ends from one edit; `make` in
+`pymacos/src/cmake/build` too.  `--targets mex` restricts it; `--out-dir`
+writes into a scratch dir (the byte-compare: the committed `mmacos_gen.F`
+must come back identical).  f2py hints / interface rewrites:
+`binding_overrides.py`.  Coverage gates: pymacos `tests/test_api_coverage.py`.
 
 **Path B — hand-write the helper.**  Required when:
 - The arg shape exceeds rank 2 (e.g. `elt_csys_get`'s 3×3×N csys).
@@ -368,11 +387,16 @@ existing `+macos` surface; it does NOT touch Fortran.
   hardwires `'frame','local'`): `Ty` is the element's own y, not global
   Y.  The `{'global','local'}` knob in `dw_dx` is `group_coords` (groups
   only).
-- Examples (REORGANIZED 2026-06-19, `d9978d8`): `examples/` now has three
-  category dirs — `sensitivities/`, `design/` (telescope builder examples
-  + `tma_widefield/`), `coronagraph/` (coro_planet_demo, coro_walkthrough,
-  `coro/` = the old design/coro E1–E4).  `tCoroContrast`'s path fixture
-  points at `examples/coronagraph/coro`.
+- Examples (REORGANIZED AGAIN 2026-08-19, the templates/challenges tree —
+  supersedes the 2026-06-19 `d9978d8` three-category layout): `examples/`
+  and `design/examples/` are GONE.  Copy-and-adapt starting points live in
+  numbered thread dirs under `templates/` (`10_telescopes` … `90_polarization`,
+  index in `templates/00_INDEX.md`); stated-target studies live in
+  `challenges/` (rodgers1, rodgers2, afocal4).  Universal helpers were
+  hoisted OUT of the example dirs into `src/+macos/` (`mimg`, `pad`, and the
+  contrast-scoring family `radial_profile` / `first_airy_null` /
+  `lambda_over_D_pixels` / `radial_contrast` / `dark_zone_metrics`), so
+  `tCoroContrast` no longer needs a PathFixture at all.
 
 ### Layout viewer — Telescope.diagram / view_layout (Sprint 4, 2026-06-19)
 For the off-axis-fold work (the coaxial TMA self-obscures — M1 + FP sit
@@ -456,13 +480,37 @@ rays clip, correct — Dave); `gap/2` = trace-neutral midline.
 'rxpoly'** when every segment block declares PolyApVec — boundary =
 declared polygon MINUS its obscuration (polyshape subtract), so
 add_met/met_view place launchers on Rx-DECLARED edges (works for
-imported segmented Rx).  Worked example: `design/examples/e5_pie/`
+imported segmented Rx).  Worked example: `templates/20_segmentation/e5_pie/`
 (manual-grade, figure per step).  GOTCHA there: the engine OPD grid
 maps x along the ROW index and e5's `xGrid=(−1,0,0)` — overlaying
 tiling geometry on OPD maps needs the affine centroid calibration in
 `e5_pie.m:pupil_axes_` (transpose + mirror aware), not a hard-coded
 ±R/N pixel map.  Tests: tSegmentRx test_emit_apertures_and_rxpoly +
 test_seg_apertures_hex.
+
+### An off-axis section's VptElt is the PARENT vertex -- ask `Bench.station` (2026-09-15)
+`add_oap` emits an off-axis parabola as the SAME parent conic with `RptElt`
+(the section POLE, where the beam lands) different from `VptElt` (the parent
+VERTEX) and `psiElt` = the parent axis.  The two are **`r*sin(2*AOI)` apart**
+-- 149 mm (OAP1) and 133 mm (OAP2) on the TG96 reflective rig -- and that
+distance IS the optic's off-axis distance; the parent focal length is
+`r*cos^2(AOI)`.  **Anything asking "where is this element on the bench" must
+ask `macos.design.Bench.station(e)`**, which returns `rpt` (push() resolves it
+to `vpt` for every ordinary element, so it is the vertex everywhere else).
+Reading `.vpt` is silent and wrong: it put `tg96_run/draw_render_`'s mirror
+symbols, crop boxes and label anchors 133-149 mm off the rays (the defect in
+the old `oap_vlayout.png`), and it made `dmg_bench_clearance` build its beam
+SEGMENTS between parent vertices -- the source leg ended 149 mm off OAP1 and a
+**150 mm phantom leg** ran from that vertex to the input polarizer, which three
+node parts were then scored against.  `Bench.sketch` always used `rpt`; the
+downstream consumers drifted.  **`view_rx` is CORRECT and needs nothing**:
+`add_oap` deliberately leaves the element with NO declared aperture (a Circular
+`ApVec` is applied about `VptElt` and would block the whole bundle), so
+`elt_geom_` falls to the ray-footprint hull, which is on the beam by
+construction -- measured 1.07 / 1.51 mm from the poles.  Gate:
+`tBench/test_station_is_the_pole`.  Still reading `.vpt` and correct only
+because their rigs have no off-axis section: `pdi_layout_fig`,
+`psri_layout_fig`, `psri_bench`, `zwfs_vlayout`, `dmg_analyzer_maps`.
 
 ### Optical-design reference & fixtures (Sprint 2A-ii builder)
 The de-novo `macos.design.Telescope` builder (closed-form Cass / RC /
@@ -558,16 +606,41 @@ pure piston (the figure was discarded).  Fixed in the macos engine (sls-dev
   Flat segments are NOT acceptable (Dave: unusable in a real telescope) — the demo
   must carry a real figure.
 - **GridFile resolves from CWD** (engine `GridInit`): run with cwd = the dir
-  holding `zern41em5z155em3.txt` (`examples/grid_surface/`) or co-locate it
+  holding `zern41em5z155em3.txt` (`templates/20_segmentation/grid_surface/`) or co-locate it
   (deferred).  Else "File ... does not exist -sub GridInit" → flat nominal.
 
 Plotting helpers (`sensitivities/`, GENERIC across all dw_d*_multi):
-- **`plot_dw_channels`** — all-channels overview.
-- **`plot_dw_per_element(out, 'center'|'multi', here, prefix)`** (NEW) — one page
-  PER ELEMENT (= per segment for grid; per optic for dwdx/dwdz/dwdsurf),
-  center-field AND multi-field, parula + zero-mask, no thresholding/caxis band-aids
-  (retired — the dW is localized now).  Auto-detects the per-field cell
-  (`per_field_dwd{x,z,s,g}`); wired into all the `run_dwd*_multi` examples.
+- **SIZE FIRST, COUNT SECOND (2026-09-10, Dave).**  `dw_page_layout.m` fixes the
+  panel size (`panel_in` 3.5 in per OPD map, `tile_in` 1.2 in per FIELD TILE of a
+  multi-field canvas) and derives the panels per page from it; pages paginate on
+  ELEMENT boundaries, grow to `page_max_in` to keep one element's channels
+  together, and only then split onto `_p02`.  A sparse page grows its panels to
+  fill the 16:9 `page_in` envelope, so nothing comes out smaller than it used to.
+  Four traps this closed, all worth remembering:
+  (1) **`print` with the default `PaperPositionMode 'auto'` sizes the page from
+  the figure's PIXELS over `ScreenPixelsPerInch`** (96 here) — screen-dependent,
+  and a tall figure is CLAMPED to the screen first.  `dw_page_fig` sets inches +
+  a manual `PaperPosition`, so `-r140` gives exactly `inches*140` px anywhere.
+  (2) **`subplot`'s default margins eat ~30% of every cell** — the old 2042x1386
+  per-element page drew its canvas at 4.3 in.  `dw_page_axes` places axes
+  explicitly.  (3) **`colorbar` SHRINKS its own axes** — restore the axes Position
+  and put the bar in the reserved gutter (`dw_draw_map`).  (4) **the per-field
+  cells are `Nc x Nf` with a configuration axis** — `per_field_dwdx{k}` is
+  (config k, field 1), the centre field only because 'C' is listed first; index
+  them 2-D (`per_field_indx(out, ic, k)`, `plot_dw_per_element` local_per_field).
+- **`plot_dw_channels`** — all-channels overview, now paginated; returns a
+  MANIFEST (not a figure handle).  `<name>_<ch>_channels.png` is ALWAYS written:
+  the single page when one suffices, else the INDEX contact sheet (the dense
+  sheet it used to be, each thumbnail labelled with its page) with the full-size
+  pages in `<name>_pages/..._p01.png`.  Nothing that referenced that name breaks.
+  `write_page_index` writes the harvest-wide `<name>_pages_index.txt`.
+- **`plot_dw_per_element(out, 'center'|'multi'|'field', here, prefix)`** — one page
+  PER ELEMENT (= per segment for grid; per optic for dwdx/dwdz/dwdsurf), jet +
+  zero-mask, piston removed, no thresholding/caxis band-aids.  `'field'` (2026-09-10)
+  = one page per element per (configuration, field), single-field maps at full
+  size — the mode for a many-segment deck; opt-in, warns with the page count.
+  Auto-detects the per-field cell (`per_field_dwd{x,z,s,g}`); wired into all the
+  `run_dwd*_multi` examples.
 - **`macos.gs_zernike_segment_basis`** — GS-orthonormalized Zernike basis over a
   segment's true (irregular) aperture, piston/tip/tilt projected out; one basis
   covers all clocked segments.  Trace to the PM Reference (can't trace a Segment).
@@ -609,6 +682,327 @@ gs bespoke driver) are preserved untracked in
 `~/dev/MACOS_sandbox/segdemo_fixtures/`.  `gen_segment_gridmat` + `mmacos_setup.m`
 shipped earlier (245af94).
 
+## Polarization (PLAN_POLARIZATION)
+
+Engine-side conventions, coating models, the Phase-2 Jones layer and the
+Phase-3a vector chain all live in **`macos/macos_f90/CLAUDE.md`** — read
+that before touching anything polarization-related; do not duplicate it
+here.  mmacos-side facts only:
+
+- Surface: `+macos/{polarization,vector_diffraction,coating,ray_field,
+  jones_pupil,pol_maps,pol_zernike}.m`.  All ride codegen Path A except
+  `ray_field`; `pol_maps`/`pol_zernike` are pure MATLAB (no engine call).
+- **`pol_zernike` (Phase 2b, 2026-07-26)** — Zernike expansion of the
+  Dvec/retvec maps into standard polarization-aberration terms.  Mode
+  indices are the MACOS ANSI 1-based numbers (`MonZernModes=`); the
+  evaluator is shared with `zernike_grid_basis` via
+  **`+macos/private/ansi_zernike_eval.m`** so an influence-basis mode
+  index and an aberration-report mode index cannot drift.  LEAST-SQUARES
+  fit, not a projection — circular Zernikes are non-orthogonal on an
+  obscured pupil.  Expected two-mirror answer: astig0 in s1, astig45 in
+  s2, equal, everything else round-off ("polarization astigmatism").
+- **UNITS TRAP in `tJonesPupil`:** `macos.coating` takes thickness in
+  element **BaseUnits** (documented exception to the SI-metres veneer
+  convention), and the class uses TWO fixtures with different BaseUnits —
+  `Rx_Cass_FarField` is `m`, the Bench-emitted fold rig is `mm`.  One
+  shared constant silently meant 200 um on the Cassegrain; gates still
+  passed (any optically thick layer satisfies them) but the mmacos and
+  pymacos Jones coefficients disagreed in the 8th digit.  Now split into
+  `thkAl` / `thkAlBench`; with that, the two bindings agree to 11 digits.
+- Tests: `tPolarization` (Phase 1 state/round-trip), `tJonesPupil`
+  (Phase 2a/2b), `tVecChain` (Phase 3a Tranche 1) — all in `SUITE_FAST`.
+- **`tests/Rx/` is a new fixture home.**  `rx_fixture_path` searches the
+  shared pymacos corpus FIRST and `mmacos/tests/Rx/` second, so an
+  mmacos-only prescription (currently `Rx_VecChain.in`) resolves by name
+  with no caller change.  `Rx_VecChain.in` is duplicated into
+  `pymacos/tests/Rx/` for the mirrored pytest — keep the two in sync.
+- **Writing a new Rx fixture by hand: two traps.** (1) The file needs the
+  trailing `nOutCord=`/`Tout=` **Output Coordinate System** block or
+  `load_rx` fails with no diagnostic (the parser leaves `nElt=0` and the
+  api's only check is `nElt>0`). (2) MACOS **merges consecutive elements
+  that share a `PropType`** into ONE propagation, so a "two-leg" chain
+  written as two `NFPlane` elements in a row is silently one leg — bracket
+  each hop `NFPlane` → `Geometric` (the `Rx_Coro.in` idiom).
+- **Validation report driver: `tools/pol_validation_report/`** (2026-07-26,
+  PLAN worklist item 7).  `./make_polval.sh` re-runs every polarization
+  validation case, writes `macos/docs/macos-manual/polval/media/*.png` +
+  `generated/numbers.json`, then substitutes into the `polval/*.md.in`
+  prose (which carries **no numeric literals**, only `@@TOKEN@@`).  Build
+  with `make polval` / `polval-pdf` from `docs/macos-manual`;
+  `polval-regen` is the same thing from the docs side.  Three guards:
+  the renderer writes nothing unless every token resolves; the driver
+  asserts 19 gate thresholds mirroring tPolarization/tJonesPupil/tVecChain
+  and ABORTS on regression; `tools/check_polval.py` (prerequisite of
+  `make polval`) rejects a stale template, a figure newer than the
+  numbers, or a surviving placeholder.  Gates this box can't run
+  (pymacos/ifx, GMI, the historical pre-fix engine) live in
+  `external.json` with command + capture date.  **One model size (128),
+  one MATLAB session** — the `macos_init_all()` heap bug applies here
+  like everywhere else.  Adding a phase's evidence section: see the
+  tool's README.
+- **Pre-existing, unrelated:** `Rx_Coro_FPM.in` SIGSEGVs at model size 256
+  (`macos.intensity` at any element).  Verified against the pre-Phase-3a
+  engine — not a polarization bug.  Use `Rx_Coro.in` at 1024 (what the
+  proper_compare suite does) for coronagraph-chain work.
+- **Model size must be ≥ the Rx's `nGridpts` (Dave, 2026-07-27).**
+  `Rx_Coro.in` declares `nGridpts=511`, so it needs model **≥ 512**.  Run it
+  smaller and the engine prints `Too many grid points. Resetting npts to N`
+  and carries on — but that path is not safe: at 128 `macos.intensity(21)`
+  SIGSEGVs in roughly a third of runs (same registers every time) and
+  `trace`-then-`intensity` crashed 3/3.  At 512 and 1024 repeat runs are
+  bit-identical.  There is an `MREset` CLI command (128..8192) for changing
+  model size; it is **not** exposed in `macos_api_mod`, so from mmacos the
+  lever is `macos.init(N)`.  An earlier PLAN note claiming `Rx_Coro` runs at
+  128 is wrong and has been corrected — it appears to work, then doesn't.
+- **FIXED 2026-07-27 — the odd-mirror `r_p` sign defect** (macos `cb29ea5`
+  Reflector + `25c4386` Refractor; resources `9bc2029` fold-gate
+  de-circularization + `fc2e22e` the new gates).  `Reflector`'s
+  reflected-p̂ basis disagreed with its Fresnel `r_p` sign, so ONE on-axis
+  mirror turned x-polarized light into a 50/50 x/y mixture; a mirror PAIR
+  cancelled it EXACTLY (an involution) and the error is unitary, which is
+  why `tJonesPupil` (2-mirror Cassegrain), `tVecChain` (no mirrors) and the
+  coated 45° fold gate all passed.  Odd-mirror polarized results are
+  trustworthy again.  Two lasting lessons: **an "analytic" reference
+  transcribed from the engine's own expression is circular in exactly the
+  sign it should check** (the fold gate's `RPa`, and the same staleness in
+  the polval driver, which its gate guard caught), and **fixture parity
+  matters** — every fixture in the suite had an even mirror count or none.
+  New gates: `tPolarization/test_odd_mirror_crosspol_{pec_analytic,
+  rho2_law}` — the whole PEC single-reflection Jones against a Born&Wolf
+  closed form, with AOI and azimuth taken from RAY DIRECTIONS so no
+  pupil-grid mapping is assumed (median 2.1e-15).  Reproducer:
+  `tools/pol_sp_sign_probe/probe_sp_sign.m`.  Packet (with the closeout
+  entry): `macos/REVIEW_POL_SP_SIGN_2026-07-27.md`; engine detail in
+  `macos/macos_f90/CLAUDE.md`; report evidence in `polval/50_sp_sign`.
+  **Watch out when reading `ray_field`:** `RayE`/`RayDir` are the CURRENT
+  trace state, not a per-element history — `trace(e)` then `ray_field(e)`,
+  or you get the state at whatever element you last traced to.
+- **CLOSED 2026-07-28 (macos `a5e4288`)** — coated and uncoated `Refractor`
+  transmission used DIFFERENT amplitude normalizations (the coated branch
+  omitted the radiometric `sqrt(n2 cos02/(n1 cos01))` factor): a coated lens
+  under-transmitted by ~18% in amplitude vs the same surface uncoated
+  (0.8164965809 = 1/sqrt(1.5) exactly with an index-matched layer; 1/1.5 in
+  INTENSITY at the detector plane).  Fixed by one factor applied ONCE after
+  the Airy recursion; the branch now has `tPolRadiometric` (13 tests,
+  SUITE_FAST) against the Abeles characteristic matrix, on new fixtures
+  `Rx_Refract.in` / `Rx_Refract45.in`.  Binding-side things worth knowing:
+  the 45° fixture tilts the ELEMENT (unlike `Rx_PolElt_Tilt.in`, which
+  tilts the BEAM — a refractor's Fresnel physics depends on the ray-normal
+  angle, which element tilt does change, whereas a straight-through
+  polarizer's does not), and **Macleod's `2*eta0/(eta0*B+C)` is the
+  TANGENTIAL amplitude coefficient**, larger than the ordinary Fresnel
+  `t_p` by `cos_sub/cos_inc` (1.2472 at 45° into n=1.5) — convert before
+  comparing to a measured `E_out/E_in`, or a correct engine looks broken.
+  Engine detail + scope: `macos/macos_f90/CLAUDE.md`; report evidence in
+  `polval/80_radiometric`.
+- **`complex_field(..., 'reset_trace', false)` is bit-identical and ~100×
+  faster** for the 2nd/3rd component plane at the same element (0.01 s vs
+  0.83 s at model 512) — reading Ex/Ey/Ez costs ONE propagation, not three.
+- **Phase 2c (`pol_contrast_floor`, 2026-07-27)** — co/cross/longitudinal
+  split at the DETECTOR on the engine's component planes; analyzer = dominant
+  eigenvector of the pupil coherency matrix (referenced to the mean OUTPUT
+  state, never the input).  Tests `tPolContrast` (model **256**,
+  SUITE_FREEFORM) + `tPolContrastCoro` (model **512**, its own
+  `SUITE_POL_512` batch); `./run_mmacos_tests.sh polfloor` runs both.
+  Three things to know:
+  (1) **The coherency matrix's conjugation order is a trap.**  In MATLAB `'`
+  conjugates its LEFT operand, so `C_12 = Σ E_1 conj(E_2)` is `Ey'*Ex`, NOT
+  `Ex'*Ey`.  Backwards builds `conj(C)`, whose dominant eigenvector is the
+  CONJUGATE analyzer — identical for any LINEAR input state and exactly
+  ORTHOGONAL for a circular one (cross/co 1.4e-6 → 7.1e+05).  The circular
+  input state in `tPolContrast` exists to catch exactly this.
+  (2) **Tranche 1 caps what the floor can see.**  The component planes are
+  seeded from `RayE` at the FIRST physical-optics leg and thereafter only get
+  a common scalar phase, so a polarizing surface after that leg never reaches
+  the grid.  `Rx_Cass_FarField` (mirrors, then one far-field hop) carries the
+  full train; `Rx_Coro` carries 0.84 of the ray-level cross-pol bare, 0.57
+  coated, and reports the coating sensitivity with the WRONG SIGN.  The
+  function measures this itself (`.scope`) and warns.
+  (3) **A coating can be overwritten but never cleared** (`coat_set` takes
+  ≥1 layer), so every set in a `'coatings'` sweep must cover the same
+  elements and the sweep leaves the last set applied — `load_rx` to reset.
+- **Phase 3 elements (`polarizer` / `waveplate` / `elt_jones`, 2026-07-27)** —
+  `TrPolarizer` (EltID 15, finished from a name-table-only stub) and the new
+  `WavePlate` (EltID 18).  Engine detail + all four conventions live in
+  `macos_f90/CLAUDE.md`; mmacos-side facts:
+  (1) **`macos.polarizer`/`macos.waveplate` follow the OVERLOADED
+  query-when-no-opts form** (`coating.m`'s shape), not the `get_`/`set_`
+  split the naming convention prescribes — consistency inside the
+  polarization family beat the general rule, since `polarization`,
+  `vector_diffraction` and `coating` are all overloaded.
+  (2) **Axis storage is deliberately asymmetric**: the API stores the axis
+  as given (a query returns what you wrote), the Rx parser UNITIZES on load
+  (matching `psiElt=`).  So a non-unit axis comes back normalized after a
+  save/reload round trip — `tPolElement/test_save_roundtrip` pins it.
+  Retardance is in WAVES at the current wavelength on both sides but stored
+  physically, so a query after `set_src_wvl` legitimately returns a
+  different number.
+  (3) **Fixtures `tests/Rx/Rx_PolElt.in` + `Rx_PolElt_Ref.in` are a PAIR** —
+  the second is the geometric twin (Reference surfaces in place of the
+  polarizing elements) that makes "polarization-off is bit-identical" a test
+  rather than an inspection.  Any geometric edit to one belongs in the other.
+  (4) Element order in the fixture is load-bearing: all four polarizing
+  elements precede the single physical-optics leg, or the Tranche-1 seed
+  would miss them.
+  (5) Tests: `tPolElement` (27, SUITE_FAST).
+  (6) **The off-normal axis convention is SETTLED (2026-07-27): project the
+  MATERIAL axis.**  For a waveplate that IS the declared (fast) axis; for a
+  polarizer it is the ABSORBING direction `psi x PolAxis`, projected into
+  the ray's transverse plane, extinguished, with its orthogonal partner
+  transmitted.  `PolAxis=` still declares the pass axis.  The alternative
+  (project the pass axis) is Fainman & Shamir's model and was what shipped
+  first; Korger et al., *Opt. Express* **21**, 27032 (2013) Eq. (5)–(6)
+  measured that a real tilted polarizer follows the material-axis one.
+  Three mmacos-side facts: normal incidence is **bit-identical** across the
+  flip (`test_normal_incidence_unchanged_by_the_material_flip` pins the
+  pre-flip values literally); a polarizer's declared axis is now taken
+  modulo its component along the element normal, and an axis parallel to
+  the normal extinguishes; and the gates live on a THIRD fixture,
+  `tests/Rx/Rx_PolElt_Tilt.in`, which tilts the **beam** — tilting the
+  element does nothing to a collimated on-axis bundle, which is why the
+  original packet could only measure the ambiguity in MATLAB.  Section F
+  gates both dispatch chains, the grid side via the crossed-analyzer null,
+  which sits 7.11° apart under the two rules (9.1e-33 vs 1.53e-2 of
+  relative detector power).  Evidence: polval §6.7.
+- **polval driver is now split per model size** (2026-07-27): 128 / 256 / 512,
+  one `matlab -batch` each (the `macos_init_all()` heap bug), each writing
+  `generated/parts/numbers_<size>.json`, merged by `merge_numbers.py`.  Adding
+  a case at a new size = a new branch in `run_pol_validation`'s switch, its own
+  block in `gate_limits()`, and a size in `make_polval.sh`'s `MODELS`.
+
+## Commit hazard: `git add -A` under `pymacos/tests`
+
+`pymacos/tests/` carries LARGE untracked artifact trees that are **not**
+gitignored: `proper_compare/results_cycle4/` and `results_cycle5/` (PROPER
+comparison `.npy` dumps, 56 MiB each), `Rx/IntLog.txt`, and the
+`sensitivities/*/`+`sensitivities/results/` PNG outputs.  Only
+`results/phase<N>/` is ignored.
+
+`git add -A pymacos/tests` therefore stages ~740 MiB of someone's working
+tree.  This happened 2026-07-26 and was caught only because the push to
+`nasa-jpl/MACOS_resources` STALLED -- diagnosed as payload, not network
+(`ssh -T git@github.com` and `git ls-remote` were both instant).  Fixed by
+`git reset --soft` + staging the intended files BY EXPLICIT PATH; payload
+741 MiB -> 1.09 MiB, and the commit was still unpushed so no history
+damage.
+
+**Rule: stage by explicit path in these repos, never `-A` on a directory
+you did not create.**  Before any push, sanity-check the payload:
+
+```sh
+git rev-list --objects origin/<branch>..HEAD \
+  | git cat-file --batch-check='%(objecttype) %(objectsize) %(rest)' \
+  | awk '$1=="blob"{s+=$2} END{printf "%.2f MiB\n", s/1048576}'
+```
+
+## Error budgets (`src/+macos/+budget/`, `run_budget`, 2026-10-14)
+
+Optical error budgets from the dw_d* sensitivity Jacobians, after Redding
+2014 (SPIE) "Optical error budgeting using linearized ray-trace models":
+a properly-formed RSS budget IS a covariance analysis, `alpha =
+sqrt(trace(Pu*D_g*Sigma_g*D_g'*Pu')/n)`, roll-up `WFE =
+sqrt(sum sigma_i^2 alpha_i^2)`; Monte-Carlo is the identical answer when
+assumptions match.  `run_budget(sens, 'spec', T)` is the pipeline's budget
+stage.  Gotchas:
+
+- **The kernel is `run_met.m`'s Gram trick, lifted out.**  `cov_budget`
+  uses `trace(Sigma_g * G_gg)/nw` with `G = Jk'*Jk` the full Gram and
+  `G_gg` the group's diagonal block — never forms the dense Nw x Nw.
+  Controls survive it: `project_control` forms `(Pu*Jk)'(Pu*Jk)` at Jk's
+  size, `Pu` never materialized.
+- **A group must be UNIT-HOMOGENEOUS.**  `covariance_model` rejects a
+  group that mixes rotation (rad) and translation (length) columns — they
+  cannot share one sigma.  `suggest_groups` never produces mixed groups
+  (tilt / clock / decenter / despace are separate rows); a hand-written
+  spec must split them too.
+- **Units go through `cbm`/`trans_output`.**  `assemble` normalizes
+  rigid-body translation columns to per-SI-metre (`dwdx_trans_per_metre`);
+  `covariance_model` converts each group's sigma to its columns' native
+  unit (rotation->rad, translation->metre, Zernike/Kr->BaseUnit via
+  `/cbm`, Kc->dimensionless).  WFE comes out in BaseUnits; `rollup`/
+  `to_coef` convert to nm via `cbm*1e9`.  Mirror of the `run_met`
+  base-vs-SI equivalence (`tRunMet.test_base_and_legacy_si_jac...`).
+- **cov == MC is the correctness gate** (paper Fig. 6): `tBudgetKernel`
+  (pure algebra, no engine) and `tRunBudget` (real e5hex1 harvest, 317.4 nm
+  cov == MC) both assert it.  (v1 reported 104 nm: `assemble` gated the
+  per-metre conversion on `exist('macos.dwdx_trans_per_metre','file')`,
+  which is 0 for a PACKAGE function, so decenter/despace came out
+  1/cbm = 1000x small on the mm deck; fixed 2026-10-15, gate
+  `tBudgetKernel/test_base_harvest_converts_translation_per_metre`.
+  Never guard a `macos.*` call with `exist` -- use `which` or nothing.)  By construction the distribution second moments
+  match (normal sigma^2; uniform h^2/3; worstcase h^2), so agreement holds
+  for every `Dist`.
+- **Group table, one schema, three surfaces** (`read_spec`): Excel / CSV /
+  `.m` all yield the canonical columns `Name Elements DOFs Modes Param
+  Channel Dist Sigma Units Min Max Cov Control`.  `spec_from_table` warns
+  on column overlap (double-count) and reports orphan columns.
+- **WFC stage (iSeq = 1, 2026-10-15).**  `run_budget(..., 'control', true,
+  'wfs_sigma', {3,'nm'}, 'act_sigma', A)`: the `Control` column's groups are
+  the actuators; `cov_budget` keeps v1's fields (under control `.alpha/.wfe`
+  are POST, Eq. 30) and adds `.alpha_pre/.wfe_pre/.total_pre` plus `.extra`
+  noise rows -- `wfs` (Eq. 32: `alpha^2 = trace(Gu*pinv(Gu))/nw = rank/nw`,
+  sigma PER WAVEFRONT SAMPLE, so a 3 nm WFS leaks ~0.1 nm on a 51k-ray
+  harvest; HabEx carried its WFS row at alpha = 1 -- a different reading of
+  the sigma) and one `act` row per control group (Eq. 31, UNPROJECTED --
+  Eq. 22's `(dw/du) du`).  `mc_budget` puts the controller in the loop
+  (w_est = w + dw, u = -G w_est + du) and draws noise AFTER the group draws
+  so an uncontrolled run is v1's random stream; under control `rm.wfe` is
+  now group-alone POST-WFC (v1 reported the uncontrolled value there; the
+  uncontrolled one is `rm.wfe_pre`).  A fully actuated group's post value
+  is round-off (1e-21): compare it as a null, never relatively.
+  `project_control`'s second output `ctl` (`Ju Gpi Gu rank T apply`) carries
+  the pieces; `ctl.apply(A)` is `Pu*A` without forming Pu.
+  Gates `tBudgetKernel/test_control_projection_identities`,
+  `.../test_wfc_noise_rows_cov_equals_mc`, `tRunBudget/
+  test_wfc_stage_cov_equals_mc` (e5hex1: 317.4 -> 3.156 nm cov, 3.179 MC).
+- **Metrology / drift stage (iSeq = 2, 2026-10-15).**  `project_met(M,
+  dspec, H, R, 'control', ctrl)` (or `cov_budget(..., 'met', struct(drift,H,R))`
+  -> `rc.met`, `rc.total_all`); `mc_met` is its Monte-Carlo.  The drift
+  state is estimated (`K = X H'(H X H'+R)^-1`, run_met.m's own lines) and
+  the WFC controller acts on the ESTIMATE: `w = Jk(I - E T K H)x - Jk E T K n
+  + Ju du`.  **NOT `Pu D post D' Pu'`** (the plan's first sketch): a drift
+  the metrology cannot see passes through UNCORRECTED (post-met == pre-met,
+  even where the WFC stage nulls the same group -- the WFC is not re-run
+  between updates), which is what HabEx's own sheet shows (PM low-order
+  figure: 2.27 post-met vs 2.28 pre vs 0.11 post-WFC); and with every state
+  actuated the rows sum to run_met's `sqrt(trace(post*G)/nw)` (Joseph
+  identity), where `Pu D post D' Pu'` would be 0.  Gates
+  `tBudgetKernel/test_met_stage_*` and `tRunMet/
+  test_budget_met_stage_reproduces_run_met` (2.1e-12 on run_met's example).
+- **coef / rollup are the workbook's arithmetic (A.3, 2026-10-15).**
+  `to_coef` makes one LINE per error group, WFC noise row and metrology-only
+  row (`.kind` error|wfs|act|met|drift, `.section` from the optional
+  `Section` table column; noise rows 'WFC', gauge 'Metrology'), and NO
+  slot is NaN: no control -> `alpha_post = alpha` (Pu = I); no metrology ->
+  `alpha_met_post = alpha_met = alpha` (an uncorrected drift).  Each line
+  carries the engineering view: `sigma_eng * coef_pre = wfe_pre`,
+  `sigma_eng * coef_post = wfe`, `sigma_drift * coef_met(_post) =
+  wfe_met(_post)` (coef in nm per engineering unit; `covariance_model`'s
+  new `.per_eng`), `total = hypot(wfe, wfe_met_post)`; `coef.total` = all
+  lines RSS = `hypot(total_post_wfc, total_post_met)`.  A uniform group's
+  `sigma_eng` is its 1-sigma equivalent h/sqrt(3).  `rollup` is the HabEx
+  columns (Sigma/Units | Pre/Post WFC | Drift Sigma/Units | Pre/Post MET |
+  Total) + summary rows (per section, Everything Else vs the focus
+  section, TOTAL, Design WFE, Payload, Requirement, Margin as a fraction).
+  Gate `tBudgetKernel/test_coef_and_rollup_carry_the_habex_arithmetic`.
+- **The workbook (B, 2026-10-15): `write_workbook` writes SpreadsheetML
+  directly** (XML parts + MATLAB `zip`), because `writecell` stores a
+  `=...` string as TEXT (measured: no `<f>` element) and the pymacos venv
+  has neither openpyxl nor pip.  Formulas carry NO cached value and the
+  workbook sets `fullCalcOnLoad`; LibreOffice recalculates on load.  Sheets
+  WFE / Coefficients / WFE BD / PSD / StrTherm / Log; every range is the
+  generated rows'.  Lines are re-ordered so each Section is contiguous.
+  `run_budget` writes it as `<name>_wfe_budget.xlsx` (the plain-value
+  `write_xlsx` export stays).  **soffice from MATLAB needs `env -u
+  LD_LIBRARY_PATH`**: MATLAB's bundled libstdc++ is older than
+  LibreOffice's (`GLIBCXX_3.4.31 not found`).  Gate `tBudgetKernel/
+  test_workbook_formulas_recalculate` (recalculated Payload == MATLAB to
+  1e-9; an edited input sigma re-rolls to the predicted value -- edit a
+  line with a nonzero post coefficient: a fully actuated line's sigma
+  rightly moves nothing).  e5hex1: 3.15580786565109 nm both ways.
+- **Still to come:** the SPOT (`dcdx`) metric; the kernel is metric-agnostic
+  (takes `J`,`w0`).
+
 ## Key files
 
 | File | Role |
@@ -619,7 +1013,8 @@ shipped earlier (245af94).
 | `src/+macos/` | Function-package user surface + `+design/` + `+channels/` |
 | `tests/` | matlab.unittest suite; `tests/README.md` maps class→suite→coverage |
 | `tests/private/rx_fixture_path.m` | Shared Rx-corpus locator |
-| `examples/design/` | Design-layer runnable examples (sensitivities, align) |
+| `templates/` | The numbered template threads (T1-T6); `templates/00_INDEX.md` maps thread -> directory |
+| `challenges/` | rodgers1 / rodgers2 / afocal4 -- a stated target plus our worked answer |
 | `run_mmacos_tests.sh` | Bash entrypoint; `fast` / `masks` / `proper` / `<Class>` |
 | `Makefile` | GMI-style build; links libsmacos + slsqplib (+ fits) |
 | `~/dev/macos/macos_f90/macos_api_mod.F90` | Shared backbone (in libsmacos.a) |

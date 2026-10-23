@@ -59,13 +59,18 @@ PropType=   Geometric
 
 % --------------------------------
     iElt=    3
+% The exit-pupil sphere CENTRED ON THE FOCUS (2026-10-10, PLAN 1.1b): it
+% used to sit ON Return1's plane (VptElt z=-3, a near-flat Kr=-1e16), so
+% every ray started this leg on the surface, L rounded either side of 0,
+% and 16/8 rays per compiler were 'surface misses' (ifx 7303, gfortran
+% 7295 pass).  Vertex at the grating, radius 3, centre at the focus z=-3.
  EltName= ExitPupil
  Element= Return
  Surface= Conic
-   KrElt=  -1d16
+   KrElt=  -3d0
    KcElt=   0d0
-  psiElt=   0d0  0d0  1d0
-  VptElt=   0d0  0d0 -3d0
+  psiElt=   0d0  0d0 -1d0
+  VptElt=   0d0  0d0  0d0
   RptElt=   0d0  0d0  0d0
   IndRef=   1d0
   Extinc=   1d22

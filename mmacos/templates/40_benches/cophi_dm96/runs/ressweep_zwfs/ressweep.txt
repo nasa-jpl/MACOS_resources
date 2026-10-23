@@ -1,0 +1,155 @@
+ressweep ZWFS family (S stepped, V vector, P pinhole) -- 13-Oct-2026 18:02:13
+px/act = camera pixels per actuator (3.30 at NGRID 385, model 2048; 1.65 = NGRID 193 native, model 1024; > 3.30 finer source grid).
+Battery (noise-free, 30 nm surface, matrix on it): gain one-step / converged, err pm one-step / converged, floor pm one-step
+  4.001 rand30/single10   S   0.9934 /  1.0005      5.2 /     4.2      5
+  4.001 rand30/single10   V   1.0081 /  1.0144      2.0 /     2.7      2
+  4.001 rand30/single10   P   0.9953 /  1.0015      2.7 /     1.5      3
+  4.001 rand30/grid@1nm   S   0.9943 /  0.9999      4.5 /     3.9      4
+  4.001 rand30/grid@1nm   V   1.0004 /  1.0060      3.9 /     3.4      3
+  4.001 rand30/grid@1nm   P   0.9975 /  1.0030      2.7 /     1.8      3
+  4.001 rand30/rand10     S   0.9779 /  0.9836    746.0 /   717.2      -
+  4.001 rand30/rand10     V   1.0035 /  1.0094    439.2 /   427.2      -
+  4.001 rand30/rand10     P   0.9942 /  1.0000    309.4 /   258.2      -
+  3.296 rand30/single10   S   0.9930 /  1.0001      5.1 /     4.2      5
+  3.296 rand30/single10   V   1.0079 /  1.0143      1.9 /     2.6      2
+  3.296 rand30/single10   P   0.9950 /  1.0012      2.7 /     1.5      3
+  3.296 rand30/grid@1nm   S   0.9949 /  1.0004      4.5 /     3.9      4
+  3.296 rand30/grid@1nm   V   1.0009 /  1.0064      3.9 /     3.5      3
+  3.296 rand30/grid@1nm   P   0.9979 /  1.0035      2.7 /     1.8      3
+  3.296 rand30/rand10     S   0.9780 /  0.9836    750.6 /   722.4      -
+  3.296 rand30/rand10     V   1.0035 /  1.0094    441.8 /   429.9      -
+  3.296 rand30/rand10     P   0.9943 /  1.0001    312.7 /   263.0      -
+  1.998 rand30/single10   S   0.9889 /  1.0016      6.2 /     4.3      6
+  1.998 rand30/single10   V   1.0026 /  1.0143      2.6 /     2.6      3
+  1.998 rand30/single10   P   0.9913 /  1.0026      3.9 /     1.7      4
+  1.998 rand30/grid@1nm   S   0.9934 /  1.0013      5.0 /     4.0      5
+  1.998 rand30/grid@1nm   V   0.9993 /  1.0074      4.6 /     3.8      4
+  1.998 rand30/grid@1nm   P   0.9957 /  1.0037      3.5 /     2.0      3
+  1.998 rand30/rand10     S   0.9760 /  0.9840    804.2 /   759.7      -
+  1.998 rand30/rand10     V   0.9992 /  1.0076    490.7 /   458.5      -
+  1.998 rand30/rand10     P   0.9896 /  0.9978    407.9 /   330.0      -
+  1.649 rand30/single10   S   0.9923 /  0.9993      5.1 /     4.1      5
+  1.649 rand30/single10   V   1.0073 /  1.0136      1.8 /     2.5      2
+  1.649 rand30/single10   P   0.9942 /  1.0003      2.9 /     1.6      3
+  1.649 rand30/grid@1nm   S   0.9940 /  0.9995      4.6 /     4.0      4
+  1.649 rand30/grid@1nm   V   0.9998 /  1.0054      4.2 /     3.7      3
+  1.649 rand30/grid@1nm   P   0.9973 /  1.0029      2.8 /     1.9      3
+  1.649 rand30/rand10     S   0.9778 /  0.9834    754.0 /   726.0      -
+  1.649 rand30/rand10     V   1.0034 /  1.0093    449.5 /   438.0      -
+  1.649 rand30/rand10     P   0.9942 /  0.9999    318.2 /   269.1      -
+  1.498 rand30/single10   S   0.9881 /  1.0006      6.7 /     4.5      6
+  1.498 rand30/single10   V   1.0029 /  1.0147      3.0 /     2.8      3
+  1.498 rand30/single10   P   0.9901 /  1.0013      4.7 /     2.2      5
+  1.498 rand30/grid@1nm   S   0.9923 /  1.0014      5.4 /     4.1      5
+  1.498 rand30/grid@1nm   V   0.9985 /  1.0078      5.1 /     3.9      4
+  1.498 rand30/grid@1nm   P   0.9939 /  1.0031      4.1 /     2.2      4
+  1.498 rand30/rand10     S   0.9744 /  0.9835    841.0 /   787.0      -
+  1.498 rand30/rand10     V   0.9971 /  1.0067    526.8 /   481.9      -
+  1.498 rand30/rand10     P   0.9872 /  0.9965    460.1 /   366.6      -
+  0.999 rand30/single10   S   0.9114 /  0.9959     34.8 /    27.6     33
+  0.999 rand30/single10   V   0.9211 /  0.9949     33.6 /    17.8     32
+  0.999 rand30/single10   P   0.9145 /  0.9934     33.8 /    20.3     32
+  0.999 rand30/grid@1nm   S   0.9081 /  0.9560     35.3 /    29.1     32
+  0.999 rand30/grid@1nm   V   0.9136 /  0.9592     35.1 /    29.8     32
+  0.999 rand30/grid@1nm   P   0.9074 /  0.9495     35.2 /    28.8     32
+  0.999 rand30/rand10     S   0.9323 /  0.9741   2068.0 /  2529.0      -
+  0.999 rand30/rand10     V   0.9514 /  0.9917   1921.4 /  2250.6      -
+  0.999 rand30/rand10     P   0.9418 /  0.9812   1898.9 /  2081.6      -
+
+Registration (+-0.1 pitch after calibration; worst of four shifts per reading): gain one-step / converged, largest neighbour / dev, wrong of 4
+  4.001 S  at 0: g 0.9934 nbr 0.0092 | worst: g 0.9477 / 0.9541, nbr 0.1304, flr 21.32, wrong 0 of 4
+  4.001 V  at 0: g 1.0081 nbr 0.0043 | worst: g 0.9466 / 0.9521, nbr 0.1261, flr 21.69, wrong 0 of 4
+  4.001 P  at 0: g 0.9953 nbr 0.0078 | worst: g 0.9404 / 0.9459, nbr 0.1291, flr 20.79, wrong 0 of 4
+  3.296 S  at 0: g 0.9930 nbr 0.0089 | worst: g 0.9408 / 0.9471, nbr 0.1295, flr 21.43, wrong 0 of 4
+  3.296 V  at 0: g 1.0079 nbr 0.0038 | worst: g 0.9357 / 0.9411, nbr 0.1285, flr 21.47, wrong 0 of 4
+  3.296 P  at 0: g 0.9950 nbr 0.0074 | worst: g 0.9307 / 0.9361, nbr 0.1243, flr 20.54, wrong 0 of 4
+  1.998 S  at 0: g 0.9889 nbr 0.0123 | worst: g 0.9354 / 0.9464, nbr 0.1456, flr 24.04, wrong 0 of 4
+  1.998 V  at 0: g 1.0026 nbr 0.0064 | worst: g 0.9441 / 0.9542, nbr 0.1447, flr 24.13, wrong 0 of 4
+  1.998 P  at 0: g 0.9913 nbr 0.0097 | worst: g 0.9363 / 0.9461, nbr 0.1411, flr 23.23, wrong 0 of 4
+  1.649 S  at 0: g 0.9923 nbr 0.0102 | worst: g 0.9025 / 0.9085, nbr 0.1224, flr 18.83, wrong 0 of 4
+  1.649 V  at 0: g 1.0073 nbr 0.0052 | worst: g 0.8852 / 0.8902, nbr 0.1295, flr 19.42, wrong 0 of 4
+  1.649 P  at 0: g 0.9942 nbr 0.0088 | worst: g 0.8814 / 0.8865, nbr 0.1209, flr 18.11, wrong 0 of 4
+  1.498 S  at 0: g 0.9881 nbr 0.0125 | worst: g 0.9541 / 0.9655, nbr 0.1339, flr 23.73, wrong 0 of 4
+  1.498 V  at 0: g 1.0029 nbr 0.0068 | worst: g 0.9622 / 0.9726, nbr 0.1361, flr 24.26, wrong 0 of 4
+  1.498 P  at 0: g 0.9901 nbr 0.0106 | worst: g 0.9562 / 0.9664, nbr 0.1294, flr 22.96, wrong 0 of 4
+  0.999 S  at 0: g 0.9114 nbr 0.0702 | worst: g 0.8490 / 0.9447, nbr 0.2282, flr 58.43, wrong 0 of 4
+  0.999 V  at 0: g 0.9211 nbr 0.0690 | worst: g 0.8594 / 0.9552, nbr 0.2238, flr 56.95, wrong 0 of 4
+  0.999 P  at 0: g 0.9145 nbr 0.0675 | worst: g 0.8487 / 0.9456, nbr 0.2296, flr 58.50, wrong 0 of 4
+
+Noise (one reading) and data:
+  4.001 S  mono    digital read    12.2  pm/read     92.4  s per pm       456  out px  1.62e+05  Gb/s   0.194  pupil px  1.15e+05
+  4.001 S  mono    onchip  read     2.4  pm/read     92.5  s per pm       456  out px  1.62e+05  Gb/s   0.194  pupil px  1.15e+05
+  4.001 V  polcam  digital read    6.11  pm/read      222  s per pm       655  out px  6.47e+05  Gb/s   0.777  pupil px  1.15e+05
+  4.001 V  polcam  onchip  read     2.4  pm/read      222  s per pm       655  out px  6.47e+05  Gb/s   0.777  pupil px  1.15e+05
+  4.001 P  mono    digital read    12.2  pm/read     86.6  s per pm       400  out px  1.62e+05  Gb/s   0.194  pupil px  1.15e+05
+  4.001 P  mono    onchip  read     2.4  pm/read     86.2  s per pm       397  out px  1.62e+05  Gb/s   0.194  pupil px  1.15e+05
+  3.296 S  mono    digital read    14.8  pm/read       92  s per pm       451  out px   1.1e+05  Gb/s   0.132  pupil px  7.79e+04
+  3.296 S  mono    onchip  read     2.4  pm/read     91.4  s per pm       445  out px   1.1e+05  Gb/s   0.132  pupil px  7.79e+04
+  3.296 V  polcam  digital read    7.41  pm/read      219  s per pm       639  out px  4.39e+05  Gb/s   0.527  pupil px  7.79e+04
+  3.296 V  polcam  onchip  read     2.4  pm/read      218  s per pm       633  out px  4.39e+05  Gb/s   0.527  pupil px  7.79e+04
+  3.296 P  mono    digital read    14.8  pm/read     86.4  s per pm       398  out px   1.1e+05  Gb/s   0.132  pupil px  7.79e+04
+  3.296 P  mono    onchip  read     2.4  pm/read     85.6  s per pm       391  out px   1.1e+05  Gb/s   0.132  pupil px  7.79e+04
+  1.998 S  mono    digital read    24.5  pm/read      116  s per pm       723  out px  4.04e+04  Gb/s  0.0484  pupil px  2.86e+04
+  1.998 S  mono    onchip  read     2.4  pm/read      117  s per pm       734  out px  4.04e+04  Gb/s  0.0484  pupil px  2.86e+04
+  1.998 V  polcam  digital read    12.2  pm/read      279  s per pm  1.04e+03  out px  1.61e+05  Gb/s   0.194  pupil px  2.86e+04
+  1.998 V  polcam  onchip  read     2.4  pm/read      278  s per pm  1.03e+03  out px  1.61e+05  Gb/s   0.194  pupil px  2.86e+04
+  1.998 P  mono    digital read    24.5  pm/read      113  s per pm       681  out px  4.04e+04  Gb/s  0.0484  pupil px  2.86e+04
+  1.998 P  mono    onchip  read     2.4  pm/read      112  s per pm       667  out px  4.04e+04  Gb/s  0.0484  pupil px  2.86e+04
+  1.649 S  mono    digital read    29.7  pm/read     90.8  s per pm       440  out px  2.75e+04  Gb/s   0.033  pupil px  1.95e+04
+  1.649 S  mono    onchip  read     2.4  pm/read     90.8  s per pm       439  out px  2.75e+04  Gb/s   0.033  pupil px  1.95e+04
+  1.649 V  polcam  digital read    14.8  pm/read      217  s per pm       629  out px   1.1e+05  Gb/s   0.132  pupil px  1.95e+04
+  1.649 V  polcam  onchip  read     2.4  pm/read      215  s per pm       616  out px   1.1e+05  Gb/s   0.132  pupil px  1.95e+04
+  1.649 P  mono    digital read    29.7  pm/read     86.8  s per pm       402  out px  2.75e+04  Gb/s   0.033  pupil px  1.95e+04
+  1.649 P  mono    onchip  read     2.4  pm/read     86.8  s per pm       402  out px  2.75e+04  Gb/s   0.033  pupil px  1.95e+04
+  1.498 S  mono    digital read    32.6  pm/read      123  s per pm       812  out px  2.27e+04  Gb/s  0.0272  pupil px  1.61e+04
+  1.498 S  mono    onchip  read     2.4  pm/read      123  s per pm       811  out px  2.27e+04  Gb/s  0.0272  pupil px  1.61e+04
+  1.498 V  polcam  digital read    16.3  pm/read      294  s per pm  1.15e+03  out px  9.08e+04  Gb/s   0.109  pupil px  1.61e+04
+  1.498 V  polcam  onchip  read     2.4  pm/read      294  s per pm  1.15e+03  out px  9.08e+04  Gb/s   0.109  pupil px  1.61e+04
+  1.498 P  mono    digital read    32.6  pm/read      117  s per pm       734  out px  2.27e+04  Gb/s  0.0272  pupil px  1.61e+04
+  1.498 P  mono    onchip  read     2.4  pm/read      117  s per pm       725  out px  2.27e+04  Gb/s  0.0272  pupil px  1.61e+04
+  0.999 S  mono    digital read    48.9  pm/read      211  s per pm  2.38e+03  out px  1.01e+04  Gb/s  0.0121  pupil px  7.15e+03
+  0.999 S  mono    onchip  read     2.4  pm/read      210  s per pm  2.35e+03  out px  1.01e+04  Gb/s  0.0121  pupil px  7.15e+03
+  0.999 V  polcam  digital read    24.5  pm/read      482  s per pm  3.09e+03  out px  4.04e+04  Gb/s  0.0484  pupil px  7.15e+03
+  0.999 V  polcam  onchip  read     2.4  pm/read      482  s per pm   3.1e+03  out px  4.04e+04  Gb/s  0.0484  pupil px  7.15e+03
+  0.999 P  mono    digital read    48.9  pm/read      203  s per pm  2.19e+03  out px  1.01e+04  Gb/s  0.0121  pupil px  7.15e+03
+  0.999 P  mono    onchip  read     2.4  pm/read      201  s per pm  2.16e+03  out px  1.01e+04  Gb/s  0.0121  pupil px  7.15e+03
+
+Loop (linear instrument; digital binning):
+  4.001 S  M   330 (17.6 s) none     ss 3.01 (pf 3.01) sig_n 5.16 theory 2.98
+  4.001 S  M   330 (17.6 s) thermal  ss 10.4 (pf 10.4) sig_n 5.16 theory 10.4
+  4.001 V  M  1435 (19.1 s) none     ss 3.42 (pf 3.42) sig_n 5.86 theory 3.38
+  4.001 V  M  1435 (19.1 s) thermal  ss 10.6 (pf 10.6) sig_n 5.86 theory 10.6
+  4.001 P  M   237 (12.6 s) none     ss 3.36 (pf 3.36) sig_n 5.76 theory 3.32
+  4.001 P  M   237 (12.6 s) thermal  ss 10.5 (pf 10.5) sig_n 5.76 theory 10.5
+  3.296 S  M   330 (17.6 s) none     ss 3.02 (pf 3.02) sig_n 5.18 theory 2.99
+  3.296 S  M   330 (17.6 s) thermal  ss 10.4 (pf 10.4) sig_n 5.18 theory 10.4
+  3.296 V  M  1435 (19.1 s) none     ss 3.41 (pf 3.41) sig_n 5.88 theory 3.39
+  3.296 V  M  1435 (19.1 s) thermal  ss 10.6 (pf 10.6) sig_n 5.88 theory 10.6
+  3.296 P  M   237 (12.6 s) none     ss 3.37 (pf 3.37) sig_n 5.76 theory 3.33
+  3.296 P  M   237 (12.6 s) thermal  ss 10.5 (pf 10.5) sig_n 5.76 theory 10.5
+  1.998 S  M   330 (17.6 s) none     ss 3.9 (pf 3.9) sig_n 6.65 theory 3.84
+  1.998 S  M   330 (17.6 s) thermal  ss 10.7 (pf 10.7) sig_n 6.65 theory 10.7
+  1.998 V  M  1435 (19.1 s) none     ss 4.39 (pf 4.39) sig_n 7.51 theory 4.33
+  1.998 V  M  1435 (19.1 s) thermal  ss 10.9 (pf 10.9) sig_n 7.51 theory 10.9
+  1.998 P  M   237 (12.6 s) none     ss 4.35 (pf 4.35) sig_n 7.42 theory 4.28
+  1.998 P  M   237 (12.6 s) thermal  ss 10.9 (pf 10.9) sig_n 7.42 theory 10.9
+  1.649 S  M   330 (17.6 s) none     ss 2.98 (pf 2.98) sig_n 5.13 theory 2.96
+  1.649 S  M   330 (17.6 s) thermal  ss 10.4 (pf 10.4) sig_n 5.13 theory 10.4
+  1.649 V  M  1435 (19.1 s) none     ss 3.4 (pf 3.4) sig_n 5.87 theory 3.39
+  1.649 V  M  1435 (19.1 s) thermal  ss 10.6 (pf 10.6) sig_n 5.87 theory 10.6
+  1.649 P  M   237 (12.6 s) none     ss 3.29 (pf 3.29) sig_n 5.67 theory 3.28
+  1.649 P  M   237 (12.6 s) thermal  ss 10.5 (pf 10.5) sig_n 5.67 theory 10.5
+  1.498 S  M   330 (17.6 s) none     ss 4.11 (pf 4.11) sig_n 6.97 theory 4.03
+  1.498 S  M   330 (17.6 s) thermal  ss 10.8 (pf 10.8) sig_n 6.97 theory 10.8
+  1.498 V  M  1435 (19.1 s) none     ss 4.71 (pf 4.71) sig_n 7.94 theory 4.59
+  1.498 V  M  1435 (19.1 s) thermal  ss 11.1 (pf 11.1) sig_n 7.94 theory 11
+  1.498 P  M   237 (12.6 s) none     ss 4.58 (pf 4.58) sig_n 7.79 theory 4.5
+  1.498 P  M   237 (12.6 s) thermal  ss 11 (pf 11) sig_n 7.79 theory 11
+  0.999 S  M   330 (17.6 s) none     ss 8.44 (pf 8.44) sig_n 11.9 theory 6.89
+  0.999 S  M   330 (17.6 s) thermal  ss 13.1 (pf 13.1) sig_n 11.9 theory 12.1
+  0.999 V  M  1435 (19.1 s) none     ss 9.06 (pf 9.06) sig_n 13.4 theory 7.73
+  0.999 V  M  1435 (19.1 s) thermal  ss 13.5 (pf 13.5) sig_n 13.4 theory 12.6
+  0.999 P  M   237 (12.6 s) none     ss 9.38 (pf 9.38) sig_n 13.5 theory 7.77
+  0.999 P  M   237 (12.6 s) thermal  ss 13.7 (pf 13.7) sig_n 13.5 theory 12.7
+
+Wall: zwfs_s400 70 min; zwfs_s330 75 min; zwfs_s200 83 min; zwfs_s165 12 min; zwfs_s150 82 min; zwfs_s100 84 min; 

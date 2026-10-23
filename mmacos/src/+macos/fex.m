@@ -7,8 +7,12 @@ function s = fex(mode)
 %     .rad  reference-sphere radius (BaseUnits; = Kr at the XP)
 %     .xp   7×1 raw xp_fnd result [Kr; psi(3); vpt(3)]
 %
-%   MODE = 1 (default) centres on the chief ray; MODE = 0 on the
-%   centroid.  Requires more than 3 elements and a STOP set (no STOP →
+%   MODE = 1 centres on the chief ray; MODE = 0 on the centroid.  MODE
+%   omitted: the SESSION's axis, the engine's CENTROID/CHIEFRAY mode
+%   (macos.modes().centroid), exactly as the CLI's FEX reads it -- chief
+%   unless CENTROID is in force (the engine default since 2026-08-27; a
+%   centroid axis leaves tip/tilt in the OPD on obscured or segmented
+%   beams).  The veneer carries no default of its own (A.6, 2026-10-16).  Requires more than 3 elements and a STOP set (no STOP →
 %   the underlying xp_fnd fails and this errors).
 %   This is pymacos's fex(); for the chief-ray-to-FP variant see
 %   macos.sxp.
@@ -16,7 +20,10 @@ function s = fex(mode)
 %   Raw equivalent: mmacos('xp_fnd', mode) + mmacos('xp_get').
 %   See also: macos.get_xp, macos.set_xp, macos.sxp.
 arguments
-    mode (1,1) double = 1
+    mode double {mustBeScalarOrEmpty, mustBeMember(mode, [0 1])} = []
+end
+if isempty(mode)
+    md = macos.modes();  mode = double(~md.centroid);
 end
 if macos.num_elt() <= 3
     error('macos:fex:tooFewElts', ...

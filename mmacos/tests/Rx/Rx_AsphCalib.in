@@ -1,0 +1,77 @@
+% Rx_AsphCalib -- CALIB on an aspheric coefficient, in METRES (tAsphCalib).
+% A collimated beam on an f = 1 m paraboloid (Kr = -2 m, Kc = -1) whose h^4
+% term is SPOILED (5e-3 m^-3: 0.5 um of sag and ~40 um of blur at the 100 mm
+% edge); the focal plane sits at the focus.  OptAsph frees that one term with
+% a SPOT target: CALIB must drive it back toward zero.  On a metre deck the
+% legacy fixed differential step (1e-10) moved this sag by 5e-19 m -- round-
+% off, a zero derivative column and "gaussj: singular matrix" at the first
+% LM step; the step now scales with the coefficient (macos, 2026-10-01).
+        ChfRayDir=  0  0  1
+        ChfRayPos=  0  0  -0.5
+          zSource=  -1.0E+22
+        BaseUnits=  m
+        WaveUnits=  m
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+          Wavelen=  1.000000000E-06
+             Flux=  1.0D+00
+         Aperture=  2.000000000E-01
+         Obscratn=  0.0D+00
+         GridType=  Circular
+         nGridpts=  21
+            xGrid=  1  0  0
+            yGrid=  0  1  0
+        OptTarget=  SPOT
+         OptWFElt=  2
+       OptMaxItrs=  10
+           OptFEX=  No
+      OptSpotSize=  0.0
+             nElt=  2
+
+             iElt=  1
+          EltName=  Paraboloid
+          Element=  Reflector
+          Surface=  Aspheric
+            KrElt=  -2.0000000000E+00
+            KcElt=  -1.0000000000E+00
+         AsphCoef=  5.000000000000000E-03  0.000000000000000E+00  0.000000000000000E+00  0.000000000000000E+00
+           psiElt=  0  0  -1
+           VptElt=  0  0  0
+           RptElt=  0  0  0
+           IndRef=  1.000000E+00
+           Extinc=  1.000000E+22
+           VarElt=  0 0 0 0 0 0 0 0
+          OptAsph=  1 1
+            nCoat=  0
+             xObs=  1  0  0
+             nObs=  0
+           ApType=  Circular
+            ApVec=  1.000000000000E-01  0.000000000000E+00  0.000000000000E+00
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+             iElt=  2
+          EltName=  FPA
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=  -1.0000000000E+22
+            KcElt=  0.0000000000E+00
+           psiElt=  0  0  1
+           VptElt=  0  0  -1
+           RptElt=  0  0  -1
+           IndRef=  1.000000E+00
+           Extinc=  0.000000E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+         nOutCord=  5
+             Tout=  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00

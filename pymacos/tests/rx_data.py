@@ -525,20 +525,23 @@ def Rx_Grating_001():
     nElt = 4
     data = {'Rx': 'Grating_example_001.in',
             # --------------------------------
+            # the FILE's source block (2026-10-10: this entry described a
+            # different deck -- ChfRayPos z -40, Wavelen 6.5e-4, nGridpts 256,
+            # Aperture 213, StopElt 15 on a 4-element deck)
             'Src': Source(ChfRayDir= (0e0, 0e0,   1e0),
-                          ChfRayPos= (0e0, 0e0, -40e0),
+                          ChfRayPos= (0e0, 0e0,  -4e0),
                           zSource=   1e22,
                           IndRef=    1e0,
                           Extinc=    0e0,
-                          Wavelen=   6.5e-04,
+                          Wavelen=   6.0e-04,
                           Flux=      1e0,
-                          nGridpts=  256,
+                          nGridpts=  128,
                           GridType=  'Circular',
                           xGrid=     (1e0, 0e0, 0e0),
                           yGrid=     (0e0, 1e0, 0e0),
-                          Aperture=  2.1305e+02,
+                          Aperture=  1.0e+01,
                           Obscratn=  0e0,
-                          StopElt=   15,
+                          StopElt=   -1,      # the deck sets no stop
                           BaseUnits= 'mm',
                           WaveUnits= 'mm'),
             'nElt': nElt,

@@ -1,0 +1,19 @@
+==================== e2e6m CF0b -- circular-stop gates
+
+[1] cf0_gates (no-stop R1 bit-consistency), full re-run:
+    cf0: 10 PASS / 0 FAIL  [PASS]
+
+[2] stop sanity (seg deck, hard config, stop 0.98):
+    inscribed/corner 0.9046 (tiling envelope; pure hex would be 0.8660)  [PASS]
+    collecting-area factor 0.9202 (pure-hex bound 0.8710 does not apply)  [PASS]
+    stopped bare PSF peak (513,513), DC 513  [PASS]
+    circularized/hex bare peak 0.8488 (area^2 = 0.8467)  [PASS]
+    tag n_h280_L050_c098 carries the stop token  [PASS]
+
+[3] stale-generation refusal:
+    ctb_jac_check passes the no-stop cache (the documented gap)  [PASS]
+    strict parity REFUSES it  [PASS]
+      "/home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf2_G_hard.mat predates the config field(s) circ_stop_frac -- a STALE GENERATION (measured before that knob existed).  Delete it or use a distinct tag."
+    ...and passes against its OWN config  [PASS]
+
+CF0b gates: 9 PASS, 0 FAIL in 2.4 min

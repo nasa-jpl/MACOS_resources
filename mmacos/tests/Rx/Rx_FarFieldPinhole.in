@@ -1,0 +1,68 @@
+% Rx_FarFieldPinhole -- the far-field evanescent cut (tFFCut / test_ffcut).
+% A 20 um pinhole at 1 um, collimated (+z), onto a 1 mm Return sphere at
+% z = 0 facing the light (psi -z) whose centre, z = -1 mm, is the detector
+% (the Return reverses the beam): ONE far-field leg, the Cass deck's idiom.  The pupil grid (nGridpts 64
+% over 20 um, 0.32 um < lambda/2) makes the far-field output window
+% lambda*dz/(2*dx1) = 1.56 dz wide, so the outer pixels have |x| > dz --
+% |sin theta| > 1, spatial frequencies above 1/lambda, evanescent -- and an
+% energy-fraction metric would count them.  With ffcut on they are zeroed.
+% Rx_Cass_FarField is the must-not-change twin (dx1 >> lambda: 0 pixels).
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -2.0E-03
+          zSource=1.0E+21
+        BaseUnits=  m
+        WaveUnits=  m
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+         Aperture=2.0E-05
+         Obscratn=0.0E+00
+         GridType=  Circular
+         nGridpts=  64
+            xGrid=  -1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  -1.0E+00  0.0E+00
+             nElt=  2
+
+             iElt=  1
+          EltName=  Sphere
+          Element=  Return
+          Surface=  Conic
+            KrElt=-1.0E-03
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  FarField
+             zElt=1.0E-03
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -1.0E-03
+           RptElt=  0.0E+00  0.0E+00  -1.0E-03
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+         nOutCord=  5
+             Tout=  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00

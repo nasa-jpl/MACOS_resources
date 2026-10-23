@@ -1,0 +1,124 @@
+% Rx_SchwarzschildEP -- tTraceRestart.  TO's dyson5 R2c two-mirror modified
+% Schwarzschild (1.5k module) whose entrance-pupil Reference (elt 1, the
+% stop) sits 5.3 mm ahead of the CONVEX hyperboloidal primary (elt 2).  A
+% ray 90 mm off axis there has the two conic roots -0.107 / +0.011 m; the
+% pre-2026-10-03 ifLNsrf root pick (|L^2 - mpr| proximity, mpr the squared
+% distance to the VERTEX, lateral height included) chose the sheet BEHIND
+% the ray -- a 93 mm rms spot from a one-call trace, while a stepwise trace
+% was right by accident (stale PrevNonSeg across rays).  Copied verbatim
+% from challenges/dyson5/dyson5_t4_r2c_1k5_r2_1500.in; do not regenerate.
+        ChfRayDir=  0  0  1
+        ChfRayPos=  0  0  -0.711832454863985
+          zSource=  1.0E+22
+        BaseUnits=  m
+        WaveUnits=  m
+           IndRef=  1.0D+00
+           Extinc=  0.0D+00
+          Wavelen=  1.000000000E-06
+             Flux=  1.0D+00
+         Aperture=  1.833333333333E-01
+         Obscratn=  0.0D+00
+         GridType=  Circular
+         nGridpts=  41
+            xGrid=  1  0  0
+            yGrid=  0  1  0
+             nElt=  5
+
+             iElt=  1
+          EltName=  TelEP
+          Element=  Reference
+          Surface=  Flat
+            KrElt=  -1.0000000000E+22
+            KcElt=  0.0000000000E+00
+           psiElt=  0  0  -1
+           VptElt=  0  0  -0.305486443582606
+           RptElt=  0  0  -0.305486443582606
+           IndRef=  1.000000E+00
+           Extinc=  0.000000E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+             iElt=  2
+          EltName=  TelM1
+          Element=  Reflector
+          Surface=  Aspheric
+            KrElt=  -7.2771286926E-01
+            KcElt=  -1.4647893939E+01
+         AsphCoef=  6.025679492284151E+00  -3.579726675055740E+01  0.000000000000000E+00  0.000000000000000E+00  
+           psiElt=  0  0  1
+           VptElt=  0  0  -0.300165788268901
+           RptElt=  0  0  -0.300165788268901
+           IndRef=  1.000000E+00
+           Extinc=  1.000000E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+             iElt=  3
+          EltName=  TelM2
+          Element=  Reflector
+          Surface=  Aspheric
+            KrElt=  -6.5048794575E-01
+            KcElt=  -2.4238366300E+00
+         AsphCoef=  1.228484199537933E+00  1.005839391732351E-01  0.000000000000000E+00  0.000000000000000E+00  
+           psiElt=  0  0  1
+           VptElt=  0  0  -0.620165788197318
+           RptElt=  0  0  -0.620165788197318
+           IndRef=  1.000000E+00
+           Extinc=  1.000000E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+             iElt=  4
+          EltName=  PreSlit
+          Element=  Reference
+          Surface=  Flat
+            KrElt=  -1.0000000000E+22
+            KcElt=  0.0000000000E+00
+           psiElt=  0  0  -1
+           VptElt=  0  0  -0.001
+           RptElt=  0  0  -0.001
+           IndRef=  1.000000E+00
+           Extinc=  0.000000E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+             iElt=  5
+          EltName=  Slit
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=  -1.0000000000E+22
+            KcElt=  0.0000000000E+00
+           psiElt=  0  0  -1
+           VptElt=  0  0  0
+           RptElt=  0  0  0
+           IndRef=  1.000000E+00
+           Extinc=  0.000000E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  1.000000000000000E+22
+          nECoord=  -6
+
+         nOutCord=  5
+             Tout=  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00

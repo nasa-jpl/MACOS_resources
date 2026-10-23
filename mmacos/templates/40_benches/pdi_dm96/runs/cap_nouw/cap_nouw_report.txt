@@ -1,0 +1,139 @@
+=== ZWFS runner: tag cap_nouw  (2026-09-13 14:14) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench loop | readings: L S V P PF
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+deck cap_nouw_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+focal spot: 0.666 um per px at the mask plane, 3.96 px per lam F/D; the dimple encloses 70.6% of the flat DM's focal-plane light
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.817e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.967e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9539 0.9510 0.9452 0.9369 0.9260 0.9120 0.8957 0.8770 0.8561 0.8328 0.8071 0.7798 0.7511 0.7206 0.6885 0.6554 0.6215 0.5867 0.5514 0.5156 
+frame: ray magnification 10.1583 DM-mm per detector-mm, detector px 3.9135e-02 mm -> 0.3976 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 7.92 px across at the mask plane (min 6)  -> PASS
+  pinhole 7.92 px across at the mask plane (min 6; the dimple's rule)  -> PASS
+  DM 96x96: 2.52 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 4.120e-16   (gate < 1e-12: A = |E0| is exact)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, peak 1.93 rad; 3.06% of msk beyond the one-frame fold): V rms error 0.053 pm (gate < 0.1% of the figure), one-frame exact I 8975 pm (non-vacuity: must exceed 10x)   -> PASS
+P: pinhole 2.00 lam/D, surround t 0.7193, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.6820; throughput (detected/incident, flat) 0.8214; visibility on the flat 0.5496; surrogate vs engine reference 1.97e-15; the flat reads 1.89e-15 rad rms, amplitude 3.70e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, 3.06% of msk beyond the one-frame fold): rms error 0.333 pm (gate < 0.1% of the figure)   -> PASS
+PF: P/SRI, reference = LP01 mode V 2.30 b 0.50 core radius 0.50 lam/D, coupling eta_c 0.5869 on the flat; pickoff 0.60, a 0.002712 (match 0.003719, budget 0.002712), 4 steps (ls), |kappa| flat; frames per measurement 4; eta_pin 0.6820; throughput (detected/incident, flat) 0.7522; visibility on the flat 0.8633; surrogate vs engine reference 1.97e-15; the flat reads 3.19e-16 rad rms, amplitude 1.44e-16 rel
+G5 PF on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, 3.06% of msk beyond the one-frame fold): rms error 0.000 pm (gate < 0.1% of the figure)   -> PASS
+G6 P/SRI fiber reference under the 30 nm rms working state: shape FIXED by construction (the mode's); coupling relative to the flat |kappa| 0.85990, arg +0.0251 rad (an amplitude scale + a piston; the solver takes kappa = 1 in |kappa| 'flat' mode)
+G6 reference motion under the 30 nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:
+   lam/D    total  |scale|    SHAPE   (total = |b1-b0|/|b0|; scale = best complex factor, a Strehl-class amplitude drop the |b|^2 frame / iteration absorbs; shape = the rest, what the solve must iterate out)
+    0.50   0.1327   0.8689   0.0010
+    1.00   0.1350   0.8667   0.0026
+    1.50   0.1391   0.8628   0.0058
+    2.00   0.1446   0.8577   0.0106
+    3.00   0.1581   0.8465   0.0256
+    2.00   0.1446   0.8577   0.0106   <- the ZWFS dimple
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 5.15e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (511.67, 511.67) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.979, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.98 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7509, corr(map, truth) 0.9800
+bench stage 0.7 min
+
+---- loop: closed-loop hold, DM 96x96, readings L S V P PF ----
+loop: gain 0.50, 40 cycles (steady state = last 20), set point = base, reference frames noiseless, drift seed 77; each cycle = ONE measurement (the DM shape traced once, the reading's frames with N photons), differential to the set point through the measured matrix
+dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)
+calibration: measured response matrix on the base (30 nm rms, seed 7); lit actuators 3252
+wrapped-differential UNWRAPPING (dm_gauge_lib/dmg_unwrap, least squares on the lit mask): off for the readings whose differential is a wrapped phase difference (S, V, P, PF); L, F, I and I+ are untouched
+DESCENT: the DM starts at a surface of [30 60 100 150 200 300] nm rms (the set point's field, rescaled; [60 120 200 300 400 600] nm WFE) and must reach the hold regime.  The response matrix is measured THERE, on each starting surface -- not on the set point the loop has yet to reach -- and then re-measured on the loop's CURRENT surface every 0 cycles (0 = never).  Reach levels [10 0.003] nm
+the OPENING differential (the starting surface against the set point), per reading: rms of the WRAPPED map, 2 pi residues inside the mask, largest wrapped gradient (rad per px), and the rms the unwrapper returns -- the truth is [0 30 70 120 170 270] nm
+  start  30 nm | L:    0.1 nm (no wrap) | S:    0.1 nm wrapped,     0 res, grad 0.01,     0.1 nm unwrapped | V:    0.2 nm wrapped,     0 res, grad 0.02,     0.2 nm unwrapped | P:    0.2 nm wrapped,     0 res, grad 0.02,     0.2 nm unwrapped | PF:    0.2 nm wrapped,     0 res, grad 0.02,     0.2 nm unwrapped |
+  start  60 nm | L:   11.3 nm (no wrap) | S:   16.4 nm wrapped,     8 res, grad 3.14,    17.1 nm unwrapped | V:   25.6 nm wrapped,     0 res, grad 1.97,    25.6 nm unwrapped | P:   23.3 nm wrapped,     0 res, grad 1.77,    23.3 nm unwrapped | PF:   27.0 nm wrapped,     0 res, grad 2.08,    27.0 nm unwrapped |
+  start 100 nm | L:   20.0 nm (no wrap) | S:   22.3 nm wrapped,     0 res, grad 1.83,    22.3 nm unwrapped | V:   26.5 nm wrapped,     0 res, grad 2.10,    26.5 nm unwrapped | P:   26.3 nm wrapped,     0 res, grad 2.09,    26.3 nm unwrapped | PF:   59.8 nm wrapped,    70 res, grad 3.14,    62.8 nm unwrapped |
+  start 150 nm | L:   23.1 nm (no wrap) | S:   24.1 nm wrapped,     0 res, grad 1.58,    24.1 nm unwrapped | V:   28.5 nm wrapped,     0 res, grad 1.79,    28.5 nm unwrapped | P:   28.4 nm wrapped,     0 res, grad 1.78,    28.4 nm unwrapped | PF:   75.4 nm wrapped,   928 res, grad 3.14,    94.6 nm unwrapped |
+  start 200 nm | L:   23.5 nm (no wrap) | S:   24.2 nm wrapped,     0 res, grad 1.62,    24.2 nm unwrapped | V:   28.7 nm wrapped,     0 res, grad 1.88,    28.7 nm unwrapped | P:   28.5 nm wrapped,     0 res, grad 1.88,    28.5 nm unwrapped | PF:   77.2 nm wrapped,  2580 res, grad 3.14,   119.0 nm unwrapped |
+  start 300 nm | L:   23.4 nm (no wrap) | S:   24.0 nm wrapped,     0 res, grad 1.48,    24.0 nm unwrapped | V:   28.4 nm wrapped,     0 res, grad 1.66,    28.4 nm unwrapped | P:   28.3 nm wrapped,     0 res, grad 1.65,    28.3 nm unwrapped | PF:   77.8 nm wrapped,  4928 res, grad 3.14,   107.7 nm unwrapped |
+60 loop runs of 41 states each (2460 traced states)
+descent: the starting matrix on the 30 nm surface -- 64 states, 8.1 min
+descent: the starting matrix on the 60 nm surface -- 64 states, 8.1 min
+descent: the starting matrix on the 100 nm surface -- 64 states, 8.1 min
+descent: the starting matrix on the 150 nm surface -- 64 states, 8.1 min
+descent: the starting matrix on the 200 nm surface -- 64 states, 8.1 min
+descent: the starting matrix on the 300 nm surface -- 64 states, 8.1 min
+
+step response (noiseless; a step of the given rms at cycle 1).  rho = fitted per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, r(K/2) and r(K) = residual (pm) at cycles 20 and 40 -- a residual that stops falling is the reading's noiseless bias floor on this surface
+    step | L: rho tau k1e r(K/2) r(K)            | S: rho tau k1e r(K/2) r(K)            | V: rho tau k1e r(K/2) r(K)            | P: rho tau k1e r(K/2) r(K)            | PF: rho tau k1e r(K/2) r(K)           |
+
+photons per cycle to hold 3.0 pm rms (log-log interpolation of ss over N; 'floor x' = not reached: the noise-free residual sits at x pm):
+drift    | L             | S             | V             | P             | PF            |
+
+DESCENT LADDER to the set point, the matrix measured at each start, unwrapping OFF.  start = the DM's initial surface rms (its WFE is twice that); r(1) = the residual the loop opens with (nm); k(10 nm) / k(3 pm) = the first cycle at or below those levels (- = never within 40 cycles); r(K) = the residual at cycle 40 (pm); rho = the fitted per-cycle contraction; recals = on-surface re-calibrations run
+rd    start   N/cycle  recal |   r(1) nm  k(10nm)   k(3pm)       r(K) pm    rho recals
+L       30   1.0e+13  never |      0.27        1       38         2.628  0.756      0
+L       30   1.0e+15  never |      0.27        1       36         2.255  0.767      0
+L       60   1.0e+13  never |     29.73        -        -    241910.839    NaN      0
+L       60   1.0e+15  never |     29.73        -        -    242603.609    NaN      0
+L      100   1.0e+13  never |     69.73        -        -   DIVERGED@40      -      0
+L      100   1.0e+15  never |     69.73        -        -   DIVERGED@40      -      0
+L      150   1.0e+13  never |    119.73        -        -   DIVERGED@25      -      0
+L      150   1.0e+15  never |    119.73        -        -   DIVERGED@25      -      0
+L      200   1.0e+13  never |    169.73        -        -   DIVERGED@24      -      0
+L      200   1.0e+15  never |    169.73        -        -   DIVERGED@24      -      0
+L      300   1.0e+13  never |    269.73        -        -   DIVERGED@32      -      0
+L      300   1.0e+15  never |    269.73        -        -   DIVERGED@32      -      0
+S       30   1.0e+13  never |      0.27        1       13         1.457  0.671      0
+S       30   1.0e+15  never |      0.27        1       13         0.146  0.669      0
+S       60   1.0e+13  never |     29.73        -        -     42464.073    NaN      0
+S       60   1.0e+15  never |     29.73        -        -     40700.300    NaN      0
+S      100   1.0e+13  never |     69.73        -        -   DIVERGED@35      -      0
+S      100   1.0e+15  never |     69.73        -        -   DIVERGED@35      -      0
+S      150   1.0e+13  never |    119.73        -        -   DIVERGED@20      -      0
+S      150   1.0e+15  never |    119.73        -        -   DIVERGED@20      -      0
+S      200   1.0e+13  never |    169.73        -        -   DIVERGED@20      -      0
+S      200   1.0e+15  never |    169.73        -        -   DIVERGED@20      -      0
+S      300   1.0e+13  never |    269.73        -        -   DIVERGED@24      -      0
+S      300   1.0e+15  never |    269.73        -        -   DIVERGED@24      -      0
+V       30   1.0e+13  never |      0.27        1        8         1.157  0.508      0
+V       30   1.0e+15  never |      0.27        1        8         0.116  0.507      0
+V       60   1.0e+13  never |     29.73        3       17         1.165  0.558      0
+V       60   1.0e+15  never |     29.73        3       17         0.116  0.560      0
+V      100   1.0e+13  never |     69.73        -        -    624515.622    NaN      0
+V      100   1.0e+15  never |     69.73        -        -    615075.337    NaN      0
+V      150   1.0e+13  never |    119.73        -        -   DIVERGED@17      -      0
+V      150   1.0e+15  never |    119.73        -        -   DIVERGED@17      -      0
+V      200   1.0e+13  never |    169.73        -        -   DIVERGED@16      -      0
+V      200   1.0e+15  never |    169.73        -        -   DIVERGED@16      -      0
+V      300   1.0e+13  never |    269.73        -        -   DIVERGED@20      -      0
+V      300   1.0e+15  never |    269.73        -        -   DIVERGED@20      -      0
+P       30   1.0e+13  never |      0.27        1        9         1.388  0.521      0
+P       30   1.0e+15  never |      0.27        1        8         0.139  0.520      0
+P       60   1.0e+13  never |     29.73        4       19         1.456  0.588      0
+P       60   1.0e+15  never |     29.73        4       19         0.146  0.589      0
+P      100   1.0e+13  never |     69.73        -        -   DIVERGED@38      -      0
+P      100   1.0e+15  never |     69.73        -        -   DIVERGED@38      -      0
+P      150   1.0e+13  never |    119.73        -        -   DIVERGED@17      -      0
+P      150   1.0e+15  never |    119.73        -        -   DIVERGED@17      -      0
+P      200   1.0e+13  never |    169.73        -        -   DIVERGED@17      -      0
+P      200   1.0e+15  never |    169.73        -        -   DIVERGED@17      -      0
+P      300   1.0e+13  never |    269.73        -        -   DIVERGED@20      -      0
+P      300   1.0e+15  never |    269.73        -        -   DIVERGED@20      -      0
+PF      30   1.0e+13  never |      0.27        1        9         2.374  0.505      0
+PF      30   1.0e+15  never |      0.27        1        8         0.237  0.505      0
+PF      60   1.0e+13  never |     29.73        3       18         2.356  0.553      0
+PF      60   1.0e+15  never |     29.73        3       17         0.236  0.556      0
+PF     100   1.0e+13  never |     69.73        -        -     64095.082    NaN      0
+PF     100   1.0e+15  never |     69.73        -        -     64095.021    NaN      0
+PF     150   1.0e+13  never |    119.73        -        -    153360.920    NaN      0
+PF     150   1.0e+15  never |    119.73        -        -    153360.887    NaN      0
+PF     200   1.0e+13  never |    169.73        -        -    199356.747    NaN      0
+PF     200   1.0e+15  never |    169.73        -        -    199356.739    NaN      0
+PF     300   1.0e+13  never |    269.73        -        -    288451.226    NaN      0
+PF     300   1.0e+15  never |    269.73        -        -    288511.275    NaN      0
+
+the largest start that CONVERGES (reaches 3 pm within 40 cycles), per reading and setting:
+rd   | recal never @ 1e+13  | recal never @ 1e+15  |
+L    |              30 nm|              30 nm|
+S    |              30 nm|              30 nm|
+V    |              60 nm|              60 nm|
+P    |              60 nm|              60 nm|
+PF   |              60 nm|              60 nm|
+
+spectrum of the held residual at 1e+15 photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture
+loop stage 140.1 min (2460 traced states)
+run complete in 140.8 min

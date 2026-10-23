@@ -1,0 +1,7 @@
+==== e2e6m CF2-R3b -- apl L=0.98 wide-ladder probe (the stall vs the 89x la gap)
+R3 stalled state: 1.595e-07 at 3.1/3.4 nm; its relin G' la at that stroke 1.792e-09
+wide fixed-G: 4.486e-07 -> 1.578e-07 in 2 iters (alphas 1e-05 1e-01)
+the wide ladder does NOT dig either: the L=0.98 stall is real.
+VERDICT: L=0.98 floor 1.578e-07 vs L=0.90's 1.081e-07 (1.46x) -- HOLDS; +19% relative
+  throughput is measured-free (with the wide-ladder loop); S4 adopts L=0.98.
+CF2-R3b DONE in 0.6 min

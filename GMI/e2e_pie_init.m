@@ -1,5 +1,5 @@
 % e2e_pie_init.m -- populate the GMI demo workspace for the e2e_pie
-% 7-segment pie-PM three-mirror telescope (design/examples/e2e).
+% 7-segment pie-PM three-mirror telescope (templates/80_end_to_end/e2e).
 %
 % Replaces the retired GMI param initializer: unpacks the slimmed
 % regression initializer regression/lib/init_e2e_pie.m into the loose

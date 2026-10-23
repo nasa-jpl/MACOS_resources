@@ -1,0 +1,39 @@
+=== ZWFS runner: tag stations193  (2026-09-15 06:46) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench | readings: S V P
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+deck stations193_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+focal spot: 0.666 um per px at the mask plane, 3.96 px per lam F/D; the dimple encloses 70.6% of the flat DM's focal-plane light
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.831e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.968e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9539 0.9510 0.9452 0.9370 0.9260 0.9121 0.8957 0.8770 0.8561 0.8328 0.8071 0.7798 0.7511 0.7206 0.6885 0.6554 0.6215 0.5867 0.5514 0.5156 
+frame: ray magnification 10.1583 DM-mm per detector-mm, detector px 3.9136e-02 mm -> 0.3976 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 7.92 px across at the mask plane (min 6)  -> PASS
+  pinhole 7.92 px across at the mask plane (min 6; the dimple's rule)  -> PASS
+  DM 96x96: 2.52 detector px per actuator (min 2)  -> PASS
+  DM 48x48: 5.03 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 4.111e-16   (gate < 1e-12: A = |E0| is exact)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (12166 pm rms on msk, peak 1.93 rad; 3.17% of msk beyond the one-frame fold): V rms error 0.054 pm (gate < 0.1% of the figure), one-frame exact I 9112 pm (non-vacuity: must exceed 10x)   -> PASS
+stations figure stations193_stations_S.png: residual vs the engine's field on msk 0.00 pm (flat), 4750.35 pm (30 nm rms working surface)
+stations figure stations193_stations_V.png: residual vs the engine's field on msk 0.00 pm (flat), 24.86 pm (30 nm rms working surface)
+stations figure stations193_stations_P.png: residual vs the engine's field on msk 0.00 pm (flat), 183.78 pm (30 nm rms working surface)
+P: pinhole 2.00 lam/D, surround t 0.7193, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.6820; throughput (detected/incident, flat) 0.8214; visibility on the flat 0.5495; surrogate vs engine reference 1.97e-15; the flat reads 1.87e-15 rad rms, amplitude 3.93e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (12166 pm rms on msk, 3.17% of msk beyond the one-frame fold): rms error 0.342 pm (gate < 0.1% of the figure)   -> PASS
+G6 reference motion under the 30 nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:
+   lam/D    total  |scale|    SHAPE   (total = |b1-b0|/|b0|; scale = best complex factor, a Strehl-class amplitude drop the |b|^2 frame / iteration absorbs; shape = the rest, what the solve must iterate out)
+    0.50   0.1321   0.8690   0.0010
+    1.00   0.1344   0.8668   0.0027
+    1.50   0.1385   0.8629   0.0059
+    2.00   0.1439   0.8579   0.0106
+    3.00   0.1573   0.8466   0.0256
+    2.00   0.1439   0.8579   0.0106   <- the ZWFS dimple
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 2.24e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (511.67, 511.67) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.979, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.98 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7515, corr(map, truth) 0.9800
+bench stage 1.3 min
+run complete in 1.3 min

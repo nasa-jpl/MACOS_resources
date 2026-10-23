@@ -264,7 +264,7 @@ art = struct('met_in', am.in, 'metopt_in', '', 'mat', pth("_met.mat"), ...
     'report', pth("_met_report.txt"), 'figs', {{}});
 D = [];  keep = [];  optout = [];  merits = [];  mcres = [];
 K = [];  dxde = [];  dxdl = [];  dwde = [];  dwdl = [];  rfd = NaN;
-ox = jac_struct_(opts.jac);
+ox = macos.dwdx_trans_per_metre(jac_struct_(opts.jac));   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 if ~isempty(ox)
     [D, missing, colidx] = dwdx_cols_(ox, belts);
     say('\n[3] dwdx: %d columns for bodies [%s] from the sensitivities .mat\n', ...
