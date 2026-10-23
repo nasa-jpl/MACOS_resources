@@ -321,7 +321,6 @@ CLI_BINDINGS = {
     'REGrid/NOREGrid': ('missing', 'a per-element resampling flag'),
     'NONe': _PLOT,
     # Surface Data
-    'SINt': ('missing', 'single-ray tracing (B.2, first)'),
     'UDSinit': ('missing', 'builder'),
     # Perturbation
     'PREad': ('direct setter', '`prb_elt` / `perturb_elt` (the file is read in the caller)'),
