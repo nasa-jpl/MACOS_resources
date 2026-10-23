@@ -134,6 +134,7 @@ set_src_fov
 set_src_info
 set_src_sampling
 set_src_size
+sint_cmd
 spc_option_get
 spot_cmd
 spot_get

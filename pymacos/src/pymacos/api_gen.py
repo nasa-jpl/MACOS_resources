@@ -1485,6 +1485,29 @@ def ref_rays(ikind, refray_, off_, nref_=None):
         raise ApiError('ref_rays')
     return (_r[1], _r[2])
 
+def sint_cmd(set_, nelt_=None):
+    """Purpose  : SINT -- read the data of every Interpolated surface (SrfType 5) of the loaded
+               deck and set up its interpolation (BRIEF_to_bindings B.2, 2026-10-23).  Element
+               N's data file is <deck>.srfN.bin, else .srfN.txt, <deck> the loaded deck's name
+               without its '.in' or, second, with it (the CLI's spelling), read as the CLI's
+               SINT reads it; a missing file is not prompted for and that element is not set.
+               Set_(k): 1 = element k's data set, -1 = an Interpolated surface whose data was
+               not set (it traces as its base conic), 0 = not an Interpolated surface.
+               nSet_ = the number of 1s.  Why an element was not set is in the message buffer
+               (messages_get).  nElt_ must be nElt.
+
+    Generated stub over lib.api.sint_cmd(set_, [nelt_]).
+    Raises ApiError when the api returns ok = FAIL.
+    Returns: nset_, set_
+    """
+    _kw = {}
+    if nelt_ is not None:
+        _kw['nelt_'] = nelt_
+    _r = _api.sint_cmd(set_, **_kw)
+    if not _r[0]:
+        raise ApiError('sint_cmd')
+    return (_r[1], _r[2])
+
 def elt_info_get(apvec_, xobs_, polyvtx_, ielt, mside=None):
     """Purpose  : One-stop element metadata for layout drawing: element
                type id (elt_mod EltID constants), aperture declaration
@@ -3156,6 +3179,7 @@ API_ROUTINES = (
     'ray_trace',
     'segray_trace',
     'ref_rays',
+    'sint_cmd',
     'elt_info_get',
     'elt_obs_get',
     'src_seg_get',
@@ -3325,6 +3349,7 @@ F2PY_SIGNATURES = {
     'ray_trace': (('iray', 'pos_', 'dir_', 'indprev_', 'indcur_'), ('nelt_',), ('ok', 'pos_', 'dir_', 'indprev_', 'indcur_', 'rayok_', 'status_', 'failelt_')),
     'segray_trace': (('iseg', 'pos_', 'dir_', 'indprev_', 'indcur_'), ('nelt_',), ('ok', 'pos_', 'dir_', 'indprev_', 'indcur_', 'rayok_', 'status_', 'failelt_')),
     'ref_rays': (('ikind', 'refray_', 'off_'), ('nref_',), ('ok', 'refray_', 'off_')),
+    'sint_cmd': (('set_',), ('nelt_',), ('ok', 'nset_', 'set_')),
     'elt_info_get': (('apvec_', 'xobs_', 'polyvtx_', 'ielt'), ('mside',), ('ok', 'eltid_', 'aptype_', 'apvec_', 'xobs_', 'lmon_', 'npolyvtx', 'polyvtx_')),
     'elt_obs_get': (('obstype_', 'obsvec_', 'ielt'), ('mobs',), ('ok', 'nobs_', 'obstype_', 'obsvec_')),
     'src_seg_get': ((), (), ('ok', 'gridtypeid', 'nseg_', 'width_', 'gap_')),

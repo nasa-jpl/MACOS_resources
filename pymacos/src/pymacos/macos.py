@@ -2192,7 +2192,7 @@ def getEltSrfZern(iElt):
         return lmon, zernType, zernCoef, zernAnnularRatio
 
 
-def setEltSrfZern(iElt, lMon, zernType, zernMode=45, zernCoef=np.zeros(45), zernAnnularRatio=0):
+def setEltSrfZern(iElt, lMon, zernType, zernMode=None, zernCoef=None, zernAnnularRatio=0):
     """
     Define Zernike Srf. settings of equal Zernike Srf. element(s)
 
@@ -2227,10 +2227,16 @@ def setEltSrfZern(iElt, lMon, zernType, zernMode=45, zernCoef=np.zeros(45), zern
     if zernType<1 or zernType>_gen.MZERNTYPE:
         raise ValueError(f"Expecting: 0 < ZernType <= {_gen.MZERNTYPE}")
 
+    # the documented defaults (1:45, zeros); the literal zernMode=45 was ONE mode, [45], and
+    # its 45 default coefficients then failed the size check (veneer-default audit, 2026-10-23)
+    if zernMode is None:
+        zernMode = np.arange(1, 46)
     zernMode = _chk_values_1d(zernMode, -1, row=False).flatten()   # vector
     if np.any(zernMode<1) or np.any(zernMode>_gen.MZERNMODES):
         raise ValueError(f"Expecting: 0 < ZernMode values <= {_gen.MZERNMODES}")
 
+    if zernCoef is None:
+        zernCoef = np.zeros(zernMode.size)
     zernCoef =  _chk_values_1d(zernCoef, zernMode.size, row=False).flatten()   # vector
 
     zernAnnularRatio = _chk_values_1d(zernAnnularRatio, 1)   # scalar
@@ -4144,9 +4150,11 @@ def srs(slave: int | np.int32,
         slave:  element id whose pose is computed from the chief ray.
         master: element id the chief ray is traced through.
                 Must differ from ``slave``.
-        link:   if True (default), establish a persistent SRS link
-                that re-evaluates on subsequent traces.  If False,
-                the slave's pose is set once but not maintained.
+        link:   SRS's answer to its "Accept the new element?" prompt:
+                True (default, the CLI's [YES]) applies the new pose;
+                False computes and prints it without applying it.  Not a
+                persistent link: SRS re-poses the slave once -- call it
+                again after the master moves.
 
     Raises:
         Exception: Rx not loaded, either id out of range, slave ==
@@ -6084,6 +6092,30 @@ def ray(i_ray: int) -> dict:
     return {'pos': np.asarray(p), 'dir': np.asarray(d),
             'n_prev': np.asarray(n0), 'n_cur': np.asarray(n1), 'ok': bool(ok),
             'status': int(st), 'fail_elt': int(fe)}
+
+
+def sint() -> dict:
+    """Read the data of every Interpolated surface and set up its interpolation -- the CLI's
+    SINT; mmacos ``macos.sint``.  For each element with ``Surface= Interpolated`` (SrfType 5)
+    the engine reads ``<deck>.srfN.bin``, else ``.srfN.txt``, where ``<deck>`` is the loaded
+    deck's name without its '.in' (``Rx_TraceRewrites.srf1.txt`` for element 1) or, second,
+    with it (the CLI's spelling, ``Rx_TraceRewrites.in.srf1.txt``) -- and precomputes the
+    triangular interpolation the trace uses.  Until it is set, such a
+    surface traces as its base conic.  A missing file is not prompted for: that element is
+    not set.
+
+    Returns a dict:
+      'n_set'  how many elements were set
+      'set'    (nElt,) int: 1 = set, -1 = an Interpolated surface not set, 0 = not one
+    Why an element was not set (a missing or unreadable file, too few or too many points)
+    is in messages(); a file shorter than its header uses the points read, with a warning
+    there.  The trace is marked modified.  api sint_cmd (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    ne = num_elt()
+    n, s = _gen.sint_cmd(np.zeros(ne, dtype=np.int32))
+    modify()
+    return {'n_set': int(n), 'set': np.asarray(s, dtype=int)}
 
 
 def segray(i_seg: int) -> dict:

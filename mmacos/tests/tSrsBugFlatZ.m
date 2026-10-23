@@ -60,8 +60,13 @@ classdef tSrsBugFlatZ < matlab.unittest.TestCase
             mmacos('stop_obj_set', 0.0, 0.0, 0.0);
             % SXP (mode=1 = standard exit pupil; ignores XP arg in get mode).
             mmacos('sxp_fnd', 1);  % SXP standard mode
-            % SRS slave=Flat(10), slave-to=Sphere(9), no link.
-            mmacos('srs_run', testCase.FlatElt, testCase.SphereElt, 0);
+            % SRS slave=Flat(10), slave-to=Sphere(9), ACCEPTED (1 = YES).  This leg
+            % passed 0 (NO): since 1.2 (gg) honours a NO the SRS was declined and
+            % zElt could not change -- the guard was vacated (audit 2026-10-23).
+            v_before = macos.get_elt_vpt(testCase.FlatElt);
+            mmacos('srs_run', testCase.FlatElt, testCase.SphereElt, 1);
+            testCase.assertNotEqual(macos.get_elt_vpt(testCase.FlatElt), v_before, ...
+                'the accepted SRS must move the slave''s vertex (else the zElt check below is vacuous)');
             z_after = macos.get_elt_z(testCase.FlatElt);
 
             testCase.verifyGreaterThan(z_after, testCase.BigZThreshold, ...
