@@ -1301,6 +1301,53 @@ def ray_status_get(nrays):
         raise ApiError('ray_status_get')
     return (_r[1], _r[2])
 
+def messages_count():
+    """Purpose  : The engine's message buffer (emsg_mod; PLAN_CONSOLIDATION 1.2 (ee)).  The load
+               path's notes, warnings and refusals, CALIB's cause lines and the SMACOS loop's
+               'Unknown command' print to Fortran unit 6, which does not reach file descriptor 1
+               across the FFI on macOS; each is also kept here, so a binding reads them on every
+               platform.  messages_count gives the kept lines' count, the length nChars_ of the kept
+               lines joined by LF (one LF after each, trailing blanks trimmed) and how many older
+               lines the 500-line buffer dropped; messages_get returns that text as character codes
+               (nChars = messages_count's nChars_); messages_clear empties the buffer.  The buffer holds
+               everything since the last clear -- the veneers read and clear it.  OK = PASS with
+               no Rx loaded: a refused load's messages are the point.
+
+    Generated stub over lib.api.messages_count().
+    Raises ApiError when the api returns ok = FAIL.
+    Returns: nlines_, nchars_, ndropped_
+    """
+    _kw = {}
+    _r = _api.messages_count(**_kw)
+    if not _r[0]:
+        raise ApiError('messages_count')
+    return (_r[1], _r[2], _r[3])
+
+def messages_get(nchars):
+    """macos_api_mod::messages_get
+
+    Generated stub over lib.api.messages_get(nchars).
+    Raises ApiError when the api returns ok = FAIL.
+    Returns: codes_
+    """
+    _kw = {}
+    _r = _api.messages_get(nchars, **_kw)
+    if not _r[0]:
+        raise ApiError('messages_get')
+    return _r[1]
+
+def messages_clear():
+    """macos_api_mod::messages_clear
+
+    Generated stub over lib.api.messages_clear().
+    Raises ApiError when the api returns ok = FAIL.
+    """
+    _kw = {}
+    _r = _api.messages_clear(**_kw)
+    if not _r:
+        raise ApiError('messages_clear')
+    return None
+
 def ray_hist_set(enable):
     """Purpose  : Enable/disable the per-trace ray-position history capture
                (traceutil_mod's RayPosHist(3,mRay,0:nElt) + LRayOKHist,
@@ -3100,6 +3147,9 @@ API_ROUTINES = (
     'ray_info_get',
     'ray_info_set',
     'ray_status_get',
+    'messages_count',
+    'messages_get',
+    'messages_clear',
     'ray_hist_set',
     'ray_pos_hist_get',
     'srt_trace',
@@ -3266,6 +3316,9 @@ F2PY_SIGNATURES = {
     'ray_info_get': (('nrays',), (), ('ok', 'pos', 'dir', 'opl', 'rayok', 'raypass')),
     'ray_info_set': (('pos', 'dir', 'opl', 'rayok'), ('nrays',), ('ok',)),
     'ray_status_get': (('nrays',), (), ('ok', 'raystatus_', 'rayfailelt_')),
+    'messages_count': ((), (), ('ok', 'nlines_', 'nchars_', 'ndropped_')),
+    'messages_get': (('nchars',), (), ('ok', 'codes_')),
+    'messages_clear': ((), (), ('ok',)),
     'ray_hist_set': (('enable',), (), ('ok',)),
     'ray_pos_hist_get': (('px_', 'py_', 'pz_', 'lok_'), ('nrays', 'nelt1'), ('ok', 'px_', 'py_', 'pz_', 'lok_')),
     'srt_trace': (('xoff', 'yoff', 'iendelt', 'pos_', 'dir_', 'indprev_', 'indcur_'), ('nelt_',), ('ok', 'pos_', 'dir_', 'indprev_', 'indcur_', 'rayok_', 'status_', 'failelt_')),

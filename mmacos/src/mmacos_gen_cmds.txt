@@ -94,6 +94,9 @@ init
 intensity
 jmat_elt_get
 load_rx
+messages_clear
+messages_count
+messages_get
 met_calc
 met_geom_get
 met_get

@@ -7,33 +7,27 @@ stdout from Fortran, so they are read here at the file-descriptor level (capfd).
     match and read as FOV weights; now it is an unknown header key and named.
 (b) an OptAsph= above its element's VarElt= was dropped silently; now one line names the element.
 Both decks still LOAD (warn, never refuse).  Pre-fix .so: neither line -- red.
-"""
-import sys
-import pytest
 
+The lines are read from the engine's message buffer (pymacos messages(), PLAN_CONSOLIDATION 1.2 (ee)):
+the Fortran stdout this test read through capfd reaches no Python-visible stream on macOS, so it was
+skipped there (CCMac's Mac gates 2026-10-19); the buffer carries the same lines on every platform.
+"""
 from context import pymacos as m
 from context import rx_path
 
-# capfd reads nothing of the Fortran stdout on macOS (CCMac's Mac gates 2026-10-19: both captures empty
-# with the engine loaded; Dave 2026-10-19: do not block) -- PLAN_CONSOLIDATION section 4 item 4 (e)
-_darwin = pytest.mark.skipif(sys.platform == 'darwin',
-                             reason='capfd captures no Fortran stdout on macOS (Dave 2026-10-19: do not block)')
 
-
-def _load_out(capfd, name):
+def _load_out(name):
     m.init(128)
-    capfd.readouterr()
+    m.messages()
     m.load(str(rx_path(name)))
-    return capfd.readouterr().out
+    return '\n'.join(m.messages())
 
 
-@_darwin
-def test_a_look_alike_header_key_is_named(capfd):
-    out = _load_out(capfd, 'Rx_HdrUnknown.in')     # = macos ZGD tst_hdr_unknown.in
+def test_a_look_alike_header_key_is_named():
+    out = _load_out('Rx_HdrUnknown.in')     # = macos ZGD tst_hdr_unknown.in
     assert 'Unidentified header string = OptFooKey' in out
 
 
-@_darwin
-def test_optasph_above_varelt_is_named(capfd):
-    out = _load_out(capfd, 'Rx_OptAsphOrder.in')   # = macos ZGD tst_optasph_order.in
+def test_optasph_above_varelt_is_named():
+    out = _load_out('Rx_OptAsphOrder.in')   # = macos ZGD tst_optasph_order.in
     assert 'OptAsph= at element   1 IGNORED: OptAsph= must follow VarElt=' in out

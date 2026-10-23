@@ -8,7 +8,7 @@
 ! Every routine forwards to its language-neutral sibling in
 ! macos_api_mod (NAME_impl => NAME); the !f2py annotations live here so
 ! the pure-Fortran backbone stays free of Python-specific markers.
-! Routines: 161 api + 1 f2py-only.
+! Routines: 164 api + 1 f2py-only.
 
 
   module api
@@ -96,6 +96,9 @@
       ray_info_get_impl => ray_info_get, &
       ray_info_set_impl => ray_info_set, &
       ray_status_get_impl => ray_status_get, &
+      messages_count_impl => messages_count, &
+      messages_get_impl => messages_get, &
+      messages_clear_impl => messages_clear, &
       ray_hist_set_impl => ray_hist_set, &
       ray_pos_hist_get_impl => ray_pos_hist_get, &
       srt_trace_impl => srt_trace, &
@@ -1046,6 +1049,32 @@
 
         CALL ray_status_get_impl(OK, RayStatus_, RayFailElt_, nRays)
       end subroutine ray_status_get
+
+      subroutine messages_count(OK, nLines_, nChars_, nDropped_)
+        implicit none
+        logical, intent(out) :: OK
+        integer, intent(out) :: nLines_
+        integer, intent(out) :: nChars_
+        integer, intent(out) :: nDropped_
+
+        CALL messages_count_impl(OK, nLines_, nChars_, nDropped_)
+      end subroutine messages_count
+
+      subroutine messages_get(OK, Codes_, nChars)
+        implicit none
+        logical, intent(out) :: OK
+        integer, dimension(nChars), intent(out) :: Codes_
+        integer, intent(in) :: nChars
+
+        CALL messages_get_impl(OK, Codes_, nChars)
+      end subroutine messages_get
+
+      subroutine messages_clear(OK)
+        implicit none
+        logical, intent(out) :: OK
+
+        CALL messages_clear_impl(OK)
+      end subroutine messages_clear
 
       subroutine ray_hist_set(OK, enable)
         implicit none
