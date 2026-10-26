@@ -113,7 +113,7 @@ P.bench.MASK_TRIM = 'scan';  % RE-SCANNED PER RUN since 2026-09-17: the collimat
                              % focus and blame the glass for the blur.  0 on the OAP rig.
 P.bench.FL_F   = 42.5325;    P.bench.FL_Kc = -2.58764;  P.bench.FL_D = s*12;
 P.bench.D_MASK_FL = 39.7694; P.bench.DET_TRIM = -1.2473; % tuned tail (tg96_tail)
-P.bench.coat_oap = 'protectedAl';   % DECIDED 2026-09-17: protected aluminum by default ('none' for the geometric gate only); the OAP rig only (bench.optics 'oap'): mirror coating on L1 and L2 --
+P.bench.coat_oap = 'auto';   % the rig's own (Dave 2026-10-26): protected aluminum on the OAP rig (bench.optics 'oap', DECIDED 2026-09-17 for that rig), none on the lens rig; a coat set on the lens rig is ignored with a warning (zwfs_coat_rig); mirror coating on L1 and L2 --
                              % 'none' | 'bareAl' | 'protectedAl' | 'qwAl' (CCMac's tg96 stacks below,
                              % plus the quarter-wave overcoat); applied after every deck load; active
                              % under polarization only, i.e. for the vector reading's arm maps
