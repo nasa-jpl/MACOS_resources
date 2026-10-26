@@ -277,6 +277,27 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             tc.verifyTrue(contains(txt, 'orient=xy'));
         end
 
+        function test_opd_ref_defaults_to_the_engine_chief(tc)
+            % PLAN 1.2 (kkk), ruled 2026-10-26: the harvest runs at the
+            % engine's chief-ray reference (the one-reference rule).  The
+            % runner's own default was 'mean', so its Jacobians disagreed
+            % with every engine read that sets no reference (run_compare's
+            % truth): worst rel w 0.945 on the e2e chain.  The default call
+            % now harvests at 'chief', and the output records it.
+            [~, rx] = tc.cfg_fixture();
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            art = run_sensitivities(rx, 'fov_rad', 1e-4, 'ngridpts', 15, ...
+                'channels', "dwdsurf", 'elts', 3, ...
+                'model_size', 512, 'out_dir', wd, 'name', 'refdef', ...
+                'verbose', false);
+            txt = fileread(art.report);
+            tc.verifyTrue(contains(txt, 'opd_ref=chief'), ...
+                'the default harvest must run at the chief-ray reference');
+            tc.verifyEqual(art.os.opd_ref, 'chief', ...
+                'the harvest must record the reference it ran at');
+        end
+
         function test_per_element_page_index_follows_orient_xy(tc)
             % Luis round 4 (2026-09-10): the per-element CENTRE-FIELD page
             % rebuilt its pixel index with m2v on the (transposed) nominal

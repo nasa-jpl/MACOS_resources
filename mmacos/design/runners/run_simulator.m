@@ -294,6 +294,7 @@ end
 assert(isfile(met_rx), 'run_simulator: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
+opd_ref = harvest_opd_ref_(J, 'run_simulator');
 J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
 icf = find(strcmp(ox.field_names, 'C'), 1);
@@ -368,6 +369,7 @@ end
 old = cd(out_dir);  restore = onCleanup(@() cd(old));
 m = macos.Session(opts.model_size);
 m.load_rx(char(met_rx));
+set_opd_ref_(m, opd_ref);                     % the harvest's reference (1.2 (kkk))
 if ~isempty(opts.ngridpts), m.set_src_sampling(opts.ngridpts); end
 cbm = m.cbm();
 for s = 1:nseg
@@ -411,7 +413,7 @@ n_elt = m.num_elt();
 wf_elt = n_elt - 1;
 psf_elt = opts.psf_elt;  if psf_elt < 1, psf_elt = n_elt; end
 m.trace(wf_elt);
-Wb = m.opd();  maskb = Wb ~= 0;
+Wb = m.opd();  maskb = m.opd_mask();   % not Wb ~= 0 (chief reference)
 engine_l = false;
 l0b = [];
 if ~use_g
@@ -497,7 +499,7 @@ if opts.wfc
     load_sim_rx_();
     m.trace(wf_elt);
     Wb2 = m.opd();
-    assert(isequal(Wb2 ~= 0, maskb), ...
+    assert(isequal(m.opd_mask(), maskb), ...
         'run_simulator: baseline mask changed across the pass-2 reload');
     Wb = Wb2;
     % Gauss-Newton refinements: at um-to-mm misalignments the engine's
@@ -768,6 +770,7 @@ say('\nartifacts: %s_sim.mat, frames in %s_sim_frames/%s, this report\n', ...
 % ---- nested: (re)load the sim Rx and rebuild the state channels -------
     function load_sim_rx_()
         m.load_rx(char(sim_rx));
+        set_opd_ref_(m, opd_ref);
         if ~isempty(opts.ngridpts), m.set_src_sampling(opts.ngridpts); end
         chx = {};  chz = {};  chg = {};
         xrows = find(any(X ~= 0, 2)).';
@@ -809,7 +812,7 @@ say('\nartifacts: %s_sim.mat, frames in %s_sim_frames/%s, this report\n', ...
         m.trace(wf_elt);
         W_ = m.opd();
         dW = nan(size(Wb));
-        mk_ = maskb & (W_ ~= 0);
+        mk_ = maskb & m.opd_mask();
         dW(mk_) = (W_(mk_) - Wb(mk_)) * cbm;
         dW(mk_) = dW(mk_) - mean(dW(mk_));        % piston-removed WFE
     end
@@ -1038,6 +1041,37 @@ end
 for f = {'dedx', 'dldx', 'bodies', 'seg', 'met_in'}
     assert(isfield(M, f{1}), 'run_simulator: met struct lacks %s', f{1});
 end
+end
+
+function ref = harvest_opd_ref_(J, who)
+%HARVEST_OPD_REF_  The OPD reference the Jacobian was harvested at (the
+%   dw_*_multi stamp, 1.2 (kkk)): the engine truth must be read at the same
+%   one (notes/opd_reference.md, the one-reference rule).  A harvest that
+%   predates the stamp warns and is read at the engine's default, 'chief'.
+%   Legs that disagree warn; the rigid-body leg's reference is used.
+ref = '';
+if isfield(J.ox, 'opd_ref'), ref = char(J.ox.opd_ref); end
+if isempty(ref)
+    warning([who ':opd_ref_unrecorded'], ['%s: the jac records no OPD ' ...
+        'reference (harvested before 2026-10-26) -- reading the engine at ' ...
+        'its default, ''chief''; re-harvest if it ran at ''mean'''], who);
+    ref = 'chief';
+end
+for leg = {J.oz, J.og}
+    L = leg{1};
+    if ~isempty(L) && isfield(L, 'opd_ref') && ~strcmp(L.opd_ref, ref)
+        warning([who ':opd_ref_mismatch'], ['%s: dwdx harvested at ' ...
+            '''%s'' but a dwdz/dwdgrid leg at ''%s'' -- reading the engine ' ...
+            'at ''%s''; regenerate the Jacobian with one reference'], ...
+            who, ref, L.opd_ref, ref);
+    end
+end
+end
+
+function set_opd_ref_(m, ref)
+%SET_OPD_REF_  Put the loaded deck on REF (a load restores the deck's own);
+%   only when it differs, since opd_ref_set dirties the cached trace.
+if ~strcmp(m.opd_ref(), ref), m.opd_ref(ref); end
 end
 
 function J = jac_all_(jac)

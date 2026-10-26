@@ -174,6 +174,37 @@ classdef tRunCompare < matlab.unittest.TestCase
             tc.verifySize(art.dmdgrid, [size(M.dldx, 1) + es.nmeas, ng]);
         end
 
+        function test_compare_runs_at_the_harvest_reference(tc)
+            % PLAN 1.2 (kkk), ruled 2026-10-26: the engine truth is read at
+            % the reference the Jacobian was harvested at.  run_compare set
+            % none, so after the engine's 2026-10-10 'chief' default a
+            % 'mean' harvest read a chief-ray piston on every segment poke
+            % (worst rel w 0.945 on the e2e chain).  A 'mean' harvest must
+            % agree as the default ('chief') one does.
+            M = load(tc.met5.mat);
+            m = macos.Session(512);
+            oxm = macos.dw_dx_multi(m, char(tc.met5.met_in), ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                'grid', '1x1', 'fp_mode', 'none', 'ngridpts', 15, ...
+                'reset_xp', false, 'opd_ref', 'mean');
+            jacs = {tc.ox, 'chief'; oxm, 'mean'};
+            for k = 1:2
+                art = run_compare(fullfile(tc.wd, 'pie.in'), ...
+                    'hx', fullfile(tc.wd, 'pieHx.m'), 'jac', jacs{k, 1}, ...
+                    'met', M, 'channels', "x", 'bodies', [1 2 8], ...
+                    'dofs', [2 6], 'dwell', 0, 'visible', false, ...
+                    'gif', false, 'ngridpts', 15, 'verbose', false, ...
+                    'out_dir', tc.wd, 'name', "ref_" + jacs{k, 2});
+                T = art.table;
+                tc.verifyLessThan(max([T.w_rel]), 0.05, ...
+                    sprintf('harvest at %s', jacs{k, 2}));
+                txt = fileread(art.report);
+                tc.verifySubstring(txt, ['OPD reference: ' jacs{k, 2}]);
+            end
+            tc.verifyEqual(tc.ox.opd_ref, 'chief');
+            tc.verifyEqual(oxm.opd_ref, 'mean');
+        end
+
         function test_base_and_legacy_si_jac_compare_identically(tc)
             % run_compare / run_simulator work in SI (pokes in m, X/U
             % histories in m), so each converts the harvest with
