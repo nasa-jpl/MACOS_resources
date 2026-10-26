@@ -23,17 +23,18 @@ diffraction-limited.
 **The off-axis bias is a SWEEP.** It must clear the FP, but off-axis aberration
 grows ~quadratically with it, so the script sweeps `BIAS_SWEEP_ARCMIN`, prints the
 clearance-vs-WFE table, and **recommends + builds the LEAST bias that both clears
-the FP and is diffraction-limited.** Example (D=1 m, f/1.5 primary, f/8 system):
+the FP and is diffraction-limited.** Example (D=1 m, f/1.5 primary, f/8 system; the
+defaults as run on 2026-10-26 for the mmacos manual):
 
 | bias (′) | RMS WFE (waves) | FP out of beam |
 |---|---|---|
-| 1 | 0.0074 | YES |
-| 2 | 0.0113 | YES |
-| 3 | 0.0172 | YES |
-| 4 | 0.0305 | YES |
-| 6 | 0.0758 | YES |
+| 1 | 0.0059 | YES |
+| 2 | 0.0098 | YES |
+| 3 | 0.0164 | YES |
+| 4 | 0.0296 | YES |
+| 6 | 0.0716 | YES |
 
-→ recommended **1′** → **0.0074 waves** (diffraction-limited), M3 + FP clear (M2
+→ recommended **1′** → **0.0059 waves** (diffraction-limited), M3 + FP clear (M2
 central obscuration), exit pupil after M3 at z = 0.26·D, r = 0.147 m.
 
 Knobs: aperture, primary f/#, system f/#, secondary magnification, intermediate-
