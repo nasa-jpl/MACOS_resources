@@ -49,19 +49,18 @@ A line marked *(no README)* is read from the entry script's first comment.
 | [`freeform_unobscured/`](10_telescopes/freeform_unobscured) | sphere+Zernike unobscured telescope: the visible 3+n front end |
 | [`offset_imager/`](10_telescopes/offset_imager) | wide-field imager with an offset field |
 | [`pupil_id/`](10_telescopes/pupil_id) | beyond FEX: the exit pupil as a SURFACE |
-| [`rc_offaxis/`](10_telescopes/rc_offaxis) | Unobscured off-axis Ritchey-Chretien: an on-axis RC taken off-axis as an eccentric-pupil section, cleared and re-optimized  (no README; entry `example_rc_offaxis.m`) |
-| [`rc_onaxis/`](10_telescopes/rc_onaxis) | Parameterized on-axis Ritchey-Chretien designer  (no README; entry `rc_onaxis.m`) |
-| [`rc_unobscured/`](10_telescopes/rc_unobscured) | Parameterized unobscured off-axis Ritchey-Chretien designer  (no README; entry `rc_unobscured.m`) |
-| [`sz_tma/`](10_telescopes/sz_tma) | SPHERE + ZERNIKE unobscured three-mirror telescope (e5mono-derived)  (no README; entry `sz_tma.m`) |
-| [`tma_3plus1/`](10_telescopes/tma_3plus1) | 3+1 CORONAGRAPH FRONT END -- unobscured conic TMA + M4 pupil relay  (no README; entry `tma_3plus1.m`) |
+| [`rc_onaxis/`](10_telescopes/rc_onaxis) | Parameterized on-axis Ritchey-Chretien designer |
+| [`rc_unobscured/`](10_telescopes/rc_unobscured) | Parameterized unobscured off-axis Ritchey-Chretien designer |
+| [`sz_tma/`](10_telescopes/sz_tma) | Sphere + Zernike unobscured three-mirror telescope (e5mono-derived) |
+| [`tma_3plus1/`](10_telescopes/tma_3plus1) | 3+1 coronagraph front end -- unobscured conic TMA + M4 pupil relay |
 | [`tma_centered/`](10_telescopes/tma_centered) | centered (obscured) Korsch TMA: the A/B answer + the buildable folded variant |
-| [`tma_freeform/`](10_telescopes/tma_freeform) | Off-axis unobscured three-mirror freeform designer  (no README; entry `tma_freeform.m`) |
+| [`tma_freeform/`](10_telescopes/tma_freeform) | Off-axis unobscured three-mirror freeform designer |
 | [`tma_longslit/`](10_telescopes/tma_longslit) | the long-slit TMA front end for a slit-fed spectrometer |
-| [`tma_offaxis/`](10_telescopes/tma_offaxis) | Unobscured off-axis convex-secondary TMA  (no README; entry `tma_offaxis.m`) |
+| [`tma_offaxis/`](10_telescopes/tma_offaxis) | Unobscured off-axis convex-secondary TMA |
 | [`tma_onaxis/`](10_telescopes/tma_onaxis) | on-axis three-mirror anastigmat designer (Korsch / j18mono form) |
 | [`tma_unobscured/`](10_telescopes/tma_unobscured) | visible-band unobscured TMA: the coronagraph / imager / spectrometer front end |
-| [`tma_widefield/`](10_telescopes/tma_widefield) | Does each mirror earn its keep: wide-field 2-mirror RC vs 3-mirror Korsch TMA  (no README; entry `example_tma_widefield.m`) |
-| [`wf2_freeform/`](10_telescopes/wf2_freeform) | Wide-field 2-mirror freeform designer  (no README; entry `wf2_freeform.m`) |
+| [`tma_widefield/`](10_telescopes/tma_widefield) | Does each mirror earn its keep? Wide-field 2-mirror (Ritchey-Chretien) vs 3-mirror (Korsch TMA) |
+| [`wf2_freeform/`](10_telescopes/wf2_freeform) | Wide-field 2-mirror freeform designer |
 
 ### `20_segmentation/` — T2 segmentation
 
@@ -77,16 +76,16 @@ A line marked *(no README)* is read from the entry script's first comment.
 |---|---|
 | [`bench_ctb/`](30_instruments/bench_ctb) | ctb — coronagraph-testbed Bench example |
 | [`coro_experiments/`](30_instruments/coro_experiments) | Coronagraph division-of-labor experiments (Sprint 1, E1–E4) |
-| [`coro_planet_demo/`](30_instruments/coro_planet_demo) | Illustrated coronagraph + off-axis planet injection.  (no README; entry `coro_planet_demo.m`) |
+| [`coro_planet_demo/`](30_instruments/coro_planet_demo) | Illustrated coronagraph + off-axis planet injection |
 | [`coro_walkthrough/`](30_instruments/coro_walkthrough) | Coronagraph walkthrough (illustrated manual example) |
 
 ### `40_benches/` — benches (the DM-gauge campaigns)
 
 | directory | what it is |
 |---|---|
-| [`bench_ifo/`](40_benches/bench_ifo) | Twyman-Green interferometer on a bench with phase-shifting (de Groot) data processing  (no README; entry `example_bench_ifo.m`) |
-| [`bench_ifo_dm/`](40_benches/bench_ifo_dm) | Measure a DM (PROPER model)  (no README; entry `example_bench_ifo_dm.m`) |
-| [`bench_layout/`](40_benches/bench_layout) | Laying out and optimizing an optical bench  (no README; entry `example_bench_layout.m`) |
+| [`bench_ifo/`](40_benches/bench_ifo) | Twyman-Green interferometer on a bench, with phase-shifting (de Groot) data processing |
+| [`bench_ifo_dm/`](40_benches/bench_ifo_dm) | Twyman-Green IFO testbed, phase 1: measure a DM (PROPER model) |
+| [`bench_layout/`](40_benches/bench_layout) | Laying out and optimizing an optical bench |
 | [`cophi_dm96/`](40_benches/cophi_dm96) | COPHI, the heterodyne camera interferometer, as the fifth DM gauge |
 | [`dm_gauge_lib/`](40_benches/dm_gauge_lib) | the ONE copy of the DM-gauge scoring machinery |
 | [`pdi_dm96/`](40_benches/pdi_dm96) | the point-diffraction DM surface gauges (P, PF), same DM truth |
@@ -128,13 +127,13 @@ A pointer directory: see its README.
 | [`e2e/`](80_end_to_end/e2e) | the complete end-to-end worked example |
 | [`e2e2/`](80_end_to_end/e2e2) | the improved TMA design flow |
 | [`e2e6m/`](80_end_to_end/e2e6m) | the 6 m unobscured coronagraph end-to-end example |
-| [`e2e6m_r2/`](80_end_to_end/e2e6m_r2) | Coronagraph-family campaign S0: the runner, gated against R1.  (no README; entry `cf0_gates.m`) |
+| [`e2e6m_r2/`](80_end_to_end/e2e6m_r2) | e2e6m round 2, R1: the DM-bearing coronagraph back end |
 
 ### `90_polarization/` — polarization
 
 | directory | what it is |
 |---|---|
-| [`bench_ifo_pol/`](90_polarization/bench_ifo_pol) | Bench IFO polarization: ray-level Jones scoring (slice 1 of 3)  (no README; entry `example_bench_ifo_pol.m`) |
+| [`bench_ifo_pol/`](90_polarization/bench_ifo_pol) | Bench IFO polarization: ray-level Jones scoring (slice 1 of 3) |
 | [`tg_psi_dm/`](90_polarization/tg_psi_dm) | Polarization phase-shifting Twyman-Green — a DM surface gauge |
 | [`tg_psi_dm_v2/`](90_polarization/tg_psi_dm_v2) | A REAL polarizing beamsplitter — the MacNeille cube (TG v2) |
 
