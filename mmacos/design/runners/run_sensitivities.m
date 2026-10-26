@@ -214,16 +214,22 @@ arguments
                                      % 1 along global X (imagesc-ready)
     opts.sign (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl'
                                      % OPD sign convention, ALL channels
-    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'mean'
+    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief'})} = 'chief'
                                      % OPD reference, ALL channels
-                                     % (macos.opd_ref): 'mean' = whole-
-                                     % aperture mean (engine default) --
-                                     % on a SEGMENTED deck a single-segment
-                                     % poke then pistons every OTHER segment
-                                     % by -(N_k/N)*mean(poked response);
-                                     % 'chief' = chief-ray reference, the
-                                     % other segments read exactly 0
-                                     % (PLAN 0.x; Luis 2026-08-19/09-09)
+                                     % (macos.opd_ref): 'chief' (default) =
+                                     % the engine's chief-ray reference,
+                                     % the one every engine read uses
+                                     % unless told otherwise (one-reference
+                                     % rule; PLAN 1.2 (kkk), Dave
+                                     % 2026-10-26; was 'mean' -- run_compare
+                                     % then read w rel 0.945 on e2e);
+                                     % 'mean' = whole-aperture mean: on a
+                                     % SEGMENTED deck a single-segment
+                                     % poke pistons every OTHER segment by
+                                     % -(N_k/N)*mean(poked response).  The
+                                     % harvest records it (o.opd_ref) and
+                                     % run_compare / run_simulator read
+                                     % their engine truth at it.
     opts.grid_basis (1,:) char {mustBeMember(opts.grid_basis, ...
         {'multi','single'})} = 'multi'   % per-segment bespoke basis
                                 % (segment_grid_basis; the general case)

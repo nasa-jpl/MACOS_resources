@@ -169,6 +169,7 @@ end
 assert(isfile(met_rx), 'run_compare: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
+opd_ref = harvest_opd_ref_(J, 'run_compare');
 J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
 chansel = opts.channels;
@@ -241,6 +242,7 @@ DOFN = {'Rx', 'Ry', 'Rz', 'Tx', 'Ty', 'Tz'};
 old = cd(out_dir);  restore = onCleanup(@() cd(old));
 m = macos.Session(opts.model_size);
 m.load_rx(char(met_rx));
+set_opd_ref_(m, opd_ref);                     % the harvest's reference (1.2 (kkk))
 if ~isempty(opts.ngridpts), m.set_src_sampling(opts.ngridpts); end
 cbm = m.cbm();
 for s = 1:nseg
@@ -269,7 +271,7 @@ Wb = m.opd();                                 % phase baseline (met Rx)
 assert(isequal(size(Wb), size(W0j)), ['run_compare: engine OPD canvas ' ...
     '%dx%d vs jac %dx%d -- ngridpts must match the jac harvest'], ...
     size(Wb, 1), size(Wb, 2), size(W0j, 1), size(W0j, 2));
-maskb = Wb ~= 0;
+maskb = m.opd_mask();                         % not Wb ~= 0: a chief-referenced ray can read 0
 nover = nnz(maskb & (W0j == 0)) + nnz(~maskb & (W0j ~= 0));
 l0 = macos.met();
 assert(l0.n == nl, ...
@@ -277,6 +279,7 @@ assert(l0.n == nl, ...
 l0b = l0.l;
 say('    baseline: %d OPD pixels (jac mask mismatch %d px), %d met beams, %d edge rows\n', ...
     nnz(maskb), nover, l0.n, es.nmeas);
+say('    OPD reference: %s (the harvest''s)\n', opd_ref);
 
 %% -- [2] the poke loop: x, then z, then grid --------------------------
 fdir = pth("_frames");
@@ -396,6 +399,7 @@ if any(chansel == "grid")
     % dw_dgrid_multi harvest does, or the leftover state biases every
     % grid FD at the ~20% level (caught 2026-07-19)
     m.load_rx(char(grx));
+    set_opd_ref_(m, opd_ref);
     if ~isempty(opts.ngridpts), m.set_src_sampling(opts.ngridpts); end
     gch = macos.channels.grid_channels(m, sgb);
     names_g = cellfun(@(c) c.name(), gch, 'UniformOutput', false);
@@ -405,7 +409,7 @@ if any(chansel == "grid")
     W0g = og.per_field_w_nom_2d{icg};
     wf_elt = m.num_elt() - 1;                 % new engine context
     m.trace(wf_elt);
-    Wb = m.opd();  maskb = Wb ~= 0;
+    Wb = m.opd();  maskb = m.opd_mask();
     l0b = [];                                 % no met blocks on the grid Rx
     assert(isequal(size(W0g), size(Wb)), ...
         'run_compare: dwdgrid canvas %dx%d vs engine %dx%d', ...
@@ -509,7 +513,7 @@ say('next stage: run_simulator (single-step static estimator + controller over a
         ip = ip + 1;
         ch.apply(poke);
         m.trace(wf_elt);
-        Wp = m.opd();
+        Wp = m.opd();  maskp = m.opd_mask();
         if ~isempty(l0b)
             dl_t = macos.met().l - l0b;
         else
@@ -517,7 +521,7 @@ say('next stage: run_simulator (single-step static estimator + controller over a
         end
         ch.restore();
         dW_t = nan(size(Wb));
-        mk = maskb & (Wp ~= 0);
+        mk = maskb & maskp;
         dW_t(mk) = (Wp(mk) - Wb(mk)) * cbm;
         cm = isfinite(dW_t) & isfinite(dW_l);
         wt = dW_t(cm);  wl = dW_l(cm);
@@ -725,6 +729,37 @@ end
 for f = {'dedx', 'dldx', 'bodies', 'seg', 'met_in'}
     assert(isfield(M, f{1}), 'run_compare: met struct lacks %s', f{1});
 end
+end
+
+function ref = harvest_opd_ref_(J, who)
+%HARVEST_OPD_REF_  The OPD reference the Jacobian was harvested at (the
+%   dw_*_multi stamp, 1.2 (kkk)): the engine truth must be read at the same
+%   one (notes/opd_reference.md, the one-reference rule).  A harvest that
+%   predates the stamp warns and is read at the engine's default, 'chief'.
+%   Legs that disagree warn; the rigid-body leg's reference is used.
+ref = '';
+if isfield(J.ox, 'opd_ref'), ref = char(J.ox.opd_ref); end
+if isempty(ref)
+    warning([who ':opd_ref_unrecorded'], ['%s: the jac records no OPD ' ...
+        'reference (harvested before 2026-10-26) -- reading the engine at ' ...
+        'its default, ''chief''; re-harvest if it ran at ''mean'''], who);
+    ref = 'chief';
+end
+for leg = {J.oz, J.og}
+    L = leg{1};
+    if ~isempty(L) && isfield(L, 'opd_ref') && ~strcmp(L.opd_ref, ref)
+        warning([who ':opd_ref_mismatch'], ['%s: dwdx harvested at ' ...
+            '''%s'' but a dwdz/dwdgrid leg at ''%s'' -- reading the engine ' ...
+            'at ''%s''; regenerate the Jacobian with one reference'], ...
+            who, ref, L.opd_ref, ref);
+    end
+end
+end
+
+function set_opd_ref_(m, ref)
+%SET_OPD_REF_  Put the loaded deck on REF (a load restores the deck's own);
+%   only when it differs, since opd_ref_set dirties the cached trace.
+if ~strcmp(m.opd_ref(), ref), m.opd_ref(ref); end
 end
 
 function J = jac_all_(jac)

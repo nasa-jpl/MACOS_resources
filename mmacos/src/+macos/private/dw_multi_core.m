@@ -69,6 +69,7 @@ if do_reload
     session.load_rx(rx_path);
 end
 set_opd_ref_(session, opd_ref_mode);   % a load restores the deck's own (UseChfRay4OPD= or the engine default)
+opd_ref_used = session.opd_ref();     % stamped on the output: the consumers compare at it (1.2 (kkk))
 apply_ngridpts(session, opts.ngridpts, F.name);
 if ~isempty(opts.src_samp)
     session.set_src_sampling(opts.src_samp);
@@ -572,6 +573,7 @@ out = apply_opd_convention(out, opts.orient, opts.sign);
 out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
 out.reset_xp_method      = opts.reset_xp_method;
 out.fex_axis             = opts.fex_axis;
+out.opd_ref              = opd_ref_used;     % 'chief' | 'mean': the reference in force for the harvest
 if use_pf, out.pf_scope = opts.pf_scope; end
 if ~isempty(pf_out), out.pupil_find = pf_out; end   % per-config metrics
 
