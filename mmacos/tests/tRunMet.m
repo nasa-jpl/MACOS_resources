@@ -183,6 +183,20 @@ classdef tRunMet < matlab.unittest.TestCase
             % named products dimensioned for the compare/simulate stages
             tc.verifySize(art.dxde, [6*9, size(art.dedx, 1)]);
             tc.verifySize(art.dwdl, [nnz(art.keep), size(art.dldx, 1)]);
+            % PLAN 1.2 (hhh), ruled 2026-10-26: the metric chart prints
+            % every row -- its log axis floor sits below the smallest bar
+            % (the 'edge+MET opt' bar fell under it on e2e), and the
+            % values it draws are in the artefact and the report.
+            mt = art.metric;
+            tc.verifyEqual(numel(mt.labels), numel(mt.values));
+            tc.verifyTrue(any(strcmp(mt.labels, 'edge+MET opt')));
+            tc.verifyLessThan(mt.ylim(1), min(mt.values));
+            tc.verifyGreaterThan(mt.ylim(2), max(mt.values));
+            txt = fileread(art.report);
+            for k = 1:numel(mt.labels)
+                tc.verifySubstring(txt, sprintf('%-13s %.4g', ...
+                    mt.labels{k}, mt.values(k)));
+            end
         end
 
         function test_budget_met_stage_reproduces_run_met(tc)

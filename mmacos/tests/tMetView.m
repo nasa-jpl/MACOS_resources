@@ -55,6 +55,39 @@ classdef tMetView < matlab.unittest.TestCase
                 'overlay_pts + edge_off must add line objects');
         end
 
+        function test_inset_labels_the_deck_units(testCase)
+            % PLAN 1.2 (iii), ruled 2026-10-26: the M2-M3 inset labelled its
+            % axes mm whatever the deck's units; on e2e (BaseUnits m) it
+            % plotted metres under an mm label.  The label follows the met
+            % Rx's BaseUnits= (or an explicit 'units').
+            [seg, am] = synth_();
+            rx = [tempname '.in'];
+            c = onCleanup(@() delete_if_(rx)); %#ok<NASGU>
+            fid = fopen(rx, 'w');
+            fprintf(fid, '        BaseUnits=  m\n        WaveUnits=  m\n');
+            fclose(fid);
+            am.in = rx;
+            for k = 1:2
+                if k == 1
+                    fig = macos.design.met_view(seg, am, 'rays', false, ...
+                        'visible', false);
+                    want = 'm';
+                else
+                    fig = macos.design.met_view(seg, am, 'rays', false, ...
+                        'visible', false, 'units', 'mm');
+                    want = 'mm';
+                end
+                cf = onCleanup(@() close(fig)); %#ok<NASGU>
+                ax = findobj(fig, 'Type', 'axes');
+                ai = ax(arrayfun(@(a) strcmp(a.Title.String, ...
+                    'M2-M3 MET face-on'), ax));
+                testCase.assertNumElements(ai, 1);
+                testCase.verifyEqual(ai.XLabel.String, ['hub-plane x, ' want]);
+                testCase.verifyEqual(ai.YLabel.String, ['hub-plane y, ' want]);
+                clear cf
+            end
+        end
+
         function test_title_annotation(testCase)
             [seg, am] = synth_();
             fig = macos.design.met_view(seg, am, 'rays', false, ...
