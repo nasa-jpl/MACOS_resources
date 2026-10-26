@@ -122,6 +122,7 @@ P = setdef_(P, 'pdi',  'ref_frozen', false);    % pdi.bench 'psri': hold the tra
 P = setdef_(P, 'pdi',  'ref_walk', 0);          % PF: reference-arm phase walk, rad per cycle rms
 P = setdef_(P, 'pdi',  'ref_seed', 0);          % its stream (0 = dmg_loop's default)
 P = setdef_(P, 'pdi',  'psri', struct());       % macos.design.psri_bench overrides (pdi.bench 'psri')
+P = zwfs_coat_rig(P);                           % bench.coat_oap: 'auto' -> the rig's own; the lens rig warns once
 end
 
 function P = setdef_(P, grp, fld, val)
