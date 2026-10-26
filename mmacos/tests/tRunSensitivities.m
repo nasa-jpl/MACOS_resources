@@ -630,7 +630,13 @@ classdef tRunSensitivities < matlab.unittest.TestCase
             okr = all(isfinite(art.og.dwdgall), 2);
             for s2 = 1:ns
                 cols = (s2-1)*nmode + (1:nmode);
-                v = max(abs(art.og.dwdgall(okr, cols)), [], 2);
+                % about each column's median: under the chief-ray reference
+                % (the default since 1.2 (kkk)) a poke on the chief's own
+                % segment pistons every other segment by one constant --
+                % the median, since most pixels are unpoked.  The
+                % central-dot failure is a SHAPE, so it still overlaps.
+                Ac = art.og.dwdgall(okr, cols);
+                v = max(abs(Ac - median(Ac, 1)), [], 2);
                 sup(:, s2) = v > 0.1*max(v);
             end
             for a2 = 1:ns
