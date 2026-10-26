@@ -553,11 +553,22 @@ if ~isempty(merits)
         labs{end+1} = 'edge+MET opt';
     end
     bar(vals);  set(gca, 'XTickLabel', labs, 'YScale', 'log');
+    % the axis spans every bar: a log floor left where it falls hid the
+    % 'edge+MET opt' bar on e2e (PLAN 1.2 (hhh)); each bar is labelled
+    yl = [10^floor(log10(min(vals)) - 0.25), 10^ceil(log10(max(vals)) + 0.25)];
+    ylim(yl);
+    text(1:numel(vals), vals, compose('%.3g', vals), ...
+        'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
     ylabel('w_{post} / w_{prior}  (dimensionless)');  grid on;
     title(sprintf('%s MET metric: WEM %.2f (%d segs, %d edge + %d MET meas)', ...
         name, merits.wem, nseg, es.nmeas, dm.nmeas), 'Interpreter', 'none');
     print(f, pth("_met_metric.png"), '-dpng', '-r120');  close(f);
     figs{end+1} = pth("_met_metric.png");
+    art.metric = struct('labels', {labs}, 'values', vals, 'ylim', yl);
+    say('metric chart (w_post / w_prior):\n');
+    for k = 1:numel(vals)
+        say('    %-13s %.4g\n', labs{k}, vals(k));
+    end
 end
 art.figs = figs;
 say('\n[6] figures: %s\n', strjoin(string(figs), ', '));

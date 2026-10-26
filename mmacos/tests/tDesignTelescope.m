@@ -1349,6 +1349,14 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'Strehl is a peak ratio against the unaberrated aperture');
             tc.verifyFalse(isnan(rep.fp_tilt_deg));
             tc.verifyTrue(ischar(rep.text) && numel(rep.text) > 200);
+            % Dave 2026-10-26 (mmacos manual ch. 1): the live EFL is the
+            % plate scale at the (biased) field point, and the report says
+            % so beside the engine's system EFL (SYSPROP): e2e 72.32 vs
+            % 72.14 m under one bare label "EFL" before.
+            tc.verifySubstring(rep.text, 'plate-scale EFL at the field point');
+            tc.verifySubstring(rep.text, 'system EFL');
+            tc.verifyGreaterThan(rep.EFL_sys_m, 0);
+            tc.verifyLessThan(abs(rep.EFL_m - rep.EFL_sys_m) / rep.EFL_sys_m, 0.05);
         end
 
         function test_offner_layout(tc)
