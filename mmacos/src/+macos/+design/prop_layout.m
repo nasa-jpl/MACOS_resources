@@ -217,7 +217,7 @@ function info = prop_layout(src, kinds, opts)
         n = macos.load_rx(opts.out);
         iep = find_named_(B, 'ExitPupil');
         set_stop_(opts.out, opts.stop_name);
-        s = fex_(1, opts.out);
+        s = fex_(opts.out);
         rs = abs(s.rad);
         % Take FEX's POSE, not just its radius.  FEX finds where the exit
         % pupil actually is -- vertex and axis -- and imposing the seed's
@@ -317,7 +317,7 @@ function r = fex_radius_(hdr, foot, ebl, k, F, u, rs, nm, model, tmpd, stopnm)
     macos.init(model);
     macos.load_rx(f);
     set_stop_(f, stopnm);
-    s = fex_(1, f);
+    s = fex_(f);
     r = abs(s.rad);
 end
 
@@ -336,11 +336,11 @@ function set_stop_(rx, stopnm)
     macos.stop(i, [0 0]);
 end
 
-function s = fex_(iElt, rx)
+function s = fex_(rx)
 %FEX_  macos.fex with the actionable hint attached.  A missing stop is
 %   the usual cause and the raw message does not say which deck.
     try
-        s = macos.fex(iElt);
+        s = macos.fex();     % the session axis (A.6)
     catch ME
         if strcmp(ME.identifier, 'macos:fex:noStop')
             error('macos:design:prop_layout:nostop', ...

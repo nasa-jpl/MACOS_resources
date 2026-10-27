@@ -26,7 +26,7 @@
                      predicted ~24.8 mm -> measured 24.9 mm floor
                      -> better than the frontier line on BOTH axes
 
- wall time         : 14.5 min total (12.8 solve + 1.6 score/figs)
+ wall time         : 17.4 min total (15.4 solve + 1.9 score/figs)
  artifacts         : demo_adjacent/oi_demo_12deg_map.png
                      demo_adjacent/oi_demo_12deg_layout.png
                      demo_adjacent/oi_demo_12deg_fields.png

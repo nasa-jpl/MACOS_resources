@@ -18,16 +18,13 @@ classdef tOiDemoStep < matlab.unittest.TestCase
 %     D  the verdict block's frontier-bracket line quotes the CORRECT
 %        committed rows.
 %
-%   NOT REGISTERED IN ANY SUITE.  Two full demo-knob solves is ~30 min of
-%   machine time (the same reason the five-stage offset_imager runs are
-%   not in a suite).  Run it explicitly:
+%   In SUITE_FREEFORM (model size 256; Dave 2026-10-27).  Two full
+%   demo-knob solves is ~36 min of machine time, so it is the long pole of
+%   that suite.  Run it alone:
 %
 %     MACOS_HOME=/home/dcr/dev/macos/macos_f90 matlab -batch \
 %       "run('<mmacos>/mmacos_setup.m'); \
 %        r = runtests('<mmacos>/tests/tOiDemoStep.m'); disp(table(r)); exit(0)"
-%
-%   Registration in SUITE_FREEFORM (model size 256) is Dave's call at
-%   review; the class is written so that it can be added unchanged.
 %
 %   PRE-GEN DEPENDENCY: gates A and D read the committed fallback bundle
 %   demo_adjacent/oi_demo_12deg_run.mat, produced at the pinned knobs by

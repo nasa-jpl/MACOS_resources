@@ -16,7 +16,7 @@ classdef tFocalSurface < matlab.unittest.TestCase
         FOV   = 2.90888e-4      % half-field (rad) = 1 arcmin
         STOPE = 25              % the FSM is the pupil; deck carries no ApStop
         NG    = 63
-        MODEL = 256
+        ModelSize = 256
     end
 
     properties
@@ -37,10 +37,10 @@ classdef tFocalSurface < matlab.unittest.TestCase
             copyfile(fullfile(src, 'flat64.txt'), fullfile(tc.wd, 'flat64.txt'));
             old = cd(tc.wd);  c = onCleanup(@() cd(old)); %#ok<NASGU>
 
-            macos.init(tc.MODEL);
+            macos.init(tc.ModelSize);
             tc.fs = focal_surface(tc.rx, 'fov_rad', tc.FOV, 'grid', '3x3', ...
                 'fit', 'sphere', 'stop_elt', tc.STOPE, 'ngridpts', tc.NG, ...
-                'model_size', tc.MODEL, 'verbose', false, ...
+                'model_size', tc.ModelSize, 'verbose', false, ...
                 'write', fullfile(tc.wd, 'emitted.in'));
         end
     end
@@ -188,7 +188,7 @@ classdef tFocalSurface < matlab.unittest.TestCase
             out = fullfile(tc.wd, 'emitted.in');
             tc.verifyTrue(isfile(out));
             old = cd(tc.wd);  c = onCleanup(@() cd(old)); %#ok<NASGU>
-            m = macos.Session(tc.MODEL);
+            m = macos.Session(tc.ModelSize);
             m.load_rx(out);
             nE = m.num_elt();
             tc.verifyEqual(macos.get_elt_kr(nE), tc.fs.deck.emit.kr, ...
@@ -196,7 +196,7 @@ classdef tFocalSurface < matlab.unittest.TestCase
             tc.verifyEqual(macos.get_elt_kr(26), tc.fs.deck.emit.kr, ...
                 'RelTol', 1e-9);
             m.set_src_sampling(tc.NG);  m.stop(int32(tc.STOPE));
-            macos.fex(nE-1);
+            macos.fex();
             xp = macos.get_xp();
             % on axis the fitted-surface leg and the old one differ by the
             % vertex shift only -- a few microns -- so pin loosely but
@@ -212,7 +212,7 @@ classdef tFocalSurface < matlab.unittest.TestCase
             % column -- the values that report had to construct by hand.
             out = fullfile(tc.wd, 'emitted.in');
             old = cd(tc.wd);  c = onCleanup(@() cd(old)); %#ok<NASGU>
-            m = macos.Session(tc.MODEL);
+            m = macos.Session(tc.ModelSize);
             m.load_rx(out);  m.set_src_sampling(tc.NG);  m.stop(int32(tc.STOPE));
             nom = m.get_src_fov();  wfe = m.num_elt() - 1;
             f = tc.FOV;
@@ -227,10 +227,14 @@ classdef tFocalSurface < matlab.unittest.TestCase
                 m.set_src_fov('src_pos', nom.src_pos, 'src_dir', v/norm(v), ...
                               'zSrc', nom.zSrc);
                 m.modify();  m.stop(int32(tc.STOPE));
-                macos.fex(wfe);
+                macos.fex();
                 m.trace(wfe);
-                W = m.opd();  msk = W ~= 0;
-                got(k) = sqrt(mean(W(msk).^2));
+                % piston removed over the engine's pupil: the V3 pins
+                % were taken under the mean reference (no piston); the
+                % chief reference (f79c2580) adds a per-field piston
+                W = m.opd();  msk = macos.opd_mask();
+                w = W(msk) - mean(W(msk));
+                got(k) = sqrt(mean(w.^2));
             end
             tc.verifyLessThanOrEqual(got(2:5), v3(2:5) * 1.02, ...
                 'the measured focal surface must not be worse than the declared one');
@@ -243,7 +247,7 @@ classdef tFocalSurface < matlab.unittest.TestCase
         function test_write_refuses_to_overwrite_the_input(tc)
             tc.verifyError(@() focal_surface(tc.rx, 'fov_rad', tc.FOV, ...
                 'grid', '2x2', 'stop_elt', tc.STOPE, 'ngridpts', tc.NG, ...
-                'model_size', tc.MODEL, 'verbose', false, 'write', tc.rx), ...
+                'model_size', tc.ModelSize, 'verbose', false, 'write', tc.rx), ...
                 'macos:focal_surface:write');
         end
 
