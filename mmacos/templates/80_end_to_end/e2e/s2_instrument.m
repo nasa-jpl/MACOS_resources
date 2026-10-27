@@ -535,7 +535,9 @@ function r = m1_hole_radius_(t, margin)
 end
 
 function w = rms_waves(W, lam)
-    v = W(isfinite(W) & W ~= 0 & abs(W) < 1e30);
+    % the pupil is the engine's opd_mask, not W ~= 0: under the chief-ray
+    % reference a valid ray at the chief's path reads exactly 0 ((uuu)/(vvv))
+    v = W(macos.opd_mask() & isfinite(W) & abs(W) < 1e30);
     if isempty(v), w = NaN; else, w = std(v)/lam; end
 end
 function s = ternary(c, a, b), if c, s = a; else, s = b; end, end
