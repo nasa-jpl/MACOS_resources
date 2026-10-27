@@ -3,6 +3,9 @@ classdef tCophiBench < matlab.unittest.TestCase
 %   registers with the test arm at the camera (BRIEF_to_cophi.md sec. 1 + 3).
 %   Its own class, NOT SUITE_FAST: it builds both TG96 rigs at model 1024
 %   (~1 min each) through cophi_run's 'bench' stage, into a temp dir.
+%   Wired as SUITE_1024 (`./run_mmacos_tests.sh bench1024`, never in the
+%   full run): measured 2026-10-27 standalone, 9/0 in 1303 s wall with a
+%   12.1 GB peak (model 1024 plus the 16-min noise leg).
 %
 %   Gates (both rigs: the lens rig and the mirror rig of record):
 %     B1  the chief rays of the two decks land on the same camera pixel (< 1 px)

@@ -76,16 +76,9 @@ function chk = jacobian_check(rx, ox, opts)
         assert(~isempty(ic), 'jacobian_check: no field ''%s'' in OX', ...
                opts.field);
         A0   = ox.per_field_dwdx{ic};
-        Wnom = ox.per_field_w_nom_2d{ic};
     else
         A0   = ox.dwdx;
-        Wnom = ox.w_nom_2d;
     end
-    mnom = finite_(Wnom);
-    idx  = find(mnom);
-    assert(nnz(mnom) == size(A0,1), ...
-        'jacobian_check: nominal mask (%d px) vs Jacobian rows (%d)', ...
-        nnz(mnom), size(A0,1));
 
     kind = ox.kind(:);
     isrb = strcmp(kind, 'RigidBody');
@@ -104,6 +97,15 @@ function chk = jacobian_check(rx, ox, opts)
     macos.load_rx(rx);
     macos.trace(wf);
     W0 = macos.opd();
+    % the pupil is the engine's valid-ray mask, never W ~= 0: under the
+    % chief-ray reference the chief's own pixel reads exactly 0 (the (uuu)
+    % rule; PLAN_CONSOLIDATION 1.2 (vvv), first file of the sweep).  The
+    % harvest's rows must index the same pupil -- a mismatch is a finding.
+    mnom = macos.opd_mask() & isfinite(W0) & abs(W0) < 1e30;
+    idx  = find(mnom);
+    assert(nnz(mnom) == size(A0,1), ...
+        'jacobian_check: nominal mask (%d px) vs Jacobian rows (%d)', ...
+        nnz(mnom), size(A0,1));
     % the OPD (and so the floor comparison) is in deck BaseUnits
     if isfield(ox, 'cbm'), cbm = ox.cbm; else, cbm = macos.cbm(); end
     floor_bu = opts.w_floor / cbm;
@@ -122,10 +124,11 @@ function chk = jacobian_check(rx, ox, opts)
                           'frame','local');
             macos.modify();  macos.trace(wf);
             W1 = macos.opd();
+            M1 = macos.opd_mask();
             macos.perturb(e, 'rotation', -d(1:3), 'translation', -d(4:6), ...
                           'frame','local');
             macos.modify();
-            b    = mnom & finite_(W1);
+            b    = mnom & M1 & isfinite(W1) & abs(W1) < 1e30;
             rows = find(ismember(idx, find(b)));
             v1 = W1(b);  v0 = W0(b);  md = A0(rows, q) * a;
             if strcmp(opts.piston, 'remove')   % both sides (1.2 (www))
@@ -160,9 +163,6 @@ function chk = jacobian_check(rx, ox, opts)
     if strcmp(opts.piston, 'remove'), chk.opd_piston = 'removed'; end
 end
 
-function m = finite_(W)
-    m = isfinite(W) & W ~= 0 & abs(W) < 1e30;
-end
 function r = rms_(v)
     v = v(:);  if isempty(v), r = 0; else, r = sqrt(mean(v.^2)); end
 end

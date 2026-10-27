@@ -17,6 +17,9 @@
 #                                           # (~10 min — heavyweight)
 #   ./run_mmacos_tests.sh proper            # only Phase 5 PROPER cmp
 #   ./run_mmacos_tests.sh polfloor          # only Phase 2c contrast floor
+#   ./run_mmacos_tests.sh bench1024         # the model-1024 bench gates
+#                                           # (tCophiBench, ~22 min, ~12 GB;
+#                                           # NOT in the full run)
 #   ./run_mmacos_tests.sh tMacosPkg         # one class by name
 #   ./run_mmacos_tests.sh -k roundtrip      # methods matching a substring
 #   ./run_mmacos_tests.sh -j 8 fast         # the same, sharded over 8 MATLAB
@@ -277,7 +280,8 @@ SUITE_FAST=$(join_suites \
     "tTgPol" "tTgPol2" "tStopReload" "tDmgLoop" "tTmaLongslit" "tSpectrometerSens" "tPupilBlurDemo" "tRxShortCoef" "tRxRefuse" "tRxLineEndings" "tTraceKeepsRx" "tSaveFixedPoint" "tZrnGrRoundTrip" "tGridDropped" "tCalibTargets" \
     "tLinkSave" "tZernikeGridBasis" "tRxBlockComment" \
     "tGratingImmersed" "tGratingAperture" "tRayFailElt" "tGlassDispersion" "tPropMedium" "tRxShortAsph" \
-    "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tCalibStop" "tCalibMatrix" "tSessionModes" "tStopApStop" "tFreeformPole" "tCophi" "tBudgetKernel" "tRunBudget" "tResolutionSweep" "tApiCoverage" "tDefaults" "tSrt" "tSegRay" "tRefRays" "tSint" "tMessages" "tSaveNewFileQuiet" "tRxLoadRulings1018" "tVeneerDefaults" "tZwfsCoat" "tE2eRmsWaves")
+    "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tCalibStop" "tCalibMatrix" "tSessionModes" "tStopApStop" "tFreeformPole" "tCophi" "tBudgetKernel" "tRunBudget" "tResolutionSweep" "tApiCoverage" "tDefaults" "tSrt" "tSegRay" "tRefRays" "tSint" "tMessages" "tSaveNewFileQuiet" "tRxLoadRulings1018" "tVeneerDefaults" "tZwfsCoat" "tE2eRmsWaves" \
+    "tNollMode" "tConvergedEst" "tTmaTelecentric" "tJacobianCheck")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the
@@ -290,8 +294,9 @@ SUITE_QUICK=$(join_suites \
 # tFreeFormComposite + tCalib + tReadGridFile + tViewRx + tStrictKernel
 # + tAfocalKernel + tPupilMap + tDesignAfocal + tAfocal4 + tAfocal4Clear
 # + tAfocal4Wall + tAfocal4Descent
-# + tE2E2Axial + tPolContrast + tRodgers3 + tOffsetImager at 256
-SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tOptFex" "tStrictKernel" "tAfocalKernel" "tPupilMap" "tDesignAfocal" "tAfocal4" "tAfocal4Clear" "tAfocal4Wall" "tAfocal4Descent" "tAfocal4Offaxis" "tE2E2Axial" "tPolContrast" "tRodgers3" "tOffsetImager" "tOiSeedBranch")
+# + tE2E2Axial + tPolContrast + tRodgers3 + tOffsetImager
+# + tDwDsurf + tEltTypeCoverage + tNsFlowOfLight at 256
+SUITE_FREEFORM=$(join_suites "tFreeFormComposite" "tCalib" "tReadGridFile" "tViewRx" "tSurfInspect" "tOptFex" "tStrictKernel" "tAfocalKernel" "tPupilMap" "tDesignAfocal" "tAfocal4" "tAfocal4Clear" "tAfocal4Wall" "tAfocal4Descent" "tAfocal4Offaxis" "tE2E2Axial" "tPolContrast" "tRodgers3" "tOffsetImager" "tOiSeedBranch" "tDwDsurf" "tEltTypeCoverage" "tNsFlowOfLight")
 # Note: tBandLimitedMask is pure math (no macos calls), safe in any
 # group; lives in "fast" because it's quick.
 # EP-dome ruling gate (Dave 2026-09-08): sensitivity OPD read at the exit
@@ -320,8 +325,13 @@ SUITE_CTB_512=$(join_suites "tCtbProp" "tCtbDm" "tCfCampaign")
 SUITE_PFM_512=$(join_suites "tPupilFindMethod")
 # tEngineMemory deliberately walks model 128 <-> 256 to prove macos.unload
 # rebuilds the engine smaller.  Own batch so a size transition it induces
-# cannot seed PLAN.md §0 heap corruption into another group.
-SUITE_MEMORY=$(join_suites "tEngineMemory")
+# cannot seed PLAN.md §0 heap corruption into another group.  tEndurance
+# (500 trace iterations at 128, ~30 s) rides with it.
+SUITE_MEMORY=$(join_suites "tEngineMemory" "tEndurance")
+# Model-1024 bench gates: tCophiBench builds both TG96 rigs at 1024 plus a
+# 16-min noise leg -- ~22 min and a ~12 GB peak, so it runs ONLY when named
+# (`bench1024`), never in the full run or a -j shard set.
+SUITE_1024=$(join_suites "tCophiBench")
 SUITE_PROPER_1024=$(join_suites "tProperCompareCoroNFprop" "tProperCompareCoroPhase3" "tProperCompareCoroApodizer" "tProperCompareCoroDMPhase")
 # Aggregate for the `proper` shortcut (runs in two batches — the
 # initial Cass-FF group at 512 then the Coro group at 1024 — to
@@ -381,6 +391,10 @@ case "${1:-}" in
     proper)
         # Phase 5 PROPER-comparison suite — now one batch.
         run_batch "[$SUITE_PROPER_512, $SUITE_PROPER_1024]" "proper (Cass-FF + Coro NF)"
+        ;;
+    bench1024)
+        # The model-1024 bench gates, own process (~22 min, ~12 GB).
+        run_batch "$SUITE_1024" "bench gates (size 1024)"
         ;;
     ctb)
         # CTB coronagraph diffraction chain, size 512.
