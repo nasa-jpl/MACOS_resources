@@ -18,3 +18,12 @@ mmacos/BRIEF_ep_dome_ccmac_handback.md
 mmacos/PLAN_EXAMPLES_REORG.md
 mmacos/templates/30_instruments/bench_ctb/BRIEF_dst_defects.md
 # 2026-10-21 (Dave): the per-package CLAUDE.md files, the optical_design agent guides / rules / references / fixtures and doc/mmacos_pymacos_parity.md SHIP; plans, status, briefs and .vscode stay on dev
+# 2026-10-27 (CC, release-gate dry run): the lane process files by PATTERN, as macos's list
+# does -- a glob without '/' matches the basename anywhere.  The dry run found 17 dyson5
+# BRIEF_*.md, 2 NOTE_*.md and design/PLAN_CONFIGURATIONS.md that the named lines above missed.
+BRIEF_*.md
+NOTE_*.md
+PLAN_*.md
+STATUS_*.md
+SESSION_STATE_*.md
+CURRENT_SLICE.md
