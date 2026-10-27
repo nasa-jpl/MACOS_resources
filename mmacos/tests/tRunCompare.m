@@ -20,6 +20,7 @@ classdef tRunCompare < matlab.unittest.TestCase
         ox        % real single-field dw_dx_multi harvest
         oz        % real single-field dw_dz (monzern) harvest
         og        % real single-field dw_dgrid harvest (augmented Rx)
+        hv = struct()   % chief / mean harvests for the piston tests, made once
     end
 
     methods (TestClassSetup)
@@ -203,6 +204,92 @@ classdef tRunCompare < matlab.unittest.TestCase
             end
             tc.verifyEqual(tc.ox.opd_ref, 'chief');
             tc.verifyEqual(oxm.opd_ref, 'mean');
+        end
+
+        function test_simulator_chief_equals_mean_harvest(tc)
+            % PLAN 1.2 (www), ruled 2026-10-27 (piston removal is essential
+            % in an imager analysis): a chief-referenced harvest carries the
+            % chief ray's own piston in every column, and run_simulator
+            % solves its control against a piston-removed engine wavefront.
+            % The same history from a chief and a mean harvest must give the
+            % same control and the same corrected wavefront.
+            M = load(tc.met5.mat);
+            nb = numel(M.bodies);
+            ts = struct('dt', 2);
+            ts.x = zeros(6*nb, 2);
+            ts.x(12, :) = 5e-6;                   % Seg 2 Tz: 5 um (SI)
+            ts.x(46, :) = 3e-6;                   % hub Tx: 3 um
+            s = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, 'ts', ts, ...
+                'npix', 32, 'psf_crop', 32, 'dwell', 0, 'gif', false, ...
+                'ngridpts', 15, 'visible', false, 'verbose', false, ...
+                'out_dir', tc.wd};
+            r = {'chief', 'mean'};  a = cell(1, 2);
+            for k = 1:2
+                a{k} = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                    'jac', struct('ox', tc.harvest_(r{k}, '1x1')), 'name', "pf_" + r{k});
+            end
+            tc.verifyEqual(a{1}.u, a{2}.u, 'AbsTol', 1e-6 * max(abs(a{2}.u)), ...
+                'the control from a chief harvest differs from a mean harvest''s');
+            tc.verifyEqual(a{1}.rms_wfe_corr, a{2}.rms_wfe_corr, 'RelTol', 1e-6);
+            tc.verifyLessThan(a{1}.rms_wfe_corr(2), 0.2 * a{1}.rms_wfe_unc(2), ...
+                'the control loop bites');
+        end
+
+        function test_s7_scale_chief_equals_mean_harvest(tc)
+            % PLAN 1.2 (www): e2e/s7_simulate.m sizes its initial pose and its
+            % drift to a wavefront-error target by rms_(B*x) on the center-
+            % field columns.  That rms must be about the mean, so a chief and
+            % a mean harvest set the same scale.  The helper is cut from the
+            % template itself.
+            here = fileparts(mfilename('fullpath'));
+            s7 = fullfile(fileparts(here), 'templates', '80_end_to_end', 'e2e', 's7_simulate.m');
+            L = regexp(fileread(s7), '^rms_ = @[^\n]*', 'match', 'once', 'lineanchors');
+            tc.assertNotEmpty(L, 's7_simulate.m no longer defines rms_');
+            eval(L);
+            B = cell(1, 2);  r = {'chief', 'mean'};
+            for k = 1:2
+                o = macos.dwdx_trans_per_metre(tc.harvest_(r{k}, '1x1'));
+                B{k} = o.per_field_dwdx{strcmp(o.field_names, 'C')};
+            end
+            tc.assertGreaterThan(max(abs(mean(B{1}, 1) - mean(B{2}, 1))), ...
+                1e-3 * max(abs(B{2}(:))), 'the fixture must carry a chief piston');
+            rng(7);  x = randn(size(B{1}, 2), 1);
+            tc.verifyEqual(rms_(B{1} * x), rms_(B{2} * x), 'RelTol', 1e-6);
+            for j = 1:size(B{1}, 2)
+                tc.verifyEqual(rms_(B{1}(:, j)), rms_(B{2}(:, j)), 'RelTol', 1e-6, ...
+                    sprintf('column %d', j));
+            end
+        end
+
+        function test_met_prior_chief_equals_mean_harvest(tc)
+            % PLAN 1.2 (www): run_met's Gram (the prior, the post-sensing
+            % residuals, the WEM rows) and its tilt / non-tilt split come
+            % from piston-free columns, each field over its own pupil, so a
+            % chief and a mean MULTI-FIELD harvest give the same merits (the
+            % chief's per-field piston once read as a 0.19 nm "tilt" prior).
+            % (no 'aft': the harvest's fp_mode 'none' gives the FPA no columns)
+            r = {'chief', 'mean'};  a = cell(1, 2);
+            for k = 1:2
+                lastwarn('');
+                a{k} = run_met(fullfile(tc.wd, 'pie.in'), ...
+                    'hx', fullfile(tc.wd, 'pieHx.m'), 'jac', tc.harvest_(r{k}, '3x3'), ...
+                    'hub', 8, 'r_extra', 100, 'min_sep', 30, ...
+                    'ngridpts', 15, 'optimize', false, 'mc', 0, 'verbose', false, ...
+                    'out_dir', tc.wd, 'name', "pf_" + r{k});
+                [~, wid] = lastwarn();
+                tc.verifyNotEqual(wid, 'run_met:piston_rows', ...
+                    'the stacked rows must be assigned to their fields');
+            end
+            for f = ["prior", "edge", "met", "edge_met", "wem", "wem_dt", "floor_frac_dt"]
+                tc.verifyEqual(a{1}.merits.(f), a{2}.merits.(f), 'RelTol', 1e-6, char(f));
+            end
+            % the tilt WEM is a numerical zero on this fixture (8e-14 against
+            % a WEM of 1.2e3): a bound, not a match -- before the fix the
+            % chief harvest's per-field piston read 649 here
+            for k = 1:2
+                tc.verifyLessThan(abs(a{k}.merits.wem_tilt), 1e-9 * a{k}.merits.wem, ...
+                    sprintf('wem_tilt (%s harvest)', r{k}));
+            end
         end
 
         function test_base_and_legacy_si_jac_compare_identically(tc)
@@ -456,6 +543,20 @@ classdef tRunCompare < matlab.unittest.TestCase
     end
 
     methods (Access = private)
+        function o = harvest_(tc, ref, grid)
+            % a center-field-anchored dw_dx_multi harvest on the met Rx at
+            % opd_ref REF over GRID ('1x1' / '3x3'), made once per class
+            key = sprintf('%s_%s', ref, strrep(grid, 'x', '_'));
+            if ~isfield(tc.hv, key)
+                m = macos.Session(512);
+                tc.hv.(key) = macos.dw_dx_multi(m, char(tc.met5.met_in), ...
+                    'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                    'grid', grid, 'fp_mode', 'none', 'ngridpts', 15, ...
+                    'reset_xp', false, 'opd_ref', ref);
+            end
+            o = tc.hv.(key);
+        end
+
         function d = poke_delta_(~, m, ch, wf)
             % OPD change (2-D) from a single channel poke, restored after.
             m.trace(wf);  W0 = m.opd();
