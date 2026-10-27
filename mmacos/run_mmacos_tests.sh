@@ -19,6 +19,27 @@
 #   ./run_mmacos_tests.sh polfloor          # only Phase 2c contrast floor
 #   ./run_mmacos_tests.sh tMacosPkg         # one class by name
 #   ./run_mmacos_tests.sh -k roundtrip      # methods matching a substring
+#   ./run_mmacos_tests.sh -j 8 fast         # the same, sharded over 8 MATLAB
+#                                           # sessions (any mode; MM_JOBS=8 too)
+#
+# Sharding (-j N, 2026-10-27): the suite is enumerated once, partitioned by
+# tests/shard_partition.py (one class per unit, never two model sizes in one
+# process, longest-first onto the least-loaded shard using tests/timings/*.csv),
+# and N `matlab -batch` sessions run the shards at once; each writes
+# results_<k>.csv + shard_<k>.log under $MM_SHARD_DIR (default a fresh
+# /tmp/mm_shards.<pid>), and the summary names every failure with its log.
+# Memory: a shard peaks at ~4 GB (model-512 classes; measured 2026-10-27:
+# 3.5-4.1 GB for tRunSensitivities / tRunCompare / tSegmentRx+tRunMet, 1.6-2.6
+# GB for the model-128 shards).  Eight shards need ~22 GB and were killed by
+# systemd-oomd on the 30 GB box with the editor open, so the launch clamps the
+# job count to (MemAvailable - MM_MEM_MARGIN_GB) / MM_SHARD_GB and says so.
+# Measured 2026-10-27 (serial fast wall 2645 s): -j 8 unclamped 991 s (2.7x, memory
+# at the edge); -j 4 clamped to 3 at once with the thread cap 1541 s (1.7x) --
+# the tests themselves ran FASTER than serial once each shard was capped to
+# its share of the cores (1976 s of test time vs 2338 s).
+# Every run, sharded or not, snapshots `git status` before and after and FAILS
+# if a test modified a tracked file (the tRodgers3 lesson, PLAN_CONSOLIDATION
+# 1.2 (ttt)); new untracked files are listed as a warning.
 #
 # Why two batches when no filter is given:
 #   macos's Fortran engine corrupts internal state when init() is
@@ -43,6 +64,19 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+
+# -j N (or MM_JOBS=N): shard the batch over N MATLAB sessions.  1 = serial.
+JOBS="${MM_JOBS:-1}"
+if [ "${1:-}" = "-j" ]; then
+    JOBS="$2"; shift 2
+fi
+case "$JOBS" in ''|*[!0-9]*|0) echo "error: -j needs a positive integer" >&2; exit 2;; esac
+# Classes whose tests may be scheduled individually across shards (cheap
+# TestClassSetup: init + a fixture path).  A class with a heavy setup stays
+# whole so its fixtures are built once.
+MM_SHARD_SPLIT="${MM_SHARD_SPLIT:-tDwDx tDwDzZernike}"
+MM_SHARD_GB="${MM_SHARD_GB:-4}"            # peak RSS per shard, GB (measured)
+MM_MEM_MARGIN_GB="${MM_MEM_MARGIN_GB:-3}"  # headroom kept for the rest of the box
 
 MACOS_BUILD_DIR="${MACOS_BUILD_DIR:-$HOME/dev/macos/build_release_gfortran}"
 # MATLAB location differs by OS: /Applications/MATLAB_R20XXx.app on macOS,
@@ -119,7 +153,90 @@ fi
 # Explicit `exit(0)` at end — without it matlab -batch on R2026a hangs
 # at process exit when a mex is loaded (same family as the
 # `clear mmacos` bug; see mmacos/CLAUDE.md).
+# Clean-tree guard: a test must not modify a tracked file (it may only write
+# under a temp dir).  Snapshot before, compare after; modified tracked files
+# fail the batch, new untracked files are listed.
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+tree_snapshot() { git -C "$REPO_DIR" status --porcelain --untracked-files=all 2>/dev/null | sort; }
+tree_check() {
+    local before="$1" label="$2" after
+    after="$(tree_snapshot)"
+    local newmod newunt
+    newmod="$(comm -13 <(echo "$before") <(echo "$after") | grep -v '^??' || true)"
+    newunt="$(comm -13 <(echo "$before") <(echo "$after") | grep '^??' || true)"
+    if [ -n "$newunt" ]; then
+        echo "warning: [$label] left new untracked files:"; echo "$newunt" | sed 's/^/    /'
+    fi
+    if [ -n "$newmod" ]; then
+        echo "error: [$label] MODIFIED tracked files (a test wrote into the library tree):"
+        echo "$newmod" | sed 's/^/    /'
+        return 1
+    fi
+    return 0
+}
+
 run_batch() {
+    local SUITE_EXPR="$1"
+    local LABEL="$2"
+    local BEFORE rc=0
+    BEFORE="$(tree_snapshot)"
+    if [ "$JOBS" -gt 1 ]; then
+        run_sharded "$SUITE_EXPR" "$LABEL" || rc=1
+    else
+        run_serial "$SUITE_EXPR" "$LABEL" || rc=1
+    fi
+    tree_check "$BEFORE" "$LABEL" || rc=1
+    return $rc
+}
+
+# N shards: enumerate the suite in one short MATLAB session, partition it,
+# launch one `matlab -batch` per shard in the background, wait, summarize.
+run_sharded() {
+    local SUITE_EXPR="$1"
+    local LABEL="$2"
+    local OUT="${MM_SHARD_DIR:-/tmp/mm_shards.$$}"
+    mkdir -p "$OUT"
+    echo "--- [$LABEL] sharded -j $JOBS -> $OUT ---"
+    local ENUM="$SETUP_PATHS suite = $SUITE_EXPR; fid = fopen('$OUT/names.txt', 'w'); for k = 1:numel(suite), fprintf(fid, '%s\n', suite(k).Name); end; fclose(fid); exit(0);"
+    "$MATLAB_DIR/bin/matlab" -batch "$ENUM" > "$OUT/enumerate.log" 2>&1 || { echo "error: suite enumeration failed ($OUT/enumerate.log)"; return 1; }
+    rm -f "$OUT"/shard_*.txt "$OUT"/results_*.csv
+    python3 "$SCRIPT_DIR/tests/shard_partition.py" partition --names "$OUT/names.txt" \
+        --tests-dir "$SCRIPT_DIR/tests" --timings "$SCRIPT_DIR/tests/timings" \
+        --jobs "$JOBS" --out "$OUT" --split "$MM_SHARD_SPLIT" || return 1
+    # clamp the parallelism to what memory allows RIGHT NOW (another lane's
+    # MATLAB, the editor and the browser all count); shards beyond the clamp
+    # run after the first ones finish, in launch order
+    local avail_gb fit
+    avail_gb=$(awk '/MemAvailable/{printf "%d", $2/1048576}' /proc/meminfo 2>/dev/null || echo 0)
+    fit=$(( (avail_gb - MM_MEM_MARGIN_GB) / MM_SHARD_GB ))
+    [ "$fit" -lt 1 ] && fit=1
+    local nshard; nshard=$(ls "$OUT"/shard_*.txt | wc -l)
+    local par="$JOBS"; [ "$fit" -lt "$par" ] && par="$fit"
+    echo "memory: ${avail_gb} GB available, ${MM_SHARD_GB} GB per shard + ${MM_MEM_MARGIN_GB} GB margin -> $par of $nshard shards at once"
+    # each shard gets its share of the cores for MATLAB's own threaded math
+    # (the engine mex is single-threaded); N shards at 16 threads each
+    # oversubscribe the box and every shard slows
+    local ncpu threads
+    ncpu=$(nproc 2>/dev/null || echo 4)
+    threads=$(( ncpu / par )); [ "$threads" -lt 1 ] && threads=1
+    echo "threads: $ncpu cores -> maxNumCompThreads($threads) per shard"
+    local pids=() k f t0
+    t0=$(date +%s)
+    for f in "$OUT"/shard_*.txt; do
+        while [ "$(jobs -rp | wc -l)" -ge "$par" ]; do sleep 5; done
+        k="${f##*/shard_}"; k="${k%.txt}"
+        local SCRIPT="maxNumCompThreads($threads); $SETUP_PATHS suite = $SUITE_EXPR; names = strtrim(string(readlines('$f'))); suite = suite(ismember(string({suite.Name}), names)); if isempty(suite), exit(0); end; runner = matlab.unittest.TestRunner.withTextOutput; results = runner.run(suite); T = table(results); writetable(T(:, {'Name', 'Passed', 'Failed', 'Incomplete', 'Duration'}), '$OUT/results_$k.csv'); n_failed = sum([results.Failed]); fprintf('=== shard $k: %d pass, %d fail ===\n', sum([results.Passed]), n_failed); if n_failed > 0, exit(1); end; exit(0);"
+        "$MATLAB_DIR/bin/matlab" -batch "$SCRIPT" > "$OUT/shard_$k.log" 2>&1 &
+        pids+=($!)
+    done
+    local rc=0 p
+    for p in "${pids[@]}"; do wait "$p" || rc=1; done
+    echo "shards finished in $(( $(date +%s) - t0 )) s wall"
+    python3 "$SCRIPT_DIR/tests/shard_partition.py" summarize --out "$OUT" --label "$LABEL" --t0 "$t0" || rc=1
+    return $rc
+}
+
+run_serial() {
     local SUITE_EXPR="$1"
     local LABEL="$2"
     local SCRIPT="$SETUP_PATHS suite = $SUITE_EXPR; if isempty(suite), exit(0); end; runner = matlab.unittest.TestRunner.withTextOutput; results = runner.run(suite); disp(table(results)); n_failed = sum([results.Failed]); n_passed = sum([results.Passed]); fprintf('=== $LABEL: %d pass, %d fail ===\n', n_passed, n_failed); if n_failed > 0, exit(1); end; exit(0);"
