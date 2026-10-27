@@ -22,7 +22,7 @@ function OUT = r5_negctl()
     B = load(fullfile(here,'r3_build.mat'));  G = B.D.r5;
     S = rodgers3_seq();  R = S.r5;
 
-    txt_ok  = fileread(G.deck);
+    txt_ok  = fileread(r3_deck_path(G, here));
     txt_bad = bump_modes_(txt_ok);
 
     w_ok  = score9_(txt_ok,  G, R);

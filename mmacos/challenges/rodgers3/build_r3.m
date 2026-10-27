@@ -64,9 +64,13 @@ function D = build_r3(opts)
 %     'zrn_flip_m2'  false  180-deg-about-x flip of m2's Zernike frame
 %                    (the "shape data flips too" hypothesis; screen only)
 %     'suffix'    ''   filename suffix (screen artifacts don't clobber)
+%     'out_dir'   ''   where the decks and r3_build<suffix>.mat go ('' =
+%                      this directory; a suite run passes a temp dir so it
+%                      never rewrites the committed files, (ttt))
 %
 %   Returns D: per-rung struct with the emitted geometry (for the
-%   layout gate in run_r3_s0.m) and the deck path.
+%   layout gate in run_r3_s0.m) and the deck's file name (G.deck, beside
+%   the .mat; resolve it with r3_deck_path).
 
     arguments
         opts.sgn_stop (1,1) double = +1
@@ -75,9 +79,11 @@ function D = build_r3(opts)
         opts.sgn_m    (1,3) double = [+1 +1 +1]
         opts.zrn_flip_m2 (1,1) logical = false
         opts.suffix   (1,:) char = ''
+        opts.out_dir  (1,:) char = ''
     end
     here = fileparts(mfilename('fullpath'));
     addpath(here);
+    od = opts.out_dir;  if isempty(od), od = here; end
     S = rodgers3_seq();
     mm = 1e-3;
 
@@ -162,13 +168,14 @@ function D = build_r3(opts)
                    'XAN',R.XAN, 'YAN',R.YAN, 'cdir',cdir, 'cpos',cpos, ...
                    'sgn',opts);
 
-        deck = fullfile(here, sprintf('r3_%s%s.in', rk, opts.suffix));
+        deck = fullfile(od, sprintf('r3_%s%s.in', rk, opts.suffix));
         emit_deck_(deck, G);
-        G.deck = deck;
+        [~, dn, de] = fileparts(deck);
+        G.deck = [dn de];                % relative to the .mat's directory
         D.(rk) = G;
         fprintf('built %s  (%s)\n', deck, R.title);
     end
-    save(fullfile(here, sprintf('r3_build%s.mat',opts.suffix)), 'D');
+    save(fullfile(od, sprintf('r3_build%s.mat',opts.suffix)), 'D');
 end
 
 % =====================================================================
