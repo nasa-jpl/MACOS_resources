@@ -62,11 +62,16 @@ the process-looking survivors), and why:
   state, like the `design/PLAN_*.md` entries).
 - KEPT, deliberately: `mmacos/design/PLAN_CONFIGURATIONS.md` (linked from
   the zoom_5x5 README -- a plan, but a user doc points at it; stripping
-  it breaks that link) and the `REPORT_*.md` files inside templates
-  (`bench_ctb/REPORT_field_servo`, `pdi_dm96/REPORT_gauge_pdi`,
-  `tg_psi_dm96_oap/REPORT_{bench_realism,gauge_ifo,oap,reflective}`):
-  each is linked from 1-4 READMEs as the bench's record, so they are
-  documentation here, unlike the macos-root `REPORT_*.md` findings.
+  it breaks that link).
+- The `REPORT_*.md` files inside templates (`bench_ctb/REPORT_field_servo`,
+  `pdi_dm96/REPORT_gauge_pdi`,
+  `tg_psi_dm96_oap/REPORT_{bench_realism,gauge_ifo,oap,reflective}`) were
+  kept through 2026-10-27 as the benches' records (each linked from 1-4
+  READMEs).  **Dave 2026-10-27: they do not ship** -- `REPORT_*.md` is on
+  the exclude list by pattern; the files stay tracked on dev-candidate and
+  in the local clones, and the README links to them break on the release
+  surface.  What becomes of them is to be rethought before the re-clone
+  (the runbook's keepers step).
 - Gate: the dry-run recipe in the macos repo's `DEV_FILES.md` ("Gate:
   dry-run the strip") applies here verbatim; the .txt is a bare list
   (no comments/blank lines -- an empty line aborts `git rm`).
