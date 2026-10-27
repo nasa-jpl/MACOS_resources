@@ -132,6 +132,13 @@ arguments
     opts.name (1,1) string = ""
     opts.visible (1,1) logical = true
     opts.verbose (1,1) logical = true
+    opts.piston (1,:) char {mustBeMember(opts.piston, {'remove','keep'})} = 'remove'
+                                    % wavefront piston, BOTH sides of every
+                                    % poke (the harvested columns via
+                                    % macos.piston and the engine truth,
+                                    % each over the common pupil): 'remove'
+                                    % (default) | 'keep'.  PLAN 1.2 (www),
+                                    % Dave 2026-10-27
 end
 assert(isfile(seg_in), 'run_compare: %s not found', seg_in);
 assert(isfile(opts.hx), 'run_compare: Hx sidecar %s not found', opts.hx);
@@ -170,6 +177,10 @@ assert(isfile(met_rx), 'run_compare: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
 opd_ref = harvest_opd_ref_(J, 'run_compare');
+for f_ = {'ox', 'oz', 'og'}                  % opts.piston on every leg (1.2 (www))
+    if ~isempty(J.(f_{1})), J.(f_{1}) = macos.piston(J.(f_{1}), opts.piston); end
+end
+rm_piston = strcmp(opts.piston, 'remove');
 J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
 chansel = opts.channels;
@@ -279,7 +290,8 @@ assert(l0.n == nl, ...
 l0b = l0.l;
 say('    baseline: %d OPD pixels (jac mask mismatch %d px), %d met beams, %d edge rows\n', ...
     nnz(maskb), nover, l0.n, es.nmeas);
-say('    OPD reference: %s (the harvest''s)\n', opd_ref);
+say('    OPD reference: %s (the harvest''s), piston %s on both sides\n', ...
+    opd_ref, J.ox.opd_piston);
 
 %% -- [2] the poke loop: x, then z, then grid --------------------------
 fdir = pth("_frames");
@@ -524,6 +536,10 @@ say('next stage: run_simulator (single-step static estimator + controller over a
         mk = maskb & maskp;
         dW_t(mk) = (Wp(mk) - Wb(mk)) * cbm;
         cm = isfinite(dW_t) & isfinite(dW_l);
+        if rm_piston && any(cm(:))                % both sides, same pixels
+            dW_t(cm) = dW_t(cm) - mean(dW_t(cm));
+            dW_l(cm) = dW_l(cm) - mean(dW_l(cm));
+        end
         wt = dW_t(cm);  wl = dW_l(cm);
         r = struct('chan', chan, 'label', lbl, 'body', body, 'dof', dof, ...
             'poke', poke, ...

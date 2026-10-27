@@ -64,10 +64,16 @@ row:
   (segment vertex radius 1510.73 mm → 0.662 nrad; SM radius 615 mm →
   1.626 nrad) — the conversion is in `budget_spec_e5hex1.m`.
 
-Measured (`tRunBudget/test_wfc_stage_cov_equals_mc`): pre-WFC 317.4 nm,
-post-WFC **3.156 nm (cov) vs 3.179 nm (MC, 1000 draws, controller + sensing
+Measured (`tRunBudget/test_wfc_stage_cov_equals_mc`): pre-WFC 236.2 nm,
+post-WFC **2.567 nm (cov) vs 2.573 nm (MC, 1000 draws, controller + sensing
 + actuator draws in the loop)**; the actuator rows dominate (PM piston
-2.60 nm, PM tilt 1.28 nm, SM tilt 1.25 nm), the sensing row is 0.092 nm.
+1.83 nm, PM tilt 1.28 nm, SM tilt 1.25 nm), the sensing row is 0.092 nm.
+These are with wavefront piston removed from the columns, `run_budget`'s
+default since 2026-10-27 (`'piston'`, `macos.piston`; the report's second
+line and the workbook's Log say which).  The harvest uses the chief-ray
+OPD reference, so a poke that moves the chief path adds a per-field
+piston that an imager cannot see; with `'piston', 'keep'` the totals are
+the earlier 317.4 / 3.156 nm, and the PM piston actuator row 2.60 nm.
 
 ## The workbook (live formulas)
 

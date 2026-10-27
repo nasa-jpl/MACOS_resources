@@ -55,6 +55,9 @@ classdef tRunBudget < matlab.unittest.TestCase
             tc.verifyTrue(isfile(art.csv));
             tc.verifyTrue(isfile(art.mat));
             tc.verifyTrue(isfile(art.report));
+            % the report file prints the piston stamp (PLAN 1.2 (www) sweep)
+            tc.verifySubstring(fileread(art.report), ...
+                'piston removed (harvest opd_ref chief)');
             tc.verifyTrue(all(cellfun(@isfile, art.figs)));
             tc.verifyTrue(ismember('WFE', sheetnames(art.xlsx)));
             tc.verifyTrue(ismember('Coefficients', sheetnames(art.xlsx)));

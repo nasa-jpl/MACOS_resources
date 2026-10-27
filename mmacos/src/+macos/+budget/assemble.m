@@ -17,6 +17,11 @@ function M = assemble(sens, varargin)
 %   Options:
 %     'metric'   'opd' (default; uses dwdxall) | 'spot' (uses dcdx when
 %                present) -- the metric kept generic for the SPOT phase.
+%     'piston'   'remove' (default) | 'keep' -- wavefront piston in the
+%                'opd' columns (macos.piston, PLAN 1.2 (www), Dave
+%                2026-10-27): an imager's budget is piston-free under
+%                either OPD reference; an interferometer's keeps it.
+%                Recorded as M.opd_piston.
 %     'trans_per_metre'  true (default): normalize rigid-body translation
 %                        columns to per-SI-metre via macos.dwdx_trans_per_metre
 %                        so a sigma in metres is unit-consistent.
@@ -38,6 +43,7 @@ function M = assemble(sens, varargin)
 p = inputParser;
 p.addParameter('metric', 'opd', @(s) any(strcmpi(s, {'opd', 'spot'})));
 p.addParameter('trans_per_metre', true, @islogical);
+p.addParameter('piston', 'remove', @(s) any(strcmp(s, {'remove', 'keep'})));
 p.parse(varargin{:});
 
 S = load_sens_(sens);                 % -> struct with .ox .oz .og .os (any [])
@@ -52,6 +58,9 @@ for r = 1:size(chans, 1)
     % (no exist() guard: exist('macos.<fn>','file') is 0 for a package
     % function, which silently skipped this and left an mm deck's
     % translation columns per BaseUnit -- decenter/despace 1/cbm small)
+    if strcmpi(p.Results.metric, 'opd')
+        o = macos.piston(o, p.Results.piston);   % 1.2 (www): per field
+    end
     if strcmp(chans{r, 2}, 'dwdx') && p.Results.trans_per_metre
         o = macos.dwdx_trans_per_metre(o);
         trans_output = 'si';
@@ -82,6 +91,8 @@ M = struct();
 M.J = J;  M.Jk = Jk;  M.G = Jk' * Jk;  M.keep = keep;  M.nw = nnz(keep);
 M.w0 = w0;  M.meta = meta;  M.cbm = cbm;  M.base_units = base_units;
 M.trans_output = trans_output;  M.per_field = per_field;
+M.opd_piston = 'kept';                            % what the opd columns carry
+if strcmpi(p.Results.metric, 'opd'), M.opd_piston = piston_word_(p.Results.piston); end
 M.units = struct('cbm', cbm, 'base_units', base_units, ...
     'trans_output', trans_output, 'metric', lower(p.Results.metric));
 end
@@ -232,4 +243,9 @@ function c = getcell_(o, f, nz)
 if isfield(o, f) && ~isempty(o.(f)), c = cellstr(o.(f)(:));
 else, c = repmat({''}, nz, 1); end
 if numel(c) ~= nz, c = repmat({''}, nz, 1); end
+end
+
+% -------------------------------------------------------------------------
+function w = piston_word_(mode)
+w = 'kept';  if strcmp(mode, 'remove'), w = 'removed'; end
 end

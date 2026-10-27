@@ -230,6 +230,22 @@ arguments
                                      % harvest records it (o.opd_ref) and
                                      % run_compare / run_simulator read
                                      % their engine truth at it.
+    opts.piston (1,:) char {mustBeMember(opts.piston, {'remove','keep'})} = 'remove'
+                                     % wavefront piston in this runner's
+                                     % ANALYSES (conditioning, spectrum,
+                                     % column norms; macos.piston, PLAN
+                                     % 1.2 (www), Dave 2026-10-27):
+                                     % 'remove' (default; an imager's
+                                     % corrector cannot see piston, so its
+                                     % conditioning must not depend on the
+                                     % OPD reference) | 'keep' (an
+                                     % interferometer reads it)
+    opts.emit_piston (1,:) char {mustBeMember(opts.emit_piston, {'keep','remove'})} = 'keep'
+                                     % piston in the SAVED columns, passed
+                                     % to the dw_d* generators: 'keep'
+                                     % (default, lossless -- a consumer can
+                                     % remove it, never restore it) |
+                                     % 'remove'; recorded as o.opd_piston
     opts.grid_basis (1,:) char {mustBeMember(opts.grid_basis, ...
         {'multi','single'})} = 'multi'   % per-segment bespoke basis
                                 % (segment_grid_basis; the general case)
@@ -307,6 +323,8 @@ end
 say('==== run_sensitivities: %s ====\n', char(rx_in));
 say('field set: center + 4 corners at +-%.4g rad\n', opts.fov_rad);
 say('OPD conventions: orient=%s sign=%s opd_ref=%s\n', opts.orient, opts.sign, opts.opd_ref);
+say('piston: saved columns %s, analyses %s (macos.piston)\n', ...
+    piston_word_(opts.emit_piston), piston_word_(opts.piston));
 
 % preflight: the exit-pupil machinery needs an aperture stop
 txt = fileread(char(rx_in));
@@ -348,6 +366,7 @@ m = macos.Session(opts.model_size);
 FOV = opts.fov_rad;
 sup = {'field_x_rad', FOV, 'field_y_rad', FOV, 'ngridpts', opts.ngridpts, ...
        'orient', opts.orient, 'sign', opts.sign, 'opd_ref', opts.opd_ref, ...
+       'piston', opts.emit_piston, ...
        'reset_xp_method', opts.reset_xp_method, ...
        'fex_axis', opts.fex_axis, ...
        'pupil_find_opts', opts.pupil_find_opts, ...
@@ -487,11 +506,15 @@ if any(opts.channels == "dwdgrid") && (nseg > 0 || ~isempty(opts.influence))
 end
 
 %% conditioning report
-say('[conditioning] finite rows only:\n');
+% the analyses run on the columns with piston per opts.piston; the saved
+% harvest (ox/oz/og/os) keeps what opts.emit_piston gave it
+ax = piston_or_empty_(ox, opts.piston);  az = piston_or_empty_(oz, opts.piston);
+ag = piston_or_empty_(og, opts.piston);  as = piston_or_empty_(os, opts.piston);
+say('[conditioning] finite rows only, piston %s:\n', piston_word_(opts.piston));
 say('    %-8s %12s %6s %10s %10s %10s\n', 'channel', 'size', 'rank', ...
     'sv_max', 'sv_min+', 'cond+');
 tab = {};  SV = {};  SVc = {};
-J = {'dwdx', ox; 'dwdz', oz; 'dwdgrid', og; 'dwdsurf', os};
+J = {'dwdx', ax; 'dwdz', az; 'dwdgrid', ag; 'dwdsurf', as};
 for q = 1:size(J, 1)
     o = J{q, 2};
     if isempty(o), continue; end
@@ -538,14 +561,14 @@ for q = 1:size(J, 1)
         end
     end
 end
-if ~isempty(ox) && nseg > 0
+if ~isempty(ax) && nseg > 0
     say('\n    dwdx per-segment column norms (rms native-unit per unit DOF):\n');
     say('      seg     rx        ry        rz        tx        ty        tz\n');
-    cn = ox.channel_names;
+    cn = ax.channel_names;
     for s2 = segs
         ic = find(startsWith(cn, sprintf('Elt %d ', s2)));
         if numel(ic) == 6
-            nv = sqrt(mean(ox.dwdxall(:, ic).^2, 1, 'omitnan'));
+            nv = sqrt(mean(ax.dwdxall(:, ic).^2, 1, 'omitnan'));
             say('      %3d  %s\n', s2, sprintf('%9.2e ', nv));
         end
     end
@@ -659,6 +682,15 @@ art = struct('ox', ox, 'oz', oz, 'og', og, 'os', os, 'mat', string(matp), ...
     'conditioning', {tab}, 'nconfig', ncfg);
 art.pages = man;                                   % figure manifest
 art.page_index = string(fullfile(od, [name '_pages_index.txt']));
+end
+
+% ---------------------------------------------------------------------
+function o = piston_or_empty_(o, mode)
+if ~isempty(o), o = macos.piston(o, mode); end
+end
+
+function w = piston_word_(mode)
+w = 'kept';  if strcmp(mode, 'remove'), w = 'removed'; end
 end
 
 % ---------------------------------------------------------------------

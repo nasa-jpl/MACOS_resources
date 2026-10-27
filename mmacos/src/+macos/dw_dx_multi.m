@@ -273,6 +273,11 @@ arguments
                                      % -(N_k/N)*mean(poked response) (PLAN 0.x);
                                      % under 'chief' they read exactly 0.
                                      % Re-applied after every Rx (re)load.
+    opts.piston (1,:) char {mustBeMember(opts.piston, {'keep','remove'})} = 'keep'
+                                     % wavefront piston in the emitted columns
+                                     % (macos.piston, 1.2 (www)): 'keep' (default,
+                                     % lossless) | 'remove' (per field); recorded
+                                     % as out.opd_piston beside out.opd_ref
 end
 
 F = struct();

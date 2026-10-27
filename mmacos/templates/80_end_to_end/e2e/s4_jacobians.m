@@ -42,6 +42,7 @@ art = run_sensitivities(rx, ...
     'zmodes_grid', 4:9, ...               % dwdgrid pokes / segment
     'ng', 256, ...                        % grid size (model 512)
     'model_size', P.seg.model_size, ...
+    'piston', char(P.piston), ...          % its ANALYSES; the saved columns keep piston
     'out_dir', here, 'name', 's4');
 
 % s5 handoff: run_met consumes s4_jacobians.mat (ox/oz/og + P)

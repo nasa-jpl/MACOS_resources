@@ -259,6 +259,13 @@ arguments
     opts.name (1,1) string = ""
     opts.visible (1,1) logical = true
     opts.verbose (1,1) logical = true
+    opts.piston (1,:) char {mustBeMember(opts.piston, {'remove','keep'})} = 'remove'
+                                    % wavefront piston, BOTH sides (the
+                                    % harvested columns via macos.piston and
+                                    % the engine truth): 'remove' (default;
+                                    % an imager's corrector cannot see it) |
+                                    % 'keep' (an interferometer reads it).
+                                    % PLAN 1.2 (www), Dave 2026-10-27
 end
 assert(isfile(seg_in), 'run_simulator: %s not found', seg_in);
 assert(isfile(opts.hx), 'run_simulator: Hx sidecar %s not found', opts.hx);
@@ -294,8 +301,9 @@ end
 assert(isfile(met_rx), 'run_simulator: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
-J = piston_free_(J);                       % per-field piston out of every column (1.2 (www))
+J = piston_(J, opts.piston);               % per-field piston per opts.piston, every leg (1.2 (www))
 opd_ref = harvest_opd_ref_(J, 'run_simulator');
+rm_piston = strcmp(opts.piston, 'remove');
 J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
 icf = find(strcmp(ox.field_names, 'C'), 1);
@@ -361,6 +369,8 @@ say(['[0] %d bodies (%d segments), T = %d frames, dt = %g s\n' ...
      '    states: x %dx%d%s%s;  sim Rx %s\n'], nb, nseg, T, dt, ...
     size(X), iif_(use_z, sprintf(', z %dx%d', size(Z)), ''), ...
     iif_(use_g, sprintf(', g %dx%d', size(G)), ''), sim_rx);
+say('    OPD reference %s (the harvest''s), piston %s on both sides\n', ...
+    opd_ref, J.ox.opd_piston);
 if ~isempty(nochan)
     say('    NOTE: no dwdx channels for element(s) %s -- zero linear w columns\n', ...
         num2str(nochan));
@@ -677,8 +687,10 @@ for t = 0:T
             dI = dWc - dWc1;
             DLi = dWl_cor{t} - dWl_cor{1};
             mki = mkc & isfinite(dWc1);
-            dI(mki) = dI(mki) - mean(dI(mki));
-            DLi(mki) = DLi(mki) - mean(DLi(mki));
+            if rm_piston
+                dI(mki) = dI(mki) - mean(dI(mki));
+                DLi(mki) = DLi(mki) - mean(DLi(mki));
+            end
             w_rel = rms_(dI(mki) - DLi(mki)) / max(rms_(dI(mki)), eps);
         end
         lm = Mbar(1:nl, t);  em = Mbar(nl+1:end, t);
@@ -815,7 +827,7 @@ say('\nartifacts: %s_sim.mat, frames in %s_sim_frames/%s, this report\n', ...
         dW = nan(size(Wb));
         mk_ = maskb & m.opd_mask();
         dW(mk_) = (W_(mk_) - Wb(mk_)) * cbm;
-        dW(mk_) = dW(mk_) - mean(dW(mk_));        % piston-removed WFE
+        if rm_piston, dW(mk_) = dW(mk_) - mean(dW(mk_)); end   % opts.piston
     end
 
 % ---- nested: a dW map as an m2v-ordered vector on the jac pixels ------
@@ -1044,26 +1056,16 @@ for f = {'dedx', 'dldx', 'bodies', 'seg', 'met_in'}
 end
 end
 
-function J = piston_free_(J)
-%PISTON_FREE_  Project the piston out of every harvested column over its own
-%   field's pupil (PLAN 1.2 (www), Dave 2026-10-27: piston is unobservable to
-%   a corrector and no part of an image's error).  A chief-referenced harvest
-%   carries one constant per column per field (the chief ray's own response,
-%   notes/opd_reference.md); the engine wavefront this runner solves against
-%   is piston-removed (engine_delta_), so its control, its linear maps and
-%   their cross-check must be piston-free too -- then a chief and a mean
-%   harvest give the same simulation.
-pairs = {'ox', 'per_field_dwdx'; 'oz', 'per_field_dwdz'; 'og', 'per_field_dwdg'};
-for p = 1:size(pairs, 1)
-    o = J.(pairs{p, 1});
-    if isempty(o), continue; end
-    c = o.(pairs{p, 2});
-    for k = 1:numel(c)
-        ok = all(isfinite(c{k}), 2);
-        if any(ok), c{k} = c{k} - mean(c{k}(ok, :), 1); end
+function J = piston_(J, mode)
+%PISTON_  Apply opts.piston to every harvested leg (macos.piston: per
+%   field, over each field's pupil; PLAN 1.2 (www), Dave 2026-10-27).
+%   Under 'remove' the engine truth (engine_delta_) is piston-removed too,
+%   under 'keep' neither side is -- the two sides always agree on piston,
+%   so a chief and a mean harvest give the same simulation under 'remove'.
+for f = {'ox', 'oz', 'og'}
+    if isfield(J, f{1}) && ~isempty(J.(f{1}))
+        J.(f{1}) = macos.piston(J.(f{1}), mode);
     end
-    o.(pairs{p, 2}) = c;
-    J.(pairs{p, 1}) = o;
 end
 end
 

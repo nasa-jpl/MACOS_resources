@@ -574,6 +574,7 @@ out.reset_xp             = reset_xp_stamp;   % true | false | 'no-effect'
 out.reset_xp_method      = opts.reset_xp_method;
 out.fex_axis             = opts.fex_axis;
 out.opd_ref              = opd_ref_used;     % 'chief' | 'mean': the reference in force for the harvest
+out = macos.piston(out, getf_(opts, 'piston', 'keep'));   % stamps out.opd_piston (1.2 (www))
 if use_pf, out.pf_scope = opts.pf_scope; end
 if ~isempty(pf_out), out.pupil_find = pf_out; end   % per-config metrics
 

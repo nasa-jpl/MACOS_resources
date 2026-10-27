@@ -129,6 +129,14 @@ arguments
     opts.name (1,1) string = ""
     opts.visible (1,1) logical = false
     opts.verbose (1,1) logical = true
+    opts.piston (1,:) char {mustBeMember(opts.piston, {'remove','keep'})} = 'remove'
+                                % wavefront piston in the dwdx columns the
+                                % merit, the estimator products, the tilt
+                                % split and the Monte-Carlo all use
+                                % (macos.piston, per field): 'remove'
+                                % (default; an imager cannot see it) |
+                                % 'keep' (an interferometer reads it).
+                                % PLAN 1.2 (www), Dave 2026-10-27
 end
 assert(isfile(seg_in), 'run_met: %s not found', seg_in);
 assert(isfile(opts.hx), 'run_met: Hx sidecar %s not found', opts.hx);
@@ -266,10 +274,12 @@ D = [];  keep = [];  optout = [];  merits = [];  mcres = [];
 K = [];  dxde = [];  dxdl = [];  dwde = [];  dwdl = [];  rfd = NaN;
 ox = macos.dwdx_trans_per_metre(jac_struct_(opts.jac));   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 if ~isempty(ox)
+    ox = macos.piston(ox, opts.piston);  % per field, every use below (1.2 (www))
     [D, missing, colidx] = dwdx_cols_(ox, belts);
-    D = piston_free_rows_(D, ox);       % each field's piston out (1.2 (www))
     say('\n[3] dwdx: %d columns for bodies [%s] from the sensitivities .mat\n', ...
         size(D, 2), num2str(belts));
+    say('    OPD reference %s (the harvest''s), piston %s\n', ...
+        harvest_ref_(ox), ox.opd_piston);
     if ~isempty(missing)
         error('run_met:jac', 'missing dwdx channels for elements: %s', ...
             num2str(missing));
@@ -694,52 +704,22 @@ end
 missing = unique(missing);
 end
 
-function D = piston_free_rows_(D, ox)
-%PISTON_FREE_ROWS_  Project each field's piston out of the stacked dwdx
-%   columns over that field's pupil (PLAN 1.2 (www), Dave 2026-10-27:
-%   piston is unobservable to a corrector and no part of an image's
-%   error).  A chief-referenced harvest carries one constant per column
-%   per field (the chief ray's own response, notes/opd_reference.md); a
-%   mean-referenced one carries none.  Piston-free, the Gram, the
-%   estimator products and the Monte-Carlo are the same under either
-%   reference.  The rows of dwdxall are the field tiles of the multi
-%   harvest's canvas (indxall, field_table [dx dy tile_row tile_col]).
-g = ones(size(D, 1), 1);
-nf = 0;
-if isfield(ox, 'per_field_dwdx'), nf = numel(ox.per_field_dwdx); end
-if nf > 1
-    if all(isfield(ox, {'indxall', 'field_table', 'per_field_w_nom_2d'})) ...
-            && numel(ox.indxall.i) == size(D, 1)
-        N = size(ox.per_field_w_nom_2d{1}, 1);
-        tr = floor((ox.indxall.i(:) - 1) / N);
-        tc = floor((ox.indxall.j(:) - 1) / N);
-        g = zeros(size(D, 1), 1);
-        for f = 1:nf
-            g(tr == ox.field_table(f, 3) & tc == ox.field_table(f, 4)) = f;
-        end
-    end
-    if any(g == 0) || all(g == 1)
-        warning('run_met:piston_rows', ['the stacked dwdx rows cannot ' ...
-            'be assigned to their fields -- removing one piston over ' ...
-            'all fields']);
-        g = ones(size(D, 1), 1);
-    end
-end
-ok = all(isfinite(D), 2);
-for f = unique(g).'
-    r = g == f;
-    if any(r & ok), D(r, :) = D(r, :) - mean(D(r & ok, :), 1); end
-end
+function r = harvest_ref_(ox)
+% the OPD reference the harvest recorded (dw_d*_multi stamp, 1.2 (kkk))
+r = 'unrecorded';
+if isfield(ox, 'opd_ref') && ~isempty(ox.opd_ref), r = char(ox.opd_ref); end
 end
 
 function [Gdt, Gt, nwdt] = detilt_gram_(ox, idx)
 %DETILT_GRAM_  Split the sensed dwdx columns' Gram into the NON-TILT
 %   part (per-field piston+tip/tilt projected OUT -- tilt control
 %   absorbs tilt, so this is the design driver; Dave 2026-07-19) and
-%   the TILT part (projection ONTO tilt -- what the tilt loop must
-%   absorb; the columns are made piston-free first, PLAN 1.2 (www), so
-%   a chief-referenced harvest's per-field constant lands in neither
-%   part).  The split is orthogonal: G_full = Gdt + Gt.  Works
+%   the TILT part (projection ONTO piston+tilt -- what the tilt loop
+%   must absorb).  Under opts.piston = 'remove' (the default, PLAN 1.2
+%   (www)) the columns arrive piston-free, so a chief-referenced
+%   harvest's per-field constant lands in neither part and Gt is tilt
+%   only; under 'keep' the piston is counted in Gt.  The split is
+%   orthogonal: G_full = Gdt + Gt.  Works
 %   from the multi-field supervisor's per-field blocks; only Grams are
 %   needed downstream (row order is irrelevant to a trace).
 nz = numel(idx);
@@ -759,8 +739,8 @@ for f = 1:numel(ox.per_field_dwdx)
              ri - mean(ri), ci - mean(ci)];
     end
     Bf = Bf(ok, :);
-    Bf = Bf - mean(Bf, 1);                      % piston-free (1.2 (www)): Gt is tilt only
-    Bp = T*(T \ Bf);                            % tilt component
+    Bp = T*(T \ Bf);                            % piston+tilt component (piston
+                                                % is already 0 under 'remove')
     Bt = Bf - Bp;
     Gdt = Gdt + Bt'*Bt;
     Gt  = Gt + Bp'*Bp;

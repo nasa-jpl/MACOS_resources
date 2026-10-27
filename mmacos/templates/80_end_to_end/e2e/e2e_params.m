@@ -167,6 +167,14 @@ P.seg = struct( ...
     ...                         % 2026-07-18: sampling seemed coarse)
     'model_size',     512);     % segmented stages need the big model
 
+% ================= stages 4-7: wavefront piston =====================
+% One switch for the thread (macos.piston, PLAN 1.2 (www), Dave 2026-10-27):
+% "remove" (default) -- this telescope is an IMAGER; its correctors cannot
+% see piston and its image does not depend on it, so s4's conditioning,
+% s5's merit, s6's comparison and s7's control and scaling are piston-free
+% under either OPD reference.  "keep" for an interferometric analysis.
+P.piston = "remove";
+
 % ================= stage 5: MET =====================================
 P.met = struct( ...
     'nf',               6, ...  % fiducials on the hub (>=3, likely 6)
