@@ -52,7 +52,9 @@ WFE_INIT = 100e-6;          % m RMS total initial WFE (as deployed)
 rng(7);
 
 % -- common rigid initial pose (PTT-dominant) + per-step drift std -----
-rms_ = @(v) sqrt(mean(v(:).^2));
+% rms ABOUT THE MEAN: piston is no part of the wavefront error (PLAN 1.2 (www)) -- a
+% chief-referenced harvest's columns carry the chief ray's own piston, a mean one's none
+rms_ = @(v) sqrt(mean((v(:) - mean(v(:))).^2));
 icfx = find(strcmp(J.ox.field_names, 'C'), 1);
 icfz = find(strcmp(J.oz.field_names, 'C'), 1);
 Bc = center_dwdx_(J.ox, icfx, M.bodies);      % OPD per rigid DOF (cbm=1, e2e)

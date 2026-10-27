@@ -294,6 +294,7 @@ end
 assert(isfile(met_rx), 'run_simulator: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
+J = piston_free_(J);                       % per-field piston out of every column (1.2 (www))
 opd_ref = harvest_opd_ref_(J, 'run_simulator');
 J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
@@ -1040,6 +1041,29 @@ else
 end
 for f = {'dedx', 'dldx', 'bodies', 'seg', 'met_in'}
     assert(isfield(M, f{1}), 'run_simulator: met struct lacks %s', f{1});
+end
+end
+
+function J = piston_free_(J)
+%PISTON_FREE_  Project the piston out of every harvested column over its own
+%   field's pupil (PLAN 1.2 (www), Dave 2026-10-27: piston is unobservable to
+%   a corrector and no part of an image's error).  A chief-referenced harvest
+%   carries one constant per column per field (the chief ray's own response,
+%   notes/opd_reference.md); the engine wavefront this runner solves against
+%   is piston-removed (engine_delta_), so its control, its linear maps and
+%   their cross-check must be piston-free too -- then a chief and a mean
+%   harvest give the same simulation.
+pairs = {'ox', 'per_field_dwdx'; 'oz', 'per_field_dwdz'; 'og', 'per_field_dwdg'};
+for p = 1:size(pairs, 1)
+    o = J.(pairs{p, 1});
+    if isempty(o), continue; end
+    c = o.(pairs{p, 2});
+    for k = 1:numel(c)
+        ok = all(isfinite(c{k}), 2);
+        if any(ok), c{k} = c{k} - mean(c{k}(ok, :), 1); end
+    end
+    o.(pairs{p, 2}) = c;
+    J.(pairs{p, 1}) = o;
 end
 end
 
