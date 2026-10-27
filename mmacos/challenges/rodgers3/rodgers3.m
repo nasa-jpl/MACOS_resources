@@ -45,12 +45,14 @@ function OUT = rodgers3(opts)
         opts.quiet (1,1) logical = false
         opts.map_n (1,1) double = 11   % dense-map grid (slide ceiling); 0 = off
         opts.save (1,1) logical = true % false: suite runs don't dirty the dir
+        opts.build_dir (1,:) char = '' % where build_r3 wrote ('' = this dir)
     end
     here = fileparts(mfilename('fullpath'));
     run(fullfile(here,'..','..','mmacos_setup.m'));
     addpath(here);
 
-    B = load(fullfile(here, sprintf('r3_build%s.mat',opts.suffix)));  D = B.D;
+    bd = opts.build_dir;  if isempty(bd), bd = here; end
+    B = load(fullfile(bd, sprintf('r3_build%s.mat',opts.suffix)));  D = B.D;
     S = rodgers3_seq();
     gates_nm = [159 8810 168 117 53];
     rungs = {'r1','r2','r3','r4','r5'};
@@ -98,7 +100,7 @@ function OUT = rodgers3(opts)
         fprintf('  layout gate: PASS (emitted == .seq chain to round-off)\n');
 
         % ============ 1. TRACED CONVENTION GATES =========================
-        txt0 = fileread(G.deck);
+        txt0 = fileread(r3_deck_path(G, bd));
         tmp  = [tempname '.in'];
         cu   = onCleanup(@() delete_if_(tmp));
 
@@ -248,7 +250,7 @@ function OUT = rodgers3(opts)
             'map_cen',wm_cen, 'map_chf',wm_chf, 'map_n',opts.map_n, ...
             'gate_stat',gate_stat, 'gate_lbl',gate_lbl, ...
             'dSI_mm',dSI*1e3, 'fp_stop_mm',[fpc(1:2)*1e3; fpr*1e3; r_stop_par*1e3], ...
-            'aim_miss',miss, 'deck',G.deck);
+            'aim_miss',miss, 'deck',r3_deck_path(G, bd));
     end
 
     % ---- gate table ------------------------------------------------------

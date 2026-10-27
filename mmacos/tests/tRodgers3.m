@@ -58,10 +58,22 @@ classdef tRodgers3 < matlab.unittest.TestCase
             tc.here = fullfile(fileparts(h),'challenges','rodgers3');
             addpath(tc.here);
             macos.init(256);
-            % decks are committed; rebuild = a byte-identity no-op that
-            % also proves the generator runs on this tree
-            build_r3();
-            tc.OUT = rodgers3('map_n',5,'quiet',true,'save',false);
+            % the run must leave the challenge's tracked files as it found
+            % them (PLAN_CONSOLIDATION 1.2 (ttt): build_r3 used to rewrite
+            % the committed r3_build.mat on every suite run)
+            st0 = git_status_(tc.here);
+            tc.addTeardown(@() tc.verifyEqual(git_status_(tc.here), st0, ...
+                'tRodgers3 changed tracked files in challenges/rodgers3'));
+            % the generator runs on this tree, into a temp dir; its decks
+            % must be the committed ones byte for byte
+            bd = tempname;  mkdir(bd);  tc.addTeardown(@() rmdir(bd, 's'));
+            build_r3('out_dir', bd);
+            for k = 1:5
+                f = sprintf('r3_r%d.in', k);
+                tc.assertEqual(fileread(fullfile(bd, f)), fileread(fullfile(tc.here, f)), ...
+                    sprintf('build_r3 no longer reproduces the committed %s', f));
+            end
+            tc.OUT = rodgers3('map_n',5,'quiet',true,'save',false,'build_dir',bd);
         end
     end
 
@@ -103,4 +115,10 @@ classdef tRodgers3 < matlab.unittest.TestCase
                 rungs{k}, o.gate_stat, ratio, tc.gates_nm(k)));
         end
     end
+end
+
+function s = git_status_(d)
+% tracked files only (untracked scratch from other work is not this test's)
+[rc, s] = system(sprintf('git -C "%s" status --porcelain --untracked-files=no -- .', d));
+assert(rc == 0, 'tRodgers3: git status failed in %s', d);
 end

@@ -35,7 +35,7 @@ function OUT = probe_native_stop()
 
     macos.init(256);
 
-    txt0 = fileread(G.deck);
+    txt0 = fileread(r3_deck_path(G, here));
     txtN = insert_stop_ref_(txt0, G);
     fid = fopen(fullfile(here,'r3_r2_refstop.in'),'w');
     fprintf(fid,'%s',txtN);  fclose(fid);
