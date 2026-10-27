@@ -27,3 +27,5 @@ PLAN_*.md
 STATUS_*.md
 SESSION_STATE_*.md
 CURRENT_SLICE.md
+# 2026-10-27 (Dave): the six template REPORT_*.md (bench_ctb/REPORT_field_servo, pdi_dm96/REPORT_gauge_pdi, tg_psi_dm96_oap/REPORT_{bench_realism,gauge_ifo,oap,reflective}) do NOT ship; they stay on dev-candidate and in the local clones.  The README links to them break on the release surface; to rethink before the re-clone.
+REPORT_*.md
