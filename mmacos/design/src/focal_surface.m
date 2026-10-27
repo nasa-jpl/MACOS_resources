@@ -43,7 +43,8 @@ function fs = focal_surface(rx, opts)
 %                  auto-selection.  The other model's residual is PRINTED
 %                  for comparison but never substituted.
 %     'stop_elt'   stop element (0 = leave the deck's own ApStop in force).
-%     'xp_elt'     exit-pupil element FEX writes (default nElt-1).
+%     'xp_elt'     exit-pupil element, reported in the header only: FEX
+%                  always writes element nElt-1 (default nElt-1).
 %     'elts'       elements that receive the fitted surface.  Default []
 %                  = auto-detect every element sharing the CURRENT declared
 %                  focal surface (same Kr, psi and Vpt as element nElt).
@@ -349,7 +350,7 @@ function p = measure_point_(rx, opts, nom, dxy, xpE, nm, cfg)
         end
         macos.modify();
 
-        macos.fex(xpE);
+        macos.fex();    % the session axis; fex places the XP at nElt-1
         xp0 = macos.get_xp();
         p.vpt = xp0.vpt(:);  p.psi = xp0.psi(:);  p.rad = xp0.rad;
 
