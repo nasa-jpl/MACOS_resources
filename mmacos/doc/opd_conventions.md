@@ -157,6 +157,35 @@ either way.  The CLI's printed `Average OPD` is the pre-removal
 diagnostic `DAvgL`, **not** the piston of the returned map — though under
 the chief reference it *is* the constant separating the two maps.
 
+### 1.3 Piston in sensitivity columns: `'piston'` (added 2026-10-27)
+
+Under the chief reference, a poke that moves the chief ray's own path adds
+a constant to the whole map, so every harvested column carries a per-field
+piston (on the e2e pie, segment 1 Tz +100 nm: 188.9 nm rms, 178.4 nm of it
+piston, 61.98 nm about the mean).  Under the mean reference the columns
+carry none.  `macos.piston(out, mode)` is the one switch (PLAN_CONSOLIDATION
+1.2 (www), Dave 2026-10-27):
+
+- `'remove'` subtracts each column's mean over each field's pupil, in the
+  per-field cells and the stacked rows; `'keep'` changes nothing.  Both
+  stamp `out.opd_piston` (`'removed'` / `'kept'`) beside `out.opd_ref`; a
+  second `'remove'` is a no-op; a stacked harvest whose rows cannot be
+  assigned to fields warns `macos:piston:rows`.
+- **Generators** (`dw_dx`, `dw_dx_multi`, `dw_dz_zernike_multi`,
+  `dw_dgrid_multi`, `dw_dsurf_multi`) take `'piston'`, default **`'keep'`**:
+  the saved columns are what the engine measured, and a consumer can remove
+  piston but never restore it.  `run_sensitivities` passes `'emit_piston'`
+  (default `'keep'`) to them and uses `'piston'` (default `'remove'`) for
+  its own analyses (conditioning, spectrum, column norms).
+- **Consumers** (`run_simulator`, `run_met`, `run_compare`,
+  `macos.budget.assemble` / `run_budget`, `jacobian_check`, the e2e thread
+  via `P.piston`) take `'piston'`, default **`'remove'`**, applied to BOTH
+  sides of every comparison (the columns and the engine truth).  An imager
+  cannot see piston, so under `'remove'` a chief and a mean harvest give
+  the same control, prior, budget and conditioning.  `'keep'` is for an
+  interferometer, which reads the piston between fields or arms.  Every
+  report prints the choice beside the OPD reference.
+
 ## 2. Array orientation
 
 Established by two tilts of the secondary (rotation vector is global

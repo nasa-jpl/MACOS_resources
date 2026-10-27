@@ -243,9 +243,13 @@ classdef tRunCompare < matlab.unittest.TestCase
             % template itself.
             here = fileparts(mfilename('fullpath'));
             s7 = fullfile(fileparts(here), 'templates', '80_end_to_end', 'e2e', 's7_simulate.m');
-            L = regexp(fileread(s7), '^rms_ = @[^\n]*', 'match', 'once', 'lineanchors');
-            tc.assertNotEmpty(L, 's7_simulate.m no longer defines rms_');
-            eval(L);
+            L = regexp(fileread(s7), '^\s*rms_ = @[^\n]*', 'match', 'lineanchors');
+            tc.assertNumElements(L, 2, ...
+                's7_simulate.m must define rms_ for P.piston "remove" and "keep"');
+            eval(L{1});                          % the "remove" branch (the default)
+            rms_keep = str2func(regexprep(strtrim(L{2}), '^rms_ = |;$', ''));
+            tc.verifyEqual(e2e_params_piston_(fileparts(s7)), "remove", ...
+                'the e2e thread is an imager: P.piston defaults to "remove"');
             B = cell(1, 2);  r = {'chief', 'mean'};
             for k = 1:2
                 o = macos.dwdx_trans_per_metre(tc.harvest_(r{k}, '1x1'));
@@ -259,6 +263,11 @@ classdef tRunCompare < matlab.unittest.TestCase
                 tc.verifyEqual(rms_(B{1}(:, j)), rms_(B{2}(:, j)), 'RelTol', 1e-6, ...
                     sprintf('column %d', j));
             end
+            % "keep" (1.2 (www) option): the rms about ZERO -- equal to
+            % "remove" on the mean harvest (no piston), larger on the chief
+            tc.verifyEqual(rms_keep(B{2} * x), rms_(B{2} * x), 'RelTol', 1e-6);
+            tc.verifyGreaterThan(rms_keep(B{1} * x), (1 + 1e-3) * rms_(B{1} * x), ...
+                '"keep" must count the chief harvest''s piston');
         end
 
         function test_met_prior_chief_equals_mean_harvest(tc)
@@ -277,7 +286,7 @@ classdef tRunCompare < matlab.unittest.TestCase
                     'ngridpts', 15, 'optimize', false, 'mc', 0, 'verbose', false, ...
                     'out_dir', tc.wd, 'name', "pf_" + r{k});
                 [~, wid] = lastwarn();
-                tc.verifyNotEqual(wid, 'run_met:piston_rows', ...
+                tc.verifyNotEqual(wid, 'macos:piston:rows', ...
                     'the stacked rows must be assigned to their fields');
             end
             for f = ["prior", "edge", "met", "edge_met", "wem", "wem_dt", "floor_frac_dt"]
@@ -540,6 +549,160 @@ classdef tRunCompare < matlab.unittest.TestCase
                     other, decks.(conv)));
             end
         end
+        function test_piston_helper_contract(tc)
+            % PLAN 1.2 (www), Dave 2026-10-27: macos.piston is the one
+            % switch.  'remove' zeroes every column's mean over each field's
+            % pupil, in the per-field cells and the stacked rows; 'keep'
+            % changes nothing; both stamp opd_piston; a second 'remove' is a
+            % no-op; a stacked harvest whose rows cannot be assigned to
+            % fields warns by name.
+            o = tc.harvest_('chief', '3x3');
+            tc.assertGreaterThan(max(abs(mean(o.per_field_dwdx{1}, 1, 'omitnan'))), ...
+                1e-3 * max(abs(o.per_field_dwdx{1}(:))), 'the fixture must carry a chief piston');
+            r = macos.piston(o, 'remove');
+            tc.verifyEqual(r.opd_piston, 'removed');
+            for f = 1:numel(r.per_field_dwdx)
+                c = r.per_field_dwdx{f};  c = c(all(isfinite(c), 2), :);
+                tc.verifyLessThan(max(abs(mean(c, 1))), 1e-12 * max(abs(c(:))), ...
+                    sprintf('field %d column means', f));
+            end
+            A = r.dwdxall(all(isfinite(r.dwdxall), 2), :);
+            tc.verifyLessThan(max(abs(mean(A, 1))), 1e-12 * max(abs(A(:))), ...
+                'the stacked rows, field by field');
+            tc.verifyEqual(macos.piston(r, 'remove'), r, 'a second remove is a no-op');
+            k = macos.piston(o, 'keep');
+            tc.verifyEqual(k.opd_piston, 'kept');
+            tc.verifyEqual(k.dwdxall, o.dwdxall);
+            tc.verifyEqual(k.per_field_dwdx, o.per_field_dwdx);
+            M = macos.piston([1 2; 3 4; 5 6; 7 9], 'remove', [1; 1; 2; 2]);
+            tc.verifyEqual(M, [-1 -1; 1 1; -1 -1.5; 1 1.5], 'AbsTol', 1e-15);
+            bad = rmfield(o, 'field_table');
+            tc.verifyWarning(@() macos.piston(bad, 'remove'), 'macos:piston:rows');
+        end
+
+        function test_generator_emits_and_records_piston(tc)
+            % PLAN 1.2 (www): the dw_d* generators take 'piston' too
+            % ('keep' default, lossless), and record it beside opd_ref.
+            o = tc.harvest_('chief', '1x1');
+            tc.verifyEqual(o.opd_piston, 'kept', 'the default harvest keeps piston');
+            m = macos.Session(512);
+            g = macos.dw_dx_multi(m, char(tc.met5.met_in), ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                'grid', '1x1', 'fp_mode', 'none', 'ngridpts', 15, ...
+                'reset_xp', false, 'opd_ref', 'chief', 'piston', 'remove');
+            tc.verifyEqual(g.opd_piston, 'removed');
+            tc.verifyEqual(g.opd_ref, 'chief');
+            r = macos.piston(o, 'remove');
+            tc.verifyEqual(g.dwdxall, r.dwdxall, 'AbsTol', 1e-9 * max(abs(r.dwdxall(:))), ...
+                'emitting piston-free equals removing it afterwards');
+        end
+
+        function test_simulator_keep_is_consistent(tc)
+            % PLAN 1.2 (www) option: 'keep' keeps piston on BOTH sides (the
+            % harvested columns and the engine truth).  So on a mean harvest
+            % (no piston) 'keep' equals 'remove'; on a chief harvest it
+            % differs (piston now counts) yet the engine and the linear model
+            % still agree and the loop still bites.  The inconsistent mix --
+            % piston-carrying columns against a piston-removed engine -- read
+            % 175.2 nm on ch06b; this guards against rebuilding it.
+            M = load(tc.met5.mat);
+            nb = numel(M.bodies);
+            ts = struct('dt', 2);
+            ts.x = zeros(6*nb, 2);
+            ts.x(12, :) = [5e-6 6e-6];            % Seg 2 Tz, a ramp so frame 2's
+            ts.x(46, :) = [3e-6 3.5e-6];          % increment check is not 0/0
+            s = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, 'ts', ts, ...
+                'npix', 32, 'psf_crop', 32, 'dwell', 0, 'gif', false, ...
+                'ngridpts', 15, 'visible', false, 'verbose', false, ...
+                'out_dir', tc.wd};
+            cases = {'chief', 'keep'; 'chief', 'remove'; 'mean', 'keep'; 'mean', 'remove'};
+            a = cell(1, 4);
+            for k = 1:4
+                a{k} = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                    'jac', struct('ox', tc.harvest_(cases{k, 1}, '1x1')), ...
+                    'piston', cases{k, 2}, 'name', "pk_" + cases{k, 1} + "_" + cases{k, 2});
+                tc.verifySubstring(fileread(a{k}.report), ...
+                    ['piston ' stamp_(cases{k, 2}) ' on both sides'], sprintf('case %d', k));
+            end
+            tc.verifyEqual(a{3}.u, a{4}.u, 'AbsTol', 1e-6 * max(abs(a{4}.u)), ...
+                'on a mean harvest ''keep'' must equal ''remove''');
+            tc.verifyEqual(a{3}.rms_wfe_corr, a{4}.rms_wfe_corr, 'RelTol', 1e-6);
+            tc.verifyGreaterThan(abs(a{1}.rms_wfe_unc(2) - a{2}.rms_wfe_unc(2)), ...
+                1e-3 * a{2}.rms_wfe_unc(2), 'on a chief harvest ''keep'' must count piston');
+            tc.verifyLessThan(a{1}.rms_wfe_corr(2), 0.2 * a{1}.rms_wfe_unc(2), ...
+                'the loop bites under ''keep''');
+            tc.verifyLessThan(a{1}.table(end).w_rel, 0.05, ...
+                'engine and linear model agree under ''keep''');
+        end
+
+        function test_met_keep_counts_piston_as_tilt(tc)
+            % PLAN 1.2 (www) option on run_met: under 'keep' the chief
+            % harvest's per-field piston is counted, in the TILT part of the
+            % split (the projection onto piston+tilt), and the non-tilt part
+            % is unchanged; on a mean harvest 'keep' equals 'remove'.
+            cases = {'chief', 'keep'; 'chief', 'remove'; 'mean', 'keep'; 'mean', 'remove'};
+            a = cell(1, 4);
+            for k = 1:4
+                a{k} = run_met(fullfile(tc.wd, 'pie.in'), ...
+                    'hx', fullfile(tc.wd, 'pieHx.m'), 'jac', tc.harvest_(cases{k, 1}, '3x3'), ...
+                    'hub', 8, 'r_extra', 100, 'min_sep', 30, ...
+                    'ngridpts', 15, 'optimize', false, 'mc', 0, 'verbose', false, ...
+                    'piston', cases{k, 2}, ...
+                    'out_dir', tc.wd, 'name', "pk_" + cases{k, 1} + "_" + cases{k, 2});
+            end
+            for f = ["prior", "edge", "met", "edge_met", "wem", "wem_dt", "floor_frac_dt"]
+                tc.verifyEqual(a{3}.merits.(f), a{4}.merits.(f), 'RelTol', 1e-6, ...
+                    "mean harvest, " + f);
+            end
+            tc.verifyEqual(a{1}.merits.wem_dt, a{2}.merits.wem_dt, 'RelTol', 1e-6, ...
+                'the non-tilt part does not see piston');
+            tc.verifyGreaterThan(a{1}.merits.wem_tilt, 1e-3 * a{1}.merits.wem, ...
+                '''keep'' counts the chief piston in the tilt part');
+            tc.verifyGreaterThan(a{1}.merits.prior, (1 + 1e-3) * a{2}.merits.prior, ...
+                '''keep'' counts the chief piston in the prior');
+        end
+
+        function test_compare_keep_is_consistent(tc)
+            % PLAN 1.2 (www) option on run_compare: piston kept or removed on
+            % BOTH sides of every poke, so engine and model agree either way,
+            % on a chief or a mean harvest; the report prints the choice.
+            M = load(tc.met5.mat);
+            jacs = {tc.harvest_('chief', '1x1'), 'chief'; tc.harvest_('mean', '1x1'), 'mean'};
+            for k = 1:2
+                for pm = ["keep", "remove"]
+                    art = run_compare(fullfile(tc.wd, 'pie.in'), ...
+                        'hx', fullfile(tc.wd, 'pieHx.m'), 'jac', jacs{k, 1}, ...
+                        'met', M, 'channels', "x", 'bodies', [1 2 8], ...
+                        'dofs', [2 6], 'dwell', 0, 'visible', false, ...
+                        'gif', false, 'ngridpts', 15, 'verbose', false, ...
+                        'piston', char(pm), ...
+                        'out_dir', tc.wd, 'name', "pc_" + jacs{k, 2} + "_" + pm);
+                    tc.verifyLessThan(max([art.table.w_rel]), 0.05, ...
+                        sprintf('%s harvest, piston %s', jacs{k, 2}, pm));
+                    tc.verifySubstring(fileread(art.report), ...
+                        "piston " + stamp_(pm) + " on both sides");
+                end
+            end
+        end
+
+        function test_budget_piston_option(tc)
+            % PLAN 1.2 (www) option on macos.budget.assemble: under 'remove'
+            % (default) a chief and a mean harvest give the same Gram; under
+            % 'keep' the chief harvest's piston is in it.
+            c = tc.harvest_('chief', '1x1');  m = tc.harvest_('mean', '1x1');
+            Mc = macos.budget.assemble(c);  Mm = macos.budget.assemble(m);
+            tc.verifyEqual(Mc.opd_piston, 'removed');
+            tc.verifyEqual(Mc.G, Mm.G, 'AbsTol', 1e-6 * max(abs(Mm.G(:))), ...
+                'the budget must not depend on the OPD reference');
+            Kc = macos.budget.assemble(c, 'piston', 'keep');
+            Km = macos.budget.assemble(m, 'piston', 'keep');
+            tc.verifyEqual(Kc.opd_piston, 'kept');
+            tc.verifyEqual(Km.G, Mm.G, 'AbsTol', 1e-6 * max(abs(Mm.G(:))), ...
+                'a mean harvest carries no piston to keep');
+            tc.verifyGreaterThan(trace(Kc.G), (1 + 1e-3) * trace(Mc.G), ...
+                '''keep'' counts the chief piston');
+        end
+
     end
 
     methods (Access = private)
@@ -585,4 +748,15 @@ function rmdir_if_exists(tc)
     if ~isempty(tc.wd) && (isfolder(tc.wd) || isfolder(char(tc.wd)))
         rmdir(tc.wd, 's');
     end
+end
+
+function v = e2e_params_piston_(e2edir)
+% P.piston from the e2e thread's parameter file (it is a function on that path)
+old = addpath(e2edir);  cl = onCleanup(@() path(old));
+P = e2e_params();  v = string(P.piston);
+end
+
+function w = stamp_(mode)
+% the word a report prints for a 'piston' mode (macos.piston's opd_piston)
+w = 'kept';  if strcmp(mode, 'remove'), w = 'removed'; end
 end

@@ -587,8 +587,10 @@ classdef tBudgetKernel < matlab.unittest.TestCase
             bu = si;  bu.trans_output = 'base';
             t = df >= 3;
             bu.dwdxall(:, t) = bu.dwdxall(:, t) * cbm;     % per BaseUnit
-            Ms = macos.budget.assemble(si);
-            Mb = macos.budget.assemble(bu);
+            % 'keep': the unit conversion alone (removing the random
+            % columns' piston rounds at ~1e-12 relative)
+            Ms = macos.budget.assemble(si, 'piston', 'keep');
+            Mb = macos.budget.assemble(bu, 'piston', 'keep');
             tc.verifyEqual(Mb.J, Ms.J, 'RelTol', 1e-12);
             tc.verifyEqual(Mb.trans_output, 'si');
             T = cell2table({'Dec','all','decenter','','','dwdx','normal',100,'nm',NaN,NaN,'iid',''}, ...

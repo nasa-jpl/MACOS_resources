@@ -298,6 +298,30 @@ classdef tRunSensitivities < matlab.unittest.TestCase
                 'the harvest must record the reference it ran at');
         end
 
+        function test_conditioning_is_piston_free_by_default(tc)
+            % PLAN 1.2 (www), Dave 2026-10-27: the runner's ANALYSES
+            % (conditioning, spectrum, column norms) follow 'piston'
+            % ('remove' default), so a chief and a mean harvest report the
+            % same conditioning; the SAVED columns follow 'emit_piston'
+            % ('keep' default) and record it.  Before: ch04's dwdz cond read
+            % 5.368 at 'mean' and 14.48 at 'chief'.
+            [~, rx] = tc.cfg_fixture();
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            a = {'fov_rad', 1e-4, 'ngridpts', 15, 'channels', "dwdsurf", ...
+                'elts', 3, 'model_size', 512, 'out_dir', wd, 'verbose', false};
+            c = run_sensitivities(rx, a{:}, 'opd_ref', 'chief', 'name', 'pc');
+            m = run_sensitivities(rx, a{:}, 'opd_ref', 'mean', 'name', 'pm');
+            tc.verifyEqual(c.conditioning{end, 6}, m.conditioning{end, 6}, ...
+                'RelTol', 1e-6, 'cond+ must not depend on the OPD reference');
+            tc.verifyEqual(c.os.opd_piston, 'kept', 'the saved columns keep piston');
+            tc.verifySubstring(fileread(c.report), ...
+                'piston: saved columns kept, analyses removed');
+            e = run_sensitivities(rx, a{:}, 'opd_ref', 'chief', ...
+                'emit_piston', 'remove', 'name', 'pe');
+            tc.verifyEqual(e.os.opd_piston, 'removed');
+        end
+
         function test_per_element_page_index_follows_orient_xy(tc)
             % Luis round 4 (2026-09-10): the per-element CENTRE-FIELD page
             % rebuilt its pixel index with m2v on the (transposed) nominal

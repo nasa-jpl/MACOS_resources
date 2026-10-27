@@ -52,9 +52,14 @@ WFE_INIT = 100e-6;          % m RMS total initial WFE (as deployed)
 rng(7);
 
 % -- common rigid initial pose (PTT-dominant) + per-step drift std -----
-% rms ABOUT THE MEAN: piston is no part of the wavefront error (PLAN 1.2 (www)) -- a
-% chief-referenced harvest's columns carry the chief ray's own piston, a mean one's none
-rms_ = @(v) sqrt(mean((v(:) - mean(v(:))).^2));
+% the scale's rms follows P.piston (PLAN 1.2 (www)): "remove" = about the mean
+% (piston is no part of an imager's error; a chief-referenced harvest's columns
+% carry the chief ray's own piston, a mean one's none), "keep" = about zero
+if P.piston == "remove"
+    rms_ = @(v) sqrt(mean((v(:) - mean(v(:))).^2));
+else
+    rms_ = @(v) sqrt(mean(v(:).^2));
+end
 icfx = find(strcmp(J.ox.field_names, 'C'), 1);
 icfz = find(strcmp(J.oz.field_names, 'C'), 1);
 Bc = center_dwdx_(J.ox, icfx, M.bodies);      % OPD per rigid DOF (cbm=1, e2e)
@@ -88,6 +93,7 @@ pdrift = pdir * ((1:T) / T);                  % linear ramp, 6*nb x T
 biasA = -dmdx * pdrift;                        % metrology bias hiding it
 tsA = struct('dt', DT, 'x', Xrig, 'z', zeros(nz,T), 'g', zeros(ng,T));
 artA = run_simulator(rx, 'hx', hx, 'jac', jac, 'met', met, 'ts', tsA, ...
+    'piston', char(P.piston), ...
     'wfc_on_frame', WOF, 'wfc_tol', 3e-4, ...
     'meas_bias', biasA, ...                    % the hidden drift
     'wfc_reset_times', RESET_T, 'wfc_reset_tol', 3e-4, ...
@@ -116,6 +122,7 @@ gdir = randn(ng,1);  gdir = gdir / rms_(Bg * gdir);
 g0 = gdir * 20e-9;                             % 20 nm static grid figure floor
 tsB = struct('dt', DT, 'x', Xrig, 'z', Zfig, 'g', repmat(g0,1,T));
 artB = run_simulator(rx, 'hx', hx, 'jac', jac, 'met', met, 'ts', tsB, ...
+    'piston', char(P.piston), ...
     'wfc_on_frame', WOF, 'wfc_tol', 3e-4, ...
     'loop_senses_figure', false, ...           % truss reads rigid pose only
     'wfc_reset_times', RESET_T, 'wfc_reset_tol', 1e-5, ...  % engage lateral DOFs

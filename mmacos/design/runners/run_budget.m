@@ -35,6 +35,8 @@ function art = run_budget(sens, varargin)
 %     'ndraw'     Monte-Carlo draws (default 400; 0 skips MC)
 %     'mc_tol'    cov-vs-MC relative tolerance to warn at (default 0.10)
 %     'metric'    'opd' (default) | 'spot'
+%     'piston'    'remove' (default) | 'keep' -- passed to
+%                 macos.budget.assemble (macos.piston, PLAN 1.2 (www))
 %     'name'      artifact base name (default from SENS)
 %     'out_dir'   output directory (default beside SENS, else pwd)
 %     'visible'/'figures'  figure controls (default false / true)
@@ -59,6 +61,7 @@ p.addParameter('requirement', NaN, @isscalar);
 p.addParameter('ndraw', 400, @(x) isscalar(x) && x >= 0);
 p.addParameter('mc_tol', 0.10, @isscalar);
 p.addParameter('metric', 'opd', @(s) any(strcmpi(s, {'opd','spot'})));
+p.addParameter('piston', 'remove', @(s) any(strcmp(s, {'remove','keep'})));
 p.addParameter('name', '', @(x) ischar(x) || isstring(x));
 p.addParameter('out_dir', '', @(x) ischar(x) || isstring(x));
 p.addParameter('trans_per_metre', true, @islogical);
@@ -73,10 +76,12 @@ pth = @(suf) fullfile(od, [name suf]);
 
 %% -- [1] assemble ----------------------------------------------------
 M = macos.budget.assemble(sens, 'metric', o.metric, ...
-    'trans_per_metre', o.trans_per_metre);
+    'trans_per_metre', o.trans_per_metre, 'piston', o.piston);
 say('\n[1] assembled %s: J %dx%d, nw=%d, channels={%s}, metric=%s\n', ...
     name, size(M.J,1), size(M.J,2), M.nw, strjoin(unique(M.meta.channel),','), ...
     M.units.metric);
+M.harvest_opd_ref = harvest_ref_(sens);           % for the report file too
+say('    piston %s (harvest opd_ref %s)\n', M.opd_piston, M.harvest_opd_ref);
 
 %% -- [2] group spec --------------------------------------------------
 if isempty(o.spec)
@@ -160,7 +165,8 @@ macos.budget.write_xlsx(T_out, coef, art.xlsx, 'title', name);
 art.workbook = pth('_wfe_budget.xlsx');
 macos.budget.write_workbook(coef, art.workbook, 'title', [name ' WFE budget'], ...
     'table', T_out, 'design_wfe', o.design_wfe, 'requirement', o.requirement, ...
-    'log', log_lines_(sens, name));
+    'log', [log_lines_(sens, name), {sprintf('piston %s (harvest opd_ref %s)', ...
+    M.opd_piston, M.harvest_opd_ref)}]);
 macos.budget.write_csv(T_out, art.csv);
 write_report_(art.report, name, M, rc, rm, ctrl, T_out);
 save(art.mat, '-struct', 'coef');
@@ -220,6 +226,7 @@ tonm = M.cbm * 1e9;
 fprintf(fid, 'MACOS error budget: %s\n', name);
 fprintf(fid, 'metric=%s  base_units=%s  cbm=%g  nw=%d  Nz=%d\n', ...
     M.units.metric, M.base_units, M.cbm, M.nw, numel(M.meta.channel));
+fprintf(fid, 'piston %s (harvest opd_ref %s)\n', M.opd_piston, M.harvest_opd_ref);
 if isempty(ctrl), fprintf(fid, 'control: none (uncontrolled)\n');
 else, fprintf(fid, 'control: %d DOFs projected (post-WFC)\n', nnz(ctrl)); end
 fprintf(fid, '\n%-24s %-12s %12s %12s %12s\n', 'group', 'class', ...
@@ -275,6 +282,19 @@ try
     here = fileparts(mfilename('fullpath'));
     [st, sha] = system(sprintf('git -C "%s" rev-parse --short HEAD', here));
     if st == 0, L{end+1} = sprintf('MACOS_resources %s', strtrim(sha)); end
+catch
+end
+end
+
+function r = harvest_ref_(sens)
+% the OPD reference the harvest recorded (dw_d*_multi stamp), for the report
+r = 'unrecorded';
+try
+    if ischar(sens) || isstring(sens), sens = load(char(sens), 'ox'); end
+    if isfield(sens, 'ox'), sens = sens.ox; end
+    if isstruct(sens) && isfield(sens, 'opd_ref') && ~isempty(sens.opd_ref)
+        r = char(sens.opd_ref);
+    end
 catch
 end
 end

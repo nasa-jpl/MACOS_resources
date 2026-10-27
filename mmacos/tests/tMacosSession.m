@@ -130,7 +130,9 @@ classdef tMacosSession < matlab.unittest.TestCase
                 ... % inner FD loops driven by the dw_d* supervisors
                 'dwdx_for_current_source', 'dwdz_for_current_source', ...
                 ... % pure unit conversion of a harvest struct already held
-                'dwdx_trans_per_metre'};
+                'dwdx_trans_per_metre', ...
+                ... % piston keep/remove on a harvest struct already held
+                'piston'};
 
             pkg_dir = fullfile(fileparts(fileparts(mfilename('fullpath'))), ...
                                'src', '+macos');

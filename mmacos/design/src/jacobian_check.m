@@ -42,6 +42,9 @@ function chk = jacobian_check(rx, ox, opts)
 %                is below it reports rel = NaN ('null') instead of an
 %                FD-noise ratio.  e5hex1's segment Rz (clocking) is the
 %                canonical case: 1.7e-13 m per nrad.
+%     'piston'   'remove' (default) | 'keep' -- wavefront piston on BOTH
+%                sides, engine and model (macos.piston, PLAN 1.2 (www),
+%                Dave 2026-10-27); recorded as CHK.opd_piston.
 %     'verbose'  print per-DOF lines (default false).
 %
 %   Output CHK: .elt/.dof/.n_eng/.n_mod/.rel row vectors over the
@@ -62,6 +65,7 @@ function chk = jacobian_check(rx, ox, opts)
         opts.wf_elt  double {mustBeScalarOrEmpty} = []
         opts.w_floor (1,1) double {mustBePositive} = 1e-12
         opts.verbose (1,1) logical = false
+        opts.piston  (1,:) char {mustBeMember(opts.piston, {'remove','keep'})} = 'remove'
     end
     assert(isfile(rx), 'jacobian_check: %s not found', rx);
     ox = macos.dwdx_trans_per_metre(ox);   % columns per SI metre, the unit d_trans is in
@@ -123,10 +127,11 @@ function chk = jacobian_check(rx, ox, opts)
             macos.modify();
             b    = mnom & finite_(W1);
             rows = find(ismember(idx, find(b)));
-            v1 = W1(b);  v1 = v1 - mean(v1);
-            v0 = W0(b);  v0 = v0 - mean(v0);
+            v1 = W1(b);  v0 = W0(b);  md = A0(rows, q) * a;
+            if strcmp(opts.piston, 'remove')   % both sides (1.2 (www))
+                v1 = v1 - mean(v1);  v0 = v0 - mean(v0);  md = md - mean(md);
+            end
             dW = v1 - v0;
-            md = A0(rows, q) * a;  md = md - mean(md);
             chk.elt(end+1)   = e; %#ok<*AGROW>
             chk.dof(end+1)   = j0;
             chk.n_eng(end+1) = rms_(dW);
@@ -151,6 +156,8 @@ function chk = jacobian_check(rx, ox, opts)
     chk.n_null = nnz(isnan(chk.rel));
     chk.wf_elt = wf;
     chk.tags   = tags;
+    chk.opd_piston = 'kept';
+    if strcmp(opts.piston, 'remove'), chk.opd_piston = 'removed'; end
 end
 
 function m = finite_(W)
