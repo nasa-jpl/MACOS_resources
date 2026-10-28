@@ -30,5 +30,85 @@ classdef tSessionModes < matlab.unittest.TestCase
             tc.verifyWarningFree(@() macos.load_rx(rx_fixture_path(tc.Rx)), ...
                 'back at the defaults, the load is silent again');
         end
+
+        % --- modes_set (Dave 2026-10-28): the two modes that had no setter.
+        % Pre-change mex: mmacos('modes_set') is an unknown command -- red.
+        function test_centroid_set_before_load_survives_and_is_named(tc)
+            % A session mode is set BEFORE the load (init only, no Rx) and
+            % stays through it: the allocation rule, and the CLI's own order
+            % (CENTROID, then LOAD).
+            macos.init(128);
+            macos.messages();                      % empty the engine's buffer
+            md = macos.modes('centroid', true);
+            c = onCleanup(@() macos.modes('centroid', false)); %#ok<NASGU>
+            tc.verifyTrue(md.centroid, 'the setter returns the new modes');
+            % The command-stack loader matched CENTROID against CENTER on three
+            % letters and pushed CENTER's arguments, which the loop then read as
+            % commands (smacosutil.F LoadStack; fixed 2026-10-28).  Red before.
+            msgs = macos.messages();
+            tc.verifyFalse(any(contains(msgs, 'Unknown command')), ...
+                sprintf('stray commands after CENTROID: %s', strjoin(cellstr(msgs), ' | ')));
+            tc.verifyEqual(md.in_force, {'CENTROID'});
+            tc.verifyWarning(@() macos.load_rx(rx_fixture_path(tc.Rx)), 'mmacos:modesInForce');
+            md = macos.modes();
+            tc.verifyTrue(md.centroid, 'CENTROID survives the load');
+            tc.verifyTrue(md.lneg, 'a name left out is left alone');
+            md = macos.modes('centroid', false);
+            tc.verifyFalse(md.centroid);
+            tc.verifyEmpty(md.in_force);
+            tc.verifyWarningFree(@() macos.load_rx(rx_fixture_path(tc.Rx)));
+        end
+        function test_lneg_set_and_read_back(tc)
+            macos.init(128);  macos.load_rx(rx_fixture_path(tc.Rx));
+            md = macos.modes('lneg', false);
+            c = onCleanup(@() macos.modes('lneg', true)); %#ok<NASGU>
+            tc.verifyFalse(md.lneg);
+            tc.verifyEqual(md.in_force, {'NOLNEG'});
+            tc.verifyFalse(md.centroid, 'a name left out is left alone');
+            % both at once, and a 0/1 numeric is accepted as a logical
+            md = macos.modes('centroid', 1, 'lneg', 1);
+            tc.verifyTrue(md.centroid);  tc.verifyTrue(md.lneg);
+            tc.verifyEqual(md.in_force, {'CENTROID'});
+            md = macos.modes('centroid', 0);
+            tc.verifyEmpty(md.in_force);
+        end
+        function test_fex_follows_the_session_axis(tc)
+            % macos.fex() with no mode reads the session (A.6): under
+            % CENTROID it is macos.fex(0), under CHIEFRAY macos.fex(1).
+            % e5hex1 (a STOP, more than 3 elements; tDefaults' fex fixture).
+            % Its two axes may coincide, so the test compares the omitted-mode
+            % result with BOTH explicit ones and asks only that it equals the
+            % session's.
+            macos.init(128);  macos.load_rx(rx_fixture_path('e5hex1.in'));
+            macos.modes('centroid', true);
+            c = onCleanup(@() macos.modes('centroid', false)); %#ok<NASGU>
+            s0 = macos.fex(0);  s = macos.fex();
+            tc.verifyEqual(s.xp, s0.xp, 'AbsTol', 0, 'CENTROID session: fex() == fex(0)');
+            tc.verifyGreaterThan(max(abs(s.xp - macos.fex(1).xp)), 1e-8, ...
+                'the two axes must differ on e5hex1 (else vacuous)');
+            macos.modes('centroid', false);
+            s1 = macos.fex(1);  s = macos.fex();
+            tc.verifyEqual(s.xp, s1.xp, 'AbsTol', 0, 'CHIEFRAY session: fex() == fex(1)');
+        end
+        function test_obs_all_is_named_in_force(tc)
+            % OBS is session state too (macos.obs, 2026-10-16); since
+            % 2026-10-28 the modes list names it when it is not POSITIVE, and
+            % load_rx warns.  Pre-change: in_force stays empty -- red.
+            macos.init(128);  macos.load_rx(rx_fixture_path(tc.Rx));
+            macos.obs('all');
+            c = onCleanup(@() macos.obs('positive')); %#ok<NASGU>
+            md = macos.modes();
+            tc.verifyEqual(md.obs, 'all');
+            tc.verifyEqual(md.in_force, {'OBS ALL'});
+            tc.verifyWarning(@() macos.load_rx(rx_fixture_path(tc.Rx)), 'mmacos:modesInForce');
+            tc.verifyEqual(macos.obs(), 'all', 'OBS survives the load');
+            macos.obs('negative');
+            tc.verifyEqual(macos.modes().in_force, {'OBS NEGATIVE'});
+            macos.obs('positive');
+            md = macos.modes();
+            tc.verifyEqual(md.obs, 'positive');
+            tc.verifyEmpty(md.in_force);
+            tc.verifyWarningFree(@() macos.load_rx(rx_fixture_path(tc.Rx)));
+        end
     end
 end

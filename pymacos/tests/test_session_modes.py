@@ -35,3 +35,59 @@ def test_polarization_survives_load_and_is_named():
     with warnings.catch_warnings():
         warnings.simplefilter('error', RuntimeWarning)
         m.load(str(rx_path(RX)))
+
+
+# --- modes_set (Dave 2026-10-28): the two modes that had no setter.
+# Pre-change .so: no modes_set binding -- red.
+
+def test_centroid_set_before_load_survives_and_is_named():
+    m.init(128)
+    m.messages()                       # empty the engine's buffer
+    md = m.modes_set(centroid=True)
+    try:
+        assert md['centroid'] is True and md['in_force'] == ['CENTROID']
+        # the command-stack loader matched CENTROID against CENTER (LoadStack,
+        # fixed 2026-10-28) and the loop read CENTER's arguments as commands
+        msgs = m.messages()
+        assert not any('Unknown command' in ln for ln in msgs), msgs
+        with pytest.warns(RuntimeWarning, match='CENTROID'):
+            m.load(str(rx_path(RX)))
+        md = m.modes()
+        assert md['centroid'] is True, 'CENTROID survives the load'
+        assert md['lneg'] is True, 'an argument left out is left alone'
+    finally:
+        md = m.modes_set(centroid=False)
+    assert md['centroid'] is False and md['in_force'] == []
+
+
+def test_lneg_set_and_read_back():
+    m.init(128)
+    m.load(str(rx_path(RX)))
+    try:
+        md = m.modes_set(lneg=False)
+        assert md['lneg'] is False and md['in_force'] == ['NOLNEG']
+        assert md['centroid'] is False
+        md = m.modes_set(centroid=True, lneg=True)
+        assert md['centroid'] is True and md['lneg'] is True
+        assert md['in_force'] == ['CENTROID']
+    finally:
+        md = m.modes_set(centroid=False, lneg=True)
+    assert md['in_force'] == []
+
+
+def test_obs_all_is_named_in_force():
+    m.init(128)
+    m.load(str(rx_path(RX)))
+    m.obs_set('all')
+    try:
+        md = m.modes()
+        assert md['obs'] == 'all' and md['in_force'] == ['OBS ALL']
+        with pytest.warns(RuntimeWarning, match='OBS ALL'):
+            m.load(str(rx_path(RX)))
+        assert m.obs_set() == 'all', 'OBS survives the load'
+        m.obs_set('negative')
+        assert m.modes()['in_force'] == ['OBS NEGATIVE']
+    finally:
+        m.obs_set('positive')
+    md = m.modes()
+    assert md['obs'] == 'positive' and md['in_force'] == []
