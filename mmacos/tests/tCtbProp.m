@@ -30,8 +30,8 @@ classdef tCtbProp < matlab.unittest.TestCase
         % Committed measurements the pins are taken from -- ctb_dcr.in /
         % ctb_s2s_dcr.in at model 512, nGridpts 255, lambda 500 nm.
         CorrCompactFull = 0.998895     % bare, peak-normalised
-        PeakCompact     = 6.98980e-2
-        PeakFull        = 6.02965e-2
+        PeakCompact     = 6.99361e-2   % 6.98980e-2 before the 2026-10-28 re-pin
+        PeakFull        = 6.03292e-2   % 6.02965e-2 before the 2026-10-28 re-pin
         DxFpaM          = 2.4039e-5
     end
 
@@ -151,11 +151,13 @@ classdef tCtbProp < matlab.unittest.TestCase
                     sprintf('%s: element count', info(k).name));
                 tc.check_quartets_(info(k).out);
             end
-            % sphere radii against the committed compact deck
-            ref = struct('Focus23_EPreturn',    7.0178526119080789E+03, ...
-                         'FPM_EPreturn1',       1.0000841052379988E+03, ...
-                         'FieldStop_EPreturn1', 4.1592775988551006E+02, ...
-                         'ExitPupil',           3.5994606924986113E+02);
+            % sphere radii against the committed compact deck (re-pinned to
+            % this generator 2026-10-28; August: 7017.8526 / 1000.0841 /
+            % 415.92776 / 359.94607)
+            ref = struct('Focus23_EPreturn',    7.0192344144798517E+03, ...
+                         'FPM_EPreturn1',       1.0001049125640520E+03, ...
+                         'FieldStop_EPreturn1', 4.1592930361697870E+02, ...
+                         'ExitPupil',           3.6004359304855711E+02);
             got = info(strcmp({info.name},'compact')).R;
             map = struct('Focus23_EPreturn','Focus23', ...
                          'FPM_EPreturn1','FPM', ...
