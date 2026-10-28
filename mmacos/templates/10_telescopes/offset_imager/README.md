@@ -99,8 +99,10 @@ piston-only removal, headline = 11×11 dense-map MAXIMUM.
 | 12×12° | step 3 (11°) | 33.7 nm | **33.6 nm** (1.00×) | 24.8 → 24.9 mm | 0.012° | PASS | 14.5 min |
 | 14×14° | step 4 (13°) | 54.9 nm | **51.2 nm** (0.93×) | 21.2 → 24.9 mm | 0.001° | PASS | 14.5 min |
 
-Deterministic: four independent 12° solves reproduced 33.6240 nm /
-24.9496 mm / 0.012103° to every printed digit.  Concurrency is nearly
+Deterministic: four independent 12° solves (August) reproduced 33.6240 nm /
+24.9496 mm / 0.012103° to every printed digit.  On today's library the
+bundle reads 33.6243 nm, with the clearance and exit error unchanged: the OPD reference is now the chief ray
+and piston is removed by default, and the bundle was re-pinned for both in 80f2343.  Concurrency is nearly
 free — three runs abreast cost the same wall clock as one — which is how
 the bundle is regenerated.
 

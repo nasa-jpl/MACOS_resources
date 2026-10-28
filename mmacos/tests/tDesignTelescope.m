@@ -376,6 +376,39 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 sprintf('recovered despace not ~0: %.4g mm', res.x_opt));
         end
 
+        function test_add_pupil_mode_follows_session(tc)
+            % add_pupil carries no FEX-mode default of its own: an omitted
+            % 'mode' is the session's (macos.fex() reads macos.modes()), and
+            % mode 0 (centroid) is accepted.  Before 2026-10-28 add_pupil
+            % defaulted to 1 and refused 0 (mustBePositive).
+            mk = @() tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            % (1) mode 0 runs (the old validator refused it)
+            t0 = mk();
+            t0.add_pupil('mode', 0);
+            tc.verifyGreaterThan(t0.spec.pupil.ep_radius, 0);
+            % (2) the session in CENTROID (mode 0): an omitted mode follows
+            % it.  The bindings cannot set the engine's mode, so a stub
+            % macos.modes reports CENTROID and counts its reads.  An omitted
+            % mode reads the session once more than an explicit one (in
+            % macos.fex); with a default of its own, add_pupil reads it the
+            % same number of times either way.
+            here = fileparts(mfilename('fullpath'));
+            tc.applyFixture(matlab.unittest.fixtures.PathFixture( ...
+                fullfile(here, 'stubs', 'session_centroid')));
+            tc.addTeardown(@() setappdata(0, 'stub_modes_reads', []));
+            reads = @() getappdata(0, 'stub_modes_reads');
+            setappdata(0, 'stub_modes_reads', 0);
+            te = mk();  r0 = reads();  te.add_pupil('mode', 1);  n_explicit = reads() - r0;
+            ts = mk();  r0 = reads();  ts.add_pupil();           n_omitted  = reads() - r0;
+            tc.verifyEqual(n_omitted - n_explicit, 1, sprintf( ...
+                ['add_pupil() with no mode must take the session''s FEX mode ' ...
+                 '(session reads: %d omitted vs %d explicit)'], n_omitted, n_explicit));
+            % and what it builds is the explicit mode-0 pupil
+            tz = mk();  tz.add_pupil('mode', 0);
+            tc.verifyEqual(ts.spec.pupil.ep_radius, tz.spec.pupil.ep_radius, 'AbsTol', 0);
+            tc.verifyEqual(ts.spec.pupil.ep_vpt, tz.spec.pupil.ep_vpt, 'AbsTol', 0);
+        end
+
         function test_add_pupil_inserts_exit_pupil(tc)
             % add_pupil inserts a FLAT image-Return + a SPHERICAL exit-pupil
             % Return BEFORE the focal plane, PRESERVING the FP (nElt += 2).

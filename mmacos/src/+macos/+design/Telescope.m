@@ -786,7 +786,9 @@ classdef Telescope < handle
         %     'stop_elt'  aperture-stop element for FEX (default 1 = M1).
         %     'field_rad' off-axis field (rad) used to locate the EP
         %                 (default ~1 arcmin); restored to on-axis after.
-        %     'mode'      FEX mode (1 = chief-ray centred, default).
+        %     'mode'      FEX mode: 1 centres on the chief ray, 0 on the
+        %                 centroid.  Omitted: the session's mode, as
+        %                 macos.fex() reads it (no default of its own).
         %
         %   The exit pupil is the DELIVERABLE handle for downstream
         %   instruments AND the surface every wavefront READ must use
@@ -800,7 +802,7 @@ classdef Telescope < handle
                 ielt (1,1) double = -1
                 opts.stop_elt  (1,1) double {mustBeInteger,mustBePositive} = 1
                 opts.field_rad (1,1) double {mustBePositive} = 2.908882e-4
-                opts.mode      (1,1) double {mustBeInteger,mustBePositive} = 1
+                opts.mode      double {mustBeScalarOrEmpty, mustBeMember(opts.mode, [0 1])} = []
             end
             n0 = numel(obj.spec.elt);
             if ielt < 0, ielt = n0; end            % default: terminal FocalPlane
