@@ -416,10 +416,10 @@ def modes() -> dict:
     ``centroid`` (the FEX/SXP centroid axis), ``lneg`` (negative ray lengths
     allowed; default True), ``cir`` (colour image rendering; always False in
     the bindings' engine), ``obs`` (the OBS option: 'all', 'positive' (default)
-    or 'negative') and ``in_force``, the list of modes NOT at their defaults,
-    named as the CLI's LOAD notice names them ('OBS ALL' / 'OBS NEGATIVE'
-    included since 2026-10-28).  Set ``centroid`` / ``lneg`` with
-    :func:`modes_set`.  These modes SURVIVE
+    or 'negative'; NOT a session mode: :func:`load` resets it to POSITIVE,
+    Dave 2026-10-28) and ``in_force``, the list of modes NOT at their
+    defaults, named as the CLI's LOAD notice names them.  Set ``centroid`` /
+    ``lneg`` with :func:`modes_set`.  These modes SURVIVE
     :func:`load` (Dave 2026-10-11, PLAN_CONSOLIDATION 4 item 2); ``load`` warns
     (RuntimeWarning) when any is in force.
     """
@@ -437,10 +437,6 @@ def modes() -> dict:
         f.append('CIR')
     o = int(_gen.obs_opt_get())
     md['obs'] = {0: 'all', 1: 'positive', 2: 'negative'}[o]
-    if o == 0:
-        f.append('OBS ALL')
-    elif o == 2:
-        f.append('OBS NEGATIVE')
     md['in_force'] = f
     return md
 
@@ -5612,7 +5608,8 @@ def obs_set(option: str | None = None) -> None | str:
       'all'      -- every ray, regardless of obscuration (option 0)
       'positive' -- unobscured rays only (default; option 1)
       'negative' -- obscured rays only (option 2)
-    Session state -- persists until changed.  Set 'all' to draw a spot at
+    Persists until changed or a :func:`load`, which resets it to POSITIVE and
+    says so (Dave 2026-10-28).  Set 'all' to draw a spot at
     a focal plane where every ray is obscured (a coronagraph FP), then
     restore 'positive' so the diffraction trace stays masked.
 

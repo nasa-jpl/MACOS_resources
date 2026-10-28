@@ -4,10 +4,10 @@ function md = modes(opts)
 %   .vecdif (vector diffraction), .centroid (the FEX/SXP centroid axis), .lneg
 %   (negative ray lengths allowed; default TRUE), .cir (colour image rendering;
 %   always false in the bindings' engine), .obs (the OBS option in force:
-%   'all', 'positive' (default) or 'negative'), and .in_force, a cellstr of the
+%   'all', 'positive' (default) or 'negative'; NOT a session mode -- load_rx
+%   resets it to POSITIVE, Dave 2026-10-28), and .in_force, a cellstr of the
 %   modes NOT at their defaults, named as the CLI's LOAD notice names them
-%   ('POLARIZATION', 'VECTOR'/'SCALAR', 'CENTROID', 'NOLNEG', 'CIR',
-%   'OBS ALL'/'OBS NEGATIVE').
+%   ('POLARIZATION', 'VECTOR'/'SCALAR', 'CENTROID', 'NOLNEG', 'CIR').
 %
 %   md = macos.modes('centroid', TF) / macos.modes('lneg', TF) SETS the two
 %   modes that have no setter of their own (api modes_set, Dave 2026-10-28):
@@ -42,8 +42,6 @@ end
 if md.centroid, f{end+1} = 'CENTROID'; end
 if ~md.lneg,    f{end+1} = 'NOLNEG';   end
 if md.cir,      f{end+1} = 'CIR';      end
-if o == 0,      f{end+1} = 'OBS ALL';      end
-if o == 2,      f{end+1} = 'OBS NEGATIVE'; end
 md.in_force = f;
 end
 

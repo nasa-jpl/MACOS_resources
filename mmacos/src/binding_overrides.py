@@ -151,7 +151,7 @@ OPTIONS = [
                      'at allocation (macos_mod_init); survive LOAD',
          get=['modes_get'], set=['pol_set', 'vecdif_set', 'modes_set'],
          cli='POLARIZATION, VECTOR/SCALAR, CENTROID/CHIEFRAY, LNEG/NOLNEG, CIR/GIR; '
-             'LOAD names the non-default ones (and OBS, since 2026-10-28)',
+             'LOAD names the non-default ones',
          mmacos='`macos.modes()`; `macos.modes(\'centroid\', tf, \'lneg\', tf)` sets; '
                 '`load_rx` warns `mmacos:modesInForce`',
          pymacos='`modes()`; `modes_set(centroid=, lneg=)`; `load` warns (RuntimeWarning)',
@@ -197,10 +197,11 @@ OPTIONS = [
          status='inherits'),
     dict(option='Obscuration option (OBS ALL / POSITIVE / NEGATIVE)',
          engine=('macos_init.inc', r'^\s*iObsOpt\s*=\s*(\d+)'),
-         engine_note='iObsOpt (1 = POSITIVE: unobscured rays), at allocation; survives LOAD '
-                     'since 2026-10-28 (named in the LOAD notice / `modes().in_force`)',
+         engine_note='iObsOpt (1 = POSITIVE: unobscured rays), at allocation and after every '
+                     'LOAD: not session state (Dave 2026-10-28), a load resets it to POSITIVE '
+                     'and says so when it was not',
          get=['obs_opt_get'], set=['obs_set'],
-         cli='OBS; LOAD names it when not POSITIVE',
+         cli='OBS; LOAD resets it (`LOAD: OBS ALL reset to POSITIVE`)',
          mmacos='`obs()` queries (`obs_opt_get`), `obs(opt)` sets',
          pymacos=('macos.py', r"^def obs_set\(option: str \| None = (\w+)\)"),
          pymacos_note='`obs_set()` queries (was: SET positive), `obs_set(opt)` sets',
