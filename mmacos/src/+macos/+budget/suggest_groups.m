@@ -33,8 +33,8 @@ end
 rk = roles.keys;
 
 rows = {};  % each: {Name Elements DOFs Modes Param Channel Dist Sigma Units Min Max Cov Control}
-dofgrp = {'Tilt', 'tilt', 0; 'Clock', 'clock', 1; 'Decenter', 'decenter', 1; ...
-          'Despace', 'despace', 1};
+dofgrp = {'Tilt', 'tilt'; 'Clock', 'clock'; 'Decenter', 'decenter'; ...
+          'Despace', 'despace'};
 for ri = 1:numel(rk)
     role = rk{ri};
     ev = roles(role);
@@ -44,8 +44,9 @@ for ri = 1:numel(rk)
         dd = resolve_dof_(dofgrp{d, 2});
         has = inrole & strcmp(meta.channel, 'dwdx') & ismember(meta.dof, dd);
         if any(has)
-            u = 'nrad'; if dofgrp{d, 3} == 0, u = 'nrad'; else, u = 'nm'; end
-            if dofgrp{d, 3} == 0, u = 'nrad'; end
+            % the unit class covariance_model gives these columns: dwdx
+            % DOFs 0-2 (tilts and clock) are angles, 3-5 lengths
+            if all(dd <= 2), u = 'nrad'; else, u = 'nm'; end
             rows(end+1, :) = {sprintf('%s %s', role, dofgrp{d,1}), role, ...
                 dofgrp{d,2}, '', '', 'dwdx', 'normal', 1, u, NaN, NaN, 'iid', ''}; %#ok<AGROW>
         end

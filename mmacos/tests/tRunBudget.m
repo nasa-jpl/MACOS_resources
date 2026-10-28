@@ -68,6 +68,30 @@ classdef tRunBudget < matlab.unittest.TestCase
             tc.verifyEqual(art.cov.total, art.mc.total, 'RelTol', 0.12);
         end
 
+        function test_run_budget_without_spec(tc)
+            % No spec: suggest_groups proposes the skeleton and run_budget
+            % runs it.  Until 2026-10-28 the skeleton gave each optic's
+            % Clock group (dwdx DOF 2, an angle) the length unit "nm", and
+            % the covariance model refused it with budget:unit.
+            wd = tempname; mkdir(wd);
+            cl = onCleanup(@() rmdir(wd, 's'));
+            art = run_budget(tc.ox, 'name', 'e5hex1_nospec', ...
+                'out_dir', wd, 'ndraw', 200, 'visible', false);
+            tc.verifyTrue(isfinite(art.total_nm));
+            tc.verifyGreaterThan(art.total_nm, 0);
+            % every suggested rigid-body group of angle DOFs carries an
+            % angle unit, every other one a length unit
+            M = macos.budget.assemble(tc.ox);
+            T = macos.budget.suggest_groups(M);
+            ang = {'rad','mrad','urad','microrad','nrad','arcsec'};
+            for k = 1:height(T)
+                if ~strcmp(T.Channel{k}, 'dwdx'), continue; end
+                is_ang = ismember(T.DOFs{k}, {'tilt', 'clock'});
+                tc.verifyEqual(ismember(T.Units{k}, ang), is_ang, sprintf( ...
+                    '%s: units "%s"', T.Name{k}, T.Units{k}));
+            end
+        end
+
         function test_wfc_stage_cov_equals_mc(tc)
             % The WFC stage (iSeq = 1) on the e5hex1 harvest, Dave's
             % control set (6 DOF per PM segment + the SM's 6), WFS 3 nm
