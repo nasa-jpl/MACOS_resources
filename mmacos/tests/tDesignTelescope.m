@@ -386,25 +386,21 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             t0 = mk();
             t0.add_pupil('mode', 0);
             tc.verifyGreaterThan(t0.spec.pupil.ep_radius, 0);
-            % (2) the session in CENTROID (mode 0): an omitted mode follows
-            % it.  The bindings cannot set the engine's mode, so a stub
-            % macos.modes reports CENTROID and counts its reads.  An omitted
-            % mode reads the session once more than an explicit one (in
-            % macos.fex); with a default of its own, add_pupil reads it the
-            % same number of times either way.
-            here = fileparts(mfilename('fullpath'));
-            tc.applyFixture(matlab.unittest.fixtures.PathFixture( ...
-                fullfile(here, 'stubs', 'session_centroid')));
-            tc.addTeardown(@() setappdata(0, 'stub_modes_reads', []));
-            reads = @() getappdata(0, 'stub_modes_reads');
-            setappdata(0, 'stub_modes_reads', 0);
-            te = mk();  r0 = reads();  te.add_pupil('mode', 1);  n_explicit = reads() - r0;
-            ts = mk();  r0 = reads();  ts.add_pupil();           n_omitted  = reads() - r0;
-            tc.verifyEqual(n_omitted - n_explicit, 1, sprintf( ...
-                ['add_pupil() with no mode must take the session''s FEX mode ' ...
-                 '(session reads: %d omitted vs %d explicit)'], n_omitted, n_explicit));
-            % and what it builds is the explicit mode-0 pupil
+            % (2) the session in CENTROID, set with the real setter (modes_set,
+            % 2026-10-28; until then a stub macos.modes stood in): an omitted
+            % mode builds the mode-0 pupil.  On every Cassegrain fixture tried
+            % (bare, hole, field bias 30/60/120 arcmin; measured 2026-10-28)
+            % the centroid and chief-ray pupils coincide to the last bit, so
+            % this comparison cannot by itself tell "the session's mode" from
+            % "a default of 1"; that discrimination is tSessionModes/
+            % test_fex_follows_the_session_axis on e5hex1, where the axes
+            % differ.  Here the check is that add_pupil runs under a CENTROID
+            % session with no mode of its own and lands on the mode-0 pupil.
+            macos.modes('centroid', true);
+            tc.addTeardown(@() macos.modes('centroid', false));
+            ts = mk();  ts.add_pupil();
             tz = mk();  tz.add_pupil('mode', 0);
+            tc.verifyEqual(macos.modes().centroid, true, 'add_pupil must leave the session mode alone');
             tc.verifyEqual(ts.spec.pupil.ep_radius, tz.spec.pupil.ep_radius, 'AbsTol', 0);
             tc.verifyEqual(ts.spec.pupil.ep_vpt, tz.spec.pupil.ep_vpt, 'AbsTol', 0);
         end

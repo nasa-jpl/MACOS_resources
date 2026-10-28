@@ -415,8 +415,11 @@ def modes() -> dict:
     Returns a dict: ``pol`` (polarization), ``vecdif`` (vector diffraction),
     ``centroid`` (the FEX/SXP centroid axis), ``lneg`` (negative ray lengths
     allowed; default True), ``cir`` (colour image rendering; always False in
-    the bindings' engine) and ``in_force``, the list of modes NOT at their
-    defaults, named as the CLI's LOAD notice names them.  These modes SURVIVE
+    the bindings' engine), ``obs`` (the OBS option: 'all', 'positive' (default)
+    or 'negative') and ``in_force``, the list of modes NOT at their defaults,
+    named as the CLI's LOAD notice names them ('OBS ALL' / 'OBS NEGATIVE'
+    included since 2026-10-28).  Set ``centroid`` / ``lneg`` with
+    :func:`modes_set`.  These modes SURVIVE
     :func:`load` (Dave 2026-10-11, PLAN_CONSOLIDATION 4 item 2); ``load`` warns
     (RuntimeWarning) when any is in force.
     """
@@ -432,8 +435,33 @@ def modes() -> dict:
         f.append('NOLNEG')
     if md['cir']:
         f.append('CIR')
+    o = int(_gen.obs_opt_get())
+    md['obs'] = {0: 'all', 1: 'positive', 2: 'negative'}[o]
+    if o == 0:
+        f.append('OBS ALL')
+    elif o == 2:
+        f.append('OBS NEGATIVE')
     md['in_force'] = f
     return md
+
+
+def modes_set(centroid: bool | None = None, lneg: bool | None = None) -> dict:
+    """Set the two SESSION modes that have no setter of their own (api
+    modes_set, Dave 2026-10-28): ``centroid`` True = CENTROID, False =
+    CHIEFRAY (the FEX / SXP pupil-sphere axis); ``lneg`` True = LNEG, False =
+    NOLNEG (negative ray lengths at reference surfaces).  ``None`` leaves a
+    mode as it is.  Needs :func:`init`, not a loaded Rx: a mode set before
+    :func:`load` stays (the modes survive loads).  Polarization has
+    :func:`polarization_set`; the OBS option :func:`obs_set`.  Returns
+    :func:`modes` after the change.
+
+    Raises:
+        Exception: the engine is not allocated, or MACOS rejected the call.
+    """
+    code = lambda v: -1 if v is None else int(bool(v))
+    if not lib.api.modes_set(np.int32(code(centroid)), np.int32(code(lneg))):
+        raise Exception('MACOS: modes_set failed (init first)')
+    return modes()
 
 
 def save(rx: Path | str,

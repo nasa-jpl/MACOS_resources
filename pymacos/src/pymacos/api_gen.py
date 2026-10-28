@@ -2657,6 +2657,28 @@ def modes_get():
         raise ApiError('modes_get')
     return (_r[1], _r[2], _r[3], _r[4], _r[5])
 
+def modes_set(centroid, lneg):
+    """modes_set -- set the two SESSION modes that had no setter (Dave 2026-10-28,
+    PLAN_CONSOLIDATION 3a): the FEX/SXP pupil-sphere axis (CENTROID / CHIEFRAY,
+    ifCentroid) and negative ray lengths at reference surfaces (LNEG / NOLNEG,
+    ifLNegOK).  Each argument: 1 = on, 0 = off, -1 = leave as it is.  The change
+    goes through the CLI's own commands so the two front ends keep one semantics
+    (the obs_set / vecdif_set pattern); modes_get reads the result.  Polarization
+    and vector diffraction keep pol_set / vecdif_set (the Jones vector, the ifPol
+    precondition); CIR is not in the bindings' engine.  Needs the engine allocated
+    (init), NOT a loaded Rx: a session mode is set before or after a load and
+    survives it.  A change of LNEG with an Rx loaded dirties the trace (MODIFY);
+    CENTROID is read only when FEX / SXP run, so it dirties nothing.
+
+    Generated stub over lib.api.modes_set(centroid, lneg).
+    Raises ApiError when the api returns ok = FAIL.
+    """
+    _kw = {}
+    _r = _api.modes_set(centroid, lneg, **_kw)
+    if not _r:
+        raise ApiError('modes_set')
+    return None
+
 def calib_buffer_dims():
     """calib_buffer_dims -- report the (max_fov, max_wl) compile-time
     dimensions used by calib_run's old_wfe_out / new_wfe_out
@@ -3235,6 +3257,7 @@ API_ROUTINES = (
     'srs_run',
     'calib_run',
     'modes_get',
+    'modes_set',
     'calib_buffer_dims',
     'calib_stats_get',
     'deadband_notes_get',
@@ -3405,6 +3428,7 @@ F2PY_SIGNATURES = {
     'srs_run': (('islv1', 'islv2', 'link'), (), ('ok',)),
     'calib_run': (('old_wfe_out', 'new_wfe_out'), (), ('ok', 'rtn_flag_out', 'nfov_out', 'nwl_out')),
     'modes_get': ((), (), ('ok', 'pol', 'vecdif', 'centroid', 'lneg', 'cir')),
+    'modes_set': (('centroid', 'lneg'), (), ('ok',)),
     'calib_buffer_dims': ((), (), ('maxfov', 'maxwl')),
     'calib_stats_get': ((), (), ('n_iter', 'merit', 'stop_reason', 'n_rejected', 'n_failed')),
     'deadband_notes_get': ((), (), ('nnotes',)),

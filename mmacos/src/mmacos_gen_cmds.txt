@@ -101,6 +101,7 @@ met_calc
 met_geom_get
 met_get
 modes_get
+modes_set
 modified_rx
 n_elt
 obs_opt_get

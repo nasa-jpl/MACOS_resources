@@ -8,7 +8,7 @@
 ! Every routine forwards to its language-neutral sibling in
 ! macos_api_mod (NAME_impl => NAME); the !f2py annotations live here so
 ! the pure-Fortran backbone stays free of Python-specific markers.
-! Routines: 165 api + 1 f2py-only.
+! Routines: 166 api + 1 f2py-only.
 
 
   module api
@@ -161,6 +161,7 @@
       srs_run_impl => srs_run, &
       calib_run_impl => calib_run, &
       modes_get_impl => modes_get, &
+      modes_set_impl => modes_set, &
       calib_buffer_dims_impl => calib_buffer_dims, &
       calib_stats_get_impl => calib_stats_get, &
       deadband_notes_get_impl => deadband_notes_get, &
@@ -1799,6 +1800,15 @@
 
         CALL modes_get_impl(OK, pol, vecdif, centroid, lneg, cir)
       end subroutine modes_get
+
+      subroutine modes_set(OK, centroid, lneg)
+        implicit none
+        logical, intent(out) :: OK
+        integer, intent(in) :: centroid                           ! 1 = CENTROID, 0 = CHIEFRAY, -1 = leave
+        integer, intent(in) :: lneg                               ! 1 = LNEG, 0 = NOLNEG, -1 = leave
+
+        CALL modes_set_impl(OK, centroid, lneg)
+      end subroutine modes_set
 
       subroutine calib_buffer_dims(maxFov, maxWl)
         implicit none

@@ -149,12 +149,14 @@ OPTIONS = [
          engine=('macos_mod.F', r'^\s*ifCentroid\s*=\s*(\.\w+\.)'),
          engine_note='ifPol/ifVecDif3/ifCentroid/ifPGColor .FALSE., ifLNegOK .TRUE., '
                      'at allocation (macos_mod_init); survive LOAD',
-         get=['modes_get'], set=['pol_set', 'vecdif_set'],
+         get=['modes_get'], set=['pol_set', 'vecdif_set', 'modes_set'],
          cli='POLARIZATION, VECTOR/SCALAR, CENTROID/CHIEFRAY, LNEG/NOLNEG, CIR/GIR; '
-             'LOAD names the non-default ones',
-         mmacos='`macos.modes()`; `load_rx` warns `mmacos:modesInForce`',
-         pymacos='`modes()`; `load` warns (RuntimeWarning)',
-         override='`polarization(...)`; CENTROID/LNEG/CIR have no api setter (CLI only)',
+             'LOAD names the non-default ones (and OBS, since 2026-10-28)',
+         mmacos='`macos.modes()`; `macos.modes(\'centroid\', tf, \'lneg\', tf)` sets; '
+                '`load_rx` warns `mmacos:modesInForce`',
+         pymacos='`modes()`; `modes_set(centroid=, lneg=)`; `load` warns (RuntimeWarning)',
+         override='`polarization(...)`; `modes(\'centroid\', tf)` / `modes_set(...)` '
+                  '(2026-10-28); CIR has no api setter (CLI only)',
          status='inherits'),
     dict(option='OPD reference (chief ray / aperture mean)',
          engine=('traceutil_mod.F', r'Logical\s*::\s*LOpdRefChief\s*=\s*(\.\w+\.)'),
@@ -172,7 +174,7 @@ OPTIONS = [
     dict(option='FEX / SXP axis (chief ray / beam centroid)',
          engine=('macos_mod.F', r'^\s*ifCentroid\s*=\s*(\.\w+\.)'),
          engine_note='session mode ifCentroid (.FALSE. = chief), at allocation',
-         get=['modes_get'], set=['xp_fnd', 'sxp_fnd'],
+         get=['modes_get'], set=['modes_set', 'xp_fnd', 'sxp_fnd'],
          cli='CENTROID / CHIEFRAY, then FEX / SXP',
          mmacos=('fex.m', r'^\s*mode double \{.*\} = (\S+)'),
          mmacos_note='`fex(mode)`, `sxp(mode)`: empty = the session axis read through '
@@ -195,9 +197,10 @@ OPTIONS = [
          status='inherits'),
     dict(option='Obscuration option (OBS ALL / POSITIVE / NEGATIVE)',
          engine=('macos_init.inc', r'^\s*iObsOpt\s*=\s*(\d+)'),
-         engine_note='iObsOpt (1 = POSITIVE: unobscured rays), at allocation',
+         engine_note='iObsOpt (1 = POSITIVE: unobscured rays), at allocation; survives LOAD '
+                     'since 2026-10-28 (named in the LOAD notice / `modes().in_force`)',
          get=['obs_opt_get'], set=['obs_set'],
-         cli='OBS',
+         cli='OBS; LOAD names it when not POSITIVE',
          mmacos='`obs()` queries (`obs_opt_get`), `obs(opt)` sets',
          pymacos=('macos.py', r"^def obs_set\(option: str \| None = (\w+)\)"),
          pymacos_note='`obs_set()` queries (was: SET positive), `obs_set(opt)` sets',
@@ -291,8 +294,6 @@ CLI_BINDINGS = {
     'SHOw': ('direct setter', 'the `elt_*` getters (`elt_info_get`, `elt_obs_get`, '
                               '`elt_vpt`, `elt_psi`, `elt_kc`, `elt_kr`, ...)'),
     # Source & Wavelength
-    'CHIefray': ('direct setter', '`xp_fnd(mode=1)` / `sxp_fnd(1)` per call; the '
-                                  'session axis is read by `modes_get`'),
     'WLENS': ('missing', 'field / beam set'), 'SWL': ('missing', 'field / beam set'),
     'MULtispec': ('missing', 'through `compose_*` (B.2, image-plane set)'),
     'NFIlt': ('missing', 'image-plane post-processing (B.2, third)'),
@@ -312,12 +313,10 @@ CLI_BINDINGS = {
     'FSR': ('missing', 'image-plane post-processing (B.2, third)'),
     'CENter': ('missing', 'STOP\'s sibling (center the beam in the stop); no '
                           'verified api twin'),
-    'CENTRoid': ('direct setter', '`xp_fnd(mode=0)` / `sxp_fnd(0)` per call; the '
-                                  'session axis is read by `modes_get`'),
     'FDP': ('missing', 'image-plane post-processing (B.2, third)'),
+    # CENTRoid / CHIefray / LNEg/NOLNeg: classified from the api since 2026-10-28
+    # (`modes_set` issues the commands); an entry here would be stale.
     # Behavior Toggles
-    'LNEg/NOLNeg': ('missing', 'no api setter; read by `modes_get` (a session '
-                               'mode -- NOT the linear model, whatever its L)'),
     'REGrid/NOREGrid': ('missing', 'a per-element resampling flag'),
     'NONe': _PLOT,
     # Surface Data
