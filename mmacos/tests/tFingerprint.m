@@ -3,8 +3,12 @@ classdef tFingerprint < matlab.unittest.TestCase
 %   Large derived products (s4_jacobians.mat, e2e_pie_met.mat) are
 %   gitignored; a committed <file>.fp.json fingerprint is the reviewable
 %   truth.  This validates the helper (build/write/read/check, both arms)
-%   and, when a rebuilt .mat is present on disk, that it matches its
-%   committed fingerprint (skip-with-message when the blob is absent).
+%   and that each committed fingerprint exists and reads.  The BLOB
+%   comparison runs only where the rebuilt .mat is on disk (after s4/s5 of
+%   templates/80_end_to_end/e2e).  On a clean checkout the blob is absent
+%   and the test PASSES having compared the fingerprint for presence and
+%   format only -- it logs exactly that; a clean-checkout pass is NOT a
+%   blob match (CC/Dave 2026-10-27, round 2 B).
 
     methods (TestClassSetup)
         function addpaths(tc) %#ok<MANU>
@@ -68,8 +72,11 @@ classdef tFingerprint < matlab.unittest.TestCase
                 fp = jac_fingerprint('read', fpp);
                 tc.verifyTrue(isfield(fp, 'meta') && isfield(fp, 'fields'));
                 matp = fullfile(e2e, [base '.mat']);
-                tc.assumeTrue(isfile(matp), ...
-                    sprintf('%s.mat absent (gitignored) -- regenerate to check', base));
+                if ~isfile(matp)
+                    tc.log(1, sprintf(['%s.mat absent: fingerprint compared ' ...
+                        'for presence and format only'], base));
+                    continue
+                end
                 M = load(matp);
                 S = build_check_struct_(base, M);
                 [ok, rep] = jac_fingerprint('check', S, fpp);
