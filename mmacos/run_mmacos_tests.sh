@@ -281,7 +281,7 @@ SUITE_FAST=$(join_suites \
     "tLinkSave" "tZernikeGridBasis" "tRxBlockComment" \
     "tGratingImmersed" "tGratingAperture" "tRayFailElt" "tGlassDispersion" "tPropMedium" "tRxShortAsph" \
     "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tCalibStop" "tCalibMatrix" "tSessionModes" "tStopApStop" "tFreeformPole" "tCophi" "tBudgetKernel" "tRunBudget" "tResolutionSweep" "tApiCoverage" "tDefaults" "tSrt" "tSegRay" "tRefRays" "tSint" "tMessages" "tSaveNewFileQuiet" "tRxLoadRulings1018" "tVeneerDefaults" "tZwfsCoat" "tE2eRmsWaves" \
-    "tNollMode" "tConvergedEst" "tTmaTelecentric" "tJacobianCheck")
+    "tNollMode" "tConvergedEst" "tTmaTelecentric" "tJacobianCheck" "tFingerprint")
 # Truly-fast smoke subset for the dev loop: lightweight, high-signal
 # classes only (command dispatch, package/session veneers, pure-math
 # mask, perturb roundtrip, first-order props, compose, XP).  EXCLUDES the

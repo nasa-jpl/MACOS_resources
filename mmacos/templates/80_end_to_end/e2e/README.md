@@ -18,6 +18,35 @@ All user knobs live in **`e2e_params.m`** — one file, commented.  Each
 stage consumes the previous stage's saved artifacts (`.in` + `.mat` +
 sidecars), so a knob change re-runs from the first stage it affects.
 
+## What is committed here, and what the scripts write
+
+The stage outputs (reports, figures, movies, `.mat` products) are NOT
+committed: the scripts are the record (Dave's run-artifact rule,
+2026-10-26).  Run s1 → s7 (below) to produce them here; the figures as
+published are in the mmacos manual, Part I chapters 1–6
+(`docs/mmacos-manual/src/01_telescope.md` … `06_closing_the_loop.md`),
+which run this thread live.  Committed: the scripts and `e2e_params.m`,
+the two Hx sidecars (`e2e_pieHx.m`, `e2e_hex2Hx.m`: s3 writes them, and they are kept as the pair of the committed s3 decks), `flat256.txt` (the s4 grid input), the two
+fingerprints (below), the two hand-picked `s2_variants/` decks, and the
+nine decks below.
+
+**The committed decks are corpus inputs of July/August 2026, not what
+the scripts write today.**  `e2e_pie.in`, `e2e_hex2.in`,
+`e2e_pie_met.in`, `e2e_pie_metopt.in`, `s1_telescope.in`,
+`s2_instrument.in`, `s4_grid.in` and the two `s2_variants/` decks are
+read by the engine's CLI corpus (`cli_tests/corpus_committed.txt` in
+the macos repo), which compares two engine builds on the same deck, and
+`tests/tE2eRmsWaves` loads the s1 and s2 decks; they stay as committed so
+those gates keep their inputs.  Re-running the scripts on the
+2026-10-27 library rewrites seven of them (the two `s2_variants/`
+decks are not written by any stage): s1 solves to new conics (M1 KcElt
+−0.989455 → −0.989716) because the ColSource ray-set fix (macos
+36a5f5aa, 2026-08-01) moved its merit (1305 → 1185 rays); s2's automatic
+field centre follows the new WFE map, 0.590′ → 0.262′ (`ChfRayDir` y
+1.717e-4 → 7.61e-5 rad); and every later deck inherits both
+(83–557 lines of each deck differ, all numeric).  Diagnosis per file:
+`cli_tests/records/run_artifacts_e2e_regen_2026-10-27.tsv` (macos repo).
+
 ## The telescope case
 
 An **on-axis Korsch TMA taken slightly off-axis, back end folded
@@ -52,7 +81,7 @@ correction DOFs.
 | `s6_compare.m` | s3–s5 | THIN DRIVER over **`design/runners/run_compare.m`** (Dave's spec 2026-07-19): linear model `w = dwdx·x + dwdz·z + dwdgrid·g + dwdu·u + w0` (u = control = segment + SM rigid DOFs), measurement `m = [l; e] = dmdx·x + dmdz·z + dmdgrid·g + m0`.  Pokes every DOF of the model in turn — the 54 rigid x DOFs (100 nrad / 100 nm) on the OPTIMIZED met Rx, then the 56 z figure modes, then the 42 grid influence DOFs (100 nm figure, on the s4 grid-augmented Rx with the basis rebuilt by the same `segment_grid_basis` call — a mismatch fails the agreement gate); per poke TWO graphics — the mmacos ENGINE response vs the LINEAR MODEL prediction — each the center-field OPD change above stacked bar charts of `l`, `e_piston`, `e_gap`, `e_shear`; dwell 1.6 s/frame (Dave: 0.25 read too fast); every pair saved in `s6_frames/` + assembled into `s6_compare.gif`.  Engine truth per channel: `w` = perturb→trace→OPD delta, `l` = METcalc (met points ride their element), `e` = FINITE-ROTATION kinematics at the Hx `SensorPos` sensor points (the sensor axis + arm ARE the measurement model; the difference vs the `dedx` row is the genuine linearization error).  **Result: engine == linear to ≤2.8e-3 (x; most ≤1e-4), ≤1.8e-3 (z), ≤1.2e-6 (l), ≤6e-8 (e; translations exact to machine)** — the linear model IS the engine at drift-scale pokes.  Grid pokes agree to ≤0.24, limited NOT by the model but by an **OPEN ENGINE QUESTION**: the grid-surface response is not proportional across sub-µm amplitudes on metre-based prescriptions (central FD at the harvest delta reproduces the Jacobian to 2e-5; forward 100 nm deviates ~15–25%, and a 10 µm poke responds 84× super-linearly — FreeForm grid intersection path, flagged 2026-07-19; the mm-based fixture agrees <5% at the same physical poke).  Null-response DOFs (segment clocking Rz through the ~flat parent, the flat fold's in-plane DOFs, FPA-class bodies) are floored (`w_floor`) and reported `null` instead of a noise ratio.  `dedx` is rebuilt from the CURRENT Hx sidecar with a stale-`.mat` cross-check (caught the gap/shear relabel leaving the s5 `.mat` one Hx generation behind).  **Figure sensing (Dave 2026-07-19): `macos.design.dmet_dfig` generates `dmdz`/`dmdgrid`** — the mode shape evaluated at each edge-sensor SensorPos and MET-launcher mount point (engine-exact `zern_seg_eval` for MonZernike, lMon-normalized un-normalized-ANSI, GATED by the grid-vs-MonZern engine-equivalence test; basis-map sampling for grid), projected on the measurement axis: the l rows and e_piston rows carry the response, gap/shear are slope-order small (in-plane axes are ⊥ the LOCAL normal while Mon sag displaces along the FACE normal — a curved segment projects a few percent).  The engine METcalc/Hx hold met and sensor points RIGID, so for z/grid pokes the engine bars read zero while the linear bars show the dmdz/dmdgrid prediction — the movie displays that model-vs-engine gap explicitly.  UNIT GOTCHA: the dwdz/dwdgrid supervisors return OPD-BaseUnits per coef-BaseUnits (no cbm scale, unlike dwdx) — run_compare converts (×cbm); invisible on e2e (metres) but 1000× on mm fixtures.  `s6_compare.mat` exports `dwdu` (u = segments + SM) + `dmdz`/`dmdgrid` for the s7 estimator H.  Agreement table in `s6_report.txt` |
 | `s7_simulate.m` | s3–s5 | THIN DRIVER over **`design/runners/run_simulator.m`**: play a 500 s disturbance history through the mmacos ENGINE, uncorrected vs corrected, with a DELAYED image-based WFC initialization ("no system starts perfect" — the first two data points stand at the ~100 µm as-deployed WFE, then control turns on at frame 2), the RBCS metrology loop holding pose, and a **WF-maintenance recontrol at 400 s** (Tesch's WF Maintenance Activity; dashed marker on the time plots).  Two scenarios, one movie each (Dave 2026-07-21): **(A) `s7A` — metrology-bias drift**: the metrology zero-point drifts (thermal), so the MET loop faithfully holds the BIASED reading while the true pose/wavefront walk off UNSEEN by the loop (`meas_bias = −dmdx·p(t)`); the 400 s image-based recontrol re-references and knocks it back — the reset visibly limits the drift (ENGINE: true WFE drifts to **44 nm by 390 s → reset → 1.0 nm**, then re-accumulates).  **(B) `s7B` — focus/astig figure drift**: a per-segment focus (MonZern 5) + astig (4,6) trend, the low-order modes that drift thermally; the truss reads RIGID POSE only (`loop_senses_figure=false`), so the figure accumulates unseen, and rigid-body control CAN counter segment focus (via piston) and astig (via the LATERAL DOFs — an x move changes a segment's local best-fit radius on the parabolic parent, y/twist add astig), so the 400 s recontrol with a TIGHT reset ridge (`wfc_reset_tol=1e-5`, engaging those weak lateral DOFs) removes the focus and most of the astig; higher orders (and the 20 nm static grid floor) it cannot (ENGINE: figure accumulates to **45.6 nm by 390 s → reset → 24.4 nm**).  Strehl is the exact aperture form `|⟨exp(i·2π·W/λ)⟩|²` (≤1; not the psf-peak ratio, which reads marginally >1); the corrected OPD panel autoscales (a shared 100 µm scale hides the nm structure).  Physics verified on the s4 `dwdx`: focus RB-residual 0.017, astig 0.31–0.49 via lateral DOFs, higher order 0.6–0.98 (uncorrectable).  Common: 100 µm initial WFE (PTT-dominant, lateral /10), aft of the SM pinned.  Each frame: OPD uncorrected \| OPD corrected (running WFE in the xlabels) + PIX psf + COMPOSE broadband psf + `m=[l;e]` sensed-drift bars, with the accumulating rms-WFE (log, both legs) and Strehl curves; frames in `s7{A,B}_sim_frames/` → `s7{A,B}_sim.gif`.  The RBCS loop is a **weighted-LS/BLUE** pose estimator `δx̂ = (Hᵀ N⁻¹ H + R_x⁻¹)⁻¹ Hᵀ N⁻¹·δm` + min-pose-error controller `u_t = u_{t−1} − k_p·δx̂` (Tesch ch 2.3+3.3); a raw pinv (basic-LS) DIVERGES (1/σ_min amplifies drift → 5.6×10⁶ nm blow-up), the R_x prior regularizes it.  Two-pass engine schedule (±u through the incremental perturb path doesn't commute); iterated ridge WFC (`wfc_iters` GN refinements for the µm-scale init).  NEXT (s7b): the steady-state Kalman form (Tesch §2.3.3, predict/update with the Riccati gain) + figure states via `dmdz`/`dmdgrid` so the loop senses and corrects the figure floor too.  Background: `MACOS_sandbox/Documents/Tesch_RBCS_algorithms.pdf`, `OSE_Eqns_2019.pdf`, `2025_JATIS_HWO_Special_Issue-2.pdf` |
 
-Run order: `s1` → `s6`, each with `run('.../sN_*.m')` after building
+Run order: `s1` → `s7`, each with `run('.../sN_*.m')` after building
 mmacos (`mmacos_setup.m` or the addpath lines at the top of each
 runner).  House rules: figures + reports land in this directory; no
 `exit(0)` inside example scripts (batch wrappers supply it).
@@ -65,14 +94,16 @@ clone-and-run users are never blocked on pointer files).  A small
 committed **`<file>.fp.json` fingerprint** (`design/src/jac_fingerprint`)
 stands in as the reviewable truth — generation stamps (`reset_xp`,
 upstream commit, rx, delta/method), array dims, and per-column norms —
-so a generation change is auditable without the blob.  Asset-gated tests
-skip-with-message when the `.mat` is absent and check the fingerprint
-when it is present.
+so a generation change is auditable without the blob.  `tests/tFingerprint`
+always checks that both fingerprints exist and read; it compares a
+blob against its fingerprint only when the `.mat` is on disk, and on a
+clean checkout logs `<file>.mat absent: fingerprint compared for
+presence and format only` -- a pass there is not a blob match.
 
 | product (~size) | committed fingerprint | one-command regen (~time) |
 |---|---|---|
-| `s4_jacobians.mat` (69 MB) | `s4_jacobians.fp.json` | `run('s4_jacobians.m')` — s4 rigid/figure/grid harvest, model 512 (~3 min) |
-| `e2e_pie_met.mat` (63 MB) | `e2e_pie_met.fp.json` | `run('s5_met.m')` — MET products; layout HELD via `run_met(..., 'opt_preset', 'e2e_pie_met_preset.mat', 'optimize', false)` (~1 min; no 46-min search) |
+| `s4_jacobians.mat` (58 MB) | `s4_jacobians.fp.json` | `run('s4_jacobians.m')` — s4 rigid/figure/grid harvest, model 512 (~11 min) |
+| `e2e_pie_met.mat` (62 MB) | `e2e_pie_met.fp.json` | `run('s5_met.m')` — MET products with the LIVE layout search (~55 min); it writes `e2e_pie_met_preset.mat` and promotes it to `design/runners/presets/pie_met.mat` |
 
 Both need s3 (`e2e_pie.in` + `e2e_pieHx.m`) present; s4 also feeds s5–s7.
 A generation bump (e.g. the reset_xp regen, upstream `5a704fb`) rebuilds
