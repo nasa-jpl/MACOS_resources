@@ -23,6 +23,9 @@ function out = ctb_dm_jacobian(opts)
 %     'inner_lamD','outer_lamD'  dark-zone annulus (3, 15)
 %     'chain'         name-value cell forwarded to ctb_chain (mask config)
 %     'save'          write ctb_dm_jacobian_N<model>.mat + .fp.json (true)
+%     'replace_fp'    re-make an existing .fp.json truth that the new
+%                     measurement disagrees with (false: refuse, error
+%                     'ctb_dm_jacobian:fpTruth'; see ctb_fp_guard)
 %     'outdir'        (this dir)
 %     'verbose'       progress prints every 50 pokes (true)
 %
@@ -32,7 +35,9 @@ function out = ctb_dm_jacobian(opts)
 %
 %   The .mat is the EFC input; it is fingerprinted (jac_fingerprint) and
 %   the full array is gitignored above ~10 MB by the bench_ctb policy --
-%   regen with this driver.
+%   regen with this driver.  An existing .fp.json is a truth: it is
+%   written only when absent (or with 'replace_fp'), never overwritten
+%   by a measurement that disagrees with it.
 %
 %   Run:  >> out = ctb_dm_jacobian;                 (~25 min at 512)
 %   See also: ctb_dm, ctb_chain, ctb_efc, jac_fingerprint.
@@ -53,6 +58,7 @@ function out = ctb_dm_jacobian(opts)
         opts.save       (1,1) logical = true
         opts.outdir     (1,:) char = ''
         opts.verbose    (1,1) logical = true
+        opts.replace_fp (1,1) logical = false
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
@@ -130,16 +136,23 @@ function out = ctb_dm_jacobian(opts)
         tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
         mat = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d%s.mat', ch.N, tg));
         save(mat, '-struct', 'out', '-v7.3');
-        try
-            meta = struct('rx', out.rx, 'h_mm', h, 'model_size', ch.N, ...
-                'nact', opts.nact, 'beam_d_mm', opts.beam_d_mm, ...
-                'coupling', opts.coupling, 'inner_lamD', opts.inner_lamD, ...
-                'outer_lamD', opts.outer_lamD, 'region', opts.region, ...
-                'date', out.date);
-            jac_fingerprint('write', regexprep(mat, '\.mat$', '.fp.json'), ...
-                out, meta);
-        catch me
-            warning('ctb_dm_jacobian:fp', 'fingerprint failed: %s', me.message);
+        fpp = regexprep(mat, '\.mat$', '.fp.json');
+        % an existing fingerprint is a truth: refuse to overwrite it with a
+        % measurement that disagrees (outside the try, so it is not demoted
+        % to a warning)
+        if ctb_fp_guard(fpp, out, opts.replace_fp)
+            try
+                meta = struct('rx', out.rx, 'h_mm', h, 'model_size', ch.N, ...
+                    'nact', opts.nact, 'beam_d_mm', opts.beam_d_mm, ...
+                    'coupling', opts.coupling, 'inner_lamD', opts.inner_lamD, ...
+                    'outer_lamD', opts.outer_lamD, 'region', opts.region, ...
+                    'date', out.date);
+                jac_fingerprint('write', fpp, out, meta);
+            catch me
+                warning('ctb_dm_jacobian:fp', 'fingerprint failed: %s', me.message);
+            end
+        else
+            fprintf('[jac] %s agrees with this measurement; left as it is\n', fpp);
         end
         fprintf('[jac] saved %s (%.1f MB)\n', mat, dir(mat).bytes/1e6);
     end

@@ -195,6 +195,95 @@ classdef tCtbDm < matlab.unittest.TestCase
         end
     end
 
+    % ==================================================================
+    % (h) the Jacobian cache is checked before use (Dave 2026-10-28,
+    % PLAN_CONSOLIDATION 1.2 (aaaa) and (bbbb)).  The planted-cache tests
+    % run on a scratch copy of the template (scripts, decks, the N512
+    % truth): nothing is written into the library tree.
+    methods (Test)
+        function test_efc_refuses_default_cache_from_another_chain(tc)
+            % a default cache measured on another mask config is refused by
+            % name; before (aaaa) ctb_efc used it silently
+            w = tc.scratch_bench_();
+            ch = ctb_chain('rx', fullfile(w, 'ctb_dm.in'), 'model_size', tc.ModelSize);
+            c = ch.config;
+            k = find(strcmp(c(1:2:end), 'r_lyot_frac')) * 2;
+            c{k} = c{k} + 0.1;                          % another Lyot stop
+            J = struct('chain_opts', {c}, 'N', tc.ModelSize); %#ok<NASGU>
+            save(fullfile(w, 'ctb_dm_jacobian_N512.mat'), '-struct', 'J');
+            tc.verifyError(@() ctb_efc('niter', 1, 'save', false), ...
+                'ctb_jac_check:mismatch');
+        end
+
+        function test_efc_refuses_cache_off_its_fingerprint(tc)
+            % a default cache on the default chain that does not match the
+            % fingerprint truth beside it is refused by name
+            w = tc.scratch_bench_();
+            ch = ctb_chain('rx', fullfile(w, 'ctb_dm.in'), 'model_size', tc.ModelSize);
+            J = struct('chain_opts', {ch.config}, 'N', tc.ModelSize, ...
+                'G', complex(single(ones(4, 3))), 'E0_dz', complex(ones(4, 1))); %#ok<NASGU>
+            save(fullfile(w, 'ctb_dm_jacobian_N512.mat'), '-struct', 'J');
+            tc.verifyError(@() ctb_efc('niter', 1, 'save', false), ...
+                'ctb_efc:fingerprint');
+        end
+
+        function test_fingerprint_passes_its_own_complex_product(tc)
+            % a complex product passes the fingerprint it was written with,
+            % and the wall-clock timing_s is not fingerprinted (before
+            % (bbbb) check squared the complex values and timing_s was a
+            % field, so no Jacobian could ever pass)
+            rng(7);
+            S = struct('G', single(complex(randn(30, 20), randn(30, 20))), ...
+                'E0_dz', complex(randn(30, 1), randn(30, 1)), 'timing_s', 680.9);
+            fp = [tempname '.fp.json'];
+            tc.addTeardown(@() delete(fp));
+            f = jac_fingerprint('write', fp, S, struct('date', 'x'));
+            tc.verifyFalse(ismember('timing_s', {f.fields.name}), ...
+                'timing_s must not be fingerprinted');
+            [ok, rep] = jac_fingerprint('check', S, fp);
+            tc.verifyTrue(ok, rep);
+            S.timing_s = 796.1;                         % another run's clock
+            [ok, rep] = jac_fingerprint('check', S, fp);
+            tc.verifyTrue(ok, rep);
+            S.G(1, 1) = S.G(1, 1) * 1.01;               % a different product
+            tc.verifyFalse(jac_fingerprint('check', S, fp));
+        end
+
+        function test_measure_refuses_to_overwrite_a_truth(tc)
+            % the measure writes a missing fingerprint, leaves an agreeing
+            % one alone, and refuses to overwrite one it disagrees with
+            % unless asked ('replace_fp' -> ctb_fp_guard's third argument)
+            rng(8);
+            S = struct('G', single(complex(randn(30, 20), randn(30, 20))));
+            fp = [tempname '.fp.json'];
+            tc.addTeardown(@() delete(fp));
+            tc.verifyTrue(ctb_fp_guard(fp, S, false), 'absent: write it');
+            jac_fingerprint('write', fp, S, struct());
+            tc.verifyFalse(ctb_fp_guard(fp, S, false), 'agrees: leave it');
+            S2 = S;  S2.G = S2.G * 1.001;
+            tc.verifyError(@() ctb_fp_guard(fp, S2, false), ...
+                'ctb_dm_jacobian:fpTruth');
+            tc.verifyTrue(ctb_fp_guard(fp, S2, true), 'replace_fp: re-make it');
+        end
+    end
+
+    methods
+        function w = scratch_bench_(tc)
+            % a scratch copy of bench_ctb (scripts, decks, flat grid, the
+            % N512 truth) made the current folder, so its ctb_efc runs and
+            % its "beside this file" cache is the scratch one
+            w = tempname;  mkdir(w);
+            tc.addTeardown(@() rmdir(w, 's'));
+            for pat = {'*.m', '*.in', 'flat256.txt', 'ctb_dm_jacobian_N512.fp.json'}
+                d = dir(fullfile(tc.bench, pat{1}));
+                for k = 1:numel(d)
+                    copyfile(fullfile(d(k).folder, d(k).name), w);
+                end
+            end
+            tc.applyFixture(matlab.unittest.fixtures.CurrentFolderFixture(w));
+        end
+    end
+
     methods
         function [G, ax] = bump_(tc, r, amp, sig, x0, y0)
             ng = r.ng;  gdx = r.gdx_mm(1);

@@ -73,6 +73,7 @@ fp.meta   = meta;
 fp.fields = struct([]);
 fn = fieldnames(S);
 for i = 1:numel(fn)
+    if ismember(fn{i}, volatile_()), continue; end
     v = S.(fn{i});
     if ~isnumeric(v) || isempty(v), continue; end
     v = double(v);
@@ -108,10 +109,12 @@ n = numel(flds);
 for i = 1:n
     if iscell(flds), e = flds{i}; else, e = flds(i); end
     nm = e.name;
+    if ismember(nm, volatile_()), continue; end   % older truths carry these
     if ~isfield(S, nm) || ~isnumeric(S.(nm))
         ok = false;  report = sprintf('field %s missing in rebuilt product', nm);  return;
     end
     v = double(S.(nm));
+    if ~isreal(v), v = abs(v); end   % as build_ fingerprints complex arrays
     if ~isequal(size(v), e.size(:).')
         ok = false;
         report = sprintf('field %s size [%s] != fingerprint [%s]', nm, ...
@@ -134,4 +137,13 @@ for i = 1:n
         return;
     end
 end
+end
+
+
+% ---------------------------------------------------------------------
+function v = volatile_()
+% Fields that describe the run, not the product: never fingerprinted, and
+% skipped when an older truth still lists them (the wall-clock timing_s
+% differs on every run, so a truth that carried it could never pass).
+v = {'timing_s'};
 end
