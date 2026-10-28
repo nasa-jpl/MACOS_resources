@@ -90,25 +90,34 @@ classdef tSessionModes < matlab.unittest.TestCase
             s1 = macos.fex(1);  s = macos.fex();
             tc.verifyEqual(s.xp, s1.xp, 'AbsTol', 0, 'CHIEFRAY session: fex() == fex(1)');
         end
-        function test_obs_all_is_named_in_force(tc)
-            % OBS is session state too (macos.obs, 2026-10-16); since
-            % 2026-10-28 the modes list names it when it is not POSITIVE, and
-            % load_rx warns.  Pre-change: in_force stays empty -- red.
+        function test_obs_is_reported_and_reset_by_load(tc)
+            % OBS is NOT a session mode (Dave 2026-10-28, PLAN 1.2 (cccc)(2)):
+            % modes() reports it in .obs and never in .in_force, and a load_rx
+            % resets it to POSITIVE with the engine saying so (the message
+            % buffer carries the line).  Red on the 7e9ed0a4 engine (OBS kept
+            % across the load and named in in_force) and before it (silent).
             macos.init(128);  macos.load_rx(rx_fixture_path(tc.Rx));
             macos.obs('all');
             c = onCleanup(@() macos.obs('positive')); %#ok<NASGU>
             md = macos.modes();
             tc.verifyEqual(md.obs, 'all');
-            tc.verifyEqual(md.in_force, {'OBS ALL'});
-            tc.verifyWarning(@() macos.load_rx(rx_fixture_path(tc.Rx)), 'mmacos:modesInForce');
-            tc.verifyEqual(macos.obs(), 'all', 'OBS survives the load');
-            macos.obs('negative');
-            tc.verifyEqual(macos.modes().in_force, {'OBS NEGATIVE'});
-            macos.obs('positive');
-            md = macos.modes();
-            tc.verifyEqual(md.obs, 'positive');
-            tc.verifyEmpty(md.in_force);
+            tc.verifyEmpty(md.in_force, 'OBS is not a session mode');
+            macos.messages();
             tc.verifyWarningFree(@() macos.load_rx(rx_fixture_path(tc.Rx)));
+            tc.verifyEqual(macos.obs(), 'positive', 'a load resets OBS to POSITIVE');
+            msgs = macos.messages();
+            tc.verifyTrue(any(contains(msgs, 'OBS ALL reset to POSITIVE')), ...
+                'the engine says it reset OBS');
+            macos.obs('negative');
+            tc.verifyEqual(macos.modes().obs, 'negative');
+            macos.messages();
+            macos.load_rx(rx_fixture_path(tc.Rx));
+            tc.verifyEqual(macos.obs(), 'positive');
+            tc.verifyTrue(any(contains(macos.messages(), 'OBS NEGATIVE reset to POSITIVE')));
+            macos.messages();
+            macos.load_rx(rx_fixture_path(tc.Rx));
+            tc.verifyFalse(any(contains(macos.messages(), 'reset to POSITIVE')), ...
+                'a load with OBS POSITIVE says nothing');
         end
     end
 end

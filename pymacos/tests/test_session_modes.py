@@ -75,19 +75,31 @@ def test_lneg_set_and_read_back():
     assert md['in_force'] == []
 
 
-def test_obs_all_is_named_in_force():
+def test_obs_is_reported_and_reset_by_load():
+    # OBS is NOT a session mode (Dave 2026-10-28, PLAN 1.2 (cccc)(2)): modes()
+    # reports it in 'obs' and never in 'in_force', and a load resets it to
+    # POSITIVE with the engine saying so through the message buffer.  Red on
+    # the 7e9ed0a4 engine (OBS kept across the load) and before it (silent).
     m.init(128)
     m.load(str(rx_path(RX)))
     m.obs_set('all')
     try:
         md = m.modes()
-        assert md['obs'] == 'all' and md['in_force'] == ['OBS ALL']
-        with pytest.warns(RuntimeWarning, match='OBS ALL'):
+        assert md['obs'] == 'all' and md['in_force'] == []
+        m.messages()
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
             m.load(str(rx_path(RX)))
-        assert m.obs_set() == 'all', 'OBS survives the load'
+        assert m.obs_set() == 'positive', 'a load resets OBS to POSITIVE'
+        assert any('OBS ALL reset to POSITIVE' in s for s in m.messages())
         m.obs_set('negative')
-        assert m.modes()['in_force'] == ['OBS NEGATIVE']
+        assert m.modes()['obs'] == 'negative'
+        m.messages()
+        m.load(str(rx_path(RX)))
+        assert m.obs_set() == 'positive'
+        assert any('OBS NEGATIVE reset to POSITIVE' in s for s in m.messages())
+        m.messages()
+        m.load(str(rx_path(RX)))
+        assert not any('reset to POSITIVE' in s for s in m.messages())
     finally:
         m.obs_set('positive')
-    md = m.modes()
-    assert md['obs'] == 'positive' and md['in_force'] == []
