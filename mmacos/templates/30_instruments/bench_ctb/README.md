@@ -566,7 +566,9 @@ no model gap for the optimizer to mine (the e2e6m S3b lesson).
 | `ctb_dm.m` | influence-function DM model: 32×32 actuator lattice, pitch = beam diameter/32 = 21.3/32 = 0.666 mm (beam diameter 21.3 mm, measured 21.24), Gaussian influence with 12 % nearest-neighbor coupling, commands (mm of surface) → 256×256 grid via local stamps. `apply(a)` REPLACES the element grid (`macos.set_elt_grid`) so there is no accumulation state. 880 active actuators per DM (centers within beam radius 10.65 mm + 1 pitch). |
 | `ctb_chain.m` | reusable masked-chain runner: loads the deck once, sizes apodizer/FPM/Lyot once (the deterministic geometry of `ctb_coro_compare`), then `run()` = fresh trace + masks multiplied in place + complex field at the FPA. 0.4 s per run at N=512. |
 | `ctb_dm_jacobian.m` | G = dE(dark zone)/d(actuator): 1760 forward-difference pokes (h = 2 nm surface) through the masked chain, 11.3 min at N=512. Saved to `ctb_dm_jacobian_N512.mat` (37 MB, gitignored) + committed `.fp.json` fingerprint. Regen: `ctb_dm_jacobian()`. |
-| `ctb_efc.m` | the EFC loop: Tikhonov least squares on the dark-zone field, α line-searched each iteration against the MEASURED contrast (runs are 0.4 s — a luxury lab EFC needs probing for), stop when no α improves. Sensing assumed perfect (engine field read directly); pairwise probing is the lab-facing extension. |
+| `ctb_efc.m` | the EFC loop: Tikhonov least squares on the dark-zone field, α line-searched each iteration against the MEASURED contrast (runs are 0.4 s — a luxury lab EFC needs probing for), stop when no α improves. Sensing perfect by default (engine field read directly); `'sensing', struct(...)` closes the loop on pairwise-probe estimates instead (below). |
+| `ctb_probe_estimate.m` | pairwise-probe field estimate (Give'on, Kern & Shaklan 2011): I_0 and I_k± for 3 probe pairs on DM1 through the masked chain (7 runs, 4 s), dE_k = G a_k, per-pixel least squares for Re/Im E; the probe-intensity diagnostic ratio; photon noise as a plant option; scored against the engine's true field, which it never feeds back. |
+| `ctb_probe_solve.m` | the per-pixel 2-unknown solve and its conditioning. |
 
 ## The real-stacked solve (the trap this layer documents)
 
@@ -622,6 +624,31 @@ Gates: `tests/tCtbDm.m` (SUITE_CTB_512) — emitter frame audit, grid
 readback, sag→OPD scale/sign/location, speckle-pair symmetry, chain
 contrast pin, Jacobian column linearity, and an EFC smoke that must dig
 ≥2× in 3 iterations.
+
+## Pairwise-probe sensing (`ctb_probe_estimate`, `ctb_efc('sensing', ...)`)
+
+Measured 2026-10-28 on the re-pinned decks, the shipped hard occulter, N=512, 3–15 λ/D, the
+Jacobian as `ctb_dm_jacobian()` measures it (the manual's Section 8, driver ch08d):
+
+| quantity | value |
+|---|---|
+| default probes: 3 pairs, sinc–sine on DM1 (alternate pairs turned 90°), amplitude set to the speckle level | 9.25 nm peak |
+| estimation floor at the flat DMs (mean \|E_est − E_true\|²/peak; contrast 2.934e-7) | 4.35e-10 (3.9 % of the field) |
+| small probes (0.3–2.8 nm): floor / relative error | 5.2e-11 / 1.3 % |
+| the same with DM1's columns by central differences | 7.4e-15 / 1.6e-4 at 0.28 nm |
+| diagnostic ratios at the default | 1.011–1.013 |
+| photons per image at the bare peak 1e10 / 1e8 / 1e6: floor | 4.6e-10 / 4.1e-9 / 3.7e-7 |
+| EFC, 10 iterations: perfect sensing / noiseless estimate / 1e8 photons | 8.78e-9 / 8.90e-9 / 9.15e-9 |
+
+Two things the numbers say. The small-probe error is the Jacobian's: a one-sided 2 nm poke is 1.2–1.5 %
+off the true derivative for interior actuators (the measured second-order term; the help text's
+"~0.1 %" understates it), and a central-difference Jacobian removes it. And the diagnostic ratio is not
+an error meter: the probe's second-order field adds to the image in proportion to the probe intensity,
+so the ratio reads about 1.02 even with the exact Jacobian; it flags gross mismatch (0.48–0.70 at 10× the
+default), not the estimate's error. Only the alternate turned probes keep every pixel's 2×2 solve
+conditioned: with all three along x the pixels within ½ λ/D of the y axis see one phase (condition 1e7).
+
+Gates: `tests/tCtbProbe.m` (SUITE_CTB_512).
 
 # The physics layers — bandwidth, polarization, the vector vortex
 
