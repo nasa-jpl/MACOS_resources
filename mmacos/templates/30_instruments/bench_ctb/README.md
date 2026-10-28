@@ -180,8 +180,11 @@ the sphere equality and the round trip.
 
 R is measured, not chosen: it is the exit-pupil conjugate of that focus, found
 by running FEX on a truncated deck ending in the same triple. Committed
-values (BaseUnits mm): Focus23 7017.8526, FPM 1000.0841, FieldStop 415.9278,
-terminal ExitPupil 359.9461.
+values (BaseUnits mm): Focus23 7019.2344, FPM 1000.1049, FieldStop 415.9293,
+terminal ExitPupil 360.0436. The decks were re-pinned to these on 2026-10-28;
+the August decks carried 7017.8526, 1000.0841, 415.9278 and 359.9461, measured
+by the same generator on the same source deck before the engine's FEX moved
+them. The re-pin left the dark-zone contrast unchanged (2.934e-7).
 
 The terminal is the same pattern with the second sphere dropped: `FP_return`
 (Flat, Geometric) → `ExitPupil` (Conic, FarField, Kr = −R, zElt = +R) → `FPA`.
@@ -582,13 +585,16 @@ column reproducibility (2e-8), predicted-vs-achieved correlation.
 | quantity | value |
 |---|---|
 | static coronagraph dark zone (3–15 λ/D mean) | 2.934e-7 |
-| EFC floor (19 iterations, fixed G) | **8.055e-9 (36×)** |
+| EFC floor (19 iterations, fixed G) | **8.060e-9 (36×)** |
 | inner band 3–8 λ/D | 9.62e-7 → 2.40e-8 (40×) |
 | outer band 8–15 λ/D | 6.85e-8 → 2.69e-9 (25×) |
 | DM strokes at the floor (rms) | 9.9 / 8.6 nm |
 | DM1-only control (same G, same loop) | 1.30e-7 (2.3×, stalls) |
 | DM2-only control | 2.55e-7 (1.1×) |
 | linear-achievable floor (top-400 real modes, 11 nm rms) | 4.5e-9 |
+
+The static and EFC-floor rows were measured again on the decks re-pinned on 2026-10-28; the August decks
+gave 2.934e-7 and 8.055e-9. The band, single-DM and linear-floor rows are from the August decks and were not re-run.
 
 The measured floor sits within 2× of the linear-achievable value for a
 Jacobian measured ONCE at the flat state — the remaining gap is

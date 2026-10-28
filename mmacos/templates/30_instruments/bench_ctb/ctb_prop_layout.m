@@ -46,9 +46,11 @@ function info = ctb_prop_layout(opts)
 %      It is measured by running FEX on a TRUNCATED deck ending in the
 %      triple <upstream optics> / FPreturn / EPreturn / focus-as-FocalPlane
 %      -- the same geometry the terminal leg uses.  Verified against the
-%      committed decks: the measured radii reproduce Dave's to ratio
+%      August decks: the measured radii reproduced Dave's to ratio
 %      1.000000000 (Focus23 7017.8526, FPM 1000.0841, FieldStop 415.9278)
-%      from arbitrary seeds.
+%      from arbitrary seeds.  The engine's FEX has since moved them, and the
+%      committed decks were re-pinned to this generator on 2026-10-28
+%      (Focus23 7019.2344, FPM 1000.1049, FieldStop 415.9293).
 %
 %   2. NEAR-FIELD PAIR (one per propagated inter-optic leg):
 %
