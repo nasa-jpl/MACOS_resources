@@ -18,7 +18,14 @@ function out = ctb_efc(opts)
 %   Name-value:
 %     'jac'         Jacobian .mat path or ctb_dm_jacobian output struct
 %                   (default ctb_dm_jacobian_N512.mat beside this file;
-%                   REGENERATED via ctb_dm_jacobian() if absent)
+%                   REGENERATED via ctb_dm_jacobian() if absent).  A cache
+%                   read from a file is checked before use and REFUSED on
+%                   a mismatch: the default cache against the default
+%                   chain (ctb_jac_check, error 'ctb_jac_check:mismatch'),
+%                   and any file against the fingerprint truth beside it,
+%                   <name>.fp.json, when there is one (error
+%                   'ctb_efc:fingerprint').  A cache from another deck,
+%                   mask or engine is not used silently.
 %     'niter'       EFC iterations (10)
 %     'alphas'      relative regularization grid, fractions of s_max^2
 %                   (default logspace(-6,-2,5); searched every iteration)
@@ -76,6 +83,25 @@ function out = ctb_efc(opts)
             J = ctb_dm_jacobian();
         else
             J = load(jp);
+            if isempty(opts.jac)
+                % the default cache must be the default chain's Jacobian,
+                % the one ctb_dm_jacobian() would measure now
+                rq = ctb_chain('rx', fullfile(here, 'ctb_dm.in'), ...
+                               'model_size', J.N);
+                ctb_jac_check(J, rq.config, jp);
+            end
+            fpp = regexprep(jp, '\.mat$', '.fp.json');
+            if isfile(fpp)
+                [ok, rep] = jac_fingerprint('check', J, fpp);
+                if ~ok
+                    error('ctb_efc:fingerprint', ...
+                        ['%s does not match its fingerprint truth %s (%s): ' ...
+                         'it was measured on another deck, mask or engine.  ' ...
+                         'Delete it to re-measure, or pass a Jacobian ' ...
+                         'with ''jac''.'], jp, fpp, rep);
+                end
+            end
+            fprintf('[efc] Jacobian cache checked: %s\n', jp);
         end
     end
     % ---- replot-only mode: rebuild the figure from a saved run ----------
