@@ -16,6 +16,15 @@ function out = ctb_efc(opts)
 %   result is affordable -- a luxury lab EFC does with probing).
 %
 %   Name-value:
+%     'sensing'     'true' (default): each iteration reads the complex
+%                   dark-zone field from the engine (perfect sensing).  A
+%                   struct of ctb_probe_estimate options (struct() for its
+%                   defaults): each iteration ESTIMATES the field from
+%                   pairwise-probe images and the controller sees only the
+%                   estimate; the alpha line search still scores trials on
+%                   the measured contrast, so the plant stays honest.
+%                   out.contrast_est and out.est_floor then carry the
+%                   estimate's contrast and its error against the truth.
 %     'jac'         Jacobian .mat path or ctb_dm_jacobian output struct
 %                   (default ctb_dm_jacobian_N512.mat beside this file;
 %                   REGENERATED via ctb_dm_jacobian() if absent).  A cache
@@ -61,6 +70,7 @@ function out = ctb_efc(opts)
                             % state stays continuous; only ch.run() sees the
                             % dithered command.
         opts.quant_seed     (1,1) double = 1      % rng seed for the dither
+        opts.sensing                = 'true'
         opts.plant_chain    (1,:) cell = {}   % Lane 2c-b: override the PLANT
                             % chain config while the controller keeps the
                             % loaded (defect-free) Jacobian G -- control !=
@@ -71,6 +81,9 @@ function out = ctb_efc(opts)
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
     if isempty(opts.outdir), opts.outdir = here; end
+    probe = isstruct(opts.sensing);
+    assert(probe || (ischar(opts.sensing) && strcmp(opts.sensing, 'true')), ...
+        'ctb_efc: ''sensing'' is ''true'' or a struct of ctb_probe_estimate options');
 
     % ---- Jacobian -------------------------------------------------------
     if isstruct(opts.jac)
@@ -176,9 +189,25 @@ function out = ctb_efc(opts)
     contrast(1) = mean(abs(E(dz)).^2) / pb;
     alpha_used = zeros(1, opts.niter);
     fprintf('[efc] iter 0: contrast %.3e\n', contrast(1));
+    contrast_est = nan(1, opts.niter + 1);  est_floor = nan(1, opts.niter + 1);
+    if probe
+        pargs = namedargs2cell(opts.sensing);
+        fprintf('[efc] sensing: pairwise probes (the controller sees the estimate only)\n');
+    end
 
     for it = 1:opts.niter
-        e = double(E(dz));
+        if probe
+            % seed per iteration so photon noise is fresh each time
+            pa = [pargs, {'dm', dm, 'check_jac', false}];
+            if ~any(strcmp(pargs(1:2:end), 'seed')), pa = [pa, {'seed', it}]; end
+            est = ctb_probe_estimate(ch, J, a, pa{:});
+            e = est.E_hat;
+            contrast_est(it) = est.c_est;  est_floor(it) = est.floor;
+            fprintf('[efc] iter %d: estimated contrast %.3e (true %.3e, estimation floor %.2e)\n', ...
+                it - 1, est.c_est, est.c_true, est.floor);
+        else
+            e = double(E(dz));
+        end
         Ue = U' * [real(e); imag(e)];
         best = struct('c', inf, 'da', [], 'alpha', NaN, 'E', []);
         for al = opts.alphas
@@ -233,7 +262,9 @@ function out = ctb_efc(opts)
         'lamD_px',J.lamD_px, 'center_px',J.center_px, 'N',J.N, ...
         'inner_lamD',J.inner_lamD, 'outer_lamD',J.outer_lamD, ...
         'peak_bare',pb, 'dz_idx',dz, 'jac_h_mm',J.h_mm, ...
-        'quant_nm',opts.quant_nm, 'quant_seed',opts.quant_seed);
+        'quant_nm',opts.quant_nm, 'quant_seed',opts.quant_seed, ...
+        'contrast_est',contrast_est(1:numel(contrast)), ...
+        'est_floor',est_floor(1:numel(contrast)), 'sensing',{opts.sensing});
     stroke_rms_nm = cellfun(@(x) 1e6 * rms(x(x~=0)), a);
     out.stroke_rms_nm = stroke_rms_nm;
     if opts.save
