@@ -101,6 +101,15 @@ NACT    = 16;    PITCH = 3.5;      % 16x16 actuators at 3.5 mm = 56 mm DM
 POKE_NM = 50;                      % command amplitude, nm of surface
 QWP     = 0.25;                    % quarter-wave retardance (waves)
 THETAS  = [0 45 90 135];           % the four analyzer steps (deg)
+%  Pixel axes: how the detector's (col,row) map onto the DM frame's (x,y).
+%  Yours to specify; one of the eight names 'x=+col,y=+row', 'x=+col,y=-row',
+%  'x=-col,y=+row', 'x=-col,y=-row', 'x=+row,y=+col', 'x=+row,y=-col',
+%  'x=-row,y=+col', 'x=-row,y=-col'.  The default is the library's image
+%  convention (the one opd's 'xy' orientation uses).  The closure scores all
+%  eight as a CHECK: it warns when another beats this one by more than
+%  PIXEL_AXES_TOL and names a tie with the 180-degree partner.
+PIXEL_AXES     = 'x=+col,y=+row';
+PIXEL_AXES_TOL = 1e-6;              % measured 2026-10-29 (see pixel_axes_check)
 %  Detector-leg architecture: the l2_trade winner (a small field lens behind
 %  the focal mask), which took the instrument-vs-truth residual from 6.76 nm
 %  to 0.97 nm at 50 nm pokes.  See templates/40_benches/bench_ifo_dm/l2_trade.
@@ -456,7 +465,7 @@ fprintf('   the differential cancels it -- it survives only in a single-shot map
 %  resample the truth onto detector pixels.  The ray trace is the fiducial a
 %  real bench gets from a known poke or the aperture edge.
 fprintf('\n=== CLOSURE: recovered surface vs the injected DM map ===\n');
-[best, map] = register_to_dm(AT, G.T, Mdm, N_G, DX_G, h, msk);
+[best, map] = register_to_dm(AT, G.T, Mdm, N_G, DX_G, h, msk, PIXEL_AXES, PIXEL_AXES_TOL);
 res = best.hm(msk) - best.ht(msk);
 %  Score the interior separately.  The outermost ring is where the truth is
 %  resampled through the ray map with rays on one side only, so part of its
@@ -471,7 +480,9 @@ g6 = struct('corr',best.c, 'axes',best.name, 'resid_nm',1e6*std(res), ...
             'resid_in_nm',1e6*std(resin), 'truth_in_nm',1e6*std(best.ht(mskin)), ...
             'truth_nm',1e6*std(best.ht(msk)), 'rec_nm',1e6*std(best.hm(msk)), ...
             'mag',map.mag, 'anam_pct',map.anam_pct, 'rot_deg',map.rot_deg, ...
-            'nonlin_mm',map.nonlin_mm, 'est_nm',est_nm);
+            'nonlin_mm',map.nonlin_mm, 'est_nm',est_nm, ...
+            'axes_scores',best.scores, 'axes_tie',best.check.tie, ...
+            'axes_beaten',best.check.beaten, 'axes_tol',best.check.tol);
 fprintf('  pupil image: mag %.4f (det->DM), anamorphic %.3f%%, rotation %.3f deg,\n', ...
     map.mag, map.anam_pct, map.rot_deg);
 fprintf('               nonlinear distortion %.4f mm rms (%.2f%% of the beam)\n', ...
@@ -792,7 +803,7 @@ function [dxp, cen, rad] = det_geom(A)
     rad = sqrt(sum(((cg(:)-cen(1)).^2 + (rg(:)-cen(2)).^2).*w(:)));
 end
 
-function [best, map] = register_to_dm(A, ix, Mdm, N_G, DX_G, h, msk)
+function [best, map] = register_to_dm(A, ix, Mdm, N_G, DX_G, h, msk, axes_spec, axes_tol)
 %REGISTER_TO_DM  Build the instrument's pupil mapping from the trace itself
 %   and use it to bring the injected DM map onto detector pixels.
     macos.load_rx(A.rx);
@@ -821,8 +832,10 @@ function [best, map] = register_to_dm(A, ix, Mdm, N_G, DX_G, h, msk)
     Fx = scatteredInterpolant(xy_d(1,:).', xy_d(2,:).', xy_to(1,:).', 'linear','linear');
     Fy = scatteredInterpolant(xy_d(1,:).', xy_d(2,:).', xy_to(2,:).', 'linear','linear');
     % WF pixel centres -> detector mm.  The discrete row/col axis convention
-    % is the classic grid-orientation trap, so resolve it empirically over all
-    % eight candidates and PRINT the winner.
+    % is the classic grid-orientation trap: the user specifies it (AXES_SPEC)
+    % and all eight candidates are scored as a CHECK (pixel_axes_check), never
+    % as a chooser -- a centrosymmetric poke pattern scores the 180-degree
+    % partners alike, and round-off then picks either (the 2026-10-28 flip).
     N = size(h,1);  [cg, rg] = meshgrid(1:N, 1:N);
     cx = sum(cg(msk))/nnz(msk);  cy = sum(rg(msk))/nnz(msk);
     dxp = macos.dx_at(ix.iDET, 'mm');
@@ -834,11 +847,13 @@ function [best, map] = register_to_dm(A, ix, Mdm, N_G, DX_G, h, msk)
              -a1,a2,'x=-col,y=+row'; -a1,-a2,'x=-col,y=-row'; ...
              a2,a1,'x=+row,y=+col'; a2,-a1,'x=+row,y=-col'; ...
              -a2,a1,'x=-row,y=+col'; -a2,-a1,'x=-row,y=-col'};
-    best = struct('c',-inf, 'i',1);
+    sc = zeros(1, size(cands,1));  hts = cell(1, size(cands,1));
     for c = 1:size(cands,1)
-        [cc, ht] = reg_corr([0 0 0 0], cands{c,1}, cands{c,2}, c_d, Fx, Fy, axs, Mdm, hm, msk);
-        if cc > best.c, best = struct('c',cc, 'ht',ht, 'name',cands{c,3}, 'i',c); end
+        [sc(c), hts{c}] = reg_corr([0 0 0 0], cands{c,1}, cands{c,2}, c_d, Fx, Fy, axs, Mdm, hm, msk);
     end
+    chk = pixel_axes_check(cands(:,3).', sc, axes_spec, axes_tol);
+    best = struct('c',sc(chk.i), 'ht',hts{chk.i}, 'name',chk.name, 'i',chk.i, ...
+                  'scores',sc, 'check',chk);
     A1 = cands{best.i,1};  A2 = cands{best.i,2};
     obj = @(p) -reg_corr(p, A1, A2, c_d, Fx, Fy, axs, Mdm, hm, msk);
     p = fminsearch(obj, [0 0 0 0], optimset('TolX',1e-7,'TolFun',1e-10,'Display','off'));
