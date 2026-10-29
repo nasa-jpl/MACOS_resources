@@ -22,11 +22,12 @@ classdef tCtbProbe < matlab.unittest.TestCase
     properties (Constant)
         ModelSize = 512
         % Measured 2026-10-28 on the re-pinned decks (resources 1b45af8),
-        % the setup's Jacobian (nact 12, 3-5 lambda/D, one-sided 2 nm pokes)
-        RelErrMax   = 2.5e-2   % (a) measured 1.724e-2 (the one-sided 2 nm Jacobian's
-                               %     bias sets it; 1.6e-4 with central differences)
-        RatioBand   = 0.02     % (b) measured max |ratio - 1| = 0.0078
-        RatioOff10x = 0.05     % (c) measured max |ratio - 1| = 0.120 at 10x
+        % the setup's Jacobian (nact 12, 3-5 lambda/D, central differences
+        % at 2 nm since PLAN 1.2 (eeee))
+        RelErrMax   = 1e-2     % (a) measured 6.865e-3 (one-sided pokes gave 1.724e-2,
+                               %     pinned 2.5e-2; this pin catches a return to them)
+        RatioBand   = 0.02     % (b) measured max |ratio - 1| = 0.0088 (one-sided 0.0078)
+        RatioOff10x = 0.05     % (c) measured max |ratio - 1| = 0.119 at 10x (one-sided 0.120)
     end
 
     properties
@@ -81,7 +82,8 @@ classdef tCtbProbe < matlab.unittest.TestCase
         function test_efc_closes_on_the_estimate(tc)
             out = ctb_efc('jac', tc.J, 'niter', 3, 'save', false, ...
                 'sensing', struct());
-            % measured 1.877e-6 -> 8.33e-7 (perfect sensing: -> 8.30e-7)
+            % measured 1.877e-6 -> 9.02e-7 (perfect sensing: -> 8.98e-7);
+            % one-sided Jacobian 8.33e-7 / 8.30e-7
             tc.verifyLessThan(out.c_after, 0.6 * out.c_before, ...
                 'EFC on the probe estimate must dig the TRUE contrast in 3 iterations');
             n = numel(out.contrast);
