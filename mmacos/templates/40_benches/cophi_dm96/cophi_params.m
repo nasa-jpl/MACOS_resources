@@ -95,8 +95,26 @@ P.cophi.iq = false;
 P.cophi.annulus_fill = 'median';
 P.cophi.lockin_cams = struct( ...
     'lockin',   struct('name', 'heliCam C4 class lock-in: 512 sites, 500 ke, 1 kHz I/Q (survey rank 1, UNVERIFIED), read 0', 'npix', 512/0.95, 'well', 500e3, 'read', 0,   'rate', 1e3, 'pitch_um', NaN), ...
-    'lockin_r', struct('name', 'the same, read 100 e- per sample ASSUMED', 'npix', 512/0.95, 'well', 500e3, 'read', 100, 'rate', 1e3, 'pitch_um', NaN));
-P.cophi.lockin_M = struct('lockin', 44, 'lockin_r', 44);   % I/Q samples per loop cycle: 44 was sized on the format stage's overcounted 34 pm and holds 5.2 pm; the 3 pm hold is 125 (runs/lockin_loop_oap_m125: 3.09 pm)
+    'lockin_r', struct('name', 'the same, read 100 e- per sample ASSUMED', 'npix', 512/0.95, 'well', 500e3, 'read', 100, 'rate', 1e3, 'pitch_um', NaN), ...
+    'lockin_c4', struct('name', 'heliCam C4 (vendor data 2026-10-28): X/Y out +-512 counts x 460 e-/count = 236 ke of signal per frame, read 489 e-/frame, 4960 frames/s', ...
+                        'npix', 512/0.95, 'well', 944e3, 'read', 691, 'rate', 4960, 'pitch_um', 24));
+% The vendor row (Max Ferstl, Heliotis, 2026-10-28: datasheets, user manual, the
+% C4 noise calculator; CC's extraction of the calculator's formulas): per frame
+% SNR = (AC/DC) Npef / sqrt(Npef + RN^2) with RN = sqrt(0.81 + 0.32 Np) counts x
+% 460 e-/count = 489 e- at Np = 1 period per frame; the raw X/Y output is 10-bit
+% offset by FS/2 (manual 3.6.1), so +-512 counts x 460 bounds the demodulated
+% signal at 236 ke per frame at AC/DC ~ 1 (our DC-coupled case) BEFORE the
+% 500 ke well does (the well allows 2 x 250 ke per period); frame rate limit
+% 4960 Hz (manual 3.5.2.7) = one 5 kHz beat period per frame.  Mapped onto this
+% model's I/Q sample, sigma_phi^2 = 2 (I0 + r^2)/(I0^2 g^2): I0 = 2 Npef = 472 ke
+% and r = sqrt(2) RN = 691 e- reproduce the calculator's per-frame phase noise
+% exactly; 'well' is the equivalent 944 ke because the stages put the brightest
+% pixel's dc at P.cophi.fill (0.5) x well (cophi_ctx noise/loop, cophi_capture).  CONFIRMED by the vendor 2026-10-29: the
+% output gain is fixed (460 e-/count; X/Y signed +-512 by default, 0-1023 by API,
+% one-sided), the FPGA averages frames at the sensor's 4960/s and sends ~20
+% images/s over GigE, DivideBy4 relays the 20 kHz trigger; background
+% suppression OFF (on it doubles the noise; this row's model has bs = 0).
+P.cophi.lockin_M = struct('lockin', 44, 'lockin_r', 44, 'lockin_c4', 620);   % I/Q samples per loop cycle: 44 was sized on the format stage's overcounted 34 pm and holds 5.2 pm; the survey row's 3 pm hold is 125 (runs/lockin_loop_oap_m125: 3.09 pm); the vendor row's 620 at 4960/s = the record's 0.125 s cycle (runs/c4_loop_oap: 1.44 pm; 125 = 25 ms, runs/c4_loop_oap_m125: 3.20 pm)
 
 % ---- the second sensor class (Dave's ruling 6, 2026-10-11: FULL actuator resolution, no
 % low-order forms -- EFC probes are commanded at the full lattice).  A well-free (continuous

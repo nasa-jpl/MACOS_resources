@@ -450,6 +450,49 @@ annulus fill the same common phase read 7.3 pm per mrad -- the pupil-edge step;
 e-/s/element 92 pm, 8.4 s per pm; as sheeted (capped from 2.5e8) 58 pm, 3.35 s; 1e9
 29 pm, 0.84 s; at the sheet's own 2.5e9 18 pm, 0.34 s; 1e10 9.2 pm, 0.084 s.
 
+## The lock-in camera on the vendor's data (2026-10-29): the rows above re-run on the heliCam C4's numbers
+
+Heliotis (Max Ferstl, 2026-10-28) sent the C4 datasheets, the user manual and the
+C4 noise calculator (`~/dev/MACOS_sandbox/COPHI`).  The sheet's `lockin_c4` row is
+the calculator's model mapped onto this reading's I/Q sample (the comment in
+`cophi_params.m` has the algebra): the raw X/Y output is 10-bit offset by FS/2, so
++-512 counts x 460 e-/count = **236 ke of demodulated signal per frame** bounds the
+reading at AC/DC ~ 1 (our DC-coupled case) before the 500 ke well does; read noise
+sqrt(0.81 + 0.32 Np) counts = 489 e- per frame = the shot noise at full scale; frame
+rate limit 4960 Hz = one 5 kHz beat period per frame; the external reference is the
+quarter-period trigger (4 x f_beat = 20 kHz, 0-5 V, `DivideBy4` relays it directly).
+The survey rows (`lockin`, `lockin_r`) and their `runs/lockin_*` records stand as
+the history; the campaign's lock-in numbers are now these.
+
+| table | lock-in, vendor row | record |
+|---|---|---|
+| noise: pm per 0.2 ms frame, s per pm | mirror **61.8 pm, 0.77 s** (pm@hold 45); lens 67.2, 0.91 | `runs/c4_noise_oap`, `c4_noise_lens` |
+| loop, 620 frames per cycle (0.125 s) | noise **1.44** (converged 1.46), walk 2.73, thermal 10.1, cam 1.44, LO 29.3 (29.1 piston-free), fiber at the budget / 3x 1.44 / 1.44 (inert), delay (one cycle) 1.91 | `runs/c4_loop_oap` |
+| loop, 125 frames per cycle (25 ms) | noise **3.20** (converged 3.25); delay 4.26 | `runs/c4_loop_oap_m125` |
+| capture | two colours on alternate frames (2480 frames/s per colour): 0.128 nm per pixel; temporal unwrapping to **785 um/s** (4960 frames/s) | `runs/c4_capture_oap` |
+
+The 0.125 s hold matches `cophi_hold_vs_cycle`'s law (1.43 budget) to 1 %; the 25 ms
+record is 3.20 against 3.2.  Per pm the vendor row is 4.4x the survey row's
+3.35 s (five times the frames per second at almost the same noise per frame: read
+noise equals shot noise at full scale), 55x the Photonfocus, 500x Feng's camera.
+
+**Confirmed by the vendor (Max Ferstl, 2026-10-29), closing the two questions the deck
+had carried as assumptions:** the output gain is fixed (460 e-/count; the X/Y output is
+signed +-512 counts by default, settable to 0-1023 by the API, which is one-sided and no
+use for a full-circle phase; the sensor's 'sensitivity' setting only shortens the internal
+exposure, the same as dimming); the FPGA averages frames at the sensor's maximum rate
+(4960 Hz, manual 3.5.2.7) and sends ~20 averaged 2 x 16-bit images/s over GigE; the
+DivideBy4 reading of the 20 kHz quarter-period trigger is right; and background
+suppression should be OFF for our AC/DC ~ 1 case (on, it doubles the noise) -- this row's
+model already has bs = 0.
+
+**Trap (CC 2026-10-29): `cophi_ctx` builds the camera struct with `P.cophi.fill`,
+ignoring a per-camera `fill` field** -- the first vendor-row run went out at half
+the intended signal (236 ke dc, 105 pm, 2.24 s per pm) and was discarded; the row
+carries the equivalent `'well', 944e3` so that fill 0.5 x well = the 472 ke
+I0 the calculator's model needs.  Add a per-camera fill to `cophi_ctx` before
+sheeting another row that needs one.
+
 ## The other gauges on a polarization camera (2026-10-12): "seconds to SNR 1 at 1 pm"
 
 The composite deck's electronics row, through each gauge's OWN reading (CC's request;
