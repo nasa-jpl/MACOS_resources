@@ -565,7 +565,7 @@ no model gap for the optimizer to mine (the e2e6m S3b lesson).
 | `ctb_dm_rx.m` | emits `ctb_dm.in` from `ctb_dcr.in`: the two DM blocks become `Surface= GridData` with an `nGridMat=256` channel whose frame is the element's own (`pData=VptElt, xData=xObs, zData=psiElt`) — the frame rule that makes pokes localize (the e5 "central dot" lesson). Hand decks untouched; `ctb_dm.in` + `flat256.txt` are derived (the flat grid is gitignored, rewritten on demand). |
 | `ctb_dm.m` | influence-function DM model: 32×32 actuator lattice, pitch = beam diameter/32 = 21.3/32 = 0.666 mm (beam diameter 21.3 mm, measured 21.24), Gaussian influence with 12 % nearest-neighbor coupling, commands (mm of surface) → 256×256 grid via local stamps. `apply(a)` REPLACES the element grid (`macos.set_elt_grid`) so there is no accumulation state. 880 active actuators per DM (centers within beam radius 10.65 mm + 1 pitch). |
 | `ctb_chain.m` | reusable masked-chain runner: loads the deck once, sizes apodizer/FPM/Lyot once (the deterministic geometry of `ctb_coro_compare`), then `run()` = fresh trace + masks multiplied in place + complex field at the FPA. 0.4 s per run at N=512. |
-| `ctb_dm_jacobian.m` | G = dE(dark zone)/d(actuator): 1760 forward-difference pokes (h = 2 nm surface) through the masked chain, 11.3 min at N=512. Saved to `ctb_dm_jacobian_N512.mat` (37 MB, gitignored) + committed `.fp.json` fingerprint. Regen: `ctb_dm_jacobian()`. |
+| `ctb_dm_jacobian.m` | G = dE(dark zone)/d(actuator): central differences, 3520 pokes (±h, h = 2 nm surface) through the masked chain, 26 min at N=512 (since 2026-10-28; one-sided pokes, 11.3 min, before). Saved to `ctb_dm_jacobian_N512.mat` (37 MB, gitignored) + committed `.fp.json` fingerprint. Regen: `ctb_dm_jacobian()`. |
 | `ctb_efc.m` | the EFC loop: Tikhonov least squares on the dark-zone field, α line-searched each iteration against the MEASURED contrast (runs are 0.4 s — a luxury lab EFC needs probing for), stop when no α improves. Sensing perfect by default (engine field read directly); `'sensing', struct(...)` closes the loop on pairwise-probe estimates instead (below). |
 | `ctb_probe_estimate.m` | pairwise-probe field estimate (Give'on, Kern & Shaklan 2011): I_0 and I_k± for 3 probe pairs on DM1 through the masked chain (7 runs, 4 s), dE_k = G a_k, per-pixel least squares for Re/Im E; the probe-intensity diagnostic ratio; photon noise as a plant option; scored against the engine's true field, which it never feeds back. |
 | `ctb_probe_solve.m` | the per-pixel 2-unknown solve and its conditioning. |
@@ -587,16 +587,17 @@ column reproducibility (2e-8), predicted-vs-achieved correlation.
 | quantity | value |
 |---|---|
 | static coronagraph dark zone (3–15 λ/D mean) | 2.934e-7 |
-| EFC floor (19 iterations, fixed G) | **8.060e-9 (36×)** |
+| EFC floor (24 iterations, fixed G) | **8.296e-9 (35×)** |
 | inner band 3–8 λ/D | 9.62e-7 → 2.40e-8 (40×) |
 | outer band 8–15 λ/D | 6.85e-8 → 2.69e-9 (25×) |
-| DM strokes at the floor (rms) | 9.9 / 8.6 nm |
+| DM strokes at the floor (rms) | 10.0 / 8.7 nm |
 | DM1-only control (same G, same loop) | 1.30e-7 (2.3×, stalls) |
 | DM2-only control | 2.55e-7 (1.1×) |
 | linear-achievable floor (top-400 real modes, 11 nm rms) | 4.5e-9 |
 
-The static and EFC-floor rows were measured again on the decks re-pinned on 2026-10-28; the August decks
-gave 2.934e-7 and 8.055e-9. The band, single-DM and linear-floor rows are from the August decks and were not re-run.
+The static, EFC-floor and stroke rows were measured again on the decks re-pinned on 2026-10-28, with the
+central-difference Jacobian; the one-sided Jacobian on the same decks gave 8.060e-9 in 19 iterations
+(9.9 / 8.6 nm), and the August decks 2.934e-7 and 8.055e-9. The band, single-DM and linear-floor rows are from the August decks and were not re-run.
 
 The measured floor sits within 2× of the linear-achievable value for a
 Jacobian measured ONCE at the flat state — the remaining gap is
@@ -628,21 +629,23 @@ contrast pin, Jacobian column linearity, and an EFC smoke that must dig
 ## Pairwise-probe sensing (`ctb_probe_estimate`, `ctb_efc('sensing', ...)`)
 
 Measured 2026-10-28 on the re-pinned decks, the shipped hard occulter, N=512, 3–15 λ/D, the
-Jacobian as `ctb_dm_jacobian()` measures it (the manual's Section 8, driver ch08d):
+Jacobian as `ctb_dm_jacobian()` measures it, central differences (the manual's Section 8, driver ch08d):
 
 | quantity | value |
 |---|---|
-| default probes: 3 pairs, sinc–sine on DM1 (alternate pairs turned 90°), amplitude set to the speckle level | 9.25 nm peak |
-| estimation floor at the flat DMs (mean \|E_est − E_true\|²/peak; contrast 2.934e-7) | 4.35e-10 (3.9 % of the field) |
-| small probes (0.3–2.8 nm): floor / relative error | 5.2e-11 / 1.3 % |
-| the same with DM1's columns by central differences | 7.4e-15 / 1.6e-4 at 0.28 nm |
-| diagnostic ratios at the default | 1.011–1.013 |
-| photons per image at the bare peak 1e10 / 1e8 / 1e6: floor | 4.6e-10 / 4.1e-9 / 3.7e-7 |
-| EFC, 10 iterations: perfect sensing / noiseless estimate / 1e8 photons | 8.78e-9 / 8.90e-9 / 9.15e-9 |
+| default probes: 3 pairs, sinc–sine on DM1 (alternate pairs turned 90°), amplitude set to the speckle level | 9.27 nm peak |
+| estimation floor at the flat DMs (mean \|E_est − E_true\|²/peak; contrast 2.934e-7) | 4.13e-10 (3.8 % of the field) |
+| small probes: floor / relative error | 7.3e-15 / 1.6e-4 at 0.28 nm; 3.4e-12 / 3.4e-3 at 2.8 nm |
+| the same with DM1's columns by one-sided 2 nm pokes (the method before 2026-10-28) | 5.2e-11 / 1.3 % (0.3–2.8 nm) |
+| diagnostic ratios at the default | 1.016–1.018 |
+| photons per image at the bare peak 1e10 / 1e8 / 1e6: floor | 4.4e-10 / 4.1e-9 / 3.7e-7 |
+| EFC, 10 iterations: perfect sensing / noiseless estimate / 1e8 photons | 8.96e-9 / 9.08e-9 / 9.37e-9 |
 
 Two things the numbers say. The small-probe error is the Jacobian's: a one-sided 2 nm poke is 1.2–1.5 %
-off the true derivative for interior actuators (the measured second-order term; the help text's
-"~0.1 %" understates it), and a central-difference Jacobian removes it. And the diagnostic ratio is not
+off the true derivative for interior actuators (the measured second-order term), which is why the
+Jacobian has been measured by central differences since 2026-10-28 (Dave's ruling, PLAN 1.2 (eeee)).
+With one-sided pokes the EFC rows read 8.78e-9 / 8.90e-9 / 9.15e-9: the better Jacobian estimates
+better but digs 2 % less in ten iterations (the EFC floor table above moves the same way). And the diagnostic ratio is not
 an error meter: the probe's second-order field adds to the image in proportion to the probe intensity,
 so the ratio reads about 1.02 even with the exact Jacobian; it flags gross mismatch (0.48–0.70 at 10× the
 default), not the estimate's error. Only the alternate turned probes keep every pixel's 2×2 solve

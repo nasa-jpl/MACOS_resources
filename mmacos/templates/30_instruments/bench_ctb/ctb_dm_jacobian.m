@@ -9,7 +9,11 @@ function out = ctb_dm_jacobian(opts)
 %   optimizer mines any model gap; the design operator must BE the
 %   engine).
 %
-%   G(:,c) = (E_poke(dz) - E0(dz)) / h,  c = (DM, actuator) column.
+%   G(:,c) = (E_+h(dz) - E_-h(dz)) / (2h),  c = (DM, actuator) column:
+%   central differences, two pokes per actuator (Dave 2026-10-28, PLAN
+%   1.2 (eeee)).  A one-sided 2 nm poke was 1.2-1.5 % off the derivative
+%   for interior actuators -- the field's second-order term -- which set
+%   the pairwise-probe estimator's floor (ctb_probe_estimate).
 %
 %   Name-value:
 %     'model_size'    grid (512)
@@ -17,8 +21,10 @@ function out = ctb_dm_jacobian(opts)
 %     'beam_d_mm'     controlled beam diameter on the DMs (21.3, the
 %                     measured CTB footprint at DM1/DM2)
 %     'coupling'      influence-function nearest-neighbor coupling (0.12)
-%     'h_mm'          poke, mm of surface (2e-6 = 2 nm; OPD nonlinearity
-%                     is quadratic in the poke phase -- ~0.1% here)
+%     'h_mm'          poke, mm of surface (2e-6 = 2 nm).  Central
+%                     differences at 2 nm agree with 0.2 nm to 1.2e-4
+%                     (interior actuators) .. 7.2e-4 (edge); 0.02 nm is
+%                     worse (up to 1e-2: rounding), so 2 nm stays
 %     'dms'           which DMs to include (default [1 2])
 %     'inner_lamD','outer_lamD'  dark-zone annulus (3, 15)
 %     'chain'         name-value cell forwarded to ctb_chain (mask config)
@@ -39,7 +45,7 @@ function out = ctb_dm_jacobian(opts)
 %   written only when absent (or with 'replace_fp'), never overwritten
 %   by a measurement that disagrees with it.
 %
-%   Run:  >> out = ctb_dm_jacobian;                 (~25 min at 512)
+%   Run:  >> out = ctb_dm_jacobian;     (3520 runs, ~26 min at 512)
 %   See also: ctb_dm, ctb_chain, ctb_efc, jac_fingerprint.
     arguments
         opts.model_size (1,1) double {mustBeInteger,mustBePositive} = 512
@@ -102,20 +108,24 @@ function out = ctb_dm_jacobian(opts)
         for j = acts
             a = opts.a0{k};  a(j) = a(j) + h;
             dm{k}.apply(a);
-            E = ch.run();
+            Ep = ch.run();
+            a(j) = opts.a0{k}(j) - h;
+            dm{k}.apply(a);
+            Em = ch.run();
             c = c + 1;
-            G(:, c) = single((E(dz_idx) - e0) / h);
+            G(:, c) = single((Ep(dz_idx) - Em(dz_idx)) / (2*h));
             col_dm(c) = opts.dms(k);  col_act(c) = j;
             if opts.verbose && mod(c, 50) == 0
                 el = toc(t0);
-                fprintf('[jac] %d/%d pokes  %.1f s  (%.2f s/poke, ETA %.1f min)\n', ...
+                fprintf('[jac] %d/%d actuators  %.1f s  (%.2f s/actuator, ETA %.1f min)\n', ...
                     c, ncol, el, el/c, el/c*(ncol-c)/60);
             end
         end
         dm{k}.apply(opts.a0{k});
     end
     dt = toc(t0);
-    fprintf('[jac] done: %d pokes in %.1f min (%.2f s/poke)\n', ncol, dt/60, dt/ncol);
+    fprintf('[jac] done: %d actuators, central differences, %d pokes in %.1f min (%.2f s/poke)\n', ...
+        ncol, 2*ncol, dt/60, dt/(2*ncol));
 
     % ---- package + save -------------------------------------------------
     for k = ndm:-1:1
@@ -131,7 +141,7 @@ function out = ctb_dm_jacobian(opts)
         'dm',dmgeo, 'h_mm',h, 'inner_lamD',opts.inner_lamD, ...
         'outer_lamD',opts.outer_lamD, 'region',opts.region, 'contrast0',c0, ...
         'chain_opts',{ch.config}, 'a0',{opts.a0}, 'tag',opts.tag, ...
-        'rx',ch.rx, 'timing_s',dt, 'date',datestr(now)); %#ok<TNOW1,DATST>
+        'rx',ch.rx, 'fd','central', 'timing_s',dt, 'date',datestr(now)); %#ok<TNOW1,DATST>
     if opts.save
         tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
         mat = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d%s.mat', ch.N, tg));
@@ -142,7 +152,7 @@ function out = ctb_dm_jacobian(opts)
         % to a warning)
         if ctb_fp_guard(fpp, out, opts.replace_fp)
             try
-                meta = struct('rx', out.rx, 'h_mm', h, 'model_size', ch.N, ...
+                meta = struct('rx', out.rx, 'fd', 'central', 'h_mm', h, 'model_size', ch.N, ...
                     'nact', opts.nact, 'beam_d_mm', opts.beam_d_mm, ...
                     'coupling', opts.coupling, 'inner_lamD', opts.inner_lamD, ...
                     'outer_lamD', opts.outer_lamD, 'region', opts.region, ...
