@@ -277,7 +277,7 @@ SUITE_FAST=$(join_suites \
     "tApertureFrame" "tAppendRx" "tPropLayout" \
     "tPolarization" "tJonesPupil" "tVecChain" \
     "tPolElement" "tPolRadiometric" "tPolExternal" "tBench" "tOpdRef" \
-    "tTgPol" "tTgPol2" "tStopReload" "tDmgLoop" "tTmaLongslit" "tSpectrometerSens" "tPupilBlurDemo" "tRxShortCoef" "tRxRefuse" "tRxLineEndings" "tTraceKeepsRx" "tSaveFixedPoint" "tZrnGrRoundTrip" "tGridDropped" "tCalibTargets" \
+    "tTgPol" "tTgPol2" "tTgPsiAxes" "tStopReload" "tDmgLoop" "tTmaLongslit" "tSpectrometerSens" "tPupilBlurDemo" "tRxShortCoef" "tRxRefuse" "tRxLineEndings" "tTraceKeepsRx" "tSaveFixedPoint" "tZrnGrRoundTrip" "tGridDropped" "tCalibTargets" \
     "tLinkSave" "tZernikeGridBasis" "tRxBlockComment" \
     "tGratingImmersed" "tGratingAperture" "tRayFailElt" "tGlassDispersion" "tPropMedium" "tRxShortAsph" \
     "tSpectrometerRx" "tGratingOpl" "tAsphCalib" "tTelescopeRx" "tRetraceIdempotent" "tBeamRows" "tTraceRestart" "tFFCut" "tAsphHook" "tBeamDirHook" "tFwdRoot" "tCalibBlindFields" "tCalibStop" "tCalibMatrix" "tSessionModes" "tStopApStop" "tFreeformPole" "tCophi" "tBudgetKernel" "tRunBudget" "tResolutionSweep" "tApiCoverage" "tDefaults" "tSrt" "tSegRay" "tRefRays" "tSint" "tMessages" "tSaveNewFileQuiet" "tRxLoadRulings1018" "tVeneerDefaults" "tZwfsCoat" "tE2eRmsWaves" \
