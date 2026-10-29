@@ -125,6 +125,18 @@ def test_draw_rays_vertices_sit_on_the_deck_surfaces(cass):
         m.draw_rays('QQ')
 
 
+def test_draw_rays_leaves_no_stray_commands(cass):
+    # PLAN 1.2 (dddd): LoadStack pushed DRAW's dialog arguments for the api's
+    # data-only DRAW, which never reads them, so the command loop read stale
+    # IARG/CARG back as commands ('** Unknown command = 13' ... '= <rx path>')
+    # after every draw_rays.  Red before 2026-10-29.
+    m.trace_rays(6)
+    m.messages()
+    m.draw_rays('YZ')
+    stray = [s for s in m.messages() if 'Unknown command' in s]
+    assert stray == [], stray
+
+
 # ---- xps (mmacos pupil_quality / tPupilMap) --------------------------------------------
 def test_xps_chief_is_the_fex_vertex(cass):
     m.stop(2)

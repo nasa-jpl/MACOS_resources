@@ -64,6 +64,21 @@ classdef tDrawFrameGuard < matlab.unittest.TestCase
             macos.design.assert_draw_frame_global('YZ', 'tDrawFrameGuard');
         end
 
+        function test_draw_rays_leaves_no_stray_commands(tc)
+            % PLAN 1.2 (dddd): LoadStack pushed DRAW's dialog arguments for
+            % the api's data-only DRAW, which never reads them, so the
+            % command loop read stale IARG/CARG back as commands after every
+            % draw_rays ('** Unknown command = 13', '= 0', '= 0', '= <rx
+            % path>' in every segmentation listing).  Red before 2026-10-29.
+            macos.load_rx(tc.heritage);
+            macos.opd();
+            macos.messages();
+            macos.draw_rays('XZ', 1, 7);
+            msgs = macos.messages();
+            stray = msgs(contains(msgs, 'Unknown command'));
+            tc.verifyEmpty(stray, strjoin(cellstr(stray), ' | '));
+        end
+
         function test_guard_rejects_bad_plane(tc)
             load_from(tc.globalfr);
             tc.verifyError(@() macos.design.assert_draw_frame_global('QQ', 'x'), ...
