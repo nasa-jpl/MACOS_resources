@@ -63,6 +63,17 @@ just `use macos_api_mod` + link the lib.  Likewise pymacos's
 
 ## Gotchas
 
+### Header-key rewrites must be line-anchored (2026-10-30)
+
+The engine's header keys nest: `OptRayGrid=` ends in `yGrid=`, `OptChfRayDir=` / `JZLouChfRayDir=` end in
+`ChfRayDir=`, `OptChfRayPos=` / `JZLouChfRayPos=` in `ChfRayPos=` (msmacosio.inc), and SAVE writes the Opt*
+rows whenever a CALIB setup is non-default.  A `regexprep` that matches `KEY=` mid-line rewrites the sibling
+too: `(yGrid=\s*)[^\n]*` put a direction vector over OptRayGrid's count and the engine refused the reload
+(CCMac, tPupilFindMethod 9/9 on a zoom deck carrying the key); the ChfRayDir= form overwrites every
+OptChfRayDir= row of a multi-field CALIB deck silently.  Write `'(?m)^(\s*KEY=\s*)[^\n]*'` (86 sites were
+anchored in one sweep).  `tests/tRxHeaderRewrite.m` (fast) lints design/src/templates/tests/challenges and
+goes red on any unanchored one; the planted-key gates are in tPupilMap and tAfocalKernel.
+
 ### Default compiler: gfortran (not ifx)
 GMI's lesson learned: an ifx-linked mex SIGSEGVs at MATLAB process
 exit because `libifcoremt.so.5` parks worker threads in the host

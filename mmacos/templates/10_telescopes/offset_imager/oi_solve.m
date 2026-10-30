@@ -334,8 +334,8 @@ function h = footprints_(X, P, offset)
     tq  = (Xc.z_m1 - z_stop)/cdir(3);
     q   = Xc.stopC - tq*cdR;
     p0  = q - (oi_standoff(P.EPD_m)/cdir(3))*cdir;
-    s = regexprep(txt, '(ChfRayDir=\s*)[^\n]*', ['$1' v3(cdir)]);
-    s = regexprep(s,    '(ChfRayPos=\s*)[^\n]*', ['$1' v3(p0)]);
+    s = regexprep(txt, '(?m)^(\s*ChfRayDir=\s*)[^\n]*', ['$1' v3(cdir)]);
+    s = regexprep(s,    '(?m)^(\s*ChfRayPos=\s*)[^\n]*', ['$1' v3(p0)]);
     fid = fopen(tmp,'w');  fprintf(fid,'%s',s);  fclose(fid);
     macos.load_rx(tmp);
     macos.stop(2,[0 0]);

@@ -19,8 +19,8 @@ function s = ctb_stop_image(R, ring_as)
     macos.init(R.K.model);
     for k = 1:size(F,1)
         d = dB + [F(k,1); F(k,2); 0];  d = d/norm(d);
-        t2 = regexprep(txt, 'ChfRayDir=[^\n]*', sprintf('ChfRayDir=  %.16E  %.16E  %.16E', d));
-        t2 = regexprep(t2, 'ChfRayPos=[^\n]*', sprintf('ChfRayPos=  %.16E  %.16E  %.16E', -L0*d));
+        t2 = regexprep(txt, '(?m)^(\s*ChfRayDir=)[^\n]*', sprintf('$1  %.16E  %.16E  %.16E', d));
+        t2 = regexprep(t2, '(?m)^(\s*ChfRayPos=)[^\n]*', sprintf('$1  %.16E  %.16E  %.16E', -L0*d));
         tmp = [tempname '.in'];  fid = fopen(tmp, 'w');  fwrite(fid, t2);  fclose(fid);
         macos.load_rx(tmp);  delete(tmp);
         ri = macos.get_ray_info(macos.trace(R.ix.OAP1).nRays);

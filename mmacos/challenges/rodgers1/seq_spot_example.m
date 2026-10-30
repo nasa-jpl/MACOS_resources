@@ -169,8 +169,8 @@ function ri = trace_(txt, tmp, apst, stand, bx, by)
     cdir = [sin(bx); sin(by); sqrt(max(0,1-sin(bx)^2-sin(by)^2))];
     cpos = apst - stand*cdir;
     v3 = @(v) sprintf('%.16E  %.16E  %.16E', v(1), v(2), v(3));
-    s = regexprep(txt, '(ChfRayDir=\s*)[^\n]*', ['$1' v3(cdir)]);
-    s = regexprep(s,   '(ChfRayPos=\s*)[^\n]*', ['$1' v3(cpos)]);
+    s = regexprep(txt, '(?m)^(\s*ChfRayDir=\s*)[^\n]*', ['$1' v3(cdir)]);
+    s = regexprep(s,   '(?m)^(\s*ChfRayPos=\s*)[^\n]*', ['$1' v3(cpos)]);
     fid = fopen(tmp,'w'); fprintf(fid,'%s',s); fclose(fid);
     macos.load_rx(tmp);
     nE = macos.num_elt();

@@ -200,7 +200,7 @@ function w = rot_(u, ax, th)
 ax = unit_(ax); w = u*cos(th) + cross(ax, u)*sin(th) + ax*dot(ax,u)*(1-cos(th)); w = unit_(w);
 end
 function f = write_deck_(hdr, blocks, pos, f)
-hdr = regexprep(hdr, 'ChfRayPos=\s*[^\n]*', sprintf('ChfRayPos=  %.15g  %.15g  %.15g', pos));
+hdr = regexprep(hdr, '(?m)^(\s*ChfRayPos=)\s*[^\n]*', sprintf('$1  %.15g  %.15g  %.15g', pos));
 fid = fopen(f,'w'); fwrite(fid, [hdr blocks{:}]); fclose(fid);
 end
 function [uv, ok1, P, D, ok] = trace_(deck, iDM, iDet, fr)
