@@ -153,6 +153,7 @@ function out = ctb_efc(opts)
         cargs = opts.plant_chain;
         fprintf('[efc] PLANT chain overridden (control != truth): G is the loaded (defect-free) Jacobian\n');
     end
+    if isfield(J, 'elt'), cargs = [{'elt', J.elt}, cargs]; end   % the Jacobian's own station map (a deck other than the bench's)
     ch = ctb_chain('rx', J.rx, 'model_size', J.N, cargs{:});
     ndm = numel(J.dm);
     dm = cell(1, ndm);
@@ -264,7 +265,7 @@ function out = ctb_efc(opts)
         'lamD_px',J.lamD_px, 'center_px',J.center_px, 'N',J.N, ...
         'inner_lamD',J.inner_lamD, 'outer_lamD',J.outer_lamD, ...
         'peak_bare',pb, 'dz_idx',dz, 'jac_h_mm',J.h_mm, ...
-        'quant_nm',opts.quant_nm, 'quant_seed',opts.quant_seed, ...
+        'quant_nm',opts.quant_nm, 'quant_seed',opts.quant_seed, 'cbm',cbm, ...
         'contrast_est',contrast_est(1:numel(contrast)), ...
         'est_floor',est_floor(1:numel(contrast)), 'sensing',{opts.sensing});
     stroke_rms_nm = cellfun(@(x) u_nm * rms(x(x~=0)), a);
@@ -340,7 +341,8 @@ function fig_(out, dm, opts)
     for k = 1:numel(out.a)
         nexttile(tl);
         d = dm{k};
-        S = reshape(1e6 * out.a{k}, d.nact, d.nact);
+        u_nm = 1e6;  if isfield(out, 'cbm'), u_nm = 1e9 * out.cbm; end   % deck units -> nm
+        S = reshape(u_nm * out.a{k}, d.nact, d.nact);
         imagesc(S.'); axis image xy; colormap(gca, parula);
         cb = colorbar; cb.Label.String = 'nm';
         title(sprintf('DM%d commands (rms %.2f nm)', k, out.stroke_rms_nm(k)));
