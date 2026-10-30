@@ -270,7 +270,7 @@ SUITE_FAST=$(join_suites \
     "tCrossSurface" "tPerturbRoundtrip" "tCodeVGrating" \
     "tBandLimitedMask" "tSrsBugFlatZ" "tDwDzZernike" "tDwDx" \
     "tDwDxGroups" "tDesignSystem" "tDesignVary" "tDesignSensitivities" \
-    "tDesignOptimize" "tDesignTelescope" "tVeneerXP" "tCoroContrast" \
+    "tDesignOptimize" "tDesignTelescope" "tCheckClippingSource" "tVeneerXP" "tCoroContrast" \
     "tCompose" "tSysProp" "tBeam" "tSegMirMaker" "tSegmentRx" "tEdgeSensors" \
     "tMet" "tMetView" "tRunMet" "tRunSensitivities" "tRunSegmentation" \
     "tRunCompare" "tSpot" "tDrawFrameGuard" "tDwDgridElts" \

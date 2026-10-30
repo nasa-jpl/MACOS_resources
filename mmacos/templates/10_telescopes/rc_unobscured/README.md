@@ -10,7 +10,7 @@ From this directory, after `run('<path-to>/mmacos/mmacos_setup.m')`:
 
 ## What a run gives
 
-With an f/1.5 primary at f/20 the eccentric pupil clears the secondary's shadow at a decenter of 1.154 m, and after the axial refigure and the field optimization the worst field over ±0.5′ is 0.0482 waves, diffraction-limited, with all three optics clear.
+With an f/1.5 primary at f/20 the eccentric pupil clears the secondary's shadow at a decenter of 0.642 m, and after the axial refigure and the field optimization the worst field over ±0.5′ is 0.0281 waves, diffraction-limited, with all three optics clear.
 
 ## Source
 

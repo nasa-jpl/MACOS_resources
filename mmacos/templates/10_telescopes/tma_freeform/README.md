@@ -10,7 +10,7 @@ From this directory, after `run('<path-to>/mmacos/mmacos_setup.m')`:
 
 ## What a run gives
 
-Taken off axis by 0.98 m to clear its beams, the three-conic design reaches 0.0224 waves at its worst field over ±3′; freeform departures on M2 and M3, every radius and conic held, take it to 0.0185 waves. On this field the conic limit is already diffraction-limited, so the freeform's gain is small; `wf2_freeform` shows why a third mirror is what makes the freeform useful at all.
+Taken off axis by 0.89 m to clear its beams, the three-conic design reaches 0.0213 waves at its worst field over ±3′; freeform departures on M2 and M3, every radius and conic held, take it to 0.0176 waves. On this field the conic limit is already diffraction-limited, so the freeform's gain is small; `wf2_freeform` shows why a third mirror is what makes the freeform useful at all.
 
 ## Source
 
