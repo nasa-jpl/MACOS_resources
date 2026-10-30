@@ -1,15 +1,18 @@
-<!-- CTB coronagraph diffraction-model progress deck, v5 2026-08-26.
+<!-- CTB coronagraph diffraction-model progress deck, v6 2026-10-29.
      Build: python3 make_brief_slides.py deck_ctb.md
      Sources: bench_ctb/CTB_PROP_STATUS.md (sessions 4-14) + committed
      committed figures in THIS directory (mask families + leg fix +
      export, pol-ifo ab494ec..a060ef0/46d0bc6; DM layer + EFC,
      dev-candidate ea64552; physics layers + vector vortex,
-     dev-candidate 29edb1d/9ea80e5+).  Style: doc/DECK_STYLE.md +
-     STYLE_REPORTS.md section 5 (gate run 2026-08-26: clean).       -->
+     dev-candidate 29edb1d/9ea80e5+; the telescope slides 14-15 from
+     e2e stages 8-9, templates/80_end_to_end/e2e/s8_coronagraph.m and
+     s9_diffraction.m, figures ctb_e2e_*.png copied from their products
+     and the mmacos manual's chapter 2).  Style: doc/DECK_STYLE.md +
+     STYLE_REPORTS.md section 5 (gate run 2026-10-29: clean).       -->
 
 # The Coronagraph Testbed Model
 End-to-end diffraction on an all-reflective testbed — eight off-axis parabolas, two deformable mirrors — validated against PROPER
-D. C. Redding with Claude Code — 26 August 2026. Model + drivers: MACOS_resources dev-candidate, mmacos/templates/30_instruments/bench_ctb (committed, with status record).
+D. C. Redding with Claude Code — 26 August 2026, with the telescope slides added 29 October 2026. Model + drivers: MACOS_resources dev-candidate, mmacos/templates/30_instruments/bench_ctb (committed, with status record); the telescope model in templates/80_end_to_end/e2e (stages 8 and 9).
 ~ Note 2026-09-16: the deformable-mirror model was questioned and confirmed by a traced footprint (the beam at the DMs is 21.2 mm; the 32 x 32 lattice at 0.67 mm spans it; every loop number stands).  What the trace found instead: the bench carries half the sheet's intended fill (the source cone is set as a half-angle where the engine takes a full angle), 47% of the DM's clear aperture rather than 95%; self-consistent throughout, and whether to regenerate at the intended beam is an open decision.  The diffraction layer, complete and validated: propagation prescriptions cross-checked against PROPER, dark-zone contrast with the standard mask families head-to-head, an off-axis companion, a hand-off package an external PROPER user runs with no macos, the two deformable mirrors closing a wavefront-control loop on the model itself — and the physics layered on top: finite bandpass, the coated train's polarization, and the vector vortex with a measured verdict on the polarizer-sandwich trade.
 
 ## 1 — The bench and the model | Two prescriptions, one physical train; every mask plane bracketed by its own exit-pupil reference sphere
@@ -155,15 +158,32 @@ D. C. Redding with Claude Code — 26 August 2026. Model + drivers: MACOS_resour
 ::: right
 ![The verdict on one axis: unpolarized zero-order (leakage-pinned), the circular sandwich (optical leak rejection, per-λ control recovery), the crossed-linear sandwich (deepest star-side floors), against the scalar chain.](ctb_vvc_summary.png){h=3.55}
 
-## 14 — Next | Toward a real coronagraph model, in dependency order
+## 14 — The coronagraph on a telescope | Behind a 4 m f/18 telescope, folded into its own 5.0 m launch envelope, the bench's model runs unchanged — and the secondary's shadow, not the telescope's wavefront, sets the static dark zone at 5.8×10⁻⁶
+::: left
+- **The train.** The CTB behind the end-to-end thread's telescope (the mmacos manual's chapter 2): OAP1 matched to the telescope (f = f/# × 21.4 mm), DM1 at the image of the telescope's stop, and the whole chain folded into the telescope's 5.0 m envelope by one 4° fold on the converging feed with the accordion stood up in the vertical plane — 0.23 m inside the envelope, 160 mm from every telescope body and beam, 31 mm from itself, every surface at 5° or less, the same rays and wavefront as the unfolded chain (stage 8).
+- **The diffraction model.** The bench's generator inserts the three mask quartets, the DM1→DM2 leg and the far-field terminal behind the nine telescope elements, every reference sphere found through the whole train: 40 elements (53 in the full model), the chief ray at every optic within 10⁻¹³ mm of the bare train, the point image on the centre pixel, the mask blocks transparent to 2×10⁻¹⁵ with no mask applied. The masked chain, DM layer, control matrix and loop then run as on the bench, given the deck and its station map (stage 9).
+- **What limits it.** Not the wavefront: 0.0024 waves rms on DM1, and flattening it with DM1 (0.9 nm rms) changes the dark zone by nothing. The same deck with the secondary's obscuration removed sits at 2.4×10⁻⁷, below the bench's own 2.9×10⁻⁷. With it, 5.8×10⁻⁶: the shadow is 0.4 % of the pupil, and the occulter throws its diffraction into the Lyot plane around the shadow's image, where a plain disk stop passes it.
+- **Model limit, on record.** The telescope's beam is 4 % anamorphic (f/17.7 × f/18.5), but the engine carries the field on the ray lattice with one spacing, so the model's point image is round; scaling the occulter by that ratio moves the static number 5.9–6.1×10⁻⁶.
+::: right
+![The folded instrument: the bench alone in elevation (z up, the primary's vertex at z = 0; E1 the added fold, E2 OAP1, E3 DM1, E4 DM2, E18 the camera) and the whole train in plan inside the 5.0 m envelope (dashed).](ctb_e2e_layout.png){h=2.0}
+![Telescope (top) against the bench alone (bottom): the bare point image, the coronagraph image in 3–15 λ/D, and the exit pupil with the secondary's shadow.](ctb_e2e_fields.png){h=3.2}
+
+## 15 — The loop on the telescope | A central Lyot blocker of 0.08 pupil radii takes the shadow's diffraction (5.8×10⁻⁶ → 5.3×10⁻⁷ at 97% of the stop's throughput), and the mirrors dig from there to 6.7×10⁻⁸ — eight times, where the bench alone digs thirty-six
+::: full
+- **The stop against the shadow.** An annular Lyot stop — the bench's 0.50 disk with a central blocker — scanned over the blocker radius: 0.08 of the pupil radius gives 5.3×10⁻⁷ (97% throughput), 0.12 gives 6.3×10⁻⁷, 0.16 gives 7.0×10⁻⁷, 0.20 gives 6.9×10⁻⁷ (84%). The smallest blocker that covers the shadow's image is the best of the scan; the curve is not monotonic because the blocker's own edge diffracts.
+- **The loop.** The control matrix re-measured on the telescope chain with the annular stop (1760 actuators, two pokes each, 59 min): 5.3×10⁻⁷ → 1.4×10⁻⁷ in 7 iterations at 7.8/6.2 nm rms, then re-measured about that state (71 min) and continued: → 6.7×10⁻⁸ in 10 more at 8.6/8.4 nm. Eight times overall against the bench's own thirty-six (2.9×10⁻⁷ → 8.1×10⁻⁹, 3.8×10⁻⁹ relinearized): what remains is the shadow's diffraction outside the blocker, an amplitude hole at the pupil's centre that the mirrors fill only with strokes past their linear range. The step the bench's regularization grid proposes on the brighter halo asks DM2's edge actuators for 65 nm peaks — outside the linear range (the achieved field change correlates 0.34 with the prediction) — so the grid runs a decade further and the loop takes smaller steps.
+- **What is next on this train.** Pairwise probing on the telescope model (the estimator of slide 9's footnote, now built for the bench), the anamorphic lattice (a resampling of the field at the first diffraction plane, an engine change), and an apodizer designed for the obscured pupil instead of a blocker.
+![The first loop on the telescope chain with the annular stop: the camera before and after (5.3×10⁻⁷ → 1.4×10⁻⁷), contrast against iteration, the commanded strokes on both DMs — concentrated at the pupil's centre, on the shadow's image.](ctb_e2e_efc.png){h=2.1}
+
+## 16 — Next | Toward a real coronagraph model, in dependency order
 ::: full
 - Realistic sensing. The loop reads the model's complex field directly; a testbed estimates it from camera images (pairwise probing). That estimator is the remaining step between these floors and lab-representative ones — and FALCO, the community's standard wavefront-control software, can then drive the same DMs (the hybrid Lyot mask enters there, since its design comes from that control loop).
 - Aberrations and drifts. As-built mirror surface maps (measured-quality power spectra), then alignment drifts as a time series against the delivered control loop — dark-zone maintenance, and how long the hole survives between corrections.
 - Validation against testbed data — the capstone. Needs a named dataset from a real bench and the measured (not design) parameters that produced it.
 ~ Mechanical layer delivered and merged: a prescription generator that reproduces both hand-built models to round-off, regression tests pinning the validated numbers (two suites, 16 checks green), the example README, and the exit-pupil-finder guard in the engine (pushed).
-~ Everything on slides 9–13 is reconstructible at other parameters with one call — ctb_study, in the backup section.
+~ Everything on slides 9–13 is reconstructible at other parameters with one call — ctb_study, in the backup section; slides 14–15 with the thread's stages 8 and 9.
 
-## 15 — References | Sources for the mask families and the control method; every formula taken from the paper itself
+## 17 — References | Sources for the mask families and the control method; every formula taken from the paper itself
 ::: full
 - Band-limited masks: Kuchner & Traub 2002, ApJ 570, 900 (4th order); Kuchner, Crepp & Ge 2005, ApJ 628, 466 (8th order).
 - Apodized-pupil Lyot: Soummer 2005, ApJ 618, L161 (the prolate apodizer); Soummer et al. 2011, ApJ 729, 144 (the GPI instrument configuration used here).
