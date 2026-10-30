@@ -115,6 +115,41 @@ classdef tApertureFrame < matlab.unittest.TestCase
             tc.t.build('', 'init', false);
         end
 
+        function test_realized_apertures_survive_a_standalone_reload(tc)
+            % realize_apertures (the field-scan sizer every template calls)
+            % carried the same global-XY defect until 2026-10-29: sz_tma's
+            % saved deck lost every ray at M2 on reload (PLAN_CONSOLIDATION
+            % 1.2 (ffff)).  Same round trip as above, through that path, FP
+            % included (its Rectangular stop is emitted in the same frame).
+            % The bar is 0.9, not 0.98: realize_apertures keeps its two-fan
+            % box sizing (the rodgers1 baselines are scored through it), and
+            % on this fixture's fast M3 the footprint is D-shaped, so the fans
+            % miss its corners and the stop clips 16 edge rays -- measured
+            % 2026-10-29: 261/277 in session AND on reload with the frame fix,
+            % 0/277 on reload without it.  aperture_full_field sizes to the
+            % farthest ray of the full grid and clips none (test above).
+            tc.t.realize_apertures('margin', 0.10, 'quiet', true);
+            nE = numel(tc.t.spec.elt);
+            n_in = pass_count(nE);
+            tc.verifyGreaterThan(n_in, 0.9*tc.nbase, ...
+                'realized apertures clip the beam in session');
+            f = [tempname '.in'];
+            c = onCleanup(@() delete_if(f));
+            tc.t.save(f);
+            macos.init(tc.ModelSize);
+            n = macos.load_rx(f);
+            s = macos.trace(n);
+            r = macos.get_ray_info(s.nRays);
+            n_re = nnz(logical(r.ok_pass) & logical(r.ok_trace));
+            tc.verifyEqual(n_re, n_in, ...
+                'the saved deck must trace as the session does (the frame round trip)');
+            tc.verifyGreaterThan(n_re, 0.9*tc.nbase, ...
+                sprintf(['the SAVED deck lost the beam through realize_apertures: ' ...
+                         '%d/%d rays pass on reload against %d with apertures off'], ...
+                        n_re, s.nRays, tc.nbase));
+            tc.t.clear_realized_apertures();
+        end
+
         function test_global_frame_numbers_would_break_the_reload(tc)
             % NON-VACUITY.  Take the deck the FIXED sizer emits and patch
             % each ApVec centre to the PRE-FIX quantity -- the GLOBAL x,y
