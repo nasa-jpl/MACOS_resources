@@ -224,9 +224,9 @@ function w = plane_extent_(deck, k, P, n, u, F)
         bx = bx0 + F(i,1);   by = by0 + F(i,2);
         cdir = [sin(bx); sin(by); sqrt(max(0,1-sin(bx)^2-sin(by)^2))];
         cpos = apst - stand*cdir;
-        s = regexprep(txt, '(ChfRayDir=\s*)[^\n]*', ['$1' v3_(cdir)]);
-        s = regexprep(s,   '(ChfRayPos=\s*)[^\n]*', ['$1' v3_(cpos)]);
-        s = regexprep(s,   '(yGrid=\s*)[^\n]*', ['$1' v3_([0;cos(by);-sin(by)])]);
+        s = regexprep(txt, '(?m)^(\s*ChfRayDir=\s*)[^\n]*', ['$1' v3_(cdir)]);
+        s = regexprep(s,   '(?m)^(\s*ChfRayPos=\s*)[^\n]*', ['$1' v3_(cpos)]);
+        s = regexprep(s,   '(?m)^(\s*yGrid=\s*)[^\n]*', ['$1' v3_([0;cos(by);-sin(by)])]);
         fid = fopen(tmp,'w');  fprintf(fid,'%s',s);  fclose(fid);
         macos.load_rx(tmp);
         nE = macos.num_elt();

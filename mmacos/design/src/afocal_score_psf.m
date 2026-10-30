@@ -147,9 +147,9 @@ end
 function s = set_field_(txt, apst, stand, bx, by)
     cdir = [sin(bx); sin(by); sqrt(max(0, 1 - sin(bx)^2 - sin(by)^2))];
     cpos = apst - stand*cdir;
-    s = regexprep(txt, '(ChfRayDir=\s*)[^\n]*', ['$1' v3_(cdir)]);
-    s = regexprep(s,   '(ChfRayPos=\s*)[^\n]*', ['$1' v3_(cpos)]);
-    s = regexprep(s,   '(yGrid=\s*)[^\n]*', ['$1' v3_([0; cos(by); -sin(by)])]);
+    s = regexprep(txt, '(?m)^(\s*ChfRayDir=\s*)[^\n]*', ['$1' v3_(cdir)]);
+    s = regexprep(s,   '(?m)^(\s*ChfRayPos=\s*)[^\n]*', ['$1' v3_(cpos)]);
+    s = regexprep(s,   '(?m)^(\s*yGrid=\s*)[^\n]*', ['$1' v3_([0; cos(by); -sin(by)])]);
 end
 
 function s = build_score_deck_(txt, L, nElt0, vf, d1, Dl, bx, by, apst, stand)

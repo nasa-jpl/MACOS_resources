@@ -242,8 +242,8 @@ end
 
 function emit_src_(txt0, tmp, p0, cdir)
     v3 = @(v) sprintf('%.16E  %.16E  %.16E', v(1), v(2), v(3));
-    s = regexprep(txt0, '(ChfRayDir=\s*)[^\n]*', ['$1' v3(cdir)]);
-    s = regexprep(s,    '(ChfRayPos=\s*)[^\n]*', ['$1' v3(p0)]);
+    s = regexprep(txt0, '(?m)^(\s*ChfRayDir=\s*)[^\n]*', ['$1' v3(cdir)]);
+    s = regexprep(s,    '(?m)^(\s*ChfRayPos=\s*)[^\n]*', ['$1' v3(p0)]);
     fid = fopen(tmp,'w');  fprintf(fid,'%s',s);  fclose(fid);
 end
 

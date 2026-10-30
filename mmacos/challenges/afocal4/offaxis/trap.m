@@ -16,7 +16,7 @@ for f1=[1.25 2.5], for t23=[0.625 1.0]
   n0=lost(b);
   % (a) decenter + WIDEN
   txt=fileread(b); cp=g3(txt,'ChfRayPos'); st=g3(txt,'ApStop');
-  s=regexprep(txt,'(ChfRayPos=\s*)[^\n]*',['$1' v3(cp+[0;h;0])]);
+  s=regexprep(txt,'(?m)^(\s*ChfRayPos=\s*)[^\n]*',['$1' v3(cp+[0;h;0])]);
   s=regexprep(s,'(ApStop=\s*)[^\n]*',['$1' v3(st+[0;h;0])]);
   sw=regexprep(s,'(?m)(^\s*ApVec=\s*)[^\n]*',['$1' v3([4*(h+1) 0 0])]);
   sw=regexprep(sw,'(?m)(^\s*ApType=\s*)None','$1  Circular');

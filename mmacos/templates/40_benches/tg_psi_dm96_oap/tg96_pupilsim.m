@@ -603,7 +603,7 @@ if isempty(v), v = strtrim(m{1}); end
 end
 function u = unit_(v), u = v / norm(v); end
 function f = write_deck_(hdr, blocks, pos, f)
-hdr = regexprep(hdr, 'ChfRayPos=\s*[^\n]*', sprintf('ChfRayPos=  %.15g  %.15g  %.15g', pos));
+hdr = regexprep(hdr, '(?m)^(\s*ChfRayPos=)\s*[^\n]*', sprintf('$1  %.15g  %.15g  %.15g', pos));
 fid = fopen(f,'w'); fwrite(fid, [hdr blocks{:}]); fclose(fid);
 end
 function r = rms_(x), x = x(isfinite(x)); r = sqrt(mean(x(:).^2)); end

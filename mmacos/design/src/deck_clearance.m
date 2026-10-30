@@ -119,8 +119,8 @@ function C = deck_clearance(rx, opts)
     for f = 1:nF
         if any(F(:,f) ~= 0)
             d = dB + [F(1,f); F(2,f); 0];  d = d/norm(d);
-            t2 = regexprep(txt, 'ChfRayDir=[^\n]*', sprintf('ChfRayDir=  %.16E  %.16E  %.16E', d));
-            t2 = regexprep(t2, 'ChfRayPos=[^\n]*', sprintf('ChfRayPos=  %.16E  %.16E  %.16E', -L0*d));
+            t2 = regexprep(txt, '(?m)^(\s*ChfRayDir=)[^\n]*', sprintf('$1  %.16E  %.16E  %.16E', d));
+            t2 = regexprep(t2, '(?m)^(\s*ChfRayPos=)[^\n]*', sprintf('$1  %.16E  %.16E  %.16E', -L0*d));
             tmp = [tempname '.in'];  fid = fopen(tmp, 'w');  fwrite(fid, t2);  fclose(fid);
             macos.load_rx(tmp);  delete(tmp);
         elseif f > 1

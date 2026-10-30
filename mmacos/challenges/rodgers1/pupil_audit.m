@@ -269,8 +269,8 @@ end
 function [ri,nE] = trace_field_(txt,tmp,apst,stand,bx,by)
     cdir = [sin(bx); sin(by); sqrt(max(0,1-sin(bx)^2-sin(by)^2))];
     cpos = apst - stand*cdir;
-    s = regexprep(txt,'(ChfRayDir=\s*)[^\n]*',['$1' v3_(cdir)]);
-    s = regexprep(s,  '(ChfRayPos=\s*)[^\n]*',['$1' v3_(cpos)]);
+    s = regexprep(txt,'(?m)^(\s*ChfRayDir=\s*)[^\n]*',['$1' v3_(cdir)]);
+    s = regexprep(s,  '(?m)^(\s*ChfRayPos=\s*)[^\n]*',['$1' v3_(cpos)]);
     fid = fopen(tmp,'w');  fprintf(fid,'%s',s);  fclose(fid);
     macos.load_rx(tmp);
     nE = macos.num_elt();

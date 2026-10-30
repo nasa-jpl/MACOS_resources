@@ -442,5 +442,30 @@ classdef tPupilMap < matlab.unittest.TestCase
                 tc.verifySubstring(e.message, 'stop_elt');
             end
         end
+
+        function test_sibling_header_keys_survive_the_field_rewrite(tc)
+        %  (k) THE FIELD REWRITE MUST NOT TOUCH A KEY THAT ENDS IN ANOTHER
+        %  KEY'S NAME.  The engine's header has OptRayGrid= (ends in yGrid=)
+        %  and OptChfRayDir= / OptChfRayPos= (end in ChfRayDir= / ChfRayPos=),
+        %  written by SAVE whenever a CALIB setup is non-default.  Before
+        %  2026-10-30 the field rewrite matched them mid-line: OptRayGrid's
+        %  count became a direction vector and the engine refused the reload
+        %  (CCMac, tPupilFindMethod on a zoom deck carrying the key).  Plant
+        %  the three keys in a copy of the deck; the metric must be the
+        %  original's, bit for bit.  tRxHeaderRewrite lints the tree.
+            txt = fileread(tc.adeck);
+            tc.assertEqual(numel(regexp(txt, '(?m)^\s*yGrid=')), 1, 'the fixture has one yGrid= line');
+            plant = regexprep(txt, '(?m)^(\s*yGrid=[^\n]*\n)', ['$1' sprintf( ...
+                '       OptRayGrid=  21\n     OptChfRayDir=  0  0  1\n     OptChfRayPos=  0  0  0\n')], 'once');
+            tc.assertTrue(contains(plant, 'OptRayGrid=  21'), 'the plant did not land');
+            tmp = [tempname '.in'];  fid = fopen(tmp, 'w');  fwrite(fid, plant);  fclose(fid);
+            c = onCleanup(@() delete(tmp));  %#ok<NASGU>
+            F = macos.design.field_grid(0.25*60, 3, 'units','arcmin');
+            o0 = pupil_map(tc.adeck, F, 'nodes', 15, 'init', false);
+            o1 = pupil_map(tmp,      F, 'nodes', 15, 'init', false);
+            tc.verifyEqual(o1.surface.defocus, o0.surface.defocus, 'defocus on the planted deck');
+            tc.verifyEqual(o1.surface.astig,   o0.surface.astig,   'astigmatism on the planted deck');
+            tc.verifyEqual(o1.anchor.blur_ratio, o0.anchor.blur_ratio, 'blur ratio on the planted deck');
+        end
     end
 end

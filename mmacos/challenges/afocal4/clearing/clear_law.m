@@ -245,9 +245,9 @@ function write_field_(txt, f, out)
     bx = asin(cd0(1)) + f(1);   by = asin(cd0(2)) + f(2);
     cdir = [sin(bx); sin(by); sqrt(max(0,1-sin(bx)^2-sin(by)^2))];
     cpos = apst - stand*cdir;
-    s = regexprep(txt, '(ChfRayDir=\s*)[^\n]*', ['$1' v3_(cdir)]);
-    s = regexprep(s,   '(ChfRayPos=\s*)[^\n]*', ['$1' v3_(cpos)]);
-    s = regexprep(s,   '(yGrid=\s*)[^\n]*', ['$1' v3_([0;cos(by);-sin(by)])]);
+    s = regexprep(txt, '(?m)^(\s*ChfRayDir=\s*)[^\n]*', ['$1' v3_(cdir)]);
+    s = regexprep(s,   '(?m)^(\s*ChfRayPos=\s*)[^\n]*', ['$1' v3_(cpos)]);
+    s = regexprep(s,   '(?m)^(\s*yGrid=\s*)[^\n]*', ['$1' v3_([0;cos(by);-sin(by)])]);
     fid = fopen(out,'w');  fprintf(fid,'%s',s);  fclose(fid);
 end
 

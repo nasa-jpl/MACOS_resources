@@ -425,5 +425,41 @@ classdef tAfocalKernel < matlab.unittest.TestCase
                     f{1}, p, want));
             end
         end
+
+        function test_sibling_header_keys_survive_the_field_rewrite(tc)
+        %  (j) THE FIELD REWRITE MUST NOT TOUCH A KEY THAT ENDS IN ANOTHER
+        %  KEY'S NAME.  The engine's header has OptRayGrid= (ends in yGrid=)
+        %  and OptChfRayDir= / OptChfRayPos= (end in ChfRayDir= / ChfRayPos=),
+        %  written by SAVE whenever a CALIB setup is non-default.  Before
+        %  2026-10-30 the field rewrite matched them mid-line: OptRayGrid's
+        %  count became a direction vector and the engine refused the reload
+        %  (CCMac, tPupilFindMethod on a zoom deck carrying the key).  Plant
+        %  the three keys in a copy of the deck; every rung must be the
+        %  original's, bit for bit.  tRxHeaderRewrite lints the tree.
+            txt = fileread(tc.deck);
+            tc.assertEqual(numel(regexp(txt, '(?m)^\s*yGrid=')), 1, 'the fixture has one yGrid= line');
+            plant = regexprep(txt, '(?m)^(\s*yGrid=[^\n]*\n)', ['$1' sprintf( ...
+                '       OptRayGrid=  21\n     OptChfRayDir=  0  0  1\n     OptChfRayPos=  0  0  0\n')], 'once');
+            tc.assertTrue(contains(plant, 'OptRayGrid=  21'), 'the plant did not land');
+            tmp = [tempname '.in'];  fid = fopen(tmp, 'w');  fwrite(fid, plant);  fclose(fid);
+            c = onCleanup(@() delete(tmp));  %#ok<NASGU>
+            F  = tc.fields_();
+            L0 = afocal_ladder_deck(tc.deck, F);
+            L1 = afocal_ladder_deck(tmp, F);
+            tc.verifyEqual(L1, L0, 'the ladder on the planted deck');
+            s0 = afocal_wfe_deck(tc.deck, F, 'reference', 'chief', 'init', false);
+            s1 = afocal_wfe_deck(tmp,     F, 'reference', 'chief', 'init', false);
+            tc.verifyEqual(s1.wfe_m, s0.wfe_m, 'afocal_wfe_deck on the planted deck');
+            tc.assumeTrue(exist(tc.afocal_deck,'file') == 2, 'rodgers2 S3 deck not committed yet');
+            ta = fileread(tc.afocal_deck);
+            pa = regexprep(ta, '(?m)^(\s*yGrid=[^\n]*\n)', ['$1' sprintf('       OptRayGrid=  21\n')], 'once');
+            tc.assertTrue(contains(pa, 'OptRayGrid=  21'), 'the afocal plant did not land');
+            tmpa = [tempname '.in'];  fid = fopen(tmpa, 'w');  fwrite(fid, pa);  fclose(fid);
+            ca = onCleanup(@() delete(tmpa));  %#ok<NASGU>
+            Fa = macos.design.field_grid(0.25*60, 3, 'units','arcmin');
+            oa0 = afocal_score_psf(tc.afocal_deck, Fa, 'init', false);
+            oa1 = afocal_score_psf(tmpa,           Fa, 'init', false);
+            tc.verifyEqual(oa1.rungs, oa0.rungs, 'afocal_score_psf on the planted deck');
+        end
     end
 end

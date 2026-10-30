@@ -91,8 +91,8 @@ function M = ctb_fold_measure(R, opts)
     for k = 1:size(Fr,1)
         dxy = Fr(k,:);  Fx(:,k) = dxy(:);            % field_ring returns RADIANS
         d = dB + [dxy(1); dxy(2); 0];  d = d/norm(d);
-        t2 = regexprep(txt, 'ChfRayDir=[^\n]*', sprintf('ChfRayDir=  %.16E  %.16E  %.16E', d));
-        t2 = regexprep(t2, 'ChfRayPos=[^\n]*', sprintf('ChfRayPos=  %.16E  %.16E  %.16E', -L0*d));
+        t2 = regexprep(txt, '(?m)^(\s*ChfRayDir=)[^\n]*', sprintf('$1  %.16E  %.16E  %.16E', d));
+        t2 = regexprep(t2, '(?m)^(\s*ChfRayPos=)[^\n]*', sprintf('$1  %.16E  %.16E  %.16E', -L0*d));
         tmp = [tempname '.in'];  fid = fopen(tmp, 'w');  fwrite(fid, t2);  fclose(fid);
         n = macos.load_rx(tmp);  delete(tmp);
         for j = 1:2

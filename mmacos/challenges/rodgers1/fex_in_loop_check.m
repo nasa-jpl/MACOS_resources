@@ -44,8 +44,8 @@ for k=1:size(F,1)
   bx=bx0+F(k,1); by=by0+F(k,2);
   d=[sin(bx);sin(by);sqrt(max(0,1-sin(bx)^2-sin(by)^2))]; p=apst-stand*d;
   v3=@(v)sprintf('%.16E  %.16E  %.16E',v(1),v(2),v(3));
-  s=regexprep(txt,'(ChfRayDir=\s*)[^\n]*',['$1' v3(d)]);
-  s=regexprep(s,  '(ChfRayPos=\s*)[^\n]*',['$1' v3(p)]);
+  s=regexprep(txt,'(?m)^(\s*ChfRayDir=\s*)[^\n]*',['$1' v3(d)]);
+  s=regexprep(s,  '(?m)^(\s*ChfRayPos=\s*)[^\n]*',['$1' v3(p)]);
   fid=fopen(tmp,'w'); fprintf(fid,'%s',s); fclose(fid);
   macos.load_rx(tmp); macos.stop(1);
   a = macos.trace(nE-1);            % stale add_pupil sphere
