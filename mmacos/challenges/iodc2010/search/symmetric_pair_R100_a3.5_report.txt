@@ -1,0 +1,32 @@
+IODC 2010 "green lens" -- symmetric_pair_R100_a3.5
+
+METRIC (stated before the numbers; challenges/iodc2010/README.md):
+  RMS wavefront error in waves at 532 nm on the exit-pupil sphere centred on the chief
+  ray's image-plane point (chief-ray reference; tilt and focus not removed), piston
+  removed, 97 rays across the paraxial entrance pupil, every launched ray must pass;
+  distortion 100 (yR - yP)/yP at the image plane used; EFL paraxial (y-nu).
+  Semi-field = the largest field (to 0.01 deg) with RMS <= 0.070, |dist| <= 5.0 %, no ray lost.
+
+PRESCRIPTION: R = 73.941083 mm, signs [+1 +0 +0 -1 ], t = [45.9677 29.1224 34.4912 42.2273 ] mm, glass {N-BK7,air,N-BK7,air}, stop z = 60.5109 mm a = 2.5879 mm
+  clear semi-diameters [6.2864 3.7919 3.0165 3.6980 ] mm; image plane at z = 151.808600 mm (paraxial focus 151.920102)
+
+FIRST ORDER: EFL 100.000000 mm (engine near-axis 100.000000; within 0.01 mm of 100), D 7.5528 mm (f/13.240), EP at z = 65.3675, XP at z = 59.0750 mm
+RULES: edge thickness/air space per gap [45.7000 29.1224 34.3987 ] mm -> all positive
+
+FIELDS:
+  theta_deg  rms_waves  dist_pct  lost/launched  result
+     0.000    0.02534       NaN      0/7081      pass
+     0.500    0.02359    +0.002      0/7081      pass
+     1.000    0.01869    +0.007      0/7081      pass
+     2.000    0.01632    +0.026      0/7081      pass
+     2.125    0.01929    +0.030      0/7081      pass
+     2.188    0.02102    +0.031      0/7081      pass
+     2.219    0.02193    +0.032      0/7081      pass
+     2.234    0.02240    +0.033      0/7081      pass
+     2.242    0.02258    +0.033      2/7081      FAIL vignetting
+     2.250    0.02282    +0.033      2/7081      FAIL vignetting
+     2.500    0.03125    +0.041      6/7081      FAIL vignetting
+     3.000    0.05251    +0.059      6/7081      FAIL vignetting
+
+RESULT: semi-field 2.23 deg (limited by vignetting), D 7.553 mm, MERIT D*theta = 16.9
+Published 2010 winner: 81.30 mm x 43.50 deg = 3537 (Bates); 10th place 1094.

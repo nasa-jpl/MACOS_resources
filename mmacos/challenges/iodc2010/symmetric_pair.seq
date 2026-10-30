@@ -1,0 +1,33 @@
+RDM
+LEN
+TITLE 'IODC 2010 green lens: symmetric_pair (MACOS challenges/iodc2010)'
+EPD 9.090770
+DIM M
+WL 532
+REF 1
+WTW 1
+XAN 0 0 0 0 0 
+YAN 0 0.609 1.219 1.341 1.828 
+WTF 1 1 1 1 1 
+SO 0.0 1.0E20
+S 80.0000000000 6.0000000000 NBK7_SCHOTT
+  CIR 5.501110
+S 0.0 31.4699908944
+  CIR 5.284052
+S 0.0 31.4699908944
+  STO
+  CIR 3.500000
+S 0.0 6.0000000000 NBK7_SCHOTT
+  CIR 3.424316
+S -80.0000000000 54.0023527862
+  CIR 3.415843
+SI 0.0 0.0
+GO
+! --- the 2010 evaluation (Juergens 2006, Sec. 4.4-4.5): RMS WFE chief-ray reference,
+! --- tilt and focus not removed; distortion at the image plane given; paraxial EFL.
+FIR
+WAV
+NRD 32
+GO
+DIS
+GO
