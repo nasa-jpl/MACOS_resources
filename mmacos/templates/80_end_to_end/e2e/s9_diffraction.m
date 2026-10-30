@@ -43,7 +43,8 @@
 %       radius scanned over P.coro.lyot_inner and the best static picked.
 %   [4] the dark zone dug on that stop: the engine-measured Jacobian
 %       (central differences; reused when its fingerprint truth holds and
-%       its chain stamp is this chain's, else re-measured) and EFC from
+%       its chain stamp is this chain's, else re-measured: e2e_jacobian,
+%       the reuse rule stage 10 shares) and EFC from
 %       flat mirrors.  The EFC step the bench's regularization grid
 %       proposes is outside the linear range on a brighter halo (DM2's
 %       edge actuators at 65 nm peaks), so the grid runs to 1.  Then one
@@ -56,7 +57,7 @@
 %       ctb_efc_e2e_coupled{,_r1}.{mat,png}, s9_fields.png, s9_report.txt,
 %       s9_run.mat.
 %
-%   See also S8_CORONAGRAPH, CTB_PROP_LAYOUT, CTB_CHAIN, CTB_DM_JACOBIAN, CTB_EFC.
+%   See also S8_CORONAGRAPH, S10_SENSING, E2E_JACOBIAN, CTB_PROP_LAYOUT, CTB_CHAIN, CTB_DM_JACOBIAN, CTB_EFC.
 
 exdir = fileparts(mfilename('fullpath'));
 root  = fullfile(exdir, '..', '..', '..');
@@ -221,7 +222,7 @@ q1.clear();
 % resumable: a Jacobian measured earlier on THIS deck and chain is reused when its fingerprint truth
 % beside it holds and its chain stamp is this chain's (the truth is committed, the .mat is not --
 % delete the .mat to re-measure); a stale pair is removed and the Jacobian re-measured
-J = jacobian_(exdir, 'e2e_coupled', r, e, ch, chain_pick, {}, MODEL, say);
+J = e2e_jacobian(exdir, 'e2e_coupled', r, e, ch, chain_pick, {}, MODEL, say);   % the thread's reuse rule, one copy (e2e_jacobian)
 say('[4] Jacobian: %d columns, %d dark-zone pixels, contrast0 %.3e, %.1f min', size(J.G, 2), numel(J.dz_idx), J.contrast0, J.timing_s/60);
 % the telescope's halo is 20x the bench's, so the first step the bench's alpha grid (1e-6..1e-2 of
 % s_max^2) proposes is 4.5 nm rms on DM2 and already outside the linear range (the achieved field
@@ -230,7 +231,7 @@ out = ctb_efc('jac', J, 'tag', 'e2e_coupled', 'outdir', exdir, 'niter', 20, 'alp
 cf = out.contrast;
 say('    EFC on the annular stop: %.3e -> %.3e in %d iterations (x%.0f); strokes %s nm rms', cf(1), cf(end), numel(cf)-1, cf(1)/cf(end), mat2str(out.stroke_rms_nm, 3));
 %% -- [4b] one relinearization round: the Jacobian about the dug state --------
-J2 = jacobian_(exdir, 'e2e_coupled_r1', r, e, ch, chain_pick, out.a, MODEL, say);
+J2 = e2e_jacobian(exdir, 'e2e_coupled_r1', r, e, ch, chain_pick, out.a, MODEL, say);
 out2 = ctb_efc('jac', J2, 'a0', out.a, 'tag', 'e2e_coupled_r1', 'outdir', exdir, 'niter', 20, 'alphas', logspace(-6, 0, 7), 'visible', false);
 cf2 = out2.contrast;
 say('    relinearized: %.3e -> %.3e in %d iterations; strokes %s nm rms; overall x%.0f from the annular stop''s static', cf2(1), cf2(end), numel(cf2)-1, mat2str(out2.stroke_rms_nm, 3), cf(1)/cf2(end));
@@ -300,30 +301,6 @@ function S = rmfield_(S)
     end
 end
 
-function J = jacobian_(exdir, tag, r, e, ch, chain_pick, a0, MODEL, say)
-%JACOBIAN_  The tagged Jacobian: reused from disk when its truth holds and its stamp and linearization
-%   point are this run's, else measured (a stale .mat and its truth are removed first).
-    jp = fullfile(exdir, sprintf('ctb_dm_jacobian_N%d_%s.mat', MODEL, tag));  fpp = regexprep(jp, '\.mat$', '.fp.json');
-    if isfile(jp)
-        J = load(jp);
-        try
-            assert(isfile(fpp), 'no fingerprint truth beside it');
-            [okfp, repfp] = jac_fingerprint('check', J, fpp);  assert(okfp, 'fingerprint: %s', repfp);
-            assert(isfield(J, 'elt') && isequal(J.elt, e) && strcmp(J.rx, r.rx_out), 'another deck');
-            assert(isfield(J, 'chain_opts') && isequal(J.chain_opts, ch.config), 'another chain stamp (the Lyot blocker among it)');
-            if isempty(a0), assert(isempty(J.a0) || all(cellfun(@(x) ~any(x), J.a0)), 'another linearization point');
-            else, assert(~isempty(J.a0) && isequal(J.a0, a0), 'another linearization point'); end
-            say('[4] Jacobian %s reused: %s (fingerprint holds, chain stamp and linearization point are this run''s; measured %s in %.1f min)', tag, jp, J.date, J.timing_s/60);
-            return
-        catch ME
-            say('[4] cached Jacobian %s is not this run''s (%s): re-measuring; the stale .mat and its truth are removed', jp, ME.message);
-            delete(jp);  if isfile(fpp), delete(fpp); end
-        end
-    end
-    args = {'dmrx', r, 'chain', chain_pick, 'tag', tag, 'outdir', exdir, 'model_size', MODEL, 'verbose', true};
-    if ~isempty(a0), args = [args, {'a0', a0}]; end
-    J = ctb_dm_jacobian(args{:});
-end
 
 function q = J_dm_geom_(r, k)
 %J_DM_GEOM_  ctb_dm's lattice model for DM k of the DM deck r, at the Jacobian's defaults (beam 21.3 mm).

@@ -16,6 +16,7 @@ classdef tCtbProbe < matlab.unittest.TestCase
 %     (d) ctb_efc closed on the estimate digs the TRUE contrast and
 %         reports both curves; the default sensing path is tCtbDm's
 %     (e) a Jacobian given as a path is checked as ctb_efc checks its cache
+%     (f) 'probe_rel' scales the default amplitude (e2e stage 10's knob)
 %
 %   See also: ctb_probe_estimate, ctb_probe_solve, ctb_efc, tCtbDm.
 
@@ -91,6 +92,21 @@ classdef tCtbProbe < matlab.unittest.TestCase
             tc.verifyTrue(all(isfinite(out.contrast_est(1:n-1))), ...
                 'the estimated contrast must be reported for every iteration');
             tc.verifyTrue(all(isfinite(out.est_floor(1:n-1))));
+        end
+
+        function test_probe_rel_scales_the_default_amplitude(tc)
+            % 'probe_rel' is a multiple of the default (speckle-level) amplitude;
+            % a smaller probe is closer to the linear regime (ch08d's sweep)
+            e1 = ctb_probe_estimate(tc.ch, tc.J, {});
+            e3 = ctb_probe_estimate(tc.ch, tc.J, {}, 'probe_rel', 0.3);
+            tc.verifyEqual(e1.probe_rel, 1);
+            tc.verifyEqual(e3.probe_nm, 0.3 * e1.probe_nm, 'RelTol', 1e-12, ...
+                'probe_rel 0.3 is three tenths of the default amplitude');
+            tc.verifyLessThan(e3.rel_err, e1.rel_err, sprintf( ...
+                'the smaller probe estimates better: %.3e vs %.3e', e3.rel_err, e1.rel_err));
+            % an explicit amplitude wins over probe_rel
+            e4 = ctb_probe_estimate(tc.ch, tc.J, {}, 'probe_rel', 0.3, 'probe_nm', e1.probe_nm);
+            tc.verifyEqual(e4.probe_nm, e1.probe_nm, 'RelTol', 1e-12);
         end
 
         function test_jacobian_path_is_checked(tc)
